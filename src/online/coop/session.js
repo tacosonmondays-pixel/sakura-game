@@ -5,7 +5,8 @@
 // Room messages (over backend.openRoom(code), i.e. Realtime broadcast or BroadcastChannel; the
 // host registers the code and one guest takes the seat, see open_room / join_room):
 //   { type: 'hello', player, v, sees, room?, freeplay? }
-//                                    my name / level / avatar / loadout / ready; v = coopVersion()
+//                                    my name / level / avatar / loadout / ready (and autoAbil: true
+//                                    when my Auto-cast abilities setting is on); v = coopVersion()
 //                                    (two different builds never pair up); sees = the uid of the
 //                                    player I see (or null); the host adds room = its stage choice
 //                                    { stageId, difficulty, freeplay }, the guest adds freeplay =
@@ -135,7 +136,9 @@ export const LOBBY = Object.freeze({
 /**
  * @param {{ code: string, isHost: boolean, backend: object, me: object, stageId?: string, difficulty?: string,
  *   freeplay?: string|null, timers?: { setInterval: Function, clearInterval: Function }, now?: () => number }} opts
- *   me = { uid, name, level, avatar, loadout: [{unitId, stats}], hero: {unitId, stats}|null }
+ *   me = { uid, name, level, avatar, loadout: [{unitId, stats}], hero: {unitId, stats}|null, autoAbil?: boolean }
+ *   (autoAbil: my Auto-cast abilities setting; it rides in my hello and the start message, and the
+ *   battle starts with my girls' Auto switches on: createCoopSim)
  *   freeplay: the host's freeplay setting (a FREEPLAY_TIERS id, or null: off); a guest adopts the host's
  *   timers / now: injectable for tests (default: the real timers and Date.now)
  *   doc: the document whose visibility slows the beacon (tests pass a fake; none in Node)
@@ -361,7 +364,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     const isNew = !s.peer;
     if (!isNew && s.peer.ready !== !!p.ready) lastActivity = t; // my ally toggled Ready
     // freeplay: the setting a guest's ready flag was given for (see canStart)
-    s.peer = { uid: p.uid, name: p.name, level: p.level, avatar: p.avatar, loadout: p.loadout || [], hero: p.hero || null, ready: !!p.ready, host: !!p.host, freeplay: freeplayTier(msg.freeplay), mode: modeId(msg.mode) };
+    s.peer = { uid: p.uid, name: p.name, level: p.level, avatar: p.avatar, loadout: p.loadout || [], hero: p.hero || null, autoAbil: p.autoAbil === true, ready: !!p.ready, host: !!p.host, freeplay: freeplayTier(msg.freeplay), mode: modeId(msg.mode) };
     peerHeard = t;
     peerSeesMe = msg.sees === s.me.uid;
     if (peerSeesMe) {
@@ -749,9 +752,10 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         difficulty: s.difficulty,
         freeplay: s.freeplay, // null: a normal battle (createCoopSim)
         mode: s.freeplay ? 'standard' : s.mode,
+        // autoAbil only when on (each player's Auto-cast setting; createCoopSim reads it)
         players: [
-          { slot: 0, uid: s.me.uid, name: s.me.name, loadout: s.me.loadout, hero: s.me.hero || null, color: COOP.colors[0] },
-          { slot: 1, uid: s.peer.uid, name: s.peer.name, loadout: s.peer.loadout, hero: s.peer.hero || null, color: COOP.colors[1] },
+          { slot: 0, uid: s.me.uid, name: s.me.name, loadout: s.me.loadout, hero: s.me.hero || null, color: COOP.colors[0], ...(s.me.autoAbil === true ? { autoAbil: true } : null) },
+          { slot: 1, uid: s.peer.uid, name: s.peer.name, loadout: s.peer.loadout, hero: s.peer.hero || null, color: COOP.colors[1], ...(s.peer.autoAbil === true ? { autoAbil: true } : null) },
         ],
       };
       lastStartAt = now();

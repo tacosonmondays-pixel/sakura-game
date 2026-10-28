@@ -45,7 +45,7 @@ def _merge(a: dict, b: dict) -> dict:
 def song_mix(palette, song) -> dict:
     """The mix settings for one song: palette defaults, then the song's own `mix`, then the palette's
     `echo_override` (keys that always win, e.g. toby's darker FIR) and `echo_scale` (factors applied to the
-    song's echo, e.g. a shorter EarthBound-style delay). So `--palette toby` changes the echo of every song
+    song's echo, e.g. a shorter 16-bit-console delay). So `--palette toby` changes the echo of every song
     although each song sets its own echo for the shipped palette."""
     mixp = _merge(palette.mix, song.mix)
     echo = dict(mixp.get('echo') or {})

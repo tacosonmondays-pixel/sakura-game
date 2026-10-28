@@ -501,8 +501,8 @@ co-op command: the sim id does not change.
 * `src/render/companions.js` (`Companions`, made by `BattleRenderer`): one actor per sim tower whose unit has a companion
   (co-op partners' girls too), made once her view and the file are there, `appear` on creation, gone when she leaves the
   sim (sold, a new battle); restore and replays just recreate them. `handle(ev)` observes `attack` and `ult` before the
-  attack FX consume them; `update(dt, zoom)` runs after `actors.sync`. Off at quality low (rosterFx's procedural fox is
-  the fallback, as it is while Kon's file loads; an error in the layer switches it off for that battle with one
+  attack FX consume them; `update(dt, zoom)` runs after `actors.sync`. On at every quality since v0.1.45 (LOD files
+  below high, no outlines at low; rosterFx's procedural fox is the fallback while Kon's file loads; an error in the layer switches it off for that battle with one
   `[companions] disabled` warning). LOD files by default, full ones on quality high at zoom ≥ 2 (back at
   ≤ 1.7). Probe: `renderer.companionsProbe()`.
 * Rules (`src/render/companionLogic.js`, unit-tested in `tests/render/companions.test.js`): **Kon** sits by Ruri while
@@ -521,3 +521,44 @@ co-op command: the sim id does not change.
 * e2e: `node e2e/companions.mjs [--shots dir]` (844×390: the three figures, Kon's run, Kaze's swoop and return, the
   doll's dash, removal on sell, quality low, the student pages; frame strips with the battle paused and the renderer
   stepped by hand).
+
+# Item icons — baked 3D-flat art
+
+Every item icon (the 81 item ids, the 18 gear pieces and Recruit Points: 100 keys) is baked by
+`tools/blender/items/build_items.py` into `public/art/items/<key>-256.webp` and `<key>-128.webp`, plus a 96 px
+small cut with a heavier line for the ten keys shown at 24 CSS px or less; `src/art/itemArt.js` is the generated
+manifest (key → content hash). It is the same kind of generator as the figures (cage-free here: bevelled slabs,
+lathes, sweeps and faceted fans from `parts.py`), but it renders instead of exporting: EEVEE at 256 px, one fixed
+orthographic 3/4 camera and key light, one emission-only toon material and one ink material shared by every part,
+an inverted-hull outline in output pixels, and a post step for glints, the navy contact shadow, framing and WebP.
+
+```bash
+blender --background --factory-startup --python-use-system-env --python tools/blender/items/build_items.py -- [keys] [--family books]
+npx vitest run tests/art/itemArt.test.js     # files, headers, manifest hashes, 20 / 9 / 5 KB caps, 2.2 MB total
+```
+
+The approved icons (the owner's 3D-flat set, kept outside the repo) are the look targets; `--compare <dir>` draws
+the approved-vs-new grid. `tools/blender/items/README.md` has the setup, the rig and the data table of all keys.
+
+**In the game.** `itemIcon` / `gearIcon` / `currencyIcon` (`src/art/icons.js`) return the baked image laid over the
+old SVG drawing (`src/art/icons/items.js`) inside `<span class="ia">`, so every caller keeps working unchanged:
+- `{ px }` is the CSS size the icon shows at: 24 or less picks the small cut (currencies default to 22), anything
+  else gets the 128 / 256 `srcset` with `sizes` = px. URLs carry `?v=<hash>` from the manifest.
+- The drawing is the error fallback only: it shows when the image fails (`.ia.bad`). While the image is still
+  loading after 0.3 s (a slow first open), the box shows a neutral placeholder instead, a soft tinted blob over a
+  navy contact shadow (`.ia::before`), never the old art. Once the image is in (`.ia.ok`) the placeholder goes,
+  and cached re-renders never show it. The ten small cuts (the HUD and the currency pills on nearly every screen)
+  are fetched at boot (`preloadSmallItemArt`, from `src/main.js`). A key with no baked art returns the bare
+  drawing (`hasItemArt`, `itemArtUrl`, `itemArtSVG`, `itemIconSVG`).
+- `crown_rainbow` ships the owner-approved file as is (PLAN C11, `models.SHIPPED` in the item pipeline), because
+  the rebuild lost its iridescent band.
+- The item tile (`itemTile` in `src/ui/components.js`, CSS in `base.css` "Items") is the owner's slanted plate: a
+  1.09:1 plate slanted −8°, the tier tint per `data-tier` (`tileTier`: the rainbow plate for rainbow, UR-display and
+  Zenith items), faint sakura petals and one white band, and the count in 13 px navy italics, `x450K`
+  (`fmtItemCount` in `src/ui/format.js`).
+- Checks: `npx vitest run tests/art tests/ui/format.test.js` (every item, gear piece and currency maps to its own
+  image; the small cut; the fallback; the tile tier; the count; the sim id), and `node e2e/item-art.mjs --out <dir>
+  --expect-art` (every screen that shows items at 844×390 and 1280×720, including an expanded achievements tier
+  ladder: the art loads, tiles and counts are right, the broken / slow / cached fallbacks behave, and a slow first
+  open of the backpack shows placeholders and no old drawing; without `--expect-art` it only takes the
+  screenshots, for a before / after pair on two builds).

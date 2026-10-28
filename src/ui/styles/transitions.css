@@ -23,11 +23,26 @@ html[data-loader-bg="colour"] .tx-cut {
 .tx-cut::before { left: -26px; background: linear-gradient(90deg, #7be3a4 0 4px, transparent 4px 9px, #ff7aa8 9px 26px); }
 .tx-cut::after { right: -26px; background: linear-gradient(90deg, #ff7aa8 0 17px, transparent 17px 22px, #7be3a4 22px 26px); }
 
-/* (slides need no styles of their own: they animate a screen's few layers in place, from JS) */
+/* (slides animate a screen's few layers in place, from JS) */
+
+/* ---------- the ink wipe of a menu slide (UI v2 motion layer, Oct 27): a short slanted ink band with a cyan
+   leading hairline, swept across BEHIND the screens (z-index -1: under #app, over the page's own background), so it
+   shows through the old screen as it fades and in the gap before the new one is in; never over a control, never a
+   tap. 280 ms forward (right → left), 220 ms back (left → right); none under Reduce Motion. ---------- */
+.tx-wipe {
+  position: fixed; top: -10%; bottom: -10%; left: 0; width: 34vw; z-index: -1; pointer-events: none; visibility: hidden;
+  background: #0e1930; box-shadow: inset 3px 0 0 #4cd6ff, inset -2px 0 0 rgba(76, 214, 255, 0.35);
+  transform: translateX(110vw) skewX(-12deg); will-change: transform;
+}
+.tx-wipe.on { visibility: visible; }
+@media (prefers-reduced-motion: reduce) { .tx-wipe { display: none; } }
+html[data-reduce-motion] .tx-wipe { display: none; }
 
 /* ---------- corner chip: a menu screen's code still on its way (the old screen stays) ---------- */
+/* UI M5 (UI_DIRECTION §5.10 E7): the corner is the bottom LEFT, so the chip never covers a primary button (they sit on
+   the right) or the lobby's bottom-right cluster (Total Assault + Campaign); on the lobby it rises above the EVENT card */
 .ld-chip {
-  position: fixed; z-index: 365; right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  position: fixed; z-index: 365; left: calc(12px + env(safe-area-inset-left, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   display: flex; align-items: flex-end; gap: 2px; padding: 4px 14px 6px 10px; border-radius: 8px;
   background: rgba(8, 10, 16, 0.86); color: #f3f6ff; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
   transform: skewX(-12deg); visibility: hidden; opacity: 0; pointer-events: none;
@@ -42,6 +57,11 @@ html[data-loader-bg="colour"] .ld-chip { background: rgba(11, 22, 48, 0.9); }
 .ld-chip .ld-label { font-size: 12px; padding-bottom: 6px; }
 .ld-chip .ld-dots i { width: 3px; height: 3px; }
 .ld-chip:not(.on) .mochi *, .ld-chip:not(.on) .ld-dots i { animation: none !important; }
+/* [ui-ink] the night home (home layout B): in the bottom band between the four icons and the Battle plate (the icons end
+   by x 316 on phones, 412 on desktop; the plate starts at x 588 / 916), so it covers no control; upright, over the chip */
+@media (max-height: 480px) { body:has(#app .home) .ld-chip { left: calc(332px + env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); } }
+@media (min-height: 481px) { body:has(#app .home) .ld-chip { left: calc(428px + env(safe-area-inset-left, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); } }
+@media (max-width: 700px) and (min-height: 481px) { body:has(#app .home) .ld-chip { left: calc(16px + env(safe-area-inset-left, 0px)); bottom: calc(316px + env(safe-area-inset-bottom, 0px)); } }
 
 /* ---------- inline: inside a panel that is fetching (chat, clan, profile, co-op) ---------- */
 .ld-inline { display: flex; align-items: flex-end; justify-content: center; gap: 4px; color: var(--navy, #22385c); padding: 14px 0 6px; animation: ld-inline-in 160ms ease-out 150ms both; }

@@ -20,6 +20,141 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.58', version: '0.1.58', date: '2026-10-28', title: 'Brighter Details',
+    added: [
+      'An Events button on the home, right beside Co-op: it opens the running event (with the time left and a red dot when a gift or reward waits), or Happening Now between events.',
+    ],
+    changed: [
+      'Marumi’s living scene on the home now shows in full colour too.',
+      'The “new lesson” bubble on the home no longer covers your coins or your secretary’s face.',
+      'Locked stage numbers stay readable on phones.',
+    ],
+  },
+  {
+    id: 'v0.1.57', version: '0.1.57', date: '2026-10-28', title: 'Ultimates',
+    added: [
+      'Tower abilities are here! Upgrade a girl along her ability path and her ultimate joins the ability bar: tap it to cast, or hold it (right-click on PC) and switch on Auto. Heroes get their skill button too.',
+      'Meet Tenka, the Coilgun Physicist and the ultimate tower: her Critical Mass blast ignores armor. Find her in the "New: Tenka" spotlight in Recruit, and your 300th recruit without her is always her.',
+    ],
+    changed: [
+      'Tap a placed girl to open the new tactical drawer: her stats, her three paths, her targeting and her ability in one place. Tap a price twice to buy.',
+      'Co-op partners need this update too before you can play together.',
+    ],
+    fixed: [
+      'Seiran’s Dragonflight now flies all the way back to the start of the road.',
+    ],
+  },
+  {
+    id: 'v0.1.56', version: '0.1.56', date: '2026-10-28', title: 'Brighter Home',
+    changed: [
+      'The home background shows in its full colours again: brighter, sharper and much less gloomy.',
+    ],
+    added: [
+      'A Clan button on the home, next to chat and mail, with a red dot when donations or an invite wait for you.',
+    ],
+  },
+  {
+    id: 'v0.1.55', version: '0.1.55', date: '2026-10-28', title: 'Rush Hour and Hilltop After Dark',
+    added: [
+      'The Gate Arc begins: chapters 1 and 2 each get an Act II of five new stages. "Rush Hour" (1-6 to 1-10) opens once you clear 1-5, and "Hilltop After Dark" (2-6 to 2-10) once you clear both 2-5 and 1-10.',
+      'Eighteen new story scenes and two new bosses, the Frostbitten Heir and the Old Lamp-Hugger. This arc deals with war and loss; a short note says so before it starts.',
+      'New ways to play: girls on rooftops, a level crossing at 1-9 that shuts a lane every other wave, and a blackout at 2-7.',
+    ],
+    changed: [
+      'Yuzuha now joins after stage 1-7. If she is already on your team nothing changes, and clearing 4-2 still brings her.',
+      'Act II stages give half the medal gems of Act I stages.',
+      'Co-op needs this version on both sides: if your partner sees a version message, they just refresh the page.',
+    ],
+  },
+  {
+    id: 'v0.1.54', version: '0.1.54', date: '2026-10-28', title: 'Quiet Home',
+    added: [
+      'A calmer new home: your secretary takes centre stage, with one news card, four shortcuts and a big Battle button. Everything else lives in the new Menu.',
+      'Every chapter of the story now plays in its own painted places, from the shrine steps to the festival square with its great drum.',
+    ],
+    changed: [
+      'Coins and gems keep their colour icons, and screens slide and fade smoothly as you move between them.',
+      'The menus have a fresh ink-and-paper look, and each top bar now shows only the currencies that screen uses.',
+      'Full illustrations on the home always show the whole picture.',
+    ],
+  },
+  {
+    id: 'v0.1.53', version: '0.1.53', date: '2026-10-24', title: 'Hubs and Hosts',
+    added: [
+      'New hub screens with a host girl to greet you: Missions, Titan Trials, Story and Achievements, plus cleaner campaign cards.',
+      'A Multiplayer button and hub in the lobby; the Mailroom, the Mall and Happening Now open as lists with their hosts.',
+    ],
+    changed: [
+      'One look for every countdown and badge, a tidier Profile, and Settings in five sections.',
+      'The seven newest academy girls can host the hub screens too.',
+      'The lantern string and pumpkin stickers are gone from the lobby; the Halloween courtyard stays.',
+    ],
+  },
+  {
+    id: 'v0.1.51', version: '0.1.51', date: '2026-10-24', title: 'Spooky Courtyard',
+    added: [
+      'The lobby dresses up for Halloween: a moonlit academy with a spooky lantern tree and glowing pumpkins behind your secretary.',
+    ],
+    fixed: [
+      'The Halloween lantern string no longer hangs across the girls’ hair.',
+      'Switching from a full illustration back to a backdrop, your secretary greets you again.',
+    ],
+  },
+  {
+    id: 'v0.1.50', version: '0.1.50', date: '2026-10-24', title: 'Close-Up Again',
+    changed: [
+      'Yoriko’s "Summer Breeze" lobby picture is back to its original, closer framing.',
+    ],
+  },
+  {
+    id: 'v0.1.49', version: '0.1.49', date: '2026-10-23', title: 'Room to Breathe',
+    changed: [
+      'Yoriko’s "Summer Breeze" lobby picture sits a little further back, so more of the picture shows.',
+    ],
+  },
+  {
+    id: 'v0.1.48', version: '0.1.48', date: '2026-10-23', title: 'Fill the Frame',
+    added: [
+      'The lobby background picker has a new group, Full illustrations. Pick one and her picture fills the whole lobby, with no castle backdrop or speech bubble in the way.',
+      'The first full illustrations: Yoriko’s "Summer Breeze" and the scenes of Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi. Hikari’s, Aoi’s and Sango’s scenes are there too now.',
+    ],
+    changed: [
+      'Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi stand on the castle backdrop in their classic full-body poses again.',
+    ],
+  },
+  {
+    id: 'v0.1.47', version: '0.1.47', date: '2026-10-23', title: 'Picture Day',
+    changed: [
+      'Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi have new portraits, each in her own club scene and her own pose. See them on their pages, in Students, Formation, Recruit, battle, Story and the lobby.',
+      'Battles play the same, and co-op still works with players on v0.1.41 to v0.1.46.',
+    ],
+  },
+  {
+    id: 'v0.1.46', version: '0.1.46', date: '2026-10-22', title: 'A Backpack Glow-Up',
+    changed: [
+      'Every item has new art! Coins, gems, boxes, books, gear and materials are now chunky little 3D-style toys, all drawn the same way.',
+      'Items sit on new slanted tiles in their rarity color, with a rainbow tile for the rarest ones.',
+      'Item counts are shorter and easier to read: x450K instead of x450,000, and x1.2M for the really big piles.',
+    ],
+  },
+  {
+    id: 'v0.1.45', version: '0.1.45', date: '2026-10-22', title: 'Sprouts, Storms and Shiny Ribbons',
+    added: [
+      'The seven academy girls have their painted cards! Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa and Marumi show their own art on their pages, in Students, Formation, Recruit, battle, Story and the lobby. Chat, clan and co-op avatars now show each girl’s drawn picture instead of a little doll.',
+      'Girl page: pick Compact or Detailed in Settings > Display. Detailed shows every stat, her gear and her upgrade tiers right on the page.',
+      'Eleven new Codex achievements for battle-mode ribbons and map-rule Gold medals, with seven new titles and the Holo Codex Ribbon for collecting all 800 mode ribbons. Ribbons and medals you already have count right away.',
+      'Tenka is coming with her own banner. Save your gems.',
+    ],
+    changed: [
+      'Map tiers have new names: Sprout, Bud, Storm and Oni.',
+      'Easier to read: the battle panel shortens big damage numbers (136.2k, 1.2M), upgrade effects are no longer cut off on phones held sideways, and Umeko’s Plum Rain and Lighthouse upgrades show her aura’s total (each tier multiplies the ones before it).',
+      'Kon, Kaze and Yoriko’s doll now also appear on the Low graphics setting.',
+    ],
+    fixed: [
+      'In a co-op room, holding your partner’s girl now shows their girl (her level, stars and Potential), not yours. Co-op still works with players on v0.1.41 to v0.1.44, and battles play the same.',
+    ],
+  },
+  {
     id: 'v0.1.44', version: '0.1.44', date: '2026-10-21', title: 'A Rainbow Without Scrollbars',
     fixed: [
       'The "Awakened to UR!" moment shows its dark rainbow look again, without stray scrollbars around the gem.',

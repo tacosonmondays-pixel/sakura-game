@@ -1,0 +1,148 @@
+{
+ "verdict": "NOT_OK",
+ "lens": "logic",
+ "round": "r3",
+ "commit": "233ae9b1a456a25efd37841fb809a79fabfb9a2d (reviewed at feature/abilities 5860f66 = 233ae9b1 + review notes, in a private detached worktree; no tracked file changed). Compared against 04383d0 (r2) in a second private worktree.",
+ "summary": "I reviewed A3 M4 at 233ae9b1 through the logic lens. It is not ready: one medium finding blocks it, and there are two lows.\n\nlogic-r2-1 is fixed. On a phone no chip's tap area reaches the stat row, a chip row's label or her ⚡ row any more. The stat row takes its own taps and says what each stat is in the feed. Finger-sized touch taps (CDP, 12 px radius) on the stat row's edges and labels change nothing at 844 and 667. Tap 1 never moves the tapped price, the chip rows' air holds while a row is open, nothing moves from frame to frame, and nothing reads the layout per frame.\n\nMedium (new in r3, partly older): on a phone, Sell's tap area reaches about 8 px up over the bottom of the scroll body. There it takes the lower 2 to 4 px of the last path row's lock \"i\". rowAir now fills the spare room under the last row, so that row sits right at the fold in most dense Glances. The overlap is in 6 of 10 staged drawers at 844, against 2 of 10 at 04383d0. Two quick taps there sell the girl: two mouse clicks 300 ms apart on the visible \"i\" sold Iroha 3-2-0 and Midori 3-2-0 with their ⚡ rows open. A single finger tap on it arms Sell's CONFIRM.\n\nLow:\n- The harness's m4-abname fallback-font check fails 3 runs out of 3 on this machine. The same thing happens at 04383d0: the refit waits for a fonts loadingdone or a FIRE label tick. It does not hurt players.\n- On phones the densest Glances' chip hit areas are 24 to 26 px (stated in the commit).\n\nlogic-r2-2 and logic-r2-3 are fixed. logic-r2-4 still waits on the owner. The sim id is c22b2587f4b7, COOP_PROTOCOL is 8, and no sim, data or online file changed.",
+ "findings": [
+  {
+   "id": "logic-r3-1",
+   "severity": "medium",
+   "title": "On phones Sell's tap area takes the bottom of the last path row's lock \"i\": a tap on the \"i\" arms Sell, and two quick taps sell the girl",
+   "detail": "battle.css (phone block): `.bt-panel-foot .bt-sell::after` is the dense tap size (40 px) on a 30 px button, moved up 3 px (`translate: 0 calc(-50% - 3px)`), so it reaches about 8 px above Sell, into the bottom of the scroll body. The footer is positioned and comes after the body, and r3 gives it z-index 2, so its hit area wins over anything at the fold. Before r3 a dense Glance usually had spare room under its last row. r3's fitRowAir (drawerView.rowAir) gives that room to the chip rows' bands, so the last path row now sits right at the fold, where Sell's hit area lies over its lock \"i\" (path-why-N / final-why-N). The probe (elementFromPoint over each control's visible face inside the scroll port) found the \"i\" partly taken by Sell at 844 in Iroha 3-2-0, Midori 3-2-0 and Chika 3-2-0, both closed and with her ⚡ row open, and in Sango 0-3-2 with it open. That is 6 of 10 staged drawers, against 2 of 10 at 04383d0 (Midori and Sango, ⚡ open). At 667 the same holds for Iroha, Midori and Chika with the ⚡ row open. Results: a real touch tap at a point the probe found (lower edge of the \"i\") armed Sell's CONFIRM instead of showing the lock reason. Two mouse clicks 300 ms apart on that point SOLD the girl (Iroha 3-2-0 ⚡ open; Midori 3-2-0 ⚡ open). The two-tap guard does not help, because both taps land on Sell. Players tap a lock \"i\" twice to read it again. In co-op the sale is a sim command. This also contradicts the commit's line \"a visible face now always wins over a neighbour's hit area\". uiProbe drawerHits does not catch it: its 'faces' list covers chips, FIRE and her name, not the \"i\", prices or row bodies.",
+   "repro": "S=/tmp/claude-0/-home-user-sakura-game/04ab3366-db6f-5d4b-be67-e05dc5319e56/scratchpad; cd $S/rev-logic && node $S/rev-logic-evidence/p3-r3/probe6.mjs 844x390 out.json iroha:3-2-0,midori:3-2-0 (logs: $S/rev-logic-evidence/p3-r3/p6.log, out-844.log, p5.log; r2 comparison $S/rev-logic-evidence/p3-r2/out-844.log). By hand at 844x390: place Iroha 3-2-0, open her drawer, tap her ability name to open the ⚡ row, then double-tap the bottom edge of the third path row's lock \"i\".",
+   "suggested_fix": "Keep Sell's hit area out of the scroll body. End its ::after at the footer's top edge (for example clip it in the footer, `.bt-panel-foot { overflow: clip }`, or use top: 0 with the extra height below), or give the body's controls a z-index over the footer's hit areas. Also leave the last row a few px of space above the fold in fitRowAir. Then widen drawerHits 'faces' to every control in the drawer (the \"i\", prices, row bodies, Auto, PICK, Sell, MORE), so a face reached by another control fails every M4 still."
+  },
+  {
+   "id": "logic-r3-2",
+   "severity": "low",
+   "title": "m4-abname's fallback-font check fails every run here: the refit after a style-only font swap waits for a fonts loadingdone or a FIRE label tick (also at 04383d0)",
+   "detail": "The scene injects Verdana on her name and FIRE and then checks after 300 ms that the name is not cut. Her name's box narrows from 160 to 151.2 px (FIRE gets wider), but neither the panel nor abRow.el changes size, so towerPanel's ResizeObserver (on el and abRow.el) never fires, and fit() does not run until a fonts loadingdone event (probe4: 2l is set only after loadingdone). In 3 of 3 runs at 844 (one under heavy load, two quieter) Sango, Akane and Yuzuha came out cut, and the harness exits 1. probe4 shows the same behaviour at 04383d0, so this is not an r3 regression. The r2 pass likely came from a FIRE countdown tick refitting within the settle. A real web font's arrival fires loadingdone, so players are not affected. The harness is just unreliable.",
+   "repro": "cd <worktree> && node e2e/ui-shots.mjs --out /tmp/x --viewport 844x390 --scenes m4-abname (logs: rev-logic-evidence/shots2-844x390.log, shots3-844x390.log, shots4-844x390.log; probe: rev-logic-evidence/p3-r3/p4.log and p3-r2/p4.log)",
+   "suggested_fix": "Observe her name element (or .bt-abrow-top) with the same ResizeObserver, or call abRow.fit() when FIRE's width changes. Alternatively, have the scene dispatch fonts 'loadingdone' after injecting the fallback, as the no-⚡ case already does."
+  },
+  {
+   "id": "logic-r3-3",
+   "severity": "low",
+   "title": "Densest phone Glances' chip hit areas are 24 to 26 px tall, and a finger tap in the 1 to 2 px gaps between rows reaches the nearest chip or row",
+   "detail": "This is the stated trade-off of the r3 fix (the commit says 26 px at 844 and 24 px at 667 for Chika, Iroha and Midori at 3-2-0; the harness logs show the same). Well under the 40 px dense tap size. With a 12 px touch radius, taps in the gaps between her ⚡ row and the target row, between the target and aim rows, and between the stat row and the first path row went to STRONG, Set aim and path row 0's tap 1. The stat row, the labels and the stat edges did not. That is the browser's touch adjustment at row boundaries and is not a defect on its own. I list it so the owner sees the small targets in the densest drawers.",
+   "repro": "rev-logic-evidence/probe-844x390.log and probe-667x375.log ('TAP gap' lines); shots-844x390.log / shots-667x375.log 'hits m4-fit-*-320' lines.",
+   "suggested_fix": "Optional: in the densest Glances, fold one row (e.g. the aim row into ⋯) so the chip bands can grow toward 40 px."
+  }
+ ],
+ "earlier_findings": [
+  {
+   "id": "r0 logic-1 (Space on a focused row starts the wave)",
+   "status": "fixed",
+   "evidence": "probe2 keyboard sweep at 844 (Aoi 4-0-1): 30 presses of Space / Enter / Escape on every drawer control (chips, ⋯, row bodies, prices, lock \"i\", Sell): wave calls 0. Harness m4-drawer-armed key-space and key-space-click pass at 844 and 667 (shots-844x390.log, shots-667x375.log)."
+  },
+  {
+   "id": "r0 logic-2 (PIERCE for kits that gear Pierce does not widen)",
+   "status": "fixed (unchanged since r2)",
+   "evidence": "No change to drawerView gearPierce in r3; tests/battle-ui pass (790 tests in tests/battle-ui + tests/ui)."
+  },
+  {
+   "id": "r0 logic-3 (drawer over 13 numbers)",
+   "status": "fixed",
+   "evidence": "Harness girl stills show ≤ 13 numbers at 844, 667 and 1024 (no FAIL); the stat toast is in the feed, not in the drawer."
+  },
+  {
+   "id": "r0 logic-4 (dead / duplicated view logic)",
+   "status": "fixed",
+   "evidence": "No new dead code; rowAir is used by fitRowAir and unit tested."
+  },
+  {
+   "id": "r0 logic-5 (test-only helpers in src)",
+   "status": "fixed",
+   "evidence": "drawerSections / sectionNumbers stay in the test."
+  },
+  {
+   "id": "r0 logic-6 (layout read on a timer)",
+   "status": "fixed",
+   "evidence": "Per-frame counter over 120 frames with the drawer open, at 844, 667 and 1024 (Aoi, Iroha, Midori, Chika, with and without her ⚡ row): getBoundingClientRect 0, getComputedStyle 0, --bt-row-air writes 0. fitRowAir runs only from fitAll (render, ResizeObserver, fonts loadingdone)."
+  },
+  {
+   "id": "r0 logic-7 (480 vs 500 px phone threshold)",
+   "status": "fixed",
+   "evidence": "fitRowAir uses isWide() (PHONE_H 480); the new CSS sits in the 480 px block."
+  },
+  {
+   "id": "r0 logic-8 (harness on a slow machine)",
+   "status": "partly",
+   "evidence": "r3 raised the navigation and first-open waits, but under this machine's load the full M4 list still went past 1700 s, a target crashed and a screenshot hit 120 s. Re-runs passed. m4-abname's fallback check fails here every run (logic-r3-2)."
+  },
+  {
+   "id": "r0 look-1 (667 bottom sheet)",
+   "status": "fixed",
+   "evidence": "667 drawer is the 288 px side drawer (probe boxes, shots-667x375)."
+  },
+  {
+   "id": "logic-r1-1 (stale stat row)",
+   "status": "fixed",
+   "evidence": "m4-stat-live passes at 844 and 667 (shots2-844x390.log, shots2-667x375.log)."
+  },
+  {
+   "id": "logic-r1-2 (ability name cut once opened)",
+   "status": "fixed with the game's fonts",
+   "evidence": "m4-abname closed and opened facts: not cut for all names at 844, and passes at 1024. Only the injected-fallback check fails, the same at 04383d0 (logic-r3-2)."
+  },
+  {
+   "id": "logic-r1-3 (13 numbers with HUD)",
+   "status": "open, owner ruling (see logic-r2-4)",
+   "evidence": "No change in r3."
+  },
+  {
+   "id": "logic-r1-4 (focus lost when the focused control goes)",
+   "status": "fixed",
+   "evidence": "m4-keys passes at 844 and 667 (⋯ → PRIORITY, MAX, lock \"i\")."
+  },
+  {
+   "id": "logic-r1-5 (Sell and Buy armed together)",
+   "status": "fixed",
+   "evidence": "probe2 (844, in-page): after a buy arm, tapping Sell leaves no row armed (buyArmedWithSell false)."
+  },
+  {
+   "id": "logic-r1-6 (ally rows focusable)",
+   "status": "fixed",
+   "evidence": "m4-drawer-ally passes at 844 and 667."
+  },
+  {
+   "id": "logic-r2-1 (chips' tap areas over the stat row)",
+   "status": "fixed",
+   "evidence": "Chip hit boxes stay inside their row's band (to within the 0.5 px sampling) at 844 and 667. Harness drawerHits: dead [] and faces [] on every M4 still at 844, 667 and 1024. Harness m4-stat-tap: 12 real taps, 0 reached a control, 0 said nothing, at 844, 667 and 1024. My finger-sized touch taps (12 px radius) on each stat's top edge, bottom edge and left edge, and on every chip row's label (MIRROR, BREW, FLIGHT…), changed nothing for Aoi, Iroha, Midori and Chika at 844 and 667. Each stat tap pushed its own title ('stat-why'). The chip rows' --bt-row-air is the same before and after tap 1, and the tapped price never moves (rows below it move as the open row grows)."
+  },
+  {
+   "id": "logic-r2-2 (no-bolt fallback undone next frame)",
+   "status": "fixed",
+   "evidence": "m4-abname no-⚡ check: at {noBolt true, bolt none}, later {noBolt true, bolt none}, fits {noBolt false, bolt block} (shots2/3/4-844x390.log). update() appends noBolt."
+  },
+  {
+   "id": "logic-r2-3 (lock \"i\" / Buffing focus lost on redraw)",
+   "status": "fixed",
+   "evidence": "probe2 (844): focus on path-why-1 survives two redraws (coins 5 → 1e6), and Space after that starts no wave. m4-keys passes at 844 and 667. Buffing faces carry data-uid, and focusKeyOf falls back to the row's controls."
+  },
+  {
+   "id": "logic-r2-4 (≤ 13 numbers with HUD, owner ruling)",
+   "status": "open (no code change expected)",
+   "evidence": "Unchanged in r3; still waiting on the owner."
+  },
+  {
+   "id": "lock \"i\" keyboard focus",
+   "status": "fixed",
+   "evidence": "Same as logic-r2-3."
+  }
+ ],
+ "checks": {
+  "sim_id": "c22b2587f4b7 (unchanged)",
+  "coop_protocol": "8 (unchanged)",
+  "sim_files": "git diff e07e5e9..233ae9b1 --stat and 04383d0..233ae9b1: nothing under src/sim, src/data, src/online or tools/simId; r3 touches src/ui/battle (abilityRow, drawerView, towerPanel), battle.css, e2e, a test and UI_DIRECTION.",
+  "ctx_act": "Spied ctx.act and the sim's mutating methods: drawer buys and target changes went through ctx.act (the only sim calls outside act were my own staging and teardown). The stat tap only pushes to the local feed.",
+  "vitest": "tests/battle-ui + tests/ui: 790 passed.",
+  "harness_844": "Full M4 list: no FAIL up to m4-drawer-fit (the run hit the 1700 s cap under load average 30). Remainder re-run: m4-drawer-ally, m4-lock-why, m4-stat-live and m4-keys pass; m4-abname FAILS (fallback-font check, 3 of 3 runs; logic-r3-2).",
+  "harness_667": "Full M4 list: no FAIL up to m4-drawer-fit (1700 s cap). Remainder: ally, lock-why, stat-live, keys pass (one earlier attempt hit 'Target crashed' under load).",
+  "harness_1024": "Full M4 list: exit 0, no FAIL (m4-stat-tap 12 taps, 0 reached a control).",
+  "harness_1280": "Full M4 list: exit 0, no FAIL (m4-stat-tap 12 taps, 0 reached a control; dead [] and faces [] on every still).",
+  "probes": "rev-logic-evidence/probe.mjs (hit maps, 12 px touch taps, two-tap stability, per-frame reads, frame stability) at 844, 667 and 1024. probe2.mjs (arm windows in the page, keyboard sweep, lock \"i\" focus). probe3/5/6 (Sell over the body). probe4 (fallback refit). The two-tap buy works and the tapped price never moves. Arm windows in the page: the buy disarms at 2716 ms; tap 1 then tap 2 at 2.0 s buys exactly one tier; Sell's CONFIRM expires by itself and does not sell. 90 frames idle: 0 layout changes. Leakage between battles: the panel and its air state are created per battle (controller.js:369 createTowerPanel, no module-level state); r2 checked this at runtime, and my runtime re-check could not open a second battle under load.",
+  "environment": "A shared machine with another reviewer's browsers: load average 15 to 30 and one container restart. Timing-sensitive steps were held (holdArm) or timed inside the page. Load-related failures were re-run."
+ }
+}

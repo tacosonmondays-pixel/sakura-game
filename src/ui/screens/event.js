@@ -2,14 +2,19 @@
 // Header card (kicker, title, phase chip, balance), then tabs: Story, Operations, Missions, Exchange,
 // Gifts. Locked / upcoming / exchange-only / ended states. Built from the existing components and
 // tokens (src/ui/styles/events.css only adds the event colours and the card layouts).
+// UI M5c (docs/specs/UI_DIRECTION.md §5.10 E9): between seasons (the upcoming and ended phases only; the live and
+// exchange phases are untouched) the content opens on the off-season band: the event's painting full-bleed, one ink
+// band with one sentence and the next date (upcoming: its "Opens in" chip; ended: the next festival, when one is teased).
 import '../styles/meta-a.css';
 import '../styles/events.css';
+import '../styles/hubs.css';
 import { h, clear } from '../dom.js';
 import { screen, panel, tabs, button, svgEl, toast, modal, itemTile } from '../components.js';
 import { navigate, rememberParams } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
-import { formatCountdown } from '../../core/reset.js';
+import { countdownChip, offSeasonBand } from '../kit.js';
+import { eventPhaseChip } from '../events/lobby.js';
 import { eventById } from '../../data/events/index.js';
 import { STAGE_MAP } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
@@ -23,9 +28,9 @@ import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { stageMedals } from '../../systems/unlocks.js';
 import { itemCount } from '../../systems/inventory.js';
 import {
-  eventPhase, eventWindow, eventUnlocked, phaseLabel, windowText, episodeRows, readEpisode, eventStageStatus, missionRows,
+  eventPhase, eventWindow, eventUnlocked, windowText, episodeRows, readEpisode, eventStageStatus, missionRows,
   claimEventMission, claimAllEventMissions, shopRows, buyEventOffer, loginRows, markEventLogin, settleEvents, endedSummary,
-  eventDifficultyStatus,
+  eventDifficultyStatus, listEvents,
 } from '../../systems/events.js';
 import { openMailbox } from '../lobby/mailbox.js';
 import { rewardTiles } from './stage.js';
@@ -47,7 +52,7 @@ export function render(root, params = {}) {
   const ev = eventById(params.id);
   if (!ev || eventPhase(ev, eventNow(), store.profile) === 'hidden') {
     const { el, body } = screen('Event');
-    body.appendChild(h('div.empty', 'This event is not open. ', button('Events', { kind: 'primary', onClick: () => navigate('rewards') })));
+    body.appendChild(h('div.empty', 'This event is not open. ', button('Happening Now', { kind: 'primary', onClick: () => navigate('rewards') })));
     root.appendChild(el);
     return;
   }
@@ -61,7 +66,7 @@ export function render(root, params = {}) {
   visit();
 
   const balance = h('span.ev-bal-val', { 'data-testid': 'event-balance' });
-  const pill = h('button.cur-pill.ev-pill', { title: ev.currency.name, onclick: () => setTab('exchange') }, svgEl(itemIcon(ev.currency.id)), balance);
+  const pill = h('button.cur-pill.ev-pill', { title: ev.currency.name, onclick: () => setTab('exchange') }, svgEl(itemIcon(ev.currency.id, { px: 22 })), balance);
   const { el, body } = screen(ev.name, { cls: 'ev-screen', extra: h('div.topbar-group', pill) });
   el.style.setProperty('--ev-color', ev.theme.color);
   el.style.setProperty('--ev-accent', ev.theme.accent);
@@ -97,7 +102,7 @@ export function render(root, params = {}) {
         h('div.ev-kicker', `LIMITED EVENT · ${ev.subtitle.toUpperCase()}`),
         h('h2.ev-title', ev.name),
         h('div.ev-head-row',
-          h(`span.ev-phase.ph-${phase}`, { 'data-testid': 'event-phase' }, phaseLabel(ev, phase, now)),
+          eventPhaseChip(ev, phase, now, { testid: 'event-phase', cls: 's', onDone: phaseTurn }), // [ui-m5] the countdown chip (§5.9)
           h('span.ev-dates', w.dates),
           devClock ? h('span.ev-dev', { title: 'Dev preview clock (localStorage sakura-dev-now)' }, 'DEV CLOCK') : null,
         ),
@@ -110,8 +115,11 @@ export function render(root, params = {}) {
     const now = eventNow();
     const phase = eventPhase(ev, now, store.profile);
     if (phase === 'upcoming') {
-      // the intro is story copy ({name:hikari} tokens): resolved here, outside the scene player
-      content.appendChild(panel('Coming soon', h('p', `${ev.name} opens in ${formatCountdown(eventWindow(ev).startAt - now)}.`), h('p.muted', { 'data-testid': 'event-intro' }, resolveText(ev.intro?.body || ''))));
+      // [ui-m5] E9: the band says when it opens (the chip); the intro is story copy ({name:hikari} tokens): resolved
+      // here, outside the scene player
+      const band = offSeasonBand({ text: `${ev.name} opens soon.`, art: seasonArt(ev), testid: 'event-upcoming' });
+      band.querySelector('.ui-offseason-band').append(countdownChip(eventWindow(ev).startAt - now, { label: 'Opens in', cls: 's', now: eventNow, urgent: false, doneText: 'Open now', onDone: phaseTurn, testid: 'event-opens' }));
+      content.append(band, panel('Coming soon', h('p.muted', { 'data-testid': 'event-intro' }, resolveText(ev.intro?.body || ''))));
       return;
     }
     if (!eventUnlocked(store.profile, ev) && phase === 'active') {
@@ -119,7 +127,7 @@ export function render(root, params = {}) {
         button('Go to Missions', { kind: 'yellow', icon: 'teleport', onClick: () => navigate('missions') })));
       return;
     }
-    if (phase === 'ended') content.appendChild(panel('Thanks for coming!', h('p', { 'data-testid': 'event-ended' }, endedSummary(store.profile, ev))));
+    if (phase === 'ended') content.appendChild(endedBand(ev, now)); // [ui-m5] E9
     const draw = { story: storyTab, stages: stagesTab, missions: missionsTab, exchange: exchangeTab, gifts: giftsTab }[tab];
     content.appendChild(draw(ev, phase, now, refresh));
   }
@@ -127,6 +135,13 @@ export function render(root, params = {}) {
   function refresh() {
     drawHeader();
     drawContent();
+  }
+  // [ui-m5] a phase chip that reaches zero on screen draws the next phase at once (the 30 s check below is the backstop)
+  function phaseTurn() {
+    if (!el.isConnected) return;
+    lastPhase = eventPhase(ev, eventNow(), store.profile);
+    visit();
+    refresh();
   }
   refresh();
   const off = store.on('change', (e) => { if (e?.reason !== 'event-ui') drawHeader(); });
@@ -144,6 +159,39 @@ export function render(root, params = {}) {
     off();
     clearInterval(timer);
   };
+}
+
+// ---------------------------------------------------------------------------
+// Between seasons (UI M5c, E9)
+// ---------------------------------------------------------------------------
+
+/** "Dec 18" on the player's own clock. */
+const shortDate = (t) => new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+/** The event's painting, full-bleed behind the off-season band (the hubArt.js backdrop's look). */
+function seasonArt(ev) {
+  return h('div.hub-bg.ev-season-art', { 'aria-hidden': 'true' },
+    h('img.hub-bg-img', { src: lobbyArtUrl(ev.theme?.fallbackArt || 'academy.webp'), alt: '', decoding: 'async', draggable: false }),
+    h('i.hub-bg-shade'));
+}
+
+/**
+ * The ended phase's band: one sentence (thanks, and what the player took home) and the next festival's date when one
+ * is teased. Its sentence keeps the old summary's test id (event-ended).
+ */
+function endedBand(ev, now) {
+  const next = listEvents(store.profile, now).filter((r) => r.phase === 'upcoming' && r.ev.id !== ev.id)
+    .map((r) => ({ name: r.ev.name, at: eventWindow(r.ev).startAt })).sort((a, b) => a.at - b.at)[0] || null;
+  // (no "0 coins from leftover candy" when nothing was left over: the sentence stays one short line)
+  const summary = endedSummary(store.profile, ev).replace(/ · 0 coins from leftover .*$/, '');
+  const band = offSeasonBand({
+    text: `Thanks for coming! ${summary}.`,
+    date: next ? `Next: ${next.name}, ${shortDate(next.at)}` : null,
+    art: seasonArt(ev),
+    testid: 'event-season-ended',
+  });
+  band.querySelector('.ui-offseason-text')?.setAttribute('data-testid', 'event-ended');
+  return band;
 }
 
 // ---------------------------------------------------------------------------
@@ -226,7 +274,7 @@ function stagesTab(ev, phase) {
             gate.ok ? null : svgEl(uiIcon('lock'), 'ev-diff-lock'));
         }),
         h('span.ev-op-candy', { title: `${ev.currency.name} per win: ${stage.difficulties.map((d, i) => `${DIFFICULTIES[d].name} ${pers[i]}`).join(' · ')}` },
-          svgEl(itemIcon(ev.currency.id), 'ev-mini'), pers.map((n) => `×${formatNumber(n)}`).join(' / '))),
+          svgEl(itemIcon(ev.currency.id, { px: 18 }), 'ev-mini'), pers.map((n) => `×${formatNumber(n)}`).join(' / '))),
       st.ok ? null : h('div.ev-op-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), st.text),
     )));
   }
@@ -261,7 +309,8 @@ function missionsTab(ev, phase, now, refresh) {
         if (r.ok) { store.commit('event'); toast(`Claimed ${r.count}: ${rewardText(r.rewards)}`, 'good', 3000); refresh(); }
       },
     })),
-    panel(`Daily · resets in ${formatCountdown(rows.resetsAt - now)} (7 PM Central)`, rows.daily.map(row)),
+    // [ui-m5] the event's daily reset: a recurring cycle (never red); at zero the new day's missions show
+    panel(['Daily ', countdownChip(rows.resetsAt - now, { label: 'Resets in', cls: 's', now: eventNow, urgent: false, doneText: 'Reset!', onDone: refresh, testid: 'event-daily-reset' })], rows.daily.map(row)),
     panel('Event missions', rows.total.map(row)),
   );
 }
@@ -288,7 +337,7 @@ function exchangeTab(ev, phase, now, refresh) {
         disabled: o.soldOut || !o.open,
         'data-testid': `event-buy-${o.id}`,
         onclick: () => startBuy(ev, o, name, refresh),
-      }, h('span.ev-price', svgEl(itemIcon(ev.currency.id), 'ev-mini'), formatNumber(o.price)))));
+      }, h('span.ev-price', svgEl(itemIcon(ev.currency.id, { px: 18 }), 'ev-mini'), formatNumber(o.price)))));
   }
   return h('div',
     phase === 'ended' ? panel('Exchange closed', h('p', 'The Exchange has closed; leftover candy became coins by mail.')) : null,

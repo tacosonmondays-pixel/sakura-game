@@ -1,0 +1,751 @@
+/* Sakura Sentinels — the UI M5 screens (docs/specs/UI_DIRECTION.md §5.9, §5.10; notes/ui-m5/PLAN.md). Loaded after
+   meta-a.css by the screens M5 touches. Where the shared kit (components.css "M5") draws a component, this file only
+   places it on a screen, scoped under that screen's own classes. Sizes come from the type tokens: nothing in this
+   file is under 12 px (tools/cssFloor.mjs). M5a: the countdown chips and badges sit where the old timers and badges
+   sat; no layout moves. */
+
+/* ([ui-ink] the old lobby's rules went with UI v2's night home, V2: src/ui/styles/home.css draws the home; the Notice board
+   and the patch notes stay in meta-a.css. v0.1.53's fixes to the old lobby (the bottom-right cluster's pointer-events,
+   the tray as a column over a full illustration, the .lb-art-full rules) have no element to style on the V2 home: the
+   home draws a full illustration and the event backdrop itself, src/ui/lobby/artStage.js) */
+
+/* ---------- Missions: a weekly mode's chip (top right), "Open!" (top left), the campaign in progress ---------- */
+.ma-hub-tile > .ma-hub-timer { position: absolute; top: 8px; right: 10px; z-index: 3; }
+.ma-hub-tile > .ma-hub-open { position: absolute; top: 8px; left: 10px; z-index: 3; transform: skewX(calc(var(--skew) * -1)) rotate(var(--sticker-tilt)); }
+/* a small tile has room for one: "Open!" until the first visit, then the week's chip */
+.ma-hub-titans:has(> .ma-hub-open) > .ma-hub-timer { display: none; }
+.ma-hub-assault > .ma-hub-open { left: auto; right: 12px; }
+.ma-hub-tile > .ma-hub-inprog { position: absolute; left: 16px; bottom: 12px; z-index: 2; }
+
+/* ---------- Commissions: the reset chip after the claim count ---------- */
+.ma-comm-sub { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.ma-comm-sub > .ui-cd { margin: -4px 0; } /* (the chip rides on the text line: the list below does not move) */
+
+/* (the Mall's restock, the mail expiry and the old Events page's chips: M5c's list screens, at the end of this file) */
+
+/* ---------- Titan Trials: the week chip in the top row, the same height as its neighbours ---------- */
+.tt-top > .ui-cd { box-shadow: var(--shadow); }
+
+/* ---------- The event page: the phase chip in the header row (the old pill's height) ---------- */
+.ev-head-row > .ui-cd { margin: -1px 0; }
+
+/* ==========================================================================================================
+   M5b: hubs with host girls (§5.10 E1, E2, E6, E8). The host stands in the left 35% (--host-hub-w), bleeding to
+   the screen's left edge and down to its bottom; her bubble sits over her lower third, inside her column, so it
+   never covers the tiles or the list beside her. Each screen's rules are scoped under its own class.
+   ========================================================================================================== */
+
+/* ---------- Shared: a hub body with the host column ---------- */
+.hb-screen .screen-body { position: relative; z-index: 1; display: flex; flex-direction: column; padding-top: 8px; padding-bottom: 0; overflow: hidden; }
+.hb-screen .topbar { position: relative; z-index: 5; }
+.hb { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: calc(var(--host-hub-w) - var(--gutter) - var(--safe-left)) minmax(0, 1fr); gap: 0 12px; }
+.hb.no-host { grid-template-columns: minmax(0, 1fr); }
+.hb > .ui-host[data-mode="stand"] { position: absolute; left: calc(-1 * (var(--gutter) + var(--safe-left))); top: -8px; bottom: 0; height: auto; z-index: 0; }
+.hb-main { grid-column: 2; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding-bottom: 8px; }
+.hb.no-host > .hb-main { grid-column: 1; }
+/* the location tint covers the whole screen (E6) */
+.hb-screen > .hub-bg { z-index: 0; }
+
+/* ---------- The collapse rule's chip (host.js, hubHost.js placeHost): under 800 px of width, or a short content window,
+   she takes no column. Her bust sits at the start of a header row with her one-line bubble beside it (the tail points
+   at her): the list's plate header, Titan Trials' top row, or a strip over the Missions tiles. A plate header that
+   holds her keeps its title for screen readers only (the tab rail or the top bar names the list). ---------- */
+.has-host > .ui-host[data-mode="chip"] {
+  --host-chip: 40px;
+  flex: none; flex-direction: row; gap: 12px; width: auto; max-width: 100%; height: auto; min-width: 0;
+}
+.has-host > .ui-host[data-mode="chip"] > .ui-host-bust { box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(14, 25, 48, 0.3); }
+.has-host > .ui-host[data-mode="chip"] > .ui-host-bubble {
+  max-width: none; min-height: 40px; padding: 8px 14px; white-space: nowrap; box-shadow: 0 2px 8px rgba(14, 25, 48, 0.2);
+}
+.has-host > .ui-host[data-mode="chip"] > .ui-host-bubble::after { left: -9px; right: auto; top: 50%; width: 10px; height: 18px; margin: -9px 0 0; clip-path: polygon(100% 0, 0 50%, 100% 100%); }
+.ui-plate-head.has-host { flex-wrap: wrap; row-gap: 6px; }
+.ui-plate-head.has-host > .ui-plate-title { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.ui-plate-head.has-host > .ui-plate-right { margin-left: auto; }
+@media (max-aspect-ratio: 1/1) {
+  /* portrait: no host on the hubs (the M5b rule); a plate header shows its title again, whole: the title keeps the
+     width of its words (never flex-shrunk under them) and the right side (Bounty's balance, the week and Shop) wraps
+     under it, to the right, when both do not fit one row: the list screens' rule (the final M5 review: "Location
+     Select" ran under Bounty's token chip at 390x844; Commissions' "Daily" ran under its reset chip at 360 px) */
+  .has-host > .ui-host, .ma-hub-hostrow { display: none; }
+  .ui-plate-head.has-host { padding-top: 6px; padding-bottom: 6px; }
+  .ui-plate-head.has-host > .ui-plate-title {
+    position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: normal;
+    flex: 1 0 auto; max-width: 100%;
+  }
+}
+
+/* ---------- Missions: the secretary hosts; the tiles keep the right ---------- */
+.ma-hub-screen .ma-hub { grid-template-columns: calc(var(--host-hub-w) - var(--gutter) - var(--safe-left)) minmax(0, 1fr); }
+.ma-hub-screen .ma-hub > .ui-host { position: absolute; left: calc(-1 * (var(--gutter) + var(--safe-left))); top: -8px; bottom: 0; height: auto; z-index: 0; }
+/* the collapse rule: her chip in a strip over the tiles, which take the whole width */
+.ma-hub-screen .ma-hub.no-host { display: flex; flex-direction: column; gap: 6px; }
+.ma-hub-screen .ma-hub.no-host > .ma-hub-grid { flex: 1 1 0; height: auto; min-height: 0; }
+.ma-hub-hostrow { position: relative; z-index: 1; flex: none; display: flex; align-items: center; min-height: 44px; padding: 0 6px; }
+@media (min-aspect-ratio: 1001/1000) {
+  /* (the bottom row is shorter there: Titan Trials gets a third column, so its name and its week chip fit one line) */
+  .ma-hub-screen .ma-hub.no-host > .ma-hub-grid {
+    grid-template-areas: 'mission mission mission mission mission mission mission bounty bounty bounty bounty bounty'
+                         'mission mission mission mission mission mission mission assault assault assault assault assault'
+                         'challenge challenge challenge titans titans titans coop coop sandbox sandbox story story';
+  }
+}
+@media (min-height: 481px) and (min-aspect-ratio: 1001/1000) {
+  /* her chip on a tablet in landscape (hubHost.js WIDE_GRID_VW): the tall Mission tile's slanted bottom-left corner
+     overhangs its box by half its height × tan 8° (33 px at 1180x820), past the 16 px gutter and its 8 px margin, and
+     the screen body cut it flat. The tile steps in by that much (its height is about 68% of the screen under the top
+     bar and her strip: 4.8vh less what the gutter and the margin already give) */
+  .ma-hub-screen .ma-hub.no-host > .ma-hub-grid > .ma-hub-mission { margin-left: max(8px, calc(4.8vh - 18px)); }
+}
+/* Quick start: the screen's one primary (a 40 px tap at least); its desktop key hint rides inside it */
+.ma-hub-screen .ma-hub-go { min-height: var(--tap-dense); font-size: var(--fs-body); } /* (0.8rem read 12.8 px in portrait, under the 13 px floor) */
+.ma-hub-go > .ui-kbd { margin-left: 8px; }
+/* the small tiles' name plates: the subtitle (12 px) wraps rather than ending in "…" (P6) */
+.ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-sub { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.15; }
+.ma-hub-screen .ma-hub-lockline > span { overflow: visible; text-overflow: clip; white-space: normal; }
+/* a subtitle's short words when its long ones do not fit its tile on one line, and slimmer padding on a small tile's
+   plate that its words still run past: measured on the tile (missions.js fitTiles), never by the viewport's width
+   (the UI M5 final review, M5-3: "2× drops in Rune Ga…" beside her stand at 915x412, 932x430 and 1180x820; Story's
+   "Episodes" past its plate at 844x390) */
+.ma-hub-screen .ma-hub-sub.fit-short > .ma-sub-long { display: none; }
+.ma-hub-screen .ma-hub-sub.fit-short > .ma-sub-short { display: inline; }
+.ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) > .ma-hub-text.fit-tight {
+  left: 4px; max-width: calc(100% - 8px); padding-left: 4px; padding-right: 4px;
+}
+.ma-hub-screen .ma-hub-lock > span { overflow: visible; text-overflow: clip; }
+@media (max-height: 480px) {
+  .ma-hub-screen .ma-hub-tile { margin: 0 4px; }
+  .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-text { left: 5px; max-width: calc(100% - 10px); padding: 3px 6px 4px; }
+  .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-title { font-size: var(--fs-body); }
+}
+@media (max-aspect-ratio: 1/1) {
+  .ma-hub-screen .ma-hub { grid-template-columns: minmax(0, 1fr); }
+  .ma-hub-screen .ma-hub > .ui-host { display: none; }
+  .ma-hub-screen .ma-hub-grid { grid-column: 1; }
+  .ma-hub-screen .ma-hub.no-host > .ma-hub-grid { flex: none; }
+  /* portrait (the M5b review's 390x844): Bounty and Total Assault a row each, the small tiles two rows, so no title,
+     line or lock rule is cut ("Total As…", "Clear 5-5 fi") */
+  .ma-hub-screen .ma-hub-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: 150px 84px 84px 90px 90px;
+    grid-template-areas: 'mission mission mission mission mission mission' 'bounty bounty bounty bounty bounty bounty'
+                         'assault assault assault assault assault assault' 'challenge challenge challenge titans titans titans'
+                         'coop coop sandbox sandbox story story';
+  }
+  .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-title { font-size: var(--fs-body); }
+  .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-text { left: 6px; max-width: calc(100% - 12px); padding-left: 6px; padding-right: 6px; }
+  .ma-hub-screen .ma-hub-hostrow { display: none; }
+}
+
+/* ---------- Stage prep's drop and enemy pieces (M4's rules in meta-a), as they read on these hubs: 12 px at least.
+   A drop that needs a harder tier shows a lock and the short tier ("NM+", hubDrops.js); its rule is in its title ---------- */
+.hb-screen .ma-drop-chance, .hb-screen .ma-drop-range, .hb-screen .ma-drop-bonus { font-size: var(--fs-label); }
+.hb-screen .ma-drop.gated .ma-drop-chance { display: inline-flex; align-items: center; justify-content: center; gap: 2px; font-size: var(--fs-label); white-space: nowrap; color: var(--muted); }
+.hb-screen .ma-drop-gate-ico { width: 12px; height: 12px; flex: none; }
+@media (min-height: 481px) {
+  /* a gated drop's lock and "Hard+" (56 px at the 13 px floor) need 52 px a column with the 6 px gap: beside her stand
+     at 1024-1180 px the 46 px columns ran the labels into each other (hubs.mjs at the tablet sizes) */
+  .hb-screen .ma-drops.compact:has(> .ma-drop.gated) { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); }
+}
+.hb-screen .ma-enemy-tier { font-size: var(--fs-label); }
+.hb-screen .ma-sub, .as-intel .ma-sub { font-size: var(--fs-label); }
+
+/* ---------- Campaign select: the tier names on plates; a stage card keeps its id, name, medals, tier, unlock ---------- */
+.ma-campaign-screen .ma-tier-label { padding-left: 2px; text-shadow: none; letter-spacing: 0; text-transform: none; }
+.ma-campaign-screen .ma-tier-badge { font-size: var(--fs-label); padding: 2px 10px; }
+.ma-campaign-screen .ma-tier-plate { box-shadow: 0 1px 0 rgba(14, 25, 48, 0.25); }
+.ma-campaign-screen .ma-sc-meta { flex-wrap: wrap; gap: 6px; }
+.ma-campaign-screen .ma-sc-meta .ma-tier-badge { box-shadow: none; }
+.ma-campaign-screen .ma-saved-badge { font-size: var(--fs-label); }
+.ma-campaign-screen .ma-chapter-ribbons { font-size: var(--fs-label); }
+.ma-campaign-screen .ma-cs-medal, .ma-campaign-screen .ma-cb-medal { font-size: var(--fs-body); }
+
+/* ---------- Commissions: the tabs on top (they never move), Miko under them on the left, the list on the right ---------- */
+.ma-commissions-screen.hb-screen .screen-body { padding-bottom: 0; }
+.cm-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 1400px; margin: 0 auto; }
+.cm-tabs { position: relative; z-index: 1; flex: none; padding-bottom: 6px; }
+/* the §5.3 rail (kit.js rail): each tab as wide as its word, the open one an ink plate with a 3 px yellow bar */
+.cm-rail { gap: 6px; }
+.cm-rail > .ui-tab { flex: 1 1 auto; }
+.cm-rail .cm-tab-word { white-space: nowrap; }
+.cm-rail > .ui-tab > .ui-dot { top: -3px; right: 6px; }
+@media (max-width: 560px) {
+  /* narrow portrait screens: the open tab keeps its word, the others show their icon (the name is in aria-label) */
+  .cm-rail > .ui-tab { flex: 0 0 auto; padding: 0 12px; }
+  .cm-rail > .ui-tab.on { flex: 1 1 auto; }
+  .cm-rail > .ui-tab:not(.on) .cm-tab-word { display: none; }
+}
+.cm-hb > .ui-host[data-mode="stand"] { top: -4px; }
+/* a plate title that shrinks to its first word on narrow screens ("Daily") */
+.cm-title-short { display: none; }
+.cm-panel .ui-plate-title { white-space: nowrap; }
+@media (max-width: 560px) {
+  .cm-title-long { display: none; }
+  .cm-title-short { display: inline; }
+}
+.cm-panel {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: 0 0 12px; border-radius: var(--radius); background: rgba(255, 255, 255, 0.9); box-shadow: var(--shadow);
+}
+.cm-panel > .ma-comm-panel { min-height: 100%; }
+/* the plate header stays in view while the list scrolls under it */
+.cm-panel .ui-plate-head { position: sticky; top: 0; z-index: 2; min-height: 48px; padding-right: var(--sp-3); }
+.cm-panel .ui-plate-head .btn { min-height: var(--tap-dense); }
+.cm-panel .ui-plate-head .btn > .ui-kbd { margin-left: 8px; }
+.cm-panel .ui-plate-head .ui-cd { box-shadow: 0 0 0 1px var(--plate-line); }
+.cm-panel .ui-plate-head .cm-info { background: rgba(255, 255, 255, 0.12); color: var(--on-plate); }
+/* the rows: one ink Claim each (the plate's Claim all is the one yellow) */
+.cm-list .ma-mission-list { padding: var(--sp-2) var(--sp-3) 0; gap: 6px; }
+.cm-list .ma-mission { gap: 10px; padding: 8px 10px; }
+.cm-list .ma-mission-name { font-size: var(--fs-body); }
+.cm-list .ma-mission-act { min-width: 84px; }
+.cm-list .ma-mission-act .btn { min-height: var(--tap-dense); }
+.cm-list .ma-mission.claimed { opacity: 1; background: #f4f8fd; }
+.cm-list .ma-mission.claimed .ma-mission-rewards { opacity: 0.45; }
+.cm-list .ma-claimed { font-size: var(--fs-label); color: var(--good-text); }
+/* the login calendar: four days a row, day 7 the wide one */
+.cm-login .cm-calendar { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: var(--sp-3); }
+.cm-login .cm-calendar .ma-cal-day.big { grid-column: span 2; }
+.cm-login .cm-calendar .ma-cal-day { gap: 6px; padding: 8px 6px 10px; min-height: 96px; }
+.cm-login .cm-calendar .ma-cal-num { background: var(--plate); color: var(--on-plate); }
+.cm-login .cm-calendar .ma-cal-day.big .ma-cal-num { background: var(--pink); color: var(--plate); }
+.cm-login .cm-calendar .ma-cal-day.claimed > .reward-row { opacity: 0.35; filter: grayscale(0.6); }
+.cm-login .cm-calendar .ma-cal-day .reward-row { gap: 10px; }
+@media (min-width: 1000px) and (min-height: 600px) {
+  .cm-login .cm-calendar { gap: 12px; padding: var(--sp-4); }
+  .cm-login .cm-calendar .ma-cal-day { min-height: 150px; justify-content: center; gap: 10px; }
+  .cm-login .cm-calendar .ma-cal-day .reward-row { gap: 16px; }
+}
+/* the rewards on M3's item tile, each count in its tile's corner (fmtItemCount "x3000", like every tile in the game:
+   UI_DIRECTION §5.7, owner #108). Only the tile's width is set here: 62 px wherever the text floor is 13 px (M3's
+   count is 13 px on a 62 px tile and 12 px on smaller ones), the M3 sizes on landscape phones (floor 12). */
+.cm-list .ma-mission-rewards .reward-row { gap: 8px; }
+.cm-rwds { align-items: flex-start; }
+.cm-rwd { display: flex; min-width: 0; }
+.cm-list .ma-mission-rewards .item-tile { width: 62px !important; }
+.cm-login .cm-calendar .ma-cal-day .item-tile { width: 62px !important; }
+.cm-login .cm-calendar .ma-cal-day.big .item-tile { width: 68px !important; }
+@media (max-height: 480px) {
+  .cm-list .ma-mission-rewards .item-tile { width: 46px !important; }
+  .cm-login .cm-calendar .ma-cal-day .item-tile { width: 46px !important; }
+  .cm-login .cm-calendar .ma-cal-day.big .item-tile { width: 52px !important; }
+}
+/* portrait: two days a row (two 62 px tiles a day), day 7 across */
+@media (max-width: 560px) {
+  .cm-login .cm-calendar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* the "complete!" stamp on a claimed day: a cute ink-pink rubber stamp, tilted, over the dimmed gifts */
+.cm-stamp {
+  position: absolute; left: 50%; top: 58%; z-index: 2; pointer-events: none;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  padding: 3px 10px; border: 2px solid var(--pink-text); border-radius: 8px; outline: 1px solid var(--pink-text); outline-offset: 2px;
+  background: rgba(255, 255, 255, 0.9); color: var(--pink-text);
+  font: italic 900 var(--fs-label)/1.1 var(--font-head); letter-spacing: 0.02em; white-space: nowrap;
+}
+.cm-codes-line { margin: var(--sp-3) var(--sp-3) var(--sp-2); font-size: var(--fs-label); }
+.cm-panel .ma-codes { max-width: none; }
+.cm-panel .ma-codes > .ma-code-row, .cm-panel .ma-codes > .ma-code-status, .cm-panel .ma-codes .ma-redeemed { margin-left: var(--sp-3); margin-right: var(--sp-3); }
+.cm-panel .ma-code-row .btn > .ui-kbd { margin-left: 8px; }
+@media (max-aspect-ratio: 1/1) {
+  .cm-hb { grid-template-columns: minmax(0, 1fr); }
+  .cm-hb > .ui-host { display: none; }
+  .cm-hb > .hb-main { grid-column: 1; }
+}
+
+/* ---------- Bounty: the week's guest hosts; the arena list under its plate (balance once, the week, the shop) ---------- */
+.ma-bounty-screen .bn-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0; padding: 0 0 8px; overflow: hidden; }
+.ma-bounty-screen .bn-panel > .ui-plate-head { flex: none; min-height: 48px; padding-right: var(--sp-3); }
+.ma-bounty-screen .bn-panel .ma-loc-list { padding: var(--sp-2) var(--sp-2) 4px; }
+.ma-bounty-screen .bn-balance { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--on-plate); }
+.ma-bounty-screen .bn-balance-icon { display: inline-flex; width: 22px; height: 22px; }
+.ma-bounty-screen .bn-balance-val { font-size: var(--fs-num-s); }
+.ma-bounty-screen .ui-plate-head .ui-cd { box-shadow: 0 0 0 1px var(--plate-line); }
+.ma-bounty-screen .ui-plate-head .btn-ghost { min-height: var(--tap-dense); padding: 4px 12px; font-size: var(--fs-body); }
+.ma-bounty-screen .ma-loc-actions .btn > .ui-kbd { margin-left: 8px; }
+/* the chosen tier's actions: a footer under the list, always in view */
+.ma-bounty-screen .bn-footer { flex: none; padding: var(--sp-2) var(--sp-3) 0; border-top: 1px solid var(--line); }
+.ma-bounty-screen .bn-footer:empty { display: none; }
+.ma-bounty-screen .bn-footer .btn { min-height: var(--tap-dense); }
+/* the arena rows: one line of description on phones (the expanded arena says the rest) */
+.ma-bounty-screen .ma-loc-meta { gap: 4px 8px; }
+.ma-bounty-screen .ma-loc-meta .muted, .ma-bounty-screen .ma-tier-meta .muted { font-size: var(--fs-label); }
+.ma-bounty-screen .ma-rec-chips .chip, .ma-bounty-screen .ma-sweep-lock, .ma-bounty-screen .ma-locked-note { font-size: var(--fs-label); }
+.ma-bounty-screen .ma-loc-enemies .ma-enemy { min-height: var(--tap-dense); }
+.ma-bounty-screen .ma-tier-meta .muted { font-size: var(--fs-label); white-space: nowrap; }
+/* ---------- Total Assault: Rei hosts; the boss list under its plate, the chosen boss, her stats + MORE ---------- */
+.ma-assault-screen .as-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0; padding: 0 0 var(--sp-2); overflow: hidden; }
+.ma-assault-screen .as-panel > .ui-plate-head { flex: none; min-height: 48px; padding-right: var(--sp-3); }
+.ma-assault-screen .ui-plate-head .btn-ghost { min-height: var(--tap-dense); padding: 4px 12px; font-size: var(--fs-body); }
+.ma-assault-screen .ma-boss-cards { flex: none; margin: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
+.ma-assault-screen .ma-boss-card { min-height: 64px; }
+.ma-assault-screen .ma-boss-card-text { justify-content: center; }
+/* a locked boss's name keeps clear of the card's lock (meta-a.css: 18 px, 12 px in from the right, 10 px down): its
+   words wrap around the lock's corner, and a word too long to fit beside it starts under it (390x844: "Grave Lych" ran
+   under the lock; found with the final M5 fixes). The corner is the lock's reach into the text: across, 30 px less the
+   text's right padding plus 4 px of air (so a name that fitted beside the lock still does); down, 28 px less the text's
+   top padding (the text's padding is 10 16 / 8 10 / 7 12 px by size) */
+.ma-assault-screen .ma-boss-card.locked .ma-boss-card-name::before { content: ''; float: right; width: 18px; height: 18px; }
+@media (max-width: 560px) { .ma-assault-screen .ma-boss-card.locked .ma-boss-card-name::before { width: 24px; height: 20px; } }
+@media (max-height: 480px) { .ma-assault-screen .ma-boss-card.locked .ma-boss-card-name::before { width: 22px; height: 21px; } }
+.ma-assault-screen .ma-boss-detail { flex: 1; min-height: 0; overflow-y: auto; padding: 0 var(--sp-3); }
+.ma-assault-screen .as-layout { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--sp-3); align-items: stretch; min-height: 100%; }
+.ma-assault-screen .ma-boss-show { position: relative; top: auto; height: auto; min-height: 200px; }
+.ma-assault-screen .ma-boss-plate { bottom: 10px; }
+.ma-assault-screen .ma-boss-name { font-size: var(--fs-name); }
+.ma-assault-screen .ma-boss-family { font-size: var(--fs-label); }
+.ma-assault-screen .ma-rec-chips .chip, .ma-assault-screen .ma-locked-note { font-size: var(--fs-label); }
+.ma-assault-screen .as-info { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.ma-assault-screen .as-info .ma-rec-chips { margin-top: 0; }
+.ma-assault-screen .as-drops .ma-sub { margin-bottom: 4px; }
+.ma-assault-screen .as-actions { flex: none; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) 0; border-top: 1px solid var(--line); }
+.ma-assault-screen .as-actions .btn { min-height: var(--tap-dense); }
+.ma-assault-screen .as-actions .btn > .ui-kbd { margin-left: 8px; }
+.as-intel-body { display: flex; flex-direction: column; gap: var(--sp-2); }
+.as-intel-body .ma-boss-lore { margin: 0; font-size: var(--fs-body); }
+.as-intel-line { display: flex; align-items: center; gap: var(--sp-1); margin: 0; font-size: var(--fs-body); font-weight: 700; }
+@media (max-height: 480px) {
+  .ma-assault-screen .ma-boss-show { min-height: 160px; }
+}
+@media (min-width: 1000px) and (min-height: 600px) {
+  .ma-assault-screen .ma-boss-card { min-height: 84px; }
+  .ma-assault-screen .ma-boss-show { min-height: 360px; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .ma-assault-screen .as-hb { grid-template-columns: minmax(0, 1fr); }
+  .ma-assault-screen .as-hb > .ui-host { display: none; }
+  .ma-assault-screen .as-hb > .hb-main { grid-column: 1; }
+  .ma-assault-screen .as-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- Titan Trials: Kaede on the collapse rule (the stand on desktop; the bust chip at the start of the top row on
+   phones and under 800 px of width) ---------- */
+/* (the scroller's clip edge stands 6 px out from its content: the slanted titan cards and the Titan shelf button
+   overhang their boxes by up to 76 px × tan 8° / 2 = 5.3 px a side, and overflow-x: hidden sliced those corners flat;
+   the negative margin keeps the content where it was. UI M5 final review, M5-2) */
+.tt-screen .tt-hb > .hb-main { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding-inline: 6px; margin-inline: -6px; }
+.tt-screen .tt-top .btn, .tt-screen .tt-actions .btn { min-height: var(--tap-dense); }
+.tt-screen .tt-wrap { padding-bottom: 8px; }
+.tt-screen .tt-top .ui-cd { box-shadow: var(--shadow); }
+@media (max-aspect-ratio: 1/1) {
+  .tt-screen .tt-hb { grid-template-columns: minmax(0, 1fr); }
+  .tt-screen .tt-hb > .ui-host { display: none; }
+  .tt-screen .tt-hb > .hb-main { grid-column: 1; }
+}
+
+@media (max-aspect-ratio: 1/1) {
+  .ma-bounty-screen .bn-hb { grid-template-columns: minmax(0, 1fr); }
+  .ma-bounty-screen .bn-hb > .ui-host { display: none; }
+  .ma-bounty-screen .bn-hb > .hb-main { grid-column: 1; }
+}
+
+/* ==========================================================================================================
+   M5c: the list screens (§5.10 E1, E2, E3, E6, E9; listScreen.js): the Mailroom, the Mall, Happening Now and Settings.
+   The section rail on the left (kit.js sideRail, --ls-rail-w), the list in one glass panel under its ink plate header,
+   the host on the right (E1 'list': --host-list-w, 26% on phones and 30% on desktop) bleeding off the right edge, her
+   bubble over her lower third inside her own column. By the collapse rule she is a chip in the plate header and the
+   list takes her column (hubHost.js placeHost: .ls.no-host). Each screen's rules are scoped under its own class.
+   ========================================================================================================== */
+
+/* ---------- The frame ---------- */
+.ls-screen { --ls-rail-w: 168px; }
+@media (max-height: 480px) { .ls-screen { --ls-rail-w: 128px; } }
+.ls-screen .screen-body { position: relative; z-index: 1; display: flex; flex-direction: column; padding-top: 8px; padding-bottom: 0; overflow: hidden; }
+.ls-screen .topbar { position: relative; z-index: 5; }
+.ls-screen > .hub-bg { z-index: 0; }
+.ls {
+  position: relative; flex: 1; min-height: 0; width: 100%; max-width: 1600px; margin: 0 auto;
+  display: grid; grid-template-rows: minmax(0, 1fr); gap: 0 12px;
+  grid-template-columns: var(--ls-rail-w) minmax(0, 1fr) calc(var(--host-list-w) - var(--gutter) - var(--safe-right));
+}
+.ls.no-host { grid-template-columns: var(--ls-rail-w) minmax(0, 1fr); }
+.ls > .ls-rail {
+  grid-column: 1; grid-row: 1; align-self: start; width: 100%; min-width: 0; max-width: none; max-height: 100%;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 2px 8px 8px 4px;
+}
+.ls > .ls-rail::-webkit-scrollbar { display: none; }
+.ls-rail > .ui-stab { flex: none; }
+.ls > .ls-panel {
+  position: relative; z-index: 1; grid-column: 2; grid-row: 1; min-width: 0; min-height: 0; margin-bottom: 8px;
+  display: flex; flex-direction: column; overflow: hidden;
+  border-radius: var(--radius); background: rgba(255, 255, 255, 0.9); box-shadow: var(--shadow);
+}
+.ls > .ls-panel.bare { margin-bottom: 0; overflow: visible; border-radius: 0; background: none; box-shadow: none; }
+.ls-panel > .ui-plate-head { position: relative; z-index: 2; flex: none; min-height: 48px; padding-right: var(--sp-3); }
+.ls-panel > .ui-plate-head .ui-plate-right { flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; }
+.ls-panel > .ui-plate-head .ui-cd { box-shadow: 0 0 0 1px var(--plate-line); }
+.ls-panel > .ui-plate-head .btn { min-height: var(--tap-dense); }
+.ls-panel > .ui-plate-head .btn > .ui-kbd { margin-left: 8px; }
+.ls-panel > .ui-plate-head .ui-ibtn { width: var(--tap-dense); height: var(--tap-dense); background: rgba(255, 255, 255, 0.12); color: var(--on-plate); box-shadow: none; }
+.ls-list { position: relative; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+.ls-panel.bare > .ls-list { padding: 0 4px 12px 0; }
+/* her stand: the right column, bleeding off the right edge and down to the bottom */
+.ls > .ui-host[data-mode="stand"] { position: absolute; right: calc(-1 * (var(--gutter) + var(--safe-right))); top: -8px; bottom: 0; height: auto; z-index: 0; }
+@media (max-width: 560px) {
+  /* narrow portrait screens: the rail keeps its icons (each tab's word is in its aria-label) */
+  .ls-screen { --ls-rail-w: 60px; }
+  .ls-rail .ui-stab-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  /* the plate header: the title keeps its words; the right side (Claim all, a chip) wraps under it, to the right
+     (the list screens, and the Multiplayer hub's Co-op card) */
+  .ls-panel > .ui-plate-head, .mp-coop > .ui-plate-head { flex-wrap: wrap; row-gap: 6px; padding-top: 6px; padding-bottom: 6px; }
+  .ls-panel > .ui-plate-head > .ui-plate-title, .mp-coop > .ui-plate-head > .ui-plate-title { flex: 1 0 auto; max-width: 100%; }
+  .ls-panel > .ui-plate-head > .ui-plate-right, .mp-coop > .ui-plate-head > .ui-plate-right { margin-left: auto; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .ls { grid-template-columns: var(--ls-rail-w) minmax(0, 1fr); }
+  .ls > .ui-host { display: none; }
+}
+
+/* ---------- The Mailroom (#/mail): Hotaru, the post-room tint, Unclaimed · History ---------- */
+.mbx-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.mbx-screen .mbx-letter {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: start;
+  padding: 10px 12px; border: 0; border-radius: 10px; background: #fff;
+  box-shadow: inset 0 0 0 1px var(--line), 0 2px 6px rgba(29, 78, 137, 0.08);
+}
+.mbx-screen .mbx-letter.k-gift { box-shadow: inset 0 0 0 2px #ffd1e4, 0 3px 10px rgba(29, 78, 137, 0.12); }
+.mbx-crest {
+  width: 44px; height: 44px; flex: none; display: grid; place-items: center; overflow: hidden;
+  border-radius: 50%; background: var(--plate); color: var(--pink); box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(14, 25, 48, 0.2);
+}
+.mbx-crest-ico { width: 24px; height: 24px; }
+.mbx-crest.girl { background: #fff; }
+.mbx-crest-art { display: block; width: 100%; height: 100%; line-height: 0; }
+.mbx-crest-art > .pt-img, .mbx-crest-art > img, .mbx-crest-art > svg { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; }
+.mbx-letter-main { min-width: 0; }
+/* the title and the first line: one 40 px tap that reads the letter */
+.mbx-read {
+  display: block; width: 100%; min-height: var(--tap-dense); margin: 0 0 6px; padding: 0; border: 0; background: none;
+  color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.mbx-title { display: block; font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--navy); }
+/* the letter's first line; a tap reads it all (no "…": the line fades out instead, P6) */
+.mbx-screen .mbx-letter-body {
+  display: block; margin: 2px 0 0; font: 500 var(--fs-body)/var(--lh-body) var(--font); color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: clip;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent);
+}
+.mbx-screen .mbx-letter-body.open { white-space: normal; overflow: visible; -webkit-mask-image: none; mask-image: none; }
+.mbx-from { display: block; margin: 4px 0 0; font: 700 var(--fs-label)/1.2 var(--font); color: var(--muted); }
+.mbx-from[hidden] { display: none; }
+.mbx-screen .mbx-rewards { gap: 8px; }
+.mbx-screen .mbx-rewards .item-tile { width: 48px !important; }
+/* (the gifts on M3's item tile, untouched: only its width. 62 px wherever the text floor is 13 px, so its count reads
+   at M3's 13 px; 52 px on landscape phones, floor 12. The bundle's small icons keep their size) */
+.mbx-screen .mbx-rewards > .item-tile { width: 62px !important; }
+.mbx-screen .mbx-bundle { min-height: 48px; max-width: 100%; padding: 4px 12px 4px 6px; }
+.mbx-screen .mbx-bundle > span { min-width: 0; }
+.mbx-screen .mbx-bundle b { font-size: var(--fs-label); }
+.mbx-screen .mbx-bundle small { font-size: var(--fs-label); font-weight: 700; color: var(--muted); }
+.mbx-letter-side { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); min-width: 84px; }
+.mbx-tag { padding-top: 6px; font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.mbx-tag.claimed { color: var(--good-text); }
+.mbx-letter.k-claimed .mbx-rewards, .mbx-letter.k-expired .mbx-rewards { filter: saturate(0.35); }
+.mbx-screen .mbx-all { gap: 6px; }
+.mbx-screen .mbx-all > .btn-icon { width: 20px; height: 20px; }
+/* the designed empty state: a crest, one line, the one action that helps */
+.mbx-screen .mbx-empty { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: var(--sp-5) var(--sp-3); text-align: center; color: var(--ink); }
+.mbx-empty-crest { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; background: var(--plate); color: var(--pink); box-shadow: 0 0 0 3px #fff, var(--shadow); }
+.mbx-screen .mbx-empty-ico { width: 32px; height: 32px; color: var(--pink); }
+.mbx-empty-title { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--navy); }
+.mbx-empty-line { margin: 0; font: 500 var(--fs-body)/var(--lh-body) var(--font); color: var(--muted); }
+@media (max-height: 480px) {
+  .mbx-screen .mbx-letter { grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; padding: 8px 10px; }
+  .mbx-crest { width: 40px; height: 40px; }
+  .mbx-screen .mbx-rewards .item-tile { width: 46px !important; }
+  .mbx-screen .mbx-rewards > .item-tile { width: 52px !important; }
+}
+/* a narrow phone held upright: the crest and the title on top (the title wraps beside the crest, never under a
+   button), the gifts under the title, then the expiry chip and Claim on their own line, to the right. The bundle's
+   words wrap under its icons */
+@media (max-width: 480px) {
+  .mbx-screen .mbx-letter {
+    grid-template-columns: 40px minmax(0, 1fr); grid-template-areas: 'crest read' '. gifts' 'side side';
+    gap: 6px 8px; padding: 8px 10px;
+  }
+  .mbx-crest { grid-area: crest; width: 40px; height: 40px; }
+  .mbx-screen .mbx-letter-main { display: contents; }
+  .mbx-screen .mbx-read { grid-area: read; min-width: 0; margin: 0; }
+  .mbx-screen .mbx-title { overflow-wrap: break-word; }
+  .mbx-screen .mbx-letter-main > .mbx-rewards { grid-area: gifts; min-width: 0; }
+  .mbx-screen .mbx-bundle { flex-wrap: wrap; row-gap: 4px; }
+  .mbx-screen .mbx-bundle > span { margin-left: 4px; }
+  .mbx-letter-side { grid-area: side; flex-direction: row; align-items: center; justify-content: flex-end; min-width: 0; }
+  .mbx-tag { padding-top: 0; }
+}
+
+/* ---------- The Mall: Midori, the shop-counter tint, six shops in the rail, every buy a cost button ---------- */
+.ma-mall-screen .ma-mall-content { min-width: 0; }
+.ma-mall-screen .ma-offers { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: var(--sp-2); }
+.ma-mall-screen .ma-offer { padding: 10px 8px 8px; gap: 4px; }
+.ma-mall-screen .ma-offer-name { font-size: var(--fs-body); }
+.ma-mall-screen .ma-offer-stock { min-height: 1.2em; font-size: var(--fs-label); font-weight: 700; }
+.ma-mall-screen .ma-offer-need { font-size: var(--fs-label); }
+/* sold out: the card stays readable (never opacity, §5.5); only its art greys */
+.ma-mall-screen .ma-offer.sold { filter: none; opacity: 1; }
+.ma-mall-screen .ma-offer.sold .ma-offer-art { filter: grayscale(0.85); opacity: 0.55; }
+/* the ribbon reads as a sticker: navy letters on sakura pink */
+.ma-mall-screen .ma-offer-ribbon { background: var(--pink); color: var(--plate); font-size: var(--fs-label); }
+/* the cost button (§5.5): the whole card width, the currency and the exact price in the plate accent */
+.ma-mall-screen .ma-cost { width: 100%; margin-top: 2px; }
+.ma-cost .ma-cost-icon { width: var(--icon-s); height: var(--icon-s); display: inline-flex; flex: none; }
+.ma-cost .ma-cost-lock { width: 14px; height: 14px; color: var(--on-plate-dim); }
+.ma-cost.poor .num { color: var(--on-plate-dim); }
+.ma-cost:disabled .ui-cost-lbl { color: var(--on-plate-dim); }
+/* the "choose family" chips: a 40 px tap each (the icon stays small) */
+.ma-mall-screen .ma-fam-chips { gap: 4px; }
+.ma-mall-screen .ma-fam-chip { position: relative; width: 28px; height: 28px; }
+.ma-mall-screen .ma-fam-chip::before { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); }
+.ma-mall-screen .ma-shelf-title { justify-content: flex-start; flex-wrap: wrap; font-size: var(--fs-body); }
+.ma-mall-screen .ma-shelf-title > .ui-cd { margin-left: auto; }
+/* the token wallet, once: one ink chip in the plate header; a tap goes where the tokens are earned */
+.ma-wallet {
+  display: inline-flex; align-items: center; gap: 10px; min-height: var(--tap-dense); padding: 0 12px;
+  border: 1px solid var(--plate-line); border-radius: calc(var(--tap-dense) / 2); background: rgba(255, 255, 255, 0.08); color: var(--on-plate); cursor: pointer;
+}
+.ma-wallet-one { display: inline-flex; align-items: center; gap: 4px; }
+.ma-wallet-icon { width: 22px; height: 22px; display: inline-flex; }
+.ma-wallet-val { font-size: var(--fs-num-s); color: var(--on-plate); }
+.ma-mall-screen .ma-empty-state p { font-size: var(--fs-body); }
+
+/* ---------- Happening Now (#/rewards): Suzu, In Progress · Coming Up · Free pulls ---------- */
+.hn-rows { display: flex; flex-direction: column; gap: var(--sp-2); }
+.hn-row {
+  display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  min-height: 64px; padding: 8px 10px; border-radius: 10px; background: #fff;
+  box-shadow: inset 0 0 0 1px var(--line), 0 2px 6px rgba(29, 78, 137, 0.08);
+}
+.hn-ico {
+  width: 48px; height: 48px; display: grid; place-items: center; overflow: hidden; flex: none;
+  border-radius: 8px; background: var(--plate); color: var(--on-plate); box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(14, 25, 48, 0.18);
+}
+.hn-ico.art { background: var(--sky-2); }
+.hn-ico.art > img { width: 100%; height: 100%; object-fit: cover; }
+.hn-ico-glyph { width: 24px; height: 24px; display: inline-flex; }
+.hn-ico-item { width: 36px; height: 36px; display: inline-flex; }
+.hn-text { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.hn-title-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.hn-title { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--navy); }
+.hn-line-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.hn-line { font: 500 var(--fs-body)/1.25 var(--font); color: var(--ink); }
+.hn-lock { display: inline-flex; align-items: center; gap: 4px; font: 700 var(--fs-label)/1.2 var(--font); color: var(--muted); }
+.hn-lock-ico { width: 14px; height: 14px; }
+.hn-row.locked .hn-ico { filter: grayscale(0.7); }
+/* the off-season band (E9) opens In Progress when nothing limited is running */
+.hn-screen .ui-offseason { min-height: 132px; margin-bottom: var(--sp-2); border-radius: 10px; }
+.hn-screen .ui-offseason-band { flex-wrap: wrap; }
+.hn-screen .ui-offseason-text { text-align: center; }
+.hn-screen .ui-offseason-band .btn.ui-sec { min-height: var(--tap-dense); }
+/* Free pulls: three numbers + MORE, then the recurring sources as bars */
+.hn-free { display: flex; flex-direction: column; gap: var(--sp-3); }
+.hn-chart .hn-row { min-height: 56px; }
+.hn-src-name { font: 700 var(--fs-body)/1.2 var(--font); color: var(--ink); }
+.hn-bar { position: relative; height: 10px; border-radius: 5px; background: var(--sky-1); overflow: hidden; }
+.hn-bar > i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, var(--sky-3), var(--blue)); }
+.hn-src-n { min-width: 44px; text-align: right; font-size: var(--fs-num-s); color: var(--navy); }
+.hn-sheet { display: flex; flex-direction: column; gap: var(--sp-2); font: 500 var(--fs-body)/var(--lh-body) var(--font); color: var(--ink); }
+.hn-sheet p, .hn-sheet h4 { margin: 0; }
+.hn-sheet h4 { margin-top: var(--sp-2); font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--navy); }
+.hn-sheet .ma-table { width: 100%; font-size: var(--fs-body); }
+.hn-sheet .ma-table th { font-size: var(--fs-label); }
+.hn-sheet .ma-table .muted { font-size: var(--fs-label); }
+.hn-you { margin: 0; padding-left: 1.2em; }
+@media (max-height: 480px) {
+  .hn-row { grid-template-columns: 44px minmax(0, 1fr) auto; min-height: 56px; padding: 6px 8px; }
+  .hn-ico { width: 44px; height: 44px; }
+}
+/* portrait: the strip's cells a little narrower in their padding, so "RECRUITS" stays inside its cell */
+@media (max-width: 480px) {
+  .hn-free .ui-strip > .ui-cell { padding: 0 var(--sp-2); }
+}
+
+/* ---------- Settings: five sections in the rail over one scrolling column (no host); descriptions behind "i" ---------- */
+.st-screen .ls-panel.bare > .ls-list { scroll-padding-top: 0; }
+.st-screen .ma-settings { max-width: 860px; margin: 0; }
+.st-group { display: flex; flex-direction: column; gap: 0; padding-bottom: var(--sp-3); }
+.st-group > .ui-plate-head { min-height: 44px; margin-bottom: var(--sp-2); border-radius: var(--radius-plate); }
+.st-group > .panel { margin-bottom: var(--sp-2); }
+.st-group > .panel > .panel-title.st-same { display: none; }
+.st-group > .ma-version { font-size: var(--fs-label); }
+/* "i": the row's description opens under its label (P1); a reason or a live status line stays in view */
+.st-i { position: relative; width: 28px; height: 28px; min-width: 0; margin: -4px 0 -4px 6px; vertical-align: middle; background: var(--sky-1); color: var(--blue-text); box-shadow: none; }
+.st-i::before { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
+.st-i > .ui-ico { width: 16px; height: 16px; }
+.st-screen .st-has-i:not(.st-open) .st-desc { display: none; }
+/* a control that turned off later (Fullscreen where the browser has none): its reason shows, the "i" goes */
+.st-screen .st-has-i:has(:disabled) .st-desc { display: block; }
+.st-screen .st-has-i:has(:disabled) .st-i { display: none; }
+.st-screen .ma-set-desc { font-size: var(--fs-label); }
+/* every control a 40 px tap at least (§5.5 dense rows) */
+.st-screen .ma-seg-btn, .st-screen .ol-seg-btn { min-height: var(--tap-dense); }
+.st-screen .btn-small { min-height: var(--tap-dense); }
+.st-screen .ma-toggle::before { content: ''; position: absolute; left: 50%; top: 50%; width: 56px; height: 44px; transform: translate(-50%, -50%); }
+.st-screen .ma-slider { height: 40px; background-size: 100% 8px; background-repeat: no-repeat; background-position: center; background-color: transparent; }
+.st-screen .ma-slider-val { font-size: var(--fs-body); }
+/* (online.css's status pill reads at the floor here) */
+.st-screen .ol-pill { font-size: var(--fs-label); }
+
+/* ---------- Recruit: the admissions-hall tint behind; the pity said once; every rule at the floor ---------- */
+.ma-recruit-screen > .hub-bg { z-index: 0; }
+.ma-recruit-screen .topbar { position: relative; z-index: 5; }
+.ma-recruit-screen .screen-body { position: relative; z-index: 1; }
+.ma-banner-kicker-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.ma-banner-kicker-row > .ui-cd { box-shadow: 0 0 0 1.5px #fff; }
+.ma-recruit-screen .ma-banner-kicker { font-size: var(--fs-label); }
+.ma-recruit-screen .ma-banner-desc { font-size: var(--fs-label); }
+.ma-recruit-screen .ma-pity-head .ma-sub, .ma-recruit-screen .ma-pity-head .muted { font-size: var(--fs-label); }
+.ma-recruit-screen .ma-spark-row, .ma-recruit-screen .ma-spark-row .muted { font-size: var(--fs-label); }
+.ma-recruit-screen .ma-recruit .btn-small { min-height: var(--tap-dense); }
+.ma-recruit-screen .ma-pull-note { font-size: var(--fs-label); opacity: 1; }
+.ma-recruit-screen .ma-ticket-pill.zero { opacity: 1; filter: saturate(0.3); }
+.ma-history-total { margin: 0 0 var(--sp-2); font-size: var(--fs-label); }
+
+/* ==========================================================================================================
+   M5d: the Multiplayer hub (owner #79, #108; notes/ui-m5/PLAN.md §5 M5d).
+   ========================================================================================================== */
+
+/* ---------- The Multiplayer hub (#/multiplayer): Momo hosts; the Co-op card under its plate header; four tiles ---------- */
+.mp-screen .mp-main { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; gap: var(--sp-2); }
+/* (the top bar's Messages count at the floor: base.css draws it) */
+.mp-screen .topbar .icon-btn-badge { font-size: var(--fs-label); min-width: 20px; height: 20px; }
+.mp-coop { flex: none; margin: 0; padding: 0 0 var(--sp-3); overflow: hidden; }
+.mp-coop > .ui-plate-head { min-height: 48px; padding-right: var(--sp-3); }
+.mp-coop > .ui-plate-head .btn { min-height: var(--tap-dense); }
+.mp-coop > .ui-plate-head .btn > .ui-kbd { margin-left: 8px; }
+/* the room Create room opens (the remembered stage): a tap opens #/coop to change it */
+.mp-room-chip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap-dense); padding: 0 12px;
+  border: 1px solid var(--plate-line); border-radius: calc(var(--tap-dense) / 2); background: rgba(255, 255, 255, 0.08); color: var(--on-plate);
+  font: 700 var(--fs-body)/1 var(--font-num); letter-spacing: 0.02em; white-space: nowrap; cursor: pointer;
+}
+.mp-room-chip .mp-room-ico { width: 16px; height: 16px; color: var(--on-plate-dim); }
+.mp-room-chip:active { transform: scale(0.96); }
+/* the invites, "Your last room", or one calm line */
+.mp-invites { display: flex; flex-direction: column; gap: 6px; padding: var(--sp-2) var(--sp-3) 0; }
+.mp-invites[hidden] { display: none; }
+.mp-invite {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 52px; padding: 6px 8px 6px 10px;
+  border-radius: 10px; background: #fff; box-shadow: inset 0 0 0 1px var(--line), 0 2px 6px rgba(29, 78, 137, 0.08);
+}
+.mp-inv-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mp-inv-name { font: italic 900 var(--fs-body)/1.1 var(--font-head); color: var(--navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-inv-line { font: 700 var(--fs-label)/1.2 var(--font); color: var(--muted); }
+.mp-last-ico { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--plate); color: var(--plate-accent); }
+.mp-last-ico .ui-ico { width: 16px; height: 16px; }
+.mp-note { margin: 0; padding: 4px 2px; font: 500 var(--fs-body)/var(--lh-body) var(--font); color: var(--muted); }
+/* "n more": the rows the card has no room for, in a sheet (an invite row that opens it; UI M5d review) */
+button.mp-more { width: 100%; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button.mp-more:active { transform: scale(0.98); }
+.mp-more-go { width: 34px; height: 34px; display: grid; place-items: center; color: var(--navy); }
+.mp-more-go .ui-ico { width: 18px; height: 18px; }
+.mp-sheet-rows { padding: 0; }
+/* Quick join (friends and clanmates only) · a room code + Join */
+.mp-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); padding: var(--sp-2) var(--sp-3) 0; }
+.mp-quick { display: flex; align-items: center; min-width: 0; }
+.mp-quick .ui-sec-why { white-space: normal; }
+.mp-code-row { display: flex; align-items: center; gap: var(--sp-2); margin-left: auto; }
+.mp-screen .mp-code { width: 9.5em; min-height: var(--tap-dense); padding: 4px 12px; font: 700 var(--fs-body)/1 var(--font-num); letter-spacing: 0.18em; text-transform: uppercase; }
+.mp-screen .mp-code::placeholder { letter-spacing: 0.12em; }
+/* the tiles: PvP (locked, Rival Run inside) · Friends · Titan Co-op (soon) · Clan Boss. They take the height the Co-op
+   card leaves (up to a cap), each with its scenery; the words sit on a white plate (never on the art, P6). The corner
+   icon stands in the tile's flow above the plate, so however short the tile, the plate never covers it: a tile is never
+   shorter than its icon and its words (UI M5d review). A locked tile has no corner icon: its one lock is its sticker's,
+   which a 124 px PvP tile has no room to hold beside a second (UI M5d review 2) */
+.mp-tiles { flex: 1 1 auto; max-height: 300px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2); padding-top: 10px; }
+.mp-tile {
+  position: relative; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; gap: var(--sp-1);
+  min-height: 96px; padding: var(--sp-2); overflow: visible;
+  border: 2px solid rgba(255, 255, 255, 0.9); border-radius: var(--radius); background: var(--sky-2); box-shadow: var(--shadow);
+  color: var(--ink); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform var(--t-press) var(--ease);
+}
+.mp-tile:active { transform: scale(0.97); }
+.mp-tile-art { position: absolute; inset: 0; overflow: hidden; border-radius: calc(var(--radius) - 2px); }
+.mp-tile-scene { position: absolute; inset: 0; line-height: 0; }
+.mp-tile-scene > svg { width: 100%; height: 100%; display: block; }
+.mp-tile-ico { position: relative; z-index: 1; flex: none; align-self: flex-end; margin-bottom: auto; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--plate); color: var(--on-plate); box-shadow: 0 0 0 2px #fff, 0 2px 0 rgba(14, 25, 48, 0.3); }
+.mp-tile-ico .ui-ico { width: 18px; height: 18px; }
+.mp-tile-text { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 5px; border-radius: 8px; background: rgba(255, 255, 255, 0.94); box-shadow: 0 3px 10px rgba(10, 30, 60, 0.25); }
+.mp-tile-title { font: italic 900 var(--fs-name)/1.1 var(--font-head); color: var(--navy); white-space: nowrap; }
+.mp-tile-line { font: 700 var(--fs-label)/1.2 var(--font); color: var(--ink); }
+.mp-tile > .mp-tile-count { position: absolute; top: -8px; left: 10px; z-index: 2; }
+.mp-tile > .mp-tile-cd { position: absolute; top: var(--sp-2); left: var(--sp-2); z-index: 1; }
+.mp-tiles > .ui-ltile { min-height: 96px; justify-content: flex-end; }
+.mp-tiles > .ui-ltile .ui-ltile-art::after { background: rgba(255, 255, 255, 0.78); }
+.mp-ltile .ui-ltile-title { white-space: nowrap; }
+/* the Rival Run sheet: one sentence, the rule chips, the rewards; nothing in it acts */
+.mp-rival { display: flex; flex-direction: column; gap: var(--sp-3); font: 500 var(--fs-body)/var(--lh-body) var(--font); color: var(--ink); }
+.mp-rival p { margin: 0; }
+.mp-rival-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.mp-rival-chip { display: inline-flex; align-items: center; height: var(--chip-h); padding: 0 12px; border-radius: calc(var(--chip-h) / 2); background: var(--plate); color: var(--on-plate); font: 700 var(--fs-body)/1 var(--font-num); letter-spacing: 0.02em; white-space: nowrap; }
+.mp-rival-rewards { font-weight: 700; }
+.mp-rival-sheet .ui-head > .ui-bdg.soon { margin-right: auto; margin-left: var(--sp-2); }
+@media (max-height: 480px) {
+  .mp-screen .mp-main { gap: 0; }
+  .mp-invite { min-height: 48px; padding-top: 4px; padding-bottom: 4px; }
+  .mp-tiles { padding-top: 8px; }
+  .mp-tile { min-height: 84px; padding: 6px; }
+  .mp-tiles > .ui-ltile { min-height: 84px; padding: 10px; }
+  .mp-tile-text { padding: 3px 8px 4px; }
+  .mp-tile-title, .mp-ltile .ui-ltile-title { font-size: var(--fs-body); }
+}
+/* the shortest phones (740x360, 667x375): the card a little tighter, so two rows and the tiles fit (UI M5d review) */
+@media (max-height: 380px) {
+  .mp-coop { padding-bottom: var(--sp-2); }
+  .mp-coop > .ui-plate-head { min-height: 44px; }
+  .mp-invites, .mp-actions { padding-top: 6px; }
+  .mp-invite { min-height: 44px; padding-top: 2px; padding-bottom: 2px; }
+  .mp-tiles { padding-top: 6px; }
+}
+@media (min-width: 1000px) and (min-height: 600px) {
+  .mp-tile, .mp-tiles > .ui-ltile { min-height: 140px; }
+  .mp-tile-ico { width: 40px; height: 40px; }
+  .mp-tile-ico .ui-ico { width: 22px; height: 22px; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .mp-hb { grid-template-columns: minmax(0, 1fr); }
+  .mp-hb > .ui-host { display: none; }
+  .mp-hb > .hb-main { grid-column: 1; }
+  .mp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mp-code-row { margin-left: 0; }
+}
+
+/* ---------- Students (#/students; UI M5d): every label at the floor; one fact per slot (the role's name went, its icon
+   says it); at most two numbers on a card (its level, a Potential pill) ---------- */
+.mb-students-screen .mb-filter-label { font-size: var(--fs-label); width: 56px; }
+.mb-students-screen .mb-filter-count { font-size: var(--fs-label); min-width: 20px; height: 20px; }
+.mb-students-screen .mb-summary .muted { font-size: inherit; }
+.mb-students-screen .mb-card-hero { font-size: var(--fs-label); line-height: 1.2; padding: 1px 6px; }
+.mb-students-screen .mb-tall .unit-card-stars { font-size: var(--fs-label); letter-spacing: -1px; }
+.mb-students-screen .mb-card-how { font-size: var(--fs-label); line-height: 1.15; }
+:is(.mb-students-screen, .mb-formation-screen) .unit-card-level { font-size: max(0.8rem, var(--fs-label)); }
+:is(.mb-students-screen, .mb-formation-screen) .unit-card-pot .pot-pill.compact { height: 16px; min-width: 20px; padding: 0 4px; font-size: var(--fs-label); }
+:is(.mb-students-screen, .mb-formation-screen) .unit-card-ur .ur-badge { font-size: max(0.8rem, var(--fs-label)); }
+
+/* ---------- Formation (#/formation; UI M5d): every label at the floor; a squad girl's slot says one fact per place: her
+   name on the bar, her level in its own ink pill above it (right), her counters top-left, the remove × top-right, her
+   outfit above the bar (left) ---------- */
+.mb-formation-screen .mb-slot-label { font-size: var(--fs-label); }
+.mb-formation-screen .mb-fslot-name { font-size: var(--fs-label); padding: 12px 5px 3px; }
+.mb-formation-screen .mb-fslot-lv {
+  position: absolute; right: 3px; bottom: 22px; z-index: 2;
+  display: inline-flex; align-items: baseline; gap: 2px; height: 18px; padding: 0 6px; border-radius: 9px;
+  background: var(--plate-glass); color: var(--on-plate); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+  font: 700 var(--fs-label)/18px var(--font-num); white-space: nowrap;
+}
+.mb-formation-screen .mb-fslot-lv > small { font-size: var(--fs-label); color: var(--on-plate-dim); }
+.mb-formation-screen .mb-fslot-outfit { left: 3px; right: auto; bottom: 22px; }
+.mb-formation-screen .mb-fslot-pot .pot-pill.compact { height: 16px; min-width: 20px; padding: 0 4px; font-size: var(--fs-label); }
+.mb-formation-screen .mb-fslot-ur .ur-badge { font-size: var(--fs-label); }
+.mb-formation-screen .mb-fslot-x { font-size: var(--fs-label); }
+.mb-formation-screen .mb-pick-cost { font-size: var(--fs-label); }
+.mb-formation-screen .mb-squad-foot .muted { font-size: var(--fs-label); }
+@media (min-width: 1000px) and (min-height: 600px) {
+  .mb-formation-screen .mb-fslot-lv { height: 20px; line-height: 20px; bottom: 26px; }
+}
+/* (Students and Formation: the 13 px desktop floor; the segment, sort and squad buttons a 40 px tap) */
+:is(.mb-students-screen, .mb-formation-screen) .unit-card-stars { font-size: max(0.75rem, var(--fs-label)); }
+.mb-formation-screen .mb-rec-status { font-size: max(0.75rem, var(--fs-label)); }
+:is(.mb-students-screen, .mb-formation-screen) .mb-seg-btn { min-height: var(--tap-dense); }
+.mb-students-screen .mb-select select { min-height: var(--tap-dense); }
+.mb-formation-screen .mb-actions .btn-small { min-height: var(--tap-dense); }
+
+/* (Missions: the Multiplayer tile (hub-coop) breaks its title at its soft hyphen on a narrow tile, never cut) */
+.ma-hub-screen .ma-hub-coop .ma-hub-title { white-space: normal; overflow-wrap: normal; hyphens: manual; }

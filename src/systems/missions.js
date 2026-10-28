@@ -277,15 +277,18 @@ export function claimAchievement(profile, id, { v2 = ACH_V2_LIVE } = {}) {
 
 /**
  * Claim every claimable achievement in one tap, in category order then list order, repeating until nothing new is
- * claimable (so Achiever and Hall of Fame count the claims made by the same tap).
+ * claimable (so Achiever and Hall of Fame count the claims made by the same tap). `cat`: only that category (the tab's
+ * Claim all claims what the picked category shows; null or 'all': everything).
  * @returns {{ ok: boolean, ids: string[], rewards: object[], honors: string[], titles: string[], skipped: string[] }}
  *   honors / titles: ids of the rows claimed that grant a ribbon / a title; skipped: met but gate-locked
  */
-export function claimAllAchievements(profile, { v2 = ACH_V2_LIVE } = {}) {
+export function claimAllAchievements(profile, { v2 = ACH_V2_LIVE, cat = null } = {}) {
   const ids = [];
   const all = [];
   const catRank = Object.fromEntries(ACHIEVEMENT_CATEGORIES.map((c, i) => [c.id, i]));
-  const order = ACHIEVEMENTS.map((a, i) => [a, i]).sort(([x, i], [y, j]) => (catRank[x.cat] ?? 99) - (catRank[y.cat] ?? 99) || i - j).map(([a]) => a);
+  const only = cat && cat !== 'all' ? cat : null;
+  const order = ACHIEVEMENTS.filter((a) => !only || a.cat === only)
+    .map((a, i) => [a, i]).sort(([x, i], [y, j]) => (catRank[x.cat] ?? 99) - (catRank[y.cat] ?? 99) || i - j).map(([a]) => a);
   for (let pass = 0; pass < 10; pass++) {
     let any = false;
     const list = achievementList(profile, { v2 });
@@ -322,9 +325,9 @@ export function achievementsReady(prevReadyIds, nextReadyIds) {
  * How many achievements Claim all would claim right now: its repeated passes run on a copy of the save, so an
  * Achiever row that the same tap completes is counted too (the button's number = the modal's "N claimed").
  */
-export function claimAllCount(profile, { v2 = ACH_V2_LIVE } = {}) {
-  if (!achievementList(profile, { v2 }).some((x) => x.claimable)) return 0;
-  return claimAllAchievements(JSON.parse(JSON.stringify(profile)), { v2 }).ids.length;
+export function claimAllCount(profile, { v2 = ACH_V2_LIVE, cat = null } = {}) {
+  if (!achievementList(profile, { v2 }).some((x) => x.claimable && (!cat || cat === 'all' || x.cat === cat))) return 0;
+  return claimAllAchievements(JSON.parse(JSON.stringify(profile)), { v2, cat }).ids.length;
 }
 
 /** Ids claimable right now (gate-locked rows excluded). */
@@ -434,7 +437,7 @@ export function currentEvent(now = new Date()) {
 }
 
 // ---------------------------------------------------------------------------
-// F2P income overview (Honkai Star Rail style version chart)
+// F2P income overview (a version-by-version reward chart)
 // ---------------------------------------------------------------------------
 
 const sumId = (rewards, id) => rewards.reduce((a, r) => a + (r.id === id ? r.count : 0), 0);
@@ -472,14 +475,18 @@ export function f2pIncomeSummary() {
   const campaign = STAGES.filter((s) => s.kind === 'campaign');
   const others = STAGES.filter((s) => s.kind === 'resource' || s.kind === 'boss');
   const diffGems = DIFFICULTY_ORDER.reduce((a, d) => a + DIFFICULTIES[d].firstClearGems, 0);
+  // (the medal gems of each stage: × its medalGemMul, as src/systems/rewards.js medalGems pays them; Act II is 0.5)
+  const stageMedalGems = (s) => DIFFICULTY_ORDER.reduce((a, d) => a + Math.round(DIFFICULTIES[d].firstClearGems * (s.medalGemMul ?? 1)), 0);
+  const campaignMedalGems = campaign.reduce((a, s) => a + stageMedalGems(s), 0);
+  const halfMedal = campaign.filter((s) => (s.medalGemMul ?? 1) !== 1);
   const firstClear = (list) => list.flatMap((s) => s.firstClear || []);
   const liveAchievements = ACHIEVEMENTS.filter((a) => achievementLive(a));
   const achievementRewards = liveAchievements.flatMap((a) => a.rewards);
   const codeRewards = Object.values(REDEEM_CODES).filter((c) => !c.dev).flatMap((c) => c.rewards);
   const oneTime = [
     row('Starter gift', 2400, 10, '2,400 gems + one 10× ticket on a new account', 'oneTime'),
-    row('Campaign medals (all difficulties)', campaign.length * diffGems, 0, `${diffGems} gems per stage (Easy ${DIFFICULTIES.easy.firstClearGems} / Normal ${DIFFICULTIES.normal.firstClearGems} / Hard ${DIFFICULTIES.hard.firstClearGems} / Nightmare ${DIFFICULTIES.nightmare.firstClearGems}) × ${campaign.length}`, 'oneTime'),
-    row('Chapter finales', sumId(firstClear(campaign), 'gems'), ticketPulls(firstClear(campaign)), 'First clear of each x-5 stage', 'oneTime'),
+    row('Campaign medals (all difficulties)', campaignMedalGems, 0, `${diffGems} gems per stage (Easy ${DIFFICULTIES.easy.firstClearGems} / Normal ${DIFFICULTIES.normal.firstClearGems} / Hard ${DIFFICULTIES.hard.firstClearGems} / Nightmare ${DIFFICULTIES.nightmare.firstClearGems}) × ${halfMedal.length ? `${campaign.length - halfMedal.length} + half on ${halfMedal.length} Act II stages` : campaign.length}`, 'oneTime'),
+    row('Chapter finales', sumId(firstClear(campaign), 'gems'), ticketPulls(firstClear(campaign)), campaign.some((s) => s.act === 2) ? 'First clear of each x-5 and x-10 stage' : 'First clear of each x-5 stage', 'oneTime'),
     row('Bounty & Total Assault', sumId(firstClear(others), 'gems') + others.length * diffGems, ticketPulls(firstClear(others)), 'First clears + medals', 'oneTime'),
     row('Achievements', sumId(achievementRewards, 'gems'), ticketPulls(achievementRewards), `${liveAchievements.length} achievements`, 'oneTime'),
     row('Redemption codes', sumId(codeRewards, 'gems'), ticketPulls(codeRewards), 'SAKURA2026 · WELCOME · TACOTUESDAY', 'oneTime'),

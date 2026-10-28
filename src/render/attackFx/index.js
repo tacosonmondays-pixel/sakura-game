@@ -292,7 +292,21 @@ export function createAttackFx(o) {
           rec.idx = tw.volleyIdx % tw.volleyN;
           rec.n = tw.volleyN;
           tw.volleyIdx++;
-          if (tw.style.origin) rec.blended = !!tw.style.origin(p, view(t), rec.idx, rec.n, rec, ctx);
+          if (tw.style.origin) {
+            ctx.inOrigin = true;
+            try {
+              rec.blended = !!tw.style.origin(p, view(t), rec.idx, rec.n, rec, ctx);
+            } finally {
+              ctx.inOrigin = false;
+            }
+          }
+          // a girl on a rooftop (Gate Arc 'U'): the shot leaves from her lifted height and blends
+          // down to the sim's own height by f' = 0.6 (display only; the sim's z is untouched)
+          const lift = ctx.lift(t);
+          if (lift) {
+            rec.mz += lift;
+            rec.blended = true;
+          }
         }
         tw.style.onSpawn?.(rec, view(p), view(t), ctx);
       }

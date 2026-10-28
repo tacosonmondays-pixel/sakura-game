@@ -1,26 +1,34 @@
 // Campaign map picker (owner: meta-a). Route: #/campaign?chapter=3
 // Chapter tabs grouped by map tier, a themed chapter banner and
 // stage cards with stageThumbSVG, a medals row in the corner, lock states with the
-// requirement, "New mechanic" badges and free-recruit badges, the map rule chip and ribbon counts.
+// requirement and free-recruit badges.
+// UI M5b (docs/specs/UI_DIRECTION.md §7 M5, P3): the tier names sit on plates (the tier's fill with navy letters,
+// like the banner's), and a stage card holds at most 2 numbers: its id, its name, its medals, its tier and what it
+// unlocks. The waves, the ribbon count, the map rule and the new mechanic leave the card: stage prep shows them all.
+// Gate Arc (docs/CAMPAIGN.md "Act II"): a chapter draws one row per act (src/ui/screens/campaignActs.js); a chapter
+// with Act I alone draws the plain grid with no header, exactly as before. A chapter whose Act II is open and
+// untouched wears a yellow dot on its tab (something new inside) and a NEW sticker on the act's header.
 import '../styles/meta-a.css';
+import '../styles/hubs.css';
 import { h, clear, screen, svgEl } from '../components.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { CHAPTERS, STAGE_MAP, CAMPAIGN_IDS } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
-import { stageCardRuleChip, stageCardRibbons, withRuleMarks } from './stageModes.js';
+import { withRuleMarks } from './stageModes.js';
 import { chapterRibbons } from '../../systems/unlocks.js';
-import { ENEMY_MAP } from '../../data/enemies.js';
 import { UNIT_MAP } from '../../data/units.js';
-import { MAP_TIERS, TRAITS, DIFFICULTY_ORDER } from '../../data/types.js';
+import { DIFFICULTY_ORDER, DIFFICULTIES } from '../../data/types.js';
+import { MAP_TIER_VIEW } from '../../data/mapTierNames.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
-import { uiIcon, medalIcon, traitIcon } from '../../art/icons.js';
+import { uiIcon, medalIcon } from '../../art/icons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isStageUnlocked, chapterProgress, nextStage, stageMedals } from '../../systems/unlocks.js';
 import { medalRow, requirementText, cssVar, rememberParams, savedBadge } from './stage.js';
+import { actRows, actRowHeader, chapterHasNewAct, actNewDot, echoGhost } from './campaignActs.js';
 
-const TIER_KEYS = Object.keys(MAP_TIERS);
+const TIER_KEYS = Object.keys(MAP_TIER_VIEW);
 
 export function render(root, params = {}) {
   const { el, body } = screen('Mission', { cls: 'ma-campaign-screen' });
@@ -48,20 +56,24 @@ export function render(root, params = {}) {
     for (const tier of TIER_KEYS) {
       const chapters = CHAPTERS.filter((c) => c.tier === tier);
       if (!chapters.length) continue;
-      const group = h('div.ma-tier-group', h('div.ma-tier-label', { style: { color: MAP_TIERS[tier].color } }, MAP_TIERS[tier].name));
+      // [ui-m5] the tier's name on its plate (the fill, navy letters: .ma-tier-badge)
+      const group = h('div.ma-tier-group', h('div.ma-tier-label', h('span.ma-tier-badge.ma-tier-plate', { style: { background: MAP_TIER_VIEW[tier].color } }, MAP_TIER_VIEW[tier].name)));
       const list = h('div.ma-tier-tabs');
       for (const c of chapters) {
         const prog = chapterProgress(profile, c.id);
         const locked = !isStageUnlocked(profile, c.stages[0]);
         const active = c.id === chapterId;
+        const newAct = !locked && chapterHasNewAct(profile, c);
         const tab = h(
-          `button.ma-chapter-tab${active ? '.active' : ''}${locked ? '.locked' : ''}`,
+          `button.ma-chapter-tab${active ? '.active' : ''}${locked ? '.locked' : ''}${newAct ? '.has-new-act' : ''}`,
           { role: 'tab', 'aria-selected': active ? 'true' : 'false', 'data-testid': `chapter-${c.id}`, onclick: () => select(c.id) },
+          newAct ? actNewDot({ testid: `chapter-new-act-${c.id}` }) : null,
           h('span.ma-ct-num', `${c.id}`),
-          h('span.ma-ct-text', h('span.ma-ct-name', c.name), h('span.ma-ct-prog', locked ? 'Locked' : `${prog.cleared}/${prog.total} cleared`)),
+          // [ui-m5] say it once (P7): a cleared chapter shows its medal, a started one "n/m", an untouched one "New"
+          h('span.ma-ct-text', h('span.ma-ct-name', c.name), h('span.ma-ct-prog', locked ? 'Locked' : prog.cleared === prog.total ? 'Cleared' : prog.cleared ? `${prog.cleared}/${prog.total} cleared` : 'New')),
           locked ? svgEl(uiIcon('lock'), 'ma-ct-lock') : prog.cleared === prog.total ? svgEl(medalIcon(bestChapterMedal(prog)), 'ma-ct-medal') : null,
         );
-        cssVar(tab, '--tier', MAP_TIERS[tier].color);
+        cssVar(tab, '--tier', MAP_TIER_VIEW[tier].color);
         list.appendChild(tab);
       }
       group.appendChild(list);
@@ -75,13 +87,20 @@ export function render(root, params = {}) {
     clear(content);
     const chapter = CHAPTERS.find((c) => c.id === chapterId);
     content.appendChild(chapterBanner(profile, chapter));
-    const grid = h('div.ma-stage-grid');
-    chapter.stages.forEach((id, i) => {
-      const card = stageCard(profile, id, { isNext: id === next });
-      card.style.animationDelay = `${i * 45}ms`;
-      grid.appendChild(card);
-    });
-    content.appendChild(grid);
+    const rows = actRows(profile, chapter);
+    let n = 0;
+    const grid = (ids) => {
+      const g = h('div.ma-stage-grid');
+      ids.forEach((id) => {
+        const card = stageCard(profile, id, { isNext: id === next });
+        card.style.animationDelay = `${n++ * 45}ms`;
+        g.appendChild(card);
+      });
+      return g;
+    };
+    // one act: the plain grid, no header (the screen as it always was); two: a header above each act's grid
+    if (rows.length <= 1) content.appendChild(grid(rows[0]?.ids || chapter.stages));
+    else for (const row of rows) content.appendChild(h(`section.ma-act-row.act-${row.act}`, { 'data-testid': `act-row-${chapter.id}-${row.act}` }, actRowHeader(row, chapter.id), grid(row.ids)));
   };
 
   drawTabs();
@@ -99,14 +118,15 @@ function campaignSummary(profile) {
   return h(
     'div.ma-campaign-summary',
     h('div.ma-cs-main', h('span.ma-cs-big', `${cleared}`), h('span.ma-cs-of', `/ ${CAMPAIGN_IDS.length} stages cleared`)),
-    h('div.ma-cs-medals', DIFFICULTY_ORDER.map((d) => h('span.ma-cs-medal', svgEl(medalIcon(d, { earned: counts[d] > 0 }), 'ma-cs-medal-icon'), `${counts[d]}`))),
+    // [ui-m5] a medal not earned yet shows no "0" (P7)
+    h('div.ma-cs-medals', DIFFICULTY_ORDER.map((d) => h('span.ma-cs-medal', svgEl(medalIcon(d, { earned: counts[d] > 0 }), 'ma-cs-medal-icon'), counts[d] ? `${counts[d]}` : null))),
   );
 }
 
 function chapterBanner(profile, chapter) {
   const prog = chapterProgress(profile, chapter.id);
   const locked = !isStageUnlocked(profile, chapter.stages[0]);
-  const tier = MAP_TIERS[chapter.tier];
+  const tier = MAP_TIER_VIEW[chapter.tier];
   const banner = h(
     `section.ma-chapter-banner${locked ? '.locked' : ''}`,
     h('div.ma-cb-art', { html: themeBackdropSVG(chapter.theme) }),
@@ -119,26 +139,14 @@ function chapterBanner(profile, chapter) {
     ),
     h('div.ma-cb-progress',
       h('div.ma-cb-count', h('b', `${prog.cleared}`), `/${prog.total}`),
-      h('div.ma-cb-medals', DIFFICULTY_ORDER.map((d) => h('span.ma-cb-medal', svgEl(medalIcon(d, { earned: prog.medals[d] > 0 }), 'ma-cb-medal-icon'), `${prog.medals[d]}`))),
-      h('span.ma-chapter-ribbons', { 'data-testid': `chapter-ribbons-${chapter.id}` }, (() => { const r = chapterRibbons(profile, chapter.id); return `Ribbons ${r.have}/${r.total}`; })()),
+      // [ui-m5] a panel holds ≤ 4 numbers (P3): the medals light up here, their counts are on the stage cards below
+      h('div.ma-cb-medals', DIFFICULTY_ORDER.map((d) => h('span.ma-cb-medal', { title: `${DIFFICULTIES[d].name}: ${prog.medals[d]}/${prog.total}` }, svgEl(medalIcon(d, { earned: prog.medals[d] > 0 }), 'ma-cb-medal-icon')))),
+      // (the ribbon count is progress: hidden at 0 on a Glance surface, P7)
+      (() => { const r = chapterRibbons(profile, chapter.id); return r.have ? h('span.ma-chapter-ribbons', { 'data-testid': `chapter-ribbons-${chapter.id}` }, `Ribbons ${r.have}/${r.total}`) : null; })(),
     ),
     locked ? h('div.ma-cb-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), requirementText(profile, chapter.stages[0])) : null,
   );
   return banner;
-}
-
-/** New-mechanic label for a stage: first new trait, else first new enemy. */
-function newMechanic(stage) {
-  const intro = stage.introduces || [];
-  const trait = intro.find((k) => TRAITS[k]);
-  if (trait) return { icon: traitIcon(trait), text: TRAITS[trait].name };
-  const enemy = intro.find((k) => ENEMY_MAP[k]);
-  if (enemy) {
-    const e = ENEMY_MAP[enemy];
-    const t = Object.keys(e.traits || {})[0];
-    return { icon: t && TRAITS[t] ? traitIcon(t) : null, text: e.name, enemy: true, boss: e.tier === 'boss' || e.tier === 'miniboss' };
-  }
-  return null;
 }
 
 function stageCard(profile, stageId, { isNext }) {
@@ -152,16 +160,17 @@ function stageCard(profile, stageId, { isNext }) {
   const unlocked = isStageUnlocked(profile, stageId);
   const medals = stageMedals(profile, stageId);
   const cleared = DIFFICULTY_ORDER.some((d) => medals[d]);
-  const mech = newMechanic(stage);
-  const tier = MAP_TIERS[stage.tier];
+  const tier = MAP_TIER_VIEW[stage.tier];
   const unlocks = (stage.unlocks?.units || []).filter((id) => UNIT_MAP[id]);
-  const isFinale = stage.id.endsWith('-5');
+  const isFinale = !!stage.finale;
 
   const card = h(
     `button.ma-stage-card${unlocked ? '' : '.locked'}${isNext ? '.next' : ''}${cleared ? '.cleared' : ''}${isFinale ? '.finale' : ''}`,
     { 'data-testid': `stage-${stageId}`, onclick: () => navigate('stage', { id: stageId }) },
     h('div.ma-sc-top',
       h('div.ma-sc-thumb', { html: map ? withRuleMarks(stageThumbSVG(map, { width: 320, height: 200 }), map, stage.rule, 320, 200) : '' }),
+      // an echo stage (Gate Arc 1-10): the stage it echoes shows through faintly
+      map?.echoOf ? echoGhost(map) : null,
       h('span.ma-sc-id', stage.id),
       isNext ? h('span.ma-sc-next', 'NEXT') : null,
       medalRow(profile, stageId, { size: 22, cls: 'ma-sc-medals' }),
@@ -169,17 +178,14 @@ function stageCard(profile, stageId, { isNext }) {
     ),
     h('div.ma-sc-info',
       h('div.ma-sc-name', stage.name),
+      // [ui-m5] the tier on its plate and the boss tag; the waves, ribbons, rule and new mechanic are stage prep's
       h('div.ma-sc-meta',
-        tier ? h('span.ma-sc-tier', { style: { color: tier.color } }, tier.name) : null,
-        h('span.muted', `${stage.waves} waves`),
+        tier ? h('span.ma-tier-badge.ma-sc-tier', { style: { background: tier.color } }, tier.name) : null,
         isFinale ? h('span.ma-sc-boss', 'BOSS') : null,
-        stageCardRibbons(profile, stage),
       ),
-      h('div.ma-sc-badges',
-        stageCardRuleChip(stage),
-        mech ? h(`span.ma-sc-mech${mech.boss ? '.boss' : ''}`, mech.icon ? svgEl(mech.icon, 'ma-trait') : null, h('span', mech.enemy ? `New: ${mech.text}` : `New mechanic: ${mech.text}`)) : null,
+      unlocks.length ? h('div.ma-sc-badges',
         unlocks.map((id) => h('span.ma-sc-unlock', { title: `${UNIT_MAP[id].name} joins on first clear` }, h('span.ma-sc-unlock-art', { html: portraitHTML(UNIT_MAP[id], 'thumb') }), `+${UNIT_MAP[id].name}`)),
-      ),
+      ) : null,
     ),
     unlocked ? null : h('div.ma-sc-lock', svgEl(uiIcon('lock'), 'ma-sc-lock-icon'), h('span', requirementText(profile, stageId))),
   );

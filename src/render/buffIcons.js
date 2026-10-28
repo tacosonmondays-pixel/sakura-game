@@ -242,8 +242,9 @@ export class BuffIcons {
       if (!t) continue;
       this.stats.pick++;
       const d = (t.radius || 0.42) * 2.6;
-      this.b.groundN.push(t.x, 0.085, t.y, d, d, this.R.ringThick, c.r, c.g, c.b, 0.55 + 0.4 * k, this.time);
-      gA.push(t.x, 0.086, t.y, d * (1 + 0.15 * k), d * (1 + 0.15 * k), this.R.ring, c.r, c.g, c.b, 0.6 * k, 0);
+      const lift = this.actors.towerView(uid)?.lift || 0; // a roof girl's ring sits on her roof
+      this.b.groundN.push(t.x, 0.085 + lift, t.y, d, d, this.R.ringThick, c.r, c.g, c.b, 0.55 + 0.4 * k, this.time);
+      gA.push(t.x, 0.086 + lift, t.y, d * (1 + 0.15 * k), d * (1 + 0.15 * k), this.R.ring, c.r, c.g, c.b, 0.6 * k, 0);
     }
   }
 }

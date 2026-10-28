@@ -213,16 +213,21 @@ const THEME_SKY = {
   sakura: ['#9fd8ff', '#ffe3ef'], lake: ['#5b7ccf', '#f6c6d8'], shrine: ['#ffcf9f', '#ffe9c7'], mountain: ['#7ec8ff', '#e6f6ff'],
   marsh: ['#7f9f8a', '#d9e8c7'], foundry: ['#6c7a89', '#d6c7a8'], festival: ['#2b2a5c', '#ff9eb5'], volcano: ['#3a1c2a', '#ff8a4d'],
   snow: ['#a9d6ff', '#f4fbff'], night: ['#0f1d3d', '#3d5a9a'], arena: ['#7cc4ff', '#ffe8b8'],
+  city: ['#8ec5ec', '#fde9d6'],
+  campus: ['#16244a', '#3f5d96'],
 };
 
-/** Banner scene for a chapter / map theme (2.75:1). */
-export function themeBackdropSVG(theme) {
+/**
+ * Banner scene for a chapter / map theme (2.75:1). `variant` adds a place in the foreground (campus: 'jetty' the
+ * rowing club's jetty, 'lamp' the breakwater and the old iron lamp; story backgrounds of 2-7 and 2-10).
+ */
+export function themeBackdropSVG(theme, { variant = null } = {}) {
   const key = THEME_SKY[theme] ? theme : 'sakura';
   const W = 1100;
   const H = 400;
   const rnd = seeded(`theme-${key}`);
   const [top, bottom] = THEME_SKY[key];
-  const id = `tb-${key}`;
+  const id = `tb-${key}${variant ? `-${variant}` : ''}`;
   let s = `<defs>${linGrad(`${id}-sky`, [[0, top], [1, bottom]])}${radGrad(`${id}-glow`, [[0, '#ffffff', 0.9], [1, '#ffffff', 0]])}</defs>`;
   s += `<rect width="${W}" height="${H}" fill="url(#${id}-sky)"/>`;
   switch (key) {
@@ -308,6 +313,74 @@ export function themeBackdropSVG(theme) {
       for (const x of [140, 960]) s += `<path d="M${x} 210v-90" stroke="#5c4a32" stroke-width="5"/><path d="M${x} 120h50l-12 14 12 14h-50z" fill="#ff5d73"/>`;
       s += `<rect y="340" width="${W}" height="60" fill="#f2e2bb"/>`;
       break;
+    case 'city': {
+      // Itomachi by day: a warm skyline (offices, flats, a clock tower), utility poles and wires,
+      // a row of shop awnings and the dark street in front
+      s += cloud(240, 80, 1) + cloud(820, 60, 0.8);
+      let x = 0;
+      while (x < W) {
+        const w = 60 + rnd() * 70;
+        const h = 90 + rnd() * 150;
+        const c = ['#d9c7aa', '#c9b79c', '#e6d6bc', '#b8674e', '#cfd8e0'][Math.floor(rnd() * 5)];
+        s += `<rect x="${n(x)}" y="${n(300 - h)}" width="${n(w)}" height="${n(h + 20)}" fill="${c}"/>`;
+        for (let wy = 300 - h + 14; wy < 290; wy += 22) s += `<rect x="${n(x + 8)}" y="${n(wy)}" width="${n(w - 16)}" height="8" fill="#9cc4d8" opacity="0.75"/>`;
+        x += w + 4 + rnd() * 10;
+      }
+      s += '<rect x="520" y="90" width="44" height="220" fill="#b8674e"/><path d="M510 90h64l-32-40z" fill="#5f646c"/><circle cx="542" cy="120" r="16" fill="#f7f4ee" stroke="#34405e" stroke-width="3"/>';
+      s += `<rect y="300" width="${W}" height="100" fill="#ece2d2"/>`;
+      for (let i = 0; i < 8; i++) {
+        const sx = 20 + i * 136;
+        s += `<rect x="${sx}" y="250" width="120" height="60" fill="#f3e7d0"/><path d="M${sx - 4} 262h128l-10 18H${sx + 6}z" fill="${['#4f9a62', '#d9604a', '#3d6a9a', '#e3b04a'][i % 4]}"/><rect x="${sx + 14}" y="284" width="92" height="22" fill="#9cc4d8"/>`;
+      }
+      for (const px of [90, 430, 770, 1060]) s += `<rect x="${px - 4}" y="140" width="8" height="200" fill="#cbc4b8"/><rect x="${px - 24}" y="150" width="48" height="6" fill="#8f887c"/>`;
+      s += '<path d="M0 156Q260 176 430 156T770 156T1100 156" stroke="#45424a" stroke-width="2" fill="none"/><path d="M0 162Q260 184 430 162T770 162T1100 162" stroke="#45424a" stroke-width="2" fill="none"/>';
+      s += `<rect y="340" width="${W}" height="60" fill="#4b505b"/><path d="M0 370H1100" stroke="#f4f1ea" stroke-width="5" stroke-dasharray="40 30"/>`;
+      s += sakuraTree(150, 340, 0.9) + sakuraTree(980, 345, 1.0) + petals(rnd, W, H, 18);
+      break;
+    }
+    case 'campus': {
+      // Hilltop High at night: stars and a moon, the clock tower with its lit face, the gym's
+      // curved roof and the classroom wings with warm windows, cherry trees, and the lake below
+      // with the searchlight's beam on the water
+      s += stars(rnd, W, 200, 70) + '<path d="M150 64a40 40 0 1 0 32 64 32 32 0 1 1-32-64z" fill="#fff6c4"/>';
+      s += hills(rnd, W, 236, 40, 260, '#22345c');
+      // the wings: cream blocks, a navy band, warm windows (two in three lit)
+      for (const [x, y, w, h] of [[60, 168, 300, 92], [690, 150, 360, 110], [380, 196, 120, 64]]) {
+        s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#c9c1b2"/><rect x="${x}" y="${y}" width="${w}" height="8" fill="#3d5a8a"/>`;
+        for (let wy = y + 18; wy < y + h - 12; wy += 30) {
+          for (let wx = x + 12; wx < x + w - 24; wx += 36) s += `<rect x="${wx}" y="${wy}" width="26" height="18" fill="${rnd() < 0.66 ? '#ffd98f' : '#4a5f86'}"/>`;
+        }
+      }
+      // the gym (Shelter 3): a curved roof, tall window slots and the pink banner
+      s += '<path d="M500 260V180Q590 140 680 180V260Z" fill="#d8cfbf"/><path d="M496 182Q590 136 684 182" stroke="#6f8fa8" stroke-width="12" fill="none"/>';
+      for (let i = 0; i < 5; i++) s += `<rect x="${518 + i * 32}" y="196" width="14" height="44" fill="#ffd98f" opacity="0.9"/>`;
+      s += '<rect x="540" y="244" width="100" height="14" fill="#f7f4ee"/><rect x="540" y="249" width="100" height="4" fill="#ff7aa2"/>';
+      // the clock tower with its lit face
+      s += `<rect x="410" y="70" width="56" height="190" fill="#d8cfbf"/><rect x="406" y="128" width="64" height="8" fill="#3d5a8a"/><path d="M402 70h72l-36-42z" fill="#6f8fa8"/><circle cx="438" cy="98" r="18" fill="#fff3d0"/><circle cx="438" cy="98" r="44" fill="url(#${id}-glow)" opacity="0.35"/><path d="M438 98V86M438 98h9" stroke="#3a3d46" stroke-width="3" stroke-linecap="round"/>`;
+      // the lakeshore: lawn, the lake, the searchlight's beam on the water
+      s += '<rect y="258" width="1100" height="20" fill="#2f5a46"/>';
+      s += '<rect y="276" width="1100" height="124" fill="#1f4f7a"/><path d="M0 284H1100" stroke="#8fb4d6" stroke-width="2" opacity="0.6"/>';
+      s += '<path d="M930 282L560 360 640 380Z" fill="#eaf2ff" opacity="0.2"/><ellipse cx="600" cy="370" rx="70" ry="16" fill="#eaf2ff" opacity="0.35"/>';
+      s += '<rect x="924" y="250" width="12" height="32" fill="#6b7480"/><circle cx="930" cy="250" r="9" fill="#fff2cc"/>';
+      for (const [x, y] of [[620, 330], [700, 352], [840, 320], [300, 340], [210, 360]]) s += `<path d="M${x - 20} ${y}h40" stroke="#ffd98f" stroke-width="3" opacity="0.5" stroke-linecap="round"/>`;
+      s += sakuraTree(40, 270, 0.8) + sakuraTree(1060, 268, 0.9);
+      for (let i = 0; i < 22; i++) s += `<circle cx="${n(rnd() * W)}" cy="${n(240 + rnd() * 140)}" r="2.6" fill="#e9ffb0" opacity="0.85"/>`;
+      if (variant === 'jetty') {
+        // the rowing club's jetty running out into the lake, a rowing eight moored beside it, a lantern on a post
+        s += '<path d="M250 400L470 300H560L520 400Z" fill="#7d5a3c"/>';
+        for (let k = 0; k < 7; k++) s += `<path d="M${n(262 + k * 34)} ${n(396 - k * 14)}H${n(522 - k * 6)}" stroke="#5e4330" stroke-width="3"/>`;
+        s += '<path d="M600 352q130 -10 260 0q-130 14 -260 0z" fill="#e8e1d4"/><path d="M620 352H840" stroke="#3d5a8a" stroke-width="3"/>';
+        s += '<rect x="548" y="250" width="8" height="64" fill="#3a3d46"/><rect x="540" y="236" width="24" height="18" rx="3" fill="#ffd98f"/>';
+        s += `<circle cx="552" cy="245" r="40" fill="url(#${id}-glow)" opacity="0.4"/>`;
+      } else if (variant === 'lamp') {
+        // the stone breakwater out into the lake and, at its head, the old iron lamp: tall, dark and cold
+        s += '<path d="M120 400L560 296H650L660 400Z" fill="#8f8679"/><path d="M560 296H650" stroke="#bdb4a4" stroke-width="5"/>';
+        s += '<ellipse cx="610" cy="300" rx="58" ry="12" fill="#a69d8d"/><rect x="600" y="140" width="16" height="158" fill="#3a3d46"/>';
+        s += '<path d="M586 140h44l-8 -42h-28z" fill="none" stroke="#3a3d46" stroke-width="6"/><path d="M584 98h48l-24 -20z" fill="#3a3d46"/>';
+        s += '<path d="M598 104h20l-4 30h-12z" fill="#2a3442"/><circle cx="608" cy="120" r="5" fill="#8fa3bf" opacity="0.7"/>';
+      }
+      break;
+    }
     default:
       break;
   }

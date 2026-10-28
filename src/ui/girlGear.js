@@ -31,7 +31,8 @@ import { awakenModal, stitchModal, rerollModal, armbandModal, enhanceOnce, toggl
 import { ico, lbl, statStrip, sticker, rarityTag, ghostBtn, fillIn } from './kit.js';
 import { openSheet } from './sheet.js';
 import { gearTile, STAT_GLYPH, STAT_SHORT, statValue, statFact } from './gearTile.js';
-import { gearStripCells, gearTotalsRows, pieceSummary, compareDeltas, setView, fillLine, nextGrowth, wearerName } from './gearView.js';
+import { gearTotalsRows, pieceSummary, compareDeltas, setView, fillLine, nextGrowth, wearerName } from './gearView.js';
+import { girlPageMode, slotCardView, gearFromView } from './girlDetail.js';
 import { createHoldGesture, showHoldRing, hideHoldRing, swallowNextClick } from './hold.js';
 import { fmtNum } from './format.js';
 import { urRing } from './rarity.js';
@@ -48,42 +49,67 @@ const pieceOf = (profile, unitId, slot) => {
 // ---------------------------------------------------------------------------
 
 /**
- * The Equipment tab: three slot cards, the gear-totals strip + MORE, her club set chip.
- * @param {object} unit UnitDef @param {{ onChange: Function }} o onChange: after any gear change (plate, rail dot)
+ * The Equipment tab: three slot cards, the gear-totals strip + MORE, her club set chip. Detailed (Settings → Girl
+ * page, src/ui/girlDetail.js): each card adds its main stat value and substats; every total and the set bonuses that
+ * are on replace the strip (tap them: the totals sheet).
+ * @param {object} unit UnitDef
+ * @param {{ onChange: Function, mode?: 'compact'|'detailed' }} o onChange: after any gear change (plate, rail dot)
  */
-export function gearTab(unit, { onChange }) {
+export function gearTab(unit, { onChange, mode = girlPageMode(store.profile) }) {
   const profile = store.profile;
   const set = setView(profile, unit.id);
-  return h('div.mb-tab-body.gk-gear',
+  const from = gearFromView(unit, profile, mode);
+  return h(`div.mb-tab-body.gk-gear${from.mode === 'detailed' ? '.detailed' : ''}`,
     h('section.ui-panel.gk-panel', h('div.ui-panel-in',
-      h('div.gk-slots', SLOTS.map((slot) => slotCard(unit, slot, onChange))),
+      h('div.gk-slots', SLOTS.map((slot) => slotCard(unit, slot, onChange, mode))),
       h('div.gk-from',
         h('div.ui-panel-head', h('span.ui-kicker', 'From gear'), set ? setChip(set, unit) : null),
-        statStrip(gearStripCells(unit, profile), { onMore: () => openGearTotals(unit), testid: 'gear-strip', moreTestid: 'gear-more' })))));
+        from.mode === 'detailed' ? gearTotalsAll(unit, from)
+          : statStrip(from.cells, { onMore: () => openGearTotals(unit), testid: 'gear-strip', moreTestid: 'gear-more' })))));
+}
+
+/** Detailed: every gear total on ink (MAX marked), the fill-in line and each set bonus that is on with its effect. */
+function gearTotalsAll(unit, from) {
+  const totals = from.rows.length
+    ? h('button.gk-tot-grid', { type: 'button', 'data-testid': 'gear-totals-all', 'aria-label': `Gear totals: ${from.rows.map((r) => `${r.name} ${r.value}${r.max ? ' (MAX)' : ''}`).join(', ')}. Open the details`, onclick: () => openGearTotals(unit) },
+      from.rows.map((r) => h(`span.gk-tot${r.max ? '.max' : ''}`, { title: r.cap ? `${r.name} ${r.value}, cap ${r.cap}` : `${r.name} ${r.value}` },
+        lbl(r.label), h('b.num', r.short), r.max ? h('small.gk-tot-max', 'MAX') : null)))
+    : h('p.gp-line', { 'data-testid': 'gear-totals-all' }, 'No gear bonuses yet. Tap a slot to equip a piece.');
+  return h('div.gk-from-all', totals,
+    from.fill ? h('p.gk-fillline', { 'data-testid': 'gear-fill-line' }, ico('sparkle'), `Fill-in ${from.fill.value} ${from.fill.to}, up to ${from.fill.cap}`) : null,
+    from.bonuses.length ? h('ul.gk-bonuses', { 'data-testid': 'gear-bonuses' }, from.bonuses.map((b) => h(`li.gk-bonus.k-${b.key}`, { style: b.color ? { '--club': b.color } : null },
+      sticker(b.badge, 'y'), h('b', b.name), h('span', b.text)))) : null);
 }
 
 /** One slot card: the card is the action (P2), so an empty slot's "Equip" is a label, not a second button. */
-function slotCard(unit, slot, onChange) {
+function slotCard(unit, slot, onChange, mode = 'compact') {
   const g = pieceOf(store.profile, unit.id, slot);
   const name = GEAR_SLOTS[slot].name;
   const main = g ? gearLines(g).main : null;
+  const v = slotCardView(g, mode);
+  // Detailed: the label reads the substats out too (the card's own words are hidden behind it)
+  const subsSaid = v?.subs.length ? `, ${v.subs.map((l) => l.fact).join(', ')}` : '';
   return h(`button.gk-slot${g ? '' : '.empty'}${isUrGear(g) ? '.is-ur' : ''}`, {
     type: 'button', 'data-testid': `slot-${slot}`,
-    'aria-label': g ? `${name}: ${g.name}, +${g.level}, ${statFact(main.stat, main.value)}. Open` : `${name}: empty. Equip`,
+    'aria-label': g ? `${name}: ${g.name}, +${g.level}, ${statFact(main.stat, main.value)}${subsSaid}. Open` : `${name}: empty. Equip`,
     onclick: () => openSlotSheet(unit, slot, { onChange }),
   },
   h('span.ui-kicker', name),
   gearTile(g, { slot, cls: 'gk-slot-tile' }),
   g
     // the main stat's icon and caps label; its value is one tap away in the slot sheet (P3: one number per gear tile,
-    // the owner's default for gear tiles, Oct 20)
-    ? h('span.ui-chip.gk-main', { title: statFact(main.stat, main.value) }, ico(STAT_GLYPH[main.stat] || 'sparkle'), lbl(STAT_SHORT[main.stat] || statName(main.stat)))
-    : h('span.gk-equip', 'Equip'));
+    // the owner's default for gear tiles, Oct 20). Detailed: its value too ("ATK +22%"), and every substat under it.
+    ? h('span.ui-chip.gk-main', { title: statFact(main.stat, main.value) }, ico(STAT_GLYPH[main.stat] || 'sparkle'), lbl(STAT_SHORT[main.stat] || statName(main.stat)),
+      v.main.value ? h('b.num.gk-main-v', { 'data-testid': `slot-${slot}-main` }, v.main.value) : null)
+    : h('span.gk-equip', 'Equip'),
+  // (spans, not a list: a button holds phrasing content only)
+  v?.subs.length ? h('span.gk-subs', { 'data-testid': `slot-${slot}-subs` }, v.subs.map((l) => h('span.gk-sub', { title: l.fact }, h('span.gk-sub-n', l.label), h('b.num', l.value)))) : null);
 }
 
 /**
  * Her club set at a glance: the emblem, its name, three pips and the bonus that is on (the 2-piece stat, or the
- * 3-piece trick's name); tap: both lines and Rainbow Resonance in Details.
+ * 3-piece trick's name); tap: both lines and Rainbow Resonance in Details. A full set whose trick does nothing for her
+ * (First Bell without a hasted ability: setView's `trick.idle`) is flat grey with its one calm line, never "on".
  */
 function setChip(set, unit) {
   if (!set.club) {
@@ -91,15 +117,17 @@ function setChip(set, unit) {
       h('span.gk-set-dot.rainbow', { 'aria-hidden': 'true' }), h('span', 'Resonance'));
   }
   const c = set.club;
-  const state = set.trick.on ? `${set.trick.name} on` : set.two.on ? '2-piece bonus on' : `${c.pieces} of 3 pieces`;
-  return h(`button.gk-set${set.two.on ? '.on' : ''}`, {
+  const idle = set.trick.idleText;
+  const state = set.trick.on ? `${set.trick.name} on` : idle ? idle.long : set.two.on ? '2-piece bonus on' : `${c.pieces} of 3 pieces`;
+  return h(`button.gk-set${idle ? '.idle' : set.two.on ? '.on' : ''}`, {
     type: 'button', 'data-testid': 'gear-set', style: { '--club': c.color }, 'aria-label': `${c.name}: ${state}. Open`, title: `${c.name}: ${state}`,
     onclick: () => openGearTotals(unit, { focus: 'set' }),
   },
   h('span.gk-set-dot', { 'aria-hidden': 'true' }), h('span', c.short),
   h('span.gk-pips', { 'aria-hidden': 'true' }, [1, 2, 3].map((i) => h(`i${i <= c.pieces ? '.on' : ''}`))),
   set.trick.on ? h('b.gk-set-on', { 'data-testid': 'gear-set-on' }, set.trick.name)
-    : set.two.on ? h('b.gk-set-on', { 'data-testid': 'gear-set-on' }, set.two.short) : null);
+    : idle ? h('span.gk-set-idle', { 'data-testid': 'gear-set-idle' }, idle.short)
+      : set.two.on ? h('b.gk-set-on', { 'data-testid': 'gear-set-on' }, set.two.short) : null);
 }
 
 // ---------------------------------------------------------------------------
@@ -230,7 +258,11 @@ export function openSlotSheet(unit, slot, { onChange = () => {} } = {}) {
     } else if (!shown.length) {
       list = h('div.gk-none', h('p.gp-line', 'No gear matches these filters.'), h('p.gp-sub', 'Try another rarity or stat, or clear the filters.'));
     } else {
-      list = h('div.gk-grid', { 'data-testid': 'gear-picker' }, shown.map((x) => pickTile(x, g)));
+      // [ui-ink] UI v2 medium 3: the piece she wears leads the grid as the selected tile (its rarity frame stays; the
+      // pink check chip and the 3 px pink bar mark it), so what is selected and what could replace it (a Mythic one
+      // too) read apart at a glance; a tap or a hold opens its Details. It follows the filter like the rest.
+      const worn = g && applyGearFilter([g], f).length ? wornTile(g) : null;
+      list = h('div.gk-grid', { 'data-testid': 'gear-picker' }, worn, shown.map((x) => pickTile(x, g)));
     }
     return h('section.gk-pick', head,
       ui.filter && all.length ? gearFilterBar({ place: 'student', slot, shown: shown.length, total: all.length, onChange: draw }) : null,
@@ -241,6 +273,12 @@ export function openSlotSheet(unit, slot, { onChange = () => {} } = {}) {
   const pickTile = (x, cur) => {
     const t = gearTile(x, { slot, mainIcon: true, wearer: true, testid: `pick-${x.uid}`, onClick: () => equip(x) });
     bindHold(t, () => openPieceDetails(x, { unit, slot, onChange: changed, compareTo: cur, onEquip: () => equip(x) }));
+    return t;
+  };
+  const wornTile = (x) => {
+    const details = () => openPieceDetails(x, { unit, slot, onChange: changed });
+    const t = gearTile(x, { slot, mainIcon: true, selected: true, testid: 'pick-worn', onClick: details });
+    bindHold(t, details);
     return t;
   };
 
@@ -405,7 +443,10 @@ export function openGearTotals(unit, { focus = null } = {}) {
     h('div.ui-kicker', 'Club set'),
     set.club ? h('div.gk-set-head', clubTag(set.club.id), h('span.gk-pips', [1, 2, 3].map((i) => h(`i${i <= set.club.pieces ? '.on' : ''}`))), h('span.gp-sub', `${set.club.pieces} of 3 pieces`)) : null,
     set.club ? h(`p.gk-setline${set.two.on ? '.on' : ''}`, { 'data-testid': set.two.on ? 'club-bonus-on' : null }, sticker('2', set.two.on ? 'y' : ''), ` ${set.two.text}`) : null,
-    set.club ? h(`p.gk-setline${set.trick.on ? '.on' : ''}`, { 'data-testid': set.trick.on ? 'club-trick-on' : null }, sticker('3', set.trick.on ? 'y' : ''), ` ${set.trick.name}: ${set.trick.text}`) : null,
+    set.club ? (set.trick.idleText
+      // (a trick that does nothing for her kit: flat grey, one calm line; the card sentence stays in the tooltip)
+      ? h('p.gk-setline.idle', { 'data-testid': 'club-trick-idle', title: `${set.trick.name}: ${set.trick.text}` }, sticker('3', 'off'), ` ${set.trick.idleText.long}`)
+      : h(`p.gk-setline${set.trick.on ? '.on' : ''}`, { 'data-testid': set.trick.on ? 'club-trick-on' : null }, sticker('3', set.trick.on ? 'y' : ''), ` ${set.trick.name}: ${set.trick.text}`)) : null,
     set.resonance ? h('p.gk-setline.on', sticker('UR', 'y'), ` ${set.resonance.text} (${set.resonance.pieces} rainbow pieces)`) : null) : null;
   const sheet = openSheet({
     title: `${unit.name} · Gear totals`, testid: 'gear-totals-sheet', cls: 'gp-details.gk-sheet', full: true,

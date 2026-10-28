@@ -7,6 +7,7 @@ import { readIdentity, writeIdentity, profileCard, hasOnlineAccount } from '../.
 import { validateName } from '../../online/clanRules.js';
 import { errorText, toOnlineError } from '../../online/errors.js';
 import { cardArtSVG } from '../../art/cardArt.js';
+import { portraitHTML } from '../../art/portraits.js';
 import { getUnit } from '../../data/units.js';
 import { inlineLoader, holdInline } from '../loading/loader.js';
 
@@ -183,19 +184,27 @@ export function localNotice(where) {
 }
 
 const avatarCache = new Map();
-/** Round portrait of a unit (secretary avatar) for chat / member rows. */
+/**
+ * Round portrait of a unit (secretary avatar) for chat / member rows and the co-op chips: her drawn thumb
+ * (src/art/portraits.js; drawn art only on menus, CONTRACTS §11a), the SVG doll only for a girl without files
+ * or a thumb that fails to load (components.js swaps it).
+ */
 export function avatar(unitId, size = 34) {
   const id = getUnit(unitId) ? unitId : 'hikari';
-  let svg = avatarCache.get(id);
-  if (!svg) {
+  let art = avatarCache.get(id);
+  if (!art) {
     try {
-      svg = cardArtSVG(getUnit(id), { variant: 'thumb' });
+      art = portraitHTML(getUnit(id), 'thumb', { alt: '' });
     } catch {
-      svg = '';
+      try {
+        art = cardArtSVG(getUnit(id), { variant: 'thumb' });
+      } catch {
+        art = '';
+      }
     }
-    avatarCache.set(id, svg);
+    avatarCache.set(id, art);
   }
-  const el = svgEl(svg, 'ol-avatar');
+  const el = svgEl(art, 'ol-avatar');
   el.style.setProperty('--size', `${size}px`);
   return el;
 }

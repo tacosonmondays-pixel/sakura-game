@@ -44,6 +44,8 @@ export const MOD_TAGS = {
   maxTargets: 'self', splash: 'self', armorPen: 'self', projectileSpeed: 'self', canHitAir: 'self', detection: 'self',
   crit: 'self', eliteMul: 'self', bossMul: 'self', barrierMul: 'self', ramp: 'self', hpPct: 'self',
   behavior: 'transform', attackType: 'transform', element: 'transform',
+  // Tenka: her lab team is her own power; a gravity well and Last Line act on the enemies
+  lab: 'self', well: 'enemies', lastLine: 'enemies',
   turret: 'drones',
   trap: 'traps',
   aura: 'allies',
@@ -74,6 +76,9 @@ export const MOD_TAGS = {
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
 const SUB_KEYS = {
   aura: new Set(['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance']),
+  lab: new Set(['rounds', 'power']),
+  well: new Set(['every', 'time', 'radius', 'pull', 'slow', 'vuln']),
+  lastLine: new Set(['radius', 'max', 'time', 'cooldown']),
   brew: new Set(['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance']),
   link: new Set(['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock']),
   // execution shot (path cap): % of the target's current HP, bosses, cap in shots
@@ -353,6 +358,9 @@ const SHORT_ORDER = [
   ['behavior', (m) => `Becomes ${BEHAVIOR_SHORT[m.behavior] || m.behavior}`],
   ['attackType', (m) => `${ATTACK_TYPES[m.attackType]?.name || m.attackType} attacks`],
   ['element', (m) => `${ELEMENTS[m.element]?.name || m.element} element`],
+  ['lab', (m) => (m.lab.rounds ? (m.lab.rounds > 1 ? 'Lab team joins again' : 'Lab team joins') : `Lab weapons ×${round1(m.lab.power || 1)}`)],
+  ['well', (m) => (m.well.every ? `Gravity well every ${round1(m.well.every)}s` : `Wells ${round1(m.well.time || 0)}s${m.well.vuln ? `, +${Math.round(m.well.vuln * 100)}% dmg taken` : ''}`)],
+  ['lastLine', (m) => `Last Line: up to ${m.lastLine.max} enemies`],
   ['aura', (m) => auraShort(m.aura)],
   ['brew', (m) => limitedShort(m.brew, 'Brew')],
   ['link', (m) => limitedShort(m.link, 'Tune-up')],
@@ -397,6 +405,7 @@ const ICON_ORDER = [
   'airMul', 'relay',
   'canHitAir', 'detection', 'crit', 'splash', 'chain', 'pierce', 'projectiles', 'maxTargets', 'armorPen', 'hpPct', 'eliteMul', 'bossMul',
   'barrierMul', 'ramp', 'rateMul', 'range', 'projectileSpeed', 'damageMul', 'damage',
+  'lab', 'well', 'lastLine', // Tenka (a tier with only these keys shows their icon)
 ];
 const SHORT_MAX = 34;
 
@@ -446,6 +455,9 @@ const ICON_RULES = {
   element: (m) => ({ set: 'element', key: m.element }),
   attackType: (m) => ({ set: 'attack', key: m.attackType }),
   behavior: () => ({ set: 'ui', key: 'sparkle' }),
+  lab: () => ({ set: 'cap', key: 'buff' }),
+  well: () => ({ set: 'status', key: 'slow' }),
+  lastLine: () => ({ set: 'cap', key: 'trap' }),
   aura: (m) => {
     const keys = Object.keys(m.aura || {}).filter((k) => k !== 'range' && present(m.aura[k]));
     if (keys.length === 1 && keys[0] === 'cleanse') return { set: 'cap', key: 'cleanse' };
@@ -566,4 +578,62 @@ export function tagText(tag, { long = false, compact = false, tight = false } = 
 /** Optional note for a tier (0-based path, 1-based tier). */
 export function tierNote(unit, path, tier) {
   return TIER_NOTES[`${unit?.id}.${path}.${tier - 1}`] || null;
+}
+
+// ---------------------------------------------------------------------------
+// Stacking auras: the running total in the tier text
+// ---------------------------------------------------------------------------
+
+/**
+ * Girls whose aura tiers each multiply the ones before (HANDOFF §10: Umeko's tooltips undersold her, since
+ * "+15% damage" on Festival of Plums reads as the total while it is ×1.15 on top of the earlier tiers). Their tier
+ * text gets the path's running total. The battle numbers are unchanged; this is text only.
+ */
+export const STACKED_AURA = new Set(['umeko']);
+const AURA_MULS = [['dmgMul', 'damage'], ['rateMul', 'attack speed'], ['rangeMul', 'range']];
+const pctUp = (mul) => Math.round((mul - 1) * 100 + 1e-9);
+
+/**
+ * Her aura multipliers from one path once she owns `tier` tiers of it (src/sim/mods.js multiplies them), and how
+ * many of those tiers carry one.
+ * @returns {{ dmgMul: number, rateMul: number, rangeMul: number, tiers: number }}
+ */
+export function auraTotals(unit, path, tier) {
+  const out = { dmgMul: 1, rateMul: 1, rangeMul: 1, tiers: 0 };
+  const tiers = unit?.paths?.[path]?.tiers || [];
+  for (let k = 0; k < Math.min(tier, tiers.length); k++) {
+    const a = tiers[k]?.mods?.aura;
+    if (!a) continue;
+    let any = false;
+    for (const [key] of AURA_MULS) {
+      if (typeof a[key] === 'number' && a[key] !== 1) {
+        out[key] *= a[key];
+        any = true;
+      }
+    }
+    if (any) out.tiers++;
+  }
+  return out;
+}
+
+/**
+ * "Her tiers multiply: +27% damage, +27% attack speed in all." for a tier that adds aura multipliers on top of an
+ * earlier tier's (STACKED_AURA girls only); null otherwise. It never says "stack": the battle card's rule line right
+ * below it says auras of the same kind from different girls don't stack.
+ */
+export function stackedAuraLine(unit, path, tier) {
+  if (!STACKED_AURA.has(unit?.id)) return null;
+  const own = unit?.paths?.[path]?.tiers?.[tier - 1]?.mods?.aura;
+  if (!own || !AURA_MULS.some(([key]) => typeof own[key] === 'number' && own[key] !== 1)) return null;
+  const t = auraTotals(unit, path, tier);
+  if (t.tiers < 2) return null;
+  const parts = AURA_MULS.filter(([key]) => pctUp(t[key]) !== 0).map(([key, word]) => `+${pctUp(t[key])}% ${word}`);
+  return parts.length ? `Her tiers multiply: ${parts.join(', ')} in all.` : null;
+}
+
+/** A tier's text as the menus and the battle show it: her authored words, plus a stacking aura's running total. */
+export function tierDesc(unit, path, tier) {
+  const desc = unit?.paths?.[path]?.tiers?.[tier - 1]?.desc || '';
+  const line = stackedAuraLine(unit, path, tier);
+  return line ? `${desc} ${line}` : desc;
 }

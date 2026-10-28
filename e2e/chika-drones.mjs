@@ -140,6 +140,16 @@ const panelOverflow = (page) => page.evaluate(() => {
   return null;
 });
 
+/** Stat values cut short inside their cell (an ellipsis on a number, VAULT §9): { main: [...], other: [...] } of "label: text". */
+const cutCells = (page, testid) => page.evaluate((id) => {
+  const out = { main: [], other: [] };
+  for (const c of document.querySelectorAll(`[data-testid="${id}"] .bt-stat-cell`)) {
+    const b = c.querySelector('b');
+    if (b && b.scrollWidth > b.clientWidth + 1) out[c.classList.contains('bt-stat-main') ? 'main' : 'other'].push(`${c.querySelector('span')?.textContent}: ${b.textContent}`);
+  }
+  return out;
+}, testid);
+
 const num = (s) => Number(String(s).replace(/,/g, '').match(/-?\d+(\.\d+)?/)?.[0] ?? NaN);
 
 for (const vp of viewports) {
@@ -216,7 +226,8 @@ for (const vp of viewports) {
   }, placed.uid, 90000);
   check(flew, 'a drone flies farther from her than her range ring while her damage rises');
 
-  // ---- 2. tap Chika: Overall first; header damage; split bar; Overall = Chika + Wing
+  // ---- 2. tap Chika: her drawer (the Flight row and her paths on the Glance); MORE: Overall first, damage dealt,
+  // the split bar; Overall = Chika + Wing
   const herScreen = await page.evaluate((uid) => {
     const t = window.__battle.sim.getTower(uid);
     return window.__battle.renderer.worldToScreen(t.x, t.y, 0.3);
@@ -224,21 +235,34 @@ for (const vp of viewports) {
   await freeze(page);
   await tapAt(page, phone, herScreen.clientX, herScreen.clientY);
   await frames(page, 4);
+  const glance = await page.evaluate(() => ({
+    sel: window.__battle.ui.selectedUid,
+    flight: !!document.querySelector('[data-testid="tower-panel"] [data-testid="flight-row"]'),
+    buy: !!document.querySelector('[data-testid="tower-panel"] [data-testid="buy-0"]'),
+    tabs: !!document.querySelector('[data-testid="tab-overall"]'),
+  }));
+  check(glance.sel === placed.uid && glance.flight && glance.buy && !glance.tabs, `tapping Chika opens her drawer: the Flight row and her paths, the tabs behind MORE (${JSON.stringify(glance)})`);
+  await tapTestId(page, phone, 'panel-more');
   const opened = await page.evaluate(() => ({
     sel: window.__battle.ui.selectedUid,
     tabs: !!document.querySelector('[data-testid="tab-overall"]'),
+    upgradesTab: !!document.querySelector('[data-testid="tab-upgrades"]'),
     on: document.querySelector('.bt-dr-tab.on')?.dataset.testid,
     split: !!document.querySelector('[data-testid="split-bar"]'),
-    dmg: document.querySelector('.bt-panel-meta span:nth-child(2) b')?.textContent,
+    dmg: document.querySelector('[data-testid="stat-dealt"] b')?.textContent,
     dealt: Math.floor(window.__battle.sim.getTower(window.__battle.ui.selectedUid)?.damageDealt || 0),
   }));
-  check(opened.sel === placed.uid && opened.tabs, `tapping Chika opens her panel with the tab row (${JSON.stringify(opened)})`);
+  check(opened.sel === placed.uid && opened.tabs && !opened.upgradesTab, `MORE shows her tab row, no Upgrades tab (${JSON.stringify(opened)})`);
   check(opened.on === 'tab-overall', 'the first open selects Overall');
   check(opened.split, 'the split bar is there');
-  check(num(opened.dmg) === opened.dealt, `header Damage ${opened.dmg} = damageDealt ${opened.dealt}`);
+  // (one number style: exact below 10,000, then "12.3k")
+  check(opened.dealt < 10000 ? num(opened.dmg) === opened.dealt : /^\d+(\.\d)?[kMB]$/.test(opened.dmg || ''), `Damage dealt ${opened.dmg} = damageDealt ${opened.dealt}`);
   const overallDps = await page.evaluate(() => document.querySelector('[data-testid="stats-overall"] .bt-stat-main b')?.textContent);
   await shot(page, 'chika-overall', vp);
   check(!(await panelOverflow(page)), `Overall: nothing clipped sideways (${await panelOverflow(page)})`);
+  const cutOverall = await cutCells(page, 'stats-overall');
+  check(!cutOverall.main.length, `Overall: the DPS cell is not cut short (${cutOverall.main.join(' | ') || 'none'})`);
+  if (cutOverall.other.length) log(`  (info) Overall: other cells cut short: ${cutOverall.other.join(' | ')}`);
   await tapTestId(page, phone, 'tab-chika');
   const chikaDps = await page.evaluate(() => document.querySelector('[data-testid="stats-chika"] .bt-stat-main b')?.textContent);
   await shot(page, 'chika-tab', vp);
@@ -246,14 +270,19 @@ for (const vp of viewports) {
   await tapTestId(page, phone, 'tab-drones');
   const wingDps = await page.evaluate(() => document.querySelector('[data-testid="stats-drones"] .bt-stat-main b')?.textContent);
   check(Math.abs(num(overallDps) - (num(chikaDps) + num(wingDps))) < 0.11, `Overall DPS ${overallDps} = Chika ${chikaDps} + Wing ${wingDps}`);
+  const cutDrones = await cutCells(page, 'stats-drones');
+  check(!cutDrones.main.length, `Drones: the Wing DPS cell is not cut short (${cutDrones.main.join(' | ') || 'none'})`);
+  if (cutDrones.other.length) log(`  (info) Drones: other cells cut short: ${cutDrones.other.join(' | ')}`);
 
-  // ---- 3. Upgrades → buy stays on Upgrades; Drones rows
-  await tapTestId(page, phone, 'tab-upgrades');
+  // ---- 3. back to the drawer: a two-tap buy there keeps the drawer (MORE stays closed); then MORE's Drones rows
+  await tapTestId(page, phone, 'panel-more');
   const tiersBefore = await page.evaluate((uid) => window.__battle.sim.getTower(uid).tiers.join('-'), placed.uid);
   await tapTestId(page, phone, 'buy-0');
+  await tapTestId(page, phone, 'buy-0');
   await frames(page, 4);
-  const afterBuy = await page.evaluate((uid) => ({ tiers: window.__battle.sim.getTower(uid).tiers.join('-'), on: document.querySelector('.bt-dr-tab.on')?.dataset.testid }), placed.uid);
-  check(afterBuy.tiers !== tiersBefore && afterBuy.on === 'tab-upgrades', `buying an upgrade keeps the Upgrades tab (${tiersBefore} → ${afterBuy.tiers}, ${afterBuy.on})`);
+  const afterBuy = await page.evaluate((uid) => ({ tiers: window.__battle.sim.getTower(uid).tiers.join('-'), more: window.__battle.ui.panel?.more ?? !!document.querySelector('[data-testid="panel-details"]'), buy: !!document.querySelector('[data-testid="tower-panel"] [data-testid="buy-0"]') }), placed.uid);
+  check(afterBuy.tiers !== tiersBefore && !afterBuy.more && afterBuy.buy, `buying an upgrade keeps her drawer (${tiersBefore} → ${afterBuy.tiers}, ${JSON.stringify(afterBuy)})`);
+  await tapTestId(page, phone, 'panel-more');
   await tapTestId(page, phone, 'tab-drones');
   const list = await page.evaluate((uid) => {
     const rows = [...document.querySelectorAll('[data-testid^="drone-row-"]')];
@@ -321,12 +350,14 @@ for (const vp of viewports) {
     check(!back.card && back.on === 'tab-drones', `‹ returns to the Drones tab (${JSON.stringify(back)})`);
   }
 
-  // ---- 5. close and reopen: the Drones tab is remembered
+  // ---- 5. close and reopen: her drawer opens on the Glance; MORE remembers the Drones tab
   await tapTestId(page, phone, 'panel-close');
   await page.evaluate((uid) => window.__battle.ui.select(uid), placed.uid);
   await frames(page, 3);
+  await tapTestId(page, phone, 'panel-more');
   const reopened = await page.evaluate(() => document.querySelector('.bt-dr-tab.on')?.dataset.testid);
   check(reopened === 'tab-drones', `reopening her keeps the Drones tab (${reopened})`);
+  await tapTestId(page, phone, 'panel-more'); // back to the drawer (the Flight row)
 
   // ---- 6. flight modes
   await tapTestId(page, phone, 'flight-pursuit');

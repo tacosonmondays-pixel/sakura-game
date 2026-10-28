@@ -1,5 +1,5 @@
 /* Sakura Sentinels — base design tokens and shared component styles (V2).
-   Look: Blue Archive-like. Sky-blue backdrop, white slightly translucent panels with a
+   Look: the academy style. Sky-blue backdrop, white slightly translucent panels with a
    slanted edge and a soft shadow, blue→white gradient headers, italic bold navy headings,
    yellow call-to-action buttons, sakura pink accents. Landscape-first: every scaffold piece
    compacts under 480px of height (phones held sideways). */
@@ -128,6 +128,59 @@
   --lr-edge: var(--plate);
   --lr-gold: #ffd27a;
   --lr-comet: 6s;
+
+  /* UI M5 hub kit (UI_DIRECTION §5.9, §5.10): badges, hosts */
+  --badge-red: #d4183b; /* red dots and counts; white numbers on it 5.26:1 */
+  --host-hub-w: 35vw; /* a hub's host girl (E1) */
+  --host-list-w: 30vw; /* a list screen's host, on the right (26% on phones) */
+  --host-chip: 96px; /* her bust chip (the collapse rule) */
+  --bubble-r: 24px;
+
+  /* ---- [ui-ink] UI v2 "Ink & Paper" tokens (notes/ui-v2/UI_V2_DIRECTION.md section 3). New names only: nothing above
+     changes. Values that differ from the ones above (--cut, --chip-h, --strip-h, --tab-h, --icon, --icon-s) apply only
+     under the surface mode classes body.ui-day / body.ui-night (src/ui/styles/ink.css), so the battle keeps today's
+     sizes (plan C10). tools/contrast.mjs reads these. ---- */
+  /* night: ink (the battle kit's surfaces; --plate above is the base ink) */
+  --plate-2: #15253f; /* raised and pressed ink, the back button */
+  --glass-ink: rgba(14, 25, 48, 0.86); /* night sheets and drawers over art */
+  --glass-ink-1: rgba(14, 25, 48, 0.8); /* pills, objective, news over the home scene */
+  --line-hi: rgba(150, 200, 255, 0.55); /* rings and chamfer edges on ink */
+  --line-lo: rgba(150, 200, 255, 0.22); /* dividers and soft rings on ink */
+  --on-ink: #eaf3ff; /* words and glyphs on ink */
+  --on-ink-dim: #a9bcdc; /* secondary words on ink (= --on-plate-dim) */
+  --cyan: #4cd6ff; /* progress, focus, "go", live (on ink) */
+  --pink-on-ink: #ff9cc0; /* sakura words on ink */
+  /* day: paper */
+  --paper-a: #eef4fa; /* the field, top */
+  --paper-b: #dde9f5; /* the field, bottom */
+  --panel-w: #ffffff; /* the white panel: opaque */
+  --line-ink: rgba(29, 78, 137, 0.35); /* panel rings on paper */
+  --line-ink-soft: rgba(29, 78, 137, 0.14); /* row dividers, soft rings */
+  --cyan-ink: #0b7fb0; /* cyan strokes and fills on paper (Go rings, progress) */
+  --cyan-text: #0a6f9c; /* cyan words on paper (Details, links, ghost buttons) */
+  --cyan-wash: #e2f5fc; /* a pressed Go; the cyan chip */
+  --pink-ink: #d23a74; /* the selection stroke on paper: bars, the pick chip */
+  /* shared (the UR rainbow is ur.css's --ur-rainbow colour list) */
+  --path-1: #ff5d73; /* the 3 px tick of a path row */
+  --path-2: #2b7fff;
+  --path-3: #8b5cf6;
+  --tier-beginner: #7bd389; /* map tier chips (mirrors src/data/types.js MAP_TIERS) */
+  --tier-intermediate: #4cc9f0;
+  --tier-advanced: #ff9f1c;
+  --tier-expert: #ff4d6d;
+  --scrim-l: linear-gradient(90deg, rgba(14, 25, 48, 0.82) 0, rgba(14, 25, 48, 0.58) 26%, rgba(14, 25, 48, 0) 50%);
+  --scrim-t: linear-gradient(180deg, rgba(14, 25, 48, 0.62) 0, rgba(14, 25, 48, 0.5) 48px, rgba(14, 25, 48, 0) 104px);
+  --scrim-r: linear-gradient(270deg, rgba(14, 25, 48, 0.62) 0, rgba(14, 25, 48, 0.5) 28%, rgba(14, 25, 48, 0) 46%);
+  --scrim-b: linear-gradient(0deg, rgba(14, 25, 48, 0.6) 0, rgba(14, 25, 48, 0) 96px);
+  --track-caps: 0.1em; /* 12-13 px caps */
+  --track-menu: 0.08em; /* 16-19 px caps */
+  --g: 24px; /* screen gutter */
+  --cut-s: 8px; /* the single cut of a small surface */
+  --tan8: 0.1405; /* the run of an 8 degree slant per px of height */
+  --rw: 1px; /* ring width (set per shape) */
+  --stroke: 1.5; /* line glyph stroke */
+  --t-snap: 140ms;
+  --ease-snap: cubic-bezier(0.3, 0, 0, 1);
 }
 
 /* Landscape phones (the breakpoint the stylesheets already use): the phone half of the type and size scale. */
@@ -152,6 +205,10 @@
     --drawer-w: 288px;
     --hud-top-h: 44px;
     --cut: 12px;
+    --host-list-w: 26vw;
+    /* [ui-ink] the phone half of the new UI v2 tokens */
+    --g: 16px;
+    --cut-s: 6px;
   }
 }
 
@@ -222,7 +279,7 @@ p { margin: 0 0 8px; line-height: 1.45; }
 }
 .topbar-icon:active { transform: scale(0.92); }
 .topbar-icon:hover { background: #fff; }
-/* Slanted currency pills (BA style). The inner content is counter-skewed. */
+/* Slanted currency pills (academy style). The inner content is counter-skewed. */
 .cur-pill {
   position: relative; display: flex; align-items: center; gap: 5px; font-weight: 900; font-size: 0.9rem; color: var(--navy);
   background: rgba(255,255,255,0.92); border: 1px solid rgba(29,78,137,0.12); border-radius: 7px; padding: 3px 10px 3px 5px;
@@ -339,7 +396,7 @@ p { margin: 0 0 8px; line-height: 1.45; }
 }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(0.96); } }
 .modal-wide { width: min(820px, 100%); }
-/* BA "Menu Tab" header: light blue → white, navy italic title, yellow underline. */
+/* "Menu Tab" header: light blue → white, navy italic title, yellow underline. */
 .modal-title {
   position: relative; background: linear-gradient(90deg, var(--blue-soft), #fff 70%); color: var(--navy); font-weight: 900; font-style: italic;
   padding: 11px 18px 12px; font-size: 1.1rem; border-bottom: 1px solid var(--line);
@@ -363,7 +420,7 @@ p { margin: 0 0 8px; line-height: 1.45; }
 .toast-bad { background: rgba(255,77,109,0.95); }
 .toast.out { opacity: 0; transform: translateY(-8px); }
 
-/* Menu Tab modal (BA ba-menu-tab): white header with a centred bold title, a yellow underline
+/* Menu Tab modal (the menu-tab popup): white header with a centred bold title, a yellow underline
    and an X; light grey-blue body; 2-column white buttons with an illustrated icon + label. */
 .menu-tab { width: min(500px, 100%); border-radius: 10px; background: #e9eff6; }
 .menu-tab .modal-title {
@@ -417,15 +474,69 @@ p { margin: 0 0 8px; line-height: 1.45; }
 .rotate-text { max-width: 320px; font-weight: 700; color: var(--muted); margin: 0; }
 .rotate-overlay .btn { margin-top: 6px; }
 
-/* ---------- Items ---------- */
+/* ---------- Item art ----------
+   itemIcon / gearIcon / currencyIcon (src/art/icons.js) return <span class="ia"> holding the old drawn SVG and the
+   baked image over it. The drawing keeps the box's size (so every wrapper that sized an SVG still fits) but shows
+   only when the image failed (.bad, a hard error). While the image is still loading after 0.3 s (a slow first
+   open), the box shows a neutral placeholder instead: a soft tinted blob over a navy contact shadow, never the old
+   art. Once the image is in (.ok) the placeholder goes for good; cached images arrive well inside the 0.3 s, so
+   re-renders never flash it. */
+.ia { position: relative; display: block; width: 100%; height: 100%; line-height: 0; }
+.ia > svg { display: block; width: 100%; height: 100%; visibility: hidden; }
+.ia.bad > svg { visibility: visible; }
+.ia::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background:
+    radial-gradient(30% 7% at 50% 86%, rgba(38, 58, 92, 0.2), rgba(38, 58, 92, 0)),
+    radial-gradient(33% 31% at 48% 49%, rgba(96, 116, 160, 0.17) 62%, rgba(96, 116, 160, 0));
+}
+.ia:not(.ok):not(.bad)::before { animation: ia-wait 220ms ease-out 300ms forwards; }
+.ia.ok::before, .ia.bad::before { display: none; }
+@keyframes ia-wait { to { opacity: 1; } }
+.ia > .item-art {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+  pointer-events: none; user-select: none; -webkit-user-drag: none;
+}
+
+/* ---------- Items ----------
+   The item tile (the owner's pick, Oct 20: the slanted plate): a landscape plate (1.09:1) slanted −8° with
+   rounded corners, a 1 px tier border and a white inner rim, the tier tint fading to white by 80 %, our sheen
+   (three faint sakura petals and one diagonal white band) and a soft tile shadow. The art is not slanted: it sits
+   at 47 % / 46 % and fills 82 % of the height. The count is heavy navy italics with a crisp white outline, 13 px
+   on the 62 px phone tile, bottom right, shortened like x450K (fmtItemCount). Rarity reads from the plate, never
+   from glows in the art. Tints per tier: [data-tier] (tileTier() in components.js); 'ur' is the rainbow plate. */
 .item-tile {
-  position: relative; aspect-ratio: 1; border: 2px solid var(--rarity); border-radius: 10px; padding: 6px;
-  background: radial-gradient(circle at 50% 35%, #fff 0%, color-mix(in srgb, var(--rarity) 22%, #fff) 100%);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.12); transition: transform var(--t-press) var(--ease);
+  --tile-top: #d6e0e8; --tile-mid: #eef3f8; --tile-line: #b9c6d3;
+  --tile-sheen: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 94.9 100' preserveAspectRatio='none' fill='%23fff'><path d='M26.5 60.1L27.7 54.9L28.1 50.0L27.9 45.2L27.3 40.7L26.3 36.3L24.8 32.0L22.9 27.9L20.6 23.9L17.9 20.0L14.8 16.3L11.2 12.7L7.1 9.4L1.5 20.5L-11.5 15.7L-11.8 20.6L-11.5 25.3L-10.8 29.8L-9.7 34.2L-8.2 38.4L-6.2 42.6L-3.8 46.5L-1.0 50.3L2.2 54.0L5.9 57.5L10.1 60.9L15.1 63.9Z' fill-opacity='.36'/><path d='M65.9 51.6L70.4 47.4L73.8 42.9L76.5 38.4L78.6 33.7L80.1 28.8L81.1 23.9L81.5 18.9L81.4 13.7L80.7 8.4L79.4 3.1L77.6 -2.4L75.1 -8.1L62.0 -0.9L50.4 -13.2L47.1 -8.7L44.6 -4.1L42.6 0.6L41.2 5.4L40.3 10.4L40.0 15.4L40.3 20.6L41.1 25.9L42.4 31.3L44.4 36.9L47.1 42.5L50.8 48.4Z' fill-opacity='.31'/><path d='M89.2 39.1L93.4 38.1L96.9 36.6L100.1 34.8L102.8 32.7L105.3 30.5L107.4 27.9L109.2 25.2L110.7 22.2L111.8 19.1L112.7 15.6L113.1 12.0L113.2 8.0L102.6 8.2L98.7 -2.2L95.2 -0.6L92.2 1.2L89.4 3.3L87.1 5.6L85.0 8.2L83.3 11.0L81.9 14.0L80.8 17.2L80.0 20.7L79.6 24.4L79.6 28.4L80.3 32.9Z' fill-opacity='.27'/><path d='M32.7 100L45.8 100L86.2 0L73.1 0Z' fill-opacity='.23'/></svg>");
+  position: relative; aspect-ratio: 1.09; padding: 0; border: 0; background: none; container-type: inline-size;
+  transition: transform var(--t-press) var(--ease);
+}
+/* the plate: 87.1 % wide, slanted about its centre, so it spans the whole box (0.129 = tan 8° / 1.09) */
+.item-tile::before {
+  content: ''; position: absolute; inset: 0 6.45%; transform: skewX(-8deg);
+  border: 1px solid var(--tile-line); border-radius: 10.5% / 10%;
+  background: var(--tile-sheen) 0 0 / 100% 100% no-repeat, linear-gradient(var(--tile-top), var(--tile-mid) 40%, #fff 80%);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.85), 0 1.5px 2.5px rgba(36, 56, 90, 0.28);
+}
+.item-tile[data-tier='rare'] { --tile-top: #b2cdf8; --tile-mid: #e3f1ff; --tile-line: #8fc1f3; }
+.item-tile[data-tier='superRare'] { --tile-top: #dac2fd; --tile-mid: #f3e9ff; --tile-line: #c6a6f2; }
+.item-tile[data-tier='mythic'] { --tile-top: #ec9fb8; --tile-mid: #ffe8ee; --tile-line: #f3a5b9; }
+.item-tile[data-tier='legendary'] { --tile-top: #fdda99; --tile-mid: #fff2d6; --tile-line: #efc36a; }
+.item-tile[data-tier='ur'] { --tile-line: #e7b9f0; }
+.item-tile[data-tier='ur']::before {
+  background: var(--tile-sheen) 0 0 / 100% 100% no-repeat,
+    linear-gradient(rgba(255, 244, 251, 0) 0%, rgba(255, 244, 251, 0.55) 40%, #fff 80%),
+    linear-gradient(100deg, #ffc4e6, #ffe7a8 30%, #c4f5df 55%, #bfe3ff 78%, #e3ccff);
 }
 .item-tile:active { transform: scale(0.94); }
-.item-tile-icon { width: 100%; height: 100%; }
-.item-count { position: absolute; right: 3px; bottom: 1px; font-size: 0.72rem; font-weight: 900; color: var(--ink); text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+.item-tile-icon { position: absolute; left: 7.4%; top: 3.4%; width: 85.2%; height: 92.9%; }
+.item-count {
+  position: absolute; right: 6%; bottom: 0; line-height: 1; pointer-events: none; white-space: nowrap;
+  font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: clamp(12px, 21cqw, 17px);
+  color: #2b4467; font-variant-numeric: tabular-nums;
+  text-shadow: 1.5px 0 #fff, -1.5px 0 #fff, 0 1.5px #fff, 0 -1.5px #fff, 1.1px 1.1px #fff, -1.1px 1.1px #fff, 1.1px -1.1px #fff, -1.1px -1.1px #fff;
+}
+.item-count small { font-size: max(12px, 0.82em); } /* the text floor (UI_DIRECTION): never under 12 px on small tiles */
 .item-tile-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .item-tile-name { font-size: 0.72rem; text-align: center; max-width: 80px; line-height: 1.15; }
 .reward-row { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -460,6 +571,10 @@ p { margin: 0 0 8px; line-height: 1.45; }
   mask-image: linear-gradient(to right, transparent 0, #000 var(--fl, 0%)), linear-gradient(to left, transparent 0, #000 var(--fr, 0%)), linear-gradient(to top, transparent 0, #000 var(--fb, 0%));
   -webkit-mask-composite: source-in; mask-composite: intersect;
 }
+/* a stand that is not head-to-shoes (portraits.js fig, --fig): the lobby secretary is sized by height, so she is
+   scaled to bring her head near the cast's size, never below 0.62 (her figure still runs past the lobby's bottom
+   edge); the story player scales her by fig itself (story.css) */
+.lb-art-girl img.pt-img { height: calc(100% * max(var(--fig, 1), 0.62)); }
 .unit-card-art .pt-img { position: absolute; inset: 0; }
 .unit-card.locked .unit-card-art .pt-img { filter: none; }
 .unit-card-rarity { position: absolute; left: 6px; top: 4px; font-weight: 900; font-style: italic; color: var(--rarity); text-shadow: 0 1px 2px #000; font-size: 0.85rem; }

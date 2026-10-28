@@ -92,8 +92,12 @@ const ROUTES = [
   ['assault', '#/assault'],
   ['challenge', '#/challenge'],
   ['mall', '#/mall'],
+  // [ui-ink] a token shop: its plate head's restock chip, wallet and "i" (V1 review 2; a locked shop opens the first)
+  ['mall memento', '#/mall?tab=memento'],
   ['commissions', '#/commissions'],
   ['rewards', '#/rewards'],
+  ['mail', '#/mail'], // [ui-m5] the Mailroom
+  ['multiplayer', '#/multiplayer'], // [ui-m5] the Multiplayer hub (never signs in: before the online screens below)
   ['bestiary', '#/bestiary'],
   ['wiki', '#/wiki'],
   ['wiki article', '#/wiki/type-chart'],
@@ -208,15 +212,49 @@ async function runViewport(vp) {
   for (const [label, hash] of ROUTES) {
     await page.evaluate((h) => { location.hash = h; }, hash);
     await page.waitForTimeout(label.includes('student') || label === 'lobby' || label === 'bestiary' || label === 'assault' ? 1600 : 900);
+    // [ui-ink] (the bar check below reads what is on top: a screen change still running on a busy machine paints its
+    // layers over the bar, so wait for it to end, as e2e/ui-shots.mjs does)
+    await page.waitForFunction(() => !document.documentElement.dataset.tx && !document.querySelector('.ld-chip.on'), null, { timeout: 8000 }).catch(() => {});
     const info = await page.evaluate(() => {
       const app = document.querySelector('#app');
       const text = (app?.innerText || '').trim();
-      return { screen: app?.dataset.screen, len: text.length, crashed: /Something went wrong/.test(text), overflow: document.documentElement.scrollWidth > window.innerWidth + 1 };
+      // [ui-ink] the top bar can be reached (UI v2 V1 review 1: on portrait phones the wallets pushed Settings and Home
+      // past the right edge while the page itself never scrolled sideways): each of its controls inside the screen and
+      // on top at its centre, unless a dialog is open over the screen
+      const bar = [];
+      for (const b of document.querySelectorAll('#app .topbar button')) {
+        const r = b.getBoundingClientRect();
+        if (!r.width || !r.height || (b.checkVisibility && !b.checkVisibility({ visibilityProperty: true }))) continue;
+        const name = b.dataset.testid || b.getAttribute('aria-label') || b.title || b.className;
+        if (r.left < -0.5 || r.right > innerWidth + 0.5) { bar.push(`${name} at x ${Math.round(r.left)}`); continue; }
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        if (top && top.closest('.modal-overlay, .ui-layer, [role="dialog"], [aria-modal="true"], .rotate-overlay') && !b.closest('[role="dialog"]')) continue;
+        if (!top || !(top === b || b.contains(top))) bar.push(`${name} covered by ${top ? `${top.tagName.toLowerCase()}.${[...top.classList].slice(0, 2).join('.')}` : 'nothing'}`);
+      }
+      // [ui-ink] a plate head's controls the same way, and inside their head (V1 review 2: at 390x844 a 48 px head cut
+      // the Mall's second row, so its "i" sat half outside the head with the list on top of its centre)
+      const heads = [];
+      for (const ph of document.querySelectorAll('#app .ui-plate-head')) {
+        const hb = ph.getBoundingClientRect();
+        if (!hb.width || !hb.height || hb.bottom < 0 || hb.top > innerHeight || (ph.checkVisibility && !ph.checkVisibility({ visibilityProperty: true }))) continue;
+        for (const b of ph.querySelectorAll('button, a[href], [role="button"]')) {
+          const r = b.getBoundingClientRect();
+          if (!r.width || !r.height || b.closest('[aria-hidden="true"]') || (b.checkVisibility && !b.checkVisibility({ visibilityProperty: true }))) continue;
+          const name = b.dataset.testid || b.getAttribute('aria-label') || b.title || b.className;
+          if (r.top < hb.top - 0.5 || r.bottom > hb.bottom + 0.5 || r.left < hb.left - 0.5 || r.right > hb.right + 0.5) { heads.push(`${name} out of its head`); continue; }
+          const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          if (top && top.closest('.modal-overlay, .ui-layer, [role="dialog"], [aria-modal="true"], .rotate-overlay')) continue;
+          if (!top || !(top === b || b.contains(top))) heads.push(`${name} covered by ${top ? `${top.tagName.toLowerCase()}.${[...top.classList].slice(0, 2).join('.')}` : 'nothing'}`);
+        }
+      }
+      return { screen: app?.dataset.screen, len: text.length, crashed: /Something went wrong/.test(text), overflow: document.documentElement.scrollWidth > window.innerWidth + 1, bar, heads };
     });
     const errs = takeErrors();
     check(info.len > 40 && !info.crashed, `${label}: renders content (${info.len} chars, screen=${info.screen})`);
     check(!errs.length, `${label}: no page/console errors${errs.length ? `\n       ${errs.slice(0, 5).join('\n       ')}` : ''}`);
     check(!info.overflow, `${label}: no horizontal page overflow`);
+    check(!info.bar.length, `${label}: every top bar control on screen and on top${info.bar.length ? ` (${info.bar.join(', ')})` : ''}`);
+    check(!info.heads.length, `${label}: every plate head control inside its head and on top${info.heads.length ? ` (${info.heads.join(', ')})` : ''}`);
     await shot(label);
   }
 
@@ -280,12 +318,15 @@ async function runViewport(vp) {
   // Tracking stays live on the screen (playtester: it only updated after leaving and coming back):
   // the pity line and gem pill must match the profile after Close, and after "Recruit again" is
   // cancelled at the gem confirm.
+  // (UI M5c: the pity shows once, as the pulls left and its bar; the bar's label carries "n of 90")
   const recruitLive = () => page.evaluate(() => {
     const g = window.__sakura.store.profile.gacha;
-    const foot = document.querySelector('#app .ma-pity-foot')?.textContent || '';
+    const left = Number(document.querySelector('#app [data-testid="pity-left"]')?.textContent || NaN);
+    const bar = document.querySelector('#app [data-testid="pity"] .ma-progress')?.getAttribute('aria-label') || '';
+    const [, since, of] = bar.match(/^(\d+) of (\d+)/) || [];
     const gemsPill = Number((document.querySelector('#app .ma-tickets .ma-ticket-pill:last-child b')?.textContent || '').replace(/\D/g, ''));
-    const ok = foot.startsWith(`${g.pity}/`) && foot.includes(`· ${g.totalPulls.toLocaleString('en-US')} recruits`) && gemsPill === window.__sakura.store.profile.currencies.gems;
-    return { ok, text: `"${foot}", gems pill ${gemsPill} (profile: pity ${g.pity}, ${g.totalPulls} pulls, ${window.__sakura.store.profile.currencies.gems} gems)` };
+    const ok = Number(since) === g.pity && left === Number(of) - g.pity && gemsPill === window.__sakura.store.profile.currencies.gems;
+    return { ok, text: `${left} left, "${bar}", gems pill ${gemsPill} (profile: pity ${g.pity}, ${g.totalPulls} pulls, ${window.__sakura.store.profile.currencies.gems} gems)` };
   });
   let live = await recruitLive();
   check(live.ok, `recruit: page updated after Close without leaving — ${live.text}`);

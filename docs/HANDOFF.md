@@ -1,0 +1,218 @@
+# Sakura Sentinels — handoff
+
+Read this first in any new session (any account, cloud or local). It says what is live, where the unfinished work lives, what comes next, the owner's standing decisions, and the rules that never bend. Last updated Oct 28, 2026 (v0.1.54, v0.1.55, v0.1.56 and v0.1.57 shipped).
+
+**Next session: read `docs/handoff/NEXT_SESSION.md` first.** It says what is live (v0.1.57, the ultimates, shipped Oct 28), what is built on the other branches, and what to do next. It is written for a cloud session that only has this repo.
+
+The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) with the full decision log and design docs that are not in this public repo. If they upload it to a session, read `OWNER_DECISIONS.md` in it before planning.
+
+## 1. Where things stand
+
+- **Live:** v0.1.57 "Ultimates" (Oct 28) at https://tacosonmondays-pixel.github.io/sakura-game/ — `main` is the v0.1.57 merge `793dfcfa`, sim id `2c3c74708a2c`, `COOP_PROTOCOL` 10 (`src/online/coop/version.js`). Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`.
+- **Next deploy is v0.1.58**: whichever small display release passes its checks first, the display polish (`fix/display-polish`) or the honest DPS readout (`fix/honest-dps`). Neither changes the sim. The version is `0.1.<Pages run number>`; every push to `main` deploys (`.github/workflows/deploy.yml`, runs `npm test` first) and needs a patch note (§7). A failed deploy run still uses up its number; re-run a failed run with `gh run rerun` to keep the number.
+- **Roster:** 36 girls. Heroes (6): hikari, luna, nami, kanna, yoriko, seiran. Students (30): aoi, rei, yuki, momo, akane, sango, kage, umeko, shiro, midori, suzu, raika, miko, hotaru, kaede, chika, fuu, hana, ruri, noa, iroha, ena, azami, kinu, wakaba, yuzuha, ouka, chigusa, marumi, tenka (v0.1.57; Recruit spotlight only, Legend Promise at 300).
+- **Recent releases:**
+  - v0.1.40: 7 academy girls (Azami, Kinu, Wakaba, Yuzuha, Ouka, Chigusa, Marumi) and catch-up joins (COOP 7).
+  - v0.1.41: Marumi's ricochet rework and Kaede's AoE rework (COOP 8, sim `92e2e22527cf`).
+  - v0.1.42: tidier girl page (UI M1); Kon, Kaze and Yoriko's doll split into their own Blender figures (`public/models/companions/`).
+  - v0.1.43: Kon 2.4× bigger.
+  - v0.1.44: the UR awakening popup fix (`modal()` now accepts several classes).
+  - v0.1.45: the seven academy girls' drawn cards (online avatars now show each girl's drawn thumb), the girl page Compact/Detailed setting, eleven new Codex achievements, new map tier names (Sprout, Bud, Storm, Oni), shorter damage numbers and the co-op hold fix. Display only.
+  - v0.1.46: new art for every item: 100 baked 3D-flat icons (`public/art/items/`, made by `tools/blender/items/`) on slanted rarity tiles, a rainbow tile for the rarest items, and shorter item counts (x450K, x1.2M). Display only.
+  - v0.1.47 "Picture Day": the seven academy girls' v2 scene portraits (style B; the same 42 file names in `public/art/portraits/`), a `--fig` scale so their lobby and story stands match the cast's head size. Display only. The hubs did not ship with it: they go out with the UI v2 package (owner, Oct 23).
+  - v0.1.48 "Fill the Frame": the lobby background picker has two groups. "Backdrops" (every girl's default: her stand on the academy backdrop with her speech bubble) and "Full illustrations" (one picture fills the whole lobby: no stand, no backdrop, no speech bubble). The list is one table, `src/data/lobbyIllustrations.js`: the seven academy girls' wide scenes, Hikari's, Aoi's and Sango's older scenes, and "Summer Breeze", the owner's own picture of Yoriko, byte for byte. The plan is a full illustration for every girl. The seven academy girls' stands (`-cut`, `-cut-s`) are their clean v0.1.46 full-body files again; their page, cards, bust and thumb keep the v2 art. Display only.
+  - v0.1.49 "Room to Breathe": Yoriko's "Summer Breeze" lobby picture sits a little further back (owner, Oct 24: she looked too close). A full illustration row can carry `zoom` under 1: the picture is drawn that much smaller than a cover crop but never shorter than the screen, so only its sides open up, and they fade into a soft blur of its own thumb. Summer Breeze has zoom 0.8; tablets, portrait phones and every other picture are unchanged, and the picture file is untouched. Display only. Reverted in v0.1.50.
+  - v0.1.50 "Close-Up Again": reverts v0.1.49 (owner, Oct 24: "I didnt know it wouldnt fit properly"). Summer Breeze is the plain cover crop again, and the `zoom` field and the blurred side fill are gone from `main`. Display only.
+  - v0.1.51 "Spooky Courtyard": during the Halloween event every girl's lobby stand stands in a painted Halloween academy (`public/art/lobby/halloween.webp`, the owner's sketch: menus in front, a spooky lantern tree and shrubs on the left and glowing pumpkins on the right in the mid ground, the academy at dusk behind), set by the event theme's `lobbyBackdrop` (`eventLobbyBackdrop()`, artStage `backdrop`, no day/sunset/night tint); the overlay lantern string and pumpkins hide over a stand (`.on-stand`), so the string no longer hangs across the girls' hair. Full illustrations are unchanged. She greets you again when you switch from a full illustration back to a backdrop. Display only. Open lows from its review: the title screen doesn't preload the event backdrop (`title.js` `lobbyPreloadSteps`); the picker's three Backdrops tiles still show the academy tints though all three draw the Halloween picture during the event; the e2e doesn't check single greetings or pumpkins on full illustrations; on a 390x844 portrait phone the stand's greeting bubble runs off the left edge (older issue).
+  - v0.1.53 "Hubs and Hosts": UI M5 shipped on its own: hub screens with host girls (Missions, Titan Trials, Story, Achievements), cleaner campaign cards, one countdown chip and badge vocabulary, left-rail lists (Mailroom, Mall, Happening Now), the Multiplayer button and hub, Settings in five sections, the seven academy girls as hosts; and the lobby's lantern string and pumpkin stickers are gone (owner, Oct 24: "theyre ugly"; the painted Halloween backdrop stays). The owner skipped the last review round ("just send out hubs no last review"); an independent go/no-go passed every gate and a visual pass. The first deploy (run #52, as v0.1.52) failed in CI's `npm test`: `tests/ui/happening.test.js` assumed the game's home time zone, and CI runs in UTC, where the local-Monday double-drop week ends before Halloween closes. `vite.config.js` now runs vitest in `TZ=America/Chicago` on every machine, and the release went out as v0.1.53. The v0.1.52 note never went live, so renaming its id was safe. The owner finds the new home screen a bit busy but chose to leave it for UI v2. Open lows: Titan Trials at 1280x720 has no "Titan of the Week" kicker (its container threshold keeps it off the token), the Missions Bounty subtitle sits on dark art at 1024-1280, the Profile showcase cuts names at 1024x768, and the Assault/Multiplayer column sits over the girl on full illustrations. Display only.
+  - v0.1.54 "Quiet Home" (Oct 28, run #54, main `96e7cb73`): the display update from `release/next` `dde3c322`, which is `feature/ui-v2`. It brings a calmer home with the secretary centre stage, one news card, four shortcuts, a big Battle button and the rest in a Menu sheet; UI v2 "Ink & Paper" menus (`src/ui/styles/ink.css`; one red dot colour for everything, including "new inside"); painted story places for every Act I chapter (`src/data/story/backgrounds.js`); top bars that show only the currencies a screen uses; colour currency icons; screen transitions. Its go/no-go first said NO-GO on copy: the home lesson pointed to buttons the Quiet Home lacks; the bond unlock text said "date her"; and the "Café Date" bond memory is now "Café Afternoon". The fresh go/no-go said GO. Independent live check LIVE_OK. Display only (sim `92e2e22527cf`, COOP 8). The display session's notes and open lows: `docs/notes/DISPLAY_UPDATE_v0154.md` on `feature/ui-v2`.
+  - v0.1.55 "Rush Hour and Hilltop After Dark" (Oct 28, run #55, main `3e9284f4`): Gate Arc Acts 1–2 from `release/gate-arc-acts12` `37175468`. Chapter 1 Act II "Rush Hour" (1-6…1-10, the city at noon, opens after 1-5) and chapter 2 Act II "Hilltop After Dark" (2-6…2-10, the campus at night, opens after both 2-5 and 1-10). 18 story scenes, the Frostbitten Heir and the Old Lamp-Hugger, a content note card before the arc, girls on rooftops (`U` tiles), the 1-9 level crossing (lane schedule), the 2-7 blackout, Yuzuha joining at 1-7 (4-2 still grants her), and Act II medal gems at half. Act I's new stages use the painted city places; Act II keeps the drawn night campus skyline (no `STAGE_PLACE` for 2-6…2-10; jetty/lamp variants). `COOP_PROTOCOL` 9, sim `4d7b235077a8`. Independent pre-ship review and go/no-go GO. Independent live check LIVE_OK: smoke 678/678 at three viewports and the Gate Arc e2e 34/34 against the live files (served through a localhost relay), and all 1,528 live requests returned 200. Lows: transient toasts over UI, the old 390x844 title overlap, and compact-layout text cut-offs at 844x390 (partly the sandbox's fallback font).
+  - v0.1.56 "Brighter Home" (Oct 28, run #56, main `24881956`): the owner said the home "looks a little dead … bland" and their full illustration (Yoriko's "Summer Breeze") looked dark. Every home picture now shows in its own colours (`home.css` `--home-grade: none`; the night grade saturate 0.68 / brightness 0.76 and the 1.5 px blur are gone; `artStage.js` `HOME_BAKED` is empty). A Clan button (flag) sits in the top-right cluster between chat and mail (`HOME_CLAN = 'top'` in `lobby.js`; `'dock'` makes it a fifth shortcut), with a red dot for donations or a clan invite. The Daily gift's "day N" never wraps the number alone, and the top bar fits upright tablets (701–899 px). From `fix/home-lively` `cb53e18e`; fast-lane review OK; independent go/no-go GO; live check LIVE_OK. Display only (sim `4d7b235077a8`, COOP 9). Leftovers went to `fix/display-polish`: Marumi's living scene (High graphics) still used a night-baked plate.
+  - v0.1.57 "Ultimates" (Oct 28, run #57, main `793dfcfa`): tower abilities and ultimates (an ability bar with cast buttons; hold or right-click a slot for its card and Auto; hero skill buttons), Tenka the Coilgun Physicist (Critical Mass ignores armor; the "New: Tenka" Recruit spotlight, 0.7% of the 1.5% SSR rate, and a Legend Promise: the 300th recruit without her is her; spark, Select Ticket and Chosen Essence cannot pick her), the tactical drawer when you tap a placed girl (stats, three paths with a two-tap buy, targeting, her ability row), and Seiran's Dragonflight flying all the way back to the start (`fix/seiran-dragon`). From `release/ultimates` `18b72a84` (draft PR #31); the patch note was renumbered from v0.1.56 to v0.1.57 in the merge because the brighter home took run #56. `COOP_PROTOCOL` 10, sim `2c3c74708a2c` (older clients are refused and told to update). Final independent release review GO; independent go/no-go GO (full gates on the 4a86f132 merge, then a delta check on the exact commit: vitest 4928/0, abilities e2e green at 844 and 1280); live check LIVE_OK (smoke 678/678 at three viewports and Gate Arc 34/34 against the live files; the drawer, ability bar, cards, Auto, casts, Recruit and Notice checked by hand). Follow-ups are on `fix/honest-dps` and `fix/after-ultimates` (§3).
+  - Halloween 2026 event is open until Nov 1; its exchange until Nov 8.
+- **Usage:** the owner works under a weekly usage limit that resets around Monday 03:00 UTC (Sunday/Monday night in the owner's time). When budget is tight, the owner's rule is "closest to done first", and unfinished work is pushed to its branch so nothing is lost.
+
+## 2. Starting a new session
+
+- On a new account, connect GitHub first (https://claude.ai/connect-github, the same GitHub account that owns the repo) and allow the Claude GitHub App on `sakura-game`.
+- Pick the `sakura-game` repo and the **`claude/sakura-sentinels`** branch (it equals `main` plus docs like this one until the next ship).
+- Secrets do not carry over between accounts or environments: the Meshy key is an environment **network secret** (Bearer, injected for `api.meshy.ai`) and must be re-added in the new environment's settings. Never ask the owner to paste a key into chat.
+- The environment's network access must reach GitHub, the npm registry, PyPI, `api.meshy.ai`, the Supabase project and `tacosonmondays-pixel.github.io` (to read `version.json` after a deploy).
+- Tools a fresh container needs: `npm ci` (Node 22, as in CI); Chromium for the `e2e/` scripts (cloud containers have it; `e2e/browser.mjs` finds it); Python 3.11 with Pillow for image work; Blender as a Python module (`pip install bpy==4.2.0`) for everything in `tools/blender/` (girls, enemies, companions, item icons).
+- Generator credits: Meshy had 1,126 credits on Oct 22 (older copies of this file say 4; that is out of date); the image tool account was nearly empty at last check. Check balances before planning art.
+- If the owner uploads `sakura-handoff-pack.zip` and the vault zip (`Sakura-Sentinels-Vault-*.zip`, style references), unzip them in the scratchpad, never in the repo. This file in the repo is the newest version of the handoff; the copies inside the zips may be older.
+- The published pages (§9) belong to the account that made them. To update one from another account, the owner shares it with edit access from the page's Share menu.
+- Connectors (image/3D generators) must be connected again on a new account.
+
+## 3. Branches and unfinished work
+
+| Branch | Head | State |
+|---|---|---|
+| `main` | `793dfcfa` (the v0.1.57 merge) | Live (v0.1.57). Pushing here deploys. |
+| `claude/sakura-sentinels` | = `main` | Coordination branch; ships are merged here, then pushed to `main`. |
+| `release/next` | dde3c322 | Shipped as v0.1.54 (the display update: `feature/ui-v2` + copy fixes after its go/no-go). It is the staging branch for the next display release. |
+| `feature/girl-page-detailed` | ebfaeb4 | Shipped in v0.1.45: the Settings switch "Girl page: Compact / Detailed" (default Compact). Detailed shows full stats, gear values, substats, set bonuses, level steppers and the tier list inline. |
+| `feature/academy-cards` | 82e0d12 | Shipped in v0.1.45: the seven academy girls' drawn cards (42 portrait files), and every girl's drawn thumb as her online avatar. |
+| `feature/abilities` / `release/ultimates` | 18b72a84 | SHIPPED in v0.1.57 (draft PR #31). Follow-ups: `fix/honest-dps` (owner, Oct 28: "I jsut want the dps to properly show"; the drawer's DPS is damage × rate on one target and leaves out splash, burn/poison, crits, drones, traps and brews; the fix shows measured DPS from `recentDps`, a per-target line with DoT and a "Boost to allies" line; display only; the owner said yes to it in advance) and `fix/after-ultimates` (the girl page "+N" chip lost its enlarged tap area, the Select Ticket item text should name Tenka as the exception, and the stale e2e checks in §10). |
+| `fix/home-lively` | cb53e18e | SHIPPED in v0.1.56 "Brighter Home". |
+| `fix/display-polish` | e78ac569 | Ready, off `main` 24881956; needs `main` merged and a patch note: Marumi's living scene in full colour (`public/art/live/marumi/plate.webp` rebuilt by `tools/art/unbakeMarumiPlate.py`; only the quiet home's two corner washes), the Menu button dot counting clan invites, the "new lesson" pill off the wallet and her face, the locked stage card's chip below the stage number, story name-plate subtitles at 12–13 px, a deeper SNT-HQ halo. Fast-lane re-review OK. Board sent to the owner Oct 28 (yes pending). Also to check there: the battle hero widget half-covers 4-6's goal on phones. |
+| `fix/seiran-dragon` | 54cdb8d | SHIPPED in v0.1.57 with the ultimates. |
+| `feature/vfx` | 09c057a | In progress. VFX M0 and its review fixes (tinted impact frames, impact holds, cel blasts, a flash guard by area). Next: the rest of M1 (glow/halo, colour grade, screen shake), a postprocessing trial (keep only if faster on a phone) and an ULTRA graphics tier. It needs its own patch note when it ships. |
+| `feature/fx-1` | 90ec45b | In progress, paused at the owner's request: FX-1 on top of `feature/vfx`, unfinished and unreviewed. |
+| `feature/items-3dflat` | 429facc | Shipped in v0.1.46: the baked 3D-flat item icons (100 icons, 210 WebP files, five art-review rounds) on the slanted rarity tile, and the short item counts. The pipeline is `tools/blender/items/`. |
+| `feature/portraits-7` | c696c48 | Shipped in v0.1.47: the seven academy girls' v2 scene portraits (42 files, same names), `PORTRAIT_DATA` and the `--fig` stand scale. Independent in-game review OK (8.6/10). The open LOW (the lobby head-tap zone, `artStage.js` `CUT_FACE`, missed the lower face of some v2 stands) was about the v2 stands, which v0.1.48 replaced with the v0.1.46 ones. |
+| `fix/lobby-scenes` | 1e3b54f | Shipped in v0.1.48: the two lobby background groups (Backdrops, Full illustrations) from one table (`src/data/lobbyIllustrations.js`), the stage's full-picture mode, Summer Breeze, the seven girls' restored v0.1.46 stands, the lantern string giving way to a full illustration's head. Tests: `tests/systems/lobbyIllustrations.test.js`, `e2e/lobby-illustrations.mjs` (seven sizes). To add a girl's full illustration: one row in the table (file, size, face point) plus the picture in `public/art/scenes/` and its 480 px thumb in `public/art/scenes/thumbs/`. |
+| `fix/halloween-lobby` | 4c01d72 | Shipped in v0.1.51: the event's painted lobby backdrop behind every stand (`theme.lobbyBackdrop` in `src/data/events/halloween.js`, `eventLobbyBackdrop()` in `src/ui/events/lobby.js`, artStage's `backdrop` option and `.tint-event`, `.on-stand` in `events.css` hiding the overlay lanterns and pumpkins over a stand) and the greeting after a full illustration (`showSecretary` `backToStand`). Fast-lane review OK. A future event gets the same look by adding its own `lobbyBackdrop` picture. |
+| `fix/lobby-polish` | 1bb5e23 | NOT shipped, abandoned: it cut the lantern string back beside the stand's head; the owner said "the after looks awful", and `fix/halloween-lobby` replaced it. |
+| `fix/illustration-zoom` | 834b4d7 | Shipped in v0.1.49, then REVERTED in v0.1.50 (`fix/revert-yoriko-zoom` f967912; owner: it didn't fit properly), so none of this is on `main`; the branch keeps it in case a zoom is ever wanted again. It was a full illustration row's `zoom` (under 1: `sceneLayout.js` `stageFit` draws the picture that much smaller than a cover crop, never shorter than the screen; `anchorFace(zoom)` slides its box like a crop; `artStage.js` gives the inset picture its own box and fades its open sides into a blurred copy of its thumb, `.lb-art-fill` in `meta-a.css`). Summer Breeze has zoom 0.8. Independent review OK; tests in `tests/systems/lobbyIllustrations.test.js` and `e2e/lobby-illustrations.mjs`. |
+| `feature/ui-m5` | ca6ecf3 | Shipped in v0.1.53 (owner: "ship the hubs on their own"; the last review round skipped on the owner's call). UI M5a-d: hubs with host girls, the badge and countdown vocabulary, left-rail lists, the Multiplayer hub, condensed Achievements, cleaner campaign cards; main merged with the lobby whole; the four final-review layout findings fixed; the seven academy girls host; `e2e/hubs.mjs` and `ui-shots` at 10 sizes; a tap/occlusion check in `e2e/lobby-illustrations.mjs`; the lobby decor overlay removed. Lows are in §1. |
+| `feature/ui-v2` | 5d478aa9 | Shipped in v0.1.54 through `release/next`. Notes for the next display work: `docs/notes/DISPLAY_UPDATE_v0154.md`. The menus and Potential Board continue on `feature/ui-v2-menus` (M0–M9; M5/M8 WIP), which merges `main` first. |
+| `wip/balance-measure` | 0f741cc | NEVER MERGE. It only saves balance measurement tooling (bench and bot tools, plus env-gated sim variants used to measure aura rules). The balance changes themselves are not on any branch yet. |
+| `feature/energy-m4` | 6aca2bc | Specs only so far: energy v2 with Bounty Passes, and the UI M4 + energy build plan. |
+| `feature/lively-figures` | 79bcec2 | In progress. Livelier 3D figures: library clips for Hikari, Hana and Ruri, an upper-body attack, slimmer GLBs, settings and rebuild tools, with review fixes. |
+| `fix/seiran-dragon` (old row) | 54cdb8d | (Shipped in v0.1.57; history:) Approved by an independent re-review. Seiran's Dragonflight flew a fixed 10/14/18 tiles (ranks 1/2/3) and never reached START from a road's exit (0 of 65 roads); it now flies all the way back to START (sim change: sim id `c0c82733d953` on this branch alone; the merged abilities build gets its own id), plus a display fix so a wave clear no longer cuts the dragon off mid-flight. It cannot ship alone: merge it into `feature/abilities` (it is based on the v0.1.46 merge, so this also syncs `main` into that branch) and ship it with the COOP 9 release. Diagnosis and clips are in the owner's private notes (outside this repo, not in the §11 pack). |
+| `proto/modern-city` | e02ac31 | The city look test (4 maps). Waiting for the owner's approval; not in `MAPS` or `STAGES`. |
+| `feature/gate-arc` | 50ecc41a (draft PR #28) | Acts 1–2 SHIPPED in v0.1.55 through `release/gate-arc-acts12`. Step 3 (Act 3 "The Bell Festival", 3-6…3-10, Old Town at night and burning, the Ashen Warden) and Step 4 (Act 4 "The Checkpoint", 4-6…4-10, the highway and the far north, the Frost Vanguard, the Brigade bestiary family, Azami joins after 4-7 for new saves) are done and reviewed; both owner boards were sent Oct 28 with defaults (PR #28 lists them). Step 5 in progress. It merges `main` (v0.1.57) once, then its Acts 3+ release takes the next free `COOP_PROTOCOL` at ship time (it stays behind PENDING_BUMP until then). Specs: `docs/specs/gate-arc/`. |
+| `feature/banners` | 3d70b786 (PR #30) | New banners, LR units, the Kohaku & Tsubaki duo, every girl facing the camera in battle (owner: "default all", display only). Next: merge `main` (v0.1.57), retarget PR #30 to `claude/sakura-sentinels`, `COOP_PROTOCOL` 11 if it changes the sim, real banner dates from Oct 29, a patch note, and the owner's SQL paste (one file, no keys). |
+| `feature/tryout-day` | 3614b68 | Tryout Day (the roguelike mode, solo + co-op at launch): M4 done, `main` v0.1.57 merged (pending sim `b6c17def5421`). Next: the menus kit (`feature/ui-v2-menus` once it has merged v0.1.57 and Tenka's Potential Board row), then M3. Ships with the next free protocol number. |
+| `feature/ui-v2-menus` | 4deca50c (PR #27) | UI v2 menus + Potential Board: M8 (co-op hub) merged and reviewed, smoke 678/678 after the kit-sheet blur fix. Next: merge `main` (v0.1.57), add Tenka's Potential Board row, settle the social e2e "needs update: clan chat still delivers". |
+
+Not started on any branch:
+- **New girls' visuals pass.** The owner and players say most academy girls' attacks and placed things read as plain or dotted circles (Azami's spike strips look ugly, Yuzuha's sentries have no model). Their portraits shipped in v0.1.45.
+- **Yoriko marionette rework** (owner spec): the strings hang from her control bar, not a projectile trail. Attack sequence Command → Extend (an arc) → Strike → Reel, with a pendulum settle. The doll delivers the hit; the impact flash is separate. Later ideas: Thread Pierce, Marionette Web, Grand Marionette.
+
+## 4. Next up
+
+**What the owner told players is coming in the next big update (after the usage reset):** a couple more girls and new rarities; about 6 reworks (girls with companions, Kaede, Iroha's animations only); tower abilities/ultimates (Tenka is the ultimate tower); new UI/GUI; double the maps plus new chapters/story with new enemy types; the new VFX; banner changes; quality-of-life fixes. Kaede's AoE rework already shipped in v0.1.41: ask the owner what her next rework means (likely visuals/animation).
+
+**Suggested order for that update** (the owner's rule is "closest to done first", and every step ships on its own when it's ready, so players get something even if the week runs short):
+1. **Small display fixes** (no sim change): the compact DPS readout (§10), the girl page Compact/Detailed switch (`feature/girl-page-detailed`). Both are in v0.1.45 (§3).
+2. **Finish VFX M1** (`feature/vfx`, display only) and ship it.
+3. **Tower abilities + Tenka** (`feature/abilities`): T2 → T3 → sync with main, then the ability bar (A3) with battle UI M2. This changes the sim: bump `COOP_PROTOCOL`.
+4. **Visual reworks:** the companion girls (Ruri + Kon, Hana + Kaze, Yoriko's marionette per §3), the academy girls' attacks and placed objects, Kaede's look (once the owner says what they want), Iroha's animations.
+5. **Banner changes** (owner page "Banners and Legends").
+6. **New girls and rarities, more maps, new chapters and enemies:** the biggest pieces; the gate arc story design is in the private pack. Plan them with the owner before building.
+7. **Balance and the gear update** last, in one pass (below).
+
+**Kickoff message the owner can paste into a new session:**
+> Read docs/HANDOFF.md first. Unzip the packs I upload into your scratchpad (never into the repo). Then tell me in a few lines what's live, what's unfinished and the suggested order in HANDOFF §4, and start on step 1. Report the cost of every Meshy run (HANDOFF §6), ask me before spending any other generator's credits, and ship each step as its own update when it's ready.
+
+After the big update, roughly in order:
+1. **Balance pass.** Tune damage girls relative to Kage (Kage is the reference number). Inputs: §10 findings, the players' requests in §10 (Oct 26) and the tier list.
+2. **Gear update** (owner decisions, Oct 21):
+   - 5 equipment pieces: Charm, Ribbon, Shoes stay as they are; 2 new pieces (a hair accessory and a necklace, as the owner told players) come in role sets you farm (support, control, money, precision, abilities, …), each set from its own source (e.g. one Titan Trials boss per set). Wearing both pieces unlocks the set's passive.
+   - Clubs can go on any of the 5 pieces (Armbands too) and count across all 5, so 3 + 2 club splits are possible.
+   - Support main stats on role pieces: Aura Power, Aura Radius, Buff Duration, Control Strength.
+   - LR gear above UR: max +18 (Legendary +10 and UR +12 today). Each LR piece raises the stat caps a little (`BATTLE_CAPS` in `src/data/gearStats.js`); aura most, crit least.
+   - 5 pieces ≈ +60% gear stats, so the Kage-relative tuning ships in the same update.
+3. **Energy** (rewards cost energy, replays are free, tickets for bounties; `docs/specs/ENERGY_RESET.md`) with UI M4 stage prep; then UI M3 backpack and M5.
+4. **Map editor** behind a code. The unlock code lives server-side only, never in the repo or the bundle.
+5. **Banners** (owner page "Banners and Legends", defaults accepted unless the owner says otherwise).
+6. Hana's bio (Kaze only swooped for flyers) is fixed on `feature/abilities` (`d7abcb4`, `src/data/unitsExpansion.js`, a hashed file): Kaze swoops at every enemy she shoots, flyers first. It ships with that sim release; nothing left to do.
+7. Later: gate arc story (owner answers pending), item icons family by family, the beach event after Halloween (after Nov 8), school-uniform forms for older girls, 2–4 player co-op, PvP hub.
+
+## 5. Owner's standing decisions
+
+- **Look:** modern school-uniform girls with tech touches; one clean cel-shaded art style everywhere. 3D: Meshy is the main tool; the Blender chibis are accepted as temporary. Each girl keeps her own build. New girls must be mechanically unique (e.g. a fox girl actually deploys her fox).
+- **Combat rules:** unlimited copies of a girl, but per girl type only one copy may own each path's final tier. Heroes are free and level 1–25 inside the battle.
+- **Growth:** Potential v3, level cap 85 with Tomes; duplicates give Essence; UR gear awakening; Ascension and Titan Trials (weekly bosses).
+- **LR:** Kohaku & Tsubaki (a duo, no solo versions) are the first girl to go SSR → UR → LR; maybe Tenka later. LR girls are harder to pull, get rate-up banners but cannot be sparked, and give a clearly bigger stat boost. Tenka launches on her own rate-up banner.
+- **Sensei** stays androgynous in game. A friendly teacher, never romantic.
+- **Story tone:** silly, cute everyday school life, and a grim serious main plot (the Brigade fight is a lethal war, characters can die) with no gore; deaths are shown through absence. Chapters later double their stages (city → school → city destroyed).
+- **Daily reset** at 7 PM US Central. Event sweeps have a daily cap.
+
+## 6. Rules that never bend
+
+- **Content:** students are never sexualised; no swimsuits or bikinis on students or chibi characters; adult heroes are never framed around their bodies; bond scenes are wholesome; no gore.
+- **Names:** never write other games' or anime names in code, docs, commits, patch notes or generator prompts.
+- **Reference art:** never commit third-party reference images; references are for study only. Generators (Meshy, image tools) only ever receive the game's own art.
+- **Secrets:** only the Supabase URL and publishable/anon key may be in the repo. Never use, store or commit the secret key or DB password; the owner still needs to rotate both (keep reminding). Owner-only secrets (dev clan code, map editor code) go in through the Supabase SQL editor, never the repo or chat.
+- **Credits:** Meshy: run one test first, report the cost of every run and stop below 60 credits. Since Oct 22 the owner has approved Meshy spending, so a batch no longer waits for their yes (balance 1,126 on the evening of Oct 22). Other generators (the image tool) still need the owner's yes before spending.
+- **Audio** is original; no private soundfonts in the repo. The loader slime is never a blue teardrop.
+- **People:** never put players' names on published pages; use they/them for players.
+- **Determinism:** the battle sim is lockstep co-op. Any sim change changes the sim id (§7) and needs a `COOP_PROTOCOL` bump; display-only releases keep both.
+- **Git:** no force pushes or history rewrites.
+- **Review gate (owner rule, Oct 22):** before any change (code, art and the specs that drive code) counts as done, it needs an explicit OK from a reviewer agent that did not build it. Every fix is re-reviewed by a fresh reviewer until it is OK; after three failed rounds, stop and report "not approved", never pass it silently. Every ship needs an independent go/no-go agent's GO before the push, then a live check by an agent that did not ship it. Visual reviews zoom into panel edges and corners. Never hand a fixer a truncated review: pass the whole text or its file.
+  - **Fast lane (owner rule, Oct 24)** for small display-only tweaks: a zoom, crop, colour, copy or spacing fix, with no new feature and no sim, data or save change.
+    - **Review:** ONE independent reviewer covers look and logic, using targeted tests plus screenshots at 844x390 and 1280x720.
+    - **Tests:** the full test suite runs once, at the go/no-go. The shipper doesn't rerun it when only docs changed after the go/no-go.
+    - **Live check:** a quick one, version.json plus one screenshot of the changed screen.
+    - The reviewer and the go/no-go are still separate agents. Everything else keeps the full gate.
+
+## 7. Shipping a release
+
+The feature branch must already carry an independent reviewer's OK (§6, review gate). After the two merges below, an independent go/no-go agent checks the patch note and runs the gates (`npm test`, the sim id check, the build and the secret scan) on the merged `claude/sakura-sentinels`, and nothing is pushed until it says GO. After the deploy, an agent that did not ship it checks the live site.
+
+```sh
+git fetch origin
+git checkout release/next && git merge --no-ff origin/<feature-branch> -m "Merge <feature>: v0.1.N — <title>"
+# add the patch note at the TOP of PATCH_NOTES in src/data/patchNotes.js (rules in its header comment)
+git checkout claude/sakura-sentinels && git merge --no-ff release/next -m "Merge <feature>: v0.1.N — <title>"
+npm test
+node -e "import('./tools/simId.mjs').then(m=>console.log(m.simId().id))"   # changed? bump COOP_PROTOCOL
+nice npx vite build
+grep -rlE "sb_secret_|service_role|SUPABASE_SERVICE" dist   # one known false positive in a bundled library chunk
+rm -rf dist
+git push origin claude/sakura-sentinels claude/sakura-sentinels:main release/next
+```
+
+Then poll `version.json` until it shows the new version. Patch-note tests: `tests/systems/patchGifts.test.js`, `tests/integration/missionCounters.test.js`. SQL migrations in `supabase/migrations/` are run by the owner by hand in the Supabase SQL editor.
+
+## 8. Testing and measuring
+
+- `npm test` (vitest, node environment, no DOM: test pure functions), `npm run e2e` (`e2e/smoke.mjs`). Browser scripts use `launchChromium()` from `e2e/browser.mjs`.
+- `tools/simId.mjs`: the sim id. `tools/bench.mjs`: one girl's DPS against test targets. `tools/capBot.mjs` / `tools/freeplayBot.mjs`: real-coin Freeplay runs that respect the path cap. `tools/heroTrack.mjs`: a hero's 25-level track. `tools/killcap.mjs`: board kill capacity.
+- Test-target numbers flatter splash and trap girls; settle close calls with real-coin runs.
+
+## 9. Published pages (owned by the original account)
+
+| Page | Link |
+|---|---|
+| Tier List (public link) | https://claude.ai/artifact/TjjmTL4me9YmhkwLhSBgnM |
+| Build Guide | https://claude.ai/artifact/466iMmcg6VB7gjHTgjwGFq |
+| Roadmap | https://claude.ai/artifact/MDevxAib2zrEoQ9kL95LW8 |
+| UI Cleanup Direction | https://claude.ai/artifact/7LwrCfGSFRCjLuGibiedxw |
+| Banners and Legends | https://claude.ai/artifact/8nmK9eaLv6RkEz1g1eJCKm |
+| Girl at the Door (gate arc story) | https://claude.ai/artifact/8325x1tmZZQNioju81Dym4 |
+| Reference Study | https://claude.ai/artifact/UyxNQS1aSFYf6QnSfLPnsz |
+| Tower Defense Screens Study | https://claude.ai/artifact/2sY9oKd8LhhocpzHFQyXJ1 |
+| Potential v3 Ladders | https://claude.ai/artifact/Hs6UaHzrGnRFS38FGqm8aP |
+| New Towers Plan | https://claude.ai/artifact/CbSQnm9KmF42NAKcLZvn73 |
+| Gear Awakening Mock-up | https://claude.ai/artifact/KvCjUDphDdB8AYAbnAEthH |
+| Four-Player Co-op Mock-up | https://claude.ai/artifact/KoU43CpuiHWdaR96Lf9vV3 |
+| Sensei Profile Mock-up | https://claude.ai/artifact/Qiyg5yURusKcWpQ5UMwEgV |
+| Achievements Expansion Mock-up | https://claude.ai/artifact/P4ep8GpEKmpxmtwwy1hviN |
+
+## 10. Known bugs and balance findings (from the v0.1.44 tier list tests)
+
+- **Touch-drag drop in long e2e runs:** in a full three-viewport `e2e/smoke.mjs` run, the "drag (touch): releasing places … where the pointer let go" check sometimes lands about half a tile along the drag direction (seen at 844x390 and at 390x844, on v0.1.53 through v0.1.56). The same check passes on its own, and the placement code (`src/ui/battle/placement.js` `dragEnd` picks at the pointerup point) did not change. New clue (v0.1.57 live check): at 844x390 the point `renderer.worldToScreen` gives for a placed girl lands about 0.5 tile right of where her model is drawn, while a tap on the drawn model picks her exactly. So the e2e scripts' projection helper is off, probably not the game; check it before calling the flake closed.
+- **Pre-existing e2e failures on live (found Oct 28, being fixed on `fix/after-ultimates`):** `e2e/patch-notes.mjs` "Claim all (N) shown" / "counts down" (stale label; claiming works); `e2e/girl-page.mjs` the Info "+N" chip answers taps only on its 27x24 box (a real small bug: it lost its enlarged tap area); `e2e/online.mjs` "clan boss: one of three daily attempts used" (likely the label format; confirm the count) and "Bea left the room" (the copy changed on purpose); `e2e/abilities.mjs` at 667x375 (phones under 700 px hide the bar while the drawer is open) and its fixed waits on slow software GPUs; `e2e/smoke.mjs` "mall: General offer visible" reads once after a fixed 900 ms.
+- **Battle DPS undersells splash, DoT and support girls** (owner, Oct 28, Midori 5-0-2 showed "DPS 42.6" while she really does ~800/s into a pack of 8): the drawer's DPS is damage × rate × projectiles on one target. Fix: `fix/honest-dps` (§3). The poison chip also rounds 0.25% of max HP to 0.3%.
+
+- **Shiro is the outlier:** map-wide reach; one buffed copy did about half of the best team's damage; alone with supports she reached wave 200 (Kage 190).
+- **Hero auras never stack with student auras** (only the strongest aura per stat counts), so most hero auras add nothing next to a tier-5 Miko. Kanna has no aura and matched "no hero" in 3 of 4 runs. Players also say hero auras are weak.
+- **Extra tier-4 copies are near dead weight** under the path cap (19 Kage 4-2-0 copies dealt about a tenth of her one 5-2-0).
+- **Marumi's rolls are ground-only** and cannot touch the flying phases of the wave-200 Matriarch.
+- **Kill-only effects are weak in teams:** Chigusa's thorn beds, Ena's curse bursts, Yuzuha's nets.
+- **Armour shred** is worth at most 5–8% at level 60.
+- **Umeko's tooltips undersell her:** her tiers multiply, they don't add. (v0.1.45: her tier text now gives the running total.)
+- **Abilities are unreachable** on live: FIXED in v0.1.57 (the ability bar, Auto, hero skills, co-op casts).
+- **Azami:** Charged Strips / Detonation Line blasts don't scale with level, stars or gear ATK (+50% ATK gave +2%). Likely a missing multiplier.
+- **Azami's strips and Yuzuha's sentries can't crit,** and their crit lines aren't converted to ATK either (not in the gear-fit list).
+- **Ult Haste** does nothing for students until abilities ship.
+- **Battle panel DPS readout** prints the raw number (`fmtNum(dps, 1)` in `src/ui/battle/util.js`, e.g. "136234.5"), and the cell clips it to about 5 digits. Use a compact format (136.2k, 1.2M) in the tower and Chika panels. (Fixed in v0.1.45: `fmtDps`.)
+- **`tools/bench.mjs`:** the walking boss reads `near.dist` but path samples only carry `d`, so the boss always spawns at the start of path 0; the 15 s warm-up is too short on stage 4-5; ults can fire inside the warm-up.
+- Players note crit-damage substats stack hard, and that LR gear will need higher stat caps (planned, §4).
+
+**Player feedback for the balance pass (Discord, Oct 26; no names in the repo):**
+- Raise the max DPS of every striker except Kage and Shiro, so other girls catch up to Kage and players have more ways to win.
+- Chigusa's bottom path (Harvest): remove the cap on total lives gained, but cap the gain per round so it can't scale forever.
+- Make the wind push-back stronger so Fuu has a niche.
+- Heroes should start with better base DPS than regular girls but not scale as high as a max-path tower (both are limited to one, and heroes level for free).
+- Enemies: the player thinks enemy HP is fine (the Matriarch is beatable on Crimson) and the girls are what need to catch up. The owner said high-level enemies have impossible HP, so either the girls get much stronger or enemy HP comes down. Measure both before choosing; the owner's standing target is "tune damage girls relative to Kage".
+
+**What the owner told players on Oct 26 is coming:** the new UI (almost done), the ultimates (about halfway), a new girl rarity, a new gear rarity, the two new gear pieces as a **hair accessory and a necklace** (the role-set pieces in §4, next to the shoes), real gear sets on top of clubs, new VFX, new models, new card art (the owner is drawing some), new companion models and turrets, PvP content before the full multiplayer hub, and balance updates. Later: real ultimate cut-in animations (the owner may learn to make them).
+
+## 11. Private notes pack (not in this repo)
+
+The owner keeps `sakura-handoff-pack.zip`: the full owner decision log (142 entries), the session's running log, and design docs (gacha/banner spec, gate arc story design, UI mock-up notes, screen study decisions, art style recipe, build guide and tier list data). It is private because it quotes the owner's chats and names reference material; don't commit it to this public repo.

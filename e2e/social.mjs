@@ -343,8 +343,8 @@ try {
   await wait(A, '[data-testid="edit-titles"]', { timeout: 15000 });
   const aTitles = await A.evaluate(() => [...document.querySelectorAll('[data-testid="edit-titles"] button[data-title^="tag_"]')].map((b) => b.dataset.title).join(','));
   const aCount = await A.evaluate(() => document.querySelector('.ep-lbl small')?.textContent || '');
-  // 38 titles in this build (37 at launch + Helping Hands) + the Alpha Tester title A owns
-  check(aTitles === 'tag_alpha' && / \/ 39 earned$/.test(aCount), `tags: A's picker lists only Alpha Tester and counts it (${aTitles}; "${aCount}")`);
+  // 45 titles in this build (37 at launch + Helping Hands + 7 Codex titles) + the Alpha Tester title A owns
+  check(aTitles === 'tag_alpha' && / \/ 46 earned$/.test(aCount), `tags: A's picker lists only Alpha Tester and counts it (${aTitles}; "${aCount}")`);
   await tap(A, '[data-testid="edit-profile-cancel"]');
   await go(A, '#/clan?tab=chat');
   await wait(A, '[data-testid="chat-panel"][data-ready="1"]', { timeout: 10000 });
@@ -405,7 +405,7 @@ try {
   await lobby(B);
   // B has the Menu open when the invite arrives: Join must not leave it on top of the room (UX #2)
   await tap(B, '[data-testid="top-menu"]');
-  await wait(B, '[data-testid="menu-close"]', { timeout: 8000 }).catch(() => null);
+  await wait(B, '[data-testid="menu-sheet-close"]', { timeout: 8000 }).catch(() => null); // ([ui-ink] V2: the side sheet)
   const t1 = await B.evaluate(() => Date.now());
   await tap(A, '[data-testid="thread-invite"]');
   await wait(A, '[data-testid="coop-stage-ok"]', { timeout: 10000 });
@@ -713,11 +713,7 @@ try {
   check(await A.evaluate(() => window.__online.socialSummary().then((s) => s.privacy)) === 'friends_clan', 'settings: the server has Friends & clan');
   check(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(await text(A, '[data-testid="settings-friend-code"]')), 'settings: my friend code is shown');
   await lobby(A);
-  await tap(A, '[data-testid="top-menu"]');
-  check(await wait(A, '[data-testid="menu-messages"]', { timeout: 8000 }).then(() => true).catch(() => false), 'menu: a Messages tile');
-  await shot(A, 'menu-messages');
-  await A.keyboard.press('Escape').catch(() => {});
-  await A.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((o) => o.remove()));
+  // ([ui-ink] V2, C12: the Menu's Messages tile folded into the chat button: its drawer's Messages button, below)
   // the lobby chat drawer: its Messages button (no unread now) reads "Messages", never "Messagesnull"
   await tap(A, '[data-testid="top-chat"]');
   const dmBtn = await A.waitForFunction(() => {

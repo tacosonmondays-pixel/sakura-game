@@ -4,9 +4,23 @@
 // Exchange (Mementos and Moonpearls, docs/specs/ASCENSION.md §A.5). Offers show the item tile, price,
 // stock and reset period; buying asks for a quantity when more than one fits. "Choose family" rows
 // share one card with family chips (pre-picked for the girl whose next gate needs it).
+// UI M5c (docs/specs/UI_DIRECTION.md §5.5, §5.10 E1-E3, E6; notes/ui-m5/PLAN.md §5 M5c): a list screen. The six shops
+// in the left rail (Q6: one word each, the tab-<id> test ids kept), Midori hosts on the right (the shop-counter tint
+// behind), the shelves under an ink plate header with the shop's name, its restock countdown chip and, for a token
+// shop, its wallet ONCE (coins and gems live in the top bar: ../mallView.js); the shop's sentence behind "i" (a bottom
+// sheet). Every buy is a cost button (§5.5: an ink plate, the currency and the price in the plate accent; dimmed with
+// a lock when it is short), so the yellow pills are gone. The offer tiles (M3's) and the buy and quantity windows are unchanged.
 import '../styles/meta-a.css';
-import { h, clear, screen, svgEl, modal, toast, button, tabs } from '../components.js';
-import { navigate } from '../router.js';
+import '../styles/hubs.css';
+import { h, clear, svgEl, modal, toast, button } from '../components.js';
+import { countdownChip, iconBtn, ico } from '../kit.js';
+import { msToLocalMidnight, msToLocalWeekEnd } from '../countdown.js';
+import { nextWeeklyReset } from '../../core/reset.js';
+import { navigate, rememberParams } from '../router.js';
+import { walletsFor } from '../wallets.js';
+import { listScreen } from '../listScreen.js';
+import { openSheet } from '../sheet.js';
+import { railTabs, walletChips, restockKind, RESTOCK_LABEL, mallHostState, stockLine, onGameWeek } from '../mallView.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { UNIT_MAP } from '../../data/units.js';
@@ -15,7 +29,7 @@ import { ITEM_RARITIES, UNIT_RARITIES } from '../../data/types.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { currencyIcon, uiIcon } from '../../art/icons.js';
 import { shopTabs, buyOffer, currencyBalance } from '../../systems/shop.js';
-import { tile, card, showRewardsModal, cssVar, rememberParams } from './stage.js';
+import { tile, card, showRewardsModal, cssVar } from './stage.js';
 import { applyUrFrame, isUR } from '../rarity.js';
 import { MAX_POTENTIAL, potentialLevel, potentialNext, dupePastMaxPay } from '../../systems/potential.js';
 import { MATERIAL_FAMILIES } from '../../data/types.js';
@@ -30,8 +44,7 @@ function urFramed(el, unitId) {
 }
 
 const CURRENCY_NAME = { coins: 'Coins', gems: 'Gems', recruitPoints: 'Recruit Points', token_boss: 'Assault Tokens', token_bounty: 'Bounty Tokens', memento: 'Mementos', moonpearl: 'Moonpearls' };
-const SECTION_NAME = { titan: 'Titan shelf · weekly' };
-const RESET_LABEL = { daily: 'Daily', weekly: 'Weekly', never: 'Once' };
+const SECTION_NAME = { titan: 'Titan shelf' }; // [ui-m5] (its restock chip says "Weekly")
 const CURRENCY_ROUTE = {
   token_boss: { route: 'assault', label: 'Total Assault' },
   token_bounty: { route: 'bounty', label: 'Bounty' },
@@ -46,36 +59,71 @@ const CURRENCY_ROUTE = {
 const famPick = {};
 
 function curIcon(currency, cls = 'ma-cur-icon') {
-  return svgEl(currency === 'memento' || currency === 'moonpearl' ? itemIcon(currency) : currencyIcon(currency), cls);
+  return svgEl(currency === 'memento' || currency === 'moonpearl' ? itemIcon(currency, { px: 22 }) : currencyIcon(currency), cls);
+}
+
+/** The restock chip's time left for a kind (mallView.js restockKind). */
+const restockMs = (kind) => (kind === 'daily' ? msToLocalMidnight() : kind === 'weekly' ? msToLocalWeekEnd() : kind === 'game' ? nextWeeklyReset() - Date.now() : null);
+
+/**
+ * A token shop's wallet, once (P7): one chip in the plate header with each of its balances; a tap goes where the
+ * tokens are earned. The test ids of the old balance panel stay (mall-balance, mall-balance-<currency>).
+ */
+function walletChip(tab) {
+  const wallets = walletChips(tab);
+  if (!wallets.length) return null;
+  const go = CURRENCY_ROUTE[wallets[0].currency];
+  const names = wallets.map((w) => `${formatNumber(w.balance)} ${CURRENCY_NAME[w.currency] || w.currency}`).join(', ');
+  return h('button.ma-wallet', {
+    type: 'button', 'data-testid': 'mall-wallet', title: go ? `${names}. Earn more in ${go.label}` : names, 'aria-label': go ? `${names}. Earn more in ${go.label}` : names,
+    onclick: go ? () => navigate(go.route) : null,
+  }, wallets.map((w) => h('span.ma-wallet-one', curIcon(w.currency, 'ma-wallet-icon'),
+    // (the first wallet keeps the old balance's test id)
+    h('span.num.ma-wallet-val', { 'data-testid': w === wallets[0] ? 'mall-balance' : `mall-balance-${w.currency}` }, formatNumber(w.balance)))));
+}
+
+/** "i": the shop's sentence in a bottom sheet (P1: the Tap layer is a sheet, as Happening Now's "?"; toasts stay for
+ * feedback), so it never covers the header it explains and stays until it is closed. */
+function shopInfo(tab) {
+  openSheet({ title: tab.name, testid: 'mall-info-sheet', body: h('div.hn-sheet', h('p', tab.desc)) });
 }
 
 export function render(root, params = {}) {
-  const { el, body } = screen('Mall', { cls: 'ma-mall-screen' });
-  root.appendChild(el);
   const all = shopTabs(store.profile);
   let active = all.some((t) => t.id === params.tab) ? params.tab : all[0].id;
-
-  const tabBar = tabs(all.map((t) => ({ id: t.id, label: t.name })), active, (id) => {
-    active = id;
-    rememberParams('mall', { tab: id });
-    draw();
+  const first = all.find((t) => t.id === active);
+  const ls = listScreen({
+    title: 'Mall', cls: 'ma-mall-screen', location: 'mall', host: 'mall', state: mallHostState(restockMs(restockKind(first))),
+    sections: railTabs(all), active, railLabel: 'Shops', headTestid: 'mall-head',
+    onPick: (id) => {
+      if (id === active) return;
+      active = id;
+      rememberParams('mall', { tab: id });
+      ls.rail.setActive(id);
+      draw();
+      ls.list.scrollTop = 0;
+    },
   });
-  tabBar.classList.add('ma-tabs');
-  const content = h('div.ma-mall-content.ma-tab-body');
-  body.append(h('div.ma-wrap', tabBar, content));
+  const el = ls.el;
+  root.appendChild(el);
+  const content = h('div.ma-mall-content');
+  ls.list.append(content);
 
   const draw = () => {
     clear(content);
     const tab = shopTabs(store.profile).find((t) => t.id === active);
-    content.appendChild(h('div.ma-mall-head',
-      h('div.ma-mall-desc', h('h3.ma-section-title', tab.name), h('p.muted', tab.desc)),
-      // the Memento Exchange has two wallets (Mementos and Moonpearls)
-      tab.wallets.map((w, wi) => {
-        const go = CURRENCY_ROUTE[w.currency];
-        return h('div.ma-balance', curIcon(w.currency, 'ma-balance-icon'), h('div', h('div.ma-balance-val', { 'data-testid': wi ? `mall-balance-${w.currency}` : 'mall-balance' }, formatNumber(w.balance)), h('div.muted', CURRENCY_NAME[w.currency] || w.currency)),
-          go ? h('button.ma-balance-go', { onclick: () => navigate(go.route), title: `Earn more in ${go.label}` }, svgEl(uiIcon('plus'), 'ma-inline-icon')) : null);
-      }),
-    ));
+    // [ui-ink] the top bar shows the active shop's own currency (src/ui/wallets.js, UI v2 Q3)
+    el.querySelector('.topbar .cur-pills')?.setWallets?.(walletsFor('mall', { tab: active }));
+    // E2: the shop's name, its restock chip (a recurring cycle: never red; at zero the shelves restock and redraw),
+    // its wallet once (token shops only) and its sentence behind "i"
+    const kind = restockKind(tab);
+    const ms = restockMs(kind);
+    ls.setLines(mallHostState(ms));
+    ls.setHead(tab.name, [
+      kind ? countdownChip(ms, { label: RESTOCK_LABEL[kind], cls: 's', urgent: false, doneText: 'Restocked!', onDone: () => { if (el.isConnected) draw(); }, testid: 'mall-restock' }) : null,
+      walletChip(tab),
+      iconBtn('info', { label: `About the ${tab.name}`, cls: 'ma-mall-info', testid: 'mall-info', onClick: () => shopInfo(tab) }),
+    ]);
     // one card per "choose family" group; a section header before the Titan shelf
     const items = [];
     const groups = new Map();
@@ -94,23 +142,27 @@ export function render(root, params = {}) {
     }
     let i = 0;
     for (const [sec, list] of bySection) {
-      if (sec) content.appendChild(h('h4.ma-shelf-title', { 'data-testid': `shelf-${sec}` }, SECTION_NAME[sec] || sec));
+      // a game-week shelf inside a shop (the Titan shelf) carries its own restock chip on its title
+      if (sec) {
+        content.appendChild(h('h4.ma-shelf-title', { 'data-testid': `shelf-${sec}` }, h('span', SECTION_NAME[sec] || sec),
+          list.some((it) => onGameWeek(it.offers?.[0] || it)) ? countdownChip(nextWeeklyReset() - Date.now(), { label: 'Weekly', cls: 's', urgent: false, doneText: 'Restocked!', onDone: () => { if (el.isConnected) draw(); }, testid: 'mall-restock-shelf' }) : null));
+      }
       const grid = h('div.ma-offers');
       for (const it of list) {
-        const elOffer = it.group ? groupCard(it, () => draw()) : offerCard(it, () => draw());
+        const elOffer = it.group ? groupCard(it, () => draw(), kind) : offerCard(it, () => draw(), kind);
         elOffer.style.animationDelay = `${Math.min(i++, 12) * 25}ms`;
         grid.appendChild(elOffer);
       }
       content.appendChild(grid);
     }
     if (!tab.offers.length) content.appendChild(h('div.ma-offers', h('div.ma-empty-state', svgEl(uiIcon('mall')), h('p', 'Nothing on the shelves right now.'))));
-    content.appendChild(h('p.muted.ma-hint', tab.offers.some((o) => o.section || o.currency === 'memento' || o.currency === 'moonpearl')
-      ? 'Daily stock restocks at midnight; weekly stock on Monday; the Titan shelf and Memento Exchange on Sunday at 7 PM Central.'
-      : 'Daily stock restocks at midnight; weekly stock on Monday.'));
   };
   draw();
   const off = store.on('change', (e) => { if (e?.reason === 'replace') draw(); });
-  return () => off();
+  return () => {
+    off();
+    ls.cleanup();
+  };
 }
 
 /** Her next step as "P5 ✦ Maple Gale" (a stat step: "P2 +4% damage"), or '' at P6. */
@@ -126,12 +178,12 @@ function unitStockText(o) {
 }
 
 /** "Choose family" card: one tile, family chips, the shared weekly stock. */
-function groupCard(g, redraw) {
+function groupCard(g, redraw, shopKind = null) {
   const need = nextGateNeed(store.profile);
   const fams = g.offers.map((o) => o.family);
   if (!famPick[g.group] || !fams.includes(famPick[g.group])) famPick[g.group] = fams.includes(need?.family) ? need.family : fams[0];
   const o = g.offers.find((x) => x.family === famPick[g.group]) || g.offers[0];
-  const card = offerCard(o, redraw);
+  const card = offerCard(o, redraw, shopKind);
   card.classList.add('fam');
   const chips = h('div.ma-fam-chips', { 'data-testid': `fam-${g.group}` }, g.offers.map((x) => h(`button.ma-fam-chip${x.family === o.family ? '.on' : ''}`, {
     title: MATERIAL_FAMILIES[x.family]?.name || x.family,
@@ -142,11 +194,13 @@ function groupCard(g, redraw) {
   return card;
 }
 
-function offerCard(o, redraw) {
+/** An offer: its tile (M3's), name, stock line and cost button. `shopKind`: the shop's restock cycle (mallView.js). */
+function offerCard(o, redraw, shopKind = null) {
   const isUnit = !!o.unitId;
   const item = o.item ? getItem(o.item) : o.chosenEssence ? getItem('kindred_ssr') : null;
   const name = isUnit ? UNIT_MAP[o.unitId]?.name : o.chosenEssence ? 'Chosen SSR Essence' : item?.name || o.item;
-  const stockText = o.away ? 'Back next week' : o.blocked ? 'No SSR can hold more' : o.stock != null ? `${RESET_LABEL[o.resets] || ''} ${o.remaining}/${o.stock}` : isUnit ? unitStockText(o) : 'Unlimited';
+  // [ui-m5] the cycle is the plate header's chip; an unlimited row says nothing (P7)
+  const stockText = stockLine(o, shopKind) || (isUnit ? unitStockText(o) : null);
   // "Needed for" tag: the girl whose next gate takes this item ("Kage · Gate 9")
   const needTag = o.item && !isUnit ? neededFor(store.profile, o.item) : null;
   const el = h(
@@ -163,14 +217,30 @@ function offerCard(o, redraw) {
         : tile(o.item || 'kindred_ssr', o.count > 1 ? o.count : null, { size: 72 }),
     ),
     h('div.ma-offer-name', name),
-    needTag ? h('div.ma-offer-need', { 'data-testid': `need-${o.id}` }, `Needed: ${needTag}`) : null,
-    h('div.ma-offer-stock', stockText),
-    h(`button.ma-offer-buy${o.affordable ? '' : '.short'}`,
-      { disabled: o.soldOut || o.blocked, onclick: () => (o.chosenEssence ? pickChosen(o, redraw) : startBuy(o, redraw)), 'data-testid': `buy-${o.id}` },
-      o.soldOut ? h('span', 'Sold out') : [curIcon(o.currency), h('span', formatNumber(o.price))]),
+    // (the gate and its number never part on a narrow card: "Gate 1", not "Gate" over "1")
+    needTag ? h('div.ma-offer-need', { 'data-testid': `need-${o.id}` }, `Needed: ${String(needTag).replace(/ (\d+)$/, ' $1')}`) : null,
+    h('div.ma-offer-stock', stockText || ''),
+    costButton(o, () => (o.chosenEssence ? pickChosen(o, redraw) : startBuy(o, redraw))),
   );
   if (item) cssVar(el, '--rc', ITEM_RARITIES[item.rarity]?.color || '#9aa5b1');
   return el;
+}
+
+/**
+ * The cost button (§5.5; UI M5c): an ink plate with the currency and the price in the plate accent, exact (money is
+ * exact up to 999,999, §2). Short of the price: the price dims and a small lock shows (never opacity); a tap still
+ * says what is missing and where to earn it. Sold out or blocked: the button is off and says so.
+ */
+function costButton(o, onBuy) {
+  const off = o.soldOut || o.blocked;
+  const label = o.soldOut ? 'Sold out' : null;
+  return h(`button.ui-cost.dense.ma-cost${!off && !o.affordable ? '.poor' : ''}`, {
+    type: 'button', disabled: off, 'data-testid': `buy-${o.id}`,
+    'aria-label': label || `Buy for ${formatNumber(o.price)} ${CURRENCY_NAME[o.currency] || o.currency}${o.affordable ? '' : ' (not enough)'}`,
+    onclick: onBuy,
+  }, label
+    ? h('span.ui-cost-lbl', label)
+    : h('span', curIcon(o.currency, 'ma-cost-icon'), h('span.num', formatNumber(o.price)), !o.affordable && !off ? ico('lock', 'ui-ico.ma-cost-lock') : null));
 }
 
 function maxQty(o) {

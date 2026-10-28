@@ -287,7 +287,13 @@ async function runViewport(vp) {
     }, null, { timeout: 10000, polling: 200 }).then((hnd) => hnd.jsonValue(), () => null);
     check(!!onBuy, `step 4: with her panel open the ring moves to a buy button (${onBuy})`);
     await shot(page, 'coach-4-upgrade-panel');
-    if (onBuy) await page.click(`[data-testid="${onBuy}"]`, { force: true });
+    // (the drawer's two-tap buy: tap 1 arms the price — "Buy · …" — and the ring stays on it; tap 2 buys)
+    if (onBuy) {
+      await page.click(`[data-testid="${onBuy}"]`, { force: true });
+      const armedOk = await page.waitForFunction((id) => /Buy/.test(document.querySelector(`[data-testid="${id}"]`)?.textContent || ''), onBuy, { timeout: 5000, polling: 100 }).then(() => true, () => false);
+      check(armedOk, `step 4: tap 1 arms the price ("Buy · …")`);
+      await page.click(`[data-testid="${onBuy}"]`, { force: true });
+    }
     await page.waitForFunction(() => window.__battle.sim.towers.some((t) => !t.isHero && t.tiers.some((n) => n > 0)), null, { timeout: 5000, polling: 200 }).catch(() => null);
     await page.click('[data-testid="panel-close"]', { force: true }).catch(() => {});
     // step 5: speed (from wave 2). On a loaded machine wave 1 may still be running here: wait for the button, and

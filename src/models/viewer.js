@@ -10,6 +10,21 @@ export const VIEWER_LIGHTS = {
 };
 
 /**
+ * The box of what is drawn: posed skinned vertices (a SkinnedMesh's cached box can be the asset's bind pose at
+ * another scale) of visible meshes only (not a hidden barrier bubble or outline shell). Falls back to the whole object.
+ */
+export function drawnBox(object) {
+  object.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  object.traverse((o) => {
+    if (!o.isMesh || !o.visible || /outline/i.test(o.name)) return;
+    for (let p = o.parent; p && p !== object; p = p.parent) if (!p.visible) return;
+    box.expandByObject(o, true);
+  });
+  return box.isEmpty() ? box.setFromObject(object) : box;
+}
+
+/**
  * @param {HTMLElement} container element to fill (its size drives the canvas)
  * @param {{background?: null|string|[string,string], autoRotate?: boolean, state?: string}} [opts]
  *   background: null = transparent, '#hex' = flat colour, ['#top', '#bottom'] = soft gradient.
@@ -85,7 +100,7 @@ export function createModelViewer(container, { background = null, autoRotate = t
 
   function fit() {
     if (!object) return;
-    const box = new THREE.Box3().setFromObject(object);
+    const box = drawnBox(object);
     const size = box.getSize(new THREE.Vector3());
     height = Math.max(0.2, object.userData.height || size.y);
     const span = Math.max(height * 1.25, size.x, size.z);

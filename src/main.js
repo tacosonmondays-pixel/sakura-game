@@ -1,5 +1,7 @@
 import './ui/styles/base.css';
 import './ui/styles/components.css'; // UI condense shared components (docs/specs/UI_DIRECTION.md §5)
+import './ui/styles/ink.css'; // [ui-ink] UI v2 "Ink & Paper": the menus and the home only (body.ui-day / ui-night), never the battle
+import './ui/styles/motion.css'; // [ui-ink] the UI v2 motion layer (src/ui/motion.js): the same scope
 import { registerRoute, startRouter, currentRoute, prefetchRoutes } from './ui/router.js';
 import { whenSettled, txLog, transitionBusy } from './ui/transitions/index.js';
 import { store } from './core/store.js';
@@ -32,7 +34,8 @@ registerRoute('challenge', () => import('./ui/screens/challenge.js'));
 registerRoute('sandbox', () => import('./ui/screens/sandbox.js')); // solo test range (any map, any girl, no rewards)
 registerRoute('mall', () => import('./ui/screens/mall.js'));
 registerRoute('commissions', () => import('./ui/screens/commissions.js'));
-registerRoute('rewards', () => import('./ui/screens/rewards.js'));
+registerRoute('rewards', () => import('./ui/screens/rewards.js')); // [ui-m5] Happening Now (the route name stays)
+registerRoute('mail', () => import('./ui/screens/mail.js')); // [ui-m5] the Mailroom (it replaced the Mail modal): #/mail?tab=…
 registerRoute('event', () => import('./ui/screens/event.js')); // [events] limited event page: #/event/<id>?tab=…
 registerRoute('bestiary', () => import('./ui/screens/bestiary.js'));
 registerRoute('wiki', () => import('./ui/screens/wiki.js'));
@@ -42,6 +45,8 @@ registerRoute('missions', () => import('./ui/screens/missions.js')); // [ui-v2] 
 registerRoute('chat', () => import('./ui/screens/chat.js'));
 registerRoute('clan', () => import('./ui/screens/clan.js'));
 registerRoute('coop', () => import('./ui/screens/coop.js'));
+// [ui-m5] the Multiplayer hub (owner #79, #108): Co-op, PvP (coming soon), Friends, Titan Co-op, Clan Boss; host Momo
+registerRoute('multiplayer', () => import('./ui/screens/multiplayer.js'));
 // [social] private messages, friends, blocks (#/messages[/<threadId>|/new][?tab=…])
 registerRoute('messages', () => import('./ui/screens/messages.js'));
 registerRoute('soundtest', () => import('./audio/soundTest.js')); // [audio] jukebox + SFX pads + loop-seam check
@@ -127,6 +132,10 @@ if (store.profile.progress?.freeplayPending) {
     .catch((e) => console.warn('[main] pending freeplay payout failed', e));
 }
 
+// The item art's small cuts (the HUD and currency pills on nearly every screen): fetched now, so a first open
+// draws them straight away instead of the loading placeholder (src/art/icons.js; about 42 KB).
+import('./art/icons.js').then((m) => m.preloadSmallItemArt()).catch((e) => console.warn('[main] item art preload failed', e));
+
 // Cold start (no route in the URL): the title / load-up screen, once per browser session.
 let titleSeen = false;
 try {
@@ -191,7 +200,7 @@ const warmModels = () => import('./models/index.js').then(async (m) => {
 const idle = (fn, timeout) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout }) : setTimeout(fn, Math.min(timeout, 1200)));
 whenSettled().then(() => {
   idle(warmModels, 2500);
-  idle(() => prefetchRoutes(['missions', 'campaign', 'stage', 'students', 'student', 'formation', 'recruit', 'titans']), 4000);
+  idle(() => prefetchRoutes(['missions', 'campaign', 'stage', 'students', 'student', 'formation', 'recruit', 'titans', 'multiplayer']), 4000);
 });
 
 // [social] badges, live DMs and invite pop-ups for players who already went online (a stored
@@ -216,5 +225,12 @@ import('./audio/index.js').then((a) => a.initAudio({ store })).catch((e) => cons
 import('./ui/updateBanner.js').then((u) => u.initUpdateBanner()).catch((e) => console.warn('[main] update check unavailable', e));
 // [unit-info] hold a girl's card (or right-click it) on a menu screen → her info sheet (request #152)
 import('./ui/hold.js').then((m) => m.installHoldInfo()).catch((e) => console.warn('[main] hold info unavailable', e));
+// [ui-m5] desktop keys (UI_DIRECTION §5.10 E8): Space presses the screen's [data-primary], Esc closes or goes back
+// (hub and list screens that opt in only); and a mode's "Open!" sticker comes off once its screen is visited
+import('./ui/keys.js').then((m) => m.installKeys()).catch((e) => console.warn('[main] keys unavailable', e));
+// (a visit to an open mode is remembered, by any door: it never wears "Open!" on the next Missions look)
+Promise.all([import('./ui/badges.js'), import('./ui/modesOpen.js')])
+  .then(([m, o]) => m.installOpenSeen(window, { isOpen: (id) => o.modeOpen(store.profile, id) }))
+  .catch((e) => console.warn('[main] open stickers unavailable', e));
 // two tabs share one save: a tab another tab saved over stops saving and says "reload" (store.js)
 import('./ui/staleBanner.js').then((b) => b.initStaleBanner()).catch((e) => console.warn('[main] stale-save banner unavailable', e));

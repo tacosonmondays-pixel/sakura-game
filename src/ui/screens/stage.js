@@ -24,18 +24,19 @@ import { navigate, rememberParams } from '../router.js';
 import { store } from '../../core/store.js';
 import { createRng } from '../../core/rng.js';
 import { formatNumber, formatPct } from '../../core/util.js';
-import { STAGE_MAP, CHAPTERS, stageEnemies } from '../../data/stages.js';
+import { STAGE_MAP, CHAPTERS, stageEnemies, stageRequires } from '../../data/stages.js';
 import { getMap } from '../../data/maps.js';
 import { ENEMY_MAP, FAMILIES, enemyTraits } from '../../data/enemies.js';
 import { UNIT_MAP, unitsWithCapability, hasCapability } from '../../data/units.js';
 import { getItem } from '../../data/items.js';
 import {
-  DIFFICULTIES, DIFFICULTY_ORDER, CAPABILITIES, TRAITS, MAP_TIERS, BATTLE, ITEM_RARITIES, ARMOR_CLASSES,
+  DIFFICULTIES, DIFFICULTY_ORDER, CAPABILITIES, TRAITS, BATTLE, ITEM_RARITIES, ARMOR_CLASSES,
 } from '../../data/types.js';
+import { MAP_TIER_VIEW } from '../../data/mapTierNames.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { medalIcon, traitIcon, capabilityIcon, uiIcon, gearIcon, armorClassIcon } from '../../art/icons.js';
-import { stageMedals, isStageUnlocked, recommendedFor, isOwned, canPlayEndless } from '../../systems/unlocks.js';
-import { canSweep, sweep, MAX_SWEEPS } from '../../systems/rewards.js';
+import { stageMedals, isStageUnlocked, isStageCleared, recommendedFor, isOwned, canPlayEndless } from '../../systems/unlocks.js';
+import { canSweep, sweep, MAX_SWEEPS, medalGems as medalGemsFor } from '../../systems/rewards.js';
 import { currentEvent } from '../../systems/missions.js';
 import { describeStat } from '../../systems/gear.js';
 import {
@@ -49,6 +50,7 @@ import { lastSoloTier, rememberSoloTier } from '../battle/soloFreeplay.js';
 import { rarityInfo } from '../rarity.js';
 import { modeId } from '../../data/modes.js';
 import { modeText } from '../text/modes.js';
+import { mechanicFor } from '../text/acts.js';
 import {
   getBattleSave, slotKey, saveSummary, clearBattleSave, saveToEvict, savesByWorth, saveTitle, MAX_BATTLE_SAVES, runStartedAt,
 } from '../../systems/battleSave.js';
@@ -179,7 +181,16 @@ export function savedBadge(profile, stageId, endless = false) {
   return h('span.ma-saved-badge', { 'data-testid': 'saved-badge', title: `Saved battle: ${savedDetail(rec)}. Continue it from the stage screen.` }, svgEl(uiIcon('play'), 'ma-saved-badge-ico'), `Saved · W${saveSummary(rec).next}`);
 }
 
-/** "Clear 1-4 first" style requirement text (null when unlocked). */
+/**
+ * The stages still blocking a locked stage, in its `requires` order (an Act II x-6 can need two); [] when it has none
+ * left. Unknown ids are skipped.
+ * @returns {object[]} StageDefs
+ */
+export function missingRequirements(profile, stageId) {
+  return stageRequires(stageId).filter((id) => !isStageCleared(profile, id)).map((id) => STAGE_MAP[id]).filter(Boolean);
+}
+
+/** "Clear 1-4 first" style requirement text (null when unlocked); a two-key stage names what is still missing. */
 export function requirementText(profile, stageId) {
   const stage = STAGE_MAP[stageId];
   if (stage?.kind === 'event') {
@@ -187,8 +198,8 @@ export function requirementText(profile, stageId) {
     return st.ok ? null : st.text;
   }
   if (!stage || isStageUnlocked(profile, stageId)) return null;
-  const req = STAGE_MAP[stage.requires];
-  return req ? `Clear ${req.kind === 'campaign' ? req.id : req.name} first` : 'Locked';
+  const missing = missingRequirements(profile, stageId);
+  return missing.length ? `Clear ${missing.map((r) => (r.kind === 'campaign' ? r.id : r.name)).join(' and ')} first` : 'Locked';
 }
 
 /** Row of the four difficulty medals (earned ones in colour). */
@@ -213,9 +224,10 @@ export function gearTile(gear, { size = 56 } = {}) {
     {
       style: { width: `${size}px` },
       title: `${gear.name} — ${describeStat(gear.main.stat, gear.main.value)}`,
+      'data-tier': rarity ? gear.rarity : 'common',
       onclick: () => showGearInfo(gear),
     },
-    svgEl(gearIcon(gear.slot, gear.rarity), 'item-tile-icon'),
+    svgEl(gearIcon(gear.slot, gear.rarity, { px: size }), 'item-tile-icon'),
   );
   cssVar(tile, '--rarity', rarity?.color || '#999');
   return tile;
@@ -544,7 +556,7 @@ function buildPrep(stage, state, { endless, redraw }) {
 
   // ----- Left: map + info + enemies ------------------------------------------------
   const left = h('div.ma-prep-col.left');
-  const tier = MAP_TIERS[played.tier];
+  const tier = MAP_TIER_VIEW[played.tier];
   const thumb = h('div.ma-prep-thumb', { html: map ? withRuleMarks(stageThumbSVG(map, { width: 480, height: 300 }), map, stage.rule, 480, 300) : '' });
   // The thumb box is sized by CSS (landscape phones cap its height); the map fills it edge to edge.
   thumb.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMid slice');
@@ -578,7 +590,7 @@ function buildPrep(stage, state, { endless, redraw }) {
       isEndless && entry?.bestWave ? fact('Best wave', String(entry.bestWave)) : null,
       !isEndless && entry?.clears ? fact('Clears', String(entry.clears)) : null,
     ),
-    chapter ? h('p.muted.ma-mechanic', svgEl(uiIcon('info'), 'ma-inline-icon'), chapter.mechanic) : null,
+    mechanicFor(chapter, stage) ? h('p.muted.ma-mechanic', svgEl(uiIcon('info'), 'ma-inline-icon'), mechanicFor(chapter, stage)) : null,
   ));
   const rule = rulePanel(stage);
   if (rule) left.appendChild(rule);
@@ -654,7 +666,7 @@ function buildPrep(stage, state, { endless, redraw }) {
       cont.classList.add('ma-start-btn', 'ma-continue-btn');
       actions.appendChild(cont);
     }
-    const reqStage = STAGE_MAP[stage.requires];
+    const reqStage = missingRequirements(profile, stage.id)[0] || null; // (the first one still to clear)
     if (evStatus) actions.appendChild(button('Back to the event', { kind: 'primary', icon: 'teleport', testid: 'stage-to-event', onClick: () => navigate('event', { id: stage.event, tab: evStatus.reason === 'episode' ? 'story' : 'stages' }) }));
     else if (reqStage) actions.appendChild(button(`Go to ${reqStage.kind === 'campaign' ? reqStage.id : reqStage.name}`, { kind: 'primary', icon: 'teleport', onClick: () => navigate('stage', { id: reqStage.id }) }));
   } else {
@@ -867,7 +879,7 @@ function difficultyPicker(stage, state, medals, redraw, savedDifficulty = null) 
         ? h('span.ma-diff-sub', { 'data-testid': `diff-lock-${d}` }, svgEl(uiIcon('lock'), 'ma-diff-lock'), gate.text)
         : h('span.ma-diff-sub', modeSubLine(variant?.sub || DIFF_SUMMARY[d], d, state.mode)),
       ribbonCorner(store.profile, stage.id, d, state.mode)
-        ?? (medals[d] ? h('span.ma-diff-check', svgEl(uiIcon('check'))) : h('span.ma-diff-gems', `+${def.firstClearGems}`)),
+        ?? (medals[d] ? h('span.ma-diff-check', svgEl(uiIcon('check'))) : h('span.ma-diff-gems', `+${medalGemsFor(stage, d)}`)),
       savedDifficulty === d ? h('span.ma-diff-saved', { 'data-testid': 'diff-saved', title: 'Your saved battle plays this difficulty' }, 'Saved') : null,
     );
     row.appendChild(b);
@@ -956,7 +968,7 @@ function firstClearPanel(stage, medals, mode = 'standard') {
   const medalGems = (stage.kind === 'event' && stage.difficulties ? stage.difficulties : DIFFICULTY_ORDER).map((d) => h(
     `div.ma-fc-medal${medals[d] ? '.done' : ''}`,
     svgEl(medalIcon(d, { earned: medals[d] }), 'ma-fc-medal-icon'),
-    h('span', medals[d] ? 'Claimed' : `+${DIFFICULTIES[d].firstClearGems}`),
+    h('span', medals[d] ? 'Claimed' : `+${medalGemsFor(stage, d)}`),
   ));
   const unlocks = (stage.unlocks?.units || []).filter((id) => UNIT_MAP[id]);
   return panel(

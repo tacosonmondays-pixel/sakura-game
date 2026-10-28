@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 import { ENEMIES, ENEMY_MAP } from '../../src/data/enemies.js';
 import { MAPS, MAP_MAP } from '../../src/data/maps.js';
-import { STAGES, STAGE_MAP, CAMPAIGN_IDS, stageEnemies } from '../../src/data/stages.js';
+import { STAGES, STAGE_MAP, CAMPAIGN_IDS, stageEnemies, stageRequires } from '../../src/data/stages.js';
 import { ITEMS } from '../../src/data/items.js';
 import { SHOP_OFFERS } from '../../src/data/shop.js';
 import { DAILY_MISSIONS, WEEKLY_MISSIONS, LOGIN_REWARDS, ACHIEVEMENTS } from '../../src/data/missions.js';
@@ -22,6 +22,7 @@ import { createBattleSim, resolveFormation, parseBattleParams, followingStage } 
 import { hasItemIcon } from '../../src/art/icons.js';
 import { cardArtSVG } from '../../src/art/cardArt.js';
 import { stageThumbSVG } from '../../src/art/stageThumb.js';
+import { LEGEND_UNITS } from '../../src/data/recruitFeature.js';
 
 const ROUTES = [...readFileSync(new URL('../../src/main.js', import.meta.url), 'utf8').matchAll(/registerRoute\('([a-z]+)'/g)].map((m) => m[1]);
 
@@ -42,7 +43,7 @@ describe('ids line up across modules', () => {
       for (const u of s.unlocks?.units || []) expect(UNIT_MAP[u], `${s.id} unlock ${u}`).toBeTruthy();
       for (const c of s.recommended) expect(CAPABILITIES[c], `${s.id} recommended ${c}`).toBeTruthy();
       for (const k of s.introduces) expect(ENEMY_MAP[k] || TRAITS[k], `${s.id} introduces ${k}`).toBeTruthy();
-      if (s.requires) expect(STAGE_MAP[s.requires], `${s.id} requires`).toBeTruthy();
+      for (const id of stageRequires(s)) expect(STAGE_MAP[id], `${s.id} requires ${id}`).toBeTruthy();
     }
   });
 
@@ -90,9 +91,12 @@ describe('ids line up across modules', () => {
     for (const rewards of lists) for (const r of [].concat(rewards)) expect(ITEMS[r.id], `reward ${r.id}`).toBeTruthy();
   });
 
-  test('gacha pool covers the whole roster under the right rarity', () => {
-    for (const u of UNITS) expect(POOL[u.rarity], u.id).toContain(u.id);
-    expect(Object.values(POOL).flat().length).toBe(UNITS.length);
+  test('gacha pool covers the whole roster under the right rarity (LR units only through their spotlight)', () => {
+    for (const u of UNITS) {
+      if (LEGEND_UNITS.includes(u.id)) expect(POOL[u.rarity], u.id).not.toContain(u.id);
+      else expect(POOL[u.rarity], u.id).toContain(u.id);
+    }
+    expect(Object.values(POOL).flat().length).toBe(UNITS.length - LEGEND_UNITS.length);
   });
 
   test('card art and stage thumbs render for every unit and map without bad values', () => {
@@ -107,7 +111,14 @@ describe('ids line up across modules', () => {
   });
 
   test('battle-ui route params: Next Stage follows the campaign order', () => {
-    CAMPAIGN_IDS.forEach((id, i) => expect(followingStage(id)).toBe(CAMPAIGN_IDS[i + 1] ?? null));
+    // inside one act (docs/CAMPAIGN.md "Act II"): Act I runs 1-1 … 8-5 and stops (never 1-6); Act II runs 1-6 … 1-10,
+    // 2-6 … 2-10 and stops until 3-6 exists (the results screen shows Next only when that stage is unlocked: 2-6 is a
+    // two-key stage)
+    const act1 = CAMPAIGN_IDS.filter((id) => STAGE_MAP[id].act === 1);
+    const act2 = CAMPAIGN_IDS.filter((id) => STAGE_MAP[id].act === 2);
+    expect(act2).toEqual(['1-6', '1-7', '1-8', '1-9', '1-10', '2-6', '2-7', '2-8', '2-9', '2-10']);
+    act1.forEach((id, i) => expect(followingStage(id), id).toBe(act1[i + 1] ?? null));
+    act2.forEach((id, i) => expect(followingStage(id), id).toBe(act2[i + 1] ?? null));
     expect(parseBattleParams({ stage: '1-1', difficulty: 'easy' }).difficulty).toBe('easy');
     expect(parseBattleParams({ stage: 'nope' }).error).toBeTruthy();
     // the old endless runs on campaign maps are freeplay now; the colosseum stays endless

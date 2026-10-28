@@ -17,8 +17,8 @@ export function isTransient(name) {
 /**
  * Screens with a fixed place in the menus: the arrow goes to this parent, wherever the screen was
  * opened from (a chat link, a battle, the clan …) — except straight from higher up the same menus
- * (a lobby shortcut): then back there, since the player never saw the screens in between. A route
- * name, or (params) => route name.
+ * (a lobby shortcut) or from a list hub or the Multiplayer hub (RETURN_HUBS): then back there, since the player never saw
+ * the screens in between. A route name, or (params) => route name.
  */
 const PARENTS = {
   missions: 'lobby',
@@ -30,10 +30,29 @@ const PARENTS = {
   challenge: 'missions',
   sandbox: (p) => (p.id ? 'sandbox' : 'missions'), // the squad step (#/sandbox/team) → the map step → Missions
   commissions: 'lobby', // the lobby's Tasks shortcut / dock button (not on the Missions hub)
-  coop: (p) => (p.id ? 'coop' : 'missions'), // a room → the co-op hub → Missions
+  // a room → the co-op screen → the Multiplayer hub (UI M5d); #/multiplayer has no fixed parent on purpose: it opens
+  // from the lobby's Multiplayer button, Missions and the Menu, and its arrow goes back there (the lobby when nothing
+  // is below it)
+  coop: (p) => (p.id ? 'coop' : 'multiplayer'),
   // [social] a conversation (#/messages/<threadId> or /new) → the Messages list → the lobby
   messages: (p) => (p.id ? 'messages' : 'lobby'),
+  // [ui-m5] the Mailroom (#/mail) has no fixed parent on purpose: it opens from the lobby, the Menu, the Notice, the
+  // Journal and event pages, and its arrow goes back there (the lobby when nothing is below it)
 };
+
+/**
+ * [ui-m5] List hubs: Happening Now (#/rewards), the Mall and the Mailroom. Their whole job is "Go" (a row's Go, the
+ * Mall's wallet chip), so a fixed-parent screen opened from one (Bounty on the double drops, Total Assault from the
+ * token wallet, the clan boss week …) comes back to it, the list as it was left (its tab), not to its menu parent.
+ */
+export const LIST_HUBS = new Set(['rewards', 'mall', 'mail']);
+
+/**
+ * [ui-m5] The screens a fixed-parent screen opened from them arrows back to: the list hubs, and the Multiplayer hub
+ * (#/multiplayer), whose Friends and Clan Boss tiles open Messages › Friends and the clan: screens whose menu parent is
+ * the lobby, so the arrow would skip the hub the player was on (UI M5d review).
+ */
+export const RETURN_HUBS = new Set([...LIST_HUBS, 'multiplayer']);
 
 const fixedParent = (name, params = {}) => {
   const p = PARENTS[name];
@@ -87,8 +106,8 @@ export function parentRoute(name, params = {}, prev = null) {
   const fixed = fixedParent(name, params);
   if (fixed) {
     // opened from its parent, or straight from higher up the menus (the lobby's Tasks / Bounty /
-    // Total Assault shortcuts, Menu → Co-op): back there, the way the back gesture goes
-    if (from && (sameScreen(from, route(fixed)) || (!from.params?.id && menuAncestors(fixed).includes(from.name)))) return from;
+    // Total Assault shortcuts), or from a list hub's Go or a Multiplayer tile: back there, the way the back gesture goes
+    if (from && (sameScreen(from, route(fixed)) || (!from.params?.id && menuAncestors(fixed).includes(from.name)) || RETURN_HUBS.has(from.name))) return from;
     return route(fixed);
   }
   return from || route(FALLBACK[name] || 'lobby');

@@ -2,12 +2,21 @@
 // motion, hit effects, impact frames, the loading screen's look), audio, battle defaults (placement range, auto
 // start, default speed, camera locked / free) and save data
 // (export as text, import, reset with confirmation). Every change saves immediately.
+// [ui-m5] UI M5c: a left rail of five sections (Display · Audio · Battle · Account · About) over the same panels, and
+// each row's description behind "i" (settingsView / wrapSettings at the end; ../settingsSections.js maps the panels).
 import '../styles/meta-a.css';
+import '../styles/hubs.css';
 import { h, clear, screen, button, toast, glyph, applyMotionPreference } from '../components.js';
+import { listScreen } from '../listScreen.js';
+import { plateHead, iconBtn } from '../kit.js';
+import { openSheet } from '../sheet.js';
+import { SETTINGS_SECTIONS, SECTION_IDS, panelKey, assignSections, sectionForParam } from '../settingsSections.js';
+import { rememberParams } from '../router.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { BATTLE } from '../../data/types.js';
+import { ABILITY_COPY } from '../../data/abilityText.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { DEFAULT_SETTINGS, SAVE_VERSION, deserializeProfile } from '../../systems/save.js';
 import { ask } from './stage.js';
@@ -30,23 +39,30 @@ function save(reason = 'settings') {
 }
 
 export function render(root, params = {}) {
-  const { el, body } = screen('Settings', { cls: 'ma-settings-screen' });
-  root.appendChild(el);
+  // [ui-m5] the five-section rail (../settingsSections.js) wraps the panels build() makes; build() and every section
+  // builder below are unchanged (wrapSettings, at the end of this file)
+  const view = settingsView(params);
+  const { body } = view;
+  root.appendChild(view.el);
+  let first = true;
   const draw = () => {
     clear(body);
     body.appendChild(build(draw));
-    if (params.section) {
-      const target = body.querySelector(`[data-section="${params.section}"]`);
+    view.wrap(); // [ui-m5]
+    if (params.section && first) {
+      const target = body.querySelector(`[data-section="${params.section}"]`) || body.querySelector(`[data-rail="${view.sectionFor(params.section)}"]`);
       if (target) {
         requestAnimationFrame(() => target.scrollIntoView({ block: 'start', behavior: store.profile.settings?.reduceMotion ? 'auto' : 'smooth' }));
         target.classList.add('ma-pop');
       }
     }
+    first = false;
   };
   draw();
   const off = store.on('change', (e) => { if (e?.reason === 'replace') draw(); });
   return () => {
     off();
+    view.cleanup();
     stopFullscreenWatch?.();
     stopFullscreenWatch = null;
   };
@@ -56,7 +72,7 @@ function build(redraw) {
   const s = settings();
   const wrap = h('div.ma-wrap.ma-settings');
 
-  wrap.appendChild(displaySection());
+  wrap.appendChild(displaySection(s, redraw));
 
   wrap.appendChild(h('section.panel', { 'data-section': 'graphics' },
     h('h3.panel-title', 'Graphics'),
@@ -114,6 +130,7 @@ function build(redraw) {
     segmented(['locked', 'free'], s.camera === 'free' ? 'free' : 'locked', (v) => { s.camera = v; save(); redraw(); }, { locked: 'Locked', free: 'Free' }, 'camera')),
     row('Buff icons', 'Small icons over buffed girls; their rim colour shows who gives the buff.',
       segmented(['all', 'selected', 'off'], ['selected', 'off'].includes(s.buffIcons) ? s.buffIcons : 'all', (v) => { s.buffIcons = v; save(); redraw(); }, { all: 'All', selected: 'Selected', off: 'Off' }, 'buffIcons')),
+    row(ABILITY_COPY.autoSetting, ABILITY_COPY.autoHelp, toggle(!!s.autoCastAbilities, (v) => { s.autoCastAbilities = v; save(); }, 'autoCastAbilities')),
   ));
 
   wrap.appendChild(onlineSection({ redraw, importText: importSaveText })); // [online] name, status, transfer codes
@@ -165,8 +182,8 @@ function row(label, desc, control) {
 /** Removes the fullscreen listener of the Display section currently on screen. */
 let stopFullscreenWatch = null;
 
-/** Display: fullscreen toggle, landscape lock, rotate reminder, home-screen install hint. */
-function displaySection() {
+/** Display: fullscreen toggle, landscape lock, rotate reminder, home-screen install hint, the girl page's look. */
+function displaySection(s, redraw) {
   const fsBtn = button('Fullscreen', { kind: 'primary', small: true, icon: 'fullscreen', testid: 'set-fullscreen' });
   const fsDesc = h('div.ma-set-desc', 'Hides the browser bars and locks landscape where the device allows it.');
   let orientation = null;
@@ -215,6 +232,9 @@ function displaySection() {
     h('div.ma-set-row', h('div.ma-set-text', h('div.ma-set-label', 'Fullscreen'), fsDesc), h('div.ma-set-control', fsBtn)),
     row('Landscape mode', 'Sakura Sentinels is designed for phones held sideways. On phones and tablets a reminder appears in portrait; dismiss it to keep playing in portrait.', rotate),
     row('Install', 'Add the game to your home screen for an app-like, full-screen launch (Android: browser menu → Install app; iPhone: Share → Add to Home Screen).', null),
+    // the girl page's look (src/ui/girlDetail.js); an open girl page re-renders on the change
+    row('Girl page', s.girlPage === 'detailed' ? 'Detailed: every stat, gear value, substat and bonus on her page.' : 'Compact: three headline stats; the rest one tap away under MORE.',
+      segmented(['compact', 'detailed'], s.girlPage === 'detailed' ? 'detailed' : 'compact', (v) => { s.girlPage = v; save(); redraw(); }, { compact: 'Compact', detailed: 'Detailed' }, 'girlPage')),
   );
 }
 
@@ -398,5 +418,170 @@ function versionSection() {
     h('h3.panel-title', 'About'),
     h('div.ma-set-row',
       h('div.ma-set-text', h('div.ma-set-label', { 'data-testid': 'settings-version' }, buildLine()), status),
-      control));
+      control),
+    licencesRow());
+}
+
+/** [ui-ink] The menus' line icons are adapted from two open icon sets: their licence texts (public/licenses/), on a tap. */
+export const LICENCE_FILES = Object.freeze([
+  { file: 'lucide-ISC.txt', title: 'Lucide (ISC)' },
+  { file: 'feather-MIT.txt', title: 'Feather (MIT)' },
+]);
+function licencesRow() {
+  const open = async () => {
+    const base = `${import.meta.env?.BASE_URL ?? './'}licenses/`;
+    const body = h('div.st-licences', { 'data-testid': 'licences-text' }, h('p.muted', 'Loading…'));
+    openSheet({ title: 'Licences', body, full: true, testid: 'licences-sheet' });
+    const parts = await Promise.all(LICENCE_FILES.map(async (l) => {
+      try {
+        const r = await fetch(`${base}${l.file}`, { cache: 'force-cache' });
+        return { ...l, text: r.ok ? await r.text() : `(${l.file} could not be loaded)` };
+      } catch {
+        return { ...l, text: `(${l.file} could not be loaded: are you online?)` };
+      }
+    }));
+    body.replaceChildren(...parts.flatMap((p) => [h('h4', p.title), h('pre.st-licence', p.text)]));
+  };
+  return h('div.ma-set-row',
+    h('div.ma-set-text', h('div.ma-set-label', { 'data-testid': 'settings-icons-credit' }, 'Line icons adapted from Lucide (ISC) and Feather (MIT)')),
+    h('div.ma-set-control', button('Licences', { kind: 'ghost', small: true, testid: 'settings-licences', onClick: open })));
+}
+
+// ---------------------------------------------------------------------------
+// [ui-m5] UI M5c: the section rail and the "i" descriptions (docs/specs/UI_DIRECTION.md P1, §5.10 E3; notes Q8)
+// ---------------------------------------------------------------------------
+
+/**
+ * The Settings screen's frame: the left rail of five sections (no host: Settings is not on the E1 list) beside one
+ * scrolling column. A tab scrolls its section to the top; scrolling moves the lit tab. Every panel stays on the page,
+ * so a deep link (?section=graphics), a test that waits for a row, or a row another branch adds all work as before.
+ */
+function settingsView(params) {
+  let active = sectionForParam(params.section);
+  const ls = listScreen({
+    title: 'Settings', cls: 'ma-settings-screen st-screen', location: null, host: null, panel: false, railLabel: 'Settings sections',
+    sections: SETTINGS_SECTIONS.map((s) => ({ id: s.id, label: s.label, icon: s.icon === 'account' ? glyph('account') : s.icon })),
+    active,
+    onPick: (id) => jump(id),
+  });
+  const scroller = ls.list;
+  const reduce = () => !!store.profile.settings?.reduceMotion;
+  let locked = false;
+  let unlock = null;
+  const groups = () => [...scroller.querySelectorAll('.st-group')];
+  const light = (id) => {
+    if (id === active) return;
+    active = id;
+    ls.rail.setActive(id);
+  };
+  function jump(id) {
+    const g = scroller.querySelector(`.st-group[data-rail="${id}"]`);
+    light(id);
+    rememberParams('settings', { section: id });
+    if (!g) return;
+    // (a smooth scroll passes other sections: they never light up on the way)
+    locked = true;
+    clearTimeout(unlock);
+    unlock = setTimeout(() => { locked = false; }, reduce() ? 80 : 700);
+    scroller.scrollTo({ top: g.offsetTop, behavior: reduce() ? 'auto' : 'smooth' });
+  }
+  // the lit tab follows the scroll: the last section whose top has passed the top of the column (the end: the last)
+  const spy = () => {
+    if (locked) return;
+    const gs = groups();
+    if (!gs.length) return;
+    const atEnd = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
+    let cur = gs[0];
+    for (const g of gs) if (g.offsetTop <= scroller.scrollTop + 48) cur = g;
+    light((atEnd ? gs[gs.length - 1] : cur).dataset.rail);
+  };
+  scroller.addEventListener('scroll', spy, { passive: true });
+  // the last section is at least one column tall, so its tab can bring it to the top
+  const fitLast = () => {
+    const gs = groups();
+    gs.forEach((g, i) => { g.style.minHeight = i === gs.length - 1 ? `${scroller.clientHeight}px` : ''; });
+  };
+  const onResize = () => fitLast();
+  globalThis.addEventListener?.('resize', onResize);
+  return {
+    el: ls.el,
+    body: scroller,
+    sectionFor: sectionForParam,
+    /** Wraps the freshly built panels into their sections (after every build). */
+    wrap() {
+      const wrapEl = scroller.querySelector('.ma-settings');
+      if (wrapEl) wrapSettings(wrapEl);
+      requestAnimationFrame(() => {
+        fitLast();
+        spy();
+      });
+    },
+    cleanup() {
+      clearTimeout(unlock);
+      scroller.removeEventListener('scroll', spy);
+      globalThis.removeEventListener?.('resize', onResize);
+      ls.cleanup();
+    },
+  };
+}
+
+/**
+ * Groups the panels of build() under the five sections (each opens on its ink plate header, E2) and puts each row's
+ * description behind an "i" (P1: rule text is never printed in full on a Glance surface). A description stays in view
+ * where it is the reason a control is off ("Only on High quality.") or a live status line (it has a test id); rows a
+ * panel fills later (the social rows, once online) keep theirs. A row without a control (Install; "Who can message
+ * me" while offline) keeps its description in view as well: there it is the whole row. A panel title that only
+ * repeats its section's word goes (Display, Audio, Battle, About).
+ */
+function wrapSettings(wrapEl) {
+  const kids = [...wrapEl.children];
+  const panels = kids.filter((c) => c.matches('section.panel'));
+  const keys = panels.map((p) => panelKey({ section: p.dataset.section || null, title: p.querySelector(':scope > .panel-title')?.textContent || '' }));
+  const ids = assignSections(keys);
+  const sectionOf = new Map(panels.map((p, i) => [p, ids[i]]));
+  const groups = new Map(SETTINGS_SECTIONS.map((s) => [s.id, h('section.st-group', { 'data-rail': s.id, 'data-testid': `settings-${s.id}`, 'aria-label': s.label }, plateHead(s.label))]));
+  let cur = SECTION_IDS[0];
+  for (const c of kids) {
+    if (sectionOf.has(c)) cur = sectionOf.get(c);
+    const g = groups.get(cur);
+    const title = c.matches('section.panel') ? c.querySelector(':scope > .panel-title') : null;
+    if (title && title.textContent.trim().toLowerCase() === g.getAttribute('aria-label').toLowerCase()) title.classList.add('st-same');
+    g.append(c);
+  }
+  wrapEl.replaceChildren(...[...groups.values()].filter((g) => g.childElementCount > 1));
+  for (const desc of wrapEl.querySelectorAll('.ma-set-desc')) infoRow(desc);
+  // rows a panel fills later (Account's social rows, once online) get their "i" as they arrive
+  for (const box of wrapEl.querySelectorAll('.sc-settings')) {
+    new MutationObserver(() => { for (const desc of box.querySelectorAll('.ma-set-desc')) infoRow(desc); }).observe(box, { childList: true, subtree: true });
+  }
+}
+
+/**
+ * One description behind "i" (see wrapSettings): a row's (.ma-set-row) or a save block's (.ma-save-block) line under
+ * its label. The "i" sits after the label and opens the line in place.
+ */
+function infoRow(desc) {
+  if (desc.dataset.stI) return;
+  desc.dataset.stI = '1';
+  const label = desc.parentElement?.querySelector(':scope > .ma-set-label');
+  const row = desc.closest('.ma-set-row, .ma-save-block');
+  if (!label || !row || !desc.textContent.trim()) return;
+  // always in view: a live status (a test id), the reason a control is off, or a settings row with no control at all
+  // (its description is the row). A save block's button sits straight in the block, so the last test is rows only.
+  const noControl = row.matches('.ma-set-row') && !row.querySelector(':scope > .ma-set-control > *');
+  if (desc.dataset.testid || row.querySelector(':disabled') || noControl) {
+    desc.classList.add('st-why');
+    return;
+  }
+  row.classList.add('st-has-i');
+  desc.classList.add('st-desc');
+  const i = iconBtn('info', {
+    label: `About ${label.textContent.trim()}`, cls: 'st-i',
+    onClick: () => {
+      const open = row.classList.toggle('st-open');
+      i.setAttribute('aria-expanded', open ? 'true' : 'false');
+    },
+  });
+  i.setAttribute('aria-expanded', 'false');
+  label.append(i);
 }

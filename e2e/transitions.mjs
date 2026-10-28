@@ -17,6 +17,8 @@
 //   4b. battle → results: a loss (a leak on the last life) brings the DEFEAT band, then (Retry) a stage
 //      win the VICTORY band (.tx-band.win): each inserted while the sheet waits under it (.bt-banded),
 //      before it rises, recorded inside the page; reduced motion: no band, the sheet is up at once
+//   1b/3b. UI M5 (E7): the loading corner chip keeps clear of the primary button and the lobby's bottom-right
+//      cluster (on the lobby and on stage prep)
 //   5. the look (Settings → Loading screen): the row is in Graphics with Mint / Pink and Black /
 //      Colour (mint on black by default); a pick saves in the settings and recolours every Mochi at
 //      once; after a reload the boot loader already wears it when it is parsed (index.html's inline
@@ -108,7 +110,8 @@ function recorder() {
     const backs = document.querySelectorAll('[data-testid="back"]').length;
     if (backs > rec.dupBack) rec.dupBack = backs;
     const lb = document.querySelector('.lb');
-    if (lb && document.documentElement.dataset.tx && !lb.querySelector('.lb-art img')) rec.bareLobby.push({ t: t(), op: Number(getComputedStyle(lb).opacity).toFixed(2) });
+    // ([ui-ink] V2: the night home's painting is its art: .home-scene, or her living scene's canvas)
+    if (lb && document.documentElement.dataset.tx && !lb.querySelector('.home-scene img, .home-live canvas')) rec.bareLobby.push({ t: t(), op: Number(getComputedStyle(lb).opacity).toFixed(2) });
     const chip = document.querySelector('.ld-chip');
     if (chip) {
       const vis = chip.classList.contains('on') && Number(getComputedStyle(chip).opacity) > 0.02;
@@ -288,6 +291,38 @@ async function run(vp, { reduced = false } = {}) {
     return bad;
   });
 
+  /**
+   * UI M5 (§5.10 E7): the loading corner never covers a primary button or the lobby's bottom-right cluster. The chip
+   * is armed by hand, as a slow screen download would, and measured against them (dev server only: --prod has no
+   * source modules to import).
+   */
+  const keepClear = async (where) => {
+    if (args.includes('--prod')) return;
+    await page.evaluate(async () => {
+      const { armChip } = await import('/src/ui/loading/loader.js');
+      window.__chipTicket = armChip();
+    });
+    await page.waitForTimeout(450);
+    await shot(`keep-clear-${where.replace(/\W+/g, '-')}`);
+    const r = await page.evaluate(async () => {
+      const ticket = window.__chipTicket;
+      const chip = document.querySelector('.ld-chip');
+      const c = chip.getBoundingClientRect();
+      const vis = chip.classList.contains('on') && Number(getComputedStyle(chip).opacity) > 0.5;
+      const hits = [];
+      for (const el of document.querySelectorAll('[data-primary], [data-testid="lobby-objective"], [data-testid="lobby-chapter"], .home-tools, .btn-yellow, [data-testid="stage-start"]')) {
+        const b = el.getBoundingClientRect();
+        if (!b.width || !b.height) continue;
+        if (Math.min(c.right, b.right) - Math.max(c.left, b.left) > 0 && Math.min(c.bottom, b.bottom) - Math.max(c.top, b.top) > 0) hits.push(el.dataset.testid || String(el.className).slice(0, 40));
+      }
+      await ticket.end();
+      delete window.__chipTicket;
+      return { vis, chip: [c.left, c.top, c.width, c.height].map(Math.round), hits };
+    });
+    await page.waitForTimeout(400);
+    check(r.vis && r.hits.length === 0, `${where}: the loading corner keeps clear of the primary and the bottom-right cluster (${JSON.stringify(r)})`);
+  };
+
   // ---- 1. boot ------------------------------------------------------------------------------------
   const resp = await page.goto(`${base}#/lobby`, { waitUntil: 'commit' });
   const html = await resp.text().catch(() => '');
@@ -315,6 +350,7 @@ async function run(vp, { reduced = false } = {}) {
   await page.waitForTimeout(300);
   check((await clean()).length === 0, `boot: nothing left over (${(await clean()).join('; ') || 'clean'})`);
   await shot('lobby');
+  await keepClear('lobby');
 
   // ---- 2. menus: slide, slide, slide-back ------------------------------------------------------------
   await page.evaluate(() => { window.__rec.chip.length = 0; window.__rec.bareLobby.length = 0; window.__rec.dupBack = 0; });
@@ -365,6 +401,7 @@ async function run(vp, { reduced = false } = {}) {
   check(await settled('stage'), 'Students → stage prep 1-1');
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
   await page.waitForTimeout(500);
+  await keepClear('stage prep');
   await page.evaluate(() => { window.__rec.ld.length = 0; window.__rec.maxP = 0; window.__rec.outWithHud.length = 0; window.__rec.textAtShow.length = 0; });
   const cast = await screencast(page, W, H);
   await tap('[data-testid="stage-start"]');

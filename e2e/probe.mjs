@@ -1,0 +1,730 @@
+// The DOM probe of docs/specs/UI_DIRECTION.md §8 (gate 3), shared by the UI e2e scripts (ui-shots --probe, m5-kit,
+// the hub and list checks). Per screen and viewport it measures, on what is visible in the viewport:
+//   - minText       the smallest computed size of visible text (floor 12 px on phones, 13 px on desktop)
+//   - numbers       visible text elements holding a digit, outside repeated tiles and the currency bar (≤ 12);
+//                   tileMax is the most numbers inside one repeated tile or row (budgeted per tile, P3)
+//   - ellipsis      numbers or rules cut by an ellipsis (0)
+//   - overflowX     the page scrolls sideways (false); scrollers: elements that scroll sideways (0)
+//   - content       the visible height of the screen's content window (≥ 300 px)
+//   - hostShare     the host girl's width as a share of the viewport (≤ 35% hub and list, ≤ 28% detail)
+//   - bubbleOverList  the host's speech bubble overlaps the list or grid (false)
+//   - yellow        visible yellow primary buttons (≤ 1)
+//   - smallTaps     buttons under 40 px (0); denseTaps: 40-43 px (allowed in dense rows only)
+//   - spills        text running past the left or right edge of the box drawn around it (its tile, chip or panel:
+//                   the nearest element with a background or a border), by more than 1.5 px (0). Text an element
+//                   clips or ends in "…" on the way is left to the ellipsis check (UI M5d review)
+//   - overlaps      pairs of elements that must stay apart (opts.apart: [selectorA, selectorB] pairs, both shown)
+//                   and overlap (0): e.g. the lobby secretary's speech bubble and the tray
+//   - clipped       lines of text cut off by a box on the way up (overflow hidden or clip) without a "…" (the
+//                   ellipsis check) or a deliberate fade (a mask: the Mailroom's one-line preview, P6), and lines that
+//                   run past their own block under an element that is neither around them nor inside them (a title
+//                   under its row's Claim, or under a chip with words in it) (0). Opt-in: judged when asked for (judge
+//                   `only` or `also`). UI M5 merge review: the Mailroom and Profile at 390x844, where spill (which
+//                   skips clipped text) saw nothing; the final M5 review: Bounty's plate title under its token chip
+// The item tile's small "x" (`.item-count > small`) is M3's glyph at M3's own 12 px floor (base.css "Items", owner
+// #108): it is left out of the text floor; the count's digits are judged like any text.
+// Nothing here changes the page.
+//
+// [ui-ink] v2 mode (UI v2 "Ink & Paper", notes/ui-v2/UI_V2_DIRECTION.md rules 3, 6-8, 10 and S5), with `v2: true`:
+//   - numbersAll    visible numbers counting the top bar (≤ 10; tiles and rows still budgeted on their own)
+//   - yellowFills   visible surfaces filled yellow, found by their computed colour (not by class): ≤ 1
+//   - pink          surfaces painted in the four sakura tokens, each with why it may be pink (selected, a hero, the
+//                   co-op partner, In Progress); pinkStray: the ones with no reason (0)
+//   - radius        boxes with a corner radius that are not circles or stadiums (S5: 0 on the screens v2 rebuilt)
+//   - covered       controls whose centre another element paints over (elementFromPoint at the centre, 0): a host's
+//                   art or a scrim over UI
+//   - taps          the real hit area of every control, measured by scanning elementFromPoint outward from its
+//                   centre in 0.25 px steps; tapMin is the smallest, and the report prints exactly the number it
+//                   judges (low 7: "43.8 printed while asserting 44" cannot happen: both are the same value)
+//   - heads         the top bar no wider than its box, each of its controls inside the screen and on top at its
+//                   centre (the tap scan skips a control whose centre is off the screen); a top bar or plate head
+//                   title showing its words whole, not cut by its box or run under its chips (V1 review 1); each
+//                   plate head item whole inside its head and on top, the title's line boxes clear of every item
+//                   beside them (V1 review 2)
+//   - clipped       panels (.panel, .modal, the list panel, .mb-card, .ui-panel, a floating sheet) and what they
+//                   cut: a child past a clipping panel's box or with its words, art or control in a chamfer, and a
+//                   child past a panel that does not clip (drawn outside it); HANG_OK lists the children hung
+//                   outside on purpose (V1 review 2)
+//
+//   import { probe, judge } from './probe.mjs';
+//   const r = await probe(page, { kind: 'hub', list: '.ma-hub-grid' });
+//   const fails = judge(r);   // [] when the screen passes
+//   judge(r, { only: ['spill', 'apart'] })   // just those checks
+//   judge(r, { also: ['clip'] })   // every default check, and the opt-in clip check
+//   judge(await probe(page, { v2: true }), { v2: true })   // the v2 budgets as well
+
+/** Repeated collections (P3: budgeted per tile or row, not per screen). */
+export const REPEAT = [
+  '.item-tile', '.ui-gtile', '.unit-card', '.ma-offer', '.ma-mission', '.mbx-letter', '.ev-list-row', '.tt-card',
+  '.ma-cal-day', '.ach-row', '.ma-stage-card', '.ma-sc', '.lb-slide', '.ma-next-row', '[data-probe="tile"]',
+  // UI M5b: the Bounty arena rows and tiers, the drop tiles, the boss cards, the campaign's chapter tabs
+  '.ma-loc', '.ma-tier-btn', '.ma-drop', '.ma-boss-card', '.ma-chapter-tab',
+  // UI M5c: the Happening Now rows, the Settings rows, the old Events page's income table rows
+  '.hn-row', '.ma-set-row', '.ma-income-table tr',
+  // UI M5d: the Multiplayer invite rows; Formation's squad slots, picker cards and counter rows; the profile's showcase
+  // slots, medal and ribbon cells, plaques, stat tiles and freeplay rows
+  '.mp-invite', '.mb-fslot', '.mb-pick', '.mb-rec', '.pf-slot', '.pf-tc', '.pf-plaque', '.pf-stat', '.pf-fp-row',
+].join(', ');
+
+/** Never counted: the currency bar (P3) and anything a script marks. */
+export const SKIP = ['.cur-pills', '.lb-pills', '[data-probe="skip"]', '.ld', '.ld-chip', '.toast-host', '.jn-toast'].join(', ');
+/** [ui-ink] v2 counts the top bar's numbers too (rule 8): only these stay out of every count. */
+export const SKIP_V2 = ['[data-probe="skip"]', '.ld', '.ld-chip', '.toast-host', '.jn-toast'].join(', ');
+/** [ui-ink] The four sakura tokens (--pink, --pink-ink, --pink-on-ink, --pink-text) as rgb. */
+export const PINK_RGB = Object.freeze([[255, 122, 168], [210, 58, 116], [255, 156, 192], [176, 23, 79]]);
+/** [ui-ink] Where pink may appear (§4.1, §4.3): selected things, heroes, the co-op partner, In Progress. */
+export const PINK_OK = [
+  '.on', '.active', '.selected', '.sel', '[aria-selected="true"]', '[aria-pressed="true"]', '[aria-current]', '.ui-chip.pick',
+  '.mb-pick.in',
+  '.ui-bdg.inprog', '.tag-ribbon', '.hero', '[data-hero]', '.is-hero', '.partner', '[data-partner]',
+].join(', ');
+
+/** [ui-ink] Children a panel hangs outside itself on purpose (v2 `clipped` leaves them out): the profile's avatar over its
+ * banner (its panel is painted, not clipped: ink.css, V1 review 2). */
+export const HANG_OK = ['.pf-id .pf-ava'].join(', ');
+
+/**
+ * @param {import('playwright').Page} page
+ * @param {{ kind?: 'hub'|'list'|'detail', list?: string|null, content?: string|null, host?: string, bubble?: string,
+ *   repeat?: string, skip?: string, root?: string, tapSkip?: string|null, apart?: [string, string][] }} [opts]
+ *   list: the list or grid the bubble must stay clear of; content: the content window (default the screen body);
+ *   tapSkip: controls left out of the tap check (the game's shared top bar, which no milestone screen owns);
+ *   apart: pairs of selectors whose shown elements must not overlap
+ */
+export async function probe(page, opts = {}) {
+  const o = {
+    kind: 'hub', list: null, content: null, host: '.ui-host', bubble: '.ui-host-bubble', repeat: REPEAT, skip: SKIP, root: 'body', tapSkip: null, apart: [],
+    v2: false, skipV2: SKIP_V2, pinkRgb: PINK_RGB, pinkOk: PINK_OK, tapScanMax: 160, hangOk: HANG_OK,
+    ...opts,
+  };
+  return page.evaluate(probeInPage, o);
+}
+
+/* eslint-disable no-undef */
+function probeInPage(o) {
+  const W = innerWidth;
+  const H = innerHeight;
+  const phone = H <= 480;
+  const floor = phone ? 12 : 13;
+  const root = document.querySelector(o.root) || document.body;
+  const inView = (r) => r.width > 0 && r.height > 0 && r.right > 0 && r.bottom > 0 && r.left < W && r.top < H;
+  const shown = (el) => {
+    if (!el || !el.isConnected) return false;
+    if (el.checkVisibility && !el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false;
+    return inView(el.getBoundingClientRect());
+  };
+  const deco = (el) => !!el.closest('[aria-hidden="true"], .deco, script, style, noscript, template');
+  const skipped = (el) => !!el.closest(o.skip);
+  const label = (el) => {
+    const c = typeof el.className === 'string' ? el.className.trim().split(/\s+/).slice(0, 2).join('.') : '';
+    return `${el.tagName.toLowerCase()}${c ? `.${c}` : ''}`;
+  };
+  const clip = (s) => s.replace(/\s+/g, ' ').trim().slice(0, 40);
+
+  // ---- text: the smallest size, the numbers, ellipses, spills ------------------------------------
+  let minText = Infinity;
+  const small = [];
+  const numEls = new Set();
+  const tileNums = new Map();
+  const spills = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  const drawsBox = (cs) => (cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent') || cs.backgroundImage !== 'none'
+    || parseFloat(cs.borderLeftWidth) > 0 || parseFloat(cs.borderRightWidth) > 0;
+  /**
+   * The box drawn around this text (the nearest element with a background or a border), or null when the text ends in
+   * "…" or is clipped on the way there (a box that clips at its own edge still counts: a glyph cut at a card's border).
+   */
+  const boxOf = (el) => {
+    for (let p = el; p && p !== root.parentElement; p = p.parentElement) {
+      const cs = getComputedStyle(p);
+      if (cs.textOverflow === 'ellipsis') return null;
+      if (drawsBox(cs)) return p;
+      if (cs.overflowX !== 'visible') return null;
+    }
+    return null;
+  };
+  const clipped = [];
+  const isInline = (cs) => cs.display.startsWith('inline') || cs.display === 'contents';
+  /**
+   * How a box on the way up treats this text: 'cut' (the box that clips a line, a line clipped), 'ok' (ended by "…",
+   * faded by a mask or visually hidden: left alone), or null (nothing clips it). A scroller's own axis is left out.
+   */
+  const clipOf = (el, lines0) => {
+    let lines = lines0;
+    let sx = false;
+    let sy = false;
+    // (a line's box is the font's whole content area, taller than its ink: a tight line-height clips only that air, so
+    // up and down a quarter of the font size is allowed)
+    const airY = 0.25 * (parseFloat(getComputedStyle(el).fontSize) || 12);
+    for (let a = el; a && a !== document.documentElement; a = a.parentElement) {
+      const cs = getComputedStyle(a);
+      if (cs.textOverflow === 'ellipsis' || (cs.webkitLineClamp && cs.webkitLineClamp !== 'none')) return { kind: 'ok' };
+      if ((cs.maskImage && cs.maskImage !== 'none') || (cs.webkitMaskImage && cs.webkitMaskImage !== 'none')) return { kind: 'ok' };
+      const ar = a.getBoundingClientRect();
+      if (ar.width <= 2 || ar.height <= 2 || (cs.clip && cs.clip !== 'auto')) return { kind: 'ok' }; // a visually hidden label
+      const cx = !sx && (cs.overflowX === 'hidden' || cs.overflowX === 'clip');
+      const cy = !sy && (cs.overflowY === 'hidden' || cs.overflowY === 'clip');
+      if (cs.overflowX === 'auto' || cs.overflowX === 'scroll') sx = true;
+      if (cs.overflowY === 'auto' || cs.overflowY === 'scroll') sy = true;
+      if (!cx && !cy) continue;
+      // (a line wholly outside the box is hidden on purpose, not cut: a carousel's next slide, a folded panel; it is
+      // out of the count from here up)
+      lines = lines.filter((l) => Math.min(l.right, ar.right) - Math.max(l.left, ar.left) > 0.5 && Math.min(l.bottom, ar.bottom) - Math.max(l.top, ar.top) > 0.5);
+      if (!lines.length) return { kind: 'ok' };
+      for (const l of lines) {
+        const over = Math.max(cx ? Math.max(l.right - ar.right, ar.left - l.left) : 0, cy ? Math.max(l.bottom - ar.bottom, ar.top - l.top) - airY : 0);
+        if (over > 1.5) return { kind: 'cut', box: a, over };
+      }
+    }
+    return null;
+  };
+  /**
+   * What can hide words or be hidden by them: a control, a picture, or an element with words, its own or inside it (a
+   * chip whose picture is aria-hidden and whose number is a child: Bounty's token balance, which the title's words ran
+   * under at 390x844 while this check, finding only the hidden coin there, saw nothing; the final M5 review).
+   */
+  const solid = (e) => e.matches('button, a[href], [role="button"], input, select, textarea, img, svg, canvas')
+    || /\S/.test(e.textContent || '');
+  /**
+   * A line past its own block (the element that lays it out), under or over a solid element neither around it nor in
+   * it. The part past the block is looked at in four places along it (a short run can end before a chip's middle).
+   */
+  const coverOf = (el, lines) => {
+    let block = el;
+    while (block && block !== root && isInline(getComputedStyle(block))) block = block.parentElement;
+    if (!block) return null;
+    const b = block.getBoundingClientRect();
+    for (const l of lines) {
+      for (const [x0, x1] of [[b.right, l.right], [l.left, b.left]]) {
+        if (x1 - x0 <= 1.5) continue;
+        const y = (l.top + l.bottom) / 2;
+        for (const x of [x0 + (x1 - x0) * 0.2, (x0 + x1) / 2, x0 + (x1 - x0) * 0.8, x1 - 0.75]) {
+          if (x < 0 || y < 0 || x >= W || y >= H) continue;
+          const other = document.elementsFromPoint(x, y).find((e) => e !== el && !el.contains(e) && !e.contains(el)
+            && e !== document.body && e !== document.documentElement && !deco(e) && !skipped(e) && solid(e));
+          if (other) return { over: x1 - x0, other };
+        }
+      }
+    }
+    return null;
+  };
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (!/\S/.test(n.nodeValue)) continue;
+    const el = n.parentElement;
+    if (!el || deco(el) || skipped(el)) continue;
+    range.selectNodeContents(n);
+    const r = range.getBoundingClientRect();
+    if (!inView(r) || !shown(el)) continue;
+    const fs = parseFloat(getComputedStyle(el).fontSize) || 0;
+    // (M3's small "x" on an item tile keeps M3's own 12 px floor: see the header)
+    if (!el.matches('.item-count > small')) {
+      if (fs < minText) minText = fs;
+      if (fs < floor) small.push(`${fs}px ${label(el)} "${clip(n.nodeValue)}"`);
+    }
+    // cut off by a box on the way up, or run under a neighbour (the opt-in clip check)
+    const lines = [...range.getClientRects()].filter((l) => l.width > 0.5 && l.height > 0.5);
+    const cut = clipOf(el, lines);
+    if (cut?.kind === 'cut') clipped.push(`${Math.round(cut.over * 10) / 10}px ${label(el)} "${clip(n.nodeValue)}" cut by ${label(cut.box)}`);
+    else if (!cut) {
+      const cov = coverOf(el, lines);
+      if (cov) clipped.push(`${Math.round(cov.over * 10) / 10}px ${label(el)} "${clip(n.nodeValue)}" runs under ${label(cov.other)}`);
+    }
+    if (/\d/.test(n.nodeValue)) {
+      const tile = el.closest(o.repeat);
+      if (tile) tileNums.set(tile, (tileNums.get(tile) || new Set()).add(el));
+      else numEls.add(el);
+    }
+    // past the left or right edge of its box (a label beyond its tile's border; UI M5d review)
+    const box = boxOf(el);
+    if (box && box !== root && box !== document.documentElement) {
+      const b = box.getBoundingClientRect();
+      const over = Math.max(r.right - b.right, b.left - r.left);
+      if (over > 1.5 && b.width > 0) spills.push(`${Math.round(over * 10) / 10}px ${label(el)} "${clip(n.nodeValue)}" past ${label(box)}`);
+    }
+  }
+  const ellipsis = [];
+  for (const el of root.querySelectorAll('*')) {
+    if (deco(el) || skipped(el) || !shown(el)) continue;
+    const txt = el.textContent || '';
+    if (!/\d/.test(txt) && !/…/.test(txt)) continue;
+    const cs = getComputedStyle(el);
+    const cut = cs.textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth + 1;
+    const own = [...el.childNodes].some((c) => c.nodeType === 3 && /\d/.test(c.nodeValue) && /…/.test(c.nodeValue));
+    if ((cut && /\d/.test(txt)) || own) ellipsis.push(`${label(el)} "${clip(txt)}"`);
+  }
+
+  // ---- sideways overflow -------------------------------------------------------------------------
+  const se = document.scrollingElement || document.documentElement;
+  const overflowX = se.scrollWidth > W + 1;
+  const scrollers = [];
+  for (const el of root.querySelectorAll('*')) {
+    const cs = getComputedStyle(el);
+    if (cs.overflowX !== 'auto' && cs.overflowX !== 'scroll') continue;
+    if (el.scrollWidth > el.clientWidth + 1 && shown(el) && !deco(el)) scrollers.push(label(el));
+  }
+
+  // ---- content window, host, bubble ------------------------------------------------------------
+  const visH = (el) => {
+    const r = el.getBoundingClientRect();
+    return Math.max(0, Math.min(r.bottom, H) - Math.max(r.top, 0));
+  };
+  const contentEl = o.content ? document.querySelector(o.content) : document.querySelector('#app .screen-body, #app [data-probe="content"], body > [data-probe="content"]');
+  const content = contentEl && shown(contentEl) ? Math.round(visH(contentEl)) : null;
+  const hostEl = [...document.querySelectorAll(o.host)].find(shown) || null;
+  const hostShare = hostEl ? Math.round((hostEl.getBoundingClientRect().width / W) * 1000) / 1000 : null;
+  const bubbleEl = [...document.querySelectorAll(o.bubble)].find(shown) || null;
+  const listEl = o.list ? [...document.querySelectorAll(o.list)].find(shown) || null : null;
+  let bubbleOverList = false;
+  if (bubbleEl && listEl) {
+    const a = bubbleEl.getBoundingClientRect();
+    const b = listEl.getBoundingClientRect();
+    bubbleOverList = Math.min(a.right, b.right) - Math.max(a.left, b.left) > 0.5 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 0.5;
+  }
+
+  // ---- yellow primaries ----------------------------------------------------------------------------
+  const isYellow = (cs) => {
+    const m = /rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)/.exec(cs.backgroundColor);
+    const solid = m && (m[4] == null || Number(m[4]) > 0.5) && Number(m[1]) >= 240 && Number(m[2]) >= 190 && Number(m[2]) <= 245 && Number(m[3]) <= 130;
+    const grad = /rgb\(255, 2(?:0\d|1\d|2\d|3\d|4\d), (?:[0-9]|[1-9]\d|1[0-2]\d)\)/.test(cs.backgroundImage);
+    return solid || grad;
+  };
+  const yellow = [];
+  for (const el of root.querySelectorAll('button, [role="button"], a[href]')) {
+    if (deco(el) || skipped(el) || !shown(el)) continue;
+    if (el.closest('.ui-sticker, .ui-more, .ui-bdg')) continue; // stickers and MORE are not primaries
+    if (el.disabled) continue;
+    if (el.classList.contains('btn-yellow') || el.hasAttribute('data-primary') || isYellow(getComputedStyle(el))) yellow.push(`${label(el)} "${clip(el.textContent || '')}"`);
+  }
+
+  // ---- tap targets ---------------------------------------------------------------------------------
+  const smallTaps = [];
+  const denseTaps = [];
+  for (const el of root.querySelectorAll('button, a[href], [role="button"], [role="tab"], input:not([type="hidden"]), select, summary')) {
+    if (skipped(el) || !shown(el) || el.closest('[aria-hidden="true"]')) continue;
+    if (o.tapSkip && el.closest(o.tapSkip)) continue;
+    if (getComputedStyle(el).pointerEvents === 'none') continue;
+    // a page tab is at least 44 × 36 (§5.3)
+    if (el.getAttribute('role') === 'tab') {
+      const t = el.getBoundingClientRect();
+      if (t.height >= 36 && t.width >= 44) continue;
+    }
+    const r = el.getBoundingClientRect();
+    let w = r.width;
+    let h = r.height;
+    // an invisible ::before hit box (the MORE sticker, small icon buttons) counts
+    const pb = getComputedStyle(el, '::before');
+    if (pb.content && pb.content !== 'none' && pb.position === 'absolute') {
+      w = Math.max(w, parseFloat(pb.width) || 0);
+      h = Math.max(h, parseFloat(pb.height) || 0);
+    }
+    const s = Math.min(w, h);
+    if (s < 40) smallTaps.push(`${Math.round(w)}x${Math.round(h)} ${label(el)} "${clip(el.textContent || el.getAttribute('aria-label') || '')}"`);
+    else if (s < 44) denseTaps.push(`${Math.round(w)}x${Math.round(h)} ${label(el)}`);
+  }
+
+  // ---- elements that must stay apart -----------------------------------------------------------------
+  const overlaps = [];
+  for (const [sa, sb] of o.apart || []) {
+    for (const a of document.querySelectorAll(sa)) {
+      if (!shown(a)) continue;
+      const ra = a.getBoundingClientRect();
+      for (const b of document.querySelectorAll(sb)) {
+        if (b === a || !shown(b)) continue;
+        const rb = b.getBoundingClientRect();
+        const area = Math.max(0, Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left)) * Math.max(0, Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top));
+        if (area > 1) overlaps.push(`${label(a)} × ${label(b)} ${Math.round(area)}px²`);
+      }
+    }
+  }
+
+  let tileMax = 0;
+  for (const set of tileNums.values()) tileMax = Math.max(tileMax, set.size);
+  const v2 = o.v2 ? probeV2(o, { root, W, H, phone, shown, deco, label, clip, inView }) : null;
+  return {
+    ...(v2 ? { v2 } : {}),
+    vp: `${W}x${H}`,
+    kind: o.kind,
+    floor,
+    minText: Number.isFinite(minText) ? minText : null,
+    small: small.slice(0, 12),
+    smallCount: small.length,
+    numbers: numEls.size,
+    numbersSample: [...numEls].slice(0, 20).map((el) => clip(el.textContent || '')),
+    tileMax,
+    ellipsis,
+    overflowX,
+    scrollers,
+    content,
+    hostShare,
+    bubbleOverList,
+    yellow,
+    smallTaps: smallTaps.slice(0, 20),
+    smallTapCount: smallTaps.length,
+    denseTapCount: denseTaps.length,
+    spills: spills.slice(0, 20),
+    spillCount: spills.length,
+    overlaps,
+    clipped: clipped.slice(0, 20),
+    clipCount: clipped.length,
+  };
+
+  // ---- [ui-ink] the v2 mode (see the header). Nested: page.evaluate() ships only probeInPage's own source ----------
+  function probeV2(opt, ctx) {
+    const { root: rt, W: vw, H: vh, shown: isShown, deco: isDeco, label: nameOf, clip: cut, inView: seen } = ctx;
+    const out2 = (el) => !!el.closest(opt.skipV2);
+    // numbers, the top bar included (repeated tiles and rows still count on their own)
+    const nums = new Set();
+    const tw = document.createTreeWalker(rt, NodeFilter.SHOW_TEXT);
+    const rg = document.createRange();
+    for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+      if (!/\d/.test(n.nodeValue)) continue;
+      const el = n.parentElement;
+      if (!el || isDeco(el) || out2(el) || el.closest(opt.repeat)) continue;
+      rg.selectNodeContents(n);
+      if (!seen(rg.getBoundingClientRect()) || !isShown(el)) continue;
+      nums.add(el);
+    }
+    // colours: the element and its two pseudo elements
+    const rgbOf = (s) => {
+      const m = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/.exec(s || '');
+      return m ? [Number(m[1]), Number(m[2]), Number(m[3]), m[4] == null ? 1 : Number(m[4])] : null;
+    };
+    const near = (c, t, tol) => !!c && c[3] > 0.5 && Math.abs(c[0] - t[0]) <= tol && Math.abs(c[1] - t[1]) <= tol && Math.abs(c[2] - t[2]) <= tol;
+    // the action yellow (--yellow #ffdd4a, and the M0 gradient's top #fff07a), not the rarity golds that share its hue
+    // (SR #ffc94d, Legendary #ffb627, LR #ffd27a: frames and tags, allowed by rule 2)
+    const yellowish = (c) => near(c, [255, 221, 74], 14) || near(c, [255, 240, 122], 14);
+    const allRgb = (s) => [...String(s || '').matchAll(/rgba?\([^)]*\)/g)].map((m) => rgbOf(m[0]));
+    const styles = (el) => [getComputedStyle(el), getComputedStyle(el, '::before'), getComputedStyle(el, '::after')];
+    const yellowFills = [];
+    const pink = [];
+    const pinkStray = [];
+    const radius = [];
+    let radiusCount = 0;
+    for (const el of rt.querySelectorAll('*')) {
+      if (isDeco(el) || out2(el) || el.closest('svg')) continue;
+      if (el.tagName === 'IMG' || el.tagName === 'CANVAS' || el.tagName === 'VIDEO' || el.closest('.ia, .pt-wrap, .pt-img')) continue;
+      const r = el.getBoundingClientRect();
+      if (!seen(r) || r.width < 2 || r.height < 2 || !isShown(el)) continue;
+      const [cs, before, after] = styles(el);
+      // (a pseudo-element counts only when it is drawn: content set and not display: none)
+      const layers = [cs, ...[before, after].filter((p) => p.content && p.content !== 'none' && p.display !== 'none')];
+      // yellow: a filled surface (≥ 150 px²), by its computed colour
+      if (r.width * r.height >= 150 && layers.some((p) => yellowish(rgbOf(p.backgroundColor)) || allRgb(p.backgroundImage).some(yellowish))) {
+        yellowFills.push(`${nameOf(el)} "${cut(el.textContent || el.getAttribute('aria-label') || '')}"`);
+      }
+      // pink: a fill, a border, a ring (box-shadow) or an outline in one of the four sakura tokens
+      const isPink = (c) => opt.pinkRgb.some((t) => near(c, t, 6));
+      const hit = layers.some((p) => isPink(rgbOf(p.backgroundColor)) || allRgb(p.backgroundImage).some(isPink)
+        || ['Top', 'Right', 'Bottom', 'Left'].some((s) => parseFloat(p[`border${s}Width`]) > 0 && isPink(rgbOf(p[`border${s}Color`])))
+        || allRgb(p.boxShadow).some(isPink) || (parseFloat(p.outlineWidth) > 0 && p.outlineStyle !== 'none' && isPink(rgbOf(p.outlineColor))));
+      if (hit) {
+        const why = el.closest(opt.pinkOk);
+        const row = `${nameOf(el)}${why && why !== el ? ` in ${nameOf(why)}` : ''} "${cut(el.textContent || '')}"`;
+        pink.push(row);
+        if (!why) pinkStray.push(row);
+      }
+      // S5: a corner radius only on circles and stadiums
+      const rad = ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'].map((k) => parseFloat(cs[`border${k}Radius`]) || 0);
+      if (rad.some((v) => v > 0.5)) {
+        const half = Math.min(r.width, r.height) / 2 - 1;
+        if (!rad.every((v) => v >= half)) {
+          radiusCount++;
+          if (radius.length < 20) radius.push(`${nameOf(el)} ${rad.map((v) => Math.round(v)).join('/')}`);
+        }
+      }
+    }
+    // controls: on top at their centre, and their real hit area
+    const CONTROLS = 'button, a[href], [role="button"], [role="tab"], input:not([type="hidden"]), select, summary';
+    const clippedAt = (el, x, y) => {
+      for (let p = el.parentElement; p && p !== document.documentElement; p = p.parentElement) {
+        const pcs = getComputedStyle(p);
+        if (pcs.overflowX === 'visible' && pcs.overflowY === 'visible') continue;
+        const b = p.getBoundingClientRect();
+        if (x < b.left || x > b.right || y < b.top || y > b.bottom) return true;
+      }
+      return false;
+    };
+    const layered = '.modal-overlay, .ui-layer, .ui-scrim, .ui-scrim-full, .toast-host, .rotate-overlay';
+    const covered = [];
+    const taps = [];
+    const STEP = 0.25;
+    for (const el of rt.querySelectorAll(CONTROLS)) {
+      if (out2(el) || el.closest('[aria-hidden="true"]') || !isShown(el) || el.disabled) continue;
+      if (opt.tapSkip && el.closest(opt.tapSkip)) continue;
+      if (getComputedStyle(el).pointerEvents === 'none') continue;
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      if (cx < 0 || cy < 0 || cx > vw || cy > vh || clippedAt(el, cx, cy)) continue;
+      const top = document.elementFromPoint(cx, cy);
+      if (!top) continue;
+      const mine = (t) => !!t && (t === el || el.contains(t));
+      if (!mine(top)) {
+        if (top.closest(layered) && !el.closest(layered)) continue; // a sheet or a dialog is open over the screen
+        covered.push(`${nameOf(el)} "${cut(el.textContent || el.getAttribute('aria-label') || '')}" under ${nameOf(top)}`);
+        continue;
+      }
+      // scan outward from the centre: whole px first, then the last px in 0.25 px steps
+      const reach = (dx, dy) => {
+        let d = 0;
+        while (d < opt.tapScanMax && mine(document.elementFromPoint(cx + dx * (d + 1), cy + dy * (d + 1)))) d += 1;
+        while (d < opt.tapScanMax && mine(document.elementFromPoint(cx + dx * (d + STEP), cy + dy * (d + STEP)))) d += STEP;
+        return d;
+      };
+      const w = Math.round((reach(-1, 0) + reach(1, 0)) / STEP) * STEP;
+      const hh = Math.round((reach(0, -1) + reach(0, 1)) / STEP) * STEP;
+      taps.push({ w, h: hh, s: Math.min(w, hh), name: `${nameOf(el)} "${cut(el.textContent || el.getAttribute('aria-label') || '')}"` });
+    }
+    // the bars and heads (V1 review 1, findings 1 and 3). The control scan above skips a control whose centre is off
+    // the screen, so a top bar that pushed Settings and Home past the right edge passed it: here every control of a
+    // top bar must be inside the screen and on top at its centre, and the bar no wider than its box. A title (the
+    // bar's, a plate head's) must show its words whole: not cut by its box, not run under the chips beside it.
+    const drawn = (el) => !!el && el.isConnected && (!el.checkVisibility || el.checkVisibility({ opacityProperty: true, visibilityProperty: true }))
+      && el.getBoundingClientRect().width > 0;
+    const heads = [];
+    for (const tb of rt.querySelectorAll('.topbar')) {
+      if (!drawn(tb) || out2(tb)) continue;
+      if (tb.scrollWidth > tb.clientWidth + 1) heads.push(`${nameOf(tb)} is ${tb.scrollWidth} px wide in ${tb.clientWidth} px`);
+      for (const el of tb.querySelectorAll(CONTROLS)) {
+        if (!drawn(el) || el.disabled || el.closest('[aria-hidden="true"]')) continue;
+        const r = el.getBoundingClientRect();
+        const nm = `${nameOf(el)} "${cut(el.textContent || el.getAttribute('aria-label') || el.title || '')}"`;
+        if (r.left < -0.5 || r.right > vw + 0.5 || r.top < -0.5 || r.bottom > vh + 0.5) {
+          heads.push(`${nm} off the screen (x ${r.left.toFixed(1)} to ${r.right.toFixed(1)} on ${vw})`);
+          continue;
+        }
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        // (a dialog or a sheet open over the whole screen covers its bar by design: the pull result, a modal)
+        if (top && top.closest(`${layered}, [role="dialog"], [aria-modal="true"]`) && !el.closest(`${layered}, [role="dialog"]`)) continue;
+        if (!top || !(top === el || el.contains(top))) heads.push(`${nm} not on top at its centre${top ? ` (${nameOf(top)})` : ''}`);
+      }
+    }
+    for (const t of rt.querySelectorAll('.topbar-title, .ui-plate-head .ui-plate-title')) {
+      if (!drawn(t) || out2(t) || !seen(t.getBoundingClientRect())) continue;
+      const box = t.getBoundingClientRect();
+      // the words as laid out: the text nodes that are drawn (a plate title may carry a long and a short form)
+      let left = Infinity;
+      let right = -Infinity;
+      const tw2 = document.createTreeWalker(t, NodeFilter.SHOW_TEXT);
+      for (let n = tw2.nextNode(); n; n = tw2.nextNode()) {
+        if (!/\S/.test(n.nodeValue) || !drawn(n.parentElement)) continue;
+        rg.selectNodeContents(n);
+        const b = rg.getBoundingClientRect();
+        if (!b.width) continue;
+        left = Math.min(left, b.left);
+        right = Math.max(right, b.right);
+      }
+      if (right === -Infinity) continue;
+      const words = cut(t.textContent || '');
+      if (getComputedStyle(t).textOverflow === 'ellipsis' && t.scrollWidth > t.clientWidth + 1) heads.push(`${nameOf(t)} "${words}" ends in an ellipsis (${t.scrollWidth} px in ${t.clientWidth} px)`);
+      else if (right > box.right + 1 || left < box.left - 1) heads.push(`${nameOf(t)} "${words}" is ${(right - left).toFixed(1)} px in a ${box.width.toFixed(1)} px box`);
+    }
+    // a plate head's own items (V1 review 2, finding 1): each chip, wallet and button whole inside its head (a fixed
+    // height cut Memento's second row at 390 px: the "i" centre landed on the list), each control on top at its
+    // centre, and the title's words (their line boxes, not the h3's box) clear of every item beside them (Gem Shop's
+    // title ran 15.8 px under its WEEKLY chip while its h3 box looked whole)
+    const hit = (el) => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      if (top && top.closest(layered) && !el.closest(layered)) return true; // a sheet or a dialog is open over it
+      return !!top && (top === el || el.contains(top));
+    };
+    for (const ph of rt.querySelectorAll('.ui-plate-head')) {
+      if (!drawn(ph) || out2(ph) || isDeco(ph)) continue;
+      const hb = ph.getBoundingClientRect();
+      if (!seen(hb)) continue;
+      const items = [...ph.querySelectorAll(':scope > *, :scope > .ui-plate-right > *')]
+        .filter((e) => !e.matches('.ui-plate-title, .ui-plate-right, .ui-host') && drawn(e) && !e.closest('[aria-hidden="true"]'));
+      const lines = [];
+      const title = ph.querySelector(':scope > .ui-plate-title');
+      if (title && drawn(title)) {
+        const tw3 = document.createTreeWalker(title, NodeFilter.SHOW_TEXT);
+        for (let n = tw3.nextNode(); n; n = tw3.nextNode()) {
+          if (!/\S/.test(n.nodeValue) || !drawn(n.parentElement)) continue;
+          rg.selectNodeContents(n);
+          for (const b of rg.getClientRects()) if (b.width > 0.5) lines.push(b);
+        }
+      }
+      for (const it of items) {
+        const r = it.getBoundingClientRect();
+        const nm = `${nameOf(it)} "${cut(it.textContent || it.getAttribute('aria-label') || '')}"`;
+        const outBy = Math.max(hb.top - r.top, r.bottom - hb.bottom, hb.left - r.left, r.right - hb.right);
+        if (outBy > 0.5) heads.push(`${nm} runs ${outBy.toFixed(1)} px out of its plate head (${nameOf(ph)} ${hb.height.toFixed(1)} px tall)`);
+        const ctl = it.matches(CONTROLS) ? it : it.querySelector(CONTROLS);
+        if (ctl && !ctl.disabled && !hit(ctl)) heads.push(`${nm} not on top at its centre in its plate head`);
+        for (const b of lines) {
+          const w = Math.min(b.right, r.right) - Math.max(b.left, r.left);
+          const hh = Math.min(b.bottom, r.bottom) - Math.max(b.top, r.top);
+          if (w > 0.5 && hh > 0.5) { heads.push(`the plate title "${cut(title.textContent || '')}" runs ${w.toFixed(1)} px under ${nm}`); break; }
+        }
+      }
+    }
+    // panels and what they cut (V1 review 2, finding 3): a child that a panel's clip-path cuts away (it hangs past the
+    // panel's clipped box, or its words, art or control reach into a chamfer), and a child that runs past a panel that
+    // does not clip (it is then drawn outside the panel). opt.hangOk: children hung outside on purpose (the profile's
+    // avatar over its banner: its panel is painted, not clipped). Children inside a scroller or a clipping box of their
+    // own are that box's business (the probe's spill and ellipsis checks).
+    const clipped = [];
+    const PANELS = '.panel, .modal, .ls > .ls-panel:not(.bare), .mb-card, .ui-panel, .ui-sheet:not(.full)';
+    for (const pn of rt.querySelectorAll(PANELS)) {
+      if (!drawn(pn) || out2(pn) || isDeco(pn)) continue;
+      const pr = pn.getBoundingClientRect();
+      if (!seen(pr)) continue;
+      const pcs = getComputedStyle(pn);
+      const clips = pcs.clipPath !== 'none';
+      const pad = clips && /padding-box/.test(pcs.clipPath);
+      const bl = pad ? parseFloat(pcs.borderLeftWidth) || 0 : 0;
+      const bt = pad ? parseFloat(pcs.borderTopWidth) || 0 : 0;
+      const br = pad ? parseFloat(pcs.borderRightWidth) || 0 : 0;
+      const bb = pad ? parseFloat(pcs.borderBottomWidth) || 0 : 0;
+      const P = { l: pr.left + bl, t: pr.top + bt, r: pr.right - br, b: pr.bottom - bb };
+      const c = clips ? parseFloat(pcs.getPropertyValue('--c')) || 0 : 0;
+      const pname = nameOf(pn);
+      for (const d of pn.querySelectorAll('*')) {
+        // (a child hung out on purpose is fine past a painted panel; a clipping panel still cuts it)
+        if (!drawn(d) || isDeco(d) || (!clips && opt.hangOk && d.closest(opt.hangOk))) continue;
+        let own = false;
+        for (let a = d.parentElement; a && a !== pn; a = a.parentElement) {
+          const s = getComputedStyle(a);
+          if (s.overflowX !== 'visible' || s.overflowY !== 'visible' || s.clipPath !== 'none' || s.maskImage !== 'none') { own = true; break; }
+        }
+        if (own) continue;
+        const ds = getComputedStyle(d);
+        const ctl = d.matches(CONTROLS);
+        const art = /^(IMG|svg|CANVAS|VIDEO)$/.test(d.tagName);
+        const fill = (ds.backgroundColor !== 'rgba(0, 0, 0, 0)' && ds.backgroundColor !== 'transparent') || ds.backgroundImage !== 'none';
+        const ring = ds.boxShadow !== 'none' || ['Top', 'Right', 'Bottom', 'Left'].some((s) => parseFloat(ds[`border${s}Width`]) > 0 && !/rgba\(\d+, \d+, \d+, 0\)|transparent/.test(ds[`border${s}Color`]));
+        // what this element paints: its words' line boxes, and its own box when it is art or a fill, or a control that
+        // draws itself (a bare control's glyph and words are its children, checked on their own). A chamfer counts
+        // words, art and controls (a plain fill cut at a corner is the panel's own shape); a round one by its circle
+        const marks = [];
+        for (const n of d.childNodes) {
+          if (n.nodeType !== 3 || !/\S/.test(n.nodeValue)) continue;
+          rg.selectNodeContents(n);
+          for (const b of rg.getClientRects()) if (b.width > 0.5 && b.height > 0.5) marks.push({ r: b, corner: true, round: false });
+        }
+        if (art || fill || (ctl && ring)) {
+          const r = d.getBoundingClientRect();
+          const round = (parseFloat(ds.borderTopRightRadius) || 0) >= Math.min(r.width, r.height) / 2 - 1;
+          marks.push({ r, corner: art || ctl, round });
+        }
+        if (!marks.length) continue;
+        const nm = `${nameOf(d)}${d.dataset?.testid ? `[${d.dataset.testid}]` : ''} "${cut(d.textContent || d.getAttribute?.('aria-label') || '')}"`;
+        let worst = 0;
+        let corner = 0;
+        for (const { r, corner: inCorner, round } of marks) {
+          worst = Math.max(worst, P.l - r.left, r.right - P.r, P.t - r.top, r.bottom - P.b);
+          if (c > 0 && inCorner) {
+            // (how far past the cut line, measured along x: the box's corner, or the circle's farthest point)
+            const R = Math.min(r.width, r.height) / 2;
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            const tr = round ? (cx - cy + R * Math.SQRT2) - (P.r - c - P.t) : (r.right - r.top) - (P.r - c - P.t);
+            const blc = round ? (cy - cx + R * Math.SQRT2) - (P.b - c - P.l) : (r.bottom - r.left) - (P.b - c - P.l);
+            if (r.top < P.t + c && r.right > P.r - c) corner = Math.max(corner, tr);
+            if (r.bottom > P.b - c && r.left < P.l + c) corner = Math.max(corner, blc);
+          }
+        }
+        if (worst > 1.5) clipped.push(`${nm} ${worst.toFixed(1)} px past ${pname}${clips ? ', cut by its clip' : ''}`);
+        else if (corner > 1.5) clipped.push(`${nm} ${corner.toFixed(1)} px into a chamfer of ${pname}, cut by its clip`);
+      }
+    }
+    const fmt = (t) => `${t.w.toFixed(2)}x${t.h.toFixed(2)} ${t.name}`;
+    const tapMin = taps.length ? Math.min(...taps.map((t) => t.s)) : null;
+    return {
+      numbersAll: nums.size,
+      numbersAllSample: [...nums].slice(0, 24).map((el) => cut(el.textContent || '')),
+      yellowFills,
+      pink: pink.slice(0, 20),
+      pinkCount: pink.length,
+      pinkStray: pinkStray.slice(0, 20),
+      pinkStrayCount: pinkStray.length,
+      radius,
+      radiusCount,
+      covered: covered.slice(0, 20),
+      coveredCount: covered.length,
+      tapStep: STEP,
+      tapCount: taps.length,
+      tapMin,
+      tapMinText: tapMin == null ? null : tapMin.toFixed(2),
+      tapsUnder44: taps.filter((t) => t.s < 44).sort((a, b) => a.s - b.s).slice(0, 20).map(fmt),
+      tapsUnder44Count: taps.filter((t) => t.s < 44).length,
+      tapsUnder40Count: taps.filter((t) => t.s < 40).length,
+      heads: heads.slice(0, 20),
+      headsCount: heads.length,
+      clipped: clipped.slice(0, 20),
+      clippedCount: clipped.length,
+    };
+  }
+}
+/* eslint-enable no-undef */
+
+/** The limits (§1 P3, P6; §5.10 E1). */
+export const LIMITS = Object.freeze({ numbers: 12, content: 300, yellow: 1, host: { hub: 0.35, list: 0.35, detail: 0.28 } });
+/** [ui-ink] The v2 budgets (UI_V2_DIRECTION.md rules 3, 7, 8 and S5): the top bar counts; a tap is 44 px. */
+export const LIMITS_V2 = Object.freeze({ numbers: 10, yellow: 1, tap: 44 });
+
+/** Checks judged only when asked for by name (`only` or `also`). */
+export const OPT_IN = Object.freeze(['clip']);
+
+/**
+ * The failed checks of one probe result, as short strings ([] = pass).
+ * @param {ReturnType<typeof probeInPage>} r
+ * @param {{ skip?: string[], only?: string[]|null, also?: string[], v2?: boolean }} [o] skip: checks not judged on this
+ *   screen ('numbers', 'taps', ...); only: judge just these checks; also: opt-in checks judged with the default ones
+ *   ('clip'); v2: also the v2 checks ('v2numbers', 'v2yellow', 'pink', 'radius', 'covered', 'v2taps', 'heads',
+ *   'clipped'; the result needs probe(..., { v2: true }))
+ */
+export function judge(r, { skip = [], only = null, also = [], v2 = false } = {}) {
+  const fails = [];
+  const on = (k) => !skip.includes(k) && (only ? only.includes(k) : !OPT_IN.includes(k) || also.includes(k));
+  if (v2 && r.v2) {
+    const x = r.v2;
+    if (on('v2numbers') && x.numbersAll > LIMITS_V2.numbers) fails.push(`v2 numbers ${x.numbersAll} > ${LIMITS_V2.numbers} (top bar counted)`);
+    if (on('v2yellow') && x.yellowFills.length > LIMITS_V2.yellow) fails.push(`${x.yellowFills.length} yellow fills (${x.yellowFills.slice(0, 3).join('; ')})`);
+    if (on('pink') && x.pinkStrayCount) fails.push(`${x.pinkStrayCount} pink with no reason (${x.pinkStray.slice(0, 3).join('; ')})`);
+    if (on('radius') && x.radiusCount) fails.push(`${x.radiusCount} rounded corners off a circle (${x.radius.slice(0, 3).join('; ')})`);
+    if (on('covered') && x.coveredCount) fails.push(`${x.coveredCount} controls painted over (${x.covered.slice(0, 3).join('; ')})`);
+    // the number printed is the number judged: both are tapMin, in 0.25 px steps
+    if (on('v2taps') && x.tapMin != null && x.tapMin < LIMITS_V2.tap) fails.push(`tap ${x.tapMinText} px < ${LIMITS_V2.tap} px (${x.tapsUnder44Count}: ${x.tapsUnder44.slice(0, 3).join('; ')})`);
+    if (on('heads') && x.headsCount) fails.push(`${x.headsCount} bar or head faults (${x.heads.slice(0, 3).join('; ')})`);
+    if (on('clipped') && x.clippedCount) fails.push(`${x.clippedCount} children cut by or run past their panel (${x.clipped.slice(0, 3).join('; ')})`);
+  }
+  if (on('text') && r.minText != null && r.minText < r.floor) fails.push(`text ${r.minText}px < ${r.floor}px (${r.smallCount}: ${r.small.slice(0, 3).join('; ')})`);
+  if (on('numbers') && r.numbers > LIMITS.numbers) fails.push(`numbers ${r.numbers} > ${LIMITS.numbers}`);
+  if (on('ellipsis') && r.ellipsis.length) fails.push(`ellipsis on ${r.ellipsis.length}: ${r.ellipsis.slice(0, 3).join('; ')}`);
+  if (on('overflow') && (r.overflowX || r.scrollers.length)) fails.push(`sideways overflow${r.overflowX ? ' (page)' : ''}${r.scrollers.length ? ` (${r.scrollers.slice(0, 3).join(', ')})` : ''}`);
+  if (on('content') && r.content != null && r.content < LIMITS.content) fails.push(`content window ${r.content}px < ${LIMITS.content}px`);
+  if (on('host') && r.hostShare != null && r.hostShare > LIMITS.host[r.kind] + 0.005) fails.push(`host ${Math.round(r.hostShare * 100)}% > ${Math.round(LIMITS.host[r.kind] * 100)}%`);
+  if (on('bubble') && r.bubbleOverList) fails.push('bubble over the list');
+  if (on('yellow') && r.yellow.length > LIMITS.yellow) fails.push(`${r.yellow.length} yellow primaries (${r.yellow.slice(0, 3).join('; ')})`);
+  if (on('taps') && r.smallTapCount) fails.push(`${r.smallTapCount} taps under 40 px (${r.smallTaps.slice(0, 3).join('; ')})`);
+  if (on('spill') && r.spillCount) fails.push(`${r.spillCount} text past its box (${r.spills.slice(0, 3).join('; ')})`);
+  if (on('apart') && r.overlaps?.length) fails.push(`overlap: ${r.overlaps.slice(0, 3).join('; ')}`);
+  if (on('clip') && r.clipCount) fails.push(`${r.clipCount} text cut off or under a neighbour (${r.clipped.slice(0, 3).join('; ')})`);
+  return fails;
+}
+
+/** One line for logs and reports: "text 12 · numbers 9 · yellow 1 · taps<40 0 · content 318". */
+export function summary(r) {
+  return [
+    `text ${r.minText ?? '–'}`,
+    `numbers ${r.numbers}${r.tileMax ? ` (tile ${r.tileMax})` : ''}`,
+    `ellipsis ${r.ellipsis.length}`,
+    `overflow ${r.overflowX || r.scrollers.length ? 'yes' : 'no'}`,
+    `content ${r.content ?? '–'}`,
+    `host ${r.hostShare != null ? `${Math.round(r.hostShare * 100)}%` : '–'}`,
+    `yellow ${r.yellow.length}`,
+    `taps<40 ${r.smallTapCount}`,
+    `spills ${r.spillCount ?? '–'}`,
+    `clipped ${r.clipCount ?? '–'}`,
+    ...(r.overlaps?.length ? [`overlaps ${r.overlaps.length}`] : []),
+    ...(r.v2 ? [summaryV2(r.v2)] : []),
+  ].join(' · ');
+}
+
+/** [ui-ink] The v2 half of the line: "v2: numbers 9 · yellow 1 · pink 2 (stray 0) · radius 0 · covered 0 · tap min 44.00 (≥ 44)". */
+export function summaryV2(x) {
+  return `v2: numbers ${x.numbersAll} · yellow ${x.yellowFills.length} · pink ${x.pinkCount} (stray ${x.pinkStrayCount}) · radius ${x.radiusCount} · covered ${x.coveredCount} · tap min ${x.tapMinText ?? '–'} (asserts ≥ ${LIMITS_V2.tap}; ${x.tapsUnder44Count} under) · heads ${x.headsCount ?? '–'} · clipped ${x.clippedCount ?? '–'}`;
+}

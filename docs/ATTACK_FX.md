@@ -164,7 +164,7 @@ attack FX. Read-only like everything here (sim events, `sim.towers`, `sim.runner
 | `aim` / `t.aim` + `aimMode(t)` | a reticle decal at the aim point: always for mortar girls (orange), only while selected for mirror (lilac) and aimed-ult heroes (light blue); a small shrinking ring when an aim is set. |
 | `curseBurst` | a purple ring to the burst radius, a soft disc, a flash and a few petals + sparks; each deeper generation ~20% smaller and fainter. Max 10 per frame. |
 | `ult` effect `strike` (Kanna) | a coral light pillar on the struck enemy, a flash and three concentric coral shockwaves (+ a faint white one), shards, a short beat line from her. The renderer keeps its screen flash (softer) but skips the map-wide ring and the flash on every enemy. |
-| `ult` effect `runner` + `sim.runners` (Seiran) | entry ring + gold sparkle; then a sky dragon every frame: one head + body beads along the road from `runnerSegment(sim, r, k)`, light blue with gold horns / fins, a soft glow, bobbing in a wave, tapering to the tail, shedding gold sparkles. Two instanced meshes (max 6 heads / 48 beads). Gone when the runner leaves `sim.runners`; `runnerEnd` sparkles at the head. |
+| `ult` effect `runner` + `sim.runners` (Seiran) | entry ring + gold sparkle; then a sky dragon every frame: one head + body beads along the road from `runnerSegment(sim, r, k)`, light blue with gold horns / fins, a soft glow, bobbing in a wave, tapering to the tail, shedding gold sparkles. Two instanced meshes (max 6 heads / 48 beads). It flies to the road's START: the head leaves the road there first and the body slides after it; `runnerEnd` sparkles at the last head position. A wave clear empties `sim.runners` mid-flight (no `runnerEnd`): the dragon then finishes its flight to START as a local ghost (nothing is left to hit) and sparkles on START. The ghost is never slower on screen than the dragon flew at that game speed (`setTimeScale`), and it gets there within 1.2 s (real time). With Auto start on it gets there 0.1 s before the next wave starts: that pause is 1 s of sim time, so 0.5 s / 0.33 s at 2x / 3x, and the limit is read every frame, so a speed change after the clear is followed. A ghost still flying when a wave starts anyway (started by hand, say) rushes to START within 0.2 s and sparkles there; it is never dropped mid-road. |
 | statuses `curse`, `hex`, `ground` | enemy status icons (`actors.js`): a hex sigil (purple), a spiral (violet), an arrow onto a line (sand); `status` events flash in the same colours. Grounded flyers already drop to altitude 0 through `e.alt`. |
 
 
@@ -194,7 +194,7 @@ tiles), maxBlendResidual, impacts, matched, defaultPulses, styled }`.
 - `previews/attacks.html?mode=gallery|focus&unit=chika&build=base|p0|p1|p2|max|5-2-0&quality=…&speed=…&fx=on|off`
   — all 19 girls on a purpose-built serpentine lane (water girls stand in little ponds), or one girl
   up close. `manual=1` exposes `__advance(n, dt)`, `__frame()`, `__fxProbe()`, `__setup(id, build)`
-  (swap the focus girl in place), `__setSpeed(s)`. `clean=1` hides the HUD, `extra=3` adds Chikas,
+  (swap the focus girl in place), `__setSpeed(s)`. `clean=1` hides the HUD, `extra=6` adds up to 6 Chikas,
   `bloom=0`, `hp=600`, `preroll=40`.
 - `node e2e/attack-fx.mjs [--viewport 844x390|1280x720] [--shots dir] [--quick]` — sim id gate,
   Chika truth at 1× / 3×, launch + sell, every girl × every build at high / low (errors, quads,

@@ -1,7 +1,11 @@
-// Students list (owner: meta-b). Arknights-style tall portrait cards with filters
+// Students list (owner: meta-b). Tall portrait cards with filters
 // (role category, attack type, rarity, owned/all, water) and sorting (level, rarity, power, name).
 // Unowned girls are shown locked with how to get them.
+// UI M5d (notes/ui-m5/PLAN.md §5 M5d): every label 12 px or more (hubs.css, scoped under .mb-students-screen), one
+// fact per slot (the role's name went: its icon says it, with the attack type, in the badge column's title), each
+// count said once ("Owned", the summary's "19/35 recruited").
 import '../styles/meta-b.css';
+import '../styles/hubs.css';
 import { h, clear, screen, svgEl, unitCard } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
@@ -75,21 +79,20 @@ function studentCard(u, profile) {
   card.classList.add('mb-tall');
   card.style.setProperty('--rarity', rarityColor(u, profile));
   put(card,
-    h('div.mb-card-badges',
+    h('div.mb-card-badges', { title: `${ROLES[u.role]?.name || u.role} · ${ATTACK_TYPES[u.attackType]?.name || u.attackType}${u.placement !== 'land' ? ' · water' : ''}` },
       svgEl(roleIcon(u.role), 'mb-card-badge'),
       svgEl(attackTypeIcon(u.attackType), 'mb-card-badge'),
       u.placement !== 'land' ? h('span.mb-card-water', svgEl(uiIcon('water'))) : null,
       st && hasOutfitOn(profile, u.id) ? h('span.mb-card-outfit', { title: `Wearing ${equippedSkin(profile, u.id).name}` }, svgEl(uiIcon('hanger'))) : null),
     u.kind === 'hero' ? h('div.mb-card-hero', 'HERO') : null,
     how ? h('div.mb-card-how', how.short) : null,
-    st ? h('div.mb-card-role', ROLES[u.role]?.name) : null,
   );
   return card;
 }
 
 export function render(root) {
   const { el, body } = screen('Students');
-  el.classList.add('mb-screen');
+  el.classList.add('mb-screen', 'mb-students-screen');
   root.appendChild(el);
   const profile = store.profile;
 
@@ -105,7 +108,8 @@ export function render(root) {
     put(bar,
       h('div.mb-filter-top',
         h('div.mb-seg',
-          ['all', 'owned', 'locked'].map((o) => h(`button.mb-seg-btn${state.owned === o ? '.on' : ''}`, { onclick: () => { state.owned = o; rerender(); } }, { all: 'All', owned: `Owned ${ownedCount}`, locked: 'Locked' }[o]))),
+          // (the owned count is said once, in the summary under the bar)
+          ['all', 'owned', 'locked'].map((o) => h(`button.mb-seg-btn${state.owned === o ? '.on' : ''}`, { onclick: () => { state.owned = o; rerender(); } }, { all: 'All', owned: 'Owned', locked: 'Locked' }[o]))),
         h('div.mb-sort',
           h('label.mb-select', svgEl(uiIcon('sort'), 'mb-select-icon'),
             h('select', { 'aria-label': 'Sort', onchange: (e) => { state.sort = e.target.value; rerender(); } }, SORTS.map((s) => h('option', { value: s.id, selected: s.id === state.sort }, s.label)))),
@@ -124,7 +128,7 @@ export function render(root) {
 
     const list = sortList(UNITS.filter((u) => matches(u, profile)), profile);
     clear(summary);
-    put(summary, h('span', `${list.length} shown`), h('span.muted', ` · ${ownedCount} / ${UNITS.length} recruited`));
+    put(summary, h('span', `${list.length} shown`), h('span.muted', ` · ${ownedCount}/${UNITS.length} recruited`));
     clear(grid);
     grid.classList.remove('mb-fade');
     void grid.offsetWidth;

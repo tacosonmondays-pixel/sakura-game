@@ -20,7 +20,13 @@ import { createHud } from './hud.js';
 import { createTowerBar } from './towerBar.js';
 import { createPlacement } from './placement.js';
 import { createTowerPanel } from './towerPanel.js';
-import { createHeroWidget, paintUltButton } from './heroWidget.js';
+import { createHeroWidget, paintUltButton, skillKeyAction } from './heroWidget.js';
+import {
+  createAbilityBar, battleKeyAction, refusalText, createAbilityNotes, unlockText, allyChipText, lifeText, clearPendingFor, REFUSED_MS,
+  soloAbilityActs, coopAbilityActs, abilityAutoControls,
+} from './abilityBar.js';
+import { boltText, ico, KIT_SVG } from '../kit.js';
+import { abilityText } from '../../data/abilityText.js';
 import { createHeroLevels, heroWarnText } from './heroLevels.js';
 import { createBossBar } from './bossBar.js';
 import { createFeed } from './feed.js';
@@ -30,7 +36,8 @@ import { createResults } from './results.js';
 import { createUpgradeTree } from './upgradeTree.js'; // [unit-info] hold-to-view upgrade tree
 import { createSandboxPanel } from './sandboxPanel.js';
 import { sandboxOutcome } from '../../systems/sandbox.js';
-import { enemyDef, traitBadge, fmtCoins, icon } from './util.js';
+import { enemyDef, traitBadge, icon } from './util.js';
+import { fmtNum } from '../format.js';
 import { finalRaceText } from './rules.js';
 import { PICK_REFUSED, pickText } from './buffs.js';
 import { limitedRange } from '../../sim/buffs.js';
@@ -47,7 +54,7 @@ import { createFreeplayBattle } from './freeplay.js';
 import { createFlightControl } from './chikaFlight.js';
 import { createAimControl } from './aimControl.js';
 import { sampleDroneRates } from './chikaPanel.js';
-import { createRateMeter } from './util.js';
+import { createRateMeter, buildErrorContext } from './util.js';
 import { createModesBattle } from './modes.js';
 import { COOP } from '../../data/coop.js';
 import { UNIT_MAP } from '../../data/units.js';
@@ -310,8 +317,11 @@ export function mountBattle(root, params, hooks) {
     if (destroyed) return;
     build();
   })();
-  // a battle that never draws (no WebGL, an error in the build, left first) lets the loader go
-  ready.catch(() => {}).then(() => {
+  // a battle that never draws (no WebGL, an error in the build, left first) lets the loader go; a build that
+  // threw says so in the console, with which battle it was (it used to vanish here)
+  ready.catch((e) => {
+    console.error('[battle] the battle scene failed to build', buildErrorContext({ req, params, quality: settings.quality, coop: !!ls }), e);
+  }).then(() => {
     if (!ctx.renderer || destroyed) markShown();
   });
 
@@ -345,12 +355,22 @@ export function mountBattle(root, params, hooks) {
     ctx.startHeroMove = () => placement.startMove();
     const heroW = createHeroWidget(ctx);
     layer.append(heroW.el);
+    // the ability bar (bottom right; src/ui/battle/abilityBar.js): co-op casts wait in abilityPending until their
+    // command comes back; a tap refused with nothing in reach dims its slot for a moment (abilityRefused)
+    ctx.abilityPending = new Map();
+    ctx.abilityRefused = new Map();
+    const abilityNotes = createAbilityNotes();
+    // (a Continue already has its unlocked abilities: no "learned" toast for those)
+    abilityNotes.seed(sim.towers.filter((t) => t.abil).map((t) => t.abil.id));
+    const abar = createAbilityBar(ctx);
+    ctx.abilityBar = abar;
     const boss = createBossBar(ctx);
     const wave = createWaveControl(ctx);
     const panel = createTowerPanel(ctx);
+    ctx.panel = panel;
     const pause = createPauseMenu(ctx);
     const results = createResults(ctx);
-    const modules = [hud, bar, placement, heroW, boss, wave, panel, pause, results, feed, tree, modesUi];
+    const modules = [hud, bar, placement, heroW, abar, boss, wave, panel, pause, results, feed, tree, modesUi];
     ctx.wave = wave;
     let sandbox = null;
     if (req.sandbox) {
@@ -442,6 +462,9 @@ export function mountBattle(root, params, hooks) {
         if (r?.ok) saver?.markProgress();
         return r;
       },
+      // abilities: a cast ({ ok, reason, casterUid }), one girl's Auto switch, the Auto-cast setting for all of mine
+      // (abilityBar.js soloAbilityActs: tests/battle-ui/abilityAuto.test.js)
+      ...soloAbilityActs(sim, { mark: () => saver?.markProgress() }),
     };
     ctx.flight = createFlightControl(ctx);
     modules.push(ctx.flight);
@@ -459,6 +482,8 @@ export function mountBattle(root, params, hooks) {
         return;
       }
       if (ctx.flight.active) ctx.flight.cancel();
+      // one board-tap mode at a time: an ability aim (or Set aim) ends, so the pick tap is never an ability's
+      if (ctx.aim?.active) ctx.aim.cancel();
       const r = limitedRange(src);
       const cands = sim.towers.filter((o) => o.uid !== srcUid && !o.removed && (o.x - src.x) ** 2 + (o.y - src.y) ** 2 <= r * r).map((o) => o.uid);
       ctx.picking = srcUid;
@@ -614,6 +639,54 @@ export function mountBattle(root, params, hooks) {
       if (sim.activateUlt()) saver?.markProgress();
     };
     ctx.paintUltButton = (btn, opts) => paintUltButton(btn, sim.heroUltStatus(), opts);
+
+    // ---- abilities (ABILITIES_SPEC §8): cast, refusal toasts, Auto, the hero's Lv 7 skill ----------------
+    const hoverDevice = typeof matchMedia === 'function' && matchMedia('(hover: hover) and (pointer: fine)').matches;
+    /** A refused cast's quiet toast (one per reason at a time); nothing in reach also dims the slot a moment. */
+    ctx.abilityRefusal = (reason, casterUid = null, uid = null) => {
+      const t = sim.getTower(casterUid ?? uid);
+      const st = t ? sim.abilityStatus(t.uid) : null;
+      const name = st ? abilityText(st.id)?.name : null;
+      const unlock = st && !st.unlocked ? (st.unlockLevel ? `hero LV ${st.unlockLevel}` : `tier ${st.unlockTier}`) : null;
+      feed.push(refusalText(reason, { secondsLeft: st?.cooldownLeft, name, unlock }), 'info', { key: `abil-${reason}`, ms: 1400 });
+      if (reason === 'noTarget' && st?.id) ctx.abilityRefused.set(st.id, { reason, until: performance.now() + REFUSED_MS });
+      abar.refresh();
+    };
+    /**
+     * Fires girl `uid`'s ability: { group } = the best ready copy of hers (the bar), { aim } = [x, y] in tiles (an
+     * aimed ability). Solo: at once; co-op: the `abil` command (the slot spins until it comes back). Your own casts
+     * show no toast: the FX speak.
+     */
+    ctx.castAbility = (uid, { group = true, aim = null } = {}) => {
+      if (ctx.ended || !sim.getTower(uid)) return null;
+      const res = ctx.act.ability?.(uid, { group, aim });
+      abar.refresh();
+      if (res === 'queued') return res;
+      if (!res?.ok) {
+        ctx.abilityRefusal(res?.reason, res?.casterUid, uid);
+        return res;
+      }
+      navigator.vibrate?.(10);
+      panel.update();
+      return res;
+    };
+    // ctx.setAbilityAuto(uids, on): one slot's copies (the hold card) or one girl's panel row; ctx.setAutoAbilities(on):
+    // Settings → Auto-cast abilities, live from the pause menu (every girl of mine and the ones that unlock later)
+    Object.assign(ctx, abilityAutoControls(ctx, {
+      store,
+      refresh: () => {
+        abar.refresh();
+        panel.update();
+      },
+    }));
+    /** E / the skill button: the hero's Lv 7 skill (heroWidget skillKeyAction: a skill that waits never promises a level). */
+    ctx.fireSkill = () => {
+      const hero = sim.hero;
+      if (!hero || ctx.ended) return;
+      const act = skillKeyAction(sim.abilityStatus(hero.uid));
+      if (act.toast) feed.push(act.toast, 'warn', { key: 'skill-locked', ms: 1600 });
+      if (act.cast) ctx.castAbility(hero.uid, { group: false });
+    };
     ctx.bump = () => {
       const c = hud.el.querySelector('.bt-cash');
       if (!c) return;
@@ -678,32 +751,74 @@ export function mountBattle(root, params, hooks) {
     };
     renderer.canvas.addEventListener('pointermove', onCanvasMove);
     cleanups.push(() => renderer.canvas.removeEventListener('pointermove', onCanvasMove));
+    let keyNav = false; // the keyboard (Tab) put the focus where it is, not a pointer
+    ctx.keyFocus = () => keyNav;
     const onKey = (e) => {
       // typing in a field or choosing in a list (the Sandbox enemy picker) is not a battle shortcut
-      if (e.target?.closest?.('input, select, textarea') || document.querySelector('.modal-overlay')) return;
-      if (e.key === 'Escape') {
-        if (ctx.picking != null) ctx.cancelPick();
-        else if (ctx.aim.active) ctx.aim.cancel();
-        else if (ctx.flight.active) ctx.flight.cancel();
-        else if (placement.unitId) placement.cancel();
-        else if (ctx.selectedUid != null) ctx.select(null);
-        else if (ctx.paused) ctx.closePause();
-        else ctx.openPause();
-      } else if (e.key === ' ' && !ctx.paused) {
-        e.preventDefault();
-        ctx.startWave();
-      } else if ((e.key === 'f' || e.key === 'F') && !ctx.paused) ctx.cycleSpeed();
-      else if ((e.key === 'q' || e.key === 'Q') && !ctx.paused) ctx.fireUlt();
-      // L buys the level the pill shows (its level and price), so a held key cannot overshoot
-      else if ((e.key === 'l' || e.key === 'L') && !ctx.paused && sim.hero && !e.repeat) ctx.levelUpHero(heroW.shown);
-      else if (/^[1-9]$/.test(e.key) && !ctx.paused) {
-        const ids = [...bar.el.querySelectorAll('.bt-card')].map((c) => c.dataset.unit);
-        const id = ids[Number(e.key) - 1];
-        if (id) ctx.onCardTap(id);
+      const typing = !!e.target?.closest?.('input, select, textarea') || !!document.querySelector('.modal-overlay');
+      // (the upgrade tree open: only Esc; in co-op it does not pause, and nothing may fire blind behind it)
+      // (Space on a drawer control the keyboard focused presses it, never the wave as well: the M4 review. After a
+      // click on one, Space still starts the wave, and its preventDefault keeps the clicked button from a second press)
+      const control = e.defaultPrevented || (keyNav && !!e.target?.closest?.('.bt-panel button, .bt-panel [role="button"], .bt-panel [tabindex]'));
+      const act = battleKeyAction(e, { paused: ctx.paused, typing, blocked: !!ctx.tree?.isOpen, control });
+      if (!act) return;
+      switch (act.do) {
+        case 'escape':
+          if (ctx.picking != null) ctx.cancelPick();
+          else if (ctx.aim.active) ctx.aim.cancel();
+          else if (ctx.flight.active) ctx.flight.cancel();
+          else if (placement.unitId) placement.cancel();
+          else if (ctx.selectedUid != null) ctx.select(null);
+          else if (ctx.paused) ctx.closePause();
+          else ctx.openPause();
+          break;
+        case 'wave':
+          e.preventDefault();
+          ctx.startWave();
+          break;
+        case 'speed':
+          ctx.cycleSpeed();
+          break;
+        case 'ult':
+          ctx.fireUlt();
+          break;
+        case 'level':
+          // L buys the level the pill shows (its level and price), so a held key cannot overshoot
+          if (sim.hero) ctx.levelUpHero(heroW.shown);
+          break;
+        case 'skill':
+          ctx.fireSkill();
+          break;
+        case 'ability':
+          // 1–9: ability slots (a key is deliberate: it fires even while a card is armed)
+          abar.fireSlot(act.slot, { key: true });
+          break;
+        case 'card': {
+          // Shift+1–9: arm tower-bar cards (they used to be 1–9)
+          const ids = [...bar.el.querySelectorAll('.bt-card')].map((c) => c.dataset.unit);
+          const id = ids[act.index];
+          if (id) ctx.onCardTap(id);
+          break;
+        }
+        default:
+          break;
       }
     };
     window.addEventListener('keydown', onKey);
     cleanups.push(() => window.removeEventListener('keydown', onKey));
+    // how the focus last arrived: Tab (the keyboard) or a pointer (ctx.keyFocus; the drawer's rows read it too)
+    const onNavKey = (e) => {
+      if (e.key === 'Tab') keyNav = true;
+    };
+    const onNavPointer = () => {
+      keyNav = false;
+    };
+    window.addEventListener('keydown', onNavKey, true);
+    window.addEventListener('pointerdown', onNavPointer, true);
+    cleanups.push(() => {
+      window.removeEventListener('keydown', onNavKey, true);
+      window.removeEventListener('pointerdown', onNavPointer, true);
+    });
 
     // ---- layout: keep the map framed between HUD and tower bar --------------------------
     function insets() {
@@ -773,10 +888,40 @@ export function mountBattle(root, params, hooks) {
 
     function handle(events) {
       heroLevels.handle(events);
+      abar.handle(events);
       for (const ev of events) {
         fpBattle?.handle(ev);
         ctx.modes?.handle(ev);
         switch (ev.type) {
+          case 'abilityUnlock': {
+            // the first time each ability unlocks in this battle: say how to fire it (your own girls only)
+            const t = sim.getTower(ev.towerUid);
+            if (!t || (ctx.coop && !ctx.coop.isMine(t.uid)) || !abilityNotes.firstUnlock(ev.id)) break;
+            const name = abilityText(ev.id)?.name || 'a new ability';
+            const slot = t.isHero ? -1 : sim.abilitySlots(ctx.coop ? ctx.coop.mySlot : 0).findIndex((s) => s.id === ev.id);
+            const key = slot >= 0 && slot < 9 ? String(slot + 1) : null;
+            // one line led by the bolt: "Skyfall Volley: tap Aoi, bottom right" (the name in bold; a ⚡ in the words
+            // is the kit bolt, never the colour emoji). On a phone the feed docks left of an open panel (battle.css).
+            const words = unlockText(t.def.name, name, { hover: hoverDevice, key, hero: !!t.isHero });
+            feed.push([h('b', name), ...boltText(words.slice(name.length))], 'good', { key: `abil-unlock-${ev.id}`, ms: 2400, icon: ico(KIT_SVG.bolt, 'bt-toast-ico.bt-toast-bolt') });
+            break;
+          }
+          case 'ability': {
+            // co-op: the ally's cast is a small chip (at most one per 3 s); your own casts: no toast
+            if (!ctx.coop) break;
+            const t = sim.getTower(ev.towerUid);
+            if (!t || ctx.coop.isMine(t.uid) || !abilityNotes.allyChip()) break;
+            feed.push(allyChipText(ctx.coop.ownerName(t.uid), t.def.name, abilityText(ev.id)?.name || 'her ability'), 'info', { key: 'ally-abil', ms: 1600 });
+            break;
+          }
+          case 'lifeRestored': {
+            // a life an ability brought back (Noa's First Aid Call; both players see it: lives are shared). The other
+            // lives (Chigusa's harvest, Wakaba's Recovery Plan) keep their quiet heart in the HUD.
+            if (!ev.id) break;
+            const t = sim.getTower(ev.towerUid);
+            feed.push(lifeText(t?.def.name || 'A girl', abilityText(ev.id)?.name || 'her ability', ev.n || 1), 'good', { key: `life-${ev.towerUid}`, merge: true, ms: 1800 });
+            break;
+          }
           case 'leak': {
             const name = enemyDef(ev.id)?.name || ev.id;
             feed.push(`${name} slipped through`, 'bad', { key: `leak-${ev.id}`, merge: true, ms: 2600 });
@@ -807,7 +952,7 @@ export function mountBattle(root, params, hooks) {
           case 'waveEnd':
             // a sandbox spawn between waves runs as a wave of its own (the counter stays)
             if (req.sandbox && ev.wave === lastWaveEnd) feed.push('Sandbox group cleared', 'good', { key: 'sbx-group', ms: 1600 });
-            else feed.push(`Wave ${ev.wave} cleared · +${fmtCoins(ev.bonus || 0)} coins`, 'good', { ms: 2200 });
+            else feed.push(`Wave ${ev.wave} cleared · +${fmtNum(ev.bonus || 0, 'money')} coins`, 'good', { ms: 2200 });
             lastWaveEnd = ev.wave;
             if (sim.state !== 'won') later(() => warnFor(sim.wave + 1), 400);
             break;
@@ -965,6 +1110,9 @@ export function mountBattle(root, params, hooks) {
       bar.update();
       panel.update();
       heroW.update();
+      // a card armed or dragged: the ability bar fades and ignores taps (battle.css .bt-placing)
+      shell.classList.toggle('bt-placing', !!placement.unitId);
+      abar.update();
       boss.update(dt);
       wave.update();
       sandbox?.update();
@@ -996,11 +1144,11 @@ export function mountBattle(root, params, hooks) {
       if (restored.dropped.length) {
         const names = [...new Set(restored.dropped.map((id) => UNIT_MAP[id]?.name || id))];
         const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
-        feed.push(`After the update, ${who} couldn't return to ${names.length > 1 ? 'their spots' : 'her spot'}. ${fmtCoins(restored.refunded - heroBack)} coins refunded.`, 'warn', { key: 'save-refund', ms: 8000, sticky: true });
+        feed.push(`After the update, ${who} couldn't return to ${names.length > 1 ? 'their spots' : 'her spot'}. ${fmtNum(restored.refunded - heroBack, 'money')} coins refunded.`, 'warn', { key: 'save-refund', ms: 8000, sticky: true });
       }
       for (const x of restored.heroRefunds || []) {
         const name = UNIT_MAP[x.unitId]?.name || x.unitId;
-        const coins = x.refunded > 0 ? ` and her upgrades came back as ${fmtCoins(x.refunded)} coins` : '';
+        const coins = x.refunded > 0 ? ` and her upgrades came back as ${fmtNum(x.refunded, 'money')} coins` : '';
         feed.push(`Heroes changed: ${name} keeps Lv ${x.level}${coins}.`, 'info', { key: 'save-hero', ms: 8000, sticky: true });
       }
       if (restored.potentialNew) feed.push('This run continues with Potential\'s new effects.', 'info', { key: 'save-potential', ms: 6000, sticky: true });
@@ -1244,6 +1392,9 @@ export function mountBattle(root, params, hooks) {
         ls.queue('pick', [uid, target]);
         return 'queued';
       },
+      // a cast (the `abil` command, ABILITIES_SPEC §7.2–§7.3), one girl's Auto switch and the Auto-cast setting (the
+      // `acast` command): abilityBar.js coopAbilityActs (tests/battle-ui/abilityBar.test.js, abilityAuto.test.js)
+      ...coopAbilityActs(ctx, ls),
     };
   }
 
@@ -1273,6 +1424,14 @@ export function mountBattle(root, params, hooks) {
       else if (src && tgt) ctx.feed.push(pickText(src, tgt), 'good', { key: 'pick-ok', ms: 1800 });
     } else if (cmd.k === 'speed' && res.ok && !minePlayer) {
       ctx.feed.push(`${session.player(cmd.p)?.name || 'Ally'} set the speed to ${cmd.a[0]}×`, 'info', { key: 'ally-speed', ms: 1400 });
+    } else if (cmd.k === 'abil' && minePlayer) {
+      // my cast ran on every client: the slot stops waiting; a refusal says why (the same everywhere)
+      clearPendingFor(ctx.abilityPending, cmd, ls.mySlot);
+      if (!res.ok) ctx.abilityRefusal?.(res.reason, res.casterUid, cmd.a[0]);
+      else navigator.vibrate?.(10);
+      ctx.abilityBar?.refresh();
+    } else if (cmd.k === 'acast' && minePlayer && !res.ok) {
+      ctx.feed.push(refusalText(res.reason), 'info', { key: 'acast-refused', ms: 1400 });
     }
   }
 
@@ -1294,8 +1453,8 @@ export function mountBattle(root, params, hooks) {
         // achievements: one clan boss attempt resolved (the server accepted it)
         track(store.profile, 'clanBossHit', 1);
         store.commit('clan-boss-hit');
-        const text = counted >= dmg || !dmg ? `${fmtCoins(dmg)} damage counted` : `${fmtCoins(counted)} of ${fmtCoins(dmg)} damage counted`;
-        ctx.feed?.push(`Clan boss: ${text} · ${fmtCoins(state.hp)} HP left`, 'good', { ms: 4200 });
+        const text = counted >= dmg || !dmg ? `${fmtNum(dmg)} damage counted` : `${fmtNum(counted)} of ${fmtNum(dmg)} damage counted`;
+        ctx.feed?.push(`Clan boss: ${text} · ${fmtNum(Math.ceil(state.hp))} HP left`, 'good', { ms: 4200 });
       })
       .catch((e) => {
         ctx.clanBossResult = { error: e };

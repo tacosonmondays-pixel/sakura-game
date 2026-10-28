@@ -1,9 +1,10 @@
 // Attack FX preview (dev only): every girl's attack side by side, or one girl up close.
 // Query params:
 //   mode=gallery|focus  unit=chika  build=base|p0|p1|p2|max|5-2-0  level=1..10 (heroes, focus)
-//   quality=high|medium|low  speed=1|2|3  seed=3  fx=on|off  manual=1  extra=3 (gallery: extra
-//   Chikas at 5-2-0)  stream=0 (no enemy stream)  zoom=2.2 (focus)  select=1  clean=1 (no HUD)
-//   tiny=1 (96×54 canvas for fast checks)  bloom=0  hp=600 (enemy HP ×)  preroll=40 (s)
+//   quality=high|medium|low  speed=1|2|3  seed=3  fx=on|off  manual=1  extra=6 (gallery: up to 6
+//   extra Chikas asking 5-2-0; the path cap holds them at 4-2-0)  stream=0 (no enemy stream)
+//   zoom=2.2 (focus)  select=1  clean=1 (no HUD)  tiny=1 (96×54 canvas for fast checks)  bloom=0
+//   hp=600 (enemy HP ×)  preroll=40 (s)
 // manual=1: no rAF loop; drive it with window.__advance(n, dt) and capture with __frame() /
 // __fxProbe() (e2e/attack-fx.mjs, e2e/attack-reel.mjs).
 import { preloadModels } from '../src/models/index.js';
@@ -16,6 +17,10 @@ import { gainHeroXp } from '../src/sim/hero.js';
 
 export const ORDER = ['chika', 'hikari', 'luna', 'nami', 'aoi', 'rei', 'yuki', 'momo', 'akane', 'sango', 'kage', 'umeko', 'shiro', 'midori', 'suzu', 'raika', 'miko', 'hotaru', 'kaede'];
 const BUILDS = { base: [0, 0, 0], p0: [5, 2, 0], p1: [0, 5, 2], p2: [2, 0, 5] };
+// gallery extra=N Chikas: four below the last run, then two above the first. One final tier per path
+// holds every copy after the roster Chika to 4-2-0 (5 drones), so the stress scene (e2e/attack-fx.mjs,
+// extra=6) needs all six for its ≈ 40 drones: 9 + 6 × 5 = 39.
+const EXTRA_SPOTS = [[4, 15.9], [11.5, 15.9], [19, 15.9], [26.5, 15.9], [7.75, 1.1], [22.75, 1.1]];
 
 const params = new URLSearchParams(location.search);
 const mode = params.get('mode') === 'focus' ? 'focus' : 'gallery';
@@ -26,7 +31,7 @@ let speed = [1, 2, 3].includes(Number(params.get('speed'))) ? Number(params.get(
 const seed = Number(params.get('seed') || 3);
 const fxOn = params.get('fx') !== 'off';
 const manual = params.get('manual') === '1';
-const extra = Math.max(0, Math.min(6, Number(params.get('extra') || 0)));
+const extra = Math.max(0, Math.min(EXTRA_SPOTS.length, Number(params.get('extra') || 0)));
 const streamOn = params.get('stream') !== '0';
 const phone = innerWidth < 700 || innerHeight < 480;
 const clean = params.get('clean') === '1'; // no HUD (reels / owner shots)
@@ -144,7 +149,8 @@ async function main() {
     placed.push({ t, id, build: t.tiers.join('-') });
   });
   for (let k = 0; k < extra && mode === 'gallery'; k++) {
-    const t = snapPlace(sim, 'chika', 4 + k * 7.5, 15.9);
+    const [x, y] = EXTRA_SPOTS[k];
+    const t = snapPlace(sim, 'chika', x, y);
     if (t) {
       applyBuild(sim, t, [5, 2, 0]);
       placed.push({ t, id: 'chika', build: t.tiers.join('-') });

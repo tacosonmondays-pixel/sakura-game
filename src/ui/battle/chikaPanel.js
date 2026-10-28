@@ -1,14 +1,17 @@
-// The selected-girl panel's drone-owner sections (Chika: docs/specs/CHIKA_REWORK.md §7 and §16):
-// a split bar (her own damage vs her drones'), the wing's flight-mode row, a tab row
-// Upgrades · Overall · Chika · Drones, the drone list and a drone card (◀ ▶ ‹). Shown only for
-// girls whose drones roam (towerStats().turret.leash > 0); everyone else keeps today's panel.
-// The tab, the drone shown and where ‹ returns to live here (not in the DOM), so a re-render
-// (an upgrade, a new drone, the wave state) never snaps the view back.
-import { h, fmtCoins, fmtNum, icon, enemyDef } from './util.js';
+// The girl drawer's drone-owner parts (Chika: docs/specs/CHIKA_REWORK.md §7 and §16; UI_DIRECTION M2 drawer):
+// her Flight row stays on the drawer's Glance (Hover · Hold · Patrol · Pursuit and its one-line hint); MORE's
+// Details hold the split bar (her own damage vs her drones'), the tabs Overall · Chika · Drones, the drone list and
+// a drone card (◀ ▶ ‹). Shown only for girls whose drones roam (towerStats().turret.leash > 0). Her upgrade paths
+// are on the drawer itself (no Upgrades tab any more).
+// The tab, the drone shown and where ‹ returns to live here (not in the DOM), so a re-render (an upgrade, a new
+// drone, the wave state) never snaps the view back.
+import { h, icon, enemyDef } from './util.js';
+import { fmtNum } from '../format.js';
 import { droneName } from '../../data/droneNames.js';
 import { FLIGHT_PURSUIT_RATE_MUL } from '../../sim/constants.js';
 
-export const DRONE_TABS = ['upgrades', 'overall', 'chika', 'drones'];
+/** MORE's tabs for a drone owner (her paths are on the drawer's Glance). */
+export const DRONE_TABS = ['overall', 'chika', 'drones'];
 const FLIGHT = [
   ['hover', 'Hover', 'Around her'],
   ['hold', 'Hold', 'At a point you tap'],
@@ -17,7 +20,14 @@ const FLIGHT = [
 ];
 const STATE_TEXT = { hunting: 'Hunting', returning: 'Flying home', home: 'Home', jammed: 'Jammed', stalled: 'Stalled' };
 
-/** Does this girl get the drone tabs? */
+const stat = (n) => fmtNum(n, 'stat');
+const dealt = (n) => fmtNum(Math.max(0, Math.floor(Number(n) || 0)));
+const count = (n) => fmtNum(Math.max(0, n || 0));
+const rate = (n) => fmtNum(n, 'rate');
+const tiles = (n) => `${fmtNum(n, 'range')} tiles`;
+const secs = (n) => fmtNum(n, 'time');
+
+/** Does this girl get the drone parts? */
 export function hasDroneTabs(st) {
   return !!st?.turret && st.turret.leash > 0;
 }
@@ -27,6 +37,21 @@ export function wingNumbers(st) {
   const tu = st.turret;
   const each = tu.damage * tu.rate * (tu.flight === 'pursuit' ? FLIGHT_PURSUIT_RATE_MUL : 1);
   return { each, wing: each * tu.max, building: tu.active < tu.max };
+}
+
+/**
+ * The Overall and Drones tabs' main DPS cells (CHIKA_REWORK §7.1: her bolt plus the FULL wing). While the wing is still
+ * building, the label says so; the number cell holds only the number (VAULT §9: never an ellipsis on a number). How
+ * many fly now is the Drones / Flying cell's job ("3/9"), so the count is said once. The one number style (format.js
+ * 'stat': "45.3", "4,524", "312.3k").
+ * @returns {{ overall: { label: string, value: string }, wing: { label: string, value: string } }}
+ */
+export function wingDpsCells(st) {
+  const { wing, building } = wingNumbers(st);
+  return {
+    overall: { label: building ? 'DPS (full wing)' : 'DPS', value: stat(st.own.dps + wing) },
+    wing: { label: building ? 'Full wing DPS' : 'Wing DPS', value: stat(wing) },
+  };
 }
 
 /**
@@ -105,16 +130,18 @@ export function createDronePanel(ctx, { rerender }) {
       her, h('span.bt-dr-split-bar', fill), wing);
   }
 
-  // ---- flight row: Hover · Hold · Patrol · Pursuit (owner only)
+  // ---- flight row (the drawer's Glance): Hover · Hold · Patrol · Pursuit (owner only)
   function flightRow(t, mine) {
     const fl = sim.flightInfo(t.uid);
     const picking = ctx.flight?.pickingFor?.(t.uid) || null;
-    const seg = h('div.bt-seg.bt-dr-flight-seg', FLIGHT.map(([k, name, help]) => h(
-      `button.bt-seg-btn${fl.mode === k ? '.on' : ''}${picking === k ? '.picking' : ''}`,
+    const chips = h('div.bt-tchips.bt-dr-flight-seg', FLIGHT.map(([k, name, help]) => h(
+      `button.bt-tchip${fl.mode === k ? '.on' : ''}${picking === k ? '.picking' : ''}`,
       {
+        type: 'button',
         'data-testid': `flight-${k}`,
         'data-mode': k,
         title: help,
+        'aria-pressed': fl.mode === k ? 'true' : 'false',
         disabled: !mine,
         onclick: () => ctx.flight?.choose(t.uid, k),
       },
@@ -124,30 +151,29 @@ export function createDronePanel(ctx, { rerender }) {
     if (picking) {
       const which = picking === 'patrol' ? (ctx.flight.pickStep() === 0 ? 'the first patrol point' : 'the second patrol point') : 'the hold point';
       hint = h('div.bt-dr-hint.bt-dr-picking', { 'data-testid': 'flight-picking' }, `Tap the map: ${which} (inside the dashed ring)`,
-        h('button.bt-dr-link', { 'data-testid': 'flight-cancel', onclick: () => ctx.flight.cancel() }, 'Cancel'));
+        h('button.bt-dr-link', { type: 'button', 'data-testid': 'flight-cancel', onclick: () => ctx.flight.cancel() }, 'Cancel'));
     } else {
       const tu = sim.towerStats(t.uid).turret;
       const text = {
-        hover: `Drones fly up to ${fmtNum(tu.leash, 2)} tiles around her`,
-        hold: `Drones guard your point · tap Hold to move it`,
-        patrol: `Drones fly between your two points · tap Patrol to redraw`,
-        pursuit: `Drones chase her Target's #1 anywhere${FLIGHT_PURSUIT_RATE_MUL < 1 ? ` (fire ×${FLIGHT_PURSUIT_RATE_MUL})` : ''}`,
+        hover: `Drones fly up to ${tiles(tu.leash)} around her`,
+        hold: 'Drones guard your point · tap Hold to move it',
+        patrol: 'Drones fly between your two points · tap Patrol to redraw',
+        pursuit: `Drones chase her Target's #1 anywhere${FLIGHT_PURSUIT_RATE_MUL < 1 ? ` (fire ${fmtNum(FLIGHT_PURSUIT_RATE_MUL, 'mul')})` : ''}`,
       }[fl.mode];
       hint = h('div.bt-dr-hint', { 'data-testid': 'flight-hint' }, mine ? text : `${text} · only her owner changes it`);
     }
     return h('div.bt-dr-flight', { 'data-testid': 'flight-row' },
-      h('div.bt-target', h('span.bt-section-label', icon('teleport', 'bt-ico-sm'), 'Flight'), seg), hint);
+      h('div.bt-dw-row', h('span.bt-dw-k', 'FLIGHT'), chips), hint);
   }
 
-  // ---- tab row
-  function tabRow(t, affordable) {
-    const names = { upgrades: 'Upgrades', overall: 'Overall', chika: t.def.name, drones: `Drones ${t.turrets.length}` };
+  // ---- tab row (MORE): Overall · Chika · Drones n
+  function tabRow(t) {
+    const names = { overall: 'Overall', chika: t.def.name, drones: `Drones ${t.turrets.length}` };
     const cur = droneUid != null ? 'drones' : tab;
     return h('div.bt-dr-tabs', { role: 'tablist' }, DRONE_TABS.map((k) => h(
       `button.bt-dr-tab${cur === k ? '.on' : ''}`,
-      { role: 'tab', 'aria-selected': cur === k ? 'true' : 'false', 'data-testid': `tab-${k}`, onclick: () => setTab(k) },
+      { type: 'button', role: 'tab', 'aria-selected': cur === k ? 'true' : 'false', 'data-testid': `tab-${k}`, onclick: () => setTab(k) },
       names[k],
-      k === 'upgrades' && affordable ? h('span.bt-dr-coin', { title: 'An upgrade is affordable' }) : null,
     )));
   }
 
@@ -162,72 +188,73 @@ export function createDronePanel(ctx, { rerender }) {
   };
   const rateText = (key) => {
     const r = ctx.rates?.rate(key);
-    return r == null ? '—' : fmtNum(r, 1);
+    return r == null ? '—' : stat(r);
   };
 
   function overallTab(t, st, cells) {
-    const { wing, building } = wingNumbers(st);
+    const dps = wingDpsCells(st).overall;
     const tu = st.turret;
-    // today's grid (her damage, rate, range, crit, aura, …) between the totals and the drone lines
-    const fly = tu.flight === 'pursuit' ? 'Whole map' : `${fmtNum(tu.leash, 2)} tiles (+${fmtNum(tu.range, 1)} gun)`;
+    // her own grid (damage, rate, range, crit, aura, …) between the totals and the drone lines
+    const fly = tu.flight === 'pursuit' ? 'Whole map' : `${tiles(tu.leash)} (+${fmtNum(tu.range, 'range')} gun)`;
     // her Potential rows (the drones' overclock) first, so they tick in view
     return h('div', { 'data-testid': 'stats-overall' }, cells.pot || null, h('div.bt-stats-grid',
-      cell('DPS', `${fmtNum(st.own.dps + wing, 1)}${building ? ` (full wing of ${tu.max})` : ''}`, '.bt-stat-main.bt-stat-wide2'),
+      cell(dps.label, dps.value, '.bt-stat-main.bt-stat-wide2'),
       cell('Dealing', liveB(() => rateText(`t${t.uid}`)), '.bt-stat-wide2'),
       cells.rest,
       cell('Drones fly', fly, '.bt-stat-wide2'),
       cell('Flight', { hover: 'Hover', hold: 'Hold', patrol: 'Patrol', pursuit: 'Pursuit' }[tu.flight] || tu.flight, '.bt-stat-wide2'),
-      cell('Drones', `${tu.active}/${tu.max} · ${fmtNum(tu.damage, 1)} dmg × ${fmtNum(tu.rate, 2)}/s each`, '.bt-stat-wide'),
+      cell('Drones', `${fmtNum(tu.active, 'progress', { of: tu.max })} · ${stat(tu.damage)} dmg × ${rate(tu.rate)} each`, '.bt-stat-wide'),
     ), cells.caps);
   }
 
   function chikaTab(t, st, cells) {
     const rows = [
-      cell('DPS', fmtNum(st.own.dps, 1), '.bt-stat-main'),
-      cell('Damage', fmtNum(st.damage, 1)),
-      cell('Attacks/s', fmtNum(st.rate, 2)),
-      cell('Range', fmtNum(st.range, 1)),
+      cell('DPS', stat(st.own.dps), '.bt-stat-main'),
+      cell('Damage', stat(st.damage)),
+      cell('Attacks/s', rate(st.rate)),
+      cell('Range', fmtNum(st.range, 'range')),
     ];
-    if (st.chain > 0) rows.push(cell('Jumps', st.chain));
-    if (st.armorPen > 0) rows.push(cell('Armor pen', fmtNum(st.armorPen, 1)));
+    if (st.chain > 0) rows.push(cell('Jumps', count(st.chain)));
+    if (st.armorPen > 0) rows.push(cell('Armor pen', fmtNum(st.armorPen, 'flat')));
     rows.push(
-      cell('Dealt', liveB(() => fmtCoins((t.damageDealt || 0) - (t.droneDmg || 0)))),
-      cell('Kills', liveB(() => fmtCoins((t.kills || 0) - (t.droneKills || 0)))),
+      cell('Dealt', liveB(() => dealt((t.damageDealt || 0) - (t.droneDmg || 0)))),
+      cell('Kills', liveB(() => count((t.kills || 0) - (t.droneKills || 0)))),
       cell('Share', liveB(() => (t.damageDealt >= 1 ? `${Math.round(((t.damageDealt - t.droneDmg) / t.damageDealt) * 100)}%` : '—'))),
       cell('Dealing', liveB(() => {
         const all = ctx.rates?.rate(`t${t.uid}`);
         const dr = ctx.rates?.rate(`d${t.uid}`);
-        return all == null || dr == null ? '—' : fmtNum(Math.max(0, all - dr), 1);
+        return all == null || dr == null ? '—' : stat(Math.max(0, all - dr));
       })),
     );
     if (cells.aura) rows.push(cells.aura);
     const behaviour = st.behavior === 'chain' ? 'Her Tesla coil chains lightning on its own.' : 'Her wrench bolt fires on its own. Tesla Engineering turns it into a lightning coil.';
-    // who buffs her and whom she buffs (her Repair Bay tune-up and its Pick control): path cap §4.4
+    // who buffs her and whom she buffs (her Repair Bay tune-up; its Pick control is on the drawer): path cap §4.4
     return h('div', { 'data-testid': 'stats-chika' }, cells.pot || null, h('div.bt-stats-grid', rows), cells.ownCaps, h('p.bt-dr-note', behaviour), cells.buffs?.() || null);
   }
 
   function dronesTab(t, st) {
     const tu = st.turret;
-    const { wing, building } = wingNumbers(st);
+    const wingCell = wingDpsCells(st).wing;
     const flying = liveB(() => {
       const s = sim.towerStats(t.uid).turret;
-      if (s.active >= s.max) return `${s.active}/${s.max}`;
-      return sim.state === 'wave' ? `${s.active}/${s.max} · next in ${fmtNum(s.nextIn, 1)} s` : `${s.active}/${s.max} · builds during waves (every ${fmtNum(s.build, 1)} s)`;
+      const n = fmtNum(s.active, 'progress', { of: s.max });
+      if (s.active >= s.max) return n;
+      return sim.state === 'wave' ? `${n} · next in ${secs(s.nextIn)}` : `${n} · builds during waves (every ${secs(s.build)})`;
     });
     const grid = h('div.bt-stats-grid',
-      cell('Wing DPS', `${fmtNum(wing, 1)}${building ? ` (full wing of ${tu.max})` : ''}`, '.bt-stat-main.bt-stat-wide2'),
+      cell(wingCell.label, wingCell.value, '.bt-stat-main.bt-stat-wide2'),
       cell('Flying', flying, '.bt-stat-wide2'),
-      cell('Damage each', fmtNum(tu.damage, 1)),
-      cell('Fire rate', `${fmtNum(tu.rate * (tu.flight === 'pursuit' ? FLIGHT_PURSUIT_RATE_MUL : 1), 2)}/s`),
-      cell('Gun', fmtNum(tu.range, 1)),
-      cell('Speed', `${fmtNum(tu.speed, 1)} t/s`),
-      cell('Fly up to', tu.flight === 'pursuit' ? 'Whole map' : `${fmtNum(tu.leash, 2)} tiles`, '.bt-stat-wide2'),
-      cell('Dealt', liveB(() => fmtCoins(t.droneDmg || 0))),
-      cell('Kills', liveB(() => fmtCoins(t.droneKills || 0))),
-      cell('Shots', liveB(() => fmtCoins(t.droneShots || 0)), '.bt-stat-wide2'),
+      cell('Damage each', stat(tu.damage)),
+      cell('Fire rate', rate(tu.rate * (tu.flight === 'pursuit' ? FLIGHT_PURSUIT_RATE_MUL : 1))),
+      cell('Gun', fmtNum(tu.range, 'range')),
+      cell('Speed', `${fmtNum(tu.speed, 'range')} t/s`),
+      cell('Fly up to', tu.flight === 'pursuit' ? 'Whole map' : tiles(tu.leash), '.bt-stat-wide2'),
+      cell('Dealt', liveB(() => dealt(t.droneDmg || 0))),
+      cell('Kills', liveB(() => count(t.droneKills || 0))),
+      cell('Shots', liveB(() => count(t.droneShots || 0)), '.bt-stat-wide2'),
     );
     const focus = t.targetMode === 'strong' || t.targetMode === 'elite';
-    const hint = h('p.bt-dr-note', focus ? `Target ${t.targetMode === 'strong' ? 'Strong' : 'Elite'}: the wing focuses one target` : 'Target First / Last / Close: drones spread out');
+    const hint = h('p.bt-dr-note', focus ? `Target ${t.targetMode === 'strong' ? 'Strong' : 'Priority'}: the wing focuses one target` : 'Target First / Last / Close: drones spread out');
     const ds = sim.droneStats(t.uid);
     const rows = ds.map((d) => {
       const dot = h('span.bt-dr-dot');
@@ -238,12 +265,12 @@ export function createDronePanel(ctx, { rerender }) {
         const cur = all.find((x) => x.uid === d.uid);
         if (!cur) return;
         dot.dataset.state = cur.state;
-        dmg.textContent = fmtCoins(cur.dmg);
-        kills.textContent = `${cur.kills} kills`;
+        dmg.textContent = dealt(cur.dmg);
+        kills.textContent = `${count(cur.kills)} kills`;
         const best = Math.max(...all.map((x) => x.dmg));
         top.hidden = !(best > 0 && cur.dmg === best);
       });
-      return h('button.bt-dr-row', { 'data-testid': `drone-row-${d.n}`, onclick: () => showDrone(d.uid, 'drones') },
+      return h('button.bt-dr-row', { type: 'button', 'data-testid': `drone-row-${d.n}`, onclick: () => showDrone(d.uid, 'drones') },
         dot, h('span.bt-dr-row-name', droneName(d.n)), top, kills, dmg);
     });
     return h('div', { 'data-testid': 'stats-drones' },
@@ -271,7 +298,7 @@ export function createDronePanel(ctx, { rerender }) {
       dot.dataset.state = cur.state;
       let s = STATE_TEXT[cur.state] || cur.state;
       if (cur.state === 'hunting' && cur.targetId) s += ` · ${enemyDef(cur.targetId)?.name || cur.targetId}`;
-      if (cur.state === 'jammed') s += ` (${fmtNum(cur.jam, 1)} s)`;
+      if (cur.state === 'jammed') s += ` (${secs(cur.jam)})`;
       if (cur.state === 'stalled') s += ` (${t.def.name} is sabotaged)`;
       stateText.textContent = s;
     });
@@ -283,31 +310,31 @@ export function createDronePanel(ctx, { rerender }) {
     const share = liveB(() => {
       const r = ctx.rates?.rate(`u${d.uid}`);
       const w = ctx.rates?.rate(`d${t.uid}`);
-      return r == null ? '—' : `${fmtNum(r, 1)}${w ? ` · ${Math.round((r / w) * 100)}% of the wing` : ''}`;
+      return r == null ? '—' : `${stat(r)}${w ? ` · ${Math.round((r / w) * 100)}% of the wing` : ''}`;
     });
     return h('div.bt-dr-card', { 'data-testid': 'drone-card' },
       h('div.bt-dr-card-head',
-        h('button.bt-dr-back', { 'data-testid': 'drone-back', title: 'Back', onclick: back }, '‹ ', cardFrom && cardFrom !== 'drones' ? tabLabel(t, cardFrom) : 'Drones'),
+        h('button.bt-dr-back', { type: 'button', 'data-testid': 'drone-back', title: 'Back', onclick: back }, '‹ ', cardFrom && cardFrom !== 'drones' ? tabLabel(t, cardFrom) : 'Drones'),
         h('b.bt-dr-card-name', { 'data-testid': 'drone-name' }, droneName(d.n)),
         h('span.bt-dr-steps',
-          h('button.bt-dr-step', { 'data-testid': 'drone-prev', title: 'Previous drone', onclick: () => step(-1) }, '◀'),
-          h('button.bt-dr-step', { 'data-testid': 'drone-next', title: 'Next drone', onclick: () => step(1) }, '▶'))),
-      h('div.bt-dr-owner', `${owner} · built wave ${d.born || 1}`),
+          h('button.bt-dr-step', { type: 'button', 'data-testid': 'drone-prev', title: 'Previous drone', 'aria-label': 'Previous drone', onclick: () => step(-1) }, '◀'),
+          h('button.bt-dr-step', { type: 'button', 'data-testid': 'drone-next', title: 'Next drone', 'aria-label': 'Next drone', onclick: () => step(1) }, '▶'))),
+      h('div.bt-dr-owner', `${owner} · built wave ${count(d.born || 1)}`),
       stateEl,
       h('div.bt-stats-grid',
-        cell('Damage dealt', one((c) => fmtCoins(c.dmg)), '.bt-stat-wide2'),
-        cell('Kills', one((c) => fmtCoins(c.kills))),
-        cell('Shots', one((c) => fmtCoins(c.shots))),
+        cell('Damage dealt', one((c) => dealt(c.dmg)), '.bt-stat-wide2'),
+        cell('Kills', one((c) => count(c.kills))),
+        cell('Shots', one((c) => count(c.shots))),
         cell('DPS (last 5 s)', share, '.bt-stat-wide'),
-        cell('Damage/shot', fmtNum(tu.damage, 1)),
-        cell('Fire', `${fmtNum(tu.rate * (tu.flight === 'pursuit' ? FLIGHT_PURSUIT_RATE_MUL : 1), 2)}/s`),
-        cell('Gun', fmtNum(tu.range, 1)),
-        cell('Speed', `${fmtNum(tu.speed, 1)} t/s`)),
-      h('p.bt-dr-note', `Drones belong to ${t.def.name} — upgrade her in the Upgrades tab.`));
+        cell('Damage/shot', stat(tu.damage)),
+        cell('Fire', rate(tu.rate * (tu.flight === 'pursuit' ? FLIGHT_PURSUIT_RATE_MUL : 1))),
+        cell('Gun', fmtNum(tu.range, 'range')),
+        cell('Speed', `${fmtNum(tu.speed, 'range')} t/s`)),
+      h('p.bt-dr-note', `Drones belong to ${t.def.name} — her upgrades are on her drawer's path rows.`));
   }
 
   function tabLabel(t, k) {
-    return { upgrades: 'Upgrades', overall: 'Overall', chika: t.def.name, drones: 'Drones' }[k] || 'Back';
+    return { overall: 'Overall', chika: t.def.name, drones: 'Drones' }[k] || 'Back';
   }
 
   /** "Chika", or "Chika (2nd)" when the board holds more than one of her. */
@@ -320,30 +347,28 @@ export function createDronePanel(ctx, { rerender }) {
   }
 
   /**
-   * Builds the sections for girl `t`. `parts` come from the panel: the upgrade paths, today's
-   * stat cells (without DPS and the drone line), the Aura cell, the capability chips, her Potential
-   * rows (`pot`, on top of the Overall or Chika tab, whichever shows) and `buffs()` (her "Buffed by" /
-   * "Buffing" sections, built only when her own tab shows).
+   * MORE's sections for girl `t`. `parts` come from the drawer: her stat cells (without DPS and the drone line), the
+   * Aura cell, the capability chips, her Potential rows (`pot`, on top of the Overall or Chika tab, whichever shows)
+   * and `buffs()` (her "Buffed by" / "Buffing" sections, built only when her own tab shows).
+   * @returns {{ toTop: boolean, split: HTMLElement, tabs: HTMLElement, content: HTMLElement }}
    */
-  function sections(t, st, parts, { mine, affordable }) {
+  function details(t, st, parts) {
     live = [];
     let content;
     if (droneUid != null) content = droneCard(t, st);
     if (!content) {
-      if (tab === 'upgrades') content = h('div', { 'data-testid': 'tab-upgrades-body' }, parts.paths);
-      else if (tab === 'chika') content = chikaTab(t, st, parts);
+      if (tab === 'chika') content = chikaTab(t, st, parts);
       else if (tab === 'drones') content = dronesTab(t, st);
       else content = overallTab(t, st, parts);
     }
     const top = toTop;
     toTop = false;
-    return {
-      toTop: top,
-      split: splitBar(t),
-      flight: flightRow(t, mine),
-      tabs: tabRow(t, affordable),
-      content: h('div.bt-dr-body', content),
-    };
+    return { toTop: top, split: splitBar(t), tabs: tabRow(t), content: h('div.bt-dr-body', content) };
+  }
+
+  /** The drawer's Glance part: her Flight row (rebuilt with the drawer; the live list is MORE's). */
+  function glance(t, mine) {
+    return flightRow(t, mine);
   }
 
   function updateLive() {
@@ -355,9 +380,14 @@ export function createDronePanel(ctx, { rerender }) {
   return {
     open,
     signature,
-    sections,
+    details,
+    glance,
     updateLive,
     showDrone,
+    /** MORE was closed: its live cells stop. */
+    leaveDetails() {
+      live = [];
+    },
     get tab() {
       return droneUid != null ? 'drone' : tab;
     },

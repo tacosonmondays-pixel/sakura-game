@@ -1,0 +1,74 @@
+{
+ "verdict": "NOT_OK",
+ "lens": "look",
+ "commit": "a801fd08999dd1a5caff0c0ca1a408d71bbd0337",
+ "summary": "Independent look review of A3 M4 (the tactical battle drawer) at a801fd08, round r1. No tracked file was changed. Verdict: NOT_OK. There are 3 medium findings and no blocker or high ones.\n\nAll six r0 findings are fixed:\n- look-1: at 667x375 the drawer is a 288 px side drawer (43% of the width) with all three path rows in view.\n- look-2: Chika 3-2-0 at 844 shows one 'Drone Surge / Later update' line and all three rows.\n- look-3: Sango 0-3-2 at 844 shows 'Tidebreaker Shell' uncut and 'Wide Fragmentation' plus its bolt on one line.\n- logic-1: Space on a focused row arms the row and does not start the wave.\n- logic-2: PIERCE shows only for girls who really pierce.\n- logic-3: the drawer shows at most 13 numbers, plus 1 while an ability cools.\n\nWhat passes:\n- The drawer is 288 px at 844, 915 and 667 (34%, 31% and 43%) and 340 px at 1024 and 1280.\n- The smallest drawer text is 12 px on phones and 13 px at 1024 and 1280. The UI probe finds nothing truncated.\n- Text contrast, measured on the real composited background, has a minimum median of 5.0:1.\n- The ability bar stays 10 px left of the drawer, and the ally and hero drawers are correct.\n- The look matches the mock: navy ink plate, one chamfer with its hairline, Barlow tabular numbers, yellow price buttons, and a MORE ink chip.\n- The repo's M4 checks report no failures at 844, 667, 1024 and 1280. A subset of scenes ran at 915, where one tap timed out under load. Toasts sit at the top edge, left of the drawer, never over the map's centre.\n\nThe medium findings:\n- On phones every toast, including the lock reason shown by the 'i', renders at 11.52 px, under the 12 px floor. r1 extended this to 667, where toasts were 13 px before. Tips are also cut with an ellipsis.\n- The '+' target chip is a 20 px wide tap target.\n- With a drawer open, the tower bar cuts its last card mid-price: '60' for 600 and '38' for 380 at 844, '4' at 667, and half a zero at 1024.\n\nScreenshots, per-viewport logs, probes and 3x crops are in /tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/abil-m4/review-r1-look/. The viewport folders are 844x390, 667x375, 915x412, 1024x768 and 1280x720; my own checks are in x844, x844b, x667 and x915; the crops are in crops/. The scripts are tools/m4run.mjs, tools/extra.mjs and tools/contrast.py in that folder.",
+ "earlier_findings": {
+  "look-1": "fixed: 667x375 gets the 288 px side drawer and all three path rows are in view (m4-drawer-aoi, chika, locked, fit-* at 667)",
+  "look-2": "fixed: Chika 3-2-0 at 844 and 667 shows one 'Drone Surge / Later update' line and three rows in view",
+  "look-3": "fixed: 'Tidebreaker Shell' uncut, 0 truncated in the probe; 'Wide Fragmentation' plus its bolt on one line, closed and open",
+  "logic-1": "fixed: m4-key-space shows state prep and wave 0 after Space on a focused row",
+  "logic-2": "fixed for the cases seen: Sango (blast), Chika and Miko have no PIERCE cell; gearPierce limits the cell to shots without splash, beams, drones and Kaede's blade",
+  "logic-3": "fixed: drawer totals 9-13, and 14 only with a cooling ability",
+  "look-4": "fixed: MORE is an ink chip; RANGE in Details uses the fixed format",
+  "logic-4..8 (low)": "not re-checked under the look lens"
+ },
+ "findings": [
+  {
+   "id": "look-r1-1",
+   "severity": "medium",
+   "title": "Phone toasts are 11.5 px, under the 12 px floor; this includes the lock 'i' reason, now at 667 too. Rule and tip toasts are cut with an ellipsis",
+   "detail": "The rule at battle.css:919-923, '@media (max-height: 500px) and (min-width: 701px), (max-width: 700px) and (orientation: landscape) { .bt-toast { font-size: 0.72rem } .bt-toast-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis } }', sets every phone toast to 11.52 px. That includes the drawer's lock reason ('Capped at T2: Rapid Volley is T3', 'Max two paths per girl', 'Only one Sango can hold ... V') and 'Need N more coins.' This breaks P6 (text floor 12 px). r1 moved 667x375 under this rule: those toasts were 0.82rem (13.1 px) and wrapped before, and now they are 11.5 px and one line. The same rule cuts rule and tip text with an ellipsis, which P6 forbids. The m4-lock-why scene checks one line and no cut, but not the size. Fix: give phone toasts at least var(--fs-label) (12 px). Note that the longest lock reason, 'Capped at T2: Armor-Breaker Shells is T3', already fills 332 of the 340 px feed at 11.5 px, so at 12 px it would be cut. Shorten that reason (for example 'T2 cap: Armor-Breaker Shells is T3'), or let lock, rule and tip toasts wrap to two lines instead of using an ellipsis. Add a font-size floor check to m4-lock-why.",
+   "evidence": "Measured 350 ms after a real tap on the lock 'i', computed font-size of .bt-toast-text: 844x390 11.52 px ('Max two paths per girl', 'Capped at T2: Rapid Volley is T3'), 667x375 11.52 px, 915x412 11.52 px (extra-*.json lockwhy-*). Tip toast cut: 'Tip: hold a girl (or her card) to see her whole u…' in 844x390/m4-drawer-aoi-844x390.png. Zoom: crops/lockwhy667.png."
+  },
+  {
+   "id": "look-r1-2",
+   "severity": "medium",
+   "title": "The target row's '+' chip is a 20 px wide tap target on phones, and its glyph is tiny since r1 dropped the count",
+   "detail": "On every phone viewport (844, 667, 915) the overflow chip that opens PRIORITY and AIR is 20 px wide and 24 px tall. Its ::after hit area adds height (40 px) but no width, so the real tap area is 20x40. UI_DIRECTION P6 sets 40 px as the minimum even in dense chip rows. r1 replaced '+N' with '+' to save a number, so the chip is now a roughly 5 px '+' in 12 px Barlow on navy, which is hard to see and gives no hint of what it opens. LAST is also just under the minimum at 38 px wide. Fix: give .bt-tchip-more min-width: var(--tap-dense). On phones, make room by hiding the TARGET kicker, as the UPGRADES kicker already is, or by cutting chip padding from 8 to 6 px. Draw the overflow as an icon at --icon-s (a chevron or '⋯') with aria-label 'More targets: Priority, Air'.",
+   "evidence": "Hit-tested with elementFromPoint, from the centre outward: target-more 20x40 at 844x390, 667x375 and 915x412; LAST 38x40 (x844b/extra-844x390-miko_aoi_momo.json smallTaps, x667/extra-667x375.json, x915/extra-915x412-kage_chika_sango.json). Zoom: crops/kage844-top.png against r0's '+2' in review-r0/crops/aoi844-top.png."
+  },
+  {
+   "id": "look-r1-3",
+   "severity": "medium",
+   "title": "With a drawer open, the tower bar ends at the drawer and cuts its last card mid-price ('60' for 600)",
+   "detail": "The rule '.bt-has-panel .bt-bar { right: calc(var(--drawer-w) + 8px) }' (battle.css:634-637) makes the card strip end at the drawer's left edge. r1 extended it to 667 with '(max-width: 700px) and (orientation: landscape)'. The strip (.bt-bar-scroll, overflow-x: auto) then clips its last visible card through the price: Iroha's 600 reads '60' and Umeko's 380 reads '38' at 844x390, Miko's 450 reads '4' at 667x375, and the last zero of 600 is half cut at 1024x768. A cut price reads as a different, lower price, which breaks P6 ('no ellipsis on stats, prices') and the 'nothing cut off' gate. At 1280 the eight cards fit. Fix: when the strip overflows, never show a partial cost. Either fade or mask the trailing partial card (a mask-image fade over the last 32 px) and hide the cost strip of any card that is not fully in view, or size the visible strip to whole cards and show a '›' overflow cue.",
+   "evidence": "crops/bar-cut.png shows 844 Aoi '60', 844 Kage '38' and 667 '4'. crops/bar-cut-1024.png shows 1024 '60' plus half a '0'. Sources: 844x390/m4-drawer-aoi-844x390.png, x844/d-kage-844x390.png, 667x375/m4-drawer-aoi-667x375.png, 1024x768/m4-drawer-armed-1024x768.png. r0 had the same clipping at 844 (review-r0/844/m4-drawer-aoi-844x390.png)."
+  },
+  {
+   "id": "look-r1-4",
+   "severity": "low",
+   "title": "Other dense drawer controls are just under the 40 px tap minimum on phones",
+   "detail": "Hit-tested at 844, 667 and 915. The path price buttons reach 36 px effective height, because the next row paints over the lower part of their 40 px ::after (row pitch is about 35 px). Sell is 38 px. The ability row's FIRE/WAVE button is 34 px and her ability name (which opens the live line) is 25 px tall. Tree is 36 px wide, because the close button's hit area overlaps it. The lock 'i' is 28 px tall when it sits next to another lock row. Nothing reaches 44 px. The two-tap buy guards against mis-taps, so this does not block, but the next density pass should give the row 40 px of pitch where the fold allows it.",
+   "evidence": "smallTaps in x844b/extra-844x390-miko_aoi_momo.json and x667/extra-667x375.json (buy-0 hitH 36, sell 38, ability-fire 34, ability-row-name 25, panel-tree hitW 36)."
+  },
+  {
+   "id": "look-r1-5",
+   "severity": "low",
+   "title": "The done-when says '13 numbers with HUD', but only the drawer alone is held to 13",
+   "detail": "towerPanel.js DRAWER_NUMBERS and the M4 scenes count the drawer alone: 9 to 13, plus 1 while an ability cools, within budget everywhere I ran. With the HUD and the card strip, the whole 844 screen shows 25 to 27 numbers (the UI probe's count with a drawer open). The owner-approved Oct 14 mock itself shows about 25. So the M2 done-when line '≤ 13 numbers with HUD' needs a ruling from the owner or a spec edit, not a code change in M4.",
+   "evidence": "probe lines 'numbers 25/27' for m4-drawer-aoi and m4-drawer-armed in run-844x390.log; drawer totals 11 and 13."
+  },
+  {
+   "id": "look-r1-6",
+   "severity": "low",
+   "title": "Off-scale type sizes in the phone drawer: 15 px names and 20 or 18 px stat numbers",
+   "detail": "The phone drawer uses 12, 13, 15, 16 and 20 px at 844 and 915, and 18 px stat numbers at 667. The 18 px rule is new in r1 (battle.css max-height: 380px). The phone scale is 12/13/16/22/28 (UI_DIRECTION §3), and P6 caps a screen at five sizes. The drawer alone uses five, so the HUD pushes the screen past five. Use --fs-num-s (16) or --fs-num (22) for stat numbers and --fs-name for path names, falling back to 13 when needed, as the fit code already does.",
+   "evidence": "Computed font-size histogram per drawer (the 'sizes' field in extra-*.json), for example 844 d-kage {16:4, 13:1, 12:24, 20:4, 15:3} and 667 d-kage {..., 18:4, 15:3}."
+  },
+  {
+   "id": "look-r1-7",
+   "severity": "low",
+   "title": "At 1280 the ability name and the final-tier lock rule wrap to two lines",
+   "detail": "At 1280 the ability row's name wraps to two lines ('Skyfall / Volley') beside AUTO and the cooldown chip. This was already the case at r0. The held final-tier lock ('Only one Aoi can hold Piercing Arrows V. Sell or upgrade that one.') also wraps to two lines, while the M2 brief says a locked path says why in one line. Consider putting AUTO on the live line under the name, and shortening the held rule at 1280 to the phone wording.",
+   "evidence": "crops/abil1280-r0-vs-r1.png; 1280x720/m4-drawer-locked-1280x720.png."
+  },
+  {
+   "id": "look-r1-8",
+   "severity": "low",
+   "title": "Between waves, the ability bar's 'WAVE' label is below 4.5:1 on the greyed portrait (M1 styling, not M4)",
+   "detail": "The 12 px .bt-ab-num.lbl in --on-plate-dim over the grayscale portrait measures 2.9 to 3.6:1 against the median surrounding pixel, even with its text shadow. This styling comes from commit a19a4f43 (A3 M1), not from M4. Recorded here for the battle UI M2 restyle: use --on-plate on a plate-glass pill.",
+   "evidence": "x844b/bar-prep-844x390.png, crops/bar-prep844b.png; contrast measured on the composited pixels: 2.95, 2.92, 3.33, 3.62."
+  }
+ ]
+}

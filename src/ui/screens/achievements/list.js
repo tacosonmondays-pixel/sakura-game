@@ -1,26 +1,36 @@
-// The Achievements tab (docs/specs/ACHIEVEMENTS.md §5.1): a category rail (PC) or chip scroller (phone), the header
-// (meter, Ribbon Case chip, Titles chip, Claim all), and the list in three sections with one row per series. The Honor
-// Ribbon Case lives at ?tab=achievements&view=case (case.js). Route: #/commissions?tab=achievements[&cat=…][&view=case]
-// [&highlight=<id>].
+// The Achievements tab (docs/specs/ACHIEVEMENTS.md §5.1; condensed by docs/specs/UI_DIRECTION.md §6.5, UI M5b): one
+// header row (the category chip "All ▾" that opens the category sheet, the Honor Ribbon Case icon button and Claim
+// all, the screen's one yellow, with its count), then the list in groups: Ready first (with its count), In progress
+// (the closest ten, then "Show N more"), Done (collapsed). A 60 px row: icon, title, one line, a bar with n/m (in
+// progress only), ONE reward + a stack hint, an ink Claim. A tap on a row opens its ladder sheet (every tier, every
+// reward, the title and ribbon it grants). The Honor Ribbon Case lives at ?tab=achievements&view=case (case.js).
+// Route: #/commissions?tab=achievements[&cat=…][&view=case][&highlight=<id>].
+// The UI M5b review: one unit everywhere, ROWS ready (the Ready header, the category sheet and Claim all's pill say the
+// same number: model.js readyRowCounts); Claim all claims the picked category only and hides when it has nothing
+// ready; the case button says "Ribbons"; a ready row shows no bar (the approved mock).
 
 import '../../styles/honors.css';
 import '../../styles/achievements.css';
 import { h, clear } from '../../dom.js';
-import { svgEl, button } from '../../components.js';
+import { svgEl, button, glyph } from '../../components.js';
+import { inkBtn, kbdHint, fillIn, ico, btnCount } from '../../kit.js';
+import { countBadge, dot } from '../../badges.js';
+import { openSheet } from '../../sheet.js';
+import { fmtNum } from '../../format.js';
 import { uiIcon } from '../../../art/icons.js';
 import { navigate, rememberParams } from '../../router.js';
 import { store } from '../../../core/store.js';
-import { formatNumber } from '../../../core/util.js';
-import { achievementList, claimAllCount } from '../../../systems/missions.js';
-import { ownedRibbons, liveRibbons, ownedTitles, visibleTitles, newTitleCount, newHonorCount } from '../../../systems/honors.js';
+import { achievementList } from '../../../systems/missions.js';
+import { ownedRibbons, liveRibbons, newHonorCount } from '../../../systems/honors.js';
 import { featureStage } from '../../../systems/story.js';
 import { ribbonArt, titlePlate, liveHonors } from '../../honorFx.js';
 import { tile } from '../stage.js';
-import { buildRows, sections, categoryStats, visibleCategories, badgeText } from './model.js';
+import { buildRows, groups, readyRowCounts, visibleCategories, rowReward, rowProgress, rewardRank } from './model.js';
+
+/** The ribbon glyph of the case button (the approved mock's: a rosette and its two tails). */
+const RIBBON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="9" r="5.5"/><path d="M8.5 13.5L6.5 21l5.5-3 5.5 3-2-7.5"/></svg>';
 import { claimOne, claimAll, ribbonInfo, titleInfo, titlesSheet } from './claim.js';
 import { ribbonCaseView } from './case.js';
-
-const phone = () => typeof matchMedia === 'function' && matchMedia('(max-height: 480px)').matches;
 
 /** Where to make progress on a row ("Go ›"), by metric (and param). */
 function goRoute(a) {
@@ -62,116 +72,126 @@ function catTile(cat, cls = '') {
   return el;
 }
 
-/** The reward chips, always gems → boxes → other items → Honor Ribbon → Title. */
-function rewardChips(a, { size, secret = false, onTap = null } = {}) {
-  const wrap = h('div.ach-rewards');
-  if (secret) {
-    for (let i = 0; i < Math.min(3, a.rewards.length + (a.honor ? 1 : 0) + (a.title ? 1 : 0)); i++) wrap.appendChild(h('span.ach-chip-q', { style: { width: `${size}px`, height: `${size}px` } }, '?'));
-    return wrap;
-  }
-  const rank = (r) => (r.id === 'gems' ? 0 : r.id.startsWith('gearbox_') ? 1 : 2);
-  for (const r of [...a.rewards].sort((x, y) => rank(x) - rank(y))) wrap.appendChild(tile(r.id, r.count, { size }));
-  if (a.honor) {
-    const chip = h(`button.ach-chip-hr.${a.honor.cls}`, { title: `Honor Ribbon · ${a.honor.name}`, 'aria-label': `Honor Ribbon: ${a.honor.name}`, onclick: (e) => { e.stopPropagation(); (onTap || ribbonInfo)(a.id); } },
-      h('i', 'HR'), ribbonArt(a.id, size - 8, { still: true }));
-    chip.style.width = `${size}px`;
-    chip.style.height = `${size}px`;
-    wrap.appendChild(chip);
-  }
-  if (a.title) {
-    wrap.appendChild(h('button.ach-chip-title', { title: `Title · ${a.title.text}`, onclick: (e) => { e.stopPropagation(); titleInfo(a.id); } },
-      h('span.ach-micro', 'Title'), titlePlate(a.id, { small: true })));
-  }
-  return wrap;
-}
-
-/** Series pips: blue claimed, yellow ready, grey otherwise. */
-function pips(row) {
-  return h('span.ach-pips', row.steps.map((s) => h(`i.${s.claimed ? 'on' : s.claimable ? 'ready' : 'off'}`)));
-}
-
-/** The tier ladder of a series row. */
-function ladder(row) {
-  const el = h('div.ach-ladder', { 'data-testid': `ach-ladder-${row.series}` });
-  el.appendChild(h('div.ach-ladder-label', h('span.ach-micro', 'Tier ladder'), h('b', `${row.steps.length} steps`)));
-  const track = h('div.ach-ladder-track');
-  row.steps.forEach((s, i) => {
-    const cap = i === row.steps.length - 1;
-    const gems = s.rewards.find((r) => r.id === 'gems')?.count;
-    const box = s.rewards.find((r) => r.id.startsWith('gearbox_'));
-    track.appendChild(h(`div.ach-step${s.claimed ? '.on' : s.claimable ? '.ready' : ''}${cap ? '.cap' : ''}`,
-      h('span.ach-step-dot', s.claimed ? '✓' : cap ? '★' : String(i + 1)),
-      h('div.ach-step-goal', h('small', '×'), formatNumber(s.goal)),
-      h('div.ach-step-name', s.hidden && !s.met ? '???' : s.name),
-      h('div.ach-step-rew',
-        gems ? h('span.ach-step-gems', svgEl(tileIcon('gems'), 'ach-step-ico'), formatNumber(gems)) : null,
-        box ? svgEl(tileIcon(box.id), 'ach-step-ico') : null,
-        s.honor ? ribbonArt(s.id, 18, { still: true }) : null,
-        s.title ? h('span.ach-step-plate', titlePlate(s.id, { small: true, text: '' })) : null),
-    ));
-  });
-  el.appendChild(track);
-  return el;
-}
-
-let ICON_CACHE = null;
-function tileIcon(id) {
-  ICON_CACHE ||= new Map();
-  if (!ICON_CACHE.has(id)) {
-    const t = tile(id, null, { size: 20 });
-    ICON_CACHE.set(id, t.querySelector('svg')?.outerHTML || '');
-  }
-  return ICON_CACHE.get(id);
-}
-
-function rowEl(row, { onClaim, expanded, onToggle, small }) {
-  const a = row;
-  const secret = row.state === 'secret';
-  const live = row.state === 'ready';
-  const accent = row.state === 'ready' ? (a.honor?.cls === 'special' ? 'rainbow' : 'ready') : row.state === 'done' ? 'done' : secret ? 'secret' : 'grey';
-  const iconSize = small ? 40 : 48;
-  const icon = secret
-    ? h('span.ach-icon', ribbonArt(a.honor ? a.id : 'a_first_petals', iconSize, { secret: true }))
-    : a.honor
-      ? h('span.ach-icon', ribbonArt(a.id, iconSize, { prio: live ? 3 : 1 }))
-      : h('span.ach-icon', catTile(catOf(a.cat), '.lg'));
-  const name = h('div.ach-name',
-    h('b.ach-title', secret ? 'Secret achievement' : a.name),
-    row.steps && !secret ? h('button.ach-series', { onclick: (e) => { e.stopPropagation(); onToggle(); }, 'aria-expanded': String(!!expanded), 'aria-label': 'Show the tier ladder' },
-      pips(row), h('span.ach-step-of', `Step ${row.step + 1} of ${row.steps.length}`), h('span.ach-caret', expanded ? '▴' : '▾')) : null,
-    a.since && !a.claimed && !secret ? h('span.ach-since', `Counts from v${a.since}`) : null,
-  );
-  const desc = secret ? h('div.ach-desc.ach-hint', `Hint · ${a.hint} · progress hidden`) : h('div.ach-desc', a.desc);
-  const prog = secret ? null : h('div.ach-prog',
-    h(`div.ach-bar${a.progress >= a.goal ? '.full' : ''}`, h('i', { style: { width: `${a.goal ? Math.min(100, (a.progress / a.goal) * 100) : 0}%` } })),
-    h('span.ach-count', `${formatNumber(a.progress)} / ${formatNumber(a.goal)}`));
-  let act;
-  if (row.state === 'ready') act = button('Claim', { kind: 'yellow', testid: `ach-claim-${a.id}`, onClick: () => onClaim(a.id) });
-  else if (row.state === 'locked') act = h('span.ach-lock', { 'data-testid': `ach-locked-${a.id}` }, svgEl(uiIcon('lock'), 'ach-lock-ico'), h('span.ach-lock-long', `Claim after stage ${featureStage(a.locked) || '2-1'}`), h('span.ach-lock-short', `After ${featureStage(a.locked) || '2-1'}`));
-  else if (secret) act = h('span.ach-q', '???');
-  else if (row.state === 'done') act = h('span.ach-done', svgEl(uiIcon('check'), 'ach-done-ico'), 'Done');
-  else {
-    const go = goRoute(a);
-    act = go ? h('button.ach-go', { onclick: () => navigate(go[0], go[1]) }, 'Go ›') : h('span.ach-pct', `${Math.floor((a.progress / a.goal) * 100)}%`);
-  }
-  const el = h(`div.ach-row.${row.state}.acc-${accent}`, { 'data-testid': `ach-row-${a.id}`, 'data-id': a.id },
-    h('i.ach-accent'),
-    icon,
-    h('div.ach-body', name, desc, prog),
-    rewardChips(a, { size: small ? 38 : 46, secret }),
-    h('div.ach-act', act),
-  );
-  const wrap = h('div.ach-rowwrap', el);
-  if (row.steps && expanded && !secret) wrap.appendChild(ladder(row));
-  return wrap;
-}
-
 const CAT_BY_ID = () => Object.fromEntries(visibleCategories(achievementList(store.profile)).map((c) => [c.id, c]));
 let catMap = null;
 const catOf = (id) => (catMap ||= CAT_BY_ID())[id] || { icon: 'trophy', color: '#2b7fff', label: id };
 
+/** The row's one reward: its icon (no count inside), its amount above 1, ghost cards behind when it carries more. */
+function rewardCell(row) {
+  const r = rowReward(row);
+  if (row.state === 'secret' || !r.kind) return h('div.ach-rwd', { 'aria-hidden': 'true' });
+  // (the item tile is a picture here: the row's tap opens the sheet with every reward)
+  const pic = r.kind === 'item' ? tile(r.id, null, { size: 36 }) : null;
+  if (pic) {
+    pic.tabIndex = -1;
+    pic.setAttribute('aria-hidden', 'true');
+  }
+  const icon = r.kind === 'item'
+    ? h('span.ach-rimg', pic)
+    : r.kind === 'honor'
+      ? h('span.ach-rimg.honor', ribbonArt(row.id, 34, { still: true }))
+      : h('span.ach-rimg.title', svgEl(uiIcon('star'), 'ach-rimg-ico'));
+  if (r.more) icon.classList.add('stacked');
+  const label = `${r.amount ? `${fmtNum(r.amount)} ` : ''}${r.kind === 'honor' ? 'Honor Ribbon' : r.kind === 'title' ? 'a title' : ''}${r.more ? ` and ${r.more} more` : ''}`.trim();
+  return h('div.ach-rwd', { title: label || null, 'aria-label': label || null },
+    icon, r.amount ? h('b.num.ach-ramt', fmtNum(r.amount)) : null);
+}
+
+/** One 60 px row; a tap opens its ladder sheet. */
+function rowEl(row, { onClaim, onOpen }) {
+  const a = row;
+  const secret = row.state === 'secret';
+  const accent = row.state === 'ready' ? (a.honor?.cls === 'special' ? 'rainbow' : a.honor?.cls === 'shiny' ? 'gold' : 'ready') : row.state === 'done' ? 'done' : secret ? 'secret' : 'grey';
+  const icon = secret
+    ? h('span.ach-icon', ribbonArt(a.honor ? a.id : 'a_first_petals', 40, { secret: true }))
+    : a.honor
+      ? h('span.ach-icon', ribbonArt(a.id, 40, { prio: row.state === 'ready' ? 3 : 1 }))
+      : h('span.ach-icon', catTile(catOf(a.cat)));
+  const prog = rowProgress(row);
+  let act;
+  if (row.state === 'ready') act = inkBtn('Claim', { testid: `ach-claim-${a.id}`, onClick: (e) => { e.stopPropagation(); onClaim(a.id); } });
+  else if (row.state === 'locked') act = h('span.ach-lock', { 'data-testid': `ach-locked-${a.id}` }, svgEl(uiIcon('lock'), 'ach-lock-ico'), h('span.ach-lock-long', `Claim after stage ${featureStage(a.locked) || '2-1'}`), h('span.ach-lock-short', `After ${featureStage(a.locked) || '2-1'}`));
+  else if (row.state === 'done') act = h('span.ach-done', svgEl(uiIcon('check'), 'ach-done-ico'), 'Done');
+  else act = null;
+  const el = h(`div.ach-row.${row.state}.acc-${accent}`, {
+    'data-testid': `ach-row-${a.id}`, 'data-id': a.id, role: 'button', tabindex: 0,
+    'aria-label': `${secret ? 'Secret achievement' : a.name}: open its tiers and rewards`,
+    onclick: () => onOpen(row),
+    onkeydown: (e) => { if (e.key === 'Enter') onOpen(row); },
+  },
+  h('i.ach-accent'),
+  icon,
+  h('div.ach-body',
+    h('b.ach-title', secret ? 'Secret achievement' : a.name),
+    secret ? h('div.ach-desc.ach-hint', `Hint · ${a.hint}`) : h('div.ach-desc', a.desc)),
+  prog ? h(`div.ach-prog${prog.pct >= 1 ? '.full' : ''}`, h('span.ach-bar', h('i', { style: { width: `${Math.round(prog.pct * 100)}%` } })), prog.text ? h('span.num.ach-count', prog.text) : null) : h('div.ach-prog.none'),
+  rewardCell(row),
+  h('div.ach-act', act));
+  return el;
+}
+
+/** The ladder sheet of a row (Details, P1): every tier with its goal and rewards, the ribbon and title it grants. */
+function ladderSheet(row, { onClaim }) {
+  const steps = row.steps || [row];
+  const secret = row.state === 'secret';
+  const go = !secret && row.state === 'progress' ? goRoute(row) : null;
+  const stepEl = (s, i) => {
+    const cap = steps.length > 1 && i === steps.length - 1;
+    const hidden = s.hidden && !s.met && !s.claimed;
+    const items = [...(s.rewards || [])].sort((x, y) => rewardRank(x) - rewardRank(y));
+    const single = steps.length < 2;
+    return h(`div.ach-ls-step${s.claimed ? '.on' : s.claimable ? '.ready' : ''}${s.id === row.id ? '.cur' : ''}${single ? '.single' : ''}`, { 'data-testid': `ach-step-${s.id}` },
+      // (a tier's number on a ladder; a single achievement has no ladder to number)
+      single ? null : h('span.ach-ls-dot', s.claimed ? svgEl(uiIcon('check'), 'ach-ls-dot-ico') : cap ? '★' : String(i + 1)),
+      h('div.ach-ls-text',
+        // (a single achievement's name is the sheet's title already)
+        steps.length > 1 || hidden ? h('b', hidden ? '???' : s.name) : null,
+        h('span', hidden ? `Hint · ${s.hint}` : s.desc)),
+      h('div.ach-ls-rew',
+        items.map((r) => tile(r.id, r.count > 1 ? r.count : null, { size: 40 })), // (never "×1", P7)
+        s.honor ? h('button.ach-chip-hr.' + (s.honor.cls || 'plain'), { type: 'button', title: `Honor Ribbon · ${s.honor.name}`, 'aria-label': `Honor Ribbon: ${s.honor.name}`, onclick: () => ribbonInfo(s.id) }, ribbonArt(s.id, 34, { still: true })) : null,
+        s.title ? h('button.ach-chip-title', { type: 'button', title: `Title · ${s.title.text}`, onclick: () => titleInfo(s.id) }, titlePlate(s.id, { small: true })) : null));
+  };
+  const prog = rowProgress(row);
+  let sheet = null;
+  const actions = h('div.ach-ls-actions',
+    row.state === 'ready' ? inkBtn('Claim', { testid: `ach-sheet-claim-${row.id}`, onClick: () => { sheet?.close(); onClaim(row.id); } }) : null,
+    go ? button('Go', { kind: 'ghost', small: true, icon: 'teleport', testid: 'ach-sheet-go', onClick: () => { sheet?.close(); navigate(go[0], go[1]); } }) : null);
+  sheet = openSheet({
+    title: secret ? 'Secret achievement' : (row.steps ? row.name.replace(/ [IVX]+$/, '') : row.name),
+    testid: 'ach-ladder-sheet',
+    cls: 'ach-ls',
+    body: h('div.ach-ls-body', { 'data-testid': row.steps ? `ach-ladder-${row.series}` : `ach-ladder-${row.id}` },
+      prog && prog.text ? h('div.ach-ls-prog', h('span.ach-bar', h('i', { style: { width: `${Math.round(prog.pct * 100)}%` } })), h('span.num', prog.text)) : null,
+      h('div.ach-ls-steps', steps.map(stepEl)),
+      row.since && !row.claimed ? h('p.ach-ls-note', `Counts from v${row.since}`) : null,
+      actions.childElementCount ? actions : null),
+  });
+  liveHonors(sheet.el, { budget: 1, ignoreOverlays: true });
+  return sheet;
+}
+
+/** The category sheet: each category with its ready rows (a zero says nothing, P7). */
+function categorySheet({ cats, ready, current, onPick }) {
+  let sheet = null;
+  const pick = (id) => {
+    sheet?.close();
+    onPick(id);
+  };
+  sheet = openSheet({
+    title: 'Categories',
+    testid: 'ach-cat-sheet',
+    cls: 'ach-catsheet',
+    body: h('div.ach-cats', cats.map((c) => h(`button.ach-cat${current === c.id ? '.on' : ''}`, { type: 'button', 'data-testid': `ach-cat-${c.id}`, 'aria-pressed': current === c.id ? 'true' : 'false', onclick: () => pick(c.id) },
+      catTile(c, c.id === 'secret' ? '.secret' : ''),
+      h('span.ach-cat-name', c.label),
+      countBadge(ready[c.id] || 0, { cls: 'ach-cat-n', title: `${ready[c.id] || 0} ready to claim` })))),
+  });
+  return sheet;
+}
+
 /**
- * The tab. Keeps its own category / view / expanded state; `params` comes from the route.
+ * The tab. Keeps its own category / view / open groups; `params` comes from the route.
  * @param {{ params?: object, onChange?: () => void }} opts onChange redraws the commissions tab badges
  * @returns {HTMLElement}
  */
@@ -180,10 +200,9 @@ export function achievementsView({ params = {}, onChange = null } = {}) {
   const state = {
     cat: params.cat || 'all',
     view: params.view === 'case' ? 'case' : 'list',
-    expanded: new Set(params.highlight ? [params.highlight] : []),
     doneOpen: false,
+    progressAll: false,
     highlight: params.highlight || null,
-    autoExpanded: false,
   };
   let stopFx = null;
   let listScroll = 0;
@@ -196,9 +215,11 @@ export function achievementsView({ params = {}, onChange = null } = {}) {
   };
   const claimed = () => redraw();
   const onClaim = (id) => claimOne(id, { onDone: claimed });
+  const onOpen = (row) => ladderSheet(row, { onClaim });
 
   const setCat = (id) => {
     state.cat = id;
+    state.progressAll = false;
     rememberParams('commissions', { cat: id === 'all' ? null : id });
     listScroll = 0;
     draw();
@@ -223,103 +244,91 @@ export function achievementsView({ params = {}, onChange = null } = {}) {
     const list = achievementList(profile);
     if (state.view === 'case') {
       root.classList.add('is-case');
-      root.appendChild(ribbonCaseView({ onBack: closeCase, onAchievement: (id) => { state.highlight = id; state.expanded.add(id); const a = list.find((x) => x.id === id); state.cat = a?.cat || 'all'; closeCase(); } }));
+      root.appendChild(ribbonCaseView({
+        onBack: closeCase,
+        onTitles: () => titlesSheet({ onClose: redraw }),
+        onAchievement: (id) => { state.highlight = id; const a = list.find((x) => x.id === id); state.cat = a?.cat || 'all'; closeCase(); },
+      }));
       return;
     }
     root.classList.remove('is-case');
-    const small = phone();
     const cats = visibleCategories(list);
-    const stats = categoryStats(list);
-    // what Claim all will claim (its passes include Achiever rows the same tap completes), not just the ready rows
-    const readyAll = list.some((a) => a.claimable) ? claimAllCount(profile) : 0;
+    const ready = readyRowCounts(list); // the tab's one unit: rows ready to claim
+    const cur = cats.find((c) => c.id === state.cat) || cats[0];
+    const readyHere = ready[cur.id] || 0;
     const ribbons = ownedRibbons(profile);
     const nRib = liveRibbons().length;
+    const elsewhere = cats.some((c) => c.id !== 'all' && c.id !== cur.id && ready[c.id] > 0) && cur.id !== 'all';
 
-    // ---- rail (PC) ----
-    const rail = h('aside.ach-rail', { 'aria-label': 'Achievement categories' });
-    for (const c of cats) {
-      const s = stats[c.id];
-      const secretCat = c.id === 'secret';
-      rail.appendChild(h(`button.ach-cat${state.cat === c.id ? '.on' : ''}`, { 'data-testid': `ach-cat-${c.id}`, onclick: () => setCat(c.id) },
-        catTile(c, secretCat ? '.secret' : ''),
-        h('span.ach-cat-text', h('b', c.label), h('small', `${s.done} / ${s.total}`)),
-        s.ready ? h('span.ach-badge', badgeText(s.ready)) : null));
+    // ---- the header row: category chip · ribbon case · Claim all ----
+    const catChip = h('button.ach-catchip', {
+      type: 'button', 'data-testid': 'ach-category', 'aria-haspopup': 'dialog', 'aria-label': `Category: ${cur.label}. Change`,
+      onclick: () => categorySheet({ cats, ready, current: cur.id, onPick: setCat }),
+    }, catTile(cur, cur.id === 'secret' ? '.secret' : ''), h('span.ach-catchip-name', cur.label), svgEl(glyph('chevron'), 'ach-catchip-chev'),
+    elsewhere ? dot('claim', { cls: 'ach-catchip-dot', title: 'Something to claim in another category' }) : null);
+    // the Honor Ribbon Case: a labelled secondary button (the mock's "Ribbons"), its progress in the label for
+    // screen readers, a red dot for a ribbon not seen yet
+    const caseBtn = h('button.ach-casebtn', {
+      type: 'button', 'data-testid': 'ach-case', onclick: openCase,
+      'aria-label': `Ribbons: the Honor Ribbon Case, ${ribbons.length} of ${nRib}`, title: 'Honor Ribbon Case',
+    }, ico(RIBBON_SVG, 'ui-ico.ach-casebtn-ico'), h('span.ach-casebtn-word', 'Ribbons'),
+    newHonorCount(profile) ? dot('claim', { cls: 'ach-casebtn-dot' }) : null);
+    // Claim all claims what the picked category shows, so it shows only when that category has something ready (the
+    // chip's dot says when another one does); its pill counts the same rows as the Ready header
+    let claimAllBtn = null;
+    if (readyHere) {
+      claimAllBtn = button('Claim all', { kind: 'yellow', testid: 'ach-claim-all', onClick: () => claimAll({ onDone: claimed, cat: cur.id }) });
+      claimAllBtn.appendChild(btnCount(readyHere, { cls: 'ach-claimall-n' }));
+      claimAllBtn.setAttribute('data-primary', '');
+      claimAllBtn.setAttribute('aria-label', `Claim all ${readyHere}${cur.id === 'all' ? '' : ` in ${cur.label}`}`);
+      claimAllBtn.appendChild(kbdHint('Space'));
     }
-    const shown = [...ribbons].reverse();
-    const caseCard = h('button.ach-casecard', { 'data-testid': 'ach-case-card', onclick: openCase },
-      h('span.ach-casecard-k', 'Honor Ribbon Case'),
-      h('span.ach-casecard-art', ...(shown.length ? shown.slice(0, 3) : ['a_chapter_1', 'a_ur_1', 'a_chapter_8']).map((id, i) => ribbonArt(id, i === 1 ? 52 : 38, { locked: !ribbons.includes(id), still: i !== 1 }))),
-      h('span.ach-casecard-n', h('b', String(ribbons.length)), ` / ${nRib}`),
-      h('span.ach-casecard-open', 'Open ›'));
-    rail.appendChild(caseCard);
+    const head = h('header.ach-head', catChip, caseBtn, h('span.ach-head-gap'), claimAllBtn);
 
-    // ---- header ----
-    const done = list.filter((a) => a.claimed).length;
-    const segs = 12;
-    const meter = h('span.ach-meter', Array.from({ length: segs }, (_, i) => h(`i${i < Math.round((done / Math.max(1, list.length)) * segs) ? '.on' : ''}`)));
-    const titlesN = ownedTitles(profile).length;
-    const newT = newTitleCount(profile);
-    const head = h('header.ach-head',
-      h('div.ach-head-title', h('h3', 'Achievements'), h('div.ach-head-sub', h('b', `${done}`), ` / ${list.length} completed`, meter)),
-      small ? h('div.ach-chips', cats.map((c) => h(`button.ach-chip${state.cat === c.id ? '.on' : ''}`, { 'data-testid': `ach-cat-${c.id}`, onclick: () => setCat(c.id) },
-        c.label, stats[c.id].ready ? h('span.ach-badge', badgeText(stats[c.id].ready)) : null))) : null,
-      h('button.ach-casechip', { 'data-testid': 'ach-case', onclick: openCase, 'aria-label': `Honor Ribbon Case, ${ribbons.length} of ${nRib}` },
-        ribbonArt(ribbons.at(-1) || 'a_chapter_1', small ? 26 : 30, { still: true, locked: !ribbons.length }),
-        small ? null : h('span', 'Ribbon Case'), h('small', `${ribbons.length}/${nRib}`),
-        newHonorCount(profile) ? h('i.ach-dot') : null),
-      small ? null : h('button.ach-titleschip', { 'data-testid': 'ach-titles', onclick: () => titlesSheet({ onClose: redraw }) },
-        titlePlate('a_gold_40', { small: true, text: 'Titles' }), h('small', `${titlesN}/${visibleTitles(profile).length}`), newT ? h('i.ach-dot.pink') : null),
-      button('Claim all', { kind: 'yellow', testid: 'ach-claim-all', disabled: !readyAll, onClick: () => claimAll({ onDone: claimed }) }),
-    );
-    const claimAllBtn = head.querySelector('[data-testid="ach-claim-all"]');
-    if (readyAll) claimAllBtn.appendChild(h('span.ach-claimall-n', String(readyAll)));
-
-    // ---- list ----
+    // ---- the list in groups ----
     const inCat = state.cat === 'all' ? list : list.filter((a) => a.cat === state.cat);
     const rows = buildRows(inCat);
-    const sec = sections(rows);
-    if (!state.autoExpanded) {
-      state.autoExpanded = true;
-      const firstSeries = sec.ready.find((r) => r.steps);
-      if (firstSeries && !state.highlight) state.expanded.add(firstSeries.id);
+    // a highlighted row in the folded part of a group opens that group
+    if (state.highlight) {
+      const g0 = groups(rows);
+      const has = (arr) => arr.some((r) => r.id === state.highlight || r.steps?.some((s) => s.id === state.highlight));
+      if (!has(g0.ready) && !has(g0.progress)) {
+        const all = groups(rows, { progressAll: true, doneOpen: true });
+        if (has(all.progress)) state.progressAll = true;
+        else if (has(all.done)) state.doneOpen = true;
+      }
     }
+    const g = groups(rows, { progressAll: state.progressAll, doneOpen: state.doneOpen });
     const scroller = h('div.ach-list', { 'data-testid': 'ach-list' });
-    const mk = (row) => rowEl(row, {
-      onClaim, small,
-      expanded: state.expanded.has(row.id) || row.steps?.some((s) => state.expanded.has(s.id)),
-      onToggle: () => {
-        const ids = row.steps.map((s) => s.id);
-        if (ids.some((id) => state.expanded.has(id))) for (const id of ids) state.expanded.delete(id);
-        else state.expanded.add(row.id);
-        redraw();
-      },
-    });
-    const secretsN = list.filter((a) => a.hidden);
-    const label = (text, n, extra = null) => h('div.ach-sec', h('span', text), n != null ? h('b', String(n)) : null, extra, h('i'));
-    if (sec.ready.length) {
-      scroller.appendChild(label('Ready to claim', sec.ready.length));
-      for (const r of sec.ready) scroller.appendChild(mk(r));
+    const mk = (row) => rowEl(row, { onClaim, onOpen });
+    const ghead = (cls, text, extra = null) => h(`div.ach-ghead.${cls}`, h('span.ach-gname', text), extra, h('i.ach-gline'));
+    if (g.ready.length) {
+      scroller.appendChild(ghead('ready', 'Ready', h('b.num.ach-gcount', { 'data-testid': 'ach-ready-n' }, String(g.ready.length))));
+      for (const r of g.ready) scroller.appendChild(mk(r));
     }
-    if (sec.progress.length) {
-      scroller.appendChild(label('In progress', sec.progress.length, h('small', '· closest first')));
-      for (const r of sec.progress) scroller.appendChild(mk(r));
+    if (g.progress.length) {
+      scroller.appendChild(ghead('progress', 'In progress'));
+      for (const r of g.progress) scroller.appendChild(mk(r));
+      if (g.progressMore) {
+        scroller.appendChild(h('button.ach-more', { type: 'button', 'data-testid': 'ach-progress-more', onclick: () => { state.progressAll = true; redraw(); } },
+          `Show ${g.progressMore} more`, svgEl(glyph('chevron'), 'ach-more-chev')));
+      }
     }
-    if (sec.done.length) {
-      scroller.appendChild(h('button.ach-sec.ach-sec-btn', { 'data-testid': 'ach-completed', onclick: () => { state.doneOpen = !state.doneOpen; redraw(); } },
-        h('span', 'Completed'), h('b', String(sec.done.length)), h('small', state.doneOpen ? '▾' : '▸'), h('i')));
-      if (state.doneOpen) for (const r of sec.done) scroller.appendChild(mk(r));
-    }
-    if (state.cat === 'secret' || state.cat === 'all') {
-      scroller.appendChild(h('p.ach-foot', `Secrets found ${secretsN.filter((a) => a.met || a.claimed).length} / ${secretsN.length}. Special Honor Ribbons are never secret.`));
+    if (g.doneCount) {
+      scroller.appendChild(h(`button.ach-ghead.done.ach-done-head${state.doneOpen ? '.open' : ''}`, {
+        type: 'button', 'data-testid': 'ach-completed', 'aria-expanded': state.doneOpen ? 'true' : 'false',
+        onclick: () => { state.doneOpen = !state.doneOpen; redraw(); },
+      }, h('span.ach-gname', 'Done'), svgEl(glyph('chevron'), 'ach-done-chev')));
+      for (const r of g.done) scroller.appendChild(mk(r));
     }
     if (!rows.length) scroller.appendChild(h('p.ach-foot', 'Nothing here yet.'));
 
-    if (!small) root.append(rail);
-    root.append(h('section.ach-main', head, scroller));
+    fillIn(root, h('section.ach-main', head, scroller));
     requestAnimationFrame(() => {
       scroller.scrollTop = listScroll;
       if (state.highlight) {
-        const target = scroller.querySelector(`[data-id="${state.highlight}"]`) || [...scroller.querySelectorAll('.ach-row')].find((r) => r.closest('.ach-rowwrap')?.querySelector(`[data-testid="ach-ladder-${list.find((x) => x.id === state.highlight)?.series}"]`));
+        const id = state.highlight;
+        const target = scroller.querySelector(`[data-id="${id}"]`) || [...scroller.querySelectorAll('.ach-row')].find((el) => rows.find((r) => r.id === el.dataset.id)?.steps?.some((s) => s.id === id));
         if (target) {
           target.scrollIntoView({ block: 'center' });
           target.classList.add('flash');
@@ -333,4 +342,3 @@ export function achievementsView({ params = {}, onChange = null } = {}) {
   root.cleanup = () => stopFx?.();
   return root;
 }
-

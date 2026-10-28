@@ -6,7 +6,7 @@ import '../styles/battle-modes.css';
 import { h, icon } from './util.js';
 import { svgEl } from '../components.js';
 import { MODE_TEXT, modeText, ironcladArmor } from '../text/modes.js';
-import { RULE_TEXT, AFFINITY_NAMES, PAST_GOAL_LINE } from '../text/rules.js';
+import { ruleTextFor, AFFINITY_NAMES, PAST_GOAL_LINE, laneClosedText } from '../text/rules.js';
 import { ruleIcon, ruleColor, elementIcon, attackTypeIcon } from '../../art/icons.js';
 import { ATTACK_TYPES, ELEMENTS } from '../../data/types.js';
 import { capabilitySources } from '../../sim/report.js';
@@ -105,7 +105,8 @@ export function createModesBattle(ctx) {
   const mode = sim.mode?.id || 'standard';
   const mt = MODE_TEXT[mode];
   const ruleId = sim.rule?.id || null;
-  const rt = ruleId ? RULE_TEXT[ruleId] : null;
+  // the rule's text, in the stage's own words when it has a skin (src/ui/text/rules.js)
+  const rt = ruleId ? ruleTextFor(sim.stage, ruleId) : null;
 
   const chip = mode !== 'standard'
     ? h(`span.bt-mode.bt-mode-${mode}`, { 'data-testid': 'hud-mode', title: mt.name }, mt.short)
@@ -230,6 +231,8 @@ export function createModesBattle(ctx) {
   /** The wave banner's sub line, when a mode or rule changes it (null = the usual one). */
   function waveSub(ev) {
     if (ev.flipped) return 'REAR AMBUSH: in through the goal gate!';
+    // a lane schedule closed a lane this wave (Gate Arc: the crossing's barrier is down)
+    if (Array.isArray(ev.lanes) && ev.lanes.length < (sim.pathData?.length ?? 0)) return laneClosedText(sim.stage);
     if (mode === 'reverse' && ev.wave === 1 && Number.isFinite(sim.totalWaves)) return `of ${sim.totalWaves} · Reverse Route`;
     return null;
   }

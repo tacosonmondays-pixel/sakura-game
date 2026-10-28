@@ -1,9 +1,17 @@
-// Small helpers shared by the battle UI modules (owner: battle-ui).
+// Small helpers shared by the battle UI modules (owner: battle-ui). Numbers are not formatted here: every number in
+// battle goes through src/ui/format.js fmtNum (UI_DIRECTION §2, one number style; tests/battle-ui/battleNumbers.test.js).
 import { h } from '../dom.js';
 import { svgEl } from '../components.js';
 import { uiIcon, traitIcon } from '../../art/icons.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS } from '../../data/types.js';
+
+/**
+ * A phone's battle drawer: the window height at or under which the drawer takes its phone density (battle.css
+ * @media (max-height: 480px); 844x390, 667x375). The one threshold every battle-UI module reads.
+ */
+export const PHONE_H = 480;
+export const isPhone = () => typeof window !== 'undefined' && window.innerHeight <= PHONE_H;
 
 /** Sets a CSS custom property on an existing element (skipped when the value is null). */
 export function setVar(el, name, value) {
@@ -11,43 +19,24 @@ export function setVar(el, name, value) {
   return el;
 }
 
-/** Compact number: 1234 -> "1,234", 125000 -> "125k" (only above 100k). Rounds down, so 999,999 reads "999.9k", never more than there is. */
-export function fmtCoins(n) {
-  const v = Math.floor(n || 0);
-  if (v >= 1e6) return `${Math.floor(v / 1000)}k`;
-  if (v >= 100000) return `${(Math.floor(v / 100) / 10).toFixed(1).replace(/\.0$/, '')}k`;
-  return v.toLocaleString('en-US');
-}
-
 /**
- * Big numbers with k / M / B / T (freeplay HP: "132.3M", not "132300k"): plain below 100,000,
- * then three significant digits at most.
+ * What a battle that failed to build logs beside its error (controller.js `ready`): which battle it was. Plain
+ * values only, so the line reads the same in a bug report as in the console.
+ * @param {{ req?: object|null, params?: object, quality?: string|null, coop?: boolean }} o
  */
-export function fmtBig(n) {
-  const v = Math.floor(Number(n) || 0);
-  if (Math.abs(v) < 100000) return v.toLocaleString('en-US');
-  const units = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'k']];
-  for (const [u, s] of units) {
-    if (Math.abs(v) >= u) {
-      const x = v / u;
-      const digits = x >= 100 ? 0 : x >= 10 ? 1 : 2;
-      const txt = x.toFixed(digits);
-      return `${digits ? txt.replace(/0+$/, '').replace(/\.$/, '') : txt}${s}`;
-    }
-  }
-  return String(v);
-}
-
-/** Short decimal formatting for stats (1 → "1", 1.25 → "1.25", 0.333 → "0.33"). */
-export function fmtNum(n, digits = 2) {
-  if (n == null || !Number.isFinite(n)) return '–';
-  const f = Number(n.toFixed(digits));
-  return String(f);
-}
-
-export function fmtTime(sec) {
-  const s = Math.max(0, Math.ceil(sec));
-  return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
+export function buildErrorContext({ req = null, params = {}, quality = null, coop = false } = {}) {
+  return {
+    stage: req?.stageId ?? params?.stage ?? null,
+    difficulty: req?.difficulty ?? params?.difficulty ?? null,
+    mode: params?.mode || 'standard',
+    freeplay: req?.freeplay ?? null,
+    endless: !!req?.endless,
+    resume: !!req?.resume,
+    titan: !!params?.titan,
+    tutorial: params?.tutorial === '1',
+    coop: !!coop,
+    quality: quality || null,
+  };
 }
 
 /** UI icon element. */

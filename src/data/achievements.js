@@ -10,7 +10,7 @@
 //   - a metric may change only if it can only rise for every save
 //
 // Row: { id, name, desc, metric, param?, goal, rewards, cat, tier, series?, honor?, title?, hidden?, hint?,
-//        since?, grind?, wave, with?, shipped?, retired? }
+//        since?, grind?, wave, with?, needs?, shipped?, retired? }
 //   cat     ACHIEVEMENT_CATEGORIES id
 //   tier    0 (no gems by rule) · 1 week 1 · 2 weeks 2–4 · 3 month 2 · 4 month 3+ · 5 capstone (null on the shipped 30)
 //   series  rows with the same series show as one ladder row at their lowest unclaimed step
@@ -18,13 +18,20 @@
 //   title   the profile title the claim grants: { text, tier: std|gold|prism }; the title id IS the achievement id
 //   hidden  a secret: "???" and `hint` until it is met
 //   since   the release whose counter it reads ("Counts from v0.1.N")
-//   wave    launch | social | codex | later: rows ship hidden until their feature does (ACHIEVEMENT_WAVES)
+//   wave    launch | social | codex | later | act2: rows ship hidden until their feature does (ACHIEVEMENT_WAVES)
+//   needs   stage ids that must all exist in this build (STAGE_MAP) before the row is live: the Gate Arc's Act II
+//           rows (wave act2) light up chapter by chapter as their stages ship, never before (docs/CAMPAIGN.md "Act II")
+
+import { STAGE_MAP, ACT2_PLAN } from './stages.js';
 
 /** The expansion is on (M1). While false only the shipped 30 list and new ids refuse claims with 'notLive'. */
 export const ACH_V2_LIVE = true;
 
-/** Feature waves whose rows are live in this build. Social, Codex and later rows light up with their feature. */
-export const ACHIEVEMENT_WAVES = Object.freeze({ launch: true, social: true, codex: false, later: false });
+/**
+ * Feature waves whose rows are live in this build. Social, Codex and later rows light up with their feature; Act II
+ * rows are on, but each one also waits for its stages (`needs`).
+ */
+export const ACHIEVEMENT_WAVES = Object.freeze({ launch: true, social: true, codex: true, later: false, act2: true });
 
 /** The release that starts the new counters (§1.7): new-counter rows read "Counts from v0.1.N". */
 export const COUNTERS_SINCE = '0.1.30';
@@ -52,6 +59,7 @@ export const ACHIEVEMENT_METRICS = Object.freeze([
   'formationSize', 'maxBreakthrough', 'unitsAtLevel', 'unitsAwakened', 'awakenStars', 'urOwned', 'fullSets',
   'gearReceived', 'gearEver', 'gearMaxEver', 'freeplayBest', 'freeplayExtra', 'fpTiers100', 'freeplayMark', 'lobbyBgs',
   'lessons', 'storyChapters', 'achievementsClaimed', 'ribbonsTotal', 'modeRibbons', 'perfectStages', 'ruleGold', 'bondMax',
+  'chapterActClear',
 ]);
 
 /** Ids that never give a ribbon, a title or a profile pin: recruit counts and luck (§1.1 rule 6). */
@@ -71,6 +79,10 @@ const tt = (text, tier = 'std') => ({ text, tier });
 const A = (cat, id, name, desc, metric, goal, rewards, param, extra = {}) => ({
   id, name, desc, metric, ...(param === undefined ? {} : { param }), goal, rewards, cat, tier: null, wave: 'launch', shipped: true, ...extra,
 });
+/** Chapters 1–8, for the Act II rows. */
+const ACT2_CHAPTERS = [1, 2, 3, 4, 5, 6, 7, 8];
+/** The planned Act II stage ids of one chapter (or of all eight): what an Act II row `needs`. */
+const act2Ids = (c = null) => Object.freeze(ACT2_PLAN.filter((r) => c == null || r.chapter === c).map((r) => r.id));
 /** A new row (§1.2). */
 const N = (cat, id, name, desc, metric, param, goal, tier, rewards, wave, extra = {}) => ({
   id, name, desc, metric, ...(param === null ? {} : { param }), goal, rewards, cat, tier, wave, ...extra,
@@ -95,7 +107,7 @@ export const ACHIEVEMENTS = [
       { series: 'chapter', honor, ...(c === 8 ? { title: tt('Summit Sentinel', 'gold') } : {}) });
   }),
   A('campaign', 'a_gold_10', 'Golden Student', 'Earn Gold medals (Hard) on 10 campaign stages.', 'medals', 10, [g(200), it('lock_pin')], 'hard', { series: 'gold' }),
-  A('campaign', 'a_gold_40', 'Valedictorian', 'Earn Gold medals on all 40 campaign stages.', 'medals', 40, [g(600), it('ticket_recruit', 2)], 'hard', { series: 'gold', honor: hr(20, 'Valedictorian Laurel', 'shiny', 'laurel'), title: tt('Valedictorian', 'gold') }),
+  A('campaign', 'a_gold_40', 'Valedictorian', 'Earn Gold medals on 40 campaign stages.', 'medals', 40, [g(600), it('ticket_recruit', 2)], 'hard', { series: 'gold', honor: hr(20, 'Valedictorian Laurel', 'shiny', 'laurel'), title: tt('Valedictorian', 'gold') }),
   A('campaign', 'a_sakura_1', 'Nightmare Survivor', 'Earn a Sakura medal (Nightmare) on any campaign stage.', 'medals', 1, [g(150)], 'nightmare', { series: 'sakura' }),
   A('campaign', 'a_sakura_10', 'Sakura Sentinel', 'Earn Sakura medals on 10 campaign stages.', 'medals', 10, [g(400), it('crown_oni')], 'nightmare', { series: 'sakura', honor: hr(13, 'Sakura Watch Ribbon', 'plain', 'nightbloom'), title: tt('Sakura Sentinel', 'gold') }),
   A('bestiary', 'a_bestiary_25', 'Field Notes', 'Discover 25% of the bestiary.', 'bestiaryPct', 25, [g(100)], undefined, { series: 'bestiary' }),
@@ -126,12 +138,20 @@ export const ACHIEVEMENTS = [
   N('campaign', 'a_gold_1', 'Going for Gold', 'Earn your first Gold medal (Hard) on a campaign stage.', 'medals', 'hard', 1, 1, [g(30), it('book_rare', 3)], 'launch', { series: 'gold' }),
   N('campaign', 'a_gold_20', 'Gold Star Student', 'Earn Gold medals on 20 campaign stages.', 'medals', 'hard', 20, 3, [g(100), O(2)], 'launch', { series: 'gold' }),
   N('campaign', 'a_sakura_20', 'Sakura in Full Bloom', 'Earn Sakura medals (Nightmare) on 20 campaign stages.', 'medals', 'nightmare', 20, 4, [g(200), R()], 'launch', { series: 'sakura' }),
-  N('campaign', 'a_sakura_40', 'Thousand-Petal Sentinel', 'Earn Sakura medals on all 40 campaign stages.', 'medals', 'nightmare', 40, 5, [g(300), C(), TK], 'launch', { series: 'sakura', honor: hr(28, 'Thousand Petals Ribbon', 'special', 'double', 'sakura'), title: tt('Thousand-Petal Sentinel', 'prism') }),
+  N('campaign', 'a_sakura_40', 'Thousand-Petal Sentinel', 'Earn Sakura medals on 40 campaign stages.', 'medals', 'nightmare', 40, 5, [g(300), C(), TK], 'launch', { series: 'sakura', honor: hr(28, 'Thousand Petals Ribbon', 'special', 'double', 'sakura'), title: tt('Thousand-Petal Sentinel', 'prism') }),
   N('campaign', 'a_quad_1', 'Four-Medal Report Card', 'Earn all four medals on one campaign stage.', 'medalsAll', null, 1, 2, [g(50), O()], 'launch', { series: 'quad', honor: hr(6, 'Report Card Ribbon', 'plain', 'quad') }),
   N('campaign', 'a_quad_10', 'Straight-A Semester', 'Earn all four medals on 10 campaign stages.', 'medalsAll', null, 10, 3, [g(100), R()], 'launch', { series: 'quad', title: tt('Straight-A Sensei') }),
-  N('campaign', 'a_quad_40', 'Academy Laureate', 'Earn all four medals on all 40 campaign stages.', 'medalsAll', null, 40, 5, [g(300), C(), TK], 'launch', { series: 'quad', honor: hr(29, "Laureate's Sunrise Ribbon", 'special', 'sunrise', 'sunrise'), title: tt('Academy Laureate', 'prism') }),
+  N('campaign', 'a_quad_40', 'Academy Laureate', 'Earn all four medals on 40 campaign stages.', 'medalsAll', null, 40, 5, [g(300), C(), TK], 'launch', { series: 'quad', honor: hr(29, "Laureate's Sunrise Ribbon", 'special', 'sunrise', 'sunrise'), title: tt('Academy Laureate', 'prism') }),
   N('campaign', 'a_goldchap_1', 'Golden Chapter', 'Earn Gold medals on every stage of one chapter.', 'chapterSets', 'hard', 1, 2, [g(50), O()], 'launch'),
   N('campaign', 'a_sakurachap_1', 'Blossoming Chapter', 'Earn Sakura medals on every stage of one chapter.', 'chapterSets', 'nightmare', 1, 3, [g(100), R()], 'launch'),
+  // Act II (the Gate Arc, docs/specs/GATE_ARC.md §19 Rewards): each chapter's Act II at half the chapter row's gems
+  // (848 in all) and the 80-stage goals (items and titles, no gems). Hidden until every stage they need exists.
+  ...ACT2_CHAPTERS.map((c) => N('campaign', `a_ch${c}_act2`, `Chapter ${c} · Act II Complete`, `Clear every Act II stage of chapter ${c}.`,
+    'chapterActClear', `${c}:2`, 5, c <= 4 ? 3 : 4, [g(Math.floor((100 + 25 * c) / 2))], 'act2', { series: 'act2', needs: act2Ids(c) })),
+  N('campaign', 'a_clear_80', 'Noon Bell', 'Clear 80 campaign stages.', 'stagesCleared', null, 80, 0, [O(2)], 'act2', { series: 'clear', title: tt('Noon Bell Sentinel'), needs: act2Ids() }),
+  N('campaign', 'a_gold_80', 'Gold Around the Clock', 'Earn Gold medals (Hard) on 80 campaign stages.', 'medals', 'hard', 80, 0, [R(), O()], 'act2', { series: 'gold', title: tt('Double Valedictorian'), needs: act2Ids() }),
+  N('campaign', 'a_sakura_80', 'Eighty Petals', 'Earn Sakura medals (Nightmare) on 80 campaign stages.', 'medals', 'nightmare', 80, 0, [R(2)], 'act2', { series: 'sakura', title: tt('Eighty-Petal Sentinel'), needs: act2Ids() }),
+  N('campaign', 'a_quad_80', 'Encore Laureate', 'Earn all four medals on 80 campaign stages.', 'medalsAll', null, 80, 0, [R(2), O()], 'act2', { series: 'quad', title: tt('Encore Laureate'), needs: act2Ids() }),
   // Bounty, Total Assault, Tactical Challenge
   N('assault', 'a_bounty_1', 'Supply Run', 'Clear any Bounty stage.', 'kindClear', 'resource', 1, 1, [g(20), it('token_bounty', 5)], 'launch', { series: 'bounty' }),
   N('assault', 'a_bounty_5', 'Errand Expert', 'Clear 5 different Bounty stages.', 'kindClear', 'resource', 5, 1, [g(30), S()], 'launch', { series: 'bounty' }),
@@ -193,7 +213,7 @@ export const ACHIEVEMENTS = [
   // Bestiary
   N('bestiary', 'a_family_1', 'Family Portrait', 'Discover every member of one enemy family.', 'familiesFound', null, 1, 1, [g(20), S()], 'launch', { series: 'family' }),
   N('bestiary', 'a_family_6', 'Family Reunion', 'Discover every member of 6 enemy families.', 'familiesFound', null, 6, 3, [g(100), O(2)], 'launch', { series: 'family' }),
-  N('bestiary', 'a_slime_15', 'Slime Specialist', 'Discover all 15 kinds of slime.', 'familyFound', 'slime', 15, 2, [g(50), O()], 'launch', { honor: hr(7, 'Jelly Jar Ribbon', 'plain', 'slime'), title: tt('Slime Specialist') }),
+  N('bestiary', 'a_slime_15', 'Slime Specialist', 'Discover 15 kinds of slime.', 'familyFound', 'slime', 15, 2, [g(50), O()], 'launch', { honor: hr(7, 'Jelly Jar Ribbon', 'plain', 'slime'), title: tt('Slime Specialist') }),
   N('bestiary', 'a_slime_1000', 'Bubble Patrol', 'Defeat 1,000 slimes.', 'familyKills', 'slime', 1000, 1, [g(20), S()], 'launch'),
   N('bestiary', 'a_ghost_500', 'Night Light', 'Defeat 500 ghosts.', 'familyKills', 'ghost', 500, 2, [g(50), O()], 'launch'),
   N('bestiary', 'a_oni_500', 'Festival Peacekeeper', 'Defeat 500 oni.', 'familyKills', 'oni', 500, 3, [g(50), O(2)], 'launch'),
@@ -222,7 +242,7 @@ export const ACHIEVEMENTS = [
   N('codex', 'a_mr_1', 'Trying Something New', 'Earn your first mode ribbon.', 'ribbonsTotal', null, 1, 1, [g(20), it('dice_reroll')], 'codex', { series: 'mr' }),
   N('codex', 'a_mr_100', 'Mode Explorer', 'Earn 100 mode ribbons.', 'ribbonsTotal', null, 100, 3, [g(100), R()], 'codex', { series: 'mr' }),
   N('codex', 'a_mr_400', 'Versatile Strategist', 'Earn 400 mode ribbons.', 'ribbonsTotal', null, 400, 4, [g(200), R(), O(2)], 'codex', { series: 'mr', title: tt('Versatile Strategist', 'gold') }),
-  N('codex', 'a_mr_800', 'Every Ribbon, Every Stage', 'Earn all 800 campaign mode ribbons.', 'ribbonsTotal', null, 800, 5, [g(300), C(), TK], 'codex', { series: 'mr', honor: hr(34, 'Holo Codex Ribbon', 'special', 'codex', 'holo'), title: tt('All-Round Sensei', 'prism') }),
+  N('codex', 'a_mr_800', 'Every Ribbon, Every Stage', 'Earn 800 campaign mode ribbons.', 'ribbonsTotal', null, 800, 5, [g(300), C(), TK], 'codex', { series: 'mr', honor: hr(34, 'Holo Codex Ribbon', 'special', 'codex', 'holo'), title: tt('All-Round Sensei', 'prism') }),
   N('codex', 'a_perfect_1', 'Rosette Stage', 'Earn all 20 mode ribbons on one stage.', 'perfectStages', null, 1, 2, [g(50), O(2)], 'codex'),
   N('codex', 'a_rev_80', 'Reverse Route Expert', 'Earn 80 Reverse Route ribbons.', 'modeRibbons', 'reverse', 80, 0, [O(2)], 'codex', { title: tt('Wrong-Way Warden') }),
   N('codex', 'a_rush_80', 'Goblin Rush Expert', 'Earn 80 Goblin Rush ribbons.', 'modeRibbons', 'rush', 80, 0, [O(2)], 'codex', { title: tt('Rush Hour Hero') }),
@@ -244,9 +264,14 @@ export const FREEPLAY_TITLES = Object.freeze({
 
 export const ACHIEVEMENT_MAP = Object.freeze(Object.fromEntries(ACHIEVEMENTS.map((a) => [a.id, a])));
 
-/** The row is in this build's list (its wave shipped, the expansion is on, not retired). */
+/** Every stage the row `needs` exists in this build (true for a row that needs none). */
+export function achievementStagesExist(a) {
+  return !a?.needs || a.needs.every((id) => !!STAGE_MAP[id]);
+}
+
+/** The row is in this build's list (its wave shipped, the expansion is on, its stages exist, not retired). */
 export function achievementLive(a, v2 = ACH_V2_LIVE) {
   if (!a || a.retired) return false;
   if (a.shipped) return true;
-  return v2 && !!ACHIEVEMENT_WAVES[a.wave];
+  return v2 && !!ACHIEVEMENT_WAVES[a.wave] && achievementStagesExist(a);
 }

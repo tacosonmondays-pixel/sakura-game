@@ -3,6 +3,8 @@
 **Status:** approved by the owner on Oct 20 ("all defaults looks good for now!"). Build starts with M0.
 
 **Owner answers (Oct 20):**
+- **Hosts on hub screens:** yes, up to 35% of the width on hub and list screens only (5.10 E1).
+- **Left section rail:** yes, on list screens with 2-5 sections (5.10 E3).
 - **Headline stats:** chosen by role. Shooters DMG · RATE · RANGE; supports BUFF · RANGE · AFFECTS; income COINS/WAVE · RANGE ·
   COST; heroes DMG · RATE · ULT.
 - **Damage numbers:** on, big hits only (crits, super-effective hits, +coins, leaks). Settings gets a switch: All, Big hits, Off.
@@ -131,7 +133,7 @@ One helper, `fmtNum(value, kind)` in a new `src/ui/format.js`, replaces the loca
 | Time | **0.5s**, **12s**, **1:05** from 60 s; ability cooldowns in whole seconds | same | up (never show "0s" while something still runs) |
 | Range | **4.3** with a RANGE label (no "tiles" word on Glance) | **4.30 tiles** | nearest |
 | Level | **LV 48** (label + number); **48/50** only where the cap matters (the plate, Level Up) | same | – |
-| Item stack | **×42** in the count corner | same | down |
+| Item stack | **×42** in the count corner; on an item tile the tile form **x42.3K** (5.7) | same | down |
 | Progress | **3/5**, no spaces; hidden at 0 on Glance surfaces unless 0 is the call to action | same | down |
 
 - **Short form:** one decimal at most, a trailing ".0" is dropped (**12k**, not 12.0k). Lowercase **k**, uppercase **M** and **B**.
@@ -281,6 +283,28 @@ in 4.2.
 
 Drawers and tabs keep `--t-panel` (220 ms). Screen transitions keep `--t-screen`. Reduce motion turns everything into a 150 ms
 fade, as it does today.
+
+**UI v2 motion layer (Oct 27; owner: "add animated transitions").** `src/ui/motion.js` and `src/ui/styles/motion.css`
+(the menus and the home only, behind the surface-mode scope fence; opacity and the individual translate / scale
+properties only; nothing blocks a tap):
+
+| What | ms | Notes |
+|---|---|---|
+| Home, first open (boot or a battle's cut) | wallpaper 1000 (scale 1.03 → 1), girl 360 (80 late, 8 px up), top bar 240 (100 late, 12 px down), pieces 240 each, 40 ms apart from 160 | waits at its first frame under the cover and plays from the reveal; still by ~0.7 s, the wallpaper by 1 s |
+| Home, return from a sub-screen | wallpaper 500 (1.015 → 1, a settle only: it never fades from 0 again, the screen change's own fade brings the home in), girl 220, bar 180, pieces 200, 30 ms apart | `homeEntrance()`; the home concepts reuse it, or `stagger()` / `data-mo` on their own pieces; under Reduce Motion the wallpaper simply stays |
+| Screen push / pop | 80 + 200 forward, 60 + 160 back; the ink wipe 280 / 220 | `src/ui/transitions/` (MOTION); home ↔ battle keeps the cut and Mochi |
+| Tab switch | content 120 fade + 180 shift (12 px, the way the rail was walked) | `tabSwap()`: girl page, list screens (Mall, Mailroom, Happening, Settings), Commissions, the home's news pager |
+| Sheets, the home menu | in 240 (from the right 48 px / up 32 px) with a 160 scrim; out 160; menu rows 20 ms apart | |
+| Modals | in 220 (scale 0.96 → 1), out 160 | |
+| Press / hover | 100 down / 140 up at scale 0.97; a mouse lifts tiles 2 px in 140 | |
+| Balances | count 400 (≤ 600 for big jumps), the colour icon pulses 240 with two sparkles on a gain | `countTo()`; e2e waits for `[data-counting]` to go |
+| Red dots and counts | pop 240 (scale 0.4 → 1, one overshoot) when they appear | `badgeShown()` / `badge()` |
+| Home layout B: the news chip | a page turn by hand (its "›") 240: the old words 12 px left and out in 120, the new 12 px in from the right in 200, 40 late. It never turns on its own (P8; nothing on the home moves on its own but the living scene) | a 120 ms fade under Reduce Motion |
+| Home layout B: the menu over a narrow screen | her stage slides aside under the sheet (240 in, 160 back), only as far as her face box needs | a jump under Reduce Motion |
+| Home layout B: hide the UI | a long press (600 ms) on the wallpaper, not on her or a control, hides the UI or brings it back | the menu's Hide UI and the restore button as before |
+| Home layout B: Marumi's living scene | plays only where all her art keeps 8 px clear of every control, the icons in a row or folded two by two (5.5, C5); elsewhere (a small phone, 667x375) her still portrait, as on Low graphics | asked again on a resize |
+
+Reduce Motion (the setting or the system): no movement, a 120 ms fade at most, numbers change at once, no pops.
 
 ### 4.8 Rarity
 
@@ -441,6 +465,13 @@ One ladder of frame treatments for girls and gear. Each step must read as "highe
   - count or level at the **bottom-right** (an ink circle or pill with a white number);
   - a lock in the **centre**, with its 12 px unlock rule under it.
 - At most 2 stickers per tile. Names show under the tile only where the art alone is not enough (items, not girls).
+- **Item tiles (the owner's pick, Oct 20: the slanted plate; this replaces the item-tile frame and count pill drafted
+  for the item-icon redo):** a 1.09:1 plate slanted −8° with rounded corners, a 1 px tier border and a white inner
+  rim, the tier tint fading to white by 80 %, a sheen of three faint sakura petals and one diagonal white band (not
+  facet triangles), and a soft tile shadow. The art is not slanted. The count sits bottom right **without a pill**:
+  heavy navy italics (`#2b4467`) with a crisp white outline, 13 px on the 62 px phone tile, in the tile form
+  `x2400` / `x42.3K` / `x450K` (lowercase x, uppercase K/M/B, rounded down; `fmtItemCount`). Rainbow, UR-display
+  and Zenith items wear a rainbow plate. Built in `itemTile` (`src/ui/components.js`) and `base.css` "Items".
 
 ### 5.8 Toasts and banners
 - One toast at a time, one line, at most `--t-banner`. Others queue.
@@ -448,6 +479,43 @@ One ladder of frame treatments for girls and gear. Each step must read as "highe
 - Nothing covers the centre 50% of the map for longer than 1.2 s.
 
 ---
+
+### 5.9 Countdown chip
+- One component for every timer: events, mail expiry, shop restock, banners and seasons.
+- A `--plate` pill with a clock icon and the time from `fmtNum(…, 'time')` ("6d 4h", "11h", "12:05"). Under 24 h the time turns
+  `--bad-on-plate`. No other way of writing "time left" is allowed on Glance surfaces.
+
+### 5.10 Hub extensions (owner-approved Oct 20, from the reference study)
+The owner approved E1 (hosts at 35%) and E3 (the left section rail) on Oct 20. The rest are additive and follow the existing rules.
+- **E1 Screen hosts (approved).** A host girl with a speech bubble on **hub and list screens only**: Missions, Commissions, Mall,
+  Bounty, Total Assault and Titan Trials, Happening Now, Attendance and the Mailroom.
+  - Her art may take up to **35%** of the width there. Detail screens (her page, stage prep) keep `--art-band-w` 28%.
+  - The bubble is white glass, radius 24 px, with a tail. It holds one line of at most 60 characters in `--fs-body` 700 and
+    sits over her lower third, never over the list.
+  - The line comes from a small table per screen, picked by state ("3 ready", "Event ends tomorrow", "Nothing to claim, nice
+    work"). Reduced motion: no bounce. Hosts stay cute and in uniform (P9).
+- **E2 Plate header band on list panels.** A list panel gets a `--plate` slanted strip as its title bar with the title in white
+  display italics. Glass panels with the yellow underline stay for content panels.
+- **E3 Left section rail (approved).** List screens with **2-5 sections** (Mailroom, Mall, Happening Now, Workbench) put their tabs
+  in a vertical rail on the left edge: active = a `--plate` slab with yellow italic text and the −8° slant; inactive = white glass
+  with `--ink` text; red dots only; at least 44 px tall. Hub category tabs stay on the bottom edge (5.3).
+- **E4 Countdown chip.** See 5.9.
+- **E5 Item tile frame (for the item-icon redo).** The 5.7 tile with a soft 10° slant on the top-right corner; the field is a
+  diagonal gradient from white to the item's rarity colour (4.8 tokens) at 12-18% with 2-3 faint facet triangles. Rarity reads from
+  the field and the frame, never from text (5.6) and never from glows painted into the item art. The count sits in the 5.7
+  bottom-right ink pill. Selected = a 3 px `--yellow` ring. LR Nightglass stays exclusive (5.6).
+- **E6 A painted location per hub.** A blurred, dimmed academy location behind the glass panels: Mall = the shop counter,
+  Commissions = the staff room, Backpack = the locker room, Recruit = the admissions hall, Mailroom = the post room, Workbench = the
+  club lab. Text always sits on a panel or a plate, never on the painting (P6).
+- **E7 Chapter slate and the loading corner.** A chapter title slate counts as the screen's one Street punctuation (P8) and holds
+  for at most `--t-banner`. The loading chip never covers a primary button or the bottom-right corner cluster.
+- **E8 Keyboard hints on desktop.** A small `--plate` chip ("Space") under the primary button and "Esc" on close buttons; 12 px;
+  hidden on touch (`@media (hover: none)`).
+- **E9 Off-season and idle states.** Seasonal modes between seasons: full-bleed location art, one `--plate` band with one sentence
+  and the next date.
+- **E10 3D girls in Formation and Quick Pick.** The squad stands as our 3D chibis (still, not animated, in grids).
+- **Badge vocabulary (adds to P7):** red dot = claim, yellow dot = new, pink slanted "In Progress", navy "New" tab, yellow "Open!"
+  sticker for a newly available mode.
 
 ## 6. Condense plan for the six most cluttered screens
 
@@ -579,6 +647,16 @@ and P.
 
 **At 1280x720:** the same structure. The art band is 30% and the Info tab shows the matchup row and capabilities side by side.
 
+**Compact / Detailed** (owner, Oct 21: the condensed page made equipment stats hard to see): Settings → Display → **Girl page**
+(`profile.settings.girlPage`, `'compact'` by default; additive, display only, the co-op sim id is unchanged). Compact is the page
+above. Detailed keeps the same frame and components and puts the Details on the page itself (`src/ui/girlDetail.js`):
+- **Info:** the base-versus-yours stat table under the strip, every matchup entry with its multiplier, each capability with its line.
+- **Equipment:** each slot card adds its main stat value and every substat; every gear total (MAX marked), the fill-in line and the
+  set bonuses that are on replace the 3-cell strip (tap them: the totals sheet).
+- **Level Up:** the Manual steppers start open. **Awakening:** every star with its bonus, the next one highlighted.
+- **Tree:** the picked path's five tiers with their effects under the grid (the first path until a cell is tapped).
+- An open girl page follows the switch at once. `e2e/girl-page.mjs` checks both looks at 844x390 and 1280x720.
+
 ---
 
 ### 6.3 Stage prep (score 5)
@@ -588,11 +666,11 @@ tall** (4-3).
 - The difficulty subtitles are cut off at 9.9 px.
 - The decision (difficulty, then Start) is split between the top and the bottom.
 - Start is a sticky footer that covers part of the scroller.
-- "Advanced" is 2.05:1, "In formation" 2.61:1, and the Waves / Lives / Start cash labels 3.93:1.
+- The advanced tier sticker ("Storm" since v0.1.45) is 2.05:1, "In formation" 2.61:1, and the Waves / Lives / Start cash labels 3.93:1.
 
 **After: layout, with no scrolling at 844x390**
 - **Left map band** (about 300 px):
-  - the map thumbnail with the stage name plate and the tier sticker ("Advanced": ink letters on the tier colour);
+  - the map thumbnail with the stage name plate and the tier sticker ("Storm": ink letters on the tier colour);
   - under it, the **stage ink strip**: WAVES 25 · ♥ 100 · START 780;
   - one mission sentence (≤ 60 characters) + "i" for the full mission text and the map rule.
 - **Right column**, top to bottom:
@@ -713,7 +791,7 @@ the reward amount) over 4 rows.
 
 | Stays visible | Behind tap | Details (MORE) | Merged | Removed |
 |---|---|---|---|---|
-| name, role and type icons, tier code, target, 3 paths with pips and next price, Sell | the next tier's name and chips (row tap); the lock reason | the stats grid, Kills and Damage, Invested, P level, the discount | "role · type" text → 2 icons; focus line + tier name + tag + description → one expandable line | the struck-through old price (the price shown is the real one), the 3-line lock note, the second scroll page |
+| name, role and type icons, tier code, target, 3 paths with pips and next price, Sell | the next tier's name and chips (row tap); the lock reason; what a stat is (a tap on it, M4) | the stats grid, Kills and Damage, Invested, P level, the discount | "role · type" text → 2 icons; focus line + tier name + tag + description → one expandable line | the struck-through old price (the price shown is the real one), the 3-line lock note, the second scroll page |
 
 **After: hero drawer:** header (portrait, the full name, UR tag, **LV 1**) · the XP bar (no numbers on it) · **Level up · 145**
 (cost button) · one line "Next: Steady Guard · +1 DMG" · the ult icon with "Unlocks at LV 3" (or its rank) · Move · MORE (the
@@ -821,10 +899,16 @@ touches, and an owner check on a real phone. The owner approved this direction o
   - the HUD shows ≤ 4 numbers + card costs (+ cooling abilities);
   - the drawer is ≤ 300 px on phones;
   - the girl drawer shows ≤ 13 numbers with HUD, and the tree ≤ 8;
+    - *Reading in use (the abilities branch's drawer, A3 M4; the owner has not ruled on it yet):* the 13 count the drawer
+      itself, a cooling ability's seconds the one extra. The HUD and the card strip keep the first line's budget (≤ 4
+      numbers + card costs, M5's work). With all three in view an 844 screen shows about 25–28 numbers, as the approved
+      tactical mock-up does; the drawer's own required content (the stat row, tier codes, prices, Invested, Sell) cannot
+      fit 13 together with the HUD. Ask the owner before M5 calls this line met;
   - nothing covers the centre 50% of the map for more than 1.2 s;
   - co-op runs unchanged (display only).
 
 ### M3: gear and the backpack
+- **Item tiles:** every item and gear tile uses the 5.10 E5 frame, together with the item-icon redo.
 - **Scope:** the Backpack Equipment tab (toolbar, Supplies sheet, Filter sheet, the gear grid with M1b tiles, the item sheet with
   hold-to-compare), the one-word category rail, and the All, Enhance and Awaken tabs moved to the same tile.
 - **Coordination:** the UR gear work's new rarity and set icons go into the tile's corners (5.7) and the ladder (5.6). Gear set
@@ -851,6 +935,8 @@ touches, and an owner check on a real phone. The owner approved this direction o
   - Formation, the girls list, the lobby (fold the top-left buttons into one tray), Bounty, Recruit (pity once), the Mall (the
     balance once), Settings (descriptions behind "i"), Commissions, Pause, the wave banner and toasts;
   - a sweep of any screens the other tracks built with the old tokens.
+  - the hub extensions in 5.10: hosts with speech bubbles, plate header bands, the left section rail, the countdown chip
+    everywhere, a painted location per hub, off-season states and the badge vocabulary.
 - **Done when:** the CSS floor lint reports **zero** declarations under 12 px outside `.deco`, and every main screen passes the
   section 8 probe.
 

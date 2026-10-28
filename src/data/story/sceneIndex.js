@@ -14,3 +14,18 @@ export const CHAPTER_SCENE_IDS = Object.freeze({
   7: Object.freeze(['ch7.pro', 'ch7.mid', 'ch7.epi']),
   8: Object.freeze(['ch8.pro', 'ch8.mid', 'ch8.epi']),
 });
+
+/**
+ * Arc 1 episodes per act, keyed 'chapter:act' ('1:2' = chapter 1's Act II, the Gate Arc's Act 1), ids only, with the
+ * same rules as CHAPTER_SCENE_IDS. Kept apart from CHAPTER_SCENE_IDS on purpose: a chapter's "Story Time" progress
+ * never goes backwards when its Act II episodes ship. Filled as each act's scenes land (Act 1: seven episodes).
+ */
+export const ACT_SCENE_IDS = Object.freeze({
+  '1:2': Object.freeze(['g1.pro', 'g1.mahiru', 'g1.yuzuha', 'g1.mid', 'g1.poster', 'g1.boss', 'g1.epi']),
+  // Act 2 (eleven episodes). g2.class is listed: its `ifOwned` gate waits for a girl the player owns, but the scene
+  // always exists in code, so the list never changes with the roster.
+  '2:2': Object.freeze([
+    'g2.pro', 'g2.kohaku', 'g2.thirtyone', 'g2.lunch', 'g2.mid', 'g2.boiler', 'g2.class', 'g2.roof', 'g2.boss', 'g2.after',
+    'g2.epi',
+  ]),
+});

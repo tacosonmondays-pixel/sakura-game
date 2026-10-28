@@ -4,7 +4,8 @@
 // Solo only: it drives the Sim directly (a Sandbox battle is never a lockstep battle) through
 // createSandboxDriver, which overrides a few Sim methods on this one instance and puts them back on
 // destroy; src/sim itself is untouched. The pure helpers below are exported for tests.
-import { h, icon, fmtCoins, enemyToken, traitBadge } from './util.js';
+import { h, icon, enemyToken, traitBadge } from './util.js';
+import { fmtNum } from '../format.js';
 import { ENEMIES, FAMILIES, ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS } from '../../data/types.js';
 import { initTraitState } from '../../sim/enemies.js';
@@ -264,7 +265,7 @@ export function createSandboxPanel(ctx) {
     livesBtn.setAttribute('aria-pressed', state.unlimitedLives ? 'true' : 'false');
   };
   paintLives();
-  const coinsBtn = h('button.bt-sbx-chip.bt-sbx-coins', { 'data-testid': 'sandbox-coins', onclick: () => { addCoins(sim); ctx.feed?.push(`+${fmtCoins(SANDBOX_COIN_STEP)} coins`, 'good', { key: 'sbx-coins', ms: 1000 }); } }, icon('plus', 'bt-ico-sm'), `${fmtCoins(SANDBOX_COIN_STEP)} coins`);
+  const coinsBtn = h('button.bt-sbx-chip.bt-sbx-coins', { 'data-testid': 'sandbox-coins', onclick: () => { addCoins(sim); ctx.feed?.push(`+${fmtNum(SANDBOX_COIN_STEP, 'money')} coins`, 'good', { key: 'sbx-coins', ms: 1000 }); } }, icon('plus', 'bt-ico-sm'), `${fmtNum(SANDBOX_COIN_STEP, 'money')} coins`);
 
   // ---- spawn ---------------------------------------------------------------------------------
   const enemySel = h('select.bt-sbx-select', { 'data-testid': 'sandbox-enemy', 'aria-label': 'Enemy', onchange: (e) => pickEnemy(e.target.value) },
@@ -324,7 +325,7 @@ export function createSandboxPanel(ctx) {
     }
     dmgList.replaceChildren(...rows.slice(0, 9).map((r) => {
       const name = sim.data.unit(r.unitId)?.name || r.unitId;
-      return h('li.bt-sbx-dmg-row', h('span.bt-sbx-dmg-name', name), h('span.bt-sbx-dmg-bar', h('span', { style: { width: `${Math.max(2, Math.round(r.share * 100))}%` } })), h('b', fmtCoins(r.damage)));
+      return h('li.bt-sbx-dmg-row', h('span.bt-sbx-dmg-name', name), h('span.bt-sbx-dmg-bar', h('span', { style: { width: `${Math.max(2, Math.round(r.share * 100))}%` } })), h('b', fmtNum(r.damage)));
     }));
   };
   paintDamage();

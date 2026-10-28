@@ -11,7 +11,7 @@
 // Plain ES module: no Vite-only imports, so Node and Bun can import it straight from disk and a
 // browser through the Vite dev server.
 import { Lockstep } from '../../src/online/coop/lockstep.js';
-import { createCoopSim, quantize, flyArgs } from '../../src/online/coop/commands.js';
+import { createCoopSim, quantize, flyArgs, abilArgs } from '../../src/online/coop/commands.js';
 import { withDetMath, DET_MATH } from '../../src/online/coop/detMath.js';
 import { createRng } from '../../src/core/rng.js';
 import { coopVersion } from '../../src/online/coop/version.js';
@@ -26,6 +26,8 @@ import { Sim } from '../../src/sim/Sim.js';
 import { autoPlan } from '../../src/sim/headless.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
 import { stageRule } from '../../src/data/rules.js';
+import { abilityPathOf } from '../../src/sim/abilities.js';
+import { LAB_CLASSES } from '../../src/sim/lab.js';
 
 const CHEAP = { costMul: 0.5 };
 export const START = Object.freeze({
@@ -99,14 +101,16 @@ export function mathProbe() {
 }
 
 /** Legal spots for a unit next to the path, ≥ 1.3 tiles apart (computed with the det math). */
-function spotsFor(start, units, per = 2) {
+function spotsFor(start, units, per = 2, { water = false } = {}) {
   return withDetMath(() => {
     const c = createCoopSim(start);
     const cands = [];
     for (let y = 0.55; y < c.sim.map.height; y += 0.35) {
       for (let x = 0.55; x < c.sim.map.width; x += 0.35) {
         const r = c.sim.placementReason(units[0], x, y);
-        if (!r) cands.push([x, y, c.sim.placement.pathDistance(x, y)]);
+        // water: only spots a land girl may not take (an amphibious girl, Nami or Sango since v0.1.40,
+        // would otherwise pick the land spots another call already handed out)
+        if (!r && (!water || c.sim.placementReason('aoi', x, y) === 'needsLand')) cands.push([x, y, c.sim.placement.pathDistance(x, y)]);
       }
     }
     cands.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
@@ -770,6 +774,490 @@ export function runDronesBattle({ checkpointAt = 8, maxFrames = 60 * 60 * 14 } =
 }
 
 // ---------------------------------------------------------------------------
+// Abilities (src/sim/abilities.js; ABILITIES_SPEC §7.4, BUILD_PLAN §4.5): every live kind in one battle
+// ---------------------------------------------------------------------------
+
+// cheap girls (every one reaches her ⚡ tier 3 early) at half damage (so crowds form and Auto's rules hold);
+// the guest's also carry Skill Haste 0.3 (gear ultHaste: her abilities charge faster, a rounded division
+// in chargeRate, and her hero's ult cooldown is shorter), so the haste path runs on every engine too
+const ABIL_STATS = { costMul: 0.2, damageMul: 0.5 };
+const ABIL_STATS_HASTE = { ...ABIL_STATS, ultHaste: 0.3 };
+const abilLoadout = (ids, stats = ABIL_STATS) => ids.map((unitId) => ({ unitId, stats }));
+/** The host fires her girls and Luna by hand; the guest plays on Auto-cast and taps her ready girls. */
+export const ABILITIES_START = Object.freeze({
+  seed: 454545,
+  stageId: '4-5',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori']), hero: { unitId: 'luna', stats: ABIL_STATS } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro'], ABIL_STATS_HASTE), hero: { unitId: 'nami', stats: ABIL_STATS_HASTE } },
+  ],
+});
+/** Refusals a scripted tap may meet (the sim re-checks at the command's tick); anything else fails the run. */
+const ABIL_REASONS = Object.freeze(['cooldown', 'notWave', 'active', 'noTarget', 'cap', 'disabled', 'moving']);
+
+/**
+ * A whole co-op battle with abilities (stage 4-5 Normal, to `toWave` waves cleared): the host takes
+ * Aoi 0-3-0, Akane 3-0-0, Momo 3-0-0, Hotaru 0-3-0 and Midori 3-0-0 (each to her ⚡ tier 3) and hero
+ * Luna to Lv 7 (Moonbrand), and taps one of them by hand every 7 s in a round robin (some taps are
+ * group taps, some carry an aim point, some land on a recharging girl and are refused); from wave 4
+ * her Momo is on Auto. The guest takes Yuki, Rei, Miko 3-0-0, Sango 0-3-0, Shiro 3-0-0 and hero Nami
+ * (Lv 7, Frost Net; she and Sango stand on the water), all with Skill Haste 0.3, with `acast[0, 1]` (everything on Auto), taps one
+ * of her ready girls every 4 s as well, and switches Shiro off and on once. Two Lockstep clients over
+ * the seeded fake network; every state hash collected (they fold the ability state once cast or on
+ * Auto); the host's checkpoint after wave `checkpointAt` is restored into a fresh client and replayed.
+ * `casts` / `kinds` count the `ability` events (both players' casts, auto and manual).
+ */
+export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 60 * 60 * 20 } = {}) {
+  const t0 = Date.now();
+  const rng = createRng(29);
+  const clock = { t: 0 };
+  const queue = [];
+  let frame = 0;
+  const taps = { abil: 0, ok: 0, acast: 0, reasons: {} };
+  const odd = [];
+  const mk = (slot) => new Lockstep({
+    start: ABILITIES_START,
+    mySlot: slot,
+    now: () => clock.t,
+    hooks: {
+      onApplied: (c, r) => {
+        if (slot !== 0) return;
+        if (c.k === 'abil') {
+          taps.abil++;
+          if (r.ok) taps.ok++;
+          else {
+            taps.reasons[r.reason] = (taps.reasons[r.reason] || 0) + 1;
+            if (!ABIL_REASONS.includes(r.reason)) odd.push(`abil@${c.t}:${r.reason}`);
+          }
+        } else if (c.k === 'acast') {
+          taps.acast++;
+          if (!r.ok) odd.push(`acast@${c.t}:${r.reason}`);
+        } else if (!r.ok && c.k !== 'hlv' && c.k !== 'upg' && !(c.k === 'place' && r.reason === 'cash')) odd.push(`${c.k}@${c.t}:${r.reason}`);
+      },
+    },
+    send: (msg) => queue.push({ at: frame + Math.floor(rng.next() * 10), seq: queue.length, to: 1 - slot, msg: JSON.parse(JSON.stringify(msg)) }),
+  });
+  const [A, B] = [mk(0), mk(1)];
+  const clients = [A, B];
+  const girls = [['aoi', 'akane', 'momo', 'hotaru', 'midori'], ['yuki', 'rei', 'miko', 'sango', 'shiro']];
+  // land spots (two each: the second when the first is taken); Nami and Sango stand on the water
+  const spots = { ...spotsFor(ABILITIES_START, ['luna', ...girls[0], 'yuki', 'rei', 'miko', 'shiro'], 2), ...spotsFor(ABILITIES_START, ['nami', 'sango'], 2, { water: true }) };
+  // [slot, unitId, spots, retry frame]: a place her view could afford can still meet a wallet that
+  // changed by its tick (refused 'cash'): she is tried again until she stands
+  const want = [];
+  for (let i = 0; i < 5; i++) for (const slot of [0, 1]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
+  const seen = [new Map(), new Map()];
+  const byKind = {};
+  const byOwner = [0, 0];
+  let ck = null;
+  let turn = 0;
+  let guestTurn = 0;
+  const toggles = { momo: false, off: false, on: false };
+  const mine = (c) => c.sim.towers.filter((t) => c.coop.isMine(t.uid));
+  while (frame < maxFrames && !(A.finished && B.finished) && Math.min(A.sim.wavesCleared, B.sim.wavesCleared) < toWave) {
+    if (frame === 4) A.queue('place', ['luna', ...spots.luna[0]]);
+    if (frame === 5) B.queue('place', ['nami', ...spots.nami[0]]);
+    if (frame === 20) A.queue('auto', [true]);
+    if (frame === 21) B.queue('acast', [0, 1]);
+    if (frame === 24) A.queue('wave');
+    if (frame % 15 === 0) {
+      for (let i = want.length - 1; i >= 0; i--) if (mine(clients[want[i][0]]).some((t) => t.unitId === want[i][1])) want.splice(i, 1);
+      for (const w of want) {
+        const [slot, u, list, next] = w;
+        const c = clients[slot];
+        if (frame < next) break;
+        const q = list.find(([qx, qy]) => !c.sim.placementReason(u, qx / 1024, qy / 1024));
+        if (q && c.sim.canPlace(u, q[0] / 1024, q[1] / 1024).ok) {
+          c.queue('place', [u, ...q]);
+          w[3] = frame + 120;
+          break;
+        }
+      }
+    }
+    clients.forEach((c, slot) => {
+      // one ⚡-path tier at a time, each girl to tier 3
+      if (frame % 60 === 30 + slot * 7) {
+        for (const t of mine(c)) {
+          if (t.isHero) continue;
+          const path = abilityPathOf(t.def);
+          if (t.tiers[path] >= 3 || c.sim.upgradeStatus(t.uid, path).locked) continue;
+          c.queue('upg', [t.uid, path]);
+          break;
+        }
+      }
+      // her hero to Lv 8 (her skill at Lv 7)
+      if (frame % 150 === 75 + slot * 10 && c.sim.hero && c.sim.hero.level < 8) {
+        const st = c.sim.heroLevelStatus();
+        if (!st.reason) c.queue('hlv', [st.level + 1, st.price]);
+      }
+    });
+    // the host taps a girl every 7 s, round robin; some group taps, some aimed at the girl herself
+    if (frame % 420 === 210 && A.sim.state === 'wave') {
+      const casters = mine(A).filter((t) => t.abil).sort((p, q) => p.uid - q.uid);
+      if (casters.length) {
+        const t = casters[turn % casters.length];
+        A.queue('abil', abilArgs(t.uid, { group: turn % 3 === 1, aim: turn % 4 === 2 ? [t.x, t.y] : null }));
+        turn++;
+      }
+    }
+    // the guest taps too, every 4 s, one of her girls her view shows ready (Auto waits for its own
+    // moment; a tap fires whenever there is a target)
+    if (frame % 240 === 120 && B.sim.state === 'wave') {
+      const ready = mine(B).filter((t) => t.abil && !t.isHero && B.sim.abilityStatus(t.uid).ready).sort((p, q) => p.uid - q.uid);
+      if (ready.length) B.queue('abil', abilArgs(ready[guestTurn++ % ready.length].uid));
+    }
+    // switches: from wave 4 the host's Momo on Auto; the guest's Shiro off after wave 5, on again after wave 7
+    if (frame % 60 === 0) {
+      const momo = mine(A).find((t) => t.unitId === 'momo' && t.abil);
+      if (momo && !toggles.momo && A.sim.wavesCleared >= 4) {
+        A.queue('acast', [momo.uid, 1]);
+        toggles.momo = true;
+      }
+      const shiro = mine(B).find((t) => t.unitId === 'shiro' && t.abil);
+      if (shiro && !toggles.off && B.sim.wavesCleared >= 5) {
+        B.queue('acast', [shiro.uid, 0]);
+        toggles.off = true;
+      }
+      if (shiro && toggles.off && !toggles.on && B.sim.wavesCleared >= 7) {
+        B.queue('acast', [shiro.uid, 1]);
+        toggles.on = true;
+      }
+    }
+    frame++;
+    clock.t += 1000 / 60;
+    const due = queue.filter((m) => m.at <= frame).sort((a, b) => a.at - b.at || a.seq - b.seq);
+    for (const m of due) {
+      queue.splice(queue.indexOf(m), 1);
+      clients[m.to].receive(m.msg);
+    }
+    clients.forEach((c, i) => {
+      c.advance(1 / 60);
+      for (const [t, hv] of c.hashes) seen[i].set(t, hv);
+      if (i === 0) {
+        for (const ev of c.sim.events) {
+          if (ev.type !== 'ability') continue;
+          byKind[ev.kind] = (byKind[ev.kind] || 0) + 1;
+          byOwner[ev.owner]++;
+        }
+      }
+    });
+    for (const c of clients) c.sim.events.length = 0;
+    if (!ck && A.ck && A.ck.wave >= checkpointAt) ck = { json: JSON.stringify(A.ck.snap), t: A.ck.t, wave: A.ck.wave };
+  }
+  for (let f = 0; f < 30; f++) {
+    frame++;
+    clock.t += 1000 / 60;
+    for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
+    for (const c of clients) c.advance(1 / 60);
+  }
+  const copy = new Lockstep({ start: ABILITIES_START, mySlot: 1, send: () => {}, now: () => 0 });
+  copy.rebuild(ABILITIES_START, A.log, A.tick, ck ? { t: ck.t, snap: JSON.parse(ck.json) } : null);
+  const finalDigest = snapshotDigest(A.coop.snapshot());
+  const ticks = [...seen[0].keys()].filter((t) => seen[1].has(t)).sort((a, b) => a - b);
+  const kinds = Object.keys(byKind).sort();
+  const casts = kinds.reduce((a, k) => a + byKind[k], 0);
+  return {
+    ticks: A.tick,
+    state: A.sim.state,
+    wave: A.sim.wave,
+    cleared: A.sim.wavesCleared,
+    towers: A.sim.towers.map((t) => `${t.unitId}:${t.isHero ? `Lv${t.level}` : t.tiers.join('')}${t.abil ? `+${t.abil.n}` : ''}`).join(' '),
+    casts,
+    kinds: kinds.join(','),
+    byKind: kinds.map((k) => `${k} ${byKind[k]}`).join(' · '),
+    byOwner: byOwner.join('/'),
+    taps: `${taps.abil} abil: ${taps.ok} cast, ${Object.keys(taps.reasons).sort().map((k) => `${taps.reasons[k]} ${k}`).join(', ')} · ${taps.acast} acast`,
+    refused: odd.join(' '),
+    wallets: A.coop.wallets.join('/'),
+    lives: A.sim.lives,
+    final: A.coop.hash(),
+    hashes: bitsHash(ticks.map((t) => seen[0].get(t))),
+    checkpoints: ticks.length,
+    agree: ticks.length > 0 && ticks.every((t) => seen[0].get(t) === seen[1].get(t)),
+    ckWave: ck?.wave ?? -1,
+    ckDigest: ck ? snapshotDigest(ck.json) : 'none',
+    ckSame: !!ck && copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash() && snapshotDigest(copy.coop.snapshot()) === finalDigest,
+    finalDigest,
+    ms: Date.now() - t0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tenka (src/sim/lab.js, zones.js; BUILD_PLAN 6.1 T0–T3): her lab team in co-op, wells and Last Line, a
+// second absorb mid-wave after a checkpoint, the economy weapon (owner decision #146) and a sale
+// ---------------------------------------------------------------------------
+
+// cheap Tenkas (both reach their tier 5 inside the run) and a cheap team, at half damage so the crowds
+// reach her wells and the exit
+const TENKA_STATS = Object.freeze({ costMul: 0.03, damageMul: 0.4 });
+const TENKA_TEAM = Object.freeze({ costMul: 0.2, damageMul: 0.5 });
+const tenkaLoadout = (ids) => ids.map((unitId) => ({ unitId, stats: unitId === 'tenka' ? TENKA_STATS : TENKA_TEAM }));
+/**
+ * The host (P1) brings Tenka for Joint Research and one girl of every lab class; the guest (P2) brings her
+ * own Tenka for Singularity (wells, Last Line) and Rei, who stands in the host's Tenka's range and never joins.
+ */
+export const TENKA_START = Object.freeze({
+  seed: 525252,
+  stageId: '2-5',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: tenkaLoadout(['tenka', 'aoi', 'akane', 'yuki', 'miko', 'momo']), hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: tenkaLoadout(['tenka', 'rei', 'umeko']), hero: null },
+  ],
+});
+
+/**
+ * Legal spots for `units` around a centre (within `maxD` tiles of it, nearest first), ≥ 1.3 tiles from each
+ * other and from `taken` (quantized; the det math), one each.
+ */
+function spotsAround(start, centre, units, maxD, taken) {
+  return withDetMath(() => {
+    const c = createCoopSim(start);
+    const out = {};
+    const cx = centre[0] / 1024;
+    const cy = centre[1] / 1024;
+    for (const u of units) {
+      const cands = [];
+      for (let y = 0.55; y < c.sim.map.height; y += 0.35) {
+        for (let x = 0.55; x < c.sim.map.width; x += 0.35) {
+          const q = quantize(x, y);
+          const qx = q[0] / 1024;
+          const qy = q[1] / 1024;
+          const d2 = (qx - cx) * (qx - cx) + (qy - cy) * (qy - cy);
+          if (d2 > maxD * maxD || taken.some(([tx, ty]) => (tx - qx) * (tx - qx) + (ty - qy) * (ty - qy) < 1.69)) continue;
+          if (c.sim.placementReason(u, qx, qy)) continue;
+          cands.push([d2, q]);
+        }
+      }
+      cands.sort((a, b) => a[0] - b[0] || a[1][1] - b[1][1] || a[1][0] - b[1][0]);
+      if (!cands.length) throw new Error(`[tenka battle] no spot for ${u} within ${maxD} of ${centre}`);
+      out[u] = cands[0][1];
+      taken.push([cands[0][1][0] / 1024, cands[0][1][1] / 1024]);
+    }
+    return out;
+  });
+}
+
+/**
+ * A whole co-op battle with Tenka (TENKA_START on 2-5 Normal, to `toWave` waves cleared). The host places her
+ * Tenka by the road and Aoi (dps), Akane (frag) and Yuki (control) around her; the guest places Rei in her
+ * range too, and her own Tenka down the road. The host buys Focus Lens, Long Rails and, once her three girls
+ * stand, Joint Research (they join her lab team; Rei stays the guest's), then places Miko (support) and Momo
+ * (economy, with Merch Table's interest) beside her and buys Grand Lab. The guest takes her Tenka through
+ * Singularity to Last Line (wells open) and Rapid Cycle / Twin Rails. After the host's wave-`checkpointAt`
+ * checkpoint, the host buys Unified Theory mid-wave (Miko and Momo join: every class has joined, and the
+ * economy weapon pays her wallet), and `saleAfter` waves later sells her Tenka mid-wave (70% of her own coins;
+ * the lab team does not come back), after which the crowds reach the exit and Last Line swallows them. Two
+ * Lockstep clients over the seeded fake network; every state hash collected (they fold her lab, the zones and
+ * the zone timers); the checkpoint restored into a fresh client and replayed through the second absorb and
+ * the sale.
+ */
+export function runTenkaBattle({ toWave = 14, checkpointAt = 7, saleAfter = 2, maxFrames = 60 * 60 * 20 } = {}) {
+  const t0 = Date.now();
+  const rng = createRng(31);
+  const clock = { t: 0 };
+  const queue = [];
+  let frame = 0;
+  const odd = [];
+  const absorbed = [];
+  let sale = null;
+  const mk = (slot) => new Lockstep({
+    start: TENKA_START,
+    mySlot: slot,
+    now: () => clock.t,
+    hooks: {
+      onApplied: (c, r) => {
+        if (slot !== 0) return;
+        // who joined, in which wave and whether mid-wave (from the host's view, at the command's tick)
+        const at = `w${A.sim.wave}${A.sim.state === 'wave' ? ' mid-wave' : ` ${A.sim.state}`}`;
+        if (c.k === 'upg' && r.ok && r.absorbed) absorbed.push(`${c.p}:${r.absorbed.join(',')} (${at})`);
+        if (c.k === 'sell') sale = r.ok ? `${r.refund} (${at})` : `refused ${r.reason}`;
+        // placements and upgrades a wallet could not pay by their tick are tried again
+        if (!r.ok && c.k !== 'upg' && !(c.k === 'place' && r.reason === 'cash')) odd.push(`${c.k}@${c.t}:${r.reason}`);
+      },
+    },
+    send: (msg) => queue.push({ at: frame + Math.floor(rng.next() * 10), seq: queue.length, to: 1 - slot, msg: JSON.parse(JSON.stringify(msg)) }),
+  });
+  const [A, B] = [mk(0), mk(1)];
+  const clients = [A, B];
+  // her Tenka on the spot nearest the road with room for her six (inside 3.8 tiles: in her range of 4 from
+  // Long Rails on); the guest's Tenka on the nearest road spot at least 5 tiles from hers
+  const near = spotsFor(TENKA_START, ['tenka'], 40).tenka;
+  let hostTenka = null;
+  let guestTenka = null;
+  let taken = null;
+  let ring = null;
+  for (const q of near) {
+    const far = near.find(([qx, qy]) => (qx - q[0]) * (qx - q[0]) + (qy - q[1]) * (qy - q[1]) >= 25 * 1024 * 1024);
+    if (!far) continue;
+    const tk = [[q[0] / 1024, q[1] / 1024], [far[0] / 1024, far[1] / 1024]];
+    try {
+      ring = spotsAround(TENKA_START, q, ['aoi', 'akane', 'yuki', 'rei', 'miko', 'momo'], 3.8, tk);
+    } catch {
+      continue;
+    }
+    [hostTenka, guestTenka, taken] = [q, far, tk];
+    break;
+  }
+  const umeko = spotsAround(TENKA_START, guestTenka, ['umeko'], 3, taken).umeko;
+  // [slot, unitId, spot, retry frame]; the second wave of the host's girls waits for Joint Research
+  const want = [[0, 'tenka', hostTenka, 0], [1, 'tenka', guestTenka, 0], [1, 'rei', ring.rei, 0], [0, 'aoi', ring.aoi, 0], [0, 'akane', ring.akane, 0], [0, 'yuki', ring.yuki, 0], [1, 'umeko', umeko, 0]];
+  const later = [[0, 'miko', ring.miko, 0], [0, 'momo', ring.momo, 0]];
+  const seen = [new Map(), new Map()];
+  const count = { labJoin: 0, labFrag: 0, zoneOpen: 0, lastLine: 0, swallow: 0, labCash: 0 };
+  const joins = [];
+  let members = 'none'; // her lab's girls per class after the last absorb (labJoin), LAB_CLASSES order
+  let ck = null;
+  let unified = null; // the tick Unified Theory was queued at
+  let utWave = 0; // the wave she bought it in
+  let saleQueued = false;
+  const mine = (c) => c.sim.towers.filter((t) => c.coop.isMine(t.uid));
+  const tenkaOf = (c) => mine(c).find((t) => t.unitId === 'tenka');
+  while (frame < maxFrames && !(A.finished && B.finished) && Math.min(A.sim.wavesCleared, B.sim.wavesCleared) < toWave) {
+    if (frame === 20) A.queue('auto', [true]);
+    if (frame === 24) A.queue('wave');
+    if (frame % 15 === 0) {
+      for (const list of [want, later]) for (let i = list.length - 1; i >= 0; i--) if (mine(clients[list[i][0]]).some((t) => t.unitId === list[i][1])) list.splice(i, 1);
+      const hostTk = tenkaOf(A);
+      if (hostTk?.lab && later.length) want.push(...later.splice(0));
+      for (const w of want) {
+        const [slot, u, [qx, qy], next] = w;
+        const c = clients[slot];
+        if (frame < next || !c.sim.canPlace(u, qx / 1024, qy / 1024).ok) continue;
+        c.queue('place', [u, qx, qy]);
+        w[3] = frame + 120;
+        break;
+      }
+    }
+    clients.forEach((c, slot) => {
+      if (frame % 60 !== 30 + slot * 7) return;
+      const t = tenkaOf(c);
+      if (!t) return;
+      let path = -1;
+      if (slot === 1) {
+        // the guest: Singularity to Last Line, then Rapid Cycle and Twin Rails; her Umeko's first tier
+        path = t.tiers[2] < 5 ? 2 : t.tiers[1] < 2 ? 1 : -1;
+        const um = mine(c).find((x) => x.unitId === 'umeko');
+        if (path < 0 && um && um.tiers[0] < 1 && !c.sim.upgradeStatus(um.uid, 0).locked) c.queue('upg', [um.uid, 0]);
+      } else {
+        const team = mine(c).filter((x) => x.unitId !== 'tenka').map((x) => x.unitId);
+        const momo = mine(c).find((x) => x.unitId === 'momo');
+        if (t.tiers[0] < 2) path = 0;
+        // Joint Research once Aoi, Akane and Yuki stand; Momo's Merch Table (interest), then Grand Lab
+        else if (t.tiers[0] === 2 && ['aoi', 'akane', 'yuki'].every((u) => team.includes(u))) path = 0;
+        else if (momo && momo.tiers[1] < 2) {
+          if (!c.sim.upgradeStatus(momo.uid, 1).locked) c.queue('upg', [momo.uid, 1]);
+        } else if (t.tiers[0] === 3 && team.includes('miko') && momo) path = 0;
+      }
+      if (path >= 0 && !c.sim.upgradeStatus(t.uid, path).locked) c.queue('upg', [t.uid, path]);
+    });
+    // after the checkpoint, Unified Theory mid-wave (8 s into a wave), tried until it is bought
+    const ht = tenkaOf(A);
+    if (ck && ht && ht.tiers[0] === 4 && A.sim.state === 'wave' && A.sim._waveTime > 8 && (unified == null || A.tick > unified + 120)
+      && !A.sim.upgradeStatus(ht.uid, 0).locked) {
+      A.queue('upg', [ht.uid, 0]);
+      unified = A.tick;
+    }
+    // `saleAfter` waves after Unified Theory, she is sold 10 s into a wave
+    if (ht && ht.tiers[0] === 5 && !utWave) utWave = A.sim.wave;
+    if (ht && utWave && !saleQueued && A.sim.state === 'wave' && A.sim._waveTime > 10 && A.sim.wave >= utWave + saleAfter) {
+      A.queue('sell', [ht.uid]);
+      saleQueued = true;
+    }
+    frame++;
+    clock.t += 1000 / 60;
+    const due = queue.filter((m) => m.at <= frame).sort((a, b) => a.at - b.at || a.seq - b.seq);
+    for (const m of due) {
+      queue.splice(queue.indexOf(m), 1);
+      clients[m.to].receive(m.msg);
+    }
+    clients.forEach((c, i) => {
+      c.advance(1 / 60);
+      for (const [t, hv] of c.hashes) seen[i].set(t, hv);
+      if (i === 0) {
+        for (const ev of c.sim.events) {
+          if (ev.type === 'labJoin') {
+            count.labJoin++;
+            joins.push(`r${ev.round}:${ev.uids.length}`);
+            members = LAB_CLASSES.map((cls) => `${cls}:${ev.members[cls]}`).join(' ');
+          } else if (ev.type === 'zoneOpen') {
+            count.zoneOpen++;
+            if (ev.kind === 'lastLine') count.lastLine++;
+          } else if (ev.type === 'labFrag' || ev.type === 'swallow') count[ev.type]++;
+          else if (ev.type === 'cash' && ev.reason === 'lab') count.labCash += ev.amount;
+        }
+      }
+    });
+    for (const c of clients) c.sim.events.length = 0;
+    if (!ck && A.ck && A.ck.wave >= checkpointAt) ck = { json: JSON.stringify(A.ck.snap), t: A.ck.t, wave: A.ck.wave };
+  }
+  for (let f = 0; f < 30; f++) {
+    frame++;
+    clock.t += 1000 / 60;
+    for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
+    for (const c of clients) c.advance(1 / 60);
+  }
+  const copy = new Lockstep({ start: TENKA_START, mySlot: 1, send: () => {}, now: () => 0 });
+  copy.rebuild(TENKA_START, A.log, A.tick, ck ? { t: ck.t, snap: JSON.parse(ck.json) } : null);
+  const finalDigest = snapshotDigest(A.coop.snapshot());
+  const ticks = [...seen[0].keys()].filter((t) => seen[1].has(t)).sort((a, b) => a - b);
+  const st = A.sim.stats;
+  return {
+    ticks: A.tick,
+    state: A.sim.state,
+    wave: A.sim.wave,
+    cleared: A.sim.wavesCleared,
+    towers: A.sim.towers.map((t) => `${A.coop.ownerOf(t.uid) ?? '-'}:${t.unitId}:${t.tiers.join('')}`).join(' '),
+    absorbed: absorbed.join(' '),
+    joins: joins.join(' '),
+    joined: st.labJoined || 0,
+    // who her lab team was by class, after the second absorb (her lab is sold before the run ends)
+    members,
+    labFrags: count.labFrag,
+    labCash: count.labCash,
+    wells: st.wells || 0,
+    lastLines: st.lastLines || 0,
+    swallowed: st.swallowed || 0,
+    sale: String(sale),
+    refused: odd.join(' '),
+    wallets: A.coop.wallets.join('/'),
+    lives: A.sim.lives,
+    final: A.coop.hash(),
+    finalB: B.coop.hash(),
+    hashes: bitsHash(ticks.map((t) => seen[0].get(t))),
+    checkpoints: ticks.length,
+    agree: ticks.length > 0 && ticks.every((t) => seen[0].get(t) === seen[1].get(t)) && A.coop.hash() === B.coop.hash(),
+    ckWave: ck?.wave ?? -1,
+    ckDigest: ck ? snapshotDigest(ck.json) : 'none',
+    ckSame: !!ck && copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash() && snapshotDigest(copy.coop.snapshot()) === finalDigest,
+    finalDigest,
+    ms: Date.now() - t0,
+  };
+}
+
+/**
+ * What a runTenkaBattle result must have exercised, beyond matching its pins (e2e/engines.mjs and
+ * tests/online/engines.test.js both check it, so a re-pin cannot quietly lose it): both absorbs, a girl of
+ * EVERY lab class in her team (a role moved to another category would leave one empty), her grenades and
+ * the economy weapon's coins, the guest's wells and Last Line, and a mid-wave sale.
+ * @returns {string[]} what is missing (empty: all of it ran)
+ */
+export function tenkaCoverage(b) {
+  const miss = [];
+  if (!(b.joined >= 5) || String(b.joins).split(' ').length < 2) miss.push(`her lab team: ${b.joins}, ${b.joined} joined (want both absorbs)`);
+  const n = {};
+  for (const [, cls, k] of String(b.members).matchAll(/(\w+):(\d+)/g)) n[cls] = Number(k);
+  const none = LAB_CLASSES.filter((cls) => !(n[cls] > 0));
+  if (none.length) miss.push(`her lab team (${b.members}): nobody joined as ${none.join(', ')}`);
+  if (!(b.labFrags > 0)) miss.push('her lab never threw a grenade');
+  if (!(b.labCash > 0)) miss.push('her economy weapon never paid');
+  if (!(b.wells > 0 && b.lastLines > 0 && b.swallowed > 0)) miss.push(`wells ${b.wells}, Last Lines ${b.lastLines}, swallowed ${b.swallowed}`);
+  if (!/mid-wave/.test(b.sale)) miss.push(`her sale: ${b.sale}`);
+  return miss;
+}
+
+// ---------------------------------------------------------------------------
 // The returning girls (roster B3, track 5): relay origins, two firing points, grounding + Air,
 // gather and the push lock, curse spread with the burst budget, the sky-dragon runner, the hexing
 // tide and the co-op `aim` command, in one co-op battle on a flyer stage
@@ -814,7 +1302,7 @@ export function runRosterBattle({ checkpointAt = 6, toWave = 14, maxFrames = 60 
   let ck = null;
   let aims = 0;
   let ults = 0;
-  const mech = { curseBurst: 0, runner: 0, relay: 0 };
+  const mech = { curseBurst: 0, runner: 0, relay: 0, abilityUnlock: 0, ability: 0 };
   const mine = (c, u) => c.sim.towers.find((t) => t.unitId === u && c.coop.isMine(t.uid));
   while (frame < maxFrames && !(A.finished && B.finished) && A.sim.wave < toWave) {
     if (frame === 20) A.queue('auto', [true]);
@@ -892,6 +1380,9 @@ export function runRosterBattle({ checkpointAt = 6, toWave = 14, maxFrames = 60 
     curseBursts: mech.curseBurst,
     runners: mech.runner,
     relays: mech.relay,
+    // (A3 M3: the returning girls' abilities unlock here — on both clients' girls — and are never cast)
+    abilityUnlocks: mech.abilityUnlock,
+    abilityCasts: mech.ability,
     lives: A.sim.lives,
     wallets: A.coop.wallets.join('/'),
     final: A.coop.hash(),
@@ -901,6 +1392,210 @@ export function runRosterBattle({ checkpointAt = 6, toWave = 14, maxFrames = 60 
     agree: ticks.every((t) => seen[0].get(t) === seen[1].get(t)) && (A.tick !== B.tick || A.coop.hash() === B.coop.hash()),
     agreeTicks: ticks.every((t) => seen[0].get(t) === seen[1].get(t)),
     tickGap: A.tick - B.tick,
+    ckWave: ck?.wave ?? -1,
+    ckDigest: ck ? snapshotDigest(ck.json) : 'none',
+    ckSame: !!ck && copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash() && snapshotDigest(copy.coop.snapshot()) === finalDigest,
+    finalDigest,
+    ms: Date.now() - t0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The returning girls' abilities (A3 M3): Kaze's Swoop, Moon Pounce from Kon's spot, First Aid Call (lives from
+// kills), Omen Card (curse bursts), Puppet Hex and Storm Lance (hero skills, ranked at Lv 17), in one co-op battle
+// ---------------------------------------------------------------------------
+
+// cheap (every girl reaches her ⚡ tier 5 inside the run); the girls arrive after wave 1, which leaks a little with
+// only the two heroes out, so First Aid Call has lives to bring back
+const RETURNING_ABIL_STATS = Object.freeze({ costMul: 0.06, damageMul: 0.8, rateMul: 1.1 });
+// (the heroes start weak: alone in wave 1 they let some through)
+const RETURNING_ABIL_HERO = Object.freeze({ costMul: 0.06, damageMul: 0.15 });
+const retLoadout = (ids) => ids.map((unitId) => ({ unitId, stats: RETURNING_ABIL_STATS }));
+/** The host brings Hana, Ruri (Moonhound), Noa and Seiran and taps by hand; the guest Ena, Aoi and Yoriko on Auto-cast. */
+export const RETURNING_ABIL_START = Object.freeze({
+  seed: 535353,
+  stageId: '2-5',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: retLoadout(['hana', 'ruri', 'noa']), hero: { unitId: 'seiran', stats: RETURNING_ABIL_HERO } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: retLoadout(['ena', 'aoi']), hero: { unitId: 'yoriko', stats: RETURNING_ABIL_HERO } },
+  ],
+});
+/** The returning abilities that run (the scenario must cast each of them). */
+export const RETURNING_ABIL_IDS = Object.freeze(['ena.omenCard', 'hana.swoop', 'noa.firstAid', 'ruri.moonPounce', 'seiran.stormLance', 'yoriko.puppetHex']);
+
+/**
+ * A whole co-op battle with the returning girls' abilities (2-5 Normal, to `toWave` waves cleared): the two heroes
+ * alone through wave 1 (a life slips through), then every girl to her ⚡ tier 3 (tier 5 from wave 6 when her coins
+ * allow) around Noa; both heroes to Lv 7, then Lv 18 (the Lv 17 ranks). The host taps one of her casters every 4 s
+ * in a round robin (Seiran's lance through her hero's uid; some group taps; many land on a recharging girl or find
+ * nothing and are refused) and fires Noa's First Aid Call when 6 enemies stand within 3 tiles of her (her view's
+ * count), so its kills bring a life back; the guest plays on Auto-cast (`acast[0, 1]`) and taps her ready girls every
+ * 5 s. Two Lockstep clients over the seeded fake network; the host's checkpoint after wave `checkpointAt` restored
+ * into a fresh client and replayed. `byId` counts the `ability` events per ability; `crowd` / `rallyKills` (the most
+ * enemies by Noa, the most kills one rally counted) say how close the lives part came.
+ */
+export function runReturningAbilBattle({ toWave = 14, checkpointAt = 8, maxFrames = 60 * 60 * 20, start = RETURNING_ABIL_START } = {}) {
+  const t0 = Date.now();
+  const rng = createRng(31);
+  const clock = { t: 0 };
+  const queue = [];
+  let frame = 0;
+  const taps = { abil: 0, ok: 0, reasons: {} };
+  const odd = [];
+  const mk = (slot) => new Lockstep({
+    start,
+    mySlot: slot,
+    now: () => clock.t,
+    hooks: {
+      onApplied: (c, r) => {
+        if (slot !== 0) return;
+        if (c.k === 'abil') {
+          taps.abil++;
+          if (r.ok) taps.ok++;
+          else {
+            taps.reasons[r.reason] = (taps.reasons[r.reason] || 0) + 1;
+            if (!ABIL_REASONS.includes(r.reason)) odd.push(`abil@${c.t}:${r.reason}`);
+          }
+        } else if (c.k === 'acast' && !r.ok) odd.push(`acast@${c.t}:${r.reason}`);
+        else if (!r.ok && c.k !== 'hlv' && c.k !== 'upg' && !(c.k === 'place' && r.reason === 'cash')) odd.push(`${c.k}@${c.t}:${r.reason}`);
+      },
+    },
+    send: (msg) => queue.push({ at: frame + Math.floor(rng.next() * 10), seq: queue.length, to: 1 - slot, msg: JSON.parse(JSON.stringify(msg)) }),
+  });
+  const [A, B] = [mk(0), mk(1)];
+  const clients = [A, B];
+  const girls = [['hana', 'ruri', 'noa'], ['ena', 'aoi']];
+  // Noa takes the spot nearest the road and the four damage girls the nearest free spots around her, so the killing
+  // happens at her feet and her rally's kills can bring lives back; the heroes take the next road spots
+  const spots = spotsFor(start, ['noa', 'seiran', 'yoriko'], 3);
+  const taken = Object.values(spots).flat().map(([qx, qy]) => [qx / 1024, qy / 1024]);
+  const around = spotsAround(start, spots.noa[0], ['hana', 'ena', 'aoi', 'ruri'], 6, taken);
+  for (const u of ['hana', 'ena', 'aoi', 'ruri']) spots[u] = [around[u]];
+  const want = [];
+  for (let i = 0; i < 3; i++) for (const slot of [0, 1]) if (girls[slot][i]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
+  const seen = [new Map(), new Map()];
+  const byId = {};
+  const mech = { lifeRestored: 0, curseBurst: 0, hexed: 0, crowd: 0, rallyKills: 0 };
+  let ck = null;
+  let turn = 0;
+  let guestTurn = 0;
+  const NOA_CROWD = 6;
+  const mine = (c) => c.sim.towers.filter((t) => c.coop.isMine(t.uid));
+  while (frame < maxFrames && !(A.finished && B.finished) && Math.min(A.sim.wavesCleared, B.sim.wavesCleared) < toWave) {
+    if (frame === 4) A.queue('place', ['seiran', ...spots.seiran[0]]);
+    if (frame === 5) B.queue('place', ['yoriko', ...spots.yoriko[0]]);
+    if (frame === 20) A.queue('auto', [true]);
+    if (frame === 21) B.queue('acast', [0, 1]);
+    if (frame === 24) A.queue('wave');
+    if (frame % 15 === 0 && A.sim.wavesCleared >= 1) {
+      for (let i = want.length - 1; i >= 0; i--) if (mine(clients[want[i][0]]).some((t) => t.unitId === want[i][1])) want.splice(i, 1);
+      for (const w of want) {
+        const [slot, u, list, next] = w;
+        const c = clients[slot];
+        if (frame < next) break;
+        const q = list.find(([qx, qy]) => !c.sim.placementReason(u, qx / 1024, qy / 1024));
+        if (q && c.sim.canPlace(u, q[0] / 1024, q[1] / 1024).ok) {
+          c.queue('place', [u, ...q]);
+          w[3] = frame + 120;
+          break;
+        }
+      }
+    }
+    clients.forEach((c, slot) => {
+      // one ⚡-path tier at a time: each girl to tier 3, then to tier 5 from wave 6
+      if (frame % 60 === 30 + slot * 7) {
+        const cap = c.sim.wavesCleared >= 6 ? 5 : 3;
+        for (const t of mine(c)) {
+          if (t.isHero) continue;
+          const path = abilityPathOf(t.def);
+          if (t.tiers[path] >= cap || c.sim.upgradeStatus(t.uid, path).locked) continue;
+          c.queue('upg', [t.uid, path]);
+          break;
+        }
+      }
+      // her hero to Lv 8 (her skill at Lv 7), then to Lv 18 from wave 6 (its rank at Lv 17)
+      const lv = c.sim.wavesCleared >= 6 ? 18 : 8;
+      if (frame % 150 === 75 + slot * 10 && c.sim.hero && c.sim.hero.level < lv) {
+        const st = c.sim.heroLevelStatus();
+        if (!st.reason) c.queue('hlv', [st.level + 1, st.price]);
+      }
+    });
+    // the host taps one of her casters every 4 s, round robin (her hero too); some group taps. Noa waits for a crowd
+    // at her feet (8 enemies within 3 tiles: her view's count), so her rally's kills can bring a life back
+    if (frame % 240 === 200 && A.sim.state === 'wave') {
+      const casters = mine(A).filter((t) => t.abil && t.unitId !== 'noa').sort((p, q) => p.uid - q.uid);
+      if (casters.length) {
+        const t = casters[turn % casters.length];
+        A.queue('abil', abilArgs(t.uid, { group: turn % 3 === 1 }));
+        turn++;
+      }
+    }
+    const noa = frame % 10 === 5 && A.sim.state === 'wave' ? mine(A).find((t) => t.unitId === 'noa' && t.abil) : null;
+    const crowd = noa ? A.sim.enemies.filter((e) => !e.dead && !e.hidden && (e.x - noa.x) * (e.x - noa.x) + (e.y - noa.y) * (e.y - noa.y) <= 9).length : 0;
+    if (crowd > mech.crowd) mech.crowd = crowd;
+    for (const r of A.sim._rallies) if (r.life && r.life.kills > mech.rallyKills) mech.rallyKills = r.life.kills;
+    if (noa && crowd >= NOA_CROWD && A.sim.abilityStatus(noa.uid).ready) A.queue('abil', abilArgs(noa.uid));
+    // the guest taps one of her ready girls every 5 s (Auto waits for its own moment)
+    if (frame % 300 === 150 && B.sim.state === 'wave') {
+      const ready = mine(B).filter((t) => t.abil && B.sim.abilityStatus(t.uid).ready).sort((p, q) => p.uid - q.uid);
+      if (ready.length) B.queue('abil', abilArgs(ready[guestTurn++ % ready.length].uid));
+    }
+    frame++;
+    clock.t += 1000 / 60;
+    const due = queue.filter((m) => m.at <= frame).sort((a, b) => a.at - b.at || a.seq - b.seq);
+    for (const m of due) {
+      queue.splice(queue.indexOf(m), 1);
+      clients[m.to].receive(m.msg);
+    }
+    clients.forEach((c, i) => {
+      c.advance(1 / 60);
+      for (const [t, hv] of c.hashes) seen[i].set(t, hv);
+      if (i === 0) {
+        for (const ev of c.sim.events) {
+          if (ev.type === 'ability') byId[ev.id] = (byId[ev.id] || 0) + 1;
+          else if (ev.type === 'lifeRestored' && ev.id) mech.lifeRestored++;
+          else if (ev.type === 'curseBurst') mech.curseBurst++;
+          else if (ev.type === 'status' && ev.status === 'hex') mech.hexed++;
+        }
+      }
+    });
+    for (const c of clients) c.sim.events.length = 0;
+    if (!ck && A.ck && A.ck.wave >= checkpointAt) ck = { json: JSON.stringify(A.ck.snap), t: A.ck.t, wave: A.ck.wave };
+  }
+  for (let f = 0; f < 30; f++) {
+    frame++;
+    clock.t += 1000 / 60;
+    for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
+    for (const c of clients) c.advance(1 / 60);
+  }
+  const copy = new Lockstep({ start, mySlot: 1, send: () => {}, now: () => 0 });
+  copy.rebuild(start, A.log, A.tick, ck ? { t: ck.t, snap: JSON.parse(ck.json) } : null);
+  const finalDigest = snapshotDigest(A.coop.snapshot());
+  const ticks = [...seen[0].keys()].filter((t) => seen[1].has(t)).sort((a, b) => a - b);
+  const ids = Object.keys(byId).sort();
+  return {
+    ticks: A.tick,
+    state: A.sim.state,
+    wave: A.sim.wave,
+    cleared: A.sim.wavesCleared,
+    towers: A.sim.towers.map((t) => `${t.owner}:${t.unitId}:${t.isHero ? `Lv${t.level}` : t.tiers.join('')}${t.abil ? `+${t.abil.n}${t.abil.t5 ? '*' : ''}` : ''}`).join(' '),
+    casts: ids.reduce((a, k) => a + byId[k], 0),
+    ids: ids.join(','),
+    byId: ids.map((k) => `${k} ${byId[k]}`).join(' · '),
+    lifeRestored: mech.lifeRestored,
+    curseBursts: mech.curseBurst,
+    hexed: mech.hexed,
+    crowd: mech.crowd,
+    rallyKills: mech.rallyKills,
+    taps: `${taps.abil} abil: ${taps.ok} cast, ${Object.keys(taps.reasons).sort().map((k) => `${taps.reasons[k]} ${k}`).join(', ')}`,
+    refused: odd.join(' '),
+    wallets: A.coop.wallets.join('/'),
+    lives: A.sim.lives,
+    final: A.coop.hash(),
+    hashes: bitsHash(ticks.map((t) => seen[0].get(t))),
+    checkpoints: ticks.length,
+    agree: ticks.length > 0 && ticks.every((t) => seen[0].get(t) === seen[1].get(t)),
     ckWave: ck?.wave ?? -1,
     ckDigest: ck ? snapshotDigest(ck.json) : 'none',
     ckSame: !!ck && copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash() && snapshotDigest(copy.coop.snapshot()) === finalDigest,
@@ -1378,7 +2073,7 @@ export function runGlowBowlBattle({ maxFrames = 60 * 60 * 10 } = {}) {
   return r;
 }
 
-/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), freeplay (scripted and deep), two heroes, drones and the mode battles. */
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t1 = Date.now();
@@ -1392,5 +2087,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), modes };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), modes };
 }

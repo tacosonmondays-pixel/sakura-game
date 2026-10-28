@@ -1,7 +1,7 @@
 // Builds the Sim configuration from the player's profile (formation + unitBattleStats).
 import { Sim } from '../../sim/Sim.js';
 import { UNIT_MAP } from '../../data/units.js';
-import { STAGE_MAP, CAMPAIGN_IDS } from '../../data/stages.js';
+import { STAGE_MAP, nextInAct } from '../../data/stages.js';
 import { DIFFICULTIES, BATTLE } from '../../data/types.js';
 import { unitBattleStats } from '../../systems/progression.js';
 import { isOwned, isPracticeRun, canPlayEndless, modesUnlocked } from '../../systems/unlocks.js';
@@ -121,6 +121,12 @@ function eventPracticeNote(gate, difficulty) {
 }
 
 /**
+ * Settings → Battle → Auto-cast abilities (Off by default) as the Sim's option: only when on, so a battle with the
+ * setting off builds exactly the Sim it always did (the battle save's restore reads the same setting: snapshot.js).
+ */
+export const autoAbilities = (profile) => (profile?.settings?.autoCastAbilities ? { autoAbilities: true } : {});
+
+/**
  * Creates the Sim for a battle. `cfg` is what a battle save freezes at New game: the run seed
  * and the team's battle stats as they are now (Continue never reads the live profile again).
  * @param {object} profile
@@ -128,14 +134,14 @@ function eventPracticeNote(gate, difficulty) {
  */
 export function createBattleSim(profile, req) {
   const seed = (req.seed ?? (Date.now() ^ Math.floor(performance.now() * 1000))) >>> 0;
-  if (req.sandbox) return createSandboxSim(req, seed);
+  if (req.sandbox) return createSandboxSim(req, seed, profile);
   const { towers, hero } = resolveFormation(profile);
   const loadout = towers.map((unitId) => ({ unitId, stats: unitBattleStats(profile, unitId) }));
   const heroEntry = hero ? { unitId: hero, stats: unitBattleStats(profile, hero) } : null;
   if (req.titan) {
     // Titan Trials: the titan's stage and enemy overrides through the Sim's data hook (no hashed file)
     const { stage, enemies } = req.titan.battle;
-    const sim = new Sim({ stageId: stage.id, difficulty: 'normal', loadout, hero: heroEntry, seed, options: { autoStart: !!profile.settings?.autoStart }, data: { stage, enemies } });
+    const sim = new Sim({ stageId: stage.id, difficulty: 'normal', loadout, hero: heroEntry, seed, options: { autoStart: !!profile.settings?.autoStart, ...autoAbilities(profile) }, data: { stage, enemies } });
     return { sim, towers, hero, seed, cfg: null };
   }
   // solo freeplay: the campaign stage with the tier's table (src/data/freeplaySolo.js); [events] a
@@ -148,7 +154,7 @@ export function createBattleSim(profile, req) {
     loadout,
     hero: heroEntry,
     seed,
-    options: { endless: !!req.endless, autoStart: !!profile.settings?.autoStart, mode: fpStage ? 'standard' : modeId(req.mode), ...(fpStage ? { freeplay: true } : {}) },
+    options: { endless: !!req.endless, autoStart: !!profile.settings?.autoStart, mode: fpStage ? 'standard' : modeId(req.mode), ...(fpStage ? { freeplay: true } : {}), ...autoAbilities(profile) },
     ...(fpStage || evStage ? { data: { stage: fpStage || evStage } } : {}),
   });
   return { sim, towers, hero, seed, cfg: { seed, loadout, hero: heroEntry } };
@@ -174,7 +180,7 @@ export function resumeBattleSim(profile, rec) {
  * Sandbox: the chosen girls at their best (owned or not), endless waves that only start when asked,
  * and a 999,999-coin purse.
  */
-function createSandboxSim(req, seed) {
+function createSandboxSim(req, seed, profile = null) {
   const { towers, hero } = sandboxFormation(req.team, req.hero);
   const sim = new Sim({
     stageId: req.stageId,
@@ -182,17 +188,19 @@ function createSandboxSim(req, seed) {
     loadout: towers.map((unitId) => ({ unitId, stats: sandboxUnitStats(unitId) })),
     hero: hero ? { unitId: hero, stats: sandboxUnitStats(hero) } : null,
     seed,
-    options: { endless: true, autoStart: false },
+    options: { endless: true, autoStart: false, ...autoAbilities(profile) },
   });
   sim.cash = SANDBOX_COINS;
   // (cfg is what a battle save would freeze; a sandbox run is never saved, isSavableRun)
   return { sim, towers, hero, seed, cfg: null };
 }
 
-/** The campaign stage after `stageId` (null for the last stage / non-campaign stages). */
+/**
+ * The campaign stage after `stageId` in the same act, for the results screen's Next button (stages.js nextInAct):
+ * Act I 1-5 → 2-1 and 8-5 → null (never 1-6); Act II x-10 → (c+1)-6 when it exists. Null for non-campaign stages.
+ */
 export function followingStage(stageId) {
-  const i = CAMPAIGN_IDS.indexOf(stageId);
-  return i >= 0 && i < CAMPAIGN_IDS.length - 1 ? CAMPAIGN_IDS[i + 1] : null;
+  return nextInAct(stageId);
 }
 
 /** Route that "Back to map" leads to for a stage kind (shared with the back arrow: src/ui/nav.js). */

@@ -116,6 +116,21 @@
 .gp-line .lbl { color: var(--pink-text); margin-right: 2px; }
 .gp-line-crown { width: 16px; height: 16px; display: inline-grid; color: #d6336c; vertical-align: -3px; margin-right: 4px; }
 .gp-line-crown svg { width: 100%; height: 100%; }
+/* her ⚡ ability: one line on an ink plate that opens its Details (ABILITIES_SPEC §10) */
+.gp-abil {
+  display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 40px; margin: 0 0 var(--sp-2); padding: 0 var(--sp-2) 0 var(--sp-3);
+  border: 0; border-radius: var(--radius-plate); background: var(--plate); color: var(--on-plate); text-align: left; cursor: pointer;
+}
+.gp-abil-text { min-width: 0; font: italic 900 var(--fs-body)/1.2 var(--font-head); }
+.gp-abil .ui-sticker { flex: none; }
+.gp-abil .gp-chev { color: var(--on-plate-dim); }
+.gp-abil.later .gp-abil-text { color: var(--on-plate-dim); }
+.gp-abil-later { display: flex; align-items: center; gap: 4px; font-weight: 800; color: var(--ink); }
+/* one ability per path (Ruri): each section headed by its name and its path */
+.gp-abil-form { display: flex; align-items: center; gap: 4px; margin: var(--sp-3) 0 var(--sp-1); font: italic 900 var(--fs-body)/1.2 var(--font-head); color: var(--ink); }
+.gp-abil-form .gp-abil-path { font: 700 var(--fs-body)/1.2 var(--font); font-style: normal; color: var(--muted); }
+/* the kit bolt in the Details sheet's words (white glass): the deeper yellow with a thin ink edge */
+.gp-details .kit-bolt { color: var(--yellow-deep); filter: drop-shadow(0 0 0.6px var(--ink)); }
 /* matchup: ▲▲ / ▲ / ▼ with the armor word; the arrow carries the meaning, not only the colour */
 .gp-mu-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px var(--sp-2); }
 .gp-mu { display: flex; align-items: center; gap: 6px; min-height: 26px; font: 700 var(--fs-body)/1.1 var(--font); color: var(--ink); }
@@ -331,6 +346,11 @@
 .gk-pips i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--club, var(--muted-line)); }
 .gk-pips i.on { background: var(--club, var(--muted-line)); }
 .gk-set-on { font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--ink); }
+/* a full set whose trick does nothing for her kit (trickIdle): flat grey, never opacity (VAULT_BRIEF §2.4); ink text */
+.gk-set.idle { border-color: #b9bebd; background: #d8dbda; }
+.gk-set.idle .gk-pips i { border-color: #6f7675; }
+.gk-set.idle .gk-pips i.on { background: #6f7675; }
+.gk-set-idle { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--ink); }
 
 /* ---------- Sheets: the slot sheet, a piece's Details, the gear totals ---------- */
 .ui-sheet.gk-sheet { width: min(100%, 960px); background: #fbfdff; }
@@ -413,6 +433,7 @@
 .gk-set-head { display: flex; align-items: center; gap: var(--sp-2); }
 .gk-setline { margin: 0; display: flex; align-items: center; gap: 6px; font: 500 var(--fs-body)/var(--lh-body) var(--font); color: var(--muted); }
 .gk-setline.on { color: var(--ink); font-weight: 700; }
+.gk-setline.idle { color: var(--ink); }
 .gk-setline .ui-sticker { flex: none; min-width: 26px; justify-content: center; }
 .gk-fill-row { display: flex; align-items: center; gap: var(--sp-2); font: 700 var(--fs-body)/1.2 var(--font); color: var(--good-text); }
 .gk-fill-row .gk-bar { max-width: 180px; }
@@ -448,7 +469,6 @@
 .mb-book.on { border-color: var(--yellow-deep); background: #fffbe6; box-shadow: 0 0 0 2px rgba(255, 221, 74, 0.45); }
 .mb-book.none .mb-book-name { color: var(--muted); }
 .mb-book-name { font: 800 var(--fs-body)/1.15 var(--font); color: var(--ink); }
-.mb-book .item-count { font-size: var(--fs-label); }
 .mb-stepper { display: flex; align-items: center; gap: 4px; }
 .mb-step { width: var(--tap-dense); height: var(--tap-dense); border: 0; border-radius: 8px; background: var(--plate); color: var(--on-plate); font: 900 var(--fs-name)/1 var(--font); }
 .mb-step:disabled { opacity: 1; background: var(--sky-1); color: var(--muted); }
@@ -507,3 +527,70 @@
 .mb-aw-crown { width: 24px; height: 24px; }
 .mb-aw-bonus { font: 600 var(--fs-label)/1.1 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--muted); text-align: center; }
 .gp-details .mb-ur-panel p { font-size: var(--fs-body); }
+
+/* ---------- Detailed look (Settings → Display → Girl page; src/ui/girlDetail.js) ---------- */
+/* Info: every stat inline under the strip, the whole matchup with multipliers, capabilities one line each */
+.gp-stats-inline { margin-top: var(--sp-2); }
+.gp-stats-inline .mb-stats { width: 100%; margin: 0; }
+.gp-stats-inline .mb-stats-note { margin: 6px 0 0; }
+.gp-match-card.full { grid-column: 1 / -1; }
+.gp-match-card.full .gp-mu-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.gp-mu-x { margin-left: auto; font: 700 var(--fs-body)/1 var(--font-num); color: var(--ink); }
+.gp-caps-card.listed { display: block; grid-column: 1 / -1; }
+.gp-info.detailed .gp-traits .ui-chip.cap, .gp-info.detailed .gp-traits .more-n { display: none; }
+/* Gear: values and substats on the slot cards, every total, the set bonuses that are on */
+.gk-gear.detailed { height: auto; }
+.gk-gear.detailed .gk-slots { flex: none; }
+.gk-gear.detailed .gk-slot { justify-content: flex-start; }
+@media (min-height: 481px) { .gk-gear.detailed .gk-slot { gap: var(--sp-3); } .gk-gear.detailed .gk-slot-tile { --gt: 96px; } }
+.gk-main-v { margin-left: 2px; font: 700 var(--fs-body)/1 var(--font-num); color: var(--ink); }
+.gk-subs { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 2px; }
+.gk-sub {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 3px 6px; border-radius: 6px; background: #fff;
+  font: 600 var(--fs-label)/1.2 var(--font-num); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--ink);
+}
+.gk-sub-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gk-sub > .num { flex: none; font: 700 var(--fs-label)/1.2 var(--font-num); color: var(--ink); }
+.gk-from-all { display: flex; flex-direction: column; gap: 6px; }
+/* (not .gk-totals: that is the Gear totals sheet's list). One ink plate; each cell draws its own right and bottom
+   divider into the 1px gap, so a short last row ends in plate, not in the panel's white */
+.gk-tot-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1px; width: 100%; padding: 0;
+  border: 0; border-radius: 10px; overflow: hidden; background: var(--plate); box-shadow: 0 0 0 1px var(--plate); text-align: left; cursor: pointer;
+}
+.gk-tot {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 6px; min-width: 0; padding: 6px 10px; color: var(--on-plate);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.14), 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+.gk-tot > .lbl { color: var(--on-plate-dim); }
+.gk-tot > .num { margin-left: auto; font: 700 var(--fs-num-s)/1 var(--font-num); color: var(--on-plate); }
+.gk-tot.max > .num { color: var(--good-on-plate); }
+.gk-tot-max { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--plate-accent); }
+.gk-fillline { margin: 0; display: flex; align-items: center; gap: 6px; font: 700 var(--fs-body)/1.3 var(--font); color: var(--good-text); }
+.gk-fillline .ui-ico { width: 16px; height: 16px; }
+.gk-bonuses { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.gk-bonus {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px var(--sp-2); padding: 4px 10px; border-left: 4px solid var(--club, #b78bff);
+  border-radius: 8px; background: #fff; font: 500 var(--fs-body)/var(--lh-body) var(--font); color: var(--ink);
+}
+.gk-bonus > b { font-weight: 700; }
+.gk-bonus > .ui-sticker { flex: none; min-width: 26px; justify-content: center; }
+/* Awakening: every star's bonus, the next one highlighted */
+.gk-aw-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.gk-aw-star { display: flex; align-items: center; gap: var(--sp-2); min-height: 30px; padding: 2px 10px; border-radius: 8px; background: var(--sky-1); font: 700 var(--fs-body)/1.2 var(--font); color: var(--ink); }
+.gk-aw-star > .num { min-width: 32px; font-size: var(--fs-num-s); }
+.gk-aw-star > .gk-aw-bonus { padding: 0; border: 0; background: none; }
+.gk-aw-star.later { color: var(--muted); }
+.gk-aw-star.next { background: var(--pink-soft); box-shadow: inset 3px 0 0 var(--pink); }
+.gk-aw-star > .lbl { margin-left: auto; color: var(--pink-text); }
+.gk-aw-ok { margin-left: auto; width: 16px; height: 16px; color: var(--good-text); }
+/* Tree: the picked path's five tiers under the grid */
+.gp-tree.detailed { min-height: 0; }
+.gp-path-list { grid-column: 1 / -1; }
+.gp-tiers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.gp-tl { display: flex; align-items: center; flex-wrap: wrap; gap: 4px var(--sp-2); min-height: 32px; padding: 3px 10px; border-radius: 8px; background: var(--sky-1); font: 700 var(--fs-body)/1.2 var(--font); color: var(--ink); }
+.gp-tl.capstone { box-shadow: inset 3px 0 0 var(--pink); }
+.gp-tl-n { min-width: 18px; font-size: var(--fs-num-s); color: var(--navy); }
+.gp-tl-name { min-width: 0; }
+.gp-tl-fx { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.gp-tl-fx .ui-chip { background: #fff; }

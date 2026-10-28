@@ -17,6 +17,7 @@
 
 import { MATERIAL_FAMILIES, GACHA } from './types.js';
 import { UNITS } from './units.js';
+import { isLegendUnit } from './recruitFeature.js';
 
 export const SHOP_TABS = [
   { id: 'general', name: 'General', currency: 'coins', desc: 'Everyday study supplies, paid with coins. Restocks daily.' },
@@ -54,7 +55,8 @@ export const SHOP_OFFERS = [
   ...FAMILIES.map((f) => o(`gem_mat_${f}_sr`, 'gems', `mat_${f}_superRare`, 2, 100, 2, 'weekly')),
 
   // --- Recruit Exchange (recruit points) --------------------------------------
-  ...UNITS.filter((u) => u.rarity === 'SSR').map((u) => o(`spark_${u.id}`, 'recruit', null, 1, GACHA.sparkCost, null, null, { unitId: u.id, highlight: true })),
+  // (never an LR unit: src/data/recruitFeature.js)
+  ...UNITS.filter((u) => u.rarity === 'SSR' && !isLegendUnit(u.id)).map((u) => o(`spark_${u.id}`, 'recruit', null, 1, GACHA.sparkCost, null, null, { unitId: u.id, highlight: true })),
   o('rp_fragment', 'recruit', 'star_fragment', 10, 30, 3, 'weekly'),
 
   // --- Boss Exchange (Assault Tokens) -----------------------------------------

@@ -281,7 +281,7 @@ hikari   wink         One petal at a time, Sensei. That's how you climb a mounta
 Names, titles and portraits come from data. Never describe hair colours or outfits in dialogue, because the roster
 merge is changing the art. Every sample line below is lint-clean and can be pasted into a scene.
 
-**Story cast versus the player's team.** As in Blue Archive, every girl lives at the academy and can appear in a
+**Story cast versus the player's team.** Every girl lives at the academy and can appear in a
 scene whether or not the player has recruited her. Only the eight free girls *join* in the text (Yuki 1-2, Nami and
 Sango 1-5, Kage 2-5, Umeko 3-2, Shiro 3-5, Midori 4-5, Suzu 5-5, matching `acquisition` in `units.js`). Gacha girls
 (Luna, Akane, Raika, Miko, Momo, Hotaru, Kaede, Chika) are introduced as classmates or guardians with a club or a

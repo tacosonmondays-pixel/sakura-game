@@ -7,7 +7,7 @@
 // Phone (844x390, touch) and PC (1280x720, mouse).
 // Usage: node e2e/sandbox.mjs [--viewport 844x390] [--shots dir]
 import { createServer } from 'vite';
-import { createRequire } from 'node:module';
+import { launchChromium } from './browser.mjs';
 import { mkdirSync } from 'node:fs';
 
 const args = process.argv.slice(2);
@@ -19,9 +19,8 @@ const VIEWPORTS = opt('viewport', null) ? [opt('viewport')] : ['844x390', '1280x
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
 const base = `http://127.0.0.1:${server.httpServer.address().port}/`;
-const require = createRequire('/opt/node22/lib/node_modules/playwright/');
-const { chromium } = require('playwright');
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+// (Playwright and a Chromium through e2e/browser.mjs: no machine-specific install paths)
+const { browser } = await launchChromium();
 const fails = [];
 const check = (c, m) => { console.log(`  ${c ? 'ok  ' : 'FAIL'} ${m}`); if (!c) fails.push(m); return c; };
 const T = 60000;

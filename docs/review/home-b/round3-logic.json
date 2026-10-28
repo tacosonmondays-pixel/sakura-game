@@ -1,0 +1,59 @@
+{
+ "review": "home layout B 'Quiet Home' round 3, LOGIC lens",
+ "branch": "concept/home-b",
+ "commit": "9ae8d67",
+ "base_compared": "round 2 at 7b18b60 (docs/review/home-b/round2-logic.json); feature/ui-v2 at 5f82d2c",
+ "verdict": "NOT_OK",
+ "gates": {
+  "npm_test": "GREEN: 267 files passed, 2 skipped; 4158 tests passed, 11 skipped; 579 s",
+  "sim_id": "92e2e22527cf; COOP_PROTOCOL 8; no diff vs origin/feature/ui-v2 in src/sim, src/data, src/online",
+  "vite_build": "exit 0 in 3.1 s, dist 90 MB, version.json build 9ae8d671888e sim 92e2e22527cf; secret scan: only the known bundled-library false positive (dist/assets/dist-*.js); dist removed",
+  "cssFloor": "exit 0: 375 declarations under 12 px = baseline 375",
+  "contrast_tool": "exit 0: 168/168 pairs pass",
+  "e2e_home": "215 ok, 0 failed, HOME PASS. A first run hit one page.screenshot 30 s timeout (staticChecks, 1280x720) while another session's e2e/lobby-illustrations.mjs was running on the same machine (load 10); rerun alone it passed whole.",
+  "e2e_lobby_illustrations": "default sizes (now including 360x800 and 768x1024): LOBBY ILLUSTRATIONS PASS (1601 checks). It does not check that the home's controls take a tap over a full illustration, so it misses R3-M1.",
+  "e2e_smoke": "678 ok, 0 FAIL, ALL SMOKE CHECKS PASSED",
+  "e2e_story": "148 ok, 0 FAIL, ALL STORY CHECKS PASSED"
+ },
+ "passes": [
+  "R2-M1 face part FIXED: reviewer probe (probe-face.mjs) over all 11 full illustrations (src/data/lobbyIllustrations.js; Yoriko, the seven academy girls, Aoi, Sango, Hikari and Marumi granted as e2e/lobby-illustrations.mjs does) at 360x800, 390x844, 768x1024, 820x1180, 412x915, 667x375, 844x390, 1024x768, 1280x720 and 1920x1080 (Reduce motion, touch below 600 px): her face core (faceX +-0.85r, faceY -0.6r..+0.95r from window.__sakura.home.placement().scene) is on screen and clear of every visible button, link, role=button, the news chip, the plate and CO-OP, zoom 1, on every news page (the pager turned through all 3 pages, each turn checked), and the chip is never stuck hidden. 3278 checks pass; the only failures are R3-M1 (8 checks) and display-only wallet plates touching the core's edge (below).",
+  "placeFull: the new tier (clearCore, the smallest move keeping the face core 4 px clear of the controls) is reached where the picture cannot clear the hair box; at 360x800 hikari-rampart the gems '+' and the wrapped third wallet row now stand clear of her face (screenshot 360x800-hikari-rampart.png). The 30 % sideways pan only applies when W < H.",
+  "Informational, not a finding: in portrait the display-only wallet plates (kind 'pill', not controls in placeFull or in the e2e) touch the face core's edge by 0-8 px (360x800 azami/kinu/hikari/marumi: the gems plate's right edge at the core's left edge; 390x844 and 412x915 marumi-scene: the coins and tickets plates over the core's top 8 px, her forehead). Her eyes stay clear; the look lens may want to judge it.",
+  "news-down as designed only triggers at 768x1024, for kinu-scene and marumi-scene (no other size or picture lowers the chip); where it is down, her face core is clear of the chip, the pager is hit-testable at its centre and pages normally (3 pages, focus kept).",
+  "news-wait never stuck: 6 background commits in one task, 8 commits 60 ms apart, a stand -> illustration change 80 ms apart, an aborted picture (kinu-scene request aborted), a picture that never answers (ouka-scene, 5 s), a route change to Missions 100 ms into a slow show and back, and away 3 s during a 2.5 s load then back: the chip is visible every time and there is one home. No page errors.",
+  "R2-M2 FIXED: node_modules is no longer tracked (git ls-tree 9ae8d67 node_modules is empty); .gitignore line 1 'node_modules' ignores it as file, folder or link (git check-ignore -v node_modules -> .gitignore:1). npm ci on the branch leaves a clean tree.",
+  "R2-L1 FIXED: at 1280x720, menu -> Notice -> Esc and menu -> Background -> Esc, 4 times each, give the focus back to top-menu every time. focusMenuAfterWindow does not leak: live MutationObservers 5 at start, 5 after 8 windows opened from the menu, a menu opened and closed without a window (2.6 s), and 30 store commits; 7 with a Notice open, 5 once the home is left with it open, 5 after coming back.",
+  "Round 1 still holds: M2 the pager pressed 4 times with Enter keeps the focus on lobby-news-next as the pages turn; focus stays on dock-mall across a store commit. M3 Tab x20 and Shift+Tab x5 stay inside the menu sheet, #app is inert while it is open, Esc closes it, gives the focus to top-menu and #app is no longer inert. M1: observer count stable (above); B1 and the first-run path are covered by e2e/story.mjs and e2e/smoke.mjs (both green)."
+ ],
+ "findings": [
+  {
+   "id": "R3-M1",
+   "severity": "medium",
+   "title": "Regression: on an upright tablet (768x1024) the lowered news chip lies on top of STUDENTS and RECRUIT, and a tap on them goes to the chip",
+   "detail": "The new .news-down rule puts the chip at bottom: calc(24px + var(--ico-h, 80px) + 20px), which assumes ONE row of icons on the bottom gutter. At 701-1179 px wide with more than 480 px of height (768x1024, and any 1024x768-like width) the dock is a 2 x 2 grid (home.css 'narrower landscape screens' rule), two rows of 76 px whose top is at y 844, so the chip (y 832-900 with two lines, 844-900 with one) sits on the top row. Also --ico-h is declared on .home-dock, not on the chip's host, so the var never reaches .home-news-host and the 80 px fallback is always used. It happens for exactly the pictures the fix was for: kinu-scene and marumi-scene at 768x1024. At the centre of STUDENTS elementFromPoint is the chip; a real click on STUDENTS opened the chip's own target (the login-gift modal on one run, Commissions on another), and RECRUIT's centre is not the icon either. Her face is fixed, but two of the four main icons cannot be used. e2e/lobby-illustrations.mjs passes because it only runs the controls tap check on the default stands, not over full illustrations. Fix ideas: place the lowered chip from the dock's real top (e.g. lowerNews sets a --dock-top from dock.offsetTop, or the dock publishes its height on .home), keep it clear of CO-OP and the plate, and add an 'every home control takes a tap at its centre' check to the full-illustration pass of e2e/lobby-illustrations.mjs.",
+   "evidence": "probe-face.mjs 768x1024 kinu-scene and marumi-scene: 'chip 24,832,320,68 clear of icons/plate/coop; hits ico0@24,844,88,76 ico1@116,844,88,76' on the first page and on all 3 pages; probe-edge.mjs section A: 'blocked dock-students (top: login-claim), dock-recruit (top: body)' and 'real click on dock-students: lobby -> {screen: commissions}'; screenshots 768x1024-marumi-scene.png, A-768x1024-kinu-scene.png, A-768x1024-marumi-scene.png in the reviewer's scratchpad. 820x1180 and 1024x768 never lower the chip and pass."
+  },
+  {
+   "id": "R3-M2",
+   "severity": "medium",
+   "title": "Picking backgrounds quickly can leave the home showing the wrong picture and girl (an older, slower show wins)",
+   "detail": "artStage.show() has no 'superseded' check: every call builds its layer, awaits its pictures, then replaces the scene. The picker stays open after a pick (bgPicker.js tile onclick commits and repaints), so tapping one tile then another is natural; when the first picture is still downloading and the second is cached, the second shows first and the first then replaces it. The save says the second (secretary and lobbyBg), the home shows the first girl's picture (home.current() reports her) until the next change or a reload. lobby.js showSecretary's news-wait guard (currentBg === bg.id) is right, but lowerNews then judges whatever picture actually won. The same code is in feature/ui-v2's artStage.js, so it predates this round, but it is a live logic fault of this home. Fix: a token in show() (const t = ++showToken; after the awaits, if (t !== showToken) return).",
+   "evidence": "probe-edge2.mjs C2 at 1280x720: marumi-scene warmed into the cache, the hikari picture delayed 1.2 s by a route, pick hikari-rampart then marumi-scene 150 ms later: after 5 s 'shown hikari-rampart, secretary marumi (home.current hikari), saved {marumi: marumi-scene, ...}' (screenshot C2-race.png: Hikari's rampart on a home whose secretary is Marumi). probe-edge.mjs C: six commits in one task ending on marumi-scene showed hikari-rampart."
+  },
+  {
+   "id": "R3-L1",
+   "severity": "low",
+   "title": "lowerNews measures the chip mid-entrance and can miss her face on a fresh load",
+   "detail": "lowerNews reads the chip with getBoundingClientRect, which includes the entrance slide (translate -12 px when the picture arrives), and the chip's one-line height; uiBoxes deliberately uses the laid-out (offset) box and the two-line height. On a fresh load at 768x1024 with motion allowed and marumi-scene picked, the chip stays at the top with its pager 3 px into her face core (chip right 344, core left 341); any resize then lowers it. Under Reduce motion the same load lowers it correctly. Fix: measure with the same laid-out box and two-line height as uiBoxes.",
+   "evidence": "probe-edge2.mjs B2: 'motion=true marumi-scene: down=false; at reveal {x:12, anims: running, translate: -12px}; after a resize event down=true, clear=true'; motion=false: down=true."
+  },
+  {
+   "id": "R3-L2",
+   "severity": "low",
+   "title": "Hide UI, then a resize (a tablet turned and turned back), then restore: the chip comes back at the top over her face",
+   "detail": "refold -> lowerNews runs on the resize while the UI is hidden: it removes .news-down and returns early (ui-hidden). setHidden(false) only calls stage.relayout(), never lowerNews, so the chip is back at the top while the picture cannot pan. A store-change redraw (drawAll + relayout) also never re-runs lowerNews. Fix: run lowerNews (or refold) in setHidden(false) and after the redraw on a store change.",
+   "evidence": "probe-edge2.mjs D2 at 768x1024 kinu-scene: menu -> Hide UI, 1024x768, back to 768x1024, restore: down=false, chip 24,84,320,68 over the face core 233,141,209,190 (the top 11 px of the core; screenshot D2-kinu-hide-resize-restore.png); marumi-scene the same with 3 px. A plain resize with the UI shown lowers it correctly."
+  }
+ ],
+ "environment": "4 cores; another session (working in /home/user/hb) ran e2e/lobby-illustrations.mjs on the same machine at times, so load reached 10 during the first e2e/home.mjs run; every gate was green on a run made alone. Chromium headless shell via e2e/browser.mjs, SwiftShader. Probes, logs and screenshots in the reviewer's scratchpad (rev-home-logic3/: probe-face.mjs, probe-edge.mjs, probe-edge2.mjs, probe-r1.mjs, *.log, shots/); not committed."
+}

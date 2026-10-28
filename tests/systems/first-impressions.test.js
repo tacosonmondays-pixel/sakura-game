@@ -8,12 +8,13 @@ import { MATERIAL_FAMILIES } from '../../src/data/types.js';
 import { getItem } from '../../src/data/items.js';
 import { itemIcon } from '../../src/art/icons.js';
 import {
-  portraitUrl, portraitHTML, hasPortrait, portraitFiles, portraitEdges, PORTRAIT_KINDS, PORTRAIT_DATA,
+  portraitUrl, portraitHTML, hasPortrait, portraitFiles, portraitEdges, portraitFig, PORTRAIT_KINDS, PORTRAIT_DATA,
 } from '../../src/art/portraits.js';
 import {
   LOBBY_BACKGROUNDS, LOBBY_BG_MAP, BOND_THEMES, BOND_LEVELS, BOND_MAX, lobbyBackgrounds, isBackgroundUnlocked, isBackgroundSelectable,
   chooseBackground, lobbyBackgroundFor, defaultBackgroundFor, unlockText, bondLevel, hasArt,
 } from '../../src/data/lobbyArt.js';
+import { fullIllustrationsOf } from '../../src/data/lobbyIllustrations.js';
 import {
   BETA_DEADLINE, BETA_GIFT, BETA_GIFT_ID, ensureBetaGift, isBetaEligible, pendingBetaGift, deliverMail, mailList, claimMail, claimAllMail,
   unclaimedMailCount, MAIL_LIMIT, betaNoticeState,
@@ -22,13 +23,31 @@ import { redeemSelectTicket, POOL, SSR_SELECT_TICKET } from '../../src/systems/g
 import { grantUnit } from '../../src/systems/unlocks.js';
 import { itemCount } from '../../src/systems/inventory.js';
 import { createProfile, migrateProfile, serializeProfile, deserializeProfile, STARTER_UNITS } from '../../src/systems/save.js';
+import { isStandIn } from '../../src/models/standins.js';
 
 const ROOT = process.cwd();
 const fileOf = (url) => join(ROOT, 'public', url.replace(/^.*?art\//, 'art/'));
+// a stand-in girl (src/models/standins.js) whose art the owner has not approved yet keeps the SVG
+// portrait; every other roster girl is drawn
+const ART_PENDING = UNITS.filter((u) => isStandIn(u.id) && !hasPortrait(u.id)).map((u) => u.id);
+const DRAWN = UNITS.filter((u) => !ART_PENDING.includes(u.id));
 
 describe('drawn portraits', () => {
+  it('a girl whose art is pending is a stand-in and shows the SVG portrait everywhere', () => {
+    // none today: Tenka's drawn portraits shipped with the ultimates (her battle figure is still a stand-in)
+    expect(ART_PENDING).toEqual([]);
+    expect(hasPortrait('tenka')).toBe(true);
+    for (const id of ART_PENDING) {
+      expect(PORTRAIT_DATA[id], id).toBeUndefined();
+      for (const kind of Object.keys(PORTRAIT_KINDS)) {
+        expect(portraitUrl(id, kind), `${id} ${kind}`).toBeNull();
+        expect(portraitHTML(UNIT_MAP[id], kind), `${id} ${kind}`).toMatch(/<svg/);
+      }
+    }
+  });
+
   it('every roster girl has every portrait file on disk (no SVG fallback in menus)', () => {
-    for (const u of UNITS) {
+    for (const u of DRAWN) {
       expect(hasPortrait(u.id), u.id).toBe(true);
       const files = portraitFiles(u.id);
       expect(files).toHaveLength(Object.keys(PORTRAIT_KINDS).length);
@@ -41,7 +60,7 @@ describe('drawn portraits', () => {
   });
 
   it('keeps list art small (thumbs and cards load fast)', () => {
-    for (const u of UNITS) {
+    for (const u of DRAWN) {
       expect(statSync(fileOf(portraitUrl(u.id, 'thumb'))).size, u.id).toBeLessThan(20_000);
       expect(statSync(fileOf(portraitUrl(u.id, 'card'))).size, u.id).toBeLessThan(80_000);
     }
@@ -70,12 +89,31 @@ describe('drawn portraits', () => {
   const FRAME_CUT = { ena: 'b', ruri: 'b' };
 
   it('gives every roster girl a full-figure stand (only the known frame-cut paintings fade an edge)', () => {
-    for (const u of UNITS) {
+    for (const u of DRAWN) {
       expect(portraitEdges(u.id), u.id).toBe(FRAME_CUT[u.id] || '');
       if (FRAME_CUT[u.id]) expect(portraitHTML(u, 'cut'), u.id).toContain('pt-edge');
       else expect(portraitHTML(u, 'cut'), u.id).not.toContain('pt-edge');
-      expect(PORTRAIT_DATA[u.id].cut).toBeGreaterThan(0.3);
+      // (the slimmest stand is Yuzuha's Clean Cel stand, arms in at a tablet: 0.294)
+      expect(PORTRAIT_DATA[u.id].cut).toBeGreaterThan(0.28);
       expect(PORTRAIT_DATA[u.id].cut).toBeLessThan(0.8);
+    }
+  });
+
+  it('every stand is head-to-shoes today (no fig); a future partial stand would be scaled where stands are sized by height', () => {
+    for (const u of UNITS) {
+      expect(PORTRAIT_DATA[u.id].fig, u.id).toBeUndefined();
+      expect(portraitFig(u.id), u.id).toBe(1);
+      expect(portraitHTML(u, 'cut'), u.id).not.toContain('--fig');
+    }
+    PORTRAIT_DATA.__partial = { face: [50, 20], cut: 0.7, fig: 0.6 };
+    try {
+      const unit = { ...UNIT_MAP.rei, id: '__partial' };
+      expect(portraitFig('__partial')).toBe(0.6);
+      expect(portraitHTML(unit, 'cut')).toContain('--fig:0.6');
+      expect(portraitHTML(unit, 'cutS')).toContain('--fig:0.6');
+      for (const kind of ['full', 'card', 'bust', 'thumb']) expect(portraitHTML(unit, kind), kind).not.toContain('--fig');
+    } finally {
+      delete PORTRAIT_DATA.__partial;
     }
   });
 
@@ -95,15 +133,18 @@ describe('drawn portraits', () => {
 });
 
 describe('lobby backgrounds', () => {
-  it('lists backgrounds per girl: default stands (and scenes) + two bond memories', () => {
+  it('lists backgrounds per girl: three stands (day is her default), her full illustrations, two bond memories', () => {
     for (const u of UNITS) {
       const list = lobbyBackgrounds(u.id);
-      expect(list.filter((b) => b.kind === 'stand')).toHaveLength(3);
+      // every girl keeps her three stands over the academy (tests/systems/lobbyIllustrations.test.js)
+      expect(list.filter((b) => b.kind === 'stand'), u.id).toHaveLength(3);
+      expect(list.filter((b) => b.kind === 'full').map((b) => b.id), u.id).toEqual(fullIllustrationsOf(u.id).map((r) => r.id));
       const bond = list.filter((b) => b.kind === 'bond');
       expect(bond.map((b) => b.unlock.level)).toEqual(BOND_LEVELS);
       expect(LOBBY_BG_MAP[defaultBackgroundFor(u.id)].girl).toBe(u.id);
+      expect(defaultBackgroundFor(u.id)).toBe(`${u.id}-day`);
     }
-    expect(lobbyBackgrounds('hikari')[0].kind).toBe('scene');
+    expect(lobbyBackgrounds('hikari')[0].kind).toBe('stand');
     expect(new Set(LOBBY_BACKGROUNDS.map((b) => b.id)).size).toBe(LOBBY_BACKGROUNDS.length);
   });
 

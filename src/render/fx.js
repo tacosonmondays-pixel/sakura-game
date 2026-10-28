@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { createVisualRandom, visualSeed } from './vfx/random.js';
 import { createHaloRules } from './vfx/halo.js';
 import { isWorldFlash } from './vfx/flashGuard.js';
+import { fmtNum } from '../ui/format.js';
 
 const TAU = Math.PI * 2;
 const _c = new THREE.Color();
@@ -115,6 +116,13 @@ export class FxSystem {
      * sprites ask it, so many small flashes add up to the screen area they really cover.
      */
     this.flashGate = null;
+    /** Height of the rooftop under a ground point (Gate Arc 'U' tiles), or null on maps without roofs:
+     * effects that start at a girl (beams, the first chain link, sparkles) start at her lifted height. */
+    this.liftAt = null;
+  }
+
+  lift(x, z) {
+    return this.liftAt ? this.liftAt(x, z) || 0 : 0;
   }
 
   setQuality(q) {
@@ -276,9 +284,10 @@ export class FxSystem {
 
   /** Straight energy beam between two sim points. */
   beam(from, to, width, color, { life = 0.16, y = 0.45 } = {}) {
-    this.segments.push({ ax: from[0], ay: y, az: from[1], bx: to[0], by: y * 0.7, bz: to[1], w: Math.max(0.14, width * 1.6), color: new THREE.Color(color), life, t: 0, core: true });
+    const ay = y + this.lift(from[0], from[1]);
+    this.segments.push({ ax: from[0], ay, az: from[1], bx: to[0], by: y * 0.7, bz: to[1], w: Math.max(0.14, width * 1.6), color: new THREE.Color(color), life, t: 0, core: true });
     this.spawn({ batch: 'bbA', uv: this.R.glow, x: to[0], y: y * 0.7, z: to[1], s0: width * 3, s1: width * 1.5, life: life * 1.4, color });
-    this.spawn({ batch: 'bbA', uv: this.R.glow, x: from[0], y, z: from[1], s0: width * 3, s1: width, life, color });
+    this.spawn({ batch: 'bbA', uv: this.R.glow, x: from[0], y: ay, z: from[1], s0: width * 3, s1: width, life, color });
   }
 
   /** Jagged chain lightning through points. */
@@ -287,7 +296,7 @@ export class FxSystem {
     for (let i = 0; i < points.length - 1; i++) {
       const [ax, az] = points[i];
       const [bx, bz] = points[i + 1];
-      const ay = i === 0 ? 0.55 : 0.35;
+      const ay = i === 0 ? 0.55 + this.lift(ax, az) : 0.35;
       const by = 0.35;
       let px = ax;
       let py = ay;
@@ -351,18 +360,19 @@ export class FxSystem {
   /** Coin pop with "+N". */
   coin(x, y, z, amount) {
     this.spawn({ batch: 'bbN', uv: this.R.coin, x, y: y + 0.4, z, vy: 1.6, g: -2.2, s0: 0.26, s1: 0.22, life: 0.75, color: '#ffffff', a0: 1, a1: 0, flags: SPIN_X });
-    if (amount > 0 && this.numbers) this.text(`+${amount}`, x + 0.18, y + 0.62, z, '#ffd43b', 0.2, 0.8, 0.7);
+    if (amount > 0 && this.numbers) this.text(`+${fmtNum(amount, 'money')}`, x + 0.18, y + 0.62, z, '#ffd43b', 0.2, 0.8, 0.7);
   }
 
   /** Upgrade / level-up celebration. */
   sparkle(x, z, color, { count = 14, height = 1.1, ring = true } = {}) {
-    if (ring) this.ring(x, z, 0.2, 0.9, 0.5, color);
+    const lift = this.lift(x, z);
+    if (ring) this.ring(x, z, 0.2, 0.9, 0.5, color, { y: 0.06 + lift });
     const k = this.n(count);
     for (let i = 0; i < k; i++) {
       const a = this.rand() * TAU;
       const r = 0.15 + this.rand() * 0.35;
       this.spawn({
-        batch: 'bbA', uv: i % 3 ? this.R.star : this.R.spark, x: x + Math.cos(a) * r, y: 0.1 + this.rand() * 0.3, z: z + Math.sin(a) * r,
+        batch: 'bbA', uv: i % 3 ? this.R.star : this.R.spark, x: x + Math.cos(a) * r, y: lift + 0.1 + this.rand() * 0.3, z: z + Math.sin(a) * r,
         vy: height + this.rand() * height, drag: 1.2, s0: 0.2, s1: 0.04, life: 0.7 + this.rand() * 0.4, color, rot: this.rand() * TAU, vrot: 4,
       });
     }

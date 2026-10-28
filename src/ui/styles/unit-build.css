@@ -48,6 +48,8 @@
 .ub-gc-subs li b { font-weight: 900; color: var(--navy); }
 .ub-gc-subs li em { font-style: normal; color: #2bb673; font-size: 0.7em; letter-spacing: -1px; }
 .ub-gc-none { margin: 4px 0 2px; font-size: 0.78rem; font-weight: 800; color: var(--muted); }
+/* a co-op ally's gear isn't known: one line instead of three empty cards (buildCopy) */
+.ub-gear-note { display: flex; align-items: center; gap: 6px; margin: 0; padding: 8px 10px; border-radius: 10px; background: #f7fafd; border: 1px dashed #d5e2f2; font-size: 0.78rem; font-weight: 800; color: var(--muted); }
 
 .ub-tot { display: flex; flex-wrap: wrap; gap: 6px; }
 .ub-tot span { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: #f1f7ff; border: 1px solid var(--line); font-size: 0.8rem; font-weight: 800; color: var(--ink); }

@@ -16,7 +16,7 @@ import { h } from './dom.js';
 import { fmtNum } from './format.js';
 import { UPGRADE_TAGS, effectParts } from './upgradeTags.js';
 import { tierIconEl, TAG_GLYPHS } from './tagChips.js';
-import { ico, chip, num, lbl, moreSticker } from './kit.js';
+import { ico, chip, num, lbl, moreSticker, KIT_SVG, curArt } from './kit.js';
 import { ONE_PER_PATH_RULE } from './battle/rules.js';
 
 /** The rule as one line on the Tree tab; the full rule and its examples sit behind "i". */
@@ -57,6 +57,8 @@ export function treeGridView(model, { prices = false, selected = null } = {}) {
         index: row.index,
         name: row.name,
         tag: pathTag(row),
+        // the ⚡ path: a sticker on its head (no number: the tier is in its title)
+        ability: row.ability ? { name: row.ability.name, title: row.ability.live ? `Ability ${row.ability.name}: unlocks at tier ${row.ability.unlockTier}` : `Ability ${row.ability.name}: comes in a later update` } : null,
         locked,
         lockLine: locked ? 'Locked: two paths in use' : null,
         lockWhy: locked ? row.reason : null,
@@ -156,11 +158,12 @@ export function treeGrid(model, { prices = false, onPick = null, onPrice = null,
     const tag = r.tag ? chip({ icon: TAG_GLYPHS[r.tag.id] || null, text: r.tag.word, cls: `ug-tag.t-${r.tag.id}`, title: r.tag.title }) : null;
     const lock = h('span.ug-lock', { hidden: true }, ico('lock'), h('span.ug-lock-text'), onRule ? h('button.ug-why', { type: 'button', 'aria-label': 'Why is this path locked?', onclick: () => onRule(r.index) }, ico('info')) : null);
     const cap = h('span.ug-cap', { hidden: true });
-    const head = h('div.ug-head', h('span.ug-bar', { 'aria-hidden': 'true' }), h('span.ug-pname', r.name), tag, cap, lock);
+    const abil = r.ability ? h('span.ug-abil', { title: r.ability.title, 'aria-label': r.ability.title, 'data-testid': `ug-abil-${r.index}` }, ico(KIT_SVG.bolt, 'ug-abil-ico')) : null;
+    const head = h('div.ug-head', h('span.ug-bar', { 'aria-hidden': 'true' }), h('span.ug-pname', r.name), abil, tag, cap, lock);
     const fill = h('i');
     const cells = h('div.ug-cells', { role: 'row' }, h('span.ug-track', { 'aria-hidden': 'true' }, fill));
     const els = r.cells.map((c) => {
-      const cost = h('button.ui-cost.dense.ug-price', { type: 'button', hidden: true, onclick: (e) => { e.stopPropagation(); onPrice?.(cellOf(c.path, c.tier)); } }, h('span', ico('coin'), h('span.num')));
+      const cost = h('button.ui-cost.dense.ug-price', { type: 'button', hidden: true, onclick: (e) => { e.stopPropagation(); onPrice?.(cellOf(c.path, c.tier)); } }, h('span', curArt('coins'), h('span.num')));
       const el = h(`div.ug-cell${c.capstone ? '.capstone' : ''}`, { 'data-path': c.path, 'data-tier': c.tier },
         h('button.ug-hit', {
           type: 'button', role: 'gridcell', 'data-testid': c.testid, 'data-path': c.path, 'data-tier': c.tier,
@@ -248,7 +251,7 @@ export function tierPanel(cell, model, { describe = null, onMore = null, actions
   const v = tierPanelView(cell, model, { describe });
   const pl = v.priceLine;
   const priceEl = pl.kind === 'base' || pl.kind === 'price'
-    ? h(`div.ugp-price${pl.poor ? '.poor' : ''}`, { title: pl.title || null }, lbl(pl.label), h('span.ui-pair', ico('coin'), num(pl.value, 's')))
+    ? h(`div.ugp-price${pl.poor ? '.poor' : ''}`, { title: pl.title || null }, lbl(pl.label), h('span.ui-pair', curArt('coins'), num(pl.value, 's')))
     : h(`div.ugp-state.${pl.kind}`, ico(pl.kind === 'owned' ? 'check' : 'lock'), h('span', pl.text));
   return h(`div.ugp.p${v.path}.s-${v.state}`, { 'data-testid': 'ut-detail' },
     h('div.ugp-head',

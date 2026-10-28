@@ -72,10 +72,16 @@ const withTimeout = (p, ms = STEP_TIMEOUT) => Promise.race([Promise.resolve(p).c
 export function lobbyPreloadSteps(profile) {
   const sec = secretaryOf(profile);
   const bg = lobbyBackgroundFor(profile, sec);
-  const art = bg.kind === 'scene' ? [lobbyArtUrl(bg.file)] : [lobbyArtUrl(bg.file), portraitUrl(sec, 'cut')];
+  // what the home will draw (src/ui/lobby/artStage.js homeStageUrls): a full illustration's one picture (her 3:4 full
+  // art on a portrait screen when its row says so), else the baked night academy (or the event's backdrop) + her stand
+  const portrait = typeof innerHeight === 'number' && innerHeight > innerWidth;
   return [
     ['Opening the academy gates', () => import('./lobby.js')],
-    ['Painting the lobby', () => Promise.all(art.map((u) => preloadImage(u)))],
+    ['Painting the lobby', () => Promise.all([import('../lobby/artStage.js'), import('../events/lobby.js')]).then(([stage, ev]) => {
+      let backdrop = null;
+      try { backdrop = ev.eventLobbyBackdrop(); } catch { /* no event */ }
+      return Promise.all(stage.homeStageUrls(bg, { portrait, backdrop }).map((u) => preloadImage(u)));
+    })],
     ['Waking up the students', () => Promise.all(TRIO.map((id) => preloadImage(portraitUrl(id, 'cut'))))],
     ['Sharpening the pencils', () => (document.fonts?.ready || Promise.resolve())],
   ];

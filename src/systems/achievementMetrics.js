@@ -7,10 +7,12 @@
 // the max of the solo stat and the kill counter that co-op also feeds).
 
 import { ACHIEVEMENT_MAP, ACHIEVEMENT_METRICS, achievementLive } from '../data/achievements.js';
-import { STAGES, STAGE_MAP, CAMPAIGN_IDS, CHAPTERS, stageEnemies } from '../data/stages.js';
+import { STAGES, STAGE_MAP, CAMPAIGN_IDS, CHAPTERS, stageEnemies, actStages, requirementsMet } from '../data/stages.js';
 import { ENEMY_MAP } from '../data/enemies.js';
 import { UNIT_MAP } from '../data/units.js';
 import { DIFFICULTY_ORDER, ITEM_RARITY_ORDER } from '../data/types.js';
+import { RIBBON_MODES } from '../data/modes.js';
+import { STAGE_RULES } from '../data/rules.js';
 import { LESSON_MAP } from '../data/story/lessons.js';
 import { CHAPTER_SCENE_IDS } from '../data/story/sceneIndex.js';
 
@@ -78,9 +80,21 @@ export function familyFound(p, family) {
   return (enemyFamilies()[family] || []).filter((id) => p?.bestiary?.[id]?.discovered).length;
 }
 
-/** Families with every discoverable member discovered. */
+/**
+ * A member a family needs before it counts as complete: every enemy, except one introduced in an Act II stage the
+ * save cannot open yet (Gate Arc: the Frostbitten Heir, Old Lamp-Hugger). A veteran who had found every lizard keeps
+ * "Family Portrait" on update day; once the new member's stage is open, the family needs it again.
+ */
+function familyNeeds(p, id) {
+  const intro = STAGE_MAP[ENEMY_MAP[id]?.introducedIn];
+  if (!intro || intro.act !== 2) return true;
+  const cleared = (sid) => !!p?.progress?.stages?.[sid]?.clears;
+  return requirementsMet(intro, cleared);
+}
+
+/** Families with every discoverable member discovered (members of an Act II stage the save cannot open yet aside). */
 export function familiesFound(p) {
-  return Object.values(enemyFamilies()).filter((ids) => ids.every((id) => p?.bestiary?.[id]?.discovered)).length;
+  return Object.values(enemyFamilies()).filter((ids) => ids.every((id) => !familyNeeds(p, id) || p?.bestiary?.[id]?.discovered)).length;
 }
 
 /** Sum of a counter family over rarities at or above `rarity`: gear:<r> / gear10:<r>. */
@@ -168,6 +182,54 @@ export function lessonsClaimed(p) {
   return Object.keys(LESSON_MAP).filter((id) => num(c[LESSON_MARK + id]) > 0).length;
 }
 
+/**
+ * The mode ribbons of one campaign stage entry: { 'easy:reverse': true, … }, read the way src/systems/unlocks.js
+ * modeRibbons reads them (a Nightmare medal holds that stage's Last Petal ribbon: the same battle). Not imported from
+ * there: unlocks.js reaches missions.js, which imports this file.
+ */
+function stageRibbons(entry) {
+  const got = isObj(entry?.modes) ? entry.modes : {};
+  const out = {};
+  for (const d of DIFFICULTY_ORDER) for (const m of RIBBON_MODES) out[`${d}:${m}`] = !!got[`${d}:${m}`];
+  out['nightmare:laststand'] = !!(entry?.nightmare || got['nightmare:laststand']);
+  return out;
+}
+
+/** Ribbons a campaign stage can hold (4 difficulties × 5 modes). */
+export const RIBBONS_PER_STAGE = DIFFICULTY_ORDER.length * RIBBON_MODES.length;
+
+/**
+ * The Codex modes' ribbons over the campaign stages (CAMPAIGN_IDS: 800 over Act I's 40, 20 more per Act II stage): per
+ * mode, the total and the stages with all 20
+ * (a rosette). Ribbons are never taken back, so every count only rises.
+ * @returns {{ total: number, perfect: number, byMode: Object<string, number> }}
+ */
+export function ribbonStats(p) {
+  const byMode = Object.fromEntries(RIBBON_MODES.map((m) => [m, 0]));
+  let total = 0;
+  let perfect = 0;
+  for (const id of CAMPAIGN_IDS) {
+    const r = stageRibbons(p?.progress?.stages?.[id]);
+    let have = 0;
+    for (const [k, on] of Object.entries(r)) {
+      if (!on) continue;
+      have++;
+      byMode[k.split(':')[1]]++;
+    }
+    total += have;
+    if (have === RIBBONS_PER_STAGE) perfect++;
+  }
+  return { total, perfect, byMode };
+}
+
+/** Map rules (src/data/rules.js) with a Gold medal (Hard) on at least one campaign stage that has that rule. */
+export function ruleGold(p) {
+  const st = p?.progress?.stages || {};
+  const rules = new Set();
+  for (const [id, r] of Object.entries(STAGE_RULES)) if (st[id]?.hard) rules.add(r.id);
+  return rules.size;
+}
+
 /** Known, live achievement ids claimed in this save. */
 export function achievementsClaimedCount(p) {
   const claims = p?.missions?.achievements;
@@ -209,7 +271,13 @@ export function metricValue(p, a, ctx = achievementContext(p)) {
   switch (a.metric) {
     // ---- campaign
     case 'stagesCleared': return ctx.once('stagesCleared', () => CAMPAIGN_IDS.filter((id) => cleared(st[id])).length);
-    case 'chapterClear': return CAMPAIGN_IDS.filter((id) => id.startsWith(`${a.param}-`) && cleared(st[id])).length;
+    // a chapter is its Act I (CHAPTERS[c].stages, never an id prefix: '1-' would also match 1-6 … 1-10)
+    case 'chapterClear': return actStages(a.param, 1).filter((id) => cleared(st[id])).length;
+    // param 'c:act' ('1:2' = chapter 1's Act II): the registered stages of that act
+    case 'chapterActClear': {
+      const [c, act] = String(a.param).split(':').map(Number);
+      return actStages(c, act).filter((id) => cleared(st[id])).length;
+    }
     case 'medals': return ctx.once(`medals:${a.param}`, () => CAMPAIGN_IDS.filter((id) => has(id, a.param)).length);
     case 'medalsAll': return ctx.once('medalsAll', () => CAMPAIGN_IDS.filter((id) => DIFFICULTY_ORDER.every((d) => has(id, d))).length);
     case 'chapterSets': return CHAPTERS.filter((ch) => ch.stages.every((id) => has(id, a.param))).length;
@@ -261,8 +329,15 @@ export function metricValue(p, a, ctx = achievementContext(p)) {
     case 'lessons': return lessonsClaimed(p);
     case 'storyChapters': return storyChapters(p);
     case 'achievementsClaimed': return achievementsClaimedCount(p);
-    // ---- Codex modes (the rows ship with that feature; nothing in this build counts them yet)
-    case 'ribbonsTotal': case 'modeRibbons': case 'perfectStages': case 'ruleGold': return 0;
+    // ---- Codex modes (mode ribbons on the campaign stages, Gold medals per map rule)
+    case 'ribbonsTotal': return ctx.once('ribbons', () => ribbonStats(p)).total;
+    case 'modeRibbons': {
+      const n = ctx.once('ribbons', () => ribbonStats(p)).byMode[a.param];
+      if (n == null) throw new Error(`achievement metric modeRibbons: "${a.param}" is not a ribbon mode`);
+      return n;
+    }
+    case 'perfectStages': return ctx.once('ribbons', () => ribbonStats(p)).perfect;
+    case 'ruleGold': return ctx.once('ruleGold', () => ruleGold(p));
     default:
       // an unknown metric must never silently read 0 (§1.6)
       throw new Error(`achievement metric "${a.metric}" is not known (ACHIEVEMENT_METRICS)`);

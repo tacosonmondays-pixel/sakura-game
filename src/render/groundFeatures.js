@@ -126,3 +126,42 @@ export function junctionChevrons(map) {
   }
   return out;
 }
+
+/**
+ * City crossings (Gate Arc `city` theme): at every flat junction, a zebra crosswalk on each arm
+ * just outside the junction (inside the travel chevrons at ±1.3, which stay: they keep a knot
+ * readable) and a box marking over the crossing itself. Ground marks drawn by the ambient batches
+ * (0 draw calls). `rot` turns the quad's +u across the road.
+ * @param {object} map MapDef
+ * @returns {{ kind: 'zebra'|'junctionBox', x, z, rot }[]}
+ */
+export function crosswalkMarks(map) {
+  const tracks = mapTracks(map);
+  const flats = (map.crossings || []).filter((c) => c.mode === 'flat');
+  const out = [];
+  const tmp = {};
+  for (const c of flats) {
+    out.push({ kind: 'junctionBox', x: c.x, z: c.y, rot: boxRot(tracks, c, tmp) });
+    for (const pass of [c.a, c.b]) {
+      const t = tracks[pass.path];
+      // the lifted (later) pass keeps its zebra outside the lifted zone
+      const off = pass === c.b ? 1.0 : 0.82;
+      for (const sgn of [-1, 1]) {
+        const d = pass.d + sgn * off;
+        if (d < 0.6 || d > t.length - 0.6 || inTunnel(t, d) || underDeck(t, d) || elevationAt(t, d) > 0.02) continue;
+        pointAtDistance(t.points, t.cum, d, tmp);
+        if (flats.some((o) => o !== c && Math.hypot(o.x - tmp.x, o.y - tmp.y) < 1.0)) continue;
+        const rot = Math.atan2(-tmp.dx, -tmp.dy);
+        out.push({ kind: 'zebra', x: tmp.x, z: tmp.y, rot });
+      }
+    }
+  }
+  return out;
+}
+
+/** Yaw of a junction's box marking: square to the first pass. */
+function boxRot(tracks, c, tmp) {
+  const t = tracks[c.a.path];
+  pointAtDistance(t.points, t.cum, c.a.d, tmp);
+  return Math.atan2(-tmp.dy, tmp.dx);
+}

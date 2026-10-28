@@ -11,10 +11,12 @@
 //   5. inplace: screens that rewrite their URL in place come back as the player left them — the
 //      campaign opened on a later chapter, Chapter 1 picked, 1-3 prep → the arrow (and the back
 //      gesture) land on Chapter 1; Bounty from the event strip, another arena picked → its prep →
-//      the arrow lands on that arena; the Mall from the gems shortcut, another tab → a girl → the
+//      the arrow lands on that arena; the Mall from the gem pill's "+", another tab → a girl → the
 //      arrow lands on that tab
-//   6. shortcuts: Commissions / Tasks / Bounty / Total Assault / Co-op opened straight from the
-//      lobby arrow back to the lobby (opened from Missions: to Missions)
+//   6. shortcuts: Commissions / Tasks / Bounty / Total Assault / Multiplayer (the Menu and the lobby's
+//      button) opened straight from the lobby arrow back to the lobby (opened from Missions: to
+//      Missions); Multiplayer → the co-op screen → arrow → Multiplayer → arrow → the lobby (UI M5d);
+//      Multiplayer → Friends / Clan Boss → arrow → Multiplayer (not the lobby) → arrow → the lobby
 //   (While a limited event runs, its card takes the event strip's place: then the card opens the
 //   event page, and Bounty on this week's arena comes from the Notice's weekly event, "Go to Bounty".)
 //   7. difficulty: stage prep keeps the difficulty picked there after Quit, the back gesture
@@ -182,7 +184,9 @@ async function weeklyBounty(page) {
     await tap(page, '#app [data-testid="event-strip"]');
     return 'the event strip';
   }
-  await tap(page, '[data-testid="shortcut-notice"]');
+  // ([ui-ink] V2: the Notice is the menu sheet's Notice row, C12)
+  await tap(page, '[data-testid="top-menu"]');
+  await tap(page, '[data-testid="menu-sheet"] [data-testid="shortcut-notice"]');
   await tap(page, '.lb-notice-modal [data-testid="notice-event"]');
   await tap(page, '.lb-notice-modal:not(.closing) .lb-notice-cta button');
   return 'the Notice\'s weekly event';
@@ -480,9 +484,10 @@ async function inPlaceFlow() {
   await arrow(P);
   check(await onScreen(P, 'lobby'), `inplace: the arrow on Bounty (opened from ${via}) goes to the lobby (now ${(await where(P)).hash})`);
 
-  // mall: the gems shortcut opens the Gem Shop; pick the Recruit Exchange, open a girl, arrow
-  await tap(P, '[data-testid="shortcut-gems"]');
-  check(await onScreen(P, 'mall', '#/mall?tab=gems'), `inplace: the gems shortcut opens the Gem Shop (now ${(await where(P)).hash})`);
+  // mall: the gem pill's "+" opens the Gem Shop (UI M5d: the Buy gems shortcut went); pick the Recruit Exchange, open a
+  // girl, arrow
+  await tap(P, '[data-testid="gems-plus"]');
+  check(await onScreen(P, 'mall', '#/mall?tab=gems'), `inplace: the gem pill's "+" opens the Gem Shop (now ${(await where(P)).hash})`);
   await tap(P, '#app [data-testid="tab-recruit"]');
   await P.waitForFunction(() => location.hash === '#/mall?tab=recruit', null, { timeout: 10000 }).catch(() => null);
   await tap(P, '#app .ma-offer-portrait');
@@ -510,19 +515,73 @@ async function shortcutsFlow() {
     check(st === 0, `shortcuts: … stepping back onto the lobby entry, like the back gesture (entry ${st})`);
   };
   await fromLobby('the Commissions dock button', () => tap(S, '[data-testid="dock-commissions"]'), 'commissions');
-  await fromLobby('the Tasks shortcut', () => tap(S, '[data-testid="shortcut-tasks"]'), 'commissions');
   // the event strip (or, while a limited event runs, its card in the strip's place, and Bounty from the Notice)
   if ((await eventEntry(S)) === 'event-card') {
     await fromLobby('the limited event card', () => tap(S, '#app [data-testid="event-card"]'), 'event');
     await fromLobby('the Notice\'s weekly event', () => weeklyBounty(S), 'bounty');
   } else await fromLobby('the event strip', () => tap(S, '#app [data-testid="event-strip"]'), 'bounty');
-  await fromLobby('the Total Assault shortcut', () => tap(S, '[data-testid="shortcut-assault"]'), 'assault');
-  await fromLobby('Menu → Co-op', async () => {
+  // [ui-ink] V2 (C12): the Tasks shortcut folded into the COMMISSIONS row's dot, the Total Assault shortcut went (Missions
+  // and the news card's weekly bosses page have it), and the Menu's Co-op item is the rail's MULTIPLAYER row. The news card
+  // pages by hand: its last page (the weekly bosses) opens Titan Trials, or Total Assault before Titan Trials opens
+  const bosses = await S.evaluate(async () => {
+    for (let i = 0; i < 3; i++) {
+      const page = document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page;
+      if (page === 'bosses') return document.querySelector('#app [data-testid="lobby-news"] .go')?.dataset.testid;
+      document.querySelector('#app [data-testid="lobby-news-next"]')?.click();
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    return null;
+  });
+  if (check(!!bosses, `shortcuts: the news card pages by hand to the weekly bosses (${bosses})`)) {
+    await fromLobby('the news card\'s weekly bosses page', () => tap(S, `#app [data-testid="${bosses}"]`), bosses === 'banner-titans' ? 'titans' : 'assault');
+  }
+  await fromLobby('Menu → Formation', async () => {
     await tap(S, '[data-testid="top-menu"]');
-    await tap(S, '[data-testid="menu-coop"]');
-    // online screens ask a fresh account for a name first
-    if (await S.waitForSelector('[data-testid="name-input"]', { timeout: 10000 }).catch(() => null)) await setName(S, 'Aiko');
-  }, 'coop');
+    await tap(S, '[data-testid="menu-sheet"] [data-testid="menu-formation"]');
+  }, 'formation');
+  await fromLobby('the MULTIPLAYER row', () => tap(S, '[data-testid="lobby-multiplayer"]'), 'multiplayer');
+  // Multiplayer → the co-op screen (its stage chip) → arrow: back to Multiplayer, then to the lobby
+  await tap(S, '[data-testid="lobby-multiplayer"]');
+  await onScreen(S, 'multiplayer');
+  await tap(S, '#app [data-testid="mp-room-chip"]');
+  // online screens ask a fresh account for a name first
+  if (await S.waitForSelector('[data-testid="name-input"]', { timeout: 10000 }).catch(() => null)) await setName(S, 'Aiko');
+  if (check(await onScreen(S, 'coop', '#/coop'), `shortcuts: Multiplayer's stage chip opens the co-op screen (now ${(await where(S)).hash})`)) {
+    await arrow(S);
+    check(await onScreen(S, 'multiplayer', '#/multiplayer', 20000), `shortcuts: the arrow on the co-op screen opened from Multiplayer goes back to Multiplayer (now ${(await where(S)).hash})`);
+    await arrow(S);
+    check(await onScreen(S, 'lobby', '#/lobby', 20000), `shortcuts: then Multiplayer's arrow goes to the lobby it was opened from (now ${(await where(S)).hash})`);
+  }
+  // UI M5d review: Multiplayer's Friends tile (Messages › Friends) and Clan Boss tile (the clan) arrow back to Multiplayer,
+  // not to the lobby (their menu parent); then the hub's own arrow goes back to the lobby it was opened from
+  await tap(S, '[data-testid="lobby-multiplayer"]');
+  await onScreen(S, 'multiplayer');
+  await tap(S, '#app [data-testid="mp-friends"]');
+  if (await S.waitForSelector('[data-testid="name-input"]', { timeout: 5000 }).catch(() => null)) await setName(S, 'Aiko');
+  if (check(await onScreen(S, 'messages', '#/messages'), `shortcuts: Multiplayer's Friends tile opens Messages (now ${(await where(S)).hash})`)) {
+    check((await where(S)).hash.includes('tab=friends'), `shortcuts: … on its Friends tab (${(await where(S)).hash})`);
+    // (the Messages screen's one-time "Be kind" note)
+    if (await S.waitForSelector('[data-testid="intro-ok"]', { timeout: 5000 }).catch(() => null)) await S.evaluate(() => document.querySelector('[data-testid="intro-ok"]')?.click());
+    await arrow(S);
+    check(await onScreen(S, 'multiplayer', '#/multiplayer', 20000), `shortcuts: the arrow on Friends opened from Multiplayer goes back to Multiplayer (now ${(await where(S)).hash})`);
+  }
+  await tap(S, '#app [data-testid="mp-clanboss"]');
+  if (check(await onScreen(S, 'clan', '#/clan'), `shortcuts: Multiplayer's Clan Boss tile opens the clan (now ${(await where(S)).hash})`)) {
+    await arrow(S);
+    check(await onScreen(S, 'multiplayer', '#/multiplayer', 20000), `shortcuts: the arrow on the clan opened from Clan Boss goes back to Multiplayer (now ${(await where(S)).hash})`);
+  }
+  await arrow(S);
+  check(await onScreen(S, 'lobby', '#/lobby', 20000), `shortcuts: then Multiplayer's arrow goes to the lobby again (now ${(await where(S)).hash})`);
+  // Missions → its Multiplayer tile (hub-coop kept) → arrow: back to Missions
+  await tap(S, '[data-testid="tile-mission"]');
+  await onScreen(S, 'missions');
+  await tap(S, '[data-testid="hub-coop"]');
+  if (check(await onScreen(S, 'multiplayer'), `shortcuts: Missions' Multiplayer tile opens the Multiplayer hub (now ${(await where(S)).hash})`)) {
+    await arrow(S);
+    check(await onScreen(S, 'missions'), `shortcuts: Multiplayer opened from Missions arrows back to Missions (now ${(await where(S)).hash})`);
+    await arrow(S);
+    await onScreen(S, 'lobby');
+  }
   // opened from Missions: back to Missions
   await tap(S, '[data-testid="tile-mission"]');
   await onScreen(S, 'missions');

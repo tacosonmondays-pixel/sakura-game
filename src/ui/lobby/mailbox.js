@@ -1,10 +1,13 @@
-// Mailbox (Blue Archive style) and the Beta Tester Thank-You celebration.
-//   openMailbox()        letters newest first: sender, title, message, reward tiles, expiry,
-//                        Claim / Claim all (src/systems/mail.js)
+// Mail (academy style) and the Beta Tester Thank-You celebration.
+//   openMailbox()        opens the Mailroom (#/mail, src/ui/screens/mail.js; UI M5c: a full screen with the rail
+//                        Unclaimed · History, it replaced the Mail modal). Every door keeps calling this.
+//   rewardTiles(), afterClaim()  a letter's gifts as tiles, and what a claim says (the Mailroom and the beta gift)
 //   maybeShowBetaGift()  once per session in the lobby while the beta gift is unclaimed: a
 //                        celebratory modal with the message and the rewards, Claim / Later
-import { h, clear } from '../dom.js';
-import { modal, svgEl, glyph, button, itemTile, toast } from '../components.js';
+import '../styles/hubs.css';
+import { h } from '../dom.js';
+import { modal, itemTile, toast } from '../components.js';
+import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { getItem } from '../../data/items.js';
@@ -12,8 +15,7 @@ import { ITEM_RARITIES } from '../../data/types.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
-import { fmtNum } from '../format.js';
-import { mailList, claimMail, claimAllMail, pendingBetaGift, BETA_GIFT_ID } from '../../systems/mail.js';
+import { claimMail, pendingBetaGift, BETA_GIFT_ID } from '../../systems/mail.js';
 import { itemCount } from '../../systems/inventory.js';
 // static (not lazy): right after "Claim gifts" the SSR picker offer must appear at once — a lazy
 // chunk on a slow connection made the tap look like it did nothing
@@ -24,21 +26,11 @@ const SHOWN_KEY = 'sakura-beta-gift-shown';
 function tile(id, count, size = 54) {
   const wrap = itemTile(id, count, { size, showName: false });
   wrap.style.setProperty('--rarity', ITEM_RARITIES[getItem(id)?.rarity]?.color || '#9aa5b1');
-  const c = wrap.querySelector('.item-count');
-  if (c && count != null) c.textContent = fmtNum(count, 'stack'); // 300000 → "×300k" so big counts fit a small tile
-  return wrap;
+  return wrap; // the tile's own count is already short (300000 → "x300K"), so big counts fit a small tile
 }
 
-const dateText = (t) => {
-  try {
-    return new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric' });
-  } catch {
-    return '';
-  }
-};
-
 /** Rewards as tiles: the headline items first, the material bundle folded into one chip. */
-function rewardTiles(rewards, { fold = true, size = 54 } = {}) {
+export function rewardTiles(rewards, { fold = true, size = 54 } = {}) {
   const head = rewards.filter((r) => !fold || !/^mat_|^book_/.test(r.id));
   const mats = fold ? rewards.filter((r) => /^mat_|^book_/.test(r.id)) : [];
   return h('div.mbx-rewards',
@@ -49,63 +41,20 @@ function rewardTiles(rewards, { fold = true, size = 54 } = {}) {
   );
 }
 
-/** Mail modal: list of letters + Claim all. */
-export function openMailbox() {
-  const list = h('div.mbx-list');
-  const footer = h('div.mbx-foot');
-  const m = modal({ title: 'Mail', wide: true, cls: 'mbx-modal', body: h('div.mbx', list, footer), actions: [{ label: 'Close', kind: 'ghost', testid: 'mail-close' }] });
-  const paint = () => {
-    const letters = mailList(store.profile);
-    clear(list);
-    clear(footer);
-    if (!letters.length) {
-      list.appendChild(h('div.mbx-empty', svgEl(glyph('mail'), 'mbx-empty-ico'), h('p', 'No mail yet, Sensei. Gifts and notices from the academy arrive here.')));
-      return;
-    }
-    for (const l of letters) {
-      list.appendChild(h(`article.mbx-letter${l.claimable ? '.new' : ''}${l.claimed ? '.claimed' : ''}`, { 'data-testid': `mail-${l.id}` },
-        h('div.mbx-letter-ico', svgEl(glyph(l.claimable ? 'gift' : 'mail'), 'mbx-ico')),
-        h('div.mbx-letter-main',
-          h('div.mbx-letter-head', h('b', l.title), h('span.muted', `${l.from} · ${dateText(l.sentAt)}`)),
-          // phones clamp a body to two lines: a tap shows the whole letter
-          h('p.mbx-letter-body', { title: 'Tap to read the whole letter', onclick: (e) => e.currentTarget.classList.toggle('open') }, l.body),
-          rewardTiles(l.rewards),
-        ),
-        h('div.mbx-letter-side',
-          h('span.mbx-expiry', l.expired ? 'Expired' : l.expiresAt ? `Until ${dateText(l.expiresAt)}` : 'No expiry'),
-          l.claimable
-            ? button('Claim', { kind: 'yellow', small: true, testid: `mail-claim-${l.id}`, onClick: () => claimOne(l.id) })
-            : h('span.mbx-claimed', l.claimed ? 'Claimed' : ''),
-        ),
-      ));
-    }
-    const n = letters.filter((l) => l.claimable).length;
-    footer.append(h('span.muted', n ? `${n} letter${n === 1 ? '' : 's'} with gifts` : 'All gifts claimed'),
-      button('Claim all', { kind: n ? 'yellow' : 'ghost', testid: 'mail-claim-all', disabled: !n, onClick: claimAll }));
-  };
-  const claimOne = (id) => {
-    const r = claimMail(store.profile, id);
-    if (!r.ok) return toast(r.error === 'expired' ? 'That letter expired.' : 'Already claimed.', 'bad');
-    store.commit('mail');
-    paint();
-    afterClaim(r.rewards);
-  };
-  const claimAll = () => {
-    const r = claimAllMail(store.profile);
-    if (!r.ok) return;
-    store.commit('mail');
-    paint();
-    afterClaim(r.rewards);
-  };
-  paint();
-  return m;
+/**
+ * Opens the Mailroom (UI M5c: #/mail, a full screen; it replaced the Mail modal). The lobby's Mail button, the Menu's
+ * Mail item, the Notice, the Journal and the event page all come here. Its back arrow returns to where it was opened.
+ * @param {{ tab?: 'unclaimed'|'history' }} [o]
+ */
+export function openMailbox({ tab = null } = {}) {
+  navigate('mail', tab ? { tab } : {});
 }
 
 /**
  * After a claim: a toast — or, when the gifts include an SSR Select Ticket, one dialog that says
  * both ("Gifts received! … choose your SSR now?") so a toast never sits on top of its title.
  */
-function afterClaim(rewards) {
+export function afterClaim(rewards) {
   const received = `Received ${rewards.length} kind${rewards.length === 1 ? '' : 's'} of gifts — check your Backpack!`;
   if (rewards.some((r) => r.id === 'ticket_ssr_select') && itemCount(store.profile, 'ticket_ssr_select') > 0) {
     Promise.resolve(offerSelectTicket({ lead: received })).catch(() => toast(received, 'good', 2600));

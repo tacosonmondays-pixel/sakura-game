@@ -30,7 +30,7 @@ import { getItem } from '../data/items.js';
 import { DIFFICULTIES } from '../data/types.js';
 import { gameDay, gameDayNumber, gameDayStart, gameDayEnd, nextDailyReset, isNewPeriod, formatCountdown } from '../core/reset.js';
 import { addItems, consumeItems, itemCount, normalizeList } from './inventory.js';
-import { deliverMail } from './mail.js';
+import { deliverMail, mailList } from './mail.js';
 import { isStageCleared, stageMedals } from './unlocks.js';
 
 const DAY = 24 * 3600 * 1000;
@@ -262,6 +262,24 @@ export function activeEvents(profile, now = Date.now(), opts = {}) {
 export function featuredEvent(profile, now = Date.now(), opts = {}) {
   const list = activeEvents(profile, now, opts);
   return list.find((r) => r.phase === 'active') || list[0] || null;
+}
+
+/**
+ * The home's Events button (owner, Oct 28: "add an events button at the bottom"): with exactly one event in its active or
+ * exchange phase it opens that event's page, else Happening Now (route 'rewards', which lists every event and the
+ * past festival). Its red dot: something waits in that event (a mission to claim, an event gift unclaimed in the
+ * Mailbox, or in the exchange phase an offer the player can buy). `msLeft`: until the phase ends (the sticker).
+ * @returns {{ route: 'event'|'rewards', id: string|null, phase: string|null, msLeft: number|null, dot: boolean }}
+ */
+export function eventHomeButton(profile, now = Date.now()) {
+  const live = activeEvents(profile, now);
+  if (live.length !== 1) return { route: 'rewards', id: null, phase: null, msLeft: null, dot: false };
+  const { ev, phase, deadline } = live[0];
+  const rows = missionRows(profile, ev, now);
+  const missions = [...rows.daily, ...rows.total].some((m) => m.claimable);
+  const gifts = mailList(profile, now).some((l) => l.claimable && String(l.id || '').startsWith(`ev:${ev.id}:`));
+  const shop = phase === 'exchange' && shopRows(profile, ev, now).some((o) => o.open && !o.soldOut && !o.locked && o.affordable);
+  return { route: 'event', id: ev.id, phase, msLeft: Number.isFinite(deadline) ? Math.max(0, deadline - ms(now)) : null, dot: missions || gifts || shop };
 }
 
 /** 'Ends in 6d 4h' / 'Exchange · 3d 2h left' / 'Opens in 2d 4h' / 'Ended'. */

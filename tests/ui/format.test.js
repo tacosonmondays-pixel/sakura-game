@@ -1,7 +1,7 @@
 // fmtNum, the one number style (docs/specs/UI_DIRECTION.md §2): the short form, money kept exact longer, the
 // rounding direction per kind (balances down, prices up, stats nearest), signs and units.
 import { describe, it, expect } from 'vitest';
-import { fmtNum, MINUS } from '../../src/ui/format.js';
+import { fmtNum, fmtItemCount, MINUS, isUrgent } from '../../src/ui/format.js';
 
 describe('fmtNum: counts, rewards, damage, HP', () => {
   it('exact with separators below 10,000', () => {
@@ -119,6 +119,37 @@ describe('fmtNum: time, level, progress', () => {
     expect(fmtNum(0.3, 'time', { whole: true })).toBe('1s');
     expect(fmtNum(4.01, 'time', { whole: true })).toBe('5s');
   });
+  it('time left on a countdown chip (UI M5, §5.9): "6d 4h", "6d", "11h", "12:05", rounded up', () => {
+    const H = 3600;
+    const D = 24 * H;
+    expect(fmtNum(6 * D + 4 * H, 'time')).toBe('6d 4h');
+    expect(fmtNum(6 * D + 3 * H + 1, 'time')).toBe('6d 4h'); // up: an hour started counts
+    expect(fmtNum(6 * D, 'time')).toBe('6d');
+    expect(fmtNum(6 * D - 1, 'time')).toBe('6d'); // 5d 23h 59m 59s rounds up to the next whole day
+    expect(fmtNum(D, 'time')).toBe('1d');
+    expect(fmtNum(D + 1, 'time')).toBe('1d 1h');
+    expect(fmtNum(11 * H, 'time')).toBe('11h');
+    expect(fmtNum(10 * H + 1, 'time')).toBe('11h');
+    expect(fmtNum(D - 1, 'time')).toBe('24h'); // under a day it stays in hours (never "1d" while urgent)
+    expect(fmtNum(H, 'time')).toBe('1h');
+    expect(fmtNum(H - 0.4, 'time')).toBe('1h'); // 59:59.6 rounds up into the hour
+    expect(fmtNum(12 * 60 + 5, 'time')).toBe('12:05');
+    expect(fmtNum(8000, 'time')).toBe('3h'); // was "133:20"
+    expect(fmtNum(45, 'time')).toBe('45s');
+  });
+  it('never "0s" while a countdown still runs', () => {
+    expect(fmtNum(0.0001, 'time')).not.toBe('0s');
+    expect(fmtNum(0.4, 'time', { whole: true })).toBe('1s');
+  });
+  it('isUrgent: under 24 h, and only while it runs', () => {
+    expect(isUrgent(23 * 3600)).toBe(true);
+    expect(isUrgent(24 * 3600 - 1)).toBe(true);
+    expect(isUrgent(24 * 3600)).toBe(false);
+    expect(isUrgent(6 * 86400)).toBe(false);
+    expect(isUrgent(0)).toBe(false);
+    expect(isUrgent(-5)).toBe(false);
+    expect(isUrgent(NaN)).toBe(false);
+  });
   it('level: LV 48, or LV 48/50 where the cap matters', () => {
     expect(fmtNum(48, 'level')).toBe('LV 48');
     expect(fmtNum(48, 'level', { cap: 50 })).toBe('LV 48/50');
@@ -129,5 +160,39 @@ describe('fmtNum: time, level, progress', () => {
   });
   it('an unknown kind throws', () => {
     expect(() => fmtNum(1, 'nope')).toThrow(/unknown kind/);
+  });
+});
+
+describe('fmtItemCount: the item tile count badge (x450K)', () => {
+  it('a lowercase x, exact with no separator up to 9,999', () => {
+    expect(fmtItemCount(0)).toBe('x0');
+    expect(fmtItemCount(1)).toBe('x1');
+    expect(fmtItemCount(15)).toBe('x15');
+    expect(fmtItemCount(2400)).toBe('x2400');
+    expect(fmtItemCount(9999)).toBe('x9999');
+  });
+  it('from 10,000: one decimal at most, no trailing .0, uppercase K, M and B', () => {
+    expect(fmtItemCount(10000)).toBe('x10K');
+    expect(fmtItemCount(42350)).toBe('x42.3K');
+    expect(fmtItemCount(450000)).toBe('x450K');
+    expect(fmtItemCount(300000)).toBe('x300K');
+    expect(fmtItemCount(1250000)).toBe('x1.2M');
+    expect(fmtItemCount(3.4e9)).toBe('x3.4B');
+  });
+  it('rounds down: a stack never shows more than you own', () => {
+    expect(fmtItemCount(42399)).toBe('x42.3K');
+    expect(fmtItemCount(999999)).toBe('x999.9K');
+    expect(fmtItemCount(1999999)).toBe('x1.9M');
+    expect(fmtItemCount(9999.9)).toBe('x9999');
+    expect(fmtItemCount(2.7)).toBe('x2');
+  });
+  it('fits the phone tile: never longer than "x999.9K" (7 characters) below a trillion', () => {
+    for (const n of [7, 2400, 9999, 10000, 42350, 450000, 999999, 1250000, 999999999, 2.5e11]) expect(fmtItemCount(n).length).toBeLessThanOrEqual(7);
+  });
+  it('nothing for a missing value, x0 for a negative one', () => {
+    expect(fmtItemCount(null)).toBe('');
+    expect(fmtItemCount(undefined)).toBe('');
+    expect(fmtItemCount(NaN)).toBe('');
+    expect(fmtItemCount(-3)).toBe('x0');
   });
 });

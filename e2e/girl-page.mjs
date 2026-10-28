@@ -7,15 +7,23 @@
 //   Equipment            tap a spare to equip it, Undo puts the old piece back; hold a spare for its Details without
 //                        equipping it; Salvage asks with a second tap; taking a classmate's piece asks first, Undo
 //                        gives it back to her.
-//   Info                 the Profile sheet promises no ⚡ ability while abilities are dormant; Base stats › Role keeps
+//   Info                 the Profile sheet shows her ⚡ tip only when her ability runs (unitTips.abilityTipsShown), naming an ability of her own kit; Base stats › Role keeps
 //                        her subclass and both role lines; the "+N" chip's hit area reaches the dense tap size.
 //   Rail and band        an open locked tab's label stays readable on the ink plate (≥ 4.5:1); in 3D view the
 //                        Idle / Attack / Cheer / Victory row sits under the model's canvas, not over her legs.
+//   Compact / Detailed   Settings → Display → Girl page (src/ui/girlDetail.js), on Aoi and Umeko (both in full gear):
+//                        Compact keeps today's counts (3 strip cells + MORE, no gear values, ≤ 4 matchup entries, the
+//                        next star only, Manual closed, the Gear totals sheet its plain list); Detailed shows every
+//                        stat inline, each slot's main stat value and substats, every gear total, the set bonuses that
+//                        are on, every star, Manual open and the picked path's five tiers; every tab of a hero, a girl
+//                        not recruited yet and a ★5 girl lays out too. Both: no sideways overflow, nothing under 12 px.
+//                        The switch applies to an open page at once and survives a reload. --shots: both looks, every
+//                        tab, both sizes.
 //
 // Usage: node e2e/girl-page.mjs [--viewport 844x390] [--shots dir]
 import { createServer } from 'vite';
-import { createRequire } from 'node:module';
 import { mkdirSync } from 'node:fs';
+import { launchChromium } from './browser.mjs';
 
 const args = process.argv.slice(2);
 const opt = (n, d = null) => (args.includes(`--${n}`) ? args[args.indexOf(`--${n}`) + 1] : d);
@@ -25,9 +33,7 @@ const viewports = opt('viewport') ? [opt('viewport')] : ['844x390', '1280x720'];
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
 const base = `http://127.0.0.1:${server.httpServer.address().port}/`;
-const require = createRequire('/opt/node22/lib/node_modules/playwright/');
-const { chromium } = require('playwright');
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const { browser } = await launchChromium();
 const fails = [];
 const check = (c, m) => { console.log(`  ${c ? 'ok  ' : 'FAIL'} ${m}`); if (!c) fails.push(m); return c; };
 const T = 60000;
@@ -61,6 +67,15 @@ async function openGame(page) {
     const scrap = mk(25, 'charm', 'rare', 0);
     const chikas = mk(26, 'charm', 'superRare', 2);
     gear.equipGear(p, 'chika', chikas);
+    // Umeko (a support) in a full club set: the Detailed page lists its 2-piece stat and 3-piece trick
+    const { CLUBS } = await import('/src/data/clubs.js');
+    const club = Object.keys(CLUBS)[0];
+    for (const [i, slot] of ['charm', 'ribbon', 'shoes'].entries()) {
+      const uid = mk(31 + i, slot, 'legendary', 8);
+      p.gear[uid].club = club;
+      gear.equipGear(p, 'umeko', uid);
+    }
+    for (const r of ['common', 'rare', 'superRare']) p.items[`book_${r}`] = 4; // Level Up's Manual steppers
     p.missions.counters['ga:gift'] = 1;
     store.commit('test');
     store.saveNow?.();
@@ -78,6 +93,8 @@ async function go(page, hash, selector) {
 }
 async function shot(page, name) {
   if (!SHOTS) return;
+  // never a frame of the screen-change cut or the loader
+  await page.waitForFunction(() => !document.querySelector('#ld.on, .tx-cut.on'), null, { timeout: 10000 }).catch(() => {});
   await settle(page, 400);
   await noToasts(page);
   await page.screenshot({ path: `${SHOTS}/${name}.jpg`, type: 'jpeg', quality: 60 }).catch(() => {});
@@ -234,14 +251,26 @@ try {
     check(sc.lastShown && sc.sheetScroll === 0 && !(await page.$('[data-testid="unit-sheet-open-page"]')), `${tag} showcase build: her whole build is reachable by scrolling ("${sc.lastText}"), no Full page`);
     await closeHold();
 
-    // ---- 2. Info: Profile (no ⚡), Base stats › Role, the "+N" hit area ---------------------------------------
+    // ---- 2. Info: Profile (her ⚡ tip only when her ability runs), Base stats › Role, the "+N" hit area ---------
     for (const id of ['aoi', 'chika', 'momo', 'umeko', 'miko', 'akane', 'ouka']) {
       await go(page, `#/student/${id}?tab=info`, '[data-testid="info-profile"]');
       await page.click('[data-testid="info-profile"]');
       await page.waitForSelector('[data-testid="profile-sheet"]');
       const txt = await page.textContent('[data-testid="profile-sheet"]');
       const tips = await page.locator('[data-testid="profile-tips"] li').count();
-      check(!txt.includes('⚡') && !/\bteaches\b/.test(txt) && tips >= 2, `${tag} ${id}'s Profile sheet: ${tips} tips, no ⚡ ability promise`);
+      // (the live rule, A3 M2: a girl's ⚡ tip shows when ABILITY_TIPS_SHOWN is on and her first ⚡ ability runs; a
+      // waiting ability (Chika's Drone Surge) never promises a button. A shown ⚡ tip names an ability of her own kit)
+      const rule = await page.evaluate(async (gid) => {
+        const { UNIT_MAP } = await import('/src/data/units.js');
+        const { abilityTipsShown } = await import('/src/data/unitTips.js');
+        const { abilityText } = await import('/src/data/abilityText.js');
+        const u = UNIT_MAP[gid];
+        const names = (u.paths || []).flatMap((p) => (p.ability ? [abilityText(p.ability.id)?.name] : [])).filter(Boolean);
+        return { shown: abilityTipsShown(u), names };
+      }, id);
+      const bolt = txt.includes('⚡') || /\bteaches\b/.test(txt);
+      const named = rule.names.some((n) => txt.includes(n));
+      check(tips >= 2 && (rule.shown ? bolt && named : !bolt), `${tag} ${id}'s Profile sheet: ${tips} tips, ${rule.shown ? `her ⚡ tip names her own ability (${rule.names.join(', ')}: ${named})` : `no ⚡ ability promise (her ability waits)`}`);
       if (id === 'aoi') await shot(page, `aoi-profile-${tag}`);
       await page.keyboard.press('Escape');
       await page.waitForSelector('[data-testid="profile-sheet"]', { state: 'detached' });
@@ -357,6 +386,171 @@ try {
     await shot(page, `aoi-3d-${tag}`);
     await page.click('[data-testid="view-card"]');
     await settle(page, 300);
+
+    // ---- 5. Compact / Detailed (Settings → Display → Girl page) -------------------------------------------------
+    /** No sideways overflow on the page or in the tab host; every text 12 px or more. */
+    const layout = () => page.evaluate(() => {
+      const host = document.querySelector('.gp-host');
+      const small = [];
+      for (const el of document.querySelectorAll('.gp-host *, .gp-band *')) {
+        if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+        if (el.closest('.ui-sr')) continue; // screen-reader words, never drawn
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) continue;
+        const fs = parseFloat(getComputedStyle(el).fontSize);
+        if (fs < 12) small.push(`${el.textContent.trim().slice(0, 20)} ${fs}px`);
+      }
+      const wide = [...host.querySelectorAll('*')].filter((el) => { const r = el.getBoundingClientRect(); const hr = host.getBoundingClientRect(); return r.width > 0 && r.right > hr.right + 1; }).map((el) => el.className || el.tagName).slice(0, 4);
+      return { pageX: document.scrollingElement.scrollWidth - innerWidth, hostX: host.scrollWidth - host.clientWidth, small, wide };
+    });
+    const layoutOk = async (what) => {
+      const l = await layout();
+      check(l.pageX <= 0 && l.hostX <= 1 && !l.wide.length, `${tag} ${what}: no sideways overflow (page ${l.pageX}, host ${l.hostX}${l.wide.length ? `, past the edge: ${l.wide.join(' | ')}` : ''})`);
+      check(!l.small.length, `${tag} ${what}: nothing under 12 px (${l.small.slice(0, 4).join(' | ')})`);
+    };
+    const mode = () => page.evaluate(() => window.__sakura.store.profile.settings.girlPage);
+    const count = (sel) => page.locator(sel).count();
+    const toEnd = () => page.evaluate(() => { const el = document.querySelector('.gp-host'); el.scrollTop = el.scrollHeight; });
+    /** Her page on tab `t`, waiting for the NEW page's content (the old one is marked first). */
+    const goGirl = async (id, t) => {
+      await page.evaluate(() => document.querySelectorAll('.gp-host').forEach((e) => { e.dataset.old = '1'; }));
+      await go(page, `#/student/${id}?tab=${t}`, '.gp-host:not([data-old]) > *');
+    };
+    const SHOT_GIRLS = ['aoi', 'umeko'];
+    // Compact (the default): today's counts
+    check(await mode() === 'compact', `${tag} the girl page starts Compact (${await mode()})`);
+    for (const id of SHOT_GIRLS) {
+      await go(page, `#/student/${id}?tab=info`, '[data-testid="info-strip"]');
+      const mu = await count('[data-testid="info-matchup"] .gp-mu');
+      check(await count('[data-testid="info-strip"] .ui-cell') === 3 && await count('[data-testid="info-more"]') === 1 && !(await count('[data-testid="info-stats"]')) && mu <= 4 && !(await count('[data-testid="info-matchup-mult"]')),
+        `${tag} Compact ${id} Info: 3 headline stats + MORE, no inline stats, ${mu} matchup entries (≤ 4), no multipliers`);
+      await layoutOk(`Compact ${id} Info`);
+      await shot(page, `compact-${id}-info-${tag}`);
+      await go(page, `#/student/${id}?tab=gear`, '[data-testid="slot-charm"]');
+      check(await count('[data-testid="gear-strip"] .ui-cell') === 3 && await count('[data-testid="gear-more"]') === 1 && !(await count('[data-testid="gear-totals-all"]')),
+        `${tag} Compact ${id} Gear: the totals strip is 3 cells + MORE`);
+      check(!(await count('.gk-main-v')) && !(await count('.gk-subs')) && await count('.gk-slot .gk-main') === 3, `${tag} Compact ${id} Gear: 3 slot tiles with the main stat label, no value, no substats`);
+      // MORE: the Gear totals sheet keeps its one-line-per-stat list (the Detailed grid's styles never reach it)
+      await page.click('[data-testid="gear-more"]');
+      await page.waitForSelector('[data-testid="gear-totals-sheet"] .gk-lines');
+      const sheetList = await page.evaluate(() => { const cs = getComputedStyle(document.querySelector('[data-testid="gear-totals-sheet"] .gk-lines')); return `${cs.display} ${cs.flexDirection} ${cs.backgroundColor}`; });
+      check(sheetList === 'flex column rgba(0, 0, 0, 0)', `${tag} Compact ${id} Gear › MORE: the totals sheet is its plain list (${sheetList})`);
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('[data-testid="gear-totals-sheet"]', { state: 'detached' });
+      await layoutOk(`Compact ${id} Gear`);
+      await shot(page, `compact-${id}-gear-${tag}`);
+    }
+    await go(page, '#/student/aoi?tab=level', '[data-testid="level-panel"]');
+    check(await count('[data-testid="level-manual"][aria-expanded="false"]') === 1 && !(await count('[data-testid="level-books"]')), `${tag} Compact Level Up: Manual is closed`);
+    await shot(page, `compact-aoi-level-${tag}`);
+    await go(page, '#/student/aoi?tab=awaken', '[data-testid="tab-awaken"]');
+    const awC = { next: await count('[data-testid="awaken-next"]'), list: await count('[data-testid="awaken-stars"]'), lock: await count('[data-testid="story-lock-awaken"]') };
+    check(awC.lock || (awC.next === 1 && !awC.list), `${tag} Compact Awakening: the next star only (${JSON.stringify(awC)})`);
+    await shot(page, `compact-aoi-awaken-${tag}`);
+    await go(page, '#/student/aoi?tab=tree', '[data-testid="tree-grid"]');
+    check(!(await count('[data-testid="tree-path-list"]')), `${tag} Compact Tree: no tier list under the grid`);
+    await shot(page, `compact-aoi-tree-${tag}`);
+
+    // the Settings switch: Display → Girl page → Detailed
+    await go(page, '#/settings', '[data-testid="set-girlPage"]');
+    await page.locator('[data-testid="set-girlPage"] .ma-seg-btn', { hasText: 'Detailed' }).click();
+    await settle(page, 300);
+    const seg = await page.evaluate(() => [...document.querySelectorAll('[data-testid="set-girlPage"] .ma-seg-btn')].map((b) => `${b.textContent}:${b.getAttribute('aria-checked')}`).join(' '));
+    check(await mode() === 'detailed' && /Detailed:true/.test(seg), `${tag} Settings → Display → Girl page: Detailed is picked and saved (${seg})`);
+    await shot(page, `settings-girl-page-${tag}`);
+
+    for (const id of SHOT_GIRLS) {
+      await go(page, `#/student/${id}?tab=info`, '[data-testid="info-stats"]');
+      const info = await page.evaluate(async (uid) => {
+        const rows = document.querySelectorAll('[data-testid="info-stats"] tbody tr').length;
+        const { matchupList } = await import('/src/ui/girlView.js');
+        const { UNIT_MAP } = await import('/src/data/units.js');
+        return { rows, head: document.querySelector('[data-testid="info-stats"] thead')?.textContent || '', mu: document.querySelectorAll('[data-testid="info-matchup"] .gp-mu').length, mult: document.querySelectorAll('[data-testid="info-matchup-mult"]').length, all: matchupList(UNIT_MAP[uid].attackType).length, caps: document.querySelectorAll('[data-testid="info-caps-list"] li').length, hasCaps: (UNIT_MAP[uid].capabilities || []).filter((c) => c !== 'water').length + (UNIT_MAP[uid].pathCapabilities || []).filter((c) => !(UNIT_MAP[uid].capabilities || []).includes(c)).length };
+      }, id);
+      await page.click('[data-testid="info-more"]');
+      await page.waitForSelector('[data-testid="stats-sheet"] .mb-stats');
+      const sheetRows = await page.evaluate(() => document.querySelectorAll('[data-testid="stats-sheet"] .mb-stats tbody tr').length);
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('[data-testid="stats-sheet"]', { state: 'detached' });
+      check(info.rows >= 8 && info.rows === sheetRows && /Base/.test(info.head) && /Yours/.test(info.head), `${tag} Detailed ${id} Info: every stat inline with Base and Yours (${info.rows} rows, the MORE sheet has ${sheetRows})`);
+      check(info.mu === info.all && info.mult === info.all && info.caps === info.hasCaps, `${tag} Detailed ${id} Info: the whole matchup with multipliers (${info.mult} of ${info.all}) and ${info.caps} capabilities listed`);
+      await layoutOk(`Detailed ${id} Info`);
+      await shot(page, `detailed-${id}-info-${tag}`);
+      await toEnd();
+      await shot(page, `detailed-${id}-info-end-${tag}`);
+      await go(page, `#/student/${id}?tab=gear`, '[data-testid="gear-totals-all"]');
+      const gearD = await page.evaluate(async (uid) => {
+        const { store } = window.__sakura;
+        const { gearLines } = await import('/src/systems/gear.js');
+        const { gearTotalsRows, setView } = await import('/src/ui/gearView.js');
+        const { shortStatValue } = await import('/src/ui/girlDetail.js');
+        const p = store.profile;
+        const want = ['charm', 'ribbon', 'shoes'].map((slot) => { const L = gearLines(p.gear[p.units[uid].gear[slot]]); return { slot, main: shortStatValue(L.main.stat, L.main.value), subs: L.subs.map((l) => shortStatValue(l.stat, l.value)) }; });
+        const got = want.map((w) => ({
+          slot: w.slot,
+          main: document.querySelector(`[data-testid="slot-${w.slot}-main"]`)?.textContent || null,
+          mainShown: !!document.querySelector(`[data-testid="slot-${w.slot}-main"]`)?.getBoundingClientRect().width,
+          subs: [...document.querySelectorAll(`[data-testid="slot-${w.slot}-subs"] .gk-sub .num`)].map((e) => e.textContent),
+          subsShown: [...document.querySelectorAll(`[data-testid="slot-${w.slot}-subs"] .gk-sub`)].every((e) => e.getBoundingClientRect().height > 0),
+        }));
+        const set = setView(p, uid);
+        return { want, got, totals: document.querySelectorAll('[data-testid="gear-totals-all"] .gk-tot').length, rows: gearTotalsRows(p, uid).length, more: document.querySelectorAll('[data-testid="gear-more"]').length, bonuses: document.querySelectorAll('[data-testid="gear-bonuses"] li').length, setOn: set ? Number(!!set.two?.on) + Number(!!set.trick?.on) + Number(!!set.resonance) : 0 };
+      }, id);
+      const sameMain = gearD.want.every((w, i) => gearD.got[i].main === w.main && gearD.got[i].mainShown);
+      const sameSubs = gearD.want.every((w, i) => JSON.stringify(gearD.got[i].subs) === JSON.stringify(w.subs) && w.subs.length > 0 && gearD.got[i].subsShown);
+      check(sameMain, `${tag} Detailed ${id} Gear: every slot tile shows its main stat value (${gearD.got.map((g) => g.main).join(', ')})`);
+      check(sameSubs, `${tag} Detailed ${id} Gear: every substat shows with its value (${gearD.got.map((g) => g.subs.join(' ')).join(' | ')})`);
+      check(gearD.totals === gearD.rows && gearD.rows > 3 && !gearD.more, `${tag} Detailed ${id} Gear: every total (${gearD.totals} of ${gearD.rows}), no MORE`);
+      check(gearD.bonuses === gearD.setOn, `${tag} Detailed ${id} Gear: ${gearD.bonuses} set bonuses listed (${gearD.setOn} on)`);
+      await layoutOk(`Detailed ${id} Gear`);
+      await shot(page, `detailed-${id}-gear-${tag}`);
+      await toEnd();
+      await shot(page, `detailed-${id}-gear-end-${tag}`);
+    }
+    await go(page, '#/student/aoi?tab=level', '[data-testid="level-panel"]');
+    check(await count('[data-testid="level-manual"][aria-expanded="true"]') === 1 && await count('[data-testid="level-books"] .mb-stepper') >= 3, `${tag} Detailed Level Up: the Manual steppers are open`);
+    await layoutOk('Detailed Level Up');
+    await shot(page, `detailed-aoi-level-${tag}`);
+    await go(page, '#/student/aoi?tab=awaken', '[data-testid="tab-awaken"]');
+    if (!awC.lock) {
+      const aw = await page.evaluate(() => ({ n: document.querySelectorAll('[data-testid="awaken-stars"] li').length, on: document.querySelectorAll('[data-testid="awaken-stars"] li.on').length, star: window.__sakura.store.profile.units.aoi.awaken, next: [...document.querySelectorAll('[data-testid="awaken-stars"] li.next')].map((e) => e.textContent) }));
+      check(aw.n === 5 && aw.on === aw.star && aw.next.length === 1 && aw.next[0].includes(`★${aw.star + 1}`), `${tag} Detailed Awakening: every star listed, ${aw.on} reached, the next one highlighted (${aw.next.join('')})`);
+      await layoutOk('Detailed Awakening');
+      await shot(page, `detailed-aoi-awaken-${tag}`);
+    }
+    await go(page, '#/student/aoi?tab=tree', '[data-testid="tree-path-list"]');
+    const t0 = await count('[data-testid="tree-path-list"] [data-testid^="tree-tier-0-"]');
+    await page.click('[data-testid="ut-cell-1-2"]');
+    await settle(page, 300);
+    const t1 = await count('[data-testid="tree-path-list"] [data-testid^="tree-tier-1-"]');
+    const fx = await page.evaluate(() => [...document.querySelectorAll('[data-testid="tree-path-list"] .gp-tl')].every((li) => li.querySelector('.gp-tl-fx')?.textContent.trim()));
+    check(t0 === 5 && t1 === 5 && fx, `${tag} Detailed Tree: the first path's five tiers, then the picked path's five, each with its effects`);
+    await layoutOk('Detailed Tree');
+    await shot(page, `detailed-aoi-tree-${tag}`);
+    await toEnd();
+    await shot(page, `detailed-aoi-tree-end-${tag}`);
+    // every tab of a hero (Hikari, ★5), a girl not recruited yet (Kinu) and a ★5 student (Umeko raised below) in Detailed
+    await page.evaluate(() => { const { store } = window.__sakura; store.profile.units.umeko.awaken = 5; store.commit('test'); });
+    for (const id of ['hikari', 'kinu', 'umeko']) {
+      for (const t of ['info', 'level', 'awaken', 'gear', 'tree']) {
+        await goGirl(id, t);
+        await layoutOk(`Detailed ${id} ${t}`);
+      }
+    }
+    await goGirl('umeko', 'awaken');
+    check(await count('[data-testid="awaken-stars"] li.on') === 5 && !(await count('[data-testid="awaken-stars"] li.next')), `${tag} Detailed Awakening at ★5: all five stars reached, none next`);
+    // the switch applies to an open page at once, and Detailed survives a reload
+    await go(page, '#/student/aoi?tab=gear', '[data-testid="gear-totals-all"]');
+    await page.evaluate(() => { const { store } = window.__sakura; store.profile.settings.girlPage = 'compact'; store.commit('settings'); });
+    const live = await page.waitForSelector('[data-testid="gear-strip"]', { timeout: 5000 }).then(() => true).catch(() => false);
+    check(live && !(await count('[data-testid="gear-totals-all"]')), `${tag} an open girl page follows the switch at once (Detailed → Compact)`);
+    await page.evaluate(() => { const { store } = window.__sakura; store.profile.settings.girlPage = 'detailed'; store.commit('settings'); store.saveNow?.(); });
+    await page.waitForSelector('[data-testid="gear-totals-all"]', { timeout: 5000 }).catch(() => {});
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: T });
+    const kept = await page.waitForSelector('[data-testid="gear-totals-all"]', { timeout: T }).then(() => true).catch(() => false);
+    check(kept && await mode() === 'detailed', `${tag} Detailed survives a reload`);
+    await page.evaluate(() => { const { store } = window.__sakura; store.profile.settings.girlPage = 'compact'; store.commit('settings'); store.saveNow?.(); });
 
     check(!errs.length, `${tag} no page errors${errs.length ? `: ${errs.slice(0, 3).join(' | ')}` : ''}`);
     await context.close();
