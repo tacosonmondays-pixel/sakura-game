@@ -92,6 +92,8 @@ function kitFields(s) {
     strip: s.strip, ring: s.ring, drink: s.drink, sentry: s.sentry, hub: s.hub, vine: s.vine, ball: s.ball,
     // Kaede's blade arts (her AoE rework)
     blade: s.blade,
+    // the duo's beam and prism (src/sim/duo.js)
+    duo: s.duo,
   };
   return JSON.stringify(f);
 }

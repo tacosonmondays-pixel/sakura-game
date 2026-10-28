@@ -73,7 +73,8 @@ export function buildDuo(unitDef, opts, build) {
   ud.kind = 'chibi';
   ud.duo = true;
   ud.memberIds = [...ids];
-  ud.height = Math.max(...figs.map((f) => (f.userData.height || 0.9) * DUO_SCALE));
+  // (her tallest member's own height: the bar and ring above a figure follow it like a single girl's)
+  ud.height = Math.max(...figs.map((f) => f.userData.height || 0.9));
   // The battle turns the whole figure toward her target (group.rotation.y): the pair keeps standing side by side
   // across the screen (their spots counter-turn), and each of them turns with the group.
   let lastTurn = null;

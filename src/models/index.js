@@ -79,7 +79,7 @@ export function preloadModels(ids = null, { detail = 'full', skins = {} } = {}) 
  */
 export function buildChibi(unitDef, opts = {}) {
   // a duo unit: both girls on one base, each her own chibi (src/models/duo.js)
-  if (unitDef?.duo?.members?.length) return buildDuo(unitDef, opts, buildChibi);
+  if (unitDef?.duo?.members?.length) return tagSkin(buildDuo(unitDef, opts, buildChibi), resolveSkin(unitDef.id, opts.skin));
   const quality = opts.quality || 'high';
   const detail = opts.detail || detailFor(quality);
   const skin = resolveSkin(unitDef.id, opts.skin);
