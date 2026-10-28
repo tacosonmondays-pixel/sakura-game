@@ -404,3 +404,36 @@ export function lockedTile({ title, line = null, soon = 'Coming soon', art = nul
   h('b.ui-ltile-title', title),
   line ? h('span.ui-ltile-line', line) : null);
 }
+
+/**
+ * A one-choice row of kit options (the segmented control: a difficulty, a grade, a page): `.ui-opt` buttons in a
+ * wrapping row, each a 44 px tap, the chosen one `.on` (ink fill, pink bar) with aria-checked. A locked item shows a lock
+ * glyph and stays tappable so its screen can say why (onPick gets it with `locked: true`).
+ * @param {{ id: string, label: string, locked?: boolean, title?: string|null }[]} items
+ * @param {string|null} active the chosen item's id
+ * @param {(id: string, item: object) => void} onPick
+ * @param {{ label?: string, testidPrefix?: string, min?: number, cls?: string }} [o] label: the group's accessible name;
+ *   min: the narrowest item in px (default 44; a row of 12 grades wraps to two rows on a phone)
+ * @returns {HTMLElement & { setActive(id: string): void }}
+ */
+export function segRow(items, active, onPick, { label = 'Choose one', testidPrefix = 'seg-', min = 44, cls = '' } = {}) {
+  const el = h(`div.ui-segrow${cls ? `.${cls}` : ''}`, { role: 'radiogroup', 'aria-label': label, style: { '--seg-min': `${min}px` } });
+  const btns = new Map();
+  for (const it of items) {
+    const b = h(`button.ui-opt${it.locked ? '.locked' : ''}`, {
+      type: 'button', role: 'radio', 'data-testid': `${testidPrefix}${it.id}`, 'data-id': it.id,
+      title: it.title || null, 'aria-label': `${it.label}${it.locked ? ' (locked)' : ''}`,
+      onclick: () => onPick(it.id, it),
+    }, it.locked ? ico('lock') : null, h('span', it.label));
+    btns.set(it.id, b);
+    el.append(b);
+  }
+  el.setActive = (id) => {
+    for (const [k, b] of btns) {
+      b.classList.toggle('on', k === id);
+      b.setAttribute('aria-checked', k === id ? 'true' : 'false');
+    }
+  };
+  el.setActive(active);
+  return el;
+}

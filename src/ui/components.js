@@ -19,7 +19,7 @@ import { hasPotentialNew } from '../systems/potential.js';
 import { pickMarks } from './pickMarks.js';
 import { inkSurface } from './surfaceMode.js';
 import { lineGlyph, lineFor } from './lineGlyphs.js';
-import { walletsFor, WALLET_DEFS } from './wallets.js';
+import { walletsFor, walletDef } from './wallets.js';
 import { curArt, ico } from './kit.js';
 import { countTo } from './motion.js';
 import { faceAnchor } from './faceAnchors.js';
@@ -241,7 +241,7 @@ function inkWallets({ plus = true, wallets = null } = {}) {
   const el = h('div.topbar-group.cur-pills');
   const line = (name) => svgEl(lineGlyph(name, '', { kitSize: false }));
   const pill = (id) => {
-    const d = WALLET_DEFS[id];
+    const d = walletDef(id);
     vals[id] = h('span.cur-val.num', { 'data-testid': id });
     const more = plus && d.plus
       ? h('button.cur-plus', { type: 'button', onclick: () => navigate(d.plus.route, d.plus.params), title: d.plus.label, 'aria-label': d.plus.label }, line('plus'))
@@ -250,10 +250,10 @@ function inkWallets({ plus = true, wallets = null } = {}) {
   };
   // (a balance that changed since it was last on show, here or on the home, counts there: motion.js countTo)
   const refresh = () => {
-    for (const id of ids) if (vals[id]) countTo(vals[id], itemCount(store.profile, WALLET_DEFS[id].item), { key: id });
+    for (const id of ids) if (vals[id]) countTo(vals[id], itemCount(store.profile, walletDef(id).item), { key: id });
   };
   const draw = (next) => {
-    ids = (next || []).filter((id) => WALLET_DEFS[id]);
+    ids = (next || []).filter((id) => walletDef(id));
     for (const k of Object.keys(vals)) delete vals[k];
     el.replaceChildren(...ids.flatMap((id, i) => [i ? h('span.ui-slash', { 'aria-hidden': 'true' }) : null, pill(id)]).filter(Boolean));
     el.hidden = !ids.length;

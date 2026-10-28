@@ -612,6 +612,8 @@
 :where(.ui-day, .ui-night) .ui-girltile > .cap > .ui-ico { width: 14px; height: 14px; flex: none; color: var(--on-ink-dim); }
 :where(.ui-day, .ui-night) .ui-girltile > .cap .gt-lv { flex: none; display: inline-flex; align-items: baseline; gap: 3px; }
 :where(.ui-day, .ui-night) .ui-girltile > .dup.gt-join { --fill: var(--plate); color: var(--on-ink); }
+/* (a long join line wraps inside the tile, never cut: Tryout Day's "Not in your class yet") */
+:where(.ui-day, .ui-night) .ui-girltile > .dup.gt-join { white-space: normal; height: auto; line-height: 1.15; text-align: center; }
 /* the P chip: an ink chip with white figures at the type floor; P6 a pale sakura chip with plum figures and the crown
    (the pill's own 11 px and round ends, potential.css, never reach a tile) */
 :is(.ui-day, .ui-night) .ui-girltile .pot-pill { height: 20px; min-width: 0; padding: 0 6px; gap: 2px; border-radius: 0; background: var(--plate); color: #fff;
@@ -648,6 +650,24 @@
 :where(.ui-day, .ui-night) .ui-hubtile:active { transform: scale(0.98); }
 :where(.ui-day, .ui-night) .ui-hubtile.sm > .cap { justify-content: flex-end; min-height: calc(var(--fs-body) * 2.2 + 14px); padding: 6px 8px 8px 10px; gap: 3px; }
 :where(.ui-day, .ui-night) .ui-hubtile.sm > .cap .name { font-size: var(--fs-body); line-height: 1.1; }
+/* the hubTile() builder (kit.js): its art window, its line and its lock line (moved here from M5's v2-hubs.css) */
+:where(.ui-day, .ui-night) .ui-hubtile { min-width: 0; min-height: 0; }
+:where(.ui-day, .ui-night) .ui-hubtile > .ui-hubtile-art { position: relative; flex: 1 1 0; min-height: 0; display: block; overflow: hidden; line-height: 0; filter: saturate(0.85); }
+:where(.ui-day, .ui-night) .ui-hubtile > .ui-hubtile-art > * { position: absolute; inset: 0; width: 100%; height: 100%; }
+:where(.ui-day, .ui-night) .ui-hubtile > .ui-hubtile-art :is(svg, img) { display: block; width: 100%; height: 100%; object-fit: cover; }
+:where(.ui-day, .ui-night) .ui-hubtile.locked > .ui-hubtile-art { filter: saturate(0.25) brightness(0.7); }
+:where(.ui-day, .ui-night) .ui-hubtile > .cap > .name { color: var(--on-ink); overflow-wrap: break-word; hyphens: manual; }
+:where(.ui-day, .ui-night) .ui-hubtile > .cap > .lbl { color: var(--on-ink-dim); white-space: normal; }
+:where(.ui-day, .ui-night) .ui-hubtile-line { font: 600 var(--fs-label)/1.2 var(--font); color: var(--on-ink); text-wrap: pretty; }
+:where(.ui-day, .ui-night) .ui-hubtile-lock { display: flex; align-items: center; gap: 4px; font: 700 var(--fs-label)/1.2 var(--font); color: var(--on-ink); }
+:where(.ui-day, .ui-night) .ui-hubtile-lock > .ui-ico { display: inline-flex; flex: none; width: 14px; height: 14px; color: var(--on-ink-dim); }
+:where(.ui-day, .ui-night) .ui-hubtile-lock > .ui-ico svg { width: 100%; height: 100%; }
+:where(.ui-day, .ui-night) .ui-hubtile > .tr .ui-dot { --dot-ring: var(--plate); }
+/* the segRow() builder (kit.js): a one-choice row of kit options, 44 px taps, wrapping to more rows when it must */
+:where(.ui-day, .ui-night) .ui-segrow { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--seg-min, 44px), 1fr)); gap: 6px; }
+:where(.ui-day, .ui-night) .ui-segrow > .ui-opt { min-width: 0; min-height: var(--tap); justify-content: center; padding: 0 4px; }
+:where(.ui-day, .ui-night) .ui-segrow > .ui-opt.locked { color: var(--muted); }
+:where(.ui-day, .ui-night) .ui-segrow > .ui-opt.locked :is(svg.g, .ui-ico) { width: 14px; height: 14px; }
 
 /* ==========================================================================================================
    THE SELECTED TILE (medium 3, notes/ui-v2/OPEN_FINDINGS.md 3): ONE rule for every selected item or gear tile. The
