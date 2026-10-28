@@ -5,6 +5,9 @@
 // tick; every draw comes from a named stream of the run seed. Nothing here runs per step but the co-op
 // window clock. A Sim without `options.tryout` never reaches this file.
 import { TRYOUT, PEP_CARDS } from '../../data/tryout.js';
+import { MAP_RULES } from '../../data/rules.js';
+import { applySpawnMods } from '../enemies.js';
+import { stream } from './plan.js';
 import { AUTO_START_DELAY } from '../constants.js';
 import { createRuleRuntime, rebuildRuleTables, ruleBountyAdd } from '../rules.js';
 import { lengthOf, periodWaves, blockOf, buildTryoutPlan } from './plan.js';
@@ -59,9 +62,18 @@ export function tryoutLoadouts(sim, squads, period) {
 export function installRule(sim) {
   const ty = sim.tryout;
   const bonus = seatBonus(sim);
+  // this period's Subject: its campaign rule's cycle and keys, merged with the run's seats and bounty (§2.4).
+  // padDmgMul / padRangeAdd are the run's alone; adding keys add; an every-Nth bonus counts from the period's start
+  const sub = ty.subject ? TRYOUT.subjects[ty.subject] : null;
+  const rd = sub?.rule ? MAP_RULES[sub.rule] : null;
+  const always = { ...(rd?.always || {}) };
+  if (always.bonusEvery) always.bonusEvery = { ...always.bonusEvery, offset: (ty.period - 1) * lengthOf(ty.length).wavesPerPeriod };
+  const spare = spareChange(sim);
+  if (spare) always.bountyAdd = (always.bountyAdd || 0) + spare;
+  always.padDmgMul = 1 + bonus.dmg;
+  always.padRangeAdd = bonus.reach;
   const def = {
-    id: 'tryout', cycle: null, active: {},
-    always: { padDmgMul: 1 + bonus.dmg, padRangeAdd: bonus.reach, ...(spareChange(sim) ? { bountyAdd: spareChange(sim) } : null) },
+    id: rd ? rd.id : 'tryout', cycle: rd?.cycle || null, active: { ...(rd?.active || {}) }, always,
     pads: seatsOf(sim, ty.seats.block).map((p) => ({ ...p })),
   };
   sim.rule = createRuleRuntime(def);
@@ -70,6 +82,11 @@ export function installRule(sim) {
   rebuildRuleTables(sim);
   assignSeats(sim);
   sim._buffsDirty = true;
+}
+
+/** Can any period of this run offer Back Gate (History: even waves come from the far end)? */
+export function tryoutBackGate(sim) {
+  return sim.tryout.subjects.some((pair) => pair?.some((id) => TRYOUT.subjects[id]?.backGate));
 }
 
 /**
@@ -105,6 +122,10 @@ export function createTryout(sim, cfg) {
     periods: [],
     assign: null,
     pickNo: 0,
+    subjects: plan.subjects,
+    subject: null,
+    nextSubject: null,
+    dare: null,
     players: cfg.players.map((p) => ({
       squad: (p.squad || []).filter((id) => sim.data.unit(id)),
       cards: [],
@@ -122,6 +143,7 @@ export function createTryout(sim, cfg) {
       offer: null,
       win: null,
       winTicks: 0,
+      dare: false,
       declined: null,
       fund: [],
       undo: [],
@@ -359,6 +381,24 @@ export function tryoutCommand(sim, slot, op, args = []) {
       maybeClose(sim);
       return { ok: true, reason: null };
     }
+    case 'subject': {
+      // the class choice for the coming period: its chooser only, between periods (§2.4; co-op alternates by period)
+      const next = ty.base ? 0 : ty.period + (ty.started >= ty.period ? 1 : 0);
+      const pair = ty.subjects[next];
+      if (!pair || ty.base || sim.state === 'wave') return { ok: false, reason: 'notNow' };
+      if (chooserOf(ty, next) !== slot) return { ok: false, reason: 'notChooser' };
+      if (!Number.isInteger(a) || a < 0 || a > 1) return { ok: false, reason: 'invalid' };
+      ty.nextSubject = pair[a];
+      if (ty.assignOptions?.[pair[a]]) ty.assign = ty.assignOptions[pair[a]];
+      return { ok: true, reason: null };
+    }
+    case 'dare': {
+      // Double Dare for the coming period: each player's own tap (co-op: both must)
+      if (ty.base || sim.state === 'wave' || ty.done) return { ok: false, reason: 'notNow' };
+      if (a !== 0 && a !== 1) return { ok: false, reason: 'invalid' };
+      p.dare = a === 1;
+      return { ok: true, reason: null };
+    }
     case 'snack':
       return snack(sim, slot);
     case 'brush': {
@@ -417,21 +457,45 @@ export function tryoutWaveStart(sim) {
     tryoutLoadouts(sim, ty.players.map((x) => x.squad), p);
     for (const t of sim.towers) sim._refreshTower(t);
   }
-  // the Seat Change takes effect
+  // the class choice: the chosen Subject (or, unchosen, the first) is this period's (§2.4)
+  const pair = ty.subjects[p] || null;
+  ty.subject = pair ? (pair.includes(ty.nextSubject) ? ty.nextSubject : pair[0]) : null;
+  ty.nextSubject = null;
+  if (ty.assignOptions && ty.subject && ty.assignOptions[ty.subject]) ty.assign = ty.assignOptions[ty.subject];
+  ty.assignOptions = null;
+  // Double Dare (§8.3): on only when every player still here tapped it (solo: the player); its curse is the stream's
+  const present = ty.players.filter((x) => !x.gone);
+  const dared = present.length > 0 && present.every((x) => x.dare);
+  ty.dare = dared ? dareOf(ty, p) : null;
+  for (const x of ty.players) x.dare = false;
+  // the Seat Change takes effect, and the rule is rebuilt for the period (its Subject, the seats)
   const b = blockOf(len, p);
   if (b !== ty.seats.block) {
     ty.seats.block = b;
     ty.seats.holder = [];
-    installRule(sim);
   }
+  installRule(sim);
   ty.breakMoves = [];
   storeBaseline(sim);
   if (ty.assign?.period !== p) drawAssignments(sim, p);
 }
 
+/** The Double Dare curse of period p (named before anyone taps it: the sheet shows it). */
+export function dareOf(ty, p) {
+  const list = TRYOUT.dares;
+  return { ...list[Math.floor(stream(ty.seed, `dare:${p}`).next() * list.length)] };
+}
+
+/** The Subject chooser of period p in co-op (period number mod 2 → slot); solo: player 0. */
+export function chooserOf(ty, p) {
+  return ty.coop ? p % ty.players.length : 0;
+}
+
 /** A foe spawned (Quick Answer's clock). */
 export function tryoutSpawn(sim, e) {
   if (e.tier === 'boss' && e.parentUid == null) e.leak = TRYOUT.grades[sim.tryout.grade].bossLeak;
+  // Double Dare's curse on every foe of the period
+  if (sim.tryout.dare && sim.tryout.base) applySpawnMods(e, sim.tryout.dare);
   // Hundred Points' drawback: foes +10 % HP for the rest of the run
   if (hasCards(sim, (c) => c === PEP_CARDS.X01)) {
     e.maxHp *= 1 + PEP_CARDS.X01.draw.foeHp;
@@ -527,6 +591,9 @@ export function tryoutWaveEnd(sim) {
   if (sim.wave !== last) return;
   const p = ty.period;
   const cleared = evaluatePeriod(sim);
+  // a finished Double Dare: +1 credit for every player and the Period Score × 11/10 (§8.3)
+  const dared = !!ty.dare;
+  if (dared) ty.periodScore = Math.floor((ty.periodScore * TRYOUT.score.dareMul[0]) / TRYOUT.score.dareMul[1]);
   ty.periods.push({
     period: p,
     score: ty.periodScore,
@@ -534,7 +601,10 @@ export function tryoutWaveEnd(sim) {
     team: ty.assign.team.map((x) => [x.id, x.st]),
     own: ty.assign.own.map((l) => l.map((x) => [x.id, x.st])),
     resumed: !!ty.assign.resumed,
+    subject: ty.subject,
+    dare: ty.dare ? ty.dare.id : null,
   });
+  ty.dare = null;
   ty.score += ty.periodScore;
   ty.lastIncome = sim.stats.cashEarned - ty.base.earned;
   const bonus = sim._gainCash((TRYOUT.stage.periodBonus.base + TRYOUT.stage.periodBonus.perPeriod * p) * sim.cashScale);
@@ -560,14 +630,24 @@ export function tryoutWaveEnd(sim) {
         if (len.breaks[p]) openBreak(sim, i);
         return;
       }
-      const credits = cleared[i] + pl.bank;
+      const credits = cleared[i] + pl.bank + (dared ? 1 : 0);
       pl.bank = 0;
       openOffer(sim, i, pick, credits);
       pl.win = 'pick';
       pl.winTicks = 0;
     });
   } else if (len.breaks[p]) ty.players.forEach((_, i) => openBreak(sim, i));
-  drawAssignments(sim, p + 1);
+  // the coming period: both Subject options' assignments, drawn now so the sheet can show them (§2.4)
+  const pair = ty.subjects[p + 1];
+  const cur = ty.assign;
+  if (pair) {
+    ty.assignOptions = {};
+    for (const sid of pair) ty.assignOptions[sid] = drawAssignments(sim, p + 1, sid, { prev: cur, set: false }) || ty.assign;
+    ty.assign = ty.assignOptions[pair[0]];
+  } else {
+    ty.assignOptions = null;
+    drawAssignments(sim, p + 1);
+  }
   ty.players.forEach((pl, i) => { if (pl.gone) autoResolve(sim, i); });
   sim._autoTimer = -1;
 }

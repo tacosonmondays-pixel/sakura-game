@@ -56,24 +56,27 @@ export function cardText(inst) {
 /** Slot names on the pick sheet. */
 export const SLOT_NAMES = ['Team', 'One girl', 'Wild'];
 
-/** Assignments: name and a live line from assignProgress ({ cur, goal }). */
+/** A named girl's display name (Star Pupil, Show Her Around), or `fallback` while none is named yet. */
+const girlName = (id, fallback) => (id ? UNIT_MAP[id]?.name || id : fallback);
+
+/** Assignments: name and a live line from assignProgress ({ cur, goal, unit? }); shares are whole percents. */
 export const ASSIGN_TEXT = {
   a_hearts: { name: 'Full Hearts', live: (p) => `♥ ${p.cur} lost` },
   a_ace: { name: 'Ace the Test', live: (p) => `Score ${fmtNum(p.cur, 'count', { detail: true })} / ${fmtNum(p.goal, 'count', { detail: true })}` },
   a_speed: { name: 'Speed Round', live: (p) => `clear each wave within ${p.goal}s of its last foe` },
   a_quick: { name: 'Quick Answer', live: (p) => `beat the big foe within ${p.goal}s` },
-  a_sky: { name: 'Sky Guard', live: () => 'flyers fall before halfway' },
-  a_guest: { name: 'Guest Lecture', live: () => 'your hero deals 20% of the damage' },
+  a_sky: { name: 'Sky Guard', live: (p) => (p.cur > 0 ? `${p.cur} flyer${p.cur > 1 ? 's' : ''} got past halfway` : 'every flyer falls before halfway') },
+  a_guest: { name: 'Guest Lecture', live: (p) => `hero damage ${p.cur}% / ${p.goal}%` },
   a_budget: { name: 'Tight Budget', live: (p) => `spent ${fmtNum(p.cur, 'count', { detail: true })} / ${fmtNum(p.goal, 'count', { detail: true })}` },
-  a_save: { name: 'Save It Up', live: () => 'keep coins unspent' },
-  a_star: { name: 'Star Pupil', live: () => 'the named girl carries' },
-  a_show: { name: 'Show Her Around', live: () => 'your newest girl defeats foes' },
+  a_save: { name: 'Save It Up', live: (p) => `coins kept ${fmtNum(p.cur, 'count', { detail: true })} / ${fmtNum(p.goal, 'count', { detail: true })}` },
+  a_star: { name: 'Star Pupil', live: (p) => `${girlName(p.unit, 'Her')} damage ${p.cur}% / ${p.goal}%` },
+  a_show: { name: 'Show Her Around', live: (p) => `${girlName(p.unit, 'Your newest girl')}: ${p.cur} / ${p.goal} foes` },
   a_noreturn: { name: 'No Returns', live: (p) => `${p.cur} sold` },
   a_small: { name: 'Small Class', live: (p) => `${p.cur} / ${p.goal} new girl placed` },
-  a_window: { name: 'By the Window', live: () => 'seat girls carry' },
-  a_team: { name: 'Team Effort', live: () => '4 girls share the work' },
+  a_window: { name: 'By the Window', live: (p) => `Window Seat damage ${p.cur}% / ${p.goal}%` },
+  a_team: { name: 'Team Effort', live: (p) => `${p.cur} / ${p.goal} girls pulling their weight` },
   a_learner: { name: 'Quick Learner', live: (p) => `${p.cur} / ${p.goal} upgrades` },
-  a_finish: { name: 'Big Finish', live: () => 'use your ult twice' },
+  a_finish: { name: 'Big Finish', live: (p) => `${p.cur} / ${p.goal} hero ults` },
   a_tell: { name: 'Show and Tell', live: () => 'use abilities' },
 };
 

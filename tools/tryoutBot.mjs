@@ -3,11 +3,14 @@
 // The tests drive it too (tests/sim/tryout.test.js, tests/online/tryoutCoop.test.js).
 //
 // usage: node --import ./tools/simLoader.mjs tools/tryoutBot.mjs [runs=40] [grade=1] [policy=random|first] [--coop]
+//        [--strength new|mid|maxed|none] [--grade N] [--runs N] [--sweep] (see the CLI at the end)
 import { Sim } from '../src/sim/Sim.js';
 import { createRng } from '../src/core/rng.js';
 import { buildTryoutPlan, buildTryoutStage } from '../src/sim/tryout/index.js';
 import { createCoopSim } from '../src/online/coop/commands.js';
 import { snapshotDigest } from '../src/sim/snapshot.js';
+import { DEFAULT_UNIT_STATS } from '../src/sim/constants.js';
+import { TRYOUT_STUDENTS } from '../src/data/tryout.js';
 
 const Q = 1024;
 const SAMPLE = 0.5;
@@ -218,23 +221,51 @@ export function runCoop({ start = coopStart(), policy = 'random', maxWaves = Inf
 }
 
 // ---------------------------------------------------------------------------
-// CLI: a sweep
+// Roster strengths (§9.2): the account stats every student brings into the run (the band clamps them anyway)
 // ---------------------------------------------------------------------------
-const isMain = import.meta.url === `file://${process.argv[1]}`;
-if (isMain) {
-  const args = process.argv.slice(2).filter((x) => !x.startsWith('--'));
-  const coop = process.argv.includes('--coop');
-  const runs = +(args[0] || 40);
-  const grade = +(args[1] || 1);
-  const policy = args[2] || 'random';
+const acctStats = ({ L, gates, stars, atk, rate, extra = {} }) => ({
+  ...DEFAULT_UNIT_STATS,
+  damageMul: +((1 + 0.018 * (L - 1) + 0.02 * gates + 0.05 * stars) * (1 + atk)).toFixed(4),
+  rateMul: +((1 + 0.004 * (L - 1)) * (1 + rate)).toFixed(4),
+  level: L, awaken: stars, breakthrough: gates, awakenPassive: stars >= 3,
+  ...extra,
+});
+/**
+ * The three §9.2 accounts (tools/tryoutPower.mjs numbers). new: 2-5 cleared, Lv 30, gate 2, +10 % gear; mid: 6-5,
+ * Lv 60, gate 5, 2 stars, +40 % gear, its secondary gear at the band cap's values (the cap is defined as this girl);
+ * maxed: damage ×7.57, speed ×3.10, every other key above the band cap, ★3 and Potential 6.
+ */
+export const STRENGTHS = Object.freeze({
+  new: acctStats({ L: 30, gates: 2, stars: 0, atk: 0.10, rate: 0.03 }),
+  mid: acctStats({ L: 60, gates: 5, stars: 2, atk: 0.40, rate: 0.15, extra: { rangeMul: 1.1, critChance: 0.15, critMul: 1.5, armorPen: 3, costMul: 0.9, potential: 2 } }),
+  maxed: {
+    ...DEFAULT_UNIT_STATS, damageMul: 7.57, rateMul: 3.10, rangeMul: 1.3, critChance: 0.5, critMul: 2.5, armorPen: 10, costMul: 0.75, ultHaste: 0.3,
+    pierceK: 100, auraPct: 0.15, auraRangeMul: 1.2, dotMul: 1.5, awakenPassive: true, level: 85, awaken: 3, breakthrough: 6, potential: 6,
+  },
+});
+
+/** A pool (girl id → account stats) giving every Tryout student the strength's account; 'none' = all Loaners. */
+export function poolFor(strength) {
+  if (!strength || strength === 'none') return {};
+  const st = STRENGTHS[strength];
+  if (!st) throw new Error(`unknown strength ${strength} (new | mid | maxed | none)`);
+  return Object.fromEntries(TRYOUT_STUDENTS.map((id) => [id, { ...st }]));
+}
+
+/** Runs `runs` seeds at one Grade and strength; the summary the CLI prints. */
+export function sweep({ runs = 20, grade = 1, strength = 'none', policy = 'random', coop = false, length = 'half', seed0 = 1 } = {}) {
+  const t0 = Date.now();
   let wins = 0;
   let cleared = 0;
   let periods = 0;
-  const rar = [0, 0, 0, 0, 0];
   let waves = 0;
-  for (let s = 1; s <= runs; s++) {
+  const rar = [0, 0, 0, 0, 0];
+  const pool = poolFor(strength);
+  for (let s = seed0; s < seed0 + runs; s++) {
     const seed = (s * 2654435761) >>> 0;
-    const sim = coop ? runCoop({ start: coopStart({ seed, grade }), policy }).views[0].sim : runSolo({ seed, grade, policy }).sim;
+    const sim = coop
+      ? runCoop({ start: coopStart({ seed, grade, length, pools: [pool, pool] }), policy }).views[0].sim
+      : runSolo({ seed, grade, length, policy, pool }).sim;
     const r = sim.result();
     if (r.won) wins++;
     waves += r.wavesCleared;
@@ -242,9 +273,46 @@ if (isMain) {
     periods += r.tryout.periods.length;
     for (const p of r.tryout.players[0].picks) rar[p.rarity]++;
   }
-  const picks = rar.reduce((a, b) => a + b, 0) || 1;
-  console.log(`${coop ? 'co-op' : 'solo'} Grade ${grade}, ${runs} runs, policy ${policy}`);
-  console.log(`wins ${Math.round((100 * wins) / runs)} %, mean waves cleared ${(waves / runs).toFixed(1)}`);
-  console.log(`assignments cleared ${Math.round((100 * cleared) / Math.max(1, periods * 3))} % of ${periods * 3}`);
-  console.log(`pick rarity R / SR / SSR / UR / LR: ${rar.map((n) => Math.round((100 * n) / picks)).join(' / ')} %`);
+  const picks = rar.reduce((a, b) => a + b, 0);
+  return {
+    strength, grade, runs, coop, policy, length,
+    winRate: wins / runs, meanWaves: waves / runs, assignments: periods * 3, clearRate: cleared / Math.max(1, periods * 3),
+    rarity: rar.map((n) => n / Math.max(1, picks)), picks, seconds: (Date.now() - t0) / 1000,
+  };
+}
+
+const pct = (x) => `${Math.round(100 * x)} %`;
+function printSweep(r) {
+  console.log(`${r.coop ? 'co-op' : 'solo'} ${r.length} Grade ${r.grade}, strength ${r.strength}, ${r.runs} runs, policy ${r.policy} (${r.seconds.toFixed(1)} s, ${(r.seconds / r.runs).toFixed(2)} s/run)`);
+  console.log(`  wins ${pct(r.winRate)}, mean waves cleared ${r.meanWaves.toFixed(1)}`);
+  console.log(`  assignments cleared ${pct(r.clearRate)} of ${r.assignments}`);
+  console.log(`  pick rarity R / SR / SSR / UR / LR: ${r.rarity.map((x) => Math.round(100 * x)).join(' / ')} % (${r.picks} picks)`);
+}
+
+// ---------------------------------------------------------------------------
+// CLI
+//   node --import ./tools/simLoader.mjs tools/tryoutBot.mjs [runs=40] [grade=1] [policy=random|first|hand] [--coop]
+//        [--runs N] [--grade N] [--policy p] [--strength new|mid|maxed|none] [--length half|full] [--seed0 N] [--json]
+//   … --sweep [--runs N] [--grade N]: N seeds for each of the three strengths (new, mid, maxed) at that Grade
+// ---------------------------------------------------------------------------
+const isMain = import.meta.url === `file://${process.argv[1]}`;
+if (isMain) {
+  const argv = process.argv.slice(2);
+  const VALUED = ['--runs', '--grade', '--policy', '--strength', '--length', '--seed0'];
+  const opt = (k, d) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : d);
+  const pos = argv.filter((a, i) => !a.startsWith('--') && !VALUED.includes(argv[i - 1]));
+  const base = {
+    runs: +opt('runs', pos[0] || (argv.includes('--sweep') ? 20 : 40)),
+    grade: +opt('grade', pos[1] || 1),
+    policy: opt('policy', pos[2] || 'random'),
+    coop: argv.includes('--coop'),
+    length: opt('length', 'half'),
+    seed0: +opt('seed0', 1),
+  };
+  const strengths = argv.includes('--sweep') ? ['new', 'mid', 'maxed'] : [opt('strength', 'none')];
+  for (const strength of strengths) {
+    const r = sweep({ ...base, strength });
+    if (argv.includes('--json')) console.log(JSON.stringify(r));
+    else printSweep(r);
+  }
 }

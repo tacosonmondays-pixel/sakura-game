@@ -77,7 +77,7 @@ function pointOn(pts, d) {
 export function seatCount(sim) {
   const ty = sim.tryout;
   const g = TRYOUT.grades[ty.grade];
-  return Math.min(SEATS_DRAWN, g.seats + (ty.coop ? 1 : 0) + seatBonus(sim).add);
+  return Math.min(SEATS_DRAWN, g.seats + (ty.coop ? 1 : 0) + seatBonus(sim).add + (TRYOUT.subjects[ty.subject]?.seatAdd || 0));
 }
 
 /** The seats of block b in play. */

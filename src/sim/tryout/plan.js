@@ -85,7 +85,35 @@ export function buildTryoutPlan({ seed, grade = 1, length = 'half', mapId = null
   return {
     seed, grade: g.n, length: length in TRYOUT.lengths ? length : 'half', window: g.window,
     mapId: mapId && win.maps.includes(mapId) ? mapId : maps[0], maps, blocks, minibosses, boss,
+    subjects: subjectPairs(seed, len),
   };
+}
+
+/**
+ * The class choice (§2.4): two Subjects for every period from P2 on (index = period; P1 has none). A Subject comes at most
+ * once in a Half Day and twice in a Full Day, never in neighbouring periods. Its own stream, so the rest of the plan
+ * draws as before.
+ * @returns {(string[]|null)[]}
+ */
+export function subjectPairs(seed, len) {
+  const rng = stream(seed, 'plan:subjects');
+  const ids = Object.keys(TRYOUT.subjects);
+  const most = len.periods > 7 ? 2 : 1;
+  const used = {};
+  const out = [null, null];
+  for (let p = 2; p <= len.periods; p++) {
+    const near = new Set([...(out[p - 1] || [])]);
+    const pair = [];
+    for (let k = 0; k < 2; k++) {
+      let pool = ids.filter((id) => (used[id] || 0) < most && !near.has(id) && !pair.includes(id));
+      if (!pool.length) pool = ids.filter((id) => !near.has(id) && !pair.includes(id));
+      const id = pool[Math.floor(rng.next() * pool.length)];
+      pair.push(id);
+      used[id] = (used[id] || 0) + 1;
+    }
+    out.push(pair);
+  }
+  return out;
 }
 
 /**

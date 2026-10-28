@@ -64,7 +64,7 @@ import {
 import {
   createTryout, tryoutLoadouts, tryoutCanStart, tryoutWaveStart, tryoutWaveEnd, tryoutTick, tryoutSpawn, tryoutKill, tryoutLeak,
   tryoutCount, tryoutPlaceCost, tryoutPlaced, tryoutTowerMods, tryoutUpgradeCost, tryoutUpgraded, tryoutResult, tryoutCommand,
-  tryoutMove, windowOpen,
+  tryoutMove, windowOpen, tryoutBackGate,
 } from './tryout/index.js';
 import { assignSeats, nextSeats } from './tryout/breaks.js';
 import { hasCards, refreshRunMods } from './tryout/pep.js';
@@ -248,6 +248,10 @@ export class Sim {
     tryoutLoadouts(this, cfg.squads || players.map((p) => p.squad || []), cfg.period || 1);
     createTryout(this, this._tryoutCfg);
     if (cfg.squads) this.tryout.players.forEach((p, i) => { p.squad = cfg.squads[i].slice(); });
+    // Back Gate (History) flips even waves: the reversed paths, built when any period may offer it
+    if (!this._pathsRev && tryoutBackGate(this)) {
+      this._pathsRev = this._pathsFwd.map(reversePath);
+    }
   }
 
   /** A Tryout Day run command for player `slot` (solo: 0): see src/sim/tryout/index.js tryoutCommand. */
@@ -830,8 +834,8 @@ export class Sim {
     if (!this.endless && this.wave >= this.lastWave) return false;
     if (this.tryout && !tryoutCanStart(this)) return false;
     this.wave++;
+    if (this.tryout) tryoutWaveStart(this); // (first: a Subject's rule can flip the route, Back Gate)
     if (this._pathsRev) this.setRouteOrientation(routeReversedFor(this, this.wave));
-    if (this.tryout) tryoutWaveStart(this);
     // a long freeplay run would keep every past wave's spawn list: keep only the waves around now
     // (the cache is a pure function of the wave number, so dropping it changes nothing)
     if (this.freeplay) for (const k of this._waveCache.keys()) if (k < this.wave - 1) this._waveCache.delete(k);
