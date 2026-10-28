@@ -386,6 +386,13 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
 /* ================================================================ a phone held upright (390x844) */
 /* the bar on two rows (the avatar and the buttons, then the wallets), her in the upper half, and under her, in thumb
    reach: the news chip across, CO-OP on the Battle plate, the four icons across */
+/* an upright tablet or a narrow window (701-899 px wide, not a landscape phone): the bar's eleven pieces with Clan need
+   836 px at the desktop spacing, so the gaps close to 8 px and the decorative serial goes */
+@media (min-width: 701px) and (max-width: 899px) and (min-height: 481px) {
+  .ui-night .home .home-top { gap: 8px; }
+  .home .home-top .serial { display: none; }
+}
+@media (min-width: 701px) and (max-width: 759px) and (min-height: 481px) { .ui-night .home .home-top { padding: 0 16px; } }
 @media (max-width: 700px) and (min-height: 481px) {
   .ui-night .home .home-top { top: 8px; height: auto; flex-wrap: wrap; row-gap: 6px; padding: 0 16px; gap: 8px 10px; }
   .home .home-top .who { height: 44px; order: 0; }
