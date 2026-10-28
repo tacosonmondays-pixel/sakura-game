@@ -232,6 +232,20 @@ for (const { name, r } of results) {
   if (!(refract > 0 && beams > 0 && casts > 0 && twinStar > 0)) failures.push(`the duo battle: a part never ran (refract/shards/beams/casts/twinStar/aims ${ref.duo.duo})`);
 }
 
+// the staff heroes (STAFF_START): Norika's barricades and Hold the Line on a forked map, Kogane's plow and Moves
+log('\nScripted co-op STAFF battle (2-2, STAFF_START: Norika\'s barricades and Hold the Line, Kogane\'s Clear the Road and Moves):');
+for (const { name, r } of results) {
+  const g = r.staff;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · held/breaks/lines/oneWay/detours/plows/moves ${g.staff} · heroes Lv ${g.heroLevels} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two staff-battle clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} staff battle command(s) refused: ${g.refused}`);
+  for (const k of ['ticks', 'state', 'wave', 'wallets', 'final', 'hashes', 'staff', 'heroLevels']) if (g[k] !== ref.staff[k]) failures.push(`${name}: staff ${k} ${g[k]} ≠ ${ref.staff[k]} (${results[0].name})`);
+}
+{
+  const [held, breaks, lines, , , plows, moves] = ref.staff.staff.split('/').map(Number);
+  if (!(held > 0 && breaks > 0 && lines > 0 && plows > 0 && moves > 0)) failures.push(`the staff battle: a part never ran (held/breaks/lines/oneWay/detours/plows/moves ${ref.staff.staff})`);
+}
+
 // co-op freeplay: the same wave tables and the same whole freeplay battle everywhere
 const FP_KEYS = ['ticks', 'state', 'wave', 'cleared', 'finished', 'goalTick', 'endTicks', 'towers', 'wallets', 'lives', 'bosses', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckTick', 'ckDigest', 'ckReplay', 'finalDigest'];
 log('\nScripted co-op FREEPLAY battle (Crimson Moon on 1-3, past the goal, ended by a Finish vote):');

@@ -28,6 +28,7 @@ import { hashSim } from '../../src/online/coop/simHash.js';
 import { stageRule } from '../../src/data/rules.js';
 import { abilityPathOf } from '../../src/sim/abilities.js';
 import { LAB_CLASSES } from '../../src/sim/lab.js';
+import { pointAt } from '../../src/sim/path.js';
 
 const CHEAP = { costMul: 0.5 };
 export const START = Object.freeze({
@@ -2145,7 +2146,96 @@ export function runDuoBattle({ maxFrames = 60 * 60 * 10 } = {}) {
   return r;
 }
 
-/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, the duo (DUO_START), freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka and the mode battles. */
+// The staff heroes (docs/specs/BANNERS.md §D.6 "Each hero wave adds co-op engines scenarios"): Norika's barricades on a
+// forked map (2-2, lake_reeds: two roads from one start, so her Detour Sign can switch walkers to the longer one), Hold
+// the Line, and Kogane's Clear the Road plow with its push and her Moves (Treads, Overdrive at P6), in one co-op battle.
+// Both players buy hero levels with their coins; the host's ult fires through runPotentialBattle, the guest's ult and
+// Moves through the script.
+const STAFF_STATS = Object.freeze({ costMul: 0.3, damageMul: 2, rateMul: 1.1 });
+export const STAFF_START = Object.freeze({
+  seed: 565656,
+  stageId: '2-2',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: STAFF_STATS }, { unitId: 'yuki', stats: STAFF_STATS }], hero: { unitId: 'norika', stats: { ...STAFF_STATS, potential: 6 } } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'rei', stats: STAFF_STATS }, { unitId: 'akane', stats: STAFF_STATS }], hero: { unitId: 'kogane', stats: { ...STAFF_STATS, potential: 6 } } },
+  ],
+});
+
+/**
+ * STAFF_START to the end (or 10 minutes): the runPotentialBattle fields plus `staff` (held walkers, sampled every second /
+ * barricade breaks / Hold the Line
+ * barricades / One-Way Street sends / detours / plows / Kogane's mid-wave Moves, counted on the host's copy) and
+ * `heroLevels` (Norika / Kogane at the end).
+ */
+export function runStaffBattle({ maxFrames = 60 * 60 * 10 } = {}) {
+  const t0 = Date.now();
+  const st = { held: 0, breaks: 0, lines: 0, oneWay: 0, detours: 0, plows: 0, moves: 0 };
+  let host = null;
+  let aimed = false;
+  const probe = (sim) => {
+    host = sim;
+    const emit0 = sim._emit;
+    Object.defineProperty(sim, '_emit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function emit(type, ev, ...rest) {
+        if (type === 'barricadeBreak') st.breaks++;
+        else if (type === 'barricade' && ev?.kind === 'line') st.lines++;
+        else if (type === 'oneWay') st.oneWay++;
+        else if (type === 'detour') st.detours++;
+        else if (type === 'runner' && ev?.kind === 'plow') st.plows++;
+        else if (type === 'heroMove' && ev?.downtime > 0) st.moves++;
+        return emit0.call(this, type, ev, ...rest);
+      },
+    });
+  };
+  let home = null;
+  const script = (frame, A, B) => {
+    // walkers held at her barricades, sampled every second on the host's copy
+    if (frame % 60 === 0) for (const e of A.sim.enemies) if (e.heldBy) st.held++;
+    // the host aims Norika once, at the shorter road a few tiles past the shared start (Hold the Line lands there)
+    const n = A.sim.hero;
+    if (n && !aimed && frame === 300) {
+      const road = A.sim.pathData[A.sim.pathData.length > 1 ? 1 : 0];
+      const p = pointAt(road, Math.min(road.length - 1, 4), {});
+      A.queue('aim', [n.uid, Math.round(p.x * 1024), Math.round(p.y * 1024)]);
+      aimed = true;
+    }
+    // both buy a hero level whenever their wallet allows it (one every 2 s)
+    if (frame % 120 === 60) {
+      for (const c of [A, B]) {
+        if (!c.sim.hero) continue;
+        const s = c.sim.heroLevelStatus();
+        if (!s.reason) c.queue('hlv', [s.level + 1, s.price]);
+      }
+    }
+    const k = B.sim.hero;
+    if (!k) return;
+    if (frame % 240 === 200 && B.sim.heroUltStatus().ready) B.queue('ult');
+    // the guest moves Kogane between her spot and one beside it during the waves
+    if (B.sim.state === 'wave' && frame % 900 === 450 && !(k.moveCd > 0)) {
+      if (!home) home = { x: k.x, y: k.y };
+      const away = k.x === home.x && k.y === home.y;
+      for (const [dx, dy] of [[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) {
+        const x = away ? home.x + dx : home.x;
+        const y = away ? home.y + dy : home.y;
+        if (B.sim.canMoveHero(x, y).ok) {
+          B.queue('hmv', [Math.round(x * 1024), Math.round(y * 1024)]);
+          break;
+        }
+      }
+    }
+  };
+  const r = runPotentialBattle({ start: STAFF_START, upgrades: [], spotsFirst: ['norika', 'kogane', 'aoi', 'rei'], maxFrames, probe, script });
+  r.staff = `${st.held}/${st.breaks}/${st.lines}/${st.oneWay}/${st.detours}/${st.plows}/${st.moves}`;
+  r.heroLevels = host ? host.heroes.map((h) => h?.level ?? 0).join('/') : '';
+  r.ms = Date.now() - t0;
+  return r;
+}
+
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, the duo (DUO_START), the staff heroes (STAFF_START), freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t1 = Date.now();
@@ -2159,5 +2249,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), duo: runDuoBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), modes };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), modes };
 }
