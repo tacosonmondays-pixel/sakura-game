@@ -7,6 +7,7 @@
 //   const stage = createArtStage(host, { reduceMotion, onTap, boxes, backdrop })
 //   await stage.show(unitDef, { background })   her picture (her stand over a painting, or a full illustration)
 //   stage.relayout()                            placed again (a resize, the UI drawn again)
+//   a tap on her: hearts rise where she was tapped (3 on her head, 1 on her body; none under Reduce motion)
 //   stage.say(text) / stage.hideBubble()        her bubble: on a tap only, 2.4 s, under her face, never over a control
 //   stage.liveHost()                            the slot her living scene's canvas goes in (src/ui/lobby/live/)
 //   stage.setLive(on)                           the canvas shown in place of the painting and her still picture
@@ -21,10 +22,10 @@
 //          row shows her 3:4 full art on a portrait screen.
 // Where she stands: her face anchor (src/ui/faceAnchors.js) on the home's face spot, her art 8 px clear of every
 // control (src/ui/lobby/hostPlace.js placeHost; boxes() gives the controls' boxes). A full illustration cannot move her
-// alone: the whole picture is zoomed and panned so her face (the row's face point) lands on the spot (placeFull over
-// hostPlace.js placeScene), between the rail and the right stack, a little lower when a control would stand over her
-// hair there, so no control covers her face. Her still stand breathes at 1 % over 4.5 s (the
-// direction's Q10; off under Reduce motion).
+// alone: the whole picture is shown as painted, never zoomed, at the cover fit, and panned so her face (the row's face
+// point) comes as near the spot as it allows (placeFull over hostPlace.js placeScene), between the home's corners, a
+// little more where a control would stand over her hair, so no control covers her face.
+// Her still stand breathes at 1 % over 4.5 s (the direction's Q10; off under Reduce motion).
 // A painting with a baked night copy (HOME_BAKED, tools/art/bakeHome.mjs) shows that copy; any other picture (the event
 // backdrop, the newer full illustrations, her 3:4 full art) takes the kit's night grade in CSS instead (home.css
 // .graded), so the text over the scene keeps its contrast.
@@ -60,6 +61,22 @@ export function homeBackdropArt(file = 'academy.webp') {
 }
 
 /**
+ * The pictures the home will draw for this background, for the title's preload (title.js lobbyPreloadSteps): a full
+ * illustration's own picture (its baked night copy when it has one), else the picture behind her stand (the baked night
+ * academy, or the event's painted backdrop) and her stand. Pure.
+ * @param {object} bg a lobby background (src/data/lobbyArt.js)
+ * @param {{ portrait?: boolean, backdrop?: { file: string }|null }} [opts]
+ * @returns {string[]}
+ */
+export function homeStageUrls(bg, { portrait = false, backdrop = null } = {}) {
+  if (stageModeOf(bg) === 'full') {
+    const art = homeFullArt(bg.id, { portrait });
+    if (art) return [art.src];
+  }
+  return [homeBackdropArt(backdrop?.file || bg?.file || 'academy.webp').src, portraitUrl(bg?.girl, 'cut')].filter(Boolean);
+}
+
+/**
  * A full illustration as the home draws it on this screen (lobbyIllustrations.js fullArt): an older lobby scene's baked
  * night copy when it has one, else its own picture (graded in CSS); fx / fy = her face as fractions of the picture.
  * @param {string} id a FULL_ILLUSTRATIONS id
@@ -76,29 +93,59 @@ export function homeFullArt(id, { portrait = false } = {}) {
 }
 
 /**
- * A full illustration on the home: zoomed and panned so her face lands on the face spot (placeScene); when a control
- * stands over her face and hair there (±1.1 head radii across, 1.4 up, 1.0 down, as sceneLayout.js headHit, 8 px
- * clear), her face comes down a little, 4 px at a time, up to 12 % of the height. Pure.
+ * A full illustration on the home: the whole picture as painted, never zoomed (owner, v0.1.50: a full illustration
+ * shows the whole picture as it is), at the cover fit, panned along the side that overflows the screen so her face
+ * comes as near the face spot as the picture allows (placeScene with maxZoom 1). Pure.
+ * Home layout B "Quiet Home": the corners never swap (Battle stays bottom right), so on a landscape screen the spot is
+ * the middle of the width (a picture as wide as the screen cannot pan across: her face stays where it is painted).
+ * Her head there (±1.1 head radii across, 1.4 up, 1.0 down, as sceneLayout.js headHit): when a control stands over it
+ * (8 px clear) or a wallet's words and icon do, the picture pans a little more, 4 px at a time, down (up to 12 %
+ * of the height) and across (up to 8 % of the width) where it has room, the smallest move that clears everything, else
+ * the smallest that clears the controls (on a screen held upright, up to 30 % of the width across: a wide picture has
+ * its whole width to pan); where the painting has no room left (her head painted at its top edge on a screen of its own
+ * shape), the smallest move that keeps her face itself clear of the controls: the bar may pass over the top of her hair. The boxes say what they are (`kind`, lobby.js uiBoxes): 'ctl' (or none) a control, 'soft' a
+ * wallet's words or icon, 'pill' / 'gap' a wallet's plate and the bar's spacer (the plates may pass over her hair).
  * @param {number} W
  * @param {number} H
  * @param {{ w: number, h: number, fx: number, fy: number, headR: number }} art
- * @param {{ x: number, y: number, w: number, h: number }[]} [boxes] the controls
- * @returns {ReturnType<typeof placeScene> & { r: number, clear: boolean }}
+ * @param {{ x: number, y: number, w: number, h: number, kind?: string }[]} [boxes] the controls
+ * @returns {ReturnType<typeof placeScene> & { r: number, clear: boolean, clearCtl: boolean, dx: number, dy: number }}
  */
 export function placeFull(W, H, art, boxes = []) {
-  const base = { x: homeTarget(W, H).x, y: H * 0.31 };
-  const at = (dy) => {
-    const p = placeScene({ W, H, aspect: art.w / art.h, face: [art.fx, art.fy], target: { x: base.x, y: base.y + dy } });
+  // (zoom 1: the whole picture as painted, at the cover fit; only the side that overflows the screen pans)
+  const scene = (x, y) => placeScene({ W, H, aspect: art.w / art.h, face: [art.fx, art.fy], target: { x, y }, maxZoom: 1 });
+  const y0 = H * 0.31;
+  const across = W > H ? W * 0.5 : homeTarget(W, H).x;
+  const ctl = boxes.filter((b) => !b.kind || b.kind === 'ctl');
+  const soft = boxes.filter((b) => b.kind === 'soft');
+  const apart = (list, f, m) => list.every((b) => b.x + b.w <= f.x0 - m || b.x >= f.x1 + m || b.y + b.h <= f.y0 - m || b.y >= f.y1 + m);
+  const at = (dx, dy) => {
+    const p = scene(across + dx, y0 + dy);
     const r = art.headR * p.height;
-    const f = { x0: p.faceX - 1.1 * r - 8, x1: p.faceX + 1.1 * r + 8, y0: p.faceY - 1.4 * r - 8, y1: p.faceY + r + 8 };
-    const clear = boxes.every((b) => b.x + b.w <= f.x0 || b.x >= f.x1 || b.y + b.h <= f.y0 || b.y >= f.y1);
-    return { ...p, r, clear };
+    const f = { x0: p.faceX - 1.1 * r, x1: p.faceX + 1.1 * r, y0: p.faceY - 1.4 * r, y1: p.faceY + r };
+    // her face itself (sceneLayout.js CORE: 0.85 head radii across, 0.6 up, 0.95 down), whole on the screen
+    const core = { x0: p.faceX - 0.85 * r, x1: p.faceX + 0.85 * r, y0: p.faceY - 0.6 * r, y1: p.faceY + 0.95 * r };
+    const onScreen = core.x0 >= 0 && core.x1 <= W && core.y0 >= 0 && core.y1 <= H;
+    const clearCtl = onScreen && apart(ctl, f, 8);
+    return { ...p, r, dx, dy, clearCtl, clear: clearCtl && apart(soft, f, 0), clearCore: onScreen && apart(ctl, core, 4) };
   };
-  for (let dy = 0; dy <= H * 0.12; dy += 4) {
-    const p = at(dy);
+  // (the moves in order of size, down before across when two are as big; a screen held upright has a wide picture's
+  // whole width to pan across, so it may go further sideways: up to 30 % of the width)
+  const moves = [];
+  const maxDx = W * (W > H ? 0.08 : 0.3);
+  for (let dy = 0; dy <= H * 0.12; dy += 4) for (let dx = 0; dx <= maxDx; dx += 4) for (const sx of dx ? [-1, 1] : [1]) moves.push([sx * dx, dy]);
+  moves.sort((a, b) => Math.abs(a[0]) + a[1] - (Math.abs(b[0]) + b[1]) || b[1] - a[1]);
+  // the smallest move that clears everything, else the smallest that clears the controls, else the smallest that keeps
+  // her face itself clear of them (the bar passing over her hair), else as painted
+  let firstCtl = null;
+  let firstCore = null;
+  for (const [dx, dy] of moves) {
+    const p = at(dx, dy);
     if (p.clear) return p;
+    if (!firstCtl && p.clearCtl) firstCtl = p;
+    if (!firstCore && p.clearCore) firstCore = p;
   }
-  return at(0);
+  return firstCtl || firstCore || at(0, 0);
 }
 
 /** An element's box in viewport px. */
@@ -122,12 +169,14 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
   const frame = h('div.home-host', { 'data-testid': 'secretary-art' });
   const bottom = h('div.ui-scrim.b');
   const bubble = h('div.ui-bubble.home-bubble', { role: 'status', 'aria-live': 'polite', 'data-testid': 'secretary-bubble' }, h('span.home-bubble-text'));
-  host.append(scene, live, ...scrims, frame, bottom, bubble);
+  const fx = h('div.home-fx', { 'aria-hidden': 'true' });
+  host.append(scene, live, ...scrims, frame, bottom, fx, bubble);
 
   let disposed = false;
   let current = null; // { u, bg, kind: 'stand'|'full', sceneImg, fig, aspect, art, anchor, extents }
   let placed = null;
   let bubbleTimer = 0;
+  let showToken = 0;
   let liveOn = false;
 
   const portraitScreen = () => (host.clientHeight || globalThis.innerHeight || 0) > (host.clientWidth || globalThis.innerWidth || 0);
@@ -135,7 +184,7 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
   function build(u, bg) {
     const layer = h('div.home-scene-layer', { dataset: { bg: bg?.id || '' } });
     if (stageModeOf(bg) === 'full') {
-      // a full illustration: the whole picture is placed (zoomed, panned) so her face is on the spot; no stand
+      // a full illustration: the whole picture as painted (never zoomed), panned toward the spot; no stand
       const art = homeFullArt(bg.id, { portrait: portraitScreen() });
       const img = h(`img.home-scene-art${art.baked ? '.baked' : '.graded'}`, { src: art.src, width: art.w, height: art.h, alt: bg.name || u.name, draggable: false, decoding: 'async' });
       layer.classList.add('full');
@@ -163,12 +212,14 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
     .then(() => (img.decode && img.naturalWidth ? Promise.race([img.decode().catch(() => {}), new Promise((r) => setTimeout(r, 600))]) : null));
 
   async function show(u, { background = null } = {}) {
-    if (!u || disposed) return;
+    if (!u || disposed) return false;
+    // (a newer show wins: two quick picks in the picker, the first picture slower, never ends on the first)
+    const token = ++showToken;
     const bg = background || LOBBY_BG_MAP[defaultBackgroundFor(u.id)];
     const next = build(u, bg);
     const imgs = [next.sceneImg, ...(next.fig ? next.fig.querySelectorAll('img') : [])];
     await Promise.all(imgs.map(arrived));
-    if (disposed) return;
+    if (disposed || token !== showToken) return false;
     const figImg = next.fig?.querySelector('img');
     const aspect = figImg?.naturalWidth ? figImg.naturalWidth / figImg.naturalHeight : 0.7;
     scene.replaceChildren(next.layer);
@@ -178,6 +229,7 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
     current = { u, bg, kind: next.kind, sceneImg: next.sceneImg, fig: next.fig, aspect, art: next.art, anchor: faceAnchor(u.id, 'cut'), extents: cutExtents(u.id) };
     hideBubble();
     relayout();
+    return true;
   }
 
   /** A full illustration on a screen that turned: her wide picture ↔ her 3:4 full art (a `tall` row). */
@@ -241,10 +293,27 @@ export function createArtStage(host, { reduceMotion = false, onTap = null, boxes
   frame.addEventListener('click', (e) => {
     if (!placed) return;
     const head = placed.face && e.clientY <= placed.face.y + placed.face.h && Math.abs(e.clientX - placed.faceX) <= placed.face.w / 2;
+    hearts(head ? 3 : 1, e);
     onTap?.(head ? 'head' : 'body');
   });
 
-  /** Under her face box, centred on her face, inside the band between the rail and the right stack. */
+  /** She reacts to a tap with hearts rising where she was tapped (3 for a head pat, 1 for her body); none under Reduce
+   * motion (the setting or the system's). Stand and full illustration alike. */
+  function hearts(n, e) {
+    if (disposed || reduceMotion || globalThis.document?.documentElement?.hasAttribute('data-reduce-motion')
+      || globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const r = host.getBoundingClientRect();
+    const size = Math.max(22, Math.min(34, (placed.face?.w || 120) * 0.22));
+    for (let i = 0; i < n; i++) {
+      const heart = h('i.home-heart', { 'aria-hidden': 'true' }, '♥');
+      Object.assign(heart.style, { left: `${Math.round(e.clientX - r.left + (i - (n - 1) / 2) * size * 0.9)}px`, top: `${Math.round(e.clientY - r.top - size * 0.6)}px`,
+        fontSize: `${Math.round(size)}px`, animationDelay: `${i * 90}ms` });
+      fx.append(heart);
+      setTimeout(() => heart.remove(), 1300);
+    }
+  }
+
+  /** Under her face box, centred on her face, inside the free band between the controls on her left and on her right. */
   function fitBubble() {
     if (!placed) return;
     const W = host.clientWidth || globalThis.innerWidth;

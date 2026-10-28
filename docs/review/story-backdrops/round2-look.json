@@ -1,0 +1,75 @@
+{
+  "review": "feature/story-backdrops look review, round 2",
+  "commit": "e1f80f9",
+  "reviewer": "independent (did not build it)",
+  "date": "2026-10-28",
+  "verdict": "OK",
+  "summary": "Both round-1 mediums are fixed. M1: a background change no longer dims or goes black. In src/ui/story/backdrop.js the old layers are now removed only after the new layer has faded in. That means its own opacity transitionend, or FADE_FALLBACK_MS (670 ms) counted from when 'on' is added, and its picture has decoded. Removal goes through layersToDrop(), so only layers beneath the topmost fully-in layer are removed. I recorded every rAF frame (layer count and computed opacity) and a CDP screencast through 10 background changes. These covered ch6.epi, ch2.epi and ch7.epi at 844x390, and ch3.epi, ch7.epi and ch2.epi at 1280x720, with CPU throttling at 1x, 4x and 6x (Emulation.setCPUThrottlingRate). Three runs added 250 ms main-thread stalls right after each picture decoded. In all 10 runs, 0 of about 9,400 frames had no layer at full opacity. In the stall runs, the old layer stayed at 1.00 until the new one read 0.88 to 0.95, and the next frame showed the new one alone at 1.00. No screencast frame dipped in luminance in the background corners. The only near-black frames were the scene's own exit after its last line, which is expected. The branch's own e2e check (e2e/story.mjs at 844x390, 0 of 330 bare frames) and tests/story (136 tests) pass. M2: festival-drum now shows one big taiko drum on a wooden stand on a stage, centred, in a lantern-lined square under fireworks. There is no blank sheet or sign and no fake writing. It matches festival-street and the rest of the set in palette, paving and lantern style. With focus 54% 40% the whole drum sits above the text box at 844x390, 1280x720 and 932x430. At 390x844 it fills the middle, slightly left of centre and fully in frame. The narration lines that name the great drum (ch7.mid line 1, ch7.epi line 1) show it unobstructed. The WebP has no EXIF or XMP. The new tools/story-bg prompts are SFW scenery with no people in the game's own style words, and they name no game, anime or artist. The regression pass found nothing new above low. L1 to L5 stand. L6 is fixed: STORY_SPEC now names the Halloween scenes. Two new low notes are about the drum picture's staging.",
+  "findings": [
+    {
+      "id": "L1",
+      "severity": "low",
+      "title": "workshop and foundry are sepia line drawings, off the rest of the set's palette (unchanged from round 1)",
+      "detail": "Unchanged from round 1. foundry still carries chapter 6 (see shots/844x390-ch6.epi-*.png). It is readable and not unsettling.",
+      "evidence": "rev-story-look2/shots/844x390-ch6.epi-0.png, 844x390-ch6.epi-7.png"
+    },
+    {
+      "id": "L2",
+      "severity": "low",
+      "title": "A few lines contradict the shared place picture (unchanged from round 1)",
+      "detail": "ch6.epi 'The Foundry Heart lies cold in its furnace' still plays over the glowing foundry. ch7.hana 'Dawn, the morning after the festival' still plays over the midday academy-courtyard (re-seen at 932x430). The moon-pier, marsh and shrine-steps lines are as in round 1. The new festival-drum is consistent with its lines: the great drum is there, and fireworks are painted in, which the ch7.epi text also brings in.",
+      "evidence": "rev-story-look2/shots/844x390-ch6.epi-0.png, 932x430-ch7.hana-0.png"
+    },
+    {
+      "id": "L3",
+      "severity": "low",
+      "title": "Time-of-day variants are different objects, not the same place at another hour (unchanged)",
+      "detail": "As in round 1: the blossom-court fountain shape changes between ch1.mid (day) and ch1.epi (sunset), and the academy-gate variants are different gates.",
+      "evidence": "rev-story-look2/shots/1280x720-ch1.mid-1.png"
+    },
+    {
+      "id": "L4",
+      "severity": "low",
+      "title": "The story's academy no longer looks like the lobby's academy (unchanged; open owner question)",
+      "detail": "As in round 1. PLAN §6 leaves this to the owner.",
+      "evidence": "round-1 evidence"
+    },
+    {
+      "id": "L5",
+      "severity": "low",
+      "title": "Pictures are soft on high-DPR phones (unchanged)",
+      "detail": "The re-rolled festival-drum is again 1280x876 with a 320x219 thumb. On 844x390 at DPR 3 the archive thumb is drawn at 123x115 css px (369x345 device px from 320 source px). At 1280x720 it is drawn at 191x146, which is crisp.",
+      "evidence": "rev-story-look2/shots/archive-844x390-dpr3.png, archive-1280x720-dpr1.png (naturalWidth vs clientWidth measured in the page)"
+    },
+    {
+      "id": "L7",
+      "severity": "low",
+      "title": "festival-drum: the stand reads a little like a bench, and the drum is not quite the prompt's drum",
+      "detail": "Zoomed in, the drum sits on the top rail of a wooden frame that has a backrest-like upper bar and a small pedestal under the seat, rather than in a cradle. The barrel is cream with black dots rather than dark lacquer with brass studs. The paving is lit very brightly for a night scene, though festival-street has the same warm floor. At game size none of this reads as wrong: it is clearly a big festival drum on a stage. Optional polish only.",
+      "evidence": "rev-story-look2/zoom-drum.png, rev-story-look2/src-festival-drum.png, rev-story-look2/sheet-festival.png"
+    },
+    {
+      "id": "L8",
+      "severity": "low",
+      "title": "Staging: a centred portrait hides the drum on lines that name it, and in the archive thumbs",
+      "detail": "In ch7.epi, Hikari's centred stand covers the drum on 'Time to sing again, old drum. First light.' and on the narration 'The great drum sounds again…', at 844x390, 1280x720 and 390x844. The Episode 2 and 3 archive cards (ch7.mid, ch7.epi) put their portrait over the middle of the thumb, so the drum barely shows there. The drum is fully visible on each scene's first line, so the place reads. Moving Hikari to a side slot for those two lines would show the drum while it is named. This is scene and archive staging, not the picture.",
+      "evidence": "rev-story-look2/shots/844x390-ch7.epi-1.png, 844x390-ch7.epi-2.png, 390x844-ch7.epi-1.png, shots/zoom-archive-thumbs.png"
+    }
+  ],
+  "fixed_since_round1": [
+    "M1: the background never flashes black or dims. The old layers go on the new layer's opacity transitionend, or a 670 ms fallback from the start of the fade, once its picture has decoded, and only from beneath the topmost fully-in layer. 0 bare frames in 10 recorded changes at 844x390 and 1280x720, CPU 1x, 4x and 6x, three with 250 ms stalls after decode.",
+    "M2: festival-drum re-rolled with one big taiko drum, centred and clear. No blank sheet or sign, set style kept, and with focus 54% 40% it is in frame at every checked size.",
+    "L6: STORY_SPEC §1.2.4 now says the Halloween event scenes still open on academy-night."
+  ],
+  "checks_passed": [
+    "Per-frame recorder (computed layer opacities each rAF plus CDP screencast luminance): ch6.epi 844x390 at 1x, 4x, 6x and 4x+stall; ch2.epi 844x390 at 4x and 1280x720 at 6x+stall; ch3.epi 1280x720 at 1x and 6x; ch7.epi 844x390 at 4x and 6x+stall, and 1280x720 at 4x. 0 bare frames, no luminance dips, no page errors.",
+    "e2e/story.mjs --viewport 844x390: the background change check passes (0 of 330 bare) with no FAIL lines. vitest tests/story: 9 files, 136 tests pass.",
+    "festival-drum viewed in ch7.mid (6 cues) and ch7.epi (6 cues) at 844x390, 1280x720 and 390x844, and in the archive at 1280x720 and 844x390 at DPR 3. Source zoomed: a clear drum, no fake text, no people, SFW, matches festival-street.",
+    "Text contrast over the box is unchanged: same box CSS, dark navy text on the light box. The festival-drum narration and dialogue frames read clearly.",
+    "Portrait separation on festival-drum: Kaede, Akane and Hikari separate cleanly from the night square. Spot-checked ch1.mid at 1280x720 and ch6.epi at 844x390: no regression.",
+    "Subject in frame: festival-drum at 844x390, 932x430 (focus 54% 40%), 1280x720 and 390x844. ch7.hana at 932x430.",
+    "1280x720 1:1 mapping kept (1280x876 source, object-fit cover).",
+    "Repo: the diff since a3d3f74 is only backdrop.js, backgrounds.js focus, STORY_SPEC, tests, e2e, round1-look.json, the festival-drum WebP and thumb, and tools/story-bg (README, gen.py, locations.py, webp.py). The tools hold no key; they say the key is proxy-injected and never printed. Prompts are SFW, with people, gore and NSFW in the negatives, and name no game, anime or artist. The WebP has no EXIF or XMP."
+  ],
+  "artifacts": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-story-look2/ (trans.mjs, lum.py, t/<run>/{dom.json,result.json,frames/}, shots.mjs, shots/, src-festival-drum.png, zoom-drum.png, zoom-left.png, sheet-festival.png)"
+}

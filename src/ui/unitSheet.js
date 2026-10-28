@@ -18,10 +18,12 @@ import { buildTreeModel } from './treeModel.js';
 import { treeGrid, tierPanel, RULE_LINE, RULE_FULL } from './treeGrid.js';
 import { buildTab } from './unitBuild.js';
 import { clearPotentialNew } from '../systems/potential.js';
-import { rail, statStrip, iconBtn, ghostBtn, ico } from './kit.js';
+import { folderTabs, rail, statStrip, iconBtn, ghostBtn, ico } from './kit.js';
+import { inkSurface } from './surfaceMode.js';
 import { openSheet } from './sheet.js';
 import { headlineStats, roleSentence } from './girlView.js';
-import { namePlate, howShort } from './girlFrame.js';
+import { namePlate, howShort, lg } from './girlFrame.js';
+import './styles/v2-roster.css'; // [ui-ink] V3: the hold sheet in the kit (night nameplate, folder tabs)
 import { gearTile } from './gearTile.js';
 import { heroTrackBand, fullTrackList } from './heroTrack.js';
 
@@ -92,16 +94,20 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
   applyUrFrame(art, unit, prof);
 
   // ---- right: tabs, owner chip, close
-  const closeBtn = h('button.gs-close', { type: 'button', 'data-testid': 'unit-sheet-close', title: 'Close', 'aria-label': 'Close', onclick: () => close(), html: glyphSVG('close') });
+  // [ui-ink] V3: on the menus the sheet wears the kit (folder tabs, the night nameplate); over a battle (Her info) it keeps
+  // its look, as every battle surface does until the battle's own UI work
+  const ink = inkSurface();
+  const closeBtn = h('button.gs-close', { type: 'button', 'data-testid': 'unit-sheet-close', title: 'Close', 'aria-label': 'Close', onclick: () => close(), html: ink ? null : glyphSVG('close') }, ink ? lg('x') : null);
   const tabs = [...(hasBuild ? [{ id: 'build', label: 'Build', icon: 'formation' }] : []), { id: 'info', label: 'Info', icon: 'info' }, { id: 'upgrades', label: 'Tree', icon: 'sparkle' }];
-  const tabBar = rail(tabs, current, (id) => show(id), { testidPrefix: 'unit-sheet-tab-', label: `${unit.name}'s sheet` });
+  // [ui-ink] V3: folder tabs on the sheet's content panel (S4); its ink strip also holds Full page ▸ and ✕
+  const tabBar = (ink ? folderTabs : rail)(tabs, current, (id) => show(id), { testidPrefix: 'unit-sheet-tab-', label: `${unit.name}'s sheet`, cls: ink ? 'gs-tabs' : '' });
   for (const b of tabBar.querySelectorAll('.ui-tab')) b.classList.add('us-tab');
   const ownerChip = owner
     ? h('span.us-owner', { 'data-testid': 'unit-sheet-owner' },
       UNIT_MAP[owner.avatar] ? h('span.gp-qface', { html: portraitHTML(UNIT_MAP[owner.avatar], 'thumb', { alt: '' }) }) : null,
       `${owner.name}'s build`)
     : null;
-  const host = h('div.gs-body.us-body', { tabindex: '-1' });
+  const host = h(`div.gs-body.us-body${ink ? '.ui-tabbed-body' : ''}`, { tabindex: '-1' });
   // "Full page ▸" sits by the close button, so every tab offers it (never for someone else's build)
   const fullBtn = allowFullPage
     ? ghostBtn('Full page ▸', {
@@ -115,7 +121,7 @@ export function openUnitSheet(unitId, { tab = 'info', allowFullPage = true, orig
 
   const sheet = h('div.us-sheet.gs', { role: 'dialog', 'aria-modal': 'true', 'aria-label': `${unit.name} — ${owner ? `${owner.name}'s build` : 'info'}`, 'data-testid': 'unit-sheet', 'data-unit-sheet': unit.id },
     art,
-    h('div.gs-right', h('div.gs-top', tabBar, ownerChip, fullBtn, closeBtn), host));
+    h(ink ? 'section.ui-tabbed.gs-right' : 'div.gs-right', h('div.gs-top', tabBar, ownerChip, fullBtn, closeBtn), host));
   const overlay = h('div.modal-overlay.us-overlay.gs-overlay', { 'data-hold-info': 'off', onclick: (e) => { if (e.target === overlay) close(); } }, sheet);
   if (reduced()) overlay.classList.add('us-still');
 

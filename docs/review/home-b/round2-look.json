@@ -1,0 +1,92 @@
+{
+  "review": "home layout B 'Quiet Home', round 2, LOOK lens (independent reviewer)",
+  "branch": "concept/home-b",
+  "commit": "7b18b60",
+  "verdict": "OK",
+  "summary": "The round-1 medium (L1) is fixed. At 667x375, and at 1024x768, Marumi now shows her still portrait (live.why 'fit', no canvas), 8 px clear of every control (artClearance 0 fails). Where her living scene runs (740x360 at 90 %, 844x390, 915x412, 1280x720 and 1920x1080 at 88-100 %), it also passes with 0 fails. Six of the nine round-1 lows are fixed: L2 (FREE sticker inside RECRUIT's cell), L3 (dock cells sized to their labels), L4 (one-line BOSSES kicker), L6 (no navy dip on a return), L8 (the dock starts at the 16 px gutter) and L10 (SNT-HQ at 5.7:1 or more over every bright full illustration). L9 is mostly fixed: Social and Settings now sit at the bottom of the tablet sheet. Full illustrations are drawn whole, never zoomed: zoom 1 at the cover fit and only panned. That holds for all 11 pictures at all 8 sizes (88 of 88). Her face core is on screen and clear of every control in all 88 cases. In 4 of the 88, the picture puts her head near its top edge and the top bar passes over the top of her hair (390x844: rampart, kinu, marumi-scene; 667x375: rampart). The face stays clear by a wide margin, so this reads acceptably. Hearts on a tap are back (stand: 3 on the head, 1 on the body; full illustrations: 3 and 1, never a bubble). Stepped and real-time recordings show the first entrance done about 640 ms after the reveal. The return is done by about 320 ms, and its wallpaper never fades from 0. Reduce Motion is 120 ms fades only. e2e/home.mjs at 844x390, 390x844 and 667x375 (rampart and small) gives 126 ok, 0 fail. Remaining are lows only: two carried from round 1 (L5 plates over full illustrations, owner trade-off; L7 day-style picker, predates) and five new low notes, two of which predate this branch.",
+  "environment_note": "4 CPUs, load 1.4-10 from other agents. SwiftShader WebGL, headless Chromium 153 (Playwright from /opt/node22, browsers in /opt/pw-browsers). Real-time video and CDP screencast drop frames during transitions, so the entrance was also recorded stepped. For that, every document animation (the home's CSS pieces plus the transition's WAAPI cut, wipe and screen fade) was paused at the reveal or at the return's mount and stepped by currentTime. The lobby's .static class was held off while stepping. An rAF sampler of the pieces' effective opacity checks the real-time timing. One 1920x1080 run of the extras (Halloween, fresh and max saves) timed out on a screenshot; those cases were covered at 390x844, 667x375, 844x390 and 1024x768, and the 1920 main shots all completed.",
+  "evidence_dirs": {
+    "shots": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look2/shots/ (default, hikari-stand, menu, marumi, full-<id> for the 11 illustrations, at 667x375, 740x360, 844x390, 915x412, 1024x768, 1280x720, 1920x1080, 390x844; metrics-<size>.json)",
+    "extra": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look2/extra/ (chip pages, taps with hearts, bg picker, halloween-*, after-*, save-fresh, save-max, reduced-return; metrics-<size>.json with dock geometry, chip pages, contrast, hearts)",
+    "zooms": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look2/zoom/",
+    "entrance_stepped": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look2/stepped-844x390/ (first-*.png, return-*.png, sheet-first.png, sheet-return.png, first-stepped.mp4, return-stepped.mp4, info.json)",
+    "entrance_realtime": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look2/entrance-844x390/ (entrance-844x390.webm Playwright video, frames/ CDP screencast, timeline.json rAF opacity sampler, sheet-first.png, sheet-return.png)",
+    "e2e": "/tmp/claude-0/-home-user-sakura-game/f9c5e5da-da6d-5f74-99b6-bf6d2e8e64d0/scratchpad/rev-home-look2/e2e-home.txt"
+  },
+  "findings": [
+    {
+      "id": "L5",
+      "severity": "low",
+      "title": "(carried) Full illustrations: the Battle plate, CO-OP tab and chip still sit over her body on 4:3 and small screens",
+      "detail": "The owner-chosen trade-off from round 1 is unchanged. With the corners locked and the picture now never zoomed, Hikari's rampart at 1024x768 has the plate and CO-OP tab over her skirt and scabbard, and the news chip beside her hair. At 667x375 the plate sits over her waist. Her face core is clear in every case. At 844x390, 1280x720 and 1920x1080 the plate mostly falls on the background (yuzuha, kinu). No change asked unless the owner wants a slimmer plate on full illustrations.",
+      "evidence": "shots/full-hikari-rampart-1024x768.png, shots/full-hikari-rampart-667x375.png, shots/full-yuzuha-scene-1280x720.png, shots/full-kinu-scene-844x390.png"
+    },
+    {
+      "id": "L7",
+      "severity": "low",
+      "title": "(carried, predates this branch) The background picker is still the white day-style modal; its bond lock line reads 'Date her'",
+      "detail": "The Background tool in the menu head still opens the white Academy modal. Its smallest text is 8.64 px at 667x375 and 844x390 (9.6 px at 390x844 and 1024x768), and it has yellow fills (Secretary, DONE), which clash with the night home. A content note in the same modal: the lock line for a bond-locked full illustration reads 'Date her & give gifts in the City' (src/ui/lobby/bgPicker.js:132, on main since the skins work). It names a game mechanic, but on a student's tile it reads as romantic framing, against the rule that Sensei is a friendly teacher, never romantic. Suggest 'Spend time with her & give gifts in the City' when the menus build restyles this modal. bgPicker.js is not in this branch's diff.",
+      "evidence": "extra/bgpicker-844x390.png, extra/bgpicker-667x375.png, extra/bgpicker-390x844.png; extra/metrics-*.json picker {bg: rgb(255,255,255), minText 8.64}"
+    },
+    {
+      "id": "N1",
+      "severity": "low",
+      "title": "Portrait phone: the top bar's wallet row passes over the top of her hair on three full illustrations (reads acceptably)",
+      "detail": "At 390x844, Hikari's rampart (wide picture, cover 1512x844), Kinu's and Marumi's 3:4 full art have her head near the picture's top edge. placeFull reports clearCtl false, and the hair box meets the avatar, chat and mail row; the wallet pills sit across her crown, halo or ribbon. Her face core (eyes, mouth, glasses) is fully clear, about 40 px below the pills, and the hair stays readable around them. The same happens at 667x375 on the rampart, where the gems pill touches the crown of her head. Every other case (84 of 88) keeps her hair clear too. Judged acceptable: it reads like a portrait framed behind a status bar, not a cut face. Optional polish: a soft top scrim behind the wallet row on portrait, so the pills sit on ink rather than on her hair.",
+      "evidence": "zoom/kinu-390-top.png, zoom/marumi-390-top.png, zoom/rampart-390-top.png, zoom/rampart-667-top.png; shots/metrics-390x844.json (hairHits account-level|top-chat|top-mail, coreHits none), shots/metrics-667x375.json (rampart hairHits gems-plus)"
+    },
+    {
+      "id": "N2",
+      "severity": "low",
+      "title": "1920x1080: the home's chrome keeps its 1280 size, so it reads small and far apart",
+      "detail": "At 1920x1080 the controls are the same pixel size as at 1280x720: 13 px dock caps, a 320 px news chip and a 330 px plate. The four corners sit about 1,900 px apart around a large picture. Everything is legible and nothing overlaps, but the chrome feels undersized on a full-HD desktop. An optional scale step at 1600 px and wider (for example 1.15-1.25x on the bar, chip, dock and plate) would balance it.",
+      "evidence": "shots/default-1920x1080.png, shots/marumi-1920x1080.png, zoom/dock-1920.png"
+    },
+    {
+      "id": "N3",
+      "severity": "low",
+      "title": "(content, predates this branch) 'Summer Breeze' puts the adult hero's bust at the centre of the landscape home",
+      "detail": "Yoriko is an adult hero. Her full illustration (the owner's own picture, byte for byte, on main since v0.1.48) has a low-cut sundress. On landscape screens the cover fit puts her face in the top third and her chest in the middle of the screen: 740x360, 844x390 and 1920x1080, where only about 36 px of the top and 200 px of the bottom are cropped. This branch changes nothing about the picture, and the no-zoom rule means its framing is the painting's own. Flagged only so the owner can weigh it against the §6 rule that adult heroes are never framed around their bodies. Their call; not blocking.",
+      "evidence": "shots/full-yoriko-summer-breeze-740x360.png, shots/full-yoriko-summer-breeze-1920x1080.png, shots/full-yoriko-summer-breeze-844x390.png"
+    },
+    {
+      "id": "N4",
+      "severity": "low",
+      "title": "Folded 2x2 dock (667x375, 740x360, 1024x768): the COMMISSIONS caps nearly fill their 64 px cell",
+      "detail": "The one-row dock now sizes its cells to their labels, with 9 px either side (L3 fixed). In the folded 2x2 block, though, the cells stay a fixed 64 px. COMMISSIONS (60.6 px of caps) sits 1.7 px from its cell edges and about 4 px from the column hairline, while STUDENTS, RECRUIT and MALL have 9-20 px. That is the round-1 rhythm issue again, in the fold only, and minor. Size the folded columns to the widest label, or drop the hairline in the fold.",
+      "evidence": "extra/metrics-667x375.json dock: commissions cell x 16-80, label x 17.7-78.3; zoom/dock-667.png"
+    },
+    {
+      "id": "N5",
+      "severity": "low",
+      "title": "(predates; until the menus go night) A return from a day-style screen passes through the pale day background",
+      "detail": "Stepping the return from Missions: the Missions screen (still day style) fades out, the navy ink wipe crosses the pale day background of #app, and the home fades in over that pale ground. At +40 ms the home is a washed, light frame; it is full by +80 ms. It is not a navy dip, and the wallpaper no longer fades from 0 (L6 fixed). In real time this is one or two frames of a light flash into a night screen. It will go away once the sub-screens wear the night kit (another session's menus build).",
+      "evidence": "stepped-844x390/return-0000ms.png, stepped-844x390/return-0040ms.png, stepped-844x390/sheet-return.png, entrance-844x390/sheet-return.png (video frames v0404-v0415)"
+    }
+  ],
+  "round1_rechecks": {
+    "L1": "FIXED. 667x375 and 1024x768: still portrait (live.state static, why 'fit', 0 canvases), artClearance 0 fails, face box clear. 740x360: live at rel 0.90 with fits true, 0 fails. 844x390 and 915x412: live at rel 1, 0 fails. 1280x720 and 1920x1080: live at rel 0.88, 0 fails. 390x844: still (portrait). Files: shots/marumi-<size>.png, shots/metrics-<size>.json (marumi.live, marumi.artFails).",
+    "L2": "FIXED. 844x390: FREE sticker x 93.7-129.7, inside RECRUIT's cell (x 75.6-131.7); the same holds at 1920 (127.5-165.6 in 95.6-167.6) and 390 (152.8-191 in 106.5-193). File: zoom/dock-844.png.",
+    "L3": "FIXED in the one-row dock: the cells are sized to their labels with 9 px either side (844: STUDENTS 7-71.6, RECRUIT 75.6-131.7, COMMISSIONS 135.7-214.4, MALL 218.4-270.4). Residual in the folded 2x2 block: N4.",
+    "L4": "FIXED. Phones show the kicker 'BOSSES' on one line (844x390, 667x375). 390x844 and desktop show 'WEEKLY BOSSES' on one line in a 46/68 px chip. File: extra/chip-2-bosses-844x390.png.",
+    "L5": "Still present by design (owner trade-off). Carried as low L5.",
+    "L6": "FIXED. The return wallpaper only settles (--mo-o 1); stepped frames show no navy frame (return-0000 is the transition wipe over the old screen's ground; the home is in by +80 ms). The first entrance still fades from the cut's black, as intended. The .static window still ends a starved entrance; not re-raised.",
+    "L7": "Still present, predates. Carried as low L7, with a copy note.",
+    "L8": "FIXED. STUDENTS label x 16 = chip x 16 = avatar x 16 at 844x390.",
+    "L9": "Mostly fixed. At 1024x768, SOCIAL / Clan and Settings now sit at the bottom of the sheet. The space between the Squad/Academy rows and the Social group remains, but the sheet reads balanced. File: shots/menu-1024x768.png.",
+    "L10": "FIXED. SNT-HQ p10 glyph contrast over bright full illustrations: 5.66-8.72 at 667x375, 844x390, 1024x768 and 1920x1080 (yuzuha 5.84-6.27; it was 4.48). The dock caps are 8.1-15.2:1."
+  },
+  "checks_passed": {
+    "full_illustrations_whole": "11 pictures x 8 sizes: placement().scene.zoom 1, the rendered width equals the cover fit max(W, H*aspect) within 1.5 px, and the picture covers the screen with only one axis panned (for example 844x390 rampart 844x471 at 0,0; 1024x768 azami 1659x768 at -500,0; 390x844 tall art 633x844). Never zoomed, 88/88.",
+    "face_with_controls": "Face core (faceX ± 0.85 r, faceY -0.6 r to +0.95 r) on screen and clear of every home control in 88/88. Hair box clear in 84/88. The 4 exceptions are where the painting puts her head near its top edge (N1); judged acceptable. Stands (Ruri, Hikari, Marumi, fresh and max saves, Halloween and after): face box clear of every control at every size; the open menu sheet keeps clear of the face (her stage slides aside at 667x375).",
+    "style": "Night navy glass plates, thin line glyphs, colour coin and gem, one yellow (Battle play edge), cyan kickers. Consistent at all 8 sizes and over all backgrounds (default Halloween backdrop, the baked academy after the event, 11 full illustrations, Marumi's room).",
+    "text_and_taps": "Smallest home text 12 px on landscape phones and 13 px on 390x844 and desktop. Probe tap minimum 44.50 px (e2e/home.mjs 844x390, 390x844); the top bar's 36 px icons carry 46 px hit squares (home.css ::before). No horizontal overflow at any size; nothing clipped; no top-bar overlap with the max save (999,999,999 coins, 9,999,999 gems at 844x390).",
+    "hearts": "A tap on the stand's head: 3 hearts plus the head pat line; on her body: 1 heart plus a bubble. A full illustration (Summer Breeze, Strike Lane): 3 hearts on the head, 1 on the body, never a bubble. At 390x844, 667x375, 844x390, 1024x768 and 1920x1080. File: extra/tap-marumi-scene-844x390.png.",
+    "halloween_window": "Dev clock 2026-10-24: her stand on lobby/halloween.webp (graded), no tint, no overlay lanterns; 2026-12-01: academy-home.webp. Face clear in both. Files: extra/halloween-stand-*.png, extra/after-stand-*.png.",
+    "saves": "Fresh save: Hikari's stand, LV 1, 0 tickets, Campaign Ch.1 0/5, no FREE sticker; clean. Maxed save: 999,999,999 coins and 9,999,999 gems fit the pills, 'Campaign · All clear', 'Ashwing Peaks 160 medals'; clean. Files: extra/save-fresh-*.png, extra/save-max-*.png.",
+    "entrance": "First entrance (stepped from the reveal, 844x390): the wallpaper fades in from the cut by about 120 ms; girl, bar and chip by about 260 ms; icons by about 400 ms; CO-OP and plate by about 640 ms. The rAF sampler in real time: reveal at +348 ms after the tap, everything at opacity 1 by +972 ms (624 ms after the reveal), within the 1.2 s budget. Return: the home is in by +80 ms and the pieces by about 320 ms (sampler: all at 1 by +485 ms after the hash change). The wallpaper keeps opacity 1 and only settles its scale.",
+    "reduce_motion": "With the system's Reduce Motion, a return runs only mo-fade 120 ms on the host, bar, chip, icons, CO-OP and plate, plus the 120 ms screen fade. The wallpaper does not animate. File: extra/reduced-return-844x390.png.",
+    "menu_sheet": "From the right on landscape and from the bottom on 390x844; MENU head with HIDE UI and BACKGROUND; Squad/Academy two columns; Social and Settings at the bottom. Whole at 667x375 (no scroll, no clipping).",
+    "e2e": "e2e/home.mjs --viewport 844x390,390x844 --rampart 667x375 --small 667x375: 126 ok, 0 FAIL (exit 0)."
+  }
+}

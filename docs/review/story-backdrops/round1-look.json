@@ -1,0 +1,77 @@
+{
+  "review": "feature/story-backdrops look review, round 1",
+  "commit": "a3d3f74ca74a1097e0c8a60fb8e555ab8488f744",
+  "reviewer": "independent (did not build it)",
+  "date": "2026-10-28",
+  "verdict": "NOT_OK",
+  "summary": "I viewed all 71 of the builder's after screenshots and re-took 69 of my own on dev port 5276: 12 scenes with portraits at 844x390, 6 scenes at 1280x720, and the archive at 1280x720 and at 844x390 with DPR 3. I also took 26 shots on the base commit f4cf107b to compare portraits. Most of the work is good. The new places fit their scenes far better than the one tinted academy painting did. Text is readable everywhere: dialogue is at least 11.1:1 and narration at least 6.78:1 against the darkest box pixel, over 48 frames (WCAG AA is 4.5:1). Portraits separate from the background as well as before or better (for example ch8.epi median edge dE went from 12 to 23, and ch3.epi from 15 to 33). Every place keeps its landmark above the text box at 667x375, 844x390, 915x412 and 932x430, and in the centre at 390x844. At 1280x720 the 1280x876 pictures map 1:1 with object-fit cover, so nothing is stretched or blurred. Nothing is unsettling or NSFW. There are no people and no readable fake writing, and nothing names or imitates another game. The repo is clean: only the 62 final WebPs are added, byte-identical to the pilot's webp/ output, with no EXIF, XMP or prompt strings. The sim id stays 92e2e22527cf and COOP_PROTOCOL stays 8, the same as base, and STAGES and MAPS are untouched. Two medium findings block an OK. (1) A background change can show a black frame, because the old layer is removed on a fixed 480 ms timer whether or not the new layer has faded in. The builder's own after/844x390-ch6.epi-1.png shows it, and so did 13 of my 15 recorded transitions. (2) The Festival Drum place has no drum. Its centrepiece is a blank white sheet, while the ch7 text names the great drum five times. There are six low findings.",
+  "findings": [
+    {
+      "id": "M1",
+      "severity": "medium",
+      "title": "A background change can flash black: the old layer is removed on a timer, not when the new one has faded in",
+      "detail": "In src/ui/story/backdrop.js swap() (lines 133-149), the new picture's decode promise schedules two things. One is two requestAnimationFrame calls, then the 'on' class, which starts a 420 ms opacity fade (story.css line 29). The other is setTimeout(FADE_MS + 60 = 480 ms), which removes the old layers. The removal is not tied to the fade. If the two frames are late (a busy main thread with stands entering and music changing, or a slow phone), the old picture goes while the new layer is still transparent or only partly faded in. The player's black background (#05060a) then shows behind the stands and text box. At 60 fps the margin is only about 27 ms. With a stall of about 250 ms or more the background visibly dims, and under heavy load it goes fully black. The same race existed before this branch. But this branch's two commits (ce3ddd6b, 7ab18471) were made to remove the black gap, and STORY_SPEC line 178 now promises that 'a slow phone never shows black between two places'. Fix: remove the old layers on the new layer's transitionend, with a fallback timer that starts when 'on' is added rather than when the decode resolves. Or start the removal timer inside the requestAnimationFrame callback that adds 'on'.",
+      "evidence": "Builder's own story-backdrops/after/844x390-ch6.epi-1.png shows an all-black background behind Wakaba, Hikari and Momo at the academy-courtyard cue. Its manifest entry, measured after the shot, says 1 layer, on, decoded, so the shot caught the gap. My per-frame recorder (rev-look/look.mjs, trans mode) found frames with one layer at opacity 0, meaning zero background coverage, about 0.7 to 4.2 s after the tap. That happened in 13 of 15 runs: ch6.epi at 844x390 in 7 of 9 runs (CPU throttle 1x, 4x and 6x), ch2.epi at 844x390 in 3 of 3, and ch3.epi at 1280x720 in 3 of 3. Details are in rev-look/trans/summary.json. Load average was about 28 on 4 cores, which exaggerates how often it happens but not the cause. My own settled shot rev-look/shots/844x390-ch6.epi-1.png shows the courtyard correctly once the fade has finished."
+    },
+    {
+      "id": "M2",
+      "severity": "medium",
+      "title": "festival-drum has no drum, and its centrepiece is a blank white sheet that looks like a missing sign",
+      "detail": "festival-drum is used by ch7.mid, the first half of ch7.epi, and stages 7-2, 7-4 and 7-5. It shows a lantern-lined square at night with fireworks. But the centre of the frame is a large blank white cloth hung on a wooden frame on a stage. It reads as an empty sign or a texture that failed to load, and no drum appears anywhere. The text makes the great drum the chapter's landmark and holds the seventh wardstone in it. See ch7.js line 15 'The great drum holds the seventh wardstone', line 31 'In the festival arena, beside the great drum, the Oni Champion lifts the festival trophy high', and lines 52-55 'sets the trophy down beside the great drum… Time to sing again, old drum… The great drum sounds again'. PLAN §2 gives ch7.mid's place as 'the festival arena beside the great drum'. The narration frames show the sheet unobstructed. Fix: re-roll the picture with a big festival drum on the stage and no banner or cloth (PLAN says generations are free), or paint the cloth out.",
+      "evidence": "rev-look/shots/1280x720-ch7.mid-0.png (the white cloth is about 215x225 px at frame centre, with no drum); builder after/844x390-ch7.mid-0.png and after/844x390-ch7.epi-0.png; public/art/lobby/story/festival-drum.webp."
+    },
+    {
+      "id": "L1",
+      "severity": "low",
+      "title": "workshop and foundry are sepia line drawings, off the rest of the set's palette",
+      "detail": "In workshop, 72% of saturated pixels fall in the orange-yellow hue band (25-60 degrees); in foundry, 66%. The set's median is about 20%, and the next highest that is not a sunset scene is corner-store at 45%. Both look flat and line-drawn, with blown-out windows. foundry is chapter 6's main place (ch6.pro, ch6.mid, ch6.wakaba, ch6.epi and stages 6-1 to 6-5), and workshop is lesson.gear. PLAN §4 lists both as 'worth a second pass before shipping'. They are readable (text contrast 7.1:1 or better) and not unsettling. Re-rolling with cool daylight, or colour-correcting, in the same fix round would make chapter 6 match the other chapters. corner-store, a spare, has the same cast.",
+      "evidence": "rev-look/shots/1280x720-lesson.gear-0.png; rev-look/sheets/academy-vs-workshop.png; builder after/844x390-ch6.pro-0.png and after/844x390-lesson.gear-0.png; the hue-band measurement over public/art/lobby/story/*.webp."
+    },
+    {
+      "id": "L2",
+      "severity": "low",
+      "title": "A few lines contradict the shared place picture (lit vs unlit, time of day, missing feature)",
+      "detail": "ch2.epi says 'the great lantern hangs dark and cold', but the moon-pier lantern is glowing. ch6.epi says 'The Foundry Heart lies cold in its furnace', but the furnace glows orange. ch7.hana says 'Dawn, the morning after the festival', but academy-courtyard is a full midday blue sky. ch5.mid says 'half drowned in black water', but the water is pale blue under white mist. ch3.umeko says 'A little boat glides up the shrine canal', but shrine-steps has no canal. A stage's before and after scenes share one place, so one picture cannot match both the lit and the unlit state. Unlit variants of moon-pier and foundry would fix the first two, or the lines could be softened.",
+      "evidence": "Builder after/844x390-ch2.epi-0.png, after/844x390-ch6.epi-0.png, after/844x390-ch7.hana-0.png, after/1280x720-ch5.mid-0.png and after/844x390-ch3.umeko-0.png."
+    },
+    {
+      "id": "L3",
+      "severity": "low",
+      "title": "Time-of-day variants are different objects, not the same place at another hour",
+      "detail": "The blossom-court day fountain is a tiered fountain with the crystal inside its bowl. At sunset it is a wide bowl with a tall crystal on top. At night it is a lone glowing crystal with a building behind. ch1.mid (stage 1-5, day) and ch1.epi (sunset) are back-to-back scenes at the same fountain, so its shape changes between them. The three academy-gate variants are three different gates, though only sunset and night are used, in different chapters. PLAN §4 says variants reuse the seed to keep the layout. academy-gate-night's moon is also drawn as a thin ring, which PLAN already notes.",
+      "evidence": "rev-look/sheets/src1.png and rev-look/sheets/src2.png (all 31 sources); builder after/844x390-ch1.mid-0.png vs after/844x390-ch1.epi-0.png."
+    },
+    {
+      "id": "L4",
+      "severity": "low",
+      "title": "The story's academy no longer looks like the lobby's academy",
+      "detail": "The courtyard set shows a white-and-teal European palace. The lobby painting (academy.webp, still the lobby backdrop) shows a pagoda-and-waterfall academy. Players see both within the first minutes (lobby, then the opening). PLAN §6 left this as an open owner question, and it should be answered before ship.",
+      "evidence": "rev-look/sheets/academy-vs-workshop.png (top row); builder after/1280x720-opening-0.png."
+    },
+    {
+      "id": "L5",
+      "severity": "low",
+      "title": "Pictures are soft on high-DPR phones (1280x720 passes)",
+      "detail": "At 1280x720 with DPR 1, the 1280x876 pictures map 1:1 and are crisp, with no stretch. On an 844x390 phone at DPR 3, a 1280 px picture fills 2532 device pixels, a 2.0x upscale. The old academy.webp is 1536 px, a 1.65x upscale. The archive thumbs are 320x219 and are shown at 123x115 css px on 844x390 at DPR 3, about a 1.6x upscale; the old 480x320 thumb was about 1.1x. At 1280x720 they are drawn at 191x146, which is crisp. If the size budget allows, 1600-1920 px sources and 480 px thumbs would fix it. The WebPs were also upscaled about 5% from the 1216x832 raw images, which is negligible.",
+      "evidence": "Measured in the page with naturalWidth vs clientWidth (rev-look/look.mjs metrics, rev-look/archive.mjs); rev-look/shots/archive-1280x720-ch7.png and rev-look/shots/archive-844x390-ch7.png."
+    },
+    {
+      "id": "L6",
+      "severity": "low",
+      "title": "STORY_SPEC says no scene uses the academy looks, but the Halloween event scenes still do",
+      "detail": "docs/STORY_SPEC.md line 160 says academy-day, academy-sunset and academy-night are used by 'no scene since Oct 27'. But src/data/events/scenes/halloween.js lines 7 and 38 use bg 'academy-night', so those scenes still show the tinted lobby painting. Correct the doc line, and optionally give the event scenes a place, such as academy-courtyard-night.",
+      "evidence": "grep for academy-night in src/data/events/scenes/halloween.js."
+    }
+  ],
+  "checks_passed": [
+    "Viewed all 71 builder after shots (plus manifests); re-took 69 shots, and 26 base shots for comparison",
+    "Dialogue contrast at least 11.10:1 and narration at least 6.78:1 against the darkest box pixel, over 48 frames",
+    "Portrait edge separation measured; equal to or better than base on day scenes; Yuki on library-garden is the weakest, and still readable with the drop shadow",
+    "Subject in frame on phones: 667x375, 844x390, 915x412, 932x430 and 390x844 (all 31 places simulated, 6 scenes shot at each size)",
+    "1280x720: object-fit cover at 1:1 pixel mapping, no stretch, no blur",
+    "SFW, no people or faces, no readable fake text, nothing unsettling; nothing names or imitates another game",
+    "Repo: 62 WebPs only, byte-identical to art-pilots/backgrounds/webp; no _ref, _rejected, manifest or prompt files; no EXIF or XMP chunks; no prompt strings or names in the diff or commits; commit trailers correct",
+    "Sim id 92e2e22527cf and COOP_PROTOCOL 8 match base f4cf107b; src/data/stages.js and maps.js untouched; STAGE_PLACE lives in src/data/story/backgrounds.js"
+  ],
+  "artifacts": "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/story-backdrops/rev-look/ (shots/, figs/, figs-base/, trans/summary.json, sheets/, look.mjs, contrast.py, crops.py, archive.mjs, notes.md)"
+}
