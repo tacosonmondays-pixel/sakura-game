@@ -24,6 +24,7 @@ describe('the per-target line', () => {
     expect(dotOnOne({ status: [{ type: 'burn', dps: 10, chance: 0.5 }] }).dps).toBe(5);
     expect(perTargetLine({ status: [] }, 30)).toBe('30 hits');
     expect(perTargetLine({ status: [] }, 0)).toBe(null);
+    expect(perTargetLine({ status: [{ type: 'poison', dps: 4 }, { type: 'burn', dps: 6 }] }, 0)).toBe('10/s poison + burn');
   });
 });
 
@@ -60,6 +61,11 @@ describe('the boost to allies (an estimate)', () => {
     expect(drink.girls).toBe(1);
     expect(drink.value).toBeCloseTo(100 * (1 - 1 / 1.5), 6);
   });
+  it('a disabled linker adds nothing while it lasts', () => {
+    const tw = new Map([[9, { uid: 9, disabled: 2, stats: { link: { dmgMul: 1.3 } } }], [2, { uid: 2, stats: {} }]]);
+    const s3 = { getTower: (u) => tw.get(u), buffTargets: () => [{ uid: 2, kinds: ['link'], keys: [] }] };
+    expect(boostEstimate(s3, 9, () => 100)).toBe(null);
+  });
   it('null when she buffs nobody', () => {
     expect(boostEstimate(sim, 2, () => 100)).toBe(null);
   });
@@ -87,5 +93,30 @@ describe('the measured DPS', () => {
     const after = m.live(7, sim);
     expect(after.kind).toBe('lastWave');
     expect(after.value).toBeGreaterThan(700);
+  });
+  it('closes a wave even when no frame lands between waves, and starts over when time goes back', () => {
+    const t = { uid: 3, damageDealt: 0 };
+    const sim = { time: 0, state: 'wave', wave: 1, towers: [t] };
+    const m = createDpsMeter(5);
+    for (let i = 1; i <= 20; i++) {
+      sim.time = i * 0.25;
+      t.damageDealt = sim.time * 100;
+      m.sample(sim);
+    }
+    // the next frame is already wave 2: the meter starts over (no live number for its first second)
+    sim.wave = 2;
+    sim.time = 6.5;
+    m.sample(sim);
+    expect(m.live(3, sim)).toEqual({ value: null, kind: 'none' });
+    sim.state = 'between';
+    sim.time = 6.6;
+    m.sample(sim);
+    // (wave 1 was closed and averaged although no frame saw the gap; wave 2 lasted under a second: wave 1's stands)
+    expect(m.live(3, sim).kind).toBe('lastWave');
+    expect(m.live(3, sim).value).toBeCloseTo((500 - 25) / (6.5 - 0.25), 6);
+    sim.time = 1;
+    sim.state = 'between';
+    m.sample(sim);
+    expect(m.live(3, sim)).toEqual({ value: null, kind: 'none' });
   });
 });
