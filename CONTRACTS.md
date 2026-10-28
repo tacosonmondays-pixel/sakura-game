@@ -839,6 +839,17 @@ her level, her formation / secretary place. A girl in the save is never changed 
 `craftPreview` / `craft(profile, 'combine'|'swap', itemId, times, toFamily?)`: 3 → 1 up to Zenith, 2 → 1 family swap,
 coin fees `COMBINE_FEE` / `SWAP_FEE`, weekly caps `WEEKLY_CAP` (counters `craft:*`, reset on the game week).
 
+### `src/systems/workbench.js` (timed Workbench, BANNERS §G)
+
+Recipes in `src/data/workbench.js` (`WB_RECIPES`, **append-only numeric ids**, pinned id → output by
+`tests/systems/workbench.test.js`). `startCraft(profile, slot, recipeId, family, now)` pays inputs + coins and one weekly
+use up front; `cancelCraft` (before done) refunds all of it; `collectCraft` / `collectAll` add the output; `workbenchState`,
+`slotState`, `workbenchReady` read without writing; `touchWorkbench` (on Workbench actions only) re-anchors running slots
+after a clock set back > 10 min (time left kept) and writes `wb:seen` at most once a minute. Slots 1..3 (3rd after 6-5).
+State (numbers only, `missions.counters`): `wb:<slot>:r` recipe id, `wb:<slot>:n` family index (`WB_FAMILIES`, append-only),
+`wb:<slot>:s` / `wb:<slot>:e` start / end ms, `wb:wk` cap week (forward only), `wb:cap:<id>` uses this week, `wb:seen`.
+An unknown recipe id or family index is kept and shows "Update to collect". Hub: `#/workbench?tab=bench|craft`.
+
 ### `src/systems/skins.js` (roster merge)
 
 Outfits (roster merge): `units[id].skin` + `skins` are **additive v2 fields** (no version bump; an older build

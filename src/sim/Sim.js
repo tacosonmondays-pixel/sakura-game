@@ -57,6 +57,7 @@ import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
 import { onVineKill, endVineWave } from './vines.js';
 import { endBallWave } from './balls.js';
+import { syncBarricades, updateBarricades, endBarricadeWave, detourOnHit } from './barricades.js';
 import {
   createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
   ruleWaveEnd, ruleWaveClear, ruleBountyAdd, ruleHitScale, ruleDotScale, assignPads, ruleInfo, ruleAffinityFor,
@@ -285,6 +286,8 @@ export class Sim {
     this._curseBudget = CURSE_BURSTS_PER_TICK;
     if (this._curseQueue.length && !this._flushingCurses) this._flushCurses();
     updateEnemyAuras(this);
+    // Norika's barricades: spots, rebuilds and Hold the Line timers, before the enemies move into them
+    if (this._blockOn) updateBarricades(this);
     for (let i = 0; i < this.enemies.length; i++) {
       const e = this.enemies[i];
       if (!e.dead) updateEnemy(this, e, dt);
@@ -565,6 +568,8 @@ export class Sim {
       }
     }
     if (spec.gather > 0 && !e.dead) this._gather(e, spec.gather);
+    // Norika's Detour Sign: her waves send an enemy still before a fork down the longer branch
+    if (spec.barricade?.detour && !e.dead) detourOnHit(this, e);
     syncStatusFlags(e);
   }
 
@@ -858,6 +863,8 @@ export class Sim {
     endVineWave(this);
     // Marumi's balls end (src/sim/balls.js)
     endBallWave(this);
+    // Hold the Line ends; Norika's own barricades stand again at full budget (src/sim/barricades.js)
+    if (this._blockOn) endBarricadeWave(this);
     this._curseQueue.length = 0;
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });
@@ -1040,6 +1047,7 @@ export class Sim {
     updateRelayOrigin(this, t);
     syncAbility(this, t); // (a fixture girl whose ability unlocks at tier 0)
     syncZones(this, t);
+    syncBarricades(this, t);
     return t;
   }
 
@@ -1059,6 +1067,8 @@ export class Sim {
     syncZones(this, t);
     // her lab team's frag and control weapons follow her lab power (Grand Lab, Unified Theory)
     syncLab(this, t);
+    // Norika's barricade lists (src/sim/barricades.js)
+    syncBarricades(this, t);
   }
 
   /**

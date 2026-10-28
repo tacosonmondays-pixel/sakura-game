@@ -16,7 +16,7 @@ import { store } from '../../core/store.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
 import { UNIT_RARITIES } from '../../data/types.js';
 import { applyUrFrame } from '../rarity.js';
-import { portraitHTML } from '../../art/portraits.js';
+import { portraitHTML, isPlaceholderPortrait } from '../../art/portraits.js';
 import {
   lobbyBackgroundGroups, lobbyBackgroundFor, isBackgroundUnlocked, hasArt, chooseBackground, unlockText, lobbyArtUrl, bgArtUrl, bondLevel, BOND_MAX,
 } from '../../data/lobbyArt.js';
@@ -50,8 +50,9 @@ export function openBackgroundPicker({ girl = null } = {}) {
   const paintGirls = () => {
     clear(girls);
     // the girls you own first, then everyone else greyed out (their backgrounds to collect)
-    const owned = ownedUnits(store.profile);
-    const others = UNITS.map((u) => u.id).filter((id) => !owned.includes(id));
+    // (a girl whose art is still the coming-soon signboard is not listed until it is drawn)
+    const owned = ownedUnits(store.profile).filter((id) => !isPlaceholderPortrait(id));
+    const others = UNITS.map((u) => u.id).filter((id) => !owned.includes(id) && !isPlaceholderPortrait(id));
     for (const id of [...owned, ...others]) {
       const u = UNIT_MAP[id];
       const mine = owned.includes(id);

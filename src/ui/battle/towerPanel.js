@@ -23,7 +23,7 @@ import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, attackTypeIcon, elementIcon, capabilityIcon, currencyIcon } from '../../art/icons.js';
 import { ROLES, ATTACK_TYPES, ELEMENTS, STATUSES } from '../../data/types.js';
-import { isUR, rarityColor, urBadge, applyUrFrame } from '../rarity.js';
+import { isUR, rarityColor, urBadge, rankBadge, displayRarity, applyUrFrame } from '../rarity.js';
 import { potentialRows, potentialRowText } from './potentialRows.js';
 import { TREE_GLYPH } from '../tagChips.js'; // [unit-info] tree button
 import { tierDesc } from '../upgradeTags.js';
@@ -246,7 +246,7 @@ export function createTowerPanel(ctx) {
       ? h('span.bt-panel-tiers.bt-dw-lv', { 'data-testid': 'hero-lv' }, t.level >= (st.heroLevel?.max ?? 25) ? 'MAX' : fmtNum(t.level, 'level'))
       : h('span.bt-panel-tiers', { title: `Tiers ${t.tiers.join('-')}` }, t.tiers.join('-'));
     // (her Potential is in MORE only: one fact once, UI_DIRECTION P7 and §6.6)
-    const nameRow = h('div.bt-panel-name', h('span.bt-panel-nm', def.name), code, ur ? urBadge() : null);
+    const nameRow = h('div.bt-panel-name', h('span.bt-panel-nm', def.name), code, ur ? rankBadge(displayRarity(def, profile)) : null);
     const roleName = (ROLES[def.role]?.name || def.role || '').toUpperCase();
     const typeName = (ATTACK_TYPES[st.attackType]?.name || st.attackType || '').toUpperCase();
     // (on a phone, when the two words would wrap onto a second line, the attack type keeps only its icon: fitHeader)
@@ -929,7 +929,8 @@ export function createTowerPanel(ctx) {
     // in co-op from her owner's battle stats (t.unitStats travels in the loadout)
     const mine = !ctx.coop || ctx.coop.isMine(t.uid);
     const ally = !mine;
-    const profile = mine ? ctx.profile : { units: { [def.id]: { awaken: t.unitStats?.awaken || 0 } } };
+    // ([friend support] a borrowed girl: her own clamped card, ctx.profileFor)
+    const profile = mine ? (ctx.profileFor?.(def.id) || ctx.profile) : { units: { [def.id]: { awaken: t.unitStats?.awaken || 0 } } };
     live = { kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null, stats: null };
     el.classList.toggle('bt-panel-ally', ally);
     el.classList.toggle('bt-drawer-hero', !!t.isHero);

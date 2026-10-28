@@ -19,6 +19,25 @@
 
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
+  // (the banners release: its number is set when it merges, after any smaller release that goes first)
+  {
+    id: 'v0.1.58', version: '0.1.58', date: '2026-10-29', title: 'Banners',
+    added: [
+      'Recruit has daily banners! The Student Spotlight and the Guardian Spotlight each feature one SSR and three SRs and change every day at 7 PM Central; on Standard you pick the featured SSR yourself, and your first 10× there always brings an SSR. One pity counter is shared by them all.',
+      'Two LR Banners premiere today, side by side: Tenka\'s Physics Club Premiere (0.7% until Nov 5, 7 PM Central; your Legend Promise count carries over) and Kohaku & Tsubaki\'s Starfall Premiere, the Prism Battery: two friends, one tower (0.7% until Nov 4, 7 PM Central). Afterwards they take turns on the LR tab at 0.5%.',
+      'Limit Break: Kohaku & Tsubaki at level 60 with all 5 gates and ★5 can pay the Limit Break fee and win the Starfall Trial (8-5 Nightmare) to become LR, with a new frame and stronger stats. Tenka\'s LR form comes later.',
+      'After 6-5, the Coin banner: 20 recruits a week paid in coins. The Club Lab adds a Workbench that crafts while you play. Friend Support: borrow a friend\'s girl for a battle and earn Friend Points for the Friendship banner.',
+    ],
+    changed: [
+      'Kanna, Yoriko, Seiran, Iroha and Ena now come from their Spotlight days. For your first 30 days with banners you can still spark them on any day.',
+      'UR Resonance: from Nov 1, 7 PM Central, every SSR girl at ★5 deals 10% more damage and attacks 4% faster (support girls: 10% stronger auras and 4% faster).',
+      'Every girl now faces the camera in battle and turns toward her target\'s side.',
+      'Co-op partners need this update too before you can play together.',
+    ],
+    fixed: [
+      'Long names no longer run off the edge of a girl\'s name plate.',
+    ],
+  },
   {
     id: 'v0.1.58', version: '0.1.58', date: '2026-10-28', title: 'Brighter Details',
     added: [

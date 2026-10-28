@@ -68,12 +68,15 @@ export function onAppStart(profile, now = new Date()) {
  * @param {object} profile
  * @param {string} event
  * @param {number} [amount]
+ * @param {{ lifetime?: boolean }} [opts]
  */
-export function track(profile, event, amount = 1) {
+export function track(profile, event, amount = 1, { lifetime = true } = {}) {
   const n = Number(amount) || 0;
   if (n <= 0) return;
   const m = ensure(profile);
-  m.counters[event] = (m.counters[event] || 0) + n;
+  // lifetime = false: only the commissions move (a Friend Support run: its mission ticks count, the lifetime
+  // counters behind the achievements do not; docs/specs/BANNERS.md §E.1)
+  if (lifetime) m.counters[event] = (m.counters[event] || 0) + n;
   for (const [kind, list] of Object.entries(MISSION_SETS)) {
     const progress = m[kind];
     const claimed = m[`${kind}Claimed`];
@@ -494,5 +497,12 @@ export function f2pIncomeSummary() {
   const oneTimeTotals = oneTime.reduce((t, r) => ({ gems: t.gems + r.gems, tickets: t.tickets + r.tickets }), { gems: 0, tickets: 0 });
   oneTimeTotals.pulls = Math.round((oneTimeTotals.gems / GACHA.costSingle + oneTimeTotals.tickets) * 10) / 10;
 
-  return { periodDays: DAYS, rows, totals, oneTime, oneTimeTotals, sparkEvery: GACHA.sparkCost, unitsInPool: UNITS.length };
+  // [banners] Coin and Friendship pulls (BANNERS §H): never gem-tier (no pity, no points), so they sit beside the
+  // totals, not in them. Coin: 20 a week after 6-5; Friendship: a typical 40–70 FP a day (3–5 pulls a week)
+  const side = {
+    coinPulls: 20 * WEEKS, coinCost: 20 * WEEKS * 25000,
+    friendPulls: { typical: [3 * WEEKS, 5 * WEEKS], max: Math.floor((150 * DAYS) / 100) },
+    spareCoins: { R: 1000, SR: 5000, SSR: 20000 },
+  };
+  return { periodDays: DAYS, rows, totals, oneTime, oneTimeTotals, side, sparkEvery: GACHA.sparkCost, unitsInPool: UNITS.length };
 }

@@ -17,9 +17,15 @@
 // Plain data, no three.js import (tests/data can read it cheaply).
 
 /** Unit ids (= model asset keys) that are deliberately procedural stand-ins. */
-export const STANDIN_UNITS = Object.freeze(['tenka']);
+export const STANDIN_UNITS = Object.freeze(['tenka', 'kogane', 'norika']);
 
 const STANDIN_SET = new Set(STANDIN_UNITS);
+
+/**
+ * Chin-up (rad, models/chibi.js liftChin) on a stand-in whose cap or hard-hat brim would hide her eyes from the
+ * 48° battle camera: the staff heroes.
+ */
+export const STANDIN_CHIN_UP = Object.freeze({ kogane: 0.3, norika: 0.26 });
 
 /**
  * True when a model asset key has no GLB on purpose and is drawn procedurally.

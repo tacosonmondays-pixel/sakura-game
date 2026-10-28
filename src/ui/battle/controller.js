@@ -11,7 +11,7 @@ import { cameraModeOf } from '../../render/cameraPolicy.js';
 import { STAGE_MAP, stageEnemies } from '../../data/stages.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS, BATTLE } from '../../data/types.js';
-import { createBattleSim, resumeBattleSim, parseBattleParams, parseTitanParams, mapRouteFor } from './setup.js';
+import { createBattleSim, resumeBattleSim, parseBattleParams, parseTitanParams, mapRouteFor, resolveFormation } from './setup.js';
 import { createTitanTracker } from '../../data/titans.js';
 import { applyTitanResult } from '../../systems/titans.js';
 import { createBattleSaver } from './battleSaver.js';
@@ -68,6 +68,10 @@ import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
 import { holdLoader, setLoaderProgress, frames } from '../transitions/index.js';
 import { eventNow } from '../events/clock.js'; // [events]
 import { formationSkins } from '../../systems/skins.js';
+import { supportAllowed, clampSupportUnit, supportLoadoutEntry, supportMiniProfile } from '../../systems/friendSupport.js'; // [friend support]
+import { supportPays } from '../../online/supportRules.js';
+import { newKey } from '../../online/donateLedger.js';
+import { pickFor } from './supportPick.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -197,6 +201,23 @@ export function mountBattle(root, params, hooks) {
     return id;
   };
 
+  // [friend support] a friend's Support Student (BANNERS §E.1): picked in stage prep for a New game (campaign, Bounty,
+  // solo Freeplay), clamped to this save's range; a Continue keeps the one in its record. Never co-op, Titan Trials,
+  // Sandbox, the tutorial, a practice run or the clan boss.
+  let supportMark = restored ? saved?.support || null : null;
+  let support = null;
+  const supportOk = !ls && !params.coop && !params.clanBoss && !req.titan && !req.sandbox && !req.practice && params.tutorial !== '1'
+    && supportAllowed(profile, stage, { difficulty: req.difficulty, endless: req.endless && stage.kind === 'challenge' });
+  if (!restored && supportOk && typeof params.sup === 'string') {
+    const pick = pickFor(params.sup);
+    const card = pick ? clampSupportUnit(pick.unit, profile) : null;
+    if (card && !resolveFormation(profile).towers.includes(card.id)) {
+      supportMark = { unitId: card.id, owner: pick.owner, key: newKey(), card };
+      support = { entry: supportLoadoutEntry(card), mark: supportMark };
+    }
+  }
+  if (!supportOk && !restored) supportMark = null;
+
   // Continue preloads and plays the team frozen in the save, not today's formation
   const made = ls
     ? {
@@ -206,8 +227,17 @@ export function mountBattle(root, params, hooks) {
       hero: null,
       heroes: ls.start.players.map((p) => p.hero?.unitId).filter(Boolean),
     }
-    : restored || createBattleSim(profile, req);
+    : restored || createBattleSim(profile, req, { support });
   const { sim, towers, hero, heroes: heroIds } = made;
+  if (supportMark && !sim.loadout.has(supportMark.unitId)) supportMark = null;
+  if (supportMark) {
+    // every result of this battle says it had a Support Student (rewards.js, limitBreak.js, freeplay payouts)
+    const baseResult = sim.result;
+    const mark = { unitId: supportMark.unitId, owner: supportMark.owner };
+    sim.result = function supportResult(...args) {
+      return { ...baseResult.apply(this, args), support: { ...mark } };
+    };
+  }
   // a Continue plays the saved run's own battle mode (the record's, whatever the link says), and a
   // mode run is never offered Keep going (setup.js parseBattleParams)
   if (restored) {
@@ -254,6 +284,27 @@ export function mountBattle(root, params, hooks) {
     tutorial: params.tutorial === '1',
     selectedDrone: null,
     rates: createRateMeter(5), // live damage rates of drone owners (chikaPanel.js)
+    // [friend support] the borrowed girl, and whose save a card's look comes from (her own mini profile for her)
+    support: supportMark,
+    profileFor: null,
+  };
+  const supportMini = supportMark ? supportMiniProfile(supportMark.card) : null;
+  ctx.profileFor = (unitId) => (supportMark && unitId === supportMark.unitId ? supportMini : profile);
+  // the borrow itself: recorded at once, asked in the background, settled at wave 3 (or a shorter stage won)
+  let supportBorrow = null;
+  let supportSettled = false;
+  if (supportMark) {
+    supportBorrow = import('../../online/supportClient.js').then((m) => m.supportClient()).then((sc) => {
+      if (support) return { sc, done: sc.startBorrow({ owner: supportMark.owner, unitId: supportMark.unitId, key: supportMark.key }).done };
+      return { sc, done: null }; // a Continue: its borrow is in the ledger already
+    }).catch(() => null);
+  }
+  const settleSupport = () => {
+    if (!supportBorrow || supportSettled || !supportMark?.key) return;
+    supportSettled = true;
+    supportBorrow.then((b) => b?.sc.settle(supportMark.key, b.done)).then((r) => {
+      if (r?.points > 0 && !destroyed) ctx.feed?.push(`Friend Support · +${r.points} Friend Points`, 'good', { ms: 2600 });
+    }).catch(() => {});
   };
 
   // a battle-save warning raised before the feed exists (the first write can come before build())
@@ -632,6 +683,11 @@ export function mountBattle(root, params, hooks) {
         feed.push(sim.state === 'wave' ? `Recharging — ${Math.ceil(st.cooldownLeft)}s` : 'The ultimate only charges during waves.', 'warn', { key: 'ult-cd', ms: 1400 });
         return;
       }
+      // Norika's Hold the Line works only during a wave (src/sim/hero.js): say so instead of a silent tap
+      if (sim.state !== 'wave' && sim.hero?.def?.hero?.ult?.effect?.type === 'barricade') {
+        feed.push(`${sim.hero.def.hero.ult.name} works during a wave.`, 'warn', { key: 'ult-wave', ms: 1600 });
+        return;
+      }
       if (ls) {
         ls.queue('ult', []); // each player fires her own hero's ult
         return;
@@ -945,6 +1001,7 @@ export function mountBattle(root, params, hooks) {
             break;
           }
           case 'waveStart':
+            if (supportPays({ wave: ev.wave })) settleSupport(); // [friend support] FP once the run reached wave 3
             // freeplay waves past the goal: their own banners (freeplay.js)
             if (fpBattle && ev.wave > sim.totalWaves) break;
             feed.announce(`WAVE ${ev.wave}`, ctx.modes?.waveSub(ev) ?? (Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless'), ev.flipped ? 'warn' : 'wave', ev.flipped ? 2200 : 1300);
@@ -994,6 +1051,7 @@ export function mountBattle(root, params, hooks) {
     function endBattle(won, { endedRun = false } = {}) {
       if (ctx.ended) return;
       ctx.ended = true;
+      if (won) settleSupport(); // [friend support] a shorter stage won
       ctx.endedRun = endedRun;
       saver?.close(); // no more save writes: results.apply() pays out and deletes the save at once
       placement.cancel();

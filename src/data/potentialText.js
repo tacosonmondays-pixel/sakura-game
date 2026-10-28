@@ -261,12 +261,34 @@ export const POTENTIAL_TEXT = Object.freeze({
     t('VINE-0.5', '+6% attack speed. Her vine comes 0.5 s sooner.', 1.12, 'rim'),
     t('EVERGREEN', '+7% damage. Seeds pierce 1 more; her vine holds 0.3 s longer and comes 0.5 s sooner.', 1.18, 'rim'),
   ),
+  kohaku_tsubaki: row(
+    t('BEAM+1', '+5% damage. Kohaku\'s beam deals 1 more damage.', 1.10, 'rim'),
+    t('SHARDS+', '+7% attack speed. Shards carry 0.05 more of a shell\'s hit (40% → 45%).', 1.12, 'rim'),
+    t('PIERCE+1', '+7% damage. Kohaku\'s beam pierces 1 more enemy.', 1.12, 'rim'),
+    t('SHARD+1', '+8% attack speed. Every split shell makes 1 more shard.', 1.15, 'rim'),
+    t('ALL SPLIT', '+9% damage. Every 8th volley splits completely: every shell in it sends out its shards.', 1.22, 'rim'),
+  ),
   ouka: row(
     t('CUT ×1.03', 'Her upgrade discounts are 3% deeper (5% off → 5.15% off).', 1.03, 'rim'),
     t('CUT+2%', 'Her discounts are 3% deeper, and upgrades in her radius cost 2% less on top.', 1.06, 'rim'),
     t('OFFICE+', 'Her discounts are 4% deeper, and her office radius is 0.2 tiles wider.', 1.07, 'rim'),
     t('CUT+2%', 'Her discounts are 4% deeper, and upgrades in her radius cost 2% less on top.', 1.08, 'rim'),
     t('SEAL', 'Her discounts are 4% deeper, her office radius is 0.3 tiles wider, and upgrades in it cost 3% less on top.', 1.12, 'rim'),
+  ),
+  // the staff heroes (BANNERS §D)
+  kogane: row(
+    t('RIVET 1/6', '+5% damage. Every 6th volley fires 2 more rivets.', 1.10, 'rim'),
+    t('CLUTCH', '+7% attack speed. A Move during a wave stops her attacks for 1 s less (3 → 2 s).', 1.08, 'rim'),
+    t('BLADE+2', '+7% damage. Clear the Road plows 2 tiles further.', 1.08, 'rim'),
+    t('HYDRAULIC', '+8% attack speed; Clear the Road recharges 10% faster.', 1.10, 'rim'),
+    t('OVERDRIVE', '+9% damage. After each Move during a wave she attacks 30% faster for 6 s.', 1.14, 'rim'),
+  ),
+  norika: row(
+    t('CONES+25%', '+4% damage. Her barricades hold 25% more.', 1.06, 'rim'),
+    t('REBUILD-1', '+5% attack speed. A broken barricade is rebuilt 1 s sooner.', 1.06, 'rim'),
+    t('LINE+4s', '+5% damage. Hold the Line lasts 4 s longer.', 1.06, 'rim'),
+    t('WHISTLE+2', '+6% attack speed. Whistle Stop stops 2 more enemies.', 1.08, 'rim'),
+    t('SAFETY', '+7% damage. One more barricade; held enemies take 10% more damage.', 1.14, 'rim'),
   ),
 });
 

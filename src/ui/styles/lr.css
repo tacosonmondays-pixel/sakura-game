@@ -1,0 +1,55 @@
+/* LR display (src/ui/rarity.js, BANNERS §C.4, DUO_LR §2.5): an LR unit after Limit Break wears the Nightglass
+   frame: a navy edge (--lr-edge), a thin white-gold line inside it, the twin-star crest at the top and an "LR"
+   sticker. Never rainbow (rainbow is UR's). One comet light laps the frame on big frames only (her page, the unit
+   sheet, the reveal); grids and the battle HUD hold still. Compositor-only motion; reduced motion holds it still
+   with the comet resting at the top right. Display only: no game rule reads it. */
+
+.is-lr { box-shadow: 0 0 0 2px var(--lr-edge, #0e1930), 0 0 0 4px var(--lr-gold, #ffd27a), 0 6px 18px rgba(14, 25, 48, 0.45); }
+.lr-frame {
+  position: absolute; inset: 3px; z-index: 3; pointer-events: none; border-radius: inherit;
+  border: 1.5px solid rgba(255, 231, 176, 0.95);
+  box-shadow: inset 0 0 0 2px rgba(14, 25, 48, 0.55);
+}
+.lr-crest {
+  display: none; /* only big frames carry the crest (on small ones it covered names) */
+  position: absolute; top: -8px; left: 50%; width: 26px; height: 14px; transform: translateX(-50%);
+  border: 1.5px solid var(--lr-gold, #ffd27a); border-radius: 999px; background:
+    radial-gradient(circle at 34% 50%, var(--lr-gold, #ffd27a) 0 3.5px, transparent 4.5px),
+    radial-gradient(circle at 66% 50%, #fff 0 3.5px, transparent 4.5px),
+    var(--lr-edge, #0e1930);
+}
+/* the crest on the big frames: her page, the tall cards, the big students grid */
+.mb-show-stage > .lr-frame > .lr-crest, .unit-card-tall > .lr-frame > .lr-crest, .unit-card.mb-tall > .lr-frame > .lr-crest, .pf-slot > .lr-frame > .lr-crest { display: block; }
+
+/* the comet: a short gold streak that laps the frame (transform only) */
+.mb-show-stage.is-lr > .lr-frame::after, .unit-card-tall.is-lr > .lr-frame::after {
+  content: ''; position: absolute; top: -2px; left: 0; width: 18%; height: 3px; border-radius: 3px;
+  background: linear-gradient(90deg, transparent, #fff, var(--lr-gold, #ffd27a));
+  animation: lr-comet var(--lr-comet, 6s) linear infinite;
+}
+@keyframes lr-comet { from { transform: translateX(-20%); } to { transform: translateX(560%); } }
+@media (prefers-reduced-motion: reduce) {
+  .lr-frame::after { animation: none !important; left: auto; right: 6%; }
+}
+.reduce-motion .lr-frame::after { animation: none !important; left: auto; right: 6%; }
+
+/* the sticker: white-to-gold letters on navy, tilted −4°, a 2 px outline */
+.lr-badge {
+  display: inline-flex; align-items: center; justify-content: center; padding: 1px 8px; border-radius: 5px;
+  background: var(--lr-edge, #0e1930); border: 2px solid var(--lr-gold, #ffd27a); transform: rotate(-4deg);
+  font-weight: 900; font-style: italic; font-size: 0.78rem; line-height: 1.2;
+}
+.lr-text { background: linear-gradient(180deg, #fff 15%, var(--lr-gold, #ffd27a) 85%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.unit-card-rarity.unit-card-lr { left: 5px; top: 5px; background: transparent; color: inherit; text-shadow: none; z-index: 4; }
+.unit-card-tall .unit-card-rarity.unit-card-lr { left: 7px; top: 7px; }
+.lr-badge, .lr-text { text-shadow: none; }
+
+/* the Limit Break panel on her page */
+.lb-panel { background: linear-gradient(160deg, #1a2a4d, #0e1930); color: #ffefcf; border: 2px solid var(--lr-gold, #ffd27a); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.lb-panel b { color: #ffd27a; }
+.lb-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.lb-step { padding: 2px 9px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; background: rgba(255, 255, 255, 0.12); color: #ffefcf; }
+.lb-step.done { background: var(--lr-gold, #ffd27a); color: #0e1930; }
+.lb-fee { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.8rem; }
+.lb-fee .short { color: #ff9e9e; }
+.lb-boost { font-size: 0.8rem; font-weight: 700; }

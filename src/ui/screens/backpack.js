@@ -4,6 +4,7 @@
 //
 // Also exports small shared pieces used by other meta-b screens: gearCard, requirementRow,
 // requirementList, unitMini.
+import { unitClass } from '../../data/banners.js';
 import '../styles/meta-b.css';
 import { h, clear, screen, svgEl, button, itemTile, showItemInfo, modal, toast, confirmDialog } from '../components.js';
 import { store } from '../../core/store.js';
@@ -14,6 +15,7 @@ import { BACKPACK_TABS, ITEMS, ITEM_CATEGORIES, getItem, compareItemsByRarity } 
 import { ITEM_RARITIES, ITEM_RARITY_ORDER, GEAR_SLOTS, MATERIAL_FAMILIES } from '../../data/types.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
 import { itemCount } from '../../systems/inventory.js';
+import { workbenchReady } from '../../systems/workbench.js';
 import { gearList, salvageGear, salvageRewards, openGearBox, GEAR_BAG_MAX, OPEN_BATCH_MAX, gearCount } from '../../systems/gear.js';
 import { gearIcon, uiIcon, itemIcon } from '../../art/icons.js';
 import { applyGearFilter } from '../../systems/gearFilter.js';
@@ -27,7 +29,6 @@ import { gearCard, gearActions, pickGearFor, rainbowBoxModal } from '../gearUr.j
 /** Gear cards drawn per page in the Equipment tab. */
 const GEAR_PAGE = 200;
 import '../styles/achievements.css'; // the gear summary
-import { isLegendUnit, RECRUIT_FEATURE } from '../../data/recruitFeature.js';
 
 // ---------------------------------------------------------------------------
 // Shared pieces
@@ -109,7 +110,11 @@ export function howToGet(unit) {
   const a = unit.acquisition || {};
   if (a.type === 'starter') return { short: 'Starter', long: 'Part of your starting team.' };
   if (a.type === 'free') return { short: `Free after ${a.afterStage}`, long: a.note || `Joins for free after clearing stage ${a.afterStage}.`, stageId: a.afterStage };
-  if (isLegendUnit(unit.id)) return { short: 'Recruit', long: RECRUIT_FEATURE?.unit === unit.id ? `Recruit her on the ${RECRUIT_FEATURE.kicker} spotlight (${(1.5 * RECRUIT_FEATURE.share).toFixed(1)}%; your ${RECRUIT_FEATURE.promise}th recruit without her is her). She can't be sparked.` : 'Recruit her on her own banner. She can\'t be sparked.' };
+  // [banners] where she can be pulled (BANNERS §B): LR units only on their LR Banner, premium SSRs on their Spotlights
+  const cls = unitClass(unit.id);
+  if (cls === 'held') return { short: 'Coming soon', long: 'She joins the academy in a later update.' };
+  if (cls === 'legend') return { short: 'LR Banner', long: 'LR unit: recruit her on her own LR Banner (Legend Promise at 300). She cannot be sparked.' };
+  if (unit.rarity === 'SSR' && cls === 'premium') return { short: 'Spotlight', long: `Recruit her on her ${unit.kind === 'hero' ? 'Guardian' : 'Student'} Spotlight (1.0%), or spark her there with 200 Recruit Points.` };
   return { short: 'Recruit', long: unit.rarity === 'SSR' ? 'Recruit (1.5%, pity at 90) or spark her with 200 Recruit Points.' : 'Recruit her in the gacha.' };
 }
 
@@ -429,7 +434,9 @@ export function render(root, params = {}) {
       h('div.mb-toolbar-row',
         chipRow(rarityOpts, state.rarity, (id) => { state.rarity = id; rerender(); }, '.mb-chips-rarity'),
         h('label.mb-select', svgEl(uiIcon('sort'), 'mb-select-icon'),
-          h('select', { onchange: (e) => { state.sort = e.target.value; rerender(); } }, Object.entries(SORTS).map(([id, label]) => h('option', { value: id, selected: id === state.sort }, label))))),
+          h('select', { onchange: (e) => { state.sort = e.target.value; rerender(); } }, Object.entries(SORTS).map(([id, label]) => h('option', { value: id, selected: id === state.sort }, label)))),
+        // [workbench] the club lab: timed Workbench + instant Craft Room (BANNERS §G); a dot when a craft is ready
+        h('button.mb-chip.mb-wb-btn', { type: 'button', 'data-testid': 'backpack-workbench', onclick: () => navigate('workbench') }, 'Workbench', workbenchReady(profile) ? h('span.ui-dot', { 'aria-label': 'a craft is ready' }) : null)),
     );
 
     clear(content);
