@@ -27,7 +27,8 @@ const T = { timeout: 30000 };
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
 const url = `http://127.0.0.1:${server.httpServer.address().port}/?online=local&onboarding=0`;
-const { browser, label } = await launchChromium();
+// two tabs in one window: neither may be throttled as a background tab (the host would mark the guest gone)
+const { browser, label } = await launchChromium({ args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows'] });
 log(`browser: ${label}`);
 const errors = [];
 const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
