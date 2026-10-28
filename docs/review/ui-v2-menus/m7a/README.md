@@ -50,16 +50,50 @@ Numbers with the top bar: 3-6 on every shot (the profile Preview 10), the repeat
 `node e2e/menus.mjs --milestone m7a`: 14 shots × 3 sizes, 0 failing (the new shots: profile-showcase, profile-pins,
 profile-preview, story-ch2, journal-entry).
 
+## Review round 1 fixes (`m7a-board-4.jpg`, `m7a-board-5.jpg`)
+
+1. Daily Gifts at 1024x768 and 1280x720: the 64 px tiles and the wider day card are one rule again (the later
+   unconditional rule had reset the card to 124 px): both tiles and their counts sit inside the card.
+2. Edit Showcase and Pin trophies at 390x844: under 560 px wide the ghost action (Auto-fill / Use my best medals) takes
+   its own row above Cancel and Save, Save says just "Save", the bar notes go.
+3. Captain's Journal at 667x375: a title clamps to two lines (a locked one to one), the list column widens on a small
+   landscape phone, the rows keep their fixed height (the list still shows whole rows only). The lesson number is back
+   ("01" before the icon).
+4. The selected Story chapter's emblem takes the on-ink colours (white lines, cyan tick) on its ink fill.
+5. Save after a touch drag in Edit Showcase: the cause was Chromium's tap-after-fling suppression, not the press scale.
+   A quick drag that lifts while still moving leaves a fling; the next tap only stops the fling and sends no click.
+   The slot drag now owns its touchmoves (preventDefault while dragging), so no fling is left. The reviewer's CDP
+   probe: before 0/3 Save taps closed the sheet after a fast drag (3/3 after a slow drag that stops before lifting);
+   after 9/9. The kit's press scale is back on the M7a buttons (the "no press scale" note is withdrawn).
+7. Event header at 390x844: under 560 px wide the lanterns (and the host) go, so nothing paints over the kicker.
+8. The visitor's profile: a visit's top bar is the bar's glass buttons (Message, Invite to co-op with the cyan edge,
+   the friend control; their glyphs alone on a phone held upright, the title the player's name alone), More is the
+   kit's bar icon (46 px), and the More sheet is the kit's bottom sheet (480 px wide). New shots: `profile-visit` and
+   `profile-visit-more` (the local test server's friend, `e2e/uiSeed.mjs` seedOnlineInvite).
+9. The event host is back: her bust in a square window at the header band's right end, framed on her face.
+10. Gift reward tiles are display only (aria-hidden, out of the tab order; the day card's label names the rewards);
+    a claimed mission shows what it paid next to "Claimed".
+11. `story-ch2` is now `story-mixed`: the first chapter with open and locked episodes, its first episode marked read
+    for the shot, so read, NEW and locked cards are all captured. The archive's head button says "Replay tutorial".
+    A plaque keeps a stage number whole ("Stage" / "4-3", never "Stage 4-" / "3").
+12. 667x375: Edit Showcase keeps one row of eight slots, the Profile showcase one row of eight cards (the four-column
+    rules apply to a narrow and tall screen only).
+
 ## Notes for the kit
 
-- The M7a buttons sit on the kit's `.ui-hit` with no press scale: a `.ui-btn` that scales under a finger on `:active`
-  lost a touch tap's click right after a touch drag (Edit Showcase's Save in `e2e/profile.mjs`). Worth a look in
-  ink.css (`.ui-btn:active`, `.ui-hit:active > .ui-btn`).
 - New here, candidates for the kit: the day card (a single-cut white tile with one ring), the side sheet on paper.
+- A drag on a touch screen should preventDefault its touchmoves (or the next tap can be eaten by Chromium's
+  tap-after-fling suppression): worth a line in the kit's notes for anything draggable.
 
 ## For the owner
 
-- Daily Gifts: a day card is now a calendar entry, its reward tiles show what the day brings (the card's title names
-  them) rather than each opening the item sheet.
+- Daily Gifts: a day card is now a calendar entry, its reward tiles show what the day brings (the card's label names
+  them) rather than each opening the item sheet. It is M7a's own day card, not a copy of M5's login calendar
+  (`.cm-calendar` / `.ma-cal-day` in hubs.css), which M5 is restyling right now: when M5 lands, the two can share one
+  look (a follow-up, your call).
+- Event missions: the reward rides on the ink Claim button (one control a row), so a mission's reward can no longer be
+  tapped for its item info; a claimed row still shows what it paid.
+- The visitor's More sheet holds the player card's own buttons (Invite to clan, Block, Report): their look comes with
+  the player card's restyle (the online screens, M8), only the sheet around them is M7a's.
 - Edit profile is no longer yellow on the profile: the sheet's Save is.
 - The showcase still uses today's cards: the girl tiles come with M3.

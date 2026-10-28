@@ -158,6 +158,8 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
    ========================================================================================================== */
 /* (her column gives way on a small phone so nine 44 px chapter options still fit beside her: 667 px wide → 133 px) */
 :is(.ui-day) .sa-screen { --sa-host: clamp(120px, 20vw, 220px); }
+/* (a small phone on its side, 667x375: a narrower stand, so the nine chapter options keep a 46 px tap) */
+@media (max-width: 700px) and (min-aspect-ratio: 1/1) { :is(.ui-day) .sa-screen { --sa-host: 100px; } :is(.ui-day) .sa .sa-tabs { gap: 2px; } }
 :is(.ui-day) .sa-screen .topbar { position: relative; z-index: 5; }
 :is(.ui-day) .sa-screen .screen-body { position: relative; z-index: 1; display: flex; padding-top: 8px; padding-bottom: calc(8px + var(--safe-bottom)); overflow: hidden; }
 :is(.ui-day) .sa-loading { margin: auto; padding: 10px 16px; background: var(--panel-w); color: var(--ink); font: 700 var(--fs-body)/1.3 var(--font); box-shadow: inset 0 0 0 1px var(--line-ink); }
@@ -456,6 +458,7 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
 :is(.ui-day) .ui-sheet.pf-more-sheet .ui-close { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
 :is(.ui-day) .pf-more-sheet .pf-more-body { padding: 14px 16px 16px; gap: 12px; }
 :is(.ui-day) .pf-more-sheet .pf-more-body .btn { min-height: calc(var(--tap) + 2px); }
+:is(.ui-day) .pf-more-sheet .pf-more-body > .sc-card-foot { margin: 0; padding: 0; border-top: 0; justify-content: flex-start; gap: 8px; }
 @media (max-width: 440px) {
   :is(.ui-day) .pf-top-acts { gap: 4px; }
   :is(.ui-day) .pf-top-acts .rk-topbtn:not([data-testid="profile-preview-close"]) > span:not(.pf-ico) { display: none; }

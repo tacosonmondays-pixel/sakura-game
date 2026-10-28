@@ -109,7 +109,7 @@ export function render(root, params = {}) {
       h('button.ui-hit.rk-hit.sa-head-btn', {
         type: 'button', 'data-testid': 'story-replay-tutorial', 'aria-label': 'Replay battle tutorial', title: 'Replay battle tutorial',
         onclick: () => { const r = tutorialRoute(); navigate(r.name, r.params); },
-      }, h('span.ui-btn.sec', ico('play', 'rk-ico'), h('span.sa-head-btn-label', 'Replay tutorial'))));
+      }, h('span.ui-btn.sec', ico('play', 'rk-ico'), h('span.sa-head-btn-label', h('span.rk-wide', 'Replay '), 'tutorial'))));
 
     // episode cards
     const list = h('div.sa-list', { role: 'tabpanel', 'aria-label': label.name });
