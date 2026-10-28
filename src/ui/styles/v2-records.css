@@ -510,6 +510,9 @@ html[data-reduce-motion] :is(.ui-day) :is(button.rk-card, button.sa-card, button
   background: var(--panel-w); color: var(--ink); box-shadow: inset 1px 0 0 var(--line-ink);
 }
 :is(.ui-day) .ui-sheet.side.ep-sheet { width: min(calc(100vw - 64px), 960px); }
+/* (no blur behind a profile sheet: the side sheet covers most of the page, and the page under it keeps its live UR
+   rings and ribbons, which a backdrop blur would redraw every frame) */
+:is(.ui-day) .ui-layer:has(> .pf-sheet) > .ui-scrim { backdrop-filter: none; -webkit-backdrop-filter: none; }
 :is(.ui-day) .ui-sheet.side.pf-sheet:is(.ep-sheet, .es-sheet, .pp-sheet) { height: auto; max-height: none; }
 :is(.ui-day) .ui-sheet.side.pf-sheet > .ui-head { flex: none; min-height: calc(var(--tap) + 2px); padding-left: 16px; padding-top: var(--safe-top, 0px); }
 :is(.ui-day) .ui-sheet.side.pf-sheet .ui-close { width: calc(var(--tap) + 2px); height: calc(var(--tap) + 2px); }
