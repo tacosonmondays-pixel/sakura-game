@@ -25,6 +25,20 @@ function firstWaves(st) {
   return first;
 }
 
+/** Enemy ids named in a piece of text (names and plurals; each span counts once, longest name first). */
+function namesIn(text) {
+  const ids = [];
+  let rest = text;
+  for (const { id, name } of NAMES) {
+    const i = rest.indexOf(name);
+    if (i >= 0) {
+      if (!ids.includes(id)) ids.push(id);
+      rest = rest.slice(0, i) + ' '.repeat(name.length) + rest.slice(i + name.length);
+    }
+  }
+  return ids;
+}
+
 /** [{ ids, wave, text }] for every "… from wave N" clause: the enemy names between the previous clause break and it. */
 function claims(desc) {
   const out = [];
@@ -34,16 +48,7 @@ function claims(desc) {
   while ((m = re.exec(desc))) {
     const before = desc.slice(start, m.index);
     const clause = before.split(/[.;:,]|\bthen\b/).pop().toLowerCase();
-    const ids = [];
-    let rest = clause;
-    for (const { id, name } of NAMES) {
-      const i = rest.indexOf(name);
-      if (i >= 0) {
-        if (!ids.includes(id)) ids.push(id);
-        rest = rest.slice(0, i) + ' '.repeat(name.length) + rest.slice(i + name.length);
-      }
-    }
-    out.push({ ids, wave: Number(m[1]), text: clause.trim() });
+    out.push({ ids: namesIn(clause), wave: Number(m[1]), text: clause.trim() });
     start = m.index + m[0].length;
   }
   return out;
@@ -58,6 +63,14 @@ describe('stage descriptions match the waves (Act II, chapter 5 on)', () => {
       for (const c of claims(st.desc)) {
         expect(c.ids.length, `${st.id}: no enemy named in "${c.text}"`).toBeGreaterThan(0);
         for (const id of c.ids) expect(first[id], `${st.id}: ${id} ("${c.text} from wave ${c.wave}")`).toBe(c.wave);
+      }
+      // "<enemies> come(s) first": exactly the enemies before the first "from wave N" (wave 1 on, and nothing else then)
+      const cf = /([^.;:]*?)\bcomes? first\b/i.exec(st.desc);
+      if (cf) {
+        const named = namesIn(cf[1].split(/[;:]|\bthen\b/).pop().toLowerCase());
+        const firstClaim = Math.min(...claims(st.desc).map((c) => c.wave));
+        const early = Object.entries(first).filter(([, w]) => w < firstClaim).map(([id]) => id).sort();
+        expect(named.sort(), `${st.id}: "${cf[0].trim()}" vs waves before ${firstClaim}`).toEqual(early);
       }
     });
   }
