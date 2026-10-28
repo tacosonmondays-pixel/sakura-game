@@ -657,6 +657,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       actors.alpha = 1;
     }
     if (ruleDecals) for (const ev of events) if (ev.type === 'rift' || ev.type === 'ruleState') ruleDecals.handle(ev);
+    actors.cameraYaw = rig.yaw;
     actors.sync(d);
     if (!compBroken) {
       try {
@@ -1026,11 +1027,18 @@ export function createBattleRenderer(container, sim, opts = {}) {
     towerSkin(uid) {
       return actors.towers.get(uid)?.model.userData.skinId ?? null;
     },
-    /** Extra: what a placed girl's figure is (e2e / debug): a duo's members, and whether every part is a GLB. */
+    /**
+     * Extra: what a placed girl's figure is (e2e / debug): a duo's members, whether every part is a GLB or a
+     * stand-in, her drawn facing (rad) and whether it keeps to the camera (src/render/facing.js).
+     */
     towerModelInfo(uid) {
-      const ud = actors.towers.get(uid)?.model.userData;
+      const v = actors.towers.get(uid);
+      const ud = v?.model.userData;
       if (!ud) return null;
-      return { duo: !!ud.duo, members: ud.memberIds || null, glb: ud.duo ? !!ud.isGlb?.() : !!ud.glb, height: ud.height ?? null };
+      return {
+        duo: !!ud.duo, members: ud.memberIds || null, glb: ud.duo ? !!ud.isGlb?.() : !!ud.glb, height: ud.height ?? null,
+        standIn: ud.duo ? !!ud.isStandIn?.() : !!ud.standIn, facing: v.facing, faceCam: !!v.faceCam, cameraYaw: rig.yaw,
+      };
     },
     /** Extra: read-only info for debugging / previews. */
     get info() {

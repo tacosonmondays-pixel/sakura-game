@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { buildChibi, buildEnemy, disposeObject } from '../models/index.js';
 import { GeoBuilder, lerpAngle } from './geo.js';
+import { facesCamera, cameraFacing } from './facing.js';
 import { FIELD_COLORS, fxColor } from './themes.js';
 import { WATER_Y, PATH_H } from './terrain.js';
 import { scissorPos } from '../sim/rings.js';
@@ -119,6 +120,7 @@ export class Actors {
     this.teleports = new Map();
     this.victory = false;
     this.fxHook = null; // attack FX (render/attackFx): projectile views, drones, lunges, tossed traps
+    this.cameraYaw = 0; // the battle camera's yaw (BattleRenderer sets it each frame): figures that face it (facing.js)
     this._c = new THREE.Color();
     this._tint = new THREE.Color();
     this._statusColors = {};
@@ -287,8 +289,10 @@ export class Actors {
       if (o.isMesh && !o.userData.isOutline) o.castShadow = this.shadows;
     });
     const water = this.terrain.isWater(t.tx, t.ty);
+    // (the duo and the staff heroes keep their faces to the camera: src/render/facing.js)
+    const faceCam = facesCamera(t.def);
     const v = {
-      uid: t.uid, model, facing: t.facing || 0, pop: 0, water, hero: t.isHero, state: 'idle',
+      uid: t.uid, model, facing: faceCam ? cameraFacing(t.facing, this.cameraYaw) : t.facing || 0, faceCam, pop: 0, water, hero: t.isHero, state: 'idle',
       scale: t.isHero ? HERO_SCALE : TOWER_SCALE, ripple: Math.random() * 3,
     };
     model.position.set(t.x, water ? WATER_Y + 0.03 : 0.05, t.y);
@@ -309,7 +313,7 @@ export class Actors {
     const k = v.pop;
     const elastic = k >= 1 ? 1 : 1 - Math.cos(k * Math.PI * 2.5) * Math.exp(-k * 5) * (1 - k);
     m.scale.setScalar(v.scale * Math.max(0.01, elastic));
-    v.facing = lerpAngle(v.facing, t.facing || 0, Math.min(1, dt * 12));
+    v.facing = lerpAngle(v.facing, v.faceCam ? cameraFacing(t.facing, this.cameraYaw) : t.facing || 0, Math.min(1, dt * 12));
     m.rotation.y = v.facing;
     if (v.water) m.position.y = WATER_Y + 0.05 + Math.sin(this.time * 2 + v.ripple) * 0.02;
     let state = 'idle';
