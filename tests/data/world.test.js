@@ -416,7 +416,9 @@ describe('maps', () => {
         }
         expect(worst * 180 / Math.PI, `${m.id} path ${ti} sharpest bend`).toBeLessThan(14);
         // spawn / exit off the board (or on its edge) unless the path forks off / joins another one
-        if (!t.fork) expect(offOrOnEdge(p[0]), `${m.id} path ${ti} spawn on the edge`).toBe(true);
+        // (a lane flagged `inside` starts at a rift inside the board: 3-8's lake lane, Gate Arc Step 3)
+        if (!t.fork && !t.inside) expect(offOrOnEdge(p[0]), `${m.id} path ${ti} spawn on the edge`).toBe(true);
+        if (t.inside) expect(m.id, `${m.id} path ${ti}: only declared rift lanes start inside`).toBe('noon_shrine_steps');
         if (!t.join) expect(offOrOnEdge(p[p.length - 1]), `${m.id} path ${ti} exit on the edge`).toBe(true);
         // tunnels sit inside the path, in order, at least a tile long
         let prev = 0;

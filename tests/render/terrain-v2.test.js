@@ -43,7 +43,10 @@ describe('road plan (Tracks v3: the ribbon follows the canonical centreline)', (
       const plan = planRoads(map, { margin: 8 });
       const roots = map.tracks.filter((t) => !t.fork).length;
       expect(plan.entrances.length, map.id).toBe(roots);
+      // (a lane flagged `inside` opens at a rift inside the board, 3-8: its gate stands at its first point)
+      const insideStarts = map.tracks.filter((t) => t.inside).map((t) => t.points[0]);
       for (const g of [...plan.entrances, ...plan.exits]) {
+        if (insideStarts.some(([x, z]) => close(g.x, x, 0.05) && close(g.z, z, 0.05))) continue;
         const onEdge = close(g.x, 0, 0.02) || close(g.z, 0, 0.02) || close(g.x, map.width, 0.02) || close(g.z, map.height, 0.02);
         expect(onEdge, `${map.id} gate at ${g.x.toFixed(2)},${g.z.toFixed(2)}`).toBe(true);
         expect(Math.hypot(g.dir[0], g.dir[1])).toBeCloseTo(1, 5);

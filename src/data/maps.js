@@ -125,6 +125,9 @@ export function defineMap(o) {
   const height = grid.length;
   const width = grid[0].length;
   const { tracks, crossings, tiles: onPath } = buildMapTracks(o.paths, o.crossings ?? 'bridge');
+  // Gate Arc Step 3: a lane that starts inside the board (a rift on the lake, 3-8). The sim spawns at a track's first
+  // point anyway (track.js ignores the key); the renderer drops the head run-out and stands the rift gate there.
+  (o.paths || []).forEach((spec, i) => { if (spec && !Array.isArray(spec) && spec.inside) tracks[i].inside = true; });
   for (const key of onPath) {
     const [x, y] = key.split(',').map(Number);
     if (x < 0 || y < 0 || x >= width || y >= height) continue;
@@ -1630,7 +1633,7 @@ export const MAPS = [
   }),
   defineMap({
     id: 'noon_shrine_steps', name: 'The Lake Steps', theme: 'city', tier: 'advanced',
-    desc: 'Two fronts in the lake fog. The town road comes in from the west to the foot of the shrine steps; a second column wades out of the lake on the old jetty and joins it there. Then one climb: east along the lower terrace, back west along the upper one, and up through the precinct gate.',
+    desc: 'Two fronts in the lake fog. The town road comes in from the west to the foot of the shrine steps; a rift opens in the middle of the lake, and a second column wades ashore along the old jetty and joins it there. Then one climb: east along the lower terrace, back west along the upper one, and up through the precinct gate.',
     concept: 'Two fronts, one climb: a town road and a lake lane meet at the foot of the steps, then a Z up two terraces to the gate',
     rows: [
       'HHHHHHHHHHH.HHHHHHHH',
@@ -1649,8 +1652,8 @@ export const MAPS = [
     crossings: 'bridge',
     paths: [
       street([[-1, 9.5], [6.0, 9.5], [6.0, 6.0], [16.0, 6.0], [16.0, 3.0], [11.5, 3.0], [11.5, -1]], { r: 1.5 }),
-      // the rift lane: out of the lake on the old jetty (Step 3 S3a moves its start into the lake: `inside`)
-      { nodes: [[21, 10.5], L, [10.0, 10.5], [8.3, 10.3], [7.1, 9.6], [6.4, 8.6]], join: { path: 0, at: [6.0, 7.8] } },
+      // the rift lane: a tear in the lake opens mid-water, and the column wades ashore along the old jetty
+      { inside: true, nodes: [[16.5, 10.5], L, [10.0, 10.5], [8.3, 10.3], [7.1, 9.6], [6.4, 8.6]], join: { path: 0, at: [6.0, 7.8] } },
     ],
     decor: [
       { type: 'torii', x: 14, y: 1 }, { type: 'stoneLantern', x: 9, y: 1 }, { type: 'stoneLantern', x: 16, y: 1 },
