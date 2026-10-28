@@ -8,3 +8,4 @@
   and the bottom row. Recommended: **A, the top-right icon** beside chat and mail (the four shortcuts keep their row
   and the folded 2x2 layout on small screens). B, a fifth shortcut, is one line away (`HOME_CLAN = 'dock'` in
   src/ui/screens/lobby.js).
+- `03-gift-tile.jpg`: the Daily gift tile at 844x390, 1280x720 and 390x844 (2x): "day" and its number never part (a no-break space).
