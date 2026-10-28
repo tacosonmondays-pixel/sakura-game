@@ -16,6 +16,7 @@
 import { h, icon, setVar, isPhone } from './util.js';
 import { fmtNum } from '../format.js';
 import { createDronePanel, hasDroneTabs } from './chikaPanel.js';
+import { createDpsMeter, perTargetLine, boostEstimate, fmtSmallPct } from './dpsView.js';
 import {
   crosspathReason, crosspathWhy, onePerPathReason, onePerPathWhy, onePerPathLine, heldPipTitle, whereOnMap, finalHolderLine, CROSSPATH_RULE, ONE_PER_PATH_COOP, ONE_PER_PATH_RULE,
 } from './rules.js';
@@ -45,7 +46,8 @@ function statusLabel(s) {
   const parts = [];
   if (s.amount) parts.push(`${Math.round(s.amount * 100)}%`);
   if (s.dps) parts.push(fmtNum(s.dps, 'rate'));
-  if (s.pct) parts.push(`+${fmtNum(s.pct * 100, 'stat')}% max HP/s`);
+  // (two significant digits: 0.25%, not 0.3%; a poison or burn's share of max HP is a tenth on bosses and minibosses)
+  if (s.pct) parts.push(`+${fmtSmallPct(s.pct * 100)}% max HP/s${s.type === 'poison' || s.type === 'burn' ? ', a tenth on bosses' : ''}`);
   if (s.bonus) parts.push(`+${Math.round(s.bonus * 100)}%`);
   if (s.duration) parts.push(fmtNum(s.duration, 'time'));
   if (s.chance != null && s.chance < 1) parts.push(`${Math.round(s.chance * 100)}% chance`);
@@ -100,6 +102,8 @@ export function createTowerPanel(ctx) {
   let uid = null;
   let sig = '';
   let live = null; // nodes updated every frame
+  // measured damage per second for every girl (MORE › Details "DPS (live)"; dpsView.js): sampled every frame, open or not
+  const dpsMeter = createDpsMeter();
   let sellArmed = 0;
   let downInFoot = false;
   let sellTimer = 0;
@@ -665,7 +669,27 @@ export function createTowerPanel(ctx) {
     // so the DPS row is hers. An anchored drone kit (none in the roster today) keeps the summed row.
     const anchored = st.turret && !hasDroneTabs(st) && t.turretSpec ? { each: t.turretSpec.damage * t.turretSpec.rate, rate: t.turretSpec.rate } : null;
     const dps = st.dps + (anchored ? anchored.each * st.turret.max : 0);
-    if (dps > 0) add('DPS', stat(dps), '.bt-stat-main', 'dps');
+    // DPS (live): what the sim credits her, measured over the last 5 s of the wave (splash, poison and burn ticks,
+    // crits, drones, traps), or her last wave's average between waves; "Per target" is the paper sum on one enemy
+    // (hits + damage over time), so a splash or cloud girl's live number is the bigger one (dpsView.js)
+    if (dps > 0 || st.behavior === 'trap' || st.behavior === 'strip' || (st.status || []).some((x) => x.type === 'poison' || x.type === 'burn')) {
+      const value = h('b', { 'data-testid': 'drawer-dps-live' }, '—');
+      const label = h('span', 'DPS (live)');
+      const c = h('div.bt-stat-cell.bt-stat-main', { 'data-testid': 'drawer-dps', title: 'Measured: everything she dealt over the last 5 s of the wave (splash, poison, crits, drones, traps). Between waves: her last wave\'s average.' }, label, value);
+      rows.push(c);
+      keyed.dps = c;
+      live.dps = { value, label };
+      const per = perTargetLine(st, dps);
+      if (per) add('Per target', per, '.bt-stat-wide', 'perTarget');
+    }
+    // a support's boost to her allies: the damage her brew / link / aura adds to the girls she buffs now, estimated
+    const sup = t.stats || {};
+    if (sup.brew || sup.link || (sup.aura && ((sup.aura.dmgMul || 1) > 1 || (sup.aura.rateMul || 1) > 1))) {
+      const value = h('b', { 'data-testid': 'drawer-boost' }, '—');
+      const c = h('div.bt-stat-cell.bt-stat-wide', { title: 'An estimate: each girl she buffs now, her measured DPS times the share the buff adds' }, h('span', 'Boost to allies'), value);
+      rows.push(c);
+      live.boost = { value };
+    }
     if (st.behavior === 'turret') {
       if (st.rate > 0) add('New drone', `every ${fmtNum(1 / st.rate, 'time')}`);
     } else {
@@ -930,7 +954,7 @@ export function createTowerPanel(ctx) {
     const mine = !ctx.coop || ctx.coop.isMine(t.uid);
     const ally = !mine;
     const profile = mine ? ctx.profile : { units: { [def.id]: { awaken: t.unitStats?.awaken || 0 } } };
-    live = { kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null, stats: null };
+    live = { kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null, stats: null, dps: null, boost: null };
     el.classList.toggle('bt-panel-ally', ally);
     el.classList.toggle('bt-drawer-hero', !!t.isHero);
     el.classList.toggle('bt-drawer-more', more);
@@ -1202,6 +1226,15 @@ export function createTowerPanel(ctx) {
       st ||= sim.towerStats(t.uid);
       paintStats(t, st);
     }
+    if (live.dps) {
+      const r = dpsMeter.live(t.uid, sim);
+      live.dps.value.textContent = r.value == null ? '—' : stat(r.value);
+      live.dps.label.textContent = r.kind === 'lastWave' ? 'DPS (last wave)' : 'DPS (live)';
+    }
+    if (live.boost) {
+      const b = boostEstimate(sim, t.uid, (u) => dpsMeter.live(u, sim).value);
+      live.boost.value.textContent = b ? `~${stat(b.value)} DPS · ${b.girls} girl${b.girls === 1 ? '' : 's'}` : '—';
+    }
     if (live.kills) live.kills.textContent = fmtNum(t.kills || 0);
     if (live.dmg) live.dmg.textContent = fmtNum(Math.max(0, Math.floor(t.damageDealt || 0)));
     if (more) drones.updateLive();
@@ -1227,6 +1260,7 @@ export function createTowerPanel(ctx) {
   }
 
   function update(force = false) {
+    dpsMeter.sample(sim);
     if (uid == null) return;
     const t = sim.getTower(uid);
     if (!t) {
