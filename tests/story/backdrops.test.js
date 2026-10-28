@@ -10,7 +10,7 @@ import { forEachLine } from '../../src/data/story/format.js';
 import {
   BACKGROUNDS, STAGE_PLACE, CHAPTER_FALLBACK_BG, SPARE_BACKGROUNDS, placeOfStage, stageOfBackground,
 } from '../../src/data/story/backgrounds.js';
-import { resolveBackground, backgroundUrls } from '../../src/ui/story/backdrop.js';
+import { resolveBackground, backgroundUrls, imageDecoded } from '../../src/ui/story/backdrop.js';
 import { STAGE_MAP, CAMPAIGN_IDS } from '../../src/data/stages.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -107,5 +107,45 @@ describe('story backdrops', () => {
 
   it('spares are real backgrounds', () => {
     for (const id of SPARE_BACKGROUNDS) expect(BACKGROUNDS[id], id).toBeTruthy();
+  });
+});
+
+// The backdrop drops the old layer only once the new picture has decoded (imageDecoded true), so a slow decode
+// never shows black between two places. Fake <img> objects: the suite has no DOM.
+describe('imageDecoded (when the old background may go)', () => {
+  const fakeImg = (props) => ({ complete: false, naturalWidth: 0, ...props });
+  const listening = (fire) => {
+    const handlers = {};
+    const img = fakeImg({ addEventListener: (type, fn) => { handlers[type] = fn; } });
+    queueMicrotask(() => handlers[fire]?.());
+    return img;
+  };
+
+  it('a solid layer (no picture) is ready at once', async () => {
+    expect(await imageDecoded(null)).toBe(true);
+  });
+
+  it('true once decode() resolves, however long it takes (no cap)', async () => {
+    let done;
+    const img = fakeImg({ decode: () => new Promise((r) => { done = r; }) });
+    const p = imageDecoded(img);
+    let settled = false;
+    p.then(() => { settled = true; });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(settled).toBe(false);
+    done();
+    expect(await p).toBe(true);
+  });
+
+  it('false when the picture fails; a decode() rejection on a painted picture still counts as ready', async () => {
+    expect(await imageDecoded(fakeImg({ decode: () => Promise.reject(new Error('EncodingError')) }))).toBe(false);
+    expect(await imageDecoded(fakeImg({ complete: true, naturalWidth: 1280, decode: () => Promise.reject(new Error('x')) }))).toBe(true);
+  });
+
+  it('without decode(): load is ready, error is not, an already complete picture answers at once', async () => {
+    expect(await imageDecoded(listening('load'))).toBe(true);
+    expect(await imageDecoded(listening('error'))).toBe(false);
+    expect(await imageDecoded(fakeImg({ complete: true, naturalWidth: 640 }))).toBe(true);
+    expect(await imageDecoded(fakeImg({ complete: true, naturalWidth: 0 }))).toBe(false);
   });
 });

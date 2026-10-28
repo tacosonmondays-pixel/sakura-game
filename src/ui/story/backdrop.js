@@ -79,17 +79,24 @@ export function preloadImage(url, timeout = 2500) {
   });
 }
 
-/** Resolve once an <img> has loaded and decoded (or failed, or after `timeout` ms). Never rejects. */
-function imageReady(img, timeout = 2500) {
-  if (!img) return Promise.resolve();
-  const loaded = img.decode
-    ? img.decode().catch(() => {})
-    : new Promise((r) => {
-      if (img.complete) return r();
-      img.addEventListener('load', r, { once: true });
-      img.addEventListener('error', r, { once: true });
-    });
-  return Promise.race([loaded, new Promise((r) => setTimeout(r, timeout))]);
+/** How long a new background may keep the scene waiting before it fades in anyway (its picture still decoding). */
+export const BG_READY_CAP_MS = 2500;
+
+/**
+ * Resolves true once an <img> has loaded and decoded, false if it failed (no img, e.g. a solid layer: true at
+ * once). No time cap (callers race it against one when they must not wait). Never rejects.
+ * @param {{ decode?: () => Promise<void>, complete?: boolean, naturalWidth?: number, addEventListener?: Function } | null} img
+ * @returns {Promise<boolean>}
+ */
+export function imageDecoded(img) {
+  if (!img) return Promise.resolve(true);
+  const painted = () => !!(img.complete && img.naturalWidth > 0);
+  if (img.decode) return img.decode().then(() => true, () => painted());
+  return new Promise((r) => {
+    if (img.complete) return r(painted());
+    img.addEventListener('load', () => r(true), { once: true });
+    img.addEventListener('error', () => r(false), { once: true });
+  });
 }
 
 function stillFor(stageId) {
@@ -128,12 +135,17 @@ export function createBackdrop(el, { chapter = 0 } = {}) {
     layer.classList.add('sp-bg-in');
     if (instant) layer.classList.add('sp-bg-instant');
     el.appendChild(layer);
-    // every place is its own picture now: keep the old layer until the new one has decoded (capped), so a slow
-    // phone never flashes black between two backgrounds
-    imageReady(layer.querySelector('img')).then(() => {
+    // every place is its own picture now. The new layer fades in once its picture has decoded, or after
+    // BG_READY_CAP_MS so a slow picture never holds the scene up; the old layers stay underneath until the new
+    // picture has really decoded (no cap), so a slow phone never shows black between two backgrounds. A picture
+    // that fails keeps the old one under it (the next swap clears both).
+    const decoded = imageDecoded(layer.querySelector('img'));
+    Promise.race([decoded, new Promise((r) => setTimeout(r, BG_READY_CAP_MS))]).then(() => {
       // two frames so the opacity transition runs
       requestAnimationFrame(() => requestAnimationFrame(() => layer.classList.add('on')));
-      setTimeout(() => old.forEach((o) => o.remove()), instant ? 0 : FADE_MS + 60);
+    });
+    decoded.then((ok) => {
+      if (ok) setTimeout(() => old.forEach((o) => o.remove()), instant ? 0 : FADE_MS + 60);
     });
   }
 
