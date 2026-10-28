@@ -16,6 +16,11 @@
 // decision 4) break apart too, never going home: the Patrol Orb and the Halo Drone in a spark spray,
 // the Line Sentry breaking down, their sparks in the def's own accent (cyan, not the Gnat's amber) and
 // their scrap white glass (fallTintOf: the tint is built once per def, then reused).
+//
+// Gate Arc S6a (STEP6 decision 5): Vesperline's machines break apart too: the Lattice Shell in a spark spray, the
+// Vesper Aegis, the Vesper Warden and Gatekeeper Unit 01 breaking down (cyan sparks and white glass scrap; the
+// Gatekeeper's sparks in its amber accent). The Night's touched (`rime_*`, the Rime Wisp) are never sent home:
+// they fade with a violet tint (§3.4: "it flinches back"), never the homeward sparkle. No `fall` field is needed.
 
 export const FALL_STYLES = Object.freeze(['sparkle', 'fade', 'sparkFall', 'breakdown']);
 
@@ -33,10 +38,17 @@ const VESPER_FALL = {
   vesper_patrol_orb: 'sparkFall',
   vesper_halo_drone: 'sparkFall',
   vesper_line_sentry: 'breakdown',
+  // Gate Arc S6a: Vesperline's machines (STEP6 decision 5)
+  vesper_lattice_shell: 'sparkFall',
+  vesper_aegis: 'breakdown',
+  vesper_warden: 'breakdown',
+  vesper_gatekeeper: 'breakdown',
 };
 
 /** Is this a machine out of the Noon Gate? (one char test first: every shipped id fails it at once) */
 const isVesper = (id) => id.charCodeAt(0) === 118 && id.startsWith('vesper_');
+/** Is this one of the Night's touched (the Rime Wisp, Step 8's rime_ kin)? (one char test first) */
+const isRime = (id) => id.charCodeAt(0) === 114 && id.startsWith('rime_');
 
 /**
  * @param {object|null} def EnemyDef ({ id, family, fall? })
@@ -44,12 +56,13 @@ const isVesper = (id) => id.charCodeAt(0) === 118 && id.startsWith('vesper_');
  */
 export function fallStyleOf(def) {
   if (!def) return 'sparkle';
-  if (FALL_STYLES.includes(def.fall)) return def.fall;
   const id = def.id || '';
+  // (an explicit `fall` never sends a rime_ wisp home: the Night's touched are not sent home)
+  if (FALL_STYLES.includes(def.fall) && !(def.fall === 'sparkle' && isRime(id))) return def.fall;
   if (BRIGADE_FALL[id]) return BRIGADE_FALL[id];
   if (VESPER_FALL[id]) return VESPER_FALL[id];
   // every shipped monster leaves here, before any loop (this runs on every defeat)
-  if (!id.startsWith('brigade_')) return isVesper(id) ? 'sparkFall' : def.family === 'brigade' ? 'fade' : 'sparkle';
+  if (!id.startsWith('brigade_')) return isVesper(id) ? 'sparkFall' : isRime(id) ? 'fade' : def.family === 'brigade' ? 'fade' : 'sparkle';
   for (const key in BRIGADE_FALL) if (id.startsWith(`${key}_`)) return BRIGADE_FALL[key];
   return 'fade';
 }
@@ -67,6 +80,7 @@ const tints = new Map();
  */
 export function fallTintOf(def) {
   const id = def?.id || '';
+  if (isRime(id)) return RIME_TINT;
   if (!isVesper(id)) return null;
   let t = tints.get(id);
   if (!t) {
@@ -76,6 +90,13 @@ export function fallTintOf(def) {
   }
   return t;
 }
+
+/**
+ * The Night's touched fade in violet (Gate Arc S6a, `rime_*`): pale violet motes (`dots`) and a cold violet puff
+ * (`puff`) instead of the grey ones; no homeward sparkle.
+ */
+export const RIME_TINT = Object.freeze({ spark: '#b9a8ff', glint: '#e8e4ff', shard: '#3d2f6b', shard2: '#b9a8ff', smoke: '#8f86b8', flash: '#d9d2ff', dots: '#b9a8ff', puff: '#cfc6f2' });
+const RIME_FADE = Object.freeze({ homeward: false, puff: RIME_TINT.puff });
 
 /** Does this style send the creature home (the rising sparkle)? Only the shipped monsters' does. */
 export function homeward(style) {
@@ -97,5 +118,6 @@ export function playFall(fx, style, p, def = null) {
   const tint = def ? fallTintOf(def) : null;
   if (style === 'sparkFall') fx.sparkFall(p.x, p.y, p.z, size, tint);
   else if (style === 'breakdown') fx.breakdown(p.x, p.y, p.z, size, tint);
+  else if (tint?.dots && !homeward(style)) fx.death(p.x, p.y, p.z, size, tint.dots, RIME_FADE);
   else fx.death(p.x, p.y, p.z, size, p.color || '#ffffff', homeward(style) ? HOME : NO_HOME);
 }
