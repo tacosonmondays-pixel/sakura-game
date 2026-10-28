@@ -39,4 +39,9 @@ export const ACT_SCENE_IDS = Object.freeze({
   '5:2': Object.freeze([
     'g5.pro', 'g5.embers', 'g5.mid', 'g5.raid', 'g5.whiteboard', 'g5.boss', 'g5.after', 'g5.epi', 'g5.board',
   ]),
+  // Act 6 (ten episodes): six cutscenes and no join, the side scenes g6.sleep and g6.doorie, and the duo's two scenes
+  // around the side stage `side-6-starfall` (g6.star1 before it, g6.star2 after it; STEP6_BUILD_PLAN decision 10)
+  '6:2': Object.freeze([
+    'g6.pro', 'g6.sleep', 'g6.mid', 'g6.chair', 'g6.boss', 'g6.after', 'g6.epi', 'g6.doorie', 'g6.star1', 'g6.star2',
+  ]),
 });
