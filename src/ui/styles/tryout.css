@@ -142,3 +142,39 @@
 .ty-screen .ty-hub { max-width: 820px; margin: 10px auto; display: flex; flex-direction: column; gap: 8px; color: var(--navy); font-size: 13px; }
 .ty-picked { outline: 3px solid #d6457a; outline-offset: 1px; }
 .ty-card.ty-draft { min-height: 0; }
+
+/* ---- M4 meta: the Class Photo's rewards, its backdrops (a Marble Jar cosmetic; plain tints until the M3 art) ---- */
+.ty-rewards { display: flex; flex-direction: column; gap: 2px; margin: 8px 0 2px; padding: 6px 8px; border-radius: 8px; background: #fff3d6; border: 1px solid #f0c060; font-size: 13px; font-weight: 700; }
+.ty-reward { overflow-wrap: anywhere; }
+.ty-code b { letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+.ty-bd.ty-bd-classroom { background: linear-gradient(180deg, #fffaf0, #f3ead6); }
+.ty-bd.ty-bd-rooftop { background: linear-gradient(180deg, #e6f3ff, #fffaf0 60%); }
+.ty-bd.ty-bd-gate { background: linear-gradient(180deg, #ffe8f1, #fffaf0 60%); }
+.ty-bd.ty-bd-festival { background: linear-gradient(180deg, #e9e4ff, #fff3e0 70%); }
+
+/* ---- the hub's meta pieces: wallet, tiles, the Jar and the Yearbook (plain; the Ink & Paper screens are M3) ---- */
+.ty-wallet { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; font-size: 13px; font-weight: 700; }
+.ty-wallet b { font-size: 16px; }
+.ty-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.ty-tile { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: 10px; background: #fff; border: 2px solid #c9d4e3; min-width: 0; }
+.ty-tile.ty-locked { opacity: 0.75; border-style: dashed; }
+.ty-tile p { margin: 0; font-size: 12px; }
+.ty-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.ty-shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin: 6px 0 10px; }
+.ty-item { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border-radius: 10px; background: #fff; border: 2px solid #c9d4e3; font-size: 12px; min-width: 0; }
+.ty-item b { font-size: 13px; }
+.ty-item.ty-owned { border-color: #6cc08b; }
+.ty-item .ty-actions { margin-top: 2px; }
+.ty-pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; margin: 6px 0 10px; }
+.ty-page { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; border-radius: 8px; background: #fff; border: 1px solid #c9d4e3; font-size: 12px; text-align: center; min-width: 0; }
+.ty-page .ty-squad-art { width: 56px; height: 56px; }
+.ty-page.ty-pencil .ty-squad-art { filter: grayscale(1) contrast(0.8) brightness(1.15); }
+.ty-page.ty-blank .ty-squad-art { filter: grayscale(1) opacity(0.25); }
+.ty-list { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 12px; margin: 4px 0 10px; }
+.ty-list span { padding: 2px 6px; border-radius: 6px; background: #eef2f8; }
+.ty-list span.ty-on { background: #ffe3ef; font-weight: 700; }
+.ty-code-in { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; border: 2px solid #c9d4e3; width: 13ch; text-transform: uppercase; }
+.ty-meta { padding-top: 8px; padding-bottom: 8px; }
+.ty-meta .ty-actions { margin-top: 4px; }
+.ty-codebox { display: inline-flex; gap: 4px; align-items: center; }
+.ty-weekly-line { margin: 4px 0 0; font-size: 12px; }

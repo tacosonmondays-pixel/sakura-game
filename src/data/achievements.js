@@ -18,13 +18,15 @@
 //   title   the profile title the claim grants: { text, tier: std|gold|prism }; the title id IS the achievement id
 //   hidden  a secret: "???" and `hint` until it is met
 //   since   the release whose counter it reads ("Counts from v0.1.N")
-//   wave    launch | social | codex | later: rows ship hidden until their feature does (ACHIEVEMENT_WAVES)
+//   wave    launch | social | codex | tryout | later: rows ship hidden until their feature does (ACHIEVEMENT_WAVES)
 
 /** The expansion is on (M1). While false only the shipped 30 list and new ids refuse claims with 'notLive'. */
 export const ACH_V2_LIVE = true;
 
 /** Feature waves whose rows are live in this build. Social, Codex and later rows light up with their feature. */
-export const ACHIEVEMENT_WAVES = Object.freeze({ launch: true, social: true, codex: true, later: false });
+// tryout: Tryout Day's 12 rows (docs/specs/TRYOUT_DAY.md §10.2; 360 gems, counted apart from the 28-day chart). Ids,
+// rewards and goals freeze when the mode ships; their counters are 'ty:*' in missions.counters (src/systems/tryoutRewards.js).
+export const ACHIEVEMENT_WAVES = Object.freeze({ launch: true, social: true, codex: true, tryout: true, later: false });
 
 /** The release that starts the new counters (§1.7): new-counter rows read "Counts from v0.1.N". */
 export const COUNTERS_SINCE = '0.1.30';
@@ -42,6 +44,7 @@ export const ACHIEVEMENT_CATEGORIES = Object.freeze([
   { id: 'academy', label: 'Academy Life', icon: 'calendar', color: '#2fb38c' },
   { id: 'secret', label: 'Secrets', icon: 'sparkle', color: '#8b7bff' },
   { id: 'codex', label: 'Codex', icon: 'wiki', color: '#5b47d6', wave: 'codex' },
+  { id: 'tryout', label: 'Tryout Day', icon: 'calendar', color: '#e08a00', wave: 'tryout' },
 ]);
 
 /** Every metric a row may use (src/systems/achievementMetrics.js computes each one; §1.6). */
@@ -230,6 +233,19 @@ export const ACHIEVEMENTS = [
   N('codex', 'a_frugal_80', 'Half Income Expert', 'Earn 80 Half Income ribbons.', 'modeRibbons', 'frugal', 80, 0, [O(2)], 'codex', { title: tt('Thrifty Tactician') }),
   N('codex', 'a_petal_80', 'Last Petal Expert', 'Earn 80 Last Petal ribbons.', 'modeRibbons', 'laststand', 80, 0, [O(2)], 'codex', { title: tt('Last Petal Keeper') }),
   N('codex', 'a_rules_15', 'Rulebook Scholar', 'Earn a Gold medal on a stage of each of the 15 map rules.', 'ruleGold', null, 15, 0, [O(2)], 'codex'),
+  // Tryout Day (docs/specs/TRYOUT_DAY.md §10.2): 12 rows, 360 gems once; practice runs count for none of them
+  N('tryout', 'a_try_half', "School's Out", 'Clear a Half Day in Tryout Day.', 'counter', 'ty:half', 1, 1, [g(20)], 'tryout'),
+  N('tryout', 'a_try_full', "Full Day's Work", 'Clear a Full Day in Tryout Day.', 'counter', 'ty:full', 1, 1, [g(30)], 'tryout'),
+  N('tryout', 'a_try_spotless', 'Spotless Day', 'Win a Tryout Day run without losing a heart or using the Make-up Test.', 'counter', 'ty:spot', 1, 2, [g(40)], 'tryout'),
+  N('tryout', 'a_try_ticked', 'Every Box Ticked', 'Finish all 3 assignments in 5 periods of one Tryout Day run.', 'counter', 'ty:tick', 1, 2, [g(30)], 'tryout'),
+  N('tryout', 'a_try_dare', 'Daredevil', 'Finish 10 Double Dare periods in Tryout Day.', 'counter', 'ty:dare', 10, 1, [g(20)], 'tryout'),
+  N('tryout', 'a_try_seen', 'Open Tryouts', 'See all 29 students try out in Tryout Day runs.', 'counter', 'ty:seen', 29, 2, [g(40)], 'tryout', { title: tt('Head Scout') }),
+  N('tryout', 'a_try_lr', 'Top Marks', 'Take an LR Pep Talk in Tryout Day.', 'counter', 'ty:lr', 1, 1, [g(20)], 'tryout'),
+  N('tryout', 'a_try_window', 'Window Watcher', 'Finish the By the Window assignment 20 times.', 'counter', 'ty:win', 20, 1, [g(20)], 'tryout'),
+  N('tryout', 'a_try_moves', 'Hall Pass Pro', 'Make 50 Hall Pass moves in Tryout Day.', 'counter', 'ty:mv', 50, 1, [g(20)], 'tryout'),
+  N('tryout', 'a_try_g4', 'Grade 4', 'Clear Grade 4 in Tryout Day.', 'counter', 'ty:grade', 4, 2, [g(30)], 'tryout', { series: 'tryGrade', honor: hr(35, 'Grade 4 Ribbon', 'plain', 'board') }),
+  N('tryout', 'a_try_g8', 'Grade 8', 'Clear Grade 8 in Tryout Day.', 'counter', 'ty:grade', 8, 2, [g(40)], 'tryout', { series: 'tryGrade', honor: hr(36, 'Grade 8 Ribbon', 'shiny', 'board') }),
+  N('tryout', 'a_try_g12', 'Grade 12', 'Clear Grade 12 in Tryout Day.', 'counter', 'ty:grade', 12, 3, [g(50)], 'tryout', { series: 'tryGrade', honor: hr(37, 'Grade 12 Ribbon', 'special', 'board', 'chalk'), title: tt('Grade 12 Sensei', 'prism') }),
   // Later (each row ships with its feature: roster merge, hero rework, the City)
   N('students', 'a_units_30', 'Whole School', 'Have 30 students and heroes at the academy.', 'unitsOwned', null, 30, 3, [g(100), O(2)], 'later', { series: 'units', with: 'roster merge' }),
   N('battle', 'a_hero_25', "Commander's Rise", 'Your hero reaches Lv 25 during a battle.', 'counter', 'heroMax', 25, 2, [g(30), O()], 'later', { with: 'hero rework' }),

@@ -8,7 +8,10 @@
 //   4. to Recess: the break bar, the next block's seats; a Hall Pass move and Undo; Back to class
 //   5. a reload mid-break continues the same run at the same break (the run's own save slot)
 //   6. a reload mid-wave: the hub's Continue says it uses the Make-up Test; Continue voids that period
-//   7. Give up removes the run
+//   7. Give up removes the run (and pays what it banked)
+//   8. M4 meta: the hub's wallet; the Weekly Timetable is locked before a Grade 4 clear; a run ends in an Early
+//      Dismissal and the Class Photo shows its rewards and share code; Replay this seed opens a practice Before Class;
+//      the Yearbook opens with stamps; the Marble Jar opens and a purchase works (its perk shows at Before Class)
 // Screenshots go to --shots. node e2e/tryout.mjs [--viewports 844x390,1280x720] [--shots dir]
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
@@ -53,6 +56,13 @@ for (const [W, H] of viewports) {
       s.progress = s.progress || {};
       s.progress.stages = s.progress.stages || {};
       for (const id of ['1-1', '1-2', '1-3', '1-4', '1-5', '2-1', '2-2', '2-3', '2-4', '2-5']) s.progress.stages[id] = { ...(s.progress.stages[id] || {}), normal: true };
+      // (a test-only Marble grant for the Jar step: missions.counters 'ty:mb')
+      const mb = Number(sessionStorage.getItem('__tyMarbles') || 0);
+      if (mb) {
+        s.missions = s.missions || {};
+        s.missions.counters = { ...(s.missions.counters || {}), 'ty:mb': mb };
+        sessionStorage.removeItem('__tyMarbles');
+      }
       localStorage.setItem(key, JSON.stringify(s));
     } catch { /* (a test helper) */ }
   }, SAVE_KEY);
@@ -72,6 +82,9 @@ for (const [W, H] of viewports) {
   await screenIs('tryout');
   check(await page.locator('[data-testid="tryout-before-class"]').isVisible({ timeout: 10000 }).catch(() => false), 'Before Class shows after 2-5');
   check(await page.locator('[data-testid^="tryout-draft-"]').count() === 6, 'six drafted girls');
+  check(await page.locator('[data-testid="tryout-wallet"]').isVisible(), 'the hub shows the Marble wallet');
+  check(await page.locator('[data-testid="tryout-weekly-go"]').isDisabled() && /Grade 4/.test(await page.locator('[data-testid="tryout-weekly"]').textContent()),
+    'the Weekly Timetable is locked before a Grade 4 clear');
   check(await page.locator('[data-testid="tryout-start"]').isDisabled(), 'Start waits for 3 girls');
   await page.click('[data-testid="tryout-redraw"]');
   check(await page.locator('[data-testid="tryout-redraw"]').isDisabled(), 'one free redraw');
@@ -243,6 +256,79 @@ for (const [W, H] of viewports) {
   await page.locator('.modal button', { hasText: 'Give up' }).click().catch(() => {});
   await page.waitForTimeout(400);
   check(await page.locator('[data-testid="tryout-before-class"]').isVisible().catch(() => false), 'Give up removes the run');
+  const paidGiveUp = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).missions.counters['ty:lbw'] || 0, SAVE_KEY);
+  check(paidGiveUp > 0, `giving up paid the periods it banked (Lunchbox sevenths ${paidGiveUp})`);
+
+  // 8. a new run to an Early Dismissal: the Class Photo shows its rewards
+  for (const i of [0, 1, 2]) await page.click(`[data-testid="tryout-draft-${i}"]`);
+  await page.click('[data-testid="tryout-start"]');
+  check(await battleReady(), 'a second run starts');
+  st = await playToWindow();
+  await page.waitForSelector('[data-testid="ty-pick"]:not([hidden])', { timeout: 30000 }).catch(() => {});
+  await page.click('[data-testid="ty-card-0"]');
+  await page.waitForFunction(() => !window.__battle.sim.tryout.players[0].offer, null, { timeout: 30000 }).catch(() => {});
+  await page.evaluate(() => {
+    const { sim, ui } = window.__battle;
+    ui.startWave();
+    for (let i = 0; i < 240 && !sim.enemies.length; i++) sim.update(1 / 60);
+    ui.saver.tick();
+    sim.lives = 1;
+    sim._leak(sim.enemies[0]);
+  });
+  await page.waitForSelector('[data-testid="ty-makeup-no"]', { timeout: 30000 }).catch(() => {});
+  await page.click('[data-testid="ty-makeup-no"]');
+  const photo = await page.waitForSelector('[data-testid="ty-photo-rewards"]', { timeout: 30000 }).then(() => true).catch(() => false);
+  check(photo, 'the Class Photo shows the run\'s rewards');
+  const mline = await page.locator('[data-testid="ty-reward-marbles"]').textContent().catch(() => '');
+  check(/^Marbles \+\d+ · \d+ \/ 150 this week/.test(mline), `the Marbles line (${mline})`);
+  check(await page.locator('[data-testid="ty-reward-box"]').isVisible(), 'the Lunchbox line');
+  const code = (await page.locator('[data-testid="ty-share-code"] b').textContent().catch(() => '')).trim();
+  check(/^[0-9A-Z]{5}-[0-9A-Z]{5}$/.test(code), `the share code shows (${code})`);
+  const photoFit = await page.evaluate(() => {
+    const r = document.querySelector('[data-testid="ty-photo-sheet"]').getBoundingClientRect();
+    return r.right <= window.innerWidth + 1 && document.documentElement.scrollWidth <= window.innerWidth + 1;
+  });
+  check(photoFit, 'the Class Photo fits the width');
+  await shot('ty-photo');
+
+  // 9. Replay this seed: a practice Before Class of the same seed
+  await page.click('[data-testid="ty-replay"]');
+  await screenIs('tryout');
+  check(await page.waitForSelector('[data-testid="tryout-before-class"][data-mode="practice"]', { timeout: 10000 }).then(() => true).catch(() => false), 'Replay this seed opens a practice Before Class');
+  check(await page.locator('[data-testid="tryout-practice-note"]').isVisible(), 'the practice note says it pays nothing');
+  await shot('ty-practice');
+
+  // 10. the Yearbook
+  await page.click('[data-testid="tryout-open-yearbook"]');
+  await screenIs('tryout');
+  check(await page.waitForSelector('[data-testid="tryout-yearbook"]', { timeout: 10000 }).then(() => true).catch(() => false), 'the Yearbook opens');
+  const stamps = await page.locator('[data-testid="yb-stamps"]').textContent().catch(() => '');
+  check(/^[1-9]\d* stamps/.test(stamps), `the Yearbook has stamps (${stamps})`);
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal scroll in the Yearbook');
+  await shot('ty-yearbook');
+
+  // 11. the Marble Jar: a purchase (Pencil Money) and its switch; the perk rides into Before Class
+  await page.evaluate(() => sessionStorage.setItem('__tyMarbles', '200'));
+  await page.goto(`${base}#/tryout/jar`);
+  await page.reload();
+  await screenIs('tryout');
+  check(await page.waitForSelector('[data-testid="tryout-jar"]', { timeout: 10000 }).then(() => true).catch(() => false), 'the Marble Jar opens');
+  const wallet = async () => Number((await page.locator('[data-testid="jar-wallet"] b').textContent()).trim());
+  const before = await wallet();
+  check(before >= 60, `Marbles to spend (${before})`);
+  await page.click('[data-testid="jar-buy-coins"]');
+  await page.waitForSelector('[data-testid="jar-toggle-coins"]', { timeout: 5000 }).catch(() => {});
+  check(await wallet() === before - 60, 'a purchase spends its Marbles');
+  check(await page.locator('[data-testid="jar-toggle-coins"]').getAttribute('aria-pressed') === 'true', 'a bought Desk Supply is on, with its switch');
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal scroll in the Marble Jar');
+  await shot('ty-jar');
+  await page.click('[data-testid="tryout-sub-back"]');
+  await screenIs('tryout');
+  await page.waitForSelector('[data-testid="tryout-before-class"]', { timeout: 10000 }).catch(() => {});
+  if (await page.locator('[data-testid="tryout-normal"]').isVisible().catch(() => false)) await page.click('[data-testid="tryout-normal"]');
+  check(/Pencil Money/.test(await page.locator('[data-testid="tryout-perks"]').textContent().catch(() => '')), 'Before Class lists the Desk Supply');
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal scroll on the hub');
+  await shot('ty-hub');
   await context.close();
 }
 

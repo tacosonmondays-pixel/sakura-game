@@ -19,7 +19,8 @@ import { createTryoutSaver } from './tryoutSaver.js';
 import { createTryoutBattle } from './tryout.js';
 import { MODE_NAME as TRYOUT_MODE_NAME } from '../text/tryout.js';
 import { buildTryoutPlan, buildTryoutStage } from '../../sim/tryout/index.js';
-import { getTryoutRun, markResume, continueKind, clearTryoutRun, recordGradeClear } from '../../systems/tryoutRuns.js';
+import { getTryoutRun, markResume, continueKind, clearTryoutRun } from '../../systems/tryoutRuns.js';
+import { applyTryoutResult, applyTryoutRecord } from '../../systems/tryoutRewards.js';
 import { SIM_ID as TRYOUT_SIM_ID } from '../../core/buildInfo.js';
 import { isSavableRun, slotKey, getBattleSave, clearBattleSave, saveSummary, runStartedAt, MAX_BATTLE_SAVES } from '../../systems/battleSave.js';
 import { createHud } from './hud.js';
@@ -53,7 +54,7 @@ import { quantize, flyArgs } from '../../online/coop/commands.js';
 import { STEP } from '../../sim/constants.js';
 import { battleLockstep, normalizeCode } from '../../online/coop/session.js';
 import { roomByCode, roomRoute } from '../../online/coop/lastRoom.js';
-import { applyCoopResult, freeplayLedger, payFreeplayEnd } from '../../online/coop/rewards.js';
+import { applyCoopResult, freeplayLedger, payFreeplayEnd, applyCoopTryoutResult } from '../../online/coop/rewards.js';
 import { normalizeList } from '../../systems/inventory.js';
 import { createCoopHud } from '../online/coopHud.js';
 import { createFreeplayBattle } from './freeplay.js';
@@ -126,6 +127,12 @@ export function mountBattle(root, params, hooks) {
 
   if (req.error) {
     if (req.tryoutGone && tryKind === 'stale') {
+      // an update closed the run: paid for the periods its last calm point banked (§12.5), in the same write
+      try {
+        applyTryoutRecord(profile, tryRec);
+      } catch (e) {
+        console.error('[tryout] paying a closed run failed', e);
+      }
       clearTryoutRun(profile, tryRec.id);
       store.commit('tryout-run');
       store.saveNow();
@@ -419,12 +426,14 @@ export function mountBattle(root, params, hooks) {
     }
     if (sim.tryout) {
       // Tryout Day (src/ui/battle/tryout.js): tracker, picks, breaks, the Class Photo
-      // a won run (not practice) clears its Grade: the ladder opens the next (rewards are M4)
-      ctx.applyResult = (prof, result) => {
-        const cleared = !!result?.won && !req.practice && recordGradeClear(prof, sim.tryout.grade);
-        return { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, tryout: true, gradeUp: cleared };
-      };
+      // the run's rewards (src/systems/tryoutRewards.js, §10.1, §12.4): Marbles, the Lunchbox, coins, the Grade, the
+      // achievement counters and the Yearbook, once; co-op pays each player from their own save (§11)
+      ctx.applyResult = (prof, result, rng) => (ls
+        ? applyCoopTryoutResult(prof, result, { slot: ls.mySlot, seed: ls.start.seed, rng })
+        : applyTryoutResult(prof, result, { rec: req.tryout, rng }));
       ctx.tryoutAgain = ls ? () => ctx.quit() : () => navigate('tryout', { again: 1 });
+      // Replay this seed: a practice run of the same seed, Grade, length and map (§10.4); solo only
+      ctx.tryoutReplay = ls ? null : (code) => navigate('tryout', { code });
       const send = ls
         ? (kind, args) => {
           ls.queue(kind, args);
@@ -764,7 +773,11 @@ export function mountBattle(root, params, hooks) {
     };
     // a run cannot restart: Restart gives it up and goes back to Tryout Day
     if (req.tryout && !ls) ctx.restart = () => {
-      saver?.discard();
+      // giving up pays what the run banked (§12.4): results.apply() pays and deletes the run in one write
+      // (idempotent: a run already paid at its end is not paid again)
+      ctx.ended = true;
+      saver?.close();
+      results.apply();
       navigate('tryout');
     };
     // endless runs save, so they can also be cashed out: the same payout as a defeat right now
@@ -1082,15 +1095,15 @@ export function mountBattle(root, params, hooks) {
             retry: () => navigate('tryout', { makeup: tryRec.id }), // (the hub opens it as Continue does)
             giveUp: () => {
               ctx.makeUpOffered = false;
-              results.apply(); // (pays nothing yet and closes the run record: saver.finish)
-              ctx.tryoutUi?.showPhoto({ practice: !!req.practice });
+              const out = results.apply(); // (pays the run and closes its record: saver.finish)
+              ctx.tryoutUi?.showPhoto({ practice: !!req.practice, outcome: out });
             },
           }), RESULT_DELAY_MS);
           return;
         }
-        // Tryout Day: no rewards in M1 (Marbles and the Lunchbox are M4); the run's record goes with the result
-        results.apply();
-        later(() => ctx.tryoutUi?.showPhoto({ practice: !!req.practice }), RESULT_DELAY_MS);
+        // Tryout Day: the run is paid (src/systems/tryoutRewards.js) and its record goes in the same write
+        const out = results.apply();
+        later(() => ctx.tryoutUi?.showPhoto({ practice: !!req.practice, outcome: out }), RESULT_DELAY_MS);
         return;
       }
       if (req.titan) {

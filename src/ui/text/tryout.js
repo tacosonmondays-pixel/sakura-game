@@ -4,6 +4,7 @@ import { PEP_CARDS, RARITIES } from '../../data/tryout.js';
 import { cardMods } from '../../sim/tryout/pep.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { fmtNum } from '../format.js';
+import { getItem } from '../../data/items.js';
 
 export const MODE_NAME = 'Tryout Day';
 
@@ -167,4 +168,94 @@ export const DARE_TEXT = {
   regen: 'foes regenerate 2 %/s',
   armored: 'foes +3 armour',
   shielded: 'foes carry a 30 % barrier',
+};
+
+// ---------------------------------------------------------------------------
+// Meta (§10): Marbles, the Lunchbox, the Marble Jar, the Yearbook, the Weekly Timetable, share codes
+// ---------------------------------------------------------------------------
+
+export const LENGTH_NAMES = { half: 'Half Day', full: 'Full Day' };
+export const MARBLES = 'Marbles';
+
+const itemName = (id) => getItem(id)?.name || id;
+const itemList = (items) => items.map((x) => `${x.count > 1 ? `${x.count}× ` : ''}${itemName(x.id)}`).join(', ');
+
+/**
+ * The Class Photo's reward lines from applyTryoutResult's `run` (src/systems/tryoutRewards.js).
+ * @returns {{ key: string, text: string }[]}
+ */
+export function rewardLines(run) {
+  if (!run || run.already) return [];
+  const out = [];
+  const m = run.marbles || {};
+  const extra = [];
+  if (m.grade) extra.push(`+${m.grade} Grade ${run.grade} first clear`);
+  if (m.chest) extra.push(`+${m.chest} Weekly chest`);
+  if (m.yearbook) extra.push(`+${m.yearbook} Yearbook`);
+  const capNote = m.over > 0 ? ' · weekly cap reached' : '';
+  out.push({ key: 'marbles', text: `${MARBLES} +${m.paid || 0} · ${run.week} / ${run.cap} this week${capNote}${extra.length ? ` · ${extra.join(' · ')}` : ''}` });
+  const b = run.box;
+  if (b?.fill > 0) out.push({ key: 'box', text: `Lunchbox ${b.fill}/7 full: ${b.items.length ? itemList(b.items) : 'crumbs this time'}` });
+  else if (b?.weekFull) out.push({ key: 'box', text: 'Lunchbox: this week\'s 3 are already open' });
+  const c = run.coins;
+  if (c?.coins > 0) out.push({ key: 'coins', text: `+${fmtNum(c.coins, 'count', { detail: true })} coins (${c.paidWaves} waves × ${c.rate})` });
+  else if (c?.waves > 0 && c.paidWaves === 0) out.push({ key: 'coins', text: 'Coins: this week\'s 150 waves are paid' });
+  if (run.stamps?.length) out.push({ key: 'stamps', text: `Yearbook: ${run.stamps.length} new stamp${run.stamps.length === 1 ? '' : 's'}` });
+  if (run.gradeUp) out.push({ key: 'grade', text: run.grade >= 12 ? 'Grade 12 cleared: the whole ladder!' : `Grade ${run.grade} cleared: Grade ${run.grade + 1} is open` });
+  return out;
+}
+
+/** The Marble Jar's items. */
+export const JAR_TEXT = {
+  eraser: { name: 'Spare Eraser', line: '+1 Eraser in every run' },
+  draft7: { name: 'Bigger Draft', line: '7 girls to choose from at Before Class' },
+  coins: { name: 'Pencil Money', line: '+100 coins at the start of a run' },
+  pocket: { name: 'Extra Pocket', line: 'hold up to 6 Hall Passes' },
+  chalk_pink: { name: 'Pink Chalk', line: 'Window Seat chalk colour' },
+  chalk_sky: { name: 'Sky Chalk', line: 'Window Seat chalk colour' },
+  chalk_mint: { name: 'Mint Chalk', line: 'Window Seat chalk colour' },
+  chalk_gold: { name: 'Gold Chalk', line: 'Window Seat chalk colour' },
+  bd_classroom: { name: 'Classroom', line: 'Class Photo backdrop' },
+  bd_rooftop: { name: 'Rooftop', line: 'Class Photo backdrop' },
+  bd_gate: { name: 'Sakura Gate', line: 'Class Photo backdrop' },
+  bd_festival: { name: 'Festival Night', line: 'Class Photo backdrop' },
+  frame_bloom: { name: 'Blackboard Bloom', line: 'profile frame' },
+  pennant: { name: 'Lobby Pennant', line: 'a Tryout Day pennant for the lobby' },
+  sg_bundle: { name: 'Study Guide Bundle', line: '3 Study Guides' },
+  fam_pack: { name: 'Material Pack', line: '5 rare materials of one family' },
+};
+export const JAR_SHELVES = { desk: 'Desk Supplies', cosmetic: 'Cosmetics', material: 'Materials' };
+export const JAR_NOTES = {
+  desk: 'Bought once. Switch each one on or off; they never apply in the Weekly Timetable or in co-op.',
+  cosmetic: 'Bought once, for looks only.',
+  material: 'Restocks every week.',
+};
+export const JAR_ERRORS = { funds: 'Not enough Marbles.', owned: 'Already yours.', soldOut: 'Sold out this week.', family: 'Pick a material family first.', unknown: 'Not in the Jar.' };
+
+export const WEEKLY_TEXT = {
+  name: 'Weekly Timetable',
+  line: 'One timetable for everyone this week: Grade 5 rules, every girl at the floor, no Desk Supplies.',
+  locked: 'Clear Grade 4 to open the Weekly Timetable.',
+  reward: 'First clear this week: a 30-Marble chest and a Yearbook stamp.',
+  done: 'Cleared this week. Play again for a better score.',
+};
+
+export const SHARE_TEXT = {
+  title: 'Share code',
+  replay: 'Replay this seed',
+  note: 'A shared seed plays as practice: no Marbles, Lunchbox, records or achievements.',
+  bad: 'That code is not a Tryout Day code.',
+  locked: 'That code\'s Grade needs more of the campaign cleared first.',
+  enter: 'Play a code',
+};
+
+export const YEARBOOK_TEXT = {
+  title: 'Yearbook',
+  line: (n, next, per, mb) => `${n} stamps · every ${per} stamps give ${mb} Marbles (next at ${next})`,
+  girls: 'Students',
+  cards: 'Pep Talks taken',
+  bosses: 'Bosses beaten',
+  records: 'Best scores',
+  pencil: 'pencil sketch: she tried out as a Loaner',
+  none: 'Nothing here yet: play a run.',
 };

@@ -12,19 +12,26 @@ import { ITEMS } from '../../src/data/items.js';
 
 const NEW = ACHIEVEMENTS.filter((a) => !a.shipped);
 const LAUNCH = NEW.filter((a) => a.wave === 'launch');
+// Tryout Day's 12 rows (docs/specs/TRYOUT_DAY.md §10.2): 360 gems once, counted apart from the expansion's caps
+const TRYOUT_ROWS = ACHIEVEMENTS.filter((a) => a.wave === 'tryout');
+const NEW_CORE = NEW.filter((a) => a.wave !== 'tryout');
 const sum = (rows, id) => rows.reduce((n, a) => n + a.rewards.filter((r) => r.id === id).reduce((m, r) => m + r.count, 0), 0);
 const gemsOf = (a) => sum([a], 'gems');
 const boxes = (a) => a.rewards.filter((r) => r.id.startsWith('gearbox_')).map((r) => r.id);
 const LEDGER = JSON.parse(readFileSync(new URL('../fixtures/achievements-ledger.json', import.meta.url), 'utf8')).achievements;
 
 describe('ids and names', () => {
-  it('132 rows: the shipped 30 (first, in their order) + 102 new; 116 live at launch + 2 with social + 11 Codex = 129', () => {
-    expect(ACHIEVEMENTS).toHaveLength(132);
+  it('144 rows: the shipped 30 (first, in their order) + 102 new + 12 Tryout Day; 116 live at launch + 2 with social + 11 Codex + 12 Tryout Day = 141', () => {
+    expect(ACHIEVEMENTS).toHaveLength(144);
     expect(ACHIEVEMENTS.filter((a) => a.shipped)).toHaveLength(30);
     expect(ACHIEVEMENTS.slice(0, 30).every((a) => a.shipped)).toBe(true);
-    expect(NEW).toHaveLength(102);
+    expect(NEW).toHaveLength(114);
+    expect(NEW_CORE).toHaveLength(102);
     expect(LAUNCH).toHaveLength(86);
-    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(129);
+    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(141);
+    expect(TRYOUT_ROWS.map((a) => a.id)).toEqual(['a_try_half', 'a_try_full', 'a_try_spotless', 'a_try_ticked', 'a_try_dare', 'a_try_seen', 'a_try_lr',
+      'a_try_window', 'a_try_moves', 'a_try_g4', 'a_try_g8', 'a_try_g12']);
+    expect(TRYOUT_ROWS.every((a) => achievementLive(a) && a.cat === 'tryout' && a.metric === 'counter' && a.param.startsWith('ty:'))).toBe(true);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'codex')).toHaveLength(11);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'codex').every((a) => achievementLive(a))).toBe(true);
     // still waiting for their feature (a_hero_25 counts heroMax from v0.1.45 on, but stays hidden)
@@ -37,7 +44,7 @@ describe('ids and names', () => {
     }
     expect(REEXPORTED).toBe(ACHIEVEMENTS);
     expect(ACH_V2_LIVE).toBe(true);
-    expect(ACHIEVEMENT_WAVES).toEqual({ launch: true, social: true, codex: true, later: false });
+    expect(ACHIEVEMENT_WAVES).toEqual({ launch: true, social: true, codex: true, tryout: true, later: false });
   });
 
   it('ids are unique, ^a_[a-z0-9_]+$ and at most 24 characters (valid title ids and ach: pins)', () => {
@@ -62,7 +69,7 @@ describe('ids and names', () => {
     for (const a of ACHIEVEMENTS) {
       expect(cats.has(a.cat), a.id).toBe(true);
       expect(ACHIEVEMENT_METRICS, a.id).toContain(a.metric);
-      expect(['launch', 'social', 'codex', 'later'], a.id).toContain(a.wave);
+      expect(['launch', 'social', 'codex', 'tryout', 'later'], a.id).toContain(a.wave);
       expect(Number.isInteger(a.goal) && a.goal > 0, a.id).toBe(true);
       expect(ACHIEVEMENT_MAP[a.id]).toBe(a);
       if (a.hidden) expect(a.hint?.length, a.id).toBeGreaterThan(5);
@@ -104,9 +111,12 @@ describe('rewards', () => {
     }
   });
 
-  it('caps: launch gems ≤ 6,000 (5,930); all new ≤ 7,000 (6,780); tickets 6; Celestial 5; Radiant 20', () => {
+  it('caps: launch gems ≤ 6,000 (5,930); all new ≤ 7,000 (6,780); tickets 6; Celestial 5; Radiant 20; Tryout Day 360 gems apart', () => {
     expect(sum(LAUNCH, 'gems')).toBe(5930);
-    expect(sum(NEW, 'gems')).toBe(6780);
+    expect(sum(NEW_CORE, 'gems')).toBe(6780);
+    // Tryout Day: 360 gems once (= 3 recruits), gems only, counted as its own one-time source (TRYOUT_DAY.md §10.2)
+    expect(sum(TRYOUT_ROWS, 'gems')).toBe(360);
+    expect(TRYOUT_ROWS.every((a) => a.rewards.every((r) => r.id === 'gems'))).toBe(true);
     expect(sum(NEW, 'ticket_recruit')).toBe(6);
     expect(sum(LAUNCH, 'ticket_recruit')).toBe(5);
     expect(sum(NEW, 'gearbox_legendary')).toBe(5);
@@ -125,7 +135,8 @@ describe('rewards', () => {
 
 describe('the frozen ledger (shipped rewards never change)', () => {
   it('every shipped id (the shipped 30, launch, social and Codex) is in the ledger with identical rewards', () => {
-    for (const a of ACHIEVEMENTS.filter((x) => achievementLive(x))) expect(a.rewards, a.id).toEqual(LEDGER[a.id]);
+    // (Tryout Day's rows join the ledger when the mode ships: TRYOUT_DAY.md §10.2 "frozen at ship")
+    for (const a of ACHIEVEMENTS.filter((x) => achievementLive(x) && x.wave !== 'tryout')) expect(a.rewards, a.id).toEqual(LEDGER[a.id]);
   });
 
   it('no ledger id was removed or renamed', () => {
@@ -144,20 +155,21 @@ describe('cosmetics', () => {
   const honors = ACHIEVEMENTS.filter((a) => a.honor);
   const titles = ACHIEVEMENTS.filter((a) => a.title);
 
-  it('honor.no is 1..34, unique and append-only (frozen list)', () => {
+  it('honor.no is 1..37, unique and append-only (frozen list)', () => {
     const FROZEN = ['a_chapter_1', 'a_chapter_2', 'a_chapter_3', 'a_login_7', 'a_chapter_4', 'a_quad_1', 'a_slime_15', 'a_chapter_5',
       'a_flawless_10', 'a_journal_11', 'a_first_petals', 'a_chapter_6', 'a_sakura_10', 'a_chapter_7', 'a_boss_3', 'a_coop_50', 'a_story_8',
       'a_donate_10', 'a_chapter_8', 'a_gold_40', 'a_bestiary_100', 'a_login_100', 'a_stars_50', 'a_leg_plus10', 'a_fp_seasons', 'a_ach_75',
-      'a_ur_1', 'a_sakura_40', 'a_quad_40', 'a_boss_sak_3', 'a_fp_crimson', 'a_fp_bosses_4', 'a_login_365', 'a_mr_800'];
+      'a_ur_1', 'a_sakura_40', 'a_quad_40', 'a_boss_sak_3', 'a_fp_crimson', 'a_fp_bosses_4', 'a_login_365', 'a_mr_800',
+      'a_try_g4', 'a_try_g8', 'a_try_g12'];
     const byNo = [...honors].sort((x, y) => x.honor.no - y.honor.no);
     expect(byNo.map((a) => a.id)).toEqual(FROZEN);
     expect(byNo.map((a) => a.honor.no)).toEqual(FROZEN.map((_, i) => i + 1));
   });
 
-  it('classes and effects: 18 plain, 8 shiny, 8 special with 8 distinct effects; fx only on specials; no special is secret', () => {
+  it('classes and effects: 19 plain, 9 shiny, 9 special with 9 distinct effects; fx only on specials; no special is secret', () => {
     const cls = (c) => honors.filter((a) => a.honor.cls === c);
-    expect([cls('plain').length, cls('shiny').length, cls('special').length]).toEqual([18, 8, 8]);
-    expect(new Set(cls('special').map((a) => a.honor.fx)).size).toBe(8);
+    expect([cls('plain').length, cls('shiny').length, cls('special').length]).toEqual([19, 9, 9]);
+    expect(new Set(cls('special').map((a) => a.honor.fx)).size).toBe(9);
     for (const a of honors) {
       expect(['plain', 'shiny', 'special']).toContain(a.honor.cls);
       expect(!!a.honor.fx, a.id).toBe(a.honor.cls === 'special');
@@ -172,21 +184,23 @@ describe('cosmetics', () => {
 
   it('titles: ≤ 24 characters, unique (with the freeplay titles), on std / gold / prism plates', () => {
     const texts = [...titles.map((a) => a.title.text), ...Object.values(FREEPLAY_TITLES).map((t) => t.text)];
-    expect(texts).toHaveLength(45);
-    expect(new Set(texts.map((t) => t.toLowerCase())).size).toBe(45);
+    expect(texts).toHaveLength(47);
+    expect(new Set(texts.map((t) => t.toLowerCase())).size).toBe(47);
     for (const a of titles) {
       expect(a.title.text.length, a.id).toBeLessThanOrEqual(24);
       expect(['std', 'gold', 'prism']).toContain(a.title.tier);
     }
   });
 
-  it('in this build: 34 ribbons and 45 titles (launch 32 / 37, + Kind Heart and Helping Hands with social, + the holo ribbon and 7 titles with Codex)', () => {
+  it('in this build: 37 ribbons and 47 titles (launch 32 / 37, + Kind Heart and Helping Hands with social, + the holo ribbon and 7 titles with Codex, + 3 ribbons and 2 titles with Tryout Day)', () => {
     const live = ACHIEVEMENTS.filter((a) => achievementLive(a));
-    expect(live.filter((a) => a.honor)).toHaveLength(34);
+    expect(live.filter((a) => a.honor)).toHaveLength(37);
+    expect(live.filter((a) => a.wave === 'tryout' && a.honor).map((a) => [a.id, a.honor.cls, a.honor.fx])).toEqual([['a_try_g4', 'plain', null], ['a_try_g8', 'shiny', null], ['a_try_g12', 'special', 'chalk']]);
+    expect(live.filter((a) => a.wave === 'tryout' && a.title).map((a) => a.title.text)).toEqual(['Head Scout', 'Grade 12 Sensei']);
     expect(live.filter((a) => a.honor && a.wave === 'launch')).toHaveLength(32);
     expect(live.filter((a) => a.honor && a.shipped)).toHaveLength(12);
     expect(live.filter((a) => a.honor && a.wave === 'codex').map((a) => [a.id, a.honor.name, a.honor.fx])).toEqual([['a_mr_800', 'Holo Codex Ribbon', 'holo']]);
-    expect(live.filter((a) => a.title).length + 2).toBe(45);
+    expect(live.filter((a) => a.title).length + 2).toBe(47);
     expect(live.filter((a) => a.title && a.wave === 'launch').length + 2).toBe(37);
     expect(live.filter((a) => a.title && a.wave === 'codex').map((a) => a.title.text)).toEqual([
       'Versatile Strategist', 'All-Round Sensei', 'Wrong-Way Warden', 'Rush Hour Hero', 'Armor Breaker', 'Thrifty Tactician', 'Last Petal Keeper',

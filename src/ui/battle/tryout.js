@@ -12,7 +12,10 @@ import { PEP_CARDS, RARITIES, TRYOUT } from '../../data/tryout.js';
 import { assignProgress, dareOf, chooserOf } from '../../sim/tryout/index.js';
 import { rarityWeights, pityFloor } from '../../sim/tryout/offers.js';
 import { lengthOf, periodWaves } from '../../sim/tryout/plan.js';
-import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN } from '../text/tryout.js';
+import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN, rewardLines, SHARE_TEXT } from '../text/tryout.js';
+import { encodeShareCode } from '../../systems/tryoutRuns.js';
+import { selectedCosmetic } from '../../systems/tryoutJar.js';
+import { store } from '../../core/store.js';
 import '../styles/tryout.css';
 
 const Q = 1024;
@@ -277,8 +280,13 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   }
 
   // ---- the Class Photo -----------------------------------------------------------------------------
-  function showPhoto({ practice = false } = {}) {
+  function showPhoto({ practice = false, outcome = null } = {}) {
     const res = sim.result().tryout;
+    const run = outcome?.run || null;
+    // what the run paid (§13.9); a practice run shows only what it banked before it turned practice
+    const lines = rewardLines(run).filter((l) => !practice || l.key === 'marbles' || l.key === 'box' || l.key === 'coins');
+    const paidNothing = practice && !(run?.marbles?.paid || run?.box?.fill || run?.coins?.coins);
+    const code = encodeShareCode(res);
     const won = sim.state === 'won';
     const runScore = res.runScore[mySlot];
     const pl = res.players[mySlot];
@@ -287,15 +295,21 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       ...[...p.team, ...(p.own[mySlot] || [])].map(([id, st]) => h(`span.ty-mark.ty-st${st}`, { title: ASSIGN_TEXT[id]?.name }, STATE_MARK[st])),
       h('span.ty-dim', ` ${fmtNum(p.score, 'count', { detail: true })}`))));
     const picks = h('div.ty-picks', ...pl.picks.map((p) => h(`span.ty-pickchip.ty-r${p.rarity}`, `${RARITIES[p.rarity]} ${p.hand ? 'handed in' : p.girl ? UNIT_MAP[p.girl]?.name : cardText({ id: p.card, unit: p.unit, r: p.rarity }).name}`)));
-    photo.replaceChildren(h('div.ty-sheet.ty-photo', { 'data-testid': 'ty-photo-sheet' },
+    const backdrop = selectedCosmetic(store.profile, 'backdrop');
+    photo.replaceChildren(h(`div.ty-sheet.ty-photo${backdrop ? `.ty-bd.ty-${backdrop.replace('_', '-')}` : ''}`, { 'data-testid': 'ty-photo-sheet' },
       h('div.ty-sheet-title', won ? 'Class Photo' : 'Early Dismissal', practice ? h('span.ty-practice', 'Practice') : null),
       h('div.ty-squad', ...pl.squad.map((id) => svgEl(portraitHTML(UNIT_MAP[id], 'thumb', { eager: true }), 'ty-squad-art'))),
       h('div.ty-score-big', `Run Score ${fmtNum(runScore, 'count', { detail: true })}`),
       h('div.ty-dim', won ? `All ${res.periods.length} periods · ${sim.lives} ♥ left` : `Reached period ${res.periods.length + 1}`),
       grid, picks,
+      run && !paidNothing && lines.length ? h('div.ty-rewards', { 'data-testid': 'ty-photo-rewards' },
+        ...lines.map((l) => h(`div.ty-reward.ty-reward-${l.key}`, { 'data-testid': `ty-reward-${l.key}` }, l.text))) : null,
+      run?.best?.isNew ? h('div.ty-dim', { 'data-testid': 'ty-photo-best' }, 'New best score!') : null,
+      code ? h('div.ty-dim.ty-code', { 'data-testid': 'ty-share-code' }, `${SHARE_TEXT.title}: `, h('b', code)) : null,
       h('div.ty-actions',
         h('button.bt-cta', { 'data-testid': 'ty-again', onclick: () => ctx.tryoutAgain?.() }, 'Again'),
-        h('button.bt-btn', { 'data-testid': 'ty-hub', onclick: () => ctx.quit() }, 'Tryout Day'))));
+        h('button.bt-btn', { 'data-testid': 'ty-hub', onclick: () => ctx.quit() }, 'Tryout Day'),
+        code && ctx.tryoutReplay ? h('button.bt-btn', { 'data-testid': 'ty-replay', title: SHARE_TEXT.note, onclick: () => ctx.tryoutReplay(code) }, SHARE_TEXT.replay) : null)));
     photo.hidden = false;
     sheet.hidden = true;
     brk.hidden = true;

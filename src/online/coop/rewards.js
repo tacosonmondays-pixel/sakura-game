@@ -25,6 +25,7 @@ import { getItem } from '../../data/items.js';
 import { freeplayTable } from '../../data/freeplay.js';
 import { weekKey } from '../../core/util.js';
 import { MILESTONE_ITEMS, MILESTONE_ITEMS_MARK } from '../../data/gearAwaken.js';
+import { applyTryoutResult } from '../../systems/tryoutRewards.js';
 
 /** Freeplay payout tuning (outside the co-op id). */
 export const FREEPLAY_REWARDS = Object.freeze({
@@ -389,5 +390,18 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, best
   out.rewards = addItems(profile, rewards);
   out.gemsEarned = out.rewards.reduce((a, r) => a + (r.id === 'gems' ? r.count : 0), 0);
   out.freeplay = { tier: table.id, tierName: table.name, goal, cleared, waves, coins, caches, tomes, needle, tokens, best: Math.max(prevBest, cleared), prevBest, newBest, milestones };
+  return out;
+}
+
+/**
+ * Tryout Day in co-op (docs/specs/TRYOUT_DAY.md §11): each player banks the run into their own save with the solo
+ * rules and their own weekly caps (src/systems/tryoutRewards.js), reading their own slot of the result (their
+ * assignments, picks and squad). A co-op win clears the Grade only when it is this player's own next Grade (M2); the
+ * Grade's first-clear Marbles stay solo. The start seed keys the payment, so a resync remount never pays twice.
+ * @param {{ slot: number, seed: number, rng?: object, now?: number }} o
+ */
+export function applyCoopTryoutResult(profile, result, { slot = 0, seed = 0, rng = null, now = Date.now() } = {}) {
+  const out = applyTryoutResult(profile, result, { slot, coop: true, coopKey: seed, rng, now });
+  out.coop = true;
   return out;
 }

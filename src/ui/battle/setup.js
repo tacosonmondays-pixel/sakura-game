@@ -222,6 +222,8 @@ export function createTryoutSim(profile, rec) {
       autoStart: !!profile.settings?.autoStart, ...autoAbilities(profile),
       tryout: {
         seed: rec.seed, grade: rec.grade, length: rec.length, mapId: plan.mapId, players: [{ squad: rec.squad }], pools: [rec.pool || {}],
+        // the Desk Supplies the run was started with (src/systems/tryoutRuns.js activePerks; solo only, never in the Weekly)
+        ...(rec.perks && Object.keys(rec.perks).length ? { perks: { ...rec.perks } } : null),
         ...(resume ? { squads: [rec.squad], period: rec.period || 1 } : null),
       },
     },
