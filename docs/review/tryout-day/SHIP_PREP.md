@@ -11,7 +11,7 @@ Every row must read **go** on the release candidate (the merge of feature/tryout
 | # | Check | How | Go when |
 |---|---|---|---|
 | 1 | Owner's yes on the screenshots | the M2-M4 boards (`docs/review/tryout-day/m*/`) and, once M3 lands, the Ink & Paper screens | the owner says yes in writing |
-| 2 | The ultimates release is live | the ultimates ship as v0.1.56 with `COOP_PROTOCOL` 10 | 10 is live on `main` and stable for a week |
+| 2 | The ultimates release is live | the ultimates shipped as v0.1.57 with `COOP_PROTOCOL` 10 (Oct 28) | 10 has been stable on `main` for a week |
 | 3 | The balance pass is in | the pass named in HANDOFF | merged, and the Tryout sweeps re-run on top of it |
 | 4 | M3 Ink & Paper screens | after the UI v2 menus land | reviewed and approved |
 | 5 | Owner questions answered | PR #29's list (each has a default in place) | every one answered or its default accepted |
@@ -60,8 +60,8 @@ Tryout Day changes the lockstep sim (new `tr` / `mv` commands, the run state in 
 message's `tryout` / `draft` / `pool`), so a client without it resolves a Tryout room differently. The release takes
 the next protocol number once:
 
-1. `src/online/coop/version.js`: `COOP_PROTOCOL` from the then-current number to the next. The ultimates take 10
-   (v0.1.56), so Tryout Day's is most likely **11**; the banners release also wants the slot after the ultimates, so the number
+1. `src/online/coop/version.js`: `COOP_PROTOCOL` from the then-current number to the next. The ultimates took 10
+   (v0.1.57, live), so Tryout Day takes the next free number: **11** if it ships before the banners, else **12**; the number
    goes to whichever ships first and is picked at ship time. With a comment in the list's
    style:
    `// 11: Tryout Day (co-op update #7, set once for it): the run mode in co-op (the 'tr' and 'mv' commands, the run
@@ -70,8 +70,8 @@ the next protocol number once:
 2. The protocol pins in the tests:
    - `tests/art/itemArtRuntime.test.js`: add `11: '<sim id>'` (the number picked) to `KNOWN` and delete the `TRYOUT_PENDING` line (this
      branch's in-progress pin);
-   - `tests/online/coopFreeplay.test.js` (the current protocol's assertions; 9 today) and `tests/online/coopSession.test.js`
-     ("9 refuses 8" today): move them to the new number (e.g. 11 / "11 refuses 10").
+   - `tests/online/coopFreeplay.test.js` (the current protocol's assertions; 10 today) and `tests/online/coopSession.test.js`
+     ("10 refuses 9" today): move them to the new number (e.g. 11 / "11 refuses 10").
    The data hash: `src/data/tryout.js` is already inside the sim id (`tools/simId.mjs`), which `coopVersion()` compares,
    so a table change already refuses an old client. Adding `TRYOUT` to `coopVersion()`'s data hash as well (spec §11) is
    optional belt-and-braces; if added, do it in this same commit.
