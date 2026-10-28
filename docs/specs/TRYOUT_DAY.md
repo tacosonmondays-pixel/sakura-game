@@ -485,7 +485,7 @@ an SSR+ pick, half the time when she has none yet. One per girl. Every key alrea
 | Sango | **Depth Charge** | her shells knock back 0.3 tiles and can hit flyers | `knockback`, `canHitAir` | |
 | Kage | **Ambidextrous** | +2 shuriken per throw, +1 pierce | `projectiles`, `pierce` | ✔ |
 | Umeko | **Harbor Lights** | Veil Sight aura +1.5 tiles; her aura also gives +8 % attack speed | `aura` | |
-| Shiro | **Ricochet Round** | each shot jumps to 2 more foes | `chain` | ✔ |
+| Shiro | **Piercing Round** | each shot passes through 2 more foes (M2: `chain` did nothing on her shots) | `pierce` | ✔ |
 | Midori | **Lab Day** | flask splash +0.4; hits shred 1 armour for 3 s | `splash`, `status` | |
 | Suzu | **Wind Chimes** | +3 traps; trap hits +30 % | `trap` | |
 | Raika | **Lightning Round** | +3 jumps; shock 0.3 s | `chain`, `status` | ✔ |

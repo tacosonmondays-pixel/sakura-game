@@ -304,6 +304,12 @@ describe('the room\'s Tryout Day setting', () => {
       expect(s.stageId).toBe('1-2');
       expect(s.tryout).toEqual(run);
     }
+    // back to the room: a run is played once, so the host's room has a fresh seed at the same Grade, drafts cleared
+    expect(host.backToLobby()).toBe(true);
+    expect(host.tryout.seed).not.toBe(run.seed);
+    expect(host.tryout.grade).toBe(run.grade);
+    expect(mapChoices(host.tryout.seed, host.tryout.grade)).toContain(host.tryout.mapId);
+    expect(host.me.draft).toEqual([]);
     host.close();
     guest.close();
   });

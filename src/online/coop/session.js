@@ -892,6 +892,9 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       s.peer = null;
       s.stuck = null;
       s.me.ready = isHost;
+      // a Tryout Day run is played once: the host's room comes back with a fresh seed at the same Grade (the
+      // drafts start over; the guest gets it with the room state)
+      if (isHost && s.tryout) setRun(tryoutSetting({ ...s.tryout, seed: ((Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0) || 1, mapId: null }));
       if (ally && allyLeft) {
         // they left the room (Leave / Home / closed the tab): nobody to wait for
         s.lastPeer = { name: ally.name || 'Your ally', why: 'left' };
