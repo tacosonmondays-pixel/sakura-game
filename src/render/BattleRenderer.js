@@ -35,6 +35,7 @@ import { Companions } from './companions.js';
 import { createAbilityFx } from './abilityFx.js';
 import { fmtNum } from '../ui/format.js';
 import { createBlackout } from './blackout.js';
+import { PlacedProps } from './placedProps.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
@@ -219,6 +220,20 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
     console.warn('[companions] disabled after an error', err);
   }
+  // the academy girls' placed objects as 3D props (src/render/placedProps.js); decoration: an error
+  // switches the layer off for this battle and actors.js draws the flat placeholders again
+  let placedProps = new PlacedProps({ sim, scene, actors, quality, reduceMotion });
+  actors.placedProps = placedProps;
+  function propsFail(err) {
+    actors.placedProps = null;
+    try {
+      placedProps.dispose();
+    } catch {
+      /* leave it */
+    }
+    placedProps = null;
+    console.warn('[placed props] disabled after an error', err);
+  }
   const buffIcons = new BuffIcons({ sim, actors, batches, atlas });
   buffIcons.setMode(settings.buffIcons);
 
@@ -286,6 +301,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     ambient.setQuality(q);
     roster.setQuality(q);
     companions.setQuality(q);
+    placedProps?.setQuality(q);
     actors.setQuality(q);
     overlays.setQuality(q);
     resize();
@@ -658,6 +674,13 @@ export function createBattleRenderer(container, sim, opts = {}) {
     // between waves (the barrier comes down before the column arrives)
     terrain.setLanes(sim.openLanes ? sim.openLanes() : null);
     terrain.update(time);
+    if (placedProps) {
+      try {
+        placedProps.update(d);
+      } catch (err) {
+        propsFail(err);
+      }
+    }
     actors.drawGround(d);
     if (attackFx) fxSafe(() => attackFx.update(d));
     roster.update(d);
@@ -1014,6 +1037,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
       return companions.probe();
     },
 
+    /** Extra: the placed-props layer (src/render/placedProps.js) for e2e / debug, or null when it is off. */
+    placedPropsProbe() {
+      return placedProps;
+    },
+
     /** Extra: the outfit (skin id) a placed girl's model wears, or null before it is drawn (e2e / debug). */
     towerSkin(uid) {
       return actors.towers.get(uid)?.model.userData.skinId ?? null;
@@ -1033,6 +1061,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       attackFx?.dispose();
       roster.dispose();
       companions.dispose();
+      placedProps?.dispose();
       actors.dispose();
       terrain.dispose();
       for (const b of Object.values(batches)) {
