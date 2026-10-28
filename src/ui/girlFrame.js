@@ -44,7 +44,7 @@ export function namePlate(unit, profile, { onPotential = null, potTestid = 'show
   const shown = displayRarity(unit, profile);
   const tag = rarityTag(shown, { testid: 'rarity-tag', ring: shown === 'UR' ? urRing() : null, title: shown === 'UR' ? 'UR — every awaken star' : shown === 'LR' ? 'LR — Limit Break' : rarityInfo(shown).name });
   return h('div.gp-plate', { 'data-testid': 'girl-plate' },
-    h('div.gp-np1', tag, h('span.gp-name.mb-show-name', unit.name)),
+    h('div.gp-np1', tag, h(`span.gp-name.mb-show-name${unit.name.length > 12 ? '.is-long' : ''}`, unit.name)),
     h('div.gp-np2', lbl(unit.title || ROLES[unit.role]?.name || ''),
       st ? h('span.gp-pwr.ui-pair', { title: 'Power' }, ico('sword'), num(fmtNum(unitPower(profile, unit.id)), 's')) : null),
     st
