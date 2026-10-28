@@ -116,7 +116,7 @@ export async function clanInviteRows({ onChange, onJoined = () => navigate('clan
           h('span.sc-row-sub', h('span.ol-tag', `[${c.tag}]`), ' ', inv.fromName || 'A clan member', inv.fromName && inv.fromId ? tagChips(inv.fromId) : null,
             ` invited you · ${c.memberCount}/${c.maxMembers} members · ${JOIN_MODES[c.joinMode] || ''}`)),
         h('span.sc-req-acts',
-          button(full ? 'Full' : 'Join', { kind: 'yellow', small: true, testid: 'clan-invite-join', disabled: full, onClick: () => answer(inv, true, el) }),
+          button(full ? 'Full' : 'Join', { kind: 'primary', small: true, testid: 'clan-invite-join', disabled: full, onClick: () => answer(inv, true, el) }),
           button('Decline', { kind: 'ghost', small: true, testid: 'clan-invite-decline', onClick: () => answer(inv, false, el) })));
       return el;
     }),
@@ -173,7 +173,7 @@ export function recruitCard(m, { mine = false, myClanId = null } = {}) {
   const c = m.meta;
   const ours = mine || (!!myClanId && c.clan === myClanId);
   const join = ours || myClanId ? null : c.mode === 'open'
-    ? button('Join', { kind: 'yellow', small: true, testid: 'recruit-join', disabled: c.members >= c.max, onClick: () => act(() => getBackend().joinClan(c.clan), `Welcome to ${c.name}!`, true) })
+    ? button('Join', { kind: 'primary', small: true, testid: 'recruit-join', disabled: c.members >= c.max, onClick: () => act(() => getBackend().joinClan(c.clan), `Welcome to ${c.name}!`, true) })
     : c.mode === 'request'
       ? button('Ask to join', { kind: 'primary', small: true, testid: 'recruit-request', disabled: c.members >= c.max, onClick: () => act(() => getBackend().requestJoin(c.clan), 'Request sent — an officer will answer soon.') })
       : null;

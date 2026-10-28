@@ -4,12 +4,12 @@
 // (#/clan or #/clan/<id>?tab=…): header with level and XP, and tabs Members · Chat · Requests
 // (tab id 'donate': material requests + donations) · Clan Boss · Applicants (leaders/officers;
 // tab id 'requests' — the old join-requests tab keeps its id for old links) · Supply Bot (dev clan).
-import { h, screen, button, toast, confirmDialog, tabs as tabBar } from '../components.js';
+import { h, screen, button, toast, confirmDialog } from '../components.js';
 import { countdownChip } from '../kit.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
-import { ensureOnline, avatar, levelChip, showError, connecting, localNotice, PEOPLE_GLYPH } from '../online/common.js';
+import { ensureOnline, avatar, levelChip, showError, connecting, localNotice, folderTabs, PEOPLE_GLYPH } from '../online/common.js';
 import { inlineLoader, holdInline } from '../loading/loader.js';
 import { createChatPanel } from '../online/chatPanel.js';
 import { createSupplyBot } from '../online/supplyBot.js';
@@ -85,7 +85,7 @@ export function render(root, params = {}) {
     function clanCard(c) {
       const full = c.memberCount >= c.maxMembers;
       const act = c.joinMode === 'open'
-        ? button('Join', { kind: 'yellow', small: true, testid: `join-${c.tag}`, disabled: full, onClick: () => run(() => backend.joinClan(c.id), `Welcome to ${c.name}!`) })
+        ? button('Join', { kind: 'primary', small: true, testid: `join-${c.tag}`, disabled: full, onClick: () => run(() => backend.joinClan(c.id), `Welcome to ${c.name}!`) })
         : c.joinMode === 'request'
           ? button('Request', { kind: 'primary', small: true, testid: `request-${c.tag}`, disabled: full, onClick: () => run(() => backend.requestJoin(c.id), 'Request sent — an officer will answer soon.', false) })
           : h('span.chip', 'Invite code');
@@ -191,12 +191,13 @@ export function render(root, params = {}) {
     const tabItems = tabsList();
     let tab = tabItems.some((t) => t.id === params.tab) ? params.tab : clan.isDev ? 'supply' : 'members';
     const header = h('section.panel.ol-clan-head', { 'data-testid': 'clan-home' });
-    const pane = h('div.ol-pane');
-    const tabsEl = tabBar(tabItems, tab, (id) => {
+    // [ui-v2 M8] the six tabs as the kit's folder tabs on the clan's panel (the pane is its body)
+    const pane = h('div.ol-pane.ui-tabbed-body');
+    const tabsEl = folderTabs(tabItems, tab, (id) => {
       tab = id;
       navigate('clan', { tab: id }, { replace: true });
       paintTab();
-    });
+    }, { label: 'Clan' });
     const setDonateBadge = () => {
       const on = hubDot || panelDot;
       if (on === donateBadge) return;
@@ -205,7 +206,7 @@ export function render(root, params = {}) {
       if (it) it.badge = on;
       tabsEl.setActive(tab);
     };
-    body.replaceChildren(h('div.ol-clan-wrap', ...[header, localNotice('clan'), tabsEl, pane].filter(Boolean)));
+    body.replaceChildren(h('div.ol-clan-wrap', ...[header, localNotice('clan'), h('section.ui-tabbed.ol-tabbed.ol-clan-tabbed', tabsEl, pane)].filter(Boolean)));
     let paneCleanup = null;
     let paneRefresh = null;
 
@@ -330,7 +331,7 @@ function membersTab(backend, clan, role, pane) {
           }
         }
         if (!me && can(role, 'kick', m.role) && !clan.isDev) acts.push(button('Remove', { kind: 'danger', small: true, testid: 'member-remove', onClick: async () => { if (await confirmDialog(`Remove ${m.name} from the clan?`, { title: 'Remove member', ok: 'Remove', danger: true })) act(() => backend.kick(m.userId)); } }));
-        if (!me) acts.push(button('Co-op', { kind: 'yellow', small: true, icon: 'play', testid: 'member-coop', onClick: () => navigate('coop', { id: makeRoomCode(), host: '1', invite: 'clan' }) }));
+        if (!me) acts.push(button('Co-op', { kind: 'primary', small: true, icon: 'play', testid: 'member-coop', onClick: () => navigate('coop', { id: makeRoomCode(), host: '1', invite: 'clan' }) }));
         const recent = Date.now() - m.lastActive < 5 * 60000;
         // [social] tap a member: their player card (Message, Invite to co-op, Add friend, Block, Report)
         const card = () => openPlayerCard(m.userId, { name: m.name, level: m.level, avatar: m.avatar }, { context: 'clan', clanmate: !me });
@@ -371,7 +372,7 @@ function requestsTab(backend, clan, pane) {
       list.replaceChildren(...(reqs.length ? reqs.map((r) => h('div.ol-member', avatar(r.avatar, 40),
         h('div.ol-member-info', h('div.ol-member-name', h('b', r.name), tagChips(r.userId), levelChip(r.level)), h('small.muted', `Asked ${agoText(r.at)}`)),
         h('div.ol-member-acts',
-          button('Accept', { kind: 'yellow', small: true, onClick: () => answer(r, true) }),
+          button('Accept', { kind: 'primary', small: true, onClick: () => answer(r, true) }),
           button('Decline', { kind: 'ghost', small: true, onClick: () => answer(r, false) })))) : [h('div.ol-empty', h('b', 'No requests'), h('p.muted', clan.joinMode === 'open' ? 'Your clan is open: players join directly.' : 'New requests appear here.'))]));
     } catch (e) {
       showError(e);

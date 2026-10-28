@@ -68,8 +68,14 @@ async function seedRequestAndBlock(page) {
   }, [MORE_FRIENDS[2], MORE_FRIENDS[3]]);
 }
 
-const online = (hash, screenId, more = {}) => ({ hash, ready: isScreen(screenId), prepare: seedOnlineInvite, settleMs: 1800, rebuilt: true, ...more });
-const clanTab = (tab, more = {}) => ({ hash: `#/clan?tab=${tab}`, ready: isScreen('clan'), prepare: seedClanMember, settleMs: 2200, rebuilt: true, ...more });
+/** The social pop-ups (Bea's invite shows as one when the hub notices it) close first: a shot is of the screen. */
+const quiet = (page) => page.evaluate(() => document.querySelectorAll('.sc-toast-host').forEach((x) => x.remove()));
+const withQuiet = (open) => async (page) => {
+  await quiet(page);
+  if (open) await open(page);
+};
+const online = (hash, screenId, { open, ...more } = {}) => ({ hash, ready: isScreen(screenId), prepare: seedOnlineInvite, settleMs: 1800, rebuilt: true, ...more, open: withQuiet(open) });
+const clanTab = (tab, { open, ...more } = {}) => ({ hash: `#/clan?tab=${tab}`, ready: isScreen('clan'), prepare: seedClanMember, settleMs: 2200, rebuilt: true, ...more, open: withQuiet(open) });
 
 export const shots = {
   messages: online('#/messages', 'messages'),

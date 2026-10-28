@@ -322,14 +322,7 @@ export function render(root, params = {}) {
           h('ul.ol-coop-facts',
             h('li', `Enemy HP ×${COOP.hpMul}`),
             h('li', `${formatNumber(coopStartCash(s))} coins each to start`),
-            h('li', freeplay ? `Freeplay ${freeplayTable(freeplay).name}: keep going after wave ${s?.waves}` : 'Coins earned are split between you')),
-          button('Change stage', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-change-stage', onClick: async () => {
-            const r = await pickStage(stageId, difficulty, freeplay, mode);
-            if (!r) return;
-            ({ stageId, difficulty, freeplay, mode } = r);
-            writePref(r);
-            paintStage();
-          } })),
+            h('li', freeplay ? `Freeplay ${freeplayTable(freeplay).name}: keep going after wave ${s?.waves}` : 'Coins earned are split between you'))),
         // freeplay right here (not only inside Change stage): Off or a difficulty tier
         h('div.ol-fp-row.ol-fp-row-hub',
           h('span.ol-fp-label', 'Freeplay'),
@@ -342,6 +335,14 @@ export function render(root, params = {}) {
       );
     };
     paintStage();
+    // [ui-v2 M8] Change stage sits on the panel's foot beside Create room (the stage's lines stay short on a phone)
+    const changeStage = button('Change stage', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-change-stage', onClick: async () => {
+      const r = await pickStage(stageId, difficulty, freeplay, mode);
+      if (!r) return;
+      ({ stageId, difficulty, freeplay, mode } = r);
+      writePref(r);
+      paintStage();
+    } });
 
     // [ui-v2 M8] one yellow: Rejoin when there is a last room to go back to, else Create room
     const hasLast = !!lastRoom(backend.uid);
@@ -444,7 +445,7 @@ export function render(root, params = {}) {
         h('section.panel.ol-coop-create', { 'data-testid': 'coop-create-panel' },
           h('h3.panel-title', 'Host a room'),
           stagePane,
-          h('div.ol-row-end', create)),
+          h('div.ol-row-end.ol-coop-foot', changeStage, create)),
         h('div.ol-coop-right',
           lastPanel(),
           h('section.panel.ol-coop-join',
