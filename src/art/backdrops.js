@@ -351,10 +351,10 @@ function highwayScene(rnd, id, W, H, snow, time) {
     for (const x of [180, 330, 470]) {
       s += `<rect x="${x}" y="262" width="40" height="40" fill="#eef3f8"/><rect x="${x + 6}" y="270" width="28" height="12" fill="#fff2cf"/><rect x="${x - 6}" y="298" width="52" height="8" fill="#a9a69e"/>`;
       // a lit booth window over the wash, its light spilling onto the road
-      if (lit) lights += `<ellipse cx="${x + 20}" cy="312" rx="34" ry="8" fill="#ffd98f" opacity="${night ? 0.3 : 0.2}"/><rect x="${x + 6}" y="270" width="28" height="12" fill="#ffe2a0"/><circle cx="${x + 20}" cy="276" r="20" fill="#ffd98f" opacity="0.28"/>`;
+      if (lit) lights += `<ellipse cx="${x + 20}" cy="312" rx="34" ry="8" fill="#ffd98f" opacity="${night ? 0.3 : 0.2}"/><rect x="${x + 6}" y="270" width="28" height="12" fill="#ffe2a0"/>${lamp(x + 20, 276, 0, '#ffd98f', 22, 0.4)}`;
     }
     s += '<rect x="560" y="226" width="54" height="34" fill="#1f2733"/><rect x="566" y="234" width="42" height="5" fill="#ffc46b"/><rect x="566" y="244" width="34" height="5" fill="#7fe0a8"/><rect x="584" y="260" width="5" height="46" fill="#6d737b"/>';
-    if (lit) lights += '<rect x="566" y="234" width="42" height="5" fill="#ffd27a"/><rect x="566" y="244" width="34" height="5" fill="#9ff0c0"/><circle cx="587" cy="242" r="30" fill="#9ff0c0" opacity="0.2"/>';
+    if (lit) lights += '<rect x="566" y="234" width="42" height="5" fill="#ffd27a"/><rect x="566" y="244" width="34" height="5" fill="#9ff0c0"/>' + lamp(587, 242, 0, '#9ff0c0', 32, 0.3);
   }
   // the road: pale concrete, its expansion joints and edge lines, the dark hard shoulder, the rail
   s += `<rect y="300" width="${W}" height="14" fill="${snow ? '#9aa2ab' : '#77797e'}"/><rect y="314" width="${W}" height="86" fill="${snow ? '#d9dde2' : '#dcdad3'}"/>`;
