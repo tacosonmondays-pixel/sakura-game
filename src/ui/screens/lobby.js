@@ -823,11 +823,10 @@ function clanButton(btn, glyph) {
  * The Events button (owner, Oct 28: "add an events button at the bottom? or somewhere?"): the lantern glyph; it opens the
  * live event's page, or Happening Now when no event (or more than one) runs (src/systems/events.js eventHomeButton); a
  * red dot when something waits in it; while an event runs, a small sticker with the time left ("4d"). Where it stands:
- * 'plate' a tab on the Battle plate's top-right corner, CO-OP's twin (the recommended one: at the bottom, as the owner
- * asked, and the four shortcuts keep their row, so her art and Marumi's living scene keep their room), 'dock' a fifth
- * shortcut EVENTS after MALL, or 'top' an icon button in the top right cluster.
+ * 'dock' a fifth shortcut EVENTS after MALL (the owner's pick, Oct 28: "yes"), 'plate' a tab on the Battle plate's
+ * top-right corner, CO-OP's twin, or 'top' an icon button in the top right cluster.
  */
-export const HOME_EVENTS = 'plate';
+export const HOME_EVENTS = 'dock';
 /** "4d" / "7h" / "<1h": the time left on the Events sticker. */
 export function shortLeft(msLeft) {
   if (msLeft == null || !Number.isFinite(msLeft)) return null;
@@ -839,7 +838,7 @@ const eventsAria = (ev) => `Events${ev.route === 'event' ? `, ${ev.phase === 'ex
 function eventsItem(ev) {
   const left = ev.route === 'event' ? shortLeft(ev.msLeft) : null;
   return { id: 'events', label: 'Events', glyph: 'lantern', testid: 'home-events', dot: ev.dot, aria: eventsAria(ev), go: eventsGo(ev),
-    sticker: left ? { testid: 'home-events-left', title: ev.phase === 'exchange' ? `Exchange closes in ${left}` : `Ends in ${left}`, text: left } : null };
+    sticker: left ? { cls: 'left', testid: 'home-events-left', title: ev.phase === 'exchange' ? `Exchange closes in ${left}` : `Ends in ${left}`, text: left } : null };
 }
 function eventsButton(ev) {
   const btn = h('button.ui-ibtn', { type: 'button', title: 'Events', 'data-testid': 'home-events', 'aria-label': eventsAria(ev), onclick: eventsGo(ev) }, g('lantern'));
@@ -875,7 +874,7 @@ function buildDock(host) {
       h('span.ico', g(r.glyph), badge(r.dot ? h('i.ui-dot', { 'data-testid': `${r.testid}-dot` }) : null, `home:dock:${r.id}`)),
       h('span.lbl', r.label),
       // (the sticker sits in the cell's own top right corner, never across the hairline into the next cell)
-      badge(r.sticker ? h('span.ui-bdg.new.home-free', { 'data-testid': r.sticker.testid, title: r.sticker.title, 'aria-hidden': 'true' }, r.sticker.text) : null, `home:dock:${r.id}:free`)));
+      badge(r.sticker ? h(`span.ui-bdg.new.home-free${r.sticker.cls ? `.${r.sticker.cls}` : ''}`, { 'data-testid': r.sticker.testid, title: r.sticker.title, 'aria-hidden': 'true' }, r.sticker.text) : null, `home:dock:${r.id}:free`)));
   }
 }
 

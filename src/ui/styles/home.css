@@ -174,6 +174,8 @@
 /* a free pull (or a spark ready): the badge vocabulary's ink sticker with the word, over the glyph's top right, in the
    cell's own top right corner (never across the hairline into the next cell; --free-y: the glyph's top, less 15 px) */
 .ui-night .home .home-ico .home-free { --free-y: 1px; position: absolute; z-index: 2; right: 2px; top: var(--free-y); height: 18px; padding: 0 5px; line-height: 1; pointer-events: none; }
+/* (the Events time-left sticker in the cell's top-left corner: its red dot keeps the glyph's top right) */
+.ui-night .home .home-ico .home-free.left { right: auto; left: 2px; }
 /* a hairline between two icons; no plate at rest, the kit's slanted press plate on press and keyboard focus */
 .home .home-ico + .home-ico::after { content: ''; position: absolute; left: -2.5px; top: 22px; bottom: 22px; width: 1px; background: var(--line-lo); }
 .home .home-ico::before { content: ''; position: absolute; inset: 2px -2px; z-index: 0; transform: skewX(var(--skew)); background: var(--glass-ink-1); box-shadow: inset 0 0 0 1px var(--line-hi);
@@ -397,10 +399,20 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   .home.fold .home-dock { --ico-pad: 0px; display: grid; grid-template-columns: repeat(2, var(--ico-w)); }
   .ui-night .home.fold .home-dock .home-ico { width: var(--ico-w); min-width: 0; }
   .home.fold .home-dock .home-ico:nth-child(3)::after { display: none; }
-  /* five shortcuts (Events): three by two, so the fold stays two rows tall */
-  .home.fold .home-dock.five { grid-template-columns: repeat(3, var(--ico-w)); }
+  /* five shortcuts (Events): three by two in 64 px cells (12 px caps), so the fold stays two rows tall and as narrow as
+     the four were (Marumi's living scene keeps her room at 1280x720) */
+  .home.fold .home-dock.five { --ico-w: 64px; grid-template-columns: repeat(3, var(--ico-w)); }
+  .ui-night .home.fold .home-dock.five .home-ico .lbl { font-size: 12px; }
   .home.fold .home-dock.five .home-ico:nth-child(3)::after { display: block; }
   .home.fold .home-dock.five .home-ico:nth-child(4)::after { display: none; }
+}
+/* five shortcuts (Events, owner Oct 28): each cell its label plus 8 px a side, so the row stays about as wide as four
+   were; on a landscape phone they fold three by two, clear of her (lobby.js buildDock .five) */
+.home .home-dock.five { --ico-pad: 8px; }
+@media (max-height: 480px) {
+  .home .home-dock.five { --ico-pad: 0px; display: grid; grid-template-columns: repeat(3, var(--ico-w)); }
+  .ui-night .home .home-dock.five .home-ico { width: var(--ico-w); min-width: 0; }
+  .home .home-dock.five .home-ico:nth-child(4)::after { display: none; }
 }
 @media (max-height: 480px) and (max-width: 759px) { .home .home-dock { --ico-w: 64px; } .home .home-go .kl { display: none; } .home .home-evt .lbl { display: none; } }
 @media (min-height: 481px) and (min-width: 701px) and (max-width: 1179px) { .home .home-dock { --ico-w: 88px; --ico-h: 76px; } .ui-night .home .home-ico .home-free { --free-y: -2px; } .home .home-battle { --bw: 300px; } }
