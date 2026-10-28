@@ -7,8 +7,9 @@
 //                 each of its targets within her reach in turn, quicker, never across the map (the far ones take
 //                 abilityFx's feather strike from the sky); Reduce motion: no dive — he stays on her shoulder,
 //                 turns to the first target and plays his attack, and the strikes are still fades on the targets
-//   the doll      (Yoriko) floats in front of her raised hand on glowing threads that stay tied to her
-//                 control bar; dashes at the target and back on her needles and on Dream Detour
+//   the doll      (Yoriko) hangs in front of her raised hand on thin strings tied to her control bar; each of
+//                 her attacks plays Command → Extend → Strike → Reel and a pendulum settle, the strike on the
+//                 sim's hit; Dream Detour too (./marionette.js, rules ./marionetteLogic.js)
 // One actor per placed girl who has a companion (co-op partners' girls too: they are in the shared sim);
 // 'appear' plays when she is placed, the actor goes when she is sold. Models and the manifest contract:
 // src/models/companions.js. Rules (pure): ./companionLogic.js.
@@ -27,6 +28,7 @@ import {
   konState, konStep, konSpot, konAttacks, sortieState, startSortie, retarget, sortieStep, reconcile, swoopDives, diveReach,
   SWOOP_TIME, SWOOP_LIFT, DASH_TIME, DASH_REACH, DASH_STOP, DASH_LIFT, DIVE_TIME, POUNCE_TIME, POUNCE_STOP, POUNCE_LIFT,
 } from './companionLogic.js';
+import { Marionette } from './marionette.js';
 
 /** The ⚡ abilities a companion performs (the sim's `ability` event id → his move). */
 const SWOOP_ID = 'hana.swoop';
@@ -66,6 +68,9 @@ export class Companions {
     this._make = (t, cid) => this._create(t, cid);
     this._drop = (a) => this._dispose(a);
     this._of = (unitId) => companionOf(unitId);
+    // Yoriko's doll: stages, strings, needles' origin (./marionette.js)
+    this.marionette = new Marionette({ sim, actors, root: this.root, quality, reduceMotion: this.reduceMotion });
+    this._nearest = (x, z, r) => this._nearestEnemy(x, z, r);
     loadCompanionManifest().then((m) => {
       if (!this.disposed) this.ready = !!m;
     });
@@ -83,6 +88,7 @@ export class Companions {
   setQuality(q) {
     if (q === this.quality) return;
     this.quality = q;
+    this.marionette.quality = q;
     // girls' views are rebuilt at the new detail too; companions follow on the next update
     this.clear();
   }
@@ -117,6 +123,13 @@ export class Companions {
     return a.kon.view;
   }
 
+  /** Where Yoriko `uid`'s doll is drawn ({ x, z, h }: its body, where her needles leave it) or null. */
+  dollAt(uid) {
+    const a = this.list.get(uid);
+    if (!a || a.cid !== 'doll' || !a.group) return null;
+    return this.marionette.at(a);
+  }
+
   /** Test / e2e probe: one row per actor. */
   probe() {
     const rows = [];
@@ -133,6 +146,7 @@ export class Companions {
         // her ⚡ through him: Kaze's dives still queued (and whether one is a dive), Kon's pounce in flight
         dives: a.dives?.length ?? 0, diving: !!a.diving, pounce: a.pounce?.busy ? (a.pounce.uid ?? null) : null,
       });
+      if (a.mar) dollRow(rows[rows.length - 1], a, this.marionette.probe(a));
     }
     return { enabled: this.enabled, quality: this.quality, detail: this.detail, actors: rows };
   }
@@ -143,11 +157,12 @@ export class Companions {
   handle(ev) {
     if (ev.type === 'attack') {
       const a = this.list.get(ev.towerUid);
-      if (a?.group) this._onAttack(a, ev.targetUid, null);
+      if (a?.group && a.cid === 'doll') this.marionette.onAttack(a, ev);
+      else if (a?.group) this._onAttack(a, ev.targetUid, null);
     } else if (ev.type === 'ult') {
       const a = this.list.get(ev.towerUid);
       // Dream Detour: the doll dashes toward the ult's centre
-      if (a?.group && a.cid === 'doll' && ev.x != null) this._onAttack(a, null, { x: ev.x, z: ev.y });
+      if (a?.group && a.cid === 'doll' && ev.x != null) this.marionette.onPoint(a, ev.x, ev.y, this._nearest);
     } else if (ev.type === 'ability') {
       const a = this.list.get(ev.towerUid);
       if (!a?.group) return;
@@ -272,6 +287,7 @@ export class Companions {
     }
     // full files when zoomed in on quality high, LOD otherwise
     this.zoom = zoom;
+    this.marionette.tick(dt);
     if (this.quality !== 'high') this.detail = 'lod';
     else if (this.detail === 'lod' && zoom >= FULL_AT) this.detail = 'full';
     else if (this.detail === 'full' && zoom <= LOD_AT) this.detail = 'lod';
@@ -339,9 +355,12 @@ export class Companions {
     // the doll's thread tops: where the bar bone sits at home, kept there while the doll dashes
     a.barRest = g.userData.bar ? boneAtIdle(asset, g.userData.bar.name) : null;
     this.root.add(g);
+    // the doll: its GLB threads give way to the drawn strings
+    if (a.cid === 'doll') this.marionette.bind(a, asset);
   }
 
   _dispose(a) {
+    if (a.cid === 'doll') this.marionette.release(a);
     if (!a.group) return;
     this.root.remove(a.group);
     a.group.userData.dispose?.();
@@ -383,6 +402,10 @@ export class Companions {
     a.home.copy(_home).applyMatrix4(_m);
     const scale = m.scale.x * a.battleScale;
     g.scale.setScalar(scale);
+    if (a.cid === 'doll') {
+      this.marionette.update(a, v, t, dt, scale);
+      return;
+    }
     let state = 'idle';
     let facing = v.facing;
     if (a.kon) {
@@ -459,8 +482,19 @@ export class Companions {
   dispose() {
     this.disposed = true;
     this.clear();
+    this.marionette.dispose();
     this.root.removeFromParent();
   }
+}
+
+/** The doll's probe row: 'sortie' from Command to the end of the settle, its target and stage. */
+function dollRow(row, a, m) {
+  const s = a.mar;
+  const out = s.stage !== 'idle';
+  row.mode = out ? 'sortie' : 'home';
+  row.target = out ? [+s.tx.toFixed(3), +s.ty.toFixed(3), +s.tz.toFixed(3)] : null;
+  row.targetUid = out ? (s.uid ?? null) : null;
+  row.marionette = m;
 }
 
 const SWOOP_OPTS = { lift: SWOOP_LIFT };
