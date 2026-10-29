@@ -49,7 +49,8 @@ describe('line glyphs', () => {
   it('the approved set: 86 glyphs in five groups, each one drawn', () => {
     expect(CORE_GLYPHS).toHaveLength(86);
     for (const names of Object.values(GLYPH_GROUPS)) for (const n of names) expect(hasLineGlyph(n), n).toBe(true);
-    expect(Object.keys(LINE_GLYPHS)).toHaveLength(89); // the 86 + armorbreak, pierce and lantern (the mock-ups)
+    expect(Object.keys(LINE_GLYPHS)).toHaveLength(95); // the 86 + armorbreak, pierce and lantern (the mock-ups) + Tryout Day's 6
+    expect(GLYPH_GROUPS['Tryout Day']).toEqual(['marble', 'eraser', 'hall-pass', 'desk', 'stamp', 'chalk']);
   });
   it('every glyph the kit fixture draws exists', () => {
     expect(FIXTURE_NAMES.length).toBeGreaterThan(36);

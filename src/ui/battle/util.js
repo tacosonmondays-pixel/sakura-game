@@ -93,7 +93,7 @@ export function createThrottle() {
 }
 
 /**
- * Live rates over a sliding window of game time (the drone panel's "Dealing" and "DPS (last 5 s)"):
+ * Live rates over a sliding window of game time (the drone panel's "DPS (live)" and "DPS (last 5 s)"):
  * sample(time, key, value) records a running total (damage dealt so far); rate(key) is how fast it
  * grew over the last `window` seconds (null until a second of samples exists).
  */

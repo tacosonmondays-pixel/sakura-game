@@ -42,7 +42,7 @@ export const SNAPSHOT_VERSION = 1;
 // Battle mode + map rule (docs/specs/CODEX_MODES.md): the mode comes from options, and both route
 // orientations are dense polylines the constructor builds (AFTER_RESTORE picks the live one).
 export const REBUILT = Object.freeze(['data', 'stage', 'map', 'pathData', 'paths', 'pathTiles', 'placement', '_waveCache', 'events', '_scratch', '_scratch2', 'loadout', 'heroConfigs', '_heroConfig', '_stepping', '_capSources',
-  'mode', '_pathsFwd', '_pathsRev']);
+  'mode', '_pathsFwd', '_pathsRev', '_tryoutCfg', '_loadouts', 'viewOwner']);
 const REBUILT_SET = new Set(REBUILT);
 
 /**

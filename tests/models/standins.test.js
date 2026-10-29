@@ -11,7 +11,8 @@ import { SKINS } from '../../src/data/skins.js';
 
 // the girls still drawn procedurally: Tenka (her art waits for the owner's approval). The returning girls have
 // their GLBs since the art wave (Meshy noa / hana / ruri, temporary Blender chibis for the rest, docs/MODELS.md).
-const ART_PENDING = ['tenka'];
+// Kogane and Norika (BANNERS §D.5) ship before their art: procedural stand-ins in their own look.
+const ART_PENDING = ['tenka', 'kogane', 'norika'];
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -31,7 +32,7 @@ function build(unit, look = {}) {
 }
 
 describe('stand-in list', () => {
-  it('is exactly the girls whose art is pending (Tenka today), all roster units', () => {
+  it('is exactly the girls whose art is pending (Tenka, Kogane, Norika today), all roster units', () => {
     expect([...STANDIN_UNITS]).toEqual(ART_PENDING);
     for (const id of ART_PENDING) {
       expect(getUnit(id).id).toBe(id);
@@ -42,9 +43,26 @@ describe('stand-in list', () => {
 
   it('every other unit (and every outfit / Coming Soon asset) is a GLB girl', () => {
     const others = UNITS.filter((u) => !ART_PENDING.includes(u.id));
-    expect(others).toHaveLength(35); // 36 units minus Tenka
+    expect(others).toHaveLength(36); // 39 units minus Tenka, Kogane and Norika (the duo's members are GLB girls too: tests/models/glb.test.js)
     for (const u of others) expect(isStandIn(u.id), u.id).toBe(false);
     for (const s of SKINS.filter((x) => x.kind !== 'default')) expect(isStandIn(s.asset), s.asset).toBe(false);
+  });
+});
+
+describe('stand-in chin-up', () => {
+  it('the staff heroes lift their chins so their eyes read under the brim from the battle camera', () => {
+    for (const id of ['kogane', 'norika']) {
+      const g = buildChibi(getUnit(id), { quality: 'low' });
+      expect(g.userData.chinUp, id).toBeGreaterThan(0.1);
+      g.userData.animate(0.5, 0.016, 'idle');
+      // the head bone pitches back (negative x) past her own idle
+      const e = new THREE.Euler().setFromQuaternion(g.userData.bones[3].quaternion);
+      expect(e.x, id).toBeLessThan(-0.05);
+      disposeObject(g);
+    }
+    const t = buildChibi(getUnit('tenka'), { quality: 'low' });
+    expect(t.userData.chinUp).toBeUndefined();
+    disposeObject(t);
   });
 });
 

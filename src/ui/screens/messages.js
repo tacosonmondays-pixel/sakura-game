@@ -6,6 +6,7 @@
 // every 30 s covers a missed event. Text only, shown with textContent.
 import '../styles/social.css';
 import { h, screen, button, toast, modal, confirmDialog, svgEl, glyph } from '../components.js';
+import { countBadge } from '../badges.js';
 import { buildHash } from '../router.js';
 import { ensureOnline, onlinePill, avatar, levelChip, clock, connecting, showError } from '../online/common.js';
 import { inlineLoader } from '../loading/loader.js';
@@ -114,13 +115,13 @@ export function render(root, params = {}) {
   let backend = null;
 
   // ---- layout -------------------------------------------------------------------------------
-  const tabBar = h('nav.tabs.sc-tabs', { role: 'tablist' });
-  const list = h('div.sc-list', { 'data-testid': 'msg-list' });
-  const listPane = h('aside.sc-list-pane',
-    h('div.sc-list-head', tabBar,
-      h('button.sc-icon-btn', { title: 'Message settings', 'aria-label': 'Message settings', 'data-testid': 'msg-privacy', onclick: () => privacyDialog() }, svgEl(glyph('settings'), 'sc-icon'))),
-    list);
-  const threadPane = h('section.sc-thread-pane', { 'data-testid': 'thread-pane' });
+  // [ui-v2 M8] the kit's folder tabs on the list's panel (ink strip, the open tab a hole of the white), the message
+  // settings at the strip's end; the conversation on a kit panel beside it
+  const tabBar = h('nav.ui-tabs.ol-ftabs.sc-tabs', { role: 'tablist', 'aria-label': 'Messages' });
+  const gear = h('button.ol-ftab-ico', { type: 'button', title: 'Message settings', 'aria-label': 'Message settings', 'data-testid': 'msg-privacy', onclick: () => privacyDialog() }, svgEl(glyph('settings'), 'sc-icon'));
+  const list = h('div.sc-list.ui-tabbed-body', { 'data-testid': 'msg-list' });
+  const listPane = h('aside.sc-list-pane.ui-tabbed', h('div.sc-list-head', tabBar, gear), list);
+  const threadPane = h('section.sc-thread-pane.ui-panel', { 'data-testid': 'thread-pane' });
   const wrap = h('div.sc-msg', listPane, threadPane);
 
   function setHash(next) {
@@ -167,8 +168,10 @@ export function render(root, params = {}) {
     const n = hub.badges;
     // (Blocked is a list of its own, opened from the settings button or Settings → Online)
     const items = [['chats', 'Chats', n.unreadDms], ['friends', 'Friends', 0], ['requests', 'Requests', n.friendRequests + (n.clanInvites || 0)]];
-    tabBar.replaceChildren(...items.map(([id, label, count]) => h(`button.tab${id === tab ? '.active' : ''}`, {
-      role: 'tab', 'aria-selected': id === tab ? 'true' : 'false', 'data-testid': `msg-tab-${id}`,
+    // (the count stays on its tab, as the kit's red number: the online tests read it; Blocked opens as a fourth tab)
+    if (tab === 'blocked') items.push(['blocked', 'Blocked', 0]);
+    tabBar.replaceChildren(...items.map(([id, label, count]) => h(`button.ui-tab${id === tab ? '.on' : ''}`, {
+      type: 'button', role: 'tab', 'aria-selected': id === tab ? 'true' : 'false', 'data-testid': `msg-tab-${id}`, title: count ? `${label}: ${count} new` : null,
       onclick: () => {
         tab = id;
         setHash({ id: selected || undefined, tab: id === 'chats' ? undefined : id });
@@ -176,7 +179,7 @@ export function render(root, params = {}) {
         paintList();
         wrap.dataset.pane = 'list';
       },
-    }, label, count ? h('span.sc-pill', String(count)) : null)));
+    }, h('span.hit', { 'aria-hidden': 'true' }), h('span.mark', { 'aria-hidden': 'true' }), h('span.ol-ftab-l', label), count ? h('span.sc-pill.ui-count', String(count)) : null)));
   }
 
   let listTimer = 0;
@@ -209,7 +212,7 @@ export function render(root, params = {}) {
     },
     avatar(t.peer.avatar, 40),
     h('span.sc-row-main', h('span.sc-row-top', h('b', t.peer.name), tagChips(t.peer.userId), h('time', t.last ? clock(t.last.createdAt) : '')), h('span.sc-row-sub', preview(t.last))),
-    t.unread ? h('span.sc-pill', { 'data-testid': 'thread-unread' }, String(t.unread)) : null)));
+    countBadge(t.unread, { cls: 'sc-row-n', testid: 'thread-unread' }))));
   }
 
   async function friendsList() {
@@ -242,10 +245,10 @@ export function render(root, params = {}) {
     const head = h('div.sc-code-box',
       h('div.sc-code-mine', h('small', 'Your friend code'), codeEl,
         h('span.sc-code-acts',
-          h('button.sc-mini', { onclick: () => copy(formatFriendCode(mine.code)) }, 'Copy'),
-          h('button.sc-mini', {
-            'data-testid': 'friend-code-new',
-            onclick: async () => {
+          button('Copy', { kind: 'ghost', small: true, onClick: () => copy(formatFriendCode(mine.code)) }),
+          button('New code', {
+            kind: 'ghost', small: true, testid: 'friend-code-new',
+            onClick: async () => {
               if (!(await confirmDialog('A new code makes the old one stop working.', { title: 'New friend code', ok: 'New code' }))) return;
               try {
                 const r = await backend.resetFriendCode();
@@ -254,7 +257,7 @@ export function render(root, params = {}) {
                 showError(e);
               }
             },
-          }, 'New code'))),
+          }))),
       h('div.sc-code-add', codeIn, button('Add', { kind: 'yellow', small: true, icon: 'plus', testid: 'friend-code-add', onClick: addByCode })),
       h('small.muted.sc-code-tip', 'Only share your code with people you know.'));
     const rows = friends.length
@@ -262,7 +265,7 @@ export function render(root, params = {}) {
         h('button.sc-row-tap', { onclick: () => openPlayerCard(f.userId, f, { context: 'profile' }) }, avatar(f.avatar, 38),
           // name + one tag chip on the top line (the name keeps its room next to Message); the level goes below
           h('span.sc-row-main', h('span.sc-row-top', h('b', f.name), tagChips(f.userId)), h('span.sc-row-sub', levelChip(f.level), h(`span${f.online ? '.ol-online-dot' : ''}`, presenceText(f.lastActive) || 'Friend')))),
-        f.canMessage ? h('button.sc-mini.sc-mini-blue', { 'data-testid': 'friend-message', onclick: () => messagePeer(f) }, 'Message') : null))
+        f.canMessage ? button('Message', { kind: 'primary', small: true, testid: 'friend-message', onClick: () => messagePeer(f) }) : null))
       : [h('div.ol-empty.sc-empty', h('b', 'No friends yet'), h('p.muted', 'Add clanmates and co-op partners from their name, or swap friend codes.'))];
     return h('div.sc-rows', head, ...rows);
   }
@@ -274,7 +277,7 @@ export function render(root, params = {}) {
       avatar(q.avatar, 38),
       h('span.sc-row-main', h('span.sc-row-top', h('b', q.name), tagChips(q.userId)), h('span.sc-row-sub', levelChip(q.level), h('span', VIA[q.via] || 'wants to be friends'))),
       h('span.sc-req-acts',
-        button('Accept', { kind: 'yellow', small: true, testid: 'request-accept', onClick: () => answer(q, true) }),
+        button('Accept', { kind: 'primary', small: true, testid: 'request-accept', onClick: () => answer(q, true) }),
         button('Decline', { kind: 'ghost', small: true, testid: 'request-decline', onClick: () => answer(q, false) }))));
     // requests I sent: no tag chip (the server never tells the sender the other player's account id)
     const out = r.outgoing.map((q) => h('div.sc-row.sc-req.out', avatar(q.avatar, 32),
@@ -301,7 +304,7 @@ export function render(root, params = {}) {
 
   async function blockedList() {
     const list2 = await backend.blocked();
-    const head = h('div.sc-sec.sc-sec-row', h('span', 'Blocked players'), h('button.sc-mini', { 'data-testid': 'blocked-done', onclick: () => { tab = 'chats'; setHash({ id: selected || undefined }); paintTabs(); paintList(); } }, 'Done'));
+    const head = h('div.sc-sec.sc-sec-row', h('span', 'Blocked players'), button('Done', { kind: 'ghost', small: true, testid: 'blocked-done', onClick: () => { tab = 'chats'; setHash({ id: selected || undefined }); paintTabs(); paintList(); } }));
     if (!list2.length) return h('div.sc-rows', head, h('div.ol-empty.sc-empty', h('b', 'Nobody blocked'), h('p.muted', 'Blocked players can\'t message, invite or friend you, and you don\'t see their chat.')));
     return h('div.sc-rows', head, ...list2.map((b) => h('div.sc-row', { 'data-testid': 'blocked-row' }, avatar(b.avatar, 34),
       h('span.sc-row-main', h('span.sc-row-top', h('b', b.name))),

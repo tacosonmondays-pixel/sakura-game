@@ -119,6 +119,16 @@ export function paySpare(profile, rarity, { points = true } = {}) {
   return { mementos: pay.memento, moonpearls: pay.moonpearl, points: gained, fifths: points ? pay.fifths : 0 };
 }
 
+/** Coins a Coin or Friendship spare pays (BANNERS §A.1b). */
+export const COIN_SPARE = Object.freeze({ R: 1000, SR: 5000, SSR: 20000 });
+
+/** Pay a spare from a Coin or Friendship pull: coins only. */
+export function payCoinSpare(profile, rarity) {
+  const coins = COIN_SPARE[rarity] || COIN_SPARE.R;
+  addItems(profile, [{ id: 'coins', count: coins }]);
+  return { mementos: 0, moonpearls: 0, points: 0, fifths: 0, coins };
+}
+
 /** R spares' fifths towards the next recruit point (0–4: the recruit screen's 5-pip meter). */
 export function spareFifths(profile) {
   return cnt(profile, 'spk:r') % 5;
@@ -128,14 +138,16 @@ export function spareFifths(profile) {
  * A duplicate arrived (unlocks.js grantUnit, after `dupes += 1`): her Essence, or a spare.
  * @returns {{ essence: 0|1, spare: null|{ mementos: number, moonpearls: number, points: number, fifths: number }, potential: number, essenceHeld: number, readyStep: number|null }}
  */
-export function receiveDuplicate(profile, unitId) {
+export function receiveDuplicate(profile, unitId, { source = null } = {}) {
   const st = profile.units[unitId];
   const def = UNIT_MAP[unitId];
   let essence = 1;
   let spare = null;
   if (essenceBalance(profile, unitId) > essenceCap(st)) {
     bump(profile, `essX:${unitId}`);
-    spare = paySpare(profile, def?.rarity);
+    // [banners] a spare from a Coin or Friendship pull pays coins only: never Mementos, Moonpearls or recruit
+    // points, so coins and Friend Points never turn into gem-tier pulls (BANNERS §A.1b)
+    spare = source === 'coin' || source === 'friend' ? payCoinSpare(profile, def?.rarity) : paySpare(profile, def?.rarity);
     essence = 0;
   }
   const p = boughtP(st);

@@ -63,7 +63,12 @@
 }
 @media (min-height: 481px) { .gp-plate { padding: 40px var(--sp-4) var(--sp-3); gap: 7px; } }
 .gp-np1 { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
-.gp-name { font: italic 900 var(--fs-title)/1 var(--font-head); color: var(--on-plate); text-shadow: 0 2px 0 rgba(14, 25, 48, 0.5); overflow-wrap: anywhere; }
+.gp-name {
+  font: italic 900 var(--fs-title)/1 var(--font-head); color: var(--on-plate); text-shadow: 0 2px 0 rgba(14, 25, 48, 0.5);
+  /* one line, sized to fit by girlFrame.js fitName; the right padding holds the italic overhang of the last letter */
+  flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; padding-right: 0.14em;
+}
+.gp-name.fit-wrap { white-space: normal; line-height: 1.05; }
 .gp-np2 { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .gp-np2 > .lbl { color: var(--on-plate-dim); flex: 1; min-width: 0; }
 .gp-pwr { color: var(--plate-accent); flex: none; }
