@@ -368,7 +368,7 @@ const CHIGUSA = {
   personality: 'Gentle and patient. She talks to plants and slimes in exactly the same voice.',
   quote: 'Slowly now. Everything grows if you give it time.',
   tips: [
-    'She throws a fan of three thorn seeds, and every 6 seconds a vine holds the lead walker in her range for a moment (bosses and flyers shrug it off).',
+    'She throws a fan of three thorn seeds, and every 6 seconds a vine bursts up on the road in her range and grows along it toward the walkers: everyone on it is slowed 20%, and the first one it reaches is held for a moment (bosses and flyers shrug vines off).',
     'Thorn Beds (Greenhouse tier 2): her kills leave thorns on the road that hurt the next few enemies.',
     '⚡ Greenhouse tier 3 teaches Overgrowth: vines hold a whole group of walkers in her range and squeeze them.',
     'Harvest grows coins and, from Herb Garden, a life back for every wave cleared (never above your starting lives).',
@@ -385,9 +385,9 @@ const CHIGUSA = {
     path('greenhouse', 'Greenhouse', 'Vines and thorns', [
       tier('Creepers', 130, 'Seeds slow 15% for 1s.', { status: [S.slow(0.15, 1)] }),
       tier('Thorn Beds', 320, 'Her kills of walkers leave a thorn bed on the road: 4 hits of 2 damage, for 8s.', { vine: { beds: 4 } }),
-      tier('Strangler Vine', 1100, 'A vine every 4s that holds for 2s and deals 10 damage a second.', { vine: { every: -2, hold: 1, dps: 10 } }),
-      tier('Thorn Hedge', 3400, 'A vine every 3s; thorn beds have 8 hits.', { vine: { every: -1, beds: 4 } }),
-      tier('Forest Corridor', 19200, 'A vine every 2.5s; vines deal 30 a second; thorn beds hit for 10.', { vine: { every: -0.5, dps: 20, bedDmg: 8 } }),
+      tier('Strangler Vine', 1100, 'A vine every 4s, 3 tiles long, standing 4s; it holds the first walker for 2s and lashes every second for 6 damage, shared by the walkers on it.', { vine: { every: -2, hold: 1, dps: 6, len: 1, life: 1 } }),
+      tier('Thorn Hedge', 3400, 'A vine every 3s, two at once; thorn beds have 8 hits.', { vine: { every: -1, beds: 4, max: 1 } }),
+      tier('Forest Corridor', 19200, 'A vine every 2.5s, 4 tiles long, slowing 35%; vines lash for 16 a second; thorn beds hit for 10.', { vine: { every: -0.5, dps: 10, bedDmg: 8, len: 1, slow: 0.15 } }),
     ]),
     path('harvest', 'Harvest', 'Coins and lives', [
       tier('Compost', 100, '+0.4 range.', { range: 0.4 }),

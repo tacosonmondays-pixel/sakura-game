@@ -76,3 +76,11 @@ export function turnToward(k, kTarget, maxSteps) {
   else if (diff < -maxSteps) diff = -maxSteps;
   return wrapDir(k + diff);
 }
+
+const TAU = 2 * Math.PI;
+
+/** The facing angle (radians, −π…π, the renderer's convention) of table index k: k × 2π / RING_DIRS, no trig. */
+export function dirAngle(k) {
+  const a = (TAU * wrapDir(k)) / RING_DIRS;
+  return a > Math.PI ? a - TAU : a;
+}

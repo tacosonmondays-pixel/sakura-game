@@ -295,7 +295,7 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     for (const k of ['balls', 'ballSpec', 'blastSpec', 'pinSpec', 'runners']) expect(json, k).toContain(`"${k}"`);
   });
 
-  it('Chigusa mid-wave (UNIT_GAPS §5.7): a vine hold, thorn beds, Bloom Rush and Overgrowth running', () => {
+  it('Chigusa mid-wave (UNIT_GAPS §5.7): Bramble Road vines, a hold, thorn beds, Bloom Rush and Overgrowth running', () => {
     const team = ['chigusa', 'aoi', 'rei', 'yuki', 'kage', 'shiro'];
     const stats = { costMul: 0.3 };
     const args = { stageId: '1-5', difficulty: 'normal', loadout: team.map((unitId) => ({ unitId, stats })), hero: { unitId: 'hikari' }, seed: 3232, options: { autoStart: true, autoAbilities: true } };
@@ -304,7 +304,7 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     sim.cash += 20000;
     sim.startNextWave();
     const busy = (s) => s.state === 'wave' && s.enemies.filter((e) => !e.dead).length >= 4
-      && s.towers.some((t) => t.vineHold) && s.towers.some((t) => t.beds?.length) && s.enemies.some((e) => e.statuses.hold);
+      && s.towers.some((t) => t.vines?.length) && s.towers.some((t) => t.beds?.length) && s.enemies.some((e) => e.statuses.hold);
     for (let k = 0; k < 60 * 60 * 25 && !busy(sim); k++) {
       if (k % 20 === 0) for (const c of bot(sim)) apply(sim, c);
       const cg = sim.towers.find((t) => t.unitId === 'chigusa');
@@ -312,8 +312,8 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
         // Bloom Rush by hand next to her ⚡ Greenhouse path (the bot buys that one)
         const growth = cg.def.paths.findIndex((p) => p.id === 'growth');
         while (cg.tiers[growth] < 2 && sim.upgradeTower(cg.uid, growth));
-        // (her team clears the road before many kills are hers: a bed under her held enemy, laid by her own code)
-        const held = cg.vineHold && sim.enemies.find((e) => e.uid === cg.vineHold.uid);
+        // (her team clears the road before many kills are hers: a bed under a held enemy, laid by her own code)
+        const held = cg.vines?.length && sim.enemies.find((e) => !e.dead && e.statuses.hold);
         if (held && !cg.beds?.length && cg.stats.vine.beds > 0) addBed(sim, cg, held.x, held.y);
       }
       sim.update(STEP);
@@ -323,7 +323,7 @@ describe('battle snapshots: restore into a fresh Sim, run on, nothing drifts', {
     const r = twin(sim, args, bot, 9000);
     expect(r.compared).toBeGreaterThan(5);
     const json = JSON.stringify(r.snap);
-    for (const k of ['vineHold', 'beds', 'vineSpec', 'bedSpec', 'hold']) expect(json, k).toContain(`"${k}"`);
+    for (const k of ['vines', 'beds', 'vineSpec', 'bedSpec', 'hold']) expect(json, k).toContain(`"${k}"`);
   });
 
   it('Ouka mid-wave (UNIT_GAPS §5.5): her rules, a banner, coins per kill and Assembly Bell running', () => {

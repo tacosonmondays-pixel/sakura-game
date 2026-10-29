@@ -235,9 +235,11 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // Ouka: her banners stay ('bn', planted again in order through setAim); a covered girl's rules follow
   // the hubs around her (recomputeBuffs)
   banners: 'snap', rules: 'derived',
-  // Chigusa: her vine timer starts over, her held enemy, thorn beds and Bloom Rush end at the wave clear;
-  // the vine and bed specs follow her stats
-  vineCd: 'calm', vineHold: 'calm', beds: 'calm', bloomT: 'calm', bloomIdle: 'calm', vineSpec: 'derived', bedSpec: 'derived',
+  // Chigusa: her vine timer starts over, her Bramble Road vines (attack shapes S3), thorn beds and Bloom Rush end at the
+  // wave clear; the vine and bed specs follow her stats
+  vineCd: 'calm', vines: 'calm', beds: 'calm', bloomT: 'calm', bloomIdle: 'calm', vineSpec: 'derived', bedSpec: 'derived',
+  // the attack shapes S3 (src/sim/ground.js): Yuki's spike rows and Kanna's quake rings end at the wave clear
+  spikeRows: 'calm', quakes: 'calm',
   // Marumi: her balls end at the wave clear; the ball, blast, pin and lob specs follow her stats
   balls: 'calm', ballSpec: 'derived', blastSpec: 'derived', pinSpec: 'derived', lobSpec: 'derived',
   // Tenka: her lab team's record travels (`lb`; the girls who joined are not on the field, and the tier
