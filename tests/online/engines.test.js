@@ -148,7 +148,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.refused).toBe('');
     expect(r.cleared).toBeGreaterThanOrEqual(12);
     expect(r.casts).toBeGreaterThanOrEqual(30);
-    expect(r.kinds.split(',')).toEqual(['boost', 'burst', 'debuff', 'econ', 'rally', 'strike']); // no deploy (A4)
+    // deploy: the guest's Iroha, Mirror Shift (A6; the other deploys wait for A4); shots split at her reflecting panel
+    expect(r.kinds.split(',')).toEqual(['boost', 'burst', 'debuff', 'deploy', 'econ', 'rally', 'strike']);
+    expect(Number(r.splits.split('/')[0])).toBeGreaterThan(0);
     // both players cast, and some host taps met a recharging girl (the late-tap rule)
     expect(r.byOwner.split('/').every((n) => Number(n) > 0)).toBe(true);
     expect(r.taps).toMatch(/ cooldown/);
@@ -160,9 +162,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // deliberate sim / data / ability change, and say why. Re-pinned by the A2 review fixes (was 40227 /
     // '636/487' / 2145385076 / '5726405e', 46 casts): a manual cast's kill coins are pooled and split like
     // an auto-cast's (the same battle, the same 1123 coins, now 652/471: 2017100116 / '7ad61cb6'), then
-    // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine.
-    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind })
-      .toEqual({ ticks: 37655, state: 'between', wallets: '800/520', final: 4047740824, hashes: 'c84c23e1', casts: 51, byKind: 'boost 2 · burst 21 · debuff 11 · econ 3 · rally 4 · strike 10' });
+    // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine. Re-pinned (ua4/iroha, V8 only so
+    // far) when the guest took Iroha as a sixth entry, her Mirror Shift splitting shots (was 37655 / '800/520' / 4047740824 /
+    // 'c84c23e1', 51 casts).
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind, splits: r.splits })
+      .toEqual({ ticks: 35142, state: 'between', wallets: '789/304', final: 1874922712, hashes: 'bd99be08', casts: 32, byKind: 'boost 1 · burst 10 · debuff 10 · deploy 2 · econ 3 · rally 1 · strike 5', splits: '33/0' });
   }, 240000);
 
   it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {

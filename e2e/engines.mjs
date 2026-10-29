@@ -341,8 +341,8 @@ if (ref.roster.curseBursts < 5) failures.push(`the roster battle burst only ${re
 if (ref.drones.drones < 3) failures.push(`the drones battle flew only ${ref.drones.drones} drones`);
 if (ref.drones.flies < 4) failures.push(`the drones battle sent only ${ref.drones.flies} fly commands`);
 // abilities: every live kind, manual taps (some refused), Auto-cast, owner coins, the checkpoint replay
-const AB_KEYS = ['ticks', 'state', 'wave', 'cleared', 'towers', 'casts', 'kinds', 'byKind', 'byOwner', 'taps', 'wallets', 'lives', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
-log('\nScripted co-op ABILITIES battle (4-5, ABILITIES_START: the host taps 5 girls + Luna, the guest on Auto-cast + taps, to wave 12):');
+const AB_KEYS = ['ticks', 'state', 'wave', 'cleared', 'towers', 'casts', 'kinds', 'byKind', 'byOwner', 'splits', 'taps', 'wallets', 'lives', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
+log('\nScripted co-op ABILITIES battle (4-5, ABILITIES_START: the host taps 5 girls + Luna, the guest (Iroha\'s Mirror Shift among hers) on Auto-cast + taps, to wave 12):');
 for (const { name, r } of results) {
   const b = r.abilities;
   log(`  ${name.padEnd(46)} ticks ${b.ticks} · ${b.state} · cleared ${b.cleared} · ${b.casts} casts (${b.byKind}; host/guest ${b.byOwner}) · ${b.taps} · coins ${b.wallets} · final ${b.final} · ${b.checkpoints} hash checkpoints → ${b.hashes} · checkpoint w${b.ckWave} ${b.ckSame ? 'replays to the run' : 'REPLAY DIFFERS'} · ${b.ms} ms`);

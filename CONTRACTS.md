@@ -197,7 +197,7 @@ ABILITY_RULES = { ticksPerSecond: 60, chargePerTick: 100, initialShare: 3, ccGua
                   // cap 0.5, never rally / debuff: NOT_HASTED_KINDS); First Bell: firstBellCharge at wave start
 ABILITY_KINDS = boost | rally | strike | burst | debuff | econ | deploy | move | zone | runner
 abilityRuns(entry) → boolean   // THE live rule: kinds ABILITY_KINDS_RUN (a boost needs effect.mods), deploys
-                               // ABILITY_DEPLOYS_RUN ('strips', 'sentries'), runners ABILITY_RUNNERS_RUN ('giantBall');
+                               // ABILITY_DEPLOYS_RUN ('strips', 'sentries', 'mirror'), runners ABILITY_RUNNERS_RUN ('giantBall');
                                // the sim's handlerOf, the bar, the girl page, the ⚡ tips and GEAR_FIT all agree with it
 ABILITY_SCOPES = local (a cooldown per girl) | map (per player, per ability) | player (per-player rules: econ)
 AUTO_WHEN = enemies | elite | leak | veiled | caster | poisoned | ready | flyers | sabotage
@@ -1248,6 +1248,9 @@ SimEvent = { type, ...payload } with types:
   'abilityUnlock' {towerUid,id,kind,owner} 'abilityUpgrade' {towerUid,id} 'abilityReady' {towerUid,id} | {group,id,owner}
   'ability' {towerUid,id,kind,scope,owner,auto,x,y,radius /*0 = map-wide*/,targets:[uid ≤12],coins?} 'abilityWarn' {towerUid,id,x,y,radius,delay,targets?|shells?}
   'abilityShell' {towerUid,id,x,y,radius,hits} 'abilityEnd' {towerUid,id,wave?} 'abilityFizzle' {towerUid,id,uid}
+  'ability' for a deploy also carries placed?; Iroha's Mirror Shift adds mirror: 'panel' (her panel jumped to x,y; a 'relay'
+            and an 'aim' event come with it) | 'second' (tier 5: a second mirror stands at x,y for the window; t.mirror2)
+  'mirrorSplit' {uid /*the shot that split*/, copyUid, ownerUid /*the shooter: the copy's credit*/, mirrorUid /*Iroha*/, x, y /*the crossing*/, targetUid /*the copy's*/}
   'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)
   'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/,
                lanes? /*the open lane indices, only on a stage with waveGen.laneCycle*/ }
