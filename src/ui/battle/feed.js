@@ -18,10 +18,40 @@ const maxToasts = () => (typeof window === 'undefined' ? MAX_TOASTS : shortScree
  * @returns {boolean} true = dock top-right
  */
 export function feedDockRight(pts, { width, w, top, hgt, preferRight = false }) {
-  const hits = (x0) => pts.reduce((s, p) => s + (p.x > x0 - 24 && p.x < x0 + w + 24 && p.y > top - 16 && p.y < top + hgt ? p.w ?? 1 : 0), 0);
+  // (gate points, `gate: true`, only place feedLayout's drop: they never weigh in here)
+  const hits = (x0) => pts.reduce((s, p) => s + (!p.gate && p.x > x0 - 24 && p.x < x0 + w + 24 && p.y > top - 16 && p.y < top + hgt ? p.w ?? 1 : 0), 0);
   const leftHits = hits(12);
   const rightHits = hits(width - 12 - w);
   return preferRight ? rightHits <= leftHits : rightHits < leftHits;
+}
+
+/**
+ * Where the feed goes when BOTH top corners would cover a spawn (Gate Arc Step 6 visual review: 6-10's two Vesper Gates
+ * sit in the top corners, and whichever corner the feed took, it hid one gate). The feed keeps the corner
+ * `feedDockRight` picks but drops below the lowest spawn gate in that corner (gate points carry `gate: true` and their
+ * screen radius `r`), as long as the whole stack still fits in the upper part of the board (`limit`); and while a boss
+ * is up it keeps at most 2 toasts (`cap`), always so when it cannot drop. Any other board: `top` and `cap` stay null,
+ * the feed behaves exactly as before.
+ * @param {Array<{x:number,y:number,w?:number,gate?:boolean,r?:number}>} pts layer CSS px
+ * @param {{ width:number, w:number, top:number, hgt:number, preferRight?:boolean, limit?:number }} box as
+ *   feedDockRight; limit: the lowest the stack's bottom may reach (layer px; default no limit)
+ * @returns {{ right: boolean, top: number|null, cap: number|null, capAlways: boolean }}
+ */
+export function feedLayout(pts, box) {
+  const right = feedDockRight(pts, box);
+  const { width, w, top, hgt, limit = Infinity } = box;
+  const inCorner = (p, x0) => p.x > x0 - 24 && p.x < x0 + w + 24 && p.y > top - 16 && p.y < top + hgt;
+  const spawns = pts.filter((p) => (p.w ?? 1) >= 1);
+  const lx = 12;
+  const rx = width - 12 - w;
+  const hit = (x0) => spawns.some((p) => !p.gate && inCorner(p, x0));
+  if (!hit(lx) || !hit(rx)) return { right, top: null, cap: null, capAlways: false };
+  const x0 = right ? rx : lx;
+  let low = -Infinity;
+  for (const p of spawns) if (p.gate && p.x > x0 - 24 - (p.r ?? 0) && p.x < x0 + w + 24 + (p.r ?? 0) && p.y > top - 16 - (p.r ?? 0)) low = Math.max(low, p.y + (p.r ?? 0));
+  const y = Math.ceil(low + 8);
+  if (Number.isFinite(low) && y > top && y + hgt <= limit) return { right, top: y, cap: 2, capAlways: false };
+  return { right, top: null, cap: 2, capAlways: true };
 }
 
 export function createFeed(layer) {
@@ -31,21 +61,38 @@ export function createFeed(layer) {
   // it) would sit under the toasts. Decided only while the feed is empty, so live toasts
   // never jump. `avoid()` returns the points to keep clear, in layer CSS px, each with an
   // optional weight `w` (spawn runs weigh 1; exit gates less, so they only break ties).
+  // Both top corners over a spawn (feedLayout): the feed drops below the gates (an inline `top`) and keeps at most
+  // `cap` toasts while a boss is up (or always, when it cannot drop). Decided with the corner, while the feed is empty.
   let avoid = null;
+  let cap = null;
+  let capAlways = false;
+  const limitToasts = () => {
+    const n = maxToasts();
+    if (!cap || n <= cap) return n;
+    return capAlways || layer.closest?.('.bt-has-boss') ? cap : n;
+  };
   const dock = () => {
     if (!avoid || list.children.length) return;
     const pts = avoid() || [];
     const L = layer.getBoundingClientRect();
     if (!pts.length || !L.width) return;
-    const right = feedDockRight(pts, {
+    // the CSS top (a drop from the last dock is cleared first, so it measures from the stylesheet's own top)
+    list.style.top = '';
+    const lay = feedLayout(pts, {
       width: L.width,
       w: Math.min(list.offsetWidth || 340, L.width * 0.5),
       top: list.offsetTop || 70,
       hgt: maxToasts() * (shortScreen() ? 26 : 40) + 16,
       preferRight: shortScreen(),
+      limit: L.height * 0.72,
     });
-    list.classList.toggle('bt-feed-r', right);
-    list.classList.toggle('bt-feed-l', !right);
+    list.classList.toggle('bt-feed-r', lay.right);
+    list.classList.toggle('bt-feed-l', !lay.right);
+    // (narrow portrait screens centre the feed under the HUD: no corners, no drop)
+    const corners = typeof window === 'undefined' || window.innerWidth > 700;
+    if (corners && lay.top != null) list.style.top = `${lay.top}px`;
+    cap = corners ? lay.cap : null;
+    capAlways = lay.capAlways;
   };
   const banner = h('div.bt-banner-host');
   layer.append(list, banner);
@@ -94,7 +141,7 @@ export function createFeed(layer) {
     if (o.sticky) t.dataset.sticky = '1';
     list.prepend(t);
     // over the limit: the oldest toast that is not sticky goes (else the oldest one)
-    while (list.children.length > maxToasts()) {
+    while (list.children.length > limitToasts()) {
       const old = [...list.children].reverse().find((n) => n !== t && !n.dataset.sticky) || list.lastElementChild;
       old.remove();
     }

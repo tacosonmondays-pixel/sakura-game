@@ -549,8 +549,9 @@ export const THEMES = {
     bank: '#8b9eb0',
     bankDark: '#6a7c8e',
     shore: '#a5b8c9',
-    // the glassway carries its own colour (textures.pathTexture 'glassway'): the theme's tint is white
-    path: { style: 'glassway', color: '#ffffff', curb: '#eef6fb', side: '#7f93a6', base: '#788b9e', crisp: true, plainJunction: true },
+    // the glassway carries its own colour (textures.pathTexture 'glassway'): the theme's tint is white; the living
+    // city lifts its grey-cyan panel back to white glass (tone), the frozen city keeps it grey-cyan (FROZEN.pathTone)
+    path: { style: 'glassway', color: '#ffffff', curb: '#eef6fb', side: '#7f93a6', base: '#788b9e', crisp: true, plainJunction: true, tone: 1.6 },
     // the fold-out light-bridge (trackMesh `glass`): an opaque pale glass deck with a cyan edge glow, on
     // water decks and overpasses alike; a map may ask for the sky-rail girder instead (map.bridge.skyRail)
     bridge: { deck: '#cfe2ec', rail: '#e6f3f9', post: '#7f97aa', lacquer: false, overpass: '#d4e6ef', girder: '#5a7084', overRail: '#e6f3f9', grating: false, glass: true, edge: '#5fe1f2', shadow: 0.32 },
@@ -840,7 +841,7 @@ export const FROZEN = {
   nightBg: '#0e1426',
   fogColor: '#5c6688',
   ground: ['#8496a8', '#7d8fa1'],
-  groundSpeck: '#b7c5d4',
+  groundSpeck: '#a7b6c5',
   groundShade: '#64768a',
   clover: '#98a9bb',
   wet: '#6f8297',
@@ -854,7 +855,14 @@ export const FROZEN = {
   water: { deep: '#06101d', shallow: '#122339', foam: '#9cc2da', glow: 0.05, caustic: 0.1, foamAmt: 0.4 },
   groundPaint: { cloverAmt: 0.2, rime: 1, drifts: 0.55 },
   pathSide: '#55677a',
-  city: { sidewalk: '#98a9ba', kerb: '#b2c1cf', kerbSide: '#5e7083', lawn: '#8798aa', plaza: ['#8b9cae', '#8395a6'] },
+  /**
+   * the glassway's grey-cyan panel as it is (textures.GLASSWAY, no lift): ≈ 130 luma on the board, the lightest
+   * band, and ≥ 40 under the white glass machines (Step 6 visual review round 1)
+   */
+  pathTone: 1,
+  /** the light-bridge's deck and overpass frosted down under the road (the living city's are pale glass) */
+  bridge: { deck: '#9fb1c0', overpass: '#a3b5c4' },
+  city: { sidewalk: '#98a9ba', kerb: '#a4b3c1', kerbSide: '#5e7083', lawn: '#8798aa', plaza: ['#8b9cae', '#8395a6'] },
   scatter: ['courtyardTree', 'frostedPane', 'courtyardTree', 'haloStatue'],
   scatterDensity: 0.3,
   weather: 'snow',
@@ -932,7 +940,8 @@ export function resolveLook(themeId, scenery = {}, stageLook = null, map = null)
       groundPaint: { ...(look.groundPaint || {}), ...Z.groundPaint }, scatter: [...Z.scatter], scatterDensity: Z.scatterDensity,
     });
     look.water = { ...look.water, ...Z.water };
-    look.path = { ...look.path, side: Z.pathSide };
+    look.path = { ...look.path, side: Z.pathSide, tone: Z.pathTone };
+    look.bridge = { ...look.bridge, ...Z.bridge };
     if (look.city) look.city = { ...look.city, ...Z.city };
     look.life = { ...Z.life };
     if (scenery.weather === undefined) look.weather = Z.weather;

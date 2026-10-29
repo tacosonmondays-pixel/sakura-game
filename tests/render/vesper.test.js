@@ -237,6 +237,31 @@ describe('the vesper theme and its two looks', () => {
     expect(lin(frozen.water.deep)).toBeLessThan(0.01);
   });
 
+  it('the white glass machines sit clearly above the frozen glassway panel in luma; the teal one clearly under it', () => {
+    // Step 6 visual review round 1: a white panel ([228,234,238]) swallowed the white machines at 844×390. The
+    // frozen road is the grey-cyan panel as it is (FROZEN.pathTone 1); every vesper_* body sits ≥ 1.1× its linear
+    // luma (measured on the board: road ≈ 130, the white machines 167-206) or, like the teal Halo Drone, ≤ 0.6×
+    // (never the road's own grey)
+    expect(frozen.path.tone).toBe(FROZEN.pathTone);
+    expect(frozenNight.path.tone).toBe(FROZEN.pathTone);
+    const [r, g, b] = GLASSWAY.panel;
+    const road = (frozen.path.tone * (0.2126 * r + 0.7152 * g + 0.0722 * b)) / 255;
+    const machines = ENEMIES.filter((e) => e.id.startsWith('vesper_'));
+    expect(machines.length).toBeGreaterThanOrEqual(7);
+    let white = 0;
+    for (const e of machines) {
+      const l = lin(e.color);
+      if (e.id === 'vesper_halo_drone') expect(l, e.id).toBeLessThanOrEqual(0.6 * road);
+      else {
+        expect(l, `${e.id} ${e.color}`).toBeGreaterThanOrEqual(1.1 * road);
+        white++;
+      }
+    }
+    expect(white).toBeGreaterThanOrEqual(6);
+    // the living city lifts the panel back to white glass (its machines never walk it)
+    expect(living.path.tone).toBeGreaterThan(1.4);
+  });
+
   it('chooses lecture halls and podiums for interior H tiles, deterministically', () => {
     const map = VESPER_FIXTURES.causeway;
     const pathSet = stampTracks(mapTracks(map));

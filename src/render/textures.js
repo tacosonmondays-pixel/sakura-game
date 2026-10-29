@@ -1641,11 +1641,13 @@ export function grassTexture(seed = 7) {
  *   road is paler so it stays the lightest band at night)
  */
 /**
- * Vesperline's glassway colours (LINEAR 0-255, before `tone`; Gate Arc S6a): the white panel (most of the
- * road), the frosted edge strips and the cyan guide line. The tests read the panel to keep the road the
- * lightest band of every vesper look.
+ * Vesperline's glassway colours (LINEAR 0-255, before `tone`; Gate Arc S6a): the grey-cyan glass panel (most of
+ * the road), the frosted edge strips, the panel seams and the cyan guide line. The tests read the panel to keep
+ * the road the lightest band of every vesper look AND clearly under the white glass machines walking on it
+ * (Step 6 visual review: a white panel swallowed them at 844×390; this one renders ≈ 130 luma on the frozen
+ * stages, the machines 170-200). The living look brightens it back to white with `path.tone` (THEMES.vesper).
  */
-export const GLASSWAY = Object.freeze({ panel: [228, 234, 238], edge: [198, 210, 220], guide: [64, 196, 222] });
+export const GLASSWAY = Object.freeze({ panel: [134, 148, 158], edge: [116, 129, 140], seam: [100, 112, 124], guide: [64, 196, 222] });
 
 export function pathTexture(style = 'flagstone', seed = 3, o = {}) {
   if (style === 'track') return trackTexture(seed);
@@ -1800,7 +1802,7 @@ export function pathTexture(style = 'flagstone', seed = 3, o = {}) {
     return finishTileTex(c);
   } else if (style === 'glassway') {
     // Vesperline's road (Gate Arc S6a): like `concrete` this style carries its own colour (LINEAR values,
-    // GLASSWAY; the theme tints it white), u along the road, v across it. White glass panels, a seam across
+    // GLASSWAY; the theme tints it white), u along the road, v across it. Grey-cyan glass panels, a seam across
     // the lane every half tile, a faint frost speck, frosted edge strips and a thin cyan guide line down
     // the middle. The band v 0.2-0.4 stays plain (flat junction boxes). Mostly panel: the lightest band.
     const tone = o.tone ?? 1;
@@ -1814,7 +1816,8 @@ export function pathTexture(style = 'flagstone', seed = 3, o = {}) {
       g.fillRect(rnd() * size, rnd() * size, 1.5, 1.5);
     }
     // the panel seams across the lane (outside the plain band)
-    g.fillStyle = `rgb(${T(170)},${T(184)},${T(196)})`;
+    const [sr, sg, sb] = GLASSWAY.seam;
+    g.fillStyle = `rgb(${T(sr)},${T(sg)},${T(sb)})`;
     for (const x of [0, size / 2]) {
       g.fillRect(x, 0, 2, size * 0.2);
       g.fillRect(x, size * 0.4, 2, size * 0.6);
