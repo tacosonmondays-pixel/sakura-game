@@ -3,7 +3,7 @@
 // period's first wave start; per-player ones read the per-owner counters (`ctr[owner]`), so co-op judges each
 // player's slot 3 on its own. assignProgress() is the HUD's pure read (no sim work).
 import { TRYOUT } from '../../data/tryout.js';
-import { stream, lengthOf, periodWaves } from './plan.js';
+import { stream, lengthOf, periodWaves, setPieceAt } from './plan.js';
 import { CONTENT } from './offers.js';
 import { enemyTraitKeys } from '../enemies.js';
 
@@ -63,10 +63,9 @@ export function bestPossible(sim, period) {
 // Drawing (§3.1)
 // ---------------------------------------------------------------------------
 
-/** Does period p hold a miniboss or the boss? */
+/** Does period p hold a miniboss or the boss (Extended Day: the period grid's set pieces, §20.1)? */
 export function periodHasBoss(len, p) {
-  const [a, b] = periodWaves(len, p);
-  return len.minibossWaves.some((w) => w >= a && w <= b) || (len.bossWave >= a && len.bossWave <= b);
+  return setPieceAt(len, p) !== null;
 }
 
 /** Does period p's spawn lists hold a flyer (an `airborne` trait, phases included, as waves.js summarizes)? */

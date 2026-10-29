@@ -3,7 +3,7 @@
 // are run state and the board at that wave end, so a co-op peer, a reload and a Continue all agree. The open
 // offer is stored in run state when it is made.
 import { TRYOUT, PEP_CARDS, SCALE, TRYOUT_STUDENTS, MAP_WIDE } from '../../data/tryout.js';
-import { stream, lengthOf } from './plan.js';
+import { stream, lengthOf, examPrepAt, lastPickAt, econOkAt, tryoutPickAt, lrCapAt, lastWaveOf } from './plan.js';
 import { familySums, inSet, pairSide } from './pep.js';
 import { enemyTraitKeys } from '../enemies.js';
 import { TRAITS } from '../../data/types.js';
@@ -29,7 +29,7 @@ export function pityFloor(p, pick, len) {
   let f = 0;
   if (p.pity.r >= TRYOUT.teacher.rStreak) f = Math.max(f, 1);
   if (p.pity.noSsr >= TRYOUT.teacher.noSsr) f = Math.max(f, 2);
-  if (pick === len.examPrep) f = Math.max(f, TRYOUT.teacher.examPrep);
+  if (examPrepAt(len, pick)) f = Math.max(f, TRYOUT.teacher.examPrep);
   return f;
 }
 
@@ -115,10 +115,10 @@ export function cardOk(sim, owner, inst, pick) {
   if (!live(c) || !c.rar.includes(inst.r)) return false;
   const p = ty.players[owner];
   const len = lengthOf(ty.length);
-  const last = pick === len.picks.length;
+  const last = lastPickAt(len, pick);
   if (c.one && p.cards.some((x) => x.id === inst.id)) return false;
   if (c.team && ty.players.some((q) => q.cards.some((x) => x.id === inst.id))) return false;
-  if (c.econ && pick > len.picks.length - 2) return false;
+  if (c.econ && !econOkAt(len, pick)) return false;
   if (c.solo && ty.coop) return false;
   if (c.next && last) return false;
   if (c.heals && !sim.canHeal()) return false;
@@ -214,7 +214,7 @@ export function uncovered(sim, owner) {
   const ty = sim.tryout;
   const len = lengthOf(ty.length);
   const from = ty.period * len.wavesPerPeriod + 1;
-  const to = Math.min(len.periods * len.wavesPerPeriod, from + 2 * len.wavesPerPeriod - 1);
+  const to = Math.min(lastWaveOf(len), from + 2 * len.wavesPerPeriod - 1);
   const traits = new Set();
   for (let w = from; w <= to; w++) {
     for (const sp of sim._getWave(w).spawns) {
@@ -294,7 +294,7 @@ export function drawOffer(sim, owner, pick, rarity, erasers, prev = null) {
   const p = ty.players[owner];
   const len = lengthOf(ty.length);
   const rng = stream(ty.seed, `offer:${pick}:${owner}:${erasers}`);
-  const tryoutPick = (len.tryoutPicks.includes(pick) || p.tryoutNext) && squadRoom(sim, owner) > 0;
+  const tryoutPick = (tryoutPickAt(len, pick) || p.tryoutNext) && squadRoom(sim, owner) > 0;
   if (tryoutPick) return { kind: 'girls', cards: drawGirls(sim, owner, rng, 3, prev, { varsity: false }) };
   const two = p.nextCards === 2 || !!(prev && prev.two);
   const taken = new Set();
@@ -355,7 +355,7 @@ export function openOffer(sim, owner, pick, credits) {
   const band = len.bands[pick - 1] || 'late';
   const k = Math.min(TRYOUT.creditsMax, credits);
   const floor = pityFloor(p, pick, len);
-  const w = rarityWeights(band, k, floor, p.lr >= len.lrCap);
+  const w = rarityWeights(band, k, floor, p.lr >= lrCapAt(len, pick));
   const rarity = rollRarity(stream(ty.seed, `rarity:${pick}:${owner}`), w);
   const drawn = drawOffer(sim, owner, pick, rarity, 0);
   const two = p.nextCards === 2 && drawn.kind === 'cards';
