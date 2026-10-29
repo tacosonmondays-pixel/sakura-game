@@ -27,6 +27,9 @@ const SAMPLE_EVERY = 0.1;
 export const DPS_AVG_MIN = 1;
 /** A jump in game time bigger than this between two frames (a restore, a rejoin catching up) is not counted. */
 const AVG_GAP = 2;
+/** The drawer's tooltips (title and aria text) for the two DPS cells: the girl drawer's and a drone owner's Overall. */
+export const DPS_LIVE_TIP = 'Live: everything she dealt over the last 5 s of the wave (splash, poison, crits, drones, traps). Between waves: her last wave\'s average.';
+export const DPS_AVG_TIP = 'Average: what she dealt over her time on the field in waves, since she was placed (or since this battle was opened). Shows after 1 s.';
 
 /**
  * Her average DPS: the damage she dealt since `base` (her damageDealt when the meter first saw her) over `secs`, her
@@ -57,7 +60,8 @@ export function createDpsMeter(window = DPS_LIVE_WINDOW) {
   let curWave = null;
   const start = new Map(); // uid -> [time, damageDealt] at the wave's start (or when she was placed)
   const lastWave = new Map(); // uid -> her average over the last whole wave
-  const field = new Map(); // uid -> { base: damageDealt when first seen, secs: wave seconds on the field since }
+  const field = new Map(); // uid -> { base: damageDealt when first seen, secs: wave seconds on the field since, last, seen }
+  let frame = 0; // stamps each girl seen this sample: an entry not stamped is a girl gone (sold, or to a lab team)
   const clear = () => {
     meter.clear();
     start.clear();
@@ -83,21 +87,20 @@ export function createDpsMeter(window = DPS_LIVE_WINDOW) {
       const wave = sim.state === 'wave';
       // her time on the field (wave seconds) and the damage it is set against
       const counted = (wave || inWave) && dt > 0 && dt <= AVG_GAP;
+      frame++;
       for (const t of sim.towers) {
         const dealt = t.damageDealt || 0;
         const f = field.get(t.uid);
-        if (!f || !(dealt >= f.last)) field.set(t.uid, { base: dealt, secs: 0, last: dealt });
+        if (!f || !(dealt >= f.last)) field.set(t.uid, { base: dealt, secs: 0, last: dealt, seen: frame });
         else {
           if (counted) f.secs += dt;
           else if (dt > AVG_GAP) f.base += dealt - f.last; // a jump the drawer did not watch: left out
           f.last = dealt;
+          f.seen = frame;
         }
       }
-      if (field.size > sim.towers.length) {
-        // sold (or gone to a lab team): her average ends with her
-        const here = new Set(sim.towers.map((t) => t.uid));
-        for (const u of field.keys()) if (!here.has(u)) field.delete(u);
-      }
+      // sold (or gone to a lab team): her average ends with her (even when a girl is placed in the same frame)
+      for (const [u, f] of field) if (f.seen !== frame) field.delete(u);
       const next = wave && (!inWave || sim.wave !== curWave);
       if (inWave && (!wave || next)) {
         for (const t of sim.towers) {
