@@ -151,11 +151,17 @@ export function createAttackFx(o) {
     return null;
   }
 
+  const splitCopies = new Map(); // copy uid -> its mirrorSplit event (the crossing point)
   function onEvent(ev, i, events) {
     if (disposed) return false;
     const t0 = now();
     let handled = false;
     switch (ev.type) {
+      case 'mirrorSplit':
+        // a shot split at a mirror (src/sim/mirrors.js): its copy is drawn leaving the crossing point
+        if (splitCopies.size > 256) splitCopies.clear();
+        splitCopies.set(ev.copyUid, ev);
+        break;
       case 'hit':
         // (a constant beam's damage ticks are no impact for a projectile to match)
         if (!ev.tick) hits.push(ev.uid, ev.x, ev.y, 0, ev.crit);
@@ -279,13 +285,22 @@ export function createAttackFx(o) {
           }
         }
       }
+      // a mirror's split copy starts where the shot crossed the glass: not at her hand, her panel or a drone
+      const split = splitCopies.get(p.uid);
+      if (split) {
+        splitCopies.delete(p.uid);
+        rec.sx = split.x;
+        rec.sy = split.y;
+      }
       rec.mx = rec.sx;
       rec.my = rec.sy;
       rec.mz = rec.sz;
       if (t) {
         const tw = ensureTw(t);
         rec.tw = tw;
-        if (rec.turretUid != null) {
+        if (split) {
+          rec.blended = false;
+        } else if (rec.turretUid != null) {
           rec.blended = ctx.drones.muzzleFor(rec.turretUid, rec);
         } else {
           rec.idx = tw.volleyIdx % tw.volleyN;
