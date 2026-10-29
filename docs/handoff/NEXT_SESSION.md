@@ -1,5 +1,7 @@
 # Next session: start here (updated Oct 29, 2026, afternoon)
 
+**Read `docs/handoff/HANDOFF_2026-10-29.md` first** (detailed state, next steps, and how to split the work into sessions with suggested effort).
+
 This page is for a session that only has the GitHub repo (a cloud session), not the owner's PC. Read `docs/HANDOFF.md` too; it has the rules (§6), the shipping flow (§7) and the branch table (§3). Check out the coordination branch `claude/sakura-sentinels`; `main` is the live build (every push to `main` deploys).
 
 ## UPDATE Oct 29 (afternoon): v0.1.61 SHIPPED; art v3 in Look B under way
