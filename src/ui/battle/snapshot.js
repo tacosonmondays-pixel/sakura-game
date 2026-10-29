@@ -166,6 +166,10 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   // Auto-cast setting comes from the profile; the count of girls with an ability follows the tier replay
   abilGroups: 'snap', abilUses: 'calm', _rallies: 'calm', _abilQueue: 'calm', ownerCash: 'calm',
   abilityAutoDefault: 'config', _abilOn: 'derived',
+  // the A4 deploys (src/sim/deploys.js): Kage's shadow doubles end at every wave clear (created lazily on the first
+  // cast, emptied, never deleted); Bell Carpet traps and surge drones end there too, so the trap and drone rows of a
+  // calm point are all her own
+  deployables: 'calm',
   // roster B3 (aim, mortar, relay, curse, team damage buff): shells end at the wave clear, the curse
   // queue is flushed inside the step, the relay samples are a cache of the forward paths, and the
   // team damage multiplier follows the saved buffs ('db')

@@ -20,8 +20,8 @@
 // An upgrade (t5, a rank) merges by spread: its scalars replace, its `effect` fields replace the
 // base's one by one (a nested list or object such as `status` or `mods` is replaced whole).
 //
-//   kind     boost · rally · strike · burst · debuff · econ (sim A1) · deploy (by type: 'strips' and 'sentries'
-//            run; 'double', 'trap', 'drone' wait for A4, 'mirror' for A6) · runner (by type: 'giantBall' runs;
+//   kind     boost · rally · strike · burst · debuff · econ (sim A1) · deploy (by type: 'strips', 'sentries' and
+//            the A4 types 'double', 'trap', 'drone' run; 'mirror' waits for A6) · runner (by type: 'giantBall' runs;
 //            'river' waits for A6) · move, zone (later)
 //            (which entries run: abilityRuns below, the one rule)
 //   scope    local  — one cooldown per girl
@@ -68,8 +68,9 @@
 //           casterStatus (casters only), dmgMul (a hit on each, × her hit), rally (a rally rider for `duration`)
 //   move    (A5, not run yet) reachMul, push / pushMiniboss, pick, count, carry / carryMiniboss, status
 //   econ    coins (× the difficulty's coin rate and the mode's income rate; owner-credited)
-//   deploy  deploy ('strips' Azami, 'sentries' Yuzuha; 'double' | 'trap' | 'drone' with A4; 'mirror' with A6),
-//           count, spacing, dmgMul, arm (s), hits, reachMul, reflect / permanentReflect (Iroha's mirror)
+//   deploy  deploy ('strips' Azami, 'sentries' Yuzuha, 'double' Kage, 'trap' Suzu, 'drone' Chika (src/sim/deploys.js);
+//           'mirror' with A6), count, spacing (tiles between doubles), dmgMul, arm (s), hits, reachMul,
+//           reflect / permanentReflect (Iroha's mirror)
 //   runner  runner ('giantBall' Marumi; 'river' with A6), length, speed (tiles), segments, gap, dmgMul, knockback,
 //           allPaths, toSpawn, push, status
 //   boost   (a status-only splash rider, A5: Kanna) splashArmor { radius, shred }, status
@@ -106,8 +107,11 @@ export const AUTO_WHEN = Object.freeze(['enemies', 'elite', 'leak', 'veiled', 'c
 
 /** Kinds this build runs (src/sim/abilities.js KINDS; tests/sim/abilities.test.js keeps the two equal). */
 export const ABILITY_KINDS_RUN = Object.freeze(['strike', 'burst', 'boost', 'rally', 'debuff', 'econ']);
-/** Deploy object types this build runs (src/sim/abilities.js DEPLOYS): Azami's strips, Yuzuha's sentries. */
-export const ABILITY_DEPLOYS_RUN = Object.freeze(['sentries', 'strips']);
+/**
+ * Deploy object types this build runs (src/sim/abilities.js DEPLOYS): Azami's strips, Yuzuha's sentries and the A4
+ * types, Kage's shadow doubles, Suzu's Bell Carpet traps and Chika's surge drones (src/sim/deploys.js).
+ */
+export const ABILITY_DEPLOYS_RUN = Object.freeze(['sentries', 'strips', 'double', 'trap', 'drone']);
 /** Runner types this build runs (src/sim/abilities.js RUNNERS): Marumi's giant ball. */
 export const ABILITY_RUNNERS_RUN = Object.freeze(['giantBall']);
 

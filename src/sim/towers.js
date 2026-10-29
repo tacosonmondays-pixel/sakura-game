@@ -1241,13 +1241,20 @@ export function restoreDrone(t, row, i) {
   return d;
 }
 
+/** Her own drones: what her drone limit counts (Drone Surge's drones, `temp`, fly beyond it; src/sim/deploys.js). */
+export function ownDrones(t) {
+  let n = 0;
+  for (const d of t.turrets) if (!d.temp) n++;
+  return n;
+}
+
 /** Does this girl fly roaming drones (Chika)? */
 export function hasRoamingDrones(t) {
   return !!t.turretSpec && t.turretSpec.leash > 0;
 }
 
 function spawnTurret(sim, t) {
-  const n = t.turrets.length;
+  const n = ownDrones(t);
   let tu;
   if (hasRoamingDrones(t)) {
     t.droneSerial++;
@@ -1263,7 +1270,7 @@ function spawnTurret(sim, t) {
 
 function attackTurret(sim, t) {
   const tur = t.stats.turret;
-  if (tur && sim.state === 'wave' && t.turrets.length < tur.max) return spawnTurret(sim, t);
+  if (tur && sim.state === 'wave' && ownDrones(t) < tur.max) return spawnTurret(sim, t);
   if (t.eff.damage > 0) return attackProjectile(sim, t);
   return false;
 }
@@ -1816,7 +1823,7 @@ function updateRoamingDrones(sim, t, spec, dt, ocMul = 1) {
  */
 function buildDrones(sim, t, dt) {
   const tur = t.stats.turret;
-  if (!tur || t.eff.behavior === 'turret' || sim.state !== 'wave' || t.turrets.length >= tur.max) return;
+  if (!tur || t.eff.behavior === 'turret' || sim.state !== 'wave' || ownDrones(t) >= tur.max) return;
   t.buildTimer -= dt;
   if (t.buildTimer > 0) return;
   spawnTurret(sim, t);
@@ -2146,6 +2153,16 @@ export function updateTraps(sim, dt) {
       }
       continue;
     }
+    // a Bell Carpet trap (Suzu's ⚡, src/sim/deploys.js) fizzles when its time runs out
+    if (tr.extra) {
+      tr.ttl -= dt;
+      if (tr.ttl <= 0) {
+        tr.dead = true;
+        removedAny = true;
+        sim._emit('trapExpired', { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid, extra: true });
+        continue;
+      }
+    }
     if (!tr.armed) {
       tr.armLeft -= dt;
       if (tr.armLeft <= 0) tr.armed = true;
@@ -2165,8 +2182,8 @@ export function updateTraps(sim, dt) {
     tr.dead = true;
     removedAny = true;
     const owner = tr.owner;
-    owner.trapCount = Math.max(0, owner.trapCount - 1);
-    sim._emit('trapTriggered', { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid });
+    if (!tr.extra) owner.trapCount = Math.max(0, owner.trapCount - 1);
+    sim._emit('trapTriggered', tr.extra ? { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid, extra: true } : { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid });
     // Potential N3 on traps (Suzu): every Nth of her traps that goes off is the rhythm's
     const p = owner.stats?.proc;
     let boom = spec;
