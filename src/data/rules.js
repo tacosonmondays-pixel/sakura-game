@@ -38,7 +38,7 @@ export const MAP_RULES = Object.freeze({
 const v = (x, y, r = 1.6) => Object.freeze({ x, y, r });
 const pad = (x, y, r = 0.9) => Object.freeze({ x, y, r });
 
-/** Stage → rule placement (§3.2) and the stage's vents and pads (§3.3). */
+/** Stage → rule placement (§3.2) and the stage's vents and pads (§3.3): every campaign stage from 1-4, and the side stages. */
 export const STAGE_RULES = Object.freeze({
   '1-4': { id: 'petal_sanctuary' },
   '1-5': { id: 'firefly_chorus' },
@@ -89,6 +89,33 @@ export const STAGE_RULES = Object.freeze({
   '2-8': { id: 'prism_conduits', pads: [pad(5.5, 2.5), pad(9.5, 5.5), pad(16.5, 8.5)] },
   '2-9': { id: 'firefly_chorus' },
   '2-10': { id: 'changing_tides' },
+  // Chapter 3 · Act II — The Bell Festival
+  '3-6': { id: 'moonlit_blessing' },
+  '3-7': { id: 'forge_vents', zones: [v(3.5, 5.0), v(11.0, 5.9)] },
+  '3-8': { id: 'alchemists_mist' },
+  '3-9': { id: 'heat_mirage' },
+  '3-10': { id: 'lunar_eclipse' },
+  // Chapter 4 · Act II — The Checkpoint (4-9's pads are the village's three last warm hearths)
+  '4-6': { id: 'supply_ship' },
+  '4-7': { id: 'heat_mirage' },
+  '4-8': { id: 'rear_ambush' },
+  '4-9': { id: 'prism_conduits', pads: [pad(7.5, 4.5), pad(12.5, 4.5), pad(10, 9)] },
+  '4-10': { id: 'snowbell_blizzard' },
+  // Chapter 5 · Act II — The Drowned Line (5-8's vents are the pump station's two relief valves on the road)
+  '5-6': { id: 'changing_tides' },
+  '5-7': { id: 'lunar_eclipse' },
+  '5-8': { id: 'forge_vents', zones: [v(9.5, 6.5), v(13.0, 9.5)] },
+  '5-9': { id: 'alchemists_mist' },
+  '5-10': { id: 'firefly_chorus' },
+  // Chapter 6 · Act II — Vesperline (6-6's pads are three prism batteries on the causeway islands; 6-9's shifting_stars
+  // rift points are the city's broken transit pads, both ≥ 2 tiles along the road from every crossing)
+  '6-6': { id: 'prism_conduits', pads: [pad(2.5, 5.5), pad(11.5, 5.5), pad(18.0, 6.0)] },
+  '6-7': { id: 'heat_mirage' },
+  '6-8': { id: 'lunar_eclipse' },
+  '6-9': { id: 'shifting_stars' },
+  '6-10': { id: 'supply_ship' },
+  // The side stage after 6-10 (STEP6_BUILD_PLAN decision 9): the dome's falling star-map shards, on ground road only
+  'side-6-starfall': { id: 'forge_vents', zones: [v(16.6, 5.8), v(12.0, 3.8), v(3.0, 9.4)] },
 });
 
 /** The stage's rule (MAP_RULES entry + its zones and pads), or null. */

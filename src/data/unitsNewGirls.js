@@ -33,7 +33,7 @@ const AZAMI = {
   materialFamily: 'cog',
   capabilities: ['trap'],
   pathCapabilities: ['armorShred', 'barrierBreak', 'stun', 'slow', 'detection', 'antiAir'],
-  acquisition: free('2-2', 'Joins after 2-2: the Disciplinary Committee lends you its strictest prefect and her spike strips.'),
+  acquisition: free('4-7', 'Joins after 4-7: the Disciplinary Committee lends you its strictest prefect, her spike strips and her checkpoint.'),
   palette: {
     hair: '#3b2d40', hairShade: '#241a29', eyes: '#c2414f', skin: '#ffe5d8',
     outfit: '#25262f', outfitShade: '#15161c', accent: '#a57cc4', halo: '#ffb3c1', weapon: '#b7bfcb',

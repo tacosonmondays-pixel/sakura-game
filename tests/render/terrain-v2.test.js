@@ -4,9 +4,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { THEMES, resolveLook } from '../../src/render/themes.js';
 import { buildRibbon, MeshData, SCENERY, resolveScenery, PATH_H, ROAD_HALF } from '../../src/render/terrain.js';
 import * as THREE from 'three';
-import { planRoads, buildDecks, buildTunnels, Acc } from '../../src/render/trackMesh.js';
+import { planRoads, buildDecks, buildTunnels, Acc, headTunnel } from '../../src/render/trackMesh.js';
 import { buildGroundFeatures, junctionChevrons } from '../../src/render/groundFeatures.js';
-import { pointAtDistance } from '../../src/core/track.js';
+import { pointAtDistance, cumulative } from '../../src/core/track.js';
 import { buildProp, hasProp } from '../../src/render/props.js';
 import { Noise2, pathTexture, TRACK_TILES } from '../../src/render/textures.js';
 import { recordingDocument } from './terrainHash.js';
@@ -15,7 +15,7 @@ import { STAGES } from '../../src/data/stages.js';
 import { getEnemy } from '../../src/data/enemies.js';
 
 const HEX = /^#[0-9a-f]{6}$/i;
-const GROUND_STYLES = ['grass', 'moss', 'sand', 'snow', 'ash', 'metal', 'paved'];
+const GROUND_STYLES = ['grass', 'moss', 'sand', 'snow', 'ash', 'metal', 'paved', 'tile', 'glass'];
 // (the campus paints on 'grass', with the painter's kerb bands: THEMES.campus.groundPaint)
 
 describe('road plan (Tracks v3: the ribbon follows the canonical centreline)', () => {
@@ -43,14 +43,23 @@ describe('road plan (Tracks v3: the ribbon follows the canonical centreline)', (
       const plan = planRoads(map, { margin: 8 });
       const roots = map.tracks.filter((t) => !t.fork).length;
       expect(plan.entrances.length, map.id).toBe(roots);
+      // (a lane flagged `inside` opens at a rift inside the board, 3-8: its gate stands at its first point)
+      // (Step 5, 5-6: an inside lane that opens in a tunnel is the subway spawn: its gate stands at the tunnel's OUT mouth)
+      const insideStarts = map.tracks.filter((t) => t.inside).map((t) => {
+        const head = headTunnel(t, map.width, map.height);
+        if (!head) return t.points[0];
+        const p = pointAtDistance(t.points, cumulative(t.points), head[1]);
+        return [p.x, p.y];
+      });
       for (const g of [...plan.entrances, ...plan.exits]) {
+        if (insideStarts.some(([x, z]) => close(g.x, x, 0.05) && close(g.z, z, 0.05))) continue;
         const onEdge = close(g.x, 0, 0.02) || close(g.z, 0, 0.02) || close(g.x, map.width, 0.02) || close(g.z, map.height, 0.02);
         expect(onEdge, `${map.id} gate at ${g.x.toFixed(2)},${g.z.toFixed(2)}`).toBe(true);
         expect(Math.hypot(g.dir[0], g.dir[1])).toBeCloseTo(1, 5);
       }
       for (const r of plan.roads) {
         const t = map.tracks[r.index];
-        if (!t.fork) expect(r.d[0], map.id).toBeLessThan(-8);
+        if (!t.fork && !t.inside) expect(r.d[0], map.id).toBeLessThan(-8); // (a rift lane starts on the board: no run-out)
         if (!t.join) expect(r.d[r.d.length - 1], map.id).toBeGreaterThan(t.length + 8);
       }
     }
@@ -249,7 +258,8 @@ describe('scenery keywords', () => {
 
   it('every keyword in the table resolves to real props (a `props` list cycles through several)', () => {
     for (const [kw, rec] of Object.entries(SCENERY)) {
-      if (rec.ambient) continue;
+      // (ambient keywords start ambient life; look keywords re-dress the look: themes.resolveLook)
+      if (rec.ambient || rec.look) continue;
       const list = rec.props || [rec.prop];
       expect(list.length, kw).toBeGreaterThan(0);
       for (const p of list) if (p !== 'puddle') expect(hasProp(p), `${kw} → ${p}`).toBe(true);

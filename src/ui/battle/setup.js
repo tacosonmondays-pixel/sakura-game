@@ -251,6 +251,8 @@ export function createTryoutSim(profile, rec) {
         // the Desk Supplies the run was started with (src/systems/tryoutRuns.js activePerks; solo only, never in the Weekly):
         // the Sim reads options.tryout.perks (createTryout); players[0].perks rides along for the run config's contract
         ...(hasPerks ? { perks: { ...rec.perks } } : null),
+        // Random Class (§20.4): the Sim draws the three from the pool and lands every pick itself (only when exactly true)
+        ...(rec.random === true ? { random: true } : null),
         ...(resume ? { squads: [rec.squad], period: rec.period || 1 } : null),
       },
     },

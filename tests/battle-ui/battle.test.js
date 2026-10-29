@@ -11,7 +11,7 @@ import { createResults } from '../../src/ui/battle/results.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
 import { applyBattleResult } from '../../src/systems/rewards.js';
 import { createRng } from '../../src/core/rng.js';
-import { feedDockRight } from '../../src/ui/battle/feed.js';
+import { feedDockRight, feedLayout } from '../../src/ui/battle/feed.js';
 
 const NAMES = ['A', 'B', 'C'];
 
@@ -154,6 +154,40 @@ describe('toast feed docking (keeps spawn gates in view)', () => {
     expect(feedDockRight(exitRight, { ...box, preferRight: true })).toBe(false);
     // points below the feed never count
     expect(feedDockRight([{ x: 40, y: 400 }], box)).toBe(false);
+    // gate points only place feedLayout's drop: they never change the corner
+    expect(feedDockRight([{ x: 40, y: 120, gate: true, r: 40 }], box)).toBe(false);
+  });
+  it('both top corners over a spawn (6-10\'s two Vesper Gates): the feed drops below the gates, ≤ 2 toasts with a boss up', () => {
+    const lim = { ...box, limit: 720 * 0.72 };
+    // 1280×720: a gate in each top corner (its road runs down from it), the left corner kept (fewer hits)
+    const gate = (x, y) => [{ x, y, gate: true, r: 60 }, { x, y }, { x, y: y + 60 }];
+    const both = [...gate(290, 130), ...gate(985, 130), { x: 1000, y: 150 }];
+    expect(feedLayout(both, lim)).toEqual({ right: false, top: 198, cap: 2, capAlways: false });
+    // 844×390 (prefers right): the drop clears the right gate
+    const phone = { width: 844, w: 350, top: 58, hgt: 2 * 26 + 16, preferRight: true, limit: 390 * 0.72 };
+    const g = [...gate(260, 85).map((p) => ({ ...p, r: p.r && 32 })), ...gate(585, 85).map((p) => ({ ...p, r: p.r && 32 }))];
+    const lay = feedLayout(g, phone);
+    expect(lay.right).toBe(true);
+    expect(lay.top).toBeGreaterThanOrEqual(85 + 32);
+    expect(lay.top + phone.hgt).toBeLessThanOrEqual(phone.limit);
+    // no room under the gates: no drop, capped at 2 at all times
+    expect(feedLayout(both, { ...box, limit: 300 })).toEqual({ right: false, top: null, cap: 2, capAlways: true });
+  });
+  it('a board with at most one corner over a spawn behaves exactly as before (no drop, no cap)', () => {
+    const lim = { ...box, limit: 518 };
+    const cases = [
+      [],
+      [{ x: 40, y: 120 }, { x: 90, y: 150 }, { x: 40, y: 120, gate: true, r: 50 }],
+      [{ x: 1200, y: 120 }, { x: 1200, y: 120, gate: true, r: 50 }],
+      // an exit in the other corner never counts as a spawn
+      [{ x: 40, y: 120 }, { x: 1200, y: 120, w: 0.2 }, { x: 1200, y: 120, w: 0.2, gate: true, r: 50 }],
+      // a spawn below the feed band
+      [{ x: 40, y: 120 }, { x: 1200, y: 400 }, { x: 1200, y: 400, gate: true, r: 50 }],
+    ];
+    for (const pts of cases) {
+      expect(feedLayout(pts, lim)).toEqual({ right: feedDockRight(pts, lim), top: null, cap: null, capAlways: false });
+      expect(feedLayout(pts, { ...lim, preferRight: true })).toEqual({ right: feedDockRight(pts, { ...lim, preferRight: true }), top: null, cap: null, capAlways: false });
+    }
   });
 });
 

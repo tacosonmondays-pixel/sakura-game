@@ -1,0 +1,38 @@
+{
+  "review": "batch A fix round 4: Iroha Shattered Glass T5 white disc (commit d448fa38, coordinator's exception)",
+  "branch": "feature/visual-reworks",
+  "verdict": "OK",
+  "logic": {
+    "result": "OK",
+    "tests": "tests/render/fxExplosion.test.js + irohaMirror.test.js + attackFx-integration.test.js: 29/29 pass",
+    "notes": [
+      "Order per frame: BattleRenderer.update drains the sim events and handleEvents calls fx.explosion first. attackFx.update runs Iroha's onImpact and dimBlast next, and fx.update advances fx.clock last. So dimBlast sees the blast at dt = 0 on the same clock value, and the 0.1 s window covers an impact matched a frame late.",
+      "dimBlast allocates nothing. It loops over the fixed 8-slot ring and uses the same spot test as _exRepeat, with radius 0.5 x the recorded radius + 0.3. It only lowers a0 (min), so a second call cannot brighten anything.",
+      "Glow reference safety: _exGlow[slot] is cleared when _exRepeat records a slot, then set right after the spawn. dimBlast only reads entries younger than EX_GAP (0.1 s), and the glow lives 0.22 s. A particle goes back to the free list only when it dies, so it cannot be recycled inside the window. spawn() returning null (pool full) is handled by the if (g) guard. fx.clear() empties parts without adding to the free list, so a stale reference points at an orphaned object, which is harmless.",
+      "Volatile exemption: a volatile blast skips _exRepeat entirely, so it is never folded and is not recorded. Its glow is not stored in _exGlow (the if (!volatile) guard), so dimBlast can never dim an enemy's red death blast. The slot captured before the call is unused in that case. This is correct.",
+      "flashFree gates the flash, sparks, ripple, stars and dimBlast together, once per spot per 0.1 s. Shards are still drawn per bolt under the existing SHARDS_PER_FRAME cap.",
+      "Render-only: nothing writes to the sim, so the sim id and COOP_PROTOCOL stay as they are."
+    ]
+  },
+  "look": {
+    "setup": "Round 3 scene: 844x390, swiftshader, quality high, battle 1-1 normal, Iroha 2-0-5 via ui.act.upgrade (tiers [2,0,5]), default camera. The target plus 5 slime_green on its spot (hpMul 50, speedMul 0.05), with hp held full. renderer.update was wrapped so that the render frame which drained explode events freezes (sim paused, renderer dt 0) for the screenshot. Each of the 10 captured frames drained 3 explode events (one volley).",
+    "white_disc_gone": true,
+    "impact_frames": "In 8 of 10 frames the slimes and their hp bar show clearly through a translucent lilac ring with shards and glints (t5-clump-10-impact-frames.jpg). One frame (top row, 4th) is still bright white-lilac, but the slime silhouette and hp bar show through and it is smaller than in round 3. One frame (top row, 1st) shows the warm generic blast before Iroha's layers draw. It has the same look and size as every splash girl's blast (compare Akane), so it is not specific to Iroha. Near-white pixels (min RGB > 225) in a 230x160 box around the target: round 3's disc frames had 1889 to 2224, while round 4's frames have 694 to 1127, about the same as round 3's clean frames (768 to 964).",
+    "reads_as_glass": "Yes. Each hit is a lilac ring with shard glints and sparkles around the clump, distinct from the warm generic blast.",
+    "single_target": "Not re-captured this round. The single-target run lost its target (killed before the hp hold took effect), and the retry timed out waiting for a browser slot before the 06:00 deadline. The clump case is the harsher one: 3 bolts on one spot.",
+    "other_splash_tower": "Akane (blast) on a single target: the same warm blast with ring and puffs as round 3, so no regression (akane-single-blast.jpg). The fold change only affects repeats and volatile blasts."
+  },
+  "findings": [
+    {
+      "severity": "LOW",
+      "title": "About 1 in 10 T5 impact frames is still bright over the clump",
+      "detail": "One frame in 10 has a white-lilac bloom over the targets. They stay visible through it, and it is about half as large as round 3's disc by white-pixel count. If it needs more polish later, lower the kaleidoscope flare's 6 alpha-1 glints or the ripple alpha (0.55). This does not block."
+    },
+    {
+      "severity": "LOW",
+      "title": "Single-target T5 impact frame not re-verified in round 4",
+      "detail": "The single-target capture failed because of harness and time limits, not because of the game. The same code path runs once per spot, so a single bolt now draws exactly what the first bolt of a volley draws. Spot-check this when convenient."
+    }
+  ],
+  "evidence": ["t5-clump-10-impact-frames.jpg", "akane-single-blast.jpg"]
+}

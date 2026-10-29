@@ -114,6 +114,66 @@ Each chapter grows a second act of five stages, **`c-6` … `c-10`** (Act II, "t
   | 2-9 The Running Track | `noon_running_track` | an infield straight, then one lap that crosses its own entry on a footbridge | firefly_chorus (Starting Pistol) | dashers, boars |
   | 2-10 The Boathouse Lamp | `noon_boathouse_lamp` | a breakwater, a 270° curl round the old lamp, a flat crossing on the breakwater head | changing_tides (Lake Swell) | `lizard_lamp_hugger` (Old Lamp-Hugger, the Bog Basilisk's model at miniboss scale) |
 
+* **Chapter 3 · Act II · The Bell Festival** (Itomachi's Old Town at night, theme `city`, `district: 'oldtown'`;
+  STEP3_BUILD_PLAN). 3-6 needs 3-5 **and** 2-10. 3-9 and 3-10 burn (`scenery.ruined: 'burning'`).
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 3-6 Old Town Lanes | `noon_old_town` | three hooked lanes (north, south, north) with flat roofs ('U') inside the hooks | moonlit_blessing (Bell Festival) | wisps, two taught groups of veiled wraiths; scene `g3.pro` before |
+  | 3-7 Takoyaki Row | `noon_takoyaki_row` | three long diagonals across two stall rows | forge_vents (Hot Griddles, 2 zones on the stall rows) | phantoms, smoke goblins |
+  | 3-8 The Lake Steps | `noon_shrine_steps` | a town road and a lake lane that opens at a rift mid-lake (`inside`) meet at the foot of a Z climb | alchemists_mist (Lake Fog) | lantern bearers from wave 10; fog |
+  | 3-9 Old Town, Burning | `noon_old_town_burning` | one long S round two fallen blocks of 3-6's ground | heat_mirage (HAMMER's Smoke) | `brigade_gnat` (Gnat Spotter, construct family on the Cogling model) in fixed groups every 6th wave |
+  | 3-10 The Ashen Warden | `noon_lakeside_shrine` (echo of `shrine_sanctum`) | the sanctum tunnel under the tear | lunar_eclipse (The Tear) | `ghost_ashen_warden` (the Hollow Samurai's model at miniboss scale, charred) |
+
+* **Chapter 4 · Act II · The Checkpoint** (the mountain highway, theme `city` with `district: 'highway'`, then the far
+  north on the shipped `snow` theme; STEP4_BUILD_PLAN). 4-6 needs 4-5 **and** 3-10. The Gate Response Brigade is a
+  bestiary family now (`brigade`: the Gnat moves in from construct; its units wear shipped construct models in navy
+  and amber). Azami joins after 4-7 (a 2-2 clear from before this build still brings her once).
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 4-6 Toll Plaza | `noon_toll_plaza` | a three-booth lens: one road splits into three toll lanes round two booth islands ('U' roofs) and closes up again, then the off-ramp | supply_ship (Brigade Convoy) | the iron column: grunts, ironhides, wolves |
+  | 4-7 Azami's Checkpoint | `noon_checkpoint` | a straight lane through the checkpoint gate and a wide hook west round the barricades | heat_mirage (Flare Smoke) | `laneCycle [[1], [0, 1]]`: the gate is shut on odd waves ("Barrier down: long way round"); dusk (`look.dusk`); **Azami joins** |
+  | 4-8 Tunnel Mouth | `noon_tunnel_mouth` (22×13) | a dual carriageway: two lanes out of two bores, nested steps south-east, two exits | rear_ambush (Wrong Way) | orcs and wolves; the Brigade (`brigade_trooper`, `brigade_shieldline`, Gnats, a `brigade_tortoise` on 14 and 22) as fixed groups on even waves, which come in from the goal end |
+  | 4-9 The Frozen Villages | `north_frozen_villages` (`snow`) | a straight climb up the sled run, a wide horseshoe over the village square, a hook out north-east | prism_conduits (Village Hearths, 3 pads inside the horseshoe) | the Brigade leads (troopers, shieldlines, Gnats, Tortoises from wave 8), wolves and bears; `brigade_badger` on each of the last three waves |
+  | 4-10 The Frost Vanguard | `north_snow_bridge` (`snow`) | two columns meet at the bridgehead, then one long deck over the ravine (8 'B' tiles) | snowbell_blizzard (Blizzard) | `orc_frost_vanguard` (the Orc Warlord's model at miniboss scale in frost iron, 3,950 HP, summons Alpha Wolves) |
+
+* **Chapter 5 · Act II · The Drowned Line** (the flooded Line 2 under Itomachi on the new `drowned` theme, then the
+  reservoir park, theme `city` with `district: 'park'`; STEP5_BUILD_PLAN). 5-6 needs 5-5 **and** 4-10. Fog on every
+  stage. The first glass machines walk out of the Noon Gate on 5-8; they stay in the Constructs family (data on the
+  shipped construct model, white glass and cyan with outlines). No girl joins in Act 5.
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 5-6 Flooded Platform | `noon_flooded_platform` (`drowned`) | out of a bore mid-board (an `inside` lane that opens in a tunnel: the subway spawn), west along a deck over the flooded tracks, up the stairs, back east along the street | changing_tides (Rising Water) | ghouls (Leech Ghouls from wave 3), skinks, slimes; scene `g5.pro` before (S5d) |
+  | 5-7 Line 2 Tunnels | `noon_line2_tunnels` (`drowned`) | one gentle sag with four bores and three open vent cuttings (≈ 55 % hidden) | lunar_eclipse (Emergency Lights) | `look.blackout`; Fog Skulkers from wave 3, Seed Pods from 5, Phantoms from 8; no join |
+  | 5-8 Pump Station | `noon_pump_station` (`drowned`, `city.spawnGate: 'noonGate'`) | a loop south, east, north through the pump hall (a tunnel) and west over its own first leg on a grating gantry, then out west | forge_vents (Steam Valves, 2 zones on the road) | `vesper_patrol_orb` from wave 3, `vesper_halo_drone` (blink) from 6, `vesper_line_sentry` (armour 4) from 10 |
+  | 5-9 Reservoir Park | `noon_reservoir_park` (`district: 'park'`) | east along the dam crest, down the spillway steps, west across the bowl, north through the dam's service tunnel under its own first leg | alchemists_mist (Reservoir Fog) | ghouls and plants, a few Line Sentries from 8, a Grave Priest from 10, an Elder Treant from 14; two of each added on the last wave |
+  | 5-10 The Reservoir Willow | `noon_reservoir_willow` (`district: 'park'`, night) | two S-shaped causeways round the willow island that never cross | firefly_chorus (Reservoir Fireflies) | `plant_reservoir_willow` (the Elder Treant's model at miniboss scale, 3,950 HP, seed pods at 66 %, armour 7 at 33 %) on the longer lane |
+
+* **Chapter 6 · Act II · Vesperline** (through the Noon Gate into the glass city, frozen: theme `vesper` with
+  `scenery.ruined: 'frozen'` on every stage, snow; STEP6_BUILD_PLAN). 6-6 needs 6-5 **and** 5-10. One new glass machine
+  per stage (all Constructs on the shipped construct model, white and ice-blue glass with outlines); the Rime Wisp
+  (a Ghost) and Gatekeeper Unit 01 on 6-10. No girl joins in Act 6.
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 6-6 Frost Causeway | `vesper_frost_causeway` | a broken causeway in a five-lobe W, two light-bridges over open leads | prism_conduits (Prism Batteries, 3 pads on the islands) | `vesper_lattice_shell` (crystal 5 / 10) from wave 3 |
+  | 6-7 Sky-Rail Viaduct | `vesper_skyrail` (`bridge.skyRail`) | up onto a 9.7-tile viaduct, an S along it, down at the broken span, back west underneath it | heat_mirage (Frost Haze) | the first viaduct: enemies on it can still be hit; `vesper_aegis` (barrier 60) from wave 3 |
+  | 6-8 Museum of Noon | `vesper_museum` (gallery tunnels) | through one gallery wing, half round the rotunda, through the other wing, out in a small S | lunar_eclipse (Dead Grid) | `look.blackout`; `vesper_warden` (elite: barrier + crystal) from wave 15 |
+  | 6-9 Lecture Tower Ring | `vesper_tower_ring` | phi: up a spoke, a full lap of the ring, across the plaza (flat) and out over the ring | shifting_stars (Transit Pads) | the Warden leads from wave 10; both pad points ≥ 2 tiles from every crossing |
+  | 6-10 Gatekeeper Unit 01 | `vesper_spindle_foot` (`city.spawnGate: 'vesperGate'`) | a double helix: two lanes cross north and south of the Spindle's foot and merge before the shelter | supply_ship (Last Watch Caches) | Rime Wisps (frost-warded) on waves 28-30; `vesper_gatekeeper` (Iron Colossus model, 3,950 HP, calls Line Sentries at 66 %, thicker shell at 33 %) on the last wave, longer lane |
+
+* **Side stages** (`kind: 'side'`, Gate Arc §20, STEP6_BUILD_PLAN decision 9). An optional stage beside an act:
+  `anchor` names the Act II stage it is drawn after (a small card in that act's row, locked "Clear 6-10" until the
+  anchor is cleared; it opens the stage screen), `requires` the anchor. Numbers are the anchor's ACT2_PLAN row with HP ×
+  1.1; medal gems at 0.5; first clear coins and books (no recruit ticket); the anchor's drop table. Not in
+  `CAMPAIGN_IDS`: no co-op, no campaign counters, medals, ribbons, missions, achievements or profile trophies; no battle
+  modes, freeplay or endless; no new enemy. The first is **The Starfall Trial** (`side-6-starfall`, after 6-10) on
+  `vesper_starfall` (The Starfall Deck, night): an orrery, the outer ring, a spiral over the star-map pool on a
+  light-bridge, the inner ring and a spur tunnelling out under the spiral; forge_vents (Starfall, three zones on ground
+  road); hpScale 9.94, 30 waves, families up to chapter 6 and the glass machines, no Rime Wisp.
+
 * **Fields.** Every campaign StageDef carries `act` (1 or 2) and `finale` (x-5 and x-10). Act II adds
   `medalGemMul: 0.5` (medal gems 10 / 20 / 30 / 50, `src/systems/rewards.js` `medalGems`) and `modeChapter` (c+1:
   Ironclad's armor row). `CHAPTERS[c].stages` stays Act I; `CHAPTERS[c].act2` lists the registered Act II ids (with

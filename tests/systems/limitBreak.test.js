@@ -10,6 +10,7 @@ import {
   limitBreakState, payLimitBreak, creditLimitBreak, isLR, rankBoost, limitBreakFee, UR_RESONANCE, LR_BOOST, LR_TRIALS, RESONANCE_FROM_DAY,
 } from '../../src/systems/limitBreak.js';
 import { gameDayStart } from '../../src/core/reset.js';
+import { cardUnit, snapshotToMiniProfile, LR_AW } from '../../src/online/profileCard.js';
 
 const DUO = 'kohaku_tsubaki';
 const hasDuo = !!UNIT_MAP[DUO];
@@ -84,11 +85,75 @@ describe('UR Resonance and the LR boost (§C.3)', () => {
 });
 
 describe('Limit Break (§C.2)', () => {
-  it('Tenka: her trial has not shipped ("LR form coming"), so the fee is refused', () => {
-    const p = payable(maxed(createProfile(), 'tenka'), 'tenka');
-    expect(LR_TRIALS.tenka).toBeNull();
-    expect(limitBreakState(p, 'tenka')).toMatchObject({ legend: true, ur: true, maxed: true, canPay: false, trial: null });
-    expect(payLimitBreak(p, 'tenka')).toMatchObject({ ok: false, error: 'noTrial' });
+  it('Tenka: "Thesis Defense", her LR form Critical Mass · Event Horizon and the orbit-ring crest, on the same stand-in as the duo', () => {
+    expect(LR_TRIALS.tenka).toEqual({ name: 'Thesis Defense', form: 'Critical Mass · Event Horizon', crest: 'orbit ring', standIn: { stageId: '8-5', difficulty: 'nightmare' } });
+    // every LR unit in the game has her trial now: no "LR form coming" left
+    for (const [id, trial] of Object.entries(LR_TRIALS)) if (UNIT_MAP[id]) expect(trial, id).toBeTruthy();
+  });
+  it('Tenka: L60 gate 5 and ★5 first, then the fee (cog family), then the stand-in clear: solo, placed from her own entry, no support, once', () => {
+    const p = createProfile();
+    grantUnit(p, 'tenka', 1000);
+    Object.assign(p.units.tenka, { level: 60, breakthrough: 4, awaken: 5 });
+    payable(p, 'tenka');
+    expect(limitBreakState(p, 'tenka')).toMatchObject({ legend: true, ur: true, maxed: false, feePaid: false, lr: false, canPay: false });
+    expect(limitBreakState(p, 'tenka').steps.map((x) => x.label)).toEqual(['L60', '★5', 'Fee', 'Thesis Defense']);
+    expect(payLimitBreak(p, 'tenka')).toMatchObject({ ok: false, error: 'notMaxed' });
+    p.units.tenka.breakthrough = 5;
+    p.units.tenka.awaken = 4;
+    expect(payLimitBreak(p, 'tenka')).toMatchObject({ ok: false, error: 'notUR' });
+    p.units.tenka.awaken = 5;
+    // the fee is paid once and opens her trial (450,000 coins, cog materials, a Rainbow Crown)
+    const coins = p.currencies.coins;
+    const cog = p.items.mat_cog_legendary;
+    expect(limitBreakState(p, 'tenka').canPay).toBe(true);
+    expect(payLimitBreak(p, 'tenka').ok).toBe(true);
+    expect(p.currencies.coins).toBe(coins - 450000);
+    expect(p.items.mat_cog_legendary || 0).toBe(cog - 6);
+    expect(p.missions.counters['lbt:tenka']).toBe(1);
+    expect(limitBreakState(p, 'tenka')).toMatchObject({ feePaid: true, lr: false, canPay: false });
+    expect(payLimitBreak(p, 'tenka')).toMatchObject({ ok: false, error: 'paid' });
+    // no credit: not placed, a Support Student, co-op, a sandbox, a loss, another stage or difficulty
+    const nm = (placed, extra) => creditLimitBreak(p, winResult('8-5', 'nightmare', placed, extra), 'nightmare');
+    expect(nm(['aoi'])).toEqual([]);
+    expect(nm(['tenka'], { support: { unitId: 'tenka', owner: 'friend' } })).toEqual([]);
+    expect(nm(['tenka', 'aoi'], { support: { unitId: 'aoi', owner: 'friend' } })).toEqual([]);
+    expect(nm(['tenka'], { coop: true })).toEqual([]);
+    expect(nm(['tenka'], { sandbox: true })).toEqual([]);
+    expect(nm(['tenka'], { won: false })).toEqual([]);
+    expect(creditLimitBreak(p, winResult('8-5', 'hard', ['tenka']), 'hard')).toEqual([]);
+    expect(creditLimitBreak(p, winResult('8-4', 'nightmare', ['tenka']), 'nightmare')).toEqual([]);
+    expect(isLR(p, 'tenka')).toBe(false);
+    // the first clear: LR, 300 gems and 1 Recruit Ticket with the battle's rewards
+    clearAll(p);
+    const gems = p.currencies.gems || 0;
+    const tickets = p.items.ticket_recruit || 0;
+    const out = applyBattleResult(p, winResult('8-5', 'nightmare', ['tenka', 'aoi']), createRng(1));
+    expect(out.limitBreak).toEqual(['tenka']);
+    expect(isLR(p, 'tenka')).toBe(true);
+    expect(limitBreakState(p, 'tenka')).toMatchObject({ lr: true, steps: [{ done: true }, { done: true }, { done: true }, { done: true }] });
+    expect(p.currencies.gems - gems).toBeGreaterThanOrEqual(300);
+    expect((p.items.ticket_recruit || 0) - tickets).toBe(1);
+    // once only: a second clear pays nothing more
+    const gems2 = p.currencies.gems;
+    const again = applyBattleResult(p, winResult('8-5', 'nightmare', ['tenka']), createRng(2));
+    expect(again.limitBreak).toEqual([]);
+    expect((p.items.ticket_recruit || 0) - tickets).toBe(1);
+    expect(p.currencies.gems - gems2).toBeLessThan(300);
+    // she battles as LR (her LR form Event Horizon reads it in the sim) and her card says aw 6
+    expect(unitBattleStats(p, 'tenka').lr).toBe(true);
+    expect(cardUnit(p, 'tenka').aw).toBe(LR_AW);
+    expect(isLR(snapshotToMiniProfile(cardUnit(p, 'tenka')), 'tenka')).toBe(true);
+    // survives a save round trip
+    expect(isLR(migrateProfile(JSON.parse(JSON.stringify(p))), 'tenka')).toBe(true);
+  });
+  it('Tenka\'s trial does not credit the duo, nor the duo\'s Tenka: each needs her own fee and to be placed', () => {
+    const p = createProfile();
+    for (const id of [DUO, 'tenka'].filter((x) => UNIT_MAP[x])) payable(maxed(p, id), id);
+    expect(payLimitBreak(p, 'tenka').ok).toBe(true);
+    clearAll(p);
+    // only Tenka paid: a clear with both placed makes Tenka LR alone
+    expect(creditLimitBreak(p, winResult('8-5', 'nightmare', ['tenka', ...(hasDuo ? [DUO] : [])]), 'nightmare')).toEqual(['tenka']);
+    if (hasDuo) expect(isLR(p, DUO)).toBe(false);
   });
   it('a standard SSR is not an LR unit', () => {
     expect(payLimitBreak(maxed(createProfile(), 'kaede'), 'kaede')).toMatchObject({ ok: false, error: 'notLegend' });

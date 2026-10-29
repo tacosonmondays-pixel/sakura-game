@@ -89,7 +89,7 @@ export function consumeItems(profile, costs) {
 // Item sources ("Where to get" + Teleport)
 // ---------------------------------------------------------------------------
 
-const KIND_LABEL = { campaign: 'Mission', resource: 'Bounty', boss: 'Total Assault', challenge: 'Tactical Challenge' };
+const KIND_LABEL = { campaign: 'Mission', resource: 'Bounty', boss: 'Total Assault', challenge: 'Tactical Challenge', side: 'Side' };
 const KIND_ROUTE = { resource: 'bounty', boss: 'assault', challenge: 'challenge' };
 const pct = (p) => `${Math.round(p * 1000) / 10}%`;
 const diffIndex = (d) => (d ? DIFFICULTY_ORDER.indexOf(d) : 0);

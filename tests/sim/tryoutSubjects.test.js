@@ -8,7 +8,8 @@ import { chooserOf, dareOf } from '../../src/sim/tryout/index.js';
 import { seatCount, nextSeats, openBreak } from '../../src/sim/tryout/breaks.js';
 import { cardOk } from '../../src/sim/tryout/offers.js';
 import { TRYOUT } from '../../src/data/tryout.js';
-import { gradeOpen, recordGradeClear, TRYOUT_GRADES } from '../../src/systems/tryoutRuns.js';
+import { isStageCleared } from '../../src/systems/unlocks.js';
+import { gradeOpen, recordGradeClear, practiceOpen, TRYOUT_GRADES } from '../../src/systems/tryoutRuns.js';
 
 function makeSim(seed) {
   const plan = buildTryoutPlan({ seed, grade: 1, length: 'half' });
@@ -205,5 +206,19 @@ describe('tryout: the Grade ladder', () => {
     // a co-op win at a Grade above the next rung (the host's) does not skip the ladder
     expect(recordGradeClear(p, 6)).toBe(false);
     expect(p.tryoutGrade).toBe(2);
+  });
+  it('a shared code (practice) skips the ladder but never the content window (R2 review)', () => {
+    // only Spring Term: a Grade 12 code is above the ladder AND outside the window; gradeOpen says 'ladder' first
+    const spring = profile(0, ['2-5']);
+    expect(gradeOpen(spring, 12).why).toBe('ladder');
+    expect(practiceOpen(spring, 12)).toBe(false);
+    expect(practiceOpen(spring, 1)).toBe(true);
+    // every window open, no Grade cleared: any Grade's code practises
+    const all = profile(0, ['2-5', '4-5', '8-5']);
+    for (let g = 1; g <= TRYOUT_GRADES; g++) expect(practiceOpen(all, g), `Grade ${g}`).toBe(isStageCleared(all, TRYOUT.windows[TRYOUT.grades[g].window].unlock));
+    expect(practiceOpen(all, TRYOUT_GRADES + 1)).toBe(false);
+    expect(practiceOpen(all, 0)).toBe(false);
+    // the same Grade by the ladder and the window: open both ways
+    expect(gradeOpen(all, 1).open && practiceOpen(all, 1)).toBe(true);
   });
 });

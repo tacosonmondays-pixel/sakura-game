@@ -2,6 +2,9 @@
 //   1. Showcase on 1-3: Midori 5-0-2 against a pack and against a boss (her measured "DPS (live)" beats her per-target
 //      hits; the poison share reads 0.25%, not 0.3%; her Toxic Tonic boost reads as an estimate), then Kage (crits),
 //      Chika (drones), Suzu (traps), Shiro (pierce), Miko (aura) and the hero.
+//      Both lines: "DPS (live)" (the last 5 s) and "DPS (avg)" (since she was placed, over her wave time): Avg is
+//      non-zero during a wave, never NaN, and steadier than Live (read a few times while the pack goes and comes
+//      back), each with a tooltip and an aria text, and the two cells share one row (the drawer is no taller).
 //   2. Roster: every girl and the hero, 3-0-0, each with her own pack: a sensible non-zero DPS during a wave (a girl
 //      who deals no damage reads "—" or 0), and no NaN / undefined anywhere in her drawer.
 // Packs are plain bears of ~3000 HP (a sturdy late-wave foe), kept alive by refilling their HP each game step (max HP
@@ -176,6 +179,16 @@ for (const vp of viewports) {
         // the drawer's live cell, or Chika's own (her drone panel's "DPS (live)")
         live: p.querySelector('[data-testid="drawer-dps-live"]')?.textContent ?? cell(/^DPS \((live|last wave)\)$/),
         liveLabel: p.querySelector('[data-testid="drawer-dps"] span')?.textContent ?? (cell(/^DPS \(live\)$/) != null ? 'DPS (live)' : null),
+        avg: p.querySelector('[data-testid="drawer-dps-avg"]')?.textContent ?? null,
+        tips: ['drawer-dps', 'drawer-dps-avg-cell'].map((id) => {
+          const c = p.querySelector(`[data-testid="${id}"]`);
+          return c ? !!(c.title && c.getAttribute('aria-label')) : null;
+        }),
+        sameRow: (() => {
+          const a = p.querySelector('[data-testid="drawer-dps"]');
+          const b = p.querySelector('[data-testid="drawer-dps-avg-cell"]');
+          return a && b ? Math.abs(a.getBoundingClientRect().top - b.getBoundingClientRect().top) < 2 : null;
+        })(),
         per: cell(/^Per target$/),
         boost: p.querySelector('[data-testid="drawer-boost"]')?.textContent ?? null,
         oldDps: cell(/^DPS$/),
@@ -227,6 +240,9 @@ for (const vp of viewports) {
       check(Number.isFinite(hits) && live > hits, `${vp} with a pack in her cloud her live DPS (${live}) is above her per-target hits (${hits}): "${crowd.per}"`);
       check(/poison \(\+0\.\d\d?% HP\/s\)/.test(crowd.per || ''), `${vp} the per-target line names her poison with two significant digits ("${crowd.per}")`);
       check(/^~[\d.,kKM]+ DPS · \d+ girls?$/.test(crowd.boost || ''), `${vp} her Toxic Tonic boost reads as an estimate ("${crowd.boost}")`);
+      check(num(crowd.avg) > 0 && !/NaN|undefined|Infinity/.test(crowd.avg), `${vp} her Details show her average DPS too (DPS (avg) ${crowd.avg})`);
+      check(crowd.tips[0] === true && crowd.tips[1] === true, `${vp} Live and Avg each carry a tooltip and an aria text`);
+      check(crowd.sameRow === true, `${vp} Live and Avg share one row (the drawer is no taller)`);
     }
     for (const k of ['kage', 'chika', 'suzu', 'shiro', 'miko', 'hero']) {
       if (ids[k] == null) continue;
@@ -241,6 +257,15 @@ for (const vp of viewports) {
     console.log(`  midori vs a ${tier}: ${JSON.stringify({ ...boss, text: undefined })}`);
     await shot('dps-midori-boss');
     if (!BEFORE) check(num(boss.live) > 0 && num(boss.live) < num(crowd.live), `${vp} against one boss her live DPS (${boss.live}) is below her pack's (${crowd.live})`);
+    if (!BEFORE) {
+      // Live swings from the pack to the lone boss; Avg (since she was placed) moves far less, and stays a number
+      const lives = [num(crowd.live), num(boss.live)];
+      const avgs = [num(crowd.avg), num(boss.avg)];
+      const spread = (xs) => (Math.max(...xs) - Math.min(...xs)) / Math.max(1, Math.max(...xs));
+      const state = await page.evaluate(() => window.__battle.sim.state);
+      check(state === 'wave' && avgs.every((v) => Number.isFinite(v) && v > 0) && !/NaN/.test(`${crowd.avg} ${boss.avg}`), `${vp} Avg stays a number above 0 through the wave (${crowd.avg} → ${boss.avg}; ${state})`);
+      check(spread(avgs) < spread(lives) / 2, `${vp} Avg is steadier than Live from the pack to the boss (Avg ${crowd.avg} → ${boss.avg}, spread ${spread(avgs).toFixed(2)}; Live ${crowd.live} → ${boss.live}, spread ${spread(lives).toFixed(2)})`);
+    }
 
     // 2. the roster: six girls a battle, 3-0-0, each with her own pack
     if (ROSTER) {
@@ -291,7 +316,9 @@ for (const vp of viewports) {
         const dealsDamage = r.dealt > 0 || r.statDps > 0;
         // a girl who deals no damage (Ouka's council, Wakaba's drinks) has no DPS cell; a damage dealer reads > 0
         const ok = !bad && (dealsDamage ? r.liveLabel != null && v > 0 : r.liveLabel == null || !(v > 0));
-        check(ok, `${vp} ${r.id}: ${r.liveLabel} ${r.live}${r.per ? ` · per target ${r.per}` : ''}${r.boost ? ` · boost ${r.boost}` : ''} (dealt ${r.dealt}${bad ? `; "${bad[0]}" in her drawer` : ''})`);
+        // her average: a number (or "—") wherever her live cell is; never NaN
+        const avgOk = r.liveLabel == null || r.avg == null || r.avg === '—' || Number.isFinite(num(r.avg));
+        check(ok && avgOk, `${vp} ${r.id}: ${r.liveLabel} ${r.live}${r.avg != null ? ` · avg ${r.avg}` : ''}${r.per ? ` · per target ${r.per}` : ''}${r.boost ? ` · boost ${r.boost}` : ''} (dealt ${r.dealt}${bad ? `; "${bad[0]}" in her drawer` : ''})`);
       }
     }
   } catch (e) {

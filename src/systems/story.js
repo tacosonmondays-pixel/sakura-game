@@ -236,6 +236,19 @@ export function clearedCampaign(profile) {
 }
 
 /**
+ * Stage ids whose first clear can queue an `after` scene: the campaign, plus the side stages (kind 'side', e.g.
+ * `side-6-starfall`: not in CAMPAIGN_IDS, so not in clearedCampaign, but g6.star2 plays on its first clear).
+ */
+export const STORY_TRIGGER_STAGE_IDS = Object.freeze([
+  ...CAMPAIGN_IDS, ...Object.values(STAGE_MAP).filter((s) => s.kind === 'side').map((s) => s.id),
+]);
+
+/** @returns {Set<string>} campaign and side stage ids cleared on any difficulty (the after-scene watcher's view) */
+export function clearedStoryStages(profile) {
+  return new Set(STORY_TRIGGER_STAGE_IDS.filter((id) => stageCleared(profile, id)));
+}
+
+/**
  * Where a new player must go before the lobby: the "Meet Hikari" opening while it is still pending.
  * @returns {{ name: string, params: object } | null}
  */

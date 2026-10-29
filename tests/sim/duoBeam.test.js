@@ -11,7 +11,19 @@
 // deals exactly the time it holds. Held and crowd rows stay within 3 %, walk-throughs within 6 %.
 import { describe, test, expect } from 'vitest';
 import { duoBeamDps } from '../../tools/duoBeam.mjs';
-import { POWER } from '../../src/data/balance.js';
+import { defaultData } from '../../src/sim/data.js';
+
+// The Oct 29 buff made her stronger (base +25%, tier-5 multipliers, the long beam at Grand Spectrum). This file checks the
+// beam's mechanics (constant beam = flash beam at the same stats), so it runs on a copy of her pre-buff numbers;
+// the buff itself is measured on the balance rulers (docs/specs/DUO_LR.md §6).
+const OLD_DATA = (() => {
+  const d = defaultData();
+  const u = JSON.parse(JSON.stringify(d.units.kohaku_tsubaki));
+  u.base.damage = 12;
+  Object.assign(u.base.duo, { beamDmg: 5, shardShare: 0.4 });
+  u.paths[1].tiers[4].mods = { duo: { beams: 2, beamDmg: 16, beamPierce: 3, beamSilence: 1 } };
+  return { ...d, units: { ...d.units, kohaku_tsubaki: u } };
+})();
 
 const OLD = {
   c0: { boss: 5.76, held: 20.17, crowd: 82.92, armor: 5.16 },
@@ -28,18 +40,11 @@ describe('Kohaku\'s constant beam: DPS parity with the flash beam at every Prism
     test(`${build}: every target within its tolerance`, () => {
       const lines = [];
       for (const target of Object.keys(TOL)) {
-        const r = duoBeamDps({ build, target });
-        // (× her balance round 5 damage row, src/data/balance.js: it reaches her beam too, her boss row does not. On the
-        // armoured boss a hit is flat armour off, then capped by the crystal shell, so that row lands between the old
-        // number and the old number × her row)
-        const row = POWER.kohaku_tsubaki?.dmg ?? 1;
-        const old = target === 'armor' ? OLD[build][target] : +(OLD[build][target] * row).toFixed(2);
+        const r = duoBeamDps({ build, target, data: OLD_DATA });
+        const old = OLD[build][target];
         const d = r.dps / old - 1;
         lines.push(`${build} (${r.tiers}) ${target.padEnd(5)} old ${old} → new ${r.dps} dps (${d >= 0 ? '+' : ''}${(d * 100).toFixed(1)}%)`);
-        if (target === 'armor') {
-          expect(r.dps, `${build} armor: ${old} → ${r.dps}`).toBeGreaterThan(old * (1 - TOL.armor));
-          expect(r.dps, `${build} armor: ${old} → ${r.dps}`).toBeLessThan(old * row * (1 + TOL.armor));
-        } else expect(Math.abs(d), `${build} ${target}: ${old} → ${r.dps}`).toBeLessThan(TOL[target]);
+        expect(Math.abs(d), `${build} ${target}: ${old} → ${r.dps}`).toBeLessThan(TOL[target]);
       }
       console.log(lines.join('\n'));
     }, 60000);

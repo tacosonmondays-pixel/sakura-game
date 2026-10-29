@@ -208,7 +208,10 @@ export function runModsFor(sim, owner, unitId, isHero, t = null) {
   if (s.status.length) m.status = s.status;
   const base = Object.keys(m).length ? m : null;
   if (!s.raw.length) return base;
-  return [base || {}, ...s.raw];
+  // (each girl gets her own copy of a Hidden Talent's raw ModSet: a shared table object would be stored once in a
+  // snapshot and come back as copies, so a client restored from a checkpoint would alias differently from one that
+  // played through; plain data only, so the JSON copy is exact)
+  return [base || {}, ...s.raw.map((x) => JSON.parse(JSON.stringify(x)))];
 }
 
 /** The largest "vs" multiplier a girl's capped cards give (elite and boss multiply against a boss). */
