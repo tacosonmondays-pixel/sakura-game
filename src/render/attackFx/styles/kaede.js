@@ -13,7 +13,9 @@
 //
 // Visual rework (display only; drawn from sim state and drained sim events, never written back):
 //   dash afterimages  2 fading copies of her own figure along each lunge (from about 0.6 of the way to
-//                     her target to all of it), maple red then amber, each with a darker rim so it reads as her silhouette
+//                     her target to all of it), each with a darker rim. At phone size the amber one at her target is the one
+//                     that reads as her silhouette; the maple one nearer her mostly sits over her own shadow (owner's
+//                     call, Oct 29: accepted)
 //                     at phone size (patterns/ghosts.js; none on low graphics or Reduce motion, which has
 //                     no lunge)
 //   slash streaks     thin bright-edged crescent ribbons, one instanced mesh for the whole field
@@ -119,7 +121,8 @@ function towardCamera(ctx, out) {
 }
 const _cam = { x: 0, z: 1 };
 
-/** Ghost colours, oldest (nearer her) to newest (at her target): maple red, then amber (each with a darker rim). */
+/** Ghost colours, oldest (nearer her) to newest (at her target): maple red, then amber (each with a darker rim). The
+ * maple one mostly sits over her shadow at phone size; the amber one carries the read. */
 const GHOST_HEX = ['#d8283a', '#ff8a2e'];
 const _hits = [];
 const _angs = [];
