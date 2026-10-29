@@ -35,12 +35,13 @@ export default [
     say('aoi', 'She lays spike strips on the road. Anything that walks over them gets a very rude surprise.', { at: 'left' }),
     say('azami', 'They are folding strips. Fully regulation. I check every one of them twice.'),
     choice([
-      { text: 'Will you guard our road?', lines: [say('azami', 'Only if everyone signs the clipboard. …Fine. You can sign later.')] },
+      { text: 'Will you guard our road?', lines: [say('azami', 'I guard this one. Everyone signs the clipboard on the way past. Yes, Sensei, you too.')] },
       { text: 'Is the whistle regulation too?', lines: [say('azami', 'The whistle is the regulation, Sensei.', { face: 'deadpan' })] },
     ]),
     say('aoi', '…Are first-years allowed to run, if a slime is chasing them?'),
     say('azami', 'First-years may walk briskly. I will handle the slime.', { face: 'smile' }),
-    say('hikari', 'Then the checkpoint is open! Sentinels, onward along the shore!'),
+    say('azami', 'My checkpoint stays on this road, Sensei. When you need a gate held, come and find me.'),
+    say('hikari', 'Then the shore is ours. Sentinels, onward!'),
   ]),
 
   scene('ch2.mid', {

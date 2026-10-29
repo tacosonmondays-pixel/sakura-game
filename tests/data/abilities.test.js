@@ -197,12 +197,14 @@ const SPEC_TOWERS = {
     auto: { when: 'enemies', min: 5, reach: 'leash' },
     t5: { cooldown: 40, duration: 15, effect: { count: 8 } },
   },
-  // §5.3 + BUILD_PLAN 6.1: a strike with a boost tail at tier 5 (Zero Point)
+  // §5.3 + BUILD_PLAN 6.1: a strike with a boost tail at tier 5 (Zero Point); the LR form Event Horizon (BANNERS §C.2):
+  // a 1.5 s pull (1.6 tiles a second) on the blast's area, then a second detonation for 50% of the first
   tenka: {
     path: 'rails', id: 'tenka.criticalMass', kind: 'strike', scope: 'local', cooldown: 45, duration: 0,
     effect: { pick: 'strong', count: 1, reachMul: 1, dmgMul: 40, splash: 2, armorPen: 99 },
     auto: { when: 'elite' },
     t5: { cooldown: 30, effect: { dmgMul: 120, splash: 3, after: { mods: { rateMul: 2 }, duration: 6 } } },
+    lr: { effect: { horizon: { time: 1.5, pull: 1.6, share: 0.5 } } },
   },
   // §5.3 the new girls
   azami: {
@@ -385,8 +387,8 @@ const EFFECT_KEYS = {
   strike: ['pick', 'count', 'reachMul', 'reach', 'dmgMul', 'hits', 'fullRamp', 'keepRamp', 'delay', 'armorPen', 'poisonMul', 'splash', 'splashShare', 'spreadPoison', 'after',
     // (A3 M3: Kaze's Swoop's fallback pick, Moon Pounce's reach on top of her range from Kon's spot and its hold bosses shrug off)
     'fallback', 'reachAdd', 'fromOrigin', 'noBossStatus',
-    // (Whistle Stop: ground only)
-    'hitsAir', ...STATUS_LIST],
+    // (Whistle Stop: ground only; Critical Mass · Event Horizon, the LR form)
+    'hitsAir', 'horizon', ...STATUS_LIST],
   burst: ['at', 'reachMul', 'radius', 'radiusMul', 'shells', 'delay', 'every', 'reaim', 'dmgMul', 'knockback', 'hitsAir', ...STATUS_LIST,
     // (Prismfall: its shards and the LR Twin Star)
     'shards', 'shardMul', 'shardRadius', 'finale'],
@@ -523,6 +525,13 @@ function defErrors(d, where) {
   if (e.finale) {
     for (const k of Object.keys(e.finale)) if (!['dmgMul', 'radius'].includes(k) || !(e.finale[k] > 0)) errs.push(`${where}: finale ${k}`);
     if (d.duration < (e.delay ?? 0) + (e.shells ?? 1) * (e.every ?? 0) - 1e-9) errs.push(`${where}: duration ${d.duration}s ends before the finale`);
+  }
+  if (e.horizon) {
+    // (the LR Event Horizon: a pull of whole ticks on a blast's area, then a share of its hit again)
+    for (const k of Object.keys(e.horizon)) if (!['time', 'pull', 'share'].includes(k)) errs.push(`${where}: horizon ${k}`);
+    if (!(e.horizon.time > 0) || !isWholeTicks(e.horizon.time)) errs.push(`${where}: horizon.time must be > 0 whole ticks`);
+    if (!(e.horizon.pull >= 0) || !(e.horizon.share > 0 && e.horizon.share <= 1)) errs.push(`${where}: horizon pull >= 0, share in (0, 1]`);
+    if (!(e.splash > 0)) errs.push(`${where}: a horizon needs a blast (splash)`);
   }
   if (d.kind === 'burst' && !(e.radius > 0) && !(e.radiusMul > 0)) errs.push(`${where}: a burst needs a radius`);
   // a multi-shell burst lasts until its last shell lands

@@ -306,17 +306,17 @@ describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', ()
     expect(p.missions.counters.heroMax).toBe(12);
   });
 
-  it('the F2P one-time Achievements row equals the sum of the live defs (131 with social, Codex, a_ch1_act2 and a_ch2_act2)', () => {
+  it('the F2P one-time Achievements row equals the sum of the live defs (135 with social, Codex and a_ch1_act2 … a_ch6_act2)', () => {
     const row = f2pIncomeSummary().oneTime.find((r) => r.source === 'Achievements');
     // (Tryout Day's 12 rows are their own one-time row below: TRYOUT_DAY.md §10.2)
     const live = ACHIEVEMENTS.filter((a) => achievementLive(a) && a.wave !== 'tryout');
     const sum = (id) => live.reduce((n, a) => n + a.rewards.filter((r) => r.id === id).reduce((m, r) => m + r.count, 0), 0);
-    expect(live).toHaveLength(131);
+    expect(live).toHaveLength(135);
     expect(row.gems).toBe(sum('gems'));
-    expect(row.gems).toBe(13807); // + 670 from the Codex rows, + 62 from Chapter 1 · Act II, + 75 from Chapter 2 · Act II (Gate Arc)
+    expect(row.gems).toBe(14231); // + 670 from the Codex rows, + 62 / 75 / 87 / 100 / 112 / 125 from Chapters 1-6 · Act II (Gate Arc)
     expect(row.tickets).toBe(sum('ticket_recruit') + 10 * sum('ticket_recruit10'));
     expect(row.tickets).toBe(24); // + Every Ribbon, Every Stage's ticket
-    expect(row.note).toBe('131 achievements');
+    expect(row.note).toBe('135 achievements');
   });
 
   it('Tryout Day\'s 360 gems are a one-time source of their own; the 28-day chart does not move', () => {
@@ -456,5 +456,8 @@ describe('F2P income', () => {
     expect(s.rows.reduce((a, r) => a + r.gems, 0)).toBe(s.totals.gems);
     expect(s.oneTime.length).toBeGreaterThan(3);
     expect(s.oneTimeTotals.pulls).toBeGreaterThan(0);
+    // Gate Arc Step 6: the side stage pays its medals at the Act II rate (10 / 20 / 30 / 50) and no first-clear gems or
+    // ticket; it is no campaign stage, so the campaign rows leave it out
+    expect(s.oneTime.find((r) => r.source === 'Side stages')).toMatchObject({ gems: 110, tickets: 0 });
   });
 });

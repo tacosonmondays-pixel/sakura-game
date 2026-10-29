@@ -160,8 +160,11 @@ export function createHeroWidget(ctx) {
         want = Math.max(want, bottom - (s.clientY - R - 8));
       }
     }
-    // (never into the top bar: the HUD's height, 64 px with its margin)
-    const max = Math.max(0, top - (root.getBoundingClientRect?.().top ?? 0) - 64);
+    // (never into the top bar: its real bottom plus an 8 px margin; a phone's HUD with its NEXT row is about 100 px tall,
+    // a wide one 56. Before the HUD is drawn, 64 px under the battle's top)
+    const hudBottom = root.querySelector?.('.bt-hud')?.getBoundingClientRect?.().bottom;
+    const ceiling = hudBottom > 0 ? hudBottom + 8 : (root.getBoundingClientRect?.().top ?? 0) + 64;
+    const max = Math.max(0, top - ceiling);
     const next = Math.round(Math.min(want, max) / 4) * 4;
     if (next !== lift) {
       lift = next;

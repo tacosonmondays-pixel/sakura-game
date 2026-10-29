@@ -4,7 +4,11 @@ import {
   FAMILIES, FAMILY_ORDER, ENEMIES, ENEMY_MAP, getEnemy, enemiesByFamily, enemyTraits, spawnedBy,
 } from '../../src/data/enemies.js';
 import { MAPS, MAP_MAP, getMap, pathTiles, buildableTiles, defineMap } from '../../src/data/maps.js';
-import { TRACK_STEP, BRIDGE_HEIGHT } from '../../src/core/track.js';
+import {
+  TRACK_STEP, BRIDGE_HEIGHT, viaductAt, nearestOnPolyline, elevationAt, underDeck, inTunnel,
+} from '../../src/core/track.js';
+import { stageRule } from '../../src/data/rules.js';
+import { VIADUCT_FIXTURE } from '../../previews/viaductMaps.js';
 import {
   silhouetteIoU, turningSignature, signaturesMatch, signatureText, isMeander, lobeCount, isDeclaredEcho,
 } from './trackShape.js';
@@ -26,18 +30,18 @@ const ENEMY_KEYS = [
   'id', 'name', 'family', 'tier', 'hp', 'speed', 'armorClass', 'armor', 'bounty', 'leak', 'threat',
   'size', 'color', 'accent', 'model', 'traits', 'lore', 'counters', 'introducedIn',
 ];
-const ENEMY_OPTIONAL = ['phases'];
+const ENEMY_OPTIONAL = ['phases', 'line'];
 /** Co-op freeplay's giants (src/data/freeplay.js): bosses outside the campaign, never in a stage. */
 const FREEPLAY_ONLY = (e) => e.introducedIn === 'freeplay';
 const CAMPAIGN_ENEMIES = ENEMIES.filter((e) => !FREEPLAY_ONLY(e));
 const MAP_KEYS = ['id', 'name', 'theme', 'tier', 'width', 'height', 'rows', 'paths', 'tracks', 'crossings'];
-const MAP_OPTIONAL = ['decor', 'desc', 'concept', 'bridge', 'path', 'tunnel', 'ground', 'echoOf', 'echoDiff', 'city'];
+const MAP_OPTIONAL = ['decor', 'desc', 'concept', 'bridge', 'path', 'tunnel', 'ground', 'echoOf', 'echoDiff', 'city', 'district'];
 const STAGE_KEYS = [
   'id', 'kind', 'name', 'mapId', 'desc', 'waves', 'waveGen', 'hpScale', 'startCash', 'lives',
   'introduces', 'recommended', 'unlocks', 'requires', 'drops', 'firstClear', 'scenery', 'tier',
 ];
-const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule', 'act', 'finale', 'medalGemMul', 'modeChapter', 'look'];
-const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city', 'campus'];
+const STAGE_OPTIONAL = ['chapter', 'cashScale', 'hpPass', 'rule', 'act', 'finale', 'medalGemMul', 'modeChapter', 'look', 'anchor'];
+const THEMES = ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city', 'campus', 'drowned', 'vesper'];
 const TILE_CHARS = new Set(['.', '~', 'T', 'R', 'H', 'B', ',', 'X', 'U']);
 /** Eras by theme (Gate Arc): the 11 shipped themes are the Morning; Noon city, campus and drowned; the Evening vesper. */
 const ERA_BY_THEME = {
@@ -120,7 +124,9 @@ function echoProblems(echo, original) {
   }
   return out;
 }
-const FAMILY_IDS = ['slime', 'goblin', 'orc', 'ghost', 'ghoul', 'oni', 'lizard', 'construct', 'beast', 'fae', 'plant', 'dragon'];
+const FAMILY_IDS = ['slime', 'goblin', 'orc', 'ghost', 'ghoul', 'oni', 'lizard', 'construct', 'beast', 'fae', 'plant', 'dragon', 'brigade'];
+/** Families without a model of their own (Gate Arc Step 4): each def wears a shipped family's GLB (`model.base`). */
+const BORROWED_MODEL = { brigade: 'construct' };
 const TRAIT_SHAPES = {
   barrier: ['hp'], crystal: ['cap', 'hits'], regen: ['pct', 'delay'], hasty: ['mul', 'every', 'duration'],
   volatile: ['radius', 'stun'], brood: ['spawn', 'count'], splitter: ['spawn', 'count'], siphon: ['radius', 'rate'],
@@ -151,7 +157,7 @@ const isCrossing = (map) => (map.crossings || []).length;
 // ---------------------------------------------------------------------------
 
 describe('enemies', () => {
-  it('has 12 families and 60-110 campaign enemies (+ the 4 freeplay giants) with unique ids', () => {
+  it('has 13 families and 60-110 campaign enemies (+ the 4 freeplay giants) with unique ids', () => {
     expect(Object.keys(FAMILIES).sort()).toEqual([...FAMILY_IDS].sort());
     expect([...FAMILY_ORDER].sort()).toEqual([...FAMILY_IDS].sort());
     for (const [id, f] of Object.entries(FAMILIES)) {
@@ -188,7 +194,8 @@ describe('enemies', () => {
       else expect(Number.isInteger(e.leak) && e.leak >= 0, `${e.id}.leak`).toBe(true);
       expect(e.color).toMatch(/^#[0-9a-f]{6}$/i);
       expect(e.accent).toMatch(/^#[0-9a-f]{6}$/i);
-      expect(e.model.base).toBe(e.family);
+      if (e.line !== undefined) expect(e.line).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(e.model.base).toBe(BORROWED_MODEL[e.family] || e.family);
       expect(typeof e.model.variant).toBe('string');
       expect(Array.isArray(e.model.props)).toBe(true);
       expect(e.lore.length, `${e.id} lore`).toBeGreaterThan(20);
@@ -296,11 +303,13 @@ describe('enemies', () => {
     }
   });
 
-  it('has the 6 minibosses and 3 bosses with announced phases', () => {
+  it('has the 10 minibosses and 3 bosses with announced phases', () => {
     const minis = ENEMIES.filter((e) => e.tier === 'miniboss').map((e) => e.id).sort();
     // (Gate Arc: the Frostbitten Heir, 1-10, on the Slime Prince's model in frost colours; Old Lamp-Hugger, 2-10, on
-    // the Bog Basilisk's model at miniboss scale)
-    expect(minis).toEqual(['goblin_machine', 'lizard_lamp_hugger', 'oni_champion', 'orc_general', 'slime_frost_heir', 'slime_prince']);
+    // the Bog Basilisk's model at miniboss scale; the Ashen Warden, 3-10, on the Hollow Samurai's; the Frost Vanguard,
+    // 4-10, on the Orc Warlord's; the Reservoir Willow, 5-10, on the Elder Treant's; Gatekeeper Unit 01, 6-10, on the
+    // Iron Colossus's)
+    expect(minis).toEqual(['ghost_ashen_warden', 'goblin_machine', 'lizard_lamp_hugger', 'oni_champion', 'orc_frost_vanguard', 'orc_general', 'plant_reservoir_willow', 'slime_frost_heir', 'slime_prince', 'vesper_gatekeeper']);
     const bosses = CAMPAIGN_ENEMIES.filter((e) => e.tier === 'boss').map((e) => e.id).sort();
     expect(bosses).toEqual(['dragon_ashwing', 'grave_lych', 'iron_colossus']);
     const giants = ENEMIES.filter(FREEPLAY_ONLY);
@@ -338,6 +347,17 @@ describe('enemies', () => {
     expect(getEnemy('iron_colossus').phases.filter((p) => p.set.traits?.crystal).length).toBeGreaterThanOrEqual(2);
     expect(enemyTraits('dragon_ashwing')).toEqual(expect.arrayContaining(['airborne', 'ward', 'summoner']));
     expect(getEnemy('dragon_ashwing').traits.ward).toBe('fire');
+    // Gatekeeper Unit 01 (Gate Arc Step 6): ≤ the 4,000 miniboss anchor, a glass shell restated every phase, two Line
+    // Sentries called at 66 %, plate 7 and a thicker shell at 33 %
+    const gk = getEnemy('vesper_gatekeeper');
+    expect(gk.hp).toBeLessThanOrEqual(4000);
+    expect(gk.model).toMatchObject({ base: 'construct', variant: 'colossus' });
+    expect(gk.phases.map((p) => p.atHp)).toEqual([0.66, 0.33]);
+    for (const ph of gk.phases) expect(ph.set.traits.crystal, 'every phase restates the shell').toBeTruthy();
+    expect(gk.phases[0].set.traits.summoner).toEqual({ spawn: 'vesper_line_sentry', count: 2, every: 9 });
+    expect(gk.phases[1].set).toMatchObject({ armor: 7, speed: 0.34, traits: { crystal: { cap: 8, hits: 30 } } });
+    // the Rime Wisp: frost-warded (frost slows and freezes slide off; frost hits do half)
+    expect(getEnemy('rime_wisp').traits).toEqual({ ward: 'frost' });
     expect(spawnedBy('dragon_ashwing')).toContain('dragon_wyvern');
   });
 
@@ -416,7 +436,9 @@ describe('maps', () => {
         }
         expect(worst * 180 / Math.PI, `${m.id} path ${ti} sharpest bend`).toBeLessThan(14);
         // spawn / exit off the board (or on its edge) unless the path forks off / joins another one
-        if (!t.fork) expect(offOrOnEdge(p[0]), `${m.id} path ${ti} spawn on the edge`).toBe(true);
+        // (a lane flagged `inside` starts at a rift inside the board: 3-8's lake lane, Gate Arc Step 3)
+        if (!t.fork && !t.inside) expect(offOrOnEdge(p[0]), `${m.id} path ${ti} spawn on the edge`).toBe(true);
+        if (t.inside) expect(['noon_shrine_steps', 'noon_flooded_platform'], `${m.id} path ${ti}: only declared rift and subway lanes start inside`).toContain(m.id);
         if (!t.join) expect(offOrOnEdge(p[p.length - 1]), `${m.id} path ${ti} exit on the edge`).toBe(true);
         // tunnels sit inside the path, in order, at least a tile long
         let prev = 0;
@@ -434,15 +456,71 @@ describe('maps', () => {
   });
 
   it('crossings are resolved: bridges keep the lower pass on the ground, tunnels pass underneath', () => {
-    for (const m of MAPS) {
+    // (+ the S6v viaduct fixture until a shipped map raises one: a crossing with a pass on a viaduct is a
+    // bridge with the viaduct over, on its flat top, and the lower pass on the ground)
+    for (const m of [...MAPS, VIADUCT_FIXTURE]) {
       for (const c of m.crossings) {
         expect(['flat', 'bridge', 'tunnel'], m.id).toContain(c.mode);
+        const elevAt = (t, d) => (t.elev ? t.elev[t.cum.findIndex((v) => v >= d - 1e-9)] || 0 : 0);
         if (c.mode === 'bridge') {
           const over = m.tracks[c[c.over].path];
           const under = m.tracks[c[c.over === 'a' ? 'b' : 'a'].path];
-          const elevAt = (t, d) => (t.elev ? t.elev[t.cum.findIndex((v) => v >= d - 1e-9)] || 0 : 0);
           expect(elevAt(over, c[c.over].d), `${m.id} overpass height`).toBeGreaterThan(0.3);
           expect(elevAt(under, c[c.over === 'a' ? 'b' : 'a'].d), `${m.id} lower pass`).toBeLessThan(0.05);
+        }
+        for (const k of ['a', 'b']) {
+          const t = m.tracks[c[k].path];
+          if (!viaductAt(t, c[k].d) || c.mode === 'tunnel') continue;
+          expect(c.mode, `${m.id} viaduct crossing`).toBe('bridge');
+          expect(c.over, `${m.id} viaduct over`).toBe(k);
+          expect(elevAt(t, c[k].d), `${m.id} on the flat top`).toBe(BRIDGE_HEIGHT);
+        }
+      }
+      // `viaducts` is written only where a track has one
+      for (const t of m.tracks) if ('viaducts' in t) expect(t.viaducts.length, m.id).toBeGreaterThan(0);
+    }
+  });
+
+  it('vent zones and transit-pad points sit on ground road, clear of crossings', () => {
+    // Step 6 (S6v): a forge_vents zone never covers a raised or under-deck stretch (the sim skips those
+    // walkers: a zone there would burn nothing); from Act 6 on (S6b / S6c), zone centres and the
+    // shifting_stars rift points (`at` and `at + jump` of each lane) also sit ≥ 2 tiles along the road
+    // from every crossing
+    const strict = (st) => st.act === 2 && st.chapter >= 6;
+    for (const st of STAGES) {
+      const rule = stageRule(st.id);
+      if (!rule) continue;
+      const m = MAPS.find((x) => x.id === st.mapId);
+      const points = [];
+      for (const z of rule.zones || []) {
+        m.tracks.forEach((t, ti) => {
+          const n = nearestOnPolyline(t.points, t.cum, z.x, z.y);
+          if (n.dist <= z.r) points.push({ what: `vent (${z.x}, ${z.y})`, ti, d: n.d });
+          for (let i = 0; i < t.points.length; i++) {
+            if (Math.hypot(t.points[i][0] - z.x, t.points[i][1] - z.y) > z.r) continue;
+            expect(elevationAt(t, t.cum[i]), `${st.id} vent over a raised road`).toBeLessThan(0.015);
+            expect(underDeck(t, t.cum[i]), `${st.id} vent under a deck`).toBe(false);
+          }
+        });
+      }
+      const portals = rule.always?.portals;
+      if (portals) {
+        m.tracks.forEach((t, ti) => {
+          for (const f of [portals.at, portals.at + portals.jump]) {
+            const d = f * t.length;
+            points.push({ what: `rift ${f}`, ti, d });
+            expect(elevationAt(t, d), `${st.id} rift point raised`).toBeLessThan(0.015);
+            expect(underDeck(t, d), `${st.id} rift point under a deck`).toBe(false);
+            expect(inTunnel(t, d), `${st.id} rift point in a tunnel`).toBe(false);
+          }
+        });
+      }
+      if (!strict(st)) continue;
+      for (const p of points) {
+        for (const c of m.crossings) {
+          for (const k of ['a', 'b']) {
+            if (c[k].path === p.ti) expect(Math.abs(c[k].d - p.d), `${st.id} ${p.what} near the crossing at (${c.x}, ${c.y})`).toBeGreaterThanOrEqual(2);
+          }
         }
       }
     }
@@ -661,6 +739,57 @@ describe('maps', () => {
     }
   });
 
+  it('districts re-dress the city only: Old Town, the highway and the reservoir park (Gate Arc Steps 3-5)', () => {
+    for (const m of MAPS.filter((x) => x.district)) {
+      expect(['oldtown', 'highway', 'park'], m.id).toContain(m.district);
+      expect(m.theme, m.id).toBe('city');
+    }
+    expect(MAPS.filter((m) => m.district === 'park').map((m) => m.id)).toEqual(['noon_reservoir_park', 'noon_reservoir_willow']);
+    // the drowned line (Step 5): three maps of its own theme, and the one subway lane that opens inside a bore
+    expect(MAPS.filter((m) => m.theme === 'drowned').map((m) => m.id)).toEqual(['noon_flooded_platform', 'noon_line2_tunnels', 'noon_pump_station']);
+    const sub = getMap('noon_flooded_platform').tracks[0];
+    expect(sub.inside).toBe(true);
+    expect(sub.tunnels[0][0]).toBeLessThan(0.5);
+  });
+
+  it('Vesperline (Gate Arc Step 6): six maps on the vesper theme, and 6-7 raises the first viaduct', () => {
+    expect(MAPS.length).toBe(80);
+    const vesper = MAPS.filter((m) => m.theme === 'vesper');
+    expect(vesper.map((m) => m.id)).toEqual([
+      'vesper_frost_causeway', 'vesper_skyrail', 'vesper_museum', 'vesper_tower_ring', 'vesper_spindle_foot', 'vesper_starfall',
+    ]);
+    for (const m of vesper) {
+      // (the vesper theme stands the sentry bay at every spawn; 6-10's is the Vesper Gate)
+      expect(m.city?.spawnGate, m.id).toBe(m.id === 'vesper_spindle_foot' ? 'vesperGate' : undefined);
+      expect(m.district, m.id).toBeUndefined();
+      // edge spawns only (no `inside` lane in Step 6)
+      for (const t of m.tracks) expect(t.inside, m.id).toBeUndefined();
+    }
+    // the only viaduct on the shipped boards: 6-7's sky-rail, ≈ 8-10 tiles foot to foot, over its own return
+    const withViaduct = MAPS.filter((m) => m.tracks.some((t) => t.viaducts));
+    expect(withViaduct.map((m) => m.id)).toEqual(['vesper_skyrail']);
+    const rail = getMap('vesper_skyrail');
+    expect(rail.bridge).toEqual({ skyRail: true });
+    const [[a, b]] = rail.tracks[0].viaducts;
+    expect(b - a).toBeGreaterThanOrEqual(8);
+    expect(b - a).toBeLessThanOrEqual(10.5);
+    expect(rail.crossings.length).toBe(1);
+    const [c] = rail.crossings;
+    expect(c.mode).toBe('bridge');
+    expect(viaductAt(rail.tracks[0], c[c.over].d)).toBeTruthy();
+    expect(Math.min(c[c.over].d - a, b - c[c.over].d)).toBeGreaterThanOrEqual(2.1);
+    // S6a's set pieces as decor: the Doorie statue in the museum's rotunda, the Spindle's foot inside 6-10's helix
+    expect(getMap('vesper_museum').decor.filter((d) => d.type === 'doorieStatue')).toHaveLength(1);
+    expect(getMap('vesper_spindle_foot').decor.find((d) => d.type === 'spindle')).toMatchObject({ r: 2, variant: 0 });
+    // 6-10's helix: the Gatekeeper's lane is the longer one, and the merge sits ≥ 2.2 tiles past the south crossing's ramp
+    const helix = getMap('vesper_spindle_foot');
+    expect(helix.tracks[1].length).toBeGreaterThan(helix.tracks[0].length);
+    const lane0 = helix.tracks[0];
+    let rampEnd = 0;
+    lane0.elev.forEach((e, i) => { if (e > 0) rampEnd = lane0.cum[i]; });
+    expect(helix.tracks[1].join.d - rampEnd).toBeGreaterThanOrEqual(2.2);
+  });
+
   it('has map variety: multi-lane, crossings and water maps', () => {
     expect(MAPS.filter((m) => m.paths.length >= 2).length).toBeGreaterThanOrEqual(6);
     expect(MAPS.filter((m) => m.paths.length >= 3).length).toBeGreaterThanOrEqual(1);
@@ -708,7 +837,10 @@ describe('stages', () => {
     expect(stagesOfKind('resource').length).toBe(15);
     expect(stagesOfKind('boss').map((s) => s.id).sort()).toEqual(['boss-ashwing', 'boss-colossus', 'boss-lych']);
     expect(stagesOfKind('challenge').map((s) => s.id)).toEqual(['challenge']);
-    expect(STAGES.length).toBe(59 + act2.length);
+    // (+ the side stages, Gate Arc Step 6: optional, after their anchor, never in CAMPAIGN_IDS)
+    const sides = stagesOfKind('side');
+    expect(sides.map((s) => s.id)).toEqual(['side-6-starfall']);
+    expect(STAGES.length).toBe(59 + act2.length + sides.length);
     expect(new Set(STAGES.map((s) => s.id)).size).toBe(STAGES.length);
     expect(getStage('1-1')).toBe(STAGE_MAP['1-1']);
     expect(() => getStage('nope')).toThrow();
@@ -741,7 +873,10 @@ describe('stages', () => {
     for (const s of STAGES) {
       for (const k of STAGE_KEYS) expect(Object.keys(s), `${s.id} missing ${k}`).toContain(k);
       for (const k of Object.keys(s)) expect([...STAGE_KEYS, ...STAGE_OPTIONAL], `${s.id} extra ${k}`).toContain(k);
-      expect(['campaign', 'resource', 'boss', 'challenge']).toContain(s.kind);
+      expect(['campaign', 'resource', 'boss', 'challenge', 'side']).toContain(s.kind);
+      // `anchor` only on a side stage: the Act II stage it is drawn after (and opens with)
+      if (s.kind === 'side') expect(STAGE_MAP[s.anchor]?.act, `${s.id} anchor`).toBe(2);
+      else expect(s.anchor, s.id).toBeUndefined();
       expect(MAP_TIERS[s.tier], s.id).toBeTruthy();
       expect(getMap(s.mapId), s.id).toBeTruthy();
       expect(s.name && s.desc, s.id).toBeTruthy();
@@ -868,6 +1003,31 @@ describe('stages', () => {
     }
   });
 
+  it('the side stage (Gate Arc Step 6): The Star Dome after 6-10, 6-10\'s numbers with HP × 1.1, never a campaign stage', () => {
+    const side = getStage('side-6-starfall');
+    const plan = ACT2_PLAN_MAP['6-10'];
+    expect(side).toMatchObject({
+      kind: 'side', chapter: 6, act: 2, anchor: '6-10', requires: '6-10', name: 'The Star Dome', mapId: 'vesper_starfall',
+      waves: plan.waves, tier: plan.tier, startCash: plan.startCash, cashScale: plan.cashScale, medalGemMul: 0.5, lives: 100,
+    });
+    expect(side.waves).toBe(30);
+    expect(side.hpScale).toBe(9.94);
+    expect(side.hpScale).toBeCloseTo(plan.hpScale * 1.1, 1);
+    expect(stageRequires(side)).toEqual(['6-10']);
+    // not a campaign stage: never in CAMPAIGN_IDS (so never in co-op, the campaign counters or achievements)
+    expect(CAMPAIGN_IDS).not.toContain(side.id);
+    expect(campaignStages()).not.toContain(side);
+    expect(side.introduces).toEqual([]);
+    expect(side.unlocks).toEqual({});
+    expect(side.finale).toBeUndefined();
+    // first clear: coins and books, no gems or recruit ticket; chapter 7's drops (6-10's table, no crown)
+    expect(side.firstClear.map((r) => r.id).sort()).toEqual(['book_rare', 'coins']);
+    expect(side.drops.map((d) => d.item)).toEqual(expect.arrayContaining(getStage('6-10').drops.filter((d) => d.item === 'coins' || d.item.startsWith('book_')).map((d) => d.item)));
+    // no Rime Wisp (the cold wisps stay 6-10's) and no enemy that first appears here
+    expect(stageEnemies(side)).not.toContain('rime_wisp');
+    for (const id of stageEnemies(side)) expect(STAGE_MAP[getEnemy(id).introducedIn]?.kind, id).toBe('campaign');
+  });
+
   it('free recruits match units.js and are granted before their mechanic', () => {
     const expected = freeUnlocksByStage();
     const actual = {};
@@ -882,6 +1042,10 @@ describe('stages', () => {
     expect(fixedHas('1-5', 'slime_prince')).toBe(true);
     expect(fixedHas('1-10', 'slime_frost_heir')).toBe(true);
     expect(fixedHas('2-10', 'lizard_lamp_hugger')).toBe(true);
+    expect(fixedHas('3-10', 'ghost_ashen_warden')).toBe(true);
+    expect(fixedHas('4-10', 'orc_frost_vanguard')).toBe(true);
+    expect(fixedHas('5-10', 'plant_reservoir_willow')).toBe(true);
+    expect(fixedHas('6-10', 'vesper_gatekeeper')).toBe(true);
     expect(fixedHas('4-5', 'orc_general')).toBe(true);
     expect(fixedHas('6-5', 'goblin_machine')).toBe(true);
     expect(fixedHas('7-5', 'oni_champion')).toBe(true);
@@ -893,6 +1057,8 @@ describe('stages', () => {
     expect(drops('6-5')).toContain('crown_cog');
     expect(drops('7-5')).toContain('crown_oni');
     expect(drops('8-5')).toContain('crown_dragon');
+    // the Act II finales from 3-10 on carry no crown (each family's crown belongs to its Act I boss)
+    for (const sid of ['3-10', '4-10', '5-10', '6-10', 'side-6-starfall']) expect(drops(sid).some((i) => i.startsWith('crown_')), sid).toBe(false);
     expect(fixedHas('boss-lych', 'grave_lych')).toBe(true);
     expect(fixedHas('boss-colossus', 'iron_colossus')).toBe(true);
     expect(fixedHas('boss-ashwing', 'dragon_ashwing')).toBe(true);

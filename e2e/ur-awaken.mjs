@@ -176,11 +176,14 @@ try {
     check(head.stageUr && head.stageRing, `${tag} Hotaru's page: her card art has the rainbow frame`);
     check(head.panel && head.awBadge, `${tag} Hotaru's page: Awakening tab shows "Ascended to UR"`);
     await shot(page, `student-hotaru-${tag}`);
-    await page.locator('[data-testid="view-3d"]').click({ force: true });
+    // (the element's own click: a forced click at its point can land on a toast passing over the stage, as the
+    // journal's "new lesson" toast does at 844x390)
+    await page.locator('[data-testid="view-3d"]').evaluate((b) => b.click());
+    await page.waitForSelector('[data-testid="view-card"]', { state: 'attached', timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(400);
     const s3d = await page.evaluate(() => { const s = document.querySelector('.mb-show-stage'); const ring = s?.querySelector(':scope > .ur-ring'); return { is3d: s?.classList.contains('is-3d'), ur: s?.classList.contains('is-ur'), ring: !!ring && getComputedStyle(ring).display !== 'none' }; });
     check(s3d.is3d && s3d.ur && s3d.ring, `${tag} Hotaru's page: the 3D Chibi view keeps the rainbow frame`);
-    await page.locator('[data-testid="view-card"]').click({ force: true });
+    await page.locator('[data-testid="view-card"]').evaluate((b) => b.click()).catch(() => {});
     await page.waitForTimeout(300);
     await go(page, '#/student/kaede?tab=awaken', '[data-testid="rarity-tag"]');
     const kHead = await page.evaluate(() => {
@@ -201,12 +204,7 @@ try {
     check(fKae && !fKae.ur && !fKae.ring, `${tag} formation: Kaede's slot (★4) has no rainbow`);
     await shot(page, `formation-${tag}`);
 
-    // ---- stage prep
-    await go(page, '#/stage/1-1', '.ma-fslot .unit-card[data-unit="hotaru"]');
-    const pHot = await frameInfo(page, '.ma-fslot .unit-card[data-unit="hotaru"]');
-    const pKae = await frameInfo(page, '.ma-fslot .unit-card[data-unit="kaede"]');
-    check(isUrFrame(pHot), `${tag} stage prep: Hotaru's formation card is UR`);
-    check(showsPlain(pKae, 'SSR'), `${tag} stage prep: Kaede's card still SSR ("${pKae?.label}")`);
+    // (stage prep shows no squad cards since its Ink & Paper redesign, f709bae4: the formation checks above cover them)
     const prepOv = [];
     for (const id of ['hikari', 'hotaru', 'kaede']) {
       const card = `.ma-fslot .unit-card[data-unit="${id}"]`;

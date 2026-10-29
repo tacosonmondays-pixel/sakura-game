@@ -152,10 +152,11 @@
 .gem-inline svg { width: 100%; height: 100%; display: block; }
 .lb-patch-list { display: flex; flex-direction: column; gap: 8px; }
 .lb-patch { padding: 8px 10px 6px; border: 1px solid #dde7f2; border-radius: 8px; background: #fff; box-shadow: 0 2px 0 #dbe6f3; }
-.lb-patch-head { display: flex; align-items: center; gap: 8px; }
-.lb-patch-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; flex: 1; min-width: 0; }
+.lb-patch-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+/* (never narrower than the one-line date: on a narrow column the Claim button wraps under the title instead) */
+.lb-patch-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; flex: 1; min-width: min-content; }
 .lb-patch-ver { flex: none; padding: 0 6px; border-radius: 4px; font-size: var(--fs-label); font-weight: 900; color: #fff; background: var(--navy); }
-.lb-patch-date { font-size: var(--fs-label); font-weight: 800; color: var(--muted); }
+.lb-patch-date { font-size: var(--fs-label); font-weight: 800; color: var(--muted); white-space: nowrap; }
 .lb-patch-title b { flex-basis: 100%; font-size: 0.9rem; font-weight: 900; font-style: italic; color: var(--navy); line-height: 1.2; }
 .lb-patch-head .btn { flex: none; }
 .lb-patch-claimed { flex: none; padding: 3px 9px; border-radius: 999px; font-size: var(--fs-label); font-weight: 900; color: #1f8a57; background: #e2f6ec; border: 1px solid #b6e6cc; white-space: nowrap; }
@@ -187,7 +188,8 @@
 .ma-banner-text { position: relative; z-index: 3; padding: 18px 20px; max-width: 52%; display: flex; flex-direction: column; gap: 6px; height: 100%; }
 .ma-banner-kicker { align-self: flex-start; background: var(--navy); color: #fff; font-weight: 900; font-style: italic; font-size: 0.75rem; padding: 2px 12px; transform: skewX(var(--skew)); border-radius: 4px; }
 .ma-banner-title { font-size: 2rem; line-height: 1.05; font-style: italic; font-weight: 900; color: var(--navy); text-shadow: 0 2px 0 #fff, 0 0 12px #fff; margin: 4px 0; }
-.ma-banner-desc { font-weight: 700; font-size: 0.85rem; background: rgba(255,255,255,0.75); padding: 6px 8px; border-radius: 8px; }
+/* (no box: a translucent box sat over the left stand's head; the copy reads on a white halo, as the title does) */
+.ma-banner-desc { font-weight: 700; font-size: 0.85rem; color: var(--navy); text-shadow: 0 0 2px #fff, 0 0 4px #fff, 0 0 8px #fff, 0 1px 0 #fff; }
 .ma-banner-featured { display: flex; flex-wrap: wrap; gap: 4px; }
 .ma-feat-chip { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.9); border-radius: 999px; padding: 1px 8px 1px 2px; font-size: var(--fs-label); font-weight: 900; color: var(--navy); }
 .ma-banner-links { display: flex; gap: 8px; margin-top: auto; }
@@ -658,7 +660,7 @@
 }
 .ma-hub-tile > * { transform: skewX(calc(var(--skew) * -1)); }
 .ma-hub-tile:nth-child(2) { animation-delay: 50ms; } .ma-hub-tile:nth-child(3) { animation-delay: 100ms; } .ma-hub-tile:nth-child(4) { animation-delay: 150ms; }
-.ma-hub-tile:nth-child(5) { animation-delay: 200ms; } .ma-hub-tile:nth-child(6) { animation-delay: 250ms; } .ma-hub-tile:nth-child(7) { animation-delay: 300ms; } .ma-hub-tile:nth-child(8) { animation-delay: 350ms; }
+.ma-hub-tile:nth-child(5) { animation-delay: 200ms; } .ma-hub-tile:nth-child(6) { animation-delay: 250ms; } .ma-hub-tile:nth-child(7) { animation-delay: 300ms; } .ma-hub-tile:nth-child(8) { animation-delay: 350ms; } .ma-hub-tile:nth-child(9) { animation-delay: 400ms; }
 .ma-hub-tile:hover { background: #fff; box-shadow: 0 10px 26px rgba(10,30,60,0.3); }
 .ma-hub-tile:active { transform: skewX(var(--skew)) scale(0.97); }
 .ma-hub-art { position: absolute; inset: -4px -20px; line-height: 0; }
@@ -805,7 +807,7 @@
   .ma-banner-text { padding: 10px 12px; gap: 4px; max-width: 60%; }
   .ma-banner-kicker { font-size: var(--fs-label); }
   .ma-banner-title { font-size: 1.25rem; margin: 2px 0; }
-  .ma-banner-desc { font-size: var(--fs-label); padding: 4px 6px; }
+  .ma-banner-desc { font-size: var(--fs-label); }
   .ma-banner-featured { display: none; }
   .ma-banner-links { margin-top: auto; gap: 6px; }
   .ma-banner-links .btn-small { min-height: 34px; padding: 4px 10px; font-size: 0.8rem; }
@@ -933,12 +935,16 @@
 .ma-hub { grid-template-columns: 200px minmax(0, 1fr); }
 .ma-hub-char.hub-stand { width: 290px; }
 .ma-hub-grid {
-  grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.92fr);
+  /* (the right column holds three big tiles: Bounty, Total Assault and Tryout Day; the bottom row keeps the five small
+     ones at the share of the height it had with two) */
+  grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.38fr);
   grid-template-areas: 'mission mission mission mission mission mission mission bounty bounty bounty bounty bounty'
                        'mission mission mission mission mission mission mission assault assault assault assault assault'
+                       'mission mission mission mission mission mission mission tryout tryout tryout tryout tryout'
                        'challenge challenge challenge titans titans coop coop sandbox sandbox sandbox story story';
 }
 .ma-hub-titans { grid-area: titans; } /* [ascension] Titan Trials */
+.ma-hub-tryout { grid-area: tryout; } /* [tryout] Tryout Day */
 .ma-hub-tile { background: #fff; }
 .ma-hub-art { inset: 0; }
 .ma-hub-art > img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; display: block; transform: skewX(calc(var(--skew) * -1)) scale(1.08); transition: transform 600ms var(--ease); }
@@ -982,7 +988,7 @@
   .ma-hub-challenge .ma-hub-sub, .ma-hub-sandbox .ma-hub-sub, .ma-hub-coop .ma-hub-sub, .ma-hub-titans .ma-hub-sub { font-size: var(--fs-label); }
 }
 @media (max-aspect-ratio: 1/1) {
-  .ma-hub-grid { grid-template-rows: 150px 90px 90px 90px; grid-template-areas: 'mission mission mission mission mission mission mission mission mission mission mission mission' 'bounty bounty bounty bounty bounty bounty assault assault assault assault assault assault' 'challenge challenge challenge challenge titans titans titans titans coop coop coop coop' 'sandbox sandbox sandbox sandbox sandbox sandbox story story story story story story'; }
+  .ma-hub-grid { grid-template-rows: 150px 90px 90px 90px 90px; grid-template-areas: 'mission mission mission mission mission mission mission mission mission mission mission mission' 'bounty bounty bounty bounty bounty bounty assault assault assault assault assault assault' 'tryout tryout tryout tryout tryout tryout tryout tryout tryout tryout tryout tryout' 'challenge challenge challenge challenge titans titans titans titans coop coop coop coop' 'sandbox sandbox sandbox sandbox sandbox sandbox story story story story story story'; }
 }
 /* r2: small bottom-row tiles — her bust in full colour (no white veil), a white name plate at the
    bottom (title + subtitle or lock line), ribbon top-left; phones get the short subtitles */

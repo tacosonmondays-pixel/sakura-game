@@ -9,7 +9,7 @@ import { resolveStats } from '../sim/mods.js';
 import { fmtNum } from './format.js';
 import { shownTips, isAbilityTip } from '../data/unitTips.js';
 import { abilityAtTier, skillAtLevel, abilityRuns } from '../data/abilities.js';
-import { abilityText, abilityValues, fillAbilityText, abilityUpgradeLine, abilityNote } from '../data/abilityText.js';
+import { abilityText, abilityValues, fillAbilityText, abilityUpgradeLine, abilityNote, abilityLrText, abilityLrLine } from '../data/abilityText.js';
 
 /**
  * Her ⚡ ability for the girl page (ABILITIES_SPEC §10): the Info tab's one-line chip ("⚡ Skyfall Volley · Rapid
@@ -93,6 +93,9 @@ function abilityFormView(unit, pi) {
       up = null;
     }
   }
+  // an LR unit's LR form (BANNERS §C.2: Twin Star, Event Horizon), after Limit Break: one fact naming it
+  const lrText = !hero && live && entry.lr ? abilityLrText(entry.id) : null;
+  const lr = lrText ? { name: lrText.name, line: abilityLrLine(entry, 'add') } : null;
   const cooldown = `Recharges in ${entry.cooldown}s of wave time`;
   const unlock = hero ? `Unlocks at hero LV ${at}` : `Unlocks at ${unit.paths[pi].name} tier ${at}`;
   return {
@@ -109,12 +112,14 @@ function abilityFormView(unit, pi) {
     cooldown,
     unlock,
     up,
+    lr,
     later: live ? null : 'Comes in a later update',
     // the Details sheet's facts: unlock, recharge and the tier-5 / Lv 17 upgrade for one that runs; for one that
     // waits only where it is planned — no unlock, recharge or upgrade numbers it cannot keep yet (the teaser is the
     // only promise; the hero track says nothing at Lv 17 for it either)
     facts: live
-      ? [{ k: 'Unlock', t: unlock }, { k: 'Recharge', t: cooldown }, ...(up ? [{ k: up.at, t: up.line.replace(/^⚡\+\s*/, '') }] : [])]
+      ? [{ k: 'Unlock', t: unlock }, { k: 'Recharge', t: cooldown }, ...(up ? [{ k: up.at, t: up.line.replace(/^⚡\+\s*/, '') }] : []),
+        ...(lr ? [{ k: 'At LR', t: lr.line }] : [])]
       : [{ k: 'Planned', t: hero ? `for hero LV ${at}` : `for ${unit.paths[pi].name} tier ${at}` }],
   };
 }

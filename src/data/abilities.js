@@ -45,7 +45,10 @@
 //           on any other pick, splash (tiles) makes each strike a blast: every enemy within splash
 //           of the struck one takes the same hit × splashShare (default 1, the full hit);
 //           after: { mods, duration } a boost tail: the ModSet on the caster for `duration` s after
-//           each cast (Tenka's Zero Point)
+//           each cast (Tenka's Zero Point); horizon { time, pull, share } (with splash): each blast collapses into
+//           a pull on its area for `time` s (`pull` tiles a second toward its centre by path distance, ×
+//           KNOCKBACK_RESIST of the tier), then detonates again there for `share` × the first blast's hit (the LR
+//           Event Horizon)
 //   burst   at ('self' | 'densest' crowd within reachMul × range), radius | radiusMul, shells, delay,
 //           every (s between shells), reaim (each shell picks its point again), dmgMul, knockback,
 //           hitsAir, status; at: 'aim' (the cast's aim point, else her mortar aim, else the densest crowd within
@@ -355,11 +358,15 @@ export const ABILITIES = deepFreeze({
   }],
   tenka: [{
     // a plasma blast on the strongest enemy in her range (every enemy within `splash` of it takes it too);
-    // Zero Point: a far bigger blast, a faster recharge and her bolts ×2 as fast for 6 s after each cast
+    // Zero Point: a far bigger blast, a faster recharge and her bolts ×2 as fast for 6 s after each cast.
+    // `lr`: the LR form Event Horizon (BANNERS §C.2) while her battle stats carry `lr: true`: the blast collapses into
+    // a 1.5 s gravity pull on its area (1.6 tiles a second toward its centre by path distance; minibosses half, bosses
+    // stand firm), then detonates again there for half the first blast's hit
     path: 'rails', unlockTier: 3, id: 'tenka.criticalMass', kind: 'strike', scope: 'local', cooldown: 45, duration: 0,
     effect: { pick: 'strong', count: 1, reachMul: 1, dmgMul: 40, splash: 2, armorPen: 99 },
     auto: { when: 'elite' },
     t5: { cooldown: 30, effect: { dmgMul: 120, splash: 3, after: { mods: { rateMul: 2 }, duration: 6 } } },
+    lr: { effect: { horizon: { time: 1.5, pull: 1.6, share: 0.5 } } },
   }],
   chika: [{
     // extra drones beyond her limit; they follow her flight mode, then dock and vanish

@@ -19,7 +19,9 @@ import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 // life, step, coin and cast below is main's; the A1 and base hashes are the ones feature/abilities had).
 const GOLDEN = {
   '1-3:normal': 'W15/100/20746/864/ab76d249/4',
-  '4-5:hard': 'W26/2/65954/3532/27257eef/21',
+  // Gate Arc Step 4: Azami joins after 4-7, so 4-5's free team is without her (her strips held the 2-life win):
+  // re-pinned, a narrow Hard loss as in BASE_GOLDEN below
+  '4-5:hard': 'L26/0/67565/2710/89ff1e0b/22',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
   // stays below, with the returning girls left out). Re-pinned in A3 M3 (was L30/0/37594/8800/38dbc785/14): their
   // abilities are attached now, so on Auto Hana's Kaze's Swoop and Noa's First Aid Call cast too (14 → 22 casts)

@@ -92,11 +92,15 @@ export function render(root, params = {}) {
     clear(content);
     const chapter = CHAPTERS.find((c) => c.id === chapterId);
     content.appendChild(chapterPanel(profile, chapter));
-    const grid = (ids) => h('div.cp-grid', ids.map((id) => stageCard(profile, id, { isNext: id === next })));
+    // a side stage's small card right after its anchor (Gate Arc Step 6: the Star Dome after 6-10)
+    const grid = (ids, sides = []) => h('div.cp-grid', ids.flatMap((id) => [
+      stageCard(profile, id, { isNext: id === next }),
+      ...sides.filter((x) => x.anchor === id).map((side) => sideCard(profile, side)),
+    ]));
     // one act: the plain grid, no header; two: a header above each act's grid
     const rows = actRows(profile, chapter);
-    if (rows.length <= 1) content.appendChild(grid(rows[0]?.ids || chapter.stages));
-    else for (const row of rows) content.appendChild(h(`section.ma-act-row.cp-act.act-${row.act}`, { 'data-testid': `act-row-${chapter.id}-${row.act}` }, actRowHeader(row, chapter.id), grid(row.ids)));
+    if (rows.length <= 1) content.appendChild(grid(rows[0]?.ids || chapter.stages, rows[0]?.sides));
+    else for (const row of rows) content.appendChild(h(`section.ma-act-row.cp-act.act-${row.act}`, { 'data-testid': `act-row-${chapter.id}-${row.act}` }, actRowHeader(row, chapter.id), grid(row.ids, row.sides)));
   };
 
   drawRail();
@@ -129,6 +133,35 @@ function chapterPanel(profile, chapter) {
           ])));
 }
 
+/**
+ * A side stage's card (Gate Arc Step 6), drawn right after its anchor's card: its thumbnail, "Side", its name and
+ * medals; locked ("Clear 6-10") until the anchor is cleared. Opens the stage screen like any stage card.
+ * @param {object} profile
+ * @param {{ id: string, anchor: string, unlocked: boolean, cleared: boolean, lockText: string|null }} side campaignActs.js
+ */
+function sideCard(profile, side) {
+  const stage = STAGE_MAP[side.id];
+  let map = null;
+  try {
+    map = getMap(stage.mapId);
+  } catch {
+    map = null;
+  }
+  const medals = stageMedals(profile, side.id);
+  const order = stage.difficulties || DIFFICULTY_ORDER;
+  return h(`button.ma-stage-card.cp-card.cp-side${side.unlocked ? '' : '.locked'}${side.cleared ? '.cleared' : ''}`, {
+    type: 'button', 'data-testid': `side-${side.id}`, onclick: () => navigate('stage', { id: side.id }),
+    'aria-label': `Side stage ${stage.name}${side.unlocked ? '' : `, locked: ${side.lockText}`}`,
+  },
+  h('span.cp-card-map',
+    h('span.cp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 320, height: 200, ruined: stage.scenery?.ruined }), map, stage.rule, 320, 200) : '' }),
+    h('span.cp-id.num', 'Side'),
+    side.unlocked ? savedBadge(profile, side.id) : h('span.cp-lock', ico('lock'), h('span', side.lockText)),
+    h('span.cp-medals', { title: order.map((d) => `${DIFFICULTIES[d].name}: ${medals[d] ? 'cleared' : '—'}`).join(' · ') },
+      order.map((d) => svgEl(medalIcon(d, { earned: medals[d] }), `cp-medal${medals[d] ? '.on' : ''}`)))),
+  h('span.cp-card-cap', h('span.cp-name', stage.name)));
+}
+
 function stageCard(profile, stageId, { isNext }) {
   const stage = STAGE_MAP[stageId];
   let map = null;
@@ -152,7 +185,7 @@ function stageCard(profile, stageId, { isNext }) {
     'aria-label': `${stage.id} ${stage.name}${isNext ? ', next' : ''}${unlocked ? '' : `, locked: ${requirementText(profile, stageId)}`}`,
   },
   h('span.cp-card-map',
-    h('span.cp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 320, height: 200 }), map, stage.rule, 320, 200) : '' }),
+    h('span.cp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 320, height: 200, ruined: stage.scenery?.ruined }), map, stage.rule, 320, 200) : '' }),
     ghost,
     h('span.cp-id.num', stage.id),
     unlocked

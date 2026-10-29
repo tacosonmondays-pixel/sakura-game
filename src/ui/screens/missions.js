@@ -174,11 +174,12 @@ function build(redraw, mode = 'stand') {
     mission,
     tile({ id: 'bounty', title: 'Bounty', art: scene(arenaTheme(event)), sub: `${event.dropMul}× drops in ${event.arenaName}`, short: `${event.dropMul}× drops this week`, lockText: locks.bounty, timer: msToLocalWeekEnd(), onTimer: redraw, onClick: () => navigate('bounty') }),
     tile({ id: 'assault', title: 'Total Assault', art: scene('volcano'), sub: 'Bosses drop crowns', lockText: locks.assault, open: fresh.has('assault'), onClick: go('assault') }),
-    // [ascension] Titan Trials, the weekly bosses (opens after 3-5)
-    tile({ id: 'titans', title: 'Titan Trials', art: scene('night'), sub: 'Weekly', lockText: locks.titans, timer: nextWeeklyReset() - Date.now(), onTimer: redraw, open: fresh.has('titans'), onClick: go('titans') }),
-    // [tryout] Tryout Day, the roguelike run mode (opens after 2-5)
-    tile({ id: 'tryout', title: 'Tryout Day', art: scene('sakura'), sub: 'Run mode', lockText: tryoutUnlocked(profile) ? null : `Clear ${TRYOUT_UNLOCK}`, onClick: () => navigate('tryout') }),
+    // [tryout] Tryout Day, the roguelike run mode (opens after 2-5): a big tile, the third in the right column under
+    // Total Assault (its own row on a portrait phone), so it is never left over in a squeezed row of its own
+    tile({ id: 'tryout', title: 'Tryout Day', art: scene('sakura'), sub: 'Run mode', lockText: tryoutUnlocked(profile) ? null : `Clear ${TRYOUT_UNLOCK} first`, onClick: () => navigate('tryout') }),
     tile({ id: 'challenge', title: 'Tactical Challenge', art: scene('arena'), sub: bestWaveLine(profile), lockText: locks.challenge, open: fresh.has('challenge'), onClick: go('challenge') }),
+    // [ascension] Titan Trials (after Challenge: the tab order follows the row), the weekly bosses (opens after 3-5)
+    tile({ id: 'titans', title: 'Titan Trials', art: scene('night'), sub: 'Weekly', lockText: locks.titans, timer: nextWeeklyReset() - Date.now(), onTimer: redraw, open: fresh.has('titans'), onClick: go('titans') }),
     // [online] the Multiplayer hub (UI M5d, owner #79/#108): co-op, friends, the clan boss; PvP coming soon. The tile
     // keeps its id (hub-coop) and its place
     // (a soft hyphen: on a narrow tile the word breaks "Multi-player" over two lines instead of being cut)

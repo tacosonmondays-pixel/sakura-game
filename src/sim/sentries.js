@@ -137,7 +137,8 @@ export function addSentry(sim, t, x, y, { extra = false, ttl = t.stats.sentry.tt
   makeRoom(sim, t.owner ?? 0);
   const s = { uid: sim._nextUid(), x, y, ttl, type: sentryType(sim, t), cooldown: 0.3, extra };
   t.sentries.push(s);
-  sim._emit('deploy', { uid: s.uid, towerUid: t.uid, x, y, kind: 'sentry', type: s.type, extra });
+  // (her kit as sentryType: a payload field named `type` would overwrite the event's own type, Sim._emit)
+  sim._emit('deploy', { uid: s.uid, towerUid: t.uid, x, y, kind: 'sentry', sentryType: s.type, extra });
   return s;
 }
 

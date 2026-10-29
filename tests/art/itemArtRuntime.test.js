@@ -194,14 +194,15 @@ describe('display only: the battle sim is untouched', () => {
     // Known ids per protocol. A protocol bump (a real sim change) adds its own line here.
     // (9: Gate Arc Acts 1–2; 10: the ultimates release: abilities cast in battle, Tenka, Seiran's Dragonflight to START;
     // 11: the banners release with the duo Kohaku & Tsubaki (and Kohaku's constant beam), LR Limit Break, UR Resonance
-    // and the staff heroes, and Tryout Day in co-op, in one release)
-    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db' };
+    // and the staff heroes, and Tryout Day in co-op, in one release; 12: Gate Arc Acts 3–6, Tenka's LR form, the duo's
+    // buff with the long beam, the sentry deploy event and Tryout Day's Extended Day + Random Class)
+    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db', 12: 'd35092f141d3' };
     // feature/ultimates-a4 only: the A4 deploys (Kage's Shadow Doubles, Suzu's Bell Carpet, Chika's Drone Surge,
     // src/sim/deploys.js), Fuu's Backdraft Fan (the move kind, A5; it ignores her own gusts' push locks) and Iroha's Mirror
-    // Shift (the mirror deploy and its reflection, src/sim/mirrors.js) change the sim on protocol 11. The next bundled
+    // Shift (the mirror deploy and its reflection, src/sim/mirrors.js) change the sim on protocol 12. The next bundled
     // co-op release sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only this exact
     // in-progress id passes here.
-    const PENDING_BUMP = { 11: 'a644d228189e' };
+    const PENDING_BUMP = { 12: '61714519fd0f' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

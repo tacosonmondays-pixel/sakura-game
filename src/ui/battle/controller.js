@@ -17,7 +17,7 @@ import { applyTitanResult } from '../../systems/titans.js';
 import { createBattleSaver } from './battleSaver.js';
 import { createTryoutSaver } from './tryoutSaver.js';
 import { createTryoutBattle } from './tryout.js';
-import { MODE_NAME as TRYOUT_MODE_NAME } from '../text/tryout.js';
+import { MODE_NAME as TRYOUT_MODE_NAME, EXTENDED_TEXT } from '../text/tryout.js';
 import { buildTryoutPlan, buildTryoutStage } from '../../sim/tryout/index.js';
 import { getTryoutRun, markResume, continueKind, clearTryoutRun } from '../../systems/tryoutRuns.js';
 import { applyTryoutResult, applyTryoutRecord } from '../../systems/tryoutRewards.js';
@@ -79,6 +79,7 @@ import { supportAllowed, clampSupportUnit, supportLoadoutEntry, supportMiniProfi
 import { supportPays } from '../../online/supportRules.js';
 import { newKey } from '../../online/donateLedger.js';
 import { pickFor } from './supportPick.js';
+import { extendedPast, isExtendedRun } from './tryout/adapters.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -499,7 +500,8 @@ export function mountBattle(root, params, hooks) {
       ctx.tryoutUi = createTryoutBattle(ctx, { mySlot: ls ? ls.mySlot : 0, send });
       modules.push(ctx.tryoutUi);
     }
-    if (ls && sim.freeplay) {
+    // (an Extended Day run is not freeplay for the rewards or the banners: its own UI comes with the run, TRYOUT_DAY §20.8)
+    if (ls && sim.freeplay && !sim.tryout) {
       // co-op freeplay: banners, the bank at the goal, the Finish vote (src/ui/battle/freeplay.js)
       fpBattle = createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies: stageFamilies() });
       modules.push(fpBattle);
@@ -536,17 +538,32 @@ export function mountBattle(root, params, hooks) {
     const tracks = sim.map?.tracks || [];
     const spawnRuns = tracks.filter((t) => !t.fork).map((t) => t.points.filter((_, i) => i % 5 === 0 && t.cum[i] <= 5.5));
     const exitRuns = tracks.filter((t) => !t.join).map((t) => t.points.filter((_, i) => i % 5 === 0 && t.cum[i] >= t.length - 3.5));
+    // the gate props themselves (their feet: a far-edge gate stands up to 2 tiles in from where its lane starts; the
+    // lane's ends where the renderer has none), each with the screen depth of its foot and spawn arrow: when both top corners cover a
+    // spawn, the feed drops below them
+    const propGates = renderer.gates || [];
+    const gateFeet = (kind, runEnds) => {
+      const own = propGates.filter((g) => g.kind === kind).map((g) => [g.x, g.z]);
+      return own.length ? own : runEnds;
+    };
+    const spawnGates = gateFeet('spawn', tracks.filter((t) => !t.fork).map((t) => t.points[0]));
+    const exitGates = gateFeet('goal', tracks.filter((t) => !t.join).map((t) => t.points[t.points.length - 1]));
     feed.setAvoid(() => {
       const L = layer.getBoundingClientRect();
       const out = [];
       // the live spawn gates: a reversed route (Reverse Route, an ambush wave) comes in at the exits
-      const pairs = sim.routeReversed ? [[exitRuns, 1], [spawnRuns, 0.2]] : [[spawnRuns, 1], [exitRuns, 0.2]];
-      for (const [runs, w] of pairs) {
+      const pairs = sim.routeReversed ? [[exitRuns, exitGates, 1], [spawnRuns, spawnGates, 0.2]] : [[spawnRuns, spawnGates, 1], [exitRuns, exitGates, 0.2]];
+      for (const [runs, gates, w] of pairs) {
         for (const run of runs) {
           for (const [x, y] of run) {
             const p = renderer.worldToScreen(x, y, 0);
             out.push({ x: p.clientX - L.left, y: p.clientY - L.top, w });
           }
+        }
+        for (const [x, y] of gates) {
+          const p = renderer.worldToScreen(x, y, 0);
+          const q = renderer.worldToScreen(x, y + 1.4, 0);
+          out.push({ x: p.clientX - L.left, y: p.clientY - L.top, w, gate: true, r: Math.abs(q.clientY - p.clientY) });
         }
       }
       return out;
@@ -1075,7 +1092,8 @@ export function mountBattle(root, params, hooks) {
             if (supportPays({ wave: ev.wave })) settleSupport(); // [friend support] FP once the run reached wave 3
             // freeplay waves past the goal: their own banners (freeplay.js)
             if (fpBattle && ev.wave > sim.totalWaves) break;
-            feed.announce(`WAVE ${ev.wave}`, ctx.modes?.waveSub(ev) ?? (Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless'), ev.flipped ? 'warn' : 'wave', ev.flipped ? 2200 : 1300);
+            // (Tryout Day's Extended Day past wave 48: "Stay Late", never "of 48", §20.8)
+            feed.announce(`WAVE ${ev.wave}`, ctx.modes?.waveSub(ev) ?? (extendedPast(sim, ev.wave) ? EXTENDED_TEXT.waveSub : isExtendedRun(sim) && ev.wave === sim.totalWaves ? EXTENDED_TEXT.fullLast : Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless'), ev.flipped ? 'warn' : 'wave', ev.flipped ? 2200 : 1300);
             break;
           case 'waveEnd':
             // a sandbox spawn between waves runs as a wave of its own (the counter stays)
@@ -1083,6 +1101,10 @@ export function mountBattle(root, params, hooks) {
             else feed.push(`Wave ${ev.wave} cleared · +${fmtNum(ev.bonus || 0, 'money')} coins`, 'good', { ms: 2200 });
             lastWaveEnd = ev.wave;
             if (sim.state !== 'won') later(() => warnFor(sim.wave + 1), 400);
+            break;
+          case 'goal':
+            // Tryout Day's Extended Day cleared the Full Day's 48 waves: the Stay Late banner (the day goes on, §20.8)
+            if (ev.stayLate) feed.announce(EXTENDED_TEXT.stayLate.toUpperCase(), EXTENDED_TEXT.stayLateSub, 'free', 2600);
             break;
           case 'bossPhase':
             feed.announce('PHASE SHIFT', ev.announce || '', 'phase', 3200);
@@ -1142,11 +1164,14 @@ export function mountBattle(root, params, hooks) {
       if (fpEnd) fpBattle?.onEnd();
       if (fpEnd) feed.announce(won ? 'FREEPLAY COMPLETE' : 'FREEPLAY OVER', `${sim.wavesCleared}/${sim.totalWaves} · ${sim.stage.freeplay.name}`, won ? 'good' : 'free', RESULT_DELAY_MS - 200);
       else if (endedRun) feed.announce('RUN OVER', `Ended on wave ${sim.wave}`, 'bad', RESULT_DELAY_MS - 200);
+      // (an Extended Day past the Full Day ends as Home Time, never a defeat)
+      else if (sim.tryout && (sim.finished || extendedPast(sim))) feed.announce(EXTENDED_TEXT.homeTime.toUpperCase(), EXTENDED_TEXT.reachedWave(sim.wave, sim.tryout.periods.length), 'free', RESULT_DELAY_MS - 200);
       else feed.announce(won ? 'STAGE CLEAR!' : 'DEFEAT', won ? `${sim.lives}/${sim.maxLives} lives left` : `Fell on wave ${sim.wave}`, won ? 'good' : 'bad', RESULT_DELAY_MS - 200);
       if (req.tryout) {
         // the Make-up Test (solo, once a run, §7): at 0 hearts the defeat sheet offers the wave again from its start
         // (the record keeps the calm snapshot before it and the open wave: the Continue spends the Make-up Test)
-        if (!ls && !won && tryRec && !tryRec.makeUpUsed && !tryRec.practice && tryRec.snap && tryRec.waveOpen === sim.wave) {
+        // (never after Home Time: sim.finish() ends a run as 'lost' with sim.finished, by choice, not by hearts)
+        if (!ls && !won && !sim.finished && tryRec && !tryRec.makeUpUsed && !tryRec.practice && tryRec.snap && tryRec.waveOpen === sim.wave) {
           ctx.saver?.close();
           ctx.makeUpOffered = true;
           later(() => ctx.tryoutUi?.showMakeUp({
@@ -1326,7 +1351,8 @@ export function mountBattle(root, params, hooks) {
   let remounting = false;
   /** A freeplay run past its goal (not a plain victory at exactly the goal). */
   function isFreeplayRun() {
-    if (!sim.freeplay || sim.wavesCleared < sim.totalWaves) return false;
+    // (a Tryout Day Extended Day is a run, not freeplay: the Class Photo ends it, §20.8)
+    if (!sim.freeplay || sim.tryout || sim.wavesCleared < sim.totalWaves) return false;
     return !(sim.state === 'won' && sim.wavesCleared === sim.totalWaves);
   }
   // ---- solo freeplay (src/systems/freeplayRewards.js) ---------------------------------------
@@ -1389,7 +1415,7 @@ export function mountBattle(root, params, hooks) {
     };
     ctx.applyResult = (p, result, rng) => {
       let out;
-      if (result.freeplay && result.goalReached) {
+      if (result.freeplay && result.freeplay !== 'tryout' && result.goalReached) {
         // freeplay: the clear was banked at the goal; this pays the run (once per battle, see
         // rewards.js payFreeplayEnd), and the sheet shows both parts
         const ledger = freeplayLedger(session, ls.start.seed);
@@ -1475,7 +1501,7 @@ export function mountBattle(root, params, hooks) {
    * clear is already banked); the ally plays on with my girls.
    */
   function payIfLeavingRun() {
-    if (!ctx.ended && ctx.results && !ctx.results.outcome && (ls || soloLedger) && sim.freeplay && sim.wavesCleared >= sim.totalWaves) ctx.results.apply();
+    if (!ctx.ended && ctx.results && !ctx.results.outcome && (ls || soloLedger) && sim.freeplay && !sim.tryout && sim.wavesCleared >= sim.totalWaves) ctx.results.apply();
   }
 
   function leaveCoop(go = true) {

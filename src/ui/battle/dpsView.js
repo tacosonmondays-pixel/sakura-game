@@ -7,7 +7,14 @@
 // The live number is what the sim credits her: damageDealt grows with every hit, splash, tick, crit and drone,
 // and a rate meter over the last few seconds of game time turns it into damage per second.
 //
-// Display only: reads sim state (damageDealt, recentDps, buffTargets, stats), never writes it. Pure helpers here;
+// Beside it, her average ("DPS (avg)"): everything she dealt since the drawer first saw her on the field, over her
+// wave time on the field since then, so it does not swing with each pack. The sim keeps no placement time, so the
+// meter notes, per girl (by uid), her damageDealt when it first sees her and adds up the wave seconds after that.
+// A hero's Move keeps her uid and her damageDealt (Sim._relocate), so her average carries on; a sale ends it (a girl
+// placed again gets a new uid); after a restore or a co-op rejoin she starts again from what she has then (her
+// running total stays, only the part the drawer watched counts). Between waves the clock stops, so it holds still.
+//
+// Display only: reads sim state (damageDealt, buffTargets, stats, time, state), never writes it. Pure helpers here;
 // towerPanel.js owns the meter's per-frame sampling. Not part of the co-op hash.
 import { createRateMeter } from './util.js';
 import { fmtNum } from '../format.js';
@@ -16,11 +23,31 @@ import { fmtNum } from '../format.js';
 export const DPS_LIVE_WINDOW = 5;
 /** Seconds of game time between the meter's samples (a frame-rate sample per girl would keep hundreds a window). */
 const SAMPLE_EVERY = 0.1;
+/** Wave seconds on the field before her average shows (until then "—": one hit over a split second is no average). */
+export const DPS_AVG_MIN = 1;
+/** A jump in game time bigger than this between two frames (a restore, a rejoin catching up) is not counted. */
+const AVG_GAP = 2;
+
+/**
+ * Her average DPS: the damage she dealt since `base` (her damageDealt when the meter first saw her) over `secs`, her
+ * wave seconds on the field since then. Null (the drawer's "—") before DPS_AVG_MIN, and for anything not a number.
+ * @param {number} dealt her damageDealt now
+ * @param {number} base her damageDealt when first seen
+ * @param {number} secs wave seconds on the field since then
+ * @returns {number|null}
+ */
+export function avgDps(dealt, base, secs) {
+  const d = Number(dealt) - Number(base);
+  const t = Number(secs);
+  if (!Number.isFinite(d) || !Number.isFinite(t) || t < DPS_AVG_MIN) return null;
+  return Math.max(0, d / t);
+}
 
 /**
  * Damage per second, measured: a rate meter over every girl's damageDealt during a wave, and each girl's average
  * over the last whole wave for the time between waves.
- * @returns {{ sample(sim: object): void, live(uid: number, sim: object): { value: number|null, kind: 'live'|'lastWave'|'none' }, clear(): void }}
+ * Also each girl's average since the meter first saw her (avg; see the header).
+ * @returns {{ sample(sim: object): void, live(uid: number, sim: object): { value: number|null, kind: 'live'|'lastWave'|'none' }, avg(uid: number, sim: object): number|null, clear(): void }}
  */
 export function createDpsMeter(window = DPS_LIVE_WINDOW) {
   const meter = createRateMeter(window);
@@ -30,10 +57,12 @@ export function createDpsMeter(window = DPS_LIVE_WINDOW) {
   let curWave = null;
   const start = new Map(); // uid -> [time, damageDealt] at the wave's start (or when she was placed)
   const lastWave = new Map(); // uid -> her average over the last whole wave
+  const field = new Map(); // uid -> { base: damageDealt when first seen, secs: wave seconds on the field since }
   const clear = () => {
     meter.clear();
     start.clear();
     lastWave.clear();
+    field.clear();
     lastTime = null;
     lastSample = -Infinity;
     inWave = false;
@@ -49,8 +78,26 @@ export function createDpsMeter(window = DPS_LIVE_WINDOW) {
       const time = sim.time;
       if (time === lastTime) return;
       if (lastTime != null && time < lastTime) clear(); // time went back: a restore or a co-op rebuild
+      const dt = lastTime == null ? 0 : time - lastTime;
       lastTime = time;
       const wave = sim.state === 'wave';
+      // her time on the field (wave seconds) and the damage it is set against
+      const counted = (wave || inWave) && dt > 0 && dt <= AVG_GAP;
+      for (const t of sim.towers) {
+        const dealt = t.damageDealt || 0;
+        const f = field.get(t.uid);
+        if (!f || !(dealt >= f.last)) field.set(t.uid, { base: dealt, secs: 0, last: dealt });
+        else {
+          if (counted) f.secs += dt;
+          else if (dt > AVG_GAP) f.base += dealt - f.last; // a jump the drawer did not watch: left out
+          f.last = dealt;
+        }
+      }
+      if (field.size > sim.towers.length) {
+        // sold (or gone to a lab team): her average ends with her
+        const here = new Set(sim.towers.map((t) => t.uid));
+        for (const u of field.keys()) if (!here.has(u)) field.delete(u);
+      }
       const next = wave && (!inWave || sim.wave !== curWave);
       if (inWave && (!wave || next)) {
         for (const t of sim.towers) {
@@ -78,6 +125,13 @@ export function createDpsMeter(window = DPS_LIVE_WINDOW) {
         return v == null ? { value: null, kind: 'none' } : { value: v, kind: 'live' };
       }
       return lastWave.has(uid) ? { value: lastWave.get(uid), kind: 'lastWave' } : { value: null, kind: 'none' };
+    },
+    /** Her average DPS since the meter first saw her, over her wave time on the field (null before DPS_AVG_MIN). */
+    avg(uid, sim) {
+      const f = field.get(uid);
+      if (!f) return null;
+      const t = sim?.getTower?.(uid);
+      return avgDps(t ? t.damageDealt || 0 : f.last, f.base, f.secs);
     },
     clear,
   };

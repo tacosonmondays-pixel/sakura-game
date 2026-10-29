@@ -3,8 +3,8 @@
 // garden-hose tie, the mended umbrella, the lunch debt, Night Tea. The act is quiet, not grim (STORY §15): a voice on
 // Channel 9 that uses Hikari's words, a small secret in the boiler room, a roll call of static. No war words.
 // Every episode is kind `event` (0 gems, Q8) and `act: 2`. Mahiru, Kohaku, Ms. Hazuki and the radio speak as
-// `unknown` with a name plate until their portraits exist (Kohaku's plate is a `{name:kohaku}` token, so it follows
-// her duo unit when it lands). The small grey winged sleeper in g2.boiler never speaks and is never named as a species.
+// `unknown` with a name plate until their portraits exist (Kohaku's plate is a `{name:kohaku}` token; the duo unit shipped in v0.1.59 as
+// `kohaku_tsubaki`, so the token keeps its fallback "Kohaku"). The small grey winged sleeper in g2.boiler never speaks and is never named as a species.
 // Main episodes: pro, mid, boiler, boss, after, epi. Side: kohaku, thirtyone, lunch, class (waits until the player owns
 // Ruri, Iroha, Ena or Fuu: scene meta `ifOwned`), roof. Stone relit: the boathouse lamp.
 
