@@ -12,6 +12,7 @@ import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
 import { ROLES, ROLE_CATEGORIES, ATTACK_TYPES, UNIT_RARITIES } from '../../data/types.js';
 import { UNITS } from '../../data/units.js';
+import { listedUnits } from '../../data/banners.js';
 import { unitPower } from '../../systems/progression.js';
 import { potentialLevel } from '../../systems/potential.js';
 import { attackTypeIcon } from '../../art/icons.js';
@@ -133,11 +134,12 @@ export function render(root) {
       h(`button.ui-opt.st-opt.st-filter${on ? '.on' : ''}`, { type: 'button', 'data-testid': 'students-filter', 'aria-label': on ? `Filter, ${on} on` : 'Filter', onclick: () => openFilter(rerender) },
         ico('filter'), h('span', 'Filter'), on ? h('i.ui-dot', { 'aria-hidden': 'true' }) : null));
 
-    const list = sortList(UNITS.filter((u) => matches(u, profile)), profile);
+    const roster = listedUnits(UNITS, profile); // (a held girl is not listed until she can be recruited)
+    const list = sortList(roster.filter((u) => matches(u, profile)), profile);
     // each count said once: how many are recruited; how many show only while something is filtered out
     clear(summary);
-    put(summary, h('span.lbl', 'Recruited'), h('span.num', `${ownedCount}/${UNITS.length}`),
-      list.length !== UNITS.length ? [h('span.st-sep', { 'aria-hidden': 'true' }), h('span.lbl', 'Shown'), h('span.num', String(list.length))] : null);
+    put(summary, h('span.lbl', 'Recruited'), h('span.num', `${ownedCount}/${roster.length}`),
+      list.length !== roster.length ? [h('span.st-sep', { 'aria-hidden': 'true' }), h('span.lbl', 'Shown'), h('span.num', String(list.length))] : null);
     clear(grid);
     grid.classList.remove('mb-fade');
     void grid.offsetWidth;

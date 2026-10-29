@@ -5,7 +5,7 @@ import { fmtNum } from '../format.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { roleIcon, uiIcon, currencyIcon } from '../../art/icons.js';
-import { isUR, rarityColor, urBadge, applyUrFrame } from '../rarity.js';
+import { isUR, rarityColor, urBadge, rankBadge, displayRarity, applyUrFrame } from '../rarity.js';
 
 const DRAG_START_PX = 12;
 
@@ -33,8 +33,11 @@ export function createTowerBar(ctx) {
     const def = sim.data.unit(unitId);
     if (!def || cards.has(unitId)) return;
     const isHero = def.kind === 'hero';
-    // the bar only holds YOUR girls (co-op: your own loadout), so your save decides UR (display only)
-    const ur = isUR(def, ctx.profile);
+    // the bar only holds YOUR girls (co-op: your own loadout), so your save decides UR (display only); a Friend
+    // Support girl looks as her (clamped) card says
+    const own = ctx.profileFor ? ctx.profileFor(unitId) : ctx.profile;
+    const ur = isUR(def, own);
+    const friend = !!ctx.support && ctx.support.unitId === unitId;
     const cost = h('span.bt-card-cost-val');
     const card = h(
       `button.bt-card${isHero ? '.bt-card-hero' : ''}`,
@@ -44,13 +47,15 @@ export function createTowerBar(ctx) {
       def.placement === 'water' ? h('span.bt-card-water', { title: 'Water deploy: place on water tiles' }, svgEl(uiIcon('water'), 'bt-card-water-ico')) : null,
       def.placement === 'amphibious' ? h('span.bt-card-water.bt-amphi', { title: 'Amphibious: land or water' }, svgEl(uiIcon('water'), 'bt-card-water-ico')) : null,
       isHero ? h('span.bt-card-herotag', 'HERO') : null,
-      ur ? h('span.bt-card-ur', urBadge()) : null,
+      friend ? h('span.bt-card-herotag.bt-card-friendtag', { 'data-testid': 'card-support' }, 'FRIEND') : null,
+      ur ? h('span.bt-card-ur', rankBadge(displayRarity(def, own))) : null,
       h('span.bt-card-name', def.name),
       h('span.bt-card-cost', svgEl(currencyIcon('coins'), 'bt-card-coin'), cost),
       isHero ? h('span.bt-card-deployed', { 'data-testid': 'hero-card-deployed' }, 'Deployed') : null,
     );
-    setVar(card, '--rarity', rarityColor(def, ctx.profile));
-    if (ur) applyUrFrame(card, def, ctx.profile);
+    if (friend) card.classList.add('bt-card-friend');
+    setVar(card, '--rarity', rarityColor(def, own));
+    if (ur) applyUrFrame(card, def, own);
     bindCard(card, unitId);
     cards.set(unitId, { card, cost, def, isHero, lastCost: -1, lastAfford: null, lastLv: -1 });
     scroller.append(card);

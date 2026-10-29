@@ -69,6 +69,11 @@ import { RESET, localResetHint } from '../../core/reset.js';
 import { eventOfStage } from '../../data/events/index.js';
 import { eventBattleStage } from '../../data/events/wire.js';
 import { eventNow } from '../events/clock.js';
+import { supportPanel, supportParam } from './stageSupport.js'; // [friend support]
+import { supportAllowed } from '../../systems/friendSupport.js'; // [friend support] the Support row on prep
+import { isFriendshipLive } from '../../systems/banners.js'; // [friend support] the row waits for the server's SQL
+import { supportPick } from '../battle/supportPick.js';
+import { wentOnline } from '../online/common.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers (exported for the other meta-a screens)
@@ -599,9 +604,38 @@ function prepFacts(stage, state, { endless }) {
   };
 }
 
+/**
+ * [friend support] The Support row (BANNERS §E.1): the friend's girl picked for the next New game, or the offer; it opens
+ * the Friend Support sheet (stageSupport.js supportPanel: the friends' Support Students, Refresh, the rules line). Shown
+ * once the player has gone online (only then can a friend lend one), on the stages that take a Support Student.
+ */
+function supportRow(stage, state, ctx) {
+  // (only while Friend Support is live on the server, the Friendship tab's own switch: a deploy that lands before the
+  // friend support SQL shows no Support slot, supabase/migrations/20261028000000_friend_support.sql)
+  if (!wentOnline() || !isFriendshipLive() || !supportAllowed(store.profile, stage, { difficulty: state.difficulty })) return null;
+  const pick = supportParam(stage, state) ? supportPick() : null;
+  const who = pick && UNIT_MAP[pick.unitId] ? `${UNIT_MAP[pick.unitId].name} · ${pick.name || 'a friend'}` : null;
+  const open = () => {
+    const body = supportPanel(stage, state);
+    if (!body) return;
+    // the row shows the pick made in the sheet once it closes
+    openSheet({ title: 'Friend Support', body, testid: 'support-sheet', cls: 'stp-sheet.stp-sheet-support', onClose: () => { if (row.isConnected) ctx.redraw(); } });
+  };
+  const row = h('button.stp-row.stp-support', { type: 'button', 'data-testid': 'prep-support', 'aria-label': who ? `Friend Support: ${who}. Change` : 'Friend Support: borrow a friend\'s girl', onclick: open },
+    h('span.lbl.stp-row-k', 'Support'),
+    // (one line that gives way first; it pushes the chevron to the row's end, as on the Drops row)
+    h('span.stp-support-pick', { style: { flex: '1 1 auto', minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, who || 'Borrow a friend\'s girl'),
+    ico('chevR', 'ui-ico.stp-chev'));
+  return row;
+}
+
 function buildPrep(stage, state, ctx) {
   const f = prepFacts(stage, state, ctx);
-  return h('div.stp', { 'data-testid': 'stage-prep' }, mapBand(stage, state, ctx, f), h('div.stp-right', rightColumn(stage, state, ctx, f)));
+  const right = rightColumn(stage, state, ctx, f);
+  // [friend support] friends' Support Students (campaign, Bounty and solo Freeplay): a row at the foot of the map band,
+  // whose map shrinks to make room (the right column is all flex: none and would push Start off a 390 px-tall phone)
+  const sup = f.unlocked ? supportRow(stage, state, ctx) : null;
+  return h('div.stp', { 'data-testid': 'stage-prep' }, mapBand(stage, state, ctx, f, sup), h('div.stp-right', right));
 }
 
 function safeMap(id) {
@@ -614,7 +648,7 @@ function safeMap(id) {
 
 // ----- the map band ------------------------------------------------------------------------------------------------
 
-function mapBand(stage, state, ctx, f) {
+function mapBand(stage, state, ctx, f, supportEl = null) {
   const map = safeMap(stage.mapId);
   const tier = MAP_TIER_VIEW[f.played.tier];
   const thumb = h('div.stp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 480, height: 300 }), map, stage.rule, 480, 300) : '' });
@@ -646,7 +680,8 @@ function mapBand(stage, state, ctx, f) {
     strip,
     h('div.stp-sweepslot', { hidden: true }),
     f.evStatus ? eventLine(stage, state) : null,
-    h('div.stp-line', line, infoBtn));
+    h('div.stp-line', line, infoBtn),
+    supportEl);
 }
 
 function stripCell(label, value, icon) {
@@ -883,6 +918,8 @@ function footer(stage, state, ctx, f) {
     if (newMode !== 'standard') p.mode = newMode;
     if (f.endless) p.endless = 1;
     if (f.fpOn) p.freeplay = state.freeplay;
+    const owner = supportParam(stage, state); // [friend support] the friend's girl picked on the Support row
+    if (owner) p.sup = owner;
     return p;
   };
   const newDiff = DIFFICULTIES[state.difficulty].name;

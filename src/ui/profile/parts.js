@@ -20,7 +20,7 @@ import { potentialLevel } from '../../systems/potential.js';
 import { pinInfo, stageLabel, STAGE_COUNT, UNIT_COUNT } from '../../systems/profileTrophies.js';
 import { fmtNum } from '../format.js';
 import { ribbonArt, titlePlate as honorPlate } from '../honorFx.js';
-import { displayRarity, rarityInfo, urBadge, urRing, urSparkles } from '../rarity.js';
+import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, rankBadge, lrFrame } from '../rarity.js';
 import { createHoldGesture, showHoldRing, hideHoldRing, swallowNextClick, HOLD_MS, RING_DELAY_MS } from '../hold.js';
 import { openSheet } from '../sheet.js';
 import '../styles/v2-records.css';
@@ -115,15 +115,16 @@ export function slotCard({ id, prof }, { fav = null, index = 0 } = {}) {
   const shown = displayRarity(u, prof);
   const r = rarityInfo(shown);
   const isUr = shown === 'UR';
-  const el = h(`button.pf-slot${isUr ? '.is-ur' : ''}`, {
+  const isLr = shown === 'LR'; // [banners] the Nightglass frame (an older viewer shows UR)
+  const el = h(`button.pf-slot${isUr ? '.is-ur' : ''}${isLr ? '.is-lr' : ''}`, {
     type: 'button', 'data-unit': id, 'data-slot': String(index), 'data-testid': 'profile-slot', title: `${u.name} · hold for build`,
   },
   svgEl(portraitHTML(u, 'card', { alt: '', awaken: st.awaken || 0 }), 'pf-slot-art'),
-  h('span.rar', isUr ? urBadge() : r.name),
+  h('span.rar', isUr || isLr ? rankBadge(shown) : r.name),
   st.level ? h('span.pot', potPill(potentialLevel(st))) : null,
   h('span.nm', id === fav ? h('span.fav', { title: 'Favorite' }, svgEl(glyph('heart'), 'pf-fav-heart')) : null, u.name),
   st.level ? h('span.ft', h('span.lv', 'Lv.', h('b', String(st.level))), stars(st.awaken || 0, MAX_AWAKEN)) : null,
-  isUr ? urRing() : null, isUr ? urSparkles() : null);
+  isUr ? urRing() : null, isUr ? urSparkles() : null, isLr ? lrFrame() : null);
   el.style.setProperty('--rarity', r.color);
   return el;
 }
@@ -132,7 +133,7 @@ export function slotCard({ id, prof }, { fav = null, index = 0 } = {}) {
 export function favInfo(id, prof) {
   const u = UNIT_MAP[id] || UNIT_MAP.hikari;
   const st = prof?.units?.[u.id] || null;
-  return { u, st, ur: displayRarity(u, prof) === 'UR', level: st?.level ?? null, cap: st ? levelCap(st) : null, awaken: st?.awaken || 0, p: st ? potentialLevel(st) : 1 };
+  return { u, st, ur: ['UR', 'LR'].includes(displayRarity(u, prof)), lr: displayRarity(u, prof) === 'LR', level: st?.level ?? null, cap: st ? levelCap(st) : null, awaken: st?.awaken || 0, p: st ? potentialLevel(st) : 1 };
 }
 
 // ---------------------------------------------------------------------------

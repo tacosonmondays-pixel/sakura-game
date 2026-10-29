@@ -1,0 +1,124 @@
+diff --git a/docs/MODELS.md b/docs/MODELS.md
+index af86840..63ae356 100644
+--- a/docs/MODELS.md
++++ b/docs/MODELS.md
+@@ -153,6 +153,36 @@ owner's lighting study:
+   2.7× (LOD) the frame time of 20 Aoi in SwiftShader. Before moving more of the roster to this
+   pipeline, consider medium (LOD, no normal map) as the default on touch devices or a DPR cap.
+ 
++### Tenka (new girl, Meshy API rig + a separate coilgun GLB)
++
++Tenka is built by the same tool with a per-figure profile (`tools/meshy/lib/profiles.py`;
++`--profile hikari` is the default and rebuilds Hikari exactly as before):
++
++```
++python3 tools/meshy/build_meshy_chibi.py --profile tenka --source <tenka rigged GLB> --clips <Meshy-library animated GLB>
++python3 tools/meshy/build_meshy_prop.py --source <coilgun GLB> --id tenka-coilgun --unit tenka
++```
++
++- source: a Meshy API rig (24 bones `Hips … RightToeBase`, Armature scale 0.01, a ~0.9 m figure).
++  `normalize` applies the armature scale, scales her to the tool's 1.7 m working height (the face
++  window, bake cage and eye windows are tuned there) and centres her; the bones are renamed to the
++  readable set and get an unweighted floor `root`. Bake sources are found by shader-socket links
++  (her images are not named like Hikari's). Battle height 1.224, like Hikari.
++- eyes: amber iris and blue-violet hair predicates, a tighter search window (her lashes sit close to
++  the bangs' strand outlines), mirrored boxes. `extras.eyes.hairGuard` = `{ hue: [180, 260], sat 0.6,
++  val 0.12 }` (linear-RGB HSV) keeps her blue bangs and teal streaks as painted when the eyes close
++  (`figurine.js` `figGuard`; a figure without it keeps Hikari's pink rule).
++- clips (`lib/clips_tenka.py`): `idle` 1.5 s, `walk` 0.97 s (library), `attack_rifle` 0.6 s (aimed by
++  0.07 s, recoil kick and two muzzle flips, so the shot reads even when `attackFx` restarts the clip
++  every 0.45 s), `cheer` 1.2 s (coilgun raised), `hurt` 0.4 s; every clip has a 14° chin-up
++  (spine 3°, neck 6°, head 5°) so her eyes clear the bangs at 48°. `extras.weaponKind` is `rifle`.
++- coilgun: its own GLB (`tenka-coilgun.glb`, 3k tris, base 512² + metal/roughness 256², stored at
++  half size like the figures). The figure carries an empty socket node `prop_coilgun` under
++  `hand_R` (it holds the grip frame and scale) and lists the file in `extras.props` (and the
++  manifest entry's `props`). `glbChibi.js` loads each prop once, gives it the figurine material, a
++  texture-tinted outline and the selection highlight, and hangs it under the socket of every
++  instance, so the clips move it with her hand.
++
+ ## Judging quality
+ 
+ Always judge with three.js screenshots (Blender's EEVEE needs a GPU): round head, big eyes placed low,
+diff --git a/tests/models/glb.test.js b/tests/models/glb.test.js
+index 6fa732d..4c64d10 100644
+--- a/tests/models/glb.test.js
++++ b/tests/models/glb.test.js
+@@ -19,9 +19,11 @@ const REQUIRED_BONES = [
+ ];
+ const MAX_FULL_BYTES = 480 * 1024;
+ const MAX_LOD_BYTES = 240 * 1024;
+-// imported Meshy figures (tools/meshy/build_meshy_chibi.py): painted texture + sword, phone-packed
++// imported Meshy figures (tools/meshy/build_meshy_chibi.py): painted texture + hand gear, phone-packed
+ const MAX_MESHY_FULL_BYTES = 2.5 * 1024 * 1024;
+ const MAX_MESHY_LOD_BYTES = 1.25 * 1024 * 1024;
++// a hand prop in its own GLB (tools/meshy/build_meshy_prop.py), shared by both detail levels
++const MAX_MESHY_PROP_BYTES = 256 * 1024;
+ const MESHY_CLIPS = ['idle', 'walk', 'cheer', 'hurt'];
+ const MESHY_BONES = [
+   'root', 'hips', 'spine', 'chest', 'neck', 'head', 'upper_arm_L', 'forearm_L', 'hand_L', 'upper_arm_R', 'forearm_R', 'hand_R',
+@@ -43,7 +45,7 @@ describe('character GLBs', () => {
+   for (const u of UNITS) {
+     if (manifest?.[u.id]?.source === 'meshy') {
+       for (const detail of ['full', 'lod']) {
+-        it(`${u.id} ${detail}: imported Meshy figure with textured body, sword, rig and clips`, () => {
++        it(`${u.id} ${detail}: imported Meshy figure with textured body, hand gear, rig and clips`, () => {
+           const file = path.join(dir, `${u.id}${detail === 'lod' ? '.lod' : ''}.glb`);
+           expect(existsSync(file), file).toBe(true);
+           expect(statSync(file).size).toBeLessThanOrEqual(detail === 'lod' ? MAX_MESHY_LOD_BYTES : MAX_MESHY_FULL_BYTES);
+@@ -68,17 +70,39 @@ describe('character GLBs', () => {
+           expect(json.skins).toHaveLength(1);
+           const joints = json.skins[0].joints.map((j) => json.nodes[j].name);
+           for (const b of MESHY_BONES) expect(joints, `${u.id} bone ${b}`).toContain(b);
+-          // the sword hangs off the right hand
++          // hand gear hangs off the right hand: a mesh child (Hikari's sword) or an empty socket that
++          // a separate prop GLB hangs on at load time (Tenka's coilgun, extras.props); girls whose
++          // gear is part of the body mesh ship neither
+           const hand = json.nodes.findIndex((n) => n.name === 'hand_R');
+           const sword = json.nodes.findIndex((n) => n.name === 'sword');
+-          expect(json.nodes[hand].children).toContain(sword);
++          if (ex.weaponKind === 'slash') expect(sword, `${u.id} sword`).toBeGreaterThanOrEqual(0);
++          if (sword >= 0) expect(json.nodes[hand].children).toContain(sword);
+           const prims = json.meshes.flatMap((m) => m.primitives);
+           const textured = prims.filter((p) => json.materials[p.material].pbrMetallicRoughness?.baseColorTexture);
+           expect(textured).toHaveLength(1);
+           expect(textured[0].attributes.TEXCOORD_0).toBeDefined();
+           expect(textured[0].attributes.JOINTS_0).toBeDefined();
+-          const swordPrim = json.meshes[json.nodes[sword].mesh].primitives[0];
+-          expect(swordPrim.attributes.COLOR_0).toBeDefined();
++          if (sword >= 0) expect(json.meshes[json.nodes[sword].mesh].primitives[0].attributes.COLOR_0).toBeDefined();
++          // separate prop GLBs: listed in the manifest as well, socket (no mesh) under the hand bone,
++          // one textured primitive, phone-packed like the figure
++          expect(manifest[u.id].props || []).toEqual((ex.props || []).map((p) => p.file));
++          for (const p of ex.props || []) {
++            const sock = json.nodes.findIndex((n) => n.name === p.socket);
++            expect(sock, `${u.id} socket ${p.socket}`).toBeGreaterThanOrEqual(0);
++            expect(json.nodes[sock].mesh).toBeUndefined();
++            expect(json.nodes[json.nodes.findIndex((n) => n.name === p.bone)].children).toContain(sock);
++            const pf = path.join(dir, p.file);
++            expect(existsSync(pf), pf).toBe(true);
++            expect(statSync(pf).size).toBeLessThanOrEqual(MAX_MESHY_PROP_BYTES);
++            const pj = readGlbHeader(pf).json;
++            expect(pj.asset.extras).toMatchObject({ unit: u.id, socket: p.socket, source: 'meshy', style: 'textured-prop' });
++            const pprims = pj.meshes.flatMap((m) => m.primitives);
++            expect(pprims).toHaveLength(1);
++            expect(pj.materials[pprims[0].material].pbrMetallicRoughness?.baseColorTexture).toBeDefined();
++            expect(pj.accessors[pprims[0].attributes.POSITION].componentType).toBe(5122);
++            expect(pj.extensionsRequired).toEqual(expect.arrayContaining(['KHR_mesh_quantization', 'EXT_texture_webp']));
++            for (const im of pj.images) expect(im.mimeType).toBe('image/webp');
++          }
+           for (const p of prims) {
+             const pos = json.accessors[p.attributes.POSITION];
+             expect(pos.componentType).toBe(5122);
+@@ -114,6 +138,12 @@ describe('character GLBs', () => {
+             expect(r[1]).toBeLessThan(top * 0.1);
+           }
+           for (const k of ['skin', 'skinLow', 'lash']) expect(eyes[k]).toMatch(/^#[0-9a-f]{6}$/);
++          // her own hair colour for the closed eyes (figurine.js figGuard); none = Hikari's pink rule
++          if (eyes.hairGuard) {
++            expect(eyes.hairGuard.hue).toHaveLength(2);
++            expect(eyes.hairGuard.hue[0]).toBeLessThan(eyes.hairGuard.hue[1]);
++            expect(eyes.hairGuard.sat).toBeGreaterThanOrEqual(0);
++          }
+         });
+       }
+       continue;

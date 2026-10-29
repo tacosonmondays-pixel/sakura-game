@@ -146,6 +146,8 @@
 :is(.ui-day) .stp-row:active { transform: scale(0.985); }
 :is(.ui-day) .stp-row:focus-visible { outline: none; --edge: var(--cyan-ink); }
 :is(.ui-day) .stp-row-k { flex: none; width: 66px; color: var(--muted); }
+/* [friend support] the Support row sits at the foot of the map band (the map gives way, never the row) */
+:is(.ui-day) .stp-band > .stp-support { flex: none; }
 :is(.ui-day) .stp-needs { display: flex; align-items: center; gap: 10px; min-width: 0; }
 :is(.ui-day) .stp-need { position: relative; display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
 :is(.ui-day) .stp-need-ico { width: 26px; height: 26px; display: inline-flex; flex: none; }

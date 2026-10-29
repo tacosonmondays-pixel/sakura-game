@@ -11,7 +11,7 @@
 import '../styles/meta-b.css';
 import '../styles/journal.css'; // [story] feature locks
 import '../styles/v2-roster.css'; // [ui-ink] V3: the folder-tabbed panel, the night nameplate
-import { h, clear, screen, svgEl, button, modal, toast, showItemInfo } from '../components.js';
+import { h, clear, screen, svgEl, button, modal, toast, showItemInfo, confirmDialog } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
 import { formatNumber, formatPct } from '../../core/util.js';
@@ -20,6 +20,7 @@ import {
   STATUSES, ITEM_RARITY_ORDER, MATERIAL_FAMILIES, effectivenessLabel,
 } from '../../data/types.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
+import { listedUnits } from '../../data/banners.js';
 import { ITEMS, bookId, materialId } from '../../data/items.js';
 import {
   levelCap, expForLevel, previewLevelUp, levelUp, autoSelectBooks, canBreakthrough, breakthrough, breakthroughCost,
@@ -39,7 +40,10 @@ import { equippedSkinId, setSkin, skinChoices } from '../../systems/skins.js';
 import { artUrl } from '../../art/portraits.js';
 import { howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
 import { TAG_GLYPHS } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies / Coins
-import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, applyUrFrame, isUR } from '../rarity.js';
+import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, applyUrFrame, isUR, lrBadge } from '../rarity.js';
+import { limitBreakState, payLimitBreak, UR_RESONANCE, LR_BOOST, resonanceOn, RESONANCE_FROM_DAY } from '../../systems/limitBreak.js';
+import { gameDayStart } from '../../core/reset.js';
+import { potentialTrack } from '../../data/potential.js';
 import { featureOpen, featureLockText, featureStage } from '../../systems/story.js'; // [story] new-save gates
 import { JOURNAL_TEXT } from '../../data/story/lessons.js';
 import { resolveText } from '../../data/story/tokens.js';
@@ -917,7 +921,7 @@ function awakenTab(unit, ctx) {
   // Detailed (Settings → Girl page): every star's bonus, the next one highlighted
   const stars = ctx.mode === 'detailed' ? awakenStars(unit, star, 'detailed') : null;
   const top = h('section.ui-panel.gk-aw', { 'data-testid': 'awaken-panel' }, h('div.ui-panel-in',
-    h('div.mb-aw-head.gk-aw-head', starRow(star, MAX_AWAKEN, { cls: 'ui-stars.gk-aw-stars' }), ur ? urBadge() : null,
+    h('div.mb-aw-head.gk-aw-head', starRow(star, MAX_AWAKEN, { cls: 'ui-stars.gk-aw-stars' }), ur ? (limitBreakState(profile, unit.id).lr ? lrBadge() : urBadge()) : null,
       h('span.gk-aw-more', moreSticker(() => openAwakenDetails(unit), { testid: 'awaken-more', label: 'Every star and her passive' }))),
     stars
       ? h('ol.gk-aw-list', { 'data-testid': 'awaken-stars' }, stars.map((s) => h(`li.gk-aw-star.${s.state}`, { 'data-testid': s.state === 'next' ? 'awaken-next' : null },
@@ -931,11 +935,20 @@ function awakenTab(unit, ctx) {
       h('div', h('b', unit.awakenPassive.name), h('span.gp-sub', ` ${unit.awakenPassive.desc}`)),
       sticker(passiveOn ? 'Active' : 'At ★3', passiveOn ? 'y' : ''))));
   if (!next) {
-    return h('div.mb-tab-body.gk-awaken', top,
-      ur ? h('section.ui-panel', h('div.ui-panel-in', h('div.mb-ur-panel', { 'data-testid': 'ur-panel' }, urBadge(), h('div', h('b', 'Ascended to UR'), h('p', `${unit.name} shines with all five stars — her card wears the rainbow frame everywhere.`)), urRing())))
-        : h('section.ui-panel', h('div.ui-panel-in', h('p.gp-line', `${unit.name} shines with all five stars.`))));
+    // an LR unit's climb comes first (on a phone the panel below the fold went unseen)
+    const lb = limitBreakPanel(unit, ctx);
+    const lrNow = limitBreakState(profile, unit.id).lr;
+    const they = unit.duo ? 'their' : 'her';
+    const urPanel = ur ? h('section.ui-panel', h('div.ui-panel-in', h('div.mb-ur-panel', { 'data-testid': 'ur-panel' }, lrNow ? lrBadge() : urBadge(),
+      h('div', h('b', lrNow ? 'Limit Break: LR' : 'Ascended to UR'),
+        h('p', lrNow ? `${unit.name} broke the limit: ${they} card wears the Nightglass frame everywhere.` : `${unit.name} shines with all five stars — ${they} card wears the rainbow frame everywhere.`),
+        h('p.gp-line', { 'data-testid': 'ur-resonance' }, resonanceText(unit))), lrNow ? null : urRing())))
+      : h('section.ui-panel', h('div.ui-panel-in', h('p.gp-line', `${unit.name} shines with all five stars.`)));
+    return h('div.mb-tab-body.gk-awaken', top, lb, urPanel);
   }
   return h('div.mb-tab-body.gk-awaken', top,
+    next === MAX_AWAKEN && unit.rarity === 'SSR' ? h('section.ui-panel', h('div.ui-panel-in', h('p.gp-line', { 'data-testid': 'ur-preview' }, `★5 → UR: +5% damage and UR Resonance (${resonanceText(unit, true)}).`))) : null,
+    limitBreakPanel(unit, ctx),
     h('section.ui-panel.gk-aw-cost', h('div.ui-panel-in',
       h('div.ui-panel-head', h('span.ui-kicker', 'Cost')),
       reqChips(cost, { onWhere: showItemInfo }),
@@ -954,6 +967,59 @@ function awakenTab(unit, ctx) {
             else toast(res.passiveUnlocked ? `★${res.star}! ${unit.awakenPassive.name} unlocked!` : `${unit.name} awakened to ★${res.star}!`, 'good');
           },
         })))));
+}
+
+/** [banners G3] UR Resonance along her Potential track (BANNERS §C.3): '+10% damage · +4% attack speed'. */
+function resonanceText(unit, short = false) {
+  const aura = potentialTrack(unit) === 'aura';
+  const pct = (f) => `+${Math.round((f - 1) * 100)}%`;
+  const body = aura ? `${pct(UR_RESONANCE.aura)} aura · ${pct(UR_RESONANCE.rate)} attack speed` : `${pct(UR_RESONANCE.damage)} damage · ${pct(UR_RESONANCE.rate)} attack speed`;
+  // before its first weekly reset the boost is not on yet: say when it starts (BANNERS §C.3)
+  const from = resonanceOn() ? '' : ` (from ${new Date(gameDayStart(RESONANCE_FROM_DAY)).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'America/Chicago' })})`;
+  return short ? `${body}${from}` : `UR Resonance · ${body}${from}`;
+}
+
+/**
+ * [banners G6] An LR unit's climb (BANNERS §C.2): L60 + gate 5 → ★5 (UR) → the Limit Break fee → her trial →
+ * LR. Her trial not shipped yet: "LR form coming". Nothing for a girl who is not an LR unit.
+ */
+function limitBreakPanel(unit, ctx) {
+  const profile = store.profile;
+  const s = limitBreakState(profile, unit.id);
+  if (!s.legend || !s.owned) return null;
+  const pct = (f) => `+${Math.round((f - 1) * 100)}%`;
+  const boost = `${pct(LR_BOOST.damage)} damage · ${pct(LR_BOOST.rate)} attack speed`;
+  if (s.lr) {
+    return h('section.lb-panel', { 'data-testid': 'lb-panel' }, h('div', lrBadge(), ' ', h('b', 'Limit Break')),
+      h('p.lb-boost', `LR · ${boost}${s.trial?.form ? ` · ${s.trial.form}` : ''}`));
+  }
+  if (!s.trial) {
+    return h('section.lb-panel', { 'data-testid': 'lb-panel' }, h('div', lrBadge(), ' ', h('b', 'LR form coming')),
+      h('p.lb-boost', `${unit.name} is an LR unit. Her Limit Break trial arrives in a later update; until then she climbs to UR like every SSR.`));
+  }
+  const steps = h('div.lb-steps', s.steps.map((x) => h(`span.lb-step${x.done ? '.done' : ''}`, `${x.label}${x.done ? ' ✓' : ''}`)));
+  const t = s.trial.standIn;
+  return h('section.lb-panel', { 'data-testid': 'lb-panel' },
+    h('div', lrBadge(), ' ', h('b', 'Limit Break'), ` · ${boost} · ${s.trial.form}`),
+    steps,
+    s.feePaid
+      ? h('div', h('p.lb-boost', `${s.trial.name} is open: clear ${t.stageId} on ${t.difficulty === 'nightmare' ? 'Nightmare' : t.difficulty} with ${unit.name} placed, solo, without a Support Student. First clear: LR, 300 gems and a Recruit Ticket.`),
+        button(`Go to ${t.stageId}`, { kind: 'yellow', small: true, icon: 'play', testid: 'lb-trial', onClick: () => navigate('stage', { id: t.stageId }) }))
+      : h('div',
+        h('div.lb-fee', 'Fee:', reqChips(s.fee, { onWhere: showItemInfo })),
+        button('Pay the Limit Break fee', {
+          kind: 'yellow', small: true, testid: 'lb-pay', disabled: !s.canPay,
+          title: s.canPay ? null : !s.maxed ? 'Reach level 60 with all 5 gates first' : !s.ur ? 'Awaken her to ★5 (UR) first' : 'Missing items or coins',
+          onClick: async () => {
+            const ok = await confirmDialog(`Pay the Limit Break fee for ${unit.name}? It opens the ${s.trial.name}.`, { title: 'Limit Break', ok: 'Pay', okKind: 'yellow' });
+            if (!ok) return;
+            const r = payLimitBreak(store.profile, unit.id);
+            if (!r.ok) return toast('Not ready for Limit Break yet.', 'bad');
+            store.commit('limit-break');
+            ctx.rerenderTab();
+            toast(`${s.trial.name} is open!`, 'good');
+          },
+        })));
 }
 
 /** Awakening's Details: every star (crowns and bonus), the total, her passive in full, where crowns come from. */
@@ -1097,7 +1163,7 @@ export function render(root, params = {}) {
   el.classList.add('mb-screen', 'mb-student-screen', 'gp-screen');
   root.appendChild(el);
 
-  const order = [...UNITS].sort((a, b) => Number(!!store.profile.units[b.id]) - Number(!!store.profile.units[a.id]));
+  const order = [...listedUnits(UNITS, store.profile)].sort((a, b) => Number(!!store.profile.units[b.id]) - Number(!!store.profile.units[a.id]));
   const cycle = (d) => {
     const i = order.findIndex((u) => u.id === unit.id);
     const next = order[(i + d + order.length) % order.length];

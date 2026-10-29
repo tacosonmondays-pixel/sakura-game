@@ -55,6 +55,7 @@ registerRoute('scene', () => import('./ui/story/scene.js')); // [story] scene pl
 registerRoute('story', () => import('./ui/story/archive.js')); // [story] Story archive
 registerRoute('journal', () => import('./ui/story/journal.js')); // [story] Captain's Journal
 registerRoute('profile', () => import('./ui/screens/profile.js')); // [profile] Sensei Profile: #/profile (yours)
+registerRoute('workbench', () => import('./ui/screens/workbench.js')); // [workbench] club lab: timed Workbench + instant Craft Room (#/workbench?tab=bench|craft)
 
 store.load();
 // the in-game "Reduce motion" setting, before the first screen moves (CSS + src/ui/transitions read it)
@@ -111,6 +112,8 @@ import('./ui/achToast.js').then(async (m) => {
   window.addEventListener('hashchange', later);
   later();
 }).catch((e) => console.warn('[main] achievements install failed', e));
+// [workbench] the in-tab "craft ready" toast outside battles and the lobby dot (BANNERS §G)
+import('./ui/workbenchWatch.js').then((m) => m.installWorkbenchWatch(store)).catch((e) => console.warn('[main] workbench watch failed', e));
 // [story] opening hand-off, after-scene queue, stage-prep scenes (lazy: the scene text is its own chunk)
 import('./ui/story/install.js').then((m) => m.installStory({ store })).catch((e) => console.warn('[main] story install failed', e));
 

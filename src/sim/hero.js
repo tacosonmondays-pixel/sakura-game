@@ -7,19 +7,21 @@
 // follow the viewing / commanding player); tickHero and the wave-clear XP loop over sim.heroes.
 // Only the command functions below (heroLevelStatus, buyHeroLevel, canMoveHero, moveHero,
 // heroUltStatus, activateUlt) take the active hero, through their Sim wrappers.
-// Ult shapes: nova (centred on the hero or on her aim point) / timeWarp / tide / strike; any
-// ult may add a team damage buff (dmgBuff, roster B3).
+// Ult shapes: nova (centred on the hero or on her aim point) / timeWarp / tide / strike / runner (Seiran's
+// dragon, Kogane's plow with `push`) / barricade (Norika's Hold the Line); any ult may add a team damage buff
+// (dmgBuff, roster B3). Kogane's Move keys: heroMoveCooldown / heroMoveDowntime.
 
 import { BATTLE } from '../data/types.js';
 import { HERO_XP_STEPS, HERO_LEVEL_PRICES, HERO_XP, HERO_MOVE } from '../data/heroTracks.js';
-import { ULT_INITIAL_CHARGE, KNOCKBACK_RESIST, DEFAULT_UNIT_STATS } from './constants.js';
+import { ULT_INITIAL_CHARGE, KNOCKBACK_RESIST, DEFAULT_UNIT_STATS, HERO_MOVE_CD_MIN, HERO_MOVE_DOWNTIME_MIN } from './constants.js';
 import { normalizeBase } from './mods.js';
 import { applyStatus } from './status.js';
 import { syncStatusFlags, placeOnPath } from './enemies.js';
 import { ultWithPotential } from './potential.js';
 import { isEligible } from './combat.js';
 import { startRunner, runnerSegment } from './runners.js';
-import { targetScore } from './towers.js';
+import { targetScore, refreshEffective } from './towers.js';
+import { resiteBarricades, holdTheLine } from './barricades.js';
 
 /** XP for each level-up 2..25 (a hero's own `levelXp`, else the shared table). */
 export function heroSteps(heroDef) {
@@ -190,6 +192,11 @@ export function tickHero(sim, dt) {
     if (!h || h.removed) continue;
     if (h.moveCd > 0) h.moveCd = Math.max(0, h.moveCd - dt);
     if (h.moveLock > 0) h.moveLock = Math.max(0, h.moveLock - dt);
+    // Overdrive runs in wave time and ends with the wave (a calm point holds none)
+    if (h.overdriveLeft > 0) {
+      h.overdriveLeft = wave ? Math.max(0, h.overdriveLeft - dt) : 0;
+      if (h.overdriveLeft === 0) refreshEffective(h, sim.globalRateMul, sim.globalDmgMul);
+    }
     if (!wave) continue;
     gainHeroXp(sim, h, HERO_XP.perSecond * k * dt, 'time');
     if (h.ultUnlocked && h.ultCooldown > 0) h.ultCooldown = Math.max(0, h.ultCooldown - dt);
@@ -245,12 +252,27 @@ export function buyHeroLevel(sim, hero, want = null) {
 }
 
 /**
+ * Seconds before she can Move again after a Move during a wave: HERO_MOVE.cooldown minus her `moveCd` (Kogane's
+ * Treads and awakening), never below HERO_MOVE_CD_MIN. Without the key: exactly HERO_MOVE.cooldown.
+ */
+export function heroMoveCooldown(hero) {
+  const cut = hero?.stats?.moveCd || 0;
+  return cut > 0 ? Math.max(HERO_MOVE_CD_MIN, HERO_MOVE.cooldown - cut) : HERO_MOVE.cooldown;
+}
+
+/** Seconds she stops attacking after a Move during a wave: HERO_MOVE.downtime minus her `moveDowntime` (Kogane's Quick Clutch). */
+export function heroMoveDowntime(hero) {
+  const cut = hero?.stats?.moveDowntime || 0;
+  return cut > 0 ? Math.max(HERO_MOVE_DOWNTIME_MIN, HERO_MOVE.downtime - cut) : HERO_MOVE.downtime;
+}
+
+/**
  * Can she move to world (x, y)? Free and instant before or between waves; during a wave she pauses
  * HERO_MOVE.downtime seconds and cannot move again for HERO_MOVE.cooldown.
  * @returns {{ ok: boolean, reason: null|'noHero'|'ended'|'cooldown'|'same'|string, downtime: number }}
  */
 export function canMoveHero(sim, x, y, hero) {
-  const downtime = sim.state === 'wave' ? HERO_MOVE.downtime : 0;
+  const downtime = sim.state === 'wave' ? heroMoveDowntime(hero) : 0;
   if (!hero || hero.removed || !hero.isHero) return { ok: false, reason: 'noHero', downtime };
   if (sim.state === 'won' || sim.state === 'lost') return { ok: false, reason: 'ended', downtime };
   if (hero.moveCd > 0) return { ok: false, reason: 'cooldown', downtime, cooldownLeft: hero.moveCd };
@@ -270,8 +292,16 @@ export function moveHero(sim, x, y, hero) {
   sim._relocate(hero, x, y);
   if (chk.downtime > 0) {
     hero.moveLock = chk.downtime;
-    hero.moveCd = HERO_MOVE.cooldown;
+    hero.moveCd = heroMoveCooldown(hero);
+    // Kogane's Big Yellow Overdrive (Potential P6): faster for a while after a Move during a wave
+    const od = hero.stats?.overdrive;
+    if (od && od.time > 0) {
+      hero.overdriveLeft = od.time;
+      refreshEffective(hero, sim.globalRateMul, sim.globalDmgMul);
+    }
   }
+  // Norika's barricades follow her to her new range (src/sim/barricades.js)
+  if (hero.bars) resiteBarricades(sim, hero);
   sim._emit('heroMove', { towerUid: hero.uid, x: hero.x, y: hero.y, fromX, fromY, downtime: chk.downtime });
   return { ok: true, reason: null };
 }
@@ -429,6 +459,17 @@ export function activateUlt(sim) {
       ux = p.x;
       uy = p.y;
     }
+  } else if (effect.type === 'barricade') {
+    // Hold the Line (Norika): temporary barricades on the road at her aim point, else ahead of the lead walker
+    // in her range (src/sim/barricades.js); nothing to block: the ult waits. Only during a wave: its timers run
+    // with the wave, and a calm point (the battle save) holds no lines
+    if (!h.bars || sim.state !== 'wave') return false;
+    const walkers = h.aim ? null : victims.filter((e) => !e.airborne && (e.x - h.x) * (e.x - h.x) + (e.y - h.y) * (e.y - h.y) <= h.eff.range * h.eff.range);
+    const lead = walkers ? bestVictim(walkers, { ...h.eff, canHitAir: false, detection: true }, 'first', h.x, h.y) : null;
+    const at = holdTheLine(sim, h, effect, h.aim, lead);
+    if (!at) return false;
+    ux = at.x;
+    uy = at.y;
   } else if (effect.type === 'strike') {
     // one huge blow on the strongest (or first) enemy anywhere, splashing its neighbours
     const spec = ultSpec(h, effect, (effect.damage || 0) * scale);

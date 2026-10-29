@@ -60,7 +60,7 @@ function blankOut() {
 }
 
 /** Bestiary sightings + kill counts of `kills` (only ids the game knows); returns the total kills. */
-function addSightings(profile, encountered, kills) {
+function addSightings(profile, encountered, kills, { killsCount = true } = {}) {
   profile.bestiary ||= {};
   let total = 0;
   for (const id of new Set([...(encountered || []), ...Object.keys(kills || {})])) {
@@ -68,7 +68,7 @@ function addSightings(profile, encountered, kills) {
     const b = (profile.bestiary[id] ||= { seen: false, discovered: false, kills: 0 });
     b.seen = true;
     const n = count(kills?.[id]);
-    b.kills += n;
+    if (killsCount) b.kills += n;
     total += n;
   }
   return total;
@@ -174,6 +174,8 @@ export function rememberFreeplayRun(profile, ledger, result) {
     // solo freeplay (src/systems/freeplayRewards.js): its best field and its capped coins per wave
     ...(ledger.payout?.bestKey ? { bestKey: ledger.payout.bestKey } : {}),
     ...(ledger.payout?.waveCoins != null ? { waveCoins: count(ledger.payout.waveCoins) } : {}),
+    // a Friend Support run: paid later without a best or milestones too
+    ...(result.support ? { support: 1 } : {}),
   };
   const keys = Object.keys(all);
   for (const k of keys.slice(0, Math.max(0, keys.length - PENDING_MAX))) delete all[k];
@@ -205,6 +207,7 @@ export function payPendingFreeplayRuns(profile, rngFor) {
         banked: rec.banked,
         ...(rec.bestKey === 'freeplayBest' ? { bestKey: 'freeplayBest' } : {}),
         ...(rec.waveCoins != null ? { waveCoins: count(rec.waveCoins) } : {}),
+        ...(rec.support ? { support: true } : {}),
       });
       if (res.freeplay) out.push({ ...res, stageId: rec.stageId });
     } catch (e) {
@@ -323,11 +326,13 @@ export function coopBestWaves(profile, stageId) {
  * @param {{ banked?: { goal: number, kills: object, encountered: string[] }|null, bestKey?: string }} [opts]
  *   bestKey: the stage-entry field holding the per-tier best (co-op `coopBestWave`; solo freeplay,
  *   src/systems/freeplayRewards.js, uses `freeplayBest` with these same payouts); waveCoins: coins per
- *   freeplay wave after the tier (default coinsPerWave × rewardMul; solo caps it per stage)
+ *   freeplay wave after the tier (default coinsPerWave × rewardMul; solo caps it per stage); support: a solo run
+ *   with a Friend Support girl (BANNERS §E.1): its coins, caches and mission ticks pay, but no best, no milestone,
+ *   no bestiary kills and no lifetime counters
  * @returns {object} applyCoopResult's shape + `freeplay: { tier, waves, coins, caches, tomes, tokens,
  *   best, prevBest, newBest, milestones: [{ id, label, gems, title?, frame? }] }`
  */
-export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, bestKey = 'coopBestWave', waveCoins = null, now = new Date() } = {}) {
+export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, bestKey = 'coopBestWave', waveCoins = null, now = new Date(), support = false } = {}) {
   const out = blankOut();
   const stage = STAGE_MAP[result?.stageId];
   const table = freeplayTable(result?.freeplay);
@@ -342,8 +347,8 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, best
   const kills = killsSince(result.kills, banked);
   const seenBefore = new Set(banked?.encountered || []);
   const newlySeen = (result.encountered || []).filter((id) => !seenBefore.has(id));
-  const killed = addSightings(profile, newlySeen, kills);
-  if (killed) track(profile, 'kill', killed);
+  const killed = addSightings(profile, newlySeen, kills, { killsCount: !support });
+  if (killed) track(profile, 'kill', killed, { lifetime: !support });
 
   const coins = Math.round((waveCoins ?? R.coinsPerWave * (table.rewardMul ?? 1)) * waves);
   if (coins > 0) rewards.push({ id: 'coins', count: coins });
@@ -363,13 +368,13 @@ export function applyCoopFreeplayEnd(profile, result, rng, { banked = null, best
   const entry = ((profile.progress ||= { stages: {} }).stages ||= {})[stage.id] ||= { easy: false, normal: false, hard: false, nightmare: false, clears: 0 };
   const bests = (entry[bestKey] = isObj(entry[bestKey]) ? entry[bestKey] : {});
   const prevBest = count(bests[table.id]);
-  const newBest = cleared > prevBest;
+  const newBest = !support && cleared > prevBest;
   if (newBest) bests[table.id] = cleared;
 
   // one-time milestones, per account and tier
   const rec = freeplayRecords(profile);
   const milestones = [];
-  for (const m of R.milestones) {
+  for (const m of support ? [] : R.milestones) {
     const key = `${table.id}:${m.id}`;
     if (rec.done.includes(key)) continue;
     const hit = m.wave != null ? cleared >= m.wave : count(kills[m.kill]) > 0;

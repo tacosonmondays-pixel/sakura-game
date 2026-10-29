@@ -28,7 +28,8 @@ const oneOf = (list) => Object.freeze({ type: 'enum', list: Object.freeze([...li
 
 /** One rule per stat key a loadout may carry (unitBattleStats' keys). */
 export const UNIT_STAT_LIMITS = Object.freeze({
-  damageMul: num(0, 10),
+  // [banners G6] UR Resonance (×1.10) and the LR boost (×1.15) on top of UR gear at level 85: honest max ≈ 9.6
+  damageMul: num(0, 15),
   rateMul: num(0, 5),
   rangeMul: num(0, 3),
   critChance: num(0, 0.75),
@@ -40,7 +41,8 @@ export const UNIT_STAT_LIMITS = Object.freeze({
   // (15 % lines + 5 % fill), the aura girls' fill-in radius, gear ATK's share of burns, her club set,
   // and the UR pieces she wears (the renderer's rainbow sparkles; the sim never reads it)
   pierceK: int(0, PIERCE_K_MAX + 50),
-  auraPct: num(0, 0.3),
+  // Aura Power 0.3 grown by UR Resonance and LR (×1.10 · ×1.15 of 1 + Aura Power): honest max ≈ 0.64
+  auraPct: num(0, 0.75),
   auraRangeMul: num(1, 1.2),
   dotMul: num(1, 1.5),
   club: oneOf(SIM_CLUB_IDS),
@@ -53,6 +55,8 @@ export const UNIT_STAT_LIMITS = Object.freeze({
   breakthrough: int(0, 10),
   // Potential v3: P1…P6
   potential: int(1, MAX_POTENTIAL),
+  // [banners G6] LR (Limit Break): her LR ability form
+  lr: BOOL,
 });
 
 /** Most loadout entries one player may bring (her towers, one more when she brings no hero). */

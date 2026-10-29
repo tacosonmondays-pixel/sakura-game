@@ -57,6 +57,7 @@ import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
 import { onVineKill, endVineWave } from './vines.js';
 import { endBallWave } from './balls.js';
+import { syncBarricades, updateBarricades, endBarricadeWave, detourOnHit } from './barricades.js';
 import {
   createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
   ruleWaveEnd, ruleWaveClear, ruleBountyAdd, ruleHitScale, ruleDotScale, assignPads, ruleInfo, ruleAffinityFor,
@@ -345,6 +346,8 @@ export class Sim {
     this._curseBudget = CURSE_BURSTS_PER_TICK;
     if (this._curseQueue.length && !this._flushingCurses) this._flushCurses();
     updateEnemyAuras(this);
+    // Norika's barricades: spots, rebuilds and Hold the Line timers, before the enemies move into them
+    if (this._blockOn) updateBarricades(this);
     for (let i = 0; i < this.enemies.length; i++) {
       const e = this.enemies[i];
       if (!e.dead) updateEnemy(this, e, dt);
@@ -437,9 +440,10 @@ export class Sim {
   // Events / ids / cash
   // -------------------------------------------------------------------------
 
+  /** Queues an event. A payload built for it that already carries this `type` first (a hit) is queued as is, uncopied. */
   _emit(type, payload) {
     if (this.events.length >= MAX_EVENT_BACKLOG) this.events.splice(0, this.events.length >> 1);
-    this.events.push({ type, ...payload });
+    this.events.push(payload.type === type ? payload : { type, ...payload });
   }
 
   /** Returns and clears every event since the last call. */
@@ -561,13 +565,21 @@ export class Sim {
     const res = computeHit(e, spec, roll, scale, this._hitOut);
     if (!res) return -1;
     const hpBefore = e.hp;
-    const flags = applyHitResult(e, res);
+    const flags = applyHitResult(e, res, spec.share);
     const dealt = Math.min(res.toHp, Math.max(0, hpBefore)) + res.toBarrier;
     e.flash = 1;
     e.lastDamageAt = this.time;
-    this._emit('hit', {
-      uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective,
-    });
+    // (`tick`: a constant beam's damage tick, src/sim/duo.js: the display sums those instead of popping each)
+    // (one object per hit event: built with its type, so _emit queues it uncopied)
+    if (spec.tick) {
+      this._emit('hit', {
+        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective, tick: true,
+      });
+    } else {
+      this._emit('hit', {
+        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective,
+      });
+    }
     if (flags & BARRIER_BROKE) this._emit('barrierBreak', { uid: e.uid });
     if (flags & SHELL_BROKE) this._emit('shellBreak', { uid: e.uid });
     this._credit(tower, dealt, e, drone);
@@ -627,6 +639,8 @@ export class Sim {
       }
     }
     if (spec.gather > 0 && !e.dead) this._gather(e, spec.gather);
+    // Norika's Detour Sign: her waves send an enemy still before a fork down the longer branch
+    if (spec.barricade?.detour && !e.dead) detourOnHit(this, e);
     syncStatusFlags(e);
   }
 
@@ -924,6 +938,8 @@ export class Sim {
     endVineWave(this);
     // Marumi's balls end (src/sim/balls.js)
     endBallWave(this);
+    // Hold the Line ends; Norika's own barricades stand again at full budget (src/sim/barricades.js)
+    if (this._blockOn) endBarricadeWave(this);
     this._curseQueue.length = 0;
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });
@@ -1118,6 +1134,7 @@ export class Sim {
     updateRelayOrigin(this, t);
     syncAbility(this, t); // (a fixture girl whose ability unlocks at tier 0)
     syncZones(this, t);
+    syncBarricades(this, t);
     return t;
   }
 
@@ -1137,6 +1154,8 @@ export class Sim {
     syncZones(this, t);
     // her lab team's frag and control weapons follow her lab power (Grand Lab, Unified Theory)
     syncLab(this, t);
+    // Norika's barricade lists (src/sim/barricades.js)
+    syncBarricades(this, t);
   }
 
   /**

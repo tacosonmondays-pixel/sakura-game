@@ -17,12 +17,12 @@
 
 import { MATERIAL_FAMILIES, GACHA } from './types.js';
 import { UNITS } from './units.js';
-import { isLegendUnit } from './recruitFeature.js';
+import { unitClass } from './banners.js';
 
 export const SHOP_TABS = [
   { id: 'general', name: 'General', currency: 'coins', desc: 'Everyday study supplies, paid with coins. Restocks daily.' },
   { id: 'gems', name: 'Gem Shop', currency: 'gems', desc: 'Premium bundles that save time. Weekly stock.' },
-  { id: 'recruit', name: 'Recruit Exchange', currency: 'recruitPoints', desc: 'Every recruit earns 1 point. 200 points spark any SSR of your choice.' },
+  { id: 'recruit', name: 'Recruit Exchange', currency: 'recruitPoints', desc: 'Every recruit earns 1 point. 200 points spark a Standard SSR any day, or a Premium SSR on her Spotlight day. LR units cannot be sparked.' },
   { id: 'boss', name: 'Boss Exchange', currency: 'token_boss', desc: 'Assault Tokens from minibosses and Total Assault buy crowns and dice.' },
   { id: 'bounty', name: 'Bounty Exchange', currency: 'token_bounty', desc: 'Bounty Tokens buy gear boxes, books and reroll dice.' },
   { id: 'memento', name: 'Memento Exchange', currency: 'memento', wallets: ['memento', 'moonpearl'], desc: 'Spare duplicates become Mementos and Moonpearls. Spend them here.' },
@@ -55,8 +55,8 @@ export const SHOP_OFFERS = [
   ...FAMILIES.map((f) => o(`gem_mat_${f}_sr`, 'gems', `mat_${f}_superRare`, 2, 100, 2, 'weekly')),
 
   // --- Recruit Exchange (recruit points) --------------------------------------
-  // (never an LR unit: src/data/recruitFeature.js)
-  ...UNITS.filter((u) => u.rarity === 'SSR' && !isLegendUnit(u.id)).map((u) => o(`spark_${u.id}`, 'recruit', null, 1, GACHA.sparkCost, null, null, { unitId: u.id, highlight: true })),
+  // [banners] standard and premium SSRs only: an LR unit or an event girl never has a spark row (BANNERS §A.1)
+  ...UNITS.filter((u) => u.rarity === 'SSR' && ['standard', 'premium'].includes(unitClass(u.id))).map((u) => o(`spark_${u.id}`, 'recruit', null, 1, GACHA.sparkCost, null, null, { unitId: u.id, highlight: true })),
   o('rp_fragment', 'recruit', 'star_fragment', 10, 30, 3, 'weekly'),
 
   // --- Boss Exchange (Assault Tokens) -----------------------------------------
