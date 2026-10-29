@@ -47,6 +47,8 @@ const EVENTS = [
   { type: 'ability', towerUid: 1, id: 'seiran.stormLance', kind: 'strike', scope: 'local', x: 4, y: 5, radius: 4, targets: [102, 100, 101] },
   { type: 'ability', towerUid: 1, id: 'hana.swoop', kind: 'strike', scope: 'map', x: 4, y: 5, radius: 0, targets: [100, 101] },
   { type: 'lifeRestored', towerUid: 2, lives: 18, n: 1, id: 'noa.firstAid' },
+  // A5: a move (Backdraft Fan's gust)
+  { type: 'ability', towerUid: 1, id: 'fuu.backdraft', kind: 'move', scope: 'local', x: 4, y: 5, radius: 4.5, targets: [100, 101, 102], moved: 3 },
 ];
 
 describe('ability FX', () => {
@@ -76,6 +78,20 @@ describe('ability FX', () => {
     expect(fx.calls.filter((c) => c.name === 'sparkle').map((c) => [c.args[0], c.args[1]])).toEqual([[6, 5], [7, 2]]);
     a.handle(EVENTS[5]);
     expect(fx.calls.some((c) => c.name === 'coin' && c.args[3] === 100)).toBe(true);
+  });
+
+  it('a move: her reach\'s edge, a fan of five wind glows sweeping toward the crowd, a puff on each enemy it reached', () => {
+    const fx = stubFx();
+    const a = createAbilityFx({ sim: stubSim(), fx, colorOf: () => '#4f9e88' });
+    a.frame();
+    a.handle(EVENTS[EVENTS.length - 1]);
+    expect(fx.calls.some((c) => c.name === 'ring' && c.args[0] === 4 && c.args[1] === 5 && c.args[3] === 4.5)).toBe(true);
+    const fan = fx.calls.filter((c) => c.name === 'spawn' && c.args[0].life === 0.5 && c.args[0].vx != null);
+    expect(fan).toHaveLength(5);
+    // (the targets lie to the west and north of her: the fan sweeps that way)
+    for (const c of fan) expect(c.args[0].vx).toBeLessThan(0);
+    // one puff on each enemy it reached, where it stands
+    expect(fx.calls.filter((c) => c.name === 'puff').map((c) => c.args[0])).toEqual([0, 1, 2].map((i) => 1 + i * 0.3));
   });
 
   it('per-frame caps: lines, rings, puffs and events stop at their budget and start again next frame', () => {
