@@ -84,6 +84,8 @@ const WEAPON_STYLE = {
   mic: 'cast', shield: 'slash', mirror: 'cast', spear: 'spear', mallet: 'slash', puppet: 'cast', cards: 'throw',
   // the new girls (UNIT_GAPS §5)
   strip: 'toss', needle: 'cast', tablet: 'cast',
+  // the staff heroes (BANNERS §D): Norika's STOP paddle swings like a fan
+  sign: 'sweep',
 };
 
 /** Attack style descriptor for a weapon key. */
@@ -459,6 +461,16 @@ function weaponParts(ctx, kind) {
       P.push(part(box(0.5, 0.36, 0.02), { pos: [0.27, 0.8, 0], color: col('#f6f3ec') }));
       P.push(part(box(0.5, 0.05, 0.025), { pos: [0.27, 0.99, 0], color: w }));
       P.push(part(sphere(0.07, 8, 6), { pos: [0.27, 0.78, 0.02], color: col('#f29bb8') }));
+      break;
+    }
+    case 'sign': {
+      // a round STOP paddle (Norika): a grey pole, a red disc with a white rim and a white bar for the word
+      rot = [0.25, 0, 0.12];
+      offset = [0, 0.05, 0.02];
+      P.push(part(cyl(0.035, 0.035, 1.05, 6), { pos: [0, 0.25, 0], color: col('#8a8f99') }));
+      P.push(part(cyl(0.32, 0.32, 0.04, s), { pos: [0, 0.98, 0], rot: [Math.PI / 2, 0, 0], color: w }));
+      P.push(part(torus(0.32, 0.03, 5, s), { pos: [0, 0.98, 0], color: col('#ffffff') }));
+      P.push(part(box(0.4, 0.09, 0.05), { pos: [0, 0.98, 0], color: col('#ffffff') }));
       break;
     }
     case 'needle': {

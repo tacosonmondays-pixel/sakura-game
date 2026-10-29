@@ -61,6 +61,13 @@ export const RULES = Object.freeze({
   recruit: { gapMs: 0, max: 5, windowMs: DAY, label: 'recruiting post' },
   // [ascension] the clan titan board (supabase/migrations/20261021000000_titan_board.sql submit_titan_best)
   titan_best: { gapMs: 2 * SEC, max: 30, windowMs: HOUR, label: 'titan board score' },
+  // ---- [friend support] supabase/migrations/20261028000000_friend_support.sql -------------------
+  // publishing my Support Student (the sync sends her only when her hash changed)
+  support_set: { gapMs: 1 * SEC, max: 60, windowMs: HOUR, label: 'Support Student update' },
+  // friends' Support Students (stage prep caches the list 5 minutes; Refresh asks again)
+  support_list: { gapMs: 0, max: 60, windowMs: HOUR, label: 'Support Student list' },
+  // borrowing one for a battle (the real caps: the FP a day, on the server)
+  support_use: { gapMs: 2 * SEC, max: 60, windowMs: HOUR, label: 'Support Student borrow' },
 });
 
 /** Limits that are a rolling window, not the 7 PM Central game day ("try again in 3 h", never "resets at 7 PM"). */

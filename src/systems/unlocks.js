@@ -1,6 +1,7 @@
 // Ownership, stage unlocks, medals and counter recommendations (owner: systems).
 // See CONTRACTS.md §5.
 
+import { isLegendUnit } from '../data/banners.js';
 import { UNIT_MAP, UNITS, hasCapability } from '../data/units.js';
 import { STAGE_MAP, CAMPAIGN_IDS, requirementsMet, actStages } from '../data/stages.js';
 import { DIFFICULTY_ORDER } from '../data/types.js';
@@ -30,9 +31,11 @@ export function isOwned(profile, unitId) {
  * @returns {{ isNew: boolean, essence: 0|1, spare: null|{ mementos: number, moonpearls: number, points: number, fifths: number },
  *   potential: number, essenceHeld: number, readyStep: number|null, potentialUp: false }}
  */
-export function grantUnit(profile, unitId, now = Date.now()) {
+export function grantUnit(profile, unitId, now = Date.now(), { source = null } = {}) {
   const def = UNIT_MAP[unitId];
   if (!def) throw new Error(`Unknown unit: ${unitId}`);
+  // [banners] the Legend Promise restarts whenever an LR unit arrives, from any source (BANNERS §C.1)
+  if (isLegendUnit(unitId)) ((profile.missions ||= {}).counters ||= {})[`gl:${unitId}`] = 0;
   if (!profile.units[unitId]) {
     profile.units[unitId] = newUnitState(now);
     // bond (affection) starts at 0; the future City time-together / gift system raises it
@@ -46,7 +49,7 @@ export function grantUnit(profile, unitId, now = Date.now()) {
   const st = profile.units[unitId];
   st.dupes = Math.max(0, Math.floor(Number(st.dupes) || 0)) + 1;
   shadowPotential(profile, unitId, now);
-  return { isNew: false, ...receiveDuplicate(profile, unitId), potentialUp: false };
+  return { isNew: false, ...receiveDuplicate(profile, unitId, { source }), potentialUp: false };
 }
 
 /** @returns {{ easy: boolean, normal: boolean, hard: boolean, nightmare: boolean }} */

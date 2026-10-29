@@ -24,6 +24,7 @@
 // The slot list is rebuilt on ability / upgrade / sell / wave events and at most 4× a second; the rings are
 // painted every frame straight from t.abil (no allocation).
 import { h } from './util.js';
+import { lineName } from './rules.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { fmtNum } from '../format.js';
@@ -434,7 +435,8 @@ export function battleKeyAction(e, { paused = false, typing = false, blocked = f
  * tap Aoi"); a hero's skill is the bolt button by her portrait — "Morning Rally: tap ⚡ by Hikari" (PC: "… press E or
  * tap ⚡ by Hikari"). The toast leads with the bolt icon; a ⚡ here is drawn as the kit bolt (kit.js boltText).
  */
-export function unlockText(girl, ability, { hover = false, key = null, hero = false } = {}) {
+export function unlockText(name, ability, { hover = false, key = null, hero = false } = {}) {
+  const girl = lineName(name); // (a duo by its initials: the one-line toast)
   if (hero) return `${ability}: ${hover ? 'press E or ' : ''}tap ⚡ by ${girl}`;
   return hover && key ? `${ability}: press ${key} or tap ${girl}` : `${ability}: tap ${girl}, bottom right`;
 }

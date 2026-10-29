@@ -36,6 +36,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { launchChromium } from './browser.mjs';
 import { probe, judge, summary } from './probe.mjs';
+import { SHOT_DEFS, MILESTONES, GATE } from './shots/index.mjs';
 import { tabJunction, ringContinuity, contrastOnPixels } from './pixels.mjs';
 import { seedUiSave, seedInkSave, inkRandomInit, seedOnlineInvite, seedOnlineHub, goOffline, SHOT_NOW, INK_NOW, INK_RANDOM_SEED, MORE_FRIENDS } from './uiSeed.mjs';
 import { runM1Scenes, M1_SCENES } from './lib/abilityScenes.mjs';
@@ -316,6 +317,13 @@ const INK_LIST = ['lobby', 'home-menu', 'home-marumi', 'home-marumi-2s', 'home-m
 const REGRESS = ['bounty', 'assault', 'titans', 'campaign', 'happening', 'settings', 'profile', 'event-halloween', 'coop', 'backpack-equipment', 'stage-prep',
   'achievements', 'battle-drawer', 'battle-drawer-ui'];
 const LISTS = { m5: M5, ink: INK_LIST, regress: REGRESS };
+// [ui-v2-menus] the per-milestone shot lists (e2e/shots/m*.mjs): their shots join these, each list is `--screens <id>`
+for (const [name, s] of Object.entries(SHOT_DEFS)) {
+  if (SHOTS[name]) throw new Error(`e2e/shots defines "${name}", which ui-shots already has`);
+  SHOTS[name] = s;
+}
+for (const [id, l] of Object.entries(MILESTONES)) LISTS[id] = l;
+LISTS.menus = [...new Set(Object.values(MILESTONES).flat())];
 
 /**
  * A Settings section: its rail tab (M5c), or before the rail, the old panel with that title scrolled to the top.
@@ -384,6 +392,8 @@ const closeModals = (page) => page.evaluate(() => {
   document.querySelectorAll('.modal-overlay').forEach((o) => o.remove());
   // ([ui-ink] V2: the home's menu sheet closes through its own X, so the home's UI comes back)
   document.querySelector('[data-testid="menu-sheet-close"]')?.click();
+  // ([ui-v2-menus] the kit sheets too: a shot on the same hash as the one before finds them still open)
+  return import('/src/ui/sheet.js').then((m) => m.closeSheets?.()).catch(() => {});
 });
 
 async function go(page, hash, ready, settleMs = 900) {
@@ -602,7 +612,7 @@ for (const vp of viewports) {
       }
       await shot(page, name, vp);
       if (withProbe) {
-        const r = await probe(page, { kind: s.kind || 'hub', list: s.list || null, apart: s.apart || [], v2: true });
+        const r = await probe(page, { kind: s.kind || 'hub', list: s.list || null, apart: s.apart || [], v2: true, dense: (GATE[name]?.dense ?? s.dense)?.join(', ') || null });
         probes[name] = r;
         console.log(`    probe: ${summary(r)}`);
         const fails = judged ? judge(r, { only: judged, v2: true }) : [];

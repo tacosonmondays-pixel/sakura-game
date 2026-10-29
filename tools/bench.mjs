@@ -7,6 +7,7 @@
 //        [--builds p0t3,p0t4,…] [--targets crowd,boss] [--preset strong|L25] [--partner kage]
 //        [--copies '[[0,5,2,2],[0,4,2,2]]'] [--compare tools/baselines/bench-today-s9.jsonl] [--json]
 //        [--partner-build p0t5] [--strip-buffs]
+//   node --import ./tools/simLoader.mjs tools/bench.mjs --hit [--ceiling] …   (real hit DPS; the run-ceiling gate: tools/benchHit.mjs)
 //
 // Builds pNtM: path N to tier M with a tier-2 crosspath (P1 x-0-2, P2 2-x-0, P3 2-0-x); default: every
 // path at tiers 3, 4 and 5. One JSON line per run (--json) or a table; with --compare, the change of
@@ -22,6 +23,11 @@ import { samplePath } from '../src/sim/path.js';
 import { withDetMath } from '../src/core/detMath.js';
 
 const args = process.argv.slice(2);
+// --hit: real hit DPS on a dummy stream, and --hit --ceiling, the Tryout Day run-ceiling gate (tools/benchHit.mjs)
+if (args.includes('--hit')) {
+  const { main } = await import('./benchHit.mjs');
+  process.exit(await main(args.filter((a) => a !== '--hit')));
+}
 const VALUED = ['--stage', '--seed', '--builds', '--targets', '--preset', '--partner', '--copies', '--compare', '--run', '--partner-build'];
 const opt = (k, d) => (args.includes(`--${k}`) ? args[args.indexOf(`--${k}`) + 1] : d);
 const names = args.filter((a, i) => !a.startsWith('--') && !VALUED.includes(args[i - 1]));

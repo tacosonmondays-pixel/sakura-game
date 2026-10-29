@@ -5,6 +5,7 @@
 //   - the feed for hero events, attributed by towerUid (co-op: your hero gets the toast / banner,
 //     the ally's hero a small chip at most every 3 s);
 //   - the level texts the widget, panel and scout share.
+import { heroMoveDowntime } from '../../sim/hero.js';
 import { fmtNum } from '../format.js';
 import { quantize } from '../../online/coop/commands.js';
 import { BATTLE } from '../../data/types.js';
@@ -164,7 +165,7 @@ export function createHeroLevels(ctx, ls) {
   function moveState(t) {
     if (!t || ctx.ended) return { label: 'Move', disabled: true };
     if (t.moveCd > 0) return { label: `Move · ${Math.ceil(t.moveCd)}s`, disabled: true, reason: 'cooldown' };
-    if (sim.state === 'wave') return { label: 'Move · pauses 3s', disabled: false };
+    if (sim.state === 'wave') return { label: `Move · pauses ${heroMoveDowntime(t)}s`, disabled: false };
     return { label: 'Move', disabled: false };
   }
 

@@ -696,3 +696,13 @@ describe('router: back arrow and battle history entries', () => {
     noBattle();
   });
 });
+
+describe('Tryout Day routes (M3 review)', () => {
+  const r = (name, params = {}) => ({ name, params });
+  it('Before Class (also after Again or Replay this seed), the Jar and the Yearbook go back to the Tryout hub; the hub to Missions', () => {
+    for (const params of [{ id: 'class' }, { id: 'class', again: 1 }, { id: 'class', code: 'ABCDE-FGHIJ' }, { again: 1 }, { code: 'X' }, { weekly: 1 }, { id: 'jar' }, { id: 'yearbook' }]) {
+      expect(parentRoute('tryout', params, null).name, JSON.stringify(params)).toBe('tryout');
+    }
+    expect(parentRoute('tryout', {}, null)).toEqual(r('missions'));
+  });
+});

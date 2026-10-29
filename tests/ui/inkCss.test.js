@@ -97,11 +97,12 @@ describe('ink.css', () => {
     const close = ALL.find((r) => r.sel.includes('.ma-gacha .btn-ghost'));
     expect(close?.body).toMatch(/color: var\(--on-ink\)/);
     expect(close?.body).toMatch(/background: var\(--plate\)/);
-    // the Formation pick's chip: no border (meta-b's frame reset), at the bottom corner, never at the eye line
+    // the pick chip (the Sandbox picker's girl tiles since V3): no border (meta-b's frame reset), low on the tile above
+    // its caption, never at the eye line
     const chip = ALL.find((r) => split(r.sel)[0].endsWith('.mb-pick .mb-pick-check'));
     expect(chip?.body).toMatch(/border: 0/);
     expect(chip?.body).toMatch(/top: auto/);
-    expect(chip?.body).toMatch(/bottom: -4px/);
+    expect(chip?.body).toMatch(/bottom: 32px/);
   });
   it('V1 review 2: a plate head grows with its rows, the night OPEN chip is opaque, the profile avatar is not cut', () => {
     // the inset plate head: at least --h, never a fixed height, its slant a mask (a polygon's run is fixed by --h)
