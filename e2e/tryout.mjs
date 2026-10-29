@@ -24,6 +24,9 @@
 //      why) and selectable after one (the strip ends in "P13+", no boss portrait); the Random Class switch with its help
 //      line: the six show but are not pickable, Redraw goes, Start is ready with no picks. The battle side (the reveal,
 //      the wave count past 48, Home Time) comes after the sim merge: see the TODO markers in step 11b
+//   v0.1.61 (Extended Day's rewards and Home Time): past wave 48 the wave control's Home Time pill (no freeplay Finish),
+//      its question with the game held still, the run ended as Home Time with no Make-up Test; the Class Photo's best
+//      wave for this Grade (New best) and milestone row (50 ticked); Before Class's best wave for the Grade
 // Screenshots go to --shots. node e2e/tryout.mjs [--viewports 844x390,1280x720] [--shots dir] [--only s20]
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
@@ -258,6 +261,12 @@ for (const [W, H] of viewports) {
         if (sim.state === 'prep' || sim.state === 'between') {
           // (the events of the waves skipped over are dropped; the last ones reach the screen)
           if (sim.wave < 47) sim.drainEvents();
+          // (the stage is pinned: P14, waves 53-56, is History, whose Rear Ambush flips the even waves, so the checks
+          // past wave 48 see both a flipped wave (54) and a plain one (55) on every run. The bot takes the pair's second
+          // Subject at P14, so History goes there)
+          const s14 = sim.tryout.subjects?.[14];
+          if (s14 && !s14.includes('subj_history') && sim.tryout.period < 14) sim.tryout.subjects[14] = [s14[0], 'subj_history'];
+          else if (s14 && s14[0] === 'subj_history' && sim.tryout.period < 14) sim.tryout.subjects[14] = [s14[1], s14[0]];
           for (const c of bot.decide(sim, 0, b)) apply(c);
           if (!sim.tryoutWindowOpen() && sim.state !== 'wave') sim.startNextWave();
         }
@@ -336,24 +345,81 @@ for (const [W, H] of viewports) {
       wave: document.querySelector('[data-testid="hud-wave"]')?.textContent || '',
       scout: document.querySelector('[data-testid="scout-label"]')?.textContent || '',
       chip: !!document.querySelector('[data-testid="hud-freeplay"]:not([hidden])'),
-      banners: window.__banners.filter((t) => /WAVE (49|5\d)/.test(t)).slice(-1)[0] || '',
+      // the last wave banner past 48, and whether that wave is flipped: on a Rear Ambush stage a flipped wave's banner
+      // rightly carries the ambush line (modes.waveSub wins there)
+      ...(() => {
+        const t = window.__banners.filter((x) => /WAVE (49|5\d)/.test(x)).slice(-1)[0] || '';
+        const n = +(/WAVE (49|5\d)/.exec(t)?.[1] || 0);
+        return { banners: t, flipped: !!n && window.__battle.sim.routeFlippedFor(n) };
+      })(),
     }));
     check(/Wave 54 · Stay Late/.test(hud.band), `the tracker counts waves past 48 (${hud.band})`);
     check(!/\/48|of 48/.test(hud.wave) && /54/.test(hud.wave) && !hud.chip, `the HUD shows the wave alone, no freeplay chip (${hud.wave})`);
     check(/Stay Late/.test(hud.scout) && !/\/48/.test(hud.scout), `the scout reads "Stay Late", not a freeplay goal (${hud.scout})`);
-    check(/Stay Late/.test(hud.banners) && !/of 48/.test(hud.banners), `a wave banner past 48 says Stay Late (${hud.banners})`);
+    // (wave 54 is a flipped wave of the pinned History period: its banner carries the Rear Ambush line, never "of 48")
+    check(hud.flipped && !!hud.banners && !/of 48|\/48/.test(hud.banners),
+      `a flipped wave past 48 (54, Rear Ambush) shows its ambush line, never "of 48" (${hud.banners}${hud.flipped ? ', flipped' : ', not flipped'})`);
     await shot('ty-extended-hud');
-    // out of hearts past wave 48: Home Time (the Make-up Test first, when the run still has it)
-    await page.evaluate(() => {
-      const { sim, ui } = window.__battle;
-      ui.saver?.tick?.();
-      ui.paused = false;
-      sim.lives = 1;
-      for (let k = 0; k < 40 && sim.state === 'wave' && sim.enemies.length; k++) sim._leak(sim.enemies[0]);
+    // (wave 55, a plain wave of the same period: its banner says Stay Late)
+    await ffTo((sim) => sim.wave >= 55 && sim.state === 'wave');
+    await page.evaluate(() => { window.__battle.ui.paused = false; });
+    await page.waitForFunction(() => window.__banners.some((t) => /WAVE 55/.test(t)), null, { timeout: 30000, polling: 100 }).catch(() => {});
+    await page.evaluate(() => { window.__battle.ui.paused = true; });
+    const w55 = await page.evaluate(() => ({
+      banner: window.__banners.filter((x) => /WAVE 55/.test(x)).slice(-1)[0] || '',
+      flipped: window.__battle.sim.routeFlippedFor(55),
+      subject: window.__battle.sim.tryout.subject || null,
+    }));
+    check(!w55.flipped && /Stay Late/.test(w55.banner) && !/of 48|\/48/.test(w55.banner),
+      `a plain wave past 48 (55) says Stay Late (${w55.banner}${w55.flipped ? ', flipped' : ''}, ${w55.subject})`);
+    // v0.1.61: Home Time by choice (§20.1, Q-A6). No Home Time pill while a wave runs; at the next calm point past 48 the
+    // wave control has it in the Finish pill's place; a tap asks first (the game held still), and a yes ends the run
+    // as Home Time (no Make-up Test)
+    check(await page.locator('[data-testid="home-time"]').isHidden(), 'no Home Time pill while a wave runs');
+    const calm = await ffTo((sim) => sim.state === 'between' && sim.wavesCleared >= 54 && !sim.tryoutWindowOpen());
+    check(calm.state === 'between' && calm.cleared >= 54, `a calm point past wave 48 (${JSON.stringify(calm)})`);
+    const pill = await page.waitForSelector('[data-testid="home-time"]:not([hidden])', { timeout: 20000 }).then(() => true).catch(() => false);
+    const pillTxt = await page.locator('[data-testid="home-time"]').textContent().catch(() => '');
+    const pillFit = await page.evaluate(() => {
+      const r = document.querySelector('[data-testid="home-time"]')?.getBoundingClientRect();
+      return !!r && r.width > 0 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1 && r.top >= 0;
     });
-    const endSheet = await page.waitForSelector('[data-testid="ty-makeup"], [data-testid="ty-photo-sheet"]', { timeout: 30000 }).then((e) => e.getAttribute('data-testid')).catch(() => null);
-    if (endSheet === 'ty-makeup') await page.click('[data-testid="ty-makeup-no"]');
+    check(pill && pillTxt === 'Home Time' && pillFit && await page.locator('[data-testid="finish-here"]').isHidden(),
+      `between waves past 48 the wave control shows Home Time, in view, and no freeplay Finish (${pillTxt})`);
+    await shot('ty-home-time-button');
+    // (the game running again, Auto off: the question holds it still, and Escape lets it go again)
+    await page.evaluate(() => { const { sim, ui } = window.__battle; sim.options.autoStart = false; ui.paused = false; });
+    await page.click('[data-testid="home-time"]');
+    await page.waitForSelector('[data-testid="confirm-ok"]', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(150);
+    const focusStay = await page.evaluate(() => document.activeElement?.dataset?.testid || document.activeElement?.textContent || '');
+    const heldEsc = await page.evaluate(() => window.__battle.ui.paused === true);
+    await page.keyboard.press('Escape');
+    const escGone = await page.waitForSelector('[data-testid="confirm-ok"]', { state: 'detached', timeout: 5000 }).then(() => true).catch(() => false);
+    const afterEsc = await page.evaluate(() => ({ paused: window.__battle.ui.paused, state: window.__battle.sim.state, pause: !document.querySelector('[data-testid="pause-menu"]')?.hidden }));
+    check(focusStay === 'confirm-cancel' && heldEsc && escGone && !afterEsc.paused && afterEsc.state === 'between' && !afterEsc.pause,
+      `the question opens with Stay Late focused; Escape answers Stay Late and lets the game run again (focus ${focusStay}, ${JSON.stringify(afterEsc)})`);
+    // (a 7-girl squad on the photo, test-only: the Run Score must still sit above the buttons, v0.1.61 review)
+    const squadN = await page.evaluate(async () => {
+      const { sim, ui } = window.__battle;
+      ui.paused = true;
+      const { TRYOUT_STUDENTS } = await import('/src/data/tryout.js');
+      const sq = sim.tryout.players[0].squad;
+      for (const id of TRYOUT_STUDENTS) if (sq.length < 7 && !sq.includes(id)) sq.push(id);
+      sq.length = Math.min(sq.length, 7);
+      return sq.length;
+    });
+    await page.click('[data-testid="home-time"]');
+    const asked = await page.waitForSelector('[data-testid="confirm-ok"]', { timeout: 10000 }).then(() => true).catch(() => false);
+    const askTxt = await page.locator('.modal-overlay').textContent().catch(() => '');
+    check(asked && /Home Time/.test(askTxt) && /Stay Late/.test(askTxt) && await page.evaluate(() => window.__battle.ui.paused === true && window.__battle.sim.state === 'between'),
+      `Home Time asks first, with the game held still (${askTxt.replace(/\s+/g, ' ').slice(0, 120)})`);
+    await page.waitForTimeout(400);
+    await shot('ty-home-time-ask');
+    await page.click('[data-testid="confirm-ok"]');
     const ph = await page.waitForSelector('[data-testid="ty-photo-wave"]', { timeout: 30000 }).then(() => true).catch(() => false);
+    check(await page.locator('[data-testid="ty-makeup"]').count() === 0 && await page.evaluate(() => window.__battle.sim.finished === true && window.__battle.sim.state === 'lost'),
+      'Home Time ends the run (sim.finish: lost, finished) with no Make-up Test');
     const photoTxt = await page.evaluate(() => ({
       title: document.querySelector('[data-testid="ty-photo-sheet"] .ty-stitle')?.textContent || '',
       wave: document.querySelector('[data-testid="ty-photo-wave"]')?.textContent || '',
@@ -364,7 +430,54 @@ for (const [W, H] of viewports) {
     check(ph && photoTxt.title === 'Home Time' && /^Wave (5\d)$/.test(photoTxt.wave) && photoTxt.seed && !photoTxt.code && photoTxt.random,
       `the Class Photo is Home Time with its wave headline, the seed line and the Random Class ribbon (${JSON.stringify(photoTxt)})`);
     check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'the Home Time photo fits the width');
+    const scoreFit = await page.evaluate(() => {
+      const sc = document.querySelector('[data-testid="ty-photo-sheet"] .ty-score-big')?.getBoundingClientRect();
+      const acts = document.querySelector('[data-testid="ty-photo-sheet"] .ty-photo-acts')?.getBoundingClientRect();
+      const best = document.querySelector('[data-testid="ty-photo-best"]')?.getBoundingClientRect();
+      return { score: sc ? Math.round(sc.bottom) : null, best: best ? Math.round(best.bottom) : null, acts: acts ? Math.round(acts.top) : null };
+    });
+    check(scoreFit.score != null && scoreFit.acts != null && scoreFit.score <= scoreFit.acts + 0.5 && (scoreFit.best == null || scoreFit.best <= scoreFit.acts + 0.5),
+      `with ${squadN} girls the Run Score (and its New best line) ends above the photo's buttons (${JSON.stringify(scoreFit)})`);
+    // the records (§20.5, §20.8): the best wave for this Grade with its New best ribbon, the milestone row (50 ticked)
+    const rec = await page.evaluate(() => ({
+      best: document.querySelector('[data-testid="ty-photo-wave-best"]')?.textContent || '',
+      isNew: !!document.querySelector('[data-testid="ty-photo-wave-new"]'),
+      ms: [...document.querySelectorAll('[data-testid="ty-photo-milestones"] [data-wave]')].map((e) => `${e.dataset.wave}:${e.dataset.state}`).join(),
+      ctr: (({ 'ty:aw': aw, 'ty:aw:1': aw1 }) => ({ aw, aw1 }))(window.__sakura.store.profile.missions.counters),
+      wave: window.__battle.sim.wavesCleared,
+    }));
+    check(rec.best.startsWith(`Best wave for this Grade: ${rec.wave}`) && rec.isNew,
+      `the photo shows the best wave for this Grade with a New best ribbon (${rec.best})`);
+    check(rec.ms === '50:on,75:no,100:no', `the milestone row: 50 ticked, 75 and 100 not yet (${rec.ms})`);
+    check(rec.ctr.aw === rec.wave && rec.ctr.aw1 === rec.wave, `the run's waves are the record: ty:aw and ty:aw:1 (${JSON.stringify(rec.ctr)})`);
+    const aw50 = await page.evaluate(async () => {
+      const { achievementList } = await import('/src/systems/missions.js');
+      return achievementList(window.__sakura.store.profile).filter((a) => a.id.startsWith('a_try_aw')).map((a) => `${a.id}:${a.met}`).join();
+    });
+    check(aw50 === 'a_try_aw50:true,a_try_aw75:false,a_try_aw100:false', `Stayed After (50 waves) is met, Late Bus and Last One Out not yet (${aw50})`);
     await shot('ty-home-time');
+    // Before Class again: reaching P12 cleared Grade 1 as a Full Day does (Q-A1), so Grade 2 is open (and chosen, as
+    // the highest open Grade); Extended Day shows each Grade's own best wave (Grade 2 none yet, Grade 1 this run's)
+    await page.click('[data-testid="ty-again"]');
+    await page.waitForSelector('[data-testid="tryout-before-class"]', { timeout: 30000 }).catch(() => {});
+    await screenIs('tryout');
+    // (Before Class may still be drawing: the Extended Day tap is tried until the day says so)
+    for (let i = 0; i < 5 && await page.locator('[data-testid="tryout-before-class"][data-length="after"]').count() === 0; i++) {
+      await page.click('[data-testid="tryout-length-after"]', { timeout: 5000 }).catch(() => {});
+      await page.waitForSelector('[data-testid="tryout-before-class"][data-length="after"]', { timeout: 3000 }).catch(() => {});
+    }
+    const g2 = await page.evaluate(() => ({
+      open: !document.querySelector('[data-testid="tryout-grade-2"]')?.classList.contains('locked'),
+      title: document.querySelector('.ty-bc-title')?.textContent || '',
+      best: !!document.querySelector('[data-testid="tryout-aw-best"]'),
+    }));
+    check(g2.open && /^Extended Day · Grade 2/.test(g2.title) && !g2.best, `reaching P12 opened Grade 2; its Extended Day has no best wave yet (${JSON.stringify(g2)})`);
+    await page.click('[data-testid="tryout-grade-1"]');
+    const bcBest = await page.waitForSelector('[data-testid="tryout-aw-best"]', { timeout: 10000 }).then((e) => e.textContent()).catch(() => '');
+    check(new RegExp(`Best wave ${rec.wave}`).test(bcBest), `Before Class shows the Extended Day best wave for Grade 1 (${bcBest})`);
+    const under3 = await colsAboveFoot();
+    check(under3.length === 0 && await noHScroll(), `with the best wave line: the maps and heroes stay above the foot, no sideways scroll (${under3})`);
+    await shot('ty-before-class-best-wave');
   };
 
   // 1. locked: Wakaba, every tile locked with the rule; Marbles already in the top bar

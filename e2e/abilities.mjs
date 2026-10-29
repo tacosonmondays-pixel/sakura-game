@@ -378,7 +378,8 @@ for (const vp of viewports) {
     await settle(page, 200);
     const aimNow = await page.evaluate(() => ({ aim: window.__battle.ui.aim.abilityId, banner: !document.querySelector('[data-testid="aim-banner"]').hidden, toasts: __ab.toasts() }));
     if (!aimNow.banner) console.log(`  (FIRE before the tap: ${JSON.stringify(fireBefore)}; after: ${JSON.stringify(aimNow)})`);
-    await page.evaluate(() => window.__battle.ui.feed.push('Tap a point on the map.', 'warn', { key: 'e2e-aim-feed', ms: 4000 }));
+    // (15 s: a slow software-rendered frame can let a few real seconds pass before the read below)
+    await page.evaluate(() => window.__battle.ui.feed.push('Tap a point on the map.', 'warn', { key: 'e2e-aim-feed', ms: 15000 }));
     await settle(page, 250);
     const panelAim = await page.evaluate(() => {
       const b = document.querySelector('[data-testid="aim-banner"]');
@@ -394,7 +395,8 @@ for (const vp of viewports) {
     });
     check(!!panelAim && /tap FIRE again/.test(panelAim.text) && panelAim.left >= 0 && panelAim.right <= panelAim.panelLeft,
       `${vp} the aim banner from her panel's FIRE stays on screen and left of the panel (${JSON.stringify(panelAim)})`);
-    check(!!panelAim?.toast && !panelAim.toastUnder, `${vp} a toast during the aim is not under the banner (${JSON.stringify(panelAim?.toast)})`);
+    const feedNow = panelAim?.toast ? null : await page.evaluate(() => [...document.querySelectorAll('[data-testid="battle-feed"] .bt-toast')].map((n) => `${n.dataset.key || '-'}:${n.className.replace('bt-toast ', '')}:${n.textContent.slice(0, 40)}`));
+    check(!!panelAim?.toast && !panelAim.toastUnder, `${vp} a toast during the aim is not under the banner (${JSON.stringify(panelAim?.toast)}${feedNow ? `; feed: ${JSON.stringify(feedNow)}` : ''})`);
     await shot('e2e-panel-aim');
     await page.keyboard.press('Escape');
     await settle(page, 150);
@@ -470,7 +472,7 @@ for (const vp of viewports) {
       return { aoi: { cd: s.getTower(a).abil.cd, auto: s.getTower(a).abil.auto }, momo: { auto: s.getTower(m).abil.auto } };
     }, [aoi, momo]);
     check(kept.aoi.cd > 0, `${vp} Aoi still charging at the calm point (${kept.aoi.cd})`);
-    await page.reload({ waitUntil: 'load' });
+    await page.reload({ waitUntil: 'load', timeout: 120000 }); // (a cold dev-server reload of the battle: slow under load)
     await page.waitForFunction(() => window.__battle?.sim?.towers?.length > 0, null, { timeout: 90000 });
     await settle(page, 600);
     const back = await page.evaluate(() => {

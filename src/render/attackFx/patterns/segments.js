@@ -113,9 +113,9 @@ export class Segments {
         for (let p = 1; p <= parts; p++) {
           const t = p / parts;
           const j = p === parts ? 0 : jit;
-          const nx = s.ax + (bx - s.ax) * t + (Math.random() - 0.5) * j;
-          const ny = s.ay + (by - s.ay) * t + (Math.random() - 0.5) * j;
-          const nz = s.az + (bz - s.az) * t + (Math.random() - 0.5) * j;
+          const nx = s.ax + (bx - s.ax) * t + (ctx.rand() - 0.5) * j;
+          const ny = s.ay + (by - s.ay) * t + (ctx.rand() - 0.5) * j;
+          const nz = s.az + (bz - s.az) * t + (ctx.rand() - 0.5) * j;
           this._quad(B, s, view, px, py, pz, nx, ny, nz, w, fade);
           px = nx;
           py = ny;

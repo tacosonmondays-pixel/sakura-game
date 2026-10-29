@@ -55,3 +55,31 @@ Mirror Shift itself is not built in the sim yet; that is planned for its own sim
   - The Events "10D" sticker touches the lantern at 390x844.
   - Kon's run is short on 1-1, because the sim puts his spot about a tile from Ruri.
   - The 1280x720 pounce e2e crop misses the leap. That is a capture gap, not a game bug.
+
+## Batch B (v0.1.61)
+
+### Kaede's visual rework (the owner's defaults)
+Dash afterimages, slash streaks shaped per blade art, and a crisp hit flash: `kaede/lunge-844x390-strip.jpg`, `kaede/cleave-844x390.jpg`, `kaede/crescents-844x390.jpg`, `kaede/storm-844x390.jpg` and `kaede/flash-844x390.jpg` (and 1280x720).
+
+### Yoriko's marionette (the owner's spec)
+Strings from her control bar, then Command, Extend (an arc), Strike (a lilac cut timed to the sim's hit) and Reel with a pendulum settle. The doll retargets or reels home if its target dies.
+- Strips: `yoriko/strip-fixes-844x390.jpg` and `yoriko/strip-fixes-fast-844x390.jpg`.
+- The strike: `batch-b-fix3/yoriko-strike-1x-3x-844x390.jpg`.
+
+### The academy girls' attacks
+Each of the seven has a distinct attack instead of dotted circles, and Marumi's bounces are visible: `academy-fx/*.jpg`. Azami's bites follow the 3D strips: `academy-fx/azami-5-2-0-bite-3d-strips-844x390.jpg`.
+
+### The academy girls' placed props (Blender, `tools/blender/props/`)
+Azami's spike strip, Yuzuha's sentry and Capture Net, Chigusa's vines and beds, Ouka's banners, Wakaba's bottle, and Kinu's heat ring and scissors: `academy-props/*.jpg`.
+
+### Reviews
+- **One look+logic review** at 6a9ecb4b (`batch-b.json`, `batch-b/`) found 3 MEDIUMs:
+  - **Yoriko's dart-like Extend:** fixed in round 1 (`batch-b-fix/`).
+  - **Azami's skewed bites:** fixed in round 1.
+  - **Yoriko's white Strike:** fixed in round 3 (`batch-b-fix2/`, `batch-b-fix3/`).
+- **Lows left for later:**
+  - The doll's strike can be up to about 0.1 s early in rare timing cases, or skipped when an attack lands during a reel.
+  - A one-frame skip ahead when the needle lands early.
+  - The bar bone doesn't animate.
+  - Kaede's ghosts read as a maple smear at phone size.
+  - Ouka's pennant is a little dark.

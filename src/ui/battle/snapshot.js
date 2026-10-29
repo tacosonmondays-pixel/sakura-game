@@ -168,6 +168,10 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   // Auto-cast setting comes from the profile; the count of girls with an ability follows the tier replay
   abilGroups: 'snap', abilUses: 'calm', _rallies: 'calm', _abilQueue: 'calm', ownerCash: 'calm',
   abilityAutoDefault: 'config', _abilOn: 'derived',
+  // the A4 deploys (src/sim/deploys.js): Kage's shadow doubles end at every wave clear (created lazily on the first
+  // cast, emptied, never deleted); Bell Carpet traps and surge drones end there too, so the trap and drone rows of a
+  // calm point are all her own
+  deployables: 'calm',
   // roster B3 (aim, mortar, relay, curse, team damage buff): shells end at the wave clear, the curse
   // queue is flushed inside the step, the relay samples are a cache of the forward paths, and the
   // team damage multiplier follows the saved buffs ('db')
@@ -217,6 +221,8 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   effProc: 'derived', effEcho: 'derived', trapSpecProc: 'derived',
   // abilities: her ability's state (`ak`); a boost runs only during a wave
   abil: 'snap', abilMods: 'calm',
+  // Iroha's tier-5 Mirror Shift: her second mirror stands only while the cast runs (it ends at the wave clear)
+  mirror2: 'calm',
   // gear (src/sim/gearRules.js): her Pierce carries (shots, drones), her club trick's count, Big Beat's
   // trap / drone counts and Follow-Through's trap count — only on a girl whose gear uses them
   pierceCarry: 'snap', droneCarry: 'snap', trickN: 'snap', trapBeatN: 'snap', droneBeatN: 'snap', trapFtN: 'snap',

@@ -13,7 +13,7 @@ import { MAP, STAGE, ENEMIES } from '../sim/fixtures.js';
 const units = defaultData().units;
 
 function office(tiers) {
-  const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'ouka' }, { unitId: 'aoi' }, { unitId: 'kage' }, { unitId: 'shiro' }], seed: 7, data: { stage: STAGE, map: MAP, units, enemies: ENEMIES } });
+  const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'ouka' }, { unitId: 'aoi' }, { unitId: 'ruri' }, { unitId: 'shiro' }], seed: 7, data: { stage: STAGE, map: MAP, units, enemies: ENEMIES } });
   sim.cash = 1e9;
   const o = sim.placeTower('ouka', 8.5, 6.2);
   for (const p of [0, 1, 2]) for (let k = 0; k < tiers[p]; k++) expect(sim.upgradeTower(o.uid, p)).toBe(true);
@@ -31,17 +31,20 @@ function girlAt(sim, id, x, y, n = 0) {
 }
 
 describe('Council rules (a girl inside her office)', () => {
-  it('the recharge only on a girl whose ability runs: never on Kage (Shadow Doubles comes later) or below ⚡ tier 3', () => {
+  it('the recharge only on a girl whose ability runs: never on Ruri at Star Falcon tier 3 (Star Snatch comes later) or below ⚡ tier 3', () => {
     for (const [tiers, pct] of [[[0, 3, 0], 15], [[0, 5, 0], 25]]) {
       const { sim } = office(tiers);
-      const kage = girlAt(sim, 'kage', 9.7, 6.2, 3);
+      // (every tower's first ⚡ ability runs since A4–A6: the one that waits is Ruri's Star Snatch, the carry move)
+      const ruri = girlAt(sim, 'ruri', 9.7, 6.2, 0);
+      const falcon = ruri.def.paths.findIndex((q) => q.id === 'falcon');
+      for (let k = 0; k < 3; k++) expect(sim.upgradeTower(ruri.uid, falcon)).toBe(true);
       const low = girlAt(sim, 'aoi', 8.5, 7.4, 2);
       const aoi = girlAt(sim, 'aoi', 7.3, 6.2, 3);
       const shiro = girlAt(sim, 'shiro', 8.5, 5.0, 3);
-      for (const t of [kage, low, aoi, shiro]) expect(t.rules?.cdCut, `${t.unitId} ${tiers}`).toBe(pct / 100);
-      expect(kage.abil).toBeUndefined();
+      for (const t of [ruri, low, aoi, shiro]) expect(t.rules?.cdCut, `${t.unitId} ${tiers}`).toBe(pct / 100);
+      expect(ruri.abil).toBeUndefined();
       expect(low.abil).toBeUndefined();
-      expect(councilRulesText(kage)).toBe('sells for 80%');
+      expect(councilRulesText(ruri)).toBe('sells for 80%');
       expect(councilRulesText(low)).toBe('sells for 80%');
       expect(councilRulesText(aoi)).toBe(`sells for 80%, ability recharges ${pct}% faster`);
       expect(councilRulesText(shiro)).toBe(`sells for 80%, ability recharges ${pct}% faster`); // map scope too (the sim does it)

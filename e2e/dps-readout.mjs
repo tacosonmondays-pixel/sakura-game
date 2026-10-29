@@ -151,6 +151,9 @@ for (const vp of viewports) {
     await page.waitForTimeout(300);
     await page.screenshot({ path: join(SHOTS, `${name}-${vp}.png`), timeout: 120000 });
   };
+  // two real frames: the battle's frame (it samples the drawer's meter) has run since. Without them a slow frame can
+  // see several half-second steps at once, and the meter leaves a jump over 2 s out of her average (dpsView.js)
+  const frames = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   // a real frame between game-time steps, so the drawer's meter samples (it reads sim.time every frame)
   const stepGame = async (sec) => {
     for (let i = 0; i < sec * 2; i++) {
@@ -158,7 +161,7 @@ for (const vp of viewports) {
         const { sim } = window.__battle;
         for (let k = 0; k < 30 && sim.state === 'wave'; k++) window.__dps.step(1 / 60);
       });
-      await page.waitForTimeout(60);
+      await frames();
     }
   };
   const details = async (uid) => {
@@ -177,7 +180,7 @@ for (const vp of viewports) {
       const cell = (re) => cells.find((c) => re.test(c.firstChild?.textContent?.trim() || ''))?.lastChild?.textContent?.trim() ?? null;
       return {
         // the drawer's live cell, or Chika's own (her drone panel's "DPS (live)")
-        live: p.querySelector('[data-testid="drawer-dps-live"]')?.textContent ?? cell(/^DPS \((live|last wave)\)$/),
+        live: p.querySelector('[data-testid="drawer-dps-live"]')?.textContent ?? cell(/^DPS \((live|wave)\)$/),
         liveLabel: p.querySelector('[data-testid="drawer-dps"] span')?.textContent ?? (cell(/^DPS \(live\)$/) != null ? 'DPS (live)' : null),
         avg: p.querySelector('[data-testid="drawer-dps-avg"]')?.textContent ?? null,
         tips: ['drawer-dps', 'drawer-dps-avg-cell'].map((id) => {
@@ -192,6 +195,13 @@ for (const vp of viewports) {
         per: cell(/^Per target$/),
         boost: p.querySelector('[data-testid="drawer-boost"]')?.textContent ?? null,
         oldDps: cell(/^DPS$/),
+        // the live cell's label on one line (the between-waves label too): its height against one line of its font
+        labelLines: (() => {
+          const sp = p.querySelector('[data-testid="drawer-dps"] span');
+          if (!sp) return null;
+          const lh = parseFloat(getComputedStyle(sp).lineHeight) || parseFloat(getComputedStyle(sp).fontSize) * 1.1;
+          return Math.round(sp.getBoundingClientRect().height / lh);
+        })(),
         text: p.textContent.replace(/\s+/g, ' '),
       };
     });
@@ -249,6 +259,9 @@ for (const vp of viewports) {
       const d = await details(ids[k]);
       console.log(`  ${k}: ${JSON.stringify({ ...d, text: undefined })}`);
       await shot(`dps-${k}`);
+      if (!BEFORE && num(d.live) > 0) {
+        check(num(d.avg) > 0 && d.tips[1] === true, `${vp} ${k}: DPS (avg) ${d.avg} beside DPS (live) ${d.live}, with its tooltip and aria text`);
+      }
     }
     // a boss alone in her cloud (her poison's share of max HP is a tenth on a boss: the boss's HP stays as it is)
     const tier = await page.evaluate((u) => window.__dps.boss(u), ids.midori);
@@ -264,7 +277,33 @@ for (const vp of viewports) {
       const spread = (xs) => (Math.max(...xs) - Math.min(...xs)) / Math.max(1, Math.max(...xs));
       const state = await page.evaluate(() => window.__battle.sim.state);
       check(state === 'wave' && avgs.every((v) => Number.isFinite(v) && v > 0) && !/NaN/.test(`${crowd.avg} ${boss.avg}`), `${vp} Avg stays a number above 0 through the wave (${crowd.avg} → ${boss.avg}; ${state})`);
+      check(num(crowd.avg) !== num(boss.avg), `${vp} Avg moved while she kept dealing damage (${crowd.avg} → ${boss.avg}: the meter counted her time)`);
       check(spread(avgs) < spread(lives) / 2, `${vp} Avg is steadier than Live from the pack to the boss (Avg ${crowd.avg} → ${boss.avg}, spread ${spread(avgs).toFixed(2)}; Live ${crowd.live} → ${boss.live}, spread ${spread(lives).toFixed(2)})`);
+    }
+
+    // between waves: the wave ends; Live reads her last wave ("DPS (wave)", one line), Avg holds still
+    {
+      await page.evaluate(() => {
+        const { sim } = window.__battle;
+        sim._spawnIndex = sim._spawnQueue.length;
+        for (const e of sim.enemies) e.dead = true;
+      });
+      await page.waitForFunction(() => {
+        const { sim } = window.__battle;
+        if (sim.state === 'wave') sim.update(1 / 60);
+        return sim.state !== 'wave';
+      }, null, { timeout: 30000, polling: 100 });
+      await frames();
+      const a = await details(ids.midori);
+      await frames();
+      await frames();
+      const b = await details(ids.midori);
+      console.log(`  midori between waves: ${JSON.stringify({ ...b, text: undefined })}`);
+      await shot('dps-midori-between');
+      if (!BEFORE) {
+        check(b.liveLabel === 'DPS (wave)' && num(b.live) > 0 && b.labelLines === 1, `${vp} between waves Live reads her last wave on one line (${b.liveLabel} ${b.live}; ${b.labelLines} line)`);
+        check(num(b.avg) > 0 && a.avg === b.avg, `${vp} between waves Avg holds still (${a.avg} → ${b.avg})`);
+      }
     }
 
     // 2. the roster: six girls a battle, 3-0-0, each with her own pack
@@ -317,7 +356,7 @@ for (const vp of viewports) {
         // a girl who deals no damage (Ouka's council, Wakaba's drinks) has no DPS cell; a damage dealer reads > 0
         const ok = !bad && (dealsDamage ? r.liveLabel != null && v > 0 : r.liveLabel == null || !(v > 0));
         // her average: a number (or "—") wherever her live cell is; never NaN
-        const avgOk = r.liveLabel == null || r.avg == null || r.avg === '—' || Number.isFinite(num(r.avg));
+        const avgOk = r.liveLabel == null || (r.dealt > 0 && v > 0 ? num(r.avg) > 0 : r.avg == null || r.avg === '—' || Number.isFinite(num(r.avg)));
         check(ok && avgOk, `${vp} ${r.id}: ${r.liveLabel} ${r.live}${r.avg != null ? ` · avg ${r.avg}` : ''}${r.per ? ` · per target ${r.per}` : ''}${r.boost ? ` · boost ${r.boost}` : ''} (dealt ${r.dealt}${bad ? `; "${bad[0]}" in her drawer` : ''})`);
       }
     }

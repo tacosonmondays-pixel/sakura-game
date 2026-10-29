@@ -151,6 +151,12 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
       h.int(p.uid).int(p.ret.leg).int(p.ret.n).int(p.x * 256).int(p.y * 256).int(p.travel * 256).int(p.hits.length);
     }
   }
+  // Kage's shadow doubles (src/sim/deploys.js), only while one stands: a battle without them keeps its digest
+  const dp = sim.deployables;
+  if (dp && dp.length) {
+    h.int(dp.length);
+    for (const d of dp) h.int(d.uid).int(d.ownerUid).int(d.x * 256).int(d.y * 256).int(d.left);
+  }
   // the rest of the ability state, each part only while it holds something (src/sim/abilities.js)
   if (sim.abilGroups?.size) {
     h.int(sim.abilGroups.size);

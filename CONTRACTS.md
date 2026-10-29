@@ -197,7 +197,8 @@ ABILITY_RULES = { ticksPerSecond: 60, chargePerTick: 100, initialShare: 3, ccGua
                   // cap 0.5, never rally / debuff: NOT_HASTED_KINDS); First Bell: firstBellCharge at wave start
 ABILITY_KINDS = boost | rally | strike | burst | debuff | econ | deploy | move | zone | runner
 abilityRuns(entry) → boolean   // THE live rule: kinds ABILITY_KINDS_RUN (a boost needs effect.mods), deploys
-                               // ABILITY_DEPLOYS_RUN ('strips', 'sentries'), runners ABILITY_RUNNERS_RUN ('giantBall');
+                               // ABILITY_DEPLOYS_RUN ('strips', 'sentries', 'double', 'trap', 'drone', 'mirror'), runners ABILITY_RUNNERS_RUN ('giantBall'),
+                               // moves ABILITY_MOVES_RUN ('push': Fuu's Backdraft Fan; 'carry' waits);
                                // the sim's handlerOf, the bar, the girl page, the ⚡ tips and GEAR_FIT all agree with it
 ABILITY_SCOPES = local (a cooldown per girl) | map (per player, per ability) | player (per-player rules: econ)
 AUTO_WHEN = enemies | elite | leak | veiled | caster | poisoned | ready | flyers | sabotage
@@ -1315,8 +1316,11 @@ SimEvent = { type, ...payload } with types:
   'heroBuy' {towerUid,level,price} 'heroMove' {towerUid,x,y,fromX,fromY,downtime} 'heroMastery' {towerUid,bonus}
   'bossPhase' {uid, announce} 'cash' {amount, reason /*…|'ability' (+ towerUid, owner)*/} 'won' {} 'lost' {}
   'abilityUnlock' {towerUid,id,kind,owner} 'abilityUpgrade' {towerUid,id} 'abilityReady' {towerUid,id} | {group,id,owner}
-  'ability' {towerUid,id,kind,scope,owner,auto,x,y,radius /*0 = map-wide*/,targets:[uid ≤12],coins?} 'abilityWarn' {towerUid,id,x,y,radius,delay,targets?|shells?}
+  'ability' {towerUid,id,kind,scope,owner,auto,x,y,radius /*0 = map-wide*/,targets:[uid ≤12],coins?,placed?,moved? /*a move: enemies it pushed*/} 'abilityWarn' {towerUid,id,x,y,radius,delay,targets?|shells?}
   'abilityShell' {towerUid,id,x,y,radius,hits} 'abilityEnd' {towerUid,id,wave?} 'abilityFizzle' {towerUid,id,uid}
+  'ability' for Iroha's Mirror Shift also carries mirror: 'panel' (her panel jumped to x,y; a 'relay'
+            and an 'aim' event come with it) | 'second' (tier 5: a second mirror stands at x,y for the window; t.mirror2)
+  'mirrorSplit' {uid /*the shot that split*/, copyUid, ownerUid /*the shooter: the copy's credit*/, mirrorUid /*Iroha*/, x, y /*the crossing*/, targetUid /*the copy's*/}
   'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)
   'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/,
                lanes? /*the open lane indices, only on a stage with waveGen.laneCycle*/ }
@@ -1586,6 +1590,12 @@ balls.js:    addBall, rollBall, ballTick, endBallWave                        // 
   Bowling Thunder: Sim._hit skips KNOCKBACK_RESIST for minibosses); shared stretches (P-17): another
   path's walker counts where its road segment runs parallel to the ball's (dot > 0.95)
   abilities.js: the runner kind by effect.runner (only 'giantBall' runs); startRunner(..., at) takes an entry
+  abilities.js: the move kind by effect.move (only 'push' runs: MOVES.push): every eligible non-boss enemy in reach
+  (reachMul × range + reachAdd) moves `push` tiles back by path distance on its own path, clamped at 0
+  (minibosses pushMiniboss, default half), uid order; push lock (e.pushLock > 0 stays put unless e.pushLockBy is the
+  caster's uid: her own gusts' / gather's locks never stop her ult; a moved one takes PUSH_LOCK[tier] with
+  pushLockBy −1) and the freeplay budget e.kbLeft apply; then the statuses (ground). e.pushLockBy: the uid of the girl
+  whose hit set the lock (Sim._onHitEffects, _gather), −1 after a move's push; absent until a lock was set.
 vines.js:    vineSpot, rootVine, vineGrown, vineObjects, addBed, onVineKill, vineTick, endVineWave   // t.vineCd (steps), t.vines, t.beds, t.bloomT/bloomIdle
   Bramble Road (attack shapes S3, below): vineTick roots her vines on their timer, vineObjects (before her sabotage check) ages them
   Bloom Rush multiplies her cooldown rate in updateTower; thorn beds BEDS_PER_GIRL 6 / BEDS_PER_SIM 40
@@ -1602,7 +1612,17 @@ hubs.js:     hubsOn, hubCovers, applyHubs, isFreeTier, payHubBounty, plantBanner
   refreshEffective: rules.airGrant → canHitAir, rules.typeFloor → eff.typeFloor (computeHit floor)
 aimMode(t) adds 'checkpoint' (Azami tier 3; clamped to her range) and 'banner' (Ouka's Rally Banner:
   setAim plants one within bannerReach, the oldest moves past her count; clearAim takes them down)
-abilities.js: deploy types 'strips' and 'sentries' run (others stay locked); a rally may target one girl
+deploys.js:  doubleSpots, shadowDoubles, carpetSpots, bellCarpet, droneSurge, surgeDrones, ownDrones, tickDeploys,
+             endDeployWave, clearDeploys   // the A4 deploys (Kage, Suzu, Chika):
+  sim.deployables [{ uid, kind: 'double', ownerUid, x, y, left /*ticks*/, dmgMul, cooldown, facing }] (lazy; Shadow Doubles:
+  her volley as it stands × dmgMul from the spot, no crit, credited to her); Bell Carpet traps in sim.traps
+  { …trap, extra: true, ttl /*s*/ } (never in trapCount; updateTraps fizzles them: trapExpired { extra: true });
+  surge drones in t.turrets { …makeDrone, n: 0, temp: true, surge: k, left /*ticks*/ } (her limit counts ownDrones;
+  towerStats().turret.active = her own, .surge = the extra; droneStats rows carry surge / left (s));
+  events deploy { kind: 'double'|'drone' }, doubleAttack { uid, towerUid, targetUid, x, y }, deployEnd { kind };
+  caps DOUBLES_PER_SIM 36, BELL_TRAPS_PER_SIM 96, SURGE_DRONES_PER_SIM 48 (a cast places what is left, never evicts);
+  everything ends at the wave clear and with its girl; the co-op hash folds sim.deployables while non-empty
+abilities.js: deploy types 'strips', 'sentries', 'double', 'trap', 'drone' and 'mirror' (Iroha, src/sim/mirrors.js) run; a rally may target one girl
   (effect.target 'girl'; rally record `to`; the girl-target rule above, Wakaba's Time Out!) or the whole map (effect.radius 'map', scope 'map'; record
   `map: true`) and add pierce (effect.pierceAdd → record pierceAdd → t.buff.pierceAdd, only when set);
   castAbility(sim, t, { aim }) passes the aim to the kind (Yuzuha's sentries land at the edge spots nearest it)
@@ -1915,7 +1935,31 @@ r.onLongPress(cb)
 r.worldToScreen(x, y, z?)        // -> { x, y } CSS px (for floating HUD labels)
 r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (drones keep pace) and rosterFx (a wave-clear sky dragon reaches START before an Auto start); battle controller calls it every frame
 r.info.attackFx                  // attack-FX stats { drones, engaged, quads, quadBudget, ms, … } or null when off
+r.hitStop(seconds)               // hold everything drawn ≤ 60 ms of frame time (never the sim); Reduce Motion: ignored → freeze left
+r.visualClock                    // read-only { t, dt, frameT, realT, frame, freezeLeft, slowLeft, … } (docs/VFX.md)
+r.vfx                            // read-only hit-effect stats { hitStops, holds, impacts, flashesRefused, flashLoad, worldFlashesDimmed, halos, shakePx, punchZoom, bloom, grade, … }
+r.hdrProbe({ effects })          // dev tooling: share of pixels above luminance levels this frame (bloom threshold tuning)
 ```
+
+Settings the renderer reads (`opts.settings`, the profile's live settings object): `quality`,
+`shadows`, `bloom`, `reduceMotion` (at creation), `hitEffects` (read live: `false` = no screen flash,
+no impact frames, no shake or zoom punch, no hit-stop or local hold; Settings → Graphics → Flashes &
+shake and the pause menu), `impactFrames` (read live: `false` = a soft tint instead of the tinted
+impact frame; Settings → Graphics → Impact frames and the pause menu), `camera`, `buffIcons`,
+`attackFx`. Hit feel (docs/VFX.md §M1): the global hit-stop (boss kills, ult impacts), local holds of
+the struck enemy (each girl's weak / strong / crit impact preset; counted in rendered frames, the
+struck look shown from the first held frame), tinted impact frames, hit squash, camera shake in screen
+pixels (a shift, never a roll; a girl's basic splash never shakes) and the zoom punch all change only
+what is drawn; the flash guard counts flashing screen area a second (world flashes too), keeps
+full-screen flashes to ≤ 3 a second, never white, reddish ones softened and dimmer; scaled by the
+graphics tier.
+
+Time and randomness (docs/VFX.md): every animation and effect the renderer draws runs on its one
+visual clock (`src/render/vfx/clock.js`): visual time = the frame's time minus any hit-stop, times
+any slow motion; board feedback (ghost, rings, buff icons) runs on the frame's own time and the panel
+slide on wall time. Render code draws its random numbers from seeded render-only streams
+(`src/render/vfx/random.js`, one fork per layer, seeded from the map and stage), never from
+Math.random and never from `sim.rng`, so the same battle on the same frames gives the same picture.
 
 Attack FX (`src/render/attackFx/**`, docs/ATTACK_FX.md): every girl has a signature attack look
 (Chika's drones fly sorties after the sim's targets, lobbed shells show landing reticles, area girls

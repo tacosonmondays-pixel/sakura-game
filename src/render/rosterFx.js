@@ -10,6 +10,7 @@
 //   roster.update(dt)   // once per frame, after the events
 import * as THREE from 'three';
 import { GeoBuilder } from './geo.js';
+import { createVisualRandom, visualSeed } from './vfx/random.js';
 import { aimMode } from '../sim/towers.js';
 import { runnerSegment } from '../sim/runners.js';
 import { pointAt } from '../sim/path.js';
@@ -212,9 +213,11 @@ function fillSp(batch, uv, x, y, z, s0, s1, life, color, a0) {
 }
 
 export class RosterFx {
-  /** @param {{ sim, scene, fx, batches, atlas, actors, quality?, camera?, reduceMotion? }} o */
-  constructor({ sim, scene, fx, batches, atlas, actors, quality = 'medium', camera = null, reduceMotion = false }) {
+  /** @param {{ sim, scene, fx, batches, atlas, actors, quality?, camera?, reduceMotion?, rand? }} o */
+  constructor({ sim, scene, fx, batches, atlas, actors, quality = 'medium', camera = null, reduceMotion = false, rand = null }) {
     this.sim = sim;
+    // seeded render-only randomness (src/render/vfx/random.js): never Math.random, never the sim's rng
+    this.rand = rand || createVisualRandom(visualSeed('roster'));
     /** the battle camera (the dragon's ribbons face it); none: no ribbons */
     this.camera = camera;
     this.reduceMotion = !!reduceMotion;
@@ -399,11 +402,11 @@ export class RosterFx {
     fx.flash(ev.x, 0.45, ev.y, COL.cursePetal, 0.8 * k, 0.16);
     const n = fx.n(Math.max(2, 6 - 2 * d));
     for (let i = 0; i < n; i++) {
-      const a = (i / n) * TAU + Math.random() * 0.5;
-      const sp = 0.9 + Math.random() * 0.6;
+      const a = (i / n) * TAU + this.rand() * 0.5;
+      const sp = 0.9 + this.rand() * 0.6;
       fx.spawn({
         batch: i % 2 ? 'bbA' : 'bbN', uv: i % 2 ? this.R.spark : this.R.petal, x: ev.x, y: 0.4, z: ev.y,
-        vx: Math.cos(a) * sp * k, vy: 0.8 + Math.random() * 0.6, vz: Math.sin(a) * sp * k, g: -2.5, drag: 1.8,
+        vx: Math.cos(a) * sp * k, vy: 0.8 + this.rand() * 0.6, vz: Math.sin(a) * sp * k, g: -2.5, drag: 1.8,
         s0: 0.16 * k, s1: 0.08, life: 0.6, color: i % 2 ? COL.curse : COL.cursePetal, a0: k, rot: a, vrot: 5,
       });
     }
@@ -852,17 +855,17 @@ export class RosterFx {
         f.cloud = (f.cloud || 0) + dt;
         if (f.cloud >= CLOUD_EVERY && R.smoke) {
           f.cloud = 0;
-          fillSp('bbN', R.smoke, tailX + (Math.random() - 0.5) * 0.3, DRAGON_ALT - 0.1, tailZ + (Math.random() - 0.5) * 0.3, 0.6, 1.5, 0.9, '#eef8ff', 0.55);
+          fillSp('bbN', R.smoke, tailX + (this.rand() - 0.5) * 0.3, DRAGON_ALT - 0.1, tailZ + (this.rand() - 0.5) * 0.3, 0.6, 1.5, 0.9, '#eef8ff', 0.55);
           _sp.vy = 0.12;
-          _sp.rot = Math.random() * TAU;
+          _sp.rot = this.rand() * TAU;
           _sp.vrot = 0.6;
           this.fx.spawn(_sp);
         }
       }
-      if (Math.random() < 0.35 && R.star) {
-        fillSp('bbA', R.star, tailX + (Math.random() - 0.5) * 0.3, DRAGON_ALT - 0.2, tailZ + (Math.random() - 0.5) * 0.3, 0.16, 0.05, 0.55, COL.gold, 1);
+      if (this.rand() < 0.35 && R.star) {
+        fillSp('bbA', R.star, tailX + (this.rand() - 0.5) * 0.3, DRAGON_ALT - 0.2, tailZ + (this.rand() - 0.5) * 0.3, 0.16, 0.05, 0.55, COL.gold, 1);
         _sp.vy = -0.3;
-        _sp.rot = Math.random() * TAU;
+        _sp.rot = this.rand() * TAU;
         _sp.vrot = 4;
         this.fx.spawn(_sp);
       }

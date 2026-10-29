@@ -187,6 +187,20 @@ describe('the average DPS (since she was placed, over her wave time on the field
     expect(m.avg(2, sim)).toBe(null);
   });
 
+  it('a sale and a placement in the same frame: the sold girl is still let go', () => {
+    const a = { uid: 1, damageDealt: 0 };
+    const towers = [a];
+    const sim = { time: 0, state: 'wave', wave: 1, towers, getTower: (u) => towers.find((x) => x.uid === u) || null };
+    const m = createDpsMeter(5);
+    run(m, sim, a, 3, 50);
+    expect(m.avg(1, sim)).toBeCloseTo(50, 0);
+    const b = { uid: 2, damageDealt: 0 };
+    towers.splice(0, 1, b); // the same count of girls
+    run(m, sim, b, 3, 20);
+    expect(m.avg(1, sim)).toBe(null);
+    expect(m.avg(2, sim)).toBeCloseTo(20, 0);
+  });
+
   it("a hero's Move keeps her average (same uid, same running total)", () => {
     const hero = { uid: 9, damageDealt: 0, x: 1, y: 1 };
     const sim = { time: 0, state: 'wave', wave: 1, towers: [hero], getTower: () => hero };

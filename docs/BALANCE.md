@@ -186,7 +186,7 @@ pinned in `tests/tools/tryoutCeiling.test.js`). v0.1.60's three rows over ×1 ar
 with T_aoi ×1.119 → 1.12, Shiro with T_shiro ×1.041 → 1.05, Hana ×1.074 → 1.08), so the gate passes with no failing row. Tryout difficulty is
 watched on the sweeps instead: Grade 12 maxed reads 15% live, 30% with round 5 alone and 35% with the shapes (one run in 20).
 
-**Sim id** `2b2c558fde94` (the shapes and round 5 together; base `d35092f141d3`, COOP 12), pinned as one PENDING_BUMP {12: …} in `tests/art/itemArtRuntime.test.js`; COOP_PROTOCOL is
+**Sim id** `174f17a76dd5` (the shapes and round 5 together; base `d35092f141d3`, COOP 12), pinned as one PENDING_BUMP {12: …} in `tests/art/itemArtRuntime.test.js`; COOP_PROTOCOL is
 not bumped here (the coordinator assigns it at ship). Goldens re-pinned with no win becoming a loss; mechanics
 scenarios (save/restore, co-op casts) run power-neutral (`powerOff`, or the row divided back out in co-op).
 

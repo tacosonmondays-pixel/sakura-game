@@ -26,7 +26,11 @@ const GOLDEN = {
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
   // stays below, with the returning girls left out). Re-pinned in A3 M3 (was L30/0/37594/8800/38dbc785/14): their
   // abilities are attached now, so on Auto Hana's Kaze's Swoop and Noa's First Aid Call cast too (14 → 22 casts)
-  '8-5:normal': 'W30/100/33673/18646/a0179380/13',
+  // Re-pinned in A4 (was L30/0/37439/8586/c7958807/22): the bot's 8-5 team has a deploy girl on her ⚡ path, whose
+  // ability unlocks and casts on Auto now (Shadow Doubles / Bell Carpet / Drone Surge: 22 → 24 casts). Re-pinned in the
+  // A4–A6 review (was L30/0/37625/8800/a9b9e720/24): her doubles throw her full volley and hold while she is sabotaged,
+  // Bell Carpet counts a shared road stretch once, Drone Surge's Pursuit count reads her drones' eligibility
+  '8-5:normal': 'L30/0/37547/8586/3a996187/24',
 };
 // With the new girls (UNIT_GAPS §5) left out: the merged base's digests (before the new girls).
 const BASE_GOLDEN = {
@@ -35,11 +39,15 @@ const BASE_GOLDEN = {
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
   // stays below, with the returning girls left out). Re-pinned in A3 M3 (was L30/0/39114/7321/a30aaa7b/18): Hana's
   // and Noa's abilities cast on Auto now (18 → 23 casts)
-  '8-5:normal': 'W30/100/35855/17176/4a0639b0/15',
+  // Re-pinned in A4 (was L30/0/38801/7168/d359d2ce/23): the deploy girl's ability casts on Auto (23 → 24 casts).
+  // Re-pinned in the A4–A6 review (was L30/0/38800/7168/604541eb/24): the deploy fixes above (24 → 25 casts)
+  '8-5:normal': 'L30/0/38881/7168/cdb4f61a/25',
 };
 // The A1 pins with the returning girls left out of the free pool (the 19 girls play exactly as at A1).
+// Re-pinned in A4, hashSim only (was …/a5d9340a/30): the deploy girl's ability now unlocks and sits on Auto, so the
+// co-op hash folds its state (simHash.js); she never finds a moment to cast here, so the battle is unchanged.
 const LIVE_GOLDEN = {
-  '8-5:normal': 'W30/100/37148/19002/fdc7c2e/23',
+  '8-5:normal': 'L30/0/40233/8036/b909b4d2/30',
 };
 
 const digest = (r) => `${r.won ? 'W' : 'L'}${r.wave}/${r.lives}/${Math.round(r.time * 60)}/${r.cash}/${hashSim(r.sim).toString(16)}/${r.result.stats.abilitiesUsed || 0}`;

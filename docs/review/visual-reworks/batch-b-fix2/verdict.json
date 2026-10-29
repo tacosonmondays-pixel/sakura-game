@@ -1,0 +1,23 @@
+{
+  "reviewer": "independent look reviewer (did not build batch B or its fixes)",
+  "scope": "Batch B MEDIUM 2, round 2: 1694091d, src/render/attackFx/styles/yoriko.js onImpact (Yoriko's marionette Strike cut). 844x390 only.",
+  "sha": "1694091d",
+  "verdict": "NOT OK",
+  "summary": "The cut still reads as a long WHITE blade with a lilac fringe, the same look as round 1. The cause is a mix-up over what asp does. In QuadPool, asp multiplies the WIDTH (w = s * asp; the height stays s). So 'b.asp = 7' does not make the edge narrow. It makes the additive white edge about 7x as long as it is tall: about 2.4-2.8 tiles long and 0.34-0.4 tiles tall. The core is about 0.9 x 0.46 tiles. At alpha 0.35 in additive blend, the long blade turns the light road and the enemy's white body flash to near white. It also lies over the lilac core and sums it to white. A diagnostic run (core tinted red, edge alpha 0, local only and reverted) has no white blade at all. That proves the blade is the edge sprite. The deeper lilac core itself works: where it is not covered it reads lilac and stays visible over the white body (3x next frame).",
+  "checks": {
+    "tests": "npx vitest run --maxWorkers=2 tests/render/marionette.test.js tests/render/attackFx-integration.test.js: 2 files, 33/33 passed.",
+    "live": "Same scene as round 1 (its harness, trimmed): stage 1-2 normal, medium graphics, 844x390, swiftshader. Yoriko is the hero with her doll and Azami is placed. The UI is paused and the sim and renderer are stepped one 1/60 s frame at a time. Two 1x attacks (the strike begins on frame 18, the sim's hit frame) and one at 3x. No console errors.",
+    "q1_lilacWithThinRim": "No. On every strike frame the dominant shape is a long white crescent across the road. Lilac shows only as a fringe below it and where the core sticks out.",
+    "q2_visible": "Yes, the core is visible and not dull. #9a78ee holds as lilac over the white body flash where the edge does not cover it.",
+    "diagnostic": "Locally (never committed) SLASH was set to #ff0000 and the edge alpha to 0, then the scene was re-run at 1x. The result is a compact red crescent the size of the core, with no white blade. The file was restored with git checkout."
+  },
+  "findings": [
+    {
+      "severity": "MEDIUM",
+      "where": "src/render/attackFx/styles/yoriko.js onImpact, the EDGE sprite (b): spr(bbA, ..., s * 0.85, s, 0.08, EDGE, 0.35) with b.asp = 7",
+      "what": "asp is the width/height ratio (QuadPool.update: w = s * asp, height = s). asp 7 at size 0.85s-1s gives an additive white blade about 6-7x the core's length (core: asp 2.2 at s-1.15s). It sweeps across the road and the enemy and turns the cut white. MEDIUM 2 is still open.",
+      "fix": "To make the edge thin, shrink its size (the height) and keep its length near the core's. For example, s0 = s * 0.35, s1 = s * 0.4, asp ~5.5-6, so the width is about 2.2s, the same as the core. Or move it to the crescent's outer rim, or drop it. Then re-check at 844x390 that the cut reads lilac on the hit frame."
+    }
+  ],
+  "evidence": ["yoriko-strike-1x-3x-844x390.jpg"]
+}

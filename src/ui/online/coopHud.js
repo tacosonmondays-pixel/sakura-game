@@ -1,7 +1,7 @@
 // Co-op battle overlay: room chip with both players (colour, name, coins), the
 // "Waiting for ally…" / "Ally left" state, and a small pin in the owner's colour above every
 // girl showing who placed her. Mounted by the battle controller only in co-op.
-// Co-op freeplay: a small flag on the chip of whoever has voted Finish.
+// Co-op freeplay: a small flag on the chip of whoever has voted Finish (a Tryout Day Extended Day: voted Home Time).
 // Long runs: while this client rebuilds its battle (a resync or rejoin replaying from the host's
 // checkpoint, src/online/coop/lockstep.js) a card says so with a progress bar and keeps taps off
 // the battlefield; the ally's chip says "Rin is re-syncing… 45%" meanwhile.
@@ -9,6 +9,7 @@ import '../styles/online.css';
 import { h } from '../components.js';
 import { fmtNum } from '../format.js';
 import { COOP } from '../../data/coop.js';
+import { HOME_TEXT } from '../text/tryout.js';
 
 /** World height of the owner pin (just above a chibi's halo). */
 const PIN_HEIGHT = 1.55;
@@ -19,7 +20,7 @@ export function createCoopHud(ctx) {
   const session = coop.session;
   const players = [0, 1].map((slot) => session.player(slot));
   const cash = [h('b'), h('b')];
-  const flags = [0, 1].map((slot) => h('i.ol-coop-flag', { title: 'Voted to finish', 'data-testid': `coop-vote-${slot}` }, '⚑'));
+  const flags = [0, 1].map((slot) => h('i.ol-coop-flag', { title: sim.tryout ? HOME_TEXT.hudFlag : 'Voted to finish', 'data-testid': `coop-vote-${slot}` }, '⚑'));
   for (const f of flags) f.hidden = true;
   const chips = players.map((p, slot) => h(`div.ol-coop-p${slot === coop.mySlot ? '.me' : ''}`, { style: { '--pc': COOP.colors[slot] } },
     h('i.ol-coop-dot'), h('span.ol-coop-name', slot === coop.mySlot ? `${p?.name || 'You'} (you)` : p?.name || 'Ally'), cash[slot], flags[slot]));

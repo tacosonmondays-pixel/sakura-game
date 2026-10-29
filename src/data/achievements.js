@@ -31,7 +31,7 @@ export const ACH_V2_LIVE = true;
  * Feature waves whose rows are live in this build. Social, Codex and later rows light up with their feature; Act II
  * rows are on, but each one also waits for its stages (`needs`).
  */
-// tryout: Tryout Day's 12 rows (docs/specs/TRYOUT_DAY.md §10.2; 360 gems, counted apart from the 28-day chart). Ids,
+// tryout: Tryout Day's 15 rows (docs/specs/TRYOUT_DAY.md §10.2 and §20.5; 480 gems, counted apart from the 28-day chart). Ids,
 // rewards and goals freeze when the mode ships; their counters are 'ty:*' in missions.counters (src/systems/tryoutRewards.js).
 export const ACHIEVEMENT_WAVES = Object.freeze({ launch: true, social: true, codex: true, tryout: true, later: false, act2: true });
 
@@ -253,7 +253,7 @@ export const ACHIEVEMENTS = [
   N('codex', 'a_frugal_80', 'Half Income Expert', 'Earn 80 Half Income ribbons.', 'modeRibbons', 'frugal', 80, 0, [O(2)], 'codex', { title: tt('Thrifty Tactician') }),
   N('codex', 'a_petal_80', 'Last Petal Expert', 'Earn 80 Last Petal ribbons.', 'modeRibbons', 'laststand', 80, 0, [O(2)], 'codex', { title: tt('Last Petal Keeper') }),
   N('codex', 'a_rules_15', 'Rulebook Scholar', 'Earn a Gold medal on a stage of each of the 15 map rules.', 'ruleGold', null, 15, 0, [O(2)], 'codex'),
-  // Tryout Day (docs/specs/TRYOUT_DAY.md §10.2): 12 rows, 360 gems once; practice runs count for none of them
+  // Tryout Day (docs/specs/TRYOUT_DAY.md §10.2, §20.5): 15 rows, 480 gems once; practice runs count for none of them
   N('tryout', 'a_try_half', "School's Out", 'Clear a Half Day in Tryout Day.', 'counter', 'ty:half', 1, 1, [g(20)], 'tryout'),
   N('tryout', 'a_try_full', "Full Day's Work", 'Clear a Full Day in Tryout Day.', 'counter', 'ty:full', 1, 1, [g(30)], 'tryout'),
   N('tryout', 'a_try_spotless', 'Spotless Day', 'Win a Tryout Day run without losing a heart or using the Make-up Test.', 'counter', 'ty:spot', 1, 2, [g(40)], 'tryout'),
@@ -266,6 +266,11 @@ export const ACHIEVEMENTS = [
   N('tryout', 'a_try_g4', 'Grade 4', 'Clear Grade 4 in Tryout Day.', 'counter', 'ty:grade', 4, 2, [g(30)], 'tryout', { series: 'tryGrade', honor: hr(35, 'Grade 4 Ribbon', 'plain', 'board') }),
   N('tryout', 'a_try_g8', 'Grade 8', 'Clear Grade 8 in Tryout Day.', 'counter', 'ty:grade', 8, 2, [g(40)], 'tryout', { series: 'tryGrade', honor: hr(36, 'Grade 8 Ribbon', 'shiny', 'board') }),
   N('tryout', 'a_try_g12', 'Grade 12', 'Clear Grade 12 in Tryout Day.', 'counter', 'ty:grade', 12, 3, [g(50)], 'tryout', { series: 'tryGrade', honor: hr(37, 'Grade 12 Ribbon', 'special', 'board', 'chalk'), title: tt('Grade 12 Sensei', 'prism') }),
+  // Extended Day's milestones (TRYOUT_DAY.md §20.5): waves survived in one Extended Day run ('ty:aw': the best over every
+  // Grade), 120 gems once; a practice run counts for none of them, co-op counts as for the rows above
+  N('tryout', 'a_try_aw50', 'Stayed After', 'Survive 50 waves in one Extended Day run in Tryout Day.', 'counter', 'ty:aw', 50, 2, [g(30)], 'tryout', { series: 'tryWave' }),
+  N('tryout', 'a_try_aw75', 'Late Bus', 'Survive 75 waves in one Extended Day run in Tryout Day.', 'counter', 'ty:aw', 75, 2, [g(30)], 'tryout', { series: 'tryWave' }),
+  N('tryout', 'a_try_aw100', 'Last One Out', 'Survive 100 waves in one Extended Day run in Tryout Day.', 'counter', 'ty:aw', 100, 3, [g(60)], 'tryout', { series: 'tryWave' }),
   // Later (each row ships with its feature: roster merge, hero rework, the City)
   N('students', 'a_units_30', 'Whole School', 'Have 30 students and heroes at the academy.', 'unitsOwned', null, 30, 3, [g(100), O(2)], 'later', { series: 'units', with: 'roster merge' }),
   N('battle', 'a_hero_25', "Commander's Rise", 'Your hero reaches Lv 25 during a battle.', 'counter', 'heroMax', 25, 2, [g(30), O()], 'later', { with: 'hero rework' }),

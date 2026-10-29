@@ -787,32 +787,42 @@ export function runDronesBattle({ checkpointAt = 8, maxFrames = 60 * 60 * 14 } =
 const ABIL_STATS = { costMul: 0.2, damageMul: 0.5 };
 const ABIL_STATS_HASTE = { ...ABIL_STATS, ultHaste: 0.3 };
 const abilLoadout = (ids, stats = ABIL_STATS) => ids.map((unitId) => ({ unitId, stats }));
+// (A4: the deploy girls join at a quarter of the others' price, so they reach their ⚡ tier 3 without starving the rest)
+const ABIL_DEPLOY = { ...ABIL_STATS, costMul: 0.05, damageMul: 0.15 };
+const ABIL_DEPLOY_HASTE = { ...ABIL_STATS_HASTE, costMul: 0.05, damageMul: 0.15 };
 /** The host fires her girls and Luna by hand; the guest plays on Auto-cast and taps her ready girls. */
 export const ABILITIES_START = Object.freeze({
   seed: 454545,
   stageId: '4-5',
   difficulty: 'normal',
   players: [
-    { slot: 0, uid: 'host', name: 'Host', loadout: abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori']), hero: { unitId: 'luna', stats: ABIL_STATS } },
-    { slot: 1, uid: 'guest', name: 'Guest', loadout: abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro'], ABIL_STATS_HASTE), hero: { unitId: 'nami', stats: ABIL_STATS_HASTE } },
+    // (the girls added for ability coverage, cheap and weak, ABIL_DEPLOY, so each reaches her ⚡ tier 3 in time and the
+    // five-girl battle keeps its 30-cast floor: the host's Fuu (A5, the move kind's push) and Suzu, the guest's Kage,
+    // Iroha (A6, the mirror deploy) and Chika (A4, the three deploys); of the splits tried, this one casts all five)
+    { slot: 0, uid: 'host', name: 'Host', loadout: [...abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori']), ...abilLoadout(['fuu', 'suzu'], ABIL_DEPLOY)], hero: { unitId: 'luna', stats: ABIL_STATS } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [...abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro'], ABIL_STATS_HASTE), ...abilLoadout(['kage', 'iroha', 'chika'], ABIL_DEPLOY_HASTE)], hero: { unitId: 'nami', stats: ABIL_STATS_HASTE } },
   ],
 });
+/** The girls ABILITIES_START adds for ability coverage (A4 deploys, A5 move, A6 mirror): tapped on their own cadence. */
+const COVER = Object.freeze(['iroha', 'suzu', 'kage', 'fuu', 'chika']);
 /** Refusals a scripted tap may meet (the sim re-checks at the command's tick); anything else fails the run. */
 const ABIL_REASONS = Object.freeze(['cooldown', 'notWave', 'active', 'noTarget', 'cap', 'disabled', 'moving']);
 
 /**
  * A whole co-op battle with abilities (stage 4-5 Normal, to `toWave` waves cleared): the host takes
- * Aoi 0-3-0, Akane 3-0-0, Momo 3-0-0, Hotaru 0-3-0 and Midori 3-0-0 (each to her ⚡ tier 3) and hero
+ * Aoi 0-3-0, Akane 3-0-0, Momo 3-0-0, Hotaru 0-3-0, Midori 3-0-0, Fuu and Suzu (each to her ⚡ tier 3) and hero
  * Luna to Lv 7 (Moonbrand), and taps one of them by hand every 7 s in a round robin (some taps are
  * group taps, some carry an aim point, some land on a recharging girl and are refused); from wave 4
- * her Momo is on Auto. The guest takes Yuki, Rei, Miko 3-0-0, Sango 0-3-0, Shiro 3-0-0 and hero Nami
+ * her Momo is on Auto. The guest takes Yuki, Rei, Miko 3-0-0, Sango 0-3-0, Shiro 3-0-0, Kage, Iroha (Mirror Shift: her
+ * panel jumps to the leader's road spot and every girl's shots that cross it split, the host's too), Chika (⚡ tier 3) and hero Nami
  * (Lv 7, Frost Net; she and Sango stand on the water), all with Skill Haste 0.3, with `acast[0, 1]` (everything on Auto), taps one
  * of her ready girls every 4 s as well, and switches Shiro off and on once. Two Lockstep clients over
  * the seeded fake network; every state hash collected (they fold the ability state once cast or on
  * Auto); the host's checkpoint after wave `checkpointAt` is restored into a fresh client and replayed.
- * `casts` / `kinds` count the `ability` events (both players' casts, auto and manual).
+ * `casts` / `kinds` count the `ability` events (both players' casts, auto and manual); `deploys` counts the A4 deploy
+ * casts by ability id (Shadow Doubles, Bell Carpet, Drone Surge) and the doubles / Bell Carpet traps / surge drones placed.
  */
-export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 60 * 60 * 20 } = {}) {
+export function runAbilitiesBattle({ toWave = 20, checkpointAt = 8, maxFrames = 60 * 60 * 30 } = {}) {
   const t0 = Date.now();
   const rng = createRng(29);
   const clock = { t: 0 };
@@ -844,16 +854,20 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
   });
   const [A, B] = [mk(0), mk(1)];
   const clients = [A, B];
-  const girls = [['aoi', 'akane', 'momo', 'hotaru', 'midori'], ['yuki', 'rei', 'miko', 'sango', 'shiro']];
+  const girls = [['aoi', 'akane', 'momo', 'hotaru', 'midori', 'fuu', 'suzu'], ['yuki', 'rei', 'miko', 'sango', 'shiro', 'kage', 'iroha', 'chika']];
   // land spots (two each: the second when the first is taken); Nami and Sango stand on the water
-  const spots = { ...spotsFor(ABILITIES_START, ['luna', ...girls[0], 'yuki', 'rei', 'miko', 'shiro'], 2), ...spotsFor(ABILITIES_START, ['nami', 'sango'], 2, { water: true }) };
+  // (the coverage girls take the first spots, in COVER order, so each finds targets for her ability in time)
+  const land = [...girls[0], ...girls[1].filter((u) => u !== 'sango')];
+  const spots = { ...spotsFor(ABILITIES_START, ['luna', ...COVER.filter((u) => land.includes(u)), ...land.filter((u) => !COVER.includes(u))], 2), ...spotsFor(ABILITIES_START, ['nami', 'sango'], 2, { water: true }) };
   // [slot, unitId, spots, retry frame]: a place her view could afford can still meet a wallet that
   // changed by its tick (refused 'cash'): she is tried again until she stands
   const want = [];
-  for (let i = 0; i < 5; i++) for (const slot of [0, 1]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
+  for (let i = 0; i < Math.max(girls[0].length, girls[1].length); i++) for (const slot of [0, 1]) if (girls[slot][i]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
   const seen = [new Map(), new Map()];
   const byKind = {};
   const byOwner = [0, 0];
+  const splits = [0, 0];
+  const deploys = {};
   let ck = null;
   let turn = 0;
   let guestTurn = 0;
@@ -911,6 +925,16 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
       const ready = mine(B).filter((t) => t.abil && !t.isHero && B.sim.abilityStatus(t.uid).ready).sort((p, q) => p.uid - q.uid);
       if (ready.length) B.queue('abil', abilArgs(ready[guestTurn++ % ready.length].uid));
     }
+    // the girls added for ability coverage (A4–A6: Fuu, Kage, Suzu; Iroha, Chika) are each player's to tap as well, every
+    // 5 s, every one her view shows ready (uid order; a tap with nothing to act on is refused noTarget and spends
+    // nothing), so every kind and type casts however the round robins fall (Iroha's panel jumps to the leader's road spot)
+    if (frame % 300 === 150) {
+      clients.forEach((c, slot) => {
+        if (c.sim.state !== 'wave') return;
+        const ready = mine(c).filter((t) => COVER.includes(t.unitId) && t.abil && c.sim.abilityStatus(t.uid).ready).sort((p, q) => p.uid - q.uid);
+        for (const t of ready) c.queue('abil', abilArgs(t.uid));
+      });
+    }
     // switches: from wave 4 the host's Momo on Auto; the guest's Shiro off after wave 5, on again after wave 7
     if (frame % 60 === 0) {
       const momo = mine(A).find((t) => t.unitId === 'momo' && t.abil);
@@ -940,9 +964,19 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
       for (const [t, hv] of c.hashes) seen[i].set(t, hv);
       if (i === 0) {
         for (const ev of c.sim.events) {
+          // Iroha's mirror splits (src/sim/mirrors.js): all of them, and the host's girls' shots among them
+          if (ev.type === 'mirrorSplit') {
+            splits[0]++;
+            if (A.coop.isMine(ev.ownerUid)) splits[1]++;
+          }
           if (ev.type !== 'ability') continue;
           byKind[ev.kind] = (byKind[ev.kind] || 0) + 1;
           byOwner[ev.owner]++;
+          if (ev.kind === 'deploy') {
+            const d = deploys[ev.id] || (deploys[ev.id] = { casts: 0, placed: 0 });
+            d.casts++;
+            d.placed += ev.placed || 0;
+          }
         }
       }
     });
@@ -971,6 +1005,8 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
     kinds: kinds.join(','),
     byKind: kinds.map((k) => `${k} ${byKind[k]}`).join(' · '),
     byOwner: byOwner.join('/'),
+    splits: splits.join('/'),
+    deploys: Object.keys(deploys).sort().map((k) => `${k} ${deploys[k].casts}×${deploys[k].placed}`).join(' · '),
     taps: `${taps.abil} abil: ${taps.ok} cast, ${Object.keys(taps.reasons).sort().map((k) => `${taps.reasons[k]} ${k}`).join(', ')} · ${taps.acast} acast`,
     refused: odd.join(' '),
     wallets: A.coop.wallets.join('/'),

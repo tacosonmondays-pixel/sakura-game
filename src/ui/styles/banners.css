@@ -181,6 +181,32 @@
   .bn-banner .ma-banner-stands:has(.is-duo) > .ma-banner-stand { --bn-f: 68cqw; --bn-r: 32cqw; }
 }
 
+/* ---- a landscape phone: the card, the side panels and both pull buttons on one screen, no scroll (v0.1.60 live
+   check: the card had grown ~40 px and the seven-tab rail stretched the grid, pushing Recruit ×1 / ×10 off the
+   bottom). The rail scrolls inside its own column instead of setting the page's height (contain: size: its tabs no
+   longer size the grid rows), its tabs are compact, and the card's text column is a little wider and tighter: the
+   kicker and the countdown share one line (the kicker shortens with an ellipsis; the title and the featured line
+   name the girl in full), the title is one size down. */
+@media (max-height: 480px) {
+  .bn-rail { contain: size; width: 58px; overflow-y: auto; scrollbar-width: none; gap: 3px; }
+  .bn-rail::-webkit-scrollbar { display: none; }
+  .bn-tab { flex: 0 0 auto; padding: 2px 2px 1px; gap: 0; }
+  .bn-tab-art { width: 24px; height: 24px; }
+  .bn-tab-label { line-height: 1.05; }
+  .bn-banner { --bn-text-w: 54%; }
+  .bn-banner .ma-banner-text { padding: 8px 6px 8px 10px; gap: 3px; }
+  .bn-kicker-row { flex-wrap: nowrap; gap: 6px; }
+  .bn-kicker-row .ma-banner-kicker { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
+  .bn-kicker-row .bn-time { flex: 0 0 auto; }
+  .bn-banner .ma-banner-title { font-size: 1.1rem; margin: 0; }
+  .bn-feat, .bn-srs { gap: 2px 5px; }
+  .bn-banner .ma-banner-links { margin-top: auto; padding-top: 2px; }
+  /* the card takes the height left above the pull bar (top bar 40 + the page's 8 + gap 8 + bar 54 + 12 to spare) */
+  .bn-page .bn-banner { min-height: max(200px, calc(100vh - 122px)); }
+  /* (the LR frame's crest sits on the top edge at the middle: the kicker row starts under it) */
+  .bn-banner.k-legend .ma-banner-text { padding-top: 16px; }
+}
+
 /* an upright screen whose banner is narrow (a phone, or a tablet's banner beside the rail and the side panels): the
    art on top, the text under it on its own paper (never over a girl). The switch reads the banner's own width, so an
    upright tablet just over 820 px gets it too. A duo's banner shows the duo alone, full height (a duo's cut art is

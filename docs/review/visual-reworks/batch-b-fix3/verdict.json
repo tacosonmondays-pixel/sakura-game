@@ -1,0 +1,17 @@
+{
+  "reviewer": "independent look reviewer (did not build batch B or its fixes)",
+  "scope": "Batch B MEDIUM 2, round 3 (the last allowed): 212b4074, src/render/attackFx/styles/yoriko.js onImpact (Yoriko's marionette Strike cut). 844x390 only.",
+  "sha": "212b4074",
+  "verdict": "OK",
+  "summary": "MEDIUM 2 is closed. The additive white edge sprite is gone. All that remains is the lilac #9a78ee cut in normal blend, 0.3 tiles toward the camera, plus the small lilac ground ripple. On the strike frame at 1x and at 3x, the cut reads as a compact, saturated lilac crescent over the enemy. It stays lilac over the enemy's own white body flash and over the light road. No frame shows a white blade or a white wash.",
+  "checks": {
+    "tests": "npx vitest run --maxWorkers=2 tests/render/marionette.test.js tests/render/attackFx-integration.test.js: 2 files, 33/33 passed.",
+    "live": "The round 2 reviewer's harness, with only the screenshot clip moved lower so the enemy is in frame: stage 1-2 normal, medium graphics, 844x390, swiftshader. Yoriko is the hero with her doll and Azami is placed. The UI is paused, and the sim and renderer are stepped one 1/60 s frame at a time. Two 1x attacks (the strike begins on frame 18, after the sim's attack event on frame 12/13) and one at 3x (the strike begins on frame 6). No console errors.",
+    "q1_lilacCrescentOverEnemy": "Yes. On n1-018, n2-018 and f3-006 the cut is a lilac crescent about the enemy's width, lying across its body. Over the white body flash (n2-018, f3-006, f3-007) it stays clearly lilac.",
+    "q2_visibleNotDull": "Yes. In normal blend the colour is a saturated lilac at full strength on the first strike frame. It fades over the next frames (f3-007, n2-019) as intended.",
+    "q3_whiteBlade": "None. No white crescent or blade appears on any strike frame at 1x or 3x.",
+    "outOfScope": "The enemy's own white body flash is shared engine behaviour and was not judged."
+  },
+  "findings": [],
+  "evidence": ["yoriko-strike-1x-3x-844x390.jpg"]
+}

@@ -10,6 +10,8 @@
 //   yb.weeks   [week…]     a Weekly Timetable first clear (its stamp)
 //   best       { 'half:3:lake_shore': score }   best Run Score per length, Grade and map (practice never records)
 //   weekly     { week, best }                   this week's best Weekly Timetable score (local only, v1)
+// Extended Day's best wave per Grade lives in missions.counters ('ty:aw:<grade>', src/systems/tryoutRewards.js); the
+// Records page lists it beside the scores (yearbookPages().waves).
 // Every `per` (10) stamps pay `marbles` (5) Marbles once, outside the weekly cap; the tens already paid are mirrored
 // in missions.counters 'ty:ybp' (which every build keeps), so a dropped block can never pay twice.
 import { TRYOUT_STUDENTS, PEP_CARDS } from '../data/tryout.js';
@@ -114,5 +116,9 @@ export function yearbookPages(profile) {
   }).sort((a, b) => a.grade - b.grade || a.length.localeCompare(b.length) || a.mapId.localeCompare(b.mapId));
   const stamps = stampCount(profile);
   const per = TRYOUT_META.yearbook.per;
-  return { girls, cards, bosses, records, weeks: yb.weeks.slice(), stamps, nextAt: (Math.floor(stamps / per) + 1) * per, per, marbles: TRYOUT_META.yearbook.marbles };
+  // Extended Day's best wave per Grade (missions.counters 'ty:aw:<grade>', §20.5): the Grades with one
+  const ctr = profile?.missions?.counters || {};
+  const waves = [];
+  for (let g = 1; g <= 12; g++) if (whole(ctr[`${K.waveGrade}${g}`]) > 0) waves.push({ grade: g, wave: whole(ctr[`${K.waveGrade}${g}`]) });
+  return { girls, cards, bosses, records, waves, weeks: yb.weeks.slice(), stamps, nextAt: (Math.floor(stamps / per) + 1) * per, per, marbles: TRYOUT_META.yearbook.marbles };
 }

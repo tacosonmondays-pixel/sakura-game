@@ -14,8 +14,9 @@
 //                 turns to the first target and plays his attack, and the strikes are still fades on the targets;
 //                 his plain swoops still fly, but their feathers and puffs are still fades
 //   Low graphics: no ribbons, fewer puffs and feathers (FxSystem density).
-//   the doll      (Yoriko) floats in front of her raised hand on glowing threads that stay tied to her
-//                 control bar; dashes at the target and back on her needles and on Dream Detour
+//   the doll      (Yoriko) hangs in front of her raised hand on thin strings tied to her control bar; each of
+//                 her attacks plays Command → Extend → Strike → Reel and a pendulum settle, the strike on the
+//                 sim's hit; Dream Detour too (./marionette.js, rules ./marionetteLogic.js)
 // One actor per placed girl who has a companion (co-op partners' girls too: they are in the shared sim);
 // 'appear' plays when she is placed, the actor goes when she is sold. Models and the manifest contract:
 // src/models/companions.js. Rules (pure): ./companionLogic.js.
@@ -32,11 +33,12 @@ import { disposeObject } from '../models/index.js';
 import { lerpAngle } from './geo.js';
 import { WATER_Y, PATH_H } from './terrain.js';
 import {
-  konState, konStep, konSpot, konAttacks, konGait, sortieState, startSortie, retarget, sortieStep, reconcile, swoopDives, diveReach,
+  konState, konStep, konSpot, konAttacks, konGait, sortieState, startSortie, retarget, reconcile, swoopDives, diveReach,
   pounceStep, stoopStep, perchState, queueSwoop, perchFree, perchStep, perchClear, trailState, trailPush, trailAt, trailFade, trailClear,
-  SWOOP_TIME, SWOOP_LIFT, DASH_TIME, DASH_REACH, DASH_STOP, DASH_LIFT, DIVE_TIME, POUNCE_TIME, POUNCE_STOP, POUNCE_LIFT,
+  SWOOP_TIME, SWOOP_LIFT, DIVE_TIME, POUNCE_TIME, POUNCE_STOP, POUNCE_LIFT,
   TRAIL_LIFE,
 } from './companionLogic.js';
+import { Marionette } from './marionette.js';
 
 /** The ⚡ abilities a companion performs (the sim's `ability` event id → his move). */
 const SWOOP_ID = 'hana.swoop';
@@ -49,8 +51,6 @@ const KON_HOLD = 0.5; // his appear clip, then he may run
 
 const _home = new THREE.Vector3();
 const _m = new THREE.Matrix4();
-const _v = new THREE.Vector3();
-const _bar = new THREE.Vector3();
 const _spot = { x: 0, z: 0 };
 const _pos = { x: 0, y: 0, z: 0, out: false, hit: false, phase: null, squash: 1, pitch: 0 };
 const _gait = { lift: 0, pitch: 0, stretch: 1 };
@@ -105,6 +105,9 @@ export class Companions {
     };
     this._drop = (a) => this._dispose(a);
     this._of = (unitId) => companionOf(unitId);
+    // Yoriko's doll: stages, strings, needles' origin (./marionette.js)
+    this.marionette = new Marionette({ sim, actors, root: this.root, quality, reduceMotion: this.reduceMotion });
+    this._nearest = (x, z, r) => this._nearestEnemy(x, z, r);
     loadCompanionManifest().then((m) => {
       if (!this.disposed) this.ready = !!m;
     });
@@ -122,6 +125,7 @@ export class Companions {
   setQuality(q) {
     if (q === this.quality) return;
     this.quality = q;
+    this.marionette.quality = q;
     // girls' views are rebuilt at the new detail too; companions follow on the next update
     this.clear();
   }
@@ -156,6 +160,13 @@ export class Companions {
     return a.kon.view;
   }
 
+  /** Where Yoriko `uid`'s doll is drawn ({ x, z, h }: its body, where her needles leave it) or null. */
+  dollAt(uid) {
+    const a = this.list.get(uid);
+    if (!a || a.cid !== 'doll' || !a.group) return null;
+    return this.marionette.at(a);
+  }
+
   /** Test / e2e probe: one row per actor. */
   probe() {
     const rows = [];
@@ -172,6 +183,7 @@ export class Companions {
         // her ⚡ through him: Kaze's dives still queued (and whether one is a dive), Kon's pounce in flight
         dives: a.dives?.length ?? 0, diving: !!a.diving, pounce: a.pounce?.busy ? (a.pounce.uid ?? null) : null,
       });
+      if (a.mar) dollRow(rows[rows.length - 1], a, this.marionette.probe(a));
     }
     return { enabled: this.enabled, quality: this.quality, detail: this.detail, actors: rows, fx: { ...this.stats } };
   }
@@ -182,11 +194,12 @@ export class Companions {
   handle(ev) {
     if (ev.type === 'attack') {
       const a = this.list.get(ev.towerUid);
-      if (a?.group) this._onAttack(a, ev.targetUid, null);
+      if (a?.group && a.cid === 'doll') this.marionette.onAttack(a, ev);
+      else if (a?.group) this._onAttack(a, ev.targetUid);
     } else if (ev.type === 'ult') {
       const a = this.list.get(ev.towerUid);
       // Dream Detour: the doll dashes toward the ult's centre
-      if (a?.group && a.cid === 'doll' && ev.x != null) this._onAttack(a, null, { x: ev.x, z: ev.y });
+      if (a?.group && a.cid === 'doll' && ev.x != null) this.marionette.onPoint(a, ev.x, ev.y, this._nearest);
     } else if (ev.type === 'ability') {
       const a = this.list.get(ev.towerUid);
       if (!a?.group) return;
@@ -274,7 +287,7 @@ export class Companions {
     if (startSortie(a.sortie, e.x, e.y + (e.height || 0.5) * 0.5, e.z, SWOOP_TIME, uid)) a.group.userData.playAttack?.();
   }
 
-  _onAttack(a, targetUid, point) {
+  _onAttack(a, targetUid) {
     if (a.cid === 'kaze') {
       // (her ⚡ dives come first: her plain swoops wait until they are done)
       if (a.dives?.length || a.diving) return;
@@ -293,33 +306,6 @@ export class Companions {
       a.faceT = 0.8;
       return;
     }
-    let tx;
-    let ty;
-    let tz;
-    if (point) {
-      tx = point.x;
-      tz = point.z;
-      ty = 0.3;
-      // an ult centred on her own spot: dash at the nearest monster instead (or a step ahead of her)
-      if (Math.hypot(tx - a.home.x, tz - a.home.z) < 0.6) {
-        const e = this._nearestEnemy(a.home.x, a.home.z, 4);
-        if (e) {
-          tx = e.x;
-          tz = e.z;
-          ty = e.y + (e.height || 0.5) * 0.5;
-        } else {
-          tx = a.home.x + Math.sin(a.facing) * 1.2;
-          tz = a.home.z + Math.cos(a.facing) * 1.2;
-        }
-      }
-    } else {
-      const e = targetUid != null ? this.actors.enemyPos(targetUid) : null;
-      if (!e) return;
-      tx = e.x;
-      tz = e.z;
-      ty = e.y + (e.height || 0.5) * 0.5;
-    }
-    if (startSortie(a.sortie, tx, ty, tz, DASH_TIME, point ? null : targetUid)) a.group.userData.playAttack?.();
   }
 
   // ---- frame ---------------------------------------------------------------------------------
@@ -335,6 +321,7 @@ export class Companions {
     }
     // full files when zoomed in on quality high, LOD otherwise
     this.zoom = zoom;
+    this.marionette.tick(dt);
     if (this.quality !== 'high') this.detail = 'lod';
     else if (this.detail === 'lod' && zoom >= FULL_AT) this.detail = 'full';
     else if (this.detail === 'full' && zoom <= LOD_AT) this.detail = 'lod';
@@ -423,9 +410,12 @@ export class Companions {
     // the doll's thread tops: where the bar bone sits at home, kept there while the doll dashes
     a.barRest = g.userData.bar ? boneAtIdle(asset, g.userData.bar.name) : null;
     this.root.add(g);
+    // the doll: its GLB threads give way to the drawn strings
+    if (a.cid === 'doll') this.marionette.bind(a, asset);
   }
 
   _dispose(a) {
+    if (a.cid === 'doll') this.marionette.release(a);
     if (!a.group) return;
     this.root.remove(a.group);
     a.group.userData.dispose?.();
@@ -467,6 +457,10 @@ export class Companions {
     a.home.copy(_home).applyMatrix4(_m);
     const scale = m.scale.x * a.battleScale;
     g.scale.setScalar(scale);
+    if (a.cid === 'doll') {
+      this.marionette.update(a, v, t, dt, scale);
+      return;
+    }
     let state = 'idle';
     let facing = v.facing;
     let pitch = 0;
@@ -562,19 +556,6 @@ export class Companions {
         const e = this._enemy(next);
         if (e) this._swoopAt(a, next, e);
       }
-    } else {
-      const s = a.sortie;
-      if (s.busy && s.uid != null) {
-        const e = this.actors.enemyPos(s.uid);
-        if (e) retarget(s, e.x, e.y + (e.height || 0.5) * 0.5, e.z);
-      }
-      sortieStep(s, dt, a.home.x, a.home.y, a.home.z, _pos, DASH_OPTS);
-      g.position.set(_pos.x, _pos.y, _pos.z);
-      if (s.busy) {
-        const dx = s.tx - a.home.x;
-        const dz = s.tz - a.home.z;
-        if (dx * dx + dz * dz > 1e-6) facing = Math.atan2(dx, dz);
-      }
     }
     a.faceT = Math.max(0, a.faceT - dt);
     a.facing = lerpAngle(a.facing, facing, Math.min(1, dt * 10));
@@ -584,13 +565,6 @@ export class Companions {
     a.state = state;
     g.userData.animate?.(this.time, dt, state);
     if (a.trail) this._ribbon(a);
-    // the doll's threads stay tied to Yoriko's control bar while it dashes
-    const bar = g.userData.bar;
-    if (bar && a.barRest && bar.parent) {
-      _bar.copy(a.barRest).applyAxisAngle(_v.set(0, 1, 0), v.facing).multiplyScalar(scale).add(a.home);
-      g.updateMatrixWorld(true);
-      bar.position.copy(bar.parent.worldToLocal(_bar));
-    }
   }
 
   // ---- their moves' effects (FxSystem particles and quad batches: pooled, nothing made per frame) ---------------
@@ -650,7 +624,7 @@ export class Companions {
     if (!fx || !this.R) return;
     const k = fx.n(n);
     for (let i = 0; i < k; i++) {
-      const a = Math.random() * TAU;
+      const a = fx.rand() * TAU;
       this._setSp('bbN', this.R.smoke, x + Math.cos(a) * 0.08, y + 0.14, z + Math.sin(a) * 0.08, size * 0.5, size * 1.2, 0.5, C.dust, 0.85);
       if (!this.reduceMotion) {
         _sp.vx = Math.cos(a) * 0.5;
@@ -677,7 +651,7 @@ export class Companions {
     this._dust(x, y, z, 6, 0.5);
     const k = fx.n(6);
     for (let i = 0; i < k; i++) {
-      const a = (i / k) * TAU + Math.random() * 0.4;
+      const a = (i / k) * TAU + fx.rand() * 0.4;
       this._setSp('bbA', R.star || R.spark, x, y + 0.2, z, 0.26, 0.06, 0.45, C.white, 1);
       _sp.vx = Math.cos(a) * 1.6;
       _sp.vz = Math.sin(a) * 1.6;
@@ -700,7 +674,7 @@ export class Companions {
     const feather = R.feather || R.glow;
     const k = fx.n(this.reduceMotion ? 3 : 7);
     for (let i = 0; i < k; i++) {
-      const a = (i / k) * TAU + Math.random() * 0.5;
+      const a = (i / k) * TAU + fx.rand() * 0.5;
       this._setSp('bbN', feather, x, y, z, 0.3, 0.22, this.reduceMotion ? 0.5 : 0.85, i % 2 ? C.white : C.feather, 1);
       _sp.asp = 2;
       _sp.rot = a;
@@ -764,9 +738,19 @@ export class Companions {
   dispose() {
     this.disposed = true;
     this.clear();
+    this.marionette.dispose();
     this.root.removeFromParent();
   }
 }
 
-const DASH_OPTS = { reach: DASH_REACH, stop: DASH_STOP, lift: DASH_LIFT };
+/** The doll's probe row: 'sortie' from Command to the end of the settle, its target and stage. */
+function dollRow(row, a, m) {
+  const s = a.mar;
+  const out = s.stage !== 'idle';
+  row.mode = out ? 'sortie' : 'home';
+  row.target = out ? [+s.tx.toFixed(3), +s.ty.toFixed(3), +s.tz.toFixed(3)] : null;
+  row.targetUid = out ? (s.uid ?? null) : null;
+  row.marionette = m;
+}
+
 const POUNCE_OPTS = { stop: POUNCE_STOP, lift: POUNCE_LIFT };

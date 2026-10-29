@@ -20,9 +20,9 @@
 // An upgrade (t5, a rank) merges by spread: its scalars replace, its `effect` fields replace the
 // base's one by one (a nested list or object such as `status` or `mods` is replaced whole).
 //
-//   kind     boost · rally · strike · burst · debuff · econ (sim A1) · deploy (by type: 'strips' and 'sentries'
-//            run; 'double', 'trap', 'drone' wait for A4, 'mirror' for A6) · runner (by type: 'giantBall' runs;
-//            'river' waits for A6) · move, zone (later)
+//   kind     boost · rally · strike · burst · debuff · econ (sim A1) · deploy (by type: 'strips', 'sentries' and
+//            the A4 types 'double', 'trap', 'drone' and 'mirror' run) · runner (by type: 'giantBall' runs;
+//            'river' waits for A6) · move (by type: 'push' runs; 'carry' waits) · zone (later)
 //            (which entries run: abilityRuns below, the one rule)
 //   scope    local  — one cooldown per girl
 //            map    — one cooldown per player for that ability (copies add nothing)
@@ -69,10 +69,14 @@
 //   debuff  pick ('all' | 'veiled' | 'strong' | 'ground': walkers that are not bosses, the lead ones first),
 //           count, reachMul, reachAdd, status (a curse bursts for burstMul × her current hit),
 //           casterStatus (casters only), dmgMul (a hit on each, × her hit), rally (a rally rider for `duration`)
-//   move    (A5, not run yet) reachMul, push / pushMiniboss, pick, count, carry / carryMiniboss, status
+//   move    move ('push' Fuu: every enemy in reach but a boss is blown `push` tiles back along its own path, by path
+//           distance, clamped at the path start; minibosses `pushMiniboss` (default half), the push lock (but never the
+//           locks her own gusts set: e.pushLockBy) and the freeplay push budget apply; 'carry' Ruri's Star Snatch waits), reachMul, reachAdd, push / pushMiniboss, pick, count,
+//           carry / carryMiniboss, status
 //   econ    coins (× the difficulty's coin rate and the mode's income rate; owner-credited)
-//   deploy  deploy ('strips' Azami, 'sentries' Yuzuha; 'double' | 'trap' | 'drone' with A4; 'mirror' with A6),
-//           count, spacing, dmgMul, arm (s), hits, reachMul, reflect / permanentReflect (Iroha's mirror)
+//   deploy  deploy ('strips' Azami, 'sentries' Yuzuha, 'double' Kage, 'trap' Suzu, 'drone' Chika (src/sim/deploys.js),
+//           'mirror' Iroha (src/sim/mirrors.js)), count, spacing (tiles between doubles), dmgMul, arm (s), hits, reachMul,
+//           reflect / permanentReflect (Iroha's mirror)
 //   runner  runner ('giantBall' Marumi; 'river' with A6), length, speed (tiles), segments, gap, dmgMul, knockback,
 //           allPaths, toSpawn, push, status
 //   boost   (a status-only splash rider, A5: Kanna) splashArmor { radius, shred }, status
@@ -108,16 +112,23 @@ export const ABILITY_SCOPES = Object.freeze(['local', 'map', 'player']);
 export const AUTO_WHEN = Object.freeze(['enemies', 'elite', 'leak', 'veiled', 'caster', 'poisoned', 'ready', 'flyers', 'sabotage', 'cluster']);
 
 /** Kinds this build runs (src/sim/abilities.js KINDS; tests/sim/abilities.test.js keeps the two equal). */
-export const ABILITY_KINDS_RUN = Object.freeze(['strike', 'burst', 'boost', 'rally', 'debuff', 'econ']);
-/** Deploy object types this build runs (src/sim/abilities.js DEPLOYS): Azami's strips, Yuzuha's sentries. */
-export const ABILITY_DEPLOYS_RUN = Object.freeze(['sentries', 'strips']);
+export const ABILITY_KINDS_RUN = Object.freeze(['strike', 'burst', 'boost', 'rally', 'debuff', 'econ', 'move']);
+/**
+ * Deploy object types this build runs (src/sim/abilities.js DEPLOYS): Azami's strips, Yuzuha's sentries, the A4
+ * types, Kage's shadow doubles, Suzu's Bell Carpet traps and Chika's surge drones (src/sim/deploys.js), and Iroha's
+ * mirror (src/sim/mirrors.js).
+ */
+export const ABILITY_DEPLOYS_RUN = Object.freeze(['sentries', 'strips', 'double', 'trap', 'drone', 'mirror']);
 /** Runner types this build runs (src/sim/abilities.js RUNNERS): Marumi's giant ball. */
 export const ABILITY_RUNNERS_RUN = Object.freeze(['giantBall']);
+/** Move types this build runs (src/sim/abilities.js MOVES): Fuu's push. Ruri's 'carry' waits. */
+export const ABILITY_MOVES_RUN = Object.freeze(['push']);
 
 /**
  * THE live-ability rule: does this build run an ability entry (a button in battle), or is it a "Comes in a later
  * update" teaser? A kind in ABILITY_KINDS_RUN (a boost also needs its `effect.mods`: a boost with nothing to raise
- * has nothing to run), a deploy of a type in ABILITY_DEPLOYS_RUN or a runner of a type in ABILITY_RUNNERS_RUN. The
+ * has nothing to run; a move needs a type in ABILITY_MOVES_RUN), a deploy of a type in ABILITY_DEPLOYS_RUN or a
+ * runner of a type in ABILITY_RUNNERS_RUN. The
  * sim's handlerOf refuses exactly what this refuses (a test runs both over every row, tier 5 and rank); the ability
  * bar, the panel row, the girl page, the ⚡ tips (src/data/unitTips.js) and the gear fit table (GEAR_FIT in
  * src/data/gearStats.js) all read it. Works on a base entry and on a merged one (tier 5, a hero rank).
@@ -129,6 +140,7 @@ export function abilityRuns(entry) {
     case 'deploy': return ABILITY_DEPLOYS_RUN.includes(entry.effect?.deploy);
     case 'runner': return ABILITY_RUNNERS_RUN.includes(entry.effect?.runner);
     case 'boost': return !!entry.effect?.mods;
+    case 'move': return ABILITY_MOVES_RUN.includes(entry.effect?.move);
     default: return ABILITY_KINDS_RUN.includes(entry.kind);
   }
 }
@@ -437,10 +449,10 @@ export const ABILITIES = deepFreeze({
 
   // ----- the returning girls (ABILITIES_SPEC §5.2; src/data/unitsExpansion.js) -----
   fuu: [{
-    // (the move kind, A5) every non-boss enemy within 1.5× her range is blown back (minibosses half as far; the
-    // push lock applies) and flyers are grounded
+    // (a move of type 'push', src/sim/abilities.js MOVES) every non-boss enemy within 1.5× her range is blown back
+    // along its own path (minibosses half as far; the push lock applies) and flyers are grounded
     path: 'gale', unlockTier: 3, id: 'fuu.backdraft', kind: 'move', scope: 'local', cooldown: 40, duration: 0,
-    effect: { reachMul: 1.5, push: 2, pushMiniboss: 1, status: [S.ground(2)] },
+    effect: { move: 'push', reachMul: 1.5, push: 2, pushMiniboss: 1, status: [S.ground(2)] },
     auto: { when: 'enemies', min: 5 },
     t5: { cooldown: 32, effect: { push: 3, status: [S.ground(3)] } },
   }],
@@ -463,9 +475,9 @@ export const ABILITIES = deepFreeze({
       t5: { cooldown: 25, effect: { hits: 5, status: [S.hold(2)] } },
     },
     {
-      // (the move kind, A5) Kon carries the leading non-boss enemy back up the road
+      // (a move of type 'carry', not run yet) Kon carries the leading non-boss enemy back up the road
       path: 'falcon', unlockTier: 3, id: 'ruri.starSnatch', kind: 'move', scope: 'local', cooldown: 35, duration: 0,
-      effect: { pick: 'first', count: 1, carry: 3, carryMiniboss: 1.5 },
+      effect: { move: 'carry', pick: 'first', count: 1, carry: 3, carryMiniboss: 1.5 },
       auto: { when: 'leak', min: 0.7 },
       t5: { cooldown: 30, effect: { count: 2, carry: 5 } },
     },

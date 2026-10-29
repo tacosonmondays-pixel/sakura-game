@@ -8,7 +8,7 @@ import { describe, test, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ABILITY_RULES, ABILITY_KINDS, ABILITY_SCOPES, AUTO_WHEN, ABILITIES, ABILITY_KINDS_RUN, ABILITY_DEPLOYS_RUN,
+  ABILITY_RULES, ABILITY_KINDS, ABILITY_SCOPES, AUTO_WHEN, ABILITIES, ABILITY_KINDS_RUN, ABILITY_DEPLOYS_RUN, ABILITY_MOVES_RUN,
   abilityRow, attachAbilities, mergeAbility, abilityAtTier, skillAtLevel, abilityRuns, abilityWithLr,
 } from '../../src/data/abilities.js';
 import { ABILITY_CHARGE_BASE, abilityChargePerTick, NOT_HASTED_KINDS } from '../../src/sim/gearRules.js';
@@ -253,9 +253,9 @@ const SPEC_TOWERS = {
   // §5.2 the returning girls (A3 M3: moved here from RETURNING_ABILITIES; numbers only). Auto rules marked
   // "(not in the spec)" are M3's: the spec gives none, or one this vocabulary lacks.
   fuu: {
-    // (the move kind: A5, so no button yet)
+    // (a move of type 'push': it runs)
     path: 'gale', id: 'fuu.backdraft', kind: 'move', scope: 'local', cooldown: 40, duration: 0,
-    effect: { reachMul: 1.5, push: 2, pushMiniboss: 1, status: [ground(2)] },
+    effect: { move: 'push', reachMul: 1.5, push: 2, pushMiniboss: 1, status: [ground(2)] },
     auto: { when: 'enemies', min: 5 },
     t5: { cooldown: 32, effect: { push: 3, status: [ground(3)] } },
   },
@@ -273,9 +273,9 @@ const SPEC_TOWERS = {
       t5: { cooldown: 25, effect: { hits: 5, status: [hold(2)] } },
     },
     {
-      // (the move kind: A5)
+      // (a move of type 'carry': it waits)
       path: 'falcon', id: 'ruri.starSnatch', kind: 'move', scope: 'local', cooldown: 35, duration: 0,
-      effect: { pick: 'first', count: 1, carry: 3, carryMiniboss: 1.5 },
+      effect: { move: 'carry', pick: 'first', count: 1, carry: 3, carryMiniboss: 1.5 },
       auto: { when: 'leak', min: 0.7 }, // (not in the spec: past 70% of the path)
       t5: { cooldown: 30, effect: { count: 2, carry: 5 } },
     },
@@ -403,7 +403,7 @@ const EFFECT_KEYS = {
   // (Marumi's Giant Strike: a runner type, its length and speed in tiles, body segments, push; Ruri's River Rush)
   runner: ['runner', 'length', 'speed', 'segments', 'gap', 'dmgMul', 'knockback', 'allPaths', 'toSpawn', 'push', ...STATUS_LIST],
   // (A5: Fuu's Backdraft Fan, Ruri's Star Snatch)
-  move: ['reachMul', 'push', 'pushMiniboss', 'pick', 'count', 'carry', 'carryMiniboss', ...STATUS_LIST],
+  move: ['move', 'reachMul', 'reachAdd', 'push', 'pushMiniboss', 'pick', 'count', 'carry', 'carryMiniboss', ...STATUS_LIST],
 };
 const PICKS = { strike: ['mode', 'strong', 'priority', 'poisoned', 'air', 'chain'], debuff: ['all', 'veiled', 'strong', 'ground'], move: ['first'] };
 const AUTO_KEYS = ['when', 'min', 'orElite', 'orCaster', 'orVeiled', 'orLeak', 'reach',
@@ -467,6 +467,8 @@ function defErrors(d, where) {
   for (const k of Object.keys(d.effect)) if (!allowed.includes(k)) errs.push(`${where}: effect key ${k} is not a ${d.kind} field`);
   const e = d.effect;
   if (PICKS[d.kind] && e.pick != null && !PICKS[d.kind].includes(e.pick)) errs.push(`${where}: pick ${e.pick}`);
+  // (a move names its type: 'push' runs, 'carry' waits; src/sim/abilities.js MOVES)
+  if (d.kind === 'move' && !['push', 'carry'].includes(e.move)) errs.push(`${where}: move type ${e.move}`);
   for (const k of ['count', 'shells', 'hits']) if (k in e && !(Number.isInteger(e[k]) && e[k] > 0)) errs.push(`${where}: ${k} must be a whole number > 0`);
   // (a rally's radius may be 'map': every girl on the map, Ouka's Assembly Bell)
   for (const k of ['reachMul', 'reachAdd', ...(e.radius === 'map' ? [] : ['radius']), 'radiusMul', 'dmgMul', 'poisonMul', 'splash', 'spacing', 'coins', 'lifeRadius', 'push', 'pushMiniboss', 'carry', 'carryMiniboss', 'length']) if (k in e && !(e[k] > 0)) errs.push(`${where}: ${k} must be > 0`);
@@ -575,18 +577,22 @@ describe('ability rules and vocabulary', () => {
   });
 
   test('abilityRuns: the one live rule (kinds, a boost\'s mods, deploy and runner types)', () => {
-    const runs = ABILITY_KINDS.filter((kind) => abilityRuns({ kind, effect: { mods: {} } }));
-    expect(runs).toEqual(['boost', 'rally', 'strike', 'burst', 'debuff', 'econ']);
+    const runs = ABILITY_KINDS.filter((kind) => abilityRuns({ kind, effect: { mods: {}, move: 'push' } }));
+    expect(runs).toEqual(['boost', 'rally', 'strike', 'burst', 'debuff', 'econ', 'move']);
     expect([...ABILITY_KINDS_RUN].sort()).toEqual([...runs].sort());
+    // a move runs by its type: 'push' (Fuu's Backdraft Fan); 'carry' (Ruri's Star Snatch) and none wait
+    expect(ABILITY_MOVES_RUN).toEqual(['push']);
+    for (const move of ['carry', 'pull', undefined]) expect(abilityRuns({ kind: 'move', effect: { move } })).toBe(false);
     expect(abilityRuns({ kind: 'boost', effect: {} })).toBe(false);
-    expect(ABILITY_DEPLOYS_RUN.map((deploy) => abilityRuns({ kind: 'deploy', effect: { deploy } }))).toEqual([true, true]);
-    for (const deploy of ['double', 'trap', 'drone', 'mirror', undefined]) expect(abilityRuns({ kind: 'deploy', effect: { deploy } })).toBe(false);
+    expect(ABILITY_DEPLOYS_RUN.map((deploy) => abilityRuns({ kind: 'deploy', effect: { deploy } }))).toEqual([true, true, true, true, true, true]);
+    for (const deploy of ['double', 'trap', 'drone', 'mirror']) expect(ABILITY_DEPLOYS_RUN).toContain(deploy); // A4, A6
+    expect(abilityRuns({ kind: 'deploy', effect: { deploy: undefined } })).toBe(false);
     expect(abilityRuns({ kind: 'runner', effect: { runner: 'giantBall' } })).toBe(true);
     expect(abilityRuns({ kind: 'runner', effect: { runner: 'river' } })).toBe(false);
     for (const x of [null, undefined, 0, 'strike', {}]) expect(abilityRuns(x)).toBe(false);
-    // the table: every tower's first ⚡ entry runs but the three deploy girls', Fuu's (move) and Iroha's (mirror);
+    // the table: every tower's first ⚡ entry runs (the A4 deploys, Fuu's move since A5, Iroha's mirror since A6);
     // every hero skill but Kanna's (a boost without a ModSet); Ruri's Star Snatch / River Rush wait; tier 5 never flips it
-    for (const u of towers()) expect(abilityRuns(abilityRow(u)[0]), u.id).toBe(!['kage', 'suzu', 'chika', 'fuu', 'iroha'].includes(u.id));
+    for (const u of towers()) expect(abilityRuns(abilityRow(u)[0]), u.id).toBe(true);
     for (const h of heroes()) expect(abilityRuns(abilityRow(h).skill), h.id).toBe(h.id !== 'kanna');
     expect(ABILITIES.ruri.map(abilityRuns)).toEqual([true, false, false]);
   });

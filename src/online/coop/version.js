@@ -66,7 +66,10 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 //    beam reaching the map edge, the sentry deploy event, and Tryout Day's Extended Day (an endless run past the
 //    timetable) and Random Class (both players draft random girls and buffs); a client on 11 resolves the same loadout
 //    to different battles (or does not know the stage) and cannot play an Extended Day or Random Class room.
-export const COOP_PROTOCOL = 12;
+// 13: the academy flair release (co-op update #10, set once for it): the last five tower ultimates in battle (Kage's
+//    Shadow Doubles, Suzu's Bell Carpet and Chika's Drone Surge as deploys, Fuu's Backdraft Fan as a move, Iroha's
+//    Mirror Shift with its mirror and reflected shots); a client on 12 resolves the same loadout to different battles.
+export const COOP_PROTOCOL = 13;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */

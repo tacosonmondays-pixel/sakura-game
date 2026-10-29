@@ -30,7 +30,7 @@ import {
 } from './enemies.js';
 import {
   createTower, refreshTowerStats, recomputeBuffs, costCutAt, updateTower,
-  updateProjectiles, updateTraps, baseCost, setFlight, flightMode, signalRange, hasRoamingDrones, finalePop,
+  updateProjectiles, updateTraps, baseCost, setFlight, flightMode, signalRange, hasRoamingDrones, finalePop, ownDrones,
 } from './towers.js';
 import { POP_BUDGET_MAX, POP_COST } from './gearRules.js';
 import { updateShells, aimMode, updateRelayOrigin } from './towers.js';
@@ -661,7 +661,9 @@ export class Sim {
     }
     // push lock (roster B3): a girl in PUSH_LOCK_KITS (Fuu; or a spec with `pushLock`) moves an enemy at most once
     // per PUSH_LOCK window; a hero's own push-back has its own shorter lock (HERO_PUSH_LOCK, hero
-    // rework). The two never block each other, and the live girls' pushes stay unlocked, as on live.
+    // rework). The two never block each other, and the live girls' pushes stay unlocked, as on live. The lock
+    // remembers whose hit set it (e.pushLockBy: Backdraft Fan ignores the locks of Fuu's own gusts). The field exists
+    // only once such a lock was set (createEnemy leaves it out, so a battle without one keeps its snapshots exactly).
     if (spec.knockback > 0) {
       const hero = !!tower?.isHero;
       const locks = !hero && (PUSH_LOCK_KITS.includes(tower?.unitId) || spec.pushLock === true);
@@ -679,12 +681,14 @@ export class Sim {
           e.dist = Math.max(0, e.dist - amt);
           placeOnPath(e, this.pathData[e.pathIndex]);
           if (hero) e.heroPushLock = this.time + HERO_PUSH_LOCK;
-          else if (wind) e.pushLock = WIND_LOCK[e.tier] ?? WIND_LOCK.normal;
-          else if (locks) e.pushLock = PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal;
+          else if (locks) {
+            e.pushLock = wind ? (WIND_LOCK[e.tier] ?? WIND_LOCK.normal) : (PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal);
+            e.pushLockBy = tower ? tower.uid : -1;
+          }
         }
       }
     }
-    if (spec.gather > 0 && !e.dead) this._gather(e, spec.gather);
+    if (spec.gather > 0 && !e.dead) this._gather(e, spec.gather, tower ? tower.uid : -1);
     // Norika's Detour Sign: her waves send an enemy still before a fork down the longer branch
     if (spec.barricade?.detour && !e.dead) detourOnHit(this, e);
     syncStatusFlags(e);
@@ -692,9 +696,10 @@ export class Sim {
 
   /**
    * Gather: enemies AHEAD of `e` on its path within GATHER_RADIUS are pulled back toward it by
-   * `amount` of the gap (max GATHER_MAX). Never minibosses/bosses, never past `e`, push lock respected.
+   * `amount` of the gap (max GATHER_MAX). Never minibosses/bosses, never past `e`, push lock respected; the lock it
+   * sets remembers `byUid`, the girl whose hit gathered (e.pushLockBy).
    */
-  _gather(e, amount) {
+  _gather(e, amount, byUid = -1) {
     const f = Math.min(GATHER_MAX, amount);
     const path = this.pathData[e.pathIndex];
     const near = this._scratch3;
@@ -708,6 +713,7 @@ export class Sim {
       q.dist -= (q.dist - e.dist) * f;
       placeOnPath(q, path);
       q.pushLock = PUSH_LOCK[q.tier] ?? PUSH_LOCK.normal;
+      q.pushLockBy = byUid;
     }
     near.length = 0;
   }
@@ -1574,6 +1580,9 @@ export class Sim {
       kills: d.kills,
       shots: d.shots,
       born: d.born,
+      // Drone Surge's extra drones (src/sim/deploys.js): Surge 1…k and the seconds they have left; 0 / 0 for hers
+      surge: d.temp ? d.surge : 0,
+      left: d.temp ? d.left / 60 : 0,
     }));
   }
 
@@ -1616,12 +1625,14 @@ export class Sim {
     const roam = !!ts && ts.leash > 0;
     let turret = null;
     if (e.turret) {
-      turret = { ...e.turret, damage: ts?.damage ?? e.turret.damage, active: t.turrets.length };
+      // active: her own drones (her limit counts them); surge: Drone Surge's extra drones flying now (roaming only)
+      turret = { ...e.turret, damage: ts?.damage ?? e.turret.damage, active: ownDrones(t) };
       if (roam) {
         Object.assign(turret, {
           rate: ts.rate, range: ts.range, leash: ts.leash, speed: ts.speed, build: ts.build || 1 / Math.max(0.05, t.def.base?.rate || 0.25),
           dealt: t.droneDmg, kills: t.droneKills, shots: t.droneShots,
-          nextIn: this.state === 'wave' && t.turrets.length < e.turret.max ? Math.max(0, t.buildTimer) : 0,
+          nextIn: this.state === 'wave' && ownDrones(t) < e.turret.max ? Math.max(0, t.buildTimer) : 0,
+          surge: t.turrets.length - ownDrones(t),
           flight: flightMode(t),
         });
       }

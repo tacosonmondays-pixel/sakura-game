@@ -4,6 +4,8 @@
 //   (the host's ladder: a Full Day cleared here) and the Random Class switch with its help line; the guest sees both
 //   read-only. The host sets both, the run starts as an Extended Day in Random Class (each three drawn), and the
 //   first pick's reveal shows on both screens and lands by itself, the same on both.
+//   v0.1.61: no Home Time pill before wave 48; the Home Time vote past 48 (staged: see the step) on both tabs, who has
+//   voted, and both votes ending the run as Home Time with each player's best wave on their photo.
 // node e2e/tryout-coop.mjs [--viewport 1280x720] [--shots dir]
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
@@ -239,6 +241,123 @@ check(la && lb, 'both picks land by themselves (no tap)');
 const picks = await Promise.all([A, B].map((p) => p.evaluate(() => JSON.stringify(window.__battle.sim.tryout.players.map((x) => x.picks.map((k) => k.girl || k.card || k.varsity))))));
 check(picks[0] === picks[1], `both clients drew the same picks (${picks[0]})`);
 await snap(B, 'tycoop-battle-guest');
+
+// v0.1.61: the Home Time vote (§20.1, Q-A6). Before wave 48 neither tab shows the pill (nor freeplay's Finish). Playing
+// a browser co-op run to wave 48 for real is out of this test's reach, so the vote past 48 is STAGED: Auto off, both
+// locksteps held still at a calm point, both Sims given the same "48 waves cleared" state, and the same 'end' commands
+// applied to both CoopSims (what the lockstep would deliver). The pills, the HUD flag, the ally's line and the end
+// (checkEndVotes → sim.finish(): Home Time on both, each paid once) are the real code.
+const noPill = await Promise.all([A, B].map((p) => p.evaluate(() => ({
+  home: !!document.querySelector('[data-testid="home-time"]:not([hidden])'),
+  finish: !!document.querySelector('[data-testid="finish-here"]:not([hidden])'),
+  wave: window.__battle.sim.wavesCleared,
+}))));
+check(noPill.every((x) => !x.home && !x.finish && x.wave < 48), `no Home Time or Finish pill before wave 48 on either tab (${JSON.stringify(noPill)})`);
+await A.evaluate(() => window.__battle.ui.setAutoStart?.(false));
+// (both tabs keep stepping meanwhile: a background tab draws no frames, so the lockstep is pumped from a timer)
+for (const p of [A, B]) {
+  await p.evaluate(() => {
+    clearInterval(window.__tyPump);
+    window.__tyPump = setInterval(() => {
+      const ls = window.__battle?.coop?.lockstep;
+      if (ls && !ls.finished) ls.advance(0.05);
+    }, 8);
+  });
+}
+const calmBoth = await Promise.all([A, B].map((p) => p.waitForFunction(() => window.__battle.sim.state === 'between' && !window.__battle.sim.tryoutWindowOpen() && window.__battle.sim.options.autoStart === false, null, { timeout: 120000, polling: 100 }).then(() => true).catch(() => false)));
+check(calmBoth.every(Boolean), 'both tabs reach a calm point with Auto off');
+for (const p of [A, B]) await p.evaluate(() => clearInterval(window.__tyPump));
+// (a tab in the background draws no frames: each read brings its tab to the front first; a girl or the hero still
+// being placed is cancelled, so the placement hint does not cover the wave control)
+const front = async (p) => {
+  await p.bringToFront().catch(() => {});
+  await p.waitForTimeout(350);
+};
+for (const p of [A, B]) {
+  await front(p);
+  if (await p.locator('[data-testid="place-cancel"]').isVisible().catch(() => false)) await p.click('[data-testid="place-cancel"]').catch(() => {});
+}
+await Promise.all([A, B].map((p) => p.evaluate(() => {
+  const { sim, coop } = window.__battle;
+  coop.lockstep.advance = () => 0; // (held still: no tick runs on either tab from here)
+  sim.wavesCleared = 48;
+  sim.wave = 48;
+  sim.state = 'between';
+  for (const pl of sim.tryout.players) pl.win = null;
+})));
+const applyBoth = (slot, v) => Promise.all([A, B].map((p) => p.evaluate(([s, val]) => {
+  const ls = window.__battle.coop.lockstep;
+  return ls.coop.apply({ t: ls.tick, p: s, s: 900 + (val ? 1 : 0), k: 'end', a: [val] }).ok;
+}, [slot, v])));
+const pillOf = async (p) => {
+  await front(p);
+  return p.waitForFunction(() => document.querySelector('[data-testid="home-time"]:not([hidden])')?.textContent || '', null, { timeout: 10000, polling: 100 })
+    .then((h) => h.jsonValue()).catch(() => '');
+};
+const p0 = [await pillOf(A), await pillOf(B)];
+check(p0.every((t) => /^Home Time\? Vote$/.test(t)), `past wave 48 both tabs show the Home Time vote pill (${JSON.stringify(p0)})`);
+check((await applyBoth(0, true)).every(Boolean), 'the host\'s Home Time vote lands on both clients (the Finish command past 48)');
+const read1 = async (p, want) => {
+  await front(p);
+  // (the first frames after a tab comes to the front can be slow under software WebGL: wait for the pill's words)
+  await p.waitForFunction((w) => new RegExp(w).test(document.querySelector('[data-testid="home-time"]')?.textContent || ''), want, { timeout: 20000, polling: 100 }).catch(() => {});
+  return p.evaluate(() => ({
+    pill: document.querySelector('[data-testid="home-time"]')?.textContent || '',
+    on: document.querySelector('[data-testid="home-time"]')?.classList.contains('on'),
+    flag0: !document.querySelector('[data-testid="coop-vote-0"]')?.hidden,
+    flag1: !document.querySelector('[data-testid="coop-vote-1"]')?.hidden,
+    state: window.__battle.sim.state,
+  }));
+};
+const p1 = [await read1(A, '^Home Time ✓'), await read1(B, 'votes Home Time')];
+// (a narrow screen, 480 px or less, has the shorter words: "Home Time ✓ · waiting", "Aiko votes Home Time")
+check(/^Home Time ✓ · waiting( for Bea)?$/.test(p1[0].pill) && p1[0].on && /^Aiko votes Home Time( · tap to agree)?$/.test(p1[1].pill) && !p1[1].on,
+  `the pills say who has voted: the host waits for Bea, the guest is asked to agree (${JSON.stringify(p1.map((x) => x.pill))})`);
+check(p1.every((x) => x.flag0 && !x.flag1 && x.state === 'between'), `the HUD flags the host's vote on both tabs; the run goes on until both vote (${JSON.stringify(p1)})`);
+await snap(A, 'tycoop-home-vote-host');
+await snap(B, 'tycoop-home-vote-guest');
+// a long ally name (16 characters, the most a name may have) ellipsizes alone: the pill stays one line and in view
+await front(B);
+const longName = await B.evaluate(async () => {
+  const s = window.__battle.coop.session;
+  const was = s.player.bind(s);
+  s.player = (i) => (i === 0 ? { ...(was(0) || {}), name: 'Aikoaikoaikoaiko' } : was(i));
+  await new Promise((r) => setTimeout(r, 600));
+  const el = document.querySelector('[data-testid="home-time"]');
+  const r = el?.getBoundingClientRect();
+  const nm = el?.querySelector('.bt-home-name');
+  const lh = parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.3;
+  // (every part inside the pill: nothing spills past its edge)
+  const fits = !!r && [...el.children].every((c) => c.getBoundingClientRect().right <= r.right + 1);
+  return { fits, text: el?.textContent, oneLine: !!r && r.height < 2 * lh, inView: !!r && r.left >= 0 && r.right <= innerWidth + 1, cut: !!nm && nm.scrollWidth > nm.clientWidth, ally: el?.classList.contains('ally') };
+});
+check(longName.oneLine && longName.inView && longName.ally && /votes Home Time/.test(longName.text || '') && longName.fits, `a long ally name keeps the pill on one line, in view, with the ally style (${JSON.stringify(longName)})`);
+await snap(B, 'tycoop-home-vote-guest-longname');
+// the guest taps the pill (the real button: its vote is queued for the lockstep), then the same command lands on both
+await front(B);
+await B.click('[data-testid="home-time"]');
+const queued = await B.waitForFunction(() => /^Home Time ✓/.test(document.querySelector('[data-testid="home-time"]')?.textContent || '')
+  && document.querySelector('[data-testid="home-time"]').textContent, null, { timeout: 20000, polling: 100 }).then((h) => h.jsonValue())
+  .catch(() => B.evaluate(() => document.querySelector('[data-testid="home-time"]')?.textContent || ''));
+check(/^Home Time ✓/.test(queued), `the guest's tap casts their vote (${queued})`);
+await applyBoth(1, true);
+const endOf = async (p) => {
+  await front(p);
+  const ok = await p.waitForSelector('[data-testid="ty-photo-wave"]', { timeout: 30000 }).then(() => true).catch(() => false);
+  const read = await p.evaluate(() => ({
+    title: document.querySelector('[data-testid="ty-photo-sheet"] .ty-stitle')?.textContent || '',
+    best: document.querySelector('[data-testid="ty-photo-wave-best"]')?.textContent || '',
+    ms: [...document.querySelectorAll('[data-testid="ty-photo-milestones"] [data-wave]')].map((e) => e.dataset.state).join(),
+    finished: window.__battle.sim.finished === true && window.__battle.sim.state === 'lost',
+    aw: window.__sakura.store.profile.missions.counters['ty:aw:1'],
+  }));
+  return { ok, ...read };
+};
+const photos = [await endOf(A), await endOf(B)];
+check(photos.every((x) => x.ok && x.title === 'Home Time' && x.finished),
+  `both votes end the run as Home Time on both tabs (${JSON.stringify(photos)})`);
+check(photos.every((x) => /^Best wave for this Grade: 48/.test(x.best) && x.ms === 'no,no,no' && x.aw === 48), 'each player\'s photo shows their best wave for the Grade and the milestone row (each paid once)');
+await snap(A, 'tycoop-home-photo-host');
 await ctx.close();
 await browser.close();
 await server.close();

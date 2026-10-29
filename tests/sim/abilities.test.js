@@ -7,14 +7,14 @@ import { Sim } from '../../src/sim/Sim.js';
 import { UNITS, ENEMIES, STAGE, testData, run } from './fixtures.js';
 import { STEP, KNOCKBACK_RESIST, CC_RESIST, ABILITY_SCATTER, DOT_PCT_BOSS_MUL } from '../../src/sim/constants.js';
 import {
-  ABILITY_RULES, ABILITIES, ABILITY_KINDS, ABILITY_KINDS_RUN, ABILITY_DEPLOYS_RUN, ABILITY_RUNNERS_RUN, abilityRuns, abilityAtTier, skillAtLevel,
+  ABILITY_RULES, ABILITIES, ABILITY_KINDS, ABILITY_KINDS_RUN, ABILITY_DEPLOYS_RUN, ABILITY_RUNNERS_RUN, ABILITY_MOVES_RUN, abilityRuns, abilityAtTier, skillAtLevel,
 } from '../../src/data/abilities.js';
 import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 import { typeMultiplier } from '../../src/data/types.js';
 import { refreshEffective, towerResolvedStats } from '../../src/sim/towers.js';
 import {
   abilityDef, abilityPathOf, abilitySource, chargeRate, densestPoint, abilitySpec, autoWants, handlerOf, waveStartCharge,
-  ABILITY_KINDS_LIVE, ABILITY_DEPLOYS_LIVE,
+  ABILITY_KINDS_LIVE, ABILITY_DEPLOYS_LIVE, ABILITY_MOVES_LIVE,
 } from '../../src/sim/abilities.js';
 import { abilityChargePerTick, firstBellCharge, NOT_HASTED_KINDS, ABILITY_HASTE_SHARE, SKILL_HASTE_CAP } from '../../src/sim/gearRules.js';
 import { MAP } from './fixtures.js';
@@ -100,8 +100,9 @@ const XU = {
     id: 'lunger.flash', kind: 'strike', cooldown: 25,
     effect: { pick: 'mode', count: 1, reachMul: 2.5, hits: 5, dmgMul: 1, fullRamp: true, keepRamp: true }, auto: { when: 'enemies', min: 3, orElite: true },
   }),
+  // a runner type this build does not run yet (Ruri's river, A6; every deploy type runs since A4–A6): the teaser
   later: girl('later', 'archer', {
-    id: 'later.doubles', kind: 'deploy', cooldown: 40, duration: 8, effect: { deploy: 'double', count: 2, spacing: 1.5, dmgMul: 0.6 }, auto: { when: 'enemies', min: 4 },
+    id: 'later.river', kind: 'runner', cooldown: 40, duration: 0, effect: { runner: 'river', length: 4, push: 1 }, auto: { when: 'enemies', min: 5 },
   }),
   zero: girl('zero', 'archer', {
     id: 'zero.now', kind: 'strike', unlockTier: 0, cooldown: 30, effect: { pick: 'mode', count: 1, reachMul: 1, dmgMul: 2 }, auto: { when: 'enemies', min: 1 },
@@ -253,12 +254,12 @@ describe('unlock, upgrade and the first charge', () => {
     expect(z.abil.cd).toBe(Math.round(z.abil.cdMax / 3));
   });
 
-  test('a deploy ability (A4) stays locked: the teaser says it comes later', () => {
+  test('a runner type this build does not run (the river, A6) stays locked: the teaser says it comes later', () => {
     const sim = mk();
     const t = unlocked(sim, 'later', 'a');
     expect(t.abil).toBeUndefined();
-    expect(ABILITY_KINDS_LIVE).not.toContain('deploy');
-    expect(sim.abilityStatus(t.uid)).toMatchObject({ id: 'later.doubles', unlocked: false, later: true, reason: 'locked', unlockTier: 3 });
+    expect(ABILITY_KINDS_LIVE).not.toContain('runner');
+    expect(sim.abilityStatus(t.uid)).toMatchObject({ id: 'later.river', unlocked: false, later: true, reason: 'locked', unlockTier: 3 });
   });
 
   test('a hero learns her skill at Lv 7 and ranks it up at Lv 17', () => {
@@ -391,12 +392,15 @@ describe('one live-ability rule (src/data/abilities.js abilityRuns = the sim\'s 
     expect([...ABILITY_KINDS_LIVE].sort()).toEqual([...ABILITY_KINDS_RUN].sort());
     expect([...ABILITY_DEPLOYS_LIVE].sort()).toEqual([...ABILITY_DEPLOYS_RUN].sort());
     expect([...ABILITY_RUNNERS_RUN]).toEqual(['giantBall']);
+    expect([...ABILITY_MOVES_LIVE].sort()).toEqual([...ABILITY_MOVES_RUN].sort());
+    expect([...ABILITY_MOVES_RUN]).toEqual(['push']);
     for (const k of [...ABILITY_KINDS_RUN, 'deploy', 'runner', 'move', 'zone']) expect(ABILITY_KINDS).toContain(k);
   });
 
-  test('who has a button today: every tower row but Kage, Suzu and Chika (deploys, A4), Fuu (move, A5) and Iroha (mirror, A6); Ruri on Moonhound only; every hero skill but Kanna\'s', () => {
+  test('who has a button today: every tower row (A4 deploys, A5 Fuu\'s move, A6 Iroha\'s mirror); only Ruri\'s Star Snatch / River Rush and Kanna\'s skill wait', () => {
     const off = Object.entries(ABILITIES).filter(([, row]) => Array.isArray(row) && !row.some(abilityRuns)).map(([k]) => k).sort();
-    expect(off).toEqual(['chika', 'fuu', 'iroha', 'kage', 'suzu']);
+    expect(off).toEqual([]);
+    for (const k of ['kage', 'suzu', 'chika', 'fuu', 'iroha']) expect(ABILITIES[k].every(abilityRuns), k).toBe(true);
     // Ruri: one entry per familiar path; only Moon Pounce runs (Star Snatch is a move, A5; River Rush a runner, A6)
     expect(ABILITIES.ruri.map((e) => [e.id, abilityRuns(e)])).toEqual([['ruri.moonPounce', true], ['ruri.starSnatch', false], ['ruri.riverRush', false]]);
     const heroOff = Object.entries(ABILITIES).filter(([, row]) => !Array.isArray(row) && !abilityRuns(row.skill)).map(([k]) => k);
@@ -1700,7 +1704,7 @@ describe('the real girls (src/data/abilities.js through the sim)', () => {
     return { sim, t, spawn };
   }
 
-  test('every girl but the three deploy ones (A4), Fuu, Iroha and Kanna learns hers at tier 3 of her ⚡ path; every other hero at Lv 7', () => {
+  test('every girl but Kanna learns hers at tier 3 of her ⚡ path (the A4 deploy girls, Fuu and Iroha too); every other hero at Lv 7', () => {
     const live = [];
     const later = [];
     // (every girl has an ability row since the returning girls' were attached, A3 M3)
@@ -1716,11 +1720,11 @@ describe('the real girls (src/data/abilities.js through the sim)', () => {
       (t.abil ? live : later).push(u.id);
       if (!t.abil) expect(sim.abilityStatus(t.uid)).toMatchObject({ unlocked: false, later: true });
     }
-    expect(later.sort()).toEqual(['chika', 'fuu', 'iroha', 'kage', 'kanna', 'suzu']);
+    expect(later.sort()).toEqual(['kanna']);
     // every other girl with an ability row, the new ones too (Tenka's Critical Mass is a strike; Azami's
-    // deploy is strips, Yuzuha's sentries, Marumi's a runner) and the returning ones that run (A3 M3)
+    // deploy is strips, Yuzuha's sentries, Marumi's a runner) and the returning ones that run (A3 M3; Iroha's mirror, A6)
     expect(live.length).toBe(withRow.length - later.length);
-    for (const id of ['tenka', ...NEW_GIRL_IDS, 'hana', 'ruri', 'noa', 'ena', 'yoriko', 'seiran']) expect(live).toContain(id);
+    for (const id of ['tenka', ...NEW_GIRL_IDS, 'fuu', 'hana', 'ruri', 'noa', 'ena', 'yoriko', 'seiran', 'iroha', 'kage', 'suzu', 'chika']) expect(live).toContain(id);
   });
 
   test('Aoi, Skyfall Volley: 6 arrows, 6× her hit, a certain 0.5 s pin', () => {

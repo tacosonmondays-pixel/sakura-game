@@ -27,13 +27,15 @@ const bell = (n = 3) => ({ club: 'bell', clubN: n });
 describe('the Club cell', () => {
   it('First Bell: "trick on" exactly while it charges her ability at a wave start', () => {
     const rows = [
-      ['kage', {}, 'Bell ●●●'], // Shadow Doubles has no button yet
       ['miko', {}, 'Bell ●●●'], // her Chorus is a rally
       ['hikari', {}, 'Bell ●●●'], // her skill is a rally
       ['aoi', { tiers: 2 }, 'Bell ●●●'], // below ⚡ tier 3: no ability yet
       ['nami', { level: 6 }, 'Bell ●●●'], // below Lv 7
       ['aoi', {}, 'Bell ●●● · trick on'],
       ['shiro', {}, 'Bell ●●● · trick on'],
+      ['kage', {}, 'Bell ●●● · trick on'], // Shadow Doubles (a deploy, A4) charges like any ability
+      ['fuu', {}, 'Bell ●●● · trick on'], // Backdraft Fan (a move, A5) too
+      ['iroha', {}, 'Bell ●●● · trick on'], // Mirror Shift (the mirror deploy, A6) too
       ['nami', {}, 'Bell ●●● · trick on'],
     ];
     for (const [id, o, want] of rows) {

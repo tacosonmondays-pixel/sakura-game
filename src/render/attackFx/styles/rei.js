@@ -54,7 +54,7 @@ export const rei = {
         for (let j = 0; j < 3; j++) {
           const p = ctx.spr(ctx.b.bbN, DECOR, ctx.R.petal, e.x, h, e.z, 0.1, 0.07, 0.45, ctx.col(PETAL), 1);
           if (!p) break;
-          const a = Math.random() * Math.PI * 2;
+          const a = ctx.rand() * Math.PI * 2;
           p.vx = Math.cos(a) * 0.9;
           p.vz = Math.sin(a) * 0.9;
           p.vy = 0.8;

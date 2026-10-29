@@ -2,8 +2,9 @@
 // each written as <scene>-<W>x<H>.png. Battle scenes drive the sim directly (window.__ab, e2e/lib/battleKit.mjs).
 //   m3-bar-returning   mid-wave: Hana, Ruri (Moonhound), Noa and Ena in the ability bar, Yoriko's skill button by her
 //                      portrait (Puppet Hex)
-//   m3-teaser-fuu      Fuu at Returning Gale tier 3: her panel's ability row says "Comes in a later update"
-//   m3-teaser-iroha    Iroha at Mirror Hall tier 3: the same
+//   m3-teaser-fuu      Fuu at Returning Gale tier 3: her panel's ability row (a teaser in M3; since A5 Backdraft Fan
+//                      runs, so the still shows her live row and her bar slot)
+//   m3-teaser-iroha    Iroha at Mirror Hall tier 3: her panel's ability row says "Comes in a later update"
 //   m3-swoop           Kaze's Swoop: Kaze out on a dive at one of the flyers it marked
 //   m3-lance           Storm Lance: the chain through its targets (hero Seiran, a second battle)
 //   m3-firstaid        First Aid Call: the rally ring and glow on the girls around Noa, a life back (the toast and

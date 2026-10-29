@@ -733,4 +733,31 @@ describe('the returning girls in co-op (A3 M3)', () => {
     for (let k = 1; k < lives.length; k++) expect(lives[k]).not.toBe(lives[k - 1]); // never the same life twice
     expect(cs[1].sim.lives).toBe(cs[0].sim.lives);
   }, 240000);
+
+  it('Backdraft Fan (A5, the move kind) through abil on two views: only her owner fires it, a refusal spends nothing, the pushes agree', () => {
+    const st = start({ p1: { loadout: [{ unitId: 'fuu' }, { unitId: 'aoi' }], hero: null } });
+    const cs = views(st);
+    const fuu = upAbil(cs, 1, place(cs, 1, 'fuu'));
+    placeNear(cs, 1, 'aoi', fuu);
+    for (const c of cs) expect(tower(c, fuu).abil).toMatchObject({ id: 'fuu.backdraft', kind: 'move', n: 0 });
+    all(cs, cmd(0, 'auto', [true]));
+    all(cs, cmd(0, 'wave'));
+    // the host's tap on the guest's Fuu: refused, nothing spent
+    expect(all(cs, cmd(0, 'abil', abilArgs(fuu)))).toEqual({ ok: false, reason: 'notYours' });
+    expect(tower(cs[0], fuu).abil.n).toBe(0);
+    const seen = [[], []];
+    for (let i = 0; i < 60000 && seen[0].length < 3 && !['won', 'lost'].includes(cs[0].sim.state); i++) {
+      if (i % 10 === 0 && cs[0].sim.abilityStatus(fuu).ready) all(cs, cmd(1, 'abil', abilArgs(fuu)));
+      step(cs);
+      cs.forEach((c, v) => {
+        for (const ev of c.sim.drainEvents()) if (ev.type === 'ability' && ev.id === 'fuu.backdraft') seen[v].push(`${ev.owner}:${ev.moved}:${ev.targets.join(',')}`);
+      });
+      if (i % 120 === 0) expect(cs[1].hash(), `tick ${i}`).toBe(cs[0].hash());
+    }
+    expect(seen[0].length).toBe(3);
+    expect(seen[1]).toEqual(seen[0]);
+    expect(seen[0].every((x) => x.startsWith('1:'))).toBe(true);
+    expect(seen[0].reduce((n, x) => n + Number(x.split(':')[1]), 0)).toBeGreaterThan(0);
+    expect(cs[1].hash()).toBe(cs[0].hash());
+  }, 240000);
 });

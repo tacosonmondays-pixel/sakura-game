@@ -29,6 +29,7 @@ import { attackHeld, heldTick, heldOff } from './held.js';
 import { hitRadius } from './shapes.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
 import { sentryTick } from './sentries.js';
+import { collectMirrors, reflectStep } from './mirrors.js';
 import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick, vineObjects } from './vines.js';
 import { attackSpikes, sendQuake, groundTick } from './ground.js';
@@ -839,7 +840,9 @@ function projExtra(t, n, f) {
 }
 
 function attackProjectile(sim, t) {
-  const first = volleyFrom(sim, t, t.ox, t.oy);
+  // (a shot leaving a mirror panel is born split, src/sim/mirrors.js: a panel shot never splits, so two panels stacked
+  // on one spot cannot double each other's)
+  const first = volleyFrom(sim, t, t.ox, t.oy, t.stats.relay?.kind === 'mirror' && !!t.origin);
   // a mirror girl with two firing points (Iroha, UNIT_GAPS §4.1): she also fires from where she stands
   const second = t.stats.relay?.both && t.origin && (t.ox !== t.x || t.oy !== t.y) ? volleyFrom(sim, t, t.x, t.y) : null;
   const lead = first || second;
@@ -848,8 +851,11 @@ function attackProjectile(sim, t) {
   return true;
 }
 
-/** One volley of her projectiles from (sx, sy) at the targets in range of it; the first target or null. */
-function volleyFrom(sim, t, sx, sy) {
+/**
+ * One volley of her projectiles from (sx, sy) at the targets in range of it; the first target or null. `panel`: the
+ * volley leaves her mirror panel, so its shots are born split (they never split at a mirror).
+ */
+function volleyFrom(sim, t, sx, sy, panel = false) {
   const spec = gearSpec(t.eff);
   let n = spec.projectiles;
   const targets = selectTargets(sim, sx, sy, spec.range, spec, t.targetMode, n);
@@ -873,7 +879,8 @@ function volleyFrom(sim, t, sx, sy) {
       const extra = spec.splash > 0 ? 0 : shotPierce(t);
       const blast = spec.splash > 0 ? blastRadius(t, spec.splash) : 0;
       const opts = extra ? { spread, pierce: spec.pierce + extra } : blast !== spec.splash ? { spread, splash: blast } : { spread };
-      spawnProjectile(sim, t, spec, tgt, sx, sy, opts);
+      const p = spawnProjectile(sim, t, spec, tgt, sx, sy, opts);
+      if (panel) p.split = true;
     }
   }
   return targets[0];
@@ -1280,13 +1287,20 @@ export function restoreDrone(t, row, i) {
   return d;
 }
 
+/** Her own drones: what her drone limit counts (Drone Surge's drones, `temp`, fly beyond it; src/sim/deploys.js). */
+export function ownDrones(t) {
+  let n = 0;
+  for (const d of t.turrets) if (!d.temp) n++;
+  return n;
+}
+
 /** Does this girl fly roaming drones (Chika)? */
 export function hasRoamingDrones(t) {
   return !!t.turretSpec && t.turretSpec.leash > 0;
 }
 
 function spawnTurret(sim, t) {
-  const n = t.turrets.length;
+  const n = ownDrones(t);
   let tu;
   if (hasRoamingDrones(t)) {
     t.droneSerial++;
@@ -1302,7 +1316,7 @@ function spawnTurret(sim, t) {
 
 function attackTurret(sim, t) {
   const tur = t.stats.turret;
-  if (tur && sim.state === 'wave' && t.turrets.length < tur.max) return spawnTurret(sim, t);
+  if (tur && sim.state === 'wave' && ownDrones(t) < tur.max) return spawnTurret(sim, t);
   if (t.eff.damage > 0) return attackProjectile(sim, t);
   return false;
 }
@@ -1884,7 +1898,7 @@ function updateRoamingDrones(sim, t, spec, dt, ocMul = 1) {
  */
 function buildDrones(sim, t, dt) {
   const tur = t.stats.turret;
-  if (!tur || t.eff.behavior === 'turret' || sim.state !== 'wave' || t.turrets.length >= tur.max) return;
+  if (!tur || t.eff.behavior === 'turret' || sim.state !== 'wave' || ownDrones(t) >= tur.max) return;
   t.buildTimer -= dt;
   if (t.buildTimer > 0) return;
   spawnTurret(sim, t);
@@ -2207,13 +2221,24 @@ function projectileStep(sim, p, dt) {
   p.z = p.arc > 0 ? PROJECTILE_Z + p.arc * 4 * f * (1 - f) : PROJECTILE_Z + p.targetAlt * f;
 }
 
-/** Moves every projectile, resolves contacts, removes spent ones. */
+/**
+ * Moves every projectile, resolves contacts, removes spent ones. While a mirror reflects (Iroha's Mirror Shift /
+ * Infinite Reflection, src/sim/mirrors.js), a shot that has not split yet and lives through its step is tested
+ * against the reflecting mirrors along that step's segment.
+ */
 export function updateProjectiles(sim, dt) {
   const list = sim.projectiles;
+  const mirrors = sim._abilOn > 0 ? collectMirrors(sim) : 0;
   for (let i = 0; i < list.length; i++) {
     const p = list[i];
     if (p.owner.removed && !p.dead) p.dead = true;
-    if (!p.dead) projectileStep(sim, p, dt);
+    if (p.dead) continue;
+    if (mirrors && !p.split) {
+      const ax = p.x;
+      const ay = p.y;
+      projectileStep(sim, p, dt);
+      if (!p.dead) reflectStep(sim, p, ax, ay, mirrors);
+    } else projectileStep(sim, p, dt);
   }
   let n = 0;
   for (let i = 0; i < list.length; i++) if (!list[i].dead) list[n++] = list[i];
@@ -2234,6 +2259,16 @@ export function updateTraps(sim, dt) {
       }
       continue;
     }
+    // a Bell Carpet trap (Suzu's ⚡, src/sim/deploys.js) fizzles when its time runs out
+    if (tr.extra) {
+      tr.ttl -= dt;
+      if (tr.ttl <= 0) {
+        tr.dead = true;
+        removedAny = true;
+        sim._emit('trapExpired', { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid, extra: true });
+        continue;
+      }
+    }
     if (!tr.armed) {
       tr.armLeft -= dt;
       if (tr.armLeft <= 0) tr.armed = true;
@@ -2253,8 +2288,8 @@ export function updateTraps(sim, dt) {
     tr.dead = true;
     removedAny = true;
     const owner = tr.owner;
-    owner.trapCount = Math.max(0, owner.trapCount - 1);
-    sim._emit('trapTriggered', { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid });
+    if (!tr.extra) owner.trapCount = Math.max(0, owner.trapCount - 1);
+    sim._emit('trapTriggered', tr.extra ? { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid, extra: true } : { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid });
     // Potential N3 on traps (Suzu): every Nth of her traps that goes off is the rhythm's
     const p = owner.stats?.proc;
     let boom = spec;
