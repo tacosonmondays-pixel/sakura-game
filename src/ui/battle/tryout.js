@@ -10,17 +10,19 @@ import { fmtNum } from '../format.js';
 import { svgEl, girlTile } from '../components.js';
 import { rarityTag, moreSticker } from '../kit.js';
 import { onEscape } from '../hold.js';
+import { reduced } from '../motion.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { ROLES } from '../../data/types.js';
 import { PEP_CARDS, RARITIES, TRYOUT } from '../../data/tryout.js';
 import { assignProgress, dareOf, chooserOf } from '../../sim/tryout/index.js';
 import { rarityWeights, pityFloor, hasVarsity } from '../../sim/tryout/offers.js';
-import { lengthOf, buildTryoutPlan } from '../../sim/tryout/plan.js';
+import { buildTryoutPlan } from '../../sim/tryout/plan.js';
 import { passMax } from '../../sim/tryout/breaks.js';
-import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN, rewardLines, SHARE_TEXT, PHOTO_TEXT, GIRL_CARD_TEXT, TIMETABLE_TEXT, CAP_TEXT, MORE_TEXT } from '../text/tryout.js';
-import { timetableModel, timetableStrip, timetableMini, bandParts, markEl, previewStrip, periodPreview } from './tryout/timetable.js';
+import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN, rewardLines, SHARE_TEXT, PHOTO_TEXT, GIRL_CARD_TEXT, TIMETABLE_TEXT, CAP_TEXT, MORE_TEXT, RANDOM_TEXT, EXTENDED_TEXT } from '../text/tryout.js';
+import { timetableModel as baseModel, timetableStrip, timetableMini, bandParts, markEl, previewStrip, periodPreview, extendedCells } from './tryout/timetable.js';
 import { capBar, barWho, oddsTable, capsTable } from './tryout/caps.js';
+import { isRandomRun, isExtendedRun, viewLength, revealOf, revealStep, extendedPast, FULL_PERIODS } from './tryout/adapters.js';
 import { encodeShareCode } from '../../systems/tryoutRuns.js';
 import { selectedCosmetic } from '../../systems/tryoutJar.js';
 import { store } from '../../core/store.js';
@@ -55,7 +57,13 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   const { sim } = ctx;
   const ty = () => sim.tryout;
   const me = () => ty().players[mySlot];
-  const len = lengthOf(ty().length);
+  // Extended Day (§20.8, minimal): the UI draws the Full Day's twelve (finite loops), and past wave 48 counts waves;
+  // Random Class (§20.4): the pick sheet is a reveal, no buttons (both read through ./tryout/adapters.js)
+  const len = viewLength(ty());
+  const random = isRandomRun(ty());
+  const extended = isExtendedRun(ty());
+  /** The strip's cells (an Extended Day: P12 is not the Final, the day goes on after it). */
+  const timetableModel = (...a) => (extended ? extendedCells(baseModel(...a)) : baseModel(...a));
   let moving = null; // uid of the girl a Hall Pass is moving
   let shown = '';
   // the pick sheet's timetable preview (the key of the open cell, kept over a repaint) and its MORE sheet
@@ -66,7 +74,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   let offMoreTab = null;
   /** The run's plan (pure: its seed, Grade, length and map), for the timetable previews. */
   let planMemo = null;
-  const plan = () => planMemo || (planMemo = buildTryoutPlan({ seed: ty().seed, grade: ty().grade, length: ty().length, mapId: ty().mapId }));
+  // (an Extended Day previews the Full Day's plan: §20.1, P1-12 are exactly the Full Day)
+  const plan = () => planMemo || (planMemo = buildTryoutPlan({ seed: ty().seed, grade: ty().grade, length: isExtendedRun(ty()) ? 'full' : ty().length, mapId: ty().mapId }));
   // co-op Subject suggestions (§11): a room note outside lockstep (session.sendNote / 'note'), never a sim
   // command. mySuggest: what I suggested to the chooser; allySuggest: what my ally suggested to me
   let mySuggest = null; // { period, k }
@@ -123,12 +132,16 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     // the head is the timetable's thin band (§13.4): "P3 · wave 2/4 · Science", the Grade twist, the score, and
     // under it the run's cells in miniature
     const band = bandParts(t, len, sim.wave);
-    const label = t.base ? band.label : p >= len.periods ? TIMETABLE_TEXT.final : TIMETABLE_TEXT.cell(p);
+    let label = t.base ? band.label : p >= len.periods ? TIMETABLE_TEXT.final : TIMETABLE_TEXT.cell(p);
+    // Extended Day: P12 is not the Final; past the Full Day's 48 waves the head counts waves ("Wave 53 · Stay Late")
+    const past = extendedPast(sim, t.base ? sim.wave : sim.wave + 1);
+    if (extended && label === TIMETABLE_TEXT.final) label = TIMETABLE_TEXT.cell(Math.min(p, FULL_PERIODS));
+    if (past) label = EXTENDED_TEXT.wave(past.wave);
     head.replaceChildren(...[
-      h('span.ty-band',
+      h('span.ty-band', past ? { 'data-testid': 'ty-band-wave' } : null,
         t.base ? null : h('span.ty-band-next', `${TIMETABLE_TEXT.next} · `),
         h('b.ty-band-p', label),
-        band.wave ? h('span', ` · ${band.wave}`) : null,
+        past ? h('span', ` · ${EXTENDED_TEXT.stayLate}`) : band.wave ? h('span', ` · ${band.wave}`) : null,
         // while a period runs, its Subject (the class rule in play) is named in the head
         band.subject ? h('span.ty-head-subj', { 'data-testid': 'ty-head-subject', title: band.subjectLine }, ` · ${band.subject}`) : null,
         // a Grade 8+ period affix (sim.tryout.affixes[period], a TRYOUT.dares id)
@@ -179,7 +192,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     const pack = TRYOUT.arrival[Math.max(0, Math.min(4, o.rarity - (TRYOUT.grades[ty().grade]?.arrivalDown || 0)))];
     const tier = pack.tier;
     const paths = tier > 0 ? def?.paths || [] : [];
-    const pathRow = paths.length > 1 ? h('span.ty-paths', ...paths.map((pa, k) => h('button.bt-btn.ty-path', {
+    const pathRow = paths.length > 1 && !random ? h('span.ty-paths', ...paths.map((pa, k) => h('button.bt-btn.ty-path', {
       'data-testid': `ty-path-${i}-${k}`, onclick: (e) => { e.stopPropagation(); take(i, k); },
     }, pa.name || `Path ${k + 1}`))) : null;
     const G = GIRL_CARD_TEXT;
@@ -341,12 +354,18 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     pickStrip?.close();
     pickStrip = null;
     ttOpen = o ? keep : null;
+    // (Random Class: the card the last reveal landed on, said once in the feed when its sheet closes)
+    if (random && rvLast && rvLast.seq !== o?.seq) {
+      ctx.feed?.push(rvLast.name ? RANDOM_TEXT.landed(rvLast.name) : RANDOM_TEXT.handed, 'good', { key: 'ty-random', ms: 2200 });
+      rvLast = null;
+    }
     if (!o) {
       closeMore();
       sheet.hidden = true;
       syncSheets();
       return;
     }
+    if (random) return paintReveal(o);
     const pay = Math.floor((TRYOUT.handIn.base + TRYOUT.handIn.perPeriod * ty().period) * sim.cashScale);
     const last = o.pick === len.picks.length;
     const why = ty().periods.length ? ty().periods[ty().periods.length - 1] : null;
@@ -355,6 +374,9 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     if (p.bank) reasons.push(h('span.ty-why', markEl(1), 'Handed in'));
     const partner = ty().coop ? ty().players.find((_, i) => i !== mySlot) : null;
     const cards = o.cards.map((c, i) => (c.girl ? girlCard(c, i, o) : c.varsityGirl ? varsityCard(c, i) : pepCard(c, i)));
+    // (a repaint under an open MORE keeps its focus: the same control, else its close button; fix check, Oct 29)
+    const moreFocus = moreOpen && sheet.querySelector('.ty-more-wrap')?.contains(document.activeElement) ? document.activeElement : null;
+    const moreFocusId = moreFocus?.dataset?.testid || null;
     sheet.replaceChildren(h('div.ty-sheet.ty-pick-sheet.ui-day', { role: 'dialog', 'aria-label': `Pick ${o.pick}` },
       h('div.ty-shead',
         h('b.ty-stitle', o.kind === 'girls' ? `Pick ${o.pick} · Tryouts` : `Pick ${o.pick} · Pep Talk`),
@@ -382,12 +404,74 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       offMoreTab = () => document.removeEventListener('keydown', onTab, true);
       offMoreEsc?.();
       offMoreEsc = onEscape(() => closeMore(true));
+      if (moreFocus) (box.querySelector(`[data-testid="${moreFocusId}"]`) || box.querySelector('[data-testid="ty-more-close"]'))?.focus({ preventScroll: true });
     }
     sheet.hidden = false;
     syncSheets();
   }
 
+  // ---- Random Class: the pick reveal (§20.4, §20.8) --------------------------------------------------------------
+  // The sheet deals the offer's cards with a "Random Class" ribbon and no buttons; a highlight steps across them and
+  // lands on the card the Sim will take (revealOf / revealStep: the Sim's own ticks, never the clock). Reduce Motion:
+  // no stepping, the drawn card marked at once. The Sim lands the pick at its tick; the sheet then closes.
+  let rvKey = '';
+  let rvLast = null; // { seq, name } of the open reveal's drawn card
+  /** A drawn card's name for the feed. */
+  function drawnName(c) {
+    if (!c) return null;
+    if (c.girl) return UNIT_MAP[c.girl]?.name || c.girl;
+    if (c.varsityGirl) return `${UNIT_MAP[c.varsityGirl]?.name || c.varsityGirl} · ${GIRL_CARD_TEXT.varsity}`;
+    return cardText(c).name;
+  }
+  function paintReveal(o) {
+    const partner = ty().coop ? ty().players.find((_, i) => i !== mySlot) : null;
+    const cards = o.cards.map((c, i) => {
+      const el = c.girl ? girlCard(c, i, o) : c.varsityGirl ? varsityCard(c, i) : pepCard(c, i);
+      // (taps do nothing: the Sim chooses; the cards stay readable, out of the tab order)
+      el.tabIndex = -1;
+      el.setAttribute('aria-disabled', 'true');
+      el.removeAttribute('role');
+      return el;
+    });
+    rvKey = '';
+    sheet.replaceChildren(h('div.ty-sheet.ty-pick-sheet.ty-rv-sheet.ui-day', { role: 'dialog', 'aria-label': `Pick ${o.pick} · ${RANDOM_TEXT.ribbon}`, 'data-testid': 'ty-reveal' },
+      h('span.ty-ribbon.ty-rv-ribbon', { 'data-testid': 'ty-reveal-ribbon' }, RANDOM_TEXT.ribbon),
+      h('div.ty-shead',
+        h('b.ty-stitle', o.kind === 'girls' ? `Pick ${o.pick} · Tryouts` : `Pick ${o.pick} · Pep Talk`),
+        o.follow ? null : h('span.ty-credits', `${o.credits} credit${o.credits === 1 ? '' : 's'} → `, rTag(o.rarity, { testid: 'ty-pick-rarity' })),
+        h('span.ty-rv-state', { 'data-testid': 'ty-reveal-state', 'aria-live': 'polite' }, RANDOM_TEXT.drawing)),
+      h(`div.ty-deck.ty-rv-deck.n${cards.length}`, { 'data-testid': 'ty-reveal-deck' }, ...cards),
+      partner ? h('span.ty-mute', { 'data-testid': 'ty-partner' }, partner.win === 'pick' ? 'Partner: drawing…' : 'Partner: ✓') : null));
+    sheet.classList.add('ty-rv-wrap');
+    sheet.hidden = false;
+    syncSheets();
+    stepReveal();
+  }
+
+  /** Every frame (update): moves the highlight as the Sim's ticks go by; cheap when nothing changed. */
+  function stepReveal() {
+    if (!random || sheet.hidden) return;
+    const deck = sheet.querySelector('.ty-rv-deck');
+    const r = revealOf(sim, mySlot);
+    if (!deck || !r) return;
+    if (Number.isInteger(r.index)) rvLast = { seq: r.seq, name: r.index >= 0 ? drawnName(r.card || me().offer?.cards?.[r.index]) : null };
+    const st = revealStep(r, deck.children.length, { reduced: reduced() });
+    const key = `${r.seq}:${st.at}:${st.landed}`;
+    if (key === rvKey) return;
+    rvKey = key;
+    [...deck.children].forEach((c, i) => {
+      c.classList.toggle('ty-rv-on', i === st.at && !st.landed);
+      c.classList.toggle('ty-rv-got', i === st.at && st.landed);
+    });
+    deck.dataset.at = String(st.at);
+    deck.dataset.landed = st.landed ? 'true' : 'false';
+    const state = sheet.querySelector('[data-testid="ty-reveal-state"]');
+    if (state) state.textContent = st.landed ? RANDOM_TEXT.landing : RANDOM_TEXT.drawing;
+  }
+
   function take(i, path = 0) {
+    // (Random Class: the Sim takes every pick; a tap on a card does nothing)
+    if (random) return;
     const o = me().offer;
     if (!o) return;
     const r = send('tr', ['take', o.seq, i, path]);
@@ -398,7 +482,10 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   function paintClass() {
     const t = ty();
     const next = t.period + (t.started >= t.period ? 1 : 0);
-    if (t.base || t.done || sim.state === 'wave' || sim.state === 'won' || sim.state === 'lost' || next > len.periods || t.started < 1) {
+    // (an Extended Day has no last period: the class choice comes before every one)
+    // (Random Class: the class choice waits while my reveal is open, so the reveal sheet never covers it)
+    if (t.base || t.done || sim.state === 'wave' || sim.state === 'won' || sim.state === 'lost' || (!extended && next > len.periods) || t.started < 1
+      || (random && me().win === 'pick')) {
       cls.hidden = true;
       return;
     }
@@ -426,7 +513,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       mySug >= 0 && pair ? h('div.ty-suggest', { 'data-testid': 'ty-suggested' }, 'You suggested: ', h('b', SUBJECT_TEXT[pair[mySug]]?.name || pair[mySug])) : null,
       t.affixes?.[next] ? h('div.ty-class-row.ty-affix', { 'data-testid': 'ty-class-affix' }, h('b', 'Grade twist: '), DARE_SHORT[t.affixes[next]] || t.affixes[next],
         h('span.ty-long.ty-mute', ` (${DARE_TEXT[t.affixes[next]] || ''})`)) : null,
-      h('div.ty-class-row',
+      // (Random Class: no Double Dare, §20.4)
+      random ? null : h('div.ty-class-row',
         h(`button.bt-btn.ty-dare${me().dare ? '.on' : ''}`, { 'data-testid': 'ty-dare', onclick: () => send('tr', ['dare', me().dare ? 0 : 1]) },
           `Double Dare: ${me().dare ? 'on' : 'off'} · ${DARE_SHORT[dare.id] || dare.id}`),
         h('span.ty-long.ty-mute', ` ${DARE_TEXT[dare.id] || dare.id} · ${DARE_GAIN}${t.coop ? ' · both must tap' : ''}`),
@@ -527,7 +615,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     for (let p = 1; p <= len.periods; p++) {
       const rec = byPeriod.get(p);
       const pk = pickAt(p);
-      const label = p === len.periods ? TIMETABLE_TEXT.final : TIMETABLE_TEXT.cell(p);
+      const label = p === len.periods && !extended ? TIMETABLE_TEXT.final : TIMETABLE_TEXT.cell(p);
       if (!rec) {
         rows.push(h('div.ty-grid-row.absent', h('b.ty-grid-p', label), h('span.ty-grid-marks', h('i.ty-mk.e'), h('i.ty-mk.e'), h('i.ty-mk.e'))));
         continue;
@@ -558,18 +646,25 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     // what the run paid (§13.9); a practice run shows only what it banked before it turned practice
     const lines = rewardLines(run).filter((l) => !practice || l.key === 'marbles' || l.key === 'box' || l.key === 'coins');
     const paidNothing = practice && !(run?.marbles?.paid || run?.box?.fill || run?.coins?.coins);
-    const code = encodeShareCode(res);
+    // (Extended Day: no share code in v1, the seed only, §20.6)
+    const code = extended ? null : encodeShareCode(res);
     const won = sim.state === 'won';
+    // Extended Day (§20.8, minimal): the title is Home Time and the headline the wave the day reached
+    const waveN = Math.max(0, sim.wavesCleared ?? sim.wave ?? 0);
+    const title = extended ? EXTENDED_TEXT.homeTime : won ? PHOTO_TEXT.title : PHOTO_TEXT.defeat;
     const runScore = res.runScore[mySlot];
     const pl = res.players[mySlot];
     const picks = h('div.ty-picks', ...pl.picks.map((p) => h('span.ty-pickchip', rTag(p.rarity), h('span', pickName(p)))));
     const backdrop = selectedCosmetic(store.profile, 'backdrop');
-    photo.replaceChildren(h(`div.ty-sheet.ty-photo.ui-day${won ? '' : '.dismissed'}${backdrop ? `.ty-bd.ty-${backdrop.replace('_', '-')}` : ''}`, { 'data-testid': 'ty-photo-sheet', role: 'dialog', 'aria-label': won ? PHOTO_TEXT.title : PHOTO_TEXT.defeat },
-      practice ? h('span.ty-ribbon', { 'data-testid': 'ty-photo-practice' }, PHOTO_TEXT.practice) : null,
-      h('div.ty-shead', h('b.ty-stitle', won ? PHOTO_TEXT.title : PHOTO_TEXT.defeat),
-        h('span.ty-mute', won ? PHOTO_TEXT.allPeriods(res.periods.length, sim.lives) : PHOTO_TEXT.reached(res.periods.length + 1))),
+    photo.replaceChildren(h(`div.ty-sheet.ty-photo.ui-day${won ? '' : '.dismissed'}${backdrop ? `.ty-bd.ty-${backdrop.replace('_', '-')}` : ''}`, { 'data-testid': 'ty-photo-sheet', role: 'dialog', 'aria-label': title },
+      practice ? h('span.ty-ribbon', { 'data-testid': 'ty-photo-practice' }, PHOTO_TEXT.practice)
+        : random ? h('span.ty-ribbon.ty-rv-ribbon', { 'data-testid': 'ty-photo-random' }, RANDOM_TEXT.ribbon) : null,
+      h('div.ty-shead', h('b.ty-stitle', title),
+        h('span.ty-mute', extended ? EXTENDED_TEXT.reachedWave(waveN, res.periods.length) : won ? PHOTO_TEXT.allPeriods(res.periods.length, sim.lives) : PHOTO_TEXT.reached(res.periods.length + 1))),
       h('div.ty-photo-main',
-        h('div.ty-photo-left', pose(pl.squad, pl),
+        h('div.ty-photo-left',
+          extended ? h('div.ty-wave-big', { 'data-testid': 'ty-photo-wave' }, EXTENDED_TEXT.wave(waveN)) : null,
+          pose(pl.squad, pl),
           h('div.ty-score-big', h('span.lbl', PHOTO_TEXT.score), h('span.num', fmtNum(runScore, 'count', { detail: true }))),
           run?.best?.isNew ? h('div.ty-best', { 'data-testid': 'ty-photo-best' }, PHOTO_TEXT.best)
             : run?.best?.best > 0 ? h('div.ty-mute', PHOTO_TEXT.bestIs(fmtNum(run.best.best, 'count', { detail: true }))) : null),
@@ -578,7 +673,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
           pl.picks.length ? picks : null,
           run && !paidNothing && lines.length ? h('div.ty-rewards', { 'data-testid': 'ty-photo-rewards' },
             ...lines.map((l) => h(`div.ty-reward.ty-reward-${l.key}`, { 'data-testid': `ty-reward-${l.key}` }, l.text))) : null,
-          code ? h('div.ty-mute.ty-code', { 'data-testid': 'ty-share-code' }, `${SHARE_TEXT.title}: `, h('b', code)) : null)),
+          code ? h('div.ty-mute.ty-code', { 'data-testid': 'ty-share-code' }, `${SHARE_TEXT.title}: `, h('b', code))
+            : extended ? h('div.ty-mute.ty-code', { 'data-testid': 'ty-seed-only' }, EXTENDED_TEXT.seedOnly(res.seed ?? ty().seed)) : null)),
       h('div.ty-acts.ty-photo-acts',
         h('button.bt-cta', { 'data-testid': 'ty-again', onclick: () => ctx.tryoutAgain?.() }, PHOTO_TEXT.again),
         h('button.bt-btn', { 'data-testid': 'ty-hub', onclick: () => ctx.quit() }, PHOTO_TEXT.hub),
@@ -620,7 +716,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       squadN = p.squad.length;
       import('../../models/index.js').then((m) => m.preloadModels(fresh, { skins: ctx.skins || {} })).catch(() => {});
     }
-    const sig = `${sim.wave}:${sim.state}:${t.period}:${t.score + t.periodScore}:${sim.stats.leaks}:${JSON.stringify(t.ctr[mySlot])}:${p.win}:${p.passes}:${p.undo.length}:${p.snack}:${p.erasers}:${p.bank}:${t.players.map((x) => `${x.win}${x.dare ? 1 : 0}`).join()}:${t.nextSubject}:${t.subject}`;
+    const sig = `${sim.wave}:${sim.state}:${t.period}:${t.score + t.periodScore}:${sim.stats.leaks}:${JSON.stringify(t.ctr[mySlot])}:${p.win}:${p.passes}:${p.undo.length}:${p.snack}:${p.erasers}:${p.bank}:${t.players.map((x) => `${x.win}${x.dare ? 1 : 0}`).join()}:${t.nextSubject}:${t.subject}:${p.offer?.seq ?? ''}`;
+    stepReveal();
     if (sig === last) return;
     last = sig;
     paintTracker();

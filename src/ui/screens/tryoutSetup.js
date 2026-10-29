@@ -18,15 +18,48 @@ import { portraitHTML } from '../../art/portraits.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { isOwned } from '../../systems/unlocks.js';
 import {
-  halfCleared, TRYOUT_GRADES, gradeOpen, gradeCleared, newRunSeed, beforeClass, newRunRecord, putTryoutRun, activePerks, weeklyState, parseShareCode,
-  practiceOpen,
+  TRYOUT_GRADES, gradeOpen, gradeCleared, newRunSeed, beforeClass, newRunRecord, putTryoutRun, activePerks, weeklyState, parseShareCode,
+  practiceOpen, RUN_LENGTHS, lengthOpen,
 } from '../../systems/tryoutRuns.js';
-import { LENGTH_NAMES, JAR_TEXT, WEEKLY_TEXT, SHARE_TEXT, CLASS_TEXT, gradeTwist, gradeWhy } from '../text/tryout.js';
+import { LENGTH_NAMES, JAR_TEXT, WEEKLY_TEXT, SHARE_TEXT, CLASS_TEXT, EXTENDED_TEXT, RANDOM_TEXT, gradeTwist, gradeWhy } from '../text/tryout.js';
 import { beforeClassTimetable, closeBeforeClassTimetable } from '../battle/tryout/timetable.js';
 import { fullTag } from './tryoutTag.js';
 
 /** Before Class's choices survive a redraw and a re-render (not a reload: a new seed then). */
 let pending = null;
+
+/**
+ * The run options a Before Class shows and starts with (§20.8): Extended Day and Random Class only on a normal day
+ * (the Weekly and a shared code play a fixed Half or Full Day, Random Class off, §20.6).
+ * @param {{ mode: string, length: string, random?: boolean }} pend
+ * @returns {{ length: string, random: boolean }}
+ */
+export function setupOptions(pend) {
+  const normal = pend?.mode === 'normal';
+  const length = pend?.length === 'full' || (normal && pend?.length === 'after') ? pend.length : 'half';
+  return { length, random: normal && pend?.random === true };
+}
+
+/**
+ * Why Start class waits (null: it may start). Random Class needs no picks: the Sim draws the three (§20.4).
+ * @param {{ pick: string[], random?: boolean, mode: string }} pend
+ * @param {number} start the squad's starting size
+ */
+export function startWhy(pend, start) {
+  if (setupOptions(pend).random) return null;
+  const n = pend?.pick?.length || 0;
+  return n === start ? null : CLASS_TEXT.pickMore(start - n);
+}
+
+/** The New Run record's options from a Before Class (newRunRecord's arguments past the profile). */
+export function startArgs(pend, { simId = null } = {}) {
+  const { length, random } = setupOptions(pend);
+  return {
+    seed: pend.seed, grade: pend.grade, length, mapId: pend.mapId, hero: pend.hero, squad: random ? [] : pend.pick.slice(), simId,
+    perks: pend.perks, ...(random ? { random: true } : null),
+    ...(pend.mode === 'weekly' ? { weekly: pend.week } : null), ...(pend.mode === 'practice' ? { practice: true, shared: true } : null),
+  };
+}
 
 /** The theme words of a map card ("Sakura · 2 roads"). */
 const THEME_WORDS = { sakura: 'Sakura', lake: 'Lakeshore', shrine: 'Shrine', mountain: 'Mountain', marsh: 'Marsh', foundry: 'Foundry', festival: 'Festival', volcano: 'Volcano', snow: 'Snow', night: 'Night', arena: 'Arena', city: 'City', campus: 'Campus' };
@@ -49,7 +82,7 @@ function fresh(p, mode, fixed = null) {
   const bc = beforeClass(p, seed, grade, 0, { floor: weekly, perks });
   const length = fixed?.length || 'half';
   return {
-    ...bc, mode, length, perks, redraw: 0, pick: [], week: fixed?.week ?? null,
+    ...bc, mode, length, perks, redraw: 0, pick: [], week: fixed?.week ?? null, random: false,
     maps: fixed?.mapId ? [fixed.mapId] : bc.maps, mapId: fixed?.mapId || bc.maps[0],
     hero: bc.heroes.includes(p.formation?.hero) ? p.formation.hero : bc.heroes[0],
   };
@@ -100,15 +133,19 @@ export function renderSetup(root, params = {}) {
     const mode = pending.mode;
     const free = mode === 'normal';
     const g = TRYOUT.grades[pending.grade];
-    const len = TRYOUT.lengths[pending.length] || TRYOUT.lengths.half;
+    const opts = setupOptions(pending);
+    const len = TRYOUT.lengths[opts.length === 'after' ? 'full' : opts.length] || TRYOUT.lengths.half;
     const start = TRYOUT.squad.start;
-    const ready = pending.pick.length === start;
+    const waitWhy = startWhy(pending, start);
+    const ready = !waitWhy;
     panel.dataset.mode = mode;
+    panel.dataset.length = opts.length;
+    panel.dataset.random = opts.random ? 'on' : 'off';
 
     // ---- the head: what kind of day this is
     const title = mode === 'weekly' ? `${WEEKLY_TEXT.name} · Grade ${pending.grade}`
       : mode === 'practice' ? `Practice · ${LENGTH_NAMES[pending.length]} · Grade ${pending.grade}`
-        : `${LENGTH_NAMES[pending.length]} · Grade ${pending.grade}`;
+        : `${LENGTH_NAMES[pending.length]} · Grade ${pending.grade}${opts.random ? ` · ${RANDOM_TEXT.name}` : ''}`;
     const head = h('div.ty-bc-head',
       h('h2.ty-bc-title', title),
       mode === 'weekly' ? h('p.ty-bc-note', `${WEEKLY_TEXT.line} ${WEEKLY_TEXT.reward}`) : null,
@@ -124,6 +161,9 @@ export function renderSetup(root, params = {}) {
 
     // ---- the Grade row (a normal run picks; the Weekly and a shared seed are fixed) and the length
     let gradeBox = null;
+    // Random Class (§20.4, a normal day only): the switch rides in the squad's row, its help line in the foot (both cost
+    // no row of their own: the six stay above the foot at 844 x 390 and 1280 x 720)
+    let randomSwitch = null;
     if (free) {
       const items = Array.from({ length: TRYOUT_GRADES }, (_, i) => {
         const n = i + 1;
@@ -145,18 +185,28 @@ export function renderSetup(root, params = {}) {
         if (!pending.maps.includes(pending.mapId)) pending.mapId = pending.maps[0];
         draw();
       }, { label: CLASS_TEXT.grade, testidPrefix: 'tryout-grade-', min: 40, cls: 'ty-bc-grades' });
-      const lengths = TRYOUT.lengths.full ? segRow(['half', 'full'].map((id) => {
-        const locked = id === 'full' && !halfCleared(p);
-        return { id, label: LENGTH_NAMES[id], locked, title: locked ? CLASS_TEXT.full : LENGTH_NAMES[id] };
+      // Half Day · Full Day · Extended Day (§20.8): a length waits for the clear before it (halfCleared, fullCleared)
+      const lengths = TRYOUT.lengths.full ? segRow(RUN_LENGTHS.map((id) => {
+        const st = lengthOpen(p, id);
+        const reason = st.why === 'full' ? EXTENDED_TEXT.locked : CLASS_TEXT.full;
+        return { id, label: LENGTH_NAMES[id], locked: !st.open, title: st.open ? LENGTH_NAMES[id] : reason, why: reason };
       }), pending.length, (id, it) => {
         if (it.locked) {
-          why = CLASS_TEXT.full;
+          why = it.why;
           return paintLine();
         }
         why = null;
         pending.length = id;
         draw();
-      }, { label: CLASS_TEXT.length, testidPrefix: 'tryout-length-', min: 104, cls: 'ty-bc-lengths' }) : null;
+      }, { label: CLASS_TEXT.length, testidPrefix: 'tryout-length-', min: 76, cls: 'ty-bc-lengths' }) : null;
+      randomSwitch = h(`button.ui-opt.ty-switch.ty-bc-random${opts.random ? '.on' : ''}`, {
+        type: 'button', 'data-testid': 'tryout-random', 'aria-pressed': opts.random ? 'true' : 'false',
+        'aria-label': `${RANDOM_TEXT.name}: ${opts.random ? RANDOM_TEXT.on : RANDOM_TEXT.off}`, 'aria-describedby': 'ty-bc-random-help',
+        onclick: () => {
+          pending.random = !opts.random;
+          draw();
+        },
+      }, h('span.ty-switch-knob', { 'aria-hidden': 'true' }), h('span', RANDOM_TEXT.name));
       // the Grade's line (its twist, or why a tapped Grade is locked) sits in the head beside the title, right over the
       // Grade row; the timetable strip takes the line's old place under the row, one slim row (the six stay above the
       // foot, R2 review)
@@ -186,25 +236,32 @@ export function renderSetup(root, params = {}) {
 
     // ---- the six: tap 3 (a girl tile each; the kit's tag chip above her caption: one short word, the full words in its
     // title and her spoken name. Every draft tile is drawn as owned, a Loaner too, so the tag shows on each)
-    const tiles = pending.draft.map((id, i) => {
-      const picked = pending.pick.includes(id);
+    // (Random Class: the six the Sim draws from, its first draw's, never a Redraw's or Bigger Draft's; shown, not
+    // pickable: the class draws the three at the bell, §20.4)
+    const six = opts.random ? beforeClass(p, pending.seed, pending.grade, 0, { perks: null }).draft : pending.draft;
+    const tiles = six.map((id, i) => {
+      const picked = !opts.random && pending.pick.includes(id);
       const mine = mode !== 'weekly' && isOwned(p, id);
       const full = mode === 'weekly' ? CLASS_TEXT.floor : mine ? CLASS_TEXT.yours : CLASS_TEXT.loaner;
       const short = mode === 'weekly' ? CLASS_TEXT.floorShort : mine ? CLASS_TEXT.yoursShort : CLASS_TEXT.loaner;
       const t = girlTile(id, {
         owned: true, selected: picked, potential: mine ? undefined : 0, level: mine ? p.units?.[id]?.level ?? null : null, tag: short, testid: `tryout-draft-${i}`, cls: 'ty-draft',
         onClick: () => {
+          if (opts.random) return;
           if (pending.pick.includes(id)) pending.pick = pending.pick.filter((x) => x !== id);
           else if (pending.pick.length < start) pending.pick.push(id);
           else return toast(`Pick exactly ${start}. Tap a picked girl to put her back first.`, 'info');
           draw();
         },
       });
-      t.setAttribute('aria-pressed', picked ? 'true' : 'false');
+      if (opts.random) {
+        t.classList.add('ty-drawn');
+        t.setAttribute('aria-disabled', 'true');
+        t.tabIndex = -1;
+      } else t.setAttribute('aria-pressed', picked ? 'true' : 'false');
       fullTag(t, short, full);
       return t;
     });
-    const left = start - pending.pick.length;
     const redraws = TRYOUT.squad.redraws - pending.redraw;
     const redraw = secondaryBtn(redraws > 0 ? CLASS_TEXT.redraw(redraws) : CLASS_TEXT.redrawn, {
       icon: 'refresh', testid: 'tryout-redraw', disabled: redraws <= 0,
@@ -215,9 +272,10 @@ export function renderSetup(root, params = {}) {
         draw();
       },
     });
-    const squad = h('div.ty-bc-squad',
-      h('div.ty-bc-row', h('span.lbl.ty-bc-lbl', CLASS_TEXT.squad(pending.pick.length, start)), redraw),
-      h('div.ty-bc-six', { role: 'group', 'aria-label': CLASS_TEXT.squad(pending.pick.length, start), 'data-n': String(tiles.length) }, tiles));
+    const squadLbl = opts.random ? RANDOM_TEXT.squad : CLASS_TEXT.squad(pending.pick.length, start);
+    const squad = h(`div.ty-bc-squad${opts.random ? '.random' : ''}`,
+      h('div.ty-bc-row', h('span.lbl.ty-bc-lbl', { 'data-testid': 'tryout-squad-label' }, squadLbl), opts.random ? null : redraw, randomSwitch),
+      h('div.ty-bc-six', { role: 'group', 'aria-label': opts.random ? `${squadLbl}. ${RANDOM_TEXT.six}` : squadLbl, 'data-n': String(tiles.length), 'data-testid': 'tryout-six' }, tiles));
 
     // ---- the hero picker: one option each (her portrait, name and whose she is)
     const heroes = h('div.ty-bc-heroes', { role: 'radiogroup', 'aria-label': CLASS_TEXT.hero, 'data-testid': 'tryout-hero' },
@@ -236,14 +294,16 @@ export function renderSetup(root, params = {}) {
 
     // ---- the foot: the facts, the Desk Supplies, Start class (the one yellow) with its reason
     const perkNames = Object.keys(pending.perks || {}).map((k) => JAR_TEXT[k]?.name || k);
-    const erasers = g.erasers + (pending.perks?.eraser ? 1 : 0);
+    // (Random Class: no Erasers, §20.4)
+    const erasers = opts.random ? 0 : g.erasers + (pending.perks?.eraser ? 1 : 0);
     const startBtn = primaryBtn(CLASS_TEXT.start, {
-      icon: 'play', testid: 'tryout-start', disabled: !ready, reason: ready ? null : CLASS_TEXT.pickMore(left),
+      icon: 'play', testid: 'tryout-start', disabled: !ready, reason: waitWhy,
       onClick: () => {
-        const rec = newRunRecord(store.profile, {
-          seed: pending.seed, grade: pending.grade, length: pending.length, mapId: pending.mapId, hero: pending.hero, squad: pending.pick, simId: SIM_ID,
-          perks: pending.perks, ...(mode === 'weekly' ? { weekly: pending.week } : null), ...(mode === 'practice' ? { practice: true, shared: true } : null),
-        });
+        const args = startArgs(pending, { simId: SIM_ID });
+        const rec = newRunRecord(store.profile, args);
+        // (the run's options ride on its record for the Sim's config, src/ui/battle/setup.js createTryoutSim)
+        rec.length = args.length;
+        if (args.random) rec.random = true;
         putTryoutRun(store.profile, rec);
         store.commit('tryout-run');
         if (!store.saveNow()) toast('This run could not be saved on this device.', 'warn');
@@ -255,7 +315,10 @@ export function renderSetup(root, params = {}) {
     startBtn.querySelector?.('.ui-sec-why')?.setAttribute('data-testid', 'tryout-start-why');
     const foot = h('div.ty-bc-foot',
       h('div.ty-bc-facts',
-        h('span.ty-bc-fact', CLASS_TEXT.facts(g, len, erasers)),
+        h('span.ty-bc-fact', opts.length === 'after' ? EXTENDED_TEXT.facts(g, erasers) : CLASS_TEXT.facts(g, len, erasers)),
+        // (what Random Class promises, plainly; the short words on a short screen)
+        free ? h('span.ty-bc-random-help', { id: 'ty-bc-random-help', 'data-testid': 'tryout-random-help' },
+          h('span.long', RANDOM_TEXT.help), h('span.short', RANDOM_TEXT.helpShort)) : null,
         perkNames.length ? h('span.ty-bc-fact', { 'data-testid': 'tryout-perks' }, CLASS_TEXT.perks(perkNames)) : null),
       h('div.ty-bc-go', startBtn));
 

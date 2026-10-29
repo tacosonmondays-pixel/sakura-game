@@ -334,3 +334,26 @@ export function parseShareCode(text) {
   if (seed > 0xffffffff || !TRYOUT.grades[g] || check !== checkOf(seed, g, full, mapBit)) return null;
   return { seed: seed >>> 0, grade: g, length: full ? 'full' : 'half', mapId: mapChoices(seed >>> 0, g)[mapBit] };
 }
+
+// ---------------------------------------------------------------------------
+// Run lengths (§2.2, §20.1): Half Day, Full Day, Extended Day (internal id 'after')
+// ---------------------------------------------------------------------------
+
+/** The run lengths Before Class and the co-op room offer, in order. */
+export const RUN_LENGTHS = Object.freeze(['half', 'full', 'after']);
+
+/** Has this player cleared a Full Day (Extended Day opens then, §20.8)? 'ty:full', a counter every build keeps. */
+export function fullCleared(profile) {
+  return (Number(profile?.missions?.counters?.[TRYOUT_META.keys.full]) || 0) > 0;
+}
+
+/**
+ * Is a run length open for this player (in co-op: the host's ladder, §20.7)?
+ * @returns {{ open: boolean, why: null|'half'|'full'|'unknown' }} why: the clear it waits for
+ */
+export function lengthOpen(profile, length) {
+  if (length === 'half') return { open: true, why: null };
+  if (length === 'full') return halfCleared(profile) ? { open: true, why: null } : { open: false, why: 'half' };
+  if (length === 'after') return fullCleared(profile) ? { open: true, why: null } : { open: false, why: 'full' };
+  return { open: false, why: 'unknown' };
+}

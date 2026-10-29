@@ -1,6 +1,8 @@
 // Tryout Day in a two-tab co-op room (local adapter; docs/specs/TRYOUT_DAY.md §11, M1):
 //   the host turns Tryout Day on, both tabs pick 3 of their six and a hero, the host starts; both battles show the run
-//   UI and built the same run, each tab's bar its own squad.
+//   UI and built the same run, each tab's bar its own squad. §20.7: the host's run panel has Half · Full · Extended Day
+//   (the host's ladder: a Full Day cleared here) and the Random Class switch with its help line; the guest sees both
+//   read-only. Whether the room carries them is checked when session.js accepts them (after the sim merge).
 // node e2e/tryout-coop.mjs [--viewport 1280x720] [--shots dir]
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
@@ -22,6 +24,12 @@ const check = (c, m) => {
   return c;
 };
 const T = { timeout: 30000 };
+/** A screenshot (not a check): its tab comes to the front first; a frame that will not settle under load is logged. */
+const snap = async (page, name, o = {}) => {
+  if (!shotsDir) return;
+  await page.bringToFront().catch(() => {});
+  await page.screenshot({ path: `${shotsDir}/${name}-${W}x${H}.png`, timeout: 60000, ...o }).catch((e) => log(`  (shot ${name} skipped: ${e.message.split('\n')[0]})`));
+};
 
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
@@ -60,6 +68,9 @@ await A.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 
 await A.evaluate(() => {
   const { store } = window.__sakura;
   for (const id of ['1-1', '1-2', '1-3', '1-4', '1-5', '2-1', '2-2', '2-3', '2-4', '2-5']) store.profile.progress.stages[id] = { clears: 1, easy: true, normal: true, hard: false, nightmare: false };
+  // (§20.7: the host has cleared a Full Day, so the host's ladder opens Extended Day; test-only counters)
+  store.profile.missions = store.profile.missions || {};
+  store.profile.missions.counters = { ...(store.profile.missions.counters || {}), 'ty:half': 1, 'ty:full': 1 };
   store.commit('replace');
   store.saveNow?.();
 });
@@ -104,15 +115,52 @@ const panel = await A.evaluate(() => {
   };
 });
 check(panel.tiles === 6 && panel.picked === 3, `the host's six are girl tiles, three selected (${JSON.stringify(panel)})`);
-check(panel.grades === 12 && panel.locked >= 1 && panel.maps === 2 && panel.lengths === 2 && panel.heroes >= 1, `Grades as a segRow, map and length as options (${JSON.stringify(panel)})`);
+check(panel.grades === 12 && panel.locked >= 1 && panel.maps === 2 && panel.lengths === 3 && panel.heroes >= 1, `Grades as a segRow, map and length as options (${JSON.stringify(panel)})`);
 await A.click('[data-testid="coop-run-grade-12"]');
 check(await A.waitForFunction(() => /Grade 12/.test([...document.querySelectorAll('.toast-host .toast')].map((t) => t.textContent).join(' ')), null, { timeout: 5000 }).then(() => true).catch(() => false)
   && await A.evaluate(() => window.__coop.tryout.grade === 1), 'a locked Grade tap says why and changes nothing');
 check(panel.scroll, 'no horizontal scroll in the room');
 const guestPanel = await B.evaluate(() => ({ tiles: document.querySelectorAll('[data-testid="coop-run-girl"].ui-girltile').length, grades: document.querySelectorAll('[data-testid="coop-run-grade"]').length, map: document.querySelectorAll('[data-testid="coop-run-map"] .ty-map').length }));
 check(guestPanel.tiles === 6 && guestPanel.grades === 0 && guestPanel.map === 1, `the guest's panel: their six, the host's map, no Grade row (${JSON.stringify(guestPanel)})`);
-if (shotsDir) await A.screenshot({ path: `${shotsDir}/tycoop-room-host-${W}x${H}.png`, fullPage: true });
-if (shotsDir) await B.screenshot({ path: `${shotsDir}/tycoop-room-guest-${W}x${H}.png`, fullPage: true });
+// §20.7: the options in the host's panel (the host's ladder), read-only for the guest
+const hostOpts = await A.evaluate(() => ({
+  lengths: [...document.querySelectorAll('[data-testid="coop-run-length"] > .ui-opt')].map((e) => `${e.dataset.id}${e.classList.contains('locked') ? ':locked' : ''}`).join(),
+  random: !!document.querySelector('[data-testid="coop-run-random"]'),
+  help: document.querySelector('[data-testid="coop-run-random-help"]')?.textContent || '',
+  ro: !!document.querySelector('[data-testid="coop-run-options"]'),
+}));
+check(hostOpts.lengths === 'half,full,after' && hostOpts.random && /striker/.test(hostOpts.help) && /Control or Support/.test(hostOpts.help) && !hostOpts.ro,
+  `the host's panel: Half · Full · Extended Day open on the host's ladder, the Random Class switch and its help line (${JSON.stringify(hostOpts)})`);
+const guestOpts = async () => B.evaluate(() => ({
+  length: document.querySelector('[data-testid="coop-run-length-ro"]')?.dataset.length || null,
+  random: document.querySelector('[data-testid="coop-run-random-ro"]')?.dataset.on || null,
+  controls: document.querySelectorAll('[data-testid="coop-run-random"], [data-testid="coop-run-length"]').length,
+}));
+const g0 = await guestOpts();
+check(g0.length === 'half' && g0.random === 'false' && g0.controls === 0, `the guest sees the run's length and Random Class read-only, no controls (${JSON.stringify(g0)})`);
+// the round trip: Extended Day and Random Class through the room setting (session.js keeps them once the sim merges)
+await A.click('[data-testid="coop-run-length-after"]', T);
+await A.click('[data-testid="coop-run-random"]', T);
+await A.waitForTimeout(600);
+const kept = await A.evaluate(() => ({ length: window.__coop.tryout?.length, random: window.__coop.tryout?.random === true }));
+if (kept.length === 'after' && kept.random) {
+  const got = await B.waitForFunction(() => document.querySelector('[data-testid="coop-run-length-ro"]')?.dataset.length === 'after'
+    && document.querySelector('[data-testid="coop-run-random-ro"]')?.dataset.on === 'true', null, T).then(() => true).catch(() => false);
+  check(got, 'the guest sees Extended Day and Random Class from the host, read-only');
+  check(await B.evaluate(() => document.querySelectorAll('.ty-coop-six.random [data-testid="coop-run-girl"][aria-disabled="true"]').length === 6), 'Random Class: the guest\'s six show, not pickable');
+  await snap(A, 'tycoop-room-host-random', { fullPage: true });
+  await snap(B, 'tycoop-room-guest-random', { fullPage: true });
+  // (back to a Half Day with picks for the run below)
+  await A.click('[data-testid="coop-run-random"]', T);
+  await A.click('[data-testid="coop-run-length-half"]', T);
+  await A.waitForTimeout(600);
+} else {
+  log(`  skip the room round trip: this branch's session.js keeps ${JSON.stringify(kept)} (it accepts length 'after' and random after the sim merge)`);
+  // (the host's own panel follows the session: still a Half Day, Random Class off)
+  check(await A.evaluate(() => document.querySelector('[data-testid="coop-run-random"]')?.getAttribute('aria-pressed') === String(window.__coop.tryout?.random === true)), 'the host\'s switch shows what the room keeps');
+}
+await snap(A, 'tycoop-room-host', { fullPage: true });
+await snap(B, 'tycoop-room-guest', { fullPage: true });
 await clearModal(B);
 await B.click('[data-testid="coop-ready"]', T);
 check(await A.waitForFunction(() => window.__coop?.canStart, null, T).then(() => true).catch(() => false), 'the host can start once both picked 3 and the guest is ready');
@@ -133,7 +181,7 @@ const ui = await Promise.all([A, B].map((p) => p.evaluate(() => !!document.query
 check(ui.every(Boolean), 'both trackers show Full Hearts');
 const mine = await Promise.all([A, B].map((p) => p.evaluate(() => [...window.__battle.sim.loadout.keys()].join(','))));
 check(mine[0] === runs[0].squads[0] && mine[1] === runs[0].squads[1], 'each tab\'s bar holds its own squad');
-if (shotsDir) await B.screenshot({ path: `${shotsDir}/tycoop-battle-guest-${W}x${H}.png` });
+await snap(B, 'tycoop-battle-guest');
 await ctx.close();
 await browser.close();
 await server.close();

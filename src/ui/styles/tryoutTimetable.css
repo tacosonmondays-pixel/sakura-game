@@ -111,3 +111,32 @@
   .ty-ttp { animation: none; }
 }
 html[data-reduce-motion] .ty-ttp { animation: none; }
+
+/* ---------- Extended Day (§20.8, minimal): the Full Day's twelve folded as a Full Day's, then the day's open end ("P13+ ·
+   on and on") where the boss portrait sits on a Full Day: a dashed ink cell, never a button ---------- */
+.ty-bct[data-length="after"] .ty-tt-cell > .ty-tt-subj { display: none; }
+.ty-bct[data-length="after"] .ty-tt-cell { justify-content: center; padding: 0 3px; }
+.ty-bct .ty-tt-more {
+  flex: 0 1 auto; display: flex; align-items: center; gap: 5px; padding: 0 8px; min-height: 26px; min-width: 40px; max-width: 150px;
+  color: var(--ink); background: var(--panel-w); outline: 1px dashed var(--plate); outline-offset: -2px; white-space: nowrap; overflow: hidden;
+}
+.ty-bct .ty-tt-more > .ty-tt-p { flex: none; }
+.ty-bct .ty-tt-more > .ty-tt-subj { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: italic 700 12px/1.1 var(--font-head); color: var(--muted); }
+@media (max-height: 480px) {
+  .ty-bct .ty-tt-more { padding: 0 5px; }
+  .ty-bct .ty-tt-more > .ty-tt-subj { display: none; }
+}
+
+/* ---------- a narrow screen (a Full Day or an Extended Day at 390 px): each cell keeps its whole label ("P10", never
+   "10"), the row scrolls, and a soft fade marks the edge with more cells past it (data-more, edgeHints) ---------- */
+/* (the Subject pair adds nothing to a cell's minimum: width 0, it grows into the room left and ellipsizes) */
+.ty-bct .ty-tt-cell { min-width: min-content; justify-content: safe center; }
+.ty-bct .ty-tt-cell > .ty-tt-subj { width: 0; flex: 1 1 auto; min-width: 0; }
+.ty-bct > .ty-ttw { position: relative; }
+.ty-bct[data-more] > .ty-ttw::before, .ty-bct[data-more] > .ty-ttw::after {
+  content: ''; position: absolute; top: 0; bottom: 0; z-index: 2; width: 22px; pointer-events: none; opacity: 0;
+}
+.ty-bct[data-more] > .ty-ttw::before { left: 0; background: linear-gradient(to right, var(--panel-w), transparent); }
+.ty-bct[data-more] > .ty-ttw::after { right: 0; background: linear-gradient(to left, var(--panel-w), transparent); }
+.ty-bct:is([data-more="left"], [data-more="both"]) > .ty-ttw::before,
+.ty-bct:is([data-more="right"], [data-more="both"]) > .ty-ttw::after { opacity: 1; }

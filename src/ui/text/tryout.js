@@ -523,3 +523,42 @@ export const YEARBOOK_SCREEN = {
   fullPage: 'Her page ›',
   unseen: '?',
 };
+
+// ---- Extended Day and Random Class (docs/specs/TRYOUT_DAY.md §20.8; the minimal UI, v1) -----------------------------
+
+// (the third run length's name, beside Half Day and Full Day: internal id 'after')
+LENGTH_NAMES.after = 'Extended Day';
+
+/** Extended Day: the length option, its lock, the timetable's open end, the tracker and the Class Photo. */
+export const EXTENDED_TEXT = {
+  name: 'Extended Day',
+  locked: 'Clear a Full Day first',
+  line: 'The Full Day, then the day goes on until your hearts run out.',
+  more: 'P13+',
+  moreLine: 'on and on',
+  moreTitle: 'After period 12 the day goes on: 4 waves a period, then a pick, until your hearts run out',
+  stayLate: 'Stay Late',
+  wave: (n) => `Wave ${n}`,
+  waveSub: 'Stay Late · the day goes on',
+  homeTime: 'Home Time',
+  reachedWave: (n, periods) => `Reached wave ${n} · ${periods} period${periods === 1 ? '' : 's'}`,
+  seedOnly: (seed) => `Seed ${seed} (Extended Day has no share code yet)`,
+  facts: (g, erasers) => `${g.hearts} hearts · ${g.seats} Window Seats · ${erasers} Eraser${erasers === 1 ? '' : 's'} · 12 periods, then on and on`,
+};
+
+/** Random Class: the toggle, its help line (what it promises, in plain words), the drawn six and the pick reveal. */
+export const RANDOM_TEXT = {
+  name: 'Random Class',
+  on: 'On',
+  off: 'Off',
+  help: 'Random Class: the class draws your 3 girls and every pick. Always a striker and a girl who hits flyers; a Control or Support girl is not promised.',
+  helpShort: 'Random Class: always a striker and a flyer-hitter; no Control or Support promise.',
+  squad: 'Squad · drawn at the bell',
+  six: 'The class draws 3 of these six at the bell.',
+  ribbon: 'Random Class',
+  drawing: 'The class is choosing…',
+  landing: 'Drawn!',
+  landed: (name) => `Random Class: ${name}`,
+  handed: 'Random Class: nothing fit, handed in',
+  room: (on) => `Random Class: ${on ? 'On' : 'Off'}`,
+};

@@ -17,7 +17,7 @@ import { applyTitanResult } from '../../systems/titans.js';
 import { createBattleSaver } from './battleSaver.js';
 import { createTryoutSaver } from './tryoutSaver.js';
 import { createTryoutBattle } from './tryout.js';
-import { MODE_NAME as TRYOUT_MODE_NAME } from '../text/tryout.js';
+import { MODE_NAME as TRYOUT_MODE_NAME, EXTENDED_TEXT } from '../text/tryout.js';
 import { buildTryoutPlan, buildTryoutStage } from '../../sim/tryout/index.js';
 import { getTryoutRun, markResume, continueKind, clearTryoutRun } from '../../systems/tryoutRuns.js';
 import { applyTryoutResult, applyTryoutRecord } from '../../systems/tryoutRewards.js';
@@ -79,6 +79,7 @@ import { supportAllowed, clampSupportUnit, supportLoadoutEntry, supportMiniProfi
 import { supportPays } from '../../online/supportRules.js';
 import { newKey } from '../../online/donateLedger.js';
 import { pickFor } from './supportPick.js';
+import { extendedPast } from './tryout/adapters.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -1075,7 +1076,8 @@ export function mountBattle(root, params, hooks) {
             if (supportPays({ wave: ev.wave })) settleSupport(); // [friend support] FP once the run reached wave 3
             // freeplay waves past the goal: their own banners (freeplay.js)
             if (fpBattle && ev.wave > sim.totalWaves) break;
-            feed.announce(`WAVE ${ev.wave}`, ctx.modes?.waveSub(ev) ?? (Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless'), ev.flipped ? 'warn' : 'wave', ev.flipped ? 2200 : 1300);
+            // (Tryout Day's Extended Day past wave 48: "Stay Late", never "of 48", §20.8)
+            feed.announce(`WAVE ${ev.wave}`, ctx.modes?.waveSub(ev) ?? (extendedPast(sim, ev.wave) ? EXTENDED_TEXT.waveSub : Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless'), ev.flipped ? 'warn' : 'wave', ev.flipped ? 2200 : 1300);
             break;
           case 'waveEnd':
             // a sandbox spawn between waves runs as a wave of its own (the counter stays)

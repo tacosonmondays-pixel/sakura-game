@@ -253,3 +253,34 @@ body.ui-day .ty-coop .ty-bc-heroes { flex-direction: row; flex-wrap: wrap; max-h
 @media (max-height: 480px) {
   body.ui-day .ty-tile-weekly .ty-tile-glyph { display: none; }
 }
+
+/* ---------- Extended Day and Random Class (§20.8, minimal): the third length; the Random Class switch at the end of the
+   squad's row and its help line in the foot (neither costs a row: the six stay above the foot); the drawn six (shown,
+   not pickable) ---------- */
+body.ui-day .ty-bc-head > .ty-bc-lengths { flex-basis: 300px; min-width: 260px; }
+body.ui-day .ty-bc-squad .ty-bc-row > .ui-opt.ty-switch.ty-bc-random { --h: 32px; margin-left: auto; flex: none; min-width: 0; padding: 0 10px; text-transform: none; letter-spacing: 0; }
+body.ui-day .ty-bc-random-help { font: 600 var(--fs-label)/1.25 var(--font); color: var(--ink); }
+body.ui-day .ty-bc-random-help > .short { display: none; }
+/* (the six the class draws from: drawn as they are, a dashed edge, no tap; their faces stay clear) */
+body.ui-day .ty-bc-six > .ui-girltile.ty-drawn { cursor: default; outline: 2px dashed var(--line-ink); outline-offset: -2px; }
+body.ui-day .ty-bc-six > .ui-girltile.ty-drawn:hover { transform: none; }
+@media (max-height: 480px) {
+  body.ui-day .ty-bc-head > .ty-bc-lengths { flex-basis: 270px; min-width: 240px; }
+  body.ui-day .ty-bc-squad .ty-bc-row > .ui-opt.ty-switch.ty-bc-random { --h: 28px; padding: 0 8px; }
+  body.ui-day .ty-bc-random-help > .long { display: none; }
+  body.ui-day .ty-bc-random-help > .short { display: inline; }
+}
+
+/* the co-op room: the Random Class switch in the host's run panel, the guest's read-only line */
+body.ui-day .ty-coop .ty-coop-random { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; flex: 1 1 260px; }
+body.ui-day .ty-coop .ty-coop-random > .ui-opt.ty-switch { --h: 32px; flex: none; text-transform: none; letter-spacing: 0; }
+body.ui-day .ty-coop .ty-coop-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+body.ui-day .ty-coop .ty-coop-six.random > .ui-girltile { cursor: default; outline: 2px dashed var(--line-ink); outline-offset: -2px; }
+
+/* ---------- a short, wide screen (844 x 390): the map and hero columns never run under the foot. They take the row's
+   height (the six set it) and scroll inside it, so their last card is reachable (lead's review, Oct 29) ---------- */
+@media (max-height: 480px) and (min-width: 761px) {
+  body.ui-day .ty-bc-cols { align-items: stretch; }
+  body.ui-day :is(.ty-bc-col-maps, .ty-bc-col-hero) { height: 0; min-height: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  body.ui-day .ty-bc-col-hero .ty-bc-heroes { max-height: none; overflow: visible; }
+}
