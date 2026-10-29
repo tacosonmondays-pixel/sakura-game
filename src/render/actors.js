@@ -669,6 +669,12 @@ export class Actors {
       if (!tw.balls) continue;
       for (const bl of tw.balls) {
         const f = bl.fly;
+        // the attack-FX layer draws the ball itself (spin, hop arcs: attackFx/styles/marumi.js): a shadow here
+        if (this.fxHook?.ballArcs) {
+          const q = f || (sim.pathData[bl.pathIndex] ? pointAt(sim.pathData[bl.pathIndex], bl.dist, this._ballPt || (this._ballPt = {})) : null);
+          if (q) gN.push(q.x, 0.066, q.y, 0.4, 0.4, R.shadow, 0.05, 0.05, 0.12, 0.45, 0);
+          continue;
+        }
         if (f) {
           const e = sim.enemies.find((o) => o.uid === f.uid);
           const dx = e ? e.x - f.x : 0;

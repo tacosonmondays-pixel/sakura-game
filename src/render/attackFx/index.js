@@ -19,6 +19,7 @@ import { Segments } from './patterns/segments.js';
 import { Drones } from './patterns/drones.js';
 import { Lunges } from './patterns/lunge.js';
 import { Tosses } from './patterns/toss.js';
+import { Lobs } from './patterns/lobs.js';
 import { hitRadius } from '../../sim/towers.js';
 import { heroLookTiers } from '../../sim/hero.js';
 import { PROJECTILE_Z } from '../../sim/constants.js';
@@ -39,6 +40,7 @@ export function createAttackFx(o) {
   // extra per-frame layers a style adds once for the whole field (Kaede's blade streaks, ghosts,
   // hit flashes): { update(gdt, rdt), dispose() }, updated after the pooled quads, disposed with us
   ctx.layers = [];
+  ctx.lobs = new Lobs(ctx, 24);
   const strict = !!o.strict;
 
   // ---- per-tower state ------------------------------------------------------------------
@@ -96,7 +98,7 @@ export function createAttackFx(o) {
   // ---- stats ---------------------------------------------------------------------------------
   const stats = {
     drones: 0, dronesOverflow: 0, engaged: 0, droneShots: 0, projTracked: 0, blended: 0, familiars: 0, segments: 0, quads: 0,
-    quadBudget: 0, shed: 0, ms: 0, msFrame: 0, maxDecor: 0, maxBlendResidual: 0, impacts: 0, matched: 0, defaultPulses: 0, styled: 0,
+    quadBudget: 0, shed: 0, lobs: 0, ms: 0, msFrame: 0, maxDecor: 0, maxBlendResidual: 0, impacts: 0, matched: 0, defaultPulses: 0, styled: 0,
   };
   let frame = 1;
   let msAcc = 0;
@@ -154,6 +156,17 @@ export function createAttackFx(o) {
     return null;
   }
 
+  /** The girl a status record names as its source (sourceUid), or null. */
+  function statusSource(ev) {
+    const list = sim.enemies;
+    for (let k = 0; k < list.length; k++) {
+      if (list[k].uid !== ev.uid) continue;
+      const st = list[k].statuses?.[ev.status];
+      return st && st.sourceUid != null ? st.sourceUid : null;
+    }
+    return null;
+  }
+
   function onEvent(ev, i, events) {
     if (disposed) return false;
     const t0 = now();
@@ -205,6 +218,16 @@ export function createAttackFx(o) {
           if (owner != null ? owner !== tw.uid : tw.lastTargetUid !== ev.uid) continue;
           const t = sim.getTower(tw.uid);
           if (t) tw.style.onStatus(ev, tw, view(t), ctx);
+        }
+        // no attack event to pin it on (a straight pin, a strip, a seed): the status record's own
+        // source girl hears it too when the fallback above skipped her (display read only)
+        if (owner == null) {
+          const src = statusSource(ev);
+          const tw = src != null ? tws.get(src) : null;
+          if (tw && tw.style.onStatus && tw.lastTargetUid !== ev.uid) {
+            const t = sim.getTower(src);
+            if (t) tw.style.onStatus(ev, tw, view(t), ctx);
+          }
         }
         break;
       }
@@ -408,6 +431,7 @@ export function createAttackFx(o) {
     ctx.drones.update(gdt);
     ctx.lunge.update(gdt);
     ctx.toss.update(gdt);
+    ctx.lobs.update(gdt);
 
     // vanished projectiles: flourish only on a matched sim hit / explode (never on expiry)
     let blended = 0;
@@ -459,6 +483,7 @@ export function createAttackFx(o) {
     stats.projTracked = recList.length;
     stats.blended = blended;
     stats.segments = ctx.segs.count;
+    stats.lobs = ctx.lobs.count;
     stats.quads = ctx.quads;
     stats.quadBudget = ctx.q.quadBudget;
     stats.shed = ctx.shed;
@@ -472,6 +497,8 @@ export function createAttackFx(o) {
   return {
     /** actors skips its own drone mesh + shadows when this is truthy */
     drones: true,
+    /** actors draws Marumi's balls as shadows only: the bowler style draws the ball, its spin and hops */
+    ballArcs: true,
     ctx,
     onEvent,
     projectile,
@@ -479,7 +506,7 @@ export function createAttackFx(o) {
       return ctx.lunge.offset(uid);
     },
     trapHidden(uid) {
-      return ctx.toss.hidden(uid);
+      return ctx.toss.hidden(uid) || ctx.lobs.hidden(uid);
     },
     update,
     setQuality(q) {
@@ -514,6 +541,7 @@ export function createAttackFx(o) {
       ctx.toss.clear();
       for (const L of ctx.layers) L.dispose();
       ctx.layers.length = 0;
+      ctx.lobs.clear();
       tws.clear();
       recs.clear();
     },
