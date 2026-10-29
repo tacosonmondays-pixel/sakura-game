@@ -251,6 +251,9 @@
     calc(var(--rw) * 1.15) var(--rw)); }
 .ui-night .home .home-evt .home-evt-left { position: absolute; z-index: 2; left: calc(var(--s) + 6px); top: 2px; height: 16px; padding: 0 4px; line-height: 1; font-size: 12px; pointer-events: none; }
 .ui-night .home .home-evt .ui-dot { position: absolute; z-index: 2; right: 6px; top: 6px; }
+/* with its time-left sticker, the lantern and the word sit lower so the sticker clears the lantern by 2 px (the sticker
+   cannot rise: the tab's clip-path cuts it); --evt-drop per tab height, 0 on the icon-only tab */
+.ui-night .home .home-evt:has(.home-evt-left) > :is(svg.g, .lbl) { translate: 0 var(--evt-drop, 2px); }
 .ui-night .home .home-coop svg.g { width: 24px; height: 24px; }
 .ui-night .home .home-coop .lbl { font: 600 15px/1 var(--font-num); letter-spacing: var(--track-menu); color: var(--on-ink); }
 .ui-night .home .home-coop:is(:active, :focus-visible) { --fill: var(--plate-2); outline: none; }
@@ -367,7 +370,7 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   .ui-night .home .home-coop svg.g { width: 20px; height: 20px; }
   .ui-night .home .home-coop .lbl { font-size: 13px; }
   /* (Events keeps its own width: the CO-OP rule above is later than .home-evt's min-width: 0) */
-  .ui-night .home .home-evt { min-width: 0; padding: 0 12px 0 calc(12px + var(--s)); }
+  .ui-night .home .home-evt { --evt-drop: 7px; min-width: 0; padding: 0 12px 0 calc(12px + var(--s)); }
 
   .ui-night .home .home-restore { right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 
@@ -418,7 +421,7 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
 @media (max-height: 480px) and (max-width: 759px) {
   .home .home-dock { --ico-w: 64px; } .home .home-go .kl { display: none; } .home .home-evt .lbl { display: none; }
   /* Events without its word: a narrow icon tab, the lantern centred, its sticker (left) and dot (right) apart, clear of CO-OP */
-  .ui-night .home .home-evt { width: 64px; justify-content: center; padding: 0 8px 0 calc(8px + var(--s)); }
+  .ui-night .home .home-evt { --evt-drop: 0px; width: 64px; justify-content: center; padding: 0 8px 0 calc(8px + var(--s)); }
 }
 @media (min-height: 481px) and (min-width: 701px) and (max-width: 1179px) { .home .home-dock { --ico-w: 88px; --ico-h: 76px; } .ui-night .home .home-ico .home-free { --free-y: -2px; } .home .home-battle { --bw: 300px; } }
 
@@ -454,7 +457,8 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   .ui-night .home .home-go .title { font-size: 30px; }
   .ui-night .home .home-play { width: calc(44px + var(--s)); }
   .ui-night .home .home-coop { --h: 46px; min-width: 112px; gap: 6px; padding: 0 calc(12px + var(--s)) 0 12px; }
-  .ui-night .home .home-evt { min-width: 0; padding: 0 12px 0 calc(12px + var(--s)); }
+  .ui-night .home .home-evt { --evt-drop: 7px; min-width: 0; padding: 0 12px 0 calc(12px + var(--s)); }
+  .ui-night .home .home-evt svg.g { width: 20px; height: 20px; }
   .ui-night .home .home-coop .lbl { font-size: 13px; }
   .home .home-news-host { --news-tall: 60px; --news-up: 1; left: 16px; right: 16px; width: auto; top: auto; bottom: 246px; }
   .home.news-down .home-news-host { bottom: 246px; }
