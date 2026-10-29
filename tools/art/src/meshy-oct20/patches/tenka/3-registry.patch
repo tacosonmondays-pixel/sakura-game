@@ -1,0 +1,45 @@
+diff --git a/public/models/characters/manifest.json b/public/models/characters/manifest.json
+index 2317fa9..447462e 100644
+--- a/public/models/characters/manifest.json
++++ b/public/models/characters/manifest.json
+@@ -289,6 +289,27 @@
+   "lodSize": 219376,
+   "lodVertices": 3111
+  },
++ "tenka": {
++  "file": "tenka.glb",
++  "size": 1329992,
++  "animations": [
++   "attack_rifle",
++   "cheer",
++   "hurt",
++   "idle",
++   "walk"
++  ],
++  "vertices": 18834,
++  "triangles": 19985,
++  "source": "meshy",
++  "lod": "tenka.lod.glb",
++  "lodSize": 644692,
++  "lodVertices": 9947,
++  "lodTriangles": 8984,
++  "props": [
++   "tenka-coilgun.glb"
++  ]
++ },
+  "umeko": {
+   "file": "umeko.glb",
+   "size": 463864,
+diff --git a/src/art/portraits.js b/src/art/portraits.js
+index 05541d5..6dcb107 100644
+--- a/src/art/portraits.js
++++ b/src/art/portraits.js
+@@ -62,6 +62,8 @@ export const PORTRAIT_DATA = {
+   miko: { face: [46, 21], cut: 0.538 },
+   midori: { face: [46, 21], cut: 0.552 },
+   momo: { face: [46, 22], cut: 0.579 },
++  // new girls (art wave 1)
++  tenka: { face: [50, 19], cut: 0.383 },
+ };
+ 
+ /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */

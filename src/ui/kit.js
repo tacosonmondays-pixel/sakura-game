@@ -174,6 +174,41 @@ export function rail(tabs, active, onPick, { testidPrefix = 'tab-', label = 'Sec
   return el;
 }
 
+/**
+ * [ui-ink] Folder tabs (S4, ink.css "folder tabs on a panel"): the ink strip on top of a `.ui-tabbed` panel, the open
+ * tab a hole of the panel's own white with the sakura mark; its 44 px hit area hangs into the body's padding. The same
+ * `tabs` shape, test ids and setActive() as rail(), so a screen swaps one for the other (the girl page, V3).
+ * @returns {HTMLElement & { setActive(id: string): void }}
+ */
+export function folderTabs(tabs, active, onPick, { testidPrefix = 'tab-', label = 'Sections', cls = '' } = {}) {
+  const el = h(`nav.ui-tabs${cls ? `.${cls}` : ''}`, { role: 'tablist', 'aria-label': label });
+  const btns = new Map();
+  const order = tabs.map((t) => t.id);
+  let on = active;
+  for (const t of tabs) {
+    const b = h(`button.ui-tab${t.locked ? '.locked' : ''}`, {
+      type: 'button', role: 'tab', 'data-testid': `${testidPrefix}${t.id}`, 'data-tab': t.id,
+      'aria-label': `${t.label}${t.locked ? ' (locked)' : ''}${t.dot ? ` (${t.dotTitle || 'new'})` : ''}`,
+      onclick: () => { noteTabPick(order.indexOf(on), order.indexOf(t.id)); onPick(t.id); },
+    },
+    h('span.mark', { 'aria-hidden': 'true' }),
+    t.locked ? ico('lock') : t.icon ? ico(t.icon) : null, h('span.ui-tab-word', t.label),
+    badge(t.dot ? h(`i.ui-dot${t.dotCls ? `.${t.dotCls}` : ''}`, { 'aria-hidden': 'true', title: t.dotTitle || null }) : null, `tab:${testidPrefix}${t.id}`),
+    h('span.hit', { 'aria-hidden': 'true' }));
+    btns.set(t.id, b);
+    el.append(b);
+  }
+  el.setActive = (id) => {
+    on = id;
+    for (const [k, b] of btns) {
+      b.classList.toggle('on', k === id);
+      b.setAttribute('aria-selected', k === id ? 'true' : 'false');
+    }
+  };
+  el.setActive(active);
+  return el;
+}
+
 /** Icon button (§5.5): 44 × 44, icon only, an accessible name. `glass` for one sitting on art. */
 export function iconBtn(icon, { label, onClick = null, testid = null, cls = '', title = null } = {}) {
   return h(`button.ui-ibtn${cls ? `.${cls}` : ''}`, { type: 'button', 'aria-label': label, title: title || label, 'data-testid': testid, onclick: onClick }, ico(icon));
@@ -337,6 +372,41 @@ export function btnCount(n, { cls = '' } = {}) {
 }
 
 /**
+ * [ui-v2 M5] A hub tile (V4: the kit's .ui-hubtile, ink.css): painted art above a solid ink caption band; the tile IS
+ * the action (P2: no button on it). The caption holds an optional caps kicker, the title (display italics) and one
+ * line; the top-right corner holds a countdown chip (countdownChip, never red for a weekly cycle) or a badge; a sticker
+ * ("Open!", "Coming soon", In Progress) sits at the top of the caption. A locked tile keeps its art (greyed by the kit)
+ * and says what opens it in the caption, after a lock glyph; a tap on it explains (the screen's onClick), it never
+ * starts anything. Words wrap, never end in "…" (P6).
+ * @param {{ title: string, kicker?: string|null, line?: string|null, art?: string|HTMLElement|null, corner?: any,
+ *   sticker?: HTMLElement|null, lock?: string|null, dot?: boolean, sm?: boolean, onClick?: Function|null,
+ *   testid?: string|null, cls?: string, label?: string|null }} o
+ *   art: an image URL (the painted location) or an element (a drawn scene, wrapped in .ui-hubtile-art);
+ *   corner: the top-right children (a countdown chip, a badge); lock: the unlock rule ("Clear 5-5 first");
+ *   dot: a red claim dot at the top-right; sm: the small tile (a two-line caption); label: the accessible name when
+ *   the words alone do not say it
+ * @returns {HTMLButtonElement}
+ */
+export function hubTile({ title, kicker = null, line = null, art = null, corner = null, sticker = null, lock = null, dot = false, sm = false, onClick = null, testid = null, cls = '', label = null }) {
+  const locked = !!lock;
+  const artEl = typeof art === 'string'
+    ? h('img', { src: art, alt: '', loading: 'lazy', decoding: 'async', draggable: false })
+    : art ? h('span.ui-hubtile-art', { 'aria-hidden': 'true' }, art) : null;
+  const tr = [corner, dot ? h('i.ui-dot', { 'aria-hidden': 'true' }) : null].flat(Infinity).filter(Boolean);
+  return h(`button.ui-hubtile${sm ? '.sm' : ''}${locked ? '.locked' : ''}${cls ? `.${cls}` : ''}`, {
+    type: 'button', 'data-testid': testid, 'data-locked': locked ? 'lock' : null, 'aria-label': label, title: lock, onclick: onClick,
+  },
+  artEl,
+  tr.length ? h('span.tr', tr) : null,
+  h('span.cap',
+    sticker,
+    kicker ? h('span.lbl', kicker) : null,
+    h('span.name', title),
+    line ? h('span.ui-hubtile-line', line) : null,
+    locked ? h('span.ui-hubtile-lock', ico('lock'), h('span', lock)) : null));
+}
+
+/**
  * A mode that is not out yet, as a hub tile (§5.4: a designed locked state, never a faded one; owner #108: the
  * Multiplayer hub's PvP "Coming soon" with Rival Run inside, Titan Co-op "Soon"). Glass (or the mode's art under a
  * glass veil), the ink "Coming soon" sticker at the top-left, the title and one line on what is inside. One lock: the
@@ -354,4 +424,37 @@ export function lockedTile({ title, line = null, soon = 'Coming soon', art = nul
   soonSticker({ text: soon, testid: testid ? `${testid}-soon` : null }),
   h('b.ui-ltile-title', title),
   line ? h('span.ui-ltile-line', line) : null);
+}
+
+/**
+ * A one-choice row of kit options (the segmented control: a difficulty, a grade, a page): `.ui-opt` buttons in a
+ * wrapping row, each a 44 px tap, the chosen one `.on` (ink fill, pink bar) with aria-checked. A locked item shows a lock
+ * glyph and stays tappable so its screen can say why (onPick gets it with `locked: true`).
+ * @param {{ id: string, label: string, locked?: boolean, title?: string|null }[]} items
+ * @param {string|null} active the chosen item's id
+ * @param {(id: string, item: object) => void} onPick
+ * @param {{ label?: string, testidPrefix?: string, min?: number, cls?: string }} [o] label: the group's accessible name;
+ *   min: the narrowest item in px (default 44; a row of 12 grades wraps to two rows on a phone)
+ * @returns {HTMLElement & { setActive(id: string): void }}
+ */
+export function segRow(items, active, onPick, { label = 'Choose one', testidPrefix = 'seg-', min = 44, cls = '' } = {}) {
+  const el = h(`div.ui-segrow${cls ? `.${cls}` : ''}`, { role: 'radiogroup', 'aria-label': label, style: { '--seg-min': `${min}px` } });
+  const btns = new Map();
+  for (const it of items) {
+    const b = h(`button.ui-opt${it.locked ? '.locked' : ''}`, {
+      type: 'button', role: 'radio', 'data-testid': `${testidPrefix}${it.id}`, 'data-id': it.id,
+      title: it.title || null, 'aria-label': `${it.label}${it.locked ? ' (locked)' : ''}`,
+      onclick: () => onPick(it.id, it),
+    }, it.locked ? ico('lock') : null, h('span', it.label));
+    btns.set(it.id, b);
+    el.append(b);
+  }
+  el.setActive = (id) => {
+    for (const [k, b] of btns) {
+      b.classList.toggle('on', k === id);
+      b.setAttribute('aria-checked', k === id ? 'true' : 'false');
+    }
+  };
+  el.setActive(active);
+  return el;
 }

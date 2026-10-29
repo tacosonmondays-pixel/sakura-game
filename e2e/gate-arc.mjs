@@ -133,6 +133,9 @@ async function runViewport(vp) {
   await page.click('[data-testid="story-skip"]');
   await page.click('[data-testid="story-skip-confirm"]');
   await page.waitForFunction(() => !document.querySelector('.sp'), null, { timeout: 8000 }).catch(() => null);
+  // (UI v2 M1: the map rule lives in stage prep's "i" sheet)
+  await page.evaluate(() => document.querySelector('#app [data-testid="prep-info"]')?.click());
+  await page.waitForSelector('[data-testid="info-sheet"] [data-testid="rule-panel"]', { timeout: 10000 }).catch(() => null);
   const prep = await page.evaluate(() => ({
     seen: window.__sakura.store.profile.story.seen.includes('g1.pro'),
     rule: document.querySelector('[data-testid="rule-panel"] .ma-rule-name')?.textContent || '',
@@ -141,6 +144,7 @@ async function runViewport(vp) {
   check(prep.seen, '1-6 prep: skipping counts "Two Sunrises" as seen');
   check(prep.rule === 'Rush-hour Evacuation' && prep.base === 'The Petal Sanctuary rule.', `1-6 prep: the rule panel shows the skin ("${prep.rule}", "${prep.base}")`);
   await shot('prep-1-6');
+  await page.evaluate(() => document.querySelectorAll('.ui-layer .ui-close').forEach((b) => b.click()));
 
   // ---- the battle opens on the city board
   await page.evaluate(() => { location.hash = '#/battle?stage=1-6&difficulty=easy'; });

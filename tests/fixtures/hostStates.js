@@ -15,6 +15,7 @@ export const HOST_STATE_AXES = Object.freeze({
   mail: { gifts: [undefined, 0, 1, 2, 140], expiring: [undefined, false, true] },
   happening: { running: [undefined, 0, 1, 3, 12], endingSoon: [undefined, 'Halloween', 'Pumpkin Lantern Night', LONG] },
   multiplayer: { invites: [undefined, 0, 1, 4] },
+  tryout: { locked: [false, true], unlock: [undefined, '2-5'], running: [false, true], weeklyOpen: [false, true], weeklyDone: [false, true] },
 });
 
 /** Every combination of a screen's state fields. */

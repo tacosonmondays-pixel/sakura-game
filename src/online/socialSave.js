@@ -2,6 +2,7 @@
 // explains them). Sanitizer only, so src/systems/save.js stays light; no SAVE_VERSION bump (an
 // older build simply ignores the block).
 import { getItem } from '../data/items.js';
+import { cleanSupportLedger } from './supportLedger.js';
 
 export const ESCROW_MAX = 20;
 export const DONATED_KEEP = 50;
@@ -32,5 +33,8 @@ export function cleanSocial(raw) {
   s.claimed = (Array.isArray(raw.claimed) ? raw.claimed.filter(isKey) : []).slice(-CLAIMED_KEEP);
   const pc = raw.pendingClaim;
   if (isObj(pc) && isKey(pc.key) && typeof pc.uid === 'string') s.pendingClaim = { key: pc.key, uid: pc.uid, at: Number(pc.at) || 0 };
+  // [friend support] the Friend Points ledger (src/online/supportLedger.js), only once there is one
+  const sup = cleanSupportLedger(raw.support);
+  if (sup) s.support = sup;
   return s;
 }

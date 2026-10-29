@@ -36,6 +36,27 @@ export const MALL_WALLETS = Object.freeze({
   memento: [],
 });
 
+// ---------------------------------------------------------------------------------------------------------------
+// A mode's own currency (Tryout Day's Marbles, an event's token): registered once by the mode's module, shown in the
+// bar on that mode's screens only, in WALLET_ORDER after the core three.
+// ---------------------------------------------------------------------------------------------------------------
+const EXTRA = new Map();
+
+/**
+ * Registers a mode currency for the top bar.
+ * @param {{ id: string, item: string, label: string, art?: string|null, glyph?: string|null,
+ *   plus?: { route: string, params?: object, label: string }|null, screens: string[] }} def
+ *   item: the save's item id (itemCount); art: a colour icon kind (kit.js curArt) or glyph: a line glyph name;
+ *   screens: the route names whose bar shows it
+ */
+export function registerWallet({ id, item, label, art = null, glyph = null, plus = null, screens = [] }) {
+  if (!id || WALLET_DEFS[id] || EXTRA.has(id)) throw new Error(`registerWallet: "${id}" is taken or empty`);
+  EXTRA.set(id, Object.freeze({ item, label, art, glyph: glyph || (art ? null : 'sparkles'), plus, screens: Object.freeze([...screens]) }));
+}
+
+/** A wallet's definition: a core one (WALLET_DEFS) or a registered mode currency (null when unknown). */
+export const walletDef = (id) => WALLET_DEFS[id] || EXTRA.get(id) || null;
+
 /**
  * @param {string|null|undefined} screen a route name
  * @param {{ tab?: string }} [params] the route's params (the Mall's shop)
@@ -45,5 +66,6 @@ export function walletsFor(screen, params = {}) {
   let ids = [];
   if (screen === 'mall') ids = MALL_WALLETS[params?.tab] ?? MALL_WALLETS.general;
   else ids = SCREEN_WALLETS[screen] || [];
-  return WALLET_ORDER.filter((w) => ids.includes(w));
+  const extra = [...EXTRA].filter(([, d]) => d.screens.includes(screen)).map(([id]) => id);
+  return [...WALLET_ORDER.filter((w) => ids.includes(w)), ...extra];
 }

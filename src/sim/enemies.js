@@ -13,6 +13,7 @@ import {
 } from './constants.js';
 import { pointAt, pathInTunnel, pathElevation, pathUnderDeck } from './path.js';
 import { ruleMoveMul, ruleRift } from './rules.js';
+import { blockStep } from './barricades.js';
 import {
   tickStatusDurations, isImmobile, isHeld, slowAmount, abilitiesBlocked, hasAnyStatus,
 } from './status.js';
@@ -521,7 +522,10 @@ export function updateEnemy(sim, e, dt) {
   }
   if (sim._ruleMove) mul *= ruleMoveMul(sim._ruleMove, e);
   e.speed = e.baseSpeed * mul;
+  const prev = e.dist;
   e.dist += e.speed * dt;
+  // Norika's barricades (src/sim/barricades.js): only in a battle with a barricade hero
+  if (sim._blockOn) blockStep(sim, e, prev);
   // Last Line (src/sim/zones.js, GAPS P-14): the first time an enemy comes within NEAR_EXIT tiles of its
   // exit, before it can leak. Only while a girl with Last Line is placed: other battles never check.
   if (sim._nearExitOn && !e.nearExit && e.dist >= path.length - NEAR_EXIT) {

@@ -496,6 +496,50 @@ export function createSupabaseAdapter({ url, key }) {
       await srpc('set_profile_visibility', { p_value: value });
       return true;
     },
+    // ---- [friend support] supabase/migrations/20261028000000_friend_support.sql -------------------
+    /** 'ready' | 'needs_update' | 'offline': is the friend support migration installed? */
+    async supportProbe() {
+      try {
+        await srpc('support_version');
+        return 'ready';
+      } catch (e) {
+        return e?.code === 'needs_update' ? 'needs_update' : 'offline';
+      }
+    },
+    async mySupport() {
+      const r = await srpc('my_support');
+      return { exists: !!r?.exists, unit: r?.unit ?? null, hash: r?.hash || '', lend: r?.lend || 'friends', updatedAt: tsOrNull(r?.updatedAt) };
+    },
+    async setSupport(unit, hash, lend = 'friends') {
+      return srpc('set_support', { p_unit: unit ?? null, p_hash: hash, p_lend: lend });
+    },
+    async supportCandidates() {
+      return ((await srpc('support_candidates')) || []).map((c) => ({ ...c, lastActive: ts(c.lastActive), since: ts(c.since), online: !!c.online, paidToday: !!c.paidToday }));
+    },
+    async useSupport(owner, unitId, key, day) {
+      const r = await srpc('use_support', { p_owner: owner, p_unit: unitId, p_key: key, p_day: day });
+      return { ...r, paid: !!r?.paid, why: r?.why ?? null, serverNow: Number(r?.serverNow) || Date.now() };
+    },
+    async settleSupport(key) {
+      const r = await srpc('settle_support', { p_key: key });
+      return { ...r, paid: !!r?.paid, points: Number(r?.points) || 0, serverNow: Number(r?.serverNow) || Date.now() };
+    },
+    async supportState() {
+      const r = await srpc('support_state');
+      return {
+        ...r, serverNow: Number(r.serverNow), nextReset: Number(r.nextReset), borrowsPaid: Number(r.borrowsPaid) || 0, borrowCap: Number(r.borrowCap) || 5,
+        lentToday: Number(r.lentToday) || 0, lendCap: Number(r.lendCap) || 100, uncollected: Number(r.uncollected) || 0,
+      };
+    },
+    async claimSupportPoints(key, room) {
+      const r = await srpc('claim_support_points', { p_key: key, p_room: Math.max(0, Math.floor(Number(room) || 0)) });
+      return { ...r, total: Number(r?.total) || 0, left: Number(r?.left) || 0, serverNow: Number(r?.serverNow) || Date.now() };
+    },
+    async supportSummary() {
+      const r = await srpc('support_summary');
+      return { uncollected: Number(r?.uncollected) || 0 };
+    },
+
     async myFriendCode() {
       const r = await srpc('my_friend_code');
       return { code: r.code };

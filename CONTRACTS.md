@@ -699,7 +699,7 @@ Profile = {
   progress: { stages: { [stageId]: { easy, normal, hard, nightmare /*bools*/, clears, bestWave?, modes? /*battle-mode ribbons: { 'hard:rush': true }*/ } } },
   bestiary: { [enemyId]: { seen /*encountered in battle*/, discovered /*won a battle containing it*/, kills } },
   formation: { hero, towers: unitId[] /*≤ 8*/ },
-  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js), 'lv:<unitId>' = her level once above 60 (the level shadow, progression.js), 'own:<unitId>' / 'own:<unitId>:<slot>' = her ownership marks (src/systems/rosterSave.js) and 'fpTome:<weekKey>' = Akashic Tomes freeplay caches paid this week (max 2; src/online/coop/rewards.js; a new week's key deletes the old): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
+  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js), 'lv:<unitId>' = her level once above 60 (the level shadow, progression.js), 'own:<unitId>' / 'own:<unitId>:<slot>' = her ownership marks (src/systems/rosterSave.js) and 'fpTome:<weekKey>' = Akashic Tomes freeplay caches paid this week (max 2; src/online/coop/rewards.js; a new week's key deletes the old), and Tryout Day's 'ty:*' numbers (Marbles, weekly caps, the Jar's owned mask, Yearbook tens, achievement counters, the Grade cleared; keys in src/data/tryoutMeta.js `keys`, rules in src/systems/tryoutRewards.js): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
   shop: { day, week, bought: { [offerId]: count } },
   redeemed: string[],
   settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion, camera: 'locked'|'free' /*battle camera; missing = 'locked'*/ },
@@ -838,6 +838,17 @@ her level, her formation / secretary place. A girl in the save is never changed 
 
 `craftPreview` / `craft(profile, 'combine'|'swap', itemId, times, toFamily?)`: 3 → 1 up to Zenith, 2 → 1 family swap,
 coin fees `COMBINE_FEE` / `SWAP_FEE`, weekly caps `WEEKLY_CAP` (counters `craft:*`, reset on the game week).
+
+### `src/systems/workbench.js` (timed Workbench, BANNERS §G)
+
+Recipes in `src/data/workbench.js` (`WB_RECIPES`, **append-only numeric ids**, pinned id → output by
+`tests/systems/workbench.test.js`). `startCraft(profile, slot, recipeId, family, now)` pays inputs + coins and one weekly
+use up front; `cancelCraft` (before done) refunds all of it; `collectCraft` / `collectAll` add the output; `workbenchState`,
+`slotState`, `workbenchReady` read without writing; `touchWorkbench` (on Workbench actions only) re-anchors running slots
+after a clock set back > 10 min (time left kept) and writes `wb:seen` at most once a minute. Slots 1..3 (3rd after 6-5).
+State (numbers only, `missions.counters`): `wb:<slot>:r` recipe id, `wb:<slot>:n` family index (`WB_FAMILIES`, append-only),
+`wb:<slot>:s` / `wb:<slot>:e` start / end ms, `wb:wk` cap week (forward only), `wb:cap:<id>` uses this week, `wb:seen`.
+An unknown recipe id or family index is kept and shows "Update to collect". Hub: `#/workbench?tab=bench|craft`.
 
 ### `src/systems/skins.js` (roster merge)
 

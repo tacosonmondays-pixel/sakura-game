@@ -19,6 +19,7 @@ import { DEFAULT_UNIT_STATS } from '../../sim/constants.js';
 import { MAX_POTENTIAL } from '../../data/potential.js';
 import { COOP } from '../../data/coop.js';
 import { SIM_CLUB_IDS, PIERCE_K_MAX } from '../../sim/gearRules.js';
+import { TRYOUT_STUDENTS } from '../../data/tryout.js';
 
 const num = (lo, hi) => Object.freeze({ type: 'num', lo, hi });
 const int = (lo, hi) => Object.freeze({ type: 'int', lo, hi });
@@ -27,7 +28,8 @@ const oneOf = (list) => Object.freeze({ type: 'enum', list: Object.freeze([...li
 
 /** One rule per stat key a loadout may carry (unitBattleStats' keys). */
 export const UNIT_STAT_LIMITS = Object.freeze({
-  damageMul: num(0, 10),
+  // [banners G6] UR Resonance (×1.10) and the LR boost (×1.15) on top of UR gear at level 85: honest max ≈ 9.6
+  damageMul: num(0, 15),
   rateMul: num(0, 5),
   rangeMul: num(0, 3),
   critChance: num(0, 0.75),
@@ -39,7 +41,8 @@ export const UNIT_STAT_LIMITS = Object.freeze({
   // (15 % lines + 5 % fill), the aura girls' fill-in radius, gear ATK's share of burns, her club set,
   // and the UR pieces she wears (the renderer's rainbow sparkles; the sim never reads it)
   pierceK: int(0, PIERCE_K_MAX + 50),
-  auraPct: num(0, 0.3),
+  // Aura Power 0.3 grown by UR Resonance and LR (×1.10 · ×1.15 of 1 + Aura Power): honest max ≈ 0.64
+  auraPct: num(0, 0.75),
   auraRangeMul: num(1, 1.2),
   dotMul: num(1, 1.5),
   club: oneOf(SIM_CLUB_IDS),
@@ -52,6 +55,8 @@ export const UNIT_STAT_LIMITS = Object.freeze({
   breakthrough: int(0, 10),
   // Potential v3: P1…P6
   potential: int(1, MAX_POTENTIAL),
+  // [banners G6] LR (Limit Break): her LR ability form
+  lr: BOOL,
 });
 
 /** Most loadout entries one player may bring (her towers, one more when she brings no hero). */
@@ -90,17 +95,74 @@ export function clampEntry(e) {
   return 'stats' in e ? { ...e, stats: clampUnitStats(e.stats) } : { ...e };
 }
 
-/** A start message's player with her loadout capped at LOADOUT_MAX and every stat clamped. */
-export function clampPlayer(p) {
-  const loadout = (Array.isArray(p?.loadout) ? p.loadout : []).slice(0, LOADOUT_MAX).map(clampEntry).filter(Boolean);
-  return { ...p, loadout, hero: p?.hero ? clampEntry(p.hero) : null };
+/** Girls a Tryout Day draft holds (docs/specs/TRYOUT_DAY.md §11: each player drafts 3). */
+export const DRAFT_MAX = 3;
+/** The highest Grade (TRYOUT.grades 1–12). */
+export const TRYOUT_GRADE_MAX = 12;
+
+/**
+ * Tryout Day: a player's frozen pool ({ girlId: stats }), clamped. Only TRYOUT_STUDENTS ids (at most
+ * those 29, in that order, so an honest frozenPool is the identity), each entry's stats like a loadout
+ * entry's; unknown ids and non-object entries dropped. LOADOUT_MAX does not apply (the pool is no loadout).
+ */
+export function clampPool(pool) {
+  const out = {};
+  if (!pool || typeof pool !== 'object' || Array.isArray(pool)) return out;
+  for (const id of TRYOUT_STUDENTS) {
+    if (!Object.prototype.hasOwnProperty.call(pool, id)) continue;
+    const st = pool[id];
+    if (st && typeof st === 'object' && !Array.isArray(st)) out[id] = clampUnitStats(st);
+  }
+  return out;
+}
+
+/** Tryout Day: a player's draft, at most DRAFT_MAX distinct TRYOUT_STUDENTS ids (order kept). */
+export function clampDraft(draft) {
+  if (!Array.isArray(draft)) return [];
+  const out = [];
+  for (const id of draft) {
+    if (out.length >= DRAFT_MAX) break;
+    if (typeof id === 'string' && TRYOUT_STUDENTS.includes(id) && !out.includes(id)) out.push(id);
+  }
+  return out;
 }
 
 /**
- * A start message with every player clamped (clampPlayer); the rest of the message as it was.
+ * Tryout Day: the run settings of a start message ({ seed uint32, grade int 1–12, length 'half' | 'full',
+ * mapId string | null }); anything that is not an object is null (no run). Other keys dropped.
+ */
+export function clampTryout(t) {
+  if (!t || typeof t !== 'object' || Array.isArray(t)) return null;
+  const n = typeof t.seed === 'number' && Number.isFinite(t.seed) ? t.seed : 0;
+  const g = typeof t.grade === 'number' && Number.isFinite(t.grade) ? Math.floor(t.grade) : 1;
+  return {
+    seed: n >>> 0,
+    grade: Math.min(TRYOUT_GRADE_MAX, Math.max(1, g)),
+    length: t.length === 'full' ? 'full' : 'half',
+    mapId: typeof t.mapId === 'string' ? t.mapId.slice(0, 64) : null,
+  };
+}
+
+/**
+ * A start message's player with their loadout capped at LOADOUT_MAX and every stat clamped; a Tryout Day
+ * player's `pool` and `draft` too (only when the message has them: a normal start stays as it was).
+ */
+export function clampPlayer(p) {
+  const loadout = (Array.isArray(p?.loadout) ? p.loadout : []).slice(0, LOADOUT_MAX).map(clampEntry).filter(Boolean);
+  const out = { ...p, loadout, hero: p?.hero ? clampEntry(p.hero) : null };
+  if (p && 'pool' in p) out.pool = clampPool(p.pool);
+  if (p && 'draft' in p) out.draft = clampDraft(p.draft);
+  return out;
+}
+
+/**
+ * A start message with every player clamped (clampPlayer) and a Tryout Day run's settings sanitised
+ * (clampTryout, only when the message has `tryout`); the rest of the message as it was.
  * Idempotent, so a start that was clamped once (a resync, a rejoin) stays the same.
  */
 export function clampStart(start) {
   if (!start || typeof start !== 'object' || !Array.isArray(start.players)) return start;
-  return { ...start, players: start.players.map((p) => (p && typeof p === 'object' ? clampPlayer(p) : p)) };
+  const out = { ...start, players: start.players.map((p) => (p && typeof p === 'object' ? clampPlayer(p) : p)) };
+  if ('tryout' in start) out.tryout = clampTryout(start.tryout);
+  return out;
 }

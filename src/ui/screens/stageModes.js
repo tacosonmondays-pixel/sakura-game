@@ -2,7 +2,7 @@
 // §8.2): the Map rule panel, the Battle mode grid, the reward line, ribbon corners, thumb marks.
 // Kept apart from stage.js / campaign.js so the feature stays one separable piece.
 import '../styles/modes.css';
-import { h, svgEl, panel } from '../components.js';
+import { h, svgEl } from '../components.js';
 import { MODE_ORDER, modeId } from '../../data/modes.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
 import { MODE_TEXT, modeText, modeDesc } from '../text/modes.js';
@@ -47,12 +47,12 @@ export function modeSubLine(base, difficulty, mode) {
 export function ribbonCorner(profile, stageId, difficulty, mode) {
   if (!mode || mode === 'standard') return null;
   const got = modeRibbons(profile, stageId)[`${difficulty}:${mode}`];
-  return h(`span.ma-ribbon-corner${got ? '.on' : ''}`, { title: got ? 'Ribbon earned' : 'No ribbon yet' }, svgEl(uiIcon(got ? 'check' : 'star'), 'ma-ribbon-ico'), got ? '' : 'Ribbon');
+  return h(`span.ma-ribbon-corner.stp-d-ribbon${got ? '.on' : ''}`, { title: got ? 'Ribbon earned' : 'No ribbon yet' }, svgEl(uiIcon(got ? 'check' : 'star'), 'stp-d-ribbon-ico'), got ? '' : 'Ribbon');
 }
 
 /** Muted note under the medal gems while a mode is selected. */
 export function firstClearNote(mode) {
-  return mode && mode !== 'standard' ? h('p.muted.ma-mode-fc-note', 'Battle modes earn ribbons, not medals or medal gems.') : null;
+  return mode && mode !== 'standard' ? h('p.stp-p.desc.ma-mode-fc-note', 'Battle modes earn ribbons, not medals or medal gems.') : null;
 }
 
 /** Reward line: shown when a mode is selected above your best Standard medal here. */
@@ -60,33 +60,27 @@ export function rewardLine(profile, stage, difficulty, mode) {
   if (!mode || mode === 'standard' || modeMerged(difficulty, mode)) return null;
   const best = bestDifficulty(profile, stage.id) ?? 'easy';
   if (DIFFICULTY_ORDER.indexOf(difficulty) <= DIFFICULTY_ORDER.indexOf(best)) return null;
-  return h('p.ma-mode-reward', { 'data-testid': 'mode-reward-line' }, svgEl(uiIcon('info'), 'ma-inline-icon'),
+  return h('p.stp-p.stp-mode-reward.ma-mode-reward', { 'data-testid': 'mode-reward-line' }, svgEl(uiIcon('info'), 'stp-lock-ico'),
     `Drops as ${DIFFICULTIES[best].name}: beat ${DIFFICULTIES[difficulty].name} in Standard here for ${DIFFICULTIES[difficulty].name} drops.`);
 }
 
-/** The Map rule panel (null on stages without a rule). */
+/** The map rule as a section of the "i" sheet (null on stages without a rule): icon, name, when it runs, what it does. */
 export function rulePanel(stage) {
   const rule = stage.rule;
   const t = rule && ruleTextFor(stage);
   if (!t) return null;
-  const body = h('div.ma-rule',
-    h('div.ma-rule-head',
-      svgEl(ruleIcon(rule.id), 'ma-rule-icon'),
-      h('div.ma-rule-text',
-        h('div.ma-rule-name-row', h('b.ma-rule-name', t.name), h(`span.ma-rule-chip${rule.cycle ? '' : '.always'}`, ruleCycleLabel(rule))),
-        h('p.ma-rule-desc', t.desc),
+  const icon = svgEl(ruleIcon(rule.id), 'stp-rule-icon');
+  icon.style.setProperty('--rule', ruleColor(rule.id));
+  return h('section.stp-sec.ma-rule-panel', { 'data-testid': 'rule-panel' },
+    h('h3.stp-sec-k', 'Map rule'),
+    h('div.stp-rulebox',
+      icon,
+      h('div.stp-rule-text',
+        h('div.stp-rule-name-row', h('b.stp-rule-name.ma-rule-name', t.name), h(`span.ui-chip.stp-rule-when${rule.cycle ? '.cycle' : ''}`, ruleCycleLabel(rule))),
+        h('p.stp-p', t.desc),
         // a stage skin renamed the rule: say which shipped rule it is
-        t.baseName ? h('p.muted.ma-rule-hint', { 'data-testid': 'rule-base-name' }, `The ${t.baseName} rule.`) : null,
-        ruleHasMarks(rule) ? h('p.muted.ma-rule-hint', 'Glowing marks on the map show where.') : null,
-      ),
-    ),
-  );
-  const more = h('button.ma-rule-more', { type: 'button', onclick: () => { body.classList.toggle('open'); more.textContent = body.classList.contains('open') ? 'Less' : 'More'; } }, 'More');
-  body.appendChild(more);
-  const p = panel('Map rule', body);
-  p.classList.add('ma-rule-panel');
-  p.dataset.testid = 'rule-panel';
-  return p;
+        t.baseName ? h('p.stp-p.desc', { 'data-testid': 'rule-base-name' }, `The ${t.baseName} rule.`) : null,
+        ruleHasMarks(rule) ? h('p.stp-p.desc', 'Glowing marks on the map show where.') : null)));
 }
 
 /** Vents and pads drawn over the stage thumb (same fit as stageThumbSVG). */
@@ -110,20 +104,22 @@ export function withRuleMarks(svg, map, rule, width, height) {
   return marks ? svg.replace(/<\/svg>\s*$/, `${marks}</svg>`) : svg;
 }
 
-/** The Battle mode panel: 3 × 2 cards, ribbon state, the selected card's text and the reward line. */
+/**
+ * The battle modes in the Mode sheet: the ribbon count, six cards (icon, name, what it does, its ribbon or medal
+ * state), the selected mode's sentence and the reward line. Before the first clear: one lock line.
+ */
 export function modePanel(profile, stage, state, onPick) {
   const unlocked = modesUnlocked(profile, stage.id);
   const count = ribbonCount(profile, stage.id);
-  const head = h('div.ma-mode-head', h('span.ma-mode-count', { 'data-testid': 'ribbon-count' }, `Ribbons ${count.have}/${count.total}`));
+  const head = h('div.stp-sec-head', h('h3.stp-sec-k', 'Battle modes'),
+    count.have || unlocked ? h('span.ui-chip.stp-ribbons', { 'data-testid': 'ribbon-count' }, `Ribbons ${count.have}/${count.total}`) : null);
   if (!unlocked) {
-    const p = panel('Battle mode', head, h('div.ma-mode-locked', { 'data-testid': 'modes-locked' }, svgEl(uiIcon('lock'), 'ma-inline-icon'), 'Clear this stage once to unlock battle modes.'));
-    p.classList.add('ma-mode-panel');
-    return p;
+    return h('section.stp-sec.ma-mode-panel', head, h('p.stp-p.stp-lockline', { 'data-testid': 'modes-locked' }, svgEl(uiIcon('lock'), 'stp-lock-ico'), 'Clear this stage once to unlock battle modes.'));
   }
   const medals = stageMedals(profile, stage.id);
   const ribbons = modeRibbons(profile, stage.id);
   const d = state.difficulty;
-  const grid = h('div.ma-modes', { role: 'radiogroup', 'aria-label': 'Battle mode' });
+  const grid = h('div.stp-mcards', { role: 'radiogroup', 'aria-label': 'Battle mode' });
   for (const id of MODE_ORDER) {
     const t = MODE_TEXT[id];
     const merged = modeMerged(d, id);
@@ -132,7 +128,9 @@ export function modePanel(profile, stage, state, onPick) {
       : id === 'standard' ? (earned ? `${DIFFICULTIES[d].name} medal ✓` : `${DIFFICULTIES[d].name} medal: not yet`)
         : earned ? 'Ribbon ✓' : 'No ribbon yet';
     const sel = state.mode === id;
-    const card = h(`button.ma-mode${sel ? '.active' : ''}${merged ? '.merged' : ''}${earned ? '.earned' : ''}`, {
+    const icon = svgEl(modeIcon(id), 'stp-mcard-icon');
+    icon.style.setProperty('--mode', t.color);
+    grid.appendChild(h(`button.stp-mcard.ma-mode${sel ? '.on' : ''}${merged ? '.merged' : ''}${earned ? '.earned' : ''}`, {
       type: 'button',
       role: 'radio',
       'aria-checked': sel ? 'true' : 'false',
@@ -141,25 +139,17 @@ export function modePanel(profile, stage, state, onPick) {
       title: merged ? status : t.name,
       onclick: () => onPick(id),
     },
-    svgEl(modeIcon(id), 'ma-mode-icon'),
-    h('span.ma-mode-name', h('span.ma-mode-full', t.name), h('span.ma-mode-short', t.short)),
-    h('span.ma-mode-desc', modeDesc(id, stage, d)),
-    h('span.ma-mode-status', status),
-    h('span.ma-mode-dot', { title: earned ? 'Earned' : 'Not yet' }),
-    sel ? h('span.ma-mode-check', svgEl(uiIcon('check'))) : null);
-    card.style.setProperty('--mode', t.color);
-    grid.appendChild(card);
+    h('span.stp-mcard-head', icon, h('b.stp-mcard-name', t.name)),
+    h('span.stp-mcard-desc', modeDesc(id, stage, d)),
+    h(`span.stp-mcard-status${earned ? '.ok' : ''}`, status)));
   }
   const selText = modeText(state.mode);
-  const p = panel(
-    'Battle mode',
+  return h('section.stp-sec.ma-mode-panel',
     head,
     grid,
-    h('p.ma-mode-sel', { 'data-testid': 'mode-selected-text' }, h('b', `${selText.name}: `), modeDesc(state.mode, stage, d)),
+    h('p.stp-p.stp-mode-sel', { 'data-testid': 'mode-selected-text' }, h('b', `${selText.name}: `), modeDesc(state.mode, stage, d)),
     rewardLine(profile, stage, d, state.mode),
-  );
-  p.classList.add('ma-mode-panel');
-  return p;
+    firstClearNote(state.mode));
 }
 
 /** Campaign stage card chips: the rule chip (icon + name; icon only on phones) and "Ribbons n/20". */

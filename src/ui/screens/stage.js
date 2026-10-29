@@ -1,25 +1,30 @@
 // Stage preparation (owner: meta-a). Route: #/stage/<id>?difficulty=normal[&mode=rush][&freeplay=<tier>][&endless=1]
-// Solo Freeplay: on a cleared campaign stage a Freeplay row (Off · Blossom · Tempest · Crimson
-// Moon) turns the run into a freeplay run, with the best wave per tier. endless=1 (the Tactical
-// Challenge cards, the old endless runs) opens the same prep with freeplay on.
-// Battle modes (docs/specs/CODEX_MODES.md): picked next to the difficulty once the stage is cleared;
-// a mode and freeplay exclude each other (freeplay runs in Standard in v1).
-// Map preview, wave info, enemy scouting chips, recommended counters with one-tap
-// "Add to formation", formation strip, difficulty picker with medals, drop table,
-// first-clear rewards, Start and Sweep. [events] An event stage offers only its own difficulties; one still
-// locked there (Nightmare before its Normal / Hard medal) shows a lock and "Clear Hard first" but can be picked
-// to look at its waves and rewards (Start stays off); a difficulty with its own waves (the Golem's Nightmare,
-// src/data/events/wire.js eventBattleStage) shows that stage's waves, enemies, HP and start cash.
-// With a saved battle (Save & quit, src/systems/battleSave.js)
-// Start becomes Continue · Wave N/M and New game (which asks before deleting the save); with a
-// Freeplay tier picked, New game is a Freeplay start beside Continue instead (freeplay runs are
-// never saved, so the saved battle stays). Continue always plays the save as it was saved.
+// UI v2 M1 (docs/specs/UI_V2_MENUS.md §5 M1, UI_DIRECTION.md §6.3): one screen in the Ink & Paper kit, no scroll at
+// 844x390. The map band (map, name plate, tier sticker, the stage ink strip WAVES · ♥ LIVES · START, one mission
+// sentence + "i"), the 2 × 2 difficulty grid with the rewards not earned yet, the selected difficulty's one rule
+// sentence, the Mode chip, one Counters row, one Drops row, and the footer: Sweep ×1 / ×10 as secondary (or one lock
+// line) beside Start · <Difficulty>, the screen's one yellow. Four kit sheets hold the rest: Counters (each need, the
+// girls who cover it with one-tap Add, the formation), Drops (chances, quantity ranges, the first clear, medal gems),
+// Mode (battle modes, docs/specs/CODEX_MODES.md, and Solo Freeplay: Off · Blossom · Tempest · Crimson Moon, with the
+// best wave per tier; a mode and freeplay exclude each other, freeplay runs in Standard in v1) and "i" (the full
+// mission text, the map rule, the enemies with scouting, map name and clears). endless=1 (the Tactical Challenge
+// cards) opens the same prep with freeplay on.
+// [events] An event stage offers only its own difficulties; one still locked there (Nightmare before its Normal /
+// Hard medal) shows a lock and "Clear Hard first" but can be picked to look at its waves and rewards (Start stays
+// off); a difficulty with its own waves (the Golem's Nightmare, src/data/events/wire.js eventBattleStage) shows that
+// stage's waves, enemies, HP and start cash. The event line (which event, its countdown, the candy per win) sits
+// under the strip.
+// With a saved battle (Save & quit, src/systems/battleSave.js) the saved line takes the mission line's place and
+// Start becomes Continue · Wave N/M beside New game (which asks before deleting the save); with a Freeplay tier
+// picked, New game is a Freeplay start beside Continue instead (freeplay runs are never saved, so the saved battle
+// stays). Continue always plays the save as it was saved.
 //
 // Also exports small shared building blocks used by the other meta-a screens
 // (campaign, bounty, assault, challenge): medal rows, drop lists, enemy chips, the
 // rewards modal and the formation helpers.
 import '../styles/meta-a.css';
-import { h, clear, screen, panel, button, modal, toast, svgEl, itemTile, unitCard, confirmDialog } from '../components.js';
+import '../styles/v2-stage.css';
+import { h, clear, screen, button, modal, toast, svgEl, itemTile, unitCard, confirmDialog } from '../components.js';
 import { navigate, rememberParams } from '../router.js';
 import { store } from '../../core/store.js';
 import { createRng } from '../../core/rng.js';
@@ -34,7 +39,11 @@ import {
 } from '../../data/types.js';
 import { MAP_TIER_VIEW } from '../../data/mapTierNames.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
-import { medalIcon, traitIcon, capabilityIcon, uiIcon, gearIcon, armorClassIcon } from '../../art/icons.js';
+import { medalIcon, traitIcon, capabilityIcon, uiIcon, gearIcon, armorClassIcon, modeIcon } from '../../art/icons.js';
+import { ico, curArt, iconBtn, secondaryBtn, inkBtn, countdownChip, fillIn } from '../kit.js';
+import { openSheet, closeSheets } from '../sheet.js';
+import { fmtNum } from '../format.js';
+import { lineGlyph } from '../lineGlyphs.js';
 import { stageMedals, isStageUnlocked, isStageCleared, recommendedFor, isOwned, canPlayEndless } from '../../systems/unlocks.js';
 import { canSweep, sweep, MAX_SWEEPS, medalGems as medalGemsFor } from '../../systems/rewards.js';
 import { currentEvent } from '../../systems/missions.js';
@@ -55,11 +64,16 @@ import {
   getBattleSave, slotKey, saveSummary, clearBattleSave, saveToEvict, savesByWorth, saveTitle, MAX_BATTLE_SAVES, runStartedAt,
 } from '../../systems/battleSave.js';
 import { portraitHTML } from '../../art/portraits.js';
-import { eventStageStatus, eventPhase, phaseLabel, eventRunGate, eventDifficultyStatus, eventSweepsLeft } from '../../systems/events.js';
+import { eventStageStatus, eventPhase, phaseLabel, eventRunGate, eventDifficultyStatus, eventSweepsLeft, eventWindow } from '../../systems/events.js';
 import { RESET, localResetHint } from '../../core/reset.js';
 import { eventOfStage } from '../../data/events/index.js';
 import { eventBattleStage } from '../../data/events/wire.js';
 import { eventNow } from '../events/clock.js';
+import { supportPanel, supportParam } from './stageSupport.js'; // [friend support]
+import { supportAllowed } from '../../systems/friendSupport.js'; // [friend support] the Support row on prep
+import { isFriendshipLive } from '../../systems/banners.js'; // [friend support] the row waits for the server's SQL
+import { supportPick } from '../battle/supportPick.js';
+import { wentOnline } from '../online/common.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers (exported for the other meta-a screens)
@@ -437,14 +451,22 @@ export function acquisitionHint(unit) {
 }
 
 // ---------------------------------------------------------------------------
-// Screen
+// Screen (UI v2 M1: docs/specs/UI_DIRECTION.md §6.3, the stage prep after-board in the Ink & Paper kit)
+// One screen, no scroll at 844x390: the map band on the left (the map with its name plate and tier sticker, the stage
+// ink strip WAVES · ♥ LIVES · START, one mission sentence + "i"), the decision on the right (the 2 × 2 difficulty
+// grid with the rewards not earned yet, the selected difficulty's one rule sentence and the Mode chip, one Counters
+// row, one Drops row) and the footer (Sweep as secondary or one lock line, Start · <Difficulty> as the one yellow).
+// Everything else sits one tap away in four kit sheets: Counters (each need, the girls who cover it, Add, the
+// formation), Drops (percentages, quantity ranges, the first clear), Mode (battle modes and Freeplay, with their
+// explainers and locks) and "i" (the full mission text, the map rule, the enemies, map name and clears).
 // ---------------------------------------------------------------------------
 
-const DIFF_SUMMARY = {
-  easy: 'Forgiving: −15% HP, +10% coins',
-  normal: 'Upgrades + right counters',
-  hard: '+35% HP, faster, 50 lives',
-  nightmare: '+75% HP, 1 life, no income',
+/** The selected difficulty's one rule sentence: what the strip does not already say (it shows the lives). */
+const DIFF_RULE = {
+  easy: '−15% HP, +10% coins',
+  normal: 'Upgrades + the right counters',
+  hard: '+35% HP, faster enemies',
+  nightmare: '+75% HP, no income',
 };
 
 /**
@@ -455,6 +477,20 @@ export function warmBattle() {
   const run = () => import('./battle.js').catch(() => {});
   if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 2000 });
   else setTimeout(run, 600);
+}
+
+/** A UI v2 line glyph the kit's ico() has no alias for yet (chevD, waves) as an inline icon. */
+const lineIco = (name, cls = 'ui-ico') => ico(lineGlyph(name, '', { kitSize: false }), cls);
+
+/**
+ * The top bar's title (UI_DIRECTION 6.3 mock: "Campaign" over the map's "4-3 Shield Wall" plate): where the stage
+ * lives (Campaign, Bounty, Total Assault, Tactical Challenge, the event's own name); the id and name are on the plate.
+ */
+function prepTitle(stage, endless) {
+  if (endless) return 'Freeplay';
+  if (stage.kind === 'campaign') return 'Campaign';
+  if (stage.kind === 'event') return eventOfStage(stage.id)?.name || KIND_LABEL.event;
+  return KIND_LABEL[stage.kind] || stage.name;
 }
 
 export function render(root, params = {}) {
@@ -470,13 +506,13 @@ export function render(root, params = {}) {
   const wantsEndless = params.endless === '1' || params.endless === 1 || params.endless === true;
   const fpOk = hasSoloFreeplay(stage.id) && canPlayEndless(store.profile, stage.id);
   const endless = wantsEndless && fpOk; // Tactical Challenge's map cards: freeplay prep, never Off
-  const title = stage.kind === 'campaign' ? `${stage.id} ${stage.name}` : stage.name;
-  const { el, body } = screen(endless ? `Freeplay · ${title}` : title, { cls: 'ma-stage-screen' });
+  const { el, body } = screen(prepTitle(stage, endless), { cls: 'ma-stage-screen stp-screen' });
   root.appendChild(el);
 
   const state = {
     difficulty: DIFFICULTIES[params.difficulty] ? params.difficulty : defaultDifficulty(store.profile, stage),
     freeplay: fpOk ? freeplayTier(params.freeplay) || (endless ? lastSoloTier() : null) : null,
+    sheet: null, // the open sheet: { kind, api }
   };
   if (endless || stage.kind === 'challenge') state.difficulty = DIFFICULTIES[params.difficulty] ? params.difficulty : 'normal';
   // [events] an event stage offers only its own difficulties (operations Normal / Nightmare, the boss Normal / Hard / Nightmare)
@@ -489,37 +525,38 @@ export function render(root, params = {}) {
   // battle mode (docs/specs/CODEX_MODES.md §8.1): remembered in the route like the difficulty
   state.mode = initialMode(store.profile, stage, params, endless);
 
+  const ctx = { endless, redraw: null, openSheetOf: null };
   const draw = () => {
     clear(body);
-    body.appendChild(buildPrep(stage, state, { endless, redraw: draw }));
+    body.appendChild(buildPrep(stage, state, ctx));
+    fitFooter(body);
+    // an open sheet follows the screen (a mode picked in it, a girl added from it, a sweep)
+    if (state.sheet) fillIn(state.sheet.api.body, sheetBody(stage, state, ctx, state.sheet.kind));
+  };
+  ctx.redraw = draw;
+  ctx.openSheetOf = (kind) => {
+    const def = SHEETS[kind];
+    const api = openSheet({
+      title: def.title(stage, state), body: sheetBody(stage, state, ctx, kind), testid: def.testid, cls: `stp-sheet.stp-sheet-${kind}`,
+      onClose: () => { if (state.sheet?.api === api) state.sheet = null; },
+    });
+    state.sheet = { kind, api };
   };
   draw();
-  // one column (portrait phones): a saved battle's Continue / New game moves to the top of the
-  // page; turning the phone redraws it in place
-  const mq = typeof matchMedia === 'function' ? matchMedia(ONE_COLUMN) : null;
-  const onLayout = () => {
-    if (getBattleSave(store.profile, slotKey(stage.id, stage.kind === 'challenge'))) draw();
-  };
-  mq?.addEventListener?.('change', onLayout);
+  const onResize = () => fitFooter(body);
+  window.addEventListener('resize', onResize);
+  // (the web fonts can widen the labels after the first draw)
+  document.fonts?.ready?.then(() => { if (body.isConnected) fitFooter(body); });
   const off = store.on('change', (e) => {
-    // 'sweep' adds clears: without it the Clears fact stayed stale until the stage was re-entered.
-    // Redraw in place, keeping the page and column scroll (the Sweep bar is pinned at the bottom).
-    if (e?.reason === 'formation' || e?.reason === 'sweep' || e?.reason === 'replace' || e?.reason === 'battle-save') {
-      const scrolled = () => [body, ...body.querySelectorAll('.ma-prep-col')];
-      const keep = scrolled().map((n) => n.scrollTop);
-      draw();
-      scrolled().forEach((n, i) => { n.scrollTop = keep[i] || 0; });
-    }
+    // 'sweep' adds clears, 'formation' an Add from the Counters sheet, 'battle-save' a New game: redraw in place
+    if (e?.reason === 'formation' || e?.reason === 'sweep' || e?.reason === 'replace' || e?.reason === 'battle-save') draw();
   });
   return () => {
     off();
-    mq?.removeEventListener?.('change', onLayout);
+    window.removeEventListener('resize', onResize);
+    closeSheets();
   };
 }
-
-/** Stage prep's one-column layout (portrait phones): see meta-a.css `.ma-prep`. */
-const ONE_COLUMN = '(max-width: 699px)';
-const oneColumn = () => typeof matchMedia === 'function' && matchMedia(ONE_COLUMN).matches;
 
 /** First difficulty without a medal (so the player is nudged up the ladder). */
 function defaultDifficulty(profile, stage) {
@@ -533,241 +570,72 @@ function defaultDifficulty(profile, stage) {
   return 'hard';
 }
 
-function buildPrep(stage, state, { endless, redraw }) {
+/** Everything one draw of prep reads, worked out once (the screen and its sheets share it). */
+function prepFacts(stage, state, { endless }) {
   const profile = store.profile;
-  const map = safeMap(stage.mapId);
   const evStatus = stage.kind === 'event' ? eventStageStatus(profile, stage.id, eventNow()) : null;
   const unlocked = evStatus ? evStatus.ok : isStageUnlocked(profile, stage.id);
-  const req = requirementText(profile, stage.id);
   const event = currentEvent();
-  const dropMul = event.stageIds.includes(stage.id) ? event.dropMul : 1;
-  const medals = stageMedals(profile, stage.id);
-  const entry = profile.progress?.stages?.[stage.id];
-  // [events] the stage this difficulty plays (its own waves, enemies, HP and coins: the Golem's Nightmare),
-  // and whether that difficulty is open yet (Nightmare after the Normal / Hard medal)
+  const isEndless = stage.kind === 'challenge'; // only the colosseum is endless now; campaign maps play freeplay
+  // [events] the stage this difficulty plays (its own waves, enemies, HP and coins: the Golem's Nightmare)
   const played = (stage.kind === 'event' && eventBattleStage(stage.id, state.difficulty)) || stage;
-  const diffGate = evStatus ? eventDifficultyStatus(profile, stage.id, state.difficulty) : { ok: true, text: '' };
-  // only the colosseum is endless now; campaign maps play freeplay (state.freeplay)
-  const isEndless = stage.kind === 'challenge';
-  const fpOk = hasSoloFreeplay(stage.id) && unlocked;
   const fpOn = !!state.freeplay && canPlayEndless(profile, stage.id);
-
-  const wrap = h('div.ma-prep');
-
-  // ----- Left: map + info + enemies ------------------------------------------------
-  const left = h('div.ma-prep-col.left');
-  const tier = MAP_TIER_VIEW[played.tier];
-  const thumb = h('div.ma-prep-thumb', { html: map ? withRuleMarks(stageThumbSVG(map, { width: 480, height: 300 }), map, stage.rule, 480, 300) : '' });
-  // The thumb box is sized by CSS (landscape phones cap its height); the map fills it edge to edge.
-  thumb.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMid slice');
-  const hero = h(
-    'div.ma-prep-map',
-    thumb,
-    h('div.ma-prep-map-top',
-      tier ? h('span.ma-tier-badge', { style: { background: tier.color } }, tier.name) : null,
-      dropMul > 1 ? h('span.ma-event-badge', `${dropMul}× drops`) : null,
-      isEndless ? h('span.ma-endless-badge', 'Endless') : null,
-      fpOn ? h(`span.ma-fp-badge.ma-fp-${state.freeplay}`, { 'data-testid': 'prep-fp-badge' }, `Freeplay · ${freeplayTable(state.freeplay).name}`) : null,
-    ),
-    h('div.ma-prep-name',
-      h('span.ma-prep-id', stage.kind === 'campaign' ? stage.id : stageLabel(stage)),
-      h('span.ma-prep-title', stage.name),
-    ),
-    stage.kind !== 'challenge' ? medalRow(profile, stage.id, { size: 26, cls: 'ma-prep-medals' }) : null,
-  );
-  left.appendChild(hero);
-
-  const chapter = stage.chapter && stage.kind === 'campaign' ? CHAPTERS.find((c) => c.id === stage.chapter) : null;
-  left.appendChild(panel(
-    stageLabel(stage),
-    h('p.ma-stage-desc', stage.desc),
-    played.variant ? h('div.ma-variant', { 'data-testid': 'event-variant' }, h('b', `${DIFFICULTIES[played.variant.difficulty].name}: ${played.variant.name}`), h('span', played.variant.desc)) : null,
-    h('div.ma-facts',
-      fact('Waves', isEndless ? '∞' : fpOn ? `${stage.waves} + ∞` : String(played.waves)),
-      fact('Lives', String(livesFor(state.difficulty, state.mode))),
-      fact('Start cash', formatNumber(Math.round(played.startCash))),
-      fact('Map', map?.name || stage.mapId),
-      isEndless && entry?.bestWave ? fact('Best wave', String(entry.bestWave)) : null,
-      !isEndless && entry?.clears ? fact('Clears', String(entry.clears)) : null,
-    ),
-    mechanicFor(chapter, stage) ? h('p.muted.ma-mechanic', svgEl(uiIcon('info'), 'ma-inline-icon'), mechanicFor(chapter, stage)) : null,
-  ));
-  const rule = rulePanel(stage);
-  if (rule) left.appendChild(rule);
-
-  // Enemies
-  const introduces = new Set(stage.introduces || []);
-  const ids = stageEnemies(played).filter((id) => ENEMY_MAP[id]);
-  ids.sort((a, b) => (TIER_ORDER[ENEMY_MAP[a].tier] ?? 3) - (TIER_ORDER[ENEMY_MAP[b].tier] ?? 3) || Number(introduces.has(b)) - Number(introduces.has(a)));
-  const newTraits = (stage.introduces || []).filter((k) => TRAITS[k]);
-  left.appendChild(panel(
-    'Enemies',
-    newTraits.length ? h('div.ma-new-mech', h('span.badge-new', 'New mechanic'), newTraits.map((t) => h('span.ma-new-trait', svgEl(traitIcon(t), 'ma-trait'), h('b', TRAITS[t].name), h('span.muted', ` — ${TRAITS[t].desc}`)))) : null,
-    h('div.ma-enemy-list', ids.map((id) => enemyChip(id, { isNew: introduces.has(id), hpScale: played.hpScale * DIFFICULTIES[state.difficulty].hpMul }))),
-    h('p.muted.ma-hint', 'Tap an enemy for HP, traits and counters.'),
-  ));
-  wrap.appendChild(left);
-
-  // ----- Right: difficulty, counters, formation, drops, actions ------------------
-  const right = h('div.ma-prep-col.right');
-  if (evStatus) right.appendChild(eventPrepPanel(stage, state));
-
   const rec = unlocked ? getBattleSave(profile, slotKey(stage.id, isEndless)) : null;
-  // with a saved battle the picker only sets a new run's difficulty: the save's card says "Saved"
-  if (!isEndless) right.appendChild(panel(rec ? (fpOn ? 'Freeplay difficulty' : 'New game difficulty') : 'Difficulty', difficultyPicker(stage, state, medals, redraw, rec ? rec.difficulty : null)));
-  if (!isEndless && !endless && stage.kind === 'campaign') {
-    // a mode turns freeplay off (freeplay runs in Standard in v1); with a saved battle it sets the
-    // New game's mode only (Continue plays the saved run's own mode: the saved line names it)
-    right.appendChild(modePanel(profile, stage, state, (m) => {
-      state.mode = m;
-      rememberParams('stage', { mode: m });
-      if (m !== 'standard' && state.freeplay) {
-        state.freeplay = null;
-        rememberFreeplay(null);
-      }
-      redraw();
-    }));
-  }
-  if (fpOk) right.appendChild(freeplayPanel(stage, state, { endless, redraw, saved: rec }));
+  return {
+    profile,
+    evStatus,
+    unlocked,
+    req: requirementText(profile, stage.id),
+    event,
+    dropMul: event.stageIds.includes(stage.id) ? event.dropMul : 1,
+    medals: stageMedals(profile, stage.id),
+    entry: profile.progress?.stages?.[stage.id],
+    played,
+    // [events] whether that difficulty is open yet (Nightmare after the Normal / Hard medal)
+    diffGate: evStatus ? eventDifficultyStatus(profile, stage.id, state.difficulty) : { ok: true, text: '' },
+    isEndless,
+    fpOk: hasSoloFreeplay(stage.id) && unlocked,
+    fpOn,
+    fpName: fpOn ? freeplayTable(state.freeplay).name : null,
+    rec,
+    // battle modes and freeplay live behind the Mode chip (campaign maps; Tactical Challenge's freeplay prep: freeplay only)
+    hasMode: !isEndless && stage.kind === 'campaign',
+    endless,
+  };
+}
 
-  right.appendChild(countersPanel(stage));
-  right.appendChild(formationPanel());
+/**
+ * [friend support] The Support row (BANNERS §E.1): the friend's girl picked for the next New game, or the offer; it opens
+ * the Friend Support sheet (stageSupport.js supportPanel: the friends' Support Students, Refresh, the rules line). Shown
+ * once the player has gone online (only then can a friend lend one), on the stages that take a Support Student.
+ */
+function supportRow(stage, state, ctx) {
+  // (only while Friend Support is live on the server, the Friendship tab's own switch: a deploy that lands before the
+  // friend support SQL shows no Support slot, supabase/migrations/20261028000000_friend_support.sql)
+  if (!wentOnline() || !isFriendshipLive() || !supportAllowed(store.profile, stage, { difficulty: state.difficulty })) return null;
+  const pick = supportParam(stage, state) ? supportPick() : null;
+  const who = pick && UNIT_MAP[pick.unitId] ? `${UNIT_MAP[pick.unitId].name} · ${pick.name || 'a friend'}` : null;
+  const open = () => {
+    const body = supportPanel(stage, state);
+    if (!body) return;
+    // the row shows the pick made in the sheet once it closes
+    openSheet({ title: 'Friend Support', body, testid: 'support-sheet', cls: 'stp-sheet.stp-sheet-support', onClose: () => { if (row.isConnected) ctx.redraw(); } });
+  };
+  const row = h('button.stp-row.stp-support', { type: 'button', 'data-testid': 'prep-support', 'aria-label': who ? `Friend Support: ${who}. Change` : 'Friend Support: borrow a friend\'s girl', onclick: open },
+    h('span.lbl.stp-row-k', 'Support'),
+    // (one line that gives way first; it pushes the chevron to the row's end, as on the Drops row)
+    h('span.stp-support-pick', { style: { flex: '1 1 auto', minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, who || 'Borrow a friend\'s girl'),
+    ico('chevR', 'ui-ico.stp-chev'));
+  return row;
+}
 
-  const dropsPanel = panel(
-    stage.kind === 'challenge' ? 'Rewards per run' : 'Drops',
-    dropMul > 1 ? h('div.ma-event-note', h('span.ma-event-badge', `${dropMul}×`), `${event.name}: drop counts doubled this week.`) : null,
-    dropGrid(stage, state.difficulty, { dropMul }),
-    fpOn ? h('p.muted.ma-hint', 'Freeplay: these drop at the stage clear; past it, coins every wave and a freeplay cache every 25 waves.') : null,
-  );
-  right.appendChild(dropsPanel);
-
-  if (!isEndless) right.appendChild(firstClearPanel(stage, medals, state.mode));
-  // [events] a difficulty still locked here: it can be looked at, not started (or swept)
-  const diffLock = diffGate.ok ? null : h('div.ma-locked-note', { 'data-testid': 'diff-locked-note' }, svgEl(uiIcon('lock'), 'ma-inline-icon'), `${DIFFICULTIES[state.difficulty].name}: ${diffGate.text}`);
-
-  // Actions
-  const formationOk = formationIds(profile).length > 0;
-  const actions = h('div.ma-prep-actions');
-  if (!unlocked) {
-    actions.appendChild(h('div.ma-locked-note', svgEl(uiIcon('lock'), 'ma-inline-icon'), req));
-    // [events] a battle saved while the operations were open still pays by its start time (EVENT_SPEC
-    // §3.2): after the end its Continue stays (no New game), so the run can be finished
-    const evSave = evStatus ? getBattleSave(profile, slotKey(stage.id, false)) : null;
-    if (evSave && eventRunGate(profile, stage, runStartedAt(evSave)).ok) {
-      const sum = saveSummary(evSave);
-      actions.appendChild(savedLine(evSave));
-      const cont = button(`Continue · Wave ${sum.next}/${sum.of}`, {
-        kind: 'yellow',
-        icon: 'play',
-        testid: 'stage-continue',
-        title: 'This battle started before the operations closed, so it still pays.',
-        onClick: () => navigate('battle', { stage: stage.id, difficulty: evSave.difficulty, resume: evSave.id }),
-      });
-      cont.classList.add('ma-start-btn', 'ma-continue-btn');
-      actions.appendChild(cont);
-    }
-    const reqStage = missingRequirements(profile, stage.id)[0] || null; // (the first one still to clear)
-    if (evStatus) actions.appendChild(button('Back to the event', { kind: 'primary', icon: 'teleport', testid: 'stage-to-event', onClick: () => navigate('event', { id: stage.event, tab: evStatus.reason === 'episode' ? 'story' : 'stages' }) }));
-    else if (reqStage) actions.appendChild(button(`Go to ${reqStage.kind === 'campaign' ? reqStage.id : reqStage.name}`, { kind: 'primary', icon: 'teleport', onClick: () => navigate('stage', { id: reqStage.id }) }));
-  } else {
-    if (rec) actions.appendChild(savedLine(rec));
-    // (the "Sweep unlocks after a Hard clear" note waits while a saved battle needs the room)
-    if (!isEndless && (!rec || canSweep(profile, stage.id))) actions.appendChild(sweepControls(stage, state));
-    // a new run: Tactical Challenge's map cards keep endless=1 (the run belongs there), a picked
-    // tier makes it a solo freeplay run (never saved: src/systems/battleSave.js isSavableRun)
-    const newMode = isEndless || fpOn ? 'standard' : playMode(state.difficulty, state.mode);
-    const battleParams = () => {
-      const p = { stage: stage.id, difficulty: state.difficulty };
-      if (newMode !== 'standard') p.mode = newMode;
-      if (endless) p.endless = 1;
-      if (fpOn) p.freeplay = state.freeplay;
-      return p;
-    };
-    const fpName = fpOn ? freeplayTable(state.freeplay).name : null;
-    if (rec) {
-      // Continue works without a formation: the team is the one frozen in the save
-      const sum = saveSummary(rec);
-      const savedDiff = DIFFICULTIES[sum.difficulty].name;
-      const newDiff = DIFFICULTIES[state.difficulty].name;
-      let other;
-      if (fpOn) {
-        // a freeplay run is never saved: it starts beside the saved battle and leaves it as it is
-        // ("FREEPLAY" over the tier, so Crimson Moon fits the half-width button on a phone)
-        other = button(h('span.ma-fp-start-text', h('small', 'Freeplay'), h('b', fpName)), {
-          kind: 'ghost',
-          title: `Start · ${newDiff} · ${fpName} freeplay (your saved battle stays)`,
-          testid: 'stage-start',
-          disabled: !formationOk,
-          onClick: () => navigate('battle', battleParams()),
-        });
-        other.classList.add('ma-fp-start-btn');
-      } else {
-        // "New game · Hard · Goblin Rush" (codex §8.1): the run the button starts, mode included
-        const newLabel = isEndless ? 'New game' : newMode !== 'standard' ? `New game · ${newDiff} · ${modeText(newMode).name}` : `New game · ${newDiff}`;
-        other = button(newLabel, {
-          kind: 'ghost',
-          title: newLabel,
-          testid: 'stage-new',
-          disabled: !formationOk || !diffGate.ok,
-          onClick: async () => {
-            const text = sum.endless
-              ? `Start a new run on ${savedStageLabel(rec)}? Your saved run (wave ${sum.next}) will be deleted.`
-              : `Start a new ${newDiff}${newMode !== 'standard' ? ` ${modeText(newMode).name}` : ''} battle on ${savedStageLabel(rec)}? Your saved ${savedDiff}${savedModeName(rec) ? ` ${savedModeName(rec)}` : ''} battle (wave ${sum.next} of ${sum.of}) will be deleted.`;
-            const ok = await ask(text, { title: 'New game', ok: 'New game', cancel: 'Keep it', danger: true });
-            if (!ok) return;
-            clearBattleSave(store.profile, rec.slot, rec.id);
-            store.commit('battle-save');
-            store.saveNow();
-            navigate('battle', battleParams());
-          },
-        });
-      }
-      other.classList.add('ma-new-btn');
-      // Continue always plays the saved run as it was saved: its difficulty (the saved line and the
-      // picker's "Saved" card say which) and its mode, whatever tier the Freeplay row has picked
-      const cont = button(sum.endless ? `Continue · Wave ${sum.next}` : `Continue · Wave ${sum.next}/${sum.of}`, {
-        kind: 'yellow',
-        icon: 'play',
-        testid: 'stage-continue',
-        onClick: () => navigate('battle', { stage: stage.id, difficulty: rec.difficulty, resume: rec.id }),
-      });
-      cont.classList.add('ma-start-btn', 'ma-continue-btn');
-      if (!formationOk) actions.appendChild(h('div.ma-locked-note', `${fpOn ? 'Freeplay' : 'New game'} needs at least one girl in your formation.`));
-      if (diffLock) actions.appendChild(diffLock);
-      actions.appendChild(h('div.ma-save-btns', other, cont));
-      actions.classList.add('has-save');
-    } else {
-      const start = button(isEndless ? 'Start endless' : fpOn ? `Start · ${DIFFICULTIES[state.difficulty].name} · ${fpName}` : startLabel(state.difficulty, state.mode), {
-        kind: 'yellow',
-        icon: 'play',
-        testid: 'stage-start',
-        disabled: !formationOk || !diffGate.ok,
-        onClick: async () => {
-          // saved battles full: the player picks which one this battle replaces (nothing is
-          // deleted until the new battle first saves; a freeplay run never saves, so never asks)
-          const params = battleParams();
-          if (!fpOn && saveToEvict(store.profile, slotKey(stage.id, isEndless))) {
-            const victim = await pickSaveToReplace(store.profile);
-            if (!victim) return;
-            params.evict = victim.id;
-          }
-          navigate('battle', params);
-        },
-      });
-      start.classList.add('ma-start-btn');
-      if (!formationOk) actions.appendChild(h('div.ma-locked-note', 'Add at least one girl to your formation.'));
-      if (diffLock) actions.appendChild(diffLock);
-      actions.appendChild(start);
-    }
-  }
-  // one column (portrait phones): a saved battle's choice leads the page instead of waiting
-  // below both columns; otherwise the bar stays pinned at the bottom of the right column
-  if (rec && oneColumn()) {
-    actions.classList.add('ma-prep-actions-top');
-    left.prepend(actions);
-  } else right.appendChild(actions);
-  wrap.appendChild(right);
-  return wrap;
+function buildPrep(stage, state, ctx) {
+  const f = prepFacts(stage, state, ctx);
+  const right = rightColumn(stage, state, ctx, f);
+  // [friend support] friends' Support Students (campaign, Bounty and solo Freeplay): a row at the foot of the map band,
+  // whose map shrinks to make room (the right column is all flex: none and would push Start off a 390 px-tall phone)
+  const sup = f.unlocked ? supportRow(stage, state, ctx) : null;
+  return h('div.stp', { 'data-testid': 'stage-prep' }, mapBand(stage, state, ctx, f, sup), h('div.stp-right', right));
 }
 
 function safeMap(id) {
@@ -778,238 +646,359 @@ function safeMap(id) {
   }
 }
 
-/** "Saved battle · Hard · wave 12 of 25 · ♥ 63 · 12 min ago" + the frozen team. */
+// ----- the map band ------------------------------------------------------------------------------------------------
+
+function mapBand(stage, state, ctx, f, supportEl = null) {
+  const map = safeMap(stage.mapId);
+  const tier = MAP_TIER_VIEW[f.played.tier];
+  const thumb = h('div.stp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 480, height: 300 }), map, stage.rule, 480, 300) : '' });
+  // the band's height is the screen's; the map fills it edge to edge
+  thumb.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  const tags = [
+    tier ? h('span.stp-tier', { style: { '--tier': tier.color }, title: `Map tier: ${tier.name}` }, tier.name) : null,
+    f.dropMul > 1 ? h('span.ui-chip.cy.stp-tag', `${f.dropMul}× drops`) : null,
+    f.isEndless ? h('span.ui-chip.ink.stp-tag', 'Endless') : null,
+    f.fpOn ? h(`span.ui-chip.ink.stp-tag.stp-fp-${state.freeplay}`, { 'data-testid': 'prep-fp-badge' }, `Freeplay · ${f.fpName}`) : null,
+  ].filter(Boolean);
+  const mapEl = h('div.ui-panel.stp-map', thumb,
+    tags.length ? h('div.stp-map-tags', tags) : null,
+    h('div.stp-plate', stage.kind === 'campaign' ? h('span.num.stp-plate-id', stage.id) : null, h('span.stp-plate-name', stage.name)));
+
+  const lives = f.fpOn || f.isEndless ? DIFFICULTIES[state.difficulty].lives : livesFor(state.difficulty, state.mode);
+  const strip = h('div.ui-strip.stp-strip.ma-facts', { role: 'group', 'aria-label': 'Stage' },
+    stripCell('Waves', f.isEndless ? '∞' : f.fpOn ? `${stage.waves}+∞` : String(f.played.waves), lineIco('waves')),
+    stripCell('Lives', String(lives), ico('heart')),
+    stripCell('Start', fmtNum(Math.round(f.played.startCash), 'money'), curArt('coins')));
+
+  const infoBtn = iconBtn('info', { label: 'Mission, map rule and enemies', testid: 'prep-info', cls: 'stp-ibtn', onClick: () => ctx.openSheetOf('info') });
+  // a saved battle takes the mission line's place (the "i" keeps the mission); an event its line above it
+  const save = f.rec || eventSaveOf(stage, f);
+  // ([events] the event line is the band's sentence there: the mission waits behind the "i" with the enemies)
+  const line = save ? savedLine(save) : f.evStatus ? h('p.stp-mission.stp-mission-k', 'Mission, map and enemies') : h('p.stp-mission', missionLine(stage));
+  return h('section.stp-band',
+    mapEl,
+    strip,
+    h('div.stp-sweepslot', { hidden: true }),
+    f.evStatus ? eventLine(stage, state) : null,
+    h('div.stp-line', line, infoBtn),
+    supportEl);
+}
+
+function stripCell(label, value, icon) {
+  return h('div.ui-cell.ma-fact', h('span.lbl.ma-fact-label', icon, label), h('span.num.ma-fact-value', value));
+}
+
+/** The mission's first sentence (the "i" sheet has the rest). */
+function missionLine(stage) {
+  const d = String(stage.desc || '');
+  return (d.match(/^.*?[.!?](?=\s|$)/) || [d])[0].trim();
+}
+
+/** [events] A battle saved while the operations were open still pays by its start time (EVENT_SPEC §3.2). */
+function eventSaveOf(stage, f) {
+  if (f.unlocked || !f.evStatus) return null;
+  const s = getBattleSave(f.profile, slotKey(stage.id, false));
+  return s && eventRunGate(f.profile, stage, runStartedAt(s)).ok ? s : null;
+}
+
+/** [events] The event line: which event, its countdown, the candy per win. */
+function eventLine(stage, state) {
+  const ev = eventOfStage(stage.id);
+  const now = eventNow();
+  const phase = eventPhase(ev, now, store.profile);
+  const per = dropEntries(stage, state.difficulty).filter((e) => e.active && e.item === ev.currency.id).reduce((a, e) => a + e.min, 0);
+  const w = eventWindow(ev);
+  const clock = phase === 'active' ? countdownChip(w.endAt - now, { label: 'Ends', cls: 's', now: eventNow, testid: 'event-phase-chip' })
+    : h('span.lbl', phaseLabel(ev, phase, now));
+  return h('div.stp-event.ev-prep', { 'data-testid': 'event-prep' },
+    h('div.stp-event-head', h('span.lbl.stp-event-k', 'Event'), clock),
+    phase === 'active'
+      ? h('div.stp-event-candy', h('span.stp-event-ico', staticTile(ev.currency.id, 28)), h('span', `${ev.currency.name} ×${per} per win${stage.boss ? '' : ' · sweeps count'}`))
+      : h('p.stp-event-candy', 'The operations have ended: your rewards are yours to keep.'));
+}
+
+/**
+ * A saved battle in two lines: "Saved · Hard" (+ its mode) with three faces of the frozen team beside it, then
+ * "Wave 12 of 25 · ♥ 63 · 2 h ago". Separators sit inside a line, never at its ends.
+ */
+function savedLine(rec) {
+  const sum = saveSummary(rec);
+  const head = sum.endless ? 'Saved run' : ['Saved', DIFFICULTIES[sum.difficulty].name, savedModeName(rec)].filter(Boolean).join(' · ');
+  const where = [sum.endless ? `Wave ${sum.next}` : `Wave ${sum.next} of ${sum.of}`, `♥ ${sum.lives}`, sum.ago];
+  const team = [rec.hero?.unitId, ...(rec.loadout || []).map((e) => e.unitId)].filter((id) => id && UNIT_MAP[id]);
+  const note = 'Continues with the team you started with.';
+  return h('div.stp-saved', { 'data-testid': 'stage-saved', title: note },
+    h('div.stp-saved-top', h('b.stp-saved-head', head),
+      h('span.stp-saved-team', { 'aria-hidden': 'true' }, team.slice(0, 3).map((id) => h('span.stp-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') })))),
+    // (the dots between the parts are drawn by v2-stage.css, so a part that wraps never leaves one at a line's end)
+    h('div.stp-saved-where', { 'aria-label': where.join(', ') }, where.map((t) => h('span', t))));
+}
+
 /** The battle mode a saved run plays ("Goblin Rush"), or null for Standard (and saves from before modes). */
 function savedModeName(rec) {
   const m = modeId(rec?.mode);
   return m === 'standard' ? null : modeText(m).name;
 }
 
-function savedLine(rec) {
-  const sum = saveSummary(rec);
-  // each part stays whole when the line wraps ("♥ 63", "12 min ago"); "Saved battle · Hard · Goblin Rush · …"
-  const parts = sum.endless
-    ? ['Saved run', `wave ${sum.next}`, `♥ ${sum.lives}`, sum.ago]
-    : ['Saved battle', DIFFICULTIES[sum.difficulty].name, savedModeName(rec), `wave ${sum.next} of ${sum.of}`, `♥ ${sum.lives}`, sum.ago].filter(Boolean);
-  const team = [rec.hero?.unitId, ...(rec.loadout || []).map((e) => e.unitId)].filter((id) => id && UNIT_MAP[id]);
-  const note = 'Continues with the team you started with.';
-  return h(
-    'div.ma-saved',
-    { 'data-testid': 'stage-saved', title: note },
-    h('div.ma-saved-text', h('b', parts.flatMap((p, i) => [i ? ' · ' : null, h('span.ma-saved-seg', p)]).filter(Boolean)), h('small', note)),
-    h('div.ma-saved-team', { 'aria-hidden': 'true', title: note }, team.slice(0, 9).map((id) => h('span.ma-saved-face', { html: portraitHTML(UNIT_MAP[id], 'thumb') }))),
-  );
+/** An item tile drawn as a picture (inside a row that is itself the button: no button in a button). */
+function staticTile(itemId, size) {
+  const b = tile(itemId, null, { size });
+  const s = h('span');
+  s.className = b.className;
+  s.setAttribute('style', b.getAttribute('style') || '');
+  for (const [k, v] of Object.entries(b.dataset)) s.dataset[k] = v;
+  s.innerHTML = b.innerHTML;
+  return s;
 }
 
-/** Keeps the freeplay pick in the URL (null removes it), so Retry / Quit come back to it. */
-function rememberFreeplay(tier) {
-  rememberParams('stage', { freeplay: tier || null });
+// ----- the right column --------------------------------------------------------------------------------------------
+
+function rightColumn(stage, state, ctx, f) {
+  const out = [];
+  if (!f.isEndless) out.push(difficultyPanel(stage, state, ctx, f));
+  out.push(h('div.stp-rows', countersRow(stage, ctx), dropsRow(stage, state, ctx, f)));
+  out.push(footer(stage, state, ctx, f));
+  return out;
 }
 
-/**
- * Solo Freeplay: Off · Blossom · Tempest · Crimson Moon (the co-op tiers), what freeplay brings on
- * this stage, the best wave per tier ("Best: wave 87 (Tempest)"), or how to unlock it. `saved`: this
- * stage's saved battle (a normal run), which a freeplay run leaves as it is.
- */
-function freeplayPanel(stage, state, { endless, redraw, saved = null }) {
-  const profile = store.profile;
-  const cleared = canPlayEndless(profile, stage.id);
-  const bests = soloBestLines(profile, stage.id);
-  const bestBox = bests.length
-    ? h('div.ma-fp-bests', { 'data-testid': 'prep-fp-best' }, bests.map((b) => h(`span.ma-fp-best.ma-fp-${b.tier}`, b.text)))
-    : null;
-  if (!cleared) {
-    return panel('Freeplay', h('p.muted', { 'data-testid': 'prep-fp-locked' }, `Clear ${stage.id} once to start it in Freeplay — or tap Keep going on the victory screen to go past wave ${stage.waves}.`), bestBox);
+function difficultyPanel(stage, state, ctx, f) {
+  const grid = h('div.stp-diffs', { role: 'radiogroup', 'aria-label': 'Difficulty' });
+  const order = stage.difficulties || DIFFICULTY_ORDER;
+  grid.dataset.n = String(order.length);
+  for (const d of order) grid.appendChild(diffButton(stage, state, ctx, f, d));
+  return h('section.ui-panel.stp-diff', grid, h('div.stp-ruleline', startBlock(state, f) || ruleSentence(stage, state, f), modeChip(stage, state, ctx, f)));
+}
+
+/** Why Start is off, in the rule sentence's place: a difficulty still locked, or an empty formation (null: it is not). */
+function startBlock(state, f) {
+  if (!f.unlocked) return null;
+  if (!f.diffGate.ok) return h('p.stp-rule.stp-note.ma-locked-note', { 'data-testid': 'diff-locked-note' }, ico('lock'), `${DIFFICULTIES[state.difficulty].name}: ${f.diffGate.text}`);
+  if (formationIds(f.profile).length) return null;
+  return h('p.stp-rule.stp-note.ma-locked-note', { 'data-testid': 'formation-note' }, ico('lock'),
+    f.rec ? `${f.fpOn ? 'Freeplay' : 'New game'} needs a girl in your formation` : 'Add a girl to your formation to start');
+}
+
+function diffButton(stage, state, ctx, f, d) {
+  const def = DIFFICULTIES[d];
+  // [events] still locked here (a lock and "Clear Hard first"; it can be picked to look at it)
+  const gate = stage.kind === 'event' ? eventDifficultyStatus(f.profile, stage.id, d) : null;
+  const locked = !!gate && !gate.ok;
+  const on = state.difficulty === d;
+  const earned = !!f.medals[d];
+  // the corner: the lock, the ribbon state under a battle mode, or the medal gems while not earned (P7: an earned
+  // reward is not shown again; the medal says it)
+  const lockLine = locked ? h('span.ma-diff-sub.stp-d-lock', { 'data-testid': `diff-lock-${d}` }, ico('lock'), gate.text) : null;
+  const corner = locked
+    ? null
+    : ribbonCorner(f.profile, stage.id, d, state.mode)
+      ?? (earned ? null : h('span.ma-diff-gems.stp-d-gems', { title: `First ${def.name} clear: ${medalGemsFor(stage, d)} gems` }, curArt('gems'), h('span.num', String(medalGemsFor(stage, d)))));
+  const savedHere = f.rec && f.rec.difficulty === d;
+  return h(`button.ui-opt.ma-diff.stp-d.diff-${d}${on ? '.on.active' : ''}${locked ? '.locked' : ''}${earned ? '.earned' : ''}`, {
+    type: 'button',
+    role: 'radio',
+    'aria-checked': on ? 'true' : 'false',
+    'data-testid': `diff-${d}`,
+    'aria-label': `${def.name}${earned ? ', cleared' : ''}${locked ? `, ${gate.text}` : ''}`,
+    ...(locked ? { 'data-locked': '1', title: `${def.name}: ${gate.text}` } : {}),
+    // in the URL too: after a battle (Quit, the back gesture, Retry → Quit) prep comes back on it
+    onclick: () => { state.difficulty = d; rememberParams('stage', { difficulty: d }); ctx.redraw(); },
+  },
+  svgEl(medalIcon(d, { earned }), 'stp-d-medal'),
+  h('span.stp-d-text', h('span.stp-d-name', def.name), lockLine),
+  corner,
+  savedHere ? h('span.ma-diff-saved.stp-d-saved', { 'data-testid': 'diff-saved', title: 'Your saved battle plays this difficulty' }, 'Saved') : null);
+}
+
+/** The selected difficulty's one sentence ([events] its own name and line when it has its own waves). */
+function ruleSentence(stage, state, f) {
+  const d = state.difficulty;
+  const variant = stage.kind === 'event' ? f.played.variant : null;
+  if (variant) {
+    return h('p.stp-rule', { 'data-testid': 'event-variant', title: variant.desc },
+      h('b', `${DIFFICULTIES[variant.difficulty].name}: ${variant.name}`), variant.sub ? ` · ${variant.sub}` : '');
   }
-  const pick = (tier) => {
-    state.freeplay = tier;
-    if (tier) rememberSoloTier(tier);
-    // freeplay runs in Standard (v1): turning it on sets the battle mode back to Standard
-    if (tier && state.mode !== 'standard') {
-      state.mode = 'standard';
-      rememberParams('stage', { mode: 'standard' });
-    }
-    rememberFreeplay(tier);
-    redraw();
-  };
-  const seg = h('div.ma-fp-seg', { role: 'radiogroup', 'data-testid': 'prep-freeplay' },
-    endless ? null : h(`button.ma-fp-btn${!state.freeplay ? '.on' : ''}`, { type: 'button', role: 'radio', 'aria-checked': !state.freeplay ? 'true' : 'false', 'data-tier': 'off', onclick: () => pick(null) }, 'Off'),
-    ...FREEPLAY_TIERS.map((id) => h(`button.ma-fp-btn.ma-fp-btn-${id}${state.freeplay === id ? '.on' : ''}`, {
-      type: 'button', role: 'radio', 'aria-checked': state.freeplay === id ? 'true' : 'false', 'data-tier': id, 'data-testid': `prep-fp-${id}`, title: TIER_PITCH[id], onclick: () => pick(id),
-    }, freeplayTable(id).name)));
-  const t = freeplayTable(state.freeplay);
-  return panel('Freeplay',
-    seg,
-    t
-      ? h(`div.ma-fp-info.ma-fp-${t.id}`, { 'data-testid': 'prep-fp-info' },
-        h('p', h('b', TIER_PITCH[t.id]), ' ', freeplaySummary(stage.id, t.id) || ''),
-        h('p.muted', 'Rewards for the clear are saved at the last stage wave; past it you earn coins every wave, a cache every 25 waves and boss tokens. Finish any time from the pause menu.'),
-        state.difficulty === 'nightmare' ? h('p.ma-fp-warn', '1 life — the first leak ends freeplay.') : null,
-        saved ? h('p.muted', { 'data-testid': 'prep-fp-save-note' }, 'Freeplay runs aren\'t saved when you quit, so your saved battle here stays as it is.') : null)
-      : h('p.muted', `Off: the battle ends at wave ${stage.waves}. You can still Keep going from the victory screen.`),
-    bestBox);
-}
-
-function fact(label, value) {
-  return h('div.ma-fact', h('div.ma-fact-label', label), h('div.ma-fact-value', value));
-}
-
-function difficultyPicker(stage, state, medals, redraw, savedDifficulty = null) {
-  const row = h('div.ma-diffs', { role: 'radiogroup' });
-  for (const d of stage.difficulties || DIFFICULTY_ORDER) {
-    const def = DIFFICULTIES[d];
-    // [events] still locked here (a lock and "Clear Hard first"; it can be picked to look at it), and a
-    // difficulty with its own waves says what it is ("20 waves · two Golems · 1 life")
-    const gate = stage.kind === 'event' ? eventDifficultyStatus(store.profile, stage.id, d) : null;
-    const locked = !!gate && !gate.ok;
-    const variant = stage.kind === 'event' ? eventBattleStage(stage.id, d)?.variant : null;
-    const b = h(
-      `button.ma-diff.diff-${d}${state.difficulty === d ? '.active' : ''}${locked ? '.locked' : ''}`,
-      {
-        role: 'radio',
-        'aria-checked': state.difficulty === d ? 'true' : 'false',
-        'data-testid': `diff-${d}`,
-        ...(locked ? { 'data-locked': '1', title: `${def.name}: ${gate.text}` } : {}),
-        // in the URL too: after a battle (Quit, the back gesture, Retry → Quit) prep comes back on it
-        onclick: () => { state.difficulty = d; rememberParams('stage', { difficulty: d }); redraw(); },
-      },
-      svgEl(medalIcon(d, { earned: medals[d] }), 'ma-diff-medal'),
-      h('span.ma-diff-name', def.name),
-      locked
-        ? h('span.ma-diff-sub', { 'data-testid': `diff-lock-${d}` }, svgEl(uiIcon('lock'), 'ma-diff-lock'), gate.text)
-        : h('span.ma-diff-sub', modeSubLine(variant?.sub || DIFF_SUMMARY[d], d, state.mode)),
-      ribbonCorner(store.profile, stage.id, d, state.mode)
-        ?? (medals[d] ? h('span.ma-diff-check', svgEl(uiIcon('check'))) : h('span.ma-diff-gems', `+${medalGemsFor(stage, d)}`)),
-      savedDifficulty === d ? h('span.ma-diff-saved', { 'data-testid': 'diff-saved', title: 'Your saved battle plays this difficulty' }, 'Saved') : null,
-    );
-    row.appendChild(b);
+  if (f.fpOn) {
+    return h('p.stp-rule', { 'data-testid': 'diff-rule' }, h('b', DIFFICULTIES[d].name), ` · ${d === 'nightmare' ? '1 life: the first leak ends freeplay' : DIFF_RULE[d]}`);
   }
-  return row;
+  return h('p.stp-rule', { 'data-testid': 'diff-rule' }, h('b', DIFFICULTIES[d].name), ` · ${modeSubLine(DIFF_RULE[d], d, state.mode)}`);
 }
 
-function countersPanel(stage) {
+/** The Mode chip: "Standard ▾", "Goblin Rush ▾", "Freeplay · Blossom ▾" (opens the Mode sheet). */
+function modeChip(stage, state, ctx, f) {
+  if (!f.hasMode && !(f.endless && f.fpOk)) return null;
+  const name = f.fpOn ? f.fpName : modeText(state.mode).name;
+  const icon = f.fpOn ? ico('sparkles', 'ui-ico.stp-mode-ico') : svgEl(modeIcon(state.mode), 'stp-mode-ico');
+  return h('button.ui-hit.stp-modechip', { type: 'button', 'data-testid': 'prep-mode', 'aria-label': `${f.fpOn ? 'Freeplay' : 'Battle mode'}: ${name}. Change`, onclick: () => ctx.openSheetOf('mode') },
+    h('span.ui-btn.sec.dense', icon, h('span.stp-mode-name', name), lineIco('chevD')));
+}
+
+function countersRow(stage, ctx) {
   const profile = store.profile;
   const rec = recommendedFor(profile, stage.id);
   const inForm = new Set(formationIds(profile));
-  if (!rec.needs.length) {
-    return panel('Recommended', h('p.muted', 'No special counters needed — a balanced formation with upgrades will do.'));
+  const covered = rec.needs.filter((cap) => (rec.ownedCounters[cap] || []).some((id) => inForm.has(id))).length;
+  const all = covered === rec.needs.length;
+  return h(`button.stp-row.stp-counters${all ? '.ok' : '.short'}`, {
+    type: 'button', 'data-testid': 'prep-counters', onclick: () => ctx.openSheetOf('counters'),
+    'aria-label': rec.needs.length ? `Counters: ${covered} of ${rec.needs.length} covered by your formation` : 'Counters: none needed',
+  },
+  h('span.lbl.stp-row-k', 'Counters'),
+  h('span.stp-needs', rec.needs.slice(0, 3).map((cap) => h(`span.stp-need${(rec.ownedCounters[cap] || []).some((id) => inForm.has(id)) ? '.ok' : ''}`, { title: CAPABILITIES[cap]?.name || cap },
+    svgEl(capabilityIcon(cap), 'stp-need-ico'), h('span.stp-need-name', CAPABILITIES[cap]?.name || cap)))),
+  rec.needs.length
+    ? h('span.stp-cover', h('span.num', `${covered}/${rec.needs.length}`), ico(all ? 'check' : 'info', `ui-ico.stp-cover-ico${all ? '.ok' : ''}`))
+    : h('span.stp-cover.none', 'Any team'),
+  ico('chevR', 'ui-ico.stp-chev'));
+}
+
+/** The drop icons the row shows: the first-clear reward first (FIRST), then the stage's drops, at most 5. */
+function dropIcons(stage, state, f) {
+  const cleared = DIFFICULTY_ORDER.some((d) => f.medals[d]);
+  const first = !cleared && !f.isEndless ? (stage.firstClear || []).map((r) => ({ id: r.id, first: true })) : [];
+  const rarity = (id) => ITEM_RARITIES[getItem(id)?.rarity]?.order ?? 0;
+  const seen = new Set(first.map((x) => x.id));
+  const drops = [];
+  for (const e of dropEntries(stage, state.difficulty)) {
+    if (!e.active || seen.has(e.item)) continue;
+    seen.add(e.item);
+    drops.push({ id: e.item, first: false });
   }
-  const list = h('div.ma-counters');
-  let covered = 0;
-  for (const cap of rec.needs) {
-    const owners = rec.ownedCounters[cap] || [];
-    const has = owners.some((id) => inForm.has(id));
-    if (has) covered++;
-    const status = has ? 'ok' : owners.length ? 'warn' : 'bad';
-    const statusText = has ? 'In formation' : owners.length ? 'Not in formation' : 'No owned counter';
-    const row = h(`div.ma-counter.${status}`,
-      h('div.ma-counter-head',
-        svgEl(capabilityIcon(cap), 'ma-cap-icon'),
-        h('div.ma-counter-text', h('b', CAPABILITIES[cap]?.name || cap), h('div.muted', CAPABILITIES[cap]?.desc || '')),
-        h(`span.ma-status.${status}`, statusText),
-      ),
-    );
-    const units = h('div.ma-counter-units');
-    if (owners.length) {
-      for (const id of owners.slice(0, 6)) {
-        const u = UNIT_MAP[id];
-        const viaPath = !hasCapability(u, cap, { includePaths: false });
-        const inF = inForm.has(id);
-        units.appendChild(h(
-          `div.ma-cu${inF ? '.in' : ''}`,
-          card(id, { variant: 'square', level: profile.units[id]?.level, selected: inF, onClick: () => navigate('student', { id }) }),
-          viaPath ? h('span.ma-cu-tag', 'via upgrade') : null,
-          inF
-            ? h('span.ma-cu-in', svgEl(uiIcon('check'), 'ma-inline-icon'), 'Ready')
-            : button('Add', { kind: 'yellow', small: true, icon: 'plus', testid: `add-${id}`, onClick: () => addToFormation(id) }),
-        ));
-      }
-    } else {
-      const cands = unitsWithCapability(cap).slice(0, 4);
-      units.appendChild(h('div.ma-counter-missing',
-        h('span.muted', 'Who can help: '),
-        cands.map((u) => h('button.chip.ma-cand', { onclick: () => navigate('student', { id: u.id }) }, u.name, h('span.muted', ` · ${acquisitionHint(u)}`))),
-      ));
+  drops.sort((a, b) => rarity(b.id) - rarity(a.id));
+  return [...first.slice(0, 1), ...drops].slice(0, 5);
+}
+
+function dropsRow(stage, state, ctx, f) {
+  const icons = dropIcons(stage, state, f);
+  const unlocks = DIFFICULTY_ORDER.some((d) => f.medals[d]) ? [] : (stage.unlocks?.units || []).filter((id) => UNIT_MAP[id]);
+  // the first clear's reward (a girl who joins, else the first-clear item) in its own group with FIRST beside it
+  const firstPic = unlocks.length
+    ? h('span.stp-drop.stp-drop-girl', { title: `${UNIT_MAP[unlocks[0]].name} joins on the first clear` }, h('span.stp-face', { html: portraitHTML(UNIT_MAP[unlocks[0]], 'thumb') }))
+    : icons[0]?.first ? h('span.stp-drop', staticTile(icons[0].id, 40)) : null;
+  const rest = icons.filter((x) => !x.first).slice(0, firstPic ? 3 : 5);
+  return h('button.stp-row.stp-drops', { type: 'button', 'data-testid': 'prep-drops', 'aria-label': 'Drops: chances and amounts', onclick: () => ctx.openSheetOf('drops') },
+    h('span.lbl.stp-row-k', stage.kind === 'challenge' ? 'Rewards' : 'Drops'),
+    h('span.stp-drop-list', { 'aria-hidden': 'true' },
+      firstPic ? h('span.stp-firstgrp', h('span.ui-sticker.stp-first', 'First'), firstPic) : null,
+      rest.map((x) => h('span.stp-drop', staticTile(x.id, 40)))),
+    ico('chevR', 'ui-ico.stp-chev'));
+}
+
+// ----- the footer: Sweep (secondary) · Start (the one yellow) ------------------------------------------------------
+
+function footer(stage, state, ctx, f) {
+  const profile = f.profile;
+  const left = h('div.stp-foot-l');
+  const right = h('div.stp-foot-r');
+  const formationOk = formationIds(profile).length > 0;
+
+  if (!f.unlocked) {
+    left.appendChild(h('span.stp-note.ma-locked-note', ico('lock'), f.req));
+    const evSave = eventSaveOf(stage, f);
+    if (evSave) {
+      const sum = saveSummary(evSave);
+      right.appendChild(primary(`Continue · Wave ${sum.next}/${sum.of}`, {
+        testid: 'stage-continue', title: 'This battle started before the operations closed, so it still pays.',
+        onClick: () => navigate('battle', { stage: stage.id, difficulty: evSave.difficulty, resume: evSave.id }),
+      }));
     }
-    row.appendChild(units);
-    list.appendChild(row);
+    const reqStage = missingRequirements(profile, stage.id)[0] || null; // (the first one still to clear)
+    const go = f.evStatus
+      ? { label: 'Back to the event', testid: 'stage-to-event', onClick: () => navigate('event', { id: stage.event, tab: f.evStatus.reason === 'episode' ? 'story' : 'stages' }) }
+      : reqStage ? { label: `Go to ${reqStage.kind === 'campaign' ? reqStage.id : reqStage.name}`, testid: 'stage-go-req', onClick: () => navigate('stage', { id: reqStage.id }) } : null;
+    if (go) right.appendChild(evSave ? secondaryBtn(go.label, { icon: 'teleport', testid: go.testid, onClick: go.onClick }) : primary(go.label, { icon: 'teleport', testid: go.testid, onClick: go.onClick }));
+    return h('div.stp-foot', left, right);
   }
-  return panel(
-    'Recommended counters',
-    h('div.ma-counter-summary', h('b', `${covered}/${rec.needs.length}`), ' needs covered by your formation'),
-    list,
-  );
-}
 
-function formationPanel() {
-  const profile = store.profile;
-  const f = profile.formation || { hero: null, towers: [] };
-  const strip = h('div.ma-formation-strip');
-  const heroSlot = f.hero
-    ? h('div.ma-fslot.hero', card(f.hero, { variant: 'square', level: profile.units[f.hero]?.level, onClick: () => navigate('formation') }), h('span.ma-fslot-tag', 'Hero'))
-    : h('button.ma-fslot.empty.hero', { onclick: () => navigate('formation') }, h('span', 'Hero'));
-  strip.appendChild(heroSlot);
-  for (let i = 0; i < BATTLE.maxTowers; i++) {
-    const id = f.towers?.[i];
-    strip.appendChild(id
-      ? h('div.ma-fslot', card(id, { variant: 'square', level: profile.units[id]?.level, onClick: () => navigate('formation') }))
-      : h('button.ma-fslot.empty', { onclick: () => navigate('formation'), title: 'Empty slot' }, svgEl(uiIcon('plus'), 'ma-inline-icon')));
+  const rec = f.rec;
+  // a new run: Tactical Challenge's map cards keep endless=1 (the run belongs there), a picked tier makes it a solo
+  // freeplay run (never saved: src/systems/battleSave.js isSavableRun)
+  const newMode = f.isEndless || f.fpOn ? 'standard' : playMode(state.difficulty, state.mode);
+  const battleParams = () => {
+    const p = { stage: stage.id, difficulty: state.difficulty };
+    if (newMode !== 'standard') p.mode = newMode;
+    if (f.endless) p.endless = 1;
+    if (f.fpOn) p.freeplay = state.freeplay;
+    const owner = supportParam(stage, state); // [friend support] the friend's girl picked on the Support row
+    if (owner) p.sup = owner;
+    return p;
+  };
+  const newDiff = DIFFICULTIES[state.difficulty].name;
+
+  // the left: Sweep (secondary) or the one line saying how sweep opens (why Start is off: the rule line, startBlock).
+  // fitFooter() makes the sweeps compact, or moves them under the strip, when the actions leave them no room.
+  // (beside a saved battle's two actions, Sweep ×10 alone: ×1 makes room for New game and Continue)
+  if (!f.isEndless) left.append(...sweepControls(stage, state, { many: !f.rec }));
+
+  if (rec) {
+    // Continue works without a formation: the team is the one frozen in the save. Continue always plays the saved run as
+    // it was saved: its difficulty (the saved line and the grid's "Saved" say which) and its mode
+    const sum = saveSummary(rec);
+    const savedDiff = DIFFICULTIES[sum.difficulty].name;
+    let other;
+    if (f.fpOn) {
+      // a freeplay run is never saved: it starts beside the saved battle and leaves it as it is (the chip says Freeplay)
+      other = secondaryBtn(f.fpName, {
+        icon: 'play', testid: 'stage-start', disabled: !formationOk,
+        title: `Start · ${newDiff} · ${f.fpName} freeplay (your saved battle stays)`,
+        onClick: () => navigate('battle', battleParams()),
+      });
+    } else {
+      const full = f.isEndless ? 'New game' : newMode !== 'standard' ? `New game · ${newDiff} · ${modeText(newMode).name}` : `New game · ${newDiff}`;
+      other = secondaryBtn('New game', {
+        testid: 'stage-new', disabled: !formationOk || !f.diffGate.ok, title: full,
+        onClick: async () => {
+          const text = sum.endless
+            ? `Start a new run on ${savedStageLabel(rec)}? Your saved run (wave ${sum.next}) will be deleted.`
+            : `Start a new ${newDiff}${newMode !== 'standard' ? ` ${modeText(newMode).name}` : ''} battle on ${savedStageLabel(rec)}? Your saved ${savedDiff}${savedModeName(rec) ? ` ${savedModeName(rec)}` : ''} battle (wave ${sum.next} of ${sum.of}) will be deleted.`;
+          const ok = await ask(text, { title: 'New game', ok: 'New game', cancel: 'Keep it', danger: true });
+          if (!ok) return;
+          clearBattleSave(store.profile, rec.slot, rec.id);
+          store.commit('battle-save');
+          store.saveNow();
+          navigate('battle', battleParams());
+        },
+      });
+    }
+    right.append(other, primary(sum.endless ? `Continue · Wave ${sum.next}` : `Continue · Wave ${sum.next}/${sum.of}`, {
+      testid: 'stage-continue',
+      onClick: () => navigate('battle', { stage: stage.id, difficulty: rec.difficulty, resume: rec.id }),
+    }));
+    return h('div.stp-foot.has-save', left, right);
   }
-  return panel(
-    'Formation',
-    strip,
-    h('div.ma-formation-foot', h('span.muted', `${(f.towers || []).length}/${BATTLE.maxTowers} girls${f.hero ? ' + hero' : ' · no hero'}`), button('Edit formation', { kind: 'ghost', small: true, icon: 'formation', onClick: () => navigate('formation') })),
-  );
+
+  right.appendChild(primary(f.isEndless ? 'Start endless' : f.fpOn ? `Start · ${newDiff} · ${f.fpName}` : startLabel(state.difficulty, state.mode), {
+    testid: 'stage-start',
+    disabled: !formationOk || !f.diffGate.ok,
+    onClick: async () => {
+      // saved battles full: the player picks which one this battle replaces (nothing is deleted until the new battle
+      // first saves; a freeplay run never saves, so never asks)
+      const params = battleParams();
+      if (!f.fpOn && saveToEvict(store.profile, slotKey(stage.id, f.isEndless))) {
+        const victim = await pickSaveToReplace(store.profile);
+        if (!victim) return;
+        params.evict = victim.id;
+      }
+      navigate('battle', params);
+    },
+  }));
+  return h('div.stp-foot', left, right);
 }
 
-function firstClearPanel(stage, medals, mode = 'standard') {
-  const cleared = DIFFICULTY_ORDER.some((d) => medals[d]);
-  // [events] only the difficulties the stage offers (an operation: Normal and Nightmare)
-  const medalGems = (stage.kind === 'event' && stage.difficulties ? stage.difficulties : DIFFICULTY_ORDER).map((d) => h(
-    `div.ma-fc-medal${medals[d] ? '.done' : ''}`,
-    svgEl(medalIcon(d, { earned: medals[d] }), 'ma-fc-medal-icon'),
-    h('span', medals[d] ? 'Claimed' : `+${medalGemsFor(stage, d)}`),
-  ));
-  const unlocks = (stage.unlocks?.units || []).filter((id) => UNIT_MAP[id]);
-  return panel(
-    'First clear',
-    h('div.ma-fc', h('div', h('div.ma-sub', cleared ? 'First clear — claimed' : 'First clear (any difficulty)'), h(`div.ma-fc-rewards${cleared ? '.done' : ''}`, rewardTiles(stage.firstClear || []))),
-      h('div', h('div.ma-sub', 'Medal gems (once per difficulty)'), h('div.ma-fc-medals', medalGems), firstClearNote(mode))),
-    unlocks.length
-      ? h('div.ma-unlock-note', unlocks.map((id) => h('div.ma-unlock-unit', card(id, { variant: 'square', owned: isOwned(store.profile, id) }), h('div', h('b', `${UNIT_MAP[id].name} joins for free`), h('div.muted', UNIT_MAP[id].acquisition?.note || `Clear this stage to recruit ${UNIT_MAP[id].name}.`)))))
-      : null,
-  );
+/** The screen's one yellow: Start / Continue (a play glyph and the label; room for a cost after it). */
+function primary(label, { testid, onClick, disabled = false, title = null, icon = 'play' }) {
+  return h('button.ui-btn.pri.stp-start.ma-start-btn', { type: 'button', 'data-testid': testid, disabled, title: title || label, onclick: onClick },
+    ico(icon), h('span.btn-label', label));
 }
 
-/** [events] The event line above the difficulty: which event, its countdown, the candy per win. */
-function eventPrepPanel(stage, state) {
-  const ev = eventOfStage(stage.id);
-  const now = eventNow();
-  const phase = eventPhase(ev, now, store.profile);
-  const per = dropEntries(stage, state.difficulty).filter((e) => e.active && e.item === ev.currency.id).reduce((a, e) => a + e.min, 0);
-  return h('section.panel.ev-prep', { 'data-testid': 'event-prep' },
-    h('div.ev-prep-row',
-      h('span.ev-chip', 'Event'),
-      h('b.ev-prep-name', ev.name),
-      h('span.ev-prep-time', phaseLabel(ev, phase, now)),
-    ),
-    phase === 'active'
-      ? h('div.ev-prep-row', tile(ev.currency.id, null, { size: 32 }), h('span', `${ev.currency.name} ×${per} per win${stage.boss ? '' : ' · sweeps count'}`))
-      : h('p.muted', 'This event\'s operations have ended — your rewards are yours to keep.'),
-  );
-}
-
-function sweepControls(stage, state) {
+function sweepControls(stage, state, { many = true } = {}) {
   const profile = store.profile;
   const allowed = canSweep(profile, stage.id, eventNow());
   const medals = stageMedals(profile, stage.id);
   const best = Math.max(...DIFFICULTY_ORDER.map((d, i) => (medals[d] ? i : -1)));
   const okDiff = DIFFICULTY_ORDER.indexOf(state.difficulty) <= best;
-  const box = h('div.ma-sweep');
   if (!allowed) {
-    const lockText = stage.kind !== 'event' ? 'Sweep unlocks after a Hard clear' : stage.boss ? 'The boss cannot be swept' : 'Sweep unlocks after the first clear';
-    box.appendChild(h('div.ma-sweep-lock', svgEl(uiIcon('lock'), 'ma-inline-icon'), lockText));
-    return box;
+    const lockText = stage.kind !== 'event' ? 'Sweep: clear on Hard' : stage.boss ? 'The boss cannot be swept' : 'Sweep: clear it once';
+    return [h('span.stp-note.stp-sweep-lock', ico('lock'), lockText)];
   }
   // [events] the event's daily sweeps (all its stages together): what's left is on the button; none → refill time
   const refill = `Sweeps refill at ${RESET.label}`;
@@ -1038,7 +1027,263 @@ function sweepControls(stage, state) {
   const out = left === 0;
   const lockTitle = out ? refillTitle() : okDiff ? undefined : `Clear ${DIFFICULTIES[state.difficulty].name} to sweep it`;
   const manyLabel = left == null ? `Sweep ×${MAX_SWEEPS}` : out ? refill : `Sweep ×${Math.min(MAX_SWEEPS, left)} · ${left} left today`;
-  if (left == null || left > 1) box.appendChild(button('Sweep ×1', { kind: 'ghost', icon: 'ff', disabled: !okDiff, title: lockTitle, testid: 'sweep-1', onClick: () => doSweep(1) }));
-  box.appendChild(button(manyLabel, { kind: 'primary', icon: 'ff2', disabled: !okDiff || out, title: lockTitle, testid: 'sweep-10', onClick: () => doSweep(MAX_SWEEPS) }));
-  return box;
+  const btns = [];
+  if (many && (left == null || left > 1)) btns.push(sweepLabel(secondaryBtn('Sweep ×1', { icon: 'ff', disabled: !okDiff, title: lockTitle || 'Sweep ×1', testid: 'sweep-1', onClick: () => doSweep(1), cls: 'stp-sweep' })));
+  btns.push(sweepLabel(secondaryBtn(manyLabel, { icon: 'ff2', disabled: !okDiff || out, title: lockTitle || manyLabel, testid: 'sweep-10', onClick: () => doSweep(MAX_SWEEPS), cls: 'stp-sweep' })));
+  return [h('div.stp-sweeps', { role: 'group', 'aria-label': 'Sweep' }, btns)];
+}
+
+/**
+ * Splits a sweep button's label so its compact form ("×10") can fold the word and the daily count away; the text
+ * stays whole for screen readers and tests ("Sweep ×10 · 10 left today").
+ */
+function sweepLabel(btn) {
+  const b = btn.matches?.('button') ? btn : btn.querySelector('button');
+  const lab = b?.querySelector('.btn-label');
+  const m = /^Sweep (×\d+)(.*)$/.exec(lab?.textContent || '');
+  if (m) {
+    lab.replaceChildren(...[h('span.stp-sw-word', 'Sweep '), m[1], m[2] ? h('span.stp-sw-more', m[2]) : null].filter(Boolean));
+    b.setAttribute('aria-label', `Sweep ${m[1]}${m[2]}`);
+  }
+  return btn;
+}
+
+/**
+ * The footer never lets the sweeps run under Start. Folds, in order, until the left side fits: both sweeps with their
+ * words; Sweep ×10 alone (×1 folds away first); "×10" alone; then the sweeps (or the line saying how sweep opens) move
+ * under the stage strip, where the map gives up the height. Run after every draw and on resize.
+ */
+function fitFooter(scope) {
+  const home = scope.querySelector('.stp-foot-l');
+  const slot = scope.querySelector('.stp-sweepslot');
+  const item = scope.querySelector('.stp-sweeps, .stp-sweep-lock');
+  if (!item || !home || !slot) return;
+  item.classList.remove('solo', 'compact');
+  if (item.parentElement !== home) home.prepend(item);
+  slot.hidden = true;
+  // (by layout widths: a skewed button's corners poke a few px past its box, which is no overflow)
+  const fits = () => {
+    const kids = item.matches('.stp-sweeps') ? [...item.children].filter((k) => k.offsetWidth) : [item];
+    const need = kids.reduce((a, k) => a + k.offsetWidth, 0) + 6 * (kids.length - 1);
+    return need <= home.clientWidth + 1;
+  };
+  if (fits()) return;
+  if (item.matches('.stp-sweeps')) {
+    if (item.querySelector('[data-testid="sweep-1"]')) {
+      item.classList.add('solo');
+      if (fits()) return;
+    }
+    item.classList.add('compact');
+    if (fits()) return;
+    item.classList.remove('compact');
+  }
+  slot.append(item);
+  slot.hidden = false;
+}
+
+// ----- the four sheets ---------------------------------------------------------------------------------------------
+
+const SHEETS = {
+  counters: { testid: 'counters-sheet', title: () => 'Counters' },
+  drops: { testid: 'drops-sheet', title: (stage) => (stage.kind === 'challenge' ? 'Rewards per run' : 'Drops') },
+  mode: { testid: 'mode-sheet', title: (stage) => (stage.kind === 'campaign' ? 'Mode & Freeplay' : 'Freeplay') },
+  info: { testid: 'info-sheet', title: (stage) => stage.name },
+};
+
+function sheetBody(stage, state, ctx, kind) {
+  const f = prepFacts(stage, state, ctx);
+  if (kind === 'counters') return countersSheet(stage);
+  if (kind === 'drops') return dropsSheet(stage, state, f);
+  if (kind === 'mode') return modeSheet(stage, state, ctx, f);
+  return infoSheet(stage, state, f);
+}
+
+/** A section of a sheet: a caps kicker over its body. */
+const sec = (kicker, ...kids) => h('section.stp-sec', kicker ? h('h3.stp-sec-k', kicker) : null, ...kids);
+
+function countersSheet(stage) {
+  const profile = store.profile;
+  const rec = recommendedFor(profile, stage.id);
+  const inForm = new Set(formationIds(profile));
+  const out = [];
+  if (!rec.needs.length) out.push(h('p.stp-p', 'No special counters needed: a balanced formation with upgrades will do.'));
+  else {
+    const covered = rec.needs.filter((cap) => (rec.ownedCounters[cap] || []).some((id) => inForm.has(id))).length;
+    out.push(h('p.stp-p', h('b.num', `${covered}/${rec.needs.length}`), ' needs covered by your formation'));
+  }
+  const list = h('div.stp-needlist');
+  for (const cap of rec.needs) {
+    const owners = rec.ownedCounters[cap] || [];
+    const has = owners.some((id) => inForm.has(id));
+    const status = has ? 'ok' : owners.length ? 'warn' : 'bad';
+    const statusText = has ? 'In formation' : owners.length ? 'Not in formation' : 'No girl yet';
+    const girls = owners.length
+      ? h('div.stp-girls', owners.slice(0, 6).map((id) => {
+        const u = UNIT_MAP[id];
+        const inF = inForm.has(id);
+        const viaPath = !hasCapability(u, cap, { includePaths: false });
+        return h(`div.stp-cu${inF ? '.in' : ''}`,
+          girlFace(id, { onClick: () => navigate('student', { id }), sel: inF, tag: viaPath ? 'via upgrade' : null }),
+          inF ? h('span.stp-cu-in', ico('check'), 'Ready') : inkBtn('Add', { testid: `add-${id}`, onClick: () => addToFormation(id), cls: 'stp-add' }));
+      }))
+      : h('div.stp-cands', h('span.lbl', 'Who can help'),
+        unitsWithCapability(cap).slice(0, 4).map((u) => h('button.ui-chip.stp-cand', { type: 'button', onclick: () => navigate('student', { id: u.id }) }, h('span', u.name), h('span.stp-cand-how', acquisitionHint(u)))));
+    list.appendChild(h(`div.stp-needrow.${status}`,
+      h('div.stp-needhead',
+        svgEl(capabilityIcon(cap), 'stp-need-ico'),
+        h('div.stp-needtext', h('b', CAPABILITIES[cap]?.name || cap), h('span.desc', CAPABILITIES[cap]?.desc || '')),
+        h(`span.ui-chip.stp-status.${status}`, statusText)),
+      girls));
+  }
+  out.push(list);
+  out.push(formationSec());
+  return out;
+}
+
+/** A girl's face as a kit tile (today's portraits; M3's girl tile takes over): her thumb, her name, LV. */
+function girlFace(id, { onClick = null, sel = false, tag = null, hero = false } = {}) {
+  const u = UNIT_MAP[id];
+  const lv = store.profile.units[id]?.level;
+  // (a tile, budgeted on its own: P3)
+  return h(`button.stp-girl${sel ? '.sel' : ''}${hero ? '.hero' : ''}`, { type: 'button', title: tag ? `${u.name} (${tag})` : u.name, 'aria-pressed': sel ? 'true' : null, 'data-probe': 'tile', onclick: onClick },
+    h('span.stp-girl-art', { html: portraitHTML(u, 'thumb') }),
+    h('span.stp-girl-cap', h('span.stp-girl-name', u.name), lv ? h('span.stp-girl-lv', `LV ${lv}`) : null, tag ? h('span.stp-girl-tag', tag) : null));
+}
+
+function formationSec() {
+  const profile = store.profile;
+  const f = profile.formation || { hero: null, towers: [] };
+  const slots = [];
+  slots.push(f.hero ? girlFace(f.hero, { onClick: () => navigate('formation'), hero: true }) : h('button.stp-girl.empty', { type: 'button', onclick: () => navigate('formation') }, h('span.lbl', 'Hero')));
+  for (let i = 0; i < BATTLE.maxTowers; i++) {
+    const id = f.towers?.[i];
+    slots.push(id ? girlFace(id, { onClick: () => navigate('formation') }) : h('button.stp-girl.empty', { type: 'button', 'aria-label': 'Empty slot', onclick: () => navigate('formation') }, ico('plus')));
+  }
+  return sec('Formation',
+    h('div.stp-formation', slots),
+    h('div.stp-sec-foot', h('span.lbl', `${(f.towers || []).length}/${BATTLE.maxTowers} girls${f.hero ? ' + hero' : ''}`),
+      h('button.ui-btn.ghost.stp-edit', { type: 'button', onclick: () => navigate('formation') }, 'Edit formation', ico('chevR'))));
+}
+
+function dropsSheet(stage, state, f) {
+  const out = [];
+  if (f.dropMul > 1) out.push(h('p.stp-p.ma-event-note', h('span.ui-chip.cy', `${f.dropMul}×`), ` ${f.event.name}: drop counts doubled this week.`));
+  out.push(sec(`${DIFFICULTIES[state.difficulty].name}${f.fpOn ? ` · ${f.fpName}` : ''}`, dropGrid(stage, state.difficulty, { dropMul: f.dropMul }),
+    f.fpOn ? h('p.stp-p.desc', 'Freeplay: these drop at the stage clear; past it, coins every wave and a freeplay cache every 25 waves.') : null));
+  if (!f.isEndless) {
+    const cleared = DIFFICULTY_ORDER.some((d) => f.medals[d]);
+    const order = stage.kind === 'event' && stage.difficulties ? stage.difficulties : DIFFICULTY_ORDER;
+    const unlocks = (stage.unlocks?.units || []).filter((id) => UNIT_MAP[id]);
+    out.push(sec('First clear',
+      cleared ? h('p.stp-p.desc', 'Claimed.') : h('div.stp-fc', rewardTiles(stage.firstClear || [], { size: 64 }), h('span.desc', 'Any difficulty, once.')),
+      !cleared && unlocks.length ? h('div.stp-unlocks', unlocks.map((id) => h('div.stp-unlock', girlFace(id, { onClick: () => navigate('student', { id }) }),
+        h('div', h('b', `${UNIT_MAP[id].name} joins for free`), h('span.desc', UNIT_MAP[id].acquisition?.note || `Clear this stage to recruit ${UNIT_MAP[id].name}.`))))) : null));
+    out.push(sec('Medal gems · once per difficulty',
+      h('div.stp-medalgems', order.map((d) => h(`div.stp-mg${f.medals[d] ? '.done' : ''}`, { 'data-probe': 'tile' },
+        svgEl(medalIcon(d, { earned: f.medals[d] }), 'stp-mg-medal'),
+        h('span.stp-mg-name', DIFFICULTIES[d].name),
+        f.medals[d] ? h('span.stp-mg-got', ico('check'), 'Claimed') : h('span.stp-mg-gems', curArt('gems'), h('span.num', String(medalGemsFor(stage, d))))))),
+      firstClearNote(state.mode)));
+  }
+  return out;
+}
+
+function modeSheet(stage, state, ctx, f) {
+  const out = [];
+  // Freeplay first: on a short landscape screen the battle modes would push it out of sight
+  if (f.fpOk || f.hasMode) out.push(freeplaySec(stage, state, { endless: f.endless, redraw: ctx.redraw, saved: f.rec }));
+  if (f.hasMode && !f.endless) {
+    out.push(modePanel(f.profile, stage, state, (m) => {
+      state.mode = m;
+      rememberParams('stage', { mode: m });
+      // a mode turns freeplay off (freeplay runs in Standard in v1)
+      if (m !== 'standard' && state.freeplay) {
+        state.freeplay = null;
+        rememberFreeplay(null);
+      }
+      ctx.redraw();
+    }));
+  }
+  return out;
+}
+
+function infoSheet(stage, state, f) {
+  const map = safeMap(stage.mapId);
+  const chapter = stage.chapter && stage.kind === 'campaign' ? CHAPTERS.find((c) => c.id === stage.chapter) : null;
+  const out = [];
+  // the mission, then who comes (scouting comes before the details), the map rule, the map and the clears
+  out.push(sec(stage.kind === 'campaign' ? 'Mission' : stageLabel(stage),
+    h('p.stp-p', stage.desc),
+    f.played.variant ? h('p.stp-p.stp-variant', h('b', `${DIFFICULTIES[f.played.variant.difficulty].name}: ${f.played.variant.name}`), ` ${f.played.variant.desc}`) : null,
+    mechanicFor(chapter, stage) ? h('p.stp-p.desc.stp-mech', ico('info'), mechanicFor(chapter, stage)) : null));
+  // the enemies (scouting): tap one for HP, traits and counters
+  const introduces = new Set(stage.introduces || []);
+  const ids = stageEnemies(f.played).filter((id) => ENEMY_MAP[id]);
+  ids.sort((a, b) => (TIER_ORDER[ENEMY_MAP[a].tier] ?? 3) - (TIER_ORDER[ENEMY_MAP[b].tier] ?? 3) || Number(introduces.has(b)) - Number(introduces.has(a)));
+  const newTraits = (stage.introduces || []).filter((k) => TRAITS[k]);
+  out.push(sec('Enemies',
+    newTraits.length ? h('div.stp-newmech', newTraits.map((t) => h('p.stp-p', svgEl(traitIcon(t), 'ma-trait'), h('b', ` ${TRAITS[t].name}`), h('span.desc', ` · new: ${TRAITS[t].desc}`)))) : null,
+    h('div.stp-enemies.ma-enemy-list', ids.map((id) => enemyChip(id, { isNew: introduces.has(id), hpScale: f.played.hpScale * DIFFICULTIES[state.difficulty].hpMul }))),
+    h('p.stp-p.desc', 'Tap an enemy for HP, traits and counters.')));
+  const rule = rulePanel(stage);
+  if (rule) out.push(rule);
+  out.push(h('dl.stp-facts.ma-facts',
+    infoFact('Map', map?.name || stage.mapId),
+    f.isEndless && f.entry?.bestWave ? infoFact('Best wave', String(f.entry.bestWave)) : null,
+    !f.isEndless && f.entry?.clears ? infoFact('Clears', String(f.entry.clears)) : null));
+  return out;
+}
+
+function infoFact(label, value) {
+  return h('div.stp-fact.ma-fact', h('dt.lbl', label), h('dd.stp-fact-v', value));
+}
+
+/** Keeps the freeplay pick in the URL (null removes it), so Retry / Quit come back to it. */
+function rememberFreeplay(tier) {
+  rememberParams('stage', { freeplay: tier || null });
+}
+
+/**
+ * Solo Freeplay in the Mode sheet: Off · Blossom · Tempest · Crimson Moon (the co-op tiers), what freeplay brings on
+ * this stage, the best wave per tier ("Best: wave 87 (Tempest)"), or how to unlock it. `saved`: this stage's saved
+ * battle (a normal run), which a freeplay run leaves as it is.
+ */
+function freeplaySec(stage, state, { endless, redraw, saved = null }) {
+  const profile = store.profile;
+  const cleared = canPlayEndless(profile, stage.id) && hasSoloFreeplay(stage.id);
+  const bests = soloBestLines(profile, stage.id);
+  const bestBox = bests.length
+    ? h('div.stp-fp-bests', { 'data-testid': 'prep-fp-best' }, bests.map((b) => h(`span.ui-chip.stp-fp-best.stp-fp-${b.tier}`, b.text)))
+    : null;
+  if (!cleared) {
+    return sec('Freeplay', h('p.stp-p.stp-lockline', { 'data-testid': 'prep-fp-locked' }, ico('lock'), `Clear ${stage.id} once to start it in Freeplay, or tap Keep going on the victory screen to go past wave ${stage.waves}.`), bestBox);
+  }
+  const pick = (tier) => {
+    state.freeplay = tier;
+    if (tier) rememberSoloTier(tier);
+    // freeplay runs in Standard (v1): turning it on sets the battle mode back to Standard
+    if (tier && state.mode !== 'standard') {
+      state.mode = 'standard';
+      rememberParams('stage', { mode: 'standard' });
+    }
+    rememberFreeplay(tier);
+    redraw();
+  };
+  const opt = (id, label, extra = {}) => h(`button.ui-opt.stp-fp-opt${(state.freeplay || 'off') === id ? '.on' : ''}`, {
+    type: 'button', role: 'radio', 'aria-checked': (state.freeplay || 'off') === id ? 'true' : 'false', 'data-tier': id, onclick: () => pick(id === 'off' ? null : id), ...extra,
+  }, label);
+  const seg = h('div.stp-fp-seg', { role: 'radiogroup', 'aria-label': 'Freeplay', 'data-testid': 'prep-freeplay' },
+    endless ? null : opt('off', 'Off'),
+    ...FREEPLAY_TIERS.map((id) => opt(id, freeplayTable(id).name, { 'data-testid': `prep-fp-${id}`, title: TIER_PITCH[id] })));
+  const t = freeplayTable(state.freeplay);
+  return sec('Freeplay',
+    seg,
+    t
+      ? h(`div.stp-fp-info.stp-fp-${t.id}`, { 'data-testid': 'prep-fp-info' },
+        h('p.stp-p', h('b', TIER_PITCH[t.id]), ' ', freeplaySummary(stage.id, t.id) || ''),
+        h('p.stp-p.desc', 'Rewards for the clear are saved at the last stage wave; past it you earn coins every wave, a cache every 25 waves and boss tokens. Finish any time from the pause menu.'),
+        state.difficulty === 'nightmare' ? h('p.stp-p.stp-warn', '1 life: the first leak ends freeplay.') : null,
+        saved ? h('p.stp-p.desc', { 'data-testid': 'prep-fp-save-note' }, 'Freeplay runs aren\'t saved when you quit, so your saved battle here stays as it is.') : null)
+      : h('p.stp-p.desc', `Off: the battle ends at wave ${stage.waves}. You can still Keep going from the victory screen.`),
+    bestBox);
 }
