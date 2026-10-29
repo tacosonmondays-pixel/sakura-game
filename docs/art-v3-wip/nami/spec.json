@@ -1,0 +1,34 @@
+{
+ "id": "nami",
+ "adult": true,
+ "prompt": "1girl, solo, adult woman, composed retired naval admiral in her late twenties, long wavy teal hair, split bangs, white captain's cap with a navy band and a small gold shell badge, small pearl earrings, aqua-blue eyes, sharp eyes, navy admiral's coat with gold epaulettes, a gold braided cord and thin gold trim, worn open over a crisp white double-breasted uniform jacket with small pearl buttons, teal bow at the collar, white gloves, gilded trident with a gold and teal shaft, pale sky-blue halo shaped like a curling wave inside a thin ring, cheerful confident grin, the academy harbour pier on a bright morning, white sailboats at the dock, a white lighthouse, gulls, sparkling blue water and sea spray, upper body, from the waist up, {POSE}, her eyes on the left third, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, crisp sunny sea light with one small gold accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, thighs, legs, weapon pointed at viewer, static pose, stiff pose, trident pointed at viewer, spear pointed at viewer, blonde hair, pink hair, purple hair, dark blue hair, black hair, red eyes, purple eyes, pirate, eyepatch, sailor swimsuit, wet clothes",
+ "poses": [
+  "standing at the edge of the dock she reaches her gloved hand out toward the viewer to help them aboard, foreshortening, open hand very large in the near foreground, trident held upright in her other hand, dutch angle, diagonal composition, eye level, coat tails and wavy hair blown by the sea wind",
+  "she throws a coil of mooring rope toward the viewer, the rope loop flying large and soft near the camera, foreshortening, arm following through, dutch angle, diagonal composition, eye level, hair and coat whipping in the wind",
+  "she holds a brass spyglass out toward the viewer to share the view, foreshortening, gloved hand and spyglass large in the near foreground, trident leaning on her shoulder pointing up, dutch angle, diagonal composition, slightly from above, cap ribbons and hair fluttering",
+  "she lifts the trident high overhead with its tines to the sky as a wave of spray curls up behind her, other gloved hand reaching toward the viewer, foreshortening, dutch angle, diagonal composition, eye level, coat and long wavy hair streaming",
+  "holding her cap down against a gust with one hand and pointing out to sea past the camera with the other, foreshortening, gloved hand large near the lens, dutch angle, diagonal composition, eye level, hair flying sideways"
+ ],
+ "charref": "/home/user/wt-release/public/art/portraits/nami-full.webp",
+ "charref_box": [
+  0,
+  0,
+  768,
+  720
+ ],
+ "identity": [
+  "long wavy teal hair, split bangs",
+  "white captain's cap with navy band and gold shell badge",
+  "aqua-blue eyes, sharp",
+  "pearl earrings",
+  "navy-and-gold admiral's coat with gold epaulettes and cord",
+  "crisp white uniform jacket with pearl buttons, teal bow",
+  "white gloves",
+  "gilded trident (never aimed at the viewer)",
+  "pale sky-blue wave halo",
+  "adult, framed from the waist up"
+ ],
+ "scene": "the academy harbour pier on a bright morning: sailboats at the dock, lighthouse, gulls, sea spray",
+ "notes": "Adult hero; framed from the waist up (fitted uniform jacket). charref_box is head to waist of her portrait (top 768x720). Her data eye colour is aqua #53d8db, the portrait draws blue: aqua-blue is asked, either reads as on model. Trident always upright or to the sky, never aimed at the viewer. Cap badge must stay a plain shell shape (no letters)."
+}

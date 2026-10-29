@@ -1,0 +1,34 @@
+{
+ "id": "yoriko",
+ "adult": true,
+ "prompt": "1girl, solo, adult woman in her twenties, the academy's drama club director, lavender hair in a high ponytail, blunt bangs, purple headset with cat-ear shapes and a small microphone, lilac eyes, sleepy eyes, half-closed eyes, long navy tailcoat cut like a stage coat with thin gold edges and lilac lining, lilac vest with small silver buttons, white collared shirt, lilac necktie, navy gloves, navy trousers, a wooden cross-shaped puppet control bar in her hand, a small doll puppet with short lilac hair in a tiny sailor school uniform hanging from thin lilac strings, pale lilac crescent moon halo floating above her head, gentle sleepy smile, playful, the drama club rehearsal room on a bright afternoon, tall windows with soft daylight, costume racks, cardboard star set pieces, a folding chair, cowboy shot, {POSE}, her eyes on the left third, ponytail and coat tails swinging, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, soft afternoon daylight with one small lilac accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, stage curtains, dark stage, spotlight, stage lights, night, starry sky, dark background, purple backdrop, footlights, black hair, red eyes, skirt, dress, real animal ears, creepy doll, horror, multiple dolls, tight clothes",
+ "poses": [
+  "she holds the cross-shaped control bar out toward the viewer, strong foreshortening, gloved hand and control bar large near the camera, the doll puppet dangling on its strings below it mid-curtsy, dutch angle, eye level, diagonal composition",
+  "the doll puppet dances toward the viewer on its lilac strings, strong foreshortening, the little doll large and slightly soft close to the camera, she steers it from behind with the control bar raised high, dutch angle, eye level, diagonal composition",
+  "she sweeps her free gloved hand toward the viewer in a theatrical welcome, strong foreshortening, open palm large near the camera, control bar raised high with the doll puppet twirling, coat tails flaring, dutch angle, slightly from above, diagonal composition",
+  "she hands a rolled script with blank pages toward the viewer, strong foreshortening, gloved hand and script large near the camera, the doll puppet sitting on her shoulder waving, control bar in her other hand, dutch angle, eye level, diagonal composition",
+  "she leans into a playful bow and tips the control bar toward the viewer so the doll puppet reaches out a tiny hand, strong foreshortening, doll and strings large near the camera, dutch angle, eye level, diagonal composition"
+ ],
+ "charref": "/home/user/wt-release/public/art/portraits/yoriko-full.webp",
+ "charref_box": [
+  80,
+  60,
+  720,
+  780
+ ],
+ "identity": [
+  "lavender high ponytail, blunt bangs",
+  "purple cat-ear headset with mic",
+  "lilac sleepy eyes",
+  "long navy tailcoat, thin gold edges, lilac lining",
+  "lilac vest, white shirt, lilac tie",
+  "navy gloves, navy trousers",
+  "cross-shaped control bar",
+  "small doll puppet: lilac bob, sailor uniform, on thin lilac strings",
+  "pale lilac crescent-moon halo",
+  "gentle sleepy smile"
+ ],
+ "scene": "the drama club rehearsal room on a bright afternoon: tall windows, costume racks, cardboard star set pieces",
+ "notes": "ADULT hero (adult: true). Look B replaces her theatrical special art (owner chose B for all); the charref (her own yoriko-full.webp, head to thigh crop) may pull the dark violet stage, so the negative blocks curtains, spotlights and a dark backdrop. The doll is drawn as a doll puppet (her game doll is a little drone marionette)."
+}

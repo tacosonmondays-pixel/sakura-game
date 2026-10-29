@@ -1,0 +1,34 @@
+{
+ "id": "chika",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, teen genius of the robotics club, short messy copper-orange hair, messy bangs, teal goggles pushed up on her head, golden amber eyes, mustard-yellow shirt with rolled-up sleeves, long navy overall trousers covered in pockets, a brown canvas satchel of spare parts on a strap, a giant steel wrench almost as big as her, warm gold halo shaped like a cogwheel with eight teeth, bright open-mouthed smile, the robotics club workshop on a bright afternoon, workbenches with tools and small parts, big windows with blue sky, two small round white drones with teal lights and little propellers hovering around her, upper body, from the waist up, {POSE}, her eyes on the left third, short hair tousled, satchel swinging, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, bright afternoon light with one small teal accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing still, straight-on camera, symmetrical composition, weapon pointed at viewer, wrench pointed at viewer, aiming at viewer, humanoid robot, robot girl, mecha, android, giant robot, brass goggles, steampunk, leather harness, dark workshop, night, sparks, fire, tight clothes, shorts, short overalls, bare legs, thighs, legs, blonde hair, red hair, brown hair, black hair, long hair, twintails, blue eyes, red eyes, green eyes",
+ "poses": [
+  "she holds a small round drone out toward the viewer on her open palm, its propellers spinning, strong foreshortening, hand and drone large and slightly soft close to the camera, giant wrench resting on her shoulder, dutch angle, diagonal composition, eye level, short hair and satchel strap swinging",
+  "she swings the giant wrench up onto her shoulder in a wide arc while her other hand gives a thumbs-up toward the viewer, strong foreshortening, thumbs-up hand very large near the camera, dutch angle, diagonal composition, eye level, hair tousled, a drone zipping past",
+  "she tosses a small hex nut and bolt toward the viewer, the parts tumbling large and soft near the camera, strong foreshortening, open hand following through toward the lens, wrench in her other hand pointing at the floor, dutch angle, diagonal composition, slightly from above, goggle strap and hair bouncing",
+  "a small drone zooms past the camera in the near foreground while she reaches after it with one hand, strong foreshortening, hand large near the lens, wrench in her other hand, dutch angle, diagonal composition, eye level, hair and overall straps swinging with the motion",
+  "she pushes the teal goggles up with one hand and holds a screwdriver out handle-first toward the viewer with the other, strong foreshortening, hand and screwdriver handle large close to the camera, dutch angle, diagonal composition, eye level, drones circling behind her, hair tousled"
+ ],
+ "charref": "/home/user/wt-release/public/art/portraits/chika-full.webp",
+ "charref_box": [
+  60,
+  0,
+  768,
+  700
+ ],
+ "identity": [
+  "short messy copper-orange hair, messy bangs",
+  "TEAL goggles on her head (portrait draws brass: data says teal)",
+  "golden amber eyes",
+  "mustard-yellow shirt",
+  "navy overalls covered in pockets",
+  "satchel of spare parts",
+  "giant steel wrench",
+  "warm gold cogwheel halo (gear, eight teeth)",
+  "small round drones (her summons)",
+  "bright, fast-talking smile"
+ ],
+ "scene": "the robotics club workshop on a bright afternoon, workbenches, big windows, her little drones hovering",
+ "notes": "STUDENT (adult false), framed from the waist up after r1-0 drew short overall shorts with bare legs (prompt now says long overall trousers; shorts, bare legs, thighs, legs in the negative from r1-1 on). 'youngest genius' in her bio: the prompt says high school student, negative has child and aged down. Data/bio say teal goggles, mustard shirt and navy overalls; her current portrait draws brass goggles, a mustard scarf and a navy jacket with leather belts (steampunk): follow the data, brass goggles and steampunk in the negative. Wrench never aimed at the viewer. Drones are small round flying gadgets, not humanoid robots."
+}

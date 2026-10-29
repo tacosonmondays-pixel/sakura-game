@@ -1,0 +1,28 @@
+{
+ "id": "aoi",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, first-year of the archery club, long forest-green hair in a high ponytail, swept bangs, small gold leaf-shaped hair clip on the ponytail, bright green eyes, round eyes, green hooded capelet with thin flat gold edges and a small green gem clasp at the collar, cream long-sleeved blouse, brown leather vest, brown leather bracers, fingerless brown gloves, leather quiver of arrows with white fletching, small brown belt pouch, green knee-length skirt, black tights, brown lace-up boots, wooden longbow wrapped with a thin green vine, arrows with green leaf-shaped heads, pale green halo shaped like a single leaf, flat and simple, floating above her head, cheerful bright smile, the academy archery range on a bright spring morning, round straw targets with plain colored rings far down the lawn, a wooden roofed shooting hall, green trees, a few cherry trees, clear sky, green leaves blowing in the wind, cowboy shot, {POSE}, her eyes on the left third, ponytail and capelet whipping in the wind, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, fresh green morning light with one small gold accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing straight, symmetrical composition, straight-on camera, arrow pointed at viewer, bow aimed at viewer, aiming at viewer, weapon pointed at viewer, corset, short skirt, miniskirt, ornate armor, glowing bow, magic, blonde hair, black hair, blue hair, short hair, red eyes, purple eyes, elf ears, dark forest, night",
+ "poses": [
+  "she holds a single arrow out toward the viewer fletching-first on her open palm, strong foreshortening, gloved hand and white fletching very large near the camera, the longbow held upright in her other hand, dutch angle, diagonal composition, eye level, ponytail swinging",
+  "turning toward the viewer mid-stride with the longbow raised high in one hand, her other hand reaching out toward the viewer as if to say come and try, strong foreshortening, open hand very large near the camera, dutch angle, diagonal composition, slightly from above, capelet flaring",
+  "drawing the longbow sideways toward a distant target off to the side, arrow aimed away from the viewer along the range, her face turned to the viewer with a wink, the bow limb sweeping large across the near foreground, foreshortening, dutch angle, diagonal composition, eye level, hair streaming",
+  "she pulls a fresh arrow from her quiver and holds it up beside her cheek, other hand stretched toward the viewer with a thumbs up, strong foreshortening, hand very large near the camera, dutch angle, diagonal composition, eye level, leaves swirling past",
+  "jogging back from the targets with a bundle of collected arrows hugged in one arm, her free hand waving at the viewer, strong foreshortening, hand large near the camera, dutch angle, diagonal composition, slightly from above, ponytail flying"
+ ],
+ "charref": "/home/user/wt-release/public/art/portraits/aoi-full.webp",
+ "identity": [
+  "long forest-green high ponytail, swept bangs",
+  "gold leaf hair clip",
+  "bright green eyes, round",
+  "green hooded capelet with thin gold edge",
+  "cream blouse, brown leather vest, bracers, fingerless gloves",
+  "quiver with white fletching, belt pouch",
+  "green skirt, black tights, brown lace-up boots",
+  "wooden longbow with green vine wrap (never aimed at the viewer)",
+  "pale green leaf halo",
+  "cheerful"
+ ],
+ "scene": "the academy archery range on a bright spring morning: straw targets down the lawn, wooden shooting hall, blowing leaves",
+ "notes": "STUDENT (adult: false). Her portrait draws a corset-laced bodice and heavy gold filigree: Look B asks for a plain leather vest and thin flat gold edges (negative: corset, ornate armor). Her portrait has no halo; the leaf halo comes from her data (halo: leaf, #c4f5b0). Targets carry plain colour rings only. The bow is only drawn toward a target off to the side or held upright; arrows are handed fletching-first."
+}

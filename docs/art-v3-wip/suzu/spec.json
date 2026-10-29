@@ -1,0 +1,32 @@
+{
+ "id": "suzu",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, mischievous bell-maker of the bell club, long golden-blonde hair with one big looped curl on the side, straight bangs, teal ribbons tied in her hair, a small white flower in her hair, bright round golden eyes, white and teal kimono with long wide sleeves, teal obi with a row of small golden bells, teal tassels, a small wooden bell rack hung with golden hand bells, pale gold thin ring halo, cheerful mischievous grin, the bell club's open-air workshop veranda on a bright summer morning, wooden shelves of polished golden bells, wind chimes with plain teal paper strips hanging from the eaves, green bamboo garden, cowboy shot, {POSE}, her eyes on the right third, side curl bouncing, wide sleeves fluttering, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, bright morning light with one small teal accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing still, straight-on camera, symmetrical composition, weapon pointed at viewer, shrine maiden, red hakama, torii, glowing bells, magic, explosion, night, dark background, off-shoulder, bare shoulders, brown hair, orange hair, red hair, black hair, short hair, twintails, blue eyes, red eyes, purple eyes, writing on paper",
+ "poses": [
+  "she rings a small golden hand bell right toward the viewer with a playful wink, strong foreshortening, hand and bell large and slightly soft close to the camera, dutch angle, diagonal composition, eye level, side curl and teal ribbons bouncing, wide sleeve swinging",
+  "she dangles a tiny golden bell on a teal cord from her fingers toward the viewer as a gift, strong foreshortening, hand very large near the camera, the bell swinging, dutch angle, diagonal composition, slightly from above, ribbons and sleeves fluttering in the breeze",
+  "spinning around on the veranda to face the viewer, one wide teal-lined sleeve sweeping across the near foreground, strong foreshortening, a hand bell raised high in her other hand, dutch angle, diagonal composition, eye level, hair and sleeves swirling with the turn",
+  "she shakes the little wooden bell rack out toward the viewer at arm's length, strong foreshortening, hand and rack of golden bells large and soft near the camera, dutch angle, diagonal composition, eye level, side curl and kimono sleeves swaying with the jingle",
+  "she reaches toward the viewer to flick a wind chime hanging near the camera with one finger, strong foreshortening, fingertip and chime large in the near foreground, a hand bell in her other hand, dutch angle, diagonal composition, eye level, ribbons and sleeves fluttering"
+ ],
+ "charref": "/home/user/wt-release/public/art/portraits/suzu-full.webp",
+ "charref_box": [
+  100,
+  0,
+  768,
+  700
+ ],
+ "identity": [
+  "long golden-blonde hair with one big looped side curl, straight bangs",
+  "teal ribbons in her hair (small white flower ok)",
+  "golden eyes",
+  "white-and-teal kimono with wide sleeves",
+  "teal obi with small golden bells",
+  "golden hand bell / little bell rack",
+  "pale gold thin ring halo (ring shape)",
+  "cheerful, mischievous"
+ ],
+ "scene": "the bell club's open-air workshop veranda on a bright summer morning: shelves of golden bells, wind chimes with plain strips, bamboo",
+ "notes": "STUDENT (adult false): fully dressed, eye level or slightly above. Halo is our RING shape (a plain thin gold ring). Her current portrait's floating glowing bells and sparkle threads are left out for the high-key look (glowing bells, magic and sparkles in the negative). Wind-chime strips must be blank (no writing). Charref crop is head to obi."
+}

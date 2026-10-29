@@ -1,0 +1,29 @@
+{
+ "id": "ena",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, the occult club's teasing fortune-teller, long rose-pink hair, split bangs, one long thick braid over her left shoulder tied with a red cord bow, red rose hair ornament with red tassel cords on the left side of her head, pink eyes, sharp eyes, black academy blazer with thin crimson piping and small gold buttons, white collared shirt, crimson tie, long black open cardigan coat with crimson lining, red and black plaid pleated skirt at knee length, black tights, black loafers, silver wrist launcher bracelet with a small red light on her right wrist, glowing pale pink tarot cards with one red rose on each face and plain borders, thin red threads of light, pale pink crescent moon halo floating above her head, smug teasing smile, one eyebrow slightly raised, the occult club room on a bright afternoon, sunlit bay window with sheer white curtains, round table with a crimson cloth, a crystal ball on a small brass stand, potted red roses, paper moons and stars hanging from the ceiling, cowboy shot, {POSE}, her eyes on the right third, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, warm afternoon light with one small crimson accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing straight, symmetrical composition, straight-on camera, blonde hair, brown hair, black hair, purple hair, short hair, twintails, blue eyes, green eyes, short skirt, miniskirt, bare legs, night, dark room, candles, skull, demon, horns, witch hat, glowing eyes, weapon pointed at viewer, aiming at viewer",
+ "poses": [
+  "she fans a hand of glowing cards out toward the viewer as if saying pick a card, strong foreshortening, hand and cards very large near the camera, dutch angle, diagonal composition, eye level, her other hand on her hip, braid and long cardigan swinging",
+  "she flicks a single glowing card up between two fingers toward the viewer with a knowing wink, strong foreshortening, fingers and card very large near the camera, dutch angle, diagonal composition, slightly from above, red threads of light looping up and away from her wrist launcher, braid swinging",
+  "she holds the crystal ball up toward the viewer on her open palm with a teasing smile, a soft pink light inside it, strong foreshortening, palm and crystal ball very large near the camera, dutch angle, diagonal composition, slightly from above, braid swinging over her shoulder, cardigan hem flaring",
+  "twirling past the round table, she spreads three glowing cards in a curved arc toward the viewer with one reaching hand, strong foreshortening, hand very large near the camera, dutch angle, diagonal composition, eye level, long cardigan swirling, braid flying",
+  "she points a playful finger at the viewer as if reading their fortune, one glowing card held up beside her face in her other hand, strong foreshortening, fingertip very large near the camera, dutch angle, diagonal composition, eye level, braid and tie swinging"
+ ],
+ "charref": "/home/user/wt-release/public/art/portraits/ena-full.webp",
+ "identity": [
+  "long rose-pink hair, split bangs",
+  "one long braid over her left shoulder with a red cord bow",
+  "red rose hair ornament with red tassel cords",
+  "pink sharp eyes",
+  "smug teasing smile",
+  "black blazer with crimson piping and gold buttons, white shirt, crimson tie",
+  "long black open cardigan coat",
+  "red and black plaid pleated skirt (knee length), black tights, black loafers",
+  "silver wrist launcher with a red light (never aimed at the viewer)",
+  "glowing pale pink tarot cards with a red rose, red threads of light",
+  "pale pink crescent moon halo"
+ ],
+ "scene": "the occult club room on a bright afternoon: sunlit bay window with sheer curtains, round table with a crimson cloth, crystal ball on a brass stand, potted red roses, paper moons and stars hanging from the ceiling",
+ "notes": "STUDENT (adult: false), SSR hexer. Her portrait is a night balcony under a pink moon with rose petals and gold embroidery; Look B moves her indoors to a bright afternoon club room with thin flat crimson lines and no petals. Her portrait skirt is above the knee: Look B asks knee length with tights. The data halo is 'moon' (#ffb3d1): a pale pink crescent; her portrait shows no halo (only a moon in the sky). Cards are fortune cards, never a weapon at the viewer; the wrist launcher stays pointed up and away. Card faces must stay a single rose with no letters or numbers."
+}
