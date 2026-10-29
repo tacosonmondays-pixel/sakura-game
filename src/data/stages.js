@@ -1283,7 +1283,7 @@ const CAMPAIGN_ACT2 = [
   act2Stage({
     id: '6-9', name: 'Lecture Tower Ring', mapId: 'vesper_tower_ring',
     desc: 'Round the ring road between the frozen lecture towers, in along a spoke, across the plaza and out over the ring, where the city\'s broken transit pads still fire. Line Sentries, Lattice Shells, Quartz Slimes and Ember Slimes come first; Halo Drones from wave 4, Goblin Bombers from wave 7, Vesper Wardens from wave 10.',
-    budget: [10, 6000], groups: 3,
+    budget: [6, 3500], groups: 3,
     pool: [
       P('vesper_line_sentry', 3), P('vesper_lattice_shell', 3), P('slime_crystal', 2), P('slime_ember', 2), P('vesper_halo_drone', 2, 4),
       P('goblin_bomber', 2, 7), P('vesper_warden', 1, 10),
@@ -1381,7 +1381,7 @@ export const SIDE_STAGES = [
   sideStage({
     id: 'side-6-starfall', anchor: '6-10', name: 'The Starfall Trial', mapId: 'vesper_starfall',
     desc: 'The academy observatory\'s broken deck, under a cracked dome where the night-sky watch kept its post. Shards of the star map keep falling. Patrol Orbs, Lattice Shells and Quartz Slimes come first; the Vesper Aegis from wave 3, Phantoms from wave 5, Halo Drones from wave 8, Vesper Wardens from wave 12.',
-    budget: [10, 5000], groups: 3,
+    budget: [6, 7000], groups: 3,
     pool: [
       P('vesper_patrol_orb', 3), P('vesper_lattice_shell', 3), P('slime_crystal', 2), P('vesper_aegis', 2, 3), P('ghost_phantom', 2, 5),
       P('vesper_halo_drone', 2, 8), P('vesper_warden', 1, 12),
