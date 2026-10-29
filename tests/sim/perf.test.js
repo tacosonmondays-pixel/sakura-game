@@ -80,3 +80,50 @@ describe('performance budget', () => {
     expect(per3x).toBeLessThan(process.env.CI ? 12 : 4);
   });
 });
+
+// Kohaku's long beam (src/sim/duo.js): Grand Spectrum's four held beams run to the map edge and hit everything on
+// their line (up to PRISM_EDGE_PIERCE). Four duos at Grand Spectrum in the LR form (16 map-long beams) on a crowded
+// 6-x map, 200 walkers: the same step budget.
+describe('performance budget: the long beam', () => {
+  test('4 duos × 4 map-long beams + 200 enemies on 6-3: a step stays under the same limits', () => {
+    const sim = new Sim({ stageId: '6-3', loadout: [{ unitId: 'kohaku_tsubaki', stats: { lr: true } }], seed: 3 });
+    sim.cash = 1e12;
+    const spots = [];
+    for (let y = 0.5; y < sim.map.height && spots.length < 4; y += 1) {
+      for (let x = 0.5; x < sim.map.width && spots.length < 4; x += 1) {
+        if (sim.canPlace('kohaku_tsubaki', x, y).ok) {
+          const t = sim.placeTower('kohaku_tsubaki', x, y);
+          if (t) spots.push(t);
+        }
+      }
+    }
+    expect(spots).toHaveLength(4);
+    // (beyond any real board: four final tiers of one path, so the one-per-path rule is skipped as a save restore does)
+    for (const t of spots) for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, 1, { restoring: true });
+    expect(spots.every((t) => t.beamSpec?.edge && t.beamSpec.projectiles === 4)).toBe(true);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const kinds = ['orc_grunt', 'orc_grunt', 'slime_courtier', 'orc_grunt'];
+    for (let i = 0; i < 200; i++) {
+      const pi = i % sim.pathData.length;
+      const e = sim.spawnEnemy(kinds[i % kinds.length], { pathIndex: pi, dist: (i / 200) * (sim.pathData[pi].length - 2) });
+      if (e) e.hp = e.maxHp = 1e9;
+    }
+    for (let i = 0; i < 120; i++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    const t0 = performance.now();
+    for (let i = 0; i < steps; i++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const perStep = (performance.now() - t0) / steps;
+    const held = spots.reduce((n, t) => n + (t.prismBeams || []).filter((b) => b.e).length, 0);
+    console.log(`[perf] long beam: ${sim.enemies.length} enemies, ${held} held beams: ${perStep.toFixed(3)} ms/step`);
+    expect(held).toBeGreaterThan(0);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+});

@@ -7,12 +7,13 @@
 // gentle 1.1 Hz swell (none under reduced motion: a steady beam) instead of the old flash's flicker. It brightens
 // a touch as Resonant Light climbs (a steady change, not a strobe). At Grand Spectrum the beams take the prism's
 // colours. A beam fades in over ~0.1 s on a lock and fades out over ~0.15 s where it last was when its enemy dies
-// or leaves her reach, so it ends cleanly between the sim's damage ticks.
-// Draw cost: four camera-facing quads per beam and one on her prism, in the shared batch (no meshes, no allocation per frame:
+// or leaves her reach, so it ends cleanly between the sim's damage ticks. A long beam (Grand Spectrum, the LR form:
+// spec.edge) runs on past her reach to the map edge as one fainter, thinner segment (the cheap fade).
+// Draw cost: four camera-facing quads per beam (five for a long beam) and one on her prism, in the shared batch (no meshes, no allocation per frame:
 // the per-beam display records are made once in init and reused).
 import { genericAttack } from './generic.js';
 import { CORE } from '../context.js';
-import { prismRamp } from '../../../sim/duo.js';
+import { prismRamp, edgeReach } from '../../../sim/duo.js';
 import { DUO_LAYOUT } from '../../../models/duo.js';
 
 const MAX_BEAMS = 6;
@@ -26,7 +27,7 @@ const LILAC = '#c9a8ff';
 const SPECTRUM = ['#c9a8ff', '#8fd8ff', '#ffd27a', '#ff9ad5', '#9dffc4', '#ffffff'];
 
 function rec() {
-  return { a: 0, uid: -1, ax: 0, ah: 0, ay: 0, bx: 0, bh: 0, by: 0, ex: 0, ey: 0, k: 0, w: 0 };
+  return { a: 0, uid: -1, ax: 0, ah: 0, ay: 0, bx: 0, bh: 0, by: 0, ex: 0, ey: 0, fx: 0, fy: 0, k: 0, w: 0 };
 }
 
 /** Is a hold's enemy still drawn and in her reach? (sim objects read only) */
@@ -99,6 +100,10 @@ export const kohaku_tsubaki = {
         const reach = Math.max(len, spec.range);
         r.ex = px + (dx / len) * reach;
         r.ey = pz + (dy / len) * reach;
+        // a long beam (Grand Spectrum, the LR form) runs on, fading, to the map edge (read from the sim's map)
+        const far = spec.edge && ctx.sim?.map ? Math.max(reach, edgeReach(px, pz, dx / len, dy / len, ctx.sim.map.width, ctx.sim.map.height)) : reach;
+        r.fx = px + (dx / len) * far;
+        r.fy = pz + (dy / len) * far;
         r.k = spec.ramp && tick ? (prismRamp(spec, tick, b.held) - 1) / spec.ramp.max : 0;
       } else if (r.a > 0) {
         // its enemy died or left: fade out where it was
@@ -117,6 +122,7 @@ export const kohaku_tsubaki = {
       ctx.line(B, CORE, r.ax, r.ah, r.ay, r.bx, r.bh, r.by, w, c, a);
       ctx.line(B, CORE, r.ax, r.ah, r.ay, r.bx, r.bh, r.by, w * 0.32, white, r.a * 0.85);
       if (r.ex !== r.bx || r.ey !== r.by) ctx.line(B, CORE, r.bx, r.bh, r.by, r.ex, r.bh * 0.85, r.ey, w * 0.7, c, a * 0.32);
+      if (r.fx !== r.ex || r.fy !== r.ey) ctx.line(B, CORE, r.ex, r.bh * 0.85, r.ey, r.fx, r.bh * 0.7, r.fy, w * 0.5, c, a * 0.14);
       const g = 0.32 * (1 + 0.3 * r.k) * (1 + swell);
       ctx.quad(B, CORE, r.bx, r.bh, r.by, g, g, R.glow, c, r.a * 0.75);
       if (r.a > prismA) prismA = r.a;

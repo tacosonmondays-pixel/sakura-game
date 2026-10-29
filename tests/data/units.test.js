@@ -295,7 +295,7 @@ function ballErrors(v, w) {
 }
 
 // The duo (src/sim/mods.js normDuo): Kohaku's beam and the prism; every field a number.
-const DUO_NUMS = ['beamDmg', 'beamRate', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'beamAir', 'beamMul', 'rampPer', 'rampMax', 'beamSilence',
+const DUO_NUMS = ['edge', 'beamDmg', 'beamRate', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'beamAir', 'beamMul', 'rampPer', 'rampMax', 'beamSilence',
   'every', 'shards', 'shardAdd', 'shardShare', 'shardDmg', 'shardSplash', 'shardSlow', 'slowTime', 'shardShred', 'shardVuln', 'vulnTime', 'fullEvery'];
 
 // The nature caster (src/sim/mods.js normVine): numbers add.
