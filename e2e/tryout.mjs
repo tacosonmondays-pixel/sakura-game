@@ -90,6 +90,13 @@ for (const [W, H] of viewports) {
   const page = await context.newPage();
   page.on('console', (m) => { if (m.type() === 'error' && !IGNORE.some((r) => r.test(m.text()))) errors.push(`${W}x${H} ${m.text()}`); });
   page.on('pageerror', (e) => errors.push(`${W}x${H} pageerror ${e.message}`));
+  // the test's own reloads abort the old page's GLB textures mid-decode: those errors belong to a page that is gone
+  // (same rule as e2e/profile.mjs and e2e/nav-back.mjs); every other error still counts
+  const reload = async () => {
+    const from = errors.length;
+    await page.reload();
+    for (let i = errors.length - 1; i >= from; i--) if (/GLTFLoader: Couldn't load texture blob:/.test(errors[i])) errors.splice(i, 1);
+  };
   // (a screenshot is not a check: a WebGL frame that will not settle under load is logged and the run goes on)
   const shot = async (name) => {
     if (!shotsDir) return;
@@ -491,7 +498,7 @@ for (const [W, H] of viewports) {
   check(await marblesPill().isVisible(), 'Marbles sit in the top bar on the Tryout hub');
   await shot('ty-hub-locked');
   await page.evaluate(() => sessionStorage.setItem('__tyUnlock', '1'));
-  await page.reload();
+  await reload();
   await screenIs('tryout');
   check(await page.waitForSelector('[data-testid="tryout-hub"][data-state="fresh"]', { timeout: 10000 }).then(() => true).catch(() => false), 'the hub opens after 2-5');
   if (only === 's20') {
@@ -704,7 +711,7 @@ for (const [W, H] of viewports) {
 
   // 5. reload mid-break: the same run, the same break
   await page.evaluate(() => window.__battle.ui.saver?.markProgress?.({ now: true }));
-  await page.reload();
+  await reload();
   check(await battleReady(), 'a reload continues the run');
   check(await page.evaluate(() => window.__battle.sim.tryout.players[0].win === 'break'), 'still at the break after the reload');
   await page.waitForSelector('[data-testid="ty-ready"]', { timeout: 30000 }).catch(() => {});
@@ -857,7 +864,7 @@ for (const [W, H] of viewports) {
   // 11. the Marble Jar: a purchase (Pencil Money) and its switch; the perk rides into Before Class
   await page.evaluate(() => sessionStorage.setItem('__tyMarbles', '200'));
   await page.goto(`${base}#/tryout/jar`);
-  await page.reload();
+  await reload();
   await screenIs('tryout');
   check(await page.waitForSelector('[data-testid="tryout-jar"]', { timeout: 10000 }).then(() => true).catch(() => false), 'the Marble Jar opens');
   const jarTabs = await page.locator('[data-testid="jar-rail"] .ui-stab').evaluateAll((els) => els.map((e) => `${e.dataset.tab}:${e.querySelector('.num')?.textContent || ''}`));

@@ -16,17 +16,15 @@
 //   6. screenshots (gallery, Chika focus, Akane / Hotaru on the phone)
 // Exit code 1 on any failure.
 import { createServer } from 'vite';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { spawnSync } from 'node:child_process';
 import { launchChromium } from './browser.mjs';
 import { simId } from '../tools/simId.mjs';
 
-// The live game's co-op id: computed from the live branch (SIM_REF, default origin/main: every push to main deploys)
-// when git has it, else this pin (v0.1.60's protocol 12). Renderer-only work must leave it unchanged.
-const SIM_ID_PIN = 'd35092f141d3';
-const SIM_REF = process.env.SIM_REF || 'origin/main';
+// The co-op id this build must have: the pin for its COOP_PROTOCOL in the sim id unit test (KNOWN, or a branch's
+// PENDING_BUMP). A sim-changing release bumps the protocol and pins its id there, so this follows it; renderer-only
+// work must leave the id unchanged.
+const SIM_PINS = 'tests/art/itemArtRuntime.test.js';
 const args = process.argv.slice(2);
 const opt = (name, def) => {
   const i = args.indexOf(`--${name}`);
@@ -56,24 +54,22 @@ function check(cond, msg) {
   return cond;
 }
 
-/** The sim id of a git ref (its src/ extracted to a temp folder), or null when git lacks it. */
-function refSimId(ref) {
-  if (spawnSync('git', ['rev-parse', '--verify', '--quiet', ref]).status !== 0) return null;
-  const dir = mkdtempSync(join(tmpdir(), 'simref-'));
-  try {
-    const tar = spawnSync('sh', ['-c', `git archive ${ref} src | tar -x -C "${dir}"`]);
-    return tar.status === 0 ? simId(dir).id : null;
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+/** The pinned sim id for a protocol in the sim id unit test: its PENDING_BUMP entry, else its KNOWN entry. */
+function pinnedSimId(proto) {
+  const src = readFileSync(SIM_PINS, 'utf8');
+  const map = (name) => {
+    const m = src.match(new RegExp(`const ${name} = (\\{[^}]*\\})`));
+    return m ? Function(`return ${m[1]}`)() : {};
+  };
+  return map('PENDING_BUMP')[proto] || map('KNOWN')[proto] || null;
 }
 
-// 1. sim id gate: same id as the live game
+// 1. sim id gate: the id pinned for this build's co-op protocol
 {
-  const r = spawnSync(process.execPath, ['-e', "import('./tools/simId.mjs').then(m=>console.log(m.simId().id))"], { encoding: 'utf8' });
-  const id = String(r.stdout).trim();
-  const want = refSimId(SIM_REF) || SIM_ID_PIN;
-  check(id === want, `co-op sim id unchanged (${id}, live ${want})`);
+  const id = simId().id;
+  const COOP_PROTOCOL = Number(readFileSync('src/online/coop/version.js', 'utf8').match(/export const COOP_PROTOCOL = (\d+)/)?.[1]);
+  const want = pinnedSimId(COOP_PROTOCOL);
+  check(id === want, `co-op sim id matches the protocol ${COOP_PROTOCOL} pin (${id}, pinned ${want})`);
 }
 
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1', hmr: false }, logLevel: 'error' });
