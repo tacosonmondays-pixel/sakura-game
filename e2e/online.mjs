@@ -894,7 +894,16 @@ try {
         return sim.enemies.filter((e) => !e.dead && !e.hidden && (e.x - t.x) ** 2 + (e.y - t.y) ** 2 <= r * r).length >= 2;
       };
       const ready = await B.waitForFunction(readyNow, guestGirl, { timeout: 240000, polling: 50 }).then(() => true).catch(() => false);
-      check(ready, 'co-op abilities: the guest\'s girl is ready with enemies in reach (the link settled)');
+      const why = ready ? '' : await B.evaluate((g) => {
+        const { sim, coop } = window.__battle || {};
+        const ls = coop?.lockstep;
+        const t = sim?.getTower(g.uid);
+        const st = sim?.abilityStatus(g.uid);
+        const r = t?.eff.range || 0;
+        const near = t ? sim.enemies.filter((e) => !e.dead && !e.hidden && (e.x - t.x) ** 2 + (e.y - t.y) ** 2 <= r * r).length : -1;
+        return JSON.stringify({ battle: !!sim, job: !!ls?.job, running: !!ls?.running, peers: ls?.livePeers?.().length, gone: !!window.__coop?.peerGone, state: sim?.state, wave: sim?.wave, ready: st?.ready, cd: st?.cd ?? st?.left, reason: st?.reason, near, enemies: sim?.enemies.filter((e) => !e.dead).length });
+      }, guestGirl).catch((e) => `(${e.message.split('\n')[0]})`);
+      check(ready, `co-op abilities: the guest\'s girl is ready with enemies in reach (the link settled)${why ? ` ${why}` : ''}`);
       // the real tap on her slot, then a second one while the first waits (both in one go: no tick runs between). A
       // tap that met a rebuild ("busy") is tapped again once the link has settled, as a player would.
       let tapped = null;
