@@ -614,9 +614,12 @@ export class Actors {
       }
     }
     // traps
+    // (the academy girls' placed objects are 3D props when src/render/placedProps.js covers them)
+    const pp = this.placedProps;
     for (const tr of sim.traps) {
       if (this.fxHook?.trapHidden(tr.uid)) continue;
       if (tr.strip) {
+        if (pp?.covers('strip')) continue;
         // a spike strip (src/sim/strips.js): a flat steel bar with a dashed edge (Spike Rain's in
         // lilac), fading as its hits run out
         const c = this._c.set(tr.extra ? '#c9a7ff' : '#d3dae4');
@@ -636,11 +639,11 @@ export class Actors {
       const rg = tw.stats?.ring;
       if (!rg) continue;
       for (const ring of tw.rings || []) {
-        if (ring.r <= 0) continue;
+        if (ring.r <= 0 || pp?.covers('heatRing')) continue;
         const k = ring.r / Math.max(0.01, ring.max);
         gA.push(ring.x, 0.09, ring.y, ring.r * 2, ring.r * 2, R.ringThick, 1, 0.62, 0.25, 0.85 * (1 - 0.6 * k), 0);
       }
-      if (rg.scissors > 0) {
+      if (rg.scissors > 0 && !pp?.covers('scissor')) {
         const step = Math.round(sim.time / STEP);
         for (let j = 0; j < rg.scissors; j++) {
           const [sx, sy] = scissorPos(tw, j, rg.scissors, step);
@@ -652,7 +655,7 @@ export class Actors {
     // Yuzuha's lane sentries and Capture Nets (src/sim/sentries.js), from the sim every frame
     const SENTRY_COL = { plain: [1, 0.55, 0.16], net: [0.5, 0.85, 1], flash: [1, 1, 0.75], heavy: [1, 0.35, 0.3], flak: [0.75, 0.6, 1] };
     for (const tw of sim.towers) {
-      if (!tw.sentries) continue;
+      if (!tw.sentries || pp?.covers('sentry')) continue;
       for (const sn of tw.sentries) {
         const c = SENTRY_COL[sn.type] || SENTRY_COL.plain;
         gN.push(sn.x, 0.066, sn.y, 0.34, 0.34, R.disc, 0.18, 0.2, 0.28, 0.85);
@@ -696,7 +699,7 @@ export class Actors {
     }
     // Chigusa's thorn beds (src/sim/vines.js): a dark green patch with a thorny dashed rim, fading out
     for (const tw of sim.towers) {
-      if (!tw.beds) continue;
+      if (!tw.beds || pp?.covers('bed')) continue;
       for (const b of tw.beds) {
         const a = 0.45 + 0.4 * Math.min(1, b.ttl / 2);
         gN.push(b.x, 0.063, b.y, 0.8, 0.8, R.disc, 0.25, 0.42, 0.2, a * 0.8, b.uid * 0.9);
@@ -713,6 +716,7 @@ export class Actors {
       for (const b of tw.banners || []) {
         const d = hub.bannerRange * 2;
         gN.push(b.x, 0.062, b.y, d, d, R.ringDashed, 0.95, 0.6, 0.72, off + 0.1, -t * 0.08);
+        if (pp?.covers('banner')) continue;
         gN.push(b.x, 0.066, b.y, 0.36, 0.36, R.disc, 0.96, 0.95, 0.92, 0.9);
         gA.push(b.x, 0.07, b.y, 0.44, 0.44, R.ring, 0.85, 0.66, 0.24, 0.75, 0);
         this.b.overlay.push(b.x, 0.62 + Math.sin(t * 2 + b.x) * 0.03, b.y, 0.26, 0.26, R.star, 0.95, 0.6, 0.72, 1);
