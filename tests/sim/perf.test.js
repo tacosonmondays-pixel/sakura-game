@@ -140,6 +140,60 @@ describe('performance budget: attack shapes', () => {
   });
 });
 
+// The attack shapes S2 stress case (docs/specs/ATTACK_SHAPES.md §7.2 step 7): 6 copies of each held shape girl at
+// tier 5 (Akane's Hearth Stream, Umeko's Searchlight Sweep), 200 enemies, the same budget as S1's case.
+describe('performance budget: held attack shapes', () => {
+  test('12 held girls + 200 enemies: a step stays under the same limits, every channel open', () => {
+    const real = defaultData().units;
+    const HELD = [['akane', 'wildfire'], ['umeko', 'lighthouse']];
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: HELD.map(([unitId]) => ({ unitId })),
+      seed: 12,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units: real, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    const spots = [];
+    for (const ty of [3, 7, 11]) for (let tx = 1; tx < 21; tx += 2) spots.push([tx, ty]);
+    let placed = 0;
+    for (let i = 0; i < spots.length && placed < 12; i++) {
+      const [id, pathId] = HELD[placed % 2];
+      const t = sim.placeTower(id, spots[i][0], spots[i][1]);
+      if (!t) continue;
+      placed++;
+      const p = real[id].paths.findIndex((q) => q.id === pathId);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p, { restoring: true });
+    }
+    expect(placed).toBe(12);
+    expect(sim.towers.filter((t) => t.eff.behavior === 'stream')).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.eff.behavior === 'sweep')).toHaveLength(6);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const kinds = ['blob', 'blob', 'blob', 'armoredBlob', 'fieldOni', 'guardOrc', 'leech', 'flyer'];
+    const len = sim.pathData[0].length;
+    for (let i = 0; i < 200; i++) sim.spawnEnemy(kinds[i % kinds.length], { dist: (i / 200) * (len - 8) });
+    for (let i = 0; i < 120; i++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    let open = 0;
+    const t0 = performance.now();
+    for (let i = 0; i < steps; i++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+      if (i % 20 === 0) open = Math.max(open, sim.towers.filter((t) => t.ch).length);
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] held shapes: ${sim.enemies.length} enemies, ${sim.towers.length} girls, ${open} channels open at most: ${perStep.toFixed(3)} ms/step`);
+    expect(sim.enemies.length).toBeGreaterThan(150);
+    expect(open).toBeGreaterThanOrEqual(10);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+});
+
 // Kohaku's long beam (src/sim/duo.js): Grand Spectrum's four held beams run to the map edge and hit everything on
 // their line (up to PRISM_EDGE_PIERCE). Four duos at Grand Spectrum in the LR form (16 map-long beams) on a crowded
 // 6-x map, 200 walkers: the same step budget.
