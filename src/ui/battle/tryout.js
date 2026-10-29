@@ -63,6 +63,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   let ttOpen = null;
   let moreOpen = false;
   let offMoreEsc = null;
+  let offMoreTab = null;
   /** The run's plan (pure: its seed, Grade, length and map), for the timetable previews. */
   let planMemo = null;
   const plan = () => planMemo || (planMemo = buildTryoutPlan({ seed: ty().seed, grade: ty().grade, length: ty().length, mapId: ty().mapId }));
@@ -235,10 +236,17 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     const bar = capBar(sim, mySlot, c);
     if (!bar) return null;
     const pc = (v) => `${Math.round(Math.max(0, Math.min(1, v / bar.cap)) * 1000) / 10}%`;
-    // (a Team or Group card that adds in full to everyone it reaches: "All 5"; else the girl the cap cuts most)
-    const all = bar.of > 1 && bar.full === bar.of;
-    const who = all ? CAP_TEXT.all(bar.of) : barWho(bar);
-    const part = bar.of > 1 && !all ? ` · ${CAP_TEXT.fully(bar.full, bar.of)}` : '';
+    // a Team or Group card that adds in full to everyone it reaches: only what it adds ("Damage +6% to all 5"; its bar
+    // is that share of each girl's cap). Else the girl the cap cuts most, her now → after, and on how many it adds in full
+    if (bar.all) {
+      const spoken = CAP_TEXT.toAllBar(bar.famName, bar.addText, bar.of, bar.capText);
+      return h('span.ty-cap.all', { 'data-testid': `ty-cap-${i}`, title: spoken },
+        h('span.ty-cap-ln', bar.text),
+        h('span.ty-cap-bar', { role: 'img', 'aria-label': spoken },
+          h('i.ty-cap-add', { style: { left: '0%', width: pc(bar.value) } })));
+    }
+    const who = barWho(bar);
+    const part = bar.of > 1 ? ` · ${CAP_TEXT.fully(bar.full, bar.of)}` : '';
     const label = `${who} · ${bar.text}${part}`;
     return h('span.ty-cap', { 'data-testid': `ty-cap-${i}`, title: label },
       h('span.ty-cap-ln', h('b.ty-cap-who', who), ` · ${bar.text}`, part ? h('span.ty-cap-part', part) : null),
@@ -255,7 +263,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     const rows = oddsTable({ band, credits: o.credits, floor: o.floor || 0, lrOff });
     const M = MORE_TEXT;
     const closeBtn = h('button.ty-more-x', { type: 'button', 'data-testid': 'ty-more-close', 'aria-label': M.back, title: M.back, onclick: () => closeMore(true) }, '×');
-    const odds = h('div.ty-more-col', { 'data-testid': 'ty-more-odds' },
+    // (a follow-up offer, e.g. Show Her Around's girls, rolls no rarity: no odds table, the caps only)
+    const odds = o.follow ? null : h('div.ty-more-col', { 'data-testid': 'ty-more-odds' },
       h('b.ty-more-h', M.odds),
       h('span.ty-more-sub', M.oddsLine(o.pick, M.bands[band] || band, o.credits)),
       h('table.ty-more-t',
@@ -274,8 +283,31 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
           h('td.top', r.top ? `${r.top}${r.who ? ` · ${r.who}` : ''}` : M.none))))));
     const box = h('div.ty-sheet.ty-more.ui-day', { role: 'dialog', 'aria-modal': 'true', 'aria-label': M.title, 'data-testid': 'ty-more-sheet' },
       h('div.ty-shead', h('b.ty-stitle', M.title), closeBtn),
-      h('div.ty-more-body', odds, caps));
+      h(`div.ty-more-body${odds ? '' : '.one'}`, odds, caps));
     return h('div.ty-more-wrap', { onclick: (e) => { if (e.target === e.currentTarget) closeMore(true); } }, box);
+  }
+
+  /** Keeps Tab inside a modal box: the last focusable wraps to the first and back (from outside it: into it). */
+  function trapTab(e, box) {
+    if (e.key !== 'Tab') return;
+    const all = [...box.querySelectorAll('button, [href], select, input, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter((x) => !x.disabled && x.getClientRects().length);
+    if (!all.length) return;
+    const first = all[0];
+    const last = all[all.length - 1];
+    const at = document.activeElement;
+    if (e.shiftKey && (at === first || !box.contains(at))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (at === last || !box.contains(at))) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  /** While MORE is open the pick sheet under it is inert (no focus, no taps): focus never leaves the modal. */
+  function inertUnder(on) {
+    for (const x of sheet.children) if (!x.classList.contains('ty-more-wrap')) x.inert = on;
   }
 
   function openMore() {
@@ -292,6 +324,9 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     offMoreEsc?.();
     offMoreEsc = null;
     sheet.querySelector('.ty-more-wrap')?.remove();
+    offMoreTab?.();
+    offMoreTab = null;
+    inertUnder(false);
     if (focus) sheet.querySelector('[data-testid="ty-more"]')?.focus({ preventScroll: true });
   }
 
@@ -336,7 +371,15 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
         partner ? h('span.ty-mute', { 'data-testid': 'ty-partner' }, partner.win === 'pick' ? 'Partner: choosing…' : 'Partner: ✓') : null,
         h('span.ty-acts-more', moreSticker(() => (moreOpen ? closeMore(true) : openMore()), { testid: 'ty-more', label: MORE_TEXT.label })))));
     if (moreOpen) {
-      sheet.append(morePanel(o));
+      const wrap = morePanel(o);
+      sheet.append(wrap);
+      inertUnder(true);
+      // (aria-modal: Tab and Shift+Tab stay inside the sheet while it is open, wherever the focus was)
+      const box = wrap.querySelector('[data-testid="ty-more-sheet"]');
+      const onTab = (e) => trapTab(e, box);
+      offMoreTab?.();
+      document.addEventListener('keydown', onTab, true);
+      offMoreTab = () => document.removeEventListener('keydown', onTab, true);
       offMoreEsc?.();
       offMoreEsc = onEscape(() => closeMore(true));
     }

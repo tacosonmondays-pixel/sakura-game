@@ -252,7 +252,7 @@ export const PREVIEW_TEXT = {
   or: ' or ',
   backGate: 'History opens the Back Gate: even waves come in by the exit road',
   affix: 'Grade twist',
-  pick: (n) => `Then Pick ${n}`,
+  pick: (n) => `Pick ${n}`,
   tryoutPick: 'Tryouts',
   examPrep: 'Exam Prep: at least SR',
   breakAfter: 'Then',
@@ -269,9 +269,13 @@ export const CAP_TEXT = {
   },
   cls: (c) => `vs ${c}`,
   all: (n) => `All ${n}`,
-  fully: (n, of) => `full value for ${n} of ${of}`,
+  fully: (n, of) => `full for ${n} of ${of}`,
   atCap: 'at its cap',
   label: (fam, now, after, cap) => `${fam} ${now} → ${after} / ${cap}`,
+  /** A Team or Group card that adds in full to everyone it reaches: only what it adds. */
+  toAll: (fam, add, n) => `${fam} ${add} to all ${n}`,
+  /** The bar's spoken words for "to all": what it adds and the cap each girl has. */
+  toAllBar: (fam, add, n, cap) => `${fam}: adds ${add} to all ${n}, cap ${cap} each`,
 };
 
 /** The pick sheet's MORE (§13.6): the odds table for this pick and the per-girl caps (§3.4, §4.4). */

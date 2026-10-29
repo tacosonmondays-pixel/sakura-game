@@ -4,6 +4,7 @@
 // the line under it, where the Grade's twist line sits), Half / Full Day, the seed's two maps as cards with their
 // thumbnails, the six (seven with Bigger Draft) as girl tiles (tap 3; "Yours · band cap" or "Loaner" on an ink chip
 // above the caption), one Redraw, the hero picker, and Start class: the one yellow, with the reason when it waits.
+// The timetable strip (one slim row under the Grade row) previews each period; the Grade's line sits in the head.
 import '../styles/tryout.css';
 import { h, screen, toast, girlTile, svgEl } from '../components.js';
 import { segRow, secondaryBtn, primaryBtn, ico, fillIn } from '../kit.js';
@@ -18,9 +19,11 @@ import { stageThumbSVG } from '../../art/stageThumb.js';
 import { isOwned } from '../../systems/unlocks.js';
 import {
   halfCleared, TRYOUT_GRADES, gradeOpen, gradeCleared, newRunSeed, beforeClass, newRunRecord, putTryoutRun, activePerks, weeklyState, parseShareCode,
+  practiceOpen,
 } from '../../systems/tryoutRuns.js';
 import { LENGTH_NAMES, JAR_TEXT, WEEKLY_TEXT, SHARE_TEXT, CLASS_TEXT, gradeTwist, gradeWhy } from '../text/tryout.js';
-import { beforeClassTimetable } from '../battle/tryout/timetable.js';
+import { beforeClassTimetable, closeBeforeClassTimetable } from '../battle/tryout/timetable.js';
+import { fullTag } from './tryoutTag.js';
 
 /** Before Class's choices survive a redraw and a re-render (not a reload: a new seed then). */
 let pending = null;
@@ -62,7 +65,7 @@ export function renderSetup(root, params = {}) {
   const profile = () => store.profile;
   const panel = h('section.ui-panel.ty-bc', { 'data-testid': 'tryout-before-class' });
   body.appendChild(panel);
-  /** The line under the Grade row: the chosen Grade's twist, or why a tapped Grade is locked. */
+  /** The Grade's line (in the head, over the Grade row): the chosen Grade's twist, or why a tapped Grade is locked. */
   let why = null;
 
   // what this visit opened: the week's timetable or a shared code (practice); else a normal run
@@ -81,9 +84,9 @@ export function renderSetup(root, params = {}) {
     }
   } else if (params.code) {
     const c = parseShareCode(String(params.code));
-    // practice records nothing, so the ladder does not gate it; the Grade's content window still does
-    const st = c ? gradeOpen(p0, c.grade) : null;
-    if (!c || (!st.open && st.why !== 'ladder')) {
+    // practice records nothing, so the ladder does not gate it; the Grade's content window still does (checked
+    // directly: a Grade 12 code never opens for a player who has only Spring Term)
+    if (!c || !practiceOpen(p0, c.grade)) {
       toast(c ? SHARE_TEXT.locked : SHARE_TEXT.bad, 'warn');
       dropDraft();
     } else pending = fresh(p0, 'practice', c);
@@ -154,10 +157,14 @@ export function renderSetup(root, params = {}) {
         pending.length = id;
         draw();
       }, { label: CLASS_TEXT.length, testidPrefix: 'tryout-length-', min: 104, cls: 'ty-bc-lengths' }) : null;
+      // the Grade's line (its twist, or why a tapped Grade is locked) sits in the head beside the title, right over the
+      // Grade row; the timetable strip takes the line's old place under the row, one slim row (the six stay above the
+      // foot, R2 review)
+      head.append(line);
       if (lengths) head.append(lengths);
       gradeBox = h('div.ty-bc-gradebox',
         h('div.ty-bc-row.ty-bc-graderow', h('span.lbl.ty-bc-lbl', `${CLASS_TEXT.grade}${gradeCleared(p) ? ` · cleared ${gradeCleared(p)}` : ''}`), grades),
-        line);
+        beforeClassTimetable(pending));
     }
 
     // ---- the maps: the seed's two, as cards with their thumbnails
@@ -252,9 +259,9 @@ export function renderSetup(root, params = {}) {
         perkNames.length ? h('span.ty-bc-fact', { 'data-testid': 'tryout-perks' }, CLASS_TEXT.perks(perkNames)) : null),
       h('div.ty-bc-go', startBtn));
 
-    fillIn(panel, head, gradeBox,
-      // [timetable strip]
-      beforeClassTimetable(pending),
+    fillIn(panel, head,
+      // [timetable strip] (a Weekly or practice day: on its own row, no Grade row above it)
+      gradeBox || beforeClassTimetable(pending),
       h('div.ty-bc-cols',
         h('div.ty-bc-col.ty-bc-col-maps', h('span.lbl.ty-bc-lbl', CLASS_TEXT.maps), maps),
         h('div.ty-bc-col.ty-bc-col-squad', squad),
@@ -272,17 +279,8 @@ export function renderSetup(root, params = {}) {
   }
 
   draw();
-  return () => {};
-}
-
-/**
- * The kit's tag chip says the short word ("Yours"); its title and the tile's spoken name say the full words ("Yours ·
- * band cap").
- * @param {HTMLElement} t a girlTile with `tag: short`
- */
-export function fullTag(t, short, full) {
-  const chip = t.querySelector('[data-testid="card-tag"]');
-  if (chip) chip.title = full;
-  const aria = t.getAttribute('aria-label');
-  if (aria && full !== short) t.setAttribute('aria-label', aria.replace(`, ${short}`, `, ${full}`));
+  // leaving: an open timetable preview lets go of its listeners (the next screen's first Escape is its own)
+  const cleanup = () => closeBeforeClassTimetable();
+  cleanup.stop = cleanup;
+  return cleanup;
 }

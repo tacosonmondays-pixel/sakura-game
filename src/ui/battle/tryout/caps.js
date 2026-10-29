@@ -13,7 +13,7 @@ export const BAR_FAMILIES = Object.freeze({
   damageMul: { cap: 'damageMul', unit: 'pct' },
   rateMul: { cap: 'rateMul', unit: 'pct' },
   range: { cap: 'range', unit: 'tiles' },
-  critChance: { cap: 'critChance', unit: 'points' },
+  critChance: { cap: 'critChance', unit: 'pct' },
   critMul: { cap: 'critMul', unit: 'plain' },
   pierce: { cap: 'pierce', unit: 'count' },
   projectiles: { cap: 'projectiles', unit: 'count' },
@@ -24,16 +24,20 @@ export const BAR_FAMILIES = Object.freeze({
   bossMul: { cap: 'vs', unit: 'pct' },
   barrierMul: { cap: 'vs', unit: 'pct' },
   dotMul: { cap: 'vs', unit: 'pct' },
-  costCut: { cap: 'costCut', unit: 'pct' },
+  costCut: { cap: 'costCut', unit: 'cut' },
   auraRange: { cap: 'range', unit: 'tiles' },
   auraPoints: { cap: 'auraPoints', unit: 'points' },
 });
 
 const round = (v, d = 100) => Math.round(v * d) / d;
-/** A family value as words: +36%, +0.3 tiles (bare: +0.3, the bar's now and after), +6 points, +1, +0.15. */
+/**
+ * A family value as words: +36%, +0.3 tiles (bare: +0.3, the bar's now and after), +6 points, +1, +0.15; a cost cut
+ * always reads as a cut (−10%, its cap −30%), as on the MORE sheet.
+ */
 export function fmtFam(unit, v, { sign = true, bare = false } = {}) {
   const s = sign ? (v < 0 ? '−' : '+') : '';
   const a = Math.abs(v);
+  if (unit === 'cut') return `${a > 0 ? '−' : ''}${round(a * 100, 10)}%`;
   if (unit === 'pct') return `${s}${round(a * 100, 10)}%`;
   if (unit === 'tiles') return `${s}${round(a)}${bare ? '' : ' tiles'}`;
   if (unit === 'points') return `${s}${round(a * 100, 10)}`;
@@ -78,6 +82,16 @@ export function withCard(sim, owner, inst) {
 }
 
 const famOf = (s, fam) => (fam.key === 'classMul' ? s.classMul[fam.cls] || 0 : s[fam.key] || 0);
+/** The "vs" families runModsFor trims to the run-damage room left after damage and crit (src/sim/tryout/pep.js). */
+const VS_TRIMMED = new Set(['airMul', 'eliteMul', 'bossMul', 'barrierMul', 'classMul']);
+/** A family's value in a girl's real run fold (runModsFor: capped, then the vs bonus trimmed to the room left). */
+function foldOf(sim, owner, u, t, fam) {
+  let m = runModsFor(sim, owner, u.id, u.hero, t);
+  if (Array.isArray(m)) m = m[0];
+  if (!m) return 0;
+  const v = fam.key === 'classMul' ? m.classMul?.[fam.cls] : m[fam.key];
+  return typeof v === 'number' ? Math.max(0, v - 1) : 0;
+}
 const towerOf = (sim, owner, u) => sim.towers?.find((t) => !t.removed && t.unitId === u.id && !!t.isHero === u.hero && (t.owner ?? 0) === owner) || null;
 
 /**
@@ -103,9 +117,16 @@ export function capBar(sim, owner, inst) {
     const t = towerOf(sim, owner, u);
     const before = famOf(familySums(sim, owner, u.id, u.hero, t), fam);
     // (a placement card adds only where she stands: the bar shows what it gives once the placement holds)
-    const after = PEP_CARDS[inst.id].group === 'placement' ? before + fam.value : famOf(familySums(view, owner, u.id, u.hero, t), fam);
-    const now = Math.min(cap, before);
-    const then = Math.min(cap, after);
+    const placement = PEP_CARDS[inst.id].group === 'placement';
+    const after = placement ? before + fam.value : famOf(familySums(view, owner, u.id, u.hero, t), fam);
+    let now = Math.min(cap, before);
+    let then = Math.min(cap, after);
+    // a "vs" bonus counts inside the run-damage cap: now and after from the real fold on the view (a girl at her damage
+    // cap gets only the room left, R2 review)
+    if (VS_TRIMMED.has(fam.key) && !placement) {
+      now = foldOf(sim, owner, u, t, fam);
+      then = Math.max(now, foldOf(view, owner, u, t, fam));
+    }
     const value = Math.max(0, after - before);
     rows.push({ u, now, after: then, value, cut: value - (then - now) });
   }
@@ -118,9 +139,13 @@ export function capBar(sim, owner, inst) {
   const nowText = fmtFam(def.unit, top.now, { bare: true });
   const afterText = fmtFam(def.unit, top.after, { bare: true });
   const capText = fmtFam(def.unit, cap, { sign: false });
+  // a Team or Group card that adds in full to everyone it reaches: only the value it adds ("Damage +6% to all 5")
+  const all = rows.length > 1 && full === rows.length;
+  const addText = fmtFam(def.unit, top.value, { bare: true });
   return {
     key: fam.key, cls: fam.cls, unit: def.unit, cap, who: top.u.id, hero: top.u.hero, now: top.now, after: top.after, value: top.value,
-    full, of: rows.length, nowText, afterText, capText, text: CAP_TEXT.label(famName, nowText, afterText, capText),
+    full, of: rows.length, all, famName, nowText, afterText, addText, capText,
+    text: all ? CAP_TEXT.toAll(famName, addText, rows.length) : CAP_TEXT.label(famName, nowText, afterText, capText),
   };
 }
 
@@ -143,32 +168,38 @@ export function oddsTable({ band, credits, floor = 0, lrOff = false }) {
 }
 
 /**
- * The per-girl caps (§4.4) with the highest value any of this player's girls has now (from the real fold).
+ * The per-girl caps (§4.4) with the highest value any of this player's girls has now (from the real fold: a map-wide
+ * girl takes no reach, the "vs" bonuses as trimmed to the run-damage room, Run damage with her Window Seat).
  * @returns {{ id: string, cap: string, top: string|null, who: string|null }[]}
  */
 export function capsTable(sim, owner) {
   const c = TRYOUT.caps;
   const girls = sim?.tryout?.players?.[owner] ? team(sim, owner) : [];
-  const sums = girls.map((u) => ({ u, s: familySums(sim, owner, u.id, u.hero, towerOf(sim, owner, u)) }));
+  const sums = girls.map((u) => {
+    const t = towerOf(sim, owner, u);
+    let m = runModsFor(sim, owner, u.id, u.hero, t);
+    if (Array.isArray(m)) m = m[0];
+    return { u, t, s: familySums(sim, owner, u.id, u.hero, t), m: m || null };
+  });
   const best = (fn) => {
     let top = null;
     for (const x of sums) {
-      const v = fn(x.s, x.u);
+      const v = fn(x.s, x.u, x);
       if (v > 0 && (!top || v > top.v)) top = { v, u: x.u };
     }
     return top;
   };
-  const pick = (key) => best((s) => Math.min(c[BAR_FAMILIES[key]?.cap || key] ?? Infinity, s[key] || 0));
-  const vsTop = best((s) => Math.min(c.vs, Math.max(s.airMul, s.eliteMul, s.bossMul, s.barrierMul, ...Object.values(s.classMul), 0)));
-  const runTop = (() => {
-    let top = null;
-    for (const u of girls) {
-      const m = runModsFor(sim, owner, u.id, u.hero, towerOf(sim, owner, u));
-      const f = Math.min(c.runDamage, cardFactor({ runMods: m }));
-      if (f > 1 + 1e-9 && (!top || f > top.v)) top = { v: f, u };
-    }
-    return top;
-  })();
+  const pick = (key) => best((s, u) => (key === 'range' && MAP_WIDE.includes(u.id) ? 0 : Math.min(c[BAR_FAMILIES[key]?.cap || key] ?? Infinity, s[key] || 0)));
+  // (the largest "vs" bonus a girl's fold gives: flyers, barriers, elites, bosses, a class, burns and poisons)
+  const vsTop = best((s, u, x) => {
+    const m = x.m || {};
+    return Math.max(0, ...[m.airMul, m.eliteMul, m.bossMul, m.barrierMul, m.dotMul, ...Object.values(m.classMul || {})].map((v) => (v || 1) - 1));
+  });
+  // (her cards' whole damage factor times her Window Seat's bonus, as the seat clamp keeps it under the cap)
+  const runTop = best((s, u, x) => {
+    const f = Math.min(c.runDamage, cardFactor({ runMods: x.m }) * (x.t?.padMul || 1));
+    return f > 1 + 1e-9 ? f : 0;
+  });
   const who = (t) => (t ? UNIT_MAP[t.u.id]?.name || t.u.id : null);
   const row = (id, cap, top, fmt) => ({ id, cap, top: top ? fmt(top.v) : null, who: who(top) });
   const crit = pick('critChance');
@@ -178,11 +209,11 @@ export function capsTable(sim, owner) {
     row('damageMul', fmtFam('pct', c.damageMul), pick('damageMul'), (v) => fmtFam('pct', v)),
     row('rateMul', fmtFam('pct', c.rateMul), pick('rateMul'), (v) => fmtFam('pct', v)),
     row('range', fmtFam('tiles', c.range), pick('range'), (v) => fmtFam('tiles', v)),
-    { id: 'crit', cap: `${fmtFam('points', c.critChance)} / ${fmtFam('plain', c.critMul)}`, top: crit || critM ? `${fmtFam('points', crit?.v || 0)} / ${fmtFam('plain', critM?.v || 0)}` : null, who: who(crit || critM) },
+    { id: 'crit', cap: `${fmtFam('pct', c.critChance)} / ${fmtFam('plain', c.critMul)}`, top: crit || critM ? `${fmtFam('pct', crit?.v || 0)} / ${fmtFam('plain', critM?.v || 0)}` : null, who: who(crit || critM) },
     { id: 'hits', cap: `+${c.pierce} / +${c.projectiles} / +${c.chain}`, top: hits.some(Boolean) ? hits.map((x) => `+${round(x?.v || 0)}`).join(' / ') : null, who: who(hits.find(Boolean)) },
     row('splash', fmtFam('tiles', c.splash), pick('splash'), (v) => fmtFam('tiles', v)),
     row('vs', fmtFam('pct', c.vs), vsTop, (v) => fmtFam('pct', v)),
-    row('costCut', `−${round(c.costCut * 100, 10)}%`, pick('costCut'), (v) => `−${round(v * 100, 10)}%`),
+    row('costCut', fmtFam('cut', c.costCut), pick('costCut'), (v) => fmtFam('cut', v)),
     row('runDamage', `×${c.runDamage}`, runTop, (v) => `×${round(v)}`),
   ];
 }

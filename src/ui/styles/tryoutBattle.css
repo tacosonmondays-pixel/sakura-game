@@ -94,7 +94,9 @@
 /* a Pep Talk card's cap bar (§4.4, §13.6): its main family for the girl it reaches, ink = now, cyan = what the card
    adds; the cap is the bar's end (rarity colour never on it) */
 .ty-layer .ty-stn > .ty-cap { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; align-self: end; }
-.ty-layer .ty-cap-ln { font-size: 12px; line-height: 1.2; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+/* (up to two lines: the girl, her now → after / cap and "full for 4 of 5" are never cut mid-number, R2 review) */
+.ty-layer .ty-cap-ln { font-size: 12px; line-height: 1.2; color: var(--muted); font-weight: 600; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; font-variant-numeric: tabular-nums; }
+.ty-layer .ty-cap-part { white-space: nowrap; }
 .ty-layer .ty-cap-who { color: var(--ink); font-weight: 800; }
 .ty-layer .ty-cap-bar { position: relative; display: block; height: 5px; background: var(--line-ink-soft); box-shadow: inset 0 0 0 1px var(--line-ink); overflow: hidden; }
 .ty-layer .ty-cap-bar > i { position: absolute; top: 0; bottom: 0; left: 0; display: block; }
@@ -172,6 +174,7 @@
 }
 .ty-layer .ty-more-x:focus-visible { outline: 2px solid var(--cyan-ink); outline-offset: -2px; }
 .ty-layer .ty-more-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 8px 16px; margin-top: 8px; }
+.ty-layer .ty-more-body.one { grid-template-columns: minmax(0, 1fr); }
 .ty-layer .ty-more-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .ty-layer .ty-more-h { font: 600 12px/1.2 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--ink); }
 .ty-layer .ty-more-sub { font-size: 12px; color: var(--muted); font-weight: 600; }

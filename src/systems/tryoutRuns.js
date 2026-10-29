@@ -47,6 +47,16 @@ export function gradeOpen(profile, g) {
 }
 
 /**
+ * May a shared code of Grade g open practice (§10.4)? Practice records nothing, so the ladder does not gate it; the
+ * Grade's content window (its campaign stage) still does, checked here directly: gradeOpen answers 'ladder' before it
+ * looks at the window (R2 review).
+ */
+export function practiceOpen(profile, g) {
+  if (!TRYOUT.grades[g] || g > TRYOUT_GRADES) return false;
+  return isStageCleared(profile, TRYOUT.windows[TRYOUT.grades[g].window].unlock);
+}
+
+/**
  * A won run (not practice) clears its Grade, when it was this player's own next step: a co-op win at the host's
  * Grade never skips rungs of the guest's ladder (M2 review). @returns {boolean} a new Grade opened
  */

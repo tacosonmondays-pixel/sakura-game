@@ -54,50 +54,55 @@
 .ty-ttp .ty-tt-affix { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--tier-advanced); }
 .ty-ttp-next .ty-ttp-v { color: var(--ink); }
 
-/* ---------- Before Class's strip (§13.3): the run's periods, the breaks, the Final boss portrait ---------- */
-.ty-bct { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.ty-bct-lbl { font: 600 12px/1.2 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
-.ty-bct-hint { text-transform: none; letter-spacing: 0; font-weight: 600; }
-.ty-bct .ty-tt { display: flex; gap: 3px; min-width: 0; overflow-x: auto; scrollbar-width: thin; padding: 2px; }
+/* ---------- Before Class's strip (§13.3): one slim row under the Grade row (the six stay above the foot, R2 review):
+   each period's label, its marks and its Subject pair (a Full Day's twelve and a short screen fold the pair away), the
+   breaks as thin hatched slivers (their names in the tooltip and the preview), the Final boss portrait at the end ----- */
+.ty-bct { display: flex; align-items: center; min-width: 0; }
+.ty-bct > .ty-ttw { flex: 1 1 auto; min-width: 0; }
+.ty-bct .ty-tt { display: flex; align-items: stretch; gap: 3px; min-width: 0; overflow-x: auto; scrollbar-width: none; padding: 0; }
+/* (the row scrolls sideways when it must, so its focus ring sits inside each cell, never clipped) */
+.ty-bct .ty-tt.live > button:focus-visible { outline-offset: -3px; }
+.ty-bct .ty-tt::-webkit-scrollbar { display: none; }
 .ty-bct .ty-tt-cell {
-  flex: 1 1 0; min-width: 46px; display: flex; flex-direction: column; gap: 1px; padding: 3px 5px 4px; min-height: 40px;
-  box-shadow: inset 0 0 0 1px var(--line-ink); color: var(--ink); background: var(--panel-w); line-height: 1.15;
+  flex: 1 1 0; min-width: 34px; display: flex; flex-direction: row; align-items: center; gap: 4px; padding: 0 5px; min-height: 26px;
+  box-shadow: inset 0 0 0 1px var(--line-ink); color: var(--ink); background: var(--panel-w); line-height: 1.1; overflow: hidden;
 }
 .ty-bct .ty-tt-cell.final { box-shadow: inset 0 0 0 2px var(--plate); }
-.ty-bct .ty-tt-top { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.ty-bct .ty-tt-top { display: flex; flex: none; align-items: center; gap: 3px; white-space: nowrap; }
 .ty-bct .ty-tt-p { font: 700 12px/1 var(--font-num); letter-spacing: 0.04em; }
 .ty-bct .ty-tt-gate, .ty-bct .ty-tt-crown { font-weight: 900; }
 .ty-bct .ty-tt-crown { color: var(--tier-advanced); }
 .ty-bct .ty-tt-affix { width: 7px; height: 7px; border-radius: 50%; background: var(--tier-advanced); flex: none; }
-.ty-bct .ty-tt-subj { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; color: var(--muted); }
+.ty-bct .ty-tt-subj { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; color: var(--muted); }
 .ty-bct .ty-tt-brk {
-  flex: 0 0 auto; display: grid; place-items: center; padding: 0 4px; font: 600 12px/1 var(--font-num); letter-spacing: 0.04em; color: var(--muted);
+  flex: 0 0 12px; min-height: 26px; padding: 0; color: var(--muted);
   box-shadow: inset 0 0 0 1px var(--line-ink); background: repeating-linear-gradient(135deg, var(--panel-w) 0 4px, var(--line-ink-soft) 4px 5px);
-  writing-mode: vertical-rl; transform: rotate(180deg); min-height: 40px;
 }
+.ty-bct .ty-tt-brk > span { display: none; }
 .ty-bct .ty-tt-bosscell {
-  flex: 0 0 auto; display: flex; align-items: center; gap: 5px; padding: 2px 8px 2px 3px; min-height: 40px; max-width: 150px;
+  flex: 0 1 auto; display: flex; align-items: center; gap: 5px; padding: 0 8px 0 2px; min-height: 26px; max-width: 150px; min-width: 30px;
   background: var(--plate); color: var(--on-ink); box-shadow: inset 0 0 0 2px var(--yellow);
 }
-.ty-bct .ty-tt-bossart { flex: none; width: 36px; height: 36px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: rgba(255, 255, 255, 0.12); }
+.ty-bct .ty-tt-bossart { flex: none; width: 22px; height: 22px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: rgba(255, 255, 255, 0.12); }
+.ty-bct .ty-tt-bossart > * { max-width: 100%; max-height: 100%; }
 .ty-bct .ty-tt-bossart img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ty-bct .ty-tt-bossname { font: italic 800 12px/1.15 var(--font-head); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-/* a Full Day on a narrow screen: the boss keeps his portrait, his name goes to the tooltip (room for 12 periods) */
-@media (max-width: 960px) {
-  .ty-bct[data-length="full"] .ty-tt-bossname { display: none; }
-  .ty-bct[data-length="full"] .ty-tt-bosscell { padding: 2px 3px; }
-  .ty-bct[data-length="full"] .ty-tt-cell { min-width: 42px; }
-}
+/* a Full Day: twelve periods in the row, so the pair folds to the tooltip and the preview, the boss to his portrait */
+.ty-bct[data-length="full"] .ty-tt-subj { display: none; }
+.ty-bct[data-length="full"] .ty-tt-cell { justify-content: center; padding: 0 3px; }
+.ty-bct[data-length="full"] .ty-tt-bossname { display: none; }
+.ty-bct[data-length="full"] .ty-tt-bosscell { padding: 0 2px; }
 /* the preview card over Before Class's columns */
 .ty-bct .ty-ttp { width: min(500px, 100%); }
 
-/* ---------- short screens (844 x 390): a slimmer strip, the boss's name folds to his portrait ---------- */
-@media (max-height: 430px) {
-  .ty-bct .ty-tt-cell { min-height: 34px; padding: 2px 4px 3px; }
-  .ty-bct .ty-tt-brk { min-height: 34px; padding: 0 2px; }
-  .ty-bct .ty-tt-bosscell { min-height: 34px; padding: 1px 6px 1px 2px; max-width: 120px; }
-  .ty-bct .ty-tt-bossart { width: 30px; height: 30px; }
-  .ty-bct-hint { display: none; }
+/* ---------- short screens (844 x 390): as the pick sheet's slim row, the pair (in each cell's tooltip and preview)
+   and the boss's name (his portrait stays) fold away ---------- */
+@media (max-height: 480px) {
+  .ty-bct .ty-tt-cell { padding: 0 4px; justify-content: center; }
+  .ty-bct .ty-tt-subj { display: none; }
+  .ty-bct .ty-tt-brk { flex-basis: 10px; }
+  .ty-bct .ty-tt-bosscell { padding: 0 2px; }
+  .ty-bct .ty-tt-bossname { display: none; }
   .ty-ttp { padding: 5px 8px 6px; gap: 2px; }
 }
 

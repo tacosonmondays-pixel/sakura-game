@@ -39,7 +39,7 @@ import { draftOf, frozenPool, heroChoices, heroEntry, tryoutUnlocked, newRunSeed
 import { mapChoices } from '../../sim/tryout/plan.js';
 import { TRYOUT } from '../../data/tryout.js';
 import { CLASS_TEXT, gradeTwist, gradeWhy } from '../text/tryout.js';
-import { fullTag } from './tryoutSetup.js';
+import { fullTag } from './tryoutTag.js';
 import { openSocialSession } from '../../online/coop/socialRoom.js';
 import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
 import { pickLoadout } from '../../online/coop/loadout.js';

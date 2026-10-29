@@ -12,6 +12,10 @@
 //   8. M4 meta: a run ends in an Early Dismissal and the Class Photo shows its rewards and share code; Replay this seed
 //      opens a practice Before Class; the Yearbook opens with stamps; the Marble Jar opens and a purchase works (its perk
 //      shows at Before Class)
+//   R2 (the timetable and the cap bar): Before Class's strip (one slim row: the six stay above the foot), a period's
+//      preview opens and closes, a tap outside a preview only closes it (it never toggles a girl or takes a card), the
+//      pick sheet's cap bars and MORE (the odds and the caps, focus kept inside), a Grade 12 code above the ladder with
+//      its window locked opens a normal day
 //   M3 (the Ink & Paper menus): the hub's tiles and their states (all locked before 2-5, Weekly locked before a Grade 4
 //      clear, its countdown once open), Wakaba's line, Marbles in the top bar on the Tryout routes only, Before Class's
 //      Grade segRow (a locked tap says why), its girl tiles selected, the Jar's rail, the Yearbook's pencil tiles, no
@@ -42,6 +46,10 @@ function check(cond, msg) {
 
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
+// a Grade 12 share code (its Autumn Term window is locked in this test's save, and the ladder is far below it)
+const { encodeShareCode } = await server.ssrLoadModule('/src/systems/tryoutRuns.js');
+const { mapChoices } = await server.ssrLoadModule('/src/sim/tryout/plan.js');
+const g12Code = encodeShareCode({ seed: 424242, grade: 12, length: 'half', mapId: mapChoices(424242, 12)[0] });
 const { port } = server.httpServer.address();
 const base = `http://127.0.0.1:${port}/?online=local&onboarding=0`;
 const { browser, label } = await launchChromium();
@@ -85,6 +93,22 @@ for (const [W, H] of viewports) {
     && [...document.querySelectorAll('.screen-body, .ls-list, .hb-main')].every((e) => e.scrollWidth <= e.clientWidth + 1));
   const tileState = (id) => page.locator(`[data-testid="${id}"]`).getAttribute('data-locked').then((v) => (v ? 'locked' : 'open')).catch(() => 'missing');
   const marblesPill = () => page.locator('.topbar [data-wallet="marbles"]');
+  /** A point on one of `sel`'s elements that the open preview card does not cover (null: every one is covered). */
+  const pointOutsidePreview = (sel) => page.evaluate((q) => {
+    const pv = document.querySelector('[data-testid="ty-tt-preview"]')?.getBoundingClientRect();
+    if (!pv) return null;
+    const hit = (r) => !(r.right < pv.left || r.left > pv.right || r.bottom < pv.top || r.top > pv.bottom);
+    for (const el of document.querySelectorAll(q)) {
+      const r = el.getBoundingClientRect();
+      if (!r.width || r.bottom > innerHeight - 4 || r.top < 0) continue;
+      // the element's lower part, below the card when they overlap sideways
+      for (const y of [r.bottom - 8, r.top + r.height / 2, r.top + 8]) {
+        const x = r.left + r.width / 2;
+        if (!hit({ left: x, right: x, top: y, bottom: y }) && document.elementFromPoint(x, y) && el.contains(document.elementFromPoint(x, y))) return { id: el.dataset.testid, x, y };
+      }
+    }
+    return null;
+  }, sel);
 
   // 1. locked: Wakaba, every tile locked with the rule; Marbles already in the top bar
   await page.goto(`${base}#/tryout`);
@@ -127,6 +151,28 @@ for (const [W, H] of viewports) {
   await page.click('[data-testid="tryout-grade-2"]');
   const why = await page.locator('[data-testid="tryout-grade-line"]').textContent();
   check(/Clear Grade 1/.test(why) && await page.locator('[data-testid="tryout-grade-1"]').getAttribute('aria-checked') === 'true', `a locked Grade says why and stays unchosen (${why})`);
+  // R2: the timetable strip, one slim row under the Grade row: the six stay above the foot
+  check(await page.locator('[data-testid="ty-bct"]').isVisible(), 'Before Class shows the timetable strip');
+  const fit = await page.evaluate(() => {
+    const six = document.querySelector('.ty-bc-six').getBoundingClientRect();
+    const foot = document.querySelector('.ty-bc-foot').getBoundingClientRect();
+    return { six: Math.round(six.bottom), foot: Math.round(foot.top) };
+  });
+  check(fit.six <= fit.foot, `the six end above the foot (six bottom ${fit.six}, foot top ${fit.foot})`);
+  await page.click('[data-testid="ty-tt-p3"]');
+  check(await page.waitForSelector('[data-testid="ty-tt-preview"]', { timeout: 3000 }).then(() => true).catch(() => false), 'a tap on P3 opens its preview');
+  check(await page.locator('[data-testid="ty-tt-p3"]').getAttribute('aria-expanded') === 'true', 'P3 says its preview is open');
+  await page.click('[data-testid="ty-tt-preview-close"]');
+  check(await page.locator('[data-testid="ty-tt-preview"]').count() === 0, 'the preview\'s × closes it');
+  // a tap outside an open preview only closes it: the girl it lands on is not picked
+  await page.click('[data-testid="ty-tt-p2"]');
+  await page.waitForSelector('[data-testid="ty-tt-preview"]', { timeout: 3000 }).catch(() => {});
+  const bcOut = await pointOutsidePreview('.ty-bc-six > .ui-girltile');
+  const selBefore = await page.locator('.ty-bc-six > .ui-girltile.sel').count();
+  if (bcOut) await page.mouse.click(bcOut.x, bcOut.y);
+  await page.waitForTimeout(150);
+  check(!!bcOut && await page.locator('[data-testid="ty-tt-preview"]').count() === 0 && await page.locator('.ty-bc-six > .ui-girltile.sel').count() === selBefore,
+    `a tap on a girl with a preview open only closes the preview (${bcOut?.id})`);
   await page.click('[data-testid="tryout-redraw"]');
   check(await page.locator('[data-testid="tryout-redraw"]').isDisabled(), 'one free redraw');
   for (const i of [0, 1, 2]) await page.click(`[data-testid="tryout-draft-${i}"]`);
@@ -223,16 +269,67 @@ for (const [W, H] of viewports) {
   check(pill.rule === 'tryout' ? !pill.shown : pill.shown && pill.text.includes(subjName), `the rule pill follows the period's Subject (${JSON.stringify(pill)})`);
   await shot('ty-period');
 
-  // 4. to Recess
+  // 4. to Recess (R2: at the Pep Talk picks, the cap bars, MORE and a tap outside a preview)
+  let barsSeen = 0;
+  let moreDone = false;
   for (let k = 0; k < 3; k++) {
     st = await playToWindow();
     if (st.win === 'pick') {
       await page.waitForSelector('[data-testid="ty-pick"]:not([hidden])', { timeout: 30000 }).catch(() => {});
+      // (the sheet paints on a frame: wait for this pick's sheet, not the last one's)
+      await page.waitForFunction(() => {
+        const o = window.__battle.sim.tryout.players[0].offer;
+        return !o || !!document.querySelector(`[data-testid="ty-pick"] .ty-pick-sheet[aria-label="Pick ${o.pick}"]`);
+      }, null, { timeout: 30000, polling: 100 }).catch(() => {});
+      if (await page.evaluate(() => window.__battle.sim.tryout.players[0].offer?.kind !== 'girls')) {
+        // every card with a capped family it reaches carries its bar, and only those (the bar's own fold)
+        const bars = await page.evaluate(async () => {
+          const { capBar } = await import('/src/ui/battle/tryout/caps.js');
+          const { sim } = window.__battle;
+          const cards = sim.tryout.players[0].offer.cards;
+          return cards.map((c, i) => {
+            const el = document.querySelector(`[data-testid="ty-cap-${i}"]`);
+            const ln = el?.querySelector('.ty-cap-ln');
+            return { want: !!capBar(sim, 0, c), has: !!el && el.getClientRects().length > 0, whole: !ln || ln.scrollHeight <= ln.clientHeight + 1, text: ln?.textContent || '' };
+          });
+        });
+        check(bars.every((b) => b.want === b.has), `a cap bar on each Pep Talk that has one (${JSON.stringify(bars.map((b) => b.text || '-'))})`);
+        check(bars.every((b) => b.whole), 'each cap line shows whole (no words cut off)');
+        barsSeen += bars.filter((b) => b.has).length;
+        if (!moreDone) {
+          moreDone = true;
+          await shot('ty-pick-pep');
+          // MORE: the odds and the caps; focus stays inside; × closes it
+          await page.click('[data-testid="ty-more"]');
+          check(await page.waitForSelector('[data-testid="ty-more-sheet"]', { timeout: 3000 }).then(() => true).catch(() => false), 'MORE opens its sheet');
+          check(await page.locator('[data-testid="ty-more-odds"]').isVisible() && await page.locator('[data-testid="ty-more-caps"]').isVisible(), 'MORE shows the odds and the caps');
+          await shot('ty-more');
+          let inside = true;
+          for (let t = 0; t < 4; t++) {
+            await page.keyboard.press(t % 2 ? 'Shift+Tab' : 'Tab');
+            inside = inside && await page.evaluate(() => !!document.activeElement?.closest('[data-testid="ty-more-sheet"]'));
+          }
+          check(inside, 'Tab stays inside MORE while it is open');
+          await page.click('[data-testid="ty-more-close"]');
+          check(await page.locator('[data-testid="ty-more-sheet"]').count() === 0, 'MORE\'s × closes it');
+          // a tap outside an open preview only closes it: the card it lands on is not taken, the Eraser not spent
+          await page.click('[data-testid="ty-tt-p1"]');
+          check(await page.waitForSelector('[data-testid="ty-tt-preview"]', { timeout: 3000 }).then(() => true).catch(() => false), 'a timetable cell on the pick sheet opens its preview');
+          const before = await page.evaluate(() => { const p = window.__battle.sim.tryout.players[0]; return { seq: p.offer?.seq, cards: p.cards.length, erasers: p.erasers }; });
+          const out = await pointOutsidePreview('[data-testid^="ty-card-"], [data-testid="ty-erase"]');
+          if (out) await page.mouse.click(out.x, out.y);
+          await page.waitForTimeout(200);
+          const after = await page.evaluate(() => { const p = window.__battle.sim.tryout.players[0]; return { seq: p.offer?.seq, cards: p.cards.length, erasers: p.erasers }; });
+          check(!!out && await page.locator('[data-testid="ty-tt-preview"]').count() === 0 && JSON.stringify(after) === JSON.stringify(before),
+            `a tap outside the preview closes it and takes nothing (${out?.id}: ${JSON.stringify(before)} → ${JSON.stringify(after)})`);
+        }
+      }
       await page.click('[data-testid="ty-card-0"]');
       await page.waitForFunction(() => !window.__battle.sim.tryout.players[0].offer, null, { timeout: 30000 }).catch(() => {});
     }
     if (await page.evaluate(() => window.__battle.sim.tryout.players[0].win === 'break')) break;
   }
+  check(moreDone && barsSeen > 0, `the Pep Talk picks showed cap bars (${barsSeen})`);
   check(await page.evaluate(() => window.__battle?.sim.tryout.players[0].win === 'break'), `Recess opens after pick 3 (${JSON.stringify(st)})`);
   await page.waitForSelector('[data-testid="ty-break"]:not([hidden])', { timeout: 30000 }).catch(() => {});
   check(await page.locator('[data-testid="ty-break"]').isVisible(), 'break bar shows');
@@ -364,6 +461,8 @@ for (const [W, H] of viewports) {
   check(await modeAfter('#/tryout/class?code=ZZZZZ-ZZZZZ') === 'normal', 'practice → Back → a bad code: a normal day, not the old practice draft');
   check(await modeAfter(`#/tryout/class?code=${code}`) === 'practice', 'the good code opens practice again');
   check(await modeAfter('#/tryout/class?weekly=1') === 'normal', 'practice → Back → ?weekly=1 while the Weekly is locked: a normal day');
+  // R2: a Grade 12 code, above the ladder and its window (Autumn Term) still locked: a normal day, never practice
+  check(!!g12Code && await modeAfter(`#/tryout/class?code=${g12Code}`) === 'normal', `a Grade 12 code with its window locked opens a normal day (${g12Code})`);
   check(await page.locator('.toast-host .toast').count() > 0, 'a bad code or a locked Weekly says so in a toast');
   await page.waitForFunction(() => !document.querySelector('.toast-host .toast'), null, { timeout: 10000 }).catch(() => {}); // (clean shots after)
 

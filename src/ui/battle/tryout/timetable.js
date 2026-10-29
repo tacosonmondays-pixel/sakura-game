@@ -7,8 +7,9 @@ import { h, enemyToken } from '../util.js';
 import { TRYOUT } from '../../../data/tryout.js';
 import { CHAPTERS, STAGE_MAP } from '../../../data/stages.js';
 import { ENEMY_MAP, FAMILIES, enemyTraits } from '../../../data/enemies.js';
-import { lengthOf, periodWaves, buildTryoutPlan } from '../../../sim/tryout/plan.js';
-import { onEscape } from '../../hold.js';
+import { lengthOf, periodWaves, buildTryoutPlan, buildTryoutStage } from '../../../sim/tryout/plan.js';
+import { powInt } from '../../../sim/waves.js';
+import { onEscape, swallowNextClick } from '../../hold.js';
 import {
   SUBJECT_TEXT, SUBJECT_ABBR, BREAK_SHORT, BREAK_NAMES, DARE_SHORT, DARE_TEXT, PREVIEW_TEXT as PV, TIMETABLE_TEXT as T,
 } from '../../text/tryout.js';
@@ -146,13 +147,22 @@ export function timetableStrip(cells, { testid = 'ty-tt', cls = '', onCell = nul
     : { 'data-testid': testid, role: 'list', 'aria-label': T.label }, ...items);
 }
 
-/** The boss's portrait: the family token at once, the model still when it has rendered (a lazy 3D still, cached). */
+/** After the page has settled: the browser's idle time (a short timer where there is none). */
+const whenIdle = (fn) => (typeof requestIdleCallback === 'function' ? requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 300));
+
+/**
+ * The boss's portrait: the family token at once, the model still once the screen is idle (a lazy 3D still, cached: its
+ * renderer never competes with the screen opening).
+ */
 function bossArt(id) {
   const box = h('span.ty-tt-bossart', { 'aria-hidden': 'true' }, enemyToken(id, { size: 34 }));
   if (typeof document !== 'undefined') {
-    import('../../online/bossArt.js').then((m) => m.bossPortrait(id, 128)).then((url) => {
-      if (url && box.isConnected !== false) box.replaceChildren(h('img', { src: url, alt: '', loading: 'eager', decoding: 'async' }));
-    }).catch(() => {});
+    // (a memoised strip may be off the page for a moment, and back with the same box: the still lands either way)
+    whenIdle(() => {
+      import('../../online/bossArt.js').then((m) => m.bossPortrait(id, 128)).then((url) => {
+        if (url) box.replaceChildren(h('img', { src: url, alt: '', loading: 'eager', decoding: 'async' }));
+      }).catch(() => {});
+    });
   }
   return box;
 }
@@ -199,6 +209,47 @@ export function familyTraits(windowId, families, extra = []) {
   for (const f of families) for (const id of familyFoes(windowId, f)) for (const t of foeTraits(ENEMY_MAP[id])) got.add(t);
   for (const id of extra) if (ENEMY_MAP[id]) for (const t of foeTraits(ENEMY_MAP[id])) got.add(t);
   return PREVIEW_TRAITS.filter((t) => got.has(t));
+}
+
+/** The notable traits of some enemies, in PREVIEW_TRAITS order. */
+export function foesTraits(ids) {
+  const got = new Set();
+  for (const id of ids) if (ENEMY_MAP[id]) for (const t of foeTraits(ENEMY_MAP[id])) got.add(t);
+  return PREVIEW_TRAITS.filter((t) => got.has(t));
+}
+
+/** The plan's stage (buildTryoutStage is pure), once per plan. */
+const STAGES = new WeakMap();
+function stageOf(plan) {
+  let st = STAGES.get(plan);
+  if (!st) STAGES.set(plan, (st = buildTryoutStage(plan)));
+  return st;
+}
+
+/**
+ * Every enemy that can spawn in period p (read-only, as src/sim/waves.js draws a wave): the stage's pool entries open on
+ * one of its waves (a block's elites only from its third period) that the wave's budget lets in, and its fixed foes
+ * (the minibosses, the boss and a Grade 11+ escort). In first-seen order.
+ * @param {object} plan buildTryoutPlan
+ */
+export function spawnableFoes(plan, p) {
+  const len = lengthOf(plan.length);
+  const [a, b] = periodWaves(len, p);
+  const st = stageOf(plan);
+  const gen = st.waveGen;
+  const all = (gen.pool || []).filter((e) => e && ENEMY_MAP[e.enemy]);
+  const out = [];
+  const add = (id) => { if (!out.includes(id)) out.push(id); };
+  for (let w = a; w <= b; w++) {
+    const pw = Math.min(w, st.waves);
+    const budget = (gen.budget?.start ?? 10) * powInt(gen.budget?.growth ?? 1.1, pw - 1);
+    let pool = all.filter((e) => (e.from ?? 1) <= pw && pw <= (e.to ?? Infinity));
+    const ok = pool.filter((e) => (ENEMY_MAP[e.enemy].threat ?? 1) <= budget * 0.6);
+    if (ok.length) pool = ok;
+    for (const e of pool) add(e.enemy);
+    for (const f of gen.fixed || []) if (f.wave === w && ENEMY_MAP[f.enemy]) add(f.enemy);
+  }
+  return out;
 }
 
 /** The big foes (minibosses, the boss) of period p: [{ wave, id, tier }]. */
@@ -253,7 +304,8 @@ export function periodPreview(plan, p, { subjects = null, chosen = null } = {}) 
   const pick = k >= 0 ? { n: k + 1, tryout: (len.tryoutPicks || []).includes(k + 1), exam: k + 1 === len.examPrep } : null;
   return {
     p, final: p === len.periods, waves: periodWaves(len, p), families,
-    traits: familyTraits(plan.window, families, foes.map((f) => f.id)), foes,
+    // (what the stage can spawn in these waves: a block's elites only from its third period, the big foes, an escort)
+    traits: foesTraits(spawnableFoes(plan, p)), foes,
     subjects: pair, chosen: chosen || null, backGate: shown.some((id) => TRYOUT.subjects?.[id]?.backGate),
     affix: plan.affixes?.[p] || null, pick, breakAfter: p < len.periods ? len.breaks?.[p] || null : null,
   };
@@ -305,7 +357,7 @@ let previewSeq = 0;
 /**
  * A strip with tap previews (§13.4): a wrapper holding the strip and at most one small preview card under it. A tap
  * (or Enter / Space) on a cell opens its preview, a second tap on it, the ×, Escape or a tap anywhere else closes it;
- * it never stays over the buttons below (any tap outside closes it, and the tap goes through).
+ * it never stays over the buttons below (a tap outside closes it and does nothing else: its click is swallowed).
  * @param {object[]} cells timetableModel / planTimetableModel cells
  * @param {(p: number, cell: object) => object} previewOf periodPreview for a period cell
  * @param {{ testid?: string, cls?: string, boss?: string|null, wrapCls?: string, open?: string|null,
@@ -338,8 +390,13 @@ export function previewStrip(cells, previewOf, { testid = 'ty-tt', cls = '', bos
       x.setAttribute('aria-controls', pid);
     }
     place(card, cellEl);
-    // a tap anywhere outside the card and the strip closes it (the tap goes through to what it hit)
-    const down = (e) => { if (!wrap.isConnected || (!card.contains(e.target) && !strip.contains(e.target))) close(); };
+    // a tap anywhere outside the card and the strip only closes it: the click that follows is swallowed, so the tap
+    // never also takes a card, spends an Eraser or toggles a girl (R2 review)
+    const down = (e) => {
+      if (wrap.isConnected && (card.contains(e.target) || strip.contains(e.target))) return;
+      close();
+      if (wrap.isConnected) swallowNextClick();
+    };
     const offEsc = onEscape(() => close({ focus: true }));
     document.addEventListener('pointerdown', down, true);
     window.addEventListener('resize', onResize);
@@ -380,15 +437,16 @@ export function previewStrip(cells, previewOf, { testid = 'ty-tt', cls = '', bos
 
 /**
  * Before Class's strip (§13.3): the plan of the pending seed, Grade, length and map; the Final boss portrait at the end;
- * tap a cell for its preview. Plan-only (buildTryoutPlan is pure).
+ * tap a cell for its preview. Plan-only (buildTryoutPlan is pure). One slim row (it sits beside the Grade line, so the
+ * six stay above the foot).
  * @param {object} plan buildTryoutPlan({ seed, grade, length, mapId })
- * @returns {HTMLElement}
+ * @returns {{ el: HTMLElement, close: () => void }}
  */
 export function beforeClassStrip(plan) {
   const cells = planTimetableModel(plan);
   const s = previewStrip(cells, (p) => periodPreview(plan, p), { testid: 'ty-tt', boss: plan.boss, wrapCls: 'ty-bct-in' });
-  return h('div.ty-bct', { 'data-testid': 'ty-bct', 'data-length': plan.length },
-    h('span.lbl.ty-bct-lbl', T.label, h('span.ty-bct-hint', ` · ${PV.hint}`)), s.el);
+  const el = h('div.ty-bct', { 'data-testid': 'ty-bct', 'data-length': plan.length }, s.el);
+  return { el, close: s.close };
 }
 
 /**
@@ -399,11 +457,18 @@ export function beforeClassTimetable(pending) {
   // (Before Class redraws on every tap: the same plan keeps the same strip, so an open preview and the boss still stay)
   const key = `${pending.seed}|${pending.grade}|${pending.length}|${pending.mapId}`;
   if (bcMemo?.key === key && bcMemo.el) return bcMemo.el;
-  const el = beforeClassStrip(buildTryoutPlan({ seed: pending.seed, grade: pending.grade, length: pending.length, mapId: pending.mapId }));
-  bcMemo = { key, el };
-  return el;
+  // (a new plan: the old strip's open preview lets go of its listeners first)
+  bcMemo?.close();
+  const s = beforeClassStrip(buildTryoutPlan({ seed: pending.seed, grade: pending.grade, length: pending.length, mapId: pending.mapId }));
+  bcMemo = { key, el: s.el, close: s.close };
+  return s.el;
 }
 let bcMemo = null;
+
+/** Leaving Before Class: an open preview closes and lets go of its Escape, tap and resize listeners. */
+export function closeBeforeClassTimetable() {
+  bcMemo?.close();
+}
 
 /** The thin band's row of tiny cells (no words: the band's text says where the run is). */
 export function timetableMini(cells) {

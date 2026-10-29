@@ -5,10 +5,12 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { planTimetableModel, periodPreview, familyTraits, familyFoes, periodFoes, PREVIEW_TRAITS } from '../../src/ui/battle/tryout/timetable.js';
-import { capBar, mainFamily, oddsTable, capsTable, withCard, fmtFam } from '../../src/ui/battle/tryout/caps.js';
-import { buildTryoutPlan, buildTryoutStage, lengthOf } from '../../src/sim/tryout/plan.js';
-import { cardMods, familySums } from '../../src/sim/tryout/pep.js';
+import { planTimetableModel, periodPreview, familyTraits, familyFoes, periodFoes, PREVIEW_TRAITS, spawnableFoes, foesTraits } from '../../src/ui/battle/tryout/timetable.js';
+import { capBar, mainFamily, oddsTable, capsTable, withCard, fmtFam, BAR_FAMILIES } from '../../src/ui/battle/tryout/caps.js';
+import { buildTryoutPlan, buildTryoutStage, lengthOf, periodWaves } from '../../src/sim/tryout/plan.js';
+import { cardMods, familySums, runModsFor, cardFactor } from '../../src/sim/tryout/pep.js';
+import { generateWave } from '../../src/sim/waves.js';
+import { enemyTraits } from '../../src/data/enemies.js';
 import { rarityWeights } from '../../src/sim/tryout/offers.js';
 import { Sim } from '../../src/sim/Sim.js';
 import { TRYOUT, PEP_CARDS } from '../../src/data/tryout.js';
@@ -17,6 +19,7 @@ import { scanAll } from '../../tools/cssFloor.mjs';
 import { PREVIEW_TEXT, CAP_TEXT, MORE_TEXT } from '../../src/ui/text/tryout.js';
 
 const periods = (cells) => cells.filter((c) => c.kind === 'period');
+const BAR_UNIT = (k) => BAR_FAMILIES[k].unit;
 
 describe('Before Class timetable: the plan model (§13.3)', () => {
   it('Half Day: P1 … Final, Recess and Cleaning Time, minibosses on P3 and P6, the boss on the Final', () => {
@@ -92,7 +95,57 @@ describe('a timetable cell\'s preview (§13.4)', () => {
     }
     // the big foes' own traits count too
     const pv = periodPreview(plan, 7);
-    expect(pv.traits).toEqual(familyTraits(plan.window, pv.families, [plan.boss]));
+    expect(pv.traits).toEqual(foesTraits(spawnableFoes(plan, 7)));
+    expect(spawnableFoes(plan, 7)).toContain(plan.boss);
+  });
+  it('a preview names only traits of foes the stage can spawn in its waves (a block\'s elites from its third period on)', () => {
+    // (independent of the preview: the stage's pool entries open on the period's waves and affordable, and its fixed foes)
+    const own = (def) => {
+      const k = enemyTraits(def);
+      return new Set([k.includes('airborne') && 'flyers', k.includes('veiled') && 'veiled', def.armorClass === 'heavy' && 'heavy',
+        k.includes('regen') && 'regen', def.armorClass === 'spectral' && 'spectral'].filter(Boolean));
+    };
+    let n = 0;
+    let sawElitesLater = false;
+    for (const length of ['half', 'full']) for (const grade of [1, 4, 8, 11, 12]) for (let seed = 1; seed <= 24; seed++) {
+      const plan = buildTryoutPlan({ seed: seed * 7919, grade, length });
+      const len = lengthOf(length);
+      const gen = buildTryoutStage(plan).waveGen;
+      for (let p = 1; p <= len.periods; p++) {
+        const [a, b] = periodWaves(len, p);
+        const can = new Set();
+        for (let w = a; w <= b; w++) {
+          const budget = gen.budget.start * (gen.budget.growth ?? 1.1) ** (w - 1);
+          let pool = gen.pool.filter((e) => (e.from ?? 1) <= w && w <= (e.to ?? Infinity));
+          const ok = pool.filter((e) => (ENEMY_MAP[e.enemy].threat ?? 1) <= budget * 0.6);
+          if (ok.length) pool = ok;
+          for (const e of pool) for (const t of own(ENEMY_MAP[e.enemy])) can.add(t);
+          for (const f of gen.fixed) if (f.wave === w) for (const t of own(ENEMY_MAP[f.enemy])) can.add(t);
+        }
+        const pv = periodPreview(plan, p);
+        expect(pv.traits.filter((t) => !can.has(t)), `${length} G${grade} seed ${seed * 7919} P${p}`).toEqual([]);
+        expect(PREVIEW_TRAITS.filter((t) => can.has(t)), `${length} G${grade} seed ${seed * 7919} P${p}`).toEqual(pv.traits);
+        if (pv.traits.length < familyTraits(plan.window, pv.families, pv.foes.map((f) => f.id)).length) sawElitesLater = true;
+        n++;
+      }
+    }
+    expect(n).toBeGreaterThan(1000);
+    // (the old family-wide traits named elites a period could not spawn yet: this sweep has such periods)
+    expect(sawElitesLater).toBe(true);
+  });
+  it('every foe the Sim\'s wave generator draws is one the preview counts (many seeds, both lengths)', () => {
+    for (const length of ['half', 'full']) for (const grade of [1, 8, 12]) for (let seed = 1; seed <= 10; seed++) {
+      const plan = buildTryoutPlan({ seed: seed * 104729, grade, length });
+      const stage = buildTryoutStage(plan);
+      const len = lengthOf(length);
+      for (let p = 1; p <= len.periods; p++) {
+        const can = new Set(spawnableFoes(plan, p));
+        const [a, b] = periodWaves(len, p);
+        for (let w = a; w <= b; w++) {
+          for (const g of generateWave(stage, w, (id) => ENEMY_MAP[id]).groups) expect(can.has(g.enemyId), `${length} G${grade} P${p} wave ${w}: ${g.enemyId}`).toBe(true);
+        }
+      }
+    }
   });
   it('Full Day: the Final\'s boss on wave 48 and the minibosses on 12, 28 and 44', () => {
     const full = buildTryoutPlan({ seed: 3, grade: 4, length: 'full' });
@@ -177,11 +230,69 @@ describe('the pick sheet\'s MORE: odds and caps (§3.4, §4.4)', () => {
     sim.tryout.players[0].cards.push({ id: 'P01', unit: 'kage', r: 2 });
     const rows = capsTable(sim, 0);
     expect(rows.map((r) => r.id)).toEqual(['damageMul', 'rateMul', 'range', 'crit', 'hits', 'splash', 'vs', 'costCut', 'runDamage']);
-    expect(rows.map((r) => r.cap)).toEqual(['+100%', '+50%', '+0.5 tiles', '+10 / +0.25', '+1 / +1 / +2', '+0.25 tiles', '+30%', '−30%', '×2.5']);
+    expect(rows.map((r) => r.cap)).toEqual(['+100%', '+50%', '+0.5 tiles', '+10% / +0.25', '+1 / +1 / +2', '+0.25 tiles', '+30%', '−30%', '×2.5']);
     expect(rows[0]).toMatchObject({ who: 'Kage', top: fmtFam('pct', cardMods(PEP_CARDS.P01, 2).damageMul) });
     expect(rows.find((r) => r.id === 'runDamage').who).toBe('Kage');
     expect(rows.find((r) => r.id === 'rateMul').top).toBeNull();
     for (const r of rows) expect(MORE_TEXT.rows[r.id], r.id).toBeTruthy();
+  });
+  it('a map-wide girl shows no reach (as the fold gives her none)', () => {
+    const sim = makeSim({ squad: ['shiro', 'kage', 'yuki'] });
+    sim.tryout.players[0].cards.push({ id: 'P03', unit: 'shiro', r: 4 });
+    expect(capsTable(sim, 0).find((r) => r.id === 'range').top).toBeNull();
+    sim.tryout.players[0].cards.push({ id: 'P03', unit: 'kage', r: 1 });
+    expect(capsTable(sim, 0).find((r) => r.id === 'range')).toMatchObject({ who: 'Kage', top: fmtFam('tiles', cardMods(PEP_CARDS.P03, 1).range) });
+  });
+  it('the vs row counts burns and poisons too', () => {
+    const sim = makeSim();
+    sim.tryout.players[0].cards.push({ id: 'G06', r: 1 });
+    const dot = Math.min(TRYOUT.caps.vs, cardMods(PEP_CARDS.G06, 1).dotMul);
+    expect(capsTable(sim, 0).find((r) => r.id === 'vs')).toMatchObject({ who: 'Yuki', top: fmtFam('pct', dot) });
+  });
+  it('Run damage counts her Window Seat (cards × seat, under the cap)', () => {
+    const sim = makeSim();
+    sim.tryout.players[0].cards.push({ id: 'P01', unit: 'kage', r: 2 });
+    const card = cardFactor({ runMods: runModsFor(sim, 0, 'kage', false) });
+    expect(capsTable(sim, 0).find((r) => r.id === 'runDamage').top).toBe(`×${Math.round(card * 100) / 100}`);
+    // (a read-only stand-in for her tower on a Window Seat: the seat clamp's multiplier)
+    sim.towers.push({ uid: 9999, unitId: 'kage', isHero: false, owner: 0, removed: false, padMul: 1.25 });
+    expect(capsTable(sim, 0).find((r) => r.id === 'runDamage')).toMatchObject({ who: 'Kage', top: `×${Math.round(Math.min(TRYOUT.caps.runDamage, card * 1.25) * 100) / 100}` });
+    sim.towers.pop();
+  });
+});
+
+describe('the cap bar: the "vs" room, All N, units (R2 review)', () => {
+  it('a vs card for a girl at her damage cap shows what the real fold gives (the room left), not the raw add', () => {
+    const sim = makeSim();
+    const p = sim.tryout.players[0];
+    for (let i = 0; i < 3; i++) p.cards.push({ id: 'P01', unit: 'kage', r: 4 });
+    p.cards.push({ id: 'P05', unit: 'kage', r: 4 });
+    const inst = { id: 'E04', r: 4 };
+    const before = runModsFor(sim, 0, 'kage', false);
+    const after = runModsFor(withCard(sim, 0, inst), 0, 'kage', false);
+    const bar = capBar(sim, 0, inst);
+    expect(bar.who).toBe('kage');
+    expect(bar.now).toBeCloseTo((before?.airMul ?? 1) - 1);
+    expect(bar.after).toBeCloseTo((after?.airMul ?? 1) - 1);
+    // (the trim is real here: the card's +36% folds to less than the vs cap)
+    expect(bar.after).toBeLessThan(Math.min(TRYOUT.caps.vs, cardMods(PEP_CARDS.E04, 4).airMul) - 1e-6);
+    expect(bar.all).toBe(false);
+    expect(bar.full).toBeLessThan(bar.of);
+    expect(p.cards).toHaveLength(4);
+  });
+  it('a card that adds in full to everyone shows only what it adds: "+X to all N"', () => {
+    const bar = capBar(makeSim(), 0, { id: 'E02', r: 2 });
+    const v = cardMods(PEP_CARDS.E02, 2).rateMul;
+    expect(bar).toMatchObject({ all: true, of: 4, full: 4 });
+    expect(bar.value).toBeCloseTo(v);
+    expect(bar.text).toBe(CAP_TEXT.toAll('Attack speed', fmtFam('pct', v), 4));
+    expect(bar.text).toBe(`Attack speed +${Math.round(v * 1000) / 10}% to all 4`);
+  });
+  it('crit chance reads in percent; a cost cut reads as a cut, as on the MORE sheet', () => {
+    expect(fmtFam(BAR_UNIT('critChance'), 0.04)).toBe('+4%');
+    const bar = capBar(makeSim(), 0, { id: 'P04', unit: 'aoi', r: 1 });
+    expect(bar.key).toBe('costCut');
+    expect(bar.text).toBe(CAP_TEXT.label('Cost cut', '0%', `−${Math.round(cardMods(PEP_CARDS.P04, 1).costCut * 1000) / 10}%`, '−30%'));
   });
 });
 
