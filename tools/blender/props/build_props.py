@@ -173,7 +173,9 @@ class Part:
             i2 = (i + 1) % n if full else i + 1
             col = colors[i % len(colors)] if colors else color
             verts = rings[i] + rings[i2]
-            faces = [(j, (j + 1) % sides, sides + (j + 1) % sides, sides + j) for j in range(sides)]
+            # wound so the faces point out of the tube (the other way round they came out inside-out:
+            # dark under the toon ramp, covered by their own outline hull)
+            faces = [(j, sides + j, sides + (j + 1) % sides, (j + 1) % sides) for j in range(sides)]
             self.add(verts, faces, col, smooth, m)
         return self
 
@@ -422,8 +424,9 @@ def _leaf(part, base, direction, length, width, color, vein=None):
     r = mid - side * width
     th = up * 0.004
     verts = [b + th, l + th, tip + th, r + th, b - th, l - th, tip - th, r - th]
-    part.add(verts, [(0, 3, 2, 1), (4, 5, 6, 7)], color, False)
-    part.add(verts, [(0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)], darken(color, 0.15), False)
+    # faces wound outward (top up, bottom down, rim out); reversed, the leaf came out inside-out
+    part.add(verts, [(0, 1, 2, 3), (4, 7, 6, 5)], color, False)
+    part.add(verts, [(0, 4, 5, 1), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 4, 0)], darken(color, 0.15), False)
     if vein:
         part.add([b + th * 1.5, tip + th * 1.5, mid + th * 1.5 + side * 0.004], [(0, 2, 1)], vein, False)
 
