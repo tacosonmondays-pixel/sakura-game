@@ -16,7 +16,7 @@
 import { h, icon, setVar, isPhone } from './util.js';
 import { fmtNum } from '../format.js';
 import { createDronePanel, hasDroneTabs } from './chikaPanel.js';
-import { createDpsMeter, perTargetLine, boostEstimate, fmtSmallPct } from './dpsView.js';
+import { createDpsMeter, perTargetLine, boostEstimate, fmtSmallPct, DPS_LIVE_TIP, DPS_AVG_TIP } from './dpsView.js';
 import {
   crosspathReason, crosspathWhy, onePerPathReason, onePerPathWhy, onePerPathLine, heldPipTitle, whereOnMap, finalHolderLine, CROSSPATH_RULE, ONE_PER_PATH_COOP, ONE_PER_PATH_RULE,
 } from './rules.js';
@@ -115,7 +115,7 @@ export function createTowerPanel(ctx) {
   let heldAt = 0;
   const arm = createBuyArm({ now: () => (armHeld ? heldAt : performance.now()) });
   let armTimer = 0;
-  const drones = createDronePanel(ctx, { rerender: () => { sig = ''; update(true); } });
+  const drones = createDronePanel(ctx, { rerender: () => { sig = ''; update(true); }, avgDps: (u) => dpsMeter.avg(u, sim) });
   // her ⚡ ability row (abilityRow.js): built once, re-dressed on a render, its seconds painted every frame
   const abRow = createAbilityRow(ctx);
   /** Girls whose "Buffed by" list is expanded on a short screen ("Show all (N)"). */
@@ -668,12 +668,10 @@ export function createTowerPanel(ctx) {
     if (dps > 0 || st.behavior === 'trap' || st.behavior === 'strip' || (st.status || []).some((x) => x.type === 'poison' || x.type === 'burn')) {
       const value = h('b', { 'data-testid': 'drawer-dps-live' }, '—');
       const label = h('span', 'DPS (live)');
-      const liveTip = 'Live: everything she dealt over the last 5 s of the wave (splash, poison, crits, drones, traps). Between waves: her last wave\'s average.';
-      cells.push(h('div.bt-stat-cell.bt-stat-main', { 'data-testid': 'drawer-dps', role: 'group', title: liveTip, 'aria-label': `DPS live. ${liveTip}` }, label, value));
+      cells.push(h('div.bt-stat-cell.bt-stat-main', { 'data-testid': 'drawer-dps', role: 'group', title: DPS_LIVE_TIP, 'aria-label': `DPS live. ${DPS_LIVE_TIP}` }, label, value));
       // her average beside it, in the same row (no extra height on a phone): steady across packs and waves
       const avg = h('b', { 'data-testid': 'drawer-dps-avg' }, '—');
-      const avgTip = 'Average: everything she dealt since she was placed (or since you joined), over her time on the field in waves. Shows after 1 s.';
-      cells.push(h('div.bt-stat-cell', { 'data-testid': 'drawer-dps-avg-cell', role: 'group', title: avgTip, 'aria-label': `DPS average. ${avgTip}` }, h('span', 'DPS (avg)'), avg));
+      cells.push(h('div.bt-stat-cell', { 'data-testid': 'drawer-dps-avg-cell', role: 'group', title: DPS_AVG_TIP, 'aria-label': `DPS average. ${DPS_AVG_TIP}` }, h('span', 'DPS (avg)'), avg));
       live.dps = { value, label, avg };
       const split = (st.behavior === 'projectile' || st.behavior === 'beam') && st.projectiles > 1 ? st.projectiles : 1;
       const per = perTargetLine(st, dps / split);
@@ -1249,7 +1247,7 @@ export function createTowerPanel(ctx) {
     if (live.dps) {
       const r = dpsMeter.live(t.uid, sim);
       live.dps.value.textContent = r.value == null ? '—' : stat(r.value);
-      live.dps.label.textContent = r.kind === 'lastWave' ? 'DPS (last wave)' : 'DPS (live)';
+      live.dps.label.textContent = r.kind === 'lastWave' ? 'DPS (wave)' : 'DPS (live)'; // (short: one line in a third of the drawer)
       const a = dpsMeter.avg(t.uid, sim);
       live.dps.avg.textContent = a == null ? '—' : stat(a);
     }
