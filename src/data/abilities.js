@@ -67,8 +67,8 @@
 //           count, reachMul, reachAdd, status (a curse bursts for burstMul × her current hit),
 //           casterStatus (casters only), dmgMul (a hit on each, × her hit), rally (a rally rider for `duration`)
 //   move    move ('push' Fuu: every enemy in reach but a boss is blown `push` tiles back along its own path, by path
-//           distance, clamped at the path start; minibosses `pushMiniboss` (default half), the push lock and the freeplay
-//           push budget apply; 'carry' Ruri's Star Snatch waits), reachMul, reachAdd, push / pushMiniboss, pick, count,
+//           distance, clamped at the path start; minibosses `pushMiniboss` (default half), the push lock (but never the
+//           locks her own gusts set: e.pushLockBy) and the freeplay push budget apply; 'carry' Ruri's Star Snatch waits), reachMul, reachAdd, push / pushMiniboss, pick, count,
 //           carry / carryMiniboss, status
 //   econ    coins (× the difficulty's coin rate and the mode's income rate; owner-credited)
 //   deploy  deploy ('strips' Azami, 'sentries' Yuzuha; 'double' | 'trap' | 'drone' with A4; 'mirror' with A6),

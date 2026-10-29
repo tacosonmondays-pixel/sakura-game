@@ -950,12 +950,14 @@ function pushTiles(e, v) {
 
 /**
  * A move's push on one enemy: `tiles` back along its own path by path distance, clamped at the path start, through
- * the push lock (an enemy moved inside its PUSH_LOCK window stays put; one this moves takes the lock) and the freeplay
- * push budget (e.kbLeft, which pays only for the tiles it really moves). Returns the tiles moved (0: none).
+ * the push lock (an enemy moved inside its PUSH_LOCK window stays put — unless the lock is the caster's own: one her
+ * own gusts or gather set, e.pushLockBy === her uid; owner decision Oct 29, "no weak ults" — another girl's lock or an
+ * ability's still holds; one this moves takes the lock, as an ability's: pushLockBy −1) and the freeplay push budget
+ * (e.kbLeft, which pays only for the tiles it really moves). Returns the tiles moved (0: none).
  * Only − and min: no trig (placeOnPath reads the path's precomputed facing).
  */
-function movePush(sim, v, tiles) {
-  if (!(tiles > 0) || v.pushLock > 0 || v.dead) return 0;
+function movePush(sim, v, tiles, ownUid) {
+  if (!(tiles > 0) || v.dead || (v.pushLock > 0 && v.pushLockBy !== ownUid)) return 0;
   let amt = Math.min(tiles, v.dist);
   if (v.kbLeft != null) {
     amt = Math.min(amt, v.kbLeft);
@@ -965,6 +967,7 @@ function movePush(sim, v, tiles) {
   v.dist -= amt; // (amt = dist leaves exactly 0: the path start)
   placeOnPath(v, sim.pathData[v.pathIndex]);
   v.pushLock = PUSH_LOCK[v.tier] ?? PUSH_LOCK.normal;
+  v.pushLockBy = -1;
   return amt;
 }
 
@@ -975,7 +978,8 @@ function movePush(sim, v, tiles) {
 const MOVES = {
   // Fuu's Backdraft Fan: every enemy her ability can reach but a boss (eligible for her hit spec: never in a tunnel,
   // a veiled one only with Veil Sight, flyers when she hits air) is blown back (pushTiles, movePush) and takes the
-  // statuses (her flyers are grounded); one already push-locked is not moved but still takes them. In uid order.
+  // statuses (her flyers are grounded); one push-locked by another girl or an ability is not moved but still takes
+  // them (her own gusts' locks never stop it: movePush). In uid order.
   // Refused (nothing spent) with no such enemy in reach.
   push: {
     cast(sim, t, def, step) {
@@ -989,7 +993,7 @@ const MOVES = {
       pool.sort((a, b) => a.uid - b.uid);
       let moved = 0;
       for (const v of pool) {
-        if (movePush(sim, v, pushTiles(e, v)) > 0) moved++;
+        if (movePush(sim, v, pushTiles(e, v), t.uid) > 0) moved++;
         applyStatuses(sim, v, t, e.status, spec, step);
       }
       return { x, y, radius: reach, targets: listed(pool), moved };

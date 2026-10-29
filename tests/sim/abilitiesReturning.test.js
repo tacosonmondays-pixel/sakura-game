@@ -855,7 +855,8 @@ describe('Fuu, Backdraft Fan (move, local: a push along the road)', () => {
     const flyer = at(sim, 'slime_bubble', 9);
     const gusted = at(sim, 'orc_grunt', 10);
     settle(sim, t);
-    gusted.pushLock = 1; // as her own gust leaves it (PUSH_LOCK_KITS: Fuu)
+    gusted.pushLock = 1; // as another girl's gust leaves it (PUSH_LOCK_KITS: a second Fuu)
+    gusted.pushLockBy = t.uid + 1000;
     const d0 = gusted.dist;
     ready(t);
     expect(sim.castAbility(t.uid).ok).toBe(true);
@@ -880,6 +881,80 @@ describe('Fuu, Backdraft Fan (move, local: a push along the road)', () => {
     expect(sim.castAbility(t.uid).ok).toBe(true);
     expect(g - grunt.dist).toBe(2);
     expect(f - flyer.dist).toBe(2);
+  });
+
+  /** Lets her gusts fly (nothing held) until an enemy carries a lock of `by`'s own (at most 6 s); those enemies. */
+  function gustUntilLocked(sim, by) {
+    for (let i = 0; i < 360; i++) {
+      run(sim, STEP);
+      const locked = sim.enemies.filter((e) => e.pushLock > 0 && e.pushLockBy === by.uid);
+      if (locked.length) return locked;
+    }
+    throw new Error('her gusts never locked anyone');
+  }
+
+  test('her own gusts\' push locks never stop her ult (owner decision, Oct 29: no weak ults); the ult\'s own lock is nobody\'s', () => {
+    const { sim, t } = fuu();
+    for (let k = 0; k < 4; k++) at(sim, 'orc_grunt', 7 + 0.7 * k);
+    const locked = gustUntilLocked(sim, t);
+    expect(locked.every((e) => e.pushLock > 0)).toBe(true);
+    sim.drainEvents();
+    const d = locked.map((e) => e.dist);
+    ready(t);
+    expect(sim.castAbility(t.uid).ok).toBe(true);
+    expect(locked.map((e, i) => d[i] - e.dist)).toEqual(locked.map(() => 2));
+    expect(events(sim, 'ability')[0].moved).toBe(4);
+    // the lock the ult leaves is an ability's (pushLockBy −1): her gusts respect it like any lock
+    for (const e of locked) expect([e.pushLock, e.pushLockBy]).toEqual([PUSH_LOCK.normal, -1]);
+  });
+
+  test('another girl\'s push lock still holds: a second Fuu\'s gusts lock an enemy, the first one\'s ult leaves it, its own moves it', () => {
+    const sim = mk({ loadout: ['fuu'] });
+    const a = girl(sim, 'fuu', 8.5, 3.4);
+    const b = girl(sim, 'fuu', 8.5, 5.6);
+    wave(sim);
+    for (let k = 0; k < 4; k++) at(sim, 'orc_grunt', 7 + 0.7 * k);
+    a.disabled = 99; // only B's gusts fly
+    const locked = gustUntilLocked(sim, b);
+    a.disabled = 0;
+    b.disabled = 99;
+    const d = locked.map((e) => e.dist);
+    ready(a);
+    expect(sim.castAbility(a.uid).ok).toBe(true);
+    expect(locked.map((e) => e.dist)).toEqual(d);
+    expect(locked.every((e) => e.pushLockBy === b.uid)).toBe(true);
+    b.disabled = 0;
+    ready(b);
+    expect(sim.castAbility(b.uid).ok).toBe(true);
+    expect(locked.map((e, i) => d[i] - e.dist)).toEqual(locked.map(() => 2));
+  });
+
+  test('a snapshot mid-lock keeps whose lock it is: restored, her ult still moves the enemies her gusts locked', () => {
+    const args = {
+      stageId: QUIET.id, difficulty: 'normal', seed: 5, loadout: [{ unitId: 'fuu' }],
+      data: testData({ stage: QUIET, units: D.units, enemies: D.enemies }),
+    };
+    const sim = new Sim(args);
+    sim.cash = 1e9;
+    const t = girl(sim, 'fuu', 8.5, 3.4);
+    wave(sim);
+    for (let k = 0; k < 4; k++) at(sim, 'orc_grunt', 7 + 0.7 * k);
+    const locked = gustUntilLocked(sim, t);
+    const copy = new Sim(args).restore(JSON.parse(JSON.stringify(sim.snapshot())));
+    const mine = (s) => s.enemies.filter((e) => e.pushLock > 0 && e.pushLockBy === t.uid).map((e) => e.uid);
+    expect(mine(copy)).toEqual(locked.map((e) => e.uid));
+    expect(snapshotDigest(copy.snapshot())).toBe(snapshotDigest(sim.snapshot()));
+    const moved = [];
+    for (const s of [sim, copy]) {
+      s.drainEvents();
+      ready(s.getTower(t.uid));
+      expect(s.castAbility(t.uid).ok).toBe(true);
+      moved.push(events(s, 'ability')[0].moved);
+      run(s, 2);
+    }
+    expect(moved[0]).toBe(4);
+    expect(moved[1]).toBe(moved[0]);
+    expect(snapshotDigest(copy.snapshot())).toBe(snapshotDigest(sim.snapshot()));
   });
 
   test('tier 5: 3 tiles (minibosses still 1), grounded 3 s, recharging in 32 s', () => {

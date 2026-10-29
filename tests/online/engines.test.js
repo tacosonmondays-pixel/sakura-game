@@ -162,9 +162,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // an auto-cast's (the same battle, the same 1123 coins, now 652/471: 2017100116 / '7ad61cb6'), then
     // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine. Re-pinned in A5 (was
     // 37655 / '800/520' / 4047740824 / 'c84c23e1', 51 casts): the host brings Fuu as a sixth girl and taps her Backdraft
-    // Fan (the move kind) in her round robin; V8 only so far (e2e/engines.mjs compares the other engines to it).
+    // Fan (the move kind) in her round robin; V8 only so far (e2e/engines.mjs compares the other engines to it). Then
+    // (was 34216 / 3557843255 / '4e9f95c5', 37 casts) her ult ignores her own gusts' push locks (owner, Oct 29).
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind })
-      .toEqual({ ticks: 34216, state: 'between', wallets: '535/475', final: 3557843255, hashes: '4e9f95c5', casts: 37, byKind: 'boost 1 · burst 11 · debuff 9 · econ 3 · move 2 · rally 2 · strike 9' });
+      .toEqual({ ticks: 33828, state: 'between', wallets: '535/475', final: 2846685472, hashes: 'c0d73017', casts: 36, byKind: 'boost 1 · burst 11 · debuff 9 · econ 3 · move 2 · rally 2 · strike 8' });
   }, 240000);
 
   it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {
