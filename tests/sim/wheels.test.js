@@ -298,12 +298,12 @@ describe('wave clear and selling', () => {
     steps(k.sim, 30);
     expect(k.t.spinK).not.toBe(null);
     endWheelWave(k.sim);
-    expect(k.t.spinK).toBe(null);
+    expect(k.t.spinK).toBeUndefined(); // (absent, as a battle save restores it)
     const h = setup('hotaru', LANTERN, 3);
     steps(h.sim, 10);
     expect(h.t.haloHits).toBeTruthy();
     endWheelWave(h.sim);
-    expect(h.t.haloHits).toBe(null);
+    expect(h.t.haloHits).toBeUndefined();
   });
 
   test('selling mid-wheel: her shots fly on and the battle keeps stepping', () => {

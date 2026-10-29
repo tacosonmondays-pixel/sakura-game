@@ -200,7 +200,7 @@ describe('display only: the battle sim is untouched', () => {
     // feature/attack-shapes only: the attack shapes S1 "Wheels" (src/sim/wheels.js, dirs.js, shapes.js; Momo's Coin
     // Wheel, Kage's Blade Cyclone, Hotaru's Firefly Halo) change the sim. The release that ships them sets
     // COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only this exact in-progress id passes.
-    const PENDING_BUMP = { 12: '8fb876c1189c' };
+    const PENDING_BUMP = { 12: '89a3239b3388' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
