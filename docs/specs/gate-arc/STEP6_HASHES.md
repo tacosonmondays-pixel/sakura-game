@@ -72,7 +72,7 @@ per sample. Budget rows on the real maps need S6a's `vesper` look (not on this b
 |---|---|---|---|---|
 | 6-6 Frost Causeway | [6, 1600] | won 146 | won 88 | lost at wave 14/28 |
 | 6-7 Sky-Rail Viaduct | [6, 1700] | won 144 | won 83 | lost at wave 15/28 |
-| 6-8 Museum of Noon | [4, 600] | won 129 | won 67 | lost at wave 14/29 |
+| 6-8 Museum of Noon | [4, 600] | won 134 | won 67 | lost at wave 14/29 |
 | 6-9 Lecture Tower Ring | [10, 6000] | won 144 | won 87 | lost at wave 10/29 |
 | 6-10 Gatekeeper Unit 01 | [6, 700] | won 141 | won 57 | lost at wave 14/30 |
 | side-6-starfall The Starfall Trial | [10, 5000] | won 144 | won 79 | lost at wave 13/30 |
@@ -130,7 +130,7 @@ Hard lives at the start of each wave from wave 2 (then the end):
 - side now, [6, 7000]: 48 46 43 43 40 40 37 35 32 32 32 18 5 1 → 0 in wave 15 (18 lives lost in waves 1-9, 32 in
   waves 10-15).
 
-Unchanged rows (re-run on this branch): 6-6 146 / 88 / lost w14, 6-7 144 / 83 / lost w15, 6-8 129 / 67 / lost w14,
+Unchanged rows (re-run on this branch): 6-6 146 / 88 / lost w14, 6-7 144 / 83 / lost w15, 6-8 134 / 67 / lost w14 (Easy 129 → 134 after visual round 1 raised its exit row),
 6-10 141 / 57 / lost w14. 6-10 stays the act's hardest (fewest Normal lives, and its Hard loss at wave 14 is the
 earliest with 6-6 and 6-8); 6-9 is no longer the earliest Hard loss. The side stage keeps hpScale 6-10 × 1.1 (9.94) and
 the plan's side targets (Normal won with ≥ 30 lives, Hard lost); on this bot it now sits beside 6-10 rather than above
