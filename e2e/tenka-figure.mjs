@@ -6,7 +6,7 @@
 //   4. The fallback: with tenka.glb blocked she stays the procedural chibi in her palette, no page error.
 // Screenshots (JPEG) go to --shots <dir>.
 //
-//   node e2e/tenka-figure.mjs [--shots docs/review/visual-reworks/tenka]
+//   node e2e/tenka-figure.mjs [--shots docs/review/visual-reworks/tenka] [--skip-high]
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1 when a
 // check fails.
 import { createServer } from 'vite';
@@ -19,6 +19,8 @@ const opt = (name, def) => {
   return i >= 0 ? args[i + 1] : def;
 };
 const shotsDir = opt('shots', null);
+// --skip-high: leave out the quality-high battle (its shots already taken), for a rerun on a loaded machine
+const skipHigh = args.includes('--skip-high');
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
 const SIZES = [[844, 390], [1280, 720]];
 const IGNORE = [
@@ -172,49 +174,52 @@ async function boxAround(p, x, z, w, h) {
 }
 
 try {
-  log('\n--- battle 1-1, quality high ---');
-  check(await openBattle(page), 'battle 1-1 opens');
-  await settle(page, 800);
-  const uid = await placeNear(page, 'tenka');
-  check(uid != null, `Tenka placed (${uid})`);
-  const t = await page.evaluate((u) => { const x = window.__battle.sim.getTower(u); return x && { x: x.x, y: x.y }; }, uid);
-  await page.waitForFunction((u) => window.__battle.renderer.towerModel(u)?.userData.glb, uid, { timeout: 60000 }).catch(() => null);
-  await settle(page, 400);
-  const hi = await probe(page, uid);
-  check(hi?.glb && hi.detail === 'full' && !hi.standIn, `she is drawn from her full GLB (${JSON.stringify(hi)})`);
-  check(hi?.props === 1 && hi.propOutlines === 1, `the coilgun hangs on her hand socket, with its outline (${hi?.props} prop, ${hi?.propOutlines} outline)`);
-  await page.evaluate((u) => window.__battle.ui.select(null), uid);
-  // idle close-ups (she faces the camera, the coilgun held low at her side)
-  for (const [w, h] of SIZES) {
-    await page.setViewportSize({ width: w, height: h });
-    await page.evaluate(() => window.__battle.renderer.resetCamera());
-    await settle(page, 500);
-    log(`    zoom ${await zoomAt(page, t.x, t.y, 7)}`);
-    await shot(page, `closeup-${w}x${h}`, await boxAround(page, t.x, t.y, Math.round(w * 0.6), Math.round(h * 0.8)));
-  }
-  // a wave so she shoots (attack clip + muzzle FX): the whole board, then a burst of close-ups while she fires
-  // (the sim is fast-forwarded until she has a target: a loaded machine renders few frames a second)
-  const inRange = await page.evaluate((u) => {
-    const { sim, ui } = window.__battle;
-    ui.startWave();
-    for (let k = 0; k < 2400 && sim.getTower(u)?.targetUid == null && sim.state === 'wave'; k++) sim.update(0.25);
-    return sim.getTower(u)?.targetUid != null;
-  }, uid);
-  check(inRange, `she takes aim at a monster${inRange ? '' : ` (${await page.evaluate(() => JSON.stringify({ at: [window.__battle.sim.towers[0]?.x, window.__battle.sim.towers[0]?.y], wave: window.__battle.sim.wave, t: window.__battle.sim.time, paused: window.__battle.ui.paused, enemies: window.__battle.sim.enemies.slice(0, 4).map((e) => [e.x, e.y, e.dead, e.hidden]) }))})`}`);
-  for (const [w, h] of SIZES) {
-    await page.setViewportSize({ width: w, height: h });
-    await page.evaluate(() => window.__battle.renderer.resetCamera());
-    await settle(page, 500);
-    await shot(page, `battle-${w}x${h}`);
-    await zoomAt(page, t.x, t.y, 7);
-    const box = await boxAround(page, t.x, t.y, Math.round(w * 0.6), Math.round(h * 0.8));
-    for (let i = 0; i < 3; i++) {
-      await shot(page, `attack-${w}x${h}-${i}`, box);
-      await settle(page, 40);
+  if (!skipHigh) {
+    log('\n--- battle 1-1, quality high ---');
+    check(await openBattle(page), 'battle 1-1 opens');
+    await settle(page, 800);
+    const uid = await placeNear(page, 'tenka');
+    check(uid != null, `Tenka placed (${uid})`);
+    const t = await page.evaluate((u) => { const x = window.__battle.sim.getTower(u); return x && { x: x.x, y: x.y }; }, uid);
+    await page.waitForFunction((u) => window.__battle.renderer.towerModel(u)?.userData.glb, uid, { timeout: 60000 }).catch(() => null);
+    await settle(page, 400);
+    const hi = await probe(page, uid);
+    check(hi?.glb && hi.detail === 'full' && !hi.standIn, `she is drawn from her full GLB (${JSON.stringify(hi)})`);
+    check(hi?.props === 1 && hi.propOutlines === 1, `the coilgun hangs on her hand socket, with its outline (${hi?.props} prop, ${hi?.propOutlines} outline)`);
+    await page.evaluate((u) => window.__battle.ui.select(null), uid);
+    // idle close-ups (she faces the camera, the coilgun held low at her side)
+    for (const [w, h] of SIZES) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.evaluate(() => window.__battle.renderer.resetCamera());
+      await settle(page, 500);
+      log(`    zoom ${await zoomAt(page, t.x, t.y, 7)}`);
+      await shot(page, `closeup-${w}x${h}`, await boxAround(page, t.x, t.y, Math.round(w * 0.6), Math.round(h * 0.8)));
     }
+    // a wave so she shoots (attack clip + muzzle FX): the whole board, then a burst of close-ups while she fires
+    // (the sim is fast-forwarded until she has a target: a loaded machine renders few frames a second)
+    const inRange = await page.evaluate((u) => {
+      const { sim, ui } = window.__battle;
+      ui.startWave();
+      for (let k = 0; k < 2400 && sim.getTower(u)?.targetUid == null && sim.state === 'wave'; k++) sim.update(0.25);
+      return sim.getTower(u)?.targetUid != null;
+    }, uid);
+    check(inRange, `she takes aim at a monster${inRange ? '' : ` (${await page.evaluate(() => JSON.stringify({ at: [window.__battle.sim.towers[0]?.x, window.__battle.sim.towers[0]?.y], wave: window.__battle.sim.wave, t: window.__battle.sim.time, paused: window.__battle.ui.paused, enemies: window.__battle.sim.enemies.slice(0, 4).map((e) => [e.x, e.y, e.dead, e.hidden]) }))})`}`);
+    for (const [w, h] of SIZES) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.evaluate(() => window.__battle.renderer.resetCamera());
+      await settle(page, 500);
+      await shot(page, `battle-${w}x${h}`);
+      await zoomAt(page, t.x, t.y, 7);
+      const box = await boxAround(page, t.x, t.y, Math.round(w * 0.6), Math.round(h * 0.8));
+      for (let i = 0; i < 3; i++) {
+        await shot(page, `attack-${w}x${h}-${i}`, box);
+        await settle(page, 40);
+      }
+    }
+    await page.evaluate(() => window.__battle.renderer.resetCamera());
+    await page.setViewportSize({ width: 844, height: 390 });
+
   }
-  await page.evaluate(() => window.__battle.renderer.resetCamera());
-  await page.setViewportSize({ width: 844, height: 390 });
 
   log('\n--- quality low (a new battle with the Low setting, as a phone player would have it) ---');
   await page.evaluate(() => {
