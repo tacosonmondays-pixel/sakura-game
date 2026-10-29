@@ -196,10 +196,10 @@ describe('display only: the battle sim is untouched', () => {
     // 11: the banners release with the duo Kohaku & Tsubaki (and Kohaku's constant beam), LR Limit Break, UR Resonance
     // and the staff heroes, and Tryout Day in co-op, in one release)
     const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db' };
-    // release/v0.1.60 assembly: Gate Arc Acts 3-6 and Tenka's LR form (Critical Mass · Event Horizon) change the sim on
-    // protocol 11. The release sets COOP_PROTOCOL 12 once, adds its `12: '<id>'` line to KNOWN and removes this one.
-    // Only this exact in-progress id passes here.
-    const PENDING_BUMP = { 11: 'efd8b00160a2' };
+    // release/v0.1.60 assembly: Gate Arc Acts 3-6, Tenka's LR form (Critical Mass · Event Horizon) and the duo's buff with
+    // the long beam change the sim on protocol 11. The release sets COOP_PROTOCOL 12 once, adds its `12: '<id>'` line to
+    // KNOWN and removes this one. Only this exact in-progress id passes here.
+    const PENDING_BUMP = { 11: '2a1121ac7a47' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

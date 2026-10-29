@@ -60,27 +60,27 @@ describe('the duo: data', () => {
     expect(u.awakenPassive.name).toBe('Twin Star Bond');
   });
 
-  test('base kit: shells 12 / 0.35 / splash 1.1 / ground only / blast; beam 5 / 0.7 / 3.6 / pierce 4; every 4th shell → 3 shards', () => {
+  test('base kit (Oct 29 buff: +25%): shells 15 / 0.35 / splash 1.1 / ground only / blast; beam 6.25 / 0.7 / 3.6 / pierce 4; every 4th shell → 3 shards at 0.5', () => {
     const s = resolveStats(getUnit(ID));
-    expect(s).toMatchObject({ behavior: 'mortar', damage: 12, rate: 0.35, splash: 1.1, canHitAir: false, attackType: 'blast' });
+    expect(s).toMatchObject({ behavior: 'mortar', damage: 15, rate: 0.35, splash: 1.1, canHitAir: false, attackType: 'blast' });
     expect(s.range).toBeGreaterThanOrEqual(30);
-    expect(s.duo).toMatchObject({ beamDmg: 5, beamRate: 0.7, beamRange: 3.6, beamPierce: 4, beams: 1, every: 4, shards: 3, shardShare: 0.4, shardSplash: 0.6 });
+    expect(s.duo).toMatchObject({ beamDmg: 6.25, beamRate: 0.7, beamRange: 3.6, beamPierce: 4, beams: 1, every: 4, shards: 3, shardShare: 0.5, shardSplash: 0.6 });
   });
 
   test('the paths resolve onto her stats; the awaken passive adds a shard and 6%', () => {
     const def = getUnit(ID);
     const corridor = resolveStats(def, { tiers: [0, 5, 2] }).duo;
-    expect(corridor).toMatchObject({ beamPierce: 8, beams: 4, beamDmg: 21, beamPen: 2, rampPer: 0.08, rampMax: 0.6, beamSilence: 1, every: 3 });
+    expect(corridor).toMatchObject({ beamPierce: 8, beams: 4, beamDmg: 22.25, beamPen: 2, rampPer: 0.08, rampMax: 0.6, beamSilence: 1, every: 3 });
     expect(corridor.beamAir).toBeCloseTo(1.3, 10);
     const lattice = resolveStats(def, { tiers: [2, 0, 5] });
     expect(lattice.duo).toMatchObject({ every: 1, shards: 5, shardDmg: 20, shardShred: 2, shardVuln: 0.12, shardSlow: 0.2 });
     expect(resolveStats(def, { tiers: [0, 0, 3] }).duo).toMatchObject({ every: 2, shards: 4 });
     const starfall = resolveStats(def, { tiers: [5, 2, 0] });
     expect(starfall.projectiles).toBe(4);
-    expect(starfall.damage).toBe(54);
+    expect(starfall.damage).toBe(57);
     const aw = resolveStats(def, { unitStats: { awakenPassive: true } });
     expect(aw.duo.shards).toBe(4);
-    expect(aw.damage).toBeCloseTo(12 * 1.06, 10);
+    expect(aw.damage).toBeCloseTo(15 * 1.06, 10);
     expect(aw.duo.beamMul).toBeCloseTo(1.06, 10);
   });
 
@@ -258,7 +258,7 @@ describe('the duo: shells, beam and refraction', () => {
     const shardShells = sim.shells.filter((s) => s.shard);
     expect(shardShells).toHaveLength(3);
     expect(shardShells[0].spec).toMatchObject({ attackType: 'mystic', canHitAir: true });
-    expect(shardShells[0].spec.damage).toBeCloseTo(12 * 0.4, 10);
+    expect(shardShells[0].spec.damage).toBeCloseTo(15 * 0.5, 10);
     const hp = e.hp;
     run(sim, MORTAR_DELAY + STEP);
     expect(e.hp).toBeLessThan(hp);

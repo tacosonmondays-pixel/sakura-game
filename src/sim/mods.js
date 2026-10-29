@@ -292,6 +292,8 @@ function normDuo(t = {}) {
     shardVuln: t.shardVuln ?? 0,
     vulnTime: t.vulnTime ?? 3,
     fullEvery: t.fullEvery ?? 0,
+    // the long beam (Grand Spectrum): 1 = her beams run on to the map edge (src/sim/duo.js)
+    edge: t.edge ?? 0,
   };
 }
 /**
@@ -328,7 +330,7 @@ const BARRICADE_ADDS = ['count', 'budget', 'rebuildCut', 'held', 'bounce', 'brea
 const BARRICADE_FLAGS = ['reveal', 'miniHalf', 'detour'];
 const DUO_ADDS = ['beamDmg', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'rampPer', 'rampMax', 'shardAdd', 'shardShare', 'shardDmg', 'shardSplash', 'shardShred', 'shardVuln'];
 const DUO_MULS = ['beamRate', 'beamAir', 'beamMul'];
-const DUO_MAX = ['shards', 'beamSilence', 'shardSlow', 'slowTime', 'vulnTime'];
+const DUO_MAX = ['shards', 'beamSilence', 'shardSlow', 'slowTime', 'vulnTime', 'edge'];
 const DUO_MIN = ['every', 'fullEvery'];
 const BALL_ADDS = ['travel', 'speed', 'through', 'share', 'lobMul', 'pins', 'pinDmg', 'pinPierce', 'bounce', 'reach', 'finish'];
 const BALL_FLAGS = ['hook', 'lob', 'pushBig'];

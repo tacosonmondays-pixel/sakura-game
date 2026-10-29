@@ -251,3 +251,57 @@ LR is reached by a **Limit Break special stage**, not the 5-step bond story and 
 3. A **Limit Break** button on her page (only at UR + max level) costs coins + her ember family materials (+ a UR Crown once Titan Trials is live) and opens **"Starfall Trial"**: one special hard stage built for the duo (mixed ground and flying waves; the duo must be deployed; solo; free retries, no energy), with a short bond scene before and after.
 4. First clear = **LR**: the Nightglass frame and sticker (§2.5) + the Twin Star finisher (§1.4, ≤ about +4%).
 Later units get LR the same way, each with her own special stage. Steps 1–4 of the old bond story can become optional flavour missions; they no longer gate LR.
+
+---
+
+## 6. The long beam and a much stronger duo (owner, Oct 29)
+
+Owner: "can Kohaku and Tsubaki's laser increase to cover a line from one side of the map to the other?" and "also please
+make her wayyyy stronger!"
+
+**Long beam** (`src/sim/duo.js`). At **Grand Spectrum** (Prism Corridor tier 5, `duo.edge: 1`) and in the **LR form**
+(any build), each held beam still locks onto an enemy *within her reach*, and its line runs on through that enemy to
+the edge of the map.
+- Inside her reach the beam works as before: her own pierce cap (`nearPierce`), full damage.
+- Past her reach, every enemy on the line is hit, up to `PRISM_EDGE_PIERCE` (64). Each of those hits deals the tick
+  × `PRISM_EDGE_MUL` (0.03). This keeps the long line a sweep, not a second beam: her crowd DPS moves by a few
+  percent, not ×2–3.
+- Silence (Grand Spectrum) reaches everything on the line.
+- Deterministic: the map-edge clip is `edgeReach` (division only) plus one `Math.sqrt`. There is no trig, no rng and
+  no new state, and hits run in order along the line.
+- Drawing: past her reach the beam is drawn thinner and dimmer, with a thin white core, out to the map edge.
+- Perf: 4 map-long beams on a crowded 6-x map cost about 0.18 ms a step (`tests/sim/perf.test.js`).
+
+**Buff** (`src/data/unitsDuo.js`).
+- Base damage 12 → 15 and beam 5 → 6.25 (×1.25). Tiers 1–4 on every path end up about +20–30% stronger.
+- Each tier 5 was refitted to beat Kage's best tier 5 by about a quarter or more on both rulers:
+  - Thousand Star Bombardment: +30 damage, beam ×60, ×10 vs bosses (shells, shards and beam).
+  - Grand Spectrum: damage ×6.4, ×11.5 vs bosses, beam ×11.7, long beam.
+  - Constellation Lattice: damage ×36.8 (the shards' flat +20 is added after it), ×2.75 vs bosses, beam ×150.
+- The LR form (Prismfall · Twin Star) adds the long beam to every build and ×1.1 damage (`DUO_LR_MUL`). That puts LR
+  about 40%+ above Kage.
+
+**Before → after**, as her DPS ÷ the best Kage tier 5. The light bench is the STRONG preset, mean of four configs. r5
+is the fully maxed bench, seeds 9/1/2, without and with LR. Each cell is crowd / boss.
+
+| build | light c/b | r5 no-LR c/b | r5 LR c/b |
+|---|---|---|---|
+| Starfall T5 | 1.36/0.14 → **1.62/2.20** | 1.14/0.06 → **1.74/1.40** | 1.30/0.07 → **2.23/1.88** |
+| Grand Spectrum T5 | 0.11/0.01 → **1.28/1.75** | 0.14/0.01 → **1.73/1.28** | 0.18/0.01 → **2.38/1.74** |
+| Constellation T5 | 0.03/0.01 → **1.11/1.27** | 0.10/0.01 → **3.32/1.32** | 0.12/0.02 → **4.39/1.77** |
+| Starfall T3 | 0.043 → 0.053 crowd | 0.045 → 0.056 | 0.052 → 0.071 |
+| Corridor T3 | 0.024 → 0.030 | 0.020 → 0.024 | 0.024 → 0.032 |
+| Lattice T3 | 0.015 → 0.018 | 0.012 → 0.015 | 0.014 → 0.019 |
+
+The two rulers disagree about Constellation Lattice, because of how Refraction's shards land: crowds in the light
+bench are sparse and crowds in r5 are dense. The values chosen keep the light bench above Kage (1.11). On the dense r5
+crowd she lands far higher (3.3). If the r5 figure reads as too much, the knob is the Lattice `beamMul`.
+
+**Abilities.** Prismfall and the Twin Star finale scale with her current damage, as they always have, so they rise
+with each path's tier 5. At Constellation Lattice that is about ×46 versus before: roughly 46k a cast, 127k against
+a boss. The rulers above are her attack only, without casts. The coordinator asked for Prismfall to rise "in
+proportion"; this is proportion to her own tier damage.
+
+**Edge cases that differ from the old beam (all deterministic):**
+- A beam skips an enemy that died earlier in the same tick before it counts toward her pierce.
+- Far hits draw crits from the shared rng, so which near hits crit can differ from a beam without the edge.
