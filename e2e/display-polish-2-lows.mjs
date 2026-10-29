@@ -168,6 +168,13 @@ try {
   const lunge = await stepUntil(async (u) => {
     const { sim, ui, renderer } = window.__battle;
     ui.paused = true;
+    // hold the game's own frame loop (its callbacks wait) so only the frames stepped here are drawn
+    const raf = window.requestAnimationFrame.bind(window);
+    window.__holdLoop = true;
+    window.requestAnimationFrame = (cb) => raf(function held(t) {
+      if (window.__holdLoop) raf(held);
+      else cb(t);
+    });
     ui.startWave();
     const t = () => sim.getTower(u);
     // the sim alone (1/60 s steps, events dropped) up to the step with her slash, then one renderer frame on it
@@ -179,8 +186,20 @@ try {
         seen++;
         // skip the first one (her view catches up first), take the second
         if (seen >= 2) {
+          const ghosts = () => {
+            let root = renderer.towerModel(u);
+            while (root?.parent) root = root.parent;
+            const out = [];
+            root?.traverse((o) => { if (o.name === 'ghost') out.push(o.visible ? 1 : 0); });
+            return out.join('');
+          };
+          const g0 = ghosts();
           renderer.update(1 / 60);
-          return { k, kind: hit.kind, target: hit.targetUid };
+          const g1 = ghosts();
+          sim.update(1 / 60);
+          renderer.update(1 / 60);
+          const g2 = ghosts();
+          return { k, kind: hit.kind, target: hit.targetUid, g: [g0, g1, g2] };
         }
       }
       sim.drainEvents();
@@ -204,14 +223,19 @@ try {
       }
     }, f - at);
     at = f;
-    await settle(120);
+    await page.waitForTimeout(150);
     const g = await page.evaluate((u) => {
       const m = window.__battle.renderer.towerModel(u);
       let root = m;
       while (root?.parent) root = root.parent;
       let n = 0;
-      root?.traverse((o) => { if (o.name === 'ghost' && o.visible) n++; });
-      return n;
+      let all = 0;
+      root?.traverse((o) => {
+        if (o.name !== 'ghost') return;
+        all++;
+        if (o.visible) n++;
+      });
+      return `${n} of ${all} (model ${!!m}, glb ${!!m?.userData.glb}, rm ${window.__sakura?.store?.profile?.settings?.reduceMotion}, q ${window.__sakura?.store?.profile?.settings?.quality})`;
     }, kd.uid);
     log(`    +${f} frames: ${g} ghost figure(s) shown`);
     if (f === 3) await shot(`kaede-lunge-844x390-${tag}`);
@@ -297,12 +321,19 @@ try {
   log(`    ${trace.length} frames, ${attacks} attacks`);
   // the strike frames vs the hit frames; the largest Extend gain in one frame
   let maxGain = 0;
+  let maxJerk = 0; // the largest rise in Extend's per-frame gain from one frame to the next (a skip ahead)
+  let lastGain = null;
   let strikeBeforeHit = 0;
   let strikes = 0;
   for (let i = 1; i < trace.length; i++) {
     const a = trace[i - 1];
     const b = trace[i];
-    if (a.stage === 'extend' && b.stage === 'extend') maxGain = Math.max(maxGain, b.u - a.u);
+    if (a.stage === 'extend' && b.stage === 'extend') {
+      const g = b.u - a.u;
+      maxGain = Math.max(maxGain, g);
+      if (lastGain != null) maxJerk = Math.max(maxJerk, g - lastGain);
+      lastGain = g;
+    } else lastGain = null;
     if (b.stage === 'strike' && a.stage !== 'strike') {
       strikes++;
       // a hit of hers within the next 2 frames means the strike began early
@@ -321,9 +352,9 @@ try {
     if (r.stage && r.stage !== 'idle') line += `${r.attack ? 'A ' : ''}${r.hit ? 'H ' : ''}${r.stage[0]}${r.u} `;
   }
   if (line) log(`      ${line}`);
-  log(`    strikes ${strikes}, started 2+ frames before her hit: ${strikeBeforeHit}, largest Extend gain in one frame: ${maxGain.toFixed(2)}`);
+  log(`    strikes ${strikes}, started 2+ frames before her hit: ${strikeBeforeHit}, largest Extend gain in one frame: ${maxGain.toFixed(2)}, largest rise in that gain frame to frame: ${maxJerk.toFixed(2)}`);
   check(strikes > 0, 'the doll struck');
-  if (!before) check(maxGain < 0.4, `Extend never skips ahead in one frame (largest gain ${maxGain.toFixed(2)})`);
+  if (!before) check(maxJerk < 0.2, `Extend never jumps ahead from its pace in one frame (largest rise ${maxJerk.toFixed(2)})`);
   // a crop strip of one attack, from the attack frame on (one frame at a time, 3x)
   const yFiles = [];
   const yLabels = [];

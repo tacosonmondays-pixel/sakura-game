@@ -29,7 +29,7 @@ export const GHOST_PLAN = {
 /** A ghost's peak opacity (its body; the rim reads stronger, see GHOST_RIM). */
 export const GHOST_PEAK = 0.45;
 /** The rim: its colour is the ghost's own times `shade`, its opacity the body's times (1 + `boost`). */
-export const GHOST_RIM = { shade: 0.16, boost: 1.1, lo: 0.35, hi: 0.8 };
+export const GHOST_RIM = { shade: 0.12, boost: 1.5, lo: 0.3, hi: 0.75 };
 /** A new dash within this many game seconds of the last one leaves no new ghosts (fast swings). */
 export const DASH_GAP = 0.3;
 
