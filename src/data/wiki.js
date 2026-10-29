@@ -93,7 +93,7 @@ export const ROLE_SUBCLASS = {
   builder: { label: 'Sentry Builder', desc: 'Timed sentries at the road\'s edge, typed for the threat.' },
   manager: { label: 'Buff Thrower', desc: 'Drinks for the hardest-working girl and everyone next to her.' },
   ring: { label: 'Ring Burst', desc: 'Pins in every direction at once; best where the road wraps around her.' },
-  battery: { label: 'Duo Battery', desc: 'Map-wide star shells, a beam that guards the sky, and shells that split into light.' },
+  battery: { label: 'Duo Battery', desc: 'Map-wide star shells, a constant beam that guards the sky, and shells that split into light.' },
   spiker: { label: 'Road Control', desc: 'Spike strips on the road: each hits everything that walks over it.' },
   // the staff heroes of the banners wave (BANNERS §D)
   pilot: { label: 'Mech Pilot', desc: 'Armor-piercing rivets from a walker; her plow pushes the road back.' },

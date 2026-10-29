@@ -25,7 +25,7 @@ This is a design note. Nothing in any repo was changed. Every number is a first 
 
 > [!summary] On one screen
 > - **One unit, two girls:** "Kohaku & Tsubaki", title **Prism Battery**. SSR tower. Both girls stand on one round base and cost one slot.
-> - **How she plays:** Tsubaki drops aimed star shells anywhere on the map, on the ground only. Kohaku guards the sky up close with a beam that pierces enemies and hits flyers. **Together:** Kohaku's prism splits some of Tsubaki's shells into shards of light that land around the target.
+> - **How she plays:** Tsubaki drops aimed star shells anywhere on the map, on the ground only. Kohaku guards the sky up close with a constant beam that pierces enemies and hits flyers. **Together:** Kohaku's prism splits some of Tsubaki's shells into shards of light that land around the target.
 > - **Three paths:** Starfall Battery (Tsubaki leads), Prism Corridor (Kohaku leads) and **Refraction ⚡** (the two together). The ⚡ ability is **Prismfall**: a barrage of split shells on a spot you pick.
 > - **Getting her:** SSR recruit pool, spark and the SSR Select Ticket, like Tenka. Base price **850 coins**; today's SSR towers cost 600–650 and Tenka 1,800.
 > - **LR, recommended path:** first reach **UR** (★5 awakening, as today), then finish her 5-step bond story, **"Starfall Promise"**. Free players can get there; it needs no extra duplicates.
@@ -48,7 +48,7 @@ This is a design note. Nothing in any repo was changed. Every number is a first 
 | Part | What it does | Numbers |
 |---|---|---|
 | **Tsubaki's star shells** (main weapon) | She fires at her aim point. A warning ring appears, and the shell lands 1 s later. Without an aim point she aims ahead of her current target. | 12 damage, a volley every ~2.9 s (rate 0.35), splash 1.1, whole map, **ground only**, blast |
-| **Kohaku's prism beam** (second weapon) | A line beam that pierces enemies in a row. | 5 damage, rate 0.7, range 3.6, pierces 4, **hits flyers**, mystic |
+| **Kohaku's prism beam** (second weapon) | A constant line beam that pierces enemies in a row: it stays on while she has a target in reach and deals a damage tick every 6 steps (0.1 s), each tick 6 / beamTicks(rate) of one flash, so the DPS is the flash beam's (`src/sim/duo.js`, Oct 28). Each beam holds its own enemy. | 5 damage, rate 0.7, range 3.6, pierces 4, **hits flyers**, mystic |
 | **Refraction** (the duo trick) | Every **4th** shell passes through Kohaku's prism and splits into **3 shards**. The shards land in a small fixed triangle around the spot. | each shard 40% of a shell, splash 0.6, mystic, also hits flyers |
 
 The shards are light, so the duo deals **two damage types** (blast and mystic). That suits the Foundry Titan, which is weak to both (ASCENSION §C.1).
@@ -60,7 +60,7 @@ The usual rule holds: only one path can go above tier 2 (`src/sim/mods.js` cross
 | Path | Who leads | T1 | T2 | T3 | T4 | T5 |
 |---|---|---|---|---|---|---|
 | **Starfall Battery** (more and bigger shells; elites and bosses) | Tsubaki | Packed Charges 180: +2 damage | Quick Reload 400: +15% speed | Starfall Battery 1,300: +1 shell per volley, +0.2 splash | Falling Star 4,200: +10 damage, ×1.3 vs elites, breaks barriers | Thousand Star Bombardment 26,000: +2 shells, +30 damage, ×1.4 vs bosses, short stun |
-| **Prism Corridor** (beam, flyers, armour) | Kohaku | Polished Lens 170: +1 pierce | Long Focus 380: +0.3 range | Prism Corridor 1,250: +1 beam, ignores 2 armour, ×1.3 vs flyers | Resonant Light 4,000: the beam grows +8% per hit on the same enemy (up to +60%) | Grand Spectrum 24,000: +2 beams, +16 damage, pierces 8, silences |
+| **Prism Corridor** (beam, flyers, armour) | Kohaku | Polished Lens 170: +1 pierce | Long Focus 380: +0.3 range | Prism Corridor 1,250: +1 beam, ignores 2 armour, ×1.3 vs flyers | Resonant Light 4,000: a beam grows stronger the longer it holds the same enemy (+8% for every old flash interval, up to +60%; a switch starts over) | Grand Spectrum 24,000: +2 beams, +16 damage, pierces 8, silences 1 s on lock-on and every 2 s held |
 | **Refraction ⚡** (the two together) | Both | Cut Facets 160: every **3rd** shell splits | Twin Timing 400: shards slow 20% for 1 s | **⚡ Refraction 1,350:** every **2nd** shell splits into 4 shards; **unlocks Prismfall** | Shatterlight 4,300: shards crack armour (−2) and make enemies Brittle (+12%) | **⚡+ Constellation Lattice 28,000:** **every** shell splits into 5 shards, shards +20 damage; **upgrades Prismfall** |
 
 **Awakening passive (★3): Twin Star Bond.** Every split shell makes 1 more shard, and she deals +6% damage.
@@ -91,7 +91,7 @@ It replaces the two abilities planned for the girls when they were separate: **F
 
 | Where | Look |
 |---|---|
-| **Battle model** | **Two chibis on one round base**, side by side, each at 85% size so the pair fits. Today each girl is a procedural stand-in chibi in her drawn look (`src/models/duo.js` `DUO_MEMBERS`, Oct 28): their Oct 20 test-build GLBs (`kohaku.glb`, `tsubaki.glb` + LOD) have no clips yet, so they are kept in the manifest but not loaded. Like the staff heroes, the pair keeps its faces to the battle camera (`src/render/facing.js`). Each plays her own attack: Tsubaki the mortar recoil, Kohaku the staff and beam. When Prismfall is cast, both play `cheer` together. One selection ring goes around both. |
+| **Battle model** | **Two chibis on one round base**, side by side, each at 85% size so the pair fits. Each girl is her own game-ready Meshy GLB (`kohaku.glb`, `tsubaki.glb` + LOD: the 25-joint game skeleton, five clips each, painted eyes with a per-figure hair guard, FX anchors; `tools/art/src/meshy-oct20/DUO_READY.md`), built through the GLB runtime like any girl's; the duo unit maps to these two files (`src/models/duo.js` `modelIds`), never to a `kohaku_tsubaki.glb`. Tsubaki stands on the left and Kohaku on the right, each turned 12° outward (`DUO_LAYOUT`). The procedural stand-ins in their drawn looks (`DUO_MEMBERS`) remain only as the fallback when a GLB fails to load. The FX read Kohaku's lens and Tsubaki's muzzle from the figure's `userData.anchors.lens` / `.muzzle` (world space). Like the staff heroes, the pair keeps its faces to the battle camera (`src/render/facing.js`). Each plays her own attack: Tsubaki the mortar recoil, Kohaku the staff and beam. When Prismfall is cast, both play `cheer` together. One selection ring goes around both. |
 | **Portrait** | **Their existing pair art** (`merge/portraits/kohaku-tsubaki.webp`, 1536×1024). The **card** is a slanted split card: Kohaku's half and Tsubaki's half meet at a −8° seam, which is our own slant shape (STYLE R9). **Bust and thumb** show both faces with the same seam. The **full-figure stand** is the two half-body cut-outs side by side (Tsubaki was already planned as a half-body stand). |
 | **Tower bar** | One card, one cost number, and the split thumb. |
 | **Battle panel** | One panel with **Overall / Tsubaki / Kohaku** stat tabs, the pattern Chika already uses for Overall / Chika / Drones (`towerPanel.js:181`). Glance view: **SHELL · BEAM · RANGE** and a MORE sticker (STYLE R4). |

@@ -21,6 +21,7 @@ export function victimsFor(events, i, cx, cy, radius, attackType, max, out) {
   for (let j = i - 1; j >= 0; j--) {
     const e = events[j];
     if (SKIP[e.type]) continue;
+    if (e.tick) continue; // (a constant beam's damage tick: no other girl's victim)
     if (e.type !== 'hit') break;
     if (attackType && e.attackType !== attackType) continue;
     const dx = e.x - cx;

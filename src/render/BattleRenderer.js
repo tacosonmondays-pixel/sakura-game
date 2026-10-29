@@ -367,6 +367,44 @@ export function createBattleRenderer(container, sim, opts = {}) {
     companionDives: (uid) => (compBroken ? null : companions.swoopTargets(uid)),
   });
 
+  // A constant beam's damage ticks (Kohaku's, src/sim/duo.js: `tick` hits, ten a second on everything on its line)
+  // never spark or flash the enemy one by one (no strobe: the beam itself shows the hit); their damage is summed
+  // per enemy and shown as one number every TICK_SUM_S (game time, so a paused battle holds it). Entries are
+  // pooled: no allocation per tick.
+  const TICK_SUM_S = 0.45;
+  const tickSums = new Map();
+  const tickFree = [];
+  function tickHit(ev) {
+    let e = tickSums.get(ev.uid);
+    if (!e) {
+      e = tickFree.pop() || { amt: 0, t: 0, crit: false, x: 0, y: 0 };
+      e.amt = 0;
+      e.t = time;
+      e.crit = false;
+      tickSums.set(ev.uid, e);
+    }
+    e.amt += ev.amount || 0;
+    if (ev.crit) e.crit = true;
+    e.x = ev.x;
+    e.y = ev.y;
+  }
+  function flushTickSums(numbers) {
+    for (const [uid, e] of tickSums) {
+      const p = actors.enemyPos(uid);
+      if (p && time - e.t < TICK_SUM_S) continue;
+      if (fx.numbers && numbers < MAX_NUMBERS_PER_FRAME && e.amt >= 1) {
+        numbers++;
+        const x = p ? p.x : e.x;
+        const z = p ? p.z : e.y;
+        const y = p ? p.y + p.height * 0.55 : 0.35;
+        fx.text(e.crit ? `${fmt(e.amt)}!` : fmt(e.amt), x, y + 0.25, z, e.crit ? '#ff9a3d' : '#e6dcff', e.crit ? 0.22 : 0.17, 0.65, 0.45);
+      }
+      tickSums.delete(uid);
+      tickFree.push(e);
+    }
+    return numbers;
+  }
+
   function handleEvents(events) {
     let numbers = 0;
     let hitFx = 0;
@@ -383,11 +421,17 @@ export function createBattleRenderer(container, sim, opts = {}) {
       }
       // the staff heroes' props observe only too
       staffSafe(() => staff.handle(ev));
+      // a duo's two girls move by whose weapon fired, and cheer on her cast (observe only, src/models/duo.js)
+      actors.duoEvent(ev);
       if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
       if (roster.handle(ev)) continue;
       if (abilityFx.handle(ev)) continue;
       switch (ev.type) {
         case 'hit': {
+          if (ev.tick) {
+            tickHit(ev);
+            break;
+          }
           actors.hitFlash(ev.uid);
           if (hitFx++ > MAX_HIT_FX_PER_FRAME) break;
           const p = actors.enemyPos(ev.uid);
@@ -644,6 +688,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           break;
       }
     }
+    flushTickSums(numbers);
   }
 
   // ----- frame ----------------------------------------------------------------------------
@@ -1046,15 +1091,18 @@ export function createBattleRenderer(container, sim, opts = {}) {
     },
     /**
      * Extra: what a placed girl's figure is (e2e / debug): a duo's members, whether every part is a GLB or a
-     * stand-in, her drawn facing (rad) and whether it keeps to the camera (src/render/facing.js).
+     * stand-in, her drawn facing (rad) and whether it keeps to the camera (src/render/facing.js); a duo's FX anchors
+     * (world [x, y, z]: Kohaku's lens, Tsubaki's muzzle, src/models/duo.js).
      */
     towerModelInfo(uid) {
       const v = actors.towers.get(uid);
       const ud = v?.model.userData;
       if (!ud) return null;
+      const at = (p) => (p ? [+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)] : null);
       return {
         duo: !!ud.duo, members: ud.memberIds || null, glb: ud.duo ? !!ud.isGlb?.() : !!ud.glb, height: ud.height ?? null,
         standIn: ud.duo ? !!ud.isStandIn?.() : !!ud.standIn, facing: v.facing, faceCam: !!v.faceCam, cameraYaw: rig.yaw,
+        ...(ud.anchors ? { anchors: { lens: at(ud.anchors.lens), muzzle: at(ud.anchors.muzzle) } } : null),
       };
     },
     /** Extra: read-only info for debugging / previews. */

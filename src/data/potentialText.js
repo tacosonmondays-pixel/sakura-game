@@ -268,7 +268,7 @@ const RAW = Object.freeze({
     t('EVERGREEN', '+7% damage. Seeds pierce 1 more; her vine holds 0.3 s longer and comes 0.5 s sooner.', 1.18, 'rim'),
   ),
   kohaku_tsubaki: row(
-    t('BEAM+1', '+5% damage. Kohaku\'s beam deals 1 more damage.', 1.10, 'rim'),
+    t('BEAM+1', '+5% damage. Kohaku\'s constant beam burns a little hotter (+1 beam damage).', 1.10, 'rim'),
     t('SHARDS+', '+7% attack speed. Shards carry 0.05 more of a shell\'s hit (40% → 45%).', 1.12, 'rim'),
     t('PIERCE+1', '+7% damage. Kohaku\'s beam pierces 1 more enemy.', 1.12, 'rim'),
     t('SHARD+1', '+8% attack speed. Every split shell makes 1 more shard.', 1.15, 'rim'),

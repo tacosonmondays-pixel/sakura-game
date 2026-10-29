@@ -1,15 +1,17 @@
 // The duo unit Kohaku & Tsubaki (docs/specs/DUO_LR.md §1; src/sim/duo.js): Tsubaki's star shells (the
-// mortar), Kohaku's prism beam on its own tick timer (the partner weapon), Refraction (every 4th shell
+// mortar), Kohaku's constant prism beam on its own tick timer (the partner weapon: holds, damage ticks, Resonant
+// Light's ramp by time held, Grand Spectrum's silence cadence, extra beams), Refraction (every 4th shell
 // splits into shards at the fixed PRISM_SHARDS table; the counter on the tower), the paths, Potential's
 // full split, Prismfall (map scope, aimed, shards, Brittle, tier 5) and its LR form Twin Star (only while
 // her battle stats carry `lr: true`), auto-cast, a co-op checkpoint and determinism.
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
-import { STEP, MORTAR_DELAY, PRISM_SHARDS } from '../../src/sim/constants.js';
+import { STEP, MORTAR_DELAY, PRISM_SHARDS, PRISM_BEAM_TICK, PRISM_SILENCE_TICKS, PRISM_CLIP_TICKS } from '../../src/sim/constants.js';
 import { defaultData } from '../../src/sim/data.js';
 import { resolveStats } from '../../src/sim/mods.js';
 import { footprintRadius } from '../../src/sim/placement.js';
-import { beamTicks } from '../../src/sim/duo.js';
+import { beamTicks, prismRamp } from '../../src/sim/duo.js';
+import { computeHit, applyHitResult } from '../../src/sim/combat.js';
 import { castAbility, abilityDef, autoWants } from '../../src/sim/abilities.js';
 import { snapshotSim, restoreSim } from '../../src/sim/snapshot.js';
 import { getUnit } from '../../src/data/units.js';
@@ -91,20 +93,144 @@ describe('the duo: data', () => {
 });
 
 describe('the duo: shells, beam and refraction', () => {
-  test('Kohaku\'s beam fires on its own integer tick timer, pierces and hits flyers; Tsubaki\'s shells skip flyers', () => {
+  test('Kohaku\'s constant beam: on while a target is in reach, a damage tick every PRISM_BEAM_TICK steps (a share of one old flash), pierces and hits flyers; it lets go when the target dies; Tsubaki\'s shells skip flyers', () => {
     const { sim, t } = setup();
     const bat = park(sim, 'bat', 8.5); // (8.5, 4): 2.2 tiles from her, in the beam's reach
     const hp = bat.hp;
+    events.length = 0;
     run(sim, STEP);
     expect(bat.hp).toBeLessThan(hp);
-    expect(t.duoCd).toBe(beamTicks(t.beamSpec.rate));
-    expect(Number.isInteger(t.duoCd)).toBe(true);
-    // a flyer alone: no shell is ever fired (ground only)
+    expect(t.duoCd).toBe(PRISM_BEAM_TICK);
+    expect(t.prismBeams).toHaveLength(1);
+    expect(t.prismBeams[0].e).toBe(bat);
+    expect(t.prismBeams[0].held).toBe(1);
+    // the lock-on is her one `attack` event (Kohaku's clip and sound); the ticks are quiet `tick` hits
+    expect(events.filter((v) => v.type === 'attack' && v.kind === 'beam')).toHaveLength(1);
+    // a damage tick is PRISM_BEAM_TICK / beamTicks(rate) of one flash
+    const share = PRISM_BEAM_TICK / beamTicks(t.beamSpec.rate);
+    expect(t.beamTickSpec.share).toBeCloseTo(share, 15);
+    expect(t.beamTickSpec.damage).toBeCloseTo(t.beamSpec.damage * share, 12);
+    expect(t.beamTickSpec.silence).toBe(0);
+    // 3 s held: one tick every PRISM_BEAM_TICK steps, all on the same lock; her `attack` again every 1.5 s held
+    events.length = 0;
     run(sim, 3);
+    const ticks = events.filter((v) => v.type === 'hit' && v.uid === bat.uid);
+    expect(ticks).toHaveLength(Math.round(3 / STEP / PRISM_BEAM_TICK));
+    expect(ticks.every((v) => v.tick === true)).toBe(true);
+    const again = events.filter((v) => v.type === 'attack' && v.kind === 'beam');
+    expect(again).toHaveLength(Math.floor(3 / (STEP * PRISM_BEAM_TICK * PRISM_CLIP_TICKS)));
+    expect(again.every((v) => v.targetUid === bat.uid)).toBe(true);
+    expect(t.prismBeams[0].e).toBe(bat);
+    expect(Number.isInteger(t.duoCd) && Number.isInteger(t.prismBeams[0].held)).toBe(true);
+    // a flyer alone: no shell is ever fired (ground only)
     expect(sim.shells.length).toBe(0);
-    // 0.7 a second: about 3 beams in 3 s after the first
-    const n = Math.round(3 / (STEP * beamTicks(0.7)));
-    expect(n).toBeGreaterThanOrEqual(2);
+    // her DPS is the old flash beam's: damage × rate (the share of a flash every PRISM_BEAM_TICK steps)
+    const dealt = ticks.reduce((a, v) => a + v.amount, 0);
+    expect(dealt / 3).toBeCloseTo(ticks[0].amount * (1 / STEP / PRISM_BEAM_TICK), 6);
+    // the target dies: on her next tick the beam lets go (and her timer waits for the next target)
+    bat.hp = 0.001;
+    run(sim, STEP * (PRISM_BEAM_TICK + 1));
+    expect(bat.dead).toBe(true);
+    run(sim, STEP * (PRISM_BEAM_TICK + 1));
+    expect(t.prismBeams[0].e).toBe(null);
+    expect(t.duoCd).toBe(0);
+  });
+
+  test('a damage tick carries its share of flat armour, the 1-damage floor and the crystal shell (computeHit share)', () => {
+    const e = (o) => ({ hp: 100, maxHp: 100, armor: 0, armorClass: 'light', statuses: {}, traits: {}, barrier: 0, crystalHits: 0, crystalCap: 0, tier: 'normal', ...o });
+    const hit = { damage: 10, attackType: 'mystic', canHitAir: true, armorPen: 0 };
+    const full = computeHit(e({ armor: 4 }), hit, 1, 1, {});
+    const tick = computeHit(e({ armor: 4 }), { ...hit, damage: 10 * 0.1, share: 0.1 }, 1, 1, {});
+    expect(tick.toHp).toBeCloseTo(full.toHp * 0.1, 12);
+    // the floor: a full hit never does less than 1, a tick never less than its share of 1
+    const floor = computeHit(e({ armor: 50 }), { ...hit, damage: 1, share: 0.1 }, 1, 1, {});
+    expect(floor.toHp).toBeCloseTo(0.1, 12);
+    // the crystal shell: cap × share, and a tick takes share of one hit off its count
+    const shell = e({ crystalHits: 2, crystalCap: 5 });
+    const res = computeHit(shell, { ...hit, damage: 100 * 0.25, share: 0.25 }, 1, 1, {});
+    expect(res.toHp).toBeCloseTo(5 * 0.25, 12);
+    for (let k = 0; k < 7; k++) applyHitResult(shell, computeHit(shell, { ...hit, share: 0.25 }, 1, 1, {}), 0.25);
+    expect(shell.crystalHits).toBeCloseTo(0.25, 12);
+    applyHitResult(shell, computeHit(shell, { ...hit, share: 0.25 }, 1, 1, {}), 0.25);
+    expect(shell.crystalHits).toBe(0);
+  });
+
+  test('extra beams: each its own constant beam on a different target', () => {
+    const { sim, t } = setup({ tiers: [0, 5, 2] });
+    expect(t.beamSpec.projectiles).toBe(4);
+    const es = [6.5, 7.5, 8.5].map((d) => park(sim, 'tank', d));
+    run(sim, 1);
+    const held = t.prismBeams.filter((b) => b.e).map((b) => b.e);
+    expect(new Set(held).size).toBe(3);
+    for (const e of es) expect(held).toContain(e);
+    // a 4th beam stays free with three targets; the holds keep their enemies tick after tick
+    expect(t.prismBeams.filter((b) => !b.e)).toHaveLength(1);
+    const before = t.prismBeams.map((b) => b.e);
+    run(sim, 1);
+    expect(t.prismBeams.map((b) => b.e)).toEqual(before);
+  });
+
+  test('Resonant Light: +per for every old flash interval her beam holds the same enemy, capped at the old hits-to-cap; a target switch starts over', () => {
+    const { sim, t } = setup({ tiers: [0, 4, 0] });
+    const spec = t.beamSpec;
+    expect(spec.ramp).toEqual({ per: 0.08, max: 0.6 });
+    const I = beamTicks(spec.rate);
+    const tick = t.beamTickSpec;
+    // the cap in steps: the first tick at or past max / per flash intervals (7.5 old flashes)
+    let held = 0;
+    while (prismRamp(spec, tick, held) < 1 + spec.ramp.max - 1e-12) held++;
+    const capSteps = held * PRISM_BEAM_TICK;
+    const oldCap = (spec.ramp.max / spec.ramp.per) * I;
+    expect(capSteps).toBeGreaterThanOrEqual(oldCap - 1e-9);
+    expect(capSteps).toBeLessThan(oldCap + PRISM_BEAM_TICK);
+    // the rate: +per every I steps (today's per-hit ramp at her beam rate)
+    expect(prismRamp(spec, tick, I / PRISM_BEAM_TICK) - 1).toBeCloseTo(spec.ramp.per, 12);
+    // in a battle: the hold's first tick at ×1, the capped tick at ×1.6 (armour 0: the ratio is the ramp)
+    const a = park(sim, 'tank', 8.5);
+    events.length = 0;
+    run(sim, (capSteps + PRISM_BEAM_TICK * 3) * STEP);
+    const hits = events.filter((v) => v.type === 'hit' && v.uid === a.uid && v.tick); // (her beam's ticks, not Tsubaki's shells)
+    expect(hits[1].amount / hits[0].amount).toBeCloseTo(1 + spec.ramp.per * tick.share, 9);
+    expect(hits.at(-1).amount / hits[0].amount).toBeCloseTo(1 + spec.ramp.max, 9);
+    expect(hits[held].amount / hits[0].amount).toBeCloseTo(1 + spec.ramp.max, 9);
+    expect(hits[held - 1].amount / hits[0].amount).toBeLessThan(1 + spec.ramp.max);
+    // a switch: the old target falls, the new one starts at ×1
+    a.hp = 0.001;
+    run(sim, STEP * PRISM_BEAM_TICK * 2);
+    const b = park(sim, 'tank', 8.5);
+    events.length = 0;
+    run(sim, STEP * PRISM_BEAM_TICK * 2);
+    const bh = events.filter((v) => v.type === 'hit' && v.uid === b.uid && v.tick);
+    expect(bh[0].amount).toBeCloseTo(hits[0].amount, 9);
+    expect(t.prismBeams.find((x) => x.e === b).held).toBe(2);
+  });
+
+  test('Grand Spectrum\'s silence: when a beam locks on and again every 2 s it holds, not on every tick', () => {
+    const { sim, t } = setup({ tiers: [0, 5, 2] });
+    expect(t.beamSpec.silence).toBe(1);
+    const e = park(sim, 'tank', 8.5);
+    const at = [];
+    let step = 0;
+    const silencedAt = {};
+    for (; step < Math.round(9 / STEP); step++) {
+      sim._step(STEP);
+      for (const v of sim.drainEvents()) if (v.type === 'status' && v.status === 'silence' && v.uid === e.uid) at.push(step);
+      if (step === Math.round(1.5 / STEP)) silencedAt.mid = !!e.statuses.silence;
+      if (step === Math.round(0.5 / STEP)) silencedAt.early = !!e.statuses.silence;
+    }
+    // lock-on at step 0, then every PRISM_SILENCE_TICKS steps: 0, 2, 4, 6, 8 s
+    expect(at).toEqual([0, 1, 2, 3, 4].map((k) => k * PRISM_SILENCE_TICKS));
+    expect(silencedAt).toEqual({ early: true, mid: false });
+  });
+
+  test('determinism: two runs with the same seed give the same damage, holds and counters', () => {
+    const go = () => {
+      const { sim, t } = setup({ tiers: [0, 5, 2], stats: { critChance: 0.3 } });
+      for (let i = 0; i < 6; i++) park(sim, i % 2 ? 'bat' : 'tank', 6 + i * 0.4);
+      run(sim, 20);
+      return [t.damageDealt, t.prismN, t.duoCd, t.prismBeams.map((b) => `${b.e?.uid}:${b.held}`).join(','), sim.enemies.map((e) => e.hp).join(',')];
+    };
+    expect(go()).toEqual(go());
   });
 
   test('every 4th shell splits into 3 shards at the fixed table, landing with it; the counter lives on the tower', () => {
@@ -163,16 +289,6 @@ describe('the duo: shells, beam and refraction', () => {
     expect(shardsByVolley).toBe(5);
   });
 
-  test('determinism: two runs with the same seed give the same damage and counters', () => {
-    const go = () => {
-      const { sim, t } = setup({ tiers: [2, 0, 3] });
-      for (let i = 0; i < 6; i++) park(sim, i % 2 ? 'bat' : 'tank', 6 + i * 0.4);
-      run(sim, 20);
-      return [t.damageDealt, t.prismN, t.duoCd, sim.enemies.map((e) => e.hp).join(',')];
-    };
-    expect(go()).toEqual(go());
-  });
-
   test('a co-op checkpoint mid-flight (shards and beam timer) restores bit-identically', () => {
     const { sim } = setup({ tiers: [0, 2, 2] });
     for (let i = 0; i < 5; i++) park(sim, i % 2 ? 'bat' : 'tank', 6 + i * 0.5);
@@ -186,6 +302,46 @@ describe('the duo: shells, beam and refraction', () => {
     expect(copy.towers[0].damageDealt).toBe(sim.towers[0].damageDealt);
     expect(copy.towers[0].prismN).toBe(sim.towers[0].prismN);
     expect(copy.towers[0].duoCd).toBe(sim.towers[0].duoCd);
+  });
+
+  test('a checkpoint mid-beam (holds, ramp, silence cadence and tick timer mid-way) continues identically', () => {
+    const { sim, t } = setup({ tiers: [0, 5, 2], stats: { critChance: 0.3 } });
+    for (let i = 0; i < 5; i++) park(sim, i % 2 ? 'bat' : 'tank', 6 + i * 0.5);
+    run(sim, 3.25);
+    expect(t.prismBeams.some((b) => b.e && b.held > 0)).toBe(true);
+    expect(t.duoCd).toBeGreaterThan(0); // between two ticks
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const stage = { ...STAGE, mapId: MAP.id };
+    const copy = new Sim({ stageId: STAGE.id, loadout: [{ unitId: ID }], seed: 11, data: { stage, map: MAP, units, enemies: ENEMIES } });
+    restoreSim(copy, snap);
+    const ct = copy.towers[0];
+    expect(ct.prismBeams.map((b) => `${b.e?.uid}:${b.held}`)).toEqual(t.prismBeams.map((b) => `${b.e?.uid}:${b.held}`));
+    // a restored hold points at the restored Sim's own enemy
+    for (const b of ct.prismBeams) if (b.e) expect(copy.enemies).toContain(b.e);
+    const trace = (s) => {
+      const out = [];
+      for (let i = 0; i < Math.round(6 / STEP); i++) {
+        s._step(STEP);
+        for (const v of s.drainEvents()) if (v.type === 'hit' || v.type === 'status') out.push(`${v.type}:${v.uid}:${v.amount ?? v.status}`);
+      }
+      return out;
+    };
+    expect(trace(copy)).toEqual(trace(sim));
+    expect(ct.damageDealt).toBe(t.damageDealt);
+    expect(ct.prismBeams.map((b) => `${b.e?.uid}:${b.held}`)).toEqual(t.prismBeams.map((b) => `${b.e?.uid}:${b.held}`));
+    expect(copy.enemies.map((e) => `${e.hp}:${!!e.statuses.silence}`)).toEqual(sim.enemies.map((e) => `${e.hp}:${!!e.statuses.silence}`));
+  });
+
+  test('a sabotage breaks her beams; they lock on fresh afterwards', () => {
+    const { sim, t } = setup({ tiers: [0, 4, 0] });
+    const e = park(sim, 'tank', 8.5);
+    run(sim, 2);
+    expect(t.prismBeams[0].held).toBeGreaterThan(10);
+    t.disabled = 0.5;
+    run(sim, STEP);
+    expect(t.prismBeams.every((b) => b.e === null && b.held === 0)).toBe(true);
+    run(sim, 0.6);
+    expect(t.prismBeams.find((b) => b.e === e).held).toBeLessThan(10);
   });
 });
 
