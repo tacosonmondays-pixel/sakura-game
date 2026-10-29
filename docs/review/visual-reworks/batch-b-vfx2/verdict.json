@@ -1,0 +1,29 @@
+{
+  "review": "batch-b-vfx2",
+  "commit": "a7310e5a669c807beb43fea6f9faa6b708897130",
+  "fixes": "batch-b-vfx MEDIUM (Kaede hit flashes skipped ctx.flashGate) plus the comment-only LOWs",
+  "verdict": "OK",
+  "tests": "npx vitest run --maxWorkers=2 tests/render/kaedeFx.test.js tests/render/vfx-hits.test.js tests/render/attackFx-integration.test.js: 3 files, 63 passed",
+  "checks": {
+    "gateArguments": "hitFlash.js:102 calls ctx.flashGate(size * 1.1, ctx.R.star, 1). Size: the star's peak flashShape scale is about 1.09 (k = 0.25), so size * 1.1 is its largest drawn width, the same 'largest size' idea as spr (max(s0, s1)) and FxSystem (max(s0, s1) * asp). uv: R.star is a key of BattleRenderer's FLASH_FILL (star 0.35), so the screen share uses the right fill. Strength: 1 matches the flash's peak alpha (1 - k^2 starts at 1), as spr passes min(a0, 1). Kaede's sizes (FLASH_MAIN 0.45, FLASH_SIDE 0.34, times readScale) with life 0.08 always pass isWorldFlash, so skipping that check changes nothing today",
+    "oncePerNewFlash": "the call is after the merge loop and both cap checks, at the point a pooled flash is started; merges return early and never call it. The kaedeFx test checks one call for a new hit plus a merged hit",
+    "nullGate": "flashGate null (the context default, context.js:78) gives gate = 1; update also uses f.gate ?? 1",
+    "allQuads": "_s.alpha is scaled before any quad is pushed, so the star, the white pin, the glow (alpha * 0.45) and the soft Reduce-motion glow all carry the gate",
+    "allocation": "none: one number on the pooled flash; the pool shape includes gate: 1",
+    "test": "meaningful: with the gate returning 0.2, an unscaled flash at t = 0.02 would push alpha about 0.94, so removing the multiply fails the test, and a second guard call on merge fails the count. It does not cover the null gate or the Reduce-motion branch (both trivially right by reading)",
+    "comments": "hitFlash.js and marionette.js now say visual seconds (clock.dt), which hold during pause and hit-stop. This matches the earlier review's clock check. Comment-only, no behaviour change"
+  },
+  "findings": [
+    {
+      "severity": "LOW",
+      "file": "src/render/attackFx/patterns/hitFlash.js:102",
+      "text": "The guard is asked with uv R.star and strength 1 even in Reduce motion, where the flash is drawn as a glow (R.glow, s * 1.3) at a peak alpha of about 0.5. This over-counts (it is conservative, so it is safe), and with Reduce motion the budget is already halved. Optional: pass R.glow, size * 1.3 and about 0.5 when ctx.reduceMotion is on."
+    },
+    {
+      "severity": "LOW",
+      "file": "src/render/attackFx/patterns/hitFlash.js:102",
+      "text": "The gate is fixed when the flash starts. A later merge swell (up to +35%) is not counted again. This matches how spr and FxSystem gate once at spawn, so it is acceptable."
+    }
+  ],
+  "notes": "No src/sim or src/online changes in this commit, so the sim id and COOP_PROTOCOL are unaffected. The frameDt LOW for the marionette's game-speed estimate stays open, as the commit says."
+}
