@@ -520,3 +520,7 @@
 @media (prefers-reduced-motion: reduce) {
   :is(.ui-day) :is(.cp-card, .stp-row, .stp-mcard) { transition: none; }
 }
+/* a side stage's card (Gate Arc Step 6: the Star Dome after 6-10): the kit card with a dashed violet edge and a violet
+   "Side" plate, drawn right after its anchor's card in the act's grid */
+:is(.ui-day) .cp-card.cp-side { --edge: #7a68d8; outline: 2px dashed #7a68d8; outline-offset: -2px; }
+:is(.ui-day) .cp-card.cp-side .cp-id { background: #5b4bb7; color: #fff; }

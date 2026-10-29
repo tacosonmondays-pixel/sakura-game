@@ -33,8 +33,13 @@ export function createHud(ctx) {
   const fpChip = h('span.bt-fp-chip', { 'data-testid': 'hud-freeplay' });
   const stageLabel = h(
     'div.bt-stage-label',
-    // a Titan Trials battle: the titan's name and her tier (it always plays on Normal rules)
-    h('span.bt-stage-id', stage.kind === 'campaign' ? stage.id : stage.titan ? TITAN_MAP[stage.titan.id]?.name || stage.name : stage.name),
+    // a Titan Trials battle: the titan's name and her tier (it always plays on Normal rules); a side stage reads "Side"
+    // (its whole name clipped at 844×390: the Step 6 visual review), the name in its tooltip
+    h(
+      'span.bt-stage-id',
+      { title: stage.kind === 'side' ? stage.name : null },
+      stage.kind === 'campaign' ? stage.id : stage.kind === 'side' ? 'Side' : stage.titan ? TITAN_MAP[stage.titan.id]?.name || stage.name : stage.name,
+    ),
     stage.titan
       ? h(`span.bt-diff.bt-diff-${stage.titan.tier === 'mayhem' ? 'nightmare' : stage.titan.tier}`, tierLabel(stage.titan.tier, stage.titan.rank))
       : h(`span.bt-diff.bt-diff-${sim.difficulty}`, diff.name),

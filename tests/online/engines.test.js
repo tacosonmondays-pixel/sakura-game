@@ -38,10 +38,13 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // pinned: re-pinned by the hero rework (START fields Hikari, who now deploys for free and levels
     // on her track; landing plan S12) together with its stage-HP pass. The wave tables re-pinned by Gate Arc Step 1:
     // chapter 1's five Act II stages add 252 tables (102 waves + 5 × 30 endless), and Step 2's chapter-2 five add 267
-    // (117 waves + 5 × 30 endless); the tables of the stages that existed
+    // (117 waves + 5 × 30 endless), Step 3's chapter-3 five add 276 (126 waves + 5 × 30 endless), Step 4's chapter-4
+    // five add 282 (132 waves + 5 × 30 endless), Step 5's chapter-5 five add 286 (136 waves + 5 × 30 endless) and Step 6's
+    // chapter-6 five and the side stage side-6-starfall add 354 (144 + 30 waves + 6 × 30 endless); the
+    // tables of the stages that existed
     // before stay pinned bit for bit in tests/sim/campaignGolden.test.js
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, waves: r.waves })
-      .toEqual({ ticks: 28995, state: 'won', wallets: '1499/1347', final: 93082125, hashes: '7db1eed1', waves: '3537:0a7cd674' });
+      .toEqual({ ticks: 28995, state: 'won', wallets: '1499/1347', final: 93082125, hashes: '7db1eed1', waves: '4735:a2a5a5b3' });
   }, 120000);
 
   it('runs the Potential battle (POTENTIAL_START: every kind of step, Aoi at P1 for the host and P6 for the guest, Kage and Rei at P6) in sync', () => {

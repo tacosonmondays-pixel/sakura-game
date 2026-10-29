@@ -536,17 +536,32 @@ export function mountBattle(root, params, hooks) {
     const tracks = sim.map?.tracks || [];
     const spawnRuns = tracks.filter((t) => !t.fork).map((t) => t.points.filter((_, i) => i % 5 === 0 && t.cum[i] <= 5.5));
     const exitRuns = tracks.filter((t) => !t.join).map((t) => t.points.filter((_, i) => i % 5 === 0 && t.cum[i] >= t.length - 3.5));
+    // the gate props themselves (their feet: a far-edge gate stands up to 2 tiles in from where its lane starts; the
+    // lane's ends where the renderer has none), each with the screen depth of its foot and spawn arrow: when both top corners cover a
+    // spawn, the feed drops below them
+    const propGates = renderer.gates || [];
+    const gateFeet = (kind, runEnds) => {
+      const own = propGates.filter((g) => g.kind === kind).map((g) => [g.x, g.z]);
+      return own.length ? own : runEnds;
+    };
+    const spawnGates = gateFeet('spawn', tracks.filter((t) => !t.fork).map((t) => t.points[0]));
+    const exitGates = gateFeet('goal', tracks.filter((t) => !t.join).map((t) => t.points[t.points.length - 1]));
     feed.setAvoid(() => {
       const L = layer.getBoundingClientRect();
       const out = [];
       // the live spawn gates: a reversed route (Reverse Route, an ambush wave) comes in at the exits
-      const pairs = sim.routeReversed ? [[exitRuns, 1], [spawnRuns, 0.2]] : [[spawnRuns, 1], [exitRuns, 0.2]];
-      for (const [runs, w] of pairs) {
+      const pairs = sim.routeReversed ? [[exitRuns, exitGates, 1], [spawnRuns, spawnGates, 0.2]] : [[spawnRuns, spawnGates, 1], [exitRuns, exitGates, 0.2]];
+      for (const [runs, gates, w] of pairs) {
         for (const run of runs) {
           for (const [x, y] of run) {
             const p = renderer.worldToScreen(x, y, 0);
             out.push({ x: p.clientX - L.left, y: p.clientY - L.top, w });
           }
+        }
+        for (const [x, y] of gates) {
+          const p = renderer.worldToScreen(x, y, 0);
+          const q = renderer.worldToScreen(x, y + 1.4, 0);
+          out.push({ x: p.clientX - L.left, y: p.clientY - L.top, w, gate: true, r: Math.abs(q.clientY - p.clientY) });
         }
       }
       return out;

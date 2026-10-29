@@ -90,7 +90,7 @@ export function cssVar(el, name, value) {
   return el;
 }
 
-const KIND_LABEL = { campaign: 'Mission', resource: 'Bounty', boss: 'Total Assault', challenge: 'Tactical Challenge', event: 'Event' };
+const KIND_LABEL = { campaign: 'Mission', resource: 'Bounty', boss: 'Total Assault', challenge: 'Tactical Challenge', event: 'Event', side: 'Side' };
 
 /** tile() with its rarity colour applied (custom properties need setProperty). */
 export function tile(itemId, count = null, opts = {}) {
@@ -116,7 +116,7 @@ export function rewardTiles(rewards, { size = 56 } = {}) {
 /** (moved to the router; kept here for the screens that import it from stage prep) */
 export { rememberParams };
 
-/** Short label like "Mission 1-3" / "Bounty" for a stage. */
+/** Short label like "Mission 1-3" / "Bounty" / "Side" for a stage. */
 export function stageLabel(stage) {
   if (!stage) return '';
   return stage.kind === 'campaign' ? `${KIND_LABEL.campaign} ${stage.id}` : KIND_LABEL[stage.kind];
@@ -651,7 +651,7 @@ function safeMap(id) {
 function mapBand(stage, state, ctx, f, supportEl = null) {
   const map = safeMap(stage.mapId);
   const tier = MAP_TIER_VIEW[f.played.tier];
-  const thumb = h('div.stp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 480, height: 300 }), map, stage.rule, 480, 300) : '' });
+  const thumb = h('div.stp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 480, height: 300, ruined: stage.scenery?.ruined }), map, stage.rule, 480, 300) : '' });
   // the band's height is the screen's; the map fills it edge to edge
   thumb.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMid slice');
   const tags = [
