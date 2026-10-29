@@ -2214,6 +2214,88 @@ export function runHeldBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
   return r;
 }
 
+/**
+ * The attack shapes S3 "Ground" in one co-op battle (2-4 Hard, to the end or 12 minutes; docs/specs/ATTACK_SHAPES.md
+ * §7.2 step 5b): the host's Chigusa to Forest Corridor (Bramble Road), Yuki to Diamond Dust (Rising Spikes) and Kanna
+ * bought up her level track past Lv 24 (Ripple Quake), the guest's Yuki and Chigusa the same. Once the wave-3
+ * checkpoint exists, the first frame 5 s into a wave with a vine, a spike row and a quake ring all live is rebuilt by
+ * a third client from that checkpoint and the log (a mid-wave rejoin), which must land on the same hash and snapshot.
+ */
+// (the girls a little weaker than her, so walkers reach Kanna; her levels nearly free, so her quake comes in by wave 4)
+const GROUND_STATS = { costMul: 0.03, damageMul: 0.7, rateMul: 1 };
+export const GROUND_START = Object.freeze({
+  seed: 262626,
+  stageId: '2-4',
+  difficulty: 'hard',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'chigusa', stats: GROUND_STATS }, { unitId: 'yuki', stats: GROUND_STATS }], hero: { unitId: 'kanna', stats: { ...GROUND_STATS, costMul: 0.002 } } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'yuki', stats: GROUND_STATS }, { unitId: 'chigusa', stats: GROUND_STATS }], hero: null },
+  ],
+});
+const GROUND_UPGRADES = Object.freeze([
+  [0, 'chigusa', 1], [1, 'yuki', 1], [0, 'yuki', 1], [1, 'chigusa', 1], [0, 'chigusa', 1], [1, 'yuki', 1], [0, 'yuki', 1], [1, 'chigusa', 1],
+  [0, 'chigusa', 1], [1, 'yuki', 1], [0, 'yuki', 1], [1, 'chigusa', 1], [0, 'chigusa', 1], [1, 'yuki', 1], [0, 'yuki', 1], [1, 'chigusa', 1],
+  [0, 'chigusa', 1], [1, 'yuki', 1], [0, 'yuki', 1], [1, 'chigusa', 1],
+]);
+
+/**
+ * GROUND_START to the end (or 12 minutes): the runPotentialBattle fields plus `ground` (Bramble Road lashes, spike-row
+ * and quake-ring hits, counted on the host's copy), `kanna` (her level at the end), and the mid-wave rejoin
+ * (`rejoinTick`, `rejoinSame`).
+ */
+export function runGroundBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
+  const t0 = Date.now();
+  const n = { lash: 0, spike: 0, quake: 0 };
+  let ck = null;
+  let rejoin = null;
+  const probe = (sim) => {
+    const hit0 = sim._hit;
+    Object.defineProperty(sim, '_hit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function hit(e, tower, spec, ...rest) {
+        if (tower && spec && e && !e.dead) {
+          if (tower.spikeRows?.some((r) => r.spec === spec)) n.spike++;
+          else if (tower.quakes?.some((q) => q.spec === spec)) n.quake++;
+        }
+        return hit0.call(this, e, tower, spec, ...rest);
+      },
+    });
+  };
+  const live = (sim, k) => sim.towers.some((t) => t[k]?.length);
+  let kanna = 0;
+  const onFrame = (A) => {
+    kanna = A.sim.hero?.level ?? 0;
+    for (const ev of A.sim.events) if (ev.type === 'lash') n.lash++;
+    if (!ck && A.ck && A.ck.wave >= ckWave) ck = { t: A.ck.t, wave: A.ck.wave, json: JSON.stringify(A.ck.snap) };
+    if (!ck || rejoin || A.sim.state !== 'wave' || !(A.sim._waveTime > 5)) return;
+    if (!live(A.sim, 'vines') || !live(A.sim, 'spikeRows') || !live(A.sim, 'quakes')) return;
+    const copy = new Lockstep({ start: GROUND_START, mySlot: 1, send: () => {}, now: () => 0 });
+    copy.rebuild(GROUND_START, [...A.log], A.tick, { t: ck.t, snap: JSON.parse(ck.json) });
+    rejoin = {
+      tick: A.tick,
+      same: copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash()
+        && snapshotDigest(copy.coop.snapshot()) === snapshotDigest(A.coop.snapshot()),
+    };
+  };
+  // the host buys Kanna a level (5 coins: her hero costs × 0.002) every 2 s while her wallet holds it and 50 more, so
+  // her quake comes in early in the battle
+  const script = (frame, A) => {
+    if (frame % 120 !== 60 || !A.sim.hero) return;
+    const s = A.sim.heroLevelStatus();
+    if (!s.reason && A.sim.cash >= s.price + 50) A.queue('hlv', [s.level + 1, s.price]);
+  };
+  const r = runPotentialBattle({ start: GROUND_START, upgrades: GROUND_UPGRADES, spotsFirst: ['kanna', 'chigusa', 'yuki'], maxFrames, probe, onFrame, script, ultInWave: true });
+  r.ground = `${n.lash}/${n.spike}/${n.quake}`;
+  r.kanna = kanna;
+  r.ckWave = ck?.wave ?? -1;
+  r.rejoinTick = rejoin?.tick ?? -1;
+  r.rejoinSame = !!rejoin?.same;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
 // ---------------------------------------------------------------------------
 // The duo Kohaku & Tsubaki (docs/specs/DUO_LR.md §4 "Engines scenario DUO_START"): Refraction (the shell counter and
 // the fixed shard table), Kohaku's beam on its tick timer, Prismfall on Auto-cast and its LR form Twin Star
@@ -2388,7 +2470,7 @@ export function runTryoutBattle({ maxWaves = 16, checkpointAt = 9 } = {}) {
   };
 }
 
-/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, the attack shapes S1, the duo (DUO_START), the staff heroes (STAFF_START), freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka, Tryout Day and the mode battles. */
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, the attack shapes S1, S2 and S3, the duo (DUO_START), the staff heroes (STAFF_START), freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka, Tryout Day and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t1 = Date.now();
@@ -2402,5 +2484,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), shapes: runShapesBattle(), held: runHeldBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), modes };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), shapes: runShapesBattle(), held: runHeldBattle(), ground: runGroundBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), modes };
 }
