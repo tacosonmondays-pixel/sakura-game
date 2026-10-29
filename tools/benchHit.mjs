@@ -18,7 +18,8 @@
 // 1.25 / reach +0.7. --no-range drops the range cards and keeps the seat reach at Prism's +0.7 (damage only). Each shipping Hidden Talent (PEP_CARDS
 // `ship`) is measured too: the talent card at SSR added to the same hand, so the Sim's own fold appends its raw set.
 // Builds: `best` (default) = the path whose tier-5 build (tier-2 crosspath) gives the maxed girl the most hit
-// DPS; `all` = every path at tier 5. A row fails when ceiling / maxed > 1 or ceiling > 2.5M × 1.25; exit 1.
+// DPS; `all` = every path at tier 5. A row fails when ceiling / maxed > 1 (or above its CEILING_EXCEPTIONS entry) or
+// ceiling > 2.5M × 1.25; exit 1.
 import { Sim } from '../src/sim/Sim.js';
 import { defaultData } from '../src/sim/data.js';
 import { samplePath } from '../src/sim/path.js';
@@ -47,6 +48,11 @@ const CAP_HAND = ['P01', 'P01', 'P01', 'P02', 'P02', 'P03', 'P03', 'P05', 'P05']
 const SEAT_PAD = 1.25; // Prism Conduits' own padDmgMul (src/data/rules.js)
 const SEAT_REACH = 0.7;
 const ABS_CAP = 2.5e6 * 1.25;
+// Recorded exceptions to `ceiling / maxed ≤ 1` (girl or girl|talent → the highest ratio allowed): the attack shapes'
+// Blade Cyclone (S1) lifts Kage's run-ceiling crowd DPS (×1.185, ×1.584 with T_kage; ×0.75 / ×0.99 on v0.1.60). The
+// coordinator's call, Oct 29, under the owner's "no cap, everyone close to Kage": accepted, Kage is not trimmed; Tryout
+// difficulty is watched on the sweeps instead (docs/BALANCE.md "Balance round 5").
+export const CEILING_EXCEPTIONS = Object.freeze({ kage: 1.2, 'kage|T_kage': 1.6 });
 const ADD = new Set(['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback', 'gather']);
 
 export function ceilingStats() {
@@ -254,12 +260,14 @@ export async function main(argv) {
         const ce = measure({ ...common, unitId, stats: ceil, build: parseBuild(b), stageId, target, pad: true, runMods, padMul: seat.padMul, padRangeAdd: seat.padRangeAdd });
         const err = mx.error || ce.error;
         const ratio = err || !mx.hitDps ? NaN : ce.hitDps / mx.hitDps;
-        const ok = !err && (ratio <= 1 || !mx.hitDps && !ce.hitDps) && ce.hitDps <= ABS_CAP;
+        const allow = CEILING_EXCEPTIONS[talent ? `${unitId}|${talent.id}` : unitId] ?? 1;
+        const ok = !err && (ratio <= allow || !mx.hitDps && !ce.hitDps) && ce.hitDps <= ABS_CAP;
+        const excepted = ok && ratio > 1;
         const unknown = talent ? Object.keys(talent.mods).filter((k) => !KNOWN.has(k)) : [];
         const row = {
           unitId, talent: talent?.id ?? null, build: b, target, ceilingDps: ce.hitDps, maxedDps: mx.hitDps, ratio: Number.isFinite(ratio) ? +ratio.toFixed(3) : null,
           ceilingPanel: ce.panelDps, maxedPanel: mx.panelDps, padMul: +seat.padMul.toFixed(3), maxedPadMul: mx.padMul, kills: [ce.kills, mx.kills], tiers: ce.tiers,
-          ok, error: err || undefined, runMods, unknownKeys: unknown.length ? unknown : undefined, ms: Date.now() - ts,
+          ok, excepted: excepted || undefined, error: err || undefined, runMods, unknownKeys: unknown.length ? unknown : undefined, ms: Date.now() - ts,
         };
         if (!ok) fails++;
         rows.push(row);
@@ -273,7 +281,7 @@ export async function main(argv) {
     console.log('| girl | talent | build | target | ceiling hit DPS | maxed-on-pad hit DPS | ratio | seat padMul | ≤ 3.125M | ok |');
     console.log('|---|---|---|---|---:|---:|---:|---:|---|---|');
     for (const r of rows) {
-      console.log(`| ${r.unitId} | ${r.talent ?? '–'}${r.unknownKeys ? ` (ignored keys: ${r.unknownKeys.join(',')})` : ''} | ${r.build} ${r.tiers ?? ''} | ${r.target} | ${r.error ?? fmt(r.ceilingDps)} | ${fmt(r.maxedDps ?? 0)} | ${r.ratio ?? '–'} | ${r.padMul} | ${r.ceilingDps <= ABS_CAP ? 'yes' : 'NO'} | ${r.ok ? 'ok' : 'FAIL'} |`);
+      console.log(`| ${r.unitId} | ${r.talent ?? '–'}${r.unknownKeys ? ` (ignored keys: ${r.unknownKeys.join(',')})` : ''} | ${r.build} ${r.tiers ?? ''} | ${r.target} | ${r.error ?? fmt(r.ceilingDps)} | ${fmt(r.maxedDps ?? 0)} | ${r.ratio ?? '–'} | ${r.padMul} | ${r.ceilingDps <= ABS_CAP ? 'yes' : 'NO'} | ${r.excepted ? 'ok (recorded exception)' : r.ok ? 'ok' : 'FAIL'} |`);
     }
     const rs = rows.filter((r) => r.ratio != null).map((r) => r.ratio);
     console.log(`${rows.length} rows, ${fails} failing; ratio max ${Math.max(...rs).toFixed(3)}, mean ${(rs.reduce((a, b) => a + b, 0) / Math.max(1, rs.length)).toFixed(3)}; ${((Date.now() - t0) / 1000).toFixed(1)} s`);
