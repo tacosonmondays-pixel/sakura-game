@@ -121,7 +121,7 @@ describe('Momo: Coin Wheel (Blossom Wheel) on Encore Toss tiers 4-5', () => {
     expect(setup('momo', COIN, 3).t.eff.behavior).toBe('projectile');
     const { t } = setup('momo', COIN, 4);
     expect(t.eff.behavior).toBe('wheel');
-    expect(t.stats.wheel).toEqual({ spokes: 12, lead: 1, mul: 0.42 });
+    expect(t.stats.wheel).toEqual({ spokes: 12, lead: 0.98, mul: 0.15 });
     expect(setup('momo', COIN, 5).t.stats.wheel.spokes).toBe(16);
     for (const p of [0, 1]) {
       const o = setup('momo', p, 5).t;
@@ -130,7 +130,7 @@ describe('Momo: Coin Wheel (Blossom Wheel) on Encore Toss tiers 4-5', () => {
     }
   });
 
-  test('a wheel fires only with a target: her toss coins at her targets (pierce 1, × lead), the wheel evenly round', () => {
+  test('a wheel fires only with a target: her toss coins at her targets (her pierce, × lead), the wheel evenly round (pierce 1)', () => {
     const { sim, t } = setup('momo', COIN, 4);
     expect(t.eff.projectiles).toBe(2);
     steps(sim, 60);
@@ -143,13 +143,13 @@ describe('Momo: Coin Wheel (Blossom Wheel) on Encore Toss tiers 4-5', () => {
     // a lone target takes both toss coins
     expect(list.slice(0, 2).map(dirOf)).toEqual([k0, k0]);
     for (const p of list.slice(0, 2)) {
-      expect(p.pierce).toBe(1);
-      expect(p.scale).toBe(1);
+      expect(p.pierce).toBe(t.eff.pierce);
+      expect(p.scale).toBe(0.98);
     }
     expect(list.slice(2).map(dirOf)).toEqual(Array.from({ length: 11 }, (_, i) => wrapDir(k0 + (i + 1) * 20)));
     for (const p of list.slice(2)) {
-      expect(p.scale).toBe(0.42);
-      expect(p.pierce).toBe(t.eff.pierce);
+      expect(p.scale).toBe(0.15);
+      expect(p.pierce).toBe(1);
       expect(p.maxTravel).toBe(t.eff.range);
     }
     steps(sim, 30);
@@ -167,25 +167,25 @@ describe('Momo: Coin Wheel (Blossom Wheel) on Encore Toss tiers 4-5', () => {
   });
 });
 
-describe('Kage: Blade Cyclone (Pinwheel Stream) on Storm of Steel tiers 4-5', () => {
-  test('tier 3 keeps her throws; tier 4 spins three arms, tier 5 four; her other paths keep throwing', () => {
+describe('Kage: Blade Cyclone (Pinwheel Stream) on Storm of Steel tier 5', () => {
+  test('tiers 3 and 4 keep her throws; tier 5 spins four arms; her other paths keep throwing', () => {
     expect(setup('kage', STEEL, 3).t.eff.behavior).toBe('projectile');
-    const { t } = setup('kage', STEEL, 4);
+    expect(setup('kage', STEEL, 4).t.eff.behavior).toBe('projectile');
+    const { t } = setup('kage', STEEL, 5);
     expect(t.eff.behavior).toBe('spin');
-    expect(t.stats.spin).toMatchObject({ arms: 3, mul: 2.83, fold: 1.04, turn: SPIN_TURN, lock: SPIN_LOCK });
-    expect(setup('kage', STEEL, 5).t.stats.spin.arms).toBe(4);
+    expect(t.stats.spin).toMatchObject({ arms: 4, mul: 2.02, fold: 1.04, turn: SPIN_TURN, lock: SPIN_LOCK });
     for (const p of [1, 2]) expect(setup('kage', p, 5).t.eff.behavior).toBe('projectile');
   });
 
   test('nothing in range: no shots and no turning', () => {
-    const { sim, t } = setup('kage', STEEL, 4);
+    const { sim, t } = setup('kage', STEEL, 5);
     steps(sim, 120);
     expect(shots(sim, t)).toHaveLength(0);
     expect(t.spinK ?? null).toBe(null);
   });
 
   test('a lone enemy: the arms fold into one stream that turns toward it, carrying her whole volley × fold', () => {
-    const { sim, t } = setup('kage', STEEL, 4);
+    const { sim, t } = setup('kage', STEEL, 5);
     const e = parkAt(sim, 'tank', 8, 4.5);
     steps(sim, 1);
     const list = shots(sim, t);
@@ -196,27 +196,32 @@ describe('Kage: Blade Cyclone (Pinwheel Stream) on Storm of Steel tiers 4-5', ()
     expect(e.hp).toBeLessThan(1e6);
   });
 
-  test('a crowd: each arm shoots, evenly round, and the arms turn (slowly while one is on an enemy)', () => {
-    const { sim, t } = setup('kage', STEEL, 4);
-    parkAt(sim, 'tank', 8, 4.5);
-    parkAt(sim, 'tank', 5, 4.5);
+  test('a crowd: each arm shoots, evenly round, and the arms turn (they stay while one is on an enemy)', () => {
+    const { sim, t } = setup('kage', STEEL, 5);
+    const es = [parkAt(sim, 'tank', 8, 4.5), parkAt(sim, 'tank', 5, 4.5)];
     steps(sim, 1);
     const list = shots(sim, t);
-    expect(list).toHaveLength(3);
-    expect(list.map(dirOf)).toEqual([0, 80, 160]);
-    expect(list[0].scale).toBeCloseTo((t.eff.projectiles * 2.83) / 3, 12);
+    expect(list).toHaveLength(4);
+    expect(list.map(dirOf)).toEqual([0, 60, 120, 180]);
+    expect(list[0].scale).toBeCloseTo((t.eff.projectiles * 2.02) / 4, 12);
     expect([SPIN_TURN, SPIN_LOCK]).toContain(t.spinK);
-    // over a few seconds the arms sweep most of the circle
+    // the arms find a parked enemy and stay on it (SPIN_LOCK 0)
+    steps(sim, 120);
+    const held = t.spinK;
+    steps(sim, 120);
+    expect(t.spinK).toBe(held);
+    // once the enemies walk, the arms sweep after them round the circle
+    for (const e of es) e.baseSpeed = 1.2;
     const seen = new Set();
     for (let i = 0; i < 600; i++) {
       steps(sim, 1);
       seen.add(t.spinK);
     }
-    expect(seen.size).toBeGreaterThan(12);
+    expect(seen.size).toBeGreaterThan(3);
   });
 
   test('an attack like any other: her rate sets the throws; Potential 6 keeps its Shuriken Storm echo, tempo and extra shuriken', () => {
-    const { sim, t } = setup('kage', STEEL, 4, { stats: { potential: 6 } });
+    const { sim, t } = setup('kage', STEEL, 5, { stats: { potential: 6 } });
     expect(t.eff.projScale).toBeGreaterThan(0);
     parkAt(sim, 'tank', 8, 4.5);
     parkAt(sim, 'tank', 5, 4.5);
@@ -234,7 +239,7 @@ describe('Kage: Blade Cyclone (Pinwheel Stream) on Storm of Steel tiers 4-5', ()
     expect(attacks).toBeGreaterThan(t.eff.rate * 10 * 0.8); // echoes add attack events on top
     expect(procs).toBeGreaterThan(0);
     expect(t.tempoStacks).toBeGreaterThan(0);
-    expect(first.scale).toBeCloseTo((t.eff.projectiles * (1 + t.eff.projScale) * 2.83) / 3, 9);
+    expect(first.scale).toBeCloseTo((t.eff.projectiles * (1 + t.eff.projScale) * 2.02) / 4, 9);
   });
 });
 
@@ -242,7 +247,7 @@ describe('Hotaru: Firefly Halo (Petal Halo) on Lantern Light tiers 3-5', () => {
   test('tier 3 adds four fireflies beside her pulse, tiers 4 and 5 two more each; her other paths have none', () => {
     const { t } = setup('hotaru', LANTERN, 3);
     expect(t.eff.behavior).toBe('pulse');
-    expect(t.stats.halo).toEqual({ pieces: 4, reach: 0, mul: 0.085 });
+    expect(t.stats.halo).toEqual({ pieces: 4, reach: 0, mul: 0.025 });
     expect(setup('hotaru', LANTERN, 5).t.stats.halo.pieces).toBe(8);
     for (const p of [1, 2]) expect(setup('hotaru', p, 5).t.stats.halo).toBeUndefined();
   });
@@ -287,7 +292,7 @@ describe('Hotaru: Firefly Halo (Petal Halo) on Lantern Light tiers 3-5', () => {
 
 describe('wave clear and selling', () => {
   test('the spin index and halo memory end at the wave clear', () => {
-    const k = setup('kage', STEEL, 4);
+    const k = setup('kage', STEEL, 5);
     parkAt(k.sim, 'tank', 8, 4.5);
     parkAt(k.sim, 'tank', 5, 4.5);
     steps(k.sim, 30);

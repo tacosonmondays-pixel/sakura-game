@@ -508,8 +508,8 @@ const MOMO = {
       tier('Heavy Coins', 100, '+2 damage.', { damage: 2 }),
       tier('Double Toss', 260, 'Throws at 2 targets; +20% attack speed.', { projectiles: 1, rateMul: 1.2 }),
       tier('Gold Rush', 800, 'Solid gold coins ignore 2 armor, +3 damage, pierce 2 more.', { armorPen: 2, damage: 3, pierce: 2 }),
-      tier('Jackpot', 2400, 'Coin Wheel: each toss still throws her coins at her targets, and 11 more gold coins fly out with them in a wheel, piercing what stands round her (×0.42). 20% crits for ×3, +6 damage, ignores 2 armor, +40 coins per wave; +25% damage.', { behavior: 'wheel', wheel: { spokes: 12, lead: 1, mul: 0.42 }, crit: { chance: 0.2, mul: 3 }, damage: 6, income: { perWave: 40 }, armorPen: 2, damageMul: 1.25 }),
-      tier('Fortune\'s Favourite', 17000, 'A coin storm: 4 targets, a 16-coin wheel (the wheel\'s coins ×0.63), +60% speed, +10 damage, +150 coins per wave; +55% damage.', { wheel: { spokes: 4, lead: 1, mul: 0.63 }, rateMul: 1.6, projectiles: 2, damage: 10, income: { perWave: 150 }, damageMul: 1.55 }),
+      tier('Jackpot', 2400, 'Coin Wheel: each toss still throws her coins at her targets (×0.98), and 11 more gold coins fly out with them in a wheel, each cutting the first enemy it meets (×0.15). 20% crits for ×3, +6 damage, ignores 2 armor, +40 coins per wave; +25% damage.', { behavior: 'wheel', wheel: { spokes: 12, lead: 0.98, mul: 0.15 }, crit: { chance: 0.2, mul: 3 }, damage: 6, income: { perWave: 40 }, armorPen: 2, damageMul: 1.25 }),
+      tier('Fortune\'s Favourite', 17000, 'A coin storm: 4 targets, a 16-coin wheel (toss coins ×0.98, the wheel\'s ×0.2), +60% speed, +10 damage, +150 coins per wave; +55% damage.', { wheel: { spokes: 4, lead: 0.98, mul: 0.2 }, rateMul: 1.6, projectiles: 2, damage: 10, income: { perWave: 150 }, damageMul: 1.55 }),
     ]),
   ],
   awakenPassive: {
@@ -692,8 +692,8 @@ const KAGE = {
       tier('Quick Hands', 140, '+20% attack speed.', { rateMul: 1.2 }),
       tier('Triple Star', 320, 'Throws at 3 targets.', { projectiles: 1 }),
       tier('Shuriken Cyclone', 1000, '5 targets, +1 pierce, +15% attack speed.', { projectiles: 2, pierce: 1, rateMul: 1.15 }),
-      tier('Blade Rain', 3000, 'Blade Cyclone: shuriken pour out in a stream from three turning arms, one shuriken each per throw; an arm that finds an enemy slows to a crawl on it, and against a lone enemy the arms fold into one stream. +50% attack speed, +4 damage, ignores 5 armor; +20% damage.', { behavior: 'spin', spin: { arms: 3, mul: 2.83, fold: 1.04 }, projectiles: 2, rateMul: 1.5, damage: 4, armorPen: 5, damageMul: 1.2 }),
-      tier('Thousand Shadows', 26000, 'Shadow clones join in: a fourth arm, +60% speed, +3 damage, +2 pierce, ignores 4 more armor, ×1.3 vs bosses; +65% damage.', { spin: { arms: 1, mul: 2.91, fold: 1.04 }, projectiles: 6, rateMul: 1.6, damage: 3, pierce: 2, armorPen: 4, bossMul: 1.3, damageMul: 1.65 }),
+      tier('Blade Rain', 3000, '7 targets, +50% attack speed, +4 damage, ignores 5 armor; +20% damage.', { projectiles: 2, rateMul: 1.5, damage: 4, armorPen: 5, damageMul: 1.2 }),
+      tier('Thousand Shadows', 26000, 'Blade Cyclone: shadow clones join in and her shuriken pour out of four turning arms, one each per throw; an arm that finds an enemy stays on it, and against a lone enemy the arms fold into one stream. +60% speed, +3 damage, +2 pierce, ignores 4 more armor, ×1.3 vs bosses; +65% damage.', { behavior: 'spin', spin: { arms: 4, mul: 2.02, fold: 1.04 }, projectiles: 6, rateMul: 1.6, damage: 3, pierce: 2, armorPen: 4, bossMul: 1.3, damageMul: 1.65 }),
     ]),
     path('shadowmark', 'Shadow Mark', 'Reveal and mark', [
       tier('Keen Senses', 120, '+0.4 range.', { range: 0.4 }),
@@ -1155,9 +1155,9 @@ const HOTARU = {
     path('lantern', 'Lantern Light', 'Holy damage', [
       tier('Brighter Wick', 160, '+2 damage.', { damage: 2 }),
       tier('Firefly Swarm', 380, 'Pulses hit 4 more enemies; +0.2 range.', { maxTargets: 4, range: 0.2 }),
-      tier('Spirit Bane', 1200, 'Firefly Halo: four fireflies circle her and cut what they touch, taking a quarter of her damage: her pulses deal 30% less, ×1.4 vs elites and bosses. +6 damage, 10% crits ×2.', { halo: { pieces: 4, mul: 0.085 }, damageMul: 0.7, eliteMul: 1.4, damage: 6, crit: { chance: 0.1, mul: 2 } }),
-      tier('Requiem Lanterns', 3600, 'Two more fireflies; +14 damage, +30% attack speed, +16% vs elites; struck foes turn Brittle (+10%); +35% damage.', { halo: { pieces: 2, mul: 0.057 }, damage: 14, rateMul: 1.3, status: [S.vulnerable(0.1, 2)], eliteMul: 1.16, damageMul: 1.35 }),
-      tier('Thousand Souls Festival', 32500, 'Two more fireflies; +40 damage, +1.2 range, +30% attack speed; pulses hit everything in range (40 more targets), ×2.1 vs bosses; +28% damage.', { halo: { pieces: 2, mul: 0.177 }, damage: 40, range: 1.2, rateMul: 1.3, maxTargets: 40, bossMul: 2.1, damageMul: 1.28 }),
+      tier('Spirit Bane', 1200, 'Firefly Halo: four fireflies circle her and cut what they touch; her pulses deal 5% less. +6 damage, 10% crits ×2.', { halo: { pieces: 4, mul: 0.025 }, damageMul: 0.95, damage: 6, crit: { chance: 0.1, mul: 2 } }),
+      tier('Requiem Lanterns', 3600, 'Two more fireflies; +14 damage, +30% attack speed, +25% vs elites; struck foes turn Brittle (+10%); +32% damage.', { halo: { pieces: 2, mul: 0.013 }, damage: 14, rateMul: 1.3, status: [S.vulnerable(0.1, 2)], eliteMul: 1.25, damageMul: 1.32 }),
+      tier('Thousand Souls Festival', 32500, 'Two more fireflies; +40 damage, +1.2 range, +30% attack speed; pulses hit everything in range (40 more targets), ×2.4 vs bosses; +28% damage.', { halo: { pieces: 2, mul: 0.03 }, damage: 40, range: 1.2, rateMul: 1.3, maxTargets: 40, bossMul: 2.4, damageMul: 1.28 }),
     ]),
     path('prayer', 'Silent Prayer', 'Silence and stillness', [
       tier('Hush', 150, 'Silence lasts 0.4s longer.', { silence: 0.4 }),

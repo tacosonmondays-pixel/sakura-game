@@ -452,10 +452,10 @@ Written on `feature/attack-shapes`. The owner answered "defaults!" to §8, so A2
 |---|---|---|
 | 1 | Which shapes first? | **S1 "Wheels"**: Blossom Wheel, Pinwheel Stream, Petal Halo (the cheapest: mostly reuse of Kinu's ring code). Then S2, S3, S4 in that order (A6). |
 | 2 | Reworks or new girls? | **Reworks** of girls players already own. New girls can take shapes later, from their own design. |
-| 3 | Whole kit or one path? | **One path each**; her other two paths keep today's attack. The shape arrives at **tier 4** for a behaviour change (the roster's standing rule: transformations only at tiers 4-5, `tests/data/units.test.js`) and at tier 3 for an added kit (Hotaru's halo beside her pulse). |
+| 3 | Whole kit or one path? | **One path each**; her other two paths keep today's attack. The shape arrives at **tier 4 or 5** for a behaviour change (the roster's standing rule: transformations only at tiers 4-5, `tests/data/units.test.js`; Kage's at 5, A3) and at tier 3 for an added kit (Hotaru's halo beside her pulse). |
 | 4 | Which girl gets which shape? | S1: **Momo** (Encore Toss → Coin Wheel), **Kage** (Storm of Steel → Blade Cyclone), **Hotaru** (Lantern Light → Firefly Halo). S2-S4 as in A6. |
 | 5 | How many per update? | **One batch (2-3 shapes) per release**, one `COOP_PROTOCOL` bump each, sharing the number with whatever else ships in that release. |
-| 6 | Same power or a buff? | **Same power**: each touched tier lands within ±5 % of today's DPS on the bench (crowd and boss rows; method and numbers in A4), the rule set for Kohaku's beam. |
+| 6 | Same power or a buff? | **Same power**: each touched tier lands within about ±5 % of today's DPS on both rulers, the light bench and balance round 5's fully maxed bench (crowd and boss rows; method and numbers in A4), the rule set for Kohaku's beam. |
 | 7 | Kinu? | **Leave her kit as it is.** She already has true 360° rings, a spiral and scissors; her look improves with the effects update (§7.4, render only). |
 | 8 | Vines: hold or slow? | **Slow.** Bramble Road slows every walker on the vine; only the first walker it reaches is held, briefly, never bosses or flyers, minibosses resist (the hold Chigusa has today). A long hold on narrow roads is too strong. |
 | 9 | Ship plain, polish later? | **Yes.** Each batch ships with plain effects (straight shots drawn as the girl's own shots, simple glows and rings) and gets its polished look in a later display update (§7.3). |
@@ -465,48 +465,51 @@ Written on `feature/attack-shapes`. The owner answered "defaults!" to §8, so A2
 
 | Girl, path | Tiers | Shape | What the player sees |
 |---|---|---|---|
-| Momo, Encore Toss | T4 Jackpot, T5 Fortune's Favourite | Blossom Wheel (`behavior: 'wheel'`) | Each toss still throws her coins at her targets, one per projectile (2; 4 at T5), each for its target alone (×1), and the rest of a 12-coin wheel (16 at T5) flies out with them, evenly round, piercing whatever stands round her (×0.42; ×0.63). T3 keeps her toss. |
-| Kage, Storm of Steel | T4 Blade Rain, T5 Thousand Shadows | Pinwheel Stream (`behavior: 'spin'`) | Shuriken pour out of three turning arms (four at T5), one shuriken per arm per throw; an arm that finds an enemy slows to a crawl on it; against a lone enemy the arms fold into one stream that turns to follow it. T3 "Shuriken Cyclone" keeps its 5-target throw (tier 3 cannot transform). |
-| Hotaru, Lantern Light | T3 Spirit Bane, T4, T5 | Petal Halo (kit `halo`) | Four fireflies (six, eight) circle her and cut what they touch; her pulses keep going beside them, 30 % lighter, ×1.4 vs elites and bosses. |
+| Momo, Encore Toss | T4 Jackpot, T5 Fortune's Favourite | Blossom Wheel (`behavior: 'wheel'`) | Each toss still throws her coins at her targets, one per projectile (2; 4 at T5), with her pierce (×0.98), and the rest of a 12-coin wheel (16 at T5) flies out with them evenly round, each wheel coin cutting the first enemy it meets (×0.15; ×0.2). T3 keeps her toss. |
+| Kage, Storm of Steel | T5 Thousand Shadows | Pinwheel Stream (`behavior: 'spin'`) | Her shuriken pour out of four turning arms, one per arm per throw (×2.02 of her volley, split over the arms); an arm that finds an enemy stays on it until it walks off; against a lone enemy the arms fold into one stream that turns to follow it. T3 "Shuriken Cyclone" and T4 "Blade Rain" keep her throws. |
+| Hotaru, Lantern Light | T3 Spirit Bane, T4, T5 | Petal Halo (kit `halo`) | Four fireflies (six, eight) circle her and cut what they touch, beside her pulses (5 % lighter); T4 keeps ×1.25 vs elites, T5 is ×2.4 vs bosses (was 2.5). |
 
 Changes from the spec, and why:
 
 1. **Hotaru, not Noa, has the halo.** Noa's chimes hit for about 1 after armor, and every hit deals at least 1 (`computeHit`). Her halo's cuts alone reached her whole tier-3 DPS, so no halo strength could keep her at parity. Hotaru's hits are big enough for the floor not to matter.
 2. **Pinwheel Stream is an attack, not a 0.1 s kit clock.** Kage's Potential (more shuriken, Shadow Tempo, the Shuriken Storm echo), gear tricks and drinks all count attacks. A clock that bypassed her attack loop would quietly drop all of them. One shot per arm per throw keeps them, and her throws are fast enough to read as a stream.
-3. **The lone-enemy fold** replaces the spec's "lock tier". A sprinkler that only lingers gives a lone boss about half her damage (−45 % measured). Folding into one stream keeps single-target parity without a hidden boss multiplier.
-4. **Halo cuts carry no statuses, marks, pushes or crits** (`t.haloSpec`, built after her buff extras so aura armor pen counts); her attack type's own on-hit rules still apply (Hotaru's holy cuts end phasing and silence field casters, like any holy hit). Hotaru's (or anyone's) on-hit stuns and slows on a ring of fast cuts would stun-lock a crowd. Measured with Noa: her chime DPS went ×10 while the crowd stood frozen.
-5. **The wheel keeps her toss coins** (one per projectile at her targets, pierce 1). A single aimed lead spoke that pierced carried the whole crowd row by itself; a single lead spoke at pierce 1 left her early-game single target at 0.74 (the L25 elite splits, and her old toss hit two of the pieces). Keeping her toss coins puts every single-target row at 1.00 with the coins at their old ×1.
-6. **The shape's own knobs are stated per tier, not multiplied** (`wheel.lead/mul`, `spin.mul/fold`, `halo.mul`), so the data reads as the bench fitted it.
+3. **The lone-enemy fold** replaces the spec's "lock tier". A sprinkler gives a lone boss about half her damage (−45 % measured). Folding into one stream keeps single-target parity without a hidden boss multiplier.
+4. **The arms stay on an enemy** (`SPIN_LOCK` 0, not 1). With slow-turning arms, a sparse crowd needed a ×2.9 multiplier, which then exploded in a dense one: balance round 5's maxed crowd read ×1.88. Arms that stay on what they find hit about as well in both, so one multiplier fits both rulers.
+5. **The Blade Cyclone starts at T5, not T4.** At T4, with 7 throws a volley, no arm count or multiplier fit both rulers: 0.75 on the light bench against 1.33 on round 5. T4 keeps her throw at exact parity.
+6. **The wheel keeps her toss coins** (one per projectile at her targets, her pierce), and **the wheel's other coins pierce only one enemy**. Two failures led here. A single aimed lead spoke left her early-game single target at 0.74, because the L25 elite splits and her old toss hit two of the pieces. Wheel coins with her pierce multiplied in dense crowds: ×1.76 on round 5.
+7. **Halo cuts carry no statuses, marks, pushes or crits** (`t.haloSpec`, built after her buff extras so aura armor pen counts). Her attack type's own on-hit rules still apply: Hotaru's holy cuts end phasing and silence field casters, like any holy hit. With Noa, status-carrying cuts sent her chime DPS ×10 while the crowd stood stun-locked.
+8. **The halo is a small share.** On round 5's dense crowd her pulse (40 targets at T5) does nearly everything, so cutting it ×0.7 for a larger halo read 0.70-0.75 there. Her pulse is now ×0.95 and the halo light.
+9. **The shape's own knobs are stated per tier, not multiplied** (`wheel.lead/mul`, `spin.mul/fold`, `halo.mul`), so the data reads as the bench fitted it.
 
 ### A4. DPS parity (§7.2 step 6)
 
-Method: `tools/bench.mjs` (STRONG preset, partner Aoi), crowd and boss rows, each touched path at T3-T5, against `origin/main` aa0281de. A wheel, stream or halo depends on how the road passes her. The one default stage (4-5 seed 9) puts her spot beside a straight road, so fitting to it alone overfits. Each tier's knobs are fitted to the **mean ratio over four configurations**: 4-5 seed 9, 4-5 seed 3, 2-4, 6-3. Untouched paths and girls are bit-identical (the 456-resolution stats hash with the three girls left out: `8cb286a4` before and after).
+Two rulers, both against `origin/main` aa0281de (ratio new / main, crowd and boss rows; untouched paths and girls are bit-identical: the 456-resolution stats hash with the three girls left out reads `8cb286a4` before and after):
 
-| Girl, tier, row | Mean of 4 | 4-5 s9 | 4-5 s3 | 2-4 | 6-3 | 4-5 L25 (early preset) |
-|---|---|---|---|---|---|---|
-| Momo T4 crowd / boss | 1.01 / 1.00 | 0.89 / 1.00 | 0.89 / 1.00 | 1.11 / 1.00 | 1.16 / 1.00 | 0.86 / 1.00 |
-| Momo T5 crowd / boss | 1.00 / 1.02 | 0.93 / 1.00 | 0.90 / 1.00 | 1.11 / 1.10 | 1.07 / 0.97 | 0.87 / 1.00 |
-| Kage T4 crowd / boss | 1.00 / 1.00 | 0.88 / 1.00 | 0.86 / 0.95 | 1.14 / 0.98 | 1.10 / 1.05 | 0.85 / 0.90 |
-| Kage T5 crowd / boss | 1.00 / 1.00 | 0.86 / 0.99 | 0.86 / 0.98 | 1.15 / 1.00 | 1.13 / 1.01 | 0.86 / 0.95 |
-| Hotaru T3 crowd / boss | 0.96 / 1.00 | 0.81 / 1.00 | 0.81 / 0.99 | 1.10 / 1.01 | 1.09 / 1.01 | 0.86 / 1.01 |
-| Hotaru T4 crowd / boss | 0.98 / 1.01 | 0.84 / 0.98 | 0.84 / 0.99 | 1.12 / 1.03 | 1.13 / 1.03 | 0.89 / 0.99 |
-| Hotaru T5 crowd / boss | 1.00 / 1.00 | 0.86 / 0.93 | 0.86 / 0.92 | 1.14 / 1.05 | 1.16 / 1.10 | 0.90 / 1.12 |
+- **The light bench** (`tools/bench.mjs`, STRONG preset, partner Aoi): the mean over four configurations (4-5 seed 9, 4-5 seed 3, 2-4, 6-3), plus 4-5 at the early L25 preset.
+- **Balance round 5's bench** (`tools/balance/r5Bench.mjs` on `feature/balance-r5`): fully maxed (L85, ★5, 10 gates, P6, UR gear, UR Resonance on), Umeko and Midori beside her, 4-5, seeds 9/1/2. Its crowd is far denser.
 
-(Momo and Kage at T3 are unchanged: 1.00 everywhere.) Every mean is within ±5 %. A single stage swings about ±15 % on the crowd row: the shapes gain where the road wraps round her and lose beside a straight road, which is the trade the spec describes (§5.1). The early preset reads 10-15 % lower on crowds (left to balance round 5, which re-measures on top of S1: coordinator, Oct 29). Momo's T4 single target at the early preset was 0.74 with one lead coin (the L25 "boss" is an elite slime that splits); with her toss coins kept it is 1.00. Balance round 5 can re-measure all of this on its own bench (the S1 girls and paths are listed for it).
+| Girl, tier | Light: mean crowd / boss | Light: one stage, crowd range | Light: L25 crowd / boss | Round 5: crowd / boss / walking boss |
+|---|---|---|---|---|
+| Momo T4 | 1.06 / 0.98 | 1.03-1.11 | 1.04 / 0.98 | 0.97 / 0.98 / 0.98 |
+| Momo T5 | 1.05 / 0.99 | 1.03-1.08 | 1.04 / 0.98 | 0.97 / 0.98 / 0.98 |
+| Kage T5 | 0.96 / 1.00 | 0.92-1.00 | 0.80 / 0.95 | 1.04 / 1.04 / 1.06 |
+| Hotaru T3 | 1.05 / 0.97 | 0.99-1.11 | 1.10 / 0.98 | 0.95 / 0.96 / 0.95 |
+| Hotaru T4 | 1.04 / 0.97 | 1.00-1.09 | 1.03 / 0.98 | 0.97 / 0.97 / 0.97 |
+| Hotaru T5 | 1.05 / 0.98 | 1.01-1.08 | 1.02 / 1.01 | 0.99 / 0.97 / 0.95 |
 
-**For the owner (the independent review's medium finding 3):** "same power" holds as the four-stage mean on the late-game (STRONG) preset. Early in a battle (the L25 preset) every touched tier reads 10-15 % lower on crowds, and one stage alone can swing ±15 %. Coordinator, Oct 29 (owner's defaults): the ±5 % rule is the four-stage mean; the stage-to-stage swing is the shape's geometry, by design; no across-the-board tune-up; the L25 crowd spread goes to balance round 5; Momo's T4 early single target had to reach ≥ 0.90 (done: 1.00).
+(Momo T3, Kage T3 and T4 are unchanged: 1.00 everywhere.) Every touched tier is within about ±5-6 % on both rulers' means. One stage alone swings about ±10 % on the crowd (the shape's geometry: strong where the road wraps round her). The one larger miss is Kage T5's early-preset crowd (0.80). The coordinator gave the early crowd spread to balance round 5 (Oct 29), which re-measures and re-sizes on top of S1. Momo's early single target, 0.74 before the toss coins came back, is 0.98.
 
-The panel DPS (`towerStats`, `projectedDps`) follows the shapes (`wheels.js` `shapeDps`). On one target it counts a wheel's lead coin and a spin's folded stream, and it adds the halo's cuts on an enemy on its ring.
+The panel DPS (`towerStats`, `projectedDps`) follows the shapes (`wheels.js` `shapeDps`): on one target, her toss coins and the folded stream; the halo's cuts are added as one enemy on its ring sees them.
 
 ### A5. Determinism (§7.2 step 5)
 
 - (a) `tests/sim/wheels.test.js`: each S1 girl alone and all three together on 4-5, plain `Math` against `withDetMath`, `hashSim` every 60 ticks equal; twice the same battle identical.
-- (b) `e2e/engines/scriptedBattle.js` `runShapesBattle` (SHAPES_START, 2-4 Hard): Momo's wheel and Kage's stream (host), Hotaru's halo and a second Kage (guest), two Lockstep clients to the end. A third client rebuilds the battle from the wave-3 checkpoint and the log to the first tick 5 s into a wave with a spin index and a halo memory live (a mid-wave rejoin), and must land on the run's hash and snapshot. It is compared across engines by `e2e/engines.mjs` and pinned in `tests/online/engines.test.js`.
+- (b) `e2e/engines/scriptedBattle.js` `runShapesBattle` (SHAPES_START, 2-4 Hard): Momo's wheel and Kage's stream (host), Hotaru's halo and a second Kage (guest), all at tier 5, two Lockstep clients to the end. A third client rebuilds the battle from the wave-3 checkpoint and the log to the first tick 5 s into a wave with a spin index and a halo memory live (a mid-wave rejoin), and must land on the run's hash and snapshot. It is compared across engines by `e2e/engines.mjs` and pinned in `tests/online/engines.test.js`.
 - (c) The new sim files (`wheels.js`, `dirs.js`, `shapes.js`) are checked by a test: no `Math.random`, no runtime `sin`/`cos`/`atan2`/`hypot`/…, no `**`. The table is built once with `DET_MATH`. Aiming is `nearestDir` and `turnToward`. Facing is k × 2π / 240.
 - (d) The renderer reads only sim state: straight shots as projectiles, halo pieces from `haloPos` at the sim's step. It uses no rng.
 - State: `t.spinK` (integer) and `t.haloHits` (integer pairs) end at the wave clear; `hashSim` folds them only while present.
 - Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js`. **No `COOP_PROTOCOL` bump on the branch**; the release that ships S1 takes the next free number.
-- Perf: `tests/sim/perf.test.js` "attack shapes": 6 copies of each S1 girl at her shape tiers and 200 enemies, 0.15 ms a step locally (limit 2), at most 108 straight shots (cap 400).
+- Perf: `tests/sim/perf.test.js` "attack shapes": 6 copies of each S1 girl at tier 5 and 200 enemies under the same step limit (2 ms locally), straight shots within their cap (400).
 
 ### A6. Plan for S2-S4
 

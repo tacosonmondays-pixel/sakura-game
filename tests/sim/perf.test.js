@@ -83,8 +83,8 @@ describe('performance budget', () => {
 });
 
 // The attack shapes S1 stress case (docs/specs/ATTACK_SHAPES.md §7.2 step 7): 6 copies of each shape girl at
-// her shape tiers (Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's Firefly Halo; a refused tier 5, held by
-// another copy, stays at tier 4), 200 enemies, the same budget.
+// her shape tiers (Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's Firefly Halo, all at tier 5), 200 enemies,
+// the same budget.
 describe('performance budget: attack shapes', () => {
   test('18 shape girls + 200 enemies: a step stays under the same limits, straight shots within their caps', () => {
     const real = defaultData().units;
@@ -106,7 +106,8 @@ describe('performance budget: attack shapes', () => {
       if (!t) continue;
       placed++;
       const p = real[id].paths.findIndex((q) => q.id === pathId);
-      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p);
+      // (beyond any real board: six final tiers of one path, so the one-per-path rule is skipped as a save restore does)
+      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p, { restoring: true });
     }
     expect(placed).toBe(18);
     expect(sim.towers.filter((t) => t.eff.behavior === 'wheel')).toHaveLength(6);

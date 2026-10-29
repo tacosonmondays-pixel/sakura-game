@@ -2082,7 +2082,7 @@ export function runGlowBowlBattle({ maxFrames = 60 * 60 * 10 } = {}) {
  * 5 s into a wave with a spin index and a halo memory live is rebuilt by a third client from that
  * checkpoint and the log (a rejoin), which must land on the same hash and snapshot.
  */
-const SHAPES_STATS = { costMul: 0.15, damageMul: 1, rateMul: 1 };
+const SHAPES_STATS = { costMul: 0.05, damageMul: 0.5, rateMul: 1 };
 export const SHAPES_START = Object.freeze({
   seed: 242424,
   stageId: '2-4',
@@ -2095,7 +2095,7 @@ export const SHAPES_START = Object.freeze({
 const SHAPES_UPGRADES = Object.freeze([
   [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0], [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0],
   [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0], [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0],
-  [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0],
+  [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0],
 ]);
 
 /**
@@ -2133,7 +2133,7 @@ export function runShapesBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
         && snapshotDigest(copy.coop.snapshot()) === snapshotDigest(A.coop.snapshot()),
     };
   };
-  const r = runPotentialBattle({ start: SHAPES_START, upgrades: SHAPES_UPGRADES, spotsFirst: ['momo', 'hotaru', 'kage'], maxFrames, probe, onFrame });
+  const r = runPotentialBattle({ start: SHAPES_START, upgrades: SHAPES_UPGRADES, spotsFirst: ['hotaru', 'kage', 'momo'], maxFrames, probe, onFrame });
   r.shapes = `${n.wheel}/${n.spin}/${n.halo}`;
   r.ckWave = ck?.wave ?? -1;
   r.rejoinTick = rejoin?.tick ?? -1;

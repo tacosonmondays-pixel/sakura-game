@@ -1596,7 +1596,7 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const a of autoPlan('1-1', ['kage', 'hotaru'], { maxCopies: 1 })) if (a.action === 'place') sh.placeTower(a.unitId, a.x, a.y);
     const kg = sh.towers.find((t) => t.unitId === 'kage');
     const ht = sh.towers.find((t) => t.unitId === 'hotaru');
-    for (let k = 0; k < 4; k++) expect(sh.upgradeTower(kg.uid, 0)).toBe(true);
+    for (let k = 0; k < 5; k++) expect(sh.upgradeTower(kg.uid, 0)).toBe(true);
     for (let k = 0; k < 3; k++) expect(sh.upgradeTower(ht.uid, 0)).toBe(true);
     sh.startNextWave();
     for (let i = 0; i < 60 * 60 && !(kg.spinK != null && ht.haloHits); i++) sh.update(STEP);

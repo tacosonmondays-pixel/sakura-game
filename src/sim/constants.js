@@ -328,7 +328,7 @@ export const WHEEL_SPEED = 12;
 /** Pinwheel Stream: a shot per arm every attack; the arms turn SPIN_TURN table steps an attack (18°: one
  *  turn in 20 attacks), only SPIN_LOCK while an arm has an enemy within SPIN_HALF_WIDTH of its line. */
 export const SPIN_TURN = 12;
-export const SPIN_LOCK = 1;
+export const SPIN_LOCK = 0;
 export const SPIN_HALF_WIDTH = 0.3;
 export const SPIN_SPEED = 10;
 /** Pinwheel Stream with a single enemy in range: the folded stream turns at most this many table steps a shot. */

@@ -1535,18 +1535,19 @@ turn (SPIN_TURN), lock (SPIN_LOCK) }`, `halo { pieces +, reach +, mul }`. Behavi
 transformation). Shots are straight projectiles (spawnStraight, `p.straight`) with `p.scale` = sim._hit's scale (absent = 1;
 projectileStep passes `p.scale ?? 1`), under STRAIGHT_PER_GIRL/PLAYER/SIM (oldest first), ended by endRingWave.
 - wheel: her toss coins, one per projectile at her targets in turn (selectTargets by her target mode; a lone target takes them all),
-  pierce 1 × `lead`; then spokes 1…spokes−1 at k0 + floor(i × 240 / spokes) (k0 = nearestDir to her first target), her pierce
-  (+ gear Pierce) × `mul`; all fly her range; event `attack { towerUid, targetUid, kind: 'wheel', k, spokes, leads }`.
-- spin: one eligible enemy in range → one shot along k = turnToward(k, nearestDir(…), SPIN_FOLD_TURN) carrying projectiles ×
-  (1 + projScale) × `fold`; more → one shot per arm at k + floor(a × 240 / arms) carrying that × `mul` / arms, then k += `turn`
-  (`lock` while an arm has an enemy onLine within SPIN_HALF_WIDTH); `t.spinK` (integer); event `attack { …, kind: 'spin', k, arms }`.
+  her pierce (+ gear Pierce) × `lead`; then spokes 1…spokes−1 at k0 + floor(i × 240 / spokes) (k0 = nearestDir to her first
+  target), pierce 1 × `mul` (a dense crowd cannot multiply them); all fly her range; event `attack { towerUid, targetUid, kind: 'wheel', k, spokes, leads }`.
+- spin (an attack at her rate): one eligible enemy in range → one shot along k = turnToward(k, nearestDir(…), SPIN_FOLD_TURN)
+  carrying projectiles × (1 + projScale) × `fold`; more → one shot per arm at k + floor(a × 240 / arms) carrying that × `mul` /
+  arms, then k += `turn` (`lock`, 0 by default: the arms stay while one has an enemy onLine within SPIN_HALF_WIDTH); gear
+  Pierce is asked only when she shoots; `t.spinK` (integer); event `attack { …, kind: 'spin', k, arms }`.
 - halo: piece j at dir(step × HALO_STEPS + floor(j × 240 / n)) × (HALO_REACH + reach) from her spot; cuts what inDisc(HALO_RADIUS)
   touches for damage × rate × `mul` with `t.haloSpec` (her eff without statuses, procStatus, mark, silence, reveal, knockback,
   gather, crits); per piece a flat [uid, step, …] memory in `t.haloHits` (≤ HALO_HITS pairs, oldest dropped, gap HALO_GAP steps).
 - `t.spinK` and `t.haloHits` end at the wave clear (null); `hashSim` folds them only while present; battle saves carry none.
 - Renderer: straight shots draw as her projectile kind; halo pieces from sim state each frame (`actors.js`, a plain glow).
 - Units (one path each, the rest of each girl unchanged): Momo Encore Toss T4-5 (Coin Wheel: 2 / 4 toss coins + a 12 / 16-spoke wheel), Kage Storm of
-  Steel T4-5 (Blade Cyclone 3 / 4 arms), Hotaru Lantern Light T3-5 (Firefly Halo 4 / 6 / 8, her pulse × 0.7, × 1.4 vs elites).
+  Steel T5 (Blade Cyclone, 4 arms), Hotaru Lantern Light T3-5 (Firefly Halo 4 / 6 / 8, her pulse × 0.95).
 - Constants (appended block): WHEEL_SPEED, SPIN_TURN, SPIN_LOCK, SPIN_HALF_WIDTH, SPIN_SPEED, SPIN_FOLD_TURN, HALO_STEPS,
   HALO_REACH, HALO_RADIUS, HALO_GAP, HALO_HITS, HALO_MAX.
 

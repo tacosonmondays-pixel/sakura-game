@@ -58,11 +58,11 @@ export function attackWheel(sim, t, spec, targets, extraPierce = 0) {
   for (let j = 0; j < leads; j++) {
     const e = targets[j % targets.length];
     const k = j === 0 ? k0 : nearestDir(e.x - t.ox, e.y - t.oy);
-    spawnStraight(sim, t, spec, t.ox, t.oy, k, travel, { pierce: 1, kind: t.projKind, speed: WHEEL_SPEED, scale: w.lead });
+    spawnStraight(sim, t, spec, t.ox, t.oy, k, travel, { pierce, kind: t.projKind, speed: WHEEL_SPEED, scale: w.lead });
   }
   for (let i = 1; i < n; i++) {
     const k = k0 + Math.floor((i * RING_DIRS) / n);
-    spawnStraight(sim, t, spec, t.ox, t.oy, k, travel, { pierce, kind: t.projKind, speed: WHEEL_SPEED, scale: w.mul });
+    spawnStraight(sim, t, spec, t.ox, t.oy, k, travel, { pierce: 1, kind: t.projKind, speed: WHEEL_SPEED, scale: w.mul });
   }
   sim._emit('attack', { towerUid: t.uid, targetUid: targets[0].uid, kind: 'wheel', k: k0, spokes: n, leads });
   return true;

@@ -281,10 +281,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.rejoinSame).toBe(true);
     expect(runShapesBattle().final).toBe(r.final);
     // pinned when the battle was added (feature/attack-shapes, S1 data fitted to the four-stage bench mean);
-    // re-pinned when the Coin Wheel kept her toss coins (one per projectile at her targets, Oct 29).
+    // re-pinned Oct 29 for the refit on both rulers (the Coin Wheel keeps her toss coins, the Blade Cyclone at
+    // tier 5 only with arms that stay on an enemy, a lighter halo); cheaper upgrades so both Kages reach tier 5.
     // Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, shapes: r.shapes, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 32555, state: 'won', wave: 22, wallets: '2544/2198', final: 282611244, hashes: '762fe0f7', shapes: '163/260/2026', rejoinTick: 15958 });
+      .toEqual({ ticks: 16368, state: 'won', wave: 22, wallets: '2206/1255', final: 3785840552, hashes: '579e8357', shapes: '4/281/398', rejoinTick: 10780 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {
