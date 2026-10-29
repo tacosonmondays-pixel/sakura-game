@@ -45,12 +45,12 @@ Mirror Shift itself is not built in the sim yet; that is planned for its own sim
 
 ### Reviews
 - **Logic:** OK in two rounds, at adf61830 and c28918a4 (`batch-a-logic.json`). Of its lows, the panel snap and the stale comments are fixed. The lingering panel states past 24 relay panels are accepted: they are bounded and freed with the battle.
-- **Look:** OK at c28918a4 (`batch-a-look.json`, evidence in `batch-a-look/`), apart from one MEDIUM. That MEDIUM is **NOT APPROVED after 3 rounds** (HANDOFF §6): on Shattered Glass T5, a white disc covers the targets on some impact frames.
-  - **Round 2 (27a8ad31):** capped Iroha's silver flash. The re-review in `batch-a-fix/` found the disc still there.
-  - **Round 3 (16e78a37):** coalesced repeat generic blasts on one spot. In `batch-a-fix3/`, the fix works and Akane's blast is unaffected, but the disc still shows on about one frame per impact.
-  - **Remaining cause:** Iroha's own per-bolt ripple and stars stacking (3 bolts per volley).
-  - **Context:** a white bloom on her splash existed on main before this batch. The decision is with the coordinator and owner.
+- **Look:** OK at c28918a4 (`batch-a-look.json`, evidence in `batch-a-look/`), apart from one MEDIUM: on Shattered Glass T5, a white disc covered the targets on impact frames.
+  - **Round 2 (27a8ad31):** capped Iroha's silver flash. NOT OK (`batch-a-fix/`).
+  - **Round 3 (16e78a37):** coalesced repeat generic blasts on one spot. NOT OK (`batch-a-fix3/`).
+  - **Round 4 (d448fa38),** the coordinator's exception to the 3-round rule. Her flash, sparks, ripple and stars now draw once per spot per 0.1 s, the generic glow is halved under her impact, and enemy death blasts are never folded. **OK** (`batch-a-fix4/`): 8 of 10 impact frames are clean, near-white pixels are back to round 3's clean-frame level, and Akane's blast is unchanged.
 - **Lows left for later:**
+  - About 1 in 10 T5 impact frames is still bright over a clump, with the targets visible. The single-target T5 frame was not re-captured in round 4.
   - Iroha's un-aimed panel stands over her.
   - The Events "10D" sticker touches the lantern at 390x844.
   - Kon's run is short on 1-1, because the sim puts his spot about a tile from Ruri.
