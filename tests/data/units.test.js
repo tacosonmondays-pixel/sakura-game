@@ -89,7 +89,8 @@ const LOOK_ENUMS = {
   eyeStyle: ['round', 'sharp', 'sleepy', 'sparkle', 'closed'],
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
 };
-const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'drink', 'roll', 'none'];
+// wheel / spin: the attack shapes S1 (src/sim/wheels.js; docs/specs/ATTACK_SHAPES.md)
+const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'drink', 'roll', 'none', 'wheel', 'spin'];
 const BASE_REQUIRED = [
   'cost', 'behavior', 'damage', 'rate', 'range', 'projectiles', 'pierce', 'splash', 'chain', 'maxTargets',
   'projectileSpeed', 'armorPen', 'canHitAir', 'detection', 'status', 'crit', 'eliteMul', 'bossMul', 'barrierMul',
@@ -240,6 +241,10 @@ function modSetErrors(mods, where) {
     vine: (k, v, w) => objErrors(v, VINE_NUMS, w, numCheck),
     ball: (k, v, w) => ballErrors(v, w),
     blade: (k, v, w) => objErrors(v, BLADE_NUMS, w, numCheck),
+    // the attack shapes S1 (src/sim/mods.js SHAPE_NORM): numbers only
+    wheel: (k, v, w) => objErrors(v, ['spokes', 'lead', 'mul'], w, numCheck),
+    spin: (k, v, w) => objErrors(v, ['arms', 'mul', 'fold', 'turn', 'lock'], w, numCheck),
+    halo: (k, v, w) => objErrors(v, ['pieces', 'reach', 'mul'], w, numCheck),
     duo: (k, v, w) => objErrors(v, DUO_NUMS, w, numCheck),
     // the staff heroes (BANNERS §D): Kogane's Move recharge, Norika's barricades
     moveCd: (k, v, w) => (isPos(v) ? [] : [`${w} must be > 0`]),

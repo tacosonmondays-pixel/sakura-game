@@ -81,6 +81,17 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
     }
     // Tenka's well and Last Line timers (src/sim/zones.js), only on a girl who has one of them (ticks)
     if (t.wellCd != null || t.lastLineCd != null) h.int(t.wellCd ?? -1).int(t.lastLineCd ?? -1);
+    // attack shapes S1 (src/sim/wheels.js), only on a girl who has them this wave: the Pinwheel arm index and
+    // each Petal Halo piece's memory ([uid, step] pairs); battles without them keep their digest
+    if (t.spinK != null) h.int(t.spinK);
+    const hh = t.haloHits;
+    if (hh) {
+      h.int(hh.length);
+      for (const l of hh) {
+        h.int(l.length);
+        for (let i = 0; i < l.length; i++) h.int(l[i]);
+      }
+    }
   }
   // open zones (wells, Last Line), only while there is one: a battle without zones keeps its digest
   const zs = sim.zones;

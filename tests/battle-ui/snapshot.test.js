@@ -1596,6 +1596,18 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (let i = 0; i < 60 * 60 && !mb.balls?.length; i++) mr.update(STEP);
     expect(mb.balls?.length > 0).toBe(true);
     for (const t of mr.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the attack shapes S1 mid-wave: Kage's spin index, Hotaru's halo memory and spec; they end at the wave clear)
+    const sh = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['kage', 'hotaru'], hero: null, stats: {}, seed: 15 });
+    sh.cash = 1e6;
+    for (const a of autoPlan('1-1', ['kage', 'hotaru'], { maxCopies: 1 })) if (a.action === 'place') sh.placeTower(a.unitId, a.x, a.y);
+    const kg = sh.towers.find((t) => t.unitId === 'kage');
+    const ht = sh.towers.find((t) => t.unitId === 'hotaru');
+    for (let k = 0; k < 5; k++) expect(sh.upgradeTower(kg.uid, 0)).toBe(true);
+    for (let k = 0; k < 3; k++) expect(sh.upgradeTower(ht.uid, 0)).toBe(true);
+    sh.startNextWave();
+    for (let i = 0; i < 60 * 60 && !(kg.spinK != null && ht.haloHits); i++) sh.update(STEP);
+    expect(kg.spinK != null && !!ht.haloHits && !!ht.haloSpec).toBe(true);
+    for (const t of sh.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and Azami in Spread mode: her road cursor)
     const az = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['azami', 'aoi'], hero: null, stats: {}, seed: 14 });
     az.cash = 1e6;

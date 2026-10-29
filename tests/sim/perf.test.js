@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STAGE, UNITS, ENEMIES } from './fixtures.js';
+import { defaultData } from '../../src/sim/data.js';
 
 // 22 × 13 serpentine map: the path snakes across rows 1, 5, 9 and exits at the bottom.
 const PERF_MAP = {
@@ -78,5 +79,63 @@ describe('performance budget', () => {
     // Shared CI runners are slow and noisy, so the wall-clock budget is looser there (CI=true).
     expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
     expect(per3x).toBeLessThan(process.env.CI ? 12 : 4);
+  });
+});
+
+// The attack shapes S1 stress case (docs/specs/ATTACK_SHAPES.md §7.2 step 7): 6 copies of each shape girl at
+// her shape tiers (Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's Firefly Halo, all at tier 5), 200 enemies,
+// the same budget.
+describe('performance budget: attack shapes', () => {
+  test('18 shape girls + 200 enemies: a step stays under the same limits, straight shots within their caps', () => {
+    const real = defaultData().units;
+    const SHAPES = [['momo', 'cointoss'], ['kage', 'steel'], ['hotaru', 'lantern']];
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: SHAPES.map(([unitId]) => ({ unitId })),
+      seed: 11,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units: real, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    const spots = [];
+    for (const ty of [3, 7, 11]) for (let tx = 1; tx < 21; tx += 2) spots.push([tx, ty]);
+    let placed = 0;
+    for (let i = 0; i < spots.length && placed < 18; i++) {
+      const [id, pathId] = SHAPES[placed % 3];
+      const t = sim.placeTower(id, spots[i][0], spots[i][1]);
+      if (!t) continue;
+      placed++;
+      const p = real[id].paths.findIndex((q) => q.id === pathId);
+      // (beyond any real board: six final tiers of one path, so the one-per-path rule is skipped as a save restore does)
+      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p, { restoring: true });
+    }
+    expect(placed).toBe(18);
+    expect(sim.towers.filter((t) => t.eff.behavior === 'wheel')).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.eff.behavior === 'spin')).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.halo)).toHaveLength(6);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const kinds = ['blob', 'blob', 'blob', 'armoredBlob', 'fieldOni', 'guardOrc', 'leech', 'flyer'];
+    const len = sim.pathData[0].length;
+    for (let i = 0; i < 200; i++) sim.spawnEnemy(kinds[i % kinds.length], { dist: (i / 200) * (len - 8) });
+    for (let i = 0; i < 120; i++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    let maxStraight = 0;
+    const t0 = performance.now();
+    for (let i = 0; i < steps; i++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+      if (i % 20 === 0) maxStraight = Math.max(maxStraight, sim.projectiles.filter((p) => p.straight && !p.dead).length);
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] shapes: ${sim.enemies.length} enemies, ${sim.towers.length} girls, ${maxStraight} straight shots at most: ${perStep.toFixed(3)} ms/step`);
+    expect(sim.enemies.length).toBeGreaterThan(150);
+    expect(maxStraight).toBeGreaterThan(0);
+    expect(maxStraight).toBeLessThanOrEqual(400);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
   });
 });

@@ -8,8 +8,9 @@ import { facesCamera, cameraFacing } from './facing.js';
 import { FIELD_COLORS, fxColor } from './themes.js';
 import { WATER_Y, PATH_H } from './terrain.js';
 import { scissorPos } from '../sim/rings.js';
+import { haloPos } from '../sim/wheels.js';
 import { pointAt } from '../sim/path.js';
-import { STEP } from '../sim/constants.js';
+import { STEP, HALO_REACH, HALO_MAX } from '../sim/constants.js';
 import { costumeFor, enemyExtraFor, buildCostume, COSTUME_SLOT } from './costumes.js';
 
 const TAU = Math.PI * 2;
@@ -647,6 +648,19 @@ export class Actors {
           gA.push(sx, 0.35, sy, 0.3, 0.3, R.ringSoft, 0.95, 0.95, 1, 0.7, t * 9 + j);
           gN.push(sx, 0.07, sy, 0.22, 0.22, R.disc, 0.2, 0.2, 0.3, 0.25);
         }
+      }
+    }
+    // Petal Halo pieces (attack shapes S1, src/sim/wheels.js; Hotaru's fireflies): read from the sim every
+    // frame at the sim's own orbit (the plain look until the effects update draws them properly)
+    for (const tw of sim.towers) {
+      const h = tw.stats?.halo;
+      if (!(h?.pieces > 0)) continue;
+      const n = Math.min(HALO_MAX, h.pieces);
+      const step = Math.round(sim.time / STEP);
+      for (let j = 0; j < n; j++) {
+        const [hx, hy] = haloPos(tw, j, n, step, HALO_REACH + h.reach);
+        gA.push(hx, 0.42, hy, 0.34, 0.34, R.glow, 1, 0.9, 0.45, 0.75, 0);
+        gA.push(hx, 0.42, hy, 0.12, 0.12, R.ringSoft, 1, 1, 0.8, 0.95, t * 7 + j);
       }
     }
     // Yuzuha's lane sentries and Capture Nets (src/sim/sentries.js), from the sim every frame

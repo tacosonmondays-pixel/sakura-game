@@ -11,7 +11,7 @@
 import { DEFAULT_UNIT_STATS } from './constants.js';
 import { HERO_GROWTH } from '../data/heroTracks.js';
 import { potentialFold } from '../data/potential.js';
-import { BREW_TARGETS_MAX, HARVEST_LIVES_PER_WAVE } from './constants.js';
+import { BREW_TARGETS_MAX, HARVEST_LIVES_PER_WAVE, SPIN_TURN, SPIN_LOCK } from './constants.js';
 import { powerFor } from '../data/balance.js';
 import { BLAST_PER_PIERCE, PIERCE_K_MAX } from './gearRules.js';
 import { BARRICADES_PER_HERO } from './constants.js';
@@ -114,6 +114,29 @@ function normRing(t = {}) {
   };
 }
 const RING_FLAGS = ['turn', 'heat', 'double', 'sparks'];
+
+/**
+ * Attack shapes S1 (docs/specs/ATTACK_SHAPES.md §5; src/sim/wheels.js). Unlike the kits above these
+ * blocks may first appear on a tier (a path that turns into a shape): the first mod that names one
+ * creates it, later mods add the counts and replace `lead`, `mul`, `turn` and `lock` (each tier states
+ * its own: the per-tier DPS parity numbers of the bench, docs/specs/ATTACK_SHAPES.md addendum).
+ *   wheel  spokes (shots a Blossom Wheel), lead × the aimed spoke's hit, mul × every other spoke's
+ *   spin   arms (Pinwheel Stream arms), mul × the spinning arms' parity damage, fold × the folded stream's
+ *          (one enemy in range), turn / lock table steps a shot
+ *   halo   pieces (Petal Halo pieces), reach tiles past HALO_REACH, mul × each cut (× her rate)
+ */
+function normWheel() {
+  return { spokes: 0, lead: 1, mul: 1 };
+}
+function normSpin() {
+  return { arms: 0, mul: 1, fold: 1, turn: SPIN_TURN, lock: SPIN_LOCK };
+}
+function normHalo() {
+  return { pieces: 0, reach: 0, mul: 1 };
+}
+const SHAPE_NORM = { wheel: normWheel, spin: normSpin, halo: normHalo };
+const SHAPE_ADDS = { wheel: ['spokes'], spin: ['arms'], halo: ['pieces', 'reach'] };
+const SHAPE_SETS = { wheel: ['lead', 'mul'], spin: ['mul', 'fold', 'turn', 'lock'], halo: ['mul'] };
 
 /**
  * The buff thrower (Wakaba, UNIT_GAPS §5.6; src/sim/drinks.js): what her sports drink does. Bonuses
@@ -623,6 +646,12 @@ export function applyModSet(s, mods, acc) {
       for (const k of RING_ADDS) if (v[k] != null) s.ring[k] += v[k];
       for (const k of RING_FLAGS) if (v[k]) s.ring[k] = true;
       if (v.scissorMul != null) s.ring.scissorMul *= v.scissorMul;
+    } else if (SHAPE_NORM[key]) {
+      // an attack shape block: created by the first mod that names it (src/sim/wheels.js)
+      if (!s[key]) s[key] = SHAPE_NORM[key]();
+      const o = s[key];
+      for (const k of SHAPE_ADDS[key]) if (v[k] != null) o[k] += v[k];
+      for (const k of SHAPE_SETS[key]) if (v[k] != null) o[k] = v[k];
     } else if (key === 'drink') {
       // only a drink girl's drink changes (src/sim/drinks.js)
       if (!s.drink) continue;

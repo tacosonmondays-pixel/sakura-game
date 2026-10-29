@@ -24,6 +24,8 @@ import { ruleRangeFor } from './rules.js';
 import { buildProcSpecs, boostedAura } from './potential.js';
 import { layStrip, stripStep, stripTick } from './strips.js';
 import { attackRing, ringTick } from './rings.js';
+import { attackWheel, attackSpin, wheelTick } from './wheels.js';
+import { hitRadius } from './shapes.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
 import { sentryTick } from './sentries.js';
 import { hubsOn, applyHubs } from './hubs.js';
@@ -52,10 +54,8 @@ export function projectileKind(def, stats) {
   return kind;
 }
 
-/** Enemy collision radius for projectiles/beams. */
-export function hitRadius(e) {
-  return 0.3 + 0.06 * (e.def.size ?? 1);
-}
+/** Enemy collision radius for projectiles/beams (src/sim/shapes.js). */
+export { hitRadius };
 
 function emptyBuff() {
   return { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, costCut: 0, cleanse: false, armorPen: 0, critChance: 0, tea: 1 };
@@ -327,6 +327,9 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
   }
   if (s.ring) t.scissorSpec = s.ring.scissors > 0 ? { ...t.eff, damage: s.ring.scissorDmg * s.ring.scissorMul * dmgMul, canHitAir: true, critChance: 0 } : null;
   applyBuffExtras(t, b);
+  // Petal Halo (src/sim/wheels.js): the pieces only cut (her own attack keeps its statuses, marks, pushes and
+  // crits), so a ring of fast cuts never stun-locks a crowd; built after her buff extras (aura armor pen)
+  if (s.halo) t.haloSpec = { ...t.eff, status: [], procStatus: null, mark: null, silence: 0, reveal: 0, knockback: 0, gather: 0, critChance: 0 };
   // the duo (src/sim/duo.js): Kohaku's beam, the partner weapon, follows the same buffs
   if (s.duo) buildPartnerSpec(t);
   if (s.strip || s.sentry) deployCrits(t);
@@ -1452,6 +1455,14 @@ const BEHAVIORS = {
   mortar: attackMortar,
   strip: layStrip,
   ring: attackRing,
+  // attack shapes S1 (src/sim/wheels.js): Blossom Wheel aims her toss's lead coins at her targets; Pinwheel Stream
+  // turns its arms one shot per attack
+  wheel: (sim, t) => {
+    const spec = gearSpec(t.eff);
+    const targets = selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, Math.max(1, spec.projectiles));
+    return attackWheel(sim, t, spec, targets, targets.length ? shotPierce(t) : 0);
+  },
+  spin: (sim, t) => attackSpin(sim, t, gearSpec(t.eff), () => shotPierce(t)),
   drink: throwDrink,
   roll: rollBall,
 };
@@ -1948,6 +1959,7 @@ export function updateTower(sim, t, dt) {
   if (s.turret?.overclock) tickOverclock(sim, t, s.turret.overclock, dt);
   if (s.strip) stripTick(sim, t, dt);
   if (s.ring) ringTick(sim, t, dt);
+  if (s.halo) wheelTick(sim, t);
   if (s.drink) drinkTick(sim, t);
   if (s.sentry) sentryTick(sim, t, dt);
   if (s.vine) vineTick(sim, t, dt);
@@ -2103,7 +2115,7 @@ function projectileStep(sim, p, dt) {
         return;
       }
       p.hits.push(e.uid);
-      sim._hit(e, p.owner, p.spec, 1);
+      sim._hit(e, p.owner, p.spec, p.scale ?? 1);
       p.pierce--;
       if (p.pierce <= 0) {
         p.dead = true;
