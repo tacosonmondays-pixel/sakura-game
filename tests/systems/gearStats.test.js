@@ -87,23 +87,23 @@ describe('the ten stats', () => {
 
 describe('Every Line Counts', () => {
   it('a dead line turns into ATK, each extra one a little less, never zero, never 12 %', () => {
-    // (Kage: her Shadow Doubles has no button yet, so her Skill Haste is still a dead line; M2 moved this off Aoi)
+    // (Fuu: her Backdraft Fan has no button yet, so her Skill Haste is still a dead line; M2 moved this off Aoi, A4 off Kage)
     const p = createProfile();
-    p.units.kage = { ...p.units.aoi, gear: { charm: null, ribbon: null, shoes: null } };
+    p.units.fuu = { ...p.units.aoi, gear: { charm: null, ribbon: null, shoes: null } };
     const one = piece(p, 'shoes', 'legendary', ['ratePct', 0.2], [['ultHaste', 0.192]]);
-    equipGear(p, 'kage', one);
-    const f1 = gearFillIn(p, 'kage');
+    equipGear(p, 'fuu', one);
+    const f1 = gearFillIn(p, 'fuu');
     expect(f1.target).toBe('atk');
     expect(f1.total).toBeCloseTo(0.05, 2);
     const two = piece(p, 'charm', 'legendary', ['atkPct', 0.3], [['auraPct', 0.116]]);
-    equipGear(p, 'kage', two);
-    const f2 = gearFillIn(p, 'kage');
+    equipGear(p, 'fuu', two);
+    const f2 = gearFillIn(p, 'fuu');
     expect(f2.total).toBeCloseTo(0.071, 2);
     expect(f2.lines.every((l) => l.share > 0)).toBe(true);
     expect(f2.total).toBeLessThan(0.12);
     // it lands in the gear ATK part of damageMul
-    const s = unitBattleStats(p, 'kage');
-    const g = gearStatTotals(p, 'kage');
+    const s = unitBattleStats(p, 'fuu');
+    const g = gearStatTotals(p, 'fuu');
     expect(s.damageMul).toBeCloseTo(1 * (1 + g.atkPct + f2.total), 3);
   });
 
@@ -158,12 +158,13 @@ describe('GEAR_FIT and the one live-ability rule (Skill Haste, owner #34 / Q2)',
       expect(skillHasteCounts(u.id), u.id).toBe(real);
       expect(fill.has('ultHaste'), u.id).toBe(!real);
     }
-    // today: it keeps filling for the deploys that wait (Kage, Suzu, Chika), the rallies and debuffs (Umeko, Miko,
+    // today: it keeps filling for the rallies and debuffs (Umeko, Miko,
     // Hotaru, Ouka, Wakaba, Chigusa; since M3 also Noa's First Aid Call and Ena's Omen Card) and the returning girls whose
     // abilities wait (Fuu's move, Iroha's mirror). M3 attached Hana's and Ruri's strikes: their Skill Haste is real now.
     const still = UNITS.filter((u) => u.kind !== 'hero' && fillStats(u.id).has('ultHaste')).map((u) => u.id).sort();
-    expect(still).toEqual(['chigusa', 'chika', 'ena', 'fuu', 'hotaru', 'iroha', 'kage', 'miko', 'noa', 'ouka', 'suzu', 'umeko', 'wakaba'].sort());
-    for (const id of ['aoi', 'rei', 'yuki', 'momo', 'akane', 'sango', 'shiro', 'midori', 'raika', 'kaede', 'tenka', 'azami', 'kinu', 'yuzuha', 'marumi', 'hana', 'ruri']) {
+    // (A4: Kage's, Suzu's and Chika's deploys run and are hasted, so their Skill Haste is real now)
+    expect(still).toEqual(['chigusa', 'ena', 'fuu', 'hotaru', 'iroha', 'miko', 'noa', 'ouka', 'umeko', 'wakaba'].sort());
+    for (const id of ['kage', 'suzu', 'chika', 'aoi', 'rei', 'yuki', 'momo', 'akane', 'sango', 'shiro', 'midori', 'raika', 'kaede', 'tenka', 'azami', 'kinu', 'yuzuha', 'marumi', 'hana', 'ruri']) {
       expect(fillStats(id).has('ultHaste'), id).toBe(false);
     }
   });

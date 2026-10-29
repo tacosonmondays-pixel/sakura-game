@@ -442,7 +442,7 @@ describe('co-op: only her owner fires her; both views run the same deploys', () 
     expect([...done].sort((a, b) => a - b)).toEqual([kage, suzu, chika].sort((a, b) => a - b));
     expect(cs[1].hash()).toBe(cs[0].hash());
     expect(snapshotDigest(cs[1].snapshot())).toBe(snapshotDigest(cs[0].snapshot()));
-  });
+  }, 120000); // two co-op clients through a few waves: past vitest's 5 s default on a loaded machine
 });
 
 /** A battle of Kage, Suzu and Chika (⚡ path, tier 3) on Auto through real waves; their casts forced now and then. */

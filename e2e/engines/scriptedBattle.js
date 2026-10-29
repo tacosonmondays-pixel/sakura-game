@@ -785,6 +785,9 @@ export function runDronesBattle({ checkpointAt = 8, maxFrames = 60 * 60 * 14 } =
 const ABIL_STATS = { costMul: 0.2, damageMul: 0.5 };
 const ABIL_STATS_HASTE = { ...ABIL_STATS, ultHaste: 0.3 };
 const abilLoadout = (ids, stats = ABIL_STATS) => ids.map((unitId) => ({ unitId, stats }));
+// (A4: the deploy girls join at a quarter of the others' price, so they reach their ⚡ tier 3 without starving the rest)
+const ABIL_DEPLOY = { ...ABIL_STATS, costMul: 0.05, damageMul: 0.15 };
+const ABIL_DEPLOY_HASTE = { ...ABIL_STATS_HASTE, costMul: 0.05, damageMul: 0.15 };
 /** The host fires her girls and Luna by hand; the guest plays on Auto-cast and taps her ready girls. */
 export const ABILITIES_START = Object.freeze({
   seed: 454545,
@@ -792,8 +795,8 @@ export const ABILITIES_START = Object.freeze({
   difficulty: 'normal',
   players: [
     // (A4: the host also fields Kage and Suzu, the guest Chika, so the three deploys run on every engine)
-    { slot: 0, uid: 'host', name: 'Host', loadout: abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori', 'kage', 'suzu']), hero: { unitId: 'luna', stats: ABIL_STATS } },
-    { slot: 1, uid: 'guest', name: 'Guest', loadout: abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro', 'chika'], ABIL_STATS_HASTE), hero: { unitId: 'nami', stats: ABIL_STATS_HASTE } },
+    { slot: 0, uid: 'host', name: 'Host', loadout: [...abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori']), ...abilLoadout(['kage', 'suzu'], ABIL_DEPLOY)], hero: { unitId: 'luna', stats: ABIL_STATS } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [...abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro'], ABIL_STATS_HASTE), ...abilLoadout(['chika'], ABIL_DEPLOY_HASTE)], hero: { unitId: 'nami', stats: ABIL_STATS_HASTE } },
   ],
 });
 /** Refusals a scripted tap may meet (the sim re-checks at the command's tick); anything else fails the run. */

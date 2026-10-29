@@ -29,8 +29,9 @@ describe('First Bell: the menu\'s view (girl page, Club Armband picker)', () => 
   it('today: idle for the girls whose ability waits and for the rallies and debuffs; on for everyone else', () => {
     const by = { later: [], kind: [], on: [] };
     for (const u of UNITS) by[trickIdle('bell', u.id) || 'on'].push(u.id);
-    // "Comes in a later update": the deploys that wait (Kage, Suzu, Chika), Fuu's move, Iroha's mirror, Kanna's Heavy Beat
-    expect(by.later.sort()).toEqual(['chika', 'fuu', 'iroha', 'kage', 'kanna', 'suzu']);
+    // "Comes in a later update": Fuu's move, Iroha's mirror, Kanna's Heavy Beat (the A4 deploys run: First Bell charges them)
+    expect(by.later.sort()).toEqual(['fuu', 'iroha', 'kanna']);
+    for (const id of ['kage', 'suzu', 'chika']) expect(by.on, id).toContain(id);
     // team rallies and debuffs (Skill Haste and First Bell skip them), the heroes' too (Hikari, Luna, Yoriko)
     expect(by.kind.sort()).toEqual(['chigusa', 'ena', 'hikari', 'hotaru', 'luna', 'miko', 'noa', 'ouka', 'umeko', 'wakaba', 'yoriko']);
     // a strike, burst, boost, econ, strips, sentries or the giant ball; Nami's Frost Net and Seiran's Storm Lance
@@ -67,7 +68,7 @@ describe('First Bell: the battle view says what the sim does', () => {
     }
   });
 
-  it('before her unlock: no charge and "locked" for a girl it will help; Kage stays "later", Miko "kind"', () => {
+  it('before her unlock: no charge and "locked" for a girl it will help; Fuu stays "later", Miko "kind"', () => {
     const U = Object.fromEntries(UNITS.map((u) => [u.id, u]));
     const aoi = real(U.aoi, BELL, { tiers: 2 }).t;
     expect(aoi.abil).toBeUndefined();
@@ -76,7 +77,8 @@ describe('First Bell: the battle view says what the sim does', () => {
     const nami = real(U.nami, BELL, { level: 1 }).t;
     expect(nami.abil).toBeUndefined();
     expect(trickIdle('bell', 'nami', null)).toBe('locked');
-    expect(trickIdle('bell', 'kage', null)).toBe('later');
+    expect(trickIdle('bell', 'fuu', null)).toBe('later');
+    expect(trickIdle('bell', 'kage', null)).toBe('locked'); // Shadow Doubles runs since A4
     expect(trickIdle('bell', 'miko', null)).toBe('kind');
     expect(trickIdle('bell', 'miko', real(U.miko, BELL).t.abil)).toBe('kind');
     expect(trickIdle('bell', 'aoi', real(U.aoi, BELL).t.abil)).toBeNull();
