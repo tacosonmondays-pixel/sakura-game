@@ -39,6 +39,7 @@ import { draftOf, frozenPool, heroChoices, heroEntry, tryoutUnlocked, newRunSeed
 import { mapChoices } from '../../sim/tryout/plan.js';
 import { TRYOUT } from '../../data/tryout.js';
 import { CLASS_TEXT, gradeTwist, gradeWhy } from '../text/tryout.js';
+import { fullTag } from './tryoutTag.js';
 import { openSocialSession } from '../../online/coop/socialRoom.js';
 import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
 import { pickLoadout } from '../../online/coop/loadout.js';
@@ -866,9 +867,11 @@ export function render(root, params = {}) {
       const tile = (id) => {
         const on = picked.includes(id);
         const mine = ownedNow(id);
-        const t = girlTile(id, { owned: true, selected: on, potential: mine ? undefined : 0, testid: 'coop-run-girl', cls: 'ty-draft', onClick: () => toggle(id) });
+        const short = mine ? CLASS_TEXT.yoursShort : CLASS_TEXT.loaner;
+        // (the kit's tag chip: one short word, the full words in its title; every run tile is drawn as owned, a Loaner too)
+        const t = girlTile(id, { owned: true, selected: on, potential: mine ? undefined : 0, tag: short, testid: 'coop-run-girl', cls: 'ty-draft', onClick: () => toggle(id) });
         t.setAttribute('aria-pressed', String(on));
-        t.append(h('span.ui-chip.ink.dup.ty-tag', { title: mine ? CLASS_TEXT.yours : CLASS_TEXT.loaner }, mine ? CLASS_TEXT.yoursShort : CLASS_TEXT.loaner));
+        fullTag(t, short, mine ? CLASS_TEXT.yours : CLASS_TEXT.loaner);
         return t;
       };
       const heroes = heroChoices(store.profile);

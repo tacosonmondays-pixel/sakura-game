@@ -4,9 +4,10 @@
 // the line under it, where the Grade's twist line sits), Half / Full Day, the seed's two maps as cards with their
 // thumbnails, the six (seven with Bigger Draft) as girl tiles (tap 3; "Yours · band cap" or "Loaner" on an ink chip
 // above the caption), one Redraw, the hero picker, and Start class: the one yellow, with the reason when it waits.
+// The timetable strip (one slim row under the Grade row) previews each period; the Grade's line sits in the head.
 import '../styles/tryout.css';
 import { h, screen, toast, girlTile, svgEl } from '../components.js';
-import { segRow, secondaryBtn, ico, fillIn } from '../kit.js';
+import { segRow, secondaryBtn, primaryBtn, ico, fillIn } from '../kit.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { SIM_ID } from '../../core/buildInfo.js';
@@ -18,9 +19,11 @@ import { stageThumbSVG } from '../../art/stageThumb.js';
 import { isOwned } from '../../systems/unlocks.js';
 import {
   halfCleared, TRYOUT_GRADES, gradeOpen, gradeCleared, newRunSeed, beforeClass, newRunRecord, putTryoutRun, activePerks, weeklyState, parseShareCode,
+  practiceOpen,
 } from '../../systems/tryoutRuns.js';
 import { LENGTH_NAMES, JAR_TEXT, WEEKLY_TEXT, SHARE_TEXT, CLASS_TEXT, gradeTwist, gradeWhy } from '../text/tryout.js';
-import { paintMarblesPill } from './tryout.js';
+import { beforeClassTimetable, closeBeforeClassTimetable } from '../battle/tryout/timetable.js';
+import { fullTag } from './tryoutTag.js';
 
 /** Before Class's choices survive a redraw and a re-render (not a reload: a new seed then). */
 let pending = null;
@@ -59,27 +62,35 @@ function fresh(p, mode, fixed = null) {
 export function renderSetup(root, params = {}) {
   const { el, body } = screen(CLASS_TEXT.title, { cls: 'ty-screen ty-class-screen' });
   root.appendChild(el);
-  const offPill = paintMarblesPill(el);
   const profile = () => store.profile;
   const panel = h('section.ui-panel.ty-bc', { 'data-testid': 'tryout-before-class' });
   body.appendChild(panel);
-  /** The line under the Grade row: the chosen Grade's twist, or why a tapped Grade is locked. */
+  /** The Grade's line (in the head, over the Grade row): the chosen Grade's twist, or why a tapped Grade is locked. */
   let why = null;
 
   // what this visit opened: the week's timetable or a shared code (practice); else a normal run
   const p0 = profile();
+  // (Start, a bad or locked code and a locked Weekly never reopen a Weekly or practice draft: a normal day instead. M3
+  // review and fix check M3)
+  const dropDraft = () => {
+    if (pending && pending.mode !== 'normal') pending = null;
+  };
   if (params.weekly) {
     const w = weeklyState(p0);
     if (w.open) pending = fresh(p0, 'weekly', { seed: w.seed, grade: w.grade, length: w.length, mapId: w.mapId, week: w.week });
-    else toast(WEEKLY_TEXT.locked, 'warn');
+    else {
+      toast(WEEKLY_TEXT.locked, 'warn');
+      dropDraft();
+    }
   } else if (params.code) {
     const c = parseShareCode(String(params.code));
-    // practice records nothing, so the ladder does not gate it; the Grade's content window still does
-    const st = c ? gradeOpen(p0, c.grade) : null;
-    if (!c) toast(SHARE_TEXT.bad, 'warn');
-    else if (!st.open && st.why !== 'ladder') toast(SHARE_TEXT.locked, 'warn');
-    else pending = fresh(p0, 'practice', c);
-  } else if (pending && pending.mode !== 'normal') pending = null; // (Start never reopens a Weekly or practice draft: M3 review)
+    // practice records nothing, so the ladder does not gate it; the Grade's content window still does (checked
+    // directly: a Grade 12 code never opens for a player who has only Spring Term)
+    if (!c || !practiceOpen(p0, c.grade)) {
+      toast(c ? SHARE_TEXT.locked : SHARE_TEXT.bad, 'warn');
+      dropDraft();
+    } else pending = fresh(p0, 'practice', c);
+  } else dropDraft();
   // a Desk Supply bought or switched in the Jar since: a normal run's Before Class starts over with it
   if (pending?.mode === 'normal' && JSON.stringify(pending.perks) !== JSON.stringify(activePerks(p0))) pending = null;
   if (!pending) pending = fresh(p0, 'normal');
@@ -146,10 +157,14 @@ export function renderSetup(root, params = {}) {
         pending.length = id;
         draw();
       }, { label: CLASS_TEXT.length, testidPrefix: 'tryout-length-', min: 104, cls: 'ty-bc-lengths' }) : null;
+      // the Grade's line (its twist, or why a tapped Grade is locked) sits in the head beside the title, right over the
+      // Grade row; the timetable strip takes the line's old place under the row, one slim row (the six stay above the
+      // foot, R2 review)
+      head.append(line);
       if (lengths) head.append(lengths);
       gradeBox = h('div.ty-bc-gradebox',
         h('div.ty-bc-row.ty-bc-graderow', h('span.lbl.ty-bc-lbl', `${CLASS_TEXT.grade}${gradeCleared(p) ? ` · cleared ${gradeCleared(p)}` : ''}`), grades),
-        line);
+        beforeClassTimetable(pending));
     }
 
     // ---- the maps: the seed's two, as cards with their thumbnails
@@ -169,12 +184,15 @@ export function renderSetup(root, params = {}) {
         h('span.ty-map-txt', h('b.ty-map-name', m?.name || id), h('span.ty-map-line', `${THEME_WORDS[m?.theme] || ''}${m?.tracks ? ` · ${CLASS_TEXT.roads(m.tracks.length)}` : ''}`)));
       }));
 
-    // ---- the six: tap 3 (a girl tile each; "Yours · band cap" / "Loaner" above her caption)
+    // ---- the six: tap 3 (a girl tile each; the kit's tag chip above her caption: one short word, the full words in its
+    // title and her spoken name. Every draft tile is drawn as owned, a Loaner too, so the tag shows on each)
     const tiles = pending.draft.map((id, i) => {
       const picked = pending.pick.includes(id);
       const mine = mode !== 'weekly' && isOwned(p, id);
+      const full = mode === 'weekly' ? CLASS_TEXT.floor : mine ? CLASS_TEXT.yours : CLASS_TEXT.loaner;
+      const short = mode === 'weekly' ? CLASS_TEXT.floorShort : mine ? CLASS_TEXT.yoursShort : CLASS_TEXT.loaner;
       const t = girlTile(id, {
-        owned: true, selected: picked, potential: mine ? undefined : 0, level: mine ? p.units?.[id]?.level ?? null : null, testid: `tryout-draft-${i}`, cls: 'ty-draft',
+        owned: true, selected: picked, potential: mine ? undefined : 0, level: mine ? p.units?.[id]?.level ?? null : null, tag: short, testid: `tryout-draft-${i}`, cls: 'ty-draft',
         onClick: () => {
           if (pending.pick.includes(id)) pending.pick = pending.pick.filter((x) => x !== id);
           else if (pending.pick.length < start) pending.pick.push(id);
@@ -183,11 +201,7 @@ export function renderSetup(root, params = {}) {
         },
       });
       t.setAttribute('aria-pressed', picked ? 'true' : 'false');
-      {
-        const full = mode === 'weekly' ? CLASS_TEXT.floor : mine ? CLASS_TEXT.yours : CLASS_TEXT.loaner;
-        const short = mode === 'weekly' ? CLASS_TEXT.floorShort : mine ? CLASS_TEXT.yoursShort : CLASS_TEXT.loaner;
-        t.append(h('span.ui-chip.ink.dup.ty-tag', { 'data-testid': 'tryout-draft-tag', title: full, 'aria-label': full }, short));
-      }
+      fullTag(t, short, full);
       return t;
     });
     const left = start - pending.pick.length;
@@ -223,9 +237,9 @@ export function renderSetup(root, params = {}) {
     // ---- the foot: the facts, the Desk Supplies, Start class (the one yellow) with its reason
     const perkNames = Object.keys(pending.perks || {}).map((k) => JAR_TEXT[k]?.name || k);
     const erasers = g.erasers + (pending.perks?.eraser ? 1 : 0);
-    const startBtn = h('button.ui-hit.ty-pri', {
-      type: 'button', 'data-testid': 'tryout-start', disabled: !ready, 'aria-describedby': ready ? null : 'ty-start-why',
-      onclick: () => {
+    const startBtn = primaryBtn(CLASS_TEXT.start, {
+      icon: 'play', testid: 'tryout-start', disabled: !ready, reason: ready ? null : CLASS_TEXT.pickMore(left),
+      onClick: () => {
         const rec = newRunRecord(store.profile, {
           seed: pending.seed, grade: pending.grade, length: pending.length, mapId: pending.mapId, hero: pending.hero, squad: pending.pick, simId: SIM_ID,
           perks: pending.perks, ...(mode === 'weekly' ? { weekly: pending.week } : null), ...(mode === 'practice' ? { practice: true, shared: true } : null),
@@ -236,16 +250,18 @@ export function renderSetup(root, params = {}) {
         pending = null;
         navigate('battle', { tryout: rec.id });
       },
-    }, h('span.ui-btn.pri', ready ? ico('play') : ico('lock'), h('span', CLASS_TEXT.start)));
+    });
+    // (the kit's reason line beside a disabled primary: the e2e reads it by its test id)
+    startBtn.querySelector?.('.ui-sec-why')?.setAttribute('data-testid', 'tryout-start-why');
     const foot = h('div.ty-bc-foot',
       h('div.ty-bc-facts',
         h('span.ty-bc-fact', CLASS_TEXT.facts(g, len, erasers)),
         perkNames.length ? h('span.ty-bc-fact', { 'data-testid': 'tryout-perks' }, CLASS_TEXT.perks(perkNames)) : null),
-      h('div.ty-bc-go',
-        ready ? null : h('span.ty-bc-why', { id: 'ty-start-why', 'data-testid': 'tryout-start-why' }, CLASS_TEXT.pickMore(left)),
-        startBtn));
+      h('div.ty-bc-go', startBtn));
 
-    fillIn(panel, head, gradeBox,
+    fillIn(panel, head,
+      // [timetable strip] (a Weekly or practice day: on its own row, no Grade row above it)
+      gradeBox || beforeClassTimetable(pending),
       h('div.ty-bc-cols',
         h('div.ty-bc-col.ty-bc-col-maps', h('span.lbl.ty-bc-lbl', CLASS_TEXT.maps), maps),
         h('div.ty-bc-col.ty-bc-col-squad', squad),
@@ -263,5 +279,8 @@ export function renderSetup(root, params = {}) {
   }
 
   draw();
-  return () => offPill();
+  // leaving: an open timetable preview lets go of its listeners (the next screen's first Escape is its own)
+  const cleanup = () => closeBeforeClassTimetable();
+  cleanup.stop = cleanup;
+  return cleanup;
 }
