@@ -222,7 +222,7 @@ export function ghostAt(i, n, fx, fy, tx, ty, reduce = false, out = { x: 0, y: 0
 /** Her relay origin this close to her own spot (tiles) counts as un-aimed on her: the panel is drawn beside her. */
 export const SELF_NEAR = 0.3;
 /** The un-aimed panel's drawn spot: this far to one side of her on screen and this far back (away from the camera). */
-export const BESIDE_SIDE = 0.46;
+export const BESIDE_SIDE = 0.52;
 export const BESIDE_BACK = 0.12;
 /**
  * The ground zone where a standing panel would cover her at the battle camera (tiles along the camera's ground
@@ -236,7 +236,7 @@ export const COVER_BACK = 0.35;
  * Where her panel is drawn (display only; the sim's origin never moves). An origin clear of her is drawn where it
  * is. One that would cover her at the battle camera (the un-aimed panel stops 0.7 short of the road, so a girl
  * 0.8-1.6 tiles from it gets it at her feet or just in front of her) is slid sideways on screen until it stands
- * BESIDE_SIDE beside her, keeping its depth; one on her own spot also steps BESIDE_BACK back (about 0.45 tiles).
+ * BESIDE_SIDE beside her, keeping its depth; one on her own spot also steps BESIDE_BACK back (about 0.53 tiles).
  * @param {number} fx @param {number} fz the camera's forward on the ground (unit, world x / z = sim x / y)
  * @param {(x: number, y: number) => number} [clear] distance to the road at (x, y): for an origin on her or straight
  *   in front of her, the side further from the road wins (right on a tie, and when no road is known)

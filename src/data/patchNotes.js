@@ -24,7 +24,7 @@ export const PATCH_NOTES = [
     fixed: [
       'Iroha’s mirror stands beside her instead of in front of her when it has no aim.',
       'Tenka’s coilgun is a little larger and glows in her violet, so it reads in battle.',
-      'Ruri’s Tree tab marks the abilities still to come in grey, not with the live ⚡.',
+      'Ruri’s Tree tab shows abilities coming in a later update with a grey ⚡; only the live one is yellow.',
       'Chika’s DPS, live DPS and average now sit on one row on phones.',
       'The Events button’s days-left sticker no longer overlaps its lantern.',
     ],

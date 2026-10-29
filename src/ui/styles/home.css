@@ -252,7 +252,7 @@
 .ui-night .home .home-evt .home-evt-left { position: absolute; z-index: 2; left: calc(var(--s) + 6px); top: 2px; height: 16px; padding: 0 4px; line-height: 1; font-size: 12px; pointer-events: none; }
 .ui-night .home .home-evt .ui-dot { position: absolute; z-index: 2; right: 6px; top: 6px; }
 /* with its time-left sticker, the lantern and the word sit lower so the sticker clears the lantern by 2 px (the sticker
-   cannot rise: the tab's clip-path cuts it); --evt-drop per tab height, 0 on the icon-only tab */
+   cannot rise: the tab's clip-path cuts it); --evt-drop per tab height (7 px in the 46 px and icon-only tabs) */
 .ui-night .home .home-evt:has(.home-evt-left) > :is(svg.g, .lbl) { translate: 0 var(--evt-drop, 2px); }
 .ui-night .home .home-coop svg.g { width: 24px; height: 24px; }
 .ui-night .home .home-coop .lbl { font: 600 15px/1 var(--font-num); letter-spacing: var(--track-menu); color: var(--on-ink); }
@@ -421,7 +421,7 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
 @media (max-height: 480px) and (max-width: 759px) {
   .home .home-dock { --ico-w: 64px; } .home .home-go .kl { display: none; } .home .home-evt .lbl { display: none; }
   /* Events without its word: a narrow icon tab, the lantern centred, its sticker (left) and dot (right) apart, clear of CO-OP */
-  .ui-night .home .home-evt { --evt-drop: 0px; width: 64px; justify-content: center; padding: 0 8px 0 calc(8px + var(--s)); }
+  .ui-night .home .home-evt { --evt-drop: 7px; width: 64px; justify-content: center; padding: 0 8px 0 calc(8px + var(--s)); }
 }
 @media (min-height: 481px) and (min-width: 701px) and (max-width: 1179px) { .home .home-dock { --ico-w: 88px; --ico-h: 76px; } .ui-night .home .home-ico .home-free { --free-y: -2px; } .home .home-battle { --bw: 300px; } }
 

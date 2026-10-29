@@ -61,7 +61,7 @@ export function wingNumbers(st) {
 
 /**
  * The Overall and Drones tabs' main DPS cells (CHIKA_REWORK §7.1: her bolt plus the FULL wing). While the wing is still
- * building, the label says so; the number cell holds only the number (VAULT §9: never an ellipsis on a number). How
+ * building, the Drones cell's label says so (Overall stays "DPS", one column); the number cell holds only the number (VAULT §9: never an ellipsis on a number). How
  * many fly now is the Drones / Flying cell's job ("3/9"), so the count is said once. The one number style (format.js
  * 'stat': "45.3", "4,524", "312.3k").
  * @returns {{ overall: { label: string, value: string }, wing: { label: string, value: string } }}
@@ -69,7 +69,9 @@ export function wingNumbers(st) {
 export function wingDpsCells(st) {
   const { wing, building } = wingNumbers(st);
   return {
-    overall: { label: building ? 'DPS (full wing)' : 'DPS', value: stat(st.own.dps + wing) },
+    // (always plain "DPS": one column on a phone in every state, so the grid never reflows when a drone relaunches;
+    // the wing cell beside it says when it counts the full wing)
+    overall: { label: 'DPS', value: stat(st.own.dps + wing) },
     wing: { label: building ? 'Full wing DPS' : 'Wing DPS', value: stat(wing) },
   };
 }
@@ -232,8 +234,8 @@ export function createDronePanel(ctx, { rerender, avgDps = null }) {
     const fly = tu.flight === 'pursuit' ? 'Whole map' : `${tiles(tu.leash)} (+${fmtNum(tu.range, 'range')} gun)`;
     // her Potential rows (the drones' overclock) first, so they tick in view
     return h('div', { 'data-testid': 'stats-overall' }, cells.pot || null, h('div.bt-stats-grid',
-      // (on a phone a plain "DPS" takes one column, so Live and Avg share its row; "DPS (full wing)" keeps two, one line)
-      cell(dps.label, dps.value, `.bt-stat-main.bt-stat-wide2${dps.label === 'DPS' ? '.bt-stat-short' : ''}`),
+      // (on a phone "DPS" takes one column, so Live and Avg share its row)
+      cell(dps.label, dps.value, '.bt-stat-main.bt-stat-wide2.bt-stat-short'),
       // Live and Avg: everything she and her drones dealt (her damageDealt holds the wing's), one column each (on a
       // phone Live sits beside DPS and Avg starts the next row, which Live alone took before: the tab is no taller).
       // Her Live is the wing's own rate (sampleDroneRates), which keeps sampling between waves, so its tip leaves out

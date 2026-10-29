@@ -77,6 +77,8 @@ export default defineConfig({
     include: [
       'three',
       'three/addons/loaders/GLTFLoader.js',
+      'three/addons/geometries/DecalGeometry.js',
+      'three/addons/modifiers/SimplifyModifier.js',
       'three/addons/utils/BufferGeometryUtils.js',
       'three/addons/utils/SkeletonUtils.js',
       'three/addons/postprocessing/EffectComposer.js',

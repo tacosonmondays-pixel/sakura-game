@@ -339,13 +339,13 @@ describe('Iroha impact flashes (no white-out on a clump)', () => {
 });
 
 describe('un-aimed panel stands beside her (display only)', () => {
-  it('panelSpot: an aimed origin is drawn where it is; one on her own spot about 0.45 tiles beside her, a little back', () => {
+  it('panelSpot: an aimed origin is drawn where it is; one on her own spot about 0.53 tiles beside her, a little back', () => {
     expect(panelSpot(2, 2, 5, 2)).toEqual({ x: 5, y: 2, beside: false });
     const s = panelSpot(2, 2, 2, 2);
     expect(s.beside).toBe(true);
     const d = Math.hypot(s.x - 2, s.y - 2);
-    expect(d).toBeGreaterThan(0.4);
-    expect(d).toBeLessThan(0.5);
+    expect(d).toBeGreaterThan(0.48);
+    expect(d).toBeLessThan(0.58);
     expect(s.y).toBeLessThan(2); // default camera looks toward −z: back is up the board
     expect(s.x).toBeGreaterThan(2); // screen right when no road is known
     // the side further from the road wins (road on her right: the panel goes left)
@@ -358,14 +358,14 @@ describe('un-aimed panel stands beside her (display only)', () => {
     expect(panelSpot(2, 2, 2.1, 2.1).beside).toBe(true);
     // an un-aimed origin just in front of her (toward the camera, the road below her): slid to her side, depth kept
     const f = panelSpot(2, 2, 2.05, 2.5);
-    expect(f.x).toBeCloseTo(2.46, 5);
+    expect(f.x).toBeCloseTo(2.52, 5);
     expect(f.y).toBeCloseTo(2.5, 5);
     expect(f.beside).toBe(false);
-    expect(panelSpot(2, 2, 1.95, 2.5).x).toBeCloseTo(1.54, 5); // it keeps the side it leans to
+    expect(panelSpot(2, 2, 1.95, 2.5).x).toBeCloseTo(1.48, 5); // it keeps the side it leans to
     // clear of her: drawn where it is
     expect(panelSpot(2, 2, 2, 3.1)).toEqual({ x: 2, y: 3.1, beside: false }); // far enough in front
     expect(panelSpot(2, 2, 2, 1.6)).toEqual({ x: 2, y: 1.6, beside: false }); // far enough behind
-    expect(panelSpot(2, 2, 2.5, 2.3)).toEqual({ x: 2.5, y: 2.3, beside: false }); // already beside her
+    expect(panelSpot(2, 2, 2.6, 2.3)).toEqual({ x: 2.6, y: 2.3, beside: false }); // already beside her
   });
 
   it('on the board the glass is drawn beside her, with no tether, and the sim origin is untouched', () => {
@@ -376,8 +376,8 @@ describe('un-aimed panel stands beside her (display only)', () => {
     roster.update(1 / 60);
     const p = roster.props.get(7);
     const d = Math.hypot(p.mesh.position.x - t.x, p.mesh.position.z - t.y);
-    expect(d).toBeGreaterThan(0.4);
-    expect(d).toBeLessThan(0.5);
+    expect(d).toBeGreaterThan(0.48);
+    expect(d).toBeLessThan(0.58);
     expect([t.ox, t.oy]).toEqual([2, 2]);
     const spot = roster.mirrors.spotOf(7);
     expect([spot.x, spot.y]).toEqual([p.mesh.position.x, p.mesh.position.z]);

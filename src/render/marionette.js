@@ -222,8 +222,9 @@ export class Marionette {
    */
   tick(dt, frameDt = dt) {
     const st = this.sim?.time;
-    // the game-speed estimate uses the frame's own time (a hit-stop shortens the visual dt, not the sim step)
-    if (typeof st === 'number' && this.lastSim != null && frameDt > 0) {
+    // the game-speed estimate uses the frame's own time (a hit-stop shortens the visual dt, not the sim step); held
+    // while paused (visual dt 0), so the doll resumes at the speed it had
+    if (typeof st === 'number' && this.lastSim != null && dt > 0 && frameDt > 0) {
       const est = Math.max(0, Math.min(4, (st - this.lastSim) / frameDt));
       this.speed += (est - this.speed) * 0.2;
     }

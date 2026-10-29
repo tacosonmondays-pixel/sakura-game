@@ -805,8 +805,8 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
   .bt-panel-foot { min-height: calc(36px + var(--safe-bottom)); padding: 3px 8px calc(3px + var(--safe-bottom)); }
   .bt-panel-foot .bt-sell { position: relative; min-height: 30px; }
   .bt-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  /* Chika's Overall: a plain "DPS" takes one column here, so DPS, DPS (live) and DPS (avg) share one row (two columns
-     left Avg alone on the next row); "DPS (full wing)" keeps two so its label stays on one line */
+  /* Chika's Overall: "DPS" takes one column here, so DPS, DPS (live) and DPS (avg) share one row (two columns left Avg
+     alone on the next row); always, so a relaunching drone never reflows the grid */
   .bt-stat-main.bt-stat-wide2.bt-stat-short { grid-column: auto; }
 }
 

@@ -490,3 +490,18 @@ describe('marionette clock across a hit-stop', () => {
     expect(m.speed).toBeLessThan(1.1);
   });
 });
+
+describe('marionette clock across a pause', () => {
+  it('a paused stretch (visual dt 0, sim still) keeps the game-speed estimate for the resume', () => {
+    const sim = { time: 0 };
+    const m = new Marionette({ sim, actors: { enemies: new Map(), enemyPos: () => null }, root: new THREE.Group() });
+    for (let i = 0; i < 90; i++) {
+      sim.time += 3 / 60; // 3x
+      m.tick(1 / 60, 1 / 60);
+    }
+    const fast = m.speed;
+    expect(fast).toBeGreaterThan(2.5);
+    for (let i = 0; i < 60; i++) m.tick(0, 1 / 60); // paused: no visual time, the sim stands still
+    expect(m.speed).toBeCloseTo(fast, 5);
+  });
+});
