@@ -12,6 +12,7 @@ import { haloPos } from '../sim/wheels.js';
 import { pointAt } from '../sim/path.js';
 import { STEP, HALO_REACH, HALO_MAX } from '../sim/constants.js';
 import { costumeFor, enemyExtraFor, buildCostume, COSTUME_SLOT } from './costumes.js';
+import { headTunnel } from './trackMesh.js';
 
 const TAU = Math.PI * 2;
 /** Drones drawn at most (two co-op players with Chika lines at Sentry 5: 9–12 each). */
@@ -108,6 +109,10 @@ export class Actors {
     this.R = atlas.regions;
     this.quality = quality;
     this.terrain = terrain;
+    // a lane that opens in a tunnel (the subway spawn, 5-6): its walkers stay out of sight until the bore takes them
+    // (the sim spawns at distance 0, a step behind the tunnel's start), so nothing pops up behind the mouth
+    const map = sim?.map;
+    this.headHide = (map?.tracks || []).map((t) => headTunnel(t, map.width || 0, map.height || 0)?.[0] ?? 0);
     this.towers = new Map(); // uid → view
     this.enemies = new Map();
     this.dying = []; // enemy views playing their death clip (V2 GLB monsters) before disposal
@@ -401,7 +406,7 @@ export class Actors {
     v.ground = ground;
     // inside a tunnel: out of sight (the sim also makes it untargetable); under an overpass
     // deck: ground walkers pass out of sight beneath it (still targetable)
-    v.hidden = !!e.hidden || (!!e.underDeck && !v.airborne && !(e.alt > 0.3));
+    v.hidden = !!e.hidden || (!!e.underDeck && !v.airborne && !(e.alt > 0.3)) || e.dist < (this.headHide[e.pathIndex] || 0);
     m.visible = !v.hidden;
     const alt = (e.alt || 0) + ground;
     v.y += (alt - v.y) * Math.min(1, dt * 8);

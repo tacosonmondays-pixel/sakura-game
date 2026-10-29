@@ -90,8 +90,8 @@ describe('old saves keep every unlock (Act I as before; Act II opens after 1-5)'
     for (const c of CHAPTERS) {
       expect(chapterProgress(p, c.id)).toEqual(chapterProgress(p, c.id, 1));
       expect(chapterProgress(p, c.id).total).toBe(5);
-      // Act II: chapters 1 and 2's five each (Gate Arc Steps 1-2), none of them cleared by a veteran of the old build
-      const n2 = c.id <= 2 ? 5 : 0;
+      // Act II: chapters 1-6's five each (Gate Arc Steps 1-6), none of them cleared by a veteran of the old build
+      const n2 = c.id <= 6 ? 5 : 0;
       expect(chapterProgress(p, c.id, 2)).toEqual({ cleared: 0, total: n2, medals: { easy: 0, normal: 0, hard: 0, nightmare: 0 } });
       expect(chapterRibbons(p, c.id, 2)).toEqual({ have: 0, total: n2 * 20 });
       expect(chapterRibbons(p, c.id).total).toBe(100);
@@ -118,12 +118,12 @@ describe('play order and the Next button', () => {
     for (let i = 0; i < ACT1.length - 1; i++) expect(nextInAct(ACT1[i])).toBe(ACT1[i + 1]);
   });
 
-  it('actStages: Act I is chapter.stages, Act II chapter.act2 (chapters 1 and 2 so far; empty until it ships)', () => {
+  it('actStages: Act I is chapter.stages, Act II chapter.act2 (chapters 1-6 so far; empty until it ships)', () => {
     for (const c of CHAPTERS) {
       expect(actStages(c.id, 1)).toEqual(c.stages);
       expect(actStages(String(c.id), '1')).toEqual(c.stages);
       expect(actStages(c.id, 2)).toEqual(c.act2);
-      expect(c.act2).toEqual(c.id <= 2 ? [6, 7, 8, 9, 10].map((n) => `${c.id}-${n}`) : []);
+      expect(c.act2).toEqual(c.id <= 6 ? [6, 7, 8, 9, 10].map((n) => `${c.id}-${n}`) : []);
     }
     expect(actStages(9, 1)).toEqual([]);
     expect(actStages(1, 3)).toEqual([]);
@@ -140,6 +140,53 @@ describe('the two-key x-6 on live data (2-6 is a real stage since Step 2)', () =
     expect(stageOpen(p, '2-6')).toBe(true);
     const q = mark(createProfile(), ['1-10']); // 1-10 alone (impossible in play) is not enough either
     expect(isStageUnlocked(q, '2-6')).toBe(false);
+  });
+
+  it('chapter 5 (Step 5): 5-6 waits for 5-5 and 4-10; 5-7 … 5-10 chain on the stage before', () => {
+    expect(STAGE_MAP['5-6'].requires).toEqual(['5-5', '4-10']);
+    for (const n of [7, 8, 9, 10]) expect(STAGE_MAP[`5-${n}`].requires).toBe(`5-${n - 1}`);
+    const p = mark(createProfile(), ACT1.slice(0, 25)); // all of Act I through 5-5
+    expect(isStageUnlocked(p, '5-6')).toBe(false);
+    mark(p, [1, 2, 3, 4].flatMap((c) => [6, 7, 8, 9].map((n) => `${c}-${n}`)));
+    mark(p, ['1-10', '2-10', '3-10']);
+    expect(isStageUnlocked(p, '5-6')).toBe(false);
+    mark(p, ['4-10']);
+    expect(isStageUnlocked(p, '5-6')).toBe(true);
+    expect(stageOpen(p, '5-6')).toBe(true);
+  });
+
+  it('chapter 6 (Step 6): 6-6 waits for 6-5 and 5-10; 6-7 … 6-10 chain on the stage before', () => {
+    expect(STAGE_MAP['6-6'].requires).toEqual(['6-5', '5-10']);
+    for (const n of [7, 8, 9, 10]) expect(STAGE_MAP[`6-${n}`].requires).toBe(`6-${n - 1}`);
+    const p = mark(createProfile(), ACT1.slice(0, 30)); // all of Act I through 6-5
+    mark(p, [1, 2, 3, 4].flatMap((c) => [6, 7, 8, 9, 10].map((n) => `${c}-${n}`)));
+    mark(p, ['5-6', '5-7', '5-8', '5-9']);
+    expect(isStageUnlocked(p, '6-6')).toBe(false);
+    mark(p, ['5-10']);
+    expect(isStageUnlocked(p, '6-6')).toBe(true);
+    expect(stageOpen(p, '6-6')).toBe(true);
+  });
+
+  it('the side stage (Step 6): opens on 6-10\'s first clear, sorts just after it, and is never a campaign stage', () => {
+    const side = STAGE_MAP['side-6-starfall'];
+    expect(side).toMatchObject({ kind: 'side', chapter: 6, act: 2, anchor: '6-10', requires: '6-10' });
+    expect(stageRequires(side)).toEqual(['6-10']);
+    expect(CAMPAIGN_IDS).not.toContain(side.id);
+    expect(campaignStages()).not.toContain(side);
+    expect(actStages(6, 2)).toEqual(['6-6', '6-7', '6-8', '6-9', '6-10']);
+    expect(nextInAct('6-10')).toBe(null);
+    expect(nextInAct(side.id)).toBe(null);
+    expect(followingStage('6-10')).toBe(null);
+    expect(stageOrderKey(side.id)).toBeGreaterThan(stageOrderKey('6-10'));
+    expect(stageOrderKey(side.id)).toBeLessThan(stageOrderKey('7-1'));
+    const p = mark(createProfile(), CAMPAIGN_IDS.filter((id) => id !== '6-10'));
+    expect(isStageUnlocked(p, side.id)).toBe(false);
+    expect(stageOpen(p, side.id)).toBe(false);
+    mark(p, ['6-10']);
+    expect(isStageUnlocked(p, side.id)).toBe(true);
+    expect(stageOpen(p, side.id)).toBe(true);
+    // "the first uncleared stage" never points at the optional side stage
+    expect(nextStage(p)).not.toBe(side.id);
   });
 
   it('orders and chains by act: 1-10 sorts before 2-1 and 2-6 after 2-5', () => {

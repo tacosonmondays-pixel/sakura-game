@@ -134,8 +134,10 @@ function tryoutSim(start, stage, units) {
       endless: false, autoStart: false,
       tryout: {
         seed: plan.seed, grade: plan.grade, length: plan.length, mapId: plan.mapId,
-        // (each three checked against that player's own six: a forged draft plays the first three of it)
-        players: players.map((p) => ({ squad: checkedDraft(p.draft, p.pool, plan.seed, p.slot) })),
+        // (each three checked against that player's own six: a forged draft plays the first three of it; Random Class
+        // ignores the drafts, and the Sim draws each player's three from their pool and the seed, §20.4)
+        ...(ty.random === true ? { random: true } : null),
+        players: players.map((p) => ({ squad: ty.random === true ? [] : checkedDraft(p.draft, p.pool, plan.seed, p.slot) })),
         pools: players.map((p) => (p.pool && typeof p.pool === 'object' ? p.pool : {})),
       },
     },

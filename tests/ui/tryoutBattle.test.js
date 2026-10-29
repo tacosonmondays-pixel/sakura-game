@@ -128,7 +128,7 @@ describe('tryoutBattle.css: the Stationery ladder and the scope fence (§13.1)',
 });
 
 describe('the in-battle Tryout modules import only what exists', () => {
-  for (const file of ['src/ui/battle/tryout.js', 'src/ui/battle/tryout/timetable.js']) {
+  for (const file of ['src/ui/battle/tryout.js', 'src/ui/battle/tryout/timetable.js', 'src/ui/battle/tryout/caps.js']) {
     it(file, async () => {
       const src = readFileSync(resolve(file), 'utf8');
       const missing = [];

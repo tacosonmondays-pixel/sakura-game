@@ -61,7 +61,12 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 //    co-op (the 'tr' and 'mv' commands, the run state in snapshots and the hash, each player's draft and frozen pool
 //    in the start message); a client on 10 resolves the same loadout to different battles (or does not know the girl
 //    at all) and cannot play a Tryout room.
-export const COOP_PROTOCOL = 11;
+// 12: the Gate Arc Acts 3–6 release (co-op update #9, set once for it): chapters 3–6's Act II stages and bosses with
+//    their ruined scenery and lane schedules, Tenka's LR form (Critical Mass · Event Horizon), the duo's buff with the
+//    beam reaching the map edge, the sentry deploy event, and Tryout Day's Extended Day (an endless run past the
+//    timetable) and Random Class (both players draft random girls and buffs); a client on 11 resolves the same loadout
+//    to different battles (or does not know the stage) and cannot play an Extended Day or Random Class room.
+export const COOP_PROTOCOL = 12;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */

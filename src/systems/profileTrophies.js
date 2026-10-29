@@ -31,7 +31,12 @@ const STAGE_INDEX = Object.fromEntries(STAGES.map((s, i) => [s.id, s.kind !== 'c
 
 /** Medal names by difficulty (bronze, silver, gold, sakura). */
 export const MEDAL_NAMES = Object.freeze({ easy: 'Bronze Medal', normal: 'Silver Medal', hard: 'Gold Medal', nightmare: 'Sakura Medal' });
-export const STAGE_COUNT = STAGES.length;
+/**
+ * The stages that count on the profile (medals, medal pins, "stages cleared"): every stage but the side stages (Gate Arc
+ * Step 6: an optional side stage such as the Star Dome adds no medal, trophy or counter).
+ */
+const TROPHY_STAGES = STAGES.filter((s) => s.kind !== 'side');
+export const STAGE_COUNT = TROPHY_STAGES.length;
 
 // ---------------------------------------------------------------------------
 // Titles, frames, banners
@@ -110,7 +115,7 @@ export function bannerUnlocked(p, id) {
 
 /** [easy, normal, hard, nightmare] medal counts over every stage. */
 export function medalTally(p) {
-  return DIFFICULTY_ORDER.map((d) => STAGES.filter((s) => p?.progress?.stages?.[s.id]?.[d] === true).length);
+  return DIFFICULTY_ORDER.map((d) => TROPHY_STAGES.filter((s) => p?.progress?.stages?.[s.id]?.[d] === true).length);
 }
 
 /** Battle-mode ribbons a campaign stage can hold (4 difficulties × 5 modes). */
@@ -153,7 +158,7 @@ export function parsePin(pin) {
 export function pinEarned(p, pin) {
   const x = parsePin(pin);
   if (!x) return false;
-  if (x.kind === 'medal') return !!STAGE_MAP[x.stage] && p?.progress?.stages?.[x.stage]?.[x.diff] === true;
+  if (x.kind === 'medal') return !!STAGE_MAP[x.stage] && STAGE_MAP[x.stage].kind !== 'side' && p?.progress?.stages?.[x.stage]?.[x.diff] === true;
   if (x.kind === 'ach') return ID_RE.test(x.id) && claimed(p, x.id) && !NO_COSMETIC(x.id);
   if (!p || !isCampaign(x.stage)) return false;
   if (x.kind === 'ribbon') return RIBBON_MODES.includes(x.mode) && modeRibbons(p, x.stage)[`${x.diff}:${x.mode}`] === true;
@@ -166,7 +171,7 @@ const DIFF_RANK = Object.fromEntries(DIFFICULTY_ORDER.map((d, i) => [d, i]));
 /** Earned medal pins, best first: Sakura → Gold → Silver → Bronze; campaign stages (later first), then the rest. */
 function medalPins(p) {
   const out = [];
-  for (const s of STAGES) {
+  for (const s of TROPHY_STAGES) {
     for (const d of DIFFICULTY_ORDER) if (p?.progress?.stages?.[s.id]?.[d] === true) out.push({ pin: `${s.id}:${d}`, d, c: s.kind === 'campaign' ? 1 : 0, i: STAGE_INDEX[s.id] });
   }
   return out.sort((a, b) => DIFF_RANK[b.d] - DIFF_RANK[a.d] || b.c - a.c || b.i - a.i).map((x) => x.pin);
@@ -292,7 +297,7 @@ export function freeplayByTier(p) {
 export function collectionStats(p) {
   return {
     u: Object.keys(p?.units || {}).filter((id) => UNIT_MAP[id]).length,
-    s: STAGES.filter((s) => stageCleared(p, s.id)).length,
+    s: TROPHY_STAGES.filter((s) => stageCleared(p, s.id)).length,
     b: bestiaryPercent(p || {}),
     k: killsAll(p),
     h: honorCount(p),

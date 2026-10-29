@@ -8,17 +8,21 @@
 import { h } from './util.js';
 import { fmtNum } from '../format.js';
 import { svgEl, girlTile } from '../components.js';
-import { rarityTag } from '../kit.js';
+import { rarityTag, moreSticker } from '../kit.js';
+import { onEscape } from '../hold.js';
+import { reduced } from '../motion.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { ROLES } from '../../data/types.js';
 import { PEP_CARDS, RARITIES, TRYOUT } from '../../data/tryout.js';
 import { assignProgress, dareOf, chooserOf } from '../../sim/tryout/index.js';
 import { rarityWeights, pityFloor, hasVarsity } from '../../sim/tryout/offers.js';
-import { lengthOf } from '../../sim/tryout/plan.js';
+import { buildTryoutPlan } from '../../sim/tryout/plan.js';
 import { passMax } from '../../sim/tryout/breaks.js';
-import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN, rewardLines, SHARE_TEXT, PHOTO_TEXT, GIRL_CARD_TEXT, TIMETABLE_TEXT } from '../text/tryout.js';
-import { timetableModel, timetableStrip, timetableMini, bandParts, markEl } from './tryout/timetable.js';
+import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN, rewardLines, SHARE_TEXT, PHOTO_TEXT, GIRL_CARD_TEXT, TIMETABLE_TEXT, CAP_TEXT, MORE_TEXT, RANDOM_TEXT, EXTENDED_TEXT } from '../text/tryout.js';
+import { timetableModel as baseModel, timetableStrip, timetableMini, bandParts, markEl, previewStrip, periodPreview, extendedCells } from './tryout/timetable.js';
+import { capBar, barWho, oddsTable, capsTable } from './tryout/caps.js';
+import { isRandomRun, isExtendedRun, viewLength, revealOf, revealStep, extendedPast, periodMarks, affixOf, FULL_PERIODS } from './tryout/adapters.js';
 import { encodeShareCode } from '../../systems/tryoutRuns.js';
 import { selectedCosmetic } from '../../systems/tryoutJar.js';
 import { store } from '../../core/store.js';
@@ -42,6 +46,28 @@ export function boldNumbers(line) {
   return out;
 }
 
+/**
+ * The Class Photo's stamp grid as data (pure): one row per period of the drawn table (an Extended Day: P1-P12), each
+ * with its label, its marks for player `slot` (periodMarks: a shrunk Extended Day row draws its count, §20.6), its
+ * score and its pick's rarity; a period not reached is `absent`.
+ * @param {{ periods: object[] }} res sim.result().tryout
+ * @param {{ picks: object[] }} pl that result's player
+ * @param {object} len the drawn length table (viewLength)
+ * @returns {Array<{ p: number, label: string, absent: boolean, marks: Array<[string|null, number]>, score: number|null, rarity: number|null, resumed: boolean }>}
+ */
+export function stampRows(res, pl, len, slot = 0, { extended = false } = {}) {
+  const byPeriod = new Map((res?.periods || []).filter((x) => x && typeof x === 'object').map((x) => [x.period, x]));
+  const picks = Array.isArray(pl?.picks) ? pl.picks : [];
+  const rows = [];
+  for (let p = 1; p <= len.periods; p++) {
+    const rec = byPeriod.get(p) || null;
+    const pk = picks.find((x) => len.picks[x.pick - 1] === p) || null;
+    const label = p === len.periods && !extended ? TIMETABLE_TEXT.final : TIMETABLE_TEXT.cell(p);
+    rows.push({ p, label, absent: !rec, marks: rec ? periodMarks(rec, slot) : [], score: rec ? rec.score : null, rarity: pk ? pk.rarity : null, resumed: !!rec?.resumed });
+  }
+  return rows;
+}
+
 /** The kit's rarity tag for a rarity index (navy plate, rarity-coloured letters). */
 const rTag = (r, o) => rarityTag(RARITIES[r] || 'R', o);
 
@@ -53,9 +79,25 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   const { sim } = ctx;
   const ty = () => sim.tryout;
   const me = () => ty().players[mySlot];
-  const len = lengthOf(ty().length);
+  // Extended Day (§20.8, minimal): the UI draws the Full Day's twelve (finite loops), and past wave 48 counts waves;
+  // Random Class (§20.4): the pick sheet is a reveal, no buttons (both read through ./tryout/adapters.js)
+  const len = viewLength(ty());
+  const random = isRandomRun(ty());
+  const extended = isExtendedRun(ty());
+  /** The strip's cells (an Extended Day: P12 is not the Final, the day goes on after it). */
+  const timetableModel = (...a) => (extended ? extendedCells(baseModel(...a)) : baseModel(...a));
   let moving = null; // uid of the girl a Hall Pass is moving
   let shown = '';
+  // the pick sheet's timetable preview (the key of the open cell, kept over a repaint) and its MORE sheet
+  let pickStrip = null;
+  let ttOpen = null;
+  let moreOpen = false;
+  let offMoreEsc = null;
+  let offMoreTab = null;
+  /** The run's plan (pure: its seed, Grade, length and map), for the timetable previews. */
+  let planMemo = null;
+  // (an Extended Day previews the Full Day's plan: §20.1, P1-12 are exactly the Full Day)
+  const plan = () => planMemo || (planMemo = buildTryoutPlan({ seed: ty().seed, grade: ty().grade, length: isExtendedRun(ty()) ? 'full' : ty().length, mapId: ty().mapId }));
   // co-op Subject suggestions (§11): a room note outside lockstep (session.sendNote / 'note'), never a sim
   // command. mySuggest: what I suggested to the chooser; allySuggest: what my ally suggested to me
   let mySuggest = null; // { period, k }
@@ -112,16 +154,21 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     // the head is the timetable's thin band (§13.4): "P3 · wave 2/4 · Science", the Grade twist, the score, and
     // under it the run's cells in miniature
     const band = bandParts(t, len, sim.wave);
-    const label = t.base ? band.label : p >= len.periods ? TIMETABLE_TEXT.final : TIMETABLE_TEXT.cell(p);
+    let label = t.base ? band.label : p >= len.periods ? TIMETABLE_TEXT.final : TIMETABLE_TEXT.cell(p);
+    // Extended Day: P12 is not the Final; past the Full Day's 48 waves the head counts waves ("Wave 53 · Stay Late")
+    const past = extendedPast(sim, t.base ? sim.wave : sim.wave + 1);
+    if (extended && label === TIMETABLE_TEXT.final) label = TIMETABLE_TEXT.cell(Math.min(p, FULL_PERIODS));
+    if (past) label = EXTENDED_TEXT.wave(past.wave);
     head.replaceChildren(...[
-      h('span.ty-band',
+      h('span.ty-band', past ? { 'data-testid': 'ty-band-wave' } : null,
         t.base ? null : h('span.ty-band-next', `${TIMETABLE_TEXT.next} · `),
         h('b.ty-band-p', label),
-        band.wave ? h('span', ` · ${band.wave}`) : null,
+        past ? h('span', ` · ${EXTENDED_TEXT.stayLate}`) : band.wave ? h('span', ` · ${band.wave}`) : null,
         // while a period runs, its Subject (the class rule in play) is named in the head
         band.subject ? h('span.ty-head-subj', { 'data-testid': 'ty-head-subject', title: band.subjectLine }, ` · ${band.subject}`) : null,
         // a Grade 8+ period affix (sim.tryout.affixes[period], a TRYOUT.dares id)
-        t.affixes?.[p] ? h('span.ty-head-affix', { 'data-testid': 'ty-head-affix', title: DARE_TEXT[t.affixes[p]] }, ` · ${DARE_SHORT[t.affixes[p]] || t.affixes[p]}`) : null,
+        // (an Extended Day past P12: the same per-period draw, affixOf)
+        affixOf(t, p) ? h('span.ty-head-affix', { 'data-testid': 'ty-head-affix', title: DARE_TEXT[affixOf(t, p)] }, ` · ${DARE_SHORT[affixOf(t, p)] || affixOf(t, p)}`) : null,
         t.base && t.dare ? h('span.ty-head-dare', { title: TIMETABLE_TEXT.dare }, ' ⚑') : null),
       h('span.ty-score', `Score ${fmtNum(t.score + t.periodScore, 'count', { detail: true })}`),
     ].filter(Boolean));
@@ -168,7 +215,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     const pack = TRYOUT.arrival[Math.max(0, Math.min(4, o.rarity - (TRYOUT.grades[ty().grade]?.arrivalDown || 0)))];
     const tier = pack.tier;
     const paths = tier > 0 ? def?.paths || [] : [];
-    const pathRow = paths.length > 1 ? h('span.ty-paths', ...paths.map((pa, k) => h('button.bt-btn.ty-path', {
+    const pathRow = paths.length > 1 && !random ? h('span.ty-paths', ...paths.map((pa, k) => h('button.bt-btn.ty-path', {
       'data-testid': `ty-path-${i}-${k}`, onclick: (e) => { e.stopPropagation(); take(i, k); },
     }, pa.name || `Path ${k + 1}`))) : null;
     const G = GIRL_CARD_TEXT;
@@ -213,7 +260,110 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       c.unit ? svgEl(portraitHTML(UNIT_MAP[c.unit], 'thumb', { eager: true }), 'ty-stn-art') : null,
       h('b.ty-card-nm', t.name),
       h('span.ty-card-ln', ...boldNumbers(t.line)),
-      card?.group === 'board' && ty().coop && (c.id === 'B02' || c.id === 'B04') ? h('span.ty-card-ln.ty-mute', 'Team-wide') : null);
+      card?.group === 'board' && ty().coop && (c.id === 'B02' || c.id === 'B04') ? h('span.ty-card-ln.ty-mute', 'Team-wide') : null,
+      capRow(c, i));
+  }
+
+  /**
+   * The card's cap bar (§4.4, §13.6): its main family for the girl it reaches (a Team or Group card: the one the cap
+   * cuts most), how full that cap is now (ink) and after taking it (cyan); "full value for 4 of 5" when the cap cuts some.
+   */
+  function capRow(c, i) {
+    const bar = capBar(sim, mySlot, c);
+    if (!bar) return null;
+    const pc = (v) => `${Math.round(Math.max(0, Math.min(1, v / bar.cap)) * 1000) / 10}%`;
+    // a Team or Group card that adds in full to everyone it reaches: only what it adds ("Damage +6% to all 5"; its bar
+    // is that share of each girl's cap). Else the girl the cap cuts most, her now → after, and on how many it adds in full
+    if (bar.all) {
+      const spoken = CAP_TEXT.toAllBar(bar.famName, bar.addText, bar.of, bar.capText);
+      return h('span.ty-cap.all', { 'data-testid': `ty-cap-${i}`, title: spoken },
+        h('span.ty-cap-ln', bar.text),
+        h('span.ty-cap-bar', { role: 'img', 'aria-label': spoken },
+          h('i.ty-cap-add', { style: { left: '0%', width: pc(bar.value) } })));
+    }
+    const who = barWho(bar);
+    const part = bar.of > 1 ? ` · ${CAP_TEXT.fully(bar.full, bar.of)}` : '';
+    const label = `${who} · ${bar.text}${part}`;
+    return h('span.ty-cap', { 'data-testid': `ty-cap-${i}`, title: label },
+      h('span.ty-cap-ln', h('b.ty-cap-who', who), ` · ${bar.text}`, part ? h('span.ty-cap-part', part) : null),
+      h('span.ty-cap-bar', { role: 'img', 'aria-label': label },
+        h('i.ty-cap-now', { style: { width: pc(bar.now) } }),
+        h('i.ty-cap-add', { style: { left: pc(bar.now), width: pc(bar.after - bar.now) } })));
+  }
+
+  // ---- MORE: the odds table for this pick and the per-girl caps (§3.4, §4.4, §13.6) -------------------------------
+  function morePanel(o) {
+    const p = me();
+    const band = len.bands[o.pick - 1] || 'early';
+    const lrOff = p.lr >= len.lrCap;
+    const rows = oddsTable({ band, credits: o.credits, floor: o.floor || 0, lrOff });
+    const M = MORE_TEXT;
+    const closeBtn = h('button.ty-more-x', { type: 'button', 'data-testid': 'ty-more-close', 'aria-label': M.back, title: M.back, onclick: () => closeMore(true) }, '×');
+    // (a follow-up offer, e.g. Show Her Around's girls, rolls no rarity: no odds table, the caps only)
+    const odds = o.follow ? null : h('div.ty-more-col', { 'data-testid': 'ty-more-odds' },
+      h('b.ty-more-h', M.odds),
+      h('span.ty-more-sub', M.oddsLine(o.pick, M.bands[band] || band, o.credits)),
+      h('table.ty-more-t',
+        h('thead', h('tr', h('th', { scope: 'col' }, M.credits), ...RARITIES.map((r, k) => h('th', { scope: 'col' }, rTag(k))))),
+        h('tbody', ...rows.map((row) => h(`tr${row.current ? '.cur' : ''}`, { 'data-testid': row.current ? 'ty-more-odds-cur' : null, 'aria-current': row.current ? 'true' : null },
+          h('th', { scope: 'row' }, String(row.credits)), ...row.pct.map((x) => h(`td${x ? '' : '.z'}`, x ? `${x}` : M.none)))))),
+      o.floor > 0 ? h('span.ty-more-note', M.floor(RARITIES[o.floor])) : null,
+      lrOff ? h('span.ty-more-note', M.lrOff) : null);
+    const caps = h('div.ty-more-col', { 'data-testid': 'ty-more-caps' },
+      h('b.ty-more-h', M.caps),
+      h('span.ty-more-sub', M.capsLine),
+      h('table.ty-more-t.caps',
+        h('thead', h('tr', h('th', { scope: 'col' }, M.family), h('th', { scope: 'col' }, M.cap), h('th', { scope: 'col' }, M.top))),
+        h('tbody', ...capsTable(sim, mySlot).map((r) => h('tr', { 'data-testid': `ty-more-cap-${r.id}` },
+          h('th', { scope: 'row' }, M.rows[r.id] || r.id), h('td.cap', r.cap),
+          h('td.top', r.top ? `${r.top}${r.who ? ` · ${r.who}` : ''}` : M.none))))));
+    const box = h('div.ty-sheet.ty-more.ui-day', { role: 'dialog', 'aria-modal': 'true', 'aria-label': M.title, 'data-testid': 'ty-more-sheet' },
+      h('div.ty-shead', h('b.ty-stitle', M.title), closeBtn),
+      h(`div.ty-more-body${odds ? '' : '.one'}`, odds, caps));
+    return h('div.ty-more-wrap', { onclick: (e) => { if (e.target === e.currentTarget) closeMore(true); } }, box);
+  }
+
+  /** Keeps Tab inside a modal box: the last focusable wraps to the first and back (from outside it: into it). */
+  function trapTab(e, box) {
+    if (e.key !== 'Tab') return;
+    const all = [...box.querySelectorAll('button, [href], select, input, textarea, [tabindex]:not([tabindex="-1"])')]
+      .filter((x) => !x.disabled && x.getClientRects().length);
+    if (!all.length) return;
+    const first = all[0];
+    const last = all[all.length - 1];
+    const at = document.activeElement;
+    if (e.shiftKey && (at === first || !box.contains(at))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (at === last || !box.contains(at))) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  /** While MORE is open the pick sheet under it is inert (no focus, no taps): focus never leaves the modal. */
+  function inertUnder(on) {
+    for (const x of sheet.children) if (!x.classList.contains('ty-more-wrap')) x.inert = on;
+  }
+
+  function openMore() {
+    moreOpen = true;
+    ttOpen = null; // (a preview card does not come back under the MORE sheet)
+    shown = ''; // (repaint the sheet with the panel over it)
+    paintPick();
+    sheet.querySelector('[data-testid="ty-more-close"]')?.focus({ preventScroll: true });
+  }
+
+  function closeMore(focus = false) {
+    if (!moreOpen) return;
+    moreOpen = false;
+    offMoreEsc?.();
+    offMoreEsc = null;
+    sheet.querySelector('.ty-more-wrap')?.remove();
+    offMoreTab?.();
+    offMoreTab = null;
+    inertUnder(false);
+    if (focus) sheet.querySelector('[data-testid="ty-more"]')?.focus({ preventScroll: true });
   }
 
   function paintPick() {
@@ -222,36 +372,130 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     const key = o ? `${o.seq}:${p.erasers}:${ty().players.map((x) => x.win).join()}` : '';
     if (key === shown) return;
     shown = key;
+    // (the old sheet's preview card lets go of its listeners; its key comes back on the new strip)
+    const keep = ttOpen;
+    pickStrip?.close();
+    pickStrip = null;
+    ttOpen = o ? keep : null;
+    // (Random Class: the card the last reveal landed on, said once in the feed when its sheet closes)
+    if (random && rvLast && rvLast.seq !== o?.seq) {
+      ctx.feed?.push(rvLast.name ? RANDOM_TEXT.landed(rvLast.name) : RANDOM_TEXT.handed, 'good', { key: 'ty-random', ms: 2200 });
+      rvLast = null;
+    }
     if (!o) {
+      closeMore();
       sheet.hidden = true;
       syncSheets();
       return;
     }
+    if (random) return paintReveal(o);
     const pay = Math.floor((TRYOUT.handIn.base + TRYOUT.handIn.perPeriod * ty().period) * sim.cashScale);
     const last = o.pick === len.picks.length;
     const why = ty().periods.length ? ty().periods[ty().periods.length - 1] : null;
     // the top band: the period's stamps, then "3 credits → SSR" and the Teacher's Note (§13.6)
-    const reasons = why ? [...why.team, ...(why.own[mySlot] || [])].map(([id, st]) => h('span.ty-why', markEl(st), ASSIGN_TEXT[id]?.name || id)) : [];
+    // (periodMarks: a full row's marks, or a shrunk Extended Day row's count, §20.6)
+    const reasons = why ? periodMarks(why, mySlot).filter(([id]) => id).map(([id, st]) => h('span.ty-why', markEl(st), ASSIGN_TEXT[id]?.name || id)) : [];
     if (p.bank) reasons.push(h('span.ty-why', markEl(1), 'Handed in'));
     const partner = ty().coop ? ty().players.find((_, i) => i !== mySlot) : null;
     const cards = o.cards.map((c, i) => (c.girl ? girlCard(c, i, o) : c.varsityGirl ? varsityCard(c, i) : pepCard(c, i)));
+    // (a repaint under an open MORE keeps its focus: the same control, else its close button; fix check, Oct 29)
+    const moreFocus = moreOpen && sheet.querySelector('.ty-more-wrap')?.contains(document.activeElement) ? document.activeElement : null;
+    const moreFocusId = moreFocus?.dataset?.testid || null;
     sheet.replaceChildren(h('div.ty-sheet.ty-pick-sheet.ui-day', { role: 'dialog', 'aria-label': `Pick ${o.pick}` },
       h('div.ty-shead',
         h('b.ty-stitle', o.kind === 'girls' ? `Pick ${o.pick} · Tryouts` : `Pick ${o.pick} · Pep Talk`),
         h('span.ty-credits', `${o.credits} credit${o.credits === 1 ? '' : 's'} → `, rTag(o.rarity, { testid: 'ty-pick-rarity' })),
         o.floor > 0 ? h('span.ty-note', `Teacher's Note: at least ${RARITIES[o.floor]}`) : null),
       reasons.length ? h('div.ty-reasons', ...reasons) : null,
-      timetableStrip(timetableModel(ty(), len, { mySlot, win: p.win }), { cls: 'ty-tt-sheet' }),
+      (pickStrip = previewStrip(timetableModel(ty(), len, { mySlot, win: p.win }),
+        (n, cell) => periodPreview(plan(), n, { subjects: ty().subjects?.[n] || null, chosen: cell.chosen }),
+        { cls: 'ty-tt-sheet', wrapCls: 'ty-ttw-sheet', open: ttOpen, onToggle: (k) => { ttOpen = k; } })).el,
       h(`div.ty-deck.n${cards.length}`, ...cards),
       h('div.ty-acts',
         h('button.bt-btn', { 'data-testid': 'ty-erase', disabled: p.erasers <= 0, onclick: () => send('tr', ['erase', o.seq]) }, `Eraser (${p.erasers})`),
         h('button.bt-btn', { 'data-testid': 'ty-hand', onclick: () => send('tr', ['hand', o.seq]) }, `Hand it in later (+${fmtNum(pay, 'money')}${last ? '' : ' · next pick +1'})`),
-        partner ? h('span.ty-mute', { 'data-testid': 'ty-partner' }, partner.win === 'pick' ? 'Partner: choosing…' : 'Partner: ✓') : null)));
+        partner ? h('span.ty-mute', { 'data-testid': 'ty-partner' }, partner.win === 'pick' ? 'Partner: choosing…' : 'Partner: ✓') : null,
+        h('span.ty-acts-more', moreSticker(() => (moreOpen ? closeMore(true) : openMore()), { testid: 'ty-more', label: MORE_TEXT.label })))));
+    if (moreOpen) {
+      const wrap = morePanel(o);
+      sheet.append(wrap);
+      inertUnder(true);
+      // (aria-modal: Tab and Shift+Tab stay inside the sheet while it is open, wherever the focus was)
+      const box = wrap.querySelector('[data-testid="ty-more-sheet"]');
+      const onTab = (e) => trapTab(e, box);
+      offMoreTab?.();
+      document.addEventListener('keydown', onTab, true);
+      offMoreTab = () => document.removeEventListener('keydown', onTab, true);
+      offMoreEsc?.();
+      offMoreEsc = onEscape(() => closeMore(true));
+      if (moreFocus) (box.querySelector(`[data-testid="${moreFocusId}"]`) || box.querySelector('[data-testid="ty-more-close"]'))?.focus({ preventScroll: true });
+    }
     sheet.hidden = false;
     syncSheets();
   }
 
+  // ---- Random Class: the pick reveal (§20.4, §20.8) --------------------------------------------------------------
+  // The sheet deals the offer's cards with a "Random Class" ribbon and no buttons; a highlight steps across them and
+  // lands on the card the Sim will take (revealOf / revealStep: the Sim's own ticks, never the clock). Reduce Motion:
+  // no stepping, the drawn card marked at once. The Sim lands the pick at its tick; the sheet then closes.
+  let rvKey = '';
+  let rvLast = null; // { seq, name } of the open reveal's drawn card
+  /** A drawn card's name for the feed. */
+  function drawnName(c) {
+    if (!c) return null;
+    if (c.girl) return UNIT_MAP[c.girl]?.name || c.girl;
+    if (c.varsityGirl) return `${UNIT_MAP[c.varsityGirl]?.name || c.varsityGirl} · ${GIRL_CARD_TEXT.varsity}`;
+    return cardText(c).name;
+  }
+  function paintReveal(o) {
+    const partner = ty().coop ? ty().players.find((_, i) => i !== mySlot) : null;
+    const cards = o.cards.map((c, i) => {
+      const el = c.girl ? girlCard(c, i, o) : c.varsityGirl ? varsityCard(c, i) : pepCard(c, i);
+      // (taps do nothing: the Sim chooses; the cards stay readable, out of the tab order)
+      el.tabIndex = -1;
+      el.setAttribute('aria-disabled', 'true');
+      el.removeAttribute('role');
+      return el;
+    });
+    rvKey = '';
+    sheet.replaceChildren(h('div.ty-sheet.ty-pick-sheet.ty-rv-sheet.ui-day', { role: 'dialog', 'aria-label': `Pick ${o.pick} · ${RANDOM_TEXT.ribbon}`, 'data-testid': 'ty-reveal' },
+      h('span.ty-ribbon.ty-rv-ribbon', { 'data-testid': 'ty-reveal-ribbon' }, RANDOM_TEXT.ribbon),
+      h('div.ty-shead',
+        h('b.ty-stitle', o.kind === 'girls' ? `Pick ${o.pick} · Tryouts` : `Pick ${o.pick} · Pep Talk`),
+        o.follow ? null : h('span.ty-credits', `${o.credits} credit${o.credits === 1 ? '' : 's'} → `, rTag(o.rarity, { testid: 'ty-pick-rarity' })),
+        h('span.ty-rv-state', { 'data-testid': 'ty-reveal-state', 'aria-live': 'polite' }, RANDOM_TEXT.drawing)),
+      h(`div.ty-deck.ty-rv-deck.n${cards.length}`, { 'data-testid': 'ty-reveal-deck' }, ...cards),
+      partner ? h('span.ty-mute', { 'data-testid': 'ty-partner' }, partner.win === 'pick' ? 'Partner: drawing…' : 'Partner: ✓') : null));
+    sheet.classList.add('ty-rv-wrap');
+    sheet.hidden = false;
+    syncSheets();
+    stepReveal();
+  }
+
+  /** Every frame (update): moves the highlight as the Sim's ticks go by; cheap when nothing changed. */
+  function stepReveal() {
+    if (!random || sheet.hidden) return;
+    const deck = sheet.querySelector('.ty-rv-deck');
+    const r = revealOf(sim, mySlot);
+    if (!deck || !r) return;
+    if (Number.isInteger(r.index)) rvLast = { seq: r.seq, name: r.index >= 0 ? drawnName(r.card || me().offer?.cards?.[r.index]) : null };
+    const st = revealStep(r, deck.children.length, { reduced: reduced() });
+    const key = `${r.seq}:${st.at}:${st.landed}`;
+    if (key === rvKey) return;
+    rvKey = key;
+    [...deck.children].forEach((c, i) => {
+      c.classList.toggle('ty-rv-on', i === st.at && !st.landed);
+      c.classList.toggle('ty-rv-got', i === st.at && st.landed);
+    });
+    deck.dataset.at = String(st.at);
+    deck.dataset.landed = st.landed ? 'true' : 'false';
+    const state = sheet.querySelector('[data-testid="ty-reveal-state"]');
+    if (state) state.textContent = st.landed ? RANDOM_TEXT.landing : RANDOM_TEXT.drawing;
+  }
+
   function take(i, path = 0) {
+    // (Random Class: the Sim takes every pick; a tap on a card does nothing)
+    if (random) return;
     const o = me().offer;
     if (!o) return;
     const r = send('tr', ['take', o.seq, i, path]);
@@ -262,7 +506,10 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   function paintClass() {
     const t = ty();
     const next = t.period + (t.started >= t.period ? 1 : 0);
-    if (t.base || t.done || sim.state === 'wave' || sim.state === 'won' || sim.state === 'lost' || next > len.periods || t.started < 1) {
+    // (an Extended Day has no last period: the class choice comes before every one)
+    // (Random Class: the class choice waits while my reveal is open, so the reveal sheet never covers it)
+    if (t.base || t.done || sim.state === 'wave' || sim.state === 'won' || sim.state === 'lost' || (!extended && next > len.periods) || t.started < 1
+      || (random && me().win === 'pick')) {
       cls.hidden = true;
       return;
     }
@@ -288,9 +535,10 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
         }, h('b', SUBJECT_TEXT[id]?.name || id), ...twist(id)))) : null,
       sugg ? h('div.ty-suggest', { 'data-testid': 'ty-suggest' }, 'Your ally suggests: ', h('b', SUBJECT_TEXT[sugg]?.name || sugg)) : null,
       mySug >= 0 && pair ? h('div.ty-suggest', { 'data-testid': 'ty-suggested' }, 'You suggested: ', h('b', SUBJECT_TEXT[pair[mySug]]?.name || pair[mySug])) : null,
-      t.affixes?.[next] ? h('div.ty-class-row.ty-affix', { 'data-testid': 'ty-class-affix' }, h('b', 'Grade twist: '), DARE_SHORT[t.affixes[next]] || t.affixes[next],
-        h('span.ty-long.ty-mute', ` (${DARE_TEXT[t.affixes[next]] || ''})`)) : null,
-      h('div.ty-class-row',
+      affixOf(t, next) ? h('div.ty-class-row.ty-affix', { 'data-testid': 'ty-class-affix' }, h('b', 'Grade twist: '), DARE_SHORT[affixOf(t, next)] || affixOf(t, next),
+        h('span.ty-long.ty-mute', ` (${DARE_TEXT[affixOf(t, next)] || ''})`)) : null,
+      // (Random Class: no Double Dare, §20.4)
+      random ? null : h('div.ty-class-row',
         h(`button.bt-btn.ty-dare${me().dare ? '.on' : ''}`, { 'data-testid': 'ty-dare', onclick: () => send('tr', ['dare', me().dare ? 0 : 1]) },
           `Double Dare: ${me().dare ? 'on' : 'off'} · ${DARE_SHORT[dare.id] || dare.id}`),
         h('span.ty-long.ty-mute', ` ${DARE_TEXT[dare.id] || dare.id} · ${DARE_GAIN}${t.coop ? ' · both must tap' : ''}`),
@@ -385,27 +633,17 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
 
   /** The periods × 3 stamp grid, each row with its pick's rarity; periods not reached stay empty (absence). */
   function stampGrid(res, pl) {
-    const byPeriod = new Map(res.periods.map((x) => [x.period, x]));
-    const pickAt = (p) => pl.picks.find((x) => len.picks[x.pick - 1] === p) || null;
-    const rows = [];
-    for (let p = 1; p <= len.periods; p++) {
-      const rec = byPeriod.get(p);
-      const pk = pickAt(p);
-      const label = p === len.periods ? TIMETABLE_TEXT.final : TIMETABLE_TEXT.cell(p);
-      if (!rec) {
-        rows.push(h('div.ty-grid-row.absent', h('b.ty-grid-p', label), h('span.ty-grid-marks', h('i.ty-mk.e'), h('i.ty-mk.e'), h('i.ty-mk.e'))));
-        continue;
-      }
-      rows.push(h(`div.ty-grid-row${rec.resumed ? '.resumed' : ''}`,
-        h('b.ty-grid-p', label),
-        h('span.ty-grid-marks', ...[...rec.team, ...(rec.own[mySlot] || [])].map(([id, st]) => {
+    const rows = stampRows(res, pl, len, mySlot, { extended }).map((r) => (r.absent
+      ? h('div.ty-grid-row.absent', h('b.ty-grid-p', r.label), h('span.ty-grid-marks', h('i.ty-mk.e'), h('i.ty-mk.e'), h('i.ty-mk.e')))
+      : h(`div.ty-grid-row${r.resumed ? '.resumed' : ''}`,
+        h('b.ty-grid-p', r.label),
+        h('span.ty-grid-marks', ...r.marks.map(([id, st]) => {
           const m = markEl(st);
-          m.title = `${ASSIGN_TEXT[id]?.name || id}: ${m.title}`;
+          if (id) m.title = `${ASSIGN_TEXT[id]?.name || id}: ${m.title}`;
           return m;
         })),
-        h('span.num.ty-grid-score', fmtNum(rec.score, 'count', { detail: true })),
-        pk ? rTag(pk.rarity) : null));
-    }
+        h('span.num.ty-grid-score', fmtNum(r.score, 'count', { detail: true })),
+        r.rarity != null ? rTag(r.rarity) : null)));
     return h('div.ty-grid', { 'data-testid': 'ty-photo-grid' }, ...rows);
   }
 
@@ -422,18 +660,25 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     // what the run paid (§13.9); a practice run shows only what it banked before it turned practice
     const lines = rewardLines(run).filter((l) => !practice || l.key === 'marbles' || l.key === 'box' || l.key === 'coins');
     const paidNothing = practice && !(run?.marbles?.paid || run?.box?.fill || run?.coins?.coins);
-    const code = encodeShareCode(res);
+    // (Extended Day: no share code in v1, the seed only, §20.6)
+    const code = extended ? null : encodeShareCode(res);
     const won = sim.state === 'won';
+    // Extended Day (§20.8, minimal): the title is Home Time and the headline the wave the day reached
+    const waveN = Math.max(0, sim.wavesCleared ?? sim.wave ?? 0);
+    const title = extended ? EXTENDED_TEXT.homeTime : won ? PHOTO_TEXT.title : PHOTO_TEXT.defeat;
     const runScore = res.runScore[mySlot];
     const pl = res.players[mySlot];
     const picks = h('div.ty-picks', ...pl.picks.map((p) => h('span.ty-pickchip', rTag(p.rarity), h('span', pickName(p)))));
     const backdrop = selectedCosmetic(store.profile, 'backdrop');
-    photo.replaceChildren(h(`div.ty-sheet.ty-photo.ui-day${won ? '' : '.dismissed'}${backdrop ? `.ty-bd.ty-${backdrop.replace('_', '-')}` : ''}`, { 'data-testid': 'ty-photo-sheet', role: 'dialog', 'aria-label': won ? PHOTO_TEXT.title : PHOTO_TEXT.defeat },
-      practice ? h('span.ty-ribbon', { 'data-testid': 'ty-photo-practice' }, PHOTO_TEXT.practice) : null,
-      h('div.ty-shead', h('b.ty-stitle', won ? PHOTO_TEXT.title : PHOTO_TEXT.defeat),
-        h('span.ty-mute', won ? PHOTO_TEXT.allPeriods(res.periods.length, sim.lives) : PHOTO_TEXT.reached(res.periods.length + 1))),
+    photo.replaceChildren(h(`div.ty-sheet.ty-photo.ui-day${won || extended ? '' : '.dismissed'}${backdrop ? `.ty-bd.ty-${backdrop.replace('_', '-')}` : ''}`, { 'data-testid': 'ty-photo-sheet', role: 'dialog', 'aria-label': title },
+      practice ? h('span.ty-ribbon', { 'data-testid': 'ty-photo-practice' }, PHOTO_TEXT.practice)
+        : random ? h('span.ty-ribbon.ty-rv-ribbon', { 'data-testid': 'ty-photo-random' }, RANDOM_TEXT.ribbon) : null,
+      h('div.ty-shead', h('b.ty-stitle', title),
+        h('span.ty-mute', extended ? EXTENDED_TEXT.reachedWave(waveN, res.periods.length) : won ? PHOTO_TEXT.allPeriods(res.periods.length, sim.lives) : PHOTO_TEXT.reached(res.periods.length + 1))),
       h('div.ty-photo-main',
-        h('div.ty-photo-left', pose(pl.squad, pl),
+        h('div.ty-photo-left',
+          extended ? h('div.ty-wave-big', { 'data-testid': 'ty-photo-wave' }, EXTENDED_TEXT.wave(waveN)) : null,
+          pose(pl.squad, pl),
           h('div.ty-score-big', h('span.lbl', PHOTO_TEXT.score), h('span.num', fmtNum(runScore, 'count', { detail: true }))),
           run?.best?.isNew ? h('div.ty-best', { 'data-testid': 'ty-photo-best' }, PHOTO_TEXT.best)
             : run?.best?.best > 0 ? h('div.ty-mute', PHOTO_TEXT.bestIs(fmtNum(run.best.best, 'count', { detail: true }))) : null),
@@ -442,7 +687,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
           pl.picks.length ? picks : null,
           run && !paidNothing && lines.length ? h('div.ty-rewards', { 'data-testid': 'ty-photo-rewards' },
             ...lines.map((l) => h(`div.ty-reward.ty-reward-${l.key}`, { 'data-testid': `ty-reward-${l.key}` }, l.text))) : null,
-          code ? h('div.ty-mute.ty-code', { 'data-testid': 'ty-share-code' }, `${SHARE_TEXT.title}: `, h('b', code)) : null)),
+          code ? h('div.ty-mute.ty-code', { 'data-testid': 'ty-share-code' }, `${SHARE_TEXT.title}: `, h('b', code))
+            : extended ? h('div.ty-mute.ty-code', { 'data-testid': 'ty-seed-only' }, EXTENDED_TEXT.seedOnly(res.seed ?? ty().seed)) : null)),
       h('div.ty-acts.ty-photo-acts',
         h('button.bt-cta', { 'data-testid': 'ty-again', onclick: () => ctx.tryoutAgain?.() }, PHOTO_TEXT.again),
         h('button.bt-btn', { 'data-testid': 'ty-hub', onclick: () => ctx.quit() }, PHOTO_TEXT.hub),
@@ -484,7 +730,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       squadN = p.squad.length;
       import('../../models/index.js').then((m) => m.preloadModels(fresh, { skins: ctx.skins || {} })).catch(() => {});
     }
-    const sig = `${sim.wave}:${sim.state}:${t.period}:${t.score + t.periodScore}:${sim.stats.leaks}:${JSON.stringify(t.ctr[mySlot])}:${p.win}:${p.passes}:${p.undo.length}:${p.snack}:${p.erasers}:${p.bank}:${t.players.map((x) => `${x.win}${x.dare ? 1 : 0}`).join()}:${t.nextSubject}:${t.subject}`;
+    const sig = `${sim.wave}:${sim.state}:${t.period}:${t.score + t.periodScore}:${sim.stats.leaks}:${JSON.stringify(t.ctr[mySlot])}:${p.win}:${p.passes}:${p.undo.length}:${p.snack}:${p.erasers}:${p.bank}:${t.players.map((x) => `${x.win}${x.dare ? 1 : 0}`).join()}:${t.nextSubject}:${t.subject}:${p.offer?.seq ?? ''}`;
+    stepReveal();
     if (sig === last) return;
     last = sig;
     paintTracker();
@@ -507,6 +754,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     },
     destroy() {
       offNote?.();
+      pickStrip?.close();
+      closeMore();
       el.remove();
     },
   };

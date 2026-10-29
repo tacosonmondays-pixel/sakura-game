@@ -5,10 +5,10 @@ import { describe, it, expect } from 'vitest';
 import { createProfile } from '../../src/systems/save.js';
 import { TRYOUT } from '../../src/data/tryout.js';
 import { linesFor } from '../../src/ui/hostLines.js';
-import { walletsFor, walletDef } from '../../src/ui/wallets.js';
+import { walletsFor, walletDef, walletValue } from '../../src/ui/wallets.js';
 import { hubState, stateWord, TRYOUT_HOST } from '../../src/ui/screens/tryout.js';
-import { shelfCount } from '../../src/ui/screens/tryoutJar.js';
-import { pageKind, sectionCounts } from '../../src/ui/screens/tryoutYearbook.js';
+import { shelfCount, shelfTabs } from '../../src/ui/screens/tryoutJar.js';
+import { pageKind, sectionCounts, sectionTabs } from '../../src/ui/screens/tryoutYearbook.js';
 import { newRunRecord, putTryoutRun, TRYOUT_UNLOCK } from '../../src/systems/tryoutRuns.js';
 import { gradeTwist, gradeWhy, HUB_TEXT, CLASS_TEXT } from '../../src/ui/text/tryout.js';
 import { UNIT_MAP } from '../../src/data/units.js';
@@ -46,6 +46,14 @@ describe('the Tryout hub', () => {
     expect(walletsFor('tryout')).toContain('marbles');
     for (const r of ['lobby', 'student', 'recruit', 'backpack', 'mall', 'campaign', 'coop']) expect(walletsFor(r), r).not.toContain('marbles');
   });
+  it('the bar counts Marbles from the mission counters (registerWallet count), without writing to the save', () => {
+    const p = open();
+    p.missions.counters = { ...(p.missions.counters || {}), 'ty:mb': 37 };
+    const before = JSON.stringify(p);
+    expect(walletDef('marbles').item).toBe(null);
+    expect(walletValue('marbles', p, () => 0)).toBe(37);
+    expect(JSON.stringify(p)).toBe(before);
+  });
   it('the locked tiles say what opens them', () => {
     expect(HUB_TEXT.locked(TRYOUT_UNLOCK)).toBe(`Clear ${TRYOUT_UNLOCK} to open`);
     expect(HUB_TEXT.weeklyLocked).toMatch(/Grade 4/);
@@ -74,11 +82,16 @@ describe('the Jar and the Yearbook', () => {
   it('shelf counts: owned / for sale, Materials stock left / weekly stock', () => {
     expect(shelfCount('desk', [{ owned: true }, { owned: false }])).toBe('1/2');
     expect(shelfCount('material', [{ left: 2, perWeek: 3 }, { left: 0, perWeek: 2 }])).toBe('2/5');
+    // the kit rail's tabs: a glyph, the word, the count (sideRail { icon, count })
+    const tabs = shelfTabs({ desk: [{ owned: true }, { owned: false }], cosmetic: [], material: [{ left: 1, perWeek: 2 }] });
+    expect(tabs.map((t) => [t.id, t.icon, t.count])).toEqual([['desk', 'desk', '1/2'], ['cosmetic', 'sparkles', '0/0'], ['material', 'box', '1/2']]);
   });
   it('a page per student: colour (yours), pencil (a Loaner who tried out), blank', () => {
     expect(pageKind({ stamped: true, colour: true })).toBe('colour');
     expect(pageKind({ stamped: true, colour: false })).toBe('pencil');
     expect(pageKind({ stamped: false, colour: false })).toBe('blank');
     expect(sectionCounts({ girls: [{ stamped: true }, { stamped: false }], cards: [{ taken: true }], bosses: ['x'], records: [] })).toEqual({ girls: '1/2', cards: '1/1', bosses: '1', records: '0' });
+    const tabs = sectionTabs({ girls: [{ stamped: true }, { stamped: false }], cards: [{ taken: true }], bosses: ['x'], records: [] });
+    expect(tabs.map((t) => [t.id, t.icon, t.count])).toEqual([['girls', 'cap', '1/2'], ['cards', 'stamp', '1/1'], ['bosses', 'crown', '1'], ['records', 'trophy', '0']]);
   });
 });

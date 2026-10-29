@@ -42,6 +42,7 @@ import { howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from
 import { TAG_GLYPHS } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies / Coins
 import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, applyUrFrame, isUR, lrBadge } from '../rarity.js';
 import { limitBreakState, payLimitBreak, UR_RESONANCE, LR_BOOST, resonanceOn, RESONANCE_FROM_DAY } from '../../systems/limitBreak.js';
+import { abilityLrLine } from '../../data/abilityText.js';
 import { gameDayStart } from '../../core/reset.js';
 import { potentialTrack } from '../../data/potential.js';
 import { featureOpen, featureLockText, featureStage } from '../../systems/story.js'; // [story] new-save gates
@@ -981,7 +982,8 @@ function resonanceText(unit, short = false) {
 
 /**
  * [banners G6] An LR unit's climb (BANNERS §C.2): L60 + gate 5 → ★5 (UR) → the Limit Break fee → her trial →
- * LR. Her trial not shipped yet: "LR form coming". Nothing for a girl who is not an LR unit.
+ * LR, with her LR form in one line (Twin Star, Event Horizon). A trial not shipped yet (LR_TRIALS null): "LR form
+ * coming". Nothing for a girl who is not an LR unit.
  */
 function limitBreakPanel(unit, ctx) {
   const profile = store.profile;
@@ -989,23 +991,35 @@ function limitBreakPanel(unit, ctx) {
   if (!s.legend || !s.owned) return null;
   const pct = (f) => `+${Math.round((f - 1) * 100)}%`;
   const boost = `${pct(LR_BOOST.damage)} damage · ${pct(LR_BOOST.rate)} attack speed`;
+  // her LR ability form in one short line (Twin Star, Event Horizon): "Event Horizon: the blast pulls …"
+  const lrEntry = (unit.paths || []).find((x) => x.ability?.lr)?.ability || null;
+  const formShort = lrEntry ? abilityLrLine(lrEntry, 'short') : '';
+  const formLine = formShort && s.trial?.form
+    ? h('p.lb-boost.lb-form', { 'data-testid': 'lb-form' }, h('b', `${s.trial.form.split(' · ').pop()}:`), ` ${formShort}.`)
+    : null;
   if (s.lr) {
     return h('section.lb-panel', { 'data-testid': 'lb-panel' }, h('div', lrBadge(), ' ', h('b', 'Limit Break')),
-      h('p.lb-boost', `LR · ${boost}${s.trial?.form ? ` · ${s.trial.form}` : ''}`));
+      h('p.lb-boost', `LR · ${boost}${s.trial?.form ? ` · ${s.trial.form}` : ''}`), formLine);
   }
   if (!s.trial) {
     return h('section.lb-panel', { 'data-testid': 'lb-panel' }, h('div', lrBadge(), ' ', h('b', 'LR form coming')),
       h('p.lb-boost', `${unit.name} is an LR unit. Her Limit Break trial arrives in a later update; until then she climbs to UR like every SSR.`));
   }
-  const steps = h('div.lb-steps', s.steps.map((x) => h(`span.lb-step${x.done ? '.done' : ''}`, `${x.label}${x.done ? ' ✓' : ''}`)));
   const t = s.trial.standIn;
+  const where = `${t.stageId} on ${t.difficulty === 'nightmare' ? 'Nightmare' : t.difficulty}`;
+  // (each step says what it asks: a tap or hover on a chip that is not done yet)
+  const asks = { level: 'Reach level 60 with all 5 gates', ur: 'Awaken her to ★5 (UR)', fee: 'Pay the Limit Break fee', trial: `${s.trial.name}: clear ${where}, solo, without a Support Student` };
+  const steps = h('div.lb-steps', s.steps.map((x) => h(`span.lb-step${x.done ? '.done' : ''}`, { title: x.done ? null : asks[x.key] || null }, `${x.label}${x.done ? ' ✓' : ''}`)));
   return h('section.lb-panel', { 'data-testid': 'lb-panel' },
     h('div', lrBadge(), ' ', h('b', 'Limit Break'), ` · ${boost} · ${s.trial.form}`),
+    formLine,
     steps,
     s.feePaid
-      ? h('div', h('p.lb-boost', `${s.trial.name} is open: clear ${t.stageId} on ${t.difficulty === 'nightmare' ? 'Nightmare' : t.difficulty} with ${unit.name} placed, solo, without a Support Student. First clear: LR, 300 gems and a Recruit Ticket.`),
+      ? h('div', h('p.lb-boost', `${s.trial.name} is open: clear ${where} with ${unit.name} placed, solo, without a Support Student. First clear: LR, 300 gems and a Recruit Ticket.`),
         button(`Go to ${t.stageId}`, { kind: 'yellow', small: true, icon: 'play', testid: 'lb-trial', onClick: () => navigate('stage', { id: t.stageId }) }))
       : h('div',
+        h('p.lb-boost', { 'data-testid': 'lb-trial-text' }, `The fee opens ${s.trial.name}: clear ${where} with ${unit.name} placed, solo, without a Support Student.`),
+        h('p.lb-boost.lb-next', { 'data-testid': 'lb-next' }, limitBreakNext(unit, s)),
         h('div.lb-fee', 'Fee:', reqChips(s.fee, { onWhere: showItemInfo })),
         button('Pay the Limit Break fee', {
           kind: 'yellow', small: true, testid: 'lb-pay', disabled: !s.canPay,
@@ -1020,6 +1034,21 @@ function limitBreakPanel(unit, ctx) {
             toast(`${s.trial.name} is open!`, 'good');
           },
         })));
+}
+
+/**
+ * The Limit Break panel's plain next step before the fee (owner: never locked or greyed out without a reason): what is
+ * missing first (level and gates, then ★5, then the fee's items), else that the fee can be paid.
+ */
+function limitBreakNext(unit, s) {
+  const st = store.profile.units[unit.id] || {};
+  if (!s.maxed) return `Next: reach level 60 with all 5 gates (now Lv ${st.level || 1}, ${st.breakthrough || 0}/5 gates).`;
+  if (!s.ur) return `Next: awaken ${unit.name} to ★5 UR (now ★${st.awaken || 0}).`;
+  if (s.missing.length) {
+    const what = s.missing.map((m) => `${fmtNum(m.need - m.have)} ${m.id === 'coins' ? 'coins' : ITEMS[m.id]?.name || m.id}`).join(', ');
+    return `Next: gather the fee (still missing ${what}).`;
+  }
+  return `Ready: pay the fee to open ${s.trial.name}.`;
 }
 
 /** Awakening's Details: every star (crowns and bonus), the total, her passive in full, where crowns come from. */

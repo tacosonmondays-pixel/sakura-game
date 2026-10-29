@@ -424,8 +424,11 @@ EnemyDef = {
   id, name, family, tier: 'normal'|'elite'|'miniboss'|'boss',
   hp, speed /*tiles/s, normal ≈ 1.0*/, armorClass, armor /*flat per-hit reduction*/,
   bounty /*coins on kill*/, leak /*lives lost; bosses = all*/, threat /*wave budget cost*/,
-  size /*model scale 0.6-3*/, color, accent,
-  model: { base: FamilyId, variant: string, props: string[] },   // models agent draws from this
+  size /*model scale 0.6-3*/, color, accent, line? /*outline colour; default a deep shade of color*/,
+  model: { base: FamilyId, variant: string, props: string[] },   // models agent draws from this; `base` is the family
+                                   // itself, except for a family without a GLB of its own (Gate Arc Step 4: every
+                                   // `brigade` def wears a shipped `construct` model in Brigade navy/amber until the
+                                   // enemy rebuild; tests/models/enemies.test.js GLB_FAMILIES). Loaders read model.base
   traits: {
     barrier?: { hp, regenDelay? },
     crystal?: { cap /*max dmg per hit*/, hits /*hits to shatter*/ },
@@ -483,6 +486,12 @@ MapDef = {
         //  src/render/city/campusProps.js; extra `city` hints: road?: 'track' (the running track),
         //  searchlight?: { x, z, rot?, sweep?, reach?, period?, variant? } (its beam sweeps the water),
         //  pieces?: [{ type, x, z, rot?, variant?, s? }] (free-standing set pieces))
+        // (+ 'drowned', the Drowned Line (Gate Arc Step 5, Act 5 underground): the city kit with the
+        //  drowned set, src/render/city/drownedProps.js; see "Drowned Line" below. `city.spawnGate:
+        //  'noonGate'` (5-8) stands the Noon Gate as a map's spawn gate on any city-kit theme)
+        // (+ 'vesper', Vesperline (Gate Arc Step 6, Act 6): the city kit with the vesper set,
+        //  src/render/city/vesperProps.js; see "Vesperline" below. `city.spawnGate: 'vesperGate'` (6-10)
+        //  stands the Vesper Gate; `bridge: { skyRail: true }` the sky-rail girder on raised runs)
   tier: MapTierKey, width /*14-22*/, height /*9-13*/,
   rows: string[height]  // each length width; '.' grass, '~' water, 'T' tree, 'R' rock,
                         // 'H' building/shrine, 'B' bridge (path over water: path stamp wins),
@@ -496,6 +505,9 @@ MapDef = {
              tunnels: [[d0,d1]...],   // enemies inside are hidden AND untargetable
              under: [[d0,d1]...],     // walking under an overpass deck (hidden by the renderer, still targetable)
              elev: number[]|null,     // overpass deck height per point (0 on the ground, ≤ BRIDGE_HEIGHT)
+             viaducts?: [[a,b]...],   // Gate Arc Step 6: the viaducts this path authors (foot to foot, in distance);
+                                      // the key exists ONLY on a track with one (shipped tracks are unchanged);
+                                      // a fork prefix / join suffix shows its parent's viaduct through elev only
              fork?, join?, forkD, joinD }],
   crossings: [{ x, y, a: {path,d}, b: {path,d}, angle, mode: 'flat'|'bridge'|'tunnel', over }],
   paths: [[[x,y], ...], ...], // legacy view: the same dense centrelines in tile coords (centre = integer)
@@ -509,6 +521,28 @@ MapDef = {
           | { type: 'runeRing', x, y, r }], // glowing rune circle under a junction
   concept: string,                 // the track's silhouette name (unique per map)
   city?: {...},                    // the city kit's render hints (see `theme` above)
+  district?: 'oldtown'|'highway'|'park',  // Gate Arc Step 3: a district of a `city` map (the Old Town block set; see "District");
+                                   // Step 4: 'highway' (Act 4's mountain highway, 4-6…4-8; see "Highway");
+                                   // Step 5: 'park' (the reservoir park, 5-9 / 5-10: lawns, the dam, the willow)
+                                   // Step 4 `city` hints (render only): barriers?: [{ lane: number, at?: [x, y] }] (a checkpoint
+                                   // barrier arm across `lane`, lowered by the lane schedule; 4-7), snowRows?: number
+                                   // (how far south the 'snowCover' keyword's snow reaches; default 6; 4-8)
+                                   // a path spec `{ inside: true, nodes, join? }` starts inside the board (a rift, 3-8):
+                                   // defineMap copies the flag onto tracks[i].inside; the sim spawns at the first point
+                                   // as always, the renderer stands the rift gate there with no run-out.
+                                   // Step 5: district 'park' (Act 5's reservoir park, 5-9 / 5-10; see "Reservoir park");
+                                   // Step 5 (5-6): an inside lane may open in a tunnel (`street(..., { tunnel: [from, to] })`
+                                   // with `from` 0.1 behind the first point, so tunnels[0][0] ≈ 0.1): the subway spawn; the
+                                   // column stays hidden until the OUT mouth, where the renderer stands the gate
+                                   // Step 5 `city` hint: spawnGate: 'noonGate' (5-8: the Noon Gate on the north edge)
+                                   // Step 5 theme 'drowned' (5-6…5-8: the flooded Line 2 under the city, its own THEMES
+                                   // entry sharing the city kit)
+                                   // Step 6 (S6b) theme 'vesper' on the six Vesperline maps (6-6…6-10 + the side map
+                                   // vesper_starfall; their stages carry scenery.ruined 'frozen'; the theme gives the
+                                   // sentry-bay spawn and light-bridge decks), `city: { spawnGate: 'vesperGate' }` on 6-10's
+                                   // vesper_spindle_foot, `bridge: { skyRail: true }` (6-7's sky-rail viaduct: the first map
+                                   // with UP / DOWN), decor `doorieStatue` (6-8) and `spindle` { r: 2, variant: 0 } (6-10);
+                                   // S6a draws them
   echoOf?: mapId, echoDiff?: [{ x, y, w?, h?, from?, to }],
                                    // Gate Arc echo: the same place as an Act I map in another era, its
                                    // rows / paths / crossings / tunnels literal except the tiles echoDiff
@@ -529,7 +563,23 @@ point nearest `at` (it shares that path's entrance or exit). The first point sit
 board (spawn), the last is the exit. Crossings are found automatically; `crossings` is one mode
 for all or one per crossing in `findCrossings` order: `'bridge'` (default: the later pass rises
 over the earlier one), `'bridgeUnder'` (the earlier pass goes over) or `'flat'` (a junction);
-where one pass is inside a tunnel the crossing is always `'tunnel'`. Everything is sampled ONCE
+where one pass is inside a tunnel the crossing is always `'tunnel'`. **Viaducts** (Gate Arc Step 6, S6v): `UP` / `DOWN`
+(= `RAISE` `'^'` / `LOWER` `'v'`) after a point start / end a viaduct there, a long overpass the road climbs onto on
+purpose: `elev(d) = BRIDGE_HEIGHT × ramp(d − a) × ramp(b − d)` on [a, b] (`ramp` the shipped smoothstep over
+`VIADUCT_RAMP` = `BRIDGE_RAMP` 1.3 tiles, rounded like every elevation), written before the crossings. A crossing
+with one pass on a viaduct's flat top (≥ `VIADUCT_CLEAR` 2.1 tiles from each foot: the ramp plus an overpass's flat)
+and the other on the ground is always `'bridge'` with `over` = the viaduct pass, whatever `crossings` says (the
+ground pass gets its `under` span as under any overpass; the deck adds no bump); a tunnel pass under it stays
+`'tunnel'`. Authoring errors (thrown at module load, prefixed `map <id>:`): an unclosed, unopened or nested viaduct,
+a span under `VIADUCT_MIN` (2 × 1.3 + 2 = 4.6 tiles), a viaduct overlapping a tunnel, a fork or join point on a
+parent's viaduct, both passes of a crossing on viaducts (no three-level interchanges), a crossing on a viaduct ramp
+(closer than 2.1 tiles to a foot), an ordinary overpass within 2.1 tiles of a viaduct's span, a road under a viaduct
+within 2.1 tiles of its own viaduct's foot, a lane whose shared fork prefix / join suffix differs from its parent's
+elevation by more than `SEAM_TOL` (0.015: an overpass ramp reaching over the seam) or whose fork / join seam is raised
+(also by inherited elevation: nested forks / joins). In battle a viaduct is
+a shipped overpass: `EnemyRT.elev` 0.62 on the top, never `hidden` (every attack that reaches its 2D position hits
+it), forge-vent zones skip raised and under-deck walkers, the band is road (nobody builds on or under it), no new
+command or message. Fixture: `previews/viaductMaps.js` (`VIADUCT_FIXTURE`, never in MAPS). Everything is sampled ONCE
 (`TRACK_STEP` 0.1) by `src/core/track.js` (`buildMapTracks`); `mapTracks(map)` returns
 `map.tracks`, or a straight-segment view of a legacy MapDef that only has tile-waypoint `paths`
 (test fixtures passed as `data.map` keep working).
@@ -569,7 +619,9 @@ Tunnels: between `IN` and `OUT` the road is drawn under a hill / hall / cave and
 enemies are hidden AND untargetable (`EnemyRT.hidden`: every direct hit fails `isEligible`, traps
 are never laid inside, hero ults skip them, sappers cannot sabotage from inside; burn / poison
 already on them keeps ticking). Overpasses: the lower pass is hidden under the deck by the
-renderer only (`EnemyRT.underDeck`) — enemies there stay targetable.
+renderer only (`EnemyRT.underDeck`) — enemies there stay targetable. Viaducts draw through `elev` on the
+overpass deck code (any run with elev > 0.015 is decked); their own looks (sky-rail girder, piers along the raised
+run, the deck's shadow) read `track.viaducts` (Gate Arc Step 6 S6a).
 
 ### `src/data/stages.js`
 
@@ -577,6 +629,7 @@ renderer only (`EnemyRT.underDeck`) — enemies there stay targetable.
 export const CHAPTERS = [{ id: 1, name, theme, tier, desc, mechanic /*what it teaches*/, stages: ['1-1',...] /*Act I*/,
   act2: ['1-6',...] /*registered Act II ids, [] until that act ships*/, act2Name, act2Theme, act2Desc /*null until then*/ }] // 8 chapters × 5 (+5)
 export const STAGES = [StageDef...]   // campaign (40 Act I + registered Act II) + resource (5 arenas × 3 tiers) + boss (3) + challenge (1 endless template)
+                                      // + side (Gate Arc Step 6: optional stages after an anchor, last in the list)
 export const STAGE_MAP
 export const CAMPAIGN_IDS             // Act I (1-1 … 8-5) first, then Act II by (chapter, n); never a play-order index
 export function getStage(id)
@@ -591,11 +644,22 @@ export function stageRequires(stageOrId)            // -> string[]: the ONLY rea
 export function requirementsMet(stageOrId, isCleared) // every requirement cleared (the unlock rule)
 export function stageOrderKey(id)     // (chapter, act, n) as a number; non-campaign ids → Infinity
 export function actStages(chapterId, act = 1)       // chapter.stages (act 1) / chapter.act2 (act 2)
-export function nextInAct(id)         // the next campaign stage in the same act (8-5 → null)
+export function nextInAct(id)         // the next campaign stage in the same act (8-5 → null; a side stage → null)
+export const SIDE_STAGES              // Gate Arc Step 6: the registered side stages (side-6-starfall, anchor 6-10)
+export function sideStagesAfter(id)   // the side stages anchored on a stage (drawn after it in its act row)
 
 StageDef = {
-  id /*'1-1' | 'res-books-1' | 'boss-ashwing' | 'challenge'*/, kind: 'campaign'|'resource'|'boss'|'challenge',
-  chapter?, act? /*campaign: 1 | 2*/, finale? /*campaign: x-5 and x-10*/, name, mapId, desc,
+  id /*'1-1' | 'res-books-1' | 'boss-ashwing' | 'challenge' | 'side-6-starfall'*/, kind: 'campaign'|'resource'|'boss'|'challenge'|'side',
+  chapter?, act? /*campaign: 1 | 2; side: its anchor's*/, finale? /*campaign: x-5 and x-10*/, name, mapId, desc,
+  anchor?: stageId,                    // kind 'side' only (Gate Arc Step 6): the Act II stage it is drawn after and
+                                       // opens with (requires = the anchor). A side stage takes its anchor's ACT2_PLAN
+                                       // numbers with HP × 1.1, medal gems at 0.5, coins and books on the first clear
+                                       // (no recruit ticket); it is NOT in CAMPAIGN_IDS, so never in co-op (coopStages),
+                                       // campaign counters, medals / ribbons (campaignShowcase), missions, achievements
+                                       // or profile trophies (profileTrophies STAGE_COUNT); no battle modes, freeplay or
+                                       // endless; it introduces no enemy. stageOrderKey sorts it just after its anchor;
+                                       // labels read "Side · <name>". The campaign screen draws it as a small card after
+                                       // its anchor (campaignActs.js sideCards) that opens route `stage` { id }.
   waves /*count; challenge = Infinity*/,
   waveGen: {
     pool: [{ enemy, weight, from /*wave idx, 1-based*/, to? }],
@@ -623,8 +687,13 @@ StageDef = {
   drops: [{ item, chance, min, max, difficulty? /*min difficulty*/ }],
   firstClear: [{ id, count }],         // in addition to difficulty gem bonus
   scenery: { props: string[], fog?: boolean, night?: boolean, weather?: 'rain'|'snow'|'petals'|'embers'|null },
+                                       // (Gate Arc: ruined?: 'burning'; keywords in props, e.g. Step 4's 'frost',
+                                       // 'snowCover', 'tollPlaza', 'checkpoint', … : src/render/terrain.js SCENERY)
+  look?: { night?: 'lantern', costumes?: boolean, blackout?: boolean, dusk?: boolean },
+                                       // render only (outside the sim; in the data hash like every StageDef field):
+                                       // Step 4 dusk = the warm low sun of 4-7 (themes.DUSK; ignored on a night stage)
   tier: MapTierKey,
-  rule?: MapRule|null,                 // campaign only: the stage's map rule (src/data/rules.js stageRule(id)), see below
+  rule?: MapRule|null,                 // campaign (and side) only: the stage's map rule (src/data/rules.js stageRule(id)), see below
 }
 ```
 
@@ -634,8 +703,8 @@ reverse, rush, ironclad, frugal, laststand; numbers and ids only), `MODE_ORDER`,
 active: {...}, always: {...}, pastGoal: 'combat'|'off' }` in a fixed effect vocabulary (dmgMul, typeMul, elementMul,
 enemySpeed, familySpeed, classSpeed, rangeMul, rangeAdd, € bountyAdd, € livesPerWave, € bonusEvery, zoneDps + zones,
 padDmgMul / padRangeAdd + pads, reverseEvenWaves, affinity / affinityMul, portals), `STAGE_RULES[stageId] = { id,
-zones?, pads? }`, `stageRule(stageId)`. One rule on every campaign stage from 1-4 to 8-5 (37 stages, 15 rules); none on
-1-1…1-3, bounty, boss or challenge stages. Display text lives outside the co-op id in `src/ui/text/modes.js`
+zones?, pads? }`, `stageRule(stageId)`. One rule on every campaign stage from 1-4 to 8-5 (37 stages, 15 rules) and on every
+side stage; none on 1-1…1-3, bounty, boss or challenge stages. Display text lives outside the co-op id in `src/ui/text/modes.js`
 (`MODE_TEXT`, `modeDesc`) and `src/ui/text/rules.js` (`RULE_TEXT`). Screens read a stage's rule text through
 `ruleTextFor(stage, ruleId?)`: Gate Arc stages may tell a shipped rule in their own words
 (`STAGE_RULE_SKINS[stageId] = { rule, name?, short?, desc?, toast?, activeWord? }`, applied only to the rule it
@@ -1318,7 +1387,13 @@ colours it by; also when no neighbour was there to hit); `effect.after: { mods, 
 (Tenka's Zero Point; any strike pick, Catalyst's too): that ModSet rides on her (`abilMods`) for `duration` s
 after each cast (`active` counts it down: the longer of the ability's own `duration` and the tail's, never their
 sum, and the tail rides until it runs out; the wave clear and a sale end it; a co-op checkpoint carries it). A telegraphed strike's tail (`delay`) starts with the
-cast, not when its shots land. Ability hits never crit and their statuses are certain (no rng draw); a
+cast, not when its shots land. `effect.horizon: { time, pull, share }` (Tenka's LR form Event Horizon, merged from the
+entry's `lr` while her battle stats carry `lr: true`): each blast queues a `'horizon'` item in `sim._abilQueue` that,
+on each of its `time` s of ticks, pulls every enemy within `splash` of the centre `pull` tiles a second toward it by path
+distance (the well's rule, `zones.js pullAlong`: never past it, × `KNOCKBACK_RESIST` of the tier, the freeplay
+knockback budget, hidden enemies untouched), then detonates there: every eligible enemy within `splash` takes the
+same strikes at `share` × the struck enemy's scale (events `abilityHorizon { towerUid, id, x, y, radius, time }`, then
+`abilityShell { …, horizon: true }` and an `explode`). Ability hits never crit and their statuses are certain (no rng draw); a
 miniboss / boss ignores ability freezes and stuns for 4 s after one lands (`e.abilCc`). Lasting effects (a boost's
 `abilMods`, `sim._rallies`, queued hits and shells `sim._abilQueue`) end at every wave clear and on a sale, so a
 calm point holds none. A boost resolves last in `resolveStats` (`extra`, so `towerResolvedStats` sees it); rallies
@@ -1780,6 +1855,190 @@ on an overpass; `EnemyRT.hidden` (tunnel) and `EnemyRT.underDeck` (ground walker
 hide the model, its shadow and its HP bar. Flat junctions get painted travel chevrons; per-map
 `bridge` / `path` / `tunnel` looks and `ground` features (vat, icefall, runeRing) override the
 theme. The entrance / exit arrows follow the road's first / last tangent.
+
+Gate Arc Step 3 render hooks (S3a; render only, no sim field, no co-op change; spec
+docs/specs/gate-arc/STEP3_BUILD_PLAN.md §2-3):
+- **Mid-board rift** — a path spec `{ nodes, inside: true, join?, fork? }` whose first node lies inside
+  the board; `defineMap` copies the flag onto the built track (`MapDef.tracks[i].inside === true`;
+  `buildTrack` itself ignores unknown keys, so maps.js does `if (spec.inside) tracks[i].inside = true`).
+  `trackMesh.startsInside(track, W, H)` (the flag, or a non-fork first point ≥ 0.25 tiles inside every
+  edge) drops that lane's head run-out; its entrance (`inside: true`) sits on the first point facing
+  along the lane, and terrain.js stands the spawn gate there (the city's `petalRift`, at `PATH_H` on
+  water / a jetty: gate marker `{ inside: true, onWater }`, no road cracks under it). The sim needs
+  nothing: enemies already spawn at a track's first point. The edge-spawn test exempts flagged tracks
+  only (`if (!t.fork && !t.inside)`).
+- **District** — `MapDef.district: 'oldtown'` on a `city` map: `resolveLook(theme, scenery, stageLook,
+  map)` merges `themes.DISTRICTS.oldtown` (stone ground, `setts` road, `oldHouse` buildings, stone
+  gutters instead of raised kerbs, lantern strings on bamboo posts instead of utility poles, tiled
+  timber blocks under 'U' roofs, no signals or painted crossings; src/render/city/oldTownProps.js).
+- **Families found** (Gate Arc Step 4, `src/systems/achievementMetrics.js` `familiesFound`): a family counts only
+  when the save needs at least one member (introduced in Act I, or in an Act II stage the save can open) and every
+  needed member is discovered. Never vacuous: the Brigade (every member an Act II one) counts for nobody until 3-9
+  opens, and a veteran's count never rises with it.
+- **Join moves** (`src/systems/catchUpJoins.js`): `LEGACY_JOIN_STAGES` (Yuzuha's 4-2: a win there still grants her to
+  a player who has not met her; the balance bot counts it) and `PRE_UPDATE_JOIN_STAGES` (Azami's 2-2: only a clear made
+  before Step 4, read once by the first catch-up run of this build, mark `missions.counters['joinWindow:azami']`; never
+  a win's grant, never the bot's roster). Azami joins on a 4-7 win.
+- **Burning** — `StageDef.scenery.ruined: 'burning'` (resolveScenery passes `ruined`): the
+  `themes.BURNING` table (dark sky, key ≥ 1.2, ash ground under the road's tone, `ruinBlock` shells,
+  rubble / wrecks / charred trees, ash weather) and the burning layer (ruinProps.burningLayer: ≤ 12
+  amber fire glows on H / X tiles ≥ 1.5 from every centreline, ≤ 6 smoke columns in the skirt, scorch
+  marks off the road, a stray cat). On a city map 'X' tiles are rubble heaps, never lava.
+- **The tear** — decor `{ type: 'hammerTear', x, y }`: a black-violet seam of glow geometry over the
+  tile; it pulses with the map rule (`ruleState` → src/render/tear.js → `terrain.setTear(k)` uniform +
+  `ambient.tear` level), as the blackout does; `terrain.tear` says a board has one.
+- **Brigade falls and barks** — `fallStyleOf(def)` (src/render/fallStyles.js): an explicit `def.fall`,
+  else `brigade_gnat*` → `sparkFall` (amber sparks, `fx.sparkFall`), `brigade_tortoise|badger|strider|
+  hammer*` → `breakdown`, any other `brigade_*` id or a `brigade` family → `fade` (the shipped poof
+  without the homeward sparkle); every shipped monster keeps `sparkle`. Barks (src/ui/text/barks.js
+  table by unit id and event, src/ui/battle/barks.js chips): ≤ 6 words, one chip per board side at a
+  time, ≤ 1.6 s, over a group on spawn and over a unit when beaten (the Gnat: "Gnats up!" / "Channel 9,
+  moving up!", LINK LOST). `r.info` adds `district`, `ruined`, `tear` (level or null) and `barks`.
+
+Gate Arc Step 4 render hooks (S4a; render only, no sim field, no co-op change; spec
+docs/specs/gate-arc/STEP4_BUILD_PLAN.md §2-3; preview boards in previews/highwayMaps.js):
+- **Highway** — `MapDef.district: 'highway'` on a `city` map: `themes.DISTRICTS.highway` (gravel ground, the pale
+  `concrete` road with a dark hard shoulder painted along it, kept the lightest band; `roadsideBlock` buildings:
+  embankments with sound walls, rock cuts, a depot, a salt dome, a control hut, a rest stop, all ≤ BOARD_MAX_H, rock
+  inside a big block of H (the mountain); `soundWall` on the border; a concrete flyover deck look; the `highway`
+  tunnel style). The city kit then draws steel crash barriers along every road on the ground instead of raised
+  kerbs, highway lamps instead of utility poles and wires, no signals or painted crossings, toll canopies under 'U'
+  roofs (the booth islands girls stand on, ROOF_Y, lit price boards), the bore dressing (`tunnelPortal`: hood, jet
+  fans, sodium lamps) at every tunnel mouth, a flyover on its piers down one side skirt (src/render/city/highwayProps.js).
+- **Checkpoint barrier** — `MapDef.city.barriers: [{ lane, at? }]`: an arm across lane `lane` on two Brigade posts
+  (amber beacons), by default at the first point of that lane's road on the board ≥ 1.4 tiles from every other road
+  and clear of forks, joins, gates, tunnel mouths and crossings (or the point nearest `at`); a checkpoint hut beside
+  it. `setLanes(open)` lowers it while every lane through it is closed, exactly as a level crossing's arms (one
+  shared arms part in the facade mesh, re-posed only while it swings), but no train runs for it. `terrain.barriers`
+  and `r.info.barriers` ('down' / 'up') for tests and previews. 4-7: `waveGen.laneCycle: [[1], [0, 1]]` + `city:
+  { barriers: [{ lane: 0 }] }`.
+- **Looks** — `StageDef.look.dusk` (themes.DUSK); scenery keywords 'frost' (themes.FROST: a cold wash under the road's
+  tone, rime on rails and barriers, flurries), 'snowCover' (themes.SNOW_COVER: snow painted over the north rows down
+  to `map.city.snowRows`, slush by the road, snowdrifts, a snowy top on the bores' ridges), 'snowBridge'
+  (themes.BRIDGE_LAYER: the Brigade's folding deck over the water, no piles, plus `stoneBridgePier`s beside it).
+  `r.info` adds `dusk`, `frost`.
+- **Dressing keywords** (src/render/terrain.js SCENERY; `also` dresses further keywords): 'tollPlaza' (booths beside
+  the road + 'signGantries' across a straight + 'restStops'), 'checkpoint' (Azami's citation stand + 'jerseyBarriers'
+  + 'brigadeCamp'), 'brigadeCamp' (tents, vans with a ticket under each wiper, searchlight towers, a drone dock),
+  'tunnelPortals' (snow blowing out of the bores' mouths, emitter 'snowGust'; a stopped lorry), 'frozenVillage' (the
+  board's houses become `frozenHut`, huts in the skirt + 'villageBits': sleds, a fire going out), 'villageHearths'
+  (a `villageHearth` round each of the stage rule's relay pads, `resolveScenery(...).pads`; the pad decals turn
+  ember-warm), 'beachhead' (sandbag pits and a searchlight beside the spawn gate), 'gateSandbags' (by the goal),
+  'hostBanners', 'passCairn', 'vastShadow' (a huge soft shadow crossing the board once a minute, never named). The
+  far north stays the shipped `snow` theme (no city kit); its spawn gate can be the city's rift through `map.city.
+  spawnGate: 'petalRift'` (already read on any theme). Brigade props: src/render/city/brigadeProps.js; far north:
+  src/render/northProps.js.
+
+Gate Arc Step 5 render hooks (S5a; render only, no sim field, no co-op change; spec
+docs/specs/gate-arc/STEP5_BUILD_PLAN.md §2-3; preview boards in previews/drownedMaps.js):
+- **Drowned Line** — `MapDef.theme: 'drowned'`: `themes.THEMES.drowned` on the city kit (`city.kit: 'drowned'`, no
+  drones, no raised kerbs): wet station tiles (`groundStyle: 'tile'`), the pale galvanised `grating` road with a
+  yellow platform edge (the lightest band), the painted platform band along every lane, `stationBox` blocks on the
+  board (platform office, ticket hall, kiosk, stair head, vent shaft, control room; all ≤ BOARD_MAX_H),
+  `retainingWall` on the border, the `subway` tunnel style, dark teal flood water; lit underground (`forceNight`
+  with its own light, `nightFog` in fog; `look.bg` keeps its own dark). The kit draws work lamps with a red
+  emergency lamp on their posts along the lanes instead of utility poles (`emergencyLight` 2), a red emergency
+  lamp beside every tunnel mouth, no signals, wires or painted crossings; the lake mosaic, station blocks and pump
+  halls round the board. Water drips from the OUT mouths (emitter 'drip'). Decks over water are platform slabs
+  (`bridge.platform`: a yellow edge, no rails), overpasses the pipe gantry (`bridge.pipes`). The goal is the Line
+  2 station exit (`shelterDoor` variant 3, `goalVariant: 3`). Music family 'lantern'.
+- **Subway spawn** — an inside lane that opens in a tunnel (trackMesh `headTunnel`: `startsInside` and its first
+  tunnel starts within `HEAD_TUNNEL` = 0.5 of d = 0): no run-out, no portal behind its start, its entrance (and
+  spawn gate, `gates[i].mouth`) at the tunnel's OUT mouth facing along the lane: the `subwayMouth` seam (glow
+  geometry and sprites kept lit, petals and motes), no cracked road. The sim is untouched (it spawns at the first
+  point, hidden in the bore by the shipped tunnel rule).
+- **Noon Gate** — `MapDef.city.spawnGate: 'noonGate'`: a disc of cyan-white light on the board edge leaning like the
+  rift, `noonGatePlacement` (1.7 tiles in on the far edge so it reads whole under the HUD), `NOON_GATE.R` 1.08 (≥ 2
+  tiles across), unlit seams, the largest glow sprite on the board, frost at its foot; its ring of glass shards is
+  the city kit's one instanced mover (`noonGateShards`, 20, ≤ 24 in all, MeshBasic, opaque). `gates[i].noon`.
+- **Steam valves** — stage rule zones reach the scenery (`resolveScenery(...).zones`); keyword 'steamValves' (slot
+  'vent': one spot per zone, off the road, clear of the kit's furniture) stands a `steamValve` (red wheel, a
+  'steamColumn' emitter per stack); `RuleDecals({ steam })` (BattleRenderer: the drowned kit or 'steamValves')
+  draws the vents as pale steel rings with white steam bursts while ACTIVE.
+- **Blackout on drowned** — `StageDef.look.blackout` as Step 2's; the red emergency lamps keep their light: a
+  builder's glow sprite may carry `keep` and `pulse` (ambient: a slow pulse, quick and strong while dimmed), a prop
+  `keepLit` (its glow geometry never dims).
+- **Reservoir park** — `MapDef.district: 'park'` on a `city` map: `themes.DISTRICTS.park` (`city.kit: 'park'`): mown
+  lawns with paved bands, a pale park road (asphalt tone 2.5, the lightest band by day, in fog and at night; deep
+  green lawns at night), `damWall` on the board's H tiles, park lamps instead of poles and wires, no signals or
+  painted crossings, no construction fence, willows and cherries round the board with the bandstand and the city's
+  towers beyond; fireflies over the water at night. A big tree decor (`sakura`, `willow`, `pine`, `greatWillow`)
+  takes the decor's own `s` when given (`{ type: 'greatWillow', x, y, s }`: the willow on its island, 5-10).
+- **Dressing keywords** (src/render/terrain.js SCENERY): 'floodedPlatform' (the lake mosaic and stair entrances in
+  the skirt + 'sunkenTrain' in the water + 'emergencyLights' + 'litVending'), 'line2Cuttings' (signal lamps, a
+  maintenance cart, a stair entrance + 'shardWater' glass shards in the water + 'emergencyLights'), 'pumpStation'
+  (giant pumps and pipe runs in the skirt + 'steamValves'), 'noonGateFrost' (look: `look.frost`, rime on pipes and
+  the gantry, a light cold wash, no snow + 'gateShards' beside the gate), 'reservoirDam' (the bandstand +
+  'parkBoats', 'rescueBuoys', 'reservoirCrown': the great willow far off in the skirt), 'reservoirWillow' (dam walls
+  in the skirt + boats, buoys, 'fireflies'), 'searchBoats' (Brigade search boats on the water whose searchlight
+  beams the ambient layer sweeps: `terrain.searchlights`, 0 draw calls).
+- **Noon machines' fall** — `fallStyleOf`: `vesper_patrol_orb` / `vesper_halo_drone` (and any other `vesper_*`)
+  'sparkFall', `vesper_line_sentry` 'breakdown'; `playFall(fx, style, p, def)` passes `fallTintOf(def)` (the def's
+  accent for the sparks, white glass scrap; null for every other def), never the homeward sparkle.
+- **Story places** — `themeBackdropSVG('drowned', { variant: 'platform'|'tunnels'|'noonGate', time })` and
+  `themeBackdropSVG('city', { variant: 'reservoir'|'willow', time })`; `PLACE_VARIANT` (src/ui/story/backdrop.js,
+  exported) maps `noon_flooded_platform`, `noon_line2_tunnels`, `noon_pump_station`, `noon_reservoir_park`,
+  `noon_reservoir_willow`; thumbnail palettes `drowned`, `park`.
+
+Gate Arc Step 6 render hooks (S6a; render only, no sim field, no co-op change; spec
+docs/specs/gate-arc/STEP6_BUILD_PLAN.md §2-3; preview boards in previews/vesperMaps.js):
+- **Vesperline** — `MapDef.theme: 'vesper'`: `themes.THEMES.vesper` on the city kit (`city.kit: 'vesper'`, no drones,
+  no raised kerbs): the LIVING city by itself (white glass panels, `groundStyle: 'glass'`; the `glassway` road: white
+  panels with a cyan guide line, `textures.GLASSWAY`, the lightest band; sky-blue pools; cherry trees in glass
+  courtyards; a bright morning). `lectureHall` / `podium` on the board (≤ BOARD_MAX_H), `frostedPane` on the border,
+  holo lane lamps (`holoSign` 0) along the lanes instead of poles (no signals, wires, subway signs or painted
+  crossings, no cracked road at a spawn), glass towers / lecture halls / courtyard trees round the board, the
+  `gallery` tunnel style (the museum's wings: white halls, a glass roof strip, a pale gold band, pedimented
+  portals), the glass light-bridge on water decks and overpasses (`bridge.glass`: a pale deck, a cyan edge glow in
+  unlit glow geometry, `buildDecks().glow`), spawn `sentryBay` (a hangar ≥ 2 tiles across, red status lights kept
+  lit), goal `vesperShelter` (one warm window kept lit). Music family 'ironclock'.
+- **Frozen** — `StageDef.scenery.ruined: 'frozen'` on a `vesper` map (any other theme ignores it): `themes.FROZEN`,
+  resolved in `resolveLook` (sets `look.frozen`, `look.frost`, `look.aurora`; `look.dusk` unless the stage is at
+  night): frosted blue-grey glass with cyan cracks (`groundPaint.rime`) and snow drifts (`drifts`), the glassway kept
+  the lightest band, near-black open water (the darkest band; ice, islands and shores lighter), an eclipse dusk
+  (key ≥ 1.2, the lamps and holo signs on with their pools), snow, a cold aurora over the back skirt (ambient
+  'aurora'), the holo signs flickering hard (some lane lamps dead), snow and icicles on every ledge, the cherry
+  crowns frosted; at night `FROZEN.nightLight` / `nightBg`. The prop cache keys on `look.frozen`.
+- **Sky-rail and viaducts** — `MapDef.bridge: { skyRail: true }`: raised runs are a box girder (a pale running deck
+  whose kerb strips frame the glassway, so the road stays the lightest band on top; a deep fascia; a parapet post
+  every ≈ 1.6 tiles) on single white pylons. Piers stand all along a long raised run — every `PYLON_STEP` (2.0) on
+  any road with S6v's `track.viaducts` (carried by `planRoads` as `road.viaducts`) or under the sky-rail look —
+  besides the shipped pairs at crossings, always clear of the lower road (`buildDecks().piers` lists them). The
+  far end of every viaduct span is `buildDecks().viaductEnds`: SCENERY 'brokenSpan' (slot 'railEnd') hangs a pod
+  there (`skyRailPod` 0) beside the road. The deck's shadow is the shipped overpass shadow. Shipped maps (no
+  viaducts, no sky-rail) are unchanged (terrainGolden).
+- **Vesper Gate** — `MapDef.city.spawnGate: 'vesperGate'`: a white-gold glass ring round a black-violet disc on the
+  board edge, leaning like the rift (`vesperGatePlacement`: 2 tiles in on the far edge, clear of the HUD band),
+  `VESPER_GATE.R` 1.08 (≥ 2 tiles across), the largest glow sprite on the board (`VESPER_GATE.glow` 2.6, pooling on
+  the road at its foot so the disc stays dark), dark snow falling out (emitter 'darkSnow'). `gates[i].vesper`.
+- **Transit pads** — `RuleDecals({ transit })` (BattleRenderer: a `vesper` board or the keyword 'transitPads'): the
+  shifting_stars rift points (`portals.at`, `at + jump`) draw as cyan floor rings `TRANSIT_PAD.d` (1.6) across with
+  a light pulsing inward; the jump flashes cyan.
+- **Decor** — a decor may give its `variant` (`{ type: 'spindle', x, y, r: 2, variant: 0 }`: the Spindle's foot on
+  the board, drawing its own tiles within `r`); any vesperProps type may be decor (`doorieStatue` in the rotunda).
+- **Dressing keywords** (src/render/terrain.js SCENERY): 'frostCauseway' (a Doorie bus + 'gateStatues' halo statues
+  inside the goal + 'skyRailRuins' pods in the skirt), 'prismBatteries' (slot 'pad': a `prismBattery` ring round each
+  relay pad, the middle clear), 'skyRailViaduct' (look + 'brokenSpan', 'railPods', 'stationCanopy', 'deadHolo'),
+  'frozenCanal' (glass shards on the water), 'museumWings' (look + 'museumBits': frozen fountains, a halo statue),
+  'doorieStatue', 'reflectingPools' (sparkles on the water), 'towerRing' (podiums and halo statues + 'holoSigns'),
+  'transitPads' (transit pad rings in the skirt; the decals are the rule's), 'cleaningRobot' (look: the kit's one
+  mover, a cleaning robot circling the paving of the west skirt; `buildCity({ keywords })`), 'spindleFoot' (slot
+  'spire': the Spindle's shaft in the back skirt behind its foot + 'vesperTerminal' consoles inside the spawn gates +
+  'terminalHall' bays in the skirt), 'frozenNest' (the nest in the skirt + 'greyWool' on the board), 'warmWindow'
+  (look: the shelter's window glows brighter), 'starDome' (dome ribs and orrery rings in the skirt + 'starShards' on
+  the board), 'coldAurora' (ambient 'aurora'), 'holoSigns' (billboards and arrow kiosks along the lanes), 'frostHaze'
+  (ambient: pale wisps creeping low over the board).
+- **Blackout on vesper** — as Step 2's: the holo signs and exhibits dim; the gates (`sentryBay`, `vesperGate`,
+  `vesperShelter` in KEEP_LIT), the warm window and the light-bridge's edge glow keep their light.
+- **Falls** — `fallStyleOf`: `vesper_lattice_shell` 'sparkFall', `vesper_aegis` / `vesper_warden` /
+  `vesper_gatekeeper` 'breakdown' (the def's accent: the Gatekeeper's amber); any `rime_*` id 'fade' with
+  `fallTintOf` → `RIME_TINT` (violet motes and puff), never the homeward sparkle even with `def.fall: 'sparkle'`.
+  `fx.death(…, { homeward, puff })`.
+- **Story places** — `themeBackdropSVG('vesper', { variant, time })` with `VESPER_PLACES` 'causeway' (default),
+  'skyrail', 'museum', 'towers', 'spindle', 'starfall' (a night place); every one takes `dusk` / `dawn` / `night`;
+  the eclipse stays inside the 16:9 crop. `PLACE_VARIANT` maps `vesper_frost_causeway`, `vesper_skyrail`,
+  `vesper_museum`, `vesper_tower_ring`, `vesper_spindle_foot`, `vesper_starfall`; thumbnail palettes `vesper`
+  (living) and `frozen` (`stageThumbSVG(map, { ruined: 'frozen' })`).
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 

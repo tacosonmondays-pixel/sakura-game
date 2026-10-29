@@ -25,8 +25,9 @@ export const LB_REWARD = Object.freeze([{ id: 'gems', count: 300 }, { id: 'ticke
  * `null` = her trial has not shipped yet ("LR form coming").
  */
 export const LR_TRIALS = Object.freeze({
-  kohaku_tsubaki: { name: 'Starfall Trial', form: 'Prismfall · Twin Star · beams to the map edge · +10% damage', crest: 'twin stars', standIn: { stageId: '8-5', difficulty: 'nightmare' } },
-  tenka: null, // "Thesis Defense" ships after the duo's Limit Break
+  kohaku_tsubaki: { name: 'Starfall Trial', form: 'Prismfall · Twin Star · beams to the map edge (3% past her reach) · +10% damage', crest: 'twin stars', standIn: { stageId: '8-5', difficulty: 'nightmare' } },
+  // her own stage ("prove the theory": armoured elites and two bosses) comes later; until then the same stand-in
+  tenka: { name: 'Thesis Defense', form: 'Critical Mass · Event Horizon', crest: 'orbit ring', standIn: { stageId: '8-5', difficulty: 'nightmare' } },
 });
 
 const cnt = (p, k) => Number(p?.missions?.counters?.[k]) || 0;

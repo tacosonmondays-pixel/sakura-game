@@ -371,6 +371,33 @@ describe('the room\'s Tryout Day setting', () => {
     guest.close();
   });
 
+  it('Extended Day (§20.7): the room carries length after, a guest adopts it, and the host\'s ladder gates it', () => {
+    const [m] = mapChoices(9, 1);
+    expect(clampTryout({ seed: 9, grade: 1, length: 'after', mapId: m }).length).toBe('after');
+    expect(tryoutSetting({ seed: 9, grade: 1, length: 'after', mapId: m }).length).toBe('after');
+    expect(tryoutSetting({ seed: 9, grade: 1, length: 'after', mapId: m }, false).length).toBe('full');
+    expect(tryoutSetting({ seed: 9, grade: 1, length: 'toString', mapId: m }).length).toBe('half');
+    expect(sameTryout(tryoutSetting({ ...runOf(9), length: 'after' }), tryoutSetting({ ...runOf(9), length: 'full' }))).toBe(false);
+    const W = world();
+    const { host, guest } = paired(W);
+    host.setTryout({ ...runOf(9), length: 'after' });
+    W.step(300);
+    expect(host.tryout.length).toBe('after');
+    expect(guest.tryout).toEqual(host.tryout);
+    host.close();
+    guest.close();
+    // a host without a Full Day cleared: the same request plays a Full Day
+    const W2 = world();
+    const locked = paired(W2, { afterUnlocked: () => false, tryout: { ...runOf(10), length: 'after' } });
+    expect(locked.host.tryout.length).toBe('full');
+    locked.host.setTryout({ ...runOf(11), length: 'after' });
+    W2.step(300);
+    expect(locked.host.tryout.length).toBe('full');
+    expect(locked.guest.tryout.length).toBe('full');
+    locked.host.close();
+    locked.guest.close();
+  });
+
   it('only the host sets the run; a guest\'s setTryout does nothing', () => {
     const W = world();
     const { host, guest } = paired(W);

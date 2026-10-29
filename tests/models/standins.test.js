@@ -1,6 +1,6 @@
-// Stand-in chibis (src/models/standins.js): girls whose art the owner has not approved yet (Tenka,
-// BUILD_PLAN 6.8; the returning girls were stand-ins until the art wave, docs/MODELS.md "Stand-ins for
-// the returning girls"). No GLB is ever requested for them and buildChibi gives the procedural chibi in
+// Stand-in chibis (src/models/standins.js): girls whose art the owner has not approved yet (BUILD_PLAN
+// 6.8; none today: the returning girls were stand-ins until the art wave, docs/MODELS.md "Stand-ins for
+// the returning girls", and Tenka until her Meshy figure was wired in). No GLB is ever requested for them and buildChibi gives the procedural chibi in
 // her own palette / look, with a real piece for each of her look values; tests/models/glb.test.js checks
 // they ship no GLB or manifest entry.
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -9,10 +9,10 @@ import { buildChibi, disposeObject, STANDIN_UNITS, isStandIn } from '../../src/m
 import { UNITS, getUnit } from '../../src/data/units.js';
 import { SKINS } from '../../src/data/skins.js';
 
-// the girls still drawn procedurally: Tenka (her art waits for the owner's approval). The returning girls have
-// their GLBs since the art wave (Meshy noa / hana / ruri, temporary Blender chibis for the rest, docs/MODELS.md).
-// Kogane and Norika (BANNERS §D.5) ship before their art: procedural stand-ins in their own look.
-const ART_PENDING = ['tenka', 'kogane', 'norika'];
+// the girls still drawn procedurally: Kogane and Norika (BANNERS §D.5) ship before their art: procedural stand-ins in
+// their own look. The returning girls have their GLBs since the art wave (Meshy noa / hana / ruri, temporary Blender
+// chibis for the rest, docs/MODELS.md) and Tenka has her Meshy figure.
+const ART_PENDING = ['kogane', 'norika'];
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -32,7 +32,7 @@ function build(unit, look = {}) {
 }
 
 describe('stand-in list', () => {
-  it('is exactly the girls whose art is pending (Tenka, Kogane, Norika today), all roster units', () => {
+  it('is exactly the girls whose art is pending (Kogane, Norika today), all roster units', () => {
     expect([...STANDIN_UNITS]).toEqual(ART_PENDING);
     for (const id of ART_PENDING) {
       expect(getUnit(id).id).toBe(id);
@@ -43,9 +43,31 @@ describe('stand-in list', () => {
 
   it('every other unit (and every outfit / Coming Soon asset) is a GLB girl', () => {
     const others = UNITS.filter((u) => !ART_PENDING.includes(u.id));
-    expect(others).toHaveLength(36); // 39 units minus Tenka, Kogane and Norika (the duo's members are GLB girls too: tests/models/glb.test.js)
+    expect(others).toHaveLength(37); // 39 units minus Kogane and Norika (the duo's members are GLB girls too: tests/models/glb.test.js)
     for (const u of others) expect(isStandIn(u.id), u.id).toBe(false);
     for (const s of SKINS.filter((x) => x.kind !== 'default')) expect(isStandIn(s.asset), s.asset).toBe(false);
+  });
+});
+
+// Tenka's procedural chibi in her own palette is still her fallback: the placeholder while her GLB
+// loads and what stays if it fails (node: no GLB loader, so buildChibi gives exactly that figure)
+describe('Tenka without her GLB', () => {
+  it('builds the procedural chibi in her palette at every quality, marked as a placeholder (not a stand-in)', () => {
+    const u = getUnit('tenka');
+    for (const quality of ['high', 'medium', 'low']) {
+      const g = buildChibi(u, { quality });
+      expect(g.userData.kind).toBe('chibi');
+      expect(g.userData.unitId).toBe('tenka');
+      expect(g.userData.skinId).toBe('tenka_default');
+      expect(g.userData.standIn).toBeFalsy();
+      expect(g.userData.glb).toBeFalsy();
+      expect(vertexCount(g)).toBeGreaterThan(1000);
+      for (const state of ['idle', 'walk', 'attack', 'cheer', 'hurt']) g.userData.animate(0.5, 0.016, state);
+      g.userData.playAttack();
+      g.userData.setHighlight(true);
+      g.userData.setHighlight(false);
+      disposeObject(g);
+    }
   });
 });
 
@@ -109,12 +131,16 @@ describe('stand-in chibis (procedural)', () => {
 // loader asks for is recorded. Another girl's GLB IS requested (the probe sees requests); hers never.
 describe('stand-ins in a browser never request a GLB', () => {
   afterEach(() => {
+    vi.doUnmock('../../src/models/standins.js');
     vi.unstubAllGlobals();
     vi.resetModules();
   });
 
+  // the path is checked with a mocked list holding Tenka (a stand-in until her GLB), whose fallback is easy to tell apart
   it('loadCharacter / preloadCharacters / preloadModels / buildChibi fetch nothing for her; a GLB girl\'s file is fetched', async () => {
     const urls = [];
+    const MOCK = Object.freeze(['tenka']);
+    vi.doMock('../../src/models/standins.js', async (importOriginal) => ({ ...(await importOriginal()), STANDIN_UNITS: MOCK, isStandIn: (k) => MOCK.includes(k) }));
     vi.stubGlobal('window', {});
     vi.stubGlobal('document', {}); // no createElement: procedural faces fall back to geometry eyes
     vi.stubGlobal('Request', class { constructor(url) { this.url = String(url); } });
@@ -128,14 +154,16 @@ describe('stand-ins in a browser never request a GLB', () => {
     const glb = await import('../../src/models/glbChibi.js');
     expect(glb.canLoadCharacters()).toBe(true);
     const hers = () => urls.filter((u) => u.includes('tenka'));
-    for (const id of STANDIN_UNITS) {
+    expect([...models.STANDIN_UNITS]).toEqual(MOCK);
+    for (const id of MOCK) {
       expect(await glb.loadCharacter(id)).toBeNull();
       expect(await glb.loadCharacter(id, 'lod')).toBeNull();
     }
-    expect(await glb.preloadCharacters([...STANDIN_UNITS], 'full')).toBe(false);
-    await models.preloadModels([...STANDIN_UNITS], { detail: 'full' });
+    expect(await glb.preloadCharacters([...MOCK], 'full')).toBe(false);
+    await models.preloadModels([...MOCK], { detail: 'full' });
     const g = models.buildChibi(getUnit('tenka'), { quality: 'medium' });
     expect(g.userData.glb).toBeFalsy();
+    expect(g.userData.standIn).toBe(true);
     await new Promise((r) => setTimeout(r, 0));
     models.disposeObject(g);
     expect(hers()).toEqual([]);
