@@ -193,8 +193,14 @@ function quakeStep(sim, t) {
 
 /** Every step of a girl with ground objects (src/sim/towers.js updateTower, before her sabotage check). */
 export function groundTick(sim, t) {
-  if (t.spikeRows?.length) spikeStep(sim, t);
-  if (t.quakes?.length) quakeStep(sim, t);
+  if (t.spikeRows?.length) {
+    if (t.stats.spike) spikeStep(sim, t);
+    else t.spikeRows.length = 0;
+  }
+  if (t.quakes?.length) {
+    if (t.stats.quake) quakeStep(sim, t);
+    else t.quakes.length = 0;
+  }
 }
 
 /** Wave clear (Sim._checkWaveEnd): every spike row and quake ring ends. */

@@ -715,6 +715,7 @@ crowd (the slow moves the stream), 1.00 on the boss.
 - State: `t.vines`, `t.spikeRows`, `t.quakes` (integers but a vine's root / length and a ring's radius, which `hashSim` folds in
   1/256 tiles or by their integer step counts) end at the wave clear; `hashSim` folds each only while non-empty (and her vine
   timer with her vines); battle saves classify them `calm`.
-- Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js`. **No `COOP_PROTOCOL` bump on the branch.**
+- Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js` reads `fc7ab3f31edd` (S1, the long beam, S2 and S3). **No
+  `COOP_PROTOCOL` bump on the branch.**
 - Perf: `tests/sim/perf.test.js` "ground attack shapes": 6 Chigusas at Forest Corridor, 6 Yukis at Diamond Dust and Kanna at
   Lv 24 with 200 enemies, 0.30 ms a step locally (limit 2 ms).

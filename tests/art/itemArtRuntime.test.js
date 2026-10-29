@@ -196,11 +196,12 @@ describe('display only: the battle sim is untouched', () => {
     // 11: the banners release with the duo Kohaku & Tsubaki (and Kohaku's constant beam), LR Limit Break, UR Resonance
     // and the staff heroes, and Tryout Day in co-op, in one release)
     const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db' };
-    // feature/attack-held only: the attack shapes S1 "Wheels" (src/sim/wheels.js, dirs.js, shapes.js), Kohaku's long
-    // beam (src/sim/duo.js) and S2 "Held" (src/sim/channel.js, held.js; Akane's Hearth Stream, Umeko's Searchlight
-    // Sweep) change the sim. The release that ships them sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and
-    // removes this one. Only this exact in-progress id passes.
-    const PENDING_BUMP = { 11: '4ef9a3c912fe' };
+    // feature/attack-ground only: the attack shapes S1 "Wheels" (src/sim/wheels.js, dirs.js, shapes.js), Kohaku's long
+    // beam (src/sim/duo.js), S2 "Held" (src/sim/channel.js, held.js; Akane's Hearth Stream, Umeko's Searchlight Sweep)
+    // and S3 "Ground" (src/sim/ground.js, vines.js; Chigusa's Bramble Road, Yuki's Rising Spikes, Kanna's Ripple Quake)
+    // change the sim. The release that ships them sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes
+    // this one. Only this exact in-progress id passes.
+    const PENDING_BUMP = { 11: 'fc7ab3f31edd' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
