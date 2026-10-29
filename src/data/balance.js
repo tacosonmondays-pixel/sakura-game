@@ -47,7 +47,8 @@ const ROWS = {
   azami: { dmg: 2.45 },
   akane: { boss: 3.5 },
   sango: { boss: 3.1 },
-  hotaru: { boss: 2.5 },
+  // (Hotaru ×1.03: with attack shapes S1 her Firefly Halo build alone read 1% under today on a crowd)
+  hotaru: { dmg: 1.03, boss: 2.5 },
   iroha: { boss: 3.9 },
   marumi: { boss: 5.6 },
   ruri: { boss: 9 },
@@ -69,8 +70,11 @@ const ROWS = {
   noa: { buff: 1.05, reach: 1.1 },
   wakaba: { buff: 1.05 },
   ouka: { buff: 1.05 },
-  // (Shiro, Tenka and Chika are in the band already: no damage row, no nerf. Momo: her coins are the economy;
-  // unchanged. The held heroes Kogane and Norika keep their data.)
+  // Momo: her coins are the economy and stay as they are; ×1.03 damage because attack shapes S1's Coin Wheel left her
+  // Encore Toss build alone 2% under today on a boss
+  momo: { dmg: 1.03 },
+  // (Shiro, Tenka and Chika are in the band already: no damage row, no nerf. The held heroes Kogane and Norika keep
+  // their data.)
 };
 
 /** Her power row (frozen). */

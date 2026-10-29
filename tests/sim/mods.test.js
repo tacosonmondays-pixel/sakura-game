@@ -242,7 +242,7 @@ describe('Potential in resolveStats', () => {
     // '456:bd28cc90' before the attack shapes S1 (Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's Firefly
     // Halo: new tier data on one path each); with those three left out the 384 others hash 8cb286a4 before and after
     // balance round 5 on top (src/data/balance.js: rows and hero curves; its round-by-round hashes on feature/balance-r5)
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:be9bef3b');
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:4e13287a');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders

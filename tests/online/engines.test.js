@@ -80,7 +80,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Cleave every 3rd strike and her new P5 (Maple Gale ×1.1 on her blade arts, not the 0.1-tile cut);
     // only Kaede's kit changed (every other girl resolves bit-identically, tests/sim/mods.test.js)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 23735, state: 'won', wallets: '317/222', final: 3277445071, hashes: '5b7aef40' });
+      .toEqual({ ticks: 23722, state: 'won', wallets: '317/222', final: 524421401, hashes: '48e3e8c5' });
   }, 120000);
 
   it('runs the Potential boss battle (POTENTIAL_BOSS_START: Hotaru vs spectral, Kaede vs the Grave Lych, Rei\'s duel echo) in sync', () => {
@@ -101,7 +101,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned for Kaede's AoE rework (was 35101 / '6568/4679' / 3492961063 / 'b2b2f34d'): her Maple
     // Cleave, her full-focus maple splash on Unbroken Rhythm, Crimson Eternity ×1.6 vs bosses (was ×1.5)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 33485, state: 'lost', wallets: '6495/4720', final: 292454001, hashes: '593d9e61' });
+      .toEqual({ ticks: 33544, state: 'lost', wallets: '6460/4771', final: 270119113, hashes: '3dbdccef' });
   }, 120000);
 
   it('runs a co-op freeplay battle through the goal into the boss waves, in sync, ended by both Finish votes', () => {
@@ -165,7 +165,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // an auto-cast's (the same battle, the same 1123 coins, now 652/471: 2017100116 / '7ad61cb6'), then
     // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind })
-      .toEqual({ ticks: 32004, state: 'between', wallets: '577/486', final: 1423816784, hashes: 'e0e10923', casts: 36, byKind: 'boost 1 · burst 15 · debuff 8 · econ 1 · rally 3 · strike 8' });
+      .toEqual({ ticks: 32004, state: 'between', wallets: '577/486', final: 1423816784, hashes: '8ecd80de', casts: 36, byKind: 'boost 1 · burst 15 · debuff 8 · econ 1 · rally 3 · strike 8' });
   }, 240000);
 
   it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {
@@ -247,7 +247,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // T3 review added the class counts and the wave-7 checkpoint's digest (finalDigest is taken after the
     // sale, so only ckDigest holds a lab record)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '80f399b1', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'ef08c73a', finalDigest: '4e563adb' });
+      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '56118d0f', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: '9f4d189e', finalDigest: 'e3b101be' });
   }, 240000);
 
   it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s two firing points with Pierce, every club trick) in sync', () => {
@@ -288,7 +288,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // tier 5 only with arms that stay on an enemy, a lighter halo); cheaper upgrades so both Kages reach tier 5.
     // Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, shapes: r.shapes, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 16368, state: 'won', wave: 22, wallets: '2206/1255', final: 3785840552, hashes: '579e8357', shapes: '4/281/398', rejoinTick: 10780 });
+      .toEqual({ ticks: 16314, state: 'won', wave: 22, wallets: '2207/1257', final: 3223573651, hashes: 'f68f68df', shapes: '4/275/391', rejoinTick: 10754 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

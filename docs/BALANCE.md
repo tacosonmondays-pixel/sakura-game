@@ -174,6 +174,13 @@ the same three rows over ×1 as before the round (Aoi T_aoi 1.119, Hana 1.074, S
 not bumped here (the coordinator assigns it at ship). Goldens re-pinned with no win becoming a loss; mechanics
 scenarios (save/restore, co-op casts) run power-neutral (`powerOff`, or the row divided back out in co-op).
 
+**On top of attack shapes S1** (`feature/balance-r5-s1`: `feature/attack-shapes` 2645acf8 merged in first, as the
+coordinator ordered). Fully maxed, every build, alone (5 seeds) and with Umeko + Midori (5 seeds), against today's live
+numbers (`main` ccf147ad): every Hotaru, Kage and Momo build is at or above today once Hotaru takes ×1.03 damage (her
+Firefly Halo build alone read 1% under on a crowd) and Momo ×1.03 (S1's Coin Wheel left her Encore Toss build alone 2%
+under on a boss; her coins do not move). With supports: Hotaru crowd ×1.10–1.12 and boss ×2.7–2.9 of today, Kage
+crowd ×1.01–1.09 and boss ×1.08–1.13, Momo ×1.08–1.15. Kage alone on a crowd is ×1.96 of today with S1's Blade Cyclone.
+
 **Review.** An independent adversarial review (FIX-THEN-SHIP, no blocker) found Fuu's two lower builds, the titan claim,
 the Golem ship gate and four nits (the footnote naming only damage and boss rows, Chigusa judged on the wrong ruler, the
 wiki's Fuu line, the duo's beam and boss row); all fixed above. Not fixed: Umeko's tier text keeps her own words (+15%)

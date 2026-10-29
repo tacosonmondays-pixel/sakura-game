@@ -199,11 +199,9 @@ describe('display only: the battle sim is untouched', () => {
     // feature/attack-shapes only: the attack shapes S1 "Wheels" (src/sim/wheels.js, dirs.js, shapes.js; Momo's Coin
     // Wheel, Kage's Blade Cyclone, Hotaru's Firefly Halo) change the sim. The release that ships them sets
     // COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only this exact in-progress id passes.
-    const PENDING_BUMP = { 11: '60f096ca6bd2' };
+    // Balance round 5 (feature/balance-r5) rides the same bump: this id is S1 and round 5 together.
+    const PENDING_BUMP = { 11: '5828e186a2f4' };
     if (!KNOWN[COOP_PROTOCOL]) return;
-    // balance round 5 (feature/balance-r5) changes the sim; it ships with its own COOP_PROTOCOL bump, which the
-    // coordinator assigns at ship: until then its sim id is pinned here (drop this line at the bump)
-    const PENDING_BUMP = { 11: 'cd0c560b9327' };
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });
