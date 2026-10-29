@@ -131,6 +131,26 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
     h.int(zs.length);
     for (const z of zs) h.int(z.uid).int(z.src).str(z.kind).int(z.x * 256).int(z.y * 256).int(z.left).int(z.eaten).int(z.next);
   }
+  // attack shapes S4 (src/sim/links.js), each only while there is one: Spirit Tether groups (uid, owner, steps left,
+  // members in tie order) and this step's share budget, and the Homecoming Throw's fans in the air (leg, cuts, spot,
+  // way flown, hit list); battles without them keep their digest
+  const tg = sim.tethers;
+  if (tg && tg.length) {
+    h.int(tg.length).int(sim._shareBudget);
+    for (const g of tg) {
+      h.int(g.uid).int(g.owner.uid).int(g.left).int(g.m.length);
+      for (let i = 0; i < g.m.length; i++) h.int(g.m[i].uid);
+    }
+  }
+  let fans = 0;
+  for (const p of sim.projectiles) if (p.ret && !p.dead) fans++;
+  if (fans) {
+    h.int(fans);
+    for (const p of sim.projectiles) {
+      if (!p.ret || p.dead) continue;
+      h.int(p.uid).int(p.ret.leg).int(p.ret.n).int(p.x * 256).int(p.y * 256).int(p.travel * 256).int(p.hits.length);
+    }
+  }
   // the rest of the ability state, each part only while it holds something (src/sim/abilities.js)
   if (sim.abilGroups?.size) {
     h.int(sim.abilGroups.size);

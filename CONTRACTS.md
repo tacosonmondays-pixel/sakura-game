@@ -1732,6 +1732,54 @@ render/groundShapes.js: drawGroundShapes(sim, gN, gA, R)   // the plain look, fr
 - Constants (appended block): ROAD_SHARED, ROAD_SAME_DIR, VINE_STEP, VINE_SLOW_T, VINES_PER_GIRL, VINES_PER_SIM,
   SPIKE_ROWS_PER_GIRL, SPIKE_ROWS_PER_SIM, SPIKE_UP, QUAKES_PER_GIRL, QUAKES_PER_SIM.
 
+### Attack shapes S4 "Links" (`docs/specs/ATTACK_SHAPES.md` §5.6, §5.10, addendum A9; branch `feature/attack-links`)
+
+```js
+links.js:   attackReturn(sim, t, spec, targets, extraPierce, spawn)   // behaviour 'return' (Homecoming Throw), a counted attack
+            fanCount(spec, ret), retSteer(sim, p, stepLen) / retCut(sim, p, e) / retFlip(sim, p)   // projectileStep's fan hooks
+            tieTether(sim, t, e)   // Spirit Tether: her counted attack ties her lead target (updateTower's attack loop)
+            ownShare(sim, g, e, tower, spec), shareTether(sim, g, e, tower, spec, scale, crit, drone)   // the Sim._hit hook
+            tetherStep(sim) (every step while a group lives), endLinkWave(sim), linkDps(t, e, perTarget)   // the panel DPS
+render/linkShapes.js: drawLinkShapes(sim, gN, gA, R)   // the plain threads (solid ground lines, a ring under each member),
+                                                       // from Actors.drawGround, reads the sim only
+```
+- Homecoming Throw: a counted attack picks her targets by target mode (her projectiles); a rhythm spec with splash (her Turbine
+  Kick) is her plain projectile volley. Otherwise `round(projectiles × ret.per)` fans, one at each target in turn: a fan is a
+  targeted projectile record (spawnProjectile) marked `straight` (her straight-shot caps; it ends at the wave clear in
+  endRingWave, and with her sale) carrying `p.ret { leg, n, full, pierce, mul, cut, aim, home, back, reach }`. Its out leg homes
+  on its target like her shot and flies to `spec.range × ret.reach` (on, up to a shot's own reach, while its target is uncut),
+  then turns (fresh hit list and count) and flies back through its target while that one stands and the leg can still cut, then
+  to her hand (`home`); within one step of it the fan is caught (`retCatch { towerUid, uid, x, y }`). Each leg cuts each enemy at
+  most once: `full` = her pierce + gear Pierce at × `ret.mul`, then `ret.pierce` more at × `ret.cut`. A cut is her spec with
+  `share: mul` (flat armour, the floor and a shell's count × mul); the out leg carries her whole spec (pushes, statuses), the way
+  home a clean copy (`back`: no statuses, marks, pushes, splash). Event `attack { kind: 'return', k, fans }`. drawerView
+  TARGETABLE and gearPierce have `return`.
+- Spirit Tether (kit `tether`, on a projectile girl): after each counted attack her lead target (lastFaced, her targetUid) is tied
+  to up to `tether.links` enemies, each the nearest untied eligible one within `tether.reach` of the last (d², ties by uid; none:
+  no group); a target already tied in her group is held again for `tether.dur`. `sim.tethers [{ uid, owner, m: [enemies], left,
+  share, pull }]` (`left` integer steps), `e.tie` the group (null untied), `sim._tetherOn` = living groups. Caps
+  TETHERS_PER_GIRL (her oldest first) and TETHERS_PER_SIM (no new group). Events `tether { towerUid, uid, members, left }`,
+  `tetherShare { uid, from, n }`, `tetherPull { uid, towerUid, n }`.
+- The hook, `Sim._hit`: `if (this._tetherOn !== 0 && e.tie && !this._sharing)` (with no group alive the hit path adds a compare
+  plus a few locals; no measurable cost). A tether girl's own hit on a tied enemy (in her group or another tether girl's) keeps
+  `1 − n × share` (n: the other members a share reaches: not dead, not in a tunnel, not phasing unless holy / mystic; at most the
+  shares this step's budget still runs); after the hit lands (and after a kill), every other reachable member in tie order
+  takes a clean copy of it at the hit's scale × `share` (her type chart, tier and air multipliers; flat armour, the floor and a
+  crystal shell's cap and count × the hit's own `spec.share` × `share`; critical when the hit was, no roll, no statuses), credited to the hitter (and her drone), events `hit { tick: true }`.
+  `sim._sharing` is up while shares land: no shared hit, and no hit inside one (a curse burst from a share's kill), shares again.
+  At most TETHER_SHARES_PER_STEP (256) shares a step (`sim._shareBudget`, refilled by tetherStep and by the first group); the rest
+  are dropped. Burns, poison and hexes (not `_hit`) never share.
+- tetherStep: a sold girl's groups end; each group's `left` counts down; at 0 it ends, and with `tether.pull` the living members
+  ahead of its lead on the lead's road (never a miniboss, a boss or one under the push lock) close `pull` (≤ GATHER_MAX) of their
+  gap to it and take the push lock (the gather rule). Groups end at the wave clear (endLinkWave, no pull).
+- hashSim folds `sim.tethers` (and the share budget) and the fans in the air only while there are some; battle saves: `tethers`,
+  `_tetherOn`, `_shareBudget` 'calm', `_sharing` 'scratch'; fans are `projectiles` ('calm').
+- Stats blocks (mods.js SHAPE_NORM, stated per tier): `ret { per, mul, cut, pierce, reach }` (defaults 0.5, 1, 0, 1, 1),
+  `tether { links, reach, dur, share, pull }` (2, 1.5, 3, 0.2, 0).
+- Units: Fuu Returning Gale T4-5 (Typhoon Fans, Heaven's Gate Wind; `behavior: 'return'`), Ena Shared Fate T4-5 (Red Threads,
+  Threads of Destiny; `tether`). Upgrade tags: `ret` self, `tether` enemies.
+- Constants (appended block): RET_HOME, TETHERS_PER_GIRL, TETHERS_PER_SIM, TETHER_SHARES_PER_STEP.
+
 ### Roster B3 mechanics (track 5; `docs/merge/ROSTER_SPEC.md` §6, `docs/merge/ROSTER_WAVE_NOTES.md`)
 
 ```js

@@ -32,6 +32,7 @@ import { sentryTick } from './sentries.js';
 import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick, vineObjects } from './vines.js';
 import { attackSpikes, sendQuake, groundTick } from './ground.js';
+import { attackReturn, retSteer, retCut, retFlip, tieTether } from './links.js';
 import { rollBall, ballTick } from './balls.js';
 import { labMods } from './lab.js';
 import { buildPartnerSpec, partnerTick, partnerOff, beginVolley, refract } from './duo.js';
@@ -1508,6 +1509,17 @@ const BEHAVIORS = {
     if (e && e !== true) lastFaced = e;
     return !!e;
   },
+  // attack shapes S4 (src/sim/links.js): Homecoming Throw, returning fans at her targets
+  return: (sim, t) => {
+    const spec = gearSpec(t.eff);
+    // a rhythm with a blast (Fuu's Turbine Kick, Potential) is still her gust volley: fans carry no blast
+    if (spec.splash > 0) return attackProjectile(sim, t);
+    const n = Math.max(1, spec.projectiles);
+    const targets = selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, n);
+    const ok = attackReturn(sim, t, spec, targets, targets.length ? shotPierce(t) : 0, spawnProjectile);
+    if (ok) lastFaced = targets[0];
+    return ok;
+  },
   drink: throwDrink,
   roll: rollBall,
 };
@@ -2032,6 +2044,8 @@ export function updateTower(sim, t, dt) {
       t.cooldown = 0;
       break;
     }
+    // Spirit Tether (attack shapes S4, src/sim/links.js): her counted attack ties her lead target to the enemies near it
+    if (s.tether && lastFaced && lastFaced.uid === t.targetUid) tieTether(sim, t, lastFaced);
     if (tempo) tempoStack(sim, t, tempo);
     if (t.hydrated) useDrink(sim, t); // Wakaba's drink: a charge per successful attack (src/sim/drinks.js)
     // Chigusa's Bloom Rush (src/sim/vines.js): faster for every second she keeps attacking
@@ -2106,6 +2120,8 @@ function projectileStep(sim, p, dt) {
     guidedStep(sim, p, dt);
     return;
   }
+  // a returning fan on its way home (attack shapes S4, src/sim/links.js): back through its target, then to her hand
+  if (p.ret && retSteer(sim, p, p.speed * dt)) return;
   const tgt = p.target;
   if (tgt) {
     // Stop homing on targets that died, were already hit, or turned intangible/hidden mid-flight.
@@ -2168,6 +2184,11 @@ function projectileStep(sim, p, dt) {
         p.dead = true;
         return;
       }
+      // a returning fan (attack shapes S4, src/sim/links.js): its own cuts a leg, it never stops on a pierce
+      if (p.ret) {
+        retCut(sim, p, e);
+        continue;
+      }
       p.hits.push(e.uid);
       sim._hit(e, p.owner, p.spec, p.scale ?? 1);
       p.pierce--;
@@ -2178,7 +2199,8 @@ function projectileStep(sim, p, dt) {
     }
   }
   if (p.travel >= p.maxTravel) {
-    p.dead = true;
+    // a returning fan's out leg flips home (attack shapes S4, src/sim/links.js)
+    if (!(p.ret && retFlip(sim, p))) p.dead = true;
     return;
   }
   const f = Math.min(1, p.travel / Math.max(0.5, p.est));

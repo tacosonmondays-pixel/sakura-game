@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, runShapesBattle, runHeldBattle, runGroundBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, runShapesBattle, runHeldBattle, runGroundBattle, runLinksBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 import { launchAttempts } from '../../e2e/browser.mjs';
 
 // T3 review coop-3: e2e/engines.mjs only ever tried Playwright's own browsers, so on a machine without
@@ -186,12 +186,14 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.checkpoints).toBeGreaterThan(100);
     expect(runReturningAbilBattle().final).toBe(r.final);
     // pinned when the scenario landed (A3 M3; V8 and SpiderMonkey gave these, e2e/engines.mjs): change only with a
-    // deliberate sim / data / ability change, and say why
+    // deliberate sim / data / ability change, and say why. (Attack shapes S4: the checkpoint and final digests moved, the
+    // battle did not: every Sim now carries the tether fields and every enemy its `tie`, which the generic serializer
+    // stores; ckDigest c653f418 → b2fe614b, finalDigest 089da6b4 → e0834a0a, same ticks, hashes and final.)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, casts: r.casts, byId: r.byId, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
       .toEqual({
         ticks: 47017, state: 'between', wallets: '568/782', lives: 100, final: 3293782298, hashes: '6e087590', casts: 72,
         byId: 'aoi.skyfall 11 · ena.omenCard 9 · hana.swoop 19 · noa.firstAid 2 · ruri.moonPounce 5 · seiran.stormLance 13 · yoriko.puppetHex 13',
-        ckDigest: 'c653f418', finalDigest: '089da6b4',
+        ckDigest: 'b2fe614b', finalDigest: 'e0834a0a',
       });
   }, 240000);
 
@@ -245,9 +247,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // pinned when the scenario landed (T3; V8 gave these, and SpiderMonkey matched them in the T3 review
     // fixes; JavaScriptCore not run yet): change only with a deliberate sim / data change, and say why. The
     // T3 review added the class counts and the wave-7 checkpoint's digest (finalDigest is taken after the
-    // sale, so only ckDigest holds a lab record)
+    // sale, so only ckDigest holds a lab record). Attack shapes S4 moved both digests and nothing else (the Sim's tether
+    // fields and each enemy's `tie` are stored by the generic serializer): e864bd71 → d529f30d, 8e111df8 → a6ec7988
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '35f90fff', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'e864bd71', finalDigest: '8e111df8' });
+      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '35f90fff', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'd529f30d', finalDigest: 'a6ec7988' });
   }, 240000);
 
   it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s two firing points with Pierce, every club trick) in sync', () => {
@@ -328,6 +331,25 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, ground: r.ground, rejoinTick: r.rejoinTick })
       .toEqual({ ticks: 22228, state: 'won', wave: 22, wallets: '1675/1783', final: 2230526921, hashes: '20e7246c', ground: '60/943/110', rejoinTick: 9290 });
+  }, 240000);
+
+  it('runs the attack shapes S4 (LINKS_START: Homecoming Throw, Spirit Tether) in sync, and a mid-wave rejoin lands on the run', () => {
+    const r = runLinksBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(15);
+    const [cut, caught, tied, shared] = r.links.split('/').map(Number);
+    expect(cut).toBeGreaterThan(500);
+    expect(caught).toBeGreaterThan(500);
+    expect(tied).toBeGreaterThan(20);
+    expect(shared).toBeGreaterThan(500);
+    expect(r.rejoinTick).toBeGreaterThan(0);
+    expect(r.rejoinSame).toBe(true);
+    expect(runLinksBattle().final).toBe(r.final);
+    // pinned when the battle was added (feature/attack-links, S4 data fitted on both rulers; the host's girls at tier 5,
+    // the guest's at tier 4: one girl per path at the final tier). Change only with a deliberate sim / data change, and say why.
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, links: r.links, rejoinTick: r.rejoinTick })
+      .toEqual({ ticks: 25886, state: 'lost', wave: 19, wallets: '1276/681', final: 144405380, hashes: 'b59e6bf2', links: '1964/1112/55/1548', rejoinTick: 5958 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

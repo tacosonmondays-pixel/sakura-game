@@ -90,8 +90,8 @@ const LOOK_ENUMS = {
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
 };
 // wheel / spin: the attack shapes S1 (src/sim/wheels.js; docs/specs/ATTACK_SHAPES.md); stream / sweep: S2 (src/sim/held.js);
-// spikes: S3 (src/sim/ground.js)
-const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'drink', 'roll', 'none', 'wheel', 'spin', 'stream', 'sweep', 'spikes'];
+// spikes: S3 (src/sim/ground.js); return: S4 (src/sim/links.js)
+const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'drink', 'roll', 'none', 'wheel', 'spin', 'stream', 'sweep', 'spikes', 'return'];
 const BASE_REQUIRED = [
   'cost', 'behavior', 'damage', 'rate', 'range', 'projectiles', 'pierce', 'splash', 'chain', 'maxTargets',
   'projectileSpeed', 'armorPen', 'canHitAir', 'detection', 'status', 'crit', 'eliteMul', 'bossMul', 'barrierMul',
@@ -252,6 +252,9 @@ function modSetErrors(mods, where) {
     // the attack shapes S3 (src/sim/mods.js SHAPE_NORM): numbers, and the statuses a quake's last ring adds
     spike: (k, v, w) => objErrors(v, ['count', 'gap', 'r', 'delay', 'mul'], w, numCheck),
     quake: (k, v, w) => objErrors(v, ['rings', 'gap', 'speed', 'mul', 'later', 'status'], w, (kk, vv, ww) => (kk === 'status' ? (Array.isArray(vv) ? [] : [`${ww} status must be a list`]) : numCheck(kk, vv, ww))),
+    // the attack shapes S4 (src/sim/mods.js SHAPE_NORM): numbers
+    ret: (k, v, w) => objErrors(v, ['per', 'mul', 'cut', 'pierce', 'reach'], w, numCheck),
+    tether: (k, v, w) => objErrors(v, ['links', 'reach', 'dur', 'share', 'pull'], w, numCheck),
     duo: (k, v, w) => objErrors(v, DUO_NUMS, w, numCheck),
     // the staff heroes (BANNERS §D): Kogane's Move recharge, Norika's barricades
     moveCd: (k, v, w) => (isPos(v) ? [] : [`${w} must be > 0`]),

@@ -133,6 +133,11 @@ const RING_FLAGS = ['turn', 'heat', 'double', 'sparks'];
  *          (steps between two spikes rising), mul × her hit on each enemy the row strikes
  *   quake  rings (rings a strike), gap (steps between two rings starting), speed (tiles a second), mul × her plain hit
  *          for the first ring, later × for the others, status (statuses the last ring adds to hers)
+ * S4 "Links" (src/sim/links.js), every field stated per tier:
+ *   ret    per (fans a throw: her projectiles × per), mul × her hit on the first enemy a leg cuts, cut × on the others,
+ *          pierce (enemies a leg cuts), reach (× her range: how far a fan flies out)
+ *   tether links (enemies tied to her target), reach (tiles from one tied enemy to the next), dur (s), share (each other
+ *          member's share of a hit), pull (on expiry: the gap to the lead closed, 0 = none)
  */
 function normWheel() {
   return { spokes: 0, lead: 1, mul: 1 };
@@ -155,12 +160,19 @@ function normSpike() {
 function normQuake() {
   return { rings: 2, gap: 12, speed: 6, mul: 1, later: 0.6, status: [] };
 }
-const SHAPE_NORM = { wheel: normWheel, spin: normSpin, halo: normHalo, stream: normStream, sweep: normSweep, spike: normSpike, quake: normQuake };
-const SHAPE_ADDS = { wheel: ['spokes'], spin: ['arms'], halo: ['pieces', 'reach'], stream: [], sweep: [], spike: [], quake: [] };
+function normRet() {
+  return { per: 0.5, mul: 1, cut: 0, pierce: 1, reach: 1 };
+}
+function normTether() {
+  return { links: 2, reach: 1.5, dur: 3, share: 0.2, pull: 0 };
+}
+const SHAPE_NORM = { wheel: normWheel, spin: normSpin, halo: normHalo, stream: normStream, sweep: normSweep, spike: normSpike, quake: normQuake, ret: normRet, tether: normTether };
+const SHAPE_ADDS = { wheel: ['spokes'], spin: ['arms'], halo: ['pieces', 'reach'], stream: [], sweep: [], spike: [], quake: [], ret: [], tether: [] };
 const SHAPE_SETS = {
   wheel: ['lead', 'mul'], spin: ['mul', 'fold', 'turn', 'lock'], halo: ['mul'],
   stream: ['kind', 'half', 'turn', 'mul', 'cap'], sweep: ['arc', 'swing', 'turn', 'mul', 'cap'],
   spike: ['count', 'gap', 'r', 'delay', 'mul'], quake: ['rings', 'gap', 'speed', 'mul', 'later', 'status'],
+  ret: ['per', 'mul', 'cut', 'pierce', 'reach'], tether: ['links', 'reach', 'dur', 'share', 'pull'],
 };
 
 /**
