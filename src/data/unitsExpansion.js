@@ -235,7 +235,7 @@ const FUU = {
       tier('Brisk Fans', 90, 'Gusts push 0.15 tiles further.', { knockback: 0.15 }),
       tier('Twin Gusts', 240, 'One more gust per sweep.', { projectiles: 1 }),
       tier('Gale Wall', 700, 'Push +0.2 tiles; gusts slow by 25% for 1s.', { knockback: 0.2, status: [S.slow(0.25, 1)] }),
-      tier('Typhoon Fans', 2200, 'Two more gusts, push +0.25 tiles, +6 damage. Homecoming Throw: her gusts become fans that fly through her targets and come back to her hand: half her hit on the way out (with her push and slow), half again on the way home.', { projectiles: 2, knockback: 0.2, damage: 6, behavior: 'return', ret: { per: 1, mul: 0.5, cut: 0, pierce: 0, reach: 1 } }),
+      tier('Typhoon Fans', 2200, 'Two more gusts, push +0.25 tiles, +6 damage. Homecoming Throw: her gusts become fans that fly through her targets and come back to her hand: half her hit on the way out (with her push and slow), half again on the way home.', { projectiles: 2, knockback: 0.25, damage: 6, behavior: 'return', ret: { per: 1, mul: 0.5, cut: 0, pierce: 0, reach: 1 } }),
       tier('Heaven\'s Gate Wind', 14000, 'Two more fans, push +0.4 tiles, +14 damage, +40% attack speed.', { projectiles: 2, knockback: 0.4, damage: 14, rateMul: 1.4 }),
     ]),
     path('gather', 'Gathering Dance', 'Clump the wave', [

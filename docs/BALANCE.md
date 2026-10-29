@@ -64,7 +64,8 @@ owner's "about 1.7M" frame). Her **ruler** is her job: a boss for single-target 
 - Single-target strikers rise to 86–90% of Kage on a boss (`dmg` rows ×1.72–×5.9). Splash girls already above the band
   on a crowd keep it (no cap) and get a boss-only factor (`boss`, bosses and minibosses) to about 1M on a boss, half of
   Kage's: Marumi ×5.6 and Ruri ×9 are the largest because their kits barely touch a boss.
-- **The duo (Kohaku & Tsubaki) has no row.** The owner's Oct 29 buff (v0.1.60) makes her an intended outlier above
+- **The duo (Kohaku & Tsubaki) only has a ×1.01 floor** (the supports' raised auras shift her shell timing and cost her
+  best crowd build 0.3%). The owner's Oct 29 buff (v0.1.60) makes her an intended outlier above
   Kage (the coordinator: exempt from the band, never tuned down); every build of hers is at or above v0.1.60.
 - Suzu's traps and Azami's strips sit in the band on a crowd but stay near 0 on a boss: their kits do not touch bosses
   (a kit question for the owner, not a number).
@@ -73,7 +74,7 @@ owner's "about 1.7M" frame). Her **ruler** is her job: a boss for single-target 
   the duo also alone and with supports over 5–7 seeds). Rows that exist only for that: Fuu ×2.45 (her stronger wind
   pushes walkers out of her reach: at ×1.3 her Returning Gale build alone lost 46%, so her best build now reads ~4M on
   a crowd), Yuki ×1.5 (her 20% longer freezes, and the shapes' Rising Spikes left her
-  Frostbite build alone 28% under), Hotaru ×1.03, Momo ×1.03 (her coins do not move) and Umeko ×1.05 (the shapes left
+  Frostbite build alone 28% under), Hotaru ×1.03, Momo ×1.03 (her coins do not move) and Umeko ×1.07 (the shapes left
   each of them 1–5% under on one build alone). Every girl was checked alone and with supports against live v0.1.60.
 
 **Supports** (Kage 5-0-2 on a held boss beside one support at her best build, ÷ Kage alone):
@@ -181,7 +182,7 @@ same three rows over ×1 as v0.1.60). **With the shapes Kage fails it: ×1.185, 
 the shapes branch without round 5 (5124dacf) and ×0.75 / ×0.99 on v0.1.60: S1's Blade Cyclone, not a round-5 row (Kage
 has none). Flagged to the coordinator and the shapes session.
 
-**Sim id** `2068f3e1f384` (the shapes and round 5 together; base `d35092f141d3`, COOP 12), pinned as one PENDING_BUMP {12: …} in `tests/art/itemArtRuntime.test.js`; COOP_PROTOCOL is
+**Sim id** `4e257730440f` (the shapes and round 5 together; base `d35092f141d3`, COOP 12), pinned as one PENDING_BUMP {12: …} in `tests/art/itemArtRuntime.test.js`; COOP_PROTOCOL is
 not bumped here (the coordinator assigns it at ship). Goldens re-pinned with no win becoming a loss; mechanics
 scenarios (save/restore, co-op casts) run power-neutral (`powerOff`, or the row divided back out in co-op).
 
@@ -189,6 +190,12 @@ scenarios (save/restore, co-op casts) run power-neutral (`powerOff`, or the row 
 the Golem ship gate and four nits (the footnote naming only damage and boss rows, Chigusa judged on the wrong ruler, the
 wiki's Fuu line, the duo's beam and boss row); all fixed above. Not fixed: Umeko's tier text keeps her own words (+15%)
 while her running total includes the +5% buff, as battle does.
+
+**Second review** (after merging v0.1.60 and the attack shapes; FIX-THEN-SHIP, no blocker): the merge had taken
+Fuu's Typhoon Fans push back to 0.2 under round 5's "+0.25" text (fixed: 0.25); Umeko's Searchlight build alone read 1%
+under on a held boss (×1.05 → ×1.07); the duo's best crowd build read 0.3% under with supports (×1.01). Checked and
+held: the rows reach every new shape exactly once; Fuu's wind applies to her fans; Chigusa's lives rule survives the
+new vines; Momo's coins and Umeko's aura do not move; no test weakened.
 
 ## Marumi rework (2026-10-21, `feature/marumi-rework`)
 

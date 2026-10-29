@@ -52,8 +52,10 @@ const ROWS = {
   iroha: { boss: 3.9 },
   marumi: { boss: 5.6 },
   ruri: { boss: 9 },
-  // (the duo, Kohaku & Tsubaki: no row. The owner's Oct 29 buff (v0.1.60) makes her an intended outlier above Kage, so
-  // round 5 leaves her out of the band and never tunes her; tools/balance/r5Bench.mjs checks no build of hers falls)
+  // (the duo, Kohaku & Tsubaki: the owner's Oct 29 buff (v0.1.60) makes her an intended outlier above Kage, so round 5
+  // leaves her out of the band and never tunes her. ×1.01 only so no build of hers falls: the supports' raised auras shift
+  // her shell timing on a stream, which cost her best crowd build 0.3%)
+  kohaku_tsubaki: { dmg: 1.01 },
   // controllers: their crowd DPS sits in the band; control lasts 20% longer. Fuu's stronger wind pushes walkers out of
   // her reach (her Returning Gale build alone lost 46% at ×1), so her damage rises until every build of hers, alone and
   // with supports, deals at least what it does today (×2.45; her best build then reads ~3.9M on a crowd, no cap)
@@ -66,8 +68,8 @@ const ROWS = {
   chika: { buff: 1.05, ctl: 1.2 },
   midori: { buff: 1.05, ctl: 1.2 },
   miko: { buff: 1.05, reach: 1.1 },
-  // (Umeko ×1.05 damage: the attack shapes' Searchlight Sweep left her own small hits up to 5% under today)
-  umeko: { dmg: 1.05, buff: 1.05, reach: 1.1, ctl: 1.2 },
+  // (Umeko ×1.07 damage: the attack shapes' Searchlight Sweep left her own small hits up to 5% under today)
+  umeko: { dmg: 1.07, buff: 1.05, reach: 1.1, ctl: 1.2 },
   noa: { buff: 1.05, reach: 1.1 },
   wakaba: { buff: 1.05 },
   ouka: { buff: 1.05 },
