@@ -336,12 +336,19 @@ for (const [W, H] of viewports) {
       wave: document.querySelector('[data-testid="hud-wave"]')?.textContent || '',
       scout: document.querySelector('[data-testid="scout-label"]')?.textContent || '',
       chip: !!document.querySelector('[data-testid="hud-freeplay"]:not([hidden])'),
-      banners: window.__banners.filter((t) => /WAVE (49|5\d)/.test(t)).slice(-1)[0] || '',
+      // the last wave banner past 48, and whether that wave is flipped: on a Rear Ambush stage a flipped wave's banner
+      // rightly carries the ambush line (modes.waveSub wins there)
+      ...(() => {
+        const t = window.__banners.filter((x) => /WAVE (49|5\d)/.test(x)).slice(-1)[0] || '';
+        const n = +(/WAVE (49|5\d)/.exec(t)?.[1] || 0);
+        return { banners: t, flipped: !!n && window.__battle.sim.routeFlippedFor(n) };
+      })(),
     }));
     check(/Wave 54 · Stay Late/.test(hud.band), `the tracker counts waves past 48 (${hud.band})`);
     check(!/\/48|of 48/.test(hud.wave) && /54/.test(hud.wave) && !hud.chip, `the HUD shows the wave alone, no freeplay chip (${hud.wave})`);
     check(/Stay Late/.test(hud.scout) && !/\/48/.test(hud.scout), `the scout reads "Stay Late", not a freeplay goal (${hud.scout})`);
-    check(/Stay Late/.test(hud.banners) && !/of 48/.test(hud.banners), `a wave banner past 48 says Stay Late (${hud.banners})`);
+    check(!!hud.banners && (hud.flipped || /Stay Late/.test(hud.banners)) && !/of 48|\/48/.test(hud.banners),
+      `a wave banner past 48 says Stay Late, or a flipped wave's ambush line, never "of 48" (${hud.banners}${hud.flipped ? ', flipped' : ''})`);
     await shot('ty-extended-hud');
     // out of hearts past wave 48: Home Time (the Make-up Test first, when the run still has it)
     await page.evaluate(() => {
