@@ -9,9 +9,10 @@ import { buildChibi, disposeObject, STANDIN_UNITS, isStandIn } from '../../src/m
 import { UNITS, getUnit } from '../../src/data/units.js';
 import { SKINS } from '../../src/data/skins.js';
 
-// the girls still drawn procedurally: none. The returning girls have their GLBs since the art wave (Meshy
-// noa / hana / ruri, temporary Blender chibis for the rest, docs/MODELS.md) and Tenka has her Meshy figure.
-const ART_PENDING = [];
+// the girls still drawn procedurally: Kogane and Norika (BANNERS §D.5) ship before their art: procedural stand-ins in
+// their own look. The returning girls have their GLBs since the art wave (Meshy noa / hana / ruri, temporary Blender
+// chibis for the rest, docs/MODELS.md) and Tenka has her Meshy figure.
+const ART_PENDING = ['kogane', 'norika'];
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -31,7 +32,7 @@ function build(unit, look = {}) {
 }
 
 describe('stand-in list', () => {
-  it('is exactly the girls whose art is pending (none today), all roster units', () => {
+  it('is exactly the girls whose art is pending (Kogane, Norika today), all roster units', () => {
     expect([...STANDIN_UNITS]).toEqual(ART_PENDING);
     for (const id of ART_PENDING) {
       expect(getUnit(id).id).toBe(id);
@@ -42,7 +43,7 @@ describe('stand-in list', () => {
 
   it('every other unit (and every outfit / Coming Soon asset) is a GLB girl', () => {
     const others = UNITS.filter((u) => !ART_PENDING.includes(u.id));
-    expect(others).toHaveLength(36); // the whole roster
+    expect(others).toHaveLength(37); // 39 units minus Kogane and Norika (the duo's members are GLB girls too: tests/models/glb.test.js)
     for (const u of others) expect(isStandIn(u.id), u.id).toBe(false);
     for (const s of SKINS.filter((x) => x.kind !== 'default')) expect(isStandIn(s.asset), s.asset).toBe(false);
   });
@@ -67,6 +68,23 @@ describe('Tenka without her GLB', () => {
       g.userData.setHighlight(false);
       disposeObject(g);
     }
+  });
+});
+
+describe('stand-in chin-up', () => {
+  it('the staff heroes lift their chins so their eyes read under the brim from the battle camera', () => {
+    for (const id of ['kogane', 'norika']) {
+      const g = buildChibi(getUnit(id), { quality: 'low' });
+      expect(g.userData.chinUp, id).toBeGreaterThan(0.1);
+      g.userData.animate(0.5, 0.016, 'idle');
+      // the head bone pitches back (negative x) past her own idle
+      const e = new THREE.Euler().setFromQuaternion(g.userData.bones[3].quaternion);
+      expect(e.x, id).toBeLessThan(-0.05);
+      disposeObject(g);
+    }
+    const t = buildChibi(getUnit('tenka'), { quality: 'low' });
+    expect(t.userData.chinUp).toBeUndefined();
+    disposeObject(t);
   });
 });
 
@@ -118,11 +136,11 @@ describe('stand-ins in a browser never request a GLB', () => {
     vi.resetModules();
   });
 
-  // the real list is empty, so the path is checked with a mocked one (Tenka, the last stand-in)
+  // the path is checked with a mocked list holding Tenka (a stand-in until her GLB), whose fallback is easy to tell apart
   it('loadCharacter / preloadCharacters / preloadModels / buildChibi fetch nothing for her; a GLB girl\'s file is fetched', async () => {
     const urls = [];
     const MOCK = Object.freeze(['tenka']);
-    vi.doMock('../../src/models/standins.js', () => ({ STANDIN_UNITS: MOCK, isStandIn: (k) => MOCK.includes(k) }));
+    vi.doMock('../../src/models/standins.js', async (importOriginal) => ({ ...(await importOriginal()), STANDIN_UNITS: MOCK, isStandIn: (k) => MOCK.includes(k) }));
     vi.stubGlobal('window', {});
     vi.stubGlobal('document', {}); // no createElement: procedural faces fall back to geometry eyes
     vi.stubGlobal('Request', class { constructor(url) { this.url = String(url); } });

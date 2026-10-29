@@ -56,7 +56,9 @@ describe.skipIf(ids.length === 0)('real units on fixture terrain', () => {
       sim.cash = 1e7;
       const water = def.placement === 'water';
       // free placement: heroes (footprint 0.5) need 1.05 tiles of clearance from the path centre line
-      const t = water ? sim.placeTower(id, 5.5, 2.5) : sim.placeTower(id, isHero ? 8.5 : 6.5, isHero ? 5.6 : 5.5);
+      // (a duo stands on a hero-sized base: the same clearance)
+      const big = isHero || def.footprint >= 0.5;
+      const t = water ? sim.placeTower(id, 5.5, 2.5) : sim.placeTower(id, big ? 8.5 : 6.5, big ? 5.6 : 5.5);
       expect(t, `${id} placed`).toBeTruthy();
       if (isHero) {
         sim._credit(t, 1e9); // straight to Lv 25 + full Mastery

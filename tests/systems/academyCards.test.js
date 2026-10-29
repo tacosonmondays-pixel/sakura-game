@@ -100,8 +100,9 @@ describe("academy girls' drawn cards", () => {
     }
   });
 
-  it('no roster girl shows a signboard today; the placeholder flag still works for a future girl', () => {
-    for (const u of UNITS) expect(isPlaceholderPortrait(u.id), u.id).toBe(false);
+  it('only the staff heroes (BANNERS §D.5, before their art) show a signboard today; the placeholder flag works', () => {
+    const SIGNBOARD = ['kogane', 'norika'];
+    for (const u of UNITS) expect(isPlaceholderPortrait(u.id), u.id).toBe(SIGNBOARD.includes(u.id));
     expect(isPlaceholderPortrait('nobody')).toBe(false);
     PORTRAIT_DATA.__sign = { ...SIGN, placeholder: true };
     try {

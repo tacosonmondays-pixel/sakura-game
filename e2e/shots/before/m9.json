@@ -1,0 +1,46 @@
+{
+ "title": {
+  "844x390": {
+   "text": 9.28,
+   "numbers": 1,
+   "tapMin": 43.5,
+   "under44": 4,
+   "yellow": 1,
+   "pinkStray": 0,
+   "radius": 7,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": null,
+   "host": null
+  },
+  "1280x720": {
+   "text": 10.24,
+   "numbers": 1,
+   "tapMin": 49.5,
+   "under44": 0,
+   "yellow": 1,
+   "pinkStray": 0,
+   "radius": 7,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": null,
+   "host": null
+  },
+  "390x844": {
+   "text": 10.24,
+   "numbers": 1,
+   "tapMin": 49.5,
+   "under44": 0,
+   "yellow": 1,
+   "pinkStray": 0,
+   "radius": 7,
+   "covered": 0,
+   "overflow": false,
+   "ellipsis": 0,
+   "content": null,
+   "host": null
+  }
+ }
+}

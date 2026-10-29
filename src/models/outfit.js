@@ -36,6 +36,18 @@ export function outfitSpec(unit, pal, look) {
     case 'blazer':
       set(pal.outfit, pal.outfit, pal.outfit, pal.outfitShade, TIGHTS_DARK, TIGHTS_DARK, '#241c22');
       break;
+    case 'council':
+      // Kohaku (the duo, src/models/duo.js): her lilac blazer, purple tights and white loafers
+      set(pal.outfit, pal.outfit, pal.outfit, pal.outfitShade, '#5b3f8c', '#5b3f8c', '#f4f1f7');
+      break;
+    case 'cadet':
+      // Tsubaki (the duo): her navy cadet jacket, black tights and navy lace-up boots to mid-calf
+      set(pal.outfit, pal.outfit, pal.outfit, pal.outfitShade, '#22202a', dark(pal.outfit, 0.85), dark(pal.outfit, 0.7));
+      break;
+    case 'sash':
+      // a staff blazer over slacks and rain boots (Norika, BANNERS §D.4)
+      set(pal.outfit, pal.outfit, '#f7f7fb', pal.outfit, pal.outfit, pal.outfit, '#20242e');
+      break;
     case 'miko':
       set(pal.outfit, pal.outfit, pal.outfit, pal.accent, pal.accent, pal.accent, '#f4f1ec');
       break;
@@ -341,6 +353,79 @@ export function buildOutfit(ctx) {
       }
       add(buttons(ctx, [-0.08], [1.08, 0.96], 0.17, acc));
       add(band(ctx, 0.96, 0.18, 0.62, 0.4, o, BONES.hips));
+      add(cuff(ctx, 1, 0.68, 0.13, 0.04, white));
+      add(cuff(ctx, -1, 0.68, 0.13, 0.04, white));
+      break;
+    }
+    case 'council': {
+      // Kohaku: the student council's lilac blazer with gold trim, a short white cape, a purple bow and a lilac
+      // plaid skirt (as drawn; the duo's stand-in, src/models/duo.js)
+      const gold = col('#e6bf5c');
+      const plaid = (y, phi) => {
+        const a = Math.sin(phi * 10) > 0.6;
+        const b = Math.sin(y * 40) > 0.75;
+        const base = o.clone().lerp(white, 0.18);
+        if (a && b) return base.lerp(acc, 0.55);
+        if (a || b) return base.lerp(acc, 0.25);
+        return base;
+      };
+      add(skirt(ctx, { top: 1.0, bottom: 0.52, rTop: 0.6, rBot: 0.94, pleats: 18, colorFn: plaid }));
+      add(shirtCollar(ctx, white));
+      add(bow(ctx, { pos: [0, 1.5, 0.16], size: 0.17, color: pal.accent, bone: BONES.chest }));
+      for (const side of [-1, 1]) {
+        const pts = smoothPath([[side * 0.2, 1.6, 0.06], [side * 0.18, 1.42, 0.13], [side * 0.06, 1.18, 0.17]], 6);
+        add(part(strand(pts, (t) => [0.07 + 0.03 * Math.sin(t * Math.PI), 0.025], { radial: 6, up: () => new THREE.Vector3(0, 0.3, 1).normalize() }), { color: gold, bone: BONES.chest }));
+        add(cuff(ctx, side, 0.68, 0.135, 0.04, gold));
+      }
+      add(buttons(ctx, [-0.08], [1.1, 0.98], 0.17, gold));
+      add(band(ctx, 0.96, 0.16, 0.62, 0.4, o, BONES.hips));
+      add(cape(ctx, '#f7f4fb', '#e6bf5c', 0.6));
+      break;
+    }
+    case 'cadet': {
+      // Tsubaki: the security club's navy cadet jacket over a grey vest with a gold tie, a navy pleated skirt with a
+      // gold hem stripe, and binoculars on a strap (as drawn; the duo's stand-in)
+      const gold = acc;
+      const grey = col('#8e98aa');
+      add(skirt(ctx, { top: 1.0, bottom: 0.5, rTop: 0.6, rBot: 0.94, pleats: 12, colorFn: (y, phi, t) => (t > 0.8 && t < 0.88 ? gold : os) }));
+      add(frontPanel(ctx, { yTop: 1.56, yBot: 0.98, wTop: 0.2, wBot: 0.3, z: 0.15, color: grey, bone: BONES.chest, curve: 0.55 }));
+      add(shirtCollar(ctx, white));
+      add(necktie(ctx, gold));
+      add(buttons(ctx, [-0.12, 0.12], [1.3, 1.12], 0.2, gold));
+      for (const side of [-1, 1]) {
+        add(cuff(ctx, side, 0.68, 0.14, 0.045, gold));
+        // gold-edged shoulder boards
+        add(part(box(0.26, 0.04, 0.2), { pos: [side * 0.46, 1.6, -0.2], rot: [0, 0, side * -0.35], color: (p) => (Math.abs(p.z + 0.2) > 0.07 ? gold : o), bone: BONES.chest }));
+      }
+      add(band(ctx, 0.98, 0.1, 0.61, 0.4, col('#2a2a34'), BONES.hips));
+      // the binoculars on their strap, resting on her chest
+      const strap = smoothPath([[-0.3, 1.62, -0.05], [-0.18, 1.45, 0.18], [0, 1.3, 0.26]], 6);
+      add(part(strand(strap, () => [0.02, 0.012], { radial: 4, up: () => new THREE.Vector3(0, 0, 1) }), { color: col('#2a2a34'), bone: BONES.chest }));
+      for (const side of [-1, 1]) {
+        add(part(cyl(0.065, 0.075, 0.2, 10), { pos: [side * 0.08, 1.26, 0.3], rot: [Math.PI / 2, 0, 0], color: col('#2f3b6e'), bone: BONES.chest }));
+        add(part(cyl(0.05, 0.05, 0.02, 10), { pos: [side * 0.08, 1.26, 0.41], rot: [Math.PI / 2, 0, 0], color: col('#bfe3ff'), bone: BONES.chest }));
+      }
+      add(part(box(0.09, 0.05, 0.08), { pos: [0, 1.27, 0.3], color: col('#c9ced8'), bone: BONES.chest }));
+      break;
+    }
+    case 'sash': {
+      // Norika's staff blazer: shirt collar and tie, lapels, a reflective high-visibility sash from shoulder to hip
+      // with silver stripes, a whistle on its lanyard; white gloves (her forearms' region) and navy slacks.
+      add(shirtCollar(ctx, white));
+      add(necktie(ctx, os));
+      for (const side of [-1, 1]) {
+        const pts = smoothPath([[side * 0.2, 1.6, 0.06], [side * 0.18, 1.42, 0.13], [side * 0.06, 1.18, 0.17]], 6);
+        add(part(strand(pts, (t) => [0.07 + 0.03 * Math.sin(t * Math.PI), 0.025], { radial: 6, up: () => new THREE.Vector3(0, 0.3, 1).normalize() }), { color: o.clone().multiplyScalar(0.8), bone: BONES.chest }));
+      }
+      const sashPts = smoothPath([[0.34, 1.66, -0.02], [0.2, 1.42, 0.2], [-0.12, 1.12, 0.22], [-0.42, 0.98, 0.06]], 10);
+      add(part(strand(sashPts, () => [0.11, 0.025], { radial: 6, up: () => new THREE.Vector3(0, 0, 1) }), {
+        color: (p) => (Math.abs(Math.sin((p.x + p.y) * 18)) > 0.86 ? col('#e8eef2') : acc), bone: BONES.chest,
+      }));
+      const lanyard = smoothPath([[-0.16, 1.6, 0.1], [-0.12, 1.4, 0.2], [-0.02, 1.3, 0.22]], 6);
+      add(part(strand(lanyard, () => [0.015, 0.015], { radial: 4, up: () => new THREE.Vector3(0, 0, 1) }), { color: col('#d94a4a'), bone: BONES.chest }));
+      add(part(cyl(0.04, 0.05, 0.12, 8), { pos: [-0.02, 1.27, 0.24], rot: [0, 0, 1.4], color: col('#d9dde6'), bone: BONES.chest }));
+      add(buttons(ctx, [-0.08], [1.08, 0.96], 0.17, col('#d9a93c')));
+      add(band(ctx, 0.96, 0.14, 0.62, 0.4, os, BONES.hips));
       add(cuff(ctx, 1, 0.68, 0.13, 0.04, white));
       add(cuff(ctx, -1, 0.68, 0.13, 0.04, white));
       break;

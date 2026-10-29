@@ -126,6 +126,14 @@
   98%, 100% { opacity: 0; }
 }
 
+/* ---------- Chalk Dust (Grade 12): a soft chalk cloud at the rim and white glints ---------- */
+.fx-chalk > .rb-halo {
+  z-index: 0; inset: -12% -12% 10% -12%; border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.7) 0 36%, rgba(220, 240, 230, 0.36) 52%, rgba(220, 240, 230, 0) 70%);
+  opacity: 0.8;
+}
+.fx-chalk > .rb-glints i { --gc: #ffffff; }
+
 /* ---------- Ember Glow (Crimson Ember): a warm pulse at the rim; embers rise from the tails ---------- */
 .fx-ember > .rb-halo {
   z-index: 0; inset: -14% -14% 8% -14%; border-radius: 50%;
@@ -217,6 +225,7 @@
   html:not([data-reduce-motion]) .rb.live.fx-storm > .rb-flash { animation: rb-flash 3.6s steps(1, end) infinite; }
 
   html:not([data-reduce-motion]) .rb.live.fx-ember > .rb-halo { animation: rb-pulse 2.4s ease-in-out infinite; }
+  html:not([data-reduce-motion]) .rb.live.fx-chalk > .rb-halo { animation: rb-pulse 3.2s ease-in-out infinite; }
   html:not([data-reduce-motion]) .rb.live .rb-embers i { animation: rb-ember 3.6s ease-out infinite; }
   html:not([data-reduce-motion]) .rb.live .rb-embers i:nth-child(1) { --dx: -3px; animation-duration: 3.2s; }
   html:not([data-reduce-motion]) .rb.live .rb-embers i:nth-child(2) { --dx: 4px; animation-duration: 3.8s; animation-delay: -1.2s; }

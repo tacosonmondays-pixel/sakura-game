@@ -194,13 +194,20 @@ function groupCard(g, redraw, shopKind = null) {
   return card;
 }
 
+/** A premium SSR's spark row outside her window (BANNERS §A.1): when she is back. */
+function spotlightText(o) {
+  if (o.opensIn == null) return 'Spark on her Spotlight day';
+  return o.opensIn <= 1 ? 'Spotlight tomorrow' : `Spotlight in ${o.opensIn} days`;
+}
+
 /** An offer: its tile (M3's), name, stock line and cost button. `shopKind`: the shop's restock cycle (mallView.js). */
 function offerCard(o, redraw, shopKind = null) {
   const isUnit = !!o.unitId;
   const item = o.item ? getItem(o.item) : o.chosenEssence ? getItem('kindred_ssr') : null;
   const name = isUnit ? UNIT_MAP[o.unitId]?.name : o.chosenEssence ? 'Chosen SSR Essence' : item?.name || o.item;
   // [ui-m5] the cycle is the plate header's chip; an unlimited row says nothing (P7)
-  const stockText = stockLine(o, shopKind) || (isUnit ? unitStockText(o) : null);
+  // [banners] a premium SSR's spark row outside her Spotlight window says when she is back
+  const stockText = o.closed ? spotlightText(o) : stockLine(o, shopKind) || (isUnit ? unitStockText(o) : null);
   // "Needed for" tag: the girl whose next gate takes this item ("Kage · Gate 9")
   const needTag = o.item && !isUnit ? neededFor(store.profile, o.item) : null;
   const el = h(
@@ -232,7 +239,7 @@ function offerCard(o, redraw, shopKind = null) {
  * says what is missing and where to earn it. Sold out or blocked: the button is off and says so.
  */
 function costButton(o, onBuy) {
-  const off = o.soldOut || o.blocked;
+  const off = o.soldOut || o.blocked || o.closed;
   const label = o.soldOut ? 'Sold out' : null;
   return h(`button.ui-cost.dense.ma-cost${!off && !o.affordable ? '.poor' : ''}`, {
     type: 'button', disabled: off, 'data-testid': `buy-${o.id}`,
@@ -306,7 +313,7 @@ function startBuy(o, redraw) {
           const r = buyOffer(store.profile, o.id, qty);
           c();
           if (!r.ok) {
-            toast({ soldOut: 'Sold out', funds: 'Not enough currency', qty: 'Invalid amount' }[r.error] || 'Purchase failed', 'bad');
+            toast({ soldOut: 'Sold out', funds: 'Not enough currency', qty: 'Invalid amount', window: 'Her Spotlight ended: spark her on her next Spotlight day.' }[r.error] || 'Purchase failed', 'bad');
             return;
           }
           store.commit('shop');

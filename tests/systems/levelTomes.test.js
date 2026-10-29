@@ -13,6 +13,7 @@ import { SHOP_OFFER_MAP } from '../../src/data/shop.js';
 import { buyOffer } from '../../src/systems/shop.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
 import { pull, spark, POOL } from '../../src/systems/gacha.js';
+import { rngOn } from '../fixtures/gachaRng.js';
 import { potentialLevel } from '../../src/systems/potential.js';
 import { raisePotential, essenceBalance, SPARE_PAY } from '../../src/systems/essence.js';
 import { LEVEL_PAST_GATES } from '../../src/systems/progression.js';
@@ -173,9 +174,9 @@ describe('duplicates past P6 (spares, no Tomes)', () => {
     const p = createProfile();
     p.currencies.gems = 100000;
     p.currencies.coins = 10_000_000;
-    const ssr = POOL.SSR.find((id) => !p.units[id]);
+    const ssr = ['luna', 'hotaru', 'kaede', 'chika'].find((id) => !p.units[id]); // a standard SSR (on the Standard banner)
     toP6(p, ssr);
-    const fixed = { next: () => 0.001, pick: (arr) => arr[Math.max(0, arr.indexOf(ssr))], int: (a) => a, range: (a) => a, chance: () => false };
+    const fixed = rngOn(ssr);
     const before = p.gacha.recruitPoints;
     const r = pull(p, 1, fixed);
     expect(r.results[0]).toMatchObject({ unitId: ssr, isNew: false, potential: 6 });

@@ -78,6 +78,16 @@ const CLAIMS = {
     [/^Make a room and invite a friend!$/, always],
     [/^Let's team up, Sensei!$/, always],
   ],
+  tryout: [
+    [/^Clear (.+) and tryouts open!$/, (s, m) => !!s.locked && s.unlock === m[1]],
+    [/^Clear more stages first, Sensei!$/, (s) => !!s.locked],
+    [/^Your class is waiting, Sensei!$/, (s) => !s.locked && !!s.running],
+    [/^Tryouts today! Pick your three!$/, (s) => !s.locked && !s.running],
+    [/^A new Weekly Timetable is up!$/, (s) => !s.locked && !!s.weeklyOpen && !s.weeklyDone],
+    [/^Weekly Timetable done\. Nice!$/, (s) => !s.locked && !!s.weeklyDone],
+    [/^Stopwatch ready, Sensei!$/, always],
+    [/^Everyone gets a fair try!$/, always],
+  ],
 };
 
 /** null when the line is true in `s`, else why not. */
@@ -147,6 +157,10 @@ describe('host lines', () => {
     expect(linesFor('multiplayer', { invites: 1 })[0]).toBe('A friend invited you! Join?');
     expect(linesFor('missions', { next: '2-3 Shield Wall' })[0]).toBe('Next up: 2-3 Shield Wall!');
     expect(linesFor('assault', { locked: true })[0]).toBe('Clear more stages first, Sensei!');
+    expect(linesFor('tryout', { locked: true, unlock: '2-5' })[0]).toBe('Clear 2-5 and tryouts open!');
+    expect(linesFor('tryout', { running: true })[0]).toBe('Your class is waiting, Sensei!');
+    expect(linesFor('tryout', {})[0]).toBe('Tryouts today! Pick your three!');
+    expect(linesFor('tryout', { weeklyOpen: true, weeklyDone: true })).toContain('Weekly Timetable done. Nice!');
   });
 
   it('the empty-state lines show only in the empty state (the M5a review cases)', () => {

@@ -13,6 +13,7 @@ import { toonMaterial, outlineMaterial, gradientMap } from './toon.js';
 import { figurineMaterial, figurineOutlineMaterial, outlineBeforeRender, addOutlineNormals, OUTLINE_FRACTION, EYE_MODES } from './figurine.js';
 import { selectToonMaterial, selectTwin } from './highlight.js';
 import { isStandIn } from './standins.js';
+import { UNIT_MAP } from '../data/units.js';
 
 const assets = new Map(); // `${id}|${detail}` -> asset | null (null = failed)
 const loading = new Map(); // key -> Promise<asset|null>
@@ -89,8 +90,9 @@ function loader() {
 
 /** Loads one character GLB at a detail level (cached; resolves null when unavailable). */
 export function loadCharacter(id, detail = 'full') {
-  // stand-ins (standins.js) have no GLB on purpose: never request one
-  if (isStandIn(id)) return Promise.resolve(null);
+  // stand-ins (standins.js) have no GLB on purpose, and a duo unit has none of her own (her members' files
+  // stand in for it, src/models/duo.js): never request one
+  if (noFile(id)) return Promise.resolve(null);
   // a LOD file that the manifest does not list falls back to the full model
   if (detail === 'lod' && manifestData && manifestData[id] && !manifestData[id].lod) detail = 'full';
   const key = `${id}|${detail}`;
@@ -128,7 +130,7 @@ export async function preloadCharacters(ids = null, detail = 'full') {
   } else {
     await loadManifest();
   }
-  const queue = list.filter((id) => !isStandIn(id));
+  const queue = list.filter((id) => !noFile(id));
   let any = false;
   const worker = async () => {
     while (queue.length) {
@@ -139,6 +141,11 @@ export async function preloadCharacters(ids = null, detail = 'full') {
   };
   await Promise.all(Array.from({ length: Math.min(PRELOAD_CONCURRENCY, queue.length) }, worker));
   return any;
+}
+
+/** A model asset key that never has a file: a stand-in, or a duo unit's own id. */
+function noFile(id) {
+  return isStandIn(id) || !!UNIT_MAP[id]?.duo;
 }
 
 function prepareAsset(id, detail, gltf) {
@@ -320,6 +327,7 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
   }
   const meshes = [];
   let bodyMesh = null;
+  let bodyOutline = null;
   let headMesh = null;
   root.traverse((o) => {
     if (o.isMesh) meshes.push(o);
@@ -370,16 +378,23 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
       ol.frustumCulled = false;
       if (o.isSkinnedMesh) ol.bind(o.skeleton, o.bindMatrix);
       o.parent.add(ol);
+      if (o === bodyMesh) bodyOutline = ol;
     }
   }
   const propMeshes = attachProps(asset, root, quality);
   group.add(root);
   // painted face: blink / happy / hurt swap the body to that eye state's material
   const look = { hl: false, eyes: 0 };
+  // a figure whose eye sockets are hollow carries a morph that fills them (extras.eyes.closedTarget, Tsubaki's
+  // 'eyesClosed'): it is on while her eyes are closed, on the body and its outline
+  const closedIdx = asset.eyes?.closedTarget != null ? bodyMesh?.morphTargetDictionary?.[asset.eyes.closedTarget] : undefined;
   const onEyes = asset.textured && asset.eyes && bodyMesh ? (mode) => {
     if (mode === look.eyes) return;
     look.eyes = mode;
     bodyMesh.material = texturedMaterial(asset, look.hl, mode);
+    if (closedIdx != null) {
+      for (const m of [bodyMesh, bodyOutline]) if (m?.morphTargetInfluences) m.morphTargetInfluences[closedIdx] = mode ? 1 : 0;
+    }
   } : null;
   const anim = new GlbAnimator(root, asset, faceTex, unit, onEyes);
   group.userData.unitId = unit.id;
