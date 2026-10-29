@@ -29,6 +29,10 @@
 //                                    LOBBY.fightingMs; over = it just ended (results screen);
 //                                    keeps the waiting lobby from its idle close
 //   { type: 'leave', uid }           I left the room (Leave, Home, closing the tab)
+//   { type: 'note', uid, note }      a small battle note to my ally, outside lockstep (never a sim
+//                                    command; it never touches the sim or its hash): roomNote()
+//                                    lists the kinds, e.g. Tryout Day's Subject suggestion
+//                                    { kind: 'subject', period, k } (docs/specs/TRYOUT_DAY.md §11)
 //
 // Freeplay (co-op past the stage's last wave, src/data/freeplay.js) is a room setting next to the
 // difficulty: off (null) or a tier id. The host picks it (setStage), it rides in room, hello and
@@ -49,15 +53,39 @@
 // Realtime bills every message (free plan ~66k a day for the whole project), so a lobby that
 // waits long, a mismatched or hidden one beacons slowly, and a lobby nobody touches for
 // LOBBY.idleCloseMs closes. No Realtime presence: see adapters/supabase.js openRoom.
+//
+// Tryout Day (docs/specs/TRYOUT_DAY.md §11, §14.4) is a room setting too: off (null) or a run
+// { seed, grade, length, mapId } (the host draws the seed once and picks one of mapChoices). It
+// travels exactly like freeplay (room, the host's hello `room.tryout`, the guest's hello / ready
+// `tryout` = what its Ready agrees to; a changed run takes the guest's Ready back). While a run is
+// on, every hello player and every ready also carries the player's `draft` (the 3 girls they took
+// from their own draftOf six), `pool` (frozenPool: every student they own) and `runHero` (the hero
+// they bring to the run, heroChoices); the start message is then a run's: stageId 'tryout',
+// freeplay null, mode 'standard', `tryout`, and each player's `draft`, `pool` and `hero` (their
+// runHero), loadout []. With the run off, none of these keys is sent: normal rooms are unchanged.
 import { createEmitter } from '../../core/events.js';
 import { COOP, COOP_NET } from '../../data/coop.js';
 import { freeplayTier } from '../../data/freeplay.js';
 import { modeId } from '../../data/modes.js';
 import { Lockstep } from './lockstep.js';
 import { coopVersion, sameVersion } from './version.js';
-import { clampStart } from './statLimits.js';
+import { clampStart, clampTryout, clampDraft, DRAFT_MAX } from './statLimits.js';
+import { mapChoices, TRYOUT_GRADES } from '../../sim/tryout/plan.js';
 
 let current = null;
+
+/** Room note kinds (see the 'note' message): each one's cleaner returns the note, or null. */
+const NOTE_KINDS = {
+  // Tryout Day: the player who does not choose the next Subject suggests one (period, option 0 | 1)
+  subject: (n) => (Number.isInteger(n.period) && n.period >= 1 && n.period <= 99 && (n.k === 0 || n.k === 1)
+    ? { kind: 'subject', period: n.period, k: n.k } : null),
+};
+
+/** A room note, cleaned (only the known kinds and their fields), or null. */
+export function roomNote(note) {
+  if (!note || typeof note !== 'object' || !Object.prototype.hasOwnProperty.call(NOTE_KINDS, note.kind)) return null;
+  return NOTE_KINDS[note.kind](note);
+}
 
 /** The active co-op session (lobby or battle), or null. */
 export function getSession() {
@@ -85,6 +113,30 @@ export function battleLockstep(params, session) {
 
 export function normalizeCode(code) {
   return String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+}
+
+/**
+ * A Tryout Day room setting: null (off) or { seed, grade, length, mapId } with the map one of the
+ * seed's two mapChoices (the first when it is not). A Half or Full Day; Grades 1 to TRYOUT_GRADES (the host's ladder).
+ */
+export function tryoutSetting(t) {
+  const c = clampTryout(t);
+  if (!c) return null;
+  const run = { ...c, grade: Math.min(TRYOUT_GRADES, c.grade), length: c.length === 'full' ? 'full' : 'half' };
+  const maps = mapChoices(run.seed, run.grade);
+  if (!maps.includes(run.mapId)) run.mapId = maps[0];
+  return run;
+}
+
+/** Two Tryout Day settings are the same run (both off counts). */
+export function sameTryout(a, b) {
+  if (!a || !b) return !a && !b;
+  return a.seed === b.seed && a.grade === b.grade && a.length === b.length && a.mapId === b.mapId;
+}
+
+/** A draft the start message may carry: exactly DRAFT_MAX distinct tryout students. */
+export function draftReady(draft) {
+  return Array.isArray(draft) && draft.length === DRAFT_MAX && clampDraft(draft).length === DRAFT_MAX;
 }
 
 /** Lobby timing (ms). Exported for the tests. */
@@ -140,11 +192,13 @@ export const LOBBY = Object.freeze({
  *   (autoAbil: my Auto-cast abilities setting; it rides in my hello and the start message, and the
  *   battle starts with my girls' Auto switches on: createCoopSim)
  *   freeplay: the host's freeplay setting (a FREEPLAY_TIERS id, or null: off); a guest adopts the host's
+ *   tryout: the host's Tryout Day run (tryoutSetting; null: off); a guest adopts the host's. While a run
+ *   is on, me.draft / me.pool / me.runHero (setRunPicks) ride in hello, ready and the start message
  *   timers / now: injectable for tests (default: the real timers and Date.now)
  *   doc: the document whose visibility slows the beacon (tests pass a fake; none in Node)
  *   exclusive: close the previous session first (one room at a time; tests open two)
  */
-export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal', freeplay = null, mode = 'standard', modesUnlocked = () => true, timers = globalThis, now = () => Date.now(), doc = globalThis.document, exclusive = true }) {
+export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal', freeplay = null, mode = 'standard', tryout = null, modesUnlocked = () => true, timers = globalThis, now = () => Date.now(), doc = globalThis.document, exclusive = true }) {
   if (current && exclusive) current.close();
   const emitter = createEmitter();
   const s = {
@@ -161,6 +215,8 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     freeplay: freeplayTier(freeplay),
     /** the battle mode (BATTLE_MODES id); Standard while freeplay is on or the host has not cleared the stage */
     mode: freeplay || !modesUnlocked(stageId) ? 'standard' : modeId(mode),
+    /** Tryout Day: null (a normal battle) or the run { seed, grade, length, mapId } (the host's choice) */
+    tryout: isHost ? tryoutSetting(tryout) : null,
     phase: 'lobby',
     start: null,
     lockstep: null,
@@ -218,14 +274,42 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   function hello() {
     if (!room || s.phase !== 'lobby') return;
     lastHelloAt = now();
-    const msg = { type: 'hello', player: { ...s.me, host: isHost }, v: version, sees: s.peer?.uid ?? null };
-    if (isHost) msg.room = { stageId: s.stageId, difficulty: s.difficulty, freeplay: s.freeplay, mode: s.mode };
+    const player = { ...s.me, host: isHost };
+    // a run's picks ride only while a run is on (a normal room's hello is unchanged)
+    if (!s.tryout) {
+      delete player.draft;
+      delete player.pool;
+      delete player.runHero;
+    }
+    const msg = { type: 'hello', player, v: version, sees: s.peer?.uid ?? null };
+    if (isHost) msg.room = roomState();
     else {
       msg.freeplay = s.freeplay; // what my ready flag agrees to
       msg.mode = s.mode;
+      if (s.tryout) msg.tryout = s.tryout;
     }
     // a hello is state: one sent while the link is down is pointless (every rejoin says hello)
     send(msg, { drop: true });
+  }
+
+  /** The host's room setting (room message, the hello's `room`): `tryout` only while a run is on. */
+  function roomState() {
+    const r = { stageId: s.stageId, difficulty: s.difficulty, freeplay: s.freeplay, mode: s.mode };
+    if (s.tryout) r.tryout = s.tryout;
+    return r;
+  }
+
+  /** My ready flag and the setting it agrees to; while a run is on, my run picks too. */
+  function readyMsg() {
+    const m = { type: 'ready', uid: s.me.uid, ready: s.me.ready, freeplay: s.freeplay, mode: s.mode };
+    if (s.tryout) Object.assign(m, { tryout: s.tryout, draft: s.me.draft || [], pool: s.me.pool || {}, runHero: s.me.runHero || null });
+    return m;
+  }
+
+  /** A new run seed makes my old draft meaningless (another six): it goes. */
+  function setRun(next) {
+    if (next?.seed !== s.tryout?.seed && s.me.draft) s.me.draft = [];
+    s.tryout = next;
   }
 
   function onStatus(state) {
@@ -289,16 +373,18 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
    * Guest: the host's freeplay setting (from its hello or room message). Ready is consent to it,
    * so a changed setting takes my Ready back (I tap it again for the new one).
    */
-  function adoptFreeplay(value, modeValue = s.mode) {
+  function adoptFreeplay(value, modeValue = s.mode, tryoutValue = null) {
     const fp = freeplayTier(value);
     const m = fp ? 'standard' : modeId(modeValue);
-    if (fp === s.freeplay && m === s.mode) return;
+    const run = tryoutSetting(tryoutValue);
+    if (fp === s.freeplay && m === s.mode && sameTryout(run, s.tryout)) return;
     s.freeplay = fp;
     s.mode = m;
+    setRun(run);
     lastActivity = now();
     if (s.me.ready) {
       s.me.ready = false;
-      send({ type: 'ready', uid: s.me.uid, ready: false, freeplay: s.freeplay, mode: s.mode }, { latest: 'ready' });
+      send(readyMsg(), { latest: 'ready' });
     }
   }
 
@@ -365,6 +451,11 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     if (!isNew && s.peer.ready !== !!p.ready) lastActivity = t; // my ally toggled Ready
     // freeplay: the setting a guest's ready flag was given for (see canStart)
     s.peer = { uid: p.uid, name: p.name, level: p.level, avatar: p.avatar, loadout: p.loadout || [], hero: p.hero || null, autoAbil: p.autoAbil === true, ready: !!p.ready, host: !!p.host, freeplay: freeplayTier(msg.freeplay), mode: modeId(msg.mode) };
+    // Tryout Day: the run the guest's Ready agrees to, and the ally's run picks (only while a run is on)
+    s.peer.tryout = tryoutSetting(isHost ? msg.tryout : msg.room?.tryout);
+    if ('draft' in p) s.peer.draft = clampDraft(p.draft);
+    if ('pool' in p) s.peer.pool = p.pool;
+    if ('runHero' in p) s.peer.runHero = p.runHero || null;
     peerHeard = t;
     peerSeesMe = msg.sees === s.me.uid;
     if (peerSeesMe) {
@@ -375,7 +466,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     if (!isHost && msg.room?.stageId) {
       s.stageId = msg.room.stageId;
       s.difficulty = msg.room.difficulty || s.difficulty;
-      adoptFreeplay(msg.room.freeplay, msg.room.mode);
+      adoptFreeplay(msg.room.freeplay, msg.room.mode, msg.room.tryout);
     }
     if (isNew) {
       s.stuck = null;
@@ -411,7 +502,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
         if (isHost || s.phase !== 'lobby') return;
         s.stageId = msg.stageId;
         s.difficulty = msg.difficulty;
-        adoptFreeplay(msg.freeplay, msg.mode);
+        adoptFreeplay(msg.freeplay, msg.mode, msg.tryout);
         lastActivity = now();
         changed();
         break;
@@ -421,6 +512,10 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
           s.peer.ready = !!msg.ready;
           s.peer.freeplay = freeplayTier(msg.freeplay);
           s.peer.mode = modeId(msg.mode);
+          s.peer.tryout = tryoutSetting(msg.tryout);
+          if ('draft' in msg) s.peer.draft = clampDraft(msg.draft);
+          if ('pool' in msg) s.peer.pool = msg.pool;
+          if ('runHero' in msg) s.peer.runHero = msg.runHero || null;
           changed();
         }
         break;
@@ -482,6 +577,13 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
           changed();
         }
         break;
+      case 'note': {
+        // a battle note from my ally (outside lockstep: the battle UI shows it, the sim never sees it)
+        if (s.phase !== 'battle' || !isAlly(msg.uid) || (from && from !== msg.uid)) break;
+        const note = roomNote(msg.note);
+        if (note) emitter.emit('note', note);
+        break;
+      }
       case 'fighting':
         // back in the room while my ally's battle runs on (freeplay): "Rin is still fighting — wave 87"
         if (s.phase === 'lobby' && s.returning && msg.uid === s.returning.uid && !s.returning.inRoom) {
@@ -633,10 +735,16 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     s.stuck = null;
     // the room as this battle was started (a guest that missed the host's last room message
     // has it now, and "Back to the room" shows the same setting again)
-    if (start.stageId) s.stageId = start.stageId;
-    if (start.difficulty) s.difficulty = start.difficulty;
-    s.freeplay = freeplayTier(start.freeplay);
-    s.mode = s.freeplay ? 'standard' : modeId(start.mode);
+    if (start.tryout) {
+      // a run: the room keeps its stage, difficulty, freeplay and mode (the run's stageId is 'tryout')
+      setRun(tryoutSetting(start.tryout));
+    } else {
+      if (start.stageId) s.stageId = start.stageId;
+      if (start.difficulty) s.difficulty = start.difficulty;
+      s.freeplay = freeplayTier(start.freeplay);
+      s.mode = s.freeplay ? 'standard' : modeId(start.mode);
+      s.tryout = null;
+    }
     // a fresh battle (also after "Back to the room"): nothing from the last one carries over
     guestHeard = false;
     allyInRoom = false;
@@ -720,14 +828,39 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       // modes need the host's clear of this stage, and freeplay runs in Standard (v1)
       s.mode = s.freeplay || !modesUnlocked(stage) ? 'standard' : modeId(mode);
       lastActivity = now();
-      send({ type: 'room', stageId: stage, difficulty: diff, freeplay: s.freeplay, mode: s.mode }, { latest: 'room' });
+      send({ type: 'room', ...roomState() }, { latest: 'room' });
+      changed();
+    },
+    /**
+     * Host: Tryout Day on (a run { seed, grade, length, mapId }, see tryoutSetting) or off (null). A
+     * changed run needs the guest's Ready again; a new seed clears both drafts (another six each).
+     */
+    setTryout(run) {
+      if (!isHost || s.phase !== 'lobby') return;
+      setRun(tryoutSetting(run));
+      lastActivity = now();
+      send({ type: 'room', ...roomState() }, { latest: 'room' });
+      changed();
+    },
+    /**
+     * My run picks while a run is on: { draft (3 ids from my own draftOf six), pool (frozenPool),
+     * runHero ({ unitId, stats }, heroEntry) }; left out = unchanged. They go out at once (a ready
+     * message with my unchanged ready flag) and ride in every hello.
+     */
+    setRunPicks({ draft, pool, runHero } = {}) {
+      if (s.phase !== 'lobby') return;
+      if (draft !== undefined) s.me.draft = clampDraft(draft);
+      if (pool !== undefined) s.me.pool = pool;
+      if (runHero !== undefined) s.me.runHero = runHero || null;
+      lastActivity = now();
+      if (s.tryout) send(readyMsg(), { latest: 'ready' });
       changed();
     },
     setReady(ready) {
       s.me.ready = !!ready;
       lastActivity = now();
       // the freeplay setting this Ready is for (the host starts only when it is still its own)
-      send({ type: 'ready', uid: s.me.uid, ready: s.me.ready, freeplay: s.freeplay, mode: s.mode }, { latest: 'ready' });
+      send(readyMsg(), { latest: 'ready' });
       changed();
     },
     /** Lobby "Retry": the seat again, on a fresh socket and channel; the search clock restarts. */
@@ -745,7 +878,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     /** Host: send the start message and begin. */
     startBattle(seed = (Math.random() * 2 ** 31) >>> 0) {
       if (!s.canStart) return false;
-      const start = {
+      const start = s.tryout ? runStart(seed) : {
         v: version,
         seed,
         stageId: s.stageId,
@@ -783,6 +916,9 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       s.peer = null;
       s.stuck = null;
       s.me.ready = isHost;
+      // a Tryout Day run is played once: the host's room comes back with a fresh seed at the same Grade (the
+      // drafts start over; the guest gets it with the room state)
+      if (isHost && s.tryout) setRun(tryoutSetting({ ...s.tryout, seed: ((Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0) || 1, mapId: null }));
       if (ally && allyLeft) {
         // they left the room (Leave / Home / closed the tab): nobody to wait for
         s.lastPeer = { name: ally.name || 'Your ally', why: 'left' };
@@ -808,6 +944,16 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
       hello();
       changed();
       return true;
+    },
+    /**
+     * A small note to my ally during the battle (roomNote kinds; outside lockstep: never a command,
+     * never in the sim or its hash). Lossy like every room message. The ally's session emits 'note'.
+     * @returns {boolean} sent
+     */
+    sendNote(note) {
+      const n = roomNote(note);
+      if (!n || s.phase !== 'battle') return false;
+      return send({ type: 'note', uid: s.me.uid, note: n }, { latest: `note-${n.kind}` }) !== false;
     },
     /** Player info by slot (names / colours for the HUD). */
     player(slot) {
@@ -836,6 +982,24 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     },
   });
 
+  /** Host: a Tryout Day run's start message (docs/specs/TRYOUT_DAY.md §11). */
+  function runStart(seed) {
+    const player = (p, slot) => ({
+      slot, uid: p.uid, name: p.name, loadout: [], hero: p.runHero || null, color: COOP.colors[slot],
+      draft: p.draft.slice(), pool: p.pool || {}, ...(p.autoAbil === true ? { autoAbil: true } : null),
+    });
+    return {
+      v: version,
+      seed,
+      stageId: 'tryout',
+      difficulty: 'normal',
+      freeplay: null,
+      mode: 'standard',
+      tryout: { ...s.tryout },
+      players: [player(s.me, 0), player(s.peer, 1)],
+    };
+  }
+
   // closing or reloading the tab says goodbye right away (the ally does not wait for a timeout);
   // the Supabase adapter calls onUnload even earlier, before realtime-js closes its socket
   const onPageHide = () => s.close();
@@ -853,7 +1017,9 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     // only once both sides see each other: a guest the host hears but who cannot hear the
     // host would never get the start message; and only with the guest's Ready given for the
     // freeplay setting the room has now (not one from before the host changed it)
-    get: () => isHost && s.phase === 'lobby' && !!s.peer && peerSeesMe && s.peer.ready && s.peer.freeplay === s.freeplay && s.peer.mode === s.mode,
+    // (and a Tryout Day run needs that run's Ready, and both drafts of exactly 3)
+    get: () => isHost && s.phase === 'lobby' && !!s.peer && peerSeesMe && s.peer.ready && s.peer.freeplay === s.freeplay && s.peer.mode === s.mode
+      && sameTryout(s.peer.tryout, s.tryout) && (!s.tryout || (draftReady(s.me.draft) && draftReady(s.peer.draft))),
     enumerable: true,
   });
   Object.defineProperty(s, 'room', { get: () => room, enumerable: false });

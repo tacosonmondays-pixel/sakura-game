@@ -90,7 +90,7 @@ export function playerActions(c, { context = 'profile', messageId = null, close 
   } else if (c.friend === 'incoming') {
     el = h('div.sc-card-row',
       h('span.sc-card-ask', `${c.name} asked to be friends`),
-      button('Accept', { kind: 'yellow', small: true, testid: 'card-accept', onClick: () => act(() => b.answerFriend(c.requestId, true), null, `You and ${c.name} are friends!`) }),
+      button('Accept', { kind: 'primary', small: true, testid: 'card-accept', onClick: () => act(() => b.answerFriend(c.requestId, true), null, `You and ${c.name} are friends!`) }),
       button('Decline', { kind: 'ghost', small: true, testid: 'card-decline', onClick: () => act(() => b.answerFriend(c.requestId, false), null, 'Request declined.') }));
   } else if (c.friend === 'requested') {
     el = button('Requested', {

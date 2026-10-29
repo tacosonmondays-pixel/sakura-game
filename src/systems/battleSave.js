@@ -12,6 +12,7 @@ import { STAGE_MAP } from '../data/stages.js';
 import { DIFFICULTIES } from '../data/types.js';
 import { BATTLE_MODES } from '../data/modes.js';
 import { eventBattleStage, battleStageOf } from '../data/events/wire.js';
+import { cleanSupportMark } from './friendSupport.js';
 
 /**
  * Record format: the newest this build can read. 2: a run on a limited-event difficulty with its own
@@ -242,9 +243,14 @@ function cleanRecord(slot, r) {
   const hero = cleanEntry(r.hero);
   if (!loadout.length && !hero) return null;
   const updatedAt = finite(r.updatedAt) && r.updatedAt > 0 ? r.updatedAt : 0;
-  const { mode, startedAt, ...rest } = r;
+  // [friend support] a borrowed girl (BANNERS §E.1): kept at the record level so Continue keeps her (and the run
+  // stays a support run); a mark this build cannot read drops the record rather than continue it as a normal run
+  const support = r.support == null ? null : cleanSupportMark(r.support);
+  if (r.support != null && (!support || !loadout.some((e) => e.unitId === support.unitId))) return null;
+  const { mode, startedAt, support: _s, ...rest } = r;
   return {
     ...rest,
+    ...(support ? { support } : {}),
     ...(mode && mode !== 'standard' ? { mode } : {}),
     // when the run began on the limited-event clock (a limited-event stage's reward gate reads it)
     ...(finite(startedAt) && startedAt > 0 ? { startedAt } : {}),

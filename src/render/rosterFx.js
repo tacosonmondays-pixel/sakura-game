@@ -241,7 +241,8 @@ export class RosterFx {
       case 'ult':
         // the renderer keeps its screen flash + shake; the map-wide ring is skipped for these two
         if (ev.effect === 'strike') this._strike(ev);
-        else if (ev.effect === 'runner') this._dragonEnter(ev);
+        // (Kogane's plow draws its own entry: src/render/staffFx.js)
+        else if (ev.effect === 'runner' && this._tower(ev.towerUid)?.def?.hero?.ult?.effect?.runner !== 'plow') this._dragonEnter(ev);
         return false;
       case 'runner':
         // (seeded here too, so a dragon the wave clear removes before its first frame still finishes)

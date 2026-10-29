@@ -79,7 +79,7 @@ async function shot(page, name) {
 async function layout(page) {
   return page.evaluate(() => {
     const over = document.documentElement.scrollWidth - window.innerWidth;
-    const m = [...document.querySelectorAll('.modal')].pop();
+    const m = [...document.querySelectorAll('.modal, .ui-layer > .ui-sheet')].pop();
     const r = m?.getBoundingClientRect();
     return { over, fits: !r || (r.left >= -1 && r.right <= window.innerWidth + 1 && r.top >= -1 && r.bottom <= window.innerHeight + 1) };
   });
@@ -88,7 +88,7 @@ async function layout(page) {
 const tap = (page, sel) => page.locator(sel).first().click();
 const count = (page, id) => page.evaluate((i) => window.__sakura.store.profile.items[i] || 0, id);
 const closeModals = async (page) => {
-  for (let i = 0; i < 4 && await page.locator('.modal').count(); i++) {
+  for (let i = 0; i < 4 && await page.locator('.modal, .ui-layer > .ui-sheet').count(); i++) {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(200);
     if (await page.locator('.modal-overlay').count()) await page.mouse.click(2, 2);
@@ -238,16 +238,20 @@ try {
     const lay = await layout(page);
     check(lay.over <= 1, `${tag} no horizontal overflow on her Equipment tab (${lay.over}px)`);
 
-    // ---- Backpack: a spare gold +10 can awaken from its modal
+    // ---- Backpack: a spare gold +10 can awaken from its piece sheet (UI v2 M3: the girl page's piece sheet, spare mode)
     await go(page, '#/backpack?tab=equipment', `.mb-gear[data-gear="${ids.spare}"]`);
     await tap(page, `.mb-gear[data-gear="${ids.spare}"]`);
-    await page.waitForSelector('.mb-gear-modal [data-testid="gear-awaken"]');
-    check(true, `${tag} the Backpack gear modal offers Awaken on a spare gold +10`);
-    check((await layout(page)).fits, `${tag} the Backpack gear modal fits the screen`);
+    await page.waitForSelector('[data-testid="gear-piece-sheet"] [data-testid="gear-awaken"]');
+    check(true, `${tag} the Backpack's piece sheet offers Awaken on a spare gold +10`);
+    // (the kit sheet rises into place: measure it once it stands still)
+    await page.waitForFunction(() => !document.querySelector('[data-testid="gear-piece-sheet"]')?.getAnimations().some((a) => a.playState === 'running'), null, { timeout: T }).catch(() => {});
+    check((await layout(page)).fits, `${tag} the Backpack's piece sheet fits the screen`);
     await shot(page, `${tag}-backpack-modal`);
     await closeModals(page);
 
-    // ---- Backpack: the Rainbow Gear Box opens only through its slot picker, into rainbow UR gear at +0
+    // ---- Backpack: the Rainbow Gear Box opens only through its slot picker, into rainbow UR gear at +0 (UI v2 M2: the
+    // boxes live in the Supplies sheet, opened from the toolbar)
+    await tap(page, '#app [data-testid="supplies-open"]');
     await page.waitForSelector('[data-testid="box-gearbox_rainbow"] [data-testid="rainbow-box-open"]');
     const gear0 = await page.evaluate(() => Object.keys(window.__sakura.store.profile.gear));
     const seeds0 = await count(page, 'seed_rainbow');
@@ -278,11 +282,16 @@ try {
     await tap(page, '[data-testid="gear-ascend-ok"]');
     await page.waitForSelector('[data-testid="gear-ascend"]', { state: 'detached' });
     await page.waitForTimeout(300);
+    // (the box row: in the Supplies sheet, opened again)
+    await tap(page, '#app [data-testid="supplies-open"]');
+    await page.waitForSelector('[data-testid="supplies-sheet"]');
     const card = await page.evaluate((uid) => {
       const el = document.querySelector(`.mb-gear[data-gear="${uid}"]`);
       return { card: !!el, ur: !!el?.classList.contains('is-ur'), box: !!document.querySelector('[data-testid="box-gearbox_rainbow"]') };
     }, born.uid);
     check(card.card && card.ur && !card.box, `${tag} the Backpack lists the new rainbow piece and the box row is gone (${JSON.stringify(card)})`);
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('[data-testid="supplies-sheet"]', { state: 'detached' }).catch(() => {});
     const blay = await layout(page);
     check(blay.over <= 1, `${tag} no horizontal overflow in the Backpack (${blay.over}px)`);
 

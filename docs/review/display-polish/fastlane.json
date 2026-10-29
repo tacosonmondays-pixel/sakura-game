@@ -1,0 +1,58 @@
+{
+  "review": "fast lane: display polish",
+  "commit": "18e1d0e0",
+  "verdict": "NOT_OK",
+  "summary": "Five of the six items are right. Marumi's plate is full colour and clean, with no seams, no ghost of her figure or her flame and no visible blotches. Her scene's text reads at 4.5:1 or more at 844x390 and 1280x720, and the 667x375 and upright fallbacks still work. The menu dot, the story plate and the serial halo are good. The lesson pill sits correctly at all six sizes and stays top centre off the home. One medium blocks: at 844x390, one of the two named sizes, the locked stage card's chip overlaps the top of the medals row by about 1.4 px on every locked card. The brief asked for the chip to be clear of the row. A one-value fix is suggested.",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "medium",
+      "title": "Locked stage card: the lock chip touches the medals row at 844x390",
+      "detail": "meta-a.css now places .ma-stage-card.locked .ma-sc-lock at inset 44px 8px auto auto. At 844x390 the card's thumbnail is about 95 px tall. The chip spans y 44 to 64.4 within the card and the medals pill starts at about y 63, so the chip hides the medals pill's top edge (by about 1.4 px) on all four locked cards in Act II of chapter 1 (1-7 to 1-10). The tag is now whole: the chip no longer covers '1-7'. At 390x844, 360x800, 667x375, 740x360, 1024x768 and 1280x720 the chip is clear of the row. Suggested fix: inset 36px 8px auto auto. The tag ends at 26 px (844x390) or 32 px (390x844), so the chip stays under the tag line with 4 to 10 px to spare and about 7 px above the medals at 844x390.",
+      "evidence": "Measured (card-relative): tag 8..26, chip 44..64.4, medals 63..89 at 844x390. Screenshots: scratchpad fastlane-polish/shots/locked-844x390-ch1.png and zoom-locked-844.png."
+    },
+    {
+      "id": "F2",
+      "severity": "minor",
+      "title": "The lesson pill clips the edge of the secretary's face box at 667x375 (and by 2 px at 1024x768)",
+      "detail": "In landscape the pill's max-width is min(380px, 45vw - 24px). That is 276 px at 667 wide, so the pill ends at x 291 to 292. The home's face box (window.__sakura.home.placement().face) starts at x 285 (fresh save) or x 260 (Ruri), an overlap of 7 px and 31 px. At 1024x768 on a fresh save the pill ends at x 404 and the face box starts at x 402. The overlap is only the box's padded margin: the pill covers hair beside her cheek and never her face pixels. Narrowing the cap at small landscape sizes (for example 42vw - 24px under max-height 480px) or capping the pill at the face box's left edge would close it.",
+      "evidence": "shots/toast-667x375.png, toast-667x375-fresh.png, zoom-toast-667.png (red rectangle = face box), toast-1024x768-fresh.png"
+    },
+    {
+      "id": "F3",
+      "severity": "nit",
+      "title": "Upright phone: the other toasts still move to top 128 px though the pill is now at the bottom",
+      "detail": "The older rule body:has(.jn-toast:not(.out)) .toast-host { top: 128px } still applies when the phone is upright. The pill now sits above the news chip, so there is nothing at the top to make way for. At 360x800, where the wallets wrap to a second row, the other toast then covers the wallets. This is not a regression: on main the pill sat at the top and the toasts at 128 px too. The default 58 px would do for an upright phone.",
+      "evidence": "shots/toast-360x800.png, toast-390x844-fresh.png"
+    },
+    {
+      "id": "F4",
+      "severity": "nit",
+      "title": "The shader's right wash has its middle stop at 50 %; the CSS has 55 %",
+      "detail": "home.css .ui-scrim.t has 'rgba(14,25,48,0.34) 55%' for the right corner. engine.js wash() uses 0.5 for both corners. The difference is not visible.",
+      "evidence": "src/ui/lobby/live/engine.js scrimMesh; src/ui/styles/home.css lines 66-68 and 309-311"
+    },
+    {
+      "id": "F5",
+      "severity": "nit",
+      "title": "The rebuilt floor under her is slightly patchier under a heavy contrast stretch",
+      "detail": "Under a 2-98 % stretch, the colour-mapped floor where she was painted out (x 550 to 1050, y 480 to 780) shows warm blotches that are a little patchier than the scene's own floor reflections. At normal contrast, at full size and at 2x zoom, it reads as the same polished-floor reflections. Her figure and ball cover nearly all of it, and the frames at 0, 1, 2 and 3.3 s show no ghost or seam. Nothing to do.",
+      "evidence": "scratchpad fastlane-polish/floor_st.png, floorrow.png, z_skirt.png, z_ball.png, shots/marumi-1280x720-nogirl-noui.png"
+    }
+  ],
+  "checks_passed": [
+    "npx vitest run tests/ui tests/story tests/data: 81 files, 1485 tests passed",
+    "node e2e/home.mjs: 221 ok, 0 failed (HOME PASS), including the new 'Azami's pale sky' check at 667x375, 844x390 and 1024x768 (SNT-HQ 5.51 to 6.24, Sensei 6.20 to 6.48)",
+    "node e2e/story.mjs (844x390 and 1280x720) and --viewport 667x375: ALL STORY CHECKS PASSED",
+    "sim id 4d7b235077a8, COOP_PROTOCOL 9 (unchanged; display only)",
+    "plate.webp (1688x780): full colour and matches marumi-scene outside her; zoomed over her figure, the flame, the ball, the skirt and both arms: no seams, ghost or flame remnant; equalised and high-pass views show no edge of the mask",
+    "Marumi live at 844x390 and 1280x720: state live, placement fits (rel 1.0 / 0.88), no page errors; frames at t 0, 1, 2 and 3.3 s show nothing behind her; her colours match her full illustration",
+    "Text over her scene at 4.5:1 or more on its own pixels (p10): the top bar (Sensei, LV 4.56 to 4.86, SNT-HQ 6.33 to 6.69, wallets 9.6 or more, mail count 5.26), the news chip (8.2 or more, pager 5.34 to 6.38) and the dock labels (5.84 or more) at both sizes",
+    "Marumi still-portrait fallback at 667x375 (why fit, no canvas), 1024x768 (why fit) and 390x844 (upright): her portrait, no canvas",
+    "The menu dot: newInside now uses clanDot() (donations ready or a clan invite), the same rule as the Clan row and button; clanDot is a module-level const set before buildTop runs",
+    "The lesson pill on the home, on a fresh save's first home and seeded: landscape in the left column under the news chip (844x390, 667x375 at y 120; 1280x720, 1024x768 at y 160), upright above the news chip (390x844 y 478, 360x800 y 434); never over the wallets, top-bar buttons, news chip or dock; the other toasts sit below it in landscape (y 184 / 236) and never overlap it; off the home it is top centre (y 64) at every size",
+    "Locked stage card tag ('1-7' to '1-10') whole and not covered, and the chip clear of the medals row, at 390x844, 360x800, 667x375, 740x360, 1024x768 and 1280x720",
+    "Story plate subtitle 12 px floor: plate whole, not clipped, for an ally and for an enemy at 667x375; story e2e passes at 844x390",
+    "No other references to plate-home.webp; the old plate moved to tools/art/src (the game's own art); no names, secrets or third-party images in the diff"
+  ]
+}

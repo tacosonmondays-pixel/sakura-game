@@ -1,0 +1,1052 @@
+diff --git a/tools/meshy/build_meshy_chibi.py b/tools/meshy/build_meshy_chibi.py
+index 97b6356..e88145f 100644
+--- a/tools/meshy/build_meshy_chibi.py
++++ b/tools/meshy/build_meshy_chibi.py
+@@ -1,8 +1,11 @@
+ """Bring a Meshy-made chibi into the game: the owner's own Meshy model of Hikari (big round head,
+-painted face, white/gold/navy knight coat, teal bow, braid crown with gold stars).
++painted face, white/gold/navy knight coat, teal bow, braid crown with gold stars), and the new
++girls made with the Meshy API (Tenka: --profile tenka; per-figure settings in lib/profiles.py).
+ 
+     python3 tools/meshy/build_meshy_chibi.py --source <Meshy Character_output.glb> \
+         --clips <Meshy-library animated GLB (Idle_9, Walking_Woman ...)>
++    python3 tools/meshy/build_meshy_chibi.py --profile tenka --source <tenka-rigged.glb> --clips <same library GLB>
++    python3 tools/meshy/build_meshy_prop.py --source <tenka-coilgun.glb> --id tenka-coilgun --unit tenka
+ 
+ Steps (one bpy session per detail level):
+   1. import + weld, decimate a copy (face protected) to --tris, fresh xatlas UVs   (lib/lowpoly.py)
+@@ -11,6 +14,7 @@ Steps (one bpy session per detail level):
+      and measure the painted eyes so the game can close them                       (lib/eyes.py)
+   3. readable bone names, retarget the Meshy-library idle + walk                    (lib/retarget.py)
+   4. sword on hand_R + idle / walk / attack_slash / cheer / hurt                    (lib/clips_hikari.py)
++     (Tenka: coilgun socket on hand_R + idle / walk / attack_rifle / cheer / hurt     (lib/clips_tenka.py))
+   5. GLB export, then phone packing: int16/int8 attributes, WebP texture,
+      pruned int16 animation, half-scale storage + extras.unitScale                  (lib/pack.py)
+ Writes public/models/characters/<id>.glb + <id>.lod.glb and their manifest entries
+@@ -19,6 +23,7 @@ Writes public/models/characters/<id>.glb + <id>.lod.glb and their manifest entri
+ The source GLBs are not in the repo (43 MB + 5 MB). Needs bpy 4.2, numpy, Pillow and xatlas
+ (pip install xatlas)."""
+ import argparse
++import importlib
+ import json
+ import os
+ import sys
+@@ -31,8 +36,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
+ ROOT = os.path.dirname(os.path.dirname(HERE))
+ sys.path.insert(0, HERE)
+ 
+-from lib import lowpoly, bake, eyes, retarget, clips_hikari, pack  # noqa: E402
+-from lib.rig_names import RENAME, RETARGET  # noqa: E402
++from lib import lowpoly, bake, eyes, retarget, pack, profiles  # noqa: E402
+ 
+ # Battle size: 1.53 world units (~1.5x the 0.98 cage heroes, before the hero scale) was the size
+ # approved for the first Meshy tests; the owner then found her too big for the map, so she is
+@@ -42,33 +46,84 @@ GAME_HEIGHT = 1.224
+ STORE_SCALE = 0.5  # stored at half size so positions fit normalised int16
+ 
+ 
+-def build(args, detail):
+-    t0 = time.time()
++def add_root_bone(arm, child):
++    """API rigs start at Hips: add an unweighted 'root' on the floor (identity rest rotation) above it."""
++    bpy.context.view_layer.objects.active = arm
++    for o in bpy.data.objects:
++        o.select_set(o == arm)
++    bpy.ops.object.mode_set(mode='EDIT')
++    eb = arm.data.edit_bones
++    r = eb.new('root')
++    r.head = (0.0, 0.0, 0.0)
++    r.tail = (0.0, 0.1, 0.0)
++    r.roll = 0.0
++    r.use_deform = False
++    eb[child].parent = r
++    eb[child].use_connect = False
++    bpy.ops.object.mode_set(mode='OBJECT')
++
++
++def stage_a(args, prof, detail, tmp):
++    """Import, normalise, decimate, unwrap, bake (cached per detail with --cache)."""
+     full = detail == 'full'
+     tris = args.tris if full else args.lod_tris
+     tex = args.tex if full else args.lod_tex
+-    tmp = tempfile.mkdtemp(prefix='meshy_')
+     arm, hi = lowpoly.import_source(args.source)
++    norm = lowpoly.normalize(arm, hi, **prof['normalize']) if prof['normalize'] else None
+     src_height = max((hi.matrix_world @ v.co).z for v in hi.data.vertices)
+     lo = lowpoly.make_lowpoly(hi, tris)
+     uvinfo = lowpoly.unwrap_xatlas(lo, face_scale=2.0, resolution=tex)
+     imgs = bake.bake_maps(hi, lo, tmp, tex, mr_res=args.mr_tex if full else args.lod_mr_tex,
+                           normal_res=args.normal_tex if full else 0)
+     bpy.data.objects.remove(hi)
++    return arm, lo, dict(src_height=src_height, uvinfo=uvinfo, normalize=norm)
++
++
++def build(args, detail):
++    t0 = time.time()
++    prof = profiles.get(args.profile)
++    profiles.apply_globals(prof)
++    full = detail == 'full'
++    cache = os.path.abspath(os.path.join(args.cache, detail)) if args.cache else None
++    if cache and os.path.exists(os.path.join(cache, 'stage_a.blend')):
++        bpy.ops.wm.open_mainfile(filepath=os.path.join(cache, 'stage_a.blend'))
++        meta = json.load(open(os.path.join(cache, 'stage_a.json')))
++        arm = [o for o in bpy.data.objects if o.type == 'ARMATURE'][0]
++        lo = bpy.data.objects['lo']
++        print(f'[meshy] {detail}: stage A from the cache {cache}')
++    else:
++        tmp = cache or tempfile.mkdtemp(prefix='meshy_')
++        os.makedirs(tmp, exist_ok=True)
++        arm, lo, meta = stage_a(args, prof, detail, tmp)
++        if cache:
++            bpy.ops.wm.save_as_mainfile(filepath=os.path.join(cache, 'stage_a.blend'), relative_remap=False, copy=True)
++            json.dump(meta, open(os.path.join(cache, 'stage_a.json'), 'w'), indent=1, default=float)
++    tmp = tempfile.mkdtemp(prefix='meshy_')
++    src_height, uvinfo = meta['src_height'], meta['uvinfo']
++    imgs = bpy.data.images
+     eye_info = eyes.find_eyes(lo, imgs['base'], imgs.get('mr'), STORE_SCALE)  # in the stored (packed) space
+     arm.name = f'{args.id}_rig'
+     lo.name = lo.data.name = args.id
+     for b in arm.data.bones:
+-        if b.name in RENAME:
+-            b.name = RENAME[b.name]
++        if b.name in prof['rename']:
++            b.name = prof['rename'][b.name]
++    if prof['add_root']:
++        add_root_bone(arm, prof['add_root'])
+     bpy.context.scene.render.fps = 24  # the library clips are imported on a 24 fps timeline
+-    made, k_leg = retarget.retarget(arm, args.clips, RETARGET, {'Idle_9': 'raw_idle', 'Walking_Woman': 'raw_walk'})
+-    sw = clips_hikari.build(arm, raw_fps=24, fps=30)
++    made, k_leg = retarget.retarget(arm, args.clips, prof['retarget'], prof['library'])
++    clips = importlib.import_module(f'lib.{prof["clips"]}')
++    extra_ex = {}
++    if prof['clips'] == 'clips_hikari':
++        objs = [clips.build(arm, raw_fps=24, fps=30)]
++    else:
++        objs, extra_ex = clips.build(arm, lo, raw_fps=24, fps=30, height=src_height)
++        for p in extra_ex.get('props', []):
++            p['file'] = p['file'] or f'{args.id}-{p["socket"].split("_", 1)[-1]}.glb'
+     if args.blend and full:
+-        bpy.ops.wm.save_as_mainfile(filepath=args.blend)
++        bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(args.blend), relative_remap=False, copy=True)
+     # export
+     for o in bpy.data.objects:
+-        o.select_set(o in (arm, lo, sw))
++        o.select_set(o in [arm, lo] + objs)
+     for pb in arm.pose.bones:
+         pb.rotation_quaternion = (1, 0, 0, 0)
+         pb.location = (0, 0, 0)
+@@ -85,20 +140,22 @@ def build(args, detail):
+         shutil.copy(raw, os.path.join(args.raw_dir, f'{args.id}{"" if full else ".lod"}.raw.glb'))
+     out = os.path.join(args.out, f'{args.id}{"" if full else ".lod"}.glb')
+     stored_height = src_height * STORE_SCALE
++    height = args.height or GAME_HEIGHT
+     extras = dict(
+-        unit=args.id, source='meshy', style='textured', height=GAME_HEIGHT,
+-        unitScale=round(GAME_HEIGHT / stored_height, 5), weaponKind='slash', lod=not full,
+-        generator='tools/meshy/build_meshy_chibi.py')
++        unit=args.id, source='meshy', style='textured', height=height,
++        unitScale=round(height / stored_height, 5), weaponKind=prof['weapon_kind'], lod=not full,
++        generator='tools/meshy/build_meshy_chibi.py' + ('' if args.profile == 'hikari' else f' --profile {args.profile}'))
+     if eye_info:
+         extras['eyes'] = eye_info
++    extras.update(extra_ex)
+     stats = pack.pack(raw, out, STORE_SCALE, extras, webp_quality=args.webp_quality,
+                       tex_size=args.ship_tex if full else args.lod_ship_tex)
+     js, _ = pack.read_glb(out)
+     verts = sum(js['accessors'][p['attributes']['POSITION']]['count'] for m in js['meshes'] for p in m['primitives'])
+     tri = sum(js['accessors'][p['indices']]['count'] // 3 for m in js['meshes'] for p in m['primitives'])
+     info = dict(size=os.path.getsize(out), vertices=verts, triangles=tri, animations=sorted(a['name'] for a in js['animations']),
+-                charts=uvinfo['charts'], anim=stats, seconds=round(time.time() - t0, 1))
+-    print(f'[meshy] {args.id} {detail}: {info["size"] // 1024} KB, {tri} tris, {verts} verts, tex {tex}, '
++                charts=uvinfo['charts'], anim=stats, seconds=round(time.time() - t0, 1), props=extra_ex.get('props'))
++    print(f'[meshy] {args.id} {detail}: {info["size"] // 1024} KB, {tri} tris, {verts} verts, tex {args.tex if full else args.lod_tex}, '
+           f'{uvinfo["charts"]} charts, clips {info["animations"]}, {stats["channels"]} channels / {stats["keys"]} keys, {info["seconds"]}s')
+     return info
+ 
+@@ -108,7 +165,10 @@ def main():
+     ap = argparse.ArgumentParser()
+     ap.add_argument('--source', required=True, help="the owner's Meshy character GLB")
+     ap.add_argument('--clips', required=True, help='Meshy animation-library GLB with Idle_9 + Walking_Woman')
+-    ap.add_argument('--id', default='hikari')
++    ap.add_argument('--profile', default='hikari', help='per-figure settings (lib/profiles.py)')
++    ap.add_argument('--id', default=None, help='unit id (default: the profile name)')
++    ap.add_argument('--height', type=float, default=None, help=f'battle height (default GAME_HEIGHT {GAME_HEIGHT})')
++    ap.add_argument('--cache', default=None, help='keep / reuse the baked stage (decimate + UVs + bakes + eyes) here')
+     ap.add_argument('--out', default=os.path.join(ROOT, 'public', 'models', 'characters'))
+     ap.add_argument('--tris', type=int, default=20000)
+     ap.add_argument('--tex', type=int, default=2048, help='bake size of the base colour (also the UV packing grid)')
+@@ -125,6 +185,7 @@ def main():
+     ap.add_argument('--raw-dir', default=None, help='also keep the unpacked Blender exports here')
+     ap.add_argument('--blend', default=None, help='also save the full-detail scene as a .blend')
+     args = ap.parse_args(argv)
++    args.id = args.id or args.profile
+     full = build(args, 'full')
+     lod = None if args.no_lod else build(args, 'lod')
+     mpath = os.path.join(args.out, 'manifest.json')
+@@ -133,6 +194,8 @@ def main():
+                  triangles=full['triangles'], source='meshy')
+     if lod:
+         entry.update(lod=f'{args.id}.lod.glb', lodSize=lod['size'], lodVertices=lod['vertices'], lodTriangles=lod['triangles'])
++    if full.get('props'):
++        entry['props'] = [p['file'] for p in full['props']]
+     manifest[args.id] = entry
+     with open(mpath, 'w') as f:
+         json.dump(dict(sorted(manifest.items())), f, indent=1)
+diff --git a/tools/meshy/build_meshy_prop.py b/tools/meshy/build_meshy_prop.py
+new file mode 100644
+index 0000000..e557756
+--- /dev/null
++++ b/tools/meshy/build_meshy_prop.py
+@@ -0,0 +1,88 @@
++"""A Meshy-made hand prop as its own phone-packed GLB (Tenka's coilgun):
++
++    python3 tools/meshy/build_meshy_prop.py --source <tenka-coilgun Meshy GLB> --id tenka-coilgun --unit tenka
++
++The prop keeps its own frame (Meshy units: the coilgun is 1.9 long, barrel -X, top +Y): the
++figure's GLB carries the socket node that places and scales that frame in her fist
++(lib/clips_tenka.py, asset.extras.props), and the runtime hangs this file's mesh under it.
++Same steps as the figure (lib/lowpoly.py, lib/bake.py, lib/pack.py): weld, decimate to --tris,
++fresh xatlas UVs, Cycles bakes of the base colour (at --tex, shipped at --ship-tex) and the
++metal/roughness map (the copper coils are metallic), phone packing at the figure's half-size
++storage so the socket's scale applies unchanged. One file serves both detail levels.
++Needs bpy 4.2, numpy, Pillow and xatlas."""
++import argparse
++import os
++import sys
++import tempfile
++import time
++
++import bpy
++
++HERE = os.path.dirname(os.path.abspath(__file__))
++ROOT = os.path.dirname(os.path.dirname(HERE))
++sys.path.insert(0, HERE)
++
++from lib import lowpoly, bake, pack  # noqa: E402
++
++STORE_SCALE = 0.5  # the figure's storage scale (build_meshy_chibi.py): the socket scale is relative to it
++
++
++def main():
++    argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:]
++    ap = argparse.ArgumentParser()
++    ap.add_argument('--source', required=True, help='the Meshy prop GLB')
++    ap.add_argument('--id', required=True, help='file id, e.g. tenka-coilgun')
++    ap.add_argument('--unit', required=True, help='the figure that holds it')
++    ap.add_argument('--socket', default=None, help='socket node name in the figure (default prop_<id after the unit>)')
++    ap.add_argument('--out', default=os.path.join(ROOT, 'public', 'models', 'characters'))
++    ap.add_argument('--tris', type=int, default=3000)
++    ap.add_argument('--tex', type=int, default=1024)
++    ap.add_argument('--ship-tex', type=int, default=512)
++    ap.add_argument('--mr-tex', type=int, default=256)
++    ap.add_argument('--webp-quality', type=int, default=90)
++    args = ap.parse_args(argv)
++    t0 = time.time()
++    lowpoly.FACE_BOX = dict(zmin=1e9, zmax=-1e9, xmax=0.0, ymax=-1e9)  # no face on a prop
++    lowpoly.PROTECT = []
++    bpy.ops.wm.read_factory_settings(use_empty=True)
++    bpy.ops.import_scene.gltf(filepath=args.source)
++    meshes = [o for o in bpy.data.objects if o.type == 'MESH']
++    hi = max(meshes, key=lambda o: len(o.data.vertices))
++    hi.name = 'hi'
++    # bake in the prop's own frame: no object transform left on the source
++    for o in bpy.data.objects:
++        o.select_set(o == hi)
++    bpy.context.view_layer.objects.active = hi
++    bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
++    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
++    lo = lowpoly.make_lowpoly(hi, args.tris)
++    uv = lowpoly.unwrap_xatlas(lo, face_scale=1.0, resolution=args.tex, padding=4)
++    tmp = tempfile.mkdtemp(prefix='prop_')
++    bake.bake_maps(hi, lo, tmp, args.tex, mr_res=args.mr_tex, normal_res=0, cage=0.01, ray=0.03)
++    bpy.data.objects.remove(hi)
++    for o in list(bpy.data.objects):
++        if o != lo:
++            bpy.data.objects.remove(o)
++    lo.name = lo.data.name = args.id
++    for o in bpy.data.objects:
++        o.select_set(o == lo)
++    raw = os.path.join(tmp, 'raw.glb')
++    bpy.ops.export_scene.gltf(filepath=raw, export_format='GLB', use_selection=True, export_animations=False, export_skins=False,
++                              export_normals=True, export_texcoords=True, export_image_format='AUTO', export_yup=True,
++                              export_extras=False)
++    socket = args.socket or f'prop_{args.id[len(args.unit) + 1:] if args.id.startswith(args.unit + "-") else args.id}'
++    zs = [v.co.z for v in lo.data.vertices]
++    extras = dict(unit=args.unit, prop=args.id, socket=socket, source='meshy', style='textured-prop', storeScale=STORE_SCALE,
++                  frame=dict(barrel='-X', top='+Y'), generator='tools/meshy/build_meshy_prop.py')
++    out = os.path.join(args.out, f'{args.id}.glb')
++    pack.pack(raw, out, STORE_SCALE, extras, webp_quality=args.webp_quality, tex_size=args.ship_tex)
++    js, _ = pack.read_glb(out)
++    tri = sum(js['accessors'][p['indices']]['count'] // 3 for m in js['meshes'] for p in m['primitives'])
++    print(f'[meshy-prop] {args.id}: {os.path.getsize(out) // 1024} KB, {tri} tris, {uv["charts"]} charts, '
++          f'tex {args.ship_tex} (baked {args.tex}), height {max(zs) - min(zs):.3f}, {time.time() - t0:.1f}s')
++
++
++if __name__ == '__main__':
++    main()
++    sys.stdout.flush()
++    os._exit(0)
+diff --git a/tools/meshy/lib/bake.py b/tools/meshy/lib/bake.py
+index 84e898a..608d414 100644
+--- a/tools/meshy/lib/bake.py
++++ b/tools/meshy/lib/bake.py
+@@ -19,11 +19,39 @@ import numpy as np
+ from PIL import Image, ImageDraw, ImageFilter
+ 
+ 
++def _pink_hair(r, g, b):
++    return (r > 185) & (r - g > 45) & (b > g)
++
++
++# her hair colour test on sRGB bytes (lib/profiles.py sets it per figure; Hikari's pink by default)
++HAIR = _pink_hair
++
++
+ def _src_images(hi):
+-    imgs = [n.image for n in hi.active_material.node_tree.nodes if n.type == 'TEX_IMAGE' and n.image]
+-    pick = lambda pred: next((i for i in imgs if pred(i.name.lower())), None)  # noqa: E731
+-    base = pick(lambda n: 'normal' not in n and 'metal' not in n and 'rough' not in n)
+-    mr = pick(lambda n: 'metal' in n or 'rough' in n)
++    """(base colour, metal/roughness) images of the source material, found by the shader socket
++    each one feeds (an API-rigged Meshy GLB names them Image_0 / Image_1 / normal), with the old
++    pick by image name as the fallback."""
++    nodes = [n for n in hi.active_material.node_tree.nodes if n.type == 'TEX_IMAGE' and n.image]
++
++    def feeds(n):
++        out = set()
++        stack = [l for l in n.outputs['Color'].links]
++        while stack:
++            l = stack.pop()
++            out.add(l.to_socket.name)
++            if l.to_node.type in ('SEPARATE_COLOR', 'SEPARATE_RGB'):
++                for o in l.to_node.outputs:
++                    for l2 in o.links:
++                        out.add(l2.to_socket.name)
++        return out
++    base = next((n.image for n in nodes if 'Base Color' in feeds(n)), None)
++    mr = next((n.image for n in nodes if feeds(n) & {'Metallic', 'Roughness'}), None)
++    if base is None or mr is None:
++        imgs = [n.image for n in nodes]
++        pick = lambda pred: next((i for i in imgs if pred(i.name.lower())), None)  # noqa: E731
++        base = base or pick(lambda n: 'normal' not in n and 'metal' not in n and 'rough' not in n)
++        mr = mr or pick(lambda n: 'metal' in n or 'rough' in n)
++    print(f'[meshy] bake sources: base {base.name if base else None}, metal/roughness {mr.name if mr else None}')
+     return base, mr
+ 
+ 
+@@ -146,7 +174,7 @@ def skin_mask(rgb, face_tris):
+     r, g, b = (rgb[..., i].astype(np.int16) for i in range(3))
+     # skin / blush, not the cream shading of the white coat (r ~ g ~ b) nor gold (b far below g)
+     skin = (r > 200) & (g > 160) & (b > 135) & (r - g >= 10) & (r - b >= 25) & (r - b < 85) & (g - b >= 0) & (g - b < 36)
+-    hair = (r > 185) & (r - g > 45) & (b > g)
++    hair = HAIR(r, g, b)
+     # skin outside the face only as real patches (neck, thighs): an opening drops specks < 5 px
+     skin = Image.fromarray(skin.astype(np.uint8) * 255, 'L').filter(ImageFilter.MinFilter(5)).filter(ImageFilter.MaxFilter(5))
+     face = Image.new('L', (w, h), 0)
+diff --git a/tools/meshy/lib/clips_tenka.py b/tools/meshy/lib/clips_tenka.py
+new file mode 100644
+index 0000000..b7c94f1
+--- /dev/null
++++ b/tools/meshy/lib/clips_tenka.py
+@@ -0,0 +1,379 @@
++"""Tenka's game clips on her Meshy API rig (24-bone humanoid + a floor 'root') and the socket of
++her coilgun.
++
++The coilgun is its own GLB (tools/meshy/build_meshy_prop.py -> <unit>-coilgun.glb). Her GLB only
++carries an empty node 'prop_coilgun' on hand_R: the gun's own frame (barrel -X, top +Y, grip
++centre GRIP_LOCAL) placed in her right fist with the barrel along the forearm and the top on the
++thumb side, scaled so the gun is GUN_OF_HEIGHT of her height. The runtime hangs the prop file's
++mesh under that node (asset.extras.props), so every clip moves the gun with her hand.
++
++Clips (30 fps, keyed on every frame, world-axis rotations on top of the rest pose, posekit):
++  idle        1.5 s  library idle (torso, head, free arm) + two soft knee bounces; the gun held
++                     low at her right hip, barrel forward and down, cells up
++  walk        0.97 s library walk, gun held low and swinging a little with the step
++  attack_rifle 0.6 s quick-draw: the gun is up and aimed straight ahead by 0.07 s, two recoil kicks
++                     (0.08 s and 0.22 s; she is a rapid shooter and the battle restarts the clip at
++                     most every 0.45 s), held on aim, back to the low hold by 0.6 s
++  cheer       1.2 s  hop with the coilgun raised high (barrel up) and a left fist pump
++  hurt        0.4 s  flinch back, gun arm pulled in
++Every clip carries the chin-up lean CHIN (spine + neck + head, total CHIN_TOTAL deg) so her eyes
++clear her bangs from the 48 deg battle camera. No hair / coat bones: the ponytail is rigid.
++The gun arm is 2-bone IK with a full hand orientation (barrel + top) solved per frame, half of
++the forearm-hand twist given to the forearm so the wrist never candy-wraps."""
++import math
++
++import bpy
++import numpy as np
++from mathutils import Matrix, Quaternion, Vector
++
++from .posekit import Rig, E, rotq, smooth, lerp, two_bone
++
++CLIPS = ('idle', 'walk', 'attack_rifle', 'cheer', 'hurt')
++PROP_SOCKET = 'prop_coilgun'
++# the coilgun mesh's own frame (Meshy units, glTF axes): barrel -X, top +Y, 1.90 long; centre of
++# the grip where her fist closes. In Blender axes (what the socket's matrix maps): barrel -X,
++# top +Z, glTF +Z -> -Y.
++GRIP_LOCAL = Vector((0.58, -0.35, 0.0))
++GRIP_LOCAL_B = Vector((GRIP_LOCAL.x, -GRIP_LOCAL.z, GRIP_LOCAL.y))
++GUN_LENGTH_LOCAL = 1.90
++GUN_OF_HEIGHT = 0.24
++# chin-up lean (deg, negative = chin up): spine, neck, head
++CHIN = dict(spine=-3.0, neck=-6.0, head=-5.0)
++CHIN_TOTAL = -sum(CHIN.values())
++
++
++def palm_centre(arm, mesh, bone='hand_R', min_w=0.6):
++    """Centroid of the mesh vertices mostly weighted to the hand bone (her mitten fist)."""
++    vg = mesh.vertex_groups.get(bone)
++    if vg is None:
++        return None
++    pts = []
++    for v in mesh.data.vertices:
++        for g in v.groups:
++            if g.group == vg.index and g.weight >= min_w:
++                pts.append((mesh.matrix_world @ v.co)[:])
++                break
++    return Vector(np.mean(np.array(pts), 0)) if pts else None
++
++
++def build(arm, mesh, raw_fps=24, fps=30, height=1.7, socket_name=PROP_SOCKET):
++    """Adds the coilgun socket (an empty on hand_R) and the game actions; removes the raw_*
++    actions. Returns (objects to export with her, info for asset.extras)."""
++    FPS = fps
++    sc = bpy.context.scene
++    sc.render.fps = FPS
++    rig = Rig(arm)
++    V = Vector
++
++    if arm.animation_data:
++        arm.animation_data.action = None
++    for pb in arm.pose.bones:
++        pb.rotation_mode = 'QUATERNION'
++        pb.rotation_quaternion = (1, 0, 0, 0); pb.location = (0, 0, 0); pb.scale = (1, 1, 1)
++    sc.frame_set(0)
++    bpy.context.view_layer.update()
++
++    # ---------------------------------------------------------------- the gun in her fist (rest pose)
++    wr = rig.head['hand_R']
++    el = rig.head['forearm_R']
++    fa_dir = (wr - el).normalized()                      # rest forearm axis (down and out)
++    palm = palm_centre(arm, mesh) or (wr + fa_dir * 0.045 * height)
++    # top of the gun on the thumb side: her A-pose hand hangs with the thumb forward (-Y)
++    up_rest = (V((0, -1, 0)) - fa_dir * fa_dir.dot(V((0, -1, 0)))).normalized()
++    barrel_rest = fa_dir
++
++    def frame(barrel, top):
++        """Rotation taking the prop's Blender-local axes to world: barrel (-X) along `barrel`, top (+Z) toward `top`."""
++        b = barrel.normalized()
++        t = (top - b * top.dot(b)).normalized()
++        xb = -b; zb = t; yb = zb.cross(xb).normalized()
++        return Matrix((xb, yb, zb)).transposed()
++    G0 = frame(barrel_rest, up_rest)                       # gun local -> world at rest
++    G0q = G0.to_quaternion()
++    s = GUN_OF_HEIGHT * height / GUN_LENGTH_LOCAL
++    gun_pos = palm - (G0 @ GRIP_LOCAL_B) * s
++    sock = bpy.data.objects.new(socket_name, None)
++    sock.empty_display_type = 'ARROWS'
++    sc.collection.objects.link(sock)
++    Mw = Matrix.Translation(gun_pos) @ G0.to_4x4() @ Matrix.Scale(s, 4)
++    sock.matrix_world = Mw
++    sock.parent = arm; sock.parent_type = 'BONE'; sock.parent_bone = 'hand_R'
++    sock.matrix_world = Mw
++    bpy.context.view_layer.update()
++    print(f'[tenka] coilgun socket: scale {s:.4f}, palm {tuple(round(x, 3) for x in palm)}, barrel {tuple(round(x, 3) for x in barrel_rest)}')
++
++    def gun_rot(barrel, top):
++        """World delta of hand_R that points the gun's barrel along `barrel` with its top toward `top`."""
++        return frame(barrel, top).to_quaternion() @ G0q.inverted()
++
++    # ---------------------------------------------------------------- raw clip samplers
++    def sample_raw(name):
++        act = bpy.data.actions[name]; arm.animation_data.action = act
++        f0, f1 = int(act.frame_range[0]), int(act.frame_range[1])
++        frames = []
++        for f in range(f0, f1 + 1):
++            sc.frame_set(f)
++            D = {n: rotq(arm.pose.bones[n].matrix) @ rig.Rq[n].inverted() for n in rig.order}
++            L = {}
++            for n in rig.order:
++                p = rig.parent[n]
++                L[n] = D[n] if p is None else D[p].inverted() @ D[n]
++            rt = arm.pose.bones['hips'].matrix.translation - rig.head['hips']
++            frames.append((L, rt))
++        arm.animation_data.action = None
++        return frames, (f1 - f0) / raw_fps
++
++    def raw_at(frames, u, bones):
++        x = u * (len(frames) - 1); i = int(math.floor(x)); i2 = min(i + 1, len(frames) - 1); t = x - i
++        La, ra = frames[i]; Lb, rb = frames[i2]
++        return {n: La[n].slerp(Lb[n], t) for n in bones}, ra.lerp(rb, t)
++
++    def looped(frames, blend=0.18):
++        n = len(frames); k = max(1, int(n * blend)); out = list(frames)
++        for j in range(k):
++            w = smooth((j + 1) / (k + 1))
++            La, ra = frames[n - k + j]; Lb, rb = frames[j]
++            out[n - k + j] = ({b: La[b].slerp(Lb[b], w) for b in La}, ra.lerp(rb, w))
++        out[-1] = frames[0]
++        return out
++
++    raw_idle, raw_idle_len = sample_raw('raw_idle')
++    raw_walk, raw_walk_len = sample_raw('raw_walk')
++    raw_idle = looped(raw_idle); raw_walk = looped(raw_walk, 0.10)
++    print('[tenka] raw lengths', raw_idle_len, raw_walk_len)
++
++    TORSO = ['hips', 'spine', 'spine1', 'chest', 'neck', 'head']
++    ARM_L = ['shoulder_L', 'upper_arm_L', 'forearm_L', 'hand_L']
++    LEGS = ['thigh_L', 'shin_L', 'foot_L', 'toe_L', 'thigh_R', 'shin_R', 'foot_R', 'toe_R']
++
++    # ---------------------------------------------------------------- IK
++    LEN = {}
++    for sd in 'LR':
++        LEN['arm' + sd] = ((rig.head['forearm_' + sd] - rig.head['upper_arm_' + sd]).length, (rig.head['hand_' + sd] - rig.head['forearm_' + sd]).length)
++        LEN['leg' + sd] = ((rig.head['shin_' + sd] - rig.head['thigh_' + sd]).length, (rig.head['foot_' + sd] - rig.head['shin_' + sd]).length)
++    ARM_LEN = sum(LEN['armR'])
++    SH_R = rig.head['upper_arm_R'].copy()
++    SH_L = rig.head['upper_arm_L'].copy()
++    print(f'[tenka] arm length {ARM_LEN:.3f}, shoulder R {tuple(round(x, 3) for x in SH_R)}')
++
++    def arm_ik(M, ov, sd, T, pole, hand=None, twist_share=0.5):
++        """2-bone IK to T (hand head); hand = absolute world delta of the hand bone (or None:
++        the hand follows the forearm). Half the hand's twist about the forearm goes to the forearm."""
++        ua, fa, hd = 'upper_arm_' + sd, 'forearm_' + sd, 'hand_' + sd
++        S = M[ua].translation
++        L1, L2 = LEN['arm' + sd]
++        Ep, Tp = two_bone(S, L1, L2, T, pole)
++        r_ua = rig.head[fa] - rig.head[ua]
++        r_fa = rig.head[hd] - rig.head[fa]
++        Dua = r_ua.rotation_difference(Ep - S)
++        Dfa = r_fa.rotation_difference(Tp - Ep)
++        if hand is not None:
++            # twist of the hand relative to the forearm, about the forearm's rest axis
++            rel = Dfa.inverted() @ hand
++            ax = r_fa.normalized()
++            v = Vector((rel.x, rel.y, rel.z))
++            proj = ax * v.dot(ax)
++            tw = Quaternion((rel.w, proj.x, proj.y, proj.z))
++            if tw.magnitude > 1e-8:
++                tw.normalize()
++                ang = 2 * math.atan2(Vector((tw.x, tw.y, tw.z)).dot(ax), tw.w)
++                Dfa = Dfa @ Quaternion(ax, ang * twist_share)
++            ov[hd] = hand
++        else:
++            ov[hd] = Dfa
++        ov[ua] = Dua; ov[fa] = Dfa
++
++    def leg_ik(M, ov, sd, T):
++        th, sh, ft = 'thigh_' + sd, 'shin_' + sd, 'foot_' + sd
++        S = M[th].translation
++        L1, L2 = LEN['leg' + sd]
++        pole = S + V((0.04 if sd == 'L' else -0.04, -0.6, -0.15))
++        Ep, Tp = two_bone(S, L1, L2, T, pole)
++        ov[th] = (rig.head[sh] - rig.head[th]).rotation_difference(Ep - S)
++        ov[sh] = (rig.head[ft] - rig.head[sh]).rotation_difference(Tp - Ep)
++        ov[ft] = Quaternion()
++
++    def pose(L, root_t, arms=None, legs=True, foot_lift=(0.0, 0.0)):
++        M, D = rig.solve(L, root_t)
++        ov = {}
++        if legs:
++            for i, sd in enumerate('LR'):
++                leg_ik(M, ov, sd, rig.head['foot_' + sd] + V((0, 0, foot_lift[i])))
++        for sd, spec in (arms or {}).items():
++            arm_ik(M, ov, sd, **spec)
++        return rig.solve(L, root_t, ov)
++
++    def lean(L, k=1.0):
++        for b, deg in CHIN.items():
++            L[b] = E(x=deg * k) @ L.get(b, Quaternion())
++
++    def keyframes(name, n_frames, fn):
++        act = bpy.data.actions.new(name); act.use_fake_user = True
++        arm.animation_data.action = act
++        for f in range(n_frames + 1):
++            M, D = fn(f / FPS)
++            rig.key(M, f)
++        arm.animation_data.action = None
++        return act
++
++    def scalar_keys(keys, t):
++        if t <= keys[0][0]: return keys[0][1]
++        if t >= keys[-1][0]: return keys[-1][1]
++        for i in range(len(keys) - 1):
++            if keys[i][0] <= t <= keys[i + 1][0]:
++                u = smooth((t - keys[i][0]) / (keys[i + 1][0] - keys[i][0]))
++                return lerp(keys[i][1], keys[i + 1][1], u)
++
++    def vec_keys(keys, t):
++        if t <= keys[0][0]: return keys[0][1].copy()
++        if t >= keys[-1][0]: return keys[-1][1].copy()
++        for i in range(len(keys) - 1):
++            if keys[i][0] <= t <= keys[i + 1][0]:
++                u = smooth((t - keys[i][0]) / (keys[i + 1][0] - keys[i][0]))
++                return keys[i][1].lerp(keys[i + 1][1], u)
++
++    # ---------------------------------------------------------------- shared poses (relative to her right shoulder)
++    # low hold: fist beside her right hip, a little forward; barrel forward-down, the gun rolled
++    # so its top (cells, coils) faces out and its side profile faces the 48 deg battle camera
++    # (thumb-up it showed the camera only its top and read as a canister)
++    HOLD_T = SH_R + V((-0.060, -0.100, -0.235))
++    HOLD_B = V((-0.10, -1.0, -0.62)).normalized()
++    HOLD_U = V((-0.95, 0.0, 0.32)).normalized()
++    # aim: arm out in front at shoulder height, barrel level and straight ahead
++    AIM_T = SH_R + V((-0.020, -0.290, -0.035))
++    AIM_B = V((0.04, -1.0, 0.02)).normalized()
++    AIM_U = V((-0.12, 0.0, 1.0)).normalized()
++    POLE_R = lambda M: M['upper_arm_R'].translation + V((-0.30, 0.30, -0.25))  # noqa: E731
++    POLE_L = lambda M: M['upper_arm_L'].translation + V((0.30, 0.30, -0.25))  # noqa: E731
++    ARM_L_ABDUCT = E(y=-7.0)
++    TORSO_OFF = lambda M: M['chest'].translation - rig.head['chest']  # noqa: E731
++
++    def hold_arm(M0, T=None, B=None, U=None, k_off=0.8):
++        T = (T or HOLD_T) + TORSO_OFF(M0) * k_off
++        return dict(T=T, pole=POLE_R(M0), hand=gun_rot(B or HOLD_B, U or HOLD_U))
++
++    # ---------------------------------------------------------------- idle (1.5 s)
++    IDLE_T = 1.5
++    def idle_pose(t, bounce_amp=0.022):
++        u = (t / IDLE_T) % 1.0
++        Lr, rt = raw_at(raw_idle, u, TORSO + ARM_L)
++        L = dict(Lr)
++        dip = 0.5 - 0.5 * math.cos(2 * math.pi * 2 * u)
++        bz = -bounce_amp * dip
++        root_t = V((rt.x * 0.5, rt.y * 0.5, bz))
++        L['chest'] = L['chest'] @ E(x=1.0 * math.sin(2 * math.pi * 2 * u - 0.6))
++        L['neck'] = L['neck'] @ E(x=1.4 * math.sin(2 * math.pi * 2 * u - 1.3))
++        L['upper_arm_L'] = E(y=-2.5 * dip) @ ARM_L_ABDUCT @ L['upper_arm_L']
++        lean(L)
++        M0, _ = rig.solve(L, root_t)
++        sway = math.sin(2 * math.pi * u)
++        T = HOLD_T + V((0, 0, bz * 0.5 + 0.004 * sway))
++        return pose(L, root_t, arms={'R': hold_arm(M0, T=T)})
++    keyframes('idle', int(IDLE_T * FPS), idle_pose)
++
++    # ---------------------------------------------------------------- walk (library walk)
++    WALK_T = round(raw_walk_len, 3)
++    def walk_pose(t):
++        u = (t / WALK_T) % 1.0
++        Lr, rt = raw_at(raw_walk, u, TORSO + ARM_L + LEGS)
++        L = dict(Lr)
++        L['upper_arm_L'] = E(y=-10.0) @ L['upper_arm_L']
++        root_t = V((0.0, 0.0, rt.z))
++        lean(L)
++        M0, _ = rig.solve(L, root_t)
++        swing = math.sin(2 * math.pi * u)
++        T = HOLD_T + V((0.0, -0.03 * swing, 0.012 * abs(swing)))
++        B = (HOLD_B + V((0, -0.12 * swing, 0.10 * swing))).normalized()
++        M, _ = rig.solve(L, root_t)
++        ov = {}
++        arm_ik(M, ov, 'R', **hold_arm(M0, T=T, B=B, k_off=1.0))
++        return rig.solve(L, root_t, ov)
++    keyframes('walk', int(round(WALK_T * FPS)), walk_pose)
++
++    # ---------------------------------------------------------------- attack_rifle (0.6 s)
++    ATK_T = 0.6
++    KICK = V((0.0, 0.070, 0.045))             # recoil: fist back and up
++    A_T = [(0.00, HOLD_T.lerp(AIM_T, 0.55)), (0.07, AIM_T), (0.08, AIM_T), (0.11, AIM_T + KICK), (0.17, AIM_T),
++           (0.22, AIM_T), (0.25, AIM_T + KICK * 0.8), (0.31, AIM_T), (0.42, AIM_T), (0.60, HOLD_T)]
++    A_P = [(0.00, 0.0), (0.07, 0.0), (0.08, 0.0), (0.11, 20.0), (0.17, 0.0), (0.22, 0.0), (0.25, 16.0), (0.31, 0.0),
++           (0.42, 0.0), (0.60, 0.0)]                            # muzzle flip (deg up)
++    A_YAW = [(0.0, 0.0), (0.07, 10.0), (0.42, 10.0), (0.60, 0.0)]   # shoulders square to the target
++    A_LEAN = [(0.0, 0.0), (0.07, -2.0), (0.11, -4.0), (0.17, -2.0), (0.25, -3.5), (0.31, -2.0), (0.42, -2.0), (0.60, 0.0)]
++
++    def attack_pose(t):
++        Lr, rt = raw_at(raw_idle, 0.0, TORSO + ARM_L)
++        L = dict(Lr)
++        L['upper_arm_L'] = ARM_L_ABDUCT @ L['upper_arm_L']
++        yaw = scalar_keys(A_YAW, t); fl = scalar_keys(A_LEAN, t)
++        L['spine'] = E(z=yaw * 0.4, x=fl * 0.6) @ L['spine']
++        L['chest'] = E(z=yaw * 0.6, x=fl * 0.4) @ L['chest']
++        L['neck'] = E(z=-yaw * 0.8) @ L['neck']
++        lean(L)
++        root_t = V((0, 0, -0.004 * abs(fl)))
++        M0, _ = rig.solve(L, root_t)
++        aim_w = scalar_keys([(0.0, 0.55), (0.07, 1.0), (0.42, 1.0), (0.60, 0.0)], t)
++        flip = scalar_keys(A_P, t)
++        B = HOLD_B.lerp(AIM_B, aim_w).normalized()
++        U = HOLD_U.lerp(AIM_U, aim_w).normalized()
++        if flip:
++            ax = B.cross(V((0, 0, 1))).normalized()   # pitch the muzzle up about her right-left axis
++            q = Quaternion(ax, -math.radians(flip)) if ax.length > 0.5 else Quaternion()
++            B = q @ B; U = q @ U
++        T = vec_keys(A_T, t)
++        arms = {'R': hold_arm(M0, T=T, B=B, U=U, k_off=0.9)}
++        return pose(L, root_t, arms=arms)
++    keyframes('attack_rifle', int(round(ATK_T * FPS)), attack_pose)
++
++    # ---------------------------------------------------------------- cheer (1.2 s: hop, gun up high, fist pump)
++    CH_T = 1.2
++    C_Z = [(0.0, 0.0), (0.22, -0.026), (0.48, 0.050), (0.66, 0.050), (0.86, -0.020), (1.2, 0.0)]
++    def cheer_pose(t):
++        u = (t / CH_T) % 1.0
++        Lr, rt = raw_at(raw_idle, 0.0, TORSO)
++        L = dict(Lr)
++        z = scalar_keys(C_Z, t)
++        air = max(0.0, z)
++        root_t = V((0, 0, z))
++        pump = 0.5 - 0.5 * math.cos(2 * math.pi * u)
++        L['chest'] = E(x=-3.0 - 2.0 * pump) @ L['chest']
++        L['neck'] = E(x=-2.0 * pump, y=4.0 * math.sin(2 * math.pi * u)) @ L['neck']
++        lean(L)
++        M0, _ = rig.solve(L, root_t)
++        off = TORSO_OFF(M0)
++        lift = 0.035 * pump
++        # gun hand up and well out to her right (the coilgun stays clear of her face from every
++        # yaw of the battle camera), left fist pumped up beside her ponytail
++        TR = SH_R + V((-0.20, -0.02, 0.24 + lift)) + off
++        TL = SH_L + V((0.15, -0.08, 0.22 + lift * 1.6)) + off
++        BR = V((-0.55, 0.10, 1.0)).normalized()          # barrel up, tipped out
++        UR = V((-1.0, -0.5, -0.3)).normalized()          # top (cells) out and forward
++        return pose(L, root_t, arms={'R': dict(T=TR, pole=TR + V((-0.35, 0.35, -0.5)), hand=gun_rot(BR, UR)),
++                                     'L': dict(T=TL, pole=TL + V((0.4, 0.3, -0.5)))},
++                    foot_lift=(air, air))
++    keyframes('cheer', int(CH_T * FPS), cheer_pose)
++
++    # ---------------------------------------------------------------- hurt (0.4 s)
++    HURT_T = 0.4
++    def hurt_pose(t):
++        k = smooth(t / 0.07) if t < 0.07 else 1.0 - smooth((t - 0.07) / (HURT_T - 0.07))
++        Lr, rt = raw_at(raw_idle, 0.0, TORSO + ARM_L)
++        L = dict(Lr)
++        L['upper_arm_L'] = E(y=-7.0 - 20.0 * k) @ L['upper_arm_L']
++        L['spine'] = E(x=-6.0 * k, z=5.0 * k) @ L['spine']
++        L['chest'] = E(x=-7.0 * k) @ L['chest']
++        L['neck'] = E(x=-4.0 * k, y=7.0 * k) @ L['neck']
++        lean(L)
++        root_t = V((0, 0.022 * k, -0.012 * k))
++        M0, _ = rig.solve(L, root_t)
++        T = HOLD_T.lerp(SH_R + V((-0.07, -0.13, -0.15)), k)
++        B = HOLD_B.lerp(V((-0.3, -0.5, 0.8)), k).normalized()
++        U = HOLD_U.lerp(V((-0.6, 0.6, 0.3)), k).normalized()
++        return pose(L, root_t, arms={'R': hold_arm(M0, T=T, B=B, U=U, k_off=0.7)})
++    keyframes('hurt', int(round(HURT_T * FPS)), hurt_pose)
++
++    for a in [a for a in bpy.data.actions if a.name.startswith('raw_')]:
++        bpy.data.actions.remove(a)
++    arm.animation_data.action = None
++    info = dict(props=[dict(socket=socket_name, bone='hand_R', file=None, lengthOfHeight=GUN_OF_HEIGHT)],
++                chinUp=CHIN_TOTAL)
++    return [sock], info
+diff --git a/tools/meshy/lib/eyes.py b/tools/meshy/lib/eyes.py
+index c16f61c..5d040e7 100644
+--- a/tools/meshy/lib/eyes.py
++++ b/tools/meshy/lib/eyes.py
+@@ -17,6 +17,26 @@ import numpy as np
+ from .lowpoly import in_face
+ 
+ 
++def _teal(r, g, b):
++    return (g - r > 60) & (b - r > 50)
++
++
++def _pink(r, g, b):
++    return (r > 185) & (r - g > 45) & (b > g)
++
++
++# per-figure settings (lib/profiles.py apply_globals); the defaults are Hikari's
++IRIS = _teal          # iris colour test on sRGB bytes
++HAIR = _pink          # hair colour test (bangs crossing the eyes are not part of the eye)
++FRONT_Y = -0.2        # only texels in front of this y (Blender: -Y is her front)
++MIRROR = False        # average the two boxes into a mirrored pair
++HAIR_GUARD = None     # shader hair test for the closed eyes, dict(hue=[deg, deg], sat, val) on the
++#                       linear texture colour's HSV (written to extras.eyes.hairGuard)
++EYE_WIN = (0.14, 0.10, 0.14)  # search window round the iris centre: |dx|, below, above (working units),
++#                               or (inner, outer, below, above) with the sides toward / away from her nose
++EYE_GROW = (1.12, 1.15)       # the closed-eye box round the measured eye (x, y)
++
++
+ def _pixels(img):
+     w, h = img.size
+     px = np.empty(w * h * 4, np.float32)
+@@ -70,25 +90,28 @@ def _hex(c):
+     return '#' + ''.join(f'{int(round(v)):02x}' for v in c)
+ 
+ 
+-def find_eyes(lo, base_img, mr_img=None, scale=1.0, grow=(1.12, 1.15)):
++def find_eyes(lo, base_img, mr_img=None, scale=1.0, grow=None):
++    grow = grow or EYE_GROW
+     base = _pixels(base_img)
+     mr = _pixels(mr_img) if mr_img is not None else None
+     pts, cols, rough = face_texels(lo, base, mr)
+     r, g, b = cols.T
+-    teal = (g - r > 60) & (b - r > 50)
++    teal = IRIS(r, g, b)  # the iris colour (teal for Hikari)
+     dark = (r + g + b) < 200
+     white = (cols.min(1) > 200) & (cols.max(1) - cols.min(1) < 25)
+-    hair = (r > 185) & (r - g > 45) & (b > g)
++    hair = HAIR(r, g, b)
+     skin = (r > 200) & (g > 160) & (b > 135) & (r - g >= 10) & (r - b >= 25) & (g - b >= 0) & (g - b < 36)
+-    front = pts[:, 1] < -0.2
++    front = pts[:, 1] < FRONT_Y
+     eyes = []
+     for sgn in (-1, 1):  # her right eye (-X) first
+         iris = teal & front & (np.sign(pts[:, 0]) == sgn)
+         if iris.sum() < 50:
+             return None
+         c = np.median(pts[iris], 0)
+-        win = front & (np.abs(pts[:, 0] - c[0]) < 0.14) & (pts[:, 2] > c[2] - 0.10) & (pts[:, 2] < c[2] + 0.14)
+-        eye = win & (dark | teal | white | ((r + g + b < 330) & ~hair & ~skin))
++        wi, wo, wlo, whi = EYE_WIN if len(EYE_WIN) == 4 else (EYE_WIN[0],) + tuple(EYE_WIN)
++        dx = (pts[:, 0] - c[0]) * sgn  # > 0: away from her nose
++        win = front & (dx > -wi) & (dx < wo) & (pts[:, 2] > c[2] - wlo) & (pts[:, 2] < c[2] + whi)
++        eye = win & ~hair & (dark | teal | white | ((r + g + b < 330) & ~skin))
+         e = pts[eye]
+         lo_, hi_ = np.percentile(e, 0.5, 0), np.percentile(e, 99.5, 0)
+         ctr = (lo_ + hi_) / 2
+@@ -97,7 +120,7 @@ def find_eyes(lo, base_img, mr_img=None, scale=1.0, grow=(1.12, 1.15)):
+         col = (np.abs(pts[:, 0] - ctr[0]) < half[0]) & skin
+         above = col & (pts[:, 2] > hi_[2]) & (pts[:, 2] < hi_[2] + 0.03)
+         below = col & (pts[:, 2] < lo_[2]) & (pts[:, 2] > lo_[2] - 0.03)
+-        lash = win & dark & ~(g - r > 25)
++        lash = win & dark & ~hair & ~(g - r > 25)
+         eyes.append(dict(
+             center=[ctr[0] * scale, ctr[2] * scale, -ctr[1] * scale],  # Blender (x, -y fwd, z up) -> glTF
+             radii=[half[0] * grow[0] * scale, half[2] * grow[1] * scale],
+@@ -106,6 +129,13 @@ def find_eyes(lo, base_img, mr_img=None, scale=1.0, grow=(1.12, 1.15)):
+             lash=np.median(cols[lash], 0) if lash.sum() > 20 else np.array([43, 29, 36]),
+             rough=float(np.median(rough[above | below])) if rough is not None and (above | below).sum() > 20 else None,
+             texels=int(eye.sum())))
++    if MIRROR:  # one mirrored pair: mean |x|, height, depth and radii of the two measured boxes
++        c = np.mean([[abs(e['center'][0]), e['center'][1], e['center'][2]] for e in eyes], 0)
++        rad = np.max([e['radii'] for e in eyes], 0)
++        for e, sgn in zip(eyes, (-1, 1)):
++            e['measured'] = [round(float(v), 5) for v in e['center']]
++            e['center'] = [sgn * c[0], c[1], c[2]]
++            e['radii'] = list(rad)
+     skin_hi = np.mean([e['skin'] for e in eyes], 0)
+     lows = [e['skin_low'] for e in eyes if e['skin_low'] is not None]
+     rough_v = [e['rough'] for e in eyes if e['rough'] is not None]
+@@ -118,5 +148,10 @@ def find_eyes(lo, base_img, mr_img=None, scale=1.0, grow=(1.12, 1.15)):
+     )
+     if rough_v:
+         out['roughness'] = round(float(np.mean(rough_v)), 3)
++    if HAIR_GUARD:
++        out['hairGuard'] = dict(hue=[float(v) for v in HAIR_GUARD['hue']], sat=float(HAIR_GUARD['sat']),
++                                val=float(HAIR_GUARD.get('val', 0.0)))
++    if MIRROR:
++        out['measured'] = [e['measured'] for e in eyes]
+     print(f'[meshy] eyes: {out} (texels {[e["texels"] for e in eyes]})')
+     return out
+diff --git a/tools/meshy/lib/lowpoly.py b/tools/meshy/lib/lowpoly.py
+index 0e7ba52..9179ee0 100644
+--- a/tools/meshy/lib/lowpoly.py
++++ b/tools/meshy/lib/lowpoly.py
+@@ -12,8 +12,11 @@ import bmesh
+ import bpy
+ import numpy as np
+ 
+-# face window (Blender axes: -Y is the front, Z up) of the owner's chibi at its native 1.7 height
++# face window (Blender axes: -Y is the front, Z up) of the owner's chibi at its native 1.7 height;
++# other figures set their own through lib/profiles.py (apply_globals)
+ FACE_BOX = dict(zmin=0.95, zmax=1.36, xmax=0.27, ymax=-0.22)
++# extra decimation guards: (zmin, zmax, xmax, ymax, weight); Hikari's neck bow
++PROTECT = [(0.80, 0.93, 0.15, -0.1, 0.5)]
+ 
+ 
+ def import_source(path):
+@@ -25,9 +28,58 @@ def import_source(path):
+     arm = [o for o in bpy.data.objects if o.type == 'ARMATURE'][0]
+     hi = max([o for o in bpy.data.objects if o.type == 'MESH'], key=lambda o: len(o.data.vertices))
+     hi.name = 'hi'
++    # a Meshy API rig carries a one-frame 'clip0' bind-pose action: never export it as a clip
++    if arm.animation_data:
++        arm.animation_data.action = None
++    for a in list(bpy.data.actions):
++        bpy.data.actions.remove(a)
++    for pb in arm.pose.bones:
++        pb.rotation_mode = 'QUATERNION'
++        pb.rotation_quaternion = (1, 0, 0, 0)
++        pb.location = (0, 0, 0)
++        pb.scale = (1, 1, 1)
+     return arm, hi
+ 
+ 
++def normalize(arm, hi, height=1.7, recentre=True, centre_bones=('Hips', 'Head')):
++    """Bring an API-rigged Meshy figure into the tool's working space (the owner's Hikari export:
++    unit-scale armature, feet at z = 0, 1.7 tall, body centre line on x = 0):
++
++    * the Meshy API GLB has Armature scale 0.01 (cm bones): applied into the bones and the mesh,
++      otherwise the packed node scale breaks the runtime outline / depth push
++    * scaled to `height` (Tenka is 0.9 m), so FACE_BOX, bake cage / ray and the eye windows,
++      all written for 1.7 m, keep their meaning
++    * her body centre line (mean x of `centre_bones`) moved to x = 0: the API rig of a figure
++      with a side ponytail is not centred, and the eye finder / blink split her eyes at x = 0
++    Returns the factors applied."""
++    sel = [arm] + [o for o in bpy.data.objects if o.type == 'MESH' and o.parent == arm] + ([hi] if hi.parent != arm else [])
++    bpy.context.view_layer.update()
++
++    def apply(loc=False):
++        for o in bpy.data.objects:
++            o.select_set(o in sel)
++        bpy.context.view_layer.objects.active = arm
++        bpy.ops.object.transform_apply(location=loc, rotation=False, scale=True)
++        bpy.context.view_layer.update()
++
++    s0 = tuple(arm.scale)
++    apply()
++    zs = np.array([(hi.matrix_world @ v.co).z for v in hi.data.vertices])
++    k = height / float(zs.max() - zs.min()) if height else 1.0
++    dx = 0.0
++    if recentre:
++        dx = -float(np.mean([(arm.matrix_world @ arm.data.bones[n].head_local).x for n in centre_bones if n in arm.data.bones]))
++    arm.scale = (k, k, k)
++    arm.location = (dx * k, 0.0, -float(zs.min()) * k)
++    bpy.context.view_layer.update()
++    apply(loc=True)
++    zs = np.array([(hi.matrix_world @ v.co).z for v in hi.data.vertices])
++    out = dict(armature_scale=[round(x, 5) for x in s0], k=round(k, 5), dx=round(dx * k, 5),
++               height=round(float(zs.max() - zs.min()), 4), floor=round(float(zs.min()), 5))
++    print(f'[meshy] normalised: {out}')
++    return out
++
++
+ def weld(ob, dist=1e-6):
+     """Meshy splits the mesh at every UV seam with float-noise positions."""
+     bm = bmesh.new()
+@@ -52,7 +104,8 @@ def make_lowpoly(hi, target_tris, face_weight=0.35):
+     co = np.array([v.co[:] for v in lo.data.vertices])
+     w = np.ones(len(co))
+     w[in_face(co)] = face_weight
+-    w[(co[:, 2] > 0.80) & (co[:, 2] < 0.93) & (np.abs(co[:, 0]) < 0.15) & (co[:, 1] < -0.1)] = 0.5  # neck bow
++    for zmin, zmax, xmax, ymax, wt in PROTECT:  # neck bow / bow tie
++        w[(co[:, 2] > zmin) & (co[:, 2] < zmax) & (np.abs(co[:, 0]) < xmax) & (co[:, 1] < ymax)] = wt
+     vg = lo.vertex_groups.new(name='protect')
+     for i, x in enumerate(w):
+         vg.add([i], float(x), 'REPLACE')
+diff --git a/tools/meshy/lib/profiles.py b/tools/meshy/lib/profiles.py
+new file mode 100644
+index 0000000..a7b5f06
+--- /dev/null
++++ b/tools/meshy/lib/profiles.py
+@@ -0,0 +1,115 @@
++"""Per-figure settings of the Meshy import (tools/meshy/build_meshy_chibi.py --profile <id>).
++
++The tool was written for one figure (the owner's Hikari export: SmartRig bones, 1.7 m, teal eyes,
++pink hair). Everything figure-specific lives here; 'hikari' reproduces the original build exactly.
++
++Keys:
++  normalize   None, or dict(height, recentre): apply the armature scale (Meshy API rigs carry a
++              0.01 Armature scale), scale to the working height and centre the body on x = 0
++  face_box    the face window at the working height (Blender axes: -Y is her front, Z up):
++              decimation guard, 2x texel density, flat skin normals, eye search
++  protect     extra decimation guards [(zmin, zmax, xmax, ymax, weight)]
++  hair        her hair colour test on sRGB bytes (r, g, b int16 arrays) -> bool array: kept out of
++              the flat-normal mask, the eye boxes and (as hair_guard) the shader's closed eyes
++  iris        her iris colour test (same signature)
++  eye_front   only texels in front of this y count for the eyes
++  eye_win     the eye search window round each iris centre: (|dx|, below, above) or (inner, outer,
++              below, above) in working units
++  eye_grow    the closed-eye box round the measured eye (x, y factors)
++  eye_mirror  average the two eye boxes into a mirrored pair (painted faces from image-to-3D are
++              not quite symmetric; the shader and the GLB test expect mirrored boxes)
++  hair_guard  None, or dict(hue=[deg, deg], sat, val): a texel is hair, so a closed eye leaves it
++              as painted, when the HSV of the LINEAR texture colour the shader samples is inside
++              (asset.extras.eyes.hairGuard, figurine.js figGuard; none = Hikari's pink rule)
++  rename      bone renames (source rig -> readable names)
++  add_root    add an unweighted 'root' bone on the floor above this bone (API rigs start at Hips)
++  retarget    Meshy-library humanoid bone -> renamed target bone
++  clips       module in lib/ with build(arm, ...) -> props
++  weapon_kind asset.extras.weaponKind
++"""
++from .rig_names import RENAME as HIKARI_RENAME, RETARGET as HIKARI_RETARGET
++
++
++def _pink_hair(r, g, b):
++    return (r > 185) & (r - g > 45) & (b > g)
++
++
++def _teal_iris(r, g, b):
++    return (g - r > 60) & (b - r > 50)
++
++
++def _blue_hair(r, g, b):
++    # cobalt hair (16, 80, 176), its navy shading (16, 48, 112 .. 16, 16, 48) and the cyan streaks
++    # (48, 208, 240); not the pale blue-grey eye-white shading (208, 208, 240), the goggle lens
++    # or the dark brown lashes
++    return ((b - r > 55) & (b > 1.8 * r) & (b + 20 > g)) | ((b - r > 15) & (b >= g) & (r + g + b < 260))
++
++
++def _amber_iris(r, g, b):
++    # amber-gold irises (187, 116, 36) .. (166, 103, 60); not skin (253, 222, 202), blush or lashes
++    return (r > 120) & (r - b > 80) & (g - b > 30) & (r - g > 15) & (r - g < 120)
++
++
++# Meshy API / animation-library humanoid (v1 names) -> the readable names the game files use
++V1_RENAME = {
++    'Hips': 'hips', 'Spine02': 'spine', 'Spine01': 'spine1', 'Spine': 'chest', 'neck': 'neck', 'Head': 'head',
++    'head_end': 'head_end', 'headfront': 'head_front',
++    'LeftShoulder': 'shoulder_L', 'LeftArm': 'upper_arm_L', 'LeftForeArm': 'forearm_L', 'LeftHand': 'hand_L',
++    'RightShoulder': 'shoulder_R', 'RightArm': 'upper_arm_R', 'RightForeArm': 'forearm_R', 'RightHand': 'hand_R',
++    'LeftUpLeg': 'thigh_L', 'LeftLeg': 'shin_L', 'LeftFoot': 'foot_L', 'LeftToeBase': 'toe_L',
++    'RightUpLeg': 'thigh_R', 'RightLeg': 'shin_R', 'RightFoot': 'foot_R', 'RightToeBase': 'toe_R',
++}
++V1_RETARGET = {k: v for k, v in V1_RENAME.items() if k not in ('head_end', 'headfront')}
++
++PROFILES = {
++    'hikari': dict(
++        normalize=None,
++        face_box=dict(zmin=0.95, zmax=1.36, xmax=0.27, ymax=-0.22),
++        protect=[(0.80, 0.93, 0.15, -0.1, 0.5)],  # neck bow
++        hair=_pink_hair, iris=_teal_iris, eye_front=-0.2, eye_win=(0.14, 0.10, 0.14), eye_grow=(1.12, 1.15),
++        eye_mirror=False, hair_guard=None,
++        rename=HIKARI_RENAME, add_root=None, retarget=HIKARI_RETARGET,
++        library={'Idle_9': 'raw_idle', 'Walking_Woman': 'raw_walk'},
++        clips='clips_hikari', weapon_kind='slash',
++    ),
++    'tenka': dict(
++        # API rig: 0.9 m, Armature scale 0.01, body centre 5.6 cm off x = 0 (side ponytail)
++        normalize=dict(height=1.7, recentre=True),
++        # measured on the normalised figure: front skin z 0.85..1.27, |x| < 0.33; eyes at y ~ -0.21
++        face_box=dict(zmin=0.86, zmax=1.30, xmax=0.31, ymax=-0.12),
++        protect=[(0.72, 0.87, 0.14, -0.08, 0.5)],  # cyan bow tie + collar
++        # her eyes sit closer to the bangs' painted strand outlines than Hikari's: a tighter window
++        # (lash wings included, not the strand outlines between her eyes); a roomier box so the
++        # closed lid covers the painted lashes' corners
++        hair=_blue_hair, iris=_amber_iris, eye_front=-0.12, eye_win=(0.075, 0.12, 0.085, 0.10), eye_grow=(1.2, 1.28),
++        eye_mirror=True,
++        # blue-violet hair + teal streaks: keeps 99.7 % of the hair texels inside the eye boxes as
++        # painted and 0.33 % of the eye / skin texels (scripts/guard_check.py on the bake)
++        hair_guard=dict(hue=[180.0, 260.0], sat=0.6, val=0.12),
++        rename=V1_RENAME, add_root='hips', retarget=V1_RETARGET,
++        library={'Idle_9': 'raw_idle', 'Walking_Woman': 'raw_walk'},
++        clips='clips_tenka', weapon_kind='rifle',
++    ),
++}
++
++
++def get(name):
++    if name not in PROFILES:
++        raise SystemExit(f'unknown profile {name!r} (have: {", ".join(PROFILES)})')
++    return PROFILES[name]
++
++
++def apply_globals(prof):
++    """The lib modules read their figure settings from module globals (Hikari's defaults)."""
++    from . import lowpoly, bake, eyes
++    lowpoly.FACE_BOX = dict(prof['face_box'])
++    lowpoly.PROTECT = list(prof['protect'])
++    bake.HAIR = prof['hair']
++    eyes.HAIR = prof['hair']
++    eyes.IRIS = prof['iris']
++    eyes.FRONT_Y = prof['eye_front']
++    eyes.EYE_WIN = tuple(prof['eye_win'])
++    eyes.EYE_GROW = tuple(prof['eye_grow'])
++    eyes.MIRROR = prof['eye_mirror']
++    eyes.HAIR_GUARD = prof['hair_guard']
++
+diff --git a/tools/meshy/lib/retarget.py b/tools/meshy/lib/retarget.py
+index 0b37a5a..fe7b944 100644
+--- a/tools/meshy/lib/retarget.py
++++ b/tools/meshy/lib/retarget.py
+@@ -34,7 +34,9 @@ def retarget(tgt, clips_glb, bone_map, clip_names):
+             walk(b)
+     R = {n: tgt.data.bones[n].matrix_local.copy() for n in order}
+     inv = {v: k for k, v in bone_map.items()}
+-    root = [n for n in order if tgt.data.bones[n].parent is None][0]
++    # the translated bone: the top-most mapped one (Hikari: her root; an API rig with an added
++    # floor 'root' above Hips: hips)
++    root = next(n for n in order if n in inv)
+     src_root = inv[root]
+     k_leg = ((rest_w(tgt, 'thigh_L').translation.z - rest_w(tgt, 'foot_L').translation.z)
+              / (rest_w(src, 'LeftUpLeg').translation.z - rest_w(src, 'LeftFoot').translation.z))

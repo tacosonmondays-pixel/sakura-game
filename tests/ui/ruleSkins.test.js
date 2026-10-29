@@ -100,13 +100,16 @@ describe('rule skins', () => {
 });
 
 describe('the rule card stays readable on a phone', () => {
-  it('every font size on the rule card (.ma-rule*) is at least 12 px', () => {
-    const css = readFileSync(new URL('../../src/ui/styles/modes.css', import.meta.url), 'utf8');
+  // UI v2 M1: the rule card is a section of stage prep's "i" sheet, drawn by v2-stage.css (.stp-rule*, its text
+  // .stp-p); its sizes are the type tokens (--fs-label 12 px and up on every screen, base.css) or px of 12 and up
+  it('every font size on the rule card (.stp-rule*, .stp-p) is at least 12 px', () => {
+    const css = readFileSync(new URL('../../src/ui/styles/v2-stage.css', import.meta.url), 'utf8');
+    const PX = { '--fs-label': 12, '--fs-body': 13, '--fs-name': 16, '--fs-num-s': 16, '--fs-num': 20 };
     const sizes = [];
-    for (const m of css.matchAll(/([^{}]*\.ma-rule[^{}]*)\{([^}]*)\}/g)) {
-      for (const f of m[2].matchAll(/font-size:\s*([\d.]+)(px|rem)/g)) sizes.push([m[1].trim(), Number(f[1]) * (f[2] === 'rem' ? 16 : 1)]);
+    for (const m of css.matchAll(/([^{}]*\.(?:stp-rule|stp-p\b)[^{}]*)\{([^}]*)\}/g)) {
+      for (const f of m[2].matchAll(/font(?:-size)?:[^;]*?(var\((--fs-[\w-]+)\)|([\d.]+)px)/g)) sizes.push([m[1].trim(), f[2] ? PX[f[2]] ?? 0 : Number(f[3])]);
     }
-    expect(sizes.length).toBeGreaterThan(3);
+    expect(sizes.length).toBeGreaterThan(2);
     for (const [sel, px] of sizes) expect(px, sel).toBeGreaterThanOrEqual(12);
   });
 });

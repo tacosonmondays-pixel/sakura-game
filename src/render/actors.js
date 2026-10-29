@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { buildChibi, buildEnemy, disposeObject } from '../models/index.js';
 import { GeoBuilder, lerpAngle } from './geo.js';
+import { facesCamera, cameraFacing } from './facing.js';
 import { FIELD_COLORS, fxColor } from './themes.js';
 import { WATER_Y, PATH_H } from './terrain.js';
 import { scissorPos } from '../sim/rings.js';
@@ -124,6 +125,7 @@ export class Actors {
     this.teleports = new Map();
     this.victory = false;
     this.fxHook = null; // attack FX (render/attackFx): projectile views, drones, lunges, tossed traps
+    this.cameraYaw = 0; // the battle camera's yaw (BattleRenderer sets it each frame): figures that face it (facing.js)
     this._c = new THREE.Color();
     this._tint = new THREE.Color();
     this._statusColors = {};
@@ -294,8 +296,10 @@ export class Actors {
     const water = this.terrain.isWater(t.tx, t.ty);
     // a girl on a rooftop ('U', Gate Arc) stands on the roof: her model, shadow and rings lift with it
     const lift = water ? 0 : this.terrain.roofAt?.(t.x, t.y) || 0;
+    // (every girl keeps her face to the camera: src/render/facing.js)
+    const faceCam = facesCamera(t.def);
     const v = {
-      uid: t.uid, model, facing: t.facing || 0, pop: 0, water, lift, hero: t.isHero, state: 'idle',
+      uid: t.uid, model, facing: faceCam ? cameraFacing(t.facing, this.cameraYaw) : t.facing || 0, faceCam, pop: 0, water, lift, hero: t.isHero, state: 'idle',
       scale: t.isHero ? HERO_SCALE : TOWER_SCALE, ripple: Math.random() * 3,
     };
     model.position.set(t.x, water ? WATER_Y + 0.03 : 0.05 + lift, t.y);
@@ -316,7 +320,7 @@ export class Actors {
     const k = v.pop;
     const elastic = k >= 1 ? 1 : 1 - Math.cos(k * Math.PI * 2.5) * Math.exp(-k * 5) * (1 - k);
     m.scale.setScalar(v.scale * Math.max(0.01, elastic));
-    v.facing = lerpAngle(v.facing, t.facing || 0, Math.min(1, dt * 12));
+    v.facing = lerpAngle(v.facing, v.faceCam ? cameraFacing(t.facing, this.cameraYaw) : t.facing || 0, Math.min(1, dt * 12));
     m.rotation.y = v.facing;
     if (v.water) m.position.y = WATER_Y + 0.05 + Math.sin(this.time * 2 + v.ripple) * 0.02;
     let state = 'idle';
@@ -467,8 +471,24 @@ export class Actors {
     this.enemies.get(uid)?.model.userData.hitFlash?.();
   }
 
-  playAttack(uid) {
-    this.towers.get(uid)?.model.userData.playAttack?.();
+  playAttack(uid, kind = null) {
+    const ud = this.towers.get(uid)?.model.userData;
+    // (a duo moves from duoEvent, which knows whose weapon fired; the attack FX's clip call carries no kind)
+    if (!ud || ud.duo) return;
+    ud.playAttack?.(kind);
+  }
+
+  /**
+   * A duo's own moves (src/models/duo.js), from the battle's events before the FX layers consume them: each
+   * attack moves the girl whose weapon fired (the beam is Kohaku's `attack_beam`, the shells Tsubaki's
+   * `attack_mortar`), and her ability cast (Prismfall) makes both cheer. Display only.
+   */
+  duoEvent(ev) {
+    if (ev.type !== 'attack' && ev.type !== 'ability') return;
+    const ud = this.towers.get(ev.towerUid)?.model.userData;
+    if (!ud?.duo) return;
+    if (ev.type === 'ability') ud.playCheer?.();
+    else if (ev.turretUid == null) ud.playAttack?.(ev.kind);
   }
 
   setHighlight(uid, on) {

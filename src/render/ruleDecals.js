@@ -95,6 +95,11 @@ export class RuleDecals {
       const gy = (taken ? 1.15 : 0.55) + Math.sin(t * 2 * slow) * 0.08;
       bbA.push(gx, gy, gz, 0.22, 0.22, R.star, c3[0], c3[1], c3[2], 0.9, t * slow);
     }
+    // Tryout Day: the next block's Window Seats during a break, dashed and slowly turning
+    for (const p of info.nextPads || []) {
+      const D = p.r * 2;
+      gA.push(p.x, PATH_H + 0.03, p.y, D * 1.05, D * 1.05, R.ringDashed, 1, 0.95, 0.75, 0.85, t * 0.3 * slow);
+    }
     // forge vents
     const on = info.active && info.inWave && !info.neutral;
     const vc = this._ventCol;

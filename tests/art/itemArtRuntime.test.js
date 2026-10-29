@@ -192,12 +192,14 @@ describe('display only: the battle sim is untouched', () => {
 
   it('the sim id for this co-op protocol is unchanged (a sim change must bump COOP_PROTOCOL)', () => {
     // Known ids per protocol. A protocol bump (a real sim change) adds its own line here.
-    // (9: Gate Arc Acts 1–2; 10: the ultimates release: abilities cast in battle, Tenka, Seiran's Dragonflight to START)
-    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c' };
-    // feature/gate-arc only: Gate Arc Steps 3-6 (Acts 3-6: maps, stages, enemies, the viaduct) change the sim on protocol 10. The
-    // next bundled co-op release sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only
-    // this exact in-progress id passes here.
-    const PENDING_BUMP = { 10: '90c518cdc0c4' };
+    // (9: Gate Arc Acts 1–2; 10: the ultimates release: abilities cast in battle, Tenka, Seiran's Dragonflight to START;
+    // 11: the banners release with the duo Kohaku & Tsubaki (and Kohaku's constant beam), LR Limit Break, UR Resonance
+    // and the staff heroes, and Tryout Day in co-op, in one release)
+    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db' };
+    // feature/gate-arc only: Gate Arc Steps 3-6 (Acts 3-6: maps, stages, enemies, the viaduct) change the sim on protocol 11. The
+    // next bundled co-op release (v0.1.60, COOP 12) sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one.
+    // Only this exact in-progress id passes here.
+    const PENDING_BUMP = { 11: '1eabe99e8d14' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

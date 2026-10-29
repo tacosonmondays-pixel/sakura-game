@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   ABILITY_RULES, ABILITY_KINDS, ABILITY_SCOPES, AUTO_WHEN, ABILITIES, ABILITY_KINDS_RUN, ABILITY_DEPLOYS_RUN,
-  abilityRow, attachAbilities, mergeAbility, abilityAtTier, skillAtLevel, abilityRuns,
+  abilityRow, attachAbilities, mergeAbility, abilityAtTier, skillAtLevel, abilityRuns, abilityWithLr,
 } from '../../src/data/abilities.js';
 import { ABILITY_CHARGE_BASE, abilityChargePerTick, NOT_HASTED_KINDS } from '../../src/sim/gearRules.js';
 import {
@@ -48,6 +48,8 @@ const LIGHTNING = {
   azami: ['checkpoint', 1430], kinu: ['bobbin', 1520], wakaba: ['plan', 1550], yuzuha: ['ops', 1790], ouka: ['assembly', 2090], chigusa: ['greenhouse', 1970], marumi: ['lane', 1910],
   // §5.2 the returning girls (Ruri: her first ⚡ path; Star Falcon 1,700 and Tide Otter 1,860 below)
   fuu: ['gale', 1290], hana: ['falconry', 1280], ruri: ['hound', 1780], noa: ['sanctuary', 1730], iroha: ['hall', 2320], ena: ['bloom', 2170],
+  // the duo (DUO_LR §1.4: 850 + 160 + 400 + 1,350)
+  kohaku_tsubaki: ['refraction', 2760],
 };
 // Ruri's three familiar paths, each with its own ability (§3.1: data may declare one on several paths)
 const RURI_PATHS = { hound: ['ruri.moonPounce', 1780], falcon: ['ruri.starSnatch', 1700], otter: ['ruri.riverRush', 1860] };
@@ -64,13 +66,16 @@ const KIND_OF = {
   azami: 'deploy', kinu: 'boost', wakaba: 'rally', yuzuha: 'deploy', ouka: 'rally', chigusa: 'debuff', marumi: 'runner',
   // §5.2 the returning girls (each one's first ⚡ entry; Ruri's is Moon Pounce)
   fuu: 'move', hana: 'strike', ruri: 'strike', noa: 'rally', iroha: 'deploy', ena: 'debuff',
+  kohaku_tsubaki: 'burst', // DUO_LR §1.4
 };
 // the girls of §5.3 and §5.2 (not part of §5.1's live mix)
-const NEW_GIRLS = ['tenka', ...NEW_GIRL_IDS, ...EXPANSION_IDS];
+const NEW_GIRLS = ['tenka', ...NEW_GIRL_IDS, ...EXPANSION_IDS, 'kohaku_tsubaki'];
 const HERO_SKILL = {
   hikari: ['Morning Rally', 'rally'], luna: ['Moonbrand', 'debuff'], nami: ['Frost Net', 'burst'],
   // §5.2 the returning heroes
   kanna: ['Heavy Beat', 'boost'], yoriko: ['Puppet Hex', 'debuff'], seiran: ['Storm Lance', 'strike'],
+  // BANNERS §D the staff heroes
+  kogane: ['Pod Salvo', 'strike'], norika: ['Whistle Stop', 'strike'],
 };
 // a girl whose data may put her ability on several paths (the crosspath rule still lets only one unlock)
 const MULTI_PATH = { ruri: 3 };
@@ -298,6 +303,18 @@ const SPEC_TOWERS = {
     auto: { when: 'enemies', min: 6 },
     t5: { cooldown: 32, effect: { reachMul: 2, status: [curse(4, 1.6, 6)] } },
   },
+  // the duo (DUO_LR §1.4): 8 shells over 2 s (12 at tier 5), 3× (4×) her shell hit, splash 1.15, 2 (3) shards of 1×
+  // at splash 0.6, Brittle +10% (+15%) for 4 s, 45 s (38 s); the LR form adds a 6× Twin Star, splash 1.6
+  kohaku_tsubaki: {
+    path: 'refraction', id: 'kohaku_tsubaki.prismfall', kind: 'burst', scope: 'map', cooldown: 45, duration: 2.25,
+    effect: {
+      at: 'aim', radius: 1.15, shells: 8, delay: 0.25, every: 0.25, dmgMul: 3, hitsAir: false,
+      shards: 2, shardMul: 1, shardRadius: 0.6, status: [{ type: 'vulnerable', bonus: 0.1, duration: 4 }],
+    },
+    auto: { when: 'cluster', min: 6, radius: 1.5, orBoss: true },
+    t5: { cooldown: 38, duration: 3.25, effect: { shells: 12, dmgMul: 4, shards: 3, status: [{ type: 'vulnerable', bonus: 0.15, duration: 4 }] } },
+    lr: { effect: { finale: { dmgMul: 6, radius: 1.6 } } },
+  },
 };
 const SPEC_HEROES = {
   hikari: {
@@ -341,6 +358,20 @@ const SPEC_HEROES = {
     auto: { when: 'enemies', min: 4 }, // (not in the spec)
     ranks: [{ level: 17, cooldown: 25, effect: { count: 12, dmgMul: 4 } }],
   },
+  // BANNERS §D.3, §D.4: the staff heroes (auto rules: ours, not the spec's)
+  kogane: {
+    id: 'kogane.podSalvo', kind: 'strike', scope: 'local', cooldown: 28, duration: 0,
+    effect: { pick: 'strong', count: 4, reachMul: 1.3, dmgMul: 4, splash: 0.4, armorPen: 3 },
+    auto: { when: 'enemies', min: 4, orElite: true },
+    ranks: [{ level: 17, cooldown: 24, effect: { count: 6, dmgMul: 5 } }],
+  },
+  norika: {
+    // (ground only: hitsAir false; minibosses hold half as long and bosses not at all, the `hold` status's own rule)
+    id: 'norika.whistleStop', kind: 'strike', scope: 'local', cooldown: 26, duration: 0,
+    effect: { pick: 'mode', count: 5, reachMul: 1.3, dmgMul: 3, hitsAir: false, status: [{ type: 'hold', duration: 1.2 }] },
+    auto: { when: 'enemies', min: 5, orElite: true },
+    ranks: [{ level: 17, cooldown: 22, effect: { count: 8, dmgMul: 4, status: [{ type: 'hold', duration: 1.6 }] } }],
+  },
 };
 
 /** The spec's upgrade column applied to its base row: named values replace, the rest carry over. */
@@ -353,8 +384,12 @@ const STATUS_LIST = ['status'];
 const EFFECT_KEYS = {
   strike: ['pick', 'count', 'reachMul', 'reach', 'dmgMul', 'hits', 'fullRamp', 'keepRamp', 'delay', 'armorPen', 'poisonMul', 'splash', 'splashShare', 'spreadPoison', 'after',
     // (A3 M3: Kaze's Swoop's fallback pick, Moon Pounce's reach on top of her range from Kon's spot and its hold bosses shrug off)
-    'fallback', 'reachAdd', 'fromOrigin', 'noBossStatus', ...STATUS_LIST],
-  burst: ['at', 'reachMul', 'radius', 'radiusMul', 'shells', 'delay', 'every', 'reaim', 'dmgMul', 'knockback', 'hitsAir', ...STATUS_LIST],
+    'fallback', 'reachAdd', 'fromOrigin', 'noBossStatus',
+    // (Whistle Stop: ground only)
+    'hitsAir', ...STATUS_LIST],
+  burst: ['at', 'reachMul', 'radius', 'radiusMul', 'shells', 'delay', 'every', 'reaim', 'dmgMul', 'knockback', 'hitsAir', ...STATUS_LIST,
+    // (Prismfall: its shards and the LR Twin Star)
+    'shards', 'shardMul', 'shardRadius', 'finale'],
   // (Kanna's Heavy Beat, a teaser until A5: a status-only splash rider instead of a ModSet)
   boost: ['mods', 'splashArmor', ...STATUS_LIST],
   // (Noa's First Aid Call: the stun half of the ward, and lives from kills near her)
@@ -368,7 +403,9 @@ const EFFECT_KEYS = {
   move: ['reachMul', 'push', 'pushMiniboss', 'pick', 'count', 'carry', 'carryMiniboss', ...STATUS_LIST],
 };
 const PICKS = { strike: ['mode', 'strong', 'priority', 'poisoned', 'air', 'chain'], debuff: ['all', 'veiled', 'strong', 'ground'], move: ['first'] };
-const AUTO_KEYS = ['when', 'min', 'orElite', 'orCaster', 'orVeiled', 'orLeak', 'reach'];
+const AUTO_KEYS = ['when', 'min', 'orElite', 'orCaster', 'orVeiled', 'orLeak', 'reach',
+  // ('cluster': Prismfall's spot radius and its boss rider)
+  'radius', 'orBoss'];
 // the ModSet keys a boost may change (src/sim/mods.js applyModSet; CONTRACTS §3)
 const BOOST_MOD_KEYS = ['damage', 'damageMul', 'rateMul', 'range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'status', 'crit',
   // the new girls: Kinu's Blade Spiral rides on her ring (src/sim/rings.js)
@@ -480,6 +517,11 @@ function defErrors(d, where) {
   }
   if ('splashShare' in e && !(e.splashShare > 0 && e.splashShare <= 1)) errs.push(`${where}: splashShare in (0, 1]`);
   if (d.kind === 'burst' && !e.at) errs.push(`${where}: a burst needs a point (at)`);
+  if ('shards' in e && !(Number.isInteger(e.shards) && e.shards > 0 && e.shardMul > 0 && e.shardRadius > 0)) errs.push(`${where}: shards need a whole count, a share and a radius`);
+  if (e.finale) {
+    for (const k of Object.keys(e.finale)) if (!['dmgMul', 'radius'].includes(k) || !(e.finale[k] > 0)) errs.push(`${where}: finale ${k}`);
+    if (d.duration < (e.delay ?? 0) + (e.shells ?? 1) * (e.every ?? 0) - 1e-9) errs.push(`${where}: duration ${d.duration}s ends before the finale`);
+  }
   if (d.kind === 'burst' && !(e.radius > 0) && !(e.radiusMul > 0)) errs.push(`${where}: a burst needs a radius`);
   // a multi-shell burst lasts until its last shell lands
   if ((e.shells ?? 1) > 1) {
@@ -543,7 +585,8 @@ describe('ability rules and vocabulary', () => {
     expect(ABILITY_KINDS).toEqual(['boost', 'rally', 'strike', 'burst', 'debuff', 'econ', 'deploy', 'move', 'zone', 'runner']);
     expect(ABILITY_SCOPES).toEqual(['local', 'map', 'player']);
     // (A3 M3: 'flyers' for Kaze's Swoop, 'sabotage' for First Aid Call)
-    expect(AUTO_WHEN).toEqual(['enemies', 'elite', 'leak', 'veiled', 'caster', 'poisoned', 'ready', 'flyers', 'sabotage']);
+    // ('cluster' for Prismfall: enemies around one spot, or a boss)
+    expect(AUTO_WHEN).toEqual(['enemies', 'elite', 'leak', 'veiled', 'caster', 'poisoned', 'ready', 'flyers', 'sabotage', 'cluster']);
     // every rule a row uses is one the sim knows
     for (const u of UNITS) for (const e of entriesOf(u)) expect(AUTO_WHEN, `${e.id} auto ${e.auto.when}`).toContain(e.auto.when);
     expect(entriesOf(UNIT_MAP.hana)[0].auto.when).toBe('flyers');
@@ -667,16 +710,18 @@ describe('numbers', () => {
 
   test.each(all)('%s: valid vocabulary, effect fields, statuses and auto-cast rule at every state', (id, u) => {
     for (const [where, d] of states(u)) expect(defErrors(d, where)).toEqual([]);
+    // an LR form (src/data/abilities.js `lr`: Prismfall · Twin Star) is a valid definition at tier 3 and tier 5 too
+    for (const a of entriesOf(u)) if (a.lr) for (const tier of [3, 5]) expect(defErrors(abilityWithLr(abilityAtTier(a, tier), a, true), `${id} LR T${tier}`)).toEqual([]);
     for (const base of entriesOf(u)) {
       expect(Object.keys(base.auto).every((k) => AUTO_KEYS.includes(k)), `${id} auto keys`).toBe(true);
       expect(AUTO_WHEN).toContain(base.auto.when);
       // (A3 M3: 'flyers' and 'sabotage' also take a whole count of enemies; 'leak' a share of the path)
-      if (['enemies', 'poisoned', 'flyers', 'sabotage'].includes(base.auto.when)) expect(Number.isInteger(base.auto.min) && base.auto.min > 0, `${base.id} min`).toBe(true);
+      if (['enemies', 'poisoned', 'flyers', 'sabotage', 'cluster'].includes(base.auto.when)) expect(Number.isInteger(base.auto.min) && base.auto.min > 0, `${base.id} min`).toBe(true);
       if (base.auto.when === 'leak' && 'min' in base.auto) expect(base.auto.min > 0 && base.auto.min < 1).toBe(true);
       if ('orLeak' in base.auto) expect(base.auto.orLeak > 0 && base.auto.orLeak < 1).toBe(true);
       // an upgrade changes only what the base defines (and never the kind, scope or id); no cooldownMul /
       // durationAdd any more: every upgrade says its own numbers
-      const over = u.kind === 'hero' ? base.ranks : [base.t5];
+      const over = u.kind === 'hero' ? base.ranks : [base.t5, ...(base.lr ? [base.lr] : [])];
       for (const o of over) {
         expect(o, `${id} upgrade`).toBeTruthy();
         for (const k of Object.keys(o)) expect(['level', 'cooldown', 'duration', 'effect'], `${id} upgrade key ${k}`).toContain(k);
@@ -720,7 +765,7 @@ describe('numbers', () => {
 
   test('map-scope abilities: Umeko, Shiro, Hotaru, Ouka, Hana (one cooldown per player) and Luna\'s skill', () => {
     const map = UNITS.flatMap(entriesOf).filter((d) => d.scope === 'map').map((d) => d.id.split('.')[0]);
-    expect(map.sort()).toEqual(['hana', 'hotaru', 'luna', 'ouka', 'shiro', 'umeko']);
+    expect(map.sort()).toEqual(['hana', 'hotaru', 'kohaku_tsubaki', 'luna', 'ouka', 'shiro', 'umeko']);
   });
 
   test('ability hits scale with her hit at the ⚡ tier-3 build (spec §5.1 examples)', () => {
@@ -738,7 +783,8 @@ describe('numbers', () => {
     const ids = UNITS.flatMap(entriesOf).map((e) => e.id);
     expect(ids.length).toBe(UNITS.length + 2); // Ruri's three familiar forms
     expect(new Set(ids).size).toBe(ids.length);
-    for (const id of ids) expect(id).toMatch(/^[a-z]+\.[a-zA-Z]+$/);
+    // (a duo's id joins its members: kohaku_tsubaki)
+    for (const id of ids) expect(id).toMatch(/^[a-z]+(_[a-z]+)?\.[a-zA-Z]+$/);
   });
 
   test('the returning girls at their unlock builds (§5.2 examples, base stats)', () => {
