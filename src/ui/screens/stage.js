@@ -623,8 +623,8 @@ function supportRow(stage, state, ctx) {
   };
   const row = h('button.stp-row.stp-support', { type: 'button', 'data-testid': 'prep-support', 'aria-label': who ? `Friend Support: ${who}. Change` : 'Friend Support: borrow a friend\'s girl', onclick: open },
     h('span.lbl.stp-row-k', 'Support'),
-    // (one line that gives way first; it pushes the chevron to the row's end, as on the Drops row)
-    h('span.stp-support-pick', { style: { flex: '1 1 auto', minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, who || 'Borrow a friend\'s girl'),
+    // (it takes the row's room and wraps to two lines before it would cut; it pushes the chevron to the row's end)
+    h('span.stp-support-pick', who || 'Borrow a friend\'s girl'),
     ico('chevR', 'ui-ico.stp-chev'));
   return row;
 }
@@ -651,16 +651,21 @@ function safeMap(id) {
 function mapBand(stage, state, ctx, f, supportEl = null) {
   const map = safeMap(stage.mapId);
   const tier = MAP_TIER_VIEW[f.played.tier];
-  const thumb = h('div.stp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: 480, height: 300 }), map, stage.rule, 480, 300) : '' });
-  // the band's height is the screen's; the map fills it edge to edge
-  thumb.querySelector('svg')?.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  // the whole map, always: drawn at its own shape and fitted (never cropped) into the band, the edge's colour around
+  // it when the band's shape differs (a short landscape band, the Support row taking height)
+  const tw = 480;
+  const th = map ? Math.round((tw * (map.height || 12)) / (map.width || 20)) : 300;
+  const thumb = h('div.stp-thumb', { 'aria-hidden': 'true', html: map ? withRuleMarks(stageThumbSVG(map, { width: tw, height: th }), map, stage.rule, tw, th) : '' });
+  const svg = thumb.querySelector('svg');
+  svg?.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  const edge = svg?.querySelector(':scope > rect')?.getAttribute('fill');
   const tags = [
     tier ? h('span.stp-tier', { style: { '--tier': tier.color }, title: `Map tier: ${tier.name}` }, tier.name) : null,
     f.dropMul > 1 ? h('span.ui-chip.cy.stp-tag', `${f.dropMul}× drops`) : null,
     f.isEndless ? h('span.ui-chip.ink.stp-tag', 'Endless') : null,
     f.fpOn ? h(`span.ui-chip.ink.stp-tag.stp-fp-${state.freeplay}`, { 'data-testid': 'prep-fp-badge' }, `Freeplay · ${f.fpName}`) : null,
   ].filter(Boolean);
-  const mapEl = h('div.ui-panel.stp-map', thumb,
+  const mapEl = h('div.ui-panel.stp-map', { style: { '--map-ar': `${tw} / ${th}`, ...(edge ? { '--map-edge': edge } : {}) } }, thumb,
     tags.length ? h('div.stp-map-tags', tags) : null,
     h('div.stp-plate', stage.kind === 'campaign' ? h('span.num.stp-plate-id', stage.id) : null, h('span.stp-plate-name', stage.name)));
 
