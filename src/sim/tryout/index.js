@@ -18,12 +18,14 @@ import {
   drawAssignments, storeBaseline, waveEndCheck, evaluatePeriod, killPoints, pointsOf, bossSpawned, bossGone, foeEvent,
 } from './assign.js';
 import { drawSeats, seatsOf, assignSeats, openBreak, moveGirl, undoMove, snack, brushUp } from './breaks.js';
+import { RANDOM_REFUSED, autoChoice, autoDue } from './random.js';
 
 export { assignProgress, targetsOf } from './assign.js';
 export { buildTryoutPlan, buildTryoutStage, mapChoices } from './plan.js';
 export { bandStats, runLevelOf } from './power.js';
 export { canMoveGirl, passMax } from './breaks.js';
 export { periodAffixes } from './plan.js';
+export { pendingAutoPick, randomThree } from './random.js';
 
 const newCtr = () => ({ spent: 0, placed: 0, upgrades: 0, sells: 0, ults: 0 });
 
@@ -143,6 +145,8 @@ export function createTryout(sim, cfg) {
     subject: null,
     nextSubject: null,
     dare: null,
+    // Random Class (§20.4): the field only exists in a random run (a normal run's state and digests stay as they were)
+    ...(cfg.random === true ? { random: true } : null),
     players: cfg.players.map((p) => ({
       squad: (p.squad || []).filter((id) => sim.data.unit(id)),
       cards: [],
@@ -150,7 +154,7 @@ export function createTryout(sim, cfg) {
       varsity: {},
       refills: {},
       bank: 0,
-      erasers: perks?.eraser ? Math.min(TRYOUT.erasers.max, g.erasers + TRYOUT.perks.eraser) : g.erasers,
+      erasers: cfg.random === true ? 0 : perks?.eraser ? Math.min(TRYOUT.erasers.max, g.erasers + TRYOUT.perks.eraser) : g.erasers,
       passes: 0,
       passBonus: 0,
       squadAdd: 0,
@@ -208,7 +212,9 @@ function maybeClose(sim) {
 /** A gone player's open window resolves at once: a pick hands in, a break becomes Ready (§11). */
 function autoResolve(sim, owner) {
   const p = sim.tryout.players[owner];
-  if (p.win === 'pick') resolvePick(sim, owner, -1);
+  // (Random Class: the pick is drawn now, as its reveal would have drawn it; a Whole Class follow-up too)
+  if (p.win === 'pick' && sim.tryout.random) for (let g = 0; g < 8 && p.win === 'pick' && p.offer; g++) autoTake(sim, owner);
+  else if (p.win === 'pick') resolvePick(sim, owner, -1);
   if (p.win === 'break') p.win = null;
 }
 
@@ -225,15 +231,25 @@ export function tryoutGone(sim, owner, gone = true) {
 }
 
 /**
- * Every step (co-op only): each player's open window has its own clock (a pick and the break after it each get the
- * whole timeout); a window that runs out resolves by itself, on the same tick everywhere, and only that window.
+ * Every step (co-op, and solo in Random Class): each player's open window has its own clock (a pick and the break after
+ * it each get the whole timeout); a window that runs out resolves by itself, on the same tick everywhere, and only that
+ * window. Random Class: an open pick lands by itself revealTicks steps after the step its offer opened (§20.4).
  */
 export function tryoutTick(sim) {
   const ty = sim.tryout;
-  if (!ty.coop || !windowOpen(sim)) return;
+  if ((!ty.coop && !ty.random) || !windowOpen(sim)) return;
   let closed = false;
   ty.players.forEach((p, i) => {
     if (!p.win) return;
+    if (ty.random && p.win === 'pick') {
+      p.winTicks++;
+      if (autoDue(p)) {
+        autoTake(sim, i);
+        closed = true;
+      }
+      return;
+    }
+    if (!ty.coop) return;
     p.winTicks++;
     if (p.winTicks < TRYOUT.coopTimeoutTicks) return;
     if (p.win === 'pick') resolvePick(sim, i, -1);
@@ -241,6 +257,20 @@ export function tryoutTick(sim) {
     closed = true;
   });
   if (closed) maybeClose(sim);
+}
+
+/**
+ * Random Class: takes player `owner`'s open pick as autoChoice draws it (stream `auto:<pick>:<owner>:<seq>`). A Whole
+ * Class follow-up still open after it gets its own reveal (the landing step counts as its first).
+ */
+function autoTake(sim, owner) {
+  const p = sim.tryout.players[owner];
+  const o = p.offer;
+  const ch = autoChoice(sim, owner);
+  if (!ch) return;
+  sim._emit('tryoutAutoPick', { owner, pick: o.pick, seq: o.seq, index: ch.index, path: ch.path, card: ch.index >= 0 ? { ...o.cards[ch.index] } : null });
+  resolvePick(sim, owner, ch.index, ch.path);
+  if (p.win === 'pick' && p.offer) p.winTicks = 1;
 }
 
 function updatePity(p, offer, tookGirl) {
@@ -384,6 +414,8 @@ export function tryoutCommand(sim, slot, op, args = []) {
   const p = ty?.players[slot];
   if (!p) return { ok: false, reason: 'slot' };
   if (sim.state === 'won' || sim.state === 'lost') return { ok: false, reason: 'ended' };
+  // Random Class (§20.4): the Sim takes every pick; Erasers, Hand it in later and Double Dare are off
+  if (ty.random && RANDOM_REFUSED.includes(op)) return { ok: false, reason: 'random' };
   const [a, b, c] = args;
   switch (op) {
     case 'take':
@@ -650,7 +682,7 @@ export function tryoutWaveEnd(sim) {
   boardPeriodEnd(sim);
   ty.players.forEach((pl, i) => {
     pl.cleared += cleared[i];
-    if (cleared[i] >= 3) pl.erasers = Math.min(TRYOUT.erasers.max, pl.erasers + TRYOUT.erasers.perfectBonus);
+    if (cleared[i] >= 3 && !ty.random) pl.erasers = Math.min(TRYOUT.erasers.max, pl.erasers + TRYOUT.erasers.perfectBonus);
   });
   ty.base = null;
   sim._emit('tryoutPeriod', { period: p, cleared, score: ty.periods[ty.periods.length - 1].score });

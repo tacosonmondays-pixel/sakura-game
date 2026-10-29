@@ -403,6 +403,15 @@ for (const { name, r } of results) {
   if (!b.sameViews) failures.push(`${name}: its two Tryout Day views disagreed`);
   for (const k of TY_KEYS) if (JSON.stringify(b[k]) !== JSON.stringify(ref.tryout[k])) failures.push(`${name}: tryout ${k} ${JSON.stringify(b[k])} ≠ ${JSON.stringify(ref.tryout[k])} (${results[0].name})`);
 }
+// Random Class (§20.4): no pick commands; every pick lands inside the Sim, a rejoin at wave 8 mid-reveal
+const TR_KEYS = [...TY_KEYS, 'picks'];
+log('\nScripted co-op TRYOUT DAY Random Class run (two views, drawn threes, auto-picks, a rejoin mid-reveal at wave 8):');
+for (const { name, r } of results) {
+  const b = r.tryoutRandom;
+  log(`  ${name.padEnd(46)} wave ${b.wave} · ♥ ${b.lives} · score ${b.score} · picks ${b.picks.map((x) => x.split(',').length).join('+')} · ${b.digests} calm digests → ${b.lastDigest} · hash ${b.hash}`);
+  if (!b.sameViews) failures.push(`${name}: its two Random Class views disagreed`);
+  for (const k of TR_KEYS) if (JSON.stringify(b[k]) !== JSON.stringify(ref.tryoutRandom[k])) failures.push(`${name}: tryoutRandom ${k} ${JSON.stringify(b[k])} ≠ ${JSON.stringify(ref.tryoutRandom[k])} (${results[0].name})`);
+}
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
 for (const fn of Object.keys(ref.math.native)) {
   const groups = new Map();

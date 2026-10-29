@@ -11,6 +11,7 @@ import { unitBattleStats } from './progression.js';
 import { recordMax } from './missions.js';
 import { mapChoices, TRYOUT_GRADES } from '../sim/tryout/plan.js';
 import { draftOf, BIGGER_DRAFT } from '../sim/tryout/draft.js';
+import { randomPlayers } from '../sim/tryout/random.js';
 
 const GRADE_KEY = TRYOUT_META.keys.grade;
 const whole = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
@@ -125,12 +126,15 @@ export function activePerks(profile, { weekly = false } = {}) {
 
 /**
  * A New Run's record: the run config, the frozen pool, the squad, the guards; the battle snapshot comes later
- * (src/ui/battle/tryoutSaver.js).
+ * (src/ui/battle/tryoutSaver.js). `random`: Random Class (§20.4, never in the Weekly): the squad is the Sim's draw from
+ * the player's six (`squad` is ignored), and the record keeps `random: true` for the run's Sim config.
  */
-export function newRunRecord(profile, { seed, grade = 1, length = 'half', mapId, hero, squad, now = Date.now(), simId = null, weekly = null, practice = false, shared = false, perks = null }) {
+export function newRunRecord(profile, { seed, grade = 1, length = 'half', mapId, hero, squad, now = Date.now(), simId = null, weekly = null, practice = false, shared = false, perks = null, random = false }) {
   // the Weekly Timetable plays everyone at the floor: no frozen pool, the hero's own stats left out, no Desk Supplies
   const floor = Number.isInteger(weekly);
   const h = heroEntry(profile, hero);
+  const rnd = random === true && !floor;
+  const pool = floor ? {} : frozenPool(profile);
   return {
     v: 1,
     id: `ty-${Math.floor(now).toString(36)}-${(seed >>> 0).toString(36)}`,
@@ -141,8 +145,9 @@ export function newRunRecord(profile, { seed, grade = 1, length = 'half', mapId,
     tableVersion: tryoutTableVersion(),
     simId,
     hero: floor && h ? { unitId: h.unitId, stats: {} } : h,
-    pool: floor ? {} : frozenPool(profile),
-    squad: squad.slice(0, TRYOUT.squad.start),
+    pool,
+    squad: rnd ? randomPlayers({ random: true, seed, pools: [pool] }, [{}])[0].squad : squad.slice(0, TRYOUT.squad.start),
+    ...(rnd ? { random: true } : null),
     perks: floor ? {} : { ...(perks || activePerks(profile)) },
     ...(floor ? { weekly } : null),
     ...(shared ? { shared: true } : null),

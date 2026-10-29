@@ -116,8 +116,9 @@ export function normalizeCode(code) {
 }
 
 /**
- * A Tryout Day room setting: null (off) or { seed, grade, length, mapId } with the map one of the
+ * A Tryout Day room setting: null (off) or { seed, grade, length, mapId, random } with the map one of the
  * seed's two mapChoices (the first when it is not). A Half or Full Day; Grades 1 to TRYOUT_GRADES (the host's ladder).
+ * `random`: Random Class (§20.4, §20.7; clampTryout keeps only `true`, so an old or unknown value is off).
  */
 export function tryoutSetting(t) {
   const c = clampTryout(t);
@@ -131,6 +132,7 @@ export function tryoutSetting(t) {
 /** Two Tryout Day settings are the same run (both off counts). */
 export function sameTryout(a, b) {
   if (!a || !b) return !a && !b;
+  if (!!a.random !== !!b.random) return false;
   return a.seed === b.seed && a.grade === b.grade && a.length === b.length && a.mapId === b.mapId;
 }
 
@@ -986,7 +988,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
   function runStart(seed) {
     const player = (p, slot) => ({
       slot, uid: p.uid, name: p.name, loadout: [], hero: p.runHero || null, color: COOP.colors[slot],
-      draft: p.draft.slice(), pool: p.pool || {}, ...(p.autoAbil === true ? { autoAbil: true } : null),
+      draft: (p.draft || []).slice(), pool: p.pool || {}, ...(p.autoAbil === true ? { autoAbil: true } : null),
     });
     return {
       v: version,
@@ -1019,7 +1021,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     // freeplay setting the room has now (not one from before the host changed it)
     // (and a Tryout Day run needs that run's Ready, and both drafts of exactly 3)
     get: () => isHost && s.phase === 'lobby' && !!s.peer && peerSeesMe && s.peer.ready && s.peer.freeplay === s.freeplay && s.peer.mode === s.mode
-      && sameTryout(s.peer.tryout, s.tryout) && (!s.tryout || (draftReady(s.me.draft) && draftReady(s.peer.draft))),
+      && sameTryout(s.peer.tryout, s.tryout) && (!s.tryout || s.tryout.random === true || (draftReady(s.me.draft) && draftReady(s.peer.draft))),
     enumerable: true,
   });
   Object.defineProperty(s, 'room', { get: () => room, enumerable: false });

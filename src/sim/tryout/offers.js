@@ -122,6 +122,8 @@ export function cardOk(sim, owner, inst, pick) {
   if (c.solo && ty.coop) return false;
   if (c.next && last) return false;
   if (c.heals && !sim.canHeal()) return false;
+  // Random Class (§20.4): cards that only change how a player chooses (Multiple Choice) are never offered
+  if (ty.random && TRYOUT.random.off.includes(inst.id)) return false;
   switch (c.group) {
     case 'personal':
       if (!p.squad.includes(inst.unit)) return false;

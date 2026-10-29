@@ -194,6 +194,10 @@ export const TRYOUT = deepFreeze({
   // an open pick or break resolves itself after this many lockstep ticks (90 s at 1×; 45 s of real time at 2×)
   coopTimeoutTicks: 5400,
 
+  // ---- Random Class (§20.4): every pick is drawn inside the Sim this many ticks after its offer opens (2 s at 1×);
+  // `off`: cards that only change how a player chooses (Multiple Choice), never offered in a random run
+  random: { revealTicks: 120, off: ['B07'] },
+
   // ---- Double Dare (§8.3): the curse is one of these spawn mods (the freeplay affixes) ------------
   dares: [
     { id: 'swift', speed: 1.2 },

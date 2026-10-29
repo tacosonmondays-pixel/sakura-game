@@ -140,6 +140,8 @@ export function clampTryout(t) {
     grade: Math.min(TRYOUT_GRADE_MAX, Math.max(1, g)),
     length: t.length === 'full' ? 'full' : 'half',
     mapId: typeof t.mapId === 'string' ? t.mapId.slice(0, 64) : null,
+    // Random Class (§20.7): only `true` turns it on (an old or unknown value is off, and the key stays out)
+    ...(t.random === true ? { random: true } : null),
   };
 }
 
