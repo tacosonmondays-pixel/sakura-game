@@ -3,8 +3,9 @@
 //
 // A tower girl's ⚡ tip ("<path> tier 3 teaches <ability>: …") is about her ability. The ability bar
 // has shipped (A3), so the menus show it — but only when her first ⚡ ability runs in this build
-// (abilityRuns, the one rule in src/data/abilities.js): Kage, Suzu and Chika (and, after M3, Fuu and
-// Iroha) never advertise a button that isn't there (owner default Q3). Not part of the co-op hash.
+// (abilityRuns, the one rule in src/data/abilities.js): a girl whose ability waits never advertises a button that isn't
+// there (owner default Q3; every tower's runs since A4–A6: the deploys, Fuu's Backdraft Fan, Iroha's Mirror Shift). Not
+// part of the co-op hash.
 import { abilityRuns } from './abilities.js';
 
 /** The switch for every menu at once (false: no ⚡ tip anywhere, as before the ability bar shipped). */

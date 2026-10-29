@@ -156,10 +156,7 @@ export class MirrorFx {
     return !!s && s.shiftUntil > this.sim.time;
   }
 
-  /**
-   * Dev / e2e preview of the Shift window (the sim does not run Mirror Shift yet: its deploy type waits for the
-   * mirror redirect). Display only.
-   */
+  /** Dev / e2e preview of the Shift window (display only; the sim runs Mirror Shift since A6). */
   previewShift(uid, seconds) {
     const s = this._state(uid);
     s.shiftUntil = this.sim.time + seconds;
@@ -291,6 +288,15 @@ export class MirrorFx {
       bbA.push(ex, GLASS_H, ey, 0.4 * Math.sqrt(rs), 0.58 * Math.sqrt(rs), R.mirror || R.glow, LILAC[0], LILAC[1], LILAC[2], ea);
       bbA.push(ex, GLASS_H, ey, 0.6, 0.75, R.glow, PLUM[0], PLUM[1], PLUM[2], 0.18 + 0.25 * fl);
       this.b.groundA.push(x, 0.075, y, 1.0, 1.0, R.ringDashed || R.ring, LILAC[0], LILAC[1], LILAC[2], 0.35, rm ? 0 : now * 0.8);
+    }
+    // Infinite Reflection's second mirror (tier 5 Mirror Shift: the sim's t.mirror2 while the cast runs): a standing
+    // glass of light where it was placed, with the same dashed ring
+    const m2 = t.mirror2;
+    if (m2) {
+      const pulse = rm ? 0 : 0.06 * Math.sin(now * 5 + t.uid + 1);
+      bbA.push(m2.x, GLASS_H, m2.y, 0.42 * Math.sqrt(rs), 0.6 * Math.sqrt(rs), R.mirror || R.glow, LILAC[0], LILAC[1], LILAC[2], 0.55 + pulse);
+      bbA.push(m2.x, GLASS_H, m2.y, 0.65, 0.8, R.glow, PLUM[0], PLUM[1], PLUM[2], 0.25);
+      this.b.groundA.push(m2.x, 0.075, m2.y, 1.0, 1.0, R.ringDashed || R.ring, LILAC[0], LILAC[1], LILAC[2], 0.35, rm ? 0 : -now * 0.8);
     }
     // the arrival shimmer: a soft column and sparkles circling it (still on Reduce motion)
     const ak = (now - s.arriveT) / ARRIVE_LIFE;

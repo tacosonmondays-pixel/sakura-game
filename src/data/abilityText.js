@@ -185,7 +185,7 @@ export const ABILITY_TEXT = Object.freeze({
     'a call that protects the girls around her and brings back lives',
     'First Aid Call lasts {dur}s, brings back up to {lifeMax} lives and recharges in {cd}s.'),
   'iroha.mirrorShift': t('Mirror Shift', 'mirror',
-    'Her mirror panel jumps to where you aim (or the road spot nearest the leader in her reach) and for {dur}s splits every one of your shots that crosses it in two, once each.',
+    'Her mirror panel jumps to where you aim (or the road spot nearest the leader in her reach) and stays there; for {dur}s every shot that crosses it, yours or your ally\'s, splits in two, once each.',
     'a mirror that splits the team\'s shots in two',
     'Infinite Reflection: the panel splits shots for good, Mirror Shift adds a second panel for {dur}s, and it recharges in {cd}s.'),
   'ena.omenCard': t('Omen Card', 'curse',

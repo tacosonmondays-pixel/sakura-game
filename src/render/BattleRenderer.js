@@ -33,6 +33,7 @@ import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { RosterFx } from './rosterFx.js';
 import { StaffFx } from './staffFx.js';
 import { Companions } from './companions.js';
+import { ShadowDoubles } from './shadowDoubles.js';
 import { createAbilityFx } from './abilityFx.js';
 import { deployFx } from './deployFx.js';
 import { fmtNum } from '../ui/format.js';
@@ -271,6 +272,24 @@ export function createBattleRenderer(container, sim, opts = {}) {
     placedProps = null;
     console.warn('[placed props] disabled after an error', err);
   }
+  // Kage's Shadow Doubles (src/render/shadowDoubles.js): her chibi in shadow on the road spots the sim picked;
+  // decoration, so an error switches them off for this battle
+  const doubles = new ShadowDoubles({ sim, scene, batches, atlas, quality, skins: opts.skins });
+  let doublesBroken = false;
+  function doublesSafe(fn) {
+    if (doublesBroken) return;
+    try {
+      fn();
+    } catch (err) {
+      doublesBroken = true;
+      try {
+        doubles.dispose();
+      } catch {
+        /* leave what is drawn */
+      }
+      console.warn('[shadow doubles] disabled after an error', err);
+    }
+  }
   // the staff heroes: Norika's barricades, Kogane's plow and Big Yellow (src/render/staffFx.js); decoration,
   // so an error switches them off for this battle
   const staff = new StaffFx({ sim, scene, fx, batches, atlas, actors, quality, reduceMotion });
@@ -359,6 +378,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     staff.setQuality(q);
     companions.setQuality(q);
     placedProps?.setQuality(q);
+    doublesSafe(() => doubles.setQuality(q));
     actors.setQuality(q);
     overlays.setQuality(q);
     resize();
@@ -807,6 +827,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       }
     }
     actors.drawGround(d);
+    doublesSafe(() => doubles.update(d));
     if (attackFx) fxSafe(() => attackFx.update(d));
     roster.update(d);
     staffSafe(() => staff.update(d));
@@ -1250,6 +1271,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       staff.dispose();
       companions.dispose();
       placedProps?.dispose();
+      doublesSafe(() => doubles.dispose());
       actors.dispose();
       terrain.dispose();
       for (const b of Object.values(batches)) {

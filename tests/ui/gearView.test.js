@@ -123,19 +123,20 @@ describe('setView', () => {
     return setView(p, id);
   };
 
-  it('a full set whose trick does nothing for her is never "on": First Bell on Kage (her ability comes later) and Miko (a rally)', () => {
-    const kage = clubSet('kage', 'bell');
-    expect([kage.club.pieces, kage.two.on, kage.trick.on, kage.trick.idle]).toEqual([3, true, false, 'later']);
-    expect(kage.trick.idleText).toEqual({ long: 'First Bell: no effect on her yet (her ability comes in a later update)', short: 'First Bell: no effect yet' });
+  it('a full set whose trick does nothing for her is never "on": First Bell on Kanna (her skill comes later) and Miko (a rally)', () => {
+    const kanna = clubSet('kanna', 'bell');
+    expect([kanna.club.pieces, kanna.two.on, kanna.trick.on, kanna.trick.idle]).toEqual([3, true, false, 'later']);
+    expect(kanna.trick.idleText).toEqual({ long: 'First Bell: no effect on her yet (her ability comes in a later update)', short: 'First Bell: no effect yet' });
     const miko = clubSet('miko', 'bell');
     expect([miko.trick.on, miko.trick.idle]).toEqual([false, 'kind']);
     expect(miko.trick.idleText).toEqual({ long: 'First Bell: no effect on her (not team rallies or debuffs)', short: 'First Bell: no effect' });
-    // the girls it charges: a strike, an econ, a map strike, a hero's burst and strike
-    for (const id of ['aoi', 'momo', 'shiro', 'nami', 'seiran']) {
+    // the girls it charges: a strike, an econ, a map strike, a hero's burst and strike, the A4 deploys, Fuu's move (A5)
+    // and Iroha's mirror (A6)
+    for (const id of ['aoi', 'momo', 'shiro', 'nami', 'seiran', 'kage', 'suzu', 'chika', 'fuu', 'iroha']) {
       const s = clubSet(id, 'bell');
       expect([s.trick.on, s.trick.idle, s.trick.idleText], id).toEqual([true, null, null]);
     }
-    for (const [id, why] of [['suzu', 'later'], ['chika', 'later'], ['kanna', 'later'], ['hikari', 'kind'], ['luna', 'kind'], ['umeko', 'kind']]) {
+    for (const [id, why] of [['kanna', 'later'], ['hikari', 'kind'], ['luna', 'kind'], ['umeko', 'kind']]) {
       const s = clubSet(id, 'bell');
       expect([s.trick.on, s.trick.idle], id).toEqual([false, why]);
     }

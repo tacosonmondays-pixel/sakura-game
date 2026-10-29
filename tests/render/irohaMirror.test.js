@@ -236,6 +236,22 @@ describe('mirror panel on the board (RosterFx + MirrorFx)', () => {
     t.abil = { id: 'iroha.mirrorShift', active: 30 };
     expect(roster.mirrors.shifting(t)).toBe(true);
   });
+
+  it('Infinite Reflection: the sim\'s second mirror (t.mirror2) draws a glass of light and a ring where it stands, gone with it', () => {
+    const { roster, t } = board();
+    const at = [];
+    const rec = { push: (x, h, y) => { at.push([x, y]); return true; } };
+    roster.mirrors.b = { ...roster.mirrors.b, bbA: rec, groundA: rec };
+    roster.update(1 / 60);
+    expect(at.some(([x, y]) => x === 3.5 && y === 4.25)).toBe(false);
+    t.mirror2 = { x: 3.5, y: 4.25 };
+    roster.update(1 / 60);
+    expect(at.filter(([x, y]) => x === 3.5 && y === 4.25).length).toBeGreaterThanOrEqual(3);
+    at.length = 0;
+    t.mirror2 = null;
+    roster.update(1 / 60);
+    expect(at.some(([x, y]) => x === 3.5 && y === 4.25)).toBe(false);
+  });
 });
 
 function digest(sim) {

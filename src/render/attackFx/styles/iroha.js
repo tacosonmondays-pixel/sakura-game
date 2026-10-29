@@ -4,8 +4,9 @@
 // flips toward the shot, a glint sweeps it and a small flash marks where the bolt left (rate-limited
 // there); her hand flashes when she fires too.
 //   P1+ T3: a second, wider plum trail (as before)
-//   Mirror Shift (her Mirror Hall ⚡) running: a bolt that left the panel draws split in two (a fainter
-//      twin peeling off it) and the panel shows a ghost echo (mirrorFx)
+//   Mirror Shift (her Mirror Hall ⚡) running: the panel shows a ghost echo (mirrorFx); the split shots are the sim's
+//      own copies (src/sim/mirrors.js: allies' shots crossing the glass), drawn like any bolt, so nothing is faked here
+//      (her panel bolts never split: they are born split)
 //   P2 Shattered Glass: her splash hits scatter glinting glass shards, more with each tier —
 //      Splintered Glass (T2) 3, Glass Shards (T3) 5 + a glitter ring, Glass Storm (T4) 7 + sparkles,
 //      Kaleidoscope Burst (T5) 9 + a kaleidoscope flare (six blades blooming out, a turning star);
@@ -157,18 +158,13 @@ export const iroha = {
     const sy = p.y - (p.vy / vl) * (p.travel || 0);
     rec.sx = sx;
     rec.sy = sy;
-    rec.split = 0;
     const fromMirror = Math.hypot(sx - (t.ox ?? t.x), sy - (t.oy ?? t.y)) < Math.hypot(sx - t.x, sy - t.y) || !t.origin;
     if (fromMirror && t.origin) {
       rec.mx = sx;
       rec.my = sy;
       rec.mz = GLASS_H;
       const m = ctx.mirrors;
-      if (m) {
-        m.shot(t.uid, p.vx, p.vy);
-        // Mirror Shift: the bolts it relays draw split in two (a twin peels off either side, by bolt uid)
-        if (m.shifting(t)) rec.split = p.uid & 1 ? 1 : -1;
-      }
+      if (m) m.shot(t.uid, p.vx, p.vy);
     } else {
       const h = hand(ctx, t);
       rec.mx = h.x;
@@ -185,14 +181,6 @@ export const iroha = {
     ctx.quad(ctx.b.bbA, CORE, v.x, v.z, v.y, 0.26, 0.26, ctx.R.star, ctx.col(SILVER), 0.95, ctx.time * 6);
     ctx.line(ctx.b.bbA, DECOR, v.x, v.z, v.y, v.x - dx * 0.42, v.z, v.y - dy * 0.42, 0.09, ctx.col(PLUM), 0.8);
     if (lookAt(rec.tw.look, 1) >= 3) ctx.line(ctx.b.bbA, DECOR, v.x, v.z, v.y, v.x - dx * 0.3, v.z, v.y - dy * 0.3, 0.18, ctx.col(PLUM), 0.35);
-    if (rec.split) {
-      // the split twin: it peels off sideways as the bolt leaves the glass (display only; the sim's bolt is the real one)
-      const off = 0.24 * Math.min(1, (rec.f || 0) * 4) * rec.split;
-      const tx = v.x - dy * off;
-      const ty = v.y + dx * off;
-      ctx.quad(ctx.b.bbA, DECOR, tx, v.z, ty, 0.2, 0.2, ctx.R.star, ctx.col('#d8c4f0'), 0.55, -ctx.time * 6);
-      ctx.line(ctx.b.bbA, DECOR, tx, v.z, ty, tx - dx * 0.34, v.z, ty - dy * 0.34, 0.07, ctx.col(PLUM), 0.4);
-    }
   },
 
   onImpact(rec, x, y, crit, radius, ctx) {
