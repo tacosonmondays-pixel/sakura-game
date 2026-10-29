@@ -1,0 +1,18 @@
+--- 3. Yoriko: the doll at 3x, frame by frame ---
+  ok   battle 1-1 opens a third time
+  ok   Yoriko placed ({"uid":1,"x":10.1,"y":5.85})
+    160 frames, 8 attacks
+      A c0.903 e0.405 e0.86 H s0.304 s0.745 r0.087 r0.293 r0.5 r0.706 r0.913 s0.12 s0.327 s0.534 s0.741 s0.948 c0.571 e0.071 
+      A e0.389 e0.706 s0.034 H s0.478 H s0.922 r0.171 r0.378 r0.586 r0.793 s0 s0.208 s0.415 s0.622 s0.83 c0.554 e0.054 
+      A e0.349 e0.644 e0.94 H s0.354 H s0.798 r0.113 r0.32 r0.528 r0.735 r0.942 s0.15 s0.357 s0.564 s0.772 s0.979 c0.572 e0.072 e0.358 
+      A e0.65 e0.943 H s0.357 H s0.802 r0.115 r0.322 r0.529 r0.737 r0.944 s0.151 s0.359 s0.566 s0.773 s0.981 c0.55 e0.05 e0.325 
+      A e0.633 e0.942 H s0.361 H s0.805 r0.116 r0.324 r0.531 r0.738 r0.946 s0.153 s0.36 s0.568 s0.775 s0.982 c0.534 e0.034 e0.301 
+      A e0.581 e0.861 s0.224 H s0.668 r0.052 r0.26 r0.467 r0.674 r0.882 s0.089 s0.296 s0.504 s0.711 s0.918 c0.603 e0.103 
+      A e0.399 e0.695 e0.991 H s0.431 s0.875 r0.149 r0.357 r0.564 r0.771 r0.979 s0.186 s0.393 s0.6 s0.808 c0.591 e0.091 
+      A e0.388 e0.685 e0.982 H s0.418 s0.862 r0.143 r0.35 r0.558 r0.765 r0.972 s0.18 s0.387 
+    strikes 8, started 2+ frames before her hit: 0, largest Extend gain in one frame: 0.45, largest rise in that gain frame to frame: 0.03
+  ok   the doll struck
+  ok   Extend never jumps ahead from its pace in one frame (largest rise 0.03)
+  ok   no console errors
+
+ALL DISPLAY POLISH 2 LOWS CHECKS PASSED

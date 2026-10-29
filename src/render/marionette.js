@@ -53,6 +53,9 @@ const _tan = new THREE.Vector3();
 const _view = new THREE.Vector3(0, 1, 0);
 const _col = new THREE.Color();
 const _yAxis = new THREE.Vector3(0, 1, 0);
+const _barAxis = new THREE.Vector3();
+/** Command's bar tilt (radians at the top of the flick): its front end kicks up, the strings with it. */
+export const BAR_TILT = 0.45;
 const _at = { x: 0, z: 0, h: 0 };
 
 /**
@@ -429,7 +432,12 @@ export class Marionette {
       if (s.uid != null) {
         const e = this.actors.enemyPos(s.uid);
         if (e) retargetMarionette(s, e.x, e.y + (e.height || 0.5) * BODY, e.z, a.home.x, a.home.y, a.home.z);
-        else {
+        else if (s.landed || (a.projUid != null && !this._needleFlying(a))) {
+          // her own needle killed it: the doll still strikes, at its last spot
+          landMarionette(s);
+          a.projUid = null;
+          s.uid = null;
+        } else {
           // gone before the strike: the enemy its needle flies on to (by the last spot), or home
           const n = this._near(s.tx, s.tz, NEXT_NEAR, s.uid);
           const ok = n && Math.hypot(n.x - a.home.x, n.z - a.home.z) <= REACH + STOP + 0.6;
@@ -489,6 +497,9 @@ export class Marionette {
     _top.y += fl;
     _top.x -= s.dirx * fl * 0.6;
     _top.z -= s.dirz * fl * 0.6;
+    // ...and the bar tilts with the flick (about its side axis): each string top turns with it
+    const tilt = s.calm ? 0 : s.flick * BAR_TILT;
+    if (tilt) _barAxis.set(s.dirz, 0, -s.dirx);
     const n = this.simple ? 1 : st.n;
     const cam = this.camera;
     if (cam) _view.set(cam.matrixWorld.elements[8], cam.matrixWorld.elements[9], cam.matrixWorld.elements[10]).normalize();
@@ -503,7 +514,9 @@ export class Marionette {
     const C = col.array;
     for (let k = 0; k < n; k++) {
       const th = st.threads[k];
-      _w.copy(th.top).applyAxisAngle(_yAxis, v.facing).multiplyScalar(scale).add(_top);
+      _w.copy(th.top).applyAxisAngle(_yAxis, v.facing);
+      if (tilt) _w.applyAxisAngle(_barAxis, -tilt); // (about up × dir: negative lifts the front)
+      _w.multiplyScalar(scale).add(_top);
       _bot.copy(th.attach).applyMatrix4(th.bone.matrixWorld);
       for (let i = 0; i <= SEGS; i++) stringPoint(_w.x, _w.y, _w.z, _bot.x, _bot.y, _bot.z, i / SEGS, sag, _pts, i * 3);
       const base = k * (SEGS + 1) * 2;
