@@ -63,7 +63,7 @@ src/ui/story/
   coach.js         tutorial coach overlay mounted into the battle shell
   coachSteps.js    pure step machine for the tutorial (unit-tested)
   toast.js         journal unlock toast pill (own host; no change to components.toast)
-  backdrop.js      resolves a background id → <img>/<canvas>; stage stills via createBattleRenderer
+  backdrop.js      resolves a background id → <img> (stage ids → their painted place); optional stage-still hook
   emotes.js        code-drawn emote glyphs (SVG strings)
   music.js         optional audio hook (§1.6)
 src/ui/styles/story.css
@@ -157,18 +157,31 @@ roster does.
 #### 1.2.4 Backgrounds (`BACKGROUNDS`)
 | id | kind | source | use |
 |---|---|---|---|
-| `academy-day`, `academy-sunset`, `academy-night` | paint | `public/art/lobby/academy.webp` + the lobby's CSS tints | home base, most talk scenes |
-| `academy-soft` | paint | same, blurred (8 px) + dimmed | "indoor" or quiet talk, journal, archive header |
+| `academy-day`, `academy-sunset`, `academy-night` | paint | `public/art/lobby/academy.webp` + the lobby's CSS tints | the stage fallback (`CHAPTER_FALLBACK_BG`); no campaign scene uses them since Oct 27, but the Halloween event scenes (`src/data/events/scenes/halloween.js`) still open on `academy-night` |
+| `academy-soft` | paint | same, blurred (8 px) + dimmed | spare |
+| story places (31: `academy-courtyard[-sunset/-night]`, `academy-gate[-sunset/-night]`, `common-room`, `workshop`, `blossom-court[-sunset/-night]`, `library-garden`, `lakeshore`, `moon-pier`, `shrine-steps`, `shrine-bell`, `mountain-pass`, `beacon-gate`, `marsh`, `drowned-willow`, `foundry`, `sakura-sanctuary`, `festival-street`, `festival-drum`, `base-camp`, `summit-nest`, and the Gate Arc's `station-plaza`, `covered-arcade`, `corner-store`, `dry-fountain`, `shelter`) | paint | `public/art/lobby/story/<id>.webp` (1280x876) + `story/thumbs/<id>.webp` (320 px, archive cards); time of day painted in (`tint: 'day'`), `focus` = the picture's object-position | where each scene takes place |
 | `cg:hikari-rampart` | cg | `public/art/lobby/hikari.webp` | Hikari's reveal in the opening; ch8 ending |
 | `cg:aoi-archery` | cg | `public/art/lobby/aoi.webp` | Aoi moments (ch1, ch2) |
 | `cg:sango-harbour` | cg | `public/art/lobby/sango.webp` | the harbour arrival (end of ch1), ch2 |
-| `stage:<stageId>` | stage | a **still** of that stage's battle map (renderer, see below) | every chapter location |
+| `stage:<stageId>` | stage | that stage's painted place (`STAGE_PLACE` in `backgrounds.js`), else the chapter's academy tint | every chapter location |
 | `black` | — | solid | fades, title cards |
 
 A CG already has a girl painted in it, so while a `cg:` background is up the player **hides portraits** (lines still
 get name plates). Leaving the CG brings the stage portraits back.
 
-**Stage stills** (`backdrop.js`): build a headless `Sim` for the stage (`new Sim({ stageId })`, prep state, no
+**Story places (Oct 27):** every campaign stage maps to a painted place (`STAGE_PLACE`, e.g. 2-1 to 2-3 the
+lakeshore, 2-4 and 2-5 the Moon Pier), so scene data keeps `stage:<id>`. A scene loads its own background when it
+opens and each cue's background one cue ahead; nothing loads at boot. Each place's `focus` keeps its landmark in the
+open band above the text box on a landscape phone (844x390) and its middle on a portrait one. `SPARE_BACKGROUNDS`
+lists the pictures no scene uses yet (the Gate Arc places wait for their scenes and stages 1-6 to 1-10). A new
+background fades in once its picture has decoded (or after 2.5 s, `BG_READY_CAP_MS`, so it never holds the scene
+up). The old layers stay underneath until the new one has really faded in: its own opacity `transitionend`, or a
+safety timer (`FADE_FALLBACK_MS`, 670 ms) that starts when the fade starts, and its picture has decoded. Layers go
+only from beneath the topmost layer that is fully in (`layersToDrop`), so a second change that arrives mid-fade can
+never remove a newer layer, and a slow phone or a busy frame never shows black between two places.
+
+**Stage stills** (not built; the hook `setStageStillProvider()` in `backdrop.js` stays, nothing registers a
+provider, and a registered still would crossfade over the stage's place). The original plan: build a headless `Sim` for the stage (`new Sim({ stageId })`, prep state, no
 towers) and `createBattleRenderer(hiddenHost, sim, { quality: 'medium' })`. Render a few frames, copy the canvas to
 an `ImageBitmap` or object URL, then dispose the renderer. The still is cached per stage for the session, shown with
 `object-fit: cover`, a 2 px blur and a light tint for text contrast. Use `stage:`, not map ids, because
@@ -827,7 +840,7 @@ push. Each builder runs a screenshot-critic pass at 844×390 and 1280×720 befor
 3. **The tutorial runs on 1-1 Easy**, so a new player's first medal is bronze. The alternative is Normal with
    the coach. Easy is safer for a first battle.
 4. **Content risks outside this area** (for the lead, not changed here): a lobby head-pat line ("W-what are you
-   doing, Sensei?! …I don't mind.") and bond backgrounds named "Café Date" lean romantic for student characters.
+   doing, Sensei?! …I don't mind.") and bond backgrounds named "Café Date" lean romantic for student characters (renamed "Café Afternoon" in v0.1.54).
    Suggest "outing" wording and a neutral line, in keeping with the content rule.
 5. **Stage stills** depend on the renderer working headless-ish off-screen. If it misbehaves on low-end phones,
    chapter backgrounds fall back to academy tints. That is ugly-free, but less varied.

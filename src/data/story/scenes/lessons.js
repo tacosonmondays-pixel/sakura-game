@@ -7,11 +7,11 @@ import { scene, say, narrate, choice } from '../format.js';
 
 export default [
   scene('lesson.home', {
-    title: 'Welcome Home', chapter: 0, kind: 'lesson', trigger: { lesson: 'home' }, bg: 'academy-soft', music: 'calm',
+    title: 'Welcome Home', chapter: 0, kind: 'lesson', trigger: { lesson: 'home' }, bg: 'common-room', music: 'calm',
   }, [
     narrate("The Sentinels' common room, after classes. A teapot, a sofa, and a very full notice board."),
     say('hikari', 'Welcome home, Sensei! Every mission starts here, and every mission ends here.', { at: 'center', face: 'smile' }),
-    say('hikari', 'Tap ‹ › to choose who keeps you company. The picture button changes the view.'),
+    say('hikari', 'Open the Menu and tap Background to choose who keeps you company, and the view behind her.'),
     say('aoi', "Captain! Can I be the one who greets Sensei in the mornings? I'll practise my wave!", { at: 'left', fx: 'slide-in' }),
     say('hikari', "You'll have to take turns. Everyone has asked.", { face: 'laugh' }),
     say('aoi', 'Is that your journal? …Why is there a little star in a hat on every page?', { face: 'question' }),
@@ -26,7 +26,7 @@ export default [
   ]),
 
   scene('lesson.recruit', {
-    title: 'Ten New Possibilities', chapter: 0, kind: 'lesson', trigger: { lesson: 'recruit' }, bg: 'academy-day', music: 'wish',
+    title: 'Ten New Possibilities', chapter: 0, kind: 'lesson', trigger: { lesson: 'recruit' }, bg: 'common-room', music: 'wish',
   }, [
     narrate("A thick envelope arrives in Sensei's Mail, sealed with a pink star."),
     say('hikari', "Three stages cleared! That deserves a celebration. Open it, Sensei. It's from me.", { at: 'center' }),
@@ -35,7 +35,7 @@ export default [
     say('kage', "{name:kage}, courier club. Don't recruit me, though. I was always here. Mostly.", { at: 'left', face: 'wink', fx: 'jolt' }),
     say('hikari', 'See? Everyone wants to meet you.', { face: 'laugh' }),
     say('hikari', 'Every ten-pull has at least one SR, and an SSR is guaranteed by pull ninety.'),
-    say('hikari', 'Each pull earns recruit points too. Save enough and you can pick any SSR you like.'),
+    say('hikari', 'Each pull earns recruit points too. Save enough to spark an SSR, featured girls on their day.'),
     say('momo', 'And if a friend shows up twice?', { face: 'question' }),
     say('hikari', 'Duplicates become Star Fragments for awakening. Nothing goes to waste here.'),
     say('kage', "I'll be in the rafters if anyone needs a cracker."),
@@ -43,7 +43,7 @@ export default [
   ]),
 
   scene('lesson.gear', {
-    title: 'Dress for the Adventure', chapter: 0, kind: 'lesson', trigger: { lesson: 'gear' }, bg: 'academy-sunset', music: 'calm',
+    title: 'Dress for the Adventure', chapter: 0, kind: 'lesson', trigger: { lesson: 'gear' }, bg: 'workshop', music: 'calm',
   }, [
     narrate('The robotics club workshop. Something whirs. Something else goes ding.'),
     say('hikari', "Sensei, this is {name:chika} from the robotics club. She knows gear better than anyone. She'll explain.", { at: 'center' }),

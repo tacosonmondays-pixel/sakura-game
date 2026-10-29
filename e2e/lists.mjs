@@ -1,8 +1,8 @@
 // UI M5c: the left-rail list screens (docs/specs/UI_DIRECTION.md §5.5, §5.9, §5.10 E1-E3, E6, E9; notes/ui-m5/PLAN.md
 // §5 M5c) on the ui-shots save (chapters 1-3 cleared) at 844x390 and 1280x720, on a fixed clock (e2e/uiSeed.mjs):
-//   - the rail on the Mailroom, the Mall, Happening Now and Settings: the active tab an ink slab with yellow italic
-//     words, the others white glass with ink words, every tab ≥ 44 px tall, tab-<id> test ids, red dots only, no
-//     counts on tabs
+//   - the rail on the Mailroom, the Mall, Happening Now and Settings: the active tab an ink slab with white caps and the
+//     pink "/" bar (UI v2 Q1; it was yellow italics), the others white with ink caps, every tab ≥ 44 px tall,
+//     tab-<id> test ids, red dots only, no counts on tabs
 //   - the probe (e2e/probe.mjs) on every screen and section: text ≥ 12 / 13 px, ≤ 12 numbers, no "…" on a number, no
 //     sideways scroll, a content window ≥ 300 px, ≤ 1 yellow, taps ≥ 40 px (the shared top bar aside), the host within
 //     her share and her bubble clear of the list; the host is the right girl (Hotaru, Midori, Suzu) on the right
@@ -53,6 +53,8 @@ const NOW = Date.parse(SHOT_NOW);
 const PLATE = 'rgb(14, 25, 48)';
 const YELLOW = 'rgb(255, 221, 74)';
 const INK = 'rgb(31, 42, 68)';
+const ON_INK = 'rgb(234, 243, 255)'; // [ui-ink] --on-ink
+const PINK = 'rgb(255, 122, 168)'; // [ui-ink] --pink, the selection mark
 const BAD_ON_PLATE = 'rgb(255, 128, 149)';
 
 const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
@@ -126,7 +128,8 @@ const railInfo = (page) => page.evaluate(() => [...document.querySelectorAll('#a
   const r = b.getBoundingClientRect();
   return {
     id: b.dataset.testid, on: b.classList.contains('on'), selected: b.getAttribute('aria-selected') === 'true', bg: cs.backgroundColor, color: getComputedStyle(word).color,
-    italic: getComputedStyle(word).fontStyle === 'italic', h: Math.round(r.height), w: Math.round(r.width), text: b.textContent.trim(),
+    italic: getComputedStyle(word).fontStyle === 'italic', caps: getComputedStyle(word).textTransform === 'uppercase', bar: getComputedStyle(b, '::before').backgroundColor,
+    h: Math.round(r.height), w: Math.round(r.width), text: b.textContent.trim(),
     dots: b.querySelectorAll('.ui-bdg.dot').length, others: b.querySelectorAll('.ui-bdg:not(.dot), .ui-dot, .tab-badge, .icon-btn-badge').length,
   };
 }));
@@ -137,9 +140,10 @@ async function checkRail(page, name, ids, active) {
   check(rail.map((t) => t.id).join() === ids.map((i) => `tab-${i}`).join(), `${name}: the rail holds ${ids.join(' · ')} (test ids tab-<id>)`);
   const on = rail.find((t) => t.on);
   check(!!on && on.id === `tab-${active}` && on.selected, `${name}: ${active} is the lit tab (aria-selected)`);
-  if (on) check(on.bg === PLATE && on.color === YELLOW && on.italic, `${name}: the lit tab is an ink slab with yellow italic words (${on.bg}, ${on.color})`);
+  // [ui-ink] UI v2 (Q1): the lit tab an ink slab with WHITE caps and the pink "/" bar; the others white with ink caps
+  if (on) check(on.bg === PLATE && on.color === ON_INK && on.caps && !on.italic && on.bar === PINK, `${name}: the lit tab is an ink slab with white caps and the pink "/" bar (${on.bg}, ${on.color}, bar ${on.bar})`);
   const off = rail.filter((t) => !t.on);
-  check(off.every((t) => t.bg.startsWith('rgba(255, 255, 255') && t.color === INK), `${name}: the other tabs are white glass with ink words (${[...new Set(off.map((t) => `${t.bg} / ${t.color}`))].join(', ')})`);
+  check(off.every((t) => (t.bg === 'rgb(255, 255, 255)' || t.bg.startsWith('rgba(255, 255, 255')) && t.color === INK && t.caps), `${name}: the other tabs are white with ink caps (${[...new Set(off.map((t) => `${t.bg} / ${t.color}`))].join(', ')})`);
   check(rail.every((t) => t.h >= 44), `${name}: every tab is at least 44 px tall (${rail.map((t) => t.h).join(', ')})`);
   check(rail.every((t) => !/\d/.test(t.text) && t.others === 0), `${name}: red dots only on the tabs, never a count (${rail.map((t) => `${t.text}${t.dots ? '•' : ''}`).join(', ')})`);
   return rail;
@@ -274,11 +278,10 @@ async function mailroom(page, vp, touch) {
   await page.click('#app [data-testid="mail-close"]');
   await waitScreen(page, 'lobby');
   check(await screenIs(page, 'lobby'), 'mail: mail-close (the arrow) goes back to the lobby');
-  // the Menu's Mail, and Esc on desktop
-  await page.click('[data-testid="top-menu"]');
-  await page.click('[data-testid="menu-mail"]');
+  // [ui-ink] V2 (C12): the Menu's Mail folded into the top bar's mail button; it opens the Mailroom again, and Esc on desktop
+  await page.click('[data-testid="top-mail"]');
   await waitScreen(page, 'mail');
-  check(await screenIs(page, 'mail'), 'mail: the Menu\'s Mail opens the Mailroom');
+  check(await screenIs(page, 'mail'), 'mail: the top bar\'s mail button opens the Mailroom (the Menu\'s Mail folded into it)');
   if (!touch) {
     await page.keyboard.press('Escape');
     await waitScreen(page, 'lobby');
@@ -365,18 +368,14 @@ async function freeDoors(page, vp) {
   console.log(`-- Free pulls doors ${vp}`);
   const landed = () => page.evaluate(() => [location.hash, document.querySelector('#app .ls-rail .ui-stab.on')?.dataset.testid, !!document.querySelector('#app [data-testid="happening-free"]')]);
   const isFree = (l) => l[0] === '#/rewards?tab=free' && l[1] === 'tab-free' && l[2];
+  // [ui-ink] V2: the home's carousel (and its "Free pulls" card) went (C12); the Notice is the menu sheet's Notice row
   await go(page, '#/lobby', 'lobby');
-  await page.evaluate(() => document.querySelector('#app [data-testid="banner-f2p"]').click()); // (a carousel slide)
-  await waitScreen(page, 'rewards');
-  let l = await landed();
-  check(isFree(l), `doors: the lobby's "Free pulls" card opens Happening Now on Free pulls (${l.join(', ')})`);
-  await shot(page, 'door-lobby-f2p', vp);
-  await go(page, '#/lobby', 'lobby');
-  await page.click('[data-testid="shortcut-notice"]');
+  await page.click('[data-testid="top-menu"]');
+  await page.click('[data-testid="menu-sheet"] [data-testid="shortcut-notice"]');
   await page.click('.lb-notice-modal [data-testid="notice-f2p"]');
   await page.click('.lb-notice-modal:not(.closing) .lb-notice-cta button');
   await waitScreen(page, 'rewards');
-  l = await landed();
+  let l = await landed();
   check(isFree(l), `doors: the Notice's "See the overview" opens Free pulls (${l.join(', ')})`);
   await closeModals(page);
   // Recruit with no gems and no tickets: "Not enough gems" → "Income overview"
@@ -579,17 +578,19 @@ async function settings(page, vp) {
     return { name, found: !!row, kids: row?.querySelector('.ma-set-control')?.childElementCount ?? 0, shown: !!d && d.getClientRects().length > 0, i: !!row?.querySelector('.st-i') };
   }));
   for (const b of bare) check(b.found && b.kids === 0 && b.shown && !b.i, `settings: "${b.name}" has no control, so its description stays in view with no "i" (${JSON.stringify(b)})`);
-  // a deep link, and the Menu's Account
+  // a deep link, and the menu sheet's Settings row ([ui-ink] V2, C12: the Menu Tab's Options and Account folded into it)
   await go(page, '#/lobby', 'lobby');
   await go(page, '#/settings?section=audio', 'settings');
   await settle(page, 300);
   check(await page.evaluate(() => document.querySelector('#app .ls-rail .ui-stab.on')?.dataset.testid) === 'tab-audio', 'settings: #/settings?section=audio opens on Audio');
   await go(page, '#/lobby', 'lobby');
   await page.click('[data-testid="top-menu"]');
-  await page.click('[data-testid="menu-account"]');
+  await page.click('[data-testid="menu-sheet"] [data-testid="settings"]');
   await waitScreen(page, 'settings');
   await settle(page, 400);
-  check(await page.evaluate(() => document.querySelector('#app .ls-rail .ui-stab.on')?.dataset.testid) === 'tab-account', 'settings: the Menu\'s Account opens on Account');
+  await page.click('#app [data-testid="tab-account"]');
+  await settle(page, 400);
+  check(await page.evaluate(() => document.querySelector('#app .ls-rail .ui-stab.on')?.dataset.testid) === 'tab-account', 'settings: the menu sheet\'s Settings row opens Settings, and its rail opens Account');
 }
 
 // ---------------------------------------------------------------------------------------------------------------

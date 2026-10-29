@@ -8,6 +8,7 @@
 // Uses these Sim members: pathData, grid, runners, enemies, _nextUid(), _emit(), _hit(e, tower, spec, scale).
 
 import { pointAt, samplePath } from './path.js';
+import { placeOnPath } from './enemies.js';
 import { isEligible } from './combat.js';
 import { RUNNER_HIT_RADIUS } from './constants.js';
 
@@ -106,6 +107,8 @@ export function startRunner(sim, owner, effect, spec, aim = null, at = null) {
     segments,
     gap,
     kind: effect.runner || 'dragon',
+    // Kogane's plow: tiles each enemy it strikes is pushed back (bosses never; minibosses pushMini)
+    ...(effect.push > 0 ? { push: effect.push, pushMini: effect.pushMini || 0 } : null),
     // internals
     owner,
     spec,
@@ -125,6 +128,18 @@ export function runnerSegment(sim, r, k, out = tmp) {
   const d = r.dist + k * r.gap;
   if (d < 0 || d > path.length) return null;
   return pointAt(path, d, out);
+}
+
+/** A plow's push on a struck enemy: r.push tiles (minibosses r.pushMini, bosses none; the freeplay push budget applies). */
+function pushBack(sim, r, q) {
+  let amt = q.tier === 'boss' ? 0 : q.tier === 'miniboss' ? r.pushMini : r.push;
+  if (q.kbLeft != null) {
+    amt = Math.min(amt, q.kbLeft);
+    q.kbLeft -= amt;
+  }
+  if (!(amt > 0)) return;
+  q.dist = Math.max(0, q.dist - amt);
+  placeOnPath(q, sim.pathData[q.pathIndex]);
 }
 
 /** Moves every runner back along its road and strikes each enemy its body touches, once. */
@@ -158,6 +173,7 @@ export function updateRunners(sim, dt) {
         if (!isEligible(q, spec)) continue;
         r.hit.add(q.uid);
         sim._hit(q, r.owner, spec, 1);
+        if (r.push > 0 && !q.dead) pushBack(sim, r, q);
       }
     }
     if (r.left <= 1e-9 || r.dist <= r.end) {

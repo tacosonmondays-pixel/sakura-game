@@ -40,11 +40,12 @@ export function autoDelay(text) {
   return Math.min(4000, 900 + 30 * Array.from(String(text || '')).length);
 }
 
-/** Title-card wording: "Chapter 1 · Sakura Gardens" + "Episode 3". */
+/** Title-card wording: "Chapter 1 · Sakura Gardens" (an Act II episode: "Chapter 1 · Rush Hour") + "Episode 3". */
 export function titleCardText(scene, episode = 0) {
   const ch = CHAPTERS.find((c) => c.id === scene.chapter);
   if (scene.kind === 'lesson') return { kicker: "Captain's Journal", title: resolveText(scene.title), sub: '' };
-  const kicker = scene.kind === 'event' ? 'Event Story' : scene.chapter === 0 ? 'Opening' : `Chapter ${scene.chapter}${ch ? ` · ${ch.name}` : ''}`;
+  const kicker = scene.act === 2 ? `Chapter ${scene.chapter}${ch?.act2Name ? ` · ${ch.act2Name}` : ''}`
+    : scene.kind === 'event' ? 'Event Story' : scene.chapter === 0 ? 'Opening' : `Chapter ${scene.chapter}${ch ? ` · ${ch.name}` : ''}`;
   return { kicker, title: resolveText(scene.title), sub: episode ? `Episode ${episode}` : '' };
 }
 
@@ -113,6 +114,11 @@ export function playScene(scene, opts = {}) {
   const titleCard = h('div.sp-title-card', { 'aria-hidden': 'true' },
     h('span.sp-tc-kicker', card.kicker), h('b.sp-tc-title', card.title), card.sub ? h('span.sp-tc-sub', card.sub) : null);
   const tap = h('button.sp-tap', { 'data-testid': 'story-next', 'aria-label': 'Next line', type: 'button' });
+  // a content note (scene.note, Gate Arc): its own card before the title card; tap, Continue, Space or Enter goes on
+  let noteGo = null;
+  const noteBtn = h('button.sp-note-go', { type: 'button', 'data-testid': 'story-note-continue', onclick: () => advance() }, 'Continue');
+  const noteEl = scene.note ? h('div.sp-note', { role: 'note', 'data-testid': 'story-note', hidden: true },
+    h('span.sp-note-kicker', 'Content note'), h('p.sp-note-text', resolveText(scene.note)), noteBtn) : null;
 
   const plateName = h('b.sp-plate-name');
   const plateTitle = h('span.sp-plate-title');
@@ -154,7 +160,7 @@ export function playScene(scene, opts = {}) {
   const root = h(`div.sp${overlay ? '.sp-overlay' : '.sp-screen'}${reduce ? '.sp-reduce' : ''}`, {
     'data-testid': 'story-player', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Story: ${card.title}`, tabindex: '-1',
     dataset: { scene: scene.id },
-  }, bgEl, petalsEl, stageEl, flashEl, tap, ui, titleCard, fadeEl, spinner, logSheet, confirmEl);
+  }, bgEl, petalsEl, stageEl, flashEl, tap, ui, titleCard, noteEl, fadeEl, spinner, logSheet, confirmEl);
   root.classList.toggle('sp-auto-on', prefs.auto);
   host.appendChild(root);
 
@@ -162,6 +168,13 @@ export function playScene(scene, opts = {}) {
   const snapshot = musicSnapshot();
 
   // ---- state -----------------------------------------------------------------------------------
+  // cue backgrounds load one ahead: the first once the scene's own is up, each next one as its predecessor shows
+  const cueBgs = lines.filter((l) => l.t === 'cue' && l.bg).map((l) => l.bg);
+  let cueBgAt = 0;
+  const preloadNextBg = () => {
+    const id = cueBgs[cueBgAt++];
+    if (id) for (const u of backgroundUrls(id, scene.chapter)) preloadImage(u, PRELOAD_CAP_MS);
+  };
   const actors = new Map(); // who → { el, fig, emote, slot, spoke }
   let clock = 0;
   let typing = null; // { complete() }
@@ -322,6 +335,12 @@ export function playScene(scene, opts = {}) {
   }
   function advance() {
     if (finished || choosing || !logSheet.hidden || !confirmEl.hidden) return;
+    if (noteGo) {
+      const go = noteGo;
+      noteGo = null;
+      go();
+      return;
+    }
     if (root.classList.contains('sp-ui-hidden')) {
       root.classList.remove('sp-ui-hidden');
       return;
@@ -389,6 +408,7 @@ export function playScene(scene, opts = {}) {
     }
     if (c.bg) {
       backdrop.show(c.bg);
+      preloadNextBg();
       petalsEl.classList.remove('on');
       syncCg();
     }
@@ -605,9 +625,20 @@ export function playScene(scene, opts = {}) {
     await Promise.race([Promise.all(urls.map((u) => preloadImage(u, PRELOAD_CAP_MS))), sleep(PRELOAD_CAP_MS)]);
     if (finished) return;
     root.classList.add('sp-ready');
+    preloadNextBg();
     try {
       window.dispatchEvent(new CustomEvent('story-stage-ready', { detail: { id: scene.id } }));
     } catch { /* no window */ }
+    if (noteEl) {
+      noteEl.hidden = false;
+      root.classList.add('sp-noting');
+      noteBtn.focus({ preventScroll: true });
+      await new Promise((resolve) => { noteGo = resolve; });
+      noteEl.remove();
+      root.classList.remove('sp-noting');
+      if (finished) return;
+      root.focus({ preventScroll: true });
+    }
     titleCard.classList.add('on');
     later(() => titleCard.classList.add('out'), TITLE_CARD_MS);
     later(() => titleCard.remove(), TITLE_CARD_MS + (reduce ? 0 : 500));

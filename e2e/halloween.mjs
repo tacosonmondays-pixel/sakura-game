@@ -174,9 +174,11 @@ try {
     await go('#/campaign', '#app');
     await go('#/lobby', '[data-testid="lobby"]');
     await page.waitForSelector('[data-testid="event-card"]', { timeout: T }).catch(() => null);
-    const card = await page.evaluate(() => document.querySelector('[data-testid="event-card"]')?.textContent || '');
+    // ([ui-ink] V2: the news card's event page; its countdown chip shows the time, its name says the phase)
+    const card = await page.evaluate(() => { const e = document.querySelector('[data-testid="event-card"]'); return e ? `${e.textContent} ${e.getAttribute('aria-label') || ''}` : ''; });
     check(/Pumpkin Lantern Night/.test(card) && /Ends in/i.test(card), `lobby: event card shows the event and its countdown ("${card.trim()}")`);
-    check(!(await page.$('[data-testid="event-decor"]')) && /lobby\/halloween\.webp/.test(await page.evaluate(() => document.querySelector('.lb-art-bg')?.src || '')),
+    // ([ui-ink] V2: the home's scene picture behind her stand, data-testid lobby-scene)
+    check(!(await page.$('[data-testid="event-decor"], .lb-ev-lanterns, .lb-ev-pumpkin')) && /lobby\/halloween\.webp/.test(await page.evaluate(() => document.querySelector('[data-testid="lobby-scene"] img')?.src || '')),
       'lobby: the painted Halloween backdrop behind her stand, no lantern or pumpkin overlay');
     check(await noOverflow(), 'lobby: no horizontal overflow');
     await page.waitForTimeout(1200);
@@ -347,6 +349,9 @@ try {
     });
     await go('#/stage/ev-halloween-boss?difficulty=nightmare', '[data-testid="event-prep"]');
     await page.waitForSelector('[data-testid="event-variant"]', { timeout: 10000 }).catch(() => null);
+    // (UI v2 M1: stage prep's enemies are in its "i" sheet and the drop grid in its Drops sheet: both open, two layers)
+    await page.evaluate(() => { document.querySelector('#app [data-testid="prep-info"]')?.click(); document.querySelector('#app [data-testid="prep-drops"]')?.click(); });
+    await page.waitForSelector('[data-testid="drops-sheet"]', { timeout: 10000 }).catch(() => null);
     const nmPrep = await page.evaluate(() => ({
       variant: document.querySelector('[data-testid="event-variant"]')?.textContent || '',
       waves: [...document.querySelectorAll('.ma-fact')].find((f) => /Waves/.test(f.textContent))?.querySelector('.ma-fact-value')?.textContent,
@@ -361,6 +366,8 @@ try {
     check(/×500 per win/.test(nmPrep.candy), 'boss Nightmare prep: Pumpkin Candy ×500 per win');
     check(nmPrep.drop === '×500', `boss Nightmare prep: the Drops grid shows the sure candy as ×500, not a range (${nmPrep.drop})`);
     check(nmPrep.start === false && nmPrep.golem && nmPrep.knight, 'boss Nightmare prep: Start open, its own enemies scouted (Golem, hollow knights)');
+    await page.evaluate(() => document.querySelectorAll('.ui-layer .ui-close').forEach((b) => b.click()));
+    await page.waitForTimeout(300);
     check(await noOverflow(), 'boss Nightmare prep: no horizontal overflow');
     await page.waitForTimeout(800);
     await shot('boss-nightmare-prep');
@@ -436,7 +443,16 @@ try {
     check(end.candy === 0 && end.settled && end.coins === left * 50, `ended: ${left} candy became ${end.coins} coins by mail, settled`);
     check(!!(await page.$('[data-testid="event-ended"]')), 'ended: the page shows the summary');
     await go('#/lobby', '[data-testid="lobby"]');
-    check(!(await page.$('[data-testid="event-card"]')) && !!(await page.$('[data-testid="event-strip"]')), 'ended: the lobby card is the weekly event again');
+    // (the Quiet Home's one news chip, paged by hand: no page is the event any more, one is the weekly event again)
+    const chipPages = [];
+    for (let i = 0; i < 4; i++) {
+      chipPages.push(await page.evaluate(() => ({ page: document.querySelector('#app [data-testid="lobby-news"]')?.dataset.page || null, card: !!document.querySelector('[data-testid="event-card"]'), strip: !!document.querySelector('[data-testid="event-strip"]') })));
+      const next = await page.$('[data-testid="lobby-news-next"]');
+      if (!next) break;
+      await next.click();
+      await page.waitForTimeout(300);
+    }
+    check(!chipPages.some((c) => c.card) && chipPages.some((c) => c.strip), `ended: the lobby card is the weekly event again (chip pages ${chipPages.map((c) => c.page).join(' → ')})`);
     await ctx.close();
   }
 } finally {

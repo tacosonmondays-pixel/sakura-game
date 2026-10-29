@@ -2,7 +2,7 @@
 
 export { Sim, roundCost } from './Sim.js';
 export { runHeadless, autoPlan } from './headless.js';
-export { generateWave, summarizeWave, waveHpRamp } from './waves.js';
+export { generateWave, summarizeWave, waveHpRamp, openLanes } from './waves.js';
 export {
   computeHit, computeDot, applyHitResult, isEligible, effectiveArmor, shredAmount, damageTakenBonus,
 } from './combat.js';
@@ -11,7 +11,7 @@ export { resolveStats, normalizeBase, applyModSet, collectModSets, mergeStatusLi
 export { FINAL_TIER, finalTierOf, findFinalHolder } from './finalTier.js';
 export { buildPath, buildPaths, pointAt, pathTileSet, samplePath } from './path.js';
 export {
-  createPlacementRules, footprintRadius, footprintAt, isTileCall, TOWER_RADIUS, HERO_RADIUS, PATH_HALF_WIDTH, TREE_RADIUS,
+  createPlacementRules, footprintRadius, footprintAt, isTileCall, TOWER_RADIUS, HERO_RADIUS, PATH_HALF_WIDTH, TREE_RADIUS, ROOF_TILE,
 } from './placement.js';
 export { enemyTraitKeys, createEnemy, leakAmount } from './enemies.js';
 export { projectileKind, targetScore } from './towers.js';

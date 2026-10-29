@@ -9,6 +9,7 @@ import '../styles/hubs.css';
 import { h, clear, screen, button, toast, glyph, applyMotionPreference } from '../components.js';
 import { listScreen } from '../listScreen.js';
 import { plateHead, iconBtn } from '../kit.js';
+import { openSheet } from '../sheet.js';
 import { SETTINGS_SECTIONS, SECTION_IDS, panelKey, assignSections, sectionForParam } from '../settingsSections.js';
 import { rememberParams } from '../router.js';
 import { navigate } from '../router.js';
@@ -403,7 +404,33 @@ function versionSection() {
     h('h3.panel-title', 'About'),
     h('div.ma-set-row',
       h('div.ma-set-text', h('div.ma-set-label', { 'data-testid': 'settings-version' }, buildLine()), status),
-      control));
+      control),
+    licencesRow());
+}
+
+/** [ui-ink] The menus' line icons are adapted from two open icon sets: their licence texts (public/licenses/), on a tap. */
+export const LICENCE_FILES = Object.freeze([
+  { file: 'lucide-ISC.txt', title: 'Lucide (ISC)' },
+  { file: 'feather-MIT.txt', title: 'Feather (MIT)' },
+]);
+function licencesRow() {
+  const open = async () => {
+    const base = `${import.meta.env?.BASE_URL ?? './'}licenses/`;
+    const body = h('div.st-licences', { 'data-testid': 'licences-text' }, h('p.muted', 'Loading…'));
+    openSheet({ title: 'Licences', body, full: true, testid: 'licences-sheet' });
+    const parts = await Promise.all(LICENCE_FILES.map(async (l) => {
+      try {
+        const r = await fetch(`${base}${l.file}`, { cache: 'force-cache' });
+        return { ...l, text: r.ok ? await r.text() : `(${l.file} could not be loaded)` };
+      } catch {
+        return { ...l, text: `(${l.file} could not be loaded: are you online?)` };
+      }
+    }));
+    body.replaceChildren(...parts.flatMap((p) => [h('h4', p.title), h('pre.st-licence', p.text)]));
+  };
+  return h('div.ma-set-row',
+    h('div.ma-set-text', h('div.ma-set-label', { 'data-testid': 'settings-icons-credit' }, 'Line icons adapted from Lucide (ISC) and Feather (MIT)')),
+    h('div.ma-set-control', button('Licences', { kind: 'ghost', small: true, testid: 'settings-licences', onClick: open })));
 }
 
 // ---------------------------------------------------------------------------

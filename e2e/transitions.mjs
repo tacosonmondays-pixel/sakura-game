@@ -110,7 +110,8 @@ function recorder() {
     const backs = document.querySelectorAll('[data-testid="back"]').length;
     if (backs > rec.dupBack) rec.dupBack = backs;
     const lb = document.querySelector('.lb');
-    if (lb && document.documentElement.dataset.tx && !lb.querySelector('.lb-art img')) rec.bareLobby.push({ t: t(), op: Number(getComputedStyle(lb).opacity).toFixed(2) });
+    // ([ui-ink] V2: the night home's painting is its art: .home-scene, or her living scene's canvas)
+    if (lb && document.documentElement.dataset.tx && !lb.querySelector('.home-scene img, .home-live canvas')) rec.bareLobby.push({ t: t(), op: Number(getComputedStyle(lb).opacity).toFixed(2) });
     const chip = document.querySelector('.ld-chip');
     if (chip) {
       const vis = chip.classList.contains('on') && Number(getComputedStyle(chip).opacity) > 0.02;
@@ -309,7 +310,7 @@ async function run(vp, { reduced = false } = {}) {
       const c = chip.getBoundingClientRect();
       const vis = chip.classList.contains('on') && Number(getComputedStyle(chip).opacity) > 0.5;
       const hits = [];
-      for (const el of document.querySelectorAll('[data-primary], .lb-br, .lb-campaign, .lb-eventcard, .lb-continue, .btn-yellow, [data-testid="stage-start"]')) {
+      for (const el of document.querySelectorAll('[data-primary], [data-testid="lobby-objective"], [data-testid="lobby-chapter"], .home-tools, .btn-yellow, [data-testid="stage-start"]')) {
         const b = el.getBoundingClientRect();
         if (!b.width || !b.height) continue;
         if (Math.min(c.right, b.right) - Math.max(c.left, b.left) > 0 && Math.min(c.bottom, b.bottom) - Math.max(c.top, b.top) > 0) hits.push(el.dataset.testid || String(el.className).slice(0, 40));

@@ -24,6 +24,8 @@ import { freeplayTier } from '../../data/freeplay.js';
 import { TARGET_MODES } from '../../data/types.js';
 import { hashSim } from './simHash.js';
 import { withDetMath } from './detMath.js';
+import { buildTryoutPlan, buildTryoutStage, tryoutGone, tryoutLoadouts } from '../../sim/tryout/index.js';
+import { checkedDraft } from '../../sim/tryout/draft.js';
 
 /**
  * Command kinds: place[unitId,qx,qy] upg[uid,path] sell[uid] tgt[uid,mode] ult[] wave[] auto[bool]
@@ -48,8 +50,12 @@ import { withDetMath } from './detMath.js';
  * 'notWave'); a refusal spends nothing. `abilArgs()` builds it.
  * acast[uid, on]: her Auto switch, on 0|1; uid 0 = every girl she owns now and her default for the
  * ones that unlock later (sim.abilityAutoDefault; the start message's players[i].autoAbil sets it first).
+ * Tryout Day (docs/specs/TRYOUT_DAY.md §11; only in a run, start.tryout): tr[op, a, b] a run command of this
+ * player's (src/sim/tryout/index.js tryoutCommand: take / erase / hand carry the open offer's sequence number,
+ * snack, brush, undo, ready); mv[uid, qx, qy] a Hall Pass move of one of their own girls, in 1/1024 tiles. Both are
+ * validated inside the Sim at their tick; a stale or wrong one is a no-op with a reason.
  */
-export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly', 'pick', 'aim', 'abil', 'acast'];
+export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly', 'pick', 'aim', 'abil', 'acast', 'tr', 'mv'];
 const Q = 1024;
 /** Upgrade paths a tower has (Sim tiers[0..2]). */
 const UPGRADE_PATHS = [0, 1, 2];
@@ -107,10 +113,41 @@ export function isValidCmd(c, { markers = false } = {}) {
  *   `autoAbil`: that player's Auto-cast setting (only `true` turns it on; absent = Off).
  * @param {{ mySlot?: number, stage?: object, units?: object }} [opts] `stage` / `units`: test fixtures (a
  *   StageDef; extra UnitDefs by id), never from the network
+ * A Tryout Day run (`start.tryout` = { seed, grade, length, mapId }, each player's `draft` (3 girl ids) and `pool`
+ * (their frozen account stats by girl id)): the stage comes from the run's plan, every player's loadout from their
+ * squad inside the band (src/sim/tryout).
  */
 export function createCoopSim(start, { mySlot = 0, stage = null, units = null } = {}) {
-  const freeplay = freeplayTier(start.freeplay);
-  const stageDef = stage || coopStage(start.stageId, { freeplay });
+  if (start.tryout) return createCoopSimOn(start, { mySlot, units }, tryoutSim(start, stage, units));
+  return createCoopSimOn(start, { mySlot, units }, null, stage);
+}
+
+/** The Sim of a Tryout Day co-op run (2 players). */
+function tryoutSim(start, stage, units) {
+  const ty = start.tryout;
+  const players = [...start.players].sort((a, b) => a.slot - b.slot);
+  const plan = buildTryoutPlan({ seed: ty.seed >>> 0, grade: ty.grade, length: ty.length, mapId: ty.mapId });
+  const stageDef = stage || buildTryoutStage(plan, { coop: true });
+  return withDetMath(() => new Sim({
+    stageId: stageDef.id, difficulty: 'normal', loadout: [], heroes: players.map((p) => p.hero || null), seed: start.seed >>> 0,
+    options: {
+      endless: false, autoStart: false,
+      tryout: {
+        seed: plan.seed, grade: plan.grade, length: plan.length, mapId: plan.mapId,
+        // (each three checked against that player's own six: a forged draft plays the first three of it; Random Class
+        // ignores the drafts, and the Sim draws each player's three from their pool and the seed, §20.4)
+        ...(ty.random === true ? { random: true } : null),
+        players: players.map((p) => ({ squad: ty.random === true ? [] : checkedDraft(p.draft, p.pool, plan.seed, p.slot) })),
+        pools: players.map((p) => (p.pool && typeof p.pool === 'object' ? p.pool : {})),
+      },
+    },
+    data: { stage: stageDef, ...(units ? { units } : null) },
+  }));
+}
+
+function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = null) {
+  const freeplay = tySim ? null : freeplayTier(start.freeplay);
+  const stageDef = tySim ? tySim.stage : stage || coopStage(start.stageId, { freeplay });
   if (!stageDef) throw new Error(`[coop] unknown stage ${start.stageId}`);
   const players = [...start.players].sort((a, b) => a.slot - b.slot);
   const host = players[0];
@@ -120,7 +157,7 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
     seen.add(e.unitId);
     union.push(e);
   }
-  const sim = withDetMath(() => new Sim({
+  const sim = tySim || withDetMath(() => new Sim({
     stageId: stageDef.id, difficulty: start.difficulty, loadout: union, heroes: players.map((p) => p.hero || null), seed: start.seed >>> 0,
     // the battle mode is the only mode/rule field read from the message (the rule rides on the
     // StageDef; freeplay runs in Standard in v1: docs/specs/CODEX_MODES.md §6.4)
@@ -131,6 +168,8 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
   sim.ownerCash = players.map(() => 0);
   players.forEach((p, i) => { sim.abilityAutoDefault[i] = p.autoAbil === true; });
   const views = players.map((p, i) => {
+    // a run: the Sim built each player's loadout from their squad (src/sim/tryout); their view shares that map
+    if (sim.tryout) return { loadout: sim._loadouts[i], heroConfig: sim.heroConfigs[i] || null };
     const lo = new Map();
     for (const e of p.loadout || []) {
       const def = e && sim.data.unit(e.unitId);
@@ -160,6 +199,7 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
     sim.cash = wallets[slot];
     sim.loadout = views[slot].loadout;
     sim.heroConfig = views[slot].heroConfig;
+    if (sim.tryout) sim.viewOwner = slot;
   }
   view(viewSlot);
 
@@ -210,6 +250,8 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
     if (cmd.k === 'gone' || cmd.k === 'join') {
       if (cmd.k === 'gone') gone.add(slot);
       else gone.delete(slot);
+      // a run: their open pick or break resolves at once, and so does every later one while they stay gone
+      if (sim.tryout) withDetMath(() => tryoutGone(sim, slot, cmd.k === 'gone'));
       // the one left can finish alone (her vote may already be in)
       if (cmd.k === 'gone') checkEndVotes();
       return { ok: true };
@@ -357,6 +399,22 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
           }
           break;
         }
+        // ---- Tryout Day (docs/specs/TRYOUT_DAY.md §11) ------------------------------------------------
+        case 'tr': {
+          const [op, x, y, z] = a;
+          if (!sim.tryout) res = { ok: false, reason: 'noRun' };
+          else if (typeof op !== 'string' || a.slice(1).some((v) => v != null && !Number.isInteger(v))) res = { ok: false, reason: 'invalid' };
+          else res = sim.tryoutCommand(slot, op, [x, y, z]);
+          break;
+        }
+        case 'mv': {
+          const [uid, qx, qy] = a;
+          if (!sim.tryout) res = { ok: false, reason: 'noRun' };
+          else if (!Number.isInteger(uid) || !Number.isInteger(qx) || !Number.isInteger(qy)) res = { ok: false, reason: 'invalid' };
+          else if (!ownsTower(slot, uid)) res = { ok: false, reason: 'notYours' };
+          else res = sim.tryoutMove(slot, uid, qx / Q, qy / Q);
+          break;
+        }
         case 'acast': {
           const [uid, on] = a;
           if (!Number.isInteger(uid) || uid < 0 || (on !== 0 && on !== 1)) res = { ok: false, reason: 'invalid' };
@@ -441,7 +499,10 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
       const mine = sim.cash;
       sim.cash = 0;
       try {
-        return { v: 1, tick, speed, oddTurn, wallets: wallets.slice(), owners: [...owners], gone: [...gone], endVotes: endVotes.slice(), sim: sim.snapshot(config()) };
+        // a run: each player's squad (join order) and the period whose Run Level is applied travel beside the
+        // Sim, so a fresh client rebuilds every loadout entry before the restore (docs/specs/TRYOUT_DAY.md §12.2)
+        const run = sim.tryout ? { squads: sim.tryout.players.map((p) => p.squad.slice()), period: sim.tryout.started || 1 } : null;
+        return { v: 1, tick, speed, oddTurn, wallets: wallets.slice(), owners: [...owners], gone: [...gone], endVotes: endVotes.slice(), ...run, sim: sim.snapshot(config()) };
       } finally {
         sim.cash = mine;
       }
@@ -452,6 +513,10 @@ export function createCoopSim(start, { mySlot = 0, stage = null, units = null } 
      */
     restore(snap) {
       if (!snap || snap.v !== 1 || !Number.isInteger(snap.tick) || snap.wallets?.length !== players.length) throw new Error('[coop] not a co-op checkpoint');
+      if (sim.tryout) {
+        if (!Array.isArray(snap.squads) || snap.squads.length !== players.length || !Number.isInteger(snap.period)) throw new Error('[coop] a run checkpoint without its squads');
+        withDetMath(() => tryoutLoadouts(sim, snap.squads.map((q) => (Array.isArray(q) ? q.filter((id) => typeof id === 'string') : [])), snap.period));
+      }
       withDetMath(() => sim.restore(snap.sim, config()));
       tick = snap.tick;
       speed = snap.speed;

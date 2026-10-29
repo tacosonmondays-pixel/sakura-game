@@ -8,7 +8,7 @@
 //   Backdrops           her stand over the academy (day / sunset / night), with her speech bubble; day is her default
 //   Full illustrations  her pictures that fill the whole lobby with no stand and no bubble (src/data/lobbyIllustrations.js),
 //                       then her Bond memories, which stay locked (soft silhouette + lock + requirement) until the City
-//                       dating / gift system raises her bond level
+//                       time-together / gift system raises her bond level
 // Every tile is a thumbnail. The choice is saved in profile.lobbyBg + secretary.
 import { h, clear } from '../dom.js';
 import { modal, svgEl, glyph, toast } from '../components.js';
@@ -16,7 +16,7 @@ import { store } from '../../core/store.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
 import { UNIT_RARITIES } from '../../data/types.js';
 import { applyUrFrame } from '../rarity.js';
-import { portraitHTML } from '../../art/portraits.js';
+import { portraitHTML, isPlaceholderPortrait } from '../../art/portraits.js';
 import {
   lobbyBackgroundGroups, lobbyBackgroundFor, isBackgroundUnlocked, hasArt, chooseBackground, unlockText, lobbyArtUrl, bgArtUrl, bondLevel, BOND_MAX,
 } from '../../data/lobbyArt.js';
@@ -50,8 +50,9 @@ export function openBackgroundPicker({ girl = null } = {}) {
   const paintGirls = () => {
     clear(girls);
     // the girls you own first, then everyone else greyed out (their backgrounds to collect)
-    const owned = ownedUnits(store.profile);
-    const others = UNITS.map((u) => u.id).filter((id) => !owned.includes(id));
+    // (a girl whose art is still the coming-soon signboard is not listed until it is drawn)
+    const owned = ownedUnits(store.profile).filter((id) => !isPlaceholderPortrait(id));
+    const others = UNITS.map((u) => u.id).filter((id) => !owned.includes(id) && !isPlaceholderPortrait(id));
     for (const id of [...owned, ...others]) {
       const u = UNIT_MAP[id];
       const mine = owned.includes(id);
@@ -82,7 +83,7 @@ export function openBackgroundPicker({ girl = null } = {}) {
     head.append(...[
       h('div.bgp-head-name', h('b', u.name), h('span', u.title)),
       mine ? null : h('span.bgp-unowned-tag', 'Not recruited yet'),
-      h('div.bgp-bond', { title: 'Bond level — raised by dates and gifts in the City (coming soon)' },
+      h('div.bgp-bond', { title: 'Bond level — raised by time together and gifts in the City (coming soon)' },
         svgEl(glyph('heart'), 'bgp-bond-ico'), h('span', `Bond ${bondLevel(p, current)}/${BOND_MAX}`)),
       isSec ? h('span.bgp-sec-tag', 'Secretary') : null,
     ].filter(Boolean));
@@ -129,7 +130,7 @@ export function openBackgroundPicker({ girl = null } = {}) {
 function lockLines(bg, unlocked, owned = true) {
   if (unlocked) return [h('b', 'Coming soon')];
   if (!owned) return [h('b', `Recruit ${UNIT_MAP[bg.girl]?.name || bg.girl}`), bg.unlock.type === 'bond' ? h('small', `then Bond Lv ${bg.unlock.level}`) : null];
-  if (bg.unlock.type === 'bond') return [h('b', `Bond Lv ${bg.unlock.level}`), h('small', 'Date her & give gifts in the City')];
+  if (bg.unlock.type === 'bond') return [h('b', `Bond Lv ${bg.unlock.level}`), h('small', 'Spend time with her & give gifts in the City')];
   return [h('b', `Recruit ${UNIT_MAP[bg.girl]?.name || bg.girl}`)];
 }
 

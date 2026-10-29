@@ -20,6 +20,7 @@ export const HOSTS = Object.freeze({
   mail: 'hotaru', // the Mailroom
   happening: 'suzu', // Happening Now (#/rewards)
   multiplayer: 'momo', // owner #108
+  tryout: 'wakaba', // Tryout Day (#/tryout): the track team manager runs the tryouts (TRYOUT_DAY.md §13.2)
 });
 
 /**

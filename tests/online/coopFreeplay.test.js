@@ -114,13 +114,15 @@ describe("the 'end' Finish vote", () => {
 });
 
 describe('compatibility', () => {
-  it('protocol 9 (the ultimates; v0.1.41 was 8, v0.1.40 7, v0.1.39 6, Potential v3 5, battle train C 4, freeplay 3): protocol-2 to -8 builds are refused, and the battle data hash covers the freeplay table', () => {
-    expect(COOP_PROTOCOL).toBe(9);
+  it('protocol 11 (the banners and Tryout Day; the ultimates was 10, Gate Arc Acts 1–2 9, v0.1.41 8, v0.1.40 7, v0.1.39 6, Potential v3 5, battle train C 4, freeplay 3): protocol-2 to -10 builds are refused, and the battle data hash covers the freeplay table', () => {
+    expect(COOP_PROTOCOL).toBe(11);
     const v = coopVersion();
-    expect(v.proto).toBe(9);
+    expect(v.proto).toBe(11);
+    expect(sameVersion(v, { ...v, proto: 10 })).toBe(false);
+    expect(sameVersion({ ...v, proto: 10 }, v)).toBe(false);
+    expect(sameVersion(v, { ...v, proto: 9 })).toBe(false);
+    expect(sameVersion({ ...v, proto: 9 }, v)).toBe(false);
     expect(sameVersion(v, { ...v, proto: 8 })).toBe(false);
-    expect(sameVersion({ ...v, proto: 8 }, v)).toBe(false);
-    expect(sameVersion(v, { ...v, proto: 7 })).toBe(false);
     expect(sameVersion(v, { ...v, proto: 6 })).toBe(false);
     expect(sameVersion({ ...v, proto: 6 }, v)).toBe(false);
     expect(sameVersion(v, { ...v, proto: 5 })).toBe(false);

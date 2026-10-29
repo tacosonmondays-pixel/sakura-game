@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, runDuoBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 import { launchAttempts } from '../../e2e/browser.mjs';
 
 // T3 review coop-3: e2e/engines.mjs only ever tried Playwright's own browsers, so on a machine without
@@ -36,9 +36,12 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // and the run is reproducible (what the cross-engine comparison relies on)
     expect(runScriptedBattle().final).toBe(r.final);
     // pinned: re-pinned by the hero rework (START fields Hikari, who now deploys for free and levels
-    // on her track; landing plan S12) together with its stage-HP pass
+    // on her track; landing plan S12) together with its stage-HP pass. The wave tables re-pinned by Gate Arc Step 1:
+    // chapter 1's five Act II stages add 252 tables (102 waves + 5 × 30 endless), and Step 2's chapter-2 five add 267
+    // (117 waves + 5 × 30 endless); the tables of the stages that existed
+    // before stay pinned bit for bit in tests/sim/campaignGolden.test.js
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, waves: r.waves })
-      .toEqual({ ticks: 28995, state: 'won', wallets: '1499/1347', final: 93082125, hashes: '7db1eed1', waves: '3018:9657f4ba' });
+      .toEqual({ ticks: 28995, state: 'won', wallets: '1499/1347', final: 93082125, hashes: '7db1eed1', waves: '3537:0a7cd674' });
   }, 120000);
 
   it('runs the Potential battle (POTENTIAL_START: every kind of step, Aoi at P1 for the host and P6 for the guest, Kage and Rei at P6) in sync', () => {
@@ -280,6 +283,48 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Heavy Ball share tune). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, bowl: r.bowl })
       .toEqual({ ticks: 72006, state: 'wave', wave: 26, wallets: '7258/6667', final: 821407225, hashes: '018423c4', bowl: '659/397/7/0' });
+  }, 240000);
+
+  it('runs the duo Kohaku & Tsubaki (DUO_START: Refraction, Kohaku\'s beam, Prismfall on Auto-cast, the host\'s LR Twin Star) in sync', () => {
+    const r = runDuoBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(20);
+    const [refract, shards, beams, casts, twinStar, aims] = r.duo.split('/').map(Number);
+    expect(refract).toBeGreaterThan(0);
+    expect(shards).toBeGreaterThan(refract * 2); // 3+ shards a split
+    expect(beams).toBeGreaterThan(0);
+    expect(casts).toBeGreaterThan(0);
+    // only the host's duo carries the LR flag: some casts end with a Twin Star, never all of them
+    expect(twinStar).toBeGreaterThan(0);
+    expect(twinStar).toBeLessThan(casts);
+    expect(aims).toBe(1);
+    expect(runDuoBattle().final).toBe(r.final);
+    // pinned when the battle was added (the duo build, Oct 28). Change only with a deliberate sim / data change, and say why.
+    // Re-pinned Oct 28 for Kohaku's constant beam (src/sim/duo.js: damage ticks every 6 steps instead of a flash every
+    // ~1.4 s, beams that hold their enemy, `beams` now counts lock-ons and a repeat every 1.5 s held): ticks 44632 → 44656, final 3327486567 → 1485318803,
+    // hashes 8b361ee7 → baad978d, duo 273/1262/388/… → 274/1266/616/… (a lock-on and every 1.5 s held: Kohaku's clip)
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, duo: r.duo })
+      .toEqual({ ticks: 44656, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3302/3717', final: 1485318803, hashes: 'baad978d', duo: '274/1266/616/26/11/1' });
+  }, 240000);
+
+  it('runs the staff heroes (STAFF_START: Norika\'s barricades and Hold the Line on a forked map, Kogane\'s plow and Moves) in sync', () => {
+    const r = runStaffBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(20);
+    const [held, breaks, lines, , , plows, moves] = r.staff.split('/').map(Number);
+    expect(held).toBeGreaterThan(0);
+    expect(breaks).toBeGreaterThan(0);
+    expect(lines).toBeGreaterThan(0);
+    expect(plows).toBeGreaterThan(0);
+    expect(moves).toBeGreaterThan(0);
+    expect(runStaffBattle().final).toBe(r.final);
+    // pinned when the battle was added (banners G7, Oct 28). Change only with a deliberate sim / data change, and say why.
+    // Re-pinned the same day (final review): Hold the Line now casts only during a wave (a calm point holds no lines),
+    // and the host casts it in waves only (ultInWave).
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, staff: r.staff, heroLevels: r.heroLevels })
+      .toEqual({ ticks: 49465, state: 'won', wave: 20, wallets: '778/268', final: 3094781041, hashes: '8552ea5e', staff: '1082/21/32/0/0/15/28', heroLevels: '21/24' });
   }, 240000);
 
   it('hashes the freeplay wave tables of every stage and tier', () => {

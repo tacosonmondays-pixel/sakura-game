@@ -21,7 +21,13 @@ const fpLegacy = (p, key) => (Array.isArray(p?.progress?.freeplay?.[key]) ? p.pr
 const claimed = (p, id) => p?.missions?.achievements?.[id] === true;
 const ACH_IDS = new Set(ACHIEVEMENTS.map((a) => a.id));
 const ACH_MAP = Object.fromEntries(ACHIEVEMENTS.map((a) => [a.id, a]));
-const STAGE_INDEX = Object.fromEntries(STAGES.map((s, i) => [s.id, i]));
+/**
+ * Where a stage sits on the campaign ramp, for "later (harder) first": an Act I stage its place 0 … 39, an Act II
+ * stage its ACT2_PLAN rung (5c + k − 1, k = n − 5) just after the Act I stage on the same rung (1-10 ranks beside 2-5,
+ * never above 8-5); other stages keep their STAGES order after the campaign.
+ */
+const STAGE_INDEX = Object.fromEntries(STAGES.map((s, i) => [s.id, s.kind !== 'campaign' ? 1000 + i
+  : s.act === 2 ? 5 * s.chapter + Number(s.id.split('-')[1]) - 6 + 0.5 : CAMPAIGN_IDS.indexOf(s.id)]));
 
 /** Medal names by difficulty (bronze, silver, gold, sakura). */
 export const MEDAL_NAMES = Object.freeze({ easy: 'Bronze Medal', normal: 'Silver Medal', hard: 'Gold Medal', nightmare: 'Sakura Medal' });
@@ -93,7 +99,8 @@ export function bannerUnlocked(p, id) {
   if (b.kind === 'academy') return true;
   if (b.kind === 'scene') return !!p?.units?.[b.girl];
   const chapter = CHAPTERS.find((c) => c.id === b.chapter);
-  const ids = STAGES.filter((s) => s.kind === 'campaign' && s.chapter === b.chapter).map((s) => s.id);
+  // the chapter's Act I (`stages`): an Act II that ships later never re-locks a banner a player already has
+  const ids = chapter ? chapter.stages : [];
   return !!chapter && ids.length > 0 && ids.every((sid) => stageCleared(p, sid));
 }
 
@@ -195,7 +202,8 @@ function ribbonPins(p) {
   if (!p) return [];
   const perfect = [];
   const out = [];
-  CAMPAIGN_IDS.forEach((id, i) => {
+  CAMPAIGN_IDS.forEach((id) => {
+    const i = STAGE_INDEX[id];
     const r = modeRibbons(p, id);
     let have = 0;
     for (const d of DIFFICULTY_ORDER) {

@@ -1,5 +1,7 @@
 import './ui/styles/base.css';
 import './ui/styles/components.css'; // UI condense shared components (docs/specs/UI_DIRECTION.md §5)
+import './ui/styles/ink.css'; // [ui-ink] UI v2 "Ink & Paper": the menus and the home only (body.ui-day / ui-night), never the battle
+import './ui/styles/motion.css'; // [ui-ink] the UI v2 motion layer (src/ui/motion.js): the same scope
 import { registerRoute, startRouter, currentRoute, prefetchRoutes } from './ui/router.js';
 import { whenSettled, txLog, transitionBusy } from './ui/transitions/index.js';
 import { store } from './core/store.js';
@@ -28,6 +30,7 @@ registerRoute('backpack', () => import('./ui/screens/backpack.js'));
 registerRoute('bounty', () => import('./ui/screens/bounty.js'));
 registerRoute('assault', () => import('./ui/screens/assault.js'));
 registerRoute('titans', () => import('./ui/screens/titans.js')); // [ascension] Titan Trials, the weekly bosses
+registerRoute('tryout', () => import('./ui/screens/tryout.js')); // [tryout] Tryout Day, the roguelike run mode
 registerRoute('challenge', () => import('./ui/screens/challenge.js'));
 registerRoute('sandbox', () => import('./ui/screens/sandbox.js')); // solo test range (any map, any girl, no rewards)
 registerRoute('mall', () => import('./ui/screens/mall.js'));
@@ -52,6 +55,7 @@ registerRoute('scene', () => import('./ui/story/scene.js')); // [story] scene pl
 registerRoute('story', () => import('./ui/story/archive.js')); // [story] Story archive
 registerRoute('journal', () => import('./ui/story/journal.js')); // [story] Captain's Journal
 registerRoute('profile', () => import('./ui/screens/profile.js')); // [profile] Sensei Profile: #/profile (yours)
+registerRoute('workbench', () => import('./ui/screens/workbench.js')); // [workbench] club lab: timed Workbench + instant Craft Room (#/workbench?tab=bench|craft)
 
 store.load();
 // the in-game "Reduce motion" setting, before the first screen moves (CSS + src/ui/transitions read it)
@@ -108,6 +112,8 @@ import('./ui/achToast.js').then(async (m) => {
   window.addEventListener('hashchange', later);
   later();
 }).catch((e) => console.warn('[main] achievements install failed', e));
+// [workbench] the in-tab "craft ready" toast outside battles and the lobby dot (BANNERS §G)
+import('./ui/workbenchWatch.js').then((m) => m.installWorkbenchWatch(store)).catch((e) => console.warn('[main] workbench watch failed', e));
 // [story] opening hand-off, after-scene queue, stage-prep scenes (lazy: the scene text is its own chunk)
 import('./ui/story/install.js').then((m) => m.installStory({ store })).catch((e) => console.warn('[main] story install failed', e));
 

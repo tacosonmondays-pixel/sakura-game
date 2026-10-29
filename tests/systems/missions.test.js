@@ -159,7 +159,9 @@ describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', ()
   it('the list carries the display fields', () => {
     const a = achievementList(createProfile()).find((x) => x.id === 'a_sakura_40');
     expect(a).toMatchObject({ cat: 'campaign', tier: 5, series: 'sakura', hidden: false, since: null, locked: null, live: true });
-    expect(a.seriesIds).toEqual(['a_sakura_1', 'a_sakura_10', 'a_sakura_20', 'a_sakura_40']);
+    // (a_sakura_80 is the Act II step, listed in the series but hidden until its stages exist: the ladder shows live rows only)
+    expect(a.seriesIds).toEqual(['a_sakura_1', 'a_sakura_10', 'a_sakura_20', 'a_sakura_40', 'a_sakura_80']);
+    expect(achievementList(createProfile()).some((x) => x.id === 'a_sakura_80')).toBe(false);
     expect(a.honor).toMatchObject({ no: 28, cls: 'special', fx: 'sakura' });
     expect(a.title).toEqual({ text: 'Thousand-Petal Sentinel', tier: 'prism' });
     const secret = achievementList(createProfile()).find((x) => x.id === 'a_close_call');
@@ -304,16 +306,24 @@ describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', ()
     expect(p.missions.counters.heroMax).toBe(12);
   });
 
-  it('the F2P one-time Achievements row equals the sum of the live defs (129 with social and Codex)', () => {
+  it('the F2P one-time Achievements row equals the sum of the live defs (131 with social, Codex, a_ch1_act2 and a_ch2_act2)', () => {
     const row = f2pIncomeSummary().oneTime.find((r) => r.source === 'Achievements');
-    const live = ACHIEVEMENTS.filter((a) => achievementLive(a));
+    // (Tryout Day's 12 rows are their own one-time row below: TRYOUT_DAY.md §10.2)
+    const live = ACHIEVEMENTS.filter((a) => achievementLive(a) && a.wave !== 'tryout');
     const sum = (id) => live.reduce((n, a) => n + a.rewards.filter((r) => r.id === id).reduce((m, r) => m + r.count, 0), 0);
-    expect(live).toHaveLength(129);
+    expect(live).toHaveLength(131);
     expect(row.gems).toBe(sum('gems'));
-    expect(row.gems).toBe(13670); // + 670 from the Codex rows
+    expect(row.gems).toBe(13807); // + 670 from the Codex rows, + 62 from Chapter 1 · Act II, + 75 from Chapter 2 · Act II (Gate Arc)
     expect(row.tickets).toBe(sum('ticket_recruit') + 10 * sum('ticket_recruit10'));
     expect(row.tickets).toBe(24); // + Every Ribbon, Every Stage's ticket
-    expect(row.note).toBe('129 achievements');
+    expect(row.note).toBe('131 achievements');
+  });
+
+  it('Tryout Day\'s 360 gems are a one-time source of their own; the 28-day chart does not move', () => {
+    const s = f2pIncomeSummary();
+    const row = s.oneTime.find((r) => r.source === 'Tryout Day achievements');
+    expect(row).toMatchObject({ gems: 360, tickets: 0, pulls: 3, note: '12 achievements, once', kind: 'oneTime' });
+    expect(s.rows.some((r) => /tryout/i.test(r.source))).toBe(false);
   });
 });
 

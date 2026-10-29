@@ -76,7 +76,7 @@ export default [
     say('miko', 'Captain, a grey scale, inside the bell. That makes three.', { at: 'right', face: 'surprise' }),
     cue({ flash: 'white', exit: ['miko'] }),
     narrate('Far up on the mountain pass, a mirror flashes in the moonlight. Three short. Three long. Three short.'),
-    cue({ bg: 'academy-sunset', music: 'home' }),
+    cue({ bg: 'academy-gate-sunset', music: 'home' }),
     narrate('The next evening, somebody is waiting at the academy gate.'),
     cue({ enter: [{ who: 'shiro', at: 'right', fx: 'slide-in' }] }),
     say('shiro', 'Report. Orc columns on Ironhold Pass: three. Wolves: many. Pass Beacon: dark. Snacks remaining: two.'),

@@ -7,21 +7,22 @@
 // Stand-ins (standins.js: the returning girls without approved art) are always procedural: no
 // GLB is requested for them and their chibi is final (userData.standIn = true), not a placeholder.
 import { loadBaseBody } from './body.js';
-import { buildChibi as buildChibiProc, clearChibiCache } from './chibi.js';
+import { buildChibi as buildChibiProc, clearChibiCache, liftChin } from './chibi.js';
 import { makeSilhouette as silhouette } from './util.js';
 import {
   getCharacter, loadCharacter, loadManifest, preloadCharacters, instantiateCharacter, ensureSkeletonUtils, skeletonUtilsReady,
   canLoadCharacters, detailFor,
 } from './glbChibi.js';
-import { isStandIn } from './standins.js';
+import { isStandIn, STANDIN_CHIN_UP } from './standins.js';
 import { attachCompanionFigure } from './companions.js';
+import { buildDuo, modelIds } from './duo.js';
 import { resolveSkin } from '../data/skins.js';
-import { UNIT_IDS } from '../data/units.js';
+import { UNIT_IDS, UNIT_MAP } from '../data/units.js';
 
 export { CHIBI_HEIGHT } from './chibi.js';
 export { buildEnemy, preloadEnemies, enemyUrl } from './enemies.js';
 export { makeSilhouette, disposeObject } from './util.js';
-export { createModelViewer } from './viewer.js';
+export { createModelViewer, drawnBox } from './viewer.js';
 export { characterUrl, FACE_CELLS, detailFor } from './glbChibi.js';
 export { STANDIN_UNITS, isStandIn } from './standins.js';
 
@@ -40,7 +41,11 @@ let preloaded = null;
  */
 export function preloadModels(ids = null, { detail = 'full', skins = {} } = {}) {
   // model files (manifest keys) for the units; stand-ins have none (procedural on purpose)
-  ids = (ids || UNIT_IDS).map((id) => resolveSkin(id, skins?.[id]).asset).filter((key) => !isStandIn(key));
+  // (a duo unit has no file of her own: her two members' files, src/models/duo.js; never `<duo>.glb`)
+  ids = (ids || UNIT_IDS).flatMap((id) => {
+    const def = UNIT_MAP[id];
+    return def?.duo ? modelIds(def) : [resolveSkin(id, skins?.[id]).asset];
+  }).filter((key) => !isStandIn(key));
   if (!preloaded) {
     preloaded = (async () => {
       if (!canLoadCharacters()) return false;
@@ -73,6 +78,8 @@ export function preloadModels(ids = null, { detail = 'full', skins = {} } = {}) 
  *   beside the GLB figure in its home pose. The battle draws companions itself (src/render/companions.js).
  */
 export function buildChibi(unitDef, opts = {}) {
+  // a duo unit: both girls on one base, each from her own GLB (src/models/duo.js)
+  if (unitDef?.duo?.members?.length) return tagSkin(buildDuo(unitDef, opts, buildDuoMember), resolveSkin(unitDef.id, opts.skin));
   const quality = opts.quality || 'high';
   const detail = opts.detail || detailFor(quality);
   const skin = resolveSkin(unitDef.id, opts.skin);
@@ -81,6 +88,7 @@ export function buildChibi(unitDef, opts = {}) {
     // deliberate stand-in: the procedural chibi in her own palette/look, nothing to fetch or upgrade
     const group = tagSkin(buildChibiProc(skinLook(unitDef, skin), opts), skin);
     group.userData.standIn = true;
+    liftChin(group, STANDIN_CHIN_UP[key] || 0);
     return markDisposed(group);
   }
   if (skeletonUtilsReady()) {
@@ -103,6 +111,57 @@ export function buildChibi(unitDef, opts = {}) {
     }).catch(() => {});
   }
   return markDisposed(group);
+}
+
+/**
+ * One member of a duo (src/models/duo.js), built through the same GLB path as a girl's own figure: her model asset
+ * is her id (`def` is the member's pseudo-def, models/duo.js memberDef). When her GLB is not loaded yet she is a
+ * procedural placeholder in her drawn colours, upgraded in place when it arrives (`onUpgrade()` then); when it
+ * cannot load (node, offline, a failed fetch) that procedural figure is her final stand-in (userData.standIn).
+ * The members carry no skin and no companion.
+ */
+function buildDuoMember(def, opts, onUpgrade) {
+  const quality = opts.quality || 'high';
+  const detail = opts.detail || detailFor(quality);
+  const key = def.id;
+  const mopts = { ...opts, skin: null, companion: false };
+  if (skeletonUtilsReady()) {
+    const exact = getCharacter(key, detail);
+    const asset = exact || getCharacter(key, detail === 'full' ? 'lod' : 'full');
+    if (asset) {
+      if (!exact && canLoadCharacters()) loadCharacter(key, detail).catch(() => {});
+      return withAnchors(instantiateCharacter(asset, def, mopts), asset);
+    }
+  }
+  const group = markDisposed(buildChibiProc(def, mopts));
+  if (!canLoadCharacters()) {
+    group.userData.standIn = true;
+    return group;
+  }
+  Promise.all([ensureSkeletonUtils(), loadCharacter(key, detail)]).then(([, a]) => {
+    if (group.userData.disposed) return;
+    if (!a) {
+      // her GLB is unavailable: the procedural figure stays, for good
+      group.userData.standIn = true;
+      return;
+    }
+    if (!group.parent) return;
+    upgradeInPlace(group, a, def, mopts);
+    delete group.userData.bones;
+    delete group.userData.chinUp;
+    group.userData.standIn = false;
+    withAnchors(group, a);
+    onUpgrade?.();
+  }).catch(() => {
+    group.userData.standIn = true;
+  });
+  return group;
+}
+
+/** A GLB member's FX anchors (asset.extras.anchors), for the duo's userData.anchors (src/models/duo.js). */
+function withAnchors(group, asset) {
+  group.userData.anchorDefs = asset.extras?.anchors || null;
+  return group;
 }
 
 /** Figure viewers (`opts.companion`): her companion beside the GLB figure. */

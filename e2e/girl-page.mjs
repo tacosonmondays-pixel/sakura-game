@@ -369,10 +369,15 @@ try {
     const locked = await page.evaluate(`(() => {
       const c = ${CONTRAST};
       const t = document.querySelector('[data-testid="tab-gear"]');
-      const cs = getComputedStyle(t);
-      return { on: t.classList.contains('on'), locked: t.classList.contains('locked'), ratio: Math.round(c(getComputedStyle(t.querySelector('span') || t).color, cs.backgroundColor) * 100) / 100 };
+      // (UI v2 M3: a folder tab, S4: the open tab's face is its ::before, the label its .ui-tab-word)
+      const clear = (v) => v === 'transparent' || v === 'rgba(0, 0, 0, 0)';
+      let bg = getComputedStyle(t).backgroundColor;
+      if (clear(bg)) bg = getComputedStyle(t, '::before').backgroundColor;
+      if (clear(bg)) bg = getComputedStyle(t.closest('.ui-tabbed') || document.body).backgroundColor;
+      const word = t.querySelector('.ui-tab-word') || t.querySelector('span') || t;
+      return { on: t.classList.contains('on'), locked: t.classList.contains('locked'), ratio: Math.round(c(getComputedStyle(word).color, bg) * 100) / 100 };
     })()`);
-    check(locked.on && locked.locked && locked.ratio >= 4.5, `${tag} Kinu (not recruited) on Gear: the open locked tab's label is ${locked.ratio}:1 on the plate`);
+    check(locked.on && locked.locked && locked.ratio >= 4.5, `${tag} Kinu (not recruited) on Gear: the open locked tab's label is ${locked.ratio}:1 on its face`);
     await go(page, '#/student/aoi?tab=info', '[data-testid="view-3d"]');
     await page.click('[data-testid="view-3d"]');
     await page.waitForSelector('.gp-band.is-3d .gp-acts .gp-act');

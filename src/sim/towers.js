@@ -30,6 +30,7 @@ import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick } from './vines.js';
 import { rollBall, ballTick } from './balls.js';
 import { labMods } from './lab.js';
+import { buildPartnerSpec, partnerTick, partnerOff, beginVolley, refract } from './duo.js';
 import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax, followThroughBlast } from './gearRules.js';
 
 const WEAPON_KIND = {
@@ -146,7 +147,11 @@ export function createTower(def, o) {
  * no buffs). A restored co-op checkpoint is checked against it (lockstep.js).
  */
 export function towerResolvedStats(t) {
-  const o = { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0, extra: t.abilMods || null };
+  // Tryout Day's Pep Talks (`runMods`, src/sim/tryout/pep.js) come after a running boost; a girl without
+  // them resolves exactly as before
+  const run = t.runMods || null;
+  const tail = (m) => (run ? [].concat(m || [], run) : m);
+  const o = { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0, extra: tail(t.abilMods || null) };
   const s = resolveStats(t.def, o);
   // Tenka's lab team (src/sim/lab.js): her dps and support weapons from her lab record and her lab power,
   // after every tier and before a running boost (a girl without a lab resolves exactly as before)
@@ -154,6 +159,7 @@ export function towerResolvedStats(t) {
   const lm = labMods(t.lab, s.lab.power);
   if (!lm) return s;
   o.extra = t.abilMods ? [lm, t.abilMods] : lm;
+  if (run) o.extra = [].concat(o.extra, run);
   return resolveStats(t.def, o);
 }
 
@@ -212,6 +218,8 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     critChance: s.crit.chance,
     critMul: s.crit.mul,
   };
+  // Kogane's Big Yellow Overdrive (Potential P6, src/sim/hero.js): faster for a while after a Move in a wave
+  if (t.overdriveLeft > 0 && s.overdrive) t.eff.rate *= s.overdrive.rateMul;
   // a rally's extra pierce (Ouka's Assembly Bell; absent otherwise)
   if (b.pierceAdd > 0) t.eff.pierce += b.pierceAdd;
   // Ouka's rules (src/sim/hubs.js): anti-air and a type-chart floor for the girls she covers
@@ -319,6 +327,8 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
   }
   if (s.ring) t.scissorSpec = s.ring.scissors > 0 ? { ...t.eff, damage: s.ring.scissorDmg * s.ring.scissorMul * dmgMul, canHitAir: true, critChance: 0 } : null;
   applyBuffExtras(t, b);
+  // the duo (src/sim/duo.js): Kohaku's beam, the partner weapon, follows the same buffs
+  if (s.duo) buildPartnerSpec(t);
   if (s.strip || s.sentry) deployCrits(t);
   // Potential's rhythm (src/sim/potential.js N3): its specs follow her effective stats and buffs
   if (s.proc) buildProcSpecs(t);
@@ -527,15 +537,31 @@ export function bestTarget(sim, x, y, range, spec, mode) {
 
 /** Up to `n` distinct targets sorted by preference (new array). */
 export function selectTargets(sim, x, y, range, spec, mode, n) {
+  return selectTargetsInto(sim, x, y, range, spec, mode, n, []);
+}
+
+// the preference order's comparator, hoisted (no closure per call): set just before each sort
+let byMode = null;
+let byX = 0;
+let byY = 0;
+const byScore = (a, b) => targetScore(byMode, byX, byY, b) - targetScore(byMode, byX, byY, a);
+
+/** selectTargets into `out` (emptied first; a hot path's own scratch array): the same targets in the same order. */
+export function selectTargetsInto(sim, x, y, range, spec, mode, n, out) {
+  out.length = 0;
   if (n <= 1) {
     const b = bestTarget(sim, x, y, range, spec, mode);
-    return b ? [b] : [];
+    if (b) out.push(b);
+    return out;
   }
   const c = gatherTargets(sim, x, y, range, spec, sim._scratch);
-  const arr = c.slice();
-  arr.sort((a, b) => targetScore(mode, x, y, b) - targetScore(mode, x, y, a));
-  if (arr.length > n) arr.length = n;
-  return arr;
+  for (let i = 0; i < c.length; i++) out.push(c[i]);
+  byMode = mode;
+  byX = x;
+  byY = y;
+  out.sort(byScore);
+  if (out.length > n) out.length = n;
+  return out;
 }
 
 /**
@@ -715,6 +741,23 @@ export function spawnProjectile(sim, t, spec, target, fromX, fromY, opts = {}) {
 }
 
 function linePierce(sim, t, spec, target, length, halfWidth, pierce) {
+  const hits = linePierceInto(sim, t, spec, target, length, halfWidth, pierce, [], []);
+  return { hits, ex: lineEnd.x, ey: lineEnd.y };
+}
+
+// the line's order comparator, hoisted (no closure per call): set just before each sort; lineEnd: the last line's end
+const lineEnd = { x: 0, y: 0 };
+let lnSx = 0;
+let lnSy = 0;
+let lnEx = 0;
+let lnEy = 0;
+const byLine = (a, b) => projectOnSegment(a.x, a.y, lnSx, lnSy, lnEx, lnEy) - projectOnSegment(b.x, b.y, lnSx, lnSy, lnEx, lnEy);
+
+/**
+ * linePierce into `hits` (its targets, in line order), `near` a scratch array for the grid query (both emptied first;
+ * a hot path's own scratch arrays): the same enemies in the same order. The line's end goes to lineEnd.
+ */
+function linePierceInto(sim, t, spec, target, length, halfWidth, pierce, hits, near) {
   const sx = t.ox;
   const sy = t.oy;
   const dx = target.x - sx;
@@ -722,18 +765,29 @@ function linePierce(sim, t, spec, target, length, halfWidth, pierce) {
   const d = Math.hypot(dx, dy) || 1e-6;
   const ex = sx + (dx / d) * length;
   const ey = sy + (dy / d) * length;
-  const near = sim.grid.query((sx + ex) / 2, (sy + ey) / 2, length / 2 + 1, []);
-  const hits = [];
-  for (const e of near) {
+  near.length = 0;
+  sim.grid.query((sx + ex) / 2, (sy + ey) / 2, length / 2 + 1, near);
+  hits.length = 0;
+  for (let i = 0; i < near.length; i++) {
+    const e = near[i];
     if (!isEligible(e, spec)) continue;
     const hr = halfWidth + hitRadius(e);
     if (segDistSq(e.x, e.y, sx, sy, ex, ey) <= hr * hr) hits.push(e);
   }
-  hits.sort((a, b) => projectOnSegment(a.x, a.y, sx, sy, ex, ey) - projectOnSegment(b.x, b.y, sx, sy, ex, ey));
+  lnSx = sx;
+  lnSy = sy;
+  lnEx = ex;
+  lnEy = ey;
+  hits.sort(byLine);
   if (!hits.includes(target)) hits.unshift(target);
   if (hits.length > pierce) hits.length = pierce;
-  return { hits, ex, ey };
+  lineEnd.x = ex;
+  lineEnd.y = ey;
+  return hits;
 }
+
+/** The targeting helpers Kohaku's constant beam uses (src/sim/duo.js partnerTick). */
+const PRISM_HELP = Object.freeze({ selectTargetsInto, linePierceInto, face });
 
 /**
  * Potential N13 (Kage): projectiles × (1 + f) through an integer carry: k = round(f × 100) hundredths
@@ -1247,6 +1301,8 @@ function attackMortar(sim, t) {
   const snap = { ...spec }; // later upgrades / buffs do not change shells in flight
   const n = Math.max(1, spec.projectiles);
   const radius = spec.splash;
+  // the duo's prism (src/sim/duo.js): some shells split into shards of light that land with them
+  const prism = t.stats.duo ? beginVolley(t) : null;
   for (let i = 0; i < n; i++) {
     const off = MORTAR_SCATTER[i % MORTAR_SCATTER.length];
     const sh = {
@@ -1269,6 +1325,7 @@ function attackMortar(sim, t) {
     };
     sim.shells.push(sh);
     sim._emit('mortarWarn', { uid: sh.uid, x: sh.x, y: sh.y, radius, delay: MORTAR_DELAY, towerUid: t.uid });
+    if (prism) refract(sim, t, prism, snap, sh.x, sh.y);
   }
   sim._emit('attack', { towerUid: t.uid, targetUid, kind: 'mortar' });
   return true;
@@ -1884,6 +1941,7 @@ export function updateTower(sim, t, dt) {
   }
   if (t.disabled > 0) {
     t.disabled = Math.max(0, t.disabled - dt);
+    if (s.duo) partnerOff(t); // a sabotage breaks Kohaku's beams (src/sim/duo.js)
     return;
   }
   if (t.moveLock > 0) return; // a hero repositioning mid-wave (hero.js moveHero)
@@ -1917,6 +1975,8 @@ export function updateTower(sim, t, dt) {
     if (s.vine?.bloom > 0) t.bloomIdle = 0;
     t.cooldown += 1 / Math.max(0.05, (tempo ? t.eff.rate * (1 + tempo.per * t.tempoStacks) : t.eff.rate) * bloom);
   }
+  // the duo's partner weapon (Kohaku's constant beam, src/sim/duo.js): its own tick timer, after the main weapon
+  if (s.duo) partnerTick(sim, t, PRISM_HELP);
 }
 
 // ---------------------------------------------------------------------------

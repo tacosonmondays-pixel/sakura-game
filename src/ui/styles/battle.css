@@ -166,6 +166,9 @@
 .bt-card-water-ico, .bt-card-water-ico svg { width: 100%; height: 100%; display: block; }
 .bt-amphi { background: linear-gradient(135deg, #1fa3d6 50%, #6cc070 50%); }
 .bt-card-herotag { position: absolute; right: 3px; top: 3px; font-size: 0.56rem; font-weight: 900; font-style: italic; padding: 1px 6px; border-radius: 4px; background: linear-gradient(90deg, #b06bff, #ff7ad9); color: #fff; }
+/* [friend support] a borrowed girl's card */
+.bt-card-friendtag { background: linear-gradient(90deg, #ff8fb8, #ffb86b); }
+.bt-card-friend .bt-card-ur { left: auto; right: 3px; top: 20px; transform: none; } /* under the FRIEND tag */
 .bt-card-hero { width: 82px; box-shadow: 0 0 0 2px #e5b8ff, 0 3px 10px rgba(176,107,255,0.5); }
 .bt-card-deployed { display: none; }
 .bt-card.bt-deployed .bt-card-deployed { display: grid; place-items: center; position: absolute; inset: 0 0 18px 0; background: rgba(14,24,48,0.55); color: #fff; font-weight: 900; font-style: italic; font-size: 0.8rem; }
@@ -218,7 +221,8 @@
 .bt-wavectl-running .bt-auto { opacity: 0.85; }
 
 /* ---------- Hero widget ---------- */
-.bt-herow { position: absolute; left: 12px; bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 12px); z-index: 5; display: flex; align-items: flex-end; gap: 8px; }
+/* (--herow-lift: raised over a road's goal or start that would lie under it, heroWidget.js keepGoalsClear) */
+.bt-herow { position: absolute; left: 12px; bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + 12px + var(--herow-lift, 0px)); z-index: 5; display: flex; align-items: flex-end; gap: 8px; }
 .bt-herow-portrait {
   position: relative; width: 66px; height: 66px; border-radius: 50%; padding: 0; border: 3px solid #fff; overflow: visible;
   background: #22385c; box-shadow: 0 0 0 2px #c79bff, 0 4px 12px rgba(120,60,200,0.4);
@@ -1592,7 +1596,7 @@ html[data-reduce-motion] .bt-free-pill .bt-wave-n { background: none; color: #ff
 }
 .bt-has-panel .bt-abcard { right: var(--bt-abar-panel-r); }
 .bt-abcard.side-l {
-  left: calc(12px + var(--safe-left)); right: auto; bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + var(--ab-herow-top) + 8px);
+  left: calc(12px + var(--safe-left)); right: auto; bottom: calc(var(--bt-bar-h) + var(--safe-bottom) + var(--ab-herow-top) + var(--herow-lift, 0px) + 8px);
   max-height: calc(100dvh - var(--bt-hud-h) - var(--safe-top) - var(--bt-bar-h) - var(--safe-bottom) - var(--ab-herow-top) - 20px);
 }
 .bt-abcard-head { display: flex; align-items: center; gap: 8px; }

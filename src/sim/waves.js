@@ -11,7 +11,7 @@ import { enemyTraitKeys } from './enemies.js';
 /**
  * @typedef {{ t: number, enemyId: string, pathIndex: number }} Spawn
  * @typedef {{ enemyId: string, count: number, spacing: number, start: number, fixed: boolean }} Group
- * @typedef {{ wave: number, spawns: Spawn[], groups: Group[], hpMul: number, duration: number, budget: number }} WaveData
+ * @typedef {{ wave: number, spawns: Spawn[], groups: Group[], hpMul: number, duration: number, budget: number, lanes?: number[] }} WaveData
  */
 
 function eliteWeight(def, entry, wave) {
@@ -49,6 +49,64 @@ export function powInt(x, n) {
 }
 
 /**
+ * Lanes open on wave `wave` under the stage's lane schedule (Gate Arc): StageDef.waveGen.laneCycle
+ * is a list of lane-index lists and wave n uses entry (n − 1) mod its length, e.g. [[0, 1], [1]] =
+ * odd waves both lanes, even waves lane 1 only (a level crossing's barrier is down). A pure
+ * function of (stage, wave, lane count), like the waves themselves.
+ * @param {object} stage StageDef
+ * @param {number} wave 1-based
+ * @param {number} [pathCount] lanes on the map
+ * @returns {number[]|null} the open lane indices (ascending), or null = no schedule: every lane is
+ *   open (no laneCycle, a single-lane map, or an entry that names no lane of this map)
+ */
+export function openLanes(stage, wave, pathCount = 1) {
+  const cycle = stage?.waveGen?.laneCycle;
+  if (!Array.isArray(cycle) || !cycle.length || !(pathCount >= 2)) return null;
+  const n = cycle.length;
+  const entry = cycle[(((Math.floor(wave) - 1) % n) + n) % n];
+  if (!Array.isArray(entry)) return null;
+  const open = [];
+  for (let i = 0; i < pathCount; i++) if (entry.includes(i)) open.push(i);
+  return open.length ? open : null;
+}
+
+/**
+ * Which lane a group's spawn takes (shared with the freeplay generator). Without a schedule
+ * (`lanes` null) this is the plain rule: a group's own lane, else round-robin over every lane. With
+ * one: round-robin over the open lanes only; a group pinned to a closed lane moves to the first
+ * open lane, a boss or miniboss to the longest open lane.
+ * @param {{ path?: number|null, def?: object }} g group (path: its pinned lane, already resolved)
+ * @param {number} k round-robin counter (group index + spawn counter)
+ * @param {number} pathCount
+ * @param {number[]|null} lanes openLanes(...)
+ * @param {number[]|null} pathLengths
+ */
+export function laneFor(g, k, pathCount, lanes, pathLengths) {
+  const count = Math.max(1, pathCount);
+  if (!lanes) return g.path != null ? g.path % count : k % count;
+  if (g.path == null) return lanes[k % lanes.length];
+  const p = g.path % count;
+  if (lanes.includes(p)) return p;
+  const tier = g.def?.tier;
+  return tier === 'boss' || tier === 'miniboss' ? longestLane(pathLengths, lanes) : lanes[0];
+}
+
+/**
+ * The longest lane (the first on a tie), among `lanes` when given. Bosses take it, so a finale boss
+ * never walks a short side trail and leaks at once.
+ * @param {number[]|null} pathLengths
+ * @param {number[]|null} [lanes]
+ * @returns {number|null} null without lengths
+ */
+export function longestLane(pathLengths, lanes = null) {
+  if (!pathLengths?.length) return lanes ? lanes[0] : null;
+  const cands = lanes || pathLengths.map((_, i) => i);
+  let best = cands[0];
+  for (const i of cands) if ((pathLengths[i] ?? -Infinity) > (pathLengths[best] ?? -Infinity)) best = i;
+  return best;
+}
+
+/**
  * HP multiplier from wave position (gentle in-stage ramp, steeper after the last scripted
  * wave in endless mode). Excludes stage hpScale and difficulty.
  */
@@ -66,11 +124,13 @@ export function waveHpRamp(stage, wave) {
  * @param {{ pathCount?: number, pathLengths?: number[], spacingMul?: number }} opts  pathLengths lets bosses
  *   and minibosses take the longest trail (a finale boss on a short side trail would leak at once);
  *   spacingMul scales every group's spacing (Goblin Rush 0.7; 1 gives the very same wave).
- * @returns {WaveData}
+ * @returns {WaveData} with `lanes` (the open lanes) when the stage has a lane schedule
  */
 export function generateWave(stage, wave, lookupEnemy, { pathCount = 1, pathLengths = null, spacingMul = 1 } = {}) {
   const rng = createRng(hashString(`${stage.id}|wave|${wave}`));
   const gen = stage.waveGen || {};
+  // the lane schedule (null = every lane open: the waves below are exactly the unscheduled ones)
+  const lanes = openLanes(stage, wave, pathCount);
   const finite = Number.isFinite(stage.waves);
   const poolWave = finite ? Math.min(wave, stage.waves) : wave;
   const start = gen.budget?.start ?? 10;
@@ -152,7 +212,8 @@ export function generateWave(stage, wave, lookupEnemy, { pathCount = 1, pathLeng
     let path = null;
     if (Number.isInteger(f.path)) path = f.path;
     else if ((def.tier === 'boss' || def.tier === 'miniboss') && pathLengths?.length > 1) {
-      path = pathLengths.indexOf(Math.max(...pathLengths));
+      // the longest open lane (the longest lane when every lane is open)
+      path = longestLane(pathLengths, lanes);
     }
     groups.push({ enemyId: f.enemy, def, count: Math.max(1, f.count ?? 1), spacing: f.spacing != null ? f.spacing * spacingMul : baseSpacing * 2, start: f.delay ?? 2, fixed: true, path });
   }
@@ -161,7 +222,7 @@ export function generateWave(stage, wave, lookupEnemy, { pathCount = 1, pathLeng
   let counter = 0;
   groups.forEach((g, gi) => {
     for (let k = 0; k < g.count; k++) {
-      const pathIndex = g.path != null ? g.path % Math.max(1, pathCount) : (gi + counter) % Math.max(1, pathCount);
+      const pathIndex = laneFor(g, gi + counter, pathCount, lanes, pathLengths);
       counter++;
       spawns.push({ t: g.start + k * g.spacing, enemyId: g.enemyId, pathIndex });
     }
@@ -175,6 +236,7 @@ export function generateWave(stage, wave, lookupEnemy, { pathCount = 1, pathLeng
     hpMul,
     duration,
     budget,
+    ...(lanes ? { lanes } : {}),
   };
 }
 

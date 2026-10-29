@@ -22,7 +22,7 @@ export const LESSONS = [
     id: 'home', oldId: 'city', title: 'Welcome home, Sensei', icon: 'secretary',
     unlock: { tutorial: true },
     body: [
-      'This is our home base! Tap ‹ › to change who keeps you company, and the picture button to pick a background.',
+      'This is our home base! Open the Menu and tap Background to choose who keeps you company and the view behind her.',
       'Mail holds gifts from the academy, and the Login gift grows every day you visit. Missing a day never resets it.',
       'Every lesson I teach you stays right here in my journal.',
     ],
@@ -59,7 +59,7 @@ export const LESSONS = [
     unlock: { stage: '1-3' },
     body: [
       'Three stages cleared, and that deserves a celebration! I left a 10× Recruit Ticket in your Mail.',
-      'Every ten-pull has at least one SR, an SSR is guaranteed by pull 90, and recruit points let you pick any SSR.',
+      'Every ten-pull has at least one SR, an SSR is guaranteed by pull 90, and recruit points spark an SSR.',
       'Duplicates turn into Star Fragments for awakening. Nothing goes to waste!',
     ],
     action: { label: 'Show me', route: 'recruit', params: {} },

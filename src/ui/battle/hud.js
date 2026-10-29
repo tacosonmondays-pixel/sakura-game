@@ -9,6 +9,7 @@ import { createScout } from './scout.js';
 import { svgEl } from '../components.js';
 import { currencyIcon } from '../../art/icons.js';
 import { DIFFICULTIES } from '../../data/types.js';
+import { extendedPast } from './tryout/adapters.js';
 
 const SPEED_ICONS = { 1: 'play', 2: 'ff2', 3: 'ff3' };
 
@@ -29,7 +30,8 @@ export function createHud(ctx) {
   const diff = DIFFICULTIES[sim.difficulty];
   /** the freeplay tier's table when this battle goes past its goal, else null (read live: a solo
    *  run that won its last wave can Keep going into freeplay) */
-  const fpOf = () => (sim.freeplay ? sim.stage.freeplay : null);
+  // (a Tryout Day Extended Day runs freeplay waves past its 48 but is not freeplay: no chip, no BEYOND counter, §20.8)
+  const fpOf = () => (sim.freeplay && !sim.tryout ? sim.stage.freeplay : null);
   const fpChip = h('span.bt-fp-chip', { 'data-testid': 'hud-freeplay' });
   const stageLabel = h(
     'div.bt-stage-label',
@@ -99,8 +101,15 @@ export function createHud(ctx) {
       const total = Number.isFinite(sim.totalWaves) ? sim.totalWaves : '∞';
       // recomputed from the state on every change, so a remount (resync) is always right
       const fp = fpOf();
-      const over = !!fp && sim.wave > sim.totalWaves;
-      if (over) {
+      // Tryout Day's Extended Day past the Full Day's 48 waves: the wave number alone, never "53/48" (§20.8)
+      const stayLate = extendedPast(sim);
+      const over = !stayLate && !!fp && sim.wave > sim.totalWaves;
+      if (stayLate) {
+        waveVal.textContent = fmtNum(stayLate.wave, 'count');
+        labelWide.textContent = 'WAVE';
+        waveBox.classList.remove('bt-wave-over', 'bt-wave-overtime', 'bt-wave-bump');
+        delete waveBox.dataset.tier;
+      } else if (over) {
         waveVal.replaceChildren(h('b.bt-wave-n', fmtNum(sim.wave, 'count')), h('span.bt-wave-goal', `/${fmtNum(total, 'count')}`));
         const overtime = sim.wave > (fp.finale?.wave ?? Infinity);
         labelWide.textContent = overtime ? 'OVERTIME' : 'BEYOND';

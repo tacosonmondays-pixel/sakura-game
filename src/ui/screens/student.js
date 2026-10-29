@@ -10,7 +10,8 @@
 // try-on.
 import '../styles/meta-b.css';
 import '../styles/journal.css'; // [story] feature locks
-import { h, clear, screen, svgEl, button, modal, toast, showItemInfo } from '../components.js';
+import '../styles/v2-roster.css'; // [ui-ink] V3: the folder-tabbed panel, the night nameplate
+import { h, clear, screen, svgEl, button, modal, toast, showItemInfo, confirmDialog } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate } from '../router.js';
 import { formatNumber, formatPct } from '../../core/util.js';
@@ -19,6 +20,7 @@ import {
   STATUSES, ITEM_RARITY_ORDER, MATERIAL_FAMILIES, effectivenessLabel,
 } from '../../data/types.js';
 import { UNITS, UNIT_MAP } from '../../data/units.js';
+import { listedUnits } from '../../data/banners.js';
 import { ITEMS, bookId, materialId } from '../../data/items.js';
 import {
   levelCap, expForLevel, previewLevelUp, levelUp, autoSelectBooks, canBreakthrough, breakthrough, breakthroughCost,
@@ -38,7 +40,10 @@ import { equippedSkinId, setSkin, skinChoices } from '../../systems/skins.js';
 import { artUrl } from '../../art/portraits.js';
 import { howToGet, crosspathDiagram, emptyState, cssVars, rarityTile, put } from './backpack.js';
 import { TAG_GLYPHS } from '../tagChips.js'; // [unit-info] Self / Allies / Enemies / Coins
-import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, applyUrFrame, isUR } from '../rarity.js';
+import { displayRarity, rarityInfo, urBadge, urRing, urSparkles, applyUrFrame, isUR, lrBadge } from '../rarity.js';
+import { limitBreakState, payLimitBreak, UR_RESONANCE, LR_BOOST, resonanceOn, RESONANCE_FROM_DAY } from '../../systems/limitBreak.js';
+import { gameDayStart } from '../../core/reset.js';
+import { potentialTrack } from '../../data/potential.js';
 import { featureOpen, featureLockText, featureStage } from '../../systems/story.js'; // [story] new-save gates
 import { JOURNAL_TEXT } from '../../data/story/lessons.js';
 import { resolveText } from '../../data/story/tokens.js';
@@ -47,7 +52,7 @@ import { potentialLevel, potentialPillTitle, clearPotentialNew } from '../../sys
 import { potentialSection, crown } from '../potential.js';
 import { potentialNext, MAX_POTENTIAL } from '../../systems/potential.js';
 import { essenceBalance, canRaisePotential } from '../../systems/essence.js';
-import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, rail, iconBtn, ghostBtn, starRow, moreSticker, fillIn, KIT_SVG, boltText } from '../kit.js';
+import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, folderTabs, iconBtn, ghostBtn, starRow, moreSticker, fillIn, KIT_SVG, boltText } from '../kit.js';
 import { fmtNum } from '../format.js';
 import { gearTab, reqChips, coinsOf } from '../girlGear.js';
 import { openSheet, closeSheets } from '../sheet.js';
@@ -58,6 +63,7 @@ import { buildTreeModel } from '../treeModel.js';
 import { heroTrackBand, fullTrackList } from '../heroTrack.js';
 import { UPGRADE_TAGS, TAG_ORDER } from '../upgradeTags.js';
 import { girlPageMode, infoView, awakenStars, starBonus, manualOpen, pathTiers } from '../girlDetail.js';
+import { tabSwap } from '../motion.js';
 
 // one word per tab (§5.3); the ids and their tab-<id> testids never change
 const TABS = [
@@ -363,7 +369,11 @@ function buildBand(unit, onCycle, onPotential) {
 
 const choicesCount = (unit) => skinChoices(store.profile, unit.id).length;
 
-/** Outfit sheet: every outfit of the girl with Wear (saved) and Try on (showcase preview). */
+/**
+ * Outfit sheet: every outfit of the girl with Wear (saved) and Try on (showcase preview). [ui-ink] V3: a kit sheet whose
+ * outfits are girl tiles (her frame, the outfit's art, its name in the caption; the one she wears is the selected tile),
+ * each with Try on and an ink Wear (the page keeps its one yellow).
+ */
 function openOutfits(unit, showcase) {
   const profile = store.profile;
   if (!profile.seenIntro.includes(OUTFIT_INTRO)) {
@@ -372,60 +382,58 @@ function openOutfits(unit, showcase) {
     showcase.refresh(); // drop the pill's NEW tag
   }
   const owned = !!profile.units[unit.id];
+  const step = { SR: '.sr', SSR: '.ssr', UR: '.ur' }[displayRarity(unit, profile)] || '';
   let dlg = null;
   const card = (c) => {
     const { skin } = c;
-    const thumb = skin.kind === 'default' || !skin.thumb
-      ? svgEl(portraitHTML(unit, 'bust'), 'mb-outfit-art')
-      : h('img.mb-outfit-art', { src: artUrl(skin.thumb), alt: `${unit.name} — ${skin.name}`, loading: 'lazy', draggable: 'false' });
+    const art = skin.kind === 'default' || !skin.thumb
+      ? portraitHTML(unit, 'card', { cls: 'card', alt: '' })
+      : `<img class="card" src="${artUrl(skin.thumb)}" alt="" loading="lazy" draggable="false">`;
     const previewing = shownSkinId(unit) === skin.id;
     // a girl not recruited yet has every outfit locked (her default included)
     const wearing = c.equipped && c.owned;
-    const state = wearing ? ['Equipped', '.on'] : c.owned ? ['Owned', ''] : ['Locked', '.locked'];
-    return h(`div.mb-outfit-card${c.equipped ? '.equipped' : ''}${c.owned ? '' : '.locked'}${previewing ? '.previewing' : ''}`, { 'data-skin': skin.id },
-      h('div.mb-outfit-thumb', thumb, skin.kind !== 'default' ? h('span.mb-outfit-kind', '3D') : null),
-      h('div.mb-outfit-text',
-        h('div.mb-outfit-name', skin.name),
-        h('div.mb-outfit-desc', skin.kind === 'default' ? `Her main look as the ${skin.desc}.` : skin.desc),
-        h('div.mb-outfit-chips',
-          h(`span.mb-outfit-chip${state[1]}`, state[0] === 'Locked' ? svgEl(uiIcon('lock')) : null, state[0]),
-          c.how.short && skin.kind !== 'default' ? h('span.mb-outfit-how', { title: c.how.long }, c.how.short) : null),
-        h('div.mb-outfit-btns',
-          button(previewing && !c.equipped ? 'Trying on' : 'Try on', {
-            kind: 'ghost', small: true, testid: `outfit-try-${skin.id}`, disabled: previewing && view.mode === '3d',
-            onClick: () => {
-              view.skin = c.equipped ? null : skin.id;
-              dlg?.close();
-              showcase.show3D();
-            },
-          }),
-          button(wearing ? 'Wearing' : 'Wear', {
-            kind: 'yellow', small: true, testid: `outfit-wear-${skin.id}`, disabled: wearing || !c.owned,
-            onClick: () => {
-              const res = setSkin(store.profile, unit.id, skin.id);
-              if (!res.ok) {
-                toast(res.error === 'unitNotOwned' ? `Recruit ${unit.name} first.` : 'This outfit is locked.', 'bad');
-                return;
-              }
-              view.skin = null;
-              store.commit('skin');
-              dlg?.close();
-              toast(`${unit.name} now wears ${skin.name}.`, 'good');
-              showcase.show3D();
-            },
-          }))));
+    const how = !c.owned && skin.kind !== 'default' && c.how.short ? c.how.short : null;
+    return h(`div.mb-outfit-card.gt-outfit${c.equipped ? '.equipped' : ''}${c.owned ? '' : '.locked'}${previewing ? '.previewing' : ''}`, { 'data-skin': skin.id },
+      h(`span.ui-girltile${step}${wearing ? '.sel' : ''}${c.owned ? '' : '.locked'}`, { html: art, title: skin.kind === 'default' ? `Her main look as the ${skin.desc}.` : skin.desc },
+        step === '.ssr' && c.owned ? h('span.glow', { 'aria-hidden': 'true' }) : null,
+        wearing || skin.kind !== 'default' ? h('span.st', wearing ? h('span.ui-chip.pick', { 'aria-hidden': 'true' }, ico('check')) : null,
+          skin.kind !== 'default' ? h('span.ui-chip.ink.gt-3d', '3D') : null) : null,
+        previewing && !c.equipped ? h('span.ui-chip.ink.dup', 'Try-on') : how ? h('span.ui-chip.ink.dup', { title: c.how.long }, how) : null,
+        h('span.cap', c.owned ? null : ico('lock'), h('span.nm', skin.name))),
+      h('div.gt-outfit-acts',
+        button(previewing && !c.equipped ? 'Trying on' : 'Try on', {
+          kind: 'ghost', small: true, testid: `outfit-try-${skin.id}`, disabled: previewing && view.mode === '3d',
+          onClick: () => {
+            view.skin = c.equipped ? null : skin.id;
+            dlg?.close();
+            showcase.show3D();
+          },
+        }),
+        h('button.ui-cost.dense.ui-ink.gt-wear', {
+          type: 'button', 'data-testid': `outfit-wear-${skin.id}`, disabled: wearing || !c.owned,
+          title: wearing ? `${unit.name} wears ${skin.name}` : !c.owned ? 'This outfit is locked' : `Wear ${skin.name}`,
+          onclick: () => {
+            const res = setSkin(store.profile, unit.id, skin.id);
+            if (!res.ok) {
+              toast(res.error === 'unitNotOwned' ? `Recruit ${unit.name} first.` : 'This outfit is locked.', 'bad');
+              return;
+            }
+            view.skin = null;
+            store.commit('skin');
+            dlg?.close();
+            toast(`${unit.name} now wears ${skin.name}.`, 'good');
+            showcase.show3D();
+          },
+        }, h('span.ui-cost-lbl', wearing ? 'Wearing' : 'Wear'))));
   };
   const choices = skinChoices(profile, unit.id);
-  dlg = modal({
-    title: `Outfits · ${unit.name}`,
-    wide: true,
-    cls: 'mb-outfit-modal',
-    body: h('div.mb-outfit-body',
-      h('div.mb-outfit-grid', choices.map(card)),
-      h('p.mb-outfit-note.muted', owned
-        ? 'Outfits dress her 3D chibi in battle and here; her drawn portraits keep her main look.'
+  dlg = openSheet({
+    title: `Outfits · ${unit.name}`, testid: 'outfit', cls: 'gp-outfits',
+    body: h('div.mb-outfit-body.gt-outfits',
+      h('div.mb-outfit-grid.gt-outfit-grid', choices.map(card)),
+      h('p.gt-outfit-note', owned
+        ? 'Outfits dress her chibi model in battle and here; her drawn portraits keep her main look.'
         : `Recruit ${unit.name} to wear her outfits — you can still try them on.`)),
-    actions: [{ label: 'Close', kind: 'ghost', testid: 'outfit-close' }],
   });
 }
 
@@ -857,7 +865,7 @@ function breakthroughPanel(unit, ctx, rerender) {
     h('div.mb-bt-gates', gatePips(st.breakthrough)),
     potLock ? h('div.gk-note', h('span', { 'data-testid': 'gate-lock' }, `Opens at P${check.needP} · 1 Essence + coins per step`),
       ghostBtn('Raise ▸', { testid: 'gate-raise', onClick: () => openPotential(unit, { profile, onChange: () => { ctx.refreshShowcase(); rerender(); } }) }))
-      : atCap ? null : h('p.gk-note', `Reach LV ${levelCap(st)} first — you can gather materials now.`),
+      : atCap ? null : h('p.gk-note', 'Reach her level cap first — you can gather materials now.'),
     reqChips(cost, { onWhere: showItemInfo }),
     where,
     h('div.gk-acts-main',
@@ -913,7 +921,7 @@ function awakenTab(unit, ctx) {
   // Detailed (Settings → Girl page): every star's bonus, the next one highlighted
   const stars = ctx.mode === 'detailed' ? awakenStars(unit, star, 'detailed') : null;
   const top = h('section.ui-panel.gk-aw', { 'data-testid': 'awaken-panel' }, h('div.ui-panel-in',
-    h('div.mb-aw-head.gk-aw-head', starRow(star, MAX_AWAKEN, { cls: 'ui-stars.gk-aw-stars' }), ur ? urBadge() : null,
+    h('div.mb-aw-head.gk-aw-head', starRow(star, MAX_AWAKEN, { cls: 'ui-stars.gk-aw-stars' }), ur ? (limitBreakState(profile, unit.id).lr ? lrBadge() : urBadge()) : null,
       h('span.gk-aw-more', moreSticker(() => openAwakenDetails(unit), { testid: 'awaken-more', label: 'Every star and her passive' }))),
     stars
       ? h('ol.gk-aw-list', { 'data-testid': 'awaken-stars' }, stars.map((s) => h(`li.gk-aw-star.${s.state}`, { 'data-testid': s.state === 'next' ? 'awaken-next' : null },
@@ -927,13 +935,22 @@ function awakenTab(unit, ctx) {
       h('div', h('b', unit.awakenPassive.name), h('span.gp-sub', ` ${unit.awakenPassive.desc}`)),
       sticker(passiveOn ? 'Active' : 'At ★3', passiveOn ? 'y' : ''))));
   if (!next) {
-    return h('div.mb-tab-body.gk-awaken', top,
-      ur ? h('section.ui-panel', h('div.ui-panel-in', h('div.mb-ur-panel', { 'data-testid': 'ur-panel' }, urBadge(), h('div', h('b', 'Ascended to UR'), h('p', `${unit.name} shines with all five stars — her card wears the rainbow frame everywhere.`)), urRing())))
-        : h('section.ui-panel', h('div.ui-panel-in', h('p.gp-line', `${unit.name} shines with all five stars.`))));
+    // an LR unit's climb comes first (on a phone the panel below the fold went unseen)
+    const lb = limitBreakPanel(unit, ctx);
+    const lrNow = limitBreakState(profile, unit.id).lr;
+    const they = unit.duo ? 'their' : 'her';
+    const urPanel = ur ? h('section.ui-panel', h('div.ui-panel-in', h('div.mb-ur-panel', { 'data-testid': 'ur-panel' }, lrNow ? lrBadge() : urBadge(),
+      h('div', h('b', lrNow ? 'Limit Break: LR' : 'Ascended to UR'),
+        h('p', lrNow ? `${unit.name} broke the limit: ${they} card wears the Nightglass frame everywhere.` : `${unit.name} shines with all five stars — ${they} card wears the rainbow frame everywhere.`),
+        h('p.gp-line', { 'data-testid': 'ur-resonance' }, resonanceText(unit))), lrNow ? null : urRing())))
+      : h('section.ui-panel', h('div.ui-panel-in', h('p.gp-line', `${unit.name} shines with all five stars.`)));
+    return h('div.mb-tab-body.gk-awaken', top, lb, urPanel);
   }
   return h('div.mb-tab-body.gk-awaken', top,
+    next === MAX_AWAKEN && unit.rarity === 'SSR' ? h('section.ui-panel', h('div.ui-panel-in', h('p.gp-line', { 'data-testid': 'ur-preview' }, `★5 → UR: +5% damage and UR Resonance (${resonanceText(unit, true)}).`))) : null,
+    limitBreakPanel(unit, ctx),
     h('section.ui-panel.gk-aw-cost', h('div.ui-panel-in',
-      h('div.ui-panel-head', h('span.ui-kicker', `Awaken to ★${next}`)),
+      h('div.ui-panel-head', h('span.ui-kicker', 'Cost')),
       reqChips(cost, { onWhere: showItemInfo }),
       h('div.gk-acts-main',
         button(`Awaken${coins ? ` · ${fmtNum(coins, 'money', { round: 'up' })}` : ''}`, {
@@ -950,6 +967,59 @@ function awakenTab(unit, ctx) {
             else toast(res.passiveUnlocked ? `★${res.star}! ${unit.awakenPassive.name} unlocked!` : `${unit.name} awakened to ★${res.star}!`, 'good');
           },
         })))));
+}
+
+/** [banners G3] UR Resonance along her Potential track (BANNERS §C.3): '+10% damage · +4% attack speed'. */
+function resonanceText(unit, short = false) {
+  const aura = potentialTrack(unit) === 'aura';
+  const pct = (f) => `+${Math.round((f - 1) * 100)}%`;
+  const body = aura ? `${pct(UR_RESONANCE.aura)} aura · ${pct(UR_RESONANCE.rate)} attack speed` : `${pct(UR_RESONANCE.damage)} damage · ${pct(UR_RESONANCE.rate)} attack speed`;
+  // before its first weekly reset the boost is not on yet: say when it starts (BANNERS §C.3)
+  const from = resonanceOn() ? '' : ` (from ${new Date(gameDayStart(RESONANCE_FROM_DAY)).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'America/Chicago' })})`;
+  return short ? `${body}${from}` : `UR Resonance · ${body}${from}`;
+}
+
+/**
+ * [banners G6] An LR unit's climb (BANNERS §C.2): L60 + gate 5 → ★5 (UR) → the Limit Break fee → her trial →
+ * LR. Her trial not shipped yet: "LR form coming". Nothing for a girl who is not an LR unit.
+ */
+function limitBreakPanel(unit, ctx) {
+  const profile = store.profile;
+  const s = limitBreakState(profile, unit.id);
+  if (!s.legend || !s.owned) return null;
+  const pct = (f) => `+${Math.round((f - 1) * 100)}%`;
+  const boost = `${pct(LR_BOOST.damage)} damage · ${pct(LR_BOOST.rate)} attack speed`;
+  if (s.lr) {
+    return h('section.lb-panel', { 'data-testid': 'lb-panel' }, h('div', lrBadge(), ' ', h('b', 'Limit Break')),
+      h('p.lb-boost', `LR · ${boost}${s.trial?.form ? ` · ${s.trial.form}` : ''}`));
+  }
+  if (!s.trial) {
+    return h('section.lb-panel', { 'data-testid': 'lb-panel' }, h('div', lrBadge(), ' ', h('b', 'LR form coming')),
+      h('p.lb-boost', `${unit.name} is an LR unit. Her Limit Break trial arrives in a later update; until then she climbs to UR like every SSR.`));
+  }
+  const steps = h('div.lb-steps', s.steps.map((x) => h(`span.lb-step${x.done ? '.done' : ''}`, `${x.label}${x.done ? ' ✓' : ''}`)));
+  const t = s.trial.standIn;
+  return h('section.lb-panel', { 'data-testid': 'lb-panel' },
+    h('div', lrBadge(), ' ', h('b', 'Limit Break'), ` · ${boost} · ${s.trial.form}`),
+    steps,
+    s.feePaid
+      ? h('div', h('p.lb-boost', `${s.trial.name} is open: clear ${t.stageId} on ${t.difficulty === 'nightmare' ? 'Nightmare' : t.difficulty} with ${unit.name} placed, solo, without a Support Student. First clear: LR, 300 gems and a Recruit Ticket.`),
+        button(`Go to ${t.stageId}`, { kind: 'yellow', small: true, icon: 'play', testid: 'lb-trial', onClick: () => navigate('stage', { id: t.stageId }) }))
+      : h('div',
+        h('div.lb-fee', 'Fee:', reqChips(s.fee, { onWhere: showItemInfo })),
+        button('Pay the Limit Break fee', {
+          kind: 'yellow', small: true, testid: 'lb-pay', disabled: !s.canPay,
+          title: s.canPay ? null : !s.maxed ? 'Reach level 60 with all 5 gates first' : !s.ur ? 'Awaken her to ★5 (UR) first' : 'Missing items or coins',
+          onClick: async () => {
+            const ok = await confirmDialog(`Pay the Limit Break fee for ${unit.name}? It opens the ${s.trial.name}.`, { title: 'Limit Break', ok: 'Pay', okKind: 'yellow' });
+            if (!ok) return;
+            const r = payLimitBreak(store.profile, unit.id);
+            if (!r.ok) return toast('Not ready for Limit Break yet.', 'bad');
+            store.commit('limit-break');
+            ctx.rerenderTab();
+            toast(`${s.trial.name} is open!`, 'good');
+          },
+        })));
 }
 
 /** Awakening's Details: every star (crowns and bonus), the total, her passive in full, where crowns come from. */
@@ -1093,7 +1163,7 @@ export function render(root, params = {}) {
   el.classList.add('mb-screen', 'mb-student-screen', 'gp-screen');
   root.appendChild(el);
 
-  const order = [...UNITS].sort((a, b) => Number(!!store.profile.units[b.id]) - Number(!!store.profile.units[a.id]));
+  const order = [...listedUnits(UNITS, store.profile)].sort((a, b) => Number(!!store.profile.units[b.id]) - Number(!!store.profile.units[a.id]));
   const cycle = (d) => {
     const i = order.findIndex((u) => u.id === unit.id);
     const next = order[(i + d + order.length) % order.length];
@@ -1111,7 +1181,7 @@ export function render(root, params = {}) {
     openPotential(unit, { profile: store.profile, onChange: refreshAll });
   };
   const band = buildBand(unit, cycle, goPotential);
-  const tabHost = h('div.mb-tab-host.gp-host');
+  const tabHost = h('div.ui-tabbed-body.mb-tab-host.gp-host');
   // the girl page's look (Settings → Display → Girl page): Detailed opens Level Up's steppers too
   let mode = girlPageMode(store.profile);
   // (a Manual toggle keeps while she cycles through the girls in one look)
@@ -1136,13 +1206,14 @@ export function render(root, params = {}) {
   });
   let tabBar = null;
   const buildRail = () => {
-    const next = rail(tabDefs(), tab, (id) => {
+    // [ui-ink] V3: folder tabs on the content panel (S4), the rail's API and test ids
+    const next = folderTabs(tabDefs(), tab, (id) => {
       if (tab === id) return;
       tab = id;
       history.replaceState(history.state, '', `#/student/${unit.id}?tab=${tab}`);
       tabBar.setActive(tab);
       renderTab(true);
-    }, { label: `${unit.name}'s page`, cls: 'gp-rail' });
+    }, { label: `${unit.name}'s page`, cls: 'gp-tabs' });
     if (tabBar) tabBar.replaceWith(next);
     tabBar = next;
   };
@@ -1168,12 +1239,13 @@ export function render(root, params = {}) {
     }
     tabHost.appendChild(content);
     if (animate) {
-      content.classList.add('mb-fade');
+      // [ui-ink] the tab's content comes in: a 120 ms crossfade, a 12 px shift the way the rail was walked (motion.js)
+      tabSwap(content);
       tabHost.scrollTop = 0;
     } else tabHost.scrollTop = scroll;
   }
 
-  body.appendChild(h('div.gp', band.el, h('div.gp-right', tabBar, tabHost)));
+  body.appendChild(h('div.gp', band.el, h('section.ui-tabbed.gp-right', tabBar, tabHost)));
   // the rail is rebuilt in place when a dot or a lock changes (a Seed bought, a feature opened)
   const railHost = tabBar.parentElement;
   renderTab(true);

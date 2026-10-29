@@ -157,7 +157,8 @@ export function createAttackFx(o) {
     let handled = false;
     switch (ev.type) {
       case 'hit':
-        hits.push(ev.uid, ev.x, ev.y, 0, ev.crit);
+        // (a constant beam's damage ticks are no impact for a projectile to match)
+        if (!ev.tick) hits.push(ev.uid, ev.x, ev.y, 0, ev.crit);
         break;
       case 'explode':
         explodes.push(-1, ev.x, ev.y, ev.radius, false);
@@ -290,7 +291,21 @@ export function createAttackFx(o) {
           rec.idx = tw.volleyIdx % tw.volleyN;
           rec.n = tw.volleyN;
           tw.volleyIdx++;
-          if (tw.style.origin) rec.blended = !!tw.style.origin(p, view(t), rec.idx, rec.n, rec, ctx);
+          if (tw.style.origin) {
+            ctx.inOrigin = true;
+            try {
+              rec.blended = !!tw.style.origin(p, view(t), rec.idx, rec.n, rec, ctx);
+            } finally {
+              ctx.inOrigin = false;
+            }
+          }
+          // a girl on a rooftop (Gate Arc 'U'): the shot leaves from her lifted height and blends
+          // down to the sim's own height by f' = 0.6 (display only; the sim's z is untouched)
+          const lift = ctx.lift(t);
+          if (lift) {
+            rec.mz += lift;
+            rec.blended = true;
+          }
         }
         tw.style.onSpawn?.(rec, view(p), view(t), ctx);
       }
@@ -481,7 +496,10 @@ export function createAttackFx(o) {
     probe() {
       const blends = [];
       for (const rec of recList) blends.push({ uid: rec.uid, f: rec.f, turret: rec.turretUid, blended: rec.blended });
-      return { drones: ctx.drones.probe(), blends, stats: { ...stats }, time: ctx.time, timeScale };
+      // (a style's own readout: Kohaku's constant beams, src/render/attackFx/styles/kohaku_tsubaki.js)
+      const styles = {};
+      for (const tw of twList) if (tw.style.probe) styles[tw.uid] = tw.style.probe(tw);
+      return { drones: ctx.drones.probe(), blends, stats: { ...stats }, styles, time: ctx.time, timeScale };
     },
     dispose() {
       if (disposed) return;

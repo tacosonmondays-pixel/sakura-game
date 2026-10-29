@@ -15,7 +15,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CameraRig, clearSlide } from './camera.js';
 import { cameraGestures, cameraModeOf } from './cameraPolicy.js';
-import { attachBoardInput } from './boardInput.js';
+import { attachBoardInput, boardPoint } from './boardInput.js';
 import { createAtlas } from './textures.js';
 import { QuadBatch } from './batch.js';
 import { FxSystem } from './fx.js';
@@ -24,16 +24,18 @@ import { RuleDecals } from './ruleDecals.js';
 import { Actors, PATH_COLORS } from './actors.js';
 import { Overlays } from './overlays.js';
 import { BuffIcons } from './buffIcons.js';
-import { buildTerrain, resolveScenery } from './terrain.js';
+import { buildTerrain, resolveScenery, ROOF_Y } from './terrain.js';
 import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
 import { clearCostumeCache } from './costumes.js';
 import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { RosterFx } from './rosterFx.js';
+import { StaffFx } from './staffFx.js';
 import { Companions } from './companions.js';
 import { createAbilityFx } from './abilityFx.js';
 import { fmtNum } from '../ui/format.js';
+import { createBlackout } from './blackout.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
@@ -170,8 +172,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const terrain = buildTerrain(map, look, scenery, { shadows: false, quality, reverse: !!sim.mode?.reverse });
   scene.add(terrain.group);
   const fx = new FxSystem({ atlas, batches, camera });
+  if (terrain.roofs) fx.liftAt = terrain.roofAt;
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
   const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx }) : null;
+  // blackout dimming (StageDef.look.blackout, Gate Arc): the lamps, windows and light pools go
+  // dark while the map rule is active (src/render/blackout.js); never enemies, girls, road or HUD
+  const blackout = createBlackout({ enabled: !!(stageLook?.blackout && sim.rule) });
   const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain, costumes: stageLook?.costumes === true, skins: opts.skins });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
   // unique attack animations (purely visual; settings.attackFx === false = today's look)
@@ -213,6 +219,25 @@ export function createBattleRenderer(container, sim, opts = {}) {
       /* leave what is drawn */
     }
     console.warn('[companions] disabled after an error', err);
+  }
+  // the staff heroes: Norika's barricades, Kogane's plow and Big Yellow (src/render/staffFx.js); decoration,
+  // so an error switches them off for this battle
+  const staff = new StaffFx({ sim, scene, fx, batches, atlas, actors, quality, reduceMotion });
+  let staffBroken = false;
+  function staffSafe(fn) {
+    if (staffBroken) return null;
+    try {
+      return fn();
+    } catch (err) {
+      staffBroken = true;
+      try {
+        staff.dispose();
+      } catch {
+        /* leave what is drawn */
+      }
+      console.warn('[staff fx] disabled after an error', err);
+      return null;
+    }
   }
   const buffIcons = new BuffIcons({ sim, actors, batches, atlas });
   buffIcons.setMode(settings.buffIcons);
@@ -280,6 +305,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     attackFx?.setQuality(q);
     ambient.setQuality(q);
     roster.setQuality(q);
+    staff.setQuality(q);
     companions.setQuality(q);
     actors.setQuality(q);
     overlays.setQuality(q);
@@ -290,7 +316,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   function applyLighting() {
     const ex = THREE.MathUtils.clamp(lighting.exposure ?? 1, 0.4, 1.8);
     const w = THREE.MathUtils.clamp(lighting.warmth ?? 0, -1, 1);
-    hemi.intensity = baseLight.hemi * ex;
+    hemi.intensity = baseLight.hemi * ex * blackout.hemiScale();
     key.intensity = baseLight.key * ex;
     fill.intensity = baseLight.fill * ex;
     key.color.copy(baseLight.keyColor).lerp(new THREE.Color(w >= 0 ? '#ffc890' : '#b8d0ff'), Math.abs(w) * 0.45);
@@ -341,6 +367,44 @@ export function createBattleRenderer(container, sim, opts = {}) {
     companionDives: (uid) => (compBroken ? null : companions.swoopTargets(uid)),
   });
 
+  // A constant beam's damage ticks (Kohaku's, src/sim/duo.js: `tick` hits, ten a second on everything on its line)
+  // never spark or flash the enemy one by one (no strobe: the beam itself shows the hit); their damage is summed
+  // per enemy and shown as one number every TICK_SUM_S (game time, so a paused battle holds it). Entries are
+  // pooled: no allocation per tick.
+  const TICK_SUM_S = 0.45;
+  const tickSums = new Map();
+  const tickFree = [];
+  function tickHit(ev) {
+    let e = tickSums.get(ev.uid);
+    if (!e) {
+      e = tickFree.pop() || { amt: 0, t: 0, crit: false, x: 0, y: 0 };
+      e.amt = 0;
+      e.t = time;
+      e.crit = false;
+      tickSums.set(ev.uid, e);
+    }
+    e.amt += ev.amount || 0;
+    if (ev.crit) e.crit = true;
+    e.x = ev.x;
+    e.y = ev.y;
+  }
+  function flushTickSums(numbers) {
+    for (const [uid, e] of tickSums) {
+      const p = actors.enemyPos(uid);
+      if (p && time - e.t < TICK_SUM_S) continue;
+      if (fx.numbers && numbers < MAX_NUMBERS_PER_FRAME && e.amt >= 1) {
+        numbers++;
+        const x = p ? p.x : e.x;
+        const z = p ? p.z : e.y;
+        const y = p ? p.y + p.height * 0.55 : 0.35;
+        fx.text(e.crit ? `${fmt(e.amt)}!` : fmt(e.amt), x, y + 0.25, z, e.crit ? '#ff9a3d' : '#e6dcff', e.crit ? 0.22 : 0.17, 0.65, 0.45);
+      }
+      tickSums.delete(uid);
+      tickFree.push(e);
+    }
+    return numbers;
+  }
+
   function handleEvents(events) {
     let numbers = 0;
     let hitFx = 0;
@@ -355,11 +419,19 @@ export function createBattleRenderer(container, sim, opts = {}) {
           compFail(err);
         }
       }
+      // the staff heroes' props observe only too
+      staffSafe(() => staff.handle(ev));
+      // a duo's two girls move by whose weapon fired, and cheer on her cast (observe only, src/models/duo.js)
+      actors.duoEvent(ev);
       if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
       if (roster.handle(ev)) continue;
       if (abilityFx.handle(ev)) continue;
       switch (ev.type) {
         case 'hit': {
+          if (ev.tick) {
+            tickHit(ev);
+            break;
+          }
           actors.hitFlash(ev.uid);
           if (hitFx++ > MAX_HIT_FX_PER_FRAME) break;
           const p = actors.enemyPos(ev.uid);
@@ -382,7 +454,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
         }
         case 'attack': {
           const v = actors.towerView(ev.towerUid);
-          if (ev.kind !== 'bullet' || !ev.turretUid) actors.playAttack(ev.towerUid);
+          if (ev.kind !== 'bullet' || !ev.turretUid) actors.playAttack(ev.towerUid, ev.kind);
           if (!v) break;
           const m = v.model.position;
           if (ev.kind === 'slash') {
@@ -511,8 +583,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
           const v = actors.towerView(ev.towerUid);
           if (v) {
             const m = v.model.position;
-            fx.shards(m.x, 0.6, m.z, '#ffcc33', 6);
-            fx.puff(m.x, 0.5, m.z, '#4a4a55', 5, 0.3, 0.35);
+            fx.shards(m.x, m.y + 0.55, m.z, '#ffcc33', 6);
+            fx.puff(m.x, m.y + 0.45, m.z, '#4a4a55', 5, 0.3, 0.35);
           }
           break;
         }
@@ -537,7 +609,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           if (!t) break;
           const col = PATH_COLORS[ev.path] || '#ffd84d';
           fx.sparkle(t.x, t.y, col, { count: 10 + ev.tier * 4, height: 0.8 + ev.tier * 0.2 });
-          if (ev.tier >= 3) fx.flash(t.x, 0.6, t.y, col, 1.4 + ev.tier * 0.2, 0.3);
+          if (ev.tier >= 3) fx.flash(t.x, 0.6 + fx.lift(t.x, t.y), t.y, col, 1.4 + ev.tier * 0.2, 0.3);
           if (ev.tier >= 5) {
             shake(0.05);
             screenFlash(col, 0.25, 3);
@@ -548,8 +620,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
           const v = actors.towerView(ev.towerUid);
           if (v) {
             const m = v.model.position;
-            fx.puff(m.x, 0.3, m.z, '#ffffff', 6, 0.4, 0.35);
-            fx.coin(m.x, 0.2, m.z, ev.refund);
+            fx.puff(m.x, m.y + 0.25, m.z, '#ffffff', 6, 0.4, 0.35);
+            fx.coin(m.x, m.y + 0.15, m.z, ev.refund);
           }
           overlays.refreshHints();
           break;
@@ -569,14 +641,15 @@ export function createBattleRenderer(container, sim, opts = {}) {
           if (v) {
             const m = v.model.position;
             fx.sparkle(m.x, m.z, '#ffd84d', { count: 16, height: 1.2 });
-            fx.text(fmtNum(ev.level, 'level'), m.x, 1.2, m.z, '#ffd84d', 0.24, 1.2, 0.5);
+            fx.text(fmtNum(ev.level, 'level'), m.x, 1.15 + m.y, m.z, '#ffd84d', 0.24, 1.2, 0.5);
           }
           break;
         }
         case 'ult': {
-          const col = ULT_COLORS[ev.effect] || '#ffffff';
-          // one struck enemy / the sky dragon: drawn by rosterFx, no map-wide ring or flash on everyone
-          const local = ev.effect === 'strike' || ev.effect === 'runner';
+          const col = staffSafe(() => staff.ultColor(ev)) || ULT_COLORS[ev.effect] || '#ffffff';
+          // one struck enemy / the sky dragon / the plow (rosterFx, staffFx) and Hold the Line (staffFx): no
+          // map-wide ring or flash on everyone
+          const local = ev.effect === 'strike' || ev.effect === 'runner' || ev.effect === 'barricade';
           screenFlash(col, local ? 0.45 : 0.85, local ? 2.4 : 1.8);
           shake(local ? 0.06 : 0.09);
           if (local) break;
@@ -615,6 +688,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           break;
       }
     }
+    flushTickSums(numbers);
   }
 
   // ----- frame ----------------------------------------------------------------------------
@@ -633,6 +707,15 @@ export function createBattleRenderer(container, sim, opts = {}) {
       actors.alpha = 1;
     }
     if (ruleDecals) for (const ev of events) if (ev.type === 'rift' || ev.type === 'ruleState') ruleDecals.handle(ev);
+    actors.cameraYaw = rig.yaw;
+    if (blackout.enabled) {
+      for (const ev of events) blackout.handle(ev);
+      if (blackout.step(d)) {
+        terrain.setDim(blackout.dim);
+        ambient.dim = blackout.dim;
+        hemi.intensity = baseLight.hemi * THREE.MathUtils.clamp(lighting.exposure ?? 1, 0.4, 1.8) * blackout.hemiScale();
+      }
+    }
     actors.sync(d);
     if (!compBroken) {
       try {
@@ -641,10 +724,14 @@ export function createBattleRenderer(container, sim, opts = {}) {
         compFail(err);
       }
     }
+    // the lane schedule (Gate Arc): the level crossings show this wave's lanes, or the next wave's
+    // between waves (the barrier comes down before the column arrives)
+    terrain.setLanes(sim.openLanes ? sim.openLanes() : null);
     terrain.update(time);
     actors.drawGround(d);
     if (attackFx) fxSafe(() => attackFx.update(d));
     roster.update(d);
+    staffSafe(() => staff.update(d));
     const occupied = new Set();
     for (const v of actors.towers.values()) if (v.water) for (const o of terrain.waterDecor.get(v.decorKey) || []) occupied.add(o);
     ambient.update(d, occupied);
@@ -724,14 +811,15 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const rect = canvas.getBoundingClientRect();
     ndc.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
-    const hit = raycaster.ray.intersectPlane(plane, hitP);
+    // the ground plane, or a rooftop's top first (Gate Arc 'U' tiles: boardInput.js boardPoint)
+    const hit = terrain.roofs ? boardPoint(raycaster.ray, terrain.roofAt, ROOF_Y) : raycaster.ray.intersectPlane(plane, hitP) && { x: hitP.x, y: hitP.z };
     let x = null;
     let y = null;
     let tx = -999;
     let ty = -999;
     if (hit) {
-      x = hitP.x;
-      y = hitP.z;
+      x = hit.x;
+      y = hit.y;
       tx = Math.floor(x);
       ty = Math.floor(y);
     }
@@ -752,7 +840,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       const radius = 0.38 / rig.scale;
       let best = radius * radius;
       for (const t of sim.towers) {
-        const s = projectPx(t.x, t.y, 0.45, rect);
+        const s = projectPx(t.x, t.y, 0.45 + (terrain.roofAt?.(t.x, t.y) || 0), rect);
         const dd = (s.x - px) ** 2 + (s.y - py) ** 2;
         if (dd < best) {
           best = dd;
@@ -1001,9 +1089,25 @@ export function createBattleRenderer(container, sim, opts = {}) {
     towerSkin(uid) {
       return actors.towers.get(uid)?.model.userData.skinId ?? null;
     },
+    /**
+     * Extra: what a placed girl's figure is (e2e / debug): a duo's members, whether every part is a GLB or a
+     * stand-in, her drawn facing (rad) and whether it keeps to the camera (src/render/facing.js); a duo's FX anchors
+     * (world [x, y, z]: Kohaku's lens, Tsubaki's muzzle, src/models/duo.js).
+     */
+    towerModelInfo(uid) {
+      const v = actors.towers.get(uid);
+      const ud = v?.model.userData;
+      if (!ud) return null;
+      const at = (p) => (p ? [+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)] : null);
+      return {
+        duo: !!ud.duo, members: ud.memberIds || null, glb: ud.duo ? !!ud.isGlb?.() : !!ud.glb, height: ud.height ?? null,
+        standIn: ud.duo ? !!ud.isStandIn?.() : !!ud.standIn, facing: v.facing, faceCam: !!v.faceCam, cameraYaw: rig.yaw,
+        ...(ud.anchors ? { anchors: { lens: at(ud.anchors.lens), muzzle: at(ud.anchors.muzzle) } } : null),
+      };
+    },
     /** Extra: read-only info for debugging / previews. */
     get info() {
-      return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null };
+      return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null, blackout: blackout.enabled ? blackout.dim : null };
     },
     dispose() {
       if (disposed) return;
@@ -1015,6 +1119,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       overlays.dispose();
       attackFx?.dispose();
       roster.dispose();
+      staff.dispose();
       companions.dispose();
       actors.dispose();
       terrain.dispose();

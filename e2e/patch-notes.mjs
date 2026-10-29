@@ -9,6 +9,8 @@ import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
 import { launchChromium } from './browser.mjs';
 
+/** [ui-ink] A balance that changed counts to its new value (src/ui/motion.js countTo, at most 600 ms): wait for it. */
+const countsSettled = (page) => page.waitForFunction(() => !document.querySelector('[data-counting]'), null, { timeout: 5000 }).catch(() => {});
 const args = process.argv.slice(2);
 const SHOTS = args.includes('--shots') ? args[args.indexOf('--shots') + 1] : null;
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
@@ -37,12 +39,15 @@ try {
       const { PATCH_GIFT_GEMS } = await import('/src/systems/patchGifts.js');
       return { notes: PATCH_NOTES.map((n) => n.id), gift: PATCH_GIFT_GEMS };
     });
-    const gemPill = page.locator('.lb-top [data-testid="gems"]').first();
+    // [ui-ink] V2: the home's floating top bar (.home-top); the Notice is the menu sheet's Notice row (C12)
+    const gemPill = page.locator('.home-top [data-testid="gems"]').first();
     await gemPill.waitFor({ timeout: 15000 });
     const gems0 = gemsOf(await gemPill.innerText());
-    check(await page.locator('[data-testid="shortcut-notice"] .lb-dot').count() === 1, `${W}x${H} Notice shows a red dot while gifts wait`);
+    check(await page.locator('[data-testid="top-menu"] .ui-dot').count() === 1, `${W}x${H} the menu button shows a red dot while gifts wait`);
+    await tap(page.locator('[data-testid="top-menu"]'));
+    check(await page.locator('[data-testid="menu-sheet"] [data-testid="shortcut-notice"] .ui-dot').count() === 1, `${W}x${H} Notice shows a red dot while gifts wait`);
 
-    await tap(page.locator('[data-testid="shortcut-notice"]'));
+    await tap(page.locator('[data-testid="menu-sheet"] [data-testid="shortcut-notice"]'));
     await page.waitForSelector('.lb-notice-modal', { timeout: 10000 });
     await tap(page.locator('[data-testid="notice-patch"]'));
     await page.waitForSelector('.lb-patch-list', { timeout: 10000 });
@@ -60,6 +65,7 @@ try {
     await tap(page.locator(`[data-testid="patch-claim-${one}"]`));
     const toastText = await page.locator('.toast').last().innerText().catch(() => '');
     check(/Received 100/.test(toastText), `${W}x${H} toast after a claim ("${toastText}")`);
+    await countsSettled(page); // (the bar counts up to a new balance: motion.js countTo)
     const gems1 = gemsOf(await gemPill.innerText());
     check(gems1 === gems0 + gift, `${W}x${H} top-bar gems ${gems0} → ${gems1} (+${gift})`);
     check(await page.locator(`[data-testid="patch-claimed-${one}"]`).innerText() === 'Claimed ✓' && await page.locator(`[data-testid="patch-claim-${one}"]`).count() === 0, `${W}x${H} the button turns into Claimed ✓`);
@@ -72,6 +78,7 @@ try {
 
     // claim all
     await tap(page.locator('[data-testid="patch-claim-all"]'));
+    await countsSettled(page);
     const gems2 = gemsOf(await gemPill.innerText());
     check(gems2 === gems0 + gift * notes.length, `${W}x${H} Claim all: gems ${gems1} → ${gems2} (total +${gift * notes.length})`);
     check(await page.locator('.lb-patch-claimed').count() === notes.length && await page.locator('[data-testid="patch-claim-all"]').count() === 0, `${W}x${H} every version shows Claimed ✓, Claim all gone`);
@@ -81,7 +88,9 @@ try {
 
     await tap(page.locator('[data-testid="notice-close"]'));
     await page.waitForTimeout(300);
-    check(await page.locator('[data-testid="shortcut-notice"] .lb-dot').count() === 0, `${W}x${H} red dot gone once everything is claimed and read`);
+    await tap(page.locator('[data-testid="top-menu"]'));
+    check(await page.locator('[data-testid="menu-sheet"] [data-testid="shortcut-notice"] .ui-dot').count() === 0, `${W}x${H} red dot gone once everything is claimed and read`);
+    await tap(page.locator('[data-testid="menu-sheet-close"]'));
     check(!errs.length, `${W}x${H} no page errors${errs.length ? `: ${errs.join(' | ')}` : ''}`);
     await page.close();
   }
