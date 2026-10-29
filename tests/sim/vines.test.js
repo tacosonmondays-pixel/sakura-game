@@ -16,7 +16,8 @@ const units = defaultData().units;
 
 /** Chigusa at (x, y) by the road (row 4), her paths bought to `tiers`; a wave running. */
 function setup({ tiers = [0, 0, 0], x = 9.5, y = 6.2 } = {}) {
-  const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'chigusa' }], seed: 7, data: { stage: STAGE, map: MAP, units, enemies: ENEMIES } });
+  // (power-neutral, `powerOff`: her kit's own numbers, without balance round 5's damage row, src/data/balance.js)
+  const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'chigusa', stats: { powerOff: true } }], seed: 7, data: { stage: STAGE, map: MAP, units, enemies: ENEMIES } });
   sim.cash = 1e9;
   const t = sim.placeTower('chigusa', x, y);
   expect(t, 'placed').toBeTruthy();

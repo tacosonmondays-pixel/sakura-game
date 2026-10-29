@@ -247,7 +247,7 @@ describe('Potential in resolveStats', () => {
     // '456:77d05324' before the attack shapes S3 (Yuki's Rising Spikes: new tier data on her Frostbite path; Chigusa and
     // Kanna are not pinned here); with Yuki left out the 432 others hash 05819da7 before and after
     // balance round 5 on top (src/data/balance.js: rows and hero curves; its round-by-round hashes on feature/balance-r5)
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:95695334');
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:692aeb0e');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders

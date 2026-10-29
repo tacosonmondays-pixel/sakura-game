@@ -2,6 +2,8 @@
 // and patched the Sim, enemies, status, hero and tower targeting; none of it may change a battle
 // that is not in freeplay by a single bit. These digests were taken on the commit before freeplay
 // landed (fb36911): if one moves, a campaign, solo-endless or co-op battle now plays differently.
+// Re-pinned for balance round 5 (src/data/balance.js) on top of the attack shapes: a deliberate sim change. No outcome
+// flipped: every won battle still wins; 4-2 Hard (solo and ruled) and the heroless 4-5 still lose, later.
 import { describe, it, expect } from 'vitest';
 import { runHeadless, autoPlan } from '../../src/sim/headless.js';
 import { generateWave, summarizeWave } from '../../src/sim/waves.js';
@@ -140,15 +142,15 @@ describe('campaign battles are bit-identical to before freeplay', () => {
 const GOLDEN = {
   tables: '3018:8bded117',
   solo: {
-    '1-3': { digest: '2a092051', wave: 15, won: true },
-    '4-2': { digest: '7926f22f', wave: 13, won: false },
-    '8-5': { digest: '90d9657a', wave: 30, won: false },
+    '1-3': { digest: '9f777d5d', wave: 15, won: true },
+    '4-2': { digest: '98151c3a', wave: 20, won: false },
+    '8-5': { digest: '7b08843a', wave: 30, won: false },
   },
   coopEndless: {
-    coop: { digest: '86503440', wave: 22, won: true },
-    endless: { digest: 'c754a97f', wave: 25, won: false },
+    coop: { digest: '0cf35485', wave: 22, won: true },
+    endless: { digest: 'dba32bc4', wave: 25, won: false },
   },
-  coopSim: { hash: 57814410, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
+  coopSim: { hash: 4037018766, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
 };
 
 // Battles without a hero. The hero rework's sim changes left them bit-identical to ca97c1e (checked
@@ -157,9 +159,9 @@ const GOLDEN = {
 // Exception, the path-cap merge (tier 4 / 5 first pass, data only): '8-5' (its plan buys tier 4s; with
 // the pre-merge units.js the merged sim reproduces 2f760744). Same outcome: lost on wave 30.
 const HEROLESS = {
-  '1-3': ['15a8e76f', 15, true],
-  '4-5': ['15f8aba0', 13, false],
-  '8-5': ['61fe353d', 30, false],
+  '1-3': ['0d05ca54', 15, true],
+  '4-5': ['e05744b6', 15, false],
+  '8-5': ['6b47337f', 30, false],
   coop: [3341544735, 3],
 };
 
@@ -170,7 +172,7 @@ const HEROLESS = {
 // which did not move (4-2 Hard is lost by this team with the rule off too, at wave 13).
 // Re-pinned for the attack shapes S3 (Yuki's Rising Spikes, as GOLDEN.solo above): '8-5' a1fc2ade → fba137a8, lost on wave 30.
 const RULED = {
-  '4-2': { digest: '887447f2', wave: 12, won: false },
-  '8-5': { digest: 'fba137a8', wave: 30, won: false },
-  coop: { digest: 'b8a73060', wave: 22, won: true },
+  '4-2': { digest: 'c96c3f21', wave: 20, won: false },
+  '8-5': { digest: '995f79e2', wave: 30, won: false },
+  coop: { digest: 'f3572329', wave: 22, won: true },
 };

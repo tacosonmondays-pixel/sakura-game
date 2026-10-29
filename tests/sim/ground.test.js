@@ -265,7 +265,8 @@ describe('Ripple Quake (Kanna, Lv 24 Hundred Demons\' Parade)', () => {
 function realBattle(det, ids = ['yuki', 'chigusa'], hero = 'kanna') {
   const PATH = { yuki: BITE, chigusa: pathOf('chigusa', 'greenhouse') };
   const go = () => {
-    const sim = new Sim({ stageId: '4-5', loadout: ids.map((unitId) => ({ unitId, stats: { potential: 6 } })), hero: hero ? { unitId: hero } : null, seed: 13 });
+    // (power-neutral, `powerOff`: balance round 5's rows off, src/data/balance.js, so every shape is still live when sampled)
+    const sim = new Sim({ stageId: '4-5', loadout: ids.map((unitId) => ({ unitId, stats: { potential: 6, powerOff: true } })), hero: hero ? { unitId: hero, stats: { powerOff: true } } : null, seed: 13 });
     sim.cash = 1e9;
     const road = sim.pathData.flatMap((p) => samplePath(p, 0.5));
     const cells = [];

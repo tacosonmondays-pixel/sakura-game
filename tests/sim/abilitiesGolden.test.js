@@ -19,10 +19,10 @@ import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 // only, for the same reason: main's three tables were taken on its hashSim without A2's fold (every wave,
 // life, step, coin and cast below is main's; the A1 and base hashes are the ones feature/abilities had).
 const GOLDEN = {
-  '1-3:normal': 'W15/100/19694/864/2d325b68/3',
+  '1-3:normal': 'W15/100/19735/864/63afa4d1/3',
   // Gate Arc Step 4: Azami joins after 4-7, so 4-5's free team is without her (her strips held the 2-life win):
   // re-pinned, a narrow Hard loss as in BASE_GOLDEN below
-  '4-5:hard': 'W26/15/49028/3384/f70903ff/15',
+  '4-5:hard': 'W26/15/48360/3384/faee754b/15',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
   // stays below, with the returning girls left out). Re-pinned in A3 M3 (was L30/0/37594/8800/38dbc785/14): their
   // abilities are attached now, so on Auto Hana's Kaze's Swoop and Noa's First Aid Call cast too (14 → 22 casts)
@@ -30,16 +30,16 @@ const GOLDEN = {
 };
 // With the new girls (UNIT_GAPS §5) left out: the merged base's digests (before the new girls).
 const BASE_GOLDEN = {
-  '1-3:normal': 'W15/100/19694/864/2d325b68/3',
-  '4-5:hard': 'W26/13/48484/4274/705bc349/15',
+  '1-3:normal': 'W15/100/19735/864/63afa4d1/3',
+  '4-5:hard': 'W26/12/47990/4264/8106dc8d/16',
   // re-pinned at the roster-wave merge: from 6-3 on the bot's free team has Noa and Hana (the A1 pin
   // stays below, with the returning girls left out). Re-pinned in A3 M3 (was L30/0/39114/7321/a30aaa7b/18): Hana's
   // and Noa's abilities cast on Auto now (18 → 23 casts)
-  '8-5:normal': 'W30/100/35855/17176/968a2602/15',
+  '8-5:normal': 'W30/100/35855/17176/f255d989/15',
 };
 // The A1 pins with the returning girls left out of the free pool (the 19 girls play exactly as at A1).
 const LIVE_GOLDEN = {
-  '8-5:normal': 'L30/0/37221/8288/eac8e406/22',
+  '8-5:normal': 'W30/100/37148/19002/5131f15b/23',
 };
 
 const digest = (r) => `${r.won ? 'W' : 'L'}${r.wave}/${r.lives}/${Math.round(r.time * 60)}/${r.cash}/${hashSim(r.sim).toString(16)}/${r.result.stats.abilitiesUsed || 0}`;

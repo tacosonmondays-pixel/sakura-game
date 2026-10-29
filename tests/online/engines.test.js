@@ -23,6 +23,9 @@ describe('the cross-engine runner finds the browsers (e2e/browser.mjs launchAtte
   });
 });
 
+// Balance round 5 (src/data/balance.js) re-pinned every battle below that moved: a deliberate sim change. Every
+// outcome is the same (won, lost, between; Marumi's Glow Bowl reaches wave 27, was 26); the abilities battle still casts
+// ≥ 30 of ≥ 6 kinds; the returning girls' and the links scenarios divide the girls' rows back out (scriptedBattle.js).
 describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
   it('runs a whole co-op battle with both players to the end, in sync, every order accepted', () => {
     const r = runScriptedBattle();
@@ -44,7 +47,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // tables of the stages that existed
     // before stay pinned bit for bit in tests/sim/campaignGolden.test.js
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, waves: r.waves })
-      .toEqual({ ticks: 28995, state: 'won', wallets: '1499/1347', final: 93082125, hashes: '7db1eed1', waves: '4735:a2a5a5b3' });
+      .toEqual({ ticks: 26831, state: 'won', wallets: '1491/1355', final: 1505992847, hashes: 'a0e96f5e', waves: '4735:a2a5a5b3' });
   }, 120000);
 
   it('runs the Potential battle (POTENTIAL_START: every kind of step, Aoi at P1 for the host and P6 for the guest, Kage and Rei at P6) in sync', () => {
@@ -80,7 +83,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Cleave every 3rd strike and her new P5 (Maple Gale ×1.1 on her blade arts, not the 0.1-tile cut);
     // only Kaede's kit changed (every other girl resolves bit-identically, tests/sim/mods.test.js)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 23827, state: 'won', wallets: '317/222', final: 1924477857, hashes: 'dec1d574' });
+      .toEqual({ ticks: 23736, state: 'won', wallets: '317/222', final: 1305949636, hashes: '604a609f' });
   }, 120000);
 
   it('runs the Potential boss battle (POTENTIAL_BOSS_START: Hotaru vs spectral, Kaede vs the Grave Lych, Rei\'s duel echo) in sync', () => {
@@ -101,7 +104,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned for Kaede's AoE rework (was 35101 / '6568/4679' / 3492961063 / 'b2b2f34d'): her Maple
     // Cleave, her full-focus maple splash on Unbroken Rhythm, Crimson Eternity ×1.6 vs bosses (was ×1.5)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 35035, state: 'lost', wallets: '6700/4594', final: 2141169952, hashes: '20c45d69' });
+      .toEqual({ ticks: 33178, state: 'lost', wallets: '6532/4652', final: 1833621268, hashes: '6aef2a11' });
   }, 120000);
 
   it('runs a co-op freeplay battle through the goal into the boss waves, in sync, ended by both Finish votes', () => {
@@ -165,7 +168,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // an auto-cast's (the same battle, the same 1123 coins, now 652/471: 2017100116 / '7ad61cb6'), then
     // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind })
-      .toEqual({ ticks: 37655, state: 'between', wallets: '800/520', final: 4047740824, hashes: 'c84c23e1', casts: 51, byKind: 'boost 2 · burst 21 · debuff 11 · econ 3 · rally 4 · strike 10' });
+      .toEqual({ ticks: 30963, state: 'between', wallets: '575/555', final: 940886325, hashes: '0d8afd56', casts: 36, byKind: 'boost 2 · burst 13 · debuff 7 · econ 1 · rally 4 · strike 9' });
   }, 240000);
 
   it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {
@@ -191,9 +194,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // stores; ckDigest c653f418 → b2fe614b, finalDigest 089da6b4 → e0834a0a, same ticks, hashes and final.)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, casts: r.casts, byId: r.byId, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
       .toEqual({
-        ticks: 47017, state: 'between', wallets: '568/782', lives: 100, final: 3293782298, hashes: '6e087590', casts: 72,
-        byId: 'aoi.skyfall 11 · ena.omenCard 9 · hana.swoop 19 · noa.firstAid 2 · ruri.moonPounce 5 · seiran.stormLance 13 · yoriko.puppetHex 13',
-        ckDigest: 'b2fe614b', finalDigest: 'e0834a0a',
+        ticks: 47676, state: 'between', wallets: '568/782', lives: 100, final: 843868789, hashes: '0b57c250', casts: 76,
+        byId: 'aoi.skyfall 12 · ena.omenCard 10 · hana.swoop 20 · noa.firstAid 3 · ruri.moonPounce 6 · seiran.stormLance 12 · yoriko.puppetHex 13',
+        ckDigest: '76e7917e', finalDigest: '8bc5612b',
       });
   }, 240000);
 
@@ -211,7 +214,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // ticks, 60 → 61 curse bursts, new hashes) and a few kills land with the other player (wallets 2796/3575 →
     // 2891/3480, the same 6371 coins in all); damage, lives and the zero casts are unchanged
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, towers: r.towers, damage: r.damage, lives: r.lives, wallets: r.wallets, final: r.final, hashes: r.hashes, curseBursts: r.curseBursts, runners: r.runners })
-      .toEqual({ ticks: 11492, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2891/3480', final: 253530618, hashes: 'a90dc673', curseBursts: 61, runners: 2 });
+      .toEqual({ ticks: 9821, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2828/3543', final: 3279512551, hashes: '8c876068', curseBursts: 10, runners: 2 });
   }, 240000);
 
   it('runs a co-op battle with Tenka (TENKA_START: her lab team over two absorbs, every class, the economy weapon, wells, Last Line, a sale) in sync, its checkpoint replaying', () => {
@@ -250,7 +253,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // sale, so only ckDigest holds a lab record). Attack shapes S4 moved both digests and nothing else (the Sim's tether
     // fields and each enemy's `tie` are stored by the generic serializer): e864bd71 → d529f30d, 8e111df8 → a6ec7988
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '35f90fff', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'd529f30d', finalDigest: 'a6ec7988' });
+      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '56118d0f', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: '617c1422', finalDigest: '5950f192' });
   }, 240000);
 
   it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s two firing points with Pierce, every club trick) in sync', () => {
@@ -271,7 +274,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // pinned when the battle was added (v0.1.40 train; the same final as the merge review's ad hoc run
     // on V8 and JavaScriptCore). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, iroha: r.iroha })
-      .toEqual({ ticks: 54615, state: 'won', wallets: '5521/5179', final: 3900917007, hashes: '7ad51e89', iroha: '572/522/885' });
+      .toEqual({ ticks: 42380, state: 'won', wallets: '5467/5624', final: 32796160, hashes: '7cc84608', iroha: '550/504/850' });
   }, 240000);
 
   it('runs the attack shapes S1 (SHAPES_START: Coin Wheel, Blade Cyclone, Firefly Halo) in sync, and a mid-wave rejoin lands on the run', () => {
@@ -291,7 +294,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // tier 5 only with arms that stay on an enemy, a lighter halo); cheaper upgrades so both Kages reach tier 5.
     // Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, shapes: r.shapes, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 16368, state: 'won', wave: 22, wallets: '2206/1255', final: 3785840552, hashes: '579e8357', shapes: '4/281/398', rejoinTick: 10780 });
+      .toEqual({ ticks: 16314, state: 'won', wave: 22, wallets: '2207/1257', final: 3223573651, hashes: 'f68f68df', shapes: '4/275/391', rejoinTick: 10754 });
   }, 240000);
 
   it('runs the attack shapes S2 (HELD_START: Hearth Stream, Searchlight Sweep) in sync, and a mid-wave rejoin lands on the run', () => {
@@ -309,7 +312,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // when hashSim began folding t.ch.px (gear Pierce, review fix): the battle itself is the same (same final). Change
     // only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, held: r.held, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 28657, state: 'lost', wave: 16, wallets: '615/669', final: 2050999493, hashes: 'd38011ff', held: '4132/882', rejoinTick: 5568 });
+      .toEqual({ ticks: 28656, state: 'lost', wave: 16, wallets: '615/669', final: 3631237076, hashes: '3e943777', held: '4149/880', rejoinTick: 5568 });
   }, 240000);
 
   it('runs the attack shapes S3 (GROUND_START: Bramble Road, Rising Spikes, Ripple Quake) in sync, and a mid-wave rejoin lands on the run', () => {
@@ -330,7 +333,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // half damage; vines skip grounded flyers and walkers already held). Change only with a deliberate sim / data change,
     // and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, ground: r.ground, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 22228, state: 'won', wave: 22, wallets: '1675/1783', final: 2230526921, hashes: '20e7246c', ground: '60/943/110', rejoinTick: 9290 });
+      .toEqual({ ticks: 20141, state: 'won', wave: 22, wallets: '1686/1798', final: 159571854, hashes: '5769ae44', ground: '26/681/58', rejoinTick: 9496 });
   }, 240000);
 
   it('runs the attack shapes S4 (LINKS_START: Homecoming Throw, Spirit Tether) in sync, and a mid-wave rejoin lands on the run', () => {
@@ -349,7 +352,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // pinned when the battle was added (feature/attack-links, S4 data fitted on both rulers; the host's girls at tier 5,
     // the guest's at tier 4: one girl per path at the final tier). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, links: r.links, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 25886, state: 'lost', wave: 19, wallets: '1276/681', final: 144405380, hashes: 'b59e6bf2', links: '1964/1112/55/1548', rejoinTick: 5958 });
+      .toEqual({ ticks: 24947, state: 'won', wave: 22, wallets: '712/712', final: 2697664745, hashes: 'fa26dda0', links: '2195/1323/84/1918', rejoinTick: 7076 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {
@@ -366,7 +369,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // pinned when the battle was added (v0.1.41: Marumi's rework with the lob for flyers only and the
     // Heavy Ball share tune). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, bowl: r.bowl })
-      .toEqual({ ticks: 72006, state: 'wave', wave: 26, wallets: '7258/6667', final: 821407225, hashes: '018423c4', bowl: '659/397/7/0' });
+      .toEqual({ ticks: 72006, state: 'wave', wave: 27, wallets: '8673/8083', final: 3971903258, hashes: '77c08440', bowl: '779/490/9/0' });
   }, 240000);
 
   it('runs the duo Kohaku & Tsubaki (DUO_START: Refraction, Kohaku\'s beam, Prismfall on Auto-cast, the host\'s LR Twin Star) in sync', () => {
@@ -391,7 +394,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned Oct 29 for the Oct 29 duo buff (base +25%, the LR form ×1.1 and her long beam: the host's duo is LR):
     // the battle ends sooner, ticks 44656 → 39421, final 1485318803 → 1647005069, hashes baad978d → f97c7537.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, duo: r.duo })
-      .toEqual({ ticks: 39421, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3357/3772', final: 1647005069, hashes: 'f97c7537', duo: '251/1153/498/24/9/1' });
+      .toEqual({ ticks: 37229, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3330/3744', final: 702053514, hashes: 'a7068993', duo: '241/1104/396/22/10/1' });
   }, 240000);
 
   it('runs Tenka\'s LR form (TENKA_LR_START: Critical Mass · Event Horizon\'s pull and second detonation on the host\'s LR Tenka, the guest\'s without) in sync', () => {
@@ -408,7 +411,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(runTenkaLrBattle().final).toBe(r.final);
     // pinned when the battle was added (Tenka's LR form, Oct 29). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, horizon: r.horizon })
-      .toEqual({ ticks: 47644, state: 'won', wave: 26, tiers: '050 030 000 000', wallets: '1709/5994', final: 3127393822, hashes: 'e2b30df2', horizon: '3/2/2/3' });
+      .toEqual({ ticks: 43031, state: 'won', wave: 26, tiers: '050 030 000 000', wallets: '1730/6014', final: 747075865, hashes: '8ab4dbef', horizon: '3/2/2/3' });
   }, 240000);
 
   it('runs the staff heroes (STAFF_START: Norika\'s barricades and Hold the Line on a forked map, Kogane\'s plow and Moves) in sync', () => {
@@ -427,7 +430,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned the same day (final review): Hold the Line now casts only during a wave (a calm point holds no lines),
     // and the host casts it in waves only (ultInWave).
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, staff: r.staff, heroLevels: r.heroLevels })
-      .toEqual({ ticks: 49465, state: 'won', wave: 20, wallets: '778/268', final: 3094781041, hashes: '8552ea5e', staff: '1082/21/32/0/0/15/28', heroLevels: '21/24' });
+      .toEqual({ ticks: 47056, state: 'won', wave: 20, wallets: '685/259', final: 967869385, hashes: 'c237cd0a', staff: '1066/22/29/0/0/14/24', heroLevels: '21/24' });
   }, 240000);
 
   it('hashes the freeplay wave tables of every stage and tier', () => {

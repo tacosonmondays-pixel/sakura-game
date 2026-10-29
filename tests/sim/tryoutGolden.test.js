@@ -61,11 +61,11 @@ describe('golden Half Day and Full Day', () => {
   }, 60000);
 
   // The runs re-pinned once for balance round 5 (src/data/balance.js: the girls' rows apply in Tryout too), not for an
-  // Extended Day change: was 2b80a063 / f85067ef (seed 1212 lost on wave 12; with the round the maxed team wins) / 9161ea1d.
+  // Extended Day change: was 2b80a063 / f85067ef (seed 1212 lost on wave 12; with the round the maxed team wins) / f134cb88 (after the attack shapes S3 re-pin).
   const RUNS = [
-    { seed: 77, grade: 1, length: 'half', run: '08a9c785', wave: 28, state: 'won' },
-    { seed: 1212, grade: 12, length: 'half', strength: 'maxed', run: '797152e4', wave: 28, state: 'won' },
-    { seed: 1201, grade: 6, length: 'full', strength: 'mid', run: 'd08bd8c1', wave: 48, state: 'won' },
+    { seed: 77, grade: 1, length: 'half', run: 'dd8cdd02', wave: 28, state: 'won' },
+    { seed: 1212, grade: 12, length: 'half', strength: 'maxed', run: '2b6c4bc5', wave: 28, state: 'won' },
+    { seed: 1201, grade: 6, length: 'full', strength: 'mid', run: 'f4db3669', wave: 48, state: 'won' },
   ];
   for (const r of RUNS) {
     it(`a whole ${r.length} run (seed ${r.seed}, Grade ${r.grade}) plays exactly as before`, () => {

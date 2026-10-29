@@ -21,67 +21,70 @@ import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 
 export const GOLDEN_STAGES = ['1-1', '2-3', '3-3', '4-2', '5-4', '6-1', '6-3', '7-3', '8-4', '8-5'];
 
+// Re-pinned for balance round 5 (src/data/balance.js) on top of the attack shapes: a deliberate sim change; every
+// table below moved with it. No win became a loss.
+
 const GOLDEN = {
-  '1-1:easy': 'W12/150/22173/685/507e1bb3',
-  '1-1:hard': 'W12/50/21986/990/823b741',
-  '2-3:easy': 'W20/150/52003/335/71666e2e',
-  '2-3:hard': 'L15/0/36864/609/77ed47fa',
-  '3-3:easy': 'W24/150/98421/441/94f02a6a',
-  '3-3:hard': 'W24/17/120010/326/3886db15',
-  '4-2:easy': 'W25/143/69602/589/aa0a3689',
-  '4-2:hard': 'W25/7/85509/445/d66194a8',
-  '5-4:easy': 'W27/141/70867/3596/ed7b168a',
-  '5-4:hard': 'W27/33/92623/1101/fb69f2c8',
-  '6-1:easy': 'W26/150/55541/4542/668e0cfc',
-  '6-1:hard': 'W26/42/65859/493/6cfbbe12',
-  '6-3:easy': 'W27/147/31852/1119/fe750057',
-  '6-3:hard': 'W27/39/44348/803/616d3dba',
-  '7-3:easy': 'W29/138/89954/20132/e24ed9f3',
-  '7-3:hard': 'L15/0/52357/342/f5eb7b58',
-  '8-4:easy': 'W30/150/44957/14820/ab26977',
-  '8-4:hard': 'W30/37/54248/4166/e1be1c2f',
-  '8-5:easy': 'W30/150/36609/26463/3f98e797',
-  '8-5:hard': 'L30/0/41968/4246/9155713e',
+  '1-1:easy': 'W12/150/21293/685/a23ad39a',
+  '1-1:hard': 'W12/50/20667/990/e4252d8c',
+  '2-3:easy': 'W20/150/49151/335/2bd17b17',
+  '2-3:hard': 'W20/48/52969/2477/4173f66c',
+  '3-3:easy': 'W24/150/78162/441/4497b5f1',
+  '3-3:hard': 'W24/50/103873/369/8d0696aa',
+  '4-2:easy': 'W25/148/59792/653/9400cb1f',
+  '4-2:hard': 'W25/43/71638/510/6774791a',
+  '5-4:easy': 'W27/150/64159/3788/bd2aec12',
+  '5-4:hard': 'W27/43/80248/867/4201d3f',
+  '6-1:easy': 'W26/150/53140/4542/812713d8',
+  '6-1:hard': 'W26/47/58198/560/24bdff4a',
+  '6-3:easy': 'W27/148/28287/1146/a036712c',
+  '6-3:hard': 'W27/45/33634/655/a14f7360',
+  '7-3:easy': 'W29/146/82490/20496/514c3cd8',
+  '7-3:hard': 'W29/26/96130/9003/5d527336',
+  '8-4:easy': 'W30/150/41300/14820/27616dc1',
+  '8-4:hard': 'W30/50/46368/5033/7060d1e5',
+  '8-5:easy': 'W30/150/34236/26294/8642a945',
+  '8-5:hard': 'L30/0/36960/4969/653c6e6a',
 };
 
 // The same stages with the new girls (UNIT_GAPS §5) left out of the free pool: the digests the merged
 // base (roster wave + abilities A1, before the new girls) pinned. The base roster must play exactly as
 // before the new girls.
 const BASE_GOLDEN = {
-  '1-1:easy': 'W12/150/22173/685/507e1bb3',
-  '1-1:hard': 'W12/50/21986/990/823b741',
-  '2-3:easy': 'W20/150/52003/335/71666e2e',
-  '2-3:hard': 'L15/0/36864/609/77ed47fa',
-  '3-3:easy': 'W24/150/98421/441/94f02a6a',
-  '3-3:hard': 'W24/17/120010/326/3886db15',
-  '4-2:easy': 'W25/143/69602/589/aa0a3689',
-  '4-2:hard': 'W25/7/85509/445/d66194a8',
-  '5-4:easy': 'W27/141/71308/4091/36c2232b',
-  '5-4:hard': 'W27/27/92451/1636/a5683caa',
-  '6-1:easy': 'W26/150/54913/6477/bab0895d',
-  '6-1:hard': 'W26/45/64601/1074/6a20a8da',
-  '6-3:easy': 'W27/147/34470/930/7763512c',
-  '6-3:hard': 'W27/36/51913/854/9e720638',
-  '7-3:easy': 'W29/143/89378/19992/2907bac6',
-  '7-3:hard': 'L15/0/50944/133/89ced969',
-  '8-4:easy': 'W30/150/45935/13545/7c0637c4',
-  '8-4:hard': 'W30/38/54245/2559/50479107',
-  '8-5:easy': 'L30/0/38679/13706/b1bb9de8',
-  '8-5:hard': 'L30/0/44607/2671/bdcbe116',
+  '1-1:easy': 'W12/150/21293/685/a23ad39a',
+  '1-1:hard': 'W12/50/20667/990/e4252d8c',
+  '2-3:easy': 'W20/150/49151/335/2bd17b17',
+  '2-3:hard': 'W20/48/52969/2477/4173f66c',
+  '3-3:easy': 'W24/150/78162/441/4497b5f1',
+  '3-3:hard': 'W24/50/103873/369/8d0696aa',
+  '4-2:easy': 'W25/148/59792/653/9400cb1f',
+  '4-2:hard': 'W25/43/71638/510/6774791a',
+  '5-4:easy': 'W27/142/64562/4129/30c656c7',
+  '5-4:hard': 'W27/42/80993/1551/cc80de3b',
+  '6-1:easy': 'W26/150/51301/6477/5ad72fd9',
+  '6-1:hard': 'W26/50/56995/1230/3f25d8d9',
+  '6-3:easy': 'W27/150/30069/1030/6b6d04d5',
+  '6-3:hard': 'W27/43/41432/672/9ddd8745',
+  '7-3:easy': 'W29/147/83396/20058/2a4625a5',
+  '7-3:hard': 'L19/0/66959/2355/e6b4b3d4',
+  '8-4:easy': 'W30/150/43220/13545/af773a52',
+  '8-4:hard': 'W30/45/47060/2911/dad840c4',
+  '8-5:easy': 'W30/150/35632/25019/695612db',
+  '8-5:hard': 'L30/0/39525/2978/2a5c1feb',
 };
 
 // The same stages with the 19 live girls only (the returning girls left out of the free pool): the
 // digests v0.1.37 pinned before the roster wave. The old roster must play exactly as on live.
 // (the new girls are left out too)
 const LIVE_GOLDEN = {
-  '6-3:easy': 'W27/147/35056/918/5c54029e',
-  '6-3:hard': 'W27/32/52634/536/69bd5a4a',
-  '7-3:easy': 'W29/139/89732/20795/6352de87',
-  '7-3:hard': 'L14/0/51653/7/8aded2be',
-  '8-4:easy': 'W30/145/48935/13434/43b809d3',
-  '8-4:hard': 'W30/31/56930/2945/1e12f2e0',
-  '8-5:easy': 'L30/0/39403/14050/4b03626d',
-  '8-5:hard': 'L30/0/44944/2614/1eff748',
+  '6-3:easy': 'W27/150/28480/995/eabe0700',
+  '6-3:hard': 'W27/46/37643/728/bead66a3',
+  '7-3:easy': 'W29/147/71958/20903/6c779a60',
+  '7-3:hard': 'W29/6/104325/7905/35ca813b',
+  '8-4:easy': 'W30/150/45050/14125/58d777a1',
+  '8-4:hard': 'W30/44/50079/3573/a0d05b6e',
+  '8-5:easy': 'W30/150/37037/25835/9fbe65f8',
+  '8-5:hard': 'L30/0/39950/3501/dbd73088',
 };
 
 const digest = (r) => `${r.won ? 'W' : 'L'}${r.wave}/${r.lives}/${Math.round(r.time * 60)}/${r.cash}/${hashSim(r.sim).toString(16)}`;
@@ -113,23 +116,23 @@ describe.skipIf(!hasRealData())('the base roster plays exactly as before the new
 // each gets her own pinned battles, the free team plus her (seed 1). (4-2 Hard, a 4-life win for the
 // free team, is lost by the bot with any ninth girl it adds, Kinu or Ouka: its plan, not theirs.)
 const GACHA_GOLDEN = {
-  'kinu:5-4:hard': 'W27/12/101477/1651/d53c8bf1',
-  'kinu:6-1:hard': 'W26/40/66433/703/3642addf',
-  'ouka:5-4:hard': 'W27/33/93051/1227/7d2e511b',
-  'ouka:8-4:hard': 'W30/37/55156/3033/b83b4bb6',
+  'kinu:5-4:hard': 'W27/43/88759/1913/bf455e29',
+  'kinu:6-1:hard': 'W26/47/57153/830/303c9b74',
+  'ouka:5-4:hard': 'W27/43/81158/1192/3a622e15',
+  'ouka:8-4:hard': 'W30/50/46077/4013/cd81ef6e',
   // (re-pinned for Bramble Road, attack shapes S3: her vine grows along the road, slows and lashes; was
   // 'W27/36/90183/930/cf2018c6' / 'W30/41/54755/1802/185583ae'; lives and waves unchanged). 8-4 again at the S3 review
   // (was 'W30/41/55092/1805/11b09815': vines skip grounded flyers and walkers already held; 41 → 42 lives)
   // 5-4 re-pinned again at the v0.1.60 merge: main's Gate Arc free team without Azami (main's own pin moved to
   // 'W27/34/93158/774/e2b016f0') together with Bramble Road; waves unchanged
-  'chigusa:5-4:hard': 'W27/33/93500/785/76732ad0',
-  'chigusa:8-4:hard': 'W30/42/54605/1831/fa2f45f7',
+  'chigusa:5-4:hard': 'W27/43/79452/839/db51fec1',
+  'chigusa:8-4:hard': 'W30/50/45908/2558/58399ddf',
   // (re-pinned for her rework, Oct 21: ricochet Spin Shot, the lob on every path, damage in the regular
   // band and her own lane on a shared stretch; 37 → 38 and 36 → 40 lives). Re-pinned for v0.1.41 (was
   // 'W27/38/100632/1471/ac3188a3' / 'W30/40/53939/1579/6c70e78'): her lob is flyers only (it also hit
   // walkers on other lanes) and the Heavy Ball share tune; lives and waves unchanged
-  'marumi:5-4:hard': 'W27/33/100733/1105/c42bd58e',
-  'marumi:8-4:hard': 'W30/40/54145/1579/d9583b83',
+  'marumi:5-4:hard': 'W27/43/87376/1092/6b5ebec',
+  'marumi:8-4:hard': 'W30/50/46491/2363/4b9f6fd2',
 };
 
 describe.skipIf(!hasRealData())('the gacha new girls in a bot battle (pinned)', () => {

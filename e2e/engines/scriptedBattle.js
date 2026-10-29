@@ -2331,13 +2331,16 @@ export function runGroundBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
  * from that checkpoint and the log (a mid-wave rejoin), which must land on the same hash and snapshot.
  */
 const LINKS_STATS = { costMul: 0.05, damageMul: 0.5, rateMul: 1 };
+// (power-neutral: balance round 5's damage rows divided back out, src/data/balance.js, so the waves last long enough for
+// the tethers to share their hits)
+const linksStats = (id) => ({ ...LINKS_STATS, damageMul: (LINKS_STATS.damageMul ?? 1) / (POWER[id]?.dmg ?? 1) });
 export const LINKS_START = Object.freeze({
   seed: 272727,
   stageId: '2-4',
   difficulty: 'hard',
   players: [
-    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'fuu', stats: LINKS_STATS }, { unitId: 'ena', stats: LINKS_STATS }], hero: null },
-    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'ena', stats: LINKS_STATS }, { unitId: 'fuu', stats: LINKS_STATS }], hero: null },
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'fuu', stats: linksStats('fuu') }, { unitId: 'ena', stats: linksStats('ena') }], hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'ena', stats: linksStats('ena') }, { unitId: 'fuu', stats: linksStats('fuu') }], hero: null },
   ],
 });
 const LINKS_UPGRADES = Object.freeze([
