@@ -47,7 +47,8 @@ const ROWS = {
   azami: { dmg: 2.45 },
   akane: { boss: 3.5 },
   sango: { boss: 3.1 },
-  hotaru: { boss: 2.5 },
+  // (Hotaru ×1.03: with the attack shapes her Firefly Halo build alone read 1% under today on a crowd)
+  hotaru: { dmg: 1.03, boss: 2.5 },
   iroha: { boss: 3.9 },
   marumi: { boss: 5.6 },
   ruri: { boss: 9 },
@@ -57,19 +58,24 @@ const ROWS = {
   // her reach (her Returning Gale build alone lost 46% at ×1), so her damage rises until every build of hers, alone and
   // with supports, deals at least what it does today (×2.45; her best build then reads ~3.9M on a crowd, no cap)
   fuu: { dmg: 2.45, ctl: 1.2 },
-  // (Yuki's longer freezes cost her own hits on two builds, up to 6% alone: ×1.08 keeps every build at or above today)
-  yuki: { dmg: 1.08, ctl: 1.2 },
+  // (Yuki ×1.5: her longer freezes cost her own hits, and the attack shapes' Rising Spikes left her Frostbite build alone
+  // 28% under today; ×1.5 keeps every build of hers, alone and with supports, at or above today)
+  yuki: { dmg: 1.5, ctl: 1.2 },
   // supports: their value, not their damage: +5% on the bonus part of what they give, 10% more aura reach, control
   // 20% longer
   chika: { buff: 1.05, ctl: 1.2 },
   midori: { buff: 1.05, ctl: 1.2 },
   miko: { buff: 1.05, reach: 1.1 },
-  umeko: { buff: 1.05, reach: 1.1, ctl: 1.2 },
+  // (Umeko ×1.05 damage: the attack shapes' Searchlight Sweep left her own small hits up to 5% under today)
+  umeko: { dmg: 1.05, buff: 1.05, reach: 1.1, ctl: 1.2 },
   noa: { buff: 1.05, reach: 1.1 },
   wakaba: { buff: 1.05 },
   ouka: { buff: 1.05 },
-  // (Shiro, Tenka and Chika are in the band already: no damage row, no nerf. Momo: her coins are the economy;
-  // unchanged. The held heroes Kogane and Norika keep their data.)
+  // Momo: her coins are the economy and stay as they are; ×1.03 damage because the attack shapes' Coin Wheel left her
+  // Encore Toss build alone 2% under today on a boss
+  momo: { dmg: 1.03 },
+  // (Shiro, Tenka and Chika are in the band already: no damage row, no nerf. The held heroes Kogane and Norika keep
+  // their data.)
 };
 
 /** Her power row (frozen). */
