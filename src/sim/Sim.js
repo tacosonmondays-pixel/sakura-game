@@ -996,8 +996,14 @@ export class Sim {
   finish() {
     if (!this.freeplay || this.wavesCleared < this.totalWaves || this.state === 'won' || this.state === 'lost') return false;
     this.finished = true;
-    this.state = 'won';
     this._autoTimer = -1;
+    // Tryout Day's Extended Day has no win past wave 48: Home Time ends it the way running out of hearts does (§20.1, A6)
+    if (this.tryout) {
+      this.state = 'lost';
+      this._emit('lost', { finished: true });
+      return true;
+    }
+    this.state = 'won';
     this._emit('won', { finished: true });
     return true;
   }

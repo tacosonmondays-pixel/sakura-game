@@ -269,6 +269,8 @@ describe('Extended Day in the Sim', () => {
     sim.wave = 48;
     sim.state = 'between';
     expect(sim.finish()).toBe(true);
+    expect(sim.state).toBe('lost'); // no win past wave 48: Home Time pays like running out of hearts
+    expect(sim.finish()).toBe(false);
     const r = sim.result();
     expect(r.finished).toBe(true);
     expect(r.freeplay).toBe('tryout');

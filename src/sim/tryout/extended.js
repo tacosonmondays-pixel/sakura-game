@@ -23,7 +23,7 @@ export function extendDay(sim, p) {
   const X = TRYOUT.afterSchool;
   // Subjects: the next 2 periods' pairs (each avoids the pair before it); older entries are dropped (each period's row
   // keeps its Subject)
-  for (let q = len.periods + 1; q <= p + 2; q++) if (!ty.subjects[q]) ty.subjects[q] = subjectPairAt(ty.seed, q, ty.subjects[q - 1]);
+  for (let q = Math.max(len.periods + 1, p + 1); q <= p + 2; q++) if (!ty.subjects[q]) ty.subjects[q] = subjectPairAt(ty.seed, q, ty.subjects[q - 1]);
   for (let q = 0; q <= p && q < ty.subjects.length; q++) ty.subjects[q] = null;
   // seats: drawn one block ahead of the coming period's (a break shows the next block's); blocks before the current one
   // are dropped

@@ -199,7 +199,7 @@ describe('display only: the battle sim is untouched', () => {
     // PENDING_BUMP: a branch's sim change that has no protocol yet (Tryout Day's Extended Day, TRYOUT_DAY.md §20) pins
     // its next sim id here, apart from KNOWN. COOP_PROTOCOL is assigned at ship time: the release takes the next free
     // number, adds its KNOWN line and removes this pin.
-    const PENDING_BUMP = { 11: '5df36e3af751' };
+    const PENDING_BUMP = { 11: 'ed86da514666' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     expect(simId().id).toBe(PENDING_BUMP[COOP_PROTOCOL] ?? KNOWN[COOP_PROTOCOL]);
   });
