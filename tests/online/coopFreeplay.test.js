@@ -114,10 +114,12 @@ describe("the 'end' Finish vote", () => {
 });
 
 describe('compatibility', () => {
-  it('protocol 12 (Gate Arc Acts 3–6, Tenka LR, Extended Day and Random Class; the banners and Tryout Day was 11, the ultimates 10, Gate Arc Acts 1–2 9, v0.1.41 8, v0.1.40 7, v0.1.39 6, Potential v3 5, battle train C 4, freeplay 3): protocol-2 to -11 builds are refused, and the battle data hash covers the freeplay table', () => {
-    expect(COOP_PROTOCOL).toBe(12);
+  it('protocol 13 (the last five tower ultimates; Gate Arc Acts 3–6, Tenka LR, Extended Day and Random Class was 12, the banners and Tryout Day 11, the ultimates 10, Gate Arc Acts 1–2 9, v0.1.41 8, v0.1.40 7, v0.1.39 6, Potential v3 5, battle train C 4, freeplay 3): protocol-2 to -12 builds are refused, and the battle data hash covers the freeplay table', () => {
+    expect(COOP_PROTOCOL).toBe(13);
     const v = coopVersion();
-    expect(v.proto).toBe(12);
+    expect(v.proto).toBe(13);
+    expect(sameVersion(v, { ...v, proto: 12 })).toBe(false);
+    expect(sameVersion({ ...v, proto: 12 }, v)).toBe(false);
     expect(sameVersion(v, { ...v, proto: 11 })).toBe(false);
     expect(sameVersion({ ...v, proto: 11 }, v)).toBe(false);
     expect(sameVersion(v, { ...v, proto: 10 })).toBe(false);

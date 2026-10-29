@@ -20,16 +20,17 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    id: 'v0.1.61', version: '0.1.61', date: '2026-10-29', title: 'Strings, Blades and Academy Flair',
+    id: 'v0.1.61', version: '0.1.61', date: '2026-10-29', title: 'Five More Ultimates and Academy Flair',
     added: [
-      'Yoriko’s doll now hangs from thin lilac strings tied to her control bar: each attack it glides out on an arc, strikes with a lilac cut and swings back home.',
-      'Kaede dashes with maple afterimages, her blade arts cut bright crescent streaks, and each hit lands with a crisp flash.',
+      'Five more ⚡ ultimates go live: Kage’s Shadow Doubles, Suzu’s Bell Carpet, Chika’s Drone Surge (her Drones tab counts the extra drones), Fuu’s Backdraft Fan and Iroha’s Mirror Shift, which turns into Infinite Reflection at her top tier. Other girls’ shots that cross Iroha’s mirror split in two, your co-op partner’s included. Every tower girl now has a ⚡ that works in battle; only Ruri’s Star Falcon and Tide Otter paths still wait for theirs.',
+      'Yoriko’s doll now hangs from thin lilac strings tied to her control bar and glides out on an arc to strike; Kaede dashes with maple afterimages and her blade arts cut bright crescent streaks.',
       'The academy girls get real attacks: Azami’s tumbling spike strips, Kinu’s threaded needles, Wakaba’s drink bottles, Yuzuha’s taser darts, Ouka’s office seal, Chigusa’s seeds and vines, and Marumi’s ball you can see bounce.',
       'New 3D props for what they place: Azami’s spike strips, Yuzuha’s fold-out sentries and Capture Nets, Chigusa’s thorn vines and beds, Ouka’s council banners, Wakaba’s drink bottle and Kinu’s heat ring and scissors.',
     ],
     changed: [
       'Tryout Day’s Extended Day: a Home Time button after wave 48 (in co-op, both players vote), your best wave kept for each Grade, three one-time milestones at waves 50, 75 and 100 (Stayed After, Late Bus, Last One Out), reaching period 12 counts as a Full Day clear, and the timetable fits a phone held upright.',
       'Chika’s Overall tab now shows her average DPS beside Live too, drones included; between waves the readout says “DPS (wave)”.',
+      'Co-op partners need this update too before you can play together.',
     ],
     fixed: [
       'Recruit on a phone held sideways: both Recruit buttons show without scrolling on every banner, and picking a banner no longer jumps the page.',
