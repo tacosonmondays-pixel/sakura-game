@@ -20,17 +20,29 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    id: 'v0.1.60', version: '0.1.60', date: '2026-10-29', title: 'Mirrors, Coilguns and Companions',
+    id: 'v0.1.61', version: '0.1.61', date: '2026-10-29', title: 'Strings, Blades and Academy Flair',
     added: [
-      'Tenka now takes the field as her real 3D figure, coilgun in hand.',
-      'Iroha’s mirror panel turns and glints each time a bolt bounces through it, leaves afterimages when it moves, and her Shattered Glass path scatters glinting glass shards.',
-      'Companions in action: Kon bounds to Ruri’s relay spot and crouches, leaps and lands on Moon Pounce; Kaze climbs and stoops onto each enemy Hana shoots; Seiran’s sky dragon is bigger, with a mane, whiskers and a roar as it arrives.',
+      'Yoriko’s doll now hangs from thin lilac strings tied to her control bar: each attack it glides out on an arc, strikes with a lilac cut and swings back home.',
+      'Kaede dashes with maple afterimages, her blade arts cut bright crescent streaks, and each hit lands with a crisp flash.',
+      'The academy girls get real attacks: Azami’s tumbling spike strips, Kinu’s threaded needles, Wakaba’s drink bottles, Yuzuha’s taser darts, Ouka’s office seal, Chigusa’s seeds and vines, and Marumi’s ball you can see bounce.',
+      'New 3D props for what they place: Azami’s spike strips, Yuzuha’s fold-out sentries and Capture Nets, Chigusa’s thorn vines and beds, Ouka’s council banners, Wakaba’s drink bottle and Kinu’s heat ring and scissors.',
+    ],
+  },
+  {
+    id: 'v0.1.60', version: '0.1.60', date: '2026-10-29', title: 'Gate Arc Acts 3–6 and Extended Day',
+    added: [
+      'Gate Arc Acts 3–6: twenty new stages across chapters 3 to 6, four new bosses (the Ashen Warden, the Frost Vanguard, the Reservoir Willow and Gatekeeper Unit 01) and a side stage, The Star Dome.',
+      'Tryout Day: Extended Day keeps the run going after period 12 until your hearts run out (clear a Full Day first), and Random Class draws your girls and every pick for you, solo or in co-op.',
+      'Tenka can now Limit Break to LR: at level 60 with all 5 gates and ★5, pay the fee and win her Thesis Defense trial. Kohaku & Tsubaki hit far harder at their top tiers, and at Grand Spectrum their beams run on to the edge of the map.',
+      'New looks in battle: Tenka takes the field as her real 3D figure, coilgun in hand; Iroha’s mirror panel turns and glints as bolts bounce through it and her Shattered Glass path scatters glinting shards; Kon bounds to Ruri’s relay spot and pounces, Kaze stoops onto each enemy Hana shoots, and Seiran’s sky dragon arrives bigger, with a roar.',
+    ],
+    changed: [
+      'The stage screen shows the whole map, Recruit banners are laid out cleaner, Tryout Day gets a big card in Play Modes, and the battle DPS readout shows both Live and Average.',
+      'Co-op partners need this update too before you can play together.',
     ],
     fixed: [
-      'The Events button on small phones is a neat icon tab with a clear gap from Co-op.',
-      'The hero card’s “Deployed” and level no longer cover her name.',
-      'The hero portrait in battle keeps clear of the top bar on small phones.',
-      'Patch-note dates stay on one line, the Recruit rate line no longer sits in a grey box over the girls, and the girl page’s matchups fit on upright phones.',
+      'A chat line typed right after opening a clan tab is no longer lost, and Yuzuha\'s sentries and nets pop an orange ring when they unfold.',
+      'On small phones the Events tab keeps clear of Co-op, the hero card and battle portrait no longer cover her name or the top bar, patch-note dates stay on one line, the Recruit rate line no longer sits over the girls, and the girl page’s matchups fit.',
     ],
   },
   {

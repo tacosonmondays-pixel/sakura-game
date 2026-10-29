@@ -115,11 +115,11 @@ describe('ids line up across modules', () => {
 
   test('battle-ui route params: Next Stage follows the campaign order', () => {
     // inside one act (docs/CAMPAIGN.md "Act II"): Act I runs 1-1 … 8-5 and stops (never 1-6); Act II runs 1-6 … 1-10,
-    // 2-6 … 2-10 and stops until 3-6 exists (the results screen shows Next only when that stage is unlocked: 2-6 is a
+    // 2-6 … 2-10, 3-6 … 3-10, 4-6 … 4-10, 5-6 … 5-10, 6-6 … 6-10 and stops until 7-6 exists (the results screen shows Next only when that stage is unlocked: 2-6 is a
     // two-key stage)
     const act1 = CAMPAIGN_IDS.filter((id) => STAGE_MAP[id].act === 1);
     const act2 = CAMPAIGN_IDS.filter((id) => STAGE_MAP[id].act === 2);
-    expect(act2).toEqual(['1-6', '1-7', '1-8', '1-9', '1-10', '2-6', '2-7', '2-8', '2-9', '2-10']);
+    expect(act2).toEqual([1, 2, 3, 4, 5, 6].flatMap((c) => [6, 7, 8, 9, 10].map((n) => `${c}-${n}`)));
     act1.forEach((id, i) => expect(followingStage(id), id).toBe(act1[i + 1] ?? null));
     act2.forEach((id, i) => expect(followingStage(id), id).toBe(act2[i + 1] ?? null));
     expect(parseBattleParams({ stage: '1-1', difficulty: 'easy' }).difficulty).toBe('easy');

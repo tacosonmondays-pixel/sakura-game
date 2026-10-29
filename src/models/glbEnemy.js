@@ -409,7 +409,8 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
   const glowMat = glowMaterial(tint, Math.min(1, baseOpacity + 0.3));
   const see = baseOpacity < 1;
   const outlineWidth = OUTLINE_WORLD * (0.7 + 0.45 * Math.sqrt(size)) / (asset.unitScale * modelScale);
-  const lineTint = new THREE.Color(def.color || '#888888').multiplyScalar(0.32).lerp(new THREE.Color('#2a1f3d'), 0.45);
+  // def.line: an explicit outline colour (the Brigade's pale rim, so navy units read on grey roads)
+  const lineTint = def.line ? new THREE.Color(def.line) : new THREE.Color(def.color || '#888888').multiplyScalar(0.32).lerp(new THREE.Color('#2a1f3d'), 0.45);
   const outlineMat = quality !== 'low' ? outlineMaterial(tint, outlineWidth, `#${lineTint.getHexString()}`, see) : null;
 
   const skinned = (geometry, material) => {

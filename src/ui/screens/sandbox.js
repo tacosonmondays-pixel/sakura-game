@@ -23,7 +23,7 @@ import {
 
 const KEY = 'sakura.sandbox.v1';
 /** Where a non-campaign map comes from. */
-const MODE_LABEL = { resource: 'Bounty', boss: 'Total Assault', challenge: 'Tactical Challenge' };
+const MODE_LABEL = { resource: 'Bounty', boss: 'Total Assault', challenge: 'Tactical Challenge', side: 'Side stage' };
 
 /** The last choice (per viewer, this tab): map, difficulty, squad. */
 function loadChoice(profile) {

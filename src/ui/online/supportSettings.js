@@ -47,7 +47,10 @@ function pickGirl(onDone) {
   });
 }
 
-/** The two rows (always shown: they are this save's settings, online or not). */
+/**
+ * The two rows: this save's settings, online or not. Settings → Online shows them only once the friend-support SQL is
+ * live (settingsOnline.js, banners.js isFriendshipLive), as stage prep's Support row.
+ */
 export function supportRows() {
   const box = h('div.sc-settings', { 'data-testid': 'settings-support' });
   const paint = () => {

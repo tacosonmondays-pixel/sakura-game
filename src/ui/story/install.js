@@ -14,7 +14,7 @@
 // The scene text is one lazy chunk (src/data/story/index.js), loaded only when a scene may play.
 import { navigate, currentRoute } from '../router.js';
 import {
-  onboardingRoute, skipOnboarding, clearedCampaign, storyOf, markAnnounced, tutorialPromptDue, tutorialRoute, setTutorial,
+  onboardingRoute, skipOnboarding, clearedStoryStages, storyOf, markAnnounced, tutorialPromptDue, tutorialRoute, setTutorial,
   checkLessons, legacyAnnounceDue,
 } from '../../systems/story.js';
 import { JOURNAL_TEXT } from '../../data/story/lessons.js';
@@ -73,7 +73,8 @@ export function installStory({ store }) {
   lessonsCheck();
 
   // ---- first clears → after-scenes -----------------------------------------------------------
-  let cleared = clearedCampaign(store.profile);
+  // campaign and side stages: a side stage's first clear queues its after-scene too (g6.star2 after side-6-starfall)
+  let cleared = clearedStoryStages(store.profile);
   let queueing = Promise.resolve();
   let queuePending = 0;
   store.on('change', (e) => {
@@ -83,7 +84,7 @@ export function installStory({ store }) {
       lessonsCheck();
       toastSoon(); // waits for a calm non-battle screen (on battle it waits for the next screen change)
     }
-    const now = clearedCampaign(store.profile);
+    const now = clearedStoryStages(store.profile);
     const fresh = reason === 'battle-result' ? [...now].filter((id) => !cleared.has(id)) : [];
     cleared = now;
     if (!fresh.length) return;

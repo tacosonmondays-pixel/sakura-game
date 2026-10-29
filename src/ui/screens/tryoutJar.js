@@ -7,15 +7,14 @@
 import '../styles/hubs.css';
 import '../styles/tryout.css';
 import { h, toast } from '../components.js';
-import { inkBtn, secondaryBtn, num, lbl } from '../kit.js';
+import { inkBtn, secondaryBtn, num, lbl, ico } from '../kit.js';
 import { listScreen } from '../listScreen.js';
-import { lineGlyph } from '../lineGlyphs.js';
+import { lineGlyph, lineFor } from '../lineGlyphs.js';
 import { store } from '../../core/store.js';
 import { MATERIAL_FAMILIES } from '../../data/types.js';
 import { jarShelves, buyJar, setPerk, selectCosmetic } from '../../systems/tryoutJar.js';
 import { weekState } from '../../systems/tryoutRewards.js';
 import { JAR_TEXT, JAR_SHELVES, JAR_NOTES, JAR_ERRORS, JAR_SCREEN, MARBLES } from '../text/tryout.js';
-import { paintMarblesPill } from './tryout.js';
 
 /** Which family the material pack buys (kept between redraws of this screen). */
 let packFamily = Object.keys(MATERIAL_FAMILIES)[0];
@@ -26,7 +25,10 @@ let shelfOn = 'desk';
 export const JAR_SHELF_IDS = Object.freeze(['desk', 'cosmetic', 'material']);
 const SHELF_GLYPH = { desk: 'desk', cosmetic: 'sparkles', material: 'box' };
 const ITEM_GLYPH = { eraser: 'eraser', draft7: 'users', coins: 'coin', pocket: 'hall-pass', sg_bundle: 'book', fam_pack: 'box' };
-const glyph = (name, cls = 'ui-ico') => h(`span.${cls}`, { 'aria-hidden': 'true', html: lineGlyph(name, '', { kitSize: false }) });
+
+/** A line glyph through the kit's ico(): by its alias name, or (a glyph with no alias, e.g. "book") as its markup. */
+export const tyIco = (name, cls = 'ui-ico') => ico(lineFor(name) ? name : lineGlyph(name, '', { kitSize: false }), cls);
+const glyph = tyIco;
 
 /** Pure: a shelf's count for its rail tab: owned / for sale (once-only shelves), stock left / weekly stock (Materials). */
 export function shelfCount(id, rows) {
@@ -34,31 +36,15 @@ export function shelfCount(id, rows) {
   return `${rows.filter((r) => r.owned).length}/${rows.length}`;
 }
 
-/**
- * Puts a shelf count (`.num`) and a line glyph into each tab of a kit rail (sideRail takes words only: a kit request).
- * @param {HTMLElement} rail @param {Record<string, string>} counts @param {Record<string, string>} glyphs
- * @param {Record<string, string>} labels
- */
-export function railCounts(rail, counts, glyphs, labels) {
-  for (const b of rail.querySelectorAll('.ui-stab')) {
-    const id = b.dataset.tab;
-    const inner = b.querySelector('.ui-stab-in');
-    if (!inner) continue;
-    if (glyphs[id] && !inner.querySelector('.ty-stab-ico')) inner.prepend(glyph(glyphs[id], 'ui-ico.ty-stab-ico'));
-    inner.querySelector('.ty-stab-n')?.remove();
-    if (counts[id] != null) {
-      inner.append(h('span.num.ty-stab-n', counts[id]));
-      b.setAttribute('aria-label', `${labels[id]}, ${counts[id]}`);
-    }
-  }
-}
+/** Pure: the rail's tabs (sideRail: a glyph, the word and the shelf's count). */
+export const shelfTabs = (shelves) => JAR_SHELF_IDS.map((id) => ({ id, label: JAR_SCREEN.rail[id], icon: SHELF_GLYPH[id], count: shelfCount(id, shelves[id] || []) }));
 
 export function renderJar(root) {
   const shelves0 = jarShelves(store.profile);
   if (!JAR_SHELF_IDS.includes(shelfOn) || !shelves0[shelfOn]?.length) shelfOn = 'desk';
   const ls = listScreen({
     title: JAR_SCREEN.title, cls: 'ty-screen ty-jar-screen', location: 'academy', host: null, headTestid: 'jar-head',
-    sections: JAR_SHELF_IDS.map((id) => ({ id, label: JAR_SCREEN.rail[id] })), active: shelfOn, railLabel: 'Shelves',
+    sections: shelfTabs(shelves0), active: shelfOn, railLabel: 'Shelves',
     onPick: (id) => {
       shelfOn = id;
       ls.rail.setActive(id);
@@ -67,8 +53,8 @@ export function renderJar(root) {
   });
   ls.el.dataset.testid = 'tryout-jar-screen';
   root.appendChild(ls.el);
-  const offPill = paintMarblesPill(ls.el);
   ls.rail.dataset.testid = 'jar-rail';
+  let railKey = JSON.stringify(shelfTabs(shelves0));
 
   const save = (reason) => {
     store.commit(reason);
@@ -132,7 +118,13 @@ export function renderJar(root) {
   function draw() {
     const shelves = jarShelves(store.profile);
     const wk = weekState(store.profile);
-    railCounts(ls.rail, Object.fromEntries(JAR_SHELF_IDS.map((id) => [id, shelfCount(id, shelves[id])])), SHELF_GLYPH, JAR_SHELVES);
+    // a count changed (a purchase): the kit rail again, with its new counts (only then, so a tab keeps its focus)
+    const tabs = shelfTabs(shelves);
+    if (JSON.stringify(tabs) !== railKey) {
+      railKey = JSON.stringify(tabs);
+      ls.setSections(tabs, shelfOn);
+      ls.rail.dataset.testid = 'jar-rail';
+    }
     ls.setHead(JAR_SHELVES[shelfOn], [h('span.ui-chip.ink.ty-week', { 'data-testid': 'jar-week', title: `${wk.week} / ${wk.cap} ${MARBLES} earned this week` },
       glyph('marble'), num(`${wk.week}/${wk.cap}`), lbl('this week'))]);
     const rows = shelves[shelfOn] || [];
@@ -143,8 +135,5 @@ export function renderJar(root) {
   }
 
   draw();
-  return () => {
-    ls.cleanup();
-    offPill();
-  };
+  return () => ls.cleanup();
 }

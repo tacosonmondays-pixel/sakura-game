@@ -28,8 +28,11 @@ function looks() {
   const lowThemes = new Set();
   for (const st of STAGES) {
     const map = MAPS.find((m) => m.id === st.mapId);
-    // (the Gate Arc looks are still being tuned: the city, and the campus from Step 2)
-    if (!map || map.theme === 'city' || map.theme === 'campus') continue;
+    // (the Gate Arc looks are still being tuned: the city, and the campus from Step 2; and every Act II
+    // stage, so the far north's boards on the shipped `snow` theme (Step 4: 4-9, 4-10) are not goldens)
+    // (Step 5: the Drowned Line's `drowned` theme too)
+    // (Step 6: Vesperline's `vesper` theme too)
+    if (!map || map.theme === 'city' || map.theme === 'campus' || map.theme === 'drowned' || map.theme === 'vesper' || st.act === 2) continue;
     const key = `${st.mapId}|${JSON.stringify(st.scenery || {})}|${JSON.stringify(st.look || null)}|${(st.introduces || []).join(',')}`;
     if (seen.has(key)) continue;
     seen.add(key);

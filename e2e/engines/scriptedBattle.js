@@ -2148,6 +2148,65 @@ export function runDuoBattle({ maxFrames = 60 * 60 * 10 } = {}) {
   return r;
 }
 
+// Tenka's LR form (docs/specs/BANNERS.md §C.2): Critical Mass · Event Horizon, the blast's 1.5 s gravity pull (the ability
+// queue's integer countdown, the well's path-distance pull rule) and its second detonation for 50%, in co-op
+// ---------------------------------------------------------------------------
+
+const TENKA_LR_STATS = Object.freeze({ costMul: 0.12, damageMul: 1.5, rateMul: 1.2 });
+/**
+ * The host's Tenka carries the LR flag (`lr: true`: Event Horizon) and goes Rail Arms to Zero Point; the guest's has no
+ * LR and stops at Plasma Rails (Critical Mass). Both on Auto-cast (Critical Mass fires on an elite, miniboss or boss).
+ * 4-5 Normal (half the duo battle's damage, so crowds outlive the first blast): elites and bosses for the pull's rule
+ * (bosses stand firm, minibosses move at half).
+ */
+export const TENKA_LR_START = Object.freeze({
+  seed: 595959,
+  stageId: '4-5',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'tenka', stats: { ...TENKA_LR_STATS, lr: true } }, { unitId: 'aoi', stats: TENKA_LR_STATS }], hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'tenka', stats: TENKA_LR_STATS }, { unitId: 'akane', stats: TENKA_LR_STATS }], hero: null },
+  ],
+});
+const TENKA_LR_UPGRADES = Object.freeze([
+  [0, 'tenka', 1], [1, 'tenka', 1], [0, 'tenka', 1], [1, 'tenka', 1], [0, 'tenka', 1], [1, 'tenka', 1], [0, 'tenka', 1], [0, 'tenka', 1],
+]);
+
+/**
+ * TENKA_LR_START to the end (or 10 minutes): the runPotentialBattle fields plus `horizon` (Critical Mass casts by both
+ * players / Event Horizon pulls / second detonations / enemies those detonations hit, counted on the host's copy). Both
+ * players switch Auto-cast on.
+ */
+export function runTenkaLrBattle({ maxFrames = 60 * 60 * 10 } = {}) {
+  const t0 = Date.now();
+  const hz = { casts: 0, pulls: 0, blasts: 0, hit: 0 };
+  const probe = (sim) => {
+    const emit0 = sim._emit;
+    Object.defineProperty(sim, '_emit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function emit(type, ev, ...rest) {
+        if (type === 'ability' && ev?.id === 'tenka.criticalMass') hz.casts++;
+        else if (type === 'abilityHorizon') hz.pulls++;
+        else if (type === 'abilityShell' && ev?.horizon) {
+          hz.blasts++;
+          hz.hit += ev.hits;
+        }
+        return emit0.call(this, type, ev, ...rest);
+      },
+    });
+  };
+  const script = (frame, A, B) => {
+    if (frame === 21) A.queue('acast', [0, 1]);
+    if (frame === 22) B.queue('acast', [0, 1]);
+  };
+  const r = runPotentialBattle({ start: TENKA_LR_START, upgrades: TENKA_LR_UPGRADES, spotsFirst: ['tenka', 'aoi', 'akane'], maxFrames, probe, script });
+  r.horizon = `${hz.casts}/${hz.pulls}/${hz.blasts}/${hz.hit}`;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
 // The staff heroes (docs/specs/BANNERS.md §D.6 "Each hero wave adds co-op engines scenarios"): Norika's barricades on a
 // forked map (2-2, lake_reeds: two roads from one start, so her Detour Sign can switch walkers to the longer one), Hold
 // the Line, and Kogane's Clear the Road plow with its push and her Moves (Treads, Overdrive at P6), in one co-op battle.
@@ -2240,15 +2299,38 @@ export function runStaffBattle({ maxFrames = 60 * 60 * 10 } = {}) {
 /**
  * Tryout Day (docs/specs/TRYOUT_DAY.md §15): one 2-player co-op run on two lockstep views (tools/tryoutBot.mjs runCoop: personal
  * picks, a Tryout join, Hall Pass moves at Recess, Snack, the seats), a third client rejoining from the wave-9 checkpoint
- * after a mid-run join, to wave 16. Every engine must reach the same digests and hashes.
+ * after a mid-run join, to wave 16. Every engine must reach the same digests and hashes. `random`: a Random Class run
+ * (§20.4: the Sim draws both threes and lands every pick by itself; a checkpoint at wave 8 rejoins mid-reveal).
  */
-export function runTryoutBattle({ maxWaves = 16, checkpointAt = 9 } = {}) {
-  const { views, digests, hashes } = runTryoutCoop({ start: tryoutStart({ seed: 2026 }), policy: 'random', maxWaves, checkpointAt });
+export function runTryoutBattle({ maxWaves = 16, checkpointAt = 9, seed = 2026, random = false } = {}) {
+  const { views, digests, hashes } = runTryoutCoop({ start: tryoutStart({ seed, random }), policy: 'random', maxWaves, checkpointAt });
   const sim = views[0].sim;
   return {
     wave: sim.wave, lives: sim.lives, score: sim.tryout.score, squads: sim.tryout.players.map((p) => p.squad.join(',')),
     lastDigest: digests[0][digests[0].length - 1], digests: digests[0].length, sameViews: JSON.stringify(digests[0]) === JSON.stringify(digests[1]),
     hash: hashes[0][hashes[0].length - 1],
+    ...(random ? { picks: sim.tryout.players.map((p) => p.picks.map((x) => x.girl || x.card || x.varsity).join(',')) } : null),
+  };
+}
+
+/**
+ * Tryout Day's Extended Day (docs/specs/TRYOUT_DAY.md §20): a 2-player co-op run past wave 48 into the freeplay waves (the
+ * Grade's tier, the window's chapters, the grid miniboss on wave 60), a third client rejoining from the wave-50 checkpoint,
+ * to wave 61. The hearts are topped up on both clients alike at every calm point (the bot only has to last). Every engine
+ * must reach the same digests and hashes.
+ */
+export function runTryoutExtendedBattle({ maxWaves = 61, checkpointAt = 50, seed = 4820, random = false } = {}) {
+  const top = (sim) => { sim.lives = Math.max(sim.lives, 40); };
+  // (Random Class: the third client rejoins mid-reveal, while a pick's reveal clock is running)
+  const midReveal = random ? (s) => s.tryout.players.some((p) => p.win === 'pick' && p.winTicks > 0) : null;
+  const { views, digests, hashes, rejoin } = runTryoutCoop({ start: tryoutStart({ seed, length: 'after', random }), policy: 'random', maxWaves, checkpointAt, onCalm: top, checkpointIf: midReveal });
+  const sim = views[0].sim;
+  return {
+    wave: sim.wave, lives: sim.lives, score: sim.tryout.score, squads: sim.tryout.players.map((p) => p.squad.join(',')), freeplay: sim.freeplay,
+    lastDigest: digests[0][digests[0].length - 1], digests: digests[0].length, sameViews: JSON.stringify(digests[0]) === JSON.stringify(digests[1]),
+    sameHashes: JSON.stringify(hashes[0]) === JSON.stringify(hashes[1]), hash: hashes[0][hashes[0].length - 1],
+    rejoinWave: rejoin?.wave ?? 0, midReveal: !!rejoin?.winTicks.some((t) => t > 0),
+    ...(random ? { picks: sim.tryout.players.map((p) => p.picks.map((x) => x.girl || x.card || x.varsity || 'hand').join(',')) } : null),
   };
 }
 
@@ -2266,5 +2348,6 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), modes };
+  const tryoutRandom = runTryoutBattle({ seed: 2027, random: true, maxWaves: 14, checkpointAt: 8 });
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), duo: runDuoBattle(), tenkaLr: runTenkaLrBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), tryoutAfter: runTryoutExtendedBattle(), tryoutAfterRandom: runTryoutExtendedBattle({ seed: 4821, random: true, maxWaves: 57, checkpointAt: 52 }), modes, tryoutRandom };
 }

@@ -65,15 +65,11 @@ body.ui-day .ty-cont-acts { margin-top: auto; padding-top: 4px; display: flex; f
   body.ui-day .ty-cont-acts { flex-wrap: nowrap; gap: 6px; }
 }
 
-/* ---------- the kit primary (button.ui-hit > span.ui-btn.pri) on the Tryout screens ---------- */
-body.ui-day .ty-pri > .ui-btn.pri { gap: 6px; }
-body.ui-day .ty-pri:disabled > .ui-btn.pri { --fill: var(--sky-1); --edge: var(--line-ink-soft); color: var(--muted); }
-
 /* ---------- Before Class ---------- */
 /* the screen body scrolls when it must; the foot (Start class) stays at the bottom of the view */
 body.ui-day .ty-class-screen .screen-body { padding-top: 8px; padding-bottom: 0; }
 body.ui-day .ty-bc {
-  --fill: var(--panel-w); max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 0;
+  --fill: var(--panel-w); max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 6px; padding: 10px 14px 0;
   color: var(--ink);
 }
 body.ui-day .ty-bc-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
@@ -82,11 +78,13 @@ body.ui-day .ty-bc-note { margin: 0; flex: 1 1 260px; font: 600 var(--fs-label)/
 body.ui-day .ty-bc-head > .ty-bc-lengths { margin-left: auto; flex: 0 1 240px; min-width: 200px; }
 body.ui-day .ty-bc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
 body.ui-day .ty-bc-lbl { flex: none; color: var(--ink); }
-body.ui-day .ty-bc-gradebox { display: flex; flex-direction: column; gap: 4px; }
+body.ui-day .ty-bc-gradebox { display: flex; flex-direction: column; gap: 2px; }
 body.ui-day .ty-bc-graderow { flex-wrap: nowrap; }
 body.ui-day .ty-bc-grades { flex: 1 1 0; min-width: 0; grid-template-columns: repeat(12, minmax(0, 1fr)); }
 body.ui-day .ty-bc-grades > .ui-opt { padding: 0 2px; gap: 3px; }
 body.ui-day .ty-bc-twist { margin: 0; display: flex; align-items: center; gap: 6px; min-height: 18px; font: 600 var(--fs-label)/1.3 var(--font); color: var(--muted); }
+/* the Grade's line rides in the head between the title and Half / Full Day (the strip has the row under the Grades) */
+body.ui-day .ty-bc-head > .ty-bc-twist { flex: 1 1 200px; min-width: 0; }
 body.ui-day .ty-bc-twist.why { color: var(--ink); font-weight: 700; }
 body.ui-day .ty-bc-twist .ui-ico { width: 14px; height: 14px; flex: none; }
 body.ui-day .ty-bc-twist .ui-ico svg { width: 100%; height: 100%; }
@@ -107,7 +105,7 @@ body.ui-day .ui-panel.ty-map.on .ty-map-line { color: var(--on-ink-dim); }
 body.ui-day .ty-bc-six { display: grid; gap: 8px; grid-template-columns: repeat(3, 150px); }
 body.ui-day .ty-bc-six[data-n="7"] { grid-template-columns: repeat(4, 132px); }
 body.ui-day .ty-bc-six > .ui-girltile { --gw: 100%; }
-body.ui-day .ui-girltile > .ty-tag { max-width: calc(100% - 6px); white-space: normal; height: auto; min-height: 21px; padding-top: 2px; padding-bottom: 3px; line-height: 1.15; }
+body.ui-day :is(.ty-bc-six, .ty-coop-six) > .ui-girltile > .gt-tag { max-width: calc(100% - 6px); white-space: normal; height: auto; min-height: 21px; padding-top: 2px; padding-bottom: 3px; line-height: 1.15; }
 /* the hero picker */
 body.ui-day .ty-bc-heroes { display: flex; flex-direction: column; gap: 6px; max-height: 330px; overflow-y: auto; overscroll-behavior: contain; padding: 2px 4px 2px 0; }
 body.ui-day .ui-opt.ty-hero { --h: 48px; flex: none; justify-content: flex-start; gap: 8px; padding: 0 calc(10px + var(--s)) 0 calc(4px + var(--s)); text-transform: none; letter-spacing: 0; text-align: left; }
@@ -124,7 +122,8 @@ body.ui-day .ty-bc-foot {
 }
 body.ui-day .ty-bc-facts { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 2px; font: 600 var(--fs-label)/1.3 var(--font); color: var(--muted); }
 body.ui-day .ty-bc-go { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-body.ui-day .ty-bc-why { font: 700 var(--fs-label)/1.25 var(--font); color: var(--muted); text-align: right; }
+/* (primaryBtn's reason line sits before Start class, so the yellow keeps the far right) */
+body.ui-day .ty-bc-go > .ui-sec-wrap { flex-direction: row-reverse; gap: 10px; }
 
 @media (max-height: 480px) {
   body.ui-day .ty-hub-grid { gap: 6px; }
@@ -140,10 +139,10 @@ body.ui-day .ty-bc-why { font: 700 var(--fs-label)/1.25 var(--font); color: var(
   body.ui-day .ty-bc-six > .ui-girltile > .cap { height: 22px; padding-left: 5px; }
   body.ui-day .ty-bc-six > .ui-girltile > .cap .nm { font-size: var(--fs-label); }
   body.ui-day .ty-bc-six > .ui-girltile > .cap .gt-lv { display: none; }
-  body.ui-day .ty-bc-six > .ui-girltile > .ty-tag { bottom: 21px; padding: 1px 5px 2px 4px; }
+  body.ui-day .ty-bc-six > .ui-girltile > .gt-tag { bottom: 21px; padding: 1px 5px 2px 4px; }
   body.ui-day .ty-bc-six > .ui-girltile > .role { width: 20px; height: 20px; right: 6px; }
-  body.ui-day .ty-map-thumb { height: 34px; }
-  body.ui-day .ty-map-txt { padding: 3px 8px 4px; }
+  body.ui-day .ty-map-thumb { height: 30px; }
+  body.ui-day .ty-map-txt { padding: 2px 8px 3px; }
   body.ui-day .ty-map-name { font-size: var(--fs-label); }
   body.ui-day .ty-bc-heroes { max-height: 150px; }
   body.ui-day .ui-opt.ty-hero { --h: 44px; }
@@ -155,6 +154,7 @@ body.ui-day .ty-bc-why { font: 700 var(--fs-label)/1.25 var(--font); color: var(
   body.ui-day .ty-hub-grid > :first-child, body.ui-day .ty-hub-grid.run > .ty-cont { grid-row: auto; grid-column: 1 / -1; }
   body.ui-day .ty-hub-main { overflow-y: auto; }
   body.ui-day .ty-bc-graderow { flex-wrap: wrap; }
+  body.ui-day .ty-bc-head > .ty-bc-twist { flex-basis: 100%; order: 3; }
   body.ui-day .ty-bc-grades { flex-basis: 100%; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); }
   body.ui-day .ty-bc-cols { grid-template-columns: minmax(0, 1fr); }
   body.ui-day .ty-bc-six { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
@@ -164,16 +164,13 @@ body.ui-day .ty-bc-why { font: 700 var(--fs-label)/1.25 var(--font); color: var(
 }
 
 /* ---------- the list screens (the Jar, the Yearbook): rail counts, notes ---------- */
-/* a wider rail than the kit list's: each tab holds its word and its count (a glyph too on larger screens) */
+/* a wider rail than the kit list's: each tab holds its word and its count (sideRail { count }; its glyph too on larger
+   screens) */
 body.ui-day :is(.ty-jar-screen, .ty-yb-screen) { --ls-rail-w: 204px; }
 @media (max-height: 480px) {
   body.ui-day :is(.ty-jar-screen, .ty-yb-screen) { --ls-rail-w: 156px; }
-  body.ui-day .ty-screen .ty-stab-ico { display: none; }
+  body.ui-day .ty-screen .ui-stab-in > .ui-ico { display: none; }
 }
-body.ui-day .ty-screen .ty-stab-ico { width: var(--icon-s); height: var(--icon-s); flex: none; }
-body.ui-day .ty-screen .ty-stab-ico svg { width: 100%; height: 100%; }
-body.ui-day .ty-screen .ui-stab .ty-stab-n { margin-left: auto; padding-left: 6px; font-size: var(--fs-label); color: inherit; opacity: 0.85; }
-body.ui-day .ty-screen .ui-stab-in { flex: 1; min-width: 0; }
 body.ui-day .ty-screen .ui-stab-word { min-width: 0; overflow: hidden; text-overflow: clip; }
 body.ui-day .ty-list-note { margin: 0 0 8px; font: 600 var(--fs-label)/1.3 var(--font); color: var(--muted); }
 body.ui-day .ty-week { gap: 5px; }
@@ -255,4 +252,35 @@ body.ui-day .ty-coop .ty-bc-heroes { flex-direction: row; flex-wrap: wrap; max-h
 /* a short screen: the Weekly tile's countdown chip would sit on its glyph disc, so the disc steps aside (M3 review) */
 @media (max-height: 480px) {
   body.ui-day .ty-tile-weekly .ty-tile-glyph { display: none; }
+}
+
+/* ---------- Extended Day and Random Class (§20.8, minimal): the third length; the Random Class switch at the end of the
+   squad's row and its help line in the foot (neither costs a row: the six stay above the foot); the drawn six (shown,
+   not pickable) ---------- */
+body.ui-day .ty-bc-head > .ty-bc-lengths { flex-basis: 300px; min-width: 260px; }
+body.ui-day .ty-bc-squad .ty-bc-row > .ui-opt.ty-switch.ty-bc-random { --h: 32px; margin-left: auto; flex: none; min-width: 0; padding: 0 10px; text-transform: none; letter-spacing: 0; }
+body.ui-day .ty-bc-random-help { font: 600 var(--fs-label)/1.25 var(--font); color: var(--ink); }
+body.ui-day .ty-bc-random-help > .short { display: none; }
+/* (the six the class draws from: drawn as they are, a dashed edge, no tap; their faces stay clear) */
+body.ui-day .ty-bc-six > .ui-girltile.ty-drawn { cursor: default; outline: 2px dashed var(--line-ink); outline-offset: -2px; }
+body.ui-day .ty-bc-six > .ui-girltile.ty-drawn:hover { transform: none; }
+@media (max-height: 480px) {
+  body.ui-day .ty-bc-head > .ty-bc-lengths { flex-basis: 270px; min-width: 240px; }
+  body.ui-day .ty-bc-squad .ty-bc-row > .ui-opt.ty-switch.ty-bc-random { --h: 28px; padding: 0 8px; }
+  body.ui-day .ty-bc-random-help > .long { display: none; }
+  body.ui-day .ty-bc-random-help > .short { display: inline; }
+}
+
+/* the co-op room: the Random Class switch in the host's run panel, the guest's read-only line */
+body.ui-day .ty-coop .ty-coop-random { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; flex: 1 1 260px; }
+body.ui-day .ty-coop .ty-coop-random > .ui-opt.ty-switch { --h: 32px; flex: none; text-transform: none; letter-spacing: 0; }
+body.ui-day .ty-coop .ty-coop-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+body.ui-day .ty-coop .ty-coop-six.random > .ui-girltile { cursor: default; outline: 2px dashed var(--line-ink); outline-offset: -2px; }
+
+/* ---------- a short, wide screen (844 x 390): the map and hero columns never run under the foot. They take the row's
+   height (the six set it) and scroll inside it, so their last card is reachable (lead's review, Oct 29) ---------- */
+@media (max-height: 480px) and (min-width: 761px) {
+  body.ui-day .ty-bc-cols { align-items: stretch; }
+  body.ui-day :is(.ty-bc-col-maps, .ty-bc-col-hero) { height: 0; min-height: 100%; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  body.ui-day .ty-bc-col-hero .ty-bc-heroes { max-height: none; overflow: visible; }
 }

@@ -28,4 +28,20 @@ export const ACT_SCENE_IDS = Object.freeze({
     'g2.pro', 'g2.kohaku', 'g2.thirtyone', 'g2.lunch', 'g2.mid', 'g2.boiler', 'g2.class', 'g2.roof', 'g2.boss', 'g2.after',
     'g2.epi',
   ]),
+  // Act 3 (nine episodes): the six main ones and the three `ifOwned` side scenes (Iroha, Noa, Fuu), listed like g2.class
+  '3:2': Object.freeze([
+    'g3.pro', 'g3.iroha', 'g3.mid', 'g3.hammer', 'g3.noa', 'g3.boss', 'g3.after', 'g3.fuu', 'g3.epi',
+  ]),
+  // Act 4 (seven episodes): the six cutscenes (Azami's join after 4-7 carries the parley) and the side g4.logs
+  '4:2': Object.freeze(['g4.pro', 'g4.azami', 'g4.cross', 'g4.logs', 'g4.boss', 'g4.after', 'g4.epi']),
+  // Act 5 (nine episodes): six cutscenes and no join (no free girl in Act 5), and the side scenes g5.embers,
+  // g5.whiteboard and g5.board
+  '5:2': Object.freeze([
+    'g5.pro', 'g5.embers', 'g5.mid', 'g5.raid', 'g5.whiteboard', 'g5.boss', 'g5.after', 'g5.epi', 'g5.board',
+  ]),
+  // Act 6 (ten episodes): six cutscenes and no join, the side scenes g6.sleep and g6.doorie, and the duo's two scenes
+  // around the side stage `side-6-starfall` (g6.star1 before it, g6.star2 after it; STEP6_BUILD_PLAN decision 10)
+  '6:2': Object.freeze([
+    'g6.pro', 'g6.sleep', 'g6.mid', 'g6.chair', 'g6.boss', 'g6.after', 'g6.epi', 'g6.doorie', 'g6.star1', 'g6.star2',
+  ]),
 });

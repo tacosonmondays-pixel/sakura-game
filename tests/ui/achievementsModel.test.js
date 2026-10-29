@@ -1,5 +1,5 @@
 // The Achievements tab's rows (src/ui/screens/achievements/model.js; spec §5.1): one row per series at its lowest
-// unclaimed step, 143 live defs → 89 rows (28 series + 61 single), the section order, and the category counts.
+// unclaimed step, 147 live defs → 89 rows (28 series + 61 single), the section order, and the category counts.
 import { describe, it, expect } from 'vitest';
 import { createProfile } from '../../src/systems/save.js';
 import { achievementList, claimAllAchievements, claimAllCount } from '../../src/systems/missions.js';
@@ -7,7 +7,7 @@ import { buildRows, sections, sortRows, categoryStats, visibleCategories, badgeT
 import { veteran } from '../fixtures/veterans.js';
 
 describe('achievement rows', () => {
-  it('143 defs → 89 rows: 28 series rows + 61 single rows (launch 116 → 69, + the donation series, + Codex 11 → 8, + the Act II series a_ch1_act2 → a_ch2_act2, + Tryout Day 12 → 10)', () => {
+  it('147 defs → 89 rows: 28 series rows + 61 single rows (launch 116 → 69, + the donation series, + Codex 11 → 8, + the Act II series a_ch1_act2 → a_ch6_act2, + Tryout Day 12 → 10)', () => {
     const rows = buildRows(achievementList(createProfile()));
     expect(rows).toHaveLength(89);
     expect(rows.filter((r) => r.steps)).toHaveLength(28);
@@ -45,9 +45,9 @@ describe('achievement rows', () => {
     expect(rowState({ hidden: true, met: false })).toBe('secret');
     const list = achievementList(createProfile());
     const stats = categoryStats(list);
-    expect(stats.all.total).toBe(143);
+    expect(stats.all.total).toBe(147);
     expect([stats.campaign.total, stats.assault.total, stats.battle.total, stats.freeplay.total, stats.together.total, stats.students.total,
-      stats.gear.total, stats.bestiary.total, stats.academy.total, stats.secret.total, stats.codex.total, stats.tryout.total]).toEqual([26, 15, 9, 7, 6, 20, 9, 10, 12, 6, 11, 12]);
+      stats.gear.total, stats.bestiary.total, stats.academy.total, stats.secret.total, stats.codex.total, stats.tryout.total]).toEqual([30, 15, 9, 7, 6, 20, 9, 10, 12, 6, 11, 12]);
     expect(visibleCategories(list).map((c) => c.id).at(-1)).toBe('tryout');
     expect([badgeText(3), badgeText(12)]).toEqual(['3', '9+']);
   });

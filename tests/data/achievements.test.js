@@ -27,22 +27,22 @@ const boxes = (a) => a.rewards.filter((r) => r.id.startsWith('gearbox_')).map((r
 const LEDGER = JSON.parse(readFileSync(new URL('../fixtures/achievements-ledger.json', import.meta.url), 'utf8')).achievements;
 
 describe('ids and names', () => {
-  it('156 rows: the shipped 30 (first, in their order) + 102 new + 12 Act II + 12 Tryout Day; 116 live at launch + 2 with social + 11 Codex + a_ch1_act2 + a_ch2_act2 + 12 Tryout Day = 143', () => {
+  it('156 rows: the shipped 30 (first, in their order) + 102 new + 12 Act II + 12 Tryout Day; 116 live at launch + 2 with social + 11 Codex + a_ch1_act2 … a_ch6_act2 + 12 Tryout Day = 147', () => {
     expect(ACHIEVEMENTS).toHaveLength(156);
     expect(ACHIEVEMENTS.filter((a) => a.shipped)).toHaveLength(30);
     expect(ACHIEVEMENTS.slice(0, 30).every((a) => a.shipped)).toBe(true);
     expect(PRE).toHaveLength(102);
     expect(ACT2.map((a) => a.id)).toEqual(ACT2_IDS);
     expect(LAUNCH).toHaveLength(86);
-    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(143);
+    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(147);
     expect(TRYOUT_ROWS.map((a) => a.id)).toEqual(['a_try_half', 'a_try_full', 'a_try_spotless', 'a_try_ticked', 'a_try_dare', 'a_try_seen', 'a_try_lr',
       'a_try_window', 'a_try_moves', 'a_try_g4', 'a_try_g8', 'a_try_g12']);
     expect(TRYOUT_ROWS.every((a) => achievementLive(a) && a.cat === 'tryout' && a.metric === 'counter' && a.param.startsWith('ty:'))).toBe(true);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'codex')).toHaveLength(11);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'codex').every((a) => achievementLive(a))).toBe(true);
     // still waiting for their feature (a_hero_25 counts heroMax from v0.1.45 on, but stays hidden) or for their
-    // stages (every Act II row but chapters 1 and 2's: Gate Arc Steps 1-2 register 1-6 … 1-10 and 2-6 … 2-10)
-    expect(ACHIEVEMENTS.filter((a) => !achievementLive(a)).map((a) => a.id)).toEqual([...ACT2_IDS.slice(2), 'a_units_30', 'a_hero_25', 'a_bond_10']);
+    // stages (every Act II row but chapters 1-4's: Gate Arc Steps 1-4 register c-6 … c-10 for c ≤ 4)
+    expect(ACHIEVEMENTS.filter((a) => !achievementLive(a)).map((a) => a.id)).toEqual([...ACT2_IDS.slice(6), 'a_units_30', 'a_hero_25', 'a_bond_10']);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'social').map((a) => a.id)).toEqual(['a_donate_1', 'a_donate_10']);
     // clan donations are materials asked for in Clan Requests (never gear): the texts say so, like the patch note
     for (const a of ACHIEVEMENTS.filter((x) => x.wave === 'social')) {
@@ -171,21 +171,21 @@ describe('Act II rows wait for their stages (Gate Arc; docs/CAMPAIGN.md "Act II"
     for (const a of ACHIEVEMENTS) if (a.wave !== 'act2') expect(a.needs, a.id).toBeUndefined();
   });
 
-  it('a_ch1_act2 and a_ch2_act2 are live (1-6 … 1-10, 2-6 … 2-10 exist), the rest hidden; a row lights up once all its stages exist', () => {
-    for (const id of ['a_ch1_act2', 'a_ch2_act2']) {
+  it('a_ch1_act2 … a_ch6_act2 are live (c-6 … c-10 exist for c ≤ 6), the rest hidden; a row lights up once all its stages exist', () => {
+    for (const id of ['a_ch1_act2', 'a_ch2_act2', 'a_ch3_act2', 'a_ch4_act2', 'a_ch5_act2', 'a_ch6_act2']) {
       expect(achievementLive(ACHIEVEMENT_MAP[id]), id).toBe(true);
       expect(achievementLive(ACHIEVEMENT_MAP[id], false), id).toBe(false); // the expansion switch still rules
     }
-    for (const a of ACT2.filter((x) => !['a_ch1_act2', 'a_ch2_act2'].includes(x.id))) {
+    for (const a of ACT2.filter((x) => !['a_ch1_act2', 'a_ch2_act2', 'a_ch3_act2', 'a_ch4_act2', 'a_ch5_act2', 'a_ch6_act2'].includes(x.id))) {
       expect(achievementLive(a), a.id).toBe(false);
       expect(achievementStagesExist(a), a.id).toBe(false);
     }
-    const ch3 = ACHIEVEMENT_MAP.a_ch3_act2;
-    const ids = ch3.needs;
+    const ch7 = ACHIEVEMENT_MAP.a_ch7_act2;
+    const ids = ch7.needs;
     try {
       for (const id of ids) STAGE_MAP[id] = { id };
-      expect(achievementLive(ch3)).toBe(true);
-      expect(achievementLive(ACHIEVEMENT_MAP.a_ch4_act2)).toBe(false);
+      expect(achievementLive(ch7)).toBe(true);
+      expect(achievementLive(ACHIEVEMENT_MAP.a_ch8_act2)).toBe(false);
       expect(achievementLive(ACHIEVEMENT_MAP.a_clear_80)).toBe(false);
     } finally {
       for (const id of ids) delete STAGE_MAP[id];

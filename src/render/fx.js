@@ -10,7 +10,8 @@ const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 
 /** Particle flags */
-const GROUND = 1;
+/** Particle flag: lies on the ground plane (ground batches). */
+export const GROUND = 1;
 const SPIN_X = 2; // coin flip: width oscillates
 
 /** Explosions: a repeat on the same spot within EX_GAP seconds draws only a faint ring (EX_RING spots kept). */
@@ -265,11 +266,16 @@ export class FxSystem {
     }
   }
 
-  /** Enemy defeat: poof + sparkles + coloured bits. */
-  death(x, y, z, size, color) {
+  /**
+   * Enemy defeat: poof + sparkles + coloured bits. The rising stars are the homeward sparkle of a
+   * creature going home; `homeward: false` (a Brigade trooper's fall-and-fade, src/render/fallStyles.js)
+   * leaves them out: the poof and the bits only, nothing stays on the road.
+   */
+  death(x, y, z, size, color, { homeward = true, puff = null } = {}) {
     const s = Math.max(0.6, size);
-    this.puff(x, y + 0.2, z, '#ffffff', 6 + s * 2, 0.4 * s, 0.38 * s);
-    this.spawn({ batch: 'bbA', uv: this.R.glow, x, y: y + 0.3, z, s0: 0.6 * s, s1: 1.1 * s, life: 0.2, color: '#ffffff', a0: 0.8 });
+    // (puff: a fall of its own colour, the Night's touched fading in violet: fallStyles RIME_TINT)
+    this.puff(x, y + 0.2, z, puff || (homeward ? '#ffffff' : '#c9c6c2'), 6 + s * 2, 0.4 * s, 0.38 * s);
+    if (homeward) this.spawn({ batch: 'bbA', uv: this.R.glow, x, y: y + 0.3, z, s0: 0.6 * s, s1: 1.1 * s, life: 0.2, color: '#ffffff', a0: 0.8 });
     const k = this.n(5);
     for (let i = 0; i < k; i++) {
       const a = this.rand() * TAU;
@@ -278,9 +284,58 @@ export class FxSystem {
         batch: 'bbN', uv: this.R.dot, x, y: y + 0.3, z, vx: Math.cos(a) * sp, vy: 1.8 + this.rand() * 1.5, vz: Math.sin(a) * sp,
         g: -9, s0: 0.1, s1: 0.05, life: 0.55, color, a0: 1, a1: 0.3,
       });
+      if (!homeward) continue;
       this.spawn({
         batch: 'bbA', uv: this.R.star, x, y: y + 0.4, z, vx: Math.cos(a) * sp * 0.4, vy: 1 + this.rand(), vz: Math.sin(a) * sp * 0.4,
         drag: 2, s0: 0.16, s1: 0.02, life: 0.5, color: '#fff3b0', rot: this.rand() * TAU, vrot: 6,
+      });
+    }
+  }
+
+  /**
+   * A small machine beaten (the Brigade's Gnat, Gate Arc S3a): its rotors sputter and it breaks
+   * apart in a spray of amber sparks (the sparkle's sparks, falling instead of rising), a wisp of
+   * grey smoke; no homeward sparkle, and every particle is gone within a second: nothing on the road.
+   */
+  sparkFall(x, y, z, size = 0.6, tint = null) {
+    const s = Math.max(0.5, size);
+    // (a Noon machine: its accent's sparks with white glints; fallStyles.fallTintOf)
+    const sparkA = tint ? tint.spark : '#ffb347';
+    const sparkB = tint ? tint.glint : '#ffd27a';
+    this.flash(x, y + 0.25, z, tint ? tint.flash : '#ffd27a', 0.5 * s, 0.12);
+    this.puff(x, y + 0.2, z, tint ? tint.smoke : '#8a8580', 3, 0.25 * s, 0.24 * s);
+    const k = this.n(12);
+    for (let i = 0; i < k; i++) {
+      const a = this.rand() * TAU;
+      const sp = 0.8 + this.rand() * 1.6;
+      this.spawn({
+        batch: 'bbA', uv: this.R.spark, x, y: y + 0.25, z, vx: Math.cos(a) * sp, vy: 0.6 + this.rand() * 1.4, vz: Math.sin(a) * sp,
+        g: -7, drag: 0.6, s0: 0.12, s1: 0.03, life: 0.45 + this.rand() * 0.35, color: i % 3 ? sparkA : sparkB, rot: this.rand() * TAU, vrot: 8,
+      });
+    }
+  }
+
+  /**
+   * A heavier machine breaking down (the Brigade's vans, tanks and walkers; written for later
+   * steps, covered by a fixture test): steam puffing out, sparks, dark scrap shards that fade with
+   * the body. No homeward sparkle, nothing left on the road.
+   */
+  breakdown(x, y, z, size = 1, tint = null) {
+    const s = Math.max(0.6, size);
+    // (a Noon machine: white glass scrap and its accent's sparks; fallStyles.fallTintOf)
+    this.puff(x, y + 0.3, z, '#e8ecef', 7, 0.45 * s, 0.42 * s);
+    this.puff(x, y + 0.2, z, tint ? tint.smoke : '#55524f', 4, 0.35 * s, 0.36 * s);
+    const k = this.n(8);
+    for (let i = 0; i < k; i++) {
+      const a = this.rand() * TAU;
+      const sp = 1 + this.rand() * 1.5;
+      this.spawn({
+        batch: 'bbN', uv: this.R.shard, x, y: y + 0.3, z, vx: Math.cos(a) * sp, vy: 1.2 + this.rand() * 1.2, vz: Math.sin(a) * sp, g: -8,
+        s0: 0.12, s1: 0.06, life: 0.6, color: tint ? (i % 2 ? tint.shard : tint.shard2) : i % 2 ? '#4b4d52' : '#6a3f2c', a0: 1, a1: 0, rot: this.rand() * TAU, vrot: 7,
+      });
+      this.spawn({
+        batch: 'bbA', uv: this.R.spark, x, y: y + 0.35, z, vx: Math.cos(a) * sp * 0.6, vy: 0.8 + this.rand(), vz: Math.sin(a) * sp * 0.6, g: -6,
+        s0: 0.1, s1: 0.03, life: 0.4, color: tint ? tint.spark : '#ffc46b', rot: this.rand() * TAU, vrot: 8,
       });
     }
   }

@@ -73,6 +73,24 @@ const restore = (page) => page.evaluate(() => {
   }
   store.commit('e2e');
 });
+/**
+ * [friend support] Friend Support live and this tab signed in (the local test server's name, as uiSeed.mjs does), so
+ * prep draws its Support row; `supportOff` puts the ink save's offline state back.
+ */
+const supportOn = (page) => page.evaluate(async () => {
+  const { getBackend } = await import('/src/online/backend.js');
+  const { writeIdentity } = await import('/src/online/identity.js');
+  const { setFriendshipLive } = await import('/src/systems/banners.js');
+  writeIdentity({ name: 'Aiko' }, getBackend().status.mode === 'local');
+  setFriendshipLive(true);
+});
+const supportOff = (page) => page.evaluate(async () => {
+  const { getBackend } = await import('/src/online/backend.js');
+  const { writeIdentity } = await import('/src/online/identity.js');
+  const { setFriendshipLive } = await import('/src/systems/banners.js');
+  writeIdentity({ name: '' }, getBackend().status.mode === 'local');
+  setFriendshipLive(false);
+});
 const sheet = (testid, id) => clickOpen(`#app [data-testid="${testid}"]`, `[data-testid="${id}"]`);
 /** Closes the sheet through its own X (ui-shots clears modals only; the next shot may open prep on the same route). */
 const closeSheet = async (page) => {
@@ -111,5 +129,8 @@ export const shots = {
   'stage-prep-event': prep('#/stage/ev-halloween-1', { prepare: readEventEpisode }),
   'stage-prep-event-boss': prep('#/stage/ev-halloween-boss?difficulty=nightmare', { prepare: readEventEpisode }),
   'stage-prep-continue': prep('#/stage/4-3', { prepare: seedSave, after: dropSave }),
+  // the whole map in the band (3-2, a wide map with water at its edge), without and with the Friend Support row
+  'stage-prep-map': prep('#/stage/3-2'),
+  'stage-prep-support': prep('#/stage/3-2', { prepare: supportOn, after: supportOff, ready: '() => document.querySelector("#app")?.dataset.screen === "stage" && !!document.querySelector("[data-testid=prep-support]")' }),
 };
 export const list = Object.keys(shots);

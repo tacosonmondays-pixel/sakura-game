@@ -6,7 +6,8 @@
 //   P2 Capture Net: T1+ the slow throws a small cyan net over the walker; T2+ the stun crackles in
 //   yellow above its head; darts get a teal tint (T1+) and yellow sparks (T2+)
 //   P0 Sentry Lab: T4+ Burst Cells crackle orange when a sentry runs out
-// The sentries and nets themselves (their models on the road) belong to the placed-object pass.
+// The sentries and nets themselves (their models on the road) belong to the placed-object pass; the
+// safety-orange ring where one unfolds is src/render/deployFx.js (from the sim's 'deploy' event).
 import { lookAt } from '../flair.js';
 import { flash, sparks } from '../patterns/bursts.js';
 import { zigzag, forks, netPatch, spokes } from '../patterns/academy.js';

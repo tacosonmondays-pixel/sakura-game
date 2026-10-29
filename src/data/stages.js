@@ -196,28 +196,32 @@ export const CHAPTERS = [
     desc: 'Ghosts and smoke-throwing goblins drift through the shrine in a fog of incense.',
     mechanic: 'Veiled enemies need Veil Sight (Kage, Hikari, Umeko\'s aura); spectral bodies and phasing favour holy and mystic.',
     stages: ['3-1', '3-2', '3-3', '3-4', '3-5'],
-    act2: [], act2Name: null, act2Theme: null, act2Desc: null,
+    act2: [], act2Name: 'The Bell Festival', act2Theme: 'city',
+    act2Desc: 'The Old Town festival, the night the Brigade comes. Lanterns, takoyaki and a bell on the lake, then smoke over the lanes and a tear in the sky above the shrine.',
   },
   {
     id: 4, name: 'Ironhold Pass', theme: 'mountain', tier: 'advanced',
     desc: 'Armored orc columns march over the mountain pass with wolf packs at their heels.',
     mechanic: 'Flat armor (armor pierce and shred), guardian shieldbearers, pack fury. Finale: the Orc General.',
     stages: ['4-1', '4-2', '4-3', '4-4', '4-5'],
-    act2: [], act2Name: null, act2Theme: null, act2Desc: null,
+    act2: [], act2Name: 'The Checkpoint', act2Theme: 'city',
+    act2Desc: 'Up the mountain highway to the Brigade\'s checkpoint, through the tunnels and out into the far north, where the snow has come early and the villages are empty. Azami\'s barrier, the Brigade on the road, and a long bridge over the ravine.',
   },
   {
     id: 5, name: 'Gloomfen Marsh', theme: 'marsh', tier: 'advanced',
     desc: 'The marsh dead rise and the fen itself starts walking.',
     mechanic: 'Siphon and regeneration (poison stops healing), blinking ghouls, brood plants that burst into sprouts.',
     stages: ['5-1', '5-2', '5-3', '5-4', '5-5'],
-    act2: [], act2Name: null, act2Theme: null, act2Desc: null,
+    act2: [], act2Name: 'The Drowned Line', act2Theme: 'drowned',
+    act2Desc: 'Under Itomachi the old Line 2 lies flooded and dark. Down through the platforms and the tunnels to the pump station, where something cold is breathing in the dark, then up to the reservoir and its shivering willow.',
   },
   {
     id: 6, name: 'Clockwork Foundry', theme: 'foundry', tier: 'advanced',
     desc: 'Goblin engineers have taken over the academy foundry and its crystal vats.',
     mechanic: 'Crystal shells (many small hits), barriers (blast), sabotage (traps, cleanse) and volatile blasts. Finale: the Goblin Machine.',
     stages: ['6-1', '6-2', '6-3', '6-4', '6-5'],
-    act2: [], act2Name: null, act2Theme: null, act2Desc: null,
+    act2: [], act2Name: 'Vesperline', act2Theme: 'vesper',
+    act2Desc: 'Through the Noon Gate, holding Sensei\'s hands, into Vesperline: a city of glass on this same lake, frozen in the moment it fell. Its machines still hold the line, and under its white tower one window is still warm.',
   },
   {
     id: 7, name: 'Oni Festival', theme: 'festival', tier: 'expert',
@@ -324,7 +328,7 @@ const CAMPAIGN = [
     ],
     fixed: [F(3, 'lizard_hunter', 3, 1.2)],
     introduces: ['lizard_hunter'], recommended: ['water'],
-    unlocks: ['azami'],
+    // (Azami joined here until Gate Arc Step 4 moved her to 4-7: src/systems/catchUpJoins.js PRE_UPDATE_JOIN_STAGES)
     fam: ['charm', 'blade'],
     scenery: { props: ['reeds', 'lizardTotems', 'fishingNets', 'lilyPads'], night: true },
   }),
@@ -1027,11 +1031,375 @@ const CAMPAIGN_ACT2 = [
     fam: ['cog', 'feather'],
     scenery: { props: ['lakeLamps', 'rowingClub', 'fireflies'], night: true },
   }),
+
+  // ----- Chapter 3 · Act II — The Bell Festival (Old Town at night; STEP3_BUILD_PLAN §4-5) -----
+  // Chapter-3 families (and earlier); budgets start from the same slot of chapter 4. 3-9 and 3-10 burn.
+  act2Stage({
+    id: '3-6', name: 'Old Town Lanes', mapId: 'noon_old_town',
+    desc: 'Festival night in the Old Town. Wisps drift through the lantern strings and down the hooked lanes between the old houses; stand on the flat roofs inside the hooks.',
+    budget: [7, 330], groups: 3,
+    // (veiled wraiths only as two small taught groups: in the pool they made the opener the campaign's hardest stage)
+    pool: [P('ghost_wisp', 5), P('ghost_phantom', 2, 8), P('slime_pearl', 3, 3), P('lizard_skink', 3, 5)],
+    fixed: [F(6, 'ghost_veilwraith', 2, 1.4), F(16, 'ghost_veilwraith', 2, 1.4), F(20, 'lizard_hunter', 4, 1)],
+    recommended: ['detection', 'multiHit'],
+    fam: ['charm', 'rune'],
+    scenery: { props: ['streetLamps', 'strays', 'vendingMachines'], night: true },
+  }),
+  act2Stage({
+    id: '3-7', name: 'Takoyaki Row', mapId: 'noon_takoyaki_row',
+    desc: 'Down the festival street past the stalls, twice across the takoyaki griddles. Phantoms and smoke goblins love a crowd.',
+    budget: [7, 400], groups: 3,
+    pool: [P('ghost_wisp', 3), P('ghost_phantom', 3, 3), P('goblin_smoke', 3), P('goblin_dasher', 2), P('slime_violet', 2), P('slime_gold', 2, 6)],
+    fixed: [F(4, 'goblin_smoke', 5, 0.6), F(18, 'ghost_phantom', 4, 1.2)],
+    recommended: ['detection', 'silence'],
+    fam: ['feather', 'rime'],
+    scenery: { props: ['streetLamps', 'vendingMachines', 'billboards'], night: true },
+  }),
+  act2Stage({
+    id: '3-8', name: 'The Lake Steps', mapId: 'noon_shrine_steps',
+    desc: 'Fog on the lake. The town road and a second column out of the water meet at the foot of the shrine steps, then climb together.',
+    budget: [7, 525], groups: 3,
+    pool: [
+      P('ghost_veilwraith', 4), P('ghost_phantom', 3), P('ghost_lanternbearer', 1, 10), P('slime_violet', 2),
+      P('lizard_hunter', 2), P('orc_grunt', 2, 4),
+    ],
+    fixed: [F(6, 'ghost_phantom', 4, 1), F(16, 'ghost_lanternbearer', 1)],
+    recommended: ['detection', 'water'],
+    fam: ['rune', 'charm'],
+    scenery: { props: ['streetLamps', 'strays'], fog: true, night: true },
+  }),
+  act2Stage({
+    id: '3-9', name: 'Old Town, Burning', mapId: 'noon_old_town_burning',
+    desc: 'The Brigade has come, and the Old Town is burning. Ghosts drift through the smoke, and little Brigade drones fly ahead of everything, watching.',
+    budget: [7, 220], groups: 3,
+    pool: [P('ghost_phantom', 4), P('ghost_lanternbearer', 1, 8), P('ghost_veilwraith', 3), P('goblin_smoke', 3)],
+    fixed: [F(6, 'brigade_gnat', 5, 0.35), F(12, 'brigade_gnat', 5, 0.35), F(18, 'brigade_gnat', 5, 0.35), F(24, 'brigade_gnat', 5, 0.35)],
+    introduces: ['brigade_gnat'], recommended: ['detection', 'multiHit'],
+    fam: ['blade', 'ember'],
+    scenery: { props: ['streetLamps', 'strays'], night: true, ruined: 'burning' },
+  }),
+  act2Stage({
+    id: '3-10', name: 'The Ashen Warden', mapId: 'noon_lakeside_shrine',
+    desc: 'The Lakeside Shrine on the night of the fire, and a tear in the sky above it. An empty armour stands its last watch on the steps.',
+    budget: [7, 115], groups: 3,
+    pool: [
+      P('ghost_hollowknight', 1, 10), P('ghost_lanternbearer', 2), P('ghost_phantom', 3), P('ghost_wisp', 3),
+      P('goblin_smoke', 2), P('slime_violet', 2), P('lizard_hunter', 2),
+    ],
+    fixed: [F(8, 'ghost_hollowknight', 1), F(26, 'ghost_ashen_warden', 1, 2, 6)],
+    introduces: ['ghost_ashen_warden'], recommended: ['detection', 'priority'],
+    fam: ['cog', 'feather'],
+    scenery: { props: ['streetLamps'], night: true, ruined: 'burning' },
+  }),
+
+  // ----- Chapter 4 · Act II — The Checkpoint (the mountain highway, then the far north; STEP4_BUILD_PLAN §5) -----
+  // Chapter-4 families (and earlier) and the Brigade; budgets start from the same slot of chapter 5. 4-8's even waves
+  // and 4-9's lead are the Brigade (decision 5: fixed groups, the sim has no per-parity pool).
+  act2Stage({
+    id: '4-6', name: 'Toll Plaza', mapId: 'noon_toll_plaza',
+    desc: 'The iron column comes down the mountain highway to the toll plaza, fans out through the three toll lanes and closes up again past the barrier. Stand on the booth roofs. A Brigade convoy drops off coins every few waves.',
+    budget: [6.5, 160], groups: 3,
+    pool: [P('orc_grunt', 4), P('orc_ironhide', 3, 2), P('orc_berserker', 1, 8), P('beast_wolf', 2, 3), P('slime_iron', 2)],
+    fixed: [F(3, 'orc_ironhide', 3, 1.5), F(16, 'beast_wolf', 6, 0.6)],
+    recommended: ['armorPen', 'armorShred'],
+    fam: ['blade', 'rime'],
+    scenery: { props: ['tollPlaza', 'frost', 'streetLamps', 'billboards'] },
+  }),
+  act2Stage({
+    id: '4-7', name: 'Azami\'s Checkpoint', mapId: 'noon_checkpoint',
+    desc: 'Dusk at the Brigade\'s checkpoint. Azami has the barrier: on odd waves the gate is shut and the column takes the long chicane round the barricades; on even waves both lanes are open. Flare smoke drifts over the road.',
+    budget: [6.5, 132], groups: 3,
+    pool: [P('orc_shieldbearer', 3, 2), P('orc_ironhide', 3), P('orc_berserker', 3), P('beast_wolf', 3), P('beast_bear', 2, 6)],
+    fixed: [F(4, 'orc_shieldbearer', 2, 2), F(18, 'beast_bear', 3, 1.5)],
+    // odd waves: the checkpoint gate (lane 0) is shut and the wave walks the chicane; even waves use both lanes
+    laneCycle: [[1], [0, 1]],
+    recommended: ['armorShred', 'slow'],
+    unlocks: ['azami'],
+    fam: ['feather', 'cog'],
+    scenery: { props: ['checkpoint', 'jerseyBarriers', 'brigadeCamp', 'streetLamps'] },
+    // (render only: S4a's dusk light on the checkpoint)
+    look: { dusk: true },
+  }),
+  act2Stage({
+    id: '4-8', name: 'Tunnel Mouth', mapId: 'noon_tunnel_mouth',
+    desc: 'Snow blows out of the highway tunnels. Orcs and wolves come through the bores on odd waves; on even waves they come up the carriageways behind you with the Brigade\'s strike column.',
+    budget: [4.5, 36], groups: 3,
+    pool: [P('orc_grunt', 3), P('orc_ironhide', 3), P('orc_berserker', 2, 4), P('beast_wolf', 2)],
+    fixed: [
+      ...[2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26].map((w) => F(w, 'brigade_trooper', 2 + Math.floor(w / 10), 0.8)),
+      ...[4, 8, 12, 16, 20, 24].map((w) => F(w, 'brigade_shieldline', 1 + Math.floor(w / 14), 1.4, 1)),
+      ...[8, 16, 24].map((w) => F(w, 'brigade_gnat', 3, 0.4, 2)),
+      ...[14, 22].map((w) => F(w, 'brigade_tortoise', 1, 1, 3)),
+    ],
+    introduces: ['brigade_trooper', 'brigade_shieldline', 'brigade_tortoise'], recommended: ['armorPen', 'multiHit'],
+    fam: ['ember', 'charm'],
+    scenery: { props: ['tunnelPortals', 'snowCover', 'frost', 'streetLamps'], weather: 'snow' },
+  }),
+  act2Stage({
+    id: '4-9', name: 'The Frozen Villages', mapId: 'north_frozen_villages',
+    desc: 'Out of the Petal Gate\'s north mouth and into the far north. The Brigade has crossed ahead of you, and wolves and bears stampede up the valley before the guns. Hold the village\'s three last warm hearths.',
+    budget: [6.5, 360], groups: 3,
+    pool: [
+      P('brigade_trooper', 4), P('brigade_shieldline', 2, 3), P('brigade_gnat', 2), P('brigade_tortoise', 1, 8),
+      P('beast_wolf', 3), P('beast_bear', 2, 4),
+    ],
+    fixed: [F(25, 'brigade_badger', 1), F(26, 'brigade_badger', 1), F(27, 'brigade_badger', 1)],
+    introduces: ['brigade_badger'], recommended: ['armorPen', 'armorShred'],
+    fam: ['rune', 'feather'],
+    scenery: { props: ['beachhead', 'frozenVillage', 'villageHearths', 'snowPines'], weather: 'snow' },
+  }),
+  act2Stage({
+    id: '4-10', name: 'The Frost Vanguard', mapId: 'north_snow_bridge',
+    desc: 'Two columns of the far north\'s rearguard meet at the bridgehead in a blizzard and cross the ravine on the Brigade\'s long folding bridge. The Frost Vanguard holds the far end.',
+    budget: [6.5, 290], groups: 3,
+    pool: [
+      P('orc_shieldbearer', 3), P('orc_ironhide', 3), P('beast_wolf', 3), P('beast_bear', 2),
+      P('beast_alpha', 1, 10), P('orc_warlord', 1, 16),
+    ],
+    fixed: [F(10, 'beast_alpha', 1), F(20, 'orc_warlord', 1), F(28, 'orc_frost_vanguard', 1, 2, 6)],
+    introduces: ['orc_frost_vanguard'], recommended: ['armorPen', 'armorShred', 'priority'],
+    fam: ['cog', 'blade'],
+    scenery: { props: ['snowBridge', 'gateSandbags', 'hostBanners', 'passCairn', 'vastShadow'], weather: 'snow' },
+  }),
+
+  // ----- Chapter 5 · Act II — The Drowned Line (the flooded Line 2, then the reservoir park; STEP5_BUILD_PLAN §5) -----
+  // Chapter-5 families (and earlier) and the first glass machines (5-8); budgets start from the same slot of chapter 6,
+  // with Step 4's lessons. Fog on every stage. No girl joins in Act 5 (decision 11).
+  act2Stage({
+    id: '5-6', name: 'Flooded Platform', mapId: 'noon_flooded_platform',
+    desc: 'The flooded platforms of the old Line 2. Bonewalkers and Bog Shamblers wade out of the dark bore in the middle of the board, Leech Ghouls among them from wave 3, with Reed Skinks and slimes for company.',
+    budget: [7, 400], groups: 3,
+    pool: [
+      P('ghoul_bonewalker', 3), P('ghoul_leech', 3, 3), P('ghoul_shambler', 2), P('slime_rose', 2, 6), P('slime_pearl', 2, 4),
+      P('lizard_skink', 2),
+    ],
+    fixed: [F(3, 'ghoul_leech', 3, 1.2)],
+    recommended: ['antiHeal', 'priority'],
+    fam: ['rime', 'charm'],
+    scenery: { props: ['floodedPlatform', 'emergencyLights', 'vendingMachines'], fog: true },
+  }),
+  act2Stage({
+    id: '5-7', name: 'Line 2 Tunnels', mapId: 'noon_line2_tunnels',
+    desc: 'The flooded Line 2 tunnels, and the lights keep failing. Fog Skulkers blink between the bores from wave 3, Seed Pods burst in the cuttings from wave 5 and Phantoms drift through the dark from wave 8. Hold the three open cuttings.',
+    budget: [3, 75], groups: 3,
+    pool: [
+      P('ghoul_skulker', 4, 2), P('ghoul_shambler', 2), P('ghoul_bonewalker', 2), P('plant_sprout', 2), P('plant_seedpod', 2, 5),
+      P('ghost_phantom', 2, 8),
+    ],
+    fixed: [F(3, 'ghoul_skulker', 3, 1.5), F(5, 'plant_seedpod', 3, 1.5)],
+    recommended: ['antiHeal', 'slow'],
+    fam: ['rune', 'ember'],
+    scenery: { props: ['line2Cuttings', 'emergencyLights'], fog: true },
+    // (render only: while the rule's eclipse is up the tunnel lamps dim and only the red emergency lamps glow)
+    look: { blackout: true },
+  }),
+  act2Stage({
+    id: '5-8', name: 'Pump Station', mapId: 'noon_pump_station',
+    desc: 'The old pump station, and a cold gate breathing frost on its north wall. Thornroots come first; then glass machines walk out of the gate: Patrol Orbs (with Mosslings) from wave 3, Halo Drones and Leech Ghouls from wave 6, Line Sentries from wave 10.',
+    budget: [33, 600], groups: 3,
+    pool: [
+      P('vesper_patrol_orb', 4, 3), P('vesper_halo_drone', 3, 6), P('vesper_line_sentry', 2, 10), P('plant_thornroot', 3),
+      P('plant_mossling', 2), P('ghoul_leech', 2),
+    ],
+    fixed: [F(3, 'vesper_patrol_orb', 4, 1.0), F(6, 'vesper_halo_drone', 3, 1.5), F(10, 'vesper_line_sentry', 2, 2)],
+    introduces: ['vesper_patrol_orb', 'vesper_halo_drone', 'vesper_line_sentry'], recommended: ['armorPen', 'slow'],
+    fam: ['cog', 'rune'],
+    scenery: { props: ['pumpStation', 'noonGateFrost', 'emergencyLights'], fog: true },
+  }),
+  act2Stage({
+    id: '5-9', name: 'Reservoir Park', mapId: 'noon_reservoir_park',
+    desc: 'Fog over the reservoir park. Fog Skulkers, Leech Ghouls, Thornroots and Mosslings come along the dam crest, a few Line Sentries from wave 8, a Grave Priest from wave 10 and an Elder Treant from wave 14. The last wave adds two Grave Priests and two Elder Treants.',
+    budget: [6, 360], groups: 3,
+    pool: [
+      P('ghoul_skulker', 3), P('ghoul_leech', 2), P('plant_thornroot', 3), P('plant_mossling', 2), P('vesper_line_sentry', 1, 8),
+      P('ghoul_gravepriest', 1, 10), P('plant_treant', 1, 14),
+    ],
+    fixed: [F(10, 'ghoul_gravepriest', 1), F(14, 'plant_treant', 1), F(28, 'ghoul_gravepriest', 2, 3, 3), F(28, 'plant_treant', 2, 3, 9)],
+    recommended: ['antiHeal', 'priority', 'armorPen'],
+    fam: ['charm', 'blade'],
+    scenery: { props: ['reservoirDam', 'searchBoats', 'streetLamps'], fog: true },
+  }),
+  act2Stage({
+    id: '5-10', name: 'The Reservoir Willow', mapId: 'noon_reservoir_willow',
+    desc: 'Night on the reservoir, fireflies over the water, and a great willow on its island. Plants, Leech Ghouls and Rose Slimes come off both dam walls, Grave Priests from wave 20 and Elder Treants from wave 14; on the last wave the Reservoir Willow itself walks.',
+    budget: [6, 320], groups: 3,
+    pool: [
+      P('plant_thornroot', 3), P('plant_seedpod', 2), P('plant_sprout', 2), P('ghoul_leech', 2), P('slime_rose', 2),
+      P('ghoul_gravepriest', 1, 12), P('plant_treant', 1, 14),
+    ],
+    fixed: [F(14, 'plant_treant', 1), F(20, 'ghoul_gravepriest', 2, 3), F(28, 'plant_reservoir_willow', 1, 2, 6), F(28, 'ghoul_gravepriest', 2, 3, 10)],
+    introduces: ['plant_reservoir_willow'], recommended: ['antiHeal', 'priority', 'armorShred'],
+    fam: ['feather', 'cog'],
+    scenery: { props: ['reservoirWillow', 'reservoirDam', 'searchBoats', 'fireflies'], fog: true, night: true },
+  }),
+
+  // ----- Chapter 6 · Act II — Vesperline (the glass city through the Noon Gate, frozen; STEP6_BUILD_PLAN §6) -----
+  // Chapter-6 families (and earlier), the glass machines one per stage (decision 3), the Rime Wisp and Gatekeeper Unit 01
+  // on 6-10. Theme `vesper`, frozen (`scenery.ruined: 'frozen'`), snow on every stage. No girl joins in Act 6
+  // (decision 12).
+  act2Stage({
+    id: '6-6', name: 'Frost Causeway', mapId: 'vesper_frost_causeway',
+    desc: 'Out across the frozen lake to Vesperline\'s gate, on a causeway broken in three and mended with fold-out light-bridges. Patrol Orbs and Quartz Slimes come first; Lattice Shells from wave 3, Iron Slimes from wave 4, Goblin Sappers from wave 6. Three prism batteries on the causeway still hold a charge.',
+    budget: [6, 1600], groups: 3,
+    pool: [
+      P('vesper_patrol_orb', 4), P('slime_crystal', 3), P('vesper_lattice_shell', 3, 3), P('slime_iron', 2, 4), P('goblin_sapper', 2, 6),
+    ],
+    fixed: [F(2, 'slime_crystal', 4, 0.6), F(3, 'vesper_lattice_shell', 3, 1.2), F(4, 'slime_iron', 3, 0.8), F(6, 'goblin_sapper', 3, 0.6)],
+    introduces: ['vesper_lattice_shell'], recommended: ['multiHit', 'priority'],
+    fam: ['cog', 'rime'],
+    scenery: { props: ['frostCauseway', 'prismBatteries', 'holoSigns', 'coldAurora'], weather: 'snow', ruined: 'frozen' },
+  }),
+  act2Stage({
+    id: '6-7', name: 'Sky-Rail Viaduct', mapId: 'vesper_skyrail',
+    desc: 'A sky-rail viaduct over the frozen ruins: the road climbs onto the rail, snakes along it, comes down at the broken span and runs back underneath. Enemies up on the rail can still be hit. Patrol Orbs, Ember Slimes and Goblin Sappers come first; the Vesper Aegis from wave 3, Goblin Bombers from wave 5, Line Sentries from wave 8.',
+    budget: [6, 1700], groups: 3,
+    pool: [
+      P('vesper_patrol_orb', 3), P('slime_ember', 3), P('goblin_sapper', 2), P('vesper_aegis', 3, 3), P('goblin_bomber', 2, 5),
+      P('vesper_line_sentry', 2, 8),
+    ],
+    fixed: [F(2, 'goblin_sapper', 3, 0.6), F(3, 'vesper_aegis', 3, 1.2), F(5, 'goblin_bomber', 3, 0.6), F(8, 'vesper_line_sentry', 2, 2)],
+    introduces: ['vesper_aegis'], recommended: ['barrierBreak', 'armorPen'],
+    fam: ['ember', 'cog'],
+    scenery: { props: ['skyRailViaduct', 'frozenCanal', 'frostHaze', 'holoSigns', 'coldAurora'], weather: 'snow', ruined: 'frozen' },
+  }),
+  act2Stage({
+    id: '6-8', name: 'Museum of Noon', mapId: 'vesper_museum',
+    desc: 'The museum\'s last generator keeps failing, and the column vanishes inside each gallery wing. Line Sentries, Shrine Wisps and Goblin Sappers come first; the Vesper Aegis from wave 4, Halo Drones from wave 6, Phantoms from wave 9 and a Vesper Warden from wave 15. Hold the rotunda.',
+    budget: [4, 600], groups: 3,
+    pool: [
+      P('vesper_line_sentry', 3), P('ghost_wisp', 3), P('goblin_sapper', 2), P('vesper_aegis', 2, 4), P('vesper_halo_drone', 3, 6),
+      P('ghost_phantom', 2, 9), P('vesper_warden', 1, 15),
+    ],
+    fixed: [
+      F(2, 'goblin_sapper', 3, 0.6), F(3, 'vesper_line_sentry', 2, 2), F(4, 'vesper_aegis', 2, 1.5), F(6, 'vesper_halo_drone', 3, 1.2), F(9, 'ghost_phantom', 3, 1.0),
+      F(15, 'vesper_warden', 1), F(29, 'vesper_warden', 2, 3, 6),
+    ],
+    introduces: ['vesper_warden'], recommended: ['armorPen', 'barrierBreak', 'priority'],
+    fam: ['rune', 'charm'],
+    scenery: { props: ['museumWings', 'reflectingPools', 'holoSigns'], weather: 'snow', ruined: 'frozen' },
+    // (render only: while the rule's eclipse is up the holo exhibits go dark; the warm window and the gates stay lit)
+    look: { blackout: true },
+  }),
+  act2Stage({
+    id: '6-9', name: 'Lecture Tower Ring', mapId: 'vesper_tower_ring',
+    desc: 'Round the ring road between the frozen lecture towers, in along a spoke, across the plaza and out over the ring, where the city\'s broken transit pads still fire. Line Sentries, Lattice Shells, Quartz Slimes and Ember Slimes come first; Halo Drones from wave 4, Goblin Bombers from wave 7, Vesper Wardens from wave 10.',
+    budget: [6, 3500], groups: 3,
+    pool: [
+      P('vesper_line_sentry', 3), P('vesper_lattice_shell', 3), P('slime_crystal', 2), P('slime_ember', 2), P('vesper_halo_drone', 2, 4),
+      P('goblin_bomber', 2, 7), P('vesper_warden', 1, 10),
+    ],
+    fixed: [
+      F(1, 'slime_crystal', 3, 0.6), F(2, 'slime_ember', 3, 0.6), F(3, 'vesper_line_sentry', 2, 2), F(4, 'vesper_halo_drone', 3, 1.2), F(7, 'goblin_bomber', 3, 0.6), F(10, 'vesper_warden', 1),
+      F(20, 'vesper_warden', 2, 3), F(29, 'vesper_warden', 3, 3, 6),
+    ],
+    recommended: ['barrierBreak', 'multiHit', 'armorPen'],
+    fam: ['blade', 'feather'],
+    scenery: { props: ['towerRing', 'transitPads', 'cleaningRobot', 'holoSigns'], weather: 'snow', ruined: 'frozen' },
+  }),
+  act2Stage({
+    id: '6-10', name: 'Gatekeeper Unit 01', mapId: 'vesper_spindle_foot',
+    desc: 'At the foot of the white tower two columns come down from the gate\'s terminal, cross each other twice on light-bridges and meet before the shelter. Line Sentries, the Vesper Aegis, Patrol Orbs, Quartz Slimes and Goblin Sappers come first; Vesper Wardens from wave 12, Rime Wisps from wave 28. On the last wave Gatekeeper Unit 01 wakes.',
+    budget: [6, 700], groups: 3,
+    pool: [
+      P('vesper_line_sentry', 3), P('vesper_aegis', 3), P('vesper_patrol_orb', 2), P('slime_crystal', 2), P('goblin_sapper', 2),
+      P('vesper_warden', 1, 12),
+    ],
+    fixed: [
+      F(12, 'vesper_warden', 1), F(20, 'vesper_warden', 2, 3), F(28, 'rime_wisp', 6, 0.5), F(29, 'rime_wisp', 8, 0.5), F(30, 'rime_wisp', 10, 0.5),
+      F(30, 'vesper_gatekeeper', 1, 2, 6), F(30, 'vesper_warden', 2, 3, 10),
+    ],
+    introduces: ['rime_wisp', 'vesper_gatekeeper'], recommended: ['barrierBreak', 'multiHit', 'priority', 'armorShred'],
+    fam: ['cog', 'rune'],
+    scenery: { props: ['spindleFoot', 'frozenNest', 'warmWindow', 'coldAurora'], weather: 'snow', ruined: 'frozen' },
+  }),
 ];
 
 const byPlayOrder = (a, b) => a.chapter - b.chapter || a.act - b.act || Number(a.id.split('-')[1]) - Number(b.id.split('-')[1]);
 const ACT2_SORTED = CAMPAIGN_ACT2.slice().sort(byPlayOrder);
 for (const ch of CHAPTERS) ch.act2 = ACT2_SORTED.filter((s) => s.chapter === ch.id).map((s) => s.id);
+
+// ---------------------------------------------------------------------------
+// Side stages (Gate Arc §20, STEP6_BUILD_PLAN decision 9) — optional stages beside an act, drawn as a small card after
+// their anchor stage in the chapter's act row. Not campaign stages: never in CAMPAIGN_IDS, so never in co-op
+// (coopStages), the campaign counters, medals and ribbons (campaignShowcase), missions or achievements; no battle modes,
+// no freeplay, no endless; they introduce no enemy and unlock no girl.
+// ---------------------------------------------------------------------------
+
+/** A side stage's HP over its anchor's ACT2_PLAN row (the Star Dome: 6-10's 9.04 → 9.94). */
+const SIDE_HP_MUL = 1.1;
+
+/**
+ * Builds a side StageDef from its anchor's Act II plan row: waves, tier, cash and the drop chapter as the anchor, HP ×
+ * SIDE_HP_MUL, `requires` the anchor (its first clear opens it), first clear coins and books without a recruit ticket,
+ * medal gems at the Act II rate.
+ * @param {object} o { id: 'side-<c>-<slug>', anchor: an Act II id, name, mapId, desc, budget, pool, fixed, fam, recommended, scenery, look? }
+ * @returns {object} StageDef (kind 'side')
+ */
+function sideStage(o) {
+  const plan = ACT2_PLAN_MAP[o.anchor];
+  if (!plan) throw new Error(`sideStage ${o.id}: anchor ${o.anchor} is not an Act II stage id`);
+  return {
+    id: o.id,
+    kind: 'side',
+    chapter: plan.chapter,
+    act: 2,
+    anchor: o.anchor,
+    name: o.name,
+    mapId: o.mapId,
+    desc: o.desc,
+    waves: plan.waves,
+    waveGen: {
+      pool: o.pool,
+      budget: { start: o.budget[0], growth: growthFor(o.budget[0], o.budget[1], plan.waves) },
+      spacing: o.spacing ?? 0.8,
+      groups: o.groups ?? 3,
+      fixed: o.fixed || [],
+    },
+    hpScale: round2(plan.hpScale * SIDE_HP_MUL),
+    hpPass: plan.hpPass,
+    cashScale: plan.cashScale,
+    startCash: plan.startCash,
+    lives: 100,
+    introduces: [],
+    recommended: o.recommended || [],
+    unlocks: {},
+    requires: o.anchor,
+    drops: campaignDrops(plan.dropChapter, o.fam, { dice: o.dice ?? (plan.dropChapter >= 3 ? 0.04 : 0) }),
+    firstClear: campaignFirstClear(plan.chapter, false),
+    medalGemMul: plan.medalGemMul,
+    scenery: o.scenery,
+    ...(o.look ? { look: o.look } : {}),
+    tier: plan.tier,
+    rule: stageRule(o.id),
+  };
+}
+
+/** The registered side stages, each after its anchor in play order. */
+export const SIDE_STAGES = [
+  // The Star Dome (after 6-10): the academy observatory's broken deck under the cracked dome, at night. Families up to
+  // chapter 6 and the glass machines; no Rime Wisp (the cold wisps stay 6-10's).
+  sideStage({
+    id: 'side-6-starfall', anchor: '6-10', name: 'The Star Dome', mapId: 'vesper_starfall',
+    desc: 'The academy observatory\'s broken deck, under a cracked dome where the night-sky watch kept its post. Shards of the star map keep falling. Patrol Orbs, Lattice Shells and Quartz Slimes come first; the Vesper Aegis from wave 3, Phantoms from wave 5, Halo Drones from wave 8, Vesper Wardens from wave 12.',
+    budget: [6, 7000], groups: 3,
+    pool: [
+      P('vesper_patrol_orb', 3), P('vesper_lattice_shell', 3), P('slime_crystal', 2), P('vesper_aegis', 2, 3), P('ghost_phantom', 2, 5),
+      P('vesper_halo_drone', 2, 8), P('vesper_warden', 1, 12),
+    ],
+    fixed: [
+      F(1, 'slime_crystal', 3, 0.6), F(2, 'vesper_lattice_shell', 2, 1.2), F(3, 'vesper_aegis', 2, 1.5), F(5, 'ghost_phantom', 3, 1.0), F(8, 'vesper_halo_drone', 3, 1.2),
+      F(12, 'vesper_warden', 1), F(30, 'vesper_warden', 3, 3, 6),
+    ],
+    recommended: ['multiHit', 'barrierBreak'],
+    fam: ['cog', 'feather'],
+    scenery: { props: ['starDome', 'coldAurora', 'holoSigns'], weather: 'snow', night: true, ruined: 'frozen' },
+  }),
+];
+
+/** @returns {object[]} the side stages anchored on `stageId` (drawn after it in its act row) */
+export function sideStagesAfter(stageId) {
+  return SIDE_STAGES.filter((s) => s.anchor === stageId);
+}
 
 // ---------------------------------------------------------------------------
 // Bounty (resource) arenas — 5 arenas × tiers 1-3
@@ -1299,7 +1667,8 @@ const CHALLENGE = {
 // Exports
 // ---------------------------------------------------------------------------
 
-export const STAGES = [...CAMPAIGN, ...ACT2_SORTED, ...BOUNTY, ...BOSSES, CHALLENGE];
+// (side stages last: every other stage keeps its index)
+export const STAGES = [...CAMPAIGN, ...ACT2_SORTED, ...BOUNTY, ...BOSSES, CHALLENGE, ...SIDE_STAGES];
 
 export const STAGE_MAP = Object.fromEntries(STAGES.map((s) => [s.id, s]));
 
@@ -1324,7 +1693,7 @@ export function campaignStages() {
 }
 
 /**
- * @param {'campaign'|'resource'|'boss'|'challenge'} kind
+ * @param {'campaign'|'resource'|'boss'|'challenge'|'side'} kind
  * @returns {object[]} stages of that kind in display order
  */
 export function stagesOfKind(kind) {
@@ -1405,13 +1774,17 @@ export function requirementsMet(stageOrId, isCleared) {
 const CAMPAIGN_ID_RE = /^(\d+)-(\d+)$/;
 
 /**
- * A campaign stage id's play-order key: (chapter, act, n) as one number, so 1-10 comes before 2-1 and 1-5 before 1-6.
+ * A campaign stage id's play-order key: (chapter, act, n) as one number, so 1-10 comes before 2-1 and 1-5 before 1-6;
+ * a side stage sorts just after its anchor (+ 0.5).
  * Works for ids not registered yet (the act then comes from n: 1…5 Act I, 6…10 Act II, 11…15 Act III, reserved).
  * Any other id (Bounty, Total Assault, events, unknown) sorts last: Infinity.
  * @param {string} id
  * @returns {number}
  */
 export function stageOrderKey(id) {
+  // a side stage sorts right after its anchor (side-6-starfall just after 6-10)
+  const side = STAGE_MAP[id];
+  if (side?.kind === 'side') return stageOrderKey(side.anchor) + 0.5;
   const m = CAMPAIGN_ID_RE.exec(typeof id === 'string' ? id : '');
   if (!m) return Infinity;
   const chapter = Number(m[1]);

@@ -34,9 +34,14 @@ import { RosterFx } from './rosterFx.js';
 import { StaffFx } from './staffFx.js';
 import { Companions } from './companions.js';
 import { createAbilityFx } from './abilityFx.js';
+import { deployFx } from './deployFx.js';
 import { fmtNum } from '../ui/format.js';
 import { createBlackout } from './blackout.js';
 import { PlacedProps } from './placedProps.js';
+import { createTear } from './tear.js';
+import { fallStyleOf, playFall } from './fallStyles.js';
+import { createBarkQueue, createBarkChips } from '../ui/battle/barks.js';
+import { barkUnit } from '../ui/text/barks.js';
 
 const QUALITY = {
   high: { pixelRatio: 2, shadows: true, bloom: true },
@@ -112,7 +117,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // stage.look (render-only StageDef field, e.g. Halloween event stages):
   //   night: 'lantern' → warm lantern-lit night; costumes: true → monsters in costumes
   const stageLook = stage?.look || null;
-  const look = resolveLook(map.theme, scenery, stageLook);
+  // (the map's district, e.g. Old Town on a city map, re-dresses the theme: themes.DISTRICTS)
+  const look = resolveLook(map.theme, scenery, stageLook, map);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(look.fog ? mixHex(look.bg, look.fogColor, 0.4) : look.bg);
 
@@ -139,7 +145,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const yaw = rig.yaw;
     const ox = -6;
     const oz = 7;
-    key.position.set(cx + ox * Math.cos(yaw) + oz * Math.sin(yaw), 12, cz - ox * Math.sin(yaw) + oz * Math.cos(yaw));
+    // (a low sun, e.g. dusk's keyY, comes in from nearer the horizon: longer shadows)
+    key.position.set(cx + ox * Math.cos(yaw) + oz * Math.sin(yaw), look.light.keyY ?? 12, cz - ox * Math.sin(yaw) + oz * Math.cos(yaw));
     fill.position.set(cx - (ox * Math.cos(yaw) + oz * Math.sin(yaw)), 6, cz + ox * Math.sin(yaw) - oz * Math.cos(yaw));
     const r = Math.hypot(map.width, map.height) / 2 + 2;
     const sc = key.shadow.camera;
@@ -175,10 +182,35 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const fx = new FxSystem({ atlas, batches, camera });
   if (terrain.roofs) fx.liftAt = terrain.roofAt;
   const ambient = new AmbientSystem({ map, look, terrain, fx, batches, atlas });
-  const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx }) : null;
+  // (the far north's relay pads are village hearths: warm, scenery keyword 'villageHearths'; the
+  // Drowned Line's vents are relief valves: steam; Vesperline's rift points are transit pads)
+  const ruleDecals = sim.rule ? new RuleDecals({ sim, batches, atlas, fx, warm: scenery.keywords.includes('villageHearths'), steam: look.city?.kit === 'drowned' || scenery.keywords.includes('steamValves'), transit: look.theme === 'vesper' || scenery.keywords.includes('transitPads') }) : null;
   // blackout dimming (StageDef.look.blackout, Gate Arc): the lamps, windows and light pools go
   // dark while the map rule is active (src/render/blackout.js); never enemies, girls, road or HUD
   const blackout = createBlackout({ enabled: !!(stageLook?.blackout && sim.rule) });
+  // HAMMER's tear (a hammerTear on the board, Gate Arc 3-10): it pulses while the map rule is
+  // active, through the same ruleState events (src/render/tear.js); render only
+  const tear = createTear({ enabled: !!terrain.tear });
+  if (tear.enabled) terrain.setTear(tear.glow());
+  // Brigade barks (src/ui/battle/barks.js): chips over a Brigade group as it comes on and over a
+  // unit as it is beaten; the DOM chips are made on the first bark (none on other boards)
+  const barks = createBarkQueue();
+  let barkChips = null;
+  const enemyDef = (id) => {
+    try {
+      return sim.data?.enemy?.(id) || null;
+    } catch {
+      return null;
+    }
+  };
+  /** Offers a spawn / death event to the bark queue (only Brigade units have barks). */
+  function bark(ev) {
+    if (!barkUnit(ev.id)) return;
+    const rect = canvas.getBoundingClientRect();
+    const p = projectPx(ev.x, ev.y, 0.5, rect);
+    const side = p.x < rect.width / 2 ? 'left' : 'right';
+    if (barks.onEvent(ev, side) && !barkChips) barkChips = createBarkChips(fxLayer);
+  }
   const actors = new Actors({ sim, scene, fx, batches, atlas, quality, terrain, costumes: stageLook?.costumes === true, skins: opts.skins });
   const overlays = new Overlays({ sim, scene, actors, terrain, batches, atlas, quality });
   // unique attack animations (purely visual; settings.attackFx === false = today's look)
@@ -510,8 +542,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
         case 'death': {
           const p = actors.enemyPos(ev.uid) || { x: ev.x, y: 0, z: ev.y, size: 1, color: '#ffffff' };
           actors.markDying(ev.uid);
-          fx.death(p.x, p.y, p.z, p.size, p.color);
+          // how it leaves: the shipped poof and homeward sparkle, or a Brigade unit's own fall
+          // (no sparkle; the Gnat's spark spray), a Noon machine's cyan break-apart — src/render/fallStyles.js
+          const def = enemyDef(ev.id);
+          playFall(fx, fallStyleOf(def), p, def);
           if (ev.bounty > 0) fx.coin(p.x, p.y, p.z, ev.bounty);
+          bark(ev);
           break;
         }
         case 'leak': {
@@ -528,6 +564,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           break;
         }
         case 'spawn': {
+          bark(ev);
           const def = sim.data?.enemy?.(ev.id);
           if (def && (def.tier === 'boss' || def.tier === 'miniboss')) {
             shake(def.tier === 'boss' ? 0.12 : 0.07);
@@ -610,6 +647,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
         }
         case 'trapPlaced':
           fx.ring(ev.x, ev.y, 0.05, 0.45, 0.3, '#ffb347');
+          break;
+        case 'deploy': // a sentry unfolding, a net laid (Yuzuha)
+          deployFx(ev, fx);
           break;
         case 'trapTriggered':
           fx.flash(ev.x, 0.2, ev.y, '#ffb347', 0.9, 0.18);
@@ -736,6 +776,17 @@ export function createBattleRenderer(container, sim, opts = {}) {
         hemi.intensity = baseLight.hemi * THREE.MathUtils.clamp(lighting.exposure ?? 1, 0.4, 1.8) * blackout.hemiScale();
       }
     }
+    if (tear.enabled) {
+      for (const ev of events) tear.handle(ev);
+      if (tear.step(d)) terrain.setTear(tear.glow());
+      ambient.tear = tear.level;
+    }
+    barks.update(d);
+    if (barkChips) {
+      // one layout read per frame, and only while a chip is up (barkPoint writes into a reused point)
+      if (barks.sides.left || barks.sides.right) barkRect = canvas.getBoundingClientRect();
+      barkChips.draw(barks, barkPoint);
+    }
     actors.sync(d);
     if (!compBroken) {
       try {
@@ -787,6 +838,16 @@ export function createBattleRenderer(container, sim, opts = {}) {
     if (composer) composer.render(d);
     else renderer.render(scene, camera);
     return events;
+  }
+
+  /** Where a bark chip stands: over its unit while it walks (the chip follows it), else where it was. */
+  let barkRect = null;
+  const barkPt = { x: 0, y: 0, visible: false };
+  function barkPoint(c) {
+    const p = c.uid != null ? actors.enemyPos(c.uid) : null;
+    if (p) projectInto(barkPt, p.x, p.z, p.y + (p.height || 0.5) + 0.25, barkRect);
+    else projectInto(barkPt, c.x, c.z, 0.8, barkRect);
+    return barkPt.visible ? barkPt : null;
   }
 
   // ----- picking -------------------------------------------------------------------------
@@ -880,8 +941,16 @@ export function createBattleRenderer(container, sim, opts = {}) {
   }
 
   function projectPx(x, y, z, rect = canvas.getBoundingClientRect()) {
+    return projectInto({ x: 0, y: 0, visible: false }, x, y, z, rect);
+  }
+
+  /** projectPx into a caller's point object (per-frame callers reuse one). */
+  function projectInto(out, x, y, z, rect = canvas.getBoundingClientRect()) {
     tmpV.set(x, z, y).project(camera);
-    return { x: (tmpV.x + 1) / 2 * rect.width, y: (1 - tmpV.y) / 2 * rect.height, visible: tmpV.z > -1 && tmpV.z < 1 };
+    out.x = (tmpV.x + 1) / 2 * rect.width;
+    out.y = (1 - tmpV.y) / 2 * rect.height;
+    out.visible = tmpV.z > -1 && tmpV.z < 1;
+    return out;
   }
 
   /**
@@ -973,6 +1042,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     resize,
     pick,
     worldToScreen,
+    /** The gate props' feet (terrain.gates: { kind: 'spawn'|'goal', x, z, dir }; read-only): the toast feed keeps off them. */
+    get gates() {
+      return terrain.gates;
+    },
     /** Placement preview at a continuous world point (two integers = a tile centre, legacy). */
     setGhost(unitId, x, y, valid) {
       if (Number.isInteger(x) && Number.isInteger(y)) {
@@ -1157,7 +1230,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
     },
     /** Extra: read-only info for debugging / previews. */
     get info() {
-      return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null, blackout: blackout.enabled ? blackout.dim : null };
+      return {
+        quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null, blackout: blackout.enabled ? blackout.dim : null,
+        district: look.district || null, ruined: look.ruined || null, tear: tear.enabled ? tear.level : null, barks: { left: barks.sides.left?.text ?? null, right: barks.sides.right?.text ?? null },
+        // Gate Arc S4a: the dusk / frost looks, and each checkpoint barrier's arm ('down' while its lane is shut)
+        dusk: !!look.dusk, frost: !!look.frost, barriers: terrain.barriers.map((b) => (b.target === 0 ? 'down' : 'up')),
+      };
     },
     dispose() {
       if (disposed) return;
@@ -1186,6 +1264,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       key.shadow.map?.dispose();
       renderer.dispose();
       canvas.remove();
+      barkChips?.dispose();
       fxLayer.remove();
       liveRenderers = Math.max(0, liveRenderers - 1);
       if (liveRenderers === 0) {
