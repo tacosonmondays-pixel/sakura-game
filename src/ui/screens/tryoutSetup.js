@@ -21,7 +21,8 @@ import {
   TRYOUT_GRADES, gradeOpen, gradeCleared, newRunSeed, beforeClass, newRunRecord, putTryoutRun, activePerks, weeklyState, parseShareCode,
   practiceOpen, RUN_LENGTHS, lengthOpen,
 } from '../../systems/tryoutRuns.js';
-import { LENGTH_NAMES, JAR_TEXT, WEEKLY_TEXT, SHARE_TEXT, CLASS_TEXT, EXTENDED_TEXT, RANDOM_TEXT, gradeTwist, gradeWhy } from '../text/tryout.js';
+import { LENGTH_NAMES, JAR_TEXT, WEEKLY_TEXT, SHARE_TEXT, CLASS_TEXT, EXTENDED_TEXT, RANDOM_TEXT, WAVE_RECORD_TEXT, gradeTwist, gradeWhy } from '../text/tryout.js';
+import { extendedBest } from '../../systems/tryoutRewards.js';
 import { beforeClassTimetable, closeBeforeClassTimetable } from '../battle/tryout/timetable.js';
 import { fullTag } from './tryoutTag.js';
 
@@ -315,7 +316,11 @@ export function renderSetup(root, params = {}) {
     startBtn.querySelector?.('.ui-sec-why')?.setAttribute('data-testid', 'tryout-start-why');
     const foot = h('div.ty-bc-foot',
       h('div.ty-bc-facts',
-        h('span.ty-bc-fact', opts.length === 'after' ? EXTENDED_TEXT.facts(g, erasers) : CLASS_TEXT.facts(g, len, erasers)),
+        // (an Extended Day: this Grade's best wave leads the first fact, which a short screen keeps to one line, §20.8)
+        opts.length === 'after' && extendedBest(p, pending.grade) > 0
+          ? h('span.ty-bc-fact.ty-bc-fact-aw', h('b.ty-bc-awbest', { 'data-testid': 'tryout-aw-best' }, WAVE_RECORD_TEXT.bcBest(extendedBest(p, pending.grade))),
+            ` · ${EXTENDED_TEXT.facts(g, erasers)}`)
+          : h('span.ty-bc-fact', opts.length === 'after' ? EXTENDED_TEXT.facts(g, erasers) : CLASS_TEXT.facts(g, len, erasers)),
         // (what Random Class promises, plainly; the short words on a short screen)
         free ? h('span.ty-bc-random-help', { id: 'ty-bc-random-help', 'data-testid': 'tryout-random-help' },
           h('span.long', RANDOM_TEXT.help), h('span.short', RANDOM_TEXT.helpShort)) : null,

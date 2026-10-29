@@ -564,3 +564,37 @@ export const RANDOM_TEXT = {
   handed: 'Random Class: nothing fit, handed in',
   room: (on) => `Random Class: ${on ? 'On' : 'Off'}`,
 };
+
+// ---- Extended Day: Home Time and the records (docs/specs/TRYOUT_DAY.md §20.1, §20.5, §20.8; Q-A1, Q-A6) --------------
+
+/** Home Time: the wave control's pill past wave 48 (solo: ends the run after a question; co-op: this player's vote). */
+export const HOME_TEXT = {
+  button: 'Home Time',
+  vote: 'Home Time? Vote',
+  voted: (ally) => `Home Time ✓ · waiting for ${ally}`,
+  both: 'Home Time ✓ · going home',
+  allyVoted: (ally) => `${ally} votes Home Time · tap to agree`,
+  ally: 'your ally',
+  title: 'Home Time',
+  ask: (n) => `End the day here? Wave ${n} goes on your record, and the run pays as if your hearts ran out.`,
+  ok: 'Home Time',
+  cancel: 'Stay Late',
+  castFeed: (ally) => `Home Time vote cast: the day ends once ${ally} agrees.`,
+  allyFeed: (ally) => `${ally} votes Home Time. Tap Home Time to agree.`,
+  resync: 'Re-syncing with your ally. Vote again in a moment.',
+  hudFlag: 'Voted Home Time',
+};
+
+/** Extended Day's records: the Class Photo's best wave and milestone row, Before Class's and the Yearbook's line. */
+export const WAVE_RECORD_TEXT = {
+  best: (n) => `Best wave for this Grade: ${n}`,
+  newBest: 'New best!',
+  milestones: 'Milestones',
+  milestone: (n) => `Wave ${n}`,
+  reached: 'reached this run',
+  before: 'reached before',
+  notYet: 'not yet',
+  bcBest: (n) => `Best wave ${n}`,
+  ybBest: 'Best wave',
+  ybRow: (g) => `Extended Day · Grade ${g}`,
+};

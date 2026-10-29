@@ -7,7 +7,7 @@
 // scoped to that class); their own rules are src/ui/styles/tryoutBattle.css, all under .ty-layer.
 import { h } from './util.js';
 import { fmtNum } from '../format.js';
-import { svgEl, girlTile } from '../components.js';
+import { svgEl, girlTile, confirmDialog } from '../components.js';
 import { rarityTag, moreSticker } from '../kit.js';
 import { onEscape } from '../hold.js';
 import { reduced } from '../motion.js';
@@ -19,10 +19,11 @@ import { assignProgress, dareOf, chooserOf } from '../../sim/tryout/index.js';
 import { rarityWeights, pityFloor, hasVarsity } from '../../sim/tryout/offers.js';
 import { buildTryoutPlan } from '../../sim/tryout/plan.js';
 import { passMax } from '../../sim/tryout/breaks.js';
-import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN, rewardLines, SHARE_TEXT, PHOTO_TEXT, GIRL_CARD_TEXT, TIMETABLE_TEXT, CAP_TEXT, MORE_TEXT, RANDOM_TEXT, EXTENDED_TEXT } from '../text/tryout.js';
+import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN, rewardLines, SHARE_TEXT, PHOTO_TEXT, GIRL_CARD_TEXT, TIMETABLE_TEXT, CAP_TEXT, MORE_TEXT, RANDOM_TEXT, EXTENDED_TEXT, WAVE_RECORD_TEXT } from '../text/tryout.js';
 import { timetableModel as baseModel, timetableStrip, timetableMini, bandParts, markEl, previewStrip, periodPreview, extendedCells } from './tryout/timetable.js';
 import { capBar, barWho, oddsTable, capsTable } from './tryout/caps.js';
 import { isRandomRun, isExtendedRun, viewLength, revealOf, revealStep, extendedPast, periodMarks, affixOf, FULL_PERIODS } from './tryout/adapters.js';
+import { createHomeTime } from './tryout/homeTime.js';
 import { encodeShareCode } from '../../systems/tryoutRuns.js';
 import { selectedCosmetic } from '../../systems/tryoutJar.js';
 import { store } from '../../core/store.js';
@@ -84,6 +85,9 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   const len = viewLength(ty());
   const random = isRandomRun(ty());
   const extended = isExtendedRun(ty());
+  // Extended Day past wave 48: Home Time for the wave control's pill (solo: asks, then ends the run; co-op: my vote)
+  const homeTime = extended ? createHomeTime(ctx, { mySlot, confirm: confirmDialog }) : null;
+  if (homeTime) ctx.homeTime = homeTime;
   /** The strip's cells (an Extended Day: P12 is not the Final, the day goes on after it). */
   const timetableModel = (...a) => (extended ? extendedCells(baseModel(...a)) : baseModel(...a));
   let moving = null; // uid of the girl a Hall Pass is moving
@@ -654,6 +658,29 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     return cardText({ id: p.card, unit: p.unit, r: p.rarity }).name;
   }
 
+  /**
+   * Extended Day's records on the Class Photo (§20.8): the best wave for this Grade (a New best ribbon) and the milestone
+   * row, 50 / 75 / 100: a stamp when this run reached it, a faded stamp when an earlier run did, an open ring when none.
+   * @param {ReturnType<typeof import('../../systems/tryoutRewards.js').recordExtendedWaves>} w the paid run's run.waves
+   */
+  function waveRecord(w) {
+    const T = WAVE_RECORD_TEXT;
+    return h('div.ty-wrec', { 'data-testid': 'ty-photo-wave-record' },
+      h('div.ty-wrec-best', { 'data-testid': 'ty-photo-wave-best' }, h('span', T.best(w.best)),
+        w.isNew ? h('span.ty-wrec-new', { 'data-testid': 'ty-photo-wave-new' }, T.newBest) : null),
+      h('div.ty-wrec-ms', { 'data-testid': 'ty-photo-milestones', role: 'list', 'aria-label': T.milestones },
+        h('span.lbl', { 'aria-hidden': 'true' }, T.milestones),
+        ...w.milestones.map((m) => {
+          const state = m.reached ? 'on' : m.done ? 'done' : 'no';
+          const why = m.reached ? T.reached : m.done ? T.before : T.notYet;
+          const mk = markEl(m.reached || m.done ? 1 : 0);
+          mk.removeAttribute('title');
+          mk.setAttribute('aria-hidden', 'true');
+          return h(`span.ty-wrec-m.${state}`, { role: 'listitem', 'data-wave': String(m.wave), 'data-state': state, title: `${T.milestone(m.wave)}: ${why}`, 'aria-label': `${T.milestone(m.wave)}: ${why}` },
+            mk, h('b', String(m.wave)));
+        })));
+  }
+
   function showPhoto({ practice = false, outcome = null } = {}) {
     const res = sim.result().tryout;
     const run = outcome?.run || null;
@@ -666,7 +693,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     // Extended Day (§20.8, minimal): the title is Home Time and the headline the wave the day reached
     const waveN = Math.max(0, sim.wavesCleared ?? sim.wave ?? 0);
     const title = extended ? EXTENDED_TEXT.homeTime : won ? PHOTO_TEXT.title : PHOTO_TEXT.defeat;
-    const runScore = res.runScore[mySlot];
+    // (an Extended Day: the paid Run Score, which leaves out the hearts term, §20.5; the Sim's own runScore keeps it)
+    const runScore = extended && Number.isFinite(run?.score) ? run.score : res.runScore[mySlot];
     const pl = res.players[mySlot];
     const picks = h('div.ty-picks', ...pl.picks.map((p) => h('span.ty-pickchip', rTag(p.rarity), h('span', pickName(p)))));
     const backdrop = selectedCosmetic(store.profile, 'backdrop');
@@ -678,6 +706,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       h('div.ty-photo-main',
         h('div.ty-photo-left',
           extended ? h('div.ty-wave-big', { 'data-testid': 'ty-photo-wave' }, EXTENDED_TEXT.wave(waveN)) : null,
+          extended && run?.waves ? waveRecord(run.waves) : null,
           pose(pl.squad, pl),
           h('div.ty-score-big', h('span.lbl', PHOTO_TEXT.score), h('span.num', fmtNum(runScore, 'count', { detail: true }))),
           run?.best?.isNew ? h('div.ty-best', { 'data-testid': 'ty-photo-best' }, PHOTO_TEXT.best)
@@ -730,6 +759,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       squadN = p.squad.length;
       import('../../models/index.js').then((m) => m.preloadModels(fresh, { skins: ctx.skins || {} })).catch(() => {});
     }
+    homeTime?.update();
     const sig = `${sim.wave}:${sim.state}:${t.period}:${t.score + t.periodScore}:${sim.stats.leaks}:${JSON.stringify(t.ctr[mySlot])}:${p.win}:${p.passes}:${p.undo.length}:${p.snack}:${p.erasers}:${p.bank}:${t.players.map((x) => `${x.win}${x.dare ? 1 : 0}`).join()}:${t.nextSubject}:${t.subject}:${p.offer?.seq ?? ''}`;
     stepReveal();
     if (sig === last) return;
@@ -754,6 +784,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     },
     destroy() {
       offNote?.();
+      if (ctx.homeTime === homeTime) ctx.homeTime = null;
       pickStrip?.close();
       closeMore();
       el.remove();

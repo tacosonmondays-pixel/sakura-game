@@ -12,6 +12,12 @@
 //   ty:cpd     the start seed of the last co-op run paid (a resync remount never pays twice)
 //   ty:wkc     the last game week whose Weekly Timetable first clear was paid
 //   ty:half · ty:full · ty:spot · ty:tick · ty:dare · ty:seen · ty:lr · ty:win · ty:mv · ty:grade   achievement counters
+//   ty:aw      Extended Day: the most waves survived in one run, over every Grade (the a_try_aw* milestones read it)
+//   ty:aw:<g>  Extended Day: the most waves survived in one run at Grade g (§20.5)
+// Extended Day (§20.1, §20.5, Q-A1): never won; reaching the end of P12 counts as a Full Day clear (the Grade ladder,
+// ty:full, the +6 Marbles); its Run Score has no hearts term (Home Time by choice or by hearts pays the same). Past 12
+// periods the Sim shrinks old period rows to { period, score, cleared } and folds old pick rows into counts (§20.6), so
+// the assignments and the Pep Talks taken are read from what survives the trim (assignmentsIn, fullPeriods, takenCards).
 // A practice run (§12.3, share codes) pays only the periods banked before it turned practice (rec.paidPeriods) and
 // counts nothing else: no Grade clear, no achievements, no records, no Yearbook.
 import { TRYOUT } from '../data/tryout.js';
@@ -166,11 +172,20 @@ export function lunchboxItems(window, fill, family, rng) {
   return out.filter((x) => x.count > 0);
 }
 
+/** A period row an Extended Day shrank to { period, score, cleared } (§20.6): cleared per player, team marks included. */
+const trimmed = (p) => !Array.isArray(p?.team) && !Array.isArray(p?.own) && p?.cleared != null;
+/** Player `slot`'s locked-in assignments of a shrunk row (a resumed period's were never stamped: st -1). */
+const trimmedCleared = (p, slot) => whole(Array.isArray(p.cleared) ? p.cleared[slot] : p.cleared);
+
 /** Assignments locked in for player `slot` in a list of banked periods (a resumed period's are void, §12.3). */
 export function assignmentsIn(periods, slot = 0) {
   let n = 0;
   for (const p of periods) {
     if (p.resumed) continue;
+    if (trimmed(p)) {
+      n += trimmedCleared(p, slot);
+      continue;
+    }
     for (const [, st] of [...(p.team || []), ...((p.own || [])[slot] || [])]) if (st === 1) n++;
   }
   return n;
@@ -179,9 +194,60 @@ export function assignmentsIn(periods, slot = 0) {
 /** Periods where player `slot` locked in every one of their 3 assignments. */
 export function fullPeriods(periods, slot = 0) {
   return periods.filter((p) => {
+    if (trimmed(p)) return trimmedCleared(p, slot) >= 3;
     const all = [...(p.team || []), ...((p.own || [])[slot] || [])];
     return !p.resumed && all.length >= 3 && all.every(([, st]) => st === 1);
   }).length;
+}
+
+/**
+ * The Pep Talks player `pl` took (the Yearbook's card stamps): the pick rows' cards, and in an Extended Day also the
+ * cards in hand, since pick rows past the first 24 that brought no girl and no LR are folded into counts (§20.6).
+ */
+export function takenCards(pl, length) {
+  const out = (pl?.picks || []).filter((p) => p?.card).map((p) => p.card);
+  if (length === 'after') for (const c of pl?.cards || []) if (typeof c?.id === 'string' && !out.includes(c.id)) out.push(c.id);
+  return out;
+}
+
+/**
+ * An Extended Day's Run Score for player `slot` (§20.5): the period scores and the assignment credits × the Grade
+ * factor, as the Sim's runScore (src/sim/tryout/index.js tryoutResult) but with the hearts term at 0, so Home Time by
+ * choice and running out of hearts score alike. null when the result has no score to read.
+ */
+export function extendedRunScore(ty, slot = 0) {
+  const total = Number(ty?.score);
+  if (!Number.isFinite(total)) return null;
+  const cleared = Array.isArray(ty.cleared) ? whole(ty.cleared[slot]) : whole(ty.players?.[slot]?.cleared);
+  const grade = Math.max(1, ty.grade | 0);
+  return Math.floor(((total + TRYOUT.score.perAssignment * cleared) * (9 + grade)) / 10);
+}
+
+/**
+ * Extended Day's records for one paid run (§20.5): the best waves survived at this Grade ('ty:aw:<grade>') and over
+ * every Grade ('ty:aw', which the a_try_aw* milestones read). @returns {{ waves, best, isNew, prev, milestones }}
+ *   milestones: [{ wave, reached (this run), first (this run reached it for the first time), done (ever) }]
+ */
+export function recordExtendedWaves(profile, grade, waves) {
+  const c = counters(profile);
+  const w = whole(waves);
+  const key = `${K.waveGrade}${Math.max(1, grade | 0)}`;
+  const prev = whole(c[key]);
+  const prevAll = whole(c[K.waveBest]);
+  if (w > prev) recordMax(profile, key, w);
+  if (w > prevAll) recordMax(profile, K.waveBest, w);
+  const all = Math.max(prevAll, w);
+  return {
+    waves: w, best: Math.max(prev, w), isNew: w > prev, prev,
+    milestones: M.extended.milestones.map((m) => ({ wave: m, reached: w >= m, first: w >= m && prevAll < m, done: all >= m })),
+  };
+}
+
+/** Extended Day's best waves at Grade `grade` (or over every Grade when it is null; 0: none yet), for Before Class. */
+export function extendedBest(profile, grade = null) {
+  const c = profile?.missions?.counters || {};
+  if (grade != null) return whole(c[`${K.waveGrade}${grade}`]);
+  return whole(c[K.waveBest]);
 }
 
 function blankOut() {
@@ -213,12 +279,15 @@ export function applyTryoutResult(profile, result, { rec = null, slot = 0, coop 
   const grade = Math.max(1, ty.grade | 0);
   const window = TRYOUT.grades[grade]?.window || 'spring';
   const won = !!result.won;
+  const extended = ty.length === 'after';
   const banked = practice ? ty.periods.slice(0, whole(rec?.paidPeriods)) : ty.periods;
   const periods = banked.length;
   const assignments = assignmentsIn(banked, slot);
-  const full = won && !practice && periods >= len.periods;
+  // (an Extended Day is never won: reaching the end of P12 is its Full Day clear, Q-A1; never in practice or the Weekly)
+  const extendedFull = extended && !practice && weekly == null && periods >= M.extended.fullPeriods;
+  const full = (won && !practice && periods >= len.periods) || extendedFull;
   const pl = ty.players?.[slot] || { squad: [], cards: [], picks: [] };
-  const run = { practice, weekly, won, periods, assignments, full, grade, length: ty.length, marbles: null, box: null, coins: null, stamps: [], best: null, gradeUp: false };
+  const run = { practice, weekly, won, periods, assignments, full, grade, length: ty.length, marbles: null, box: null, coins: null, stamps: [], best: null, gradeUp: false, waves: null };
 
   // ---- Marbles (inside the week's cap) and the Weekly's chest
   const earned = marblesFor({ periods, assignments, full, grade });
@@ -252,13 +321,16 @@ export function applyTryoutResult(profile, result, { rec = null, slot = 0, coop 
 
   if (!practice) {
     // ---- the Grade ladder (a co-op win only when it is this player's own next Grade, M2) and its first-clear Marbles
-    if (won && weekly == null) {
+    // (an Extended Day that reached the end of P12 clears its Grade as a Full Day does, Q-A1)
+    if ((won || extendedFull) && weekly == null) {
       run.gradeUp = out.gradeUp = recordGradeClear(profile, grade);
       if (run.gradeUp && !coop) run.marbles.grade = addMarbles(profile, M.marbles.gradeFirstClear, { capped: false, now }).paid;
     }
     // ---- achievement counters (§10.2)
-    // an Extended Day never ends won (Home Time ends it like running out of hearts); its own records come later (§20.5)
-    if (won && ty.length !== 'after') track(profile, ty.length === 'full' ? K.full : K.half, 1);
+    // an Extended Day never ends won (Home Time ends it like running out of hearts): reaching the end of P12 counts as
+    // Full Day's Work (Q-A1)
+    if (extendedFull) track(profile, K.full, 1);
+    else if (won && !extended) track(profile, ty.length === 'full' ? K.full : K.half, 1);
     const hearts = ty.periods.every((p) => !p.resumed && (p.team || []).some(([id, st]) => id === 'a_hearts' && st === 1));
     if (won && !rec?.makeUpUsed && hearts) track(profile, K.spotless, 1);
     if (fullPeriods(ty.periods, slot) >= 5) track(profile, K.ticked, 1);
@@ -276,15 +348,18 @@ export function applyTryoutResult(profile, result, { rec = null, slot = 0, coop 
     } catch { /* (a plan that no longer builds stamps no bosses) */ }
     run.stamps = stampRun(profile, {
       // (a girl tries out when a Tryout pick offers her, or she is in the squad)
-      squad: [...new Set([...(pl.squad || []), ...(pl.tried || [])])], cards: (pl.picks || []).filter((p) => p.card).map((p) => p.card), seen: pl.seen || [], bosses,
+      squad: [...new Set([...(pl.squad || []), ...(pl.tried || [])])], cards: takenCards(pl, ty.length), seen: pl.seen || [], bosses,
       week: run.weeklyFirst ? weekly : null,
     });
     run.marbles.yearbook = addMarbles(profile, yearbookTensDue(profile), { capped: false, now }).paid;
-    const score = Array.isArray(ty.runScore) ? ty.runScore[slot] : null;
+    // (an Extended Day: the Run Score without its hearts term, §20.5; the Sim's own runScore is left as it is)
+    const score = extended ? extendedRunScore(ty, slot) : Array.isArray(ty.runScore) ? ty.runScore[slot] : null;
     if (Number.isFinite(score)) {
       run.best = weekly != null ? recordWeeklyBest(profile, weekly, score) : recordBest(profile, bestKey(ty.length, grade, ty.mapId), score);
       run.score = score;
     }
+    // ---- Extended Day's best wave per Grade and its milestones (§20.5)
+    if (extended && weekly == null) run.waves = recordExtendedWaves(profile, grade, result.wavesCleared);
   }
   run.held = marbles(profile);
   run.week = whole(c[K.weekMarbles]);
@@ -309,9 +384,13 @@ export function resultFromRecord(rec) {
     kills: isObj(kills) ? kills : {},
     tryout: {
       seed: ty.seed >>> 0, grade: ty.grade, length: ty.length, mapId: ty.mapId, periods: ty.periods.filter(isObj), moves: whole(ty.moves),
+      // (the banked score and each player's assignments: an Extended Day's Run Score reads them, extendedRunScore)
+      ...(Number.isFinite(ty.score) ? { score: ty.score } : null),
+      cleared: (Array.isArray(ty.players) ? ty.players : []).map((p) => whole(p?.cleared)),
       players: (Array.isArray(ty.players) ? ty.players : []).map((p) => ({
         squad: Array.isArray(p?.squad) ? p.squad.filter((x) => typeof x === 'string') : [],
         picks: Array.isArray(p?.picks) ? p.picks.filter(isObj) : [],
+        cards: Array.isArray(p?.cards) ? p.cards.filter(isObj) : [],
         ...(Number.isInteger(p?.moves) ? { moves: p.moves } : null),
         // (the Yearbook's seen Pep Talks and the girls who tried out, as a finished run gives them)
         seen: Array.isArray(p?.seen) ? p.seen.filter((x) => typeof x === 'string') : [],

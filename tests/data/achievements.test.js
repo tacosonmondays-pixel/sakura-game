@@ -13,7 +13,7 @@ import { ITEMS } from '../../src/data/items.js';
 
 const NEW = ACHIEVEMENTS.filter((a) => !a.shipped);
 const LAUNCH = NEW.filter((a) => a.wave === 'launch');
-// Tryout Day's 12 rows (docs/specs/TRYOUT_DAY.md §10.2): 360 gems once, counted apart from the expansion's caps
+// Tryout Day's 15 rows (docs/specs/TRYOUT_DAY.md §10.2, §20.5): 480 gems once, counted apart from the expansion's caps
 const TRYOUT_ROWS = ACHIEVEMENTS.filter((a) => a.wave === 'tryout');
 /** The Gate Arc's Act II rows (wave act2): live chapter by chapter as their stages ship. */
 const ACT2 = NEW.filter((a) => a.wave === 'act2');
@@ -27,16 +27,16 @@ const boxes = (a) => a.rewards.filter((r) => r.id.startsWith('gearbox_')).map((r
 const LEDGER = JSON.parse(readFileSync(new URL('../fixtures/achievements-ledger.json', import.meta.url), 'utf8')).achievements;
 
 describe('ids and names', () => {
-  it('156 rows: the shipped 30 (first, in their order) + 102 new + 12 Act II + 12 Tryout Day; 116 live at launch + 2 with social + 11 Codex + a_ch1_act2 … a_ch6_act2 + 12 Tryout Day = 147', () => {
-    expect(ACHIEVEMENTS).toHaveLength(156);
+  it('159 rows: the shipped 30 (first, in their order) + 102 new + 12 Act II + 15 Tryout Day; 116 live at launch + 2 with social + 11 Codex + a_ch1_act2 … a_ch6_act2 + 15 Tryout Day = 150', () => {
+    expect(ACHIEVEMENTS).toHaveLength(159);
     expect(ACHIEVEMENTS.filter((a) => a.shipped)).toHaveLength(30);
     expect(ACHIEVEMENTS.slice(0, 30).every((a) => a.shipped)).toBe(true);
     expect(PRE).toHaveLength(102);
     expect(ACT2.map((a) => a.id)).toEqual(ACT2_IDS);
     expect(LAUNCH).toHaveLength(86);
-    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(147);
+    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(150);
     expect(TRYOUT_ROWS.map((a) => a.id)).toEqual(['a_try_half', 'a_try_full', 'a_try_spotless', 'a_try_ticked', 'a_try_dare', 'a_try_seen', 'a_try_lr',
-      'a_try_window', 'a_try_moves', 'a_try_g4', 'a_try_g8', 'a_try_g12']);
+      'a_try_window', 'a_try_moves', 'a_try_g4', 'a_try_g8', 'a_try_g12', 'a_try_aw50', 'a_try_aw75', 'a_try_aw100']);
     expect(TRYOUT_ROWS.every((a) => achievementLive(a) && a.cat === 'tryout' && a.metric === 'counter' && a.param.startsWith('ty:'))).toBe(true);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'codex')).toHaveLength(11);
     expect(ACHIEVEMENTS.filter((a) => a.wave === 'codex').every((a) => achievementLive(a))).toBe(true);
@@ -118,12 +118,13 @@ describe('rewards', () => {
     }
   });
 
-  it('caps: launch gems ≤ 6,000 (5,930); all new before the Gate Arc ≤ 7,000 (6,780); tickets 6; Celestial 5; Radiant 20; Tryout Day 360 gems apart', () => {
+  it('caps: launch gems ≤ 6,000 (5,930); all new before the Gate Arc ≤ 7,000 (6,780); tickets 6; Celestial 5; Radiant 20; Tryout Day 480 gems apart', () => {
     expect(sum(LAUNCH, 'gems')).toBe(5930);
     expect(sum(PRE, 'gems')).toBe(6780);
     expect(sum(PRE, 'ticket_recruit')).toBe(6);
-    // Tryout Day: 360 gems once (= 3 recruits), gems only, counted as its own one-time source (TRYOUT_DAY.md §10.2)
-    expect(sum(TRYOUT_ROWS, 'gems')).toBe(360);
+    // Tryout Day: 480 gems once (= 4 recruits: 360 + Extended Day's 120), gems only, counted as its own one-time source
+    // (TRYOUT_DAY.md §10.2, §20.5)
+    expect(sum(TRYOUT_ROWS, 'gems')).toBe(480);
     expect(TRYOUT_ROWS.every((a) => a.rewards.every((r) => r.id === 'gems'))).toBe(true);
     expect(sum(LAUNCH, 'ticket_recruit')).toBe(5);
     expect(sum(PRE, 'gearbox_legendary')).toBe(5);
