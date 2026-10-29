@@ -7,6 +7,7 @@
 | S6a (Oct 28) | the S6a commits on the S6a worktree branch `s6a-look` (based on 04ace86c) | 04df91a11220 | 0652c02a | 10 | Vesperline, render only: themes.THEMES.vesper (the living city on the city kit, `kit: 'vesper'`: the `glass` ground, the `glassway` road, lecture halls and podiums, frosted panes, holo lane lamps, the `gallery` tunnels, the glass light-bridge, `sentryBay` / `vesperShelter`) and themes.FROZEN (`scenery.ruined: 'frozen'` on vesper only: an eclipse dusk, snow, cyan cracks, near-black water, an aurora), src/render/city/vesperProps.js (glassTower, podium, lectureHall, holoSign, haloStatue, doorieStatue, doorieBus, prismBattery, transitPad, frozenFountain, frostedPane, vesperTerminal, spindle, frozenNest, greyWool, stationCanopy, starDome, courtyardTree, skyRailPod, the cleaning robot), cityProps sentryBay / vesperGate / vesperShelter, trackMesh glass and sky-rail decks, piers all along a viaduct (`track.viaducts`, S6v) or a sky-rail run, `viaductEnds` / `piers`, the `gallery` style, the 'railEnd' and 'spire' slots and the Step 6 SCENERY keywords, RuleDecals `transit` (transit pads), ambient dark snow / aurora / frost haze, the `vesper_*` and `rime_` fall styles, the six drawn story places with time of day and PLACE_VARIANT rows, thumbnail palettes `vesper` / `frozen`, THEME_FAMILY.vesper 'ironclock', previews/vesper.html. No map, stage, enemy or story data: hashes identical to the plan row (`tools/simId.mjs` 04df91a11220, `coopVersion().data` 0652c02a) |
 | S6b (Oct 28) | dbe70956 (S6b/S6c worktree branch `s6bc-maps-stages`, based on 73780c1f) | 4610033dc1fb | 670818d9 | 10 | Six maps in `maps.js`, theme `vesper`, `city: { kit: 'vesper', spawnGate: 'sentryBay' }` ('vesperGate' on 6-10): Frost Causeway (a broken causeway W, two open leads under water decks, `bridge: { glass: true }`), Sky-Rail Viaduct (the first shipped viaduct: UP / DOWN, 9.7 tiles foot to foot, its own return under the flat top, `bridge: { skyRail: true }`), Museum of Noon (two gallery wings, `tunnel: { style: 'gallery' }`), Lecture Tower Ring (the phi, three crossings, `bridge: { glass: true }`), The Spindle's Foot (the helix, two lanes, two bridges), The Starfall Deck (the side map: the orrery, a tunnel crossing). Decor uses shipped prop types only. The tracks golden keeps its 74 shipped digests (the six join it after review, as the test says). world.test: THEMES gains `vesper`, the Vesperline map test. PENDING_BUMP { 10: '4610033dc1fb' } |
 | S6c (Oct 28) | 20b7f157, e14838b3, e0bf2a8e + the re-pin commit | 5239cc7fec77 | 27ae502e | 10 | `vesper_lattice_shell`, `vesper_aegis`, `vesper_warden` (elite), `vesper_gatekeeper` (miniboss, the Iron Colossus's body, 3,950 HP) on `construct`, `rime_wisp` on `ghost` (shipped GLBs only); stages 6-6…6-10 (`CHAPTERS[5].act2*`, theme `vesper`, `ruined: 'frozen'`) with rules + skins (6-6's three prism batteries), `ACT2_MECHANIC[6]`; the side stage `side-6-starfall` (kind `side`, anchor / requires `'6-10'`, hpScale 9.94, rule forge_vents with three ground-road zones; last in STAGES, never in CAMPAIGN_IDS); the maps take S6a's render names (e14838b3: no `city.kit` / sentry-bay / glass / gallery keys, decor `doorieStatue` and `spindle`) and the Starfall Deck's pool fills the orrery. Campaign enemies 87 → 92, minibosses 9 → 10, stages 84 → 90 (campaign ids 65 → 70, trophy stages 89), `a_ch6_act2` live (ledger appended: 125 gems), achievements 134 → 135, medals 260 → 280, ribbons 1300 → 1400. Engines wave digest 4381:f4a15f8d → 4735:04bdf65c (+ 144 campaign waves, 30 side waves, 6 × 30 endless); Act I tables unchanged (campaignGolden); the tracks golden keeps its 74 shipped maps. PENDING_BUMP { 10: '5239cc7fec77' } |
+| Logic review round 1 (Oct 29) | the `s6-balfix` commits (based on 2f7d7f9e) | a5eae10ed0a2 | 874a76d9 | 10 | The review's medium finding (6-9 and the side stage lost Hard only to a raised opening budget, [10, …]). Maps first: `vesper_tower_ring`'s entry moves east off the hero widget's LV UP button (the VISUAL review: [3.0, 13] → [5.4, 13], sweeping west round the plaza's corner to the ring's light-bridge), a lecture-tower podium on the one non-road tile of the plaza's south-west wedge (7, 7) and two at the ring canal's new west end (7-8, 11), where the hero stood over the entry spoke, its bend and the ring's crossing; `vesper_starfall`'s inner hub (the pool inside the inner ring, (11-12, 5) and (11, 6)) becomes the orrery's podium. Budgets: 6-9 [10, 6000] → [6, 3500], side-6-starfall [10, 5000] → [6, 7000]. Engines wave digest 4735:04bdf65c → 4735:a2a5a5b3 (scripted battle 7db1eed1 unchanged); the 74 shipped maps' goldens unchanged (the vesper maps are not in mapsGolden yet). PENDING_BUMP { 10: 'a5eae10ed0a2' } |
 
 Checks at the S6v row: `tools/simId.mjs` → d0bcec9bf6fd, `coopVersion().data` → 0652c02a, COOP_PROTOCOL 10 (untouched);
 `npx vitest run` 5126 passed / 11 skipped (316 files).
@@ -90,3 +91,54 @@ of 10, under the plan's limit of 12, plus the final). The orrery got its pool (t
 Hard 33 → 25 lives at [6, 1500]; it then takes [10, 5000]. 6-8's hidden wings need far less ([4, 600]); 6-10's
 Wardens and two lanes make it the hardest at [6, 700] ([6, 900] fell to 43 Normal lives, below the band).
 
+### Logic review round 1: 6-9 and the side stage (same bot: autoPlan, F2P roster, L35, map rules on, seed 1)
+
+Finding: 6-9 at [10, 6000] lost Hard at wave 10 with 42 of its 50 lives gone in waves 1-9; at a start of 6 it won Hard
+with 1 life and nothing leaked after wave 14 (the side stage: won with 7, nothing after wave 16). The bot's damage
+showed why: on both boards the hero (Nami, amphibious) took the best water spot and dealt 88% (6-9) and 61% (side) of
+all damage, from a spot over three or four passes (6-9: the canal's west end beside the entry spoke, its bend and the
+ring's crossing; the side: the pool inside the inner ring). The plaza's own wedge on 6-9 is road tiles but for (7, 7).
+
+Map changes (rows and 6-9's entry only; every authoring test passes):
+- `vesper_tower_ring`: entry `[[5.4, 13], L, [5.4, 11.8], [4.6, 10.6], [4.8, 9.4], [6.0, 8.7], [8.6, 8.4], …]` (was
+  `[[3.0, 13], L, [3.0, 10.6], [3.8, 9.2], [6.0, 8.6], …]`); length 54.6 → 53.5; crossings bridge 68° (6.26, 8.63),
+  flat 90°, bridge 75°; transit-pad points d 21.4 / 27.8, 2.6 / 3.8 tiles from every crossing; signature +132 −85 +430;
+  top IoU Sunken Hollow 0.53, The Starfall Deck 0.51, Drowned Willow 0.50; podiums at (7, 7) and (7-8, 11), the canal
+  runs (9-16, 11), the flower moved off the new road to (1, 10). Road · land · water 99 · 90 · 29 → 95 · 95 · 24.
+- `vesper_starfall`: podium tiles (11, 5), (12, 5), (11, 6) in the inner hub; road · land · water 107 · 105 · 21 →
+  107 · 105 · 18 (track, IoU and signature unchanged).
+
+After the change the damage spreads (Hard at the new budgets: 6-9's hero 40% from the north-east pool, Kage and Shiro
+16% each, Suzu 13%, Midori 9%; the side's hero 49% from the pool between the rings, Suzu 18%, Shiro 13%) and Hard is
+decided by waves 10-15 rather than the opening.
+
+| Stage | Budget | Easy (lives / 150) | Normal (lives / 100) | Hard (lives / 50) |
+|---|---|---|---|---|
+| 6-9 Lecture Tower Ring (before) | [10, 6000] | won 144 | won 87 | lost at wave 10/29 |
+| 6-9 Lecture Tower Ring | [6, 3500] | won 142 | won 84 | lost at wave 15/29 |
+| side-6-starfall (before) | [10, 5000] | won 144 | won 79 | lost at wave 13/30 |
+| side-6-starfall The Starfall Trial | [6, 7000] | won 141 | won 77 | lost at wave 15/30 |
+
+Hard lives at the start of each wave from wave 2 (then the end):
+- 6-9 before, [10, 6000]: 45 43 38 34 30 25 21 17 8 → 0 in wave 10 (42 lives lost in waves 1-9).
+- 6-9 before at [6, 6000]: 45 44 40 36 34 32 31 31 27 22 22 17 7 1 1 … 1 → won with 1 (nothing lost after wave 14).
+- 6-9 now, [6, 3500]: 45 43 39 36 35 33 32 29 27 20 20 19 10 1 → 0 in wave 15 (23 lives lost in waves 1-9, 27 in
+  waves 10-15).
+- side before at [6, 5000]: 48 46 43 43 40 40 38 36 34 34 34 23 17 11 11 7 7 … 7 → won with 7.
+- side now, [6, 7000]: 48 46 43 43 40 40 37 35 32 32 32 18 5 1 → 0 in wave 15 (18 lives lost in waves 1-9, 32 in
+  waves 10-15).
+
+Unchanged rows (re-run on this branch): 6-6 146 / 88 / lost w14, 6-7 144 / 83 / lost w15, 6-8 129 / 67 / lost w14,
+6-10 141 / 57 / lost w14. 6-10 stays the act's hardest (fewest Normal lives, and its Hard loss at wave 14 is the
+earliest with 6-6 and 6-8); 6-9 is no longer the earliest Hard loss. The side stage keeps hpScale 6-10 × 1.1 (9.94) and
+the plan's side targets (Normal won with ≥ 30 lives, Hard lost); on this bot it now sits beside 6-10 rather than above
+it (Normal 77 vs 57, Hard wave 15 vs 14): a final that loses Hard at wave 14 ([6, 7500]) loses every life by wave 14.
+Both rows are narrow by nature: once the bot's carries are upgraded the late waves are held, so lives fall in waves 10-15
+or not at all (6-9: [6, 3000] won with 9, [6, 4000] lost at wave 13; side: [6, 6500] won with 1, [6, 7500] lost at
+wave 14). Late fixed groups (Halo Drones, Goblin Bombers, extra Wardens at waves 17-26) changed no row, so none were
+added.
+
+Checks at the logic round 1 row: `tools/simId.mjs` → a5eae10ed0a2, `coopVersion().data` → 874a76d9, COOP_PROTOCOL 10
+(untouched; PENDING_BUMP carries the new id); `npx vitest run` 5183 passed / 11 skipped (318 files); `node e2e/engines.mjs`
+OK (Node V8, Bun JavaScriptCore, Playwright Chromium: wave tables 4735:a2a5a5b3, checkpoints 7db1eed1, lobby data
+874a76d9).
