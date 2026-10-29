@@ -89,8 +89,8 @@ const LOOK_ENUMS = {
   eyeStyle: ['round', 'sharp', 'sleepy', 'sparkle', 'closed'],
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
 };
-// wheel / spin: the attack shapes S1 (src/sim/wheels.js; docs/specs/ATTACK_SHAPES.md)
-const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'drink', 'roll', 'none', 'wheel', 'spin'];
+// wheel / spin: the attack shapes S1 (src/sim/wheels.js; docs/specs/ATTACK_SHAPES.md); stream / sweep: S2 (src/sim/held.js)
+const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'drink', 'roll', 'none', 'wheel', 'spin', 'stream', 'sweep'];
 const BASE_REQUIRED = [
   'cost', 'behavior', 'damage', 'rate', 'range', 'projectiles', 'pierce', 'splash', 'chain', 'maxTargets',
   'projectileSpeed', 'armorPen', 'canHitAir', 'detection', 'status', 'crit', 'eliteMul', 'bossMul', 'barrierMul',
@@ -245,6 +245,9 @@ function modSetErrors(mods, where) {
     wheel: (k, v, w) => objErrors(v, ['spokes', 'lead', 'mul'], w, numCheck),
     spin: (k, v, w) => objErrors(v, ['arms', 'mul', 'fold', 'turn', 'lock'], w, numCheck),
     halo: (k, v, w) => objErrors(v, ['pieces', 'reach', 'mul'], w, numCheck),
+    // the attack shapes S2 (src/sim/mods.js SHAPE_NORM): numbers, and a stream's element kind (src/sim/held.js STREAM_KINDS)
+    stream: (k, v, w) => objErrors(v, ['kind', 'half', 'turn', 'mul', 'cap'], w, (kk, vv, ww) => (kk === 'kind' ? (['fire', 'frost', 'poison', 'water'].includes(vv) ? [] : [`${ww} unknown kind ${vv}`]) : numCheck(kk, vv, ww))),
+    sweep: (k, v, w) => objErrors(v, ['arc', 'swing', 'turn', 'mul', 'cap'], w, numCheck),
     duo: (k, v, w) => objErrors(v, DUO_NUMS, w, numCheck),
     // the staff heroes (BANNERS §D): Kogane's Move recharge, Norika's barricades
     moveCd: (k, v, w) => (isPos(v) ? [] : [`${w} must be > 0`]),

@@ -25,6 +25,7 @@ import { buildProcSpecs, boostedAura } from './potential.js';
 import { layStrip, stripStep, stripTick } from './strips.js';
 import { attackRing, ringTick } from './rings.js';
 import { attackWheel, attackSpin, wheelTick } from './wheels.js';
+import { attackHeld, heldTick, heldOff } from './held.js';
 import { hitRadius } from './shapes.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
 import { sentryTick } from './sentries.js';
@@ -789,6 +790,33 @@ function linePierceInto(sim, t, spec, target, length, halfWidth, pierce, hits, n
   return hits;
 }
 
+/**
+ * The spec a held channel carries now (src/sim/held.js): her rhythm spec after a rhythm attack (t.ch.src), with
+ * the gear trick of her last counted attack (t.ch.trick: 1 Finishing Thrust, 2 Big Beat) as gearSpec makes it.
+ */
+function heldBase(t) {
+  const ch = t.ch;
+  const s = ch && ch.src === 1 && t.effProc ? t.effProc : t.eff;
+  if (!ch || !ch.trick) return s;
+  const tr = ch.trick === 1 ? { mul: TRICK.thrust.mul, pen: THRUST_PEN } : { mul: TRICK.bigBeat.mul, pen: 0 };
+  return { ...s, damage: s.damage * tr.mul, ...(tr.pen ? { armorPen: (s.armorPen || 0) + tr.pen } : null) };
+}
+
+/** The helpers a held channel uses (src/sim/held.js heldTick). */
+const HELD_HELP = Object.freeze({ bestTarget, base: heldBase });
+
+/**
+ * A held girl's counted attack (src/sim/held.js attackHeld): her enemy by target mode, and what the channel
+ * carries until her next attack (a rhythm attack's spec, her gear trick); an echo is one flare.
+ */
+function attackHeldWith(sim, t) {
+  const src = t.effProc && t.eff === t.effProc ? 1 : 0;
+  const trick = echoing || !gearTrick ? 0 : gearTrick.kind === 'thrust' ? 1 : 2;
+  const e = attackHeld(sim, t, t.eff, HELD_HELP, { src, trick, echo: echoing });
+  if (e) lastFaced = e;
+  return !!e;
+}
+
 /** The targeting helpers Kohaku's constant beam uses (src/sim/duo.js partnerTick). */
 const PRISM_HELP = Object.freeze({ selectTargetsInto, linePierceInto, face });
 
@@ -1463,6 +1491,9 @@ const BEHAVIORS = {
     return attackWheel(sim, t, spec, targets, targets.length ? shotPierce(t) : 0);
   },
   spin: (sim, t) => attackSpin(sim, t, gearSpec(t.eff), () => shotPierce(t)),
+  // attack shapes S2 (src/sim/held.js): a held channel; her counted attacks pick her enemy and what it carries
+  stream: attackHeldWith,
+  sweep: attackHeldWith,
   drink: throwDrink,
   roll: rollBall,
 };
@@ -1953,9 +1984,13 @@ export function updateTower(sim, t, dt) {
   if (t.disabled > 0) {
     t.disabled = Math.max(0, t.disabled - dt);
     if (s.duo) partnerOff(t); // a sabotage breaks Kohaku's beams (src/sim/duo.js)
+    if (t.ch) heldOff(sim, t); // and a held channel (src/sim/held.js)
     return;
   }
-  if (t.moveLock > 0) return; // a hero repositioning mid-wave (hero.js moveHero)
+  if (t.moveLock > 0) {
+    if (t.ch) heldOff(sim, t);
+    return; // a hero repositioning mid-wave (hero.js moveHero)
+  }
   if (s.turret?.overclock) tickOverclock(sim, t, s.turret.overclock, dt);
   if (s.strip) stripTick(sim, t, dt);
   if (s.ring) ringTick(sim, t, dt);
@@ -1989,6 +2024,8 @@ export function updateTower(sim, t, dt) {
   }
   // the duo's partner weapon (Kohaku's constant beam, src/sim/duo.js): its own tick timer, after the main weapon
   if (s.duo) partnerTick(sim, t, PRISM_HELP);
+  // a held channel (attack shapes S2, src/sim/held.js): its lock, aim and damage ticks, after her attack loop
+  if (t.ch) heldTick(sim, t, HELD_HELP);
 }
 
 // ---------------------------------------------------------------------------

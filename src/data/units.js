@@ -569,8 +569,8 @@ const AKANE = {
       tier('Hot Coals', 120, 'Burns deal 3/s for 2.5s.', { status: [S.burn(3, 2.5)] }),
       tier('Kindling', 280, '+15% attack speed.', { rateMul: 1.15 }),
       tier('Napalm Bloom', 900, 'Burns deal 6/s for 3.5s; +0.2 range.', { status: [S.burn(6, 3.5)], range: 0.2 }),
-      tier('Phoenix Feather', 2800, 'Fireballs arc high enough to hit flyers; burns 12/s plus 0.15% of max HP/s for 4s; +4 damage, +20% damage.', { canHitAir: true, status: [{ type: 'burn', dps: 12, pct: 0.0015, duration: 4 }], damage: 4, damageMul: 1.2 }),
-      tier('Inferno Queen', 16000, 'Burns 40/s plus 0.3% of max HP/s for 5s (bosses 0.03%), wider blasts (+0.5), +40% attack speed, +6 damage; +50% damage.', { status: [{ type: 'burn', dps: 40, pct: 0.003, duration: 5 }], splash: 0.5, rateMul: 1.4, damage: 6, damageMul: 1.5 }),
+      tier('Phoenix Feather', 2800, 'Hearth Stream: she holds out a stream of fire that pours over the nearest 6 enemies in a cone and swings to follow her target; it reaches flyers. Burns 12/s plus 0.15% of max HP/s for 4s; +4 damage, +20% damage.', { behavior: 'stream', stream: { half: 36, turn: 3, mul: 1.06, cap: 35 }, canHitAir: true, status: [{ type: 'burn', dps: 12, pct: 0.0015, duration: 4 }], damage: 4, damageMul: 1.2 }),
+      tier('Inferno Queen', 16000, 'A wider stream (the nearest 8). Burns 40/s plus 0.3% of max HP/s for 5s (bosses 0.03%), +40% attack speed, +6 damage; +50% damage.', { stream: { half: 45, turn: 4, mul: 1.07, cap: 56 }, status: [{ type: 'burn', dps: 40, pct: 0.003, duration: 5 }], splash: 0.5, rateMul: 1.4, damage: 6, damageMul: 1.5 }),
     ]),
     path('rocketry', 'Rocket Science', 'Range, speed and armor', [
       tier('Long Fuse', 100, '+0.4 range.', { range: 0.4 }),
@@ -761,8 +761,8 @@ const UMEKO = {
       tier('Clear Water', 120, 'Aura reaches 3 tiles.', { aura: { range: 3 } }),
       tier('Beacon', 300, '+0.4 range; aura reaches 3.4 tiles.', { range: 0.4, aura: { range: 3.4 } }),
       tier('Revealing Tide', 950, 'Pulses reveal veiled foes for everyone for 3s; +2 damage.', { reveal: 3, damage: 2 }),
-      tier('Moonlit Beacon', 3000, 'Aura reaches 4.5 tiles and gives +10% range and +5% damage; reveal +2s.', { aura: { range: 4.5, rangeMul: 1.1, dmgMul: 1.05 }, reveal: 2 }),
-      tier('Sea of Lanterns', 15000, 'Aura reaches 6 tiles: +15% range, +15% damage, and girls in it ignore 3 armor; reveals last 3s longer and pulses silence for 0.8s.', { aura: { range: 6, rangeMul: 1.15, dmgMul: 1.15, armorPen: 3 }, reveal: 3, silence: 0.8 }),
+      tier('Moonlit Beacon', 3000, 'Searchlight Sweep: her pulse becomes a beam of light that swings back and forth across the road, striking and revealing what it passes. Aura reaches 4.5 tiles and gives +10% range and +5% damage; reveal +2s.', { behavior: 'sweep', sweep: { arc: 30, swing: 2, turn: 1, mul: 1 }, aura: { range: 4.5, rangeMul: 1.1, dmgMul: 1.05 }, reveal: 2 }),
+      tier('Sea of Lanterns', 15000, 'A wider sweep. Aura reaches 6 tiles: +15% range, +15% damage, and girls in it ignore 3 armor; reveals last 3s longer and the beam silences for 0.8s.', { sweep: { arc: 40, swing: 2, turn: 1, mul: 0.97 }, aura: { range: 6, rangeMul: 1.15, dmgMul: 1.15, armorPen: 3 }, reveal: 3, silence: 0.8 }),
     ]),
     path('plumrain', 'Plum Rain', 'Team buffs', [
       tier('Warm Current', 140, 'Aura: +5% attack speed.', { aura: { rateMul: 1.05 } }),

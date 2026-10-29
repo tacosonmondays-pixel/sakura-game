@@ -345,6 +345,30 @@ export const HALO_HITS = 32;
 export const HALO_MAX = 16;
 
 // ---------------------------------------------------------------------------
+// Attack shapes, batch S2 "Held" (docs/specs/ATTACK_SHAPES.md §4.3, §5.3, §5.9; src/sim/channel.js,
+// src/sim/held.js). Every timer is an integer of sim steps; every angle an integer of table steps (1.5°).
+// ---------------------------------------------------------------------------
+/** A held channel's damage tick: every CH_TICK steps (0.1 s); it stays CH_GRACE steps aimed where it was after
+ *  losing its enemy, then lets go; a channel's re-hit memory keeps at most CH_HITS [uid, step] pairs. */
+export const CH_TICK = 6;
+export const CH_GRACE = 12;
+export const CH_HITS = 32;
+/** COS2 covers half-angles 0…COS2_MAX table steps (0°…90°). */
+export const COS2_MAX = 60;
+/** Hearth Stream: damage × STREAM_TIP at the cone's tip (× 1 at her, linear in d²); the default half-angle and turn
+ *  (table steps; a turn is per sim step). */
+export const STREAM_TIP = 0.85;
+export const STREAM_HALF = 12;
+export const STREAM_TURN = 3;
+/** Searchlight Sweep: the beam is tested every SWEEP_TICK steps; its half-width (tiles); the default arc either side
+ *  of its centre, swing (table steps a sim step) and centre turn (table steps a sim step). Its re-hit gap is one pass. */
+export const SWEEP_TICK = 2;
+export const SWEEP_HALF_WIDTH = 0.25;
+export const SWEEP_ARC = 30;
+export const SWEEP_SWING = 1;
+export const SWEEP_TURN = 1;
+
+// ---------------------------------------------------------------------------
 // The duo (Kohaku & Tsubaki, docs/specs/DUO_LR.md §1; src/sim/duo.js)
 // ---------------------------------------------------------------------------
 

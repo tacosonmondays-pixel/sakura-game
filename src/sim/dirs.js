@@ -2,14 +2,14 @@
 // +y (the sim's facing convention), clockwise, built once at load with the deterministic sin / cos
 // (src/core/detMath.js), so every engine aims and flies the same shots. 240 divides by 2, 3, 4, 5, 6,
 // 8, 10, 12, 15, 16, 20, 24, 30, 40, 48 and 60, so every "N shots evenly round" and every 1/16 turn
-// is exact. Moved out of src/sim/rings.js (Kinu's ring) for the attack shapes; ringDir stays there as
+// is exact; COS2 (S2) holds cos² of a half-angle in table steps for cone tests. Moved out of src/sim/rings.js (Kinu's ring) for the attack shapes; ringDir stays there as
 // an alias.
 //
 // Determinism: no trig at runtime. nearestDir replaces atan2 for aiming with dot products (+ − × and
 // compares only); turnToward is integer arithmetic mod RING_DIRS.
 
 import { DET_MATH } from '../core/detMath.js';
-import { RING_DIRS } from './constants.js';
+import { RING_DIRS, COS2_MAX } from './constants.js';
 
 /** The table's unit vectors (x, y) by index. */
 export const DIR_X = new Float64Array(RING_DIRS);
@@ -18,6 +18,13 @@ for (let k = 0; k < RING_DIRS; k++) {
   const a = (2 * Math.PI * k) / RING_DIRS;
   DIR_X[k] = DET_MATH.sin(a);
   DIR_Y[k] = DET_MATH.cos(a);
+}
+
+/** cos² of h table steps (h = 0…COS2_MAX, 1.5° each), built once with the deterministic cos: a cone test without square roots. */
+export const COS2 = new Float64Array(COS2_MAX + 1);
+for (let h = 0; h <= COS2_MAX; h++) {
+  const c = DET_MATH.cos((2 * Math.PI * h) / RING_DIRS);
+  COS2[h] = h === COS2_MAX ? 0 : c * c;
 }
 
 /** Index k wrapped into [0, RING_DIRS). Integers in, an integer out. */

@@ -11,6 +11,7 @@
 // reads a view slot, the clock or Math.random. The pick command (setBuffPick) is the only player input.
 import { BREW_EVERY, BREW_TIME, BREW_DROP, DPS_WINDOW, LINK_SCAN } from './constants.js';
 import { shapeDps } from './wheels.js';
+import { heldDps } from './held.js';
 
 /** Aura winner uid per buff key (-1: none); `rally`: the girl whose ability rally reaches her. */
 export function emptyBuffBy() {
@@ -57,6 +58,7 @@ export function projectedDps(t) {
   if (!e) return 0;
   let d = e.behavior === 'none' || e.behavior === 'trap' ? 0 : e.damage * e.rate * (e.behavior === 'pulse' ? 1 : e.projectiles);
   if (t.stats?.wheel || t.stats?.spin || t.stats?.halo) d = shapeDps(t, e, d);
+  if (t.stats?.stream || t.stats?.sweep) d = heldDps(t, e, d);
   if (t.turretSpec && t.turrets?.length) d += t.turretSpec.damage * t.turretSpec.rate * t.turrets.length;
   if (t.trapSpec) d += t.trapSpec.damage * e.rate;
   return d;
