@@ -27,6 +27,12 @@ export const PATCH_NOTES = [
       'The academy girls get real attacks: Azami’s tumbling spike strips, Kinu’s threaded needles, Wakaba’s drink bottles, Yuzuha’s taser darts, Ouka’s office seal, Chigusa’s seeds and vines, and Marumi’s ball you can see bounce.',
       'New 3D props for what they place: Azami’s spike strips, Yuzuha’s fold-out sentries and Capture Nets, Chigusa’s thorn vines and beds, Ouka’s council banners, Wakaba’s drink bottle and Kinu’s heat ring and scissors.',
     ],
+    changed: [
+      'Chika’s Overall tab now shows her average DPS beside Live too, drones included; between waves the readout says “DPS (wave)”.',
+    ],
+    fixed: [
+      'Recruit on a phone held sideways: both Recruit buttons show without scrolling on every banner, and picking a banner no longer jumps the page.',
+    ],
   },
   {
     id: 'v0.1.60', version: '0.1.60', date: '2026-10-29', title: 'Gate Arc Acts 3–6 and Extended Day',
