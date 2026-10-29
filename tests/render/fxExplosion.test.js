@@ -38,3 +38,28 @@ describe('fx.explosion on one spot', () => {
     expect(fx.parts.length - before).toBe(one);
   });
 });
+
+describe('fx.explosion: volatile blasts and styled impacts', () => {
+  it('an enemy death blast is never folded into a tower blast on the same spot', () => {
+    const fx = makeFx();
+    fx.explosion(5, 5, 1, '#ffffff');
+    const one = fx.parts.length;
+    fx.explosion(5, 5, 1, '#ff5a4a', { volatile: true });
+    expect(fx.parts.length).toBeGreaterThan(one + 2);
+  });
+
+  it('dimBlast halves the glow of the blast there this moment, nowhere else, and only once', () => {
+    const fx = makeFx();
+    fx.explosion(5, 5, 1.7, '#ffffff');
+    const glowA = fx.parts[0];
+    fx.explosion(12, 5, 1.7, '#ffffff');
+    const glowB = fx.parts.find((p, i) => i > 0 && p.s0 === glowA.s0 && p.x === 12);
+    fx.dimBlast(5.1, 5, 0.5);
+    fx.dimBlast(5.1, 5, 0.5);
+    expect(glowA.a0).toBe(0.5);
+    expect(glowB.a0).toBe(1);
+    fx.update(0.2);
+    fx.dimBlast(12, 5, 0.5); // too late: that blast is past the gap
+    expect(glowB.a0).toBe(1);
+  });
+});

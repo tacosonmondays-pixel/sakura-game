@@ -196,8 +196,12 @@ export const iroha = {
   },
 
   onImpact(rec, x, y, crit, radius, ctx) {
-    if (flashFree(budget(ctx), x, y, ctx.time)) flash(ctx, x, 0.4, y, 0.4, ctx.col(SILVER), 0.12);
-    sparks(ctx, x, 0.4, y, 3, ctx.col(PLUM), 1.4);
+    // a volley's bolts land on one spot in one moment: the flash, sparks, ripple and stars draw once there
+    const first = flashFree(budget(ctx), x, y, ctx.time);
+    if (first) {
+      flash(ctx, x, 0.4, y, 0.4, ctx.col(SILVER), 0.12);
+      sparks(ctx, x, 0.4, y, 3, ctx.col(PLUM), 1.4);
+    }
     // Shattered Glass: only a splash bolt (the sim's explode) breaks into shards
     const tw = rec.tw;
     if (!(rec.splash > 0) || !tw) return;
@@ -211,8 +215,10 @@ export const iroha = {
       b.shards += n;
       glassShards(ctx, x, y, n, radius, rm);
     }
-    if (tier >= 3) ripple(ctx, x, y, rm ? radius || 0.5 : 0.1, Math.max(0.3, radius || 0.5), 0.3, ctx.col('#e6dcff'), 0, 'ringSoft', true, 0.55, DECOR);
-    if (tier >= 4 && ctx.quality !== 'low') {
+    // her shards and flare draw this hit: the generic blast's glow under it goes to half strength
+    if (first) ctx.fx?.dimBlast?.(x, y, 0.5);
+    if (first && tier >= 3) ripple(ctx, x, y, rm ? radius || 0.5 : 0.1, Math.max(0.3, radius || 0.5), 0.3, ctx.col('#e6dcff'), 0, 'ringSoft', true, 0.55, DECOR);
+    if (first && tier >= 4 && ctx.quality !== 'low') {
       for (let i = 0; i < 2; i++) {
         const a = Math.random() * TAU;
         const d = (radius || 0.5) * (0.3 + Math.random() * 0.6);
