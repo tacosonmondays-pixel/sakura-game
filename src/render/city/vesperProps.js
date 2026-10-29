@@ -51,6 +51,8 @@ export const VS = {
   steel: '#8a9cab',
   steelDark: '#3d4b58',
   black: '#18202c',
+  /** the Spindle's door: deep blue glass (not a black hole in the white drum) */
+  door: '#1d3c66',
   snow: '#f1f5f9',
   ice: '#cde4ee',
   icicle: '#e2f2f8',
@@ -465,8 +467,13 @@ export const VESPER_BUILDERS = {
         const a = (i / 8) * Math.PI * 2;
         c.solid.box(0.14, 0.3, 0.02, { x: Math.cos(a) * (R + 0.075), y: 0.03, z: Math.sin(a) * (R + 0.075), ry: -a + Math.PI / 2, color: VS.glassDark });
       }
-      // the door (south, toward the camera) and a band of cyan light round the shaft's base
-      c.solid.box(0.4, 0.32, 0.04, { y: 0.0, z: R + 0.09, color: VS.black });
+      // the door (south, toward the camera): deep blue glass in a white frame (two jambs and a lintel standing
+      // proud of it) over a lit cyan threshold, then a band of cyan light round the shaft's base
+      c.solid.box(0.4, 0.32, 0.04, { y: 0.0, z: R + 0.09, color: VS.door });
+      for (const x of [-0.225, 0.225]) c.solid.box(0.05, 0.36, 0.07, { x, y: 0.0, z: R + 0.1, color: VS.frame });
+      c.solid.box(0.5, 0.05, 0.07, { y: 0.34, z: R + 0.1, color: VS.frame });
+      c.glow.box(0.4, 0.012, 0.1, { y: 0.004, z: R + 0.15, color: VS.cyan });
+      c.glow.box(0.3, 0.02, 0.012, { y: 0.26, z: R + 0.115, color: VS.holo });
       c.glow.torus(0.92, 0.016, 3, 20, { y: 0.74, rx: Math.PI / 2, color: VS.cyan });
       glowPoint(c, 0, 0.8, 0.9, VS.cyan, 0.6, 0.06);
       return;
