@@ -304,7 +304,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned Oct 28 for Kohaku's constant beam (src/sim/duo.js: damage ticks every 6 steps instead of a flash every
     // ~1.4 s, beams that hold their enemy, `beams` now counts lock-ons and a repeat every 1.5 s held): ticks 44632 → 44656, final 3327486567 → 1485318803,
     // hashes 8b361ee7 → baad978d, duo 273/1262/388/… → 274/1266/616/… (a lock-on and every 1.5 s held: Kohaku's clip)
-    // Re-pinned Oct 29 for the v0.1.61 duo buff (base +25%, the LR form ×1.1 and her long beam: the host's duo is LR):
+    // Re-pinned Oct 29 for the Oct 29 duo buff (base +25%, the LR form ×1.1 and her long beam: the host's duo is LR):
     // the battle ends sooner, ticks 44656 → 39421, final 1485318803 → 1647005069, hashes baad978d → f97c7537.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, duo: r.duo })
       .toEqual({ ticks: 39421, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3357/3772', final: 1647005069, hashes: 'f97c7537', duo: '251/1153/498/24/9/1' });

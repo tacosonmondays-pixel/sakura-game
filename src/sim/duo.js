@@ -26,7 +26,7 @@
 //
 // The long beam (Grand Spectrum, `duo.edge`, and the duo's LR form, `unitStats.lr`): a held beam still locks onto
 // an enemy within her reach and keeps its hold rules, ramp and silence cadence, but its line runs on through that
-// enemy to the map edge (edgeReach: the map-bounds clip). Within her reach it is exactly the old beam (her pierce);
+// enemy to the map edge (edgeReach: the map-bounds clip). Within her reach it hits as the old beam did (the same line test and her pierce);
 // past it the light hits everything on the line (up to PRISM_EDGE_PIERCE in all), each hit × PRISM_EDGE_MUL.
 //
 // Determinism (co-op lockstep): integer counters and tick timers, fixed tables, + − × ÷, Math.sqrt and Math.round only.
@@ -80,7 +80,7 @@ export function buildPartnerSpec(t) {
     armorPen: e.armorPen + d.beamPen,
     airMul: (s.airMul ?? 1) * d.beamAir,
     eliteMul: 1,
-    // her ×bosses reaches the beam too (the duo's v0.1.61 buff: a boss row the beam carries)
+    // her ×bosses reaches the beam too (the duo's Oct 29 buff: a boss row the beam carries)
     bossMul: e.bossMul ?? 1,
     barrierMul: 1,
     ramp: d.rampMax > 0 ? { per: d.rampPer, max: d.rampMax } : null,
@@ -221,7 +221,7 @@ function prismBeam(sim, t, spec, h) {
     const scale = prismRamp(spec, tick, b.held);
     const silence = sil > 0 && (b.held * PRISM_BEAM_TICK) % PRISM_SILENCE_TICKS === 0;
     const hits = h.linePierceInto(sim, t, tick, e, beamLength(sim, t, spec, e), BEAM_HALF_WIDTH, spec.pierce, HITS, NEAR);
-    // a long beam: within her reach exactly the old beam (the old line's own test: the segment to her reach, her
+    // a long beam: within her reach the old beam's hits (the old line's own test: the segment to her reach, her
     // pierce), past it the light runs on thinner (× PRISM_EDGE_MUL) to the map edge (hits come in order along the
     // line, her enemy first)
     let near = 0;

@@ -13,7 +13,7 @@ import { describe, test, expect } from 'vitest';
 import { duoBeamDps } from '../../tools/duoBeam.mjs';
 import { defaultData } from '../../src/sim/data.js';
 
-// v0.1.61 made her stronger (base +25%, tier-5 multipliers, the long beam at Grand Spectrum). This file checks the
+// The Oct 29 buff made her stronger (base +25%, tier-5 multipliers, the long beam at Grand Spectrum). This file checks the
 // beam's mechanics (constant beam = flash beam at the same stats), so it runs on a copy of her pre-buff numbers;
 // the buff itself is measured on the balance rulers (docs/specs/DUO_LR.md §6).
 const OLD_DATA = (() => {
