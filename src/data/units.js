@@ -570,7 +570,7 @@ const AKANE = {
       tier('Kindling', 280, '+15% attack speed.', { rateMul: 1.15 }),
       tier('Napalm Bloom', 900, 'Burns deal 6/s for 3.5s; +0.2 range.', { status: [S.burn(6, 3.5)], range: 0.2 }),
       tier('Phoenix Feather', 2800, 'Hearth Stream: she holds out a stream of fire that pours over the nearest 35 enemies in a wide cone and swings to follow her target; it reaches flyers. Burns 12/s plus 0.15% of max HP/s for 4s; +4 damage, +20% damage.', { behavior: 'stream', stream: { half: 36, turn: 3, mul: 1.06, cap: 35 }, canHitAir: true, status: [{ type: 'burn', dps: 12, pct: 0.0015, duration: 4 }], damage: 4, damageMul: 1.2 }),
-      tier('Inferno Queen', 16000, 'A wider stream (the nearest 56). Burns 40/s plus 0.3% of max HP/s for 5s (bosses 0.03%), +40% attack speed, +6 damage; +50% damage.', { stream: { half: 45, turn: 4, mul: 1.07, cap: 56 }, status: [{ type: 'burn', dps: 40, pct: 0.003, duration: 5 }], splash: 0.5, rateMul: 1.4, damage: 6, damageMul: 1.5 }),
+      tier('Inferno Queen', 16000, 'A wider stream (the nearest 56). Burns 40/s plus 0.3% of max HP/s for 5s (bosses 0.03%), +40% attack speed, +6 damage; +50% damage.', { stream: { half: 45, turn: 4, mul: 1.07, cap: 56 }, status: [{ type: 'burn', dps: 40, pct: 0.003, duration: 5 }], rateMul: 1.4, damage: 6, damageMul: 1.5 }),
     ]),
     path('rocketry', 'Rocket Science', 'Range, speed and armor', [
       tier('Long Fuse', 100, '+0.4 range.', { range: 0.4 }),

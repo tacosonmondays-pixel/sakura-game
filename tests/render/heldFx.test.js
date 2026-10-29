@@ -1,7 +1,7 @@
 // The plain look of the held attack shapes (src/render/attackFx/patterns/held.js; attack shapes S2): drawn from the
 // sim's channel every frame (strict mode: frozen clones, so never written to); alpha-blended bodies and only thin
 // additive cores (the flash guard's rule: an additive quad of 0.3 tiles or more would count as a flash); every
-// line inside her range (truth rule T5).
+// quad corner inside her range (truth rule T5), at tier 4 and the wide tier-5 cone.
 import { describe, it, expect } from 'vitest';
 import { harness, gallerySim, streamer } from './attackFxHarness.js';
 import { drawHeld } from '../../src/render/attackFx/patterns/held.js';
@@ -32,7 +32,7 @@ describe('held shapes FX (plain)', () => {
   it('Akane\'s stream and Umeko\'s sweep: alpha bodies, thin additive cores, inside her range; the sim is never written to', () => {
     const open = { akane: 0, umeko: 0 };
     // (each in the gallery's first booth, beside the lane)
-    for (const [id, build, shape] of [['akane', [2, 5, 0], 'stream'], ['umeko', [5, 0, 2], 'sweep']]) {
+    for (const [id, build, shape] of [['akane', [2, 5, 0], 'stream'], ['akane', [2, 4, 0], 'stream'], ['umeko', [5, 0, 2], 'sweep'], ['umeko', [4, 0, 2], 'sweep']]) {
       const sim = gallerySim([id], [build]);
       expect(sim.placedIds).toEqual([id]);
       const g = sim.towers.find((x) => x.unitId === id);
@@ -51,7 +51,13 @@ describe('held shapes FX (plain)', () => {
           expect(n).toBe(t.unitId === 'akane' ? 5 : 2);
           for (const l of ctx.lines) {
             if (l.batch === 'bbA') expect(l.w).toBeLessThan(0.3);
-            for (const [x, y] of [[l.ax, l.ay], [l.bx, l.by]]) expect(Math.hypot(x - t.ox, y - t.oy)).toBeLessThanOrEqual(t.eff.range + 1e-9);
+            // every corner of the quad (its ends ± half its width across it, on the ground) inside her range
+            const len = Math.hypot(l.bx - l.ax, l.by - l.ay) || 1;
+            const nx = (-(l.by - l.ay) / len) * (l.w / 2);
+            const ny = ((l.bx - l.ax) / len) * (l.w / 2);
+            for (const [x, y] of [[l.ax + nx, l.ay + ny], [l.ax - nx, l.ay - ny], [l.bx + nx, l.by + ny], [l.bx - nx, l.by - ny]]) {
+              expect(Math.hypot(x - t.ox, y - t.oy)).toBeLessThanOrEqual(t.eff.range + 1e-9);
+            }
           }
           expect(ctx.lines.filter((l) => l.batch === 'bbN').length).toBe(t.unitId === 'akane' ? 4 : 1);
         }

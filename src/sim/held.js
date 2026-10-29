@@ -73,7 +73,7 @@ function emitChannel(sim, t, e) {
 /**
  * One counted attack of a held girl (her attack loop, at her rate): picks her enemy by target mode (h.bestTarget),
  * opens the channel or switches it, and sets what it carries until her next attack (o.src: 1 for a rhythm attack,
- * o.trick: her gear trick code). An echo (o.echo) is one flare with `spec` (the echo's hit) instead.
+ * o.trick: her gear trick code, o.extra(): her gear Pierce's extra victims, asked once she has an enemy). An echo (o.echo) is one flare with `spec` (the echo's hit) instead.
  * @returns {object|null} her enemy (null: none in reach, not a counted attack)
  */
 export function attackHeld(sim, t, spec, h, o) {
@@ -97,6 +97,7 @@ export function attackHeld(sim, t, spec, h, o) {
   }
   ch.src = o.src;
   ch.trick = o.trick;
+  ch.px = o.extra ? o.extra() : 0;
   t.targetUid = e.uid;
   sim._emit('attack', { towerUid: t.uid, targetUid: e.uid, kind: t.eff.behavior });
   return e;
@@ -171,7 +172,7 @@ export function streamFalloff(d2, L) {
 function streamTick(sim, t, base, w, ramp) {
   const hit = tickSpec(base, chShare(base.rate, CH_TICK), w.mul);
   coneVictims(sim, t, hit, t.ch.k, w.half);
-  nearestFirst(w.cap);
+  nearestFirst(w.cap + t.ch.px);
   for (let j = 0; j < ORDER.length; j++) {
     const i = ORDER[j];
     const e = VICT[i];
@@ -183,7 +184,7 @@ function streamTick(sim, t, base, w, ramp) {
 /** One beam test of a sweep along ch.k: each enemy on it at most once a pass (the channel's memory), at most cap a pass. */
 function sweepTick(sim, t, base, w, ramp) {
   const ch = t.ch;
-  const room = (w.cap > 0 ? w.cap : base.maxTargets) - ch.n;
+  const room = (w.cap > 0 ? w.cap : base.maxTargets) + ch.px - ch.n;
   if (room <= 0) return;
   const hit = tickSpec(base, chShare(base.rate, sweepPass(w)), w.mul);
   const list = ch.hits;
@@ -213,11 +214,11 @@ function flare(sim, t, spec, w) {
   const hit = { ...spec, damage: spec.damage * w.mul };
   if (spec.behavior === 'sweep') {
     beamVictims(sim, t, hit, k, null);
-    nearestFirst(w.cap > 0 ? w.cap : spec.maxTargets);
+    nearestFirst((w.cap > 0 ? w.cap : spec.maxTargets) + ch.px);
     for (let j = 0; j < ORDER.length; j++) if (!VICT[ORDER[j]].dead) sim._hit(VICT[ORDER[j]], t, hit, 1);
   } else {
     coneVictims(sim, t, hit, k, w.half);
-    nearestFirst(w.cap);
+    nearestFirst(w.cap + ch.px);
     for (let j = 0; j < ORDER.length; j++) {
       const i = ORDER[j];
       if (!VICT[i].dead) sim._hit(VICT[i], t, hit, streamFalloff(VD2[i], hit.range));

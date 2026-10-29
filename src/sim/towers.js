@@ -807,12 +807,15 @@ const HELD_HELP = Object.freeze({ bestTarget, base: heldBase });
 
 /**
  * A held girl's counted attack (src/sim/held.js attackHeld): her enemy by target mode, and what the channel
- * carries until her next attack (a rhythm attack's spec, her gear trick); an echo is one flare.
+ * carries until her next attack (a rhythm attack's spec, her gear trick, her gear Pierce's extra victims); an echo is one flare.
  */
 function attackHeldWith(sim, t) {
   const src = t.effProc && t.eff === t.effProc ? 1 : 0;
   const trick = echoing || !gearTrick ? 0 : gearTrick.kind === 'thrust' ? 1 : 2;
-  const e = attackHeld(sim, t, t.eff, HELD_HELP, { src, trick, echo: echoing });
+  // gear Pierce: 2 more victims a tick (a stream) or a pass (a sweep) per 100 %, the pulse's carry and limit (asked
+  // only once she has an enemy, on a counted attack)
+  const extra = () => (gearK > 0 && !echoing ? pierceCarry(t, 'pierceCarry', 2 * gearK, PULSE_MAX_EXTRA) : 0);
+  const e = attackHeld(sim, t, t.eff, HELD_HELP, { src, trick, echo: echoing, extra });
   if (e) lastFaced = e;
   return !!e;
 }

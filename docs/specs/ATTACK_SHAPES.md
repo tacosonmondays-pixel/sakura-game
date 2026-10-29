@@ -559,6 +559,12 @@ Changes from the spec, and why:
    walking through her range is struck about as often as her pulse struck it.
 7. **Variants are data only**: `STREAM_KINDS` (`held.js`) lists fire (in use), frost, poison and water; nothing reads the
    latter three's mechanics yet.
+8. **Gear Pierce adds victims**, as it added pulse hits: each counted attack takes the pulse's carry (2 more per 100 %, at
+   most PULSE_MAX_EXTRA) into `t.ch.px`, added to a stream's tick cap and a sweep's pass cap. Follow-Through's +100 % rides
+   on that carry. Inferno Queen's `splash: 0.5` is gone (the stream has no blast); the drawer hides a held girl's Splash row
+   and shows her target-mode chips (`wheel` gets them too; `spin` takes the first enemy its arms find, so it has none).
+9. **The sweep reveals only inside its arc** (±45°, ±60° at T5, round her enemy), where her pulse revealed up to 6 veiled
+   enemies anywhere in her range.
 
 **DPS parity** (method of A4; ratio new / today, Akane and Umeko are untouched by S1 and the long beam, so the baseline is
 this branch before S2; T3 and the other paths are 1.00 everywhere; the 456-resolution stats hash with the two girls left
@@ -576,6 +582,15 @@ Round 5 in DPS, today → now: Akane T4 crowd 219k → 231k, boss 3201 → 3220,
 The misses: Akane T4's early crowd (1.12: the stream reaches more of a sparse early crowd than a fireball), and Umeko's
 boss rows, which disagree by ruler (the light bench's 0.91 is about 4 DPS of 1-damage floors, the L25 row half a DPS:
 a few hits; round 5 reads 1.05-1.13). Umeko's own DPS is a support's; her aura and reveal carry her, and they are unchanged.
+
+The coordinator's call (Oct 29): Umeko's boss rows are judged on round 5 (the light bench's boss row is 1-damage floors,
+not a signal). Akane T4's early crowd at 1.12 and the wide cone are accepted (direction: no caps, no nerfs). The review's
+maxed hit bench (`bench.mjs --hit`, maxed preset) reads Akane crowd 1.14 (T4) / 1.17 (T5), boss 0.97 / 0.97: the late-game
+crowd gain is accepted under the same direction.
+
+The partner's DPS moved on the light bench (Akane T5 boss: Aoi 19.55 → 16.92; Umeko T4 crowd 33.82 → 31.89) because the
+held ticks roll crits ten times a second from the shared `sim.rng`, so Aoi's crit rolls fall on other draws: with the
+ticks' crit rolls switched off for a test Aoi reads 19.55 and 33.27 again. Noise of the shared stream, not a buff change.
 
 **Determinism** (§7.2 step 5):
 

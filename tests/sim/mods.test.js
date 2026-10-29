@@ -235,8 +235,9 @@ describe('Potential in resolveStats', () => {
     // '456:bd28cc90' before the attack shapes S1 (Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's Firefly
     // Halo: new tier data on one path each); with those three left out the 384 others hash 8cb286a4 before and after
     // '456:be9bef3b' before the attack shapes S2 (Akane's Hearth Stream, Umeko's Searchlight Sweep: new tier data on
-    // one path each); with those two left out the 408 others hash 4158a051 before and after
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:f509ac67');
+    // one path each); with those two left out the 408 others hash 4158a051 before and after ('456:f509ac67' before the
+    // review dropped Inferno Queen's unused splash)
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:77d05324');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders

@@ -118,7 +118,7 @@ describe('the held channel (channel.js)', () => {
   test('the lock: keeps its enemy, switches (lock 0), and lets go CH_GRACE steps after losing it', () => {
     const t = {};
     chOpen(t, 5, 10);
-    expect(t.ch).toMatchObject({ uid: 5, k: 10, lock: 0, tick: 0, grace: 0, c: 10, ph: 0, pass: 0, n: 0, hits: [] });
+    expect(t.ch).toMatchObject({ uid: 5, k: 10, lock: 0, tick: 0, grace: 0, px: 0, c: 10, ph: 0, pass: 0, n: 0, hits: [] });
     const seen = [];
     const emit = (e) => seen.push(e ? e.uid : null);
     t.ch.lock = 30;
@@ -295,6 +295,31 @@ describe('Umeko: Searchlight Sweep on Lighthouse tiers 4-5', () => {
       byPass.set(p, (byPass.get(p) || 0) + (log.length - before));
     }
     expect(Math.max(...byPass.values())).toBeLessThanOrEqual(t.eff.maxTargets);
+  });
+
+  test('gear Pierce: 2 more victims a pass per 100 % (the pulse\'s carry and limit), captured at her counted attack', () => {
+    const { sim, t } = setup('umeko', LIGHT, 4, { stats: { pierceK: 100 } });
+    for (let i = 0; i < 16; i++) parkAt(sim, 'tank', 5.8 + i * 0.1, 4.5);
+    const log = spyHits(sim, t);
+    steps(sim, 1);
+    expect(t.ch.px).toBe(2);
+    const byPass = new Map();
+    for (let i = 0; i < 300; i++) {
+      const p = t.ch.pass;
+      const before = log.length;
+      steps(sim, 1);
+      byPass.set(p, (byPass.get(p) || 0) + (log.length - before));
+    }
+    expect(Math.max(...byPass.values())).toBe(t.eff.maxTargets + 2);
+    // and a stream's tick cap
+    const a = setup('akane', WILD, 4, { stats: { pierceK: 150 } });
+    parkAt(a.sim, 'tank', 8, 4.5);
+    steps(a.sim, 1);
+    expect(a.t.ch.px).toBe(3); // 300 hundredths on the carry: 3 (at most PULSE_MAX_EXTRA)
+    const b = setup('akane', WILD, 4);
+    parkAt(b.sim, 'tank', 8, 4.5);
+    steps(b.sim, 1);
+    expect(b.t.ch.px).toBe(0);
   });
 
   test('the beam reveals the veiled enemies it crosses (her reveal rides on the hits)', () => {

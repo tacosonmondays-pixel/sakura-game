@@ -1581,7 +1581,7 @@ held.js:    attackHeld(sim, t, spec, h, { src, trick, echo })  // behaviours 'st
             heldTick(sim, t, h) (every step after her attack loop, from updateTower), heldOff(sim, t), heldDps(t, e, perTarget),
             swingOffset(ph, arc), sweepPass(w), streamFalloff(d2, L), STREAM_KINDS, endHeldWave(sim)
 ```
-- `t.ch = { uid, k, lock, tick, grace, src, trick, c, ph, pass, n, hits }`, integers only (hits: flat [uid, step or pass] pairs, ≤ CH_HITS).
+- `t.ch = { uid, k, lock, tick, grace, src, trick, px, c, ph, pass, n, hits }`, integers only (hits: flat [uid, step or pass] pairs, ≤ CH_HITS).
   Opened by her first counted attack with an enemy; kept while the enemy is alive, eligible and in range, else the next by her
   target mode (a switch: lock 0), else CH_GRACE steps of grace (still ticking where it aims), then `t.ch = null`. Ends at the wave
   clear (endHeldWave), when she is sabotaged or repositioning (heldOff), or when she is sold; `hashSim` folds it only while open;
@@ -1589,7 +1589,9 @@ held.js:    attackHeld(sim, t, spec, h, { src, trick, echo })  // behaviours 'st
   release; `attack { towerUid, targetUid, kind: 'stream' | 'sweep' }` on each counted attack; the ticks are `hit` events with `tick: true`.
 - Her attack loop runs as before (rhythm, tempo, gear tricks, drinks count attacks). A counted attack re-picks her enemy and sets what
   the channel carries until her next one: `src` 1 after a rhythm attack (the ticks use t.effProc), `trick` 1 / 2 after a Finishing
-  Thrust / Big Beat (gearSpec's harder copy). A rhythm echo is one flare: the shape's test once at the echo's whole hit × mul.
+  Thrust / Big Beat (gearSpec's harder copy), `px` her gear Pierce's extra victims (the pulse's carry: pierceCarry(t, 'pierceCarry',
+  2 × gearK, PULSE_MAX_EXTRA), asked once she has an enemy; added to a stream's tick cap and a sweep's pass cap). A rhythm echo is
+  one flare: the shape's test once at the echo's whole hit × mul.
 - stream (Hearth Stream): aim k turns `stream.turn` table steps a step toward her enemy; every CH_TICK steps every eligible enemy
   `inCone(k, stream.half, range)`, at most `stream.cap` by (d², uid), takes damage × chShare(rate, CH_TICK) × `stream.mul`
   (spec `share` = chShare: combat.js scales flat armour, the floor and the crystal count), × chRamp × streamFalloff
@@ -1600,7 +1602,8 @@ held.js:    attackHeld(sim, t, spec, h, { src, trick, echo })  // behaviours 'st
   maxTargets) a pass, take damage × chShare(rate, sweepPass) × `sweep.mul`; her reveal / silence ride on the hits.
 - Stats blocks (mods.js SHAPE_NORM, every field stated per tier): `stream { kind ('fire'; frost / poison / water are data only),
   half, turn, mul, cap }`, `sweep { arc, swing, turn, mul, cap }`.
-- Panel DPS: heldDps (stream damage × rate × mul; sweep damage × rate × mul).
+- Panel DPS: heldDps (stream damage × rate × mul; sweep damage × rate × mul). The drawer shows no Splash row for a held shape
+  (drawerView TARGETABLE has `wheel`, `stream`, `sweep`: they pick by target mode; `spin` does not).
 - Renderer: `src/render/attackFx/patterns/held.js` drawHeld from `t.ch` each frame (alpha bodies on bbN, thin additive cores on bbA).
 - Units (one path each, tiers 4-5): Akane Wildfire (Phoenix Feather, Inferno Queen), Umeko Lighthouse (Moonlit Beacon, Sea of Lanterns).
 - Kohaku's constant beam stays in duo.js (A7): her beams are several holds re-picked every tick with a rounded share.

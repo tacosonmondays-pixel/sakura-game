@@ -8,7 +8,7 @@
 //
 // A girl with a held attack keeps one small record, every field an integer (hashSim folds it; it ends at the
 // wave clear, so calm-point saves and co-op checkpoints carry none):
-//   t.ch = { uid, k, lock, tick, grace, src, trick, c, ph, pass, n, hits }
+//   t.ch = { uid, k, lock, tick, grace, src, trick, px, c, ph, pass, n, hits }
 //     uid    the locked enemy's uid (-1 while in grace)
 //     k      her aim, a table index (src/sim/dirs.js), turned toward her enemy a few steps a sim step
 //     lock   sim steps she has held the same enemy (a new enemy starts it over at 0)
@@ -16,6 +16,7 @@
 //     grace  sim steps since she lost her enemy (0 while she has one; at CH_GRACE she lets go: t.ch = null)
 //     src    1 while the last counted attack was a rhythm one (Potential: the channel carries t.effProc), else 0
 //     trick  the gear trick of the last counted attack (0 none, 1 Finishing Thrust, 2 Big Beat)
+//     px     the extra victims her gear Pierce gave the last counted attack (a stream's tick cap, a sweep's pass cap)
 //     c, ph  a sweep's centre index and swing phase (0 for a stream)
 //     pass, n  a sweep's pass count (one swing from end to end of its arc; odd: swinging back) and the enemies
 //            struck on this pass
@@ -28,7 +29,7 @@ import { STEP, CH_GRACE, CH_HITS } from './constants.js';
 
 /** Opens a channel on enemy `uid`, aimed at table index k. */
 export function chOpen(t, uid, k) {
-  t.ch = { uid, k, lock: 0, tick: 0, grace: 0, src: 0, trick: 0, c: k, ph: 0, pass: 0, n: 0, hits: [] };
+  t.ch = { uid, k, lock: 0, tick: 0, grace: 0, src: 0, trick: 0, px: 0, c: k, ph: 0, pass: 0, n: 0, hits: [] };
   return t.ch;
 }
 
