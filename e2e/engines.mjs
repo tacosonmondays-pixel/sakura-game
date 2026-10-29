@@ -403,6 +403,15 @@ for (const { name, r } of results) {
   if (!b.sameViews) failures.push(`${name}: its two Tryout Day views disagreed`);
   for (const k of TY_KEYS) if (JSON.stringify(b[k]) !== JSON.stringify(ref.tryout[k])) failures.push(`${name}: tryout ${k} ${JSON.stringify(b[k])} ≠ ${JSON.stringify(ref.tryout[k])} (${results[0].name})`);
 }
+// Tryout Day's Extended Day: a 2-player run past wave 48 into the freeplay waves, a rejoin from the wave-50 checkpoint
+log('\nScripted co-op EXTENDED DAY run (two views, past wave 48 into the freeplay waves, a rejoin at wave 50):');
+for (const { name, r } of results) {
+  const b = r.tryoutAfter;
+  log(`  ${name.padEnd(46)} wave ${b.wave} · ♥ ${b.lives} · score ${b.score} · ${b.digests} calm digests → ${b.lastDigest} · hash ${b.hash}`);
+  if (!b.sameViews || !b.sameHashes) failures.push(`${name}: its two Extended Day views disagreed`);
+  if (!b.freeplay || b.wave < 61) failures.push(`${name}: the Extended Day run did not reach its freeplay waves (wave ${b.wave})`);
+  for (const k of TY_KEYS) if (JSON.stringify(b[k]) !== JSON.stringify(ref.tryoutAfter[k])) failures.push(`${name}: extended day ${k} ${JSON.stringify(b[k])} ≠ ${JSON.stringify(ref.tryoutAfter[k])} (${results[0].name})`);
+}
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
 for (const fn of Object.keys(ref.math.native)) {
   const groups = new Map();
@@ -417,4 +426,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical Glow Bowl battle, the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle, the identical returning girls' abilities battle, the identical Tenka battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical Glow Bowl battle, the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle, the identical returning girls' abilities battle, the identical Tenka battle, the identical Tryout Day and Extended Day runs and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
