@@ -6,9 +6,9 @@ import { ROLES } from '../../data/types.js';
 import { stream } from './plan.js';
 
 const category = (id) => ROLES[UNIT_MAP[id]?.role]?.category;
-const isStriker = (id) => category(id) === 'dps' || category(id) === 'frag';
-const hitsAir = (id) => !!UNIT_MAP[id]?.base?.canHitAir;
-const isCtrlSup = (id) => category(id) === 'control' || category(id) === 'support';
+export const isStriker = (id) => category(id) === 'dps' || category(id) === 'frag';
+export const hitsAir = (id) => !!UNIT_MAP[id]?.base?.canHitAir;
+export const isCtrlSup = (id) => category(id) === 'control' || category(id) === 'support';
 
 /** Before Class with Bigger Draft (a solo Desk Supply, §10.3): 7 girls instead of TRYOUT.squad.draft (6). */
 export const BIGGER_DRAFT = TRYOUT.perks.draft;

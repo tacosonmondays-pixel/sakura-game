@@ -46,6 +46,13 @@ export const RUN_KEYS = Object.freeze(['damageMul', 'rateMul', 'range', 'critCha
 /** Girls whose reach is map-wide: never offered a reach card (§4.5 filter 5). */
 export const MAP_WIDE = Object.freeze(['shiro']);
 
+/** The Full Day's timetable (§2.2), shared by Extended Day's first 12 periods. */
+const FULL_DAY = {
+  periods: 12, wavesPerPeriod: 4, picks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], tryoutPicks: [1, 5], examPrep: 11,
+  breaks: { 3: 'recess', 7: 'lunch', 11: 'cleaning' }, blocks: [1, 4, 8, 12], minibossWaves: [12, 28, 44], bossWave: 48,
+  bands: ['early', 'early', 'early', 'early', 'mid', 'mid', 'mid', 'mid', 'late', 'late', 'late'], lrCap: 2,
+};
+
 export const TRYOUT = deepFreeze({
   // ---- run lengths (§2.2) ------------------------------------------------------------------------
   // picks[i] = the period after which pick i+1 opens; tryoutPicks = 1-based picks that are Tryout picks;
@@ -56,11 +63,25 @@ export const TRYOUT = deepFreeze({
       breaks: { 3: 'recess', 6: 'cleaning' }, blocks: [1, 4, 7], minibossWaves: [12, 24], bossWave: 28,
       bands: ['early', 'early', 'mid', 'mid', 'late', 'late'], lrCap: 1,
     },
-    full: {
-      periods: 12, wavesPerPeriod: 4, picks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], tryoutPicks: [1, 5], examPrep: 11,
-      breaks: { 3: 'recess', 7: 'lunch', 11: 'cleaning' }, blocks: [1, 4, 8, 12], minibossWaves: [12, 28, 44], bossWave: 48,
-      bands: ['early', 'early', 'early', 'early', 'mid', 'mid', 'mid', 'mid', 'late', 'late', 'late'], lrCap: 2,
-    },
+    full: FULL_DAY,
+    // Extended Day (§20.1): the Full Day's tables for P1-P12, then `afterSchool`'s grid forever (endless: the day never
+    // ends). Every read past the tables goes through plan.js's grid functions (pickAt, breakAt, examPrepAt, ...).
+    after: { ...FULL_DAY, endless: true },
+  },
+  // Extended Day past the Full Day (§20.1-20.3): pick n opens after period n; from P15 a Seat Change break after every 3rd
+  // period (a new seat block the period after); the last wave of every 3rd period a miniboss, of every 6th a boss (from
+  // the freeplay boss pool, `bossPlan`); Exam Prep every 4th pick from 15; a Tryout pick every 6th from 13; rarity band
+  // `late`; the LR cap +1 per 12 picks after pick 11. Waves past 48 come from the co-op freeplay generator with the
+  // Grade's tier (`tiers`, index = Grade) and the window's chapters only. Run-state trims (§20.6): full period rows for the
+  // last `keepPeriods`, pick rows past the first `keepPicks` (but the newest `keepPicksNew` and every girl's) as counts.
+  afterSchool: {
+    breakFrom: 15, breakEvery: 3, breakId: 'seat', setEvery: 3, bossEvery: 6,
+    examFrom: 15, examEvery: 4, tryoutFrom: 13, tryoutEvery: 6, lrFrom: 11, lrEvery: 12, band: 'late',
+    tiers: [null, 'blossom', 'blossom', 'blossom', 'blossom', 'blossom', 'tempest', 'tempest', 'tempest', 'tempest', 'crimson', 'crimson', 'crimson'],
+    windowBosses: 2,
+    // the regular groups' spawns past 48 at most (the in-stage waves' cap, waves.js MAX_SPAWNS_PER_WAVE): the rest is HP
+    spawnCap: 140,
+    keepPeriods: 12, keepPicks: 24, keepPicksNew: 12,
   },
 
   // ---- Grades and content windows (§7) -------------------------------------------------------------
@@ -193,6 +214,10 @@ export const TRYOUT = deepFreeze({
   // ---- co-op windows (§11) -------------------------------------------------------------------------
   // an open pick or break resolves itself after this many lockstep ticks (90 s at 1×; 45 s of real time at 2×)
   coopTimeoutTicks: 5400,
+
+  // ---- Random Class (§20.4): every pick is drawn inside the Sim this many ticks after its offer opens (2 s at 1×);
+  // `off`: cards that only change how a player chooses (Multiple Choice), never offered in a random run
+  random: { revealTicks: 120, off: ['B07'] },
 
   // ---- Double Dare (§8.3): the curse is one of these spawn mods (the freeplay affixes) ------------
   dares: [

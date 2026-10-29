@@ -11,6 +11,7 @@ import { unitBattleStats } from './progression.js';
 import { recordMax } from './missions.js';
 import { mapChoices, TRYOUT_GRADES } from '../sim/tryout/plan.js';
 import { draftOf, BIGGER_DRAFT } from '../sim/tryout/draft.js';
+import { randomPlayers } from '../sim/tryout/random.js';
 
 const GRADE_KEY = TRYOUT_META.keys.grade;
 const whole = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
@@ -135,12 +136,15 @@ export function activePerks(profile, { weekly = false } = {}) {
 
 /**
  * A New Run's record: the run config, the frozen pool, the squad, the guards; the battle snapshot comes later
- * (src/ui/battle/tryoutSaver.js).
+ * (src/ui/battle/tryoutSaver.js). `random`: Random Class (§20.4, never in the Weekly): the squad is the Sim's draw from
+ * the player's six (`squad` is ignored), and the record keeps `random: true` for the run's Sim config.
  */
-export function newRunRecord(profile, { seed, grade = 1, length = 'half', mapId, hero, squad, now = Date.now(), simId = null, weekly = null, practice = false, shared = false, perks = null }) {
+export function newRunRecord(profile, { seed, grade = 1, length = 'half', mapId, hero, squad, now = Date.now(), simId = null, weekly = null, practice = false, shared = false, perks = null, random = false }) {
   // the Weekly Timetable plays everyone at the floor: no frozen pool, the hero's own stats left out, no Desk Supplies
   const floor = Number.isInteger(weekly);
   const h = heroEntry(profile, hero);
+  const rnd = random === true && !floor;
+  const pool = floor ? {} : frozenPool(profile);
   return {
     v: 1,
     id: `ty-${Math.floor(now).toString(36)}-${(seed >>> 0).toString(36)}`,
@@ -151,8 +155,9 @@ export function newRunRecord(profile, { seed, grade = 1, length = 'half', mapId,
     tableVersion: tryoutTableVersion(),
     simId,
     hero: floor && h ? { unitId: h.unitId, stats: {} } : h,
-    pool: floor ? {} : frozenPool(profile),
-    squad: squad.slice(0, TRYOUT.squad.start),
+    pool,
+    squad: rnd ? randomPlayers({ random: true, seed, pools: [pool] }, [{}])[0].squad : squad.slice(0, TRYOUT.squad.start),
+    ...(rnd ? { random: true } : null),
     perks: floor ? {} : { ...(perks || activePerks(profile)) },
     ...(floor ? { weekly } : null),
     ...(shared ? { shared: true } : null),
@@ -333,4 +338,27 @@ export function parseShareCode(text) {
   const seed = Math.floor(v / 16);
   if (seed > 0xffffffff || !TRYOUT.grades[g] || check !== checkOf(seed, g, full, mapBit)) return null;
   return { seed: seed >>> 0, grade: g, length: full ? 'full' : 'half', mapId: mapChoices(seed >>> 0, g)[mapBit] };
+}
+
+// ---------------------------------------------------------------------------
+// Run lengths (§2.2, §20.1): Half Day, Full Day, Extended Day (internal id 'after')
+// ---------------------------------------------------------------------------
+
+/** The run lengths Before Class and the co-op room offer, in order. */
+export const RUN_LENGTHS = Object.freeze(['half', 'full', 'after']);
+
+/** Has this player cleared a Full Day (Extended Day opens then, §20.8)? 'ty:full', a counter every build keeps. */
+export function fullCleared(profile) {
+  return (Number(profile?.missions?.counters?.[TRYOUT_META.keys.full]) || 0) > 0;
+}
+
+/**
+ * Is a run length open for this player (in co-op: the host's ladder, §20.7)?
+ * @returns {{ open: boolean, why: null|'half'|'full'|'unknown' }} why: the clear it waits for
+ */
+export function lengthOpen(profile, length) {
+  if (length === 'half') return { open: true, why: null };
+  if (length === 'full') return halfCleared(profile) ? { open: true, why: null } : { open: false, why: 'half' };
+  if (length === 'after') return fullCleared(profile) ? { open: true, why: null } : { open: false, why: 'full' };
+  return { open: false, why: 'unknown' };
 }

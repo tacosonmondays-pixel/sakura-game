@@ -35,10 +35,11 @@ import { ensureOnline, avatar, levelChip, showError, connecting, storedName, loc
 import { miniMochi } from '../loading/loader.js';
 import { profileCard } from '../../online/identity.js';
 import { getSession, makeRoomCode, normalizeCode, draftReady } from '../../online/coop/session.js';
-import { draftOf, frozenPool, heroChoices, heroEntry, tryoutUnlocked, newRunSeed, TRYOUT_UNLOCK, TRYOUT_GRADES, gradeOpen, halfCleared } from '../../systems/tryoutRuns.js';
+import { draftOf, frozenPool, heroChoices, heroEntry, tryoutUnlocked, newRunSeed, TRYOUT_UNLOCK, TRYOUT_GRADES, gradeOpen, RUN_LENGTHS, lengthOpen, fullCleared } from '../../systems/tryoutRuns.js';
 import { mapChoices } from '../../sim/tryout/plan.js';
 import { TRYOUT } from '../../data/tryout.js';
-import { CLASS_TEXT, gradeTwist, gradeWhy } from '../text/tryout.js';
+import { CLASS_TEXT, LENGTH_NAMES, EXTENDED_TEXT, RANDOM_TEXT, gradeTwist, gradeWhy } from '../text/tryout.js';
+import { runOptions } from '../battle/tryout/adapters.js';
 import { fullTag } from './tryoutTag.js';
 import { openSocialSession } from '../../online/coop/socialRoom.js';
 import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
@@ -499,6 +500,8 @@ export function render(root, params = {}) {
           code: roomCode, isHost, backend, stageId, difficulty, freeplay, mode,
           // battle modes need the host's own clear of the stage (docs/specs/CODEX_MODES.md §2)
           modesUnlocked: (id) => modesUnlocked(store.profile, id),
+          // (§20.7: the host's ladder opens Extended Day, a Full Day cleared; else the room plays a Full Day)
+          afterUnlocked: () => fullCleared(store.profile),
           // autoAbil: my Settings → Auto-cast abilities (only `true` turns it on; the start message carries it)
           me: { uid: backend.uid, name: storedName() || backend.user?.name || 'Sensei', level: card.level, avatar: card.avatar, loadout, hero, ...(profile.settings?.autoCastAbilities ? { autoAbil: true } : null) },
         }, { isBlocked: (uid) => social.isBlocked(uid) }); // [social] never pair with a player I blocked; session.seated
@@ -651,7 +654,9 @@ export function render(root, params = {}) {
       // an ally's chips open the ally's girl, never your own copy of her
       const ally = me ? null : p;
       // a Tryout Day run: the hero they bring and the girls they drafted (their pool's stats)
-      const units = session.tryout
+      const units = session.tryout?.random === true
+        ? [p.runHero ? unitChip(p.runHero.unitId, { hero: true, ally, stats: p.runHero.stats }) : null].filter(Boolean)
+        : session.tryout
         ? [p.runHero ? unitChip(p.runHero.unitId, { hero: true, ally, stats: p.runHero.stats }) : null, ...(p.draft || []).map((id) => unitChip(id, { ally, stats: p.pool?.[id] || null }))].filter(Boolean)
         : [p.hero ? unitChip(p.hero.unitId, { hero: true, ally, stats: p.hero.stats }) : null, ...(p.loadout || []).map((e) => unitChip(e.unitId, { ally, stats: e.stats }))].filter(Boolean);
       const ready = slot === 0 ? true : !!p.ready;
@@ -664,7 +669,7 @@ export function render(root, params = {}) {
             h('div', h('b.ol-pcard-name', p.name || 'Sensei'), me ? h('small.muted', ' (you)') : null),
             h('div.ol-pcard-tags', levelChip(p.level), h('span.ol-pcard-role', slot === 0 ? 'Host' : 'Guest'))),
           h(`span.ol-ready${ready ? '.on' : ''}`, { 'data-testid': `coop-ready-${slot}` }, slot === 0 ? 'HOST' : ready ? 'READY' : 'NOT READY')),
-        h('div.ol-pcard-units', units.length ? units : h('small.muted', session.tryout ? 'Still drafting' : 'No girls in formation')));
+        h('div.ol-pcard-units', units.length ? units : h('small.muted', session.tryout ? (session.tryout.random === true ? RANDOM_TEXT.squad : 'Still drafting') : 'No girls in formation')));
     }
 
     /** The big stage card under the players: map, story line, waves, who you will meet. */
@@ -804,10 +809,10 @@ export function render(root, params = {}) {
     const ownedNow = (id) => isOwned(store.profile, id);
     const TRYOUT_WINDOW_UNLOCK = (n) => TRYOUT.windows[TRYOUT.grades[n]?.window]?.unlock || '';
 
-    /** A fresh run for the host: a new seed, Grade 1, Half Day, the seed's first (or second) map. */
-    function newRun(mapPick = 0, grade = 1, length = 'half') {
+    /** A fresh run for the host: a new seed, Grade 1, Half Day, the seed's first (or second) map; Random Class kept. */
+    function newRun(mapPick = 0, grade = 1, length = 'half', random = false) {
       const seed = newRunSeed();
-      return { seed, grade, length, mapId: mapChoices(seed, grade)[mapPick] };
+      return { seed, grade, length, mapId: mapChoices(seed, grade)[mapPick], ...(random === true ? { random: true } : null) };
     }
 
     function mapName(id) {
@@ -857,9 +862,13 @@ export function render(root, params = {}) {
       const run = s.tryout;
       const ui = runUi(s);
       const slot = s.isHost ? 0 : 1;
-      const six = draftOf(ownedNow, run.seed, slot, ui.redraw);
-      const picked = (s.me.draft || []).filter((id) => six.includes(id));
+      // Random Class (§20.4, §20.7): the Sim draws each player's three from their first six (no Redraw), so the six
+      // show and nobody picks
+      const opts = runOptions(run);
+      const six = draftOf(ownedNow, run.seed, slot, opts.random ? 0 : ui.redraw);
+      const picked = opts.random ? [] : (s.me.draft || []).filter((id) => six.includes(id));
       const toggle = (id) => {
+        if (opts.random) return;
         if (picked.includes(id)) s.setRunPicks({ draft: picked.filter((x) => x !== id) });
         else if (picked.length >= 3) toast('Pick exactly 3. Tap a picked girl to put her back first.', 'info');
         else s.setRunPicks({ draft: [...picked, id] });
@@ -870,7 +879,10 @@ export function render(root, params = {}) {
         const short = mine ? CLASS_TEXT.yoursShort : CLASS_TEXT.loaner;
         // (the kit's tag chip: one short word, the full words in its title; every run tile is drawn as owned, a Loaner too)
         const t = girlTile(id, { owned: true, selected: on, potential: mine ? undefined : 0, tag: short, testid: 'coop-run-girl', cls: 'ty-draft', onClick: () => toggle(id) });
-        t.setAttribute('aria-pressed', String(on));
+        if (opts.random) {
+          t.setAttribute('aria-disabled', 'true');
+          t.tabIndex = -1;
+        } else t.setAttribute('aria-pressed', String(on));
         fullTag(t, short, mine ? CLASS_TEXT.yours : CLASS_TEXT.loaner);
         return t;
       };
@@ -899,16 +911,41 @@ export function render(root, params = {}) {
       const grades = s.isHost ? segRow(gradeItems, String(run.grade), (id, it) => {
         if (it.locked) return toast(it.why, 'info');
         // (another Grade can change the content window: a new seed's maps come with it)
-        if (run.grade !== Number(id)) s.setTryout(newRun(0, Number(id), run.length));
+        if (run.grade !== Number(id)) s.setTryout(newRun(0, Number(id), run.length, opts.random));
       }, { label: 'Grade', testidPrefix: 'coop-run-grade-', min: 36 }) : null;
       if (grades) grades.dataset.testid = 'coop-run-grade';
-      const fullLocked = !halfCleared(store.profile);
-      const lengths = s.isHost ? segRow([['half', 'Half Day'], ['full', 'Full Day']].map(([k, label]) => ({ id: k, label, locked: k === 'full' && fullLocked, title: k === 'full' && fullLocked ? CLASS_TEXT.full : label })),
-        run.length || 'half', (k, it) => {
-          if (it.locked) return toast(CLASS_TEXT.full, 'info');
-          if (run.length !== k) s.setTryout({ ...run, length: k });
-        }, { label: 'Length', testidPrefix: 'coop-run-length-', min: 96 }) : null;
+      // Half Day · Full Day · Extended Day: the host's ladder opens each (§20.7: Extended Day after a Full Day clear)
+      const lengths = s.isHost ? segRow(RUN_LENGTHS.map((k) => {
+        const st = lengthOpen(store.profile, k);
+        const why = st.why === 'full' ? EXTENDED_TEXT.locked : CLASS_TEXT.full;
+        return { id: k, label: LENGTH_NAMES[k], locked: !st.open, title: st.open ? LENGTH_NAMES[k] : why, why };
+      }), opts.length, (k, it) => {
+        if (it.locked) return toast(it.why, 'info');
+        if (run.length !== k) s.setTryout({ ...run, length: k });
+      }, { label: 'Length', testidPrefix: 'coop-run-length-', min: 84 }) : null;
       if (lengths) lengths.dataset.testid = 'coop-run-length';
+      // Random Class: the host's switch (no unlock); its help line says what it promises
+      const randomRow = s.isHost ? h('div.ty-coop-row',
+        h('span.lbl.ty-coop-lbl', RANDOM_TEXT.name),
+        h('div.ty-coop-random',
+          h(`button.ui-opt.ty-switch${opts.random ? '.on' : ''}`, {
+            type: 'button', 'data-testid': 'coop-run-random', 'aria-pressed': String(opts.random),
+            'aria-label': `${RANDOM_TEXT.name}: ${opts.random ? RANDOM_TEXT.on : RANDOM_TEXT.off}`,
+            onclick: () => {
+              const next = { ...run };
+              if (opts.random) delete next.random;
+              else next.random = true;
+              s.setTryout(next);
+            },
+          }, h('span.ty-switch-knob', { 'aria-hidden': 'true' }), h('span', opts.random ? RANDOM_TEXT.on : RANDOM_TEXT.off)),
+          h('span.ty-coop-note', { 'data-testid': 'coop-run-random-help' }, RANDOM_TEXT.help))) : null;
+      // the guest: the host's choices, read-only
+      const guestOpts = s.isHost ? null : h('div.ty-coop-row', { 'data-testid': 'coop-run-options' },
+        h('span.lbl.ty-coop-lbl', 'Run'),
+        h('div.ty-coop-opts',
+          h('span.ui-chip.ink', { 'data-testid': 'coop-run-length-ro', 'data-length': opts.length }, LENGTH_NAMES[opts.length]),
+          h('span.ui-chip.ink', { 'data-testid': 'coop-run-random-ro', 'data-on': String(opts.random) }, RANDOM_TEXT.room(opts.random))),
+        opts.random ? h('span.ty-coop-note', RANDOM_TEXT.help) : null);
       return h('section.panel.ty-coop', { 'data-testid': 'coop-run' },
         h('h3.panel-title', 'Tryout Day'),
         h('div.ty-coop-row',
@@ -918,26 +955,28 @@ export function render(root, params = {}) {
             : [mapCard(run.mapId, { on: true })]))),
         s.isHost ? h('div.ty-coop-row', h('span.lbl.ty-coop-lbl', 'Grade'), grades) : null,
         s.isHost ? h('div.ty-coop-row', h('span.lbl.ty-coop-lbl', 'Length'), lengths,
-          button('New run', { kind: 'ghost', small: true, icon: 'refresh', testid: 'coop-run-new', onClick: () => s.setTryout(newRun(0, run.grade, run.length)) })) : null,
-        h('p.ty-coop-note', `Grade ${run.grade} · ${run.length === 'full' ? 'Full Day' : 'Half Day'}${s.isHost ? '' : ' (the host picks)'} · ${gradeTwist(TRYOUT.grades, TRYOUT.windows, run.grade)}`),
+          button('New run', { kind: 'ghost', small: true, icon: 'refresh', testid: 'coop-run-new', onClick: () => s.setTryout(newRun(0, run.grade, run.length, opts.random)) })) : null,
+        randomRow,
+        guestOpts,
+        h('p.ty-coop-note', `Grade ${run.grade} · ${LENGTH_NAMES[opts.length]}${opts.random ? ` · ${RANDOM_TEXT.name}` : ''}${s.isHost ? '' : ' (the host picks)'} · ${gradeTwist(TRYOUT.grades, TRYOUT.windows, run.grade)}`),
         h('div.ty-coop-row',
-          h('span.lbl.ty-coop-lbl', `Your squad: ${picked.length}/3`),
-          secondaryBtn(ui.redraw ? CLASS_TEXT.redrawn : CLASS_TEXT.redraw(1), {
+          h('span.lbl.ty-coop-lbl', opts.random ? RANDOM_TEXT.squad : `Your squad: ${picked.length}/3`),
+          opts.random ? null : secondaryBtn(ui.redraw ? CLASS_TEXT.redrawn : CLASS_TEXT.redraw(1), {
             icon: 'refresh', testid: 'coop-run-redraw', disabled: ui.redraw >= 1,
             onClick: () => {
               ui.redraw = 1;
               s.setRunPicks({ draft: [] });
             },
           }),
-          h('span.ty-coop-note', 'Pick 3 of your six. Loaners are girls you do not own yet: they play at the run\'s floor.')),
-        h('div.ty-coop-six', { 'data-testid': 'coop-run-six' }, ...six.map(tile)),
+          h('span.ty-coop-note', { 'data-testid': 'coop-run-six-note' }, opts.random ? `${RANDOM_TEXT.six} ${CLASS_TEXT.loanerNote}` : 'Pick 3 of your six. Loaners are girls you do not own yet: they play at the run\'s floor.')),
+        h(`div.ty-coop-six${opts.random ? '.random' : ''}`, { 'data-testid': 'coop-run-six' }, ...six.map(tile)),
         h('div.ty-coop-row',
           h('span.lbl.ty-coop-lbl', 'Hero'),
           h('div.ty-bc-heroes', { 'data-testid': 'coop-run-hero', role: 'radiogroup', 'aria-label': 'Hero' }, ...heroes.map((id) => h(`button.ui-opt.ty-hero${myHero === id ? '.on' : ''}`, {
             type: 'button', role: 'radio', 'data-unit': id, 'aria-checked': String(myHero === id),
             onclick: () => { if (myHero !== id) s.setRunPicks({ runHero: heroEntry(store.profile, id) }); },
           }, avatar(id, 34), h('span.ty-hero-txt', h('b', UNIT_MAP[id]?.name || id), h('span.ty-hero-whose', ownedNow(id) ? CLASS_TEXT.heroYours : CLASS_TEXT.heroFree)))))),
-        ally ? h('p.ty-coop-note', { 'data-testid': 'coop-run-ally' }, `${ally.name || 'Your ally'}: ${allyN}/3 picked${ally.runHero ? ` · hero ${UNIT_MAP[ally.runHero.unitId]?.name || ally.runHero.unitId}` : ''}`) : null);
+        ally ? h('p.ty-coop-note', { 'data-testid': 'coop-run-ally' }, `${ally.name || 'Your ally'}: ${opts.random ? RANDOM_TEXT.squad.toLowerCase() : `${allyN}/3 picked`}${ally.runHero ? ` · hero ${UNIT_MAP[ally.runHero.unitId]?.name || ally.runHero.unitId}` : ''}`) : null);
     }
 
     function tipsPanel() {
@@ -1003,8 +1042,8 @@ export function render(root, params = {}) {
       let action;
       if (s.isHost) {
         const label = s.canStart ? (s.tryout ? 'Start run' : 'Start battle')
-          : s.tryout && s.paired && !draftReady(s.me.draft) ? 'Pick your 3 girls'
-          : s.tryout && s.paired && s.peer.ready && !draftReady(s.peer.draft) ? 'Waiting for their 3…'
+          : s.tryout && s.tryout.random !== true && s.paired && !draftReady(s.me.draft) ? 'Pick your 3 girls'
+          : s.tryout && s.tryout.random !== true && s.paired && s.peer.ready && !draftReady(s.peer.draft) ? 'Waiting for their 3…'
           : s.paired ? 'Waiting for ready…' : s.peer ? 'Connecting…' : 'Waiting for ally…';
         action = button(label, {
           kind: 'yellow', icon: 'play', testid: 'coop-start', disabled: !s.canStart,

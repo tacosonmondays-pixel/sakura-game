@@ -11,8 +11,9 @@ import { lengthOf, periodWaves, buildTryoutPlan, buildTryoutStage } from '../../
 import { powInt } from '../../../sim/waves.js';
 import { onEscape, swallowNextClick } from '../../hold.js';
 import {
-  SUBJECT_TEXT, SUBJECT_ABBR, BREAK_SHORT, BREAK_NAMES, DARE_SHORT, DARE_TEXT, PREVIEW_TEXT as PV, TIMETABLE_TEXT as T,
+  SUBJECT_TEXT, SUBJECT_ABBR, BREAK_SHORT, BREAK_NAMES, DARE_SHORT, DARE_TEXT, PREVIEW_TEXT as PV, TIMETABLE_TEXT as T, EXTENDED_TEXT as X,
 } from '../../text/tryout.js';
+import { isExtendedRun, periodMarks, affixOf } from './adapters.js';
 import '../../styles/tryoutTimetable.css';
 
 /** Our own drawing: a five-petal sakura stamp, filled with currentColor (a notch in each petal, a white heart). */
@@ -52,10 +53,11 @@ export function timetableModel(ty, len, { mySlot = 0, win = null } = {}) {
     else if (p === cur && pair?.includes(ty.nextSubject)) chosen = ty.nextSubject;
     const subjects = chosen ? [chosen] : pair ? pair.slice() : [];
     const dare = rec ? !!rec.dare : p === cur ? (ty.base ? !!ty.dare : !!me.dare) : false;
-    const marks = rec ? [...(rec.team || []), ...(rec.own?.[mySlot] || [])].map(([, st]) => st) : null;
+    // (periodMarks: a shrunk Extended Day row draws its count of stamps, §20.6)
+    const marks = rec ? periodMarks(rec, mySlot).map(([, st]) => st) : null;
     out.push({
       kind: 'period', p, final: p === len.periods, label: p === len.periods ? T.final : T.cell(p), subjects, chosen,
-      backGate: subjects.some((id) => TRYOUT.subjects?.[id]?.backGate), affix: ty.affixes?.[p] || null,
+      backGate: subjects.some((id) => TRYOUT.subjects?.[id]?.backGate), affix: affixOf(ty, p),
       marks, resumed: !!rec?.resumed, dare, state,
     });
     const b = len.breaks?.[p];
@@ -106,11 +108,12 @@ export function markEl(st, cls = 'ty-mk') {
 /**
  * The full strip (Before Class, the pick sheet): one row of cells. With `onCell` every cell is a button (tap, Enter or
  * Space) that calls onCell(cell, el): the preview (§13.4, attachPreview). `boss`: the Final boss's id, drawn as a
- * portrait cell at the end (Before Class, §13.3).
+ * portrait cell at the end (Before Class, §13.3). `endless`: an Extended Day (§20.8): the day's open end, a "P13+ · on
+ * and on" cell, in place of the boss portrait.
  * @param {ReturnType<typeof timetableModel>} cells
- * @param {{ testid?: string, cls?: string, onCell?: ((c: object, el: HTMLElement) => void)|null, boss?: string|null }} [o]
+ * @param {{ testid?: string, cls?: string, onCell?: ((c: object, el: HTMLElement) => void)|null, boss?: string|null, endless?: boolean }} [o]
  */
-export function timetableStrip(cells, { testid = 'ty-tt', cls = '', onCell = null, boss = null } = {}) {
+export function timetableStrip(cells, { testid = 'ty-tt', cls = '', onCell = null, boss = null, endless = false } = {}) {
   const live = typeof onCell === 'function';
   // (interactive: a group of buttons; read-only: a list)
   const tag = live ? 'button' : 'div';
@@ -142,6 +145,8 @@ export function timetableStrip(cells, { testid = 'ty-tt', cls = '', onCell = nul
     bossArt(boss), h('span.ty-tt-bossname', name));
     items.push(cell);
   }
+  // (Extended Day: not a button; the day's open end has no preview of its own)
+  if (endless) items.push(h('div.ty-tt-more', { role: live ? null : 'listitem', title: X.moreTitle, 'aria-label': X.moreTitle, 'data-testid': 'ty-tt-more' }, h('b.ty-tt-p', X.more), h('span.ty-tt-subj', X.moreLine)));
   return h(`div.ty-tt${live ? '.live' : ''}${cls ? `.${cls}` : ''}`, live
     ? { 'data-testid': testid, role: 'group', 'aria-label': `${T.label}. ${PV.hint}` }
     : { 'data-testid': testid, role: 'list', 'aria-label': T.label }, ...items);
@@ -364,7 +369,7 @@ let previewSeq = 0;
  *   onToggle?: ((key: string|null) => void)|null }} [o] open: the key ("p3" / "b3") to open at once (a repaint)
  * @returns {{ el: HTMLElement, close: () => void, get open(): string|null }}
  */
-export function previewStrip(cells, previewOf, { testid = 'ty-tt', cls = '', boss = null, wrapCls = '', open = null, onToggle = null } = {}) {
+export function previewStrip(cells, previewOf, { testid = 'ty-tt', cls = '', boss = null, wrapCls = '', open = null, onToggle = null, endless = false } = {}) {
   let cur = null; // { key, card, cellEl, off }
   const pid = `ty-ttp-${++previewSeq}`;
   const wrap = h(`div.ty-ttw${wrapCls ? `.${wrapCls}` : ''}`);
@@ -420,7 +425,7 @@ export function previewStrip(cells, previewOf, { testid = 'ty-tt', cls = '', bos
     const room = Math.floor((window.innerHeight || 0) - r.top - 6);
     if (room > 0 && r.bottom > window.innerHeight - 6) card.style.maxHeight = `${Math.max(96, room)}px`;
   }
-  const strip = timetableStrip(cells, { testid, cls, boss, onCell: (c, el) => show(c, el) });
+  const strip = timetableStrip(cells, { testid, cls, boss, endless, onCell: (c, el) => show(c, el) });
   wrap.append(strip);
   if (open) {
     const c = cells.find((x) => keyOf(x) === open);
@@ -442,11 +447,39 @@ export function previewStrip(cells, previewOf, { testid = 'ty-tt', cls = '', bos
  * @param {object} plan buildTryoutPlan({ seed, grade, length, mapId })
  * @returns {{ el: HTMLElement, close: () => void }}
  */
-export function beforeClassStrip(plan) {
-  const cells = planTimetableModel(plan);
-  const s = previewStrip(cells, (p) => periodPreview(plan, p), { testid: 'ty-tt', boss: plan.boss, wrapCls: 'ty-bct-in' });
-  const el = h('div.ty-bct', { 'data-testid': 'ty-bct', 'data-length': plan.length }, s.el);
+export function beforeClassStrip(plan, { endless = false } = {}) {
+  // Extended Day (§20.8, minimal): the Full Day's twelve with P12 no longer the Final, then the open end
+  const cells = endless ? extendedCells(planTimetableModel(plan)) : planTimetableModel(plan);
+  const previewOf = endless ? (p) => ({ ...periodPreview(plan, p), final: false }) : (p) => periodPreview(plan, p);
+  const s = previewStrip(cells, previewOf, { testid: 'ty-tt', boss: endless ? null : plan.boss, wrapCls: 'ty-bct-in', endless });
+  const el = h('div.ty-bct', { 'data-testid': 'ty-bct', 'data-length': endless ? 'after' : plan.length }, s.el);
+  edgeHints(el, el.querySelector('.ty-tt'));
   return { el, close: s.close };
+}
+
+/**
+ * A strip that scrolls sideways (a Full Day on a narrow phone) says so: `data-more` on the box ('left', 'right', 'both')
+ * while cells sit past an edge, drawn as a soft fade there (tryoutTimetable.css). Kept by its scroll and the window's
+ * resize; never throws.
+ */
+export function edgeHints(box, row) {
+  if (!box || !row || typeof window === 'undefined') return;
+  const paint = () => {
+    const l = row.scrollLeft > 1;
+    const r = row.scrollLeft + row.clientWidth < row.scrollWidth - 1;
+    if (l || r) box.dataset.more = l && r ? 'both' : l ? 'left' : 'right';
+    else delete box.dataset.more;
+  };
+  row.addEventListener('scroll', paint, { passive: true });
+  // (the strip is memoised and re-mounted: each mount and each resize looks again)
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(paint) : null;
+  ro?.observe(row);
+  requestAnimationFrame(paint);
+}
+
+/** An Extended Day's cells: the Full Day's, its last period a period like the rest (the day goes on after it). */
+export function extendedCells(cells) {
+  return cells.map((c) => (c.kind === 'period' && c.final ? { ...c, final: false, label: T.cell(c.p) } : c));
 }
 
 /**
@@ -459,7 +492,9 @@ export function beforeClassTimetable(pending) {
   if (bcMemo?.key === key && bcMemo.el) return bcMemo.el;
   // (a new plan: the old strip's open preview lets go of its listeners first)
   bcMemo?.close();
-  const s = beforeClassStrip(buildTryoutPlan({ seed: pending.seed, grade: pending.grade, length: pending.length, mapId: pending.mapId }));
+  // an Extended Day previews the Full Day's plan (§20.1: P1-12 are exactly the Full Day on the same seed)
+  const endless = isExtendedRun(pending);
+  const s = beforeClassStrip(buildTryoutPlan({ seed: pending.seed, grade: pending.grade, length: endless ? 'full' : pending.length, mapId: pending.mapId }), { endless });
   bcMemo = { key, el: s.el, close: s.close };
   return s.el;
 }

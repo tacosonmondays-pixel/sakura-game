@@ -420,3 +420,34 @@
 html[data-reduce-motion] .ty-layer :is(.ty-stn, .ty-gcard) { transition: none; }
 html[data-reduce-motion] .ty-layer :is(.ty-stn, .ty-gcard):hover, html[data-reduce-motion] .ty-layer :is(.ty-stn, .ty-gcard):focus-visible { transform: none; }
 html[data-reduce-motion] .ty-layer .ty-stn > .ty-glint { animation: none; background-position: 70% 0; opacity: 0.5; }
+
+/* ---------- Random Class: the pick reveal (§20.4, §20.8). The sheet docks low and light so the board stays in view (no
+   scrim; taps on the board go through, taps on the sheet do nothing); a highlight (cyan ink) steps across the cards and
+   the drawn one lands with the pink ring. The ribbon says the class is choosing. Reduce Motion: no stepping (the UI
+   marks the drawn card at once) and no lift ---------- */
+.ty-layer .ty-sheet-wrap.ty-rv-wrap { align-items: flex-end; background: transparent; pointer-events: none; padding: 8px 12px calc(var(--bt-bar-h, 0px) + 8px); }
+.ty-layer .ty-rv-sheet { pointer-events: auto; max-width: 720px; box-shadow: 0 4px 16px rgba(14, 25, 48, 0.25); }
+.ty-layer .ty-rv-sheet > .ty-shead { padding-right: 132px; }
+.ty-layer .ty-ribbon.ty-rv-ribbon { background: var(--pink-ink); }
+.ty-layer .ty-rv-state { font: 700 12px/1.1 var(--font-num); letter-spacing: 0.04em; color: var(--muted); }
+.ty-layer .ty-rv-deck { margin: 8px 0 4px; }
+.ty-layer .ty-rv-deck > * { pointer-events: none; cursor: default; transition: transform 0.12s ease-out; }
+.ty-layer .ty-rv-deck > .ty-stn.ty-rv-on { --edge: var(--cyan-ink); --rw: 3px; transform: translateY(-3px); }
+.ty-layer .ty-rv-deck > .ty-gcard.ty-rv-on { box-shadow: inset 0 0 0 3px var(--cyan-ink); transform: translateY(-3px); }
+.ty-layer .ty-rv-deck > .ty-stn.ty-rv-got { --edge: var(--pink-ink); --rw: 4px; }
+.ty-layer .ty-rv-deck > .ty-gcard.ty-rv-got { box-shadow: inset 0 0 0 4px var(--pink-ink); }
+.ty-layer .ty-rv-deck[data-landed="true"] > :not(.ty-rv-got) { opacity: 0.55; }
+/* the Class Photo of an Extended Day: the wave the day reached, as its headline */
+.ty-layer .ty-wave-big { font: italic 900 26px/1.1 var(--font-head); color: var(--ink); }
+@media (max-width: 700px), (max-height: 430px) {
+  .ty-layer .ty-sheet-wrap.ty-rv-wrap { padding: 4px 8px calc(var(--bt-bar-h, 0px) + 4px); }
+  .ty-layer .ty-rv-sheet > .ty-shead { padding-right: 112px; }
+  .ty-layer .ty-rv-deck { margin: 4px 0 2px; }
+  .ty-layer .ty-wave-big { font-size: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ty-layer .ty-rv-deck > * { transition: none; }
+  .ty-layer .ty-rv-deck > .ty-rv-on { transform: none; }
+}
+html[data-reduce-motion] .ty-layer .ty-rv-deck > * { transition: none; }
+html[data-reduce-motion] .ty-layer .ty-rv-deck > .ty-rv-on { transform: none; }
