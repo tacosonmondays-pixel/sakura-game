@@ -115,7 +115,7 @@ try {
     await go(page, '#/lobby', 'body');
     await go(page, '#/student/tenka?tab=awaken', '[data-testid="lb-next"]');
     next = await page.locator('[data-testid="lb-next"]').innerText();
-    check(/^Next: awaken Tenka to ★5 \(UR\) \(now ★4\)\.$/.test(next.trim()), `${vp} not ★5: "${next.trim()}"`);
+    check(/^Next: awaken Tenka to ★5 UR \(now ★4\)\.$/.test(next.trim()), `${vp} not ★5: "${next.trim()}"`);
     const coins = await page.evaluate(() => window.__sakura.store.profile.currencies.coins);
     await page.evaluate(() => { const p = window.__sakura.store.profile; p.currencies.coins = 1000; window.__sakura.store.commit('e2e'); });
     await setTenka({ awaken: 5 });
@@ -133,7 +133,7 @@ try {
     const before = (await page.locator('[data-testid="lb-panel"]').innerText()).replace(/\s+/g, ' ');
     check(!/LR form coming/.test(before), `${vp} her page shows the Limit Break panel, not "LR form coming"`);
     check(/Limit Break/.test(before) && /Critical Mass · Event Horizon/.test(before), `${vp} the panel names her LR form Critical Mass · Event Horizon`);
-    check(/Event Horizon: the blast pulls enemies to its centre for 1\.5s, then detonates again for 50%\./.test(before), `${vp} one short line says what Event Horizon does`);
+    check(/Event Horizon: the blast pulls enemies toward its centre for 1\.5s, then detonates again for 50% of the blast\./.test(before), `${vp} one short line says what Event Horizon does`);
     check(/The fee opens Thesis Defense: clear 8-5 on Nightmare with Tenka placed, solo, without a Support Student\./.test(before), `${vp} the panel says what Thesis Defense asks`);
     check(/L60 ✓/.test(before) && /★5 ✓/.test(before) && /Fee/.test(before) && /Thesis Defense/.test(before), `${vp} the steps: L60 ✓ · ★5 ✓ · Fee · Thesis Defense`);
     check(await page.locator('[data-testid="lb-pay"]').isEnabled(), `${vp} the fee can be paid`);

@@ -304,8 +304,8 @@ export const ABILITY_LR_TEXT = Object.freeze({
   }),
   'tenka.criticalMass': Object.freeze({
     name: 'Critical Mass · Event Horizon',
-    add: 'Event Horizon: the blast collapses into a gravity pull for {time}s that draws the enemies in its area to its centre (minibosses half as fast, bosses stand firm), then detonates again for {sharePct}% of the first blast.',
-    short: 'the blast pulls enemies to its centre for {time}s, then detonates again for {sharePct}%',
+    add: 'Event Horizon: the blast collapses into a gravity pull for {time}s that draws the enemies in its area toward its centre (minibosses half as fast, bosses stand firm), then detonates again for {sharePct}% of the first blast.',
+    short: 'the blast pulls enemies toward its centre for {time}s, then detonates again for {sharePct}% of the blast',
   }),
 });
 /** @param {string} id @returns {{ name: string, add: string, short: string }|null} */

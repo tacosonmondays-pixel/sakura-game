@@ -1043,7 +1043,7 @@ function limitBreakPanel(unit, ctx) {
 function limitBreakNext(unit, s) {
   const st = store.profile.units[unit.id] || {};
   if (!s.maxed) return `Next: reach level 60 with all 5 gates (now Lv ${st.level || 1}, ${st.breakthrough || 0}/5 gates).`;
-  if (!s.ur) return `Next: awaken ${unit.name} to ★5 (UR) (now ★${st.awaken || 0}).`;
+  if (!s.ur) return `Next: awaken ${unit.name} to ★5 UR (now ★${st.awaken || 0}).`;
   if (s.missing.length) {
     const what = s.missing.map((m) => `${fmtNum(m.need - m.have)} ${m.id === 'coins' ? 'coins' : ITEMS[m.id]?.name || m.id}`).join(', ');
     return `Next: gather the fee (still missing ${what}).`;

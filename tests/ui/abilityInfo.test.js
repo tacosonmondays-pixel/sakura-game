@@ -28,7 +28,7 @@ describe('the LR forms on the ability Details (BANNERS §C.2)', () => {
     const t = abilityInfoView(UNIT_MAP.tenka);
     expect(t.lr).toMatchObject({ name: 'Critical Mass · Event Horizon' });
     const f = t.facts.find((x) => x.k === 'At LR');
-    expect(f.t).toBe('Event Horizon: the blast collapses into a gravity pull for 1.5s that draws the enemies in its area to its centre (minibosses half as fast, bosses stand firm), then detonates again for 50% of the first blast.');
+    expect(f.t).toBe('Event Horizon: the blast collapses into a gravity pull for 1.5s that draws the enemies in its area toward its centre (minibosses half as fast, bosses stand firm), then detonates again for 50% of the first blast.');
     if (UNIT_MAP.kohaku_tsubaki) expect(abilityInfoView(UNIT_MAP.kohaku_tsubaki).facts.find((x) => x.k === 'At LR').t).toMatch(/^Twin Star: .* 6× her hit within 1\.6 tiles\./);
     // nobody else has an LR form
     for (const u of withAbility) if (!['tenka', 'kohaku_tsubaki'].includes(u.id)) expect(abilityInfoView(u).facts.some((x) => x.k === 'At LR'), u.id).toBe(false);
