@@ -239,7 +239,7 @@ describe('Potential in resolveStats', () => {
     // review dropped Inferno Queen's unused splash)
     // '456:77d05324' before the attack shapes S3 (Yuki's Rising Spikes: new tier data on her Frostbite path; Chigusa and
     // Kanna are not pinned here); with Yuki left out the 432 others hash 05819da7 before and after
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:dfde8502');
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:95695334');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders

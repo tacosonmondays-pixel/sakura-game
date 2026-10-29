@@ -112,7 +112,7 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
     if (rows && rows.length) {
       h.int(rows.length);
       for (const r of rows) {
-        h.int(r.uid).int(r.age).int(r.next).int(r.n).int(r.hit.length);
+        h.int(r.uid).int(r.age).int(r.next).int(r.n).int(r.lead).int(r.hit.length);
         for (let i = 0; i < r.hit.length; i++) h.int(r.hit[i]);
       }
     }

@@ -609,3 +609,112 @@ ticks' crit rolls switched off for a test Aoi reads 19.55 and 33.27 again. Noise
 - Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js`. **No `COOP_PROTOCOL` bump on the branch.**
 - Perf: `tests/sim/perf.test.js` "held attack shapes": 6 of each girl at tier 5 and 200 enemies, 0.44 ms a step locally
   (limit 2 ms).
+
+### A8. S3 "Ground" as built
+
+Written on `feature/attack-ground` (on S2 `feature/attack-held` 338211c8).
+
+| Girl, path | Tiers | Shape | What the player sees |
+|---|---|---|---|
+| Chigusa, her whole vine kit | base, Greenhouse T3-5 | Bramble Road (`vine`, kit) | Every 6 s (4, 3, 2.5 s on Greenhouse) a vine bursts up on the road in her range and grows along it toward the walkers (2 tiles, 3 from Strangler Vine, 4 at Forest Corridor; 4 tiles a second). Walkers on it are slowed 20 % (35 % at T5); the first it reaches is held (1 s, 2 s from T3). From Strangler Vine it lashes once a second; the lash is shared by the walkers on it. Thorn Hedge keeps two vines standing. It stands 3 s (4 s from T3), then withers. |
+| Yuki, Frostbite (her Icicle Lance path) | T4 Shatter Point, T5 Diamond Dust | Rising Spikes (`behavior: 'spikes'`) | Each attack a row of six ice spikes (eight at T5) bursts up along the road one after another, the first under her enemy and the others half a tile apart up the road into the walkers behind it. Her enemy takes her whole hit, every other walker on the row × 0.46 (× 0.36), each once; her Brittle and armour crack ride on every strike. A flyer still gets her icicle. T3 keeps her icicle. |
+| Kanna (hero) | Lv 24 Hundred Demons' Parade (and Lv 25) | Ripple Quake (`quake`, on her strike) | Every strike also sends two rings of force rolling out from her across the ground to her reach, 0.2 s apart; each ring strikes every walker it crosses once, rolling past the enemy she struck. |
+
+Built as the shared pieces: the road-object record (`t.vines`, `t.spikeRows`, `t.quakes`: integer step timers, a per-object
+re-hit list, per-girl and per-sim caps, oldest first), `onRoad` (the 1-D path-distance test with Marumi's shared-stretch rule:
+another path counts within `ROAD_SHARED` of the stretch, running the same way) and `inBand` in `shapes.js`, `dirAngle` in
+`dirs.js` (her facing without `atan2`), queued ring starts (`wait`), and a ribbon-free plain renderer
+(`src/render/groundShapes.js`: a green road band of ground discs, ice stars on pale discs, an earth ring). Contracts:
+`CONTRACTS.md` "Attack shapes S3".
+
+Changes from the spec, and why:
+
+1. **A lash is shared.** The spec's "hits every walker on it" with her old vine damage read ×8 to ×53 on the light bench's
+   crowd: a 3-tile vine on a dense road holds 20-30 walkers, where her old vine damaged the one it held. One lash of
+   `dps × lash` is now split evenly over the walkers it strikes (a share of one hit each, so flat armour and the floor scale
+   with it, as the held shapes do): a lone walker takes it all, a crowd what one walker took. That keeps both rows.
+2. **Vines never touch bosses.** No slow, no hold, no lash. Her vine never damaged a boss (it only damaged what it held, and
+   bosses were never held), so a lash on a boss would add a damage source the boss rows never had (at Strangler Vine her
+   old 10 a second is about as much as her seeds do to the light bench's boss). Minibosses are lashed and resist the hold.
+3. **Vines stand on while she is sabotaged** (road objects, like Azami's strips); she roots no new one. Her thorn beds and
+   Bloom Rush keep their old pause. A sold girl's vines go with her.
+4. **The vine numbers are stated per tier**: Strangler Vine 6 a second (was 10 while holding), Forest Corridor 16 (was 30), a
+   vine standing 4 s instead of a 2 s hold. Potential keeps every key it had (`vine.hold`, `vine.every`, `vine.bedDmg`): Deep
+   Roots and Evergreen still lengthen the hold, Quick Sprouts and Evergreen still bring the vine sooner. Only the hold's own
+   damage is gone (the lash replaces it), so Deep Roots no longer adds a damage tick.
+5. **The vine timer is an integer of steps** (`t.vineCd`, was seconds); `t.vineHold` is gone (a vine holds once, by status).
+6. **Rising Spikes run along the road**, the spec's second form (from the road point under her enemy, up the road), not the
+   straight line toward her enemy. The line crossed the road at an angle and hit fewer walkers than her blast in a dense crowd
+   and more in a sparse one (light 1.06 against round 5's 1.88 at the same size); along the road its reach scales with the road
+   like her blast's. A row strikes each enemy once (one hit list a row), so a lone enemy takes one hit an attack, as from her
+   icicle.
+7. **A long, light row with a full hit on her enemy.** Her enemy takes her whole hit (a boss's rows stay exact), the other
+   walkers on the row × `spike.mul`. Two full spikes fit the light bench (1.00) but read ×1.98 / ×2.32 on round 5's crowd, which
+   piles up never-dying, slowed, frozen, Brittle walkers at the head of the road in her reach: her icicle burst where it met the
+   pile (about 10 walkers within its splash), a spike rises under her enemy at the pile's head (about 46). They also left
+   fewer walkers Brittle on the light crowd than her blast did, and her partner's DPS fell 11-18 % there. Six spikes at × 0.46
+   (eight at × 0.36) put a lighter strike on more walkers: both rulers read 1.0, and the partner gains a little (her Brittle
+   reaches more of the crowd).
+8. **A flyer gets her icicle** (her projectile volley, with her splash): spikes never reach flyers, and she keeps her
+   anti-air. Gear Pierce adds spikes (her shot's carry); Follow-Through widens nothing (the row has no blast).
+9. **Ripple Quake is Kanna's level 24 entry on top of her splash**, and its rings are **clean hits** (her statuses, marks and
+   pushes stay on her strike and splash). Replacing her +0.3 splash with rings, or rings that carried her slow and shred to
+   every walker in her reach, read ×1.2-1.3 on round 5's crowd while the light bench sat at 1.0-1.1: crowd control laid on
+   everyone in reach piles a never-dying crowd up in her reach. Clean rings at × 0.03 / × 0.015 of her hit fit both rulers.
+   They roll past the enemy she struck (her focused strike is its own hit), so her boss rows are exact. No last-ring stagger
+   (`quake.status` is empty): a stun on every walker in reach is the same pile-up.
+10. **No Forest Road capstone that leaves the vine for the wave** and no armour-shredding thorns; Forest Corridor is a longer,
+   slower vine. Both are data for later.
+
+**DPS parity** (method of A4; ratio new / today; baseline `feature/attack-held` 338211c8; untouched paths and girls are
+bit-identical: the 456-resolution stats hash with Yuki left out reads `05819da7` before and after; Chigusa and Kanna are not in
+it). Kanna is a hero, which neither bench places: a copy of the light bench's harness and of round 5's maxed harness with her
+placed as the hero at a fixed level (her XP and Mastery held there; partner Aoi, or Umeko and Midori fully maxed), the same
+stages, seeds, streams and targets.
+
+| Girl, tier | Light: mean crowd / boss | Light: one stage, crowd range | Light: L25 crowd / boss | Round 5: crowd / boss / walking boss |
+|---|---|---|---|---|
+| Chigusa Growth T3 / T4 / T5 | 0.98 / 1.00, 0.99 / 1.00, 0.99 / 1.00 | 0.96-1.02 | 0.98-0.97 / 1.00 | 0.99-1.01 / 1.00 / 1.00 |
+| Chigusa Greenhouse T3 | 0.98 / 1.00 | 0.95-1.00 | 1.01 / 1.21 | 1.00 / 1.00 / 1.00 |
+| Chigusa Greenhouse T4 | 1.02 / 1.00 | 0.98-1.05 | 1.02 / 1.52 | 1.00 / 1.00 / 1.00 |
+| Chigusa Greenhouse T5 | 1.00 / 1.00 | 0.98-1.03 | 1.00 / 0.82 | 0.97 / 1.00 / 1.00 |
+| Chigusa Harvest T3-5 | 1.00 / 1.00 | 0.99-1.02 | 0.98 / 1.00 | 1.00 / 1.00 / 1.00 |
+| Yuki Frostbite T4 | 1.00 / 1.00 | 0.99-1.01 | 1.03 / 1.00 | 1.06 / 0.99 / 0.99 |
+| Yuki Frostbite T5 | 0.99 / 1.04 | 0.96-1.01 | 1.01 / 1.06 | 1.03 / 1.00 / 1.01 |
+| Kanna Lv 24 | 1.03 / 1.00 | 0.99-1.07 | 1.06 / 1.00 | 1.01 / 1.00 / 1.00 |
+| Kanna Lv 25 | 1.04 / 1.00 | 0.94-1.11 | 1.17 / 1.00 | 1.01 / 1.00 / 1.00 |
+
+(Yuki T3 and her other paths are 1.00 everywhere.) The misses, reported and not cut (the coordinator's direction for this round:
+no nerfs):
+
+- **Yuki's maxed hit bench** (`bench.mjs --hit`, maxed preset, a third ruler the S2 review used): 0.87 at T4, 0.82 at T5 (her
+  partner-less crowd there; both rulers above read 1.0). Two full spikes read 1.23 there and ×2 on round 5.
+- **Chigusa Greenhouse's early boss row (L25 preset, a lone miniboss): 1.21 / 1.52 / 0.82.** Her old vine damaged a miniboss only
+  while it held it, and minibosses halve the hold; a lash does not care. One shared-lash knob cannot fit a lone miniboss and the
+  crowd; the crowd and both round-5 rows are on target.
+- **Kanna's early crowd (L25 preset): 1.06 / 1.17**, her rings on a sparse early crowd; the light and round-5 crowds are on target.
+
+The partner's DPS moves where a slow or a spike row changes the crowd: Aoi beside Yuki's spike rows gains on the crowd (mean
+1.06 at T4, 1.03 at T5; 1.14 / 1.20 at L25: her Brittle reaches more walkers); beside Chigusa's vines, 0.85-1.07 by stage on the
+crowd (the slow moves the stream), 1.00 on the boss.
+
+**Determinism** (§7.2 step 5):
+
+- (a) `tests/sim/ground.test.js`: Yuki, Chigusa and Kanna each alone and all three on 4-5 at Potential 6, plain `Math` against
+  `withDetMath`, `hashSim` every 60 ticks equal, each shape live; twice the same battle identical.
+- (b) `e2e/engines/scriptedBattle.js` `runGroundBattle` (GROUND_START, 2-4 Hard): two Chigusas to Forest Corridor and two Yukis
+  to Diamond Dust, and the host's Kanna bought past Lv 24, two Lockstep clients to the end; a third client rebuilds from the
+  wave-3 checkpoint and the log to the first tick 5 s into a wave with a vine, a spike row and a quake ring live (a mid-wave
+  rejoin) and must land on the run's hash and snapshot. Compared across engines by `e2e/engines.mjs`, pinned in
+  `tests/online/engines.test.js`.
+- (c) The new sim files (`ground.js`, `vines.js`, `shapes.js`, `dirs.js`) are checked by a test: no `Math.random`, no runtime trig
+  or `hypot`, no `**`. Road points come from `pointAt`, her facing from `nearestDir` and `dirAngle`. No rng of their own (crits
+  still roll in `sim._hit`; the slow and hold have no chance); victims in the grid's order, a capped lash lead first by
+  (remaining, uid).
+- (d) The renderer reads only `t.vines`, `t.spikeRows`, `t.quakes` and her stats, and uses no rng.
+- State: `t.vines`, `t.spikeRows`, `t.quakes` (integers but a vine's root / length and a ring's radius, which `hashSim` folds in
+  1/256 tiles or by their integer step counts) end at the wave clear; `hashSim` folds each only while non-empty (and her vine
+  timer with her vines); battle saves classify them `calm`.
+- Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js`. **No `COOP_PROTOCOL` bump on the branch.**
+- Perf: `tests/sim/perf.test.js` "ground attack shapes": 6 Chigusas at Forest Corridor, 6 Yukis at Diamond Dust and Kanna at
+  Lv 24 with 200 enemies, 0.30 ms a step locally (limit 2 ms).

@@ -88,32 +88,32 @@ describe('shape tests: onRoad, inBand', () => {
 });
 
 describe('Rising Spikes (Yuki, Frostbite T4-5)', () => {
-  test('T3 keeps her icicle; T4 and T5 raise a row of 2 spikes 0.5 apart along her enemy\'s road', () => {
+  test('T3 keeps her icicle; T4 raises a row of 6 spikes 0.5 apart along her enemy\'s road, T5 a row of 8', () => {
     expect(setup({ tier: 3 }).t.eff.behavior).toBe('projectile');
-    for (const tier of [4, 5]) {
+    for (const [tier, count, mul] of [[4, 6, 0.46], [5, 8, 0.36]]) {
       const { t } = setup({ tier });
       expect(t.eff.behavior).toBe('spikes');
-      expect(t.stats.spike).toMatchObject({ count: 2, gap: 0.5, r: 0.25, delay: 3, mul: 1 });
+      expect(t.stats.spike).toEqual({ count, gap: 0.5, r: 0.25, delay: 3, mul });
     }
   });
 
-  test('the row: spike 0 under her enemy, spike 1 upstream; spike i rises 1 + 3i steps after the attack', () => {
+  test('the row: spike 0 under her enemy, the others up the road 0.5 apart; spike i rises 1 + 3i steps after the attack', () => {
     const { sim, t } = setup();
     const e = park(sim, 'tank', 7.5);
     t.cooldown = 0;
     steps(sim, 1);
     expect(t.spikeRows).toHaveLength(1);
     const row = t.spikeRows[0];
-    expect(row.n).toBe(2);
-    const [x0, y0] = spikeAt(row, 0);
-    const [x1, y1] = spikeAt(row, 1);
-    expect(x0).toBeCloseTo(e.x, 9);
-    expect(y0).toBeCloseTo(4.5, 9);
-    expect(x1).toBeCloseTo(e.x - 0.5, 9);
-    expect(y1).toBeCloseTo(4.5, 9);
-    expect([spikeRise(row, 0, 3), spikeRise(row, 1, 3)]).toEqual([1, 4]);
+    expect(row.n).toBe(6);
+    expect(row.lead).toBe(e.uid);
+    for (let i = 0; i < 6; i++) {
+      const [x, y] = spikeAt(row, i);
+      expect(x).toBeCloseTo(e.x - 0.5 * i, 9);
+      expect(y).toBeCloseTo(4.5, 9);
+      expect(spikeRise(row, i, 3)).toBe(1 + 3 * i);
+    }
     // the row ends SPIKE_UP steps after its last spike rose
-    steps(sim, 4 + SPIKE_UP);
+    steps(sim, 16 + SPIKE_UP);
     expect(t.spikeRows.some((r) => r.uid === row.uid)).toBe(true);
     steps(sim, 1);
     expect(t.spikeRows.some((r) => r.uid === row.uid)).toBe(false);
@@ -124,7 +124,7 @@ describe('Rising Spikes (Yuki, Frostbite T4-5)', () => {
     t.cooldown = 1e9;
     const a = park(sim, 'tank', 7.5);
     const b = park(sim, 'tank', 7.1); // under spike 1 (and touching spike 0's radius)
-    const c = park(sim, 'tank', 5.5); // off the row
+    const c = park(sim, 'tank', 3.5); // past the row's end (6 spikes: 2.5 tiles up the road)
     const bat = sim.spawnEnemy('bat', { pathIndex: 0, dist: 7.0 });
     const hp = [a.hp, b.hp, c.hp, bat.hp];
     t.cooldown = 0;
@@ -133,7 +133,10 @@ describe('Rising Spikes (Yuki, Frostbite T4-5)', () => {
     steps(sim, 8);
     expect(a.hp).toBeLessThan(hp[0]);
     expect(b.hp).toBeLessThan(hp[1]);
+    steps(sim, 20);
+    const lead = hp[0] - a.hp;
     const once = hp[1] - b.hp;
+    expect(once / lead).toBeCloseTo(0.46, 6); // her enemy takes her whole hit, the others × spike.mul
     steps(sim, 20);
     expect(hp[1] - b.hp).toBe(once); // once a row, though two spikes touch it
     expect(c.hp).toBe(hp[2]);

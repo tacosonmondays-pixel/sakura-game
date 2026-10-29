@@ -4,9 +4,10 @@
 //     target mode and raises a row of spike.count spikes along its road, the first under it and the others
 //     spike.gap tiles apart upstream into the walkers behind it (the "along the road" form of §5.8, by path
 //     distance with pointAt, like a runner). Spike i rises i × spike.delay steps after the attack and strikes every
-//     eligible ground enemy within spike.r of it (its body: inDisc with hitRadius) that the row has not struck yet,
-//     for her hit × spike.mul (her statuses ride on it, crits roll in sim._hit). A row strikes each enemy once, so a
-//     lone enemy takes one hit an attack, as from her icicle. Spikes never reach flyers: when her enemy is a flyer
+//     eligible ground enemy within spike.r of it (its body: inDisc with hitRadius) that the row has not struck yet:
+//     her enemy (row.lead) for her whole hit, every other walker for her hit × spike.mul (her statuses ride on every
+//     strike, crits roll in sim._hit). A row strikes each enemy once, so a lone enemy takes one hit an attack, as
+//     from her icicle. Spikes never reach flyers: when her enemy is a flyer
 //     (not grounded) she throws her icicle at it as before (her projectile volley). Gear Pierce adds spikes (her
 //     shot's carry: one more spike per 100 %).
 //   - Ripple Quake (kit 'quake'; Kanna's Hundred Demons' Parade): each strike also sends quake.rings rings rolling
@@ -17,7 +18,7 @@
 //     alone. Flyers are never struck, nor the enemy her strike just hit
 //     (the rings roll past it: a lone boss takes her strike as before).
 //
-// State: t.spikeRows [{ uid, pathIndex, dist, n, age, next, pts: [x, y, …], hit: [uids], spec }] and t.quakes [{ uid, x, y, wait,
+// State: t.spikeRows [{ uid, pathIndex, dist, n, age, next, lead, pts: [x, y, …], hit: [uids], spec }] and t.quakes [{ uid, x, y, wait,
 // g, r, max, i, skip, hit: [uids], spec }] (age, next, wait, g, i, n integers; a ring's radius r is g growth steps), road
 // objects that tick before her sabotage check (they stand on while she is sabotaged; a sold girl's go with her) and
 // end at the wave clear (endGroundWave), so calm-point saves and co-op checkpoints carry none.
@@ -94,7 +95,7 @@ export function attackSpikes(sim, t, spec, h) {
       const p = pointAt(path, d, PT, e.seg ?? 0);
       pts.push(p.x, p.y);
     }
-    const row = { uid: sim._nextUid(), pathIndex: e.pathIndex, dist: e.dist, n: pts.length / 2, age: 0, next: 0, pts, hit: [], spec };
+    const row = { uid: sim._nextUid(), pathIndex: e.pathIndex, dist: e.dist, n: pts.length / 2, age: 0, next: 0, lead: e.uid, pts, hit: [], spec };
     t.spikeRows.push(row);
     sim._emit('spikes', { towerUid: t.uid, uid: row.uid, pathIndex: row.pathIndex, dist: row.dist, n: row.n, gap: sp.gap });
   }
@@ -121,7 +122,7 @@ function spikeStep(sim, t) {
         const e = NEAR[j];
         if (!onGround(e, row.spec) || row.hit.includes(e.uid) || !inDisc(px, py, r, e.x, e.y, hitRadius(e))) continue;
         row.hit.push(e.uid);
-        sim._hit(e, t, row.spec, sp.mul);
+        sim._hit(e, t, row.spec, e.uid === row.lead ? 1 : sp.mul);
       }
       NEAR.length = 0;
     }

@@ -1491,7 +1491,7 @@ damage, rate ×, range, burst, kits, nets, netBudget, netElite, netBoss), `hub` 
 new value, strongest wins — radius, costCut, sellMul, freeTiers, killBounty, cdCut, rateMul, rangeMul,
 dmgMul, typeFloor, banners, bannerRange, bannerReach; flags detection, airGrant, cleanse; radiusAdd and
 cutAdd add on top; her `range` is set to the radius), `vine` (Chigusa: every, hold, dps, beds, bedDmg,
-bedTtl, bloom, bloomPer, bloomIdle, lives, livesCap; numbers add), `ball` (Marumi: travel, speed, through,
+bedTtl, bloom, bloomPer, bloomIdle, lives, livesCap, and Bramble Road's len, grow, life, slow, lash, cap, max; numbers add), `ball` (Marumi: travel, speed, through,
 lanes, pins, pinDmg, pinPierce, sticky, stickyStack, stickyTime add; hook, lob, pushBig OR), `blade` (Kaede's
 blade arts, src/sim/towers.js bladeArts: every, radius, share, targets; crescents, cLen, cWidth, cShare, cTargets;
 storm, sShare, sTargets; wave, wWidth, wShare, wTargets; maple, mShare, mTargets add, shareMul ×; `capMax`, her
@@ -1511,7 +1511,8 @@ balls.js:    addBall, rollBall, ballTick, endBallWave                        // 
   Bowling Thunder: Sim._hit skips KNOCKBACK_RESIST for minibosses); shared stretches (P-17): another
   path's walker counts where its road segment runs parallel to the ball's (dot > 0.95)
   abilities.js: the runner kind by effect.runner (only 'giantBall' runs); startRunner(..., at) takes an entry
-vines.js:    vineTarget, castVine, addBed, onVineKill, vineTick, endVineWave   // t.vineCd, t.vineHold, t.beds, t.bloomT/bloomIdle
+vines.js:    vineSpot, rootVine, vineGrown, vineObjects, addBed, onVineKill, vineTick, endVineWave   // t.vineCd (steps), t.vines, t.beds, t.bloomT/bloomIdle
+  Bramble Road (attack shapes S3, below): vineTick roots her vines on their timer, vineObjects (before her sabotage check) ages them
   Bloom Rush multiplies her cooldown rate in updateTower; thorn beds BEDS_PER_GIRL 6 / BEDS_PER_SIM 40
   (oldest first); harvest lives at the wave clear, sim.stats.harvestLives (absent until given)
   abilities.js debuff: pick 'ground' (non-boss walkers, lead first), dmgMul (a hit each), reachMul
@@ -1609,6 +1610,51 @@ held.js:    attackHeld(sim, t, spec, h, { src, trick, echo })  // behaviours 'st
 - Kohaku's constant beam stays in duo.js (A7): her beams are several holds re-picked every tick with a rounded share.
 - Constants (appended block): CH_TICK, CH_GRACE, CH_HITS, COS2_MAX, STREAM_TIP, STREAM_HALF, STREAM_TURN, SWEEP_TICK,
   SWEEP_HALF_WIDTH, SWEEP_ARC, SWEEP_SWING, SWEEP_TURN.
+
+### Attack shapes S3 "Ground" (`docs/specs/ATTACK_SHAPES.md` §4.2, §5.4, §5.7, §5.8, addendum A8; branch `feature/attack-ground`)
+
+```js
+shapes.js:  inBand(d2, r0, r1) (r0 < d ≤ r1; r0 ≤ 0: from the centre), onRoad(sim, e, pathIndex, d0, d1) (same path: d0 ≤ e.dist ≤ d1;
+            another path: within ROAD_SHARED of a segment of the stretch, unit direction dot > ROAD_SAME_DIR: Marumi's shared stretch)
+dirs.js:    dirAngle(k) (her facing angle from a table index, k × 2π / RING_DIRS, no trig)
+vines.js:   vineSpot(sim, t), rootVine(sim, t, spot), vineGrown(vine, v), vineObjects(sim, t)   // Bramble Road (Chigusa's vine kit)
+ground.js:  attackSpikes(sim, t, spec, { bestTarget, volley, extra })   // behaviour 'spikes' (Rising Spikes), a counted attack
+            spikeAt(row, i), spikeRise(row, i, delay), sendQuake(sim, t, spec, x, y, skip)   // Ripple Quake, from a duel strike
+            groundTick(sim, t) (every step, before her sabotage check), endGroundWave(sim)
+render/groundShapes.js: drawGroundShapes(sim, gN, gA, R)   // the plain look, from Actors.drawGround, reads the sim only
+```
+- Road objects tick before `updateTower`'s sabotage / Move check (they stand on while she is sabotaged; a sold girl's go with her)
+  and end at the wave clear; `hashSim` folds each list only while it holds something; battle saves carry none (`vines`, `spikeRows`,
+  `quakes`: 'calm'; `vineHold` is gone). Every timer is an integer of steps.
+- `t.vines [{ uid, pathIndex, root, len, age, life, held }]` (Bramble Road): every `vine.every` s (t.vineCd, integer steps) she
+  roots one on the first spot of roadSpots in her range (nearest the exit) with a walker on `onRoad(pathIndex, d − len, d)` and
+  not under the full length of a vine of hers; it grows `vine.grow` tiles a second up the road to `len` and stands `vine.life` s.
+  Every VINE_STEP steps the walkers on [root − grown, root] (never a boss or a flyer; in the grid's order) are slowed
+  (`vine.slow`, VINE_SLOW_T s), the lead one of them (remaining, uid) is held once a vine (`hold` status, `vine.hold` s;
+  minibosses resist), and on a lash step (`vine.lash` s, whole VINE_STEPs) the walkers on it (lead first, at most `vine.cap`;
+  0 = all) share one lash of `vine.dps × vine.lash`: each takes t.vineSpec × share (spec `share` = lash ÷ walkers: combat.js
+  scales flat armour and the floor). Caps: `vine.max` of hers standing, VINES_PER_GIRL, VINES_PER_SIM (her oldest first).
+  Events: `bramble { towerUid, uid, pathIndex, root, len }` on rooting, `vine { towerUid, targetUid, x, y, hold }` on the hold,
+  `lash { towerUid, uid }` on a lash.
+- `t.spikeRows [{ uid, pathIndex, dist, n, age, next, lead, pts, hit, spec }]` (Rising Spikes): a counted attack picks her enemy by
+  target mode; a flyer (not grounded) gets her projectile volley; else a row of `spike.count` (+ her gear Pierce's shot carry)
+  spikes from its road point up the road, `spike.gap` apart (pointAt); spike i rises at age 1 + i × `spike.delay` and strikes
+  each eligible ground enemy `inDisc(r = spike.r, its hitRadius)` not yet struck by the row: her enemy (`lead`) with her whole
+  spec, the others × `spike.mul`; a row lives
+  SPIKE_UP steps past its last spike. Caps SPIKE_ROWS_PER_GIRL / SPIKE_ROWS_PER_SIM. Events: `spikes { towerUid, uid, pathIndex,
+  dist, n, gap }`, `attack { kind: 'spikes' }`.
+- `t.quakes [{ uid, x, y, wait, g, r, max, i, skip, hit, spec }]` (Ripple Quake): a duel strike of a girl with `quake` sends
+  `quake.rings` rings from her origin, `quake.gap` steps apart (wait), each growing `quake.speed` tiles a second (r = g growth
+  steps) to her range; a ring strikes each ground enemy in `inBand(prev r, r)` once, never `skip` (the enemy she struck), with a
+  clean copy of her plain spec (no statuses, marks, pushes, splash) × `quake.mul` (the first ring) or `quake.later`; the last
+  ring adds `quake.status`. Caps QUAKES_PER_GIRL / QUAKES_PER_SIM. Event: `quake { towerUid, x, y, rings, gap, max }`.
+- Stats blocks (mods.js SHAPE_NORM, every field stated per tier / level): `spike { count, gap, r, delay, mul }`, `quake { rings,
+  gap, speed, mul, later, status }`; `vine` gains len, grow, life, slow, lash, cap, max (normVine defaults 2, 4, 3, 0.2, 1, 0, 1).
+- Units: Chigusa's whole vine kit (base and Greenhouse T3-5: Strangler Vine, Thorn Hedge, Forest Corridor), Yuki Frostbite T4-5
+  (Shatter Point, Diamond Dust; `behavior: 'spikes'`), Kanna's Lv 24 (Hundred Demons' Parade; `quake`). drawerView TARGETABLE has
+  `spikes`.
+- Constants (appended block): ROAD_SHARED, ROAD_SAME_DIR, VINE_STEP, VINE_SLOW_T, VINES_PER_GIRL, VINES_PER_SIM,
+  SPIKE_ROWS_PER_GIRL, SPIKE_ROWS_PER_SIM, SPIKE_UP, QUAKES_PER_GIRL, QUAKES_PER_SIM.
 
 ### Roster B3 mechanics (track 5; `docs/merge/ROSTER_SPEC.md` §6, `docs/merge/ROSTER_WAVE_NOTES.md`)
 

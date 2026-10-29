@@ -117,8 +117,10 @@ const GACHA_GOLDEN = {
   'kinu:6-1:hard': 'W26/40/68511/1183/8028cf00',
   'ouka:5-4:hard': 'W27/38/90695/575/208fad97',
   'ouka:8-4:hard': 'W30/37/55156/3033/b83b4bb6',
-  'chigusa:5-4:hard': 'W27/36/90183/930/cf2018c6',
-  'chigusa:8-4:hard': 'W30/41/54755/1802/185583ae',
+  // (re-pinned for Bramble Road, attack shapes S3: her vine grows along the road, slows and lashes; was
+  // 'W27/36/90183/930/cf2018c6' / 'W30/41/54755/1802/185583ae'; lives and waves unchanged)
+  'chigusa:5-4:hard': 'W27/36/90581/996/eab8ef1a',
+  'chigusa:8-4:hard': 'W30/41/55092/1805/11b09815',
   // (re-pinned for her rework, Oct 21: ricochet Spin Shot, the lob on every path, damage in the regular
   // band and her own lane on a shared stretch; 37 → 38 and 36 → 40 lives). Re-pinned for v0.1.41 (was
   // 'W27/38/100632/1471/ac3188a3' / 'W30/40/53939/1579/6c70e78'): her lob is flyers only (it also hit

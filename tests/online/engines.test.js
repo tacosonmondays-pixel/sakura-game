@@ -322,7 +322,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // pinned when the battle was added (feature/attack-ground, S3 data fitted on both rulers). Change only with a
     // deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, ground: r.ground, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 25336, state: 'won', wave: 22, wallets: '1745/1743', final: 1557545055, hashes: 'a5354549', ground: '617/485/4', rejoinTick: 5500 });
+      .toEqual({ ticks: 25407, state: 'won', wave: 22, wallets: '1745/1743', final: 3360433188, hashes: '924356b4', ground: '624/761/3', rejoinTick: 5468 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {
