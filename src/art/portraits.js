@@ -156,6 +156,12 @@ export function portraitFig(unitOrId) {
   return typeof f === 'number' && f > 0 && f < 1 ? f : 1;
 }
 
+/** @returns {number} her -cut stand's width over its height (PORTRAIT_DATA cut; 0.6, about a full figure's, when unknown) */
+export function portraitCutAspect(unitOrId) {
+  const a = PORTRAIT_DATA[idOf(unitOrId)]?.cut;
+  return typeof a === 'number' && a > 0.2 && a < 2 ? a : 0.6;
+}
+
 /** Face position (% of the full illustration) for object-position / bubbles. */
 export function portraitFace(unitOrId) {
   return PORTRAIT_DATA[idOf(unitOrId)]?.face || [50, 22];
