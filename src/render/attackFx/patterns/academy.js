@@ -42,10 +42,10 @@ export function squash(t, dur = 0.12) {
 
 /**
  * A pooled streak lying along the world direction (dx, dh, dy), centred at (x, h, y): len long,
- * `thick` wide. grow: starts at 30% and eases out to full size. Returns the quad or null.
+ * `thick` wide. grow: starts at 60% and eases out to full size. Returns the quad or null.
  */
 export function streak(ctx, cls, x, h, y, dx, dh, dy, len, thick, life, c, a = 1, grow = true) {
-  const p = ctx.spr(ctx.b.bbA, cls, ctx.R.beam, x, h, y, grow ? thick * 0.3 : thick, thick, life, c, a);
+  const p = ctx.spr(ctx.b.bbA, cls, ctx.R.beam, x, h, y, grow ? thick * 0.6 : thick, thick, life, c, a);
   if (!p) return null;
   p.asp = len / Math.max(1e-3, thick);
   p.rot = ctx.screenAngle(x, h, y, dx, dh, dy);
