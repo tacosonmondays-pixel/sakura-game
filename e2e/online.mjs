@@ -792,9 +792,19 @@ try {
       return null;
     }, fromEnd);
   }
-  const heroA = await placeHero(A, false);
+  // (a placement is refused while the client rebuilds after a resync: a frame-starved page is dropped and re-admitted
+  // under load; try again for up to a minute)
+  const placeHeroRetry = async (page, fromEnd) => {
+    for (let i = 0; i < 30; i++) {
+      const r = await placeHero(page, fromEnd).catch(() => null);
+      if (r) return r;
+      await page.waitForTimeout(2000);
+    }
+    return null;
+  };
+  const heroA = await placeHeroRetry(A, false);
   await B.waitForFunction(() => !!window.__battle.sim.heroes[0], null, { timeout: 120000, polling: 250 }).catch(() => null);
-  const heroB = await placeHero(B, true);
+  const heroB = await placeHeroRetry(B, true);
   const why = !heroA || !heroB ? await Promise.all([A, B].map((p) => p.evaluate(() => window.__heroWhy || '').catch(() => ''))) : null;
   check(!!heroA && !!heroB, `co-op heroes: both players deploy their hero for free (${heroA} / ${heroB}${why ? `; ${why.join(' / ')}` : ''})`);
   const twoHeroes = (p) => p.waitForFunction(() => window.__battle.sim.heroes.filter(Boolean).length === 2, null, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false);
