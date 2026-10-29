@@ -42,6 +42,8 @@ export class FxSystem {
     this.clock = 0;
     this._ex = new Float64Array(EX_RING * 4).fill(-1e9);
     this._exi = 0;
+    /** each recent blast's glow particle (dimBlast halves it when a styled impact draws its own hit there) */
+    this._exGlow = new Array(EX_RING).fill(null);
   }
 
   lift(x, z) {
@@ -124,20 +126,41 @@ export class FxSystem {
     ex[o + 1] = z;
     ex[o + 2] = t;
     ex[o + 3] = r;
+    this._exGlow[this._exi] = null;
     this._exi = (this._exi + 1) % EX_RING;
     return false;
+  }
+
+  /**
+   * A styled attack drew its own impact at (x, z) (an Iroha splash: shards, flare): the generic blast there this
+   * moment keeps its ring, puffs and smoke but its glow drops to `k` strength, so the two never stack into white.
+   */
+  dimBlast(x, z, k = 0.5) {
+    const ex = this._ex;
+    const t = this.clock;
+    for (let i = 0; i < EX_RING; i++) {
+      const o = i * 4;
+      const dt = t - ex[o + 2];
+      if (!(dt >= 0 && dt < EX_GAP)) continue;
+      if (Math.abs(ex[o] - x) + Math.abs(ex[o + 1] - z) >= 0.5 * ex[o + 3] + 0.3) continue;
+      const g = this._exGlow[i];
+      if (g) g.a0 = Math.min(g.a0, k);
+    }
   }
 
   /** Explosion with flash, shock ring, fire puffs, smoke and scorch. */
   explosion(x, z, radius, color, { volatile = false } = {}) {
     const R = this.R;
     const r = Math.max(0.5, radius);
-    if (this._exRepeat(x, z, r)) {
+    // an enemy's own death blast (volatile) is never folded into a tower's: it always draws in full
+    const slot = this._exi;
+    if (!volatile && this._exRepeat(x, z, r)) {
       // the same blast again (a volley on one spot): only a faint shock ring, no second glow / puffs / smoke
       this.spawn({ batch: 'groundA', uv: R.ringSoft, x, y: 0.06, z, s0: r * 0.4, s1: r * 2.05, life: 0.32, color, a0: 0.5, flags: GROUND });
       return;
     }
-    this.spawn({ batch: 'bbA', uv: R.glow, x, y: 0.35, z, s0: r * 1.6, s1: r * 2.2, life: 0.22, color: volatile ? '#ff5a4a' : '#ffd08a', a0: 1 });
+    const glow = this.spawn({ batch: 'bbA', uv: R.glow, x, y: 0.35, z, s0: r * 1.6, s1: r * 2.2, life: 0.22, color: volatile ? '#ff5a4a' : '#ffd08a', a0: 1 });
+    if (!volatile) this._exGlow[slot] = glow;
     this.spawn({ batch: 'groundA', uv: R.ringSoft, x, y: 0.06, z, s0: r * 0.4, s1: r * 2.05, life: 0.32, color, flags: GROUND });
     this.spawn({ batch: 'groundN', uv: R.shadow, x, y: 0.03, z, s0: r * 1.3, s1: r * 1.5, life: 1.6, color: '#2a1a14', a0: 0.35, a1: 0, flags: GROUND });
     const k = this.n(Math.min(14, 5 + r * 4));
