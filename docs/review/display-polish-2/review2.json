@@ -1,0 +1,45 @@
+{
+  "round": "fix/display-polish-2, re-review of 13471635",
+  "head": "13471635",
+  "previous": "docs/review/display-polish-2/review.json on origin/review/display-polish-2 (NOT OK, 2 MEDIUM + 6 LOW)",
+  "reviewer": "independent look + logic reviewer (fast lane), did not build it",
+  "verdict": "OK",
+  "simId": "be940ecb2087 (unchanged; no src/sim, src/online or src/data/coop.js file touched since the base)",
+  "tests": {
+    "vitest tests/render tests/models tests/battle-ui tests/ui tests/data": "176 files, 2979 tests passed",
+    "e2e/home.mjs": "237 ok, 0 failed (667x375 icon-only Events tab: 64 px wide, 24 px clear of CO-OP, sticker and dot apart)",
+    "e2e/display-polish-2.mjs": "all checks passed at 844x390 (panel drawn -0.52 tiles to her side); also run at 1280x720: all checks passed",
+    "e2e/dps-readout.mjs --skip-roster": "40 ok, 0 failed at 844x390 and 1280x720 (Chika sameRow true at both)"
+  },
+  "fixed": {
+    "MEDIUM 1 (icon-only Events tab)": "Fixed. --evt-drop is 7px in the icon-only tab. 667x375: sticker 211-227, lantern 229-249 (2 px clear), 13.4 px horizontal overlap now harmless; lantern 6 px above the tab bottom. 740x360: sticker 196-212, lantern 214-234 (2 px clear), 6 px above the bottom. The tab stays 64x46, 24 px (667) and 34.5 px (740) clear of CO-OP; sticker and dot apart. 844x390, 390x844 and 1280x720 are unchanged (2 px clear; 1280 has no drop and still clears by 2 px).",
+    "MEDIUM 2 (Chika Overall DPS reflow)": "Fixed. Overall label is always 'DPS' with .bt-stat-short. Probe at 844x390 with the wing at 0/5, 1/5 (building) and 5/5 (full): DPS, DPS (live) and DPS (avg) all at top 213, 88x41 each, grid height 390 px in every state, same cell list. dps-readout sameRow passes at both viewports.",
+    "LOW 3 (optimizeDeps)": "Fixed: DecalGeometry and SimplifyModifier added.",
+    "LOW 4 (Marionette pause)": "Fixed: guard is dt > 0 && frameDt > 0; new test holds the 3x estimate through 60 paused frames.",
+    "LOW 5 (Iroha BESIDE_SIDE 0.52)": "Fixed. 1280x720: the rim is clear of her hand and sleeve. 844x390 close zoom: sleeve and hand clear (before, the rim covered her held orb and touched her sleeve).",
+    "LOW 8 (patch note Ruri line)": "Fixed and accurate: one live path (v0.1.61 says Star Falcon and Tide Otter still wait).",
+    "LOW 6, LOW 7": "Accepted / unchanged as stated."
+  },
+  "findings": [
+    {
+      "severity": "LOW",
+      "where": "src/render/mirrorPanel.js BESIDE_SIDE 0.52, battle 844x390 close zoom",
+      "what": "The small orb Iroha holds now shows beside the rim but sits about 1 px off it at the closest zoom. Her sleeve and hand are clear, and at the default zoom and 1280x720 it reads as clear.",
+      "fix": "Optional: accept, or 0.55 for a visible gap.",
+      "evidence": "review2/iroha-844x390-edge-zoom.jpg, review2/iroha-1280x720-zoom.jpg"
+    },
+    {
+      "severity": "LOW",
+      "where": "src/ui/battle/chikaPanel.js wingDpsCells / overallTab comments",
+      "what": "The comments say 'the wing cell beside it' says when the wing is building, but the 'Full wing DPS' cell is on the Drones tab. On Overall, only the Drones cell's '1/5' shows the wing is still building, and the Overall DPS (the full-wing figure) has no tooltip saying so.",
+      "fix": "Optional: reword the comment, and give the Overall DPS cell a title/aria text such as 'Her bolt plus the full wing'."
+    }
+  ],
+  "evidence": [
+    "review2/events-667x375-740x360.jpg",
+    "review2/events-844x390-390x844-1280x720.jpg",
+    "review2/chika-844x390-building-vs-full.jpg",
+    "review2/iroha-844x390-edge-zoom.jpg",
+    "review2/iroha-1280x720-zoom.jpg"
+  ]
+}
