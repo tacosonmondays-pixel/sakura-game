@@ -27,14 +27,14 @@ export const GOLDEN_STAGES = ['1-1', '2-3', '3-3', '4-2', '5-4', '6-1', '6-3', '
 const GOLDEN = {
   '1-1:easy': 'W12/150/21293/685/a23ad39a',
   '1-1:hard': 'W12/50/20667/990/e4252d8c',
-  '2-3:easy': 'W20/150/49421/445/d62166e9',
-  '2-3:hard': 'W20/43/53400/2153/1bd7838e',
-  '3-3:easy': 'W24/150/82333/396/71690e0a',
-  '3-3:hard': 'W24/50/105213/444/aea5c85f',
-  '4-2:easy': 'W25/146/60064/507/43ea3ad0',
-  '4-2:hard': 'W25/43/71566/620/f3b0abec',
-  '5-4:easy': 'W27/150/65327/2591/ffcc5945',
-  '5-4:hard': 'W27/39/77968/1124/f3966799',
+  '2-3:easy': 'W20/150/49421/445/2e03e483',
+  '2-3:hard': 'W20/50/53134/2157/40be291d',
+  '3-3:easy': 'W24/150/83651/396/3e768b2c',
+  '3-3:hard': 'W24/50/105318/444/32e698e1',
+  '4-2:easy': 'W25/147/59948/518/f7ff73f7',
+  '4-2:hard': 'W25/43/71567/620/271c7b6b',
+  '5-4:easy': 'W27/150/65525/2668/7ba8596c',
+  '5-4:hard': 'W27/41/77762/1065/8210fb66',
   '6-1:easy': 'W26/150/59526/3972/a0800588',
   '6-1:hard': 'W26/49/63599/1515/9eb6185',
   '6-3:easy': 'W27/150/27690/860/b4995e59',
@@ -53,20 +53,20 @@ const GOLDEN = {
 const BASE_GOLDEN = {
   '1-1:easy': 'W12/150/21293/685/a23ad39a',
   '1-1:hard': 'W12/50/20667/990/e4252d8c',
-  '2-3:easy': 'W20/150/49154/335/3681f1d9',
-  '2-3:hard': 'W20/40/53200/2465/57dbefc6',
-  '3-3:easy': 'W24/150/79827/441/ed1230d3',
-  '3-3:hard': 'W24/50/103084/369/3fc46f47',
-  '4-2:easy': 'W25/146/59852/632/a17e677d',
-  '4-2:hard': 'W25/39/72614/446/7b486f82',
-  '5-4:easy': 'W27/141/64723/3988/e2a2ee71',
-  '5-4:hard': 'W27/41/83050/1518/d203204d',
-  '6-1:easy': 'W26/150/51572/6477/fafe7a0',
-  '6-1:hard': 'W26/50/57050/1230/d9f58f87',
-  '6-3:easy': 'W27/150/30510/1030/32fc0241',
-  '6-3:hard': 'W27/43/42730/672/f0bcbedd',
-  '7-3:easy': 'W29/144/84671/20008/e6232729',
-  '7-3:hard': 'L17/0/59332/1196/105421b3',
+  '2-3:easy': 'W20/150/49154/335/d4364d2b',
+  '2-3:hard': 'W20/39/53255/2465/d88f2f85',
+  '3-3:easy': 'W24/150/80217/441/3642f2ee',
+  '3-3:hard': 'W24/50/102931/369/8673611d',
+  '4-2:easy': 'W25/147/59792/643/25190289',
+  '4-2:hard': 'W25/42/72622/492/95d1b36e',
+  '5-4:easy': 'W27/141/64752/3912/1ef6e603',
+  '5-4:hard': 'W27/41/81774/1496/bbb5422b',
+  '6-1:easy': 'W26/150/51422/6477/f5a2ff81',
+  '6-1:hard': 'W26/50/56835/1230/469a2c40',
+  '6-3:easy': 'W27/150/30252/1030/ae6293de',
+  '6-3:hard': 'W27/43/42221/672/2f01b854',
+  '7-3:easy': 'W29/144/84189/20008/f0e13c74',
+  '7-3:hard': 'L17/0/59332/1196/fa285f24',
   '8-4:easy': 'W30/150/43220/13545/89c7f26c',
   '8-4:hard': 'W30/45/46955/2911/e1a5d13c',
   '8-5:easy': 'W30/150/35632/25019/695612db',
@@ -77,14 +77,14 @@ const BASE_GOLDEN = {
 // digests v0.1.37 pinned before the roster wave. The old roster must play exactly as on live.
 // (the new girls are left out too)
 const LIVE_GOLDEN = {
-  '6-3:easy': 'W27/150/28332/995/fdbaedbd',
-  '6-3:hard': 'W27/46/37946/728/f3af85b5',
-  '7-3:easy': 'W29/147/71944/20903/8bdd30e1',
-  '7-3:hard': 'W29/1/104194/7597/a88a71a0',
-  '8-4:easy': 'W30/150/45140/14125/b7fd7791',
-  '8-4:hard': 'W30/44/50330/3573/40384869',
-  '8-5:easy': 'W30/145/37391/25059/efa27cac',
-  '8-5:hard': 'L30/0/39828/3501/e0a89e1f',
+  '6-3:easy': 'W27/150/28495/995/5a993fbf',
+  '6-3:hard': 'W27/46/37386/728/6b930b2d',
+  '7-3:easy': 'W29/147/71944/20903/f232cc2a',
+  '7-3:hard': 'W29/5/104269/7807/a09042b7',
+  '8-4:easy': 'W30/150/45125/14125/6835177f',
+  '8-4:hard': 'W30/44/50398/3573/f957b508',
+  '8-5:easy': 'W30/145/37391/25059/c8900420',
+  '8-5:hard': 'L30/0/39972/3501/25a7ec03',
 };
 
 const digest = (r) => `${r.won ? 'W' : 'L'}${r.wave}/${r.lives}/${Math.round(r.time * 60)}/${r.cash}/${hashSim(r.sim).toString(16)}`;
@@ -116,17 +116,17 @@ describe.skipIf(!hasRealData())('the base roster plays exactly as before the new
 // each gets her own pinned battles, the free team plus her (seed 1). (4-2 Hard, a 4-life win for the
 // free team, is lost by the bot with any ninth girl it adds, Kinu or Ouka: its plan, not theirs.)
 const GACHA_GOLDEN = {
-  'kinu:5-4:hard': 'W27/34/93230/839/8bafece8',
+  'kinu:5-4:hard': 'W27/33/92907/850/a6cbbe4d',
   'kinu:6-1:hard': 'W26/46/59873/1308/739f8a68',
-  'ouka:5-4:hard': 'W27/39/79662/542/3b24ab48',
+  'ouka:5-4:hard': 'W27/41/78737/615/5409c0b9',
   'ouka:8-4:hard': 'W30/50/46077/4013/69983e3b',
-  'chigusa:5-4:hard': 'W27/39/78005/941/f00915ad',
+  'chigusa:5-4:hard': 'W27/40/77923/1004/8f41c38d',
   'chigusa:8-4:hard': 'W30/50/45786/2558/eb1eec26',
   // (re-pinned for her rework, Oct 21: ricochet Spin Shot, the lob on every path, damage in the regular
   // band and her own lane on a shared stretch; 37 → 38 and 36 → 40 lives). Re-pinned for v0.1.41 (was
   // 'W27/38/100632/1471/ac3188a3' / 'W30/40/53939/1579/6c70e78'): her lob is flyers only (it also hit
   // walkers on other lanes) and the Heavy Ball share tune; lives and waves unchanged
-  'marumi:5-4:hard': 'W27/39/86452/1261/288c149e',
+  'marumi:5-4:hard': 'W27/40/85937/1191/45ba162f',
   'marumi:8-4:hard': 'W30/50/46491/2363/466931ce',
 };
 

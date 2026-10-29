@@ -44,7 +44,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // (117 waves + 5 × 30 endless); the tables of the stages that existed
     // before stay pinned bit for bit in tests/sim/campaignGolden.test.js
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, waves: r.waves })
-      .toEqual({ ticks: 27025, state: 'won', wallets: '1490/1356', final: 2792158206, hashes: 'f09413ef', waves: '3537:0a7cd674' });
+      .toEqual({ ticks: 27052, state: 'won', wallets: '1491/1355', final: 3008124659, hashes: 'b27a4fed', waves: '3537:0a7cd674' });
   }, 120000);
 
   it('runs the Potential battle (POTENTIAL_START: every kind of step, Aoi at P1 for the host and P6 for the guest, Kage and Rei at P6) in sync', () => {
@@ -80,7 +80,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Cleave every 3rd strike and her new P5 (Maple Gale ×1.1 on her blade arts, not the 0.1-tile cut);
     // only Kaede's kit changed (every other girl resolves bit-identically, tests/sim/mods.test.js)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 23791, state: 'won', wallets: '317/222', final: 4228927242, hashes: '83a1888d' });
+      .toEqual({ ticks: 23735, state: 'won', wallets: '317/222', final: 3277445071, hashes: '5b7aef40' });
   }, 120000);
 
   it('runs the Potential boss battle (POTENTIAL_BOSS_START: Hotaru vs spectral, Kaede vs the Grave Lych, Rei\'s duel echo) in sync', () => {
@@ -101,7 +101,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned for Kaede's AoE rework (was 35101 / '6568/4679' / 3492961063 / 'b2b2f34d'): her Maple
     // Cleave, her full-focus maple splash on Unbroken Rhythm, Crimson Eternity ×1.6 vs bosses (was ×1.5)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 33481, state: 'lost', wallets: '6495/4736', final: 2859878922, hashes: '0157aae7' });
+      .toEqual({ ticks: 33485, state: 'lost', wallets: '6495/4720', final: 292454001, hashes: '593d9e61' });
   }, 120000);
 
   it('runs a co-op freeplay battle through the goal into the boss waves, in sync, ended by both Finish votes', () => {
@@ -165,7 +165,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // an auto-cast's (the same battle, the same 1123 coins, now 652/471: 2017100116 / '7ad61cb6'), then
     // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind })
-      .toEqual({ ticks: 32415, state: 'between', wallets: '746/555', final: 3357731141, hashes: '776f624d', casts: 38, byKind: 'boost 1 · burst 15 · debuff 8 · econ 2 · rally 4 · strike 8' });
+      .toEqual({ ticks: 32004, state: 'between', wallets: '577/486', final: 1423816784, hashes: 'e0e10923', casts: 36, byKind: 'boost 1 · burst 15 · debuff 8 · econ 1 · rally 3 · strike 8' });
   }, 240000);
 
   it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {
@@ -268,7 +268,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // pinned when the battle was added (v0.1.40 train; the same final as the merge review's ad hoc run
     // on V8 and JavaScriptCore). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, iroha: r.iroha })
-      .toEqual({ ticks: 42744, state: 'won', wallets: '5467/5624', final: 4252614183, hashes: 'd6231d58', iroha: '550/504/850' });
+      .toEqual({ ticks: 42380, state: 'won', wallets: '5467/5624', final: 32796160, hashes: '7cc84608', iroha: '550/504/850' });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

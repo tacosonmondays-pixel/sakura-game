@@ -40,14 +40,17 @@ function freeUnitsBefore(d, stageId) {
 
 const statsAt = (id, level) => unitBattleStats({ units: { [id]: { level, breakthrough: Math.max(0, Math.ceil((level - 10) / 10)), awaken: 0, gear: {} } }, gear: {} }, id);
 
-function run(stageId, difficulty, rosterAt, level, seed) {
+// The event closes (Nov 1, 7 PM Central) before balance round 5 ships, so its gates read the girls as players fight
+// them until then: without the round's rows (`powerOff`, src/data/balance.js). `round5: true` reads them with the rows.
+function run(stageId, difficulty, rosterAt, level, seed, { round5 = false } = {}) {
   const d = defaultData();
   const f = freeUnitsBefore(d, rosterAt);
+  const st = (id) => (round5 ? statsAt(id, level) : { ...statsAt(id, level), powerOff: true });
   const r = runHeadless({
     stageId, difficulty, seed, maxTime: 7200,
     plan: autoPlan(stageId, [...f.towers, f.hero]),
-    loadout: f.towers.map((id) => ({ unitId: id, stats: statsAt(id, level) })),
-    hero: { unitId: f.hero, stats: statsAt(f.hero, level) },
+    loadout: f.towers.map((id) => ({ unitId: id, stats: st(id) })),
+    hero: { unitId: f.hero, stats: st(f.hero) },
   });
   return { won: r.won, text: `${stageId} ${difficulty} roster<${rosterAt} L${level} seed ${seed}: ${r.won ? 'won' : 'lost'} w${r.wave} lives ${r.lives}` };
 }
@@ -88,6 +91,8 @@ describe.skipIf(!hasRealData())('event balance (autoPlan, free units only)', () 
 
   test('EB-2 the Gourdlight Golem: Normal for a mid free team, Hard a challenge', () => {
     for (const seed of SEEDS) expect(run('ev-halloween-boss', 'normal', '4-1', 20, seed).won).toBe(true);
+    // (with balance round 5 the mid free team still wins Normal, and now Hard too: the round makes the Golem easier)
+    for (const seed of SEEDS) expect(run('ev-halloween-boss', 'normal', '4-1', 20, seed, { round5: true }).won).toBe(true);
     expect(run('ev-halloween-boss', 'hard', '4-1', 20, 1).won).toBe(false);
     expect(run('ev-halloween-boss', 'hard', '8-1', 50, 1).won).toBe(true);
   }, 600000);

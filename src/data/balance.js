@@ -53,10 +53,12 @@ const ROWS = {
   ruri: { boss: 9 },
   // (the duo: Umeko's raised aura shifts her shell timing on a stream, so ×1.06 keeps her crowd DPS where it was)
   kohaku_tsubaki: { dmg: 1.06, boss: 7.6 },
-  // controllers: their crowd DPS sits in the band; control lasts 20% longer (Fuu's stronger wind pushes walkers out
-  // of her reach, so her damage rises to keep her crowd DPS where it was)
-  fuu: { dmg: 1.3, ctl: 1.2 },
-  yuki: { ctl: 1.2 },
+  // controllers: their crowd DPS sits in the band; control lasts 20% longer. Fuu's stronger wind pushes walkers out of
+  // her reach (her Returning Gale build alone lost 46% at ×1), so her damage rises until every build of hers, alone and
+  // with supports, deals at least what it does today (×2.45; her best build then reads ~3.9M on a crowd, no cap)
+  fuu: { dmg: 2.45, ctl: 1.2 },
+  // (Yuki's longer freezes cost her own hits on two builds, up to 6% alone: ×1.08 keeps every build at or above today)
+  yuki: { dmg: 1.08, ctl: 1.2 },
   // supports: their value, not their damage: +5% on the bonus part of what they give, 10% more aura reach, control
   // 20% longer
   chika: { buff: 1.05, ctl: 1.2 },

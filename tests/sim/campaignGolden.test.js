@@ -4,7 +4,7 @@
 // landed (fb36911): if one moves, a campaign, solo-endless or co-op battle now plays differently.
 // Re-pinned for balance round 5 (src/data/balance.js: the girls' rows, the heroes' curves, Fuu's wind, Chigusa's
 // lives): a deliberate sim change. No outcome flipped: every won battle still wins; 4-2 Hard (solo and ruled) and
-// the heroless 4-5 still lose, later (wave 13 → 20, 12 → 20, 13 → 15).
+// the heroless 4-5 still lose, later (wave 13 → 20, 12 → 19, 13 → 15).
 import { describe, it, expect } from 'vitest';
 import { runHeadless, autoPlan } from '../../src/sim/headless.js';
 import { generateWave, summarizeWave } from '../../src/sim/waves.js';
@@ -141,15 +141,15 @@ describe('campaign battles are bit-identical to before freeplay', () => {
 const GOLDEN = {
   tables: '3018:8bded117',
   solo: {
-    '1-3': { digest: '19653a60', wave: 15, won: true },
-    '4-2': { digest: '4a87fb42', wave: 20, won: false },
-    '8-5': { digest: '323fabe7', wave: 30, won: false },
+    '1-3': { digest: '0d8187d4', wave: 15, won: true },
+    '4-2': { digest: 'b88abd67', wave: 20, won: false },
+    '8-5': { digest: 'e7a47898', wave: 30, won: false },
   },
   coopEndless: {
-    coop: { digest: 'ca201370', wave: 22, won: true },
+    coop: { digest: '2e2be6a7', wave: 22, won: true },
     endless: { digest: 'dba32bc4', wave: 25, won: false },
   },
-  coopSim: { hash: 3918517546, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
+  coopSim: { hash: 1624204121, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
 };
 
 // Battles without a hero. The hero rework's sim changes left them bit-identical to ca97c1e (checked
@@ -158,9 +158,9 @@ const GOLDEN = {
 // Exception, the path-cap merge (tier 4 / 5 first pass, data only): '8-5' (its plan buys tier 4s; with
 // the pre-merge units.js the merged sim reproduces 2f760744). Same outcome: lost on wave 30.
 const HEROLESS = {
-  '1-3': ['e864920a', 15, true],
-  '4-5': ['6a820a69', 15, false],
-  '8-5': ['583bbe34', 30, false],
+  '1-3': ['e914542e', 15, true],
+  '4-5': ['f8a6ad1c', 15, false],
+  '8-5': ['84c5b5ae', 30, false],
   coop: [3341544735, 3],
 };
 
@@ -170,7 +170,7 @@ const HEROLESS = {
 // tier data; the same battles with the rule off are the GOLDEN.solo / coopEndless digests above,
 // which did not move (4-2 Hard is lost by this team with the rule off too, at wave 13).
 const RULED = {
-  '4-2': { digest: 'bb03c30a', wave: 20, won: false },
-  '8-5': { digest: '1b9fa2aa', wave: 30, won: false },
-  coop: { digest: '8f18aa87', wave: 22, won: true },
+  '4-2': { digest: 'bfde01df', wave: 19, won: false },
+  '8-5': { digest: '7eb7006b', wave: 30, won: false },
+  coop: { digest: '386b140a', wave: 22, won: true },
 };

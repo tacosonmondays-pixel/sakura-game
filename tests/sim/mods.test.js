@@ -243,8 +243,9 @@ describe('Potential in resolveStats', () => {
     // rows and the heroes' level curves); '456:cafba5a0' in its round 1 (round 2 re-sized the rows on the fixed
     // bench and gave every hero one multiplier per level); '456:ecb03b31' in round 2 (round 3: Option C, Kinu's full
     // row, Aoi / Marumi / Suzu / Azami to the two-support window, hero curves whose hit rises at every level);
-    // '456:35148c95' in round 4 (round 5: re-sized on the v0.1.59 base, no Options A/B, hero curves floored at ×1)
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:cb8a6f92');
+    // '456:35148c95' in round 4; '456:cb8a6f92' in round 5 before Fuu's and Yuki's damage rows (the review: no build of
+    // theirs may fall)
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:64e4e1c0');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders

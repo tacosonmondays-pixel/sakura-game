@@ -172,6 +172,9 @@ export function battleBoostText(unit) {
   const bits = [];
   if ((row?.dmg ?? 1) > 1) bits.push(`damage ×${+row.dmg.toFixed(2)}`);
   if ((row?.boss ?? 1) > 1) bits.push(`×${+row.boss.toFixed(2)} vs bosses`);
+  if ((row?.buff ?? 1) > 1) bits.push(`+${Math.round((row.buff - 1) * 100)}% on what she gives`);
+  if ((row?.reach ?? 1) > 1) bits.push(`${Math.round((row.reach - 1) * 100)}% more aura reach`);
+  if ((row?.ctl ?? 1) > 1) bits.push(`control ${Math.round((row.ctl - 1) * 100)}% longer`);
   return bits.length ? `In battle the balance boost adds ${bits.join(', ')}.` : null;
 }
 
