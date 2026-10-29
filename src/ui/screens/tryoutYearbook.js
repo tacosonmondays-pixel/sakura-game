@@ -19,7 +19,7 @@ import { getMap } from '../../data/maps.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { fmtNum } from '../format.js';
 import { yearbookPages } from '../../systems/tryoutYearbook.js';
-import { CARD_TEXT, YEARBOOK_TEXT, YEARBOOK_SCREEN, LENGTH_NAMES } from '../text/tryout.js';
+import { CARD_TEXT, YEARBOOK_TEXT, YEARBOOK_SCREEN, LENGTH_NAMES, WAVE_RECORD_TEXT } from '../text/tryout.js';
 
 export const YB_SECTIONS = Object.freeze(['girls', 'cards', 'bosses', 'records']);
 const YB_GLYPH = { girls: 'cap', cards: 'stamp', bosses: 'crown', records: 'trophy' };
@@ -33,7 +33,7 @@ export function sectionCounts(yb) {
     girls: `${yb.girls.filter((g) => g.stamped).length}/${yb.girls.length}`,
     cards: `${yb.cards.filter((c) => c.taken).length}/${yb.cards.length}`,
     bosses: String(yb.bosses.length),
-    records: String(yb.records.length),
+    records: String(yb.records.length + (yb.waves?.length || 0)),
   };
 }
 
@@ -102,8 +102,11 @@ export function renderYearbook(root, params = {}) {
     ? h('div.ty-yb-cards', yb.bosses.map((id) => h('span.ui-chip.on.ty-yb-card', h('span', ENEMY_MAP[id]?.name || id))))
     : h('p.ty-list-note', YEARBOOK_TEXT.none));
 
-  const records = (yb) => (yb.records.length
-    ? h('div.ty-yb-records', { 'data-testid': 'yb-records' }, yb.records.map((r) => {
+  // (Extended Day's best wave per Grade first, §20.5; then the best Run Scores)
+  const waveRows = (yb) => (yb.waves || []).map((w) => h('div.ui-panel.ty-yb-rec', { 'data-testid': `yb-aw-${w.grade}` },
+    h('span.lbl', WAVE_RECORD_TEXT.ybRow(w.grade)), h('b.ty-yb-rec-map', WAVE_RECORD_TEXT.ybBest), h('span.num.ty-yb-rec-score', fmtNum(w.wave, 'count', { detail: true }))));
+  const records = (yb) => (yb.records.length || yb.waves?.length
+    ? h('div.ty-yb-records', { 'data-testid': 'yb-records' }, ...waveRows(yb), ...yb.records.map((r) => {
       let map = r.mapId;
       try {
         map = getMap(r.mapId).name;

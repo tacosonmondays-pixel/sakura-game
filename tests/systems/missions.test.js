@@ -308,7 +308,7 @@ describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', ()
 
   it('the F2P one-time Achievements row equals the sum of the live defs (135 with social, Codex and a_ch1_act2 … a_ch6_act2)', () => {
     const row = f2pIncomeSummary().oneTime.find((r) => r.source === 'Achievements');
-    // (Tryout Day's 12 rows are their own one-time row below: TRYOUT_DAY.md §10.2)
+    // (Tryout Day's 15 rows are their own one-time row below: TRYOUT_DAY.md §10.2, §20.5)
     const live = ACHIEVEMENTS.filter((a) => achievementLive(a) && a.wave !== 'tryout');
     const sum = (id) => live.reduce((n, a) => n + a.rewards.filter((r) => r.id === id).reduce((m, r) => m + r.count, 0), 0);
     expect(live).toHaveLength(135);
@@ -319,10 +319,10 @@ describe('achievements: the expansion (docs/specs/ACHIEVEMENTS.md §3, §5)', ()
     expect(row.note).toBe('135 achievements');
   });
 
-  it('Tryout Day\'s 360 gems are a one-time source of their own; the 28-day chart does not move', () => {
+  it('Tryout Day\'s 480 gems are a one-time source of their own; the 28-day chart does not move', () => {
     const s = f2pIncomeSummary();
     const row = s.oneTime.find((r) => r.source === 'Tryout Day achievements');
-    expect(row).toMatchObject({ gems: 360, tickets: 0, pulls: 3, note: '12 achievements, once', kind: 'oneTime' });
+    expect(row).toMatchObject({ gems: 480, tickets: 0, pulls: 4, note: '15 achievements, once', kind: 'oneTime' });
     expect(s.rows.some((r) => /tryout/i.test(r.source))).toBe(false);
   });
 });

@@ -140,3 +140,23 @@ html[data-reduce-motion] .ty-ttp { animation: none; }
 .ty-bct[data-more] > .ty-ttw::after { right: 0; background: linear-gradient(to left, var(--panel-w), transparent); }
 .ty-bct:is([data-more="left"], [data-more="both"]) > .ty-ttw::before,
 .ty-bct:is([data-more="right"], [data-more="both"]) > .ty-ttw::after { opacity: 1; }
+/* (the edge hint says so plainly: a chevron on the faded edge, not only the fade, v0.1.61 review) */
+.ty-bct[data-more] > .ty-ttw::before, .ty-bct[data-more] > .ty-ttw::after {
+  display: grid; align-items: center; font: 900 16px/1 var(--font-num); color: var(--plate);
+}
+.ty-bct[data-more] > .ty-ttw::before { content: '‹'; justify-items: start; padding-left: 2px; background: linear-gradient(to right, var(--panel-w) 45%, transparent); }
+.ty-bct[data-more] > .ty-ttw::after { content: '›'; justify-items: end; padding-right: 2px; background: linear-gradient(to left, var(--panel-w) 45%, transparent); }
+
+/* ---------- a phone held upright (390 px wide): a Full Day's or an Extended Day's twelve fit the width with nothing past
+   the edge: hairline gaps, slimmer cells and break slivers, the open end as its label alone ("P13+", the words in its
+   tooltip) (v0.1.61 review: P12 and "P13+" were cut off at 390 x 844) ---------- */
+@media (max-width: 480px) {
+  .ty-bct:is([data-length="full"], [data-length="after"]) .ty-tt { gap: 1px; }
+  .ty-bct:is([data-length="full"], [data-length="after"]) .ty-tt-cell { padding: 0 2px; gap: 2px; }
+  .ty-bct:is([data-length="full"], [data-length="after"]) .ty-tt-top { gap: 1px; }
+  .ty-bct:is([data-length="full"], [data-length="after"]) .ty-tt-p { letter-spacing: 0; }
+  .ty-bct:is([data-length="full"], [data-length="after"]) .ty-tt-brk { flex-basis: 7px; }
+  .ty-bct .ty-tt-more { padding: 0 4px; min-width: 0; flex: none; }
+  .ty-bct .ty-tt-more > .ty-tt-subj { display: none; }
+  .ty-bct[data-length="full"] .ty-tt-bosscell { padding: 0 1px; }
+}
