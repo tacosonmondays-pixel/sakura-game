@@ -747,7 +747,7 @@ Written on `feature/attack-links` (on S3 `feature/attack-ground` 8997a16e).
 Built as the shared pieces: the leg flip on a projectile record (`retFlip`, `retSteer`, `retCut` in projectileStep) and the `_hit`
 share hook (`Sim._hit` behind `sim._tetherOn`, the re-entrancy flag `sim._sharing`, the per-step budget TETHER_SHARES_PER_STEP), in
 `src/sim/links.js`. The plain renderer is `src/render/linkShapes.js`: each span a solid alpha line along the ground (a dark
-under-stroke 0.18 tiles wide and a pink line 0.1 wide, in four pieces with a slight sag, 0.08-0.16 tiles up), a pink ring under
+under-stroke 0.22 tiles wide and a pink line 0.13 wide, in four pieces with a slight sag, 0.08-0.16 tiles up), a thick pink ring under
 each tied enemy and a thin additive knot of 0.16 tiles in it; members in a tunnel are skipped. (The first version drew 0.07-tile
 beads of a soft disc sprite and knots at 0.42 tiles up, inside the enemies' bodies: invisible at 844×390.) Fans are drawn as her own projectiles. Contracts: `CONTRACTS.md` "Attack shapes S4".
 

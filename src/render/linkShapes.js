@@ -13,8 +13,8 @@
 // `feature/vfx` branch, summarised in docs/specs/ATTACK_SHAPES.md §2.5), so none of this counts as a flash.
 
 /** A span's line widths (tiles): the dark under-stroke and the bright line; its height over the ground and its sag. */
-export const THREAD_UNDER = 0.18;
-export const THREAD_LINE = 0.1;
+export const THREAD_UNDER = 0.22;
+export const THREAD_LINE = 0.13;
 export const THREAD_H = 0.16;
 export const THREAD_SAG = 0.08;
 /** Ground quads a span is made of (the sag's steps). */
@@ -28,7 +28,7 @@ export const THREAD_KNOT = 0.16;
  * @param {object} sim the live Sim (read only)
  * @param {{ push: Function }} gN alpha batch
  * @param {{ push: Function }} gA additive batch
- * @param {object} R atlas regions (white, ring, disc)
+ * @param {object} R atlas regions (white, ringThick or ring, disc)
  * @returns {number} quads pushed
  */
 export function drawLinkShapes(sim, gN, gA, R) {
@@ -41,7 +41,7 @@ export function drawLinkShapes(sim, gN, gA, R) {
     let prev = null;
     for (const m of g.m) {
       if (m.dead || m.hidden) continue;
-      gN.push(m.x, 0.05, m.y, THREAD_RING, THREAD_RING, R.ring, 1, 0.42, 0.68, 0.9 * a, 0);
+      gN.push(m.x, 0.05, m.y, THREAD_RING, THREAD_RING, R.ringThick || R.ring, 1, 0.3, 0.62, a, 0);
       gA.push(m.x, 0.055, m.y, THREAD_KNOT, THREAD_KNOT, R.disc, 1, 0.6, 0.8, 0.8 * a, 0);
       n += 2;
       if (prev) n += span(gN, R, prev, m, a);
@@ -65,7 +65,7 @@ function span(gN, R, p, q, a) {
     const x = p.x + dx * f;
     const y = p.y + dy * f;
     gN.push(x, h, y, part + 0.02, THREAD_UNDER, R.white, 0.22, 0.04, 0.12, 0.7 * a, rot);
-    gN.push(x, h + 0.004, y, part + 0.02, THREAD_LINE, R.white, 1, 0.38, 0.66, 0.95 * a, rot);
+    gN.push(x, h + 0.004, y, part + 0.02, THREAD_LINE, R.white, 1, 0.3, 0.62, a, rot);
   }
   return 2 * THREAD_PARTS;
 }

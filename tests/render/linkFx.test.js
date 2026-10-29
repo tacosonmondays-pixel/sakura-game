@@ -9,7 +9,7 @@ import { defaultData } from '../../src/sim/data.js';
 import { drawLinkShapes, THREAD_KNOT, THREAD_LINE, THREAD_UNDER, THREAD_RING, THREAD_PARTS } from '../../src/render/linkShapes.js';
 import { MAP, STAGE, ENEMIES } from '../sim/fixtures.js';
 
-const R = { disc: 'disc', ring: 'ring', white: 'white' };
+const R = { disc: 'disc', ring: 'ring', ringThick: 'ringThick', white: 'white' };
 const rec = () => {
   const quads = [];
   return { quads, push: (x, h, y, w, hh, uv, r, g, b, a, rot = 0) => quads.push({ x, h, y, w, hh, uv, a, rot }) };
@@ -54,7 +54,7 @@ describe('link shapes FX (plain)', () => {
         expect(q.hh).toBeLessThan(0.3);
         expect(v.tethers.some((g) => g.m.some((m) => !m.dead && m.x === q.x && m.y === q.y))).toBe(true);
       }
-      const rings = gN.quads.filter((q) => q.uv === 'ring');
+      const rings = gN.quads.filter((q) => q.uv === 'ringThick');
       const lines = gN.quads.filter((q) => q.uv === 'white');
       // a ring under every living member, wider than its body, near the ground and clearly opaque
       for (const q of rings) {
