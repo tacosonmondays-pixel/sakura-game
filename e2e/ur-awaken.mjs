@@ -204,12 +204,7 @@ try {
     check(fKae && !fKae.ur && !fKae.ring, `${tag} formation: Kaede's slot (★4) has no rainbow`);
     await shot(page, `formation-${tag}`);
 
-    // ---- stage prep
-    await go(page, '#/stage/1-1', '.ma-fslot .unit-card[data-unit="hotaru"]');
-    const pHot = await frameInfo(page, '.ma-fslot .unit-card[data-unit="hotaru"]');
-    const pKae = await frameInfo(page, '.ma-fslot .unit-card[data-unit="kaede"]');
-    check(isUrFrame(pHot), `${tag} stage prep: Hotaru's formation card is UR`);
-    check(showsPlain(pKae, 'SSR'), `${tag} stage prep: Kaede's card still SSR ("${pKae?.label}")`);
+    // (stage prep shows no squad cards since its Ink & Paper redesign, f709bae4: the formation checks above cover them)
     const prepOv = [];
     for (const id of ['hikari', 'hotaru', 'kaede']) {
       const card = `.ma-fslot .unit-card[data-unit="${id}"]`;
