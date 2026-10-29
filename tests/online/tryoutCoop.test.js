@@ -110,6 +110,25 @@ describe('tryout co-op', () => {
     expect(hashes[1]).toEqual(hashes[0]);
   }, 300000);
 
+  it('Random Class + Extended Day: two views to wave 60, a rejoin mid-reveal past wave 48, identical hashes', () => {
+    const top = (sim) => { sim.lives = Math.max(sim.lives, 40); };
+    const midReveal = (sim) => sim.tryout.players.some((p) => p.win === 'pick' && p.winTicks > 0 && p.winTicks <= TRYOUT.random.revealTicks);
+    const start = coopStart({ seed: 4803, length: 'after', random: true, pools: [poolFor('maxed'), poolFor('maxed')] });
+    expect(start.tryout).toMatchObject({ length: 'after', random: true });
+    const { views, digests, hashes, rejoin } = runCoop({ start, policy: 'random', maxWaves: 60, checkpointAt: 52, checkpointIf: midReveal, onCalm: top });
+    expect(views[0].sim.wave).toBeGreaterThanOrEqual(60);
+    expect(rejoin.wave).toBeGreaterThan(48);
+    expect(rejoin.winTicks.some((t) => t > 0 && t <= TRYOUT.random.revealTicks)).toBe(true);
+    expect(digests[1]).toEqual(digests[0]);
+    expect(hashes[1]).toEqual(hashes[0]);
+    for (const v of views) {
+      const ty = v.sim.tryout;
+      expect(ty.random).toBe(true);
+      // the Sim made every pick, the ones past P12 too (a Tryout pick at 13 among them)
+      for (const p of ty.players) expect(p.picks.some((r) => r.pick >= 13)).toBe(true);
+    }
+  }, 300000);
+
   it('an open window resolves after the tick timeout', () => {
     const coop = createCoopSim(coopStart({ seed: 6 }), { mySlot: 0 });
     toFirstPick(coop);

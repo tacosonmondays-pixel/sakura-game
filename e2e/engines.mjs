@@ -421,6 +421,16 @@ for (const { name, r } of results) {
   if (!b.freeplay || b.wave < 61) failures.push(`${name}: the Extended Day run did not reach its freeplay waves (wave ${b.wave})`);
   for (const k of TY_KEYS) if (JSON.stringify(b[k]) !== JSON.stringify(ref.tryoutAfter[k])) failures.push(`${name}: extended day ${k} ${JSON.stringify(b[k])} ≠ ${JSON.stringify(ref.tryoutAfter[k])} (${results[0].name})`);
 }
+// Random Class + Extended Day: auto-picks past P12, a rejoin mid-reveal past wave 48
+const TAR_KEYS = [...TY_KEYS, 'picks', 'rejoinWave'];
+log('\nScripted co-op RANDOM CLASS + EXTENDED DAY run (two views, auto-picks past P12, a rejoin mid-reveal past wave 48):');
+for (const { name, r } of results) {
+  const b = r.tryoutAfterRandom;
+  log(`  ${name.padEnd(46)} wave ${b.wave} · ♥ ${b.lives} · score ${b.score} · rejoin w${b.rejoinWave}${b.midReveal ? ' mid-reveal' : ''} · ${b.digests} calm digests → ${b.lastDigest} · hash ${b.hash}`);
+  if (!b.sameViews || !b.sameHashes) failures.push(`${name}: its two Random Class + Extended Day views disagreed`);
+  if (!b.freeplay || b.wave < 57 || b.rejoinWave <= 48 || !b.midReveal) failures.push(`${name}: the Random Class + Extended Day run missed its checks (wave ${b.wave}, rejoin w${b.rejoinWave}, mid-reveal ${b.midReveal})`);
+  for (const k of TAR_KEYS) if (JSON.stringify(b[k]) !== JSON.stringify(ref.tryoutAfterRandom[k])) failures.push(`${name}: random + extended ${k} ${JSON.stringify(b[k])} ≠ ${JSON.stringify(ref.tryoutAfterRandom[k])} (${results[0].name})`);
+}
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
 for (const fn of Object.keys(ref.math.native)) {
   const groups = new Map();
@@ -435,4 +445,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical Glow Bowl battle, the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle, the identical returning girls' abilities battle, the identical Tenka battle, the identical Tryout Day and Extended Day runs and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical Glow Bowl battle, the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle, the identical returning girls' abilities battle, the identical Tenka battle, the identical Tryout Day, Extended Day and Random Class + Extended Day runs and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

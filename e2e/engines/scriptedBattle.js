@@ -2260,14 +2260,18 @@ export function runTryoutBattle({ maxWaves = 16, checkpointAt = 9, seed = 2026, 
  * to wave 61. The hearts are topped up on both clients alike at every calm point (the bot only has to last). Every engine
  * must reach the same digests and hashes.
  */
-export function runTryoutExtendedBattle({ maxWaves = 61, checkpointAt = 50 } = {}) {
+export function runTryoutExtendedBattle({ maxWaves = 61, checkpointAt = 50, seed = 4820, random = false } = {}) {
   const top = (sim) => { sim.lives = Math.max(sim.lives, 40); };
-  const { views, digests, hashes } = runTryoutCoop({ start: tryoutStart({ seed: 4820, length: 'after' }), policy: 'random', maxWaves, checkpointAt, onCalm: top });
+  // (Random Class: the third client rejoins mid-reveal, while a pick's reveal clock is running)
+  const midReveal = random ? (s) => s.tryout.players.some((p) => p.win === 'pick' && p.winTicks > 0) : null;
+  const { views, digests, hashes, rejoin } = runTryoutCoop({ start: tryoutStart({ seed, length: 'after', random }), policy: 'random', maxWaves, checkpointAt, onCalm: top, checkpointIf: midReveal });
   const sim = views[0].sim;
   return {
     wave: sim.wave, lives: sim.lives, score: sim.tryout.score, squads: sim.tryout.players.map((p) => p.squad.join(',')), freeplay: sim.freeplay,
     lastDigest: digests[0][digests[0].length - 1], digests: digests[0].length, sameViews: JSON.stringify(digests[0]) === JSON.stringify(digests[1]),
     sameHashes: JSON.stringify(hashes[0]) === JSON.stringify(hashes[1]), hash: hashes[0][hashes[0].length - 1],
+    rejoinWave: rejoin?.wave ?? 0, midReveal: !!rejoin?.winTicks.some((t) => t > 0),
+    ...(random ? { picks: sim.tryout.players.map((p) => p.picks.map((x) => x.girl || x.card || x.varsity || 'hand').join(',')) } : null),
   };
 }
 
@@ -2286,5 +2290,5 @@ export function runEngineChecks() {
   const heroes = runHeroBattle();
   const modes = runModeBattles();
   const tryoutRandom = runTryoutBattle({ seed: 2027, random: true, maxWaves: 14, checkpointAt: 8 });
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), tryoutAfter: runTryoutExtendedBattle(), modes, tryoutRandom };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), tryoutAfter: runTryoutExtendedBattle(), tryoutAfterRandom: runTryoutExtendedBattle({ seed: 4821, random: true, maxWaves: 57, checkpointAt: 52 }), modes, tryoutRandom };
 }
