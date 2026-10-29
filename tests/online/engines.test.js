@@ -148,7 +148,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.refused).toBe('');
     expect(r.cleared).toBeGreaterThanOrEqual(12);
     expect(r.casts).toBeGreaterThanOrEqual(30);
-    expect(r.kinds.split(',')).toEqual(['boost', 'burst', 'debuff', 'econ', 'move', 'rally', 'strike']); // no deploy (A4); move: Fuu (A5)
+    // move: Fuu (A5, the host's); deploy: the guest's Iroha, Mirror Shift (A6; the other deploys wait for A4); shots split at her panel
+    expect(r.kinds.split(',')).toEqual(['boost', 'burst', 'debuff', 'deploy', 'econ', 'move', 'rally', 'strike']);
+    expect(Number(r.splits.split('/')[0])).toBeGreaterThan(0);
     // both players cast, and some host taps met a recharging girl (the late-tap rule)
     expect(r.byOwner.split('/').every((n) => Number(n) > 0)).toBe(true);
     expect(r.taps).toMatch(/ cooldown/);
@@ -163,9 +165,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine. Re-pinned in A5 (was
     // 37655 / '800/520' / 4047740824 / 'c84c23e1', 51 casts): the host brings Fuu as a sixth girl and taps her Backdraft
     // Fan (the move kind) in her round robin; V8 only so far (e2e/engines.mjs compares the other engines to it). Then
-    // (was 34216 / 3557843255 / '4e9f95c5', 37 casts) her ult ignores her own gusts' push locks (owner, Oct 29).
-    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind })
-      .toEqual({ ticks: 33828, state: 'between', wallets: '535/475', final: 2846685472, hashes: 'c0d73017', casts: 36, byKind: 'boost 1 · burst 11 · debuff 9 · econ 3 · move 2 · rally 2 · strike 8' });
+    // (was 34216 / 3557843255 / '4e9f95c5', 37 casts) her ult ignores her own gusts' push locks (owner, Oct 29). Then (was
+    // 33828 / '535/475' / 2846685472 / 'c0d73017', 36 casts) the guest takes Iroha as a sixth entry, her Mirror Shift
+    // splitting shots (A6; V8 only so far), and Fuu moves to the host's fourth place.
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind, splits: r.splits })
+      .toEqual({ ticks: 41566, state: 'between', wallets: '396/311', final: 3475320043, hashes: '0b9db520', casts: 36, byKind: 'boost 2 · burst 14 · debuff 9 · deploy 1 · econ 1 · move 1 · rally 2 · strike 6', splits: '9/0' });
   }, 240000);
 
   it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {

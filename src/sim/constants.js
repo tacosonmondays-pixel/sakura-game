@@ -227,6 +227,10 @@ export const MORTAR_AIM_SLACK = 0.5;
 export const MORTAR_SCATTER = [[0, 0], [0.6, 0], [-0.3, 0.52], [-0.3, -0.52], [0, 0.6], [0, -0.6]];
 /** A familiar / un-aimed mirror stops this far short of the nearest lane sample. */
 export const FAMILIAR_STANDOFF = 0.7;
+/** Iroha's reflecting mirror (Mirror Shift / Infinite Reflection, src/sim/mirrors.js): a shot whose step passes within this many tiles of it splits. */
+export const MIRROR_RADIUS = 0.5;
+/** A split copy with no other target flies at the original's, fanned this many radians to one side. */
+export const SPLIT_FAN = 0.18;
 /** Lane sampling step for relay origins (tiles). */
 export const RELAY_SAMPLE_STEP = 0.25;
 /** Seconds an enemy cannot be knocked back / gathered again after it was moved (bosses never move). */

@@ -29,12 +29,12 @@ describe('First Bell: the menu\'s view (girl page, Club Armband picker)', () => 
   it('today: idle for the girls whose ability waits and for the rallies and debuffs; on for everyone else', () => {
     const by = { later: [], kind: [], on: [] };
     for (const u of UNITS) by[trickIdle('bell', u.id) || 'on'].push(u.id);
-    // "Comes in a later update": the deploys that wait (Kage, Suzu, Chika), Iroha's mirror, Kanna's Heavy Beat
-    expect(by.later.sort()).toEqual(['chika', 'iroha', 'kage', 'kanna', 'suzu']);
+    // "Comes in a later update": the deploys that wait (Kage, Suzu, Chika), Kanna's Heavy Beat (Fuu's push runs since A5, Iroha's mirror since A6)
+    expect(by.later.sort()).toEqual(['chika', 'kage', 'kanna', 'suzu']);
     // team rallies and debuffs (Skill Haste and First Bell skip them), the heroes' too (Hikari, Luna, Yoriko)
     expect(by.kind.sort()).toEqual(['chigusa', 'ena', 'hikari', 'hotaru', 'luna', 'miko', 'noa', 'ouka', 'umeko', 'wakaba', 'yoriko']);
-    // a strike, burst, boost, econ, strips, sentries, the giant ball or Fuu's push; Nami's Frost Net and Seiran's Storm Lance
-    for (const id of ['fuu', 'aoi', 'rei', 'yuki', 'momo', 'akane', 'sango', 'shiro', 'midori', 'raika', 'kaede', 'tenka', 'azami', 'kinu', 'yuzuha', 'marumi', 'hana', 'ruri', 'nami', 'seiran']) {
+    // a strike, burst, boost, econ, strips, sentries, Iroha's mirror, the giant ball or Fuu's push; Nami's Frost Net and Seiran's Storm Lance
+    for (const id of ['fuu', 'aoi', 'rei', 'yuki', 'momo', 'akane', 'sango', 'shiro', 'midori', 'raika', 'kaede', 'tenka', 'azami', 'kinu', 'yuzuha', 'marumi', 'hana', 'ruri', 'iroha', 'nami', 'seiran']) {
       expect(by.on, id).toContain(id);
     }
     expect(by.later.length + by.kind.length + by.on.length).toBe(UNITS.length);

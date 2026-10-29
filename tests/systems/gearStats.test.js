@@ -160,10 +160,10 @@ describe('GEAR_FIT and the one live-ability rule (Skill Haste, owner #34 / Q2)',
     }
     // today: it keeps filling for the deploys that wait (Kage, Suzu, Chika), the rallies and debuffs (Umeko, Miko,
     // Hotaru, Ouka, Wakaba, Chigusa; since M3 also Noa's First Aid Call and Ena's Omen Card) and the returning girls whose
-    // abilities wait (Iroha's mirror). M3 attached Hana's and Ruri's strikes, A5 Fuu's push: their Skill Haste is real now.
+    // abilities wait (none since A6). M3 attached Hana's and Ruri's strikes, A5 Fuu's push, A6 Iroha's mirror: their Skill Haste is real now.
     const still = UNITS.filter((u) => u.kind !== 'hero' && fillStats(u.id).has('ultHaste')).map((u) => u.id).sort();
-    expect(still).toEqual(['chigusa', 'chika', 'ena', 'hotaru', 'iroha', 'kage', 'miko', 'noa', 'ouka', 'suzu', 'umeko', 'wakaba'].sort());
-    for (const id of ['aoi', 'rei', 'yuki', 'momo', 'akane', 'sango', 'shiro', 'midori', 'raika', 'kaede', 'tenka', 'azami', 'kinu', 'yuzuha', 'marumi', 'hana', 'ruri', 'fuu']) {
+    expect(still).toEqual(['chigusa', 'chika', 'ena', 'hotaru', 'kage', 'miko', 'noa', 'ouka', 'suzu', 'umeko', 'wakaba'].sort());
+    for (const id of ['aoi', 'rei', 'yuki', 'momo', 'akane', 'sango', 'shiro', 'midori', 'raika', 'kaede', 'tenka', 'azami', 'kinu', 'yuzuha', 'marumi', 'hana', 'ruri', 'fuu', 'iroha']) {
       expect(fillStats(id).has('ultHaste'), id).toBe(false);
     }
   });
