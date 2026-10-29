@@ -5,7 +5,8 @@
 The owner's direction (Oct 27–28): "no cap, everyone close to Kage". Every fully maxed striker's honest DPS (the battle
 drawer's live number since v0.1.59) in a 1M–2.5M band, Kage in the middle; supports judged by their boost to allies;
 nobody nerfed. Built on v0.1.60 (`main` 4b4388b8: banners, Tryout Day and Extended Day, UR Resonance, honest DPS, Tenka's LR
-form, Gate Arc Acts 3–6, and the owner's duo buff with the edge beam). Kept from rounds 1–4: the per-girl rows (`src/data/balance.js`, re-sized here),
+form, Gate Arc Acts 3–6, and the owner's duo buff with the edge beam), with the attack shapes S1–S4 merged in first
+(5124dacf: #41 → #45 → #46 → #49, the coordinator's order; they ship together). Kept from rounds 1–4: the per-girl rows (`src/data/balance.js`, re-sized here),
 the heroes' level curve, the titan rule, Fuu's wind and Chigusa's lives. Dropped: Options A/B, the kit-fair panel (the
 honest readout shipped instead), the chapter HP pass.
 
@@ -29,34 +30,34 @@ owner's "about 1.7M" frame). Her **ruler** is her job: a boss for single-target 
 | Girl | job | boss before → after | late crowd before → after | her ruler after | band 1M–2.5M |
 |---|---|---:|---:|---:|---|
 | Shiro | boss | 2.99M → 3.24M | 1.88M → 2.03M | 3.24M | above (no cap) |
-| Kage | boss | 1.97M → 2.14M | 1.82M → 1.98M | 2.14M | in |
+| Kage | boss | 1.97M → 2.22M | 1.82M → 1.83M | 2.22M | in |
 | Kaede | boss | 1.02M → 1.92M | 656k → 1.22M | 1.92M | in |
 | Hana | boss | 322k → 1.91M | 231k → 1.37M | 1.91M | in |
-| Chigusa | boss | 434k → 1.91M | 616k → 2.72M | 1.91M | in |
+| Chigusa | boss | 434k → 1.91M | 616k → 2.74M | 1.91M | in |
 | Aoi | boss | 621k → 1.89M | 570k → 1.74M | 1.89M | in |
-| Ena | boss | 296k → 1.88M | 291k → 1.87M | 1.88M | in |
+| Ena | boss | 296k → 1.88M | 291k → 1.86M | 1.88M | in |
 | Yuzuha | boss | 473k → 1.85M | 449k → 1.78M | 1.85M | in |
 | Tenka | boss | 1.67M → 1.80M | 6.05M → 6.55M | 1.80M | in |
 | Akane | crowd | 288k → 1.07M | 15.94M → 16.47M | 16.47M | above (no cap) |
 | Kohaku & Tsubaki | crowd | 3.70M → 3.94M | 7.99M → 8.71M | 8.71M | above (no cap) |
-| Hotaru | crowd | 399k → 1.09M | 7.79M → 8.43M | 8.43M | above (no cap) |
+| Hotaru | crowd | 399k → 1.09M | 7.79M → 8.58M | 8.58M | above (no cap) |
 | Sango | crowd | 325k → 1.11M | 7.38M → 7.87M | 7.87M | above (no cap) |
 | Iroha | crowd | 255k → 1.08M | 5.45M → 5.88M | 5.88M | above (no cap) |
-| Fuu | crowd | 97k → 262k | 1.80M → 4.04M | 4.04M | above (no cap) |
+| Fuu | crowd | 97k → 263k | 1.80M → 4.04M | 4.04M | above (no cap) |
 | Marumi | crowd | 170k → 1.02M | 3.22M → 3.48M | 3.48M | above (no cap) |
+| Yuki | crowd | 94k → 153k | 1.92M → 3.22M | 3.22M | above (no cap) |
 | Ruri | crowd | 104k → 1.02M | 2.69M → 3.16M | 3.16M | above (no cap) |
-| Yuki | crowd | 94k → 110k | 1.92M → 2.45M | 2.45M | in |
 | Kinu | crowd | 123k → 1.01M | 1.11M → 2.29M | 2.29M | in |
 | Raika | crowd | 174k → 1.01M | 1.67M → 2.20M | 2.20M | in |
 | Azami | crowd | 714 → 2k | 716k → 1.91M | 1.91M | in |
 | Suzu | crowd | 8k → 13k | 976k → 1.87M | 1.87M | in |
 | Rei | crowd | 366k → 1.08M | 1.67M → 1.82M | 1.82M | in |
 | Chika | support | 1.72M → 1.87M | 625k → 682k | – | judged by boost |
-| Momo | support | 457k → 497k | 644k → 698k | – | judged by boost |
+| Momo | support | 457k → 502k | 644k → 697k | – | judged by boost |
 | Miko | support | 22k → 25k | 352k → 385k | – | judged by boost |
 | Midori | support | 20k → 21k | 1.07M → 1.08M | – | judged by boost |
 | Noa | support | 3k → 3k | 54k → 59k | – | judged by boost |
-| Umeko | support | 2k → 2k | 37k → 38k | – | judged by boost |
+| Umeko | support | 2k → 2k | 37k → 40k | – | judged by boost |
 | Wakaba | support | 57 → 60 | 29 → 30 | – | judged by boost |
 | Ouka | support | 0 → 0 | 0 → 0 | – | judged by boost |
 
@@ -69,9 +70,11 @@ owner's "about 1.7M" frame). Her **ruler** is her job: a boss for single-target 
   (a kit question for the owner, not a number).
 - Kage, Shiro and Tenka have no damage row; the supports' +5% lifts every girl beside them about 9%.
 - **No build falls, not only the best one** (every girl, all three tier-5 builds, boss and crowd, 3 seeds; Fuu, Yuki and
-  the duo also alone and with supports over 5–7 seeds). Two rows exist only for that: Fuu ×2.45 (her stronger wind
+  the duo also alone and with supports over 5–7 seeds). Rows that exist only for that: Fuu ×2.45 (her stronger wind
   pushes walkers out of her reach: at ×1.3 her Returning Gale build alone lost 46%, so her best build now reads ~4M on
-  a crowd), and Yuki ×1.08 (her 20% longer freezes cost her up to 6% on a build).
+  a crowd), Yuki ×1.5 (her 20% longer freezes, and the shapes' Rising Spikes left her
+  Frostbite build alone 28% under), Hotaru ×1.03, Momo ×1.03 (her coins do not move) and Umeko ×1.05 (the shapes left
+  each of them 1–5% under on one build alone). Every girl was checked alone and with supports against live v0.1.60.
 
 **Supports** (Kage 5-0-2 on a held boss beside one support at her best build, ÷ Kage alone):
 
@@ -143,8 +146,8 @@ titans screen says titan battles use every girl's damage without the boost.
 
 **Finales** (`tools/balance/r5Finales.mjs`, the autoPlan bot; common team = the free roster with Akane, Raika, Miko and
 Kinu in; mid = the census level, late = Lv 60 ★3 with two Epic +6 pieces, max = fully maxed; wins of 2 seeds). Normal,
-Hard and Nightmare × free and common × three accounts × the 14 finales (Gate Arc Acts 3–6 included): **0 wins
-become losses, 41 losses become wins.**
+Hard and Nightmare × free and common × three accounts × the 14 finales (Gate Arc Acts 3–6 included), with the shapes: **0 wins
+become losses, 42 losses become wins.**
 
 | Finale | Nightmare, common team: mid · late · max (2 seeds) before → after | Hard, common team | Nightmare, free roster |
 |---|---|---|---|
@@ -165,18 +168,20 @@ become losses, 41 losses become wins.**
 
 **Tryout Day** (`tools/tryoutBot.mjs --sweep`, 20 runs each, solo Half Day; re-run on v0.1.60, the same rates): the rows apply in Tryout, so it gets easier
 (the coordinator's call, Oct 29: no Grade retune this round; easier low and mid Grades are fine and Grade 12 maxed at
-30% is still a real top. For the Tryout session: these are the rates with the round).
+30% is still a real top. For the Tryout session: these are the rates with the round and the shapes).
 
 | Grade | new | mid | maxed |
 |---|---|---|---|
 | 1 | 55% → 95% | 100% → 100% | 100% → 100% |
-| 6 | 15% → 15% | 55% → 80% | 65% → 80% |
-| 12 | 0% → 5% | 5% → 20% | 15% → 30% |
+| 6 | 15% → 15% | 55% → 80% | 65% → 85% |
+| 12 | 0% → 0% | 5% → 20% | 15% → 35% |
 
-The ceiling gate (`tools/bench.mjs --hit --ceiling --maxed geared`) is unchanged: 41 rows, max ×1.119 (Aoi's talent),
-the same three rows over ×1 as before the round (Aoi T_aoi 1.119, Hana 1.074, Shiro T_shiro 1.041), none above ×1.15.
+The ceiling gate (`tools/bench.mjs --hit --ceiling --maxed geared`): round 5 alone leaves it unchanged (max ×1.119, the
+same three rows over ×1 as v0.1.60). **With the shapes Kage fails it: ×1.185, and ×1.584 with her talent**, identical on
+the shapes branch without round 5 (5124dacf) and ×0.75 / ×0.99 on v0.1.60: S1's Blade Cyclone, not a round-5 row (Kage
+has none). Flagged to the coordinator and the shapes session.
 
-**Sim id** `63bc9d3e124a` (base `d35092f141d3`, COOP 12), pinned as PENDING_BUMP {12: …} in `tests/art/itemArtRuntime.test.js`; COOP_PROTOCOL is
+**Sim id** `2068f3e1f384` (the shapes and round 5 together; base `d35092f141d3`, COOP 12), pinned as one PENDING_BUMP {12: …} in `tests/art/itemArtRuntime.test.js`; COOP_PROTOCOL is
 not bumped here (the coordinator assigns it at ship). Goldens re-pinned with no win becoming a loss; mechanics
 scenarios (save/restore, co-op casts) run power-neutral (`powerOff`, or the row divided back out in co-op).
 
