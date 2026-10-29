@@ -153,7 +153,7 @@ const until = async (page, fn, arg, ms = 10000) => {
 const text = (page, sel) => page.locator(sel).first().innerText({ timeout: 5000 }).catch(() => '');
 
 async function setName(page, name) {
-  await wait(page, '[data-testid="name-input"]', { timeout: 20000 });
+  await wait(page, '[data-testid="name-input"]', { timeout: 60000 }); // (a fresh tab's first load: slow on a busy machine)
   await page.fill('[data-testid="name-input"]', name);
   await tap(page, '[data-testid="name-save"]');
   await wait(page, '[data-testid="name-input"]', { state: 'detached', timeout: 10000 });

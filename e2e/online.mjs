@@ -765,7 +765,11 @@ try {
     return page.evaluate((rev) => {
       const { sim, ui } = window.__battle;
       const id = sim.heroConfig?.unitId;
-      if (!id || sim.hero) return id ? 'already' : null;
+      if (!id) {
+        window.__heroWhy = `no heroConfig (player ${sim.localPlayer ?? '?'}; configs ${JSON.stringify((sim.heroConfigs || []).map((c) => c?.unitId ?? null))})`;
+        return null;
+      }
+      if (sim.hero) return 'already';
       const ys = [];
       // a centre right on the map's edge can round out of bounds on the 1/1024 command grid: stay 1 tile in
       for (let y = 1; y < sim.map.height - 1; y += 0.35) ys.push(y);
@@ -777,16 +781,22 @@ try {
       }
       for (const y of ys) {
         for (const x of xs) {
-          if (sim.canPlace(id, x, y).ok && sim.towers.every((t) => Math.hypot(t.x - x, t.y - y) > 1.6)) return ui.act.place(id, x, y) ? id : null;
+          if (sim.canPlace(id, x, y).ok && sim.towers.every((t) => Math.hypot(t.x - x, t.y - y) > 1.6)) {
+            if (ui.act.place(id, x, y)) return id;
+            window.__heroWhy = `place(${id}, ${x.toFixed(2)}, ${y.toFixed(2)}) refused`;
+            return null;
+          }
         }
       }
+      window.__heroWhy = `no free spot for ${id}`;
       return null;
     }, fromEnd);
   }
   const heroA = await placeHero(A, false);
   await B.waitForFunction(() => !!window.__battle.sim.heroes[0], null, { timeout: 120000, polling: 250 }).catch(() => null);
   const heroB = await placeHero(B, true);
-  check(!!heroA && !!heroB, `co-op heroes: both players deploy their hero for free (${heroA} / ${heroB})`);
+  const why = !heroA || !heroB ? await Promise.all([A, B].map((p) => p.evaluate(() => window.__heroWhy || '').catch(() => ''))) : null;
+  check(!!heroA && !!heroB, `co-op heroes: both players deploy their hero for free (${heroA} / ${heroB}${why ? `; ${why.join(' / ')}` : ''})`);
   const twoHeroes = (p) => p.waitForFunction(() => window.__battle.sim.heroes.filter(Boolean).length === 2, null, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false);
   if (!check(await twoHeroes(A) && await twoHeroes(B), 'co-op heroes: both heroes stand on both screens')) await dump('lockstep state');
   await A.evaluate(() => window.__battle.ui.feed.clear?.());
