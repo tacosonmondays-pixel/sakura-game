@@ -2,10 +2,14 @@
 // slashes, death puffs, coin pops, floating numbers, upgrade sparkles. Everything is drawn
 // through the shared quad batches (a handful of draw calls in total).
 import * as THREE from 'three';
+import { createVisualRandom, visualSeed } from './vfx/random.js';
+import { createHaloRules } from './vfx/halo.js';
+import { isWorldFlash } from './vfx/flashGuard.js';
 import { fmtNum } from '../ui/format.js';
 
 const TAU = Math.PI * 2;
 const _c = new THREE.Color();
+const _c2 = new THREE.Color();
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 
@@ -13,6 +17,75 @@ const _b = new THREE.Vector3();
 /** Particle flag: lies on the ground plane (ground batches). */
 export const GROUND = 1;
 const SPIN_X = 2; // coin flip: width oscillates
+const LATE_FADE = 4; // alpha holds at a0 for the first `hold` share of life (default 60 %), then fades (a cel shape, not a mist)
+
+/**
+ * Blasts (docs/VFX.md "Blasts"): the body is an alpha-blended cel puff in the blast's colour (three
+ * grey values in the atlas, tinted), so the colour grade and the bloom cannot wash it out; only a
+ * small hot core is additive. Sizes are × the blast radius; a: peak opacity; hold: the share of its
+ * life it keeps that opacity before fading.
+ *
+ * The body and the lit puff are SEATED on the ground: the billboard is anchored at the blast's spot
+ * on the road and drawn upward from it (a view-space lift of half its height), so no part of it ever
+ * dips under the ground (no straight cut along its bottom). Its depth is that spot's, a little toward
+ * the camera (SEAT_FRONT): the struck walker standing there has its legs in the smoke while its body
+ * and head (her flash and hold) are drawn over the cloud, which billows up behind her, and so is
+ * anyone in front of it. It is see-through (a < 1) and starts to fade early, so the road and the
+ * girls never vanish under a blast.
+ */
+export const BLAST = {
+  core: { s0: 0.55, s1: 0.8, life: 0.1, max: 1.2 }, // additive white-hot centre (the only glowing part; × min(r, max)): small and quick, so the struck walker's own flash and hold read through it
+  body: { s0: 0.96, s1: 1.2, life: 0.3, a: 0.8, hold: 0.35 }, // cel puff: swells 1 → 1.25, holds, then fades
+  lit: { s0: 0.52, s1: 0.65, life: 0.24, a: 0.8, hold: 0.35, at: 0.42 }, // a lighter cel puff on its upper part (at: its bottom, × the body's height)
+  fire: { s: 0.26, a: 0.85, hold: 0.35, max: 10 }, // cel fire puffs flung out from round the hit (size × r, at most `max`)
+  ring: { s0: 0.5, s1: 2.05, life: 0.3 }, // hard alpha ring on the ground
+};
+/** Body size of a Spin Shot bounce blast (× the usual), so the Glow Bowl finale is the one big cloud. */
+export const BOUNCE_BODY = 0.6;
+/** Height of a seated blast's anchor: just above the road (PATH_H 0.05), so its bottom never z-fights it. */
+const SEAT_Y = 0.07;
+/**
+ * How far a seated blast's anchor is moved toward the camera, along the view direction (world
+ * units). The battle camera is orthographic, so this changes only depth, never where it is drawn:
+ * the cloud wraps the lower third of a walker standing on the spot (its legs in the smoke) while its
+ * body and head, flash and hold included, stay in front; and a crowd standing round the blast does
+ * not hide the whole cloud.
+ */
+const SEAT_FRONT = 0.12;
+const _dir = new THREE.Vector3();
+/** How much of a billboard's height is vertical in the world (the battle camera looks down 48°: cos ≈ 0.67). */
+const UP_Y = 0.7;
+
+/**
+ * Is the 'explode' at events[j] one of Marumi's Spin Shot bounces (not her ball's first hit, not the
+ * Glow Bowl finale, not a Wrecking Ball blast)? Her blast is followed, after its pins' hits, by the
+ * ball's 'ballPop'; it is a bounce when that ball's previous pop sent it on to a next walker (the
+ * renderer keeps those ball uids in `bouncing`: noteBallPop). Reads the events only.
+ * @param {object[]} events @param {number} j @param {Set<number>} bouncing
+ */
+export function bounceBlast(events, j, bouncing) {
+  const ev = events[j];
+  if (ev.towerUid == null || !bouncing || !bouncing.size) return false;
+  const end = Math.min(events.length, j + 64);
+  for (let k = j + 1; k < end; k++) {
+    const e = events[k];
+    if (e.type === 'ballPop') return e.towerUid === ev.towerUid && !e.fin && bouncing.has(e.uid);
+    if (e.type === 'explode') return false;
+  }
+  return false;
+}
+
+/**
+ * Keeps `bouncing` (the balls on a Spin Shot bounce) up to date from Marumi's ball events: a pop that
+ * sends the ball on to a next walker (tx set, not the finale) marks it; any other pop, or the ball's
+ * end, clears it. Call for every event, after drawing its blast.
+ */
+export function noteBallPop(ev, bouncing) {
+  if (ev.type === 'ballPop') {
+    if (ev.tx != null && !ev.fin) bouncing.add(ev.uid);
+    else bouncing.delete(ev.uid);
+  } else if (ev.type === 'ballEnd') bouncing.delete(ev.uid);
+}
 
 /** Explosions: a repeat on the same spot within EX_GAP seconds draws only a faint ring (EX_RING spots kept). */
 const EX_GAP = 0.1;
@@ -20,9 +93,10 @@ const EX_RING = 8;
 
 export class FxSystem {
   /**
-   * @param {{ atlas, batches: { groundN, groundA, bbN, bbA, overlay }, camera: THREE.Camera }} o
+   * @param {{ atlas, batches: { groundN, groundA, bbN, bbA, overlay }, camera: THREE.Camera, rand?: () => number }} o
+   *   rand: the renderer's seeded visual random stream for effects (src/render/vfx/random.js)
    */
-  constructor({ atlas, batches, camera }) {
+  constructor({ atlas, batches, camera, rand = null }) {
     this.atlas = atlas;
     this.R = atlas.regions;
     this.b = batches;
@@ -35,7 +109,18 @@ export class FxSystem {
     this.segments = []; // beams / lightning segments
     this.texts = [];
     this.maxTexts = 70;
-    this.rand = Math.random;
+    this.rand = rand || createVisualRandom(visualSeed('fx'));
+    // fake glow without bloom (src/render/vfx/halo.js): halo quads under bright additive
+    // particles, inside the particle limit
+    this.halo = createHaloRules(this.R);
+    this.halos = 0; // halos drawn last frame
+    this._h = { w: 0, h: 0, uv: null, a: 0 };
+    /**
+     * The flash guard for world flashes (src/render/vfx/flashGuard.js), set by the renderer:
+     * (size in world units, atlas region, strength) → strength factor. Bright, short additive
+     * sprites ask it, so many small flashes add up to the screen area they really cover.
+     */
+    this.flashGate = null;
     /** Height of the rooftop under a ground point (Gate Arc 'U' tiles), or null on maps without roofs:
      * effects that start at a girl (beams, the first chain link, sparkles) start at her lifted height. */
     this.liftAt = null;
@@ -56,6 +141,11 @@ export class FxSystem {
     this.density = q === 'high' ? 1 : q === 'medium' ? 0.65 : 0.32;
     this.numbers = q !== 'low';
     this.maxTexts = q === 'high' ? 70 : 40;
+  }
+
+  /** Bloom on (high): no halos; off (medium, low, high without bloom): halos for this tier. */
+  setGlow(tier, bloom) {
+    this.halo.set(tier, bloom);
   }
 
   /** Low-level particle spawn. Colours are THREE.Color or hex. */
@@ -79,9 +169,20 @@ export class FxSystem {
     p.a1 = o.a1 ?? 0;
     p.fadeIn = o.fadeIn || 0;
     p.flags = o.flags || 0;
+    p.hold = o.hold ?? 0.6; // LATE_FADE: the share of life at full opacity
+    p.lift = o.lift || 0; // billboards: drawn this many of their own heights up (view space) from the point (a seated shape)
     const col = o.color instanceof THREE.Color ? o.color : _c.set(o.color || '#ffffff');
     p.r = col.r; p.gc = col.g; p.bc = col.b;
     p.ox = o.ox || 0;
+    // a world flash asks the flash guard (flashing screen area a second); past the budget it is drawn faint
+    if (this.flashGate && p.batch === 'bbA') {
+      const size = Math.max(p.s0, p.s1) * Math.max(1, p.asp);
+      if (isWorldFlash(p.life, size)) {
+        const k = this.flashGate(size, p.uv, Math.min(1, p.a0));
+        p.a0 *= k;
+        p.a1 *= k;
+      }
+    }
     this.parts.push(p);
     return p;
   }
@@ -149,35 +250,64 @@ export class FxSystem {
     }
   }
 
-  /** Explosion with flash, shock ring, fire puffs, smoke and scorch. */
-  explosion(x, z, radius, color, { volatile = false } = {}) {
+  /**
+   * Explosion (BLAST): a small additive hot core, an alpha-blended cel puff body in the blast's
+   * colour that swells and holds, a lighter cel puff on its upper part, a hard shock ring, cel fire
+   * puffs, smoke, scorch and debris. Only the core is additive, so the grade and bloom keep its
+   * punch. The body and the lit puff sit on the ground behind the struck walker (BLAST: seated).
+   * @param {{ volatile?: boolean, scale?: number }} [o] scale: the cel puffs' size (a Spin Shot
+   *   bounce draws BOUNCE_BODY; the ring still shows the blast's real reach)
+   */
+  explosion(x, z, radius, color, { volatile = false, scale = 1 } = {}) {
     const R = this.R;
     const r = Math.max(0.5, radius);
     // an enemy's own death blast (volatile) is never folded into a tower's: it always draws in full
     const slot = this._exi;
     if (!volatile && this._exRepeat(x, z, r)) {
-      // the same blast again (a volley on one spot): only a faint shock ring, no second glow / puffs / smoke
+      // the same blast again (a volley on one spot): only a faint shock ring, no second core / puffs / smoke
       this.spawn({ batch: 'groundA', uv: R.ringSoft, x, y: 0.06, z, s0: r * 0.4, s1: r * 2.05, life: 0.32, color, a0: 0.5, flags: GROUND });
       return;
     }
-    const glow = this.spawn({ batch: 'bbA', uv: R.glow, x, y: 0.35, z, s0: r * 1.6, s1: r * 2.2, life: 0.22, color: volatile ? '#ff5a4a' : '#ffd08a', a0: 1 });
-    if (!volatile) this._exGlow[slot] = glow;
-    this.spawn({ batch: 'groundA', uv: R.ringSoft, x, y: 0.06, z, s0: r * 0.4, s1: r * 2.05, life: 0.32, color, flags: GROUND });
+    const rb = r * scale;
+    const cel = R.celPuff || R.smoke;
+    const body = volatile ? '#ff5a4a' : color;
+    const lit = _c2.set(body).lerp(_c.set('#fff4dc'), 0.45).getHex();
+    const B = BLAST;
+    // the core stays small on a big blast (sized by min(r, core.max)) and high enough that the ground never cuts it
+    const cr = Math.min(rb, B.core.max);
+    const glow = this.spawn({ batch: 'bbA', uv: R.glow, x, y: Math.max(0.4, SEAT_Y + UP_Y * cr * B.core.s1 * 0.5), z, s0: cr * B.core.s0, s1: cr * B.core.s1, life: B.core.life, color: volatile ? '#ffc2b0' : '#fff2c8', a0: 1 });
+    if (!volatile) this._exGlow[slot] = glow; // (dimBlast: a styled impact here dims it)
+    // seated cel puffs (lift 0.5: the quad's bottom edge on the anchor; a small tilt keeps the lit side up),
+    // anchored on the spot and moved SEAT_FRONT toward the camera (depth only: the same place on screen)
+    this.camera.getWorldDirection(_dir);
+    const ax = x - _dir.x * SEAT_FRONT;
+    const ay = SEAT_Y - _dir.y * SEAT_FRONT;
+    const az = z - _dir.z * SEAT_FRONT;
+    this.spawn({
+      batch: 'bbN', uv: cel, x: ax, y: ay, z: az, s0: rb * B.body.s0, s1: rb * B.body.s1, life: B.body.life, color: body,
+      a0: B.body.a, a1: 0, hold: B.body.hold, rot: (this.rand() - 0.5) * 0.5, lift: 0.5, flags: LATE_FADE,
+    });
+    this.spawn({
+      batch: 'bbN', uv: cel, x: ax, y: ay, z: az, s0: rb * B.lit.s0, s1: rb * B.lit.s1, life: B.lit.life, color: lit,
+      a0: B.lit.a, a1: 0, hold: B.lit.hold, rot: (this.rand() - 0.5) * 0.5, lift: 0.5 + (B.lit.at * B.body.s1) / B.lit.s1, flags: LATE_FADE,
+    });
+    this.spawn({ batch: 'groundN', uv: R.ringThick || R.ring, x, y: 0.06, z, s0: r * B.ring.s0, s1: r * B.ring.s1, life: B.ring.life, color: body, a0: 0.85, flags: GROUND });
     this.spawn({ batch: 'groundN', uv: R.shadow, x, y: 0.03, z, s0: r * 1.3, s1: r * 1.5, life: 1.6, color: '#2a1a14', a0: 0.35, a1: 0, flags: GROUND });
-    const k = this.n(Math.min(14, 5 + r * 4));
+    const k = this.n(Math.min(B.fire.max, 4 + rb * 3));
+    const fs = B.fire.s * rb;
     for (let i = 0; i < k; i++) {
       const a = this.rand() * TAU;
-      const d = this.rand() * r * 0.6;
+      const d = (0.25 + this.rand() * 0.35) * r; // they burst out round the struck walker, not over it
       const sp = 0.6 + this.rand() * 1.4;
       this.spawn({
-        batch: 'bbA', uv: R.soft, x: x + Math.cos(a) * d, y: 0.2 + this.rand() * 0.3, z: z + Math.sin(a) * d,
-        vx: Math.cos(a) * sp, vy: 0.8 + this.rand(), vz: Math.sin(a) * sp, drag: 3, s0: 0.35 * r, s1: 0.1, life: 0.35 + this.rand() * 0.2,
-        color: i % 2 ? color : '#ffe08a',
+        batch: 'bbN', uv: cel, x: x + Math.cos(a) * d, y: Math.max(0.2, fs * 0.5) + this.rand() * 0.3, z: z + Math.sin(a) * d,
+        vx: Math.cos(a) * sp, vy: 0.8 + this.rand(), vz: Math.sin(a) * sp, drag: 3, s0: fs, s1: 0.08, life: 0.35 + this.rand() * 0.2,
+        color: i % 2 ? body : lit, a0: B.fire.a, a1: 0, hold: B.fire.hold, rot: this.rand() * TAU, flags: LATE_FADE,
       });
       if (i % 2 === 0) {
         this.spawn({
           batch: 'bbN', uv: R.smoke, x: x + Math.cos(a) * d, y: 0.25, z: z + Math.sin(a) * d,
-          vx: Math.cos(a) * sp * 0.5, vy: 0.7 + this.rand() * 0.5, vz: Math.sin(a) * sp * 0.5, drag: 2, s0: 0.3 * r, s1: 0.8 * r,
+          vx: Math.cos(a) * sp * 0.5, vy: 0.7 + this.rand() * 0.5, vz: Math.sin(a) * sp * 0.5, drag: 2, s0: 0.3 * rb, s1: 0.8 * rb,
           life: 0.8 + this.rand() * 0.4, color: '#7a6a66', a0: 0.55, fadeIn: 0.1, rot: this.rand() * TAU, vrot: (this.rand() - 0.5) * 2,
         });
       }
@@ -394,6 +524,11 @@ export class FxSystem {
     this.clock += dt;
     const parts = this.parts;
     let n = 0;
+    // halos: at most the tier's count, and particles + halos never past the particle limit
+    const hc = this.halo.cfg;
+    let haloLeft = hc ? Math.max(0, Math.min(hc.max, this.max - parts.length)) : 0;
+    const h = this._h;
+    this.halos = 0;
     for (let i = 0; i < parts.length; i++) {
       const p = parts[i];
       p.t += dt;
@@ -421,22 +556,28 @@ export class FxSystem {
       p.rot += p.vrot * dt;
       const k = p.t / p.life;
       const s = p.s0 + (p.s1 - p.s0) * k;
-      let a = p.a0 + (p.a1 - p.a0) * k;
+      let a = p.flags & LATE_FADE ? (k < p.hold ? p.a0 : p.a0 + (p.a1 - p.a0) * ((k - p.hold) / (1 - p.hold))) : p.a0 + (p.a1 - p.a0) * k;
       if (p.fadeIn && p.t < p.fadeIn) a *= p.t / p.fadeIn;
       let w = s * p.asp;
       if (p.flags & SPIN_X) w *= Math.abs(Math.cos(p.t * 9));
-      this.b[p.batch].push(p.x, p.y, p.z, w, s, p.uv, p.r, p.gc, p.bc, a, p.rot);
+      const B = this.b[p.batch];
+      if (haloLeft > 0 && p.batch === 'bbA' && this.halo.of(p.uv, w, s, a, h) && B.push(p.x, p.y, p.z, h.w, h.h, h.uv, p.r, p.gc, p.bc, h.a, p.rot)) {
+        haloLeft--;
+        this.halos++;
+      }
+      B.push(p.x, p.y, p.z, w, s, p.uv, p.r, p.gc, p.bc, a, p.rot, 0, p.lift * s);
     }
     parts.length = n;
-    this._drawSegments(dt);
+    this._drawSegments(dt, haloLeft);
     this._drawTexts(dt);
   }
 
-  _drawSegments(dt) {
+  _drawSegments(dt, haloLeft = 0) {
     const segs = this.segments;
     if (!segs.length) return;
     const view = this.camera.matrixWorldInverse;
     const R = this.R;
+    const h = this._h;
     let n = 0;
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
@@ -455,7 +596,13 @@ export class FxSystem {
       const mx = (s.ax + s.bx) / 2;
       const my = (s.ay + s.by) / 2;
       const mz = (s.az + s.bz) / 2;
-      this.b.bbA.push(mx, my, mz, len + s.w * 0.5, s.w * (0.6 + 0.4 * k), R.beam, s.color.r, s.color.g, s.color.b, k * fl, ang);
+      const bw = len + s.w * 0.5;
+      const bh = s.w * (0.6 + 0.4 * k);
+      if (haloLeft > 0 && this.halo.of(R.beam, bw, bh, k * fl, h) && this.b.bbA.push(mx, my, mz, h.w, h.h, h.uv, s.color.r, s.color.g, s.color.b, h.a, ang)) {
+        haloLeft--;
+        this.halos++;
+      }
+      this.b.bbA.push(mx, my, mz, bw, bh, R.beam, s.color.r, s.color.g, s.color.b, k * fl, ang);
       if (s.core) this.b.bbA.push(mx, my, mz, len, s.w * 0.35 * (0.5 + 0.5 * k), R.beam, 1, 1, 1, k * fl, ang);
     }
     segs.length = n;
@@ -492,5 +639,8 @@ export class FxSystem {
     this.parts.length = 0;
     this.segments.length = 0;
     this.texts.length = 0;
+    // (and the recent blasts: a cleared board folds no new blast into one that is gone)
+    this._ex.fill(-1e9);
+    this._exGlow.fill(null);
   }
 }

@@ -19,7 +19,7 @@ export function genericAttack(ev, tw, t, ctx) {
     if (e) {
       const ramp = ev.ramp || 0;
       const col = towerHex(t);
-      fx.slash(e.x, e.z, (Math.random() - 0.5) * 1.4, col, 0.8 + Math.min(0.6, ramp * 0.05));
+      fx.slash(e.x, e.z, (ctx.rand() - 0.5) * 1.4, col, 0.8 + Math.min(0.6, ramp * 0.05));
       if (ramp >= 6) fx.flash(e.x, e.y + 0.4, e.z, col, 0.5, 0.12);
     }
   } else if (ev.kind === 'trap' || ev.kind === 'build') {

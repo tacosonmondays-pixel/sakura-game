@@ -55,8 +55,8 @@ export const umeko = {
     if ((lookAt(lk, 1) >= 1 || lk.accent[1] >= 1) && ctx.quality !== 'low') {
       const rate = ctx.quality === 'high' ? 3 : 1.5;
       if (every(tw.data, 'petalT', gdt, 1 / rate)) {
-        const a = Math.random() * Math.PI * 2;
-        const r = Math.sqrt(Math.random()) * aura;
+        const a = ctx.rand() * Math.PI * 2;
+        const r = Math.sqrt(ctx.rand()) * aura;
         const p = ctx.spr(ctx.b.bbN, DECOR, ctx.R.petal, t.x + Math.sin(a) * r, 1.6, t.y + Math.cos(a) * r, 0.12, 0.1, 0.9, ctx.col('#ffc2dd'), 1);
         if (p) {
           p.vy = -1.6;

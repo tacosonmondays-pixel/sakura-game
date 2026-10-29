@@ -72,21 +72,21 @@ function glassShards(ctx, x, y, n, radius, rm) {
   const r = Math.max(0.3, radius || 0.4);
   const sp = 0.9 + r * 1.5;
   for (let i = 0; i < n; i++) {
-    const a = (i / n) * TAU + Math.random() * 0.5;
+    const a = (i / n) * TAU + ctx.rand() * 0.5;
     const c = ctx.col(GLASS[i % GLASS.length]);
     const big = i < 2;
     // solid glass (normal blend) so the shards read over the bright splash; the first one sparkles (additive)
-    const p = ctx.spr(i === 0 ? ctx.b.bbA : ctx.b.bbN, big ? CORE : DECOR, ctx.R.shard, rm ? x + Math.cos(a) * r * 0.5 : x, 0.35, rm ? y + Math.sin(a) * r * 0.5 : y, big ? 0.2 : 0.15, 0.06, rm ? 0.35 : 0.5 + Math.random() * 0.15, c, 1);
+    const p = ctx.spr(i === 0 ? ctx.b.bbA : ctx.b.bbN, big ? CORE : DECOR, ctx.R.shard, rm ? x + Math.cos(a) * r * 0.5 : x, 0.35, rm ? y + Math.sin(a) * r * 0.5 : y, big ? 0.2 : 0.15, 0.06, rm ? 0.35 : 0.5 + ctx.rand() * 0.15, c, 1);
     if (!p) continue;
     p.rot = a;
     if (rm) continue;
-    const s = sp * (0.75 + Math.random() * 0.5);
+    const s = sp * (0.75 + ctx.rand() * 0.5);
     p.vx = Math.cos(a) * s;
     p.vz = Math.sin(a) * s;
-    p.vy = 0.9 + Math.random() * 1.3;
+    p.vy = 0.9 + ctx.rand() * 1.3;
     p.g = -7;
     p.drag = 1.6;
-    p.vrot = (i & 1 ? 1 : -1) * (8 + Math.random() * 5);
+    p.vrot = (i & 1 ? 1 : -1) * (8 + ctx.rand() * 5);
     // the facets catch the light as they tumble
     p.flags = SPIN_X;
   }
@@ -208,9 +208,9 @@ export const iroha = {
     if (first && tier >= 3) ripple(ctx, x, y, rm ? radius || 0.5 : 0.1, Math.max(0.3, radius || 0.5), 0.3, ctx.col('#e6dcff'), 0, 'ringSoft', true, 0.55, DECOR);
     if (first && tier >= 4 && ctx.quality !== 'low') {
       for (let i = 0; i < 2; i++) {
-        const a = Math.random() * TAU;
-        const d = (radius || 0.5) * (0.3 + Math.random() * 0.6);
-        const s = ctx.spr(ctx.b.bbA, DECOR, ctx.R.star, x + Math.cos(a) * d, 0.25 + Math.random() * 0.3, y + Math.sin(a) * d, 0.05, 0.24, 0.25, ctx.col('#ffffff'), 1);
+        const a = ctx.rand() * TAU;
+        const d = (radius || 0.5) * (0.3 + ctx.rand() * 0.6);
+        const s = ctx.spr(ctx.b.bbA, DECOR, ctx.R.star, x + Math.cos(a) * d, 0.25 + ctx.rand() * 0.3, y + Math.sin(a) * d, 0.05, 0.24, 0.25, ctx.col('#ffffff'), 1);
         if (s) s.delay = 0.04 + 0.06 * i;
       }
     }

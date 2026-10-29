@@ -624,7 +624,7 @@ export class Companions {
     if (!fx || !this.R) return;
     const k = fx.n(n);
     for (let i = 0; i < k; i++) {
-      const a = Math.random() * TAU;
+      const a = fx.rand() * TAU;
       this._setSp('bbN', this.R.smoke, x + Math.cos(a) * 0.08, y + 0.14, z + Math.sin(a) * 0.08, size * 0.5, size * 1.2, 0.5, C.dust, 0.85);
       if (!this.reduceMotion) {
         _sp.vx = Math.cos(a) * 0.5;
@@ -651,7 +651,7 @@ export class Companions {
     this._dust(x, y, z, 6, 0.5);
     const k = fx.n(6);
     for (let i = 0; i < k; i++) {
-      const a = (i / k) * TAU + Math.random() * 0.4;
+      const a = (i / k) * TAU + fx.rand() * 0.4;
       this._setSp('bbA', R.star || R.spark, x, y + 0.2, z, 0.26, 0.06, 0.45, C.white, 1);
       _sp.vx = Math.cos(a) * 1.6;
       _sp.vz = Math.sin(a) * 1.6;
@@ -674,7 +674,7 @@ export class Companions {
     const feather = R.feather || R.glow;
     const k = fx.n(this.reduceMotion ? 3 : 7);
     for (let i = 0; i < k; i++) {
-      const a = (i / k) * TAU + Math.random() * 0.5;
+      const a = (i / k) * TAU + fx.rand() * 0.5;
       this._setSp('bbN', feather, x, y, z, 0.3, 0.22, this.reduceMotion ? 0.5 : 0.85, i % 2 ? C.white : C.feather, 1);
       _sp.asp = 2;
       _sp.rot = a;

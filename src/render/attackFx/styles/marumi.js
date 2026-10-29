@@ -147,7 +147,7 @@ export const marumi = {
 
   onImpact(rec, x, y, crit, radius, ctx) {
     if (rec.kind !== 'shell') return;
-    squashPuff(ctx, x, y, 1, 0, ctx.col(SPARK), ctx.col(DUST), 0.9);
+    squashPuff(ctx, x, y, 1, 0, ctx.col(SPARK), ctx.col(DUST), 0.9, false);
   },
 
   onStatus(ev, tw, t, ctx) {
@@ -164,13 +164,13 @@ export const marumi = {
       // Split Pins: little white pins tumbling out of the blast
       const n = Math.min(9, ctx.n(ev.n || 0));
       for (let i = 0; i < n; i++) {
-        const a = (i / Math.max(1, n)) * 6.283 + Math.random() * 0.5;
+        const a = (i / Math.max(1, n)) * 6.283 + ctx.rand() * 0.5;
         const p = ctx.spr(ctx.b.bbA, i < 3 ? CORE : DECOR, ctx.R.beam, ev.x, 0.3, ev.y, 0.07, 0.07, 0.55, ctx.col(PIN), 1);
         if (!p) continue;
         p.asp = 3;
         p.vx = Math.sin(a) * 1.8;
         p.vz = Math.cos(a) * 1.8;
-        p.vy = 1.8 + Math.random();
+        p.vy = 1.8 + ctx.rand();
         p.g = -7;
         p.vrot = ctx.reduceMotion ? 0 : 12;
       }
@@ -181,8 +181,8 @@ export const marumi = {
     if (ev.fin) {
       // Glow Bowl finale: a firework of pin-white, orange and spark stars and two bursts of spokes
       chrysanthemum(ctx, ev.x, 0.35, ev.y, 12, [ctx.col(PIN), ctx.col(ORANGE), ctx.col(SPARK)], 0.18, 2.8);
-      spokes(ctx, ev.x, ev.y, 12, 0.2, 1.5, ctx.col(SPARK), 0.3, 0, 0.95);
-      spokes(ctx, ev.x, ev.y, 8, 0.15, 0.95, ctx.col(PIN), 0.26, 0.4, 0.9, DECOR);
+      spokes(ctx, ev.x, ev.y, 12, 0.2, 1.5, ctx.col(SPARK), 0.3, 0, 0.95, CORE, false);
+      spokes(ctx, ev.x, ev.y, 8, 0.15, 0.95, ctx.col(PIN), 0.26, 0.4, 0.9, DECOR, false);
       return false;
     }
     flash(ctx, ev.x, 0.25, ev.y, 0.55, ctx.col(SPARK), 0.1);
@@ -192,7 +192,7 @@ export const marumi = {
     const dx = ev.tx - ev.x;
     const dy = ev.ty - ev.y;
     const d = Math.hypot(dx, dy) || 1;
-    squashPuff(ctx, ev.x, ev.y, dx / d, dy / d, ctx.col(lookAt(lk, 2) >= 3 ? PINK : SPARK), ctx.col(DUST), 1);
+    squashPuff(ctx, ev.x, ev.y, dx / d, dy / d, ctx.col(lookAt(lk, 2) >= 3 ? PINK : SPARK), ctx.col(DUST), 1, false);
     toward(ctx, ev.x, ev.y, ev.tx, ev.ty, ctx.col(SPARK));
     const l = legOf(tw.data, ev.uid, true);
     l.sx = ev.x;
@@ -279,7 +279,7 @@ export const marumi = {
             q.vx = -ux * 0.4;
             q.vz = -uy * 0.4;
           }
-          const s = ctx.spr(ctx.b.groundA, DECOR, ctx.R.beam, p.x - ux * 0.3, 0.07, p.y - uy * 0.3, 0.08, 0.08, 0.25, c, 0.4);
+          const s = ctx.spr(ctx.b.groundN, DECOR, ctx.R.beam, p.x - ux * 0.3, 0.07, p.y - uy * 0.3, 0.08, 0.08, 0.25, c, 0.4);
           if (s) {
             s.asp = 4;
             s.rot = groundRot(ux, uy);

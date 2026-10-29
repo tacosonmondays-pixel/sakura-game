@@ -72,7 +72,7 @@ export const chigusa = {
     ctx.line(ctx.b.bbA, DECOR, ax, v.z, ay, mx, v.z, my, 0.05, td, 0.9);
     ctx.line(ctx.b.bbA, DECOR, mx, v.z, my, mx - ux * 0.18 + uy * sw, v.z - 0.02, my - uy * 0.18 - ux * sw, 0.035, td, 0.6);
     // Bloom Rush petals: more of them as the bloom climbs
-    if (bloom > 0.15 && Math.random() < ctx.gdt * 14 * bloom) {
+    if (bloom > 0.15 && ctx.rand() < ctx.gdt * 14 * bloom) {
       const q = ctx.spr(ctx.b.bbN, DECOR, ctx.R.petal || ctx.R.leaf, v.x, v.z, v.y, 0.08, 0.06, 0.45, pk, 1);
       if (q) {
         q.vy = -0.3;

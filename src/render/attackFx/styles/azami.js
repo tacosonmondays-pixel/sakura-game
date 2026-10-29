@@ -70,7 +70,7 @@ function landBar(o, ctx) {
 function chargedBurst(ctx, x, y, lk) {
   const t5 = lookAt(lk, 0) >= 5;
   const c = ctx.col(t5 ? '#fff1b8' : HOT);
-  spokes(ctx, x, y, ctx.q.trails > 0 ? 10 : 6, 0.15, t5 ? 1.25 : 1, c, 0.22, Math.random(), 0.95);
+  spokes(ctx, x, y, ctx.q.trails > 0 ? 10 : 6, 0.15, t5 ? 1.25 : 1, c, 0.22, ctx.rand(), 0.95);
   flash(ctx, x, 0.3, y, t5 ? 1.1 : 0.8, c, 0.14);
   for (let i = 0; i < 3; i++) {
     const a = i * 2.1 + 0.3;

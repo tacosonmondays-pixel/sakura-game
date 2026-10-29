@@ -92,7 +92,7 @@ export const yuzuha = {
     ctx.quad(ctx.b.bbA, CORE, v.x, v.z, v.y, 0.17, 0.17, ctx.R.star, ctx.col('#ffffff'), 1, ctx.time * 9);
     ctx.line(ctx.b.bbA, CORE, v.x, v.z, v.y, v.x - ux * tail * 0.6, v.z, v.y - uy * tail * 0.6, 0.05, ctx.col('#ffffff'), 0.95);
     if (ctx.q.trails > 0) zigzag(ctx, DECOR, v.x, v.z, v.y, v.x - ux * tail, v.z, v.y - uy * tail, ctx.reduceMotion ? 2 : 3, 0.07, 0.06, c, 0.95);
-    if ((lookAt(lk, 2) >= 2 || lk.accent[2] >= 2) && ctx.q.sparks && Math.random() < ctx.gdt * 12) {
+    if ((lookAt(lk, 2) >= 2 || lk.accent[2] >= 2) && ctx.q.sparks && ctx.rand() < ctx.gdt * 12) {
       const s = ctx.spr(ctx.b.bbA, DECOR, ctx.R.glow, v.x, v.z, v.y, 0.07, 0.02, 0.2, ctx.col(STUN), 1);
       if (s) s.g = -3;
     }
@@ -105,7 +105,7 @@ export const yuzuha = {
     }
     // the taser crackle
     const c = ctx.col(VOLT);
-    forks(ctx, x, 0.4, y, ctx.q.trails > 0 ? 3 : 2, 0.28, c, 0.12, Math.random() * 6.28);
+    forks(ctx, x, 0.4, y, ctx.q.trails > 0 ? 3 : 2, 0.28, c, 0.12, ctx.rand() * 6.28);
     flash(ctx, x, 0.4, y, 0.4, c, 0.08);
   },
 
@@ -128,7 +128,7 @@ export const yuzuha = {
     }
     if (ev.type === 'deployEnd' && ev.burst) {
       const c = ctx.col('#ffb347');
-      forks(ctx, ev.x, 0.3, ev.y, 4, 0.5, c, 0.16, Math.random() * 6.28);
+      forks(ctx, ev.x, 0.3, ev.y, 4, 0.5, c, 0.16, ctx.rand() * 6.28);
       flash(ctx, ev.x, 0.3, ev.y, 0.8, c, 0.14);
       return false;
     }
