@@ -1,0 +1,51 @@
+{
+  "reviewer": "independent logic reviewer (did not build batch A)",
+  "scope": "feature/visual-reworks batch A: Tenka's 3D figure + coilgun prop, Iroha's mirror panel animations, display backlog fixes; git diff ccf147ad...adf61830 excluding docs/review images",
+  "verdict": "OK",
+  "sha": "adf6183012f3e6a35a5d3e6523f1505e05c79623",
+  "base": "ccf147ad27b97811f58c82e6682b4a6a27148241 (origin/main, v0.1.59)",
+  "findings": [
+    {
+      "severity": "LOW",
+      "file": "src/render/mirrorPanel.js",
+      "line": 93,
+      "what": "A merged shot retargets s.to with no easing. While the panel is in its hold phase (from t0+FLIP.turn = 0.2 s to t0+FLIP.minGap = 0.3 s), panelPose returns s.to directly (line 129). Late in the turn, easeOutBack(k) is about 1. In both cases a retarget makes the drawn yaw jump in a single frame.",
+      "scenario": "A fast Iroha's target dies, and her next panel bolt goes to an enemy on the other side of the panel 0.2 to 0.3 s after the last flip started. The glass snaps up to 180 degrees in one frame instead of turning. It is rare and cosmetic, and the rate limits still hold (no strobe).",
+      "fix": "On a merge, restart the ease from the drawn yaw when the new target is far from the old one. For example, if |nearAngle(shotYaw, s.to) - s.to| > 0.5, set s.from = cur and s.t0 = now without counting a new flip or a glint. Otherwise, only allow a merge while el < FLIP.turn."
+    },
+    {
+      "severity": "LOW",
+      "file": "src/render/mirrorFx.js",
+      "line": 75,
+      "what": "_state(uid) creates a pooled panel state from shot() and ability() even when rosterFx has no prop for that tower. rosterFx skips the prop once MAX_PROPS = 24 relay props exist (rosterFx.js _syncProps). drop() is only called from rosterFx._dropProp, so such a state is never returned to the pool until dispose().",
+      "scenario": "A board with more than 24 relay girls (Iroha and Ruri together), with Irohas placed and sold repeatedly. Each Iroha over the cap leaves one small object in mirrors.panels until the battle ends. The growth is bounded by the towers placed in one battle and is cleared on dispose. No GPU resources are involved.",
+      "fix": "In shot() and ability(), use this.panels.get(uid) and return early when it is missing, so only pose() creates states. Or prune any state whose uid has no tower in update()."
+    },
+    {
+      "severity": "LOW",
+      "file": "src/render/mirrorPanel.js",
+      "line": 2,
+      "what": "The header says tests/render/mirrorPanel.test.js pins these rules, but that file does not exist. The tests are in tests/render/irohaMirror.test.js.",
+      "scenario": "A future editor looks for the named test file, does not find it, and concludes the timing rules have no tests.",
+      "fix": "Point the comment at tests/render/irohaMirror.test.js."
+    }
+  ],
+  "checked": [
+    "Sim id at adf61830 is 35748b1b58db, the same as main. Under src/sim, src/online and src/data, only src/data/skins.js changed, and only in a comment. COOP_PROTOCOL needs no bump.",
+    "Render code never writes to sim objects. mirrorFx and iroha.js only read t.uid, t.ox/t.oy, t.tiers, t.abil, p.vx/p.vy, p.uid and sim.time. Writes go to rec, the display state, ctx.irohaBudget and tw.data. tests/render/irohaMirror.test.js shows a sim digest identical with the FX on and off, and strict mode (frozen sim views) passes.",
+    "Math.random appears only in iroha.js glassShards and the T4 sparkles (pooled display quads). mirrorFx has no Math.random. Its clock is a real-time counter fed by update(dt), and the sim never reads it.",
+    "Allocation: panel states are pooled (_free). There are at most 8 ghost meshes and 8 flat ghosts, and the 8 ghost meshes are built once, on the first jump at medium or high. shot() and panelKick() allocate nothing. Shards are capped at 9 per impact and 36 per frame, and flares at 2 per frame, gated by FLARE_GAP per girl. Quads come from ctx.spr and the shared batches. Per-frame pose() allocates nothing.",
+    "Very high attack speed: flips are gated by FLIP.minGap in real time and merge otherwise. Glints and flashes have their own gaps, so 3x game speed merges more shots and never strobes faster. Many Irohas: pose quads are bounded per panel, and relay props by MAX_PROPS.",
+    "Selling Iroha mid-flip: the 'sell' event or the _syncProps sweep calls _dropProp, which calls mirrors.drop(uid). The state goes back to the pool and is reset on reuse. In-flight ghosts fade at their own positions. A projectile seen after the sale has no tower, so onSpawn does not run and shot() is not called.",
+    "Dispose: rosterFx.dispose drops the props, then calls mirrors.dispose, which removes the ghost meshes and disposes their materials. Only after that does it dispose the shared panel geometry. Each battle builds a new RosterFx and MirrorFx, so nothing carries across battles. propCache in glbChibi is module-level by design, like the character asset cache. Its geometry, textures and materials are marked userData.shared (figurine.js:239 and 324, glbChibi.js:247 and 251), so disposeObject on an instance never frees them.",
+    "Quality and Reduce motion: low uses flat ghosts, no shimmer sparkles and no prop outline hull. Reduce motion gives no flip or tip, one still ghost where the panel was, a static landing ring, and shards that fade in place. setQuality propagates from rosterFx to mirrors.",
+    "Tenka GLB: tenka.glb and tenka.lod.glb carry asset.extras.props [{socket: 'prop_coilgun', bone: 'hand_R', file: 'tenka-coilgun.glb'}]. prop_coilgun is a mesh-less child of hand_R and not a skin joint. The manifest lists the prop, the coilgun is 136 KB, and glb.test checks all of this. The clip 'attack_rifle' is picked up by startsWith('attack').",
+    "GLB failure: if tenka.glb fails, loadCharacter caches null and buildChibi keeps the procedural chibi in her palette. A placeholder test covers this at every quality, and the e2e captured a blocked-GLB shot. If the prop fails, propCache resolves null with a warning, the figure loads empty-handed, and there is no retry storm.",
+    "Partner and co-op Tenka: actors.buildChibi runs for every sim tower whatever the side, and instantiateCharacter attaches props on every instance, including the placeholder-to-GLB upgrade, so a partner's Tenka gets her coilgun. The selection highlight swaps the prop material. The Tenka muzzle uses ctx.tower(), v.facing and ctx.cap('muzzle') exactly as genericAttack does, and the non-projectile kinds still route to genericAttack. The right-hand offset (-cos f, +sin f) is correct for a model yawed by f that faces +z.",
+    "Merge a01d319d: manifest has main's entries plus tenka. standins.js keeps kogane and norika plus main's STANDIN_CHIN_UP. BattleRenderer keeps both towerModel and main's towerModelInfo getters. glb.test keeps main's duo filter with GLB_UNIT_COUNT 36. The standins.test doMock spreads importOriginal so STANDIN_CHIN_UP survives. The duo code path (actors.duoEvent, duo.js) is untouched by batch A.",
+    "Event routing: roster.handle 'ability' returns false, so abilityFx still draws the cast. There is no duplicate case label in the rosterFx switch. readScale uses rig.scale, matching attackFx ctx.readScale.",
+    "heroWidget.keepGoalsClear: .bt-hud is a child of ctx.shell (.bt-root). If it is missing, or hidden with a bottom of 0, the old 64 px ceiling applies. Optional chaining covers missing querySelector and getBoundingClientRect.",
+    "towerBar: the hero card's textContent still reads 'Deployed' or 'Deployed · Lv N', because the ' · ' sits in a .ui-sr span (defined in components.css). .bt-dep-lv is absolutely positioned against the absolute .bt-card-deployed, and the compact media query resets padding-bottom. home.css, meta-a.css and girl.css changes are scoped to their media queries, with no logic impact.",
+    "Tests: npx vitest run --maxWorkers=2 tests/models tests/render tests/ui tests/battle-ui gave 124 files and 1655 tests passed. tests/systems/first-impressions, tests/systems/lobbyIllustrations and tests/data gave 20 files and 898 tests passed. The full suite was not run, as instructed. No browser run: the logic was covered by the unit and integration tests and code reading."
+  ]
+}
