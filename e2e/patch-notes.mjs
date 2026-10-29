@@ -52,7 +52,8 @@ try {
     await tap(page.locator('[data-testid="notice-patch"]'));
     await page.waitForSelector('.lb-patch-list', { timeout: 10000 });
     check(await page.locator('.lb-patch').count() === notes.length, `${W}x${H} every version listed (${notes.length})`);
-    check(await page.locator('[data-testid="patch-claim-all"]').innerText() === `Claim all (${notes.length})`, `${W}x${H} Claim all (${notes.length}) shown`);
+    // (textContent: the ink buttons set their label in capitals with CSS, which innerText reports)
+    check((await page.locator('[data-testid="patch-claim-all"]').textContent()).trim() === `Claim all (${notes.length})`, `${W}x${H} Claim all (${notes.length}) shown`);
     // nothing cut off: the modal sits inside the viewport and the article pane scrolls
     const box = await page.locator('.lb-notice-modal').boundingBox();
     check(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= W + 0.5 && box.y + box.height <= H + 0.5, `${W}x${H} Notice fits the screen (${box && `${Math.round(box.width)}x${Math.round(box.height)}`})`);
@@ -69,7 +70,7 @@ try {
     const gems1 = gemsOf(await gemPill.innerText());
     check(gems1 === gems0 + gift, `${W}x${H} top-bar gems ${gems0} → ${gems1} (+${gift})`);
     check(await page.locator(`[data-testid="patch-claimed-${one}"]`).innerText() === 'Claimed ✓' && await page.locator(`[data-testid="patch-claim-${one}"]`).count() === 0, `${W}x${H} the button turns into Claimed ✓`);
-    check(await page.locator('[data-testid="patch-claim-all"]').innerText() === `Claim all (${notes.length - 1})`, `${W}x${H} Claim all counts down`);
+    check((await page.locator('[data-testid="patch-claim-all"]').textContent()).trim() === `Claim all (${notes.length - 1})`, `${W}x${H} Claim all counts down`);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/patch-notes-claimed-${W}x${H}.png` });
 
     // a second claim of the same version is refused by the system
