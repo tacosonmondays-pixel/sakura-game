@@ -217,8 +217,8 @@ export class Marionette {
   }
 
   /**
-   * The doll clock for this frame: game time (so the stages fit her attack interval at 2x / 3x), real time while
-   * the battle is paused (a sequence in flight finishes rather than freezing mid-air).
+   * The doll clock for this frame: game time (so the stages fit her attack interval at 2x / 3x), from the
+   * renderer's visual dt (which holds at 0 while paused or in a hit-stop, so the doll holds too).
    */
   tick(dt) {
     const st = this.sim?.time;
