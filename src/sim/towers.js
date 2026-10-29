@@ -26,6 +26,7 @@ import { layStrip, stripStep, stripTick } from './strips.js';
 import { attackRing, ringTick } from './rings.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
 import { sentryTick } from './sentries.js';
+import { collectMirrors, reflectStep } from './mirrors.js';
 import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick } from './vines.js';
 import { rollBall, ballTick } from './balls.js';
@@ -2119,13 +2120,24 @@ function projectileStep(sim, p, dt) {
   p.z = p.arc > 0 ? PROJECTILE_Z + p.arc * 4 * f * (1 - f) : PROJECTILE_Z + p.targetAlt * f;
 }
 
-/** Moves every projectile, resolves contacts, removes spent ones. */
+/**
+ * Moves every projectile, resolves contacts, removes spent ones. While a mirror reflects (Iroha's Mirror Shift /
+ * Infinite Reflection, src/sim/mirrors.js), a shot that has not split yet and lives through its step is tested
+ * against the reflecting mirrors along that step's segment.
+ */
 export function updateProjectiles(sim, dt) {
   const list = sim.projectiles;
+  const mirrors = sim._abilOn > 0 ? collectMirrors(sim) : 0;
   for (let i = 0; i < list.length; i++) {
     const p = list[i];
     if (p.owner.removed && !p.dead) p.dead = true;
-    if (!p.dead) projectileStep(sim, p, dt);
+    if (p.dead) continue;
+    if (mirrors && !p.split) {
+      const ax = p.x;
+      const ay = p.y;
+      projectileStep(sim, p, dt);
+      if (!p.dead) reflectStep(sim, p, ax, ay, mirrors);
+    } else projectileStep(sim, p, dt);
   }
   let n = 0;
   for (let i = 0; i < list.length; i++) if (!list[i].dead) list[n++] = list[i];

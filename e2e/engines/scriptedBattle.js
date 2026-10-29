@@ -792,7 +792,9 @@ export const ABILITIES_START = Object.freeze({
   difficulty: 'normal',
   players: [
     { slot: 0, uid: 'host', name: 'Host', loadout: abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori']), hero: { unitId: 'luna', stats: ABIL_STATS } },
-    { slot: 1, uid: 'guest', name: 'Guest', loadout: abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro'], ABIL_STATS_HASTE), hero: { unitId: 'nami', stats: ABIL_STATS_HASTE } },
+    // (the guest's Iroha is a sixth entry, which LOADOUT_MAX allows a start: her Mirror Shift, the mirror deploy; a
+    // sixth for the host instead starved her wallet, so Iroha never reached tier 3 or the host's other girls stalled)
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: abilLoadout(['iroha', 'yuki', 'rei', 'miko', 'sango', 'shiro'], ABIL_STATS_HASTE), hero: { unitId: 'nami', stats: ABIL_STATS_HASTE } },
   ],
 });
 /** Refusals a scripted tap may meet (the sim re-checks at the command's tick); anything else fails the run. */
@@ -803,7 +805,8 @@ const ABIL_REASONS = Object.freeze(['cooldown', 'notWave', 'active', 'noTarget',
  * Aoi 0-3-0, Akane 3-0-0, Momo 3-0-0, Hotaru 0-3-0 and Midori 3-0-0 (each to her ⚡ tier 3) and hero
  * Luna to Lv 7 (Moonbrand), and taps one of them by hand every 7 s in a round robin (some taps are
  * group taps, some carry an aim point, some land on a recharging girl and are refused); from wave 4
- * her Momo is on Auto. The guest takes Yuki, Rei, Miko 3-0-0, Sango 0-3-0, Shiro 3-0-0 and hero Nami
+ * her Momo is on Auto. The guest takes Iroha 3-0-0 (Mirror Shift: her panel jumps to the leader's road spot and
+ * every girl's shots that cross it split, the host's too), Yuki, Rei, Miko 3-0-0, Sango 0-3-0, Shiro 3-0-0 and hero Nami
  * (Lv 7, Frost Net; she and Sango stand on the water), all with Skill Haste 0.3, with `acast[0, 1]` (everything on Auto), taps one
  * of her ready girls every 4 s as well, and switches Shiro off and on once. Two Lockstep clients over
  * the seeded fake network; every state hash collected (they fold the ability state once cast or on
@@ -842,16 +845,17 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
   });
   const [A, B] = [mk(0), mk(1)];
   const clients = [A, B];
-  const girls = [['aoi', 'akane', 'momo', 'hotaru', 'midori'], ['yuki', 'rei', 'miko', 'sango', 'shiro']];
+  const girls = [['aoi', 'akane', 'momo', 'hotaru', 'midori'], ['iroha', 'yuki', 'rei', 'miko', 'sango', 'shiro']];
   // land spots (two each: the second when the first is taken); Nami and Sango stand on the water
-  const spots = { ...spotsFor(ABILITIES_START, ['luna', ...girls[0], 'yuki', 'rei', 'miko', 'shiro'], 2), ...spotsFor(ABILITIES_START, ['nami', 'sango'], 2, { water: true }) };
+  const spots = { ...spotsFor(ABILITIES_START, ['luna', ...girls[0], ...girls[1].filter((u) => u !== 'sango')], 2), ...spotsFor(ABILITIES_START, ['nami', 'sango'], 2, { water: true }) };
   // [slot, unitId, spots, retry frame]: a place her view could afford can still meet a wallet that
   // changed by its tick (refused 'cash'): she is tried again until she stands
   const want = [];
-  for (let i = 0; i < 5; i++) for (const slot of [0, 1]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
+  for (let i = 0; i < 6; i++) for (const slot of [0, 1]) if (girls[slot][i]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
   const seen = [new Map(), new Map()];
   const byKind = {};
   const byOwner = [0, 0];
+  const splits = [0, 0];
   let ck = null;
   let turn = 0;
   let guestTurn = 0;
@@ -938,6 +942,11 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
       for (const [t, hv] of c.hashes) seen[i].set(t, hv);
       if (i === 0) {
         for (const ev of c.sim.events) {
+          // Iroha's mirror splits (src/sim/mirrors.js): all of them, and the host's girls' shots among them
+          if (ev.type === 'mirrorSplit') {
+            splits[0]++;
+            if (A.coop.isMine(ev.ownerUid)) splits[1]++;
+          }
           if (ev.type !== 'ability') continue;
           byKind[ev.kind] = (byKind[ev.kind] || 0) + 1;
           byOwner[ev.owner]++;
@@ -969,6 +978,7 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
     kinds: kinds.join(','),
     byKind: kinds.map((k) => `${k} ${byKind[k]}`).join(' · '),
     byOwner: byOwner.join('/'),
+    splits: splits.join('/'),
     taps: `${taps.abil} abil: ${taps.ok} cast, ${Object.keys(taps.reasons).sort().map((k) => `${taps.reasons[k]} ${k}`).join(', ')} · ${taps.acast} acast`,
     refused: odd.join(' '),
     wallets: A.coop.wallets.join('/'),

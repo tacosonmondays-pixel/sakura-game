@@ -32,6 +32,7 @@
 //
 // State (all plain data, so the generic snapshot stores it):
 //   t.abil      { id, kind, scope, cdMax, cd, rate, active, auto, t5, n }  — created when she unlocks
+//   t.mirror2   Iroha's tier-5 second mirror { x, y } while her Mirror Shift runs (src/sim/mirrors.js), else null
 //   t.abilMods  a running boost's ModSet, or a strike's boost tail (`after`: Zero Point); null otherwise
 //               (resolved last, src/sim/mods.js `extra`)
 //   sim.abilGroups  Map "<owner>|<id>" → { cd, cdMax, rate }   (map scope; deleted once charged)
@@ -51,6 +52,7 @@ import { isEligible } from './combat.js';
 import { isCaster, syncStatusFlags } from './enemies.js';
 import { spikeRain } from './strips.js';
 import { emergencyDeploy } from './sentries.js';
+import { mirrorShift, mirrorShiftEnd } from './mirrors.js';
 import { startRunner } from './runners.js';
 import { samplePath } from './path.js';
 
@@ -263,7 +265,8 @@ export function abilityReach(t, def) {
     case 'boost': return t.eff.range + (e.mods?.range || 0);
     case 'rally': return rallyRadius(t, e);
     case 'debuff': return (e.reachMul ?? 1) * t.eff.range + (e.reachAdd || 0);
-    case 'deploy': return (e.reachMul ?? 1) * t.eff.range;
+    // (Mirror Shift: her mirror's reach, where the panel can stand)
+    case 'deploy': return e.deploy === 'mirror' && t.stats?.relay ? t.stats.relay.reach : (e.reachMul ?? 1) * t.eff.range;
     default: return t.eff.range;
   }
 }
@@ -915,6 +918,17 @@ const DEPLOYS = {
       return { x: placed[0].x, y: placed[0].y, radius: reach, targets: [], placed: placed.length };
     },
   },
+  // Iroha's Mirror Shift (src/sim/mirrors.js): her panel jumps to her aim point (or the road spot nearest the leader
+  // in her mirror's reach) and reflects for the window: every girl's shot that crosses it splits in two, once; tier 5
+  // (Infinite Reflection) leaves the panel reflecting for good and the cast adds a second mirror for the window
+  mirror: {
+    cast(sim, t, def, step, aim) {
+      return mirrorShift(sim, t, def, aim);
+    },
+    end(sim, t) {
+      mirrorShiftEnd(sim, t);
+    },
+  },
   // Azami's Spike Rain (src/sim/strips.js): extra strips spread evenly along the road in her reach,
   // living the ability's duration; refused (nothing spent) with no ground enemy in reach
   strips: {
@@ -1083,6 +1097,8 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
     x: fx.x, y: fx.y, radius: Number.isFinite(fx.radius) ? fx.radius : 0, targets: fx.targets,
     ...(fx.coins != null ? { coins: fx.coins } : null),
     ...(fx.placed != null ? { placed: fx.placed } : null),
+    // (Mirror Shift: 'panel' her panel jumped to x, y; 'second' tier 5's second mirror stands there)
+    ...(fx.mirror != null ? { mirror: fx.mirror } : null),
   });
   return { ok: true, reason: null, casterUid: t.uid };
 }

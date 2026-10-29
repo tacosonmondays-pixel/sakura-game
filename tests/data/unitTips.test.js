@@ -1,5 +1,5 @@
 // The menus show a ⚡ ability tip only when her ability runs in this build (src/data/unitTips.js, the one rule
-// abilityRuns in src/data/abilities.js): Kage, Suzu and Chika (deploys, A4), Fuu (A5) and Iroha (A6) never advertise a button that isn't
+// abilityRuns in src/data/abilities.js): Kage, Suzu and Chika (deploys, A4) and Fuu (A5) never advertise a button that isn't
 // there (owner default Q3). The student page, the lobby secretary and the Wiki's student tables read shownTips;
 // the New Students article names no ability.
 import { describe, test, expect } from 'vitest';
@@ -30,13 +30,13 @@ describe('shown tips', () => {
     }
   });
 
-  test('every tower with a working ability shows her ⚡ tip; Kage, Suzu, Chika, Fuu and Iroha show none', () => {
+  test('every tower with a working ability shows her ⚡ tip; Kage, Suzu, Chika and Fuu show none', () => {
     const withTip = UNITS.filter((u) => (u.tips || []).some(isAbilityTip));
     const shown = withTip.filter((u) => shownTips(u).some(isAbilityTip)).map((u) => u.id).sort();
     const hidden = withTip.filter((u) => !shownTips(u).some(isAbilityTip)).map((u) => u.id).sort();
-    // (A3 M3: the returning girls have their ⚡ tips; Fuu's move and Iroha's mirror wait, so theirs stay hidden)
-    expect(hidden).toEqual(['chika', 'fuu', 'iroha', 'kage', 'suzu']);
-    for (const id of ['aoi', 'midori', 'ouka', 'azami', 'yuzuha', 'marumi', 'tenka', 'hana', 'ruri', 'noa', 'ena']) expect(shown, id).toContain(id);
+    // (A3 M3: the returning girls have their ⚡ tips; Fuu's move waits, so hers stays hidden; Iroha's mirror runs since A6)
+    expect(hidden).toEqual(['chika', 'fuu', 'kage', 'suzu']);
+    for (const id of ['aoi', 'midori', 'ouka', 'azami', 'yuzuha', 'marumi', 'tenka', 'hana', 'ruri', 'noa', 'ena', 'iroha']) expect(shown, id).toContain(id);
     // a hidden girl's tips never name her ability either
     for (const u of withTip.filter((x) => hidden.includes(x.id))) {
       for (const t of shownTips(u)) for (const n of ABILITY_NAMES) expect(t.includes(n), `${u.id}: ${n}`).toBe(false);

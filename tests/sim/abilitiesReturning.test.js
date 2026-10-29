@@ -2,8 +2,8 @@
 // Swoop (map strike on flyers, its fallback), Ruri's Moon Pounce (from Kon's relay origin; bites and a hold bosses
 // shrug off), Noa's First Aid Call (cleanse + ward incl. the volatile stun, lives from kills near her), Ena's Omen Card
 // (curses that burst for 3× her hit through the curse queue), Yoriko's Puppet Hex and Seiran's Storm Lance (hero
-// skills at Lv 7 / 17) — with every refusal, no rng in a cast, and the four that stay off (Fuu, Ruri's other two
-// forms, Iroha, Kanna). Real girls and enemies on the fixture map (a straight road along y 4.5).
+// skills at Lv 7 / 17) — with every refusal, no rng in a cast, and the ones that stay off (Fuu, Ruri's other two
+// forms, Kanna; Iroha's Mirror Shift runs since A6: tests/sim/mirrorShift.test.js). Real girls and enemies on the fixture map (a straight road along y 4.5).
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STAGE, testData, run } from './fixtures.js';
@@ -79,7 +79,7 @@ const ready = (t) => {
 
 // ---------------------------------------------------------------------------------------------------------------
 describe('data: the returning girls are attached; abilityRuns picks who gets a button', () => {
-  test('Hana, Ruri (Moonhound), Noa, Ena, Yoriko and Seiran run; Fuu, Ruri\'s Star Falcon / Tide Otter, Iroha and Kanna stay off', () => {
+  test('Hana, Ruri (Moonhound), Noa, Ena, Yoriko and Seiran run; Fuu, Ruri\'s Star Falcon / Tide Otter and Kanna stay off (Iroha\'s Mirror Shift runs: tests/sim/mirrorShift.test.js)', () => {
     const runs = (e) => abilityRuns(e) && !!handlerOf(e);
     expect(runs(ABILITIES.hana[0])).toBe(true);
     expect(ABILITIES.ruri.map(runs)).toEqual([true, false, false]);
@@ -88,7 +88,8 @@ describe('data: the returning girls are attached; abilityRuns picks who gets a b
     expect(runs(ABILITIES.ena[0])).toBe(true);
     expect(runs(ABILITIES.yoriko.skill)).toBe(true);
     expect(runs(ABILITIES.seiran.skill)).toBe(true);
-    for (const e of [ABILITIES.fuu[0], ABILITIES.iroha[0], ABILITIES.kanna.skill]) expect(runs(e), e.id).toBe(false);
+    for (const e of [ABILITIES.fuu[0], ABILITIES.kanna.skill]) expect(runs(e), e.id).toBe(false);
+    expect(runs(ABILITIES.iroha[0])).toBe(true);
     // the tier-5 / Lv 17 upgrades never flip it
     expect(runs({ ...ABILITIES.ruri[1], ...ABILITIES.ruri[1].t5 })).toBe(false);
     // every path of Ruri's carries its own entry
@@ -96,7 +97,7 @@ describe('data: the returning girls are attached; abilityRuns picks who gets a b
   });
 
   test('the ones that stay off unlock nothing: no button, the teaser says later, a cast is refused locked', () => {
-    for (const [id, opts] of [['fuu', {}], ['iroha', {}], ['ruri', { path: 'falcon' }], ['ruri', { path: 'otter' }]]) {
+    for (const [id, opts] of [['fuu', {}], ['ruri', { path: 'falcon' }], ['ruri', { path: 'otter' }]]) {
       const sim = mk({ loadout: [id] });
       const t = girl(sim, id, 8.5, 3.4, opts);
       wave(sim);

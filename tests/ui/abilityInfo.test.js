@@ -37,8 +37,8 @@ describe('abilityRuns: the girl page\'s "runs today" rule equals the sim\'s', ()
     }
   });
 
-  it('the kinds that wait: Kage, Suzu and Chika (A4), Fuu and Kanna (A5), Iroha (A6) — every girl has one since M3', () => {
-    expect(withAbility.filter((u) => !abilityLive(entryOf(u))).map((u) => u.id).sort()).toEqual(['chika', 'fuu', 'iroha', 'kage', 'kanna', 'suzu']);
+  it('the kinds that wait: Kage, Suzu and Chika (A4), Fuu and Kanna (A5) — every girl has one since M3 (Iroha\'s mirror runs since A6)', () => {
+    expect(withAbility.filter((u) => !abilityLive(entryOf(u))).map((u) => u.id).sort()).toEqual(['chika', 'fuu', 'kage', 'kanna', 'suzu']);
     expect(withAbility.length).toBe(UNITS.length);
   });
 });
@@ -102,9 +102,9 @@ describe('abilityInfoView (the Info chip and its Details)', () => {
     expect(aoi.howTo).toEqual({ hero: false, name: null });
     expect(abilityInfoView(UNIT_MAP.hikari).howTo).toEqual({ hero: true, name: null });
     expect(abilityInfoView(UNIT_MAP.hikari).facts.map((x) => x.k)).toEqual(['Unlock', 'Recharge', 'LV 17']);
-    // ones that wait (Fuu, Iroha, Kage, Kanna as a hero): no sentence pointing at a button, only where it is planned
+    // ones that wait (Fuu, Kage, Kanna as a hero): no sentence pointing at a button, only where it is planned
     for (const [id, planned] of [
-      ['fuu', 'for Returning Gale tier 3'], ['iroha', 'for Mirror Hall tier 3'], ['kanna', 'for hero LV 7'],
+      ['fuu', 'for Returning Gale tier 3'], ['kanna', 'for hero LV 7'],
     ]) {
       const v = abilityInfoView(UNIT_MAP[id]);
       expect(v.later, id).toBe('Comes in a later update');
