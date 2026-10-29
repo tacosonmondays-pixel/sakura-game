@@ -159,7 +159,8 @@ Hard and Nightmare × free and common × three accounts × ten finales: **0 wins
 | 8-5 | 0→0 · 0→0 · 2→2 | 0→0 · 0→0 · 2→2 | 0→0 · 0→2 · 2→2 |
 
 **Tryout Day** (`tools/tryoutBot.mjs --sweep`, 20 runs each, solo Half Day): the rows apply in Tryout, so it gets easier
-(a decision for the coordinator: Tryout's own Grade table could take the round into account).
+(the coordinator's call, Oct 29: no Grade retune this round; easier low and mid Grades are fine and Grade 12 maxed at
+30% is still a real top. For the Tryout session: these are the rates with the round).
 
 | Grade | new | mid | maxed |
 |---|---|---|---|
