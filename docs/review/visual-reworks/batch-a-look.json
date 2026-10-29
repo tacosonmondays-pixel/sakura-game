@@ -1,0 +1,55 @@
+{
+  "verdict": "OK",
+  "sha": "c28918a4",
+  "reviewed": "feature/visual-reworks at c28918a4 (batch A: Tenka's 3D figure, Iroha's panel and shard FX, the display backlog fixes, then the companions on top of 1f601f66). The Tenka, Iroha and backlog screenshots were taken on adf61830/1f601f66; the only change in between was Iroha's panel easing on a far retarget, plus the patch note.",
+  "summary": "No blockers. One MEDIUM: Iroha's Shattered Glass T5 impacts stack into an opaque white bloom that hides the targets at phone size. It is local, not a screen whiteout, and partly comes from the impact flash that was already there. Three LOW findings. The backlog fixes are all clean at the named sizes. e2e/home.mjs: 237 ok, 0 FAIL. e2e/companions.mjs --moves at 844x390: all ok.",
+  "findings": [
+    {
+      "severity": "MEDIUM",
+      "screen": "Battle 1-1, Iroha at Shattered Glass T5 (tiers 2-0-5), quality high, default camera",
+      "size": "844x390 (also seen zoomed in; the builder's 1280x720-shards-strip.jpg frame 1 shows the same)",
+      "what": "In a live fight (the enemies kept alive, 10 frames), the splash impacts bloomed into a solid white disc about 60x40 px in 3 of the 10 frames, 2 of them in a row. The slimes under it can't be seen. The rest of the screen is unaffected: mean luminance moves 150 to 154, so it is not a screen whiteout. The base impact flash (silver, additive, one per bolt) was already on main. T5 adds the kaleidoscope flash, the glitter ripple and an additive first shard on top. With 4 splash bolts per volley, they all stack on the same spot.",
+      "evidence": ["batch-a-look/iroha-844x390-t5-white-bloom.jpg", "batch-a-look/iroha-844x390-t5-sequence.jpg"],
+      "fix": "Cap the stacking. Draw at most one impact flash per small area per frame, or drop the base silver flash when the kaleidoscope flare draws. Draw the flare's flash in lilac at lower alpha, or with normal blending, so the shards (already normal blend) carry the read."
+    },
+    {
+      "severity": "LOW",
+      "screen": "Battle 1-1, Iroha placed 0.8 to 1.6 tiles from the road (no aim set)",
+      "size": "844x390",
+      "what": "Her relay origin is her own spot, so the mirror panel stands directly on her. The bright glass oval covers her body at the default camera and zoomed in. The new flip, glint and flash draw on top of her. Once the panel is aimed away (the jump frames), she reads fine. The panel's placement itself predates this batch.",
+      "evidence": ["batch-a-look/iroha-844x390-flip-jump-strip.jpg", "batch-a-look/iroha-844x390-panel-over-her.jpg"],
+      "fix": "When the panel's origin equals her position, draw it offset about 0.45 tiles beside her (display only, no sim change)."
+    },
+    {
+      "severity": "LOW",
+      "screen": "Home (Ink & Paper), the Events tab beside CO-OP",
+      "size": "390x844 (it touches at 768x1024 and 1280x720)",
+      "what": "The '10D' time sticker's bottom edge overlaps the top of the lantern glyph by about 7 px at 390x844 (sticker y 612-628, lantern y 621-645). At 768x1024 and 1280x720 they touch, with 0 px between. The new icon-only tab at 667x375 and 740x360 is fine: 64 px wide, 24 and 34 px clear of CO-OP, sticker and dot apart.",
+      "evidence": ["batch-a-look/home-events-390x844-sticker.jpg", "batch-a-look/home-events-390x844.jpg"],
+      "fix": "Lift the sticker 4 px, or push the lantern down 4 px, where the label shows."
+    },
+    {
+      "severity": "LOW",
+      "screen": "Battle 1-1, Ruri with Kon (companions)",
+      "size": "844x390",
+      "what": "On this placement the relay spot is about one tile from Ruri, so Kon's bound plays mostly behind her figure. The run reads only in the last 3 or 4 of 10 frames. The pounce (crouch, leap with trail, impact ring, hop back) and Kaze's stoop (gold ribbon, feather burst) read well at phone size.",
+      "evidence": ["batch-a-look/kon-run-844x390.jpg", "batch-a-look/kon-pounce-844x390.jpg", "batch-a-look/kaze-swoop-844x390.jpg"],
+      "fix": "Optional: start the bound on the side of Ruri away from the camera, or give the paw marks and dust a little more contrast so a short run still reads."
+    }
+  ],
+  "checked": [
+    "e2e/home.mjs via pw.sh on the merged head: 237 ok, 0 FAIL",
+    "e2e/companions.mjs --moves at 844x390 via pw.sh: every check ok (Kon run, Moon Pounce, Kaze swoop, dragon). The 1280x720 run was still going when this was written (see the review text)",
+    "Tenka battle 844x390 and 1280x720, quality high: the full GLB plus the coilgun on her hand. At the default camera she is the same size as the other chibis, and her blue hair and white coat read. The coilgun is in hand, in scale with her, and matches the outlined toon style. Muzzle flash caught at the barrel tip at 844x390 (batch-a-look/tenka-844x390-muzzle-strip.jpg)",
+    "Tenka girl page 3D view at 390x844, 844x390 and 1280x720, IDLE/ATTACK/VICTORY: whole figure framed, head to feet, nothing cut. Modest school uniform with lab coat and skirt, a neutral camera, nothing framed around her body. Content rules met",
+    "Iroha panel at 844x390 and 1280x720: flips and glints on relayed shots (probe: 24-25 shots, 10-12 flips, 12-15 merged, glints and flashes no more than one per flip). Jump afterimages (4 ghosts per jump on high) and the Mirror Shift preview echo seen. No frame-to-frame strobe in the sequences; whole-screen mean luminance stays at 150-154",
+    "Iroha Shattered Glass T2 and T5 shards and the kaleidoscope flare seen in a live fight (see the MEDIUM finding)",
+    "Home Events tab at 667x375, 740x360, 844x390, 1280x720, 390x844 and 768x1024. Edges and corners zoomed: CO-OP gap 24/34/30/47/144/17 px, nothing clipped",
+    "Hero widget at 667x375: HUD bottom 100 px, widget top 125 px (clear by 25 px). Measured in the DOM; my screenshot timed out on the software GPU, and the builder's side-by-side agrees",
+    "Hero card 'Deployed' and 'Lv N': both 12 px, one line each ('Deployed' on her art, 'Lv 3' in the cost strip) at 667x375 (DOM) and 844x390 (screenshot)",
+    "Patch-note date at 390x844, 667x375, 844x390 and 1280x720: one line ('Oct 29, 2026', 18-19 px tall), and the Claim button wraps under the title at 390x844",
+    "Recruit banner at 390x844 and 1280x720: no box. The rate line reads on its white halo over the art (today's banner on the fixed clock was Workshop Open Day). It is hidden by design at 844x390 and 667x375",
+    "Girl page Info at 390x844 for Ruri, Tenka, Iroha and Aoi: Matchup and Potential each a full row, the NEXT line whole, no text overflow in .gp-info",
+    "Seiran's sky dragon at 844x390: about 120 px long on the board, mane, whiskers and cloud trail visible. Big, but not too big for the board. The arrival bloom (about 60 px) sits at the board's bottom edge above the tower bar, brief, not a whiteout"
+  ]
+}
