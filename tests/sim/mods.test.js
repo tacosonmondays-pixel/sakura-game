@@ -232,7 +232,9 @@ describe('Potential in resolveStats', () => {
     // now also widens an aura's radius; nothing else in these resolutions moved.
     // '456:055ce472' before Kaede's AoE rework (her `blade` block and new tiers, Crimson Eternity ×1.6 vs
     // bosses); every other girl's resolutions are bit-identical (checked with Kaede left out, P1 and P6)
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:bd28cc90');
+    // '456:bd28cc90' before the attack shapes S1 (Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's Firefly
+    // Halo: new tier data on one path each); with those three left out the 384 others hash 8cb286a4 before and after
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:be9bef3b');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders
