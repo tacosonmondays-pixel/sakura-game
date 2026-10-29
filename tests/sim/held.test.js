@@ -338,7 +338,7 @@ describe('wave clear, sabotage and selling', () => {
     steps(a.sim, 5);
     expect(a.t.ch).toBeTruthy();
     endHeldWave(a.sim);
-    expect(a.t.ch).toBe(null);
+    expect(a.t.ch).toBeUndefined(); // (absent, as a battle save restores it)
     // (her next counted attack opens it again)
     for (let i = 0; i < 120 && !a.t.ch; i++) steps(a.sim, 1);
     expect(a.t.ch).toBeTruthy();
