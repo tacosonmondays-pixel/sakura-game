@@ -57,7 +57,7 @@ function drawBar(o, x, h, y, k, ctx) {
 function landBar(o, ctx) {
   stripDir(o.a, DIR);
   groundStreak(ctx, o.x1, o.y1, DIR.x, DIR.y, 0.8, 0.12, o.c, 0.22, 0.85);
-  spikes(ctx, o.x1, o.y1, DIR.x, DIR.y, 0.5, ctx.q.trails > 0 ? 3 : 2, 0.16, o.c, 0.16);
+  spikes(ctx, o.x1, o.y1, DIR.x, DIR.y, 0.5, ctx.q.trails > 0 ? 3 : 2, 0.2, o.c, 0.18, DECOR, ctx.col('#2f3440'));
   if (ctx.cap('impact')) sparks(ctx, o.x1, 0.12, o.y1, 2, o.c, 1.2);
 }
 
@@ -106,7 +106,7 @@ export const azami = {
     stripDir(ev.uid, DIR);
     const steel = ctx.col(extra ? THISTLE : STEEL);
     const hot = lookAt(lk, 0) >= 4;
-    spikes(ctx, ev.x, ev.y, DIR.x, DIR.y, 0.62, ctx.q.trails > 0 ? 5 : 3, 0.45, hot ? ctx.col(HOT) : steel, 0.2);
+    spikes(ctx, ev.x, ev.y, DIR.x, DIR.y, 0.62, ctx.q.trails > 0 ? 5 : 3, 0.5, hot ? ctx.col(HOT) : steel, 0.24, DECOR, ctx.col('#2f3440'));
     groundStreak(ctx, ev.x, ev.y, DIR.x, DIR.y, 0.8, 0.12, steel, 0.16, 0.7, DECOR);
     if (ctx.cap('impact')) {
       sparks(ctx, ev.x, 0.2, ev.y, 3, steel, 1.5);

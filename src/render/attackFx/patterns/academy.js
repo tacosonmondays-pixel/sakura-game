@@ -53,13 +53,25 @@ export function streak(ctx, cls, x, h, y, dx, dh, dy, len, thick, life, c, a = 1
   return p;
 }
 
-/** n short bright spikes jutting up along the ground line through (x, y) with direction (ux, uy). */
-export function spikes(ctx, x, y, ux, uy, span, n, len, c, life = 0.2, cls = CORE) {
+/**
+ * n short bright spikes jutting up along the ground line through (x, y) with direction (ux, uy). With
+ * `dark`, each spike gets a dark normal-blend body under its bright edge, so it reads on a pale road.
+ */
+export function spikes(ctx, x, y, ux, uy, span, n, len, c, life = 0.2, cls = CORE, dark = null) {
   for (let i = 0; i < n; i++) {
     const k = n > 1 ? i / (n - 1) - 0.5 : 0;
     const px = x + ux * span * k;
     const py = y + uy * span * k;
-    const p = streak(ctx, i === 0 ? CORE : cls, px, 0.08 + len * 0.5, py, 0, 1, 0, len, 0.065, life, c, 1);
+    const hgt = (0.85 + 0.3 * hash01(i * 7 + n)) * len;
+    if (dark) {
+      const q = ctx.spr(ctx.b.bbN, i === 0 ? CORE : cls, ctx.R.white, px, 0.08 + hgt * 0.5, py, 0.07, 0.07, life, dark, 0.9);
+      if (q) {
+        q.asp = hgt / 0.07;
+        q.rot = ctx.screenAngle(px, 0.08 + hgt * 0.5, py, 0, 1, 0);
+        q.delay = 0.015 * i;
+      }
+    }
+    const p = streak(ctx, i === 0 ? CORE : cls, px, 0.08 + hgt * 0.5, py, 0, 1, 0, hgt, dark ? 0.05 : 0.065, life, c, 1, !dark);
     if (p) p.delay = 0.015 * i;
   }
 }
