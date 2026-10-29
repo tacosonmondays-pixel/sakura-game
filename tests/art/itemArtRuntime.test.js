@@ -201,7 +201,7 @@ describe('display only: the battle sim is untouched', () => {
     // beam (src/sim/duo.js) and S2 "Held" (src/sim/channel.js, held.js; Akane's Hearth Stream, Umeko's Searchlight
     // Sweep) change the sim. The release that ships them sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and
     // removes this one. Only this exact in-progress id passes.
-    const PENDING_BUMP = { 12: 'b0e9fcab86c0' };
+    const PENDING_BUMP = { 12: '27df93acff55' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
