@@ -9,7 +9,7 @@ import { h, icon, enemyDef } from './util.js';
 import { fmtNum } from '../format.js';
 import { droneName } from '../../data/droneNames.js';
 import { FLIGHT_PURSUIT_RATE_MUL } from '../../sim/constants.js';
-import { DPS_LIVE_TIP, DPS_AVG_TIP } from './dpsView.js';
+import { DPS_AVG_TIP } from './dpsView.js';
 
 /** MORE's tabs for a drone owner (her paths are on the drawer's Glance). */
 export const DRONE_TABS = ['overall', 'chika', 'drones'];
@@ -202,6 +202,9 @@ export function createDronePanel(ctx, { rerender, avgDps = null }) {
     return b;
   };
 
+  /** Her Overall Live tip: the wing's rate over the last few seconds (it never switches to a last-wave figure). */
+  const WING_LIVE_TIP = 'Live: everything she and her drones dealt over the last few seconds.';
+
   function overallTab(t, st, cells) {
     const dps = wingDpsCells(st).overall;
     const tu = st.turret;
@@ -210,9 +213,11 @@ export function createDronePanel(ctx, { rerender, avgDps = null }) {
     // her Potential rows (the drones' overclock) first, so they tick in view
     return h('div', { 'data-testid': 'stats-overall' }, cells.pot || null, h('div.bt-stats-grid',
       cell(dps.label, dps.value, '.bt-stat-main.bt-stat-wide2'),
-      // Live and Avg: everything she and her drones dealt (her damageDealt holds the wing's), one column each, so on a
-      // phone they share the row under DPS and the tab is no taller
-      h('div.bt-stat-cell', { 'data-testid': 'drawer-dps', role: 'group', title: DPS_LIVE_TIP, 'aria-label': `DPS live. ${DPS_LIVE_TIP}` }, h('span', 'DPS (live)'), liveB(() => rateText(`t${t.uid}`))),
+      // Live and Avg: everything she and her drones dealt (her damageDealt holds the wing's), one column each (on a
+      // phone Live sits beside DPS and Avg starts the next row, which Live alone took before: the tab is no taller).
+      // Her Live is the wing's own rate (sampleDroneRates), which keeps sampling between waves, so its tip leaves out
+      // the drawer's "last wave" line
+      h('div.bt-stat-cell', { 'data-testid': 'drawer-dps', role: 'group', title: WING_LIVE_TIP, 'aria-label': `DPS live. ${WING_LIVE_TIP}` }, h('span', 'DPS (live)'), liveB(() => rateText(`t${t.uid}`))),
       h('div.bt-stat-cell', { 'data-testid': 'drawer-dps-avg-cell', role: 'group', title: DPS_AVG_TIP, 'aria-label': `DPS average. ${DPS_AVG_TIP}` }, h('span', 'DPS (avg)'), avgValue(t)),
       cells.rest,
       cell('Drones fly', fly, '.bt-stat-wide2'),
