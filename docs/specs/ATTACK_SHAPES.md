@@ -522,3 +522,75 @@ The estimates are working time for one session, including tests, the bench fit, 
 | **S4 "Links"** | Homecoming Throw on **Fuu's** Returning Gale T4-5, Spirit Tether on **Ena's** Red Threads T4-5 | leg flip on straight shots; the `_hit` share hook behind `sim._tetherOn` with a re-entrancy flag and a per-step budget | S1 | 1.5-2 days: the share hook touches every hit, so it gets its own perf and determinism pass |
 
 Each batch: a sim id change behind `PENDING_BUMP`, one `COOP_PROTOCOL` bump at its release, the parity method of A4, a scripted engines battle with a mid-wave rejoin, and the VFX polish afterwards on the effects track (flipbooks M2, mesh shapes M4).
+
+### A7. S2 "Held" as built
+
+Written on `feature/attack-held` (S1 merged with Kohaku & Tsubaki's long beam).
+
+| Girl, path | Tiers | Shape | What the player sees |
+|---|---|---|---|
+| Akane, Wildfire | T4 Phoenix Feather, T5 Inferno Queen | Hearth Stream (`behavior: 'stream'`) | A held cone of fire (half-angle 54°, 67.5° at T5; her range) that swings toward her target and burns the nearest 35 (56) enemies in it every 0.1 s. Her burn rides on every tick; it reaches flyers. T3 keeps her fireballs. |
+| Umeko, Lighthouse | T4 Moonlit Beacon, T5 Sea of Lanterns | Searchlight Sweep (`behavior: 'sweep'`) | Her pulse becomes a beam of light of her range that swings ±45° (±60° at T5) round her target; what it crosses is struck once a pass and revealed (her reveal, and at T5 her silence, ride on the hits). Her aura is unchanged. T3 keeps her pulse. |
+
+Built as the shared pieces: `src/sim/channel.js` (the held channel), `src/sim/held.js` (both shapes), `inCone` and
+`nearSegment` in `shapes.js`, `COS2` in `dirs.js`, a plain renderer (`src/render/attackFx/patterns/held.js`). Contracts:
+`CONTRACTS.md` "Attack shapes S2".
+
+Changes from the spec, and why:
+
+1. **Kohaku stays in `duo.js`.** `channel.js` is modelled on her beam (lock, integer ticks, a share of one hit per tick,
+   ramp by time on target, grace, on-lock cadence), but she does not run on it. Her beams are several holds re-picked
+   from her targets every tick, with no turn and no grace, and her tick share rounds to whole flash intervals
+   (`beamTicks`), where the channel's share is exact (`rate × CH_TICK × STEP`). Moving her would change who she hits and
+   when, so her tests and the duo engines pin would move. `duo.js` is untouched (no duo number changed); the duo pins pass.
+2. **The channel keeps her attack loop.** Her counted attacks still run at her rate (S1's lesson, A3 #2): each one re-picks
+   her enemy by target mode and sets what the channel carries until her next one (a rhythm attack's spec, a gear trick's
+   harder copy), so Potential rhythms, gear tricks and drinks keep counting attacks. A rhythm's echo is one flare of the
+   shape. Between attacks the channel ticks on its own clock, after her attack loop in `updateTower`.
+3. **The cone is wide and its cap high.** A fireball's blast (radius 1.5, 2.0 at T5) on the light bench's dense crowd (a
+   walker every 0.1 s) burns 30-40 enemies at once; a narrow cone of 6 read 0.45. A 54° / 67.5° half-angle and 35 / 56
+   victims a tick fit both rulers (perf: 0.44 ms a step with 12 held girls and 200 enemies).
+4. **The tip falloff is × 0.85, not × 0.7.** At × 0.7 the walking boss read 0.82 (it meets her at the edge of her range).
+5. **The sweep's re-hit gap is one pass**, not a step count: each enemy inside the arc is crossed once a pass, so a hit
+   carries a pass's share (`rate × pass × STEP`), and a big body under the beam for several tests is struck once. A pass
+   strikes at most her maxTargets (her pulse's 6), so a dense crowd takes what her pulse gave it. With a step gap the light
+   crowd read × 5 and a large held boss × 2.
+6. **The sweep swings fast** (2 table steps a step: a pass in 0.5 s, 0.67 s at T5), so each hit is a small share and a boss
+   walking through her range is struck about as often as her pulse struck it.
+7. **Variants are data only**: `STREAM_KINDS` (`held.js`) lists fire (in use), frost, poison and water; nothing reads the
+   latter three's mechanics yet.
+
+**DPS parity** (method of A4; ratio new / today, Akane and Umeko are untouched by S1 and the long beam, so the baseline is
+this branch before S2; T3 and the other paths are 1.00 everywhere; the 456-resolution stats hash with the two girls left
+out reads `4158a051` before and after):
+
+| Girl, tier | Light: mean crowd / boss | Light: one stage, crowd range | Light: L25 crowd / boss | Round 5: crowd / boss / walking boss |
+|---|---|---|---|---|
+| Akane T4 | 0.97 / 1.02 | 0.93-1.03 | 1.12 / 0.99 | 1.05 / 1.01 / 0.96 |
+| Akane T5 | 0.95 / 1.03 | 0.93-0.99 | 1.04 / 1.02 | 1.03 / 1.04 / 0.94 |
+| Umeko T4 | 1.02 / 0.91 | 0.99-1.04 | 1.04 / 0.90 | 1.02 / 1.05 / 1.13 |
+| Umeko T5 | 0.98 / 0.91 | 0.94-1.02 | 1.01 / 0.84 | 0.98 / 1.07 / 1.04 |
+
+Round 5 in DPS, today → now: Akane T4 crowd 219k → 231k, boss 3201 → 3220, walking 1261 → 1214; T5 660k → 681k, 9654 →
+10064, 3994 → 3753. Umeko T4 crowd 1402 → 1433, boss 219 → 229, walking 47 → 53; T5 1359 → 1330, 219 → 234, 47 → 49.
+The misses: Akane T4's early crowd (1.12: the stream reaches more of a sparse early crowd than a fireball), and Umeko's
+boss rows, which disagree by ruler (the light bench's 0.91 is about 4 DPS of 1-damage floors, the L25 row half a DPS:
+a few hits; round 5 reads 1.05-1.13). Umeko's own DPS is a support's; her aura and reveal carry her, and they are unchanged.
+
+**Determinism** (§7.2 step 5):
+
+- (a) `tests/sim/held.test.js`: each girl alone and both on 4-5 at Potential 6, plain `Math` against `withDetMath`,
+  `hashSim` every 60 ticks equal; twice the same battle identical.
+- (b) `e2e/engines/scriptedBattle.js` `runHeldBattle` (HELD_START, 2-4 Hard): two Akanes and two Umekos to their held
+  tiers, two Lockstep clients to the end; a third client rebuilds from the wave-3 checkpoint and the log to the first tick
+  5 s into a wave with a stream and a sweep open (a mid-wave rejoin) and must land on the run's hash and snapshot. Compared
+  across engines by `e2e/engines.mjs`, pinned in `tests/online/engines.test.js`.
+- (c) The new sim files (`channel.js`, `held.js`, `shapes.js`, `dirs.js`) are checked by a test: no `Math.random`, no
+  runtime trig or `hypot`, no `**`. COS2 is built once with `DET_MATH`; aiming is `nearestDir` and `turnToward`. No rng of
+  their own: Akane's burn has no chance; crits still roll in `sim._hit`; capped victims go by (d², uid).
+- (d) The renderer reads only `t.ch` and her stats, and uses no rng.
+- State: `t.ch` (integers, its memory integer pairs) ends at the wave clear, on a sabotage or a Move, and with her sale;
+  `hashSim` folds it only while open; battle saves classify it `calm`.
+- Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js`. **No `COOP_PROTOCOL` bump on the branch.**
+- Perf: `tests/sim/perf.test.js` "held attack shapes": 6 of each girl at tier 5 and 200 enemies, 0.44 ms a step locally
+  (limit 2 ms).
