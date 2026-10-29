@@ -2,8 +2,9 @@
 //   1. Kaede's dash afterimages: the battle is paused and stepped by hand (sim + renderer, 1/60 s each) up to one of
 //      her lunges, then frames at +0.02 … +0.18 s are captured: a full frame and a strip of crops around her.
 //   2. Ouka's council banner (Rally Banner planted by her): a full frame, a crop and a zoomed-in crop.
-//   3. Yoriko's doll at 3x: per-frame doll stage / progress around each attack (logged), checks that the strike never
-//      starts before her needle lands and that Extend never skips ahead in one frame; a crop strip of one attack.
+//   3. Yoriko's doll at 3x: per-frame doll stage / progress around each attack (logged: A = her attack, H = her needle
+//      landed), checks that the doll strikes, never before her needle lands, and that Extend never jumps ahead of its
+//      pace in one frame.
 // Screenshots (JPEG) go to --shots <dir> with --tag (before / after). --before skips the checks that only hold with
 // the fixes.
 //
@@ -284,8 +285,6 @@ try {
   await page.evaluate(() => window.__battle.renderer.resetCamera());
   await page.waitForFunction(() => (window.__battle.renderer.companionsProbe()?.actors || []).some((r) => r.marionette), null, { timeout: 90000 }).catch(() => null);
   await settle(600);
-  await zoomAt(yo.x, yo.y, 4);
-  const yBox = await boxAround(yo.x, yo.y + 0.3, 260, 200, 0.5);
   // 3x: the sim steps 3/60 per frame, the renderer 1/60 at timeScale 3 (as the loop does)
   const trace = await page.evaluate(async (u) => {
     const { sim, ui, renderer } = window.__battle;
@@ -355,35 +354,6 @@ try {
   log(`    strikes ${strikes}, started 2+ frames before her hit: ${strikeBeforeHit}, largest Extend gain in one frame: ${maxGain.toFixed(2)}, largest rise in that gain frame to frame: ${maxJerk.toFixed(2)}`);
   check(strikes > 0, 'the doll struck');
   if (!before) check(maxJerk < 0.2, `Extend never jumps ahead from its pace in one frame (largest rise ${maxJerk.toFixed(2)})`);
-  // a crop strip of one attack, from the attack frame on (one frame at a time, 3x)
-  const yFiles = [];
-  const yLabels = [];
-  const grabbed = await page.evaluate((u) => {
-    const { sim, renderer } = window.__battle;
-    for (let k = 0; k < 600 && sim.state === 'wave'; k++) {
-      for (let j = 0; j < 3; j++) sim.update(1 / 60);
-      const go = sim.events.some((ev) => ev.type === 'attack' && ev.towerUid === u);
-      renderer.update(1 / 60);
-      if (go) return k;
-    }
-    return -1;
-  }, yo.uid);
-  if (grabbed >= 0) {
-    for (let f = 0; f < 6; f++) {
-      if (f) {
-        await page.evaluate(() => {
-          const { sim, renderer } = window.__battle;
-          for (let j = 0; j < 3; j++) sim.update(1 / 60);
-          renderer.update(1 / 60);
-        });
-      }
-      await settle(100);
-      const st = await page.evaluate((u) => (window.__battle.renderer.companionsProbe()?.actors || []).find((r) => r.uid === u)?.marionette, yo.uid);
-      yFiles.push(await shot(`y${f}`, yBox, tmp));
-      yLabels.push(`${st?.stage ?? '?'} ${st?.u ?? ''}`);
-    }
-    strip(yFiles.filter(Boolean), `${shotsDir}/yoriko-3x-844x390-strip-${tag}.jpg`, yLabels);
-  }
   }
   check(errors.length === 0, `no console errors${errors.length ? `:\n    ${errors.slice(0, 8).join('\n    ')}` : ''}`);
 } catch (e) {
