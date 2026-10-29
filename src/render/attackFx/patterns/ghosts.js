@@ -9,15 +9,27 @@
 // Display only. The live figure is read, never changed (her userData is swapped out for the instant
 // of the copy so three's clone does not try to serialise her animator, then put back).
 // Quality: no ghosts on low or Reduce motion (no lunge either); `ghostPlan` sets the count.
+//
+// Read at phone size: each lunge leaves only 2 copies, spaced half and all of the way to her target, faint
+// inside with a darker rim of their own hue (a view-angle rim in the ghost material), so each reads as her
+// silhouette instead of the copies merging into one orange smear. High keeps 4 figures for a trail drawn
+// across the field (Flash Lunge) and for back-to-back lunges.
 import * as THREE from 'three';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 
-/** Ghost counts per quality (2–4 copies, ≈ 200 ms), the field-wide cap and the dash throttle. */
+/**
+ * Per quality: ghost figures per girl (`count`, 2–4), copies per lunge (`dash`), their spacing in time,
+ * life (≈ 200 ms), the field-wide cap.
+ */
 export const GHOST_PLAN = {
-  high: { count: 4, interval: 0.03, life: 0.2, cap: 12 },
-  medium: { count: 2, interval: 0.05, life: 0.2, cap: 6 },
-  low: { count: 0, interval: 0, life: 0, cap: 0 },
+  high: { count: 4, dash: 2, interval: 0.05, life: 0.2, cap: 12 },
+  medium: { count: 2, dash: 2, interval: 0.05, life: 0.2, cap: 6 },
+  low: { count: 0, dash: 0, interval: 0, life: 0, cap: 0 },
 };
+/** A ghost's peak opacity (its body; the rim reads stronger, see GHOST_RIM). */
+export const GHOST_PEAK = 0.45;
+/** The rim: its colour is the ghost's own times `shade`, its opacity the body's times (1 + `boost`). */
+export const GHOST_RIM = { shade: 0.16, boost: 1.1, lo: 0.35, hi: 0.8 };
 /** A new dash within this many game seconds of the last one leaves no new ghosts (fast swings). */
 export const DASH_GAP = 0.3;
 
@@ -38,7 +50,7 @@ export function dashOffset(idx, count, reach) {
 }
 
 /** Opacity of ghost `idx` (0 = the first, oldest one of its dash) at life fraction k (pure). */
-export function ghostAlpha(k, idx, count, peak = 0.55) {
+export function ghostAlpha(k, idx, count, peak = GHOST_PEAK) {
   if (k >= 1) return 0;
   k = k < 0 ? 0 : k;
   // the later copies (closer to her) are brighter
@@ -48,6 +60,46 @@ export function ghostAlpha(k, idx, count, peak = 0.55) {
 }
 
 const NOOP = THREE.Object3D.prototype.onBeforeRender;
+
+/** Rim colour of a ghost of colour c (pure; writes out). */
+export function rimColor(c, out) {
+  return out.copy(c).multiplyScalar(GHOST_RIM.shade);
+}
+
+/**
+ * A ghost's material: flat translucent colour with a darker, more opaque rim where the surface turns away
+ * from the view (her silhouette and the edges of hair, arms and skirt). `userData.rim` is its rim colour.
+ */
+export function ghostMaterial() {
+  const rim = { value: new THREE.Color(0, 0, 0) };
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0, blending: THREE.NormalBlending, depthWrite: false, fog: false, toneMapped: false,
+  });
+  mat.userData.rim = rim.value;
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.ghostRim = rim;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vGhostN;\nvarying vec3 vGhostV;')
+      .replace('#include <fog_vertex>', `#include <fog_vertex>
+#if defined ( USE_ENVMAP ) || defined ( USE_SKINNING )
+  vGhostN = normalize( normalMatrix * objectNormal );
+#else
+  vGhostN = normalize( normalMatrix * normal );
+#endif
+  vGhostV = - mvPosition.xyz;`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform vec3 ghostRim;\nvarying vec3 vGhostN;\nvarying vec3 vGhostV;')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+{
+  vec3 gV = isOrthographic ? vec3( 0.0, 0.0, 1.0 ) : normalize( vGhostV );
+  float gK = smoothstep( ${GHOST_RIM.lo.toFixed(3)}, ${GHOST_RIM.hi.toFixed(3)}, 1.0 - abs( dot( normalize( vGhostN ), gV ) ) );
+  diffuseColor.rgb = mix( diffuseColor.rgb, ghostRim, gK );
+  diffuseColor.a = min( 1.0, diffuseColor.a * ( 1.0 + ${GHOST_RIM.boost.toFixed(3)} * gK ) );
+}`);
+  };
+  mat.customProgramCacheKey = () => 'ghost-rim';
+  return mat;
+}
 
 export class GhostLayer {
   /**
@@ -73,14 +125,14 @@ export class GhostLayer {
   }
 
   /**
-   * Starts a dash: `count` snapshots of her figure `interval` game seconds apart, each fading over
+   * Starts a dash: `dash` snapshots of her figure (the plan's) `interval` game seconds apart, each fading over
    * `life`. Colours: `cols[i]` for snapshot i (cycled). (dx, dz) = the way she lunges (normalised
    * here), `reach` = how far ahead of her the last copy stands (dashOffset). Returns false when
    * nothing will be drawn.
    */
   dash(uid, cols, dx = 0, dz = 0, reach = 0) {
     const plan = ghostPlan(this.ctx.quality, this.ctx.reduceMotion);
-    if (!plan.count || !this.parent) return false;
+    if (!plan.count || !plan.dash || !this.parent) return false;
     const set = this._set(uid, plan.count);
     if (!set) return false;
     const d = set.dash;
@@ -88,7 +140,7 @@ export class GhostLayer {
     d.on = true;
     d.t = 0;
     d.done = 0;
-    d.count = plan.count;
+    d.count = plan.dash;
     d.interval = plan.interval;
     d.life = plan.life;
     d.cols = cols;
@@ -168,9 +220,7 @@ export class GhostLayer {
     const nodes = [];
     root.traverse((o) => nodes.push(o));
     if (nodes.length !== srcNodes.length) return null;
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0xffffff, transparent: true, opacity: 0, blending: THREE.NormalBlending, depthWrite: false, fog: false, toneMapped: false,
-    });
+    const mat = ghostMaterial();
     const skeletons = new Set();
     for (let i = 0; i < nodes.length; i++) {
       const o = nodes[i];
@@ -223,6 +273,7 @@ export class GhostLayer {
     root.scale.copy(src[0].scale);
     root.updateMatrix();
     g.mat.color.copy(c);
+    rimColor(c, g.mat.userData.rim);
     g.mat.opacity = ghostAlpha(0, idx, count);
     if (!g.on) this.alive++;
     g.on = true;
