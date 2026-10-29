@@ -573,7 +573,10 @@ ground pass gets its `under` span as under any overpass; the deck adds no bump);
 `'tunnel'`. Authoring errors (thrown at module load, prefixed `map <id>:`): an unclosed, unopened or nested viaduct,
 a span under `VIADUCT_MIN` (2 × 1.3 + 2 = 4.6 tiles), a viaduct overlapping a tunnel, a fork or join point on a
 parent's viaduct, both passes of a crossing on viaducts (no three-level interchanges), a crossing on a viaduct ramp
-(closer than 2.1 tiles to a foot), an ordinary overpass within 2.1 tiles of a viaduct's span. In battle a viaduct is
+(closer than 2.1 tiles to a foot), an ordinary overpass within 2.1 tiles of a viaduct's span, a road under a viaduct
+within 2.1 tiles of its own viaduct's foot, a lane whose shared fork prefix / join suffix differs from its parent's
+elevation by more than `SEAM_TOL` (0.015: an overpass ramp reaching over the seam) or whose fork / join seam is raised
+(also by inherited elevation: nested forks / joins). In battle a viaduct is
 a shipped overpass: `EnemyRT.elev` 0.62 on the top, never `hidden` (every attack that reaches its 2D position hits
 it), forge-vent zones skip raised and under-deck walkers, the band is road (nobody builds on or under it), no new
 command or message. Fixture: `previews/viaductMaps.js` (`VIADUCT_FIXTURE`, never in MAPS). Everything is sampled ONCE

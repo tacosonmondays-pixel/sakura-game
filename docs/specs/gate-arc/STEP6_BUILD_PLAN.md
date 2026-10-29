@@ -206,6 +206,14 @@ threshold keep working.
 - both passes on viaducts, or either pass on a **ramp** (0 < elev < top): an authoring error ("no three-level
   interchanges", "no crossing on a ramp"); the shipped "lower pass is itself on a bridge ramp" error stays.
 
+*As built (stricter than the above):* the code measures distance, not elevation. A crossing on a viaduct must sit
+≥ `VIADUCT_CLEAR` = `VIADUCT_RAMP + BRIDGE_FLAT` (2.1 tiles) from each foot, not merely on the flat top (≥ 1.3), so
+the whole deck over the lower road is at full height; an ordinary overpass whose crossing is within 2.1 tiles of a
+viaduct's span on either pass is rejected; the road passing under a viaduct keeps the same 2.1 tiles from its own
+viaducts' feet. Where a lane shares road with its parent, the shared prefix / suffix must follow the parent's
+elevation (within 0.015, `SEAM_TOL`: no overpass ramp of the lane reaching back over the seam) and the fork / join
+seam must be on the ground, also when the parent's elevation there is itself inherited (nested forks and joins).
+
 **What changes in the battle, exactly.** Nothing new is read by the sim beyond `elev` and `under`, which it already
 reads:
 - an enemy on a viaduct has `e.elev = 0.62` mid-span (`placeOnPath`); `e.hidden` stays false, so **every girl, hero,

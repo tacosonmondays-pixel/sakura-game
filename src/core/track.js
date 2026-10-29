@@ -60,6 +60,13 @@ export const VIADUCT_MIN = 2 * VIADUCT_RAMP + 2;
  */
 export const VIADUCT_CLEAR = VIADUCT_RAMP + BRIDGE_FLAT;
 
+/**
+ * Elevation slack (world units) where a lane shares road with its parent: the seam where it forks
+ * or joins sits on the ground, and the shared section follows the parent's elevation, both within
+ * this (the join suffix re-measures the parent's distances).
+ */
+export const SEAM_TOL = 0.015;
+
 /** Marker: the section to the next control point is an exact straight. */
 export const LINE = '-';
 /** Marker: a tunnel starts at the previous control point. */
@@ -386,10 +393,14 @@ export function buildTrack(spec, prior = [], { step = TRACK_STEP } = {}) {
     const t = pointAtDistance(parent.points, parent.cum, near.d);
     startDir = [t.dx, t.dy];
     for (let i = 0; i < parent.points.length && parent.cum[i] < near.d - 1e-6; i++) prefix.push([parent.points[i][0], parent.points[i][1]]);
-    if (pts.length && DM.hypot(pts[0][0] - near.x, pts[0][1] - near.y) < 0.05) pts.shift();
-    pts.unshift([near.x, near.y]);
-    straight.unshift(false);
-    for (const m of marks) m.at++;
+    // a first node on the fork point is replaced by it (the indices stay); otherwise the fork
+    // point is a new first node and every straight flag and marker moves one control point on
+    if (pts.length && DM.hypot(pts[0][0] - near.x, pts[0][1] - near.y) < 0.05) pts[0] = [near.x, near.y];
+    else {
+      pts.unshift([near.x, near.y]);
+      straight.unshift(false);
+      for (const m of marks) m.at++;
+    }
     fork = { path: s.fork.path, d: near.d };
   }
   if (s.join) {
@@ -443,8 +454,6 @@ export function buildTrack(spec, prior = [], { step = TRACK_STEP } = {}) {
     const at = `viaduct from d ${a.toFixed(2)} to ${b.toFixed(2)}`;
     if (b - a < VIADUCT_MIN - 1e-6) throw new Error(`${at} is ${(b - a).toFixed(2)} tiles long: a viaduct needs at least ${VIADUCT_MIN.toFixed(1)} (two ${VIADUCT_RAMP}-tile ramps and 2 tiles at full height)`);
     for (const [ta, tb] of tunnels) if (a < tb && ta < b) throw new Error(`${at} overlaps a tunnel (d ${ta.toFixed(2)} to ${tb.toFixed(2)})`);
-    if (fork && a < prefixLen - 1e-6) throw new Error(`${at} starts on the fork prefix it shares with path ${fork.path}`);
-    if (join && b > prefixLen + midLen + 1e-6) throw new Error(`${at} ends on the join suffix it shares with path ${join.path}`);
   }
   // the seam where a lane leaves or merges into its parent may not sit on the parent's viaduct
   // (the shared section inherits the parent's elevation: it would end in mid-air)
@@ -649,6 +658,14 @@ export function applyCrossings(tracks, crossings, modes = 'bridge') {
       if (d < a + VIADUCT_CLEAR - 1e-6 || d > b - VIADUCT_CLEAR + 1e-6) {
         throw new Error(`${where(c)}: no crossing on a viaduct ramp (keep it at least ${VIADUCT_CLEAR.toFixed(1)} tiles from each foot; it is ${Math.min(d - a, b - d).toFixed(2)})`);
       }
+      // the ground pass keeps its own viaducts' feet as far away as an ordinary overpass does
+      // (their ramps would lift it inside its under-deck span)
+      const low = c[key === 'a' ? 'b' : 'a'];
+      for (const [la, lb] of tracks[low.path].viaducts || []) {
+        if (low.d > la - VIADUCT_CLEAR && low.d < lb + VIADUCT_CLEAR) {
+          throw new Error(`${where(c)}: the road under the viaduct passes within ${VIADUCT_CLEAR.toFixed(1)} tiles of its own viaduct's foot (move the crossing or that viaduct)`);
+        }
+      }
       // the viaduct always goes over: the ground pass runs under its flat top
       c.mode = 'bridge';
       c.over = key;
@@ -697,6 +714,30 @@ export function applyCrossings(tracks, crossings, modes = 'bridge') {
         const d = t.cum[i];
         if (d < from - 1e-6 || d > to + 1e-6) continue;
         t.elev[i] = Math.max(t.elev[i], elevationAt(p, d + off));
+      }
+    }
+  });
+  // a shared section is one road: it keeps its parent's elevation (the lane's own overpass ramps
+  // may not reach back over the seam onto it), and the seam where the lane leaves or merges is on
+  // the ground, also where the parent's elevation there is itself inherited (nested forks / joins)
+  tracks.forEach((t, ti) => {
+    for (const [link, from, to] of [[t.fork, 0, t.forkD], [t.join, t.joinD, t.length]]) {
+      if (!link) continue;
+      const p = tracks[link.path];
+      const what = link === t.fork ? 'fork' : 'join';
+      const at = `path ${ti} ${link === t.fork ? 'forks from' : 'joins'} path ${link.path}`;
+      const off = link === t.fork ? 0 : link.d - t.joinD;
+      for (let i = 0; t.elev && i < t.points.length; i++) {
+        const d = t.cum[i];
+        if (d < from - 1e-6 || d > to + 1e-6) continue;
+        const want = elevationAt(p, d + off);
+        if (Math.abs(t.elev[i] - want) > SEAM_TOL) {
+          throw new Error(`${at}: their shared road is at elevation ${t.elev[i].toFixed(3)} on path ${ti} but ${want.toFixed(3)} on path ${link.path} (d ${d.toFixed(2)}): an overpass ramp reaches over the ${what} (move the crossing or the ${what})`);
+        }
+      }
+      const seam = Math.max(elevationAt(p, link.d), elevationAt(t, link === t.fork ? t.forkD : t.joinD));
+      if (seam > SEAM_TOL) {
+        throw new Error(`${at} at elevation ${seam.toFixed(3)} (d ${link.d.toFixed(2)} on path ${link.path}): a ${what} must be on the ground (move it off the raised road)`);
       }
     }
   });
