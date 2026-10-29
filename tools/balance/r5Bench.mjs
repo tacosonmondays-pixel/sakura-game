@@ -9,7 +9,8 @@
 // UR Resonance on (the clock is set past its Nov 2 week; ★5 SSRs ×1.10 damage, ×1.04 speed) and the duo at LR.
 // Builds pNtM: path N to tier M with a tier-2 crosspath (P1 x-0-2, P2 2-x-0, P3 2-0-x); `best` = all three at tier 5,
 // the best one reported. Supports `um` (default): Umeko 2-5-0 and Midori 5-0-2, both fully maxed, placed in her reach
-// (the round-3 fixed bench); `none`: she stands alone (a partner-less run).
+// (the round-3 fixed bench); `none`: she stands alone (a partner-less run); `girl:pNtM`: one support at that build
+// (a support's boost: the striker's DPS beside her ÷ alone).
 // Targets never die (healed every step), so her number is her rate, not the HP left to take: `boss` = the Ashwing
 // Matriarch (3e7 HP) held at her nearest road point; `bossw` = the same boss walking through from 1.5 tiles before it
 // (a trap or strip girl's boss); `crowd` = a late stream, an Orc Grunt every 0.5 s at 2e6 HP.
@@ -72,7 +73,10 @@ const parseBuild = (b) => {
  */
 export function measure({ d, unitId, build, target, support = 'um', stageId = '4-5', seed = 9, warm = 15, run = 40 }) {
   const def = d.units[unitId];
-  const sup = support === 'um' ? [['umeko', [1, 5, 0, 2]], ['midori', [0, 5, 2, 2]]].filter(([id]) => id !== unitId) : [];
+  // `support`: 'um' (Umeko 2-5-0 + Midori 5-0-2), 'none', or 'girl:pNtM' (one support at that build: her boost)
+  const one = /^([a-z_]+):p(\d)t(\d)$/.exec(support);
+  const sup = support === 'um' ? [['umeko', [1, 5, 0, 2]], ['midori', [0, 5, 2, 2]]].filter(([id]) => id !== unitId)
+    : one ? [[one[1], [+one[2], +one[3], CROSS[+one[2]], 2]]] : [];
   const loadout = [{ unitId, stats: maxedStats(unitId) }, ...sup.map(([id]) => ({ unitId: id, stats: maxedStats(id) }))];
   const sim = withDetMath(() => new Sim({ stageId, loadout, hero: null, seed }));
   sim.cash = 1e15;
