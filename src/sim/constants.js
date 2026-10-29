@@ -322,6 +322,91 @@ export const BOUNCE_MAX_T = 1;
 export const FINALE_RADIUS = 1.5;
 
 // ---------------------------------------------------------------------------
+// Attack shapes, batch S1 "Wheels" (docs/specs/ATTACK_SHAPES.md §5.1, §5.2, §5.5; src/sim/wheels.js).
+// Every timer is an integer of sim steps; their straight shots share Kinu's caps (STRAIGHT_PER_*).
+// ---------------------------------------------------------------------------
+/** Blossom Wheel: spoke flight speed (tiles/s); a spoke flies her range. */
+export const WHEEL_SPEED = 12;
+/** Pinwheel Stream: a shot per arm every attack; the arms turn SPIN_TURN table steps an attack (18°: one
+ *  turn in 20 attacks), only SPIN_LOCK while an arm has an enemy within SPIN_HALF_WIDTH of its line. */
+export const SPIN_TURN = 12;
+export const SPIN_LOCK = 0;
+export const SPIN_HALF_WIDTH = 0.3;
+export const SPIN_SPEED = 10;
+/** Pinwheel Stream with a single enemy in range: the folded stream turns at most this many table steps a shot. */
+export const SPIN_FOLD_TURN = 20;
+/** Petal Halo: table steps per sim step (one turn in 2 s), orbit radius, contact radius (tiles), the
+ *  re-hit gap per piece (steps), a piece's memory (entries, oldest dropped) and pieces per girl at most. */
+export const HALO_STEPS = 2;
+export const HALO_REACH = 1.2;
+export const HALO_RADIUS = 0.35;
+export const HALO_GAP = 15;
+export const HALO_HITS = 32;
+export const HALO_MAX = 16;
+
+// ---------------------------------------------------------------------------
+// Attack shapes, batch S2 "Held" (docs/specs/ATTACK_SHAPES.md §4.3, §5.3, §5.9; src/sim/channel.js,
+// src/sim/held.js). Every timer is an integer of sim steps; every angle an integer of table steps (1.5°).
+// ---------------------------------------------------------------------------
+/** A held channel's damage tick: every CH_TICK steps (0.1 s); it stays CH_GRACE steps aimed where it was after
+ *  losing its enemy, then lets go; a channel's re-hit memory keeps at most CH_HITS [uid, step] pairs. */
+export const CH_TICK = 6;
+export const CH_GRACE = 12;
+export const CH_HITS = 32;
+/** COS2 covers half-angles 0…COS2_MAX table steps (0°…90°). */
+export const COS2_MAX = 60;
+/** Hearth Stream: damage × STREAM_TIP at the cone's tip (× 1 at her, linear in d²); the default half-angle and turn
+ *  (table steps; a turn is per sim step). */
+export const STREAM_TIP = 0.85;
+export const STREAM_HALF = 12;
+export const STREAM_TURN = 3;
+/** Searchlight Sweep: the beam is tested every SWEEP_TICK steps; its half-width (tiles); the default arc either side
+ *  of its centre, swing (table steps a sim step) and centre turn (table steps a sim step). Its re-hit gap is one pass. */
+export const SWEEP_TICK = 2;
+export const SWEEP_HALF_WIDTH = 0.25;
+export const SWEEP_ARC = 30;
+export const SWEEP_SWING = 1;
+export const SWEEP_TURN = 1;
+
+// ---------------------------------------------------------------------------
+// Attack shapes, batch S3 "Ground" (docs/specs/ATTACK_SHAPES.md §5.4, §5.7, §5.8; src/sim/ground.js,
+// src/sim/vines.js). Every timer is an integer of sim steps; road objects test by path distance (onRoad).
+// ---------------------------------------------------------------------------
+/** onRoad's shared stretch (Marumi's rule, src/sim/balls.js): a walker on another path is on a road object's
+ *  stretch when its spot is within ROAD_SHARED tiles of that stretch's centreline and its road runs the same way
+ *  there (unit direction dot > ROAD_SAME_DIR). A crossing or an overpass meets at an angle and is ignored. */
+export const ROAD_SHARED = 0.3;
+export const ROAD_SAME_DIR = 0.95;
+/** Bramble Road: a vine tests its stretch every VINE_STEP steps (0.1 s); its slow lasts VINE_SLOW_T s, so a
+ *  walker stays slowed while it is on the vine and a moment after; vines per girl and per sim (oldest first). */
+export const VINE_STEP = 6;
+export const VINE_SLOW_T = 0.25;
+export const VINES_PER_GIRL = 4;
+export const VINES_PER_SIM = 48;
+/** Rising Spikes: spike rows per girl and per sim (oldest first); a spike stays up SPIKE_UP steps after it
+ *  rises (drawing only: it strikes once, as it rises). */
+export const SPIKE_ROWS_PER_GIRL = 8;
+export const SPIKE_ROWS_PER_SIM = 96;
+export const SPIKE_UP = 15;
+/** Ripple Quake: rings per girl and per sim (oldest first); a ring's re-hit memory (it hits each enemy once). */
+export const QUAKES_PER_GIRL = 8;
+export const QUAKES_PER_SIM = 64;
+
+// ---------------------------------------------------------------------------
+// Attack shapes, batch S4 "Links" (docs/specs/ATTACK_SHAPES.md §5.6, §5.10; src/sim/links.js). Every timer is an
+// integer of sim steps.
+// ---------------------------------------------------------------------------
+/** Homecoming Throw: a fan's way home may be up to RET_HOME × as long as its way out (+ 1 tile) before it ends uncaught
+ *  (it bends round its target on the way). */
+export const RET_HOME = 3;
+/** Spirit Tether: tether groups per girl and per sim (her oldest first; a full sim ties no new group). */
+export const TETHERS_PER_GIRL = 6;
+export const TETHERS_PER_SIM = 64;
+/** Spirit Tether: shared hits a sim step at most (the curse queue's budget pattern, CURSE_BURSTS_PER_TICK); the
+ *  shares of a hit past it are dropped, never queued (a share is a slice of a hit that already landed). */
+export const TETHER_SHARES_PER_STEP = 256;
+
+// ---------------------------------------------------------------------------
 // The duo (Kohaku & Tsubaki, docs/specs/DUO_LR.md §1; src/sim/duo.js)
 // ---------------------------------------------------------------------------
 

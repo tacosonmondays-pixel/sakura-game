@@ -437,8 +437,8 @@ const YUKI = {
       tier('Sharp Ice', 100, '+1 damage.', { damage: 1 }),
       tier('Icicle Lance', 260, '+1 damage; icicles pierce 1 more enemy.', { damage: 1, pierce: 1 }),
       tier('Brittle Frost', 800, 'Struck foes turn Brittle: +15% damage from everyone for 2.5s.', { status: [S.vulnerable(0.15, 2.5)] }),
-      tier('Shatter Point', 2600, 'Brittle +30%; frost cracks armor (-2, stacks ×3); +5 damage, +25% damage.', { status: [S.vulnerable(0.3, 3), S.shred(2, 3)], damage: 5, damageMul: 1.25 }),
-      tier('Diamond Dust', 18000, '+15 damage, Brittle +45%, 20% crits ×2.5, +30% attack speed, ignores 3 armor; +50% damage.', { damage: 15, status: [S.vulnerable(0.45, 3.5)], crit: { chance: 0.2, mul: 2.5 }, rateMul: 1.3, armorPen: 3, damageMul: 1.5 }),
+      tier('Shatter Point', 2600, 'Brittle +30%; frost cracks armor (-2, stacks ×3); +5 damage, +25% damage. Rising Spikes: a row of six ice spikes bursts up along the road from under her enemy into the walkers behind it; her enemy takes her full hit, every other walker on the row 46%, each once (flyers still get her icicle).', { status: [S.vulnerable(0.3, 3), S.shred(2, 3)], damage: 5, damageMul: 1.25, behavior: 'spikes', spike: { count: 6, gap: 0.5, r: 0.25, delay: 3, mul: 0.46 } }),
+      tier('Diamond Dust', 18000, '+15 damage, Brittle +45%, 20% crits ×2.5, +30% attack speed, ignores 3 armor; +50% damage; her spike row is eight long (36% on the others).', { damage: 15, status: [S.vulnerable(0.45, 3.5)], crit: { chance: 0.2, mul: 2.5 }, rateMul: 1.3, armorPen: 3, damageMul: 1.5, spike: { count: 8, gap: 0.5, r: 0.25, delay: 3, mul: 0.36 } }),
     ]),
     path('permafrost', 'Permafrost', 'Lingering control', [
       tier('Frost Trail', 80, '+0.3 range.', { range: 0.3 }),
@@ -510,8 +510,8 @@ const MOMO = {
       tier('Heavy Coins', 100, '+2 damage.', { damage: 2 }),
       tier('Double Toss', 260, 'Throws at 2 targets; +20% attack speed.', { projectiles: 1, rateMul: 1.2 }),
       tier('Gold Rush', 800, 'Solid gold coins ignore 2 armor, +3 damage, pierce 2 more.', { armorPen: 2, damage: 3, pierce: 2 }),
-      tier('Jackpot', 2400, '20% crits for ×3, +6 damage, ignores 2 armor, +40 coins per wave; +25% damage.', { crit: { chance: 0.2, mul: 3 }, damage: 6, income: { perWave: 40 }, armorPen: 2, damageMul: 1.25 }),
-      tier('Fortune\'s Favourite', 17000, 'A coin storm: +60% speed, 4 targets, +10 damage, +150 coins per wave; +55% damage.', { rateMul: 1.6, projectiles: 2, damage: 10, income: { perWave: 150 }, damageMul: 1.55 }),
+      tier('Jackpot', 2400, 'Coin Wheel: each toss still throws her coins at her targets (×0.98), and 11 more gold coins fly out with them in a wheel, each cutting the first enemy it meets (×0.15). 20% crits for ×3, +6 damage, ignores 2 armor, +40 coins per wave; +25% damage.', { behavior: 'wheel', wheel: { spokes: 12, lead: 0.98, mul: 0.15 }, crit: { chance: 0.2, mul: 3 }, damage: 6, income: { perWave: 40 }, armorPen: 2, damageMul: 1.25 }),
+      tier('Fortune\'s Favourite', 17000, 'A coin storm: 4 targets, a 16-coin wheel (toss coins ×0.98, the wheel\'s ×0.2), +60% speed, +10 damage, +150 coins per wave; +55% damage.', { wheel: { spokes: 4, lead: 0.98, mul: 0.2 }, rateMul: 1.6, projectiles: 2, damage: 10, income: { perWave: 150 }, damageMul: 1.55 }),
     ]),
   ],
   awakenPassive: {
@@ -569,8 +569,8 @@ const AKANE = {
       tier('Hot Coals', 120, 'Burns deal 3/s for 2.5s.', { status: [S.burn(3, 2.5)] }),
       tier('Kindling', 280, '+15% attack speed.', { rateMul: 1.15 }),
       tier('Napalm Bloom', 900, 'Burns deal 6/s for 3.5s; +0.2 range.', { status: [S.burn(6, 3.5)], range: 0.2 }),
-      tier('Phoenix Feather', 2800, 'Fireballs arc high enough to hit flyers; burns 12/s plus 0.15% of max HP/s for 4s; +4 damage, +20% damage.', { canHitAir: true, status: [{ type: 'burn', dps: 12, pct: 0.0015, duration: 4 }], damage: 4, damageMul: 1.2 }),
-      tier('Inferno Queen', 16000, 'Burns 40/s plus 0.3% of max HP/s for 5s (bosses 0.03%), wider blasts (+0.5), +40% attack speed, +6 damage; +50% damage.', { status: [{ type: 'burn', dps: 40, pct: 0.003, duration: 5 }], splash: 0.5, rateMul: 1.4, damage: 6, damageMul: 1.5 }),
+      tier('Phoenix Feather', 2800, 'Hearth Stream: she holds out a stream of fire that pours over the nearest 35 enemies in a wide cone and swings to follow her target; it reaches flyers. Burns 12/s plus 0.15% of max HP/s for 4s; +4 damage, +20% damage.', { behavior: 'stream', stream: { half: 36, turn: 3, mul: 1.06, cap: 35 }, canHitAir: true, status: [{ type: 'burn', dps: 12, pct: 0.0015, duration: 4 }], damage: 4, damageMul: 1.2 }),
+      tier('Inferno Queen', 16000, 'A wider stream (the nearest 56). Burns 40/s plus 0.3% of max HP/s for 5s (bosses 0.03%), +40% attack speed, +6 damage; +50% damage.', { stream: { half: 45, turn: 4, mul: 1.07, cap: 56 }, status: [{ type: 'burn', dps: 40, pct: 0.003, duration: 5 }], rateMul: 1.4, damage: 6, damageMul: 1.5 }),
     ]),
     path('rocketry', 'Rocket Science', 'Range, speed and armor', [
       tier('Long Fuse', 100, '+0.4 range.', { range: 0.4 }),
@@ -695,7 +695,7 @@ const KAGE = {
       tier('Triple Star', 320, 'Throws at 3 targets.', { projectiles: 1 }),
       tier('Shuriken Cyclone', 1000, '5 targets, +1 pierce, +15% attack speed.', { projectiles: 2, pierce: 1, rateMul: 1.15 }),
       tier('Blade Rain', 3000, '7 targets, +50% attack speed, +4 damage, ignores 5 armor; +20% damage.', { projectiles: 2, rateMul: 1.5, damage: 4, armorPen: 5, damageMul: 1.2 }),
-      tier('Thousand Shadows', 26000, 'Shadow clones join in: 13 targets, +60% speed, +3 damage, +2 pierce, ignores 4 more armor, ×1.3 vs bosses; +65% damage.', { projectiles: 6, rateMul: 1.6, damage: 3, pierce: 2, armorPen: 4, bossMul: 1.3, damageMul: 1.65 }),
+      tier('Thousand Shadows', 26000, 'Blade Cyclone: shadow clones join in and her shuriken pour out of four turning arms, one each per throw; an arm that finds an enemy stays on it, and against a lone enemy the arms fold into one stream. +60% speed, +3 damage, +2 pierce, ignores 4 more armor, ×1.3 vs bosses; +65% damage.', { behavior: 'spin', spin: { arms: 4, mul: 2.02, fold: 1.04 }, projectiles: 6, rateMul: 1.6, damage: 3, pierce: 2, armorPen: 4, bossMul: 1.3, damageMul: 1.65 }),
     ]),
     path('shadowmark', 'Shadow Mark', 'Reveal and mark', [
       tier('Keen Senses', 120, '+0.4 range.', { range: 0.4 }),
@@ -761,8 +761,8 @@ const UMEKO = {
       tier('Clear Water', 120, 'Aura reaches 3 tiles.', { aura: { range: 3 } }),
       tier('Beacon', 300, '+0.4 range; aura reaches 3.4 tiles.', { range: 0.4, aura: { range: 3.4 } }),
       tier('Revealing Tide', 950, 'Pulses reveal veiled foes for everyone for 3s; +2 damage.', { reveal: 3, damage: 2 }),
-      tier('Moonlit Beacon', 3000, 'Aura reaches 4.5 tiles and gives +10% range and +5% damage; reveal +2s.', { aura: { range: 4.5, rangeMul: 1.1, dmgMul: 1.05 }, reveal: 2 }),
-      tier('Sea of Lanterns', 15000, 'Aura reaches 6 tiles: +15% range, +15% damage, and girls in it ignore 3 armor; reveals last 3s longer and pulses silence for 0.8s.', { aura: { range: 6, rangeMul: 1.15, dmgMul: 1.15, armorPen: 3 }, reveal: 3, silence: 0.8 }),
+      tier('Moonlit Beacon', 3000, 'Searchlight Sweep: her pulse becomes a beam of light that swings back and forth across the road, striking and revealing what it passes. Aura reaches 4.5 tiles and gives +10% range and +5% damage; reveal +2s.', { behavior: 'sweep', sweep: { arc: 30, swing: 2, turn: 1, mul: 1 }, aura: { range: 4.5, rangeMul: 1.1, dmgMul: 1.05 }, reveal: 2 }),
+      tier('Sea of Lanterns', 15000, 'A wider sweep. Aura reaches 6 tiles: +15% range, +15% damage, and girls in it ignore 3 armor; reveals last 3s longer and the beam silences for 0.8s.', { sweep: { arc: 40, swing: 2, turn: 1, mul: 0.97 }, aura: { range: 6, rangeMul: 1.15, dmgMul: 1.15, armorPen: 3 }, reveal: 3, silence: 0.8 }),
     ]),
     path('plumrain', 'Plum Rain', 'Team buffs', [
       tier('Warm Current', 140, 'Aura: +5% attack speed.', { aura: { rateMul: 1.05 } }),
@@ -1157,9 +1157,9 @@ const HOTARU = {
     path('lantern', 'Lantern Light', 'Holy damage', [
       tier('Brighter Wick', 160, '+2 damage.', { damage: 2 }),
       tier('Firefly Swarm', 380, 'Pulses hit 4 more enemies; +0.2 range.', { maxTargets: 4, range: 0.2 }),
-      tier('Spirit Bane', 1200, '+6 damage, 10% crits ×2.', { damage: 6, crit: { chance: 0.1, mul: 2 } }),
-      tier('Requiem Lanterns', 3600, '+14 damage, +30% attack speed, +25% vs elites; struck foes turn Brittle (+10%); +30% damage.', { damage: 14, rateMul: 1.3, status: [S.vulnerable(0.1, 2)], eliteMul: 1.25, damageMul: 1.3 }),
-      tier('Thousand Souls Festival', 32500, '+40 damage, +1.2 range, +30% attack speed; pulses hit everything in range (40 more targets), ×2.5 vs bosses; +25% damage.', { damage: 40, range: 1.2, rateMul: 1.3, maxTargets: 40, bossMul: 2.5, damageMul: 1.25 }),
+      tier('Spirit Bane', 1200, 'Firefly Halo: four fireflies circle her and cut what they touch; her pulses deal 5% less. +6 damage, 10% crits ×2.', { halo: { pieces: 4, mul: 0.025 }, damageMul: 0.95, damage: 6, crit: { chance: 0.1, mul: 2 } }),
+      tier('Requiem Lanterns', 3600, 'Two more fireflies; +14 damage, +30% attack speed, +25% vs elites; struck foes turn Brittle (+10%); +32% damage.', { halo: { pieces: 2, mul: 0.013 }, damage: 14, rateMul: 1.3, status: [S.vulnerable(0.1, 2)], eliteMul: 1.25, damageMul: 1.32 }),
+      tier('Thousand Souls Festival', 32500, 'Two more fireflies; +40 damage, +1.2 range, +30% attack speed; pulses hit everything in range (40 more targets), ×2.4 vs bosses; +28% damage.', { halo: { pieces: 2, mul: 0.03 }, damage: 40, range: 1.2, rateMul: 1.3, maxTargets: 40, bossMul: 2.4, damageMul: 1.28 }),
     ]),
     path('prayer', 'Silent Prayer', 'Silence and stillness', [
       tier('Hush', 150, 'Silence lasts 0.4s longer.', { silence: 0.4 }),

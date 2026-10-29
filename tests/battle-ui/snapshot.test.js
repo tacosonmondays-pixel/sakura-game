@@ -14,6 +14,7 @@ import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STEP, PRISM_BEAM_TICK } from '../../src/sim/constants.js';
 import { autoPlan } from '../../src/sim/headless.js';
+import { samplePath } from '../../src/sim/path.js';
 import { createRng } from '../../src/core/rng.js';
 import { TARGET_MODES } from '../../src/data/types.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
@@ -21,7 +22,7 @@ import { hashSim } from '../../src/online/coop/simHash.js';
 import { coopStage } from '../../src/data/coop.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
 import { RECORD_V, SNAP_V, SNAP_V_P1, slotKey } from '../../src/systems/battleSave.js';
-import { xpToReach } from '../../src/sim/hero.js';
+import { xpToReach, gainHeroXp } from '../../src/sim/hero.js';
 import { FLIGHT_MODES } from '../../src/sim/constants.js';
 import {
   snapshotSim, restoreSim, useWaveStream, StaleSaveError, KNOWN_SIM_KEYS, KNOWN_TOWER_KEYS, KNOWN_DRONE_KEYS,
@@ -1575,7 +1576,7 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of mid.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and Ouka's banners and the rules she gives)
     for (const t of oukaRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
-    // (and Chigusa mid-wave: a held enemy, thorn beds, Bloom Rush; all of it ends at the wave clear)
+    // (and Chigusa mid-wave: Bramble Road vines on the road, thorn beds, Bloom Rush; all of it ends at the wave clear)
     // (power-neutral: balance round 5's rows off, so a walker lives long enough for a vine, beds and Bloom Rush)
     const cg = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['chigusa', 'aoi'], hero: null, stats: { powerOff: true }, seed: 12 });
     cg.cash = 1e6;
@@ -1583,8 +1584,8 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     const ch = cg.towers.find((t) => t.unitId === 'chigusa');
     for (const [p, n] of [[0, 3], [1, 2]]) for (let k = 0; k < n; k++) expect(cg.upgradeTower(ch.uid, p)).toBe(true);
     cg.startNextWave();
-    for (let i = 0; i < 60 * 60 && !(ch.vineHold && ch.beds?.length && ch.bloomT > 0); i++) cg.update(STEP);
-    expect(!!(ch.vineHold && ch.beds?.length && ch.bloomT > 0)).toBe(true);
+    for (let i = 0; i < 60 * 60 && !(ch.vines?.length && ch.beds?.length && ch.bloomT > 0); i++) cg.update(STEP);
+    expect(!!(ch.vines?.length && ch.beds?.length && ch.bloomT > 0)).toBe(true);
     for (const t of cg.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and Marumi mid-wave: balls on the road, Lob on, so every spec of hers exists)
     const mr = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['marumi', 'aoi'], hero: null, stats: {}, seed: 13 });
@@ -1596,6 +1597,80 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (let i = 0; i < 60 * 60 && !mb.balls?.length; i++) mr.update(STEP);
     expect(mb.balls?.length > 0).toBe(true);
     for (const t of mr.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the attack shapes S1 mid-wave: Kage's spin index, Hotaru's halo memory and spec; they end at the wave clear)
+    const sh = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['kage', 'hotaru'], hero: null, stats: {}, seed: 15 });
+    sh.cash = 1e6;
+    for (const a of autoPlan('1-1', ['kage', 'hotaru'], { maxCopies: 1 })) if (a.action === 'place') sh.placeTower(a.unitId, a.x, a.y);
+    const kg = sh.towers.find((t) => t.unitId === 'kage');
+    const ht = sh.towers.find((t) => t.unitId === 'hotaru');
+    for (let k = 0; k < 5; k++) expect(sh.upgradeTower(kg.uid, 0)).toBe(true);
+    for (let k = 0; k < 3; k++) expect(sh.upgradeTower(ht.uid, 0)).toBe(true);
+    sh.startNextWave();
+    for (let i = 0; i < 60 * 60 && !(kg.spinK != null && ht.haloHits); i++) sh.update(STEP);
+    expect(kg.spinK != null && !!ht.haloHits && !!ht.haloSpec).toBe(true);
+    for (const t of sh.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the attack shapes S2 mid-wave: Akane's and Umeko's held channels; they end at the wave clear)
+    const hd = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['akane', 'umeko'], hero: null, stats: {}, seed: 16 });
+    hd.cash = 1e6;
+    for (const a of autoPlan('1-1', ['akane'], { maxCopies: 1 })) if (a.action === 'place') hd.placeTower(a.unitId, a.x, a.y);
+    const ak = hd.towers.find((t) => t.unitId === 'akane');
+    // (Umeko on the free spot nearest Akane, and a walker parked on the road nearest her: the planner keeps a support back)
+    const road = hd.pathData.flatMap((p) => samplePath(p, 0.5));
+    let spot = null;
+    for (let y = 0.5; y < hd.map.height; y += 0.5) for (let x = 0.5; x < hd.map.width; x += 0.5) {
+      if (!hd.canPlace('umeko', x, y).ok) continue;
+      const d = (x - ak.x) * (x - ak.x) + (y - ak.y) * (y - ak.y);
+      if (!spot || d < spot.d) spot = { x, y, d };
+    }
+    const um = hd.placeTower('umeko', spot.x, spot.y);
+    for (let k = 0; k < 4; k++) expect(hd.upgradeTower(ak.uid, 1)).toBe(true);
+    for (let k = 0; k < 4; k++) expect(hd.upgradeTower(um.uid, 0)).toBe(true);
+    hd.startNextWave();
+    const near = road.filter((r) => !r.hidden).reduce((b, r) => ((r.x - um.x) ** 2 + (r.y - um.y) ** 2 < b.dd ? { dd: (r.x - um.x) ** 2 + (r.y - um.y) ** 2, r } : b), { dd: Infinity }).r;
+    const parked = hd.spawnEnemy('slime_green', { pathIndex: near.pathIndex, dist: near.d, hpMul: 1e4 });
+    parked.baseSpeed = 0;
+    let seenA = false;
+    let seenU = false;
+    for (let i = 0; i < 60 * 90 && !(seenA && seenU); i++) {
+      hd.update(STEP);
+      if (hd.state === 'between') hd.startNextWave();
+      if (ak.ch && !seenA) for (const k of Object.keys(ak)) keys.add(k);
+      if (um.ch && !seenU) for (const k of Object.keys(um)) keys.add(k);
+      seenA ||= !!ak.ch;
+      seenU ||= !!um.ch;
+    }
+    expect(seenA && seenU).toBe(true);
+    // (and the attack shapes S3 mid-wave: Yuki's spike rows and Kanna's quake rings; they end at the wave clear)
+    const gd = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['yuki'], hero: 'kanna', stats: {}, seed: 17 });
+    gd.cash = 1e6;
+    for (const a of autoPlan('1-1', ['yuki'], { maxCopies: 1 })) if (a.action === 'place') gd.placeTower(a.unitId, a.x, a.y);
+    const yk = gd.towers.find((t) => t.unitId === 'yuki');
+    for (let k = 0; k < 4; k++) expect(gd.upgradeTower(yk.uid, 1)).toBe(true);
+    const groad = gd.pathData.flatMap((p) => samplePath(p, 0.5)).filter((r) => !r.hidden);
+    let kspot = null;
+    for (let y = 0.5; y < gd.map.height; y += 0.5) for (let x = 0.5; x < gd.map.width; x += 0.5) {
+      if (!gd.canPlace('kanna', x, y).ok) continue;
+      const d = groad.reduce((m, r) => Math.min(m, (r.x - x) ** 2 + (r.y - y) ** 2), Infinity);
+      if (d > 0.8 && (!kspot || d < kspot.d)) kspot = { x, y, d };
+    }
+    const kn = gd.placeTower('kanna', kspot.x, kspot.y);
+    gainHeroXp(gd, kn, xpToReach(kn.def.hero, 24), 'restore');
+    expect(kn.stats.quake).toBeTruthy();
+    gd.startNextWave();
+    // (a walker parked on the road nearest her, two more beside it: Yuki clears the rest before they reach her)
+    const knear = groad.reduce((b, r) => ((r.x - kn.x) ** 2 + (r.y - kn.y) ** 2 < b.dd ? { dd: (r.x - kn.x) ** 2 + (r.y - kn.y) ** 2, r } : b), { dd: Infinity }).r;
+    for (const dd of [0, 0.4, 0.8]) gd.spawnEnemy('slime_green', { pathIndex: knear.pathIndex, dist: knear.d + dd, hpMul: 1e4 }).baseSpeed = 0;
+    let seenY = false;
+    let seenK = false;
+    for (let i = 0; i < 60 * 90 && !(seenY && seenK); i++) {
+      gd.update(STEP);
+      if (gd.state === 'between') gd.startNextWave();
+      if (yk.spikeRows?.length && !seenY) for (const k of Object.keys(yk)) keys.add(k);
+      if (kn.quakes?.length && !seenK) for (const k of Object.keys(kn)) keys.add(k);
+      seenY ||= !!yk.spikeRows?.length;
+      seenK ||= !!kn.quakes?.length;
+    }
+    expect(seenY && seenK).toBe(true);
     // (and Azami in Spread mode: her road cursor)
     const az = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['azami', 'aoi'], hero: null, stats: {}, seed: 14 });
     az.cash = 1e6;

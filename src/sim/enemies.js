@@ -92,6 +92,7 @@ export function createEnemy(def, o) {
     silenced: false,
     grounded: false, // airborne but knocked down by a 'ground' status (ground-only attacks can hit)
     pushLock: 0, // seconds until knockback / gather may move it again (PUSH_LOCK)
+    tie: null, // the Spirit Tether group it is tied in (attack shapes S4, src/sim/links.js), null when untied
     facing: 0,
     flash: 0,
     traits,

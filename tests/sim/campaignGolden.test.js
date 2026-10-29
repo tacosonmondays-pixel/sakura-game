@@ -2,9 +2,6 @@
 // and patched the Sim, enemies, status, hero and tower targeting; none of it may change a battle
 // that is not in freeplay by a single bit. These digests were taken on the commit before freeplay
 // landed (fb36911): if one moves, a campaign, solo-endless or co-op battle now plays differently.
-// Re-pinned for balance round 5 (src/data/balance.js: the girls' rows, the heroes' curves, Fuu's wind, Chigusa's
-// lives): a deliberate sim change. No outcome flipped: every won battle still wins; 4-2 Hard (solo and ruled) and
-// the heroless 4-5 still lose, later (wave 13 → 20, 12 → 19, 13 → 15).
 import { describe, it, expect } from 'vitest';
 import { runHeadless, autoPlan } from '../../src/sim/headless.js';
 import { generateWave, summarizeWave } from '../../src/sim/waves.js';
@@ -138,18 +135,20 @@ describe('campaign battles are bit-identical to before freeplay', () => {
 // autoPlan buys tier 4s (Yuki 2-4-0 with Frostbite's Shatter Point: Brittle 25 → 30 %, +25 % damage,
 // and others whose rows the pass changed); with the pre-merge units.js the merged sim reproduces every
 // digest here. The outcome is the same (lost on wave 30).
+// Re-pinned for the attack shapes S3 (data: Yuki's Frostbite T4-5 becomes Rising Spikes): solo['8-5'] only, 0281ca62 →
+// 90d9657a (its plan buys Yuki 2-4-0); with the S2 units.js the S3 sim reproduces every digest here. Same outcome: lost on wave 30.
 const GOLDEN = {
   tables: '3018:8bded117',
   solo: {
-    '1-3': { digest: '0d8187d4', wave: 15, won: true },
-    '4-2': { digest: 'b88abd67', wave: 20, won: false },
-    '8-5': { digest: 'e7a47898', wave: 30, won: false },
+    '1-3': { digest: '2a092051', wave: 15, won: true },
+    '4-2': { digest: '7926f22f', wave: 13, won: false },
+    '8-5': { digest: '90d9657a', wave: 30, won: false },
   },
   coopEndless: {
-    coop: { digest: '2e2be6a7', wave: 22, won: true },
-    endless: { digest: 'dba32bc4', wave: 25, won: false },
+    coop: { digest: '86503440', wave: 22, won: true },
+    endless: { digest: 'c754a97f', wave: 25, won: false },
   },
-  coopSim: { hash: 1624204121, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
+  coopSim: { hash: 57814410, wave: 4, state: 'wave', wallets: '184/364', towers: 4 },
 };
 
 // Battles without a hero. The hero rework's sim changes left them bit-identical to ca97c1e (checked
@@ -158,9 +157,9 @@ const GOLDEN = {
 // Exception, the path-cap merge (tier 4 / 5 first pass, data only): '8-5' (its plan buys tier 4s; with
 // the pre-merge units.js the merged sim reproduces 2f760744). Same outcome: lost on wave 30.
 const HEROLESS = {
-  '1-3': ['e914542e', 15, true],
-  '4-5': ['f8a6ad1c', 15, false],
-  '8-5': ['84c5b5ae', 30, false],
+  '1-3': ['15a8e76f', 15, true],
+  '4-5': ['15f8aba0', 13, false],
+  '8-5': ['61fe353d', 30, false],
   coop: [3341544735, 3],
 };
 
@@ -169,8 +168,9 @@ const HEROLESS = {
 // these battles field Hikari, who levels on her hero track since the hero rework, and the path-cap
 // tier data; the same battles with the rule off are the GOLDEN.solo / coopEndless digests above,
 // which did not move (4-2 Hard is lost by this team with the rule off too, at wave 13).
+// Re-pinned for the attack shapes S3 (Yuki's Rising Spikes, as GOLDEN.solo above): '8-5' a1fc2ade → fba137a8, lost on wave 30.
 const RULED = {
-  '4-2': { digest: 'bfde01df', wave: 19, won: false },
-  '8-5': { digest: '7eb7006b', wave: 30, won: false },
-  coop: { digest: '386b140a', wave: 22, won: true },
+  '4-2': { digest: '887447f2', wave: 12, won: false },
+  '8-5': { digest: 'fba137a8', wave: 30, won: false },
+  coop: { digest: 'b8a73060', wave: 22, won: true },
 };

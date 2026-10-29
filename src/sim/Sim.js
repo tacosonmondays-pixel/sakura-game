@@ -11,6 +11,7 @@ import {
 } from './constants.js';
 import {
   AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, WIND_KITS, WIND_LOCK, WIND_KB_COST, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
+  TETHER_SHARES_PER_STEP,
 } from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
@@ -53,6 +54,10 @@ import { syncLab, absorbInto, updateLab, labIncome, endLabWave } from './lab.js'
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
 import { endStripWave } from './strips.js';
 import { endRingWave } from './rings.js';
+import { endWheelWave, shapeDps } from './wheels.js';
+import { endHeldWave, heldDps } from './held.js';
+import { endGroundWave } from './ground.js';
+import { tetherStep, shareTether, ownShare, endLinkWave, linkDps } from './links.js';
 import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
@@ -230,6 +235,12 @@ export class Sim {
     this._curseQueue = [];
     this._flushingCurses = false;
     this._curseBudget = CURSE_BURSTS_PER_TICK; // bursts left this step (refilled at every step)
+    // Spirit Tether (attack shapes S4, src/sim/links.js): the living tether groups and their count (0: Sim._hit's share
+    // hook is one compare), the re-entrancy flag (a shared hit never shares again) and this step's share budget
+    this.tethers = [];
+    this._tetherOn = 0;
+    this._sharing = false;
+    this._shareBudget = TETHER_SHARES_PER_STEP;
     this.runners = []; // path runners in flight (Seiran's sky dragon): end with the wave
     this._leadPt = {}; // scratch point (a mortar's lead)
     this._scratch3 = [];
@@ -360,6 +371,8 @@ export class Sim {
     // curse bursts that spilled over the last step's budget go first, in FIFO order
     this._curseBudget = CURSE_BURSTS_PER_TICK;
     if (this._curseQueue.length && !this._flushingCurses) this._flushCurses();
+    // Spirit Tether (src/sim/links.js): only while a group lives: the share budget refills, groups age and end
+    if (this._tetherOn !== 0) tetherStep(this);
     updateEnemyAuras(this);
     // Norika's barricades: spots, rebuilds and Hold the Line timers, before the enemies move into them
     if (this._blockOn) updateBarricades(this);
@@ -577,8 +590,17 @@ export class Sim {
     if (e.dead) return -1;
     const roll = spec.critChance > 0 ? this.rng.next() : 1;
     if (this._ruleMul) scale *= ruleHitScale(this._ruleMul, tower, spec.attackType, spec.element);
+    // Spirit Tether (attack shapes S4, src/sim/links.js): only while a group lives, and never for a shared hit; her own
+    // hit on her tied enemy keeps its part, the rest goes down the threads after it lands
+    let tie = null;
+    const base = scale;
+    if (this._tetherOn !== 0 && e.tie && !this._sharing) {
+      tie = e.tie;
+      scale *= ownShare(this, tie, e, tower, spec);
+    }
     const res = computeHit(e, spec, roll, scale, this._hitOut);
     if (!res) return -1;
+    const crit = tie !== null && res.crit; // (a critical hit's shares are critical too)
     const hpBefore = e.hp;
     const flags = applyHitResult(e, res, spec.share);
     const dealt = Math.min(res.toHp, Math.max(0, hpBefore)) + res.toBarrier;
@@ -601,10 +623,12 @@ export class Sim {
     this.stats.damageByType[spec.attackType] = (this.stats.damageByType[spec.attackType] || 0) + dealt;
     if (e.hp <= 0) {
       this._killEnemy(e, tower, drone);
+      if (tie !== null) shareTether(this, tie, e, tower, spec, base, crit, drone);
       return dealt;
     }
     this._onHitEffects(e, tower, spec);
     checkPhases(this, e);
+    if (tie !== null) shareTether(this, tie, e, tower, spec, base, crit, drone);
     return dealt;
   }
 
@@ -952,6 +976,14 @@ export class Sim {
     if (this.traps.length) endStripWave(this);
     // Kinu's pins, blades, sparks and heat rings end with the wave (src/sim/rings.js)
     endRingWave(this);
+    // the wheel shapes' spin index and halo memory end (src/sim/wheels.js)
+    endWheelWave(this);
+    // the held shapes' channels end (src/sim/held.js)
+    endHeldWave(this);
+    // the ground shapes' spike rows and quake rings end (src/sim/ground.js; Bramble Road's vines end in endVineWave)
+    endGroundWave(this);
+    // the link shapes' tether groups end (src/sim/links.js; returning fans end with the straight shots)
+    endLinkWave(this);
     // Wakaba's drinks end; Recovery Plan may give a life back (src/sim/drinks.js)
     endDrinkWave(this);
     // Yuzuha's sentries end; her nets stay (src/sim/sentries.js)
@@ -1571,6 +1603,12 @@ export class Sim {
       const blasts = 1 + ball.bounce + (ball.finish > 0 && ball.bounce > 0 ? ball.finish - 1 : 0);
       dps = e.rate * (e.damage * blasts + ball.pins * (t.pinSpec?.damage ?? 0));
     }
+    // the attack shapes (src/sim/wheels.js): a wheel's lead coin, a spin's folded stream, a halo's cuts
+    if (t.stats.wheel || t.stats.spin || t.stats.halo) dps = shapeDps(t, e, dps);
+    // the held shapes (src/sim/held.js): a stream's ticks at its mouth, a sweep's passes
+    if (t.stats.stream || t.stats.sweep) dps = heldDps(t, e, dps);
+    // the link shapes (src/sim/links.js): a Homecoming Throw's fans, each cutting a lone enemy out and back
+    if (t.stats.ret) dps = linkDps(t, e, dps);
     if (dps > 0 && e.tempo) dps *= 1 + e.tempo.per * (t.tempoStacks || 0);
     const echo = e.proc && e.proc.of !== 'trap' && e.proc.every > 0 ? (e.proc.echo === true ? 1 : typeof e.proc.echo === 'number' ? e.proc.echo : 0) : 0;
     if (dps > 0 && echo > 0) dps *= 1 + echo / e.proc.every;

@@ -24,10 +24,15 @@ import { ruleRangeFor } from './rules.js';
 import { buildProcSpecs, boostedAura } from './potential.js';
 import { layStrip, stripStep, stripTick } from './strips.js';
 import { attackRing, ringTick } from './rings.js';
+import { attackWheel, attackSpin, wheelTick } from './wheels.js';
+import { attackHeld, heldTick, heldOff } from './held.js';
+import { hitRadius } from './shapes.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
 import { sentryTick } from './sentries.js';
 import { hubsOn, applyHubs } from './hubs.js';
-import { vineTick } from './vines.js';
+import { vineTick, vineObjects } from './vines.js';
+import { attackSpikes, sendQuake, groundTick } from './ground.js';
+import { attackReturn, retSteer, retCut, retFlip, tieTether } from './links.js';
 import { rollBall, ballTick } from './balls.js';
 import { labMods } from './lab.js';
 import { buildPartnerSpec, partnerTick, partnerOff, beginVolley, refract } from './duo.js';
@@ -52,10 +57,8 @@ export function projectileKind(def, stats) {
   return kind;
 }
 
-/** Enemy collision radius for projectiles/beams. */
-export function hitRadius(e) {
-  return 0.3 + 0.06 * (e.def.size ?? 1);
-}
+/** Enemy collision radius for projectiles/beams (src/sim/shapes.js). */
+export { hitRadius };
 
 function emptyBuff() {
   return { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, costCut: 0, cleanse: false, armorPen: 0, critChance: 0, tea: 1 };
@@ -327,6 +330,9 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
   }
   if (s.ring) t.scissorSpec = s.ring.scissors > 0 ? { ...t.eff, damage: s.ring.scissorDmg * s.ring.scissorMul * dmgMul, canHitAir: true, critChance: 0 } : null;
   applyBuffExtras(t, b);
+  // Petal Halo (src/sim/wheels.js): the pieces only cut (her own attack keeps its statuses, marks, pushes and
+  // crits), so a ring of fast cuts never stun-locks a crowd; built after her buff extras (aura armor pen)
+  if (s.halo) t.haloSpec = { ...t.eff, status: [], procStatus: null, mark: null, silence: 0, reveal: 0, knockback: 0, gather: 0, critChance: 0 };
   // the duo (src/sim/duo.js): Kohaku's beam, the partner weapon, follows the same buffs
   if (s.duo) buildPartnerSpec(t);
   if (s.strip || s.sentry) deployCrits(t);
@@ -786,6 +792,36 @@ function linePierceInto(sim, t, spec, target, length, halfWidth, pierce, hits, n
   return hits;
 }
 
+/**
+ * The spec a held channel carries now (src/sim/held.js): her rhythm spec after a rhythm attack (t.ch.src), with
+ * the gear trick of her last counted attack (t.ch.trick: 1 Finishing Thrust, 2 Big Beat) as gearSpec makes it.
+ */
+function heldBase(t) {
+  const ch = t.ch;
+  const s = ch && ch.src === 1 && t.effProc ? t.effProc : t.eff;
+  if (!ch || !ch.trick) return s;
+  const tr = ch.trick === 1 ? { mul: TRICK.thrust.mul, pen: THRUST_PEN } : { mul: TRICK.bigBeat.mul, pen: 0 };
+  return { ...s, damage: s.damage * tr.mul, ...(tr.pen ? { armorPen: (s.armorPen || 0) + tr.pen } : null) };
+}
+
+/** The helpers a held channel uses (src/sim/held.js heldTick). */
+const HELD_HELP = Object.freeze({ bestTarget, base: heldBase });
+
+/**
+ * A held girl's counted attack (src/sim/held.js attackHeld): her enemy by target mode, and what the channel
+ * carries until her next attack (a rhythm attack's spec, her gear trick, her gear Pierce's extra victims); an echo is one flare.
+ */
+function attackHeldWith(sim, t) {
+  const src = t.effProc && t.eff === t.effProc ? 1 : 0;
+  const trick = echoing || !gearTrick ? 0 : gearTrick.kind === 'thrust' ? 1 : 2;
+  // gear Pierce: 2 more victims a tick (a stream) or a pass (a sweep) per 100 %, the pulse's carry and limit (asked
+  // only once she has an enemy, on a counted attack)
+  const extra = () => (gearK > 0 && !echoing ? pierceCarry(t, 'pierceCarry', 2 * gearK, PULSE_MAX_EXTRA) : 0);
+  const e = attackHeld(sim, t, t.eff, HELD_HELP, { src, trick, echo: echoing, extra });
+  if (e) lastFaced = e;
+  return !!e;
+}
+
 /** The targeting helpers Kohaku's constant beam uses (src/sim/duo.js partnerTick). */
 const PRISM_HELP = Object.freeze({ selectTargetsInto, linePierceInto, face });
 
@@ -890,13 +926,16 @@ function attackDuel(sim, t) {
   const ty = tgt.y;
   sim._hit(tgt, t, spec, scale);
   t.rampStacks++;
+  // the cut around her target is an unfocused hit at her plain damage: a rhythm (Kaede's Maple
+  // Gale) widens it, its harder strike stays on her target (Potential N3; P1 has no rhythm)
+  const cut = procBase && t.eff === t.effProc ? procBase : spec;
   if (spec.splash > 0) {
-    // the cut around her target is an unfocused hit at her plain damage: a rhythm (Kaede's Maple
-    // Gale) widens it, its harder strike stays on her target (Potential N3; P1 has no rhythm)
-    const cut = procBase && t.eff === t.effProc ? procBase : spec;
     const near = sim.grid.query(tx, ty, spec.splash, []);
     for (const e of near) if (e !== tgt && !e.dead && isEligible(e, cut)) sim._hit(e, t, cut, 1);
   }
+  // Ripple Quake (attack shapes S3, src/sim/ground.js; Kanna): her strike also sends rings rolling out from her along
+  // the ground, past the enemy she struck, at her plain hit
+  if (t.stats.quake) sendQuake(sim, t, cut, t.ox, t.oy, tgt.uid);
   sim._emit('attack', { towerUid: t.uid, targetUid: tgt.uid, kind: 'slash', ramp: t.rampStacks });
   if (spec.blade) bladeArts(sim, t, spec, tgt, tx, ty, scale);
   return true;
@@ -1452,6 +1491,35 @@ const BEHAVIORS = {
   mortar: attackMortar,
   strip: layStrip,
   ring: attackRing,
+  // attack shapes S1 (src/sim/wheels.js): Blossom Wheel aims her toss's lead coins at her targets; Pinwheel Stream
+  // turns its arms one shot per attack
+  wheel: (sim, t) => {
+    const spec = gearSpec(t.eff);
+    const targets = selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, Math.max(1, spec.projectiles));
+    return attackWheel(sim, t, spec, targets, targets.length ? shotPierce(t) : 0);
+  },
+  spin: (sim, t) => attackSpin(sim, t, gearSpec(t.eff), () => shotPierce(t)),
+  // attack shapes S2 (src/sim/held.js): a held channel; her counted attacks pick her enemy and what it carries
+  stream: attackHeldWith,
+  sweep: attackHeldWith,
+  // attack shapes S3 (src/sim/ground.js): Rising Spikes, a row toward her enemy (her icicle at a flyer)
+  spikes: (sim, t) => {
+    const spec = gearSpec(t.eff);
+    const e = attackSpikes(sim, t, spec, { bestTarget, volley: () => attackProjectile(sim, t), extra: () => shotPierce(t) });
+    if (e && e !== true) lastFaced = e;
+    return !!e;
+  },
+  // attack shapes S4 (src/sim/links.js): Homecoming Throw, returning fans at her targets
+  return: (sim, t) => {
+    const spec = gearSpec(t.eff);
+    // a rhythm with a blast (Fuu's Turbine Kick, Potential) is still her gust volley: fans carry no blast
+    if (spec.splash > 0) return attackProjectile(sim, t);
+    const n = Math.max(1, spec.projectiles);
+    const targets = selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, n);
+    const ok = attackReturn(sim, t, spec, targets, targets.length ? shotPierce(t) : 0, spawnProjectile);
+    if (ok) lastFaced = targets[0];
+    return ok;
+  },
   drink: throwDrink,
   roll: rollBall,
 };
@@ -1939,15 +2007,23 @@ export function updateTower(sim, t, dt) {
       sim._buffsDirty = true;
     }
   }
+  // road objects (attack shapes S3: Bramble Road vines, spike rows, quake rings) stand on while she is sabotaged or moving
+  if (t.vines) vineObjects(sim, t);
+  if (t.spikeRows || t.quakes) groundTick(sim, t);
   if (t.disabled > 0) {
     t.disabled = Math.max(0, t.disabled - dt);
     if (s.duo) partnerOff(t); // a sabotage breaks Kohaku's beams (src/sim/duo.js)
+    if (t.ch) heldOff(sim, t); // and a held channel (src/sim/held.js)
     return;
   }
-  if (t.moveLock > 0) return; // a hero repositioning mid-wave (hero.js moveHero)
+  if (t.moveLock > 0) {
+    if (t.ch) heldOff(sim, t);
+    return; // a hero repositioning mid-wave (hero.js moveHero)
+  }
   if (s.turret?.overclock) tickOverclock(sim, t, s.turret.overclock, dt);
   if (s.strip) stripTick(sim, t, dt);
   if (s.ring) ringTick(sim, t, dt);
+  if (s.halo) wheelTick(sim, t);
   if (s.drink) drinkTick(sim, t);
   if (s.sentry) sentryTick(sim, t, dt);
   if (s.vine) vineTick(sim, t, dt);
@@ -1968,6 +2044,8 @@ export function updateTower(sim, t, dt) {
       t.cooldown = 0;
       break;
     }
+    // Spirit Tether (attack shapes S4, src/sim/links.js): her counted attack ties her lead target to the enemies near it
+    if (s.tether && lastFaced && lastFaced.uid === t.targetUid) tieTether(sim, t, lastFaced);
     if (tempo) tempoStack(sim, t, tempo);
     if (t.hydrated) useDrink(sim, t); // Wakaba's drink: a charge per successful attack (src/sim/drinks.js)
     // Chigusa's Bloom Rush (src/sim/vines.js): faster for every second she keeps attacking
@@ -1977,6 +2055,8 @@ export function updateTower(sim, t, dt) {
   }
   // the duo's partner weapon (Kohaku's constant beam, src/sim/duo.js): its own tick timer, after the main weapon
   if (s.duo) partnerTick(sim, t, PRISM_HELP);
+  // a held channel (attack shapes S2, src/sim/held.js): its lock, aim and damage ticks, after her attack loop
+  if (t.ch) heldTick(sim, t, HELD_HELP);
 }
 
 // ---------------------------------------------------------------------------
@@ -2040,6 +2120,8 @@ function projectileStep(sim, p, dt) {
     guidedStep(sim, p, dt);
     return;
   }
+  // a returning fan on its way home (attack shapes S4, src/sim/links.js): back through its target, then to her hand
+  if (p.ret && retSteer(sim, p, p.speed * dt)) return;
   const tgt = p.target;
   if (tgt) {
     // Stop homing on targets that died, were already hit, or turned intangible/hidden mid-flight.
@@ -2102,8 +2184,13 @@ function projectileStep(sim, p, dt) {
         p.dead = true;
         return;
       }
+      // a returning fan (attack shapes S4, src/sim/links.js): its own cuts a leg, it never stops on a pierce
+      if (p.ret) {
+        retCut(sim, p, e);
+        continue;
+      }
       p.hits.push(e.uid);
-      sim._hit(e, p.owner, p.spec, 1);
+      sim._hit(e, p.owner, p.spec, p.scale ?? 1);
       p.pierce--;
       if (p.pierce <= 0) {
         p.dead = true;
@@ -2112,7 +2199,8 @@ function projectileStep(sim, p, dt) {
     }
   }
   if (p.travel >= p.maxTravel) {
-    p.dead = true;
+    // a returning fan's out leg flips home (attack shapes S4, src/sim/links.js)
+    if (!(p.ret && retFlip(sim, p))) p.dead = true;
     return;
   }
   const f = Math.min(1, p.travel / Math.max(0.5, p.est));

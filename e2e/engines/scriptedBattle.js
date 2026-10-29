@@ -30,7 +30,8 @@ import { hashSim } from '../../src/online/coop/simHash.js';
 import { stageRule } from '../../src/data/rules.js';
 import { abilityPathOf } from '../../src/sim/abilities.js';
 import { LAB_CLASSES } from '../../src/sim/lab.js';
-import { pointAt } from '../../src/sim/path.js';
+import { pointAt, samplePath } from '../../src/sim/path.js';
+import { canMoveHero } from '../../src/sim/hero.js';
 
 const CHEAP = { costMul: 0.5 };
 export const START = Object.freeze({
@@ -1673,7 +1674,7 @@ const POTENTIAL_BOSS_UPGRADES = Object.freeze([
  * by Hotaru / Kaede at P6).
  * @returns {object} the same fields as runScriptedBattle plus `aoi` (both Aois' resolved stats) and `mech`
  */
-export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTIAL_UPGRADES, spotsFirst = POTENTIAL_SPOTS_FIRST, maxFrames = 60 * 60 * 14, probe = null, script = null, ultInWave = false } = {}) {
+export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTIAL_UPGRADES, spotsFirst = POTENTIAL_SPOTS_FIRST, maxFrames = 60 * 60 * 14, probe = null, onFrame = null, script = null, ultInWave = false } = {}) {
   const t0 = Date.now();
   const rng = createRng(11);
   const clock = { t: 0 };
@@ -1792,6 +1793,8 @@ export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTI
       else if (ev.type === 'tempo') mech.tempo++;
     }
     if (kage && carry0 != null && kage.projCarry < carry0) mech.carry++;
+    // (an optional observer of both clients after each frame, e.g. a rejoin check: it never queues anything)
+    onFrame?.(A, B);
     for (const c of clients) c.sim.events.length = 0;
   }
   for (let f = 0; f < 30; f++) {
@@ -2085,6 +2088,312 @@ export function runGlowBowlBattle({ maxFrames = 60 * 60 * 10 } = {}) {
   return r;
 }
 
+/**
+ * The attack shapes S1 "Wheels" in one co-op battle (2-4 Hard, to the end or 12 minutes; docs/specs/
+ * ATTACK_SHAPES.md §7.2 step 5b; 2-4 Hard): the host's Momo to the Coin Wheel and Kage to the Blade Cyclone, the
+ * guest's Hotaru to the Firefly Halo and a second Kage. Once the wave-3 checkpoint exists, the first frame
+ * 5 s into a wave with a spin index and a halo memory live is rebuilt by a third client from that
+ * checkpoint and the log (a rejoin), which must land on the same hash and snapshot.
+ */
+const SHAPES_STATS = { costMul: 0.05, damageMul: 0.5, rateMul: 1 };
+export const SHAPES_START = Object.freeze({
+  seed: 242424,
+  stageId: '2-4',
+  difficulty: 'hard',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'momo', stats: SHAPES_STATS }, { unitId: 'kage', stats: SHAPES_STATS }], hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'hotaru', stats: SHAPES_STATS }, { unitId: 'kage', stats: SHAPES_STATS }], hero: null },
+  ],
+});
+const SHAPES_UPGRADES = Object.freeze([
+  [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0], [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0],
+  [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0], [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0],
+  [0, 'momo', 2], [1, 'hotaru', 0], [0, 'kage', 0], [1, 'kage', 0],
+]);
+
+/**
+ * SHAPES_START to the end (or 12 minutes): the runPotentialBattle fields plus `shapes` (wheel / spin
+ * attack events and halo cuts, counted on the host's copy) and the mid-wave rejoin (`rejoinTick`,
+ * `rejoinSame`).
+ */
+export function runShapesBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
+  const t0 = Date.now();
+  const n = { wheel: 0, spin: 0, halo: 0 };
+  let ck = null;
+  let rejoin = null;
+  const probe = (sim) => {
+    const hit0 = sim._hit;
+    Object.defineProperty(sim, '_hit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function hit(e, tower, spec, ...rest) {
+        if (tower && spec && spec === tower.haloSpec && e && !e.dead) n.halo++;
+        return hit0.call(this, e, tower, spec, ...rest);
+      },
+    });
+  };
+  const onFrame = (A) => {
+    for (const ev of A.sim.events) if (ev.type === 'attack' && (ev.kind === 'wheel' || ev.kind === 'spin')) n[ev.kind]++;
+    if (!ck && A.ck && A.ck.wave >= ckWave) ck = { t: A.ck.t, wave: A.ck.wave, json: JSON.stringify(A.ck.snap) };
+    if (!ck || rejoin || A.sim.state !== 'wave' || !(A.sim._waveTime > 5)) return;
+    if (!A.sim.towers.some((t) => t.spinK != null) || !A.sim.towers.some((t) => t.haloHits)) return;
+    const copy = new Lockstep({ start: SHAPES_START, mySlot: 1, send: () => {}, now: () => 0 });
+    copy.rebuild(SHAPES_START, [...A.log], A.tick, { t: ck.t, snap: JSON.parse(ck.json) });
+    rejoin = {
+      tick: A.tick,
+      same: copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash()
+        && snapshotDigest(copy.coop.snapshot()) === snapshotDigest(A.coop.snapshot()),
+    };
+  };
+  const r = runPotentialBattle({ start: SHAPES_START, upgrades: SHAPES_UPGRADES, spotsFirst: ['hotaru', 'kage', 'momo'], maxFrames, probe, onFrame });
+  r.shapes = `${n.wheel}/${n.spin}/${n.halo}`;
+  r.ckWave = ck?.wave ?? -1;
+  r.rejoinTick = rejoin?.tick ?? -1;
+  r.rejoinSame = !!rejoin?.same;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
+/**
+ * The attack shapes S2 "Held" in one co-op battle (2-4 Hard, to the end or 12 minutes; docs/specs/ATTACK_SHAPES.md
+ * §7.2 step 5b): the host's Akane to the Hearth Stream and Umeko to the Searchlight Sweep, the guest's the same pair.
+ * Once the wave-3 checkpoint exists, the first frame 5 s into a wave with a stream and a sweep channel open is rebuilt
+ * by a third client from that checkpoint and the log (a mid-wave rejoin), which must land on the same hash and snapshot.
+ */
+export const HELD_START = Object.freeze({
+  seed: 252525,
+  stageId: '2-4',
+  difficulty: 'hard',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'akane', stats: SHAPES_STATS }, { unitId: 'umeko', stats: SHAPES_STATS }], hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'umeko', stats: SHAPES_STATS }, { unitId: 'akane', stats: SHAPES_STATS }], hero: null },
+  ],
+});
+const HELD_UPGRADES = Object.freeze([
+  [0, 'akane', 1], [1, 'umeko', 0], [0, 'umeko', 0], [1, 'akane', 1], [0, 'akane', 1], [1, 'umeko', 0], [0, 'umeko', 0], [1, 'akane', 1],
+  [0, 'akane', 1], [1, 'umeko', 0], [0, 'umeko', 0], [1, 'akane', 1], [0, 'akane', 1], [1, 'umeko', 0], [0, 'umeko', 0], [1, 'akane', 1],
+  [0, 'akane', 1], [1, 'umeko', 0], [0, 'umeko', 0], [1, 'akane', 1],
+]);
+
+/**
+ * HELD_START to the end (or 12 minutes): the runPotentialBattle fields plus `held` (stream ticks / sweep hits,
+ * counted on the host's copy) and the mid-wave rejoin (`rejoinTick`, `rejoinSame`).
+ */
+export function runHeldBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
+  const t0 = Date.now();
+  const n = { stream: 0, sweep: 0 };
+  let ck = null;
+  let rejoin = null;
+  const probe = (sim) => {
+    const hit0 = sim._hit;
+    Object.defineProperty(sim, '_hit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function hit(e, tower, spec, ...rest) {
+        if (tower && spec && spec.tick && tower.ch && e && !e.dead) {
+          const b = tower.eff?.behavior;
+          if (b === 'stream' || b === 'sweep') n[b]++;
+        }
+        return hit0.call(this, e, tower, spec, ...rest);
+      },
+    });
+  };
+  const onFrame = (A) => {
+    if (!ck && A.ck && A.ck.wave >= ckWave) ck = { t: A.ck.t, wave: A.ck.wave, json: JSON.stringify(A.ck.snap) };
+    if (!ck || rejoin || A.sim.state !== 'wave' || !(A.sim._waveTime > 5)) return;
+    const open = (b) => A.sim.towers.some((t) => t.ch && t.eff?.behavior === b);
+    if (!open('stream') || !open('sweep')) return;
+    const copy = new Lockstep({ start: HELD_START, mySlot: 1, send: () => {}, now: () => 0 });
+    copy.rebuild(HELD_START, [...A.log], A.tick, { t: ck.t, snap: JSON.parse(ck.json) });
+    rejoin = {
+      tick: A.tick,
+      same: copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash()
+        && snapshotDigest(copy.coop.snapshot()) === snapshotDigest(A.coop.snapshot()),
+    };
+  };
+  const r = runPotentialBattle({ start: HELD_START, upgrades: HELD_UPGRADES, spotsFirst: ['akane', 'umeko'], maxFrames, probe, onFrame });
+  r.held = `${n.stream}/${n.sweep}`;
+  r.ckWave = ck?.wave ?? -1;
+  r.rejoinTick = rejoin?.tick ?? -1;
+  r.rejoinSame = !!rejoin?.same;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
+/**
+ * The attack shapes S3 "Ground" in one co-op battle (2-4 Hard, to the end or 12 minutes; docs/specs/ATTACK_SHAPES.md
+ * §7.2 step 5b): the host's Chigusa to Forest Corridor (Bramble Road), Yuki to Diamond Dust (Rising Spikes) and Kanna
+ * bought up her level track past Lv 24 (Ripple Quake) and moved beside the road near the spawn after wave 1, the guest's
+ * Yuki and Chigusa the same. Once the wave-3
+ * checkpoint exists, the first frame 5 s into a wave with a vine, a spike row and a quake ring all live is rebuilt by
+ * a third client from that checkpoint and the log (a mid-wave rejoin), which must land on the same hash and snapshot.
+ */
+// (the girls at half damage, so walkers reach Kanna; her levels nearly free, so her quake comes in by wave 4)
+const GROUND_STATS = { costMul: 0.03, damageMul: 0.5, rateMul: 1 };
+export const GROUND_START = Object.freeze({
+  seed: 262626,
+  stageId: '2-4',
+  difficulty: 'hard',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'chigusa', stats: GROUND_STATS }, { unitId: 'yuki', stats: GROUND_STATS }], hero: { unitId: 'kanna', stats: { ...GROUND_STATS, costMul: 0.002 } } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'yuki', stats: GROUND_STATS }, { unitId: 'chigusa', stats: GROUND_STATS }], hero: null },
+  ],
+});
+const GROUND_UPGRADES = Object.freeze([
+  [0, 'chigusa', 1], [1, 'yuki', 1], [0, 'yuki', 1], [1, 'chigusa', 1], [0, 'chigusa', 1], [1, 'yuki', 1], [0, 'yuki', 1], [1, 'chigusa', 1],
+  [0, 'chigusa', 1], [1, 'yuki', 1], [0, 'yuki', 1], [1, 'chigusa', 1], [0, 'chigusa', 1], [1, 'yuki', 1], [0, 'yuki', 1], [1, 'chigusa', 1],
+  [0, 'chigusa', 1], [1, 'yuki', 1], [0, 'yuki', 1], [1, 'chigusa', 1],
+]);
+
+/**
+ * GROUND_START to the end (or 12 minutes): the runPotentialBattle fields plus `ground` (Bramble Road lashes, spike-row
+ * and quake-ring hits, counted on the host's copy), `kanna` (her level at the end), and the mid-wave rejoin
+ * (`rejoinTick`, `rejoinSame`).
+ */
+export function runGroundBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
+  const t0 = Date.now();
+  const n = { lash: 0, spike: 0, quake: 0 };
+  let ck = null;
+  let rejoin = null;
+  const probe = (sim) => {
+    const hit0 = sim._hit;
+    Object.defineProperty(sim, '_hit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function hit(e, tower, spec, ...rest) {
+        if (tower && spec && e && !e.dead) {
+          if (tower.spikeRows?.some((r) => r.spec === spec)) n.spike++;
+          else if (tower.quakes?.some((q) => q.spec === spec)) n.quake++;
+        }
+        return hit0.call(this, e, tower, spec, ...rest);
+      },
+    });
+  };
+  const live = (sim, k) => sim.towers.some((t) => t[k]?.length);
+  let kanna = 0;
+  const onFrame = (A) => {
+    kanna = A.sim.hero?.level ?? 0;
+    for (const ev of A.sim.events) if (ev.type === 'lash') n.lash++;
+    if (!ck && A.ck && A.ck.wave >= ckWave) ck = { t: A.ck.t, wave: A.ck.wave, json: JSON.stringify(A.ck.snap) };
+    if (!ck || rejoin || A.sim.state !== 'wave' || !(A.sim._waveTime > 5)) return;
+    if (!live(A.sim, 'vines') || !live(A.sim, 'spikeRows') || !live(A.sim, 'quakes')) return;
+    const copy = new Lockstep({ start: GROUND_START, mySlot: 1, send: () => {}, now: () => 0 });
+    copy.rebuild(GROUND_START, [...A.log], A.tick, { t: ck.t, snap: JSON.parse(ck.json) });
+    rejoin = {
+      tick: A.tick,
+      same: copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash()
+        && snapshotDigest(copy.coop.snapshot()) === snapshotDigest(A.coop.snapshot()),
+    };
+  };
+  // the host buys Kanna a level (5 coins: her hero costs × 0.002) every 2 s while her wallet holds it and 50 more, so
+  // her quake comes in early in the battle
+  // and, once all five stand, moves her (between waves: free) beside the road nearest the spawn, where the crowd meets her
+  // first (her planned spot is where the walkers left alive are few)
+  let moved = false;
+  const script = (frame, A) => {
+    const k = A.sim.hero;
+    if (k && !moved && A.sim.state === 'between' && A.sim.towers.length === 5) {
+      moved = true;
+      const road = samplePath(A.sim.pathData[0], 0.5).filter((p) => !p.hidden && p.d >= 2);
+      let best = null;
+      for (const p of road) {
+        for (const r of [1, 1.4, 1.8]) {
+          for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+            const q = quantize(p.x + dx * r, p.y + dy * r);
+            if (!best && canMoveHero(A.sim, q[0] / 1024, q[1] / 1024, k).ok) best = q;
+          }
+        }
+      }
+      if (best) A.queue('hmv', best);
+    }
+    if (frame % 120 !== 60 || !k) return;
+    const s = A.sim.heroLevelStatus();
+    if (!s.reason && A.sim.cash >= s.price + 50) A.queue('hlv', [s.level + 1, s.price]);
+  };
+  const r = runPotentialBattle({ start: GROUND_START, upgrades: GROUND_UPGRADES, spotsFirst: ['kanna', 'chigusa', 'yuki'], maxFrames, probe, onFrame, script, ultInWave: true });
+  r.ground = `${n.lash}/${n.spike}/${n.quake}`;
+  r.kanna = kanna;
+  r.ckWave = ck?.wave ?? -1;
+  r.rejoinTick = rejoin?.tick ?? -1;
+  r.rejoinSame = !!rejoin?.same;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
+/**
+ * The attack shapes S4 "Links" in one co-op battle (2-4 Hard, to the end or 12 minutes; docs/specs/ATTACK_SHAPES.md
+ * §7.2 step 5b): the host's Fuu to Heaven's Gate Wind (Homecoming Throw) and Ena to Threads of Destiny (Spirit Tether),
+ * the guest's Ena and Fuu the same, so every girl's hits run the share hook on tied enemies. Once the wave-3 checkpoint
+ * exists, the first frame 5 s into a wave with a fan in the air and a tether group alive is rebuilt by a third client
+ * from that checkpoint and the log (a mid-wave rejoin), which must land on the same hash and snapshot.
+ */
+const LINKS_STATS = { costMul: 0.05, damageMul: 0.5, rateMul: 1 };
+export const LINKS_START = Object.freeze({
+  seed: 272727,
+  stageId: '2-4',
+  difficulty: 'hard',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'fuu', stats: LINKS_STATS }, { unitId: 'ena', stats: LINKS_STATS }], hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'ena', stats: LINKS_STATS }, { unitId: 'fuu', stats: LINKS_STATS }], hero: null },
+  ],
+});
+const LINKS_UPGRADES = Object.freeze([
+  [0, 'fuu', 0], [1, 'ena', 2], [0, 'ena', 2], [1, 'fuu', 0], [0, 'fuu', 0], [1, 'ena', 2], [0, 'ena', 2], [1, 'fuu', 0],
+  [0, 'fuu', 0], [1, 'ena', 2], [0, 'ena', 2], [1, 'fuu', 0], [0, 'fuu', 0], [1, 'ena', 2], [0, 'ena', 2], [1, 'fuu', 0],
+  [0, 'fuu', 0], [1, 'ena', 2], [0, 'ena', 2], [1, 'fuu', 0],
+]);
+
+/**
+ * LINKS_START to the end (or 12 minutes): the runPotentialBattle fields plus `links` (fan cuts / fans caught / tether
+ * groups tied / shared hits, counted on the host's copy) and the mid-wave rejoin (`rejoinTick`, `rejoinSame`).
+ */
+export function runLinksBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
+  const t0 = Date.now();
+  const n = { cut: 0, caught: 0, tied: 0, shared: 0 };
+  let ck = null;
+  let rejoin = null;
+  const probe = (sim) => {
+    const hit0 = sim._hit;
+    Object.defineProperty(sim, '_hit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function hit(e, tower, spec, ...rest) {
+        // (a fan's cut: its spec is a half-hit copy, spec.share; her Turbine Kick volley is her plain gusts)
+        if (tower && spec && e && !e.dead && tower.eff?.behavior === 'return' && spec.share > 0) n.cut++;
+        return hit0.call(this, e, tower, spec, ...rest);
+      },
+    });
+  };
+  const onFrame = (A) => {
+    for (const ev of A.sim.events) {
+      if (ev.type === 'retCatch') n.caught++;
+      else if (ev.type === 'tether') n.tied++;
+      else if (ev.type === 'tetherShare') n.shared += ev.n;
+    }
+    if (!ck && A.ck && A.ck.wave >= ckWave) ck = { t: A.ck.t, wave: A.ck.wave, json: JSON.stringify(A.ck.snap) };
+    if (!ck || rejoin || A.sim.state !== 'wave' || !(A.sim._waveTime > 5)) return;
+    if (!A.sim.projectiles.some((p) => p.ret && !p.dead) || !A.sim.tethers.length) return;
+    const copy = new Lockstep({ start: LINKS_START, mySlot: 1, send: () => {}, now: () => 0 });
+    copy.rebuild(LINKS_START, [...A.log], A.tick, { t: ck.t, snap: JSON.parse(ck.json) });
+    rejoin = {
+      tick: A.tick,
+      same: copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash()
+        && snapshotDigest(copy.coop.snapshot()) === snapshotDigest(A.coop.snapshot()),
+    };
+  };
+  const r = runPotentialBattle({ start: LINKS_START, upgrades: LINKS_UPGRADES, spotsFirst: ['ena', 'fuu'], maxFrames, probe, onFrame });
+  r.links = `${n.cut}/${n.caught}/${n.tied}/${n.shared}`;
+  r.ckWave = ck?.wave ?? -1;
+  r.rejoinTick = rejoin?.tick ?? -1;
+  r.rejoinSame = !!rejoin?.same;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
 // ---------------------------------------------------------------------------
 // The duo Kohaku & Tsubaki (docs/specs/DUO_LR.md §4 "Engines scenario DUO_START"): Refraction (the shell counter and
 // the fixed shard table), Kohaku's beam on its tick timer, Prismfall on Auto-cast and its LR form Twin Star
@@ -2341,7 +2650,7 @@ export function runTryoutExtendedBattle({ maxWaves = 61, checkpointAt = 50, seed
   };
 }
 
-/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, the duo (DUO_START), the staff heroes (STAFF_START), freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka, Tryout Day and the mode battles. */
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, the attack shapes S1, S2 and S3, the duo (DUO_START), the staff heroes (STAFF_START), freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka, Tryout Day and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t1 = Date.now();
@@ -2356,5 +2665,5 @@ export function runEngineChecks() {
   const heroes = runHeroBattle();
   const modes = runModeBattles();
   const tryoutRandom = runTryoutBattle({ seed: 2027, random: true, maxWaves: 14, checkpointAt: 8 });
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), duo: runDuoBattle(), tenkaLr: runTenkaLrBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), tryoutAfter: runTryoutExtendedBattle(), tryoutAfterRandom: runTryoutExtendedBattle({ seed: 4821, random: true, maxWaves: 57, checkpointAt: 52 }), modes, tryoutRandom };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), shapes: runShapesBattle(), held: runHeldBattle(), ground: runGroundBattle(), links: runLinksBattle(), duo: runDuoBattle(), tenkaLr: runTenkaLrBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), tryoutAfter: runTryoutExtendedBattle(), tryoutAfterRandom: runTryoutExtendedBattle({ seed: 4821, random: true, maxWaves: 57, checkpointAt: 52 }), modes, tryoutRandom };
 }

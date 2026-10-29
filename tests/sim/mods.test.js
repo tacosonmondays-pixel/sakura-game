@@ -239,13 +239,15 @@ describe('Potential in resolveStats', () => {
     // now also widens an aura's radius; nothing else in these resolutions moved.
     // '456:055ce472' before Kaede's AoE rework (her `blade` block and new tiers, Crimson Eternity ×1.6 vs
     // bosses); every other girl's resolutions are bit-identical (checked with Kaede left out, P1 and P6)
-    // '456:bd28cc90' before balance round 5 (src/data/balance.js: per-girl damage, boss, aura and control
-    // rows and the heroes' level curves); '456:cafba5a0' in its round 1 (round 2 re-sized the rows on the fixed
-    // bench and gave every hero one multiplier per level); '456:ecb03b31' in round 2 (round 3: Option C, Kinu's full
-    // row, Aoi / Marumi / Suzu / Azami to the two-support window, hero curves whose hit rises at every level);
-    // '456:35148c95' in round 4; '456:cb8a6f92' in round 5 before Fuu's and Yuki's damage rows (the review: no build of
-    // theirs may fall)
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:64e4e1c0');
+    // '456:bd28cc90' before the attack shapes S1 (Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's Firefly
+    // Halo: new tier data on one path each); with those three left out the 384 others hash 8cb286a4 before and after
+    // '456:be9bef3b' before the attack shapes S2 (Akane's Hearth Stream, Umeko's Searchlight Sweep: new tier data on
+    // one path each); with those two left out the 408 others hash 4158a051 before and after ('456:f509ac67' before the
+    // review dropped Inferno Queen's unused splash)
+    // '456:77d05324' before the attack shapes S3 (Yuki's Rising Spikes: new tier data on her Frostbite path; Chigusa and
+    // Kanna are not pinned here); with Yuki left out the 432 others hash 05819da7 before and after
+    // balance round 5 on top (src/data/balance.js: rows and hero curves; its round-by-round hashes on feature/balance-r5)
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:95695334');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders

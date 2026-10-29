@@ -8,8 +8,11 @@ import { facesCamera, cameraFacing } from './facing.js';
 import { FIELD_COLORS, fxColor } from './themes.js';
 import { WATER_Y, PATH_H } from './terrain.js';
 import { scissorPos } from '../sim/rings.js';
+import { haloPos } from '../sim/wheels.js';
+import { drawGroundShapes } from './groundShapes.js';
+import { drawLinkShapes } from './linkShapes.js';
 import { pointAt } from '../sim/path.js';
-import { STEP } from '../sim/constants.js';
+import { STEP, HALO_REACH, HALO_MAX } from '../sim/constants.js';
 import { costumeFor, enemyExtraFor, buildCostume, COSTUME_SLOT } from './costumes.js';
 import { headTunnel } from './trackMesh.js';
 
@@ -654,6 +657,19 @@ export class Actors {
         }
       }
     }
+    // Petal Halo pieces (attack shapes S1, src/sim/wheels.js; Hotaru's fireflies): read from the sim every
+    // frame at the sim's own orbit (the plain look until the effects update draws them properly)
+    for (const tw of sim.towers) {
+      const h = tw.stats?.halo;
+      if (!(h?.pieces > 0)) continue;
+      const n = Math.min(HALO_MAX, h.pieces);
+      const step = Math.round(sim.time / STEP);
+      for (let j = 0; j < n; j++) {
+        const [hx, hy] = haloPos(tw, j, n, step, HALO_REACH + h.reach);
+        gA.push(hx, 0.42, hy, 0.34, 0.34, R.glow, 1, 0.9, 0.45, 0.75, 0);
+        gA.push(hx, 0.42, hy, 0.12, 0.12, R.ringSoft, 1, 1, 0.8, 0.95, t * 7 + j);
+      }
+    }
     // Yuzuha's lane sentries and Capture Nets (src/sim/sentries.js), from the sim every frame
     const SENTRY_COL = { plain: [1, 0.55, 0.16], net: [0.5, 0.85, 1], flash: [1, 1, 0.75], heavy: [1, 0.35, 0.3], flak: [0.75, 0.6, 1] };
     for (const tw of sim.towers) {
@@ -693,6 +709,10 @@ export class Actors {
         gA.push(p.x, 0.07, p.y, 0.48, 0.48, R.ring, 1, 0.77, 0.42, 0.5, 0);
       }
     }
+    // the ground attack shapes (attack shapes S3): Chigusa's vines, Yuki's spike rows, Kanna's quake rings, from the sim
+    drawGroundShapes(sim, gN, gA, R);
+    // the link attack shapes (attack shapes S4): Ena's threads between the enemies she tied, from the sim
+    drawLinkShapes(sim, gN, gA, R);
     // Chigusa's thorn beds (src/sim/vines.js): a dark green patch with a thorny dashed rim, fading out
     for (const tw of sim.towers) {
       if (!tw.beds) continue;

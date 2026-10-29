@@ -11,7 +11,7 @@
 import { DEFAULT_UNIT_STATS } from './constants.js';
 import { HERO_GROWTH } from '../data/heroTracks.js';
 import { potentialFold } from '../data/potential.js';
-import { BREW_TARGETS_MAX, HARVEST_LIVES_PER_WAVE } from './constants.js';
+import { BREW_TARGETS_MAX, HARVEST_LIVES_PER_WAVE, SPIN_TURN, SPIN_LOCK, STREAM_HALF, STREAM_TURN, SWEEP_ARC, SWEEP_SWING, SWEEP_TURN } from './constants.js';
 import { powerFor } from '../data/balance.js';
 import { BLAST_PER_PIERCE, PIERCE_K_MAX } from './gearRules.js';
 import { BARRICADES_PER_HERO } from './constants.js';
@@ -116,6 +116,67 @@ function normRing(t = {}) {
 const RING_FLAGS = ['turn', 'heat', 'double', 'sparks'];
 
 /**
+ * Attack shapes S1 (docs/specs/ATTACK_SHAPES.md §5; src/sim/wheels.js). Unlike the kits above these
+ * blocks may first appear on a tier (a path that turns into a shape): the first mod that names one
+ * creates it, later mods add the counts and replace `lead`, `mul`, `turn` and `lock` (each tier states
+ * its own: the per-tier DPS parity numbers of the bench, docs/specs/ATTACK_SHAPES.md addendum).
+ *   wheel  spokes (shots a Blossom Wheel), lead × the aimed spoke's hit, mul × every other spoke's
+ *   spin   arms (Pinwheel Stream arms), mul × the spinning arms' parity damage, fold × the folded stream's
+ *          (one enemy in range), turn / lock table steps a shot
+ *   halo   pieces (Petal Halo pieces), reach tiles past HALO_REACH, mul × each cut (× her rate)
+ * S2 "Held" (src/sim/held.js), every field stated per tier:
+ *   stream kind (held.js STREAM_KINDS; only 'fire' in use), half (half-angle, table steps), turn (table steps a
+ *          sim step), mul × each tick's parity share, cap (victims a tick at most, nearest first)
+ *   sweep  arc (table steps either side of the centre), swing (table steps a sim step), turn (the centre's table
+ *          steps a sim step), mul × each hit's parity share, cap (enemies a pass at most; 0: her maxTargets)
+ * S3 "Ground" (src/sim/ground.js), every field stated per tier:
+ *   spike  count (spikes a row), gap (tiles between two spikes along the road), r (a spike's radius, tiles), delay
+ *          (steps between two spikes rising), mul × her hit on each enemy the row strikes
+ *   quake  rings (rings a strike), gap (steps between two rings starting), speed (tiles a second), mul × her plain hit
+ *          for the first ring, later × for the others, status (statuses the last ring adds to hers)
+ * S4 "Links" (src/sim/links.js), every field stated per tier:
+ *   ret    per (fans a throw: her projectiles × per), mul × her hit on the first enemy a leg cuts, cut × on the others,
+ *          pierce (enemies a leg cuts), reach (× her range: how far a fan flies out)
+ *   tether links (enemies tied to her target), reach (tiles from one tied enemy to the next), dur (s), share (each other
+ *          member's share of a hit), pull (on expiry: the gap to the lead closed, 0 = none)
+ */
+function normWheel() {
+  return { spokes: 0, lead: 1, mul: 1 };
+}
+function normSpin() {
+  return { arms: 0, mul: 1, fold: 1, turn: SPIN_TURN, lock: SPIN_LOCK };
+}
+function normHalo() {
+  return { pieces: 0, reach: 0, mul: 1 };
+}
+function normStream() {
+  return { kind: 'fire', half: STREAM_HALF, turn: STREAM_TURN, mul: 1, cap: 6 };
+}
+function normSweep() {
+  return { arc: SWEEP_ARC, swing: SWEEP_SWING, turn: SWEEP_TURN, mul: 1, cap: 0 };
+}
+function normSpike() {
+  return { count: 4, gap: 0.5, r: 0.3, delay: 3, mul: 1 };
+}
+function normQuake() {
+  return { rings: 2, gap: 12, speed: 6, mul: 1, later: 0.6, status: [] };
+}
+function normRet() {
+  return { per: 0.5, mul: 1, cut: 0, pierce: 1, reach: 1 };
+}
+function normTether() {
+  return { links: 2, reach: 1.5, dur: 3, share: 0.2, pull: 0 };
+}
+const SHAPE_NORM = { wheel: normWheel, spin: normSpin, halo: normHalo, stream: normStream, sweep: normSweep, spike: normSpike, quake: normQuake, ret: normRet, tether: normTether };
+const SHAPE_ADDS = { wheel: ['spokes'], spin: ['arms'], halo: ['pieces', 'reach'], stream: [], sweep: [], spike: [], quake: [], ret: [], tether: [] };
+const SHAPE_SETS = {
+  wheel: ['lead', 'mul'], spin: ['mul', 'fold', 'turn', 'lock'], halo: ['mul'],
+  stream: ['kind', 'half', 'turn', 'mul', 'cap'], sweep: ['arc', 'swing', 'turn', 'mul', 'cap'],
+  spike: ['count', 'gap', 'r', 'delay', 'mul'], quake: ['rings', 'gap', 'speed', 'mul', 'later', 'status'],
+  ret: ['per', 'mul', 'cut', 'pierce', 'reach'], tether: ['links', 'reach', 'dur', 'share', 'pull'],
+};
+
+/**
  * The buff thrower (Wakaba, UNIT_GAPS §5.6; src/sim/drinks.js): what her sports drink does. Bonuses
  * add (dmg 0.2 = +20% damage); only a girl whose base declares `drink` carries it.
  *   splash  tiles around the target girl     shots  attacks a drink lasts
@@ -206,9 +267,12 @@ const HUB_FLAGS = ['detection', 'airGrant', 'cleanse'];
 const HUB_ADDS = ['radiusAdd', 'cutAdd'];
 
 /**
- * The nature caster (Chigusa, UNIT_GAPS §5.7; src/sim/vines.js): her Creeping Vine, thorn beds, Bloom
- * Rush and harvest lives. Only a girl whose base declares `vine` carries it. Every number adds.
- *   every (s per vine) · hold (s) · dps (vine damage a second while it holds)
+ * The nature caster (Chigusa, UNIT_GAPS §5.7; src/sim/vines.js): her Bramble Road vines (attack shapes S3), thorn
+ * beds, Bloom Rush and harvest lives. Only a girl whose base declares `vine` carries it. Every number adds.
+ *   every (s per vine) · hold (s her vine holds the first walker it reaches) · dps (a lash's damage a second, on
+ *   each walker on the vine; 0 = no lash) · lash (s between lashes) · cap (walkers a lash hits, lead first; 0 = all)
+ *   len (tiles a vine grows) · grow (tiles a second) · life (s a vine stands) · slow (on the walkers on it) · max
+ *   (her vines standing at once)
  *   beds (hits per thorn bed; 0 = none) · bedDmg · bedTtl (s)
  *   bloom (Bloom Rush cap, 0.6 = +60% attack speed) · bloomPer (a second of attacking) · bloomIdle (s)
  *   lives (a wave cleared) · livesCap (the most at one wave clear, her copies together; HARVEST_LIVES_PER_WAVE)
@@ -218,6 +282,13 @@ function normVine(t = {}) {
     every: t.every ?? 6,
     hold: t.hold ?? 1,
     dps: t.dps ?? 0,
+    lash: t.lash ?? 1,
+    cap: t.cap ?? 0,
+    len: t.len ?? 2,
+    grow: t.grow ?? 4,
+    life: t.life ?? 3,
+    slow: t.slow ?? 0.2,
+    max: t.max ?? 1,
     beds: t.beds ?? 0,
     bedDmg: t.bedDmg ?? 2,
     bedTtl: t.bedTtl ?? 8,
@@ -335,7 +406,7 @@ const DUO_MAX = ['shards', 'beamSilence', 'shardSlow', 'slowTime', 'vulnTime', '
 const DUO_MIN = ['every', 'fullEvery'];
 const BALL_ADDS = ['travel', 'speed', 'through', 'share', 'lobMul', 'pins', 'pinDmg', 'pinPierce', 'bounce', 'reach', 'finish'];
 const BALL_FLAGS = ['hook', 'lob', 'pushBig'];
-const VINE_ADDS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
+const VINE_ADDS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap', 'len', 'grow', 'life', 'slow', 'lash', 'cap', 'max'];
 
 /**
  * Kaede's blade arts (her AoE rework; src/sim/towers.js bladeArt): only a girl whose base declares
@@ -625,6 +696,12 @@ export function applyModSet(s, mods, acc) {
       for (const k of RING_ADDS) if (v[k] != null) s.ring[k] += v[k];
       for (const k of RING_FLAGS) if (v[k]) s.ring[k] = true;
       if (v.scissorMul != null) s.ring.scissorMul *= v.scissorMul;
+    } else if (SHAPE_NORM[key]) {
+      // an attack shape block: created by the first mod that names it (src/sim/wheels.js)
+      if (!s[key]) s[key] = SHAPE_NORM[key]();
+      const o = s[key];
+      for (const k of SHAPE_ADDS[key]) if (v[k] != null) o[k] += v[k];
+      for (const k of SHAPE_SETS[key]) if (v[k] != null) o[k] = v[k];
     } else if (key === 'drink') {
       // only a drink girl's drink changes (src/sim/drinks.js)
       if (!s.drink) continue;
@@ -989,6 +1066,9 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   if (s.vine) {
     s.vine.every = Math.max(1, s.vine.every);
     s.vine.beds = Math.max(0, Math.round(s.vine.beds));
+    s.vine.max = Math.max(1, Math.round(s.vine.max));
+    s.vine.cap = Math.max(0, Math.round(s.vine.cap));
+    s.vine.lash = Math.max(0.1, s.vine.lash);
   }
   if (s.hub) {
     // her office: the strongest radius plus its adds; her range is the radius (the ring the board draws)

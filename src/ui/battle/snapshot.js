@@ -182,6 +182,10 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   zones: 'calm', _nearExitOn: 'derived',
   // Norika's barricades (src/sim/barricades.js): how many heroes have them follows the restored hero
   _blockOn: 'derived',
+  // the attack shapes S4 (src/sim/links.js): Spirit Tether groups end at the wave clear (and their count with them), the
+  // share budget refills with the first group, the re-entrancy flag is down outside a hit; the Homecoming Throw's fans
+  // are straight shots (they end at the wave clear with `projectiles`)
+  tethers: 'calm', _tetherOn: 'calm', _shareBudget: 'calm', _sharing: 'scratch',
 });
 
 /** Every own field of a placed girl (TowerRT), classified like KNOWN_SIM_KEYS. */
@@ -226,6 +230,10 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   stripCursor: 'snap', stripAirSpec: 'derived', stripBoomSpec: 'derived',
   // Kinu: her ring's turn stays ('rg'); heat rings end at the wave clear; the scissors' spec follows her stats
   ringTurn: 'snap', rings: 'calm', scissorSpec: 'derived',
+  // the attack shapes S1 (src/sim/wheels.js): a spin index and halo memory end at the wave clear; the halo spec follows her stats
+  spinK: 'calm', haloHits: 'calm', haloSpec: 'derived',
+  // the attack shapes S2 (src/sim/held.js): a held channel (lock, aim, ticks, a sweep's passes and memory) ends at the wave clear
+  ch: 'calm',
   // Wakaba: a girl's drink ends at the wave clear; the towel's spec follows her stats
   hydrated: 'calm', towelSpec: 'derived',
   // Yuzuha: sentries end at the wave clear; her nets stay ('nt'); the sentry, burst and net specs follow her stats
@@ -233,9 +241,11 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // Ouka: her banners stay ('bn', planted again in order through setAim); a covered girl's rules follow
   // the hubs around her (recomputeBuffs)
   banners: 'snap', rules: 'derived',
-  // Chigusa: her vine timer starts over, her held enemy, thorn beds and Bloom Rush end at the wave clear;
-  // the vine and bed specs follow her stats
-  vineCd: 'calm', vineHold: 'calm', beds: 'calm', bloomT: 'calm', bloomIdle: 'calm', vineSpec: 'derived', bedSpec: 'derived',
+  // Chigusa: her vine timer starts over, her Bramble Road vines (attack shapes S3), thorn beds and Bloom Rush end at the
+  // wave clear; the vine and bed specs follow her stats
+  vineCd: 'calm', vines: 'calm', beds: 'calm', bloomT: 'calm', bloomIdle: 'calm', vineSpec: 'derived', bedSpec: 'derived',
+  // the attack shapes S3 (src/sim/ground.js): Yuki's spike rows and Kanna's quake rings end at the wave clear
+  spikeRows: 'calm', quakes: 'calm',
   // Marumi: her balls end at the wave clear; the ball, blast, pin and lob specs follow her stats
   balls: 'calm', ballSpec: 'derived', blastSpec: 'derived', pinSpec: 'derived', lobSpec: 'derived',
   // Tenka: her lab team's record travels (`lb`; the girls who joined are not on the field, and the tier

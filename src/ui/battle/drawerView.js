@@ -28,8 +28,13 @@ export const PATH_COLORS = Object.freeze(['#ff5d7a', '#3b8cff', '#9b6bff']);
 export const TARGET_CHIPS = Object.freeze(['first', 'last', 'strong', 'close']);
 /** The modes behind the overflow chip "⋯" (Air only for a girl who hits flyers). */
 export const TARGET_EXTRA = Object.freeze(['elite', 'air']);
-/** Behaviours that pick a target (the rest have no target row). */
-export const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret']);
+/**
+ * Behaviours that pick a target (the rest have no target row). The attack shapes: a Blossom Wheel aims her toss coins
+ * by target mode, a held stream or sweep locks her enemy by it, a Rising Spikes row rises under it (src/sim/wheels.js,
+ * held.js, ground.js), a Homecoming Throw's fans fly at her targets (links.js); a Pinwheel Stream does
+ * not (its arms take the first enemy they find), so 'spin' has none.
+ */
+export const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret', 'wheel', 'stream', 'sweep', 'spikes', 'return']);
 /** How long tap 1 keeps a price button armed (the Sell confirm uses the same). */
 export const BUY_ARM_MS = 2600;
 /** At most this many numbers in one drawer section (UI_DIRECTION P3; Q6 budgets each section). */
@@ -61,13 +66,17 @@ export function hitDamage(st) {
 
 /**
  * Her gear Pierce in % where it gives her extra targets (towers.js shotPierce, bladeArts, drones): a shot without splash,
- * a beam, her drones, Kaede's blade. 0 for traps, strips, a duel without a blade, blasts, pulses and chains: there it
- * widens the blast (mods.js applyGearReach), adds pulse hits or one more jump, never a pierced enemy.
+ * a beam, her drones, Kaede's blade, a wheel's or spin's shots, a spike row's spikes. 0 for traps, strips, a duel without a blade, blasts, pulses, held shapes and chains:
+ * there it widens the blast (mods.js applyGearReach), adds pulse hits or a held stream's / sweep's victims (src/sim/held.js)
+ * or one more jump, never a pierced enemy.
  */
 export function gearPierce(t, st) {
   const k = Math.round(t?.unitStats?.pierceK || 0);
   const b = st?.behavior;
-  const extra = b === 'beam' || b === 'turret' || !!st?.turret || (b === 'projectile' && !(st.splash > 0)) || (b === 'duel' && !!t?.eff?.blade);
+  // (the attack shapes: a Blossom Wheel's and a Pinwheel Stream's shots pierce more, a Rising Spikes row grows a spike per 100 %,
+  // a Homecoming Throw's fans cut more each way)
+  const extra = b === 'beam' || b === 'turret' || !!st?.turret || (b === 'projectile' && !(st.splash > 0)) || (b === 'duel' && !!t?.eff?.blade)
+    || b === 'wheel' || b === 'spin' || b === 'spikes' || b === 'return';
   return k > 0 && extra ? k : 0;
 }
 

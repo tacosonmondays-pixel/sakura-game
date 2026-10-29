@@ -197,10 +197,15 @@ describe('display only: the battle sim is untouched', () => {
     // and the staff heroes, and Tryout Day in co-op, in one release; 12: Gate Arc Acts 3–6, Tenka's LR form, the duo's
     // buff with the long beam, the sentry deploy event and Tryout Day's Extended Day + Random Class)
     const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db', 12: 'd35092f141d3' };
+    // feature/attack-links only: the attack shapes S1 "Wheels" (src/sim/wheels.js, dirs.js, shapes.js), Kohaku's long
+    // beam (src/sim/duo.js), S2 "Held" (src/sim/channel.js, held.js; Akane's Hearth Stream, Umeko's Searchlight Sweep),
+    // S3 "Ground" (src/sim/ground.js, vines.js; Chigusa's Bramble Road, Yuki's Rising Spikes, Kanna's Ripple Quake) and
+    // S4 "Links" (src/sim/links.js; Fuu's Homecoming Throw, Ena's Spirit Tether) change the sim. The release that ships
+    // them sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only this exact in-progress id
+    // passes.
+    // Balance round 5 (feature/balance-r5) rides the same bump: this id is the shapes and round 5 together.
+    const PENDING_BUMP = { 12: 'f33baeafb515' };
     if (!KNOWN[COOP_PROTOCOL]) return;
-    // balance round 5 (feature/balance-r5) changes the sim; it ships with its own COOP_PROTOCOL bump, which the
-    // coordinator assigns at ship: until then its sim id is pinned here (drop this line at the bump)
-    const PENDING_BUMP = { 12: '63bc9d3e124a' };
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });

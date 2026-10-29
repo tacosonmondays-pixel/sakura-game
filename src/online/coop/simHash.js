@@ -81,12 +81,75 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
     }
     // Tenka's well and Last Line timers (src/sim/zones.js), only on a girl who has one of them (ticks)
     if (t.wellCd != null || t.lastLineCd != null) h.int(t.wellCd ?? -1).int(t.lastLineCd ?? -1);
+    // attack shapes S1 (src/sim/wheels.js), only on a girl who has them this wave: the Pinwheel arm index and
+    // each Petal Halo piece's memory ([uid, step] pairs); battles without them keep their digest
+    if (t.spinK != null) h.int(t.spinK);
+    const hh = t.haloHits;
+    if (hh) {
+      h.int(hh.length);
+      for (const l of hh) {
+        h.int(l.length);
+        for (let i = 0; i < l.length; i++) h.int(l[i]);
+      }
+    }
+    // attack shapes S2 (src/sim/channel.js, src/sim/held.js), only on a girl with a held channel open this wave:
+    // every integer of t.ch and its re-hit memory; battles without one keep their digest
+    const ch = t.ch;
+    if (ch) {
+      h.int(ch.uid).int(ch.k).int(ch.lock).int(ch.tick).int(ch.grace).int(ch.src).int(ch.trick).int(ch.px).int(ch.c).int(ch.ph).int(ch.pass).int(ch.n);
+      h.int(ch.hits.length);
+      for (let i = 0; i < ch.hits.length; i++) h.int(ch.hits[i]);
+    }
+    // attack shapes S3 (src/sim/vines.js, src/sim/ground.js), each list only while it holds something this wave:
+    // Bramble Road vines (and her vine timer), spike rows and quake rings with their re-hit memories (integers; a
+    // vine's root and length in 1/256 tiles); battles without them keep their digest
+    const vs = t.vines;
+    if (vs && vs.length) {
+      h.int(vs.length).int(t.vineCd ?? -1);
+      for (const v of vs) h.int(v.uid).int(v.pathIndex).int(v.root * 256).int(v.len * 256).int(v.age).int(v.life).int(v.held);
+    }
+    const rows = t.spikeRows;
+    if (rows && rows.length) {
+      h.int(rows.length);
+      for (const r of rows) {
+        h.int(r.uid).int(r.age).int(r.next).int(r.n).int(r.lead).int(r.hit.length);
+        for (let i = 0; i < r.hit.length; i++) h.int(r.hit[i]);
+      }
+    }
+    const qs = t.quakes;
+    if (qs && qs.length) {
+      h.int(qs.length);
+      for (const q of qs) {
+        h.int(q.uid).int(q.wait).int(q.g).int(q.i).int(q.skip).int(q.hit.length);
+        for (let i = 0; i < q.hit.length; i++) h.int(q.hit[i]);
+      }
+    }
   }
   // open zones (wells, Last Line), only while there is one: a battle without zones keeps its digest
   const zs = sim.zones;
   if (zs && zs.length) {
     h.int(zs.length);
     for (const z of zs) h.int(z.uid).int(z.src).str(z.kind).int(z.x * 256).int(z.y * 256).int(z.left).int(z.eaten).int(z.next);
+  }
+  // attack shapes S4 (src/sim/links.js), each only while there is one: Spirit Tether groups (uid, owner, steps left,
+  // members in tie order) and this step's share budget, and the Homecoming Throw's fans in the air (leg, cuts, spot,
+  // way flown, hit list); battles without them keep their digest
+  const tg = sim.tethers;
+  if (tg && tg.length) {
+    h.int(tg.length).int(sim._shareBudget);
+    for (const g of tg) {
+      h.int(g.uid).int(g.owner.uid).int(g.left).int(g.m.length);
+      for (let i = 0; i < g.m.length; i++) h.int(g.m[i].uid);
+    }
+  }
+  let fans = 0;
+  for (const p of sim.projectiles) if (p.ret && !p.dead) fans++;
+  if (fans) {
+    h.int(fans);
+    for (const p of sim.projectiles) {
+      if (!p.ret || p.dead) continue;
+      h.int(p.uid).int(p.ret.leg).int(p.ret.n).int(p.x * 256).int(p.y * 256).int(p.travel * 256).int(p.hits.length);
+    }
   }
   // the rest of the ability state, each part only while it holds something (src/sim/abilities.js)
   if (sim.abilGroups?.size) {
