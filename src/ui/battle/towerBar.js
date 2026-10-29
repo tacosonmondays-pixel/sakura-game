@@ -51,7 +51,7 @@ export function createTowerBar(ctx) {
       ur ? h('span.bt-card-ur', rankBadge(displayRarity(def, own))) : null,
       h('span.bt-card-name', def.name),
       h('span.bt-card-cost', svgEl(currencyIcon('coins'), 'bt-card-coin'), cost),
-      isHero ? h('span.bt-card-deployed', { 'data-testid': 'hero-card-deployed' }, 'Deployed') : null,
+      isHero ? h('span.bt-card-deployed', { 'data-testid': 'hero-card-deployed' }, h('span.bt-dep-k', 'Deployed')) : null,
     );
     if (friend) card.classList.add('bt-card-friend');
     setVar(card, '--rarity', rarityColor(def, own));
@@ -141,7 +141,8 @@ export function createTowerBar(ctx) {
         if (lv !== c.lastLv) {
           c.lastLv = lv;
           const tag = c.card.querySelector('.bt-card-deployed');
-          if (tag) tag.textContent = lv ? `Deployed · Lv ${lv}` : 'Deployed';
+          // one line each: "Deployed" on her art, her level in the cost strip (the whole phrase wrapped over her name)
+          if (tag) tag.replaceChildren(...[h('span.bt-dep-k', 'Deployed'), lv ? h('span.bt-dep-lv', h('span.ui-sr', ' · '), `Lv ${lv}`) : null].filter(Boolean));
         }
         // wave 0, not deployed yet: the card pulses (it is armed on load, see controller.js)
         c.card.classList.toggle('bt-card-hero-arm', !deployed && sim.wave === 0 && sim.state === 'prep');

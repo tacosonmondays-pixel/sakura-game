@@ -4,7 +4,7 @@
 // buildChibi stays synchronous: when a character's GLB is already loaded it is instantiated
 // right away; otherwise the procedural V1 chibi is returned as a placeholder and upgraded in
 // place when the GLB arrives (node tests / offline keep the procedural fallback).
-// Stand-ins (standins.js: the returning girls without approved art) are always procedural: no
+// Stand-ins (standins.js: girls without approved art, none today) are always procedural: no
 // GLB is requested for them and their chibi is final (userData.standIn = true), not a placeholder.
 import { loadBaseBody } from './body.js';
 import { buildChibi as buildChibiProc, clearChibiCache, liftChin } from './chibi.js';

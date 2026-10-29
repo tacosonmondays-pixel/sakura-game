@@ -25,6 +25,7 @@ export const PATCH_NOTES = [
       'Gate Arc Acts 3–6: twenty new stages from Old Town Lanes to the Sky-Rail Viaduct, four new bosses (the Ashen Warden, the Frost Vanguard, the Reservoir Willow and Gatekeeper Unit 01) and a side stage, The Star Dome.',
       'Tryout Day: Extended Day keeps the run going after period 12 until your hearts run out (clear a Full Day first), and Random Class draws your girls and every pick for you, solo or in co-op.',
       'Tenka can now Limit Break to LR: at level 60 and ★5, pay the fee and win her Thesis Defense trial. Kohaku & Tsubaki hit far harder at their top tiers, and at Grand Spectrum their beams run on to the edge of the map.',
+      'New looks in battle: Tenka takes the field as her real 3D figure, coilgun in hand; Iroha’s mirror panel turns and glints as bolts bounce through it and her Shattered Glass path scatters glinting shards; Kon bounds to Ruri’s relay spot and pounces, Kaze stoops onto each enemy Hana shoots, and Seiran’s sky dragon arrives bigger, with a roar.',
     ],
     changed: [
       'The stage screen shows the whole map, Recruit banners are laid out cleaner, Tryout Day has its own card in Play Modes, and the battle DPS readout shows both Live and Average.',
@@ -32,6 +33,7 @@ export const PATCH_NOTES = [
     ],
     fixed: [
       'A chat line typed right after opening a clan tab is no longer lost, and Yuzuha\'s sentries and nets pop an orange ring when they unfold.',
+      'On small phones the Events tab keeps clear of Co-op, the hero card and battle portrait no longer cover her name or the top bar, patch-note dates stay on one line, the Recruit rate line no longer sits over the girls, and the girl page’s matchups fit.',
     ],
   },
   {

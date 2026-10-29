@@ -1,0 +1,39 @@
+{
+  "review": "batch A fix round 3: Iroha Shattered Glass T5 white disc (commits 27a8ad31, 16e78a37)",
+  "branch": "feature/visual-reworks",
+  "verdict": "NOT OK",
+  "logic": {
+    "result": "OK",
+    "tests": "tests/render/fxExplosion.test.js + irohaMirror.test.js + roofLift.test.js: 22/22 pass",
+    "notes": [
+      "_exRepeat is correct and allocates nothing: one Float64Array(32) made in the constructor and filled with -1e9, so the first blasts never match. The dt >= 0 guard ignores stale entries. A repeat is not recorded, so a chain is anchored to the first blast and cannot creep along a path.",
+      "The same-spot test (Manhattan < 0.5 x max radius + 0.3) is sensible. It is at least 0.55 tiles; at radius 1.7 it is 1.15 tiles. A volley's 3 explode events land within 0.01 to 0.2 tiles of each other.",
+      "The fx clock is real time: BattleRenderer.update clamps the frame dt to 0 to 0.1 s and calls fx.update(d). The controller passes 0 while paused, and no explode events arrive while paused. dt is not scaled at 2x or 3x, so at 3x the gate covers about 0.3 sim seconds. That is right for the look, because particle lifetimes also run on real time. Explosions from one sim step land in one frame on the same clock value.",
+      "Nothing writes to the sim (render-only), so the sim id and COOP_PROTOCOL stay as they are.",
+      "Check in the browser: 1 injected explode event and 3 injected at one spot look the same (t5-single-and-generic-blast.jpg, right). The coalescing works."
+    ]
+  },
+  "look": {
+    "setup": "844x390, swiftshader, quality high, battle 1-1 normal, Iroha 2-0-5 via ui.act.upgrade, default camera. The target plus 5 extra slime_green on its spot (hpMul 50, speedMul 0.05), with hp held full. The sim logged 3 explode events per volley at one time and spot (radius 1.7), one volley every 0.8 s. I took 10 random frames and 6 random zoomed frames as in round 2, then 8 default and 8 zoomed frames each taken on the frame an explode event fired.",
+    "white_disc_gone": false,
+    "random_frames": "Default camera: 0 of 10 show the disc; the one hit caught is a lilac ring with the slimes visible. Zoomed: 0 of 6 (no hit caught). Round 2 had 1 of 10 and 3 of 6.",
+    "impact_frames": "Default camera: 3 of 8 still show an opaque white-lilac disc of about 60x45 px that washes out the clump (t5-clump-844-impact-frames.jpg; frame 1 is fine, frames 2 to 4 are not). Zoomed: 2 impacts caught, both fine (ring, shards and slime visible).",
+    "single_bolt": "A T5 volley on a single slime still reads as a clear hit, but it also shows the same white disc in 1 of 2 impact frames (t5-single-and-generic-blast.jpg, left). So the disc no longer needs a clump.",
+    "other_splash_tower": "Akane (blast), single target: a proper warm explosion with a ring and puffs on each hit, sized to her radius, and the slime stays visible (akane-single-blast.jpg). No regression."
+  },
+  "findings": [
+    {
+      "severity": "MEDIUM",
+      "title": "The white disc is shorter-lived but still covers the targets on a T5 impact frame, even on a single target",
+      "detail": "16e78a37 removes the stacked generic glows: 3 explosions now draw 1 full blast. The bloom that is left lasts about one frame, about 0.1 to 0.15 s, but in roughly 3 of 8 impact frames it is still an opaque disc over the targets at the default camera. It is rarer in random sampling than in round 2 (0 of 16 against 4 of 16).",
+      "cause": "The generic blast on its own (radius 1.7, injected with no tower) is a warm orange glow of about 40x30 px and is not white. The white comes from Iroha's own same-moment layers drawn on top of it. onImpact runs once per bolt, so 3 times per volley. Each run adds an additive ringSoft ripple at 0.55, up to 2 white stars at alpha 1 (tier 4 and up) and sparks. Then come the kaleidoscope flare (a lilac flash at 0.5, a dashed ring at 0.8 and 6 alpha-1 glints), the capped silver flash, and the one full fx.explosion glow (#ffd08a, a0 1, 2.7 to 3.7 tiles).",
+      "suggested_fix": "Display only. Gate Iroha's per-impact ripple and white stars with the same once-per-spot-per-0.1 s budget as flashFree, so a volley draws them once. Or pass a flag so the explode for a styled splash bolt that draws its own impact skips or halves the generic glow (a0 of about 0.5)."
+    },
+    {
+      "severity": "LOW",
+      "title": "Distinct blasts that coincide are merged",
+      "detail": "_exRepeat cannot tell one tower's volley from a different blast. A volatile enemy's red death blast, or another girl's shell, landing within about 1 tile and 0.1 s of a tower blast draws only a faint ring, so its own glow is lost. This is rare and only cosmetic. Exempt volatile blasts, or key the gate on the source as well."
+    }
+  ],
+  "evidence": ["t5-clump-844-impact-frames.jpg", "t5-single-and-generic-blast.jpg", "akane-single-blast.jpg"]
+}
