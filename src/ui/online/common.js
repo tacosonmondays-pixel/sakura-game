@@ -1,6 +1,10 @@
 // Shared bits of the online UI: sign-in + name prompt, the status pill, avatars, error toasts.
 import '../styles/online.css';
+// [ui-v2 M8] the Ink & Paper look of the online menus (every rule under body.ui-day: the co-op HUD keeps its look)
+import '../styles/social.css';
+import '../styles/v2-online.css';
 import { h, svgEl, modal, toast, button } from '../components.js';
+import { dot } from '../badges.js';
 import { store } from '../../core/store.js';
 import { getBackend } from '../../online/backend.js';
 import { readIdentity, writeIdentity, profileCard, hasOnlineAccount } from '../../online/identity.js';
@@ -173,14 +177,39 @@ export function onlinePill() {
 export function localNotice(where) {
   const backend = getBackend();
   if (backend.status.mode !== 'local') return null;
+  // [ui-v2 M8] said once per screen: the top bar's status pill already says "offline" / "Local test mode", so on a
+  // menu this line says only what that means here (the lobby's chat drawer, with no pill, keeps the reason)
   const why = backend.offline ? 'Online features are offline' : 'Local test mode';
   const what = {
     chat: 'messages only reach other tabs of this browser.',
     clan: 'clans live in this browser and only its other tabs can join.',
     coop: 'rooms only connect tabs of this browser.',
   }[where] || 'only other tabs of this browser take part.';
-  return h('div.ol-local-note', { 'data-testid': 'local-note', title: 'Configure Supabase to go online for real (docs/ONLINE.md).' },
-    h('i.ol-pill-dot'), h('span', h('b', `${why}: `), what));
+  return h('div.ol-local-note', { 'data-testid': 'local-note', title: `${why}. Configure Supabase to go online for real (docs/ONLINE.md).` },
+    h('i.ol-pill-dot'), h('span.ol-local-txt', h('b.ol-local-why', `${why}: `), h('span.ol-local-what', what)));
+}
+
+/**
+ * [ui-v2 M8] The kit's folder tabs (ink.css .ui-tabs, S4) for the online screens: buttons with the old test ids
+ * (`tab-<id>` unless an item names its `testid`), role tab, a red dot for `badge` (tabs carry a dot, never a count,
+ * P7). Returns the strip with .setActive(id), like components.js tabs().
+ * @param {{ id: string, label: string, badge?: boolean, testid?: string }[]} items
+ */
+export function folderTabs(items, activeId, onChange, { cls = '', label = 'Sections', extra = null } = {}) {
+  const el = h(`nav.ui-tabs.ol-ftabs${cls ? `.${cls}` : ''}`, { role: 'tablist', 'aria-label': label });
+  const render = (active) => {
+    el.replaceChildren(...items.map((it) => h(`button.ui-tab${it.id === active ? '.on' : ''}`, {
+      type: 'button', role: 'tab', 'aria-selected': it.id === active ? 'true' : 'false', 'data-testid': it.testid || `tab-${it.id}`,
+      onclick: () => {
+        render(it.id);
+        onChange(it.id);
+      },
+    }, h('span.hit', { 'aria-hidden': 'true' }), h('span.mark', { 'aria-hidden': 'true' }), h('span.ol-ftab-l', it.label),
+    it.badge ? dot('claim', { cls: 'tab-badge' }) : null)), ...(extra ? [extra] : []));
+  };
+  render(activeId);
+  el.setActive = render;
+  return el;
 }
 
 const avatarCache = new Map();

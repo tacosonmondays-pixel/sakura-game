@@ -19,9 +19,9 @@ import {
 // (re-reviewed for the six returning towers' 90 tiers, roster wave: their gather, flyer bonus and
 // familiar / mirror reach tags read Enemies / Her / Her)
 const COMBOS = {
-  self: 217, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi; +11: Tenka; -1: Kage's Blade Cyclone)
+  self: 231, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi; +11: Tenka; +14: Kohaku & Tsubaki; -1: Kage's Blade Cyclone)
   'enemies* + self': 35,
-  'enemies + self': 51, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41)
+  'enemies + self': 52, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41; +1: the duo's Thousand Star Bombardment stun)
   allies: 58, // (+12: Wakaba, +1: Yuzuha, +15: Ouka)
   enemies: 32, // (+4: Tenka; -1: the v0.1.41 Marumi / Kaede reworks)
   coins: 8,
@@ -61,7 +61,7 @@ describe('every tier of every girl is classified', () => {
   it('covers the whole roster (3 paths × 5 tiers each; heroes: one 25-level track, no paths)', () => {
     expect(UNITS.length).toBeGreaterThanOrEqual(19);
     const heroes = UNITS.filter((u) => u.kind === 'hero');
-    expect(heroes.map((u) => u.id).sort()).toEqual(['hikari', 'kanna', 'luna', 'nami', 'seiran', 'yoriko']);
+    expect(heroes.map((u) => u.id).sort()).toEqual(['hikari', 'kanna', 'kogane', 'luna', 'nami', 'norika', 'seiran', 'yoriko']);
     for (const u of heroes) {
       expect(u.paths, u.id).toEqual([]);
       expect(u.hero.levels.map((l) => l.level), u.id).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));

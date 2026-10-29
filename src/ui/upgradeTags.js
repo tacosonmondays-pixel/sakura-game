@@ -73,6 +73,10 @@ export const MOD_TAGS = {
   blade: 'self',
   // the attack shapes S1 (src/sim/wheels.js): Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's fireflies
   wheel: 'self', spin: 'self', halo: 'self',
+  // the duo: Kohaku's beam and the prism's shards are her attack (DUO_LR §1)
+  duo: 'self',
+  // the staff heroes (BANNERS §D): Kogane's faster Move is hers; Norika's barricades hold the enemies
+  moveCd: 'self', barricade: 'enemies',
 };
 
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
@@ -103,6 +107,9 @@ const SUB_KEYS = {
   wheel: new Set(['spokes', 'lead', 'mul']),
   spin: new Set(['arms', 'mul', 'fold', 'turn', 'lock']),
   halo: new Set(['pieces', 'reach', 'mul']),
+  duo: new Set(['beamDmg', 'beamRate', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'beamAir', 'beamMul', 'rampPer', 'rampMax', 'beamSilence',
+    'every', 'shards', 'shardAdd', 'shardShare', 'shardDmg', 'shardSplash', 'shardSlow', 'slowTime', 'shardShred', 'shardVuln', 'vulnTime', 'fullEvery']),
+  barricade: new Set(['count', 'budget', 'budgetMul', 'rebuild', 'rebuildCut', 'held', 'reveal', 'bounce', 'breakSlow', 'releaseSlow', 'miniHalf', 'detour', 'oneWay', 'lineAdd']),
   blade: new Set(['every', 'radius', 'share', 'targets', 'crescents', 'cLen', 'cWidth', 'cShare', 'cTargets', 'storm', 'sShare', 'sTargets', 'wave', 'wWidth', 'wShare', 'wTargets', 'maple', 'mShare', 'mTargets', 'shareMul']),
 };
 
@@ -266,7 +273,8 @@ export function ultTags(ult) {
   const tag = (id) => (by[id] ||= { id, keys: [] });
   for (const [k, v] of Object.entries(e)) {
     if (!present(v)) continue;
-    if (k === 'damage' || k === 'slow' || k === 'pushback' || k === 'status') {
+    // (budget / held: Hold the Line's barricades and the extra damage held enemies take; push: Kogane's plow)
+    if (k === 'damage' || k === 'slow' || k === 'pushback' || k === 'status' || k === 'budget' || k === 'held' || k === 'push') {
       const t = tag('enemies');
       t.keys.push(k);
       if (k === 'status' && Array.isArray(v) && v.some((s) => TEAM_STATUS.has(s.type))) t.team = true;

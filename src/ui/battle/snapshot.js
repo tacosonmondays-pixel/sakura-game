@@ -45,6 +45,15 @@
 // Wells and Last Line zones end at every wave clear (nothing to save). A save without these fields restores
 // her tiers with no lab team and fresh timers.
 //
+// The duo (src/sim/duo.js; additive): her Refraction counter, her volley count and Kohaku's beam tick timer (`du`).
+// A save without it restores her with fresh counters.
+//
+// The staff heroes (BANNERS §D.6; additive): Norika's own barricades, their spots, budgets and rebuild timers (`br`;
+// at a calm point they all stand at full budget, since the wave clear refills them). Her Hold the Line barricades and
+// One-Way Street's count end at every wave clear, and Kogane's Overdrive ends with the wave, so a calm point holds
+// none of them; Kogane's Move cooldown is the hero's `mc` (her shorter `moveCd` recharge is data). A save without
+// `br` restores Norika's barricades at the spots her restored range picks.
+//
 // This file lives outside the co-op compatibility graph (tools/simId.mjs) on purpose. It reads
 // and writes a short, documented list of Sim fields; KNOWN_SIM_KEYS / KNOWN_TOWER_KEYS classify
 // every field the Sim has, and tests/battle-ui/snapshot.test.js fails when a new one appears that
@@ -52,7 +61,7 @@
 import { Sim } from '../../sim/Sim.js';
 import { gainHeroXp, xpToReach } from '../../sim/hero.js';
 import { restoreDrone, recomputeBuffs } from '../../sim/towers.js';
-import { FLIGHT_MODES } from '../../sim/constants.js';
+import { FLIGHT_MODES, PRISM_BEAM_TICK } from '../../sim/constants.js';
 import { POP_BUDGET_MAX } from '../../sim/gearRules.js';
 import { BATTLE } from '../../data/types.js';
 import { createRng, hashString } from '../../core/rng.js';
@@ -62,6 +71,7 @@ import { SNAP_V, SNAP_V_P1, RECORD_V } from '../../systems/battleSave.js';
 import { eventBattleStage } from '../../data/events/wire.js';
 import { modeId } from '../../data/modes.js';
 import { LAB_CLASSES, emptyLab } from '../../sim/lab.js';
+import { barricadeMax } from '../../sim/barricades.js';
 
 /**
  * Leak groups a snapshot keeps (the most recent ones): stats.leakLog is stored grouped by
@@ -168,6 +178,8 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   // created lazily and never deleted: after her sale they stay [] / 0, where a restore has none, which
   // runs the same.)
   zones: 'calm', _nearExitOn: 'derived',
+  // Norika's barricades (src/sim/barricades.js): how many heroes have them follows the restored hero
+  _blockOn: 'derived',
 });
 
 /** Every own field of a placed girl (TowerRT), classified like KNOWN_SIM_KEYS. */
@@ -231,6 +243,14 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // at every wave clear, so a calm point's labAtk is exactly what the restore builds). Her well and Last
   // Line timers count wave time only, so they run on across calm points and travel (`zc`).
   lab: 'snap', labAtk: 'derived', wellCd: 'snap', lastLineCd: 'snap',
+  // the duo (src/sim/duo.js): her Refraction counter, her volley count (Potential's full split) and Kohaku's beam
+  // tick timer travel (`du`); the beam's spec and its damage tick follow her stats and buffs (refreshEffective);
+  // her constant beams' holds (enemy and time held) have no enemy to hold at a calm point (a beam that held the
+  // last one lets go on its next tick, exactly as a fresh one)
+  prismN: 'snap', duoVolley: 'snap', duoCd: 'snap', beamSpec: 'derived', beamTickSpec: 'derived', prismBeams: 'calm',
+  // the staff heroes (BANNERS §D.6): Norika's own barricades travel (`br`); Hold the Line and One-Way Street's
+  // count end at the wave clear; Kogane's Overdrive ends with the wave
+  bars: 'snap', lines: 'calm', oneWayN: 'calm', overdriveLeft: 'calm',
 });
 
 /**
@@ -347,6 +367,10 @@ function packTower(sim, t) {
   if (lab && !t.isHero) o.lb = [lab.rounds, LAB_CLASSES.map((k) => lab.members[k]), LAB_CLASSES.map((k) => lab.coins[k]), lab.income, lab.uids.slice(), (lab.interest || []).slice()];
   // Tenka's well and Last Line timers (wave-time ticks; -1: she has none yet)
   if (t.wellCd != null || t.lastLineCd != null) o.zc = [t.wellCd ?? -1, t.lastLineCd ?? -1];
+  // the duo: shells since the last split, volleys since the last full split, Kohaku's beam timer (ticks)
+  if (t.prismN != null || t.duoVolley != null || t.duoCd != null) o.du = [t.prismN ?? -1, t.duoVolley ?? -1, t.duoCd ?? -1];
+  // Norika's barricades: uid, spot, budget left (drain units), ticks to rebuild
+  if (t.bars?.length) o.br = t.bars.map((b) => [b.uid, b.x, b.y, b.hp, b.down]);
   return o;
 }
 
@@ -553,6 +577,14 @@ export function restoreSim(rec, profile = null) {
       if (t.stats.well && Number.isFinite(o.zc[0]) && o.zc[0] >= 0) t.wellCd = whole(o.zc[0]);
       if (t.stats.lastLine && Number.isFinite(o.zc[1]) && o.zc[1] >= 0) t.lastLineCd = whole(o.zc[1]);
     }
+    // the duo's counters, only on a girl whose stats carry the duo block (a whole number each; -1: none yet)
+    if (Array.isArray(o.du) && t.stats.duo) {
+      const whole = (v) => Math.max(0, Math.floor(r(v)));
+      if (o.du[0] >= 0) t.prismN = Math.min(whole(o.du[0]), Math.max(0, t.stats.duo.every - 1));
+      if (o.du[1] >= 0) t.duoVolley = Math.min(whole(o.du[1]), Math.max(0, t.stats.duo.fullEvery - 1));
+      // (a save from the flash beam's days can hold a whole flash interval: her constant beam ticks every PRISM_BEAM_TICK)
+      if (o.du[2] >= 0) t.duoCd = Math.min(whole(o.du[2]), PRISM_BEAM_TICK);
+    }
     if (o.tm) sim.setTargetMode(t.uid, o.tm);
     if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);
     // Ouka's banners, oldest first (setAim keeps at most her count)
@@ -637,6 +669,16 @@ export function restoreSim(rec, profile = null) {
     }
     if (Number.isInteger(o.sc) && o.sc > 0) t.stripCursor = o.sc;
     if (Number.isInteger(o.rg) && o.rg > 0 && o.rg < 16) t.ringTurn = o.rg;
+    // Norika's barricades, at most her count, each held to her full budget (an older save: fresh spots on the first step)
+    if (Array.isArray(o.br) && t.bars && t.stats.barricade) {
+      const max = barricadeMax(sim, t.stats.barricade);
+      const whole = (v) => Math.max(0, Math.floor(r(v)));
+      for (const b of o.br.slice(0, t.stats.barricade.count)) {
+        if (!Array.isArray(b) || !Number.isInteger(b[0]) || !Number.isFinite(b[1]) || !Number.isFinite(b[2])) continue;
+        const down = Math.min(whole(b[4]), 600);
+        t.bars.push({ uid: b[0], x: b[1], y: b[2], hp: down > 0 ? 0 : Math.max(1, Math.min(max, whole(b[3]))), max, down });
+      }
+    }
     if (Array.isArray(o.nt) && t.nets) {
       for (const n of o.nt.slice(0, t.stats.sentry?.nets ?? 0)) t.nets.push({ x: r(n[0]), y: r(n[1]), left: r(n[2]), wave: Math.floor(r(n[3])) });
     }

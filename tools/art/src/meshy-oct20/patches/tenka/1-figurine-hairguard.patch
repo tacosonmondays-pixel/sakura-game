@@ -1,0 +1,61 @@
+diff --git a/src/models/figurine.js b/src/models/figurine.js
+index 439db48..926d5d0 100644
+--- a/src/models/figurine.js
++++ b/src/models/figurine.js
+@@ -129,6 +129,7 @@ uniform vec3 figSkinHi;
+ uniform vec3 figSkinLo;
+ uniform vec3 figLash;
+ uniform float figEyeRough;
++uniform vec4 figGuard; // per-figure hair guard: hue min, hue max (0..1), sat min, value min (linear RGB); x > y = none
+ varying vec3 vFigPos;
+ float figEyeM = 0.0;
+ float figSeg( vec2 p, vec2 a, vec2 b ) {
+@@ -160,6 +161,16 @@ void figEye( inout vec3 col, vec2 l, float dz, float aa ) {
+   col = mix( col, lid, m );
+   figEyeM = max( figEyeM, m );
+ }
++vec3 figHsv( vec3 c ) {
++  float mx = max( c.r, max( c.g, c.b ) ), mn = min( c.r, min( c.g, c.b ) ), d = mx - mn;
++  float h = 0.0;
++  if ( d > 1e-5 ) {
++    if ( mx == c.r ) h = mod( ( c.g - c.b ) / d, 6.0 );
++    else if ( mx == c.g ) h = ( c.b - c.r ) / d + 2.0;
++    else h = ( c.r - c.g ) / d + 4.0;
++  }
++  return vec3( h / 6.0, mx > 1e-5 ? d / mx : 0.0, mx );
++}
+ void figCloseEyes( inout vec3 col, vec3 tex ) {
+   // eye-local coordinates and their screen derivatives first, in uniform control flow
+   vec3 d0 = vFigPos - figEyeC[ 0 ];
+@@ -169,8 +180,11 @@ void figCloseEyes( inout vec3 col, vec3 tex ) {
+   float aa0 = max( length( fwidth( l0 ) ) * 0.7, 0.01 );
+   float aa1 = max( length( fwidth( l1 ) ) * 0.7, 0.01 );
+   if ( figEyeMode < 0.5 ) return;
+-  // bangs and other hair-pink texels stay as painted
+-  if ( tex.r - tex.g > 0.35 && tex.b > tex.g ) return;
++  if ( figGuard.x <= figGuard.y ) {
++    // her own hair colour (asset.extras.eyes.hairGuard): bangs crossing the eye stay as painted
++    vec3 hsv = figHsv( tex );
++    if ( hsv.x >= figGuard.x && hsv.x <= figGuard.y && hsv.y >= figGuard.z && hsv.z >= figGuard.w ) return;
++  } else if ( tex.r - tex.g > 0.35 && tex.b > tex.g ) return; // default: Hikari's hair-pink bangs stay as painted
+   figEye( col, l0, d0.z, aa0 );
+   figEye( col, l1, d1.z, aa1 );
+ }
+@@ -233,7 +247,7 @@ const eyeCache = new WeakMap();
+ /**
+  * Uniforms of a figure's painted eyes, from the GLB's asset.extras.eyes (written by
+  * tools/meshy/lib/eyes.py, in the mesh's position-attribute space):
+- * { centers: [[x, y, z] x2], radii: [[rx, ry] x2], depth, skin, skinLow, lash, roughness }.
++ * { centers: [[x, y, z] x2], radii: [[rx, ry] x2], depth, skin, skinLow, lash, roughness, hairGuard? }.
+  * Shared by every eye-mode material of the asset.
+  */
+ export function eyeUniforms(eyes) {
+@@ -248,6 +262,8 @@ export function eyeUniforms(eyes) {
+     figSkinLo: { value: color(eyes.skinLow || eyes.skin, '#fcdac9') },
+     figLash: { value: color(eyes.lash, '#2b1d24') },
+     figEyeRough: { value: eyes.roughness ?? 0.6 },
++    // hairGuard: { hue: [deg, deg], sat, val } in linear RGB (tools/meshy/lib/eyes.py); none = the pink rule
++    figGuard: { value: eyes.hairGuard ? new THREE.Vector4(eyes.hairGuard.hue[0] / 360, eyes.hairGuard.hue[1] / 360, eyes.hairGuard.sat, eyes.hairGuard.val ?? 0) : new THREE.Vector4(1, 0, 0, 0) },
+   };
+   eyeCache.set(eyes, u);
+   return u;

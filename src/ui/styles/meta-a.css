@@ -61,44 +61,9 @@
 .ma-empty-state { text-align: center; padding: 26px 12px; color: var(--muted); }
 .ma-empty-state .svg-icon { width: 40px; height: 40px; color: #aac4e6; margin-bottom: 6px; }
 
-/* ------------------------------------------------------------------ stage prep */
-.ma-prep { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 14px; max-width: 1200px; margin: 0 auto; }
-.ma-prep-col { min-width: 0; }
-@media (max-width: 699px) { .ma-prep { grid-template-columns: minmax(0, 1fr); } }
-/* Landscape phones and up: both columns scroll on their own; the Start bar stays pinned in the right one. */
-@media (min-width: 700px) {
-  .ma-stage-screen .screen-body { overflow: hidden; display: flex; flex-direction: column; padding-bottom: 8px; }
-  .ma-prep { flex: 1; min-height: 0; width: 100%; }
-  .ma-prep-col { overflow-y: auto; min-height: 0; padding: 3px 4px 4px 3px; overscroll-behavior: contain; }
-  .ma-prep-col.right { display: flex; flex-direction: column; }
-  .ma-prep-col.right .ma-prep-actions { margin-top: auto; }
-  /* the Start bar sits flush on the column's bottom edge: nothing scrolls visibly below it */
-  .ma-prep-col.right { padding-bottom: 0; }
-}
-@media (min-width: 700px) and (max-width: 999px) { .ma-prep { grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 10px; } }
-.ma-prep-map { position: relative; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-strong); margin-bottom: 12px; background: #8fd16a; border: 3px solid #fff; animation: ma-rise var(--ma-small) var(--ma-ease) both; }
-.ma-prep-thumb { line-height: 0; aspect-ratio: 16 / 10; max-height: 46vh; min-height: 120px; }
-.ma-prep-thumb svg { width: 100%; height: 100%; display: block; }
-.ma-prep-thumb svg { width: 100%; height: auto; display: block; }
-.ma-prep-map-top { position: absolute; left: 10px; top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
-.ma-prep-name {
-  position: absolute; left: 0; right: 130px; bottom: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-}
-@media (max-width: 560px) { .ma-prep-title { font-size: 1.05rem; } .ma-prep-name { right: 118px; } }
-.ma-prep-id, .ma-prep-title { transform: skewX(var(--skew)); font-family: var(--font-head); font-style: italic; font-weight: 900; padding: 1px 14px 1px 14px; margin-left: -4px; }
-.ma-prep-id { background: var(--yellow); color: var(--navy); font-size: 0.8rem; border-radius: 0 4px 4px 0; }
-.ma-prep-title { background: rgba(29, 78, 137, 0.9); color: #fff; font-size: 1.25rem; border-radius: 0 6px 6px 0; box-shadow: var(--shadow); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.ma-prep-medals { position: absolute; right: 8px; bottom: 8px; background: rgba(255,255,255,0.88); padding: 4px 6px; border-radius: 10px; box-shadow: var(--shadow); }
-.ma-stage-desc { font-size: 0.95rem; }
-.ma-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 6px; margin: 8px 0; }
-.ma-fact { background: var(--sky-1); border-radius: 8px; padding: 6px 8px; border: 1px solid var(--line); }
-.ma-fact-label { font-size: 0.7rem; color: var(--muted); font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
-.ma-fact-value { font-weight: 900; color: var(--navy); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ma-mechanic { display: flex; align-items: flex-start; margin: 4px 0 0; }
-
-.ma-new-mech { display: flex; flex-direction: column; gap: 6px; padding: 8px; margin-bottom: 10px; border-radius: 10px; background: linear-gradient(90deg, #fff0f4, #fff); border: 1px solid #ffd0dc; }
-.ma-new-mech > .badge-new { align-self: flex-start; }
-.ma-new-trait { display: flex; align-items: center; gap: 6px; font-size: 0.86rem; }
+/* ------------------------------------------------------------------ stage prep: the parts other screens share */
+/* (UI v2 M1: stage prep and the campaign map are drawn by v2-stage.css; the enemy chips, the drop grid, the swap grid
+   and the lock note stay here for Bounty, Total Assault, Tactical Challenge and the rewards popups) */
 .ma-trait { display: inline-flex; width: 20px; height: 20px; flex: none; }
 .ma-trait svg, .ma-trait-lg svg { width: 100%; height: 100%; }
 .ma-trait-lg { display: inline-flex; width: 34px; height: 34px; flex: none; }
@@ -121,82 +86,6 @@
 .ma-phases { padding-left: 18px; margin: 0 0 8px; font-size: 0.88rem; }
 .ma-counter-tip { display: flex; background: var(--sky-1); padding: 8px; border-radius: 8px; font-size: 0.88rem; }
 
-.ma-diffs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.ma-diff {
-  position: relative; display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto; column-gap: 6px; align-items: center; text-align: left;
-  border: 2px solid var(--line); background: #fff; border-radius: 10px; padding: 7px 8px; min-height: 58px;
-  transition: transform var(--ma-press) var(--ma-ease), border-color var(--ma-small), box-shadow var(--ma-small), background var(--ma-small);
-}
-.ma-diff:active { transform: scale(0.97); }
-.ma-diff-medal { grid-row: span 2; width: 34px; height: 34px; }
-.ma-diff-name { font-weight: 900; font-style: italic; color: var(--navy); }
-.ma-diff-sub { font-size: 0.66rem; color: var(--muted); line-height: 1.15; }
-.ma-diff-check { position: absolute; top: 4px; right: 5px; width: 16px; height: 16px; color: var(--ma-ok); display: inline-flex; }
-.ma-diff-check svg { width: 100%; height: 100%; }
-.ma-diff-gems { position: absolute; top: 4px; right: 6px; font-size: 0.66rem; font-weight: 900; color: #7b5cff; }
-.ma-diff.active { box-shadow: 0 4px 14px rgba(43,127,255,0.28); }
-.ma-diff.diff-easy.active { border-color: #cd7f32; background: #fff8f0; }
-.ma-diff.diff-normal.active { border-color: #4cc9f0; background: #f0fbff; }
-.ma-diff.diff-hard.active { border-color: #ffc300; background: #fffbea; }
-.ma-diff.diff-nightmare.active { border-color: #ff7ab6; background: #fff0f7; }
-/* [events] a difficulty still locked on an event stage (Nightmare before its medal gate): it can be picked to look */
-.ma-diff.locked .ma-diff-medal { opacity: 0.45; filter: grayscale(0.7); }
-.ma-diff.locked .ma-diff-sub { display: inline-flex; align-items: center; gap: 3px; color: #c4561a; font-weight: 800; }
-.ma-diff-lock { width: 11px; height: 11px; flex: none; display: inline-flex; }
-.ma-diff-lock svg { width: 100%; height: 100%; }
-/* [events] a difficulty with its own waves (the Golem's Nightmare): its name and what it is */
-.ma-variant { display: grid; gap: 2px; margin: 0 0 8px; padding: 7px 10px; border-radius: 8px; background: #241a46; color: #f3eaff; font-size: 0.8rem; line-height: 1.3; }
-.ma-variant b { color: #ffb347; font-style: italic; }
-
-.ma-counter-summary { font-size: 0.85rem; margin-bottom: 8px; color: var(--muted); }
-.ma-counter-summary b { color: var(--navy); font-size: 1rem; }
-.ma-counters { display: flex; flex-direction: column; gap: 8px; }
-.ma-counter { border-radius: 10px; padding: 8px; border: 1px solid var(--line); background: #fff; border-left-width: 5px; }
-.ma-counter.ok { border-left-color: var(--ma-ok); }
-.ma-counter.warn { border-left-color: var(--ma-warn); }
-.ma-counter.bad { border-left-color: var(--ma-bad); background: #fff7f8; }
-.ma-counter-head { display: flex; align-items: center; gap: 8px; }
-.ma-cap-icon { width: 30px; height: 30px; flex: none; display: inline-flex; }
-.ma-cap-icon svg { width: 100%; height: 100%; }
-.ma-counter-text { flex: 1; min-width: 0; font-size: 0.9rem; }
-.ma-counter-text .muted { font-size: 0.75rem; }
-.ma-status { font-size: 0.68rem; font-weight: 900; padding: 2px 8px; border-radius: 999px; white-space: nowrap; color: #fff; }
-.ma-status.ok { background: var(--ma-ok); }
-.ma-status.warn { background: var(--ma-warn); }
-.ma-status.bad { background: var(--ma-bad); }
-.ma-counter-units { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.ma-cu { display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; }
-.ma-cu .unit-card-square { width: 64px; }
-.ma-cu .unit-card-name { font-size: 0.7rem; padding: 10px 4px 2px; }
-.ma-cu .btn-small { min-height: 28px; padding: 4px 10px; font-size: 0.75rem; }
-.ma-cu-tag { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); background: #7b5cff; color: #fff; font-size: 0.55rem; font-weight: 900; padding: 1px 5px; border-radius: 999px; white-space: nowrap; z-index: 1; }
-.ma-cu-in { font-size: 0.72rem; font-weight: 900; color: var(--ma-ok); display: inline-flex; align-items: center; min-height: 28px; }
-.ma-counter-missing { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.82rem; }
-.ma-cand { cursor: pointer; }
-
-.ma-formation-strip { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; }
-@media (max-width: 560px) { .ma-formation-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
-.ma-fslot { position: relative; aspect-ratio: 1; }
-.ma-fslot .unit-card-square { width: 100%; height: 100%; }
-.ma-fslot .unit-card-name { font-size: 0.62rem; line-height: 1.4; padding: 14px 3px 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ma-fslot .unit-card-level, .ma-fslot .unit-card-rarity { font-size: 0.62rem; line-height: 1.4; }
-/* these cards are too narrow for rarity and level side by side ("SSR" ran into "Lv.30"): the level
-   sits on the name strip's dark, at the right. On phones they are ~38px, too small for three rows:
-   the rarity shows as the card's colour strip (a UR's rainbow ring) and the level goes back up top.
-   The rows are spaced by explicit line boxes (1.4em, at least the text's own height in the game
-   font and its fallbacks), not by the font's "normal" line height: with the web font loaded, the
-   name's text box (2px + ~1.4em) reached up into "Lv.30" at bottom: 14px on the ~58px cards of a
-   1280×720 screen. Now the name (one line) ends 15px above the card's bottom edge (19px on a UR
-   card, whose ring adds a 4px border) and the level starts at 16px (20px with the UR's margin). */
-.ma-fslot .unit-card-level { top: auto; right: 4px; bottom: 16px; }
-@media (max-height: 480px) {
-  .ma-fslot .unit-card-rarity { display: none; }
-  .ma-fslot .unit-card-level { top: 3px; bottom: auto; }
-}
-.ma-fslot.empty { border: 2px dashed #b6cbe6; background: rgba(255,255,255,0.6); border-radius: 10px; display: grid; place-items: center; color: #8aa6c8; font-weight: 800; font-size: 0.75rem; width: 100%; }
-.ma-fslot.hero .unit-card { outline: 2px solid #c77dff; outline-offset: 1px; }
-.ma-fslot-tag { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); background: #c77dff; color: #fff; font-size: 0.55rem; font-weight: 900; padding: 0 6px; border-radius: 999px; }
-.ma-formation-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; flex-wrap: wrap; }
 .ma-swap-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .ma-swap-grid .unit-card-square { width: 100%; }
 
@@ -209,129 +98,9 @@
 .ma-drop.gated { opacity: 0.5; filter: grayscale(0.6); }
 .ma-drop.gated .ma-drop-chance { color: var(--muted); font-size: 0.7rem; }
 .ma-drop-bonus { position: absolute; top: -4px; right: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--yellow-deep); color: #fff; font-weight: 900; font-size: 0.75rem; line-height: 16px; text-align: center; }
-.ma-event-note { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; margin-bottom: 8px; font-weight: 700; }
 
-.ma-fc { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; }
-@media (max-width: 560px) { .ma-fc { grid-template-columns: 1fr; } }
-.ma-fc-rewards.done { opacity: 0.45; filter: grayscale(0.7); }
-.ma-fc-medals { display: flex; gap: 6px; }
-.ma-fc-medal { display: flex; flex-direction: column; align-items: center; font-size: 0.72rem; font-weight: 900; color: #7b5cff; }
-.ma-fc-medal.done { color: var(--muted); }
-.ma-fc-medal-icon { width: 34px; height: 34px; }
-.ma-unlock-note { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-.ma-unlock-unit { display: flex; gap: 10px; align-items: center; background: linear-gradient(90deg, #fff6d6, #fff); border: 1px solid #ffe28a; border-radius: 10px; padding: 6px; font-size: 0.86rem; }
-.ma-unlock-unit .unit-card-square { width: 56px; flex: none; }
-
-.ma-prep-actions {
-  position: sticky; bottom: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: flex-end;
-  padding: 10px 12px; margin-top: 4px; background: linear-gradient(180deg, #fbfdff, #fff); border-radius: 14px;
-  box-shadow: 0 -2px 18px rgba(29,78,137,0.18); border: 1px solid #fff;
-}
-/* solid bar + a soft fade above it: content scrolling underneath is masked cleanly (no cut strip
-   of thumbnails showing through a translucent bar) */
-.ma-prep-actions::before { content: ''; position: absolute; left: 0; right: 0; top: -22px; height: 22px; pointer-events: none; background: linear-gradient(180deg, rgba(226,238,252,0), rgba(226,238,252,0.92)); }
-.ma-start-btn { min-width: 200px; min-height: 52px; font-size: 1.1rem; }
-@media (max-width: 560px) {
-  .ma-prep-actions { padding: 8px; gap: 8px; }
-  .ma-start-btn { flex: 1 1 100%; min-width: 0; }
-  .ma-sweep { flex: 1 1 100%; justify-content: center; }
-  .ma-sweep .btn { flex: 1; min-height: 38px; padding: 6px 10px; font-size: 0.85rem; }
-  .ma-sweep-lock { flex: 1 1 100%; justify-content: center; }
-}
-.ma-sweep { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.ma-sweep-lock, .ma-locked-note { display: inline-flex; align-items: center; font-size: 0.8rem; color: var(--muted); font-weight: 700; }
+.ma-locked-note { display: inline-flex; align-items: center; font-size: 0.8rem; color: var(--muted); font-weight: 700; }
 .ma-locked-note { color: var(--ma-bad); }
-
-/* ------------------------------------------------------------------ campaign */
-.ma-campaign-screen .screen-body { padding-top: 10px; }
-.ma-campaign-summary { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; max-width: 1200px; margin: 0 auto 8px; }
-.ma-cs-main { font-family: var(--font-head); font-style: italic; color: var(--navy); }
-.ma-cs-big { font-size: 1.6rem; font-weight: 900; margin-right: 4px; }
-.ma-cs-of { font-weight: 800; font-size: 0.9rem; color: var(--muted); }
-.ma-cs-medals { display: flex; gap: 8px; }
-.ma-cs-medal { display: inline-flex; align-items: center; gap: 2px; font-weight: 900; font-size: 0.85rem; color: var(--navy); background: rgba(255,255,255,0.75); border-radius: 999px; padding: 2px 8px 2px 2px; }
-.ma-cs-medal-icon { width: 22px; height: 22px; }
-.ma-chapter-tabs-host { max-width: 1200px; margin: 0 auto; }
-.ma-chapter-tabs { display: flex; gap: 12px; overflow-x: auto; padding: 4px 2px 10px; scrollbar-width: none; scroll-snap-type: x proximity; }
-.ma-chapter-tabs::-webkit-scrollbar { display: none; }
-.ma-tier-group { display: flex; flex-direction: column; gap: 4px; flex: none; }
-.ma-tier-label { font-family: var(--font-head); font-weight: 900; font-style: italic; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; padding-left: 6px; text-shadow: 0 1px 0 #fff; }
-.ma-tier-tabs { display: flex; gap: 6px; }
-.ma-chapter-tab {
-  position: relative; display: flex; align-items: center; gap: 8px; border: none; padding: 6px 12px 6px 6px; min-height: 48px; min-width: 150px;
-  background: var(--ma-glass); border-radius: 10px; box-shadow: 0 2px 8px rgba(29,78,137,0.12); text-align: left; scroll-snap-align: center;
-  border-bottom: 3px solid transparent; transition: transform var(--ma-press) var(--ma-ease), background var(--ma-small), box-shadow var(--ma-small);
-}
-.ma-chapter-tab:active { transform: scale(0.97); }
-.ma-ct-num { width: 34px; height: 34px; flex: none; display: grid; place-items: center; font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 1.15rem; color: var(--plate); background: var(--tier); border-radius: 8px; transform: skewX(var(--skew)); }
-.ma-ct-text { display: flex; flex-direction: column; min-width: 0; }
-.ma-ct-name { font-weight: 900; color: var(--navy); font-size: 0.85rem; white-space: nowrap; }
-.ma-ct-prog { font-size: var(--fs-label); color: var(--muted); font-weight: 700; }
-.ma-ct-lock, .ma-ct-medal { width: 18px; height: 18px; color: var(--muted); margin-left: auto; flex: none; }
-.ma-chapter-tab.active { background: #fff; border-bottom-color: var(--tier); box-shadow: 0 6px 16px rgba(29,78,137,0.22); }
-.ma-chapter-tab.locked .ma-ct-num { background: #aab6c6; }
-.ma-chapter-tab.locked { opacity: 0.8; }
-
-.ma-chapter-content { max-width: 1200px; margin: 0 auto; }
-.ma-chapter-banner { position: relative; display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 12px; min-height: 150px; border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-strong); margin-bottom: 14px; border: 3px solid #fff; animation: ma-rise var(--ma-small) var(--ma-ease) both; }
-.ma-cb-art { position: absolute; inset: 0; line-height: 0; }
-.ma-cb-art svg { width: 100%; height: 100%; display: block; }
-.ma-cb-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.82) 45%, rgba(255,255,255,0.15) 100%); }
-.ma-cb-text { position: relative; padding: 14px 16px; max-width: 640px; }
-.ma-cb-kicker { display: flex; gap: 8px; align-items: center; font-weight: 900; font-style: italic; color: var(--blue-deep); font-size: 0.85rem; }
-.ma-cb-name { font-style: italic; font-weight: 900; font-size: 1.8rem; margin: 2px 0 4px; color: var(--navy); }
-.ma-cb-desc { font-size: 0.9rem; margin-bottom: 6px; }
-.ma-cb-mech { display: flex; align-items: flex-start; font-size: var(--fs-label); font-weight: 700; color: var(--blue-deep); background: rgba(255,255,255,0.85); border-radius: 8px; padding: 6px 8px; }
-.ma-cb-progress { position: relative; padding: 12px 16px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-.ma-cb-count { font-family: var(--font-head); font-style: italic; font-weight: 900; color: #fff; font-size: 1.1rem; text-shadow: 0 2px 6px rgba(0,0,0,0.35); }
-.ma-cb-count b { font-size: 2.4rem; }
-.ma-cb-medals { display: flex; gap: 4px; background: rgba(255,255,255,0.9); padding: 4px 8px; border-radius: 999px; box-shadow: var(--shadow); }
-.ma-cb-medal { display: inline-flex; align-items: center; font-weight: 900; font-size: 0.8rem; gap: 1px; }
-.ma-cb-medal-icon { width: 22px; height: 22px; }
-.ma-cb-lock { position: absolute; right: 12px; top: 12px; background: var(--navy); color: #fff; font-weight: 800; font-size: 0.8rem; padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center; }
-@media (max-width: 640px) {
-  .ma-chapter-banner { grid-template-columns: 1fr; min-height: 0; }
-  .ma-cb-shade { background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.72) 70%, rgba(255,255,255,0.35) 100%); }
-  .ma-cb-name { font-size: 1.4rem; }
-  .ma-cb-desc { font-size: 0.82rem; }
-  .ma-cb-progress { flex-direction: row; align-items: center; justify-content: space-between; padding-top: 0; }
-  .ma-cb-count { color: var(--navy); text-shadow: none; }
-  .ma-cb-count b { font-size: 1.6rem; }
-}
-
-.ma-stage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
-@media (max-width: 520px) { .ma-stage-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
-.ma-stage-card {
-  position: relative; display: flex; flex-direction: column; padding: 0; border: 3px solid #fff; border-radius: 12px; overflow: hidden;
-  background: #fff; box-shadow: var(--shadow); text-align: left; animation: ma-rise var(--ma-small) var(--ma-ease) both;
-  transition: transform var(--ma-press) var(--ma-ease), box-shadow var(--ma-small);
-}
-.ma-stage-card:active { transform: scale(0.97); }
-.ma-stage-card:hover { box-shadow: var(--shadow-strong); }
-.ma-sc-thumb { line-height: 0; aspect-ratio: 16 / 10; overflow: hidden; background: #8fd16a; }
-.ma-sc-thumb svg { width: 100%; height: 100%; display: block; }
-.ma-sc-id { position: absolute; left: -4px; top: 8px; background: var(--yellow); color: var(--navy); font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: 1rem; padding: 1px 12px 1px 14px; transform: skewX(var(--skew)); border-radius: 0 4px 4px 0; box-shadow: var(--shadow); }
-.ma-stage-card.finale .ma-sc-id { background: linear-gradient(90deg, #ff9fc2, var(--pink)); color: #fff; }
-.ma-sc-next { position: absolute; right: 8px; top: 8px; background: var(--blue); color: #fff; font-weight: 900; font-style: italic; font-size: var(--fs-label); padding: 2px 10px; border-radius: 4px; transform: skewX(var(--skew)); animation: ma-dot-pulse 1.6s ease-in-out infinite; box-shadow: 0 0 0 3px rgba(255,255,255,0.8); }
-.ma-sc-top { position: relative; }
-.ma-sc-medals { position: absolute; right: 6px; bottom: 6px; background: rgba(255,255,255,0.9); padding: 2px 4px; border-radius: 999px; box-shadow: 0 2px 6px rgba(0,0,0,0.18); }
-@media (max-width: 520px) { .ma-sc-medals .ma-medal { width: 18px !important; height: 18px !important; } }
-.ma-sc-info { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
-.ma-sc-name { font-family: var(--font-head); font-weight: 900; font-style: italic; color: var(--navy); font-size: 1rem; line-height: 1.2; }
-.ma-sc-meta { display: flex; gap: 8px; align-items: center; font-size: var(--fs-label); font-weight: 800; }
-.ma-sc-tier { font-weight: 900; }
-.ma-sc-boss { background: var(--bad-text); color: #fff; padding: 0 6px; border-radius: 4px; font-size: var(--fs-label); }
-.ma-sc-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
-.ma-sc-mech { display: inline-flex; align-items: center; gap: 4px; background: #fff0f4; color: #d6336c; border: 1px solid #ffc9d9; border-radius: 999px; padding: 1px 8px 1px 2px; font-size: var(--fs-label); font-weight: 900; max-width: 100%; }
-.ma-sc-mech span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ma-sc-mech.boss { background: #fff3e6; color: #d9480f; border-color: #ffd0a8; }
-.ma-sc-unlock { display: inline-flex; align-items: center; gap: 4px; background: #fff6d6; border: 1px solid #ffe28a; color: #8a5a00; border-radius: 999px; padding: 1px 8px 1px 1px; font-size: var(--fs-label); font-weight: 900; }
-.ma-sc-unlock-art { width: 20px; height: 20px; border-radius: 50%; overflow: hidden; display: inline-flex; line-height: 0; }
-.ma-sc-unlock-art svg { width: 100%; height: 100%; }
-.ma-stage-card.next { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127,255,0.25), var(--shadow-strong); }
-.ma-sc-lock { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; background: rgba(34,56,92,0.62); color: #fff; font-weight: 900; font-size: 0.85rem; text-align: center; padding: 10px; backdrop-filter: grayscale(0.8) blur(1px); }
-.ma-sc-lock-icon { width: 30px; height: 30px; display: inline-flex; }
-.ma-sc-lock-icon svg { width: 100%; height: 100%; }
 
 /* shared entrance keyframes (lobby, hub screens) */
 @keyframes ma-petal { 0% { transform: translate3d(0, -20px, 0) rotate(0deg); opacity: 0; } 8% { opacity: 0.9; } 100% { transform: translate3d(-120px, 110vh, 0) rotate(560deg); opacity: 0; } }
@@ -339,7 +108,6 @@
 @keyframes ma-from-left { from { opacity: 0; transform: translateX(-18px); } }
 @keyframes ma-from-right { from { opacity: 0; transform: translateX(18px); } }
 @keyframes ma-from-bottom { from { opacity: 0; transform: translateY(18px); } }
-
 
 /* ------------------------------------------------------------------ lobby: its rules moved to hubs.css (UI M5d) */
 /* (the lobby's modals stay here: the secretary grid, the Notice board and the patch notes, which the title screen opens too) */
@@ -467,7 +235,7 @@
 .ma-spark-meta { display: flex; flex-direction: column; font-size: 0.8rem; }
 .ma-r-badge { display: inline-block; min-width: 34px; text-align: center; color: #fff; font-weight: 900; font-style: italic; font-size: var(--fs-label); padding: 1px 6px; border-radius: 4px; text-shadow: 0 1px 1px rgba(0,0,0,0.25); }
 .ma-hero-tag { margin-left: 6px; font-size: var(--fs-label); font-weight: 900; color: #fff; background: #c77dff; padding: 0 5px; border-radius: 4px; }
-/* the Recruit spotlight (src/data/recruitFeature.js): a yellow NEW kicker, her chip and her rates row in yellow */
+/* (the pre-banner Recruit spotlight styles; the banner system replaced it, see banners.css) */
 .ma-hero-tag.new { background: var(--yellow); color: var(--ink); }
 .ma-banner-kicker.new { background: var(--yellow); color: var(--ink); }
 .ma-feat-chip.feat { background: var(--yellow); color: var(--ink); }
@@ -818,7 +586,6 @@
 .ma-ec-info .muted { font-size: 0.7rem; }
 .ma-ec-lock { position: absolute; inset: 0 0 auto; aspect-ratio: 16 / 10; display: grid; place-items: center; color: #fff; }
 .ma-ec-lock .ma-inline-icon { width: 28px; height: 28px; }
-.ma-fact-value { white-space: normal; }
 
 /* ------------------------------------------------------------------ settings */
 .ma-settings { max-width: 860px; }
@@ -862,15 +629,8 @@
 
 /* ------------------------------------------------------------------ reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .ma-banner-rays, .ma-showcase-rays, .ma-dot, .ma-sc-next, .ma-cal-day.today, .ma-halo-ring, .ma-halo-core, .ma-gc.r-SSR .ma-gc-back, .ma-env, .ma-env-glow { animation: none !important; }
-  .panel, .ma-tile, .ma-stage-card, .ma-offer, .ma-mission, .ma-arena, .ma-boss-card { animation-duration: 1ms !important; }
-}
-
-/* [integration] narrow phones: keep fact values like "Spectral · 3" on one line */
-@media (max-width: 440px) {
-  .ma-fact { padding: 5px 6px; }
-  .ma-fact-value { font-size: 0.9rem; }
-  .ma-fact-value .ma-inline-icon { width: 16px; height: 16px; }
+  .ma-banner-rays, .ma-showcase-rays, .ma-dot, .ma-cal-day.today, .ma-halo-ring, .ma-halo-core, .ma-gc.r-SSR .ma-gc-back, .ma-env, .ma-env-glow { animation: none !important; }
+  .panel, .ma-tile, .ma-offer, .ma-mission, .ma-arena, .ma-boss-card { animation-duration: 1ms !important; }
 }
 
 /* ------------------------------------------------------------------ missions hub (V2) */
@@ -1002,44 +762,11 @@
   .ma-loc-detail-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* ------------------------------------------------------------------ V2 polish: campaign / assault / challenge in the panel language */
-.ma-chapter-tab { background: rgba(255,255,255,0.9); border: 1px solid #fff; border-bottom-width: 3px; }
-.ma-chapter-tab.active { background: #fff; }
-.ma-chapter-banner { border: 2px solid #fff; border-radius: var(--radius); }
-.ma-stage-card { border-width: 2px; border-radius: var(--radius); }
-.ma-sc-id { border-radius: 0 4px 4px 0; }
+/* ------------------------------------------------------------------ V2 polish: assault / challenge in the panel language (the campaign: v2-stage.css) */
 .ma-boss-card { border-width: 2px; }
-/* chapter rows fit on one line on wide screens (5 stages per chapter) */
-@media (min-width: 800px) { .ma-stage-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; } }
-@media (min-width: 1100px) { .ma-stage-grid { gap: 14px; } }
-/* landscape phones: compact banner, summary + tabs on one rhythm, 5 cards in view */
+
+/* landscape phones */
 @media (max-height: 480px) {
-  .ma-campaign-summary { margin-bottom: 4px; }
-  .ma-cs-big { font-size: 1.3rem; }
-  .ma-cs-of { font-size: 0.8rem; }
-  .ma-cs-medal { font-size: 0.78rem; }
-  .ma-cs-medal-icon { width: 18px; height: 18px; }
-  .ma-chapter-tabs { gap: 10px; padding: 2px 2px 8px; }
-  .ma-chapter-tab { min-height: 40px; min-width: 128px; padding: 3px 10px 3px 4px; gap: 6px; }
-  .ma-ct-num { width: 28px; height: 28px; font-size: 0.95rem; }
-  .ma-ct-name { font-size: 0.78rem; }
-  .ma-ct-prog { font-size: var(--fs-label); }
-  .ma-chapter-banner { min-height: 0; margin-bottom: 10px; grid-template-columns: 1fr auto; }
-  .ma-cb-text { padding: 8px 12px; }
-  .ma-cb-kicker { font-size: 0.76rem; }
-  .ma-cb-name { font-size: 1.35rem; margin: 0 0 2px; }
-  .ma-cb-desc { display: none; }
-  .ma-cb-mech { font-size: var(--fs-label); padding: 4px 8px; }
-  .ma-cb-progress { padding: 8px 12px; gap: 4px; }
-  .ma-cb-count { font-size: 0.9rem; }
-  .ma-cb-count b { font-size: 1.6rem; }
-  .ma-cb-medal-icon { width: 18px; height: 18px; }
-  .ma-stage-grid { gap: 8px; }
-  .ma-sc-info { padding: 6px 8px 8px; gap: 2px; }
-  .ma-sc-name { font-size: 0.86rem; }
-  .ma-sc-id { font-size: 0.82rem; padding: 0 10px 0 12px; }
-  .ma-sc-meta { font-size: var(--fs-label); }
-  .ma-sc-mech, .ma-sc-unlock { font-size: var(--fs-label); }
   /* total assault: keep the two-column layout and shorter boss cards */
   .ma-boss-cards { gap: 8px; margin-bottom: 10px; }
   .ma-boss-card { min-height: 70px; }
@@ -1071,30 +798,6 @@
 @keyframes ma-highlight { 20% { background: #fff6d6; } }
 
 /* ------------------------------------------------------------------ landscape phones (844×390): meta-b polish pass */
-/* Stage prep: compact facts and a one-row difficulty picker; the map thumb keeps a capped height. */
-@media (min-width: 700px) and (max-height: 480px) {
-  .ma-prep-map { margin-bottom: 8px; border-width: 2px; }
-  .ma-prep-thumb { max-height: 42vh; }
-  .ma-prep-title { font-size: 1.05rem; }
-  .ma-prep-medals { padding: 3px 5px; }
-  .ma-prep-medals .ma-medal { width: 22px !important; height: 22px !important; }
-  .ma-stage-desc { font-size: 0.86rem; margin-bottom: 4px; }
-  .ma-facts { gap: 5px; margin: 6px 0; }
-  .ma-fact { padding: 4px 7px; }
-  .ma-fact-value { font-size: 0.9rem; }
-  .ma-diffs { gap: 6px; }
-  .ma-diff { grid-template-columns: 28px 1fr; padding: 4px 8px; min-height: 44px; column-gap: 6px; }
-  .ma-diff-medal { width: 28px; height: 28px; }
-  .ma-diff-name { font-size: 0.86rem; line-height: 1.15; }
-  .ma-diff-sub { font-size: 0.62rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 30px; }
-  .ma-diff-gems, .ma-diff-check { top: 3px; }
-  .ma-counter-units { gap: 6px; }
-  .ma-formation-strip { gap: 4px; }
-  .ma-prep-actions { padding: 8px 10px; gap: 8px; }
-  .ma-start-btn { min-width: 170px; min-height: 46px; font-size: 1rem; }
-  .ma-sweep .btn { min-height: 40px; padding: 6px 12px; font-size: 0.85rem; }
-}
-
 /* Recruit: banner beside pity/spark, pull bar visible without scrolling. */
 @media (max-height: 480px) {
   .ma-recruit { gap: 8px; }
@@ -1180,8 +883,7 @@
 /* Tap targets in the polished meta screens: chips and small buttons reach 36px+. */
 .ma-enemy { min-height: 36px; }
 .ma-balance-go { width: 36px; height: 36px; }
-.ma-recruit-screen .btn-small, .ma-mall-screen .btn-small, .ma-commissions-screen .btn-small, .ma-rewards-screen .btn-small, .ma-stage-screen .btn-small { min-height: 36px; }
-
+.ma-recruit-screen .btn-small, .ma-mall-screen .btn-small, .ma-commissions-screen .btn-small, .ma-rewards-screen .btn-small { min-height: 36px; }
 
 /* ------------------------------------------------------------------ first impressions: drawn recruit art */
 .ma-banner-bg { overflow: hidden; }
@@ -1303,7 +1005,6 @@
 /* bounty: the stand behind the location list */
 .ma-bounty .hub-stand { width: 280px; }
 @media (min-width: 1000px) and (min-height: 600px) { .ma-bounty .hub-stand { width: 430px; } }
-
 
 /* ---- Lobby Background picker ---- */
 .bgp-modal { width: min(920px, calc(100vw - 24px)); max-width: none; }
@@ -1466,13 +1167,6 @@
   .ma-banner { min-height: max(400px, calc(100vh - 222px)); }
 }
 
-/* campaign: a locked stage keeps its name and map readable; the lock is a small chip on the map */
-/* (the lock chip under the stage tag's line, on the right: on a narrow card its words would cover the tag, "4-5") */
-.ma-stage-card.locked .ma-sc-lock { inset: 36px 8px auto auto; flex-direction: row; gap: 4px; padding: 3px 10px 3px 6px; border-radius: 999px; font-size: var(--fs-label); line-height: 1.2; text-align: left; background: rgba(29,54,96,0.9); backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 2px 6px rgba(10,24,50,0.3); max-width: calc(100% - 16px); }
-.ma-stage-card.locked .ma-sc-lock-icon { width: 14px; height: 14px; flex: none; }
-.ma-stage-card.locked .ma-sc-lock > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ma-stage-card.locked .ma-sc-thumb { filter: saturate(0.55) brightness(0.96); }
-
 /* ---- mall: Recruit Exchange offers show her plain drawn bust ---- */
 .ma-offer-portrait { display: block; width: 84px; height: 84px; margin: 0 auto; padding: 0; border: 3px solid var(--rarity, #ff7ad9); border-radius: 14px; overflow: hidden; line-height: 0; background: #fff; box-shadow: 0 3px 10px rgba(29,54,96,0.2); transition: transform var(--t-press) var(--ease); }
 .ma-offer-portrait:active { transform: scale(0.96); }
@@ -1496,7 +1190,6 @@
 .bgp-groups { overscroll-behavior: contain; }
 @media (max-height: 480px) { .bgp { height: calc(100vh - 150px); max-height: none; } }
 
-
 /* events screen: the painted arena art + the event's host girl (no procedural backdrop) */
 .ma-event-art > img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; display: block; filter: saturate(1.05); }
 .ma-event-girl { position: absolute; right: 16%; top: 6%; height: 150%; width: 0; display: flex; justify-content: center; line-height: 0; pointer-events: none; filter: drop-shadow(0 8px 18px rgba(20,30,70,0.35)); }
@@ -1509,50 +1202,7 @@
 @media (max-height: 480px) and (min-width: 821px) { .ma-event-girl { right: 8%; height: 145%; } }
 
 /* ------------------------------------------------------------------ battle saves (Save & quit) */
-/* stage prep: the saved battle line, then New game (ghost) and Continue (yellow) on one row */
-.ma-saved { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 10px; border-radius: 10px; background: linear-gradient(90deg, #fff7d1, #fffdf4); border: 1px solid #ffe28a; }
-.ma-saved-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
-.ma-saved-text b { color: var(--navy); font-size: 0.86rem; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.ma-saved-seg { white-space: nowrap; }
-.ma-saved-text small { color: var(--muted); font-size: 0.72rem; font-weight: 700; }
-.ma-saved-team { display: flex; flex: none; }
-.ma-saved-face { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; line-height: 0; border: 2px solid #fff; background: var(--sky-1); box-shadow: 0 1px 4px rgba(29,78,137,0.25); }
-.ma-saved-face + .ma-saved-face { margin-left: -8px; }
-.ma-saved-face svg { width: 100%; height: 100%; }
-.ma-save-btns { flex: 1 1 100%; display: flex; gap: 8px; justify-content: flex-end; min-width: 0; }
-.ma-save-btns .ma-new-btn { flex: 0 1 auto; min-width: 0; min-height: 52px; }
-.ma-save-btns .ma-continue-btn { flex: 0 1 auto; min-width: 0; }
-.ma-save-btns .btn-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.ma-save-btns .btn-icon { flex: none; }
-/* with a Freeplay tier picked, the freeplay start sits where New game was: "FREEPLAY" over the tier */
-.ma-fp-start-text { display: inline-flex; flex-direction: column; align-items: center; min-width: 0; max-width: 100%; line-height: 1.05; }
-.ma-fp-start-text small { font-size: 0.6rem; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.75; }
-.ma-fp-start-text b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 560px) {
-  /* narrow: Continue on top, New game under it, both full width (the block leads the page here) */
-  .ma-save-btns { flex-direction: column-reverse; gap: 6px; }
-  .ma-save-btns .ma-new-btn, .ma-save-btns .ma-continue-btn { flex: none; width: 100%; }
-  .ma-save-btns .ma-new-btn { min-height: 44px; }
-  .ma-saved-team { display: none; }
-}
-/* landscape phones: one line for the save, one row of buttons (the bar stays near 110 px) */
-@media (max-height: 480px) {
-  .ma-prep-actions.has-save { gap: 6px; padding: 6px 8px; }
-  .ma-saved { padding: 3px 8px; gap: 8px; }
-  .ma-saved-text b { display: block; white-space: nowrap; text-overflow: ellipsis; font-size: 0.78rem; }
-  .ma-saved-text small { display: none; }
-  .ma-saved-face { width: 22px; height: 22px; }
-  .ma-save-btns .ma-new-btn, .ma-save-btns .ma-continue-btn { min-height: 42px; font-size: 0.86rem; padding: 6px 10px; gap: 4px; }
-  .ma-save-btns .btn-icon { width: 15px; height: 15px; }
-  .ma-save-btns .ma-new-btn { flex: 1 1 0; }
-  .ma-save-btns .ma-continue-btn { flex: 1.25 1 0; }
-  .ma-prep-actions.has-save .ma-sweep .btn { min-height: 34px; }
-}
-/* one column (portrait phones): the saved battle's choice leads the page */
-.ma-prep-actions.ma-prep-actions-top { position: relative; bottom: auto; margin: 0 0 12px; box-shadow: var(--shadow-strong); }
-.ma-prep-actions.ma-prep-actions-top::before { display: none; }
-/* difficulty picker: the card a saved battle plays */
-.ma-diff-saved { position: absolute; left: 6px; top: -8px; padding: 0 7px; border-radius: 999px; background: linear-gradient(180deg, #fff27a, #ffd21f); color: #2a3550; font-size: 0.6rem; font-weight: 900; font-style: italic; letter-spacing: 0.02em; box-shadow: 0 0 0 1.5px #fff, 0 1px 3px rgba(0,0,0,0.2); }
+/* (stage prep's saved battle line and its Continue / New game: v2-stage.css) */
 /* "Saved battles full": pick the one to delete */
 .ma-evict p { margin: 0 0 8px; }
 .ma-evict-list { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; padding: 2px; }
@@ -1569,9 +1219,6 @@
 /* map screens: "Saved · W12" on a stage card with a saved battle */
 .ma-saved-badge { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px 1px 5px; border-radius: 999px; background: linear-gradient(180deg, #fff27a, #ffd21f); color: #2a3550; font-weight: 900; font-style: italic; font-size: 0.7rem; line-height: 1.5; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,0.22), 0 0 0 1.5px #fff; }
 .ma-saved-badge-ico { width: 11px; height: 11px; flex: none; }
-/* campaign card: top-right where NEXT sits (under it when both show), clear of the medal row */
-.ma-sc-top .ma-saved-badge { position: absolute; right: 6px; top: 8px; }
-.ma-sc-top .ma-sc-next ~ .ma-saved-badge { top: 34px; }
 .ma-endless-card > .ma-saved-badge { position: absolute; left: 6px; top: 30px; }
 /* Total Assault card: a line of its own under the boss's HP (the BOSS tag stays visible) */
 .ma-boss-card-text .ma-saved-badge { align-self: flex-start; margin-top: 3px; font-size: var(--fs-label); text-shadow: none; }
@@ -1581,26 +1228,7 @@
 .ma-saved-badge-ico { display: inline-flex; line-height: 0; }
 .ma-saved-badge-ico svg { width: 100%; height: 100%; }
 
-/* ---------- Solo freeplay (stage prep): Off · Blossom · Tempest · Crimson Moon ---------- */
-.ma-fp-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; background: #e6eef8; border-radius: 10px; padding: 3px; }
-.ma-fp-btn { border: none; background: transparent; padding: 6px 12px; min-height: 34px; border-radius: 8px; font-weight: 900; font-style: italic; color: var(--muted); cursor: pointer; }
-.ma-fp-btn.on { background: #fff; color: var(--blue-deep); box-shadow: 0 2px 6px rgba(29,78,137,0.15); }
-.ma-fp-btn-blossom.on { background: linear-gradient(90deg, #7b5cff, #ff7aa8); color: #fff; }
-.ma-fp-btn-tempest.on { background: linear-gradient(90deg, #2b2d8f, #4cc9f0); color: #fff; }
-.ma-fp-btn-crimson.on { background: linear-gradient(90deg, #4a0010, #ff1f4b); color: #fff; }
-.ma-fp-info { margin: 8px 0 4px; padding: 8px 10px; border-radius: 10px; background: linear-gradient(90deg, #f6f0ff, #fff6fa); box-shadow: inset 3px 0 0 #b49cff; font-size: 0.82rem; line-height: 1.35; }
-.ma-fp-info.ma-fp-tempest { background: linear-gradient(90deg, #eef6ff, #f4fbff); box-shadow: inset 3px 0 0 #4cc9f0; }
-.ma-fp-info.ma-fp-crimson { background: linear-gradient(90deg, #fff0f2, #fff8f0); box-shadow: inset 3px 0 0 #ff1f4b; }
-.ma-fp-info p { margin: 2px 0; }
-.ma-fp-info b { color: var(--navy); font-style: italic; }
-.ma-fp-warn { font-weight: 900; color: #c9184a; }
-.ma-fp-bests { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 6px; }
-.ma-fp-best { font-weight: 900; font-style: italic; font-size: 0.78rem; color: #7b2cbf; }
-.ma-fp-best.ma-fp-tempest { color: #1d5fa8; }
-.ma-fp-best.ma-fp-crimson { color: #b0102e; }
-.ma-fp-badge { display: inline-block; font-weight: 900; font-style: italic; font-size: 0.7rem; padding: 2px 9px; border-radius: 4px; color: #fff; text-transform: uppercase; letter-spacing: 0.04em; background: linear-gradient(90deg, #7b5cff, #ff7aa8); box-shadow: 0 1px 6px rgba(255,122,168,0.45); }
-.ma-fp-badge.ma-fp-tempest { background: linear-gradient(90deg, #2b2d8f, #4cc9f0); }
-.ma-fp-badge.ma-fp-crimson { background: linear-gradient(90deg, #4a0010, #ff1f4b); }
+/* ---------- Solo freeplay: the best wave on the Tactical Challenge map cards (stage prep's Freeplay: v2-stage.css) ---------- */
 .ma-ec-fp { font-weight: 900; font-style: italic; color: #7b2cbf; }
 
 /* [ascension] Mall: shelf headers, "choose family" chips, "Needed for" tags (docs/specs/ASCENSION.md §D.5) */

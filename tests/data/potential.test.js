@@ -92,6 +92,10 @@ function kitFields(s) {
     strip: s.strip, ring: s.ring, drink: s.drink, sentry: s.sentry, hub: s.hub, vine: s.vine, ball: s.ball,
     // Kaede's blade arts (her AoE rework)
     blade: s.blade,
+    // the duo's beam and prism (src/sim/duo.js)
+    duo: s.duo,
+    // the staff heroes (BANNERS §D): Norika's barricades and skill count, Kogane's Move downtime and Overdrive
+    barricade: s.barricade, skillCount: s.skillCount, moveDowntime: s.moveDowntime, overdrive: s.overdrive,
   };
   return JSON.stringify(f);
 }
@@ -192,7 +196,7 @@ describe('Potential v3 data: keys', () => {
     for (const bad of banned) expect(modKeys(bad).every((k) => POTENTIAL_MOD_KEYS.includes(k)), JSON.stringify(bad)).toBe(false);
   });
 
-  test('one-girl keys: projScale and tempo Kage, classMul Hotaru (spectral only), bossMul Kaede', () => {
+  test('one-girl keys: projScale and tempo Kage, classMul Hotaru (spectral only), bossMul Kaede, the Move keys Kogane, skillCount Norika', () => {
     const seen = {};
     for (const [id, row] of Object.entries(POTENTIAL_GIRLS)) {
       for (const k of STEPS) {
@@ -205,7 +209,7 @@ describe('Potential v3 data: keys', () => {
         if (cm) expect(Object.keys(cm)).toEqual(['spectral']);
       }
     }
-    expect(Object.fromEntries(Object.entries(seen).map(([k, v]) => [k, [...v]]))).toEqual({ projScale: ['kage'], tempo: ['kage'], classMul: ['hotaru'], bossMul: ['kaede'] });
+    expect(Object.fromEntries(Object.entries(seen).map(([k, v]) => [k, [...v]]))).toEqual({ projScale: ['kage'], tempo: ['kage'], classMul: ['hotaru'], bossMul: ['kaede'], moveDowntime: ['kogane'], overdrive: ['kogane'], skillCount: ['norika'] });
   });
 
   // a Pinwheel Stream ('spin', src/sim/wheels.js; Kage's Blade Cyclone) is an attack like a volley: its

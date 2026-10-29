@@ -80,6 +80,7 @@ import { listBattleSaves, saveSummary, saveTitle } from '../../systems/battleSav
 import { showRewardsModal, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
+import { workbenchReady } from '../../systems/workbench.js'; // [workbench] a ready craft lights the Backpack row (its Workbench button)
 import { showNoticeModal, noticeUnread } from '../lobby/notice.js';
 import { openMenuSheet, closeMenuSheet, menuSheetOpen } from '../lobby/menuSheet.js';
 import { liveSceneFor, canWebGL2 } from '../lobby/liveSlot.js';
@@ -507,7 +508,7 @@ export function render(root) {
     const sh = openMenuSheet({
       reduced: reduceMotion(),
       opener: () => top.querySelector('[data-testid="top-menu"]'),
-      dots: { backpack: hasBox(p), journal: journalDot(p), notice: noticeUnread(), clan: clanDot() },
+      dots: { backpack: hasBox(p) || workbenchReady(p), journal: journalDot(p), notice: noticeUnread(), clan: clanDot() },
       tools: [
         { id: 'hide', label: 'Hide UI', aria: 'Hide the menus', glyph: 'eyeoff', testid: 'lobby-hide', go: () => setHidden(true) },
         { id: 'bg', label: 'Background', aria: 'Background and secretary', glyph: 'image', testid: 'lobby-bg', go: () => { openBackgroundPicker(); focusMenuAfterWindow(); } },
@@ -733,7 +734,7 @@ export function secretaryLines(profile) {
 // The top bar (floating): avatar + name + LV · tickets, coins, gems · chat, mail, menu
 // ---------------------------------------------------------------------------------------------
 
-/** A box to open in the Backpack (the menu's Backpack row wears a red dot). */
+/** A box to open in the Backpack (the menu's Backpack row wears a red dot; a ready Workbench craft lights it too). */
 function hasBox(profile) {
   return Object.values(ITEMS).some((i) => i.category === 'gearbox' && itemCount(profile, i.id) > 0);
 }
@@ -785,7 +786,7 @@ function buildTop(host, { onMenu, chat }) {
   const mail = h('button.ui-ibtn', { type: 'button', 'data-testid': 'top-mail', title: 'Mail', 'aria-label': mailCount ? `Mail, ${mailCount} unread` : 'Mail', onclick: () => openMailbox() },
     g('mail'), badge(mailCount ? h('span.ui-count', { 'data-testid': 'top-mail-count' }, formatNumber(mailCount)) : null, 'home:mail'));
   // (the menu's Clan row lights the menu's dot too, by the same rule as the Clan button: donations ready or an invite)
-  const newInside = noticeUnread() || journalDot(profile) || hasBox(profile) || clanDot();
+  const newInside = noticeUnread() || journalDot(profile) || hasBox(profile) || workbenchReady(profile) || clanDot();
   const menu = h('button.ui-ibtn', { type: 'button', 'data-testid': 'top-menu', title: 'Menu', 'aria-label': newInside ? 'Menu, something new inside' : 'Menu', 'aria-haspopup': 'dialog', onclick: onMenu },
     g('grid'), badge(newInside ? h('i.ui-dot', { 'data-testid': 'top-menu-dot' }) : null, 'home:menu'));
   const clan = HOME_CLAN === 'top' ? clanButton(h('button.ui-ibtn', { type: 'button', title: 'Clan' }), g('flag')) : null;

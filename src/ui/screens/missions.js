@@ -14,6 +14,7 @@
 // taller than a phone: hubHost.js WIDE_GRID_VW), she is a bust chip in a strip over the tiles and the tiles take the
 // whole width. Quick start is the screen's one primary (data-primary: Space on desktop). A subtitle's long or short
 // words and a small plate's padding are picked by measuring the tile (fitTiles).
+import { tryoutUnlocked, TRYOUT_UNLOCK } from '../../systems/tryoutRuns.js';
 import '../styles/meta-a.css';
 import '../styles/hubs.css';
 import { h, clear, screen, svgEl, toast } from '../components.js';
@@ -175,6 +176,8 @@ function build(redraw, mode = 'stand') {
     tile({ id: 'assault', title: 'Total Assault', art: scene('volcano'), sub: 'Bosses drop crowns', lockText: locks.assault, open: fresh.has('assault'), onClick: go('assault') }),
     // [ascension] Titan Trials, the weekly bosses (opens after 3-5)
     tile({ id: 'titans', title: 'Titan Trials', art: scene('night'), sub: 'Weekly', lockText: locks.titans, timer: nextWeeklyReset() - Date.now(), onTimer: redraw, open: fresh.has('titans'), onClick: go('titans') }),
+    // [tryout] Tryout Day, the roguelike run mode (opens after 2-5)
+    tile({ id: 'tryout', title: 'Tryout Day', art: scene('sakura'), sub: 'Run mode', lockText: tryoutUnlocked(profile) ? null : `Clear ${TRYOUT_UNLOCK}`, onClick: () => navigate('tryout') }),
     tile({ id: 'challenge', title: 'Tactical Challenge', art: scene('arena'), sub: bestWaveLine(profile), lockText: locks.challenge, open: fresh.has('challenge'), onClick: go('challenge') }),
     // [online] the Multiplayer hub (UI M5d, owner #79/#108): co-op, friends, the clan boss; PvP coming soon. The tile
     // keeps its id (hub-coop) and its place

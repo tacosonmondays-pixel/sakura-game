@@ -202,6 +202,7 @@ export function spareText(spare) {
     spare.mementos ? `+${spare.mementos} Memento${spare.mementos === 1 ? '' : 's'}` : null,
     spare.moonpearls ? `+${spare.moonpearls} Moonpearl${spare.moonpearls === 1 ? '' : 's'}` : null,
     spare.points ? `+${spare.points} point${spare.points === 1 ? '' : 's'}` : spare.fifths ? '⅕ point' : null,
+    spare.coins ? `+${spare.coins.toLocaleString('en-US')} coins` : null, // [banners] a Coin / Friendship spare
   ].filter(Boolean).join(' · ');
 }
 

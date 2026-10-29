@@ -132,7 +132,10 @@ export function createPauseMenu(ctx) {
   }
 
   async function restart() {
-    const text = saving()
+    // (a Tryout Day run cannot start over: Restart ends it, pays what it banked and goes back to the hub)
+    const text = ctx.req?.tryout && !ctx.coop
+      ? 'Give up this run? It ends here and pays what you have earned so far.'
+      : saving()
       ? 'Start this battle again from wave 1? Your saved progress in it will be deleted.'
       : 'Restart this stage from wave 1? Progress in this battle is lost.';
     if (!(await confirmDialog(text, { title: 'Restart', ok: 'Restart', danger: saving() }))) return;
