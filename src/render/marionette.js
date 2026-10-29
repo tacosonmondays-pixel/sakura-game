@@ -431,7 +431,12 @@ export class Marionette {
       if (s.uid != null) {
         const e = this.actors.enemyPos(s.uid);
         if (e) retargetMarionette(s, e.x, e.y + (e.height || 0.5) * BODY, e.z, a.home.x, a.home.y, a.home.z);
-        else {
+        else if (s.landed || (a.projUid != null && !this._needleFlying(a))) {
+          // her own needle killed it: the doll still strikes, at its last spot
+          landMarionette(s);
+          a.projUid = null;
+          s.uid = null;
+        } else {
           // gone before the strike: the enemy its needle flies on to (by the last spot), or home
           const n = this._near(s.tx, s.tz, NEXT_NEAR, s.uid);
           const ok = n && Math.hypot(n.x - a.home.x, n.z - a.home.z) <= REACH + STOP + 0.6;

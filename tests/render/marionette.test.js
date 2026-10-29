@@ -373,6 +373,21 @@ describe('rare timing slips (display polish 2)', () => {
     expect(gains.length).toBeGreaterThanOrEqual(2);
     expect(Math.max(...gains)).toBeLessThan(0.4); // was 0.31 → 0.80 in one frame
     expect(t).toBeLessThanOrEqual(0.06 + 0.1 + 1e-9); // and still within two frames of the hit
+    // adopted during Command (the live 3× case: c0.90 → e0.41 → e0.86): the shortened glide is spread too
+    const s3 = marionetteState();
+    start(s3, { eta: 0.3, early: true });
+    while (!(s3.stage === 'command' && s3.u >= 0.8)) stepMarionette(s3, DT);
+    adoptAttack(s3, 0.07);
+    let prev = 0;
+    let worst = 0;
+    for (let i = 0; i < 6 && s3.stage !== 'strike'; i++) {
+      stepMarionette(s3, 0.05);
+      const u = s3.stage === 'extend' ? s3.u : s3.stage === 'strike' ? 1 : 0;
+      worst = Math.max(worst, u - prev);
+      prev = u;
+    }
+    expect(s3.stage).toBe('strike');
+    expect(worst).toBeLessThan(0.4);
     // a mild refit is taken at once (no ramp)
     const s2 = marionetteState();
     start(s2, { eta: 0.3, early: true });
@@ -569,6 +584,26 @@ describe('the renderer side reads her needles (never writes the sim)', () => {
     for (let i = 0; i < 120; i++) m.update(a, { facing: 0 }, tower, 1 / 60, 1);
     expect(a.mar.stage).toBe('idle');
     expect(a.group.position.distanceTo(a.home)).toBeLessThan(1e-6);
+    m.dispose();
+  });
+
+  it('her own needle kills the target: the doll still strikes, at its last spot (no reel without a strike)', () => {
+    const { sim, m, a, enemies, tower } = setup();
+    m.onAttack(a, { type: 'attack', towerUid: 1, targetUid: 5 });
+    m.update(a, { facing: 0 }, tower, 1 / 60, 1);
+    const target = [a.mar.tx, a.mar.tz];
+    // the needle lands and the enemy dies on the same step
+    sim.projectiles.length = 0;
+    enemies.delete(5);
+    enemies.set(6, { x: 3.2, y: 0, z: 4.3, height: 0.5 }); // someone nearby: not taken, it was her kill
+    const stages = [];
+    for (let i = 0; i < 30; i++) {
+      m.update(a, { facing: 0 }, tower, 1 / 60, 1);
+      stages.push(a.mar.stage);
+    }
+    expect(stages).toContain('strike');
+    expect(stages.indexOf('strike')).toBeLessThan(stages.indexOf('reel'));
+    expect([a.mar.tx, a.mar.tz]).toEqual(target);
     m.dispose();
   });
 

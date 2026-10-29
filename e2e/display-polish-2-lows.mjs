@@ -24,6 +24,7 @@ const opt = (name, def) => {
 const shotsDir = opt('shots', null);
 const tag = opt('tag', 'after');
 const before = args.includes('--before');
+const only = opt('only', 'kaede,ouka,yoriko').split(',');
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
 const tmp = join(tmpdir(), `dp2-lows-${process.pid}`);
 mkdirSync(tmp, { recursive: true });
@@ -48,7 +49,7 @@ const save = await server.ssrLoadModule('/src/systems/save.js');
 const profile = save.createProfile();
 const GIRLS = ['kaede', 'ouka', 'yoriko'];
 for (const id of GIRLS) profile.units[id] = { ...save.newUnitState(), level: 40, breakthrough: 3 };
-profile.formation = { ...(profile.formation || {}), towers: GIRLS, hero: profile.formation?.hero ?? null };
+profile.formation = { ...(profile.formation || {}), towers: ['kaede', 'ouka'], hero: 'yoriko' }; // Yoriko is a hero
 profile.progress.stages['1-1'] = { easy: false, normal: true, hard: false, nightmare: false, clears: 1 };
 profile.settings = { ...profile.settings, autoStart: false, quality: 'high', camera: 'free' };
 const saveText = JSON.stringify(profile);
@@ -118,7 +119,7 @@ function place(unitId, near = 0.8, far = 1.6) {
         if (!best || off < best.off) best = { x, y, off };
       }
     }
-    if (!best) return null;
+    if (!best) return { fail: 'no spot', can: sim.canPlace(id, sim.map.width / 2, sim.map.height / 2) };
     const t = ui.act.place(id, best.x, best.y);
     ui.placement?.cancel?.();
     ui.select?.(null);
@@ -154,12 +155,14 @@ function stepUntil(fn, arg) {
 
 try {
   // ---------------------------------------------------------------------------------------------
+  if (only.includes('kaede')) {
   log('\n--- 1. Kaede: dash afterimages at 844x390 (default camera, paused + stepped by hand) ---');
   check(await openBattle(), 'battle 1-1 opens');
   await settle(800);
   const kd = await place('kaede', 0.9, 1.3);
-  check(kd != null, `Kaede placed (${JSON.stringify(kd)})`);
+  if (!check(kd?.uid != null, `Kaede placed (${JSON.stringify(kd)})`)) throw new Error("no spot for Kaede");
   await page.evaluate(() => window.__battle.renderer.resetCamera());
+  await zoomAt(kd.x, kd.y, 4); // about the zoom of the builder's phone shot
   await page.waitForFunction((u) => window.__battle.renderer.towerModel(u)?.userData.glb, kd.uid, { timeout: 90000 }).catch(() => null);
   await settle(900);
   const lunge = await stepUntil(async (u) => {
@@ -167,28 +170,29 @@ try {
     ui.paused = true;
     ui.startWave();
     const t = () => sim.getTower(u);
-    // fast-forward until she has a target that has walked to the front of her (toward the camera)
-    for (let k = 0; k < 4000 && sim.state === 'wave'; k++) {
-      sim.update(0.05);
-      sim.drainEvents();
-      const tw = t();
-      const e = tw?.targetUid != null ? sim.enemies.find((q) => q.uid === tw.targetUid) : null;
-      if (e && e.y > tw.y + 0.3 && tw.cooldown > 0.2) break;
-    }
-    renderer.update(1 / 60);
-    // now by hand, 1/60 s a step, up to her next slash
-    for (let k = 0; k < 600; k++) {
+    // the sim alone (1/60 s steps, events dropped) up to the step with her slash, then one renderer frame on it
+    let seen = 0;
+    for (let k = 0; k < 60 * 120 && sim.state === 'wave'; k++) {
       sim.update(1 / 60);
       const hit = sim.events.find((ev) => ev.type === 'attack' && ev.towerUid === u);
-      renderer.update(1 / 60);
-      if (hit) return { k, kind: hit.kind, target: hit.targetUid };
+      if (hit) {
+        seen++;
+        // skip the first one (her view catches up first), take the second
+        if (seen >= 2) {
+          renderer.update(1 / 60);
+          return { k, kind: hit.kind, target: hit.targetUid };
+        }
+      }
+      sim.drainEvents();
+      if (k % 30 === 0) renderer.update(0);
     }
-    return null;
+    const tw = t();
+    return { none: true, state: sim.state, target: tw?.targetUid, range: tw?.eff?.range, at: [tw?.x, tw?.y], en: sim.enemies.slice(0, 4).map((e) => [+e.x.toFixed(2), +e.y.toFixed(2)]) };
   }, kd.uid);
-  check(lunge != null, `a lunge found (${JSON.stringify(lunge)})`);
+  check(lunge != null && !lunge.none, `a lunge found (${JSON.stringify(lunge)})`);
   const kFiles = [];
   const kLabels = [];
-  const kBox = await boxAround(kd.x, kd.y + 0.3, 200, 170);
+  const kBox = await boxAround(kd.x, kd.y + 0.4, 260, 220);
   const offsets = [1, 3, 5, 8, 11]; // frames after the attack frame (1/60 s each)
   let at = 0;
   for (const f of offsets) {
@@ -201,23 +205,29 @@ try {
     }, f - at);
     at = f;
     await settle(120);
-    const g = await page.evaluate(() => {
-      const L = window.__battle.renderer.attackFxProbe();
-      return L ? L.stats : null;
-    });
+    const g = await page.evaluate((u) => {
+      const m = window.__battle.renderer.towerModel(u);
+      let root = m;
+      while (root?.parent) root = root.parent;
+      let n = 0;
+      root?.traverse((o) => { if (o.name === 'ghost' && o.visible) n++; });
+      return n;
+    }, kd.uid);
+    log(`    +${f} frames: ${g} ghost figure(s) shown`);
     if (f === 3) await shot(`kaede-lunge-844x390-${tag}`);
     kFiles.push(await shot(`k${f}`, kBox, tmp));
     kLabels.push(`+${(f / 60).toFixed(2)} s`);
-    void g;
   }
   strip(kFiles.filter(Boolean), `${shotsDir}/kaede-lunge-844x390-strip-${tag}.jpg`, kLabels);
+  }
 
   // ---------------------------------------------------------------------------------------------
+  if (only.includes('ouka')) {
   log('\n--- 2. Ouka: her council banner (Rally Banner) at 844x390 ---');
   check(await openBattle(), 'battle 1-1 opens again');
   await settle(800);
   const ok = await place('ouka', 1.4, 2.4);
-  check(ok != null, `Ouka placed (${JSON.stringify(ok)})`);
+  check(ok?.uid != null, `Ouka placed (${JSON.stringify(ok)})`);
   const planted = await page.evaluate((u) => {
     const { sim } = window.__battle;
     sim.cash = 1e7;
@@ -238,17 +248,20 @@ try {
   await shot(`ouka-banner-844x390-crop-${tag}`, await boxAround((bx + ok.x) / 2, (by + ok.y) / 2, 300, 190));
   await zoomAt(bx, by, 7);
   await shot(`ouka-banner-844x390-zoom-${tag}`, await boxAround(bx, by, 300, 220, 0.6));
+  }
 
   // ---------------------------------------------------------------------------------------------
+  if (only.includes('yoriko')) {
   log('\n--- 3. Yoriko: the doll at 3x, frame by frame ---');
   check(await openBattle(), 'battle 1-1 opens a third time');
   await settle(800);
-  const yo = await place('yoriko', 0.9, 1.5);
-  check(yo != null, `Yoriko placed (${JSON.stringify(yo)})`);
+  const yo = await place('yoriko', 0.6, 2.4);
+  if (!check(yo?.uid != null, `Yoriko placed (${JSON.stringify(yo)})`)) throw new Error("no spot for Yoriko");
   await page.evaluate(() => window.__battle.renderer.resetCamera());
   await page.waitForFunction(() => (window.__battle.renderer.companionsProbe()?.actors || []).some((r) => r.marionette), null, { timeout: 90000 }).catch(() => null);
   await settle(600);
-  const yBox = await boxAround(yo.x, yo.y, 220, 170, 0.5);
+  await zoomAt(yo.x, yo.y, 4);
+  const yBox = await boxAround(yo.x, yo.y + 0.3, 260, 200, 0.5);
   // 3x: the sim steps 3/60 per frame, the renderer 1/60 at timeScale 3 (as the loop does)
   const trace = await page.evaluate(async (u) => {
     const { sim, ui, renderer } = window.__battle;
@@ -258,14 +271,16 @@ try {
     for (let k = 0; k < 4000 && sim.state === 'wave'; k++) {
       sim.update(0.05);
       sim.drainEvents();
-      if (sim.getTower(u)?.targetUid != null) break;
+      const tw = sim.getTower(u);
+      const r = (tw?.eff?.range || 2) + 0.6;
+      if (sim.enemies.some((q) => !q.dead && Math.hypot(q.x - tw.x, q.y - tw.y) < r)) break;
     }
     const doll = () => (renderer.companionsProbe()?.actors || []).find((r) => r.uid === u)?.marionette || null;
     const rows = [];
     // her needles in flight: one gone (or dead) since the last frame = a hit landed
     const mine = () => new Set(sim.projectiles.filter((p) => p.ownerUid === u && !p.dead && p.turretUid == null).map((p) => p.uid));
     let flying = mine();
-    for (let k = 0; k < 600 && sim.state === 'wave'; k++) {
+    for (let k = 0; k < 160 && sim.state === 'wave'; k++) {
       for (let j = 0; j < 3; j++) sim.update(1 / 60);
       const evs = sim.events.slice();
       renderer.update(1 / 60);
@@ -296,9 +311,19 @@ try {
       if (hitAt > 1 && !hitBefore) strikeBeforeHit++;
     }
   }
+  // each attack's doll run, frame by frame (A = her attack event, H = her needle landed)
+  let line = '';
+  for (const r of trace) {
+    if (r.attack && line) {
+      log(`      ${line}`);
+      line = '';
+    }
+    if (r.stage && r.stage !== 'idle') line += `${r.attack ? 'A ' : ''}${r.hit ? 'H ' : ''}${r.stage[0]}${r.u} `;
+  }
+  if (line) log(`      ${line}`);
   log(`    strikes ${strikes}, started 2+ frames before her hit: ${strikeBeforeHit}, largest Extend gain in one frame: ${maxGain.toFixed(2)}`);
   check(strikes > 0, 'the doll struck');
-  if (!before) check(maxGain < 0.45, `Extend never skips ahead in one frame (largest gain ${maxGain.toFixed(2)})`);
+  if (!before) check(maxGain < 0.4, `Extend never skips ahead in one frame (largest gain ${maxGain.toFixed(2)})`);
   // a crop strip of one attack, from the attack frame on (one frame at a time, 3x)
   const yFiles = [];
   const yLabels = [];
@@ -327,6 +352,7 @@ try {
       yLabels.push(`${st?.stage ?? '?'} ${st?.u ?? ''}`);
     }
     strip(yFiles.filter(Boolean), `${shotsDir}/yoriko-3x-844x390-strip-${tag}.jpg`, yLabels);
+  }
   }
   check(errors.length === 0, `no console errors${errors.length ? `:\n    ${errors.slice(0, 8).join('\n    ')}` : ''}`);
 } catch (e) {

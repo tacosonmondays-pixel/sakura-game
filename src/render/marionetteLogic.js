@@ -12,7 +12,7 @@
 // planned pulls the strike forward (landMarionette). One doll, one sequence: an attack that comes while it is
 // out (command / extend / strike) is skipped; one during reel or settle starts again from where the doll is.
 // After an early start (adoptAttack) the strike still waits for the needle: the doll holds at the end of its glide
-// until the projected hit (WAIT_MAX), and a much sooner hit ramps the glide's pace over BLEND_STEPS frames.
+// until the projected hit (WAIT_MAX), and a much sooner hit spreads the rest of the glide over BLEND_STEPS frames.
 // A target that dies before the strike: the doll takes the enemy by its last spot (the needle flies on there)
 // or reels home from where it is (loseTarget).
 
@@ -43,8 +43,9 @@ export const CATCH_UP = 0.08;
  */
 export const WAIT_MAX = 0.3;
 /**
- * A refit that speeds the glide up a lot (the real needle lands much sooner than the early plan) ramps to the new
- * pace over this many frames instead of skipping ahead in one.
+ * A refit that speeds the glide up a lot (the real needle lands much sooner than the early plan) spreads the rest
+ * of the stage over at least this many frames (equal steps) instead of skipping ahead in one; the strike then
+ * trails the hit by at most a frame or two.
  */
 export const BLEND_STEPS = 3;
 /** ... when the new pace is more than this many times the old one. */
@@ -127,7 +128,7 @@ export function marionetteState() {
     ox: 0, oy: 0, oz: 0, tilt: 0, taut: 0, flick: 0, // output: offset, tilt, string tension 0..1, bar flick 0..1
     early: false, hold: 0, missed: false, // set off early (no attack seen yet), time hovering at the end of Extend
     wait: 0, // hovering at the end of Extend for the adopted attack's needle (s left)
-    rateTo: 0, blend: 0, // a refit's pace and the frames left to ramp to it
+    blend: 0, blendDu: 0, blendFrom: 0, blendNext: false, // a refit spread over frames: frames left, share per frame
     calm: false, simple: false, landed: false, clipAt: 0, clipOffset: 0, clipDue: false, clipFired: false,
   };
 }
@@ -253,6 +254,8 @@ export function adoptAttack(s, eta = null) {
     const f = want / Math.max(1e-6, total);
     paceTo(s, (1 - s.u) / Math.max(1e-6, leftC * f));
     s.plan.extend *= f;
+    // a much shorter glide: spread it over BLEND_STEPS frames too
+    if (f * BLEND_OVER < 1) s.blendNext = true;
   } else if (s.u < 1) {
     paceTo(s, (1 - s.u) / want);
   } else {
@@ -262,15 +265,18 @@ export function adoptAttack(s, eta = null) {
   return true;
 }
 
-/** A new pace for the current stage: at once when it is not much faster, else ramped over BLEND_STEPS frames. */
+/** A new pace for the current stage: at once when it is not much faster, else spread over BLEND_STEPS frames. */
 function paceTo(s, rate) {
-  if (!(rate > s.rate * BLEND_OVER) || !Number.isFinite(s.rate)) {
-    s.rate = rate;
-    s.blend = 0;
-    return;
-  }
-  s.rateTo = rate;
+  const much = rate > s.rate * BLEND_OVER && Number.isFinite(s.rate);
+  s.rate = rate;
+  if (much) spread(s);
+}
+
+/** The rest of the current stage goes at most an equal share per frame over the next BLEND_STEPS frames. */
+function spread(s) {
   s.blend = BLEND_STEPS;
+  s.blendDu = (1 - s.u) / BLEND_STEPS;
+  s.blendFrom = s.u;
 }
 
 /** The sim's hit has landed (her needle resolved): a strike still on its way is pulled in to it. */
@@ -285,11 +291,7 @@ export function landMarionette(s) {
   if (s.stage === 'extend') {
     // hovering for this needle: it is in, strike now
     s.wait = 0;
-    const r = s.blend > 0 ? s.rateTo : s.rate;
-    if ((1 - s.u) / r > CATCH_UP) {
-      if (s.blend > 0) s.rateTo = (1 - s.u) / CATCH_UP;
-      else s.rate = (1 - s.u) / CATCH_UP;
-    }
+    if ((1 - s.u) / s.rate > CATCH_UP) s.rate = (1 - s.u) / CATCH_UP;
     return true;
   }
   return false;
@@ -302,6 +304,8 @@ function enter(s, stage) {
   if (stage !== 'extend') s.wait = 0;
   const d = stage === 'idle' ? 0 : s.plan[stage];
   s.rate = d > 1e-6 ? 1 / d : Infinity;
+  if (stage === 'extend' && s.blendNext) spread(s);
+  if (stage !== 'command') s.blendNext = false;
 }
 
 const next = { command: 'extend', extend: 'strike', strike: 'reel', reel: 'settle', settle: 'idle' };
@@ -328,17 +332,18 @@ export function stepMarionette(s, dt) {
     s.clipFired = true;
     s.clipDue = true;
   }
-  // a refit ramping to its new pace (one step of the ramp per frame)
-  if (s.blend > 0 && dt > 0) {
-    s.rate += (s.rateTo - s.rate) / s.blend;
-    s.blend--;
-  }
   let left = dt;
   // a stage that ends inside this frame hands the rest of the frame to the next one
   for (let guard = 0; guard < 6 && s.stage !== 'idle'; guard++) {
-    const room = (1 - s.u) / s.rate;
+    // a refit spread over frames: this frame goes no further than its share
+    const cap = s.blend > 0 && s.blendFrom + s.blendDu < 1 - 1e-9 ? s.blendFrom + s.blendDu : 1;
+    const room = (cap - s.u) / s.rate;
     if (left < room) {
       s.u += left * s.rate;
+      break;
+    }
+    if (cap < 1) {
+      s.u = Math.max(s.u, cap);
       break;
     }
     left -= room;
@@ -375,6 +380,10 @@ export function stepMarionette(s, dt) {
       s.rk = 1;
     }
     enter(s, next[s.stage]);
+  }
+  if (s.blend > 0 && dt > 0) {
+    s.blend--;
+    s.blendFrom = s.u;
   }
   pose(s);
   return s;
