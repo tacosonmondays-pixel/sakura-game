@@ -20,6 +20,7 @@ import { GACHA, UNIT_RARITIES, ROLES } from '../../data/types.js';
 import { BANNER_KINDS, STANDARD_SSR } from '../../data/banners.js';
 import { portraitHTML, portraitUrl, artUrl, hasPortrait, portraitCutAspect } from '../../art/portraits.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
+import { faceAnchor } from '../faceAnchors.js';
 import { uiIcon, itemIcon, currencyIcon, roleIcon } from '../../art/icons.js';
 import { pull, pullCost, canSpark, spark, pullFixed, fixedCost, fpBalance } from '../../systems/gacha.js';
 import { supportCollectRow, refreshFriendshipTab } from '../online/supportCollect.js'; // [friend support]
@@ -283,6 +284,12 @@ function bannerDesc(b) {
   return 'Towers only: the featured SSR student, plus every Standard SR and R student.';
 }
 
+/** Her face's centre across her -cut, in % (kept within 30-70 so an odd anchor never throws her off the art). */
+function standFaceX(u) {
+  const cx = faceAnchor(u.id, 'cut')?.cx;
+  return typeof cx === 'number' ? Math.round(Math.min(0.7, Math.max(0.3, cx)) * 1000) / 10 : 50;
+}
+
 function buildPage(list, b, { doPull, openSpark, pick }) {
   const profile = store.profile;
   const g = profile.gacha || { pity: 0, recruitPoints: 0, totalPulls: 0 };
@@ -298,9 +305,10 @@ function buildPage(list, b, { doPull, openSpark, pick }) {
     h('div.ma-banner-rays'),
     b.slot === 'legend' ? h('div.bn-lr-frame', h('i.bn-lr-crest')) : null,
     // a girl without drawn art yet stands as her framed card
-    // (--ar, the stand's width over its height, lets banners.css size each stand to its share of the art's width)
-    h('div.ma-banner-stands', stands.map((u, i) => (hasPortrait(u)
-      ? h(`div.ma-banner-stand.s${i}${u.duo ? '.is-duo' : ''}`, { style: { '--ar': portraitCutAspect(u) }, html: portraitHTML(u, 'cut', { eager: true }) })
+    // (--ar, the stand's width over its height, lets banners.css size each stand to its share of the art's width;
+    // --ar1 is the featured girl's, so the rate-ups stay shorter than her; --fx centres her on her face, not her box)
+    h('div.ma-banner-stands', { style: { '--ar1': hasPortrait(UNIT_MAP[b.select]) ? portraitCutAspect(UNIT_MAP[b.select]) : 0.6 } }, stands.map((u, i) => (hasPortrait(u)
+      ? h(`div.ma-banner-stand.s${i}${u.duo ? '.is-duo' : ''}`, { style: { '--ar': portraitCutAspect(u), '--fx': standFaceX(u) }, html: portraitHTML(u, 'cut', { eager: true }) })
       : h(`div.ma-banner-stand.s${i}.bn-stand-card`, { style: { '--ar': 0.6 }, html: portraitHTML(u, 'card', { eager: true }) })))),
     h('div.ma-banner-text',
       h('div.bn-kicker-row', h('div.ma-banner-kicker', b.slot === 'legend' ? b.name : kind.label), countdown(b)),
