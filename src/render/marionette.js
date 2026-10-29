@@ -220,10 +220,11 @@ export class Marionette {
    * The doll clock for this frame: game time (so the stages fit her attack interval at 2x / 3x), from the
    * renderer's visual dt (which holds at 0 while paused or in a hit-stop, so the doll holds too).
    */
-  tick(dt) {
+  tick(dt, frameDt = dt) {
     const st = this.sim?.time;
-    if (typeof st === 'number' && this.lastSim != null && dt > 0) {
-      const est = Math.max(0, Math.min(4, (st - this.lastSim) / dt));
+    // the game-speed estimate uses the frame's own time (a hit-stop shortens the visual dt, not the sim step)
+    if (typeof st === 'number' && this.lastSim != null && frameDt > 0) {
+      const est = Math.max(0, Math.min(4, (st - this.lastSim) / frameDt));
       this.speed += (est - this.speed) * 0.2;
     }
     this.lastSim = typeof st === 'number' ? st : null;

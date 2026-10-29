@@ -24,7 +24,7 @@
 //   const c = new Companions({ sim, scene, actors, terrain, quality, reduceMotion, fx, batches, atlas, camera });
 //   (fx / batches / atlas / camera are optional: without them the figures still move, with no trails or puffs)
 //   c.handle(ev)      // every drained sim event (observes only, never consumes)
-//   c.update(dt, zoom) // once per frame after actors.sync
+//   c.update(dt, zoom, frameDt) // once per frame after actors.sync (dt: visual clock; frameDt: the frame's own time)
 import * as THREE from 'three';
 import {
   loadCompanionManifest, companionOf, companionEntry, loadCompanion, getCompanion, buildCompanion, HomeAnchor, boneAtIdle,
@@ -311,7 +311,7 @@ export class Companions {
   // ---- frame ---------------------------------------------------------------------------------
 
   /** @param {number} dt @param {number} [zoom] camera zoom (1 = fitted view) */
-  update(dt, zoom = 1) {
+  update(dt, zoom = 1, frameDt = dt) {
     if (this.disposed) return;
     this.time += dt;
     this.frame++;
@@ -321,7 +321,7 @@ export class Companions {
     }
     // full files when zoomed in on quality high, LOD otherwise
     this.zoom = zoom;
-    this.marionette.tick(dt);
+    this.marionette.tick(dt, frameDt);
     if (this.quality !== 'high') this.detail = 'lod';
     else if (this.detail === 'lod' && zoom >= FULL_AT) this.detail = 'full';
     else if (this.detail === 'full' && zoom <= LOD_AT) this.detail = 'lod';

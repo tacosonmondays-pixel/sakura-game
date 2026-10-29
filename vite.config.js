@@ -69,6 +69,22 @@ export default defineConfig({
     target: 'es2022',
     chunkSizeWarningLimit: 2000,
   },
+  // dev server only: pre-bundle three and every three/addons module the game imports up front. One the
+  // dependency scan finds late (the battle's postprocessing passes) makes Vite re-optimise mid-session, and
+  // the page ends up with two copies of three ("Multiple instances of Three.js being imported"). The
+  // production build bundles a single copy either way.
+  optimizeDeps: {
+    include: [
+      'three',
+      'three/addons/loaders/GLTFLoader.js',
+      'three/addons/utils/BufferGeometryUtils.js',
+      'three/addons/utils/SkeletonUtils.js',
+      'three/addons/postprocessing/EffectComposer.js',
+      'three/addons/postprocessing/RenderPass.js',
+      'three/addons/postprocessing/UnrealBloomPass.js',
+      'three/addons/postprocessing/Pass.js',
+    ],
+  },
   test: {
     environment: 'node',
     include: ['tests/**/*.test.js'],

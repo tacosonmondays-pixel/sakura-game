@@ -474,3 +474,19 @@ describe('the renderer side reads her needles (never writes the sim)', () => {
     m.dispose();
   });
 });
+
+describe('marionette clock across a hit-stop', () => {
+  it('a short visual dt with a normal frame (hit-stop ending) does not spike the game-speed estimate', () => {
+    const sim = { time: 0 };
+    const m = new Marionette({ sim, actors: { enemies: new Map(), enemyPos: () => null }, root: new THREE.Group() });
+    for (let i = 0; i < 60; i++) {
+      sim.time += 1 / 60;
+      m.tick(1 / 60, 1 / 60);
+    }
+    const before = m.speed;
+    sim.time += 1 / 60; // the sim stepped a normal frame…
+    m.tick(1 / 240, 1 / 60); // …while the visual clock only moved a quarter of it (the hold ending)
+    expect(m.speed).toBeCloseTo(before, 2);
+    expect(m.speed).toBeLessThan(1.1);
+  });
+});
