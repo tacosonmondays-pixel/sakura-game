@@ -445,12 +445,16 @@ try {
   await shot(`dragon-arrive`);
   const dr0 = await drawn();
   check(dr0.runner != null, `a sky dragon runner flies (${JSON.stringify(dr0)})`);
-  if (dr0.runner) check(dr0.heads === 1 && dr0.beads >= dr0.runner.segments && dr0.tails === 1, `drawn as one head, ${dr0.beads} beads and a tail tip (${dr0.runner.segments} sim segments)`);
+  // (it enters at the road's end: the body behind the head is still off the road there, as in the sim)
+  let full = null;
   for (let i = 0; i < 6; i++) {
     await fly(0.35);
     await settle(30);
     await shot(`dragon-${i}`);
+    const d = await drawn();
+    if (d.runner && d.beads >= 2 * (d.runner.segments - 1) && !full) full = d;
   }
+  check(!!full && full.heads === 1 && full.tails === 1, `in flight: one head, ${full?.beads} beads and a tail tip (${full?.runner?.segments} sim segments)`);
   await page.evaluate(() => window.__battle.ui.select?.(null));
   await pause(false);
 
