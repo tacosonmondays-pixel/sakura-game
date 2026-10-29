@@ -15,11 +15,12 @@ const ACCOUNTS = [
 ];
 
 describe('Power after balance round 5', () => {
-  it('every factor is at least 1, and only girls the round raised have one above 1', () => {
+  it('every factor is at least 1, and only girls the round raised have one above 1 (Kage, the reference, has none)', () => {
+    expect(powerKitOf('kage')).toBe(1);
     for (const [id, k] of Object.entries(POWER_KIT)) {
       expect(k, id).toBeGreaterThanOrEqual(1);
       const row = POWER[id];
-      if (k > 1) expect((row?.dmg ?? 1) > 1 || (row?.boss ?? 1) > 1, `${id} has a factor but no damage or boss row`).toBe(true);
+      expect((row?.dmg ?? 1) > 1 || (row?.boss ?? 1) > 1, `${id} has a factor but no damage or boss row`).toBe(true);
     }
   });
 
@@ -32,12 +33,6 @@ describe('Power after balance round 5', () => {
         expect(after, `${u.id} L${acct.level}`).toBeGreaterThanOrEqual(before);
         if (powerKitOf(u.id) > 1 && acct.level === 85) expect(after, u.id).toBeGreaterThan(before);
       }
-    }
-  });
-
-  it('every striker with a damage or boss row gets Power for it', () => {
-    for (const [id, row] of Object.entries(POWER)) {
-      if ((row.dmg ?? 1) > 1 || (row.boss ?? 1) > 1) expect(powerKitOf(id), id).toBeGreaterThan(1);
     }
   });
 });

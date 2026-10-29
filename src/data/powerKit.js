@@ -2,31 +2,23 @@
 //
 // Power (src/systems/progression.js unitPower) is a paper number for sorting and the girl tiles: her tier-0 damage ×
 // rate × hits, her level, gear and Potential. Balance round 5 (src/data/balance.js) raised what she deals in battle,
-// so her Power rises with it: one factor per girl, the gain the round measured on her fully maxed honest DPS
-// (tools/balance/r5Bench.mjs, Umeko 2-5-0 + Midori 5-0-2): √(boss gain × late-crowd gain) ÷ the supports' own +9%
-// (which every girl beside them gets), so a splash girl whose boss number rose gets part of it. Only girls with a
-// damage or boss row have one; never below 1: no girl's Power drops (tests/systems/powerKit.test.js).
+// so a raised girl's Power rises toward what she now deals: fully maxed, her Power ÷ Kage's matches her measured
+// honest DPS ÷ Kage's (tools/balance/r5Bench.mjs with Umeko 2-5-0 + Midori 5-0-2, √(boss ratio × late-crowd ratio)).
+// A girl whose paper Power already sits at or above that keeps her Power (Kaede, Ena, Raika, Marumi, the duo, Suzu,
+// Azami, Fuu), so no girl's Power drops (the round-4 critic's finding 2; tests/systems/powerKit.test.js).
 export const POWER_KIT = Object.freeze({
-  ena: 5.86,
-  hana: 5.43,
-  chigusa: 4.05,
-  kinu: 3.78,
-  yuzuha: 3.61,
-  ruri: 3.12,
-  aoi: 2.8,
-  kohaku_tsubaki: 2.73,
-  raika: 2.54,
-  azami: 2.37,
-  marumi: 2.34,
-  iroha: 1.95,
-  akane: 1.8,
-  sango: 1.75,
-  kaede: 1.72,
-  suzu: 1.67,
-  rei: 1.64,
-  hotaru: 1.58,
-  fuu: 1.19,
+  akane: 3.75,
+  rei: 3.06,
+  yuzuha: 2.9,
+  hotaru: 2.79,
+  hana: 2.48,
+  iroha: 2.48,
+  aoi: 2.32,
+  ruri: 2.08,
+  chigusa: 2.02,
+  sango: 1.53,
+  kinu: 1.24,
 });
 
-/** Her Power factor (1 when the round did not raise her). */
+/** Her Power factor (1 when the round leaves her Power as it was). */
 export const powerKitOf = (id) => Math.max(1, POWER_KIT[id] ?? 1);

@@ -94,10 +94,15 @@ describe.skipIf(!hasRealData())('event balance (autoPlan, free units only)', () 
 
   test('EB-3 the Golem\'s Nightmare is really hard: mid and level-60 P1 teams lose, the late free-player profile wins', () => {
     const results = [];
+    // as players fight it until the event closes (Nov 1, 7 PM Central): balance round 5 ships after it, so the gate
+    // reads the girls without the round's rows (`powerOff`, src/data/balance.js). With the rows a level-60 P1 team
+    // wins it on seed 3 (the round makes the Golem easier, never harder: the late profile still wins below)
+    const live = (statsOf) => (id) => ({ ...statsOf(id), powerOff: true });
     for (const seed of SEEDS) {
-      const mid = runBuild('ev-halloween-boss', 'nightmare', (id) => statsAt(id, 40), seed);
-      const p1 = runBuild('ev-halloween-boss', 'nightmare', atProfile('p1'), seed);
-      const late = runBuild('ev-halloween-boss', 'nightmare', atProfile('f2p-late'), seed);
+      const mid = runBuild('ev-halloween-boss', 'nightmare', live((id) => statsAt(id, 40)), seed);
+      const p1 = runBuild('ev-halloween-boss', 'nightmare', live(atProfile('p1')), seed);
+      const late = runBuild('ev-halloween-boss', 'nightmare', live(atProfile('f2p-late')), seed);
+      expect(runBuild('ev-halloween-boss', 'nightmare', atProfile('f2p-late'), seed).won, `round 5, seed ${seed}`).toBe(true);
       results.push(mid.text, p1.text, late.text);
       expect(mid.won, mid.text).toBe(false);
       expect(mid.wave, mid.text).toBeLessThanOrEqual(10);
