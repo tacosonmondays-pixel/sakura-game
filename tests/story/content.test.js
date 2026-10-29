@@ -83,8 +83,8 @@ const ARC1_MAIN = {
 
 /**
  * Planned girls who speak as story NPCs (`unknown` + a `{name:id}` plate) before their unit exists. Their token falls
- * back to the capitalised id (tokens.js resolveText), and follows the unit's name once it lands. Kohaku and Tsubaki
- * (from g5.mid) are story-only until the Kohaku & Tsubaki duo unit (STORY.md §8.7, §13).
+ * back to the capitalised id (tokens.js resolveText), and follows the unit's name once a unit with that id lands. Kohaku and Tsubaki
+ * keep their fallbacks: the duo shipped in v0.1.59 as one unit, `kohaku_tsubaki` (STORY.md §8.7, §13).
  */
 const NPC_FIRST = ['kohaku', 'tsubaki'];
 /**
@@ -92,7 +92,7 @@ const NPC_FIRST = ['kohaku', 'tsubaki'];
  * speaks as herself (her unit and portrait shipped with the ultimates, v0.1.57); she still never joins in the story.
  */
 const G5_PLATES = ['Toki', '{name:tsubaki}', '{name:kohaku}'];
-/** Act 6's plain plates: Tsubaki and Kohaku (story-only until their duo unit), Mahiru, and the Commander's recording. */
+/** Act 6's plain plates: Tsubaki and Kohaku (plates: their duo unit is `kohaku_tsubaki`), Mahiru, and the Commander's recording. */
 const G6_PLATES = ['{name:tsubaki}', '{name:kohaku}', 'Mahiru', 'Commander Yūhi'];
 /** The side stage the duo's two scenes play around (STEP6_BUILD_PLAN decisions 9-10: kind 'side', anchored after 6-10). */
 const STARFALL = 'side-6-starfall';
@@ -338,7 +338,7 @@ describe('story registry', () => {
     }
   });
 
-  it('Act II of chapter 6 (Vesperline): six main episodes, four side scenes (two around the Starfall Trial), no join', () => {
+  it('Act II of chapter 6 (Vesperline): six main episodes, four side scenes (two around the Star Dome), no join', () => {
     const g6 = SCENE_LIST.filter((s) => s.id.startsWith('g6.'));
     expect(g6.map((s) => s.id)).toEqual([
       'g6.pro', 'g6.sleep', 'g6.mid', 'g6.chair', 'g6.boss', 'g6.after', 'g6.epi', 'g6.doorie', 'g6.star1', 'g6.star2',
@@ -515,7 +515,7 @@ describe('story registry', () => {
       const t = s.trigger || {};
       const stage = t.before || t.after;
       if (!stage) continue;
-      // a campaign stage, or a side stage (kind 'side': the Starfall Trial, anchored after 6-10)
+      // a campaign stage, or a side stage (kind 'side': the Star Dome, anchored after 6-10)
       expect(['campaign', 'side'], `${s.id} trigger ${stage}`).toContain(STAGE_MAP[stage]?.kind);
       expect(STAGE_MAP[stage].chapter, `${s.id} chapter`).toBe(s.chapter);
       if (STAGE_MAP[stage].kind === 'side') expect(STAGE_MAP[STAGE_MAP[stage].anchor]?.kind, `${s.id} anchor`).toBe('campaign');
@@ -1019,7 +1019,7 @@ describe('story text (T-content-3, T-content-4)', () => {
     expect(has('g6.epi', "You'll live a long time. In a house by the lake. Too many tea plants. It's the only thing I ever looked up.")).toBe(true);
     expect(has('g6.epi', 'We keep it. And we keep looking.')).toBe(true);
     expect(has('g6.epi', 'People need a festival.')).toBe(true);
-    expect(has('g6.epi', 'The Starfall Trial is open.')).toBe(true);
+    expect(has('g6.epi', 'The Star Dome is open.')).toBe(true);
     expect(has('g6.doorie', 'Doorie. She holds doors. For luck.')).toBe(true);
     expect(has('g6.doorie', "Oh! Sorry, Doorie. I'll be more careful with you.")).toBe(true);
     expect(has('g6.star1', '"Night-sky watch: Cadet Commander {name:tsubaki}."')).toBe(true);

@@ -8,8 +8,8 @@
 // the next she is simply not there, and only Sensei notices. The small sleeping thing from the boiler house is a scarf
 // left on a pipe and a crate label; "grey wings" is as far as anyone goes. No "Vesperline" before g5.boss.
 // Every episode is kind `event` (0 gems, Q8) and `act: 2`. No girl joins in Act 5 (decision 11): Tenka, Tsubaki and Toki
-// are story characters and speak as `unknown` with a name plate (Tsubaki's is a `{name:tsubaki}` token, so it follows
-// her duo unit when it lands, as Kohaku's does), as do Lt. Mori, Mahiru, Kagari and Kohaku. Wobble is the only enemy
+// are story characters and speak as `unknown` with a name plate (Tsubaki's is a `{name:tsubaki}` token; the duo unit is
+// `kohaku_tsubaki` since v0.1.59, so both tokens keep their fallbacks "Tsubaki" and "Kohaku"), as do Lt. Mori, Mahiru, Kagari and Kohaku. Wobble is the only enemy
 // speaker; the Reservoir Willow does not speak.
 // Main episodes: pro, mid, raid, boss, after, epi. Side: embers (after 5-7), whiteboard (after 5-9), board (after 5-10).
 // Stone relit: the reservoir willow's stone.

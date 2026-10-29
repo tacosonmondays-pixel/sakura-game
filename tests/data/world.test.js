@@ -1003,11 +1003,11 @@ describe('stages', () => {
     }
   });
 
-  it('the side stage (Gate Arc Step 6): The Starfall Trial after 6-10, 6-10\'s numbers with HP × 1.1, never a campaign stage', () => {
+  it('the side stage (Gate Arc Step 6): The Star Dome after 6-10, 6-10\'s numbers with HP × 1.1, never a campaign stage', () => {
     const side = getStage('side-6-starfall');
     const plan = ACT2_PLAN_MAP['6-10'];
     expect(side).toMatchObject({
-      kind: 'side', chapter: 6, act: 2, anchor: '6-10', requires: '6-10', name: 'The Starfall Trial', mapId: 'vesper_starfall',
+      kind: 'side', chapter: 6, act: 2, anchor: '6-10', requires: '6-10', name: 'The Star Dome', mapId: 'vesper_starfall',
       waves: plan.waves, tier: plan.tier, startCash: plan.startCash, cashScale: plan.cashScale, medalGemMul: 0.5, lives: 100,
     });
     expect(side.waves).toBe(30);

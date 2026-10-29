@@ -7,10 +7,10 @@
 // the Commander is a recording. The nest and the grey wool are g6.epi's alone; nobody names what made the nest, nobody
 // reads a name from the blacked-out entry, and nobody says whose notch is on the Commander's blade.
 // Every episode is kind `event` (0 gems) and `act: 2`. No girl joins in Act 6 (decision 12). Tenka speaks as herself;
-// Tsubaki and Kohaku speak as `unknown` with `{name:…}` plates (they follow the duo unit when it lands), as do Mahiru and
+// Tsubaki and Kohaku speak as `unknown` with `{name:…}` plates (their fallbacks: the duo unit is `kohaku_tsubaki` since v0.1.59), as do Mahiru and
 // the Commander's recording. Toki is unwoven: she is in no line and on no plate here, and nobody counts the Last Watch.
 // Main episodes: pro, mid, chair, boss, after, epi. Side: sleep (after 6-7), doorie (after 6-10), and the duo's two
-// scenes around the Starfall Trial (star1 before `side-6-starfall`, star2 after it; decision 10). No stone is relit.
+// scenes around the Star Dome (star1 before `side-6-starfall`, star2 after it; decision 10). No stone is relit.
 
 import { scene, say, narrate, cue, choice } from '../format.js';
 
@@ -167,7 +167,7 @@ export default [
     say('hikari', 'A festival? Here? Now?', { at: 'center', face: 'question' }),
     say('ouka', 'Especially here. Especially now. Leave the paperwork to me.', { face: 'smile' }),
     narrate("On the board by the door, {name:tsubaki} pins up a new duty: a night watch at Vesperline's old observatory."),
-    narrate('The Starfall Trial is open.'),
+    narrate('The Star Dome is open.'),
   ]),
 
   scene('g6.doorie', {

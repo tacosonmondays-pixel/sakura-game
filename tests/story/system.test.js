@@ -285,7 +285,7 @@ describe('triggers (T-trig-1)', () => {
 
   it('a fully cleared save (owning the side scenes\' girls) can reach every episode of the archive', () => {
     const p = clearUpTo(createProfile(), CAMPAIGN_IDS[CAMPAIGN_IDS.length - 1]);
-    // and every side stage (kind 'side', not in CAMPAIGN_IDS: the Starfall Trial carries g6.star1 / g6.star2)
+    // and every side stage (kind 'side', not in CAMPAIGN_IDS: the Star Dome carries g6.star1 / g6.star2)
     for (const s of STAGES.filter((x) => x.kind === 'side')) {
       p.progress.stages[s.id] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
     }
@@ -557,7 +557,7 @@ describe('ifOwned episodes wait for a girl the player owns (g2.class: Ruri, Iroh
     expect(played).toEqual(['g6.sleep', 'g6.chair', 'g6.after', 'g6.epi', 'g6.doorie']);
   });
 
-  it('the Starfall Trial: g6.star1 plays when the side stage is opened, g6.star2 on its first clear, nothing else', () => {
+  it('the Star Dome: g6.star1 plays when the side stage is opened, g6.star2 on its first clear, nothing else', () => {
     const SIDE = 'side-6-starfall';
     // the side stage (S6c): kind 'side', anchored after 6-10, not a campaign stage (so not in co-op or the counters)
     expect(STAGE_MAP[SIDE]).toMatchObject({ kind: 'side', chapter: 6, anchor: '6-10', requires: '6-10' });

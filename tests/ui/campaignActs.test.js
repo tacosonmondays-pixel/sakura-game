@@ -135,7 +135,7 @@ describe('chapter 6: Act II · Vesperline (registered, Step 6) and its side stag
     expect(CHAPTERS[5].act2Theme).toBe('vesper');
   });
 
-  it('the Starfall Trial is a small side card after 6-10, locked until 6-10 is cleared, outside the act\'s progress', () => {
+  it('the Star Dome is a small side card after 6-10, locked until 6-10 is cleared, outside the act\'s progress', () => {
     const p = mark(createProfile(), [...ACT1.slice(0, 30), '5-10', '6-6', '6-7', '6-8', '6-9']);
     let row = actRows(p, CHAPTERS[5])[1];
     expect(row.sides).toEqual([{ id: 'side-6-starfall', anchor: '6-10', unlocked: false, cleared: false, lockText: 'Clear 6-10' }]);

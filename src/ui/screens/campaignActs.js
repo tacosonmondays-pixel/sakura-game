@@ -72,7 +72,7 @@ export function chapterHasNewAct(profile, chapter) {
 }
 
 /**
- * The side stages of an act row (Gate Arc Step 6, docs/specs/GATE_ARC.md §20: the Starfall Trial after 6-10), each drawn as
+ * The side stages of an act row (Gate Arc Step 6, docs/specs/GATE_ARC.md §20: the Star Dome after 6-10), each drawn as
  * a small card right after its anchor's card; a card opens the stage screen (route `stage`, `params.id` the side stage,
  * so its before-scene plays). Locked ("Clear 6-10") until its requirements are cleared. Side stages are not counted in the
  * row's progress.

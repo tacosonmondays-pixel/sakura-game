@@ -57,7 +57,7 @@ function claims(desc) {
 describe('stage descriptions match the waves (Act II, chapter 5 on, and the side stages)', () => {
   // (by `chapter`, not the id: a side stage's id is 'side-<c>-<slug>')
   const stages = STAGES.filter((s) => s.act === 2 && s.chapter >= 5);
-  it('covers the chapter-5 and chapter-6 Act II stages and the Starfall Trial', () => {
+  it('covers the chapter-5 and chapter-6 Act II stages and the Star Dome', () => {
     expect(stages.map((s) => s.id)).toEqual(expect.arrayContaining(['5-6', '5-7', '5-8', '5-9', '5-10', '6-6', '6-7', '6-8', '6-9', '6-10', 'side-6-starfall']));
     expect(stages.filter((s) => s.kind === 'side').map((s) => s.id)).toEqual(['side-6-starfall']);
   });

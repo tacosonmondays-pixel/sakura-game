@@ -92,7 +92,7 @@ export function render(root, params = {}) {
     clear(content);
     const chapter = CHAPTERS.find((c) => c.id === chapterId);
     content.appendChild(chapterPanel(profile, chapter));
-    // a side stage's small card right after its anchor (Gate Arc Step 6: the Starfall Trial after 6-10)
+    // a side stage's small card right after its anchor (Gate Arc Step 6: the Star Dome after 6-10)
     const grid = (ids, sides = []) => h('div.cp-grid', ids.flatMap((id) => [
       stageCard(profile, id, { isNext: id === next }),
       ...sides.filter((x) => x.anchor === id).map((side) => sideCard(profile, side)),

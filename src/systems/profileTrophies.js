@@ -33,7 +33,7 @@ const STAGE_INDEX = Object.fromEntries(STAGES.map((s, i) => [s.id, s.kind !== 'c
 export const MEDAL_NAMES = Object.freeze({ easy: 'Bronze Medal', normal: 'Silver Medal', hard: 'Gold Medal', nightmare: 'Sakura Medal' });
 /**
  * The stages that count on the profile (medals, medal pins, "stages cleared"): every stage but the side stages (Gate Arc
- * Step 6: an optional side stage such as the Starfall Trial adds no medal, trophy or counter).
+ * Step 6: an optional side stage such as the Star Dome adds no medal, trophy or counter).
  */
 const TROPHY_STAGES = STAGES.filter((s) => s.kind !== 'side');
 export const STAGE_COUNT = TROPHY_STAGES.length;

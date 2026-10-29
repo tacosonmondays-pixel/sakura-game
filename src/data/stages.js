@@ -1325,7 +1325,7 @@ for (const ch of CHAPTERS) ch.act2 = ACT2_SORTED.filter((s) => s.chapter === ch.
 // no freeplay, no endless; they introduce no enemy and unlock no girl.
 // ---------------------------------------------------------------------------
 
-/** A side stage's HP over its anchor's ACT2_PLAN row (the Starfall Trial: 6-10's 9.04 → 9.94). */
+/** A side stage's HP over its anchor's ACT2_PLAN row (the Star Dome: 6-10's 9.04 → 9.94). */
 const SIDE_HP_MUL = 1.1;
 
 /**
@@ -1376,10 +1376,10 @@ function sideStage(o) {
 
 /** The registered side stages, each after its anchor in play order. */
 export const SIDE_STAGES = [
-  // The Starfall Trial (after 6-10): the academy observatory's broken deck under the cracked dome, at night. Families up to
+  // The Star Dome (after 6-10): the academy observatory's broken deck under the cracked dome, at night. Families up to
   // chapter 6 and the glass machines; no Rime Wisp (the cold wisps stay 6-10's).
   sideStage({
-    id: 'side-6-starfall', anchor: '6-10', name: 'The Starfall Trial', mapId: 'vesper_starfall',
+    id: 'side-6-starfall', anchor: '6-10', name: 'The Star Dome', mapId: 'vesper_starfall',
     desc: 'The academy observatory\'s broken deck, under a cracked dome where the night-sky watch kept its post. Shards of the star map keep falling. Patrol Orbs, Lattice Shells and Quartz Slimes come first; the Vesper Aegis from wave 3, Phantoms from wave 5, Halo Drones from wave 8, Vesper Wardens from wave 12.',
     budget: [6, 7000], groups: 3,
     pool: [
