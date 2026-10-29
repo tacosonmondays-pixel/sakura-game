@@ -22,7 +22,15 @@ export const BASE_TOTAL = BASE_TIMES.command + BASE_TIMES.extend + BASE_TIMES.st
 /** The whole sequence uses at most this share of her attack interval (so the next attack finds the doll home). */
 export const FILL = 0.92;
 /** Floor: at high attack speed the stages shrink in proportion, never below this share of their base length. */
-export const MIN_SCALE = 0.3;
+export const MIN_SCALE = 0.25;
+/**
+ * Early start: the doll sets off before her attack, from the tower's own cooldown (read only), so Extend ends on
+ * the needle's projected hit instead of darting there in the ~0.1 s her fast needle takes. If the attack does not
+ * come by the end of Extend, the doll hovers at most HOLD_MAX, then reels home; after such a miss it waits
+ * EARLY_PAUSE before setting off early again.
+ */
+export const HOLD_MAX = 0.2;
+export const EARLY_PAUSE = 0.6;
 /** Command + Extend never take less than this (s), even when the sim's hit is due sooner. */
 export const LEAD_MIN = 0.06;
 /** How fast a strike that the sim's hit beat to it is pulled in (s). */
@@ -84,6 +92,8 @@ export function planStages(interval, eta, out = {}) {
       out.extend += Math.min(want - lead, Math.max(0, budget - total));
     }
   }
+  // still longer than her interval at the floor (very high attack speed): no settle, so the doll rests between attacks
+  if (out.command + out.extend + out.strike + out.reel + out.settle > budget) out.settle = 0;
   out.lead = out.command + out.extend;
   out.total = out.lead + out.strike + out.reel + out.settle;
   return out;
@@ -101,6 +111,7 @@ export function marionetteState() {
     fx: 0, fy: 0, fz: 0, ft: 0, // where the sequence started (offset) and its tilt
     rx: 0, ry: 0, rz: 0, rt: 0, rk: 1, // where the reel started (offset), its tilt and string tension
     ox: 0, oy: 0, oz: 0, tilt: 0, taut: 0, flick: 0, // output: offset, tilt, string tension 0..1, bar flick 0..1
+    early: false, hold: 0, missed: false, // set off early (no attack seen yet), time hovering at the end of Extend
     calm: false, simple: false, landed: false, clipAt: 0, clipOffset: 0, clipDue: false, clipFired: false,
   };
 }
@@ -154,6 +165,8 @@ export function startMarionette(s, o) {
   if (marionetteBusy(s)) return false;
   s.calm = !!o.calm;
   s.simple = !!o.simple;
+  s.early = !!o.early;
+  s.hold = 0;
   planStages(o.interval, o.eta ?? null, s.plan);
   s.n++;
   s.side = s.simple ? 0 : (s.n & 1 ? 1 : -1);
@@ -189,6 +202,7 @@ export function retargetMarionette(s, tx, ty, tz, hx, hy, hz) {
  */
 export function loseTarget(s, next) {
   if (s.stage !== 'command' && s.stage !== 'extend') return 'none';
+  s.hold = 0;
   if (next) {
     s.uid = next.uid ?? null;
     aimMarionette(s, next.x, next.y, next.z, s.hx, s.hy, s.hz);
@@ -202,6 +216,29 @@ export function loseTarget(s, next) {
   s.rk = s.taut;
   enter(s, 'reel');
   return 'reel';
+}
+
+/**
+ * Her attack came while the doll is on its way after an early start: it now strikes the enemy her needle flies at
+ * (call retargetMarionette with it), and the rest of Command + Extend is fitted to end on that needle's hit, `eta`
+ * seconds away (null: as planned). @returns {boolean} adopted (false when the doll was not waiting for an attack)
+ */
+export function adoptAttack(s, eta = null) {
+  if (!s.early || (s.stage !== 'command' && s.stage !== 'extend')) return false;
+  s.early = false;
+  s.hold = 0;
+  if (eta == null) return true;
+  const want = Math.max(1 / 240, eta);
+  if (s.stage === 'command') {
+    const leftC = (1 - s.u) / s.rate;
+    const total = leftC + s.plan.extend;
+    const f = want / Math.max(1e-6, total);
+    s.rate = (1 - s.u) / Math.max(1e-6, leftC * f);
+    s.plan.extend *= f;
+  } else if (s.u < 1) {
+    s.rate = (1 - s.u) / want;
+  }
+  return true;
 }
 
 /** The sim's hit has landed (her needle resolved): a strike still on its way is pulled in to it. */
@@ -262,6 +299,22 @@ export function stepMarionette(s, dt) {
     }
     left -= room;
     s.u = 1;
+    // set off early and her attack has not come: hover at the end of the glide a moment, then reel home
+    if (s.stage === 'extend' && s.early) {
+      s.hold += left;
+      left = 0;
+      if (s.hold < HOLD_MAX) break;
+      s.early = false;
+      s.uid = null;
+      s.missed = true;
+      s.rx = s.ox;
+      s.ry = s.oy;
+      s.rz = s.oz;
+      s.rt = s.tilt;
+      s.rk = s.taut;
+      enter(s, 'reel');
+      continue;
+    }
     if (s.stage === 'strike') {
       s.rx = s.sx;
       s.ry = s.sy;
