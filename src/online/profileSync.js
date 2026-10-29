@@ -4,6 +4,8 @@
 //      code, first time online) gets the save's bio once, re-checked by the server (refused → cleared here)
 //   2. picks an older build dropped (`lost`): once, from the server copy, re-cleaned against this save
 //   3. the card: buildCard → cardHash → published only when the hash differs from the server's
+//   4. [friend support] the Support Student and "Lend to" (src/online/supportClient.js publish), only when their
+//      hash changed, and whatever Friend Points an earlier session left unsettled; never fails the sync
 // Automatic syncs run at most every 10 minutes unless something marked them dirty; an editor's Save always syncs.
 // Errors stay quiet (the editor shows its own). Nothing here runs before the profile SQL is pasted.
 import { buildCard, cardHash, restorePicks } from './profileCard.js';
@@ -13,9 +15,10 @@ import { createEmitter } from '../core/events.js';
 export const AUTO_SYNC_MS = 10 * 60 * 1000;
 
 /**
- * @param {{ backend: () => object, store: object, now?: () => number }} deps
+ * @param {{ backend: () => object, store: object, now?: () => number, support?: (() => Promise<object>)|null }} deps
+ *   support: the support client (step 4), or null (tests)
  */
-export function createProfileSync({ backend, store, now = () => Date.now() }) {
+export function createProfileSync({ backend, store, now = () => Date.now(), support = null }) {
   const emitter = createEmitter();
   let dirty = true;
   let lastAuto = -Infinity;
@@ -62,6 +65,17 @@ export function createProfileSync({ backend, store, now = () => Date.now() }) {
       mine = { ...mine, exists: true, card, hash };
     }
     setOwn(mine);
+    // 4. the Support Student (her own table and rate rule: a failure here never fails the card)
+    if (support) {
+      try {
+        const sc = await support();
+        await sc.publish();
+        await sc.recover();
+        await sc.refreshLive();
+      } catch {
+        /* the next sync tries again */
+      }
+    }
     dirty = false;
     lastAuto = now();
     return 'synced';
@@ -115,8 +129,8 @@ let instance = null;
 /** The game's profile sync (lazy; the store and backend modules load on first use). */
 export async function profileSync() {
   if (instance) return instance;
-  const [{ store }, { getBackend }] = await Promise.all([import('../core/store.js'), import('./backend.js')]);
-  instance ||= createProfileSync({ backend: getBackend, store });
+  const [{ store }, { getBackend }, { supportClient }] = await Promise.all([import('../core/store.js'), import('./backend.js'), import('./supportClient.js')]);
+  instance ||= createProfileSync({ backend: getBackend, store, support: supportClient });
   // reset / import / transfer: publish the new save at the next sync
   store.on('change', (e) => {
     if (e?.reason === 'replace') instance.markDirty();

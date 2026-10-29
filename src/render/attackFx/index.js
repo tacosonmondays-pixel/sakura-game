@@ -159,7 +159,8 @@ export function createAttackFx(o) {
     let handled = false;
     switch (ev.type) {
       case 'hit':
-        hits.push(ev.uid, ev.x, ev.y, 0, ev.crit);
+        // (a constant beam's damage ticks are no impact for a projectile to match)
+        if (!ev.tick) hits.push(ev.uid, ev.x, ev.y, 0, ev.crit);
         break;
       case 'explode':
         explodes.push(-1, ev.x, ev.y, ev.radius, false);
@@ -506,7 +507,10 @@ export function createAttackFx(o) {
     probe() {
       const blends = [];
       for (const rec of recList) blends.push({ uid: rec.uid, f: rec.f, turret: rec.turretUid, blended: rec.blended });
-      return { drones: ctx.drones.probe(), blends, stats: { ...stats }, time: ctx.time, timeScale };
+      // (a style's own readout: Kohaku's constant beams, src/render/attackFx/styles/kohaku_tsubaki.js)
+      const styles = {};
+      for (const tw of twList) if (tw.style.probe) styles[tw.uid] = tw.style.probe(tw);
+      return { drones: ctx.drones.probe(), blends, stats: { ...stats }, styles, time: ctx.time, timeScale };
     },
     dispose() {
       if (disposed) return;

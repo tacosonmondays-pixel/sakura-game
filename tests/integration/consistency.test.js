@@ -22,7 +22,10 @@ import { createBattleSim, resolveFormation, parseBattleParams, followingStage } 
 import { hasItemIcon } from '../../src/art/icons.js';
 import { cardArtSVG } from '../../src/art/cardArt.js';
 import { stageThumbSVG } from '../../src/art/stageThumb.js';
-import { LEGEND_UNITS } from '../../src/data/recruitFeature.js';
+import { UNIT_CLASS, HELD } from '../../src/data/banners.js';
+
+// (LR units come only from their LR Banners; held units, from nowhere until their art lands)
+const LEGEND_UNITS = [...Object.keys(UNIT_CLASS).filter((id) => UNIT_CLASS[id] === 'legend'), ...HELD].filter((id, i, a) => a.indexOf(id) === i && UNITS.some((u) => u.id === id));
 
 const ROUTES = [...readFileSync(new URL('../../src/main.js', import.meta.url), 'utf8').matchAll(/registerRoute\('([a-z]+)'/g)].map((m) => m[1]);
 
@@ -91,7 +94,7 @@ describe('ids line up across modules', () => {
     for (const rewards of lists) for (const r of [].concat(rewards)) expect(ITEMS[r.id], `reward ${r.id}`).toBeTruthy();
   });
 
-  test('gacha pool covers the whole roster under the right rarity (LR units only through their spotlight)', () => {
+  test('gacha pool covers the whole roster under the right rarity (LR units only through their spotlight; held units nowhere)', () => {
     for (const u of UNITS) {
       if (LEGEND_UNITS.includes(u.id)) expect(POOL[u.rarity], u.id).not.toContain(u.id);
       else expect(POOL[u.rarity], u.id).toContain(u.id);

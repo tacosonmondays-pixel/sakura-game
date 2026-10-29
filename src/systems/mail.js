@@ -48,8 +48,8 @@ export const BETA_GIFT = {
   title: 'Thank you, beta Sensei!',
   body: 'You were with us from the very first petals — including everyone who tried the original Codex version. '
     + 'As a thank-you for testing Sakura Sentinels, please accept five 10× Recruit Tickets, an SSR Select Ticket '
-    + '(choose ANY SSR student you like), a big bundle of upgrade materials, coins and gems. '
-    + 'We can\'t wait to see your academy grow!',
+    + '(choose any SSR student you like), a big bundle of upgrade materials, coins and gems. '
+    + 'We can\'t wait to see your academy grow! (LR units arrive only through their LR Banners.)',
   rewards: [
     { id: 'ticket_recruit10', count: 5 },
     { id: 'ticket_ssr_select', count: 1 },
@@ -59,6 +59,17 @@ export const BETA_GIFT = {
   ],
   expiresAt: null,
 };
+
+/**
+ * [banners G0] The Beta letter once promised "ANY SSR"; LR units cannot be chosen with a Select Ticket
+ * (BANNERS §I.1 Beta letter fix, J13). A stored copy with the old wording is rewritten on load (cleanMail):
+ * the check is on the text itself, so it happens exactly once and never touches a letter already amended.
+ */
+export function amendBetaLetter(letter) {
+  if (letter?.id !== BETA_GIFT_ID || typeof letter.body !== 'string' || !letter.body.includes('choose ANY SSR')) return false;
+  letter.body = BETA_GIFT.body;
+  return true;
+}
 
 /** Fresh mailbox state. */
 export function emptyMail() {

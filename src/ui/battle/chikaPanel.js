@@ -199,7 +199,7 @@ export function createDronePanel(ctx, { rerender }) {
     // her Potential rows (the drones' overclock) first, so they tick in view
     return h('div', { 'data-testid': 'stats-overall' }, cells.pot || null, h('div.bt-stats-grid',
       cell(dps.label, dps.value, '.bt-stat-main.bt-stat-wide2'),
-      cell('Dealing', liveB(() => rateText(`t${t.uid}`)), '.bt-stat-wide2'),
+      cell('DPS (live)', liveB(() => rateText(`t${t.uid}`)), '.bt-stat-wide2'),
       cells.rest,
       cell('Drones fly', fly, '.bt-stat-wide2'),
       cell('Flight', { hover: 'Hover', hold: 'Hold', patrol: 'Patrol', pursuit: 'Pursuit' }[tu.flight] || tu.flight, '.bt-stat-wide2'),
@@ -220,7 +220,7 @@ export function createDronePanel(ctx, { rerender }) {
       cell('Dealt', liveB(() => dealt((t.damageDealt || 0) - (t.droneDmg || 0)))),
       cell('Kills', liveB(() => count((t.kills || 0) - (t.droneKills || 0)))),
       cell('Share', liveB(() => (t.damageDealt >= 1 ? `${Math.round(((t.damageDealt - t.droneDmg) / t.damageDealt) * 100)}%` : '—'))),
-      cell('Dealing', liveB(() => {
+      cell('DPS (live)', liveB(() => {
         const all = ctx.rates?.rate(`t${t.uid}`);
         const dr = ctx.rates?.rate(`d${t.uid}`);
         return all == null || dr == null ? '—' : stat(Math.max(0, all - dr));

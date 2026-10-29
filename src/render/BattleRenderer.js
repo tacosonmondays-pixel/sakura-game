@@ -59,6 +59,7 @@ import { ImpactFrames } from './vfx/impact.js';
 import { GradePass, gradeFor } from './vfx/grade.js';
 import { createHitFeel, momentTrauma, explodeShakes, explodeSource, abilityBlastTrauma, stepTint } from './vfx/feel.js';
 import { RosterFx } from './rosterFx.js';
+import { StaffFx } from './staffFx.js';
 import { Companions } from './companions.js';
 import { createAbilityFx } from './abilityFx.js';
 import { fmtNum } from '../ui/format.js';
@@ -299,6 +300,25 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
     console.warn('[companions] disabled after an error', err);
   }
+  // the staff heroes: Norika's barricades, Kogane's plow and Big Yellow (src/render/staffFx.js); decoration,
+  // so an error switches them off for this battle
+  const staff = new StaffFx({ sim, scene, fx, batches, atlas, actors, quality, reduceMotion, rand: vrand.fork('staff') });
+  let staffBroken = false;
+  function staffSafe(fn) {
+    if (staffBroken) return null;
+    try {
+      return fn();
+    } catch (err) {
+      staffBroken = true;
+      try {
+        staff.dispose();
+      } catch {
+        /* leave what is drawn */
+      }
+      console.warn('[staff fx] disabled after an error', err);
+      return null;
+    }
+  }
   const buffIcons = new BuffIcons({ sim, actors, batches, atlas });
   buffIcons.setMode(settings.buffIcons);
   // impact frames: a navy tint over the board, the toon figures (and companions) as pink silhouettes
@@ -401,6 +421,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     attackFx?.setQuality(q);
     ambient.setQuality(q);
     roster.setQuality(q);
+    staff.setQuality(q);
     companions.setQuality(q);
     actors.setQuality(q);
     overlays.setQuality(q);
@@ -472,6 +493,44 @@ export function createBattleRenderer(container, sim, opts = {}) {
     companionDives: (uid) => (compBroken ? null : companions.swoopTargets(uid)),
   });
 
+  // A constant beam's damage ticks (Kohaku's, src/sim/duo.js: `tick` hits, ten a second on everything on its line)
+  // never spark or flash the enemy one by one (no strobe: the beam itself shows the hit); their damage is summed
+  // per enemy and shown as one number every TICK_SUM_S (game time, so a paused battle holds it). Entries are
+  // pooled: no allocation per tick.
+  const TICK_SUM_S = 0.45;
+  const tickSums = new Map();
+  const tickFree = [];
+  function tickHit(ev) {
+    let e = tickSums.get(ev.uid);
+    if (!e) {
+      e = tickFree.pop() || { amt: 0, t: 0, crit: false, x: 0, y: 0 };
+      e.amt = 0;
+      e.t = time;
+      e.crit = false;
+      tickSums.set(ev.uid, e);
+    }
+    e.amt += ev.amount || 0;
+    if (ev.crit) e.crit = true;
+    e.x = ev.x;
+    e.y = ev.y;
+  }
+  function flushTickSums(numbers) {
+    for (const [uid, e] of tickSums) {
+      const p = actors.enemyPos(uid);
+      if (p && time - e.t < TICK_SUM_S) continue;
+      if (fx.numbers && numbers < MAX_NUMBERS_PER_FRAME && e.amt >= 1) {
+        numbers++;
+        const x = p ? p.x : e.x;
+        const z = p ? p.z : e.y;
+        const y = p ? p.y + p.height * 0.55 : 0.35;
+        fx.text(e.crit ? `${fmt(e.amt)}!` : fmt(e.amt), x, y + 0.25, z, e.crit ? '#ff9a3d' : '#e6dcff', e.crit ? 0.22 : 0.17, 0.65, 0.45);
+      }
+      tickSums.delete(uid);
+      tickFree.push(e);
+    }
+    return numbers;
+  }
+
   function handleEvents(events) {
     let numbers = 0;
     let hitFx = 0;
@@ -504,11 +563,19 @@ export function createBattleRenderer(container, sim, opts = {}) {
       const moment = momentTrauma(ev);
       if (moment > 0 && clock.frameT - lastArtShake >= TRAUMA.artGap && shake(moment)) lastArtShake = clock.frameT;
       noteBallPop(ev, bouncing); // (a ball's blast comes before its pop: the blast reads the state its last pop left)
+      // the staff heroes' props observe only too
+      staffSafe(() => staff.handle(ev));
+      // a duo's two girls move by whose weapon fired, and cheer on her cast (observe only, src/models/duo.js)
+      actors.duoEvent(ev);
       if (attackFx && fxSafe(() => attackFx.onEvent(ev, i, events))) continue;
       if (roster.handle(ev)) continue;
       if (abilityFx.handle(ev)) continue;
       switch (ev.type) {
         case 'hit': {
+          if (ev.tick) {
+            tickHit(ev);
+            break;
+          }
           // the struck monster flashes (gold on a crit, the attack's colour on a weak spot) and
           // squashes; a strong hit or a crit (the hitting girl's impact preset) also holds it for a
           // few frames — only that enemy, never the board
@@ -555,7 +622,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
         }
         case 'attack': {
           const v = actors.towerView(ev.towerUid);
-          if (ev.kind !== 'bullet' || !ev.turretUid) actors.playAttack(ev.towerUid);
+          if (ev.kind !== 'bullet' || !ev.turretUid) actors.playAttack(ev.towerUid, ev.kind);
           if (!v) break;
           const m = v.model.position;
           if (ev.kind === 'slash') {
@@ -772,9 +839,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
           break;
         }
         case 'ult': {
-          const col = ULT_COLORS[ev.effect] || '#ffffff';
-          // one struck enemy / the sky dragon: drawn by rosterFx, no map-wide ring and no impact frames
-          const local = ev.effect === 'strike' || ev.effect === 'runner';
+          const col = staffSafe(() => staff.ultColor(ev)) || ULT_COLORS[ev.effect] || '#ffffff';
+          // one struck enemy / the sky dragon / the plow (rosterFx, staffFx) and Hold the Line (staffFx): no
+          // map-wide ring and no impact frames
+          const local = ev.effect === 'strike' || ev.effect === 'runner' || ev.effect === 'barricade';
           if (local) {
             screenFlash(col, 0.45, 2.4);
             shake(TRAUMA.localUlt);
@@ -819,6 +887,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
           break;
       }
     }
+    flushTickSums(numbers);
   }
 
   // ----- frame ----------------------------------------------------------------------------
@@ -841,6 +910,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       actors.alpha = 1;
     }
     if (ruleDecals) for (const ev of events) if (ev.type === 'rift' || ev.type === 'ruleState') ruleDecals.handle(ev);
+    actors.cameraYaw = rig.yaw;
     if (blackout.enabled) {
       for (const ev of events) blackout.handle(ev);
       if (blackout.step(d)) {
@@ -864,6 +934,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     actors.drawGround(d);
     if (attackFx) fxSafe(() => attackFx.update(d, fd));
     roster.update(d);
+    staffSafe(() => staff.update(d));
     const occupied = new Set();
     for (const v of actors.towers.values()) if (v.water) for (const o of terrain.waterDecor.get(v.decorKey) || []) occupied.add(o);
     ambient.update(d, occupied);
@@ -1306,6 +1377,22 @@ export function createBattleRenderer(container, sim, opts = {}) {
     towerSkin(uid) {
       return actors.towers.get(uid)?.model.userData.skinId ?? null;
     },
+    /**
+     * Extra: what a placed girl's figure is (e2e / debug): a duo's members, whether every part is a GLB or a
+     * stand-in, her drawn facing (rad) and whether it keeps to the camera (src/render/facing.js); a duo's FX anchors
+     * (world [x, y, z]: Kohaku's lens, Tsubaki's muzzle, src/models/duo.js).
+     */
+    towerModelInfo(uid) {
+      const v = actors.towers.get(uid);
+      const ud = v?.model.userData;
+      if (!ud) return null;
+      const at = (p) => (p ? [+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)] : null);
+      return {
+        duo: !!ud.duo, members: ud.memberIds || null, glb: ud.duo ? !!ud.isGlb?.() : !!ud.glb, height: ud.height ?? null,
+        standIn: ud.duo ? !!ud.isStandIn?.() : !!ud.standIn, facing: v.facing, faceCam: !!v.faceCam, cameraYaw: rig.yaw,
+        ...(ud.anchors ? { anchors: { lens: at(ud.anchors.lens), muzzle: at(ud.anchors.muzzle) } } : null),
+      };
+    },
     /** Extra: read-only info for debugging / previews. */
     get info() {
       return { quality, theme: look.theme, night: look.night, fog: look.fog, weather: look.weather, scenery: scenery.keywords, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, attackFx: attackFx?.stats() ?? null, blackout: blackout.enabled ? blackout.dim : null };
@@ -1320,6 +1407,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       overlays.dispose();
       attackFx?.dispose();
       roster.dispose();
+      staff.dispose();
       companions.dispose();
       actors.dispose();
       terrain.dispose();

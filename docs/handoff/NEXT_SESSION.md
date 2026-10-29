@@ -1,9 +1,9 @@
-# Next session: start here (updated Oct 28, 2026)
+# Next session: start here (updated Oct 28, 2026, evening)
 
 This page is for a session that only has the GitHub repo (a cloud session), not the owner's PC. Read `docs/HANDOFF.md` too; it has the rules (§6), the shipping flow (§7) and the branch table (§3). Check out the coordination branch `claude/sakura-sentinels`; `main` is the live build (every push to `main` deploys).
 
 ## What is live
-v0.1.57 "Ultimates" on top of v0.1.56 "Brighter Home", v0.1.55 "Rush Hour and Hilltop After Dark" (Gate Arc Acts 1–2) and v0.1.54 "Quiet Home" (the display update), all shipped Oct 28. `main` is `793dfcfa`, sim id `2c3c74708a2c`, `COOP_PROTOCOL` 10. Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`. The next deploy is v0.1.58, the next GitHub Pages run number.
+v0.1.58 "Brighter Details" (the EVENTS tab on the home, Marumi in colour) on top of v0.1.57 "Ultimates", v0.1.56 "Brighter Home", v0.1.55 "Rush Hour and Hilltop After Dark" (Gate Arc Acts 1–2) and v0.1.54 "Quiet Home", all shipped Oct 28. `main` is `aa0281de`, sim id `2c3c74708a2c`, `COOP_PROTOCOL` 10. Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`. The next deploy is v0.1.59, the next GitHub Pages run number: one combined release of the banners (the duo launching now), Tryout Day and the honest DPS readout on `COOP_PROTOCOL` 11 (`release/duo-tryout`; HANDOFF §1).
 
 ## UPDATE Oct 28 (afternoon): v0.1.56 and v0.1.57 SHIPPED
 - **v0.1.56 "Brighter Home"** (run #56, main `24881956`): the home art in full colour and a Clan button beside chat and mail (owner: "it looks a little dead … bland"). Independent go/no-go GO, live check LIVE_OK. Display only.

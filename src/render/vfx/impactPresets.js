@@ -40,10 +40,11 @@ export const WEIGHT = {
 export const GIRL_WEIGHT = {
   // heavy: big single blows
   marumi: 'heavy', sango: 'heavy', shiro: 'heavy', akane: 'heavy', kaede: 'heavy', kanna: 'heavy', suzu: 'heavy', ena: 'heavy',
+  kohaku_tsubaki: 'heavy', // (the duo's mortar)
   // normal
   hikari: 'normal', luna: 'normal', nami: 'normal', aoi: 'normal', rei: 'normal', yuki: 'normal', midori: 'normal', raika: 'normal',
   miko: 'normal', hotaru: 'normal', yoriko: 'normal', seiran: 'normal', fuu: 'normal', hana: 'normal', ruri: 'normal', iroha: 'normal',
-  chigusa: 'normal', yuzuha: 'normal',
+  chigusa: 'normal', yuzuha: 'normal', kogane: 'normal', norika: 'normal',
   // light: streams of small hits, rings, auras, strips
   kage: 'light', umeko: 'light', chika: 'light', momo: 'light', noa: 'light', azami: 'light', kinu: 'light', tenka: 'light',
   // no damage of their own
