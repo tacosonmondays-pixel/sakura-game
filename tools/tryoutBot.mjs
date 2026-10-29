@@ -349,11 +349,12 @@ export function coopStart({ seed = 1, grade = 1, length = 'half', drafts = [['ao
  * A 2-player co-op run on two lockstep views (each client its own CoopSim, mySlot 0 and 1). Each player's
  * bot decides from its own view; the commands land on both at the same tick, in (tick, slot, seq) order.
  * `goneAt`: a wave after which player 1 drops out (a `gone` marker). `checkpointAt`: a wave end where a
- * third client rejoins from client 0's checkpoint and plays on. `onCalm(sim)`: runs on every view's Sim at each calm point,
+ * third client rejoins from client 0's checkpoint and plays on (`checkpointIf(sim)`: only at a calm point where it holds,
+ * e.g. mid-reveal in Random Class). `onCalm(sim)`: runs on every view's Sim at each calm point,
  * before the commands (the same change on every client, so lockstep holds: a test topping up the hearts to go deep).
- * @returns {{ views: object[], digests: string[][], hashes: number[][] }}
+ * @returns {{ views: object[], digests: string[][], hashes: number[][], rejoin: { wave: number, winTicks: (number|null)[] }|null }}
  */
-export function runCoop({ start = coopStart(), policy = 'random', maxWaves = Infinity, goneAt = 0, checkpointAt = 0, onCalm = null } = {}) {
+export function runCoop({ start = coopStart(), policy = 'random', maxWaves = Infinity, goneAt = 0, checkpointAt = 0, onCalm = null, checkpointIf = null } = {}) {
   const views = [createCoopSim(start, { mySlot: 0 }), createCoopSim(start, { mySlot: 1 })];
   const bots = [0, 1].map((i) => ({ policy, rng: createRng((start.tryout.seed ^ 0xb07) + i) }));
   const digests = views.map(() => []);
@@ -361,6 +362,7 @@ export function runCoop({ start = coopStart(), policy = 'random', maxWaves = Inf
   const seq = [0, 0];
   let gone = false;
   let rejoined = false;
+  let rejoin = null;
   let guard = 0;
   const sim0 = views[0].sim;
   const applyAll = (cmds) => {
@@ -375,8 +377,9 @@ export function runCoop({ start = coopStart(), policy = 'random', maxWaves = Inf
         applyAll([{ t, p: 1, s: seq[1]++, k: 'gone', a: [] }]);
       }
       if (onCalm) for (const v of views) onCalm(v.sim);
-      if (checkpointAt && !rejoined && sim0.wave >= checkpointAt) {
+      if (checkpointAt && !rejoined && sim0.wave >= checkpointAt && (!checkpointIf || checkpointIf(sim0))) {
         rejoined = true;
+        rejoin = { wave: sim0.wave, winTicks: sim0.tryout.players.map((p) => (p.win === 'pick' ? p.winTicks : null)) };
         const snap = JSON.parse(JSON.stringify(views[0].snapshot()));
         const fresh = createCoopSim(start, { mySlot: 1 });
         fresh.restore(snap);
@@ -396,7 +399,7 @@ export function runCoop({ start = coopStart(), policy = 'random', maxWaves = Inf
     }
     views.forEach((v, i) => hashes[i].push(v.hash()));
   }
-  return { views, digests, hashes };
+  return { views, digests, hashes, rejoin };
 }
 
 // ---------------------------------------------------------------------------

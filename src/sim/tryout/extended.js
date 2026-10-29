@@ -39,14 +39,15 @@ export function extendDay(sim, p) {
     const team = r.team.filter((x) => x[1] === 1).length;
     ty.periods[i] = { period: r.period, score: r.score, cleared: r.own.map((l) => team + l.filter((x) => x[1] === 1).length) };
   }
-  // pick rows: past the first keepPicks, a row that brought no girl and is not among the newest keepPicksNew is
-  // folded into the per-rarity counts (newestGirl and Show Her Around read only girl rows and the newest one)
+  // pick rows: past the first keepPicks, a row that brought no girl, is no LR and is not among the newest keepPicksNew
+  // is folded into the per-rarity counts (newestGirl and Show Her Around read only girl rows and the newest one; the
+  // achievement counters count LR card rows)
   for (const pl of ty.players) {
     const cut = pl.picks.length - X.keepPicksNew;
     if (cut <= X.keepPicks) continue;
     const keep = [];
     pl.picks.forEach((r, i) => {
-      if (i < X.keepPicks || i >= cut || r.girl) keep.push(r);
+      if (i < X.keepPicks || i >= cut || r.girl || r.rarity === 4) keep.push(r);
       else (pl.pickCounts || (pl.pickCounts = [0, 0, 0, 0, 0]))[r.rarity] += 1;
     });
     pl.picks = keep;
