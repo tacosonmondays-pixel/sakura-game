@@ -571,6 +571,19 @@ export class PlacedProps {
     return this.actors?.towers?.get(tw.uid)?.lift || 0;
   }
 
+  /**
+   * The long axis (out.x, out.y) of strip `uid`'s 3D prop at (x, y): across the road, (cos f, -sin f) for its
+   * rotation.y f (the same cached facing it is drawn with). Null when strips are not drawn here (Low graphics,
+   * the GLB not loaded or failed): the caller keeps the flat drawing's angle.
+   */
+  stripAxis(uid, x, y, out) {
+    if (!this.covers('strip')) return null;
+    const f = this._roadFacing(`s${uid}`, x, y);
+    out.x = Math.cos(f);
+    out.y = -Math.sin(f);
+    return out;
+  }
+
   _roadFacing(key, x, y) {
     let f = this._facing.get(key);
     if (f == null) this._facing.set(key, (f = roadFacing(this.sim.pathData, x, y)));

@@ -233,3 +233,34 @@ describe('no dotted rings', () => {
     }
   });
 });
+
+describe("Azami's bite follows the strip as drawn", () => {
+  it('uses the 3D strip prop axis (across the road) when placed props draw strips, else the flat uid × 0.7 angle', async () => {
+    const THREE = await import('three');
+    const { PlacedProps, roadFacing } = await import('../../src/render/placedProps.js');
+    const { stripDir } = await import('../../src/render/attackFx/styles/azami.js');
+    const sim = gallerySim(['azami'], [[0, 0, 0]]);
+    const props = new PlacedProps({ sim, scene: new THREE.Scene(), quality: 'high' });
+    const out = { x: 0, y: 0 };
+    const ctx = { actors: { placedProps: props } };
+    // GLB not loaded (node): the prop does not cover strips, so the flat angle stays
+    stripDir(ctx, 7, 3, 2.5, out);
+    expect(out.x).toBeCloseTo(Math.cos(4.9));
+    expect(out.y).toBeCloseTo(-Math.sin(4.9));
+    // no placed-props layer at all (it failed and was switched off): the flat angle too
+    stripDir({ actors: {} }, 7, 3, 2.5, out);
+    expect(out.x).toBeCloseTo(Math.cos(4.9));
+    // strips drawn as props: the bite axis is the prop's (rotation.y f → long axis (cos f, −sin f))
+    props.covers = (kind) => kind === 'strip';
+    for (const [uid, x, y] of [[7, 3, 2.5], [8, 28.6, 4.5], [9, 10, 6.5], [10, 1.4, 8.5]]) {
+      stripDir(ctx, uid, x, y, out);
+      const f = roadFacing(sim.pathData, x, y);
+      expect(props._facing.get(`s${uid}`)).toBe(f); // the same cached facing the prop is drawn with
+      expect(out.x).toBeCloseTo(Math.cos(f));
+      expect(out.y).toBeCloseTo(-Math.sin(f));
+      // across the road: perpendicular to the road direction (sin f, cos f)
+      expect(Math.abs(out.x * Math.sin(f) + out.y * Math.cos(f))).toBeLessThan(1e-9);
+    }
+    props.dispose();
+  });
+});

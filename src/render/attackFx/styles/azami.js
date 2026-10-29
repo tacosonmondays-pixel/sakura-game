@@ -8,7 +8,8 @@
 //                      T5 that burst is white-gold with a stun flash
 //   P2 Long Watch:     T3 a tar splat under the bite (Sticky Tar's slow)
 // The strip itself (its model on the road) belongs to the placed-object pass (src/render/actors.js);
-// the bite spikes follow the same orientation it draws with (uid × 0.7 around the vertical).
+// the bite spikes follow the strip as it is drawn: the 3D prop's axis across the road (placedProps.stripAxis)
+// when that layer draws strips, else the flat drawing's angle (uid × 0.7 around the vertical: Low, no GLB).
 import { lookAt } from '../flair.js';
 import { flash, sparks, shardBurst } from '../patterns/bursts.js';
 import { decal } from '../patterns/markers.js';
@@ -23,8 +24,12 @@ const HOT = '#ffb347';
 const CRACK = '#ff5a5a';
 const TAR = '#2b2230';
 
-/** The drawn strip's long axis (actors.js: a ground quad rotated uid × 0.7). */
-function stripDir(uid, out) {
+/**
+ * The drawn strip's long axis: the 3D prop's (src/render/placedProps.js stripAxis, across the road) when the
+ * placed-props layer draws strips, else the flat ground quad's (actors.js: rotated uid × 0.7).
+ */
+export function stripDir(ctx, uid, x, y, out) {
+  if (ctx.actors?.placedProps?.stripAxis?.(uid, x, y, out)) return out;
   const r = uid * 0.7;
   out.x = Math.cos(r);
   out.y = -Math.sin(r);
@@ -55,7 +60,7 @@ function drawBar(o, x, h, y, k, ctx) {
 
 /** Lob landing: the clack (a skid along the strip, spikes snapping up, two sparks). */
 function landBar(o, ctx) {
-  stripDir(o.a, DIR);
+  stripDir(ctx, o.a, o.x1, o.y1, DIR);
   groundStreak(ctx, o.x1, o.y1, DIR.x, DIR.y, 0.8, 0.12, o.c, 0.22, 0.85);
   spikes(ctx, o.x1, o.y1, DIR.x, DIR.y, 0.5, ctx.q.trails > 0 ? 3 : 2, 0.2, o.c, 0.18, DECOR, ctx.col('#2f3440'));
   if (ctx.cap('impact')) sparks(ctx, o.x1, 0.12, o.y1, 2, o.c, 1.2);
@@ -103,7 +108,7 @@ export const azami = {
       return true;
     }
     // trapTriggered: the spikes jab up through the walker
-    stripDir(ev.uid, DIR);
+    stripDir(ctx, ev.uid, ev.x, ev.y, DIR);
     const steel = ctx.col(extra ? THISTLE : STEEL);
     const hot = lookAt(lk, 0) >= 4;
     spikes(ctx, ev.x, ev.y, DIR.x, DIR.y, 0.62, ctx.q.trails > 0 ? 5 : 3, 0.5, hot ? ctx.col(HOT) : steel, 0.24, DECOR, ctx.col('#2f3440'));

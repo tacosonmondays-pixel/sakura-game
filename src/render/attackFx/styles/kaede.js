@@ -123,6 +123,13 @@ const _hits = [];
 const _angs = [];
 const _pts = [];
 
+const STORM_HEX = ['#ff5a2e', '#ffb347', '#d8283a'];
+/** The storm streak colours, built once per girl (tw.data), like ghostCols. */
+function stormCols(ctx, d) {
+  if (!d.stormCols) d.stormCols = STORM_HEX.map((h) => ctx.col(h));
+  return d.stormCols;
+}
+
 function ghostCols(ctx, d) {
   if (!d.ghostCols) d.ghostCols = GHOST_HEX.map((h) => ctx.col(h));
   return d.ghostCols;
@@ -151,7 +158,7 @@ export const kaede = {
 
   init(tw, t, ctx) {
     if (ctx) kaedeLayers(ctx);
-    return { leaves: 0, ramp: 0, flip: 1, ghostCols: null };
+    return { leaves: 0, ramp: 0, flip: 1, ghostCols: null, stormCols: null };
   },
 
   onAttack(ev, tw, t, ctx, i, events) {
@@ -260,7 +267,7 @@ export const kaede = {
     // the maple storm: fast streaks spinning round her in a whirl of leaves
     if (ev.storm > 0) {
       const m = STORM_STREAKS[ctx.quality] || STORM_STREAKS.medium;
-      const cols = [ctx.col('#ff5a2e'), ctx.col('#ffb347'), ctx.col('#d8283a')];
+      const cols = stormCols(ctx, tw.data);
       for (let k = 0; k < m; k++) {
         const r = ev.storm * (0.45 + 0.5 * (m > 1 ? k / (m - 1) : 0.5));
         const mid = a + k * 2.4;
