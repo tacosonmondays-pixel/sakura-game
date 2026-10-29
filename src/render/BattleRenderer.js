@@ -505,7 +505,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     if (!e) {
       e = tickFree.pop() || { amt: 0, t: 0, crit: false, x: 0, y: 0 };
       e.amt = 0;
-      e.t = time;
+      e.t = clock.t; // (visual time: a paused battle, or a hit-stop, holds the sum)
       e.crit = false;
       tickSums.set(ev.uid, e);
     }
@@ -517,7 +517,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   function flushTickSums(numbers) {
     for (const [uid, e] of tickSums) {
       const p = actors.enemyPos(uid);
-      if (p && time - e.t < TICK_SUM_S) continue;
+      if (p && clock.t - e.t < TICK_SUM_S) continue;
       if (fx.numbers && numbers < MAX_NUMBERS_PER_FRAME && e.amt >= 1) {
         numbers++;
         const x = p ? p.x : e.x;
@@ -535,7 +535,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     let numbers = 0;
     let hitFx = 0;
     let hits = 0;
-    for (let i = 0; i < events.length; i++) if (events[i].type === 'hit') hits++;
+    // (a beam's damage ticks are not blows: ten a second per enemy on her line would make every duo fight 'busy')
+    for (let i = 0; i < events.length; i++) if (events[i].type === 'hit' && !events[i].tick) hits++;
     director.noteHits(hits); // busy fights: fewer local holds
     // which shots landed since the last frame (who hit whom): only needed while a hit can hold its
     // enemy (not on Low, with Reduce Motion or with Flashes & shake off); it starts afresh when holds
