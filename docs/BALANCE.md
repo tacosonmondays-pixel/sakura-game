@@ -4,8 +4,8 @@
 
 The owner's direction (Oct 27–28): "no cap, everyone close to Kage". Every fully maxed striker's honest DPS (the battle
 drawer's live number since v0.1.59) in a 1M–2.5M band, Kage in the middle; supports judged by their boost to allies;
-nobody nerfed. Built on the v0.1.59 release candidate (`main` ccf147ad: banners, the duo with Kohaku's constant beam,
-Tryout Day, UR Resonance, honest DPS). Kept from rounds 1–4: the per-girl rows (`src/data/balance.js`, re-sized here),
+nobody nerfed. Built on v0.1.60 (`main` 4b4388b8: banners, Tryout Day and Extended Day, UR Resonance, honest DPS, Tenka's LR
+form, Gate Arc Acts 3–6, and the owner's duo buff with the edge beam). Kept from rounds 1–4: the per-girl rows (`src/data/balance.js`, re-sized here),
 the heroes' level curve, the titan rule, Fuu's wind and Chigusa's lives. Dropped: Options A/B, the kit-fair panel (the
 honest readout shipped instead), the chapter HP pass.
 
@@ -38,13 +38,13 @@ owner's "about 1.7M" frame). Her **ruler** is her job: a boss for single-target 
 | Yuzuha | boss | 473k → 1.85M | 449k → 1.78M | 1.85M | in |
 | Tenka | boss | 1.67M → 1.80M | 6.05M → 6.55M | 1.80M | in |
 | Akane | crowd | 288k → 1.07M | 15.94M → 16.47M | 16.47M | above (no cap) |
+| Kohaku & Tsubaki | crowd | 3.70M → 3.94M | 7.99M → 8.71M | 8.71M | above (no cap) |
 | Hotaru | crowd | 399k → 1.09M | 7.79M → 8.43M | 8.43M | above (no cap) |
 | Sango | crowd | 325k → 1.11M | 7.38M → 7.87M | 7.87M | above (no cap) |
 | Iroha | crowd | 255k → 1.08M | 5.45M → 5.88M | 5.88M | above (no cap) |
 | Fuu | crowd | 97k → 262k | 1.80M → 4.04M | 4.04M | above (no cap) |
 | Marumi | crowd | 170k → 1.02M | 3.22M → 3.48M | 3.48M | above (no cap) |
 | Ruri | crowd | 104k → 1.02M | 2.69M → 3.16M | 3.16M | above (no cap) |
-| Kohaku & Tsubaki | crowd | 128k → 1.16M | 2.37M → 2.54M | 2.54M | above (no cap) |
 | Yuki | crowd | 94k → 110k | 1.92M → 2.45M | 2.45M | in |
 | Kinu | crowd | 123k → 1.01M | 1.11M → 2.29M | 2.29M | in |
 | Raika | crowd | 174k → 1.01M | 1.67M → 2.20M | 2.20M | in |
@@ -62,16 +62,16 @@ owner's "about 1.7M" frame). Her **ruler** is her job: a boss for single-target 
 
 - Single-target strikers rise to 86–90% of Kage on a boss (`dmg` rows ×1.72–×5.9). Splash girls already above the band
   on a crowd keep it (no cap) and get a boss-only factor (`boss`, bosses and minibosses) to about 1M on a boss, half of
-  Kage's: Marumi ×5.6, Ruri ×9 and the duo ×7.6 are the largest because their kits barely touch a boss (the duo's boss
-  row reaches her shells, not Kohaku's beam).
+  Kage's: Marumi ×5.6 and Ruri ×9 are the largest because their kits barely touch a boss.
+- **The duo (Kohaku & Tsubaki) has no row.** The owner's Oct 29 buff (v0.1.60) makes her an intended outlier above
+  Kage (the coordinator: exempt from the band, never tuned down); every build of hers is at or above v0.1.60.
 - Suzu's traps and Azami's strips sit in the band on a crowd but stay near 0 on a boss: their kits do not touch bosses
   (a kit question for the owner, not a number).
 - Kage, Shiro and Tenka have no damage row; the supports' +5% lifts every girl beside them about 9%.
 - **No build falls, not only the best one** (every girl, all three tier-5 builds, boss and crowd, 3 seeds; Fuu, Yuki and
-  the duo also alone and with supports over 5–7 seeds). Three rows exist only for that: Fuu ×2.45 (her stronger wind
+  the duo also alone and with supports over 5–7 seeds). Two rows exist only for that: Fuu ×2.45 (her stronger wind
   pushes walkers out of her reach: at ×1.3 her Returning Gale build alone lost 46%, so her best build now reads ~4M on
-  a crowd), Yuki ×1.08 (her 20% longer freezes cost her up to 6% on a build), the duo ×1.12 (the raised Umeko aura
-  shifts her shell and beam timing on a stream).
+  a crowd), and Yuki ×1.08 (her 20% longer freezes cost her up to 6% on a build).
 
 **Supports** (Kage 5-0-2 on a held boss beside one support at her best build, ÷ Kage alone):
 
@@ -127,7 +127,7 @@ DPS ÷ Kage's (√ of the boss and crowd ratios); a girl already at or above tha
 | Ouka | 1,197 | 1,197 |
 | Chigusa | 8,018 | 15,405 ▲ |
 | Marumi | 24,486 | 24,486 |
-| Kohaku & Tsubaki | 35,931 | 35,931 |
+| Kohaku & Tsubaki | 44,720 | 44,720 |
 | Kogane | 8,519 | 8,519 |
 | Norika | 4,421 | 4,421 |
 
@@ -143,22 +143,27 @@ titans screen says titan battles use every girl's damage without the boost.
 
 **Finales** (`tools/balance/r5Finales.mjs`, the autoPlan bot; common team = the free roster with Akane, Raika, Miko and
 Kinu in; mid = the census level, late = Lv 60 ★3 with two Epic +6 pieces, max = fully maxed; wins of 2 seeds). Normal,
-Hard and Nightmare × free and common × three accounts × ten finales: **0 wins become losses, 30 losses become wins.**
+Hard and Nightmare × free and common × three accounts × the 14 finales (Gate Arc Acts 3–6 included): **0 wins
+become losses, 41 losses become wins.**
 
 | Finale | Nightmare, common team: mid · late · max (2 seeds) before → after | Hard, common team | Nightmare, free roster |
 |---|---|---|---|
-| 1-10 | 0→0 · 0→2 · 2→2 | 2→2 · 2→2 · 2→2 | 0→0 · 0→2 · 2→2 |
 | 1-5 | 0→0 · 0→2 · 2→2 | 2→2 · 2→2 · 2→2 | 0→0 · 0→0 · 2→2 |
+| 1-10 | 0→0 · 0→2 · 2→2 | 2→2 · 2→2 · 2→2 | 0→0 · 0→2 · 2→2 |
+| 2-5 | 0→0 · 1→2 · 2→2 | 2→2 · 2→2 · 2→2 | 0→0 · 2→2 · 2→2 |
 | 2-10 | 0→2 · 2→2 · 2→2 | 2→2 · 2→2 · 2→2 | 0→2 · 2→2 · 2→2 |
-| 2-5 | 0→0 · 2→2 · 2→2 | 2→2 · 2→2 · 2→2 | 0→0 · 2→2 · 2→2 |
 | 3-5 | 0→0 · 0→0 · 2→2 | 0→0 · 2→2 · 2→2 | 0→0 · 0→0 · 2→2 |
+| 3-10 | 0→0 · 0→2 · 2→2 | 0→0 · 2→2 · 2→2 | 0→0 · 0→0 · 2→2 |
 | 4-5 | 0→0 · 0→0 · 2→2 | 0→2 · 2→2 · 2→2 | 0→0 · 0→2 · 2→2 |
+| 4-10 | 0→0 · 0→0 · 2→2 | 0→0 · 2→2 · 2→2 | 0→0 · 0→0 · 2→2 |
 | 5-5 | 0→0 · 0→2 · 2→2 | 2→2 · 2→2 · 2→2 | 0→0 · 2→2 · 2→2 |
+| 5-10 | 0→0 · 0→0 · 2→2 | 0→0 · 2→2 · 2→2 | 0→0 · 0→0 · 2→2 |
 | 6-5 | 0→0 · 0→2 · 2→2 | 2→2 · 2→2 · 2→2 | 0→0 · 2→2 · 2→2 |
+| 6-10 | 0→0 · 0→0 · 2→2 | 0→0 · 2→2 · 2→2 | 0→0 · 0→0 · 2→2 |
 | 7-5 | 0→0 · 0→0 · 2→2 | 0→0 · 0→2 · 2→2 | 0→0 · 0→2 · 2→2 |
 | 8-5 | 0→0 · 0→0 · 2→2 | 0→0 · 0→0 · 2→2 | 0→0 · 0→2 · 2→2 |
 
-**Tryout Day** (`tools/tryoutBot.mjs --sweep`, 20 runs each, solo Half Day): the rows apply in Tryout, so it gets easier
+**Tryout Day** (`tools/tryoutBot.mjs --sweep`, 20 runs each, solo Half Day; re-run on v0.1.60, the same rates): the rows apply in Tryout, so it gets easier
 (the coordinator's call, Oct 29: no Grade retune this round; easier low and mid Grades are fine and Grade 12 maxed at
 30% is still a real top. For the Tryout session: these are the rates with the round).
 
@@ -171,7 +176,7 @@ Hard and Nightmare × free and common × three accounts × ten finales: **0 wins
 The ceiling gate (`tools/bench.mjs --hit --ceiling --maxed geared`) is unchanged: 41 rows, max ×1.119 (Aoi's talent),
 the same three rows over ×1 as before the round (Aoi T_aoi 1.119, Hana 1.074, Shiro T_shiro 1.041), none above ×1.15.
 
-**Sim id** `cd0c560b9327` (base `35748b1b58db`), pinned as PENDING_BUMP in `tests/art/itemArtRuntime.test.js`; COOP_PROTOCOL is
+**Sim id** `63bc9d3e124a` (base `d35092f141d3`, COOP 12), pinned as PENDING_BUMP {12: …} in `tests/art/itemArtRuntime.test.js`; COOP_PROTOCOL is
 not bumped here (the coordinator assigns it at ship). Goldens re-pinned with no win becoming a loss; mechanics
 scenarios (save/restore, co-op casts) run power-neutral (`powerOff`, or the row divided back out in co-op).
 
