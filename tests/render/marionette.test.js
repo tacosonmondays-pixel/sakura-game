@@ -183,7 +183,10 @@ describe('the target', () => {
     start(q, { eta: 0.3 });
     stepMarionette(q, 0.2);
     const at = [q.ox, q.oy, q.oz];
+    const taut = q.taut;
     expect(loseTarget(q, null)).toBe('reel');
+    stepMarionette(q, DT);
+    expect(Math.abs(q.taut - taut)).toBeLessThan(0.05); // the strings do not snap
     expect(q.stage).toBe('reel');
     const { seen, jump } = run(q);
     expect(seen.map((x) => x[0])).toEqual(['reel', 'settle']);

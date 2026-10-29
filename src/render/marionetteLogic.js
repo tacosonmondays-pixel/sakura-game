@@ -99,7 +99,7 @@ export function marionetteState() {
     dirx: 0, dirz: 1, go: 0, side: 1, // toward the target, how far the glide goes, which side the arc bulges
     sx: 0, sy: 0, sz: 0, // strike point (offset)
     fx: 0, fy: 0, fz: 0, ft: 0, // where the sequence started (offset) and its tilt
-    rx: 0, ry: 0, rz: 0, rt: 0, // where the reel started (offset) and its tilt
+    rx: 0, ry: 0, rz: 0, rt: 0, rk: 1, // where the reel started (offset), its tilt and string tension
     ox: 0, oy: 0, oz: 0, tilt: 0, taut: 0, flick: 0, // output: offset, tilt, string tension 0..1, bar flick 0..1
     calm: false, simple: false, landed: false, clipAt: 0, clipOffset: 0, clipDue: false, clipFired: false,
   };
@@ -199,6 +199,7 @@ export function loseTarget(s, next) {
   s.ry = s.oy;
   s.rz = s.oz;
   s.rt = s.tilt;
+  s.rk = s.taut;
   enter(s, 'reel');
   return 'reel';
 }
@@ -266,6 +267,7 @@ export function stepMarionette(s, dt) {
       s.ry = s.sy;
       s.rz = s.sz;
       s.rt = s.calm ? TILT_EXTEND * CALM_TILT : TILT_EXTEND;
+      s.rk = 1;
     }
     enter(s, next[s.stage]);
   }
@@ -334,7 +336,7 @@ function pose(s) {
       s.oz = w * w * s.rz + 2 * w * e * cz;
       s.oy = w * w * s.ry + 2 * w * e * cy;
       s.tilt = s.rt * w + TILT_REEL * tk * Math.sin(Math.PI * u);
-      s.taut = 1 - 0.65 * e;
+      s.taut = s.rk + (0.35 - s.rk) * e;
       s.flick = 0;
       return;
     }
