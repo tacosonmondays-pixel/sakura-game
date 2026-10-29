@@ -9,6 +9,7 @@ import { h, icon, enemyDef } from './util.js';
 import { fmtNum } from '../format.js';
 import { droneName } from '../../data/droneNames.js';
 import { FLIGHT_PURSUIT_RATE_MUL } from '../../sim/constants.js';
+import { DPS_AVG_TIP } from './dpsView.js';
 
 /** MORE's tabs for a drone owner (her paths are on the drawer's Glance). */
 export const DRONE_TABS = ['overall', 'chika', 'drones'];
@@ -56,9 +57,9 @@ export function wingDpsCells(st) {
 
 /**
  * @param {object} ctx battle context (sim, act, select, selectDrone, flight, coop, rates)
- * @param {{ rerender(): void }} hooks
+ * @param {{ rerender(): void, avgDps?: (uid: number) => number|null }} hooks (avgDps: the drawer meter's average, dpsView.js)
  */
-export function createDronePanel(ctx, { rerender }) {
+export function createDronePanel(ctx, { rerender, avgDps = null }) {
   const { sim } = ctx;
   const lastTab = new Map(); // girl uid -> the tab she reopens on (this battle only)
   let uid = null;
@@ -191,6 +192,19 @@ export function createDronePanel(ctx, { rerender }) {
     return r == null ? '—' : stat(r);
   };
 
+  /** Her average DPS (the drawer meter's, dpsView.js), painted every frame; "—" before 1 s on the field. */
+  const avgValue = (t) => {
+    const b = liveB(() => {
+      const a = avgDps?.(t.uid);
+      return a == null ? '—' : stat(a);
+    });
+    b.dataset.testid = 'drawer-dps-avg';
+    return b;
+  };
+
+  /** Her Overall Live tip: the wing's rate over the last few seconds (it never switches to a last-wave figure). */
+  const WING_LIVE_TIP = 'Live: everything she and her drones dealt over the last few seconds.';
+
   function overallTab(t, st, cells) {
     const dps = wingDpsCells(st).overall;
     const tu = st.turret;
@@ -199,7 +213,12 @@ export function createDronePanel(ctx, { rerender }) {
     // her Potential rows (the drones' overclock) first, so they tick in view
     return h('div', { 'data-testid': 'stats-overall' }, cells.pot || null, h('div.bt-stats-grid',
       cell(dps.label, dps.value, '.bt-stat-main.bt-stat-wide2'),
-      cell('DPS (live)', liveB(() => rateText(`t${t.uid}`)), '.bt-stat-wide2'),
+      // Live and Avg: everything she and her drones dealt (her damageDealt holds the wing's), one column each (on a
+      // phone Live sits beside DPS and Avg starts the next row, which Live alone took before: the tab is no taller).
+      // Her Live is the wing's own rate (sampleDroneRates), which keeps sampling between waves, so its tip leaves out
+      // the drawer's "last wave" line
+      h('div.bt-stat-cell', { 'data-testid': 'drawer-dps', role: 'group', title: WING_LIVE_TIP, 'aria-label': `DPS live. ${WING_LIVE_TIP}` }, h('span', 'DPS (live)'), liveB(() => rateText(`t${t.uid}`))),
+      h('div.bt-stat-cell', { 'data-testid': 'drawer-dps-avg-cell', role: 'group', title: DPS_AVG_TIP, 'aria-label': `DPS average. ${DPS_AVG_TIP}` }, h('span', 'DPS (avg)'), avgValue(t)),
       cells.rest,
       cell('Drones fly', fly, '.bt-stat-wide2'),
       cell('Flight', { hover: 'Hover', hold: 'Hold', patrol: 'Patrol', pursuit: 'Pursuit' }[tu.flight] || tu.flight, '.bt-stat-wide2'),
