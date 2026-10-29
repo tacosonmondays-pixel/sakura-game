@@ -213,6 +213,21 @@ describe('abilityBarView: slots', () => {
 });
 
 describe('the hold card', () => {
+  it('an LR Tenka\'s card names Critical Mass · Event Horizon and adds its sentence; without LR it is plain Critical Mass', () => {
+    const lrSim = new Sim({ stageId: '1-2', difficulty: 'normal', loadout: [{ unitId: 'tenka', stats: { lr: true } }], hero: null, seed: 11 });
+    lrSim.cash = 1e7;
+    unlock(lrSim, place(lrSim, 'tenka'));
+    const v = abilityCardView(lrSim, abilityBarView(lrSim, 0)[0]);
+    expect(v.name).toBe('Critical Mass · Event Horizon');
+    expect(v.desc).toMatch(/Event Horizon: the blast collapses into a gravity pull for 1\.5s .* detonates again for 50% of the first blast\.$/);
+    expect(v.desc).not.toMatch(/[{}]/);
+    const sim = battle(['tenka'], { hero: null });
+    unlock(sim, place(sim, 'tenka'));
+    const p = abilityCardView(sim, abilityBarView(sim, 0)[0]);
+    expect(p.name).toBe('Critical Mass');
+    expect(p.desc).not.toMatch(/Event Horizon/);
+  });
+
   it('her live description, the cooldown, the copies sharing it, Auto and the reach ring', () => {
     const sim = battle(['aoi']);
     const a1 = unlock(sim, place(sim, 'aoi'));

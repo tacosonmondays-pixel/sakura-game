@@ -232,6 +232,21 @@ for (const { name, r } of results) {
   if (!(refract > 0 && beams > 0 && casts > 0 && twinStar > 0)) failures.push(`the duo battle: a part never ran (refract/shards/beams/casts/twinStar/aims ${ref.duo.duo})`);
 }
 
+// Tenka's LR form (TENKA_LR_START): Critical Mass · Event Horizon's pull and second detonation, the host's Tenka only
+log('\nScripted co-op TENKA LR battle (4-5, TENKA_LR_START: the host\'s LR Tenka to Zero Point, Event Horizon\'s pull and second detonation; the guest\'s Tenka without LR):');
+for (const { name, r } of results) {
+  const g = r.tenkaLr;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · casts/pulls/blasts/hit ${g.horizon} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two LR Tenka battle clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} LR Tenka battle command(s) refused: ${g.refused}`);
+  for (const k of [...POT_KEYS.filter((x) => x !== 'aoi'), 'tiers', 'horizon', 'dealt']) if (g[k] !== ref.tenkaLr[k]) failures.push(`${name}: LR Tenka ${k} ${g[k]} ≠ ${ref.tenkaLr[k]} (${results[0].name})`);
+}
+{
+  const [casts, pulls, blasts, hit] = ref.tenkaLr.horizon.split('/').map(Number);
+  // only the host's Tenka is LR: some casts pull, never all of them
+  if (!(pulls > 0 && blasts > 0 && hit > 0 && pulls < casts)) failures.push(`the LR Tenka battle: a part never ran (casts/pulls/blasts/hit ${ref.tenkaLr.horizon})`);
+}
+
 // the staff heroes (STAFF_START): Norika's barricades and Hold the Line on a forked map, Kogane's plow and Moves
 log('\nScripted co-op STAFF battle (2-2, STAFF_START: Norika\'s barricades and Hold the Line, Kogane\'s Clear the Road and Moves):');
 for (const { name, r } of results) {

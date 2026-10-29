@@ -21,7 +21,7 @@ beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(gameD
 afterAll(() => { vi.useRealTimers(); });
 
 /** Every girl at L85 ★5, gate 5, P6, in strong legendary gear (the honest top of this build). */
-function maxedProfile() {
+function maxedProfile(geared = 'kage') {
   const p = createProfile();
   const rng = createRng(77);
   for (const u of UNITS) {
@@ -36,9 +36,9 @@ function maxedProfile() {
     g.level = 10;
     return g;
   };
-  equipGear(p, 'kage', addGear(p, piece('charm', ['atkPct', 0.6], [['critChance', 0.3], ['critDmg', 0.9], ['armorPen', 12], ['ratePct', 0.25]])));
-  equipGear(p, 'kage', addGear(p, piece('ribbon', ['critDmg', 1.0], [['atkPct', 0.3], ['critChance', 0.3], ['armorPen', 10], ['ratePct', 0.2]])));
-  equipGear(p, 'kage', addGear(p, piece('shoes', ['ratePct', 0.6], [['atkPct', 0.3], ['costCut', 0.2], ['ultHaste', 0.3], ['rangePct', 0.3]])));
+  equipGear(p, geared, addGear(p, piece('charm', ['atkPct', 0.6], [['critChance', 0.3], ['critDmg', 0.9], ['armorPen', 12], ['ratePct', 0.25]])));
+  equipGear(p, geared, addGear(p, piece('ribbon', ['critDmg', 1.0], [['atkPct', 0.3], ['critChance', 0.3], ['armorPen', 10], ['ratePct', 0.2]])));
+  equipGear(p, geared, addGear(p, piece('shoes', ['ratePct', 0.6], [['atkPct', 0.3], ['costCut', 0.2], ['ultHaste', 0.3], ['rangePct', 0.3]])));
   return p;
 }
 
@@ -82,6 +82,23 @@ describe('an honest loadout is the identity', () => {
     const fresh = createProfile();
     for (const u of UNITS) expect(clampUnitStats(unitBattleStats(fresh, u.id))).toEqual(unitBattleStats(fresh, u.id));
     expect(clampUnitStats({ ...DEFAULT_UNIT_STATS })).toEqual({ ...DEFAULT_UNIT_STATS });
+  });
+
+  it('an honest LR Tenka (L85 P6 ★5, Limit Break, the strong gear) passes unchanged, her LR flag (Event Horizon) included, with headroom', () => {
+    const p = maxedProfile('tenka');
+    const s = unitBattleStats(p, 'tenka');
+    expect(s.lr).toBe(true);
+    expect(clampUnitStats(s)).toEqual(s);
+    // her LR form adds no loadout stat (the pull and the second detonation are ability data), so the caps only see
+    // UR Resonance × the LR boost on top of the gear: still well under damageMul 15 and rateMul 5
+    expect(s.damageMul).toBeLessThan(UNIT_STAT_LIMITS.damageMul.hi * 0.8);
+    expect(s.rateMul).toBeLessThan(UNIT_STAT_LIMITS.rateMul.hi * 0.8);
+    // and the same Tenka without Limit Break is lower (the boost is real), also unchanged
+    delete p.missions.counters['lr:tenka'];
+    const ur = unitBattleStats(p, 'tenka');
+    expect(ur.lr).toBe(false);
+    expect(ur.damageMul).toBeLessThan(s.damageMul);
+    expect(clampUnitStats(ur)).toEqual(ur);
   });
 
   it('a start player passes through unchanged (a partial stats object stays partial, a missing one missing)', () => {

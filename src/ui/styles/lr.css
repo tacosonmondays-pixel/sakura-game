@@ -18,6 +18,24 @@
     radial-gradient(circle at 66% 50%, #fff 0 3.5px, transparent 4.5px),
     var(--lr-edge, #0e1930);
 }
+/* Tenka's crest (BANNERS §C.2): an orbit ring around a spark. A tilted white-gold ellipse with one gold electron on it,
+   round a white four-point spark, on a small navy disc; still everywhere (no motion to hold for reduced motion). */
+.lr-crest.orbit {
+  width: 28px; height: 18px; top: -9px; border: none; border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, var(--lr-edge, #0e1930) 0 7.5px, transparent 8px);
+}
+.lr-crest.orbit::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 4px; bottom: 4px; border-radius: 50%;
+  border: 1.5px solid var(--lr-gold, #ffd27a); transform: rotate(-20deg);
+  background: radial-gradient(circle at calc(100% - 1px) 50%, #fff 0 1.8px, var(--lr-gold, #ffd27a) 2px 2.6px, transparent 3px);
+  box-shadow: 0 0 0 1px rgba(14, 25, 48, 0.55);
+}
+.lr-crest.orbit::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; background: #fff;
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+}
+:where(.ui-day, .ui-night) .ui-girltile > .lr-frame > .lr-crest.orbit { top: -2px; }
+
 /* the crest on the big frames: her page, the tall cards, the big students grid */
 .mb-show-stage > .lr-frame > .lr-crest, .unit-card-tall > .lr-frame > .lr-crest, .unit-card.mb-tall > .lr-frame > .lr-crest, .pf-slot > .lr-frame > .lr-crest,
 .ui-girltile > .lr-frame > .lr-crest { display: block; }

@@ -23,6 +23,18 @@ const tower = (u, tier = 0, level = 1) => {
 };
 const nums = (s) => (s.match(/\d+(?:\.\d+)?/g) || []).length;
 
+describe('the LR forms on the ability Details (BANNERS §C.2)', () => {
+  it('Tenka\'s Critical Mass names Event Horizon in one "At LR" fact (1.5 s pull, 50% again); the duo\'s Prismfall names Twin Star', () => {
+    const t = abilityInfoView(UNIT_MAP.tenka);
+    expect(t.lr).toMatchObject({ name: 'Critical Mass · Event Horizon' });
+    const f = t.facts.find((x) => x.k === 'At LR');
+    expect(f.t).toBe('Event Horizon: the blast collapses into a gravity pull for 1.5s that draws the enemies in its area to its centre (minibosses half as fast, bosses stand firm), then detonates again for 50% of the first blast.');
+    if (UNIT_MAP.kohaku_tsubaki) expect(abilityInfoView(UNIT_MAP.kohaku_tsubaki).facts.find((x) => x.k === 'At LR').t).toMatch(/^Twin Star: .* 6× her hit within 1\.6 tiles\./);
+    // nobody else has an LR form
+    for (const u of withAbility) if (!['tenka', 'kohaku_tsubaki'].includes(u.id)) expect(abilityInfoView(u).facts.some((x) => x.k === 'At LR'), u.id).toBe(false);
+  });
+});
+
 describe('abilityRuns: the girl page\'s "runs today" rule equals the sim\'s', () => {
   it('the M1 UI helper is gone: the page reads the data rule', () => {
     expect(girlView.abilityLive).toBeUndefined();

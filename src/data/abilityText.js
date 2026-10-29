@@ -291,17 +291,39 @@ export const ABILITY_NOTES = Object.freeze({
 export const abilityNote = (id) => ABILITY_NOTES[id] || null;
 
 /**
- * The LR form of an ability (BANNERS §C.2; src/data/abilities.js `lr`): its name and the sentence it adds, shown
- * while her battle stats carry `lr: true`. {placeholders} come from the LR entry's `finale`.
+ * The LR form of an ability (BANNERS §C.2; src/data/abilities.js `lr`): its name, the sentence it adds (the ability
+ * card: the girl page's Details and the battle's hold card while her battle stats carry `lr: true`) and a short
+ * phrase for her page's Limit Break panel. {placeholders} come from the LR entry (abilityLrValues): the duo's
+ * `finale`, Tenka's `horizon` (time, pull, sharePct).
  */
 export const ABILITY_LR_TEXT = Object.freeze({
   'kohaku_tsubaki.prismfall': Object.freeze({
     name: 'Prismfall · Twin Star',
     add: 'Twin Star: after the last shell, one white-gold Twin Star shell lands on the same spot for {dmgMul}× her hit within {radius} tiles.',
+    short: 'a white-gold Twin Star shell lands after the barrage',
+  }),
+  'tenka.criticalMass': Object.freeze({
+    name: 'Critical Mass · Event Horizon',
+    add: 'Event Horizon: the blast collapses into a gravity pull for {time}s that draws the enemies in its area to its centre (minibosses half as fast, bosses stand firm), then detonates again for {sharePct}% of the first blast.',
+    short: 'the blast pulls enemies to its centre for {time}s, then detonates again for {sharePct}%',
   }),
 });
-/** @param {string} id @returns {{ name: string, add: string }|null} */
+/** @param {string} id @returns {{ name: string, add: string, short: string }|null} */
 export const abilityLrText = (id) => ABILITY_LR_TEXT[id] || null;
+
+/** The LR entry's numbers for its text: a finale's dmgMul / radius, a horizon's time / pull / share and sharePct. */
+export function abilityLrValues(entry) {
+  const e = entry?.lr?.effect || {};
+  const v = { ...(e.finale || {}), ...(e.horizon || {}) };
+  if (e.horizon?.share != null) v.sharePct = Math.round(e.horizon.share * 100);
+  return v;
+}
+
+/** One LR text field ('add' | 'short') filled from her ⚡ entry, or '' when the ability has no LR form. */
+export function abilityLrLine(entry, field = 'add') {
+  const row = entry?.lr ? abilityLrText(entry.id) : null;
+  return row ? fillAbilityText(row[field], abilityLrValues(entry)) : '';
+}
 
 /** Fills {placeholders}; an unknown one is left as is (the data test fails on any left over). */
 export function fillAbilityText(template, values) {
