@@ -148,8 +148,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.refused).toBe('');
     expect(r.cleared).toBeGreaterThanOrEqual(12);
     expect(r.casts).toBeGreaterThanOrEqual(30);
-    // move: Fuu (A5, the host's); deploy: the guest's Iroha, Mirror Shift (A6; the other deploys wait for A4); shots split at her panel
+    // deploy: the A4 deploys and the guest's Iroha (Mirror Shift, A6; shots split at her panel); move: the host's Fuu (A5)
     expect(r.kinds.split(',')).toEqual(['boost', 'burst', 'debuff', 'deploy', 'econ', 'move', 'rally', 'strike']);
+    expect(r.deploys.split(' · ').map((x) => x.split(' ')[0])).toEqual(['chika.droneSurge', 'iroha.mirrorShift', 'kage.doubles', 'suzu.bellCarpet']);
     expect(Number(r.splits.split('/')[0])).toBeGreaterThan(0);
     // both players cast, and some host taps met a recharging girl (the late-tap rule)
     expect(r.byOwner.split('/').every((n) => Number(n) > 0)).toBe(true);
@@ -162,14 +163,14 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // deliberate sim / data / ability change, and say why. Re-pinned by the A2 review fixes (was 40227 /
     // '636/487' / 2145385076 / '5726405e', 46 casts): a manual cast's kill coins are pooled and split like
     // an auto-cast's (the same battle, the same 1123 coins, now 652/471: 2017100116 / '7ad61cb6'), then
-    // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine. Re-pinned in A5 (was
-    // 37655 / '800/520' / 4047740824 / 'c84c23e1', 51 casts): the host brings Fuu as a sixth girl and taps her Backdraft
-    // Fan (the move kind) in her round robin; V8 only so far (e2e/engines.mjs compares the other engines to it). Then
-    // (was 34216 / 3557843255 / '4e9f95c5', 37 casts) her ult ignores her own gusts' push locks (owner, Oct 29). Then (was
-    // 33828 / '535/475' / 2846685472 / 'c0d73017', 36 casts) the guest takes Iroha as a sixth entry, her Mirror Shift
-    // splitting shots (A6; V8 only so far), and Fuu moves to the host's fourth place.
-    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind, splits: r.splits })
-      .toEqual({ ticks: 41566, state: 'between', wallets: '396/311', final: 3475320043, hashes: '0b9db520', casts: 36, byKind: 'boost 2 · burst 14 · debuff 9 · deploy 1 · econ 1 · move 1 · rally 2 · strike 6', splits: '9/0' });
+    // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine. Re-pinned for A4–A6 (was
+    // 37655 / '800/520' / 4047740824 / 'c84c23e1', 51 casts): the host fields Fuu (Backdraft Fan, the move kind; it
+    // ignores her own gusts' push locks) and Suzu, the guest Kage, Iroha (Mirror Shift splitting shots, the host's too) and
+    // Chika, all cheap, weak shooters (ABIL_DEPLOY, so the crowds the others' Auto rules wait for still form), each player
+    // taps them on their own cadence (COVER), and their abilities cast (V8 here; the cross-engine run, e2e/engines.mjs,
+    // checks the other engines agree).
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind, splits: r.splits, deploys: r.deploys })
+      .toEqual({ ticks: 30346, state: 'between', wallets: '602/461', final: 2173867755, hashes: '4d00c481', casts: 35, byKind: 'boost 3 · burst 7 · debuff 6 · deploy 10 · econ 2 · move 1 · rally 2 · strike 4', splits: '56/1', deploys: 'chika.droneSurge 4×16 · iroha.mirrorShift 3×3 · kage.doubles 1×2 · suzu.bellCarpet 2×12' });
   }, 240000);
 
   it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {

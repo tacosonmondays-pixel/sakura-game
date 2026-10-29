@@ -87,20 +87,17 @@ describe('roleDetails (Base stats › Role)', () => {
 });
 
 describe('profileTips (a ⚡ tip only when her ability runs)', () => {
-  it('a working ability\'s ⚡ tip shows; Kage, Suzu and Chika promise no button; the other tips stay, in order', () => {
+  it('a working ability\'s ⚡ tip shows (Kage, Suzu and Chika since A4, Fuu since A5, Iroha since A6); the other tips stay, in order', () => {
     for (const u of UNITS) {
       const t = profileTips(u);
       const runs = abilityRuns(u.paths?.find((p) => p.ability)?.ability || u.hero?.skill || null);
       expect(t, u.id).toEqual(runs ? u.tips || [] : (u.tips || []).filter((x) => !isAbilityTip(x)));
     }
-    for (const id of ['aoi', 'momo', 'umeko', 'miko', 'akane', 'ouka']) {
+    for (const id of ['aoi', 'momo', 'umeko', 'miko', 'akane', 'ouka', 'kage', 'suzu', 'chika', 'fuu', 'iroha']) {
       expect(UNIT_MAP[id].tips.some(isAbilityTip), id).toBe(true);
       expect(profileTips(UNIT_MAP[id]).some((x) => x.startsWith('⚡')), id).toBe(true);
     }
-    for (const id of ['kage', 'suzu', 'chika']) {
-      expect(UNIT_MAP[id].tips.some(isAbilityTip), id).toBe(true);
-      expect(profileTips(UNIT_MAP[id]).some((x) => x.includes('⚡') || /\bteaches\b/.test(x)), id).toBe(false);
-    }
+    // (a girl whose ability waits promises no button: none today among the towers, the first loop holds the rule)
   });
 });
 

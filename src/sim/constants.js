@@ -381,3 +381,16 @@ export const RELEASE_SLOW_TIME = 3;
 export const DETOUR_NO_FORK_MUL = 1.5;
 /** Bright Sash: a held enemy is revealed for this long, refreshed every step it is held (s). */
 export const HELD_REVEAL = 0.25;
+
+// ---------------------------------------------------------------------------
+// The A4 deploys (src/sim/deploys.js; ABILITIES_SPEC §4 deploy): Kage's shadow doubles, Suzu's Bell Carpet
+// traps and Chika's surge drones. Each lives beyond its girl's own limit; these sim-wide caps keep the work
+// per step bounded however many copies cast. A cast places only what its cap leaves (none left: refused
+// `noTarget`, nothing spent); nothing already placed is evicted.
+// ---------------------------------------------------------------------------
+/** Shadow doubles standing on the map at once (every Kage, both players). */
+export const DOUBLES_PER_SIM = 36;
+/** Bell Carpet traps on the road at once (every Suzu, both players). */
+export const BELL_TRAPS_PER_SIM = 96;
+/** Surge drones flying at once (every Chika, both players). */
+export const SURGE_DRONES_PER_SIM = 48;

@@ -23,6 +23,7 @@ import { unitBattleStats } from '../../src/systems/progression.js';
 import { RECORD_V, SNAP_V, SNAP_V_P1, slotKey } from '../../src/systems/battleSave.js';
 import { xpToReach } from '../../src/sim/hero.js';
 import { FLIGHT_MODES } from '../../src/sim/constants.js';
+import { shadowDoubles } from '../../src/sim/deploys.js';
 import {
   snapshotSim, restoreSim, useWaveStream, StaleSaveError, KNOWN_SIM_KEYS, KNOWN_TOWER_KEYS, KNOWN_DRONE_KEYS,
 } from '../../src/ui/battle/snapshot.js';
@@ -1556,6 +1557,14 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const k of fields(tenkaWellRun().sim)) keys.add(k);
     // (and Norika's barricades: the blocker count)
     for (const k of fields(staffRun('norika', 25).sim)) keys.add(k);
+    // (and Kage's Shadow Doubles: the deployables list, created on the first cast; src/sim/deploys.js)
+    {
+      const sim = new Sim({ stageId: '3-5', difficulty: 'normal', loadout: [{ unitId: 'kage' }], seed: 1 });
+      const spot = autoPlan('3-5', ['kage']).find((x) => x.action === 'place');
+      const t = sim.placeTower('kage', spot.x, spot.y);
+      expect(shadowDoubles(sim, t, { count: 2, spacing: 1.5, dmgMul: 0.6, duration: 8 }).length).toBeGreaterThan(0);
+      for (const k of fields(sim)) keys.add(k);
+    }
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_SIM_KEYS).sort());
   });
 

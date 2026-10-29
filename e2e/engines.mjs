@@ -341,8 +341,8 @@ if (ref.roster.curseBursts < 5) failures.push(`the roster battle burst only ${re
 if (ref.drones.drones < 3) failures.push(`the drones battle flew only ${ref.drones.drones} drones`);
 if (ref.drones.flies < 4) failures.push(`the drones battle sent only ${ref.drones.flies} fly commands`);
 // abilities: every live kind, manual taps (some refused), Auto-cast, owner coins, the checkpoint replay
-const AB_KEYS = ['ticks', 'state', 'wave', 'cleared', 'towers', 'casts', 'kinds', 'byKind', 'byOwner', 'splits', 'taps', 'wallets', 'lives', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
-log('\nScripted co-op ABILITIES battle (4-5, ABILITIES_START: the host taps 6 girls + Luna (Fuu\'s Backdraft Fan among them), the guest (Iroha\'s Mirror Shift among hers) on Auto-cast + taps, to wave 12):');
+const AB_KEYS = ['ticks', 'state', 'wave', 'cleared', 'towers', 'casts', 'kinds', 'byKind', 'byOwner', 'splits', 'deploys', 'taps', 'wallets', 'lives', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
+log('\nScripted co-op ABILITIES battle (4-5, ABILITIES_START: the host taps 7 girls + Luna (Fuu and Suzu among them), the guest (Kage, Iroha and Chika among hers) on Auto-cast + taps, to wave 12):');
 for (const { name, r } of results) {
   const b = r.abilities;
   log(`  ${name.padEnd(46)} ticks ${b.ticks} · ${b.state} · cleared ${b.cleared} · ${b.casts} casts (${b.byKind}; host/guest ${b.byOwner}) · ${b.taps} · coins ${b.wallets} · final ${b.final} · ${b.checkpoints} hash checkpoints → ${b.hashes} · checkpoint w${b.ckWave} ${b.ckSame ? 'replays to the run' : 'REPLAY DIFFERS'} · ${b.ms} ms`);
@@ -354,6 +354,7 @@ for (const { name, r } of results) {
 {
   const b = ref.abilities;
   log(`  towers: ${b.towers}`);
+  log(`  deploys (A4): ${b.deploys || 'none'}`);
   if (b.casts < 30) failures.push(`the abilities battle cast only ${b.casts} abilities`);
   if (b.kinds.split(',').length < 6) failures.push(`the abilities battle cast only these kinds: ${b.kinds}`);
   if (b.cleared < 12) failures.push(`the abilities battle cleared only ${b.cleared} waves`);

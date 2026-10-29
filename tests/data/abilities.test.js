@@ -574,15 +574,15 @@ describe('ability rules and vocabulary', () => {
     expect(ABILITY_MOVES_RUN).toEqual(['push']);
     for (const move of ['carry', 'pull', undefined]) expect(abilityRuns({ kind: 'move', effect: { move } })).toBe(false);
     expect(abilityRuns({ kind: 'boost', effect: {} })).toBe(false);
-    expect(ABILITY_DEPLOYS_RUN.map((deploy) => abilityRuns({ kind: 'deploy', effect: { deploy } }))).toEqual([true, true, true]);
-    for (const deploy of ['double', 'trap', 'drone', undefined]) expect(abilityRuns({ kind: 'deploy', effect: { deploy } })).toBe(false);
-    expect(abilityRuns({ kind: 'deploy', effect: { deploy: 'mirror' } })).toBe(true); // Iroha's Mirror Shift (A6)
+    expect(ABILITY_DEPLOYS_RUN.map((deploy) => abilityRuns({ kind: 'deploy', effect: { deploy } }))).toEqual([true, true, true, true, true, true]);
+    for (const deploy of ['double', 'trap', 'drone', 'mirror']) expect(ABILITY_DEPLOYS_RUN).toContain(deploy); // A4, A6
+    expect(abilityRuns({ kind: 'deploy', effect: { deploy: undefined } })).toBe(false);
     expect(abilityRuns({ kind: 'runner', effect: { runner: 'giantBall' } })).toBe(true);
     expect(abilityRuns({ kind: 'runner', effect: { runner: 'river' } })).toBe(false);
     for (const x of [null, undefined, 0, 'strike', {}]) expect(abilityRuns(x)).toBe(false);
-    // the table: every tower's first ⚡ entry runs but the three deploy girls' (A4; Fuu's move runs since A5, Iroha's
-    // mirror since A6); every hero skill but Kanna's (a boost without a ModSet); Ruri's Star Snatch / River Rush wait; tier 5 never flips it
-    for (const u of towers()) expect(abilityRuns(abilityRow(u)[0]), u.id).toBe(!['kage', 'suzu', 'chika'].includes(u.id));
+    // the table: every tower's first ⚡ entry runs (the A4 deploys, Fuu's move since A5, Iroha's mirror since A6);
+    // every hero skill but Kanna's (a boost without a ModSet); Ruri's Star Snatch / River Rush wait; tier 5 never flips it
+    for (const u of towers()) expect(abilityRuns(abilityRow(u)[0]), u.id).toBe(true);
     for (const h of heroes()) expect(abilityRuns(abilityRow(h).skill), h.id).toBe(h.id !== 'kanna');
     expect(ABILITIES.ruri.map(abilityRuns)).toEqual([true, false, false]);
   });

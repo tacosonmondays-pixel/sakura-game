@@ -197,7 +197,7 @@ ABILITY_RULES = { ticksPerSecond: 60, chargePerTick: 100, initialShare: 3, ccGua
                   // cap 0.5, never rally / debuff: NOT_HASTED_KINDS); First Bell: firstBellCharge at wave start
 ABILITY_KINDS = boost | rally | strike | burst | debuff | econ | deploy | move | zone | runner
 abilityRuns(entry) → boolean   // THE live rule: kinds ABILITY_KINDS_RUN (a boost needs effect.mods), deploys
-                               // ABILITY_DEPLOYS_RUN ('strips', 'sentries', 'mirror'), runners ABILITY_RUNNERS_RUN ('giantBall'),
+                               // ABILITY_DEPLOYS_RUN ('strips', 'sentries', 'double', 'trap', 'drone', 'mirror'), runners ABILITY_RUNNERS_RUN ('giantBall'),
                                // moves ABILITY_MOVES_RUN ('push': Fuu's Backdraft Fan; 'carry' waits);
                                // the sim's handlerOf, the bar, the girl page, the ⚡ tips and GEAR_FIT all agree with it
 ABILITY_SCOPES = local (a cooldown per girl) | map (per player, per ability) | player (per-player rules: econ)
@@ -1529,7 +1529,17 @@ hubs.js:     hubsOn, hubCovers, applyHubs, isFreeTier, payHubBounty, plantBanner
   refreshEffective: rules.airGrant → canHitAir, rules.typeFloor → eff.typeFloor (computeHit floor)
 aimMode(t) adds 'checkpoint' (Azami tier 3; clamped to her range) and 'banner' (Ouka's Rally Banner:
   setAim plants one within bannerReach, the oldest moves past her count; clearAim takes them down)
-abilities.js: deploy types 'strips' and 'sentries' run (others stay locked); a rally may target one girl
+deploys.js:  doubleSpots, shadowDoubles, carpetSpots, bellCarpet, droneSurge, surgeDrones, ownDrones, tickDeploys,
+             endDeployWave, clearDeploys   // the A4 deploys (Kage, Suzu, Chika):
+  sim.deployables [{ uid, kind: 'double', ownerUid, x, y, left /*ticks*/, dmgMul, cooldown, facing }] (lazy; Shadow Doubles:
+  her volley as it stands × dmgMul from the spot, no crit, credited to her); Bell Carpet traps in sim.traps
+  { …trap, extra: true, ttl /*s*/ } (never in trapCount; updateTraps fizzles them: trapExpired { extra: true });
+  surge drones in t.turrets { …makeDrone, n: 0, temp: true, surge: k, left /*ticks*/ } (her limit counts ownDrones;
+  towerStats().turret.active = her own, .surge = the extra; droneStats rows carry surge / left (s));
+  events deploy { kind: 'double'|'drone' }, doubleAttack { uid, towerUid, targetUid, x, y }, deployEnd { kind };
+  caps DOUBLES_PER_SIM 36, BELL_TRAPS_PER_SIM 96, SURGE_DRONES_PER_SIM 48 (a cast places what is left, never evicts);
+  everything ends at the wave clear and with its girl; the co-op hash folds sim.deployables while non-empty
+abilities.js: deploy types 'strips', 'sentries', 'double', 'trap' and 'drone' run ('mirror' stays locked); a rally may target one girl
   (effect.target 'girl'; rally record `to`; the girl-target rule above, Wakaba's Time Out!) or the whole map (effect.radius 'map', scope 'map'; record
   `map: true`) and add pierce (effect.pierceAdd → record pierceAdd → t.buff.pierceAdd, only when set);
   castAbility(sim, t, { aim }) passes the aim to the kind (Yuzuha's sentries land at the edge spots nearest it)
