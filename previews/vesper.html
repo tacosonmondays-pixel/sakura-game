@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vesperline Preview</title>
+<style>
+  :root { --navy: #1d2b4f; --pink: #ff7aa2; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #10182c; font: 13px/1.3 system-ui, sans-serif; color: var(--navy); overflow: hidden; }
+  #stage { position: fixed; inset: 0; }
+  body.grey #stage { filter: grayscale(1); }
+  #hud { position: fixed; left: 12px; top: 10px; right: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; pointer-events: none; }
+  .pill { pointer-events: auto; background: #fff; border-radius: 6px; padding: 5px 12px; transform: skewX(-10deg); box-shadow: 0 2px 6px #0003; font-weight: 700; font-style: italic; }
+  .pill > * { display: inline-block; transform: skewX(10deg); }
+  .pill.tag { background: var(--pink); color: #fff; }
+  .pill.on { background: #1d2b4f; color: #fff; }
+  .pill.on button { color: #fff; }
+  select, button { font: inherit; font-weight: 700; color: var(--navy); border: 0; background: transparent; cursor: pointer; }
+  #info { position: fixed; left: 12px; bottom: 10px; color: #fff; font: 11px ui-monospace, monospace; text-shadow: 0 1px 2px #000; pointer-events: none; }
+  body.clean #hud, body.clean #info { display: none; }
+  /* &bands=1: the battle's HUD and tower bar as plain bands (src/ui/styles/battle.css .bt-hud / .bt-bar) */
+  .band { display: none; position: fixed; left: 0; right: 0; pointer-events: none; }
+  body.bands .band { display: block; }
+  #bandHud { top: 0; height: var(--hud-h, 0); background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.78)); box-shadow: 0 3px 14px rgba(29, 78, 137, 0.16); }
+  #bandBar { bottom: 0; height: var(--bar-h, 0); background: linear-gradient(0deg, rgba(18,36,70,0.62), rgba(18,36,70,0.28) 70%, rgba(18,36,70,0.08)); border-top: 1px solid rgba(255,255,255,0.45); }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div class="band" id="bandHud"></div>
+<div class="band" id="bandBar"></div>
+<div id="hud">
+  <div class="pill tag"><span>PREVIEW</span></div>
+  <div class="pill"><span><select id="mapSel">
+    <option value="causeway">Frost Causeway (light-bridges, batteries)</option>
+    <option value="skyrail">Sky-Rail Viaduct (pylons, the broken span)</option>
+    <option value="museum">Museum of Noon (blackout)</option>
+    <option value="towers">Lecture Tower Ring (transit pads)</option>
+    <option value="spindle">The Spindle's Foot (the Vesper Gate)</option>
+    <option value="starfall">The Starfall Deck (night)</option>
+    <option value="living">Vesperline Morning (living)</option>
+  </select></span></div>
+  <div class="pill"><span><select id="qualitySel"><option>high</option><option>medium</option><option>low</option></select></span></div>
+  <div class="pill" id="lightsPill"><span><button id="lightsBtn">Rule active</button></span></div>
+  <div class="pill"><span><button id="machinesBtn">Machines</button></span></div>
+  <div class="pill"><span id="status"></span></div>
+</div>
+<div id="info"></div>
+<script type="module" src="./vesper.js"></script>
+</body>
+</html>

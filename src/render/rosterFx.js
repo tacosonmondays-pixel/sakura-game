@@ -1,9 +1,11 @@
 // Roster mechanics on the board (roster B3, docs/ATTACK_FX.md "Roster mechanics"): mortar warning
 // rings + shell arcs, relay props (Ruri's holo fox, Iroha's mirror panel) with a dashed tether, aim
 // reticles, curse bursts, Kanna's drum strike and Seiran's sky dragon. Purely visual: it reads sim
-// events and sim state (towers, shells, runners, sim.time) and never writes to them.
+// events and sim state (towers, shells, runners, sim.time) and never writes to them. Iroha's panel moves
+// with src/render/mirrorFx.js (this.mirrors): it flips and glints for each relayed bolt, leaves afterimages
+// when it jumps and echoes while Mirror Shift runs.
 //
-//   const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality });
+//   const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality, reduceMotion });
 //   roster.handle(ev)   // every drained sim event (BattleRenderer.handleEvents); true = drawn here
 //   roster.update(dt)   // once per frame, after the events
 import * as THREE from 'three';
@@ -12,14 +14,29 @@ import { createVisualRandom, visualSeed } from './vfx/random.js';
 import { aimMode } from '../sim/towers.js';
 import { runnerSegment } from '../sim/runners.js';
 import { pointAt } from '../sim/path.js';
+import { MirrorFx } from './mirrorFx.js';
 
 const TAU = Math.PI * 2;
 
 /** Caps (keep draw calls and quads modest on phones). */
 const MAX_WARN = 48;
 const MAX_PROPS = 24;
-const MAX_DRAGON_SEGS = 48;
+/** Body beads: one per sim segment and one between each two (the body reads as one serpent), all dragons together. */
+const MAX_DRAGON_SEGS = 96;
 const MAX_DRAGON_HEADS = 6;
+/**
+ * The sky dragon's look (display only; every bead sits on a sim segment from runnerSegment or halfway between two):
+ * head and body sizes (instance scale), how high it flies, the arrival roar (seconds, head pop), the cloud trail's
+ * spacing (seconds per puff, medium/high), its whisker / mane ribbons (points each).
+ */
+const DRAGON_HEAD = 3.1;
+const DRAGON_BODY = 2.75;
+const DRAGON_TAIL = 1.35;
+const DRAGON_ALT = 1.3;
+const ROAR_TIME = 0.6;
+const ROAR_POP = 0.3;
+const CLOUD_EVERY = 0.07;
+const RIBBON_PTS = 5;
 const MAX_CURSE_PER_FRAME = 10;
 /** A warning ring with no shellLand (wave clear, sold girl) disappears this long after its delay. */
 const WARN_GRACE = 0.25;
@@ -46,6 +63,7 @@ const COL = {
   drum: '#f589a0',
   sky: '#9fd8ff',
   gold: '#ffd77a',
+  white: '#f4fbff',
 };
 
 function rgb(hex) {
@@ -103,28 +121,57 @@ function mirrorGeometry() {
   return g.finish();
 }
 
-/** Dragon head (facing +z): light-blue skull + snout, gold horns and mane. */
+/**
+ * Dragon head (facing +z): light-blue skull and long snout, an open jaw, gold antler horns, a gold mane fanning back,
+ * cheek frills and whisker roots (the long whiskers are ribbons drawn each frame, medium/high graphics).
+ */
 function dragonHeadGeometry() {
   const S = '#9fd8ff';
   const D = '#6fb4e8';
+  const L = '#e8f6ff';
   const G = '#ffd166';
-  return new GeoBuilder({ flat: true })
-    .blob(0.17, { sz: 1.25, color: S })
-    .box(0.17, 0.1, 0.2, { y: -0.07, z: 0.16, color: D }) // snout
-    .cone(0.035, 0.22, 4, { x: -0.08, y: 0.1, z: -0.06, rx: -1.0, color: G }) // horns
-    .cone(0.035, 0.22, 4, { x: 0.08, y: 0.1, z: -0.06, rx: -1.0, color: G })
-    .cone(0.05, 0.16, 4, { y: 0.12, z: -0.16, rx: -1.7, color: G }) // mane tuft
-    .blob(0.032, { x: -0.07, y: 0.06, z: 0.17, color: '#1d2b4f' }) // eyes
-    .blob(0.032, { x: 0.07, y: 0.06, z: 0.17, color: '#1d2b4f' })
-    .finish();
+  const O = '#ffb347';
+  const K = '#1d2b4f';
+  const g = new GeoBuilder({ flat: true })
+    .blob(0.17, { sz: 1.2, color: S }) // skull
+    .box(0.15, 0.09, 0.24, { y: -0.04, z: 0.2, color: D }) // snout
+    .blob(0.055, { y: -0.01, z: 0.33, sx: 1.3, color: D }) // nose
+    .box(0.13, 0.035, 0.2, { y: -0.11, z: 0.17, rx: 0.28, color: L }) // open jaw
+    .blob(0.042, { x: -0.085, y: 0.05, z: 0.13, color: '#ffffff' }) // eyes
+    .blob(0.042, { x: 0.085, y: 0.05, z: 0.13, color: '#ffffff' })
+    .blob(0.026, { x: -0.09, y: 0.05, z: 0.165, color: K })
+    .blob(0.026, { x: 0.09, y: 0.05, z: 0.165, color: K })
+    .cone(0.03, 0.09, 4, { x: -0.08, y: 0.1, z: 0.12, rx: -1.2, color: G }) // brows
+    .cone(0.03, 0.09, 4, { x: 0.08, y: 0.1, z: 0.12, rx: -1.2, color: G });
+  for (const sx of [-1, 1]) {
+    g.cone(0.036, 0.3, 4, { x: 0.07 * sx, y: 0.12, z: -0.06, rx: -1.1, rz: -0.25 * sx, color: G }); // antler
+    g.cone(0.022, 0.13, 4, { x: 0.1 * sx, y: 0.2, z: -0.13, rx: -0.3, rz: -0.6 * sx, color: G }); // its tine
+    g.cone(0.05, 0.16, 4, { x: 0.15 * sx, y: -0.02, z: 0.0, rz: -1.6 * sx, rx: -0.4, color: O }); // cheek frill
+    g.cone(0.014, 0.18, 3, { x: 0.09 * sx, y: -0.04, z: 0.3, rz: -1.3 * sx, rx: -0.5, color: L }); // whisker root
+  }
+  // the mane: gold tufts fanning back from the crown and the nape
+  const MANE = [[0, 0.17, G], [-0.08, 0.13, O], [0.08, 0.13, O], [-0.13, 0.05, G], [0.13, 0.05, G], [-0.06, -0.04, O], [0.06, -0.04, O]];
+  for (const [x, y, c] of MANE) g.cone(0.055, 0.24, 4, { x, y, z: -0.15, rx: -1.75, rz: -x * 2.2, color: c });
+  return g.finish();
 }
 
-/** Dragon body segment: a light-blue bead with a gold dorsal fin. */
+/** Dragon body segment: a light-blue bead with a pale belly and a two-tone gold dorsal mane. */
 function dragonSegGeometry() {
   return new GeoBuilder({ flat: true })
     .blob(0.14, { sz: 1.3, color: '#86ccf6' })
-    .cone(0.06, 0.16, 4, { y: 0.09, rx: -0.6, color: '#ffd166' })
+    .blob(0.1, { y: -0.055, sx: 0.95, sz: 1.2, color: '#e8f6ff' })
+    .cone(0.07, 0.2, 4, { y: 0.1, rx: -0.6, color: '#ffd166' })
+    .cone(0.05, 0.14, 4, { y: 0.09, z: -0.09, rx: -0.95, color: '#ffb347' })
     .finish();
+}
+
+/** Dragon tail tip: a tapering bead and a gold tuft fanning back. */
+function dragonTailGeometry() {
+  const g = new GeoBuilder({ flat: true }).blob(0.11, { sz: 1.4, color: '#86ccf6' });
+  for (const [x, y, c] of [[0, 0.03, '#ffd166'], [-0.05, 0, '#ffb347'], [0.05, 0, '#ffb347']]) {
+    g.cone(0.06, 0.26, 4, { x, y, z: -0.16, rx: -1.6, rz: -x * 4, color: c });
+  }
+  return g.finish();
 }
 
 const _m = new THREE.Matrix4();
@@ -136,13 +183,44 @@ const _seg = {};
 const _segN = {};
 const _head = { x: 0, y: 0 };
 const _start = {};
+const _la = new THREE.Vector3();
+const _lb = new THREE.Vector3();
+/** One reused FX spawn record (FxSystem.spawn copies it): no object per particle. */
+const _sp = { batch: 'bbA', uv: null, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, g: 0, drag: 0, s0: 0.2, s1: 0.2, asp: 1, life: 0.5, color: null, a0: 1, a1: 0, rot: 0, vrot: 0, fadeIn: 0, flags: 0 };
+function fillSp(batch, uv, x, y, z, s0, s1, life, color, a0) {
+  _sp.batch = batch;
+  _sp.uv = uv;
+  _sp.x = x;
+  _sp.y = y;
+  _sp.z = z;
+  _sp.vx = 0;
+  _sp.vy = 0;
+  _sp.vz = 0;
+  _sp.g = 0;
+  _sp.drag = 0;
+  _sp.s0 = s0;
+  _sp.s1 = s1;
+  _sp.asp = 1;
+  _sp.life = life;
+  _sp.color = color;
+  _sp.a0 = a0;
+  _sp.a1 = 0;
+  _sp.rot = 0;
+  _sp.vrot = 0;
+  _sp.fadeIn = 0;
+  _sp.flags = 0;
+  return _sp;
+}
 
 export class RosterFx {
-  /** @param {{ sim, scene, fx, batches, atlas, actors, quality? }} o */
-  constructor({ sim, scene, fx, batches, atlas, actors, quality = 'medium', rand = null }) {
+  /** @param {{ sim, scene, fx, batches, atlas, actors, quality?, camera?, reduceMotion?, rand? }} o */
+  constructor({ sim, scene, fx, batches, atlas, actors, quality = 'medium', camera = null, reduceMotion = false, rand = null }) {
     this.sim = sim;
     // seeded render-only randomness (src/render/vfx/random.js): never Math.random, never the sim's rng
     this.rand = rand || createVisualRandom(visualSeed('roster'));
+    /** the battle camera (the dragon's ribbons face it); none: no ribbons */
+    this.camera = camera;
+    this.reduceMotion = !!reduceMotion;
     this.fx = fx;
     this.b = batches;
     this.R = atlas.regions;
@@ -178,10 +256,25 @@ export class RosterFx {
     this._curseThisFrame = 0;
     /** companion figures (src/render/companions.js, set by the renderer): Kon's 3D figure replaces the holo fox */
     this.companions = null;
+    /** Iroha's panel motion (flips, glints, afterimages; styles/iroha.js reports her relayed bolts to it) */
+    this.mirrors = new MirrorFx({
+      sim, fx, batches, atlas, root: this.root, quality, reduceMotion: this.reduceMotion,
+      geometry: () => {
+        this._ensureGeo();
+        return this._geo.mirror;
+      },
+    });
   }
 
   setQuality(q) {
     this.quality = q;
+    this.mirrors.setQuality(q);
+  }
+
+  /** Test / e2e probe: the sky dragon meshes drawn this frame. */
+  probe() {
+    const D = this._dragon;
+    return { heads: D ? D.head.count : 0, beads: D ? D.body.count : 0, tails: D ? D.tail.count : 0, ghosts: this._ghosts.length };
   }
 
   /** Game speed (1-3x, co-op: the shared speed): the board's frames are real time, the sim's clock is this much faster. */
@@ -217,12 +310,25 @@ export class RosterFx {
       case 'relay': {
         const p = this.props.get(ev.towerUid);
         if (p && Math.hypot(p.x - ev.x, p.y - ev.y) > 0.5) {
+          if (p.kind === 'mirror') {
+            // the panel jumps (no glide): afterimages bridge where it was and where it lands
+            this.mirrors.jump(ev.towerUid, p.x, p.y, ev.x, ev.y);
+            p.x = ev.x;
+            p.y = ev.y;
+            if (this.reduceMotion) this.fx.ring(ev.x, ev.y, 0.5, 0.5, 0.35, COL.mirror);
+            else this.fx.ring(ev.x, ev.y, 0.1, 0.6, 0.35, COL.mirror);
+            return true;
+          }
           // the 3D Kon runs there himself: no puff where he left
-          if (!(p.kind === 'familiar' && this.companions?.konAt(ev.towerUid))) this.fx.puff(p.x, 0.2, p.y, '#ffffff', 4, 0.3, 0.25);
-          this.fx.ring(ev.x, ev.y, 0.1, 0.55, 0.35, ev.kind === 'mirror' ? COL.mirror : COL.familiar);
+          if (!this.companions?.konAt(ev.towerUid)) this.fx.puff(p.x, 0.2, p.y, '#ffffff', 4, 0.3, 0.25);
+          this.fx.ring(ev.x, ev.y, 0.1, 0.55, 0.35, COL.familiar);
         }
         return true;
       }
+      case 'ability':
+        // Mirror Shift opens her echo window (the generic ability FX still draws the cast)
+        if (ev.id === 'iroha.mirrorShift') this.mirrors.ability(ev, this._tower(ev.towerUid));
+        return false;
       case 'aim':
         if (ev.x != null) {
           const t = this._tower(ev.towerUid);
@@ -253,7 +359,7 @@ export class RosterFx {
           const segments = Math.max(1, ev.segments || 1);
           const gap = ev.gap ?? 0.6;
           const end = -(segments - 1) * gap;
-          this._flying.set(ev.uid, { pathIndex: ev.pathIndex, dist: ev.dist, speed: (ev.dist - end) / Math.max(0.1, ev.time || 1), segments, gap, end, seen: this._frame });
+          this._flying.set(ev.uid, { pathIndex: ev.pathIndex, dist: ev.dist, speed: (ev.dist - end) / Math.max(0.1, ev.time || 1), segments, gap, end, seen: this._frame, born: this.time, roared: false, cloud: 0 });
         }
         return false;
       case 'runnerEnd': {
@@ -326,9 +432,36 @@ export class RosterFx {
     const x = ev.x;
     const z = ev.y;
     if (x == null) return;
-    this.fx.ring(x, z, 0.2, 1.4, 0.5, COL.sky, { uv: 'ringThick' });
-    this.fx.sparkle(x, z, COL.gold, { count: 14, height: 1.4, ring: false });
-    this.fx.flash(x, 0.9, z, '#e8f6ff', 1.6, 0.3);
+    this.fx.ring(x, z, 0.2, 1.8, 0.5, COL.sky, { uv: 'ringThick' });
+    this.fx.sparkle(x, z, COL.gold, { count: 18, height: 1.8, ring: false });
+    this.fx.flash(x, 1.1, z, '#e8f6ff', 2.4, 0.35);
+  }
+
+  /**
+   * The dragon's arrival roar where its head first shows: a big sky flash, two shock rings rolling out and (full motion)
+   * eight roar streaks bursting from the head; its head pops for ROAR_TIME (_serpent). Reduce motion: the flash and
+   * one ring only.
+   */
+  _roar(x, z) {
+    const fx = this.fx;
+    const R = this.R;
+    fx.flash(x, DRAGON_ALT, z, COL.sky, 3.2, 0.4);
+    fx.ring(x, z, 0.3, 3.4, 0.6, '#ffffff', { uv: 'ringThick', a0: 0.8 });
+    if (this.reduceMotion) return;
+    fx.ring(x, z, 0.2, 2.2, 0.45, COL.gold, { uv: 'ringSoft', a0: 0.9 });
+    if (this.quality === 'low' || !R.beam) return;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * TAU + 0.2;
+      const dx = Math.cos(a);
+      const dz = Math.sin(a);
+      fillSp('bbA', R.beam, x + dx * 0.7, DRAGON_ALT, z + dz * 0.7, 0.5, 1.4, 0.35, i % 2 ? COL.gold : '#ffffff', 0.9);
+      _sp.vx = dx * 4;
+      _sp.vz = dz * 4;
+      _sp.drag = 3;
+      _sp.asp = 0.25;
+      _sp.rot = Math.atan2(-dz, dx); // along the streak on screen (the camera looks north, down at the board)
+      fx.spawn(_sp);
+    }
   }
 
   /** Where a sky dragon leaves the road (its last head position, by START). */
@@ -346,7 +479,7 @@ export class RosterFx {
       if (!(left > 0.01) || this._ghosts.length >= MAX_DRAGON_HEADS) continue;
       this._ghosts.push({
         pathIndex: f.pathIndex, dist: f.dist, segments: f.segments, gap: f.gap, end: f.end,
-        speed: f.speed > 0 ? f.speed : 0, rem: GHOST_TIME, head: h ? { x: h.x, y: h.y } : null,
+        speed: f.speed > 0 ? f.speed : 0, rem: GHOST_TIME, head: h ? { x: h.x, y: h.y } : null, roared: true, cloud: 0,
         // the roads as they run now: a wave start may flip the route (reverse rules) while it still flies
         world: { pathData: this.sim.pathData },
       });
@@ -390,13 +523,14 @@ export class RosterFx {
     const mat = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: new THREE.Color('#2c5878') });
     const head = new THREE.InstancedMesh(dragonHeadGeometry(), mat, MAX_DRAGON_HEADS);
     const body = new THREE.InstancedMesh(dragonSegGeometry(), mat, MAX_DRAGON_SEGS);
-    for (const m of [head, body]) {
+    const tail = new THREE.InstancedMesh(dragonTailGeometry(), mat, MAX_DRAGON_HEADS);
+    for (const m of [head, body, tail]) {
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       m.count = 0;
       m.frustumCulled = false;
       this.root.add(m);
     }
-    this._dragon = { head, body, mat };
+    this._dragon = { head, body, tail, mat };
     return this._dragon;
   }
 
@@ -405,6 +539,7 @@ export class RosterFx {
     if (!p) return;
     this.root.remove(p.mesh);
     this.props.delete(uid);
+    if (p.kind === 'mirror') this.mirrors.drop(uid);
   }
 
   // ---- frame -------------------------------------------------------------------------------
@@ -412,6 +547,7 @@ export class RosterFx {
   update(dt) {
     this.time += dt;
     this._curseThisFrame = 0;
+    this.mirrors.update(dt);
     this._drawWarns();
     this._syncProps(dt);
     this._drawAims();
@@ -470,6 +606,8 @@ export class RosterFx {
         const kind = relay.kind === 'mirror' ? 'mirror' : 'familiar';
         const mesh = new THREE.Mesh(kind === 'mirror' ? this._geo.mirror : this._geo.fox, kind === 'mirror' ? this._mats.mirror : this._mats.fox);
         mesh.frustumCulled = false;
+        // yaw first, then the tip about the panel's own axis (mirrorFx flips)
+        mesh.rotation.order = 'YXZ';
         this.root.add(mesh);
         p = { kind, mesh, x: t.ox, y: t.oy };
         this.props.set(t.uid, p);
@@ -522,10 +660,10 @@ export class RosterFx {
       this.b.groundA.push(x, 0.072, y, 0.6, 0.6, R.ring, c[0], c[1], c[2], 0.55 + 0.2 * Math.sin(this.time * 5), this.time);
       if (this.quality !== 'low') this.b.bbA.push(x, bob + 0.4, y, 0.8, 0.8, R.glow, c[0], c[1], c[2], 0.3);
     } else {
-      // the glass always faces the camera side (the sim's mirror has no facing) with a slow sway
+      // idle, the glass faces the camera side (the sim's mirror has no facing) with a slow sway; each relayed
+      // bolt flips it toward the shot with a glint (mirrorFx)
       m.position.set(x, 0.02, y);
-      m.rotation.set(0, 0.25 * Math.sin(this.time * 0.7 + t.uid), 0);
-      m.scale.setScalar(1.6);
+      this.mirrors.pose(t, m, x, y, 0.25 * Math.sin(this.time * 0.7 + t.uid));
       this.b.groundN.push(x, 0.06, y, 0.55, 0.55, R.shadow, 0.05, 0.05, 0.1, 0.35);
       this.b.groundA.push(x, 0.07, y, 0.6, 0.6, R.ring, c[0], c[1], c[2], 0.45, this.time * 0.5);
       // a soft sheen on the glass and a glint sweeping over it
@@ -581,19 +719,21 @@ export class RosterFx {
     const frame = ++this._frame;
     this._nh = 0;
     this._nb = 0;
+    this._nt = 0;
     if (has) {
       for (let i = 0; i < runners.length; i++) {
         const r = runners[i];
         if (r.dead || r.kind !== 'dragon') continue;
-        const h = this._serpent(D, r);
+        let f = this._flying.get(r.uid);
+        if (!f) this._flying.set(r.uid, (f = { born: this.time, roared: false, cloud: 0 }));
+        f.born ??= this.time;
+        const h = this._serpent(D, r, this.sim, f, dt);
         if (h) {
           let last = this._heads.get(r.uid);
           if (!last) this._heads.set(r.uid, (last = { x: 0, y: 0 }));
           last.x = h.x;
           last.y = h.y;
         }
-        let f = this._flying.get(r.uid);
-        if (!f) this._flying.set(r.uid, (f = {}));
         f.pathIndex = r.pathIndex;
         f.dist = r.dist;
         f.speed = r.speed;
@@ -615,7 +755,7 @@ export class RosterFx {
         g.dist = Math.max(g.end, g.dist - v * dt);
         g.rem -= dt;
       }
-      const h = this._serpent(D, g, g.world);
+      const h = this._serpent(D, g, g.world, g, dt);
       if (h) {
         if (!g.head) g.head = { x: 0, y: 0 };
         g.head.x = h.x;
@@ -627,8 +767,10 @@ export class RosterFx {
     ghosts.length = n;
     D.head.count = this._nh;
     D.body.count = this._nb;
+    D.tail.count = this._nt;
     if (this._nh) D.head.instanceMatrix.needsUpdate = true;
     if (this._nb) D.body.instanceMatrix.needsUpdate = true;
+    if (this._nt) D.tail.instanceMatrix.needsUpdate = true;
     // runners gone without a runnerEnd or a wave clear (her girl sold): forget them
     for (const [uid, f] of this._flying) {
       if (f.seen === frame) continue;
@@ -639,30 +781,45 @@ export class RosterFx {
   }
 
   /**
-   * One sky dragon: head + body beads along the road from runnerSegment (a sim runner or a ghost:
-   * { pathIndex, dist, segments, gap }; `world` holds the pathData it flies on, the sim's by default).
+   * One sky dragon: head, body beads and tail tip along the road from runnerSegment (a sim runner or a ghost:
+   * { pathIndex, dist, segments, gap }; `world` holds the pathData it flies on, the sim's by default). A bead sits on
+   * every sim segment and one halfway between each two, so the body is one serpent in step with what the sim hits.
+   * `f` keeps its look's state ({ born, roared, cloud }): the arrival roar, the head pop, the cloud trail.
    * @returns {{ x, y }|null} the head (a shared scratch), null off the road
    */
-  _serpent(D, r, world = this.sim) {
+  _serpent(D, r, world = this.sim, f = null, dt = 0) {
     const R = this.R;
     const glow = this.quality !== 'low';
     const [cr, cg, cb] = RGB.sky;
-    const segs = Math.min(r.segments || 1, MAX_DRAGON_SEGS);
+    const segs = Math.max(1, Math.min(r.segments || 1, MAX_DRAGON_SEGS));
+    const last = segs - 1;
+    // the head pops as it arrives (Reduce motion: no pop)
+    const age = f?.born != null ? this.time - f.born : Infinity;
+    const pop = !this.reduceMotion && age < ROAR_TIME ? 1 + ROAR_POP * Math.sin((Math.PI * age) / ROAR_TIME) : 1;
     let headAt = null;
-    for (let k = 0; k < segs; k++) {
+    let headYaw = 0;
+    let headAlt = DRAGON_ALT;
+    let tailX = null;
+    let tailZ = 0;
+    // k: 0 (head), 0.5, 1, … last, then the tail tip half a gap past the last segment
+    const steps = last * 2 + 1;
+    for (let j = 0; j <= steps; j++) {
+      const k = j * 0.5;
       const p = runnerSegment(world, r, k, _seg);
       if (!p) continue;
       const px = p.x;
       const py = p.y;
-      // heading: from the next segment back toward this one (head leads, flying back along the road)
+      // heading: from the next point back toward this one (head leads, flying back along the road)
       let yaw = 0;
       const q = runnerSegment(world, r, k + 0.5, _segN);
       if (q) yaw = Math.atan2(px - q.x, py - q.y);
       else if (p.facing != null) yaw = p.facing + Math.PI;
-      const alt = 1.0 + 0.16 * Math.sin(this.time * 4.5 - k * 0.9);
-      const head = k === 0;
-      // beads ≈ the sim gap wide, so the body reads as one serpent; tapering to the tail
-      const sc = head ? 2.3 : Math.max(1.0, 2.0 - 0.12 * k);
+      const alt = DRAGON_ALT + 0.18 * Math.sin(this.time * 4.5 - k * 0.9);
+      const head = j === 0;
+      const tail = j === steps && last > 0;
+      // the body tapers from the neck to the tail
+      const u = last > 0 ? Math.min(1, k / last) : 0;
+      const sc = head ? DRAGON_HEAD * pop : tail ? DRAGON_TAIL : DRAGON_BODY - (DRAGON_BODY - DRAGON_TAIL - 0.1) * u * u;
       _e.set(Math.cos(this.time * 4.5 - k * 0.9) * 0.25, yaw, 0, 'YXZ');
       _q.setFromEuler(_e);
       _p.set(px, alt, py);
@@ -673,25 +830,103 @@ export class RosterFx {
         _head.x = px;
         _head.y = py;
         headAt = _head;
+        headYaw = yaw;
+        headAlt = alt;
+      } else if (tail) {
+        if (this._nt < MAX_DRAGON_HEADS) D.tail.setMatrixAt(this._nt++, _m);
+        tailX = px;
+        tailZ = py;
       } else if (this._nb < MAX_DRAGON_SEGS) D.body.setMatrixAt(this._nb++, _m);
-      if (glow) this.b.bbA.push(px, alt, py, 0.5 * sc, 0.5 * sc, R.glow, cr, cg, cb, 0.3);
-      this.b.groundN.push(px, 0.06, py, 0.3 * sc, 0.3 * sc, R.shadow, 0.05, 0.05, 0.1, 0.22);
+      // (a soft sky glow on every sim segment, not the in-between beads: the same light as before, twice the body)
+      if (glow && (k % 1 === 0)) this.b.bbA.push(px, alt, py, 0.55 * sc, 0.55 * sc, R.glow, cr, cg, cb, head ? 0.45 : 0.3);
+      if (k % 1 === 0) this.b.groundN.push(px, 0.06, py, 0.34 * sc, 0.34 * sc, R.shadow, 0.05, 0.05, 0.1, 0.22);
     }
-    // a few gold sparkles shed from the tail
-    if (glow && this.rand() < 0.35) {
-      const tp = runnerSegment(world, r, segs - 1, _seg);
-      if (tp) {
-        this.fx.spawn({
-          batch: 'bbA', uv: R.star, x: tp.x + (this.rand() - 0.5) * 0.2, y: 0.8, z: tp.y + (this.rand() - 0.5) * 0.2,
-          vy: -0.3, s0: 0.14, s1: 0.04, life: 0.5, color: COL.gold, rot: this.rand() * TAU, vrot: 4,
-        });
+    if (headAt) {
+      // the arrival roar, once, where the head first shows
+      if (f && !f.roared) {
+        f.roared = true;
+        this._roar(headAt.x, headAt.y);
+      }
+      if (glow && this.camera) this._whiskers(headAt.x, headAlt, headAt.y, headYaw, DRAGON_HEAD * pop, r.uid ?? 0);
+    }
+    if (glow && tailX != null) {
+      // a cloud trail behind the tail (and the gold sparkles it sheds)
+      if (f) {
+        f.cloud = (f.cloud || 0) + dt;
+        if (f.cloud >= CLOUD_EVERY && R.smoke) {
+          f.cloud = 0;
+          fillSp('bbN', R.smoke, tailX + (this.rand() - 0.5) * 0.3, DRAGON_ALT - 0.1, tailZ + (this.rand() - 0.5) * 0.3, 0.6, 1.5, 0.9, '#eef8ff', 0.55);
+          _sp.vy = 0.12;
+          _sp.rot = this.rand() * TAU;
+          _sp.vrot = 0.6;
+          this.fx.spawn(_sp);
+        }
+      }
+      if (this.rand() < 0.35 && R.star) {
+        fillSp('bbA', R.star, tailX + (this.rand() - 0.5) * 0.3, DRAGON_ALT - 0.2, tailZ + (this.rand() - 0.5) * 0.3, 0.16, 0.05, 0.55, COL.gold, 1);
+        _sp.vy = -0.3;
+        _sp.rot = this.rand() * TAU;
+        _sp.vrot = 4;
+        this.fx.spawn(_sp);
       }
     }
     return headAt;
   }
 
+  /**
+   * Its long whiskers and mane ribbons: four camera-facing ribbons trailing back from the head, rippling (medium /
+   * high graphics). Two pale whiskers from the snout's sides, two gold mane streamers from the nape.
+   */
+  _whiskers(x, y, z, yaw, sc, seed) {
+    const B = this.b.bbA;
+    const fx = Math.sin(yaw);
+    const fz = Math.cos(yaw);
+    const rx = Math.cos(yaw);
+    const rz = -Math.sin(yaw);
+    const t = this.time * 6 + seed;
+    for (let w = 0; w < 4; w++) {
+      const mane = w >= 2;
+      const side = w % 2 ? 1 : -1;
+      // root: the snout's side (whiskers) or the nape (mane), in the head's own frame times its scale
+      const along = (mane ? -0.16 : 0.3) * sc;
+      const out = (mane ? 0.07 : 0.1) * sc * side;
+      const up = (mane ? 0.08 : -0.04) * sc;
+      let ax = x + fx * along + rx * out;
+      let ay = y + up;
+      let az = z + fz * along + rz * out;
+      const len = (mane ? 0.3 : 0.24) * sc;
+      const c = mane ? RGB.gold : RGB.white;
+      for (let i = 1; i <= RIBBON_PTS; i++) {
+        const k = i / RIBBON_PTS;
+        const wave = Math.sin(t - i * 1.1 + side) * 0.06 * sc * k;
+        const back = along - len * i;
+        const spread = out + side * (mane ? 0.03 : 0.07) * sc * i + wave * (mane ? 0.4 : 1);
+        const bx = x + fx * back + rx * spread;
+        const by = y + up + (mane ? wave : -0.02 * sc * i + wave * 0.5);
+        const bz = z + fz * back + rz * spread;
+        this._ribbonQuad(B, ax, ay, az, bx, by, bz, (mane ? 0.16 : 0.09) * (1 - k * 0.6), c, (mane ? 0.75 : 0.85) * (1 - k * 0.5));
+        ax = bx;
+        ay = by;
+        az = bz;
+      }
+    }
+  }
+
+  /** A camera-facing quad from a to b (world x, height, z) with the soft beam sprite. */
+  _ribbonQuad(B, ax, ay, az, bx, by, bz, w, c, alpha) {
+    const view = this.camera.matrixWorldInverse;
+    _la.set(ax, ay, az).applyMatrix4(view);
+    _lb.set(bx, by, bz).applyMatrix4(view);
+    const dx = _lb.x - _la.x;
+    const dy = _lb.y - _la.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 0.005) return;
+    B.push((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2, len, w, this.R.beam || this.R.glow, c[0], c[1], c[2], alpha, Math.atan2(dy, dx));
+  }
+
   dispose() {
     for (const uid of [...this.props.keys()]) this._dropProp(uid);
+    this.mirrors.dispose();
     if (this._geo) {
       this._geo.fox.dispose();
       this._geo.mirror.dispose();
@@ -699,11 +934,11 @@ export class RosterFx {
       this._mats.mirror.dispose();
     }
     if (this._dragon) {
-      this._dragon.head.geometry.dispose();
-      this._dragon.body.geometry.dispose();
+      for (const m of [this._dragon.head, this._dragon.body, this._dragon.tail]) {
+        m.geometry.dispose();
+        m.dispose();
+      }
       this._dragon.mat.dispose();
-      this._dragon.head.dispose();
-      this._dragon.body.dispose();
     }
     this.root.parent?.remove(this.root);
     this.warns.length = 0;

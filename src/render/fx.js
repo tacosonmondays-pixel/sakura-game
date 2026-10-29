@@ -14,7 +14,8 @@ const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 
 /** Particle flags */
-const GROUND = 1;
+/** Particle flag: lies on the ground plane (ground batches). */
+export const GROUND = 1;
 const SPIN_X = 2; // coin flip: width oscillates
 const LATE_FADE = 4; // alpha holds at a0 for the first `hold` share of life (default 60 %), then fades (a cel shape, not a mist)
 
@@ -86,6 +87,10 @@ export function noteBallPop(ev, bouncing) {
   } else if (ev.type === 'ballEnd') bouncing.delete(ev.uid);
 }
 
+/** Explosions: a repeat on the same spot within EX_GAP seconds draws only a faint ring (EX_RING spots kept). */
+const EX_GAP = 0.1;
+const EX_RING = 8;
+
 export class FxSystem {
   /**
    * @param {{ atlas, batches: { groundN, groundA, bbN, bbA, overlay }, camera: THREE.Camera, rand?: () => number }} o
@@ -119,6 +124,12 @@ export class FxSystem {
     /** Height of the rooftop under a ground point (Gate Arc 'U' tiles), or null on maps without roofs:
      * effects that start at a girl (beams, the first chain link, sparkles) start at her lifted height. */
     this.liftAt = null;
+    /** effect clock (seconds, advanced by update) and the recent explosions (x, z, time, radius): a fixed ring */
+    this.clock = 0;
+    this._ex = new Float64Array(EX_RING * 4).fill(-1e9);
+    this._exi = 0;
+    /** each recent blast's glow particle (dimBlast halves it when a styled impact draws its own hit there) */
+    this._exGlow = new Array(EX_RING).fill(null);
   }
 
   lift(x, z) {
@@ -200,6 +211,46 @@ export class FxSystem {
   }
 
   /**
+   * Was there an explosion on (about) this spot within EX_GAP seconds? Records this one when there was not.
+   * A volley of splash bolts lands as several explode events on one spot in one moment; their additive glows
+   * and puffs stacked into an opaque white disc over the targets.
+   */
+  _exRepeat(x, z, r) {
+    const ex = this._ex;
+    const t = this.clock;
+    for (let i = 0; i < EX_RING; i++) {
+      const o = i * 4;
+      const dt = t - ex[o + 2];
+      if (dt >= 0 && dt < EX_GAP && Math.abs(ex[o] - x) + Math.abs(ex[o + 1] - z) < 0.5 * Math.max(r, ex[o + 3]) + 0.3) return true;
+    }
+    const o = this._exi * 4;
+    ex[o] = x;
+    ex[o + 1] = z;
+    ex[o + 2] = t;
+    ex[o + 3] = r;
+    this._exGlow[this._exi] = null;
+    this._exi = (this._exi + 1) % EX_RING;
+    return false;
+  }
+
+  /**
+   * A styled attack drew its own impact at (x, z) (an Iroha splash: shards, flare): the generic blast there this
+   * moment keeps its ring, puffs and smoke but its glow drops to `k` strength, so the two never stack into white.
+   */
+  dimBlast(x, z, k = 0.5) {
+    const ex = this._ex;
+    const t = this.clock;
+    for (let i = 0; i < EX_RING; i++) {
+      const o = i * 4;
+      const dt = t - ex[o + 2];
+      if (!(dt >= 0 && dt < EX_GAP)) continue;
+      if (Math.abs(ex[o] - x) + Math.abs(ex[o + 1] - z) >= 0.5 * ex[o + 3] + 0.3) continue;
+      const g = this._exGlow[i];
+      if (g) g.a0 = Math.min(g.a0, k);
+    }
+  }
+
+  /**
    * Explosion (BLAST): a small additive hot core, an alpha-blended cel puff body in the blast's
    * colour that swells and holds, a lighter cel puff on its upper part, a hard shock ring, cel fire
    * puffs, smoke, scorch and debris. Only the core is additive, so the grade and bloom keep its
@@ -210,6 +261,13 @@ export class FxSystem {
   explosion(x, z, radius, color, { volatile = false, scale = 1 } = {}) {
     const R = this.R;
     const r = Math.max(0.5, radius);
+    // an enemy's own death blast (volatile) is never folded into a tower's: it always draws in full
+    const slot = this._exi;
+    if (!volatile && this._exRepeat(x, z, r)) {
+      // the same blast again (a volley on one spot): only a faint shock ring, no second core / puffs / smoke
+      this.spawn({ batch: 'groundA', uv: R.ringSoft, x, y: 0.06, z, s0: r * 0.4, s1: r * 2.05, life: 0.32, color, a0: 0.5, flags: GROUND });
+      return;
+    }
     const rb = r * scale;
     const cel = R.celPuff || R.smoke;
     const body = volatile ? '#ff5a4a' : color;
@@ -217,7 +275,8 @@ export class FxSystem {
     const B = BLAST;
     // the core stays small on a big blast (sized by min(r, core.max)) and high enough that the ground never cuts it
     const cr = Math.min(rb, B.core.max);
-    this.spawn({ batch: 'bbA', uv: R.glow, x, y: Math.max(0.4, SEAT_Y + UP_Y * cr * B.core.s1 * 0.5), z, s0: cr * B.core.s0, s1: cr * B.core.s1, life: B.core.life, color: volatile ? '#ffc2b0' : '#fff2c8', a0: 1 });
+    const glow = this.spawn({ batch: 'bbA', uv: R.glow, x, y: Math.max(0.4, SEAT_Y + UP_Y * cr * B.core.s1 * 0.5), z, s0: cr * B.core.s0, s1: cr * B.core.s1, life: B.core.life, color: volatile ? '#ffc2b0' : '#fff2c8', a0: 1 });
+    if (!volatile) this._exGlow[slot] = glow; // (dimBlast: a styled impact here dims it)
     // seated cel puffs (lift 0.5: the quad's bottom edge on the anchor; a small tilt keeps the lit side up),
     // anchored on the spot and moved SEAT_FRONT toward the camera (depth only: the same place on screen)
     this.camera.getWorldDirection(_dir);
@@ -337,11 +396,16 @@ export class FxSystem {
     }
   }
 
-  /** Enemy defeat: poof + sparkles + coloured bits. */
-  death(x, y, z, size, color) {
+  /**
+   * Enemy defeat: poof + sparkles + coloured bits. The rising stars are the homeward sparkle of a
+   * creature going home; `homeward: false` (a Brigade trooper's fall-and-fade, src/render/fallStyles.js)
+   * leaves them out: the poof and the bits only, nothing stays on the road.
+   */
+  death(x, y, z, size, color, { homeward = true, puff = null } = {}) {
     const s = Math.max(0.6, size);
-    this.puff(x, y + 0.2, z, '#ffffff', 6 + s * 2, 0.4 * s, 0.38 * s);
-    this.spawn({ batch: 'bbA', uv: this.R.glow, x, y: y + 0.3, z, s0: 0.6 * s, s1: 1.1 * s, life: 0.2, color: '#ffffff', a0: 0.8 });
+    // (puff: a fall of its own colour, the Night's touched fading in violet: fallStyles RIME_TINT)
+    this.puff(x, y + 0.2, z, puff || (homeward ? '#ffffff' : '#c9c6c2'), 6 + s * 2, 0.4 * s, 0.38 * s);
+    if (homeward) this.spawn({ batch: 'bbA', uv: this.R.glow, x, y: y + 0.3, z, s0: 0.6 * s, s1: 1.1 * s, life: 0.2, color: '#ffffff', a0: 0.8 });
     const k = this.n(5);
     for (let i = 0; i < k; i++) {
       const a = this.rand() * TAU;
@@ -350,9 +414,58 @@ export class FxSystem {
         batch: 'bbN', uv: this.R.dot, x, y: y + 0.3, z, vx: Math.cos(a) * sp, vy: 1.8 + this.rand() * 1.5, vz: Math.sin(a) * sp,
         g: -9, s0: 0.1, s1: 0.05, life: 0.55, color, a0: 1, a1: 0.3,
       });
+      if (!homeward) continue;
       this.spawn({
         batch: 'bbA', uv: this.R.star, x, y: y + 0.4, z, vx: Math.cos(a) * sp * 0.4, vy: 1 + this.rand(), vz: Math.sin(a) * sp * 0.4,
         drag: 2, s0: 0.16, s1: 0.02, life: 0.5, color: '#fff3b0', rot: this.rand() * TAU, vrot: 6,
+      });
+    }
+  }
+
+  /**
+   * A small machine beaten (the Brigade's Gnat, Gate Arc S3a): its rotors sputter and it breaks
+   * apart in a spray of amber sparks (the sparkle's sparks, falling instead of rising), a wisp of
+   * grey smoke; no homeward sparkle, and every particle is gone within a second: nothing on the road.
+   */
+  sparkFall(x, y, z, size = 0.6, tint = null) {
+    const s = Math.max(0.5, size);
+    // (a Noon machine: its accent's sparks with white glints; fallStyles.fallTintOf)
+    const sparkA = tint ? tint.spark : '#ffb347';
+    const sparkB = tint ? tint.glint : '#ffd27a';
+    this.flash(x, y + 0.25, z, tint ? tint.flash : '#ffd27a', 0.5 * s, 0.12);
+    this.puff(x, y + 0.2, z, tint ? tint.smoke : '#8a8580', 3, 0.25 * s, 0.24 * s);
+    const k = this.n(12);
+    for (let i = 0; i < k; i++) {
+      const a = this.rand() * TAU;
+      const sp = 0.8 + this.rand() * 1.6;
+      this.spawn({
+        batch: 'bbA', uv: this.R.spark, x, y: y + 0.25, z, vx: Math.cos(a) * sp, vy: 0.6 + this.rand() * 1.4, vz: Math.sin(a) * sp,
+        g: -7, drag: 0.6, s0: 0.12, s1: 0.03, life: 0.45 + this.rand() * 0.35, color: i % 3 ? sparkA : sparkB, rot: this.rand() * TAU, vrot: 8,
+      });
+    }
+  }
+
+  /**
+   * A heavier machine breaking down (the Brigade's vans, tanks and walkers; written for later
+   * steps, covered by a fixture test): steam puffing out, sparks, dark scrap shards that fade with
+   * the body. No homeward sparkle, nothing left on the road.
+   */
+  breakdown(x, y, z, size = 1, tint = null) {
+    const s = Math.max(0.6, size);
+    // (a Noon machine: white glass scrap and its accent's sparks; fallStyles.fallTintOf)
+    this.puff(x, y + 0.3, z, '#e8ecef', 7, 0.45 * s, 0.42 * s);
+    this.puff(x, y + 0.2, z, tint ? tint.smoke : '#55524f', 4, 0.35 * s, 0.36 * s);
+    const k = this.n(8);
+    for (let i = 0; i < k; i++) {
+      const a = this.rand() * TAU;
+      const sp = 1 + this.rand() * 1.5;
+      this.spawn({
+        batch: 'bbN', uv: this.R.shard, x, y: y + 0.3, z, vx: Math.cos(a) * sp, vy: 1.2 + this.rand() * 1.2, vz: Math.sin(a) * sp, g: -8,
+        s0: 0.12, s1: 0.06, life: 0.6, color: tint ? (i % 2 ? tint.shard : tint.shard2) : i % 2 ? '#4b4d52' : '#6a3f2c', a0: 1, a1: 0, rot: this.rand() * TAU, vrot: 7,
+      });
+      this.spawn({
+        batch: 'bbA', uv: this.R.spark, x, y: y + 0.35, z, vx: Math.cos(a) * sp * 0.6, vy: 0.8 + this.rand(), vz: Math.sin(a) * sp * 0.6, g: -6,
+        s0: 0.1, s1: 0.03, life: 0.4, color: tint ? tint.spark : '#ffc46b', rot: this.rand() * TAU, vrot: 8,
       });
     }
   }
@@ -408,6 +521,7 @@ export class FxSystem {
 
   /** Advances and draws all particles into the batches (batches already begun). */
   update(dt) {
+    this.clock += dt;
     const parts = this.parts;
     let n = 0;
     // halos: at most the tier's count, and particles + halos never past the particle limit
@@ -525,5 +639,8 @@ export class FxSystem {
     this.parts.length = 0;
     this.segments.length = 0;
     this.texts.length = 0;
+    // (and the recent blasts: a cleared board folds no new blast into one that is gone)
+    this._ex.fill(-1e9);
+    this._exGlow.fill(null);
   }
 }

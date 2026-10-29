@@ -263,7 +263,8 @@ try {
     await tap(A, '[data-testid="clan-back"]');
     const ranked = await A.waitForFunction(() => document.querySelectorAll('.ol-board-list li').length === 1 && /Aiko/.test(document.querySelector('.ol-board-list')?.innerText || ''), null, { timeout: 10000 }).then(() => true).catch(() => false);
     check(ranked, 'clan boss: back in the clan, the ranking lists the attempt');
-    check(/Fight \(2\/3 left\)/.test(await A.locator('[data-testid="boss-fight"]').innerText().catch(() => '')), 'clan boss: one of three daily attempts used');
+    // (textContent: the ink buttons set their labels in capitals with CSS, which innerText reports)
+    check(/Fight \(2\/3 left\)/.test(await A.locator('[data-testid="boss-fight"]').textContent().catch(() => '')), 'clan boss: one of three daily attempts used');
     await shot(A, 'clan-boss-ranked');
   }
 
@@ -364,7 +365,7 @@ try {
   // 2. The guest leaves: the host is told and offered a new room (a guest coming back from
   //    another browser or device might find the seat still taken)
   await tap(B, '[data-testid="coop-leave"]');
-  const goneText = await A.waitForSelector('[data-testid="coop-ally-gone"]', { timeout: 10000 }).then((e) => e.innerText()).catch(() => '');
+  const goneText = await A.waitForSelector('[data-testid="coop-ally-gone"]', { timeout: 10000 }).then((e) => e.textContent()).catch(() => '');
   check(/Bea left the room/.test(goneText) && /New room/.test(goneText), `co-op: when the guest leaves, the host sees "Bea left the room" with a New room button (${goneText.replace(/\s+/g, ' ').slice(0, 80)})`);
   await shot(A, 'coop-ally-gone-host');
 
@@ -759,10 +760,16 @@ try {
   // (the guest searches from the opposite corner and after the host's hero stands, so the two
   // orders never race for the same spot)
   async function placeHero(page, fromEnd) {
+    // (a frame-starved page is dropped and re-admitted by design: while it rebuilds there is no window.__battle)
+    await page.waitForFunction(() => window.__battle?.sim && window.__battle.ui?.act, null, { timeout: 120000, polling: 250 }).catch(() => null);
     return page.evaluate((rev) => {
       const { sim, ui } = window.__battle;
       const id = sim.heroConfig?.unitId;
-      if (!id || sim.hero) return id ? 'already' : null;
+      if (!id) {
+        window.__heroWhy = `no heroConfig (player ${sim.localPlayer ?? '?'}; configs ${JSON.stringify((sim.heroConfigs || []).map((c) => c?.unitId ?? null))})`;
+        return null;
+      }
+      if (sim.hero) return 'already';
       const ys = [];
       // a centre right on the map's edge can round out of bounds on the 1/1024 command grid: stay 1 tile in
       for (let y = 1; y < sim.map.height - 1; y += 0.35) ys.push(y);
@@ -774,16 +781,32 @@ try {
       }
       for (const y of ys) {
         for (const x of xs) {
-          if (sim.canPlace(id, x, y).ok && sim.towers.every((t) => Math.hypot(t.x - x, t.y - y) > 1.6)) return ui.act.place(id, x, y) ? id : null;
+          if (sim.canPlace(id, x, y).ok && sim.towers.every((t) => Math.hypot(t.x - x, t.y - y) > 1.6)) {
+            if (ui.act.place(id, x, y)) return id;
+            window.__heroWhy = `place(${id}, ${x.toFixed(2)}, ${y.toFixed(2)}) refused`;
+            return null;
+          }
         }
       }
+      window.__heroWhy = `no free spot for ${id}`;
       return null;
     }, fromEnd);
   }
-  const heroA = await placeHero(A, false);
+  // (a placement is refused while the client rebuilds after a resync: a frame-starved page is dropped and re-admitted
+  // under load; try again for up to a minute)
+  const placeHeroRetry = async (page, fromEnd) => {
+    for (let i = 0; i < 30; i++) {
+      const r = await placeHero(page, fromEnd).catch(() => null);
+      if (r) return r;
+      await page.waitForTimeout(2000);
+    }
+    return null;
+  };
+  const heroA = await placeHeroRetry(A, false);
   await B.waitForFunction(() => !!window.__battle.sim.heroes[0], null, { timeout: 120000, polling: 250 }).catch(() => null);
-  const heroB = await placeHero(B, true);
-  check(!!heroA && !!heroB, `co-op heroes: both players deploy their hero for free (${heroA} / ${heroB})`);
+  const heroB = await placeHeroRetry(B, true);
+  const why = !heroA || !heroB ? await Promise.all([A, B].map((p) => p.evaluate(() => window.__heroWhy || '').catch(() => ''))) : null;
+  check(!!heroA && !!heroB, `co-op heroes: both players deploy their hero for free (${heroA} / ${heroB}${why ? `; ${why.join(' / ')}` : ''})`);
   const twoHeroes = (p) => p.waitForFunction(() => window.__battle.sim.heroes.filter(Boolean).length === 2, null, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false);
   if (!check(await twoHeroes(A) && await twoHeroes(B), 'co-op heroes: both heroes stand on both screens')) await dump('lockstep state');
   await A.evaluate(() => window.__battle.ui.feed.clear?.());
@@ -871,7 +894,16 @@ try {
         return sim.enemies.filter((e) => !e.dead && !e.hidden && (e.x - t.x) ** 2 + (e.y - t.y) ** 2 <= r * r).length >= 2;
       };
       const ready = await B.waitForFunction(readyNow, guestGirl, { timeout: 240000, polling: 50 }).then(() => true).catch(() => false);
-      check(ready, 'co-op abilities: the guest\'s girl is ready with enemies in reach (the link settled)');
+      const why = ready ? '' : await B.evaluate((g) => {
+        const { sim, coop } = window.__battle || {};
+        const ls = coop?.lockstep;
+        const t = sim?.getTower(g.uid);
+        const st = sim?.abilityStatus(g.uid);
+        const r = t?.eff.range || 0;
+        const near = t ? sim.enemies.filter((e) => !e.dead && !e.hidden && (e.x - t.x) ** 2 + (e.y - t.y) ** 2 <= r * r).length : -1;
+        return JSON.stringify({ battle: !!sim, job: !!ls?.job, running: !!ls?.running, peers: ls?.livePeers?.().length, gone: !!window.__coop?.peerGone, state: sim?.state, wave: sim?.wave, ready: st?.ready, cd: st?.cd ?? st?.left, reason: st?.reason, near, enemies: sim?.enemies.filter((e) => !e.dead).length });
+      }, guestGirl).catch((e) => `(${e.message.split('\n')[0]})`);
+      check(ready, `co-op abilities: the guest\'s girl is ready with enemies in reach (the link settled)${why ? ` ${why}` : ''}`);
       // the real tap on her slot, then a second one while the first waits (both in one go: no tick runs between). A
       // tap that met a rebuild ("busy") is tapped again once the link has settled, as a player would.
       let tapped = null;

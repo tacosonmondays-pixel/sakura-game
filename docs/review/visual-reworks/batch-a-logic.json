@@ -1,0 +1,48 @@
+{
+  "reviewer": "independent logic reviewer (did not build batch A)",
+  "scope": "feature/visual-reworks batch A. Round 1 (adf61830): Tenka's 3D figure with her coilgun prop, Iroha's mirror panel animations, and the display backlog fixes. Round 2 (c28918a4): the fixes for L1 and L3 plus the v0.1.60 patch note (git diff adf61830 1f601f66), and the companions work merged in (git diff 1f601f66 c28918a4).",
+  "verdict": "OK",
+  "sha": "c28918a4fd1be950a76cb91050dfbdd26f917a19",
+  "previous": { "sha": "adf6183012f3e6a35a5d3e6523f1505e05c79623", "verdict": "OK", "findings": "L1 (panel snap on a merged retarget) and L3 (stale test path) are fixed in 1f601f66. L2 is still open (below)." },
+  "base": "ccf147ad27b97811f58c82e6682b4a6a27148241 (origin/main, v0.1.59)",
+  "findings": [
+    {
+      "severity": "LOW",
+      "file": "src/render/mirrorFx.js",
+      "line": 75,
+      "what": "Open from round 1 (L2). _state(uid) creates a pooled panel state from shot() and ability() even when rosterFx has no prop for that tower. rosterFx makes no prop once MAX_PROPS = 24 relay props exist. drop() is only called from rosterFx._dropProp, so such a state stays until dispose().",
+      "scenario": "A board with more than 24 relay girls (Iroha and Ruri), with Irohas placed and sold. Each one leaves one small object in mirrors.panels until the battle ends. The growth is bounded by the towers in that battle and is cleared on dispose. No GPU resources are involved.",
+      "fix": "In shot() and ability(), use this.panels.get(uid) and return early when it is missing, so only pose() creates states."
+    },
+    {
+      "severity": "LOW",
+      "file": "src/render/companionLogic.js",
+      "line": 450,
+      "what": "trailPush's doc says a point within minGap of the last one is 'kept fresh', but the code returns false without updating tr.t. A companion that stops moving (Kon's crouch and impact beats, Kaze at the strike point) lets the trail fade out, rather than holding it fresh.",
+      "scenario": "This is a doc and code mismatch only. The fade is arguably the better look, and nothing breaks. A later editor could, though, 'fix' the code to match the comment and leave a stuck trail under a crouching Kon.",
+      "fix": "Change the comment to 'then nothing is added (the trail fades out while it stands still)', or refresh tr.t of the newest point if holding is what you want."
+    }
+  ],
+  "checked": [
+    "Round 2: the sim id at c28918a4 is 35748b1b58db, the same as main. Under src/sim, src/online and src/data, only src/data/patchNotes.js changed (the v0.1.60 note at the top, which now mentions the companions). COOP_PROTOCOL needs no bump.",
+    "L1 fix (mirrorPanel.js panelKick/panelPose): a merged shot more than FLIP.reease (0.5 rad) from the running target re-eases from the drawn yaw through a separate ease clock e0. The flip clock t0 and minGap are unchanged, so no extra flip or glint is counted. holdEnd now follows e0. A small retarget still just moves s.to. irohaMirror.test.js covers this. L3: the header now names tests/render/irohaMirror.test.js.",
+    "Merge resolution (RosterFx constructor): it takes { quality, camera, reduceMotion }. this.camera and this.reduceMotion are set before MirrorFx is built, so the mirrors get the right reduceMotion. The duplicate assignment is gone. BattleRenderer still wires attackFx.ctx.mirrors and mirrors.readScale, passes camera to RosterFx and fx/batches/atlas/camera to Companions, and adds rosterProbe().",
+    "No sim writes: the companions read towers (t.eff.range), the drawn enemy views (actors.enemies, read only), the drained events and their targetUid. rosterFx's dragon calls runnerSegment (sim/runners.js:125). That function is pure: it computes dist + k*gap and writes pointAt into the caller's scratch object, so the fractional k for the in-between beads is safe. Math.random only feeds particle jitter. tests/render passes, including the companions and dragon-look tests.",
+    "Allocation:",
+    "- Spawn records: companions and rosterFx each reuse one spawn record (_sp), which FxSystem.spawn copies into its own pooled particles. FxSystem caps them at 380, 900 or 1600 by quality, and refused spawns are counted.",
+    "- Trails: each companion has one fixed Float32Array ring (TRAIL_N 12), made once in _kit. Ribbons are at most 11 quads per companion in the shared bbA batch. Scratch vectors are module-level.",
+    "- Dragon beads: shared across all dragons, capped by MAX_DRAGON_SEGS 96, plus 6 heads and 6 tails. Seiran's dragon has 6 segments, which gives 10 body beads and 1 tail, so even 6 dragons at once (60 beads) fit.",
+    "- Dragon effects: the whiskers and mane are 20 quads per head. The cloud trail is one puff per 0.07 s per dragon, and the arrival roar happens once per runner. A ghost carries roared: true, so it never roars again.",
+    "High attack speed (Kaze): one swoop in flight. queueSwoop keeps one waiting target: the latest, but a flyer is never replaced by a walker (`??` binds looser than `>`, so `e.airborne ?? (e.y > 0.3)` is right). perchStep adds a SWOOP_REST of 0.18 s after each landing. A queued target that has died is dropped, because _enemy returns null. His ⚡ dives clear the queue and block the perch while they run. So he makes at most about one swoop per 1.18 s and one feather burst per swoop.",
+    "Kon: konGait and the stride dust only run in travel mode. The steps counter is re-synced outside travel, so no burst fires when a run starts. The pounce beats are crouch, leap, impact (out.hit only on the first frame: one impact burst) and return. The landing spot follows the target until impact and then stays put. Scale and position are reset every frame (setScalar, then copy/set) before the gait, squash and stretch multiply them, so nothing accumulates.",
+    "Doll: it is now its own else branch. It still uses sortieStep with DASH_OPTS and actors.enemyPos, its state stays 'idle', and it keeps facing atan2(dx, dz), the same as the old `_pos.out || doll ? 0 : PI`. _onAttack uses DASH_TIME for the doll as before. The doll has no trail (trail null) and its pitch stays 0. The YXZ rotation order with x = 0 matches the old pose, and the bar threads code is unchanged.",
+    "Low graphics: no companion ribbons (the trail still clears itself), no Kon afterimage glow, and fewer puffs through fx.n density. The dragon has no whiskers or mane ribbons, no cloud trail, no tail sparkles, no glow quads and no roar streaks. Reduce motion: no pounce, dives or head pop. Dust and feathers stay in place. The roar is a flash and one ring only.",
+    "Co-op partners: the companions are reconciled for every tower in the shared sim, and Kaze follows ev.targetUid from the shared attack event, so a partner's Hana, Ruri or Yoriko behaves the same on both screens. Everything here is display state.",
+    "Dispose: the companions add no GPU resources (particles live in the shared fx pool, quads in the shared batches), and their dispose is unchanged. rosterFx.dispose now frees the head, body and tail InstancedMesh geometry and instances, plus the shared material.",
+    "Round 1 items still hold at c28918a4: Tenka's GLB and prop paths, Iroha's caps and dispose, the Reduce motion and Low fallbacks, the UI fixes, the merge a01d319d.",
+    "Tests:",
+    "- Round 2: npx vitest run --maxWorkers=2 on tests/render and tests/battle-ui at c28918a4 passed (50 files, 729 tests).",
+    "- Round 1: tests/models, tests/render, tests/ui and tests/battle-ui passed (124 files, 1655 tests), and so did tests/systems/first-impressions, lobbyIllustrations and tests/data (20 files, 898 tests).",
+    "- The full suite was not run, as instructed. No browser run was needed."
+  ]
+}

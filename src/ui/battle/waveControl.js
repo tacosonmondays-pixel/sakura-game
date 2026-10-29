@@ -25,7 +25,9 @@ export function createWaveControl(ctx) {
   let fp = null;
   function update() {
     // read live: a solo run that won its last wave can Keep going into freeplay
-    fp = sim.freeplay ? sim.stage.freeplay : null;
+    // (a Tryout Day Extended Day runs freeplay waves past its 48 but is not freeplay: no clear card, no Finish pill, no
+    // "49/48"; its wave 48 just goes on, with the Stay Late banner, TRYOUT_DAY §20.8)
+    fp = sim.freeplay && !sim.tryout ? sim.stage.freeplay : null;
     if (fp && el.dataset.tier !== fp.id) el.dataset.tier = fp.id;
     const canStart = (sim.state === 'prep' || sim.state === 'between') && (sim.endless || sim.wave < lastWave());
     // the goal wave just cleared (freeplay): the clear card
@@ -45,7 +47,7 @@ export function createWaveControl(ctx) {
       const n = sim.wave + 1;
       const over = !!fp && n > sim.totalWaves;
       label.textContent = sim.state === 'prep' ? 'START' : atClear ? 'GO BEYOND' : 'NEXT WAVE';
-      sub.textContent = Number.isFinite(sim.totalWaves) ? `Wave ${n}/${sim.totalWaves}` : `Wave ${n}`;
+      sub.textContent = Number.isFinite(sim.totalWaves) && !(sim.tryout && sim.freeplay && n > sim.totalWaves) ? `Wave ${n}/${sim.totalWaves}` : `Wave ${n}`;
       sub.classList.toggle('bt-start-sub-over', over);
       auto.classList.toggle('on', !!sim.options.autoStart);
       auto.setAttribute('aria-pressed', sim.options.autoStart ? 'true' : 'false');

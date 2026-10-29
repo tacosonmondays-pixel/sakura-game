@@ -14,7 +14,7 @@ import { h } from './dom.js';
 import { UNIT_RARITIES } from '../data/types.js';
 import { UNIT_MAP } from '../data/units.js';
 import { MAX_AWAKEN } from '../systems/progression.js';
-import { isLR } from '../systems/limitBreak.js';
+import { isLR, LR_TRIALS } from '../systems/limitBreak.js';
 
 /** The UR look (display only — not in UNIT_RARITIES). `color` is for flat-colour fallbacks. */
 export const UR = Object.freeze({ id: 'UR', name: 'UR', color: '#b78bff' });
@@ -83,9 +83,18 @@ export function lrBadge(extraCls = '') {
 /** The badge for a shown rank: UR's rainbow or LR's sticker. */
 export const rankBadge = (shown, extraCls = '') => (shown === 'LR' ? lrBadge(extraCls) : urBadge(extraCls));
 
-/** The Nightglass frame: a white-gold inner line and the twin-star crest (goes last inside a positioned frame). */
-export function lrFrame() {
-  return h('span.lr-frame', { 'aria-hidden': 'true' }, h('i.lr-crest'));
+/**
+ * Each LR unit's crest (BANNERS §C.2, drawn in CSS by lr.css): the duo's twin stars (the default look) and Tenka's
+ * orbit ring around a spark (`.orbit`). Keyed by her trial's `crest` (src/systems/limitBreak.js LR_TRIALS).
+ */
+export const LR_CREST_CLASS = Object.freeze({ 'twin stars': '', 'orbit ring': 'orbit' });
+/** The crest class for an LR unit ('' = the twin stars). */
+export const lrCrestClass = (unitId) => LR_CREST_CLASS[LR_TRIALS[unitId]?.crest] || '';
+
+/** The Nightglass frame: a white-gold inner line and her crest (goes last inside a positioned frame). */
+export function lrFrame(unitId = null) {
+  const c = unitId ? lrCrestClass(unitId) : '';
+  return h('span.lr-frame', { 'aria-hidden': 'true' }, h(`i.lr-crest${c ? `.${c}` : ''}`, c ? { 'data-crest': c } : {}));
 }
 
 /**
@@ -98,7 +107,7 @@ export function applyUrFrame(el, unit, profile) {
   if (isLRShown(unit, profile)) {
     el.classList.add('is-lr');
     el.style.setProperty('--rarity', LR.color);
-    if (!el.querySelector(':scope > .lr-frame')) el.append(lrFrame());
+    if (!el.querySelector(':scope > .lr-frame')) el.append(lrFrame(defOf(unit)?.id));
     return true;
   }
   el.classList.add('is-ur');

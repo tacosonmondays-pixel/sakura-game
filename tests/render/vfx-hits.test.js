@@ -183,7 +183,7 @@ describe('local holds: freeze the struck, not the world', () => {
         veiled: null, phasing: null, barrier: -1, maxHp: 100, height: 0.6,
       };
       const h = Object.assign(Object.create(Actors.prototype), {
-        enemies: new Map([[1, v]]), time: 0, casters: new Set(), terrain: { isPath: () => true },
+        enemies: new Map([[1, v]]), time: 0, casters: new Set(), terrain: { isPath: () => true }, headHide: [],
       });
       const e = { uid: 1, x: 4, y: 4, facing: 0, speed: 1, maxHp: 100, statuses: {}, maxBarrier: 0, barrier: 0 };
       const step = () => {

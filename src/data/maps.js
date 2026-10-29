@@ -41,15 +41,21 @@
 
 import {
   buildMapTracks, stampTracks, mapTracks, BAND_HALF_WIDTH, arc, spiral, curve, loopNodes, LINE, TUNNEL_IN, TUNNEL_OUT,
+  RAISE, LOWER,
 } from '../core/track.js';
 // engine-independent trig (core/detMath.js): map geometry must be bit-identical on every device
 import { DET_MATH as DM } from '../core/detMath.js';
 
 // Track authoring shorthands (src/core/track.js): L = the next section is an exact straight,
-// IN / OUT = a tunnel starts / ends at the previous control point.
+// IN / OUT = a tunnel starts / ends at the previous control point, UP / DOWN = a viaduct starts /
+// ends at the previous control point (Gate Arc Step 6: a long overpass at the deck height; a road
+// crossing under its flat top always passes under it).
 const L = LINE;
 const IN = TUNNEL_IN;
 const OUT = TUNNEL_OUT;
+// (no shipped map raises a viaduct yet: 6-7 is the first)
+const UP = RAISE; // eslint-disable-line no-unused-vars
+const DOWN = LOWER; // eslint-disable-line no-unused-vars
 
 /**
  * Track nodes for a city street (Gate Arc): straight runs between the corner points, each corner
@@ -124,7 +130,17 @@ export function defineMap(o) {
   const grid = o.rows.map((r) => r.split(''));
   const height = grid.length;
   const width = grid[0].length;
-  const { tracks, crossings, tiles: onPath } = buildMapTracks(o.paths, o.crossings ?? 'bridge');
+  let built;
+  try {
+    built = buildMapTracks(o.paths, o.crossings ?? 'bridge');
+  } catch (err) {
+    // authoring errors (tunnels, viaducts, crossings) name the map they come from
+    throw new Error(`map ${o.id}: ${err.message}`, { cause: err });
+  }
+  const { tracks, crossings, tiles: onPath } = built;
+  // Gate Arc Step 3: a lane that starts inside the board (a rift on the lake, 3-8). The sim spawns at a track's first
+  // point anyway (track.js ignores the key); the renderer drops the head run-out and stands the rift gate there.
+  (o.paths || []).forEach((spec, i) => { if (spec && !Array.isArray(spec) && spec.inside) tracks[i].inside = true; });
   for (const key of onPath) {
     const [x, y] = key.split(',').map(Number);
     if (x < 0 || y < 0 || x >= width || y >= height) continue;
@@ -165,6 +181,8 @@ export function defineMap(o) {
     ...(o.ground ? { ground: o.ground } : {}),
     // Gate Arc (see the header): the city kit's render hints and a declared echo of an Act I map
     ...(o.city ? { city: o.city } : {}),
+    // Gate Arc Step 3: a district of its theme ('oldtown' on city maps: the old-house block set, STEP3_BUILD_PLAN §2.5)
+    ...(o.district ? { district: o.district } : {}),
     ...(o.echoOf ? { echoOf: o.echoOf, echoDiff: o.echoDiff || [] } : {}),
     desc: o.desc,
     concept: o.concept || '',
@@ -196,6 +214,35 @@ const BLOSSOM_COURT = {
   decor: [
     { type: 'fountain', x: 9, y: 6 }, { type: 'sakura', x: 0, y: 3 }, { type: 'sakura', x: 19, y: 8 },
     { type: 'stoneLantern', x: 6, y: 6 }, { type: 'bench', x: 15, y: 6 },
+  ],
+};
+
+/** Inner Sanctum (3-5): its own map, and the ground the Lakeside Shrine (3-10) echoes. */
+const SHRINE_SANCTUM = {
+  id: 'shrine_sanctum', name: 'Inner Sanctum', theme: 'shrine', tier: 'advanced',
+  desc: 'Two pilgrim roads sweep in past the mirror ponds, meet before the sanctum doors, pass beneath the sanctum itself and wind down past the bell garden.',
+  concept: 'Y + sanctum tunnel: two roads merge, then run under the sanctum',
+  rows: [
+    'TTTTT,TTTTTTTTT,TTTT',
+    '...............,...T',
+    'T.,..~~~.,......~~.T',
+    'T...~~~~~.......~~.T',
+    'T..,.~~~....HHH.,..T',
+    'T...........HHH....T',
+    'T..,.......HHHHH....',
+    'T...........HHH....T',
+    'T.,..~~~....HHH....T',
+    'T...~~~~~.......,..T',
+    '.....~~~.......,...T',
+    'TTTTT,TTTTTTTTT,TTTT',
+  ],
+  paths: [
+    [[-1, 1.0], L, [0.6, 1.0], [2.3, 1.8], [3.0, 3.6], [4.3, 5.3], [6.4, 6.3], [8.0, 6.6], L, [12.3, 6.6], IN, L, [14.7, 6.6], OUT, L, [15.4, 6.6], [17.0, 7.3], [17.6, 8.9], [16.4, 10.1], [14.2, 9.8], [12.2, 9.7], [10.9, 10.4], [10.5, 11.6], L, [10.5, 13]],
+    { nodes: [[-1, 11.2], L, [0.6, 11.2], [2.3, 10.4], [3.0, 8.6], [4.3, 7.6], [6.4, 6.9]], join: { path: 0, at: [8.6, 6.6] } },
+  ],
+  decor: [
+    { type: 'torii', x: 11, y: 4 }, { type: 'bell', x: 17, y: 4 }, { type: 'stoneLantern', x: 11, y: 3 },
+    { type: 'stoneLantern', x: 1, y: 5 }, { type: 'sakura', x: 18, y: 1 },
   ],
 };
 
@@ -549,33 +596,7 @@ export const MAPS = [
       { type: 'sakura', x: 13, y: 6 }, { type: 'shrine', x: 5, y: 6 },
     ],
   }),
-  defineMap({
-    id: 'shrine_sanctum', name: 'Inner Sanctum', theme: 'shrine', tier: 'advanced',
-    desc: 'Two pilgrim roads sweep in past the mirror ponds, meet before the sanctum doors, pass beneath the sanctum itself and wind down past the bell garden.',
-    concept: 'Y + sanctum tunnel: two roads merge, then run under the sanctum',
-    rows: [
-      'TTTTT,TTTTTTTTT,TTTT',
-      '...............,...T',
-      'T.,..~~~.,......~~.T',
-      'T...~~~~~.......~~.T',
-      'T..,.~~~....HHH.,..T',
-      'T...........HHH....T',
-      'T..,.......HHHHH....',
-      'T...........HHH....T',
-      'T.,..~~~....HHH....T',
-      'T...~~~~~.......,..T',
-      '.....~~~.......,...T',
-      'TTTTT,TTTTTTTTT,TTTT',
-    ],
-    paths: [
-      [[-1, 1.0], L, [0.6, 1.0], [2.3, 1.8], [3.0, 3.6], [4.3, 5.3], [6.4, 6.3], [8.0, 6.6], L, [12.3, 6.6], IN, L, [14.7, 6.6], OUT, L, [15.4, 6.6], [17.0, 7.3], [17.6, 8.9], [16.4, 10.1], [14.2, 9.8], [12.2, 9.7], [10.9, 10.4], [10.5, 11.6], L, [10.5, 13]],
-      { nodes: [[-1, 11.2], L, [0.6, 11.2], [2.3, 10.4], [3.0, 8.6], [4.3, 7.6], [6.4, 6.9]], join: { path: 0, at: [8.6, 6.6] } },
-    ],
-    decor: [
-      { type: 'torii', x: 11, y: 4 }, { type: 'bell', x: 17, y: 4 }, { type: 'stoneLantern', x: 11, y: 3 },
-      { type: 'stoneLantern', x: 1, y: 5 }, { type: 'sakura', x: 18, y: 1 },
-    ],
-  }),
+  defineMap(SHRINE_SANCTUM),
 
   // -------------------------------------------------------------------------
   // Chapter 4 — Ironhold Pass (mountain)
@@ -1568,6 +1589,587 @@ export const MAPS = [
     city: {
       searchlight: { x: 18.5, z: 4.6, rot: Math.PI - 0.3, sweep: 1.3, reach: 3.4, period: 14 },
     },
+  }),
+
+  // -------------------------------------------------------------------------
+  // Chapter 3 · Act II — The Bell Festival (city, the Old Town district at night; MAPS.md, STEP3_BUILD_PLAN §4)
+  // -------------------------------------------------------------------------
+  defineMap({
+    id: 'noon_old_town', name: 'Old Town Lanes', theme: 'city', district: 'oldtown', tier: 'intermediate',
+    desc: 'In from the west through the Old Town lanes: up and round one block of old houses, down and round the next, up and round a third, and out east to the festival street. The flat roofs inside each loop are the place to stand.',
+    concept: 'Alternating keys: three hooked lanes round blocks of old houses, north, south, north, with flat roofs inside the hooks',
+    rows: [
+      'HHHHHHHHHHHHHHHHHHHH',
+      'H.........,........H',
+      'H..................H',
+      'H.........,........H',
+      'H..........H........',
+      'H..UU..........UU..H',
+      'H..UU..........UU..H',
+      '...................H',
+      'H.,................H',
+      'H.............~~~..H',
+      'H.............~~~..H',
+      '~~~~~~~~~~~~~~~~~~~~',
+    ],
+    paths: [
+      street([[-1, 7.0], [2.5, 7.0], [2.5, 2.5], [5.5, 2.5], [5.5, 7.0], [8.5, 7.0], [8.5, 10.5], [11.5, 10.5], [11.5, 7.0], [14.5, 7.0], [14.5, 2.5], [18.0, 2.5], [18.0, 5.5], [21, 5.5]], { r: 1.5 }),
+    ],
+    decor: [
+      { type: 'lantern', x: 9, y: 2 }, { type: 'lantern', x: 12, y: 4 }, { type: 'bench', x: 1, y: 9 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_takoyaki_row', name: 'Takoyaki Row', theme: 'city', district: 'oldtown', tier: 'intermediate',
+    desc: 'Down the festival street from the north-west in one long diagonal past the stalls, a wide turn by the ring toss, back up another diagonal to the bowing-contest stage, round again and down to the south-east gate. The road crosses the stall rows twice; mind the griddles.',
+    concept: 'Lantern N: three long diagonals joined by two wide reversals, crossing the two stall rows',
+    rows: [
+      'HHHHHHHHHHHHHHHHHHHH',
+      '...................H',
+      'H..................H',
+      'H.....,........,...H',
+      '~~.................H',
+      '~~.......,.........H',
+      '~~.................H',
+      '~~~....,......,....H',
+      '~~~................H',
+      '~~~................H',
+      '~~~..........,......',
+      '~~~HHHHHHHHHHHHHHHHH',
+    ],
+    paths: [
+      [[-1, 1.5], L, [0.5, 1.5], [1.7, 2.2], L, [5.3, 7.9], [6.2, 9.4], [7.6, 10.1], [9.0, 9.5], [9.8, 8.2], L, [12.2, 3.6], [13.1, 2.4], [14.5, 2.0], [15.8, 2.7], [16.5, 4.0], L, [18.8, 9.2], [19.6, 10.3], L, [21, 10.5]],
+    ],
+    decor: [
+      { type: 'lantern', x: 4, y: 2 }, { type: 'lantern', x: 11, y: 7 }, { type: 'bench', x: 16, y: 7 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_shrine_steps', name: 'The Lake Steps', theme: 'city', tier: 'advanced',
+    desc: 'Two fronts in the lake fog. The town road comes in from the west to the foot of the shrine steps; a rift opens in the middle of the lake, and a second column wades ashore along the old jetty and joins it there. Then one climb: east along the lower terrace, back west along the upper one, and up through the precinct gate.',
+    concept: 'Two fronts, one climb: a town road and a lake lane meet at the foot of the steps, then a Z up two terraces to the gate',
+    rows: [
+      'HHHHHHHHHHH.HHHHHHHH',
+      'H..................H',
+      'H.......,..........H',
+      'H..................H',
+      'H...HHH.........,..H',
+      'H..,...............H',
+      'H..................H',
+      'H........,.........H',
+      'H.........~~~~~~~~~~',
+      '..........~~~~~~~~~~',
+      'H..,.....~~~~~~~~~~~',
+      'HHHHHHH~~~~~~~~~~~~~',
+    ],
+    crossings: 'bridge',
+    paths: [
+      street([[-1, 9.5], [6.0, 9.5], [6.0, 6.0], [16.0, 6.0], [16.0, 3.0], [11.5, 3.0], [11.5, -1]], { r: 1.5 }),
+      // the rift lane: a tear in the lake opens mid-water, and the column wades ashore along the old jetty
+      { inside: true, nodes: [[16.5, 10.5], L, [10.0, 10.5], [8.3, 10.3], [7.1, 9.6], [6.4, 8.6]], join: { path: 0, at: [6.0, 7.8] } },
+    ],
+    decor: [
+      { type: 'torii', x: 14, y: 1 }, { type: 'stoneLantern', x: 9, y: 1 }, { type: 'stoneLantern', x: 16, y: 1 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_old_town_burning', name: 'Old Town, Burning', theme: 'city', district: 'oldtown', tier: 'advanced',
+    desc: 'The same lanes, the night it burns. Two blocks have fallen into the street, so the column takes one long S from the west round the rubble and out north, under the smoke. Hoses run down to the mill race.',
+    concept: 'Broken fret: one long S round two fallen blocks of Old Town, the mill race along the south',
+    rows: [
+      'HHHHHHHHHHHHHHHHHHHH',
+      'H.........,.........',
+      'H..................H',
+      'H..XXX.............H',
+      'H..XXXX............H',
+      'H...XX.............H',
+      'H..................H',
+      '...................H',
+      'H.,......UU..XXX...H',
+      'H........UU.XXXX,..H',
+      'H.....~~~....XX....H',
+      '~~~~~~~~~~~~~~~~~~~~',
+    ],
+    paths: [
+      [[-1, 7.5], L, [1.2, 7.5], [3.4, 7.9], [5.6, 8.2], [7.6, 7.4], [8.6, 6.8], [10.6, 5.7], [13.0, 5.6], [15.4, 6.2], [16.9, 5.4], [17.8, 4.0], [18.1, 2.4], L, [18.2, -1]],
+    ],
+    decor: [
+      { type: 'lantern', x: 7, y: 10 }, { type: 'bench', x: 12, y: 9 },
+    ],
+  }),
+  defineMap(echoMap(SHRINE_SANCTUM, {
+    id: 'noon_lakeside_shrine', name: 'The Lakeside Shrine', theme: 'city', tier: 'advanced',
+    desc: 'The old shrine on the lake, the night of the fire. The two pilgrim roads still sweep in past the mirror ponds, meet before the sanctum and pass beneath it, while the sky above the roof tears open.',
+    concept: 'Echo of Inner Sanctum: the same Y and sanctum tunnel, a thousand years later, burning, under the tear',
+    echoDiff: [],
+    decor: [
+      { type: 'torii', x: 11, y: 4 }, { type: 'bell', x: 17, y: 4 }, { type: 'stoneLantern', x: 11, y: 3 },
+      { type: 'stoneLantern', x: 1, y: 5 }, { type: 'stoneLantern', x: 18, y: 1 },
+      // the tear over the burning sanctum (pulses with The Tear, src/render/tear.js)
+      { type: 'hammerTear', x: 13, y: 5 },
+    ],
+  })),
+
+  // -------------------------------------------------------------------------
+  // Chapter 4 · Act II — The Checkpoint (city, the highway district, then the far north on `snow`; MAPS.md §1.5,
+  // STEP4_BUILD_PLAN §4)
+  // -------------------------------------------------------------------------
+  defineMap({
+    id: 'noon_toll_plaza', name: 'Toll Plaza', theme: 'city', district: 'highway', tier: 'intermediate',
+    desc: 'Down off the mountain pass from the north-east to the toll plaza, where the highway fans out into three toll lanes through the booths and closes up again past the barrier, then leaves down the off-ramp to the south-west. The booth roofs are a good place to stand.',
+    concept: 'Three-booth lens: one road splits into three toll lanes round two booth islands and closes up again, then the off-ramp',
+    rows: [
+      '~~~~~~~~~~~~~~~~HHHHHH',
+      'H.....,...............',
+      'H....................H',
+      'H.........UU.........H',
+      'H.........UU.........H',
+      'H....................H',
+      'H.........UU.........H',
+      'H.........UU.........H',
+      'H....................H',
+      'H..,.........~~~~....H',
+      '............~~~~~....H',
+      'HHHHHHHHHHHH~~~~~HHHHH',
+    ],
+    paths: [
+      street([[23, 1.5], [20.0, 1.5], [20.0, 5.5], [2.5, 5.5], [2.5, 10.5], [-1, 10.5]], { r: [1.8, 1.8, 1.5, 1.5] }),
+      { fork: { path: 0, at: [17.6, 5.5] }, nodes: [[15.8, 4.4], [14.0, 2.2], L, [9.6, 2.2], [7.8, 4.4]], join: { path: 0, at: [6.4, 5.5] } },
+      { fork: { path: 0, at: [15.6, 5.5] }, nodes: [[13.8, 6.6], [12.0, 8.8], L, [8.0, 8.8], [6.2, 6.6]], join: { path: 0, at: [4.4, 5.5] } },
+    ],
+    decor: [
+      { type: 'vendingMachine', x: 4, y: 2, rot: Math.PI }, { type: 'vendingMachine', x: 5, y: 2, rot: Math.PI },
+      { type: 'signpost', x: 17, y: 3 }, { type: 'lantern', x: 16, y: 7 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_checkpoint', name: 'Azami\'s Checkpoint', theme: 'city', district: 'highway', tier: 'advanced',
+    desc: 'Down the pass road from the north to the Brigade\'s barricade line. The short lane runs straight through the checkpoint gate; the long lane swings west round the barricade blocks and comes back to rejoin it below. When Azami\'s barrier is down, the column takes the long way.',
+    concept: 'Barrier chicane: one lane dead straight through the gate, the other a wide hook west round the barricades, rejoining below',
+    rows: [
+      'HHHHHHHHHHHHHH.HH~~H',
+      'H.....,.......,..~~H',
+      'H................~~H',
+      'H................~~H',
+      'H........HH......~~H',
+      'H..,.....HH......~~H',
+      'H................~~H',
+      'H................~~H',
+      'H.~~~......,.....~~H',
+      'H.~~~............~~H',
+      'H.~~~..,.........~~H',
+      'HHHHHHHHHHHHHH.HH~~H',
+    ],
+    paths: [
+      [[14.5, -1], L, [14.5, 13]],
+      {
+        fork: { path: 0, at: [14.5, 1.2] },
+        nodes: [[13.4, 2.6], [11.0, 3.1], L, [7.6, 3.1], [5.8, 3.9], [5.2, 5.4], [6.0, 6.7], [7.8, 7.3], L, [10.6, 7.3], [12.6, 7.9]],
+        join: { path: 0, at: [14.5, 10.2] },
+      },
+    ],
+    decor: [
+      { type: 'tent', x: 3, y: 1 }, { type: 'tent', x: 2, y: 6 }, { type: 'lantern', x: 16, y: 4 },
+      { type: 'parkedCar', x: 8, y: 9, rot: 0 }, { type: 'parkedCar', x: 11, y: 9, rot: 0 },
+    ],
+    city: { barriers: [{ lane: 0 }] },
+  }),
+  defineMap({
+    id: 'noon_tunnel_mouth', name: 'Tunnel Mouth', theme: 'city', district: 'highway', tier: 'advanced',
+    desc: 'Two carriageways come out of two bores in the mountain wall and run side by side: south, east along the valley floor and south again to two exits, one inside the other. The central reservation between them covers both.',
+    concept: 'Dual carriageway: two parallel lanes out of two tunnel bores, nested steps south-east, two exits',
+    rows: [
+      'HH.HH.HHHHHHHHHHHHHHHH',
+      'HH.HH.HHHHHHHHHHHHHHHH',
+      'HH.HH.HHHHHHHHHHHHHHHH',
+      'HH.HH.HHHHHHHHHHHHHHHH',
+      'H~.................,.H',
+      'H~...................H',
+      'H~...................H',
+      'H~..........,.......~H',
+      'H~..................~H',
+      'H~.......,..........~H',
+      'H~..................~H',
+      'H~...................H',
+      'HHHHHHHHHHHHHHH.HHH.HH',
+    ],
+    paths: [
+      street([[2.5, -1], [2.5, 10.5], [15.5, 10.5], [15.5, 14]], { r: 2.0, tunnel: [[2.5, 0.4], [2.5, 3.6]] }),
+      street([[5.5, -1], [5.5, 7.0], [19.5, 7.0], [19.5, 14]], { r: 2.0, tunnel: [[5.5, 0.4], [5.5, 3.6]] }),
+    ],
+    decor: [
+      { type: 'lantern', x: 4, y: 4 }, { type: 'lantern', x: 7, y: 4 }, { type: 'parkedCar', x: 17, y: 4, rot: 0 },
+    ],
+    city: { snowRows: 6 },
+  }),
+  defineMap({
+    id: 'north_frozen_villages', name: 'The Frozen Villages', theme: 'snow', tier: 'advanced',
+    desc: 'Out of the Petal Gate\'s north mouth, past the Brigade\'s sandbags, straight up the old sled run, round the frozen village square in one wide horseshoe and out north-east past the cairn, on the road to the camp where the children are.',
+    concept: 'Climb and horseshoe: a straight climb up the sled run, a wide clockwise horseshoe over the village square, a hook out north-east',
+    rows: [
+      'TTTTTTTTTTTTTTTTTT.T',
+      'T..................T',
+      'T..................T',
+      'T........~~........T',
+      'T........~~........T',
+      'T~~................T',
+      'T~~......,.........T',
+      'T~~................T',
+      'T~~................T',
+      'T~~................T',
+      'T~~................T',
+      'TTTT.TTTTTTTTTTTTTTT',
+    ],
+    paths: [
+      [[4.5, 13], L, [4.5, 5.5], ...curve((t) => [10.0 - 5.5 * DM.cos(t), 5.5 - 4.5 * DM.sin(t)], 0, Math.PI, 30), L, [15.5, 8.5], [16.0, 9.6], [17.0, 10.0], [18.0, 9.6], [18.5, 8.5], L, [18.5, -1]],
+    ],
+    decor: [
+      { type: 'campfire', x: 10, y: 7 }, { type: 'tent', x: 16, y: 3 }, { type: 'pine', x: 1, y: 2 },
+      { type: 'flag', x: 6, y: 10 },
+    ],
+    city: { spawnGate: 'petalRift' },
+  }),
+  defineMap({
+    id: 'north_snow_bridge', name: 'The Snow Bridge', theme: 'snow', tier: 'expert',
+    desc: 'Two columns of the Host, one along the gorge rim from the west and one down the frozen riverbed from the north-east, meet at the bridgehead and cross the ravine as one on the Brigade\'s long folding bridge, south to the gate.',
+    concept: 'Two columns, one bridge: two lanes meet at the bridgehead, then one long straight deck over the ravine',
+    rows: [
+      'TTTTTTTTTTTTTTTTTTTTTT',
+      '......................',
+      'T.....................',
+      'T....................T',
+      'T....~~~~~~~~~~~~~...T',
+      'T....~~~~~~~~~~~~~...T',
+      'T....~~~~~~~~~~~~~...T',
+      'T....~~~~~~~~~~~~~...T',
+      'T....~~~~~~~~~~~~~...T',
+      'T....~~~~~~~~~~~~~...T',
+      'T....~~~~~~~~~~~~~...T',
+      'TTTTT~~~~~~~~~~~~~TTTT',
+    ],
+    crossings: 'bridge',
+    paths: [
+      street([[-1, 1.5], [11.5, 1.5], [11.5, 13]], { r: 2.0 }),
+      { nodes: [[23, 1.2], L, [15.0, 1.2], [13.0, 1.9]], join: { path: 0, at: [11.5, 3.9] } },
+    ],
+    decor: [
+      { type: 'banner', x: 8, y: 3 }, { type: 'tent', x: 19, y: 9 }, { type: 'tent', x: 2, y: 9 },
+      { type: 'pine', x: 2, y: 5 }, { type: 'flag', x: 20, y: 6 },
+    ],
+    city: { spawnGate: 'petalRift' },
+  }),
+
+  // -------------------------------------------------------------------------
+  // Chapter 5 · Act II — The Drowned Line (`drowned`: the flooded Line 2 under Itomachi, then the reservoir park on
+  // `city` with `district: 'park'`; MAPS.md §1.6, STEP5_BUILD_PLAN §4)
+  // -------------------------------------------------------------------------
+  defineMap({
+    id: 'noon_flooded_platform', name: 'Flooded Platform', theme: 'drowned', tier: 'intermediate',
+    desc: 'Line 2\'s old station, half under black water. The column comes out of the dark bore in the middle of the board, west along the platform deck over the flooded tracks, up the station stairs at the far end and back east along the street above the station block.',
+    concept: 'Up from the platform: out of a bore mid-board, west along a deck over the flooded tracks, up the stairs, back east along the street above',
+    rows: [
+      'HHHHHHHHHHHHHHHHHHHH',
+      'H.......,...........',
+      'H...................',
+      'H.....HHHHHHHHHHH..H',
+      'H..,..HHHHHHHHHHH..H',
+      'H..................H',
+      '~~~~~~~~~~~~~~~HHHHH',
+      '~~~~~~~~~~~~~~~HHHHH',
+      '~~~~~~~~~~~~~~~HHHHH',
+      'H.......,..........H',
+      'HHHHHHHHHHHHHHHHHHHH',
+      'HHHHHHHHHHHHHHHHHHHH',
+    ],
+    // the subway spawn (decision 7): the lane starts inside the bore, so the column is hidden until the OUT mouth
+    paths: [
+      { inside: true, nodes: street([[17.4, 7.5], [3.5, 7.5], [3.5, 2.0], [21, 2.0]], { r: 1.8, tunnel: [[17.3, 7.5], [14.6, 7.5]] }) },
+    ],
+    decor: [
+      { type: 'vendingMachine', x: 12, y: 5, rot: Math.PI }, { type: 'signpost', x: 7, y: 5 },
+      { type: 'missingPoster', x: 10, y: 9, rot: Math.PI }, { type: 'bench', x: 16, y: 9 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_line2_tunnels', name: 'Line 2 Tunnels', theme: 'drowned', tier: 'intermediate',
+    desc: 'The flooded Line 2 runs under the city blocks in one long gentle sag. The column is out of sight in four bores and in view only in the three open vent cuttings between them and the short run up to the goal. Hold the cuttings.',
+    concept: 'Dashed line: one gentle sag across the board, four bores under city blocks, three open vent cuttings',
+    rows: [
+      'HHHHHHHHHHHHHHHHHHHH',
+      'HHHHHH...,....HHHHHH',
+      'HHHHHH~.......HHHHHH',
+      'HHHHHH~~..........HH',
+      'H~.....HHH.HHHH.~~.H',
+      'H~.....HHH.HHHH.~~.H',
+      'H.,....HHH.HHHH....H',
+      'H......HHH.HHHH....H',
+      'H..~~.........~~.,.H',
+      'H..~~..........~...H',
+      '~~~~~~~~~~~~~~~~~~~~',
+      'HHHHHHHHHHHHHHHHHHHH',
+    ],
+    paths: [
+      [[-1, 2.5], L, [0.6, 2.5], IN, L, [4.4, 2.5], OUT, [5.8, 3.1], [6.8, 4.4], IN, [7.6, 6.2], [8.8, 7.6], OUT, [10.6, 8.2], [12.2, 7.6], IN, [13.4, 6.2], [14.4, 4.6], OUT, [15.6, 3.6], [17.0, 3.2], IN, L, [19.0, 3.2], OUT, L, [21, 3.2]],
+    ],
+    decor: [
+      { type: 'signpost', x: 9, y: 1 }, { type: 'lantern', x: 17, y: 7 }, { type: 'trashBin', x: 2, y: 7 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_pump_station', name: 'Pump Station', theme: 'drowned', tier: 'advanced',
+    desc: 'Something cold breathes out of a gate on the north wall of the old pump station. The column comes south past the pump hall, east along the sump, north through the hall itself, back west over its own first leg on the pipe gantry, then south and out west.',
+    concept: 'Pipe-gantry loop: south, east, north through the pump hall, west over its own first leg on a gantry, then out west',
+    rows: [
+      'HHHHHHHHH.HHHHHHHHHH',
+      'H........,.........H',
+      'H..................H',
+      'H..................H',
+      'H.....,....~~~~....H',
+      'H..........~~~~HHH.H',
+      'H..........~~~~HHH.H',
+      'H..........~~~~....H',
+      '...................H',
+      '~~~~~~.,...........H',
+      '~~~~~~.............H',
+      '~~~~~~HHHHHHHHHHHHHH',
+    ],
+    crossings: 'bridge',
+    paths: [
+      street([[9.5, -1], [9.5, 9.5], [16.5, 9.5], [16.5, 3.0], [2.5, 3.0], [2.5, 7.5], [-1, 7.5]], { r: 1.8, tunnel: [[16.5, 7.4], [16.5, 5.4]] }),
+    ],
+    // the pipe gantry where the loop rides over its own first leg
+    bridge: { overpass: '#b9c4cc', girder: '#3a4650', grating: true },
+    decor: [
+      { type: 'gearTower', x: 13, y: 1 }, { type: 'chimney', x: 5, y: 1 }, { type: 'vent', x: 6, y: 9 },
+      { type: 'crane', x: 18, y: 1 },
+    ],
+    city: { spawnGate: 'noonGate' },
+  }),
+  defineMap({
+    id: 'noon_reservoir_park', name: 'Reservoir Park', theme: 'city', district: 'park', tier: 'expert',
+    desc: 'Fog on the reservoir. The column comes along the dam crest from the west, down the spillway steps into the park, back west across the lawns and north through the dam\'s service tunnel under its own first leg, then up the west promenade and out.',
+    concept: 'Spillway turn under the dam: east along the crest, down the steps, west across the bowl, north through a tunnel under its own first leg',
+    rows: [
+      'H....~~~~~~~~~~~~~~~',
+      'H....~~~~~~~~~~~~~~~',
+      'H....~~~~~~~~~~~~~~~',
+      'H.....~~~~~~~~~~~~~~',
+      '...................H',
+      'HHHHHHHHHHHHHHH...HH',
+      'H..................H',
+      'H.....,......,.....H',
+      'H..................H',
+      'H..................H',
+      'H.......~~~~~~.....H',
+      'H..,....~~~~~~...,.H',
+    ],
+    paths: [
+      street([[-1, 4.5], [16.5, 4.5], [16.5, 9.0], [3.5, 9.0], [3.5, -1]], { r: 1.5, tunnel: [[3.5, 6.6], [3.5, 2.6]] }),
+    ],
+    decor: [
+      { type: 'bench', x: 10, y: 7 }, { type: 'boat', x: 11, y: 1 }, { type: 'lantern', x: 7, y: 6 },
+      { type: 'lantern', x: 14, y: 6 }, { type: 'willow', x: 18, y: 2 },
+    ],
+  }),
+  defineMap({
+    id: 'noon_reservoir_willow', name: 'The Reservoir Willow', theme: 'city', district: 'park', tier: 'expert',
+    desc: 'Night and fog on the reservoir, and a great willow on its island in the middle. Two columns come off the two dam walls: one along the north causeway, round the willow\'s east side and out east; the other along the south causeway, round its west side and out west. The lanes never meet.',
+    concept: 'Two curls round the willow: two S-shaped causeways, one over the island\'s north and east sides, one under its south and west sides, never crossing',
+    rows: [
+      '...~~~~~~~~~~~~~~~~~',
+      '..~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~......~~~~~~~',
+      '~~~~~~~......~~~~~~~',
+      '~~~~~~~......~~~~~~~',
+      '~~~~~~~......~~~~~~~',
+      '~~~~~~~......~~~~~~~',
+      '~~~~~~~......~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~~~',
+      '~~~~~~~~~~~~~~~~~~..',
+      '~~~~~~~~~~~~~~~~~...',
+    ],
+    paths: [
+      // lane 0 (the Willow's: the longer one, with a wiggle on the way out)
+      [...street([[-1, 2.0], [14.0, 2.0], [14.0, 7.0], [15.7, 7.0]], { r: [3.0, 1.7] }), [17.2, 6.5], [18.7, 7.0], L, [21, 7.0]],
+      street([[21, 10.0], [6.0, 10.0], [6.0, 5.0], [-1, 5.0]], { r: [3.0, 1.7] }),
+    ],
+    decor: [
+      { type: 'greatWillow', x: 10, y: 6, s: 1.25 }, { type: 'boat', x: 16, y: 4 }, { type: 'boat', x: 3, y: 7 },
+      { type: 'lantern', x: 1, y: 0 }, { type: 'lantern', x: 18, y: 11 },
+    ],
+  }),
+
+  // -------------------------------------------------------------------------
+  // Chapter 6 · Act II — Vesperline (`vesper`, frozen: the glass city on the same lake, frozen in the moment it fell;
+  // MAPS.md §1.7, STEP6_BUILD_PLAN §5). Render hints S6a reads: theme 'vesper' (the stage's scenery.ruined 'frozen'; the
+  // vesper theme gives every board the sentry-bay spawn and the light-bridge decks), city { spawnGate: 'vesperGate' } on
+  // 6-10, bridge { skyRail: true } on 6-7 (the box-girder viaduct), and two S6a set pieces as decor: the Doorie statue
+  // in 6-8's rotunda and the Spindle's foot on 6-10. Other decor uses shipped prop types; the rest of the Vesperline set
+  // pieces come from the stages' scenery keywords.
+  // -------------------------------------------------------------------------
+  defineMap({
+    id: 'vesper_frost_causeway', name: 'Frost Causeway', theme: 'vesper', tier: 'intermediate',
+    desc: 'A causeway across the frozen lake to the gate of a glass city. It is broken in three, and two fold-out light-bridges still span the open leads between its islands. In from the lake on the west, down into two valleys and over one crest, out east at the city gate.',
+    concept: 'Broken causeway W: two valleys and one crest across three islands, light-bridges over two open leads',
+    rows: [
+      '~~~~~.~~......~~....',
+      '~~~~..~~..H...~~..H.',
+      'H..,..~~.....,.~~...',
+      '....R.~~.....,.~~...',
+      '.....~~~.....R~~~...',
+      '.....~~~......~~~...',
+      '.....~~~......~~~...',
+      '.....~~~......~~~...',
+      '.....~~~......~~~...',
+      '.....~~~......~~~...',
+      '~~~~.~~~..,...~~~...',
+      '~~~~.~~~......~~~..H',
+    ],
+    paths: [
+      [[-1, 3.0], L, [1.2, 3.0], [3.6, 5.2], [5.4, 8.2], [7.2, 9.0], [8.8, 7.6], [10.0, 4.8], [11.4, 3.6], [13.0, 4.8], [14.4, 7.6], [16.0, 8.8], [18.0, 8.2], [19.4, 7.0], L, [21, 7.0]],
+    ],
+    decor: [
+      { type: 'statue', x: 18, y: 4 }, { type: 'signpost', x: 0, y: 4 }, { type: 'crystal', x: 11, y: 9 },
+      { type: 'bench', x: 9, y: 1 },
+    ],
+  }),
+  defineMap({
+    id: 'vesper_skyrail', name: 'Sky-Rail Viaduct', theme: 'vesper', tier: 'advanced',
+    desc: 'A sky-rail over the frozen ruins. The road climbs onto the rail in the north, snakes along it over the frozen canal, comes down at the broken span, hooks up the east side and runs back west underneath its own viaduct, then out to the south-west. Enemies up on the rail can still be hit.',
+    concept: 'Sky-rail S: up onto a viaduct, an S along it over the canal, down at the broken span, back west underneath',
+    rows: [
+      'HHH........HHH...HHHHH',
+      'H.........,......H..HH',
+      'H....................H',
+      '..HHHHHHH..........,..',
+      '......................',
+      '......................',
+      '...HHHH..~~~~~~~~.....',
+      '...HHHH..~~~~~~~~.....',
+      '...,.....~~~~~~~~.....',
+      '.........~~~~~~~......',
+      '.....~~~~~~~~~~~~~~~~~',
+      '...~~~~~~~~~~~~~~~~~~~',
+    ],
+    paths: [
+      // UP / DOWN: the viaduct from x ≈ 10 on the rail to the broken span (x ≈ 16); the return along row 4.8 passes
+      // under its flat top at ≈ (13.2, 4.8)
+      [[5.5, -1], L, [5.5, 0.6], [6.4, 1.8], [8, 2.2], L, [10.0, 2.2], UP, L, [10.5, 2.2], [12.4, 3.2], [13.4, 5.2], [14.6, 7.4], [16.4, 8.6], DOWN, L, [18.4, 8.6], [19.8, 7.8], [20.2, 6.4], [19.4, 5.2], [17.8, 4.8], L, [3.8, 4.8], [2.6, 5.6], [2.2, 7.0], L, [2.2, 13]],
+    ],
+    // the sky-rail's box-girder deck, pylons along the raised run, a pod hanging at the broken end
+    bridge: { skyRail: true },
+    decor: [
+      { type: 'signpost', x: 8, y: 8 }, { type: 'crane', x: 20, y: 9 }, { type: 'vendingMachine', x: 3, y: 1 },
+      { type: 'bench', x: 4, y: 9 },
+    ],
+  }),
+  defineMap({
+    id: 'vesper_museum', name: 'Museum of Noon', theme: 'vesper', tier: 'advanced',
+    desc: 'The museum of a city that is not there any more. In from the forecourt on the south-east, through the east gallery wing, half round the rotunda and the statue in its reflecting pools, through the west wing and out across the frozen garden. The column vanishes inside each wing.',
+    concept: 'Wings and rotunda: through one gallery wing, half round a rotunda, through the other wing, out in a small S',
+    rows: [
+      'HHHH....HHHH....HHHH',
+      'H..................H',
+      'H..,...............H',
+      '...................H',
+      '..........,........H',
+      'H.......~~.~........',
+      'H.......~~.~........',
+      'H..HHH..~~.~..HHHH.H',
+      '....................',
+      '.......,............',
+      '...HHH....,...HHHH..',
+      '...~~~~~........HHHH',
+    ],
+    paths: [
+      [[21, 9.0], L, [17.8, 9.0], IN, L, [14.6, 9.0], OUT, [13.4, 8.4], ...arc(10, 6.0, 3.4, 30, -210, 30).slice(1, -1), [6.6, 8.2], [5.8, 9.0], IN, L, [3.4, 9.0], OUT, [2.4, 9.4], [1.3, 10.4], L, [-1, 10.4]],
+    ],
+    decor: [
+      { type: 'doorieStatue', x: 10, y: 6, s: 1 }, { type: 'signpost', x: 16, y: 6 }, { type: 'bookshelf', x: 4, y: 6 },
+      { type: 'fountain', x: 2, y: 3 }, { type: 'fountain', x: 15, y: 3 },
+    ],
+  }),
+  defineMap({
+    id: 'vesper_tower_ring', name: 'Lecture Tower Ring', theme: 'vesper', tier: 'expert',
+    desc: 'The ring road round four frozen lecture towers. In from the south-west, up the north spoke through the plaza, a full lap of the ring, then east along the other spoke across the plaza and out over the ring on a light-bridge. The ring rides over the way in on the other light-bridge.',
+    concept: 'Phi: a spoke up through a ring, a full lap, then the cross spoke over the ring and out',
+    rows: [
+      'HH................HH',
+      'H..........,.....~~.',
+      '...HH..HH.....,..~~.',
+      '...HH..HH...HHH..~~.',
+      '............HHH.....',
+      '....................',
+      '....................',
+      '...H...H....HH..~~..',
+      '...........HH...~~..',
+      '...............~~~.H',
+      '.,............~~~...',
+      'H......HH~~~~~~~~..H',
+    ],
+    crossings: ['bridge', 'flat', 'bridge'],
+    paths: [
+      [[5.4, 13], L, [5.4, 11.8], [4.6, 10.6], [4.8, 9.4], [6.0, 8.7], [8.6, 8.4], [10.6, 7.4], [11.0, 6.0], L, [11.0, 3.6], [11.8, 1.8], [13.6, 1.2], [15.4, 2.0], [16.0, 4.0], [15.6, 6.4], [14.4, 8.6], [12.6, 9.8], [10.0, 10.2], [7.2, 9.6], [6.0, 8.0], [6.4, 6.6], [7.8, 5.8], L, [17.0, 5.8], [18.4, 5.5], [19.4, 4.9], [21, 4.6]],
+    ],
+    decor: [
+      { type: 'statue', x: 1, y: 7 }, { type: 'signpost', x: 18, y: 10 }, { type: 'bench', x: 7, y: 1 },
+    ],
+  }),
+  defineMap({
+    id: 'vesper_spindle_foot', name: 'The Spindle\'s Foot', theme: 'vesper', tier: 'expert',
+    desc: 'The foot of the white tower. Two columns come down from the gate\'s terminal in the north, cross on a light-bridge north of the tower\'s foot, go round opposite sides of it, cross again south of it and meet before the shelter door on the south edge.',
+    concept: 'Double helix: two lanes cross north of a tower foot, wind round opposite sides, cross again and merge',
+    rows: [
+      'HHH...............HHHH',
+      'H...................HH',
+      '..H...............H..H',
+      '.....,..........,.....',
+      '...~~....~~~~....~~...',
+      '...~~...~~HH~~...~~...',
+      '...~~...~~HH~....~~...',
+      '...~~....~.......~~...',
+      '..H...................',
+      'HH....................',
+      'H.........,,,.........',
+      'HH..................HH',
+    ],
+    crossings: ['bridge', 'bridgeUnder'],
+    paths: [
+      [[4.5, -1], L, [4.5, 0.2], [5.6, 1.2], [8.4, 1.6], [11, 2.6], [13.6, 3.7], [15.4, 5.2], [15.0, 6.8], [13.4, 7.6], [11.6, 8.1], [10.7, 9.2], [9.4, 10.2], [7.8, 10.9], [6.4, 11.7], [5.4, 13]],
+      { nodes: [[17.5, -1], L, [17.5, 0.2], [16.4, 1.2], [13.6, 1.6], [11, 2.6], [8.4, 3.7], [6.6, 5.2], [6.6, 7.0], [7.8, 8.4], [9.4, 9.0], [11.2, 9.3], [12.6, 9.1], [14.2, 9.3], [15.2, 10.2], [15.0, 11.3], [13.6, 11.8], [11.6, 11.9], [9.6, 11.9]], join: { path: 0, at: [6.6, 11.6] } },
+    ],
+    decor: [
+      { type: 'spindle', x: 10, y: 5, r: 2, variant: 0 }, { type: 'statue', x: 19, y: 9 }, { type: 'signpost', x: 2, y: 8 },
+      { type: 'lantern', x: 12, y: 10 },
+    ],
+    city: { spawnGate: 'vesperGate' },
+  }),
+  // the side stage's board (side-6-starfall, STEP6_BUILD_PLAN decision 9): the academy observatory's broken deck
+  defineMap({
+    id: 'vesper_starfall', name: 'The Starfall Deck', theme: 'vesper', tier: 'expert',
+    desc: 'The academy observatory\'s broken deck under a cracked dome. In from the west, three quarters of the way round the outer ring, a quarter-turn inward over the star-map pool on a light-bridge, three quarters round the inner ring, and out along a spur that tunnels under the outer ring to the south edge.',
+    concept: 'Orrery: an outer ring, a spiral turn inward over a pool, an inner ring, a spur tunnelling out under the outer one',
+    rows: [
+      'HHHH................',
+      'H.........~~~~......',
+      '.........~~~~~~.....',
+      '........~~~~~~~~....',
+      '........~~~~~~~~....',
+      '.......~~~~HH~~~~...',
+      '.......~~~~H~~~~~...',
+      '........~~~~~~~~....',
+      '........~~~~~~~~....',
+      '.......~~~~~~~~.....',
+      '..HH.,...~..........',
+      'HHHH.....HH..HH...HH',
+    ],
+    paths: [
+      [[-1, 9.4], L, [4.4, 9.4], [6.4, 8.6], ...arc(12.0, 5.8, 4.6, 180, 450, 30), ...spiral(12.0, 5.8, 4.6, 2.0, 450, 540, 30).slice(1), ...arc(12.0, 5.8, 2.0, 540, 790, 30).slice(1), [11.0, 8.6], [10.6, 9.2], IN, L, [10.6, 11.8], OUT, L, [10.6, 13]],
+    ],
+    decor: [
+      { type: 'statue', x: 1, y: 6 }, { type: 'crystal', x: 18, y: 1 }, { type: 'bench', x: 17, y: 10 },
+    ],
   }),
 
   // -------------------------------------------------------------------------

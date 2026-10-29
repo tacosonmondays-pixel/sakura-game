@@ -17,6 +17,13 @@ const REQUIRED_CLIPS = ['move', 'idle', 'hit', 'death', 'special'];
 const MAX_FAMILY_BYTES = 320 * 1024;
 const MAX_TOTAL_BYTES = 2_500_000;
 
+/**
+ * Families with a GLB of their own: every bestiary family but one whose defs all wear another family's shipped model
+ * (Gate Arc Step 4: the Brigade on construct, `model.base`, until its own model arrives with the enemy rebuild).
+ */
+const GLB_FAMILIES = FAMILY_ORDER.filter((fam) => ENEMIES.some((e) => e.model.base === fam));
+const BORROWING = FAMILY_ORDER.filter((fam) => !GLB_FAMILIES.includes(fam));
+
 const manifest = existsSync(path.join(dir, 'manifest.json')) ? JSON.parse(readFileSync(path.join(dir, 'manifest.json'), 'utf8')) : null;
 
 /** Piece names ("<vis>|<group>|<material>") of every mesh node in a family GLB. */
@@ -28,7 +35,9 @@ describe('enemy family GLBs', () => {
   it('has a manifest listing every family of the bestiary', () => {
     expect(manifest).toBeTruthy();
     expect(Object.keys(FAMILIES).sort()).toEqual([...FAMILY_ORDER].sort());
-    for (const fam of FAMILY_ORDER) {
+    expect(BORROWING).toEqual(['brigade']);
+    for (const fam of BORROWING) expect(manifest[fam], `${fam} has no GLB of its own`).toBeUndefined();
+    for (const fam of GLB_FAMILIES) {
       expect(manifest[fam], fam).toBeTruthy();
       expect(manifest[fam].file).toBe(`${fam}.glb`);
       for (const c of REQUIRED_CLIPS) expect(manifest[fam].animations, `${fam} ${c}`).toContain(c);
@@ -37,7 +46,7 @@ describe('enemy family GLBs', () => {
     }
   });
 
-  for (const fam of FAMILY_ORDER) {
+  for (const fam of GLB_FAMILIES) {
     it(`${fam}: valid GLB with clips, rig, tinted body + glow materials, face atlas`, () => {
       const file = path.join(dir, `${fam}.glb`);
       expect(existsSync(file), file).toBe(true);
@@ -106,7 +115,9 @@ describe('enemy family GLBs', () => {
     for (const e of ENEMIES) {
       const fam = e.model.base;
       expect(FAMILIES[fam], `${e.id} family ${fam}`).toBeTruthy();
-      expect(e.family).toBe(fam);
+      // its own family's GLB, or (a family without one) a shipped family's GLB in its colours
+      if (GLB_FAMILIES.includes(e.family)) expect(e.family).toBe(fam);
+      else expect(GLB_FAMILIES, `${e.id} wears a shipped model`).toContain(fam);
       const m = manifest[fam];
       expect(m, `${e.id} family GLB ${fam}`).toBeTruthy();
       expect(m.variants, `${e.id} variant ${e.model.variant}`).toContain(e.model.variant);
@@ -114,8 +125,74 @@ describe('enemy family GLBs', () => {
     }
   });
 
+  it('Gate Arc Step 5: the glass machines and the Reservoir Willow wear shipped bodies (no new GLB, no new variant)', () => {
+    const byId = Object.fromEntries(ENEMIES.map((e) => [e.id, e]));
+    const want = {
+      vesper_patrol_orb: ['construct', 'cogling', ['gears']],
+      vesper_halo_drone: ['construct', 'cogling', ['crystals']],
+      vesper_line_sentry: ['construct', 'sentry', ['gears']],
+      plant_reservoir_willow: ['plant', 'treant', ['leaves', 'moss']],
+    };
+    for (const [id, [base, variant, props]] of Object.entries(want)) {
+      expect(byId[id].model, id).toEqual({ base, variant, props });
+      expect(manifest[base].variants, id).toContain(variant);
+    }
+    // the Line Sentry wears no helmet, so it never reads as the Brigade's Response Trooper (sentry + helmet)
+    expect(byId.vesper_line_sentry.model.props).not.toContain('helmet');
+    // the Halo Drone's own ring body is deferred art: no `halo` variant anywhere, and the GLB families stay 12
+    expect(manifest.construct.variants).not.toContain('halo');
+    expect(GLB_FAMILIES).toHaveLength(12);
+    // greyscale (Rec. 709 luma): body and outline sit far apart, so each reads on the pale grating road and in the fog
+    const luma = (hex) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    for (const id of Object.keys(want)) {
+      const e = byId[id];
+      expect(e.line, id).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(Math.abs(luma(e.color) - luma(e.line)), `${id} body vs outline`).toBeGreaterThanOrEqual(80);
+    }
+  });
+
+  it('Gate Arc Step 6: the rest of the machines, Gatekeeper Unit 01 and the Rime Wisp wear shipped bodies, apart in greyscale', () => {
+    const byId = Object.fromEntries(ENEMIES.map((e) => [e.id, e]));
+    const want = {
+      vesper_lattice_shell: ['construct', 'beetle', ['crystals']],
+      vesper_aegis: ['construct', 'automaton', ['shield', 'gears']],
+      vesper_warden: ['construct', 'warden', ['crystals', 'shield']],
+      vesper_gatekeeper: ['construct', 'colossus', ['crystals', 'gears', 'chimney']],
+      rime_wisp: ['ghost', 'wisp', []],
+    };
+    for (const [id, [base, variant, props]] of Object.entries(want)) {
+      expect(byId[id].model, id).toEqual({ base, variant, props });
+      expect(manifest[base].variants, id).toContain(variant);
+      for (const p of props) expect(manifest[base].props, `${id} ${p}`).toContain(p);
+    }
+    // the Lattice Shell wears no `shell` (that dome is the Brigade Tortoise's); no new variant or GLB; the ghost body has
+    // no crystals, so the Rime Wisp has no prop
+    expect(byId.vesper_lattice_shell.model.props).not.toContain('shell');
+    expect(manifest.construct.variants).not.toContain('halo');
+    expect(manifest.ghost.props).not.toContain('crystals');
+    expect(GLB_FAMILIES).toHaveLength(12);
+    const luma = (hex) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    for (const id of Object.keys(want)) {
+      const e = byId[id];
+      expect(e.line, id).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(Math.abs(luma(e.color) - luma(e.line)), `${id} body vs outline`).toBeGreaterThanOrEqual(80);
+      // decision 4: ≥ 50 apart in luma from every other def on the same body variant (the Brigade's included), so two
+      // machines that share a body never read as one in greyscale
+      for (const o of ENEMIES) {
+        if (o.id === id || o.model.base !== e.model.base || o.model.variant !== e.model.variant) continue;
+        expect(Math.abs(luma(e.color) - luma(o.color)), `${id} vs ${o.id} (${e.model.variant})`).toBeGreaterThanOrEqual(50);
+      }
+    }
+  });
+
   it('variant pieces and hide tables match the defs that use them', () => {
-    for (const fam of FAMILY_ORDER) {
+    for (const fam of GLB_FAMILIES) {
       const { json } = readGlbHeader(path.join(dir, `${fam}.glb`));
       const ps = pieces(json);
       const varPieces = new Set(ps.filter((p) => p.vis.startsWith('var:')).map((p) => p.vis.slice(4)));
@@ -131,8 +208,8 @@ describe('enemy family GLBs', () => {
 
   it('keeps the whole set under the budget', () => {
     let total = 0;
-    for (const fam of FAMILY_ORDER) total += statSync(path.join(dir, `${fam}.glb`)).size;
+    for (const fam of GLB_FAMILIES) total += statSync(path.join(dir, `${fam}.glb`)).size;
     expect(total).toBeLessThanOrEqual(MAX_TOTAL_BYTES);
-    for (const fam of FAMILY_ORDER) expect(manifest[fam].size).toBe(statSync(path.join(dir, `${fam}.glb`)).size);
+    for (const fam of GLB_FAMILIES) expect(manifest[fam].size).toBe(statSync(path.join(dir, `${fam}.glb`)).size);
   });
 });

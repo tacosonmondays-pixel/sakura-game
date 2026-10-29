@@ -43,6 +43,9 @@ export const GRADES = {
   // Gate Arc: the city's cool stone and the campus's warm brick and lawns
   city: { shadow: [-0.008, 0.0, 0.02], high: [0.01, 0.006, -0.004], contrast: 1.06, sat: 1.03 },
   campus: { shadow: [0.01, -0.002, 0.014], high: [0.016, 0.008, -0.008], contrast: 1.05, sat: 1.06 },
+  // the drowned district's cold water light and the vesper evening's violet dusk
+  drowned: { shadow: [-0.012, 0.006, 0.022], high: [0.004, 0.008, 0.006], contrast: 1.04, sat: 1.04 },
+  vesper: { shadow: [0.006, -0.004, 0.024], high: [0.018, 0.006, -0.006], contrast: 1.06, sat: 1.05 },
 };
 
 /**

@@ -24,8 +24,8 @@ import { launchChromium } from './browser.mjs';
 import { simId } from '../tools/simId.mjs';
 
 // The live game's co-op id: computed from the live branch (SIM_REF, default origin/main: every push to main deploys)
-// when git has it, else this pin (v0.1.59's protocol 11). Renderer-only work must leave it unchanged.
-const SIM_ID_PIN = '35748b1b58db';
+// when git has it, else this pin (v0.1.60's protocol 12). Renderer-only work must leave it unchanged.
+const SIM_ID_PIN = 'd35092f141d3';
 const SIM_REF = process.env.SIM_REF || 'origin/main';
 const args = process.argv.slice(2);
 const opt = (name, def) => {
