@@ -44,7 +44,10 @@
 }
 
 /* ---------- the map band ---------- */
-:is(.ui-day) .stp-map { --edge: var(--line-ink); flex: 1 1 auto; min-height: 72px; overflow: hidden; background: #8fd16a; }
+/* the whole map, never cropped (stage.js draws it at its own shape, --map-ar, and fits it): as tall as its width wants,
+   shorter when the column is short (then the map's edge colour, --map-edge, fills the band beside it) */
+:is(.ui-day) .stp-map { --edge: var(--line-ink); flex: 0 1 auto; aspect-ratio: var(--map-ar, 8 / 5); min-height: 72px; overflow: hidden;
+  background: var(--map-edge, #8fd16a); }
 :is(.ui-day) .stp-thumb { position: absolute; inset: 0; line-height: 0; }
 :is(.ui-day) .stp-thumb svg { display: block; width: 100%; height: 100%; }
 :is(.ui-day) .stp-map-tags { position: absolute; left: 8px; top: 8px; right: 18px; display: flex; flex-wrap: wrap; gap: 6px; z-index: 2; }
@@ -55,7 +58,14 @@
 :is(.ui-day) .stp-plate { gap: 8px; }
 :is(.ui-day) .stp-plate-id { flex: none; font-size: var(--fs-num-s); color: var(--cyan); }
 :is(.ui-day) .stp-plate-name { font: italic 900 var(--fs-name)/1.15 var(--font-head); color: var(--on-ink); }
-
+/* small landscape phones and upright ones (a short map band): the name plate and the tier chip smaller, so they cover
+   as little of the map as can be */
+@media (min-aspect-ratio: 1/1) and (max-height: 480px), (max-aspect-ratio: 1/1) {
+  :is(.ui-day) .stp-plate { bottom: 6px; min-height: 26px; padding: 3px 16px 3px 8px; gap: 6px; }
+  :is(.ui-day) .stp-plate-id { font-size: var(--fs-body); }
+  :is(.ui-day) .stp-plate-name { font-size: var(--fs-body); }
+  :is(.ui-day) .stp-map-tags { left: 6px; top: 6px; }
+}
 /* the stage ink strip: WAVES · ♥ LIVES · START */
 :is(.ui-day) .stp-strip { flex: none; }
 :is(.ui-day) .stp-strip .lbl { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
@@ -148,6 +158,9 @@
 :is(.ui-day) .stp-row-k { flex: none; width: 66px; color: var(--muted); }
 /* [friend support] the Support row sits at the foot of the map band (the map gives way, never the row) */
 :is(.ui-day) .stp-band > .stp-support { flex: none; }
+/* the pick wraps to a second line rather than losing its end */
+:is(.ui-day) .stp-support-pick { flex: 1 1 auto; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  line-height: 1.2; overflow-wrap: anywhere; }
 :is(.ui-day) .stp-needs { display: flex; align-items: center; gap: 10px; min-width: 0; }
 :is(.ui-day) .stp-need { position: relative; display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
 :is(.ui-day) .stp-need-ico { width: 26px; height: 26px; display: inline-flex; flex: none; }
@@ -236,7 +249,11 @@
 @media (max-aspect-ratio: 1/1) {
   :is(.ui-day) .stp { grid-template-columns: minmax(0, 1fr); flex: none; gap: 12px; }
   :is(.ui-day) .stp-band, :is(.ui-day) .stp-right { gap: 10px; }
-  :is(.ui-day) .stp-map { flex: none; aspect-ratio: 2 / 1; }
+  /* the map at its own shape, no taller than leaves the rest (and Start) on a 390x844 phone's first screen (less with
+     the Support row or an event line): it narrows (the edge colour beside it) rather than crop; under 150 px the page
+     scrolls and Start stays pinned (below) */
+  :is(.ui-day) .stp-map { flex: none; aspect-ratio: var(--map-ar, 2 / 1); max-height: max(150px, calc(100dvh - 670px)); }
+  :is(.ui-day) :is(.stp-band:has(> .stp-support), .stp-band:has(> .stp-event)) > .stp-map { max-height: max(150px, calc(100dvh - 740px)); }
   :is(.ui-day) .stp-strip { --strip-h: 52px; }
   :is(.ui-day) .stp-diff { padding: 10px 10px 2px; }
   :is(.ui-day) .stp-diffs { gap: 8px 10px; }
@@ -244,6 +261,10 @@
   :is(.ui-day) .stp-row { min-height: calc(var(--tap) + 2px); }
   :is(.ui-day) .stp-drops { min-height: 58px; }
   :is(.ui-day) .stp-foot { grid-template-columns: minmax(0, 1fr); row-gap: 8px; }
+  /* the page scrolls on a short upright phone: Start stays on screen, pinned to the foot over the paper */
+  :is(.ui-day) .stp-foot { position: sticky; bottom: 0; z-index: 5; margin-inline: calc(-1 * var(--gutter)); padding-inline: var(--gutter);
+    padding-top: 8px; padding-bottom: calc(10px + var(--safe-bottom, 0px)); background: var(--paper-b);
+    box-shadow: 0 -10px 10px -10px rgba(15, 25, 48, 0.22); }
   :is(.ui-day) .stp-foot-l:empty { display: none; }
   :is(.ui-day) .stp-start { --h: 50px; }
   :is(.ui-day) .stp-d { --h: 58px; }
