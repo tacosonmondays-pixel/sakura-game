@@ -470,7 +470,7 @@ for (const vp of viewports) {
       return { aoi: { cd: s.getTower(a).abil.cd, auto: s.getTower(a).abil.auto }, momo: { auto: s.getTower(m).abil.auto } };
     }, [aoi, momo]);
     check(kept.aoi.cd > 0, `${vp} Aoi still charging at the calm point (${kept.aoi.cd})`);
-    await page.reload({ waitUntil: 'load' });
+    await page.reload({ waitUntil: 'load', timeout: 120000 }); // (a cold dev-server reload of the battle: slow under load)
     await page.waitForFunction(() => window.__battle?.sim?.towers?.length > 0, null, { timeout: 90000 });
     await settle(page, 600);
     const back = await page.evaluate(() => {
