@@ -7,7 +7,7 @@ import { Sim } from '../../src/sim/Sim.js';
 import { STEP, SPIKE_UP, SPIKE_ROWS_PER_GIRL, QUAKES_PER_GIRL } from '../../src/sim/constants.js';
 import { defaultData } from '../../src/sim/data.js';
 import { onRoad, inBand, inDisc, hitRadius } from '../../src/sim/shapes.js';
-import { buildPaths, samplePath } from '../../src/sim/path.js';
+import { buildPaths, samplePath, pathFromTrack } from '../../src/sim/path.js';
 import { spikeAt, spikeRise, endGroundWave } from '../../src/sim/ground.js';
 import { gainHeroXp, xpToReach } from '../../src/sim/hero.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
@@ -76,6 +76,16 @@ describe('shape tests: onRoad, inBand', () => {
     const lanes = { pathData: buildPaths({ ...MAP, paths: [[[-1, 2], [12, 2]], [[-1, 3], [12, 3]]] }) };
     const p1 = lanes.pathData[1];
     expect(onRoad(lanes, { pathIndex: 1, dist: 5, x: p1.points[0][0] + 5, y: 3.5, seg: 0 }, 0, 3, 7)).toBe(false); // a lane 1 tile away
+  });
+
+  test('a shared stretch is clipped to [d0, d1] on a long segment (one 10-tile segment each road)', () => {
+    const long = { pathData: [pathFromTrack({ points: [[0, 0.5], [10, 0.5]] }, 0), pathFromTrack({ points: [[0, 0.5], [10, 0.5]] }, 1)] };
+    expect(long.pathData[0].points).toHaveLength(2);
+    const on1 = (x) => ({ pathIndex: 1, dist: x, x, y: 0.5, seg: 0 });
+    expect(onRoad(long, on1(3), 0, 2, 4)).toBe(true);
+    expect(onRoad(long, on1(8), 0, 2, 4)).toBe(false); // the same segment, outside the stretch
+    expect(onRoad(long, on1(1.5), 0, 2, 4)).toBe(false);
+    expect(onRoad(long, on1(4.25), 0, 2, 4)).toBe(true); // (within ROAD_SHARED of its end)
   });
 
   test('inBand: r0 < d ≤ r1, the centre counts when the band starts there', () => {

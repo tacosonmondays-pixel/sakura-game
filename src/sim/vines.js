@@ -73,9 +73,9 @@ function spotsOf(sim, t) {
   return list;
 }
 
-/** Can a vine touch `e`? A walker (or a grounded flyer) she can see, never a boss. */
+/** Can a vine touch `e`? A walker she can see: never a flyer (grounded or not: the hold cannot take it), never a boss. */
 function vineable(e, spec) {
-  return !e.dead && e.tier !== 'boss' && isEligible(e, spec);
+  return !e.dead && !e.airborne && e.tier !== 'boss' && isEligible(e, spec);
 }
 
 /** Is road spot `s` (path, distance) under the full length of a standing vine of hers? */
@@ -97,7 +97,7 @@ export function vineSpot(sim, t) {
   const v = t.stats.vine;
   const c = gatherTargets(sim, t.x, t.y, t.eff.range + v.len, t.vineSpec, NEAR);
   let n = 0;
-  for (let i = 0; i < c.length; i++) if (c[i].tier !== 'boss') c[n++] = c[i];
+  for (let i = 0; i < c.length; i++) if (vineable(c[i], t.vineSpec)) c[n++] = c[i];
   c.length = n;
   let found = null;
   if (n) {
@@ -160,11 +160,13 @@ function onVine(sim, t, vine, grown) {
 
 const byLead = (a, b) => a.remaining - b.remaining || a.uid - b.uid;
 
-/** The hold on the first walker a vine reaches (the lead one on it). */
+/** The hold on the first walker a vine reaches that is not held already (the lead one of those on it). */
 function holdLead(sim, t, vine, list) {
+  // the lead walker on it that is not held already (an Overgrowth hold, another vine's): none, and the hold waits
+  let lead = null;
+  for (let i = 0; i < list.length; i++) if (!list[i].statuses.hold && (!lead || byLead(list[i], lead) < 0)) lead = list[i];
+  if (!lead) return;
   vine.held = 1;
-  let lead = list[0];
-  for (let i = 1; i < list.length; i++) if (byLead(list[i], lead) < 0) lead = list[i];
   const ctx = sim._statusCtx;
   ctx.element = null;
   ctx.attackType = t.eff.attackType;

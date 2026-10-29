@@ -656,14 +656,26 @@ Changes from the spec, and why:
    (eight at × 0.36) put a lighter strike on more walkers: both rulers read 1.0, and the partner gains a little (her Brittle
    reaches more of the crowd).
 8. **A flyer gets her icicle** (her projectile volley, with her splash): spikes never reach flyers, and she keeps her
-   anti-air. Gear Pierce adds spikes (her shot's carry); Follow-Through widens nothing (the row has no blast).
+   anti-air. Gear Pierce adds spikes (her shot's carry); Follow-Through's +100 % Pierce rides on that carry; its wider blast
+   reaches only her icicle at a flyer (the volley's splash still widens, as before), never the row, which has no blast.
+   The drawer's Pierce row counts the spikes (drawerView gearPierce: `spikes`, and S1's `wheel` and `spin`, whose shots
+   take the same carry).
 9. **Ripple Quake is Kanna's level 24 entry on top of her splash**, and its rings are **clean hits** (her statuses, marks and
    pushes stay on her strike and splash). Replacing her +0.3 splash with rings, or rings that carried her slow and shred to
    every walker in her reach, read ×1.2-1.3 on round 5's crowd while the light bench sat at 1.0-1.1: crowd control laid on
    everyone in reach piles a never-dying crowd up in her reach. Clean rings at × 0.03 / × 0.015 of her hit fit both rulers.
    They roll past the enemy she struck (her focused strike is its own hit), so her boss rows are exact. No last-ring stagger
    (`quake.status` is empty): a stun on every walker in reach is the same pile-up.
-10. **No Forest Road capstone that leaves the vine for the wave** and no armour-shredding thorns; Forest Corridor is a longer,
+10. **Own caps, not the shared road-object caps.** Vines (`vine.max`, VINES_PER_GIRL 4, VINES_PER_SIM 48) and spike rows
+   (SPIKE_ROWS_PER_GIRL 8, SPIKE_ROWS_PER_SIM 96) and quake rings (8 / 64) cap themselves, her oldest first, instead of
+   ROAD_OBJECTS_PER_PLAYER / _SIM (Azami's strips): a vine or a row lives a few seconds and is no trap, so it must never
+   evict a strip, nor a strip a vine.
+11. **Spike i rises at age 1 + i × delay** (the first one step after the attack: road objects tick before her attack loop),
+   and a row lives SPIKE_UP steps past its last spike.
+12. **A vine never roots on a spot already under one of hers** (its full length), so Thorn Hedge's second vine covers a new
+   stretch. A vine's hold goes to the lead walker on it that is not held already (an Overgrowth hold is never spent on), and
+   never to a flyer, grounded or not (vines skip every flyer, as her old vine did).
+13. **No Forest Road capstone that leaves the vine for the wave** and no armour-shredding thorns; Forest Corridor is a longer,
    slower vine. Both are data for later.
 
 **DPS parity** (method of A4; ratio new / today; baseline `feature/attack-held` 338211c8; untouched paths and girls are
@@ -696,14 +708,17 @@ no nerfs):
 
 The partner's DPS moves where a slow or a spike row changes the crowd: Aoi beside Yuki's spike rows gains on the crowd (mean
 1.06 at T4, 1.03 at T5; 1.14 / 1.20 at L25: her Brittle reaches more walkers); beside Chigusa's vines, 0.85-1.07 by stage on the
-crowd (the slow moves the stream), 1.00 on the boss.
+crowd (the slow moves the stream), 1.00 on the boss. **Chigusa Greenhouse's partner on the crowd reads 0.85-0.88** on the
+light bench's 4-5 seed 9 (the review measured 0.875 at T4 and 0.851 at T5): her vines slow the stream where it enters her
+reach, so fewer walkers stand in the partner's. Her own rows are on target; reported, not tuned.
 
 **Determinism** (§7.2 step 5):
 
 - (a) `tests/sim/ground.test.js`: Yuki, Chigusa and Kanna each alone and all three on 4-5 at Potential 6, plain `Math` against
   `withDetMath`, `hashSim` every 60 ticks equal, each shape live; twice the same battle identical.
 - (b) `e2e/engines/scriptedBattle.js` `runGroundBattle` (GROUND_START, 2-4 Hard): two Chigusas to Forest Corridor and two Yukis
-  to Diamond Dust, and the host's Kanna bought past Lv 24, two Lockstep clients to the end; a third client rebuilds from the
+  to Diamond Dust, and the host's Kanna bought past Lv 24 and moved beside the road near the spawn (60 lashes, 943 spike and
+  110 ring hits), two Lockstep clients to the end; a third client rebuilds from the
   wave-3 checkpoint and the log to the first tick 5 s into a wave with a vine, a spike row and a quake ring live (a mid-wave
   rejoin) and must land on the run's hash and snapshot. Compared across engines by `e2e/engines.mjs`, pinned in
   `tests/online/engines.test.js`.
@@ -715,7 +730,7 @@ crowd (the slow moves the stream), 1.00 on the boss.
 - State: `t.vines`, `t.spikeRows`, `t.quakes` (integers but a vine's root / length and a ring's radius, which `hashSim` folds in
   1/256 tiles or by their integer step counts) end at the wave clear; `hashSim` folds each only while non-empty (and her vine
   timer with her vines); battle saves classify them `calm`.
-- Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js` reads `fc7ab3f31edd` (S1, the long beam, S2 and S3). **No
+- Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js` reads `b4f7f3f80255` (S1, the long beam, S2 and S3). **No
   `COOP_PROTOCOL` bump on the branch.**
 - Perf: `tests/sim/perf.test.js` "ground attack shapes": 6 Chigusas at Forest Corridor, 6 Yukis at Diamond Dust and Kanna at
   Lv 24 with 200 enemies, 0.30-0.40 ms a step locally (limit 2 ms).

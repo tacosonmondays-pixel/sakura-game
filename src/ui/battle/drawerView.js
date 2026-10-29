@@ -66,14 +66,16 @@ export function hitDamage(st) {
 
 /**
  * Her gear Pierce in % where it gives her extra targets (towers.js shotPierce, bladeArts, drones): a shot without splash,
- * a beam, her drones, Kaede's blade. 0 for traps, strips, a duel without a blade, blasts, pulses, held shapes and chains:
+ * a beam, her drones, Kaede's blade, a wheel's or spin's shots, a spike row's spikes. 0 for traps, strips, a duel without a blade, blasts, pulses, held shapes and chains:
  * there it widens the blast (mods.js applyGearReach), adds pulse hits or a held stream's / sweep's victims (src/sim/held.js)
  * or one more jump, never a pierced enemy.
  */
 export function gearPierce(t, st) {
   const k = Math.round(t?.unitStats?.pierceK || 0);
   const b = st?.behavior;
-  const extra = b === 'beam' || b === 'turret' || !!st?.turret || (b === 'projectile' && !(st.splash > 0)) || (b === 'duel' && !!t?.eff?.blade);
+  // (the attack shapes: a Blossom Wheel's and a Pinwheel Stream's shots pierce more, a Rising Spikes row grows a spike per 100 %)
+  const extra = b === 'beam' || b === 'turret' || !!st?.turret || (b === 'projectile' && !(st.splash > 0)) || (b === 'duel' && !!t?.eff?.blade)
+    || b === 'wheel' || b === 'spin' || b === 'spikes';
   return k > 0 && extra ? k : 0;
 }
 

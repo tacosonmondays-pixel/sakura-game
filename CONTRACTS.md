@@ -1615,7 +1615,8 @@ held.js:    attackHeld(sim, t, spec, h, { src, trick, echo })  // behaviours 'st
 
 ```js
 shapes.js:  inBand(d2, r0, r1) (r0 < d ≤ r1; r0 ≤ 0: from the centre), onRoad(sim, e, pathIndex, d0, d1) (same path: d0 ≤ e.dist ≤ d1;
-            another path: within ROAD_SHARED of a segment of the stretch, unit direction dot > ROAD_SAME_DIR: Marumi's shared stretch)
+            another path: within ROAD_SHARED of the stretch's segments, its ends clipped to [d0, d1] with pointAt, unit direction
+            dot > ROAD_SAME_DIR: Marumi's shared stretch)
 dirs.js:    dirAngle(k) (her facing angle from a table index, k × 2π / RING_DIRS, no trig)
 vines.js:   vineSpot(sim, t), rootVine(sim, t, spot), vineGrown(vine, v), vineObjects(sim, t)   // Bramble Road (Chigusa's vine kit)
 ground.js:  attackSpikes(sim, t, spec, { bestTarget, volley, extra })   // behaviour 'spikes' (Rising Spikes), a counted attack
@@ -1629,8 +1630,8 @@ render/groundShapes.js: drawGroundShapes(sim, gN, gA, R)   // the plain look, fr
 - `t.vines [{ uid, pathIndex, root, len, age, life, held }]` (Bramble Road): every `vine.every` s (t.vineCd, integer steps) she
   roots one on the first spot of roadSpots in her range (nearest the exit) with a walker on `onRoad(pathIndex, d − len, d)` and
   not under the full length of a vine of hers; it grows `vine.grow` tiles a second up the road to `len` and stands `vine.life` s.
-  Every VINE_STEP steps the walkers on [root − grown, root] (never a boss or a flyer; in the grid's order) are slowed
-  (`vine.slow`, VINE_SLOW_T s), the lead one of them (remaining, uid) is held once a vine (`hold` status, `vine.hold` s;
+  Every VINE_STEP steps the walkers on [root − grown, root] (never a boss or a flyer, grounded or not; in the grid's order)
+  are slowed (`vine.slow`, VINE_SLOW_T s), the lead one of them not held already (remaining, uid) is held once a vine (`hold` status, `vine.hold` s;
   minibosses resist), and on a lash step (`vine.lash` s, whole VINE_STEPs) the walkers on it (lead first, at most `vine.cap`;
   0 = all) share one lash of `vine.dps × vine.lash`: each takes t.vineSpec × share (spec `share` = lash ÷ walkers: combat.js
   scales flat armour and the floor). Caps: `vine.max` of hers standing, VINES_PER_GIRL, VINES_PER_SIM (her oldest first).

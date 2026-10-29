@@ -111,6 +111,25 @@ describe('Bramble Road', () => {
     }
   });
 
+  test('a grounded flyer is no walker for a vine; a walker already held (Overgrowth) is passed over for the hold', () => {
+    const { sim, t } = setup();
+    t.cooldown = 1e9;
+    const lead = parkAt(sim, 'tank', 11.6);
+    applyStatus(lead, { type: 'hold', duration: 30 }); // (held already: Overgrowth)
+    const bat = parkAt(sim, 'bat', 11.4);
+    applyStatus(bat, { type: 'ground', duration: 30 });
+    run(sim, STEP);
+    expect(bat.grounded).toBe(true);
+    const back = parkAt(sim, 'tank', 10.8);
+    t.vineCd = 1;
+    run(sim, 0.6);
+    expect(t.vines).toHaveLength(1);
+    expect(back.statuses.hold).toBeTruthy(); // the next walker on it, not the one held already
+    expect(lead.statuses.hold.left).toBeGreaterThan(25); // (its own hold untouched)
+    expect(bat.statuses.slow).toBeUndefined();
+    expect(bat.statuses.hold).toBeUndefined();
+  });
+
   test('Strangler Vine: lives 4 s, lashes every second for 6 a second; a lash is shared by the walkers on it', () => {
     const { sim, t } = setup({ tiers: [0, 3, 0] });
     t.cooldown = 1e9;

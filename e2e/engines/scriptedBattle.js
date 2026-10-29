@@ -29,7 +29,8 @@ import { hashSim } from '../../src/online/coop/simHash.js';
 import { stageRule } from '../../src/data/rules.js';
 import { abilityPathOf } from '../../src/sim/abilities.js';
 import { LAB_CLASSES } from '../../src/sim/lab.js';
-import { pointAt } from '../../src/sim/path.js';
+import { pointAt, samplePath } from '../../src/sim/path.js';
+import { canMoveHero } from '../../src/sim/hero.js';
 
 const CHEAP = { costMul: 0.5 };
 export const START = Object.freeze({
@@ -2217,12 +2218,13 @@ export function runHeldBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
 /**
  * The attack shapes S3 "Ground" in one co-op battle (2-4 Hard, to the end or 12 minutes; docs/specs/ATTACK_SHAPES.md
  * §7.2 step 5b): the host's Chigusa to Forest Corridor (Bramble Road), Yuki to Diamond Dust (Rising Spikes) and Kanna
- * bought up her level track past Lv 24 (Ripple Quake), the guest's Yuki and Chigusa the same. Once the wave-3
+ * bought up her level track past Lv 24 (Ripple Quake) and moved beside the road near the spawn after wave 1, the guest's
+ * Yuki and Chigusa the same. Once the wave-3
  * checkpoint exists, the first frame 5 s into a wave with a vine, a spike row and a quake ring all live is rebuilt by
  * a third client from that checkpoint and the log (a mid-wave rejoin), which must land on the same hash and snapshot.
  */
-// (the girls a little weaker than her, so walkers reach Kanna; her levels nearly free, so her quake comes in by wave 4)
-const GROUND_STATS = { costMul: 0.03, damageMul: 0.7, rateMul: 1 };
+// (the girls at half damage, so walkers reach Kanna; her levels nearly free, so her quake comes in by wave 4)
+const GROUND_STATS = { costMul: 0.03, damageMul: 0.5, rateMul: 1 };
 export const GROUND_START = Object.freeze({
   seed: 262626,
   stageId: '2-4',
@@ -2281,8 +2283,26 @@ export function runGroundBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
   };
   // the host buys Kanna a level (5 coins: her hero costs × 0.002) every 2 s while her wallet holds it and 50 more, so
   // her quake comes in early in the battle
+  // and, once all five stand, moves her (between waves: free) beside the road nearest the spawn, where the crowd meets her
+  // first (her planned spot is where the walkers left alive are few)
+  let moved = false;
   const script = (frame, A) => {
-    if (frame % 120 !== 60 || !A.sim.hero) return;
+    const k = A.sim.hero;
+    if (k && !moved && A.sim.state === 'between' && A.sim.towers.length === 5) {
+      moved = true;
+      const road = samplePath(A.sim.pathData[0], 0.5).filter((p) => !p.hidden && p.d >= 2);
+      let best = null;
+      for (const p of road) {
+        for (const r of [1, 1.4, 1.8]) {
+          for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+            const q = quantize(p.x + dx * r, p.y + dy * r);
+            if (!best && canMoveHero(A.sim, q[0] / 1024, q[1] / 1024, k).ok) best = q;
+          }
+        }
+      }
+      if (best) A.queue('hmv', best);
+    }
+    if (frame % 120 !== 60 || !k) return;
     const s = A.sim.heroLevelStatus();
     if (!s.reason && A.sim.cash >= s.price + 50) A.queue('hlv', [s.level + 1, s.price]);
   };

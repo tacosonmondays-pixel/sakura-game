@@ -314,15 +314,17 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     const [lash, spike, quake] = r.ground.split('/').map(Number);
     expect(lash).toBeGreaterThan(0);
     expect(spike).toBeGreaterThan(0);
-    expect(quake).toBeGreaterThan(0);
+    expect(quake).toBeGreaterThan(50);
     expect(r.kanna).toBeGreaterThanOrEqual(24);
     expect(r.rejoinTick).toBeGreaterThan(0);
     expect(r.rejoinSame).toBe(true);
     expect(runGroundBattle().final).toBe(r.final);
-    // pinned when the battle was added (feature/attack-ground, S3 data fitted on both rulers). Change only with a
-    // deliberate sim / data change, and say why.
+    // pinned when the battle was added (feature/attack-ground, S3 data fitted on both rulers); re-pinned at the S3 review
+    // (Kanna moved beside the road near the spawn after wave 1 so her rings reach a crowd: 3 → 110 ring hits; the girls at
+    // half damage; vines skip grounded flyers and walkers already held). Change only with a deliberate sim / data change,
+    // and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, ground: r.ground, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 25407, state: 'won', wave: 22, wallets: '1745/1743', final: 3360433188, hashes: '924356b4', ground: '624/761/3', rejoinTick: 5468 });
+      .toEqual({ ticks: 22228, state: 'won', wave: 22, wallets: '1675/1783', final: 2230526921, hashes: '20e7246c', ground: '60/943/110', rejoinTick: 9290 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

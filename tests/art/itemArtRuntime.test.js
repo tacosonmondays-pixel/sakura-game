@@ -201,7 +201,7 @@ describe('display only: the battle sim is untouched', () => {
     // and S3 "Ground" (src/sim/ground.js, vines.js; Chigusa's Bramble Road, Yuki's Rising Spikes, Kanna's Ripple Quake)
     // change the sim. The release that ships them sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes
     // this one. Only this exact in-progress id passes.
-    const PENDING_BUMP = { 11: 'fc7ab3f31edd' };
+    const PENDING_BUMP = { 11: 'b4f7f3f80255' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

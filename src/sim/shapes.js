@@ -6,7 +6,7 @@
 // (Searchlight Sweep); S3 ("Ground") adds inBand (Ripple Quake) and onRoad (Bramble Road).
 
 import { DIR_X, DIR_Y, COS2 } from './dirs.js';
-import { segDistSq, segmentAt } from './path.js';
+import { segDistSq, pointAt } from './path.js';
 import { COS2_MAX, ROAD_SHARED, ROAD_SAME_DIR } from './constants.js';
 
 /** Enemy collision radius for shots, beams and shapes (moved here from src/sim/towers.js, which re-exports it). */
@@ -67,6 +67,10 @@ export function inBand(d2, r0, r1) {
   return d2 <= r1 * r1;
 }
 
+// onRoad's clipped stretch ends (scratch, written by pointAt)
+const ROAD_A = {};
+const ROAD_B = {};
+
 /**
  * Is walker `e` on the stretch [d0, d1] (path distance) of road `pathIndex`? The 1-D test: e.pathIndex === pathIndex
  * and d0 ≤ e.dist ≤ d1. Shared stretches follow Marumi's rule (src/sim/balls.js sameRoad): a walker on another path
@@ -81,15 +85,19 @@ export function onRoad(sim, e, pathIndex, d0, d1) {
   if (!path || !other || e.seg == null) return false;
   const od = other.dirs[e.seg];
   if (!od) return false;
-  const s0 = segmentAt(path, d0 < 0 ? 0 : d0);
-  const s1 = segmentAt(path, d1 > path.length ? path.length : d1, s0);
+  const lo = d0 < 0 ? 0 : d0;
+  const hi = d1 > path.length ? path.length : d1;
+  if (hi < lo) return false;
+  // the stretch's segments, the first and last clipped to [d0, d1] (pointAt at both ends)
+  const A = pointAt(path, lo, ROAD_A);
+  const B = pointAt(path, hi, ROAD_B, A.seg);
   const w2 = ROAD_SHARED * ROAD_SHARED;
   const pts = path.points;
-  for (let s = s0; s <= s1; s++) {
-    const a = pts[s];
-    const b = pts[s + 1];
+  for (let s = A.seg; s <= B.seg; s++) {
     const dir = path.dirs[s];
-    if (!b || dir[0] * od[0] + dir[1] * od[1] <= ROAD_SAME_DIR) continue;
+    if (!dir || dir[0] * od[0] + dir[1] * od[1] <= ROAD_SAME_DIR) continue;
+    const a = s === A.seg ? [A.x, A.y] : pts[s];
+    const b = s === B.seg ? [B.x, B.y] : pts[s + 1];
     if (segDistSq(e.x, e.y, a[0], a[1], b[0], b[1]) <= w2) return true;
   }
   return false;
