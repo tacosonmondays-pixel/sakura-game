@@ -249,10 +249,11 @@
 @media (max-aspect-ratio: 1/1) {
   :is(.ui-day) .stp { grid-template-columns: minmax(0, 1fr); flex: none; gap: 12px; }
   :is(.ui-day) .stp-band, :is(.ui-day) .stp-right { gap: 10px; }
-  /* the map at its own shape, no taller than leaves the rest (and Start) on a 390x844 phone's first screen: it narrows
-     (the edge colour beside it) rather than crop; under 150 px the page scrolls and Start stays pinned (below) */
-  :is(.ui-day) .stp-map { flex: none; aspect-ratio: var(--map-ar, 2 / 1); max-height: max(150px, calc(100dvh - 630px)); }
-  :is(.ui-day) .stp-band:has(> .stp-support) > .stp-map { max-height: max(150px, calc(100dvh - 690px)); }
+  /* the map at its own shape, no taller than leaves the rest (and Start) on a 390x844 phone's first screen (less with
+     the Support row or an event line): it narrows (the edge colour beside it) rather than crop; under 150 px the page
+     scrolls and Start stays pinned (below) */
+  :is(.ui-day) .stp-map { flex: none; aspect-ratio: var(--map-ar, 2 / 1); max-height: max(150px, calc(100dvh - 670px)); }
+  :is(.ui-day) :is(.stp-band:has(> .stp-support), .stp-band:has(> .stp-event)) > .stp-map { max-height: max(150px, calc(100dvh - 740px)); }
   :is(.ui-day) .stp-strip { --strip-h: 52px; }
   :is(.ui-day) .stp-diff { padding: 10px 10px 2px; }
   :is(.ui-day) .stp-diffs { gap: 8px 10px; }
