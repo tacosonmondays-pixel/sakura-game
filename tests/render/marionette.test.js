@@ -4,10 +4,11 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 import {
-  planStages, marionetteState, startMarionette, stepMarionette, retargetMarionette, loseTarget, landMarionette,
+  planStages, adoptAttack, HOLD_MAX, marionetteState, startMarionette, stepMarionette, retargetMarionette, loseTarget, landMarionette,
   marionetteBusy, stringPoint, sagFor, BASE_TIMES, BASE_TOTAL, FILL, MIN_SCALE, LEAD_MIN, CATCH_UP, CHOP_AT, REACH, STOP,
 } from '../../src/render/marionetteLogic.js';
 import { Marionette, threadInfo } from '../../src/render/marionette.js';
+import { slashFree } from '../../src/render/attackFx/styles/yoriko.js';
 
 const DT = 1 / 120;
 const BASE_INTERVAL = 1 / 0.9; // her base rate
@@ -55,7 +56,11 @@ describe('planStages: four stages inside her attack interval, the strike on the 
     expect(fast.total).toBeCloseTo(0.5 * FILL, 6);
     const silly = planStages(0.05, null);
     expect(silly.scale).toBe(MIN_SCALE);
-    expect(silly.total).toBeCloseTo(BASE_TOTAL * MIN_SCALE, 6);
+    // past the floor the settle goes, so the doll still rests between attacks where it can
+    expect(silly.settle).toBe(0);
+    expect(silly.total).toBeCloseTo((BASE_TOTAL - BASE_TIMES.settle) * MIN_SCALE, 6);
+    const r35 = planStages(1 / 3.5, null);
+    expect(r35.total).toBeLessThan(1 / 3.5); // 3.5 attacks / s: home before the next one
     // and the hit still sets the lead
     expect(planStages(0.5, 0.1).lead).toBeCloseTo(0.1, 6);
   });
@@ -219,6 +224,67 @@ describe('the target', () => {
     landMarionette(q);
     stepMarionette(q, DT);
     expect(Math.hypot(q.ox - before[0], q.oz - before[1])).toBeLessThan(0.15); // quick, but no jump
+  });
+});
+
+describe('the early start (from her cooldown)', () => {
+  it('a full glide set off before the attack: the attack fits the rest of it to its needle', () => {
+    const s = marionetteState();
+    start(s, { eta: 0.3, early: true });
+    expect(s.plan.lead).toBeCloseTo(0.3, 6); // a natural Command + Extend, no dart
+    stepMarionette(s, 0.2);
+    expect(s.stage).toBe('extend');
+    expect(adoptAttack(s, 0.1)).toBe(true);
+    let t = 0;
+    while (s.stage !== 'strike' && t < 1) {
+      stepMarionette(s, DT);
+      t += DT;
+    }
+    expect(Math.abs(t - 0.1)).toBeLessThan(2 * DT);
+    expect(adoptAttack(s, 0.1)).toBe(false); // only once, only while early
+  });
+
+  it('no attack comes: the doll hovers HOLD_MAX at the end of the glide, then reels home and notes the miss', () => {
+    const s = marionetteState();
+    start(s, { eta: 0.3, early: true });
+    const { seen } = run(s);
+    const names = seen.map((x) => x[0]);
+    expect(names).toEqual(['command', 'extend', 'reel', 'settle']);
+    const ext = seen.find((x) => x[0] === 'extend')[1];
+    const reel = seen.find((x) => x[0] === 'reel')[1];
+    expect(reel - ext).toBeGreaterThan(s.plan.extend + HOLD_MAX - 3 * DT);
+    expect(s.missed).toBe(true);
+  });
+
+  it('the renderer sets off when her cooldown says the needle lands within a natural glide (reading the sim only)', () => {
+    const enemies = new Map([[5, { x: 3, y: 0, z: 4, height: 0.5 }]]);
+    const tower = { uid: 1, x: 1, y: 4, ox: 1, oy: 4, cooldown: 0.6, eff: { rate: 0.9, range: 3, projectileSpeed: 13 } };
+    const sim = { time: 0, projectiles: [], getTower: () => tower };
+    const m = new Marionette({ sim, actors: { enemies, enemyPos: (u) => (enemies.get(u) ? { ...enemies.get(u) } : null) }, root: new THREE.Group() });
+    const a = { uid: 1, cid: 'doll', group: new THREE.Group(), home: new THREE.Vector3(1.2, 0.6, 4), facing: 0, height: 0.3, mar: null, barRest: null };
+    m.update(a, { facing: 0 }, tower, 1 / 60, 1);
+    expect(a.mar.stage).toBe('idle'); // 0.6 s away: too soon
+    tower.cooldown = 0.15; // + 1.8 / 13 s of needle flight: inside the 0.33 s glide
+    const snap = JSON.stringify(tower);
+    m.update(a, { facing: 0 }, tower, 1 / 60, 1);
+    expect([a.mar.stage, a.mar.early, a.mar.uid]).toEqual(['command', true, 5]);
+    expect(a.mar.plan.lead).toBeGreaterThan(0.25);
+    expect(JSON.stringify(tower)).toBe(snap);
+    // her attack: the doll keeps going and takes the needle's timing
+    sim.projectiles.push({ uid: 9, ownerUid: 1, turretUid: null, target: { uid: 5, x: 3, y: 4 }, x: 1, y: 4, speed: 13, travel: 0, dead: false });
+    m.onAttack(a, { type: 'attack', towerUid: 1, targetUid: 5 });
+    expect([a.mar.early, a.projUid]).toEqual([false, 9]);
+    m.dispose();
+  });
+});
+
+describe('the slash on the hit', () => {
+  it('at most one per enemy per 0.15 s', () => {
+    const tw = {};
+    expect(slashFree(tw, 4, 1)).toBe(true);
+    expect(slashFree(tw, 4, 1.1)).toBe(false);
+    expect(slashFree(tw, 5, 1.1)).toBe(true);
+    expect(slashFree(tw, 4, 1.16)).toBe(true);
   });
 });
 

@@ -33,9 +33,9 @@ import { disposeObject } from '../models/index.js';
 import { lerpAngle } from './geo.js';
 import { WATER_Y, PATH_H } from './terrain.js';
 import {
-  konState, konStep, konSpot, konAttacks, konGait, sortieState, startSortie, retarget, sortieStep, reconcile, swoopDives, diveReach,
+  konState, konStep, konSpot, konAttacks, konGait, sortieState, startSortie, retarget, reconcile, swoopDives, diveReach,
   pounceStep, stoopStep, perchState, queueSwoop, perchFree, perchStep, perchClear, trailState, trailPush, trailAt, trailFade, trailClear,
-  SWOOP_TIME, SWOOP_LIFT, DASH_TIME, DASH_REACH, DASH_STOP, DASH_LIFT, DIVE_TIME, POUNCE_TIME, POUNCE_STOP, POUNCE_LIFT,
+  SWOOP_TIME, SWOOP_LIFT, DIVE_TIME, POUNCE_TIME, POUNCE_STOP, POUNCE_LIFT,
   TRAIL_LIFE,
 } from './companionLogic.js';
 import { Marionette } from './marionette.js';
@@ -51,8 +51,6 @@ const KON_HOLD = 0.5; // his appear clip, then he may run
 
 const _home = new THREE.Vector3();
 const _m = new THREE.Matrix4();
-const _v = new THREE.Vector3();
-const _bar = new THREE.Vector3();
 const _spot = { x: 0, z: 0 };
 const _pos = { x: 0, y: 0, z: 0, out: false, hit: false, phase: null, squash: 1, pitch: 0 };
 const _gait = { lift: 0, pitch: 0, stretch: 1 };
@@ -197,7 +195,7 @@ export class Companions {
     if (ev.type === 'attack') {
       const a = this.list.get(ev.towerUid);
       if (a?.group && a.cid === 'doll') this.marionette.onAttack(a, ev);
-      else if (a?.group) this._onAttack(a, ev.targetUid, null);
+      else if (a?.group) this._onAttack(a, ev.targetUid);
     } else if (ev.type === 'ult') {
       const a = this.list.get(ev.towerUid);
       // Dream Detour: the doll dashes toward the ult's centre
@@ -289,7 +287,7 @@ export class Companions {
     if (startSortie(a.sortie, e.x, e.y + (e.height || 0.5) * 0.5, e.z, SWOOP_TIME, uid)) a.group.userData.playAttack?.();
   }
 
-  _onAttack(a, targetUid, point) {
+  _onAttack(a, targetUid) {
     if (a.cid === 'kaze') {
       // (her ⚡ dives come first: her plain swoops wait until they are done)
       if (a.dives?.length || a.diving) return;
@@ -308,33 +306,6 @@ export class Companions {
       a.faceT = 0.8;
       return;
     }
-    let tx;
-    let ty;
-    let tz;
-    if (point) {
-      tx = point.x;
-      tz = point.z;
-      ty = 0.3;
-      // an ult centred on her own spot: dash at the nearest monster instead (or a step ahead of her)
-      if (Math.hypot(tx - a.home.x, tz - a.home.z) < 0.6) {
-        const e = this._nearestEnemy(a.home.x, a.home.z, 4);
-        if (e) {
-          tx = e.x;
-          tz = e.z;
-          ty = e.y + (e.height || 0.5) * 0.5;
-        } else {
-          tx = a.home.x + Math.sin(a.facing) * 1.2;
-          tz = a.home.z + Math.cos(a.facing) * 1.2;
-        }
-      }
-    } else {
-      const e = targetUid != null ? this.actors.enemyPos(targetUid) : null;
-      if (!e) return;
-      tx = e.x;
-      tz = e.z;
-      ty = e.y + (e.height || 0.5) * 0.5;
-    }
-    if (startSortie(a.sortie, tx, ty, tz, DASH_TIME, point ? null : targetUid)) a.group.userData.playAttack?.();
   }
 
   // ---- frame ---------------------------------------------------------------------------------
@@ -585,19 +556,6 @@ export class Companions {
         const e = this._enemy(next);
         if (e) this._swoopAt(a, next, e);
       }
-    } else {
-      const s = a.sortie;
-      if (s.busy && s.uid != null) {
-        const e = this.actors.enemyPos(s.uid);
-        if (e) retarget(s, e.x, e.y + (e.height || 0.5) * 0.5, e.z);
-      }
-      sortieStep(s, dt, a.home.x, a.home.y, a.home.z, _pos, DASH_OPTS);
-      g.position.set(_pos.x, _pos.y, _pos.z);
-      if (s.busy) {
-        const dx = s.tx - a.home.x;
-        const dz = s.tz - a.home.z;
-        if (dx * dx + dz * dz > 1e-6) facing = Math.atan2(dx, dz);
-      }
     }
     a.faceT = Math.max(0, a.faceT - dt);
     a.facing = lerpAngle(a.facing, facing, Math.min(1, dt * 10));
@@ -607,13 +565,6 @@ export class Companions {
     a.state = state;
     g.userData.animate?.(this.time, dt, state);
     if (a.trail) this._ribbon(a);
-    // the doll's threads stay tied to Yoriko's control bar while it dashes
-    const bar = g.userData.bar;
-    if (bar && a.barRest && bar.parent) {
-      _bar.copy(a.barRest).applyAxisAngle(_v.set(0, 1, 0), v.facing).multiplyScalar(scale).add(a.home);
-      g.updateMatrixWorld(true);
-      bar.position.copy(bar.parent.worldToLocal(_bar));
-    }
   }
 
   // ---- their moves' effects (FxSystem particles and quad batches: pooled, nothing made per frame) ---------------
@@ -802,6 +753,4 @@ function dollRow(row, a, m) {
   row.marionette = m;
 }
 
-const SWOOP_OPTS = { lift: SWOOP_LIFT };
-const DASH_OPTS = { reach: DASH_REACH, stop: DASH_STOP, lift: DASH_LIFT };
 const POUNCE_OPTS = { stop: POUNCE_STOP, lift: POUNCE_LIFT };

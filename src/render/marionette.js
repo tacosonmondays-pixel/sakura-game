@@ -22,7 +22,7 @@ import * as THREE from 'three';
 import { lerpAngle } from './geo.js';
 import {
   marionetteState, startMarionette, retargetMarionette, loseTarget, landMarionette, stepMarionette, marionetteBusy,
-  marionetteActive, stringPoint, sagFor, STOP, REACH,
+  marionetteActive, stringPoint, sagFor, adoptAttack, planStages, STOP, REACH, EARLY_PAUSE,
 } from './marionetteLogic.js';
 
 /** Segments per string (a sag needs a few). */
@@ -299,7 +299,50 @@ export class Marionette {
       a.projUid = p.uid;
       eta = Math.max(0, (Math.hypot(p.target.x - p.x, p.target.y - p.y) - HIT_R) / Math.max(0.1, p.speed || 10));
     }
+    a.lastUid = ev.targetUid;
+    const s = a.mar;
+    // set off early (from her cooldown): the doll is on its way; it takes this enemy and lands on this needle
+    if (s?.early && marionetteBusy(s)) {
+      s.uid = ev.targetUid;
+      retargetMarionette(s, e.x, e.y + (e.height || 0.5) * BODY, e.z, a.home.x, a.home.y, a.home.z);
+      adoptAttack(s, eta);
+      return true;
+    }
     return this._start(a, t, e.x, e.y + (e.height || 0.5) * BODY, e.z, ev.targetUid, eta);
+  }
+
+  /**
+   * The early start: her next attack is due in `t.cooldown` (the sim's own timer, read only) at an enemy in her
+   * range (the one she shot last, else the nearest); when its needle would land within a natural Command + Extend,
+   * the doll sets off now so Extend ends on that hit. Her attack event then names the real target (onAttack).
+   */
+  _early(a, t) {
+    const s = a.mar;
+    const cd = t.cooldown;
+    if (marionetteBusy(s) || !(cd > 0) || this.time < (a.earlyAfter || 0) || !t.eff) return;
+    const rate = t.eff.rate ?? 0.9;
+    const interval = 1 / Math.max(0.05, rate);
+    planStages(interval, null, PLAN);
+    if (cd > PLAN.lead) return;
+    const range = t.eff.range || 0;
+    const ox = t.ox ?? t.x;
+    const oy = t.oy ?? t.y;
+    let v = a.lastUid != null ? this.actors.enemies?.get(a.lastUid) : null;
+    let uid = a.lastUid;
+    if (!v || v.hidden || Math.hypot(v.x - ox, v.z - oy) > range) {
+      const n = this._near(ox, oy, range, null);
+      if (!n) return;
+      uid = n.uid;
+      v = this.actors.enemies.get(uid);
+      if (!v) return;
+    }
+    const eta = cd + Math.max(0, Math.hypot(v.x - ox, v.z - oy) - HIT_R) / Math.max(0.1, t.eff.projectileSpeed || 13);
+    if (eta > PLAN.lead) return;
+    a.projUid = null;
+    startMarionette(s, {
+      interval, eta, tx: v.x, ty: v.y + (v.height || 0.5) * BODY, tz: v.z, hx: a.home.x, hy: a.home.y, hz: a.home.z, uid,
+      calm: this.reduceMotion, simple: this.simple, early: true,
+    });
   }
 
   /** Dream Detour: the doll strikes toward the curtain's centre (or the nearest monster when that is her own spot). */
@@ -374,6 +417,12 @@ export class Marionette {
     const g = a.group;
     const s = (a.mar ??= marionetteState());
     const gdt = this.gdt || dt;
+    if (s.missed) {
+      // set off early and no attack came: not again for a moment
+      s.missed = false;
+      a.earlyAfter = this.time + EARLY_PAUSE;
+    }
+    this._early(a, t);
     if (marionetteBusy(s)) {
       if (s.uid != null) {
         const e = this.actors.enemyPos(s.uid);
@@ -507,3 +556,4 @@ export class Marionette {
 }
 
 const NEXT = { uid: null, x: 0, y: 0, z: 0 };
+const PLAN = {};
