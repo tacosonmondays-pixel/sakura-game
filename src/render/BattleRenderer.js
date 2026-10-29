@@ -203,13 +203,13 @@ export function createBattleRenderer(container, sim, opts = {}) {
     }
   }
   // roster mechanics: mortar warnings, relay props, aim reticles, curse bursts, strike + dragon ults
-  const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality, reduceMotion });
+  const roster = new RosterFx({ sim, scene, fx, batches, atlas, actors, quality, camera, reduceMotion });
   // Iroha's bolt style reports each bolt that leaves her mirror panel, so the panel flips and glints (display only)
   if (attackFx) attackFx.ctx.mirrors = roster.mirrors;
   // a far zoom (a phone showing the whole board): the panel's cues draw up to 1.7x (42 px a tile reads as is)
   roster.mirrors.readScale = () => 42 * (rig.scale || 1 / 42);
   // companion figures (Kon, Kaze, Yoriko's doll): display actors beside their girls (src/render/companions.js)
-  const companions = new Companions({ sim, scene, actors, terrain, quality, reduceMotion });
+  const companions = new Companions({ sim, scene, actors, terrain, quality, reduceMotion, fx, batches, atlas, camera });
   actors.companions = companions;
   roster.companions = companions;
   // companions are decoration too: an error switches them off for this battle (the holo fox fallback stays)
@@ -1097,6 +1097,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
     /** Extra: companion actors (Kon, Kaze, the doll) for e2e / debug (allocates). */
     companionsProbe() {
       return companions.probe();
+    },
+
+    /** Test / e2e probe: the sky dragon meshes drawn this frame ({ heads, beads, tails }). */
+    rosterProbe() {
+      return roster.probe();
     },
 
     /** Extra: the outfit (skin id) a placed girl's model wears, or null before it is drawn (e2e / debug). */

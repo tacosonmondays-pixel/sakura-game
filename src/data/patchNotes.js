@@ -20,10 +20,11 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    id: 'v0.1.60', version: '0.1.60', date: '2026-10-29', title: 'Mirrors and Coilguns',
+    id: 'v0.1.60', version: '0.1.60', date: '2026-10-29', title: 'Mirrors, Coilguns and Companions',
     added: [
       'Tenka now takes the field as her real 3D figure, coilgun in hand.',
       'Iroha’s mirror panel turns and glints each time a bolt bounces through it, leaves afterimages when it moves, and her Shattered Glass path scatters glinting glass shards.',
+      'Companions in action: Kon bounds to Ruri’s relay spot and crouches, leaps and lands on Moon Pounce; Kaze climbs and stoops onto each enemy Hana shoots; Seiran’s sky dragon is bigger, with a mane, whiskers and a roar as it arrives.',
     ],
     fixed: [
       'The Events button on small phones is a neat icon tab with a clear gap from Co-op.',
