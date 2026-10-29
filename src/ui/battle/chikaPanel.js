@@ -61,7 +61,8 @@ export function wingNumbers(st) {
 
 /**
  * The Overall and Drones tabs' main DPS cells (CHIKA_REWORK §7.1: her bolt plus the FULL wing). While the wing is still
- * building, the Drones cell's label says so (Overall stays "DPS", one column); the number cell holds only the number (VAULT §9: never an ellipsis on a number). How
+ * building, the Drones tab's wing cell says so (Overall stays "DPS", one column; its Flying count shows the build);
+ * the number cell holds only the number (VAULT §9: never an ellipsis on a number). How
  * many fly now is the Drones / Flying cell's job ("3/9"), so the count is said once. The one number style (format.js
  * 'stat': "45.3", "4,524", "312.3k").
  * @returns {{ overall: { label: string, value: string }, wing: { label: string, value: string } }}
@@ -70,7 +71,7 @@ export function wingDpsCells(st) {
   const { wing, building } = wingNumbers(st);
   return {
     // (always plain "DPS": one column on a phone in every state, so the grid never reflows when a drone relaunches;
-    // the wing cell beside it says when it counts the full wing)
+    // it always counts the full wing, and the Drones tab says when the wing is still building)
     overall: { label: 'DPS', value: stat(st.own.dps + wing) },
     wing: { label: building ? 'Full wing DPS' : 'Wing DPS', value: stat(wing) },
   };

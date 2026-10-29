@@ -1,0 +1,79 @@
+{
+  "round": "fix/display-polish-2",
+  "head": "2d63a5a8",
+  "base": "60ce9cad",
+  "reviewer": "independent look + logic reviewer (fast lane)",
+  "verdict": "NOT OK",
+  "simId": "be940ecb2087 (unchanged; no src/sim or co-op file touched)",
+  "tests": {
+    "vitest tests/render tests/models tests/ui tests/battle-ui": "157 files, 2115 tests passed",
+    "e2e/display-polish-2.mjs": "pass (also re-run at 1280x720 and on Low graphics with a fresh Vite dep cache: pass, no 'Multiple instances of Three.js' warning, no re-optimise)",
+    "e2e/home.mjs": "237 ok, 0 failed",
+    "e2e/dps-readout.mjs": "FAILED on the first full run (844x390 chika: sameRow false, label was 'DPS (full wing)'); passed on a second 844x390 run (label 'DPS'). Timing-dependent.",
+    "e2e/tenka-figure.mjs": "pass"
+  },
+  "findings": [
+    {
+      "severity": "MEDIUM",
+      "where": "src/ui/styles/home.css (icon-only Events tab, max-height 480 and max-width 759), screen 667x375",
+      "what": "The days-left sticker still sits on the lantern: sticker x 599.5-625.6 / bottom 227, lantern x 612-632 / top 222, so they overlap by 5 px vertically and 13 px horizontally. The v0.1.62 patch note says the sticker 'no longer overlaps its lantern', which is not true on small phones.",
+      "fix": "Give the icon-only tab --evt-drop: 7px as well (the lantern then runs 229-249 in a 209-255 tab: 2 px under the sticker and 6 px above the bottom), or move the sticker clear of it. Otherwise, scope the patch note.",
+      "evidence": "review/events-667x375-sticker-on-lantern.jpg, review/events-844-1280-390x844-667x375.jpg"
+    },
+    {
+      "severity": "MEDIUM",
+      "where": "src/ui/battle/chikaPanel.js (.bt-stat-short only when the label is 'DPS') and e2e/dps-readout.mjs, 844x390",
+      "what": "wingNumbers().building is true whenever any drone is down or relaunching, not only at launch. Mid-wave, the DPS cell switches between 1 and 2 columns, so the Overall grid gains or loses a row and Per target and everything below jump while the player watches. The new e2e assertion (sameRow) depends on that timing: it failed in 1 of my 2 runs.",
+      "fix": "Keep the main DPS cell at one column in both states, e.g. a label that fits one column ('DPS (wing)', or 'DPS' with the full-wing note in the tooltip or aria text). Make the e2e assert per label, or wait until the wing is full before it reads the row.",
+      "evidence": "review/chika-844x390-dps-row.jpg (passing state)"
+    },
+    {
+      "severity": "LOW",
+      "where": "vite.config.js optimizeDeps.include",
+      "what": "The list is incomplete against grep: 'three/addons/geometries/DecalGeometry.js' (src/models/face.js) and 'three/addons/modifiers/SimplifyModifier.js' (dynamic import in src/models/body.js) are missing. With a fresh cache, the battle at High and Low showed no warning and no re-optimise, so this is not a live problem.",
+      "fix": "Add both to the include list."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/marionette.js tick()",
+      "what": "While paused, dt is 0 but frameDt is above 0 and the sim time stands still, so the speed estimate decays toward 0. Before, the dt > 0 guard held it. On resume at 2x or 3x, the doll runs at 1x (Math.max(1, speed)) for about 10-15 frames.",
+      "fix": "Guard with dt > 0 && frameDt > 0."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/mirrorPanel.js BESIDE_SIDE 0.46, battle 844x390 zoom and 1280x720",
+      "what": "The panel now stands beside Iroha and reads as intentional. At close zoom, its rim touches her sleeve, and at 1280x720 (origin 0.63 in front) it touches her hand: about 0 px margin.",
+      "fix": "Raise BESIDE_SIDE to about 0.52.",
+      "evidence": "review/iroha-844x390-edge-zoom.jpg, review/iroha-1280x720-zoom.jpg"
+    },
+    {
+      "severity": "LOW",
+      "where": "src/models/glbChibi.js prepareProp / setHighlight",
+      "what": "When Tenka is selected, the prop swaps to hlMaterial, which has no accent emissive, so the coilgun loses its violet look while she is selected.",
+      "fix": "Apply look.glow to hlMaterial too, or accept it as part of the selected look."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/ui/styles/home.css --evt-drop 7px in the 46 px tab, 844x390 and 390x844",
+      "what": "The EVENTS word sits 7 px lower than the CO-OP word beside it on the same row (label tops 247.5 and 240.5). The sticker clears the lantern by exactly 2 px at all three sizes, as specified.",
+      "fix": "Optional: drop 5 px with a 1 px smaller sticker, or accept it as is."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/data/patchNotes.js v0.1.62 Ruri line",
+      "what": "'marks the abilities still to come in grey, not with the live ⚡' reads as if the waiting ones have no bolt, but they keep a grey one.",
+      "fix": "For example: 'Ruri's Tree tab shows abilities coming in a later update with a grey ⚡ sticker; only live ones are yellow.' Also see the Events MEDIUM above."
+    }
+  ],
+  "checked_ok": [
+    "Sim id be940ecb2087; diff touches no src/sim or co-op files; panelSpot only reads sim.placement.pathDistance (pure); sim origin never written",
+    "No Math.random in the diff; the relay rings keep the Reduce motion branch; no new bright additive sprites",
+    "Prop accent geometry and material are marked userData.shared and cached in propCache, like the prop itself; strips and emissive apply on every quality, outline only above Low (as before)",
+    "Low graphics: Iroha's panel beside her and Tenka's gun with its strip render correctly",
+    "Tenka gun at 844x390 and 1280x720 reads clearly without being comically big; the barrel tip measured 0.714/0.683/0.205 against the muzzle offset 0.71/0.69/0.21 at both sizes and on Low (my 24-frame burst never caught the flash itself, so its placement is confirmed numerically only)",
+    "Ruri: live sticker yellow rgb(255,221,74), waiting stickers grey rgb(216,219,218) with the bolt, clear at 844x390, 1280x720 and 390x844",
+    "Chika row: with the label DPS, DPS, DPS (live) and DPS (avg) share one row at 844x390; 1280x720 already has 4 columns",
+    "Iroha's un-aimed bolts: the iroha.js unaimed/DRAWN_NEAR logic and spotOf are covered by tests; the no-tether case is correct for an origin on her own spot",
+    "No other games' or anime names in the diff"
+  ]
+}
