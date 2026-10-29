@@ -54,6 +54,7 @@ import { endStripWave } from './strips.js';
 import { endRingWave } from './rings.js';
 import { endWheelWave, shapeDps } from './wheels.js';
 import { endHeldWave, heldDps } from './held.js';
+import { endGroundWave } from './ground.js';
 import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
@@ -948,6 +949,8 @@ export class Sim {
     endWheelWave(this);
     // the held shapes' channels end (src/sim/held.js)
     endHeldWave(this);
+    // the ground shapes' spike rows and quake rings end (src/sim/ground.js; Bramble Road's vines end in endVineWave)
+    endGroundWave(this);
     // Wakaba's drinks end; Recovery Plan may give a life back (src/sim/drinks.js)
     endDrinkWave(this);
     // Yuzuha's sentries end; her nets stay (src/sim/sentries.js)

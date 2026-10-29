@@ -437,8 +437,8 @@ const YUKI = {
       tier('Sharp Ice', 100, '+1 damage.', { damage: 1 }),
       tier('Icicle Lance', 260, '+1 damage; icicles pierce 1 more enemy.', { damage: 1, pierce: 1 }),
       tier('Brittle Frost', 800, 'Struck foes turn Brittle: +15% damage from everyone for 2.5s.', { status: [S.vulnerable(0.15, 2.5)] }),
-      tier('Shatter Point', 2600, 'Brittle +30%; frost cracks armor (-2, stacks ×3); +5 damage, +25% damage.', { status: [S.vulnerable(0.3, 3), S.shred(2, 3)], damage: 5, damageMul: 1.25 }),
-      tier('Diamond Dust', 18000, '+15 damage, Brittle +45%, 20% crits ×2.5, +30% attack speed, ignores 3 armor; +50% damage.', { damage: 15, status: [S.vulnerable(0.45, 3.5)], crit: { chance: 0.2, mul: 2.5 }, rateMul: 1.3, armorPen: 3, damageMul: 1.5 }),
+      tier('Shatter Point', 2600, 'Brittle +30%; frost cracks armor (-2, stacks ×3); +5 damage, +25% damage. Rising Spikes: a row of six ice spikes bursts up along the road from under her enemy into the walkers behind it; her enemy takes her full hit, every other walker on the row 46%, each once (flyers still get her icicle).', { status: [S.vulnerable(0.3, 3), S.shred(2, 3)], damage: 5, damageMul: 1.25, behavior: 'spikes', spike: { count: 6, gap: 0.5, r: 0.25, delay: 3, mul: 0.46 } }),
+      tier('Diamond Dust', 18000, '+15 damage, Brittle +45%, 20% crits ×2.5, +30% attack speed, ignores 3 armor; +50% damage; her spike row is eight long (36% on the others).', { damage: 15, status: [S.vulnerable(0.45, 3.5)], crit: { chance: 0.2, mul: 2.5 }, rateMul: 1.3, armorPen: 3, damageMul: 1.5, spike: { count: 8, gap: 0.5, r: 0.25, delay: 3, mul: 0.36 } }),
     ]),
     path('permafrost', 'Permafrost', 'Lingering control', [
       tier('Frost Trail', 80, '+0.3 range.', { range: 0.3 }),

@@ -369,6 +369,30 @@ export const SWEEP_SWING = 1;
 export const SWEEP_TURN = 1;
 
 // ---------------------------------------------------------------------------
+// Attack shapes, batch S3 "Ground" (docs/specs/ATTACK_SHAPES.md §5.4, §5.7, §5.8; src/sim/ground.js,
+// src/sim/vines.js). Every timer is an integer of sim steps; road objects test by path distance (onRoad).
+// ---------------------------------------------------------------------------
+/** onRoad's shared stretch (Marumi's rule, src/sim/balls.js): a walker on another path is on a road object's
+ *  stretch when its spot is within ROAD_SHARED tiles of that stretch's centreline and its road runs the same way
+ *  there (unit direction dot > ROAD_SAME_DIR). A crossing or an overpass meets at an angle and is ignored. */
+export const ROAD_SHARED = 0.3;
+export const ROAD_SAME_DIR = 0.95;
+/** Bramble Road: a vine tests its stretch every VINE_STEP steps (0.1 s); its slow lasts VINE_SLOW_T s, so a
+ *  walker stays slowed while it is on the vine and a moment after; vines per girl and per sim (oldest first). */
+export const VINE_STEP = 6;
+export const VINE_SLOW_T = 0.25;
+export const VINES_PER_GIRL = 4;
+export const VINES_PER_SIM = 48;
+/** Rising Spikes: spike rows per girl and per sim (oldest first); a spike stays up SPIKE_UP steps after it
+ *  rises (drawing only: it strikes once, as it rises). */
+export const SPIKE_ROWS_PER_GIRL = 8;
+export const SPIKE_ROWS_PER_SIM = 96;
+export const SPIKE_UP = 15;
+/** Ripple Quake: rings per girl and per sim (oldest first); a ring's re-hit memory (it hits each enemy once). */
+export const QUAKES_PER_GIRL = 8;
+export const QUAKES_PER_SIM = 64;
+
+// ---------------------------------------------------------------------------
 // The duo (Kohaku & Tsubaki, docs/specs/DUO_LR.md §1; src/sim/duo.js)
 // ---------------------------------------------------------------------------
 

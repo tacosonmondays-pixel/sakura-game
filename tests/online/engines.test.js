@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, runShapesBattle, runHeldBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, runShapesBattle, runHeldBattle, runGroundBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 import { launchAttempts } from '../../e2e/browser.mjs';
 
 // T3 review coop-3: e2e/engines.mjs only ever tried Playwright's own browsers, so on a machine without
@@ -307,6 +307,27 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, held: r.held, rejoinTick: r.rejoinTick })
       .toEqual({ ticks: 28657, state: 'lost', wave: 16, wallets: '615/669', final: 2050999493, hashes: 'd38011ff', held: '4132/882', rejoinTick: 5568 });
+  }, 240000);
+
+  it('runs the attack shapes S3 (GROUND_START: Bramble Road, Rising Spikes, Ripple Quake) in sync, and a mid-wave rejoin lands on the run', () => {
+    const r = runGroundBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(15);
+    const [lash, spike, quake] = r.ground.split('/').map(Number);
+    expect(lash).toBeGreaterThan(0);
+    expect(spike).toBeGreaterThan(0);
+    expect(quake).toBeGreaterThan(50);
+    expect(r.kanna).toBeGreaterThanOrEqual(24);
+    expect(r.rejoinTick).toBeGreaterThan(0);
+    expect(r.rejoinSame).toBe(true);
+    expect(runGroundBattle().final).toBe(r.final);
+    // pinned when the battle was added (feature/attack-ground, S3 data fitted on both rulers); re-pinned at the S3 review
+    // (Kanna moved beside the road near the spawn after wave 1 so her rings reach a crowd: 3 → 110 ring hits; the girls at
+    // half damage; vines skip grounded flyers and walkers already held). Change only with a deliberate sim / data change,
+    // and say why.
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, ground: r.ground, rejoinTick: r.rejoinTick })
+      .toEqual({ ticks: 22228, state: 'won', wave: 22, wallets: '1675/1783', final: 2230526921, hashes: '20e7246c', ground: '60/943/110', rejoinTick: 9290 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

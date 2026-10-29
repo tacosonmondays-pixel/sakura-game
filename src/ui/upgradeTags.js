@@ -75,6 +75,8 @@ export const MOD_TAGS = {
   wheel: 'self', spin: 'self', halo: 'self',
   // the attack shapes S2 (src/sim/held.js): Akane's Hearth Stream, Umeko's Searchlight Sweep
   stream: 'self', sweep: 'self',
+  // the attack shapes S3 (src/sim/ground.js): Yuki's Rising Spikes, Kanna's Ripple Quake (Bramble Road is Chigusa's `vine`)
+  spike: 'self', quake: 'self',
   // the duo: Kohaku's beam and the prism's shards are her attack (DUO_LR §1)
   duo: 'self',
   // the staff heroes (BANNERS §D): Kogane's faster Move is hers; Norika's barricades hold the enemies
@@ -101,7 +103,7 @@ const SUB_KEYS = {
   relay: new Set(['reach']),
   sentry: new Set(['max', 'every', 'speed', 'ttl', 'damage', 'rate', 'range', 'burst', 'kits', 'nets', 'netBudget', 'netElite', 'netBoss']),
   ball: new Set(['travel', 'speed', 'through', 'share', 'lobMul', 'pins', 'pinDmg', 'pinPierce', 'hook', 'lob', 'pushBig', 'bounce', 'reach', 'finish']),
-  vine: new Set(['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap']),
+  vine: new Set(['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap', 'len', 'grow', 'life', 'slow', 'lash', 'cap', 'max']),
   hub: new Set(['radius', 'costCut', 'sellMul', 'freeTiers', 'killBounty', 'cdCut', 'rateMul', 'rangeMul', 'dmgMul', 'detection', 'airGrant', 'cleanse', 'typeFloor', 'banners', 'bannerRange', 'bannerReach', 'radiusAdd', 'cutAdd']),
   drink: new Set(['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'detection', 'cleanse', 'permanent', 'season', 'towel', 'towelDmg', 'life']),
   ring: new Set(['travel', 'turn', 'heat', 'double', 'sparks', 'scissors', 'scissorDmg', 'scissorMul', 'spiral', 'spiralPierce']),
@@ -111,6 +113,8 @@ const SUB_KEYS = {
   halo: new Set(['pieces', 'reach', 'mul']),
   stream: new Set(['kind', 'half', 'turn', 'mul', 'cap']),
   sweep: new Set(['arc', 'swing', 'turn', 'mul', 'cap']),
+  spike: new Set(['count', 'gap', 'r', 'delay', 'mul']),
+  quake: new Set(['rings', 'gap', 'speed', 'mul', 'later', 'status']),
   duo: new Set(['edge', 'beamDmg', 'beamRate', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'beamAir', 'beamMul', 'rampPer', 'rampMax', 'beamSilence',
     'every', 'shards', 'shardAdd', 'shardShare', 'shardDmg', 'shardSplash', 'shardSlow', 'slowTime', 'shardShred', 'shardVuln', 'vulnTime', 'fullEvery']),
   barricade: new Set(['count', 'budget', 'budgetMul', 'rebuild', 'rebuildCut', 'held', 'reveal', 'bounce', 'breakSlow', 'releaseSlow', 'miniHalf', 'detour', 'oneWay', 'lineAdd']),
@@ -300,7 +304,7 @@ export function ultTags(ult) {
 // One-line effect + tier icon
 // ---------------------------------------------------------------------------
 
-const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support', wheel: 'Coin wheel', spin: 'Turning stream', stream: 'Fire stream', sweep: 'Sweeping beam' };
+const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support', wheel: 'Coin wheel', spin: 'Turning stream', stream: 'Fire stream', sweep: 'Sweeping beam', spikes: 'Rising spikes' };
 
 /** Short status phrase: "Slow 30%", "Freeze 1s", "Brittle +20%"… (chance as a suffix). */
 export function statusShort(s) {

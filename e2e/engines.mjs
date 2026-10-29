@@ -252,6 +252,23 @@ for (const { name, r } of results) {
   if (!(g.rejoinTick > 0)) failures.push('the held battle: no mid-wave rejoin with the channels open');
 }
 
+// the attack shapes S3 (GROUND_START): Bramble Road, Rising Spikes, Ripple Quake, and a mid-wave rejoin
+log('\nScripted co-op GROUND battle (2-4 Hard, GROUND_START: two Chigusas\' Bramble Road, two Yukis\' Rising Spikes, Kanna\'s Ripple Quake):');
+for (const { name, r } of results) {
+  const g = r.ground;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · lash/spike/quake ${g.ground} · Kanna Lv ${g.kanna} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · rejoin w${g.ckWave} → tick ${g.rejoinTick} ${g.rejoinSame ? '= the run' : '≠ THE RUN'} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two ground clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} ground command(s) refused: ${g.refused}`);
+  if (!g.rejoinSame) failures.push(`${name}: the ground battle's mid-wave rejoin from the wave-${g.ckWave} checkpoint did not land on the run`);
+  for (const k of [...POT_KEYS.filter((x) => x !== 'aoi'), 'tiers', 'ground', 'kanna', 'dealt', 'rejoinTick']) if (g[k] !== ref.ground[k]) failures.push(`${name}: ground ${k} ${g[k]} ≠ ${ref.ground[k]} (${results[0].name})`);
+}
+{
+  const g = ref.ground;
+  const [lash, spike, quake] = g.ground.split('/').map(Number);
+  if (!(lash > 0 && spike > 0 && quake > 0)) failures.push(`the ground battle: a shape never struck (lash/spike/quake ${g.ground})`);
+  if (!(g.rejoinTick > 0)) failures.push('the ground battle: no mid-wave rejoin with the ground shapes live');
+}
+
 // the duo Kohaku & Tsubaki (DUO_START): Refraction, Kohaku's beam, Prismfall on Auto-cast, the LR Twin Star
 log('\nScripted co-op DUO battle (2-5, DUO_START: Refraction to Constellation Lattice, Kohaku\'s beam, Prismfall on Auto-cast, the host\'s LR Twin Star):');
 for (const { name, r } of results) {
@@ -494,4 +511,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical Glow Bowl battle, the identical attack shapes battles S1 and S2 (and their mid-wave rejoins), the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle, the identical returning girls' abilities battle, the identical Tenka battle, the identical Tryout Day, Extended Day and Random Class + Extended Day runs and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical Glow Bowl battle, the identical attack shapes battles S1, S2 and S3 (and their mid-wave rejoins), the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle, the identical returning girls' abilities battle, the identical Tenka battle, the identical Tryout Day, Extended Day and Random Class + Extended Day runs and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

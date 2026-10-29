@@ -30,7 +30,8 @@ import { hitRadius } from './shapes.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
 import { sentryTick } from './sentries.js';
 import { hubsOn, applyHubs } from './hubs.js';
-import { vineTick } from './vines.js';
+import { vineTick, vineObjects } from './vines.js';
+import { attackSpikes, sendQuake, groundTick } from './ground.js';
 import { rollBall, ballTick } from './balls.js';
 import { labMods } from './lab.js';
 import { buildPartnerSpec, partnerTick, partnerOff, beginVolley, refract } from './duo.js';
@@ -924,13 +925,16 @@ function attackDuel(sim, t) {
   const ty = tgt.y;
   sim._hit(tgt, t, spec, scale);
   t.rampStacks++;
+  // the cut around her target is an unfocused hit at her plain damage: a rhythm (Kaede's Maple
+  // Gale) widens it, its harder strike stays on her target (Potential N3; P1 has no rhythm)
+  const cut = procBase && t.eff === t.effProc ? procBase : spec;
   if (spec.splash > 0) {
-    // the cut around her target is an unfocused hit at her plain damage: a rhythm (Kaede's Maple
-    // Gale) widens it, its harder strike stays on her target (Potential N3; P1 has no rhythm)
-    const cut = procBase && t.eff === t.effProc ? procBase : spec;
     const near = sim.grid.query(tx, ty, spec.splash, []);
     for (const e of near) if (e !== tgt && !e.dead && isEligible(e, cut)) sim._hit(e, t, cut, 1);
   }
+  // Ripple Quake (attack shapes S3, src/sim/ground.js; Kanna): her strike also sends rings rolling out from her along
+  // the ground, past the enemy she struck, at her plain hit
+  if (t.stats.quake) sendQuake(sim, t, cut, t.ox, t.oy, tgt.uid);
   sim._emit('attack', { towerUid: t.uid, targetUid: tgt.uid, kind: 'slash', ramp: t.rampStacks });
   if (spec.blade) bladeArts(sim, t, spec, tgt, tx, ty, scale);
   return true;
@@ -1497,6 +1501,13 @@ const BEHAVIORS = {
   // attack shapes S2 (src/sim/held.js): a held channel; her counted attacks pick her enemy and what it carries
   stream: attackHeldWith,
   sweep: attackHeldWith,
+  // attack shapes S3 (src/sim/ground.js): Rising Spikes, a row toward her enemy (her icicle at a flyer)
+  spikes: (sim, t) => {
+    const spec = gearSpec(t.eff);
+    const e = attackSpikes(sim, t, spec, { bestTarget, volley: () => attackProjectile(sim, t), extra: () => shotPierce(t) });
+    if (e && e !== true) lastFaced = e;
+    return !!e;
+  },
   drink: throwDrink,
   roll: rollBall,
 };
@@ -1984,6 +1995,9 @@ export function updateTower(sim, t, dt) {
       sim._buffsDirty = true;
     }
   }
+  // road objects (attack shapes S3: Bramble Road vines, spike rows, quake rings) stand on while she is sabotaged or moving
+  if (t.vines) vineObjects(sim, t);
+  if (t.spikeRows || t.quakes) groundTick(sim, t);
   if (t.disabled > 0) {
     t.disabled = Math.max(0, t.disabled - dt);
     if (s.duo) partnerOff(t); // a sabotage breaks Kohaku's beams (src/sim/duo.js)

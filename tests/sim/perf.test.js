@@ -2,6 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STAGE, UNITS, ENEMIES } from './fixtures.js';
 import { defaultData } from '../../src/sim/data.js';
+import { gainHeroXp, xpToReach } from '../../src/sim/hero.js';
 
 // 22 × 13 serpentine map: the path snakes across rows 1, 5, 9 and exits at the bottom.
 const PERF_MAP = {
@@ -190,6 +191,70 @@ describe('performance budget: held attack shapes', () => {
     console.log(`[perf] held shapes: ${sim.enemies.length} enemies, ${sim.towers.length} girls, ${open} channels open at most: ${perStep.toFixed(3)} ms/step`);
     expect(sim.enemies.length).toBeGreaterThan(150);
     expect(open).toBeGreaterThanOrEqual(10);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+});
+
+// Attack shapes S3 "Ground" (src/sim/vines.js, src/sim/ground.js): 6 Chigusas at Forest Corridor (two Bramble Road vines
+// each, slowing, holding and lashing), 6 Yukis at Diamond Dust (spike rows) and Kanna at Lv 24 (quake rings), 200
+// walkers: the same step budget.
+describe('performance budget: ground attack shapes', () => {
+  test('6 Bramble Roads + 6 Rising Spikes + a Ripple Quake + 200 enemies: a step stays under the same limits', () => {
+    const real = defaultData().units;
+    const GROUND = [['chigusa', 'greenhouse'], ['yuki', 'frostbite']];
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: GROUND.map(([unitId]) => ({ unitId })),
+      hero: { unitId: 'kanna' },
+      seed: 12,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units: real, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    const spots = [];
+    for (const ty of [3, 7, 11]) for (let tx = 1; tx < 21; tx += 2) spots.push([tx, ty]);
+    let placed = 0;
+    let i = 0;
+    for (; i < spots.length && placed < 12; i++) {
+      const [id, pathId] = GROUND[placed % 2];
+      const t = sim.placeTower(id, spots[i][0], spots[i][1]);
+      if (!t) continue;
+      placed++;
+      const p = real[id].paths.findIndex((q) => q.id === pathId);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p, { restoring: true });
+    }
+    let kanna = null;
+    for (; i < spots.length && !kanna; i++) kanna = sim.placeTower('kanna', spots[i][0], spots[i][1]);
+    expect(placed).toBe(12);
+    expect(kanna).toBeTruthy();
+    gainHeroXp(sim, kanna, xpToReach(kanna.def.hero, 24), 'restore');
+    expect(sim.towers.filter((t) => t.eff.behavior === 'spikes')).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.vine?.max === 2)).toHaveLength(6);
+    expect(kanna.stats.quake).toBeTruthy();
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const kinds = ['blob', 'blob', 'blob', 'armoredBlob', 'fieldOni', 'guardOrc', 'leech', 'flyer'];
+    const len = sim.pathData[0].length;
+    for (let j = 0; j < 200; j++) sim.spawnEnemy(kinds[j % kinds.length], { dist: (j / 200) * (len - 8) });
+    for (let j = 0; j < 120; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    const most = { vines: 0, spikeRows: 0, quakes: 0 };
+    const t0 = performance.now();
+    for (let j = 0; j < steps; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+      if (j % 20 === 0) for (const k of Object.keys(most)) most[k] = Math.max(most[k], sim.towers.reduce((a, t) => a + (t[k]?.length || 0), 0));
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] ground shapes: ${sim.enemies.length} enemies, ${sim.towers.length} girls, at most ${most.vines} vines, ${most.spikeRows} spike rows, ${most.quakes} quake rings: ${perStep.toFixed(3)} ms/step`);
+    expect(sim.enemies.length).toBeGreaterThan(150);
+    expect(most.vines).toBeGreaterThanOrEqual(6);
+    expect(most.spikeRows).toBeGreaterThanOrEqual(6);
+    expect(most.quakes).toBeGreaterThanOrEqual(1);
     expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
   });
 });

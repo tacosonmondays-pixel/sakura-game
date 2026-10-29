@@ -135,12 +135,14 @@ describe('campaign battles are bit-identical to before freeplay', () => {
 // autoPlan buys tier 4s (Yuki 2-4-0 with Frostbite's Shatter Point: Brittle 25 → 30 %, +25 % damage,
 // and others whose rows the pass changed); with the pre-merge units.js the merged sim reproduces every
 // digest here. The outcome is the same (lost on wave 30).
+// Re-pinned for the attack shapes S3 (data: Yuki's Frostbite T4-5 becomes Rising Spikes): solo['8-5'] only, 0281ca62 →
+// 90d9657a (its plan buys Yuki 2-4-0); with the S2 units.js the S3 sim reproduces every digest here. Same outcome: lost on wave 30.
 const GOLDEN = {
   tables: '3018:8bded117',
   solo: {
     '1-3': { digest: '2a092051', wave: 15, won: true },
     '4-2': { digest: '7926f22f', wave: 13, won: false },
-    '8-5': { digest: '0281ca62', wave: 30, won: false },
+    '8-5': { digest: '90d9657a', wave: 30, won: false },
   },
   coopEndless: {
     coop: { digest: '86503440', wave: 22, won: true },
@@ -166,8 +168,9 @@ const HEROLESS = {
 // these battles field Hikari, who levels on her hero track since the hero rework, and the path-cap
 // tier data; the same battles with the rule off are the GOLDEN.solo / coopEndless digests above,
 // which did not move (4-2 Hard is lost by this team with the rule off too, at wave 13).
+// Re-pinned for the attack shapes S3 (Yuki's Rising Spikes, as GOLDEN.solo above): '8-5' a1fc2ade → fba137a8, lost on wave 30.
 const RULED = {
   '4-2': { digest: '887447f2', wave: 12, won: false },
-  '8-5': { digest: 'a1fc2ade', wave: 30, won: false },
+  '8-5': { digest: 'fba137a8', wave: 30, won: false },
   coop: { digest: 'b8a73060', wave: 22, won: true },
 };

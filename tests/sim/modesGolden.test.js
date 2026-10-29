@@ -117,8 +117,13 @@ const GACHA_GOLDEN = {
   'kinu:6-1:hard': 'W26/40/66433/703/3642addf',
   'ouka:5-4:hard': 'W27/33/93051/1227/7d2e511b',
   'ouka:8-4:hard': 'W30/37/55156/3033/b83b4bb6',
-  'chigusa:5-4:hard': 'W27/34/93158/774/e2b016f0',
-  'chigusa:8-4:hard': 'W30/41/54755/1802/185583ae',
+  // (re-pinned for Bramble Road, attack shapes S3: her vine grows along the road, slows and lashes; was
+  // 'W27/36/90183/930/cf2018c6' / 'W30/41/54755/1802/185583ae'; lives and waves unchanged). 8-4 again at the S3 review
+  // (was 'W30/41/55092/1805/11b09815': vines skip grounded flyers and walkers already held; 41 → 42 lives)
+  // 5-4 re-pinned again at the v0.1.60 merge: main's Gate Arc free team without Azami (main's own pin moved to
+  // 'W27/34/93158/774/e2b016f0') together with Bramble Road; waves unchanged
+  'chigusa:5-4:hard': 'W27/33/93500/785/76732ad0',
+  'chigusa:8-4:hard': 'W30/42/54605/1831/fa2f45f7',
   // (re-pinned for her rework, Oct 21: ricochet Spin Shot, the lob on every path, damage in the regular
   // band and her own lane on a shared stretch; 37 → 38 and 36 → 40 lives). Re-pinned for v0.1.41 (was
   // 'W27/38/100632/1471/ac3188a3' / 'W30/40/53939/1579/6c70e78'): her lob is flyers only (it also hit
