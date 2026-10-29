@@ -285,12 +285,15 @@ export function landMarionette(s) {
   if (s.stage === 'command') {
     // the rest of Command is skipped; Extend gets CATCH_UP
     s.plan.extend = Math.min(s.plan.extend, CATCH_UP);
+    // the catch-up glide is short already: no 3-frame spread (it would trail the hit by up to 3 frames)
+    s.blendNext = false;
     enter(s, 'extend');
     return true;
   }
   if (s.stage === 'extend') {
     // hovering for this needle: it is in, strike now
     s.wait = 0;
+    s.blend = 0;
     if ((1 - s.u) / s.rate > CATCH_UP) s.rate = (1 - s.u) / CATCH_UP;
     return true;
   }

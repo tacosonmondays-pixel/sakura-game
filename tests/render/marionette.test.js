@@ -658,3 +658,17 @@ describe('marionette clock across a pause', () => {
     expect(m.speed).toBeCloseTo(fast, 5);
   });
 });
+
+describe('marionette: a needle landing during Command', () => {
+  it('the catch-up glide is not spread over 3 frames (the strike stays within CATCH_UP)', async () => {
+    const L = await import('../../src/render/marionetteLogic.js');
+    const s = L.marionetteState();
+    s.stage = 'command';
+    s.plan = { command: 0.1, extend: 0.3, strike: 0.1, reel: 0.3, settle: 0.2 };
+    s.blendNext = true;
+    s.blend = 0;
+    expect(L.landMarionette(s)).toBe(true);
+    expect(s.stage).toBe('extend');
+    expect(s.blendNext).toBe(false);
+  });
+});

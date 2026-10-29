@@ -46,14 +46,20 @@ export function ghostPlan(quality, reduceMotion) {
  */
 export function dashOffset(idx, count, reach) {
   if (!(reach > 0) || count <= 0) return 0;
-  return (reach * (idx + 1)) / count;
+  if (count === 1) return reach;
+  // from 0.6 to all of the way, the first at least DASH_NEAR out: a copy closer than that stands inside her own
+  // figure and shadow and is hidden behind her
+  const f = reach * (0.6 + (0.4 * idx) / (count - 1));
+  return Math.min(reach, Math.max(DASH_NEAR, f));
 }
+/** The nearest a dash copy stands to her (tiles), unless her whole reach is shorter. */
+export const DASH_NEAR = 0.55;
 
 /** Opacity of ghost `idx` (0 = the first, oldest one of its dash) at life fraction k (pure). */
 export function ghostAlpha(k, idx, count, peak = GHOST_PEAK) {
   if (k >= 1) return 0;
   k = k < 0 ? 0 : k;
-  // the later copies (closer to her) are brighter
+  // the later copies (nearer her target) are brighter
   const rank = count > 1 ? 0.55 + 0.45 * (idx / (count - 1)) : 1;
   const f = 1 - k;
   return peak * rank * f * f;

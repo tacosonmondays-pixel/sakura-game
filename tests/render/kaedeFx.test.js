@@ -277,8 +277,11 @@ describe('dash afterimages', () => {
   });
 
   it('the copies step out toward her target, the last one `reach` ahead', () => {
-    expect(dashOffset(0, 4, 0.8)).toBeCloseTo(0.2);
+    expect(dashOffset(0, 4, 0.8)).toBeCloseTo(0.55); // 0.48, lifted to DASH_NEAR (clear of her own figure)
     expect(dashOffset(3, 4, 0.8)).toBeCloseTo(0.8);
+    expect(dashOffset(0, 2, 0.9)).toBeCloseTo(0.55);
+    expect(dashOffset(1, 2, 0.9)).toBeCloseTo(0.9);
+    expect(dashOffset(0, 2, 0.4)).toBeCloseTo(0.4); // a short reach: never past it
     expect(dashOffset(1, 4, 0)).toBe(0);
     const { ctx, model } = ghostCtx('high');
     const parent = new THREE.Group();
@@ -288,8 +291,8 @@ describe('dash afterimages', () => {
     const shown = parent.children.filter((c) => c.visible);
     expect(shown.length).toBe(2);
     const zs = shown.map((c) => c.position.z - model.position.z).sort((a, b) => a - b);
-    // two copies, half and all of the way: 0.4 tiles apart, so each figure reads on its own
-    expect(zs[0]).toBeCloseTo(0.4);
+    // two copies, the first clear of her own figure (≥ 0.55), the last all of the way
+    expect(zs[0]).toBeCloseTo(0.55);
     expect(zs[1]).toBeCloseTo(0.8);
     expect(shown.every((c) => Math.abs(c.position.x - model.position.x) < 1e-9)).toBe(true);
     G.dispose();
