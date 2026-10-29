@@ -361,8 +361,8 @@ try {
   if (p0k?.pounce != null) {
     const ep = await page.evaluate((uid) => { const e = window.__battle.sim.enemies.find((x) => x.uid === uid); return e ? [e.x, e.y] : null; }, p0k.pounce);
     const kp = [p0k.x, p0k.z];
-    await zoomAt((kp[0] + (ep?.[0] ?? kp[0])) / 2, (kp[1] + (ep?.[1] ?? kp[1])) / 2, 6);
-    const box = await boxAround([[kp[0], kp[1], 0], [kp[0], kp[1], 1.2], ...(ep ? [[ep[0], ep[1], 0], [ep[0], ep[1], 1.2]] : [])], 60, Math.round(VW * 0.42), Math.round(VH * 0.55));
+    await zoomAt((kp[0] + (ep?.[0] ?? kp[0])) / 2, (kp[1] + (ep?.[1] ?? kp[1])) / 2, VW > 1000 ? 4 : 6); // (a wider view: the leap stays in frame)
+    const box = await boxAround([[kp[0], kp[1], 0], [kp[0], kp[1], 1.2], ...(ep ? [[ep[0], ep[1], 0], [ep[0], ep[1], 1.2]] : [])], 90, Math.round(VW * 0.42), Math.round(VH * 0.55));
     let top = 0;
     const phases = [];
     for (let i = 0; i < 12; i++) {
