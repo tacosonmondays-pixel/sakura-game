@@ -41,6 +41,8 @@ export function procSpec(base, p) {
   if (p.splash) o.splash = (base.splash || 0) + p.splash;
   if (p.pierce) o.pierce = (base.pierce || 0) + p.pierce;
   if (p.maxTargets) o.maxTargets = (base.maxTargets || 0) + p.maxTargets;
+  // (more projectiles on the rhythm's volley: Kogane's Spare Rivets; absent on every other rhythm)
+  if (p.projectiles) o.projectiles = (base.projectiles || 1) + p.projectiles;
   if (p.range) o.range = (base.range || 0) + p.range;
   if (p.silence) o.silence = (base.silence || 0) + p.silence;
   if (typeof p.dotMul === 'number' && p.dotMul !== 1 && base.status) {
@@ -173,6 +175,7 @@ export function ultWithPotential(effect, u) {
   if (!u) return effect;
   const e = { ...effect };
   if (u.radius) e.radius = (e.radius || 0) + u.radius;
+  if (u.length && typeof e.length === 'number') e.length += u.length;
   if (u.duration) e.duration = (e.duration ?? 0) + u.duration;
   if (u.buffDuration) e.buffDuration = (e.buffDuration ?? e.duration ?? 0) + u.buffDuration;
   if (u.rateBuff) {

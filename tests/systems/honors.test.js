@@ -18,8 +18,8 @@ const claimed = (...ids) => {
 };
 
 describe('the tables (stable interface for the profile)', () => {
-  it('HONOR_RIBBONS: 34 ribbons, id = the achievement id, class and effect', () => {
-    expect(HONOR_RIBBONS).toHaveLength(34);
+  it('HONOR_RIBBONS: 37 ribbons, id = the achievement id, class and effect', () => {
+    expect(HONOR_RIBBONS).toHaveLength(37);
     for (const h of HONOR_RIBBONS) {
       expect(ACHIEVEMENT_MAP[h.id].honor.name).toBe(h.name);
       expect(['plain', 'shiny', 'special']).toContain(h.class);
@@ -27,18 +27,18 @@ describe('the tables (stable interface for the profile)', () => {
       if (h.effect) expect(HONOR_EFFECTS[h.effect]).toBe(h.effectName);
       expect(HONOR_MAP[h.id]).toBe(h);
     }
-    expect(HONOR_RIBBONS.map((h) => h.no)).toEqual(Array.from({ length: 34 }, (_, i) => i + 1));
+    expect(HONOR_RIBBONS.map((h) => h.no)).toEqual(Array.from({ length: 37 }, (_, i) => i + 1));
     const by = (c) => HONOR_RIBBONS.filter((h) => h.class === c).length;
-    expect([by('plain'), by('shiny'), by('special')]).toEqual([18, 8, 8]);
+    expect([by('plain'), by('shiny'), by('special')]).toEqual([19, 9, 9]); // + Tryout Day's Grade 4, 8 and 12 ribbons
     const fx = HONOR_RIBBONS.filter((h) => h.effect).map((h) => h.effect);
-    expect(new Set(fx).size).toBe(8);
+    expect(new Set(fx).size).toBe(9);
     for (const f of fx) expect(EFFECT_LINES[f].length).toBeGreaterThan(10);
   });
 
-  it('TITLES: 52 titles on 3 plates (48 + the 4 standard titles of the hidden Act II rows), id = the achievement id, a freeplay title or a player-tag title', () => {
-    expect(TITLES).toHaveLength(52);
+  it('TITLES: 54 titles on 3 plates (48 + the 4 standard titles of the hidden Act II rows + Tryout Day\'s Head Scout and Grade 12 Sensei), id = the achievement id, a freeplay title or a player-tag title', () => {
+    expect(TITLES).toHaveLength(54);
     const by = (pl) => TITLES.filter((t) => t.plate === pl).length;
-    expect([by('prism'), by('gold'), by('standard')]).toEqual([9, 18, 25]);
+    expect([by('prism'), by('gold'), by('standard')]).toEqual([10, 18, 26]);
     expect(TITLES.filter((t) => t.wave === 'act2').map((t) => t.id)).toEqual(['a_clear_80', 'a_gold_80', 'a_sakura_80', 'a_quad_80']);
     // the three player-tag titles (src/data/playerTags.js): Developer + Alpha Tester on prism, Beta Tester on gold
     expect(TITLES.filter((t) => t.tag).map((t) => [t.id, t.name, t.plate])).toEqual([
@@ -55,9 +55,9 @@ describe('the tables (stable interface for the profile)', () => {
     expect(TITLE_MAP.fp_crimson).toMatchObject({ name: 'Crimson Slayer', plate: 'prism' });
   });
 
-  it('this build: 34 ribbons and 45 titles (launch 32 / 37 + the social wave + the Codex wave; the tag titles never count for everyone)', () => {
-    expect(liveRibbons()).toHaveLength(34);
-    expect(liveTitles()).toHaveLength(45);
+  it('this build: 37 ribbons and 47 titles (launch 32 / 37 + the social wave + the Codex wave + Tryout Day; the tag titles never count for everyone)', () => {
+    expect(liveRibbons()).toHaveLength(37);
+    expect(liveTitles()).toHaveLength(47);
     expect(liveTitles().some((t) => t.tag)).toBe(false);
   });
 
@@ -133,7 +133,7 @@ describe('ownership comes from the claims alone', () => {
 
   it('honorCount is the public card count, clamped to 999', () => {
     const p = claimed(...HONOR_RIBBONS.map((h) => h.id));
-    expect(honorCount(p)).toBe(34); // with the Codex wave's holo ribbon (v0.1.45)
+    expect(honorCount(p)).toBe(37); // with the Codex wave's holo ribbon (v0.1.45) and Tryout Day's three
   });
 });
 
@@ -173,7 +173,7 @@ describe('titleTier and titleTable', () => {
     const t = titleTable();
     expect(t.a_sakura_40).toEqual({ text: 'Thousand-Petal Sentinel', tier: 'prism' });
     expect(t.a_first_win).toEqual({ text: 'Rookie Sentinel', tier: 'std' });
-    expect(Object.keys(t)).toHaveLength(52); // 45 + 4 hidden Act II + the three player-tag titles (a lookup, never a count)
+    expect(Object.keys(t)).toHaveLength(54); // 45 + 4 hidden Act II + Tryout Day's 2 + the three player-tag titles (a lookup, never a count)
     expect(t.tag_alpha).toEqual({ text: 'Alpha Tester', tier: 'prism' });
   });
 });

@@ -196,9 +196,10 @@ try {
     check(cards.rei === null, `${tag} students: no pill at P1 (Rei)`);
     const kCard = await rectOf(page, '.unit-card[data-unit="kaede"]');
     const kPill = await rectOf(page, '.unit-card[data-unit="kaede"] [data-testid="card-pot"]');
-    const kBadges = await rectOf(page, '.unit-card[data-unit="kaede"] .mb-card-badges');
-    const kLevel = await rectOf(page, '.unit-card[data-unit="kaede"] .unit-card-level');
-    check(inside(kPill, kCard) && overlap(kPill, kBadges) === 0 && overlap(kPill, kLevel) === 0, `${tag} students: the pill sits inside the card, under "Lv.30", clear of the badges ${JSON.stringify({ kCard, kPill, kBadges, kLevel })}`);
+    // (a girl tile, UI v2 M3: the pill in the status corner, the role mark top right, LV in the caption)
+    const kBadges = await rectOf(page, '.unit-card[data-unit="kaede"] :is(.mb-card-badges, .role)');
+    const kLevel = await rectOf(page, '.unit-card[data-unit="kaede"] :is(.unit-card-level, [data-testid="card-lv"])');
+    check(inside(kPill, kCard) && kBadges && kLevel && overlap(kPill, kBadges) === 0 && overlap(kPill, kLevel) === 0, `${tag} students: the pill sits inside the card, clear of the role mark and "LV 30" ${JSON.stringify({ kCard, kPill, kBadges, kLevel })}`);
     await page.selectOption('.mb-sort select', 'potential');
     await page.waitForTimeout(400);
     const order = await page.evaluate(() => [...document.querySelectorAll('.mb-student-grid .unit-card')].map((c) => c.dataset.unit));
@@ -211,8 +212,9 @@ try {
     await go(page, '#/formation', '.mb-fslot.filled[data-unit="kaede"]');
     const fs = await rectOf(page, '.mb-fslot.filled[data-unit="kaede"]');
     const fp = await rectOf(page, '.mb-fslot.filled[data-unit="kaede"] [data-testid="fslot-pot"]');
-    const fx = await rectOf(page, '.mb-fslot.filled[data-unit="kaede"] .mb-fslot-x');
-    check(inside(fp, fs) && overlap(fp, fx) === 0, `${tag} formation: Kaede's squad slot pill is inside the slot, clear of the ×`);
+    // (a girl tile since UI v2 M3: no ×, a tap takes her out; the pill keeps clear of the role mark)
+    const fx = await rectOf(page, '.mb-fslot.filled[data-unit="kaede"] :is(.mb-fslot-x, .role)');
+    check(inside(fp, fs) && fx && overlap(fp, fx) === 0, `${tag} formation: Kaede's squad slot pill is inside the slot, clear of the role mark`);
     await shot(page, `formation-${tag}`);
     await go(page, '#/stage/1-1', '.ma-fslot .unit-card[data-unit="kaede"]');
     const ps = await rectOf(page, '.ma-fslot .unit-card[data-unit="kaede"]');
@@ -386,8 +388,10 @@ try {
       (await import('/src/ui/selectTicket.js')).openSelectTicket();
     });
     await page.waitForSelector('[data-testid="sst-hotaru"]');
-    const pick = await page.evaluate(() => document.querySelector('.sst p')?.textContent);
-    check(/Already in your academy\? She gains 1 Essence for her next Potential step \(past her Essence cap: 10 Moonpearls and 5 recruit points\)\./.test(pick), `${tag} select ticket: picker text "${pick}"`);
+    const pick = await page.evaluate(() => document.querySelector('.bp-sst p')?.textContent);
+    // the kit dialog (BANNERS: the LR units by name, never from a ticket) and the dupe line
+    check(/One you already have gains 1 Essence for her next Potential step \(past her Essence cap: 10 Moonpearls and 5 recruit points\)\./.test(pick), `${tag} select ticket: picker text "${pick}"`);
+    check(/but Tenka and Kohaku & Tsubaki, who come only from their LR Banners/.test(pick), `${tag} select ticket: names the LR units "${pick}"`);
     // a P6 girl (Kaede) holds no Essence: the ticket becomes her spare payout (then cancel)
     await page.click('[data-testid="sst-kaede"]');
     await page.waitForSelector('[data-testid="confirm-cancel"]');

@@ -218,6 +218,34 @@ for (const { name, r } of results) {
   if (!(bounced > 0 && finales > 0)) failures.push(`the Glow Bowl battle: no bounce or no finale (${g.bowl})`);
 }
 
+// the duo Kohaku & Tsubaki (DUO_START): Refraction, Kohaku's beam, Prismfall on Auto-cast, the LR Twin Star
+log('\nScripted co-op DUO battle (2-5, DUO_START: Refraction to Constellation Lattice, Kohaku\'s beam, Prismfall on Auto-cast, the host\'s LR Twin Star):');
+for (const { name, r } of results) {
+  const g = r.duo;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · refract/shards/beams/casts/twinStar/aims ${g.duo} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two duo-battle clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} duo battle command(s) refused: ${g.refused}`);
+  for (const k of [...POT_KEYS.filter((x) => x !== 'aoi'), 'tiers', 'duo', 'dealt']) if (g[k] !== ref.duo[k]) failures.push(`${name}: duo ${k} ${g[k]} ≠ ${ref.duo[k]} (${results[0].name})`);
+}
+{
+  const [refract, , beams, casts, twinStar] = ref.duo.duo.split('/').map(Number);
+  if (!(refract > 0 && beams > 0 && casts > 0 && twinStar > 0)) failures.push(`the duo battle: a part never ran (refract/shards/beams/casts/twinStar/aims ${ref.duo.duo})`);
+}
+
+// the staff heroes (STAFF_START): Norika's barricades and Hold the Line on a forked map, Kogane's plow and Moves
+log('\nScripted co-op STAFF battle (2-2, STAFF_START: Norika\'s barricades and Hold the Line, Kogane\'s Clear the Road and Moves):');
+for (const { name, r } of results) {
+  const g = r.staff;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · held/breaks/lines/oneWay/detours/plows/moves ${g.staff} · heroes Lv ${g.heroLevels} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two staff-battle clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} staff battle command(s) refused: ${g.refused}`);
+  for (const k of ['ticks', 'state', 'wave', 'wallets', 'final', 'hashes', 'staff', 'heroLevels']) if (g[k] !== ref.staff[k]) failures.push(`${name}: staff ${k} ${g[k]} ≠ ${ref.staff[k]} (${results[0].name})`);
+}
+{
+  const [held, breaks, lines, , , plows, moves] = ref.staff.staff.split('/').map(Number);
+  if (!(held > 0 && breaks > 0 && lines > 0 && plows > 0 && moves > 0)) failures.push(`the staff battle: a part never ran (held/breaks/lines/oneWay/detours/plows/moves ${ref.staff.staff})`);
+}
+
 // co-op freeplay: the same wave tables and the same whole freeplay battle everywhere
 const FP_KEYS = ['ticks', 'state', 'wave', 'cleared', 'finished', 'goalTick', 'endTicks', 'towers', 'wallets', 'lives', 'bosses', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckTick', 'ckDigest', 'ckReplay', 'finalDigest'];
 log('\nScripted co-op FREEPLAY battle (Crimson Moon on 1-3, past the goal, ended by a Finish vote):');
@@ -365,6 +393,15 @@ for (const { name, r } of results) {
   log(`  towers: ${b.towers} · absorbed ${b.absorbed} · lab team ${b.members}`);
   // (the same coverage check as tests/online/engines.test.js: every lab class, both absorbs, each weapon)
   for (const miss of battle.tenkaCoverage(b)) failures.push(`the Tenka battle: ${miss}`);
+}
+// Tryout Day: a 2-player run on two views to wave 16, a third client rejoining from the wave-9 checkpoint
+const TY_KEYS = ['wave', 'lives', 'score', 'squads', 'lastDigest', 'digests', 'hash'];
+log('\nScripted co-op TRYOUT DAY run (two views, personal picks, a Tryout join, Recess moves, a rejoin at wave 9):');
+for (const { name, r } of results) {
+  const b = r.tryout;
+  log(`  ${name.padEnd(46)} wave ${b.wave} · ♥ ${b.lives} · score ${b.score} · ${b.digests} calm digests → ${b.lastDigest} · hash ${b.hash}`);
+  if (!b.sameViews) failures.push(`${name}: its two Tryout Day views disagreed`);
+  for (const k of TY_KEYS) if (JSON.stringify(b[k]) !== JSON.stringify(ref.tryout[k])) failures.push(`${name}: tryout ${k} ${JSON.stringify(b[k])} ≠ ${JSON.stringify(ref.tryout[k])} (${results[0].name})`);
 }
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
 for (const fn of Object.keys(ref.math.native)) {

@@ -44,6 +44,11 @@ export function invitesFeatureFlag(search = globalThis.location?.search || '') {
   return new URLSearchParams(search).get('invites') !== '0';
 }
 
+/** `?support=0`: the live project before the owner pastes the friend support SQL (needs_update). */
+export function supportFeatureFlag(search = globalThis.location?.search || '') {
+  return profileFeatureFlag(search) && new URLSearchParams(search).get('support') !== '0';
+}
+
 /** `?tags=0`: the live project before the owner runs the player tags SQL (no table: no chips). */
 export function tagsFeatureFlag(search = globalThis.location?.search || '') {
   return new URLSearchParams(search).get('tags') !== '0';
@@ -56,7 +61,7 @@ export function createLocalAdapter(env = {}) {
   const storage = env.storage || globalThis.localStorage;
   const session = env.session || globalThis.sessionStorage;
   const BC = env.BC || globalThis.BroadcastChannel;
-  const features = env.features || { social: socialFeatureFlag(), profile: profileFeatureFlag(), invites: invitesFeatureFlag(), tags: tagsFeatureFlag() };
+  const features = env.features || { social: socialFeatureFlag(), profile: profileFeatureFlag(), invites: invitesFeatureFlag(), tags: tagsFeatureFlag(), support: supportFeatureFlag() };
   const listeners = new Map(); // topic -> Set<fn>
   let bus = null;
   let uid = null;
@@ -233,6 +238,35 @@ export function createLocalAdapter(env = {}) {
     },
     async claimBossReward(week) {
       return db.claimBossReward(me(), week);
+    },
+
+    // ---- [friend support] Support Students and Friend Points (localSupport.js) -----------------
+    async supportProbe() {
+      return db.supportProbe();
+    },
+    async mySupport() {
+      return db.mySupport(me());
+    },
+    async setSupport(unit, hash, lend) {
+      return db.setSupport(me(), unit, hash, lend);
+    },
+    async supportCandidates() {
+      return db.supportCandidates(me());
+    },
+    async useSupport(owner, unitId, key, day) {
+      return db.useSupport(me(), owner, unitId, key, day);
+    },
+    async settleSupport(key) {
+      return db.settleSupport(me(), key);
+    },
+    async supportState() {
+      return db.supportState(me());
+    },
+    async claimSupportPoints(key, room) {
+      return db.claimSupportPoints(me(), key, room);
+    },
+    async supportSummary() {
+      return db.supportSummary(me());
     },
 
     // ---- clan invites + the daily recruiting post (localClanInvites.js) ------------------------

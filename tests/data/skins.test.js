@@ -67,12 +67,24 @@ describe('skins data', () => {
     for (const s of SKINS) {
       expect(UNIT_MAP[s.unitId], s.id).toBeTruthy();
       expect(SKIN_ACQUISITION).toContain(s.acquisition.type);
-      expect(s.id).toMatch(/^[a-z0-9]+_[a-z0-9]+$/);
+      // (a duo's unit id joins its members: kohaku_tsubaki_default)
+      expect(s.id).toMatch(/^[a-z0-9]+(_[a-z0-9]+)?_[a-z0-9]+$/);
+      expect(s.id.startsWith(`${s.unitId}_`), s.id).toBe(true);
     }
   });
 
   it('every row has a model in the character manifest (or is a procedural stand-in) and every outfit a thumbnail file', () => {
     for (const s of SKINS) {
+      const duo = UNIT_MAP[s.unitId]?.duo;
+      if (duo && s.kind === 'default') {
+        // a duo's figure is its members' models side by side (src/models/duo.js): one GLB each, none of its own
+        expect(manifest[s.asset], `${s.id}: no model of its own`).toBeUndefined();
+        for (const m of duo.members) {
+          expect(manifest[m], `${s.id} member ${m}`).toBeTruthy();
+          expect(manifest[m].file).toBe(`${m}.glb`);
+        }
+        continue;
+      }
       if (isStandIn(s.asset)) {
         // the returning girls' default rows: drawn procedurally until real art (src/models/standins.js)
         expect(s.kind, s.id).toBe('default');

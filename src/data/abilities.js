@@ -48,7 +48,10 @@
 //           each cast (Tenka's Zero Point)
 //   burst   at ('self' | 'densest' crowd within reachMul × range), radius | radiusMul, shells, delay,
 //           every (s between shells), reaim (each shell picks its point again), dmgMul, knockback,
-//           hitsAir, status
+//           hitsAir, status; at: 'aim' (the cast's aim point, else her mortar aim, else the densest crowd within
+//           reach); shards / shardMul / shardRadius: each shell splits into that many shards of light (×
+//           her hit, mystic, they hit flyers) at the fixed PRISM_SHARDS table; finale { dmgMul, radius }: one
+//           more shell on the spot after the last (the LR Twin Star)
 //   boost   mods: a ModSet on the caster for `duration` (CONTRACTS §3; resolved after every other set)
 //   rally   radius | inAura (her aura's reach), dmgMul, rateMul, rangeMul, detection, cleanse,
 //           ward (blocks new sabotage while it lasts); both players' girls, strongest per key wins;
@@ -77,6 +80,11 @@
 //   whole map for map scope, `reach: 'leash'` = her drones' leash). Auto picks a decent moment,
 //   not a perfect one. 'flyers': a flyer in the sky (map scope: anywhere), or ≥ min enemies;
 //   'sabotage': a girl inside her rally's radius is sabotaged, or ≥ min enemies within it.
+//   'cluster': ≥ min enemies her ability can hit stand within `radius` of one of them (densestPoint), or (orBoss)
+//   a boss is on the road (Prismfall).
+//
+// `lr` (the LR form, BANNERS §C.2): an upgrade like `t5`, merged on top of everything else only while the
+// girl's battle stats carry `lr: true` (her loadout entry, so co-op partners see the same form).
 
 /**
  * Global rules (spec §3.2, §3.3). Skill Haste on abilities (half rate, never rallies or debuffs; GEAR_STATS §B.4,
@@ -94,7 +102,7 @@ export const ABILITY_RULES = Object.freeze({
 
 export const ABILITY_KINDS = Object.freeze(['boost', 'rally', 'strike', 'burst', 'debuff', 'econ', 'deploy', 'move', 'zone', 'runner']);
 export const ABILITY_SCOPES = Object.freeze(['local', 'map', 'player']);
-export const AUTO_WHEN = Object.freeze(['enemies', 'elite', 'leak', 'veiled', 'caster', 'poisoned', 'ready', 'flyers', 'sabotage']);
+export const AUTO_WHEN = Object.freeze(['enemies', 'elite', 'leak', 'veiled', 'caster', 'poisoned', 'ready', 'flyers', 'sabotage', 'cluster']);
 
 /** Kinds this build runs (src/sim/abilities.js KINDS; tests/sim/abilities.test.js keeps the two equal). */
 export const ABILITY_KINDS_RUN = Object.freeze(['strike', 'burst', 'boost', 'rally', 'debuff', 'econ']);
@@ -138,6 +146,7 @@ const S = {
   shock: (duration) => ({ type: 'shock', duration }),
   soak: (duration) => ({ type: 'soak', duration }),
   mark: (bonus, duration) => ({ type: 'mark', bonus, duration }),
+  vulnerable: (bonus, duration) => ({ type: 'vulnerable', bonus, duration }),
   silence: (duration) => ({ type: 'silence', duration }),
   reveal: (duration) => ({ type: 'reveal', duration }),
   hold: (duration) => ({ type: 'hold', duration }),
@@ -206,6 +215,28 @@ export const ABILITIES = deepFreeze({
       effect: { pick: 'chain', count: 8, dmgMul: 3, status: [S.ground(3)] },
       auto: { when: 'enemies', min: 4 },
       ranks: [{ level: 17, cooldown: 25, effect: { count: 12, dmgMul: 4 } }],
+    },
+  },
+
+  // the staff heroes of the banners wave (BANNERS §D.3, §D.4; src/data/unitsStaff.js)
+  kogane: {
+    skill: {
+      // the strongest enemies within her range × 1.3: each a blast of 4× her hit (splash 0.4 tiles, the full hit),
+      // ignoring 3 more armor
+      unlockLevel: 7, id: 'kogane.podSalvo', kind: 'strike', scope: 'local', cooldown: 28, duration: 0,
+      effect: { pick: 'strong', count: 4, reachMul: 1.3, dmgMul: 4, splash: 0.4, armorPen: 3 },
+      auto: { when: 'enemies', min: 4, orElite: true },
+      ranks: [{ level: 17, cooldown: 24, effect: { count: 6, dmgMul: 5 } }],
+    },
+  },
+  norika: {
+    skill: {
+      // the lead walkers in her range × 1.3 (her target mode; ground only: flyers are never picked) stop (the `hold`
+      // status: minibosses for half as long, bosses take the damage only) and take 3× her hit
+      unlockLevel: 7, id: 'norika.whistleStop', kind: 'strike', scope: 'local', cooldown: 26, duration: 0,
+      effect: { pick: 'mode', count: 5, reachMul: 1.3, dmgMul: 3, hitsAir: false, status: [S.hold(1.2)] },
+      auto: { when: 'enemies', min: 5, orElite: true },
+      ranks: [{ level: 17, cooldown: 22, effect: { count: 8, dmgMul: 4, status: [S.hold(1.6)] } }],
     },
   },
 
@@ -379,6 +410,24 @@ export const ABILITIES = deepFreeze({
     t5: { cooldown: 30, effect: { allPaths: true, toSpawn: true, dmgMul: 12 } },
   }],
 
+  // ----- the duo (docs/specs/DUO_LR.md §1.4; src/data/unitsDuo.js) -----
+  kohaku_tsubaki: [{
+    // map-wide (one cooldown per player): Tsubaki fires `shells` shells at the cast's aim point, her mortar aim
+    // point, or the densest ground crowd anywhere; each lands for 3× her shell hit and Kohaku splits it into
+    // `shards` shards (1× her hit, mystic, they hit flyers) at the fixed PRISM_SHARDS table; everything hit
+    // turns Brittle; it lasts until the last shell (and the Twin Star) has landed. `lr`: the LR form (Twin Star)
+    // while her battle stats carry `lr: true` (G6 sets it): one more shell on the same spot after the last, 6× her
+    // hit, splash 1.6
+    path: 'refraction', unlockTier: 3, id: 'kohaku_tsubaki.prismfall', kind: 'burst', scope: 'map', cooldown: 45, duration: 2.25,
+    effect: {
+      at: 'aim', radius: 1.15, shells: 8, delay: 0.25, every: 0.25, dmgMul: 3, hitsAir: false,
+      shards: 2, shardMul: 1, shardRadius: 0.6, status: [S.vulnerable(0.1, 4)],
+    },
+    auto: { when: 'cluster', min: 6, radius: 1.5, orBoss: true },
+    t5: { cooldown: 38, duration: 3.25, effect: { shells: 12, dmgMul: 4, shards: 3, status: [S.vulnerable(0.15, 4)] } },
+    lr: { effect: { finale: { dmgMul: 6, radius: 1.6 } } },
+  }],
+
   // ----- the returning girls (ABILITIES_SPEC §5.2; src/data/unitsExpansion.js) -----
   fuu: [{
     // (the move kind, A5) every non-boss enemy within 1.5× her range is blown back (minibosses half as far; the
@@ -462,6 +511,11 @@ export function mergeAbility(def, over) {
 /** A ⚡ path ability at a path tier: the base from its unlock tier, the tier-5 upgrade at tier 5. */
 export function abilityAtTier(entry, tier) {
   return tier >= 5 && entry.t5 ? mergeAbility(entry, entry.t5) : entry;
+}
+
+/** A ⚡ path ability with its LR form merged in (`lr`: her battle stats carry `lr: true`), else as it was. */
+export function abilityWithLr(def, entry, lr) {
+  return lr && entry?.lr ? mergeAbility(def, entry.lr) : def;
 }
 
 /** A hero skill at a hero level: every rank whose level is reached, in order. */

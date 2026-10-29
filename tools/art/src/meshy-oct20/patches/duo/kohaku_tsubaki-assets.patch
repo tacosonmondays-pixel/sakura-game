@@ -1,0 +1,140 @@
+--- a/public/models/characters/manifest.json
++++ b/public/models/characters/manifest.json
+@@ -187,6 +187,24 @@
+   "lodSize": 196364,
+   "lodVertices": 2784
+  },
++ "kohaku": {
++  "file": "kohaku.glb",
++  "size": 1128056,
++  "animations": [
++   "attack_beam",
++   "cheer",
++   "hurt",
++   "idle",
++   "walk"
++  ],
++  "vertices": 17097,
++  "triangles": 19997,
++  "source": "meshy",
++  "lod": "kohaku.lod.glb",
++  "lodSize": 537844,
++  "lodVertices": 8411,
++  "lodTriangles": 8997
++ },
+  "luna": {
+   "file": "luna.glb",
+   "size": 454356,
+@@ -612,6 +630,24 @@
+   "lodSize": 215120,
+   "lodVertices": 3117
+  },
++ "tsubaki": {
++  "file": "tsubaki.glb",
++  "size": 1229552,
++  "animations": [
++   "attack_mortar",
++   "cheer",
++   "hurt",
++   "idle",
++   "walk"
++  ],
++  "vertices": 18831,
++  "triangles": 19992,
++  "source": "meshy",
++  "lod": "tsubaki.lod.glb",
++  "lodSize": 568944,
++  "lodVertices": 9350,
++  "lodTriangles": 8989
++ },
+  "umeko": {
+   "file": "umeko.glb",
+   "size": 417292,
+--- a/src/art/portraits.js
++++ b/src/art/portraits.js
+@@ -59,6 +59,10 @@
+   shiro: { face: [49, 25], cut: 0.693 },
+   kage: { face: [49, 21], cut: 0.625 },
+   raika: { face: [48, 21], cut: 0.662 },
++  // the duo unit Kohaku & Tsubaki (Prism Battery): ONE pair illustration, so face is the midpoint of
++  // the two faces (Kohaku 36 %, Tsubaki 66 % across, both at 29 %); the card is a split card (each
++  // half framed on one girl, seam at the UI slant) and the stand shows both girls together
++  kohaku_tsubaki: { face: [51, 29], cut: 0.65 },
+   miko: { face: [46, 21], cut: 0.538 },
+   midori: { face: [46, 21], cut: 0.552 },
+   momo: { face: [46, 22], cut: 0.579 },
+--- /dev/null
++++ b/tests/models/duo-members.test.js
+@@ -0,0 +1,72 @@
++// The duo unit Kohaku & Tsubaki (Prism Battery, abilities/DUO_LR_DESIGN) shows two imported Meshy
++// chibis on one base. They are model assets, not roster units, so tests/models/glb.test.js (which
++// walks UNITS) does not see them: this checks their two GLBs the same way, minus the sword (both
++// girls are built with empty hands; their gear is part of the mesh, see docs/MODELS.md).
++import { describe, it, expect } from 'vitest';
++import { readFileSync, existsSync, statSync } from 'node:fs';
++import path from 'node:path';
++import { fileURLToPath } from 'node:url';
++import { readGlbHeader } from './glbHeader.js';
++
++const here = path.dirname(fileURLToPath(import.meta.url));
++const dir = path.join(here, '..', '..', 'public', 'models', 'characters');
++const manifest = JSON.parse(readFileSync(path.join(dir, 'manifest.json'), 'utf8'));
++
++const DUO_MEMBERS = { kohaku: 'attack_beam', tsubaki: 'attack_mortar' };
++const BONES = ['root', 'hips', 'spine', 'chest', 'neck', 'head', 'upper_arm_L', 'forearm_L', 'hand_L',
++  'upper_arm_R', 'forearm_R', 'hand_R', 'thigh_L', 'shin_L', 'foot_L', 'thigh_R', 'shin_R', 'foot_R'];
++
++describe('duo member GLBs (Kohaku & Tsubaki)', () => {
++  for (const [id, attack] of Object.entries(DUO_MEMBERS)) {
++    it(`${id}: manifest entry with a LOD`, () => {
++      expect(manifest[id]).toMatchObject({ file: `${id}.glb`, lod: `${id}.lod.glb`, source: 'meshy' });
++      expect(manifest[id].animations).toEqual(expect.arrayContaining(['idle', 'walk', 'cheer', 'hurt', attack]));
++    });
++    for (const detail of ['full', 'lod']) {
++      it(`${id} ${detail}: textured figure, rig, clips, eyes, gear anchor`, () => {
++        const file = path.join(dir, `${id}${detail === 'lod' ? '.lod' : ''}.glb`);
++        expect(existsSync(file), file).toBe(true);
++        expect(statSync(file).size).toBeLessThanOrEqual((detail === 'lod' ? 1.25 : 2.5) * 1024 * 1024);
++        const { json, binLength } = readGlbHeader(file);
++        expect(json.buffers[0].byteLength).toBeLessThanOrEqual(binLength);
++        const ex = json.asset.extras;
++        expect(ex).toMatchObject({ unit: id, source: 'meshy', style: 'textured', lod: detail === 'lod', duo: 'kohaku_tsubaki' });
++        expect(ex.height).toBeGreaterThan(1.2);
++        const names = json.animations.map((a) => a.name);
++        for (const c of ['idle', 'walk', 'cheer', 'hurt', attack]) expect(names).toContain(c);
++        for (const a of json.animations) {
++          const dur = Math.max(...a.samplers.map((s) => json.accessors[s.input].max[0]));
++          const cap = { idle: 1.6, cheer: 1.2, hurt: 0.4, walk: 1.2 }[a.name] ?? (a.name.startsWith('attack_') ? 0.6 : 2);
++          expect(dur, `${a.name} length`).toBeLessThanOrEqual(cap + 1e-3);
++        }
++        const joints = json.skins[0].joints.map((j) => json.nodes[j].name);
++        for (const b of BONES) expect(joints).toContain(b);
++        const prims = json.meshes.flatMap((m) => m.primitives);
++        expect(prims).toHaveLength(1);
++        const body = json.materials[prims[0].material];
++        expect(body.pbrMetallicRoughness.baseColorTexture).toBeDefined();
++        expect(body.pbrMetallicRoughness.metallicRoughnessTexture).toBeDefined();
++        expect(!!body.normalTexture).toBe(detail === 'full');
++        for (const im of json.images) expect(im.mimeType).toBe('image/webp');
++        expect(json.extensionsRequired).toEqual(expect.arrayContaining(['KHR_mesh_quantization', 'EXT_texture_webp']));
++        // painted eyes: a mirrored pair on the face, plus the colour guard the closed eye keeps
++        const top = json.accessors[prims[0].attributes.POSITION].max[1] / 32767;
++        const [er, el] = ex.eyes.centers;
++        expect(er[0]).toBeLessThan(0);
++        expect(Math.abs(er[0] + el[0])).toBeLessThan(0.01);
++        expect(Math.abs(er[1] - el[1])).toBeLessThan(0.01);
++        for (const c of ex.eyes.centers) {
++          expect(c[1]).toBeGreaterThan(top * 0.55);
++          expect(c[1]).toBeLessThan(top * 0.85);
++          expect(c[2]).toBeGreaterThan(0);
++        }
++        expect(ex.eyes.hairGuard.hue[0]).toBeLessThan(ex.eyes.hairGuard.hue[1]);
++        // FX anchors: Kohaku's emitter lens (beam) on the chest, Tsubaki's mortar muzzle on the head
++        const anchor = ex.anchors[id === 'kohaku' ? 'beam' : 'muzzle'];
++        expect(joints).toContain(anchor.bone);
++        expect(anchor.pos).toHaveLength(3);
++        expect(anchor.dir).toHaveLength(3);
++      });
++    }
++  }
++});

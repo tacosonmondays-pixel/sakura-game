@@ -5,8 +5,13 @@
 // Freeplay (co-op past the stage's last wave, src/data/freeplay.js) is a room setting next to the
 // difficulty: the host picks Off / Blossom / Tempest / Crimson Moon, the guest sees a chip and
 // their Ready is consent. The Battlefield panel says what freeplay brings and the best wave so far.
+// Tryout Day (docs/specs/TRYOUT_DAY.md §11; the run panel in the kit since M3) is a room setting too: the host turns a
+// run on instead of a stage (locked until the Spring Term clear), picks one of the seed's two maps,
+// and each player drafts 3 of their own six (one Redraw) and picks the hero they bring.
 import '../styles/coop-modes.css';
-import { h, screen, button, svgEl, toast, modal } from '../components.js';
+import '../styles/tryout.css';
+import { h, screen, button, svgEl, toast, modal, girlTile } from '../components.js';
+import { segRow, secondaryBtn } from '../kit.js';
 import { navigate, buildHash } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
@@ -21,7 +26,7 @@ import { freeplayTier, freeplayTable, FREEPLAY_TIERS } from '../../data/freeplay
 import { TIER_PITCH, freeplaySummary } from '../freeplayText.js';
 import { coopBestWaves } from '../../online/coop/rewards.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
-import { isStageUnlocked, modesUnlocked } from '../../systems/unlocks.js';
+import { isStageUnlocked, modesUnlocked, isOwned } from '../../systems/unlocks.js';
 import { MODE_ORDER, modeId } from '../../data/modes.js';
 import { MODE_TEXT } from '../text/modes.js';
 import { ruleTextFor } from '../text/rules.js';
@@ -29,7 +34,11 @@ import { modeIcon } from '../../art/icons.js';
 import { ensureOnline, avatar, levelChip, showError, connecting, storedName, localNotice, PEOPLE_GLYPH } from '../online/common.js';
 import { miniMochi } from '../loading/loader.js';
 import { profileCard } from '../../online/identity.js';
-import { getSession, makeRoomCode, normalizeCode } from '../../online/coop/session.js';
+import { getSession, makeRoomCode, normalizeCode, draftReady } from '../../online/coop/session.js';
+import { draftOf, frozenPool, heroChoices, heroEntry, tryoutUnlocked, newRunSeed, TRYOUT_UNLOCK, TRYOUT_GRADES, gradeOpen, halfCleared } from '../../systems/tryoutRuns.js';
+import { mapChoices } from '../../sim/tryout/plan.js';
+import { TRYOUT } from '../../data/tryout.js';
+import { CLASS_TEXT, gradeTwist, gradeWhy } from '../text/tryout.js';
 import { openSocialSession } from '../../online/coop/socialRoom.js';
 import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
 import { pickLoadout } from '../../online/coop/loadout.js';
@@ -218,7 +227,7 @@ function updateNotice() {
     if (!info) return;
     box.replaceChildren(h('div.ol-banner.ol-banner-row',
       h('span', `A new version${info.version ? ` (${versionLabel(info.version)})` : ''} is out. Update before you play so you and your ally match.`),
-      button('Update', { kind: 'yellow', small: true, icon: 'refresh', testid: 'coop-update-now', onClick: () => reloadFresh(info.build) })));
+      button('Update', { kind: 'primary', small: true, icon: 'refresh', testid: 'coop-update-now', onClick: () => reloadFresh(info.build) })));
   };
   paint(updateAvailable());
   checkForUpdate({ force: true }).then(paint).catch(() => {});
@@ -280,7 +289,8 @@ function versionDiff(mine, theirs) {
 
 export function render(root, params = {}) {
   const code = normalizeCode(params.id || '');
-  const { el, body } = screen(code ? `Co-op · ${code}` : 'Co-op Battle', { cls: 'ol-screen', extra: onlineHeadExtra() });
+  // ([ui-v2 M8] a room's code is on its plate: the bar says Co-op room)
+  const { el, body } = screen(code ? 'Co-op room' : 'Co-op Battle', { cls: 'ol-screen', extra: onlineHeadExtra() });
   root.append(el);
   let destroyed = false;
   let cleanup = () => {};
@@ -322,14 +332,7 @@ export function render(root, params = {}) {
           h('ul.ol-coop-facts',
             h('li', `Enemy HP ×${COOP.hpMul}`),
             h('li', `${formatNumber(coopStartCash(s))} coins each to start`),
-            h('li', freeplay ? `Freeplay ${freeplayTable(freeplay).name}: keep going after wave ${s?.waves}` : 'Coins earned are split between you')),
-          button('Change stage', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-change-stage', onClick: async () => {
-            const r = await pickStage(stageId, difficulty, freeplay, mode);
-            if (!r) return;
-            ({ stageId, difficulty, freeplay, mode } = r);
-            writePref(r);
-            paintStage();
-          } })),
+            h('li', freeplay ? `Freeplay ${freeplayTable(freeplay).name}: keep going after wave ${s?.waves}` : 'Coins earned are split between you'))),
         // freeplay right here (not only inside Change stage): Off or a difficulty tier
         h('div.ol-fp-row.ol-fp-row-hub',
           h('span.ol-fp-label', 'Freeplay'),
@@ -342,9 +345,19 @@ export function render(root, params = {}) {
       );
     };
     paintStage();
+    // [ui-v2 M8] Change stage sits on the panel's foot beside Create room (the stage's lines stay short on a phone)
+    const changeStage = button('Change stage', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-change-stage', onClick: async () => {
+      const r = await pickStage(stageId, difficulty, freeplay, mode);
+      if (!r) return;
+      ({ stageId, difficulty, freeplay, mode } = r);
+      writePref(r);
+      paintStage();
+    } });
 
+    // [ui-v2 M8] one yellow: Rejoin when there is a last room to go back to, else Create room
+    const hasLast = !!lastRoom(backend.uid);
     const create = button('Create room', {
-      kind: 'yellow', icon: 'plus', testid: 'coop-create',
+      kind: hasLast ? 'primary' : 'yellow', icon: 'plus', testid: 'coop-create',
       onClick: () => {
         writePref({ stageId, difficulty, freeplay, mode });
         navigate('coop', { id: makeRoomCode(), host: '1', stage: stageId, difficulty, ...(freeplay ? { freeplay } : {}), ...(mode !== 'standard' ? { mode } : {}) });
@@ -406,7 +419,7 @@ export function render(root, params = {}) {
             }
             rows.push(h('div.ol-invite-row', { 'data-room': m.meta.room, 'data-testid': 'invite-row-dm' }, avatar(m.avatar, 34),
               h('div', h('b', m.name), h('small.muted', ` ${stageLabel(m.meta.stage)} · private invite`)),
-              button('Join', { kind: 'yellow', small: true, testid: 'invite-row-join', onClick: () => joinInvite(m) })));
+              button('Join', { kind: 'primary', small: true, testid: 'invite-row-join', onClick: () => joinInvite(m) })));
           }
         }
         const mine = await backend.myClan();
@@ -416,7 +429,7 @@ export function render(root, params = {}) {
           const msgs = (await backend.history(`clan:${mine.clan.id}`, 50)).filter((m) => m.kind === 'invite' && m.meta?.room && m.userId !== backend.uid && !social.isBlocked(m.userId) && Date.now() - m.createdAt < 15 * 60000).reverse();
           for (const m of msgs.slice(0, 4)) {
             rows.push(h('div.ol-invite-row', { 'data-room': m.meta.room }, avatar(m.avatar, 34), h('div', h('b', m.name), h('small.muted', ` ${stageLabel(m.meta.stage)}`)),
-              button('Join', { kind: 'yellow', small: true, testid: 'invite-row-join', onClick: () => navigate('coop', { id: m.meta.room }) })));
+              button('Join', { kind: 'primary', small: true, testid: 'invite-row-join', onClick: () => navigate('coop', { id: m.meta.room }) })));
           }
         }
         if (destroyed) return;
@@ -442,7 +455,7 @@ export function render(root, params = {}) {
         h('section.panel.ol-coop-create', { 'data-testid': 'coop-create-panel' },
           h('h3.panel-title', 'Host a room'),
           stagePane,
-          h('div.ol-row-end', create)),
+          h('div.ol-row-end.ol-coop-foot', changeStage, create)),
         h('div.ol-coop-right',
           lastPanel(),
           h('section.panel.ol-coop-join',
@@ -634,7 +647,10 @@ export function render(root, params = {}) {
       }
       // an ally's chips open the ally's girl, never your own copy of her
       const ally = me ? null : p;
-      const units = [p.hero ? unitChip(p.hero.unitId, { hero: true, ally, stats: p.hero.stats }) : null, ...(p.loadout || []).map((e) => unitChip(e.unitId, { ally, stats: e.stats }))].filter(Boolean);
+      // a Tryout Day run: the hero they bring and the girls they drafted (their pool's stats)
+      const units = session.tryout
+        ? [p.runHero ? unitChip(p.runHero.unitId, { hero: true, ally, stats: p.runHero.stats }) : null, ...(p.draft || []).map((id) => unitChip(id, { ally, stats: p.pool?.[id] || null }))].filter(Boolean)
+        : [p.hero ? unitChip(p.hero.unitId, { hero: true, ally, stats: p.hero.stats }) : null, ...(p.loadout || []).map((e) => unitChip(e.unitId, { ally, stats: e.stats }))].filter(Boolean);
       const ready = slot === 0 ? true : !!p.ready;
       // [social] the ally's avatar opens their player card ("Add friend after a good game")
       const face = me || !p.uid ? avatar(p.avatar, 52) : h('button.ol-msg-av', { type: 'button', 'data-testid': 'coop-ally-card', 'aria-label': `${p.name || 'Ally'}: player card`, onclick: () => openPlayerCard(p.uid, p, { context: 'coop' }) }, avatar(p.avatar, 52));
@@ -645,7 +661,7 @@ export function render(root, params = {}) {
             h('div', h('b.ol-pcard-name', p.name || 'Sensei'), me ? h('small.muted', ' (you)') : null),
             h('div.ol-pcard-tags', levelChip(p.level), h('span.ol-pcard-role', slot === 0 ? 'Host' : 'Guest'))),
           h(`span.ol-ready${ready ? '.on' : ''}`, { 'data-testid': `coop-ready-${slot}` }, slot === 0 ? 'HOST' : ready ? 'READY' : 'NOT READY')),
-        h('div.ol-pcard-units', units.length ? units : h('small.muted', 'No girls in formation')));
+        h('div.ol-pcard-units', units.length ? units : h('small.muted', session.tryout ? 'Still drafting' : 'No girls in formation')));
     }
 
     /** The big stage card under the players: map, story line, waves, who you will meet. */
@@ -665,13 +681,10 @@ export function render(root, params = {}) {
         h('div.ol-field-body',
           thumb(s.stageId, 'ol-field-thumb'),
           h('div.ol-field-info',
-            h('div.ol-coop-stage-name', h('b', stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || ''), modeChip(s.mode, { testid: 'coop-field-mode' })),
+            // [ui-v2 M8] said once: the stage, its difficulty, the enemy HP and the coins are on the room's head
+            h('div.ol-coop-stage-name', h('span.ol-field-waves', h('b', String(st.waves ?? '—')), ' waves'), modeChip(s.mode, { testid: 'coop-field-mode' })),
             st.desc ? h('p.ol-field-desc', st.desc) : null,
             rule ? h('p.ol-field-rule', { 'data-testid': 'coop-field-rule' }, 'Map rule: ', h('b', rule.name), `: ${rule.desc}`) : null,
-            h('div.ol-field-stats',
-              h('span', h('b', String(st.waves ?? '—')), ' waves'),
-              h('span', h('b', `×${COOP.hpMul}`), ' enemy HP'),
-              h('span', h('b', formatNumber(coopStartCash(st))), ' coins each')),
             freeplayPanel(s, st),
             foes.length ? h('div.ol-field-foes', foes.map((e) => h('span.ol-foe', { title: e.name }, enemyToken(e.id, { size: 26 }), h('small', e.name)))) : null)));
     }
@@ -782,6 +795,146 @@ export function render(root, params = {}) {
             s.isHost ? button('New room', { kind: 'yellow', small: true, icon: 'plus', testid: 'coop-new-room', onClick: () => newRoom(s) }) : null)));
     }
 
+    // -------------------------------------------------------------------------------------
+    // Tryout Day (the Off / On row in today's look; the run panel in the Ink & Paper kit, M3)
+    // -------------------------------------------------------------------------------------
+    const ownedNow = (id) => isOwned(store.profile, id);
+    const TRYOUT_WINDOW_UNLOCK = (n) => TRYOUT.windows[TRYOUT.grades[n]?.window]?.unlock || '';
+
+    /** A fresh run for the host: a new seed, Grade 1, Half Day, the seed's first (or second) map. */
+    function newRun(mapPick = 0, grade = 1, length = 'half') {
+      const seed = newRunSeed();
+      return { seed, grade, length, mapId: mapChoices(seed, grade)[mapPick] };
+    }
+
+    function mapName(id) {
+      try {
+        return getMap(id).name;
+      } catch {
+        return id || '—';
+      }
+    }
+
+    /** My run's screen state on the session (kept through a battle and back): its seed and the Redraw used. */
+    function runUi(s) {
+      if (!s.runUi || s.runUi.seed !== s.tryout.seed) s.runUi = { seed: s.tryout.seed, redraw: 0, sent: false };
+      return s.runUi;
+    }
+
+    /** A run is on and my pool and hero have not gone out for its seed yet: send them (true: the session repainted). */
+    function ensureRunPicks(s) {
+      if (!s.tryout || s.phase !== 'lobby') return false;
+      const ui = runUi(s);
+      if (ui.sent) return false;
+      ui.sent = true;
+      const heroes = heroChoices(store.profile);
+      const keep = [s.me.runHero?.unitId, s.me.hero?.unitId].find((id) => heroes.includes(id)) || heroes[0] || null;
+      s.setRunPicks({ pool: frozenPool(store.profile), runHero: heroEntry(store.profile, keep), draft: s.me.draft || [] });
+      return true;
+    }
+
+    /** Host: Tryout Day Off / On (locked until the Spring Term clear). */
+    function tryoutRow(s) {
+      const open = tryoutUnlocked(store.profile);
+      return h('div.ol-fp-row.ol-fp-row-room', { 'data-testid': 'coop-tryout-row' },
+        h('span.ol-fp-label', 'Tryout Day'),
+        h('div.ol-seg', { 'data-testid': 'coop-tryout' },
+          h(`button.ol-seg-btn${!s.tryout ? '.on' : ''}`, { type: 'button', 'data-tryout': 'off', onclick: () => { if (s.tryout) s.setTryout(null); } }, 'Off'),
+          h(`button.ol-seg-btn${s.tryout ? '.on' : ''}`, {
+            type: 'button', 'data-tryout': 'on', disabled: !open, title: open ? 'A run instead of a stage' : `Clear ${TRYOUT_UNLOCK} to unlock`,
+            onclick: () => { if (!s.tryout) s.setTryout(newRun()); },
+          }, open ? 'On' : `Locked · Clear ${TRYOUT_UNLOCK}`)));
+    }
+
+    /** The run: its map (the host picks one of two), my six (pick 3, one Redraw), my hero, my ally's progress. */
+    // [M3] in the kit (docs/specs/TRYOUT_DAY.md §13.10): the six as girl tiles, the Grades as a segRow (a locked one
+    // says why), the map and the length as .ui-opt cards, the heroes as .ui-opt rows; the same test ids as M1
+    function runPanel(s) {
+      if (!s.tryout) return null;
+      const run = s.tryout;
+      const ui = runUi(s);
+      const slot = s.isHost ? 0 : 1;
+      const six = draftOf(ownedNow, run.seed, slot, ui.redraw);
+      const picked = (s.me.draft || []).filter((id) => six.includes(id));
+      const toggle = (id) => {
+        if (picked.includes(id)) s.setRunPicks({ draft: picked.filter((x) => x !== id) });
+        else if (picked.length >= 3) toast('Pick exactly 3. Tap a picked girl to put her back first.', 'info');
+        else s.setRunPicks({ draft: [...picked, id] });
+      };
+      const tile = (id) => {
+        const on = picked.includes(id);
+        const mine = ownedNow(id);
+        const t = girlTile(id, { owned: true, selected: on, potential: mine ? undefined : 0, testid: 'coop-run-girl', cls: 'ty-draft', onClick: () => toggle(id) });
+        t.setAttribute('aria-pressed', String(on));
+        t.append(h('span.ui-chip.ink.dup.ty-tag', { title: mine ? CLASS_TEXT.yours : CLASS_TEXT.loaner }, mine ? CLASS_TEXT.yoursShort : CLASS_TEXT.loaner));
+        return t;
+      };
+      const heroes = heroChoices(store.profile);
+      const myHero = s.me.runHero?.unitId || null;
+      const maps = mapChoices(run.seed, run.grade);
+      const ally = s.peer;
+      const allyN = ally?.draft?.length || 0;
+      const mapCard = (id, { on, onClick = null }) => {
+        let m = null;
+        try {
+          m = getMap(id);
+        } catch { /* (an unknown map: its id) */ }
+        return h(`${onClick ? 'button' : 'div'}.ui-panel.ty-map${on ? '.on' : ''}`, {
+          type: onClick ? 'button' : null, 'data-map': id, 'aria-pressed': onClick ? String(on) : null, onclick: onClick,
+        },
+        h('span.ty-map-thumb', { 'aria-hidden': 'true', html: m ? stageThumbSVG(m, { width: 320, height: 200 }) : '' }),
+        h('span.ty-map-txt', h('b.ty-map-name', m?.name || id), h('span.ty-map-line', m?.tracks ? CLASS_TEXT.roads(m.tracks.length) : '')));
+      };
+      const gradeItems = Array.from({ length: TRYOUT_GRADES }, (_, i) => {
+        const n = i + 1;
+        const st = gradeOpen(store.profile, n);
+        const why = st.open ? null : gradeWhy(st.why, n, TRYOUT_WINDOW_UNLOCK(n));
+        return { id: String(n), label: String(n), locked: !st.open, title: why || `Grade ${n}`, why };
+      });
+      const grades = s.isHost ? segRow(gradeItems, String(run.grade), (id, it) => {
+        if (it.locked) return toast(it.why, 'info');
+        // (another Grade can change the content window: a new seed's maps come with it)
+        if (run.grade !== Number(id)) s.setTryout(newRun(0, Number(id), run.length));
+      }, { label: 'Grade', testidPrefix: 'coop-run-grade-', min: 36 }) : null;
+      if (grades) grades.dataset.testid = 'coop-run-grade';
+      const fullLocked = !halfCleared(store.profile);
+      const lengths = s.isHost ? segRow([['half', 'Half Day'], ['full', 'Full Day']].map(([k, label]) => ({ id: k, label, locked: k === 'full' && fullLocked, title: k === 'full' && fullLocked ? CLASS_TEXT.full : label })),
+        run.length || 'half', (k, it) => {
+          if (it.locked) return toast(CLASS_TEXT.full, 'info');
+          if (run.length !== k) s.setTryout({ ...run, length: k });
+        }, { label: 'Length', testidPrefix: 'coop-run-length-', min: 96 }) : null;
+      if (lengths) lengths.dataset.testid = 'coop-run-length';
+      return h('section.panel.ty-coop', { 'data-testid': 'coop-run' },
+        h('h3.panel-title', 'Tryout Day'),
+        h('div.ty-coop-row',
+          h('span.lbl.ty-coop-lbl', 'Map'),
+          h('div.ty-coop-maps', { 'data-testid': 'coop-run-map' }, ...(s.isHost
+            ? maps.map((id) => mapCard(id, { on: run.mapId === id, onClick: () => { if (run.mapId !== id) s.setTryout({ ...run, mapId: id }); } }))
+            : [mapCard(run.mapId, { on: true })]))),
+        s.isHost ? h('div.ty-coop-row', h('span.lbl.ty-coop-lbl', 'Grade'), grades) : null,
+        s.isHost ? h('div.ty-coop-row', h('span.lbl.ty-coop-lbl', 'Length'), lengths,
+          button('New run', { kind: 'ghost', small: true, icon: 'refresh', testid: 'coop-run-new', onClick: () => s.setTryout(newRun(0, run.grade, run.length)) })) : null,
+        h('p.ty-coop-note', `Grade ${run.grade} · ${run.length === 'full' ? 'Full Day' : 'Half Day'}${s.isHost ? '' : ' (the host picks)'} · ${gradeTwist(TRYOUT.grades, TRYOUT.windows, run.grade)}`),
+        h('div.ty-coop-row',
+          h('span.lbl.ty-coop-lbl', `Your squad: ${picked.length}/3`),
+          secondaryBtn(ui.redraw ? CLASS_TEXT.redrawn : CLASS_TEXT.redraw(1), {
+            icon: 'refresh', testid: 'coop-run-redraw', disabled: ui.redraw >= 1,
+            onClick: () => {
+              ui.redraw = 1;
+              s.setRunPicks({ draft: [] });
+            },
+          }),
+          h('span.ty-coop-note', 'Pick 3 of your six. Loaners are girls you do not own yet: they play at the run\'s floor.')),
+        h('div.ty-coop-six', { 'data-testid': 'coop-run-six' }, ...six.map(tile)),
+        h('div.ty-coop-row',
+          h('span.lbl.ty-coop-lbl', 'Hero'),
+          h('div.ty-bc-heroes', { 'data-testid': 'coop-run-hero', role: 'radiogroup', 'aria-label': 'Hero' }, ...heroes.map((id) => h(`button.ui-opt.ty-hero${myHero === id ? '.on' : ''}`, {
+            type: 'button', role: 'radio', 'data-unit': id, 'aria-checked': String(myHero === id),
+            onclick: () => { if (myHero !== id) s.setRunPicks({ runHero: heroEntry(store.profile, id) }); },
+          }, avatar(id, 34), h('span.ty-hero-txt', h('b', UNIT_MAP[id]?.name || id), h('span.ty-hero-whose', ownedNow(id) ? CLASS_TEXT.heroYours : CLASS_TEXT.heroFree)))))),
+        ally ? h('p.ty-coop-note', { 'data-testid': 'coop-run-ally' }, `${ally.name || 'Your ally'}: ${allyN}/3 picked${ally.runHero ? ` · hero ${UNIT_MAP[ally.runHero.unitId]?.name || ally.runHero.unitId}` : ''}`) : null);
+    }
+
     function tipsPanel() {
       const tips = [
         ['Your girls, your coins', 'Each of you deploys from your own formation with your own wallet.'],
@@ -791,12 +944,13 @@ export function render(root, params = {}) {
         ['Nobody is left alone', 'If a connection drops, the other keeps playing — her girls keep fighting.'],
       ];
       return h('section.panel.ol-room-tips', h('h3.panel-title', 'How co-op works'),
-        h('ol.ol-tips', tips.map(([t, d], i) => h('li', h('span.ol-tip-n', String(i + 1)), h('div', h('b', t), h('small', d))))));
+        h('ol.ol-tips', tips.map(([t, d]) => h('li', h('span.ol-tip-n', { 'aria-hidden': 'true' }), h('div', h('b', t), h('small', d))))));
     }
 
     const updateCheckedFor = new Set(); // allies whose mismatch already triggered an update check
     let remembered = '';
     let seenFreeplay = session.freeplay; // guest: the setting my Ready was given for
+    let seenRun = session.tryout; // guest: the Tryout Day run my Ready was given for
     let wasReady = !!session.me.ready;
     function paint() {
       if (destroyed) return;
@@ -808,9 +962,16 @@ export function render(root, params = {}) {
           const t = freeplayTable(s.freeplay);
           toast(`The host set freeplay to ${t ? t.name : 'Off'} — tap Ready again if that suits you.`, 'info');
         }
+        // …or the Tryout Day run
+        if (s.tryout !== seenRun && wasReady && !s.me.ready && s.freeplay === seenFreeplay) {
+          toast(s.tryout ? 'The host changed the Tryout Day run. Tap Ready again if that suits you.' : 'The host turned Tryout Day off. Tap Ready again if that suits you.', 'info');
+        }
         seenFreeplay = s.freeplay;
+        seenRun = s.tryout;
         wasReady = !!s.me.ready;
       }
+      // a run is on: my pool and hero go out once per seed (setRunPicks repaints)
+      if (ensureRunPicks(s)) return;
       if (s.error || s.full) {
         // the server refused the room (wrong code, taken, full, too many) or it closed after
         // idling: nothing else to show (no seats, no Ready). A room that will not come back is
@@ -836,7 +997,11 @@ export function render(root, params = {}) {
       const st = STAGE_MAP[s.stageId];
       let action;
       if (s.isHost) {
-        action = button(s.canStart ? 'Start battle' : s.paired ? 'Waiting for ready…' : s.peer ? 'Connecting…' : 'Waiting for ally…', {
+        const label = s.canStart ? (s.tryout ? 'Start run' : 'Start battle')
+          : s.tryout && s.paired && !draftReady(s.me.draft) ? 'Pick your 3 girls'
+          : s.tryout && s.paired && s.peer.ready && !draftReady(s.peer.draft) ? 'Waiting for their 3…'
+          : s.paired ? 'Waiting for ready…' : s.peer ? 'Connecting…' : 'Waiting for ally…';
+        action = button(label, {
           kind: 'yellow', icon: 'play', testid: 'coop-start', disabled: !s.canStart,
           onClick: () => {
             if (!s.startBattle()) toast('Your ally is not ready yet.', 'info');
@@ -856,8 +1021,11 @@ export function render(root, params = {}) {
             h('b', { 'data-testid': 'coop-room-code' }, roomCode),
             h('button.ol-copy', { onclick: copy, title: 'Copy', 'aria-label': 'Copy the room code' }, 'Copy')),
           h('div.ol-room-stage',
-            thumb(s.stageId, 'ol-room-thumb'),
-            h('div.ol-room-stage-info',
+            s.tryout ? h('div.ol-room-thumb', { html: (() => { try { return stageThumbSVG(getMap(s.tryout.mapId), { width: 320, height: 200 }); } catch { return ''; } })() }) : thumb(s.stageId, 'ol-room-thumb'),
+            s.tryout ? h('div.ol-room-stage-info',
+              h('div.ol-coop-stage-name', h('b', { 'data-testid': 'coop-stage' }, `Tryout Day · ${mapName(s.tryout.mapId)}`)),
+              h('small.muted', 'A run instead of a stage: draft below, then Ready.')) : null,
+            s.tryout ? null : h('div.ol-room-stage-info',
               h('div.ol-coop-stage-name', h('b', { 'data-testid': 'coop-stage' }, stageLabel(s.stageId)), h('span.ol-chip-diff', DIFFICULTIES[s.difficulty]?.name || ''), modeChip(s.mode), freeplayChip(s.freeplay, { testid: 'coop-freeplay-chip' })),
               h('small.muted', `Enemy HP ×${COOP.hpMul} · ${formatNumber(coopStartCash(st))} coins each`),
               s.isHost ? button('Change', { kind: 'ghost', small: true, icon: 'map', testid: 'coop-room-stage', onClick: async () => {
@@ -869,11 +1037,12 @@ export function render(root, params = {}) {
               } }) : null),
             // the host can switch freeplay here too, under the stage (the guest's Ready is taken
             // back: Ready is consent)
-            s.isHost ? h('div.ol-fp-row.ol-fp-row-room', h('span.ol-fp-label', 'Freeplay'), freeplaySeg(s.freeplay, (v) => {
+            s.isHost && !s.tryout ? h('div.ol-fp-row.ol-fp-row-room', h('span.ol-fp-label', 'Freeplay'), freeplaySeg(s.freeplay, (v) => {
               if (v === s.freeplay) return;
               writePref({ freeplay: v });
               s.setStage(s.stageId, s.difficulty, v);
-            }, 'coop-room-freeplay')) : null),
+            }, 'coop-room-freeplay')) : null,
+            s.isHost ? tryoutRow(s) : null),
           h('div.ol-room-acts',
             s.isHost && social.ready && !s.peer ? button('Invite a friend', { kind: 'pink', small: true, icon: 'plus', testid: 'coop-invite-friend', onClick: inviteFriend }) : null,
             button('Invite clan', { kind: 'ghost', small: true, icon: 'plus', testid: 'coop-invite', onClick: inviteClan }),
@@ -883,12 +1052,13 @@ export function render(root, params = {}) {
         invitedChips(s),
         s.mismatch ? mismatchBanner(s.mismatch) : null,
         h('div.ol-room-players', playerCard(host, 0, s.isHost), h('div.ol-vs', '&', h('small', 'together')), playerCard(guest, 1, !s.isHost)),
+        runPanel(s),
         h('div.ol-room-foot',
           h('p.muted', s.isHost ? 'You start when your ally is ready. Both of you play live — every order lands on both screens a moment later.' : 'Tap Ready when your girls are set. The host starts the battle.'),
           action,
           h('p.ver-line', { 'data-testid': 'coop-my-version' }, `Your game version: ${versionLabel(APP_VERSION)}`)),
         // below the call to action (phones scroll to it): the stage up close and the rules
-        h('div.ol-room-more', fieldPanel(s), tipsPanel()),
+        h('div.ol-room-more', s.tryout ? null : fieldPanel(s), tipsPanel()),
       ].filter(Boolean)); // replaceChildren(null) would print "null"
       // the room repaints on every session change (hellos, ready, returning…): only the first paint
       // slides the panels in, later ones must not restart that animation (a flicker every few seconds)
