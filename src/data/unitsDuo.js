@@ -9,8 +9,8 @@
 // Looks: both are students (adult: false) in academy uniforms (Kohaku's lilac council blazer, Tsubaki's navy
 // cadet uniform); the battle model stands both chibis on one base (src/models/duo.js). Prices sit inside the live windows (DUO_LR §1.3).
 // v0.1.61 (owner, Oct 29: "make her wayyyy stronger"): her base +25% (shells 15, beam 6.25, shard share 0.5) and
-// each path's tier 5 fitted to beat the best Kage by about a quarter on the balance rulers (docs/specs/ATTACK_SHAPES.md
-// A7); Grand Spectrum and the LR form run her beams to the map edge (src/sim/duo.js).
+// each path's tier 5 fitted to beat the best Kage by about a quarter on the balance rulers (docs/specs/DUO_LR.md
+// §6); Grand Spectrum and the LR form run her beams to the map edge (src/sim/duo.js).
 
 import { S, stats, tier, path, GACHA_ONLY } from './unitKit.js';
 

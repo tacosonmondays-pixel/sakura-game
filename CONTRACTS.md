@@ -1451,6 +1451,13 @@ point contract: in 'prep' / 'between' there are no enemies, statuses, shots or a
 random draw happens; `_step` starts auto-waves through `this.startNextWave()` (the save wraps it on
 the instance). See docs/BATTLE_SAVE.md.
 
+**Kohaku & Tsubaki's long beam** (`src/sim/duo.js`, docs/specs/DUO_LR.md §6): `duo.edge` (normDuo, default 0; in
+DUO_MAX) set at Grand Spectrum, or `unitStats.lr === true`, gives her `beamSpec` `edge: true`, `nearPierce` (her own
+pierce, kept inside her reach) and `pierce = PRISM_EDGE_PIERCE`. A held beam still locks onto an enemy within her reach;
+its line runs `beamLength(sim, t, spec, e)` = max(range, `edgeReach(...)`) (the first map edge along her aim; division
+and one Math.sqrt, no trig). Enemies whose body is off the old reach segment take the tick × `PRISM_EDGE_MUL`. The LR
+form also multiplies her damage (shells, shards, beam) × `DUO_LR_MUL`. The beam spec carries `bossMul`. No new state.
+
 Damage pipeline (in order): tunnel/veil/phasing/air eligibility → type multiplier → element ward (×0.5) →
 soak bonus → mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
 barrier (blast ×1.5 on barrier) → crystal cap → flat armor (minus pen & shred; minimum 1 dmg

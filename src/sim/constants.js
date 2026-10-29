@@ -344,7 +344,7 @@ export const PRISM_SILENCE_TICKS = 120;
 export const PRISM_CLIP_TICKS = 15;
 /** The long beam (Grand Spectrum, and the duo's LR form): a held beam's line runs through its enemy on to the map
  *  edge, hitting at most PRISM_EDGE_PIERCE enemies on it (a perf guard, not a game limit); a hit past her reach is
- *  × PRISM_EDGE_MUL (the per-hit knob that keeps her DPS where the capped beam had it: docs/specs/ATTACK_SHAPES.md A7). */
+ *  × PRISM_EDGE_MUL (the per-hit knob that keeps her DPS where the capped beam had it: docs/specs/DUO_LR.md §6). */
 export const PRISM_EDGE_PIERCE = 64;
 export const PRISM_EDGE_MUL = 0.03;
 /** The duo's LR form (her battle stats carry `lr: true`): her shells, shards and beam × DUO_LR_MUL (src/sim/duo.js). */

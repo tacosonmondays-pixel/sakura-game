@@ -118,11 +118,12 @@ export const kohaku_tsubaki = {
       const w = (0.18 + 0.035 * Math.min(6, spec.pierce)) * (1 + 0.25 * r.k) * (1 + swell);
       r.w = w;
       const a = r.a * (0.62 + 0.18 * r.k) * (1 + swell * 0.5);
-      // outer glow, white core, the faint tail past the enemy and a soft glow on the impact
+      // outer glow, white core, the faint tail past the enemy (and on to the map edge for the long beam) and a soft glow on the impact
       ctx.line(B, CORE, r.ax, r.ah, r.ay, r.bx, r.bh, r.by, w, c, a);
       ctx.line(B, CORE, r.ax, r.ah, r.ay, r.bx, r.bh, r.by, w * 0.32, white, r.a * 0.85);
       if (r.ex !== r.bx || r.ey !== r.by) ctx.line(B, CORE, r.bx, r.bh, r.by, r.ex, r.bh * 0.85, r.ey, w * 0.7, c, a * 0.32);
-      if (r.fx !== r.ex || r.fy !== r.ey) ctx.line(B, CORE, r.ex, r.bh * 0.85, r.ey, r.fx, r.bh * 0.7, r.fy, w * 0.5, c, a * 0.14);
+      // the long beam on to the map edge: thinner and dimmer than within her reach, but it reads across the board
+      if (r.fx !== r.ex || r.fy !== r.ey) ctx.line(B, CORE, r.ex, r.bh * 0.85, r.ey, r.fx, r.bh * 0.7, r.fy, w * 0.65, c, a * 0.42);
       const g = 0.32 * (1 + 0.3 * r.k) * (1 + swell);
       ctx.quad(B, CORE, r.bx, r.bh, r.by, g, g, R.glow, c, r.a * 0.75);
       if (r.a > prismA) prismA = r.a;
