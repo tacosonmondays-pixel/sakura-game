@@ -277,8 +277,13 @@ for (const vp of viewports) {
   // ---- 3. back to the drawer: a two-tap buy there keeps the drawer (MORE stays closed); then MORE's Drones rows
   await tapTestId(page, phone, 'panel-more');
   const tiersBefore = await page.evaluate((uid) => window.__battle.sim.getTower(uid).tiers.join('-'), placed.uid);
-  await tapTestId(page, phone, 'buy-0');
-  await tapTestId(page, phone, 'buy-0');
+  // (both taps inside the 2.6 s arm window, which runs on the wall clock: a software-rendered frame here can take
+  // ~0.5 s, so no frames are waited between them; tap 2 lands on the same price, re-drawn armed or not)
+  await page.locator('[data-testid="buy-0"]').first().scrollIntoViewIfNeeded().catch(() => {});
+  const price = await page.locator('[data-testid="buy-0"]').first().boundingBox();
+  await tapAt(page, phone, price.x + price.width / 2, price.y + price.height / 2);
+  await page.waitForTimeout(150);
+  await tapAt(page, phone, price.x + price.width / 2, price.y + price.height / 2);
   await frames(page, 4);
   const afterBuy = await page.evaluate((uid) => ({ tiers: window.__battle.sim.getTower(uid).tiers.join('-'), more: window.__battle.ui.panel?.more ?? !!document.querySelector('[data-testid="panel-details"]'), buy: !!document.querySelector('[data-testid="tower-panel"] [data-testid="buy-0"]') }), placed.uid);
   check(afterBuy.tiers !== tiersBefore && !afterBuy.more && afterBuy.buy, `buying an upgrade keeps her drawer (${tiersBefore} → ${afterBuy.tiers}, ${JSON.stringify(afterBuy)})`);

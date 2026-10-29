@@ -124,7 +124,7 @@ export function slotCard({ id, prof }, { fav = null, index = 0 } = {}) {
   st.level ? h('span.pot', potPill(potentialLevel(st))) : null,
   h('span.nm', id === fav ? h('span.fav', { title: 'Favorite' }, svgEl(glyph('heart'), 'pf-fav-heart')) : null, u.name),
   st.level ? h('span.ft', h('span.lv', 'Lv.', h('b', String(st.level))), stars(st.awaken || 0, MAX_AWAKEN)) : null,
-  isUr ? urRing() : null, isUr ? urSparkles() : null, isLr ? lrFrame() : null);
+  isUr ? urRing() : null, isUr ? urSparkles() : null, isLr ? lrFrame(id) : null);
   el.style.setProperty('--rarity', r.color);
   return el;
 }

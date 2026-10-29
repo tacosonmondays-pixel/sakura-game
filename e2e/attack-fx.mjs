@@ -23,11 +23,10 @@ import { spawnSync } from 'node:child_process';
 import { launchChromium } from './browser.mjs';
 import { simId } from '../tools/simId.mjs';
 
-// The live game's co-op id: computed from the live branch (SIM_REF, default the live branch) when
-// git has it, else this pin (the live game after the co-op rematch merge). Renderer-only work must
-// leave it unchanged.
-const SIM_ID_PIN = '06763e510bb4';
-const SIM_REF = process.env.SIM_REF || 'claude/sakura-sentinels';
+// The live game's co-op id: computed from the live branch (SIM_REF, default origin/main: every push to main deploys)
+// when git has it, else this pin (v0.1.59's protocol 11). Renderer-only work must leave it unchanged.
+const SIM_ID_PIN = '35748b1b58db';
+const SIM_REF = process.env.SIM_REF || 'origin/main';
 const args = process.argv.slice(2);
 const opt = (name, def) => {
   const i = args.indexOf(`--${name}`);

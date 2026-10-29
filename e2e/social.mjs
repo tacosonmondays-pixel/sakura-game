@@ -153,7 +153,7 @@ const until = async (page, fn, arg, ms = 10000) => {
 const text = (page, sel) => page.locator(sel).first().innerText({ timeout: 5000 }).catch(() => '');
 
 async function setName(page, name) {
-  await wait(page, '[data-testid="name-input"]', { timeout: 20000 });
+  await wait(page, '[data-testid="name-input"]', { timeout: 60000 }); // (a fresh tab's first load: slow on a busy machine)
   await page.fill('[data-testid="name-input"]', name);
   await tap(page, '[data-testid="name-save"]');
   await wait(page, '[data-testid="name-input"]', { state: 'detached', timeout: 10000 });
@@ -343,8 +343,8 @@ try {
   await wait(A, '[data-testid="edit-titles"]', { timeout: 15000 });
   const aTitles = await A.evaluate(() => [...document.querySelectorAll('[data-testid="edit-titles"] button[data-title^="tag_"]')].map((b) => b.dataset.title).join(','));
   const aCount = await A.evaluate(() => document.querySelector('.ep-lbl small')?.textContent || '');
-  // 45 titles in this build (37 at launch + Helping Hands + 7 Codex titles) + the Alpha Tester title A owns
-  check(aTitles === 'tag_alpha' && / \/ 46 earned$/.test(aCount), `tags: A's picker lists only Alpha Tester and counts it (${aTitles}; "${aCount}")`);
+  // (the earned count is A's: Alpha Tester is her only one; the total grows with every release's titles)
+  check(aTitles === 'tag_alpha' && /^1 \/ \d+ earned$/.test(aCount.trim()), `tags: A's picker lists only Alpha Tester and counts it (${aTitles}; "${aCount}")`);
   await tap(A, '[data-testid="edit-profile-cancel"]');
   await go(A, '#/clan?tab=chat');
   await wait(A, '[data-testid="chat-panel"][data-ready="1"]', { timeout: 10000 });
@@ -508,7 +508,7 @@ try {
   const b1 = await items(B, 'mat_feather_rare');
   check(b1 === b0 + 3, `collect: B received 3 Swallow Plumes (${b0} → ${b1})`);
   await B.reload({ waitUntil: 'load' });
-  await wait(B, '[data-testid="donate-panel"] [data-testid="my-request"]', { timeout: 20000 });
+  await wait(B, '[data-testid="donate-panel"] [data-testid="my-request"]', { timeout: 60000 }); // (a reload: slow on a busy machine)
   await B.waitForTimeout(800);
   check(await items(B, 'mat_feather_rare') === b1, 'collect: a reload pays nothing twice');
   check(!(await B.locator('[data-testid="donate-collect"]').count()), 'collect: nothing left to collect after the reload');
@@ -757,6 +757,13 @@ try {
   await tap(D, '[data-testid="tab-chat"]');
   await wait(D, '[data-testid="chat-panel"][data-ready="1"]', { timeout: 10000 });
   await toFront(D);
+  // a clan tab rewrites the URL in place: the screen is not redrawn under the panel (a line typed then was lost)
+  const kept = await D.evaluate(async () => {
+    const p = document.querySelector('[data-testid="chat-panel"]');
+    await new Promise((r) => setTimeout(r, 2000));
+    return document.querySelector('[data-testid="chat-panel"]') === p;
+  });
+  check(kept, 'clan tabs: opening Chat does not redraw the screen under it (the panel stays the same)');
   await D.fill('[data-testid="chat-input"]', 'Dara says hi without the update');
   await D.press('[data-testid="chat-input"]', 'Enter');
   check(await until(A, () => [...document.querySelectorAll('[data-testid="chat-msg"]')].some((m) => /without the update/.test(m.innerText)), null, 10000), 'needs update: clan chat still delivers');

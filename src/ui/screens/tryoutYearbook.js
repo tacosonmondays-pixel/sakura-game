@@ -20,8 +20,6 @@ import { portraitHTML } from '../../art/portraits.js';
 import { fmtNum } from '../format.js';
 import { yearbookPages } from '../../systems/tryoutYearbook.js';
 import { CARD_TEXT, YEARBOOK_TEXT, YEARBOOK_SCREEN, LENGTH_NAMES } from '../text/tryout.js';
-import { paintMarblesPill } from './tryout.js';
-import { railCounts } from './tryoutJar.js';
 
 export const YB_SECTIONS = Object.freeze(['girls', 'cards', 'bosses', 'records']);
 const YB_GLYPH = { girls: 'cap', cards: 'stamp', bosses: 'crown', records: 'trophy' };
@@ -38,6 +36,12 @@ export function sectionCounts(yb) {
     records: String(yb.records.length),
   };
 }
+
+/** Pure: the rail's tabs (sideRail: a glyph, the word and the section's count). */
+export const sectionTabs = (yb) => {
+  const n = sectionCounts(yb);
+  return YB_SECTIONS.map((id) => ({ id, label: YEARBOOK_SCREEN.sections[id], icon: YB_GLYPH[id], count: n[id] }));
+};
 
 let sectionOn = 'girls';
 
@@ -58,9 +62,10 @@ function openGirlPage(g) {
 
 export function renderYearbook(root, params = {}) {
   if (YB_SECTIONS.includes(params.tab)) sectionOn = params.tab;
+  let railKey = JSON.stringify(sectionTabs(yearbookPages(store.profile)));
   const ls = listScreen({
     title: YEARBOOK_TEXT.title, cls: 'ty-screen ty-yb-screen', location: 'academy', host: null, headTestid: 'yb-head',
-    sections: YB_SECTIONS.map((id) => ({ id, label: YEARBOOK_SCREEN.sections[id] })), active: sectionOn, railLabel: 'Yearbook sections',
+    sections: JSON.parse(railKey), active: sectionOn, railLabel: 'Yearbook sections',
     onPick: (id) => {
       sectionOn = id;
       ls.rail.setActive(id);
@@ -68,7 +73,6 @@ export function renderYearbook(root, params = {}) {
     },
   });
   root.appendChild(ls.el);
-  const offPill = paintMarblesPill(ls.el);
   ls.rail.dataset.testid = 'yb-rail';
 
   const girls = (yb) => h('div.ty-yb-girls', yb.girls.map((g) => {
@@ -111,8 +115,13 @@ export function renderYearbook(root, params = {}) {
 
   function draw() {
     const yb = yearbookPages(store.profile);
-    const counts = sectionCounts(yb);
-    railCounts(ls.rail, counts, YB_GLYPH, YEARBOOK_SCREEN.sections);
+    // (the counts only change while the screen is open after a save from elsewhere: the kit rail again, only then)
+    const tabs = JSON.stringify(sectionTabs(yb));
+    if (tabs !== railKey) {
+      railKey = tabs;
+      ls.setSections(JSON.parse(tabs), sectionOn);
+      ls.rail.dataset.testid = 'yb-rail';
+    }
     ls.setHead(YEARBOOK_SCREEN.sections[sectionOn], []);
     const body = sectionOn === 'cards' ? cards(yb) : sectionOn === 'bosses' ? bosses(yb) : sectionOn === 'records' ? records(yb) : girls(yb);
     ls.list.replaceChildren(h('section.ty-yb', { 'data-testid': 'tryout-yearbook', 'data-section': sectionOn },
@@ -121,8 +130,5 @@ export function renderYearbook(root, params = {}) {
   }
 
   draw();
-  return () => {
-    ls.cleanup();
-    offPill();
-  };
+  return () => ls.cleanup();
 }

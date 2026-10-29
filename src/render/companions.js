@@ -1,19 +1,27 @@
 // Companion actors in battle (display only: reads the sim's towers and drained events, never writes):
-//   Kon (Ruri)    sits by her; runs along the ground to her relay origin (t.ox / t.oy) and sits there;
-//                 her bolts leap out of him (attack clip); runs back when the spot goes away; on Moon Pounce
-//                 (her ⚡) he leaps at its target and back (Reduce motion: he stays put and plays his attack)
-//   Kaze (Hana)   perches on her left shoulder (rides her shoulder bone); on her attacks he swoops to the
-//                 target and back in a short arc, one swoop at a time; on Kaze's Swoop (her ⚡) he dives on
+//   Kon (Ruri)    sits by her; bounds along the ground to her relay origin (t.ox / t.oy) and sits there (a hop,
+//                 a pitch and a dust puff per stride, a faint holo streak behind him); her bolts leap out of him
+//                 (attack clip); runs back when the spot goes away; on Moon Pounce (her ⚡) he crouches, leaps at
+//                 its target in an arc, lands with a puff and a ring there and hops back (Reduce motion: he stays
+//                 put and plays his attack)
+//   Kaze (Hana)   perches on her left shoulder (rides her shoulder bone); on her attacks (every enemy she shoots,
+//                 flyers first: the sim's attack event names it) he climbs, stoops onto that target and swings back
+//                 with a wing ribbon behind him and a feather burst where he strikes; one swoop in flight, at most
+//                 one waiting (the latest target, a flyer kept over a walker) and a short rest on her shoulder in
+//                 between, so a fast Hana never turns him into a blur; on Kaze's Swoop (her ⚡) he dives on
 //                 each of its targets within her reach in turn, quicker, never across the map (the far ones take
 //                 abilityFx's feather strike from the sky); Reduce motion: no dive — he stays on her shoulder,
-//                 turns to the first target and plays his attack, and the strikes are still fades on the targets
+//                 turns to the first target and plays his attack, and the strikes are still fades on the targets;
+//                 his plain swoops still fly, but their feathers and puffs are still fades
+//   Low graphics: no ribbons, fewer puffs and feathers (FxSystem density).
 //   the doll      (Yoriko) floats in front of her raised hand on glowing threads that stay tied to her
 //                 control bar; dashes at the target and back on her needles and on Dream Detour
 // One actor per placed girl who has a companion (co-op partners' girls too: they are in the shared sim);
 // 'appear' plays when she is placed, the actor goes when she is sold. Models and the manifest contract:
 // src/models/companions.js. Rules (pure): ./companionLogic.js.
 //
-//   const c = new Companions({ sim, scene, actors, terrain, quality });
+//   const c = new Companions({ sim, scene, actors, terrain, quality, reduceMotion, fx, batches, atlas, camera });
+//   (fx / batches / atlas / camera are optional: without them the figures still move, with no trails or puffs)
 //   c.handle(ev)      // every drained sim event (observes only, never consumes)
 //   c.update(dt, zoom) // once per frame after actors.sync
 import * as THREE from 'three';
@@ -24,8 +32,10 @@ import { disposeObject } from '../models/index.js';
 import { lerpAngle } from './geo.js';
 import { WATER_Y, PATH_H } from './terrain.js';
 import {
-  konState, konStep, konSpot, konAttacks, sortieState, startSortie, retarget, sortieStep, reconcile, swoopDives, diveReach,
+  konState, konStep, konSpot, konAttacks, konGait, sortieState, startSortie, retarget, sortieStep, reconcile, swoopDives, diveReach,
+  pounceStep, stoopStep, perchState, queueSwoop, perchFree, perchStep, perchClear, trailState, trailPush, trailAt, trailFade, trailClear,
   SWOOP_TIME, SWOOP_LIFT, DASH_TIME, DASH_REACH, DASH_STOP, DASH_LIFT, DIVE_TIME, POUNCE_TIME, POUNCE_STOP, POUNCE_LIFT,
+  TRAIL_LIFE,
 } from './companionLogic.js';
 
 /** The ⚡ abilities a companion performs (the sim's `ability` event id → his move). */
@@ -42,12 +52,36 @@ const _m = new THREE.Matrix4();
 const _v = new THREE.Vector3();
 const _bar = new THREE.Vector3();
 const _spot = { x: 0, z: 0 };
-const _pos = { x: 0, y: 0, z: 0, out: false };
+const _pos = { x: 0, y: 0, z: 0, out: false, hit: false, phase: null, squash: 1, pitch: 0 };
+const _gait = { lift: 0, pitch: 0, stretch: 1 };
+const _la = new THREE.Vector3();
+const _lb = new THREE.Vector3();
+const TAU = Math.PI * 2;
+/** Kaze is drawn this much bigger out in flight than on her shoulder (he reads at phone zoom; eased by distance). */
+const FLIGHT_SCALE = 1.45;
+/** Colours of their moves (THREE.Color: spawned without parsing a string per particle). */
+const C = {
+  holo: new THREE.Color('#8fd8ff'),
+  dust: new THREE.Color('#d9c6a2'),
+  white: new THREE.Color('#ffffff'),
+  wing: new THREE.Color('#f2dc96'),
+  feather: new THREE.Color('#d9b48a'),
+  moon: new THREE.Color('#cfe9ff'),
+};
+/** One reused spawn record (FxSystem.spawn copies it): no object per particle. */
+const _sp = {
+  batch: 'bbN', uv: null, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, g: 0, drag: 0, s0: 0.2, s1: 0.2, asp: 1, life: 0.5,
+  color: null, a0: 1, a1: 0, rot: 0, vrot: 0, fadeIn: 0, flags: 0,
+};
 
 export class Companions {
   /** @param {{ sim, scene: THREE.Scene, actors, terrain, quality: string, reduceMotion?: boolean }} o */
-  constructor({ sim, scene, actors, terrain, quality, reduceMotion = false }) {
+  constructor({ sim, scene, actors, terrain, quality, reduceMotion = false, fx = null, batches = null, atlas = null, camera = null }) {
     this.sim = sim;
+    this.fx = fx;
+    this.b = batches;
+    this.R = atlas?.regions || null;
+    this.camera = camera;
     this.actors = actors;
     this.terrain = terrain;
     this.quality = quality;
@@ -63,7 +97,12 @@ export class Companions {
     this.zoom = 1;
     this.detail = 'lod';
     this.requested = new Set(); // `${cid}|${detail}` loads asked for
-    this._make = (t, cid) => this._create(t, cid);
+    /** what their moves drew so far (probe): particles spawned / refused (the FX pool full), ribbon quads */
+    this.stats = { spawned: 0, refused: 0, ribbons: 0 };
+    this._make = (t, cid) => {
+      const a = this._create(t, cid);
+      return a ? this._kit(a) : null;
+    };
     this._drop = (a) => this._dispose(a);
     this._of = (unitId) => companionOf(unitId);
     loadCompanionManifest().then((m) => {
@@ -134,7 +173,7 @@ export class Companions {
         dives: a.dives?.length ?? 0, diving: !!a.diving, pounce: a.pounce?.busy ? (a.pounce.uid ?? null) : null,
       });
     }
-    return { enabled: this.enabled, quality: this.quality, detail: this.detail, actors: rows };
+    return { enabled: this.enabled, quality: this.quality, detail: this.detail, actors: rows, fx: { ...this.stats } };
   }
 
   // ---- events --------------------------------------------------------------------------------
@@ -169,6 +208,7 @@ export class Companions {
     a.diveOpts.reach = reach;
     const hx = a.home.x;
     const hz = a.home.z;
+    perchClear(a.perch);
     a.dives = swoopDives(targets, {
       reduceMotion: this.reduceMotion,
       inReach: (uid) => {
@@ -215,12 +255,36 @@ export class Companions {
     if (this.reduceMotion) return;
     if (!a.pounce) a.pounce = sortieState();
     a.pounce.busy = false;
+    a.pPhase = null;
     startSortie(a.pounce, e.x, e.y + (e.height || 0.4) * 0.4, e.z, POUNCE_TIME, uid);
   }
 
+  /** The drawn enemy `uid` (its view: x, y, z, height, airborne) or null; no object made per call. */
+  _enemy(uid) {
+    if (uid == null) return null;
+    const v = this.actors.enemies?.get?.(uid);
+    if (v) return v.hidden ? null : v;
+    return this.actors.enemyPos ? this.actors.enemyPos(uid) : null;
+  }
+
+  /** Kaze sets off on a plain swoop at the enemy Hana shot (her reach caps the flight). */
+  _swoopAt(a, uid, e) {
+    const t = this.sim.getTower ? this.sim.getTower(a.uid) : null;
+    a.swoopOpts.reach = diveReach(t?.eff?.range ?? 6);
+    if (startSortie(a.sortie, e.x, e.y + (e.height || 0.5) * 0.5, e.z, SWOOP_TIME, uid)) a.group.userData.playAttack?.();
+  }
+
   _onAttack(a, targetUid, point) {
-    // (her ⚡ dives come first: her plain swoops wait until they are done)
-    if (a.cid === 'kaze' && (a.dives?.length || a.diving)) return;
+    if (a.cid === 'kaze') {
+      // (her ⚡ dives come first: her plain swoops wait until they are done)
+      if (a.dives?.length || a.diving) return;
+      // the enemy she shot (her targeting: every enemy, flyers first); busy or resting: it waits (latest, flyers kept)
+      const e = this._enemy(targetUid);
+      if (!e) return;
+      if (perchFree(a.perch, a.sortie.busy)) this._swoopAt(a, targetUid, e);
+      else queueSwoop(a.perch, targetUid, e.airborne ?? e.y > 0.3);
+      return;
+    }
     if (a.cid === 'kon') {
       if (!konAttacks(a.kon.s)) return;
       a.group.userData.playAttack?.();
@@ -255,8 +319,7 @@ export class Companions {
       tz = e.z;
       ty = e.y + (e.height || 0.5) * 0.5;
     }
-    const dur = a.cid === 'kaze' ? SWOOP_TIME : DASH_TIME;
-    if (startSortie(a.sortie, tx, ty, tz, dur, point ? null : targetUid)) a.group.userData.playAttack?.();
+    if (startSortie(a.sortie, tx, ty, tz, DASH_TIME, point ? null : targetUid)) a.group.userData.playAttack?.();
   }
 
   // ---- frame ---------------------------------------------------------------------------------
@@ -316,12 +379,32 @@ export class Companions {
       home: new THREE.Vector3(), facing: v.facing, face: 0, faceT: 0, state: 'idle', barRest: null,
       // manifest battleScale: a battle-only size factor over her scale (the student page keeps the figure's own size)
       battleScale: entry.battleScale > 0 ? entry.battleScale : 1,
-      kon: cid === 'kon' ? { s: konState(), view: { x: 0, z: 0, h: 0.2, away: false } } : null,
+      kon: cid === 'kon' ? { s: konState(), view: { x: 0, z: 0, h: 0.2, away: false }, steps: 0 } : null,
       sortie: cid === 'kon' ? null : sortieState(),
     };
+    this._kit(a);
     if (a.kon) a.kon.s.hold = KON_HOLD;
     this._instance(a, asset);
     a.group.userData.playClip?.('appear');
+    return a;
+  }
+
+  /**
+   * The per-actor state of their moves, made once: Kaze's perch between swoops and his flight options; Kon's and
+   * Kaze's trail ring (the doll keeps its threads); the pitch and Kon's pounce beat.
+   */
+  _kit(a) {
+    if (a.kitted) return a;
+    a.kitted = true;
+    if (a.cid === 'kaze') {
+      a.perch = perchState();
+      a.swoopOpts = { reach: Infinity, lift: SWOOP_LIFT };
+    }
+    a.trail = a.cid === 'doll' ? null : trailState();
+    if (a.kon) a.kon.steps ??= 0;
+    a.pitch = 0;
+    a.pPhase = null;
+    a.lastY = 0;
     return a;
   }
 
@@ -333,6 +416,7 @@ export class Companions {
       disposeObject(a.group);
     }
     const g = buildCompanion(asset, { quality: this.quality });
+    g.rotation.order = 'YXZ'; // turn, then pitch about his own side axis (a bound, a stoop)
     a.group = g;
     a.detail = asset.detail;
     a.height = asset.height || a.entry.height || 0.2;
@@ -385,6 +469,7 @@ export class Companions {
     g.scale.setScalar(scale);
     let state = 'idle';
     let facing = v.facing;
+    let pitch = 0;
     if (a.kon) {
       const s = a.kon.s;
       konStep(s, dt, a.home.x, a.home.z, konSpot(t, _spot));
@@ -396,57 +481,109 @@ export class Companions {
       if (s.mode === 'travel') {
         state = 'move';
         facing = Math.atan2(s.dx, s.dz);
+        // a bounding run: a hop and a pitch per stride, stretched in the air, a dust puff where each bound lands
+        konGait(s, _gait);
+        g.position.y += _gait.lift;
+        pitch = -_gait.pitch;
+        g.scale.z *= _gait.stretch;
+        if (s.steps !== a.kon.steps) {
+          a.kon.steps = s.steps;
+          this._stride(g.position.x, g.position.y - _gait.lift, g.position.z, a.height * scale);
+        }
       } else if (s.mode === 'spot') {
         facing = a.faceT > 0 ? a.face : v.facing;
       }
-      // Moon Pounce: a leap from where he stands to its target and back (he follows it while it walks)
+      if (s.mode !== 'travel') a.kon.steps = s.steps;
+      // Moon Pounce: crouch, an arc leap at its target (he follows it while it walks), the impact, a hop back
       const pc = a.pounce;
       if (pc?.busy) {
         if (pc.uid != null) {
-          const e = this.actors.enemyPos(pc.uid);
+          const e = this._enemy(pc.uid);
           if (e) retarget(pc, e.x, e.y + (e.height || 0.4) * 0.4, e.z);
         }
-        sortieStep(pc, dt, g.position.x, g.position.y, g.position.z, _pos, POUNCE_OPTS);
+        const gy = g.position.y;
+        pounceStep(pc, dt, g.position.x, gy, g.position.z, _pos, POUNCE_OPTS);
+        if (_pos.phase === 'leap' && a.pPhase === 'crouch') this._dust(g.position.x, gy, g.position.z, 5, 0.45); // the push-off
+        if (_pos.hit) this._pounceImpact(_pos.x, _pos.y, _pos.z);
+        a.pPhase = _pos.phase;
         if (pc.busy) {
-          const dx = pc.tx - g.position.x;
-          const dz = pc.tz - g.position.z;
+          const dx = pc.lx - g.position.x;
+          const dz = pc.lz - g.position.z;
           g.position.set(_pos.x, _pos.y, _pos.z);
-          state = 'move';
+          state = _pos.phase === 'crouch' || _pos.phase === 'impact' ? 'idle' : 'move';
           if (dx * dx + dz * dz > 1e-6) facing = Math.atan2(dx, dz) + (_pos.out ? 0 : Math.PI);
+          // squash and stretch (volume kept), nose up as he rises and down as he drops
+          const sq = _pos.squash;
+          g.scale.y *= sq;
+          const w = 1 / Math.sqrt(sq);
+          g.scale.x *= w;
+          g.scale.z *= w;
+          const vy = dt > 0 ? (g.position.y - a.lastY) / dt : 0;
+          if (_pos.phase === 'leap' || _pos.phase === 'return') pitch = Math.max(-0.5, Math.min(0.5, -vy * 0.18));
         }
       }
+      a.lastY = g.position.y;
       const kv = a.kon.view;
       kv.x = g.position.x;
       kv.z = g.position.z;
       kv.h = g.position.y + a.height * scale * 0.62;
       kv.away = s.mode !== 'home';
-    } else {
+      // a faint holo streak along his run and his leap
+      if (s.mode === 'travel' || pc?.busy) trailPush(a.trail, g.position.x, g.position.y + a.height * scale * 0.35, g.position.z, this.time);
+    } else if (a.cid === 'kaze') {
       const s = a.sortie;
       // Kaze's Swoop: the next dive as soon as he is back from the last one
-      if (!s.busy && a.cid === 'kaze' && (a.dives?.length || a.diving)) this._nextDive(a);
+      if (!s.busy && (a.dives?.length || a.diving)) this._nextDive(a);
+      if (s.busy && s.uid != null) {
+        const e = this._enemy(s.uid);
+        if (e) retarget(s, e.x, e.y + (e.height || 0.5) * 0.5, e.z);
+      }
+      // (a dive or a swoop flies no farther than her reach, even after a target that walks away)
+      stoopStep(s, dt, a.home.x, a.home.y, a.home.z, _pos, (a.diving && a.diveOpts) || a.swoopOpts);
+      g.position.set(_pos.x, _pos.y, _pos.z);
+      if (_pos.hit) this._featherBurst(_pos.x, _pos.y, _pos.z);
+      if (s.busy) {
+        state = 'move';
+        const dx = s.lx - a.home.x;
+        const dz = s.lz - a.home.z;
+        if (dx * dx + dz * dz > 1e-6) facing = Math.atan2(dx, dz) + (_pos.out ? 0 : Math.PI);
+        pitch = _pos.pitch;
+        trailPush(a.trail, _pos.x, _pos.y + a.height * scale * 0.4, _pos.z, this.time);
+        // bigger out in flight than on her shoulder (eased in over the first tile)
+        const away = Math.min(1, Math.hypot(_pos.x - a.home.x, _pos.y - a.home.y, _pos.z - a.home.z) / 0.9);
+        g.scale.multiplyScalar(1 + (FLIGHT_SCALE - 1) * away);
+      } else if (a.faceT > 0) {
+        // a Swoop called from her shoulder (Reduce motion, or no target near): turned to its first target
+        facing = a.face;
+      }
+      // the swoop that waited for him (after his rest on her shoulder), if its enemy is still drawn
+      const next = perchStep(a.perch, dt, s.busy || !!a.diving || !!a.dives?.length);
+      if (next != null) {
+        const e = this._enemy(next);
+        if (e) this._swoopAt(a, next, e);
+      }
+    } else {
+      const s = a.sortie;
       if (s.busy && s.uid != null) {
         const e = this.actors.enemyPos(s.uid);
         if (e) retarget(s, e.x, e.y + (e.height || 0.5) * 0.5, e.z);
       }
-      // (a dive flies no farther than her reach, even after a target that walks away)
-      const opts = a.cid === 'kaze' ? ((a.diving && a.diveOpts) || SWOOP_OPTS) : DASH_OPTS;
-      sortieStep(s, dt, a.home.x, a.home.y, a.home.z, _pos, opts);
+      sortieStep(s, dt, a.home.x, a.home.y, a.home.z, _pos, DASH_OPTS);
       g.position.set(_pos.x, _pos.y, _pos.z);
       if (s.busy) {
-        state = a.cid === 'kaze' ? 'move' : 'idle';
         const dx = s.tx - a.home.x;
         const dz = s.tz - a.home.z;
-        if (dx * dx + dz * dz > 1e-6) facing = Math.atan2(dx, dz) + (_pos.out || a.cid === 'doll' ? 0 : Math.PI);
-      } else if (a.cid === 'kaze' && a.faceT > 0) {
-        // a Swoop called from her shoulder (Reduce motion, or no target near): turned to its first target
-        facing = a.face;
+        if (dx * dx + dz * dz > 1e-6) facing = Math.atan2(dx, dz);
       }
     }
     a.faceT = Math.max(0, a.faceT - dt);
     a.facing = lerpAngle(a.facing, facing, Math.min(1, dt * 10));
+    a.pitch += (pitch - a.pitch) * Math.min(1, dt * 14);
     g.rotation.y = a.facing;
+    g.rotation.x = a.pitch;
     a.state = state;
     g.userData.animate?.(this.time, dt, state);
+    if (a.trail) this._ribbon(a);
     // the doll's threads stay tied to Yoriko's control bar while it dashes
     const bar = g.userData.bar;
     if (bar && a.barRest && bar.parent) {
@@ -456,6 +593,174 @@ export class Companions {
     }
   }
 
+  // ---- their moves' effects (FxSystem particles and quad batches: pooled, nothing made per frame) ---------------
+
+  /** One particle from the shared spawn record (`_sp`, filled by the caller). */
+  _spawn() {
+    const p = this.fx.spawn(_sp);
+    if (p) this.stats.spawned++;
+    else this.stats.refused++;
+    return p;
+  }
+
+  _setSp(batch, uv, x, y, z, s0, s1, life, color, a0 = 1) {
+    _sp.batch = batch;
+    _sp.uv = uv;
+    _sp.x = x;
+    _sp.y = y;
+    _sp.z = z;
+    _sp.vx = 0;
+    _sp.vy = 0;
+    _sp.vz = 0;
+    _sp.g = 0;
+    _sp.drag = 0;
+    _sp.s0 = s0;
+    _sp.s1 = s1;
+    _sp.asp = 1;
+    _sp.life = life;
+    _sp.color = color;
+    _sp.a0 = a0;
+    _sp.a1 = 0;
+    _sp.rot = 0;
+    _sp.vrot = 0;
+    _sp.fadeIn = 0;
+    _sp.flags = 0;
+  }
+
+  /**
+   * One bound of Kon's run lands: a dust puff, a glowing holo paw mark on the ground that fades behind him and a soft
+   * afterimage glow on his body (`h`: his drawn height), so the run reads from the battle camera.
+   */
+  _stride(x, y, z, h) {
+    const R = this.R;
+    if (!this.fx || !R) return;
+    this._dust(x, y, z, 4, 0.5);
+    this._setSp('groundA', R.glow, x, y + 0.03, z, 0.5, 0.3, 0.75, C.holo, 0.75);
+    _sp.flags = 1; // flat on the ground
+    this._spawn();
+    if (this.quality !== 'low') {
+      this._setSp('bbA', R.glow, x, y + h * 0.4, z, h * 0.9, h * 1.3, 0.28, C.holo, 0.45);
+      this._spawn();
+    }
+  }
+
+  /** A little dust puff where Kon's paws land (`n` puffs, before the graphics density). Reduce motion: still. */
+  _dust(x, y, z, n, size) {
+    const fx = this.fx;
+    if (!fx || !this.R) return;
+    const k = fx.n(n);
+    for (let i = 0; i < k; i++) {
+      const a = Math.random() * TAU;
+      this._setSp('bbN', this.R.smoke, x + Math.cos(a) * 0.08, y + 0.14, z + Math.sin(a) * 0.08, size * 0.5, size * 1.2, 0.5, C.dust, 0.85);
+      if (!this.reduceMotion) {
+        _sp.vx = Math.cos(a) * 0.5;
+        _sp.vz = Math.sin(a) * 0.5;
+        _sp.vy = 0.35;
+        _sp.drag = 3;
+        _sp.rot = a;
+        _sp.vrot = 1.5;
+      }
+      this._spawn();
+    }
+  }
+
+  /** Kon lands his Moon Pounce: a moonlit flash, a ground ring, a dust burst and a few star sparks (full motion only). */
+  _pounceImpact(x, y, z) {
+    const fx = this.fx;
+    const R = this.R;
+    if (!fx || !R) return;
+    this._setSp('bbA', R.glow, x, y + 0.2, z, 0.9, 1.6, 0.28, C.moon, 0.95);
+    this._spawn();
+    this._setSp('groundA', R.ringThick || R.ringSoft, x, 0.07, z, 0.3, 2.2, 0.4, C.holo, 0.9);
+    _sp.flags = 1; // flat on the ground
+    this._spawn();
+    this._dust(x, y, z, 6, 0.5);
+    const k = fx.n(6);
+    for (let i = 0; i < k; i++) {
+      const a = (i / k) * TAU + Math.random() * 0.4;
+      this._setSp('bbA', R.star || R.spark, x, y + 0.2, z, 0.26, 0.06, 0.45, C.white, 1);
+      _sp.vx = Math.cos(a) * 1.6;
+      _sp.vz = Math.sin(a) * 1.6;
+      _sp.vy = 1.4;
+      _sp.g = -4;
+      _sp.drag = 1.5;
+      _sp.rot = a;
+      _sp.vrot = 6;
+      this._spawn();
+    }
+  }
+
+  /** Kaze strikes: a white flash and his feathers bursting off the hit, drifting down (Reduce motion: still feathers). */
+  _featherBurst(x, y, z) {
+    const fx = this.fx;
+    const R = this.R;
+    if (!fx || !R) return;
+    this._setSp('bbA', R.glow, x, y, z, 0.6, 1.0, 0.18, C.white, 0.85);
+    this._spawn();
+    const feather = R.feather || R.glow;
+    const k = fx.n(this.reduceMotion ? 3 : 7);
+    for (let i = 0; i < k; i++) {
+      const a = (i / k) * TAU + Math.random() * 0.5;
+      this._setSp('bbN', feather, x, y, z, 0.3, 0.22, this.reduceMotion ? 0.5 : 0.85, i % 2 ? C.white : C.feather, 1);
+      _sp.asp = 2;
+      _sp.rot = a;
+      if (this.reduceMotion) {
+        _sp.x = x + Math.cos(a) * 0.3;
+        _sp.z = z + Math.sin(a) * 0.25;
+      } else {
+        const sp = 1.2 + (i % 3) * 0.3;
+        _sp.vx = Math.cos(a) * sp;
+        _sp.vz = Math.sin(a) * sp;
+        _sp.vy = 1 + (i % 2) * 0.5;
+        _sp.g = -2.6;
+        _sp.drag = 2.2;
+        _sp.vrot = i % 2 ? 5 : -5;
+      }
+      this._spawn();
+    }
+  }
+
+  /**
+   * The trail behind Kaze (a gold wing ribbon) or Kon (a faint holo streak): camera-facing quads between its recent
+   * points, thinning and fading with age. Not at low graphics.
+   */
+  _ribbon(a) {
+    const tr = a.trail;
+    if (!tr.count) return;
+    const B = this.b?.bbA;
+    if (!B || !this.camera || !this.R || this.quality === 'low') {
+      if (this.time - tr.t[trailAt(tr, 0)] > TRAIL_LIFE) trailClear(tr);
+      return;
+    }
+    const kaze = a.cid === 'kaze';
+    const col = kaze ? C.wing : C.holo;
+    const w0 = kaze ? 0.22 : 0.24;
+    const a0 = kaze ? 0.9 : 0.8;
+    let fresh = false;
+    for (let i = 0; i + 1 < tr.count; i++) {
+      const p = trailAt(tr, i);
+      const q = trailAt(tr, i + 1);
+      const f = trailFade(tr.t[q], this.time);
+      if (f <= 0) break;
+      fresh = true;
+      const taper = 1 - i / tr.count;
+      this._line(B, tr.x[p], tr.y[p], tr.z[p], tr.x[q], tr.y[q], tr.z[q], w0 * (0.4 + 0.6 * taper), col, a0 * f);
+    }
+    if (!fresh && this.time - tr.t[trailAt(tr, 0)] > TRAIL_LIFE) trailClear(tr);
+  }
+
+  /** A camera-facing quad from a to b (world x, height, z) with the soft beam sprite. */
+  _line(B, ax, ay, az, bx, by, bz, w, c, alpha) {
+    const view = this.camera.matrixWorldInverse;
+    _la.set(ax, ay, az).applyMatrix4(view);
+    _lb.set(bx, by, bz).applyMatrix4(view);
+    const dx = _lb.x - _la.x;
+    const dy = _lb.y - _la.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 0.005) return;
+    if (B.push((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2, len, w, this.R.beam || this.R.glow, c.r, c.g, c.b, alpha, Math.atan2(dy, dx))) this.stats.ribbons++;
+  }
+
   dispose() {
     this.disposed = true;
     this.clear();
@@ -463,6 +768,5 @@ export class Companions {
   }
 }
 
-const SWOOP_OPTS = { lift: SWOOP_LIFT };
 const DASH_OPTS = { reach: DASH_REACH, stop: DASH_STOP, lift: DASH_LIFT };
 const POUNCE_OPTS = { stop: POUNCE_STOP, lift: POUNCE_LIFT };

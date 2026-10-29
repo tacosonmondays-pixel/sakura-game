@@ -19,8 +19,10 @@ import { detailTexture, pathTexture, maskTexture, paintGround } from './textures
 import { planRoads, buildDecks, buildTunnels, WATER_CLEAR } from './trackMesh.js';
 import { buildGroundFeatures } from './groundFeatures.js';
 import { buildCity, cityBuildingFor, cityWallVariant, buildRoofs } from './city/cityKit.js';
-import { riftPlacement, ROOF_Y } from './city/cityProps.js';
-import { cityGroundPainter } from './city/cityGround.js';
+import { riftPlacement, noonGatePlacement, vesperGatePlacement, ROOF_Y } from './city/cityProps.js';
+import { cityGroundPainter, cityIslePainter } from './city/cityGround.js';
+import { burningLayer } from './city/ruinProps.js';
+import { TEAR_REST } from './tear.js';
 import { createFacadeMaterial, CityAcc } from './city/cityMaterials.js';
 import { stampTracks, mapTracks } from '../core/track.js';
 
@@ -178,15 +180,173 @@ export const SCENERY = {
   sportsField: { props: ['goalPosts', 'scoreboard', 'stands'], slot: 'skirt', n: 3, face: true },
   lakeLamps: { prop: 'streetLamp', slot: 'pathside', n: 6 },
   fireflies: { ambient: 'fireflies' },
+  // Old Town (Gate Arc S3a, `district: 'oldtown'`, src/render/city/oldTownProps.js): the Bell
+  // Festival's stalls and dressing; the lantern strings hang on the poles (the kit), cats sit on the
+  // tiled roofs ('roof' slot: the outer corner of a rooftop, on its parapet)
+  festivalStalls: { prop: 'griddleStall', slot: 'grass', alt: 'skirt', n: 3, face: true },
+  ringToss: { prop: 'ringToss', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0 },
+  bowStage: { prop: 'bowStage', slot: 'skirt', n: 1, face: true, variant: 0 },
+  shopCurtains: { prop: 'shopCurtain', slot: 'pathside', n: 4, variant: 0 },
+  stoneBasins: { prop: 'stoneBasin', slot: 'grass', alt: 'skirt', n: 2, face: true, variant: 0 },
+  festivalPoster: { prop: 'festivalPoster', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0 },
+  easel: { prop: 'easel', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0 },
+  roofCats: { prop: 'catOnWall', slot: 'roof', n: 2 },
+  // the same streets burning (`scenery.ruined: 'burning'`, src/render/city/ruinProps.js): what is
+  // left of what people loved, never anyone
+  scorchedCurtains: { prop: 'shopCurtain', slot: 'pathside', n: 3, variant: 2 },
+  posterFaceDown: { prop: 'festivalPoster', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 1 },
+  easelFallen: { prop: 'easel', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 1 },
+  dryBasins: { prop: 'stoneBasin', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 1 },
+  rubbleHeaps: { prop: 'rubble', slot: 'grass', alt: 'skirt', n: 4 },
+  burntCars: { prop: 'burntCar', slot: 'skirt', n: 3 },
+  fallenPoles: { prop: 'fallenPole', slot: 'skirt', n: 2, variant: 0 },
+  debrisScatter: { prop: 'debris', slot: 'grass', n: 4 },
+  // the highway (Gate Arc S4a, `district: 'highway'`, src/render/city/highwayProps.js), the Brigade's
+  // dressing (src/render/city/brigadeProps.js) and the far north (src/render/northProps.js). `also`
+  // dresses the board with more keywords; `look` keywords only re-dress the look (themes.js) or are
+  // drawn by code here. Slots of their own: 'span' (across a straight on-ground road: the gantries),
+  // 'pad' (the stage rule's relay pads), 'deckside' (the water beside a deck, along the river),
+  // 'gateside' / 'goalside' (beside the road just inside a spawn / goal gate), 'north' (the snowy rows).
+  tollPlaza: { prop: 'tollBooth', slot: 'pathside', n: 4, s: 0.9, also: ['signGantries', 'restStops'] },
+  signGantries: { prop: 'signGantry', slot: 'span', n: 2 },
+  restStops: { prop: 'restStop', slot: 'skirt', n: 2, face: true },
+  jerseyBarriers: { prop: 'jerseyBarrier', slot: 'pathside', n: 8, s: 0.9 },
+  checkpoint: { prop: 'citationStand', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0, also: ['jerseyBarriers', 'brigadeCamp'] },
+  brigadeCamp: { props: ['brigadeTent', 'tortoiseVan', 'searchlightTower', 'brigadeTent', 'droneDock', 'tortoiseVan'], slot: 'skirt', n: 6, face: true },
+  tunnelPortals: { prop: 'stoppedLorry', slot: 'skirt', n: 1, face: true },
+  frost: { look: true },
+  snowCover: { prop: 'snowdrift', slot: 'north', n: 6 },
+  frozenVillage: { prop: 'frozenHut', slot: 'skirt', n: 5, face: true, also: ['villageBits'] },
+  villageBits: { props: ['sled', 'dyingFire', 'sled'], slot: 'grass', alt: 'skirt', n: 3, face: true },
+  villageHearths: { prop: 'villageHearth', slot: 'pad', n: 3, variant: 0 },
+  beachhead: { props: ['sandbagPit', 'searchlightTower', 'sandbagPit'], variants: [0, 1, 1], slot: 'gateside', n: 3 },
+  gateSandbags: { prop: 'sandbagPit', slot: 'goalside', n: 2, variant: 1 },
+  hostBanners: { prop: 'warBanner', slot: 'pathside', n: 4, s: 0.8 },
+  passCairn: { prop: 'passCairn', slot: 'grass', alt: 'skirt', n: 1, variant: 0 },
+  // (the old bridge's piers in one row beside the deck, in order: one broken off)
+  snowBridge: { prop: 'stoneBridgePier', slot: 'deckside', n: 4, ordered: true, variants: [0, 0, 1, 0] },
+  vastShadow: { ambient: 'vastShadow' },
+  // the Drowned Line and the reservoir park (Gate Arc S5a, src/render/city/drownedProps.js,
+  // src/render/city/parkProps.js). Slots of their own: 'vent' (beside each of the stage rule's vent
+  // zones, off the road: the steam valves); `sweep` (a search boat's searchlight beam the ambient layer
+  // turns over the water, as the campus searchlight's: 0 draw calls)
+  floodedPlatform: { props: ['mosaicWall', 'stationStairs', 'mosaicWall'], slot: 'skirt', n: 3, face: true, also: ['sunkenTrain', 'emergencyLights', 'litVending'] },
+  sunkenTrain: { prop: 'sunkenTrain', slot: 'water', n: 1, variant: 0 },
+  litVending: { prop: 'vendingMachine', slot: 'pathside', n: 1, s: 0.9 },
+  emergencyLights: { props: ['emergencyLight', 'emergencyLight'], variants: [0, 1], slot: 'pathside', n: 6, s: 1 },
+  line2Cuttings: { props: ['signalLamp', 'maintenanceCart', 'signalLamp', 'stationStairs'], variants: [0, 0, 1, 0], slot: 'pathside', alt: 'skirt', n: 4, also: ['shardWater', 'emergencyLights'] },
+  shardWater: { prop: 'glassShards', slot: 'water', n: 4, variant: 0 },
+  pumpStation: { props: ['pumpUnit', 'pipeRun', 'pumpUnit', 'pipeRun', 'pumpUnit'], variants: [0, 1, 1, 0, 2], slot: 'skirt', n: 5, face: true, also: ['steamValves'] },
+  steamValves: { prop: 'steamValve', slot: 'vent', n: 4, variants: [0, 1], ordered: true },
+  noonGateFrost: { look: true, also: ['gateShards'] },
+  gateShards: { prop: 'glassShards', slot: 'gateside', n: 4, variants: [1, 2, 0, 2] },
+  reservoirDam: { prop: 'bandstand', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0, also: ['parkBoats', 'rescueBuoys', 'reservoirCrown'] },
+  parkBoats: { prop: 'chainedBoats', slot: 'shore', n: 2 },
+  rescueBuoys: { prop: 'rescueBuoy', slot: 'pathside', n: 3, s: 0.95 },
+  reservoirCrown: { prop: 'greatWillow', slot: 'skirt', n: 1, s: 1.1, variant: 0 },
+  reservoirWillow: { prop: 'damWall', slot: 'skirt', n: 2, face: true, variant: 0, s: 1.5, also: ['parkBoats', 'rescueBuoys', 'fireflies'] },
+  searchBoats: { prop: 'searchBoat', slot: 'water', n: 2, variant: 0, sweep: true },
+  // Vesperline (Gate Arc S6a, src/render/city/vesperProps.js; frozen with themes.FROZEN). Slots of their own:
+  // 'railEnd' (beside the far end of every viaduct span, Gate Arc S6v `track.viaducts`: where the old rail broke
+  // off, a pod left hanging), 'spire' (the back skirt behind the Spindle's foot: the decor `spindle`, else the
+  // board's middle). Look keywords drawn by code: 'cleaningRobot' (the city kit's one mover), 'warmWindow' (the
+  // shelter's one warm window glows brighter: the only warm light on the board)
+  frostCauseway: { prop: 'doorieBus', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0, also: ['gateStatues', 'skyRailRuins'] },
+  gateStatues: { prop: 'haloStatue', slot: 'goalside', n: 2, variant: 0 },
+  skyRailRuins: { props: ['skyRailPod', 'skyRailPod'], variants: [0, 1], slot: 'skirt', n: 2, face: true },
+  prismBatteries: { prop: 'prismBattery', slot: 'pad', n: 3, variant: 0 },
+  skyRailViaduct: { look: true, also: ['brokenSpan', 'railPods', 'stationCanopy', 'deadHolo'] },
+  brokenSpan: { prop: 'skyRailPod', slot: 'railEnd', n: 2, variant: 0 },
+  railPods: { props: ['skyRailPod', 'skyRailPod'], variants: [0, 1], slot: 'skirt', n: 2, face: true },
+  stationCanopy: { prop: 'stationCanopy', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0 },
+  deadHolo: { prop: 'holoSign', slot: 'pathside', n: 3, variant: 3 },
+  frozenCanal: { prop: 'glassShards', slot: 'water', n: 3, variant: 2 },
+  museumWings: { look: true, also: ['museumBits'] },
+  museumBits: { props: ['frozenFountain', 'haloStatue', 'frozenFountain'], variants: [0, 0, 1], slot: 'grass', alt: 'skirt', n: 3, face: true },
+  doorieStatue: { prop: 'doorieStatue', slot: 'grass', alt: 'skirt', n: 1, face: true, variant: 0 },
+  reflectingPools: { ambient: 'sparkles' },
+  towerRing: { props: ['podium', 'haloStatue', 'podium'], variants: [0, 0, 1], slot: 'grass', alt: 'skirt', n: 3, face: true, also: ['holoSigns'] },
+  transitPads: { props: ['transitPad', 'transitPad'], variants: [0, 1], slot: 'skirt', n: 2 },
+  cleaningRobot: { look: true },
+  spindleFoot: { prop: 'spindle', slot: 'spire', n: 1, variant: 1, also: ['vesperTerminal'] },
+  vesperTerminal: { prop: 'vesperTerminal', slot: 'gateside', n: 2, variant: 1, also: ['terminalHall'] },
+  terminalHall: { prop: 'vesperTerminal', slot: 'skirt', n: 2, face: true, variant: 0 },
+  frozenNest: { prop: 'frozenNest', slot: 'skirt', n: 1, variant: 0, also: ['greyWool'] },
+  greyWool: { prop: 'greyWool', slot: 'grass', n: 1, variant: 0 },
+  warmWindow: { look: true },
+  starDome: { props: ['starDome', 'starDome', 'starDome'], variants: [0, 2, 0], slot: 'skirt', n: 3, face: true, also: ['starShards'] },
+  starShards: { prop: 'starDome', slot: 'grass', n: 3, variant: 1 },
+  coldAurora: { ambient: 'aurora' },
+  holoSigns: { props: ['holoSign', 'holoSign', 'holoSign'], variants: [1, 2, 1], slot: 'pathside', n: 4 },
+  frostHaze: { ambient: 'frostHaze' },
 };
 
 /** Prop types whose glows (sprites and glow geometry) a blackout never dims: the gates stay readable. */
-const KEEP_LIT = new Set(['petalRift', 'shelterDoor', 'spawnGate', 'goalGate', 'toriiGate']);
+const KEEP_LIT = new Set(['petalRift', 'shelterDoor', 'spawnGate', 'goalGate', 'toriiGate', 'noonGate', 'subwayMouth', 'sentryBay', 'vesperGate', 'vesperShelter']);
+/** Prop types whose glow geometry pulses with the rule (the tear over 3-10's sanctum: terrain.setTear). */
+const TEAR_TYPES = new Set(['hammerTear']);
 
 /** Per-map road surfaces (MapDef.city.road): the campus running track. */
 const ROAD_STYLES = {
   track: { style: 'track', base: '#7a3428', side: '#7d5a50', plainJunction: false },
 };
+
+/**
+ * The old bridge's piers beside the Brigade's deck (scenery 'snowBridge', slot 'deckside', 4-10): one row,
+ * parallel to the longest deck run over water, `offset` tiles to one side, the spots evenly spaced along
+ * it (the middle of each of up to `max` equal stretches, at least 1.6 tiles apart), standing in the water
+ * (y = WATER_Y), turned with the deck (local x along it). The side where the whole row is in open water
+ * wins (else the side with more of it). Pure: tests/render/north.test.js checks it on the 4-10 map.
+ * @param {{ index: number, pts: number[][] }[]} roads planRoads' roads
+ * @param {Set<string>} waterSections buildDecks' `${road}:${i}` keys of points over water
+ * @param {(tx: number, tz: number) => boolean} isWater tile is water
+ * @param {(tx: number, tz: number) => boolean} isPath tile is road
+ * @returns {{ x: number, z: number, y: number, ry: number, s: number }[]}
+ */
+export function deckPierRow(roads, waterSections, isWater, isPath, { max = 4, offset = 1.15 } = {}) {
+  let best = null;
+  for (const r of roads) {
+    let run = null;
+    for (let i = 1; i < r.pts.length - 1; i++) {
+      const [x, z] = r.pts[i];
+      const wet = waterSections.has(`${r.index}:${i}`) && isWater(Math.floor(x), Math.floor(z));
+      if (wet && !run) run = { r, i0: i, i1: i };
+      else if (wet) run.i1 = i;
+      if ((!wet || i === r.pts.length - 2) && run) {
+        let len = 0;
+        for (let k = run.i0 + 1; k <= run.i1; k++) len += Math.hypot(r.pts[k][0] - r.pts[k - 1][0], r.pts[k][1] - r.pts[k - 1][1]);
+        if (!best || len > best.len) best = { ...run, len };
+        run = null;
+      }
+    }
+  }
+  const count = best ? Math.min(max, Math.floor(best.len / 1.6)) : 0;
+  if (count < 2) return [];
+  const { r, i0, i1, len } = best;
+  // the points along the run at even arc lengths
+  const at = [];
+  let acc = 0;
+  for (let i = i0 + 1; i <= i1 && at.length < count; i++) {
+    acc += Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
+    if (acc >= ((at.length + 0.5) * len) / count) at.push(i);
+  }
+  const side = (sd) => at.map((i) => {
+    const a = r.pts[Math.max(0, i - 2)];
+    const b = r.pts[Math.min(r.pts.length - 1, i + 2)];
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const nx = -(b[1] - a[1]) / l;
+    const nz = (b[0] - a[0]) / l;
+    const px = r.pts[i][0] + nx * sd * offset;
+    const pz = r.pts[i][1] + nz * sd * offset;
+    const ok = isWater(Math.floor(px), Math.floor(pz)) && !isPath(Math.floor(px), Math.floor(pz)) &&
+      !roads.some((o) => o !== r && o.pts.some(([qx, qz]) => Math.hypot(qx - px, qz - pz) < 1.0));
+    return ok ? { x: px, z: pz, y: WATER_Y, ry: Math.atan2(nx, nz), s: 1 } : null;
+  });
+  const west = side(-1);
+  const east = side(1);
+  const full = (l) => l.filter(Boolean).length;
+  return (full(east) > full(west) ? east : west).filter(Boolean);
+}
 
 /** Trait / family → keyword that dresses the stage when that enemy is introduced. */
 const INTRO_KEYWORDS = {
@@ -221,7 +381,11 @@ export function resolveScenery(stage, familyOf = () => null) {
     if (kw && !keywords.includes(kw) && !derived.includes(kw)) derived.push(kw);
   }
   keywords.push(...derived.slice(0, 2));
-  return { keywords, fog, night: !!sc.night, weather: sc.weather };
+  // (the stage rule's relay pads: the far north's village hearths stand round them, slot 'pad'; its
+  // vent zones: the Drowned Line's steam valves stand beside them, slot 'vent')
+  const pads = (stage?.rule?.pads || []).map((p) => ({ x: p.x, y: p.y, r: p.r }));
+  const zones = (stage?.rule?.zones || []).map((z) => ({ x: z.x, y: z.y, r: z.r }));
+  return { keywords, fog, night: !!sc.night, weather: sc.weather, ruined: sc.ruined || null, pads, zones };
 }
 
 /**
@@ -323,8 +487,11 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   const px = quality === 'low' ? 20 : quality === 'medium' ? 26 : 32;
   const painted = paintGround({
     look, x0: X0, y0: Y0, w: EW, h: EH, charAt, isPath, isWater, roads, px, seed: hash(map.id, 'paint') % 100000,
-    // the city kit paints planted verges and plazas on top (src/render/city/cityGround.js)
-    extra: look.city ? cityGroundPainter(map, look, charAt, isPath) : null,
+    // the city kit paints planted verges and plazas on top (src/render/city/cityGround.js); snow
+    // cover (Gate Arc 4-8) is painted over the north rows last
+    extra: chainPainters(look.city ? cityGroundPainter(map, look, charAt, isPath) : null, look.snowCover ? snowCoverPainter(map, look, roads) : null),
+    // the reservoir park's island lawns go under the shore wash and the sidewalks (Gate Arc 5-10)
+    base: look.city ? cityIslePainter(map, look) : null,
   });
   disposables.push(painted.texture);
   const groundGeo = new THREE.PlaneGeometry(EW, EH, EW, EH);
@@ -416,7 +583,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     disposables.push(waterMat);
   }
   let hasLava = false;
-  for (let y = 0; y < H && !hasLava; y++) for (let x = 0; x < W; x++) if (rows[y][x] === 'X') { hasLava = true; break; }
+  // (a city's 'X' tiles are collapsed houses, not lava: rubble heaps, placed with the props)
+  for (let y = 0; y < H && !hasLava && !look.city; y++) for (let x = 0; x < W; x++) if (rows[y][x] === 'X') { hasLava = true; break; }
   if (hasLava) {
     const sharp = features.sharp.filter((r) => r.kind === 'lava').map((r) => ({ x: r.x + 1, y: r.y + 1, w: r.w, h: r.h }));
     const mask = maskTexture(W + 2, H + 2, (gx, gy) => isLava(gx - 1, gy - 1), { px: 16, blur: 5, sharp });
@@ -454,14 +622,37 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   // blackout stages (look.blackout): the glow geometry carries a per-vertex `dimk` (1 = dims with
   // the lights, 0 = a gate: stays lit) and the glow material scales by uDim (setDim, 0 calls)
   const glowDim = look.blackout ? { value: 1 } : null;
-  if (glowDim) {
+  // the tear (hammerTear, Gate Arc S3a): its glow geometry carries `tearK` = 1 and the glow material
+  // scales it by uTear (setTear, 0 calls); only a board with a tear gets the attribute at all
+  const tearPulse = { value: TEAR_REST };
+  let tearParts = 0;
+  /** Patches the glow material for the blackout's `dimk` and / or the tear's `tearK` (once the props are placed). */
+  const patchGlow = (dim, tear) => {
+    if (!dim && !tear) return;
     mats.glow.onBeforeCompile = (shader) => {
-      shader.uniforms.uDim = glowDim;
-      shader.vertexShader = `attribute float dimk;\nvarying float vDimk;\n${shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vDimk = dimk;')}`;
-      shader.fragmentShader = `uniform float uDim;\nvarying float vDimk;\n${shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb *= mix(1.0, uDim, vDimk);')}`;
+      let vh = '';
+      let vb = '';
+      let fh = '';
+      let fb = '';
+      if (dim) {
+        shader.uniforms.uDim = glowDim;
+        vh += 'attribute float dimk;\nvarying float vDimk;\n';
+        vb += '\n  vDimk = dimk;';
+        fh += 'uniform float uDim;\nvarying float vDimk;\n';
+        fb += '\n  diffuseColor.rgb *= mix(1.0, uDim, vDimk);';
+      }
+      if (tear) {
+        shader.uniforms.uTear = tearPulse;
+        vh += 'attribute float tearK;\nvarying float vTearK;\n';
+        vb += '\n  vTearK = tearK;';
+        fh += 'uniform float uTear;\nvarying float vTearK;\n';
+        fb += '\n  diffuseColor.rgb *= mix(1.0, uTear, vTearK);';
+      }
+      shader.vertexShader = vh + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>${vb}`);
+      shader.fragmentShader = fh + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>${fb}`);
     };
-    mats.glow.customProgramCacheKey = () => 'glowDim';
-  }
+    mats.glow.customProgramCacheKey = () => (dim && tear ? 'glowDimTear' : dim ? 'glowDim' : 'glowTear');
+  };
   // city buildings: one opaque facade material (shader windows), shared with the kit's movers
   mats.facade = look.city ? createFacadeMaterial({ ...(look.city.glass || {}), night: look.night }) : null;
   if (mats.facade) disposables.push(mats.facade);
@@ -498,15 +689,23 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       push(p.foliage, foliageParts);
       push(p.glow, glowParts);
       if (glowDim && p.glow) {
+        // (a gate, or a prop that stays lit: the drowned kit's red emergency lamp)
         const g = glowParts[glowParts.length - 1];
-        g.setAttribute('dimk', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(KEEP_LIT.has(type) ? 0 : 1), 1));
+        g.setAttribute('dimk', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(KEEP_LIT.has(type) || p.keepLit ? 0 : 1), 1));
+      }
+      if (TEAR_TYPES.has(type) && p.glow) {
+        const g = glowParts[glowParts.length - 1];
+        g.setAttribute('tearK', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(1), 1));
+        tearParts++;
       }
       push(p.facade, facadeParts);
     }
-    const keep = KEEP_LIT.has(type);
+    const keepType = KEEP_LIT.has(type);
     for (const gl of p.glows) {
       v3.set(gl.x, gl.y, gl.z).applyMatrix4(m4);
-      glows.push({ x: v3.x, y: v3.y, z: v3.z, color: new THREE.Color(gl.color), size: gl.size * s, flicker: gl.flicker, phase: rand() * 6, owner: target ? target[target.length - 1] : null, ...(gl.cycle ? { cycle: gl.cycle } : {}), ...(keep ? { keep } : {}) });
+      // (a glow that stays lit in a blackout: a gate's, or a red emergency lamp's, which also pulses)
+      const keep = keepType || !!gl.keep;
+      glows.push({ x: v3.x, y: v3.y, z: v3.z, color: new THREE.Color(gl.color), size: gl.size * s, flicker: gl.flicker, phase: rand() * 6, owner: target ? target[target.length - 1] : null, ...(gl.cycle ? { cycle: gl.cycle } : {}), ...(keep ? { keep } : {}), ...(gl.tear ? { tear: true } : {}), ...(gl.pulse ? { pulse: gl.pulse } : {}) });
     }
     for (const em of p.emitters) {
       v3.set(em.x, em.y, em.z).applyMatrix4(m4);
@@ -556,8 +755,10 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
           place(deco.type, cx, floatY, cz, deco.rot ?? r01 * 0.6 - 0.3, 1, h % 3, list);
           waterDecor.set(key, list);
         } else {
-          const big = deco.type === 'sakura' || deco.type === 'willow' || deco.type === 'pine';
-          place(deco.type, cx, 0, cz, deco.rot ?? facePath(x, y), big ? 1.3 : (deco.s ?? 1), h % 4);
+          const big = deco.type === 'sakura' || deco.type === 'willow' || deco.type === 'pine' || deco.type === 'greatWillow';
+          // (a big tree takes the decor's own scale when it gives one: the Reservoir Willow, Gate Arc 5-10)
+          // (a decor may pick its variant: the Spindle's foot, Gate Arc S6a)
+          place(deco.type, cx, 0, cz, deco.rot ?? facePath(x, y), big ? (deco.s ?? 1.3) : (deco.s ?? 1), deco.variant ?? h % 4);
         }
         occupied.add(key);
         continue;
@@ -586,9 +787,9 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
           place(look.wall, cx, 0, cz, alongX ? (y === 0 ? Math.PI : 0) : (x === 0 ? Math.PI / 2 : -Math.PI / 2), 1, look.city ? cityWallVariant(map, x, y, look.city.kit) : h % 4);
         } else if (look.city) {
           // the city kit picks the building: shops on the street, homes and offices behind (the
-          // campus: classroom wings, the gym, club huts)
-          const b = cityBuildingFor(map, x, y, isPath, look.city.kit);
-          place(b.type, cx, 0, cz, facePath(x, y), 1, b.variant);
+          // campus: classroom wings, the gym, club huts; Old Town: wooden houses; burning: shells)
+          const b = cityBuildingFor(map, x, y, isPath, look.city.kit, look);
+          place(b.type, cx, 0, cz, b.ry ?? facePath(x, y), b.s ?? 1, b.variant, null, b.lod || 'near');
         } else {
           place(look.building, cx, 0, cz, facePath(x, y), 1, h % 3);
         }
@@ -599,6 +800,10 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       } else if (c === 'U') {
         // a rooftop: its block is built per region below; nothing else stands on the tile
         occupied.add(key);
+      } else if (c === 'X' && look.city) {
+        // a collapsed house (Gate Arc 3-9): a rubble heap where it stood
+        place('rubble', cx, 0, cz, r01 * 6.28, 1.05, h % 3);
+        occupied.add(key);
       }
     }
   }
@@ -607,14 +812,21 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   let roofStats = null;
   if (rows.some((r) => r.includes('U'))) {
     const roofAcc = new CityAcc();
-    roofStats = buildRoofs(map, roofAcc, { quality, kit: look.city?.kit });
+    roofStats = buildRoofs(map, roofAcc, { quality, kit: look.city?.kit, district: look.district, ruined: look.ruined });
     const rg = roofAcc.build();
     if (rg) facadeParts.push(rg);
+    // (the highway's toll canopies light their price boards)
+    for (const gl of roofStats.glows || []) glows.push(gl);
   }
   const isRoofTile = (x, y) => inMap(x, y) && rows[y][x] === 'U';
 
   // ----- bridges / boardwalks / overpass rails + tunnels ----------------------------------
   if (decks.geometry) solidParts.push(decks.geometry);
+  if (decks.glow) {
+    // the light-bridge's cyan edge glow (unlit; it stays lit in a blackout: the road reads in the dark)
+    if (glowDim) decks.glow.setAttribute('dimk', new THREE.BufferAttribute(new Float32Array(decks.glow.attributes.position.count), 1));
+    glowParts.push(decks.glow);
+  }
   if (decks.shadow) {
     // the city keeps every terrain mesh out of the sorted transparent pass (phone budget): its
     // overpass shadow multiplies the frame buffer instead (the same darkening as black at the
@@ -690,17 +902,23 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     return { x: gx, z: gz, dir: [dx, dy], ry: Math.atan2(dx, dy) };
   };
   for (const e of entrances) {
-    const gi = gateInfo(e, false);
-    const type = scenery.keywords?.includes('torii') ? 'toriiGate' : (map.city?.spawnGate || look.spawnGate || 'spawnGate');
-    // the city's rift leans its disc toward the camera whichever edge it stands on (cityProps.riftPlacement)
-    const rift = type === 'petalRift' ? riftPlacement(gi.dir) : null;
-    if (rift) {
+    // a lane that starts inside the board (a mid-board rift, Gate Arc 3-8) gets its gate where the
+    // lane begins: the Petal Gate's rift on a city board (standing on the water when the lane starts
+    // on a jetty over it), the theme's spawn gate elsewhere; a lane that opens in a tunnel (the subway
+    // spawn, Gate Arc 5-6: trackMesh headTunnel) gets the glowing seam at the bore's OUT mouth instead,
+    // where the column first comes into view, and no run-out
+    const gi = e.inside ? { x: e.x, z: e.z, dir: e.dir, ry: Math.atan2(e.dir[0], e.dir[1]) } : gateInfo(e, false);
+    const type = e.mouth ? 'subwayMouth' : !e.inside && scenery.keywords?.includes('torii') ? 'toriiGate' : (map.city?.spawnGate || look.spawnGate || 'spawnGate');
+    // the city's rift (and the Noon Gate) lean their disc toward the camera whichever edge they stand on
+    // (cityProps.riftPlacement)
+    const rift = type === 'petalRift' ? riftPlacement(gi.dir) : type === 'noonGate' ? noonGatePlacement(gi.dir) : type === 'vesperGate' ? vesperGatePlacement(gi.dir) : null;
+    if (rift && !e.inside) {
       gi.x += gi.dir[0] * rift.inset;
       gi.z += gi.dir[1] * rift.inset;
     }
     const onWater = isWater(Math.floor(gi.x), Math.floor(gi.z));
     place(type, gi.x, onWater ? PATH_H : 0, gi.z, gi.ry, 1, rift ? rift.variant : 0);
-    gates.push({ kind: 'spawn', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.spawn });
+    gates.push({ kind: 'spawn', x: gi.x, z: gi.z, dir: gi.dir, color: look.gate.spawn, ...(e.inside ? { inside: true, onWater } : {}), ...(e.mouth ? { mouth: true } : {}), ...(type === 'noonGate' ? { noon: true } : {}), ...(type === 'vesperGate' ? { vesper: true } : {}) });
   }
   for (const e of exits) {
     const gi = gateInfo(e, true);
@@ -712,10 +930,20 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   // ----- the city kit: kerbs, crossings, street furniture, skyline, railway, movers --------
   const city = look.city ? buildCity({
     map, look, plan, isPath, isWater, occupied, gates, portals: tunnels.portals, place, facadeParts, quality, margin: MARGIN, facadeMaterial: mats.facade,
+    keywords: scenery.keywords || [],
   }) : null;
   if (city) {
     for (const m of city.meshes) group.add(m);
     for (const gl of city.glows) glows.push(gl);
+  }
+
+  // ----- the burning layer (scenery.ruined 'burning', Gate Arc S3a): fire on the ruins away from
+  // the road, smoke from the skirt, scorch marks, the stray cat in the rubble ----------------------
+  const burning = look.ruined === 'burning' ? burningLayer({ map, plan, isPath, isWater, occupied, quality }) : null;
+  if (burning) {
+    for (const gl of burning.glows) glows.push(gl);
+    for (const em of burning.emitters) emitters.push(em);
+    if (burning.cat) place('catOnWall', burning.cat.x, 0.06, burning.cat.z + 0.28, 0.4, 1, hash(map.id, 'stray') % 2);
   }
 
   // ----- outside scatter (frames the board) ------------------------------------------
@@ -761,10 +989,20 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   }
 
   // ----- scenery keywords --------------------------------------------------------------
+  /** Search boats' searchlights (scenery 'searchBoats'): swept like the campus searchlight's beam. */
+  const sweeps = [];
   const slots = buildSlots();
-  for (const kw of scenery.keywords || []) {
+  // a keyword may dress the board with more keywords (`also`), each once
+  const dressing = [];
+  const addKeyword = (kw) => {
+    if (dressing.includes(kw)) return;
+    dressing.push(kw);
+    for (const a of SCENERY[kw]?.also || []) addKeyword(a);
+  };
+  for (const kw of scenery.keywords || []) addKeyword(kw);
+  for (const kw of dressing) {
     const rec = SCENERY[kw];
-    if (!rec) continue;
+    if (!rec || rec.look) continue;
     if (rec.ambient) {
       ambient.add(rec.ambient);
       continue;
@@ -773,23 +1011,183 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     let n = 0;
     for (const slot of rec.alt ? [rec.slot, rec.alt] : [rec.slot]) {
       const list = slots[slot] || [];
-      shuffle(list, r);
+      // (an ordered keyword keeps its slot's order: a row stays a row)
+      if (!rec.ordered) shuffle(list, r);
       for (const spot of list) {
         if (n >= rec.n) break;
         if (spot.used) continue;
-        if (city && city.furniture.some(([fx, fz]) => Math.hypot(fx - spot.x, fz - spot.z) < 0.75)) continue;
+        if (!spot.free && city && city.furniture.some(([fx, fz]) => Math.hypot(fx - spot.x, fz - spot.z) < 0.75)) continue;
         spot.used = true;
         for (const o of list) if (!o.used && Math.abs(o.x - spot.x) + Math.abs(o.z - spot.z) < 1.2) o.used = true;
         const s = (rec.s ?? 1) * (spot.s ?? 1);
         const ry = rec.face ? (r() - 0.5) * 0.7 : spot.ry ?? r() * 6.28;
-        place(rec.props ? rec.props[n % rec.props.length] : rec.prop, spot.x, spot.y ?? 0, spot.z, ry, s, rec.variant ?? Math.floor(r() * 4));
+        place(rec.props ? rec.props[n % rec.props.length] : rec.prop, spot.x, spot.y ?? 0, spot.z, ry, s, rec.variants ? rec.variants[n % rec.variants.length] : rec.variant ?? Math.floor(r() * 4));
+        // a search boat's searchlight: its beam sweeps the water toward the board's middle
+        if (rec.sweep) {
+          const aim = Math.atan2(W / 2 - spot.x, H / 2 - spot.z);
+          sweeps.push({ x: spot.x, y: 0.36, z: spot.z, a0: aim - 0.6, a1: aim + 0.6, period: 11 + n * 3, reach: 3.6, phase: (hash(map.id, 'boat', n) % 628) / 100 });
+        }
         n++;
       }
     }
   }
 
+  // the Drowned Line: water drips from the lintel of every tunnel's OUT mouth (Gate Arc S5a)
+  if (look.city?.kit === 'drowned') {
+    for (const p of tunnels.portals) if (p.end === 'out') emitters.push({ kind: 'drip', x: p.x + p.dir[0] * 0.12, y: 0.48, z: p.z + p.dir[1] * 0.12 });
+  }
+  // the reservoir park at night: fireflies over the water (as the campus lakeshore's)
+  if (look.district === 'park' && look.night) ambient.add('fireflies');
+  // Vesperline frozen: the cold aurora over the back skirt (themes.FROZEN look.aurora)
+  if (look.aurora) ambient.add('aurora');
+  // the shelter's one warm window glows a little brighter (scenery 'warmWindow', 6-10): the only warm light
+  if (dressing.includes('warmWindow')) {
+    for (const g of gates) {
+      if (g.kind !== 'goal') continue;
+      glows.push({ x: g.x - g.dir[0] * 0.1 - g.dir[1] * 0.62, y: 0.4, z: g.z - g.dir[1] * 0.1 + g.dir[0] * 0.62, color: new THREE.Color('#ffb347'), size: 1.1, flicker: 0.04, phase: 0, keep: true });
+    }
+  }
+
+  // the highway bores breathe snow out over the board (scenery keyword 'tunnelPortals', Gate Arc 4-8)
+  if (dressing.includes('tunnelPortals')) {
+    for (const p of tunnels.portals) {
+      if (p.end !== 'out') continue;
+      emitters.push({ kind: 'snowGust', x: p.x + p.dir[0] * 0.2, y: 0.32, z: p.z + p.dir[1] * 0.2, dx: p.dir[0], dz: p.dir[1] });
+    }
+  }
+
   function buildSlots() {
-    const out = { pathside: [], skirt: [], grass: [], shore: [], water: [], entrance: [], nook: [] };
+    const out = {
+      pathside: [], skirt: [], grass: [], shore: [], water: [], entrance: [], nook: [], roof: [],
+      span: [], pad: [], deckside: [], gateside: [], goalside: [], north: [], vent: [], railEnd: [], spire: [],
+    };
+    // railEnd: beside the far end of every viaduct span (trackMesh.buildDecks viaductEnds), 1.2-1.8 tiles out to
+    // one side (off every road and building; its pylon may stand in the water), facing along the road: where the
+    // old sky-rail broke off (Gate Arc S6a)
+    for (const ve of decks.viaductEnds || []) {
+      const nx = -ve.dz;
+      const nz = ve.dx;
+      let spot = null;
+      for (const off of [1.2, 1.5, 1.8]) {
+        for (const sd of [1, -1]) {
+          if (spot) break;
+          const px = ve.x + nx * sd * off - ve.dx * 0.6;
+          const pz = ve.z + nz * sd * off - ve.dz * 0.6;
+          const tx = Math.floor(px);
+          const tz = Math.floor(pz);
+          if (isPath(tx, tz) || isRoofTile(tx, tz) || (inMap(tx, tz) && rows[tz][tx] === 'H')) continue;
+          if (plan.roads.some((r) => r.pts.some(([qx, qz], i) => !r.tunnel[i] && Math.hypot(qx - px, qz - pz) < 0.9))) continue;
+          spot = { x: px, z: pz, y: isWater(tx, tz) ? WATER_Y : 0, ry: Math.atan2(ve.dx, ve.dz), s: 1, free: true };
+        }
+      }
+      if (spot) out.railEnd.push(spot);
+    }
+    // spire: the back skirt behind the Spindle's foot (the decor 'spindle', else the board's middle), where
+    // its shaft rises clear of the board (Gate Arc S6a)
+    {
+      const foot = (map.decor || []).find((d) => d.type === 'spindle');
+      out.spire.push({ x: foot ? foot.x + 0.5 : W / 2, z: -3.4, y: 0, ry: 0, s: 1 });
+    }
+    // vent: beside each of the stage rule's vent zones, just off the road (the Drowned Line's steam
+    // valves, 5-8): the first of eight directions round the zone whose spot is dry land on the board,
+    // clear of the city kit's furniture (one spot per zone)
+    const roadClear = (x, z, d) => plan.roads.every((r) => r.pts.every(([px, pz], i) => r.tunnel[i] || Math.abs(px - x) > d || Math.abs(pz - z) > d || Math.hypot(px - x, pz - z) >= d));
+    for (const z of scenery.zones || []) {
+      let spot = null;
+      for (const d of [1.3, 1.6, 1.9]) {
+        for (let k = 0; k < 12 && !spot; k++) {
+          const a = (k / 12) * Math.PI * 2 + 0.3;
+          const x = z.x + Math.cos(a) * d;
+          const zz = z.y + Math.sin(a) * d;
+          const tx = Math.floor(x);
+          const tz = Math.floor(zz);
+          if (!inMap(tx, tz) || isPath(tx, tz) || isWater(tx, tz) || isRoofTile(tx, tz) || rows[tz][tx] === 'H') continue;
+          if (!roadClear(x, zz, 1.0)) continue;
+          if (city && city.furniture.some(([fx, fz]) => Math.hypot(fx - x, fz - zz) < 0.8)) continue;
+          spot = { x, z: zz, y: 0, ry: Math.atan2(z.x - x, z.y - zz), s: 1 };
+        }
+        if (spot) break;
+      }
+      if (spot) out.vent.push(spot);
+    }
+    // pad: the stage rule's relay pads (the far north's village hearths ring them)
+    for (const p of scenery.pads || []) out.pad.push({ x: p.x, z: p.y, y: 0, ry: 0, s: 1 });
+    // span: across a straight stretch of road on the ground, clear of every other road, fork, join,
+    // gate, tunnel mouth and crossing (a sign gantry's posts stand either side of it)
+    const spanClear = (x, z, r, i) => {
+      if (!inMap(Math.floor(x), Math.floor(z))) return false;
+      if ((plan.links || []).some((l) => Math.hypot(l.x - x, l.y - z) < 2.0)) return false;
+      if (gates.some((g) => Math.hypot(g.x - x, g.z - z) < 2.2)) return false;
+      if (tunnels.portals.some((p) => Math.hypot(p.x - x, p.z - z) < 2.0)) return false;
+      if ((map.crossings || []).some((c) => Math.hypot(c.x - x, c.y - z) < 2.0)) return false;
+      for (const o of plan.roads) {
+        for (let k = 0; k < o.pts.length; k += 2) {
+          if (o === r && Math.abs(k - i) < 30) continue;
+          if (Math.hypot(o.pts[k][0] - x, o.pts[k][1] - z) < 1.4) return false;
+        }
+      }
+      return true;
+    };
+    for (const r of plan.roads) {
+      let acc = 0;
+      for (let i = 6; i < r.pts.length - 6; i++) {
+        acc += Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
+        if (acc < 1.5) continue;
+        if (r.tunnel[i] || r.elev[i] > 0.01 || r.lift[i] || r.tunnel[i - 5] || r.tunnel[i + 5]) continue;
+        const a = r.pts[i - 5];
+        const b = r.pts[i + 5];
+        const [x, z] = r.pts[i];
+        const ax = x - a[0];
+        const az = z - a[1];
+        const bx = b[0] - x;
+        const bz = b[1] - z;
+        const turn = Math.acos(Math.max(-1, Math.min(1, (ax * bx + az * bz) / ((Math.hypot(ax, az) * Math.hypot(bx, bz)) || 1))));
+        if (turn > 0.12 || !spanClear(x, z, r, i)) continue;
+        const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+        const nx = -(b[1] - a[1]) / l;
+        const nz = (b[0] - a[0]) / l;
+        // (its posts stand on open ground: never in the water, on a roof or in a building)
+        const blocked = (s) => {
+          const tx = Math.floor(x + nx * s);
+          const tz = Math.floor(z + nz * s);
+          return isWater(tx, tz) || isRoofTile(tx, tz) || (inMap(tx, tz) && rows[tz][tx] === 'H');
+        };
+        if (blocked(-0.86) || blocked(0.86)) continue;
+        acc = 0;
+        out.span.push({ x, z, y: 0, ry: Math.atan2(-nz, nx), s: 1 });
+      }
+    }
+    // deckside: the old bridge's piers (4-10), one evenly spaced row beside the longest deck (deckPierRow)
+    out.deckside.push(...deckPierRow(plan.roads, decks.waterSections, isWater, isPath));
+    // gateside / goalside: beside the road just inside a spawn / goal gate, facing the road
+    for (const [list, sign] of [[entrances, 1], [exits, -1]]) {
+      for (const e of list) {
+        const gi = gates.find((g) => Math.hypot(g.x - e.x, g.z - e.z) < 1.2) || { x: e.x, z: e.z };
+        const [dx, dz] = e.dir;
+        const nx = -dz;
+        const nz = dx;
+        for (const along of [1.0, 2.1]) {
+          for (const sd of [-1, 1]) {
+            const px = gi.x + dx * sign * along + nx * sd * 1.2;
+            const pz = gi.z + dz * sign * along + nz * sd * 1.2;
+            const tx = Math.floor(px);
+            const tz = Math.floor(pz);
+            if (isPath(tx, tz) || isWater(tx, tz) || isRoofTile(tx, tz)) continue;
+            (sign > 0 ? out.gateside : out.goalside).push({ x: px, z: pz, y: 0, ry: Math.atan2(-nx * sd, -nz * sd), s: 1 });
+          }
+        }
+      }
+    }
+    // roof: the outer front corner of a rooftop, on its parapet (a cat dozing there, Old Town)
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (!isRoofTile(x, y) || isRoofTile(x, y + 1)) continue;
+        const west = !isRoofTile(x - 1, y);
+        const east = !isRoofTile(x + 1, y);
+        if (!west && !east) continue;
+        out.roof.push({ x: x + (west ? 0.16 : 0.84), z: y + 0.97, y: ROOF_Y + 0.05, ry: west ? 0 : Math.PI, s: 1 });
+      }
+    }
     // pathside: just beside the road, every ~1.6 tiles along the centreline, both sides
     for (const r of plan.roads) {
       let acc = 0;
@@ -853,6 +1251,10 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
           const oz = (hash(y, x, 'g') % 2 ? 0.33 : -0.33);
           out.grass.push({ x: cx + ox, z: cz + oz, s: 0.6 });
         }
+        // north: the snowy rows of a snow-covered board (board corners and the far skirt)
+        if (look.snowCover && cz < (Number.isFinite(map.city?.snowRows) ? map.city.snowRows : look.snowCover.rows) - 0.6) {
+          if (inMap(x, y) ? rows[y][x] === '.' : d > 1.3 && d < 3.4 && outsideFree(x, y)) out.north.push({ x: cx + (hash(x, y, 'sn') % 2 ? 0.3 : -0.3), z: cz, s: inMap(x, y) ? 0.7 : 1 });
+        }
       }
     }
     for (const e of entrances) {
@@ -875,6 +1277,13 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   }
 
   // ----- merge prop groups -------------------------------------------------------------
+  // (merging needs one attribute set: with a tear, every other glow part gets tearK = 0)
+  if (tearParts) {
+    for (const g of glowParts) {
+      if (!g.attributes.tearK) g.setAttribute('tearK', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count), 1));
+    }
+  }
+  patchGlow(!!glowDim, tearParts > 0);
   const solidGeo = solidParts.length ? mergeGeometries(solidParts) : null;
   const foliageGeo = foliageParts.length ? mergeGeometries(foliageParts) : null;
   const glowGeo = glowParts.length ? mergeGeometries(glowParts) : null;
@@ -933,13 +1342,13 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     /** Gate markers (1 tile outside the board): { kind: 'spawn'|'goal', x, z, dir, color }. */
     gates,
     /** Painted ground marks drawn by the ambient batches: rune circles, junction chevrons, city crossings. */
-    marks: city ? [...features.marks, ...city.marks] : features.marks,
+    marks: burning ? [...features.marks, ...(city ? city.marks : []), ...burning.marks] : city ? [...features.marks, ...city.marks] : features.marks,
     /** City kit layout counts (null on other themes). */
     city: city ? city.stats : null,
     /** Live positions of the city's patrol drones ({ x, y, z }, updated by update(); empty elsewhere): the actor layer shadows them. */
     flyers: city ? city.flyers : [],
-    /** The campus searchlights (map.city.searchlight): { x, y, z, a0, a1, period, reach, phase }; the ambient layer sweeps their beams. */
-    searchlights: city ? city.searchlights : [],
+    /** The campus searchlights (map.city.searchlight) and the park's search boats (scenery 'searchBoats'): { x, y, z, a0, a1, period, reach, phase }; the ambient layer sweeps their beams. */
+    searchlights: sweeps.length ? [...(city ? city.searchlights : []), ...sweeps] : city ? city.searchlights : [],
     /**
      * Blackout dimming (look.blackout stages only, src/render/blackout.js): scales the glow geometry
      * (the gates excepted) and the lit windows by k (1 = normal). Uniforms only: no draw call, no
@@ -952,11 +1361,25 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       const u = mats.facade?.userData.uniforms;
       if (u?.uLit) u.uLit.value = k;
     },
+    /** Does this board carry HAMMER's tear (a hammerTear prop)? Its glow pulses through setTear. */
+    tear: tearParts > 0,
+    /**
+     * The tear's pulse (src/render/tear.js): scales the tear's glow geometry by k (TEAR_REST at rest,
+     * brighter while the rule pulses). A uniform only: no draw call, no allocation.
+     * @param {number} k
+     */
+    setTear(k) {
+      if (tearParts) tearPulse.value = k;
+    },
+    /** The burning layer's fires and smoke columns ({ x, z }; tests and previews; null when not burning). */
+    burning: burning ? { fires: burning.fires.map((f) => ({ x: f.x, z: f.z })), smoke: burning.emitters.filter((e) => e.kind === 'smokeColumn').map((e) => ({ x: e.x, z: e.z })) } : null,
     /** Rooftop layout ({ regions, tiles }, null without 'U' tiles). */
     roofs: roofStats,
     /** Height a girl stands at on the board point (x, y): ROOF_Y on a rooftop tile, else 0. */
     roofAt: (x, y) => (isRoofTile(Math.floor(x), Math.floor(y)) ? ROOF_Y : 0),
-    /** The lane schedule's open lanes (Sim.openLanes(); null = every lane): the city's level crossings follow it. */
+    /** The city's checkpoint barriers (map.city.barriers; tests and previews): { lane, lanes, x, z, angle, target }. */
+    barriers: city ? city.barriers : [],
+    /** The lane schedule's open lanes (Sim.openLanes(); null = every lane): the city's level crossings and checkpoint barriers follow it. */
     setLanes(open) {
       city?.setLanes(open);
     },
@@ -976,6 +1399,80 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       city?.dispose();
       group.clear();
     },
+  };
+}
+
+/** Runs ground painters (textures.paintGround `extra`) in order; null when there are none. */
+function chainPainters(...fns) {
+  const list = fns.filter(Boolean);
+  if (!list.length) return null;
+  if (list.length === 1) return list[0];
+  return (g, toPx, px, rnd) => {
+    for (const fn of list) fn(g, toPx, px, rnd);
+  };
+}
+
+/**
+ * Snow over a highway board's north rows (scenery keyword 'snowCover', Gate Arc 4-8; themes
+ * SNOW_COVER): a snow field from the far edge down to `map.city.snowRows` (default SNOW_COVER.rows)
+ * with a ragged, drifting southern edge and wind streaks, its colour kept under the road's tone; by
+ * the road it turns to grey slush, so the hard shoulder and the road stay the clearest band.
+ */
+function snowCoverPainter(map, look, roads) {
+  const S = look.snowCover;
+  const rows = Number.isFinite(map.city?.snowRows) ? map.city.snowRows : S.rows;
+  return (g, toPx, px, rnd) => {
+    const x0 = -MARGIN - 1;
+    const x1 = map.width + MARGIN + 1;
+    const edge = [];
+    for (let x = x0; x <= x1; x += 0.5) edge.push([x, rows + Math.sin(x * 0.9) * 0.35 + Math.sin(x * 2.3 + 1) * 0.18 + (rnd() - 0.5) * 0.2]);
+    const area = () => {
+      g.beginPath();
+      const [ax, ay] = toPx(x0, -MARGIN - 1);
+      g.moveTo(ax, ay);
+      for (const [x, z] of edge) {
+        const [sx, sy] = toPx(x, z);
+        g.lineTo(sx, sy);
+      }
+      const [bx, by] = toPx(x1, -MARGIN - 1);
+      g.lineTo(bx, by);
+      g.closePath();
+    };
+    g.save();
+    area();
+    g.fillStyle = S.color;
+    g.globalAlpha = 0.92;
+    g.fill();
+    g.globalAlpha = 1;
+    area();
+    g.clip();
+    // wind streaks and drifts
+    for (let i = 0; i < 70; i++) {
+      const [sx, sy] = toPx(x0 + rnd() * (x1 - x0), -MARGIN + rnd() * (rows + MARGIN));
+      g.fillStyle = rnd() > 0.5 ? '#ffffff' : S.shade;
+      g.globalAlpha = 0.35;
+      g.beginPath();
+      g.ellipse(sx, sy, px * (0.3 + rnd() * 0.5), px * (0.06 + rnd() * 0.08), -0.2 + rnd() * 0.4, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.globalAlpha = 1;
+    // grey slush by the road: the shoulder band again, in wet tones
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    for (const [w, col] of [[px * 1.6, '#9aa2ab'], [px * 1.1, '#6f757d']]) {
+      g.strokeStyle = col;
+      g.lineWidth = w;
+      for (const road of roads) {
+        g.beginPath();
+        road.forEach(([x, z], i) => {
+          const [sx, sy] = toPx(x, z);
+          if (i === 0) g.moveTo(sx, sy);
+          else g.lineTo(sx, sy);
+        });
+        g.stroke();
+      }
+    }
+    g.restore();
   };
 }
 

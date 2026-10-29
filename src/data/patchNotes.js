@@ -20,6 +20,23 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.60', version: '0.1.60', date: '2026-10-29', title: 'Gate Arc Acts 3–6 and Extended Day',
+    added: [
+      'Gate Arc Acts 3–6: twenty new stages across chapters 3 to 6, four new bosses (the Ashen Warden, the Frost Vanguard, the Reservoir Willow and Gatekeeper Unit 01) and a side stage, The Star Dome.',
+      'Tryout Day: Extended Day keeps the run going after period 12 until your hearts run out (clear a Full Day first), and Random Class draws your girls and every pick for you, solo or in co-op.',
+      'Tenka can now Limit Break to LR: at level 60 with all 5 gates and ★5, pay the fee and win her Thesis Defense trial. Kohaku & Tsubaki hit far harder at their top tiers, and at Grand Spectrum their beams run on to the edge of the map.',
+      'New looks in battle: Tenka takes the field as her real 3D figure, coilgun in hand; Iroha’s mirror panel turns and glints as bolts bounce through it and her Shattered Glass path scatters glinting shards; Kon bounds to Ruri’s relay spot and pounces, Kaze stoops onto each enemy Hana shoots, and Seiran’s sky dragon arrives bigger, with a roar.',
+    ],
+    changed: [
+      'The stage screen shows the whole map, Recruit banners are laid out cleaner, Tryout Day gets a big card in Play Modes, and the battle DPS readout shows both Live and Average.',
+      'Co-op partners need this update too before you can play together.',
+    ],
+    fixed: [
+      'A chat line typed right after opening a clan tab is no longer lost, and Yuzuha\'s sentries and nets pop an orange ring when they unfold.',
+      'On small phones the Events tab keeps clear of Co-op, the hero card and battle portrait no longer cover her name or the top bar, patch-note dates stay on one line, the Recruit rate line no longer sits over the girls, and the girl page’s matchups fit.',
+    ],
+  },
+  {
     id: 'v0.1.59', version: '0.1.59', date: '2026-10-28', title: 'Banners and Tryout Day',
     added: [
       'Tryout Day, a new run mode (opens after 2-5): play one school day of waves solo or in co-op, pick a Pep Talk after every period and watch new girls try out for your squad, from Grade 1 to Grade 12.',

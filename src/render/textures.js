@@ -821,6 +821,34 @@ export function createAtlas(extra = []) {
     ctx.arc(cx, cy, w * 0.07, 0, Math.PI * 2);
     ctx.fill();
   });
+  // scorch (Gate Arc S3a, the burning look): a soft burnt blotch with streaks blown out from it
+  add('scorch', 96, 96, (ctx, w, h) => {
+    const cx = w / 2;
+    const cy = h / 2;
+    let seed = 11;
+    const rr = () => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
+    const gr = ctx.createRadialGradient(cx, cy, 0, cx, cy, w / 2);
+    gr.addColorStop(0, 'rgba(255,255,255,0.95)');
+    gr.addColorStop(0.45, 'rgba(255,255,255,0.7)');
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gr;
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineCap = 'round';
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2 + rr() * 0.4;
+      const r0 = w * 0.18;
+      const r1 = w * (0.34 + rr() * 0.13);
+      ctx.lineWidth = 2 + rr() * 3;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0);
+      ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+      ctx.stroke();
+    }
+  });
 
   // Glyphs: bold white with a navy outline (tint multiplies the fill; outline stays dark).
   const glyphW = 40;
@@ -976,6 +1004,19 @@ const GROUND_STYLES = {
   // the city (Gate Arc): warm paving slabs (half-tile seams), a painted sidewalk with a kerb along
   // every road instead of worn dirt and pebbles, no clover or flower drifts on plain tiles
   paved: { mottle: 0.16, patch: 1.0, patchAmt: 0.35, cloverScale: 0.5, cloverAmt: 0, flowers: 0, wet: 0.05, slabs: 1, kerb: 1 },
+  // Old Town (Gate Arc S3a): plaster-pale ground of big irregular stones, a stone gutter band along
+  // every lane (the `kerb` band in the district's gutter colours), moss in a few joints
+  stone: { mottle: 0.2, patch: 0.9, patchAmt: 0.4, cloverScale: 0.6, cloverAmt: 0.12, flowers: 0, wet: 0.08, stones: 1, kerb: 1 },
+  // the highway district (Gate Arc S4a): gravel verges with tufts of scrub grass, a dark hard
+  // shoulder band along every road (the `kerb` band in the district's shoulder colours)
+  gravel: { mottle: 0.34, patch: 1.1, patchAmt: 0.55, cloverScale: 0.7, cloverAmt: 0.3, flowers: 0, wet: 0, kerb: 1 },
+  // the Drowned Line (Gate Arc S5a): small wet station tiles with dark grout lines, algae in a few
+  // joints, puddles with a pale sheen at their rims, the painted platform band along every lane
+  tile: { mottle: 0.2, patch: 1.0, patchAmt: 0.35, cloverScale: 0.6, cloverAmt: 0.18, flowers: 0, wet: 0.6, tiles: 1, kerb: 1 },
+  // Vesperline (Gate Arc S6a): glass panels a tile each (dark frosted joints, a pale sheen across each
+  // panel, a shade per panel), the frosted band along every lane; frozen (FROZEN.groundPaint): cyan cracks
+  // in the ice (`rime`) and soft snow drifts (`drifts`), both kept under the road's tone
+  glass: { mottle: 0.16, patch: 1.0, patchAmt: 0.3, cloverScale: 0.6, cloverAmt: 0, flowers: 0, wet: 0, panels: 1, kerb: 1 },
 };
 
 /**
@@ -997,6 +1038,9 @@ const GROUND_STYLES = {
  * @param {number} [o.seed=1]
  * @param {(g: CanvasRenderingContext2D, toPx: Function, px: number, rnd: Function) => void} [o.extra]
  *   a theme painter run last (the city kit paints verges and plazas: src/render/city/cityGround.js)
+ * @param {(g: CanvasRenderingContext2D, toPx: Function, px: number) => void} [o.base]
+ *   a theme painter run right on the soft noise, before the shore, the road wear and the sidewalks
+ *   (the reservoir park's island lawn: cityGround.js cityIslePainter), so those still paint over it
  * @returns {{ texture: THREE.CanvasTexture, canvas: HTMLCanvasElement }}
  */
 export function paintGround(o) {
@@ -1016,6 +1060,8 @@ export function paintGround(o) {
   const cWet = hexToRgb(look.wet || darken(look.ground[0], 0.6));
   const cCrack = hexToRgb('#ff7a2a');
   const cCrackHot = hexToRgb('#ffd36b');
+  // (Vesperline's ice: its cyan cracks)
+  const cRime = hexToRgb(look.crack || '#57c9df');
 
   // --- 1. soft noise layer at half resolution, upscaled (painterly softness) ----------
   const NPX = Math.max(8, Math.round(px / 2));
@@ -1065,6 +1111,53 @@ export function paintGround(o) {
         const slab = noise.at(Math.floor(wx * 2) * 3.1 + 900, Math.floor(wz * 2) * 3.1 + 900);
         col = mix3(col, cLight, smooth(0.7, 0.85, slab) * 0.45);
       }
+      if (style.stones) {
+        // big flagstones in staggered courses (two thirds of a tile long), dark joints
+        const row = Math.floor(wz * 1.5);
+        const sx = wx * 1.5 + (row % 2) * 0.5;
+        const gx = Math.abs((sx % 1 + 1) % 1 - 0.5) * 2;
+        const gz = Math.abs(((wz * 1.5) % 1 + 1) % 1 - 0.5) * 2;
+        const joint = smooth(0.9, 0.97, Math.max(gx, gz));
+        col = mix3(col, cShade, joint * 0.8);
+        const stone = noise.at(Math.floor(sx) * 2.3 + 500, row * 2.3 + 500);
+        col = mix3(col, cLight, smooth(0.62, 0.8, stone) * 0.4);
+      }
+      if (style.tiles) {
+        // station tiles: a quarter tile each, dark grout, a shade per tile; a pale sheen round the
+        // puddles (where the wet noise climbs toward a puddle's rim)
+        const tx = wx * 4;
+        const tz = wz * 4;
+        const gx = Math.abs(((tx % 1) + 1) % 1 - 0.5) * 2;
+        const gz = Math.abs(((tz % 1) + 1) % 1 - 0.5) * 2;
+        const grout = smooth(0.8, 0.92, Math.max(gx, gz));
+        const shade = noise.at(Math.floor(tx) * 1.7 + 700, Math.floor(tz) * 1.7 + 700);
+        col = mix3(col, cShade, grout * 0.7 + smooth(0.6, 0.9, shade) * 0.18);
+        const wetN = noise.fbm(wx * 0.75 + 300, wz * 0.75 + 300, 2);
+        col = mix3(col, cLight, smooth(0.54, 0.6, wetN) * (1 - smooth(0.6, 0.66, wetN)) * 0.55);
+      }
+      if (style.panels) {
+        // glass panels a tile each: dark frosted joints, a shade per panel, a pale sheen across it
+        const fx = ((wx % 1) + 1) % 1;
+        const fz = ((wz % 1) + 1) % 1;
+        const gx = Math.abs(fx - 0.5) * 2;
+        const gz = Math.abs(fz - 0.5) * 2;
+        col = mix3(col, cShade, smooth(0.9, 0.97, Math.max(gx, gz)) * 0.65);
+        const pane = noise.at(Math.floor(wx) * 2.9 + 800, Math.floor(wz) * 2.9 + 800);
+        col = mix3(col, cShade, smooth(0.6, 0.95, pane) * 0.18);
+        const sheen = Math.abs(fx + fz - 0.9);
+        col = mix3(col, cLight, smooth(0.12, 0.02, sheen) * 0.28);
+      }
+      if (style.rime) {
+        // cyan cracks running through the ice (muted: the road stays the lightest band)
+        const v = noise.fbm(wx * 0.9 + 1400, wz * 0.9 + 1400, 3);
+        const d = Math.abs(v - 0.5);
+        col = mix3(col, cRime, smooth(0.022, 0.0, d) * 0.65 * style.rime);
+      }
+      if (style.drifts) {
+        // soft snow drifts in the joints and against the panels
+        const sn = noise.fbm(wx * 0.45 + 1700, wz * 0.45 + 1700, 3);
+        col = mix3(col, cLight, smooth(0.54, 0.7, sn) * style.drifts);
+      }
       if (style.plates) {
         // concrete slabs: a faint seam grid every 2 tiles with rust bleeding along it
         const gx = Math.abs(((wx + 1) % 2) - 1);
@@ -1090,6 +1183,7 @@ export function paintGround(o) {
   g.drawImage(nc, 0, 0, W, H);
 
   const toPx = (wx, wz) => [(wx - x0) * px, (wz - y0) * px];
+  if (o.base) o.base(g, toPx, px);
 
   // --- 2. wet shore around water -----------------------------------------------------
   let hasWater = false;
@@ -1339,6 +1433,23 @@ export function paintGround(o) {
   // --- 5. a theme painter on top (city kit: verges and plazas) ----------------------------
   if (o.extra) o.extra(g, toPx, px, rnd);
 
+  // --- 6. ruined looks (Gate Arc S3a): ash dusting and soot drifts off the roads ---------------
+  if (look.ruined) {
+    for (let i = 0; i < w * h * 0.9; i++) {
+      const wx = x0 + rnd() * w;
+      const wz = y0 + rnd() * h;
+      if (isWater(Math.floor(wx), Math.floor(wz)) || isPath(Math.floor(wx), Math.floor(wz))) continue;
+      const [sx, sy] = toPx(wx, wz);
+      const r = px * (0.18 + rnd() * 0.4);
+      const gr = g.createRadialGradient(sx, sy, 0, sx, sy, r);
+      const soot = rnd() > 0.55;
+      gr.addColorStop(0, soot ? 'rgba(34,30,30,0.32)' : 'rgba(150,144,138,0.28)');
+      gr.addColorStop(1, soot ? 'rgba(34,30,30,0)' : 'rgba(150,144,138,0)');
+      g.fillStyle = gr;
+      g.fillRect(sx - r, sy - r, r * 2, r * 2);
+    }
+  }
+
   const texture = new THREE.CanvasTexture(c);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.ClampToEdgeWrapping;
@@ -1366,7 +1477,7 @@ function makeRnd(seed) {
 
 /**
  * Tileable greyscale detail (around 1.0, multiplies the painted ground). One repeat = 1 tile.
- * style: grass | moss | sand | snow | ash | metal | paved
+ * style: grass | moss | sand | snow | ash | metal | paved | stone
  */
 export function detailTexture(style = 'grass', seed = 7) {
   const size = 256;
@@ -1462,8 +1573,8 @@ export function detailTexture(style = 'grass', seed = 7) {
       g.fillStyle = `rgba(${v},${v},${v},0.35)`;
       g.fillRect(rnd() * size, rnd() * size, 1.5, 1.5);
     }
-  } else if (style === 'paved') {
-    // fine concrete speckle and a few faint stains
+  } else if (style === 'paved' || style === 'stone' || style === 'tile' || style === 'glass') {
+    // fine concrete speckle and a few faint stains (Old Town's stone ground and the drowned tiles too)
     for (let i = 0; i < 900; i++) {
       const v = rnd() > 0.5 ? 255 : 196;
       g.fillStyle = `rgba(${v},${v},${v},${0.18 + rnd() * 0.22})`;
@@ -1480,6 +1591,15 @@ export function detailTexture(style = 'grass', seed = 7) {
         g.fillStyle = gr;
         g.fillRect(0, 0, size, size);
       });
+    }
+  } else if (style === 'gravel') {
+    // the highway's verges (Gate Arc S4a): packed gravel, small stones with a light top
+    for (let i = 0; i < 1400; i++) {
+      const v = rnd() > 0.5 ? 255 : 178;
+      g.fillStyle = `rgba(${v},${v},${v},${0.25 + rnd() * 0.3})`;
+      g.beginPath();
+      g.ellipse(rnd() * size, rnd() * size, 1 + rnd() * 1.6, 0.8 + rnd() * 1.2, rnd() * 3, 0, Math.PI * 2);
+      g.fill();
     }
   } else if (style === 'metal') {
     g.strokeStyle = 'rgba(255,255,255,0.22)';
@@ -1513,10 +1633,22 @@ export function grassTexture(seed = 7) {
  * Tileable road surface (greyscale around 1.0, tinted by vertex colour). u runs along the
  * road, v across it; one repeat = 1 tile of road.
  * style: flagstone | cobble | planks | metal | dirt | brick | sand | asphalt (coloured: the city) |
+ * setts (coloured: Old Town's stone setts) | concrete (coloured: the highway's pale slabs) |
+ * grating (coloured: the Drowned Line's pale galvanised steel grating with a yellow platform edge) |
+ * glassway (coloured: Vesperline's white glass panels with a cyan guide line, GLASSWAY) |
  * track (coloured: the campus running track; one repeat = TRACK_TILES tiles, see trackRepeat)
  * @param {{ tone?: number }} [o] asphalt: brightness of the surface (1 = the city's; the campus
  *   road is paler so it stays the lightest band at night)
  */
+/**
+ * Vesperline's glassway colours (LINEAR 0-255, before `tone`; Gate Arc S6a): the grey-cyan glass panel (most of
+ * the road), the frosted edge strips, the panel seams and the cyan guide line. The tests read the panel to keep
+ * the road the lightest band of every vesper look AND clearly under the white glass machines walking on it
+ * (Step 6 visual review: a white panel swallowed them at 844×390; this one renders ≈ 130 luma on the frozen
+ * stages, the machines 170-200). The living look brightens it back to white with `path.tone` (THEMES.vesper).
+ */
+export const GLASSWAY = Object.freeze({ panel: [134, 148, 158], edge: [116, 129, 140], seam: [100, 112, 124], guide: [64, 196, 222] });
+
 export function pathTexture(style = 'flagstone', seed = 3, o = {}) {
   if (style === 'track') return trackTexture(seed);
   const size = 256;
@@ -1591,6 +1723,149 @@ export function pathTexture(style = 'flagstone', seed = 3, o = {}) {
     g.fillRect(0, size * 0.065, size, size * 0.035);
     g.fillRect(0, size * 0.9, size, size * 0.035);
     g.fillRect(size * 0.04, size * 0.48, size * 0.46, size * 0.04);
+    return finishTileTex(c);
+  } else if (style === 'setts') {
+    // Old Town stone setts (Gate Arc S3a): like `asphalt` this style carries its own colour (LINEAR
+    // values: the road texture has no colour space; the theme tints it white) and u runs along the
+    // road, v across it. Rows of small dressed stones laid across the lane (five rows per tile),
+    // staggered joints, a darker mortar, a granite edging band along each side. `tone` scales it
+    // (the burning look dims it a little: it stays the lightest band).
+    const tone = o.tone ?? 1;
+    const T = (v) => Math.min(255, Math.round(v * tone));
+    g.fillStyle = `rgb(${T(104)},${T(98)},${T(88)})`;
+    g.fillRect(0, 0, size, size);
+    const rows = 5;
+    const rw = size / rows;
+    const edge = size * 0.09;
+    for (let r = 0; r < rows; r++) {
+      const per = 4;
+      const sw = (size - edge * 2) / per;
+      const off = r % 2 ? sw / 2 : 0;
+      for (let q = -1; q <= per; q++) {
+        const y0 = edge + q * sw + off;
+        const y1 = y0 + sw;
+        const a = Math.max(edge, y0) + 2;
+        const b = Math.min(size - edge, y1) - 2;
+        if (b - a < 4) continue;
+        const k = 0.9 + rnd() * 0.18;
+        const x0 = r * rw + 2;
+        g.fillStyle = `rgb(${T(186 * k)},${T(178 * k)},${T(160 * k)})`;
+        g.beginPath();
+        g.roundRect(x0, a, rw - 4, b - a, 5);
+        g.fill();
+        g.fillStyle = `rgba(${T(255)},${T(250)},${T(238)},0.18)`;
+        g.fillRect(x0 + 3, a + 2, rw - 10, 3);
+      }
+    }
+    // granite edging bands along both sides of the lane
+    for (const y of [0, size - edge]) {
+      g.fillStyle = `rgb(${T(150)},${T(146)},${T(138)})`;
+      g.fillRect(0, y + 1, size, edge - 2);
+      for (let x = 0; x < size; x += size / 2) {
+        g.fillStyle = `rgb(${T(104)},${T(98)},${T(88)})`;
+        g.fillRect(x, y, 2, edge);
+      }
+    }
+    return finishTileTex(c);
+  } else if (style === 'concrete') {
+    // the highway district's road (Gate Arc S4a): like `asphalt` and `setts` this style carries its
+    // own colour (LINEAR values; the theme tints it white), u along the road, v across it. Pale
+    // concrete slabs with an expansion joint across the lane every half tile, a faint seam down its
+    // middle, a faded white edge line along each side and a little aggregate speck. The band
+    // v 0.2-0.4 stays plain for flat junction boxes (terrain.js buildRibbon `plain`). `tone` scales it.
+    const tone = o.tone ?? 1;
+    const T = (v) => Math.min(255, Math.round(v * tone));
+    g.fillStyle = `rgb(${T(206)},${T(204)},${T(196)})`;
+    g.fillRect(0, 0, size, size);
+    // slabs: a slightly different shade per half tile
+    for (let k = 0; k < 2; k++) {
+      const s = 0.97 + rnd() * 0.05;
+      g.fillStyle = `rgb(${T(206 * s)},${T(204 * s)},${T(196 * s)})`;
+      g.fillRect(k * size / 2 + 2, 0, size / 2 - 4, size);
+    }
+    for (let i = 0; i < 900; i++) {
+      const k = rnd() > 0.5 ? 1.06 : 0.86;
+      g.fillStyle = `rgba(${T(206 * k)},${T(204 * k)},${T(196 * k)},0.55)`;
+      g.fillRect(rnd() * size, rnd() * size, 1.5, 1.5);
+    }
+    // expansion joints across the lane, a faint seam along it (outside the plain band)
+    g.fillStyle = `rgb(${T(150)},${T(148)},${T(142)})`;
+    for (const x of [0, size / 2]) {
+      g.fillRect(x, 0, 2, size * 0.2);
+      g.fillRect(x, size * 0.4, 2, size * 0.6);
+    }
+    g.fillRect(0, size * 0.5 - 1, size, 2);
+    // faded edge lines
+    g.fillStyle = `rgba(${T(250)},${T(250)},${T(246)},0.75)`;
+    g.fillRect(0, size * 0.07, size, size * 0.03);
+    g.fillRect(0, size * 0.9, size, size * 0.03);
+    return finishTileTex(c);
+  } else if (style === 'glassway') {
+    // Vesperline's road (Gate Arc S6a): like `concrete` this style carries its own colour (LINEAR values,
+    // GLASSWAY; the theme tints it white), u along the road, v across it. Grey-cyan glass panels, a seam across
+    // the lane every half tile, a faint frost speck, frosted edge strips and a thin cyan guide line down
+    // the middle. The band v 0.2-0.4 stays plain (flat junction boxes). Mostly panel: the lightest band.
+    const tone = o.tone ?? 1;
+    const T = (v) => Math.min(255, Math.round(v * tone));
+    const [r0, g0, b0] = GLASSWAY.panel;
+    g.fillStyle = `rgb(${T(r0)},${T(g0)},${T(b0)})`;
+    g.fillRect(0, 0, size, size);
+    for (let i = 0; i < 700; i++) {
+      const k = rnd() > 0.5 ? 1.03 : 0.93;
+      g.fillStyle = `rgba(${T(r0 * k)},${T(g0 * k)},${T(b0 * k)},0.45)`;
+      g.fillRect(rnd() * size, rnd() * size, 1.5, 1.5);
+    }
+    // the panel seams across the lane (outside the plain band)
+    const [sr, sg, sb] = GLASSWAY.seam;
+    g.fillStyle = `rgb(${T(sr)},${T(sg)},${T(sb)})`;
+    for (const x of [0, size / 2]) {
+      g.fillRect(x, 0, 2, size * 0.2);
+      g.fillRect(x, size * 0.4, 2, size * 0.6);
+    }
+    // frosted edge strips
+    const [er, eg, eb] = GLASSWAY.edge;
+    g.fillStyle = `rgb(${T(er)},${T(eg)},${T(eb)})`;
+    g.fillRect(0, 0, size, size * 0.06);
+    g.fillRect(0, size * 0.94, size, size * 0.06);
+    // the cyan guide line down the middle
+    const [cr, cg, cb] = GLASSWAY.guide;
+    g.fillStyle = `rgb(${T(cr)},${T(cg)},${T(cb)})`;
+    g.fillRect(0, size * 0.475, size, size * 0.05);
+    return finishTileTex(c);
+  } else if (style === 'grating') {
+    // the Drowned Line's road (Gate Arc S5a): like `concrete` this style carries its own colour (LINEAR
+    // values; the theme tints it white), u along the road, v across it. Pale galvanised steel grating:
+    // bearing bars along the lane with narrow dark slots between them, a cross bar every eighth of a
+    // tile, a seam between the panels every half tile, and a yellow platform-edge strip along each side.
+    // The band v 0.2-0.4 stays plain (flat junction boxes). Mostly bar, a little slot: the lightest band.
+    const tone = o.tone ?? 1;
+    const T = (v) => Math.min(255, Math.round(v * tone));
+    g.fillStyle = `rgb(${T(196)},${T(201)},${T(204)})`;
+    g.fillRect(0, 0, size, size);
+    for (let i = 0; i < 700; i++) {
+      const k = rnd() > 0.5 ? 1.05 : 0.9;
+      g.fillStyle = `rgba(${T(196 * k)},${T(201 * k)},${T(204 * k)},0.5)`;
+      g.fillRect(rnd() * size, rnd() * size, 1.5, 1.5);
+    }
+    // the slots (dark, narrow) between the bearing bars, broken by the cross bars
+    g.fillStyle = `rgb(${T(70)},${T(76)},${T(80)})`;
+    for (let y = size * 0.12; y < size * 0.88; y += 10) {
+      if (y > size * 0.18 && y < size * 0.42) continue;
+      for (let x = 0; x < size; x += size / 8) g.fillRect(x + 3, y, size / 8 - 6, 3);
+    }
+    // the panel seams across the lane
+    g.fillStyle = `rgb(${T(120)},${T(124)},${T(128)})`;
+    for (const x of [0, size / 2]) {
+      g.fillRect(x, 0, 2, size * 0.2);
+      g.fillRect(x, size * 0.4, 2, size * 0.6);
+    }
+    // the yellow platform edge along each side (a darker seam inside it)
+    g.fillStyle = `rgb(${T(206)},${T(150)},${T(22)})`;
+    g.fillRect(0, 0, size, size * 0.075);
+    g.fillRect(0, size * 0.925, size, size * 0.075);
+    g.fillStyle = `rgb(${T(96)},${T(90)},${T(70)})`;
+    g.fillRect(0, size * 0.075, size, 2);
+    g.fillRect(0, size * 0.925 - 2, size, 2);
     return finishTileTex(c);
   } else if (style === 'cobble') {
     g.fillStyle = 'rgb(150,150,150)';

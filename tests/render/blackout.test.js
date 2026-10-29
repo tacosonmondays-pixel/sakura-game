@@ -156,7 +156,9 @@ describe('terrain dimming on a blackout stage', { timeout: 60000 }, () => {
     const { STAGES } = await import('../../src/data/stages.js');
     const eclipse = STAGES.filter((s) => s.rule?.id === 'lunar_eclipse');
     expect(eclipse.length).toBeGreaterThan(0);
-    for (const s of eclipse.filter((st) => !String(st.id).startsWith('2-'))) expect(s.look?.blackout, s.id).toBeFalsy();
+    for (const s of eclipse.filter((st) => st.act !== 2)) expect(s.look?.blackout, s.id).toBeFalsy();
+    // (Act II's lights-out stages dim on purpose: 2-7 on the campus, 5-7 in the Line 2 tunnels)
+    expect(eclipse.filter((st) => st.look?.blackout).map((st) => st.id)).toEqual(['2-7', '5-7', '6-8']);
   });
 });
 

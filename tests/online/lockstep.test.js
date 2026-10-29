@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Lockstep, REBUILD_TIMEOUT_MS } from '../../src/online/coop/lockstep.js';
+import { hashSim } from '../../src/online/coop/simHash.js';
+import { defaultData } from '../../src/sim/data.js';
+import { VIADUCT_FIXTURE, VIADUCT_CROSSING, viaductStage } from '../../previews/viaductMaps.js';
 import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
 import { withDetMath } from '../../src/online/coop/detMath.js';
 import { COOP, coopStage, coopStartCash } from '../../src/data/coop.js';
@@ -1313,4 +1316,68 @@ describe('co-op lockstep: Tenka\'s lab team through a drop, a rejoin and a resyn
     expect(A.desynced || B.desynced).toBe(false);
     expect(h.failed).toEqual([]);
   }, 120000);
+});
+
+// Gate Arc Step 6 S6v: the viaduct (STEP6_BUILD_PLAN §4) is geometry computed once per map: two clients on
+// the viaduct fixture (previews/viaductMaps.js; not in MAPS, so it is registered in the sim's data source
+// here) with the same command log stay bit-identical while enemies climb onto it and walk under it.
+describe('co-op lockstep: the viaduct board', () => {
+  const VSTART = {
+    seed: 4242,
+    stageId: 'fixture:viaduct',
+    difficulty: 'normal',
+    players: [
+      { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: CHEAP }, { unitId: 'rei', stats: CHEAP }], hero: null },
+      { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'yuki', stats: CHEAP }], hero: null },
+    ],
+  };
+  const maps = defaultData().maps;
+  beforeAll(() => { maps[VIADUCT_FIXTURE.id] = VIADUCT_FIXTURE; });
+  afterAll(() => { delete maps[VIADUCT_FIXTURE.id]; });
+
+  it('two CoopSims with the same command log keep identical checksums', () => {
+    const stage = viaductStage();
+    const A = createCoopSim(VSTART, { mySlot: 0, stage });
+    const B = createCoopSim(VSTART, { mySlot: 1, stage });
+    expect(A.sim.map.id).toBe(VIADUCT_FIXTURE.id);
+    // legal spots near the crossing (beside the viaduct's flat top and the return road), nearest the road first
+    const cands = [];
+    for (let y = 0.55; y < A.sim.map.height; y += 0.35) {
+      for (let x = 0.55; x < A.sim.map.width; x += 0.35) {
+        if (!A.sim.placementReason('aoi', x, y)) cands.push([x, y, A.sim.placement.pathDistance(x, y), Math.hypot(x - VIADUCT_CROSSING.x, y - VIADUCT_CROSSING.y)]);
+      }
+    }
+    cands.sort((p, q) => p[2] - q[2] || p[3] - q[3]);
+    const spots = [];
+    for (const c of cands) if (spots.length < 3 && c[3] < 3.5 && spots.every((s) => Math.hypot(s[0] - c[0], s[1] - c[1]) >= 1.3)) spots.push(c);
+    expect(spots.length).toBe(3);
+    const log = [
+      { t: 0, p: 0, s: 0, k: 'place', a: ['aoi', ...quantize(spots[0][0], spots[0][1])] },
+      { t: 0, p: 1, s: 0, k: 'place', a: ['yuki', ...quantize(spots[1][0], spots[1][1])] },
+      { t: 0, p: 0, s: 1, k: 'wave', a: [] },
+      { t: 600, p: 0, s: 2, k: 'place', a: ['rei', ...quantize(spots[2][0], spots[2][1])] },
+    ];
+    const hashes = [[], []];
+    let raisedHit = false;
+    let underSeen = false;
+    let seq = 10;
+    for (let tick = 0; tick < 60 * 50; tick++) {
+      for (const cmd of log) if (cmd.t === tick) for (const c of [A, B]) expect(c.apply(cmd).ok).toBe(true);
+      if (tick > 0 && (A.sim.state === 'between' || A.sim.state === 'prep')) {
+        const next = { t: tick, p: 0, s: seq++, k: 'wave', a: [] };
+        for (const c of [A, B]) c.apply(next);
+      }
+      for (const c of [A, B]) c.step();
+      for (const e of A.sim.enemies) {
+        if (e.elev > 0.5 && e.hp < e.maxHp) raisedHit = true;
+        if (e.underDeck) underSeen = true;
+      }
+      if (tick % 60 === 59) [A, B].forEach((c, i) => hashes[i].push(hashSim(c.sim, { tick: c.tick, wallets: c.wallets })));
+    }
+    expect(A.sim.towers.length).toBe(3);
+    expect(raisedHit).toBe(true);
+    expect(underSeen).toBe(true);
+    expect(hashes[0].length).toBe(50);
+    expect(hashes[1]).toEqual(hashes[0]);
+  });
 });
