@@ -19,6 +19,7 @@ import { Segments } from './patterns/segments.js';
 import { Drones } from './patterns/drones.js';
 import { Lunges } from './patterns/lunge.js';
 import { Tosses } from './patterns/toss.js';
+import { drawHeld } from './patterns/held.js';
 import { hitRadius } from '../../sim/towers.js';
 import { heroLookTiers } from '../../sim/hero.js';
 import { PROJECTILE_Z } from '../../sim/constants.js';
@@ -383,6 +384,8 @@ export function createAttackFx(o) {
       tw.seen = frame;
       refreshLook(tw, t);
       if (tw.style.update) tw.style.update(gdt, tw, view(t), ctx);
+      // a held attack shape's channel (attack shapes S2, src/sim/held.js): the plain look, read from the sim
+      if (t.ch) drawHeld(ctx, view(t));
     }
     for (let i = twList.length - 1; i >= 0; i--) {
       const tw = twList[i];
