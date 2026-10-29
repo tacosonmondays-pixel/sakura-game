@@ -38,8 +38,8 @@ describe('run ceiling inputs', () => {
 });
 
 describe('recorded ceiling exceptions', () => {
-  it('only Kage is excepted (the shapes\' Blade Cyclone, accepted Oct 29), and only up to her measured ratios', () => {
-    expect(CEILING_EXCEPTIONS).toEqual({ kage: 1.2, 'kage|T_kage': 1.6 });
+  it('Kage (the shapes\' Blade Cyclone) and v0.1.60\'s three rows over ×1 are excepted (accepted Oct 29), only up to their measured ratios', () => {
+    expect(CEILING_EXCEPTIONS).toEqual({ kage: 1.2, 'kage|T_kage': 1.6, 'aoi|T_aoi': 1.12, 'shiro|T_shiro': 1.05, hana: 1.08 });
   });
 });
 

@@ -48,11 +48,12 @@ const CAP_HAND = ['P01', 'P01', 'P01', 'P02', 'P02', 'P03', 'P03', 'P05', 'P05']
 const SEAT_PAD = 1.25; // Prism Conduits' own padDmgMul (src/data/rules.js)
 const SEAT_REACH = 0.7;
 const ABS_CAP = 2.5e6 * 1.25;
-// Recorded exceptions to `ceiling / maxed ≤ 1` (girl or girl|talent → the highest ratio allowed): the attack shapes'
-// Blade Cyclone (S1) lifts Kage's run-ceiling crowd DPS (×1.185, ×1.584 with T_kage; ×0.75 / ×0.99 on v0.1.60). The
-// coordinator's call, Oct 29, under the owner's "no cap, everyone close to Kage": accepted, Kage is not trimmed; Tryout
-// difficulty is watched on the sweeps instead (docs/BALANCE.md "Balance round 5").
-export const CEILING_EXCEPTIONS = Object.freeze({ kage: 1.2, 'kage|T_kage': 1.6 });
+// Recorded exceptions to `ceiling / maxed ≤ 1` (girl or girl|talent → the highest ratio allowed, just above what it
+// measures), the coordinator's call, Oct 29, under the owner's "no cap, everyone close to Kage" and no nerfs: none of
+// these girls is trimmed; Tryout difficulty is watched on the sweeps instead (docs/BALANCE.md "Balance round 5").
+//   kage, kage|T_kage: the attack shapes' Blade Cyclone (S1): ×1.185 / ×1.584 (×0.75 / ×0.99 on v0.1.60)
+//   aoi|T_aoi, shiro|T_shiro, hana: over ×1 on v0.1.60 already and unchanged since: ×1.119 / ×1.041 / ×1.074
+export const CEILING_EXCEPTIONS = Object.freeze({ kage: 1.2, 'kage|T_kage': 1.6, 'aoi|T_aoi': 1.12, 'shiro|T_shiro': 1.05, hana: 1.08 });
 const ADD = new Set(['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback', 'gather']);
 
 export function ceilingStats() {

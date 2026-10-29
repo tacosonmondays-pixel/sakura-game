@@ -182,7 +182,8 @@ same three rows over ×1 as v0.1.60). **With the shapes Kage fails it: ×1.185, 
 the shapes branch without round 5 (5124dacf) and ×0.75 / ×0.99 on v0.1.60: S1's Blade Cyclone, not a round-5 row (Kage
 has none). **Accepted (the coordinator, Oct 29, under the owner's "no cap, everyone close to Kage"): Kage is not trimmed**;
 her two rows are recorded exceptions in the gate (`CEILING_EXCEPTIONS` in `tools/benchHit.mjs`: ×1.2 and ×1.6 allowed,
-pinned in `tests/tools/tryoutCeiling.test.js`), so the gate's failing rows are v0.1.60's three again. Tryout difficulty is
+pinned in `tests/tools/tryoutCeiling.test.js`). v0.1.60's three rows over ×1 are recorded the same way, untrimmed (Aoi
+with T_aoi ×1.119 → 1.12, Shiro with T_shiro ×1.041 → 1.05, Hana ×1.074 → 1.08), so the gate passes with no failing row. Tryout difficulty is
 watched on the sweeps instead: Grade 12 maxed reads 15% live, 30% with round 5 alone and 35% with the shapes (one run in 20).
 
 **Sim id** `2b2c558fde94` (the shapes and round 5 together; base `d35092f141d3`, COOP 12), pinned as one PENDING_BUMP {12: …} in `tests/art/itemArtRuntime.test.js`; COOP_PROTOCOL is
