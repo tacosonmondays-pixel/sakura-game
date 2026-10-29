@@ -63,7 +63,9 @@ describe('golden Half Day and Full Day', () => {
   const RUNS = [
     { seed: 77, grade: 1, length: 'half', run: '2b80a063', wave: 28, state: 'won' },
     { seed: 1212, grade: 12, length: 'half', strength: 'maxed', run: 'f85067ef', wave: 12, state: 'lost' },
-    { seed: 1201, grade: 6, length: 'full', strength: 'mid', run: '9161ea1d', wave: 48, state: 'won' },
+    // (re-pinned for attack shapes S3, not an Extended Day change: this run's bot takes Yuki to Frostbite T4, whose
+    // attack becomes Rising Spikes; was '9161ea1d'; wave and outcome unchanged)
+    { seed: 1201, grade: 6, length: 'full', strength: 'mid', run: 'f134cb88', wave: 48, state: 'won' },
   ];
   for (const r of RUNS) {
     it(`a whole ${r.length} run (seed ${r.seed}, Grade ${r.grade}) plays exactly as before`, () => {
