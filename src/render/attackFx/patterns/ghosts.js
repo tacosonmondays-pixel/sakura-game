@@ -10,7 +10,8 @@
 // of the copy so three's clone does not try to serialise her animator, then put back).
 // Quality: no ghosts on low or Reduce motion (no lunge either); `ghostPlan` sets the count.
 //
-// Read at phone size: each lunge leaves only 2 copies, spaced half and all of the way to her target, faint
+// Read at phone size: each lunge leaves only 2 copies, equally bright, from about 0.6 of the way to her target
+// (never closer than DASH_NEAR, or it hides in her own figure) to all of the way, faint
 // inside with a darker rim of their own hue (a view-angle rim in the ghost material), so each reads as her
 // silhouette instead of the copies merging into one orange smear. High keeps 4 figures for a trail drawn
 // across the field (Flash Lunge) and for back-to-back lunges.
@@ -59,8 +60,9 @@ export const DASH_NEAR = 0.55;
 export function ghostAlpha(k, idx, count, peak = GHOST_PEAK) {
   if (k >= 1) return 0;
   k = k < 0 ? 0 : k;
-  // the later copies (nearer her target) are brighter
-  const rank = count > 1 ? 0.55 + 0.45 * (idx / (count - 1)) : 1;
+  // a lunge's two copies are equally bright (a dimmer first one faded out over her shadow before the second came);
+  // a longer trail (Flash Lunge, back-to-back lunges) brightens toward her target
+  const rank = count > 2 ? 0.55 + 0.45 * (idx / (count - 1)) : 1;
   const f = 1 - k;
   return peak * rank * f * f;
 }

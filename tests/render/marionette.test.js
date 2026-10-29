@@ -659,16 +659,35 @@ describe('marionette clock across a pause', () => {
   });
 });
 
-describe('marionette: a needle landing during Command', () => {
-  it('the catch-up glide is not spread over 3 frames (the strike stays within CATCH_UP)', async () => {
+describe('marionette: a needle landing early gets the short catch-up, never the 3-frame spread', () => {
+  // Steps the pure state at 60 fps from the landing and returns how long Extend took to reach the strike.
+  async function catchUpTime(stage, setup) {
     const L = await import('../../src/render/marionetteLogic.js');
     const s = L.marionetteState();
-    s.stage = 'command';
+    s.stage = stage;
     s.plan = { command: 0.1, extend: 0.3, strike: 0.1, reel: 0.3, settle: 0.2 };
-    s.blendNext = true;
+    s.u = 0;
+    s.rate = 1 / s.plan[stage];
     s.blend = 0;
+    setup(s, L);
     expect(L.landMarionette(s)).toBe(true);
-    expect(s.stage).toBe('extend');
     expect(s.blendNext).toBe(false);
+    expect(s.blend).toBe(0);
+    let t = 0;
+    for (let i = 0; i < 120 && s.stage === 'extend'; i++) {
+      L.stepMarionette(s, 1 / 60);
+      t += 1 / 60;
+    }
+    return { t, s, L };
+  }
+
+  it('landing during Command (with a spread queued for Extend)', async () => {
+    const { t, L } = await catchUpTime('command', (s) => { s.blendNext = true; });
+    expect(t).toBeLessThanOrEqual(L.CATCH_UP + 1 / 60 + 1e-9);
+  });
+
+  it('landing during Extend (with a spread running)', async () => {
+    const { t, L } = await catchUpTime('extend', (s, Lm) => { s.u = 0.2; s.blend = Lm.BLEND_STEPS; });
+    expect(t).toBeLessThanOrEqual(L.CATCH_UP + 1 / 60 + 1e-9);
   });
 });

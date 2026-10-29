@@ -180,7 +180,9 @@ describe('dash afterimages', () => {
     }
     expect(GHOST_PEAK).toBeLessThanOrEqual(0.45);
     expect(ghostAlpha(0, 1, 2)).toBeCloseTo(GHOST_PEAK);
-    // fades out, the later copies brighter
+    // a lunge's two copies peak equally bright (the first one must still read when the second arrives)
+    expect(ghostAlpha(0, 0, 2)).toBeCloseTo(GHOST_PEAK);
+    // fades out; in a longer trail the later copies are brighter
     expect(ghostAlpha(0, 3, 4)).toBeGreaterThan(ghostAlpha(0, 0, 4));
     expect(ghostAlpha(0.5, 1, 4)).toBeLessThan(ghostAlpha(0.1, 1, 4));
     expect(ghostAlpha(1, 1, 4)).toBe(0);
