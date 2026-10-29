@@ -258,6 +258,12 @@ for (const [W, H] of viewports) {
         if (sim.state === 'prep' || sim.state === 'between') {
           // (the events of the waves skipped over are dropped; the last ones reach the screen)
           if (sim.wave < 47) sim.drainEvents();
+          // (the stage is pinned: P14, waves 53-56, is History, whose Rear Ambush flips the even waves, so the checks
+          // past wave 48 see both a flipped wave (54) and a plain one (55) on every run. The bot takes the pair's second
+          // Subject at P14, so History goes there)
+          const s14 = sim.tryout.subjects?.[14];
+          if (s14 && !s14.includes('subj_history') && sim.tryout.period < 14) sim.tryout.subjects[14] = [s14[0], 'subj_history'];
+          else if (s14 && s14[0] === 'subj_history' && sim.tryout.period < 14) sim.tryout.subjects[14] = [s14[1], s14[0]];
           for (const c of bot.decide(sim, 0, b)) apply(c);
           if (!sim.tryoutWindowOpen() && sim.state !== 'wave') sim.startNextWave();
         }
@@ -347,9 +353,22 @@ for (const [W, H] of viewports) {
     check(/Wave 54 · Stay Late/.test(hud.band), `the tracker counts waves past 48 (${hud.band})`);
     check(!/\/48|of 48/.test(hud.wave) && /54/.test(hud.wave) && !hud.chip, `the HUD shows the wave alone, no freeplay chip (${hud.wave})`);
     check(/Stay Late/.test(hud.scout) && !/\/48/.test(hud.scout), `the scout reads "Stay Late", not a freeplay goal (${hud.scout})`);
-    check(!!hud.banners && (hud.flipped || /Stay Late/.test(hud.banners)) && !/of 48|\/48/.test(hud.banners),
-      `a wave banner past 48 says Stay Late, or a flipped wave's ambush line, never "of 48" (${hud.banners}${hud.flipped ? ', flipped' : ''})`);
+    // (wave 54 is a flipped wave of the pinned History period: its banner carries the Rear Ambush line, never "of 48")
+    check(hud.flipped && !!hud.banners && !/of 48|\/48/.test(hud.banners),
+      `a flipped wave past 48 (54, Rear Ambush) shows its ambush line, never "of 48" (${hud.banners}${hud.flipped ? ', flipped' : ', not flipped'})`);
     await shot('ty-extended-hud');
+    // (wave 55, a plain wave of the same period: its banner says Stay Late)
+    await ffTo((sim) => sim.wave >= 55 && sim.state === 'wave');
+    await page.evaluate(() => { window.__battle.ui.paused = false; });
+    await page.waitForFunction(() => window.__banners.some((t) => /WAVE 55/.test(t)), null, { timeout: 30000, polling: 100 }).catch(() => {});
+    await page.evaluate(() => { window.__battle.ui.paused = true; });
+    const w55 = await page.evaluate(() => ({
+      banner: window.__banners.filter((x) => /WAVE 55/.test(x)).slice(-1)[0] || '',
+      flipped: window.__battle.sim.routeFlippedFor(55),
+      subject: window.__battle.sim.tryout.subject || null,
+    }));
+    check(!w55.flipped && /Stay Late/.test(w55.banner) && !/of 48|\/48/.test(w55.banner),
+      `a plain wave past 48 (55) says Stay Late (${w55.banner}${w55.flipped ? ', flipped' : ''}, ${w55.subject})`);
     // out of hearts past wave 48: Home Time (the Make-up Test first, when the run still has it)
     await page.evaluate(() => {
       const { sim, ui } = window.__battle;
