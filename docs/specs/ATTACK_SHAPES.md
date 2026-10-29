@@ -835,7 +835,12 @@ with the held ticks).
 - State: `sim.tethers` and `e.tie` end at the wave clear, and fans end with the straight shots. `hashSim` folds the groups (and the
   share budget) and the fans only while there are some. Battle saves classify `tethers`, `_tetherOn` and `_shareBudget` as
   `calm` and `_sharing` as `scratch`.
-- Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js` (S1, the long beam, S2, S3 and S4). **No `COOP_PROTOCOL` bump on
+- The checkpoint digests of the returning girls' abilities battle and the Tenka battle moved (`tests/online/engines.test.js`),
+  and nothing else in those battles did: same ticks, hashes and final. Every Sim now carries the tether fields and every enemy
+  its `tie`, and the generic serializer stores them. `node e2e/engines.mjs`: V8 (Node, Chromium) and JavaScriptCore (Bun) agree
+  on every battle and on the LINKS rejoin. SpiderMonkey and WebKit were not installed on this machine, so run `--require-all`
+  before ship.
+- Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js` reads `9abe3d4c3a14` (S1, the long beam, S2, S3 and S4). **No `COOP_PROTOCOL` bump on
   the branch.**
 - Perf: `tests/sim/perf.test.js` "link attack shapes": 6 Fuus at T5, 6 Enas at T5 and 2 Akanes' Hearth Streams (the hook's busiest
   caller) with 200 enemies. Up to 48 fans, 15 groups and 72 shares a step, at 0.35-0.43 ms a step locally (limit 2 ms).

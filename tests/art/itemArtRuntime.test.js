@@ -202,7 +202,7 @@ describe('display only: the battle sim is untouched', () => {
     // S4 "Links" (src/sim/links.js; Fuu's Homecoming Throw, Ena's Spirit Tether) change the sim. The release that ships
     // them sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only this exact in-progress id
     // passes.
-    const PENDING_BUMP = { 11: 'f37c53b0a02b' };
+    const PENDING_BUMP = { 11: '9abe3d4c3a14' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

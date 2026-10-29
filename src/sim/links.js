@@ -8,30 +8,31 @@
 //     ret.mul, then up to ret.pierce more × ret.cut (a cut is a share of her hit: spec.share). The way out is her gust
 //     in full (her pushes, slows, statuses, crits); the way home is a clean cut (her damage and crits only, Kanna's
 //     quake rings' rule), so her crowd control lands what and when her gusts landed it. A rhythm with a blast (her
-//     Turbine Kick) is still her gust volley. She keeps her own attack rate: a throw never waits for the fans in the air (A3 #2: her Potential, gear
-//     tricks and drinks count attacks).
+//     Turbine Kick) is still her gust volley. She keeps her own attack rate: a throw never waits for the fans in the
+//     air (A3 #2: her Potential, gear tricks and drinks count attacks).
 //   - Spirit Tether (kit `tether`; Ena's Shared Fate): each counted attack ties her lead target to up to
 //     tether.links enemies, each the nearest untied one within tether.reach of the last (squared distances, ties by
 //     uid), for tether.dur s. A hit from any girl on a tied enemy is shared through the threads (the hook in
-//     Sim._hit, only while a group lives: sim._tetherOn): each other living member takes tether.share of the hit (a
-//     clean copy: her type chart, tier and air multipliers, no crit, statuses, marks or pushes; flat armour and
-//     the floor × share), credited to the girl who hit. A shared hit never shares again (sim._sharing). Her own
-//     hits are split, not added: the enemy she hits keeps 1 − n × share of it (n: the other living members), so
-//     the threads spread her damage and add only other girls' (her own DPS holds on a crowd and a lone boss). At
-//     most TETHER_SHARES_PER_STEP shared hits a step; the rest are dropped. On expiry, with tether.pull, the
-//     members ahead of her lead target on its road are pulled back toward it (the gather rule: push lock, never a
-//     miniboss or a boss).
+//     Sim._hit, only while a group lives: sim._tetherOn): each other member the share reaches takes tether.share of
+//     the hit (a clean copy: the hitter's type chart, tier and air multipliers, critical when the hit was, no roll,
+//     statuses, marks or pushes; flat armour and the floor × share), credited to the girl who hit. A shared hit never
+//     shares again (sim._sharing). Her own hits are split, not added: the enemy she hits keeps 1 − n × share of it
+//     (n: the other members the share reaches), so the threads spread her damage and add only other girls' (her own
+//     DPS holds on a crowd and a lone boss). At most TETHER_SHARES_PER_STEP shared hits a step; the rest are dropped.
+//     On expiry, with tether.pull, the members ahead of her lead target on its road are pulled back toward it (the
+//     gather rule: push lock, never a miniboss or a boss).
 //
 // State: a fan is a projectile record (src/sim/towers.js spawnProjectile) marked `straight` (her straight-shot caps,
 // and it ends at the wave clear: src/sim/rings.js endRingWave) with p.ret { leg, n, full, pierce, mul, cut, aim, home,
-// back } (leg, n, full and pierce integers; aim her enemy, home her hand, back the way home's spec); sim.tethers [{ uid, owner, m: [enemies], left, share, pull }]
-// (left an integer of steps) and e.tie (the group an enemy is tied in) end at the wave clear (endLinkWave), so
-// calm-point saves and co-op checkpoints carry none. sim._tetherOn is the number of living groups.
+// back, reach } (leg, n, full and pierce integers; aim her enemy, home her hand, back the way home's spec, reach a
+// shot's own reach); sim.tethers [{ uid, owner, m: [enemies], left, share, pull }] (left an integer of steps) and
+// e.tie (the group an enemy is tied in) end at the wave clear (endLinkWave), so calm-point saves and co-op checkpoints
+// carry none. sim._tetherOn is the number of living groups.
 //
 // Determinism (§2.4): a fan flies with the projectile's own homing step (src/sim/towers.js projectileStep, like every
 // targeted shot; co-op runs it inside withDetMath), her facing from the shared table (nearestDir; no atan2), squared
 // distances, integer step timers, groups in creation order and members in tie order (arrays, never a Map or Set),
-// no rng of our own (a share rolls no crit; sim._hit still rolls the hit's own).
+// no rng of our own (a share rolls nothing; sim._hit still rolls the hit's own crit).
 
 import { isEligible, computeHit, applyHitResult } from './combat.js';
 import { checkPhases, placeOnPath } from './enemies.js';
