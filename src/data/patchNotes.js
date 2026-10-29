@@ -27,6 +27,9 @@ export const PATCH_NOTES = [
       'Ruri’s Tree tab shows abilities coming in a later update with a grey ⚡; only the live one is yellow.',
       'Chika’s DPS, live DPS and average now sit on one row on phones.',
       'The Events button’s days-left sticker no longer overlaps its lantern.',
+      'Kaede’s dash afterimages read as her outline instead of an orange smear.',
+      'Yoriko’s doll strikes on every attack (it skipped one when her needle finished the enemy) and her control bar tilts as she commands it.',
+      'Ouka’s council banners, Kinu’s heat ring and scissors, Chigusa’s leaves and Azami’s strip handles shade in their real colours instead of dark.',
     ],
   },
   {
