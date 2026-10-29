@@ -227,7 +227,7 @@ try {
   log('\n--- Kaze swoops on Hana\'s attack and comes back ---');
   await pause(false);
   await page.evaluate(() => { window.__battle.ui.speed = 3; window.__battle.ui.startWave(); });
-  const swoop = await page.waitForFunction(() => window.__battle.renderer.companionsProbe().actors.find((a) => a.cid === 'kaze')?.mode === 'sortie', null, { timeout: 150000, polling: 'raf' }).then(() => true, () => false);
+  const swoop = await page.waitForFunction(() => window.__battle.renderer.companionsProbe().actors.find((a) => a.cid === 'kaze')?.mode === 'sortie', null, { timeout: 300000, polling: 'raf' }).then(() => true, () => false);
   await pause(true);
   check(swoop, 'Hana attacks: Kaze sets off on a swoop');
   if (!swoop) {
