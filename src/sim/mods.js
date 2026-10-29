@@ -11,7 +11,7 @@
 import { DEFAULT_UNIT_STATS } from './constants.js';
 import { HERO_GROWTH } from '../data/heroTracks.js';
 import { potentialFold } from '../data/potential.js';
-import { BREW_TARGETS_MAX, SPIN_TURN, SPIN_LOCK } from './constants.js';
+import { BREW_TARGETS_MAX, SPIN_TURN, SPIN_LOCK, STREAM_HALF, STREAM_TURN, SWEEP_ARC, SWEEP_SWING, SWEEP_TURN } from './constants.js';
 import { BLAST_PER_PIERCE, PIERCE_K_MAX } from './gearRules.js';
 import { BARRICADES_PER_HERO } from './constants.js';
 
@@ -123,6 +123,11 @@ const RING_FLAGS = ['turn', 'heat', 'double', 'sparks'];
  *   spin   arms (Pinwheel Stream arms), mul × the spinning arms' parity damage, fold × the folded stream's
  *          (one enemy in range), turn / lock table steps a shot
  *   halo   pieces (Petal Halo pieces), reach tiles past HALO_REACH, mul × each cut (× her rate)
+ * S2 "Held" (src/sim/held.js), every field stated per tier:
+ *   stream kind (held.js STREAM_KINDS; only 'fire' in use), half (half-angle, table steps), turn (table steps a
+ *          sim step), mul × each tick's parity share, cap (victims a tick at most, nearest first)
+ *   sweep  arc (table steps either side of the centre), swing (table steps a sim step), turn (the centre's table
+ *          steps a sim step), mul × each hit's parity share, cap (enemies a pass at most; 0: her maxTargets)
  */
 function normWheel() {
   return { spokes: 0, lead: 1, mul: 1 };
@@ -133,9 +138,18 @@ function normSpin() {
 function normHalo() {
   return { pieces: 0, reach: 0, mul: 1 };
 }
-const SHAPE_NORM = { wheel: normWheel, spin: normSpin, halo: normHalo };
-const SHAPE_ADDS = { wheel: ['spokes'], spin: ['arms'], halo: ['pieces', 'reach'] };
-const SHAPE_SETS = { wheel: ['lead', 'mul'], spin: ['mul', 'fold', 'turn', 'lock'], halo: ['mul'] };
+function normStream() {
+  return { kind: 'fire', half: STREAM_HALF, turn: STREAM_TURN, mul: 1, cap: 6 };
+}
+function normSweep() {
+  return { arc: SWEEP_ARC, swing: SWEEP_SWING, turn: SWEEP_TURN, mul: 1, cap: 0 };
+}
+const SHAPE_NORM = { wheel: normWheel, spin: normSpin, halo: normHalo, stream: normStream, sweep: normSweep };
+const SHAPE_ADDS = { wheel: ['spokes'], spin: ['arms'], halo: ['pieces', 'reach'], stream: [], sweep: [] };
+const SHAPE_SETS = {
+  wheel: ['lead', 'mul'], spin: ['mul', 'fold', 'turn', 'lock'], halo: ['mul'],
+  stream: ['kind', 'half', 'turn', 'mul', 'cap'], sweep: ['arc', 'swing', 'turn', 'mul', 'cap'],
+};
 
 /**
  * The buff thrower (Wakaba, UNIT_GAPS §5.6; src/sim/drinks.js): what her sports drink does. Bonuses

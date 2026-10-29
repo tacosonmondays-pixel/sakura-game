@@ -226,6 +226,8 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   ringTurn: 'snap', rings: 'calm', scissorSpec: 'derived',
   // the attack shapes S1 (src/sim/wheels.js): a spin index and halo memory end at the wave clear; the halo spec follows her stats
   spinK: 'calm', haloHits: 'calm', haloSpec: 'derived',
+  // the attack shapes S2 (src/sim/held.js): a held channel (lock, aim, ticks, a sweep's passes and memory) ends at the wave clear
+  ch: 'calm',
   // Wakaba: a girl's drink ends at the wave clear; the towel's spec follows her stats
   hydrated: 'calm', towelSpec: 'derived',
   // Yuzuha: sentries end at the wave clear; her nets stay ('nt'); the sentry, burst and net specs follow her stats

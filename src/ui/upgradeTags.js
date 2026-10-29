@@ -73,6 +73,8 @@ export const MOD_TAGS = {
   blade: 'self',
   // the attack shapes S1 (src/sim/wheels.js): Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's fireflies
   wheel: 'self', spin: 'self', halo: 'self',
+  // the attack shapes S2 (src/sim/held.js): Akane's Hearth Stream, Umeko's Searchlight Sweep
+  stream: 'self', sweep: 'self',
   // the duo: Kohaku's beam and the prism's shards are her attack (DUO_LR §1)
   duo: 'self',
   // the staff heroes (BANNERS §D): Kogane's faster Move is hers; Norika's barricades hold the enemies
@@ -107,6 +109,8 @@ const SUB_KEYS = {
   wheel: new Set(['spokes', 'lead', 'mul']),
   spin: new Set(['arms', 'mul', 'fold', 'turn', 'lock']),
   halo: new Set(['pieces', 'reach', 'mul']),
+  stream: new Set(['kind', 'half', 'turn', 'mul', 'cap']),
+  sweep: new Set(['arc', 'swing', 'turn', 'mul', 'cap']),
   duo: new Set(['edge', 'beamDmg', 'beamRate', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'beamAir', 'beamMul', 'rampPer', 'rampMax', 'beamSilence',
     'every', 'shards', 'shardAdd', 'shardShare', 'shardDmg', 'shardSplash', 'shardSlow', 'slowTime', 'shardShred', 'shardVuln', 'vulnTime', 'fullEvery']),
   barricade: new Set(['count', 'budget', 'budgetMul', 'rebuild', 'rebuildCut', 'held', 'reveal', 'bounce', 'breakSlow', 'releaseSlow', 'miniHalf', 'detour', 'oneWay', 'lineAdd']),
@@ -296,7 +300,7 @@ export function ultTags(ult) {
 // One-line effect + tier icon
 // ---------------------------------------------------------------------------
 
-const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support', wheel: 'Coin wheel', spin: 'Turning stream' };
+const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support', wheel: 'Coin wheel', spin: 'Turning stream', stream: 'Fire stream', sweep: 'Sweeping beam' };
 
 /** Short status phrase: "Slow 30%", "Freeze 1s", "Brittle +20%"… (chance as a suffix). */
 export function statusShort(s) {

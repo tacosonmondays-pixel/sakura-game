@@ -14,6 +14,7 @@ import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STEP, PRISM_BEAM_TICK } from '../../src/sim/constants.js';
 import { autoPlan } from '../../src/sim/headless.js';
+import { samplePath } from '../../src/sim/path.js';
 import { createRng } from '../../src/core/rng.js';
 import { TARGET_MODES } from '../../src/data/types.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
@@ -1606,6 +1607,37 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (let i = 0; i < 60 * 60 && !(kg.spinK != null && ht.haloHits); i++) sh.update(STEP);
     expect(kg.spinK != null && !!ht.haloHits && !!ht.haloSpec).toBe(true);
     for (const t of sh.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the attack shapes S2 mid-wave: Akane's and Umeko's held channels; they end at the wave clear)
+    const hd = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['akane', 'umeko'], hero: null, stats: {}, seed: 16 });
+    hd.cash = 1e6;
+    for (const a of autoPlan('1-1', ['akane'], { maxCopies: 1 })) if (a.action === 'place') hd.placeTower(a.unitId, a.x, a.y);
+    const ak = hd.towers.find((t) => t.unitId === 'akane');
+    // (Umeko on the free spot nearest Akane, and a walker parked on the road nearest her: the planner keeps a support back)
+    const road = hd.pathData.flatMap((p) => samplePath(p, 0.5));
+    let spot = null;
+    for (let y = 0.5; y < hd.map.height; y += 0.5) for (let x = 0.5; x < hd.map.width; x += 0.5) {
+      if (!hd.canPlace('umeko', x, y).ok) continue;
+      const d = (x - ak.x) * (x - ak.x) + (y - ak.y) * (y - ak.y);
+      if (!spot || d < spot.d) spot = { x, y, d };
+    }
+    const um = hd.placeTower('umeko', spot.x, spot.y);
+    for (let k = 0; k < 4; k++) expect(hd.upgradeTower(ak.uid, 1)).toBe(true);
+    for (let k = 0; k < 4; k++) expect(hd.upgradeTower(um.uid, 0)).toBe(true);
+    hd.startNextWave();
+    const near = road.filter((r) => !r.hidden).reduce((b, r) => ((r.x - um.x) ** 2 + (r.y - um.y) ** 2 < b.dd ? { dd: (r.x - um.x) ** 2 + (r.y - um.y) ** 2, r } : b), { dd: Infinity }).r;
+    const parked = hd.spawnEnemy('slime_green', { pathIndex: near.pathIndex, dist: near.d, hpMul: 1e4 });
+    parked.baseSpeed = 0;
+    let seenA = false;
+    let seenU = false;
+    for (let i = 0; i < 60 * 90 && !(seenA && seenU); i++) {
+      hd.update(STEP);
+      if (hd.state === 'between') hd.startNextWave();
+      if (ak.ch && !seenA) for (const k of Object.keys(ak)) keys.add(k);
+      if (um.ch && !seenU) for (const k of Object.keys(um)) keys.add(k);
+      seenA ||= !!ak.ch;
+      seenU ||= !!um.ch;
+    }
+    expect(seenA && seenU).toBe(true);
     // (and Azami in Spread mode: her road cursor)
     const az = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['azami', 'aoi'], hero: null, stats: {}, seed: 14 });
     az.cash = 1e6;

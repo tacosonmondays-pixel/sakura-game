@@ -74,7 +74,7 @@ const TABS = [
   { id: 'gear', label: 'Gear', icon: 'shield' },
   { id: 'tree', label: 'Tree', icon: 'sparkle' },
 ];
-const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support', wheel: 'Wheel of shots', spin: 'Turning stream' };
+const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support', wheel: 'Wheel of shots', spin: 'Turning stream', stream: 'Held stream', sweep: 'Sweeping beam' };
 // skin: outfit being tried on in the showcase (not saved), null = the equipped one
 // manual: Level Up shows the per-book steppers (UI_DIRECTION.md §6.2)
 const view = { mode: 'card', skin: null, manual: false, manualFor: null };

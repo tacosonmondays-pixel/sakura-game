@@ -1644,6 +1644,47 @@ projectileStep passes `p.scale ?? 1`), under STRAIGHT_PER_GIRL/PLAYER/SIM (oldes
 - Constants (appended block): WHEEL_SPEED, SPIN_TURN, SPIN_LOCK, SPIN_HALF_WIDTH, SPIN_SPEED, SPIN_FOLD_TURN, HALO_STEPS,
   HALO_REACH, HALO_RADIUS, HALO_GAP, HALO_HITS, HALO_MAX.
 
+### Attack shapes S2 "Held" (`docs/specs/ATTACK_SHAPES.md` §4.1-4.4, §5.3, §5.9, addendum A7; branch `feature/attack-held`)
+
+```js
+dirs.js:    COS2 (Float64Array[COS2_MAX + 1], cos² of h table steps, built once with DET_MATH; COS2[COS2_MAX] = 0)
+shapes.js:  inCone(ex, ey, k, h, L, hr) (d² ≤ (L + hr)², and d² ≤ hr² or dot > 0 with dot² ≥ COS2[h] · d²),
+            nearSegment(px, py, ax, ay, bx, by, halfWidth, hr) (segDistSq ≤ (halfWidth + hr)²)
+channel.js: chOpen(t, uid, k), chShare(rate, steps) = rate × steps × STEP, chRamp(ramp, rate, lock), chCadence(lock, every),
+            chEnemy(sim, uid), chKeeps(e, x, y, spec), chLock(t, e, keeps, find, emit), chRecent(list, uid, at, gap), chRemember(list, uid, at)
+held.js:    attackHeld(sim, t, spec, h, { src, trick, echo })  // behaviours 'stream' / 'sweep': a counted attack at her rate
+            heldTick(sim, t, h) (every step after her attack loop, from updateTower), heldOff(sim, t), heldDps(t, e, perTarget),
+            swingOffset(ph, arc), sweepPass(w), streamFalloff(d2, L), STREAM_KINDS, endHeldWave(sim)
+```
+- `t.ch = { uid, k, lock, tick, grace, src, trick, px, c, ph, pass, n, hits }`, integers only (hits: flat [uid, step or pass] pairs, ≤ CH_HITS).
+  Opened by her first counted attack with an enemy; kept while the enemy is alive, eligible and in range, else the next by her
+  target mode (a switch: lock 0), else CH_GRACE steps of grace (still ticking where it aims), then `t.ch = null`. Ends at the wave
+  clear (endHeldWave), when she is sabotaged or repositioning (heldOff), or when she is sold; `hashSim` folds it only while open;
+  battle saves carry none (`ch: 'calm'`). Events: `channel { towerUid, targetUid (null on release), k, shape }` on lock / switch /
+  release; `attack { towerUid, targetUid, kind: 'stream' | 'sweep' }` on each counted attack; the ticks are `hit` events with `tick: true`.
+- Her attack loop runs as before (rhythm, tempo, gear tricks, drinks count attacks). A counted attack re-picks her enemy and sets what
+  the channel carries until her next one: `src` 1 after a rhythm attack (the ticks use t.effProc), `trick` 1 / 2 after a Finishing
+  Thrust / Big Beat (gearSpec's harder copy), `px` her gear Pierce's extra victims (the pulse's carry: pierceCarry(t, 'pierceCarry',
+  2 × gearK, PULSE_MAX_EXTRA), asked once she has an enemy; added to a stream's tick cap and a sweep's pass cap). A rhythm echo is
+  one flare: the shape's test once at the echo's whole hit × mul.
+- stream (Hearth Stream): aim k turns `stream.turn` table steps a step toward her enemy; every CH_TICK steps every eligible enemy
+  `inCone(k, stream.half, range)`, at most `stream.cap` by (d², uid), takes damage × chShare(rate, CH_TICK) × `stream.mul`
+  (spec `share` = chShare: combat.js scales flat armour, the floor and the crystal count), × chRamp × streamFalloff
+  (1 at her, STREAM_TIP at the tip, linear in d²). Her statuses ride on every tick (Akane's burn: no chance).
+- sweep (Searchlight Sweep): centre c turns `sweep.turn` a step toward her enemy; phase ph += `sweep.swing` mod 4 × arc; k =
+  c + swingOffset(ph, arc); a pass (2 × arc ÷ swing steps) flips `pass` and zeroes `n`. Every SWEEP_TICK steps the eligible enemies
+  `nearSegment` her beam (SWEEP_HALF_WIDTH, length range), not yet struck this pass, nearest first, up to `sweep.cap` (0: her
+  maxTargets) a pass, take damage × chShare(rate, sweepPass) × `sweep.mul`; her reveal / silence ride on the hits.
+- Stats blocks (mods.js SHAPE_NORM, every field stated per tier): `stream { kind ('fire'; frost / poison / water are data only),
+  half, turn, mul, cap }`, `sweep { arc, swing, turn, mul, cap }`.
+- Panel DPS: heldDps (stream damage × rate × mul; sweep damage × rate × mul). The drawer shows no Splash row for a held shape
+  (drawerView TARGETABLE has `wheel`, `stream`, `sweep`: they pick by target mode; `spin` does not).
+- Renderer: `src/render/attackFx/patterns/held.js` drawHeld from `t.ch` each frame (alpha bodies on bbN, thin additive cores on bbA).
+- Units (one path each, tiers 4-5): Akane Wildfire (Phoenix Feather, Inferno Queen), Umeko Lighthouse (Moonlit Beacon, Sea of Lanterns).
+- Kohaku's constant beam stays in duo.js (A7): her beams are several holds re-picked every tick with a rounded share.
+- Constants (appended block): CH_TICK, CH_GRACE, CH_HITS, COS2_MAX, STREAM_TIP, STREAM_HALF, STREAM_TURN, SWEEP_TICK,
+  SWEEP_HALF_WIDTH, SWEEP_ARC, SWEEP_SWING, SWEEP_TURN.
+
 ### Roster B3 mechanics (track 5; `docs/merge/ROSTER_SPEC.md` §6, `docs/merge/ROSTER_WAVE_NOTES.md`)
 
 ```js

@@ -92,6 +92,14 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
         for (let i = 0; i < l.length; i++) h.int(l[i]);
       }
     }
+    // attack shapes S2 (src/sim/channel.js, src/sim/held.js), only on a girl with a held channel open this wave:
+    // every integer of t.ch and its re-hit memory; battles without one keep their digest
+    const ch = t.ch;
+    if (ch) {
+      h.int(ch.uid).int(ch.k).int(ch.lock).int(ch.tick).int(ch.grace).int(ch.src).int(ch.trick).int(ch.px).int(ch.c).int(ch.ph).int(ch.pass).int(ch.n);
+      h.int(ch.hits.length);
+      for (let i = 0; i < ch.hits.length; i++) h.int(ch.hits[i]);
+    }
   }
   // open zones (wells, Last Line), only while there is one: a battle without zones keeps its digest
   const zs = sim.zones;

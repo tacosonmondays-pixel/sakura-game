@@ -21,7 +21,7 @@ import {
 const COMBOS = {
   self: 231, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi; +11: Tenka; +14: Kohaku & Tsubaki; -1: Kage's Blade Cyclone)
   'enemies* + self': 35,
-  'enemies + self': 52, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41; +1: the duo's Thousand Star Bombardment stun)
+  'enemies + self': 51, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41; +1: the duo's Thousand Star Bombardment stun; -1: Akane's Phoenix Feather turns into the Hearth Stream)
   allies: 58, // (+12: Wakaba, +1: Yuzuha, +15: Ouka)
   enemies: 32, // (+4: Tenka; -1: the v0.1.41 Marumi / Kaede reworks)
   coins: 8,
@@ -29,14 +29,15 @@ const COMBOS = {
   'allies + coins + enemies': 1,
   'allies + self': 10,
   'allies + enemies + self': 6,
-  'allies + enemies*': 6,
+  'allies + enemies*': 4, // (-2: Umeko's Moonlit Beacon and Sea of Lanterns sweep, attack shapes S2)
   'enemies*': 7,
-  'allies + enemies* + self': 4,
+  'allies + enemies* + self': 5, // (+1: Umeko's Sea of Lanterns sweep)
+  'allies + enemies* + self+X': 1, // (Umeko's Moonlit Beacon turns into the Searchlight Sweep, attack shapes S2)
   'self+X': 4, // (+1: Kage's Blade Rain turns into the Blade Cyclone, attack shapes S1)
   'allies + coins': 2,
   'coins + self': 1,
   'coins + self+X': 1, // (Momo's Jackpot turns into the Coin Wheel, attack shapes S1)
-  'enemies + self+X': 3,
+  'enemies + self+X': 4, // (+1: Akane's Phoenix Feather turns into the Hearth Stream, attack shapes S2)
   'enemies* + self+X': 1,
   'allies + enemies': 2,
 };
