@@ -393,6 +393,20 @@ export const QUAKES_PER_GIRL = 8;
 export const QUAKES_PER_SIM = 64;
 
 // ---------------------------------------------------------------------------
+// Attack shapes, batch S4 "Links" (docs/specs/ATTACK_SHAPES.md §5.6, §5.10; src/sim/links.js). Every timer is an
+// integer of sim steps.
+// ---------------------------------------------------------------------------
+/** Homecoming Throw: a fan's way home may be up to RET_HOME × as long as its way out (+ 1 tile) before it ends uncaught
+ *  (it bends round its target on the way). */
+export const RET_HOME = 3;
+/** Spirit Tether: tether groups per girl and per sim (her oldest first; a full sim ties no new group). */
+export const TETHERS_PER_GIRL = 6;
+export const TETHERS_PER_SIM = 64;
+/** Spirit Tether: shared hits a sim step at most (the curse queue's budget pattern, CURSE_BURSTS_PER_TICK); the
+ *  shares of a hit past it are dropped, never queued (a share is a slice of a hit that already landed). */
+export const TETHER_SHARES_PER_STEP = 256;
+
+// ---------------------------------------------------------------------------
 // The duo (Kohaku & Tsubaki, docs/specs/DUO_LR.md §1; src/sim/duo.js)
 // ---------------------------------------------------------------------------
 

@@ -77,6 +77,8 @@ export const MOD_TAGS = {
   stream: 'self', sweep: 'self',
   // the attack shapes S3 (src/sim/ground.js): Yuki's Rising Spikes, Kanna's Ripple Quake (Bramble Road is Chigusa's `vine`)
   spike: 'self', quake: 'self',
+  // the attack shapes S4 (src/sim/links.js): Fuu's Homecoming Throw (her fans), Ena's Spirit Tether (threads on enemies)
+  ret: 'self', tether: 'enemies',
   // the duo: Kohaku's beam and the prism's shards are her attack (DUO_LR §1)
   duo: 'self',
   // the staff heroes (BANNERS §D): Kogane's faster Move is hers; Norika's barricades hold the enemies
@@ -115,6 +117,8 @@ const SUB_KEYS = {
   sweep: new Set(['arc', 'swing', 'turn', 'mul', 'cap']),
   spike: new Set(['count', 'gap', 'r', 'delay', 'mul']),
   quake: new Set(['rings', 'gap', 'speed', 'mul', 'later', 'status']),
+  ret: new Set(['per', 'mul', 'cut', 'pierce', 'reach']),
+  tether: new Set(['links', 'reach', 'dur', 'share', 'pull']),
   duo: new Set(['edge', 'beamDmg', 'beamRate', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'beamAir', 'beamMul', 'rampPer', 'rampMax', 'beamSilence',
     'every', 'shards', 'shardAdd', 'shardShare', 'shardDmg', 'shardSplash', 'shardSlow', 'slowTime', 'shardShred', 'shardVuln', 'vulnTime', 'fullEvery']),
   barricade: new Set(['count', 'budget', 'budgetMul', 'rebuild', 'rebuildCut', 'held', 'reveal', 'bounce', 'breakSlow', 'releaseSlow', 'miniHalf', 'detour', 'oneWay', 'lineAdd']),
@@ -304,7 +308,7 @@ export function ultTags(ult) {
 // One-line effect + tier icon
 // ---------------------------------------------------------------------------
 
-const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support', wheel: 'Coin wheel', spin: 'Turning stream', stream: 'Fire stream', sweep: 'Sweeping beam', spikes: 'Rising spikes' };
+const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support', wheel: 'Coin wheel', spin: 'Turning stream', stream: 'Fire stream', sweep: 'Sweeping beam', spikes: 'Rising spikes', return: 'Returning fans' };
 
 /** Short status phrase: "Slow 30%", "Freeze 1s", "Brittle +20%"… (chance as a suffix). */
 export function statusShort(s) {

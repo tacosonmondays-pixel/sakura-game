@@ -31,10 +31,10 @@ export const TARGET_EXTRA = Object.freeze(['elite', 'air']);
 /**
  * Behaviours that pick a target (the rest have no target row). The attack shapes: a Blossom Wheel aims her toss coins
  * by target mode, a held stream or sweep locks her enemy by it, a Rising Spikes row rises under it (src/sim/wheels.js,
- * held.js, ground.js); a Pinwheel Stream does
+ * held.js, ground.js), a Homecoming Throw's fans fly at her targets (links.js); a Pinwheel Stream does
  * not (its arms take the first enemy they find), so 'spin' has none.
  */
-export const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret', 'wheel', 'stream', 'sweep', 'spikes']);
+export const TARGETABLE = new Set(['projectile', 'beam', 'chain', 'duel', 'turret', 'wheel', 'stream', 'sweep', 'spikes', 'return']);
 /** How long tap 1 keeps a price button armed (the Sell confirm uses the same). */
 export const BUY_ARM_MS = 2600;
 /** At most this many numbers in one drawer section (UI_DIRECTION P3; Q6 budgets each section). */
@@ -73,9 +73,10 @@ export function hitDamage(st) {
 export function gearPierce(t, st) {
   const k = Math.round(t?.unitStats?.pierceK || 0);
   const b = st?.behavior;
-  // (the attack shapes: a Blossom Wheel's and a Pinwheel Stream's shots pierce more, a Rising Spikes row grows a spike per 100 %)
+  // (the attack shapes: a Blossom Wheel's and a Pinwheel Stream's shots pierce more, a Rising Spikes row grows a spike per 100 %,
+  // a Homecoming Throw's fans cut more each way)
   const extra = b === 'beam' || b === 'turret' || !!st?.turret || (b === 'projectile' && !(st.splash > 0)) || (b === 'duel' && !!t?.eff?.blade)
-    || b === 'wheel' || b === 'spin' || b === 'spikes';
+    || b === 'wheel' || b === 'spin' || b === 'spikes' || b === 'return';
   return k > 0 && extra ? k : 0;
 }
 

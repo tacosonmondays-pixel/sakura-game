@@ -180,6 +180,10 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   zones: 'calm', _nearExitOn: 'derived',
   // Norika's barricades (src/sim/barricades.js): how many heroes have them follows the restored hero
   _blockOn: 'derived',
+  // the attack shapes S4 (src/sim/links.js): Spirit Tether groups end at the wave clear (and their count with them), the
+  // share budget refills with the first group, the re-entrancy flag is down outside a hit; the Homecoming Throw's fans
+  // are straight shots (they end at the wave clear with `projectiles`)
+  tethers: 'calm', _tetherOn: 'calm', _shareBudget: 'calm', _sharing: 'scratch',
 });
 
 /** Every own field of a placed girl (TowerRT), classified like KNOWN_SIM_KEYS. */
