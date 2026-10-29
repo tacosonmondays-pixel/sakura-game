@@ -1,7 +1,7 @@
 // Yuzuha (taser darts + lane sentries, src/sim/sentries.js). Signature "Deploying": her darts fly as
 // short electric streaks with a blue spark on impact; her sentries' bullets are the drone bullets the
 // shared drone pass draws; a sentry or net that unfolds pops a safety-orange ring on its spot (drawn
-// from the sim's 'deploy' events by src/render/deployFx.js: the sentries themselves are drawn per frame
+// from the sim's 'deploy' events by the generic handler: the sentries themselves are drawn per frame
 // in src/render/actors.js).
 import { flash, sparks } from '../patterns/bursts.js';
 import { hand } from './util.js';

@@ -33,7 +33,6 @@ import { ATTACK_SPRITES } from './attackFx/sprites.js';
 import { RosterFx } from './rosterFx.js';
 import { Companions } from './companions.js';
 import { createAbilityFx } from './abilityFx.js';
-import { deployFx } from './deployFx.js';
 import { fmtNum } from '../ui/format.js';
 import { createBlackout } from './blackout.js';
 
@@ -524,9 +523,6 @@ export function createBattleRenderer(container, sim, opts = {}) {
         }
         case 'trapPlaced':
           fx.ring(ev.x, ev.y, 0.05, 0.45, 0.3, '#ffb347');
-          break;
-        case 'deploy': // a sentry unfolding, a net laid (Yuzuha)
-          deployFx(ev, fx);
           break;
         case 'trapTriggered':
           fx.flash(ev.x, 0.2, ev.y, '#ffb347', 0.9, 0.18);
