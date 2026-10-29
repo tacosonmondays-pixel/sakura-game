@@ -1,6 +1,11 @@
-# Next session: start here (updated Oct 29, 2026, early morning)
+# Next session: start here (updated Oct 29, 2026, afternoon)
 
 This page is for a session that only has the GitHub repo (a cloud session), not the owner's PC. Read `docs/HANDOFF.md` too; it has the rules (§6), the shipping flow (§7) and the branch table (§3). Check out the coordination branch `claude/sakura-sentinels`; `main` is the live build (every push to `main` deploys).
+
+## UPDATE Oct 29 (afternoon): v0.1.61 SHIPPED; art v3 in Look B under way
+- **v0.1.61 "Five More Ultimates and Academy Flair"** (run #61, main `60ce9cad`): the last five tower ultimates (Kage, Suzu, Chika, Fuu, Iroha), VFX M0/M1 (hit-holds, squash, impact frames, colour grade, halos, the flash guard; Settings "Flashes & shake" and "Impact frames"), visual reworks batch B (Yoriko's strings, Kaede's afterimages, the academy girls' attacks and props), Tryout Day's Extended Day rewards, the DPS round, the Recruit fit; `COOP_PROTOCOL` 13, sim `be940ecb2087`. Go/no-go GO and a delta GO. Details and the lows: `docs/HANDOFF.md` §1.
+- **Owner, Oct 29: art v3 = Look B** (the clean academy look with a dynamic camera) for every roster portrait; Hikari's eyes teal (default). The coordinator is generating the 32 portraits (all but the seven academy girls' v2 scenes) with NovelAI under an 1,800 Anlas cap, judging each independently, and will put the before/after board in front of the owner before a display-only `feature/art-v3` ships.
+- **Next:** art v3 (display only) when the board is approved; after Nov 1 7 PM Central balance round 5 with the attack shapes (merges `main`, `COOP_PROTOCOL` 14); then the owner's Tripo models.
 
 ## UPDATE Oct 29: v0.1.59 and v0.1.60 SHIPPED
 - **v0.1.59 "Banners and Tryout Day"** (run #59, main `ccf147ad`): the banners with the Kohaku & Tsubaki duo, LR Limit Break, Friend Support (its SQL is on the server), Tryout Day, the honest DPS readout; `COOP_PROTOCOL` 11. Go/no-go GO, live check LIVE_OK.
