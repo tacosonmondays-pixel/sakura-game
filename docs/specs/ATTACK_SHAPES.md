@@ -734,3 +734,108 @@ reach, so fewer walkers stand in the partner's. Her own rows are on target; repo
   `COOP_PROTOCOL` bump on the branch.**
 - Perf: `tests/sim/perf.test.js` "ground attack shapes": 6 Chigusas at Forest Corridor, 6 Yukis at Diamond Dust and Kanna at
   Lv 24 with 200 enemies, 0.30-0.40 ms a step locally (limit 2 ms).
+
+### A9. S4 "Links" as built
+
+Written on `feature/attack-links` (on S3 `feature/attack-ground` 8997a16e).
+
+| Girl, path | Tiers | Shape | What the player sees |
+|---|---|---|---|
+| Fuu, Returning Gale | T4 Typhoon Fans, T5 Heaven's Gate Wind | Homecoming Throw (`behavior: 'return'`) | Her gusts become fans, one per gust (6; 8 at T5), flung at her targets. Each flies at its target and on to the edge of her range, turns, comes back through its target and lands in her hand. Half her hit on the way out (with her push and slow), half again on the way home. T3 keeps her gusts. |
+| Ena, Shared Fate | T4 Red Threads, T5 Threads of Destiny | Spirit Tether (kit `tether`, beside her cards) | Every deal ties her target to the 2 enemies nearest it, one after another (3 at T5), for 3 s (4 s). A hit from any girl on a tied enemy is shared: each other tied enemy takes 20 % of it (25 %). Her own hits are split among them, not added. At T5 the threads pull tight as they fade, and the enemies ahead of her target are dragged back toward it. |
+
+Built as the shared pieces: the leg flip on a projectile record (`retFlip`, `retSteer`, `retCut` in projectileStep) and the `_hit`
+share hook (`Sim._hit` behind `sim._tetherOn`, the re-entrancy flag `sim._sharing`, the per-step budget TETHER_SHARES_PER_STEP), in
+`src/sim/links.js`. The plain renderer is `src/render/linkShapes.js`: threads of alpha beads with a fixed sag, and thin additive
+knots of 0.14 tiles. Fans are drawn as her own projectiles. Contracts: `CONTRACTS.md` "Attack shapes S4".
+
+Changes from the spec, and why:
+
+1. **A fan homes like her gust.** The spec's fan is a straight line out and an exact reversal back. Her pushes move the enemies
+   it cuts off that line, so the way home misses them. Measured with straight fans, the variants read 0.61-1.85 on round 5's crowd
+   and 0.72-1.04 on the early lone-walker row. The final variants differed only in which cuts pushed. Now the out leg flies at its
+   target as her gust did, and turns at her range (later only while its target is still uncut, up to her shot's own reach). The way
+   home passes through its target again while that enemy stands, then flies to her hand. The leg flip is still a flip on the same
+   projectile record: a fresh hit list and a fresh count.
+2. **One fan per gust, half her hit each way** (`ret.per` 1, `ret.mul` 0.5). The spec had half as many fans at a whole hit. The out
+   leg is her gust in full (her push, slow and statuses, at the same moment her gust landed them). The way home is a clean cut:
+   damage and crits only, the rule of Kanna's quake rings (A8 #9). With her statuses on both legs, round 5's crowd read 0.66 / 1.25:
+   her extra slows reshaped its never-dying pile. A cut carries `share: 0.5`, so flat armour and the damage floor halve with it. Two
+   half cuts paying full armour read 0.93 on the dragon.
+3. **No "piercing everything".** Each leg cuts as many enemies as her shot pierces (her pierce and gear Pierce, as her gusts did).
+   The light tail knobs (`ret.pierce` more cuts at `ret.cut`) exist but are 0. Even a 0.04 tail read 1.08 on the light crowd, and any
+   extra crowd cut is a buff on both rulers.
+4. **She keeps her attack rate.** A throw never waits for the fans in the air, and the catch does not reset her cooldown. That
+   follows A3 #2: her Potential, gear tricks and drinks count attacks. Resetting at the catch would roughly triple her throws, since
+   a round trip takes about 0.5 s against her 1.4 s cooldown.
+5. **Her Turbine Kick stays her gust volley.** This is her Potential rhythm with a blast (P4 / P6). Fans carry no blast. Without
+   the volley, round 5's crowd read 0.15-0.20, because her kick blasts are most of her fully maxed crowd damage.
+6. **No V, curve or ensnare tier.** The out leg carries her T3 slow. The other tiers are data for later.
+7. **Her own hits are split, not added.** Her enemy keeps 1 − n × share of her hit, where n counts the other tied enemies the share
+   reaches. Each of those takes the share. Other girls' hits are added to. With added shares of her own cards, her crowd would gain
+   n × share (+40 % at T4, +75 % at T5) while her boss row stayed the same. The split keeps both rows exact. The tether's value is
+   echoing the other girls' hits (see the partner note below).
+8. **A share is a clean copy of the hit.** It keeps the hitter's type chart and her tier and air multipliers, scales flat armour and
+   the floor by the share, and has no statuses, marks or pushes. It is critical when the hit was, and rolls nothing itself. It is
+   credited to the girl who hit (and to her drone, if one hit). Burns, poison and hexes are not `_hit` and never share. Shares ignore
+   veils and air but not tunnels or phasing. Before the crit carry (and before her split counted only the members a share reaches), her round 5 crowd read 0.82 / 0.74.
+9. **The budget drops; it does not queue.** Past 256 shares in a step the rest are dropped. A share is a slice of a hit that
+   already landed, and a queue would have to keep specs. The stress board peaks at 72 shares a step.
+10. **One group per counted attack**, tied to her lead target, not one per card. A target already tied in her own group is held
+   again for the full time. A lone enemy (nothing within reach) gets no group.
+11. **The pull is T5 only**, and only for walkers ahead of her target on its road (the gather rule: push lock, never minibosses or
+   bosses). Groups stay through her sabotage or a Move, since they are threads on enemies. Her sale ends them, and the wave clear
+   ends them without a pull.
+
+**DPS parity** (method of A4; ratio new / today; baseline `feature/attack-ground` 8997a16e). Untouched girls are bit-identical: a
+2,368-resolution stats hash over every other unit (8 tier sets, 4 hero levels, 2 account profiles) reads `89d230a5` before and
+after. T3 and the other paths are 1.00 everywhere.
+
+| Girl, tier | Light: mean crowd / boss | Light: one stage, crowd range | Light: L25 crowd / boss | Round 5: crowd / boss / walking boss | Maxed hit bench: crowd / boss |
+|---|---|---|---|---|---|
+| Fuu Returning Gale T4 | 1.00 / 1.00 | 0.99-1.03 | 1.00 / 1.00 | 1.00 / 1.00 / 1.01 | 1.00 / 1.00 |
+| Fuu Returning Gale T5 | 1.00 / 0.99 | 0.99-1.00 | 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 |
+| Ena Shared Fate T4 | 1.00 / 1.00 | 0.99-1.00 | 0.99 / 1.00 | 1.00 / 1.00 / 1.00 | 0.99 / 1.00 |
+| Ena Shared Fate T5 | 1.00 / 1.00 | 0.99-1.00 | 0.98 / 1.00 | 1.00 / 1.00 / 1.00 | 0.99 / 1.00 |
+
+Round 5 in DPS, today → now: Fuu T4 crowd 155,798 → 155,871, boss 20,583 → 20,611, walking 10,768 → 10,843; T5 261,463 → 261,715,
+97,488 → 97,874, 55,879 → 55,614. Ena T4 crowd 52,029 → 51,845, boss 52,589 → 52,589, walking 19,165 → 19,165; T5 291,063 →
+292,387, 296,100 → 296,100, 226,699 → 226,699.
+
+**The partner.** Aoi beside Ena gains on the light crowd, because the threads echo her hits: T4 1.00-1.20 by stage (mean 1.06),
+T5 1.00-1.43 (mean 1.12; 6-3 is the high one). The boss row is 1.00 (a lone boss is never tied). This is new team power beside
+Ena's own parity, like her Brittle, and it is reported here, not tuned. Aoi beside Fuu moves by stage on the light bench: crowd
+0.93-1.07, boss 0.91-1.14. That is the shared `sim.rng`: a fan rolls a crit on each of two cuts, where a gust rolled once, so Aoi's
+rolls fall on other draws. With Fuu's rolls moved to a private stream for a test, Aoi reads 1.00 on every boss row (A7 saw the same
+with the held ticks).
+
+**Determinism** (§7.2 step 5):
+
+- (a) `tests/sim/links.test.js`: Fuu alone, Ena with Aoi, and all three on 4-5 at Potential 6, with a crowd added. Plain `Math`
+  against `withDetMath`, `hashSim` every 60 ticks equal, fans, groups and shares all live; twice the same battle is identical.
+  The unit cases cover the leg flip, cuts per leg, the clean way home, the Turbine Kick volley, caps, the wave clear, sabotage and
+  sale for fans. For the tether they cover the tie walk (d², ties by uid), shares (20 %, credited to the hitter, no share of a
+  share), her split, the budget, expiry and the T5 pull, a stale tie with the hook off, caps, the wave clear, her sale and hashSim.
+- (b) `e2e/engines/scriptedBattle.js` `runLinksBattle` (LINKS_START, 2-4 Hard): two Fuus and two Enas, the host's at tier 5 and the
+  guest's at tier 4 (one girl per path at the final tier). The run had 1,964 fan cuts, 1,112 catches, 55 groups and 1,548 shares,
+  with two Lockstep clients to the end. A third client rebuilds from the wave-3 checkpoint and the log to the first tick 5 s into a
+  wave with a fan in the air and a group alive (a mid-wave rejoin), and must land on the run's hash and snapshot. Compared across
+  engines by `e2e/engines.mjs`, pinned in `tests/online/engines.test.js`.
+- (c) `links.js` is checked by a test: no `Math.random`, no runtime trig or `hypot`, no `**`, no `Map` / `Set`. Groups live in an
+  array in creation order, and members in tie order. A fan flies with the projectile's own homing step, the same code as every
+  targeted shot, which co-op runs inside `withDetMath`. Her facing comes from `nearestDir` / `dirAngle`. Shares roll no rng; crits
+  still roll in `sim._hit` for the hit itself.
+- (d) The renderer reads only `sim.tethers` and uses no rng. Fans are her projectile records.
+- The hook: a shared hit never shares again (`sim._sharing`, also up for a curse burst set off by a share's kill). The order is the
+  group's member array. With no group alive, the hit path adds one compare (`this._tetherOn !== 0`). A `_hit` microbench (2 million
+  plain hits, best of 7, six interleaved runs per tree) reads a median of 114.8 ns before and 116 ns after, within the run-to-run
+  spread of 108-122 ns. The existing perf cases read the same before and after, within this shared machine's noise (single runs
+  spread 0.24-0.48 ms): best of three, before → after, 0.249 → 0.240 (base board), 0.265 → 0.312 (S1), 0.355 → 0.345 (S2),
+  0.292 → 0.282 (S3), 0.200 → 0.198 ms a step (long beam).
+- State: `sim.tethers` and `e.tie` end at the wave clear, and fans end with the straight shots. `hashSim` folds the groups (and the
+  share budget) and the fans only while there are some. Battle saves classify `tethers`, `_tetherOn` and `_shareBudget` as
+  `calm` and `_sharing` as `scratch`.
+- Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js` (S1, the long beam, S2, S3 and S4). **No `COOP_PROTOCOL` bump on
+  the branch.**
+- Perf: `tests/sim/perf.test.js` "link attack shapes": 6 Fuus at T5, 6 Enas at T5 and 2 Akanes' Hearth Streams (the hook's busiest
+  caller) with 200 enemies. Up to 48 fans, 15 groups and 72 shares a step, at 0.35-0.43 ms a step locally (limit 2 ms).
