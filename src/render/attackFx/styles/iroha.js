@@ -31,16 +31,39 @@ export const FLARES_PER_FRAME = 2;
 /** A girl's Kaleidoscope flares at least this many game seconds apart (a volley's bolts share one). */
 const FLARE_GAP = 0.12;
 
+/** Impact flashes: at most one per this many tiles in this many game seconds (a volley's bolts land on one spot). */
+const FLASH_NEAR = 0.6;
+const FLASH_GAP = 0.1;
+const FLASH_RING = 8;
+
 /** Per-frame budget of this style (on the context: one per renderer, reset when the frame moves on). */
 function budget(ctx) {
   let b = ctx.irohaBudget;
-  if (!b) b = ctx.irohaBudget = { frame: -1, shards: 0, flares: 0 };
+  if (!b) {
+    b = ctx.irohaBudget = {
+      frame: -1, shards: 0, flares: 0,
+      // recent impact flashes (x, y, game time), a fixed ring: stacked additive flashes bloom into a white disc
+      fx: new Float32Array(FLASH_RING), fy: new Float32Array(FLASH_RING), ft: new Float64Array(FLASH_RING).fill(-1e9), fi: 0,
+    };
+  }
   if (b.frame !== ctx.frame) {
     b.frame = ctx.frame;
     b.shards = 0;
     b.flares = 0;
   }
   return b;
+}
+
+/** May an impact flash draw at (x, y) now? Records it when it may (no other one near there in FLASH_GAP). */
+export function flashFree(b, x, y, time) {
+  for (let i = 0; i < FLASH_RING; i++) {
+    if (time - b.ft[i] < FLASH_GAP && time >= b.ft[i] && Math.abs(b.fx[i] - x) + Math.abs(b.fy[i] - y) < FLASH_NEAR) return false;
+  }
+  b.fx[b.fi] = x;
+  b.fy[b.fi] = y;
+  b.ft[b.fi] = time;
+  b.fi = (b.fi + 1) % FLASH_RING;
+  return true;
 }
 
 /** Glinting glass shards scattering from a splash at (x, y) (game-time pooled quads). */
@@ -71,7 +94,9 @@ function glassShards(ctx, x, y, n, radius, rm) {
 /** Kaleidoscope Burst: six glass blades blooming out on the ground, a turning star, a ring of glints. */
 function kaleidoFlare(ctx, x, y, radius, full, rm) {
   const r = Math.max(0.5, radius || 0.8);
-  flash(ctx, x, 0.45, y, 0.5, ctx.col(KALEI[0]), 0.14);
+  // a soft lilac bloom (half strength): the blades and shards carry the read, not a white-out on the targets
+  const f = flash(ctx, x, 0.45, y, 0.42, ctx.col(KALEI[0]), 0.14);
+  if (f) f.a0 = 0.5;
   ripple(ctx, x, y, rm ? r : 0.2, r * 1.05, 0.38, ctx.col(KALEI[0]), 0, 'ringDashed', true, 0.8);
   if (!full) return;
   for (let i = 0; i < 6; i++) {
@@ -171,7 +196,7 @@ export const iroha = {
   },
 
   onImpact(rec, x, y, crit, radius, ctx) {
-    flash(ctx, x, 0.4, y, 0.4, ctx.col(SILVER), 0.12);
+    if (flashFree(budget(ctx), x, y, ctx.time)) flash(ctx, x, 0.4, y, 0.4, ctx.col(SILVER), 0.12);
     sparks(ctx, x, 0.4, y, 3, ctx.col(PLUM), 1.4);
     // Shattered Glass: only a splash bolt (the sim's explode) breaks into shards
     const tw = rec.tw;

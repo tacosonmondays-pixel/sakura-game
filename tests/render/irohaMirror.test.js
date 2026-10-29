@@ -10,7 +10,7 @@ import {
 } from '../../src/render/mirrorPanel.js';
 import { MirrorFx, MAX_GHOSTS } from '../../src/render/mirrorFx.js';
 import { RosterFx } from '../../src/render/rosterFx.js';
-import { SHARDS_PER_FRAME } from '../../src/render/attackFx/styles/iroha.js';
+import { SHARDS_PER_FRAME, flashFree } from '../../src/render/attackFx/styles/iroha.js';
 import { harness, gallerySim, streamer, fakeAtlas } from './attackFxHarness.js';
 
 const noop = () => {};
@@ -307,5 +307,17 @@ describe('Iroha over a real sim', { timeout: 180000 }, () => {
     const rm = run({ reduceMotion: true, quality: 'low', frames: 600 });
     expect(rm.mfx.probe().flips).toBe(0);
     expect(rm.shards).toBeGreaterThan(0);
+  });
+});
+
+describe('Iroha impact flashes (no white-out on a clump)', () => {
+  it('a volley on one spot draws one flash; a far spot or a later moment draws its own', () => {
+    const b = { fx: new Float32Array(8), fy: new Float32Array(8), ft: new Float64Array(8).fill(-1e9), fi: 0 };
+    expect(flashFree(b, 5, 5, 10)).toBe(true);
+    expect(flashFree(b, 5.2, 5.1, 10)).toBe(false); // same spot, same frame
+    expect(flashFree(b, 5.1, 5, 10.05)).toBe(false); // same spot, next frames
+    expect(flashFree(b, 8, 5, 10.05)).toBe(true); // elsewhere
+    expect(flashFree(b, 5, 5, 10.2)).toBe(true); // after the gap
+    expect(flashFree(b, 5, 5, 1)).toBe(true); // a fresh battle clock never blocks
   });
 });
