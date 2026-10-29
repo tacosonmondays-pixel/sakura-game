@@ -3,7 +3,7 @@
 // The tests drive it too (tests/sim/tryout.test.js, tests/online/tryoutCoop.test.js).
 //
 // usage: node --import ./tools/simLoader.mjs tools/tryoutBot.mjs [runs=40] [grade=1] [policy=random|first] [--coop]
-//        [--strength new|mid|maxed|none] [--grade N] [--runs N] [--sweep] (see the CLI at the end)
+//        [--strength new|mid|maxed|none] [--grade N] [--runs N] [--sweep] [--random] (see the CLI at the end)
 import { Sim } from '../src/sim/Sim.js';
 import { createRng } from '../src/core/rng.js';
 import { buildTryoutPlan, buildTryoutStage, chooserOf } from '../src/sim/tryout/index.js';
@@ -70,8 +70,10 @@ export function decide(sim, slot, bot) {
   if (!ty.base && !ty.done && ty.subjects?.[next] && bot.classFor !== next) {
     bot.classFor = next;
     if (chooserOf(ty, next) === slot) cmds.push({ k: 'tr', a: ['subject', Math.floor(next / 2) % 2] });
-    if (next % 3 === 0) cmds.push({ k: 'tr', a: ['dare', 1] });
+    if (next % 3 === 0 && !ty.random) cmds.push({ k: 'tr', a: ['dare', 1] });
   }
+  // Random Class (§20.4): the Sim takes every pick by itself; the bot only waits for it (breaks stay its own)
+  if (ty.random && p.win === 'pick') return cmds;
   if (p.win === 'pick' && p.offer) {
     const o = p.offer;
     if (bot.policy === 'hand' || (bot.policy === 'random' && bot.rng.next() < 0.1)) cmds.push({ k: 'tr', a: ['hand', o.seq] });
@@ -304,15 +306,16 @@ function soloApply(sim, c) {
 
 /**
  * One solo run. `pool`: owned girls' account stats (default: none owned, every girl a Loaner); `perks`: Desk Supplies
- * ({ eraser, draft7, coins, pocket }); `onStep(sim)`: runs each 1/60 s step in place of sim.update (the perf check).
+ * ({ eraser, draft7, coins, pocket }); `onStep(sim)`: runs each 1/60 s step in place of sim.update (the perf check);
+ * `random`: Random Class (the Sim draws the three, `squad` is ignored, and every pick lands after its reveal).
  * @returns {{ sim: Sim, result: object, digests: string[] }}
  */
-export function runSolo({ seed = 1, grade = 1, length = 'half', squad = ['aoi', 'kage', 'yuki'], hero = 'hikari', pool = {}, policy = 'random', maxWaves = Infinity, onCalm = null, onStep = null, perks = null } = {}) {
+export function runSolo({ seed = 1, grade = 1, length = 'half', squad = ['aoi', 'kage', 'yuki'], hero = 'hikari', pool = {}, policy = 'random', maxWaves = Infinity, onCalm = null, onStep = null, perks = null, random = false } = {}) {
   const plan = buildTryoutPlan({ seed, grade, length });
   const stage = buildTryoutStage(plan);
   const sim = new Sim({
     stageId: stage.id, hero: hero ? { unitId: hero, stats: {} } : null, seed: seed ^ 0x5eed, data: { stage },
-    options: { tryout: { seed, grade, length, mapId: plan.mapId, players: [{ squad }], pools: [pool], ...(perks ? { perks } : null) } },
+    options: { tryout: { seed, grade, length, mapId: plan.mapId, players: [{ squad }], pools: [pool], ...(perks ? { perks } : null), ...(random ? { random: true } : null) } },
   });
   const bot = { policy, rng: createRng(seed ^ 0xb07) };
   const digests = [];
@@ -323,7 +326,9 @@ export function runSolo({ seed = 1, grade = 1, length = 'half', squad = ['aoi', 
       for (const c of decide(sim, 0, bot)) soloApply(sim, c);
       if (sim.state === 'between' || sim.state === 'prep') if (!sim.tryoutWindowOpen() && sim.state !== 'wave') sim.startNextWave();
     }
-    for (let i = 0; i < 30 && sim.state === 'wave'; i++) {
+    // (a Random Class reveal runs on the Sim's clock between waves too)
+    const reveal = () => !!sim.tryout.random && sim.tryout.players.some((p) => p.win === 'pick');
+    for (let i = 0; i < 30 && (sim.state === 'wave' || reveal()); i++) {
       if (onStep) onStep(sim);
       else sim.update(1 / 60);
     }
@@ -332,10 +337,10 @@ export function runSolo({ seed = 1, grade = 1, length = 'half', squad = ['aoi', 
 }
 
 /** A co-op start message for a run. */
-export function coopStart({ seed = 1, grade = 1, length = 'half', drafts = [['aoi', 'kage', 'yuki'], ['rei', 'raika', 'hana']], heroes = ['hikari', 'nami'], pools = [{}, {}] } = {}) {
+export function coopStart({ seed = 1, grade = 1, length = 'half', drafts = [['aoi', 'kage', 'yuki'], ['rei', 'raika', 'hana']], heroes = ['hikari', 'nami'], pools = [{}, {}], random = false } = {}) {
   return {
     seed: seed ^ 0x5eed, stageId: 'tryout', difficulty: 'normal',
-    tryout: { seed, grade, length, mapId: buildTryoutPlan({ seed, grade, length }).mapId },
+    tryout: { seed, grade, length, mapId: buildTryoutPlan({ seed, grade, length }).mapId, ...(random ? { random: true } : null) },
     players: drafts.map((draft, i) => ({ slot: i, uid: `p${i}`, name: `P${i + 1}`, loadout: [], hero: heroes[i] ? { unitId: heroes[i], stats: {} } : null, draft, pool: pools[i] })),
   };
 }
@@ -425,7 +430,7 @@ export function poolFor(strength) {
 }
 
 /** Runs `runs` seeds at one Grade and strength; the summary the CLI prints. */
-export function sweep({ runs = 20, grade = 1, strength = 'none', policy = 'random', coop = false, length = 'half', seed0 = 1 } = {}) {
+export function sweep({ runs = 20, grade = 1, strength = 'none', policy = 'random', coop = false, length = 'half', seed0 = 1, random = false } = {}) {
   const t0 = Date.now();
   let wins = 0;
   let cleared = 0;
@@ -436,8 +441,8 @@ export function sweep({ runs = 20, grade = 1, strength = 'none', policy = 'rando
   for (let s = seed0; s < seed0 + runs; s++) {
     const seed = (s * 2654435761) >>> 0;
     const sim = coop
-      ? runCoop({ start: coopStart({ seed, grade, length, pools: [pool, pool] }), policy }).views[0].sim
-      : runSolo({ seed, grade, length, policy, pool }).sim;
+      ? runCoop({ start: coopStart({ seed, grade, length, pools: [pool, pool], random }), policy }).views[0].sim
+      : runSolo({ seed, grade, length, policy, pool, random }).sim;
     const r = sim.result();
     if (r.won) wins++;
     waves += r.wavesCleared;
@@ -447,7 +452,7 @@ export function sweep({ runs = 20, grade = 1, strength = 'none', policy = 'rando
   }
   const picks = rar.reduce((a, b) => a + b, 0);
   return {
-    strength, grade, runs, coop, policy, length,
+    strength, grade, runs, coop, policy, length, random,
     winRate: wins / runs, meanWaves: waves / runs, assignments: periods * 3, clearRate: cleared / Math.max(1, periods * 3),
     rarity: rar.map((n) => n / Math.max(1, picks)), picks, seconds: (Date.now() - t0) / 1000,
   };
@@ -455,7 +460,7 @@ export function sweep({ runs = 20, grade = 1, strength = 'none', policy = 'rando
 
 const pct = (x) => `${Math.round(100 * x)} %`;
 function printSweep(r) {
-  console.log(`${r.coop ? 'co-op' : 'solo'} ${r.length} Grade ${r.grade}, strength ${r.strength}, ${r.runs} runs, policy ${r.policy} (${r.seconds.toFixed(1)} s, ${(r.seconds / r.runs).toFixed(2)} s/run)`);
+  console.log(`${r.coop ? 'co-op' : 'solo'}${r.random ? ' Random Class' : ''} ${r.length} Grade ${r.grade}, strength ${r.strength}, ${r.runs} runs, policy ${r.policy} (${r.seconds.toFixed(1)} s, ${(r.seconds / r.runs).toFixed(2)} s/run)`);
   console.log(`  wins ${pct(r.winRate)}, mean waves cleared ${r.meanWaves.toFixed(1)}`);
   console.log(`  assignments cleared ${pct(r.clearRate)} of ${r.assignments}`);
   console.log(`  pick rarity R / SR / SSR / UR / LR: ${r.rarity.map((x) => Math.round(100 * x)).join(' / ')} % (${r.picks} picks)`);
@@ -465,6 +470,7 @@ function printSweep(r) {
 // CLI
 //   node --import ./tools/simLoader.mjs tools/tryoutBot.mjs [runs=40] [grade=1] [policy=random|first|hand] [--coop]
 //        [--runs N] [--grade N] [--policy p] [--strength new|mid|maxed|none] [--length half|full] [--seed0 N] [--json]
+//        [--random]: Random Class (the Sim draws the three and takes every pick; the bot plays the breaks)
 //   … --sweep [--runs N] [--grade N]: N seeds for each of the three strengths (new, mid, maxed) at that Grade
 // ---------------------------------------------------------------------------
 // (a browser bundle has no `process`: e2e/engines.mjs runs this module in Chromium too)
@@ -481,6 +487,7 @@ if (isMain) {
     coop: argv.includes('--coop'),
     length: opt('length', 'half'),
     seed0: +opt('seed0', 1),
+    random: argv.includes('--random'),
   };
   const strengths = argv.includes('--sweep') ? ['new', 'mid', 'maxed'] : [opt('strength', 'none')];
   for (const strength of strengths) {

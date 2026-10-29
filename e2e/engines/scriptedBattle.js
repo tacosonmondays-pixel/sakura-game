@@ -2240,15 +2240,17 @@ export function runStaffBattle({ maxFrames = 60 * 60 * 10 } = {}) {
 /**
  * Tryout Day (docs/specs/TRYOUT_DAY.md §15): one 2-player co-op run on two lockstep views (tools/tryoutBot.mjs runCoop: personal
  * picks, a Tryout join, Hall Pass moves at Recess, Snack, the seats), a third client rejoining from the wave-9 checkpoint
- * after a mid-run join, to wave 16. Every engine must reach the same digests and hashes.
+ * after a mid-run join, to wave 16. Every engine must reach the same digests and hashes. `random`: a Random Class run
+ * (§20.4: the Sim draws both threes and lands every pick by itself; a checkpoint at wave 8 rejoins mid-reveal).
  */
-export function runTryoutBattle({ maxWaves = 16, checkpointAt = 9 } = {}) {
-  const { views, digests, hashes } = runTryoutCoop({ start: tryoutStart({ seed: 2026 }), policy: 'random', maxWaves, checkpointAt });
+export function runTryoutBattle({ maxWaves = 16, checkpointAt = 9, seed = 2026, random = false } = {}) {
+  const { views, digests, hashes } = runTryoutCoop({ start: tryoutStart({ seed, random }), policy: 'random', maxWaves, checkpointAt });
   const sim = views[0].sim;
   return {
     wave: sim.wave, lives: sim.lives, score: sim.tryout.score, squads: sim.tryout.players.map((p) => p.squad.join(',')),
     lastDigest: digests[0][digests[0].length - 1], digests: digests[0].length, sameViews: JSON.stringify(digests[0]) === JSON.stringify(digests[1]),
     hash: hashes[0][hashes[0].length - 1],
+    ...(random ? { picks: sim.tryout.players.map((p) => p.picks.map((x) => x.girl || x.card || x.varsity).join(',')) } : null),
   };
 }
 
@@ -2266,5 +2268,6 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), modes };
+  const tryoutRandom = runTryoutBattle({ seed: 2027, random: true, maxWaves: 14, checkpointAt: 8 });
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), modes, tryoutRandom };
 }

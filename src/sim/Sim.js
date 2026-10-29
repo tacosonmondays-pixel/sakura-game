@@ -65,8 +65,9 @@ import {
 import {
   createTryout, tryoutLoadouts, tryoutCanStart, tryoutWaveStart, tryoutWaveEnd, tryoutTick, tryoutSpawn, tryoutKill, tryoutLeak,
   tryoutCount, tryoutPlaceCost, tryoutPlaced, tryoutTowerMods, tryoutUpgradeCost, tryoutUpgraded, tryoutResult, tryoutCommand,
-  tryoutMove, windowOpen, tryoutBackGate, tryoutCanHeal,
+  tryoutMove, windowOpen, tryoutBackGate, tryoutCanHeal, pendingAutoPick,
 } from './tryout/index.js';
+import { randomPlayers } from './tryout/random.js';
 import { assignSeats, nextSeats } from './tryout/breaks.js';
 import { hasCards, refreshRunMods } from './tryout/pep.js';
 
@@ -244,7 +245,8 @@ export class Sim {
    */
   _initTryout(cfg) {
     const n = Math.max(1, Math.min(2, cfg.players?.length || 1));
-    const players = (cfg.players || [{}]).slice(0, n);
+    // (Random Class, §20.4: each player's three are drawn from their own six here; any draft is ignored)
+    const players = randomPlayers(cfg, (cfg.players || [{}]).slice(0, n));
     this._tryoutCfg = { ...cfg, players, pools: (cfg.pools || []).slice(0, n), heroAcct: this.heroConfigs.map((c) => (c ? { ...c.stats } : null)) };
     this.viewOwner = 0;
     this.loadout.clear();
@@ -266,6 +268,11 @@ export class Sim {
   /** A Tryout Day Hall Pass move for player `slot`. */
   tryoutMove(slot, uid, x, y) {
     return this.tryout ? tryoutMove(this, slot, uid, x, y) : { ok: false, reason: 'noRun' };
+  }
+
+  /** Random Class (§20.4): player `slot`'s pending auto-pick for the reveal (src/sim/tryout/random.js pendingAutoPick); null: none. */
+  tryoutAutoPick(slot = this.viewOwner ?? 0) {
+    return this.tryout ? pendingAutoPick(this, slot) : null;
   }
 
   /** Is a Tryout Day pick or break open (the next wave waits)? */
