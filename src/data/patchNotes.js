@@ -28,6 +28,7 @@ export const PATCH_NOTES = [
       'New 3D props for what they place: Azami’s spike strips, Yuzuha’s fold-out sentries and Capture Nets, Chigusa’s thorn vines and beds, Ouka’s council banners, Wakaba’s drink bottle and Kinu’s heat ring and scissors.',
     ],
     changed: [
+      'Tryout Day’s Extended Day: a Home Time button after wave 48 (in co-op, both players vote), your best wave kept for each Grade, three one-time milestones at waves 50, 75 and 100 (Stayed After, Late Bus, Last One Out), reaching period 12 counts as a Full Day clear, and the timetable fits a phone held upright.',
       'Chika’s Overall tab now shows her average DPS beside Live too, drones included; between waves the readout says “DPS (wave)”.',
     ],
     fixed: [
