@@ -297,5 +297,6 @@ export function heldDps(t, e, perTarget) {
 
 /** Wave clear: every channel ends (calm-point saves and co-op checkpoints carry none). */
 export function endHeldWave(sim) {
-  for (const t of sim.towers) if (t.ch) t.ch = null;
+  // (deleted, not nulled: `ch` is a calm key a battle save leaves out, so a restored run has it absent)
+  for (const t of sim.towers) if (t.ch) delete t.ch;
 }

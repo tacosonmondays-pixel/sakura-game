@@ -207,9 +207,8 @@ export function wheelTick(sim, t) {
 /** Wave clear: every girl's spin index and halo memory end (straight shots end in endRingWave). */
 export function endWheelWave(sim) {
   for (const t of sim.towers) {
-    if (t.spinK != null) t.spinK = null;
-    // (deleted, not nulled: a calm-point key a battle save leaves out, so a restored run reads the same; balance round 5's
-    // 8-5 save scenario caught the difference)
+    // (deleted, not nulled: both are calm keys a battle save leaves out, so a restored run has them absent)
+    if (t.spinK != null) delete t.spinK;
     if (t.haloHits) delete t.haloHits;
   }
 }
