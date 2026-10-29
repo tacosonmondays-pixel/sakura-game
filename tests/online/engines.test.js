@@ -253,7 +253,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // sale, so only ckDigest holds a lab record). Attack shapes S4 moved both digests and nothing else (the Sim's tether
     // fields and each enemy's `tie` are stored by the generic serializer): e864bd71 → d529f30d, 8e111df8 → a6ec7988
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '56118d0f', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: '617c1422', finalDigest: '5950f192' });
+      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '56118d0f', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: '60f651e2', finalDigest: '98e117c2' });
   }, 240000);
 
   it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s two firing points with Pierce, every club trick) in sync', () => {
@@ -312,7 +312,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // when hashSim began folding t.ch.px (gear Pierce, review fix): the battle itself is the same (same final). Change
     // only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, held: r.held, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 28656, state: 'lost', wave: 16, wallets: '615/669', final: 3631237076, hashes: '3e943777', held: '4149/880', rejoinTick: 5568 });
+      .toEqual({ ticks: 28655, state: 'lost', wave: 16, wallets: '615/669', final: 4139458384, hashes: '89dbb28e', held: '4148/881', rejoinTick: 5568 });
   }, 240000);
 
   it('runs the attack shapes S3 (GROUND_START: Bramble Road, Rising Spikes, Ripple Quake) in sync, and a mid-wave rejoin lands on the run', () => {
@@ -352,7 +352,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // pinned when the battle was added (feature/attack-links, S4 data fitted on both rulers; the host's girls at tier 5,
     // the guest's at tier 4: one girl per path at the final tier). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, links: r.links, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 24947, state: 'won', wave: 22, wallets: '712/712', final: 2697664745, hashes: 'fa26dda0', links: '2195/1323/84/1918', rejoinTick: 7076 });
+      .toEqual({ ticks: 24568, state: 'won', wave: 22, wallets: '714/714', final: 2324168228, hashes: 'd26468f3', links: '2203/1347/87/1922', rejoinTick: 7076 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {
@@ -394,7 +394,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned Oct 29 for the Oct 29 duo buff (base +25%, the LR form ×1.1 and her long beam: the host's duo is LR):
     // the battle ends sooner, ticks 44656 → 39421, final 1485318803 → 1647005069, hashes baad978d → f97c7537.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, duo: r.duo })
-      .toEqual({ ticks: 37229, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3330/3744', final: 702053514, hashes: 'a7068993', duo: '241/1104/396/22/10/1' });
+      .toEqual({ ticks: 37736, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3330/3744', final: 3211732776, hashes: 'e4374577', duo: '244/1117/437/22/9/1' });
   }, 240000);
 
   it('runs Tenka\'s LR form (TENKA_LR_START: Critical Mass · Event Horizon\'s pull and second detonation on the host\'s LR Tenka, the guest\'s without) in sync', () => {

@@ -182,7 +182,7 @@ same three rows over ×1 as v0.1.60). **With the shapes Kage fails it: ×1.185, 
 the shapes branch without round 5 (5124dacf) and ×0.75 / ×0.99 on v0.1.60: S1's Blade Cyclone, not a round-5 row (Kage
 has none). Flagged to the coordinator and the shapes session.
 
-**Sim id** `4e257730440f` (the shapes and round 5 together; base `d35092f141d3`, COOP 12), pinned as one PENDING_BUMP {12: …} in `tests/art/itemArtRuntime.test.js`; COOP_PROTOCOL is
+**Sim id** `03f9240f18a9` (the shapes and round 5 together; base `d35092f141d3`, COOP 12), pinned as one PENDING_BUMP {12: …} in `tests/art/itemArtRuntime.test.js`; COOP_PROTOCOL is
 not bumped here (the coordinator assigns it at ship). Goldens re-pinned with no win becoming a loss; mechanics
 scenarios (save/restore, co-op casts) run power-neutral (`powerOff`, or the row divided back out in co-op).
 

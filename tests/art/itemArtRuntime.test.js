@@ -204,7 +204,7 @@ describe('display only: the battle sim is untouched', () => {
     // them sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only this exact in-progress id
     // passes.
     // Balance round 5 (feature/balance-r5) rides the same bump: this id is the shapes and round 5 together.
-    const PENDING_BUMP = { 12: '4e257730440f' };
+    const PENDING_BUMP = { 12: '03f9240f18a9' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

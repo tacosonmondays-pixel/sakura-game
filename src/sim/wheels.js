@@ -208,6 +208,8 @@ export function wheelTick(sim, t) {
 export function endWheelWave(sim) {
   for (const t of sim.towers) {
     if (t.spinK != null) t.spinK = null;
-    if (t.haloHits) t.haloHits = null;
+    // (deleted, not nulled: a calm-point key a battle save leaves out, so a restored run reads the same; balance round 5's
+    // 8-5 save scenario caught the difference)
+    if (t.haloHits) delete t.haloHits;
   }
 }
