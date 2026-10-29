@@ -31,6 +31,7 @@ import { GhostLayer } from '../patterns/ghosts.js';
 import { FlashLayer } from '../patterns/hitFlash.js';
 import { genericAttack } from './generic.js';
 import { CORE, FAMILIAR } from '../context.js';
+import { cameraFacing } from '../../facing.js';
 
 const ORANGE = [1, 0.55, 0.15];
 const CRIMSON = [0.85, 0.1, 0.18];
@@ -331,10 +332,11 @@ function flashLunge(ev, tw, t, ctx) {
     if (!e) continue;
     flashOn(ctx, L, targets[k], e.x, e.z, FLASH_MAIN);
     if (ctx.reduceMotion) continue;
-    // a ghost 70 % of the way to each struck enemy, facing her run
+    // a ghost 70 % of the way to each struck enemy, turned toward her run as far as her face stays to the
+    // camera (src/render/facing.js, like her figure)
     const fx = e.x - px;
     const fy = e.z - py;
-    _pts.push(px + fx * 0.7, py + fy * 0.7, Math.atan2(fx, fy));
+    _pts.push(px + fx * 0.7, py + fy * 0.7, cameraFacing(Math.atan2(fx, fy), ctx.actors?.cameraYaw || 0));
     px = e.x;
     py = e.z;
   }
