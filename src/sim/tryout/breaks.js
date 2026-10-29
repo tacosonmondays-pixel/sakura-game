@@ -15,8 +15,9 @@ const STEP = 0.5;
 /**
  * Every block's seat positions, seeded: land spots 1.2-2.6 tiles from the road, weighted by how much road
  * lies within 3 tiles, at least `spacing` apart. Integer weights; positions on a half-tile lattice.
+ * Blocks `from` to `blocks` − 1 (each from its own stream, so Extended Day draws its later blocks lazily: §20.6).
  */
-export function drawSeats(sim, seed, blocks) {
+export function drawSeats(sim, seed, blocks, from = 0) {
   const pl = sim.placement;
   const map = sim.map;
   const s = TRYOUT.seats;
@@ -41,7 +42,7 @@ export function drawSeats(sim, seed, blocks) {
     }
   }
   const out = [];
-  for (let b = 0; b < blocks; b++) {
+  for (let b = from; b < blocks; b++) {
     const rng = stream(seed, `seats:${b}`);
     const list = [];
     let pool = cands.slice();
@@ -300,7 +301,7 @@ export function brushUp(sim, owner, index) {
 export function seatBlocks(sim, p) {
   const len = lengthOf(sim.tryout.length);
   const b = blockOf(len, p);
-  return { now: b, next: Math.min(len.blocks.length - 1, b + 1) };
+  return { now: b, next: len.endless ? b + 1 : Math.min(len.blocks.length - 1, b + 1) };
 }
 
 /** During a break: the next block's seats (shown dashed, §6.2), else []. Read-only, for the board. */
@@ -308,7 +309,7 @@ export function nextSeats(sim) {
   const ty = sim.tryout;
   if (!ty.players.some((p) => p.win === 'break')) return [];
   const len = lengthOf(ty.length);
-  const next = Math.min(len.periods, ty.period + 1);
+  const next = len.endless ? ty.period + 1 : Math.min(len.periods, ty.period + 1);
   const b = blockOf(len, next);
   // (the coming period's seat count: an Art Class there adds its seat, one here does not carry over; M2 review)
   const sub = comingSubject(ty, next);

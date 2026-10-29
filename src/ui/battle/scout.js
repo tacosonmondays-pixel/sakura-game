@@ -7,6 +7,7 @@ import { fmtNum } from '../format.js';
 import { TRAITS } from '../../data/types.js';
 import { freeplayHpRamp } from '../../sim/freeplay.js';
 import { heroWarnText } from './heroLevels.js';
+import { EXTENDED_TEXT } from '../text/tryout.js';
 
 /** What each freeplay affix (src/data/freeplay.js) does, for the scout and the visitor toast. */
 export const AFFIX_TEXT = {
@@ -193,12 +194,15 @@ export function createScout(ctx) {
     strip.classList.toggle('bt-scout-boss', boss);
     // freeplay past the goal: "NEXT 16/15" in the tier's colours
     const over = sim.freeplay && n > sim.totalWaves;
-    strip.classList.toggle('bt-scout-over', !!over);
-    if (over) strip.dataset.tier = sim.stage.freeplay.id;
+    // (a Tryout Day Extended Day past its 48: the wave alone and "Stay Late", not a freeplay tier's "16/15", §20.8)
+    const stayLate = !!over && !!sim.tryout;
+    strip.classList.toggle('bt-scout-over', !!over && !stayLate);
+    if (over && !stayLate) strip.dataset.tier = sim.stage.freeplay.id;
+    else delete strip.dataset.tier;
     // map rule: "NEXT 4 ⇄" when the wave comes in through the goal gate (Rear Ambush)
     const flipped = !!ctx.modes?.flipped(n);
     strip.title = flipped ? 'Comes in through the goal gate' : 'Next wave — tap for details';
-    strip.append(h('span.bt-scout-label', { 'data-testid': 'scout-label' }, h('small', 'NEXT'), ` ${n}`, over ? h('span.bt-scout-goal', `/${sim.totalWaves}`) : null, flipped ? h('span.bt-scout-flip', ' ⇄') : null));
+    strip.append(h('span.bt-scout-label', { 'data-testid': 'scout-label' }, h('small', 'NEXT'), ` ${n}`, stayLate ? h('small.bt-scout-late', ` · ${EXTENDED_TEXT.stayLate}`) : over ? h('span.bt-scout-goal', `/${sim.totalWaves}`) : null, flipped ? h('span.bt-scout-flip', ' ⇄') : null));
     // freeplay: the boss telegraph from two waves ahead
     const tg = over ? freeplayBossTelegraph(sim, n) : null;
     if (tg) {
@@ -255,7 +259,7 @@ export function createScout(ctx) {
     const pr = hasNext() && sim.freeplay && n > sim.totalWaves ? freeplayPressureInfo(sim, n) : null;
     const tg = pr ? freeplayBossTelegraph(sim, n) : null;
     popover.replaceChildren(...[
-      h('div.bt-pop-head', h('span.bt-pop-title', hasNext() ? `Scouting · Wave ${n}${pr ? `/${sim.totalWaves}` : ''}` : 'Final wave'), h('button.bt-x', { onclick: () => togglePopover(false), title: 'Close' }, '×')),
+      h('div.bt-pop-head', h('span.bt-pop-title', hasNext() ? `Scouting · Wave ${n}${pr && !sim.tryout ? `/${sim.totalWaves}` : ''}` : 'Final wave'), h('button.bt-x', { onclick: () => togglePopover(false), title: 'Close' }, '×')),
       tg ? h('div.bt-tele-pop', { 'data-testid': 'scout-tele-text' }, telegraphText(tg)) : null,
       pr ? h(`div.bt-pr-pop${pr.warn ? '.warn' : ''}`, { 'data-testid': 'scout-pressure-text' }, pressureText(pr), pr.affix ? h('b', ` ${AFFIX_TEXT[pr.affix]?.[0] || pr.affix}: ${AFFIX_TEXT[pr.affix]?.[1] || ''}.`) : null) : null,
       warnings.length

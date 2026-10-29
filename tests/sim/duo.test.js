@@ -60,7 +60,7 @@ describe('the duo: data', () => {
     expect(u.awakenPassive.name).toBe('Twin Star Bond');
   });
 
-  test('base kit (v0.1.61: +25%): shells 15 / 0.35 / splash 1.1 / ground only / blast; beam 6.25 / 0.7 / 3.6 / pierce 4; every 4th shell → 3 shards at 0.5', () => {
+  test('base kit (Oct 29 buff: +25%): shells 15 / 0.35 / splash 1.1 / ground only / blast; beam 6.25 / 0.7 / 3.6 / pierce 4; every 4th shell → 3 shards at 0.5', () => {
     const s = resolveStats(getUnit(ID));
     expect(s).toMatchObject({ behavior: 'mortar', damage: 15, rate: 0.35, splash: 1.1, canHitAir: false, attackType: 'blast' });
     expect(s.range).toBeGreaterThanOrEqual(30);

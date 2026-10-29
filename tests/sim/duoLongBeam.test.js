@@ -1,7 +1,7 @@
 // Kohaku's long beam (src/sim/duo.js; owner, Oct 29: "cover a line from one side of the map to the other"): at
 // Grand Spectrum (Prism Corridor tier 5, `duo.edge`) and in the duo's LR form (`unitStats.lr`), a held beam still
 // locks onto an enemy within her reach, and its line runs on through that enemy to the map edge. Within her reach
-// it is exactly the old beam (her pierce); past it every enemy on the line takes the tick × PRISM_EDGE_MUL. The
+// it hits as the old beam did (her pierce); past it every enemy on the line takes the tick × PRISM_EDGE_MUL. The
 // map-bounds clip, both triggers, the reach rule, the perf guard, the drawing and determinism.
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
@@ -84,6 +84,48 @@ describe('the long beam', () => {
     // enemy and ramps, so the far one takes at most PRISM_EDGE_MUL of it)
     expect(lost(far) / lost(near)).toBeLessThanOrEqual(PRISM_EDGE_MUL + 1e-9);
     expect(lost(far) / lost(near)).toBeGreaterThan(PRISM_EDGE_MUL / 2);
+  });
+
+  test('within her reach the full-damage hits are those of the beam without the edge (her pierce cap included)', () => {
+    // a crowd on the lower lane in her reach (more than her pierce of 8) and the far lane beyond it
+    const play = (edge) => {
+      const { sim, t } = setup({ tiers: [0, 5, 2] });
+      for (let k = 0; k < 14; k++) {
+        for (const pi of [0, 1]) {
+          const e = sim.spawnEnemy('tank', { pathIndex: pi, dist: 4 + k * 0.5 });
+          e.baseSpeed = 0;
+          e.hp = e.maxHp = 1e7;
+        }
+      }
+      // (her pierce cut to 2, so the packed lane overfills it and the cap is exercised)
+      t.beamSpec.nearPierce = 2;
+      if (!edge) {
+        t.beamSpec.edge = false;
+        t.beamSpec.pierce = 2;
+      }
+      const full = [];
+      let far = 0;
+      const hit0 = sim._hit.bind(sim);
+      sim._hit = (e, tw, spec, scale, drone) => {
+        if (spec === t.beamTickSpec) {
+          if (scale > PRISM_EDGE_MUL * 2) full.push(`${Math.round(sim.time / STEP)}:${e.uid}:${scale}`);
+          else far++;
+        }
+        return hit0(e, tw, spec, scale, drone);
+      };
+      run(sim, 1.5);
+      return { full, far };
+    };
+    const a = play(true);
+    const b = play(false);
+    expect(a.full.length).toBeGreaterThan(0);
+    expect(a.full).toEqual(b.full);
+    expect(b.far).toBe(0);
+    // the cap: at most 4 beams × 2 full hits a tick, and some tick reached it on one beam's line
+    const perTick = new Map();
+    for (const h of a.full) perTick.set(h.split(':')[0], (perTick.get(h.split(':')[0]) || 0) + 1);
+    expect(Math.max(...perTick.values())).toBeLessThanOrEqual(8);
+    expect(Math.max(...perTick.values())).toBeGreaterThan(4);
   });
 
   test('the tiers below Grand Spectrum keep her beam to her reach', () => {

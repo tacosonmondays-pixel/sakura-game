@@ -234,6 +234,73 @@ export const GIRL_CARD_TEXT = {
   againLine: (dmg, rate, cut) => `Varsity: +${dmg}% damage, +${rate}% attack speed, copies ${cut}% cheaper`,
 };
 
+/** A timetable cell's preview (§13.4: tap a cell): the period's foes, their traits, the big foe, the class, the twist. */
+export const PREVIEW_TEXT = {
+  hint: 'Tap a period for its preview',
+  close: 'Close the preview',
+  period: (p) => `Period ${p}`,
+  final: 'Final Period',
+  waves: (a, b) => `waves ${a}-${b}`,
+  foes: 'Foes',
+  traits: { flyers: 'flyers', veiled: 'veiled', heavy: 'heavy armour', regen: 'regenerating', spectral: 'spectral' },
+  noTraits: 'no tricks',
+  miniboss: (w) => `Miniboss · wave ${w}`,
+  boss: (w) => `Boss · wave ${w}`,
+  noSubject: 'No Subject (the first period)',
+  subjectPair: 'Class: one of',
+  subject: 'Class',
+  or: ' or ',
+  backGate: 'History opens the Back Gate: even waves come in by the exit road',
+  affix: 'Grade twist',
+  pick: (n) => `Pick ${n}`,
+  tryoutPick: 'Tryouts',
+  examPrep: 'Exam Prep: at least SR',
+  breakAfter: 'Then',
+  breakLine: 'Seat Change, Hall Passes, Snack or Brush Up',
+  bossCell: 'Final boss',
+};
+
+/** The cap bar on a Pep Talk card (§4.4, §13.6): "Kage · Damage +36% → +52% / 100%". */
+export const CAP_TEXT = {
+  fam: {
+    damageMul: 'Damage', rateMul: 'Attack speed', range: 'Reach', critChance: 'Crit', critMul: 'Crit damage', pierce: 'Pierce',
+    projectiles: 'Projectiles', chain: 'Chain jumps', splash: 'Splash', airMul: 'vs flyers', eliteMul: 'vs elites', bossMul: 'vs bosses',
+    barrierMul: 'vs barriers', dotMul: 'Burns and poisons', costCut: 'Cost cut', auraRange: 'Aura reach', auraPoints: 'Aura bonus',
+  },
+  cls: (c) => `vs ${c}`,
+  all: (n) => `All ${n}`,
+  fully: (n, of) => `full for ${n} of ${of}`,
+  atCap: 'at its cap',
+  label: (fam, now, after, cap) => `${fam} ${now} → ${after} / ${cap}`,
+  /** A Team or Group card that adds in full to everyone it reaches: only what it adds. */
+  toAll: (fam, add, n) => `${fam} ${add} to all ${n}`,
+  /** The bar's spoken words for "to all": what it adds and the cap each girl has. */
+  toAllBar: (fam, add, n, cap) => `${fam}: adds ${add} to all ${n}, cap ${cap} each`,
+};
+
+/** The pick sheet's MORE (§13.6): the odds table for this pick and the per-girl caps (§3.4, §4.4). */
+export const MORE_TEXT = {
+  label: 'Odds and caps',
+  title: 'Odds and caps',
+  back: 'Back to the pick',
+  odds: 'This pick\'s odds',
+  oddsLine: (pick, band, credits) => `Pick ${pick} · ${band} picks · ${credits} credit${credits === 1 ? '' : 's'} now`,
+  bands: { early: 'Early', mid: 'Mid', late: 'Late' },
+  credits: 'Credits',
+  floor: (r) => `Teacher's Note: at least ${r}`,
+  lrOff: 'LR already taken: an LR roll becomes UR',
+  caps: 'Caps per girl',
+  capsLine: 'Cards add inside these caps (all run sources together); drawbacks count after the cap.',
+  family: 'Family',
+  cap: 'Cap',
+  top: 'Highest now',
+  rows: {
+    damageMul: 'Damage', rateMul: 'Attack speed', range: 'Reach', crit: 'Crit chance / crit damage', hits: 'Pierce / projectiles / chain',
+    splash: 'Splash', vs: 'Each "vs" bonus', costCut: 'Cost cuts', runDamage: 'Run damage (cards × seat)',
+  },
+  none: '—',
+};
+
 // ---------------------------------------------------------------------------
 // Meta (§10): Marbles, the Lunchbox, the Marble Jar, the Yearbook, the Weekly Timetable, share codes
 // ---------------------------------------------------------------------------
@@ -455,4 +522,45 @@ export const YEARBOOK_SCREEN = {
   blankLine: 'She has not tried out yet: her page fills in the first time she does.',
   fullPage: 'Her page ›',
   unseen: '?',
+};
+
+// ---- Extended Day and Random Class (docs/specs/TRYOUT_DAY.md §20.8; the minimal UI, v1) -----------------------------
+
+// (the third run length's name, beside Half Day and Full Day: internal id 'after')
+LENGTH_NAMES.after = 'Extended Day';
+
+/** Extended Day: the length option, its lock, the timetable's open end, the tracker and the Class Photo. */
+export const EXTENDED_TEXT = {
+  name: 'Extended Day',
+  locked: 'Clear a Full Day first',
+  line: 'The Full Day, then the day goes on until your hearts run out.',
+  more: 'P13+',
+  moreLine: 'on and on',
+  moreTitle: 'After period 12 the day goes on: 4 waves a period, then a pick, until your hearts run out',
+  stayLate: 'Stay Late',
+  wave: (n) => `Wave ${n}`,
+  waveSub: 'Stay Late · the day goes on',
+  stayLateSub: 'The Full Day is done. The day goes on until your hearts run out',
+  fullLast: 'The Full Day\'s last wave · then Stay Late',
+  homeTime: 'Home Time',
+  reachedWave: (n, periods) => `Reached wave ${n} · ${periods} period${periods === 1 ? '' : 's'}`,
+  seedOnly: (seed) => `Seed ${seed} (Extended Day has no share code yet)`,
+  facts: (g, erasers) => `${g.hearts} hearts · ${g.seats} Window Seats · ${erasers} Eraser${erasers === 1 ? '' : 's'} · 12 periods, then on and on`,
+};
+
+/** Random Class: the toggle, its help line (what it promises, in plain words), the drawn six and the pick reveal. */
+export const RANDOM_TEXT = {
+  name: 'Random Class',
+  on: 'On',
+  off: 'Off',
+  help: 'Random Class: the class draws your 3 girls and every pick. Always a striker and a girl who hits flyers; a Control or Support girl is not promised.',
+  helpShort: 'Random Class: always a striker and a flyer-hitter; no Control or Support promise.',
+  squad: 'Squad · drawn at the bell',
+  six: 'The class draws 3 of these six at the bell.',
+  ribbon: 'Random Class',
+  drawing: 'The class is choosing…',
+  landing: 'Drawn!',
+  landed: (name) => `Random Class: ${name}`,
+  handed: 'Random Class: nothing fit, handed in',
+  room: (on) => `Random Class: ${on ? 'On' : 'Off'}`,
 };

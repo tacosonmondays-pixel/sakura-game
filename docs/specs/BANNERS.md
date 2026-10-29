@@ -326,7 +326,7 @@ The route is DUO_LR_DESIGN **§5** (the owner's own words; the §2.3 bond story 
 | LR ability form | **Prismfall · Twin Star**: a white-gold finishing shell (DUO §1.4) | **Critical Mass · Event Horizon**: the blast collapses into a 1.5 s gravity pull and detonates again for 50% |
 | LR crest | twin stars | an orbit ring around a spark |
 | Bond story (optional, scenes only) | **"Starfall Promise"**: DUO §2.3 steps 1–4 as flavour missions + scenes; a profile title | "Lab Notes": 4 short missions + scenes |
-| Until the trial ships | — | her page shows **"LR form coming"** |
+| Until the trial ships | — | (shipped on the stand-in: her page shows the Limit Break panel; "LR form coming" stays for a future LR unit without a trial) |
 
 Rewards: the LR state, the 300 gems + 1 ticket (one-time per LR unit, §H one-time row), scenes, a profile title and the Nightglass
 avatar frame.

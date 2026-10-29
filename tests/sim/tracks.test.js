@@ -2,8 +2,12 @@
 // tunnels hide them (untargetable), overpasses lift them, placement uses the true curve band,
 // autoPlan ignores tunnel sections, and every real map still runs.
 import { describe, test, expect } from 'vitest';
-import { buildMapTracks, LINE, TUNNEL_IN, TUNNEL_OUT, arc, pointAtDistance } from '../../src/core/track.js';
-import { buildPaths, pathTileSet, samplePath } from '../../src/sim/path.js';
+import { buildMapTracks, LINE, TUNNEL_IN, TUNNEL_OUT, arc, pointAtDistance, BRIDGE_HEIGHT } from '../../src/core/track.js';
+import { buildPaths, pathTileSet, samplePath, pathElevation, pathUnderDeck } from '../../src/sim/path.js';
+import { reversePath } from '../../src/sim/rules.js';
+import { Sim } from '../../src/sim/Sim.js';
+import { hasRealData } from '../../src/sim/data.js';
+import { VIADUCT_FIXTURE, VIADUCT_CROSSING, viaductStage } from '../../previews/viaductMaps.js';
 import { isEligible } from '../../src/sim/combat.js';
 import { autoPlan, runHeadless } from '../../src/sim/headless.js';
 import { PATH_HALF_WIDTH, TOWER_RADIUS } from '../../src/sim/placement.js';
@@ -128,6 +132,134 @@ describe('overpasses', () => {
     expect(low.hidden).toBe(false);
     expect(isEligible(low)).toBe(true);
     expect(e.underDeck).toBe(false);
+  });
+});
+
+// Gate Arc Step 6 S6v: the viaduct plays exactly like a shipped overpass (STEP6_BUILD_PLAN §4), on the
+// fixture board (previews/viaductMaps.js: a straight viaduct, the return road under its flat top).
+describe('viaducts', () => {
+  const MAPV = VIADUCT_FIXTURE;
+  const [VA, VB] = MAPV.tracks[0].viaducts[0];
+  const MID = (VA + VB) / 2;
+  const TOP = VA + 3; // on the flat top, clear of the return road (the span's middle sits right over the crossing)
+  const C = VIADUCT_CROSSING;
+  const tAt = (d) => pointAtDistance(MAPV.tracks[0].points, MAPV.tracks[0].cum, d);
+  /** A footprint just clear of the road band, beside distance d on the side `side` (±1). */
+  const beside = (d, side) => {
+    const p = tAt(d);
+    const k = PATH_HALF_WIDTH + TOWER_RADIUS + 0.05;
+    return [p.x - p.dy * k * side, p.y + p.dx * k * side];
+  };
+
+  test('the fixture: one viaduct, the return road under its flat top (authored flat, resolved as a bridge)', () => {
+    expect(MAPV.tracks[0].viaducts.length).toBe(1);
+    expect(VB - VA).toBeGreaterThan(9);
+    expect(MAPV.crossings.length).toBe(1);
+    expect(C.mode).toBe('bridge');
+    expect(C.over).toBe('a');
+    expect(C.a.d).toBeGreaterThan(VA + 2.1);
+    expect(C.a.d).toBeLessThan(VB - 2.1);
+  });
+
+  test('an enemy mid-span carries the deck height, is not hidden and every attack can reach it', () => {
+    const sim = makeSim({ map: MAPV });
+    startEmptyWave(sim);
+    const e = sim.spawnEnemy('tank', { dist: TOP, speedMul: 0.02 });
+    expect(e.elev).toBe(BRIDGE_HEIGHT);
+    expect(e.hidden).toBe(false);
+    expect(e.underDeck).toBe(false);
+    // ground-only, air-capable, any attack type: the 2D range rule decides, as on a shipped overpass
+    expect(isEligible(e, { attackType: 'pierce', canHitAir: false })).toBe(true);
+    expect(isEligible(e, { attackType: 'holy', canHitAir: true, detection: true })).toBe(true);
+    const [x, y] = beside(TOP, -1);
+    expect(sim.placeTower('archer', x, y)).toBeTruthy();
+    run(sim, 3);
+    expect(e.elev).toBeGreaterThan(0.5);
+    expect(e.hp).toBeLessThan(e.maxHp);
+  });
+
+  test('the walker under the deck is underDeck (drawn hidden) and still targetable', () => {
+    const sim = makeSim({ map: MAPV });
+    startEmptyWave(sim);
+    const low = sim.spawnEnemy('tank', { dist: C.b.d, speedMul: 0.02 });
+    expect(low.underDeck).toBe(true);
+    expect(low.hidden).toBe(false);
+    expect(low.elev).toBe(0);
+    expect(isEligible(low)).toBe(true);
+    const [x, y] = beside(C.b.d + 1.6, -1);
+    expect(sim.placeTower('archer', x, y)).toBeTruthy();
+    run(sim, 3);
+    expect(low.underDeck).toBe(true);
+    expect(low.hp).toBeLessThan(low.maxHp);
+    // past the deck the same road is in the open again
+    const out = sim.spawnEnemy('tank', { dist: C.b.d + 2, speedMul: 0.02 });
+    expect(out.underDeck).toBe(false);
+  });
+
+  test('reversePath (Rear Ambush) mirrors the viaduct profile and the under-deck span', () => {
+    const p = buildPaths(MAPV)[0];
+    const r = reversePath(p);
+    expect(r.elev).toEqual(p.elev.slice().reverse());
+    for (const d of [VA + 0.4, VA + 1, MID, VB - 0.7, C.b.d, C.b.d + 0.5, 2]) {
+      expect(pathElevation(r, p.length - d), `elev at ${d}`).toBeCloseTo(pathElevation(p, d), 6);
+      expect(pathUnderDeck(r, p.length - d), `under at ${d}`).toBe(pathUnderDeck(p, d));
+    }
+  });
+
+  test('the viaduct band is road: nobody builds on it or under it; tiles beside it stay buildable', () => {
+    const sim = makeSim({ map: MAPV });
+    const m = tAt(MID);
+    expect(sim.canPlace('archer', m.x, m.y).reason).toBe('path');
+    expect(sim.canPlace('archer', C.x, C.y).reason).toBe('path');
+    const ramp = tAt(VA + 0.6);
+    expect(sim.canPlace('archer', ramp.x, ramp.y).reason).toBe('path');
+    const [x, y] = beside(TOP, -1);
+    expect(sim.canPlace('archer', x, y).reason ?? null).not.toBe('path');
+    const tiles = pathTileSet(MAPV);
+    expect(tiles.has(`${Math.floor(m.x)},${Math.floor(m.y)}`)).toBe(true);
+  });
+
+  test.skipIf(!hasRealData())('forge vents skip the raised enemy and the one under the deck, burn the ground walker', () => {
+    const zone = { x: C.x, y: C.y, r: 1.6 };
+    const sim = new Sim({
+      stageId: 'fixture:viaduct', difficulty: 'normal', seed: 3, loadout: [{ unitId: 'aoi' }],
+      data: { stage: viaductStage({ vents: [zone] }), map: MAPV },
+    });
+    expect(sim.rule.id).toBe('forge_vents');
+    sim.startNextWave();
+    sim._spawnQueue = [];
+    sim._spawnIndex = 0;
+    const slow = { hpMul: 1000, speedMul: 0.001 };
+    const raised = sim.spawnEnemy('slime_green', { dist: C.a.d, ...slow });
+    const under = sim.spawnEnemy('slime_green', { dist: C.b.d, ...slow });
+    const ground = sim.spawnEnemy('slime_green', { dist: C.b.d + 1.3, ...slow });
+    for (const e of [raised, under, ground]) expect(Math.hypot(e.x - zone.x, e.y - zone.y)).toBeLessThan(zone.r);
+    expect(raised.elev).toBe(BRIDGE_HEIGHT);
+    expect(under.underDeck).toBe(true);
+    expect(ground.underDeck || ground.elev > 0).toBe(false);
+    sim.rule.active = true;
+    sim._waveTick = sim.rule.period - sim.rule.activeSteps;
+    const hp = [raised.hp, under.hp, ground.hp];
+    for (let k = 0; k < 60; k++) sim.update(1 / 60);
+    expect(sim.rule.active).toBe(true);
+    expect(sim.rule.zoneDps).toBeGreaterThan(0);
+    expect(raised.hp).toBe(hp[0]);
+    expect(under.hp).toBe(hp[1]);
+    expect(ground.hp).toBeLessThan(hp[2]);
+  });
+
+  test.skipIf(!hasRealData())('a headless battle on the viaduct board is deterministic (run twice: the same result)', () => {
+    const data = { stage: viaductStage(), map: MAPV };
+    const plan = autoPlan(null, ['aoi', 'rei', 'yuki'], { data });
+    expect(plan.some((a) => a.action === 'place')).toBe(true);
+    const go = () => {
+      const r = runHeadless({ data, plan, difficulty: 'easy', seed: 9, maxTime: 240 });
+      expect(r.failed.filter((a) => a.action === 'place').length).toBe(0);
+      return JSON.stringify({ result: r.result, cash: r.cash, lives: r.lives, wave: r.wave });
+    };
+    const a = go();
+    expect(go()).toBe(a);
+    expect(JSON.parse(a).wave).toBeGreaterThanOrEqual(2);
   });
 });
 

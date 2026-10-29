@@ -213,7 +213,7 @@ export function claimLogin(profile, now = new Date()) {
 // Achievements (docs/specs/ACHIEVEMENTS.md §3, §5). Metrics: src/systems/achievementMetrics.js.
 // ---------------------------------------------------------------------------
 
-export { discoverableEnemies, bestiaryPercent } from './achievementMetrics.js';
+export { discoverableEnemies, bestiaryPercent, familyProgress } from './achievementMetrics.js';
 
 /** Reward ids that wait for a feature gate (§3.3): boxes until Equipment opens, crowns until Awakening does. */
 export function achievementGate(profile, a) {
@@ -477,6 +477,8 @@ export function f2pIncomeSummary() {
   // One-time sources.
   const campaign = STAGES.filter((s) => s.kind === 'campaign');
   const others = STAGES.filter((s) => s.kind === 'resource' || s.kind === 'boss');
+  // (Gate Arc Step 6: optional side stages pay their medals at the Act II rate and coins and books on the first clear)
+  const sides = STAGES.filter((s) => s.kind === 'side');
   const diffGems = DIFFICULTY_ORDER.reduce((a, d) => a + DIFFICULTIES[d].firstClearGems, 0);
   // (the medal gems of each stage: × its medalGemMul, as src/systems/rewards.js medalGems pays them; Act II is 0.5)
   const stageMedalGems = (s) => DIFFICULTY_ORDER.reduce((a, d) => a + Math.round(DIFFICULTIES[d].firstClearGems * (s.medalGemMul ?? 1)), 0);
@@ -494,6 +496,7 @@ export function f2pIncomeSummary() {
     row('Campaign medals (all difficulties)', campaignMedalGems, 0, `${diffGems} gems per stage (Easy ${DIFFICULTIES.easy.firstClearGems} / Normal ${DIFFICULTIES.normal.firstClearGems} / Hard ${DIFFICULTIES.hard.firstClearGems} / Nightmare ${DIFFICULTIES.nightmare.firstClearGems}) × ${halfMedal.length ? `${campaign.length - halfMedal.length} + half on ${halfMedal.length} Act II stages` : campaign.length}`, 'oneTime'),
     row('Chapter finales', sumId(firstClear(campaign), 'gems'), ticketPulls(firstClear(campaign)), campaign.some((s) => s.act === 2) ? 'First clear of each x-5 and x-10 stage' : 'First clear of each x-5 stage', 'oneTime'),
     row('Bounty & Total Assault', sumId(firstClear(others), 'gems') + others.length * diffGems, ticketPulls(firstClear(others)), 'First clears + medals', 'oneTime'),
+    ...(sides.length ? [row('Side stages', sides.reduce((a, s) => a + stageMedalGems(s), 0) + sumId(firstClear(sides), 'gems'), ticketPulls(firstClear(sides)), `Medals at the Act II rate on ${sides.length} optional stage${sides.length > 1 ? 's' : ''}`, 'oneTime')] : []),
     row('Achievements', sumId(achievementRewards, 'gems'), ticketPulls(achievementRewards), `${liveAchievements.length} achievements`, 'oneTime'),
     ...(tryoutRows.length ? [row('Tryout Day achievements', sumId(tryoutRewards, 'gems'), ticketPulls(tryoutRewards), `${tryoutRows.length} achievements, once`, 'oneTime')] : []),
     row('Redemption codes', sumId(codeRewards, 'gems'), ticketPulls(codeRewards), 'SAKURA2026 · WELCOME · TACOTUESDAY', 'oneTime'),

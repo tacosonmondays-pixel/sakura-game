@@ -34,7 +34,7 @@ const DRAWN = UNITS.filter((u) => !ART_PENDING.includes(u.id));
 
 describe('drawn portraits', () => {
   it('a girl whose art is pending is a stand-in and shows the SVG portrait everywhere', () => {
-    // none today: Tenka's drawn portraits shipped with the ultimates (her battle figure is still a stand-in)
+    // none today: Tenka's drawn portraits shipped with the ultimates (and her battle figure is a GLB now)
     expect(ART_PENDING).toEqual([]);
     expect(hasPortrait('tenka')).toBe(true);
     for (const id of ART_PENDING) {

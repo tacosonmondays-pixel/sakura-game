@@ -21,6 +21,7 @@
 //   7. Hikari's rampart (a bright full illustration) at 667x375, 844x390 and 1024x768: Battle bottom right, her face and
 //      hair clear of every control, the icons' caps and the SNT-HQ serial at 4.5:1 or more on the pixels under them
 //      (the glyphs' own pixels against the background with the halo, at the 10th percentile)
+//      and, on a small phone, the Events tab without its word stays a narrow icon tab, 8 px or more clear of CO-OP
 //   8. after Story and the Journal (they load the scene player's styles, whose root class is .sp), the home takes taps
 //      again: the element at its centre is the home's, and Battle opens Missions (the bar's spacer is .ui-spacer)
 //   9. Marumi on a small phone (667x375, High, motion allowed): where her living scene cannot keep 8 px clear of every
@@ -485,6 +486,15 @@ async function rampartChecks(vp) {
     await page.waitForFunction(() => window.__sakura?.home?.current?.() === 'hikari', null, { timeout: 15000 }).catch(() => {});
     await settle(page, 600);
     await rampartLayout(page, vp, W, H);
+    if (W <= 759 && H <= 480) {
+      // the Events tab without its word: a narrow icon tab, a gap from CO-OP, its sticker and dot apart
+      const ev = await page.evaluate(() => {
+        const r = (s) => document.querySelector(s)?.getBoundingClientRect() || null;
+        const coop = r('#app .home-coop:not(.home-evt)'), evt = r('[data-testid="home-events"]'), left = r('[data-testid="home-events-left"]'), dot = r('[data-testid="home-events-dot"]');
+        return coop && evt ? { gap: Math.round(evt.left - coop.right), w: Math.round(evt.width), apart: !left || !dot || left.right <= dot.left } : null;
+      });
+      check(ev && ev.gap >= 8 && ev.w <= 72 && ev.apart, `${vp} the icon-only Events tab: ${ev?.w} px wide (72 at most), ${ev?.gap} px clear of CO-OP (8 or more), its sticker and dot apart (${ev?.apart})`);
+    }
     const c = await glyphContrast(page, '#app .home-ico .lbl, #app .home-top .serial');
     const low = c.filter((x) => x.p10 != null && x.p10 < 4.5);
     check(c.length >= 5 && !low.length, `${vp} rampart: the icons' caps and the serial at 4.5:1 or more (${c.map((x) => `${x.text} ${x.p10 == null ? '-' : x.p10.toFixed(2)}`).join(', ')})`);

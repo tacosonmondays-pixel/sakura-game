@@ -1,7 +1,7 @@
 // The drawer's honest damage numbers (src/ui/battle/dpsView.js): small percentages, the per-target line, the
 // measured DPS (live, then the last wave's average) and a support's boost estimate.
 import { describe, it, expect } from 'vitest';
-import { fmtSmallPct, dotOnOne, perTargetLine, boostEstimate, createDpsMeter } from '../../src/ui/battle/dpsView.js';
+import { fmtSmallPct, dotOnOne, perTargetLine, boostEstimate, createDpsMeter, avgDps } from '../../src/ui/battle/dpsView.js';
 
 describe('fmtSmallPct: two significant digits', () => {
   it('keeps a small share readable', () => {
@@ -118,5 +118,109 @@ describe('the measured DPS', () => {
     sim.state = 'between';
     m.sample(sim);
     expect(m.live(3, sim)).toEqual({ value: null, kind: 'none' });
+  });
+});
+
+describe('the average DPS (since she was placed, over her wave time on the field)', () => {
+  it('avgDps: damage since first seen over her seconds; "—" (null) before 1 s and for anything not a number', () => {
+    expect(avgDps(500, 0, 10)).toBe(50);
+    expect(avgDps(1500, 1000, 4)).toBe(125);
+    expect(avgDps(100, 0, 0)).toBe(null);
+    expect(avgDps(100, 0, 0.99)).toBe(null);
+    expect(avgDps(100, 0, 1)).toBe(100);
+    expect(avgDps(NaN, 0, 5)).toBe(null);
+    expect(avgDps(undefined, 0, 5)).toBe(null);
+    expect(avgDps(100, 0, Infinity)).toBe(null);
+    expect(avgDps(50, 100, 5)).toBe(0); // never below zero
+  });
+
+  // a battle driven frame by frame: `dps` a second while the wave runs
+  const run = (m, sim, t, secs, dps, step = 0.1) => {
+    for (let i = 0; i < Math.round(secs / step); i++) {
+      sim.time = Math.round((sim.time + step) * 1000) / 1000;
+      if (sim.state === 'wave') t.damageDealt += dps * step;
+      m.sample(sim);
+    }
+  };
+
+  it('counts wave time only, so it holds still between waves while Live swings', () => {
+    const t = { uid: 3, damageDealt: 0 };
+    const sim = { time: 0, state: 'prep', wave: 0, towers: [t], getTower: (u) => (u === 3 ? t : null) };
+    const m = createDpsMeter(5);
+    m.sample(sim);
+    run(m, sim, t, 5, 0); // placed before the wave: no time on the field yet
+    expect(m.avg(3, sim)).toBe(null);
+    sim.state = 'wave';
+    sim.wave = 1;
+    run(m, sim, t, 0.5, 100);
+    expect(m.avg(3, sim)).toBe(null); // under a second: "—"
+    run(m, sim, t, 9.5, 100);
+    run(m, sim, t, 10, 300); // a big pack: Live jumps to 300, the average moves halfway
+    expect(m.live(3, sim).value).toBeCloseTo(300, 0);
+    expect(m.avg(3, sim)).toBeCloseTo(200, 0);
+    sim.state = 'between';
+    run(m, sim, t, 0.1, 0); // (the frame the wave ended in)
+    const held = m.avg(3, sim);
+    expect(held).toBeGreaterThan(198);
+    run(m, sim, t, 20, 0);
+    expect(m.avg(3, sim)).toBe(held); // between waves it holds
+  });
+
+  it('a girl placed mid-wave starts from her own placement; a sale ends her average', () => {
+    const a = { uid: 1, damageDealt: 0 };
+    const towers = [a];
+    const sim = { time: 0, state: 'wave', wave: 1, towers, getTower: (u) => towers.find((x) => x.uid === u) || null };
+    const m = createDpsMeter(5);
+    run(m, sim, a, 5, 50);
+    const b = { uid: 2, damageDealt: 0 };
+    towers.push(b);
+    for (let i = 0; i < 40; i++) {
+      sim.time = Math.round((sim.time + 0.1) * 1000) / 1000;
+      a.damageDealt += 5;
+      b.damageDealt += 8;
+      m.sample(sim);
+    }
+    expect(m.avg(2, sim)).toBeCloseTo(80, 0);
+    expect(m.avg(1, sim)).toBeCloseTo(50, 0);
+    towers.splice(1, 1); // sold
+    run(m, sim, a, 0.1, 50);
+    expect(m.avg(2, sim)).toBe(null);
+  });
+
+  it("a hero's Move keeps her average (same uid, same running total)", () => {
+    const hero = { uid: 9, damageDealt: 0, x: 1, y: 1 };
+    const sim = { time: 0, state: 'wave', wave: 1, towers: [hero], getTower: () => hero };
+    const m = createDpsMeter(5);
+    run(m, sim, hero, 4, 40);
+    hero.x = 7; // moved
+    run(m, sim, hero, 4, 40);
+    expect(m.avg(9, sim)).toBeCloseTo(40, 0);
+  });
+
+  it('a restore or rejoin starts her again from what she has then: no NaN, no inflated average', () => {
+    const t = { uid: 4, damageDealt: 0 };
+    const sim = { time: 0, state: 'wave', wave: 1, towers: [t], getTower: () => t };
+    const m = createDpsMeter(5);
+    run(m, sim, t, 10, 100);
+    // time goes back (a restore): her running total stays the sim's, only what the drawer then watches counts
+    sim.time = 4;
+    t.damageDealt = 400;
+    m.sample(sim);
+    expect(m.avg(4, sim)).toBe(null);
+    run(m, sim, t, 2, 60);
+    expect(m.avg(4, sim)).toBeCloseTo(60, 0);
+    // a jump forward the drawer did not watch (a co-op catch-up): left out
+    sim.time += 30;
+    t.damageDealt += 30000;
+    m.sample(sim);
+    run(m, sim, t, 2, 60);
+    expect(m.avg(4, sim)).toBeCloseTo(60, 0);
+    // a fresh meter on a battle already running (a rejoin): starts from her total then
+    const m2 = createDpsMeter(5);
+    m2.sample(sim);
+    run(m2, sim, t, 3, 20);
+    expect(m2.avg(4, sim)).toBeCloseTo(20, 0);
+    expect(Number.isNaN(m2.avg(4, sim))).toBe(false);
+    expect(m2.avg(99, sim)).toBe(null);
   });
 });

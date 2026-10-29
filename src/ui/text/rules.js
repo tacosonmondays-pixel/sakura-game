@@ -88,6 +88,107 @@ export const STAGE_RULE_SKINS = {
     desc: 'The lake swells over the breakwater (7 s in every 18): slimes wade 35% slower and Lightning hits 35% harder.',
     toast: 'The lake swells! Slimes slowed, Lightning +35% (7 s)',
   },
+  // Chapter 3 · Act II — The Bell Festival (docs/specs/gate-arc/STEP3_BUILD_PLAN.md §5)
+  '3-6': {
+    rule: 'moonlit_blessing', name: 'Bell Festival', short: 'Festival', activeWord: 'the bells',
+    desc: 'During the bright half of each 18 s moon cycle the shrine bell rings over the festival: Holy attacks deal 30% more damage.',
+    toast: 'The bells ring! Holy +30% (9 s)',
+  },
+  '3-7': {
+    rule: 'forge_vents', name: 'Hot Griddles', short: 'Griddles', activeWord: 'griddles',
+    desc: 'Every 15 s the takoyaki griddles flare for 5 s, burning ground enemies that cross them.',
+    toast: 'The griddles flare! (5 s)',
+  },
+  '3-8': {
+    rule: 'alchemists_mist', name: 'Lake Fog', short: 'Fog',
+    desc: 'In the lake fog Poison deals 40% more damage, and heavy enemies wade 15% slower.',
+  },
+  '3-9': {
+    rule: 'heat_mirage', name: "HAMMER's Smoke", short: 'Smoke', activeWord: 'smoke',
+    desc: 'Smoke rolls over the lanes (6 s in every 18) and cuts girls\' range by 0.5. Every defeated enemy drops 1 extra coin.',
+    toast: 'Smoke! Range −0.5 (6 s)',
+  },
+  '3-10': {
+    rule: 'lunar_eclipse', name: 'The Tear', short: 'Tear', activeWord: 'the tear',
+    desc: 'The tear over the shrine opens for 6 s (every 20 s): Holy deals 50% more damage and spectral enemies move 20% faster.',
+    toast: 'The tear opens! Holy +50%, spirits faster (6 s)',
+  },
+  // Chapter 4 · Act II — The Checkpoint (docs/specs/gate-arc/STEP4_BUILD_PLAN.md §5)
+  '4-6': {
+    rule: 'supply_ship', name: 'Brigade Convoy', short: 'Convoy',
+    desc: 'A Brigade convoy drops 150 battle coins after every 4th wave. Sleet boosts Lightning by 20%.',
+  },
+  '4-7': {
+    rule: 'heat_mirage', name: 'Flare Smoke', short: 'Flares', activeWord: 'flare smoke',
+    desc: 'The Brigade\'s smoke flares drift over the checkpoint (6 s in every 18) and cut girls\' range by 0.5. Every defeated enemy drops 1 extra coin.',
+    toast: 'Flare smoke! Range −0.5 (6 s)',
+  },
+  '4-8': {
+    rule: 'rear_ambush', name: 'Wrong Way', short: 'Wrong way',
+    desc: 'Every even wave comes up the carriageways from the city behind you, through the goal gate. Cover both ends.',
+  },
+  '4-9': {
+    rule: 'prism_conduits', name: 'Village Hearths', short: 'Hearths',
+    desc: 'A girl standing by one of the village\'s three last warm hearths gets +0.7 range and +25% damage. One girl per hearth.',
+  },
+  '4-10': {
+    rule: 'snowbell_blizzard', name: 'Blizzard', short: 'Blizzard', activeWord: 'blizzard',
+    desc: 'Blizzards sweep the ravine (7 s in every 20): every enemy slows by 30%, but girls\' range drops by 15%.',
+    toast: 'Blizzard! Enemies 30% slower, range −15% (7 s)',
+  },
+  // Chapter 5 · Act II — The Drowned Line (docs/specs/gate-arc/STEP5_BUILD_PLAN.md §5)
+  '5-6': {
+    rule: 'changing_tides', name: 'Rising Water', short: 'Flood', activeWord: 'flood water',
+    desc: 'The flood water rises over the platform edge (7 s in every 18): slimes wade 35% slower and Lightning hits 35% harder.',
+    toast: 'The water rises! Slimes slowed, Lightning +35% (7 s)',
+  },
+  '5-7': {
+    rule: 'lunar_eclipse', name: 'Emergency Lights', short: 'Lights', activeWord: 'emergency lights',
+    desc: 'The tunnel lights fail for 6 s (every 20 s) and only the red lamps glow: Holy deals 50% more damage and spectral enemies move 20% faster.',
+    toast: 'Emergency lights! Holy +50%, spirits faster (6 s)',
+  },
+  '5-8': {
+    rule: 'forge_vents', name: 'Steam Valves', short: 'Valves', activeWord: 'steam',
+    desc: 'Every 15 s the two relief valves on the road blow steam for 5 s, burning ground enemies that cross them.',
+    toast: 'The valves blow steam! (5 s)',
+  },
+  '5-9': {
+    rule: 'alchemists_mist', name: 'Reservoir Fog', short: 'Fog',
+    desc: 'In the reservoir fog Poison deals 40% more damage, and heavy enemies wade 15% slower.',
+  },
+  '5-10': {
+    rule: 'firefly_chorus', name: 'Reservoir Fireflies', short: 'Fireflies', activeWord: 'fireflies',
+    desc: 'For 6 s in every 16 fireflies rise off the reservoir: every girl deals 25% more damage.',
+    toast: 'Fireflies! Every girl +25% damage (6 s)',
+  },
+  // Chapter 6 · Act II — Vesperline (docs/specs/gate-arc/STEP6_BUILD_PLAN.md §6) and its side stage
+  '6-6': {
+    rule: 'prism_conduits', name: 'Prism Batteries', short: 'Batteries',
+    desc: 'A girl standing on a charged prism battery gets +0.7 range and +25% damage. One girl per battery.',
+  },
+  '6-7': {
+    rule: 'heat_mirage', name: 'Frost Haze', short: 'Haze', activeWord: 'frost haze',
+    desc: 'Frost haze rolls off the frozen canal (6 s in every 18) and cuts girls\' range by 0.5. Every defeated enemy drops 1 extra coin.',
+    toast: 'Frost haze! Range −0.5 (6 s)',
+  },
+  '6-8': {
+    rule: 'lunar_eclipse', name: 'Dead Grid', short: 'Grid', activeWord: 'dead grid',
+    desc: 'The museum\'s last generator fails for 6 s (every 20 s) and the holo exhibits go dark: Holy deals 50% more damage and spectral enemies move 20% faster.',
+    toast: 'Dead grid! Holy +50%, spirits faster (6 s)',
+  },
+  '6-9': {
+    rule: 'shifting_stars', name: 'Transit Pads', short: 'Pads',
+    desc: 'Each wave one power shines (+50%): Fire, Frost, Lightning, Holy, Mystic in turn. Ordinary enemies slip through a broken transit pad once.',
+  },
+  '6-10': {
+    rule: 'supply_ship', name: 'Last Watch Caches', short: 'Caches',
+    desc: 'The Last Watch\'s cached supplies turn up with 150 battle coins after every 4th wave. Lightning deals 20% more damage.',
+  },
+  'side-6-starfall': {
+    rule: 'forge_vents', name: 'Starfall', short: 'Starfall', activeWord: 'starfall',
+    desc: 'Every 15 s shards of the dome\'s star map fall onto the road for 5 s, burning ground enemies that cross them.',
+    toast: 'Star-map shards fall! (5 s)',
+  },
 };
 
 /**
@@ -123,7 +224,7 @@ export function ruleHasMarks(rule) {
 export const LANE_CLOSED_LINE = 'Crossing closed: long way round';
 
 /** Per-stage wording of that line (stage id → text; e.g. a checkpoint gate instead of a crossing). */
-export const STAGE_LANE_TEXT = {};
+export const STAGE_LANE_TEXT = { '4-7': 'Barrier down: long way round' };
 
 /** The banner line for `stage` when a lane is closed. */
 export function laneClosedText(stage) {
