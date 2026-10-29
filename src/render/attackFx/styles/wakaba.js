@@ -30,14 +30,14 @@ function drawBottle(o, x, h, y, k, ctx) {
   ctx.line(ctx.b.bbA, CORE, x - c, h - s + 0.02, y, x + c, h + s + 0.03, y, 0.045, ctx.col(WATER), 0.95);
   ctx.quad(ctx.b.bbA, DECOR, x, h, y, 0.42, 0.42, ctx.R.glow, o.c, 0.4);
   // a drop shed now and then (game time)
-  if (ctx.q.trails > 0 && Math.random() < ctx.gdt * 10) {
+  if (ctx.q.trails > 0 && ctx.rand() < ctx.gdt * 10) {
     const p = ctx.spr(ctx.b.bbN, DECOR, ctx.R.drop, x, h, y, 0.08, 0.06, 0.35, ctx.col(WATER), 0.9);
     if (p) {
       p.g = -7;
       p.asp = 0.7;
     }
   }
-  if (o.b && ctx.q.sparks && Math.random() < ctx.gdt * 8) ctx.spr(ctx.b.bbA, DECOR, ctx.R.star, x, h, y, 0.12, 0.04, 0.3, ctx.col(GOLD), 1);
+  if (o.b && ctx.q.sparks && ctx.rand() < ctx.gdt * 8) ctx.spr(ctx.b.bbA, DECOR, ctx.R.star, x, h, y, 0.12, 0.04, 0.3, ctx.col(GOLD), 1);
 }
 
 /** Lob landing: the splash on her pick and the cue on every girl it reaches. */
@@ -52,7 +52,7 @@ function landBottle(o, ctx) {
   // the soft splash glow (no ring): a ground glow the size of the splash
   const g = ctx.spr(ctx.b.groundA, CORE, ctx.R.glow, x, 0.07, y, splash * 1.2, splash * 2.2, 0.4, ctx.col(BLUE), 0.55);
   if (g) g.flags = GROUND | EASE_OUT;
-  spokes(ctx, x, y, ctx.q.trails > 0 ? 8 : 5, 0.15, Math.min(1.1, splash * 0.8), water, 0.18, Math.random(), 0.8, DECOR);
+  spokes(ctx, x, y, ctx.q.trails > 0 ? 8 : 5, 0.15, Math.min(1.1, splash * 0.8), water, 0.18, ctx.rand(), 0.8, DECOR);
   // a crown of drops
   const n = ctx.n(8);
   for (let i = 0; i < n; i++) {
@@ -67,8 +67,8 @@ function landBottle(o, ctx) {
   }
   if (lk && lookAt(lk, 0) >= 3 && ctx.q.sparks) {
     for (let i = 0; i < 5; i++) {
-      const p = ctx.spr(ctx.b.bbA, DECOR, ctx.R.bubble || ctx.R.glow, x + (Math.random() - 0.5) * splash, 0.15, y + (Math.random() - 0.5) * splash, 0.1, 0.06, 0.6, ctx.col(GOLD), 0.9);
-      if (p) p.vy = 0.9 + Math.random() * 0.5;
+      const p = ctx.spr(ctx.b.bbA, DECOR, ctx.R.bubble || ctx.R.glow, x + (ctx.rand() - 0.5) * splash, 0.15, y + (ctx.rand() - 0.5) * splash, 0.1, 0.06, 0.6, ctx.col(GOLD), 0.9);
+      if (p) p.vy = 0.9 + ctx.rand() * 0.5;
     }
   }
   // every girl the splash reaches: a rising droplet (gold star pop at Championship Blend)
@@ -162,8 +162,8 @@ export const wakaba = {
     }
     // Championship Season: drops drift round her
     if (lookAt(tw.look, 2) >= 5 && !ctx.reduceMotion && every(d, 'mistT', gdt, 0.35)) {
-      const a = Math.random() * TAU;
-      const r = 0.4 + Math.random() * 0.5;
+      const a = ctx.rand() * TAU;
+      const r = 0.4 + ctx.rand() * 0.5;
       const p = streak(ctx, DECOR, t.x + Math.sin(a) * r, 0.25, t.y + Math.cos(a) * r, Math.cos(a), 0, -Math.sin(a), 0.18, 0.05, 0.6, ctx.col(WATER), 0.7);
       if (p) p.vy = 0.3;
     }

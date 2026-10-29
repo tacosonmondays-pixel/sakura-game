@@ -34,7 +34,7 @@ export const fuu = {
   onImpact(rec, x, y, crit, radius, ctx) {
     const lk = rec.tw.look;
     const s = lookAt(lk, 1) >= 3 && radius > 0 ? radius * 2 : 0.6;
-    decal(ctx, ctx.R.swirl, x, y, s * 0.5, s, 0.4, ctx.col(MINT), 0.55, Math.random() * 6, true);
+    decal(ctx, ctx.R.swirl, x, y, s * 0.5, s, 0.4, ctx.col(MINT), 0.55, ctx.rand() * 6, true);
     sparks(ctx, x, 0.35, y, 2, ctx.col(PALE), 1.2);
     if (lookAt(lk, 2) >= 3) {
       ctx.segs.add(x, 1.4, y, x, 0.2, y, 0.12, ctx.col(PALE), 0.18, SEG_GROW);

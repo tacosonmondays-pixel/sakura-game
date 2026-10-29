@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { buildChibi, buildEnemy, disposeObject } from '../models/index.js';
 import { GeoBuilder, lerpAngle } from './geo.js';
+import { createVisualRandom, visualSeed } from './vfx/random.js';
 import { facesCamera, cameraFacing } from './facing.js';
 import { FIELD_COLORS, fxColor } from './themes.js';
 import { WATER_Y, PATH_H } from './terrain.js';
@@ -20,6 +21,18 @@ const MAX_DRONES = 256;
 const TOWER_SCALE = 1.22;
 const HERO_SCALE = 1.36;
 const ENEMY_SCALE = 1.12;
+/**
+ * Hit squash (docs/VFX.md §M1): a struck monster squashes down and springs back (a damped wobble,
+ * ≈ 0.3 s of visual time — so a hit-stop holds it at its most squashed). Amplitude at full power,
+ * smaller for big monsters; a new hit restarts it only after SQUASH_RETRIGGER (no jitter from
+ * rapid fire). Plain numbers on the view: nothing is allocated per hit.
+ */
+const SQUASH_Y = 0.24;
+const SQUASH_XZ = 0.16;
+const SQUASH_LEN = 0.32;
+const SQUASH_RETRIGGER = 0.09;
+/** Animation options of a monster standing still (death clips, held frames). */
+const STILL = Object.freeze({ moving: false, speed: 1 });
 
 const STATUS_ICONS = {
   burn: ['st_burn', '#ff8a4a'], poison: ['st_poison', '#7be08a'], freeze: ['st_freeze', '#bff0ff'], slow: ['st_slow', '#8fe3ff'],
@@ -124,6 +137,8 @@ export class Actors {
     this.selectedUid = null;
     this.teleports = new Map();
     this.victory = false;
+    /** seeded render-only randomness (the renderer hands its own fork: src/render/vfx/random.js) */
+    this.rand = createVisualRandom(visualSeed('actors'));
     this.fxHook = null; // attack FX (render/attackFx): projectile views, drones, lunges, tossed traps
     this.cameraYaw = 0; // the battle camera's yaw (BattleRenderer sets it each frame): figures that face it (facing.js)
     this._c = new THREE.Color();
@@ -260,6 +275,7 @@ export class Actors {
   _updateDying(dt) {
     for (let i = this.dying.length - 1; i >= 0; i--) {
       const v = this.dying[i];
+      if (v.holdLeft > 0 && this._hold(v, dt)) continue; // a killing blow that holds: the death clip waits
       v.deathLeft -= dt;
       if (v.deathLeft <= 0) {
         this._disposeView(v);
@@ -273,7 +289,7 @@ export class Actors {
         m.scale.setScalar(ENEMY_SCALE * f);
         m.position.y -= dt * 0.25;
       }
-      m.userData.animate?.(this.time, dt, { moving: false, speed: 1 });
+      m.userData.animate?.(this.time, dt, STILL);
     }
   }
 
@@ -300,7 +316,7 @@ export class Actors {
     const faceCam = facesCamera(t.def);
     const v = {
       uid: t.uid, model, facing: faceCam ? cameraFacing(t.facing, this.cameraYaw) : t.facing || 0, faceCam, pop: 0, water, lift, hero: t.isHero, state: 'idle',
-      scale: t.isHero ? HERO_SCALE : TOWER_SCALE, ripple: Math.random() * 3,
+      scale: t.isHero ? HERO_SCALE : TOWER_SCALE, ripple: this.rand() * 3,
     };
     model.position.set(t.x, water ? WATER_Y + 0.03 : 0.05 + lift, t.y);
     model.rotation.y = v.facing;
@@ -350,6 +366,7 @@ export class Actors {
       uid: e.uid, model, x: e.x, z: e.y, y: e.alt || 0, facing: e.facing || 0, statusKey: '', boss: e.tier === 'boss' || e.tier === 'miniboss',
       height: (model.userData.height || 0.6 * (e.def.size || 1)) * ENEMY_SCALE, size: e.def.size || 1, color: e.def.color || '#ffffff', spawnT: 0,
       bob: (e.uid * 1.37) % TAU, airborne: !!e.airborne, veiled: null, phasing: null, barrier: -1,
+      tier: e.tier || e.def.tier || null, maxHp: e.maxHp || 0, sqA: 0, sqT: 1,
     };
     v.costume = this._dress(model, e);
     if (v.costume) {
@@ -387,6 +404,7 @@ export class Actors {
 
   _updateEnemy(v, e, dt) {
     const m = v.model;
+    if (v.holdLeft > 0 && this._hold(v, dt, true)) return;
     const dx = e.x - v.x;
     const dz = e.y - v.z;
     if (dx * dx + dz * dz > 1.5) {
@@ -414,7 +432,21 @@ export class Actors {
     v.facing = lerpAngle(v.facing, e.facing || 0, Math.min(1, dt * 10));
     m.rotation.y = v.facing;
     v.spawnT = Math.min(1, v.spawnT + dt * 4);
-    m.scale.setScalar((0.4 + 0.6 * v.spawnT) * ENEMY_SCALE);
+    v.maxHp = e.maxHp || v.maxHp;
+    const base = (0.4 + 0.6 * v.spawnT) * ENEMY_SCALE;
+    if (v.sqA > 0) {
+      // hit squash: a damped wobble, most squashed on the hit frame
+      v.sqT += dt;
+      if (v.sqT >= SQUASH_LEN) {
+        v.sqA = 0;
+        m.scale.setScalar(base);
+      } else {
+        const f = v.sqA * Math.exp(-v.sqT * 11) * Math.cos(v.sqT * 31);
+        m.scale.set(base * (1 + SQUASH_XZ * f), base * (1 - SQUASH_Y * f), base * (1 + SQUASH_XZ * f));
+      }
+    } else {
+      m.scale.setScalar(base);
+    }
     const ud = m.userData;
     const veiled = !!(e.veiled && !e.revealed);
     if (veiled !== v.veiled) {
@@ -444,7 +476,67 @@ export class Actors {
       ud.setCasting?.(casting);
     }
     const immobile = e.statuses.freeze || e.statuses.stun || e.statuses.shock;
-    ud.animate?.(this.time, dt, { moving: !immobile, speed: e.speed || 1 });
+    // one options object per view, kept for a hold's first frame (nothing allocated per frame)
+    const anim = (v.anim ||= { moving: true, speed: 1 });
+    anim.moving = !immobile;
+    anim.speed = e.speed || 1;
+    ud.animate?.(this.time, dt, anim);
+  }
+
+  /**
+   * A local hold (docs/VFX.md "Hits that land", src/render/vfx/localHold.js): a struck enemy's look
+   * — pose, place, facing, squash and flash — holds for `frames` RENDERED frames (whatever the frame
+   * rate: 2 frames are 2 drawn frames on a 30 fps phone too) with a tiny sideways jitter (`jitter`
+   * world units, alternating each held frame); then it catches up with the sim within a frame or
+   * two. The first held frame already shows the hit (the flash at full, the squash at its deepest):
+   * the struck pose is what holds, never the look from before the hit. Only what is drawn holds. A
+   * killed enemy's death clip holds the same way (flash only: its death clip owns its scale).
+   * @returns {boolean} the enemy is held
+   */
+  holdEnemy(uid, frames, jitter = 0.025) {
+    const v = this.enemies.get(uid);
+    const n = Math.floor(frames);
+    if (!v || !(n > 0)) return false;
+    if (!(v.holdLeft > 0)) v.holdFresh = true;
+    v.holdLeft = Math.max(v.holdLeft || 0, n);
+    v.holdAmp = jitter;
+    return true;
+  }
+
+  /**
+   * One rendered frame of a hold (called once per sync, before the frame is drawn); false once it is
+   * over (the caller then updates the view as usual). A frame drawn with the visual clock stopped (a
+   * global hit-stop, a pause) moves nothing anyway, so it does not use up the hold.
+   * @param {boolean} [live] a live enemy (its squash is frozen at its deepest too)
+   */
+  _hold(v, dt, live = false) {
+    if (!(v.holdLeft > 0)) return false;
+    const m = v.model;
+    if (v.holdFresh) {
+      v.holdFresh = false;
+      this._holdLook(v, live);
+    }
+    v.holdN = (v.holdN || 0) + 1;
+    const j = (v.holdN & 1 ? 1 : -1) * (v.holdAmp || 0);
+    m.position.x = v.x + Math.cos(v.facing) * j;
+    m.position.z = v.z - Math.sin(v.facing) * j;
+    if (dt > 0) v.holdLeft--;
+    return true;
+  }
+
+  /**
+   * The look a hold freezes, shown on its first frame: the hit flash applied at once (the model
+   * animated with dt 0, so the flash is drawn at full and does not fade, and the pose stays), and for
+   * a live enemy the hit squash at its deepest (sqT as the hit left it, 0).
+   */
+  _holdLook(v, live) {
+    const m = v.model;
+    if (live && v.sqA > 0) {
+      const base = (0.4 + 0.6 * v.spawnT) * ENEMY_SCALE;
+      const f = v.sqA * Math.exp(-v.sqT * 11) * Math.cos(v.sqT * 31);
+      m.scale.set(base * (1 + SQUASH_XZ * f), base * (1 - SQUASH_Y * f), base * (1 + SQUASH_XZ * f));
+    }
+    m.userData.animate?.(this.time, 0, live ? v.anim || STILL : STILL);
   }
 
   /** Enemy view position (for effects), or null. */
@@ -467,8 +559,18 @@ export class Actors {
     this.releaseDecor(v.decorKey);
   }
 
-  hitFlash(uid) {
-    this.enemies.get(uid)?.model.userData.hitFlash?.();
+  /**
+   * A monster was hit: her body flashes (`color`: THREE.Color / hex, default white) and squashes
+   * (`squash` 0..1 power; 0 = none). Big monsters squash less.
+   */
+  hitFlash(uid, color = null, strength = 1, squash = 0) {
+    const v = this.enemies.get(uid);
+    if (!v) return;
+    v.model.userData.hitFlash?.(color, strength);
+    if (squash > 0 && (v.sqT >= SQUASH_RETRIGGER || squash > v.sqA * 1.25)) {
+      v.sqA = Math.min(1, squash) / Math.sqrt(Math.max(1, v.size || 1));
+      v.sqT = 0;
+    }
   }
 
   playAttack(uid, kind = null) {
@@ -543,13 +645,13 @@ export class Actors {
       mesh.setColorAt(i, col);
       const glow = v && v.glow >= 0 ? v.glow : GLOW_KINDS[kind];
       if (glow) this.b.bbA.push(px, z, py, glow, glow, this.R.glow, fc.r, fc.g, fc.b, 0.85);
-      if (kind === 'fireball' && Math.random() < dt * 30) {
+      if (kind === 'fireball' && this.rand() < dt * 30) {
         this.fx.spawn({ batch: 'bbA', uv: this.R.glow, x: px, y: z, z: py, vy: 0.3, s0: 0.22, s1: 0.04, life: 0.3, color: '#ff8a3d' });
       }
-      if (kind === 'shell' && Math.random() < dt * 20) {
+      if (kind === 'shell' && this.rand() < dt * 20) {
         this.fx.spawn({ batch: 'bbN', uv: this.R.smoke, x: px, y: z, z: py, vy: 0.2, s0: 0.1, s1: 0.3, life: 0.5, color: '#d8d4d0', a0: 0.5 });
       }
-      if (kind === 'flask' && Math.random() < dt * 15) {
+      if (kind === 'flask' && this.rand() < dt * 15) {
         this.fx.spawn({ batch: 'bbA', uv: this.R.bubble, x: px, y: z, z: py, vy: 0.2, s0: 0.08, s1: 0.02, life: 0.4, color: '#7be08a' });
       }
     }
@@ -755,8 +857,8 @@ export class Actors {
       if (ring) {
         const c = this._c.set(ring);
         gA.push(tw.x, y + 0.004, tw.y, 0.86, 0.86, R.ring, c.r, c.g, c.b, 0.7 + 0.25 * Math.sin(t * 3 + tw.uid));
-        if (maxTier >= 5 && Math.random() < 0.05) {
-          this.fx.spawn({ batch: 'bbA', uv: R.star, x: tw.x + (Math.random() - 0.5) * 0.6, y: 0.2 + (v.lift || 0), z: tw.y + (Math.random() - 0.5) * 0.6, vy: 0.8, s0: 0.12, s1: 0.02, life: 0.8, color: ring });
+        if (maxTier >= 5 && this.rand() < 0.05) {
+          this.fx.spawn({ batch: 'bbA', uv: R.star, x: tw.x + (this.rand() - 0.5) * 0.6, y: 0.2 + (v.lift || 0), z: tw.y + (this.rand() - 0.5) * 0.6, vy: 0.8, s0: 0.12, s1: 0.02, life: 0.8, color: ring });
         }
       }
       if (tw.buffed) {
@@ -768,7 +870,7 @@ export class Actors {
           const a = t * 4 + (i / 3) * TAU;
           this.b.bbA.push(tw.x + Math.cos(a) * 0.22, 1.05 + (v.lift || 0), tw.y + Math.sin(a) * 0.22, 0.13, 0.13, R.star, 1, 0.85, 0.3, 0.9);
         }
-        if (Math.random() < 0.08) this.fx.spawn({ batch: 'bbN', uv: R.smoke, x: tw.x, y: 0.7 + (v.lift || 0), z: tw.y, vy: 0.5, s0: 0.15, s1: 0.45, life: 0.9, color: '#4a4a55', a0: 0.5 });
+        if (this.rand() < 0.08) this.fx.spawn({ batch: 'bbN', uv: R.smoke, x: tw.x, y: 0.7 + (v.lift || 0), z: tw.y, vy: 0.5, s0: 0.15, s1: 0.45, life: 0.9, color: '#4a4a55', a0: 0.5 });
       }
     }
     // enemy shadows + boss aura

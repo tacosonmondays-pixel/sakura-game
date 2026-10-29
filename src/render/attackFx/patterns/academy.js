@@ -77,14 +77,14 @@ export function spikes(ctx, x, y, ux, uy, span, n, len, c, life = 0.2, cls = COR
 }
 
 /** Radial spokes on the ground around (x, y): a starburst from r0 to r1. */
-export function spokes(ctx, x, y, n, r0, r1, c, life = 0.16, phase = 0, a = 0.9, cls = CORE) {
+export function spokes(ctx, x, y, n, r0, r1, c, life = 0.16, phase = 0, a = 0.9, cls = CORE, additive = true) {
   const len = r1 - r0;
   const mid = (r0 + r1) / 2;
   for (let i = 0; i < n; i++) {
     const ang = phase + (i / n) * TAU;
     const ux = Math.sin(ang);
     const uy = Math.cos(ang);
-    const p = ctx.spr(ctx.b.groundA, i < 4 ? CORE : cls, ctx.R.beam, x + ux * mid, 0.075, y + uy * mid, 0.05, 0.08, life, c, a);
+    const p = ctx.spr(additive ? ctx.b.groundA : ctx.b.groundN, i < 4 ? CORE : cls, ctx.R.beam, x + ux * mid, 0.075, y + uy * mid, 0.05, 0.08, life, c, a);
     if (!p) continue;
     p.asp = len / 0.065;
     p.rot = groundRot(ux, uy);
@@ -93,8 +93,8 @@ export function spokes(ctx, x, y, n, r0, r1, c, life = 0.16, phase = 0, a = 0.9,
 }
 
 /** One flat ground streak along (ux, uy) centred at (x, y) (a skid, a slap mark). */
-export function groundStreak(ctx, x, y, ux, uy, len, thick, c, life = 0.25, a = 0.8, cls = CORE) {
-  const p = ctx.spr(ctx.b.groundA, cls, ctx.R.beam, x, 0.072, y, thick * 0.6, thick, life, c, a);
+export function groundStreak(ctx, x, y, ux, uy, len, thick, c, life = 0.25, a = 0.8, cls = CORE, additive = true) {
+  const p = ctx.spr(additive ? ctx.b.groundA : ctx.b.groundN, cls, ctx.R.beam, x, 0.072, y, thick * 0.6, thick, life, c, a);
   if (!p) return null;
   p.asp = len / Math.max(1e-3, thick);
   p.rot = groundRot(ux, uy);
@@ -109,7 +109,7 @@ export function zigzag(ctx, cls, ax, ah, ay, bx, bh, by, k, amp, w, c, a = 1) {
   let py = ay;
   for (let i = 1; i <= k; i++) {
     const f = i / k;
-    const j = i === k ? 0 : (Math.random() - 0.5) * 2 * amp;
+    const j = i === k ? 0 : (ctx.rand() - 0.5) * 2 * amp;
     const qx = ax + (bx - ax) * f + j;
     const qh = ah + (bh - ah) * f + j * 0.6;
     const qy = ay + (by - ay) * f - j;
@@ -167,13 +167,13 @@ export function coil(ctx, x, y, r, h0, h1, n, time, c, a = 0.9, w = 0.04) {
 }
 
 /** A squash puff where a ball hits the ground: a flat wide flash, two dust puffs thrown sideways. */
-export function squashPuff(ctx, x, y, ux, uy, c, dust, size = 1) {
+export function squashPuff(ctx, x, y, ux, uy, c, dust, size = 1, additive = true) {
   const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.glow, x, 0.14, y, 0.5 * size, 0.85 * size, 0.16, c, 1);
   if (p) {
     p.asp = 2.2;
     p.flags = EASE_OUT;
   }
-  groundStreak(ctx, x, y, -uy, ux, 0.7 * size, 0.16 * size, c, 0.2, 0.7);
+  groundStreak(ctx, x, y, -uy, ux, 0.7 * size, 0.16 * size, c, 0.2, 0.7, CORE, additive);
   const n = ctx.reduceMotion ? 1 : 2;
   for (let s = -1; s <= 1; s += 2) {
     for (let i = 0; i < n; i++) {

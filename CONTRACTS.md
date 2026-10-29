@@ -1746,7 +1746,31 @@ r.onLongPress(cb)
 r.worldToScreen(x, y, z?)        // -> { x, y } CSS px (for floating HUD labels)
 r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (drones keep pace) and rosterFx (a wave-clear sky dragon reaches START before an Auto start); battle controller calls it every frame
 r.info.attackFx                  // attack-FX stats { drones, engaged, quads, quadBudget, ms, … } or null when off
+r.hitStop(seconds)               // hold everything drawn ≤ 60 ms of frame time (never the sim); Reduce Motion: ignored → freeze left
+r.visualClock                    // read-only { t, dt, frameT, realT, frame, freezeLeft, slowLeft, … } (docs/VFX.md)
+r.vfx                            // read-only hit-effect stats { hitStops, holds, impacts, flashesRefused, flashLoad, worldFlashesDimmed, halos, shakePx, punchZoom, bloom, grade, … }
+r.hdrProbe({ effects })          // dev tooling: share of pixels above luminance levels this frame (bloom threshold tuning)
 ```
+
+Settings the renderer reads (`opts.settings`, the profile's live settings object): `quality`,
+`shadows`, `bloom`, `reduceMotion` (at creation), `hitEffects` (read live: `false` = no screen flash,
+no impact frames, no shake or zoom punch, no hit-stop or local hold; Settings → Graphics → Flashes &
+shake and the pause menu), `impactFrames` (read live: `false` = a soft tint instead of the tinted
+impact frame; Settings → Graphics → Impact frames and the pause menu), `camera`, `buffIcons`,
+`attackFx`. Hit feel (docs/VFX.md §M1): the global hit-stop (boss kills, ult impacts), local holds of
+the struck enemy (each girl's weak / strong / crit impact preset; counted in rendered frames, the
+struck look shown from the first held frame), tinted impact frames, hit squash, camera shake in screen
+pixels (a shift, never a roll; a girl's basic splash never shakes) and the zoom punch all change only
+what is drawn; the flash guard counts flashing screen area a second (world flashes too), keeps
+full-screen flashes to ≤ 3 a second, never white, reddish ones softened and dimmer; scaled by the
+graphics tier.
+
+Time and randomness (docs/VFX.md): every animation and effect the renderer draws runs on its one
+visual clock (`src/render/vfx/clock.js`): visual time = the frame's time minus any hit-stop, times
+any slow motion; board feedback (ghost, rings, buff icons) runs on the frame's own time and the panel
+slide on wall time. Render code draws its random numbers from seeded render-only streams
+(`src/render/vfx/random.js`, one fork per layer, seeded from the map and stage), never from
+Math.random and never from `sim.rng`, so the same battle on the same frames gives the same picture.
 
 Attack FX (`src/render/attackFx/**`, docs/ATTACK_FX.md): every girl has a signature attack look
 (Chika's drones fly sorties after the sim's targets, lobbed shells show landing reticles, area girls

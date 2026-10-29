@@ -31,7 +31,7 @@ function bladeHex(lk) {
 /** A crown of embers riding a heat ring's edge out to `range` (game-time quads, delay for the 2nd ring). */
 function emberCrown(ctx, x, y, range, n, delay, c) {
   const life = range / HEAT_RING_SPEED;
-  const ph = Math.random() * 6.28;
+  const ph = ctx.rand() * 6.28;
   for (let i = 0; i < n; i++) {
     const a = ph + (i / n) * 6.283;
     const ux = Math.sin(a);

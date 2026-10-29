@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { GeoBuilder } from './geo.js';
 import { runnerSegment } from '../sim/runners.js';
 import { TICKS } from '../sim/barricades.js';
+import { createVisualRandom, visualSeed } from './vfx/random.js';
 
 /** Caps (co-op: two heroes, each ≤ 4 own barricades and ≤ 4 Hold the Line ones). */
 const MAX_BARS = 8;
@@ -180,7 +181,9 @@ function pop(k) {
 
 export class StaffFx {
   /** @param {{ sim, scene, fx, batches, atlas, actors, quality?, reduceMotion? }} o */
-  constructor({ sim, scene, fx, batches, atlas, actors, quality = 'medium', reduceMotion = false }) {
+  constructor({ sim, scene, fx, batches, atlas, actors, quality = 'medium', reduceMotion = false, rand = null }) {
+    // seeded render-only randomness (src/render/vfx/random.js): never Math.random, never the sim's rng
+    this.rand = rand || createVisualRandom(visualSeed('staff'));
     this.sim = sim;
     this.fx = fx;
     this.b = batches;
@@ -429,7 +432,7 @@ export class StaffFx {
             const dz = py + cz * side * 0.45;
             this.fx.spawn({
               batch: 'bbN', uv: R.smoke || R.disc, x: dx, y: 0.12, z: dz,
-              vx: cx * side * 0.6, vy: 0.5 + Math.random() * 0.3, vz: cz * side * 0.6, drag: 2.5,
+              vx: cx * side * 0.6, vy: 0.5 + this.rand() * 0.3, vz: cz * side * 0.6, drag: 2.5,
               s0: 0.2, s1: 0.45, life: 0.5, color: COL.dust, a0: 0.6,
             });
           }

@@ -9,10 +9,10 @@ const TAU = Math.PI * 2;
 export function chrysanthemum(ctx, x, h, y, n, cols, size = 0.16, speed = 2.4) {
   const k = ctx.n(n);
   for (let i = 0; i < k; i++) {
-    const a = (i / k) * TAU + Math.random() * 0.3;
-    const up = 0.3 + Math.random() * 0.9;
+    const a = (i / k) * TAU + ctx.rand() * 0.3;
+    const up = 0.3 + ctx.rand() * 0.9;
     const c = cols[i % cols.length];
-    const p = ctx.spr(ctx.b.bbA, i < 4 ? CORE : DECOR, ctx.R.star, x, h, y, size, size * 0.3, 0.55 + Math.random() * 0.2, c, 1);
+    const p = ctx.spr(ctx.b.bbA, i < 4 ? CORE : DECOR, ctx.R.star, x, h, y, size, size * 0.3, 0.55 + ctx.rand() * 0.2, c, 1);
     if (!p) continue;
     p.vx = Math.cos(a) * speed;
     p.vz = Math.sin(a) * speed;
@@ -33,7 +33,7 @@ export function waterCrown(ctx, x, y, n, c, r = 0.5) {
     if (!p) continue;
     p.vx = Math.cos(a) * 1.1;
     p.vz = Math.sin(a) * 1.1;
-    p.vy = 1.8 + Math.random() * 0.4;
+    p.vy = 1.8 + ctx.rand() * 0.4;
     p.g = -9;
     p.asp = 0.7;
   }
@@ -44,12 +44,12 @@ export function waterCrown(ctx, x, y, n, c, r = 0.5) {
 export function confetti(ctx, x, h, y, n, cols) {
   const k = ctx.n(n);
   for (let i = 0; i < k; i++) {
-    const a = Math.random() * TAU;
+    const a = ctx.rand() * TAU;
     const p = ctx.spr(ctx.b.bbN, DECOR, ctx.R.white, x, h, y, 0.06, 0.06, 0.6, cols[i % cols.length], 1);
     if (!p) continue;
     p.vx = Math.cos(a) * 1.2;
     p.vz = Math.sin(a) * 1.2;
-    p.vy = 1 + Math.random();
+    p.vy = 1 + ctx.rand();
     p.g = -5;
     p.drag = 2;
     p.asp = 1.6;
@@ -62,12 +62,12 @@ export function confetti(ctx, x, h, y, n, cols) {
 export function shardBurst(ctx, x, h, y, n, c, speed = 2) {
   const k = ctx.n(n);
   for (let i = 0; i < k; i++) {
-    const a = (i / k) * TAU + Math.random() * 0.4;
+    const a = (i / k) * TAU + ctx.rand() * 0.4;
     const p = ctx.spr(ctx.b.bbA, i < 3 ? CORE : DECOR, ctx.R.shard, x, h, y, 0.17, 0.08, 0.5, c, 1);
     if (!p) continue;
     p.vx = Math.cos(a) * speed;
     p.vz = Math.sin(a) * speed;
-    p.vy = 0.8 + Math.random() * 1.4;
+    p.vy = 0.8 + ctx.rand() * 1.4;
     p.g = -8;
     p.rot = a;
     p.vrot = 9;
@@ -96,7 +96,7 @@ export function stain(ctx, x, y, r, c, a = 0.35, life = 0.9, uv = 'disc') {
   const p = ctx.spr(ctx.b.groundN, CORE, ctx.R[uv] || ctx.R.disc, x, 0.045, y, r * 1.6, r * 2, life, c, a);
   if (p) {
     p.flags = GROUND | EASE_OUT;
-    p.rot = Math.random() * TAU;
+    p.rot = ctx.rand() * TAU;
   }
   return p;
 }
@@ -115,7 +115,7 @@ export function rise(ctx, uv, x, h, y, size, c, life = 0.7, speed = 0.9, cls = D
 export function coinHop(ctx, x, h, y) {
   const p = ctx.spr(ctx.b.bbN, CORE, ctx.R.coin, x, h, y, 0.26, 0.22, 0.55, ctx.col('#ffffff'), 1);
   if (p) {
-    const a = Math.random() * TAU;
+    const a = ctx.rand() * TAU;
     p.vx = Math.cos(a) * 0.6;
     p.vz = Math.sin(a) * 0.6;
     p.vy = 2.2;
@@ -129,12 +129,12 @@ export function coinHop(ctx, x, h, y) {
 export function sparks(ctx, x, h, y, n, c, speed = 1.6, cls = DECOR) {
   const k = ctx.n(n);
   for (let i = 0; i < k; i++) {
-    const a = Math.random() * TAU;
+    const a = ctx.rand() * TAU;
     const p = ctx.spr(ctx.b.bbA, cls, ctx.R.glow, x, h, y, 0.08, 0.02, 0.28, c, 1);
     if (!p) continue;
     p.vx = Math.cos(a) * speed;
     p.vz = Math.sin(a) * speed;
-    p.vy = 0.6 + Math.random() * 1.2;
+    p.vy = 0.6 + ctx.rand() * 1.2;
     p.g = -6;
     p.drag = 2;
   }
@@ -145,7 +145,7 @@ export function petalSpiral(ctx, uv, x, y, n, c, r = 1, life = 0.8) {
   const k = ctx.n(n);
   for (let i = 0; i < k; i++) {
     const a = (i / k) * TAU;
-    const p = ctx.spr(ctx.b.bbN, DECOR, uv, x + Math.cos(a) * 0.15, 0.35 + Math.random() * 0.2, y + Math.sin(a) * 0.15, 0.12, 0.08, life, c, 1);
+    const p = ctx.spr(ctx.b.bbN, DECOR, uv, x + Math.cos(a) * 0.15, 0.35 + ctx.rand() * 0.2, y + Math.sin(a) * 0.15, 0.12, 0.08, life, c, 1);
     if (!p) continue;
     const sp = r / life;
     p.vx = Math.cos(a + 0.6) * sp;

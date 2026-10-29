@@ -9,7 +9,8 @@
 //   projectile(p, dt)      → reused view {kind,x,y,z,scale,sz,tint,glow,yaw,skip} or null
 //   towerOffset(uid)       → shared {x, z} model offset (lunge / recoil)
 //   trapHidden(uid)        → true while a tossed seal is still in the air
-//   update(dt)             → once per frame after actors.drawGround
+//   update(dt, frameDt)    → once per frame after actors.drawGround (dt: the renderer's visual
+//                            clock, src/render/vfx/clock.js; frameDt: the frame's own time)
 import { createContext, CORE } from './context.js';
 import { resolveStyle } from './registry.js';
 import { tierLook, intensity, tierKey } from './flair.js';
@@ -28,7 +29,8 @@ const DEFAULT_HR = 0.36;
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 /**
- * @param {{ sim, scene, actors, fx, batches, atlas, camera, rig, quality?, reduceMotion?, strict? }} o
+ * @param {{ sim, scene, actors, fx, batches, atlas, camera, rig, quality?, reduceMotion?, strict?, rand? }} o
+ *   rand: seeded visual random stream (src/render/vfx/random.js); a default one is seeded when absent
  */
 export function createAttackFx(o) {
   const { sim, actors } = o;
@@ -97,7 +99,7 @@ export function createAttackFx(o) {
 
   // ---- stats ---------------------------------------------------------------------------------
   const stats = {
-    drones: 0, dronesOverflow: 0, engaged: 0, droneShots: 0, projTracked: 0, blended: 0, familiars: 0, segments: 0, quads: 0,
+    drones: 0, dronesOverflow: 0, engaged: 0, droneShots: 0, projTracked: 0, blended: 0, familiars: 0, segments: 0, quads: 0, halos: 0,
     quadBudget: 0, shed: 0, lobs: 0, ms: 0, msFrame: 0, maxDecor: 0, maxBlendResidual: 0, impacts: 0, matched: 0, defaultPulses: 0, styled: 0,
   };
   let frame = 1;
@@ -384,13 +386,17 @@ export function createAttackFx(o) {
   }
 
   // ---- frame ---------------------------------------------------------------------------------
-  function update(d) {
+  /**
+   * @param {number} d visual seconds this frame (0 during a hit-stop or a pause)
+   * @param {number} [frameDt] the frame's own seconds (game speed estimate; defaults to d)
+   */
+  function update(d, frameDt = d) {
     if (disposed) return;
     const t0 = now();
     ctx.rdt = d;
     ctx.rtime += d;
-    if (!explicitScale && d > 0) {
-      const est = Math.max(0, Math.min(3, (sim.time - lastSimTime) / d));
+    if (!explicitScale && frameDt > 0) {
+      const est = Math.max(0, Math.min(3, (sim.time - lastSimTime) / frameDt));
       timeScale += (est - timeScale) * 0.2;
     }
     lastSimTime = sim.time;
@@ -485,6 +491,7 @@ export function createAttackFx(o) {
     stats.segments = ctx.segs.count;
     stats.lobs = ctx.lobs.count;
     stats.quads = ctx.quads;
+    stats.halos = ctx.halos;
     stats.quadBudget = ctx.q.quadBudget;
     stats.shed = ctx.shed;
     stats.styled = twList.length;
@@ -511,6 +518,10 @@ export function createAttackFx(o) {
     update,
     setQuality(q) {
       ctx.setQuality(q);
+    },
+    /** Fake glow: halo quads under bright sprites when the tier has no bloom (src/render/vfx/halo.js). */
+    setGlow(tier, bloom) {
+      ctx.setGlow(tier, bloom);
     },
     setSelected(uid) {
       ctx.selectedUid = uid ?? null;
