@@ -658,7 +658,8 @@ export function createTowerPanel(ctx) {
 
   /**
    * The damage cells (girls and heroes): DPS (live), what the sim credits her, measured over the last 5 s of the wave
-   * (splash, poison and burn ticks, crits, drones, traps), or her last wave's average between waves; "Per target", the
+   * (splash, poison and burn ticks, crits, drones, traps), or her last wave's average between waves; DPS (avg) beside
+   * it, her average since she was placed over her wave time on the field (steady); "Per target", the
    * paper sum on one enemy (one of her separate targets' share of the hits, plus damage over time), so a splash or
    * cloud girl's live number is the bigger one; and a support's boost to the girls she buffs, estimated (dpsView.js).
    */
@@ -667,8 +668,13 @@ export function createTowerPanel(ctx) {
     if (dps > 0 || st.behavior === 'trap' || st.behavior === 'strip' || (st.status || []).some((x) => x.type === 'poison' || x.type === 'burn')) {
       const value = h('b', { 'data-testid': 'drawer-dps-live' }, '—');
       const label = h('span', 'DPS (live)');
-      cells.push(h('div.bt-stat-cell.bt-stat-main', { 'data-testid': 'drawer-dps', title: 'Measured: everything she dealt over the last 5 s of the wave (splash, poison, crits, drones, traps). Between waves: her last wave\'s average.' }, label, value));
-      live.dps = { value, label };
+      const liveTip = 'Live: everything she dealt over the last 5 s of the wave (splash, poison, crits, drones, traps). Between waves: her last wave\'s average.';
+      cells.push(h('div.bt-stat-cell.bt-stat-main', { 'data-testid': 'drawer-dps', role: 'group', title: liveTip, 'aria-label': `DPS live. ${liveTip}` }, label, value));
+      // her average beside it, in the same row (no extra height on a phone): steady across packs and waves
+      const avg = h('b', { 'data-testid': 'drawer-dps-avg' }, '—');
+      const avgTip = 'Average: everything she dealt since she was placed (or since you joined), over her time on the field in waves. Shows after 1 s.';
+      cells.push(h('div.bt-stat-cell', { 'data-testid': 'drawer-dps-avg-cell', role: 'group', title: avgTip, 'aria-label': `DPS average. ${avgTip}` }, h('span', 'DPS (avg)'), avg));
+      live.dps = { value, label, avg };
       const split = (st.behavior === 'projectile' || st.behavior === 'beam') && st.projectiles > 1 ? st.projectiles : 1;
       const per = perTargetLine(st, dps / split);
       if (per) cells.push(h('div.bt-stat-cell.bt-stat-wide', h('span', 'Per target'), h('b', per)));
@@ -702,6 +708,7 @@ export function createTowerPanel(ctx) {
     rows.push(...dmgCells);
     // (a drone owner's tabs show her own measured DPS: chikaPanel.js)
     keyed.dps = dmgCells.find((c) => c.dataset.testid === 'drawer-dps') || null;
+    keyed.dpsAvg = dmgCells.find((c) => c.dataset.testid === 'drawer-dps-avg-cell') || null;
     if (st.behavior === 'turret') {
       if (st.rate > 0) add('New drone', `every ${fmtNum(1 / st.rate, 'time')}`);
     } else {
@@ -786,7 +793,7 @@ export function createTowerPanel(ctx) {
     const roleLine = h('p.bt-dt-line', svgEl(roleIcon(t.def.role), 'bt-dw-tag-ico'), ` ${ROLES[t.def.role]?.name || t.def.role}`, st.element ? [' · ', svgEl(elementIcon(st.element), 'bt-dw-tag-ico'), ` ${ELEMENTS[st.element]?.name}`] : null, ` · ${ROLES[t.def.role]?.desc || ''}`);
     if (hasDroneTabs(st)) {
       // a drone owner: the split bar and the Overall / Chika / Drones tabs (her "Buffed by" / "Buffing" sit on her own tab)
-      const rest = rows.filter((c) => c !== keyed.dps && c !== keyed.turret);
+      const rest = rows.filter((c) => c !== keyed.dps && c !== keyed.dpsAvg && c !== keyed.turret);
       const own = [];
       for (const s0 of st.status || []) own.push(h('span.bt-cap.bt-cap-status', statusLabel(s0)));
       if (st.canHitAir) own.push(h('span.bt-cap', svgEl(capabilityIcon('antiAir'), 'bt-cap-ico'), 'Hits air'));
@@ -1243,6 +1250,8 @@ export function createTowerPanel(ctx) {
       const r = dpsMeter.live(t.uid, sim);
       live.dps.value.textContent = r.value == null ? '—' : stat(r.value);
       live.dps.label.textContent = r.kind === 'lastWave' ? 'DPS (last wave)' : 'DPS (live)';
+      const a = dpsMeter.avg(t.uid, sim);
+      live.dps.avg.textContent = a == null ? '—' : stat(a);
     }
     if (live.boost) {
       const b = boostEstimate(sim, t.uid, (u) => dpsMeter.live(u, sim).value);
