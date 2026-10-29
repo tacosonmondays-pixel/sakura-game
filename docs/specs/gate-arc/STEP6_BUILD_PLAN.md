@@ -515,11 +515,11 @@ table and the side stage; HANDOFF §3 row). Push after each.
 
 ## 9. Owner questions (defaults taken)
 
-- **The side stage is "The Star Dome"** (renamed Oct 29): v0.1.59 shipped the Kohaku & Tsubaki duo () with
+- **The side stage is "The Star Dome"** (renamed Oct 29): v0.1.59 shipped the Kohaku & Tsubaki duo (`kohaku_tsubaki`) with
   an LR trial already called "Starfall Trial" (8-5 Nightmare as a stand-in until her own stage exists). Default: two
-  separate things for now. Option: make  the duo's LR trial (its solo / no-support / duo-placed rules)
-  and let  /  become the duo's bond scenes.
-- **The duo's bio** (, "two friends from the academy… Tsubaki of the security club's cadet corps")
+  separate things for now. Option: make `side-6-starfall` the duo's LR trial (its solo / no-support / duo-placed rules)
+  and let `g6.star1` / `g6.star2` become the duo's bond scenes.
+- **The duo's bio** (`src/data/unitsDuo.js`, "two friends from the academy… Tsubaki of the security club's cadet corps")
   differs from the Gate Arc story (Tsubaki is Vesperline's Last Watch cadet commander and meets Kohaku in g5). Default:
   leave both; the owner picks which is canon.
 - **Follow-up (display, staff heroes):** Norika's barricades on 6-7's raised viaduct deck draw at ground height under the
