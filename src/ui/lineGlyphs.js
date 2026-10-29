@@ -249,7 +249,12 @@ export const LINE_ALIASES = Object.freeze({
   volume: 'volume', monitor: 'monitor', idcard: 'idcard', daily: 'daily', weekly: 'weekly', swap: 'swap', help: 'help', percent: 'percent',
   hash: 'hash', login: 'login', castle: 'castle', userplus: 'userplus', sakura: 'sakura', eyeoff: 'eyeoff', megaphone: 'megaphone',
   grid: 'grid', bag: 'bag', cap: 'cap', sparkles: 'sparkles', clipboard: 'clipboard', flag: 'flag', house: 'house', x: 'x',
+  // Tryout Day's own glyphs (drawn in LINE_GLYPHS above, the "Tryout Day" group)
+  marble: 'marble', eraser: 'eraser', 'hall-pass': 'hall-pass', hallpass: 'hall-pass', desk: 'desk', stamp: 'stamp', chalk: 'chalk',
 });
+
+/** Glyph names an alias points at before they are drawn (lineFor() says null for these until then): none now. */
+export const PENDING_GLYPHS = Object.freeze([]);
 
 /** True when `name` is a line glyph. */
 export const hasLineGlyph = (name) => Object.prototype.hasOwnProperty.call(LINE_GLYPHS, name);

@@ -141,6 +141,17 @@ describe('Act II stage backgrounds', () => {
     expect(resolveBackground('stage:1-5', 1).place).toBe('blossom-court');
   });
 
+  it('3-6 … 3-10 show Old Town at night, then the night it burns (no daytime city skyline)', () => {
+    const day = resolveBackground('stage:1-6', 1);
+    const calm = ['3-6', '3-7', '3-8'].map((id) => resolveBackground(`stage:${id}`, 3));
+    const burning = ['3-9', '3-10'].map((id) => resolveBackground(`stage:${id}`, 3));
+    for (const b of [...calm, ...burning]) expect(b.kind, b.stageId).toBe('svg');
+    expect(new Set(calm.map((b) => b.html)).size).toBe(1);
+    expect(new Set(burning.map((b) => b.html)).size).toBe(1);
+    expect(calm[0].html).not.toBe(burning[0].html);
+    expect(calm[0].html).not.toBe(day.html);
+  });
+
   it('2-7 and 2-10 show their own places (the jetty, the old lamp) over the campus night', () => {
     const plain = resolveBackground('stage:2-6', 2).html;
     const jetty = resolveBackground('stage:2-7', 2).html;

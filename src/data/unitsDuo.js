@@ -8,7 +8,7 @@
 //
 // Looks: both are students (adult: false) in academy uniforms (Kohaku's lilac council blazer, Tsubaki's navy
 // cadet uniform); the battle model stands both chibis on one base (src/models/duo.js). Prices sit inside the live windows (DUO_LR §1.3).
-// v0.1.61 (owner, Oct 29: "make her wayyyy stronger"): her base +25% (shells 15, beam 6.25, shard share 0.5) and
+// Oct 29 buff (owner: "make her wayyyy stronger"): her base +25% (shells 15, beam 6.25, shard share 0.5) and
 // each path's tier 5 fitted to beat the best Kage by about a quarter on the balance rulers (docs/specs/DUO_LR.md
 // §6); Grand Spectrum and the LR form run her beams to the map edge (src/sim/duo.js).
 
@@ -65,21 +65,21 @@ const KOHAKU_TSUBAKI = {
       tier('Quick Reload', 400, 'Tsubaki fires 15% faster.', { rateMul: 1.15 }),
       tier('Starfall Battery', 1300, '+1 shell per volley and +0.2 splash.', { projectiles: 1, splash: 0.2 }),
       tier('Falling Star', 4200, 'Shells +10 damage, ×1.3 vs elites and ×1.5 vs barriers.', { damage: 10, eliteMul: 1.3, barrierMul: 1.5 }),
-      tier('Thousand Star Bombardment', 26000, '+2 shells per volley, +30 damage; Kohaku\'s beam ×60; ×10 vs bosses (shells and beam); shells stun for 0.3s.', { projectiles: 2, damage: 30, bossMul: 10, duo: { beamMul: 60 }, status: [S.stun(0.3)] }),
+      tier('Thousand Star Bombardment', 26000, '+2 shells per volley, +30 damage; Kohaku\'s beam ×60; ×10 vs bosses (shells, shards and beam); shells stun for 0.3s.', { projectiles: 2, damage: 30, bossMul: 10, duo: { beamMul: 60 }, status: [S.stun(0.3)] }),
     ]),
     path('corridor', 'Prism Corridor', 'Kohaku\'s beam: flyers and armour', [
       tier('Polished Lens', 170, 'Kohaku\'s beam pierces 1 more enemy.', { duo: { beamPierce: 1 } }),
       tier('Long Focus', 380, 'Kohaku\'s beam reaches 0.3 tiles further.', { duo: { beamRange: 0.3 } }),
       tier('Prism Corridor', 1250, 'Kohaku holds 1 more constant beam, on another enemy; beams ignore 2 armour and deal ×1.3 vs flyers.', { duo: { beams: 1, beamPen: 2, beamAir: 1.3 } }),
       tier('Resonant Light', 4000, 'Her beam grows stronger the longer it holds the same enemy (up to +60%).', { duo: { rampPer: 0.08, rampMax: 0.6 } }),
-      tier('Grand Spectrum', 24000, '+2 constant beams, +16 beam damage, beam ×11.7, shells ×6.4, ×11.5 vs bosses; each beam runs on through its enemy to the edge of the map, hitting everything on that line, and silences for 1s on lock-on and every 2s it holds.', { damageMul: 6.4, bossMul: 11.5, duo: { beams: 2, beamDmg: 16, beamPierce: 3, beamSilence: 1, edge: 1, beamMul: 11.7 } }),
+      tier('Grand Spectrum', 24000, '+2 constant beams, +16 beam damage, beams pierce 8, beam ×11.7, shells ×6.4, ×11.5 vs bosses; each beam runs on through its enemy to the edge of the map, hitting everything on that line for 3% past her reach, and silences for 1s on lock-on and every 2s it holds.', { damageMul: 6.4, bossMul: 11.5, duo: { beams: 2, beamDmg: 16, beamPierce: 3, beamSilence: 1, edge: 1, beamMul: 11.7 } }),
     ]),
     path('refraction', 'Refraction', 'The two together: more shells split into light', [
       tier('Cut Facets', 160, 'Every 3rd shell splits.', { duo: { every: 3 } }),
       tier('Twin Timing', 400, 'Shards slow enemies 20% for 1s.', { duo: { shardSlow: 0.2, slowTime: 1 } }),
       tier('Refraction', 1350, 'Every 2nd shell splits, into 4 shards.', { duo: { every: 2, shards: 4 } }),
       tier('Shatterlight', 4300, 'Shards crack 2 armour and leave enemies Brittle (+12% damage taken) for 3s.', { duo: { shardShred: 2, shardVuln: 0.12 } }),
-      tier('Constellation Lattice', 28000, 'Every shell splits, into 5 shards; shards +20 damage; shells and shards ×36.8, Kohaku\'s beam ×150, ×2.75 vs bosses.', { damageMul: 36.8, bossMul: 2.75, duo: { every: 1, shards: 5, shardDmg: 20, beamMul: 150 } }),
+      tier('Constellation Lattice', 28000, 'Every shell splits, into 5 shards; shells and shards ×36.8, then shards +20 damage; Kohaku\'s beam ×150, ×2.75 vs bosses.', { damageMul: 36.8, bossMul: 2.75, duo: { every: 1, shards: 5, shardDmg: 20, beamMul: 150 } }),
     ]),
   ],
   awakenPassive: {

@@ -92,9 +92,26 @@ function familyNeeds(p, id) {
   return requirementsMet(intro, cleared);
 }
 
-/** Families with every discoverable member discovered (members of an Act II stage the save cannot open yet aside). */
+/**
+ * A family's bestiary count as "Family Portrait" sees it: members found, out of the members the save needs plus any it
+ * has found anyway (a co-op guest can meet a member early). The bestiary tab shows this, so a full tab means the
+ * family counts.
+ */
+export function familyProgress(p, family) {
+  const ids = (enemyFamilies()[family] || []).filter((id) => p?.bestiary?.[id]?.discovered || familyNeeds(p, id));
+  return { found: ids.filter((id) => p?.bestiary?.[id]?.discovered).length, total: ids.length };
+}
+
+/**
+ * Families with every discoverable member discovered (members of an Act II stage the save cannot open yet aside). A
+ * family counts only when the save needs at least one of its members (Gate Arc Step 4: never vacuously; the Brigade's
+ * members all arrive in Act II stages, so a save that cannot open any of them has not found the family).
+ */
 export function familiesFound(p) {
-  return Object.values(enemyFamilies()).filter((ids) => ids.every((id) => !familyNeeds(p, id) || p?.bestiary?.[id]?.discovered)).length;
+  return Object.values(enemyFamilies()).filter((ids) => {
+    const needed = ids.filter((id) => familyNeeds(p, id));
+    return needed.length > 0 && needed.every((id) => p?.bestiary?.[id]?.discovered);
+  }).length;
 }
 
 /** Sum of a counter family over rarities at or above `rarity`: gear:<r> / gear10:<r>. */

@@ -8,6 +8,11 @@
 // with the results card), and a save that cleared 4-2 before this build gets her once here, on the next
 // lobby, with the letter naming the stage it cleared. Act I keeps its anti-air girl where it always had
 // her. Her 'join:' mark is unchanged.
+// Gate Arc Step 4: Azami now joins on a 4-7 win (her own checkpoint, chapter 4's Act II). Unlike Yuzuha's
+// 4-2, every player clears 2-2 long before 4-7 opens, so a 2-2 win no longer brings her: 2-2 counts only for
+// a save that cleared it BEFORE this build (PRE_UPDATE_JOIN_STAGES). The first catch-up run on this build
+// settles that window once ('joinWindow:<id>' = 1): a save that had cleared 2-2 without meeting her gets her
+// then, with the letter naming 2-2; every later 2-2 clear (a new player's) leaves her for 4-7.
 //
 // At app start (main.js, next to the other one-time letters) and on the lobby (after a reset or an
 // import), each girl listed here who is not owned while her stage has a clear medal (any difficulty)
@@ -33,7 +38,7 @@ import { deliverMail } from './mail.js';
 export const JOIN_PREFIX = 'join:';
 /**
  * Free girls added after their stage could already be cleared: Noa and Hana (v0.1.39), Azami, Yuzuha
- * and Wakaba (v0.1.40). In play order of their stage (1-7, 2-2, 6-2, 6-5, 7-5: chapter, act, stage), so
+ * and Wakaba (v0.1.40). In play order of their stage (1-7, 4-7, 6-2, 6-5, 7-5: chapter, act, stage), so
  * the letters and the lobby toast name them in the order a player meets them.
  */
 export const CATCH_UP_UNITS = Object.freeze(['yuzuha', 'azami', 'noa', 'wakaba', 'hana']);
@@ -45,14 +50,30 @@ export const CATCH_UP_UNITS = Object.freeze(['yuzuha', 'azami', 'noa', 'wakaba',
  */
 export const LEGACY_JOIN_STAGES = Object.freeze({ yuzuha: Object.freeze(['4-2']) });
 
+/**
+ * Stages that granted a girl before this build and count only for a clear made before it (Gate Arc Step 4: Azami
+ * joined on a 2-2 win from v0.1.40; she now joins on 4-7). Read once, on the first catch-up run of this build (the
+ * 'joinWindow:<id>' mark closes the window); never a stage win's grant, never the balance bot's roster.
+ */
+export const PRE_UPDATE_JOIN_STAGES = Object.freeze({ azami: Object.freeze(['2-2']) });
+/** missions.counters mark: 'joinWindow:<id>' = 1 once her pre-update stages have been read (the first run). */
+export const JOIN_WINDOW_PREFIX = 'joinWindow:';
+
 /** The stage whose win grants her (its `unlocks.units` lists her), or null. */
 export function joinStageOf(unitId) {
   return STAGES.find((s) => (s.unlocks?.units || []).includes(unitId)) || null;
 }
 
-/** The cleared stage that settles her catch-up: her join stage, else a legacy one; null when none is cleared. */
+/** Is her pre-update window still open on this save (no catch-up run of this build has read it yet)? */
+const windowOpen = (profile, unitId) => !(profile?.missions?.counters?.[JOIN_WINDOW_PREFIX + unitId] > 0);
+
+/**
+ * The cleared stage that settles her catch-up: her join stage, else a legacy one, else (only while her window is
+ * open) a pre-update one; null when none is cleared.
+ */
 export function clearedJoinStageOf(profile, unitId) {
-  const ids = [joinStageOf(unitId)?.id, ...(LEGACY_JOIN_STAGES[unitId] || [])].filter(Boolean);
+  const pre = windowOpen(profile, unitId) ? PRE_UPDATE_JOIN_STAGES[unitId] || [] : [];
+  const ids = [joinStageOf(unitId)?.id, ...(LEGACY_JOIN_STAGES[unitId] || []), ...pre].filter(Boolean);
   const id = ids.find((sid) => isStageCleared(profile, sid));
   return id ? STAGES.find((s) => s.id === id) || null : null;
 }
@@ -119,6 +140,8 @@ export function ensureCatchUpJoins(profile, now = Date.now()) {
     joined.push(id);
     via.set(id, stage);
   }
+  // the pre-update stages are read on this first run only: from now on a 2-2 clear is new progress (Azami waits for 4-7)
+  for (const id of Object.keys(PRE_UPDATE_JOIN_STAGES)) counters[JOIN_WINDOW_PREFIX + id] = 1;
   // a letter each; the Mailbox lists the newest first, so the last girl goes in first and the
   // Mailbox reads top to bottom in play order (Yuzuha, Azami, Noa, …)
   for (const id of [...joined].reverse()) {

@@ -87,6 +87,7 @@
   .ma-hub-screen .ma-hub.no-host > .ma-hub-grid {
     grid-template-areas: 'mission mission mission mission mission mission mission bounty bounty bounty bounty bounty'
                          'mission mission mission mission mission mission mission assault assault assault assault assault'
+                         'mission mission mission mission mission mission mission tryout tryout tryout tryout tryout'
                          'challenge challenge challenge titans titans titans coop coop sandbox sandbox story story';
   }
 }
@@ -115,6 +116,9 @@
 .ma-hub-screen .ma-hub-lock > span { overflow: visible; text-overflow: clip; }
 @media (max-height: 480px) {
   .ma-hub-screen .ma-hub-tile { margin: 0 4px; }
+  /* the right column's three big tiles are about 60-70 px tall on a phone in landscape: a locked one shows its lock rule
+     (the chip, bottom right) in place of its subtitle, which the chip would run over */
+  .ma-hub-screen :is(.ma-hub-bounty, .ma-hub-assault, .ma-hub-tryout).locked .ma-hub-sub { display: none; }
   .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-text { left: 5px; max-width: calc(100% - 10px); padding: 3px 6px 4px; }
   .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-title { font-size: var(--fs-body); }
 }
@@ -123,12 +127,13 @@
   .ma-hub-screen .ma-hub > .ui-host { display: none; }
   .ma-hub-screen .ma-hub-grid { grid-column: 1; }
   .ma-hub-screen .ma-hub.no-host > .ma-hub-grid { flex: none; }
-  /* portrait (the M5b review's 390x844): Bounty and Total Assault a row each, the small tiles two rows, so no title,
+  /* portrait (the M5b review's 390x844): Bounty, Total Assault and Tryout Day a row each, the small tiles two rows, so no title,
      line or lock rule is cut ("Total As…", "Clear 5-5 fi") */
   .ma-hub-screen .ma-hub-grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: 150px 84px 84px 90px 90px;
+    grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: 150px 84px 84px 84px 90px 90px;
     grid-template-areas: 'mission mission mission mission mission mission' 'bounty bounty bounty bounty bounty bounty'
-                         'assault assault assault assault assault assault' 'challenge challenge challenge titans titans titans'
+                         'assault assault assault assault assault assault' 'tryout tryout tryout tryout tryout tryout'
+                         'challenge challenge challenge titans titans titans'
                          'coop coop sandbox sandbox story story';
   }
   .ma-hub-screen :is(.ma-hub-challenge, .ma-hub-sandbox, .ma-hub-coop, .ma-hub-story, .ma-hub-titans) .ma-hub-title { font-size: var(--fs-body); }

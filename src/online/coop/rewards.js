@@ -161,7 +161,8 @@ const PENDING_MAX = 3;
 
 /** Saves (in the profile) what the end payout of this run needs, as of now. Call after each freeplay wave. */
 export function rememberFreeplayRun(profile, ledger, result) {
-  if (!ledger?.bank || ledger.end || ledger.seed == null || !result?.freeplay) return false;
+  // (only a freeplay tier: an Extended Day run's result.freeplay is 'tryout' and is never paid here, TRYOUT_DAY §20.2)
+  if (!ledger?.bank || ledger.end || ledger.seed == null || !freeplayTable(result?.freeplay)) return false;
   if (count(result.wavesCleared) <= count(ledger.bank.banked?.goal)) return false;
   const progress = (profile.progress ||= { stages: {} });
   const all = (progress.freeplayPending = isObj(progress.freeplayPending) ? progress.freeplayPending : {});

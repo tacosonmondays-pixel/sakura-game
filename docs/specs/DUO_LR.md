@@ -254,7 +254,7 @@ Later units get LR the same way, each with her own special stage. Steps 1–4 of
 
 ---
 
-## 6. v0.1.61: the long beam and a much stronger duo (owner, Oct 29)
+## 6. The long beam and a much stronger duo (owner, Oct 29)
 
 Owner: "can Kohaku and Tsubaki's laser increase to cover a line from one side of the map to the other?" and "also please
 make her wayyyy stronger!"
@@ -268,16 +268,16 @@ the edge of the map.
   percent, not ×2–3.
 - Silence (Grand Spectrum) reaches everything on the line.
 - Deterministic: the map-edge clip is `edgeReach` (division only) plus one `Math.sqrt`. There is no trig, no rng and
-  no new state, and victims come in the grid's own order.
+  no new state, and hits run in order along the line.
 - Drawing: past her reach the beam is drawn thinner and dimmer, with a thin white core, out to the map edge.
 - Perf: 4 map-long beams on a crowded 6-x map cost about 0.18 ms a step (`tests/sim/perf.test.js`).
 
 **Buff** (`src/data/unitsDuo.js`).
 - Base damage 12 → 15 and beam 5 → 6.25 (×1.25). Tiers 1–4 on every path end up about +20–30% stronger.
 - Each tier 5 was refitted to beat Kage's best tier 5 by about a quarter or more on both rulers:
-  - Starfall Barrage: +30 damage, beam ×60, ×10 vs bosses.
+  - Thousand Star Bombardment: +30 damage, beam ×60, ×10 vs bosses (shells, shards and beam).
   - Grand Spectrum: damage ×6.4, ×11.5 vs bosses, beam ×11.7, long beam.
-  - Constellation Lattice: damage ×36.8, ×2.75 vs bosses, beam ×150.
+  - Constellation Lattice: damage ×36.8 (the shards' flat +20 is added after it), ×2.75 vs bosses, beam ×150.
 - The LR form (Prismfall · Twin Star) adds the long beam to every build and ×1.1 damage (`DUO_LR_MUL`). That puts LR
   about 40%+ above Kage.
 
@@ -296,3 +296,12 @@ is the fully maxed bench, seeds 9/1/2, without and with LR. Each cell is crowd /
 The two rulers disagree about Constellation Lattice, because of how Refraction's shards land: crowds in the light
 bench are sparse and crowds in r5 are dense. The values chosen keep the light bench above Kage (1.11). On the dense r5
 crowd she lands far higher (3.3). If the r5 figure reads as too much, the knob is the Lattice `beamMul`.
+
+**Abilities.** Prismfall and the Twin Star finale scale with her current damage, as they always have, so they rise
+with each path's tier 5. At Constellation Lattice that is about ×46 versus before: roughly 46k a cast, 127k against
+a boss. The rulers above are her attack only, without casts. The coordinator asked for Prismfall to rise "in
+proportion"; this is proportion to her own tier damage.
+
+**Edge cases that differ from the old beam (all deterministic):**
+- A beam skips an enemy that died earlier in the same tick before it counts toward her pierce.
+- Far hits draw crits from the shared rng, so which near hits crit can differ from a beam without the edge.

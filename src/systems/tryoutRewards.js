@@ -257,7 +257,8 @@ export function applyTryoutResult(profile, result, { rec = null, slot = 0, coop 
       if (run.gradeUp && !coop) run.marbles.grade = addMarbles(profile, M.marbles.gradeFirstClear, { capped: false, now }).paid;
     }
     // ---- achievement counters (§10.2)
-    if (won) track(profile, ty.length === 'full' ? K.full : K.half, 1);
+    // an Extended Day never ends won (Home Time ends it like running out of hearts); its own records come later (§20.5)
+    if (won && ty.length !== 'after') track(profile, ty.length === 'full' ? K.full : K.half, 1);
     const hearts = ty.periods.every((p) => !p.resumed && (p.team || []).some(([id, st]) => id === 'a_hearts' && st === 1));
     if (won && !rec?.makeUpUsed && hearts) track(profile, K.spotless, 1);
     if (fullPeriods(ty.periods, slot) >= 5) track(profile, K.ticked, 1);
