@@ -66,6 +66,8 @@ export function battleSfx(events, info = {}) {
         break;
       }
       case 'hit': {
+        // (a constant beam's damage ticks are quiet: her lock-on is the beam's sound)
+        if (ev.tick) break;
         if (ev.crit) push({ id: 'hit.crit', cat: 'hit', key: 'crit', score: 3, pan: pan(ev.x) });
         if (ev.effective != null && ev.effective < 1) {
           push({ id: 'hit.resist', cat: 'hit', key: 'resist', score: 0.5, pan: pan(ev.x) });

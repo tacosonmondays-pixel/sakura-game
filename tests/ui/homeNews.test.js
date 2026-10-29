@@ -35,8 +35,8 @@ describe('the home news card', () => {
   });
 
   it('the recruit banner says how far the SSR guarantee is', () => {
-    expect(homeNews(FULL)[1]).toMatchObject({ kicker: 'Recruit', title: 'Enrollment · SSR in 88', testid: 'banner-recruit', msLeft: null });
-    expect(homeNews({ recruit: { pity: 0 } })[0].title).toBe('Enrollment');
+    expect(homeNews(FULL)[1]).toMatchObject({ kicker: 'Recruit', title: 'Spotlights · SSR in 88', testid: 'banner-recruit', msLeft: null });
+    expect(homeNews({ recruit: { pity: 0 } })[0].title).toBe('Spotlights');
   });
 
   it('the weekly bosses: Titan Trials once open (the titan of the week), else Total Assault, else no page', () => {

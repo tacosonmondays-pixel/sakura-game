@@ -11,8 +11,10 @@ import { createProfile, migrateProfile, serializeProfile, deserializeProfile, lo
 import { createRng } from '../../src/core/rng.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 
-/** rng stub: always the same roll, always the pool entry named by `id` (or the first). */
-const rngFor = (value, id) => ({ next: () => value, pick: (arr) => (arr.includes(id) ? id : arr[0]), int: (a) => a, range: (a) => a, chance: () => false });
+import { rngOn, noWelcome } from '../fixtures/gachaRng.js';
+
+/** rng stub: every roll lands on the girl named by `id` in today's Standard banner (`value` is kept for the old calls). */
+const rngFor = (value, id) => rngOn(id);
 const R_ROLL = 0.99; // ≥ SSR + SR rates → R
 const SSR_ROLL = 0;
 
@@ -121,12 +123,12 @@ describe('every duplicate source counts', () => {
   it('a 10-pull of an owned girl adds 10', () => {
     const p = createProfile();
     p.items.ticket_recruit10 = 1;
+    noWelcome(p); // (not the Standard banner's welcome 10×)
     const r = pull(p, 10, rngFor(R_ROLL, 'aoi'));
     expect(r.ok).toBe(true);
-    // the guarantee turns the 10th into an SR (the first SR in the pool), the other nine are Aoi
+    // the guarantee turns the 10th into an SR, the other nine are Aoi
     expect(p.units.aoi.dupes).toBe(9);
-    const sr = POOL.SR[0];
-    expect(p.units[sr].dupes).toBe(0);
+    expect(r.results[9].rarity).toBe('SR');
     expect(p.missions.counters['pot:aoi']).toBe(9);
     // five become her Essence (hold cap 5 at P1), four are R spares (2 Mementos + ⅕ point each)
     expect(p.units.aoi.pl).toBe(1);

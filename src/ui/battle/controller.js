@@ -11,10 +11,17 @@ import { cameraModeOf } from '../../render/cameraPolicy.js';
 import { STAGE_MAP, stageEnemies } from '../../data/stages.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS, BATTLE } from '../../data/types.js';
-import { createBattleSim, resumeBattleSim, parseBattleParams, parseTitanParams, mapRouteFor } from './setup.js';
+import { createBattleSim, resumeBattleSim, parseBattleParams, parseTitanParams, mapRouteFor, resolveFormation, createTryoutSim } from './setup.js';
 import { createTitanTracker } from '../../data/titans.js';
 import { applyTitanResult } from '../../systems/titans.js';
 import { createBattleSaver } from './battleSaver.js';
+import { createTryoutSaver } from './tryoutSaver.js';
+import { createTryoutBattle } from './tryout.js';
+import { MODE_NAME as TRYOUT_MODE_NAME } from '../text/tryout.js';
+import { buildTryoutPlan, buildTryoutStage } from '../../sim/tryout/index.js';
+import { getTryoutRun, markResume, continueKind, clearTryoutRun } from '../../systems/tryoutRuns.js';
+import { applyTryoutResult, applyTryoutRecord } from '../../systems/tryoutRewards.js';
+import { SIM_ID as TRYOUT_SIM_ID } from '../../core/buildInfo.js';
 import { isSavableRun, slotKey, getBattleSave, clearBattleSave, saveSummary, runStartedAt, MAX_BATTLE_SAVES } from '../../systems/battleSave.js';
 import { createHud } from './hud.js';
 import { createTowerBar } from './towerBar.js';
@@ -47,7 +54,7 @@ import { quantize, flyArgs } from '../../online/coop/commands.js';
 import { STEP } from '../../sim/constants.js';
 import { battleLockstep, normalizeCode } from '../../online/coop/session.js';
 import { roomByCode, roomRoute } from '../../online/coop/lastRoom.js';
-import { applyCoopResult, freeplayLedger, payFreeplayEnd } from '../../online/coop/rewards.js';
+import { applyCoopResult, freeplayLedger, payFreeplayEnd, applyCoopTryoutResult } from '../../online/coop/rewards.js';
 import { normalizeList } from '../../systems/inventory.js';
 import { createCoopHud } from '../online/coopHud.js';
 import { createFreeplayBattle } from './freeplay.js';
@@ -68,6 +75,10 @@ import { attachBattleAudio } from '../../audio/battle.js'; // [audio]
 import { holdLoader, setLoaderProgress, frames } from '../transitions/index.js';
 import { eventNow } from '../events/clock.js'; // [events]
 import { formationSkins } from '../../systems/skins.js';
+import { supportAllowed, clampSupportUnit, supportLoadoutEntry, supportMiniProfile } from '../../systems/friendSupport.js'; // [friend support]
+import { supportPays } from '../../online/supportRules.js';
+import { newKey } from '../../online/donateLedger.js';
+import { pickFor } from './supportPick.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -103,8 +114,15 @@ export function mountBattle(root, params, hooks) {
   // a co-op battle page without its battle (reloaded, or reached again later): the room itself
   // is still there, so lead back into it (no code to retype, no new room)
   const coopRoom = params.coop && !ls ? roomByCode(normalizeCode(params.coop)) : null;
+  // Tryout Day (docs/specs/TRYOUT_DAY.md): solo plays the open run (profile.tryoutRun); co-op's comes in the start message
+  const tryRec = !ls && params.tryout ? getTryoutRun(profile) : null;
+  const tryKind = tryRec && tryRec.id === params.tryout ? continueKind(tryRec, TRYOUT_SIM_ID) : null;
   const req = ls
-    ? { stageId: ls.start.stageId, difficulty: ls.start.difficulty, endless: false, freeplay: null, keepGoing: false, practice: false, error: null }
+    ? { stageId: ls.start.stageId, difficulty: ls.start.difficulty, endless: false, freeplay: null, keepGoing: false, practice: false, error: null, ...(ls.start.tryout ? { stageDef: { ...ls.sim.stage, name: TRYOUT_MODE_NAME }, tryout: ls.start.tryout } : null) }
+    : params.tryout
+      ? (tryKind && tryKind !== 'stale'
+        ? { stageId: 'tryout', stageDef: { ...buildTryoutStage(buildTryoutPlan(tryRec)), name: TRYOUT_MODE_NAME }, difficulty: 'normal', endless: false, freeplay: null, keepGoing: false, practice: !!tryRec.practice, error: null, tryout: tryRec }
+        : { error: tryKind === 'stale' ? 'This Tryout Day run was made by an older version of the game and has been closed.' : 'This Tryout Day run has ended.', tryoutGone: true })
     : params.coop
       ? { error: coopRoom ? `This battle is over (or the page was reloaded). Room ${coopRoom.code} is still open: go back in and play again.` : 'This co-op battle has ended (or this page was reloaded). Open a new room to play again.' }
       : params.titan ? parseTitanParams(params, profile) : parseBattleParams(params, profile);
@@ -112,7 +130,18 @@ export function mountBattle(root, params, hooks) {
   root.append(shell);
 
   if (req.error) {
-    const back = coopRoom ? () => navigate('coop', roomRoute(coopRoom)) : params.coop ? () => navigate('coop') : params.titan ? () => navigate('titans') : () => navigate('campaign');
+    if (req.tryoutGone && tryKind === 'stale') {
+      // an update closed the run: paid for the periods its last calm point banked (§12.5), in the same write
+      try {
+        applyTryoutRecord(profile, tryRec);
+      } catch (e) {
+        console.error('[tryout] paying a closed run failed', e);
+      }
+      clearTryoutRun(profile, tryRec.id);
+      store.commit('tryout-run');
+      store.saveNow();
+    }
+    const back = coopRoom ? () => navigate('coop', roomRoute(coopRoom)) : params.coop ? () => navigate('coop') : params.titan ? () => navigate('titans') : params.tryout ? () => navigate('tryout') : () => navigate('campaign');
     const label = coopRoom ? 'Back to the room' : params.coop ? 'Back to co-op' : 'Back to the map';
     shell.append(h('div.bt-error', h('div.bt-sheet', h('div.bt-sheet-title', 'Battle unavailable'), h('p', req.error), h('button.bt-cta', { 'data-testid': coopRoom ? 'coop-room-again' : 'battle-unavailable-back', onclick: back }, label))));
     return { destroy: () => shell.remove(), ready: Promise.resolve() };
@@ -129,7 +158,14 @@ export function mountBattle(root, params, hooks) {
 
   // ---- battle save: Continue (&resume=<run id>), or a New game ----------------------------------
   // (never co-op, the clan boss, the tutorial, a practice run or a solo freeplay run: src/systems/battleSave.js)
-  const savable = !ls && isSavableRun(params, req);
+  const savable = !ls && !req.tryout && isSavableRun(params, req);
+  // a mid-wave Continue spends the Make-up Test, a later one makes the run practice: written before the battle restarts
+  if (tryRec && tryKind && tryKind !== 'calm' && tryKind !== 'stale') {
+    markResume(tryRec);
+    store.commit('tryout-run');
+    store.saveNow();
+    if (tryRec.practice) req.practice = true;
+  }
   const slot = savable ? slotKey(req.stageId, req.endless) : null;
   const saved = savable ? getBattleSave(profile, slot) : null;
   /** A sheet instead of the battle: back to the stage (or, with `cont`, straight into the save that is there now). */
@@ -197,17 +233,45 @@ export function mountBattle(root, params, hooks) {
     return id;
   };
 
+  // [friend support] a friend's Support Student (BANNERS §E.1): picked in stage prep for a New game (campaign, Bounty,
+  // solo Freeplay), clamped to this save's range; a Continue keeps the one in its record. Never co-op, Titan Trials,
+  // Sandbox, the tutorial, a practice run or the clan boss.
+  let supportMark = restored ? saved?.support || null : null;
+  let support = null;
+  const supportOk = !ls && !params.coop && !params.clanBoss && !req.titan && !req.sandbox && !req.practice && params.tutorial !== '1'
+    && supportAllowed(profile, stage, { difficulty: req.difficulty, endless: req.endless && stage.kind === 'challenge' });
+  if (!restored && supportOk && typeof params.sup === 'string') {
+    const pick = pickFor(params.sup);
+    const card = pick ? clampSupportUnit(pick.unit, profile) : null;
+    if (card && !resolveFormation(profile).towers.includes(card.id)) {
+      supportMark = { unitId: card.id, owner: pick.owner, key: newKey(), card };
+      support = { entry: supportLoadoutEntry(card), mark: supportMark };
+    }
+  }
+  if (!supportOk && !restored) supportMark = null;
+
   // Continue preloads and plays the team frozen in the save, not today's formation
   const made = ls
     ? {
       sim: ls.sim,
-      towers: [...new Set(ls.start.players.flatMap((p) => (p.loadout || []).map((e) => e.unitId)))],
+      // (a Tryout Day run: each player's drafted three; girls who join later load as they join)
+      towers: [...new Set(ls.start.players.flatMap((p) => [...(p.loadout || []).map((e) => e.unitId), ...(Array.isArray(p.draft) ? p.draft : [])]))],
       // every player's hero (each brings her own); preloaded like the girls
       hero: null,
       heroes: ls.start.players.map((p) => p.hero?.unitId).filter(Boolean),
     }
-    : restored || createBattleSim(profile, req);
+    // (a Tryout Day run builds its own sim from its draft and takes no Support Student: the check under it drops the mark)
+    : restored || (req.tryout && !ls ? createTryoutSim(profile, req.tryout) : createBattleSim(profile, req, { support }));
   const { sim, towers, hero, heroes: heroIds } = made;
+  if (supportMark && !sim.loadout.has(supportMark.unitId)) supportMark = null;
+  if (supportMark) {
+    // every result of this battle says it had a Support Student (rewards.js, limitBreak.js, freeplay payouts)
+    const baseResult = sim.result;
+    const mark = { unitId: supportMark.unitId, owner: supportMark.owner };
+    sim.result = function supportResult(...args) {
+      return { ...baseResult.apply(this, args), support: { ...mark } };
+    };
+  }
   // a Continue plays the saved run's own battle mode (the record's, whatever the link says), and a
   // mode run is never offered Keep going (setup.js parseBattleParams)
   if (restored) {
@@ -254,6 +318,27 @@ export function mountBattle(root, params, hooks) {
     tutorial: params.tutorial === '1',
     selectedDrone: null,
     rates: createRateMeter(5), // live damage rates of drone owners (chikaPanel.js)
+    // [friend support] the borrowed girl, and whose save a card's look comes from (her own mini profile for her)
+    support: supportMark,
+    profileFor: null,
+  };
+  const supportMini = supportMark ? supportMiniProfile(supportMark.card) : null;
+  ctx.profileFor = (unitId) => (supportMark && unitId === supportMark.unitId ? supportMini : profile);
+  // the borrow itself: recorded at once, asked in the background, settled at wave 3 (or a shorter stage won)
+  let supportBorrow = null;
+  let supportSettled = false;
+  if (supportMark) {
+    supportBorrow = import('../../online/supportClient.js').then((m) => m.supportClient()).then((sc) => {
+      if (support) return { sc, done: sc.startBorrow({ owner: supportMark.owner, unitId: supportMark.unitId, key: supportMark.key }).done };
+      return { sc, done: null }; // a Continue: its borrow is in the ledger already
+    }).catch(() => null);
+  }
+  const settleSupport = () => {
+    if (!supportBorrow || supportSettled || !supportMark?.key) return;
+    supportSettled = true;
+    supportBorrow.then((b) => b?.sc.settle(supportMark.key, b.done)).then((r) => {
+      if (r?.points > 0 && !destroyed) ctx.feed?.push(`Friend Support · +${r.points} Friend Points`, 'good', { ms: 2600 });
+    }).catch(() => {});
   };
 
   // a battle-save warning raised before the feed exists (the first write can come before build())
@@ -267,7 +352,9 @@ export function mountBattle(root, params, hooks) {
     return true;
   };
   // the save of this run (null for runs that never save): created on first progress
-  const saver = savable
+  const saver = req.tryout && !ls
+    ? createTryoutSaver({ sim, rec: req.tryout, isEnded: () => ctx.ended, onStorageFull: () => warnSave('Couldn\'t save this run on this device (storage is full).') })
+    : savable
     ? createBattleSaver({
       sim,
       req,
@@ -388,6 +475,29 @@ export function mountBattle(root, params, hooks) {
     if (ls) {
       coopHud = createCoopHud(ctx);
       modules.push(coopHud);
+    }
+    if (sim.tryout) {
+      // Tryout Day (src/ui/battle/tryout.js): tracker, picks, breaks, the Class Photo
+      // the run's rewards (src/systems/tryoutRewards.js, §10.1, §12.4): Marbles, the Lunchbox, coins, the Grade, the
+      // achievement counters and the Yearbook, once; co-op pays each player from their own save (§11)
+      ctx.applyResult = (prof, result, rng) => (ls
+        ? applyCoopTryoutResult(prof, result, { slot: ls.mySlot, seed: ls.start.seed, rng })
+        : applyTryoutResult(prof, result, { rec: req.tryout, rng }));
+      ctx.tryoutAgain = ls ? () => ctx.quit() : () => navigate('tryout', { id: 'class', again: 1 }); // (Back: the hub)
+      // Replay this seed: a practice run of the same seed, Grade, length and map (§10.4); solo only
+      ctx.tryoutReplay = ls ? null : (code) => navigate('tryout', { id: 'class', code });
+      const send = ls
+        ? (kind, args) => {
+          ls.queue(kind, args);
+          return 'queued';
+        }
+        : (kind, args) => {
+          const r = kind === 'mv' ? sim.tryoutMove(0, args[0], args[1] / 1024, args[2] / 1024) : sim.tryoutCommand(0, args[0], args.slice(1));
+          if (r?.ok) saver?.markProgress?.({ now: true });
+          return r;
+        };
+      ctx.tryoutUi = createTryoutBattle(ctx, { mySlot: ls ? ls.mySlot : 0, send });
+      modules.push(ctx.tryoutUi);
     }
     if (ls && sim.freeplay) {
       // co-op freeplay: banners, the bank at the goal, the Finish vote (src/ui/battle/freeplay.js)
@@ -615,6 +725,7 @@ export function mountBattle(root, params, hooks) {
         if (ctx.paused) ctx.closePause();
         return;
       }
+      saver?.beforeWave?.(); // (a run: the exact calm state just before the wave)
       if (sim.startNextWave()) {
         if (ctx.paused) ctx.closePause();
       }
@@ -630,6 +741,11 @@ export function mountBattle(root, params, hooks) {
       }
       if (!st.ready) {
         feed.push(sim.state === 'wave' ? `Recharging — ${Math.ceil(st.cooldownLeft)}s` : 'The ultimate only charges during waves.', 'warn', { key: 'ult-cd', ms: 1400 });
+        return;
+      }
+      // Norika's Hold the Line works only during a wave (src/sim/hero.js): say so instead of a silent tap
+      if (sim.state !== 'wave' && sim.hero?.def?.hero?.ult?.effect?.type === 'barricade') {
+        feed.push(`${sim.hero.def.hero.ult.name} works during a wave.`, 'warn', { key: 'ult-wave', ms: 1600 });
         return;
       }
       if (ls) {
@@ -712,6 +828,15 @@ export function mountBattle(root, params, hooks) {
       saver?.discard();
       hooks.restart({ fresh: true });
     };
+    // a run cannot restart: Restart gives it up and goes back to Tryout Day
+    if (req.tryout && !ls) ctx.restart = () => {
+      // giving up pays what the run banked (§12.4): results.apply() pays and deletes the run in one write
+      // (idempotent: a run already paid at its end is not paid again)
+      ctx.ended = true;
+      saver?.close();
+      results.apply();
+      navigate('tryout');
+    };
     // endless runs save, so they can also be cashed out: the same payout as a defeat right now
     ctx.endRun = saver && sim.endless ? () => endBattle(false, { endedRun: true }) : null;
     // every way out of a battle goes through navigate(), which never leaves the battle's history
@@ -719,11 +844,12 @@ export function mountBattle(root, params, hooks) {
     // Leaving saves the battle (destroy() → saver.flush()); a solo freeplay run is never saved and
     // is paid on the way out once past its goal (destroy() → payIfLeavingRun()). A Sandbox run
     // (never saved) goes back to its squad screen.
-    ctx.quit = () => (ls ? leaveCoop() : req.sandbox ? navigate('sandbox', { id: 'team' }) : params.clanBoss ? navigate('clan', { tab: 'boss' }) : req.titan ? navigate('titans', { id: req.titan.id }) : navigate('stage', prepRoute));
+    ctx.quit = () => (ls ? leaveCoop() : req.tryout ? navigate('tryout') : req.sandbox ? navigate('sandbox', { id: 'team' }) : params.clanBoss ? navigate('clan', { tab: 'boss' }) : req.titan ? navigate('titans', { id: req.titan.id }) : navigate('stage', prepRoute));
     ctx.goNext = (id) => navigate('stage', { id });
     ctx.goMap = () => {
       if (req.sandbox) return navigate('sandbox');
       if (req.titan) return navigate('titans', { id: req.titan.id });
+      if (req.tryout) return navigate('tryout');
       const r = mapRouteFor(stage, { endless: endlessMap });
       navigate(r.name, r.params);
     };
@@ -743,6 +869,7 @@ export function mountBattle(root, params, hooks) {
         else if (tapped === src) feed.push(PICK_REFUSED.self, 'warn', { key: 'pick-refused', ms: 1400 });
         return;
       }
+      if (ctx.tryoutUi?.handleTap(p)) return;
       if (ctx.aim.handleTap(p) || ctx.flight.handleTap(p) || placement.handleTap(p)) return;
       ctx.select(tapped, { drone: drone ? p.droneUid : null });
     }));
@@ -945,6 +1072,7 @@ export function mountBattle(root, params, hooks) {
             break;
           }
           case 'waveStart':
+            if (supportPays({ wave: ev.wave })) settleSupport(); // [friend support] FP once the run reached wave 3
             // freeplay waves past the goal: their own banners (freeplay.js)
             if (fpBattle && ev.wave > sim.totalWaves) break;
             feed.announce(`WAVE ${ev.wave}`, ctx.modes?.waveSub(ev) ?? (Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless'), ev.flipped ? 'warn' : 'wave', ev.flipped ? 2200 : 1300);
@@ -994,6 +1122,7 @@ export function mountBattle(root, params, hooks) {
     function endBattle(won, { endedRun = false } = {}) {
       if (ctx.ended) return;
       ctx.ended = true;
+      if (won) settleSupport(); // [friend support] a shorter stage won
       ctx.endedRun = endedRun;
       saver?.close(); // no more save writes: results.apply() pays out and deletes the save at once
       placement.cancel();
@@ -1014,6 +1143,28 @@ export function mountBattle(root, params, hooks) {
       if (fpEnd) feed.announce(won ? 'FREEPLAY COMPLETE' : 'FREEPLAY OVER', `${sim.wavesCleared}/${sim.totalWaves} · ${sim.stage.freeplay.name}`, won ? 'good' : 'free', RESULT_DELAY_MS - 200);
       else if (endedRun) feed.announce('RUN OVER', `Ended on wave ${sim.wave}`, 'bad', RESULT_DELAY_MS - 200);
       else feed.announce(won ? 'STAGE CLEAR!' : 'DEFEAT', won ? `${sim.lives}/${sim.maxLives} lives left` : `Fell on wave ${sim.wave}`, won ? 'good' : 'bad', RESULT_DELAY_MS - 200);
+      if (req.tryout) {
+        // the Make-up Test (solo, once a run, §7): at 0 hearts the defeat sheet offers the wave again from its start
+        // (the record keeps the calm snapshot before it and the open wave: the Continue spends the Make-up Test)
+        if (!ls && !won && tryRec && !tryRec.makeUpUsed && !tryRec.practice && tryRec.snap && tryRec.waveOpen === sim.wave) {
+          ctx.saver?.close();
+          ctx.makeUpOffered = true;
+          later(() => ctx.tryoutUi?.showMakeUp({
+            wave: sim.wave,
+            retry: () => navigate('tryout', { makeup: tryRec.id }), // (the hub opens it as Continue does)
+            giveUp: () => {
+              ctx.makeUpOffered = false;
+              const out = results.apply(); // (pays the run and closes its record: saver.finish)
+              ctx.tryoutUi?.showPhoto({ practice: !!req.practice, outcome: out });
+            },
+          }), RESULT_DELAY_MS);
+          return;
+        }
+        // Tryout Day: the run is paid (src/systems/tryoutRewards.js) and its record goes in the same write
+        const out = results.apply();
+        later(() => ctx.tryoutUi?.showPhoto({ practice: !!req.practice, outcome: out }), RESULT_DELAY_MS);
+        return;
+      }
       if (req.titan) {
         // Titan Trials: the result is the titan's damage notch, read outside the sim
         titanTracker.consume(sim.drainEvents(), sim);
@@ -1116,6 +1267,10 @@ export function mountBattle(root, params, hooks) {
       boss.update(dt);
       wave.update();
       sandbox?.update();
+      if (ctx.tryoutUi) {
+        ctx.tryoutUi.update();
+        bar.sync?.();
+      }
     }
     raf = requestAnimationFrame(frame);
 
@@ -1470,7 +1625,8 @@ export function mountBattle(root, params, hooks) {
       // (a co-op resync rebuild is not leaving: the rebuilt screen ends that battle itself)
       if (!remounting) ctx.settleFinished?.();
       // a finished battle always pays out, even if the player leaves before the modal
-      if (ctx.ended && ctx.results && !ctx.results.outcome) ctx.results.apply();
+      // (a Make-up Test still offered keeps the run: its Continue spends it)
+      if (ctx.ended && ctx.results && !ctx.results.outcome && !ctx.makeUpOffered) ctx.results.apply();
       else if (!ctx.ended) {
         // a freeplay run (co-op or solo: never saved) left after its goal pays its freeplay part
         // (a resync rebuild is not leaving)

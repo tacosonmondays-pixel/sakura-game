@@ -64,3 +64,17 @@ describe('wallets (Q3)', () => {
     expect(hits).toEqual([]);
   });
 });
+
+describe('registerWallet (a mode currency, e.g. Tryout Day)', () => {
+  it('shows a registered currency on its screens only, after the core three, and never takes a core id', async () => {
+    const w = await import('../../src/ui/wallets.js');
+    w.registerWallet({ id: 'testmarbles', item: 'marble_test', label: 'Marbles', glyph: 'sparkles', screens: ['tryout'] });
+    expect(w.walletsFor('tryout')).toEqual(['testmarbles']);
+    expect(w.walletsFor('student')).toEqual(['coins', 'gems']);
+    expect(w.walletDef('testmarbles').item).toBe('marble_test');
+    expect(w.walletDef('coins')).toBe(w.WALLET_DEFS.coins);
+    expect(w.walletDef('nope')).toBe(null);
+    expect(() => w.registerWallet({ id: 'coins', item: 'x', label: 'x', screens: [] })).toThrow();
+    expect(() => w.registerWallet({ id: 'testmarbles', item: 'x', label: 'x', screens: [] })).toThrow();
+  });
+});

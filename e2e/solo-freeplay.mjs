@@ -105,6 +105,17 @@ async function snapAll(name, again = null) {
 }
 const go = (hash) => page.evaluate((h) => { location.hash = h; }, hash);
 const tap = (sel) => page.locator(sel).first().click({ timeout: 20000 }).catch(() => page.locator(sel).first().click({ timeout: 20000, force: true }));
+/** Stage prep's Mode sheet (battle modes and the Freeplay row), and closing every sheet through its own X. */
+const closeSheets = async () => {
+  await page.evaluate(() => document.querySelectorAll('.ui-layer .ui-close').forEach((b) => b.click()));
+  await page.waitForTimeout(300);
+};
+const openModeSheet = async () => {
+  await page.waitForSelector('#app [data-testid="prep-mode"]', { timeout: 30000 });
+  await closeSheets();
+  await tap('#app [data-testid="prep-mode"]');
+  await page.waitForSelector('[data-testid="mode-sheet"]', { timeout: 10000 }).catch(() => null);
+};
 const waitBattle = () => page.waitForFunction(() => window.__battle?.ui?.act && window.__battle.ui.results, null, { timeout: 90000 });
 const textOf = (sel) => page.evaluate((s) => document.querySelector(s)?.textContent || '', sel);
 
@@ -159,6 +170,8 @@ try {
   // ---- 1. stage prep -----------------------------------------------------------------------
   log('\n--- stage prep: the Freeplay row ---');
   await go('#/stage/1-1');
+  // (UI v2 M1: the Freeplay row lives in stage prep's Mode sheet, behind the Mode chip)
+  await openModeSheet();
   await page.waitForSelector('[data-testid="prep-freeplay"]', { timeout: 30000 });
   check(/Off.*Blossom.*Tempest.*Crimson Moon/s.test(await textOf('[data-testid="prep-freeplay"]')), 'prep: Off · Blossom · Tempest · Crimson Moon');
   await tap('[data-testid="prep-fp-blossom"]');
@@ -168,6 +181,7 @@ try {
   check((await page.evaluate(() => location.hash)).includes('freeplay=blossom'), 'prep: the pick is kept in the URL');
   await page.evaluate(() => document.querySelector('[data-testid="prep-freeplay"]')?.scrollIntoView({ block: 'center' }));
   await snapAll('prep-toggle', () => page.evaluate(() => document.querySelector('[data-testid="prep-freeplay"]')?.scrollIntoView({ block: 'center' })));
+  await closeSheets();
 
   // ---- 2. the goal and 13/12 -----------------------------------------------------------------
   log('\n--- freeplay battle 1-1 Blossom ---');
@@ -236,6 +250,7 @@ try {
   const best = (await prof())['1-1']?.freeplayBest?.blossom;
   check(best >= 15, `save: freeplayBest.blossom = ${best}`);
   await go('#/stage/1-1');
+  await openModeSheet();
   await page.waitForSelector('[data-testid="prep-fp-best"]', { timeout: 30000 }).catch(() => null);
   check(new RegExp(`Best: wave ${best} \\(Blossom\\)`).test(await textOf('[data-testid="prep-fp-best"]')), `prep: "Best: wave ${best} (Blossom)"`);
   await page.evaluate(() => document.querySelector('[data-testid="prep-fp-best"]')?.scrollIntoView({ block: 'center' }));

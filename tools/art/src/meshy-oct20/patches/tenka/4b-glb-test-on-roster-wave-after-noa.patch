@@ -1,0 +1,52 @@
+diff --git a/tests/models/glb.test.js b/tests/models/glb.test.js
+index fb01478..598a4dd 100644
+--- a/tests/models/glb.test.js
++++ b/tests/models/glb.test.js
+@@ -25,6 +25,8 @@ const MAX_LOD_BYTES = 240 * 1024;
+ // imported Meshy figures (tools/meshy/build_meshy_chibi.py): painted texture + sword, phone-packed
+ const MAX_MESHY_FULL_BYTES = 2.5 * 1024 * 1024;
+ const MAX_MESHY_LOD_BYTES = 1.25 * 1024 * 1024;
++// a hand prop in its own GLB (tools/meshy/build_meshy_prop.py), shared by both detail levels
++const MAX_MESHY_PROP_BYTES = 256 * 1024;
+ const MESHY_CLIPS = ['idle', 'walk', 'cheer', 'hurt'];
+ const MESHY_BONES = [
+   'root', 'hips', 'spine', 'chest', 'neck', 'head', 'upper_arm_L', 'forearm_L', 'hand_L', 'upper_arm_R', 'forearm_R', 'hand_R',
+@@ -84,8 +86,9 @@ describe('character GLBs', () => {
+           expect(json.skins).toHaveLength(1);
+           const joints = json.skins[0].joints.map((j) => json.nodes[j].name);
+           for (const b of MESHY_BONES) expect(joints, `${u.id} bone ${b}`).toContain(b);
+-          // a hand-held prop (Hikari's sword) hangs off the right hand; girls whose gear is part of
+-          // the body mesh (Noa's folded shield on her forearm) ship none
++          // a hand-held prop (Hikari's sword) hangs off the right hand, or an empty socket there that a
++          // separate prop GLB hangs on at load time (Tenka's coilgun, extras.props); girls whose gear is
++          // part of the body mesh (Noa's folded shield on her forearm) ship neither
+           const hand = json.nodes.findIndex((n) => n.name === 'hand_R');
+           const sword = json.nodes.findIndex((n) => n.name === 'sword');
+           if (ex.weaponKind === 'slash') expect(sword, `${u.id} sword`).toBeGreaterThanOrEqual(0);
+@@ -96,6 +99,26 @@ describe('character GLBs', () => {
+           expect(textured[0].attributes.TEXCOORD_0).toBeDefined();
+           expect(textured[0].attributes.JOINTS_0).toBeDefined();
+           if (sword >= 0) expect(json.meshes[json.nodes[sword].mesh].primitives[0].attributes.COLOR_0).toBeDefined();
++          // separate prop GLBs: listed in the manifest as well, socket (no mesh) under the hand bone,
++          // one textured primitive, phone-packed like the figure
++          expect(manifest[u.id].props || []).toEqual((ex.props || []).map((p) => p.file));
++          for (const p of ex.props || []) {
++            const sock = json.nodes.findIndex((n) => n.name === p.socket);
++            expect(sock, `${u.id} socket ${p.socket}`).toBeGreaterThanOrEqual(0);
++            expect(json.nodes[sock].mesh).toBeUndefined();
++            expect(json.nodes[json.nodes.findIndex((n) => n.name === p.bone)].children).toContain(sock);
++            const pf = path.join(dir, p.file);
++            expect(existsSync(pf), pf).toBe(true);
++            expect(statSync(pf).size).toBeLessThanOrEqual(MAX_MESHY_PROP_BYTES);
++            const pj = readGlbHeader(pf).json;
++            expect(pj.asset.extras).toMatchObject({ unit: u.id, socket: p.socket, source: 'meshy', style: 'textured-prop' });
++            const pprims = pj.meshes.flatMap((m) => m.primitives);
++            expect(pprims).toHaveLength(1);
++            expect(pj.materials[pprims[0].material].pbrMetallicRoughness?.baseColorTexture).toBeDefined();
++            expect(pj.accessors[pprims[0].attributes.POSITION].componentType).toBe(5122);
++            expect(pj.extensionsRequired).toEqual(expect.arrayContaining(['KHR_mesh_quantization', 'EXT_texture_webp']));
++            for (const im of pj.images) expect(im.mimeType).toBe('image/webp');
++          }
+           for (const p of prims) {
+             const pos = json.accessors[p.attributes.POSITION];
+             expect(pos.componentType).toBe(5122);

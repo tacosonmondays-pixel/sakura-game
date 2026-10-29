@@ -20,6 +20,20 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.59', version: '0.1.59', date: '2026-10-28', title: 'Banners and Tryout Day',
+    added: [
+      'Tryout Day, a new run mode (opens after 2-5): play one school day of waves solo or in co-op, pick a Pep Talk after every period and watch new girls try out for your squad, from Grade 1 to Grade 12.',
+      'Daily Spotlights in Recruit: one SSR and three SRs, new every day at 7 PM Central, with one shared pity. Kanna, Yoriko, Seiran, Iroha and Ena now come from their Spotlight days (for your first 30 days you can still spark them on any day).',
+      'Two LR Banners premiere side by side: Tenka (until Nov 5) and Kohaku & Tsubaki, two friends in one tower (until Nov 4). Win the Starfall Trial to make the duo LR.',
+      'After 6-5, a Coin banner paid in coins. The Club Lab adds a Workbench that crafts while you play, and Friend Support lets you borrow a friend\'s girl and earn Friend Points.',
+    ],
+    changed: [
+      'Girl Details in battle now show her real damage per second, measured live (splash, poison, crits, drones and traps included).',
+      'UR Resonance from Nov 1, 7 PM Central: every SSR girl at ★5 deals 10% more damage and attacks 4% faster.',
+      'Co-op partners need this update too before you can play together.',
+    ],
+  },
+  {
     id: 'v0.1.58', version: '0.1.58', date: '2026-10-28', title: 'Brighter Details',
     added: [
       'An Events button on the home, right beside Co-op: it opens the running event (with the time left and a red dot when a gift or reward waits), or Happening Now between events.',

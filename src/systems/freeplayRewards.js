@@ -78,7 +78,8 @@ export function applySoloClear(profile, result, rng, opts = {}) {
  * @returns {object} applyCoopFreeplayEnd's shape with `coop: false`
  */
 export function applySoloFreeplayEnd(profile, result, rng, { banked = null, now = new Date() } = {}) {
-  const out = applyCoopFreeplayEnd(profile, result, rng, { banked, bestKey: 'freeplayBest', waveCoins: soloWaveCoins(result?.stageId, result?.difficulty, result?.freeplay), now });
+  const support = !!result?.support;
+  const out = applyCoopFreeplayEnd(profile, result, rng, { banked, bestKey: 'freeplayBest', waveCoins: soloWaveCoins(result?.stageId, result?.difficulty, result?.freeplay), now, support });
   if (out.freeplay) out.freeplay.waveCoins = soloWaveCoins(result?.stageId, result?.difficulty, result?.freeplay);
   out.coop = false;
   const kills = killsSince(result?.kills, banked);
@@ -89,13 +90,13 @@ export function applySoloFreeplayEnd(profile, result, rng, { banked = null, now 
     total += n;
     if (ENEMY_MAP[id].tier === 'boss' || ENEMY_MAP[id].tier === 'miniboss') bosses += n;
     const b = profile.bestiary?.[id];
-    if (b && !b.discovered) {
+    if (b && !b.discovered && !support) {
       b.discovered = true;
       out.discovered.push(id);
     }
   }
-  if (profile.stats) profile.stats.kills = (profile.stats.kills || 0) + total;
-  if (bosses) track(profile, 'bossKill', bosses);
+  if (profile.stats && !support) profile.stats.kills = (profile.stats.kills || 0) + total;
+  if (bosses) track(profile, 'bossKill', bosses, { lifetime: !support });
   return out;
 }
 

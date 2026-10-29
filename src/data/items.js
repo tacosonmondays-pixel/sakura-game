@@ -236,7 +236,7 @@ function buildItems() {
 
   add({ id: 'ticket_recruit', name: 'Recruit Ticket', category: 'ticket', rarity: 'superRare', desc: 'One free recruitment. Used before gems.', sort: 6000 });
   add({ id: 'ticket_recruit10', name: '10× Recruit Ticket', category: 'ticket', rarity: 'mythic', desc: 'One free 10× recruitment (SR or better guaranteed). Used before gems.', sort: 6001 });
-  add({ id: 'ticket_ssr_select', name: 'SSR Select Ticket', category: 'ticket', rarity: 'legendary', desc: 'Choose ANY SSR student and she joins the academy. If you already have her, she gains 1 Essence. Use it from the Backpack.', usable: 'ssrSelect', sort: 6002 });
+  add({ id: 'ticket_ssr_select', name: 'SSR Select Ticket', category: 'ticket', rarity: 'legendary', desc: 'Choose any SSR student and she joins the academy. If you already have her, she gains 1 Essence. LR units arrive only through their LR Banners. Use it from the Backpack.', usable: 'ssrSelect', sort: 6002 });
 
   add({ id: 'token_boss', name: 'Assault Token', category: 'token', rarity: 'rare', desc: 'Earned by defeating minibosses, Total Assault bosses and the Titan Trials titans. Spend it in the Mall\'s Boss Exchange, Titan shelf included.', sort: 7000 });
   add({ id: 'memento', name: 'Memento', category: 'token', rarity: 'superRare', desc: 'A keepsake from a spare R or SR duplicate. Spend it in the Mall\'s Memento Exchange on simple supplies and a Recruit Ticket.', sort: 7002 });

@@ -32,7 +32,9 @@ const MESHY_BONES = [
 ];
 
 // every other unit must have a GLB; the count guards against quietly moving a girl to the stand-ins
-const GLB_UNITS = UNITS.filter((u) => !isStandIn(u.id));
+// (a duo unit has no model of its own: its members' models stand side by side, src/models/duo.js; checked below)
+const GLB_UNITS = UNITS.filter((u) => !isStandIn(u.id) && !u.duo);
+const DUO_UNITS = UNITS.filter((u) => u.duo);
 const GLB_UNIT_COUNT = 35; // + noa, hana, ruri (Meshy, art wave), fuu, iroha, ena, kanna, yoriko, seiran (temporary Blender chibis), the seven new girls (UNIT_GAPS §5)
 
 const manifest = existsSync(path.join(dir, 'manifest.json')) ? JSON.parse(readFileSync(path.join(dir, 'manifest.json'), 'utf8')) : null;
@@ -202,4 +204,39 @@ describe('character GLBs', () => {
       expect(lod).toBeLessThan(full * 0.65);
     }
   });
+});
+
+// The duo's members (docs/specs/DUO_LR.md §1.6): Kohaku's and Tsubaki's game-ready Meshy figures (imported, painted,
+// rigged, five clips each). This checks what ships is a loadable textured rigged figure of each member; the full
+// checks (clips, bones, eyes, guards, anchors) are in tests/models/duo-members.test.js.
+describe('duo members', () => {
+  for (const u of DUO_UNITS) {
+    for (const m of u.duo.members) {
+      for (const detail of ['full', 'lod']) {
+        it(`${u.id} member ${m} ${detail}: a textured, rigged figure in the manifest`, () => {
+          expect(manifest[m], m).toBeTruthy();
+          expect(manifest[m].duoMember).toBe(u.id);
+          expect(manifest[m].file).toBe(`${m}.glb`);
+          expect(manifest[m].lod).toBe(`${m}.lod.glb`);
+          const file = path.join(dir, `${m}${detail === 'lod' ? '.lod' : ''}.glb`);
+          expect(existsSync(file), file).toBe(true);
+          expect(statSync(file).size).toBeLessThanOrEqual(detail === 'lod' ? MAX_MESHY_LOD_BYTES : MAX_MESHY_FULL_BYTES);
+          const { json, binLength } = readGlbHeader(file);
+          expect(json.buffers[0].byteLength).toBeLessThanOrEqual(binLength);
+          const ex = json.asset.extras;
+          expect(ex.unit).toBe(m);
+          expect(ex.style).toBe('textured');
+          expect(ex.lod).toBe(detail === 'lod');
+          expect(ex.height).toBeGreaterThan(1.2);
+          expect(ex.unitScale).toBeGreaterThan(0);
+          expect(json.skins).toHaveLength(1);
+          const prims = json.meshes.flatMap((x) => x.primitives);
+          const textured = prims.filter((p) => json.materials[p.material].pbrMetallicRoughness?.baseColorTexture);
+          expect(textured).toHaveLength(1);
+          expect(textured[0].attributes.JOINTS_0).toBeDefined();
+          for (const im of json.images) expect(im.mimeType).toBe('image/webp');
+        });
+      }
+    }
+  }
 });

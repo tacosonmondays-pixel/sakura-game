@@ -26,6 +26,7 @@ export const HUB_LOCATIONS = Object.freeze({
   // UI M5b
   assault: { art: 'academy.webp', tint: 'rgba(255, 128, 96, 0.22)' }, // the arena at dusk
   titans: { art: 'academy.webp', tint: 'rgba(96, 92, 200, 0.26)' }, // the titans' night
+  tryout: { art: 'academy.webp', tint: 'rgba(150, 220, 140, 0.22)' }, // Tryout Day: the sports field in spring
 });
 
 /** Full-screen painted location behind the panels (`location`: a HUB_LOCATIONS key; the academy by default). */

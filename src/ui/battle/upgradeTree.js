@@ -296,7 +296,9 @@ export function createUpgradeTree(ctx) {
 
   /** UR (display only) comes from my save: an ally's girl in co-op shows her def rarity (as the panel). */
   function urProfile() {
-    return target?.uid != null && ctx.coop && !ctx.coop.isMine(target.uid) ? null : ctx.profile;
+    if (target?.uid != null && ctx.coop && !ctx.coop.isMine(target.uid)) return null;
+    const id = target?.unitId ?? (target?.uid != null ? ctx.sim?.getTower?.(target.uid)?.def?.id : null);
+    return (id && ctx.profileFor?.(id)) || ctx.profile;
   }
 
   function renderHead() {
