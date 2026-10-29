@@ -117,13 +117,15 @@ export function normalizeCode(code) {
 
 /**
  * A Tryout Day room setting: null (off) or { seed, grade, length, mapId, random } with the map one of the
- * seed's two mapChoices (the first when it is not). A Half or Full Day; Grades 1 to TRYOUT_GRADES (the host's ladder).
+ * seed's two mapChoices (the first when it is not). A Half, Full or Extended Day ('after'; an unknown length is a Half
+ * Day); Grades 1 to TRYOUT_GRADES (the host's ladder). `afterOk` false (the host has no Full Day cleared, §20.7): an
+ * Extended Day becomes a Full Day.
  * `random`: Random Class (§20.4, §20.7; clampTryout keeps only `true`, so an old or unknown value is off).
  */
-export function tryoutSetting(t) {
+export function tryoutSetting(t, afterOk = true) {
   const c = clampTryout(t);
   if (!c) return null;
-  const run = { ...c, grade: Math.min(TRYOUT_GRADES, c.grade), length: c.length === 'full' ? 'full' : 'half' };
+  const run = { ...c, grade: Math.min(TRYOUT_GRADES, c.grade), length: c.length === 'after' && !afterOk ? 'full' : c.length };
   const maps = mapChoices(run.seed, run.grade);
   if (!maps.includes(run.mapId)) run.mapId = maps[0];
   return run;
@@ -194,13 +196,14 @@ export const LOBBY = Object.freeze({
  *   (autoAbil: my Auto-cast abilities setting; it rides in my hello and the start message, and the
  *   battle starts with my girls' Auto switches on: createCoopSim)
  *   freeplay: the host's freeplay setting (a FREEPLAY_TIERS id, or null: off); a guest adopts the host's
+ *   afterUnlocked: () => whether the host may run an Extended Day (a Full Day cleared, §20.7; else it plays a Full Day)
  *   tryout: the host's Tryout Day run (tryoutSetting; null: off); a guest adopts the host's. While a run
  *   is on, me.draft / me.pool / me.runHero (setRunPicks) ride in hello, ready and the start message
  *   timers / now: injectable for tests (default: the real timers and Date.now)
  *   doc: the document whose visibility slows the beacon (tests pass a fake; none in Node)
  *   exclusive: close the previous session first (one room at a time; tests open two)
  */
-export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal', freeplay = null, mode = 'standard', tryout = null, modesUnlocked = () => true, timers = globalThis, now = () => Date.now(), doc = globalThis.document, exclusive = true }) {
+export function openSession({ code, isHost, backend, me, stageId = '1-1', difficulty = 'normal', freeplay = null, mode = 'standard', tryout = null, modesUnlocked = () => true, afterUnlocked = () => true, timers = globalThis, now = () => Date.now(), doc = globalThis.document, exclusive = true }) {
   if (current && exclusive) current.close();
   const emitter = createEmitter();
   const s = {
@@ -218,7 +221,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
     /** the battle mode (BATTLE_MODES id); Standard while freeplay is on or the host has not cleared the stage */
     mode: freeplay || !modesUnlocked(stageId) ? 'standard' : modeId(mode),
     /** Tryout Day: null (a normal battle) or the run { seed, grade, length, mapId } (the host's choice) */
-    tryout: isHost ? tryoutSetting(tryout) : null,
+    tryout: isHost ? tryoutSetting(tryout, afterUnlocked()) : null,
     phase: 'lobby',
     start: null,
     lockstep: null,
@@ -839,7 +842,7 @@ export function openSession({ code, isHost, backend, me, stageId = '1-1', diffic
      */
     setTryout(run) {
       if (!isHost || s.phase !== 'lobby') return;
-      setRun(tryoutSetting(run));
+      setRun(tryoutSetting(run, afterUnlocked()));
       lastActivity = now();
       send({ type: 'room', ...roomState() }, { latest: 'room' });
       changed();

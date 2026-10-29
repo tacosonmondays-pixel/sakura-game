@@ -458,3 +458,44 @@ describe('numeric safety deep in (waves 200, 250, 400)', () => {
     expect(biggest).toBeLessThan(2 ** 53 / 1000);
   }, 120000);
 });
+
+// Golden waves (Extended Day, docs/specs/TRYOUT_DAY.md §20.2): the tryout overrides (`chapterList`, `bossPlan`) are
+// optional keys no tier sets, so co-op freeplay waves stay byte-identical. Frozen from the generator before those keys
+// existed: one FNV-1a digest per tier and stage over every wave from the goal + 1 to 260 (the full WaveData as JSON,
+// one lane and two lanes on the lane-schedule stage 1-9). A change here changes every freeplay room: never re-freeze
+// these to make a tryout change pass.
+describe('golden freeplay waves (every tier, waves goal+1..260)', () => {
+  const GOLDEN = {
+    'blossom:1-1': '30c7b73f', 'blossom:1-9': '3ea4b255', 'blossom:2-5': 'b20ef7cb', 'blossom:2-10': 'ded2f741', 'blossom:3-5': 'aee72ddf',
+    'blossom:4-3': 'afd6d472', 'blossom:5-5': 'c5eb8a72', 'blossom:6-3': '8d98f436', 'blossom:7-5': 'dd3801b2', 'blossom:8-5': '1b9c765d',
+    'tempest:1-1': 'efbb489b', 'tempest:1-9': '121c7b02', 'tempest:2-5': 'd0ad44a1', 'tempest:2-10': 'fbd029c1', 'tempest:3-5': 'eda5dab6',
+    'tempest:4-3': 'c78fc1db', 'tempest:5-5': 'e1513fcf', 'tempest:6-3': 'e10618ce', 'tempest:7-5': 'f46e5cf1', 'tempest:8-5': '747c71af',
+    'crimson:1-1': '9f7510f4', 'crimson:1-9': '71dd9d8e', 'crimson:2-5': '737b63c0', 'crimson:2-10': '69e95a54', 'crimson:3-5': '093e7a6b',
+    'crimson:4-3': 'f95b44d1', 'crimson:5-5': 'df817a01', 'crimson:6-3': '2f211a8a', 'crimson:7-5': 'ae4037df', 'crimson:8-5': '285e06e8',
+  };
+  const fnv = (text) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h.toString(16).padStart(8, '0');
+  };
+  it('no tier sets the tryout-only keys', () => {
+    for (const id of FREEPLAY_TIERS) {
+      expect(FREEPLAY[id].chapterList, id).toBeUndefined();
+      expect(FREEPLAY[id].bossPlan, id).toBeUndefined();
+    }
+  });
+  for (const tier of FREEPLAY_TIERS) {
+    it(`${tier}: every stage's waves match the frozen digests`, () => {
+      for (const id of ['1-1', '1-9', '2-5', '2-10', '3-5', '4-3', '5-5', '6-3', '7-5', '8-5']) {
+        const st = fpStage(id, tier);
+        const opts = id === '1-9' ? { pathCount: 2, pathLengths: [30, 41.5] } : { pathCount: 1, pathLengths: [40] };
+        const parts = [];
+        for (let w = st.waves + 1; w <= 260; w++) parts.push(fnv(JSON.stringify(generateFreeplayWave(st, w, look, opts))));
+        expect(fnv(parts.join('')), `${tier}:${id}`).toBe(GOLDEN[`${tier}:${id}`]);
+      }
+    }, 60000);
+  }
+});

@@ -196,12 +196,11 @@ describe('display only: the battle sim is untouched', () => {
     // 11: the banners release with the duo Kohaku & Tsubaki (and Kohaku's constant beam), LR Limit Break, UR Resonance
     // and the staff heroes, and Tryout Day in co-op, in one release)
     const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db' };
-    // A branch whose sim changed after the last release pins its next sim id here, on the protocol it was built on
-    // (KNOWN stays as released). COOP_PROTOCOL is assigned at ship time: the release moves this id into KNOWN under
-    // the next free protocol and empties this pin.
-    const PENDING_BUMP = { 11: 'f289925d855b' };
-    const want = PENDING_BUMP[COOP_PROTOCOL] || KNOWN[COOP_PROTOCOL];
-    if (!want) return;
-    expect(simId().id).toBe(want);
+    // PENDING_BUMP: a branch's sim change that has no protocol yet (Tryout Day's Extended Day, TRYOUT_DAY.md §20) pins
+    // its next sim id here, apart from KNOWN. COOP_PROTOCOL is assigned at ship time: the release takes the next free
+    // number, adds its KNOWN line and removes this pin.
+    const PENDING_BUMP = { 11: 'cafcb9b5d587' };
+    if (!KNOWN[COOP_PROTOCOL]) return;
+    expect(simId().id).toBe(PENDING_BUMP[COOP_PROTOCOL] ?? KNOWN[COOP_PROTOCOL]);
   });
 });

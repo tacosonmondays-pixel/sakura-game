@@ -5,6 +5,7 @@ import { createRng, hashString } from '../../core/rng.js';
 import { TRYOUT } from '../../data/tryout.js';
 import { CHAPTERS, STAGE_MAP } from '../../data/stages.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
+import { FREEPLAY } from '../../data/freeplay.js';
 
 /** One named draw stream of a run (never sim.rng, never Math.random). */
 export function stream(seed, label) {
@@ -22,11 +23,80 @@ export function gradeOf(grade) {
   return TRYOUT.grades[grade] || TRYOUT.grades[1];
 }
 
-/** The block (seat and family stretch) a period belongs to: the index into lengths[..].blocks. */
+/** The block (seat and family stretch) a period belongs to: the index into lengths[..].blocks (Extended Day: then one
+ * block per Seat Change, starting the period after it). */
 export function blockOf(len, period) {
+  const X = TRYOUT.afterSchool;
+  if (len.endless && period > X.breakFrom) return len.blocks.length + Math.floor((period - X.breakFrom - 1) / X.breakEvery);
   let b = 0;
   for (let i = 0; i < len.blocks.length; i++) if (period >= len.blocks[i]) b = i;
   return b;
+}
+
+// ---- the timetable as grid functions (§20.1): Half and Full read their tables; Extended Day reads the Full Day's,
+// then TRYOUT.afterSchool's grid. Pick n always follows period n, so a pick number is also its period.
+
+/** The pick that opens after period p (1-based; 0: none). */
+export function pickAt(len, p) {
+  const i = len.picks.indexOf(p);
+  if (i >= 0) return i + 1;
+  return len.endless && p >= len.periods ? p : 0;
+}
+
+/** The break after period p (its id), or null. */
+export function breakAt(len, p) {
+  const X = TRYOUT.afterSchool;
+  if (len.breaks[p]) return len.breaks[p];
+  return len.endless && p >= X.breakFrom && (p - X.breakFrom) % X.breakEvery === 0 ? X.breakId : null;
+}
+
+/** Is pick n an Exam Prep (at least SR)? */
+export function examPrepAt(len, pick) {
+  const X = TRYOUT.afterSchool;
+  return pick === len.examPrep || (!!len.endless && pick >= X.examFrom && (pick - X.examFrom) % X.examEvery === 0);
+}
+
+/** Is pick n a Tryout pick (3 girls, while the squad has room)? */
+export function tryoutPickAt(len, pick) {
+  const X = TRYOUT.afterSchool;
+  return len.tryoutPicks.includes(pick) || (!!len.endless && pick >= X.tryoutFrom && (pick - X.tryoutFrom) % X.tryoutEvery === 0);
+}
+
+/** The rarity band of pick n. */
+export function bandAt(len, pick) {
+  return len.bands[pick - 1] || TRYOUT.afterSchool.band;
+}
+
+/** The LR cap at pick n (Extended Day: +1 per 12 picks after pick 11). */
+export function lrCapAt(len, pick) {
+  const X = TRYOUT.afterSchool;
+  return len.lrCap + (len.endless && pick > X.lrFrom ? Math.floor((pick - X.lrFrom) / X.lrEvery) : 0);
+}
+
+/** Is pick n the run's last (never in Extended Day)? */
+export function lastPickAt(len, pick) {
+  return !len.endless && pick === len.picks.length;
+}
+
+/** May an economy card come at pick n (never in a finite day's last 2 picks)? */
+export function econOkAt(len, pick) {
+  return !!len.endless || pick <= len.picks.length - 2;
+}
+
+/** The run's last wave (Extended Day: none). */
+export function lastWaveOf(len) {
+  return len.endless ? Infinity : len.periods * len.wavesPerPeriod;
+}
+
+/** The set piece on period p's last wave: 'boss' | 'miniboss' | null. */
+export function setPieceAt(len, p) {
+  const [a, b] = periodWaves(len, p);
+  if (len.bossWave >= a && len.bossWave <= b) return 'boss';
+  if (len.minibossWaves.some((w) => w >= a && w <= b)) return 'miniboss';
+  if (!len.endless || p <= len.periods) return null;
+  const X = TRYOUT.afterSchool;
+  const k = p - len.periods;
+  return k % X.bossEvery === 0 ? 'boss' : k % X.setEvery === 0 ? 'miniboss' : null;
 }
 
 /** The waves of period p: [first, last]. */
@@ -99,14 +169,32 @@ export function buildTryoutPlan({ seed, grade = 1, length = 'half', mapId = null
  * @returns {(string|null)[]}
  */
 export function periodAffixes(seed, grade, length) {
-  const g = gradeOf(grade);
   const len = lengthOf(length);
   const out = [];
-  for (let p = 0; p <= len.periods; p++) {
-    if (!g.affixFrom || p < g.affixFrom) out.push(null);
-    else out.push(TRYOUT.dares[Math.floor(stream(seed, `affix:${p}`).next() * TRYOUT.dares.length)].id);
-  }
+  for (let p = 0; p <= len.periods; p++) out.push(affixAt(seed, grade, p));
   return out;
+}
+
+/** The Grade affix of period p (a TRYOUT.dares id, or null): a pure draw, so Extended Day reads it lazily past P12. */
+export function affixAt(seed, grade, p) {
+  const g = gradeOf(grade);
+  if (!g.affixFrom || p < g.affixFrom) return null;
+  return TRYOUT.dares[Math.floor(stream(seed, `affix:${p}`).next() * TRYOUT.dares.length)].id;
+}
+
+/**
+ * Extended Day (§20.1): period p's Subject pair past the Full Day, from its own stream (`plan:subjects:<p>`), never a
+ * Subject of the period before's pair.
+ * @returns {string[]}
+ */
+export function subjectPairAt(seed, p, prev) {
+  const rng = stream(seed, `plan:subjects:${p}`);
+  const pair = [];
+  for (let k = 0; k < 2; k++) {
+    const pool = Object.keys(TRYOUT.subjects).filter((id) => !(prev || []).includes(id) && !pair.includes(id));
+    pair.push(pool[Math.floor(rng.next() * pool.length)]);
+  }
+  return pair;
 }
 
 /**
@@ -175,7 +263,8 @@ export function buildTryoutStage(plan, { coop = false } = {}) {
   }
   const hp = win.hpScale * g.hpMul * (coop ? TRYOUT.stage.coopHpMul : 1);
   return {
-    id: `tryout:${plan.seed.toString(36)}:${plan.grade}:${plan.length}`,
+    // (Extended Day plays the Full Day's stage: the same id, so the same in-stage waves, §20.1)
+    id: `tryout:${plan.seed.toString(36)}:${plan.grade}:${len.endless ? 'full' : plan.length}`,
     kind: 'tryout',
     chapter: 0,
     name: '', // (display text lives outside hashed files: the battle screen names it)
@@ -188,5 +277,27 @@ export function buildTryoutStage(plan, { coop = false } = {}) {
     lives: g.hearts,
     rule: null,
     ...(coop ? { coop: true } : null),
+    ...(len.endless ? { freeplay: afterSchoolTable(plan, len) } : null),
+  };
+}
+
+/**
+ * Extended Day's waves past 48 (§20.2): the co-op freeplay table of the Grade's tier, with visitors and elites from the
+ * window's chapters only (`chapterList`) and the bosses on the period grid (`bossPlan`: a miniboss on the last wave of
+ * every 3rd period, a boss on every 6th's; the window's bosses first, then the freeplay bosses and titans too).
+ */
+export function afterSchoolTable(plan, len = lengthOf(plan.length)) {
+  const X = TRYOUT.afterSchool;
+  const win = TRYOUT.windows[plan.window];
+  const per = len.wavesPerPeriod;
+  const fp = FREEPLAY[X.tiers[plan.grade] || 'blossom'];
+  return {
+    ...fp,
+    chapterList: win.chapters,
+    spawnCap: X.spawnCap,
+    bossPlan: {
+      from: len.periods * per + 1, miniEvery: X.setEvery * per, bossEvery: X.bossEvery * per,
+      minibosses: win.minibosses, bosses: win.bosses, windowBosses: X.windowBosses,
+    },
   };
 }

@@ -2254,6 +2254,23 @@ export function runTryoutBattle({ maxWaves = 16, checkpointAt = 9, seed = 2026, 
   };
 }
 
+/**
+ * Tryout Day's Extended Day (docs/specs/TRYOUT_DAY.md §20): a 2-player co-op run past wave 48 into the freeplay waves (the
+ * Grade's tier, the window's chapters, the grid miniboss on wave 60), a third client rejoining from the wave-50 checkpoint,
+ * to wave 61. The hearts are topped up on both clients alike at every calm point (the bot only has to last). Every engine
+ * must reach the same digests and hashes.
+ */
+export function runTryoutExtendedBattle({ maxWaves = 61, checkpointAt = 50 } = {}) {
+  const top = (sim) => { sim.lives = Math.max(sim.lives, 40); };
+  const { views, digests, hashes } = runTryoutCoop({ start: tryoutStart({ seed: 4820, length: 'after' }), policy: 'random', maxWaves, checkpointAt, onCalm: top });
+  const sim = views[0].sim;
+  return {
+    wave: sim.wave, lives: sim.lives, score: sim.tryout.score, squads: sim.tryout.players.map((p) => p.squad.join(',')), freeplay: sim.freeplay,
+    lastDigest: digests[0][digests[0].length - 1], digests: digests[0].length, sameViews: JSON.stringify(digests[0]) === JSON.stringify(digests[1]),
+    sameHashes: JSON.stringify(hashes[0]) === JSON.stringify(hashes[1]), hash: hashes[0][hashes[0].length - 1],
+  };
+}
+
 /** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, the duo (DUO_START), the staff heroes (STAFF_START), freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka, Tryout Day and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
@@ -2269,5 +2286,5 @@ export function runEngineChecks() {
   const heroes = runHeroBattle();
   const modes = runModeBattles();
   const tryoutRandom = runTryoutBattle({ seed: 2027, random: true, maxWaves: 14, checkpointAt: 8 });
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), modes, tryoutRandom };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), tryoutAfter: runTryoutExtendedBattle(), modes, tryoutRandom };
 }

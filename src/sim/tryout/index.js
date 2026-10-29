@@ -10,7 +10,8 @@ import { applySpawnMods } from '../enemies.js';
 import { stream } from './plan.js';
 import { AUTO_START_DELAY } from '../constants.js';
 import { createRuleRuntime, rebuildRuleTables, ruleBountyAdd } from '../rules.js';
-import { lengthOf, periodWaves, blockOf, buildTryoutPlan } from './plan.js';
+import { lengthOf, periodWaves, blockOf, buildTryoutPlan, pickAt, breakAt, lastPickAt } from './plan.js';
+import { extendDay, affixIdOf } from './extended.js';
 import { runLevelOf, bandStats } from './power.js';
 import { openOffer, eraseOffer, squadRoom, classOffer } from './offers.js';
 import { refreshRunMods, runModsFor, hasCards, applyBoardCard, boardWaveClear, boardPeriodEnd, seatBonus, spareChange, costCutFor } from './pep.js';
@@ -317,7 +318,7 @@ function closePick(sim, owner, pick) {
   p.offer = null;
   refreshRunMods(sim, owner);
   installRule(sim);
-  if (len.breaks[pick]) openBreak(sim, owner);
+  if (breakAt(len, pick)) openBreak(sim, owner);
   else p.win = null;
   if (p.gone) autoResolve(sim, owner);
 }
@@ -331,7 +332,7 @@ function resolvePick(sim, owner, index, path = 0) {
   const p = ty.players[owner];
   const o = p.offer;
   const len = lengthOf(ty.length);
-  const last = o.pick === len.picks.length;
+  const last = lastPickAt(len, o.pick);
   let tookGirl = false;
   if (o.follow) {
     // Whole Class Turns Up's girls: take `multi` of them (a timeout or hand-in takes the first ones)
@@ -541,14 +542,14 @@ export function tryoutWaveStart(sim) {
  * once (a swift period dared is swift and regen, say; never swift twice).
  */
 export function dareOf(ty, p) {
-  const affix = ty.affixes?.[p] || null;
+  const affix = affixIdOf(ty, p);
   const list = affix ? TRYOUT.dares.filter((d) => d.id !== affix) : TRYOUT.dares;
   return { ...list[Math.floor(stream(ty.seed, `dare:${p}`).next() * list.length)] };
 }
 
 /** The Grade affix period p carries (Grade 8+, from its affixFrom period), as its TRYOUT.dares entry; null: none. */
 export function affixOf(ty, p) {
-  const id = ty.affixes?.[p];
+  const id = affixIdOf(ty, p);
   return id ? TRYOUT.dares.find((d) => d.id === id) || null : null;
 }
 
@@ -559,7 +560,9 @@ export function chooserOf(ty, p) {
 
 /** A foe spawned (Quick Answer's clock). */
 export function tryoutSpawn(sim, e) {
-  if (e.tier === 'boss' && e.parentUid == null) e.leak = TRYOUT.grades[sim.tryout.grade].bossLeak;
+  // (Extended Day past wave 48, §20.2: a freeplay boss or titan takes the Grade's leak too; the finale, which takes
+  // everything, keeps it)
+  if (e.tier === 'boss' && e.parentUid == null && (sim.wave <= sim.totalWaves || e.leak !== Infinity)) e.leak = TRYOUT.grades[sim.tryout.grade].bossLeak;
   // the Grade affix (Grade 8+) and Double Dare's curse on every foe of the period (never the same one: dareOf)
   if (sim.tryout.base) {
     const affix = affixOf(sim.tryout, sim.tryout.period);
@@ -686,18 +689,20 @@ export function tryoutWaveEnd(sim) {
   });
   ty.base = null;
   sim._emit('tryoutPeriod', { period: p, cleared, score: ty.periods[ty.periods.length - 1].score });
-  if (p >= len.periods) {
+  if (p >= len.periods && !len.endless) {
     ty.done = true;
     return;
   }
-  const pick = len.picks.indexOf(p) + 1;
+  // Extended Day (§20.1, §20.6): past the Full Day the coming periods' Subjects and seats are drawn now; old rows trimmed
+  if (len.endless && p >= len.periods) extendDay(sim, p);
+  const pick = pickAt(len, p);
   if (pick > 0) {
     ty.pickNo = pick;
     ty.players.forEach((pl, i) => {
       if (pl.skipNext) {
         // Whole Class Turns Up's drawback: this pick is skipped (a break after it still opens)
         pl.skipNext = false;
-        if (len.breaks[p]) openBreak(sim, i);
+        if (breakAt(len, p)) openBreak(sim, i);
         return;
       }
       const credits = cleared[i] + pl.bank + (dared ? 1 : 0);
@@ -706,7 +711,7 @@ export function tryoutWaveEnd(sim) {
       pl.win = 'pick';
       pl.winTicks = 0;
     });
-  } else if (len.breaks[p]) ty.players.forEach((_, i) => openBreak(sim, i));
+  } else if (breakAt(len, p)) ty.players.forEach((_, i) => openBreak(sim, i));
   // the coming period: both Subject options' assignments, drawn now so the sheet can show them (§2.4)
   const pair = ty.subjects[p + 1];
   const cur = ty.assign;
