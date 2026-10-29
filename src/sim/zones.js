@@ -126,8 +126,11 @@ function countIn(e) {
 
 const PT = { x: 0, y: 0, facing: 0, seg: 0 };
 
-/** Per path, the sample distance nearest (x, y) within r (none: that path is not under the zone). */
-function anchorsAt(sim, x, y, r2, out) {
+/**
+ * Per path, the sample distance nearest (x, y) within r (none: that path is not under the zone). Also the anchors of
+ * Critical Mass · Event Horizon's pull (src/sim/abilities.js).
+ */
+export function anchorsAt(sim, x, y, r2, out) {
   for (let i = 0; i < sim.pathData.length; i++) {
     const path = sim.pathData[i];
     let best = -1;
@@ -238,32 +241,37 @@ function anchorOn(z, pathIndex) {
   return -1;
 }
 
+/**
+ * One step of a pull toward path distance `at` on the enemy's own path (a well, and Critical Mass · Event Horizon in
+ * src/sim/abilities.js): `amt` tiles at most (the caller has applied KNOCKBACK_RESIST), toward the centre and never
+ * past it; only within `reach` of it by path distance, so a far stretch of the same road that bends back near the
+ * centre (a hairpin) is not pulled. A pull back toward the start spends the freeplay knockback budget (e.kbLeft).
+ */
+export function pullAlong(sim, e, at, amt, reach) {
+  const gap = e.dist - at;
+  if (gap > 0 && gap <= reach) {
+    amt = Math.min(amt, gap);
+    if (e.kbLeft != null) {
+      amt = Math.min(amt, e.kbLeft);
+      e.kbLeft -= amt;
+    }
+    if (amt > 0) {
+      e.dist -= amt;
+      placeOnPath(e, sim.pathData[e.pathIndex]);
+    }
+  } else if (gap < 0 && -gap <= reach) {
+    e.dist += Math.min(amt, -gap);
+    placeOnPath(e, sim.pathData[e.pathIndex]);
+  }
+}
+
 function inWell(e) {
   if (e.hidden) return false;
   const { sim, z } = W;
   const k = KNOCKBACK_RESIST[e.tier] ?? 1;
   const at = k > 0 && W.amt > 0 ? anchorOn(z, e.pathIndex) : -1;
-  if (at >= 0) {
-    // by path distance, toward the centre and never past it; a far stretch of the same road that bends
-    // back near the centre (a hairpin) is not pulled
-    const gap = e.dist - at;
-    const reach = WELL_PULL_REACH * z.r;
-    let amt = W.amt * k;
-    if (gap > 0 && gap <= reach) {
-      amt = Math.min(amt, gap);
-      if (e.kbLeft != null) {
-        amt = Math.min(amt, e.kbLeft);
-        e.kbLeft -= amt;
-      }
-      if (amt > 0) {
-        e.dist -= amt;
-        placeOnPath(e, sim.pathData[e.pathIndex]);
-      }
-    } else if (gap < 0 && -gap <= reach) {
-      e.dist += Math.min(amt, -gap);
-      placeOnPath(e, sim.pathData[e.pathIndex]);
-    }
-  }
+  // by path distance, toward the centre and never past it (pullAlong)
+  if (at >= 0) pullAlong(sim, e, at, W.amt * k, WELL_PULL_REACH * z.r);
   if (W.status) {
     const ctx = sim._statusCtx;
     if (z.slow > 0) {

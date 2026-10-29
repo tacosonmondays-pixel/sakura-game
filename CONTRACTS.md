@@ -1387,7 +1387,13 @@ colours it by; also when no neighbour was there to hit); `effect.after: { mods, 
 (Tenka's Zero Point; any strike pick, Catalyst's too): that ModSet rides on her (`abilMods`) for `duration` s
 after each cast (`active` counts it down: the longer of the ability's own `duration` and the tail's, never their
 sum, and the tail rides until it runs out; the wave clear and a sale end it; a co-op checkpoint carries it). A telegraphed strike's tail (`delay`) starts with the
-cast, not when its shots land. Ability hits never crit and their statuses are certain (no rng draw); a
+cast, not when its shots land. `effect.horizon: { time, pull, share }` (Tenka's LR form Event Horizon, merged from the
+entry's `lr` while her battle stats carry `lr: true`): each blast queues a `'horizon'` item in `sim._abilQueue` that,
+on each of its `time` s of ticks, pulls every enemy within `splash` of the centre `pull` tiles a second toward it by path
+distance (the well's rule, `zones.js pullAlong`: never past it, × `KNOCKBACK_RESIST` of the tier, the freeplay
+knockback budget, hidden enemies untouched), then detonates there: every eligible enemy within `splash` takes the
+same strikes at `share` × the struck enemy's scale (events `abilityHorizon { towerUid, id, x, y, radius, time }`, then
+`abilityShell { …, horizon: true }` and an `explode`). Ability hits never crit and their statuses are certain (no rng draw); a
 miniboss / boss ignores ability freezes and stuns for 4 s after one lands (`e.abilCc`). Lasting effects (a boost's
 `abilMods`, `sim._rallies`, queued hits and shells `sim._abilQueue`) end at every wave clear and on a sale, so a
 calm point holds none. A boost resolves last in `resolveStats` (`extra`, so `towerResolvedStats` sees it); rallies

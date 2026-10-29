@@ -39,13 +39,15 @@
 //   sim._rallies    [{ src, owner, r2, map, dmgMul, rateMul, rangeMul, detection, ward, left, to?, pierceAdd?, life? }]
 //                   (to: the one girl a girl-target rally reaches; pierceAdd: Ouka's Assembly Bell;
 //                   life { every, r2, max, kills, given }: Noa's First Aid Call, counted by abilityKill)
-//   sim._abilQueue  [{ left, src, id, kind: 'hit'|'shell', … }]  delayed hits and shells, FIFO
+//   sim._abilQueue  [{ left, src, id, kind: 'hit'|'shell'|'horizon', … }]  delayed hits and shells, FIFO; a
+//                   'horizon' (Critical Mass · Event Horizon, the LR form) pulls its area every tick it waits:
+//                   { x, y, r, anchors: [{ pathIndex, dist }], pull, spec, hits, scale }
 //   sim._abilOn     girls with an unlocked ability (the step skips all of this while 0)
 //   e.abilCc        (bosses and minibosses only) the step until which ability CC is ignored
 
 import { ABILITY_RULES, abilityAtTier, skillAtLevel, abilityRuns, abilityWithLr } from '../data/abilities.js';
 import { abilityChargePerTick, firstBellCharge } from './gearRules.js';
-import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL, PRISM_SHARDS } from './constants.js';
+import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL, PRISM_SHARDS, KNOCKBACK_RESIST, WELL_PULL_REACH } from './constants.js';
 import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs, chainJump, chainNext } from './towers.js';
 import { isEligible } from './combat.js';
 import { isCaster, syncStatusFlags } from './enemies.js';
@@ -53,6 +55,7 @@ import { spikeRain } from './strips.js';
 import { emergencyDeploy } from './sentries.js';
 import { startRunner } from './runners.js';
 import { samplePath } from './path.js';
+import { anchorsAt, pullAlong } from './zones.js';
 
 const R = ABILITY_RULES;
 
@@ -445,6 +448,69 @@ function strikeAt(sim, t, v, spec, hits, scale, e, step) {
     strikeOne(sim, t, o, spec, hits, share, statusFor(e, o), step);
   }
   sim._emit('explode', { x, y, radius: r, element: spec.element || null, attackType: spec.attackType });
+  if (e.horizon) startHorizon(sim, t, e.horizon, x, y, r, spec, hits, scale, step);
+}
+
+// ---------------------------------------------------------------------------
+// Critical Mass · Event Horizon (Tenka's LR form, BANNERS §C.2): the blast collapses into a gravity pull on its
+// area, then detonates again. Integer tick countdown in the ability queue (so the snapshot, the co-op hash, the
+// wave clear and a sale all treat it like a queued shell); the pull is the well's rule (src/sim/zones.js pullAlong):
+// by path distance toward the centre, never past it, × KNOCKBACK_RESIST of the tier (bosses stand firm,
+// minibosses move at half), spending the freeplay knockback budget; hidden enemies (tunnels) are not pulled.
+// ---------------------------------------------------------------------------
+
+/**
+ * Queues the pull at (x, y) radius r for horizon.time s; the detonation then hits everything eligible there for
+ * horizon.share × the struck enemy's hit (the same strikes, no statuses). `abilityHorizon` tells the FX.
+ */
+function startHorizon(sim, t, h, x, y, r, spec, hits, scale, step) {
+  const it = {
+    left: ticks(h.time), src: t.uid, id: t.abil?.id || null, kind: 'horizon', x, y, r,
+    anchors: anchorsAt(sim, x, y, r * r, []), pull: h.pull || 0, spec, hits, scale: scale * (h.share ?? 0.5),
+  };
+  sim._emit('abilityHorizon', { towerUid: t.uid, id: it.id, x, y, radius: r, time: h.time || 0 });
+  if (it.left > 0) sim._abilQueue.push(it);
+  else horizonBlast(sim, t, it, step);
+}
+
+/** The anchor distance on one path (-1: the area is not over that path). */
+function anchorOn(anchors, pathIndex) {
+  for (let i = 0; i < anchors.length; i++) if (anchors[i].pathIndex === pathIndex) return anchors[i].dist;
+  return -1;
+}
+
+/** tickAbilities' enemies inside a pull (module level: emptied after each use). */
+const PULLED = [];
+
+/** One tick of a waiting horizon's pull on every enemy inside its radius, in grid order. */
+function horizonPull(sim, it) {
+  const amt = it.pull * STEP;
+  if (!(amt > 0)) return;
+  const reach = WELL_PULL_REACH * it.r;
+  PULLED.length = 0;
+  sim.grid.query(it.x, it.y, it.r, PULLED);
+  for (let i = 0; i < PULLED.length; i++) {
+    const e = PULLED[i];
+    if (e.dead || e.hidden) continue;
+    const k = KNOCKBACK_RESIST[e.tier] ?? 1;
+    if (!(k > 0)) continue;
+    const at = anchorOn(it.anchors, e.pathIndex);
+    if (at >= 0) pullAlong(sim, e, at, amt * k, reach);
+  }
+  PULLED.length = 0;
+}
+
+/** The second detonation: every eligible enemy within r of the centre takes `hits` strikes at the queued scale. */
+function horizonBlast(sim, t, it, step) {
+  const spec = it.spec;
+  let n = 0;
+  for (const v of sim.grid.query(it.x, it.y, it.r, [])) {
+    if (v.dead || !isEligible(v, spec)) continue;
+    n++;
+    strikeOne(sim, t, v, spec, it.hits, it.scale, null, step);
+  }
+  sim._emit('abilityShell', { towerUid: t.uid, id: it.id, x: it.x, y: it.y, radius: it.r, hits: n, horizon: true });
+  sim._emit('explode', { x: it.x, y: it.y, radius: it.r, element: spec.element || null, attackType: spec.attackType });
 }
 
 /** A strike's boost tail (`after`: Zero Point): its ModSet on her for after.duration s (the cast sets `active`). */
@@ -1212,6 +1278,10 @@ const NO_EFFECT = Object.freeze({});
 function fireQueued(sim, it, step) {
   const t = sim.getTower(it.src);
   if (!t || t.removed) return;
+  if (it.kind === 'horizon') {
+    horizonBlast(sim, t, it, step);
+    return;
+  }
   if (it.kind === 'hit') {
     const v = it.target;
     if (!v || v.dead || !isEligible(v, it.spec)) {
@@ -1294,6 +1364,8 @@ export function tickAbilities(sim) {
     let n = 0;
     for (let i = 0; i < q.length; i++) {
       const it = q[i];
+      // a waiting Event Horizon pulls on every tick it waits, its last one too (then it detonates)
+      if (it.kind === 'horizon') horizonPull(sim, it);
       if (--it.left <= 0) DUE.push(it);
       else q[n++] = it;
     }
