@@ -2147,6 +2147,73 @@ export function runShapesBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
   return r;
 }
 
+/**
+ * The attack shapes S2 "Held" in one co-op battle (2-4 Hard, to the end or 12 minutes; docs/specs/ATTACK_SHAPES.md
+ * §7.2 step 5b): the host's Akane to the Hearth Stream and Umeko to the Searchlight Sweep, the guest's the same pair.
+ * Once the wave-3 checkpoint exists, the first frame 5 s into a wave with a stream and a sweep channel open is rebuilt
+ * by a third client from that checkpoint and the log (a mid-wave rejoin), which must land on the same hash and snapshot.
+ */
+export const HELD_START = Object.freeze({
+  seed: 252525,
+  stageId: '2-4',
+  difficulty: 'hard',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'akane', stats: SHAPES_STATS }, { unitId: 'umeko', stats: SHAPES_STATS }], hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'umeko', stats: SHAPES_STATS }, { unitId: 'akane', stats: SHAPES_STATS }], hero: null },
+  ],
+});
+const HELD_UPGRADES = Object.freeze([
+  [0, 'akane', 1], [1, 'umeko', 0], [0, 'umeko', 0], [1, 'akane', 1], [0, 'akane', 1], [1, 'umeko', 0], [0, 'umeko', 0], [1, 'akane', 1],
+  [0, 'akane', 1], [1, 'umeko', 0], [0, 'umeko', 0], [1, 'akane', 1], [0, 'akane', 1], [1, 'umeko', 0], [0, 'umeko', 0], [1, 'akane', 1],
+  [0, 'akane', 1], [1, 'umeko', 0], [0, 'umeko', 0], [1, 'akane', 1],
+]);
+
+/**
+ * HELD_START to the end (or 12 minutes): the runPotentialBattle fields plus `held` (stream ticks / sweep hits,
+ * counted on the host's copy) and the mid-wave rejoin (`rejoinTick`, `rejoinSame`).
+ */
+export function runHeldBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
+  const t0 = Date.now();
+  const n = { stream: 0, sweep: 0 };
+  let ck = null;
+  let rejoin = null;
+  const probe = (sim) => {
+    const hit0 = sim._hit;
+    Object.defineProperty(sim, '_hit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function hit(e, tower, spec, ...rest) {
+        if (tower && spec && spec.tick && tower.ch && e && !e.dead) {
+          const b = tower.eff?.behavior;
+          if (b === 'stream' || b === 'sweep') n[b]++;
+        }
+        return hit0.call(this, e, tower, spec, ...rest);
+      },
+    });
+  };
+  const onFrame = (A) => {
+    if (!ck && A.ck && A.ck.wave >= ckWave) ck = { t: A.ck.t, wave: A.ck.wave, json: JSON.stringify(A.ck.snap) };
+    if (!ck || rejoin || A.sim.state !== 'wave' || !(A.sim._waveTime > 5)) return;
+    const open = (b) => A.sim.towers.some((t) => t.ch && t.eff?.behavior === b);
+    if (!open('stream') || !open('sweep')) return;
+    const copy = new Lockstep({ start: HELD_START, mySlot: 1, send: () => {}, now: () => 0 });
+    copy.rebuild(HELD_START, [...A.log], A.tick, { t: ck.t, snap: JSON.parse(ck.json) });
+    rejoin = {
+      tick: A.tick,
+      same: copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash()
+        && snapshotDigest(copy.coop.snapshot()) === snapshotDigest(A.coop.snapshot()),
+    };
+  };
+  const r = runPotentialBattle({ start: HELD_START, upgrades: HELD_UPGRADES, spotsFirst: ['akane', 'umeko'], maxFrames, probe, onFrame });
+  r.held = `${n.stream}/${n.sweep}`;
+  r.ckWave = ck?.wave ?? -1;
+  r.rejoinTick = rejoin?.tick ?? -1;
+  r.rejoinSame = !!rejoin?.same;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
 // ---------------------------------------------------------------------------
 // The duo Kohaku & Tsubaki (docs/specs/DUO_LR.md §4 "Engines scenario DUO_START"): Refraction (the shell counter and
 // the fixed shard table), Kohaku's beam on its tick timer, Prismfall on Auto-cast and its LR form Twin Star
@@ -2335,5 +2402,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), shapes: runShapesBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), modes };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), shapes: runShapesBattle(), held: runHeldBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), modes };
 }
