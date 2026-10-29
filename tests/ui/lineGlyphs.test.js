@@ -91,10 +91,11 @@ describe('line glyphs', () => {
   it('the game icon names chrome uses map onto line glyphs; game-data icons do not', () => {
     for (const [from, to] of Object.entries(LINE_ALIASES)) if (!PENDING_GLYPHS.includes(to)) expect(hasLineGlyph(to), `${from} → ${to}`).toBe(true);
     expect(lineFor('home')).toBe('house');
-    // Tryout Day's aliases: drawn once its glyphs exist, null (ico keeps its old drawing) until then
+    // Tryout Day's aliases: its six glyphs are drawn, so none is pending and each alias draws its line glyph
+    expect(PENDING_GLYPHS).toEqual([]);
     for (const a of ['marble', 'eraser', 'hall-pass', 'hallpass', 'desk', 'stamp', 'chalk']) {
       expect(LINE_ALIASES[a], a).toBeTruthy();
-      expect(lineFor(a), a).toBe(hasLineGlyph(LINE_ALIASES[a]) ? LINE_ALIASES[a] : null);
+      expect(lineFor(a), a).toBe(LINE_ALIASES[a]);
     }
     expect(lineFor('close')).toBe('x');
     expect(lineFor('settings')).toBe('settings');

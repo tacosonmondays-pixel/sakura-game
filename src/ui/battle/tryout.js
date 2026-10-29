@@ -8,17 +8,19 @@
 import { h } from './util.js';
 import { fmtNum } from '../format.js';
 import { svgEl, girlTile } from '../components.js';
-import { rarityTag } from '../kit.js';
+import { rarityTag, moreSticker } from '../kit.js';
+import { onEscape } from '../hold.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { ROLES } from '../../data/types.js';
 import { PEP_CARDS, RARITIES, TRYOUT } from '../../data/tryout.js';
 import { assignProgress, dareOf, chooserOf } from '../../sim/tryout/index.js';
 import { rarityWeights, pityFloor, hasVarsity } from '../../sim/tryout/offers.js';
-import { lengthOf } from '../../sim/tryout/plan.js';
+import { lengthOf, buildTryoutPlan } from '../../sim/tryout/plan.js';
 import { passMax } from '../../sim/tryout/breaks.js';
-import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN, rewardLines, SHARE_TEXT, PHOTO_TEXT, GIRL_CARD_TEXT, TIMETABLE_TEXT } from '../text/tryout.js';
-import { timetableModel, timetableStrip, timetableMini, bandParts, markEl } from './tryout/timetable.js';
+import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN, rewardLines, SHARE_TEXT, PHOTO_TEXT, GIRL_CARD_TEXT, TIMETABLE_TEXT, CAP_TEXT, MORE_TEXT } from '../text/tryout.js';
+import { timetableModel, timetableStrip, timetableMini, bandParts, markEl, previewStrip, periodPreview } from './tryout/timetable.js';
+import { capBar, barWho, oddsTable, capsTable } from './tryout/caps.js';
 import { encodeShareCode } from '../../systems/tryoutRuns.js';
 import { selectedCosmetic } from '../../systems/tryoutJar.js';
 import { store } from '../../core/store.js';
@@ -56,6 +58,14 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   const len = lengthOf(ty().length);
   let moving = null; // uid of the girl a Hall Pass is moving
   let shown = '';
+  // the pick sheet's timetable preview (the key of the open cell, kept over a repaint) and its MORE sheet
+  let pickStrip = null;
+  let ttOpen = null;
+  let moreOpen = false;
+  let offMoreEsc = null;
+  /** The run's plan (pure: its seed, Grade, length and map), for the timetable previews. */
+  let planMemo = null;
+  const plan = () => planMemo || (planMemo = buildTryoutPlan({ seed: ty().seed, grade: ty().grade, length: ty().length, mapId: ty().mapId }));
   // co-op Subject suggestions (§11): a room note outside lockstep (session.sendNote / 'note'), never a sim
   // command. mySuggest: what I suggested to the chooser; allySuggest: what my ally suggested to me
   let mySuggest = null; // { period, k }
@@ -213,7 +223,76 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       c.unit ? svgEl(portraitHTML(UNIT_MAP[c.unit], 'thumb', { eager: true }), 'ty-stn-art') : null,
       h('b.ty-card-nm', t.name),
       h('span.ty-card-ln', ...boldNumbers(t.line)),
-      card?.group === 'board' && ty().coop && (c.id === 'B02' || c.id === 'B04') ? h('span.ty-card-ln.ty-mute', 'Team-wide') : null);
+      card?.group === 'board' && ty().coop && (c.id === 'B02' || c.id === 'B04') ? h('span.ty-card-ln.ty-mute', 'Team-wide') : null,
+      capRow(c, i));
+  }
+
+  /**
+   * The card's cap bar (§4.4, §13.6): its main family for the girl it reaches (a Team or Group card: the one the cap
+   * cuts most), how full that cap is now (ink) and after taking it (cyan); "full value for 4 of 5" when the cap cuts some.
+   */
+  function capRow(c, i) {
+    const bar = capBar(sim, mySlot, c);
+    if (!bar) return null;
+    const pc = (v) => `${Math.round(Math.max(0, Math.min(1, v / bar.cap)) * 1000) / 10}%`;
+    // (a Team or Group card that adds in full to everyone it reaches: "All 5"; else the girl the cap cuts most)
+    const all = bar.of > 1 && bar.full === bar.of;
+    const who = all ? CAP_TEXT.all(bar.of) : barWho(bar);
+    const part = bar.of > 1 && !all ? ` · ${CAP_TEXT.fully(bar.full, bar.of)}` : '';
+    const label = `${who} · ${bar.text}${part}`;
+    return h('span.ty-cap', { 'data-testid': `ty-cap-${i}`, title: label },
+      h('span.ty-cap-ln', h('b.ty-cap-who', who), ` · ${bar.text}`, part ? h('span.ty-cap-part', part) : null),
+      h('span.ty-cap-bar', { role: 'img', 'aria-label': label },
+        h('i.ty-cap-now', { style: { width: pc(bar.now) } }),
+        h('i.ty-cap-add', { style: { left: pc(bar.now), width: pc(bar.after - bar.now) } })));
+  }
+
+  // ---- MORE: the odds table for this pick and the per-girl caps (§3.4, §4.4, §13.6) -------------------------------
+  function morePanel(o) {
+    const p = me();
+    const band = len.bands[o.pick - 1] || 'early';
+    const lrOff = p.lr >= len.lrCap;
+    const rows = oddsTable({ band, credits: o.credits, floor: o.floor || 0, lrOff });
+    const M = MORE_TEXT;
+    const closeBtn = h('button.ty-more-x', { type: 'button', 'data-testid': 'ty-more-close', 'aria-label': M.back, title: M.back, onclick: () => closeMore(true) }, '×');
+    const odds = h('div.ty-more-col', { 'data-testid': 'ty-more-odds' },
+      h('b.ty-more-h', M.odds),
+      h('span.ty-more-sub', M.oddsLine(o.pick, M.bands[band] || band, o.credits)),
+      h('table.ty-more-t',
+        h('thead', h('tr', h('th', { scope: 'col' }, M.credits), ...RARITIES.map((r, k) => h('th', { scope: 'col' }, rTag(k))))),
+        h('tbody', ...rows.map((row) => h(`tr${row.current ? '.cur' : ''}`, { 'data-testid': row.current ? 'ty-more-odds-cur' : null, 'aria-current': row.current ? 'true' : null },
+          h('th', { scope: 'row' }, String(row.credits)), ...row.pct.map((x) => h(`td${x ? '' : '.z'}`, x ? `${x}` : M.none)))))),
+      o.floor > 0 ? h('span.ty-more-note', M.floor(RARITIES[o.floor])) : null,
+      lrOff ? h('span.ty-more-note', M.lrOff) : null);
+    const caps = h('div.ty-more-col', { 'data-testid': 'ty-more-caps' },
+      h('b.ty-more-h', M.caps),
+      h('span.ty-more-sub', M.capsLine),
+      h('table.ty-more-t.caps',
+        h('thead', h('tr', h('th', { scope: 'col' }, M.family), h('th', { scope: 'col' }, M.cap), h('th', { scope: 'col' }, M.top))),
+        h('tbody', ...capsTable(sim, mySlot).map((r) => h('tr', { 'data-testid': `ty-more-cap-${r.id}` },
+          h('th', { scope: 'row' }, M.rows[r.id] || r.id), h('td.cap', r.cap),
+          h('td.top', r.top ? `${r.top}${r.who ? ` · ${r.who}` : ''}` : M.none))))));
+    const box = h('div.ty-sheet.ty-more.ui-day', { role: 'dialog', 'aria-modal': 'true', 'aria-label': M.title, 'data-testid': 'ty-more-sheet' },
+      h('div.ty-shead', h('b.ty-stitle', M.title), closeBtn),
+      h('div.ty-more-body', odds, caps));
+    return h('div.ty-more-wrap', { onclick: (e) => { if (e.target === e.currentTarget) closeMore(true); } }, box);
+  }
+
+  function openMore() {
+    moreOpen = true;
+    ttOpen = null; // (a preview card does not come back under the MORE sheet)
+    shown = ''; // (repaint the sheet with the panel over it)
+    paintPick();
+    sheet.querySelector('[data-testid="ty-more-close"]')?.focus({ preventScroll: true });
+  }
+
+  function closeMore(focus = false) {
+    if (!moreOpen) return;
+    moreOpen = false;
+    offMoreEsc?.();
+    offMoreEsc = null;
+    sheet.querySelector('.ty-more-wrap')?.remove();
+    if (focus) sheet.querySelector('[data-testid="ty-more"]')?.focus({ preventScroll: true });
   }
 
   function paintPick() {
@@ -222,7 +301,13 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     const key = o ? `${o.seq}:${p.erasers}:${ty().players.map((x) => x.win).join()}` : '';
     if (key === shown) return;
     shown = key;
+    // (the old sheet's preview card lets go of its listeners; its key comes back on the new strip)
+    const keep = ttOpen;
+    pickStrip?.close();
+    pickStrip = null;
+    ttOpen = o ? keep : null;
     if (!o) {
+      closeMore();
       sheet.hidden = true;
       syncSheets();
       return;
@@ -241,12 +326,20 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
         h('span.ty-credits', `${o.credits} credit${o.credits === 1 ? '' : 's'} → `, rTag(o.rarity, { testid: 'ty-pick-rarity' })),
         o.floor > 0 ? h('span.ty-note', `Teacher's Note: at least ${RARITIES[o.floor]}`) : null),
       reasons.length ? h('div.ty-reasons', ...reasons) : null,
-      timetableStrip(timetableModel(ty(), len, { mySlot, win: p.win }), { cls: 'ty-tt-sheet' }),
+      (pickStrip = previewStrip(timetableModel(ty(), len, { mySlot, win: p.win }),
+        (n, cell) => periodPreview(plan(), n, { subjects: ty().subjects?.[n] || null, chosen: cell.chosen }),
+        { cls: 'ty-tt-sheet', wrapCls: 'ty-ttw-sheet', open: ttOpen, onToggle: (k) => { ttOpen = k; } })).el,
       h(`div.ty-deck.n${cards.length}`, ...cards),
       h('div.ty-acts',
         h('button.bt-btn', { 'data-testid': 'ty-erase', disabled: p.erasers <= 0, onclick: () => send('tr', ['erase', o.seq]) }, `Eraser (${p.erasers})`),
         h('button.bt-btn', { 'data-testid': 'ty-hand', onclick: () => send('tr', ['hand', o.seq]) }, `Hand it in later (+${fmtNum(pay, 'money')}${last ? '' : ' · next pick +1'})`),
-        partner ? h('span.ty-mute', { 'data-testid': 'ty-partner' }, partner.win === 'pick' ? 'Partner: choosing…' : 'Partner: ✓') : null)));
+        partner ? h('span.ty-mute', { 'data-testid': 'ty-partner' }, partner.win === 'pick' ? 'Partner: choosing…' : 'Partner: ✓') : null,
+        h('span.ty-acts-more', moreSticker(() => (moreOpen ? closeMore(true) : openMore()), { testid: 'ty-more', label: MORE_TEXT.label })))));
+    if (moreOpen) {
+      sheet.append(morePanel(o));
+      offMoreEsc?.();
+      offMoreEsc = onEscape(() => closeMore(true));
+    }
     sheet.hidden = false;
     syncSheets();
   }
@@ -507,6 +600,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     },
     destroy() {
       offNote?.();
+      pickStrip?.close();
+      closeMore();
       el.remove();
     },
   };

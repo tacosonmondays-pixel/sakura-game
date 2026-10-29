@@ -12,17 +12,15 @@
 import '../styles/hubs.css';
 import '../styles/tryout.css';
 import { h, screen, toast, confirmDialog } from '../components.js';
-import { hubTile, countdownChip, secondaryBtn, ico, fillIn } from '../kit.js';
+import { hubTile, countdownChip, secondaryBtn, primaryBtn, fillIn } from '../kit.js';
 import { girlTile } from '../components.js';
 import { hubBackdrop } from '../hubArt.js';
 import { hostStand } from '../host.js';
 import { hubMode, placeHost, viewport, watchHostMode } from '../hubHost.js';
 import { linesFor } from '../hostLines.js';
-import { lineGlyph } from '../lineGlyphs.js';
 import { registerWallet, walletDef } from '../wallets.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
-import { formatNumber } from '../../core/util.js';
 import { SIM_ID } from '../../core/buildInfo.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { getMap } from '../../data/maps.js';
@@ -37,7 +35,7 @@ import { yearbookPages } from '../../systems/tryoutYearbook.js';
 import { buildTryoutPlan } from '../../sim/tryout/plan.js';
 import { MODE_NAME, LENGTH_NAMES, MARBLES, WEEKLY_TEXT, SHARE_TEXT, HUB_TEXT, rewardLines } from '../text/tryout.js';
 import { renderSetup } from './tryoutSetup.js';
-import { renderJar } from './tryoutJar.js';
+import { renderJar, tyIco } from './tryoutJar.js';
 import { renderYearbook } from './tryoutYearbook.js';
 
 /** The Continue band's tiles: the hero and four girls (the rest as "+n"). */
@@ -46,34 +44,9 @@ const SQUAD_SHOWN = 5;
 /** Wakaba hosts the tryouts (hosts.js has no Tryout row yet: the hub builds her stand itself, as hubHost would). */
 export const TRYOUT_HOST = 'wakaba';
 
-// Marbles in the top bar on the Tryout routes (once, at module load; a hot reload keeps the first registration).
-if (!walletDef('marbles')) registerWallet({ id: 'marbles', item: 'ty:marbles', label: MARBLES, glyph: 'marble', screens: ['tryout'] });
-
-/**
- * The bar reads a wallet with itemCount(profile, item), and Marbles live in missions.counters (not profile.items), so
- * the pill would read 0: until the kit's registerWallet takes a count function (a kit request, M3), the Tryout screens
- * write the real balance into their own bar's pill after every store change (this listener runs after the bar's).
- * @param {HTMLElement} el the screen root
- * @returns {() => void} stop
- */
-export function paintMarblesPill(el) {
-  const paint = () => {
-    const v = el.querySelector('.topbar [data-wallet="marbles"] .cur-val');
-    if (v) v.textContent = formatNumber(marbles(store.profile));
-  };
-  paint();
-  const off = store.on('change', paint);
-  const mo = new MutationObserver(() => {
-    if (el.isConnected) return;
-    off();
-    mo.disconnect();
-  });
-  queueMicrotask(() => el.parentNode && mo.observe(el.parentNode, { childList: true }));
-  return () => {
-    off();
-    mo.disconnect();
-  };
-}
+// Marbles in the top bar on the Tryout routes (once, at module load; a hot reload keeps the first registration). They
+// live in the mission counters, not profile.items: the bar reads them through count(profile) (a read-only view).
+if (!walletDef('marbles')) registerWallet({ id: 'marbles', count: (p) => marbles(p), label: MARBLES, glyph: 'marble', screens: ['tryout'] });
 
 /** Pure: the hub's state for Wakaba's lines and the tiles (hostLines.js `tryout`). */
 export function hubState(profile, now = Date.now()) {
@@ -92,7 +65,7 @@ export const stateWord = (s) => (s.locked ? 'locked' : s.running ? 'run' : s.wee
 function tileArt(theme, glyph) {
   return h('span.ty-tile-art',
     h('span.ty-tile-scene', { html: themeBackdropSVG(theme) }),
-    glyph ? h('span.ty-tile-glyph', { html: lineGlyph(glyph, '', { kitSize: false }) }) : null);
+    glyph ? tyIco(glyph, 'ty-tile-glyph') : null);
 }
 
 export function render(root, params = {}) {
@@ -114,7 +87,6 @@ function renderHub(root) {
   const { el, body } = screen(MODE_NAME, { cls: 'ty-screen ty-hub-screen hb-screen' });
   el.insertBefore(hubBackdrop('tryout'), el.firstChild);
   root.appendChild(el);
-  const offPill = paintMarblesPill(el);
 
   let drawn = hubMode(viewport());
   const host = hostStand(UNIT_MAP[TRYOUT_HOST], { lines: linesFor('tryout', hubState(store.profile)), kind: 'hub', mode: drawn, testid: 'host' });
@@ -227,8 +199,7 @@ function renderHub(root) {
     for (const t of squad) t.tabIndex = -1;
     if (ids.length > SQUAD_SHOWN) squad.push(h('span.ui-chip.ink.ty-cont-n', { title: ids.slice(SQUAD_SHOWN).map((id) => UNIT_MAP[id].name).join(', ') }, `+${ids.length - SQUAD_SHOWN}`));
     const line = HUB_TEXT.continueLine(Math.ceil(((run.wave || 0) + 1) / len.wavesPerPeriod), (run.wave || 0) + 1, run.lives ?? TRYOUT.grades[run.grade]?.hearts ?? '');
-    const primary = kind === 'stale' ? null : h('button.ui-hit.ty-pri', { type: 'button', 'data-testid': 'tryout-go-continue', onclick: () => navigate('battle', { tryout: run.id }) },
-      h('span.ui-btn.pri', ico('play'), h('span', HUB_TEXT.continueGo)));
+    const primary = kind === 'stale' ? null : primaryBtn(HUB_TEXT.continueGo, { icon: 'play', testid: 'tryout-go-continue', onClick: () => navigate('battle', { tryout: run.id }) });
     return h('section.ui-panel.ty-cont', { 'data-testid': 'tryout-continue', 'data-kind': kind },
       h('div.ty-cont-squad', { 'aria-label': 'Squad' }, squad),
       h('div.ty-cont-body',
@@ -261,8 +232,5 @@ function renderHub(root) {
   }
 
   draw();
-  return () => {
-    offResize();
-    offPill();
-  };
+  return () => offResize();
 }

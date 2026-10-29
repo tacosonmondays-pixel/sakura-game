@@ -73,7 +73,11 @@ for (const [W, H] of viewports) {
   const page = await context.newPage();
   page.on('console', (m) => { if (m.type() === 'error' && !IGNORE.some((r) => r.test(m.text()))) errors.push(`${W}x${H} ${m.text()}`); });
   page.on('pageerror', (e) => errors.push(`${W}x${H} pageerror ${e.message}`));
-  const shot = async (name) => { if (shotsDir) await page.screenshot({ path: `${shotsDir}/${name}-${W}x${H}.png` }); };
+  // (a screenshot is not a check: a WebGL frame that will not settle under load is logged and the run goes on)
+  const shot = async (name) => {
+    if (!shotsDir) return;
+    await page.screenshot({ path: `${shotsDir}/${name}-${W}x${H}.png`, timeout: 60000 }).catch((e) => log(`  (shot ${name} skipped: ${e.message.split('\n')[0]})`));
+  };
   const screenIs = (name) => page.waitForFunction((n) => document.querySelector('#app')?.dataset.screen === n && !document.documentElement.dataset.tx, name, { timeout: 60000, polling: 100 }).then(() => true).catch(() => false);
   const battleReady = () => page.waitForFunction(() => window.__battle?.ui?.tryoutUi && document.querySelector('#app')?.dataset.screen === 'battle' && !document.documentElement.dataset.tx, null, { timeout: 300000, polling: 250 }).then(() => true).catch(() => false);
 
@@ -107,12 +111,14 @@ for (const [W, H] of viewports) {
   // Before Class: from the Start tile
   await page.click('[data-testid="tryout-tile-start"]');
   check(await page.waitForSelector('[data-testid="tryout-before-class"]', { timeout: 10000 }).then(() => screenIs('tryout')).catch(() => false), 'Start opens Before Class');
-  check(await page.locator('[data-testid^="tryout-draft-"]:not([data-testid="tryout-draft-tag"])').count() === 6, 'six drafted girls');
+  check(await page.locator('[data-testid^="tryout-draft-"]').count() === 6, 'six drafted girls');
   check(await page.locator('.ty-bc-six > .ui-girltile').count() === 6, 'the six are girl tiles');
-  const tags = await page.locator('[data-testid="tryout-draft-tag"]').allTextContents();
-  check(tags.length === 6 && tags.every((t) => /^(Yours|Loaner)$/i.test(t.trim())), `each girl wears a one-line Yours or Loaner chip (${tags})`);
+  const tags = await page.locator('.ty-bc-six [data-testid="card-tag"]').evaluateAll((els) => els.map((e) => ({ t: e.textContent.trim(), title: e.title, h: e.getBoundingClientRect().height })));
+  check(tags.length === 6 && tags.every((t) => /^(Yours|Loaner)$/i.test(t.t) && t.title.startsWith(t.t) && t.h < 30),
+    `each girl wears the kit's one-line Yours or Loaner tag, the full words in its title (${tags.map((t) => `${t.t}/${t.title}`)})`);
   check(await page.locator('[data-testid="tryout-start"]').isDisabled(), 'Start waits for 3 girls');
   check(/Pick 3 more/.test(await page.locator('[data-testid="tryout-start-why"]').textContent().catch(() => '')), 'the disabled Start says why');
+  await shot('ty-before-class-wait');
   // the Grade row: 12 Grades, a locked one says why
   check(await page.locator('[data-testid^="tryout-grade-"]:not([data-testid="tryout-grade-line"])').count() === 12, 'Grades 1-12 in one row');
   const twist = (await page.locator('[data-testid="tryout-grade-line"]').textContent().catch(() => '')).trim();
@@ -347,6 +353,19 @@ for (const [W, H] of viewports) {
   check(await page.waitForSelector('[data-testid="tryout-before-class"][data-mode="practice"]', { timeout: 10000 }).then(() => true).catch(() => false), 'Replay this seed opens a practice Before Class');
   check(await page.locator('[data-testid="tryout-practice-note"]').isVisible(), 'the practice note says it pays nothing');
   await shot('ty-practice');
+  // fix check M3: Back, then a bad code (or a locked Weekly) opens a normal day, never the old practice / Weekly draft
+  const modeAfter = async (hash) => {
+    await page.goto(`${base}#/tryout`);
+    await screenIs('tryout');
+    await page.goto(`${base}${hash}`);
+    await page.waitForSelector('[data-testid="tryout-before-class"]', { timeout: 10000 }).catch(() => {});
+    return page.locator('[data-testid="tryout-before-class"]').getAttribute('data-mode').catch(() => 'missing');
+  };
+  check(await modeAfter('#/tryout/class?code=ZZZZZ-ZZZZZ') === 'normal', 'practice → Back → a bad code: a normal day, not the old practice draft');
+  check(await modeAfter(`#/tryout/class?code=${code}`) === 'practice', 'the good code opens practice again');
+  check(await modeAfter('#/tryout/class?weekly=1') === 'normal', 'practice → Back → ?weekly=1 while the Weekly is locked: a normal day');
+  check(await page.locator('.toast-host .toast').count() > 0, 'a bad code or a locked Weekly says so in a toast');
+  await page.waitForFunction(() => !document.querySelector('.toast-host .toast'), null, { timeout: 10000 }).catch(() => {}); // (clean shots after)
 
   // 10. the Yearbook (from the hub's tile): the rail with its counts, a page per student, a pencil sketch for a Loaner
   await page.goto(`${base}#/tryout`);
@@ -368,6 +387,8 @@ for (const [W, H] of viewports) {
   }, blank);
   await page.goto(`${base}#/tryout/yearbook?tab=girls`);
   await page.waitForSelector(`[data-testid="yb-girl-${blank}"][data-page="pencil"]`, { timeout: 10000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  await screenIs('tryout'); // (the screen change has finished: no half-faded shot)
   const pencil = page.locator(`[data-testid="yb-girl-${blank}"]`);
   check(blank && await pencil.getAttribute('data-page') === 'pencil' && /Not yours yet/i.test(await pencil.textContent()) && await pencil.evaluate((e) => e.classList.contains('locked')),
     `a Loaner's page is a pencil tile: "Not yours yet" (${blank})`);
@@ -426,6 +447,8 @@ for (const [W, H] of viewports) {
   check(await page.waitForSelector('[data-testid="tryout-before-class"][data-mode="weekly"]', { timeout: 10000 }).then(() => true).catch(() => false), 'the Weekly tile opens the week\'s Before Class');
   check(await page.locator('[data-testid^="tryout-grade-"]:not([data-testid="tryout-grade-line"])').count() === 0, 'the Weekly plays a fixed Grade (no Grade row)');
   await shot('ty-before-class-weekly');
+  // fix check M3, the Weekly way: Weekly → Back → a bad code opens a normal day under the ?code= URL, not the Weekly draft
+  check(await modeAfter('#/tryout/class?code=ZZZZZ-ZZZZZ') === 'normal', 'Weekly → Back → a bad code: a normal day, not the old Weekly draft');
   await context.close();
 }
 

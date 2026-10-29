@@ -234,6 +234,69 @@ export const GIRL_CARD_TEXT = {
   againLine: (dmg, rate, cut) => `Varsity: +${dmg}% damage, +${rate}% attack speed, copies ${cut}% cheaper`,
 };
 
+/** A timetable cell's preview (§13.4: tap a cell): the period's foes, their traits, the big foe, the class, the twist. */
+export const PREVIEW_TEXT = {
+  hint: 'Tap a period for its preview',
+  close: 'Close the preview',
+  period: (p) => `Period ${p}`,
+  final: 'Final Period',
+  waves: (a, b) => `waves ${a}-${b}`,
+  foes: 'Foes',
+  traits: { flyers: 'flyers', veiled: 'veiled', heavy: 'heavy armour', regen: 'regenerating', spectral: 'spectral' },
+  noTraits: 'no tricks',
+  miniboss: (w) => `Miniboss · wave ${w}`,
+  boss: (w) => `Boss · wave ${w}`,
+  noSubject: 'No Subject (the first period)',
+  subjectPair: 'Class: one of',
+  subject: 'Class',
+  or: ' or ',
+  backGate: 'History opens the Back Gate: even waves come in by the exit road',
+  affix: 'Grade twist',
+  pick: (n) => `Then Pick ${n}`,
+  tryoutPick: 'Tryouts',
+  examPrep: 'Exam Prep: at least SR',
+  breakAfter: 'Then',
+  breakLine: 'Seat Change, Hall Passes, Snack or Brush Up',
+  bossCell: 'Final boss',
+};
+
+/** The cap bar on a Pep Talk card (§4.4, §13.6): "Kage · Damage +36% → +52% / 100%". */
+export const CAP_TEXT = {
+  fam: {
+    damageMul: 'Damage', rateMul: 'Attack speed', range: 'Reach', critChance: 'Crit', critMul: 'Crit damage', pierce: 'Pierce',
+    projectiles: 'Projectiles', chain: 'Chain jumps', splash: 'Splash', airMul: 'vs flyers', eliteMul: 'vs elites', bossMul: 'vs bosses',
+    barrierMul: 'vs barriers', dotMul: 'Burns and poisons', costCut: 'Cost cut', auraRange: 'Aura reach', auraPoints: 'Aura bonus',
+  },
+  cls: (c) => `vs ${c}`,
+  all: (n) => `All ${n}`,
+  fully: (n, of) => `full value for ${n} of ${of}`,
+  atCap: 'at its cap',
+  label: (fam, now, after, cap) => `${fam} ${now} → ${after} / ${cap}`,
+};
+
+/** The pick sheet's MORE (§13.6): the odds table for this pick and the per-girl caps (§3.4, §4.4). */
+export const MORE_TEXT = {
+  label: 'Odds and caps',
+  title: 'Odds and caps',
+  back: 'Back to the pick',
+  odds: 'This pick\'s odds',
+  oddsLine: (pick, band, credits) => `Pick ${pick} · ${band} picks · ${credits} credit${credits === 1 ? '' : 's'} now`,
+  bands: { early: 'Early', mid: 'Mid', late: 'Late' },
+  credits: 'Credits',
+  floor: (r) => `Teacher's Note: at least ${r}`,
+  lrOff: 'LR already taken: an LR roll becomes UR',
+  caps: 'Caps per girl',
+  capsLine: 'Cards add inside these caps (all run sources together); drawbacks count after the cap.',
+  family: 'Family',
+  cap: 'Cap',
+  top: 'Highest now',
+  rows: {
+    damageMul: 'Damage', rateMul: 'Attack speed', range: 'Reach', crit: 'Crit chance / crit damage', hits: 'Pierce / projectiles / chain',
+    splash: 'Splash', vs: 'Each "vs" bonus', costCut: 'Cost cuts', runDamage: 'Run damage (cards × seat)',
+  },
+  none: '—',
+};
+
 // ---------------------------------------------------------------------------
 // Meta (§10): Marbles, the Lunchbox, the Marble Jar, the Yearbook, the Weekly Timetable, share codes
 // ---------------------------------------------------------------------------
