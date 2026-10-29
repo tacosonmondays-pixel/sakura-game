@@ -1,19 +1,22 @@
-// The returning girls' abilities (A3 M3; ABILITIES_SPEC §5.2, §7.2, §11): the six that run this build — Hana's Kaze's
+// The returning girls' abilities (A3 M3; ABILITIES_SPEC §5.2, §7.2, §11): the ones that run this build — Hana's Kaze's
 // Swoop (map strike on flyers, its fallback), Ruri's Moon Pounce (from Kon's relay origin; bites and a hold bosses
 // shrug off), Noa's First Aid Call (cleanse + ward incl. the volatile stun, lives from kills near her), Ena's Omen Card
 // (curses that burst for 3× her hit through the curse queue), Yoriko's Puppet Hex and Seiran's Storm Lance (hero
-// skills at Lv 7 / 17) — with every refusal, no rng in a cast, and the four that stay off (Fuu, Ruri's other two
-// forms, Iroha, Kanna). Real girls and enemies on the fixture map (a straight road along y 4.5).
+// skills at Lv 7 / 17), and since A5 Fuu's Backdraft Fan (the move kind's push) — with every refusal, no rng in a cast,
+// and the ones that stay off (Ruri's other two forms, Iroha, Kanna). Real girls and enemies on the fixture map (a
+// straight road along y 4.5).
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STAGE, testData, run } from './fixtures.js';
-import { STEP, CC_RESIST, CHAIN_JUMP_RANGE, CURSE_BURSTS_PER_TICK, HEX_BOSS_CAP, SLOW_RESIST } from '../../src/sim/constants.js';
+import { STEP, CC_RESIST, CHAIN_JUMP_RANGE, CURSE_BURSTS_PER_TICK, HEX_BOSS_CAP, SLOW_RESIST, PUSH_LOCK } from '../../src/sim/constants.js';
 import { defaultData } from '../../src/sim/data.js';
 import { typeMultiplier } from '../../src/data/types.js';
 import { ABILITIES, abilityRuns } from '../../src/data/abilities.js';
 import { abilityPathOf, abilityDef, abilityReach, autoWants, handlerOf } from '../../src/sim/abilities.js';
 import { targetScore, relayOrigin, relaySamples } from '../../src/sim/towers.js';
 import { xpToReach, gainHeroXp } from '../../src/sim/hero.js';
+import { snapshotDigest } from '../../src/sim/snapshot.js';
+import { hashSim } from '../../src/online/coop/simHash.js';
 
 const D = defaultData();
 const QUIET = { ...STAGE, waves: 5, waveGen: { pool: [], budget: { start: 1, growth: 1 } } };
@@ -79,7 +82,7 @@ const ready = (t) => {
 
 // ---------------------------------------------------------------------------------------------------------------
 describe('data: the returning girls are attached; abilityRuns picks who gets a button', () => {
-  test('Hana, Ruri (Moonhound), Noa, Ena, Yoriko and Seiran run; Fuu, Ruri\'s Star Falcon / Tide Otter, Iroha and Kanna stay off', () => {
+  test('Hana, Ruri (Moonhound), Noa, Ena, Yoriko, Seiran and (A5) Fuu run; Ruri\'s Star Falcon / Tide Otter, Iroha and Kanna stay off', () => {
     const runs = (e) => abilityRuns(e) && !!handlerOf(e);
     expect(runs(ABILITIES.hana[0])).toBe(true);
     expect(ABILITIES.ruri.map(runs)).toEqual([true, false, false]);
@@ -88,7 +91,9 @@ describe('data: the returning girls are attached; abilityRuns picks who gets a b
     expect(runs(ABILITIES.ena[0])).toBe(true);
     expect(runs(ABILITIES.yoriko.skill)).toBe(true);
     expect(runs(ABILITIES.seiran.skill)).toBe(true);
-    for (const e of [ABILITIES.fuu[0], ABILITIES.iroha[0], ABILITIES.kanna.skill]) expect(runs(e), e.id).toBe(false);
+    expect(runs(ABILITIES.fuu[0])).toBe(true);
+    expect(runs({ ...ABILITIES.fuu[0], ...ABILITIES.fuu[0].t5, effect: { ...ABILITIES.fuu[0].effect, ...ABILITIES.fuu[0].t5.effect } })).toBe(true);
+    for (const e of [ABILITIES.iroha[0], ABILITIES.kanna.skill]) expect(runs(e), e.id).toBe(false);
     // the tier-5 / Lv 17 upgrades never flip it
     expect(runs({ ...ABILITIES.ruri[1], ...ABILITIES.ruri[1].t5 })).toBe(false);
     // every path of Ruri's carries its own entry
@@ -96,7 +101,7 @@ describe('data: the returning girls are attached; abilityRuns picks who gets a b
   });
 
   test('the ones that stay off unlock nothing: no button, the teaser says later, a cast is refused locked', () => {
-    for (const [id, opts] of [['fuu', {}], ['iroha', {}], ['ruri', { path: 'falcon' }], ['ruri', { path: 'otter' }]]) {
+    for (const [id, opts] of [['iroha', {}], ['ruri', { path: 'falcon' }], ['ruri', { path: 'otter' }]]) {
       const sim = mk({ loadout: [id] });
       const t = girl(sim, id, 8.5, 3.4, opts);
       wave(sim);
@@ -755,12 +760,252 @@ describe('Seiran, Storm Lance (hero skill, strike): a chain', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------
+describe('Fuu, Backdraft Fan (move, local: a push along the road)', () => {
+  /** Fuu at (x, y) with Returning Gale at `tier`, in a wave. */
+  function fuu({ x = 8.5, y = 3.4, tier = 3 } = {}) {
+    const sim = mk({ loadout: ['fuu'] });
+    const t = girl(sim, 'fuu', x, y, { tier });
+    wave(sim);
+    return { sim, t };
+  }
+  /** One step to put the parked enemies in the grid, her gusts held (so nothing is pushed or push-locked before the cast). */
+  function settle(sim, t, secs = STEP) {
+    t.disabled = secs + 1;
+    run(sim, secs);
+    t.disabled = 0;
+    sim.drainEvents();
+  }
+
+  test('locked before Returning Gale tier 3; at tier 3 she unlocks it (a third of 40 s left), a real button, not the teaser', () => {
+    const { sim, t } = fuu({ tier: 2 });
+    at(sim, 'orc_grunt', 8);
+    expect(t.abil).toBeUndefined();
+    expect(sim.abilityStatus(t.uid)).toMatchObject({ id: 'fuu.backdraft', kind: 'move', unlocked: false, later: false, unlockTier: 3 });
+    expect(sim.castAbility(t.uid).reason).toBe('locked');
+    sim.drainEvents();
+    expect(sim.upgradeTower(t.uid, abilityPathOf(t.def))).toBe(true);
+    const cdMax = 40 * 60 * 100;
+    expect(t.abil).toMatchObject({ id: 'fuu.backdraft', kind: 'move', scope: 'local', cdMax, cd: Math.round(cdMax / 3), t5: false, n: 0 });
+    expect(events(sim, 'abilityUnlock')).toEqual([expect.objectContaining({ towerUid: t.uid, id: 'fuu.backdraft', kind: 'move' })]);
+    expect(abilityReach(t, abilityDef(t))).toBeCloseTo(1.5 * t.eff.range, 9);
+  });
+
+  test('every non-boss enemy within 1.5× her range: 2 tiles back along its own road (minibosses 1, bosses 0), flyers grounded 2 s, no damage', () => {
+    const { sim, t } = fuu();
+    const grunt = at(sim, 'orc_grunt', 7);
+    const flyer = at(sim, 'slime_bubble', 9);
+    const mini = at(sim, 'orc_general', 10, { hpMul: 1 });
+    const boss = at(sim, 'grave_lych', 8.5, { hpMul: 1 });
+    const far = at(sim, 'orc_grunt', 1); // beyond her reach (4.5 tiles)
+    expect(Math.sqrt(d2(far, t))).toBeGreaterThan(1.5 * t.eff.range);
+    settle(sim, t);
+    ready(t);
+    const before = new Map(sim.enemies.map((e) => [e.uid, { dist: e.dist, hp: e.hp }]));
+    const n = draws(sim, () => expect(sim.castAbility(t.uid)).toMatchObject({ ok: true, casterUid: t.uid }));
+    expect(n).toBe(0);
+    const moved = (e) => before.get(e.uid).dist - e.dist;
+    expect(moved(grunt)).toBe(2);
+    expect(moved(flyer)).toBe(2);
+    expect(moved(mini)).toBe(1);
+    expect(moved(boss)).toBe(0);
+    expect(moved(far)).toBe(0);
+    // the road runs straight along y 4.5 from x −0.5: 2 tiles back by path distance is 2 tiles west
+    expect(grunt.x).toBeCloseTo(5, 9);
+    expect(grunt.y).toBeCloseTo(ROAD_Y, 9);
+    for (const e of sim.enemies) expect(e.hp, e.id).toBe(before.get(e.uid).hp);
+    // the flyer is grounded 2 s; the walkers take no ground; the push lock is on everyone moved
+    expect(flyer.grounded).toBe(true);
+    expect(flyer.statuses.ground.left).toBe(2 * CC_RESIST.normal);
+    expect(grunt.statuses.ground).toBeUndefined();
+    expect(grunt.pushLock).toBe(PUSH_LOCK.normal);
+    expect(mini.pushLock).toBe(PUSH_LOCK.miniboss);
+    expect(boss.pushLock).toBe(0);
+    const ev = events(sim, 'ability')[0];
+    expect(ev).toMatchObject({ kind: 'move', id: 'fuu.backdraft', scope: 'local', x: t.x, y: t.y, moved: 3 });
+    expect(ev.radius).toBeCloseTo(1.5 * t.eff.range, 9);
+    expect(ev.targets).toEqual([grunt, flyer, mini].map((e) => e.uid).sort((a, b) => a - b));
+    expect(t.abil.cd).toBe(t.abil.cdMax);
+    expect(sim.castAbility(t.uid).reason).toBe('cooldown');
+  });
+
+  test('clamped at the road\'s start; the freeplay push budget (kbLeft) pays for the tiles it really moves', () => {
+    const { sim, t } = fuu({ x: 1.5 });
+    const near = at(sim, 'orc_grunt', 0); // 0.5 tiles in
+    const mini = at(sim, 'orc_general', 0.2, { hpMul: 1 }); // 0.7 in: a 1-tile push stops at the start
+    const start = at(sim, 'orc_grunt', -0.5); // standing on the start: nothing to move
+    const budget = at(sim, 'orc_grunt', 4);
+    budget.kbLeft = 0.5;
+    settle(sim, t);
+    ready(t);
+    expect(sim.castAbility(t.uid).ok).toBe(true);
+    for (const e of [near, mini, start]) {
+      expect(e.dist, e.id).toBe(0);
+      expect(e.x).toBeCloseTo(-0.5, 9);
+    }
+    expect(budget.dist).toBe(4.5 - 0.5);
+    expect(budget.kbLeft).toBe(0);
+    expect(near.pushLock).toBe(PUSH_LOCK.normal);
+    expect(start.pushLock).toBe(0); // not moved, so not locked
+    expect(events(sim, 'ability')[0].moved).toBe(3);
+  });
+
+  test('the push lock: an enemy moved inside its window stays put (still grounded), and moves again once it passes', () => {
+    const { sim, t } = fuu();
+    const grunt = at(sim, 'orc_grunt', 8);
+    const flyer = at(sim, 'slime_bubble', 9);
+    const gusted = at(sim, 'orc_grunt', 10);
+    settle(sim, t);
+    gusted.pushLock = 1; // as her own gust leaves it (PUSH_LOCK_KITS: Fuu)
+    const d0 = gusted.dist;
+    ready(t);
+    expect(sim.castAbility(t.uid).ok).toBe(true);
+    expect(gusted.dist).toBe(d0);
+    expect(events(sim, 'ability')[0].moved).toBe(2);
+    // half a second later, again: nobody moves (every lock still runs), the flyer's ground is refreshed, the cast counts
+    const g = grunt.dist;
+    const f = flyer.dist;
+    settle(sim, t, 0.5);
+    ready(t);
+    expect(sim.castAbility(t.uid).ok).toBe(true);
+    expect([grunt.dist, flyer.dist, gusted.dist]).toEqual([g, f, d0]);
+    expect(flyer.statuses.ground.left).toBe(2);
+    expect(events(sim, 'ability')[0]).toMatchObject({ moved: 0, targets: [grunt.uid, flyer.uid, gusted.uid] });
+    // the grounding lasts 2 s
+    settle(sim, t, 1.9);
+    expect(flyer.grounded).toBe(true);
+    settle(sim, t, 0.2);
+    expect(flyer.grounded).toBe(false);
+    // the locks long passed: the next cast moves them again
+    ready(t);
+    expect(sim.castAbility(t.uid).ok).toBe(true);
+    expect(g - grunt.dist).toBe(2);
+    expect(f - flyer.dist).toBe(2);
+  });
+
+  test('tier 5: 3 tiles (minibosses still 1), grounded 3 s, recharging in 32 s', () => {
+    const { sim, t } = fuu({ tier: 5 });
+    expect(t.abil).toMatchObject({ t5: true, cdMax: 32 * 60 * 100 });
+    const grunt = at(sim, 'orc_grunt', 8);
+    const flyer = at(sim, 'slime_bubble', 9);
+    const mini = at(sim, 'orc_general', 10, { hpMul: 1 });
+    settle(sim, t);
+    const d = [grunt, flyer, mini].map((e) => e.dist);
+    ready(t);
+    expect(sim.castAbility(t.uid).ok).toBe(true);
+    expect([grunt, flyer, mini].map((e, i) => d[i] - e.dist)).toEqual([3, 3, 1]);
+    expect(flyer.statuses.ground.left).toBe(3);
+    expect(t.abil.cd).toBe(32 * 60 * 100);
+  });
+
+  test('refused with nothing spent: before a wave, with only a boss or no one in reach, sabotaged; co-op: only her owner fires her', () => {
+    const { sim, t } = fuu();
+    ready(t);
+    sim.state = 'between';
+    expect(sim.castAbility(t.uid).reason).toBe('notWave');
+    wave(sim);
+    expect(sim.castAbility(t.uid).reason).toBe('noTarget');
+    const boss = at(sim, 'grave_lych', 8.5, { hpMul: 1 });
+    settle(sim, t);
+    const d = boss.dist;
+    expect(sim.castAbility(t.uid)).toEqual({ ok: false, reason: 'noTarget', casterUid: t.uid });
+    expect(boss.dist).toBe(d);
+    t.disabled = 1;
+    expect(sim.castAbility(t.uid).reason).toBe('disabled');
+    t.disabled = 0;
+    expect(t.abil).toMatchObject({ cd: 0, n: 0 });
+    // a partner's Fuu (player 1): player 0's tap is refused, nothing spent; hers casts
+    const p1 = girl(sim, 'fuu', 10.5, 3.4);
+    p1.owner = 1;
+    const grunt = at(sim, 'orc_grunt', 9.5);
+    settle(sim, t);
+    ready(p1);
+    const g = grunt.dist;
+    expect(sim.castAbility(p1.uid, { owner: 0 }).reason).toBe('notYours');
+    expect([grunt.dist, p1.abil.cd, p1.abil.n]).toEqual([g, 0, 0]);
+    expect(sim.castAbility(p1.uid, { owner: 1 })).toMatchObject({ ok: true, casterUid: p1.uid });
+    expect(g - grunt.dist).toBe(2);
+    expect(events(sim, 'ability')[0]).toMatchObject({ towerUid: p1.uid, owner: 1 });
+  });
+
+  test('auto: 5 enemies in her reach (4 are not enough)', () => {
+    const { sim, t } = fuu();
+    for (let k = 0; k < 4; k++) at(sim, 'orc_grunt', 7 + k * 0.6);
+    settle(sim, t);
+    expect(autoWants(sim, t, abilityDef(t))).toBe(false);
+    at(sim, 'orc_grunt', 9.6);
+    settle(sim, t);
+    expect(autoWants(sim, t, abilityDef(t))).toBe(true);
+  });
+
+  test('a snapshot taken mid-effect (grounded flyers, push locks) restores exactly and runs on the same', () => {
+    const args = {
+      stageId: QUIET.id, difficulty: 'normal', seed: 5, loadout: [{ unitId: 'fuu' }],
+      data: testData({ stage: QUIET, units: D.units, enemies: D.enemies }),
+    };
+    const sim = new Sim(args);
+    sim.cash = 1e9;
+    const t = girl(sim, 'fuu', 8.5, 3.4);
+    wave(sim);
+    for (let k = 0; k < 6; k++) at(sim, k % 2 ? 'slime_bubble' : 'orc_grunt', 6 + k * 0.8);
+    settle(sim, t);
+    ready(t);
+    expect(sim.castAbility(t.uid).ok).toBe(true);
+    run(sim, 0.5);
+    expect(sim.enemies.some((e) => e.grounded)).toBe(true);
+    expect(sim.enemies.some((e) => e.pushLock > 0)).toBe(true);
+    const snap = JSON.parse(JSON.stringify(sim.snapshot()));
+    const copy = new Sim(args).restore(snap);
+    expect(snapshotDigest(copy.snapshot())).toBe(snapshotDigest(sim.snapshot()));
+    for (const s of [sim, copy]) {
+      run(s, 1);
+      ready(s.getTower(t.uid));
+      expect(s.castAbility(t.uid).ok).toBe(true);
+      run(s, 3);
+    }
+    expect(snapshotDigest(copy.snapshot())).toBe(snapshotDigest(sim.snapshot()));
+    expect(hashSim(copy)).toBe(hashSim(sim));
+  });
+
+  test('determinism: the same seed and the same casts twice are the same battle (sim hash)', () => {
+    const play = () => {
+      const stage = { ...STAGE, waves: 4, startCash: 1e9, waveGen: { ...STAGE.waveGen, pool: [{ enemy: 'orc_grunt', weight: 2, from: 1 }, { enemy: 'slime_bubble', weight: 1, from: 1 }], budget: { start: 40, growth: 1.3 }, spacing: 0.3 } };
+      const sim = new Sim({ stageId: stage.id, seed: 17, loadout: [{ unitId: 'fuu' }], data: testData({ stage, units: D.units, enemies: D.enemies }) });
+      sim.cash = 1e9;
+      const a = girl(sim, 'fuu', 8.5, 3.4, { tier: 5 });
+      const b = girl(sim, 'fuu', 4.5, 5.6);
+      sim.setAbilityAuto(b.uid, true);
+      let casts = 0;
+      let moved = 0;
+      const hashes = [];
+      for (let i = 0; i < 4000 && sim.state !== 'won' && sim.state !== 'lost'; i++) {
+        if (sim.state !== 'wave') sim.startNextWave();
+        if (i % 90 === 0 && sim.abilityStatus(a.uid).ready) sim.castAbility(a.uid);
+        sim.update(STEP);
+        for (const ev of sim.drainEvents()) {
+          if (ev.type === 'ability') {
+            casts++;
+            moved += ev.moved;
+          }
+        }
+        if (i % 500 === 0) hashes.push(hashSim(sim));
+      }
+      return { hashes, casts, moved, hash: hashSim(sim), digest: snapshotDigest(sim.snapshot()) };
+    };
+    const one = play();
+    expect(one.casts).toBeGreaterThan(2);
+    expect(one.moved).toBeGreaterThan(5);
+    expect(play()).toEqual(one);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------
 describe('every live returning ability: refusals, and no random number in a cast', () => {
   const CASES = [
     ['hana', { loadout: ['hana'] }, { tier: 3 }],
     ['ruri', { loadout: ['ruri'] }, { tier: 3 }],
     ['noa', { loadout: ['noa', 'aoi'] }, { tier: 3 }],
     ['ena', { loadout: ['ena'] }, { tier: 3 }],
+    ['fuu', { loadout: ['fuu'] }, { tier: 3 }],
     ['yoriko', { hero: 'yoriko' }, { level: 7 }],
     ['seiran', { hero: 'seiran' }, { level: 7 }],
   ];
