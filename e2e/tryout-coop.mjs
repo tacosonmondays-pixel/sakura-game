@@ -310,11 +310,29 @@ const read1 = async (p, want) => {
   }));
 };
 const p1 = [await read1(A, '^Home Time ✓'), await read1(B, 'votes Home Time')];
-check(/^Home Time ✓ · waiting for Bea$/.test(p1[0].pill) && p1[0].on && /^Aiko votes Home Time · tap to agree$/.test(p1[1].pill) && !p1[1].on,
+// (a narrow screen, 480 px or less, has the shorter words: "Home Time ✓ · waiting", "Aiko votes Home Time")
+check(/^Home Time ✓ · waiting( for Bea)?$/.test(p1[0].pill) && p1[0].on && /^Aiko votes Home Time( · tap to agree)?$/.test(p1[1].pill) && !p1[1].on,
   `the pills say who has voted: the host waits for Bea, the guest is asked to agree (${JSON.stringify(p1.map((x) => x.pill))})`);
 check(p1.every((x) => x.flag0 && !x.flag1 && x.state === 'between'), `the HUD flags the host's vote on both tabs; the run goes on until both vote (${JSON.stringify(p1)})`);
 await snap(A, 'tycoop-home-vote-host');
 await snap(B, 'tycoop-home-vote-guest');
+// a long ally name (16 characters, the most a name may have) ellipsizes alone: the pill stays one line and in view
+await front(B);
+const longName = await B.evaluate(async () => {
+  const s = window.__battle.coop.session;
+  const was = s.player.bind(s);
+  s.player = (i) => (i === 0 ? { ...(was(0) || {}), name: 'Aikoaikoaikoaiko' } : was(i));
+  await new Promise((r) => setTimeout(r, 600));
+  const el = document.querySelector('[data-testid="home-time"]');
+  const r = el?.getBoundingClientRect();
+  const nm = el?.querySelector('.bt-home-name');
+  const lh = parseFloat(getComputedStyle(el).lineHeight) || parseFloat(getComputedStyle(el).fontSize) * 1.3;
+  // (every part inside the pill: nothing spills past its edge)
+  const fits = !!r && [...el.children].every((c) => c.getBoundingClientRect().right <= r.right + 1);
+  return { fits, text: el?.textContent, oneLine: !!r && r.height < 2 * lh, inView: !!r && r.left >= 0 && r.right <= innerWidth + 1, cut: !!nm && nm.scrollWidth > nm.clientWidth, ally: el?.classList.contains('ally') };
+});
+check(longName.oneLine && longName.inView && longName.ally && /votes Home Time/.test(longName.text || '') && longName.fits, `a long ally name keeps the pill on one line, in view, with the ally style (${JSON.stringify(longName)})`);
+await snap(B, 'tycoop-home-vote-guest-longname');
 // the guest taps the pill (the real button: its vote is queued for the lockstep), then the same command lands on both
 await front(B);
 await B.click('[data-testid="home-time"]');

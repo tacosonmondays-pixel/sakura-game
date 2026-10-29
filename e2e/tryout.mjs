@@ -339,7 +339,8 @@ for (const [W, H] of viewports) {
       wave: document.querySelector('[data-testid="hud-wave"]')?.textContent || '',
       scout: document.querySelector('[data-testid="scout-label"]')?.textContent || '',
       chip: !!document.querySelector('[data-testid="hud-freeplay"]:not([hidden])'),
-      banners: window.__banners.filter((t) => /WAVE (49|5\d)/.test(t)).slice(-1)[0] || '',
+      // (every wave banner past 48: a map's own wave line, e.g. a rear ambush, may stand in for one of them)
+      banners: window.__banners.filter((t) => /WAVE (49|5\d)/.test(t)).join(' | '),
     }));
     check(/Wave 54 · Stay Late/.test(hud.band), `the tracker counts waves past 48 (${hud.band})`);
     check(!/\/48|of 48/.test(hud.wave) && /54/.test(hud.wave) && !hud.chip, `the HUD shows the wave alone, no freeplay chip (${hud.wave})`);
@@ -361,6 +362,28 @@ for (const [W, H] of viewports) {
     check(pill && pillTxt === 'Home Time' && pillFit && await page.locator('[data-testid="finish-here"]').isHidden(),
       `between waves past 48 the wave control shows Home Time, in view, and no freeplay Finish (${pillTxt})`);
     await shot('ty-home-time-button');
+    // (the game running again, Auto off: the question holds it still, and Escape lets it go again)
+    await page.evaluate(() => { const { sim, ui } = window.__battle; sim.options.autoStart = false; ui.paused = false; });
+    await page.click('[data-testid="home-time"]');
+    await page.waitForSelector('[data-testid="confirm-ok"]', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(150);
+    const focusStay = await page.evaluate(() => document.activeElement?.dataset?.testid || document.activeElement?.textContent || '');
+    const heldEsc = await page.evaluate(() => window.__battle.ui.paused === true);
+    await page.keyboard.press('Escape');
+    const escGone = await page.waitForSelector('[data-testid="confirm-ok"]', { state: 'detached', timeout: 5000 }).then(() => true).catch(() => false);
+    const afterEsc = await page.evaluate(() => ({ paused: window.__battle.ui.paused, state: window.__battle.sim.state, pause: !document.querySelector('[data-testid="pause-menu"]')?.hidden }));
+    check(focusStay === 'confirm-cancel' && heldEsc && escGone && !afterEsc.paused && afterEsc.state === 'between' && !afterEsc.pause,
+      `the question opens with Stay Late focused; Escape answers Stay Late and lets the game run again (focus ${focusStay}, ${JSON.stringify(afterEsc)})`);
+    // (a 7-girl squad on the photo, test-only: the Run Score must still sit above the buttons, v0.1.61 review)
+    const squadN = await page.evaluate(async () => {
+      const { sim, ui } = window.__battle;
+      ui.paused = true;
+      const { TRYOUT_STUDENTS } = await import('/src/data/tryout.js');
+      const sq = sim.tryout.players[0].squad;
+      for (const id of TRYOUT_STUDENTS) if (sq.length < 7 && !sq.includes(id)) sq.push(id);
+      sq.length = Math.min(sq.length, 7);
+      return sq.length;
+    });
     await page.click('[data-testid="home-time"]');
     const asked = await page.waitForSelector('[data-testid="confirm-ok"]', { timeout: 10000 }).then(() => true).catch(() => false);
     const askTxt = await page.locator('.modal-overlay').textContent().catch(() => '');
@@ -382,6 +405,14 @@ for (const [W, H] of viewports) {
     check(ph && photoTxt.title === 'Home Time' && /^Wave (5\d)$/.test(photoTxt.wave) && photoTxt.seed && !photoTxt.code && photoTxt.random,
       `the Class Photo is Home Time with its wave headline, the seed line and the Random Class ribbon (${JSON.stringify(photoTxt)})`);
     check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'the Home Time photo fits the width');
+    const scoreFit = await page.evaluate(() => {
+      const sc = document.querySelector('[data-testid="ty-photo-sheet"] .ty-score-big')?.getBoundingClientRect();
+      const acts = document.querySelector('[data-testid="ty-photo-sheet"] .ty-photo-acts')?.getBoundingClientRect();
+      const best = document.querySelector('[data-testid="ty-photo-best"]')?.getBoundingClientRect();
+      return { score: sc ? Math.round(sc.bottom) : null, best: best ? Math.round(best.bottom) : null, acts: acts ? Math.round(acts.top) : null };
+    });
+    check(scoreFit.score != null && scoreFit.acts != null && scoreFit.score <= scoreFit.acts + 0.5 && (scoreFit.best == null || scoreFit.best <= scoreFit.acts + 0.5),
+      `with ${squadN} girls the Run Score (and its New best line) ends above the photo's buttons (${JSON.stringify(scoreFit)})`);
     // the records (§20.5, §20.8): the best wave for this Grade with its New best ribbon, the milestone row (50 ticked)
     const rec = await page.evaluate(() => ({
       best: document.querySelector('[data-testid="ty-photo-wave-best"]')?.textContent || '',
@@ -404,14 +435,18 @@ for (const [W, H] of viewports) {
     // the highest open Grade); Extended Day shows each Grade's own best wave (Grade 2 none yet, Grade 1 this run's)
     await page.click('[data-testid="ty-again"]');
     await page.waitForSelector('[data-testid="tryout-before-class"]', { timeout: 30000 }).catch(() => {});
-    if (await page.locator('[data-testid="tryout-before-class"][data-length="after"]').count() === 0) await page.click('[data-testid="tryout-length-after"]').catch(() => {});
-    await page.waitForSelector('[data-testid="tryout-before-class"][data-length="after"]', { timeout: 5000 }).catch(() => {});
+    await screenIs('tryout');
+    // (Before Class may still be drawing: the Extended Day tap is tried until the day says so)
+    for (let i = 0; i < 5 && await page.locator('[data-testid="tryout-before-class"][data-length="after"]').count() === 0; i++) {
+      await page.click('[data-testid="tryout-length-after"]', { timeout: 5000 }).catch(() => {});
+      await page.waitForSelector('[data-testid="tryout-before-class"][data-length="after"]', { timeout: 3000 }).catch(() => {});
+    }
     const g2 = await page.evaluate(() => ({
       open: !document.querySelector('[data-testid="tryout-grade-2"]')?.classList.contains('locked'),
       title: document.querySelector('.ty-bc-title')?.textContent || '',
       best: !!document.querySelector('[data-testid="tryout-aw-best"]'),
     }));
-    check(g2.open && /Grade 2/.test(g2.title) && !g2.best, `reaching P12 opened Grade 2; its Extended Day has no best wave yet (${JSON.stringify(g2)})`);
+    check(g2.open && /^Extended Day · Grade 2/.test(g2.title) && !g2.best, `reaching P12 opened Grade 2; its Extended Day has no best wave yet (${JSON.stringify(g2)})`);
     await page.click('[data-testid="tryout-grade-1"]');
     const bcBest = await page.waitForSelector('[data-testid="tryout-aw-best"]', { timeout: 10000 }).then((e) => e.textContent()).catch(() => '');
     check(new RegExp(`Best wave ${rec.wave}`).test(bcBest), `Before Class shows the Extended Day best wave for Grade 1 (${bcBest})`);

@@ -1475,7 +1475,11 @@ is unaffected. No other game's or anime's names appear in this spec. No player n
 
 ## 20. Extended Day and Random Class (addendum, Oct 29)
 
-> **Status (Oct 29): written, not built.** The build waits for the next weekly usage reset unless the owner says go.
+> **Status: v1 shipped in v0.1.60** (the Extended Day and Random Class sims, the length option, the room and solo toggle,
+> the pick reveal; `COOP_PROTOCOL` 12). **v0.1.61** adds the rewards and records (§20.5: best wave per Grade, the 50 / 75 /
+> 100 milestones, P12 as a Full Day clear) and Home Time (§20.1, Q-A6), all outside the sim. Known gap: §20.6.
+>
+> *Original status (Oct 29): written, not built.* The build waits for the next weekly usage reset unless the owner says go.
 > Scope agreed with the coordinator: **v1** = this addendum and an owner board, the Extended Day sim (§20.1-20.3), the
 > Random Class sim (§20.4), and a minimal UI (the length option, the room and solo toggle, the pick reveal). **v2** =
 > rewards and records (§20.5), perf hardening past wave 100, and the rest of §20.8. It is a sim change: a
@@ -1634,6 +1638,11 @@ count in co-op too, under the same rules as the existing `a_try_*` rows. Achieve
     already live in `ty.score` and `pl.cleared`.
   - `ty.subjects` and the seat `blocks` keep only the current and next entries.
   - `p.picks` past the first 24 is kept as counts by rarity.
+  - **Known gap (v0.1.61, needs a sim change):** a shrunk period row keeps neither its Double Dare nor its By the Window
+    mark, so `ty:dare` (Daredevil) and `ty:win` (Window Watcher) cannot count the periods older than the last 12 of a
+    long Extended Day (the assignments, Every Box Ticked and the Yearbook's cards are counted from what survives the
+    trim). Fix at the next sim bump: keep `dare` and a per-player window flag in the shrunk row
+    (`src/sim/tryout/extended.js` `extendDay`), and read them in `src/systems/tryoutRewards.js`.
 - **Gate:** snapshots under 150 KB at wave 100 and under 250 KB at wave 150, measured by the bot (E5). Co-op checkpoints
   already split into `part` messages, so size affects only time.
 - Share codes stay Half/Full only in v1 (the 10-character code has one length bit). An Extended Day seed is shown as

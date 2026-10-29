@@ -9,7 +9,7 @@ import { TRYOUT_META } from '../../src/data/tryoutMeta.js';
 import { CHAPTERS } from '../../src/data/stages.js';
 import { achievementList, claimAchievement } from '../../src/systems/missions.js';
 import {
-  applyTryoutResult, applyTryoutRecord, assignmentsIn, fullPeriods, takenCards, extendedRunScore, extendedBest,
+  applyTryoutResult, applyTryoutRecord, assignmentsIn, fullPeriods, takenCards, picksFolded, extendedRunScore, extendedBest,
   marblesFor, resultFromRecord,
 } from '../../src/systems/tryoutRewards.js';
 import { gradeCleared } from '../../src/systems/tryoutRuns.js';
@@ -174,14 +174,29 @@ describe('Extended Day: rows the Sim shrank are still counted (§20.6)', () => {
     expect(assignmentsIn(rows, 1)).toBe(1 + 0 + 2 + 1);
     expect(fullPeriods(rows, 0)).toBe(2);
     // (pick rows past the first 24 that brought no girl and no LR fold into counts: the hand still has the card)
-    const pl = { picks: [{ pick: 1, rarity: 0, card: 'E01' }, { pick: 2, rarity: 1, girl: 'rei' }], cards: [{ id: 'E01', r: 0 }, { id: 'B02', r: 1 }, { id: 'P06', unit: 'aoi', r: 2 }] };
-    expect(takenCards(pl, 'after')).toEqual(['E01', 'B02', 'P06']);
-    expect(takenCards(pl, 'full')).toEqual(['E01']);
+    const hand = [{ id: 'E01', r: 0 }, { id: 'B02', r: 1 }, { id: 'P06', unit: 'aoi', r: 2 }, { id: 'T_aoi', unit: 'aoi', r: 2 }];
+    const few = { picks: [{ pick: 1, rarity: 0, card: 'E01' }, { pick: 2, rarity: 1, girl: 'rei' }], cards: hand };
+    // nothing folded yet: only the pick rows count (the hand is not read)
+    expect(picksFolded(few, 'after')).toBe(false);
+    expect(takenCards(few, 'after')).toEqual(['E01']);
+    // folded (a gap past pick 24, before the newest 12; or a record's pickCounts): the hand too, never the Hidden
+    // Talent card an LR girl's arrival package granted (no pick row took it)
+    const pickRows = [...Array.from({ length: 24 }, (_, i) => ({ pick: i + 1, rarity: 0, card: i === 0 ? 'E01' : 'E02' })),
+      ...Array.from({ length: 12 }, (_, i) => ({ pick: 40 + i, rarity: 0, card: 'E02' }))];
+    const folded = { picks: pickRows, cards: hand };
+    expect(picksFolded(folded, 'after')).toBe(true);
+    expect([...new Set(takenCards(folded, 'after'))]).toEqual(['E01', 'E02', 'B02', 'P06']);
+    expect([...new Set(takenCards(folded, 'full'))]).toEqual(['E01', 'E02']);
+    expect(picksFolded({ picks: few.picks, pickCounts: [3, 0, 0, 0, 0] }, 'after')).toBe(true);
+    expect(picksFolded({ picks: pickRows, pickCounts: [0, 0, 0, 0, 0] }, 'after')).toBe(false);
     const p = profileTo('2-5');
-    const out = applyTryoutResult(p, extResult({ n: 20, wavesCleared: 80, picks: pl.picks, cards: pl.cards }), { rec: { id: 'a' }, now: NOW });
+    const out = applyTryoutResult(p, extResult({ n: 20, wavesCleared: 80, picks: folded.picks, cards: hand }), { rec: { id: 'a' }, now: NOW });
     expect(out.run.assignments).toBe(60);
     expect(c(p)[K.ticked]).toBe(1);
-    expect(Object.keys(p.tryoutMeta.yb.cards).sort()).toEqual(['B02', 'E01', 'P06']);
+    expect(Object.keys(p.tryoutMeta.yb.cards).sort()).toEqual(['B02', 'E01', 'E02', 'P06']);
+    const q = profileTo('2-5');
+    applyTryoutResult(q, extResult({ n: 14, wavesCleared: 56, picks: few.picks, cards: hand }), { rec: { id: 'b' }, now: NOW });
+    expect(Object.keys(q.tryoutMeta.yb.cards)).toEqual(['E01']);
   });
 
   it('a real run past P13: the paid assignments equal the Sim\'s own count, though its oldest rows are shrunk', () => {

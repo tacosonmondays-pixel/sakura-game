@@ -25,6 +25,7 @@ import { capBar, barWho, oddsTable, capsTable } from './tryout/caps.js';
 import { isRandomRun, isExtendedRun, viewLength, revealOf, revealStep, extendedPast, periodMarks, affixOf, FULL_PERIODS } from './tryout/adapters.js';
 import { createHomeTime } from './tryout/homeTime.js';
 import { encodeShareCode } from '../../systems/tryoutRuns.js';
+import { extendedRunScore } from '../../systems/tryoutRewards.js';
 import { selectedCosmetic } from '../../systems/tryoutJar.js';
 import { store } from '../../core/store.js';
 import '../styles/tryoutBattle.css';
@@ -86,7 +87,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   const random = isRandomRun(ty());
   const extended = isExtendedRun(ty());
   // Extended Day past wave 48: Home Time for the wave control's pill (solo: asks, then ends the run; co-op: my vote)
-  const homeTime = extended ? createHomeTime(ctx, { mySlot, confirm: confirmDialog }) : null;
+  const homeTime = extended ? createHomeTime(ctx, { mySlot, confirm: confirmDialog, onEscape }) : null;
   if (homeTime) ctx.homeTime = homeTime;
   /** The strip's cells (an Extended Day: P12 is not the Final, the day goes on after it). */
   const timetableModel = (...a) => (extended ? extendedCells(baseModel(...a)) : baseModel(...a));
@@ -693,8 +694,14 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     // Extended Day (§20.8, minimal): the title is Home Time and the headline the wave the day reached
     const waveN = Math.max(0, sim.wavesCleared ?? sim.wave ?? 0);
     const title = extended ? EXTENDED_TEXT.homeTime : won ? PHOTO_TEXT.title : PHOTO_TEXT.defeat;
-    // (an Extended Day: the paid Run Score, which leaves out the hearts term, §20.5; the Sim's own runScore keeps it)
-    const runScore = extended && Number.isFinite(run?.score) ? run.score : res.runScore[mySlot];
+    // (an Extended Day: the Run Score without the hearts term, §20.5: the paid one, else (practice, a co-op run already
+    // paid) the same rule read off the result; the Sim's own runScore keeps the hearts term)
+    const extScore = extended ? (Number.isFinite(run?.score) ? run.score : extendedRunScore(res, mySlot)) : null;
+    const runScore = Number.isFinite(extScore) ? extScore : res.runScore[mySlot];
+    // (the best wave and the milestones: beside the "Wave N" headline; on a short screen, at the top of the right
+    // column, so the pose and the Run Score stay above the sticky buttons, v0.1.61 review)
+    const record = extended && run?.waves ? waveRecord(run.waves) : null;
+    const shortScreen = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-height: 430px)').matches;
     const pl = res.players[mySlot];
     const picks = h('div.ty-picks', ...pl.picks.map((p) => h('span.ty-pickchip', rTag(p.rarity), h('span', pickName(p)))));
     const backdrop = selectedCosmetic(store.profile, 'backdrop');
@@ -705,13 +712,13 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
         h('span.ty-mute', extended ? EXTENDED_TEXT.reachedWave(waveN, res.periods.length) : won ? PHOTO_TEXT.allPeriods(res.periods.length, sim.lives) : PHOTO_TEXT.reached(res.periods.length + 1))),
       h('div.ty-photo-main',
         h('div.ty-photo-left',
-          extended ? h('div.ty-wave-big', { 'data-testid': 'ty-photo-wave' }, EXTENDED_TEXT.wave(waveN)) : null,
-          extended && run?.waves ? waveRecord(run.waves) : null,
+          extended ? h('div.ty-wave-row', h('div.ty-wave-big', { 'data-testid': 'ty-photo-wave' }, EXTENDED_TEXT.wave(waveN)), shortScreen ? null : record) : null,
           pose(pl.squad, pl),
           h('div.ty-score-big', h('span.lbl', PHOTO_TEXT.score), h('span.num', fmtNum(runScore, 'count', { detail: true }))),
           run?.best?.isNew ? h('div.ty-best', { 'data-testid': 'ty-photo-best' }, PHOTO_TEXT.best)
             : run?.best?.best > 0 ? h('div.ty-mute', PHOTO_TEXT.bestIs(fmtNum(run.best.best, 'count', { detail: true }))) : null),
         h('div.ty-photo-right',
+          shortScreen ? record : null,
           stampGrid(res, pl),
           pl.picks.length ? picks : null,
           run && !paidNothing && lines.length ? h('div.ty-rewards', { 'data-testid': 'ty-photo-rewards' },

@@ -18,9 +18,13 @@
 // ty:full, the +6 Marbles); its Run Score has no hearts term (Home Time by choice or by hearts pays the same). Past 12
 // periods the Sim shrinks old period rows to { period, score, cleared } and folds old pick rows into counts (§20.6), so
 // the assignments and the Pep Talks taken are read from what survives the trim (assignmentsIn, fullPeriods, takenCards).
+// KNOWN GAP (needs a sim change, so it waits for the next sim bump): ty:dare (Daredevil) and ty:win (Window Watcher)
+// cannot count a shrunk row, which keeps neither the period's Double Dare nor its By the Window mark; the periods
+// older than the last 12 of a long Extended Day count for neither. The fix, at the next sim bump: keep `dare` and a
+// per-player window flag in the shrunk row (src/sim/tryout/extended.js extendDay; TRYOUT_DAY.md §20.6).
 // A practice run (§12.3, share codes) pays only the periods banked before it turned practice (rec.paidPeriods) and
 // counts nothing else: no Grade clear, no achievements, no records, no Yearbook.
-import { TRYOUT } from '../data/tryout.js';
+import { TRYOUT, PEP_CARDS } from '../data/tryout.js';
 import { TRYOUT_META } from '../data/tryoutMeta.js';
 import { CHAPTERS, STAGE_MAP } from '../data/stages.js';
 import { UNIT_MAP } from '../data/units.js';
@@ -201,12 +205,34 @@ export function fullPeriods(periods, slot = 0) {
 }
 
 /**
- * The Pep Talks player `pl` took (the Yearbook's card stamps): the pick rows' cards, and in an Extended Day also the
- * cards in hand, since pick rows past the first 24 that brought no girl and no LR are folded into counts (§20.6).
+ * Were some of player `pl`'s pick rows folded into counts (§20.6)? A record's snapshot says so (`pickCounts`); a
+ * finished run's result does not carry the counts, so there a pick number past the first `keepPicks` and before the
+ * newest `keepPicksNew` that has no row of its own tells (a skipped pick leaves a gap too: then the hand is read as
+ * well, which only ever adds cards the player held).
+ */
+export function picksFolded(pl, length) {
+  if (length !== 'after') return false;
+  if (Array.isArray(pl?.pickCounts)) return pl.pickCounts.some((n) => whole(n) > 0);
+  const X = TRYOUT.afterSchool;
+  const nums = new Set((pl?.picks || []).map((p) => p?.pick).filter(Number.isInteger));
+  const max = Math.max(0, ...nums);
+  for (let k = X.keepPicks + 1; k <= max - X.keepPicksNew; k++) if (!nums.has(k)) return true;
+  return false;
+}
+
+/**
+ * The Pep Talks player `pl` took (the Yearbook's card stamps): the pick rows' cards; and when an Extended Day folded
+ * pick rows into counts (§20.6, picksFolded), the cards in hand too, but never a Hidden Talent card that no pick row
+ * took (an LR girl's arrival package grants hers: it was never a pick).
  */
 export function takenCards(pl, length) {
   const out = (pl?.picks || []).filter((p) => p?.card).map((p) => p.card);
-  if (length === 'after') for (const c of pl?.cards || []) if (typeof c?.id === 'string' && !out.includes(c.id)) out.push(c.id);
+  if (!picksFolded(pl, length)) return out;
+  for (const c of pl?.cards || []) {
+    if (typeof c?.id !== 'string' || out.includes(c.id)) continue;
+    if (PEP_CARDS[c.id]?.group === 'talent') continue;
+    out.push(c.id);
+  }
   return out;
 }
 
@@ -391,6 +417,8 @@ export function resultFromRecord(rec) {
         squad: Array.isArray(p?.squad) ? p.squad.filter((x) => typeof x === 'string') : [],
         picks: Array.isArray(p?.picks) ? p.picks.filter(isObj) : [],
         cards: Array.isArray(p?.cards) ? p.cards.filter(isObj) : [],
+        // (an Extended Day's folded pick rows, §20.6: takenCards reads the hand only when some were folded)
+        ...(Array.isArray(p?.pickCounts) ? { pickCounts: p.pickCounts.map(whole) } : null),
         ...(Number.isInteger(p?.moves) ? { moves: p.moves } : null),
         // (the Yearbook's seen Pep Talks and the girls who tried out, as a finished run gives them)
         seen: Array.isArray(p?.seen) ? p.seen.filter((x) => typeof x === 'string') : [],

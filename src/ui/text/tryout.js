@@ -573,6 +573,10 @@ export const HOME_TEXT = {
   vote: 'Home Time? Vote',
   voted: (ally) => `Home Time ✓ · waiting for ${ally}`,
   both: 'Home Time ✓ · going home',
+  // (a narrow screen, 480 px wide or less: the same, shorter, so the pill keeps one line beside Auto)
+  votedShort: 'Home Time ✓ · waiting',
+  allyVotedShort: (ally) => `${ally} votes Home Time`,
+  bothShort: 'Home Time ✓',
   allyVoted: (ally) => `${ally} votes Home Time · tap to agree`,
   ally: 'your ally',
   title: 'Home Time',

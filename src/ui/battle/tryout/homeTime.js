@@ -33,21 +33,54 @@ export function homeTimeState(sim, { slot = 0, coop = false, votes = null, pendi
   };
 }
 
-/** The pill's words: solo "Home Time"; co-op says who has voted. */
-export function homeTimeLabel(st, allyName = HOME_TEXT.ally) {
+/** The pill's words: solo "Home Time"; co-op says who has voted (`short`: a narrow screen's shorter words). */
+export function homeTimeLabel(st, allyName = HOME_TEXT.ally, { short = false } = {}) {
   if (!st?.coop) return HOME_TEXT.button;
-  if (st.mine) return st.ally ? HOME_TEXT.both : HOME_TEXT.voted(allyName);
-  if (st.ally) return HOME_TEXT.allyVoted(allyName);
+  if (st.mine) return st.ally ? (short ? HOME_TEXT.bothShort : HOME_TEXT.both) : short ? HOME_TEXT.votedShort : HOME_TEXT.voted(allyName);
+  if (st.ally) return short ? HOME_TEXT.allyVotedShort(allyName) : HOME_TEXT.allyVoted(allyName);
   return HOME_TEXT.vote;
+}
+
+/**
+ * The pill's words in three parts, [before, name, after], so the wave control can ellipsize a long ally name alone and
+ * keep the pill on one line (name '' when the words carry none).
+ */
+export function homeTimeParts(st, allyName = HOME_TEXT.ally, o = {}) {
+  const MARK = '\u0000';
+  const text = homeTimeLabel(st, MARK, o);
+  const i = text.indexOf(MARK);
+  if (i < 0) return [text, '', ''];
+  return [text.slice(0, i), String(allyName), text.slice(i + MARK.length)];
+}
+
+/**
+ * The solo question's Escape and focus (local to Home Time, the shared dialog keeps its own keys): "Stay Late" takes
+ * the focus when the question opens, and Escape answers it ("Stay Late"), through `onEscape` (src/ui/hold.js, the
+ * capture-phase Escape stack, so the battle's own Escape never sees the key). @returns {() => void} undo
+ */
+export function stayLateKeys(onEscape) {
+  if (typeof document === 'undefined') return () => {};
+  const box = [...document.querySelectorAll('.modal-overlay')].pop() || null;
+  const stay = () => box?.querySelector('[data-testid="confirm-cancel"]') || null;
+  const focus = () => stay()?.focus?.({ preventScroll: true });
+  focus();
+  // (the dialog may move the focus once it has painted: Stay Late takes it back then)
+  const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame(focus) : 0;
+  const off = typeof onEscape === 'function' ? onEscape(() => stay()?.click()) : null;
+  return () => {
+    if (raf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf);
+    off?.();
+  };
 }
 
 /**
  * The battle side: `ctx.homeTime` for the wave control. Solo asks (the game held still meanwhile) and ends the run;
  * co-op queues this player's vote (a second tap takes it back). A feed line says when the ally votes.
  * @param {object} ctx battle context (controller.js): sim, feed, coop?, paused
- * @param {{ mySlot?: number, confirm?: (text: string, o: object) => Promise<boolean> }} o
+ * @param {{ mySlot?: number, confirm?: (text: string, o: object) => Promise<boolean>, onEscape?: (fn: () => void) => () => void }} o
+ *   onEscape: src/ui/hold.js's Escape stack (Escape answers the solo question with Stay Late)
  */
-export function createHomeTime(ctx, { mySlot = 0, confirm = null } = {}) {
+export function createHomeTime(ctx, { mySlot = 0, confirm = null, onEscape = null } = {}) {
   const { sim } = ctx;
   const ls = ctx.coop?.lockstep || null;
   let pending = null;
@@ -82,9 +115,14 @@ export function createHomeTime(ctx, { mySlot = 0, confirm = null } = {}) {
     const was = !!ctx.paused;
     ctx.paused = true;
     let ok = false;
+    let keys = null;
     try {
-      ok = confirm ? await confirm(HOME_TEXT.ask(sim.wavesCleared), { title: HOME_TEXT.title, ok: HOME_TEXT.ok, cancel: HOME_TEXT.cancel }) : true;
+      const answer = confirm ? confirm(HOME_TEXT.ask(sim.wavesCleared), { title: HOME_TEXT.title, ok: HOME_TEXT.ok, cancel: HOME_TEXT.cancel }) : true;
+      // (the dialog is in the page now: Stay Late takes the focus, Escape answers Stay Late)
+      if (confirm) keys = stayLateKeys(onEscape);
+      ok = await answer;
     } finally {
+      keys?.();
       asking = false;
       ctx.paused = was;
     }
@@ -100,5 +138,5 @@ export function createHomeTime(ctx, { mySlot = 0, confirm = null } = {}) {
     allySaid = ally;
   }
 
-  return { state, tap, update, label: (st) => homeTimeLabel(st, allyName()), get asking() { return asking; } };
+  return { state, tap, update, label: (st, o) => homeTimeLabel(st, allyName(), o), parts: (st, o) => homeTimeParts(st, allyName(), o), get asking() { return asking; } };
 }

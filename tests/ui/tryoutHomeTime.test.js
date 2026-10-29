@@ -9,7 +9,7 @@ import { Sim } from '../../src/sim/Sim.js';
 import { buildTryoutPlan, buildTryoutStage } from '../../src/sim/tryout/plan.js';
 import { createCoopSim } from '../../src/online/coop/commands.js';
 import { coopStart } from '../../tools/tryoutBot.mjs';
-import { homeTimeOpen, homeTimeState, homeTimeLabel, createHomeTime } from '../../src/ui/battle/tryout/homeTime.js';
+import { homeTimeOpen, homeTimeState, homeTimeLabel, homeTimeParts, createHomeTime } from '../../src/ui/battle/tryout/homeTime.js';
 import { HOME_TEXT, WAVE_RECORD_TEXT } from '../../src/ui/text/tryout.js';
 
 function makeSim(length = 'after', seed = 4242) {
@@ -67,6 +67,14 @@ describe('when Home Time is on offer', () => {
     expect(ally).toMatchObject({ mine: false, ally: true });
     expect(homeTimeLabel(ally, 'Bea')).toBe('Bea votes Home Time · tap to agree');
     expect(homeTimeLabel(homeTimeState(sim, { coop: true, votes: [true, true] }), 'Bea')).toBe('Home Time ✓ · going home');
+    // the words in parts: a long ally name ellipsizes alone (the pill stays one line)
+    expect(homeTimeParts(ally, 'Bea the Very Long')).toEqual(['', 'Bea the Very Long', ' votes Home Time · tap to agree']);
+    expect(homeTimeParts(mine, 'Bea')).toEqual(['Home Time ✓ · waiting for ', 'Bea', '']);
+    expect(homeTimeParts(homeTimeState(sim), 'Bea')).toEqual(['Home Time', '', '']);
+    // (a narrow screen: shorter words)
+    expect(homeTimeLabel(ally, 'Bea', { short: true })).toBe('Bea votes Home Time');
+    expect(homeTimeLabel(mine, 'Bea', { short: true })).toBe('Home Time ✓ · waiting');
+    expect(homeTimeParts(ally, 'Bea', { short: true })).toEqual(['', 'Bea', ' votes Home Time']);
     // a queued vote counts as mine until the lockstep applies it
     expect(homeTimeState(sim, { coop: true, votes: [false, false], pending: true }).mine).toBe(true);
     // (solo has no votes)
@@ -91,6 +99,33 @@ describe('solo: the button asks, then ends the run as Home Time', () => {
     expect(sim.result()).toMatchObject({ won: false, finished: true, freeplay: 'tryout' });
     expect(ht.state().show).toBe(false);
     expect(await ht.tap()).toBe(false);
+  });
+
+  it('Escape answers the question with Stay Late and un-pauses; Stay Late has the focus (local to Home Time)', async () => {
+    const sim = past48(makeSim());
+    const ctx = { sim, paused: false };
+    // (a stand-in page: the dialog's Stay Late button, and an Escape stack like src/ui/hold.js onEscape)
+    let settle = null;
+    const stay = { focused: false, focus() { this.focused = true; }, click() { settle(false); } };
+    const box = { querySelector: (q) => (q === '[data-testid="confirm-cancel"]' ? stay : null) };
+    const escStack = [];
+    const onEscape = (fn) => { escStack.push(fn); return () => escStack.splice(escStack.indexOf(fn), 1); };
+    const had = globalThis.document;
+    globalThis.document = { querySelectorAll: () => [box] };
+    try {
+      const ht = createHomeTime(ctx, { onEscape, confirm: () => new Promise((r) => { settle = r; }) });
+      const done = ht.tap();
+      expect(stay.focused).toBe(true);
+      expect(ctx.paused).toBe(true);
+      expect(escStack).toHaveLength(1);
+      escStack.at(-1)(); // Escape
+      expect(await done).toBe(false);
+      expect(ctx.paused).toBe(false);
+      expect(escStack).toHaveLength(0); // (the Escape handler goes with the question)
+      expect(sim.state).toBe('between');
+    } finally {
+      globalThis.document = had;
+    }
   });
 
   it('a no changes nothing; before wave 48 the tap does nothing', async () => {

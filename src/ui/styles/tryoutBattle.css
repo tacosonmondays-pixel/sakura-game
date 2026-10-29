@@ -441,6 +441,8 @@ html[data-reduce-motion] .ty-layer .ty-stn > .ty-glint { animation: none; backgr
 .ty-layer .ty-wave-big { font: italic 900 26px/1.1 var(--font-head); color: var(--ink); }
 /* under it (§20.8): the best wave for this Grade with its New best ribbon, and the milestone row (50 / 75 / 100): a
    stamp reached this run, a faded stamp reached before, an open ring not yet */
+/* (the headline and the record share one row; on a short screen the record sits atop the right column instead) */
+.ty-layer .ty-wave-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
 .ty-layer .ty-wrec { display: flex; flex-direction: column; gap: 4px; }
 .ty-layer .ty-wrec-best { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; font-weight: 700; color: var(--ink); }
 .ty-layer .ty-wrec-new {

@@ -41,7 +41,9 @@ export function createWaveControl(ctx) {
     const voted = !!ctx.myFinishVote?.();
     // (Home Time: only an Extended Day past its 48, between waves; its words say who has voted in co-op)
     const ht = ctx.homeTime?.state?.() || null;
-    const htText = ht?.show ? ctx.homeTime.label(ht) : '';
+    // (a narrow screen: shorter words, so the pill keeps one line beside Auto)
+    const narrow = !!ht?.coop && typeof window !== 'undefined' && window.innerWidth <= 480;
+    const htText = ht?.show ? ctx.homeTime.label(ht, { short: narrow }) : '';
     const key = `${canStart}|${sim.wave}|${sim.options.autoStart}|${sim.state}|${atClear}|${voted}|${fp?.id}|${htText}|${ht?.mine}|${ht?.ally}`;
     if (key !== last) {
       last = key;
@@ -54,7 +56,10 @@ export function createWaveControl(ctx) {
       finish.classList.toggle('on', voted);
       finish.textContent = voted ? 'Finish ✓ — tap to keep going' : 'Finish here';
       home.hidden = !ht?.show;
-      home.textContent = htText;
+      // (the ally's name ellipsizes alone, so the pill stays one line: battle.css .bt-home-name)
+      const [pre, name, post] = ht?.show ? ctx.homeTime.parts?.(ht, { short: narrow }) || [htText, '', ''] : ['', '', ''];
+      home.replaceChildren(...[pre ? h('span', pre) : null, name ? h('span.bt-home-name', name) : null, post ? h('span', post) : null].filter(Boolean));
+      home.title = htText;
       home.classList.toggle('on', !!ht?.mine);
       home.classList.toggle('ally', !!ht?.ally && !ht?.mine);
       if (ht?.coop) home.setAttribute('aria-pressed', String(!!ht.mine));
