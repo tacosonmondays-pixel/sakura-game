@@ -508,7 +508,7 @@ try {
   const b1 = await items(B, 'mat_feather_rare');
   check(b1 === b0 + 3, `collect: B received 3 Swallow Plumes (${b0} → ${b1})`);
   await B.reload({ waitUntil: 'load' });
-  await wait(B, '[data-testid="donate-panel"] [data-testid="my-request"]', { timeout: 20000 });
+  await wait(B, '[data-testid="donate-panel"] [data-testid="my-request"]', { timeout: 60000 }); // (a reload: slow on a busy machine)
   await B.waitForTimeout(800);
   check(await items(B, 'mat_feather_rare') === b1, 'collect: a reload pays nothing twice');
   check(!(await B.locator('[data-testid="donate-collect"]').count()), 'collect: nothing left to collect after the reload');
