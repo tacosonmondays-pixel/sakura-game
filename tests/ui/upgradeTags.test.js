@@ -20,7 +20,7 @@ import {
 // familiar / mirror reach tags read Enemies / Her / Her)
 const COMBOS = {
   self: 231, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi; +11: Tenka; +14: Kohaku & Tsubaki; -1: Kage's Blade Cyclone)
-  'enemies* + self': 35,
+  'enemies* + self': 34, // (-1: Yuki's Shatter Point turns into Rising Spikes, attack shapes S3)
   'enemies + self': 51, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41; +1: the duo's Thousand Star Bombardment stun; -1: Akane's Phoenix Feather turns into the Hearth Stream)
   allies: 58, // (+12: Wakaba, +1: Yuzuha, +15: Ouka)
   enemies: 32, // (+4: Tenka; -1: the v0.1.41 Marumi / Kaede reworks)
@@ -38,7 +38,7 @@ const COMBOS = {
   'coins + self': 1,
   'coins + self+X': 1, // (Momo's Jackpot turns into the Coin Wheel, attack shapes S1)
   'enemies + self+X': 4, // (+1: Akane's Phoenix Feather turns into the Hearth Stream, attack shapes S2)
-  'enemies* + self+X': 1,
+  'enemies* + self+X': 2, // (+1: Yuki's Shatter Point turns into Rising Spikes, attack shapes S3)
   'allies + enemies': 2,
 };
 

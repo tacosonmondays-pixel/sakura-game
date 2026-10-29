@@ -100,6 +100,30 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
       h.int(ch.hits.length);
       for (let i = 0; i < ch.hits.length; i++) h.int(ch.hits[i]);
     }
+    // attack shapes S3 (src/sim/vines.js, src/sim/ground.js), each list only while it holds something this wave:
+    // Bramble Road vines (and her vine timer), spike rows and quake rings with their re-hit memories (integers; a
+    // vine's root and length in 1/256 tiles); battles without them keep their digest
+    const vs = t.vines;
+    if (vs && vs.length) {
+      h.int(vs.length).int(t.vineCd ?? -1);
+      for (const v of vs) h.int(v.uid).int(v.pathIndex).int(v.root * 256).int(v.len * 256).int(v.age).int(v.life).int(v.held);
+    }
+    const rows = t.spikeRows;
+    if (rows && rows.length) {
+      h.int(rows.length);
+      for (const r of rows) {
+        h.int(r.uid).int(r.age).int(r.next).int(r.n).int(r.hit.length);
+        for (let i = 0; i < r.hit.length; i++) h.int(r.hit[i]);
+      }
+    }
+    const qs = t.quakes;
+    if (qs && qs.length) {
+      h.int(qs.length);
+      for (const q of qs) {
+        h.int(q.uid).int(q.wait).int(q.g).int(q.i).int(q.skip).int(q.hit.length);
+        for (let i = 0; i < q.hit.length; i++) h.int(q.hit[i]);
+      }
+    }
   }
   // open zones (wells, Last Line), only while there is one: a battle without zones keeps its digest
   const zs = sim.zones;
