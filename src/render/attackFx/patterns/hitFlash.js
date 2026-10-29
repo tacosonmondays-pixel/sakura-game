@@ -18,6 +18,8 @@ export const FLASH_CAPS = {
 export const FLASH_LIFE = 0.08;
 export const FLASH_LIFE_SOFT = 0.14;
 export const FLASH_GAP = 0.12;
+/** Tiles a flash is drawn toward the camera from the body centre (so the body never hides it). */
+export const FLASH_PUSH = 0.42;
 
 /**
  * Size, alpha and white→colour mix of a flash at life fraction k (pure).
@@ -109,6 +111,11 @@ export class FlashLayer {
     this.newThisFrame = 0;
     const ctx = this.ctx;
     const soft = ctx.reduceMotion;
+    // the camera's backward axis (world): a flash at a body centre would sit inside the body
+    const m = ctx.camera?.matrixWorld?.elements;
+    const px = m ? m[8] * FLASH_PUSH : 0;
+    const ph = m ? m[9] * FLASH_PUSH : 0;
+    const pz = m ? m[10] * FLASH_PUSH : 0;
     const live = this.live;
     let n = 0;
     for (let i = 0; i < live.length; i++) {
@@ -122,19 +129,22 @@ export class FlashLayer {
       live[n++] = f;
       if (f.t >= f.life) continue;
       flashShape(f.t / f.life, soft, _s);
-      const m = _s.mix;
-      const r = 1 + (f.r - 1) * m;
-      const g = 1 + (f.g - 1) * m;
-      const b = 1 + (f.b - 1) * m;
+      const mx = _s.mix;
+      const r = 1 + (f.r - 1) * mx;
+      const g = 1 + (f.g - 1) * mx;
+      const b = 1 + (f.b - 1) * mx;
+      const x = f.x + px;
+      const h = f.h + ph;
+      const z = f.z + pz;
       const s = f.size * _s.scale * (1 + f.swell);
       if (soft) {
-        ctx.quadRGB(ctx.b.bbA, CORE, f.x, f.h, f.z, s * 1.3, s * 1.3, ctx.R.glow, f.r, f.g, f.b, _s.alpha);
+        ctx.quadRGB(ctx.b.bbA, CORE, x, h, z, s * 1.3, s * 1.3, ctx.R.glow, f.r, f.g, f.b, _s.alpha);
         continue;
       }
       // the star, a hot white pin in its middle and a small coloured glow under it
-      ctx.quadRGB(ctx.b.bbA, CORE, f.x, f.h, f.z, s, s, ctx.R.star, r, g, b, _s.alpha, f.rot);
-      ctx.quadRGB(ctx.b.bbA, CORE, f.x, f.h, f.z, s * 0.42, s * 0.42, ctx.R.star, 1, 1, 1, _s.alpha, f.rot + 0.785);
-      ctx.quadRGB(ctx.b.bbA, CORE, f.x, f.h, f.z, s * 1.1, s * 1.1, ctx.R.glow, f.r, f.g, f.b, _s.alpha * 0.45);
+      ctx.quadRGB(ctx.b.bbA, CORE, x, h, z, s, s, ctx.R.star, r, g, b, _s.alpha, f.rot);
+      ctx.quadRGB(ctx.b.bbA, CORE, x, h, z, s * 0.42, s * 0.42, ctx.R.star, 1, 1, 1, _s.alpha, f.rot + 0.785);
+      ctx.quadRGB(ctx.b.bbA, CORE, x, h, z, s * 1.1, s * 1.1, ctx.R.glow, f.r, f.g, f.b, _s.alpha * 0.45);
     }
     live.length = n;
   }

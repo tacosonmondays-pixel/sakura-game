@@ -104,6 +104,18 @@ export function kaedeLayers(ctx) {
   return L;
 }
 
+/** Ground direction toward the camera (x, z of its backward axis, normalised), or (0, 1). */
+function towardCamera(ctx, out) {
+  const m = ctx.camera?.matrixWorld?.elements;
+  const x = m ? m[8] : 0;
+  const z = m ? m[10] : 1;
+  const l = Math.hypot(x, z) || 1;
+  out.x = x / l;
+  out.z = z / l;
+  return out;
+}
+const _cam = { x: 0, z: 1 };
+
 /** Ghost colours, oldest (left at her spot) to newest: maple red to amber. */
 const GHOST_HEX = ['#d8283a', '#ff5a2e', '#ff8a2e', '#ffb347'];
 const _hits = [];
@@ -175,7 +187,9 @@ export const kaede = {
     const c = ctx.col('#ff9e57');
     d.flip = -d.flip;
     const mid = Math.atan2(-dx, -dy);
-    const st = L.streaks.add(SWEEP, e.x, h - 0.05, e.z, 0.46 * size, mid - 1.3 * d.flip, mid + 1.3 * d.flip, 0.17 * size, 0.5 * d.flip, c, 0.18);
+    // (centred a little in front of her target, so its body never hides the arc)
+    towardCamera(ctx, _cam);
+    const st = L.streaks.add(SWEEP, e.x + _cam.x * 0.3, h, e.z + _cam.z * 0.3, 0.46 * size, mid - 1.3 * d.flip, mid + 1.3 * d.flip, 0.17 * size, 0.5 * d.flip, c, 0.18);
     if (st) {
       st.cr = ORANGE[0] + (CRIMSON[0] - ORANGE[0]) * k;
       st.cg = ORANGE[1] + (CRIMSON[1] - ORANGE[1]) * k;
