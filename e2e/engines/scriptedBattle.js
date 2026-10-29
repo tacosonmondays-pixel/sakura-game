@@ -2316,6 +2316,77 @@ export function runGroundBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
   return r;
 }
 
+/**
+ * The attack shapes S4 "Links" in one co-op battle (2-4 Hard, to the end or 12 minutes; docs/specs/ATTACK_SHAPES.md
+ * §7.2 step 5b): the host's Fuu to Heaven's Gate Wind (Homecoming Throw) and Ena to Threads of Destiny (Spirit Tether),
+ * the guest's Ena and Fuu the same, so every girl's hits run the share hook on tied enemies. Once the wave-3 checkpoint
+ * exists, the first frame 5 s into a wave with a fan in the air and a tether group alive is rebuilt by a third client
+ * from that checkpoint and the log (a mid-wave rejoin), which must land on the same hash and snapshot.
+ */
+const LINKS_STATS = { costMul: 0.05, damageMul: 0.5, rateMul: 1 };
+export const LINKS_START = Object.freeze({
+  seed: 272727,
+  stageId: '2-4',
+  difficulty: 'hard',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'fuu', stats: LINKS_STATS }, { unitId: 'ena', stats: LINKS_STATS }], hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'ena', stats: LINKS_STATS }, { unitId: 'fuu', stats: LINKS_STATS }], hero: null },
+  ],
+});
+const LINKS_UPGRADES = Object.freeze([
+  [0, 'fuu', 0], [1, 'ena', 2], [0, 'ena', 2], [1, 'fuu', 0], [0, 'fuu', 0], [1, 'ena', 2], [0, 'ena', 2], [1, 'fuu', 0],
+  [0, 'fuu', 0], [1, 'ena', 2], [0, 'ena', 2], [1, 'fuu', 0], [0, 'fuu', 0], [1, 'ena', 2], [0, 'ena', 2], [1, 'fuu', 0],
+  [0, 'fuu', 0], [1, 'ena', 2], [0, 'ena', 2], [1, 'fuu', 0],
+]);
+
+/**
+ * LINKS_START to the end (or 12 minutes): the runPotentialBattle fields plus `links` (fan cuts / fans caught / tether
+ * groups tied / shared hits, counted on the host's copy) and the mid-wave rejoin (`rejoinTick`, `rejoinSame`).
+ */
+export function runLinksBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
+  const t0 = Date.now();
+  const n = { cut: 0, caught: 0, tied: 0, shared: 0 };
+  let ck = null;
+  let rejoin = null;
+  const probe = (sim) => {
+    const hit0 = sim._hit;
+    Object.defineProperty(sim, '_hit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function hit(e, tower, spec, ...rest) {
+        // (a fan's cut: its spec is a half-hit copy, spec.share; her Turbine Kick volley is her plain gusts)
+        if (tower && spec && e && !e.dead && tower.eff?.behavior === 'return' && spec.share > 0) n.cut++;
+        return hit0.call(this, e, tower, spec, ...rest);
+      },
+    });
+  };
+  const onFrame = (A) => {
+    for (const ev of A.sim.events) {
+      if (ev.type === 'retCatch') n.caught++;
+      else if (ev.type === 'tether') n.tied++;
+      else if (ev.type === 'tetherShare') n.shared += ev.n;
+    }
+    if (!ck && A.ck && A.ck.wave >= ckWave) ck = { t: A.ck.t, wave: A.ck.wave, json: JSON.stringify(A.ck.snap) };
+    if (!ck || rejoin || A.sim.state !== 'wave' || !(A.sim._waveTime > 5)) return;
+    if (!A.sim.projectiles.some((p) => p.ret && !p.dead) || !A.sim.tethers.length) return;
+    const copy = new Lockstep({ start: LINKS_START, mySlot: 1, send: () => {}, now: () => 0 });
+    copy.rebuild(LINKS_START, [...A.log], A.tick, { t: ck.t, snap: JSON.parse(ck.json) });
+    rejoin = {
+      tick: A.tick,
+      same: copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash()
+        && snapshotDigest(copy.coop.snapshot()) === snapshotDigest(A.coop.snapshot()),
+    };
+  };
+  const r = runPotentialBattle({ start: LINKS_START, upgrades: LINKS_UPGRADES, spotsFirst: ['ena', 'fuu'], maxFrames, probe, onFrame });
+  r.links = `${n.cut}/${n.caught}/${n.tied}/${n.shared}`;
+  r.ckWave = ck?.wave ?? -1;
+  r.rejoinTick = rejoin?.tick ?? -1;
+  r.rejoinSame = !!rejoin?.same;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
 // ---------------------------------------------------------------------------
 // The duo Kohaku & Tsubaki (docs/specs/DUO_LR.md §4 "Engines scenario DUO_START"): Refraction (the shell counter and
 // the fixed shard table), Kohaku's beam on its tick timer, Prismfall on Auto-cast and its LR form Twin Star
@@ -2504,5 +2575,5 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), shapes: runShapesBattle(), held: runHeldBattle(), ground: runGroundBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), modes };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), shapes: runShapesBattle(), held: runHeldBattle(), ground: runGroundBattle(), links: runLinksBattle(), duo: runDuoBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), modes };
 }

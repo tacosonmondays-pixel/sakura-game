@@ -10,6 +10,7 @@ import { WATER_Y, PATH_H } from './terrain.js';
 import { scissorPos } from '../sim/rings.js';
 import { haloPos } from '../sim/wheels.js';
 import { drawGroundShapes } from './groundShapes.js';
+import { drawLinkShapes } from './linkShapes.js';
 import { pointAt } from '../sim/path.js';
 import { STEP, HALO_REACH, HALO_MAX } from '../sim/constants.js';
 import { costumeFor, enemyExtraFor, buildCostume, COSTUME_SLOT } from './costumes.js';
@@ -705,6 +706,8 @@ export class Actors {
     }
     // the ground attack shapes (attack shapes S3): Chigusa's vines, Yuki's spike rows, Kanna's quake rings, from the sim
     drawGroundShapes(sim, gN, gA, R);
+    // the link attack shapes (attack shapes S4): Ena's threads between the enemies she tied, from the sim
+    drawLinkShapes(sim, gN, gA, R);
     // Chigusa's thorn beds (src/sim/vines.js): a dark green patch with a thorny dashed rim, fading out
     for (const tw of sim.towers) {
       if (!tw.beds) continue;

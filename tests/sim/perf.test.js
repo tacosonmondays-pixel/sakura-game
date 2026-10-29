@@ -3,6 +3,7 @@ import { Sim } from '../../src/sim/Sim.js';
 import { STAGE, UNITS, ENEMIES } from './fixtures.js';
 import { defaultData } from '../../src/sim/data.js';
 import { gainHeroXp, xpToReach } from '../../src/sim/hero.js';
+import { TETHER_SHARES_PER_STEP } from '../../src/sim/constants.js';
 
 // 22 × 13 serpentine map: the path snakes across rows 1, 5, 9 and exits at the bottom.
 const PERF_MAP = {
@@ -255,6 +256,75 @@ describe('performance budget: ground attack shapes', () => {
     expect(most.vines).toBeGreaterThanOrEqual(6);
     expect(most.spikeRows).toBeGreaterThanOrEqual(6);
     expect(most.quakes).toBeGreaterThanOrEqual(1);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+});
+
+// Attack shapes S4 "Links" (src/sim/links.js): 6 Fuus at Heaven's Gate Wind (8 returning fans a throw) and 6 Enas at
+// Threads of Destiny (tether groups of 4: every hit on a tied enemy runs the share hook), with 2 Akanes' Hearth Streams
+// beside them (35-56 tick hits ten times a second: the hook's worst caller), 200 walkers: the same step budget, the share
+// budget never spent past TETHER_SHARES_PER_STEP in a step.
+describe('performance budget: link attack shapes', () => {
+  test('6 Homecoming Throws + 6 Spirit Tethers + 2 Hearth Streams + 200 enemies: a step stays under the same limits', () => {
+    const real = defaultData().units;
+    const LINKS = [['fuu', 'gale'], ['ena', 'fate']];
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: [...LINKS.map(([unitId]) => ({ unitId })), { unitId: 'akane' }],
+      hero: null,
+      seed: 12,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units: real, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    const spots = [];
+    for (const ty of [3, 7, 11]) for (let tx = 1; tx < 21; tx += 2) spots.push([tx, ty]);
+    const girls = [...Array(12)].map((_, k) => LINKS[k % 2]).concat([['akane', 'wildfire'], ['akane', 'wildfire']]);
+    let placed = 0;
+    for (let i = 0; i < spots.length && placed < girls.length; i++) {
+      const [id, pathId] = girls[placed];
+      const t = sim.placeTower(id, spots[i][0], spots[i][1]);
+      if (!t) continue;
+      placed++;
+      const p = real[id].paths.findIndex((q) => q.id === pathId);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p, { restoring: true });
+    }
+    expect(placed).toBe(14);
+    expect(sim.towers.filter((t) => t.eff.behavior === 'return')).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.tether?.links === 3)).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.eff.behavior === 'stream')).toHaveLength(2);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const kinds = ['blob', 'blob', 'blob', 'armoredBlob', 'fieldOni', 'guardOrc', 'leech', 'flyer'];
+    const len = sim.pathData[0].length;
+    for (let j = 0; j < 200; j++) sim.spawnEnemy(kinds[j % kinds.length], { dist: (j / 200) * (len - 8) });
+    for (let j = 0; j < 120; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    const most = { fans: 0, tethers: 0, shares: 0 };
+    let shares = 0;
+    const t0 = performance.now();
+    for (let j = 0; j < steps; j++) {
+      sim.update(1 / 60);
+      let n = 0;
+      for (const ev of sim.drainEvents()) if (ev.type === 'tetherShare') n += ev.n;
+      shares += n;
+      most.shares = Math.max(most.shares, n);
+      if (j % 20 === 0) {
+        most.fans = Math.max(most.fans, sim.projectiles.reduce((a, p) => a + (p.ret ? 1 : 0), 0));
+        most.tethers = Math.max(most.tethers, sim.tethers.length);
+      }
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] link shapes: ${sim.enemies.length} enemies, ${sim.towers.length} girls, at most ${most.fans} fans, ${most.tethers} tether groups, ${shares} shares (at most ${most.shares} a step): ${perStep.toFixed(3)} ms/step`);
+    expect(sim.enemies.length).toBeGreaterThan(150);
+    expect(most.fans).toBeGreaterThanOrEqual(6);
+    expect(most.tethers).toBeGreaterThanOrEqual(6);
+    expect(shares).toBeGreaterThan(0);
+    expect(most.shares).toBeLessThanOrEqual(TETHER_SHARES_PER_STEP);
     expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
   });
 });
