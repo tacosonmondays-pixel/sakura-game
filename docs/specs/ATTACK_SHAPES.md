@@ -465,7 +465,7 @@ Written on `feature/attack-shapes`. The owner answered "defaults!" to §8, so A2
 
 | Girl, path | Tiers | Shape | What the player sees |
 |---|---|---|---|
-| Momo, Encore Toss | T4 Jackpot, T5 Fortune's Favourite | Blossom Wheel (`behavior: 'wheel'`) | Each toss throws 12 gold coins (16 at T5) out in a perfect wheel. The **lead coin** flies at her target and hits only it (×1.91; ×4.42 at T5); the rest pierce whatever stands round her (×0.39; ×0.57). T3 keeps her toss. |
+| Momo, Encore Toss | T4 Jackpot, T5 Fortune's Favourite | Blossom Wheel (`behavior: 'wheel'`) | Each toss still throws her coins at her targets, one per projectile (2; 4 at T5), each for its target alone (×1), and the rest of a 12-coin wheel (16 at T5) flies out with them, evenly round, piercing whatever stands round her (×0.42; ×0.63). T3 keeps her toss. |
 | Kage, Storm of Steel | T4 Blade Rain, T5 Thousand Shadows | Pinwheel Stream (`behavior: 'spin'`) | Shuriken pour out of three turning arms (four at T5), one shuriken per arm per throw; an arm that finds an enemy slows to a crawl on it; against a lone enemy the arms fold into one stream that turns to follow it. T3 "Shuriken Cyclone" keeps its 5-target throw (tier 3 cannot transform). |
 | Hotaru, Lantern Light | T3 Spirit Bane, T4, T5 | Petal Halo (kit `halo`) | Four fireflies (six, eight) circle her and cut what they touch; her pulses keep going beside them, 30 % lighter, ×1.4 vs elites and bosses. |
 
@@ -475,7 +475,7 @@ Changes from the spec, and why:
 2. **Pinwheel Stream is an attack, not a 0.1 s kit clock.** Kage's Potential (more shuriken, Shadow Tempo, the Shuriken Storm echo), gear tricks and drinks all count attacks. A clock that bypassed her attack loop would quietly drop all of them. One shot per arm per throw keeps them, and her throws are fast enough to read as a stream.
 3. **The lone-enemy fold** replaces the spec's "lock tier". A sprinkler that only lingers gives a lone boss about half her damage (−45 % measured). Folding into one stream keeps single-target parity without a hidden boss multiplier.
 4. **Halo cuts carry no statuses, marks, pushes or crits** (`t.haloSpec`, built after her buff extras so aura armor pen counts); her attack type's own on-hit rules still apply (Hotaru's holy cuts end phasing and silence field casters, like any holy hit). Hotaru's (or anyone's) on-hit stuns and slows on a ring of fast cuts would stun-lock a crowd. Measured with Noa: her chime DPS went ×10 while the crowd stood frozen.
-5. **The wheel's lead spoke hits its target only** (pierce 1). With pierce it carried the whole crowd row by itself and left nothing for the wheel.
+5. **The wheel keeps her toss coins** (one per projectile at her targets, pierce 1). A single aimed lead spoke that pierced carried the whole crowd row by itself; a single lead spoke at pierce 1 left her early-game single target at 0.74 (the L25 elite splits, and her old toss hit two of the pieces). Keeping her toss coins puts every single-target row at 1.00 with the coins at their old ×1.
 6. **The shape's own knobs are stated per tier, not multiplied** (`wheel.lead/mul`, `spin.mul/fold`, `halo.mul`), so the data reads as the bench fitted it.
 
 ### A4. DPS parity (§7.2 step 6)
@@ -484,17 +484,17 @@ Method: `tools/bench.mjs` (STRONG preset, partner Aoi), crowd and boss rows, eac
 
 | Girl, tier, row | Mean of 4 | 4-5 s9 | 4-5 s3 | 2-4 | 6-3 | 4-5 L25 (early preset) |
 |---|---|---|---|---|---|---|
-| Momo T4 crowd / boss | 0.98 / 1.00 | 0.83 / 0.96 | 0.91 / 0.89 | 1.04 / 1.15 | 1.12 / 1.00 | 0.88 / 0.74 |
-| Momo T5 crowd / boss | 0.99 / 1.00 | 0.89 / 1.05 | 0.89 / 0.97 | 1.08 / 0.95 | 1.08 / 1.03 | 0.85 / 1.11 |
+| Momo T4 crowd / boss | 1.01 / 1.00 | 0.89 / 1.00 | 0.89 / 1.00 | 1.11 / 1.00 | 1.16 / 1.00 | 0.86 / 1.00 |
+| Momo T5 crowd / boss | 1.00 / 1.02 | 0.93 / 1.00 | 0.90 / 1.00 | 1.11 / 1.10 | 1.07 / 0.97 | 0.87 / 1.00 |
 | Kage T4 crowd / boss | 1.00 / 1.00 | 0.88 / 1.00 | 0.86 / 0.95 | 1.14 / 0.98 | 1.10 / 1.05 | 0.85 / 0.90 |
 | Kage T5 crowd / boss | 1.00 / 1.00 | 0.86 / 0.99 | 0.86 / 0.98 | 1.15 / 1.00 | 1.13 / 1.01 | 0.86 / 0.95 |
 | Hotaru T3 crowd / boss | 0.96 / 1.00 | 0.81 / 1.00 | 0.81 / 0.99 | 1.10 / 1.01 | 1.09 / 1.01 | 0.86 / 1.01 |
 | Hotaru T4 crowd / boss | 0.98 / 1.01 | 0.84 / 0.98 | 0.84 / 0.99 | 1.12 / 1.03 | 1.13 / 1.03 | 0.89 / 0.99 |
 | Hotaru T5 crowd / boss | 1.00 / 1.00 | 0.86 / 0.93 | 0.86 / 0.92 | 1.14 / 1.05 | 1.16 / 1.10 | 0.90 / 1.12 |
 
-(Momo and Kage at T3 are unchanged: 1.00 everywhere.) Every mean is within ±5 %. A single stage swings about ±15 % on the crowd row: the shapes gain where the road wraps round her and lose beside a straight road, which is the trade the spec describes (§5.1). The early preset reads lower on crowds and Momo's T4 boss row (0.74) is the widest single miss. That row's "boss" is an elite Royal Guard Slime that splits, so a wheel's lead coin sees fewer clean hits. Balance round 5 can re-measure all of this on its own bench (the S1 girls and paths are listed for it).
+(Momo and Kage at T3 are unchanged: 1.00 everywhere.) Every mean is within ±5 %. A single stage swings about ±15 % on the crowd row: the shapes gain where the road wraps round her and lose beside a straight road, which is the trade the spec describes (§5.1). The early preset reads 10-15 % lower on crowds (left to balance round 5, which re-measures on top of S1: coordinator, Oct 29). Momo's T4 single target at the early preset was 0.74 with one lead coin (the L25 "boss" is an elite slime that splits); with her toss coins kept it is 1.00. Balance round 5 can re-measure all of this on its own bench (the S1 girls and paths are listed for it).
 
-**For the owner (the independent review's medium finding 3):** "same power" holds as the four-stage mean on the late-game (STRONG) preset. Early in a battle (the L25 preset) every touched tier reads 10-15 % lower on crowds, and one stage alone can swing ±15 %. If the owner wants ±5 % everywhere, the shapes need per-map knobs, which the sim does not have; the alternative is to accept the spread or tune these three a few percent up.
+**For the owner (the independent review's medium finding 3):** "same power" holds as the four-stage mean on the late-game (STRONG) preset. Early in a battle (the L25 preset) every touched tier reads 10-15 % lower on crowds, and one stage alone can swing ±15 %. Coordinator, Oct 29 (owner's defaults): the ±5 % rule is the four-stage mean; the stage-to-stage swing is the shape's geometry, by design; no across-the-board tune-up; the L25 crowd spread goes to balance round 5; Momo's T4 early single target had to reach ≥ 0.90 (done: 1.00).
 
 The panel DPS (`towerStats`, `projectedDps`) follows the shapes (`wheels.js` `shapeDps`). On one target it counts a wheel's lead coin and a spin's folded stream, and it adds the halo's cuts on an enemy on its ring.
 

@@ -1398,12 +1398,12 @@ const BEHAVIORS = {
   mortar: attackMortar,
   strip: layStrip,
   ring: attackRing,
-  // attack shapes S1 (src/sim/wheels.js): Blossom Wheel aims its lead spoke at her target; Pinwheel Stream
+  // attack shapes S1 (src/sim/wheels.js): Blossom Wheel aims her toss's lead coins at her targets; Pinwheel Stream
   // turns its arms one shot per attack
   wheel: (sim, t) => {
     const spec = gearSpec(t.eff);
-    const target = selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, 1)[0];
-    return attackWheel(sim, t, spec, target, target ? shotPierce(t) : 0);
+    const targets = selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, Math.max(1, spec.projectiles));
+    return attackWheel(sim, t, spec, targets, targets.length ? shotPierce(t) : 0);
   },
   spin: (sim, t) => attackSpin(sim, t, gearSpec(t.eff), () => shotPierce(t)),
   drink: throwDrink,

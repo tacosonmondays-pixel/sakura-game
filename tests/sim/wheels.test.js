@@ -121,7 +121,7 @@ describe('Momo: Coin Wheel (Blossom Wheel) on Encore Toss tiers 4-5', () => {
     expect(setup('momo', COIN, 3).t.eff.behavior).toBe('projectile');
     const { t } = setup('momo', COIN, 4);
     expect(t.eff.behavior).toBe('wheel');
-    expect(t.stats.wheel).toEqual({ spokes: 12, lead: 1.91, mul: 0.39 });
+    expect(t.stats.wheel).toEqual({ spokes: 12, lead: 1, mul: 0.42 });
     expect(setup('momo', COIN, 5).t.stats.wheel.spokes).toBe(16);
     for (const p of [0, 1]) {
       const o = setup('momo', p, 5).t;
@@ -130,25 +130,40 @@ describe('Momo: Coin Wheel (Blossom Wheel) on Encore Toss tiers 4-5', () => {
     }
   });
 
-  test('a wheel fires only with a target: evenly round, the lead spoke at her target alone', () => {
+  test('a wheel fires only with a target: her toss coins at her targets (pierce 1, × lead), the wheel evenly round', () => {
     const { sim, t } = setup('momo', COIN, 4);
+    expect(t.eff.projectiles).toBe(2);
     steps(sim, 60);
     expect(shots(sim, t)).toHaveLength(0);
     const e = parkAt(sim, 'tank', 8, 4.5);
     steps(sim, 1);
     const list = shots(sim, t);
-    expect(list).toHaveLength(12);
+    expect(list).toHaveLength(2 + 11);
     const k0 = nearestDir(e.x - t.x, e.y - t.y);
-    expect(list.map(dirOf)).toEqual(Array.from({ length: 12 }, (_, i) => wrapDir(k0 + i * 20)));
-    expect(list[0].pierce).toBe(1);
-    expect(list[0].scale).toBe(1.91);
-    for (const p of list.slice(1)) {
-      expect(p.scale).toBe(0.39);
+    // a lone target takes both toss coins
+    expect(list.slice(0, 2).map(dirOf)).toEqual([k0, k0]);
+    for (const p of list.slice(0, 2)) {
+      expect(p.pierce).toBe(1);
+      expect(p.scale).toBe(1);
+    }
+    expect(list.slice(2).map(dirOf)).toEqual(Array.from({ length: 11 }, (_, i) => wrapDir(k0 + (i + 1) * 20)));
+    for (const p of list.slice(2)) {
+      expect(p.scale).toBe(0.42);
       expect(p.pierce).toBe(t.eff.pierce);
       expect(p.maxTravel).toBe(t.eff.range);
     }
     steps(sim, 30);
     expect(e.hp).toBeLessThan(1e6);
+  });
+
+  test('two targets: one toss coin each, the wheel turned to the first', () => {
+    const { sim, t } = setup('momo', COIN, 4);
+    const a = parkAt(sim, 'tank', 8, 4.5);
+    const b = parkAt(sim, 'tank', 5, 4.5);
+    steps(sim, 1);
+    const list = shots(sim, t);
+    const dirs = list.slice(0, 2).map(dirOf).sort((x, y) => x - y);
+    expect(dirs).toEqual([nearestDir(a.x - t.x, a.y - t.y), nearestDir(b.x - t.x, b.y - t.y)].sort((x, y) => x - y));
   });
 });
 
@@ -290,7 +305,7 @@ describe('wave clear and selling', () => {
     const { sim, t } = setup('momo', COIN, 5);
     parkAt(sim, 'tank', 8, 4.5);
     steps(sim, 1);
-    expect(shots(sim, t).length).toBe(16);
+    expect(shots(sim, t).length).toBe(4 + 15); // 4 toss coins, the 15 other spokes of a 16-coin wheel
     sim.sellTower(t.uid);
     expect(() => steps(sim, 60)).not.toThrow();
   });

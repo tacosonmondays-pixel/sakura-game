@@ -280,10 +280,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.rejoinTick).toBeGreaterThan(0);
     expect(r.rejoinSame).toBe(true);
     expect(runShapesBattle().final).toBe(r.final);
-    // pinned when the battle was added (feature/attack-shapes, S1 data fitted to the four-stage bench mean).
+    // pinned when the battle was added (feature/attack-shapes, S1 data fitted to the four-stage bench mean);
+    // re-pinned when the Coin Wheel kept her toss coins (one per projectile at her targets, Oct 29).
     // Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, shapes: r.shapes, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 32648, state: 'won', wave: 22, wallets: '2547/2201', final: 374263438, hashes: '8f48af63', shapes: '166/260/2062', rejoinTick: 15936 });
+      .toEqual({ ticks: 32555, state: 'won', wave: 22, wallets: '2544/2198', final: 282611244, hashes: '762fe0f7', shapes: '163/260/2026', rejoinTick: 15958 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

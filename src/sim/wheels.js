@@ -1,7 +1,7 @@
 // Attack shapes, batch S1 "Wheels" (docs/specs/ATTACK_SHAPES.md §5.1, §5.2, §5.5, §7.2):
 //   - Blossom Wheel (behaviour 'wheel'): every attack, `wheel.spokes` straight shots leave her at once,
-//     evenly round; the first spoke points at her target and hits it alone × wheel.lead, the rest pierce
-//     × wheel.mul.
+//     evenly round from her target; her toss's own coins (one per projectile, at her targets in turn) lead,
+//     each hitting its target alone × wheel.lead, and the wheel's other spokes pierce × wheel.mul.
 //   - Pinwheel Stream (behaviour 'spin'): every attack (her own rate) each of `spin.arms` arms fires one
 //     straight shot along its direction and the arms turn spin.turn table steps, only spin.lock while an
 //     arm has an enemy on its line (the stream lingers on crowds); with a single eligible enemy in range
@@ -39,34 +39,33 @@ function faceDir(t, k) {
 
 /**
  * The 'wheel' behaviour (Blossom Wheel). `spec` is her attack spec for this attack (gear tricks applied),
- * `target` her target by target mode (src/sim/towers.js picks it), `extraPierce` her gear Pierce.
+ * `targets` her targets by target mode, best first, up to her projectiles (src/sim/towers.js picks them),
+ * `extraPierce` her gear Pierce. Her toss's coins stay: one lead coin per projectile at her targets in turn
+ * (a lone target takes them all), each for its target alone (pierce 1, × lead); the wheel adds spokes - 1
+ * coins evenly round from the first lead's direction, carrying her pierce (× mul).
  */
-export function attackWheel(sim, t, spec, target, extraPierce = 0) {
+export function attackWheel(sim, t, spec, targets, extraPierce = 0) {
   const w = t.stats.wheel;
-  if (!w || !target) return false;
+  if (!w || !targets.length) return false;
   const n = Math.max(1, w.spokes);
-  const k0 = nearestDir(target.x - t.ox, target.y - t.oy);
+  const leads = Math.max(1, spec.projectiles);
+  const k0 = nearestDir(targets[0].x - t.ox, targets[0].y - t.oy);
   faceDir(t, k0);
-  t.targetUid = target.uid;
+  t.targetUid = targets[0].uid;
   const travel = spec.range;
   const pierce = spec.pierce + extraPierce;
-  straightRoom(sim, t, n);
-  for (let i = 0; i < n; i++) {
-    const k = k0 + Math.floor((i * RING_DIRS) / n);
-    // the lead spoke is for her target alone (pierce 1, × lead); the wheel's other spokes carry her pierce
-    spawnStraight(sim, t, spec, t.ox, t.oy, k, travel, { pierce: i === 0 ? 1 : pierce, kind: t.projKind, speed: WHEEL_SPEED, scale: i === 0 ? w.lead : w.mul });
+  straightRoom(sim, t, leads + n - 1);
+  for (let j = 0; j < leads; j++) {
+    const e = targets[j % targets.length];
+    const k = j === 0 ? k0 : nearestDir(e.x - t.ox, e.y - t.oy);
+    spawnStraight(sim, t, spec, t.ox, t.oy, k, travel, { pierce: 1, kind: t.projKind, speed: WHEEL_SPEED, scale: w.lead });
   }
-  sim._emit('attack', { towerUid: t.uid, targetUid: target.uid, kind: 'wheel', k: k0, spokes: n });
+  for (let i = 1; i < n; i++) {
+    const k = k0 + Math.floor((i * RING_DIRS) / n);
+    spawnStraight(sim, t, spec, t.ox, t.oy, k, travel, { pierce, kind: t.projKind, speed: WHEEL_SPEED, scale: w.mul });
+  }
+  sim._emit('attack', { towerUid: t.uid, targetUid: targets[0].uid, kind: 'wheel', k: k0, spokes: n, leads });
   return true;
-}
-
-/** Is any eligible enemy within `range` of (x, y)? */
-function anyIn(sim, x, y, range, spec) {
-  let any = false;
-  sim.grid.each(x, y, range, (e) => {
-    if (!any && isEligible(e, spec)) any = true;
-  });
-  return any;
 }
 
 const SPIN_SCRATCH = [];
@@ -183,13 +182,13 @@ function stepHalo(sim, t, step) {
 
 /**
  * Her paper DPS on one target with a wheel-batch shape, from `perTarget` (damage × rate × projectiles, as
- * the panel computes it for a volley; × (1 + projScale) for a spin): a wheel's lead spoke (× lead, one shot
- * an attack), a spin's folded stream (× fold), plus a halo's cuts on an enemy on its ring (each piece passes
+ * the panel computes it for a volley; × (1 + projScale) for a spin): a wheel's toss coins (her projectiles
+ * × lead, all on a lone target), a spin's folded stream (× fold), plus a halo's cuts on an enemy on its ring (each piece passes
  * it once a turn: pieces × HALO_STEPS × 60 / 240 cuts a second, × damage × rate × mul). Unchanged otherwise.
  */
 export function shapeDps(t, e, perTarget) {
   let d = perTarget;
-  if (e.behavior === 'wheel' && t.stats.wheel) d = e.damage * e.rate * t.stats.wheel.lead;
+  if (e.behavior === 'wheel' && t.stats.wheel) d = e.damage * e.rate * Math.max(1, e.projectiles) * t.stats.wheel.lead;
   else if (e.behavior === 'spin' && t.stats.spin) d = perTarget * t.stats.spin.fold;
   const h = t.stats.halo;
   if (h?.pieces > 0) {

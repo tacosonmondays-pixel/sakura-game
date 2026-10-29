@@ -508,8 +508,8 @@ const MOMO = {
       tier('Heavy Coins', 100, '+2 damage.', { damage: 2 }),
       tier('Double Toss', 260, 'Throws at 2 targets; +20% attack speed.', { projectiles: 1, rateMul: 1.2 }),
       tier('Gold Rush', 800, 'Solid gold coins ignore 2 armor, +3 damage, pierce 2 more.', { armorPen: 2, damage: 3, pierce: 2 }),
-      tier('Jackpot', 2400, 'Coin Wheel: each toss throws 12 gold coins out in a wheel. The lead coin flies straight at her target and stops at the first enemy it meets (×1.91); the rest pierce (×0.39). 20% crits for ×3, +6 damage, ignores 2 armor, +40 coins per wave; +25% damage.', { behavior: 'wheel', wheel: { spokes: 12, lead: 1.91, mul: 0.39 }, crit: { chance: 0.2, mul: 3 }, damage: 6, income: { perWave: 40 }, armorPen: 2, damageMul: 1.25 }),
-      tier('Fortune\'s Favourite', 17000, 'A coin storm: 4 more coins (16; lead ×4.42, the rest ×0.57), +60% speed, +10 damage, +150 coins per wave; +55% damage.', { wheel: { spokes: 4, lead: 4.42, mul: 0.57 }, rateMul: 1.6, damage: 10, income: { perWave: 150 }, damageMul: 1.55 }),
+      tier('Jackpot', 2400, 'Coin Wheel: each toss still throws her coins at her targets, and 11 more gold coins fly out with them in a wheel, piercing what stands round her (×0.42). 20% crits for ×3, +6 damage, ignores 2 armor, +40 coins per wave; +25% damage.', { behavior: 'wheel', wheel: { spokes: 12, lead: 1, mul: 0.42 }, crit: { chance: 0.2, mul: 3 }, damage: 6, income: { perWave: 40 }, armorPen: 2, damageMul: 1.25 }),
+      tier('Fortune\'s Favourite', 17000, 'A coin storm: 4 targets, a 16-coin wheel (the wheel\'s coins ×0.63), +60% speed, +10 damage, +150 coins per wave; +55% damage.', { wheel: { spokes: 4, lead: 1, mul: 0.63 }, rateMul: 1.6, projectiles: 2, damage: 10, income: { perWave: 150 }, damageMul: 1.55 }),
     ]),
   ],
   awakenPassive: {

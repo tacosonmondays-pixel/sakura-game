@@ -234,7 +234,7 @@ describe('Potential in resolveStats', () => {
     // bosses); every other girl's resolutions are bit-identical (checked with Kaede left out, P1 and P6)
     // '456:bd28cc90' before the attack shapes S1 (Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's Firefly
     // Halo: new tier data on one path each); with those three left out the 384 others hash 8cb286a4 before and after
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:6053f3ae');
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:b5056780');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders
