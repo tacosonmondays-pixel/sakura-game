@@ -1473,6 +1473,243 @@ is unaffected. No other game's or anime's names appear in this spec. No player n
 
 ---
 
+## 20. Extended Day and Random Class (addendum, Oct 29)
+
+> **Status (Oct 29): written, not built.** The build waits for the next weekly usage reset unless the owner says go.
+> Scope agreed with the coordinator: **v1** = this addendum and an owner board, the Extended Day sim (§20.1-20.3), the
+> Random Class sim (§20.4), and a minimal UI (the length option, the room and solo toggle, the pick reveal). **v2** =
+> rewards and records (§20.5), perf hardening past wave 100, and the rest of §20.8. It is a sim change: a
+> `PENDING_BUMP` pin on protocol 11 in `tests/art/itemArtRuntime.test.js`; `COOP_PROTOCOL` is assigned at ship time.
+> Random Class guarantees a striker and a flyer-hitter only (no Control or Support guarantee); the toggle's help line
+> says so.
+
+The owner asked (Oct 29): "Can you do an endless Tryout Day and a coop run where both players get random girls and
+buffs?" This adds two run options. Both work solo and in co-op, and they can be combined:
+
+- **Extended Day**: a third run length beside Half Day and Full Day. The day never ends. You play until your hearts run out.
+- **Random Class**: nobody drafts and nobody picks. Each player's starting three and every Pep Talk are drawn at random
+  inside the Sim. Breaks stay in the player's hands.
+
+Written from a read-only look at `feature/tryout-day` `3d37b6d9` (sim id pinned at `COOP_PROTOCOL` 11). Every number
+below is a default; §20.9 lists the owner questions. The names Night Watch, Glowsticks and Field Trip are reserved for
+other modes and are not used here.
+
+### 20.1 Extended Day: the timetable
+
+**Periods 1-12 are exactly the Full Day**: the same plan streams, families, minibosses on waves 12 / 28 / 44, the boss
+on wave 48, and the breaks after P3, P7 and P11. As a result the plan, stage and assignments of P1-P12 match a Full Day
+on the same seed (tested). Clearing wave 48 shows the **Stay Late** banner, and the day goes on:
+
+| From P13 on | Rule |
+|---|---|
+| Period | 4 waves, then a pick (pick n opens after period n, forever) |
+| Miniboss | last wave of every 3rd period that has no boss: P15, P21, P27… (waves 60, 84, 108…) |
+| Boss | last wave of every 6th period: P18, P24, P30… (waves 72, 96, 120…). The enemy comes from the freeplay boss pool (§20.2) |
+| Seat Change break | after every 3rd period, so right after each miniboss or boss period: P15, P18, P21… A new seat block starts the next period |
+| Exam Prep (teacher floor ≥ 1) | every 4th pick after the Full Day's: picks 15, 19, 23… |
+| Tryout pick (girls) | picks 13, 19, 25… (every 6th) while the squad has room. Once the squad is full it plays as a normal pick |
+| Rarity band | `late` |
+| LR cap | Full Day's 2, plus 1 per 12 picks after pick 11 (3 at pick 23, 4 at pick 35…) |
+| Run Level | holds at the Full Day's last (74). `runLevelOf` clamps at P12 |
+| Subjects | P13+ draw one pair per period from `plan:subjects:<p>`, avoiding the previous period's pair. The pair is drawn when the period before ends and is stored in run state; the stored list keeps only the next 2 entries |
+| Affixes (Grade 8+) | `affix:<p>` as today. It is already a pure per-period draw, so it extends lazily |
+| Hand it in later, economy cards | never "last pick", so they are always allowed. `pick === len.picks.length` is never true |
+
+The run ends at 0 hearts, either as a defeat sheet (Make-up Test in solo, once, as today) or as **Home Time**: a solo
+player can end the run between waves, and in co-op both players tap it (the existing freeplay Finish vote). Both pay the
+same way. No "win" exists after wave 48. Clearing P12 counts as a **Full Day clear** for Grade progress, `ty:full` and
+the +6 Marbles (Q-A1).
+
+### 20.2 Extended Day: the waves past 48 (what the code supports)
+
+The tryout stage today is finite: `waves = periods × 4`, a pre-built `pool` with `from/to` per block, `fixed` spawns
+for the set pieces, and a budget that compounds ×1.12 per wave. Extending that generator would explode the budget and
+freeze the families. **Instead, Extended Day uses the co-op freeplay generator, which already does the 16/15 ramp**
+(`src/sim/freeplay.js`):
+
+- `buildTryoutStage(plan)` for `after` returns the Full Day stage (`waves: 48`) plus `freeplay`: the freeplay tier
+  table picked by Grade, with run-table overrides (`TRYOUT.afterSchool`, below).
+- The Sim takes `this.freeplay = true` from the tryout config (`length === 'after'`), **not** from `options.freeplay`.
+  The co-op start message's `freeplay` stays `null`, and Sim.js's freeplay gate gains one clause for this.
+- Past wave 48, `_getWave` calls `generateFreeplayWave`. Each wave is a pure function of `(stage.id, wave)`, and the
+  stage id carries the seed, so both clients build the same waves. The existing freeplay cache trim (`k < wave − 1`)
+  covers Extended Day. `_waveCache` is `REBUILT`, so it is never part of a snapshot.
+- **Scaling** follows the freeplay tier's per-wave HP bands (‰, `powInt`): Blossom at Grades 1-5, Tempest at 6-9,
+  Crimson Moon at 10-12. The Grade's own `hpMul` and the co-op ×1.6 stay inside `hpScale`. At Blossom that is
+  ×1.030/wave, about ×1.13 per period to wave 50, and ×1.045/wave (×1.19 per period) after it. Flat armor, speed, Resolve,
+  elite bands and affix rotations come from freeplay unchanged.
+- **Families**: freeplay's home pool is the stage pool active at wave 48 (the last block's two families). Visitors rotate
+  in from chapters. **Override `chapterList`**: visitors and elites come only from the Grade's window chapters (Spring:
+  1-3, Summer: 1-6, Autumn: all), so a Grade 1 run never meets chapter 8.
+- **Bosses**: freeplay's own ladder (every 10 waves, then every 5) does not match the period grid. **Override
+  `bossPlan: { from: 49, miniEvery: 12, bossEvery: 24 }`** replaces the tens and fives ladder with the grid in §20.1:
+  - Minibosses come from freeplay's open minibosses, limited to the window's list.
+  - Bosses rotate through the window's bosses for the first two boss waves (72, 96). From wave 120 they also include
+    the freeplay bosses and titans, seeded by `hashString(stage.id)` as freeplay does.
+  - Freeplay's two absolute-wave set pieces stay: the Ashwing Matriarch on wave 200 (P50's last wave) and the Eclipse
+    Wyrm from wave 250.
+  - Boss leaks: bosses and titans take the Grade's `bossLeak` (40 / 60) through `tryoutSpawn`, minibosses take
+    freeplay's 15, and the finale takes all.
+- Tiers that do not set `chapterList` or `bossPlan` are untouched, so co-op freeplay waves stay byte-identical (golden
+  test on all three tiers, waves 16-260).
+- `Sim.result().freeplay` reads `'tryout'` for these runs. `src/online/coop/rewards.js` and `freeplayRewards.js` must
+  ignore it (they key on `FREEPLAY_TIERS`; tested), so a run is never paid twice.
+
+### 20.3 Extended Day: power past the caps
+
+The §4.4 caps fill by about pick 15-20. After that, §4.5 drops capped families from offers, and the empty slots fall back
+to Big Breakfast and Extra Practice. Player power plateaus while enemy HP keeps compounding, and that is what ends the run.
+Brush Up, Window Seats, new girls (until the squad is full), Board cards and Varsity still help. **No cap is lifted in
+v1** (Q-A3). Bot target, measured in E5: median wave reached about 60-70 at a Grade the account clears 50 % of the time,
+and a top-decile run reaches wave 100.
+
+### 20.4 Random Class
+
+**Start.** No Before Class draft. Each player's starting three come from their own seeded six (`draftOf(owned, seed,
+slot, 0)`, the same six they would have been shown), through `randomThree(six, seed, slot)` (stream
+`random:start:<slot>`):
+
+1. One of the six's strikers.
+2. One girl who hits flyers, if the first doesn't. If the first does, a Control or Support girl.
+3. Any of the remaining girls.
+
+**Coverage, honestly:** taking any 3 of the 6 would not keep the §5 guarantee (it could drop the only girl who hits
+flyers), so the draw is ordered as above. It always keeps a striker and a girl who hits flyers. It does not guarantee a
+Control or Support girl when the first girl hits flyers and the third draw misses (Q-B2). Desk Supplies' Bigger Draft
+does nothing in Random Class. The hero stays the player's own choice.
+
+In co-op, the Sim derives each player's three from the start message's `pool` and the seed, and ignores any `draft`. The
+start message stays the same shape, and `checkedDraft` is skipped when `random` is on.
+
+**Picks.** Every pick opens as today (rarity from credits and pity, cards from `offer:<pick>:<owner>:0`) and is shown as a
+**reveal**. It then lands by itself, inside the Sim. No player command is involved, so it is lockstep-safe:
+
+- `TRYOUT.random.revealTicks = 120` (2 s at 1×; ticks run faster at 2× and 3×, as the co-op timeout does). `tryoutTick`
+  runs for solo too when `ty.random` is set, and counts `p.winTicks` on the open pick.
+- When `winTicks === revealTicks`, the Sim draws from stream `auto:<pick>:<owner>:<seq>`:
+  - **Card**: uniform over the offer's *allowed* cards, using the same tests as the `take` op (a girl card needs squad
+    room).
+  - **Path**: uniform over `0..paths−1` of that girl, for a girl card.
+  - The Sim then calls `resolvePick(sim, owner, idx, path)`. Whole Class Turns Up's follow-up repeats the same draw per
+    `seq` until `multi` is spent.
+- This happens on the same tick on every client because `winTicks` lives in run state. `winTicks` is in the snapshot, so
+  a Continue or a rejoin during the reveal lands on the same card.
+- A gone co-op player's picks land on the same tick (`autoResolve` draws instead of handing in).
+- **Off in Random Class:** Erasers (`erasers: 0`, `erase` refused), Double Dare (`dare` refused), Hand it in later
+  (`hand` refused, and `take` refused too: the Sim chooses). `cardOk` also drops cards that only change how you choose:
+  Multiple Choice (B07). Extra Desk, Varsity Letter and Whole Class Turns Up stay. They change *what* comes, and the
+  draw handles them.
+- **Still manual:** Seat Change (Window Seats), Hall Pass moves, Snack or Brush Up, Back to class / Ready, and the Subject
+  choice (Q-B3). The co-op 5400-tick break timeout still applies.
+
+Assignments still raise the rarity of the next pick, so playing well still pays off in Random Class.
+
+### 20.5 Rewards (no gem inflation)
+
+| Reward | Extended Day | Random Class |
+|---|---|---|
+| Marbles | 2 per period + 1 per assignment (+6 once P12 is cleared) × Grade factor. The **weekly cap of 150 holds** | as the chosen length |
+| Coins | per wave, 60 % rule, under the existing **150 waves a week** cap (`ty:cw`) | same |
+| Lunchbox | at most one box per run (as a Full Day) | same |
+| Records | **best wave per Grade**: new counters `ty:aw:<grade>` (missions counters, which old builds keep) plus a Yearbook line. Score = **waves survived** (the headline) and the usual run score (period scores + assignment credits; the hearts term is 0) | a "Random" mark on the Class Photo and the Yearbook entry. Records are shared with the normal length (Q-B4) |
+| Gems | **one-time only**: 3 new rows in the `tryout` achievement wave. *Stayed After* (reach wave 50): 30 · *Late Bus* (wave 75): 30 · *Last One Out* (wave 100): 60 | none |
+
+The new rows total **120 gems = 1 recruit**, so Tryout Day's one-time total goes from 360 to **480 gems (4 recruits, 15
+achievements)**. The 28-day free-player chart (`tests/systems/missions.test.js`, ≈76.7 recruits) **does not move**:
+the Tryout row stays a `oneTime` source. The pinned row changes to `{ gems: 480, pulls: 4, note: '15 achievements,
+once' }`, and the one-time sum moves by +1 recruit. A practice run (§12.3) counts for none of these. The milestones
+count in co-op too, under the same rules as the existing `a_try_*` rows. Achievement ids are frozen at ship:
+`a_try_aw50`, `a_try_aw75`, `a_try_aw100`. Names checked with `git grep -i -w -F` (0 hits for Stayed After, Late Bus, Last One Out, Random Class; "Lights Out" was taken by stage 2-7 and a Halloween task). Home Time and Stay Late have 0 hits too ("Final Bell" is already the X04 card, so the banner is not called that).
+
+### 20.6 Save and Continue
+
+- Solo: record kind `tryout`, with `length: 'after'` and `random: true|false` in its config. Continue, the Make-up Test,
+  practice after a second mid-wave resume and `waveOpen` all work as in §12.
+- **Snapshot growth.** Today's record is 23-74 KB at waves 8-27. Past wave 48 it grows with:
+  - `ty.periods`: one row per period.
+  - each player's `picks`: one row per pick.
+  - live enemies: the freeplay budget grows by 4-5 % per wave of depth.
+- **Trims (inside the Sim, deterministic):**
+  - `ty.periods` keeps full rows for the last 12 periods. Older rows shrink to `{ period, score, cleared }`. Totals
+    already live in `ty.score` and `pl.cleared`.
+  - `ty.subjects` and the seat `blocks` keep only the current and next entries.
+  - `p.picks` past the first 24 is kept as counts by rarity.
+- **Gate:** snapshots under 150 KB at wave 100 and under 250 KB at wave 150, measured by the bot (E5). Co-op checkpoints
+  already split into `part` messages, so size affects only time.
+- Share codes stay Half/Full only in v1 (the 10-character code has one length bit). An Extended Day seed is shown as
+  "Seed only" (Q-A4). The Weekly Timetable stays a fixed Half or Full Day with Random Class off.
+- Updates mid-run close and pay the run, as in §12.5. An Extended Day run is open longer, so this happens more often.
+  The hub line says so.
+
+### 20.7 Co-op
+
+- Room setting `{ seed, grade, length: 'half'|'full'|'after', mapId, random: boolean }`. `tryoutSetting` accepts
+  `after` and `random`, and `sameTryout` compares both. Changing either takes the guest's Ready back.
+- Extended Day needs a Full Day cleared by the **host** (the host's ladder, as Grades are). Random Class has no unlock.
+- Checkpoint envelope: unchanged (`squads`, `period`). In Random Class the squads are still written out, because girls
+  join at picks.
+- Version: both options are sim changes. The `TRYOUT` table, the new freeplay overrides and `tryoutTick` are all inside
+  the sim id and `coopVersion()`. **`COOP_PROTOCOL` stays 11.** The branch records its new pending sim id as a
+  `PENDING_BUMP` pin in `tests/art/itemArtRuntime.test.js` (`KNOWN[11]` untouched), and the release takes the next free
+  protocol number. No branch has a `PENDING_BUMP` pin in this test yet (HANDOFF names the pattern only in prose), so E1
+  adds the pin's few lines.
+
+### 20.8 UI
+
+- **Before Class**: the length row becomes Half Day · Full Day · **Extended Day** (locked until any Full Day is
+  cleared, same lock style). A **Random Class** toggle sits under the length row. With it on:
+  - the draft cards turn face down with a "drawn at the bell" note;
+  - Start needs no picks;
+  - the Eraser and Double Dare chips hide.
+- **Co-op room**: the same two controls in the host's Tryout panel. The guest sees them read-only.
+- **Timetable strip (Extended Day)**: a sliding window instead of all periods: the last 2, the current one and the next
+  4. Boss and miniboss cells keep their art. A "P13+" pill marks Stay Late, and a wave counter replaces the
+  "Final" label. The thin band reads "P17 · wave 2/4 · Science".
+- **Pick sheet (Random Class)**: the three cards deal in, a soft highlight steps across them, then the drawn card (and
+  path) lands with a "Random Class" badge. No buttons, and taps do nothing. A "skip reveal" tap only skips the animation;
+  the Sim lands at its tick anyway. The cap bar still shows.
+- **Class Photo (Extended Day)**: the headline is "Wave N". Under it: best wave for this Grade (new best ribbon), the
+  milestone row (50 / 75 / 100 ticked), periods, assignments and the squad. The title is **Home Time** whether the run
+  ended by hearts or by choice.
+- **Hub**: the Extended Day best wave beside each Grade's medal. A "Random" chip on Yearbook entries.
+- Display text goes in `src/ui/text/tryout.js` (`LENGTH_NAMES.after`), outside hashed files.
+
+### 20.9 Tests
+
+- **Plan:** `after` P1-P12 plan, stage and assignments equal `full`'s on 50 seeds. The §20.1 grid tests the pick, break,
+  Exam Prep, Tryout-pick, miniboss and boss functions up to P120.
+- **Waves:** freeplay golden waves unchanged for all three tiers. Extended Day waves 49-400 are deterministic across two
+  builds of the stage. Visitors stay in the window's chapters. Boss waves fall on the grid.
+- **Lockstep (two views):** Extended Day to wave 80, and Random Class with Extended Day to wave 60. Command logs carry
+  no pick ops, and digests match at every wave end. A rejoin mid-reveal lands on the same card.
+- **Solo Continue:** mid-reveal, mid-break, mid-wave past wave 48 (Make-up Test), and at wave 100 (size gate).
+- **Random Class:**
+  - `randomThree` always has a striker and a girl who hits flyers (all owned sets, 10k seeds).
+  - Every auto-pick is an allowed card.
+  - `take`, `hand`, `erase` and `dare` are refused with reasons.
+  - B07 is never offered.
+- **Rewards:** coins stop at the weekly wave cap. Milestone rows pay once. A practice run pays none. The missions chart
+  pin is updated as in §20.5. `result.freeplay = 'tryout'` pays no freeplay rewards.
+- **Perf:** a bot run at Grade 6 to wave 150 at 3×, with step time and heap within the freeplay wave-150 budget.
+- **e2e:** `e2e/tryout.mjs` gains an Extended Day + Random Class smoke test (solo, 2 periods past wave 48 with a forced
+  seed).
+
+### 20.10 Owner questions (each with a default)
+
+| # | Question | Default |
+|---|---|---|
+| A1 | Does reaching P12 in Extended Day count as a Full Day clear (Grade unlock, Full Day's Work)? | **Yes.** The first 12 periods are the Full Day. |
+| A2 | Name: "Extended Day", beside Half Day and Full Day. ("After School" is the victory results song in `docs/AUDIO.md`, "Study Hall" a music variant, OVERTIME freeplay's pill.) | **Extended Day** (the coordinator's pick, Oct 29; owner veto open). |
+| A3 | Lift the §4.4 caps late in the run (an "Overtime" card family)? | **No in v1.** The plateau ends the run. Revisit after bot data. |
+| A4 | Share codes for Extended Day? | **Not in v1**: a seed line only. Adding a length needs a new code version. |
+| A5 | Milestones at 50 / 75 / 100 for 30 / 30 / 60 gems? | **Yes.** It is 1 recruit in total, one-time, and off the 28-day chart. |
+| A6 | Can a player end an Extended Day run on purpose (Home Time)? | **Yes**: solo between waves, and in co-op by both players' vote. It pays like running out of hearts. |
+| B1 | Does Random Class pay the same as a normal run? | **Yes**, same Marbles, coins and records, with a "Random" mark. |
+| B2 | Must Random Class's three always include a Control or Support girl? | **No.** It guarantees a striker and a girl who hits flyers, the two a run can't do without. |
+| B3 | Does the Subject choice go random too? | **No.** It stays a team choice, alternating in co-op. Only girls and Pep Talks are random. |
+| B4 | Separate best-wave and score records for Random Class? | **No.** One record per Grade and length. The mark shows how it was set. |
+| B5 | Reveal length: 2 s, and can it be skipped? | **2 s at 1×.** The skip button shortens only the animation. |
+
 ## Appendix A. How this spec answers the judges
 
 **Base:** the squad draft on one long battle (highest combined score). **Its problems fixed:** scope cut (no lanes, 12
