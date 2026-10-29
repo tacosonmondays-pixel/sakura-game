@@ -262,8 +262,11 @@
   :is(.ui-day) .stp-drops { min-height: 58px; }
   :is(.ui-day) .stp-foot { grid-template-columns: minmax(0, 1fr); row-gap: 8px; }
   /* the page scrolls on a short upright phone: Start stays on screen, pinned to the foot over the paper */
+  /* (scroll-padding: a focused control scrolls clear of the pinned foot; the body's bottom padding moves into the
+     foot, so the foot meets the screen's edge and nothing shows under Start) */
+  :is(.ui-day) .stp-screen .screen-body { scroll-padding-bottom: 130px; padding-bottom: 0; }
   :is(.ui-day) .stp-foot { position: sticky; bottom: 0; z-index: 5; margin-inline: calc(-1 * var(--gutter)); padding-inline: var(--gutter);
-    padding-top: 8px; padding-bottom: calc(10px + var(--safe-bottom, 0px)); background: var(--paper-b);
+    padding-top: 8px; padding-bottom: calc(16px + var(--safe-bottom, 0px)); background: var(--paper-b);
     box-shadow: 0 -10px 10px -10px rgba(15, 25, 48, 0.22); }
   :is(.ui-day) .stp-foot-l:empty { display: none; }
   :is(.ui-day) .stp-start { --h: 50px; }
