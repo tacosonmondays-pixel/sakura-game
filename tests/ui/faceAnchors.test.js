@@ -8,8 +8,8 @@ import { UNITS } from '../../src/data/units.js';
 import { FACE_ANCHORS, CUT_EXTENTS, faceAnchor, cutExtents, DEFAULT_ANCHOR, DEFAULT_EXTENTS } from '../../src/ui/faceAnchors.js';
 
 describe('face anchors', () => {
-  it('every girl (36, Tenka with the ultimates) has both entries, and no stray girl has one', () => {
-    expect(UNITS).toHaveLength(36);
+  it('every girl (39: Tenka with the ultimates; the duo, Kogane and Norika with banners) has both entries, and no stray girl has one', () => {
+    expect(UNITS).toHaveLength(39);
     for (const u of UNITS) {
       expect(FACE_ANCHORS[u.id]?.cut, `${u.id} cut`).toBeTruthy();
       expect(FACE_ANCHORS[u.id]?.card, `${u.id} card`).toBeTruthy();

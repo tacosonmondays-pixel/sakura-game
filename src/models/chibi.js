@@ -424,6 +424,27 @@ class ChibiAnimator {
   }
 }
 
+/**
+ * Lifts a procedural chibi's chin by `rad` after her own animation each frame (wraps userData.animate), so her
+ * eyes read under her bangs or a cap's brim from the 48° battle camera (the GLB girls carry the same lift in
+ * their clips). Her hanging hair keeps hanging (most of the lift is countered on the hair bones).
+ * @returns {THREE.Group} the same group
+ */
+export function liftChin(group, rad) {
+  const bones = group?.userData?.bones;
+  const animate = group?.userData?.animate;
+  if (!bones || !animate || !rad) return group;
+  const chin = new THREE.Quaternion().setFromEuler(new THREE.Euler(-rad, 0, 0));
+  const hair = new THREE.Quaternion().setFromEuler(new THREE.Euler(rad * 0.75, 0, 0));
+  group.userData.chinUp = rad;
+  group.userData.animate = (time, dt, state) => {
+    animate(time, dt, state);
+    bones[BONES.head].quaternion.multiply(chin);
+    for (const k of [BONES.tailL, BONES.tailR, BONES.tailB]) bones[k].quaternion.multiply(hair);
+  };
+  return group;
+}
+
 const UP = new THREE.Vector3(0, 1, 0);
 const HALO_TILT = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.32, 0, 0));
 

@@ -83,6 +83,9 @@ export const EMBLEMS = {
   tree: () => `<path d="M11 21.5V14M13 21.5V14M12 15.5l-3.4-2.6M12 15.5l3.2-3" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="7.6" cy="10.5" r="4.4" fill="#ffd1e4"/><circle cx="16.4" cy="10.5" r="4.4" fill="#ffd1e4"/><circle cx="12" cy="7" r="5.2" fill="#fff"/>${blossom(12, 7, 3.2, '#ff9cc6', '#ffd23f')}`,
   codex: () => `${['#2bb6a8', '#ff9f1c', '#6c7a96', '#e0a800', '#ff4d8d'].map((col, i) => { const a = (-90 + i * 72) * Math.PI / 180; return `<circle cx="${n(12 + Math.cos(a) * 8)}" cy="${n(12 + Math.sin(a) * 8)}" r="2.9" fill="${col}" stroke="#fff" stroke-width="1.2"/>`; }).join('')}${star(12, 12, 5, '#fff')}`,
 
+  // a small blackboard on its easel with a chalk tick (Tryout Day's Grade ribbons)
+  board: (c) => `<rect x="3" y="4.2" width="18" height="12.4" rx="1.6" fill="#fff"/><rect x="4.8" y="6" width="14.4" height="8.8" rx="0.8" fill="${c}"/><path d="M8 10.6l2.4 2.2 5-4.6" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 16.6l-2 4.4M17 16.6l2 4.4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>`,
+
   // ---- final-spec emblems (chapter crests and the new ribbons) ----
   wave: (c) => `<path d="M2.5 12.5c2.4-2.4 4.8-2.4 7.2 0s4.8 2.4 7.2 0 4.2-2 4.6-1.6M2.5 17.5c2.4-2.4 4.8-2.4 7.2 0s4.8 2.4 7.2 0 4.2-2 4.6-1.6" stroke="#fff" stroke-width="2.3" fill="none" stroke-linecap="round"/><path d="M16.6 2.8a4.6 4.6 0 1 0 3.6 7.4 3.8 3.8 0 0 1-3.6-7.4z" fill="#fff"/><circle cx="6" cy="5.6" r="1.1" fill="${c}"/>`,
   torii: (c) => `<path d="M2.2 5.6q9.8-2.8 19.6 0v2.4q-9.8-2.3-19.6 0z" fill="#fff"/><path d="M4.8 10.4h14.4v1.9H4.8z" fill="#fff"/><path d="M7.2 7.6v13.6M16.8 7.6v13.6" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><path d="M11.1 7.9h1.8v2.5h-1.8z" fill="${c}"/>`,
@@ -135,6 +138,9 @@ export const HONOR_ART = Object.freeze({
   a_fp_crimson: { c: ['#ff7a7a', '#8a1022', '#ffd2c2', '#d62839', '#ffb347', '#c2410c', '#ffb347', '#ffc2b8'], aura: '#ffd9c2' },
   a_fp_bosses_4: { c: ['#6d63c9', '#1b1640', '#3b3486', '#13102e', '#8b7bff', '#2a1d5c', '#ffe7a3', '#a59cf0'], aura: '#cfc8ff' },
   a_login_365: { c: ['#9ef0d8', '#16705a', '#e9fff8', '#2fb38c', '#b28dff', '#6741d9', '#2fb38c', '#d6fff2'], aura: '#dafff3' },
+  a_try_g4: { c: ['#a8d8b9', '#2c6e49', '#effaf3', '#5fb883', '#ffe08a', '#c98a00', '#2c6e49'] },
+  a_try_g8: { c: ['#ffd29a', '#a85a00', '#fff5e6', '#f0a83a', '#9fd3ff', '#2d6db3', '#a85a00', '#ffe7c2'] },
+  a_try_g12: { c: ['#3f6b5a', '#173528', '#e9f5ee', '#2f5d4b', '#ffd1e4', '#c43d7a', '#ffe14d', '#cfe8dc'], aura: '#f4fff8' },
   a_mr_800: { c: ['#e6dcff', '#5b4bb0', '#ffffff', '#c9b8ff', '#9ee6ff', '#7c6cf0', '#7c6cf0', '#f6f0ff'], aura: '#ffffff' },
 });
 
@@ -212,6 +218,7 @@ export function fxLayers(fx, t) {
   if (fx === 'ember') { L.push('<span class="rb-halo"></span>'); if (t !== 's') L.push(`<span class="rb-embers">${'<i></i>'.repeat(t === 'l' ? 7 : 4)}</span>`); }
   if (fx === 'storm') { L.push(`<span class="rb-bolts">${'<i></i>'.repeat(t === 'l' ? 3 : t === 'm' ? 2 : 1)}</span>`); if (t === 'l') L.push('<span class="rb-flash"></span>'); }
   if (fx === 'aurora') { L.push(`<span class="rb-aurora">${'<i></i>'.repeat(t === 'l' ? 3 : t === 'm' ? 2 : 1)}</span>`); if (t === 'l') L.push(glints(2)); }
+  if (fx === 'chalk') { L.push('<span class="rb-halo"></span>'); L.push(glints(t === 'l' ? 3 : t === 'm' ? 2 : 1)); }
   if (fx === 'holo') { L.push('<span class="rb-foil"></span>'); if (t !== 's') L.push('<span class="rb-sweep holo"></span>'); L.push(glints(1)); }
   return L.join('');
 }

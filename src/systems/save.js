@@ -11,7 +11,7 @@ import { UR_MAX_LEVEL } from '../data/gearAwaken.js';
 import { restoreGearMarks } from './gearMarks.js';
 import { RIBBON_MODES } from '../data/modes.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
-import { emptyMail, MAIL_LIMIT } from './mail.js';
+import { emptyMail, MAIL_LIMIT, amendBetaLetter } from './mail.js';
 import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
 import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, V3_MARKER as POT_V3_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
 import { settleLevels, MAX_LEVEL } from './progression.js';
@@ -327,6 +327,8 @@ function cleanSettings(raw) {
     loadingBg: LOADING_BGS.includes(s.loadingBg) ? s.loadingBg : d.loadingBg,
     // older saves have no girl page look: the compact page
     girlPage: GIRL_PAGE_LOOKS.includes(s.girlPage) ? s.girlPage : d.girlPage,
+    // [friend support] the lent girl (absent: the first girl of the profile showcase; systems/friendSupport.js)
+    ...(typeof s.supportUnit === 'string' && /^[a-z][a-z0-9_]{0,23}$/.test(s.supportUnit) ? { supportUnit: s.supportUnit } : {}),
   };
 }
 
@@ -390,6 +392,7 @@ function cleanMail(raw) {
       claimed: bool(l.claimed),
       ...(l.claimedAt != null ? { claimedAt: num(l.claimedAt, 0, 0) } : {}),
     });
+    amendBetaLetter(m.letters[m.letters.length - 1]); // [banners G0] "ANY SSR" → LR units excluded
     if (!m.delivered.includes(l.id)) m.delivered.push(l.id);
   }
   m.letters = m.letters.slice(0, MAIL_LIMIT);
@@ -408,6 +411,34 @@ export function cleanModeRibbons(raw) {
   for (const [k, v] of Object.entries(raw)) {
     const [d, m] = k.split(':');
     if (v === true && DIFFICULTY_ORDER.includes(d) && RIBBON_MODES.includes(m) && k === `${d}:${m}`) out[k] = true;
+  }
+  return out;
+}
+
+/** Tryout Day's meta block (src/systems/tryoutYearbook.js): only well-formed keys survive; null when empty. */
+export function cleanTryoutMeta(raw) {
+  if (!isObj(raw)) return null;
+  const ID = /^[A-Za-z0-9_]{1,40}$/;
+  const marks = (o) => {
+    const out = {};
+    if (isObj(o)) for (const k of Object.keys(o).slice(0, 400)) if (ID.test(k) && o[k]) out[k] = 1;
+    return out;
+  };
+  const out = {};
+  const yb = isObj(raw.yb) ? raw.yb : {};
+  out.yb = {
+    girls: marks(yb.girls), cards: marks(yb.cards), seen: marks(yb.seen), bosses: marks(yb.bosses),
+    weeks: (Array.isArray(yb.weeks) ? yb.weeks : []).filter((w) => Number.isInteger(w) && w > 0).slice(-520),
+  };
+  out.best = {};
+  if (isObj(raw.best)) {
+    for (const [k, v] of Object.entries(raw.best).slice(0, 400)) if (/^(half|full):\d{1,2}:[a-z0-9_]{1,40}$/.test(k)) out.best[k] = int(v, 0, 0);
+  }
+  if (isObj(raw.weekly) && Number.isInteger(raw.weekly.week)) out.weekly = { week: raw.weekly.week, best: int(raw.weekly.best, 0, 0) };
+  if (isObj(raw.jar)) {
+    const sel = {};
+    if (isObj(raw.jar.sel)) for (const [k, v] of Object.entries(raw.jar.sel)) if (ID.test(k) && typeof v === 'string' && ID.test(v)) sel[k] = v;
+    out.jar = { off: strList(raw.jar.off, 20).filter((x) => ID.test(x)), sel };
   }
   return out;
 }
@@ -481,7 +512,14 @@ export function migrateProfile(raw) {
     recruitPoints: int(g.recruitPoints, 0, 0),
     history: (Array.isArray(g.history) ? g.history : [])
       .filter((h) => isObj(h) && UNIT_MAP[h.unitId])
-      .map((h) => ({ unitId: h.unitId, rarity: UNIT_MAP[h.unitId].rarity, at: num(h.at, 0, 0) }))
+      .map((h) => {
+        // [banners] the banner a pull came from, and spark / Select Ticket marks (BANNERS §A.5 History)
+        const e = { unitId: h.unitId, rarity: UNIT_MAP[h.unitId].rarity, at: num(h.at, 0, 0) };
+        if (typeof h.banner === 'string' && /^[a-z]+(:[a-z0-9_]+)?:\d{1,7}$/.test(h.banner)) e.banner = h.banner;
+        if (h.spark === true) e.spark = true;
+        if (h.select === true) e.select = true;
+        return e;
+      })
       .slice(-HISTORY_LIMIT),
   };
 
@@ -532,6 +570,8 @@ export function migrateProfile(raw) {
       // a solo run (src/systems/freeplayRewards.js): its best field and capped coins per wave
       if (r.bestKey === 'freeplayBest') runs[seed].bestKey = 'freeplayBest';
       if (r.waveCoins != null) runs[seed].waveCoins = int(r.waveCoins, 0, 0, 1000);
+      // [friend support] a run with a borrowed girl: no best or milestones when it is paid
+      if (r.support === 1 || r.support === true) runs[seed].support = 1;
     }
     if (Object.keys(runs).length) p.progress.freeplayPending = runs;
   }
@@ -572,6 +612,14 @@ export function migrateProfile(raw) {
   p.seenIntro = strList(raw.seenIntro);
   // additive (no version bump): a save from before battle saves simply has none
   p.battleSaves = cleanBattleSaves(raw.battleSaves);
+  // [tryout] the one open Tryout Day run (its own slot, outside the 5 battle saves; additive)
+  if (isObj(raw.tryoutRun) && typeof raw.tryoutRun.id === 'string' && Number.isInteger(raw.tryoutRun.seed)) p.tryoutRun = raw.tryoutRun;
+  // [tryout] the highest Grade cleared (the ladder: clearing Grade N opens N + 1)
+  if (Number.isInteger(raw.tryoutGrade) && raw.tryoutGrade > 0) p.tryoutGrade = Math.min(12, raw.tryoutGrade);
+  // [tryout] the meta block: the Yearbook, local records, the Marble Jar's switches and selections (additive; Marbles,
+  // purchases and the paid counts live in missions.counters 'ty:*', src/systems/tryoutRewards.js)
+  const tm = cleanTryoutMeta(raw.tryoutMeta);
+  if (tm) p.tryoutMeta = tm;
   creditPotential(p, now);
   // [ur-gear] rainbow UR gear, ✦ stitches, clubs and the club-only substats an older build stripped come back
   // from their missions.counters mirrors (src/systems/gearMarks.js); the mirrors are rewritten

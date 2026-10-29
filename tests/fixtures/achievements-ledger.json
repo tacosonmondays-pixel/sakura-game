@@ -131,6 +131,18 @@
   "a_petal_80": [{"id":"gearbox_superRare", "count": 2}],
   "a_rules_15": [{"id":"gearbox_superRare", "count": 2}],
   "a_ch1_act2": [{"id":"gems", "count": 62}],
-  "a_ch2_act2": [{"id":"gems", "count": 75}]
+  "a_ch2_act2": [{"id":"gems", "count": 75}],
+  "a_try_half": [{"id":"gems", "count": 20}],
+  "a_try_full": [{"id":"gems", "count": 30}],
+  "a_try_spotless": [{"id":"gems", "count": 40}],
+  "a_try_ticked": [{"id":"gems", "count": 30}],
+  "a_try_dare": [{"id":"gems", "count": 20}],
+  "a_try_seen": [{"id":"gems", "count": 40}],
+  "a_try_lr": [{"id":"gems", "count": 20}],
+  "a_try_window": [{"id":"gems", "count": 20}],
+  "a_try_moves": [{"id":"gems", "count": 20}],
+  "a_try_g4": [{"id":"gems", "count": 30}],
+  "a_try_g8": [{"id":"gems", "count": 40}],
+  "a_try_g12": [{"id":"gems", "count": 50}]
  }
 }

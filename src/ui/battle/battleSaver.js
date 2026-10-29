@@ -114,6 +114,8 @@ export function createBattleSaver({ sim, req, cfg = null, record = null, evict =
         seed,
         loadout: cfg?.loadout || [],
         hero: cfg?.hero || null,
+        // [friend support] the borrowed girl (record level: Continue keeps her and the run stays a support run)
+        ...(cfg?.support ? { support: cfg.support } : {}),
         createdAt: mountedAt,
         // the event clock's start time (Continue's reward gate for a limited-event stage)
         ...(Number.isFinite(startedAt) && startedAt > 0 ? { startedAt } : {}),
