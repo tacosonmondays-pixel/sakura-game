@@ -718,4 +718,4 @@ crowd (the slow moves the stream), 1.00 on the boss.
 - Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js` reads `fc7ab3f31edd` (S1, the long beam, S2 and S3). **No
   `COOP_PROTOCOL` bump on the branch.**
 - Perf: `tests/sim/perf.test.js` "ground attack shapes": 6 Chigusas at Forest Corridor, 6 Yukis at Diamond Dust and Kanna at
-  Lv 24 with 200 enemies, 0.30 ms a step locally (limit 2 ms).
+  Lv 24 with 200 enemies, 0.30-0.40 ms a step locally (limit 2 ms).
