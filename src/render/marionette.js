@@ -30,10 +30,10 @@ const SEGS = 8;
 /** At most this many strings per doll (the GLB has three: both hands and the head). */
 const MAX_STRINGS = 4;
 /** String width: world units at the doll's scale 1, and at least this many CSS px on screen. */
-const STRING_W = 0.011;
+const STRING_W = 0.007;
 const STRING_MIN_PX = 1.2;
-const LILAC = new THREE.Color('#d6c8ff');
-const TAUT = new THREE.Color('#f4eeff');
+const LILAC = new THREE.Color('#c9b6f4');
+const TAUT = new THREE.Color('#e2d6ff');
 /** How near the dead target's last spot the enemy its needle flies on to must be (tiles). */
 const NEXT_NEAR = 0.8;
 /** An enemy's body point: this share of its height. */

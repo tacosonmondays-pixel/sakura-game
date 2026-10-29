@@ -138,7 +138,7 @@ try {
     const m = d?.marionette;
     const st = m?.stage === 'idle' ? 'rest' : m?.stage;
     rows.push(`${i} ${st} u=${m?.u} off=${m?.offset} taut=${m?.taut} tilt=${m?.tilt} landed=${m?.landed} uid=${m?.uid}`);
-    const mark = { command: 0.4, extend: 0.5, strike: 0, reel: 0.45, settle: 0.25, rest: 0 }[st];
+    const mark = { command: 0.4, extend: mode === 'dies' ? 0.3 : 0.5, strike: 0, reel: 0.45, settle: 0.25, rest: 0 }[st];
     rows[rows.length - 1] += ` needles=${d?.needles} hit=${d?.hit}`;
     // the strike frame: the frame of the sim's hit (its slash flash), else the strike's first frame
     const strikeOk = st !== 'strike' || d?.hit || m.u > 0.6 || mode === 'dies';
@@ -146,7 +146,7 @@ try {
       got.add(st);
       await shoot(`${String(want.indexOf(st))}-${st}`);
     }
-    if (mode === 'dies' && !killed && st === 'extend') {
+    if (mode === 'dies' && !killed && st === 'extend' && got.has('extend')) {
       killed = true;
       await page.evaluate((u) => { const { sim } = window.__battle; const e = sim.enemies.find((x) => x.uid === u); if (e) sim._killEnemy(e, null); }, foe.uid);
       rows.push('  (target killed)');
