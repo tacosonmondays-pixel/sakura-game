@@ -1,0 +1,41 @@
+{
+  "scope": "fix/display-polish-2 @ a37b62cf (git show a37b62cf -- src tests): fixes for the 4 LOWs in review-lows.json",
+  "reviewer": "independent reviewer (did not build it)",
+  "verdict": "NOT OK",
+  "verdict_note": "Nothing is broken and fixes 2, 3 and 4 are right. Fix 1 does not meet its own goal: at 844x390 the maple-red copy still cannot be seen; only the amber copy reads. All findings are LOW.",
+  "checks": {
+    "vitest": "npx vitest run --maxWorkers=2 tests/render/kaedeFx.test.js tests/render/marionette.test.js tests/data: 21 files, 918 tests passed",
+    "simId": "be940ecb2087 (unchanged; no COOP_PROTOCOL bump needed)",
+    "e2e": "node e2e/display-polish-2-lows.mjs (one run, via pw.sh): exit 0, no FAIL. It captures Kaede (2 of 4 ghosts shown at +1 and +3 frames, 1 at +5, 0 at +8). Yoriko: 8 strikes, 0 started 2+ frames before her hit, largest frame-to-frame Extend jerk 0.03"
+  },
+  "fixes": {
+    "1_kaede_dashOffset": "Code matches the description: 0.6 to 1.0 of reach, floored at DASH_NEAR 0.55, capped at reach; count 1 gives reach. The tests cover the floor, the cap, and short reach. Visual at 844x390 high: one amber silhouette (head, hair, body, darker rim; not detached or odd). There is no visible maple-red copy. A diff against the no-ghost frame shows only the amber figure plus a faint pink tint over her own body and shadow. The likely cause is that the red copy is the oldest and has the lowest rank. By the time the amber copy appears it has about 0.14 body opacity (0.45 x 0.55 x 0.75^2), it is about 0.35 tiles behind the amber copy, and it sits over her own dark shadow.",
+    "2_comment": "ghostAlpha comment now reads 'nearer her target'. OK.",
+    "3_yoriko": "The logic is correct. Command branch: blendNext is cleared before enter('extend'), so spread() does not run and the extend of at most CATCH_UP runs unspread. Extend branch: blend = 0 removes the per-frame cap, and the rate is raised so the strike lands within CATCH_UP. The e2e showed 0 early strikes and a jerk of 0.03.",
+    "4_patch_note": "The v0.1.62 props bullet now matches the previous review's suggested wording and is accurate. OK."
+  },
+  "findings": [
+    {
+      "severity": "LOW",
+      "where": "src/render/attackFx/patterns/ghosts.js dashOffset / ghostAlpha; styles/kaede.js; screen: battle 844x390 high",
+      "issue": "The maple-red copy is still not visible. The added distance alone is not enough: the copy is about 0.14 opacity over her shadow by the time the amber one appears.",
+      "fix": "Options: give the first copy a higher rank or peak (e.g. rank 0.8 to 1); push DASH_NEAR to about 0.7; or spawn both copies in the same frame. Otherwise accept that only one copy reads at phone size and drop the two-colour claim."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/attackFx/patterns/ghosts.js line 13; src/render/attackFx/styles/kaede.js lines 15 and 122",
+      "issue": "Stale comments still say the copies are 'spaced half and all of the way' or 'halfway to her target'. They are now at 0.6 to 1.0, with the first at least 0.55 tiles out.",
+      "fix": "Reword these 3 comments."
+    },
+    {
+      "severity": "LOW",
+      "where": "tests/render/marionette.test.js 'a needle landing during Command'",
+      "issue": "The test does not test the fix. It asserts only blendNext === false, and enter() already clears blendNext for every stage except Command. With the new 's.blendNext = false' line removed, the test still passes (checked). It also does not cover the Extend-branch 's.blend = 0'.",
+      "fix": "Assert s.blend === 0 after landMarionette from Command, and add an Extend case with blend > 0. Better: step stepMarionette at 1/60 and assert that the stage reaches 'strike' within CATCH_UP plus one frame."
+    }
+  ],
+  "evidence": [
+    "docs/review/display-polish-2/review-lows2/kaede-strip-844x390-high.jpg (e2e strip at +0.02/+0.05/+0.08/+0.13/+0.18 s: one amber copy, no red)",
+    "docs/review/display-polish-2/review-lows2/kaede-vs-noghost-diff-844x390.jpg (+0.02 s frame, +0.13 s no-ghost frame, amplified difference)"
+  ]
+}
