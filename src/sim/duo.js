@@ -24,9 +24,17 @@
 // each a share of the shell's hit (mystic, hits flyers, its own small splash and the shard statuses).
 // Potential's capstone (fullEvery): every Nth volley (t.duoVolley counts them) splits every shell in it.
 //
-// Determinism (co-op lockstep): integer counters and tick timers, fixed tables, + − × ÷ and Math.round only.
+// The long beam (Grand Spectrum, `duo.edge`, and the duo's LR form, `unitStats.lr`): a held beam still locks onto
+// an enemy within her reach and keeps its hold rules, ramp and silence cadence, but its line runs on through that
+// enemy to the map edge (edgeReach: the map-bounds clip). Within her reach it is exactly the old beam (her pierce);
+// past it the light hits everything on the line (up to PRISM_EDGE_PIERCE in all), each hit × PRISM_EDGE_MUL.
+//
+// Determinism (co-op lockstep): integer counters and tick timers, fixed tables, + − × ÷, Math.sqrt and Math.round only.
 
-import { STEP, MORTAR_DELAY, PRISM_SHARDS, PRISM_BEAM_TICK, PRISM_SILENCE_TICKS, PRISM_CLIP_TICKS, BEAM_HALF_WIDTH } from './constants.js';
+import {
+  STEP, MORTAR_DELAY, PRISM_SHARDS, PRISM_BEAM_TICK, PRISM_SILENCE_TICKS, PRISM_CLIP_TICKS, BEAM_HALF_WIDTH, PRISM_EDGE_PIERCE, PRISM_EDGE_MUL, DUO_LR_MUL,
+} from './constants.js';
+import { segDistSq } from './path.js';
 
 /** Ticks of one old flash interval at `rate` attacks a second (at least 1): a damage tick's share is PRISM_BEAM_TICK / this. */
 export function beamTicks(rate) {
@@ -47,6 +55,8 @@ export function buildPartnerSpec(t) {
     t.beamTickSpec = null;
     return;
   }
+  // her LR form: shells, shards and beam × DUO_LR_MUL (t.eff is rebuilt before every call, so this applies once)
+  if (t.unitStats?.lr === true) e.damage *= DUO_LR_MUL;
   const dmgK = s.damage > 0 ? e.damage / s.damage : 1;
   const rateK = s.rate > 0 ? e.rate / s.rate : 1;
   const b = t.buff;
@@ -70,7 +80,8 @@ export function buildPartnerSpec(t) {
     armorPen: e.armorPen + d.beamPen,
     airMul: (s.airMul ?? 1) * d.beamAir,
     eliteMul: 1,
-    bossMul: 1,
+    // her ×bosses reaches the beam too (the duo's v0.1.61 buff: a boss row the beam carries)
+    bossMul: e.bossMul ?? 1,
     barrierMul: 1,
     ramp: d.rampMax > 0 ? { per: d.rampPer, max: d.rampMax } : null,
     silence: d.beamSilence,
@@ -81,6 +92,14 @@ export function buildPartnerSpec(t) {
   // one damage tick of a held beam: the share of one old flash (src/sim/combat.js computeHit reads `share`);
   // her silence lands on lock-on and every PRISM_SILENCE_TICKS (prismBeam), never through a tick
   const share = PRISM_BEAM_TICK / beamTicks(t.beamSpec.rate);
+  // the long beam: her line to the map edge, its pierce cap lifted (prismBeam thins the hits past her reach)
+  const edge = d.edge > 0 || t.unitStats?.lr === true;
+  if (edge) {
+    // within her reach she pierces as before (nearPierce); the line past it takes up to PRISM_EDGE_PIERCE in all
+    t.beamSpec.edge = true;
+    t.beamSpec.nearPierce = t.beamSpec.pierce;
+    t.beamSpec.pierce = PRISM_EDGE_PIERCE;
+  }
   t.beamTickSpec = { ...t.beamSpec, damage: t.beamSpec.damage * share, share, ramp: null, silence: 0, tick: true };
   if (!t.prismBeams) t.prismBeams = []; // her beams' holds (prismBeam fills one per beam on her first target)
 }
@@ -125,6 +144,28 @@ export function partnerOff(t) {
 export function prismRamp(spec, tick, held) {
   const ramp = spec.ramp;
   return ramp ? 1 + Math.min(ramp.per * held * tick.share, ramp.max) : 1;
+}
+
+/**
+ * How far a line from (sx, sy) along the unit vector (ux, uy) runs before it leaves the map [0, W] × [0, H]
+ * (0 when it starts outside along that direction). Division and compares only.
+ */
+export function edgeReach(sx, sy, ux, uy, W, H) {
+  let r = Infinity;
+  if (ux > 0) r = Math.min(r, (W - sx) / ux);
+  else if (ux < 0) r = Math.min(r, -sx / ux);
+  if (uy > 0) r = Math.min(r, (H - sy) / uy);
+  else if (uy < 0) r = Math.min(r, -sy / uy);
+  return r === Infinity ? 0 : Math.max(0, r);
+}
+
+/** Her beam's length toward enemy e: her reach, or for a long beam on to the map edge (never shorter than her reach). */
+export function beamLength(sim, t, spec, e) {
+  if (!spec.edge) return spec.range;
+  const dx = e.x - t.ox;
+  const dy = e.y - t.oy;
+  const d = Math.sqrt(dx * dx + dy * dy) || 1e-6;
+  return Math.max(spec.range, edgeReach(t.ox, t.oy, dx / d, dy / d, sim.map.width, sim.map.height));
 }
 
 // Scratch arrays of the damage tick (filled and read inside one synchronous prismBeam call, never across steps:
@@ -179,11 +220,27 @@ function prismBeam(sim, t, spec, h) {
     if (!e || e.dead) continue; // (an earlier beam's tick finished it: the next tick lets go)
     const scale = prismRamp(spec, tick, b.held);
     const silence = sil > 0 && (b.held * PRISM_BEAM_TICK) % PRISM_SILENCE_TICKS === 0;
-    const hits = h.linePierceInto(sim, t, tick, e, spec.range, BEAM_HALF_WIDTH, spec.pierce, HITS, NEAR);
+    const hits = h.linePierceInto(sim, t, tick, e, beamLength(sim, t, spec, e), BEAM_HALF_WIDTH, spec.pierce, HITS, NEAR);
+    // a long beam: within her reach exactly the old beam (the old line's own test: the segment to her reach, her
+    // pierce), past it the light runs on thinner (× PRISM_EDGE_MUL) to the map edge (hits come in order along the
+    // line, her enemy first)
+    let near = 0;
+    let rx = 0;
+    let ry = 0;
+    if (spec.edge) {
+      const dx = e.x - t.ox;
+      const dy = e.y - t.oy;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1e-6;
+      rx = t.ox + (dx / d) * spec.range;
+      ry = t.oy + (dy / d) * spec.range;
+    }
     for (let j = 0; j < hits.length; j++) {
       const v = hits[j];
       if (v.dead) continue;
-      sim._hit(v, t, tick, scale);
+      const hr = BEAM_HALF_WIDTH + 0.3 + 0.06 * (v.def.size ?? 1); // (src/sim/towers.js hitRadius)
+      const far = spec.edge && v !== e && segDistSq(v.x, v.y, t.ox, t.oy, rx, ry) > hr * hr;
+      if (spec.edge && !far && near++ >= spec.nearPierce) continue;
+      sim._hit(v, t, tick, far ? scale * PRISM_EDGE_MUL : scale);
       if (silence && !v.dead) silenceOn(sim, t, v, sil);
     }
     b.held++;
