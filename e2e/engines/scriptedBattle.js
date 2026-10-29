@@ -791,7 +791,8 @@ export const ABILITIES_START = Object.freeze({
   stageId: '4-5',
   difficulty: 'normal',
   players: [
-    { slot: 0, uid: 'host', name: 'Host', loadout: abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori']), hero: { unitId: 'luna', stats: ABIL_STATS } },
+    // (A5: Fuu joins as a sixth girl, so Backdraft Fan, the move kind's push, runs on every engine)
+    { slot: 0, uid: 'host', name: 'Host', loadout: abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori', 'fuu']), hero: { unitId: 'luna', stats: ABIL_STATS } },
     { slot: 1, uid: 'guest', name: 'Guest', loadout: abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro'], ABIL_STATS_HASTE), hero: { unitId: 'nami', stats: ABIL_STATS_HASTE } },
   ],
 });
@@ -800,7 +801,7 @@ const ABIL_REASONS = Object.freeze(['cooldown', 'notWave', 'active', 'noTarget',
 
 /**
  * A whole co-op battle with abilities (stage 4-5 Normal, to `toWave` waves cleared): the host takes
- * Aoi 0-3-0, Akane 3-0-0, Momo 3-0-0, Hotaru 0-3-0 and Midori 3-0-0 (each to her ⚡ tier 3) and hero
+ * Aoi 0-3-0, Akane 3-0-0, Momo 3-0-0, Hotaru 0-3-0, Midori 3-0-0 and Fuu 3-0-0 (each to her ⚡ tier 3) and hero
  * Luna to Lv 7 (Moonbrand), and taps one of them by hand every 7 s in a round robin (some taps are
  * group taps, some carry an aim point, some land on a recharging girl and are refused); from wave 4
  * her Momo is on Auto. The guest takes Yuki, Rei, Miko 3-0-0, Sango 0-3-0, Shiro 3-0-0 and hero Nami
@@ -842,13 +843,13 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
   });
   const [A, B] = [mk(0), mk(1)];
   const clients = [A, B];
-  const girls = [['aoi', 'akane', 'momo', 'hotaru', 'midori'], ['yuki', 'rei', 'miko', 'sango', 'shiro']];
+  const girls = [['aoi', 'akane', 'momo', 'hotaru', 'midori', 'fuu'], ['yuki', 'rei', 'miko', 'sango', 'shiro']];
   // land spots (two each: the second when the first is taken); Nami and Sango stand on the water
   const spots = { ...spotsFor(ABILITIES_START, ['luna', ...girls[0], 'yuki', 'rei', 'miko', 'shiro'], 2), ...spotsFor(ABILITIES_START, ['nami', 'sango'], 2, { water: true }) };
   // [slot, unitId, spots, retry frame]: a place her view could afford can still meet a wallet that
   // changed by its tick (refused 'cash'): she is tried again until she stands
   const want = [];
-  for (let i = 0; i < 5; i++) for (const slot of [0, 1]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
+  for (let i = 0; i < 6; i++) for (const slot of [0, 1]) if (girls[slot][i]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
   const seen = [new Map(), new Map()];
   const byKind = {};
   const byOwner = [0, 0];

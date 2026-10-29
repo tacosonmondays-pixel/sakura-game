@@ -2,7 +2,8 @@
 // from the attack-FX work. Called from BattleRenderer.handleEvents for the sim's ability events (spec §6.6):
 //   ability        a cue ring on the caster, then by kind: strike = lines from her to her targets; burst = a blast
 //                  ring; rally = a rising glow on the buffed girls; debuff = a status pulse over the targets;
-//                  deploy = a spawn-in puff; econ = a coin fountain; boost / runner = a ring and puff on her
+//                  deploy = a spawn-in puff; econ = a coin fountain; move = a gust (her reach's edge, a fan of wind
+//                  sweeping out toward the crowd, a white puff on each enemy it reached); boost / runner = a ring and puff on her
 //   abilityWarn    warning rings before delayed shells, a reticle on each target of a delayed strike
 //   abilityShell   a shock ring where a shell lands (the blast itself is the sim's `explode` event)
 //   abilityFizzle  a small puff (a queued hit or shell found nothing)
@@ -39,6 +40,12 @@ const WARN = '#ffb703';
 const GOLD = '#ffd84d';
 const COIN = '#ffd43b';
 const HEART = '#ff6b9a';
+/** A move's gust (Backdraft Fan): pale wind over the caster's own colour. */
+const GUST = '#eefaf4';
+/** Glows in a gust's fan, and its half-width (radians) and radius (tiles). */
+const FAN_N = 5;
+const FAN_HALF = 0.7;
+const FAN_R = 1.1;
 const TAU = Math.PI * 2;
 
 /**
@@ -210,6 +217,29 @@ export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, 
     }
   }
 
+  /**
+   * A move's gust from (x, z): FAN_N glows on an arc facing the targets' mean direction (none: east) that sweep outward
+   * and fade (Reduce motion: still on the arc, fading). One puff of budget for the whole fan.
+   */
+  function fan(x, z, pts, color) {
+    if (!can('puffs')) return;
+    let dx = 0;
+    let dz = 0;
+    for (const p of pts) {
+      dx += p.x - x;
+      dz += p.z - z;
+    }
+    const a0 = dx || dz ? Math.atan2(dz, dx) : 0;
+    for (let i = 0; i < FAN_N; i++) {
+      const a = a0 + FAN_HALF * ((2 * i) / (FAN_N - 1) - 1);
+      const c = Math.cos(a);
+      const sn = Math.sin(a);
+      const o = { batch: 'bbA', uv: R.glow, x: x + c * FAN_R, y: 0.55, z: z + sn * FAN_R, life: 0.5, color: i % 2 ? color : GUST, a0: 0.85, a1: 0 };
+      if (rm) fx.spawn({ ...o, s0: 0.7, s1: 0.7 });
+      else fx.spawn({ ...o, vx: c * 3.2, vz: sn * 3.2, drag: 2, s0: 0.5, s1: 0.95 });
+    }
+  }
+
   /** A heart over a girl (a life came back): it rises and grows a little; Reduce motion: still, fading. */
   function heart(x, z, n) {
     if (!can('puffs')) return;
@@ -279,6 +309,18 @@ export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, 
         if (ev.scope === 'map') flash?.(col, 0.15, 2.2);
         else if (ev.radius > 0) ring(tx, tz, ev.radius, 0.5, col, { grow: false });
         break;
+      case 'move': {
+        // a gust: her reach's edge, the fan sweeping toward the crowd, a white puff on each enemy it reached
+        if (ev.radius > 0) ring(tx, tz, ev.radius, 0.5, col, { grow: false });
+        const pts = [];
+        for (const uid of targets) {
+          const p = enemyAt(uid);
+          if (p) pts.push(p);
+        }
+        fan(tx, tz, pts, col);
+        for (const p of pts) puff(p.x, p.y, p.z, GUST, 5);
+        break;
+      }
       case 'deploy':
         puff(ev.x, 0.3, ev.y, '#ffffff', 8);
         ring(ev.x, ev.y, 0.6, 0.45, col);

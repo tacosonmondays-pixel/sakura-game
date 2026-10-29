@@ -45,10 +45,10 @@
 
 import { ABILITY_RULES, abilityAtTier, skillAtLevel, abilityRuns, abilityWithLr } from '../data/abilities.js';
 import { abilityChargePerTick, firstBellCharge } from './gearRules.js';
-import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL, PRISM_SHARDS } from './constants.js';
+import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL, PRISM_SHARDS, KNOCKBACK_RESIST, PUSH_LOCK } from './constants.js';
 import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs, chainJump, chainNext } from './towers.js';
 import { isEligible } from './combat.js';
-import { isCaster, syncStatusFlags } from './enemies.js';
+import { isCaster, syncStatusFlags, placeOnPath } from './enemies.js';
 import { spikeRain } from './strips.js';
 import { emergencyDeploy } from './sentries.js';
 import { startRunner } from './runners.js';
@@ -189,7 +189,7 @@ function groupRate(sim, key, g) {
  * Unlocks her ability (an `abilityUnlock` event; 1/3 of the cooldown left, econ empty) or keeps it up to
  * date after an upgrade or a hero level (tier 5 / rank: the cooldown left becomes min(left, new full)).
  * Kinds and types this build does not run yet (handlerOf: the deploy types of Kage, Suzu and Chika wait for
- * A4) stay locked. Called on placement and _refreshTower.
+ * A4; Ruri's 'carry' move waits) stay locked. Called on placement and _refreshTower.
  */
 export function syncAbility(sim, t) {
   const src = abilitySource(t);
@@ -264,6 +264,7 @@ export function abilityReach(t, def) {
     case 'rally': return rallyRadius(t, e);
     case 'debuff': return (e.reachMul ?? 1) * t.eff.range + (e.reachAdd || 0);
     case 'deploy': return (e.reachMul ?? 1) * t.eff.range;
+    case 'move': return (e.reachMul ?? 1) * t.eff.range + (e.reachAdd || 0);
     default: return t.eff.range;
   }
 }
@@ -726,7 +727,8 @@ function strikeTargets(sim, t, def, spec) {
  * shows ({ x, y, radius, targets }), or null when there is nothing to act on (refused `noTarget`, no
  * side effect); end(sim, t) undoes a lasting one. `aim` ([x, y] or null, malformed aims already dropped)
  * matters to an ability on one girl (the girl-target rule) and to Yuzuha's sentries (the edge spots nearest
- * it); A6 adds aimed points. The deploy and runner kinds go through DEPLOYS / RUNNERS (handlerOf).
+ * it); A6 adds aimed points. The deploy and runner kinds go through DEPLOYS / RUNNERS (handlerOf); the move kind
+ * runs its type from MOVES.
  */
 const KINDS = {
   strike: {
@@ -885,6 +887,13 @@ const KINDS = {
     },
   },
 
+  move: {
+    // one move type at a time (MOVES, by `effect.move`; handlerOf never hands a type that is not there to this)
+    cast(sim, t, def, step, aim) {
+      return MOVES[def.effect.move].cast(sim, t, def, step, aim);
+    },
+  },
+
   econ: {
     cast(sim, t, def) {
       const coins = (def.effect.coins || 0) * (sim.diff.cashMul ?? 1) * (sim.incomeMul ?? 1);
@@ -928,6 +937,72 @@ const DEPLOYS = {
     },
   },
 };
+
+/**
+ * How far a move pushes enemy `v` (tiles): `push`; a miniboss `pushMiniboss` (default: push × KNOCKBACK_RESIST,
+ * half); a boss never moves.
+ */
+function pushTiles(e, v) {
+  if (v.tier === 'boss') return 0;
+  if (v.tier === 'miniboss') return e.pushMiniboss ?? (e.push || 0) * (KNOCKBACK_RESIST.miniboss ?? 1);
+  return e.push || 0;
+}
+
+/**
+ * A move's push on one enemy: `tiles` back along its own path by path distance, clamped at the path start, through
+ * the push lock (an enemy moved inside its PUSH_LOCK window stays put — unless the lock is the caster's own: one her
+ * own gusts or gather set, e.pushLockBy === her uid; owner decision Oct 29, "no weak ults" — another girl's lock or an
+ * ability's still holds; one this moves takes the lock, as an ability's: pushLockBy −1) and the freeplay push budget
+ * (e.kbLeft, which pays only for the tiles it really moves). Returns the tiles moved (0: none).
+ * Only − and min: no trig (placeOnPath reads the path's precomputed facing).
+ */
+function movePush(sim, v, tiles, ownUid) {
+  if (!(tiles > 0) || v.dead || (v.pushLock > 0 && v.pushLockBy !== ownUid)) return 0;
+  let amt = Math.min(tiles, v.dist);
+  if (v.kbLeft != null) {
+    amt = Math.min(amt, v.kbLeft);
+    v.kbLeft -= amt;
+  }
+  if (!(amt > 0)) return 0;
+  v.dist -= amt; // (amt = dist leaves exactly 0: the path start)
+  placeOnPath(v, sim.pathData[v.pathIndex]);
+  v.pushLock = PUSH_LOCK[v.tier] ?? PUSH_LOCK.normal;
+  v.pushLockBy = -1;
+  return amt;
+}
+
+/**
+ * The move kind (ABILITIES_SPEC §4, A5) one move type at a time, by `effect.move`; a type that is not here stays
+ * locked (Ruri's Star Snatch, 'carry', waits). A new type adds its entry here and to ABILITY_MOVES_RUN.
+ */
+const MOVES = {
+  // Fuu's Backdraft Fan: every enemy her ability can reach but a boss (eligible for her hit spec: never in a tunnel,
+  // a veiled one only with Veil Sight, flyers when she hits air) is blown back (pushTiles, movePush) and takes the
+  // statuses (her flyers are grounded); one push-locked by another girl or an ability is not moved but still takes
+  // them (her own gusts' locks never stop it: movePush). In uid order.
+  // Refused (nothing spent) with no such enemy in reach.
+  push: {
+    cast(sim, t, def, step) {
+      const e = def.effect;
+      const spec = abilitySpec(t, def);
+      const reach = abilityReach(t, def);
+      const { x, y } = castFrom(t, def, FROM);
+      let pool = gatherTargets(sim, x, y, reach, spec, []).filter((v) => v.tier !== 'boss');
+      if (!pool.length) return null;
+      if (e.count != null && pool.length > e.count) pool = topOf(pool, e.pick === 'first' ? 'first' : t.targetMode, x, y, e.count);
+      pool.sort((a, b) => a.uid - b.uid);
+      let moved = 0;
+      for (const v of pool) {
+        if (movePush(sim, v, pushTiles(e, v), t.uid) > 0) moved++;
+        applyStatuses(sim, v, t, e.status, spec, step);
+      }
+      return { x, y, radius: reach, targets: listed(pool), moved };
+    },
+  },
+};
+
+/** Move types this build runs. */
+export const ABILITY_MOVES_LIVE = Object.freeze(Object.keys(MOVES));
 
 /**
  * The runner kind (ABILITIES_SPEC §4, A6) one runner type at a time, by `effect.runner`; a type that is
@@ -979,6 +1054,7 @@ export function handlerOf(def) {
   if (!abilityRuns(def)) return null;
   if (def.kind === 'deploy') return DEPLOYS[def.effect.deploy] || null;
   if (def.kind === 'runner') return RUNNERS[def.effect.runner] || null;
+  if (def.kind === 'move') return MOVES[def.effect.move] ? KINDS.move : null;
   return KINDS[def.kind] || null;
 }
 
@@ -1083,6 +1159,7 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
     x: fx.x, y: fx.y, radius: Number.isFinite(fx.radius) ? fx.radius : 0, targets: fx.targets,
     ...(fx.coins != null ? { coins: fx.coins } : null),
     ...(fx.placed != null ? { placed: fx.placed } : null),
+    ...(fx.moved != null ? { moved: fx.moved } : null),
   });
   return { ok: true, reason: null, casterUid: t.uid };
 }

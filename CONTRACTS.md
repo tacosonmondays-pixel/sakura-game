@@ -197,7 +197,8 @@ ABILITY_RULES = { ticksPerSecond: 60, chargePerTick: 100, initialShare: 3, ccGua
                   // cap 0.5, never rally / debuff: NOT_HASTED_KINDS); First Bell: firstBellCharge at wave start
 ABILITY_KINDS = boost | rally | strike | burst | debuff | econ | deploy | move | zone | runner
 abilityRuns(entry) → boolean   // THE live rule: kinds ABILITY_KINDS_RUN (a boost needs effect.mods), deploys
-                               // ABILITY_DEPLOYS_RUN ('strips', 'sentries'), runners ABILITY_RUNNERS_RUN ('giantBall');
+                               // ABILITY_DEPLOYS_RUN ('strips', 'sentries'), runners ABILITY_RUNNERS_RUN ('giantBall'),
+                               // moves ABILITY_MOVES_RUN ('push': Fuu's Backdraft Fan; 'carry' waits);
                                // the sim's handlerOf, the bar, the girl page, the ⚡ tips and GEAR_FIT all agree with it
 ABILITY_SCOPES = local (a cooldown per girl) | map (per player, per ability) | player (per-player rules: econ)
 AUTO_WHEN = enemies | elite | leak | veiled | caster | poisoned | ready | flyers | sabotage
@@ -1246,7 +1247,7 @@ SimEvent = { type, ...payload } with types:
   'heroBuy' {towerUid,level,price} 'heroMove' {towerUid,x,y,fromX,fromY,downtime} 'heroMastery' {towerUid,bonus}
   'bossPhase' {uid, announce} 'cash' {amount, reason /*…|'ability' (+ towerUid, owner)*/} 'won' {} 'lost' {}
   'abilityUnlock' {towerUid,id,kind,owner} 'abilityUpgrade' {towerUid,id} 'abilityReady' {towerUid,id} | {group,id,owner}
-  'ability' {towerUid,id,kind,scope,owner,auto,x,y,radius /*0 = map-wide*/,targets:[uid ≤12],coins?} 'abilityWarn' {towerUid,id,x,y,radius,delay,targets?|shells?}
+  'ability' {towerUid,id,kind,scope,owner,auto,x,y,radius /*0 = map-wide*/,targets:[uid ≤12],coins?,placed?,moved? /*a move: enemies it pushed*/} 'abilityWarn' {towerUid,id,x,y,radius,delay,targets?|shells?}
   'abilityShell' {towerUid,id,x,y,radius,hits} 'abilityEnd' {towerUid,id,wave?} 'abilityFizzle' {towerUid,id,uid}
   'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)
   'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/,
@@ -1504,6 +1505,12 @@ balls.js:    addBall, rollBall, ballTick, endBallWave                        // 
   Bowling Thunder: Sim._hit skips KNOCKBACK_RESIST for minibosses); shared stretches (P-17): another
   path's walker counts where its road segment runs parallel to the ball's (dot > 0.95)
   abilities.js: the runner kind by effect.runner (only 'giantBall' runs); startRunner(..., at) takes an entry
+  abilities.js: the move kind by effect.move (only 'push' runs: MOVES.push): every eligible non-boss enemy in reach
+  (reachMul × range + reachAdd) moves `push` tiles back by path distance on its own path, clamped at 0
+  (minibosses pushMiniboss, default half), uid order; push lock (e.pushLock > 0 stays put unless e.pushLockBy is the
+  caster's uid: her own gusts' / gather's locks never stop her ult; a moved one takes PUSH_LOCK[tier] with
+  pushLockBy −1) and the freeplay budget e.kbLeft apply; then the statuses (ground). e.pushLockBy: the uid of the girl
+  whose hit set the lock (Sim._onHitEffects, _gather), −1 after a move's push; absent until a lock was set.
 vines.js:    vineTarget, castVine, addBed, onVineKill, vineTick, endVineWave   // t.vineCd, t.vineHold, t.beds, t.bloomT/bloomIdle
   Bloom Rush multiplies her cooldown rate in updateTower; thorn beds BEDS_PER_GIRL 6 / BEDS_PER_SIM 40
   (oldest first); harvest lives at the wave clear, sim.stats.harvestLives (absent until given)
