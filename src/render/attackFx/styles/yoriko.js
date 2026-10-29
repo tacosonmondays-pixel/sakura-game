@@ -9,7 +9,7 @@ import { CORE, DECOR } from '../context.js';
 
 const LILAC = '#c6b8f1';
 const PIN = '#f1ecff';
-const SLASH = '#b89cf6';
+const SLASH = '#9a78ee';
 const EDGE = '#ffffff';
 /** How far in front of the enemy the slash is drawn (tiles toward the camera). */
 const SLASH_FRONT = 0.3;
@@ -70,9 +70,10 @@ export const yoriko = {
       a.asp = 2.2;
       a.rot = 0.7;
     }
-    const b = ctx.spr(ctx.b.bbA, CORE, ctx.R.slash, sx, 0.42, sy, s * 0.8, s * 0.95, 0.1, ctx.col(EDGE), 0.75);
+    // a thin, faint white edge (narrow and low alpha): a same-size additive one summed the lilac cut to white
+    const b = ctx.spr(ctx.b.bbA, CORE, ctx.R.slash, sx, 0.43, sy, s * 0.85, s, 0.08, ctx.col(EDGE), 0.35);
     if (b) {
-      b.asp = 3.4;
+      b.asp = 7;
       b.rot = 0.7;
     }
     ripple(ctx, x, y, 0.06, 0.3, 0.2, ctx.col(LILAC), 0, 'ringSoft', true, 0.5);
