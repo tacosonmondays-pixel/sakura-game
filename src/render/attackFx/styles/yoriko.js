@@ -10,7 +10,6 @@ import { CORE, DECOR } from '../context.js';
 const LILAC = '#c6b8f1';
 const PIN = '#f1ecff';
 const SLASH = '#9a78ee';
-const EDGE = '#ffffff';
 /** How far in front of the enemy the slash is drawn (tiles toward the camera). */
 const SLASH_FRONT = 0.3;
 /** At most one slash per enemy in this many game seconds (a fast Yoriko would keep it white). */
@@ -64,17 +63,12 @@ export const yoriko = {
     const sx = x + _cam.x * SLASH_FRONT;
     const sy = y + _cam.z * SLASH_FRONT;
     const s = crit ? 0.48 : 0.4;
-    // the lilac cut in normal blend (an additive one turns white over the enemy's own hit flash), the edge additive
+    // the lilac cut in normal blend only: any additive layer on it (an edge, a flash) summed it to white over the
+    // enemy's own white hit flash
     const a = ctx.spr(ctx.b.bbN, CORE, ctx.R.slash, sx, 0.42, sy, s, s * 1.15, 0.14, ctx.col(SLASH), 0.95);
     if (a) {
       a.asp = 2.2;
       a.rot = 0.7;
-    }
-    // a thin, faint white edge (narrow and low alpha): a same-size additive one summed the lilac cut to white
-    const b = ctx.spr(ctx.b.bbA, CORE, ctx.R.slash, sx, 0.43, sy, s * 0.85, s, 0.08, ctx.col(EDGE), 0.35);
-    if (b) {
-      b.asp = 7;
-      b.rot = 0.7;
     }
     ripple(ctx, x, y, 0.06, 0.3, 0.2, ctx.col(LILAC), 0, 'ringSoft', true, 0.5);
   },
