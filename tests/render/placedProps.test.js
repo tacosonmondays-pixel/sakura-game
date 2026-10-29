@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import {
   PlacedProps, PROP_FILES, FILE_PARTS, setPropFile, partsFromScene, roadFacing, stripPlates, propPhase, dropHeight, easeOutBack,
+  shellVolumes, fixInsideOutShells, INSIDE_OUT_PARTS,
 } from '../../src/render/placedProps.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -189,5 +190,49 @@ describe('placed props: the layer', () => {
     expect(foot.y).toBeLessThan(0.1); // splayed down to the ground, not folded up
     expect(legs.fade.getX(0)).toBeLessThan(1); // fading in
     p.dispose();
+  });
+});
+
+describe('placed props: inside-out shells', () => {
+  it('turns an inside-out box right way out (winding and normals), leaves a right one alone', () => {
+    const g = new THREE.BoxGeometry(1, 1, 1);
+    expect(shellVolumes(g).vols[0]).toBeCloseTo(1);
+    expect(fixInsideOutShells(g)).toBe(0);
+    const inv = new THREE.BoxGeometry(1, 1, 1);
+    const a = inv.index.array;
+    for (let t = 0; t < a.length; t += 3) [a[t + 1], a[t + 2]] = [a[t + 2], a[t + 1]];
+    const n = inv.attributes.normal;
+    for (let i = 0; i < n.count; i++) n.setXYZ(i, -n.getX(i), -n.getY(i), -n.getZ(i));
+    expect(shellVolumes(inv).vols[0]).toBeCloseTo(-1);
+    expect(fixInsideOutShells(inv)).toBe(12);
+    expect(shellVolumes(inv).vols[0]).toBeCloseTo(1);
+    // normals point out again: the +x face's normal is +x
+    const P = inv.attributes.position;
+    for (let i = 0; i < P.count; i++) if (P.getX(i) > 0.49 && Math.abs(n.getX(i)) > 0.5) expect(n.getX(i)).toBeGreaterThan(0);
+  });
+
+  it("Ouka's pennant loads right way out (it was dark: inside-out cloth under its own outline)", () => {
+    expect(INSIDE_OUT_PARTS.has('banner_flag')).toBe(true);
+    const flag = loadedParts.ouka_banners.get('banner_flag');
+    const { vols } = shellVolumes(flag.geometry);
+    expect(vols.length).toBeGreaterThan(3);
+    for (const v of vols) expect(v).toBeGreaterThanOrEqual(-1e-9);
+    // stored normals agree with the winding on every triangle
+    const P = flag.geometry.attributes.position;
+    const N = flag.geometry.attributes.normal;
+    const I = flag.geometry.index;
+    const va = new THREE.Vector3();
+    const vb = new THREE.Vector3();
+    const vc = new THREE.Vector3();
+    const vn = new THREE.Vector3();
+    let bad = 0;
+    for (let t = 0; t < I.count; t += 3) {
+      va.fromBufferAttribute(P, I.getX(t));
+      vb.fromBufferAttribute(P, I.getX(t + 1)).sub(va);
+      vc.fromBufferAttribute(P, I.getX(t + 2)).sub(va);
+      vn.fromBufferAttribute(N, I.getX(t));
+      if (vb.cross(vc).dot(vn) < 0) bad++;
+    }
+    expect(bad).toBe(0);
   });
 });

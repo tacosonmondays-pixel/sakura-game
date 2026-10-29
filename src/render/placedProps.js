@@ -183,6 +183,86 @@ export function propUrl(file) {
 }
 
 /**
+ * Parts whose file carries inside-out shells (the builder's extruded outlines wound clockwise): the
+ * pennant's cloth and stripes face inward, so the toon ramp shades them dark and the inverted-hull
+ * outline draws over them. Turned right way out at load (fixInsideOutShells), no GLB rebuild.
+ */
+export const INSIDE_OUT_PARTS = new Set(['banner_flag']);
+
+/** Signed volume of each closed shell of an indexed geometry (shells = triangles welded by position). Pure. */
+export function shellVolumes(geometry) {
+  const P = geometry.attributes.position;
+  const I = geometry.index;
+  if (!P || !I) return { shellOf: new Int32Array(0), vols: [] };
+  // weld by position (flat-shaded parts repeat a corner per face)
+  const key = new Map();
+  const root = new Int32Array(P.count);
+  for (let i = 0; i < P.count; i++) {
+    const k = `${Math.round(P.getX(i) * 1e4)},${Math.round(P.getY(i) * 1e4)},${Math.round(P.getZ(i) * 1e4)}`;
+    let r = key.get(k);
+    if (r == null) key.set(k, (r = i));
+    root[i] = r;
+  }
+  const up = new Int32Array(P.count).map((_, i) => i);
+  const find = (i) => {
+    while (up[i] !== i) i = up[i] = up[up[i]];
+    return i;
+  };
+  for (let i = 0; i < P.count; i++) up[find(i)] = find(root[i]);
+  for (let t = 0; t < I.count; t += 3) {
+    const a = find(I.getX(t));
+    up[find(I.getX(t + 1))] = a;
+    up[find(I.getX(t + 2))] = a;
+  }
+  const ids = new Map();
+  const shellOf = new Int32Array(P.count);
+  const vols = [];
+  for (let i = 0; i < P.count; i++) {
+    const r = find(i);
+    let s = ids.get(r);
+    if (s == null) {
+      ids.set(r, (s = vols.length));
+      vols.push(0);
+    }
+    shellOf[i] = s;
+  }
+  for (let t = 0; t < I.count; t += 3) {
+    const a = I.getX(t);
+    const b = I.getX(t + 1);
+    const c = I.getX(t + 2);
+    const ax = P.getX(a), ay = P.getY(a), az = P.getZ(a);
+    const bx = P.getX(b), by = P.getY(b), bz = P.getZ(b);
+    const cx = P.getX(c), cy = P.getY(c), cz = P.getZ(c);
+    vols[shellOf[a]] += (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)) / 6;
+  }
+  return { shellOf, vols };
+}
+
+/**
+ * Turns every inside-out closed shell of a part right way out (reverses its triangles, negates its
+ * normals) in place. Returns the number of triangles flipped.
+ */
+export function fixInsideOutShells(geometry) {
+  const { shellOf, vols } = shellVolumes(geometry);
+  const I = geometry.index;
+  const N = geometry.attributes.normal;
+  if (!I || !vols.some((v) => v < 0)) return 0;
+  let n = 0;
+  const arr = I.array;
+  for (let t = 0; t < I.count; t += 3) {
+    if (!(vols[shellOf[arr[t]]] < 0)) continue;
+    const s = arr[t + 1];
+    arr[t + 1] = arr[t + 2];
+    arr[t + 2] = s;
+    n++;
+  }
+  if (N) for (let i = 0; i < N.count; i++) if (vols[shellOf[i]] < 0) N.setXYZ(i, -N.getX(i), -N.getY(i), -N.getZ(i));
+  I.needsUpdate = true;
+  if (N) N.needsUpdate = true;
+  return n;
+}
+
+/**
  * Parts of a loaded file: name -> { name, geometry, glow, tint, rest (Matrix4 in the prop's space) }.
  * Throws when a part the runtime draws is missing (the caller keeps the flat drawing).
  */
@@ -191,6 +271,10 @@ export function partsFromScene(file, root) {
   root.updateMatrixWorld(true);
   root.traverse((o) => {
     if (!o.isMesh) return;
+    if (INSIDE_OUT_PARTS.has(o.name) && !o.geometry.userData.shellsFixed) {
+      fixInsideOutShells(o.geometry);
+      o.geometry.userData.shellsFixed = true;
+    }
     // a part's node sits right under its prop's root empty: its local matrix is its rest pose in the prop
     const rest = new THREE.Matrix4().copy(o.matrix);
     out.set(o.name, {

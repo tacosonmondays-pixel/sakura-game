@@ -211,6 +211,11 @@ class Part:
 
     def prism(self, pts2d, z0, z1, color, side_color=None, m=None):
         """A flat-shaded extruded polygon (convex, or star-shaped around its first point's centroid)."""
+        # the faces below assume a counter-clockwise outline; a clockwise one would come out inside-out
+        # (dark under the toon ramp, covered by its own outline hull), so turn it round
+        area = sum(pts2d[i][0] * pts2d[(i + 1) % len(pts2d)][1] - pts2d[(i + 1) % len(pts2d)][0] * pts2d[i][1] for i in range(len(pts2d)))
+        if area < 0:
+            pts2d = list(reversed(pts2d))
         cx = sum(p[0] for p in pts2d) / len(pts2d)
         cy = sum(p[1] for p in pts2d) / len(pts2d)
         n = len(pts2d)

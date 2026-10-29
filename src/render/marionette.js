@@ -53,6 +53,9 @@ const _tan = new THREE.Vector3();
 const _view = new THREE.Vector3(0, 1, 0);
 const _col = new THREE.Color();
 const _yAxis = new THREE.Vector3(0, 1, 0);
+const _barAxis = new THREE.Vector3();
+/** Command's bar tilt (radians at the top of the flick): its front end kicks up, the strings with it. */
+export const BAR_TILT = 0.45;
 const _at = { x: 0, z: 0, h: 0 };
 
 /**
@@ -488,6 +491,9 @@ export class Marionette {
     _top.y += fl;
     _top.x -= s.dirx * fl * 0.6;
     _top.z -= s.dirz * fl * 0.6;
+    // ...and the bar tilts with the flick (about its side axis): each string top turns with it
+    const tilt = s.calm ? 0 : s.flick * BAR_TILT;
+    if (tilt) _barAxis.set(s.dirz, 0, -s.dirx);
     const n = this.simple ? 1 : st.n;
     const cam = this.camera;
     if (cam) _view.set(cam.matrixWorld.elements[8], cam.matrixWorld.elements[9], cam.matrixWorld.elements[10]).normalize();
@@ -502,7 +508,9 @@ export class Marionette {
     const C = col.array;
     for (let k = 0; k < n; k++) {
       const th = st.threads[k];
-      _w.copy(th.top).applyAxisAngle(_yAxis, v.facing).multiplyScalar(scale).add(_top);
+      _w.copy(th.top).applyAxisAngle(_yAxis, v.facing);
+      if (tilt) _w.applyAxisAngle(_barAxis, -tilt); // (about up × dir: negative lifts the front)
+      _w.multiplyScalar(scale).add(_top);
       _bot.copy(th.attach).applyMatrix4(th.bone.matrixWorld);
       for (let i = 0; i <= SEGS; i++) stringPoint(_w.x, _w.y, _w.z, _bot.x, _bot.y, _bot.z, i / SEGS, sag, _pts, i * 3);
       const base = k * (SEGS + 1) * 2;

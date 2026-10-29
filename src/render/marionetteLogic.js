@@ -11,6 +11,8 @@
 // The sim's hit sets the clock: Command + Extend end on it (planStages), and a hit that lands sooner than
 // planned pulls the strike forward (landMarionette). One doll, one sequence: an attack that comes while it is
 // out (command / extend / strike) is skipped; one during reel or settle starts again from where the doll is.
+// After an early start (adoptAttack) the strike still waits for the needle: the doll holds at the end of its glide
+// until the projected hit (WAIT_MAX), and a much sooner hit ramps the glide's pace over BLEND_STEPS frames.
 // A target that dies before the strike: the doll takes the enemy by its last spot (the needle flies on there)
 // or reels home from where it is (loseTarget).
 
@@ -35,6 +37,18 @@ export const EARLY_PAUSE = 0.6;
 export const LEAD_MIN = 0.06;
 /** How fast a strike that the sim's hit beat to it is pulled in (s). */
 export const CATCH_UP = 0.08;
+/**
+ * The attack came while the doll already hovers at the end of an early glide: it holds there until the needle's
+ * projected hit (at most this long, s), so the strike never starts before the hit.
+ */
+export const WAIT_MAX = 0.3;
+/**
+ * A refit that speeds the glide up a lot (the real needle lands much sooner than the early plan) ramps to the new
+ * pace over this many frames instead of skipping ahead in one.
+ */
+export const BLEND_STEPS = 3;
+/** ... when the new pace is more than this many times the old one. */
+export const BLEND_OVER = 1.5;
 /** Where the doll clip's chop sits (s from the start of its attack clip). */
 export const CHOP_AT = 0.25;
 /** How far the doll glides at most (tiles from home), how short of the target it stops, its shortest glide. */
@@ -112,6 +126,8 @@ export function marionetteState() {
     rx: 0, ry: 0, rz: 0, rt: 0, rk: 1, // where the reel started (offset), its tilt and string tension
     ox: 0, oy: 0, oz: 0, tilt: 0, taut: 0, flick: 0, // output: offset, tilt, string tension 0..1, bar flick 0..1
     early: false, hold: 0, missed: false, // set off early (no attack seen yet), time hovering at the end of Extend
+    wait: 0, // hovering at the end of Extend for the adopted attack's needle (s left)
+    rateTo: 0, blend: 0, // a refit's pace and the frames left to ramp to it
     calm: false, simple: false, landed: false, clipAt: 0, clipOffset: 0, clipDue: false, clipFired: false,
   };
 }
@@ -167,6 +183,8 @@ export function startMarionette(s, o) {
   s.simple = !!o.simple;
   s.early = !!o.early;
   s.hold = 0;
+  s.wait = 0;
+  s.blend = 0;
   planStages(o.interval, o.eta ?? null, s.plan);
   s.n++;
   s.side = s.simple ? 0 : (s.n & 1 ? 1 : -1);
@@ -233,12 +251,26 @@ export function adoptAttack(s, eta = null) {
     const leftC = (1 - s.u) / s.rate;
     const total = leftC + s.plan.extend;
     const f = want / Math.max(1e-6, total);
-    s.rate = (1 - s.u) / Math.max(1e-6, leftC * f);
+    paceTo(s, (1 - s.u) / Math.max(1e-6, leftC * f));
     s.plan.extend *= f;
   } else if (s.u < 1) {
-    s.rate = (1 - s.u) / want;
+    paceTo(s, (1 - s.u) / want);
+  } else {
+    // already hovering at the end of the glide: hold there until the needle's hit, then strike
+    s.wait = Math.min(WAIT_MAX, eta);
   }
   return true;
+}
+
+/** A new pace for the current stage: at once when it is not much faster, else ramped over BLEND_STEPS frames. */
+function paceTo(s, rate) {
+  if (!(rate > s.rate * BLEND_OVER) || !Number.isFinite(s.rate)) {
+    s.rate = rate;
+    s.blend = 0;
+    return;
+  }
+  s.rateTo = rate;
+  s.blend = BLEND_STEPS;
 }
 
 /** The sim's hit has landed (her needle resolved): a strike still on its way is pulled in to it. */
@@ -251,8 +283,13 @@ export function landMarionette(s) {
     return true;
   }
   if (s.stage === 'extend') {
-    const left = (1 - s.u) / s.rate;
-    if (left > CATCH_UP) s.rate = (1 - s.u) / CATCH_UP;
+    // hovering for this needle: it is in, strike now
+    s.wait = 0;
+    const r = s.blend > 0 ? s.rateTo : s.rate;
+    if ((1 - s.u) / r > CATCH_UP) {
+      if (s.blend > 0) s.rateTo = (1 - s.u) / CATCH_UP;
+      else s.rate = (1 - s.u) / CATCH_UP;
+    }
     return true;
   }
   return false;
@@ -261,6 +298,8 @@ export function landMarionette(s) {
 function enter(s, stage) {
   s.stage = stage;
   s.u = 0;
+  s.blend = 0;
+  if (stage !== 'extend') s.wait = 0;
   const d = stage === 'idle' ? 0 : s.plan[stage];
   s.rate = d > 1e-6 ? 1 / d : Infinity;
 }
@@ -289,6 +328,11 @@ export function stepMarionette(s, dt) {
     s.clipFired = true;
     s.clipDue = true;
   }
+  // a refit ramping to its new pace (one step of the ramp per frame)
+  if (s.blend > 0 && dt > 0) {
+    s.rate += (s.rateTo - s.rate) / s.blend;
+    s.blend--;
+  }
   let left = dt;
   // a stage that ends inside this frame hands the rest of the frame to the next one
   for (let guard = 0; guard < 6 && s.stage !== 'idle'; guard++) {
@@ -299,6 +343,14 @@ export function stepMarionette(s, dt) {
     }
     left -= room;
     s.u = 1;
+    // her attack came while the doll hovered: it holds for the needle, then strikes on its hit
+    if (s.stage === 'extend' && s.wait > 0) {
+      const w = Math.min(left, s.wait);
+      s.wait -= w;
+      left -= w;
+      if (s.wait > 1e-9) break;
+      s.wait = 0;
+    }
     // set off early and her attack has not come: hover at the end of the glide a moment, then reel home
     if (s.stage === 'extend' && s.early) {
       s.hold += left;
