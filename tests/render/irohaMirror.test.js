@@ -32,6 +32,22 @@ describe('mirror panel timing (pure)', () => {
     expect(k3 & KICK_FLIP).toBeTruthy();
   });
 
+  it('a reversed shot late in the turn re-eases from the drawn yaw instead of snapping (no new flip)', () => {
+    const s = createPanelAnim();
+    panelKick(s, 1, 1.5, 0);
+    const now = 1 + FLIP.turn + 0.05; // in the hold, before minGap
+    const before = panelPose(s, now, 0).yaw;
+    const k = panelKick(s, now, -1.5, before);
+    expect(k & KICK_MERGE).toBeTruthy();
+    expect(k & KICK_FLIP).toBeFalsy();
+    expect(s.flips).toBe(1);
+    // one frame later it is turning from where it was drawn (not snapped onto the new side)
+    const after = panelPose(s, now + 1 / 60, 0).yaw;
+    expect(after).toBeLessThan(before);
+    expect(after).toBeGreaterThan(-1.5 + 1);
+    expect(panelPose(s, now + FLIP.turn, 0).yaw).toBeCloseTo(-1.5);
+  });
+
   it('a fast volley stays bounded: flips, glints and flashes are rate-limited', () => {
     const s = createPanelAnim();
     const T = 4;

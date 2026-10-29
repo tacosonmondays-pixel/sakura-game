@@ -1,5 +1,5 @@
 // Iroha's mirror panel: the pure timing rules behind its animation (display only, no THREE, no sim writes).
-// src/render/mirrorFx.js draws with them; tests/render/mirrorPanel.test.js pins them.
+// src/render/mirrorFx.js draws with them; tests/render/irohaMirror.test.js pins them.
 //
 //   flip    a bolt relayed through the panel turns the glass toward the shot (an ease-out-back turn with a small
 //           forward tip), holds while shots keep coming, then eases back to its idle camera-facing sway.
@@ -24,6 +24,8 @@ export const FLIP = Object.freeze({
   back: 0.45,
   /** a new flip only this long after the previous one started; sooner = merged into it */
   minGap: 0.3,
+  /** a merged shot further than this (radians) from the running target re-eases from the drawn yaw */
+  reease: 0.5,
   /** forward tip (radians) at the middle of a turn */
   tip: 0.22,
   /** the glint sweep's length and the least time between two */
@@ -48,6 +50,7 @@ export function panelReset(s) {
   s.from = 0;
   s.to = 0;
   s.t0 = -1e9;
+  s.e0 = -1e9;
   s.last = -1e9;
   s.glintT0 = -1e9;
   s.flashT = -1e9;
@@ -86,11 +89,18 @@ export function panelKick(s, now, shotYaw, cur, reduce = false) {
       s.from = cur;
       s.to = nearAngle(shotYaw, cur);
       s.t0 = now;
+      s.e0 = now;
       s.flips++;
       out |= KICK_FLIP;
     } else {
-      // mid-flip: retarget the running turn (no restart, no second glint burst)
-      s.to = nearAngle(shotYaw, s.from);
+      // mid-flip: retarget the running turn (no second glint burst); a far retarget re-eases from the drawn yaw so
+      // the glass never snaps (a reversed shot late in the turn or in the hold), without counting a new flip
+      const to = nearAngle(shotYaw, s.from);
+      if (Math.abs(to - s.to) > FLIP.reease) {
+        s.from = cur;
+        s.to = nearAngle(shotYaw, cur);
+        s.e0 = now; // the turn's ease restarts; the flip clock (t0, minGap) does not
+      } else s.to = to;
       s.merged++;
       out |= KICK_MERGE;
     }
@@ -117,14 +127,15 @@ export function panelPose(s, now, rest, out = { yaw: 0, tip: 0, busy: false }) {
   out.busy = false;
   const el = now - s.t0;
   if (el < 0 || s.t0 < -1e8) return out;
-  if (el < FLIP.turn) {
-    const k = el / FLIP.turn;
+  const ee = now - s.e0; // the turn eases from e0 (a far merged retarget restarts it); the flip clock is t0
+  if (ee >= 0 && ee < FLIP.turn) {
+    const k = ee / FLIP.turn;
     out.yaw = s.from + (s.to - s.from) * easeOutBack(k);
     out.tip = Math.sin(k * Math.PI) * FLIP.tip;
     out.busy = true;
     return out;
   }
-  const holdEnd = Math.max(s.t0 + FLIP.turn, s.last) + FLIP.hold;
+  const holdEnd = Math.max(s.e0 + FLIP.turn, s.last) + FLIP.hold;
   if (now < holdEnd) {
     out.yaw = s.to;
     out.busy = true;
