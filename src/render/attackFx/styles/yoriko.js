@@ -64,7 +64,8 @@ export const yoriko = {
     const sx = x + _cam.x * SLASH_FRONT;
     const sy = y + _cam.z * SLASH_FRONT;
     const s = crit ? 0.48 : 0.4;
-    const a = ctx.spr(ctx.b.bbA, CORE, ctx.R.slash, sx, 0.42, sy, s, s * 1.15, 0.14, ctx.col(SLASH), 0.95);
+    // the lilac cut in normal blend (an additive one turns white over the enemy's own hit flash), the edge additive
+    const a = ctx.spr(ctx.b.bbN, CORE, ctx.R.slash, sx, 0.42, sy, s, s * 1.15, 0.14, ctx.col(SLASH), 0.95);
     if (a) {
       a.asp = 2.2;
       a.rot = 0.7;
