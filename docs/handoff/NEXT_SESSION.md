@@ -1,6 +1,12 @@
-# Next session: start here (updated Oct 28, 2026, evening)
+# Next session: start here (updated Oct 29, 2026, early morning)
 
 This page is for a session that only has the GitHub repo (a cloud session), not the owner's PC. Read `docs/HANDOFF.md` too; it has the rules (§6), the shipping flow (§7) and the branch table (§3). Check out the coordination branch `claude/sakura-sentinels`; `main` is the live build (every push to `main` deploys).
+
+## UPDATE Oct 29: v0.1.59 and v0.1.60 SHIPPED
+- **v0.1.59 "Banners and Tryout Day"** (run #59, main `ccf147ad`): the banners with the Kohaku & Tsubaki duo, LR Limit Break, Friend Support (its SQL is on the server), Tryout Day, the honest DPS readout; `COOP_PROTOCOL` 11. Go/no-go GO, live check LIVE_OK.
+- **v0.1.60 "Gate Arc Acts 3–6 and Extended Day"** (run #60, main `4b4388b8`): Gate Arc Acts 3–6, Tenka's LR form, the duo buff with the edge beam, Extended Day + Random Class, the owner's screenshot fixes with Live + Avg DPS, visual reworks batch A; `COOP_PROTOCOL` 12, sim `d35092f141d3`. Go/no-go GO, live check LIVE_OK (one MEDIUM for v0.1.61: Recruit's pull buttons below the screen at 844x390). Details and the branch list: `docs/HANDOFF.md` §1 and §3.
+- **Next:** v0.1.61 (`COOP_PROTOCOL` 13): the VFX upgrade and the last five ultimates once reviewed, visual reworks batch B (`5d659609`), the DPS round (`fix/owner-ui-oct29` `71aa68e9`), the Tryout e2e fix (PR #47), Tryout Day rewards, the Recruit fold fix. After Nov 1 7 PM Central: balance round 5 with the attack shapes S1–S4.
+- **Owner answers Oct 29:** "Default" on the duo's bio (it stays as written) and on the second Kogane art test (folded into art v3). Art v3: remake every portrait to match the dynamic-camera look; NovelAI is allowed if the result looks like Yoriko's special art or the clean academy look (prompts never name another game; only the game's own art as references). The pilot (Hikari, Tenka, Kogane; 106 Anlas) is with the owner, who picks look A (stage light) or B (clean academy). 3D models: the owner brings Tripo models.
 
 ## What is live
 v0.1.58 "Brighter Details" (the EVENTS tab on the home, Marumi in colour) on top of v0.1.57 "Ultimates", v0.1.56 "Brighter Home", v0.1.55 "Rush Hour and Hilltop After Dark" (Gate Arc Acts 1–2) and v0.1.54 "Quiet Home", all shipped Oct 28. `main` is `aa0281de`, sim id `2c3c74708a2c`, `COOP_PROTOCOL` 10. Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`. The next deploy is v0.1.59, the next GitHub Pages run number: one combined release of the banners (the duo launching now), Tryout Day and the honest DPS readout on `COOP_PROTOCOL` 11 (`release/duo-tryout`; HANDOFF §1).
