@@ -447,7 +447,8 @@ export function trailState(n = TRAIL_N) {
   return { n, x: new Float32Array(n), y: new Float32Array(n), z: new Float32Array(n), t: new Float32Array(n), head: 0, count: 0 };
 }
 
-/** Adds a point (time `time`, seconds) unless the last one is within `minGap` tiles (then it is only kept fresh). */
+/** Adds a point (time `time`, seconds) unless the last one is within `minGap` tiles (then nothing changes, so a
+ *  companion standing still lets its trail fade out). */
 export function trailPush(tr, x, y, z, time, minGap = 0.06) {
   if (tr.count) {
     const i = (tr.head + tr.n - 1) % tr.n;
