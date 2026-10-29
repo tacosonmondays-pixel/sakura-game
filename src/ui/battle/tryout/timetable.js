@@ -13,7 +13,7 @@ import { onEscape, swallowNextClick } from '../../hold.js';
 import {
   SUBJECT_TEXT, SUBJECT_ABBR, BREAK_SHORT, BREAK_NAMES, DARE_SHORT, DARE_TEXT, PREVIEW_TEXT as PV, TIMETABLE_TEXT as T, EXTENDED_TEXT as X,
 } from '../../text/tryout.js';
-import { isExtendedRun } from './adapters.js';
+import { isExtendedRun, periodMarks, affixOf } from './adapters.js';
 import '../../styles/tryoutTimetable.css';
 
 /** Our own drawing: a five-petal sakura stamp, filled with currentColor (a notch in each petal, a white heart). */
@@ -53,10 +53,11 @@ export function timetableModel(ty, len, { mySlot = 0, win = null } = {}) {
     else if (p === cur && pair?.includes(ty.nextSubject)) chosen = ty.nextSubject;
     const subjects = chosen ? [chosen] : pair ? pair.slice() : [];
     const dare = rec ? !!rec.dare : p === cur ? (ty.base ? !!ty.dare : !!me.dare) : false;
-    const marks = rec ? [...(rec.team || []), ...(rec.own?.[mySlot] || [])].map(([, st]) => st) : null;
+    // (periodMarks: a shrunk Extended Day row draws its count of stamps, §20.6)
+    const marks = rec ? periodMarks(rec, mySlot).map(([, st]) => st) : null;
     out.push({
       kind: 'period', p, final: p === len.periods, label: p === len.periods ? T.final : T.cell(p), subjects, chosen,
-      backGate: subjects.some((id) => TRYOUT.subjects?.[id]?.backGate), affix: ty.affixes?.[p] || null,
+      backGate: subjects.some((id) => TRYOUT.subjects?.[id]?.backGate), affix: affixOf(ty, p),
       marks, resumed: !!rec?.resumed, dare, state,
     });
     const b = len.breaks?.[p];

@@ -22,7 +22,7 @@ import { passMax } from '../../sim/tryout/breaks.js';
 import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN, rewardLines, SHARE_TEXT, PHOTO_TEXT, GIRL_CARD_TEXT, TIMETABLE_TEXT, CAP_TEXT, MORE_TEXT, RANDOM_TEXT, EXTENDED_TEXT } from '../text/tryout.js';
 import { timetableModel as baseModel, timetableStrip, timetableMini, bandParts, markEl, previewStrip, periodPreview, extendedCells } from './tryout/timetable.js';
 import { capBar, barWho, oddsTable, capsTable } from './tryout/caps.js';
-import { isRandomRun, isExtendedRun, viewLength, revealOf, revealStep, extendedPast, FULL_PERIODS } from './tryout/adapters.js';
+import { isRandomRun, isExtendedRun, viewLength, revealOf, revealStep, extendedPast, periodMarks, affixOf, FULL_PERIODS } from './tryout/adapters.js';
 import { encodeShareCode } from '../../systems/tryoutRuns.js';
 import { selectedCosmetic } from '../../systems/tryoutJar.js';
 import { store } from '../../core/store.js';
@@ -44,6 +44,28 @@ export function boldNumbers(line) {
   }
   if (at < String(line || '').length) out.push(line.slice(at));
   return out;
+}
+
+/**
+ * The Class Photo's stamp grid as data (pure): one row per period of the drawn table (an Extended Day: P1-P12), each
+ * with its label, its marks for player `slot` (periodMarks: a shrunk Extended Day row draws its count, §20.6), its
+ * score and its pick's rarity; a period not reached is `absent`.
+ * @param {{ periods: object[] }} res sim.result().tryout
+ * @param {{ picks: object[] }} pl that result's player
+ * @param {object} len the drawn length table (viewLength)
+ * @returns {Array<{ p: number, label: string, absent: boolean, marks: Array<[string|null, number]>, score: number|null, rarity: number|null, resumed: boolean }>}
+ */
+export function stampRows(res, pl, len, slot = 0, { extended = false } = {}) {
+  const byPeriod = new Map((res?.periods || []).filter((x) => x && typeof x === 'object').map((x) => [x.period, x]));
+  const picks = Array.isArray(pl?.picks) ? pl.picks : [];
+  const rows = [];
+  for (let p = 1; p <= len.periods; p++) {
+    const rec = byPeriod.get(p) || null;
+    const pk = picks.find((x) => len.picks[x.pick - 1] === p) || null;
+    const label = p === len.periods && !extended ? TIMETABLE_TEXT.final : TIMETABLE_TEXT.cell(p);
+    rows.push({ p, label, absent: !rec, marks: rec ? periodMarks(rec, slot) : [], score: rec ? rec.score : null, rarity: pk ? pk.rarity : null, resumed: !!rec?.resumed });
+  }
+  return rows;
 }
 
 /** The kit's rarity tag for a rarity index (navy plate, rarity-coloured letters). */
@@ -145,7 +167,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
         // while a period runs, its Subject (the class rule in play) is named in the head
         band.subject ? h('span.ty-head-subj', { 'data-testid': 'ty-head-subject', title: band.subjectLine }, ` · ${band.subject}`) : null,
         // a Grade 8+ period affix (sim.tryout.affixes[period], a TRYOUT.dares id)
-        t.affixes?.[p] ? h('span.ty-head-affix', { 'data-testid': 'ty-head-affix', title: DARE_TEXT[t.affixes[p]] }, ` · ${DARE_SHORT[t.affixes[p]] || t.affixes[p]}`) : null,
+        // (an Extended Day past P12: the same per-period draw, affixOf)
+        affixOf(t, p) ? h('span.ty-head-affix', { 'data-testid': 'ty-head-affix', title: DARE_TEXT[affixOf(t, p)] }, ` · ${DARE_SHORT[affixOf(t, p)] || affixOf(t, p)}`) : null,
         t.base && t.dare ? h('span.ty-head-dare', { title: TIMETABLE_TEXT.dare }, ' ⚑') : null),
       h('span.ty-score', `Score ${fmtNum(t.score + t.periodScore, 'count', { detail: true })}`),
     ].filter(Boolean));
@@ -370,7 +393,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     const last = o.pick === len.picks.length;
     const why = ty().periods.length ? ty().periods[ty().periods.length - 1] : null;
     // the top band: the period's stamps, then "3 credits → SSR" and the Teacher's Note (§13.6)
-    const reasons = why ? [...why.team, ...(why.own[mySlot] || [])].map(([id, st]) => h('span.ty-why', markEl(st), ASSIGN_TEXT[id]?.name || id)) : [];
+    // (periodMarks: a full row's marks, or a shrunk Extended Day row's count, §20.6)
+    const reasons = why ? periodMarks(why, mySlot).filter(([id]) => id).map(([id, st]) => h('span.ty-why', markEl(st), ASSIGN_TEXT[id]?.name || id)) : [];
     if (p.bank) reasons.push(h('span.ty-why', markEl(1), 'Handed in'));
     const partner = ty().coop ? ty().players.find((_, i) => i !== mySlot) : null;
     const cards = o.cards.map((c, i) => (c.girl ? girlCard(c, i, o) : c.varsityGirl ? varsityCard(c, i) : pepCard(c, i)));
@@ -511,8 +535,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
         }, h('b', SUBJECT_TEXT[id]?.name || id), ...twist(id)))) : null,
       sugg ? h('div.ty-suggest', { 'data-testid': 'ty-suggest' }, 'Your ally suggests: ', h('b', SUBJECT_TEXT[sugg]?.name || sugg)) : null,
       mySug >= 0 && pair ? h('div.ty-suggest', { 'data-testid': 'ty-suggested' }, 'You suggested: ', h('b', SUBJECT_TEXT[pair[mySug]]?.name || pair[mySug])) : null,
-      t.affixes?.[next] ? h('div.ty-class-row.ty-affix', { 'data-testid': 'ty-class-affix' }, h('b', 'Grade twist: '), DARE_SHORT[t.affixes[next]] || t.affixes[next],
-        h('span.ty-long.ty-mute', ` (${DARE_TEXT[t.affixes[next]] || ''})`)) : null,
+      affixOf(t, next) ? h('div.ty-class-row.ty-affix', { 'data-testid': 'ty-class-affix' }, h('b', 'Grade twist: '), DARE_SHORT[affixOf(t, next)] || affixOf(t, next),
+        h('span.ty-long.ty-mute', ` (${DARE_TEXT[affixOf(t, next)] || ''})`)) : null,
       // (Random Class: no Double Dare, §20.4)
       random ? null : h('div.ty-class-row',
         h(`button.bt-btn.ty-dare${me().dare ? '.on' : ''}`, { 'data-testid': 'ty-dare', onclick: () => send('tr', ['dare', me().dare ? 0 : 1]) },
@@ -609,27 +633,17 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
 
   /** The periods × 3 stamp grid, each row with its pick's rarity; periods not reached stay empty (absence). */
   function stampGrid(res, pl) {
-    const byPeriod = new Map(res.periods.map((x) => [x.period, x]));
-    const pickAt = (p) => pl.picks.find((x) => len.picks[x.pick - 1] === p) || null;
-    const rows = [];
-    for (let p = 1; p <= len.periods; p++) {
-      const rec = byPeriod.get(p);
-      const pk = pickAt(p);
-      const label = p === len.periods && !extended ? TIMETABLE_TEXT.final : TIMETABLE_TEXT.cell(p);
-      if (!rec) {
-        rows.push(h('div.ty-grid-row.absent', h('b.ty-grid-p', label), h('span.ty-grid-marks', h('i.ty-mk.e'), h('i.ty-mk.e'), h('i.ty-mk.e'))));
-        continue;
-      }
-      rows.push(h(`div.ty-grid-row${rec.resumed ? '.resumed' : ''}`,
-        h('b.ty-grid-p', label),
-        h('span.ty-grid-marks', ...[...rec.team, ...(rec.own[mySlot] || [])].map(([id, st]) => {
+    const rows = stampRows(res, pl, len, mySlot, { extended }).map((r) => (r.absent
+      ? h('div.ty-grid-row.absent', h('b.ty-grid-p', r.label), h('span.ty-grid-marks', h('i.ty-mk.e'), h('i.ty-mk.e'), h('i.ty-mk.e')))
+      : h(`div.ty-grid-row${r.resumed ? '.resumed' : ''}`,
+        h('b.ty-grid-p', r.label),
+        h('span.ty-grid-marks', ...r.marks.map(([id, st]) => {
           const m = markEl(st);
-          m.title = `${ASSIGN_TEXT[id]?.name || id}: ${m.title}`;
+          if (id) m.title = `${ASSIGN_TEXT[id]?.name || id}: ${m.title}`;
           return m;
         })),
-        h('span.num.ty-grid-score', fmtNum(rec.score, 'count', { detail: true })),
-        pk ? rTag(pk.rarity) : null));
-    }
+        h('span.num.ty-grid-score', fmtNum(r.score, 'count', { detail: true })),
+        r.rarity != null ? rTag(r.rarity) : null)));
     return h('div.ty-grid', { 'data-testid': 'ty-photo-grid' }, ...rows);
   }
 
@@ -656,7 +670,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     const pl = res.players[mySlot];
     const picks = h('div.ty-picks', ...pl.picks.map((p) => h('span.ty-pickchip', rTag(p.rarity), h('span', pickName(p)))));
     const backdrop = selectedCosmetic(store.profile, 'backdrop');
-    photo.replaceChildren(h(`div.ty-sheet.ty-photo.ui-day${won ? '' : '.dismissed'}${backdrop ? `.ty-bd.ty-${backdrop.replace('_', '-')}` : ''}`, { 'data-testid': 'ty-photo-sheet', role: 'dialog', 'aria-label': title },
+    photo.replaceChildren(h(`div.ty-sheet.ty-photo.ui-day${won || extended ? '' : '.dismissed'}${backdrop ? `.ty-bd.ty-${backdrop.replace('_', '-')}` : ''}`, { 'data-testid': 'ty-photo-sheet', role: 'dialog', 'aria-label': title },
       practice ? h('span.ty-ribbon', { 'data-testid': 'ty-photo-practice' }, PHOTO_TEXT.practice)
         : random ? h('span.ty-ribbon.ty-rv-ribbon', { 'data-testid': 'ty-photo-random' }, RANDOM_TEXT.ribbon) : null,
       h('div.ty-shead', h('b.ty-stitle', title),

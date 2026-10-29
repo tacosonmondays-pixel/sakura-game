@@ -13,6 +13,8 @@
 // Before those land (or if a name changes) the fallbacks below read what they can and never throw.
 import { TRYOUT } from '../../../data/tryout.js';
 import { lengthOf } from '../../../sim/tryout/plan.js';
+// (a namespace import: the sim side may still move this helper; a missing one falls back to the plan's list)
+import * as EXT from '../../../sim/tryout/extended.js';
 
 /** The reveal's length in Sim steps when the data table has none yet (§20.4: 2 s at 1×). */
 export const REVEAL_TICKS_DEFAULT = 120;
@@ -117,4 +119,34 @@ export function extendedPast(sim, wave = sim?.wave) {
 export function runOptions(x) {
   const length = x?.length === 'full' || x?.length === 'after' ? x.length : 'half';
   return { length, random: x?.random === true };
+}
+
+/**
+ * One period row's assignment marks for player `slot`, as [id, st] pairs (st 1 stamped, -1 missed, 0 open). A full row
+ * has `team` and `own`; past the last 12 periods an Extended Day shrinks old rows to `{ period, score, cleared }`
+ * (cleared: per player, team marks included, §20.6), drawn here as that many stamps then strikes (id null). Never throws.
+ * @param {object|null} rec a sim.tryout.periods row
+ * @param {number} slot
+ * @param {number} [per] marks a period has (the Tryout assignments: 3)
+ * @returns {Array<[string|null, number]>}
+ */
+export function periodMarks(rec, slot = 0, per = 3) {
+  if (!rec || typeof rec !== 'object') return [];
+  if (Array.isArray(rec.team) || Array.isArray(rec.own)) {
+    const mine = Array.isArray(rec.own) ? rec.own[slot] : null;
+    return [...(Array.isArray(rec.team) ? rec.team : []), ...(Array.isArray(mine) ? mine : [])].filter((x) => Array.isArray(x));
+  }
+  const raw = Array.isArray(rec.cleared) ? rec.cleared[slot] : rec.cleared;
+  const n = Math.max(0, Math.min(per, Math.floor(Number(raw) || 0)));
+  return Array.from({ length: per }, (_, i) => [null, i < n ? 1 : -1]);
+}
+
+/** Period p's Grade 8+ twist (a TRYOUT.dares id) or null: the plan's list, and past it (Extended Day) the same draw. */
+export function affixOf(ty, p) {
+  if (!ty) return null;
+  try {
+    return (typeof EXT.affixIdOf === 'function' ? EXT.affixIdOf(ty, p) : ty.affixes?.[p]) || null;
+  } catch {
+    return ty.affixes?.[p] || null;
+  }
 }

@@ -540,6 +540,8 @@ export const EXTENDED_TEXT = {
   stayLate: 'Stay Late',
   wave: (n) => `Wave ${n}`,
   waveSub: 'Stay Late · the day goes on',
+  stayLateSub: 'The Full Day is done. The day goes on until your hearts run out',
+  fullLast: 'The Full Day\'s last wave · then Stay Late',
   homeTime: 'Home Time',
   reachedWave: (n, periods) => `Reached wave ${n} · ${periods} period${periods === 1 ? '' : 's'}`,
   seedOnly: (seed) => `Seed ${seed} (Extended Day has no share code yet)`,

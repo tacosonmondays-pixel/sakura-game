@@ -185,3 +185,39 @@ describe('the text and the styles', () => {
     expect(css).toMatch(/\.ty-layer \.ty-sheet-wrap\.ty-rv-wrap \{[^}]*background: transparent/);
   });
 });
+
+// ---- review fixes (Oct 29): an Extended Day past P13 shrinks its oldest period rows (§20.6); the UI draws them ------
+import { periodMarks, affixOf } from '../../src/ui/battle/tryout/adapters.js';
+import { stampRows } from '../../src/ui/battle/tryout.js';
+import { timetableModel } from '../../src/ui/battle/tryout/timetable.js';
+import { runSolo, poolFor } from '../../tools/tryoutBot.mjs';
+
+describe('an Extended Day past P13 (shrunk period rows)', () => {
+  it('periodMarks: a full row\'s marks, a shrunk row\'s count of stamps, never a throw', () => {
+    const full = { period: 3, score: 9, team: [['a_hearts', 1]], own: [[['x', -1], ['y', 1]], [['z', 1]]] };
+    expect(periodMarks(full, 0)).toEqual([['a_hearts', 1], ['x', -1], ['y', 1]]);
+    expect(periodMarks(full, 1)).toEqual([['a_hearts', 1], ['z', 1]]);
+    expect(periodMarks({ period: 1, score: 5, cleared: [2, 0] }, 0)).toEqual([[null, 1], [null, 1], [null, -1]]);
+    expect(periodMarks({ period: 1, score: 5, cleared: [2, 0] }, 1)).toEqual([[null, -1], [null, -1], [null, -1]]);
+    expect(periodMarks({ period: 1, score: 5, cleared: 9 }, 0)).toEqual([[null, 1], [null, 1], [null, 1]]);
+    expect(periodMarks(null, 0)).toEqual([]);
+  });
+  it('a real run to wave 57: the Class Photo\'s stamp rows, the strip and the twists read every row', () => {
+    const { sim } = runSolo({ seed: 31337, grade: 8, length: 'after', pool: poolFor('maxed'), maxWaves: 57, onCalm: (s) => { s.lives = Math.max(s.lives, 200); } });
+    const ty = sim.tryout;
+    expect(sim.wave).toBeGreaterThanOrEqual(53);
+    const shrunk = ty.periods.filter((r) => !r.team);
+    expect(shrunk.length).toBeGreaterThan(0);
+    const res = sim.result().tryout;
+    const rows = stampRows(res, res.players[0], TRYOUT.lengths.full, 0, { extended: true });
+    expect(rows).toHaveLength(12);
+    expect(rows.every((r) => !r.absent && r.marks.length > 0)).toBe(true);
+    expect(rows[11].label).toBe('P12');
+    for (const r of shrunk) expect(rows[r.period - 1].marks).toHaveLength(3);
+    const cells = timetableModel(ty, TRYOUT.lengths.full, { mySlot: 0 });
+    expect(cells.filter((c) => c.kind === 'period' && c.marks).length).toBe(12);
+    // Grade 8 twists from P3 on, past the plan's list too (the same draw)
+    for (const p of [3, 12, 13, 14, 20]) expect(TRYOUT.dares.map((d) => d.id)).toContain(affixOf(ty, p));
+    expect(affixOf(ty, 1)).toBe(null);
+  }, 120000);
+});

@@ -24,7 +24,7 @@
 //      why) and selectable after one (the strip ends in "P13+", no boss portrait); the Random Class switch with its help
 //      line: the six show but are not pickable, Redraw goes, Start is ready with no picks. The battle side (the reveal,
 //      the wave count past 48, Home Time) comes after the sim merge: see the TODO markers in step 11b
-// Screenshots go to --shots. node e2e/tryout.mjs [--viewports 844x390,1280x720] [--shots dir]
+// Screenshots go to --shots. node e2e/tryout.mjs [--viewports 844x390,1280x720] [--shots dir] [--only s20]
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
 import { launchChromium } from './browser.mjs';
@@ -36,6 +36,8 @@ const opt = (name, def) => {
 };
 const viewports = opt('viewports', '844x390,1280x720').split(',').map((v) => v.split('x').map(Number));
 const shotsDir = opt('shots', null);
+// --only s20: only the Extended Day and Random Class steps (11b, 11c) after the unlock
+const only = opt('only', null);
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
 const SAVE_KEY = 'sakura-sentinels-save-v1';
 const IGNORE = [/GPU stall/i, /WebGL/i, /GL_CLOSE_PATH_NV|GroupMarkerNotSet/i, /favicon\.ico/i, /Failed to load resource/i];
@@ -93,6 +95,30 @@ for (const [W, H] of viewports) {
   const screenIs = (name) => page.waitForFunction((n) => document.querySelector('#app')?.dataset.screen === n && !document.documentElement.dataset.tx, name, { timeout: 60000, polling: 100 }).then(() => true).catch(() => false);
   const battleReady = () => page.waitForFunction(() => window.__battle?.ui?.tryoutUi && document.querySelector('#app')?.dataset.screen === 'battle' && !document.documentElement.dataset.tx, null, { timeout: 300000, polling: 250 }).then(() => true).catch(() => false);
 
+  const playToWindow = () => page.evaluate(() => {
+    const { sim, ui } = window.__battle;
+    const spots = [];
+    for (let y = 0.75; y < sim.map.height; y += 0.5) for (let x = 0.75; x < sim.map.width; x += 0.5) if (!sim.placementReason('aoi', x, y)) spots.push([x, y]);
+    let guard = 0;
+    while (!sim.tryoutWindowOpen() && sim.state !== 'won' && sim.state !== 'lost' && guard++ < 60) {
+      // (a UI-flow test, not a balance test: hearts and coins topped up between waves)
+      sim.lives = sim.maxLives;
+      sim.cash += 3000;
+      for (const id of [sim.heroConfig?.unitId, ...sim.loadout.keys()]) {
+        if (!id || sim.towers.some((t) => t.unitId === id)) continue;
+        const s = spots.find(([x, y]) => sim.canPlace(id, x, y).ok);
+        if (s) ui.act.place(id, s[0], s[1]);
+      }
+      for (const t of sim.towers) if (!t.isHero) ui.act.upgrade(t.uid, 0) || ui.act.upgrade(t.uid, 2);
+      ui.startWave();
+      // (hearts topped up inside the wave too: a boss leak at a hard Subject must not end a UI-flow run)
+      for (let i = 0; i < 6000 && sim.state === 'wave'; i++) {
+        sim.update(1 / 60);
+        if (sim.lives < sim.maxLives / 2) sim.lives = sim.maxLives;
+      }
+    }
+    return { wave: sim.wave, win: sim.tryout.players[0].win, state: sim.state };
+  });
   const noHScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1
     && [...document.querySelectorAll('.screen-body, .ls-list, .hb-main')].every((e) => e.scrollWidth <= e.clientWidth + 1));
   /** Every map and hero card ends above Before Class's foot, or sits in a column that scrolls and ends above it. */
@@ -135,6 +161,212 @@ for (const [W, H] of viewports) {
     return null;
   }, sel);
 
+  /** §20 (Extended Day and Random Class) from a normal Before Class with no Full Day cleared yet: steps 11b and 11c. */
+  const s20 = async () => {
+    // 11b. §20: Extended Day (locked before a Full Day clear, selectable after) and the Random Class switch
+    const lengthItems = await page.locator('[data-testid^="tryout-length-"]').evaluateAll((els) => els.map((e) => `${e.dataset.id}${e.classList.contains('locked') ? ':locked' : ''}`));
+    check(lengthItems.join() === 'half,full:locked,after:locked', `the length row: Half Day · Full Day · Extended Day, the last two locked so far (${lengthItems})`);
+    await page.click('[data-testid="tryout-length-after"]');
+    const afterWhy = await page.locator('[data-testid="tryout-grade-line"]').textContent().catch(() => '');
+    check(/Clear a Full Day first/.test(afterWhy) && await page.locator('[data-testid="tryout-length-after"]').getAttribute('aria-checked') !== 'true',
+      `a locked Extended Day tap says why and stays unchosen (${afterWhy})`);
+    const help = await page.locator('[data-testid="tryout-random-help"]').textContent().catch(() => '');
+    check(await page.locator('[data-testid="tryout-random"]').isVisible() && /striker/.test(help) && /flyers/.test(help) && /Control or Support/.test(help),
+      `the Random Class switch shows with its help line (${help})`);
+    // a Full Day clear (test-only: the counters a clear writes) opens Extended Day
+    await page.evaluate(() => {
+      const { store } = window.__sakura;
+      store.profile.missions.counters = { ...(store.profile.missions.counters || {}), 'ty:half': 1, 'ty:full': 1 };
+      store.commit('test');
+      store.saveNow?.();
+    });
+    await page.goto(`${base}#/tryout`);
+    await screenIs('tryout');
+    await page.click('[data-testid="tryout-tile-start"]');
+    await page.waitForSelector('[data-testid="tryout-before-class"]', { timeout: 10000 }).catch(() => {});
+    check(!(await page.locator('[data-testid="tryout-length-after"]').evaluate((e) => e.classList.contains('locked')).catch(() => true)), 'Extended Day opens after a Full Day clear');
+    await page.click('[data-testid="tryout-length-after"]');
+    await page.waitForSelector('[data-testid="tryout-before-class"][data-length="after"]', { timeout: 5000 }).catch(() => {});
+    check(await page.locator('[data-testid="tryout-length-after"]').getAttribute('aria-checked') === 'true'
+      && /^Extended Day/.test(await page.locator('.ty-bc-title').textContent().catch(() => '')), 'Extended Day is chosen and names the day');
+    check(await page.locator('[data-testid="ty-bct"][data-length="after"] [data-testid="ty-tt-more"]').isVisible()
+      && await page.locator('[data-testid="ty-bct"] [data-testid="ty-tt-boss"]').count() === 0
+      && (await page.locator('[data-testid="ty-tt-p12"] .ty-tt-p').textContent().catch(() => '')) === 'P12',
+    'the Extended Day strip: P1-P12, then "P13+" where the boss portrait was');
+    await page.click('[data-testid="tryout-draft-0"]');
+    check(await page.locator('.ty-bc-six > .ui-girltile.sel').count() === 1, 'a normal day still picks (one tile selected)');
+    await page.click('[data-testid="tryout-random"]');
+    await page.waitForSelector('[data-testid="tryout-before-class"][data-random="on"]', { timeout: 5000 }).catch(() => {});
+    check(await page.locator('[data-testid="tryout-random"]').getAttribute('aria-pressed') === 'true', 'Random Class switches on');
+    check(await page.locator('.ty-bc-six > .ui-girltile').count() === 6 && await page.locator('.ty-bc-six > .ui-girltile.sel').count() === 0
+      && await page.locator('.ty-bc-six > .ui-girltile.ty-drawn[aria-disabled="true"]').count() === 6, 'Random Class: the six show, drawn, none selected');
+    // (force: the tile is aria-disabled, so Playwright would wait for it to enable; the tap must still pick nothing)
+    await page.locator('[data-testid="tryout-draft-1"]').click({ force: true });
+    check(await page.locator('.ty-bc-six > .ui-girltile.sel').count() === 0, 'Random Class: a tap on a girl picks nothing (the class draws the three)');
+    check(await page.locator('[data-testid="tryout-redraw"]').count() === 0 && /drawn at the bell/i.test(await page.locator('[data-testid="tryout-squad-label"]').textContent().catch(() => '')),
+      'Random Class: no Redraw; the squad is drawn at the bell');
+    check(!(await page.locator('[data-testid="tryout-start"]').isDisabled()) && await page.locator('[data-testid="tryout-start-why"]').count() === 0, 'Random Class: Start is ready with no picks');
+    check(/ 0 Erasers/.test(await page.locator('.ty-bc-facts').textContent().catch(() => '')), 'the facts line follows Random Class (no Erasers)');
+    const optsFit = await page.evaluate(() => {
+      const r = document.querySelector('[data-testid="tryout-random-help"]').getBoundingClientRect();
+      const st = document.querySelector('[data-testid="tryout-start"]').getBoundingClientRect();
+      return r.right <= innerWidth + 1 && r.width > 0 && st.bottom <= innerHeight + 1 && st.right <= innerWidth + 1;
+    });
+    check(optsFit, 'the help line fits the width and Start class stays in view');
+    const under2 = await colsAboveFoot();
+    const six2 = await page.evaluate(() => document.querySelector('.ty-bc-six').getBoundingClientRect().bottom <= document.querySelector('.ty-bc-foot').getBoundingClientRect().top + 0.5);
+    check(under2.length === 0 && six2, `with Extended Day and Random Class: the six, the maps and the heroes stay above the foot (${under2})`);
+    check(await noHScroll(), 'no horizontal scroll on Before Class with Extended Day and Random Class');
+    await shot('ty-before-class-extended-random');
+    // 11c. §20 in battle: an Extended Day with Random Class. The three are drawn; the first pick is the reveal (no
+    // buttons; the highlight lands on the Sim's card; the Sim takes it on its tick with no input); then the day is
+    // fast-forwarded (the Tryout bot plays the breaks, hearts topped up: a UI-flow test) past wave 48: the Stay Late
+    // banner, "Wave N · Stay Late" in the tracker, the HUD's bare wave number and the scout's "Stay Late"; then out of
+    // hearts: Home Time, the Class Photo's "Wave N" headline and the seed line (no share code)
+    await page.evaluate(() => {
+      window.__banners = [];
+      new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => {
+        if (n.classList?.contains('bt-banner')) window.__banners.push(n.textContent);
+      }))).observe(document.body, { childList: true, subtree: true });
+    });
+    await page.click('[data-testid="tryout-start"]');
+    check(await battleReady(), 'an Extended Day Random Class run starts');
+    const run0 = await page.evaluate(() => {
+      const { sim } = window.__battle;
+      return { length: sim.tryout.length, random: sim.tryout.random === true, squad: sim.tryout.players[0].squad.length, erasers: sim.tryout.players[0].erasers };
+    });
+    check(run0.length === 'after' && run0.random && run0.squad === 3 && run0.erasers === 0, `the run is an Extended Day in Random Class, its three drawn (${JSON.stringify(run0)})`);
+    /** Fast-forward with the Tryout bot (breaks, Subjects, buying; Random Class takes the picks) to `stop(sim)`. */
+    const ffTo = (stop) => page.evaluate(async (stopSrc) => {
+      const { sim, ui } = window.__battle;
+      const bot = await import('/tools/tryoutBot.mjs');
+      const stopAt = new Function(`return (${stopSrc});`)();
+      ui.paused = true;
+      const b = window.__tyBot || (window.__tyBot = { policy: 'first', rng: { next: () => 0.5 } });
+      const apply = (c) => {
+        const a = c.a;
+        if (c.k === 'tr') return sim.tryoutCommand(0, a[0], a.slice(1));
+        if (c.k === 'mv') return sim.tryoutMove(0, a[0], a[1] / 1024, a[2] / 1024);
+        if (c.k === 'place') return sim.placeTower(a[0], a[1] / 1024, a[2] / 1024);
+        if (c.k === 'upg') return sim.upgradeTower(a[0], a[1]);
+        if (c.k === 'wave') return sim.startNextWave();
+        return null;
+      };
+      const reveal = () => !!sim.tryout.random && sim.tryout.players.some((p) => p.win === 'pick');
+      let guard = 0;
+      while (!stopAt(sim) && sim.state !== 'won' && sim.state !== 'lost' && guard++ < 200000) {
+        if (sim.state === 'prep' || sim.state === 'between') {
+          // (the events of the waves skipped over are dropped; the last ones reach the screen)
+          if (sim.wave < 47) sim.drainEvents();
+          for (const c of bot.decide(sim, 0, b)) apply(c);
+          if (!sim.tryoutWindowOpen() && sim.state !== 'wave') sim.startNextWave();
+        }
+        for (let i = 0; i < 30 && (sim.state === 'wave' || reveal()) && !stopAt(sim); i++) {
+          sim.update(1 / 60);
+          // (a boss leak takes up to 40: the hearts are full again after every step)
+          if (sim.lives < sim.maxLives) sim.lives = sim.maxLives;
+        }
+      }
+      ui.saver?.tick?.();
+      return { wave: sim.wave, state: sim.state, cleared: sim.wavesCleared, lives: sim.lives, period: sim.tryout.period, picks: sim.tryout.players[0].picks.length, win: sim.tryout.players[0].win };
+    }, String(stop));
+    // (to the first pick with the game held still, so the reveal is stepped from its first tick)
+    const st0 = await ffTo((sim) => sim.tryoutWindowOpen());
+    check(st0.win === 'pick' && st0.wave === 4, `the first pick opens after wave 4 (${JSON.stringify(st0)})`);
+    // (the game is held still: the Sim is stepped from the page into the reveal, so the shots are mid-hop and landed)
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    const stepReveal = (n) => page.evaluate((k) => {
+      const { sim, ui } = window.__battle;
+      // (held still between the steps: the shots between them must not let the game run on)
+      ui.paused = true;
+      for (let i = 0; i < k; i++) sim.update(1 / 60);
+      ui.tryoutUi.update();
+      const deck = document.querySelector('[data-testid="ty-reveal-deck"]');
+      const pend = sim.tryoutAutoPick(0);
+      const p = sim.tryout.players[0];
+      return { at: deck?.dataset.at, landed: deck?.dataset.landed, index: pend?.index ?? null, left: pend?.ticksLeft ?? null, win: p.win, ticks: p.winTicks, picks: p.picks.length, paused: ui.paused, state: sim.state };
+    }, n);
+    const hop = await stepReveal(40);
+    check(await page.locator('[data-testid="ty-reveal"]').isVisible() && await page.locator('[data-testid="ty-reveal-ribbon"]').isVisible(), 'the pick opens as the Random Class reveal, with its ribbon');
+    const noBtns = await page.evaluate(() => document.querySelectorAll('[data-testid="ty-pick"] :is([data-testid="ty-erase"], [data-testid="ty-hand"], [data-testid^="ty-path-"], [data-testid="ty-more"])').length);
+    check(noBtns === 0, 'the reveal has no Take, Eraser, Hand in, path or MORE buttons');
+    check(hop.landed === 'false' && Number(hop.at) >= 0, `mid-reveal the highlight is moving (${JSON.stringify(hop)})`);
+    await shot('ty-reveal-hop');
+    const landed = await stepReveal(50);
+    check(landed.landed === 'true' && Number(landed.at) === landed.index && landed.left > 0, `the highlight lands on the card the Sim will take before it lands (${JSON.stringify(landed)})`);
+    await shot('ty-reveal-landed');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    // Reduce Motion: no hop, the drawn card marked at once (a Whole Class follow-up gets its own reveal the same way)
+    const rm = await stepReveal(0);
+    check(rm.landed === 'true' && Number(rm.at) === rm.index, `Reduce Motion marks the drawn card at once (${JSON.stringify(rm)})`);
+    // no input: the game runs again and the Sim takes the pick on its tick
+    const picks0 = await page.evaluate(() => { window.__battle.ui.paused = false; return window.__battle.sim.tryout.players[0].picks.length; });
+    const took = await page.waitForFunction((n) => window.__battle.sim.tryout.players[0].picks.length > n, picks0, { timeout: 60000, polling: 100 }).then(() => true).catch(() => false);
+    check(took, 'the Sim takes the pick by itself (no tap)');
+    await page.waitForFunction(() => window.__battle.sim.tryout.players[0].win !== 'pick', null, { timeout: 60000 }).catch(() => {});
+    await page.waitForSelector('[data-testid="ty-pick"][hidden]', { state: 'attached', timeout: 10000 }).catch(() => {});
+    check(await page.locator('[data-testid="ty-pick"]').isHidden(), 'the reveal closes by itself once the pick lands');
+    check(await page.locator('[data-testid="ty-dare"]').count() === 0, 'Random Class: no Double Dare in the class bar');
+
+    const at48 = await ffTo((sim) => sim.wavesCleared >= 48 && sim.state !== 'wave');
+    check(at48.cleared === 48 && at48.state !== 'lost', `fast-forward clears the Full Day's 48 waves (${JSON.stringify(at48)})`);
+    await page.evaluate(() => { window.__battle.ui.paused = false; });
+    const late = await page.waitForFunction(() => window.__banners.some((t) => /STAY LATE/.test(t)), null, { timeout: 20000 }).then(() => true).catch(() => false);
+    // (wave 48 is not a freeplay goal here: no clear card, no Finish pill, no "49/48", no freeplay chip)
+    const wc = await page.evaluate(() => ({
+      clear: !document.querySelector('[data-testid="clear-card"]')?.hidden,
+      finish: !document.querySelector('[data-testid="finish-here"]')?.hidden,
+      start: document.querySelector('[data-testid="start-wave"]')?.textContent || '',
+      chip: !!document.querySelector('[data-testid="hud-freeplay"]:not([hidden])'),
+      w48: window.__banners.filter((t) => /WAVE 48/.test(t)).slice(-1)[0] || '',
+    }));
+    check(!wc.clear && !wc.finish && !/\/48/.test(wc.start) && !wc.chip && !/Final wave/.test(wc.w48),
+      `at wave 48 the day just goes on: no freeplay clear card, Finish pill, "N/48" or freeplay chip (${JSON.stringify(wc)})`);
+    check(late, `the Stay Late banner shows after wave 48 (${await page.evaluate(() => window.__banners.slice(-3).join(' | '))})`);
+    // (past wave 52: the end of P13 shrinks the oldest period rows, §20.6, and the Class Photo must still draw them)
+    const at51 = await ffTo((sim) => sim.wave >= 54 && sim.state === 'wave' && sim.enemies.length > 3);
+    check(at51.wave === 54 && at51.state === 'wave', `the day goes on past wave 48 (${JSON.stringify(at51)})`);
+    await page.evaluate(() => { window.__battle.ui.paused = false; });
+    // (a frame with this many foes can be slow under software WebGL: wait for the screen to catch up with wave 51)
+    await page.waitForFunction(() => /^5\d$/.test(document.querySelector('[data-testid="hud-wave"]')?.textContent || '')
+      && window.__banners.some((t) => /WAVE 54/.test(t)), null, { timeout: 30000, polling: 100 }).catch(() => {});
+    await page.evaluate(() => { window.__battle.ui.paused = true; });
+    const hud = await page.evaluate(() => ({
+      band: document.querySelector('[data-testid="ty-band-wave"]')?.textContent || '',
+      wave: document.querySelector('[data-testid="hud-wave"]')?.textContent || '',
+      scout: document.querySelector('[data-testid="scout-label"]')?.textContent || '',
+      chip: !!document.querySelector('[data-testid="hud-freeplay"]:not([hidden])'),
+      banners: window.__banners.filter((t) => /WAVE (49|5\d)/.test(t)).slice(-1)[0] || '',
+    }));
+    check(/Wave 54 · Stay Late/.test(hud.band), `the tracker counts waves past 48 (${hud.band})`);
+    check(!/\/48|of 48/.test(hud.wave) && /54/.test(hud.wave) && !hud.chip, `the HUD shows the wave alone, no freeplay chip (${hud.wave})`);
+    check(/Stay Late/.test(hud.scout) && !/\/48/.test(hud.scout), `the scout reads "Stay Late", not a freeplay goal (${hud.scout})`);
+    check(/Stay Late/.test(hud.banners) && !/of 48/.test(hud.banners), `a wave banner past 48 says Stay Late (${hud.banners})`);
+    await shot('ty-extended-hud');
+    // out of hearts past wave 48: Home Time (the Make-up Test first, when the run still has it)
+    await page.evaluate(() => {
+      const { sim, ui } = window.__battle;
+      ui.saver?.tick?.();
+      ui.paused = false;
+      sim.lives = 1;
+      for (let k = 0; k < 40 && sim.state === 'wave' && sim.enemies.length; k++) sim._leak(sim.enemies[0]);
+    });
+    const endSheet = await page.waitForSelector('[data-testid="ty-makeup"], [data-testid="ty-photo-sheet"]', { timeout: 30000 }).then((e) => e.getAttribute('data-testid')).catch(() => null);
+    if (endSheet === 'ty-makeup') await page.click('[data-testid="ty-makeup-no"]');
+    const ph = await page.waitForSelector('[data-testid="ty-photo-wave"]', { timeout: 30000 }).then(() => true).catch(() => false);
+    const photoTxt = await page.evaluate(() => ({
+      title: document.querySelector('[data-testid="ty-photo-sheet"] .ty-stitle')?.textContent || '',
+      wave: document.querySelector('[data-testid="ty-photo-wave"]')?.textContent || '',
+      seed: !!document.querySelector('[data-testid="ty-seed-only"]'),
+      code: !!document.querySelector('[data-testid="ty-share-code"]'),
+      random: !!document.querySelector('[data-testid="ty-photo-random"]'),
+    }));
+    check(ph && photoTxt.title === 'Home Time' && /^Wave (5\d)$/.test(photoTxt.wave) && photoTxt.seed && !photoTxt.code && photoTxt.random,
+      `the Class Photo is Home Time with its wave headline, the seed line and the Random Class ribbon (${JSON.stringify(photoTxt)})`);
+    check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'the Home Time photo fits the width');
+    await shot('ty-home-time');
+  };
+
   // 1. locked: Wakaba, every tile locked with the rule; Marbles already in the top bar
   await page.goto(`${base}#/tryout`);
   await screenIs('tryout');
@@ -149,6 +381,14 @@ for (const [W, H] of viewports) {
   await page.reload();
   await screenIs('tryout');
   check(await page.waitForSelector('[data-testid="tryout-hub"][data-state="fresh"]', { timeout: 10000 }).then(() => true).catch(() => false), 'the hub opens after 2-5');
+  if (only === 's20') {
+    // (--only s20: straight to Before Class and the §20 steps)
+    await page.click('[data-testid="tryout-tile-start"]');
+    await page.waitForSelector('[data-testid="tryout-before-class"]', { timeout: 10000 }).catch(() => {});
+    await s20();
+    await context.close();
+    continue;
+  }
   const openTiles = await Promise.all(['tryout-tile-start', 'tryout-open-jar', 'tryout-open-yearbook', 'tryout-open-records'].map(tileState));
   check(openTiles.every((x) => x === 'open'), `Start, the Jar, the Yearbook and Records open after 2-5 (${openTiles})`);
   check(await tileState('tryout-weekly-go') === 'locked' && /Grade 4/.test(await page.locator('[data-testid="tryout-weekly-go"]').textContent()),
@@ -216,30 +456,6 @@ for (const [W, H] of viewports) {
   for (const id of squad) check(await page.locator(`[data-testid="card-${id}"]`).count() === 1, `card for ${id}`);
 
   // 3. play to the first pick
-  const playToWindow = () => page.evaluate(() => {
-    const { sim, ui } = window.__battle;
-    const spots = [];
-    for (let y = 0.75; y < sim.map.height; y += 0.5) for (let x = 0.75; x < sim.map.width; x += 0.5) if (!sim.placementReason('aoi', x, y)) spots.push([x, y]);
-    let guard = 0;
-    while (!sim.tryoutWindowOpen() && sim.state !== 'won' && sim.state !== 'lost' && guard++ < 60) {
-      // (a UI-flow test, not a balance test: hearts and coins topped up between waves)
-      sim.lives = sim.maxLives;
-      sim.cash += 3000;
-      for (const id of [sim.heroConfig?.unitId, ...sim.loadout.keys()]) {
-        if (!id || sim.towers.some((t) => t.unitId === id)) continue;
-        const s = spots.find(([x, y]) => sim.canPlace(id, x, y).ok);
-        if (s) ui.act.place(id, s[0], s[1]);
-      }
-      for (const t of sim.towers) if (!t.isHero) ui.act.upgrade(t.uid, 0) || ui.act.upgrade(t.uid, 2);
-      ui.startWave();
-      // (hearts topped up inside the wave too: a boss leak at a hard Subject must not end a UI-flow run)
-      for (let i = 0; i < 6000 && sim.state === 'wave'; i++) {
-        sim.update(1 / 60);
-        if (sim.lives < sim.maxLives / 2) sim.lives = sim.maxLives;
-      }
-    }
-    return { wave: sim.wave, win: sim.tryout.players[0].win, state: sim.state };
-  });
   let st = await playToWindow();
   check(st.win === 'pick' && st.wave === 4, `first pick after wave 4 (${JSON.stringify(st)})`);
   await page.waitForSelector('[data-testid="ty-pick"]:not([hidden])', { timeout: 5000 }).catch(() => {});
@@ -550,72 +766,7 @@ for (const [W, H] of viewports) {
   check(!(await page.locator('[data-testid="tryout-normal"]').isVisible().catch(() => false)), 'Start opens a normal day (no Weekly or practice draft left over)');
   check(/Pencil Money/.test(await page.locator('[data-testid="tryout-perks"]').textContent().catch(() => '')), 'Before Class lists the Desk Supply');
 
-  // 11b. §20: Extended Day (locked before a Full Day clear, selectable after) and the Random Class switch
-  const lengthItems = await page.locator('[data-testid^="tryout-length-"]').evaluateAll((els) => els.map((e) => `${e.dataset.id}${e.classList.contains('locked') ? ':locked' : ''}`));
-  check(lengthItems.join() === 'half,full:locked,after:locked', `the length row: Half Day · Full Day · Extended Day, the last two locked so far (${lengthItems})`);
-  await page.click('[data-testid="tryout-length-after"]');
-  const afterWhy = await page.locator('[data-testid="tryout-grade-line"]').textContent().catch(() => '');
-  check(/Clear a Full Day first/.test(afterWhy) && await page.locator('[data-testid="tryout-length-after"]').getAttribute('aria-checked') !== 'true',
-    `a locked Extended Day tap says why and stays unchosen (${afterWhy})`);
-  const help = await page.locator('[data-testid="tryout-random-help"]').textContent().catch(() => '');
-  check(await page.locator('[data-testid="tryout-random"]').isVisible() && /striker/.test(help) && /flyers/.test(help) && /Control or Support/.test(help),
-    `the Random Class switch shows with its help line (${help})`);
-  // a Full Day clear (test-only: the counters a clear writes) opens Extended Day
-  await page.evaluate(() => {
-    const { store } = window.__sakura;
-    store.profile.missions.counters = { ...(store.profile.missions.counters || {}), 'ty:half': 1, 'ty:full': 1 };
-    store.commit('test');
-    store.saveNow?.();
-  });
-  await page.goto(`${base}#/tryout`);
-  await screenIs('tryout');
-  await page.click('[data-testid="tryout-tile-start"]');
-  await page.waitForSelector('[data-testid="tryout-before-class"]', { timeout: 10000 }).catch(() => {});
-  check(!(await page.locator('[data-testid="tryout-length-after"]').evaluate((e) => e.classList.contains('locked')).catch(() => true)), 'Extended Day opens after a Full Day clear');
-  await page.click('[data-testid="tryout-length-after"]');
-  await page.waitForSelector('[data-testid="tryout-before-class"][data-length="after"]', { timeout: 5000 }).catch(() => {});
-  check(await page.locator('[data-testid="tryout-length-after"]').getAttribute('aria-checked') === 'true'
-    && /^Extended Day/.test(await page.locator('.ty-bc-title').textContent().catch(() => '')), 'Extended Day is chosen and names the day');
-  check(await page.locator('[data-testid="ty-bct"][data-length="after"] [data-testid="ty-tt-more"]').isVisible()
-    && await page.locator('[data-testid="ty-bct"] [data-testid="ty-tt-boss"]').count() === 0
-    && (await page.locator('[data-testid="ty-tt-p12"] .ty-tt-p').textContent().catch(() => '')) === 'P12',
-  'the Extended Day strip: P1-P12, then "P13+" where the boss portrait was');
-  await page.click('[data-testid="tryout-draft-0"]');
-  check(await page.locator('.ty-bc-six > .ui-girltile.sel').count() === 1, 'a normal day still picks (one tile selected)');
-  await page.click('[data-testid="tryout-random"]');
-  await page.waitForSelector('[data-testid="tryout-before-class"][data-random="on"]', { timeout: 5000 }).catch(() => {});
-  check(await page.locator('[data-testid="tryout-random"]').getAttribute('aria-pressed') === 'true', 'Random Class switches on');
-  check(await page.locator('.ty-bc-six > .ui-girltile').count() === 6 && await page.locator('.ty-bc-six > .ui-girltile.sel').count() === 0
-    && await page.locator('.ty-bc-six > .ui-girltile.ty-drawn[aria-disabled="true"]').count() === 6, 'Random Class: the six show, drawn, none selected');
-  // (force: the tile is aria-disabled, so Playwright would wait for it to enable; the tap must still pick nothing)
-  await page.locator('[data-testid="tryout-draft-1"]').click({ force: true });
-  check(await page.locator('.ty-bc-six > .ui-girltile.sel').count() === 0, 'Random Class: a tap on a girl picks nothing (the class draws the three)');
-  check(await page.locator('[data-testid="tryout-redraw"]').count() === 0 && /drawn at the bell/i.test(await page.locator('[data-testid="tryout-squad-label"]').textContent().catch(() => '')),
-    'Random Class: no Redraw; the squad is drawn at the bell');
-  check(!(await page.locator('[data-testid="tryout-start"]').isDisabled()) && await page.locator('[data-testid="tryout-start-why"]').count() === 0, 'Random Class: Start is ready with no picks');
-  check(/ 0 Erasers/.test(await page.locator('.ty-bc-facts').textContent().catch(() => '')), 'the facts line follows Random Class (no Erasers)');
-  const optsFit = await page.evaluate(() => {
-    const r = document.querySelector('[data-testid="tryout-random-help"]').getBoundingClientRect();
-    const st = document.querySelector('[data-testid="tryout-start"]').getBoundingClientRect();
-    return r.right <= innerWidth + 1 && r.width > 0 && st.bottom <= innerHeight + 1 && st.right <= innerWidth + 1;
-  });
-  check(optsFit, 'the help line fits the width and Start class stays in view');
-  const under2 = await colsAboveFoot();
-  const six2 = await page.evaluate(() => document.querySelector('.ty-bc-six').getBoundingClientRect().bottom <= document.querySelector('.ty-bc-foot').getBoundingClientRect().top + 0.5);
-  check(under2.length === 0 && six2, `with Extended Day and Random Class: the six, the maps and the heroes stay above the foot (${under2})`);
-  check(await noHScroll(), 'no horizontal scroll on Before Class with Extended Day and Random Class');
-  await shot('ty-before-class-extended-random');
-  // TODO(§20 battle e2e, after the E1/E2 sim merge): Start class here with Extended Day + Random Class on a forced seed
-  //   and check: the run's Sim has length 'after' and random (window.__battle.sim.tryout); the first pick opens as the
-  //   reveal ([data-testid="ty-reveal"], its ribbon, no ty-erase / ty-hand / ty-path-*, [data-testid="ty-reveal-deck"]
-  //   data-landed turns true before the Sim lands it, then the sheet closes by itself with no click); the class bar has
-  //   no Double Dare; the Make-up flow past wave 48.
-  // TODO(§20 battle e2e): play two periods past wave 48 (sim stepped from the page as playToWindow does): the tracker
-  //   head reads "Wave N · Stay Late" ([data-testid="ty-band-wave"]), the HUD wave counter is the bare number, and the
-  //   Class Photo is Home Time with [data-testid="ty-photo-wave"] "Wave N" and [data-testid="ty-seed-only"] (no code).
-  // (back to a plain day for the steps after this one)
-  await page.click('[data-testid="tryout-random"]');
-  await page.click('[data-testid="tryout-length-half"]');
+  await s20();
   // Marbles only on the Tryout routes
   await page.goto(`${base}#/students`);
   await screenIs('students');

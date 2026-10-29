@@ -35,7 +35,7 @@ import { ensureOnline, avatar, levelChip, showError, connecting, storedName, loc
 import { miniMochi } from '../loading/loader.js';
 import { profileCard } from '../../online/identity.js';
 import { getSession, makeRoomCode, normalizeCode, draftReady } from '../../online/coop/session.js';
-import { draftOf, frozenPool, heroChoices, heroEntry, tryoutUnlocked, newRunSeed, TRYOUT_UNLOCK, TRYOUT_GRADES, gradeOpen, RUN_LENGTHS, lengthOpen } from '../../systems/tryoutRuns.js';
+import { draftOf, frozenPool, heroChoices, heroEntry, tryoutUnlocked, newRunSeed, TRYOUT_UNLOCK, TRYOUT_GRADES, gradeOpen, RUN_LENGTHS, lengthOpen, fullCleared } from '../../systems/tryoutRuns.js';
 import { mapChoices } from '../../sim/tryout/plan.js';
 import { TRYOUT } from '../../data/tryout.js';
 import { CLASS_TEXT, LENGTH_NAMES, EXTENDED_TEXT, RANDOM_TEXT, gradeTwist, gradeWhy } from '../text/tryout.js';
@@ -498,6 +498,8 @@ export function render(root, params = {}) {
           code: roomCode, isHost, backend, stageId, difficulty, freeplay, mode,
           // battle modes need the host's own clear of the stage (docs/specs/CODEX_MODES.md §2)
           modesUnlocked: (id) => modesUnlocked(store.profile, id),
+          // (§20.7: the host's ladder opens Extended Day, a Full Day cleared; else the room plays a Full Day)
+          afterUnlocked: () => fullCleared(store.profile),
           // autoAbil: my Settings → Auto-cast abilities (only `true` turns it on; the start message carries it)
           me: { uid: backend.uid, name: storedName() || backend.user?.name || 'Sensei', level: card.level, avatar: card.avatar, loadout, hero, ...(profile.settings?.autoCastAbilities ? { autoAbil: true } : null) },
         }, { isBlocked: (uid) => social.isBlocked(uid) }); // [social] never pair with a player I blocked; session.seated

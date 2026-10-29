@@ -2,7 +2,8 @@
 //   the host turns Tryout Day on, both tabs pick 3 of their six and a hero, the host starts; both battles show the run
 //   UI and built the same run, each tab's bar its own squad. §20.7: the host's run panel has Half · Full · Extended Day
 //   (the host's ladder: a Full Day cleared here) and the Random Class switch with its help line; the guest sees both
-//   read-only. Whether the room carries them is checked when session.js accepts them (after the sim merge).
+//   read-only. The host sets both, the run starts as an Extended Day in Random Class (each three drawn), and the
+//   first pick's reveal shows on both screens and lands by itself, the same on both.
 // node e2e/tryout-coop.mjs [--viewport 1280x720] [--shots dir]
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
@@ -138,49 +139,105 @@ const guestOpts = async () => B.evaluate(() => ({
 }));
 const g0 = await guestOpts();
 check(g0.length === 'half' && g0.random === 'false' && g0.controls === 0, `the guest sees the run's length and Random Class read-only, no controls (${JSON.stringify(g0)})`);
-// the round trip: Extended Day and Random Class through the room setting (session.js keeps them once the sim merges)
+// the round trip: the host sets Extended Day and Random Class; the guest sees both, read-only; the run starts with them
 await A.click('[data-testid="coop-run-length-after"]', T);
 await A.click('[data-testid="coop-run-random"]', T);
-await A.waitForTimeout(600);
-const kept = await A.evaluate(() => ({ length: window.__coop.tryout?.length, random: window.__coop.tryout?.random === true }));
-if (kept.length === 'after' && kept.random) {
-  const got = await B.waitForFunction(() => document.querySelector('[data-testid="coop-run-length-ro"]')?.dataset.length === 'after'
-    && document.querySelector('[data-testid="coop-run-random-ro"]')?.dataset.on === 'true', null, T).then(() => true).catch(() => false);
-  check(got, 'the guest sees Extended Day and Random Class from the host, read-only');
-  check(await B.evaluate(() => document.querySelectorAll('.ty-coop-six.random [data-testid="coop-run-girl"][aria-disabled="true"]').length === 6), 'Random Class: the guest\'s six show, not pickable');
-  await snap(A, 'tycoop-room-host-random', { fullPage: true });
-  await snap(B, 'tycoop-room-guest-random', { fullPage: true });
-  // (back to a Half Day with picks for the run below)
-  await A.click('[data-testid="coop-run-random"]', T);
-  await A.click('[data-testid="coop-run-length-half"]', T);
-  await A.waitForTimeout(600);
-} else {
-  log(`  skip the room round trip: this branch's session.js keeps ${JSON.stringify(kept)} (it accepts length 'after' and random after the sim merge)`);
-  // (the host's own panel follows the session: still a Half Day, Random Class off)
-  check(await A.evaluate(() => document.querySelector('[data-testid="coop-run-random"]')?.getAttribute('aria-pressed') === String(window.__coop.tryout?.random === true)), 'the host\'s switch shows what the room keeps');
-}
-await snap(A, 'tycoop-room-host', { fullPage: true });
-await snap(B, 'tycoop-room-guest', { fullPage: true });
+const kept = await A.waitForFunction(() => window.__coop.tryout?.length === 'after' && window.__coop.tryout?.random === true, null, T).then(() => true).catch(() => false);
+check(kept && await A.evaluate(() => document.querySelector('[data-testid="coop-run-random"]')?.getAttribute('aria-pressed') === 'true'
+  && document.querySelector('[data-testid="coop-run-length-after"]')?.getAttribute('aria-checked') === 'true'), 'the room keeps the host\'s Extended Day and Random Class');
+const got = await B.waitForFunction(() => document.querySelector('[data-testid="coop-run-length-ro"]')?.dataset.length === 'after'
+  && document.querySelector('[data-testid="coop-run-random-ro"]')?.dataset.on === 'true', null, T).then(() => true).catch(() => false);
+check(got, 'the guest sees Extended Day and Random Class from the host, read-only');
+check(await B.evaluate(() => document.querySelectorAll('.ty-coop-six.random [data-testid="coop-run-girl"][aria-disabled="true"]').length === 6
+  && !document.querySelector('[data-testid="coop-run-redraw"]')), 'Random Class: the guest\'s six show, not pickable, no Redraw');
+check(await A.evaluate(() => document.querySelectorAll('.ty-coop-six.random [data-testid="coop-run-girl"][aria-disabled="true"]').length === 6), 'Random Class: the host\'s six show, not pickable');
+await snap(A, 'tycoop-room-host-random', { fullPage: true });
+await snap(B, 'tycoop-room-guest-random', { fullPage: true });
 await clearModal(B);
 await B.click('[data-testid="coop-ready"]', T);
-check(await A.waitForFunction(() => window.__coop?.canStart, null, T).then(() => true).catch(() => false), 'the host can start once both picked 3 and the guest is ready');
+check(await A.waitForFunction(() => window.__coop?.canStart, null, T).then(() => true).catch(() => false), 'the host can start once the guest is ready (Random Class: no drafts needed)');
 await A.click('[data-testid="coop-start"]', T);
-const ready = (p) => p.waitForFunction(() => window.__battle?.ui?.tryoutUi && !document.documentElement.dataset.tx, null, { timeout: 180000, polling: 250 }).then(() => true).catch(() => false);
+const ready = (p) => p.waitForFunction(() => window.__battle?.ui?.tryoutUi && !document.documentElement.dataset.tx, null, { timeout: 240000, polling: 250 }).then(() => true).catch(() => false);
 const [ra, rb] = await Promise.all([ready(A), ready(B)]);
 check(ra && rb, 'both battles mount with the run UI');
 
-// both clients built the same run (a pick across both players is covered headless: tests/online/tryoutCoop.test.js
-// and the Tryout Day run in e2e/engines.mjs; a real-time two-tab run to wave 4 is too slow under software WebGL)
+// both clients built the same run: an Extended Day in Random Class, each player's three drawn by the Sim
 const runs = await Promise.all([A, B].map((p) => p.evaluate(() => {
   const ty = window.__battle.sim.tryout;
-  return { seed: ty.seed, map: ty.mapId, squads: ty.players.map((x) => x.squad.join(',')), seats: JSON.stringify(ty.seats.blocks[0]) };
+  return { seed: ty.seed, map: ty.mapId, length: ty.length, random: ty.random === true, squads: ty.players.map((x) => x.squad.join(',')), seats: JSON.stringify(ty.seats.blocks[0]) };
 })));
 check(JSON.stringify(runs[0]) === JSON.stringify(runs[1]), `both clients built the same run (${runs[0].map} · ${JSON.stringify(runs[0].squads)})`);
-check(runs[0].squads.every((q) => q.split(',').length === 3), 'each player starts with their 3 drafted girls');
+check(runs[0].length === 'after' && runs[0].random, `the run is an Extended Day in Random Class (${runs[0].length}, random ${runs[0].random})`);
+check(runs[0].squads.every((q) => q.split(',').length === 3), 'each player starts with their 3 drawn girls');
 const ui = await Promise.all([A, B].map((p) => p.evaluate(() => !!document.querySelector('[data-testid="ty-tracker"]') && !!document.querySelector('[data-testid="ty-chip-a_hearts"]'))));
 check(ui.every(Boolean), 'both trackers show Full Hearts');
 const mine = await Promise.all([A, B].map((p) => p.evaluate(() => [...window.__battle.sim.loadout.keys()].join(','))));
 check(mine[0] === runs[0].squads[0] && mine[1] === runs[0].squads[1], 'each tab\'s bar holds its own squad');
+
+// to the first pick: each player places her hero and girls (ui.act, the tower bar's commands), the host sets 3× and
+// Auto, and the lockstep is pumped (as e2e/coop-freeplay.mjs does) until the pick opens; then the game runs at its
+// own pace so the reveal shows on both screens and lands by itself, on the same card on both
+for (const p of [A, B]) {
+  await p.evaluate(() => {
+    window.__sawReveal = false;
+    new MutationObserver(() => {
+      if (document.querySelector('[data-testid="ty-reveal"]') && !document.querySelector('[data-testid="ty-pick"]')?.hidden) window.__sawReveal = true;
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+  });
+}
+const placeAll = (p) => p.evaluate(() => {
+  const { sim, ui, coop } = window.__battle;
+  const slot = coop.lockstep.mySlot;
+  const ids = [sim.heroConfigs?.[slot]?.unitId, ...sim.tryout.players[slot].squad].filter(Boolean);
+  const spots = [];
+  for (let y = 0.55; y < sim.map.height; y += 0.35) for (let x = 0.55; x < sim.map.width; x += 0.35) if (!sim.placementReason('kage', x, y)) spots.push([x, y, sim.placement.pathDistance(x, y)]);
+  spots.sort((a, b) => a[2] - b[2] || a[1] - b[1] || a[0] - b[0]);
+  const mineSpots = spots.filter((_, i) => i % 2 === slot);
+  let k = 0;
+  for (const id of ids) {
+    for (; k < mineSpots.length; k++) {
+      const [x, y] = mineSpots[k];
+      if (sim.canPlace(id, x, y).ok) { ui.act.place(id, x, y); k += 3; break; }
+    }
+  }
+  return ids.length;
+});
+await Promise.all([placeAll(A), placeAll(B)]);
+const pump = (page, on, host = false) => page.evaluate(([run, isHost]) => {
+  clearInterval(window.__tyPump);
+  window.__tyPump = 0;
+  if (!run) return;
+  window.__tyPump = setInterval(() => {
+    const ls = window.__battle?.coop?.lockstep;
+    if (!ls || ls.finished) return;
+    // (the host sets 1× again once wave 4 runs: the reveal after it is a 2 s show at the game's own pace)
+    if (isHost && !window.__slowed && window.__battle.sim.wave >= 4) {
+      window.__slowed = true;
+      ls.queue('speed', [1]);
+    }
+    // (stop pumping once a pick is open: the reveal then runs at the game's own pace)
+    if (window.__battle.sim.tryoutWindowOpen()) return;
+    for (let i = 0; i < 3; i++) ls.advance(0.05);
+  }, 4);
+}, [on, host]);
+await A.evaluate(() => {
+  const { ui, coop } = window.__battle;
+  coop.lockstep.queue('speed', [3]);
+  ui.setAutoStart?.(true);
+  ui.startWave();
+});
+await Promise.all([pump(A, true, true), pump(B, true)]);
+const pickOpen = (p) => p.waitForFunction(() => window.__battle?.sim?.tryout?.players.some((x) => x.win === 'pick'), null, { timeout: 600000, polling: 200 }).then(() => true).catch(() => false);
+const [oa, ob] = await Promise.all([pickOpen(A), pickOpen(B)]);
+check(oa && ob, `the first pick opens on both (wave ${await A.evaluate(() => window.__battle.sim.wave)})`);
+const landed = (p) => p.waitForFunction(() => window.__battle.sim.tryout.players.every((x) => x.picks.length >= 1 && x.win !== 'pick'), null, { timeout: 120000, polling: 200 }).then(() => true).catch(() => false);
+const [la, lb] = await Promise.all([landed(A), landed(B)]);
+await Promise.all([pump(A, false), pump(B, false)]);
+const seen = await Promise.all([A, B].map((p) => p.evaluate(() => window.__sawReveal)));
+check(seen.every(Boolean), `the Random Class reveal shows on both screens (${seen})`);
+check(la && lb, 'both picks land by themselves (no tap)');
+const picks = await Promise.all([A, B].map((p) => p.evaluate(() => JSON.stringify(window.__battle.sim.tryout.players.map((x) => x.picks.map((k) => k.girl || k.card || k.varsity))))));
+check(picks[0] === picks[1], `both clients drew the same picks (${picks[0]})`);
 await snap(B, 'tycoop-battle-guest');
 await ctx.close();
 await browser.close();

@@ -79,7 +79,7 @@ import { supportAllowed, clampSupportUnit, supportLoadoutEntry, supportMiniProfi
 import { supportPays } from '../../online/supportRules.js';
 import { newKey } from '../../online/donateLedger.js';
 import { pickFor } from './supportPick.js';
-import { extendedPast } from './tryout/adapters.js';
+import { extendedPast, isExtendedRun } from './tryout/adapters.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -1078,7 +1078,7 @@ export function mountBattle(root, params, hooks) {
             // freeplay waves past the goal: their own banners (freeplay.js)
             if (fpBattle && ev.wave > sim.totalWaves) break;
             // (Tryout Day's Extended Day past wave 48: "Stay Late", never "of 48", §20.8)
-            feed.announce(`WAVE ${ev.wave}`, ctx.modes?.waveSub(ev) ?? (extendedPast(sim, ev.wave) ? EXTENDED_TEXT.waveSub : Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless'), ev.flipped ? 'warn' : 'wave', ev.flipped ? 2200 : 1300);
+            feed.announce(`WAVE ${ev.wave}`, ctx.modes?.waveSub(ev) ?? (extendedPast(sim, ev.wave) ? EXTENDED_TEXT.waveSub : isExtendedRun(sim) && ev.wave === sim.totalWaves ? EXTENDED_TEXT.fullLast : Number.isFinite(sim.totalWaves) ? (ev.wave === sim.totalWaves ? (fpBattle ? 'The last stage wave — clear it to go beyond!' : 'Final wave!') : `of ${sim.totalWaves}`) : 'Endless'), ev.flipped ? 'warn' : 'wave', ev.flipped ? 2200 : 1300);
             break;
           case 'waveEnd':
             // a sandbox spawn between waves runs as a wave of its own (the counter stays)
@@ -1086,6 +1086,10 @@ export function mountBattle(root, params, hooks) {
             else feed.push(`Wave ${ev.wave} cleared · +${fmtNum(ev.bonus || 0, 'money')} coins`, 'good', { ms: 2200 });
             lastWaveEnd = ev.wave;
             if (sim.state !== 'won') later(() => warnFor(sim.wave + 1), 400);
+            break;
+          case 'goal':
+            // Tryout Day's Extended Day cleared the Full Day's 48 waves: the Stay Late banner (the day goes on, §20.8)
+            if (ev.stayLate) feed.announce(EXTENDED_TEXT.stayLate.toUpperCase(), EXTENDED_TEXT.stayLateSub, 'free', 2600);
             break;
           case 'bossPhase':
             feed.announce('PHASE SHIFT', ev.announce || '', 'phase', 3200);
@@ -1145,11 +1149,14 @@ export function mountBattle(root, params, hooks) {
       if (fpEnd) fpBattle?.onEnd();
       if (fpEnd) feed.announce(won ? 'FREEPLAY COMPLETE' : 'FREEPLAY OVER', `${sim.wavesCleared}/${sim.totalWaves} · ${sim.stage.freeplay.name}`, won ? 'good' : 'free', RESULT_DELAY_MS - 200);
       else if (endedRun) feed.announce('RUN OVER', `Ended on wave ${sim.wave}`, 'bad', RESULT_DELAY_MS - 200);
+      // (an Extended Day past the Full Day ends as Home Time, never a defeat)
+      else if (sim.tryout && (sim.finished || extendedPast(sim))) feed.announce(EXTENDED_TEXT.homeTime.toUpperCase(), EXTENDED_TEXT.reachedWave(sim.wave, sim.tryout.periods.length), 'free', RESULT_DELAY_MS - 200);
       else feed.announce(won ? 'STAGE CLEAR!' : 'DEFEAT', won ? `${sim.lives}/${sim.maxLives} lives left` : `Fell on wave ${sim.wave}`, won ? 'good' : 'bad', RESULT_DELAY_MS - 200);
       if (req.tryout) {
         // the Make-up Test (solo, once a run, §7): at 0 hearts the defeat sheet offers the wave again from its start
         // (the record keeps the calm snapshot before it and the open wave: the Continue spends the Make-up Test)
-        if (!ls && !won && tryRec && !tryRec.makeUpUsed && !tryRec.practice && tryRec.snap && tryRec.waveOpen === sim.wave) {
+        // (never after Home Time: sim.finish() ends a run as 'lost' with sim.finished, by choice, not by hearts)
+        if (!ls && !won && !sim.finished && tryRec && !tryRec.makeUpUsed && !tryRec.practice && tryRec.snap && tryRec.waveOpen === sim.wave) {
           ctx.saver?.close();
           ctx.makeUpOffered = true;
           later(() => ctx.tryoutUi?.showMakeUp({
@@ -1329,7 +1336,8 @@ export function mountBattle(root, params, hooks) {
   let remounting = false;
   /** A freeplay run past its goal (not a plain victory at exactly the goal). */
   function isFreeplayRun() {
-    if (!sim.freeplay || sim.wavesCleared < sim.totalWaves) return false;
+    // (a Tryout Day Extended Day is a run, not freeplay: the Class Photo ends it, §20.8)
+    if (!sim.freeplay || sim.tryout || sim.wavesCleared < sim.totalWaves) return false;
     return !(sim.state === 'won' && sim.wavesCleared === sim.totalWaves);
   }
   // ---- solo freeplay (src/systems/freeplayRewards.js) ---------------------------------------

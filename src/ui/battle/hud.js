@@ -30,7 +30,8 @@ export function createHud(ctx) {
   const diff = DIFFICULTIES[sim.difficulty];
   /** the freeplay tier's table when this battle goes past its goal, else null (read live: a solo
    *  run that won its last wave can Keep going into freeplay) */
-  const fpOf = () => (sim.freeplay ? sim.stage.freeplay : null);
+  // (a Tryout Day Extended Day runs freeplay waves past its 48 but is not freeplay: no chip, no BEYOND counter, §20.8)
+  const fpOf = () => (sim.freeplay && !sim.tryout ? sim.stage.freeplay : null);
   const fpChip = h('span.bt-fp-chip', { 'data-testid': 'hud-freeplay' });
   const stageLabel = h(
     'div.bt-stage-label',
