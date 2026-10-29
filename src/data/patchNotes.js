@@ -20,6 +20,19 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.60', version: '0.1.60', date: '2026-10-29', title: 'Mirrors and Coilguns',
+    added: [
+      'Tenka now takes the field as her real 3D figure, coilgun in hand.',
+      'Iroha’s mirror panel turns and glints each time a bolt bounces through it, leaves afterimages when it moves, and her Shattered Glass path scatters glinting glass shards.',
+    ],
+    fixed: [
+      'The Events button on small phones is a neat icon tab with a clear gap from Co-op.',
+      'The hero card’s “Deployed” and level no longer cover her name.',
+      'The hero portrait in battle keeps clear of the top bar on small phones.',
+      'Patch-note dates stay on one line, the Recruit rate line no longer sits in a grey box over the girls, and the girl page’s matchups fit on upright phones.',
+    ],
+  },
+  {
     id: 'v0.1.59', version: '0.1.59', date: '2026-10-28', title: 'Banners and Tryout Day',
     added: [
       'Tryout Day, a new run mode (opens after 2-5): play one school day of waves solo or in co-op, pick a Pep Talk after every period and watch new girls try out for your squad, from Grade 1 to Grade 12.',
