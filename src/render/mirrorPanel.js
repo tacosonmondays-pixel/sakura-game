@@ -218,3 +218,60 @@ export function ghostAt(i, n, fx, fy, tx, ty, reduce = false, out = { x: 0, y: 0
   out.delay = 0.035 * i;
   return out;
 }
+
+/** Her relay origin this close to her own spot (tiles) counts as un-aimed on her: the panel is drawn beside her. */
+export const SELF_NEAR = 0.3;
+/** The un-aimed panel's drawn spot: this far to one side of her on screen and this far back (away from the camera). */
+export const BESIDE_SIDE = 0.42;
+export const BESIDE_BACK = 0.16;
+/**
+ * The ground zone where a standing panel would cover her at the battle camera (tiles along the camera's ground
+ * axes from her feet): up to COVER_FRONT toward the camera (the tall glass stands over her body) and COVER_BACK
+ * away from it (the glass shows over her head), within BESIDE_SIDE of her on screen.
+ */
+export const COVER_FRONT = 1.0;
+export const COVER_BACK = 0.35;
+
+/**
+ * Where her panel is drawn (display only; the sim's origin never moves). An origin clear of her is drawn where it
+ * is. One that would cover her at the battle camera (the un-aimed panel stops 0.7 short of the road, so a girl
+ * 0.8-1.6 tiles from it gets it at her feet or just in front of her) is slid sideways on screen until it stands
+ * BESIDE_SIDE beside her, keeping its depth; one on her own spot also steps BESIDE_BACK back (about 0.45 tiles).
+ * @param {number} fx @param {number} fz the camera's forward on the ground (unit, world x / z = sim x / y)
+ * @param {(x: number, y: number) => number} [clear] distance to the road at (x, y): for an origin on her or straight
+ *   in front of her, the side further from the road wins (right on a tie, and when no road is known)
+ */
+export function panelSpot(tx, ty, ox, oy, fx = 0, fz = -1, clear = null, out = { x: 0, y: 0, beside: false }) {
+  // screen right on the ground is (-fz, fx); depth d > 0 is away from the camera
+  const rx = -fz;
+  const ry = fx;
+  const dx = ox - tx;
+  const dy = oy - ty;
+  let s = dx * rx + dy * ry;
+  let d = dx * fx + dy * fz;
+  const self = Math.hypot(dx, dy) < SELF_NEAR;
+  if (!self && (Math.abs(s) >= BESIDE_SIDE || d <= -COVER_FRONT || d >= COVER_BACK)) {
+    out.x = ox;
+    out.y = oy;
+    out.beside = false;
+    return out;
+  }
+  if (self) d = BESIDE_BACK;
+  // a slid panel keeps the side it leans to; one on her (or straight in front) goes to the side away from the road
+  let side = self ? 0 : s > 0.05 ? 1 : s < -0.05 ? -1 : 0;
+  if (!side) {
+    side = 1;
+    if (clear) {
+      const bx = tx + fx * d;
+      const by = ty + fz * d;
+      const r = clear(bx + rx * BESIDE_SIDE, by + ry * BESIDE_SIDE);
+      const l = clear(bx - rx * BESIDE_SIDE, by - ry * BESIDE_SIDE);
+      if (l > r + 1e-6) side = -1;
+    }
+  }
+  s = BESIDE_SIDE * side;
+  out.x = tx + rx * s + fx * d;
+  out.y = ty + ry * s + fz * d;
+  out.beside = self;
+  return out;
+}

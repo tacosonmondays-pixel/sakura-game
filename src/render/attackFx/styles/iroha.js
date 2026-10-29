@@ -18,7 +18,7 @@ import { flash, sparks, ripple } from '../patterns/bursts.js';
 import { hand } from './util.js';
 import { CORE, DECOR } from '../context.js';
 import { GROUND, SPIN_X, EASE_OUT } from '../quadPool.js';
-import { shardLevel, shardCount, kaleidoscope } from '../../mirrorPanel.js';
+import { shardLevel, shardCount, kaleidoscope, SELF_NEAR } from '../../mirrorPanel.js';
 import { GLASS_H } from '../../mirrorFx.js';
 
 const SILVER = '#eeeaff';
@@ -26,6 +26,8 @@ const PLUM = '#a46cd0';
 const GLASS = ['#ffffff', '#bcd8ff', '#d8b8ff', '#eef0ff'];
 const KALEI = ['#c58cff', '#9fd8ff', '#ffd0f0'];
 const TAU = Math.PI * 2;
+/** Her panel bolts leave the glass where it is drawn when that is this close to her sim origin (tiles). */
+const DRAWN_NEAR = 1.2;
 /** Per frame, every Iroha together: glass shards, and Kaleidoscope flares. */
 export const SHARDS_PER_FRAME = 36;
 export const FLARES_PER_FRAME = 2;
@@ -158,12 +160,20 @@ export const iroha = {
     const sy = p.y - (p.vy / vl) * (p.travel || 0);
     rec.sx = sx;
     rec.sy = sy;
-    const fromMirror = Math.hypot(sx - (t.ox ?? t.x), sy - (t.oy ?? t.y)) < Math.hypot(sx - t.x, sy - t.y) || !t.origin;
+    const ox = t.ox ?? t.x;
+    const oy = t.oy ?? t.y;
+    // an un-aimed panel (origin on her own spot) fires its volley too: the sim has only that one then
+    const unaimed = Math.hypot(ox - t.x, oy - t.y) < SELF_NEAR;
+    const fromMirror = unaimed || Math.hypot(sx - ox, sy - oy) < Math.hypot(sx - t.x, sy - t.y) || !t.origin;
     if (fromMirror && t.origin) {
-      rec.mx = sx;
-      rec.my = sy;
-      rec.mz = GLASS_H;
       const m = ctx.mirrors;
+      // the bolt leaves the glass where it is drawn (rosterFx slides a panel that would cover her to her side; the
+      // sim's origin is untouched). A drawn spot far from the origin is a frame stale (the panel just jumped).
+      const at = m?.spotOf?.(t.uid);
+      const near = at && Math.hypot(at.x - ox, at.y - oy) < DRAWN_NEAR;
+      rec.mx = near ? at.x : sx;
+      rec.my = near ? at.y : sy;
+      rec.mz = GLASS_H;
       if (m) m.shot(t.uid, p.vx, p.vy);
     } else {
       const h = hand(ctx, t);

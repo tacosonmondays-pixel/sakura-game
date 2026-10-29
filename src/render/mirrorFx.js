@@ -81,6 +81,7 @@ export class MirrorFx {
       s.arriveT = -1e9;
       s.shiftUntil = -1;
       s.lastShotYaw = 0;
+      s.drawn = false;
       this.panels.set(uid, s);
     }
     return s;
@@ -242,6 +243,10 @@ export class MirrorFx {
    */
   pose(t, mesh, x, y, rest) {
     const s = this._state(t.uid);
+    // where the glass stands this frame (beside her when un-aimed): her panel bolts leave from here
+    s.x = x;
+    s.y = y;
+    s.drawn = true;
     const now = this.now;
     const rm = this.reduceMotion;
     const low = this.quality === 'low';
@@ -316,6 +321,15 @@ export class MirrorFx {
     }
   }
 
+  /**
+   * Where her panel was last drawn (tiles; src/render/rosterFx.js may stand an un-aimed panel beside her), or null
+   * before its first frame. styles/iroha.js starts her panel bolts there.
+   */
+  spotOf(uid) {
+    const s = this.panels.get(uid);
+    return s && s.drawn ? s : null;
+  }
+
   /** Stats for the e2e probe (a copy: dev tooling only). */
   probe() {
     let live = 0;
@@ -324,7 +338,7 @@ export class MirrorFx {
     const now = this.now;
     const list = [];
     for (const [uid, s] of this.panels) {
-      list.push({ uid, turning: now - s.t0 < FLIP.turn, glint: glintPhase(s, now), flash: flashLevel(s, now), yaw: s.yaw, arriving: now - s.arriveT < ARRIVE_LIFE });
+      list.push({ uid, at: s.drawn ? [s.x, s.y] : null, turning: now - s.t0 < FLIP.turn, glint: glintPhase(s, now), flash: flashLevel(s, now), yaw: s.yaw, arriving: now - s.arriveT < ARRIVE_LIFE });
     }
     return { ...this.stats, liveGhosts: live, panels: this.panels.size, pool: this.ghosts ? this.ghosts.length : 0, list };
   }
