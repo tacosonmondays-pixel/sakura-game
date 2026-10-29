@@ -4,7 +4,9 @@
 //     `gap` ago) merges into that flash (it swells a little) instead of starting another;
 //   - at most `perFrame` new flashes a frame and `cap` alive (by quality), the rest are skipped;
 //   - Reduce motion: a soft, dimmer glow (no white star, no pop), a little longer.
-// Real time (not game time): at 3× speed a game-time flash would last one or two frames and flicker.
+// Visual time (the renderer's clock.dt, not game time; it holds during pause and hit-stop): at 3× speed a
+// game-time flash would last one or two frames and flicker. Each new flash asks the renderer's flash guard
+// (ctx.flashGate: the shared screen-area budget, halved under Reduce motion) once and keeps its scale.
 // Fixed pool, quads pushed through the attack-FX context (budget aware), nothing allocated per hit.
 import { CORE } from '../context.js';
 
@@ -14,7 +16,7 @@ export const FLASH_CAPS = {
   medium: { cap: 10, perFrame: 4 },
   low: { cap: 5, perFrame: 2 },
 };
-/** Flash life (real seconds) and the shortest gap between two flashes on one enemy. */
+/** Flash life (visual seconds) and the shortest gap between two flashes on one enemy. */
 export const FLASH_LIFE = 0.08;
 export const FLASH_LIFE_SOFT = 0.14;
 export const FLASH_GAP = 0.12;
@@ -50,7 +52,7 @@ export class FlashLayer {
     this.ctx = ctx;
     this.live = [];
     this.free = [];
-    for (let i = 0; i < pool; i++) this.free.push({ uid: -1, x: 0, h: 0, z: 0, size: 0, t: 0, life: 0, r: 1, g: 1, b: 1, rot: 0, swell: 0 });
+    for (let i = 0; i < pool; i++) this.free.push({ uid: -1, x: 0, h: 0, z: 0, size: 0, t: 0, life: 0, r: 1, g: 1, b: 1, rot: 0, swell: 0, gate: 1 });
     this.newThisFrame = 0;
     /** hits merged into a live flash / skipped by a cap (perf probe) */
     this.merged = 0;
@@ -96,6 +98,8 @@ export class FlashLayer {
     f.size = size;
     f.t = 0;
     f.life = this.ctx.reduceMotion ? FLASH_LIFE_SOFT : FLASH_LIFE;
+    // a bright, short additive world flash: the flash guard scales it (once, when it starts)
+    f.gate = this.ctx.flashGate ? this.ctx.flashGate(size * 1.1, this.ctx.R.star, 1) : 1;
     f.r = c.r;
     f.g = c.g;
     f.b = c.b;
@@ -106,7 +110,7 @@ export class FlashLayer {
     return 'new';
   }
 
-  /** @param {number} rdt real seconds */
+  /** @param {number} rdt visual seconds (clock.dt) */
   update(rdt) {
     this.newThisFrame = 0;
     const ctx = this.ctx;
@@ -129,6 +133,7 @@ export class FlashLayer {
       live[n++] = f;
       if (f.t >= f.life) continue;
       flashShape(f.t / f.life, soft, _s);
+      _s.alpha *= f.gate ?? 1;
       const mx = _s.mix;
       const r = 1 + (f.r - 1) * mx;
       const g = 1 + (f.g - 1) * mx;

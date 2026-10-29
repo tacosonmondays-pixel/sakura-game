@@ -362,3 +362,23 @@ describe('Kaede over a real sim (strict: hooks get frozen clones)', { timeout: 1
     });
   }
 });
+
+describe('Kaede hit flashes and the flash guard', () => {
+  it('a new flash asks the guard once and its quads carry that scale', async () => {
+    const { FlashLayer } = await import('../../src/render/attackFx/patterns/hitFlash.js');
+    const pushed = [];
+    const calls = [];
+    const ctx = {
+      reduceMotion: false, quality: 'high', camera: null, b: { bbA: 'A' }, R: { star: 's', glow: 'g' },
+      flashGate: (size) => { calls.push(size); return 0.2; },
+      quadRGB: (...a) => pushed.push(a[11]),
+    };
+    const L = new FlashLayer(ctx);
+    L.hit(1, 0, 0.5, 0, 0.4, { r: 1, g: 0.5, b: 0.2 });
+    L.hit(1, 0, 0.5, 0, 0.4, { r: 1, g: 0.5, b: 0.2 }); // merges: no second guard call
+    L.update(0.02);
+    expect(calls.length).toBe(1);
+    expect(pushed.length).toBeGreaterThan(0);
+    for (const a of pushed) expect(a).toBeLessThanOrEqual(0.2 + 1e-9);
+  });
+});
