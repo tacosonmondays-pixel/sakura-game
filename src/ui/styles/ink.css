@@ -1138,10 +1138,6 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
 :is(.ui-day, .ui-night) .ui-cell > .lbl { color: var(--on-ink-dim); }
 :is(.ui-day, .ui-night) .ui-strip > .ui-strip-more { padding: 0 8px 0 2px; }
 :is(.ui-day, .ui-night) .ui-chip.more-n { --fill: var(--panel-w); color: var(--cyan-text); }
-/* (no clip-path on the "+N" chip: a clip-path, or a mask, also clips hit testing, which cut its enlarged tap area
-   (components.css .ui-chip.more-n::before) back to its 27x24 face. Its cut-corner outline is the ::after edge, which
-   keeps its own clip; the fill is the panel's white, so the corner reads the same) */
-:is(.ui-day, .ui-night) .ui-chip.more-n { clip-path: none; }
 :is(.ui-day, .ui-night) .ui-chip.on-plate { --fill: transparent; --edge: var(--line-lo); color: var(--on-ink); background: transparent; }
 :is(.ui-day, .ui-night) .ui-rtag { border-radius: 0; box-shadow: none; clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
 :is(.ui-day, .ui-night) .ui-rtag.lr { transform: none; border-color: transparent; box-shadow: none; }
