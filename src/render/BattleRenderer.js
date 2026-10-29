@@ -940,6 +940,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     resize,
     pick,
     worldToScreen,
+    /** The gate props' feet (terrain.gates: { kind: 'spawn'|'goal', x, z, dir }; read-only): the toast feed keeps off them. */
+    get gates() {
+      return terrain.gates;
+    },
     /** Placement preview at a continuous world point (two integers = a tile centre, legacy). */
     setGhost(unitId, x, y, valid) {
       if (Number.isInteger(x) && Number.isInteger(y)) {

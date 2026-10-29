@@ -426,9 +426,16 @@ export function mountBattle(root, params, hooks) {
     const tracks = sim.map?.tracks || [];
     const spawnRuns = tracks.filter((t) => !t.fork).map((t) => t.points.filter((_, i) => i % 5 === 0 && t.cum[i] <= 5.5));
     const exitRuns = tracks.filter((t) => !t.join).map((t) => t.points.filter((_, i) => i % 5 === 0 && t.cum[i] >= t.length - 3.5));
-    // the gates themselves (each with its screen radius): when both top corners cover a spawn, the feed drops below them
-    const spawnGates = tracks.filter((t) => !t.fork).map((t) => t.points[0]);
-    const exitGates = tracks.filter((t) => !t.join).map((t) => t.points[t.points.length - 1]);
+    // the gate props themselves (their feet: a far-edge gate stands up to 2 tiles in from where its lane starts; the
+    // lane's ends where the renderer has none), each with the screen depth of its foot and spawn arrow: when both top corners cover a
+    // spawn, the feed drops below them
+    const propGates = renderer.gates || [];
+    const gateFeet = (kind, runEnds) => {
+      const own = propGates.filter((g) => g.kind === kind).map((g) => [g.x, g.z]);
+      return own.length ? own : runEnds;
+    };
+    const spawnGates = gateFeet('spawn', tracks.filter((t) => !t.fork).map((t) => t.points[0]));
+    const exitGates = gateFeet('goal', tracks.filter((t) => !t.join).map((t) => t.points[t.points.length - 1]));
     feed.setAvoid(() => {
       const L = layer.getBoundingClientRect();
       const out = [];
@@ -443,7 +450,7 @@ export function mountBattle(root, params, hooks) {
         }
         for (const [x, y] of gates) {
           const p = renderer.worldToScreen(x, y, 0);
-          const q = renderer.worldToScreen(x, y + 1.1, 0);
+          const q = renderer.worldToScreen(x, y + 1.4, 0);
           out.push({ x: p.clientX - L.left, y: p.clientY - L.top, w, gate: true, r: Math.abs(q.clientY - p.clientY) });
         }
       }
