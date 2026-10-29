@@ -358,10 +358,10 @@ describe('un-aimed panel stands beside her (display only)', () => {
     expect(panelSpot(2, 2, 2.1, 2.1).beside).toBe(true);
     // an un-aimed origin just in front of her (toward the camera, the road below her): slid to her side, depth kept
     const f = panelSpot(2, 2, 2.05, 2.5);
-    expect(f.x).toBeCloseTo(2.42, 5);
+    expect(f.x).toBeCloseTo(2.46, 5);
     expect(f.y).toBeCloseTo(2.5, 5);
     expect(f.beside).toBe(false);
-    expect(panelSpot(2, 2, 1.95, 2.5).x).toBeCloseTo(1.58, 5); // it keeps the side it leans to
+    expect(panelSpot(2, 2, 1.95, 2.5).x).toBeCloseTo(1.54, 5); // it keeps the side it leans to
     // clear of her: drawn where it is
     expect(panelSpot(2, 2, 2, 3.1)).toEqual({ x: 2, y: 3.1, beside: false }); // far enough in front
     expect(panelSpot(2, 2, 2, 1.6)).toEqual({ x: 2, y: 1.6, beside: false }); // far enough behind

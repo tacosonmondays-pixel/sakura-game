@@ -222,8 +222,8 @@ export function ghostAt(i, n, fx, fy, tx, ty, reduce = false, out = { x: 0, y: 0
 /** Her relay origin this close to her own spot (tiles) counts as un-aimed on her: the panel is drawn beside her. */
 export const SELF_NEAR = 0.3;
 /** The un-aimed panel's drawn spot: this far to one side of her on screen and this far back (away from the camera). */
-export const BESIDE_SIDE = 0.42;
-export const BESIDE_BACK = 0.16;
+export const BESIDE_SIDE = 0.46;
+export const BESIDE_BACK = 0.12;
 /**
  * The ground zone where a standing panel would cover her at the battle camera (tiles along the camera's ground
  * axes from her feet): up to COVER_FRONT toward the camera (the tall glass stands over her body) and COVER_BACK

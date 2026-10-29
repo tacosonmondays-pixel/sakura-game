@@ -192,6 +192,31 @@ try {
     for (let k = 0; k < 2400 && sim.getTower(u)?.targetUid == null && sim.state === 'wave'; k++) sim.update(0.25);
   }, tk.uid);
   await settle(200);
+  // the barrel tip (the coilgun's -x end, prop-mesh units) in her frame while she fires, against the muzzle flash
+  // offset of src/render/attackFx/styles/tenka.js (fwd 0.71, up 0.69, right 0.21)
+  const tips = [];
+  for (let i = 0; i < 12; i++) {
+    tips.push(await page.evaluate((u) => {
+      const g = window.__battle.renderer.towerModel(u);
+      let prop = null;
+      g?.traverse((o) => { if (o.name === 'prop' && o.isMesh) prop = o; });
+      if (!prop) return null;
+      prop.updateWorldMatrix(true, false);
+      const e = prop.matrixWorld.elements;
+      const [px, py, pz] = [-0.5, 0.13, 0];
+      const wx = e[0] * px + e[4] * py + e[8] * pz + e[12];
+      const wy = e[1] * px + e[5] * py + e[9] * pz + e[13];
+      const wz = e[2] * px + e[6] * py + e[10] * pz + e[14];
+      const f = g.rotation.y;
+      const dx = wx - g.position.x;
+      const dz = wz - g.position.z;
+      return { fwd: dx * Math.sin(f) + dz * Math.cos(f), up: wy - g.position.y, right: -dx * Math.cos(f) + dz * Math.sin(f) };
+    }, tk.uid));
+    await settle(40);
+  }
+  const best = tips.filter(Boolean).sort((a, b) => b.fwd - a.fwd)[0];
+  log(`    barrel tip while firing (furthest forward of 12 frames): ${JSON.stringify(best && Object.fromEntries(Object.entries(best).map(([k, v]) => [k, +v.toFixed(3)])))}`);
+  if (!before && best) check(Math.hypot(best.fwd - 0.71, best.up - 0.69, best.right - 0.21) < 0.06, 'the muzzle flash offset sits on the barrel tip (within 0.06)');
   await zoomAt(tk.x, tk.y, 7);
   const box = await boxAround(tk.x, tk.y, 420, 300);
   for (let i = 0; i < 3; i++) {
