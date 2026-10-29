@@ -65,8 +65,9 @@ import {
 import {
   createTryout, tryoutLoadouts, tryoutCanStart, tryoutWaveStart, tryoutWaveEnd, tryoutTick, tryoutSpawn, tryoutKill, tryoutLeak,
   tryoutCount, tryoutPlaceCost, tryoutPlaced, tryoutTowerMods, tryoutUpgradeCost, tryoutUpgraded, tryoutResult, tryoutCommand,
-  tryoutMove, windowOpen, tryoutBackGate, tryoutCanHeal,
+  tryoutMove, windowOpen, tryoutBackGate, tryoutCanHeal, pendingAutoPick,
 } from './tryout/index.js';
+import { randomPlayers } from './tryout/random.js';
 import { assignSeats, nextSeats } from './tryout/breaks.js';
 import { hasCards, refreshRunMods } from './tryout/pep.js';
 
@@ -145,10 +146,14 @@ export class Sim {
     // totalWaves stays the goal (the "15" of 16/15). Clearing it emits a non-terminal 'goal' event;
     // waves past it come from generateFreeplayWave, and the run ends on defeat or finish() (a
     // Finish vote) — there is no last wave unless the table sets maxWave.
-    this.freeplay = !this.endless && !!this.options.freeplay && !!this.stage.freeplay && Number.isFinite(this.totalWaves);
+    // Tryout Day's Extended Day (docs/specs/TRYOUT_DAY.md §20.2) runs the same freeplay waves past its 48, switched on
+    // by the run's length (its stage carries the table), never by options.freeplay: a co-op start keeps freeplay null.
+    const tyAfter = !!tryoutCfg && tryoutCfg.length === 'after';
+    this.freeplay = !this.endless && (!!this.options.freeplay || tyAfter) && !!this.stage.freeplay && Number.isFinite(this.totalWaves);
     this.lastWave = this.freeplay ? Math.max(this.totalWaves, this.stage.freeplay.maxWave ?? Infinity) : this.totalWaves;
-    /** Past this wave (freeplay, solo endless on a campaign map) a rule keeps only its combat effects. */
-    this._ruleGoal = Number.isFinite(this.stage.waves) ? this.stage.waves : Infinity;
+    /** Past this wave (freeplay, solo endless on a campaign map) a rule keeps only its combat effects (never in a run:
+     *  the run owns its rule, its Subjects and seats, all day). */
+    this._ruleGoal = Number.isFinite(this.stage.waves) && !(tyAfter && this.freeplay) ? this.stage.waves : Infinity;
     /** Freeplay pressure of the current wave (flat armor, Resolve budgets) for every enemy entering it. */
     this._fp = null;
     /** A freeplay run ended by finish() (state 'won' after the goal), not by defeat. */
@@ -244,7 +249,8 @@ export class Sim {
    */
   _initTryout(cfg) {
     const n = Math.max(1, Math.min(2, cfg.players?.length || 1));
-    const players = (cfg.players || [{}]).slice(0, n);
+    // (Random Class, §20.4: each player's three are drawn from their own six here; any draft is ignored)
+    const players = randomPlayers(cfg, (cfg.players || [{}]).slice(0, n));
     this._tryoutCfg = { ...cfg, players, pools: (cfg.pools || []).slice(0, n), heroAcct: this.heroConfigs.map((c) => (c ? { ...c.stats } : null)) };
     this.viewOwner = 0;
     this.loadout.clear();
@@ -253,7 +259,8 @@ export class Sim {
     createTryout(this, this._tryoutCfg);
     if (cfg.squads) this.tryout.players.forEach((p, i) => { p.squad = cfg.squads[i].slice(); });
     // Back Gate (History) flips even waves: the reversed paths, built when any period may offer it
-    if (!this._pathsRev && tryoutBackGate(this)) {
+    // (Extended Day draws its later Subjects as it goes, so it always has them)
+    if (!this._pathsRev && (tryoutBackGate(this) || this.freeplay)) {
       this._pathsRev = this._pathsFwd.map(reversePath);
     }
   }
@@ -266,6 +273,11 @@ export class Sim {
   /** A Tryout Day Hall Pass move for player `slot`. */
   tryoutMove(slot, uid, x, y) {
     return this.tryout ? tryoutMove(this, slot, uid, x, y) : { ok: false, reason: 'noRun' };
+  }
+
+  /** Random Class (§20.4): player `slot`'s pending auto-pick for the reveal (src/sim/tryout/random.js pendingAutoPick); null: none. */
+  tryoutAutoPick(slot = this.viewOwner ?? 0) {
+    return this.tryout ? pendingAutoPick(this, slot) : null;
   }
 
   /** Is a Tryout Day pick or break open (the next wave waits)? */
@@ -945,7 +957,8 @@ export class Sim {
     this._emit('waveEnd', { wave: this.wave, bonus });
     // Freeplay: the stage's own last wave is the goal — the clear is banked, the battle goes on.
     const goal = this.freeplay && this.wave === this.totalWaves;
-    if (goal) this._emit('goal', { wave: this.wave });
+    // (an Extended Day run: the Stay Late banner, not a freeplay clear card)
+    if (goal) this._emit('goal', { wave: this.wave, ...(this.tryout ? { stayLate: true } : null) });
     if (this.rule) {
       ruleWaveClear(this);
       ruleWaveEnd(this);
@@ -1842,7 +1855,8 @@ export class Sim {
       heroes: this.heroes.map((h) => (h ? { unitId: h.unitId, level: h.level, levelsBought: h.levelsBought || 0, levelSpent: h.levelSpent || 0 } : null)),
       // co-op freeplay: the tier, the goal (the stage's last wave), whether it was cleared, and
       // whether the run ended on a Finish vote (otherwise it fell)
-      freeplay: this.freeplay ? this.stage.freeplay.id : null,
+      // (an Extended Day run reads 'tryout': no freeplay reward path pays it, §20.2)
+      freeplay: this.freeplay ? (this.tryout ? 'tryout' : this.stage.freeplay.id) : null,
       goal: this.freeplay ? this.totalWaves : null,
       goalReached: this.freeplay && this.wavesCleared >= this.totalWaves,
       finished: this.finished,

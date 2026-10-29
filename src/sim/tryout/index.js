@@ -10,7 +10,8 @@ import { applySpawnMods } from '../enemies.js';
 import { stream } from './plan.js';
 import { AUTO_START_DELAY } from '../constants.js';
 import { createRuleRuntime, rebuildRuleTables, ruleBountyAdd } from '../rules.js';
-import { lengthOf, periodWaves, blockOf, buildTryoutPlan } from './plan.js';
+import { lengthOf, periodWaves, blockOf, buildTryoutPlan, pickAt, breakAt, lastPickAt } from './plan.js';
+import { extendDay, affixIdOf } from './extended.js';
 import { runLevelOf, bandStats } from './power.js';
 import { openOffer, eraseOffer, squadRoom, classOffer } from './offers.js';
 import { refreshRunMods, runModsFor, hasCards, applyBoardCard, boardWaveClear, boardPeriodEnd, seatBonus, spareChange, costCutFor } from './pep.js';
@@ -18,12 +19,14 @@ import {
   drawAssignments, storeBaseline, waveEndCheck, evaluatePeriod, killPoints, pointsOf, bossSpawned, bossGone, foeEvent,
 } from './assign.js';
 import { drawSeats, seatsOf, assignSeats, openBreak, moveGirl, undoMove, snack, brushUp } from './breaks.js';
+import { RANDOM_REFUSED, autoChoice, autoDue } from './random.js';
 
 export { assignProgress, targetsOf } from './assign.js';
 export { buildTryoutPlan, buildTryoutStage, mapChoices } from './plan.js';
 export { bandStats, runLevelOf } from './power.js';
 export { canMoveGirl, passMax } from './breaks.js';
 export { periodAffixes } from './plan.js';
+export { pendingAutoPick, randomThree } from './random.js';
 
 const newCtr = () => ({ spent: 0, placed: 0, upgrades: 0, sells: 0, ults: 0 });
 
@@ -143,6 +146,8 @@ export function createTryout(sim, cfg) {
     subject: null,
     nextSubject: null,
     dare: null,
+    // Random Class (§20.4): the field only exists in a random run (a normal run's state and digests stay as they were)
+    ...(cfg.random === true ? { random: true } : null),
     players: cfg.players.map((p) => ({
       squad: (p.squad || []).filter((id) => sim.data.unit(id)),
       cards: [],
@@ -150,7 +155,7 @@ export function createTryout(sim, cfg) {
       varsity: {},
       refills: {},
       bank: 0,
-      erasers: perks?.eraser ? Math.min(TRYOUT.erasers.max, g.erasers + TRYOUT.perks.eraser) : g.erasers,
+      erasers: cfg.random === true ? 0 : perks?.eraser ? Math.min(TRYOUT.erasers.max, g.erasers + TRYOUT.perks.eraser) : g.erasers,
       passes: 0,
       passBonus: 0,
       squadAdd: 0,
@@ -208,7 +213,9 @@ function maybeClose(sim) {
 /** A gone player's open window resolves at once: a pick hands in, a break becomes Ready (§11). */
 function autoResolve(sim, owner) {
   const p = sim.tryout.players[owner];
-  if (p.win === 'pick') resolvePick(sim, owner, -1);
+  // (Random Class: the pick is drawn now, as its reveal would have drawn it; a Whole Class follow-up too)
+  if (p.win === 'pick' && sim.tryout.random) for (let g = 0; g < 8 && p.win === 'pick' && p.offer; g++) autoTake(sim, owner);
+  else if (p.win === 'pick') resolvePick(sim, owner, -1);
   if (p.win === 'break') p.win = null;
 }
 
@@ -225,15 +232,25 @@ export function tryoutGone(sim, owner, gone = true) {
 }
 
 /**
- * Every step (co-op only): each player's open window has its own clock (a pick and the break after it each get the
- * whole timeout); a window that runs out resolves by itself, on the same tick everywhere, and only that window.
+ * Every step (co-op, and solo in Random Class): each player's open window has its own clock (a pick and the break after
+ * it each get the whole timeout); a window that runs out resolves by itself, on the same tick everywhere, and only that
+ * window. Random Class: an open pick lands by itself revealTicks steps after the step its offer opened (§20.4).
  */
 export function tryoutTick(sim) {
   const ty = sim.tryout;
-  if (!ty.coop || !windowOpen(sim)) return;
+  if ((!ty.coop && !ty.random) || !windowOpen(sim)) return;
   let closed = false;
   ty.players.forEach((p, i) => {
     if (!p.win) return;
+    if (ty.random && p.win === 'pick') {
+      p.winTicks++;
+      if (autoDue(p)) {
+        autoTake(sim, i);
+        closed = true;
+      }
+      return;
+    }
+    if (!ty.coop) return;
     p.winTicks++;
     if (p.winTicks < TRYOUT.coopTimeoutTicks) return;
     if (p.win === 'pick') resolvePick(sim, i, -1);
@@ -241,6 +258,20 @@ export function tryoutTick(sim) {
     closed = true;
   });
   if (closed) maybeClose(sim);
+}
+
+/**
+ * Random Class: takes player `owner`'s open pick as autoChoice draws it (stream `auto:<pick>:<owner>:<seq>`). A Whole
+ * Class follow-up still open after it gets its own reveal (the landing step counts as its first).
+ */
+function autoTake(sim, owner) {
+  const p = sim.tryout.players[owner];
+  const o = p.offer;
+  const ch = autoChoice(sim, owner);
+  if (!ch) return;
+  sim._emit('tryoutAutoPick', { owner, pick: o.pick, seq: o.seq, index: ch.index, path: ch.path, card: ch.index >= 0 ? { ...o.cards[ch.index] } : null });
+  resolvePick(sim, owner, ch.index, ch.path);
+  if (p.win === 'pick' && p.offer) p.winTicks = 1;
 }
 
 function updatePity(p, offer, tookGirl) {
@@ -287,7 +318,7 @@ function closePick(sim, owner, pick) {
   p.offer = null;
   refreshRunMods(sim, owner);
   installRule(sim);
-  if (len.breaks[pick]) openBreak(sim, owner);
+  if (breakAt(len, pick)) openBreak(sim, owner);
   else p.win = null;
   if (p.gone) autoResolve(sim, owner);
 }
@@ -301,7 +332,7 @@ function resolvePick(sim, owner, index, path = 0) {
   const p = ty.players[owner];
   const o = p.offer;
   const len = lengthOf(ty.length);
-  const last = o.pick === len.picks.length;
+  const last = lastPickAt(len, o.pick);
   let tookGirl = false;
   if (o.follow) {
     // Whole Class Turns Up's girls: take `multi` of them (a timeout or hand-in takes the first ones)
@@ -384,6 +415,8 @@ export function tryoutCommand(sim, slot, op, args = []) {
   const p = ty?.players[slot];
   if (!p) return { ok: false, reason: 'slot' };
   if (sim.state === 'won' || sim.state === 'lost') return { ok: false, reason: 'ended' };
+  // Random Class (§20.4): the Sim takes every pick; Erasers, Hand it in later and Double Dare are off
+  if (ty.random && RANDOM_REFUSED.includes(op)) return { ok: false, reason: 'random' };
   const [a, b, c] = args;
   switch (op) {
     case 'take':
@@ -509,14 +542,14 @@ export function tryoutWaveStart(sim) {
  * once (a swift period dared is swift and regen, say; never swift twice).
  */
 export function dareOf(ty, p) {
-  const affix = ty.affixes?.[p] || null;
+  const affix = affixIdOf(ty, p);
   const list = affix ? TRYOUT.dares.filter((d) => d.id !== affix) : TRYOUT.dares;
   return { ...list[Math.floor(stream(ty.seed, `dare:${p}`).next() * list.length)] };
 }
 
 /** The Grade affix period p carries (Grade 8+, from its affixFrom period), as its TRYOUT.dares entry; null: none. */
 export function affixOf(ty, p) {
-  const id = ty.affixes?.[p];
+  const id = affixIdOf(ty, p);
   return id ? TRYOUT.dares.find((d) => d.id === id) || null : null;
 }
 
@@ -527,7 +560,9 @@ export function chooserOf(ty, p) {
 
 /** A foe spawned (Quick Answer's clock). */
 export function tryoutSpawn(sim, e) {
-  if (e.tier === 'boss' && e.parentUid == null) e.leak = TRYOUT.grades[sim.tryout.grade].bossLeak;
+  // (Extended Day past wave 48, §20.2: a freeplay boss or titan takes the Grade's leak too; the finale, which takes
+  // everything, keeps it)
+  if (e.tier === 'boss' && e.parentUid == null && (sim.wave <= sim.totalWaves || e.leak !== Infinity)) e.leak = TRYOUT.grades[sim.tryout.grade].bossLeak;
   // the Grade affix (Grade 8+) and Double Dare's curse on every foe of the period (never the same one: dareOf)
   if (sim.tryout.base) {
     const affix = affixOf(sim.tryout, sim.tryout.period);
@@ -650,22 +685,24 @@ export function tryoutWaveEnd(sim) {
   boardPeriodEnd(sim);
   ty.players.forEach((pl, i) => {
     pl.cleared += cleared[i];
-    if (cleared[i] >= 3) pl.erasers = Math.min(TRYOUT.erasers.max, pl.erasers + TRYOUT.erasers.perfectBonus);
+    if (cleared[i] >= 3 && !ty.random) pl.erasers = Math.min(TRYOUT.erasers.max, pl.erasers + TRYOUT.erasers.perfectBonus);
   });
   ty.base = null;
   sim._emit('tryoutPeriod', { period: p, cleared, score: ty.periods[ty.periods.length - 1].score });
-  if (p >= len.periods) {
+  if (p >= len.periods && !len.endless) {
     ty.done = true;
     return;
   }
-  const pick = len.picks.indexOf(p) + 1;
+  // Extended Day (§20.1, §20.6): past the Full Day the coming periods' Subjects and seats are drawn now; old rows trimmed
+  if (len.endless && p >= len.periods) extendDay(sim, p);
+  const pick = pickAt(len, p);
   if (pick > 0) {
     ty.pickNo = pick;
     ty.players.forEach((pl, i) => {
       if (pl.skipNext) {
         // Whole Class Turns Up's drawback: this pick is skipped (a break after it still opens)
         pl.skipNext = false;
-        if (len.breaks[p]) openBreak(sim, i);
+        if (breakAt(len, p)) openBreak(sim, i);
         return;
       }
       const credits = cleared[i] + pl.bank + (dared ? 1 : 0);
@@ -674,7 +711,7 @@ export function tryoutWaveEnd(sim) {
       pl.win = 'pick';
       pl.winTicks = 0;
     });
-  } else if (len.breaks[p]) ty.players.forEach((_, i) => openBreak(sim, i));
+  } else if (breakAt(len, p)) ty.players.forEach((_, i) => openBreak(sim, i));
   // the coming period: both Subject options' assignments, drawn now so the sheet can show them (§2.4)
   const pair = ty.subjects[p + 1];
   const cur = ty.assign;

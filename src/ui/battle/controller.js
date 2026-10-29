@@ -500,7 +500,8 @@ export function mountBattle(root, params, hooks) {
       ctx.tryoutUi = createTryoutBattle(ctx, { mySlot: ls ? ls.mySlot : 0, send });
       modules.push(ctx.tryoutUi);
     }
-    if (ls && sim.freeplay) {
+    // (an Extended Day run is not freeplay for the rewards or the banners: its own UI comes with the run, TRYOUT_DAY §20.8)
+    if (ls && sim.freeplay && !sim.tryout) {
       // co-op freeplay: banners, the bank at the goal, the Finish vote (src/ui/battle/freeplay.js)
       fpBattle = createFreeplayBattle(ctx, { session, lockstep: ls, homeFamilies: stageFamilies() });
       modules.push(fpBattle);
@@ -1391,7 +1392,7 @@ export function mountBattle(root, params, hooks) {
     };
     ctx.applyResult = (p, result, rng) => {
       let out;
-      if (result.freeplay && result.goalReached) {
+      if (result.freeplay && result.freeplay !== 'tryout' && result.goalReached) {
         // freeplay: the clear was banked at the goal; this pays the run (once per battle, see
         // rewards.js payFreeplayEnd), and the sheet shows both parts
         const ledger = freeplayLedger(session, ls.start.seed);
@@ -1477,7 +1478,7 @@ export function mountBattle(root, params, hooks) {
    * clear is already banked); the ally plays on with my girls.
    */
   function payIfLeavingRun() {
-    if (!ctx.ended && ctx.results && !ctx.results.outcome && (ls || soloLedger) && sim.freeplay && sim.wavesCleared >= sim.totalWaves) ctx.results.apply();
+    if (!ctx.ended && ctx.results && !ctx.results.outcome && (ls || soloLedger) && sim.freeplay && !sim.tryout && sim.wavesCleared >= sim.totalWaves) ctx.results.apply();
   }
 
   function leaveCoop(go = true) {

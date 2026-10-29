@@ -79,6 +79,37 @@ describe('tryout co-op', () => {
     expect(digests[1]).toEqual(digests[0]);
   }, 120000);
 
+  it('Extended Day: two views stay identical to wave 80, and a rejoin from a checkpoint past wave 48 stays in lockstep', () => {
+    // (the hearts are topped up on every client alike at each calm point: the bot only has to last to wave 80)
+    const top = (sim) => { sim.lives = Math.max(sim.lives, 40); };
+    const start = coopStart({ seed: 4801, length: 'after', pools: [poolFor('maxed'), poolFor('maxed')] });
+    expect(start.tryout.length).toBe('after');
+    const { views, digests, hashes } = runCoop({ start, policy: 'random', maxWaves: 80, checkpointAt: 53, onCalm: top });
+    expect(views[0].sim.wave).toBeGreaterThanOrEqual(80);
+    expect(views[0].sim.freeplay).toBe(true);
+    expect(views[0].sim.lastWave).toBe(Infinity);
+    expect(digests[0].length).toBeGreaterThan(60);
+    // client 1 rejoined from client 0's checkpoint at wave 53: before and after it, every calm point and every hash agree
+    const from = digests[0].findIndex((d) => +d.split(':')[0] >= 53);
+    expect(from).toBeGreaterThan(40);
+    expect(digests[1]).toEqual(digests[0]);
+    expect(hashes[1]).toEqual(hashes[0]);
+    // both clients ran Extended Day's later picks and breaks
+    for (const v of views) {
+      const ty = v.sim.tryout;
+      expect(ty.players.every((p) => p.picks.some((r) => r.pick >= 18))).toBe(true);
+      expect(v.sim.result().freeplay).toBe('tryout');
+    }
+  }, 300000);
+
+  it('Extended Day: two views without a rejoin agree at every calm point and every hash to wave 60', () => {
+    const top = (sim) => { sim.lives = Math.max(sim.lives, 40); };
+    const { views, digests, hashes } = runCoop({ start: coopStart({ seed: 4802, grade: 6, length: 'after', pools: [poolFor('mid'), poolFor('maxed')] }), policy: 'random', maxWaves: 60, onCalm: top });
+    expect(views[0].sim.wave).toBeGreaterThanOrEqual(60);
+    expect(digests[1]).toEqual(digests[0]);
+    expect(hashes[1]).toEqual(hashes[0]);
+  }, 300000);
+
   it('an open window resolves after the tick timeout', () => {
     const coop = createCoopSim(coopStart({ seed: 6 }), { mySlot: 0 });
     toFirstPick(coop);
