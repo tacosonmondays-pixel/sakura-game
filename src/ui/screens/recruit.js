@@ -18,7 +18,7 @@ import { formatNumber, formatPct } from '../../core/util.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { GACHA, UNIT_RARITIES, ROLES } from '../../data/types.js';
 import { BANNER_KINDS, STANDARD_SSR } from '../../data/banners.js';
-import { portraitHTML, portraitUrl, artUrl, hasPortrait } from '../../art/portraits.js';
+import { portraitHTML, portraitUrl, artUrl, hasPortrait, portraitCutAspect } from '../../art/portraits.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
 import { uiIcon, itemIcon, currencyIcon, roleIcon } from '../../art/icons.js';
 import { pull, pullCost, canSpark, spark, pullFixed, fixedCost, fpBalance } from '../../systems/gacha.js';
@@ -298,9 +298,10 @@ function buildPage(list, b, { doPull, openSpark, pick }) {
     h('div.ma-banner-rays'),
     b.slot === 'legend' ? h('div.bn-lr-frame', h('i.bn-lr-crest')) : null,
     // a girl without drawn art yet stands as her framed card
+    // (--ar, the stand's width over its height, lets banners.css size each stand to its share of the art's width)
     h('div.ma-banner-stands', stands.map((u, i) => (hasPortrait(u)
-      ? h(`div.ma-banner-stand.s${i}${u.duo ? '.is-duo' : ''}`, { html: portraitHTML(u, 'cut', { eager: true }) })
-      : h(`div.ma-banner-stand.s${i}.bn-stand-card`, { html: portraitHTML(u, 'card', { eager: true }) })))),
+      ? h(`div.ma-banner-stand.s${i}${u.duo ? '.is-duo' : ''}`, { style: { '--ar': portraitCutAspect(u) }, html: portraitHTML(u, 'cut', { eager: true }) })
+      : h(`div.ma-banner-stand.s${i}.bn-stand-card`, { style: { '--ar': 0.6 }, html: portraitHTML(u, 'card', { eager: true }) })))),
     h('div.ma-banner-text',
       h('div.bn-kicker-row', h('div.ma-banner-kicker', b.slot === 'legend' ? b.name : kind.label), countdown(b)),
       h('h2.ma-banner-title', { 'data-testid': 'banner-title' }, b.title),
