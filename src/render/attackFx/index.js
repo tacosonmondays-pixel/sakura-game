@@ -36,6 +36,9 @@ export function createAttackFx(o) {
   ctx.drones = new Drones(ctx, actors.root || o.scene);
   ctx.lunge = new Lunges(ctx);
   ctx.toss = new Tosses(ctx);
+  // extra per-frame layers a style adds once for the whole field (Kaede's blade streaks, ghosts,
+  // hit flashes): { update(gdt, rdt), dispose() }, updated after the pooled quads, disposed with us
+  ctx.layers = [];
   const strict = !!o.strict;
 
   // ---- per-tower state ------------------------------------------------------------------
@@ -439,6 +442,7 @@ export function createAttackFx(o) {
 
     ctx.pool.update(gdt);
     ctx.segs.update(gdt);
+    for (let i = 0; i < ctx.layers.length; i++) ctx.layers[i].update(gdt, d);
 
     // stats
     msAcc += now() - t0;
@@ -508,6 +512,8 @@ export function createAttackFx(o) {
       ctx.pool.clear();
       ctx.segs.clear();
       ctx.toss.clear();
+      for (const L of ctx.layers) L.dispose();
+      ctx.layers.length = 0;
       tws.clear();
       recs.clear();
     },
