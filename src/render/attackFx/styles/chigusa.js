@@ -58,8 +58,8 @@ export const chigusa = {
     const g = c.g + (pk.g - c.g) * bloom;
     const b = c.b + (pk.b - c.b) * bloom;
     const rot = ctx.screenAngle(v.x, v.z, v.y, ux, 0, uy) - Math.PI / 2 + (ctx.reduceMotion ? 0 : Math.sin(ctx.time * 18 + rec.uid) * 0.4);
-    ctx.quadRGB(ctx.b.bbN, CORE, v.x, v.z, v.y, 0.12, 0.17, ctx.R.leaf || ctx.R.petal, r, g, b, 1, rot);
-    ctx.quadRGB(ctx.b.bbA, CORE, v.x, v.z, v.y, 0.2, 0.2, ctx.R.glow, r, g, b, 0.45);
+    ctx.quadRGB(ctx.b.bbN, CORE, v.x, v.z, v.y, 0.18, 0.26, ctx.R.leaf || ctx.R.petal, r, g, b, 1, rot);
+    ctx.quadRGB(ctx.b.bbA, CORE, v.x, v.z, v.y, 0.32, 0.32, ctx.R.glow, r, g, b, 0.55);
     if (lookAt(lk, 0) >= 5) ctx.quad(ctx.b.bbA, DECOR, v.x, v.z + 0.03, v.y, 0.26, 0.26, ctx.R.glow, ctx.col(POLLEN), 0.55);
     if (ctx.q.trails <= 0) return;
     // a tendril curling behind it (two pieces swaying)
@@ -67,10 +67,10 @@ export const chigusa = {
     const td = ctx.col(lk.accent[1] >= 1 || lookAt(lk, 1) > 0 ? DEEP : TENDRIL);
     const ax = v.x - ux * 0.06;
     const ay = v.y - uy * 0.06;
-    const mx = ax - ux * 0.14 - uy * sw;
-    const my = ay - uy * 0.14 + ux * sw;
-    ctx.line(ctx.b.bbA, DECOR, ax, v.z, ay, mx, v.z, my, 0.03, td, 0.85);
-    ctx.line(ctx.b.bbA, DECOR, mx, v.z, my, mx - ux * 0.14 + uy * sw, v.z - 0.02, my - uy * 0.14 - ux * sw, 0.022, td, 0.55);
+    const mx = ax - ux * 0.18 - uy * sw;
+    const my = ay - uy * 0.18 + ux * sw;
+    ctx.line(ctx.b.bbA, DECOR, ax, v.z, ay, mx, v.z, my, 0.05, td, 0.9);
+    ctx.line(ctx.b.bbA, DECOR, mx, v.z, my, mx - ux * 0.18 + uy * sw, v.z - 0.02, my - uy * 0.18 - ux * sw, 0.035, td, 0.6);
     // Bloom Rush petals: more of them as the bloom climbs
     if (bloom > 0.15 && Math.random() < ctx.gdt * 14 * bloom) {
       const q = ctx.spr(ctx.b.bbN, DECOR, ctx.R.petal || ctx.R.leaf, v.x, v.z, v.y, 0.08, 0.06, 0.45, pk, 1);
@@ -113,8 +113,8 @@ export const chigusa = {
       const ex = e ? e.x : ev.x;
       const ey = e ? e.z : ev.y;
       const eh = e ? ctx.enemyH(e) * 0.6 : 0.3;
-      ctx.segs.add(h.x, h.h, h.y, ex, eh, ey, 0.11, ctx.col(LEAF), 0.28, 8 | 1);
-      const s = ctx.segs.add(h.x, h.h - 0.05, h.y, ex, eh - 0.04, ey, 0.05, ctx.col(DEEP), 0.3, 8 | 4);
+      ctx.segs.add(h.x, h.h, h.y, ex, eh, ey, 0.17, ctx.col(LEAF), 0.32, 8 | 1);
+      const s = ctx.segs.add(h.x, h.h - 0.05, h.y, ex, eh - 0.04, ey, 0.08, ctx.col(DEEP), 0.34, 8 | 4);
       if (s) s.k = 3;
       petalSpiral(ctx, ctx.R.leaf || ctx.R.petal, ex, ey, 5, ctx.col(LEAF), 0.5, 0.45);
       return false;
@@ -141,8 +141,8 @@ export const chigusa = {
         const p1 = lookAt(tw.look, 1);
         const spin = ctx.reduceMotion ? 0.5 : ctx.time * 3.2;
         const top = Math.max(0.35, ctx.enemyH(e));
-        coil(ctx, e.x, e.z, 0.26, 0.05, top, ctx.q.trails > 0 ? 6 : 4, spin, ctx.col(LEAF), 0.95, 0.05);
-        if (p1 >= 5) coil(ctx, e.x, e.z, 0.32, 0.08, top * 0.8, 5, -spin + 1.5, ctx.col(DEEP), 0.85, 0.04);
+        coil(ctx, e.x, e.z, 0.3, 0.05, top, ctx.q.trails > 0 ? 7 : 4, spin, ctx.col(LEAF), 1, 0.085);
+        if (p1 >= 5) coil(ctx, e.x, e.z, 0.36, 0.08, top * 0.8, 5, -spin + 1.5, ctx.col(DEEP), 0.9, 0.06);
         if (p1 >= 5 && ctx.q.familiars > 0) {
           for (let i = 0; i < 3; i++) {
             const a = spin * 1.3 + i * 2.09;

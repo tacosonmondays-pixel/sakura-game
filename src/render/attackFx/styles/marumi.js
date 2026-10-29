@@ -251,7 +251,7 @@ export const marumi = {
               const qx = l.sx + (f.x - l.sx) * r;
               const qy = l.sy + (f.y - l.sy) * r;
               const qh = arcHeight(kj, 0.2, 0.2, apex);
-              ctx.line(ctx.b.bbA, j === 1 ? CORE : DECOR, px, ph, py, qx, qh, qy, 0.08 * (1 - j / (steps + 1)) + 0.02, c, 0.8 * (1 - j / (steps + 1)));
+              ctx.line(ctx.b.bbA, j === 1 ? CORE : DECOR, px, ph, py, qx, qh, qy, 0.13 * (1 - j / (steps + 1)) + 0.03, c, 0.85 * (1 - j / (steps + 1)));
               px = qx;
               py = qy;
               ph = qh;

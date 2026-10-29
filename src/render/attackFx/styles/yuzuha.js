@@ -78,7 +78,7 @@ export const yuzuha = {
     if (rec.turretUid != null) {
       // a sentry shot: a tracer in its kit's colour behind the bullet
       const c = ctx.col(KIT[KIT_ORDER[(rec.a || 1) - 1]]);
-      ctx.line(ctx.b.bbA, CORE, v.x, v.z, v.y, v.x - ux * 0.36, v.z, v.y - uy * 0.36, 0.06, c, 0.9);
+      ctx.line(ctx.b.bbA, CORE, v.x, v.z, v.y, v.x - ux * 0.36, v.z, v.y - uy * 0.42, 0.08, c, 0.9);
       return;
     }
     // her dart: a cyan head, a crackling zigzag tail and a white core
@@ -86,11 +86,11 @@ export const yuzuha = {
     const lk = rec.tw.look;
     const net = lookAt(lk, 2) > 0 || lk.accent[2] >= 1;
     const c = ctx.col(net ? TEAL : VOLT);
-    const tail = 0.42;
-    ctx.quad(ctx.b.bbA, CORE, v.x, v.z, v.y, 0.2, 0.2, ctx.R.glow, c, 0.9);
-    ctx.quad(ctx.b.bbA, CORE, v.x, v.z, v.y, 0.09, 0.09, ctx.R.star, ctx.col('#ffffff'), 1, ctx.time * 9);
-    ctx.line(ctx.b.bbA, CORE, v.x, v.z, v.y, v.x - ux * tail * 0.6, v.z, v.y - uy * tail * 0.6, 0.03, ctx.col('#ffffff'), 0.9);
-    if (ctx.q.trails > 0) zigzag(ctx, DECOR, v.x, v.z, v.y, v.x - ux * tail, v.z, v.y - uy * tail, ctx.reduceMotion ? 2 : 3, 0.045, 0.035, c, 0.9);
+    const tail = 0.55;
+    ctx.quad(ctx.b.bbA, CORE, v.x, v.z, v.y, 0.34, 0.34, ctx.R.glow, c, 0.9);
+    ctx.quad(ctx.b.bbA, CORE, v.x, v.z, v.y, 0.17, 0.17, ctx.R.star, ctx.col('#ffffff'), 1, ctx.time * 9);
+    ctx.line(ctx.b.bbA, CORE, v.x, v.z, v.y, v.x - ux * tail * 0.6, v.z, v.y - uy * tail * 0.6, 0.05, ctx.col('#ffffff'), 0.95);
+    if (ctx.q.trails > 0) zigzag(ctx, DECOR, v.x, v.z, v.y, v.x - ux * tail, v.z, v.y - uy * tail, ctx.reduceMotion ? 2 : 3, 0.07, 0.06, c, 0.95);
     if ((lookAt(lk, 2) >= 2 || lk.accent[2] >= 2) && ctx.q.sparks && Math.random() < ctx.gdt * 12) {
       const s = ctx.spr(ctx.b.bbA, DECOR, ctx.R.glow, v.x, v.z, v.y, 0.07, 0.02, 0.2, ctx.col(STUN), 1);
       if (s) s.g = -3;

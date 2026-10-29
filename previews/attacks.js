@@ -360,9 +360,9 @@ async function main() {
     speed = s;
   };
   /** Focus: swap the girl in place (sell everyone, place `id` with `build`, pre-roll `secs`). */
-  window.__setup = (id, build = 'base', secs = 30) => {
+  window.__setup = (id, build = 'base', secs = 30, at = null) => {
     for (const t of [...sim.towers]) sim.sellTower(t.uid);
-    const [bx, by] = boothOf(id);
+    const [bx, by] = at || boothOf(id);
     const t = snapPlace(sim, id, bx, by);
     if (!t) return null;
     applyBuild(sim, t, parseBuild(build, ORDER.indexOf(id)));

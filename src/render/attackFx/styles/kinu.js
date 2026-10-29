@@ -88,27 +88,28 @@ export const kinu = {
       // a tiny spinning cross blade: two crossing bright edges turning round its flight
       const c = ctx.col(bladeHex(lk));
       const a = (ctx.reduceMotion ? 0 : ctx.time * 22) + rec.uid;
-      const cx = Math.cos(a) * 0.12;
-      const sy = Math.sin(a) * 0.12;
-      ctx.line(B, CORE, v.x - cx, v.z, v.y - sy, v.x + cx, v.z, v.y + sy, 0.05, c, 1);
-      ctx.line(B, CORE, v.x + sy, v.z, v.y - cx, v.x - sy, v.z, v.y + cx, 0.05, c, 1);
-      if (ctx.q.trails > 0) ctx.line(B, DECOR, v.x, v.z, v.y, v.x - ux * 0.3, v.z, v.y - uy * 0.3, 0.05, c, 0.35);
+      const cx = Math.cos(a) * 0.17;
+      const sy = Math.sin(a) * 0.17;
+      ctx.line(B, CORE, v.x - cx, v.z, v.y - sy, v.x + cx, v.z, v.y + sy, 0.075, c, 1);
+      ctx.line(B, CORE, v.x + sy, v.z, v.y - cx, v.x - sy, v.z, v.y + cx, 0.075, c, 1);
+      ctx.quad(B, DECOR, v.x, v.z, v.y, 0.26, 0.26, ctx.R.glow, c, 0.45);
+      if (ctx.q.trails > 0) ctx.line(B, DECOR, v.x, v.z, v.y, v.x - ux * 0.36, v.z, v.y - uy * 0.36, 0.07, c, 0.4);
       return;
     }
     // a needle: silver shaft, a bright tip, a red thread waving behind
     const hot = lk.accent[0] >= 1 || lookAt(lk, 0) > 0;
     const shaft = ctx.col(hot ? EMBER : SILVER);
-    ctx.line(B, CORE, v.x, v.z, v.y, v.x - ux * 0.24, v.z, v.y - uy * 0.24, 0.032, shaft, 1);
-    ctx.quad(B, CORE, v.x, v.z, v.y, 0.09, 0.09, ctx.R.star, ctx.col(hot ? '#fff1d6' : '#ffffff'), 1);
+    ctx.line(B, CORE, v.x, v.z, v.y, v.x - ux * 0.32, v.z, v.y - uy * 0.32, 0.055, shaft, 1);
+    ctx.quad(B, CORE, v.x, v.z, v.y, 0.15, 0.15, ctx.R.star, ctx.col(hot ? '#fff1d6' : '#ffffff'), 1);
     if (ctx.q.trails <= 0) return;
     const thr = ctx.col(THREAD);
     const w = ctx.reduceMotion ? 0 : Math.sin(ctx.time * 26 + rec.uid) * 0.05;
-    const bx = v.x - ux * 0.24;
-    const by = v.y - uy * 0.24;
-    const mx = bx - ux * 0.09 - uy * w;
-    const my = by - uy * 0.09 + ux * w;
-    ctx.line(ctx.b.bbN, DECOR, bx, v.z, by, mx, v.z, my, 0.022, thr, 0.9, ctx.R.white);
-    ctx.line(ctx.b.bbN, DECOR, mx, v.z, my, mx - ux * 0.09 + uy * w, v.z, my - uy * 0.09 - ux * w, 0.018, thr, 0.7, ctx.R.white);
+    const bx = v.x - ux * 0.32;
+    const by = v.y - uy * 0.32;
+    const mx = bx - ux * 0.12 - uy * w;
+    const my = by - uy * 0.12 + ux * w;
+    ctx.line(ctx.b.bbN, DECOR, bx, v.z, by, mx, v.z, my, 0.035, thr, 0.95, ctx.R.white);
+    ctx.line(ctx.b.bbN, DECOR, mx, v.z, my, mx - ux * 0.12 + uy * w, v.z, my - uy * 0.12 - ux * w, 0.028, thr, 0.75, ctx.R.white);
   },
 
   onImpact(rec, x, y, crit, radius, ctx) {

@@ -30,8 +30,8 @@ function sealHex(lk) {
 /** The decree: a gold line from her to (x, y), a spinning seal and spokes at the spot. */
 function stamp(ctx, t, x, y, h, lk, coin) {
   const c = ctx.col(sealHex(lk));
-  ctx.segs.add(t.x, 0.95, t.y, x, h, y, 0.06, c, 0.4, 8 | 1 | 64);
-  const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.star, x, h + 0.08, y, 0.12, 0.3, 0.45, c, 1);
+  ctx.segs.add(t.x, 0.95, t.y, x, h, y, 0.1, c, 0.45, 8 | 1 | 64);
+  const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.star, x, h + 0.08, y, 0.16, 0.42, 0.5, c, 1);
   if (p) {
     p.vrot = ctx.reduceMotion ? 0 : 6;
     p.delay = 0.1;

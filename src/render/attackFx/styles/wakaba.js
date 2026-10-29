@@ -22,12 +22,13 @@ const TAU = Math.PI * 2;
 
 /** Lob body: a sports bottle tumbling (blue body, white cap, a bright edge). */
 function drawBottle(o, x, h, y, k, ctx) {
-  const c = Math.cos(o.rot) * 0.11;
-  const s = Math.sin(o.rot) * 0.11;
+  const c = Math.cos(o.rot) * 0.17;
+  const s = Math.sin(o.rot) * 0.17;
   // tumbling in the screen-ish plane: along world x and height
-  ctx.line(ctx.b.bbN, CORE, x - c, h - s, y, x + c, h + s, y, 0.1, o.c, 1, ctx.R.white);
-  ctx.line(ctx.b.bbN, CORE, x + c, h + s, y, x + c * 1.45, h + s * 1.45, y, 0.07, ctx.col(CAP), 1, ctx.R.white);
-  ctx.line(ctx.b.bbA, CORE, x - c, h - s + 0.02, y, x + c, h + s + 0.02, y, 0.03, ctx.col(WATER), 0.9);
+  ctx.line(ctx.b.bbN, CORE, x - c, h - s, y, x + c, h + s, y, 0.15, o.c, 1, ctx.R.white);
+  ctx.line(ctx.b.bbN, CORE, x + c, h + s, y, x + c * 1.45, h + s * 1.45, y, 0.1, ctx.col(CAP), 1, ctx.R.white);
+  ctx.line(ctx.b.bbA, CORE, x - c, h - s + 0.02, y, x + c, h + s + 0.03, y, 0.045, ctx.col(WATER), 0.95);
+  ctx.quad(ctx.b.bbA, DECOR, x, h, y, 0.42, 0.42, ctx.R.glow, o.c, 0.4);
   // a drop shed now and then (game time)
   if (ctx.q.trails > 0 && Math.random() < ctx.gdt * 10) {
     const p = ctx.spr(ctx.b.bbN, DECOR, ctx.R.drop, x, h, y, 0.08, 0.06, 0.35, ctx.col(WATER), 0.9);
