@@ -45,7 +45,11 @@ Mirror Shift itself is not built in the sim yet; that is planned for its own sim
 
 ### Reviews
 - **Logic:** OK in two rounds, at adf61830 and c28918a4 (`batch-a-logic.json`). Of its lows, the panel snap and the stale comments are fixed. The lingering panel states past 24 relay panels are accepted: they are bounded and freed with the battle.
-- **Look:** OK at c28918a4 (`batch-a-look.json`, evidence in `batch-a-look/`). Its MEDIUM (a white disc on clumped Shattered Glass T5 volleys) is fixed in 27a8ad31; its re-review is pending (`batch-a-fix/`).
+- **Look:** OK at c28918a4 (`batch-a-look.json`, evidence in `batch-a-look/`), apart from one MEDIUM. That MEDIUM is **NOT APPROVED after 3 rounds** (HANDOFF §6): on Shattered Glass T5, a white disc covers the targets on some impact frames.
+  - **Round 2 (27a8ad31):** capped Iroha's silver flash. The re-review in `batch-a-fix/` found the disc still there.
+  - **Round 3 (16e78a37):** coalesced repeat generic blasts on one spot. In `batch-a-fix3/`, the fix works and Akane's blast is unaffected, but the disc still shows on about one frame per impact.
+  - **Remaining cause:** Iroha's own per-bolt ripple and stars stacking (3 bolts per volley).
+  - **Context:** a white bloom on her splash existed on main before this batch. The decision is with the coordinator and owner.
 - **Lows left for later:**
   - Iroha's un-aimed panel stands over her.
   - The Events "10D" sticker touches the lantern at 390x844.
