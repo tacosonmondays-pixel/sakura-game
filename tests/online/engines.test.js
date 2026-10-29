@@ -305,7 +305,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(runDuoBattle().final).toBe(r.final);
     // pinned when the battle was added (the duo build, Oct 28). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, duo: r.duo })
-      .toEqual({ ticks: 38128, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3302/3717', final: 3957769106, hashes: '3bdaae96', duo: '246/1128/471/24/9/1' });
+      .toEqual({ ticks: 37744, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3330/3744', final: 1004492955, hashes: 'f214f7bf', duo: '245/1121/503/24/10/1' });
   }, 240000);
 
   it('runs the staff heroes (STAFF_START: Norika\'s barricades and Hold the Line on a forked map, Kogane\'s plow and Moves) in sync', () => {

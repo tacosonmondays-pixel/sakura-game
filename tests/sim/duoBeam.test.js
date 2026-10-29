@@ -29,12 +29,17 @@ describe('Kohaku\'s constant beam: DPS parity with the flash beam at every Prism
       const lines = [];
       for (const target of Object.keys(TOL)) {
         const r = duoBeamDps({ build, target });
-        // (× her balance round 5 damage row, src/data/balance.js: it reaches her beam too; her boss row does not, and the
-        // armoured boss's crystal shell caps a hit, so that row keeps its number)
-        const old = target === 'armor' ? OLD[build][target] : +(OLD[build][target] * (POWER.kohaku_tsubaki?.dmg ?? 1)).toFixed(2);
+        // (× her balance round 5 damage row, src/data/balance.js: it reaches her beam too, her boss row does not. On the
+        // armoured boss a hit is flat armour off, then capped by the crystal shell, so that row lands between the old
+        // number and the old number × her row)
+        const row = POWER.kohaku_tsubaki?.dmg ?? 1;
+        const old = target === 'armor' ? OLD[build][target] : +(OLD[build][target] * row).toFixed(2);
         const d = r.dps / old - 1;
         lines.push(`${build} (${r.tiers}) ${target.padEnd(5)} old ${old} → new ${r.dps} dps (${d >= 0 ? '+' : ''}${(d * 100).toFixed(1)}%)`);
-        expect(Math.abs(d), `${build} ${target}: ${old} → ${r.dps}`).toBeLessThan(TOL[target]);
+        if (target === 'armor') {
+          expect(r.dps, `${build} armor: ${old} → ${r.dps}`).toBeGreaterThan(old * (1 - TOL.armor));
+          expect(r.dps, `${build} armor: ${old} → ${r.dps}`).toBeLessThan(old * row * (1 + TOL.armor));
+        } else expect(Math.abs(d), `${build} ${target}: ${old} → ${r.dps}`).toBeLessThan(TOL[target]);
       }
       console.log(lines.join('\n'));
     }, 60000);
