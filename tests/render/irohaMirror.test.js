@@ -6,11 +6,11 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import {
   FLIP, KICK_FLIP, KICK_MERGE, KICK_GLINT, KICK_FLASH, createPanelAnim, panelKick, panelPose, glintPhase, flashLevel,
-  nearAngle, shotYaw, shardLevel, shardCount, kaleidoscope, SHARD_CAP, ghostCount, ghostAt,
+  nearAngle, shotYaw, shardLevel, shardCount, kaleidoscope, SHARD_CAP, ghostCount, ghostAt, panelSpot,
 } from '../../src/render/mirrorPanel.js';
 import { MirrorFx, MAX_GHOSTS } from '../../src/render/mirrorFx.js';
 import { RosterFx } from '../../src/render/rosterFx.js';
-import { SHARDS_PER_FRAME, flashFree } from '../../src/render/attackFx/styles/iroha.js';
+import { SHARDS_PER_FRAME, flashFree, iroha } from '../../src/render/attackFx/styles/iroha.js';
 import { harness, gallerySim, streamer, fakeAtlas } from './attackFxHarness.js';
 
 const noop = () => {};
@@ -335,5 +335,73 @@ describe('Iroha impact flashes (no white-out on a clump)', () => {
     expect(flashFree(b, 8, 5, 10.05)).toBe(true); // elsewhere
     expect(flashFree(b, 5, 5, 10.2)).toBe(true); // after the gap
     expect(flashFree(b, 5, 5, 1)).toBe(true); // a fresh battle clock never blocks
+  });
+});
+
+describe('un-aimed panel stands beside her (display only)', () => {
+  it('panelSpot: an aimed origin is drawn where it is; one on her own spot about 0.45 tiles beside her, a little back', () => {
+    expect(panelSpot(2, 2, 5, 2)).toEqual({ x: 5, y: 2, beside: false });
+    const s = panelSpot(2, 2, 2, 2);
+    expect(s.beside).toBe(true);
+    const d = Math.hypot(s.x - 2, s.y - 2);
+    expect(d).toBeGreaterThan(0.4);
+    expect(d).toBeLessThan(0.5);
+    expect(s.y).toBeLessThan(2); // default camera looks toward −z: back is up the board
+    expect(s.x).toBeGreaterThan(2); // screen right when no road is known
+    // the side further from the road wins (road on her right: the panel goes left)
+    const l = panelSpot(2, 2, 2.1, 2, 0, -1, (x) => Math.abs(x - 4));
+    expect(l.x).toBeLessThan(2);
+    // a turned camera (portrait yaw): back and side turn with it
+    const r = panelSpot(2, 2, 2, 2, -1, 0);
+    expect(r.x).toBeLessThan(2);
+    expect(Math.abs(r.x - 2)).toBeLessThan(Math.abs(r.y - 2));
+    expect(panelSpot(2, 2, 2.1, 2.1).beside).toBe(true);
+    // an un-aimed origin just in front of her (toward the camera, the road below her): slid to her side, depth kept
+    const f = panelSpot(2, 2, 2.05, 2.5);
+    expect(f.x).toBeCloseTo(2.46, 5);
+    expect(f.y).toBeCloseTo(2.5, 5);
+    expect(f.beside).toBe(false);
+    expect(panelSpot(2, 2, 1.95, 2.5).x).toBeCloseTo(1.54, 5); // it keeps the side it leans to
+    // clear of her: drawn where it is
+    expect(panelSpot(2, 2, 2, 3.1)).toEqual({ x: 2, y: 3.1, beside: false }); // far enough in front
+    expect(panelSpot(2, 2, 2, 1.6)).toEqual({ x: 2, y: 1.6, beside: false }); // far enough behind
+    expect(panelSpot(2, 2, 2.5, 2.3)).toEqual({ x: 2.5, y: 2.3, beside: false }); // already beside her
+  });
+
+  it('on the board the glass is drawn beside her, with no tether, and the sim origin is untouched', () => {
+    const { roster, t } = board();
+    t.ox = t.x;
+    t.oy = t.y;
+    t.origin = { x: t.x, y: t.y };
+    roster.update(1 / 60);
+    const p = roster.props.get(7);
+    const d = Math.hypot(p.mesh.position.x - t.x, p.mesh.position.z - t.y);
+    expect(d).toBeGreaterThan(0.4);
+    expect(d).toBeLessThan(0.5);
+    expect([t.ox, t.oy]).toEqual([2, 2]);
+    const spot = roster.mirrors.spotOf(7);
+    expect([spot.x, spot.y]).toEqual([p.mesh.position.x, p.mesh.position.z]);
+    // a relay back to her spot keeps it beside her (no jump onto her)
+    roster.handle({ type: 'relay', towerUid: 7, x: 2, y: 2, kind: 'mirror' });
+    roster.update(1 / 60);
+    expect(Math.hypot(p.mesh.position.x - t.x, p.mesh.position.z - t.y)).toBeGreaterThan(0.4);
+  });
+
+  it('her bolts from an un-aimed panel leave where the glass is drawn; an aimed panel keeps the sim spawn', () => {
+    const { roster, t } = board();
+    t.ox = t.x;
+    t.oy = t.y;
+    t.origin = { x: t.x, y: t.y };
+    roster.update(1 / 60);
+    const spot = roster.mirrors.spotOf(7);
+    const rec = {};
+    iroha.origin({ x: 2, y: 2, vx: 3, vy: 0, travel: 0 }, t, 0, 1, rec, { mirrors: roster.mirrors });
+    expect([rec.mx, rec.my]).toEqual([spot.x, spot.y]);
+    expect([rec.sx, rec.sy]).toEqual([2, 2]);
+    const aimed = board();
+    aimed.roster.update(1 / 60);
+    const r2 = {};
+    iroha.origin({ x: 5, y: 2, vx: 3, vy: 0, travel: 0 }, aimed.t, 0, 1, r2, { mirrors: aimed.roster.mirrors });
+    expect([r2.mx, r2.my]).toEqual([5, 2]);
   });
 });
