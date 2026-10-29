@@ -338,7 +338,7 @@ describe('the reflection', () => {
     expect(aoi.damageDealt - before.aoi).toBeCloseTo(lost[0] + lost[1], 6);
   });
 
-  test('another Iroha\'s mirror splits her shots (her own never does)', () => {
+  test('another Iroha\'s mirror splits the shots she fires from where she stands (her own mirror never does)', () => {
     const sim = new Sim({ ...opts(5), loadout: [{ unitId: 'iroha' }, { unitId: 'aoi' }] });
     sim.cash = 1e9;
     const a = girl(sim, 'iroha', 8.5, 2.5, { tier: 5 });
@@ -354,6 +354,35 @@ describe('the reflection', () => {
     const splits = of(steps(sim, 200), 'mirrorSplit');
     expect(splits.length).toBeGreaterThan(0);
     for (const x of splits) expect([x.ownerUid, x.mirrorUid]).toEqual([a.uid, b.uid]);
+  });
+
+  test('a shot fired from a mirror panel never splits: two Irohas with their panels stacked on one spot split nothing', () => {
+    const sim = new Sim({ ...opts(5), loadout: [{ unitId: 'iroha' }, { unitId: 'aoi' }] });
+    sim.cash = 1e9;
+    const a = girl(sim, 'iroha', 8.5, 2.5, { tier: 5 });
+    const b = girl(sim, 'iroha', 6.5, 3.5, { tier: 5 });
+    wave(sim);
+    // (unkillable: a stand shot whose target fell would fly on straight, through the panels, and rightly split)
+    at(sim, 8.5, { hpMul: 1e6 });
+    at(sim, 10.5, { hpMul: 1e6 });
+    steps(sim, 1);
+    // both panels on one spot below the road, both reflecting for good (tier 5); their stand shots (which pierce on) never pass it
+    sim.setAim(a.uid, 7, 5.6);
+    sim.setAim(b.uid, 7, 5.6);
+    expect([a.ox, a.oy]).toEqual([b.ox, b.oy]);
+    a.cooldown = 0;
+    b.cooldown = 0;
+    // (the panel volleys are born split, the stand volleys are not: both are seen in flight)
+    const evs = [];
+    const seen = { panel: 0, stand: 0 };
+    for (let k = 0; k < 300; k++) {
+      steps(sim, 1, evs);
+      for (const p of sim.projectiles) if (p.ownerUid === a.uid || p.ownerUid === b.uid) seen[p.split ? 'panel' : 'stand']++;
+    }
+    expect(of(evs, 'attack').filter((x) => x.towerUid === a.uid || x.towerUid === b.uid).length).toBeGreaterThan(4);
+    expect(of(evs, 'mirrorSplit')).toEqual([]);
+    expect(seen.panel).toBeGreaterThan(0);
+    expect(seen.stand).toBeGreaterThan(0);
   });
 });
 

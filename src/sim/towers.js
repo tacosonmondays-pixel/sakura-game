@@ -804,7 +804,9 @@ function projExtra(t, n, f) {
 }
 
 function attackProjectile(sim, t) {
-  const first = volleyFrom(sim, t, t.ox, t.oy);
+  // (a shot leaving a mirror panel is born split, src/sim/mirrors.js: a panel shot never splits, so two panels stacked
+  // on one spot cannot double each other's)
+  const first = volleyFrom(sim, t, t.ox, t.oy, t.stats.relay?.kind === 'mirror' && !!t.origin);
   // a mirror girl with two firing points (Iroha, UNIT_GAPS §4.1): she also fires from where she stands
   const second = t.stats.relay?.both && t.origin && (t.ox !== t.x || t.oy !== t.y) ? volleyFrom(sim, t, t.x, t.y) : null;
   const lead = first || second;
@@ -813,8 +815,11 @@ function attackProjectile(sim, t) {
   return true;
 }
 
-/** One volley of her projectiles from (sx, sy) at the targets in range of it; the first target or null. */
-function volleyFrom(sim, t, sx, sy) {
+/**
+ * One volley of her projectiles from (sx, sy) at the targets in range of it; the first target or null. `panel`: the
+ * volley leaves her mirror panel, so its shots are born split (they never split at a mirror).
+ */
+function volleyFrom(sim, t, sx, sy, panel = false) {
   const spec = gearSpec(t.eff);
   let n = spec.projectiles;
   const targets = selectTargets(sim, sx, sy, spec.range, spec, t.targetMode, n);
@@ -838,7 +843,8 @@ function volleyFrom(sim, t, sx, sy) {
       const extra = spec.splash > 0 ? 0 : shotPierce(t);
       const blast = spec.splash > 0 ? blastRadius(t, spec.splash) : 0;
       const opts = extra ? { spread, pierce: spec.pierce + extra } : blast !== spec.splash ? { spread, splash: blast } : { spread };
-      spawnProjectile(sim, t, spec, tgt, sx, sy, opts);
+      const p = spawnProjectile(sim, t, spec, tgt, sx, sy, opts);
+      if (panel) p.split = true;
     }
   }
   return targets[0];

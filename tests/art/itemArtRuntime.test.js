@@ -201,7 +201,7 @@ describe('display only: the battle sim is untouched', () => {
     // Shift (the mirror deploy and its reflection, src/sim/mirrors.js) change the sim on protocol 11. The next bundled
     // co-op release sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only this exact
     // in-progress id passes here.
-    const PENDING_BUMP = { 11: 'b92f58f88de6' };
+    const PENDING_BUMP = { 11: 'a644d228189e' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

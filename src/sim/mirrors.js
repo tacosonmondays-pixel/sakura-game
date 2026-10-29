@@ -11,8 +11,10 @@
 //     (t.mirror2 { x, y }) at the cast's aim, else the leader's road spot, for its duration (10 s). The second mirror
 //     reflects; she does not fire from it.
 //   - Reflection: an ally's projectile (both players' girls in co-op: every projectile in sim.projectiles is a girl's, a
-//     drone's or a sentry's; never the mirror owner's own, so Iroha's bolts leaving her panel or crossing it do not split
-//     there, though another Iroha's mirror splits them) whose step segment passes within MIRROR_RADIUS of a reflecting mirror
+//     drone's or a sentry's; never the mirror owner's own, and never a shot fired FROM a mirror panel: a panel volley is
+//     born `split` (src/sim/towers.js attackProjectile), so two panels on one spot cannot double each other; a shot from
+//     where a girl stands, another Iroha's included, still splits at another owner's mirror) whose step segment passes
+//     within MIRROR_RADIUS of a reflecting mirror
 //     splits in two, once: the original flies on unchanged and a copy leaves the crossing point (the segment's point
 //     nearest the mirror) at the next target, the best enemy within the shot's range of that point by the shooter's
 //     target mode that is neither the original's target nor already hit by it; with none, at the original's target
