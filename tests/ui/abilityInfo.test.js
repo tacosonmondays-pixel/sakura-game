@@ -37,8 +37,8 @@ describe('abilityRuns: the girl page\'s "runs today" rule equals the sim\'s', ()
     }
   });
 
-  it('the kinds that wait: Kage, Suzu and Chika (A4), Fuu and Kanna (A5), Iroha (A6) — every girl has one since M3', () => {
-    expect(withAbility.filter((u) => !abilityLive(entryOf(u))).map((u) => u.id).sort()).toEqual(['chika', 'fuu', 'iroha', 'kage', 'kanna', 'suzu']);
+  it('the kinds that wait: Fuu and Kanna (A5), Iroha (A6); Kage, Suzu and Chika run since A4 — every girl has one since M3', () => {
+    expect(withAbility.filter((u) => !abilityLive(entryOf(u))).map((u) => u.id).sort()).toEqual(['fuu', 'iroha', 'kanna']);
     expect(withAbility.length).toBe(UNITS.length);
   });
 });
@@ -56,8 +56,9 @@ describe('abilityInfoView (the Info chip and its Details)', () => {
     expect(v.later).toBeNull();
   });
 
-  it('Kage: "Comes in a later update"; a hero: her Lv 7 skill', () => {
-    expect(abilityInfoView(UNIT_MAP.kage)).toMatchObject({ live: false, later: 'Comes in a later update' });
+  it('Fuu: "Comes in a later update" (Kage\'s Shadow Doubles runs since A4); a hero: her Lv 7 skill', () => {
+    expect(abilityInfoView(UNIT_MAP.fuu)).toMatchObject({ live: false, later: 'Comes in a later update' });
+    expect(abilityInfoView(UNIT_MAP.kage)).toMatchObject({ live: true, later: null });
     const h = abilityInfoView(UNIT_MAP.hikari);
     expect(h).toMatchObject({ hero: true, where: 'LV 7', chip: '⚡ Morning Rally · LV 7', unlock: 'Unlocks at hero LV 7', live: true });
     expect(h.up.at).toBe('LV 17');
@@ -150,9 +151,10 @@ describe('the Tree tab ⚡ sticker', () => {
     // (a native tooltip: plain words, never the ⚡ emoji)
     expect(v.rows[1].ability.title).toBe('Ability Skyfall Volley: unlocks at tier 3');
     expect(v.rows[0].ability).toBeNull();
-    const k = treeGridView(buildTreeModel({ def: UNIT_MAP.kage }));
+    const k = treeGridView(buildTreeModel({ def: UNIT_MAP.fuu }));
     // (one that waits never promises a tier: no "unlocks at tier 3" beside "later")
-    expect(k.rows.find((r) => r.ability).ability.title).toBe('Ability Shadow Doubles: comes in a later update');
+    expect(k.rows.find((r) => r.ability).ability.title).toBe('Ability Backdraft Fan: comes in a later update');
+    expect(treeGridView(buildTreeModel({ def: UNIT_MAP.kage })).rows.find((r) => r.ability).ability.title).toBe('Ability Shadow Doubles: unlocks at tier 3');
   });
 });
 

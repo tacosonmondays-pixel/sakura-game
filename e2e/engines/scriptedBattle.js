@@ -791,8 +791,9 @@ export const ABILITIES_START = Object.freeze({
   stageId: '4-5',
   difficulty: 'normal',
   players: [
-    { slot: 0, uid: 'host', name: 'Host', loadout: abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori']), hero: { unitId: 'luna', stats: ABIL_STATS } },
-    { slot: 1, uid: 'guest', name: 'Guest', loadout: abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro'], ABIL_STATS_HASTE), hero: { unitId: 'nami', stats: ABIL_STATS_HASTE } },
+    // (A4: the host also fields Kage and Suzu, the guest Chika, so the three deploys run on every engine)
+    { slot: 0, uid: 'host', name: 'Host', loadout: abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori', 'kage', 'suzu']), hero: { unitId: 'luna', stats: ABIL_STATS } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro', 'chika'], ABIL_STATS_HASTE), hero: { unitId: 'nami', stats: ABIL_STATS_HASTE } },
   ],
 });
 /** Refusals a scripted tap may meet (the sim re-checks at the command's tick); anything else fails the run. */
@@ -800,15 +801,16 @@ const ABIL_REASONS = Object.freeze(['cooldown', 'notWave', 'active', 'noTarget',
 
 /**
  * A whole co-op battle with abilities (stage 4-5 Normal, to `toWave` waves cleared): the host takes
- * Aoi 0-3-0, Akane 3-0-0, Momo 3-0-0, Hotaru 0-3-0 and Midori 3-0-0 (each to her ⚡ tier 3) and hero
+ * Aoi 0-3-0, Akane 3-0-0, Momo 3-0-0, Hotaru 0-3-0, Midori 3-0-0, Kage and Suzu (each to her ⚡ tier 3) and hero
  * Luna to Lv 7 (Moonbrand), and taps one of them by hand every 7 s in a round robin (some taps are
  * group taps, some carry an aim point, some land on a recharging girl and are refused); from wave 4
- * her Momo is on Auto. The guest takes Yuki, Rei, Miko 3-0-0, Sango 0-3-0, Shiro 3-0-0 and hero Nami
+ * her Momo is on Auto. The guest takes Yuki, Rei, Miko 3-0-0, Sango 0-3-0, Shiro 3-0-0, Chika (⚡ tier 3) and hero Nami
  * (Lv 7, Frost Net; she and Sango stand on the water), all with Skill Haste 0.3, with `acast[0, 1]` (everything on Auto), taps one
  * of her ready girls every 4 s as well, and switches Shiro off and on once. Two Lockstep clients over
  * the seeded fake network; every state hash collected (they fold the ability state once cast or on
  * Auto); the host's checkpoint after wave `checkpointAt` is restored into a fresh client and replayed.
- * `casts` / `kinds` count the `ability` events (both players' casts, auto and manual).
+ * `casts` / `kinds` count the `ability` events (both players' casts, auto and manual); `deploys` counts the A4 deploy
+ * casts by ability id (Shadow Doubles, Bell Carpet, Drone Surge) and the doubles / Bell Carpet traps / surge drones placed.
  */
 export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 60 * 60 * 20 } = {}) {
   const t0 = Date.now();
@@ -842,16 +844,17 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
   });
   const [A, B] = [mk(0), mk(1)];
   const clients = [A, B];
-  const girls = [['aoi', 'akane', 'momo', 'hotaru', 'midori'], ['yuki', 'rei', 'miko', 'sango', 'shiro']];
+  const girls = [['aoi', 'akane', 'momo', 'hotaru', 'midori', 'kage', 'suzu'], ['yuki', 'rei', 'miko', 'sango', 'shiro', 'chika']];
   // land spots (two each: the second when the first is taken); Nami and Sango stand on the water
-  const spots = { ...spotsFor(ABILITIES_START, ['luna', ...girls[0], 'yuki', 'rei', 'miko', 'shiro'], 2), ...spotsFor(ABILITIES_START, ['nami', 'sango'], 2, { water: true }) };
+  const spots = { ...spotsFor(ABILITIES_START, ['luna', ...girls[0], 'yuki', 'rei', 'miko', 'shiro', 'chika'], 2), ...spotsFor(ABILITIES_START, ['nami', 'sango'], 2, { water: true }) };
   // [slot, unitId, spots, retry frame]: a place her view could afford can still meet a wallet that
   // changed by its tick (refused 'cash'): she is tried again until she stands
   const want = [];
-  for (let i = 0; i < 5; i++) for (const slot of [0, 1]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
+  for (let i = 0; i < Math.max(girls[0].length, girls[1].length); i++) for (const slot of [0, 1]) if (girls[slot][i]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
   const seen = [new Map(), new Map()];
   const byKind = {};
   const byOwner = [0, 0];
+  const deploys = {};
   let ck = null;
   let turn = 0;
   let guestTurn = 0;
@@ -941,6 +944,11 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
           if (ev.type !== 'ability') continue;
           byKind[ev.kind] = (byKind[ev.kind] || 0) + 1;
           byOwner[ev.owner]++;
+          if (ev.kind === 'deploy') {
+            const d = deploys[ev.id] || (deploys[ev.id] = { casts: 0, placed: 0 });
+            d.casts++;
+            d.placed += ev.placed || 0;
+          }
         }
       }
     });
@@ -969,6 +977,7 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
     kinds: kinds.join(','),
     byKind: kinds.map((k) => `${k} ${byKind[k]}`).join(' · '),
     byOwner: byOwner.join('/'),
+    deploys: Object.keys(deploys).sort().map((k) => `${k} ${deploys[k].casts}×${deploys[k].placed}`).join(' · '),
     taps: `${taps.abil} abil: ${taps.ok} cast, ${Object.keys(taps.reasons).sort().map((k) => `${taps.reasons[k]} ${k}`).join(', ')} · ${taps.acast} acast`,
     refused: odd.join(' '),
     wallets: A.coop.wallets.join('/'),

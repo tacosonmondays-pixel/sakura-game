@@ -13,7 +13,7 @@ import { MAP, STAGE, ENEMIES } from '../sim/fixtures.js';
 const units = defaultData().units;
 
 function office(tiers) {
-  const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'ouka' }, { unitId: 'aoi' }, { unitId: 'kage' }, { unitId: 'shiro' }], seed: 7, data: { stage: STAGE, map: MAP, units, enemies: ENEMIES } });
+  const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'ouka' }, { unitId: 'aoi' }, { unitId: 'fuu' }, { unitId: 'shiro' }], seed: 7, data: { stage: STAGE, map: MAP, units, enemies: ENEMIES } });
   sim.cash = 1e9;
   const o = sim.placeTower('ouka', 8.5, 6.2);
   for (const p of [0, 1, 2]) for (let k = 0; k < tiers[p]; k++) expect(sim.upgradeTower(o.uid, p)).toBe(true);
@@ -31,17 +31,17 @@ function girlAt(sim, id, x, y, n = 0) {
 }
 
 describe('Council rules (a girl inside her office)', () => {
-  it('the recharge only on a girl whose ability runs: never on Kage (Shadow Doubles comes later) or below ⚡ tier 3', () => {
+  it('the recharge only on a girl whose ability runs: never on Fuu (Backdraft Fan comes later) or below ⚡ tier 3', () => {
     for (const [tiers, pct] of [[[0, 3, 0], 15], [[0, 5, 0], 25]]) {
       const { sim } = office(tiers);
-      const kage = girlAt(sim, 'kage', 9.7, 6.2, 3);
+      const fuu = girlAt(sim, 'fuu', 9.7, 6.2, 3);
       const low = girlAt(sim, 'aoi', 8.5, 7.4, 2);
       const aoi = girlAt(sim, 'aoi', 7.3, 6.2, 3);
       const shiro = girlAt(sim, 'shiro', 8.5, 5.0, 3);
-      for (const t of [kage, low, aoi, shiro]) expect(t.rules?.cdCut, `${t.unitId} ${tiers}`).toBe(pct / 100);
-      expect(kage.abil).toBeUndefined();
+      for (const t of [fuu, low, aoi, shiro]) expect(t.rules?.cdCut, `${t.unitId} ${tiers}`).toBe(pct / 100);
+      expect(fuu.abil).toBeUndefined();
       expect(low.abil).toBeUndefined();
-      expect(councilRulesText(kage)).toBe('sells for 80%');
+      expect(councilRulesText(fuu)).toBe('sells for 80%');
       expect(councilRulesText(low)).toBe('sells for 80%');
       expect(councilRulesText(aoi)).toBe(`sells for 80%, ability recharges ${pct}% faster`);
       expect(councilRulesText(shiro)).toBe(`sells for 80%, ability recharges ${pct}% faster`); // map scope too (the sim does it)

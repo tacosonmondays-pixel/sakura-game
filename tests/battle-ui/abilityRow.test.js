@@ -186,14 +186,24 @@ describe('abilityRowView', () => {
     expect(v).toMatchObject({ readOnly: true, button: null, canAuto: false, chip: 'READY' });
   });
 
-  it('a kind this build does not run yet: "Comes in a later update" (Kage at her tier 3)', () => {
+  it('a kind this build does not run yet: "Comes in a later update" (Fuu at her tier 3: a move, A5)', () => {
+    const sim = battle(['fuu']);
+    const fuu = place(sim, 'fuu');
+    const p = abilityPathOf(fuu.def);
+    up(sim, fuu, p, 2);
+    expect(abilityRowView(sim, fuu)).toBeNull();
+    up(sim, fuu, p, 1);
+    expect(abilityRowView(sim, fuu)).toMatchObject({ state: 'later', line: 'Comes in a later update', button: null, canAuto: false });
+  });
+
+  it('the A4 deploys have their button at tier 3 (Kage\'s Shadow Doubles)', () => {
     const sim = battle(['kage']);
     const kage = place(sim, 'kage');
-    const p = abilityPathOf(kage.def);
-    up(sim, kage, p, 2);
-    expect(abilityRowView(sim, kage)).toBeNull();
-    up(sim, kage, p, 1);
-    expect(abilityRowView(sim, kage)).toMatchObject({ state: 'later', line: 'Comes in a later update', button: null, canAuto: false });
+    up(sim, kage, abilityPathOf(kage.def), 3);
+    const v = abilityRowView(sim, kage);
+    expect(v).not.toBeNull();
+    expect(v.state).not.toBe('later');
+    expect(v.line).not.toBe('Comes in a later update');
   });
 
   it('a hero: her Lv 7 skill row, locked with "LV 7" until then', () => {

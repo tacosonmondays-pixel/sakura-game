@@ -569,14 +569,15 @@ describe('ability rules and vocabulary', () => {
     expect(runs).toEqual(['boost', 'rally', 'strike', 'burst', 'debuff', 'econ']);
     expect([...ABILITY_KINDS_RUN].sort()).toEqual([...runs].sort());
     expect(abilityRuns({ kind: 'boost', effect: {} })).toBe(false);
-    expect(ABILITY_DEPLOYS_RUN.map((deploy) => abilityRuns({ kind: 'deploy', effect: { deploy } }))).toEqual([true, true]);
-    for (const deploy of ['double', 'trap', 'drone', 'mirror', undefined]) expect(abilityRuns({ kind: 'deploy', effect: { deploy } })).toBe(false);
+    expect(ABILITY_DEPLOYS_RUN.map((deploy) => abilityRuns({ kind: 'deploy', effect: { deploy } }))).toEqual([true, true, true, true, true]);
+    for (const deploy of ['double', 'trap', 'drone']) expect(ABILITY_DEPLOYS_RUN).toContain(deploy); // A4
+    for (const deploy of ['mirror', undefined]) expect(abilityRuns({ kind: 'deploy', effect: { deploy } })).toBe(false);
     expect(abilityRuns({ kind: 'runner', effect: { runner: 'giantBall' } })).toBe(true);
     expect(abilityRuns({ kind: 'runner', effect: { runner: 'river' } })).toBe(false);
     for (const x of [null, undefined, 0, 'strike', {}]) expect(abilityRuns(x)).toBe(false);
-    // the table: every tower's first ⚡ entry runs but the three deploy girls', Fuu's (move) and Iroha's (mirror);
+    // the table: every tower's first ⚡ entry runs but Fuu's (move) and Iroha's (mirror), the A4 deploy girls' included;
     // every hero skill but Kanna's (a boost without a ModSet); Ruri's Star Snatch / River Rush wait; tier 5 never flips it
-    for (const u of towers()) expect(abilityRuns(abilityRow(u)[0]), u.id).toBe(!['kage', 'suzu', 'chika', 'fuu', 'iroha'].includes(u.id));
+    for (const u of towers()) expect(abilityRuns(abilityRow(u)[0]), u.id).toBe(!['fuu', 'iroha'].includes(u.id));
     for (const h of heroes()) expect(abilityRuns(abilityRow(h).skill), h.id).toBe(h.id !== 'kanna');
     expect(ABILITIES.ruri.map(abilityRuns)).toEqual([true, false, false]);
   });

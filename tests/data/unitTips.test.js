@@ -30,13 +30,13 @@ describe('shown tips', () => {
     }
   });
 
-  test('every tower with a working ability shows her ⚡ tip; Kage, Suzu, Chika, Fuu and Iroha show none', () => {
+  test('every tower with a working ability shows her ⚡ tip (Kage, Suzu and Chika too since A4); Fuu and Iroha show none', () => {
     const withTip = UNITS.filter((u) => (u.tips || []).some(isAbilityTip));
     const shown = withTip.filter((u) => shownTips(u).some(isAbilityTip)).map((u) => u.id).sort();
     const hidden = withTip.filter((u) => !shownTips(u).some(isAbilityTip)).map((u) => u.id).sort();
     // (A3 M3: the returning girls have their ⚡ tips; Fuu's move and Iroha's mirror wait, so theirs stay hidden)
-    expect(hidden).toEqual(['chika', 'fuu', 'iroha', 'kage', 'suzu']);
-    for (const id of ['aoi', 'midori', 'ouka', 'azami', 'yuzuha', 'marumi', 'tenka', 'hana', 'ruri', 'noa', 'ena']) expect(shown, id).toContain(id);
+    expect(hidden).toEqual(['fuu', 'iroha']);
+    for (const id of ['aoi', 'midori', 'ouka', 'azami', 'yuzuha', 'marumi', 'tenka', 'hana', 'ruri', 'noa', 'ena', 'kage', 'suzu', 'chika']) expect(shown, id).toContain(id);
     // a hidden girl's tips never name her ability either
     for (const u of withTip.filter((x) => hidden.includes(x.id))) {
       for (const t of shownTips(u)) for (const n of ABILITY_NAMES) expect(t.includes(n), `${u.id}: ${n}`).toBe(false);
@@ -51,13 +51,17 @@ describe('shown tips', () => {
     expect(shownTips({ tips: ['⚡ X tier 3 teaches Y.', 'Plain.'] })).toEqual(['Plain.']);
   });
 
-  test('the secretary\'s first two tips: Chika\'s ⚡ tip (her first) stays hidden, Midori\'s (her second) shows', () => {
+  test('the secretary\'s first two tips: Chika\'s ⚡ tip (her first) and Midori\'s (her second) show; a waiting one never does', () => {
     const midori = UNITS.find((u) => u.id === 'midori');
     const chika = UNITS.find((u) => u.id === 'chika');
     expect(midori.tips.slice(0, 2).some(isAbilityTip)).toBe(true);
     expect(chika.tips.slice(0, 2).some(isAbilityTip)).toBe(true);
     expect(shownTips(midori).slice(0, 2).some(isAbilityTip)).toBe(true);
-    expect(shownTips(chika).slice(0, 2).some(isAbilityTip)).toBe(false);
+    expect(shownTips(chika).slice(0, 2).some(isAbilityTip)).toBe(true); // Drone Surge runs since A4
+    // Fuu's Backdraft Fan waits (a move, A5): her ⚡ tip stays hidden even when it comes first
+    const fuu = UNITS.find((u) => u.id === 'fuu');
+    const first = { ...fuu, tips: [fuu.tips.find(isAbilityTip), ...fuu.tips.filter((t) => !isAbilityTip(t))] };
+    expect(shownTips(first).some(isAbilityTip)).toBe(false);
   });
 });
 
