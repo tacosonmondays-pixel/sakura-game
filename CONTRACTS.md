@@ -1663,9 +1663,10 @@ render/groundShapes.js: drawGroundShapes(sim, gN, gA, R)   // the plain look, fr
 links.js:   attackReturn(sim, t, spec, targets, extraPierce, spawn)   // behaviour 'return' (Homecoming Throw), a counted attack
             fanCount(spec, ret), retSteer(sim, p, stepLen) / retCut(sim, p, e) / retFlip(sim, p)   // projectileStep's fan hooks
             tieTether(sim, t, e)   // Spirit Tether: her counted attack ties her lead target (updateTower's attack loop)
-            ownShare(g, e, tower, spec), shareTether(sim, g, e, tower, spec, scale, crit, drone)   // the Sim._hit hook
+            ownShare(sim, g, e, tower, spec), shareTether(sim, g, e, tower, spec, scale, crit, drone)   // the Sim._hit hook
             tetherStep(sim) (every step while a group lives), endLinkWave(sim), linkDps(t, e, perTarget)   // the panel DPS
-render/linkShapes.js: drawLinkShapes(sim, gN, gA, R)   // the plain threads, from Actors.drawGround, reads the sim only
+render/linkShapes.js: drawLinkShapes(sim, gN, gA, R)   // the plain threads (solid ground lines, a ring under each member),
+                                                       // from Actors.drawGround, reads the sim only
 ```
 - Homecoming Throw: a counted attack picks her targets by target mode (her projectiles); a rhythm spec with splash (her Turbine
   Kick) is her plain projectile volley. Otherwise `round(projectiles × ret.per)` fans, one at each target in turn: a fan is a
@@ -1684,11 +1685,12 @@ render/linkShapes.js: drawLinkShapes(sim, gN, gA, R)   // the plain threads, fro
   share, pull }]` (`left` integer steps), `e.tie` the group (null untied), `sim._tetherOn` = living groups. Caps
   TETHERS_PER_GIRL (her oldest first) and TETHERS_PER_SIM (no new group). Events `tether { towerUid, uid, members, left }`,
   `tetherShare { uid, from, n }`, `tetherPull { uid, towerUid, n }`.
-- The hook, `Sim._hit`: `if (this._tetherOn !== 0 && e.tie && !this._sharing)` (with no group alive the hit path adds that one
-  compare). Her own hit on an enemy of her group keeps `1 − n × share` (n: the other members a share reaches: not dead, not in a
-  tunnel, not phasing unless holy / mystic); after the hit lands (and after a kill), every other reachable member in tie order
-  takes a clean copy of it at the hit's scale × `share` (her type chart, tier and air multipliers, `share` on flat armour and the
-  floor, critical when the hit was, no roll, no statuses), credited to the hitter (and her drone), events `hit { tick: true }`.
+- The hook, `Sim._hit`: `if (this._tetherOn !== 0 && e.tie && !this._sharing)` (with no group alive the hit path adds a compare
+  plus a few locals; no measurable cost). A tether girl's own hit on a tied enemy (in her group or another tether girl's) keeps
+  `1 − n × share` (n: the other members a share reaches: not dead, not in a tunnel, not phasing unless holy / mystic; at most the
+  shares this step's budget still runs); after the hit lands (and after a kill), every other reachable member in tie order
+  takes a clean copy of it at the hit's scale × `share` (her type chart, tier and air multipliers; flat armour, the floor and a
+  crystal shell's cap and count × the hit's own `spec.share` × `share`; critical when the hit was, no roll, no statuses), credited to the hitter (and her drone), events `hit { tick: true }`.
   `sim._sharing` is up while shares land: no shared hit, and no hit inside one (a curse burst from a share's kill), shares again.
   At most TETHER_SHARES_PER_STEP (256) shares a step (`sim._shareBudget`, refilled by tetherStep and by the first group); the rest
   are dropped. Burns, poison and hexes (not `_hit`) never share.

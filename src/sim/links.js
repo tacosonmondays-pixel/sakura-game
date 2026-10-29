@@ -248,12 +248,16 @@ function others(g, e, attackType) {
 }
 
 /**
- * Sim._hit's scale for her own hit on an enemy tied in her group g: it keeps 1 − n × share, the rest goes down the
- * threads (n: the other members the share reaches). 1 for anyone else's hit.
+ * Sim._hit's scale for a tether girl's own hit on a tied enemy (any tether girl's, in any girl's group: a second Ena's
+ * hits on the first one's threads are split too, never added): it keeps 1 − n × share, the rest goes down the threads
+ * (n: the other members the share reaches, at most the shares this step's budget still runs, so a dropped share is
+ * never cut from her hit). 1 for a girl without a tether.
  */
-export function ownShare(g, e, tower, spec) {
-  if (g.owner !== tower) return 1;
-  const k = 1 - others(g, e, spec.attackType) * g.share;
+export function ownShare(sim, g, e, tower, spec) {
+  if (g.owner !== tower && !tower?.stats?.tether) return 1;
+  let n = others(g, e, spec.attackType);
+  if (n > sim._shareBudget) n = sim._shareBudget > 0 ? sim._shareBudget : 0;
+  const k = 1 - n * g.share;
   return k > 0 ? k : 0;
 }
 
@@ -287,7 +291,9 @@ export function shareTether(sim, g, e, tower, spec, scale, crit, drone) {
   S.armorPen = spec.armorPen || 0;
   S.critChance = crit ? 1 : 0;
   S.critMul = spec.critMul || 1.5;
-  S.share = g.share;
+  // a share of a fractional hit (a fan's cut, a held tick, a lash) is that fraction of the thread's share: flat armour,
+  // the floor and a crystal shell's cap and count scale with both
+  S.share = (spec.share > 0 ? spec.share : 1) * g.share;
   const sc = scale * g.share;
   let n = 0;
   for (let i = 0; i < g.m.length; i++) {

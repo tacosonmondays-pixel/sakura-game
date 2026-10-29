@@ -581,7 +581,7 @@ export class Sim {
     const base = scale;
     if (this._tetherOn !== 0 && e.tie && !this._sharing) {
       tie = e.tie;
-      scale *= ownShare(tie, e, tower, spec);
+      scale *= ownShare(this, tie, e, tower, spec);
     }
     const res = computeHit(e, spec, roll, scale, this._hitOut);
     if (!res) return -1;

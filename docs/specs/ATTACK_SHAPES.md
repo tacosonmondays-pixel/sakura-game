@@ -746,8 +746,10 @@ Written on `feature/attack-links` (on S3 `feature/attack-ground` 8997a16e).
 
 Built as the shared pieces: the leg flip on a projectile record (`retFlip`, `retSteer`, `retCut` in projectileStep) and the `_hit`
 share hook (`Sim._hit` behind `sim._tetherOn`, the re-entrancy flag `sim._sharing`, the per-step budget TETHER_SHARES_PER_STEP), in
-`src/sim/links.js`. The plain renderer is `src/render/linkShapes.js`: threads of alpha beads with a fixed sag, and thin additive
-knots of 0.14 tiles. Fans are drawn as her own projectiles. Contracts: `CONTRACTS.md` "Attack shapes S4".
+`src/sim/links.js`. The plain renderer is `src/render/linkShapes.js`: each span a solid alpha line along the ground (a dark
+under-stroke 0.18 tiles wide and a pink line 0.1 wide, in four pieces with a slight sag, 0.08-0.16 tiles up), a pink ring under
+each tied enemy and a thin additive knot of 0.16 tiles in it; members in a tunnel are skipped. (The first version drew 0.07-tile
+beads of a soft disc sprite and knots at 0.42 tiles up, inside the enemies' bodies: invisible at 844×390.) Fans are drawn as her own projectiles. Contracts: `CONTRACTS.md` "Attack shapes S4".
 
 Changes from the spec, and why:
 
@@ -774,11 +776,18 @@ Changes from the spec, and why:
 7. **Her own hits are split, not added.** Her enemy keeps 1 − n × share of her hit, where n counts the other tied enemies the share
    reaches. Each of those takes the share. Other girls' hits are added to. With added shares of her own cards, her crowd would gain
    n × share (+40 % at T4, +75 % at T5) while her boss row stayed the same. The split keeps both rows exact. The tether's value is
-   echoing the other girls' hits (see the partner note below).
+   echoing the other girls' hits (see the partner note below). Any girl with a tether splits, in any tether group: a second Ena
+   whose target is already tied by the first one makes no group of her own, and before the review fix her hits echoed through the
+   first one's threads in full (×1.4 at T4, +75 % at T5). n never counts more shares than this step's budget still runs, so a
+   dropped share is never cut from her hit.
 8. **A share is a clean copy of the hit.** It keeps the hitter's type chart and her tier and air multipliers, scales flat armour and
-   the floor by the share, and has no statuses, marks or pushes. It is critical when the hit was, and rolls nothing itself. It is
+   the floor by the share, and has no statuses, marks or pushes. A share of a fractional hit (a fan's cut, a held tick, a beam tick,
+   a lash: `spec.share` < 1) takes that fraction of the thread's share for flat armour, the floor and a crystal shell's cap and
+   count (`spec.share × share`; before the review fix it used the thread's share in full, so ten 0.1 ticks took a tied enemy's
+   shell from 10 to 8 instead of 9.8). It is critical when the hit was, and rolls nothing itself. It is
    credited to the girl who hit (and to her drone, if one hit). Burns, poison and hexes are not `_hit` and never share. Shares ignore
-   veils and air but not tunnels or phasing. Before the crit carry (and before her split counted only the members a share reaches), her round 5 crowd read 0.82 / 0.74.
+   veils and air but not tunnels or phasing. Before the crit carry (and before her split counted only the members a share reaches),
+   her round 5 crowd read 0.82 / 0.74.
 9. **The budget drops; it does not queue.** Past 256 shares in a step the rest are dropped. A share is a slice of a hit that
    already landed, and a queue would have to keep specs. The stress board peaks at 72 shares a step.
 10. **One group per counted attack**, tied to her lead target, not one per card. A target already tied in her own group is held
@@ -840,7 +849,7 @@ with the held ticks).
   its `tie`, and the generic serializer stores them. `node e2e/engines.mjs`: V8 (Node, Chromium) and JavaScriptCore (Bun) agree
   on every battle and on the LINKS rejoin. SpiderMonkey and WebKit were not installed on this machine, so run `--require-all`
   before ship.
-- Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js` reads `9abe3d4c3a14` (S1, the long beam, S2, S3 and S4). **No `COOP_PROTOCOL` bump on
+- Sim id: `PENDING_BUMP` in `tests/art/itemArtRuntime.test.js` reads `a2139813c4f2` (S1, the long beam, S2, S3 and S4). **No `COOP_PROTOCOL` bump on
   the branch.**
 - Perf: `tests/sim/perf.test.js` "link attack shapes": 6 Fuus at T5, 6 Enas at T5 and 2 Akanes' Hearth Streams (the hook's busiest
   caller) with 200 enemies. Up to 48 fans, 15 groups and 72 shares a step, at 0.35-0.43 ms a step locally (limit 2 ms).

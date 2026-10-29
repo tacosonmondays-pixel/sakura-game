@@ -272,6 +272,64 @@ describe('Spirit Tether (Ena, Shared Fate T4-5)', () => {
     expect(whole).toBeCloseTo(took[0] / 0.6, 6);
   });
 
+  test('two Enas: the second one\'s hits on the first one\'s threads are split too, never added', () => {
+    const { sim, t } = ena({ more: ['ena'] });
+    const e2 = sim.placeTower('ena', 10.5, 2.5);
+    for (let k = 0; k < 4; k++) expect(sim.upgradeTower(e2.uid, FATE)).toBe(true);
+    t.cooldown = 1e9;
+    e2.cooldown = 1e9;
+    const a = park(sim, 'tank', 9.5);
+    const b = park(sim, 'tank', 8.5);
+    const c = park(sim, 'tank', 7.5);
+    settle(sim, t);
+    tieTether(sim, t, a);
+    tieTether(sim, e2, a); // already tied in the first one's group: no group of hers
+    expect(sim.tethers).toHaveLength(1);
+    const spec = { ...e2.eff, critChance: 0, status: [] };
+    for (const [girl, sp] of [[e2, spec], [t, { ...t.eff, critChance: 0, status: [] }]]) {
+      const hp = [a.hp, b.hp, c.hp];
+      const d0 = girl.damageDealt;
+      sim._hit(a, girl, sp, 1);
+      const took = [hp[0] - a.hp, hp[1] - b.hp, hp[2] - c.hp];
+      expect(took[1] / took[0]).toBeCloseTo(0.2 / 0.6, 6);
+      expect(took[2] / took[0]).toBeCloseTo(0.2 / 0.6, 6);
+      // her total is one whole hit (the target alone would have taken took[0] / 0.6)
+      expect(girl.damageDealt - d0).toBeCloseTo(took[0] / 0.6, 6);
+    }
+  });
+
+  test('a share of a fractional hit (a tick, a fan cut) is that fraction of the thread\'s share: crystal shells and flat armour', () => {
+    const { sim, t } = ena({ more: ['aoi'] });
+    const aoi = sim.placeTower('aoi', 10.5, 2.5);
+    aoi.cooldown = 1e9;
+    t.cooldown = 1e9;
+    const a = park(sim, 'tank', 9.5);
+    const b = park(sim, 'tank', 8.5);
+    const c = park(sim, 'tank', 7.5);
+    settle(sim, t);
+    tieTether(sim, t, a);
+    for (const q of [a, b, c]) {
+      q.crystalHits = 10;
+      q.crystalCap = 1e9;
+      q.armor = 0;
+    }
+    const tick = { ...aoi.eff, critChance: 0, status: [], damage: aoi.eff.damage * 0.1, share: 0.1, tick: true };
+    for (let i = 0; i < 10; i++) sim._hit(a, aoi, tick, 1);
+    expect(a.crystalHits).toBeCloseTo(9, 9);
+    expect(b.crystalHits).toBeCloseTo(9.8, 9); // ten shares of 0.1 × 0.2
+    expect(c.crystalHits).toBeCloseTo(9.8, 9);
+    // flat armour: a share pays share × tick share of it (3 armour, a 0.1 tick: 0.02 × 3 off each share)
+    for (const q of [a, b, c]) {
+      q.crystalHits = 0;
+      q.armor = 3;
+    }
+    const big = { ...tick, damage: tick.damage * 100 }; // (above the floor)
+    const hb = b.hp;
+    const dealt = sim._hit(a, aoi, big, 1);
+    const raw = dealt + 0.1 * 3; // the tick before its armour (0.1 × 3)
+    expect(hb - b.hp).toBeCloseTo(raw * 0.2 - 0.02 * 3, 9);
+  });
+
   test('the share budget: past TETHER_SHARES_PER_STEP shares in a step the rest are dropped; it refills next step', () => {
     const { sim, t } = ena({ more: ['aoi'] });
     const aoi = sim.placeTower('aoi', 10.5, 2.5);
