@@ -70,7 +70,7 @@ export const momo = {
       const a = (i / k) * Math.PI * 2;
       p.vx = Math.cos(a) * 0.7;
       p.vz = Math.sin(a) * 0.7;
-      p.vy = 2.6 + Math.random() * 0.8;
+      p.vy = 2.6 + ctx.rand() * 0.8;
       p.g = -7;
       p.flags = SPIN_X;
     }
@@ -79,7 +79,7 @@ export const momo = {
       for (let i = 0; i < 5; i++) {
         const p = ctx.spr(ctx.b.bbN, DECOR, ctx.R.petal, t.x, 1, t.y, 0.12, 0.08, 0.8, ctx.col('#ffb3c6'), 1);
         if (!p) break;
-        const a = Math.random() * Math.PI * 2;
+        const a = ctx.rand() * Math.PI * 2;
         p.vx = Math.cos(a) * 0.8;
         p.vz = Math.sin(a) * 0.8;
         p.vy = 1.2;

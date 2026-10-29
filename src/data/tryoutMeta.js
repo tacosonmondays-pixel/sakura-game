@@ -40,6 +40,11 @@ export const TRYOUT_META = deepFreeze({
   // ---- the Yearbook (§10.4): every `per` stamps pay `marbles` once (outside the cap) ----------------
   yearbook: { per: 10, marbles: 5 },
 
+  // ---- Extended Day's records (§20.5): the best wave per Grade (waves survived) and the one-time milestones -------
+  // (the milestones' gems are the a_try_aw50 / a_try_aw75 / a_try_aw100 achievements, src/data/achievements.js; they
+  // read 'ty:aw', the best over every Grade). Reaching the Full Day's end (P12) counts as a Full Day clear (Q-A1).
+  extended: { milestones: [50, 75, 100], fullPeriods: 12 },
+
   // ---- the Marble Jar (§10.3) -----------------------------------------------------------------------
   // shelf: desk (once; a perk the run config carries, switchable) · cosmetic (once) · material (a weekly stock).
   // `soon`: not on sale yet (nothing shows it: Window Seat chalk, the profile frame and the lobby pennant come with
@@ -73,6 +78,9 @@ export const TRYOUT_META = deepFreeze({
     // achievement counters (src/data/achievements.js, wave 'tryout')
     half: 'ty:half', full: 'ty:full', spotless: 'ty:spot', ticked: 'ty:tick', dare: 'ty:dare', seen: 'ty:seen', lr: 'ty:lr',
     window: 'ty:win', moves: 'ty:mv', grade: 'ty:grade',
+    // Extended Day (§20.5): the best waves survived over every Grade (the milestone rows read it) and per Grade
+    // ('ty:aw:<grade>')
+    waveBest: 'ty:aw', waveGrade: 'ty:aw:',
   },
 });
 

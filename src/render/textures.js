@@ -868,6 +868,33 @@ export function createAtlas(extra = []) {
     });
   }
 
+  // cel puff (blast bodies, docs/VFX.md "Blasts"): a lumpy cloud in exactly three grey values with
+  // hard edges — 1.0 lit (upper left), 0.75 shadow, 0.45 rim — so the instance colour gives the
+  // girl's base, shadow and a tinted outline (never black), and it reads as a drawn shape, not a mist
+  add('celPuff', 128, 128, (ctx, w, h) => {
+    const lobes = [[0.5, 0.52, 0.27], [0.3, 0.56, 0.18], [0.7, 0.55, 0.19], [0.38, 0.34, 0.19], [0.63, 0.35, 0.18], [0.5, 0.72, 0.18], [0.25, 0.4, 0.13], [0.76, 0.41, 0.13]];
+    const blob = (grow, dx = 0, dy = 0) => {
+      ctx.beginPath();
+      for (const [x, y, r] of lobes) {
+        ctx.moveTo((x + dx) * w + (r + grow) * w, (y + dy) * h);
+        ctx.arc((x + dx) * w, (y + dy) * h, Math.max(0.01, r + grow) * w, 0, Math.PI * 2);
+      }
+    };
+    ctx.fillStyle = 'rgb(115,115,115)'; // rim 0.45
+    blob(0.035);
+    ctx.fill();
+    ctx.fillStyle = 'rgb(191,191,191)'; // shadow 0.75
+    blob(0);
+    ctx.fill();
+    ctx.save();
+    blob(0);
+    ctx.clip();
+    ctx.fillStyle = '#ffffff'; // lit 1.0, offset toward the upper left
+    blob(-0.025, -0.045, -0.055);
+    ctx.fill();
+    ctx.restore();
+  });
+
   for (const [n, w, h, draw] of extra) add(n, w, h, draw); // [attackFx] extra sprites
   const texture = new THREE.CanvasTexture(c);
   texture.colorSpace = THREE.SRGBColorSpace;

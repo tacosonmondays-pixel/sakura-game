@@ -14,7 +14,8 @@
 //   - Local abilities have one cooldown per girl; map-scope ones one per player for that ability too
 //     (sim.abilGroups, key "<owner>|<id>"). A group cast fires the best ready copy of her player's,
 //     even while the selected copy is still locked.
-//   - Lasting effects (boosts, rallies, queued shells) end at the wave clear and when she is sold, so
+//   - Lasting effects (boosts, rallies, queued shells, the A4 deploys of src/sim/deploys.js: shadow doubles,
+//     Bell Carpet traps, surge drones) end at the wave clear and when she is sold, so
 //     a calm point between waves never holds one (battle saves and co-op checkpoints stay simple).
 //   - Minibosses and bosses shrug off ability freezes and stuns for ccGuardTicks after one lands.
 //   - Coins go to the caster's owner (sim._gainCashFor: owner-credited coins, GAPS P-16).
@@ -32,6 +33,7 @@
 //
 // State (all plain data, so the generic snapshot stores it):
 //   t.abil      { id, kind, scope, cdMax, cd, rate, active, auto, t5, n }  — created when she unlocks
+//   t.mirror2   Iroha's tier-5 second mirror { x, y } while her Mirror Shift runs (src/sim/mirrors.js), else null
 //   t.abilMods  a running boost's ModSet, or a strike's boost tail (`after`: Zero Point); null otherwise
 //               (resolved last, src/sim/mods.js `extra`)
 //   sim.abilGroups  Map "<owner>|<id>" → { cd, cdMax, rate }   (map scope; deleted once charged)
@@ -47,12 +49,14 @@
 
 import { ABILITY_RULES, abilityAtTier, skillAtLevel, abilityRuns, abilityWithLr } from '../data/abilities.js';
 import { abilityChargePerTick, firstBellCharge } from './gearRules.js';
-import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL, PRISM_SHARDS, KNOCKBACK_RESIST, WELL_PULL_REACH } from './constants.js';
-import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs, chainJump, chainNext } from './towers.js';
+import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL, PRISM_SHARDS, KNOCKBACK_RESIST, PUSH_LOCK, WELL_PULL_REACH } from './constants.js';
+import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs, chainJump, chainNext, hasRoamingDrones } from './towers.js';
 import { isEligible } from './combat.js';
-import { isCaster, syncStatusFlags } from './enemies.js';
+import { isCaster, syncStatusFlags, placeOnPath } from './enemies.js';
 import { spikeRain } from './strips.js';
 import { emergencyDeploy } from './sentries.js';
+import { mirrorShift, mirrorShiftEnd } from './mirrors.js';
+import { shadowDoubles, bellCarpet, droneSurge, tickDeploys, endDeployWave, clearDeploys } from './deploys.js';
 import { startRunner } from './runners.js';
 import { samplePath } from './path.js';
 import { anchorsAt, pullAlong } from './zones.js';
@@ -191,8 +195,8 @@ function groupRate(sim, key, g) {
 /**
  * Unlocks her ability (an `abilityUnlock` event; 1/3 of the cooldown left, econ empty) or keeps it up to
  * date after an upgrade or a hero level (tier 5 / rank: the cooldown left becomes min(left, new full)).
- * Kinds and types this build does not run yet (handlerOf: the deploy types of Kage, Suzu and Chika wait for
- * A4) stay locked. Called on placement and _refreshTower.
+ * Kinds and types this build does not run yet (handlerOf: Ruri's 'carry' move, …) stay locked. Called on placement
+ * and _refreshTower.
  */
 export function syncAbility(sim, t) {
   const src = abilitySource(t);
@@ -266,9 +270,23 @@ export function abilityReach(t, def) {
     case 'boost': return t.eff.range + (e.mods?.range || 0);
     case 'rally': return rallyRadius(t, e);
     case 'debuff': return (e.reachMul ?? 1) * t.eff.range + (e.reachAdd || 0);
-    case 'deploy': return (e.reachMul ?? 1) * t.eff.range;
+    // (Mirror Shift: her mirror's reach, where the panel can stand; Drone Surge: her drones' reach)
+    case 'deploy': return e.deploy === 'mirror' && t.stats?.relay ? t.stats.relay.reach : e.deploy === 'drone' ? droneReach(t) : (e.reachMul ?? 1) * t.eff.range;
+    case 'move': return (e.reachMul ?? 1) * t.eff.range + (e.reachAdd || 0);
     default: return t.eff.range;
   }
+}
+
+/**
+ * How far Drone Surge looks (Chika's drone reach; the auto rule's `reach: 'leash'`): her wing's leash plus the
+ * drones' gun range around her, or the whole map while her wing flies Pursuit. The rule is one circle around
+ * her in every other mode (Hold and Patrol points sit inside her signal range anyway): simple and stable.
+ */
+export function droneReach(t) {
+  const ts = t.turretSpec;
+  if (!ts || !(ts.leash > 0)) return t.eff.range;
+  if (t.flight?.mode === 'pursuit') return Infinity;
+  return ts.leash + ts.range;
 }
 
 /**
@@ -792,7 +810,8 @@ function strikeTargets(sim, t, def, spec) {
  * shows ({ x, y, radius, targets }), or null when there is nothing to act on (refused `noTarget`, no
  * side effect); end(sim, t) undoes a lasting one. `aim` ([x, y] or null, malformed aims already dropped)
  * matters to an ability on one girl (the girl-target rule) and to Yuzuha's sentries (the edge spots nearest
- * it); A6 adds aimed points. The deploy and runner kinds go through DEPLOYS / RUNNERS (handlerOf).
+ * it); A6 adds aimed points. The deploy and runner kinds go through DEPLOYS / RUNNERS (handlerOf); the move kind
+ * runs its type from MOVES.
  */
 const KINDS = {
   strike: {
@@ -951,6 +970,13 @@ const KINDS = {
     },
   },
 
+  move: {
+    // one move type at a time (MOVES, by `effect.move`; handlerOf never hands a type that is not there to this)
+    cast(sim, t, def, step, aim) {
+      return MOVES[def.effect.move].cast(sim, t, def, step, aim);
+    },
+  },
+
   econ: {
     cast(sim, t, def) {
       const coins = (def.effect.coins || 0) * (sim.diff.cashMul ?? 1) * (sim.incomeMul ?? 1);
@@ -964,11 +990,60 @@ const KINDS = {
 /** The kinds this build runs (the others stay locked: their ⚡ teaser says they come later). */
 export const ABILITY_KINDS_LIVE = Object.freeze(Object.keys(KINDS));
 
+/** Is an enemy `spec` can hit within `reach` of her (Infinity: anywhere outside the tunnels)? */
+function anyIn(sim, t, reach, spec) {
+  if (!spec) return false;
+  if (reach === Infinity) {
+    for (const e of sim.enemies) if (!e.dead && !e.hidden && isEligible(e, spec)) return true;
+    return false;
+  }
+  return gatherTargets(sim, t.x, t.y, reach, spec, []).length > 0;
+}
+
 /**
  * The deploy kind (ABILITIES_SPEC §4, A4) one object type at a time, by `effect.deploy`. A type that
- * is not here stays locked (Kage's doubles, Suzu's traps and Chika's drones still wait for A4).
+ * is not here stays locked (every type in the data runs today: the A4 three, Azami's strips, Yuzuha's sentries and
+ * Iroha's mirror). Each A4 cast is refused (`noTarget`, nothing spent) when no enemy its objects could hit is in
+ * reach, or when nothing could be placed (no road in her range, the sim-wide cap full: src/sim/deploys.js); Mirror
+ * Shift's rule is src/sim/mirrors.js mirrorShift.
  */
 const DEPLOYS = {
+  // Kage's Shadow Doubles (src/sim/deploys.js): doubles on the road spots nearest the exit in her range
+  // (at least `spacing` apart), throwing her current volley × dmgMul for the ability's duration
+  double: {
+    cast(sim, t, def) {
+      const e = def.effect;
+      const reach = abilityReach(t, def);
+      if (!anyIn(sim, t, reach, abilitySpec(t, def))) return null;
+      const placed = shadowDoubles(sim, t, { count: e.count, spacing: e.spacing ?? 1.5, dmgMul: e.dmgMul ?? 1, duration: def.duration });
+      if (!placed.length) return null;
+      return { x: t.x, y: t.y, radius: reach, targets: [], placed: placed.length };
+    },
+  },
+  // Suzu's Bell Carpet (src/sim/deploys.js): extra traps spread evenly along the road in her range, beyond her
+  // trap limit, armed after `arm` s; the ones still standing fizzle after the ability's duration
+  trap: {
+    cast(sim, t, def) {
+      const e = def.effect;
+      const reach = abilityReach(t, def);
+      if (!anyIn(sim, t, reach, t.trapSpec)) return null;
+      const placed = bellCarpet(sim, t, { count: e.count, arm: e.arm, duration: def.duration });
+      if (!placed.length) return null;
+      return { x: t.x, y: t.y, radius: reach, targets: [], placed: placed.length };
+    },
+  },
+  // Chika's Drone Surge (src/sim/deploys.js): extra roaming drones beyond her limit for the ability's duration,
+  // flying her current flight mode; refused with no enemy her drones can hit in her drone reach (droneReach)
+  drone: {
+    cast(sim, t, def) {
+      if (!hasRoamingDrones(t)) return null;
+      const reach = droneReach(t);
+      if (!anyIn(sim, t, reach, t.turretSpec)) return null;
+      const placed = droneSurge(sim, t, { count: def.effect.count, duration: def.duration });
+      if (!placed.length) return null;
+      return { x: t.x, y: t.y, radius: reach, targets: [], placed: placed.length };
+    },
+  },
   // Yuzuha's Emergency Deploy (src/sim/sentries.js): extra sentries at the edge spots nearest her aim
   // point, or nearest the lead enemy in her range; they live the ability's duration beyond her cap
   sentries: {
@@ -979,6 +1054,17 @@ const DEPLOYS = {
       const placed = emergencyDeploy(sim, t, { count: def.effect.count, ttl: def.duration }, aim, lead);
       if (!placed.length) return null;
       return { x: placed[0].x, y: placed[0].y, radius: reach, targets: [], placed: placed.length };
+    },
+  },
+  // Iroha's Mirror Shift (src/sim/mirrors.js): her panel jumps to her aim point (or the road spot nearest the leader
+  // in her mirror's reach) and reflects for the window: every girl's shot that crosses it splits in two, once; tier 5
+  // (Infinite Reflection) leaves the panel reflecting for good and the cast adds a second mirror for the window
+  mirror: {
+    cast(sim, t, def, step, aim) {
+      return mirrorShift(sim, t, def, aim);
+    },
+    end(sim, t) {
+      mirrorShiftEnd(sim, t);
     },
   },
   // Azami's Spike Rain (src/sim/strips.js): extra strips spread evenly along the road in her reach,
@@ -994,6 +1080,72 @@ const DEPLOYS = {
     },
   },
 };
+
+/**
+ * How far a move pushes enemy `v` (tiles): `push`; a miniboss `pushMiniboss` (default: push × KNOCKBACK_RESIST,
+ * half); a boss never moves.
+ */
+function pushTiles(e, v) {
+  if (v.tier === 'boss') return 0;
+  if (v.tier === 'miniboss') return e.pushMiniboss ?? (e.push || 0) * (KNOCKBACK_RESIST.miniboss ?? 1);
+  return e.push || 0;
+}
+
+/**
+ * A move's push on one enemy: `tiles` back along its own path by path distance, clamped at the path start, through
+ * the push lock (an enemy moved inside its PUSH_LOCK window stays put — unless the lock is the caster's own: one her
+ * own gusts or gather set, e.pushLockBy === her uid; owner decision Oct 29, "no weak ults" — another girl's lock or an
+ * ability's still holds; one this moves takes the lock, as an ability's: pushLockBy −1) and the freeplay push budget
+ * (e.kbLeft, which pays only for the tiles it really moves). Returns the tiles moved (0: none).
+ * Only − and min: no trig (placeOnPath reads the path's precomputed facing).
+ */
+function movePush(sim, v, tiles, ownUid) {
+  if (!(tiles > 0) || v.dead || (v.pushLock > 0 && v.pushLockBy !== ownUid)) return 0;
+  let amt = Math.min(tiles, v.dist);
+  if (v.kbLeft != null) {
+    amt = Math.min(amt, v.kbLeft);
+    v.kbLeft -= amt;
+  }
+  if (!(amt > 0)) return 0;
+  v.dist -= amt; // (amt = dist leaves exactly 0: the path start)
+  placeOnPath(v, sim.pathData[v.pathIndex]);
+  v.pushLock = PUSH_LOCK[v.tier] ?? PUSH_LOCK.normal;
+  v.pushLockBy = -1;
+  return amt;
+}
+
+/**
+ * The move kind (ABILITIES_SPEC §4, A5) one move type at a time, by `effect.move`; a type that is not here stays
+ * locked (Ruri's Star Snatch, 'carry', waits). A new type adds its entry here and to ABILITY_MOVES_RUN.
+ */
+const MOVES = {
+  // Fuu's Backdraft Fan: every enemy her ability can reach but a boss (eligible for her hit spec: never in a tunnel,
+  // a veiled one only with Veil Sight, flyers when she hits air) is blown back (pushTiles, movePush) and takes the
+  // statuses (her flyers are grounded); one push-locked by another girl or an ability is not moved but still takes
+  // them (her own gusts' locks never stop it: movePush). In uid order.
+  // Refused (nothing spent) with no such enemy in reach.
+  push: {
+    cast(sim, t, def, step) {
+      const e = def.effect;
+      const spec = abilitySpec(t, def);
+      const reach = abilityReach(t, def);
+      const { x, y } = castFrom(t, def, FROM);
+      let pool = gatherTargets(sim, x, y, reach, spec, []).filter((v) => v.tier !== 'boss');
+      if (!pool.length) return null;
+      if (e.count != null && pool.length > e.count) pool = topOf(pool, e.pick === 'first' ? 'first' : t.targetMode, x, y, e.count);
+      pool.sort((a, b) => a.uid - b.uid);
+      let moved = 0;
+      for (const v of pool) {
+        if (movePush(sim, v, pushTiles(e, v), t.uid) > 0) moved++;
+        applyStatuses(sim, v, t, e.status, spec, step);
+      }
+      return { x, y, radius: reach, targets: listed(pool), moved };
+    },
+  },
+};
+
+/** Move types this build runs. */
+export const ABILITY_MOVES_LIVE = Object.freeze(Object.keys(MOVES));
 
 /**
  * The runner kind (ABILITIES_SPEC §4, A6) one runner type at a time, by `effect.runner`; a type that is
@@ -1045,6 +1197,7 @@ export function handlerOf(def) {
   if (!abilityRuns(def)) return null;
   if (def.kind === 'deploy') return DEPLOYS[def.effect.deploy] || null;
   if (def.kind === 'runner') return RUNNERS[def.effect.runner] || null;
+  if (def.kind === 'move') return MOVES[def.effect.move] ? KINDS.move : null;
   return KINDS[def.kind] || null;
 }
 
@@ -1149,6 +1302,9 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
     x: fx.x, y: fx.y, radius: Number.isFinite(fx.radius) ? fx.radius : 0, targets: fx.targets,
     ...(fx.coins != null ? { coins: fx.coins } : null),
     ...(fx.placed != null ? { placed: fx.placed } : null),
+    ...(fx.moved != null ? { moved: fx.moved } : null),
+    // (Mirror Shift: 'panel' her panel jumped to x, y; 'second' tier 5's second mirror stands there)
+    ...(fx.mirror != null ? { mirror: fx.mirror } : null),
   });
   return { ok: true, reason: null, casterUid: t.uid };
 }
@@ -1202,11 +1358,16 @@ export function autoWants(sim, t, def) {
     AUTO_NEAR.length = 0;
     const from = castFrom(t, def, FROM);
     list = sim.grid.query(from.x, from.y, reach, AUTO_NEAR);
+  }
+  // (Drone Surge in Pursuit looks over the whole map, yet still counts only what her drones can hit)
+  if (reach !== Infinity || def.effect?.deploy === 'drone') {
     if (def.kind !== 'rally') {
-      // abilitySpec's eligibility fields (a finite reach is never map scope: no free Veil Sight)
-      AUTO_ELIG.attackType = t.eff.attackType;
-      AUTO_ELIG.detection = !!t.eff.detection;
-      AUTO_ELIG.canHitAir = def.effect?.hitsAir ?? t.eff.canHitAir;
+      // abilitySpec's eligibility fields (a finite reach is never map scope: no free Veil Sight); Drone Surge
+      // counts what her drones can hit, Bell Carpet what her traps can
+      const src = def.effect?.deploy === 'drone' ? t.turretSpec || t.eff : def.effect?.deploy === 'trap' ? t.trapSpec || t.eff : t.eff;
+      AUTO_ELIG.attackType = src.attackType;
+      AUTO_ELIG.detection = !!src.detection;
+      AUTO_ELIG.canHitAir = def.effect?.hitsAir ?? src.canHitAir;
       elig = AUTO_ELIG;
     }
   }
@@ -1314,7 +1475,8 @@ const DUE = [];
 
 /**
  * One step of abilities (Sim._step1, right after the buffs and before the girls attack; only in a
- * wave): 1. charge, 2. expire lasting effects, 3. run due queued hits and shells, 4. auto-cast.
+ * wave): 1. charge, 2. expire lasting effects, 3. run due queued hits and shells, 4. the deploys age and the
+ * shadow doubles throw (src/sim/deploys.js), 5. auto-cast.
  */
 export function tickAbilities(sim) {
   if (sim.state !== 'wave') return;
@@ -1373,6 +1535,8 @@ export function tickAbilities(sim) {
     for (let i = 0; i < DUE.length; i++) fireQueued(sim, DUE[i], step);
     DUE.length = 0;
   }
+  // the A4 deploys: surge drones and shadow doubles age, then the doubles throw (src/sim/deploys.js)
+  tickDeploys(sim);
   for (const t of sim.towers) {
     const a = t.abil;
     if (!a || !a.auto || (step + t.uid) % R.autoEvery !== 0 || refusal(sim, t)) continue;
@@ -1451,11 +1615,17 @@ export function endAbilityWave(sim) {
     touched = true;
   }
   if (sim._abilQueue.length) sim._abilQueue = [];
+  // shadow doubles, Bell Carpet traps and surge drones (src/sim/deploys.js)
+  endDeployWave(sim);
   if (touched) recomputeBuffs(sim);
 }
 
-/** A girl leaves (sold): her rallies and queued shots end with her. sellTower rebuilds the buffs after. */
+/**
+ * A girl leaves (sold): her rallies, queued shots and shadow doubles end with her (sellTower drops her traps and
+ * drones itself, the Bell Carpet's and the surge's with them). sellTower rebuilds the buffs after.
+ */
 export function clearAbilityEffects(sim, t) {
+  clearDeploys(sim, t);
   if (sim._rallies.length) sim._rallies = sim._rallies.filter((r) => r.src !== t.uid);
   if (sim._abilQueue.length) sim._abilQueue = sim._abilQueue.filter((it) => it.src !== t.uid);
   if (t.abilMods) t.abilMods = null;

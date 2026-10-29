@@ -60,6 +60,10 @@ export const DEFAULT_SETTINGS = {
   defaultSpeed: 1,
   lighting: { exposure: 1, warmth: 0 },
   reduceMotion: false,
+  /** Battle flashes & shake: screen flashes, impact frames, camera shake / zoom punch, hit-stop and the hold on heavy hits (docs/VFX.md). */
+  hitEffects: true,
+  /** Impact frames: the 1–2 tinted frames on ultimates and boss kills (High only; Reduce motion turns them off) (docs/VFX.md). */
+  impactFrames: true,
   /** Battle camera: 'locked' holds the fitted map view; 'free' = drag to pan, pinch / wheel to zoom. */
   camera: 'locked',
   /** Buff icons over the girls: 'all', 'selected' (the selected girl and her links) or 'off'. */
@@ -316,6 +320,10 @@ function cleanSettings(raw) {
     defaultSpeed: [1, 2, 3].includes(s.defaultSpeed) ? s.defaultSpeed : d.defaultSpeed,
     lighting: { exposure: num(lighting.exposure, d.lighting.exposure, 0.3, 2.5), warmth: num(lighting.warmth, d.lighting.warmth, -1, 1) },
     reduceMotion: bool(s.reduceMotion, d.reduceMotion),
+    // older saves have no flashes & shake setting: on (Reduce Motion still stops the shake and freezes)
+    hitEffects: bool(s.hitEffects, d.hitEffects),
+    // older saves have no impact frames setting: on (Reduce motion and Flashes & shake still turn them off)
+    impactFrames: bool(s.impactFrames, d.impactFrames),
     // older saves have no camera setting: they get the locked camera too
     camera: CAMERA_MODES.includes(s.camera) ? s.camera : d.camera,
     // older saves have no buff icon setting: every buffed girl shows hers

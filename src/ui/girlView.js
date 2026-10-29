@@ -42,7 +42,7 @@ const withForms = (forms) => ({ ...forms[0], multi: false, forms, howTo: howToFi
 
 /**
  * The Details sheet's closing "In battle, tap…" sentence speaks only of what runs today (the "Comes in a later update"
- * teaser is the only promise): null when no form runs (Fuu, Iroha, Kanna: no button to point at); else `hero` (the
+ * teaser is the only promise): null when no form runs (Kanna's skill: no button to point at); else `hero` (the
  * button by her portrait) and `name` — the forms that run, named when some of hers wait (Ruri: "Moon Pounce"), null
  * when the sentence can say "it".
  */

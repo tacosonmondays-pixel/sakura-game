@@ -1247,6 +1247,7 @@ function instantiate(asset, def, quality) {
       const m = new THREE.Mesh(n.geometry, mat);
       m.castShadow = true;
       m.renderOrder = see ? 1 : 0;
+      m.userData.body = true; // see-through only for a slime / ghost look: impact frames draw it as a silhouette
       obj.add(m);
       if (outlineMat) {
         const o = new THREE.Mesh(n.geometry, outlineMat);
@@ -1273,6 +1274,7 @@ function instantiate(asset, def, quality) {
   };
   const baseColor = new THREE.Color('#ffffff');
   const tmp = new THREE.Color();
+  const flashColor = new THREE.Color('#ffffff'); // the last hit's flash colour (hitFlash)
 
   const applyLook = (time) => {
     let opacity = baseOpacity;
@@ -1293,7 +1295,7 @@ function instantiate(asset, def, quality) {
       mat.emissive.copy(tmp.set(st.tint)).multiplyScalar(0.18 * pulse);
     }
     if (st.phasing) mat.emissive.add(tmp.set('#5c7cfa').multiplyScalar(0.25));
-    if (st.flash > 0) mat.emissive.add(tmp.setRGB(1, 1, 1).multiplyScalar(st.flash * 0.9));
+    if (st.flash > 0) mat.emissive.add(tmp.copy(flashColor).multiplyScalar(st.flash * 0.9));
     if (st.barrier > 0) {
       bubble.visible = true;
       bubbleMat.opacity = 0.12 + 0.22 * st.barrier + 0.05 * Math.sin(time * 4);
@@ -1309,7 +1311,8 @@ function instantiate(asset, def, quality) {
   group.userData.height = 0.6 * (def.size || 1);
   group.userData.family = asset.family;
   group.userData.animate = (time, dt = 0.016, { moving = true, speed = 1 } = {}) => {
-    st.flash = Math.max(0, st.flash - (dt || 0.016) * 6);
+    // dt 0 (a hit-stop, a local hold's first frame) shows the look as it is: the flash does not fade
+    st.flash = Math.max(0, st.flash - Math.max(0, Number(dt) || 0) * 6);
     const frozen = st.frozen || st.statuses.stun || st.statuses.shock;
     const t = frozen ? st.frozenAt ?? time : time;
     if (!frozen) st.frozenAt = time;
@@ -1319,7 +1322,11 @@ function instantiate(asset, def, quality) {
     else model.rotation.z = 0;
     applyLook(time);
   };
-  group.userData.hitFlash = () => { st.flash = 1; };
+  group.userData.hitFlash = (color = null, strength = 1) => {
+    if (color) flashColor.set(color);
+    else flashColor.setRGB(1, 1, 1);
+    st.flash = Math.max(st.flash, Math.min(1, strength ?? 1));
+  };
   group.userData.setVeiled = (on) => { st.veiled = !!on; };
   group.userData.setPhasing = (on) => { st.phasing = !!on; };
   group.userData.setBarrier = (frac) => { st.barrier = Math.max(0, Math.min(1, Number(frac) || 0)); };

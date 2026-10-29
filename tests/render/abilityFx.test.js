@@ -50,6 +50,8 @@ const EVENTS = [
   // Tenka's LR Event Horizon: the pull over the blast's area, then its second detonation
   { type: 'abilityHorizon', towerUid: 1, id: 'tenka.criticalMass', x: 3, y: 3, radius: 2, time: 1.5 },
   { type: 'abilityShell', towerUid: 1, id: 'tenka.criticalMass', x: 3, y: 3, radius: 2, hits: 3, horizon: true },
+  // A5: a move (Backdraft Fan's gust; the last event, which its own test replays)
+  { type: 'ability', towerUid: 1, id: 'fuu.backdraft', kind: 'move', scope: 'local', x: 4, y: 5, radius: 4.5, targets: [100, 101, 102], moved: 3 },
 ];
 
 describe('ability FX', () => {
@@ -79,6 +81,20 @@ describe('ability FX', () => {
     expect(fx.calls.filter((c) => c.name === 'sparkle').map((c) => [c.args[0], c.args[1]])).toEqual([[6, 5], [7, 2]]);
     a.handle(EVENTS[5]);
     expect(fx.calls.some((c) => c.name === 'coin' && c.args[3] === 100)).toBe(true);
+  });
+
+  it('a move: her reach\'s edge, a fan of five wind glows sweeping toward the crowd, a puff on each enemy it reached', () => {
+    const fx = stubFx();
+    const a = createAbilityFx({ sim: stubSim(), fx, colorOf: () => '#4f9e88' });
+    a.frame();
+    a.handle(EVENTS[EVENTS.length - 1]);
+    expect(fx.calls.some((c) => c.name === 'ring' && c.args[0] === 4 && c.args[1] === 5 && c.args[3] === 4.5)).toBe(true);
+    const fan = fx.calls.filter((c) => c.name === 'spawn' && c.args[0].life === 0.5 && c.args[0].vx != null);
+    expect(fan).toHaveLength(5);
+    // (the targets lie to the west and north of her: the fan sweeps that way)
+    for (const c of fan) expect(c.args[0].vx).toBeLessThan(0);
+    // one puff on each enemy it reached, where it stands
+    expect(fx.calls.filter((c) => c.name === 'puff').map((c) => c.args[0])).toEqual([0, 1, 2].map((i) => 1 + i * 0.3));
   });
 
   it('per-frame caps: lines, rings, puffs and events stop at their budget and start again next frame', () => {
@@ -275,7 +291,7 @@ describe('ability FX', () => {
   });
 
   it('Event Horizon: thin rings collapse onto the centre for the whole pull, the second detonation adds a white ring; Reduce motion: a still ring that fades', () => {
-    const [pull, blast] = EVENTS.slice(-2);
+    const [pull, blast] = EVENTS.filter((e) => e.id === 'tenka.criticalMass' && (e.type === 'abilityHorizon' || e.horizon));
     const fx = stubFx();
     let shakes = 0;
     const a = createAbilityFx({ sim: stubSim(), fx, shake: () => shakes++ });

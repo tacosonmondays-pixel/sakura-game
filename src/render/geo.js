@@ -86,7 +86,7 @@ export class GeoBuilder {
       _c2.set(o.color2);
     }
     const jitter = o.jitter || 0;
-    const rand = o.rand || Math.random;
+    const rand = o.rand || makeRand(0x9e3779b9); // never Math.random: the same build, the same colours
     // Jitter per triangle (flat look) rather than per vertex.
     let jr = 0;
     let jg = 0;
@@ -152,7 +152,7 @@ export class GeoBuilder {
     const g = new THREE.IcosahedronGeometry(r, o.detail ?? 0);
     if (o.wobble) {
       const pos = g.attributes.position;
-      const rand = o.rand || Math.random;
+      const rand = o.rand || makeRand(0x85ebca6b); // never Math.random: the same build, the same shape
       const seen = new Map();
       for (let i = 0; i < pos.count; i++) {
         const key = `${pos.getX(i).toFixed(3)},${pos.getY(i).toFixed(3)},${pos.getZ(i).toFixed(3)}`;

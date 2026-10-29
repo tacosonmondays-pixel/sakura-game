@@ -23,6 +23,7 @@ import { unitBattleStats } from '../../src/systems/progression.js';
 import { RECORD_V, SNAP_V, SNAP_V_P1, slotKey } from '../../src/systems/battleSave.js';
 import { xpToReach } from '../../src/sim/hero.js';
 import { FLIGHT_MODES } from '../../src/sim/constants.js';
+import { shadowDoubles } from '../../src/sim/deploys.js';
 import {
   snapshotSim, restoreSim, useWaveStream, StaleSaveError, KNOWN_SIM_KEYS, KNOWN_TOWER_KEYS, KNOWN_DRONE_KEYS,
 } from '../../src/ui/battle/snapshot.js';
@@ -1556,6 +1557,14 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const k of fields(tenkaWellRun().sim)) keys.add(k);
     // (and Norika's barricades: the blocker count)
     for (const k of fields(staffRun('norika', 25).sim)) keys.add(k);
+    // (and Kage's Shadow Doubles: the deployables list, created on the first cast; src/sim/deploys.js)
+    {
+      const sim = new Sim({ stageId: '3-5', difficulty: 'normal', loadout: [{ unitId: 'kage' }], seed: 1 });
+      const spot = autoPlan('3-5', ['kage']).find((x) => x.action === 'place');
+      const t = sim.placeTower('kage', spot.x, spot.y);
+      expect(shadowDoubles(sim, t, { count: 2, spacing: 1.5, dmgMul: 0.6, duration: 8 }).length).toBeGreaterThan(0);
+      for (const k of fields(sim)) keys.add(k);
+    }
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_SIM_KEYS).sort());
   });
 
@@ -1616,6 +1625,18 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of duoRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the staff heroes: Norika's barricades, Hold the Line and One-Way Street; Kogane's Overdrive)
     for (const id of ['norika', 'kogane']) for (const t of staffRun(id, 25).sim.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Iroha at Mirror Hall tier 5 mid-cast: Infinite Reflection's second mirror, gone at the wave clear)
+    const ir = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['iroha', 'aoi'], hero: null, stats: {}, seed: 15 });
+    ir.cash = 1e6;
+    for (const a of autoPlan('1-1', ['iroha', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') ir.placeTower(a.unitId, a.x, a.y);
+    const iro = ir.towers.find((t) => t.unitId === 'iroha');
+    for (let k = 0; k < 5; k++) expect(ir.upgradeTower(iro.uid, 0)).toBe(true);
+    ir.startNextWave();
+    ir.update(STEP);
+    iro.abil.cd = 0;
+    expect(ir.castAbility(iro.uid, { aim: [iro.ox, iro.oy] }).ok).toBe(true);
+    expect(iro.mirror2).toBeTruthy();
+    for (const t of ir.towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 

@@ -227,6 +227,10 @@ export const MORTAR_AIM_SLACK = 0.5;
 export const MORTAR_SCATTER = [[0, 0], [0.6, 0], [-0.3, 0.52], [-0.3, -0.52], [0, 0.6], [0, -0.6]];
 /** A familiar / un-aimed mirror stops this far short of the nearest lane sample. */
 export const FAMILIAR_STANDOFF = 0.7;
+/** Iroha's reflecting mirror (Mirror Shift / Infinite Reflection, src/sim/mirrors.js): a shot whose step passes within this many tiles of it splits. */
+export const MIRROR_RADIUS = 0.5;
+/** A split copy with no other target flies at the original's, fanned this many radians to one side. */
+export const SPLIT_FAN = 0.18;
 /** Lane sampling step for relay origins (tiles). */
 export const RELAY_SAMPLE_STEP = 0.25;
 /** Seconds an enemy cannot be knocked back / gathered again after it was moved (bosses never move). */
@@ -384,3 +388,16 @@ export const RELEASE_SLOW_TIME = 3;
 export const DETOUR_NO_FORK_MUL = 1.5;
 /** Bright Sash: a held enemy is revealed for this long, refreshed every step it is held (s). */
 export const HELD_REVEAL = 0.25;
+
+// ---------------------------------------------------------------------------
+// The A4 deploys (src/sim/deploys.js; ABILITIES_SPEC §4 deploy): Kage's shadow doubles, Suzu's Bell Carpet
+// traps and Chika's surge drones. Each lives beyond its girl's own limit; these sim-wide caps keep the work
+// per step bounded however many copies cast. A cast places only what its cap leaves (none left: refused
+// `noTarget`, nothing spent); nothing already placed is evicted.
+// ---------------------------------------------------------------------------
+/** Shadow doubles standing on the map at once (every Kage, both players). */
+export const DOUBLES_PER_SIM = 36;
+/** Bell Carpet traps on the road at once (every Suzu, both players). */
+export const BELL_TRAPS_PER_SIM = 96;
+/** Surge drones flying at once (every Chika, both players). */
+export const SURGE_DRONES_PER_SIM = 48;

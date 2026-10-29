@@ -9,7 +9,8 @@
 //   projectile(p, dt)      → reused view {kind,x,y,z,scale,sz,tint,glow,yaw,skip} or null
 //   towerOffset(uid)       → shared {x, z} model offset (lunge / recoil)
 //   trapHidden(uid)        → true while a tossed seal is still in the air
-//   update(dt)             → once per frame after actors.drawGround
+//   update(dt, frameDt)    → once per frame after actors.drawGround (dt: the renderer's visual
+//                            clock, src/render/vfx/clock.js; frameDt: the frame's own time)
 import { createContext, CORE } from './context.js';
 import { resolveStyle } from './registry.js';
 import { tierLook, intensity, tierKey } from './flair.js';
@@ -19,6 +20,7 @@ import { Segments } from './patterns/segments.js';
 import { Drones } from './patterns/drones.js';
 import { Lunges } from './patterns/lunge.js';
 import { Tosses } from './patterns/toss.js';
+import { Lobs } from './patterns/lobs.js';
 import { hitRadius } from '../../sim/towers.js';
 import { heroLookTiers } from '../../sim/hero.js';
 import { PROJECTILE_Z } from '../../sim/constants.js';
@@ -27,7 +29,8 @@ const DEFAULT_HR = 0.36;
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 /**
- * @param {{ sim, scene, actors, fx, batches, atlas, camera, rig, quality?, reduceMotion?, strict? }} o
+ * @param {{ sim, scene, actors, fx, batches, atlas, camera, rig, quality?, reduceMotion?, strict?, rand? }} o
+ *   rand: seeded visual random stream (src/render/vfx/random.js); a default one is seeded when absent
  */
 export function createAttackFx(o) {
   const { sim, actors } = o;
@@ -36,6 +39,10 @@ export function createAttackFx(o) {
   ctx.drones = new Drones(ctx, actors.root || o.scene);
   ctx.lunge = new Lunges(ctx);
   ctx.toss = new Tosses(ctx);
+  // extra per-frame layers a style adds once for the whole field (Kaede's blade streaks, ghosts,
+  // hit flashes): { update(gdt, rdt), dispose() }, updated after the pooled quads, disposed with us
+  ctx.layers = [];
+  ctx.lobs = new Lobs(ctx, 24);
   const strict = !!o.strict;
 
   // ---- per-tower state ------------------------------------------------------------------
@@ -92,8 +99,8 @@ export function createAttackFx(o) {
 
   // ---- stats ---------------------------------------------------------------------------------
   const stats = {
-    drones: 0, dronesOverflow: 0, engaged: 0, droneShots: 0, projTracked: 0, blended: 0, familiars: 0, segments: 0, quads: 0,
-    quadBudget: 0, shed: 0, ms: 0, msFrame: 0, maxDecor: 0, maxBlendResidual: 0, impacts: 0, matched: 0, defaultPulses: 0, styled: 0,
+    drones: 0, dronesOverflow: 0, engaged: 0, droneShots: 0, projTracked: 0, blended: 0, familiars: 0, segments: 0, quads: 0, halos: 0,
+    quadBudget: 0, shed: 0, lobs: 0, ms: 0, msFrame: 0, maxDecor: 0, maxBlendResidual: 0, impacts: 0, matched: 0, defaultPulses: 0, styled: 0,
   };
   let frame = 1;
   let msAcc = 0;
@@ -151,11 +158,28 @@ export function createAttackFx(o) {
     return null;
   }
 
+  /** The girl a status record names as its source (sourceUid), or null. */
+  function statusSource(ev) {
+    const list = sim.enemies;
+    for (let k = 0; k < list.length; k++) {
+      if (list[k].uid !== ev.uid) continue;
+      const st = list[k].statuses?.[ev.status];
+      return st && st.sourceUid != null ? st.sourceUid : null;
+    }
+    return null;
+  }
+
+  const splitCopies = new Map(); // copy uid -> its mirrorSplit event (the crossing point)
   function onEvent(ev, i, events) {
     if (disposed) return false;
     const t0 = now();
     let handled = false;
     switch (ev.type) {
+      case 'mirrorSplit':
+        // a shot split at a mirror (src/sim/mirrors.js): its copy is drawn leaving the crossing point
+        if (splitCopies.size > 256) splitCopies.clear();
+        splitCopies.set(ev.copyUid, ev);
+        break;
       case 'hit':
         // (a constant beam's damage ticks are no impact for a projectile to match)
         if (!ev.tick) hits.push(ev.uid, ev.x, ev.y, 0, ev.crit);
@@ -202,6 +226,16 @@ export function createAttackFx(o) {
           if (owner != null ? owner !== tw.uid : tw.lastTargetUid !== ev.uid) continue;
           const t = sim.getTower(tw.uid);
           if (t) tw.style.onStatus(ev, tw, view(t), ctx);
+        }
+        // no attack event to pin it on (a straight pin, a strip, a seed): the status record's own
+        // source girl hears it too when the fallback above skipped her (display read only)
+        if (owner == null) {
+          const src = statusSource(ev);
+          const tw = src != null ? tws.get(src) : null;
+          if (tw && tw.style.onStatus && tw.lastTargetUid !== ev.uid) {
+            const t = sim.getTower(src);
+            if (t) tw.style.onStatus(ev, tw, view(t), ctx);
+          }
         }
         break;
       }
@@ -279,13 +313,22 @@ export function createAttackFx(o) {
           }
         }
       }
+      // a mirror's split copy starts where the shot crossed the glass: not at her hand, her panel or a drone
+      const split = splitCopies.get(p.uid);
+      if (split) {
+        splitCopies.delete(p.uid);
+        rec.sx = split.x;
+        rec.sy = split.y;
+      }
       rec.mx = rec.sx;
       rec.my = rec.sy;
       rec.mz = rec.sz;
       if (t) {
         const tw = ensureTw(t);
         rec.tw = tw;
-        if (rec.turretUid != null) {
+        if (split) {
+          rec.blended = false;
+        } else if (rec.turretUid != null) {
           rec.blended = ctx.drones.muzzleFor(rec.turretUid, rec);
         } else {
           rec.idx = tw.volleyIdx % tw.volleyN;
@@ -358,13 +401,17 @@ export function createAttackFx(o) {
   }
 
   // ---- frame ---------------------------------------------------------------------------------
-  function update(d) {
+  /**
+   * @param {number} d visual seconds this frame (0 during a hit-stop or a pause)
+   * @param {number} [frameDt] the frame's own seconds (game speed estimate; defaults to d)
+   */
+  function update(d, frameDt = d) {
     if (disposed) return;
     const t0 = now();
     ctx.rdt = d;
     ctx.rtime += d;
-    if (!explicitScale && d > 0) {
-      const est = Math.max(0, Math.min(3, (sim.time - lastSimTime) / d));
+    if (!explicitScale && frameDt > 0) {
+      const est = Math.max(0, Math.min(3, (sim.time - lastSimTime) / frameDt));
       timeScale += (est - timeScale) * 0.2;
     }
     lastSimTime = sim.time;
@@ -405,6 +452,7 @@ export function createAttackFx(o) {
     ctx.drones.update(gdt);
     ctx.lunge.update(gdt);
     ctx.toss.update(gdt);
+    ctx.lobs.update(gdt);
 
     // vanished projectiles: flourish only on a matched sim hit / explode (never on expiry)
     let blended = 0;
@@ -439,6 +487,7 @@ export function createAttackFx(o) {
 
     ctx.pool.update(gdt);
     ctx.segs.update(gdt);
+    for (let i = 0; i < ctx.layers.length; i++) ctx.layers[i].update(gdt, d);
 
     // stats
     msAcc += now() - t0;
@@ -455,7 +504,9 @@ export function createAttackFx(o) {
     stats.projTracked = recList.length;
     stats.blended = blended;
     stats.segments = ctx.segs.count;
+    stats.lobs = ctx.lobs.count;
     stats.quads = ctx.quads;
+    stats.halos = ctx.halos;
     stats.quadBudget = ctx.q.quadBudget;
     stats.shed = ctx.shed;
     stats.styled = twList.length;
@@ -468,6 +519,8 @@ export function createAttackFx(o) {
   return {
     /** actors skips its own drone mesh + shadows when this is truthy */
     drones: true,
+    /** actors draws Marumi's balls as shadows only: the bowler style draws the ball, its spin and hops */
+    ballArcs: true,
     ctx,
     onEvent,
     projectile,
@@ -475,11 +528,15 @@ export function createAttackFx(o) {
       return ctx.lunge.offset(uid);
     },
     trapHidden(uid) {
-      return ctx.toss.hidden(uid);
+      return ctx.toss.hidden(uid) || ctx.lobs.hidden(uid);
     },
     update,
     setQuality(q) {
       ctx.setQuality(q);
+    },
+    /** Fake glow: halo quads under bright sprites when the tier has no bloom (src/render/vfx/halo.js). */
+    setGlow(tier, bloom) {
+      ctx.setGlow(tier, bloom);
     },
     setSelected(uid) {
       ctx.selectedUid = uid ?? null;
@@ -508,6 +565,9 @@ export function createAttackFx(o) {
       ctx.pool.clear();
       ctx.segs.clear();
       ctx.toss.clear();
+      for (const L of ctx.layers) L.dispose();
+      ctx.layers.length = 0;
+      ctx.lobs.clear();
       tws.clear();
       recs.clear();
     },

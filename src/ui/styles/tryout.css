@@ -121,6 +121,7 @@ body.ui-day .ty-bc-foot {
   background: var(--panel-w); box-shadow: inset 0 1px 0 var(--line-ink-soft);
 }
 body.ui-day .ty-bc-facts { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 2px; font: 600 var(--fs-label)/1.3 var(--font); color: var(--muted); }
+body.ui-day .ty-bc-awbest { color: var(--ink); font-weight: 800; }
 body.ui-day .ty-bc-go { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 /* (primaryBtn's reason line sits before Start class, so the yellow keeps the far right) */
 body.ui-day .ty-bc-go > .ui-sec-wrap { flex-direction: row-reverse; gap: 10px; }
@@ -148,6 +149,8 @@ body.ui-day .ty-bc-go > .ui-sec-wrap { flex-direction: row-reverse; gap: 10px; }
   body.ui-day .ui-opt.ty-hero { --h: 44px; }
   body.ui-day .ty-bc-foot { margin: 0 -10px; padding: 5px 10px 6px; }
   body.ui-day .ty-bc-facts .ty-bc-fact + .ty-bc-fact { display: none; }
+  /* (an Extended Day's facts lead with the Grade's best wave: one line, the tail of the facts may end in …) */
+  body.ui-day .ty-bc-facts > .ty-bc-fact-aw { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 @media (max-width: 760px) {
   body.ui-day .ty-hub-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: minmax(120px, auto); max-height: none; }
