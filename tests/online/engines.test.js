@@ -299,10 +299,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.rejoinTick).toBeGreaterThan(0);
     expect(r.rejoinSame).toBe(true);
     expect(runHeldBattle().final).toBe(r.final);
-    // pinned when the battle was added (feature/attack-held, S2 data fitted on both rulers). Change only with a
-    // deliberate sim / data change, and say why.
+    // pinned when the battle was added (feature/attack-held, S2 data fitted on both rulers); hashes 'dbbdef4d' → 'd38011ff'
+    // when hashSim began folding t.ch.px (gear Pierce, review fix): the battle itself is the same (same final). Change
+    // only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, held: r.held, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 28657, state: 'lost', wave: 16, wallets: '615/669', final: 2050999493, hashes: 'dbbdef4d', held: '4132/882', rejoinTick: 5568 });
+      .toEqual({ ticks: 28657, state: 'lost', wave: 16, wallets: '615/669', final: 2050999493, hashes: 'd38011ff', held: '4132/882', rejoinTick: 5568 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {
