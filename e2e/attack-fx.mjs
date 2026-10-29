@@ -202,6 +202,9 @@ async function runViewport(vp) {
       // core truth cues (drones, shadows, reticles, tracers) are never shed; decor sheds at 60–95 %
       check(r.maxQuads <= r.budget + 150, `${quality} ${build}: attack-FX quads ${r.maxQuads} within budget ${r.budget} (+150 core)`);
       check(r.defaultPulses === 0, `${quality} ${build}: styled pulse girls replace the default pulse ring`);
+      // (its numbers are read: close it before the FX-off twin opens — two WebGL galleries at once in a phone-sized
+      // touch context never got the second one ready, on main too)
+      await page.close();
       if (build === (quick ? 'max' : 'p0')) {
         const off = await open(ctxB, `mode=gallery&build=${build}&quality=${quality}&seed=3&speed=2&preroll=15&fx=off&tiny=1`, errors);
         const callsOff = await off.evaluate((n) => {
@@ -216,7 +219,6 @@ async function runViewport(vp) {
         await off.close();
         check(r.calls <= callsOff + 1, `${quality} ${build}: draw calls with FX ${r.calls} ≤ without ${callsOff} + 1 (median of the last 60 frames)`);
       }
-      await page.close();
     }
   }
 
