@@ -308,7 +308,7 @@ export function createDonatePanel({ backend = getBackend(), onBadge = null } = {
           h('small.muted', `You have ${have}${r.myGiven ? ` · you gave ${r.myGiven}` : ''} · ${rule.points} pt each`)),
         itemTile(r.item, null, { size: 44 }),
         h('div.sc-req-acts',
-          n >= 1 ? button('+1', { kind: 'yellow', small: true, testid: 'donate-one', onClick: () => donate(r, 1) }) : null,
+          n >= 1 ? button('+1', { kind: 'primary', small: true, testid: 'donate-one', onClick: () => donate(r, 1) }) : null,
           n > 1 ? button(`+${n}`, { kind: 'pink', small: true, testid: 'donate-max', onClick: () => donate(r, n) }) : null,
           n < 1 && why ? h('small.sc-req-why', { 'data-testid': 'donate-why' }, why) : null));
     }));

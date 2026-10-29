@@ -563,12 +563,14 @@
    frame line. The caption pads by the frame (medium 1's shared rule): its content centres in the band the ring leaves.
    ========================================================================================================== */
 :where(.ui-day, .ui-night) .ui-girltile { --gw: 104px; --rc: var(--rar-r); --rw: 2px; --inl: 0px; --ins: 6px; --edge: var(--rc); --c: var(--cut-s); --fill: #f3f7fc;
-  width: var(--gw); height: calc(var(--gw) * 1.3); display: block; overflow: hidden; }
+  width: var(--gw); height: auto; aspect-ratio: 10 / 13; display: block; overflow: hidden; }
 :where(.ui-day, .ui-night) .ui-girltile > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; }
-:where(.ui-day, .ui-night) .ui-girltile > img.card { object-position: 50% 0; transform: scale(1.22); transform-origin: 50% 0; }
+/* (girlTile() frames each girl so every eye line sits at one height: --gs, --gx, --gy from her -card anchor) */
+:where(.ui-day, .ui-night) .ui-girltile > img.card { object-position: 50% 0; transform: translate(var(--gx, 0%), var(--gy, 0%)) scale(var(--gs, 1.22)); transform-origin: 50% 0; }
+:where(.ui-day, .ui-night) .ui-girltile > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 :where(.ui-day, .ui-night) .ui-girltile > .cap { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 6px; height: 26px;
   padding: 0 calc(6px + var(--rw) + var(--inl)) calc(var(--rw) + var(--inl)) 8px; background: var(--plate); color: var(--on-ink); }
-:where(.ui-day, .ui-night) .ui-girltile > .cap .nm { flex: 1; min-width: 0; font: italic 900 var(--fs-body)/1 var(--font-head); white-space: nowrap; }
+:where(.ui-day, .ui-night) .ui-girltile > .cap .nm { flex: 1; min-width: 0; font: italic 900 var(--fs-body)/1 var(--font-head); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 1px; }
 :where(.ui-day, .ui-night) .ui-girltile > .cap .num { font-size: var(--fs-label); color: var(--on-ink); }
 :where(.ui-day, .ui-night) .ui-girltile > .cap .lbl { color: var(--on-ink-dim); }
 :where(.ui-day, .ui-night) .ui-girltile > .cap > svg.g { width: 14px; height: 14px; flex: none; color: var(--on-ink-dim); }
@@ -601,6 +603,36 @@
 :where(.ui-day, .ui-night) .ui-girltile.locked > .glow { display: none; }
 :where(.ui-day, .ui-night) .ui-girltile.locked.ur { --edge: #b4bfcc; }
 :where(.ui-day, .ui-night) .ui-girltile.locked > img { filter: grayscale(1) brightness(1.1); opacity: 0.55; }
+/* [M3] girlTile() (components.js): the status corner holds two at most (the pick chip or the P chip, a NEW); the role
+   mark's line glyph; a hero's role mark in sakura (heroes may be pink, rule 3); a girl not met yet: how she joins on
+   an ink chip above the caption, the lock before her name */
+:where(.ui-day, .ui-night) .ui-girltile > .st { display: flex; align-items: flex-start; gap: 4px; }
+:where(.ui-day, .ui-night) .ui-girltile > .role .ui-ico { width: 14px; height: 14px; }
+:where(.ui-day, .ui-night) .ui-girltile > .role.hero { background: var(--pink-ink); color: #fff; }
+:where(.ui-day, .ui-night) .ui-girltile > .cap > .ui-ico { width: 14px; height: 14px; flex: none; color: var(--on-ink-dim); }
+:where(.ui-day, .ui-night) .ui-girltile > .cap .gt-lv { flex: none; display: inline-flex; align-items: baseline; gap: 3px; }
+:where(.ui-day, .ui-night) .ui-girltile > .dup.gt-join { --fill: var(--plate); color: var(--on-ink); }
+/* (a long join line wraps inside the tile, never cut: Tryout Day's "Not in your class yet") */
+:where(.ui-day, .ui-night) .ui-girltile > .dup.gt-join { white-space: normal; height: auto; line-height: 1.15; text-align: center; }
+/* the P chip: an ink chip with white figures at the type floor; P6 a pale sakura chip with plum figures and the crown
+   (the pill's own 11 px and round ends, potential.css, never reach a tile) */
+:is(.ui-day, .ui-night) .ui-girltile .pot-pill { height: 20px; min-width: 0; padding: 0 6px; gap: 2px; border-radius: 0; background: var(--plate); color: #fff;
+  font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: 0.04em; clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
+:is(.ui-day, .ui-night) .ui-girltile .pot-pill.p6 { background: #ffd9e7; color: var(--pot-plum); box-shadow: none; }
+:is(.ui-day, .ui-night) .ui-girltile .pot-pill-crown { width: 12px; height: 12px; margin: 0; }
+/* the old card's hooks (class unit-card) keep their old looks off the tile: no rarity strip, radius, shadow or ring
+   of the old card; a UR tile is ur.css's turning ring cut to the tile's chamfer, its glints on, no sweep */
+:is(.ui-day, .ui-night) .ui-girltile.unit-card { border: 0; border-radius: 0; box-shadow: none; outline: 0; padding: 0; background: var(--fill);
+  transition: transform var(--t-press) var(--ease); }
+:is(.ui-day, .ui-night) .ui-girltile.unit-card:active { transform: scale(0.97); }
+:is(.ui-day, .ui-night) .ui-girltile.unit-card.is-ur::after { display: none; }
+:where(.ui-day, .ui-night) .ui-girltile > .ur-ring { padding: 0; border-radius: 0; -webkit-mask: none; mask: none;
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%, 0 0,
+    var(--rw) var(--rw), var(--rw) calc(100% - var(--rw)), calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142), calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw), var(--rw) var(--rw)); }
+:where(.ui-day, .ui-night) .ui-girltile.is-ur > .ur-sparkles { display: block; --ur-sp: 13px; }
+@media (prefers-reduced-motion: reduce) { :is(.ui-day, .ui-night) .ui-girltile.unit-card:active { transform: none; } }
 
 /* ==========================================================================================================
    HUB TILES (V4 adopts them): painted art above a solid ink caption band under one ink veil; the card IS the action
@@ -618,6 +650,24 @@
 :where(.ui-day, .ui-night) .ui-hubtile:active { transform: scale(0.98); }
 :where(.ui-day, .ui-night) .ui-hubtile.sm > .cap { justify-content: flex-end; min-height: calc(var(--fs-body) * 2.2 + 14px); padding: 6px 8px 8px 10px; gap: 3px; }
 :where(.ui-day, .ui-night) .ui-hubtile.sm > .cap .name { font-size: var(--fs-body); line-height: 1.1; }
+/* the hubTile() builder (kit.js): its art window, its line and its lock line (moved here from M5's v2-hubs.css) */
+:where(.ui-day, .ui-night) .ui-hubtile { min-width: 0; min-height: 0; }
+:where(.ui-day, .ui-night) .ui-hubtile > .ui-hubtile-art { position: relative; flex: 1 1 0; min-height: 0; display: block; overflow: hidden; line-height: 0; filter: saturate(0.85); }
+:where(.ui-day, .ui-night) .ui-hubtile > .ui-hubtile-art > * { position: absolute; inset: 0; width: 100%; height: 100%; }
+:where(.ui-day, .ui-night) .ui-hubtile > .ui-hubtile-art :is(svg, img) { display: block; width: 100%; height: 100%; object-fit: cover; }
+:where(.ui-day, .ui-night) .ui-hubtile.locked > .ui-hubtile-art { filter: saturate(0.25) brightness(0.7); }
+:where(.ui-day, .ui-night) .ui-hubtile > .cap > .name { color: var(--on-ink); overflow-wrap: break-word; hyphens: manual; }
+:where(.ui-day, .ui-night) .ui-hubtile > .cap > .lbl { color: var(--on-ink-dim); white-space: normal; }
+:where(.ui-day, .ui-night) .ui-hubtile-line { font: 600 var(--fs-label)/1.2 var(--font); color: var(--on-ink); text-wrap: pretty; }
+:where(.ui-day, .ui-night) .ui-hubtile-lock { display: flex; align-items: center; gap: 4px; font: 700 var(--fs-label)/1.2 var(--font); color: var(--on-ink); }
+:where(.ui-day, .ui-night) .ui-hubtile-lock > .ui-ico { display: inline-flex; flex: none; width: 14px; height: 14px; color: var(--on-ink-dim); }
+:where(.ui-day, .ui-night) .ui-hubtile-lock > .ui-ico svg { width: 100%; height: 100%; }
+:where(.ui-day, .ui-night) .ui-hubtile > .tr .ui-dot { --dot-ring: var(--plate); }
+/* the segRow() builder (kit.js): a one-choice row of kit options, 44 px taps, wrapping to more rows when it must */
+:where(.ui-day, .ui-night) .ui-segrow { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--seg-min, 44px), 1fr)); gap: 6px; }
+:where(.ui-day, .ui-night) .ui-segrow > .ui-opt { min-width: 0; min-height: var(--tap); justify-content: center; padding: 0 4px; }
+:where(.ui-day, .ui-night) .ui-segrow > .ui-opt.locked { color: var(--muted); }
+:where(.ui-day, .ui-night) .ui-segrow > .ui-opt.locked :is(svg.g, .ui-ico) { width: 14px; height: 14px; }
 
 /* ==========================================================================================================
    THE SELECTED TILE (medium 3, notes/ui-v2/OPEN_FINDINGS.md 3): ONE rule for every selected item or gear tile. The
@@ -656,16 +706,16 @@
   background: #fff; color: transparent; box-shadow: inset 0 0 0 1.5px var(--line-ink); }
 :is(.ui-day, .ui-night) .mb-gear.selected .mb-pick-check { border: 0; border-radius: 0; padding: 5px; background: var(--pink-ink); color: #fff; box-shadow: none;
   clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
-/* the Formation pick's girls in the squad (V3 rebuilds these tiles): the same marks until then, the card's own frame
-   kept; the yellow outline and the yellow tick go */
+/* [M3] a girl tile picked in a wrapper that marks it (the Sandbox squad picker: .mb-pick.in): the tile's own selected
+   caption (white words over a 3 px --pink-ink bar, the girl tile's .sel), the yellow outline gone; its pick chip
+   (the kit's clean one-cut chip, meta-b's frame reset) sits above the caption at the left, clear of every face and
+   of the level */
 :is(.ui-day, .ui-night) .mb-pick.in .unit-card { outline: 0; }
-/* (the bar sits inside the card, right on its 4 px rarity edge) */
-:is(.ui-day, .ui-night) .mb-pick.in .unit-card::before { content: ''; position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; height: 3px; background: var(--pink-ink); pointer-events: none; }
-/* (the chip: the kit's clean one-cut chip, no frame (meta-b's 2 px border on .mb-pick-check reset), on the card's
-   bottom-right corner, hanging 4 px off it as the gear tile's chip hangs off its corner: below the name band, the
-   cost and every girl's face, so it can never reach an eye line, and the P4 pill and the level at the top stay
-   whole; V1 review 1, finding 4) */
-:is(.ui-day, .ui-night) .mb-pick .mb-pick-check { top: auto; right: -4px; bottom: -4px; width: 18px; height: 18px; padding: 2px; border: 0; border-radius: 0;
+:is(.ui-day, .ui-night) .mb-pick.in > .ui-girltile > .cap { background: var(--panel-w); color: var(--ink);
+  box-shadow: inset 0 calc(-3px - var(--rw) - var(--inl)) 0 var(--pink-ink); padding-bottom: calc(3px + var(--rw) + var(--inl)); }
+:is(.ui-day, .ui-night) .mb-pick.in > .ui-girltile > .cap .num { color: var(--ink); }
+:is(.ui-day, .ui-night) .mb-pick.in > .ui-girltile > .cap .lbl { color: var(--muted); }
+:is(.ui-day, .ui-night) .mb-pick .mb-pick-check { top: auto; right: auto; left: 6px; bottom: 32px; z-index: 4; width: 22px; height: 22px; padding: 4px; border: 0; border-radius: 0;
   background: var(--pink-ink); color: #fff; box-shadow: none;
   clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%); }
 
@@ -1058,6 +1108,28 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
 :is(.ui-day, .ui-night) .ui-rail > .ui-tab.on { background: var(--plate); border-color: var(--plate); box-shadow: none; color: var(--on-ink); }
 :is(.ui-day, .ui-night) .ui-rail > .ui-tab.on::after { left: 6px; right: 6px; bottom: -5px; height: 3px; border-radius: 0; background: var(--pink-ink); }
 :is(.ui-day, .ui-night) .ui-rail > .ui-tab > .ui-dot { background: var(--badge-red); }
+/* [M0] 44 px taps without growing the 40 px phone rail: the tab's hit area hangs under it into the gap below (the
+   tab is skewed, not clipped, so the pseudo element is part of its hit area; above it the scroller clips) */
+@media (max-height: 480px) {
+  :is(.ui-day, .ui-night) .ui-rail { position: relative; z-index: 3; }
+  :is(.ui-day, .ui-night) .ui-rail > .ui-tab::before { content: ''; position: absolute; left: 0; right: 0; top: 0; bottom: calc(var(--tab-h) - var(--tap) - 2px); }
+}
+/* [M0] the small buttons drawn as a chamfered chip or sticker (the "+N" chip, the P sticker): their clip-path is the
+   hit area too, so it reaches 12 px past the box (nothing paints there) and only the chamfer is cut; their 44 px hit
+   area is a centred ::before */
+:is(.ui-day, .ui-night) :is(button.ui-chip.more-n, button.ui-sticker.p) {
+  clip-path: polygon(-12px -12px, calc(100% - var(--c, 4px)) -12px, calc(100% - var(--c, 4px)) 0, 100% var(--c, 4px), calc(100% + 12px) var(--c, 4px),
+    calc(100% + 12px) calc(100% + 12px), -12px calc(100% + 12px));
+}
+:is(.ui-day, .ui-night) :is(button.ui-chip.more-n, button.ui-sticker.p)::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--tap)); height: max(100%, var(--tap)); transform: translate(-50%, -50%);
+}
+/* (the P sticker sits 8 px above the bottom of the girl's plate, which clips: its hit area leans up, over the plate's
+   level line, which is not a control) */
+:is(.ui-day, .ui-night) button.ui-sticker.p {
+  clip-path: polygon(-12px -20px, calc(100% - 4px) -20px, calc(100% - 4px) 0, 100% 4px, calc(100% + 12px) 4px, calc(100% + 12px) calc(100% + 12px), -12px calc(100% + 12px));
+}
+:is(.ui-day, .ui-night) button.ui-sticker.p::before { height: max(100%, calc(var(--tap) + 2px)); transform: translate(-50%, calc(-50% - 6px)); }
 
 /* ---------- the strip, the chips, the tags, the countdown on M5's markup ---------- */
 :is(.ui-day, .ui-night) .ui-strip:has(> .ui-cell) { display: flex; }
@@ -1120,6 +1192,9 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
 /* ---------- sheets: a day sheet floats as a white panel with a bleed ink head; a 2 px blur behind it softens the rows
    it cuts (low 10). The Details sheet (full height, on three screen edges) has no chamfer (S2). ---------- */
 :is(.ui-day, .ui-night) .ui-layer > .ui-scrim { background: var(--scrim); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+/* no blur over WebGL (UI_DIRECTION 4.3): a sheet over a live 3D canvas (the girl page's 3D chibi) keeps the plain scrim;
+   a backdrop blur over the canvas stalls the compositor on software GL (smoke: the outfit sheet's Wear click hung) */
+:is(.ui-day, .ui-night):has(#app canvas) :is(.ui-layer > .ui-scrim, .ui-scrim-full) { backdrop-filter: none; -webkit-backdrop-filter: none; }
 :is(.ui-day, .ui-night) .ui-sheet:not(.full):not(.side) {
   --c: var(--cut); --rw: 1px; --edge: var(--line-ink);
   bottom: calc(8px + var(--safe-bottom)); width: min(calc(100% - 32px), 720px); max-height: calc(var(--sheet-max-h) - 8px);
@@ -1140,4 +1215,11 @@ body.ui-day { background: linear-gradient(180deg, var(--paper-a), var(--paper-b)
 }
 :is(.ui-day, .ui-night) .ui-sheet.full { border-radius: 0; box-shadow: inset 1px 0 0 var(--line-ink), inset -1px 0 0 var(--line-ink); background: var(--panel-w); }
 :is(.ui-day, .ui-night) .ui-sheet > .ui-head { padding-right: calc(var(--sp-1) + var(--cut) * 0.5); }
+/* [M3] a sheet's head never shrinks (a tall sheet squeezed it, a flex child, and clipped the 44 px close to 43: M2's
+   note) and its close is a full tap with room to spare (48 px on phones) */
+:is(.ui-day, .ui-night) .ui-sheet > .ui-head { flex: none; }
+:is(.ui-day, .ui-night) .ui-head > .ui-close { width: calc(var(--tap) + 4px); height: calc(var(--tap) + 4px); }
 :is(.ui-day, .ui-night) .ui-close { border-radius: 50%; }
+/* [M0] the round close button's hit area is its whole 44 px square (a circle's own hit test loses the corners) */
+:is(.ui-day, .ui-night) .ui-close { position: relative; }
+:is(.ui-day, .ui-night) .ui-close::before { content: ''; position: absolute; inset: 0; }

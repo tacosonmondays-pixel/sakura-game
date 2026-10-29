@@ -324,6 +324,25 @@
   "lodSize": 204968,
   "lodVertices": 2844
  },
+ "kohaku": {
+  "file": "kohaku.glb",
+  "size": 1128056,
+  "animations": [
+   "attack_beam",
+   "cheer",
+   "hurt",
+   "idle",
+   "walk"
+  ],
+  "vertices": 17097,
+  "triangles": 19997,
+  "source": "meshy",
+  "lod": "kohaku.lod.glb",
+  "lodSize": 537844,
+  "lodVertices": 8411,
+  "lodTriangles": 8997,
+  "duoMember": "kohaku_tsubaki"
+ },
  "luna": {
   "file": "luna.glb",
   "size": 454356,
@@ -835,6 +854,25 @@
   "lod": "suzu.lod.glb",
   "lodSize": 215120,
   "lodVertices": 3117
+ },
+ "tsubaki": {
+  "file": "tsubaki.glb",
+  "size": 1273252,
+  "animations": [
+   "attack_mortar",
+   "cheer",
+   "hurt",
+   "idle",
+   "walk"
+  ],
+  "vertices": 18831,
+  "triangles": 19992,
+  "source": "meshy",
+  "lod": "tsubaki.lod.glb",
+  "lodSize": 585328,
+  "lodVertices": 9350,
+  "lodTriangles": 8989,
+  "duoMember": "kohaku_tsubaki"
  },
  "umeko": {
   "file": "umeko.glb",

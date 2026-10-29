@@ -96,7 +96,7 @@ export function homeNews(s = {}) {
     out.push({ id: 'weekly', kicker: `Event · ${s.weekly.dropMul || 2}× drops`, short: `${s.weekly.dropMul || 2}× drops`, title: s.weekly.name, testid: 'event-strip', timeTestid: 'event-strip-time', msLeft: s.weekly.msLeft ?? null, phase: null, art: null });
   }
   if (s.recruit) {
-    out.push({ id: 'recruit', kicker: 'Recruit', title: s.recruit.pity ? `Enrollment · SSR in ${s.recruit.pity}` : 'Enrollment', testid: 'banner-recruit', timeTestid: null, msLeft: null, phase: null, art: 'ticket_recruit' });
+    out.push({ id: 'recruit', kicker: 'Recruit', title: s.recruit.pity ? `Spotlights · SSR in ${s.recruit.pity}` : 'Spotlights', testid: 'banner-recruit', timeTestid: null, msLeft: null, phase: null, art: 'ticket_recruit' });
   }
   const b = s.bosses;
   if (b?.titans?.open) {

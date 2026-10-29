@@ -121,6 +121,18 @@ export const LINES = Object.freeze({
       'Let\'s team up, Sensei!',
     ];
   },
+  // Tryout Day (docs/specs/TRYOUT_DAY.md §13.2): Wakaba, the track team manager, runs the tryouts. unlock: the stage
+  // that opens the mode ('2-5'); running: a run is saved; weeklyOpen / weeklyDone: the Weekly Timetable this week
+  tryout: (s) => [
+    s.locked && typeof s.unlock === 'string' && `Clear ${s.unlock} and tryouts open!`,
+    s.locked && 'Clear more stages first, Sensei!',
+    !s.locked && s.running && 'Your class is waiting, Sensei!',
+    !s.locked && !s.running && 'Tryouts today! Pick your three!',
+    !s.locked && s.weeklyOpen && !s.weeklyDone && 'A new Weekly Timetable is up!',
+    !s.locked && s.weeklyDone && 'Weekly Timetable done. Nice!',
+    'Stopwatch ready, Sensei!',
+    'Everyone gets a fair try!',
+  ],
 });
 
 /**

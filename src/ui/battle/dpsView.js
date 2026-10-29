@@ -14,6 +14,8 @@ import { fmtNum } from '../format.js';
 
 /** Seconds of game time the live DPS averages over (the drone panel's "DPS (last 5 s)" uses the same). */
 export const DPS_LIVE_WINDOW = 5;
+/** Seconds of game time between the meter's samples (a frame-rate sample per girl would keep hundreds a window). */
+const SAMPLE_EVERY = 0.1;
 
 /**
  * Damage per second, measured: a rate meter over every girl's damageDealt during a wave, and each girl's average
@@ -23,32 +25,51 @@ export const DPS_LIVE_WINDOW = 5;
 export function createDpsMeter(window = DPS_LIVE_WINDOW) {
   const meter = createRateMeter(window);
   let lastTime = null;
+  let lastSample = -Infinity;
   let inWave = false;
+  let curWave = null;
   const start = new Map(); // uid -> [time, damageDealt] at the wave's start (or when she was placed)
   const lastWave = new Map(); // uid -> her average over the last whole wave
+  const clear = () => {
+    meter.clear();
+    start.clear();
+    lastWave.clear();
+    lastTime = null;
+    lastSample = -Infinity;
+    inWave = false;
+    curWave = null;
+  };
   return {
-    /** One frame: samples every girl's running damage (once per game-time step). */
+    /**
+     * One frame: notes the wave's start and end (by its state and its number, so a frame that steps past the short
+     * gap between waves still closes one and opens the next) and samples every girl's running damage every
+     * SAMPLE_EVERY s of game time.
+     */
     sample(sim) {
       const time = sim.time;
       if (time === lastTime) return;
+      if (lastTime != null && time < lastTime) clear(); // time went back: a restore or a co-op rebuild
       lastTime = time;
       const wave = sim.state === 'wave';
-      if (wave && !inWave) {
-        start.clear();
-        meter.clear();
-      }
-      if (!wave && inWave) {
+      const next = wave && (!inWave || sim.wave !== curWave);
+      if (inWave && (!wave || next)) {
         for (const t of sim.towers) {
           const s0 = start.get(t.uid);
           if (s0 && time - s0[0] >= 1) lastWave.set(t.uid, Math.max(0, ((t.damageDealt || 0) - s0[1]) / (time - s0[0])));
         }
       }
-      inWave = wave;
-      if (!wave) return;
-      for (const t of sim.towers) {
-        if (!start.has(t.uid)) start.set(t.uid, [time, t.damageDealt || 0]);
-        meter.sample(time, t.uid, t.damageDealt || 0);
+      if (next) {
+        start.clear();
+        meter.clear();
+        lastSample = -Infinity;
       }
+      inWave = wave;
+      curWave = sim.wave;
+      if (!wave) return;
+      for (const t of sim.towers) if (!start.has(t.uid)) start.set(t.uid, [time, t.damageDealt || 0]);
+      if (time - lastSample < SAMPLE_EVERY) return;
+      lastSample = time;
+      for (const t of sim.towers) meter.sample(time, t.uid, t.damageDealt || 0);
     },
     /** Her measured DPS: live during a wave (null for its first second), else her last wave's average. */
     live(uid, sim) {
@@ -58,13 +79,7 @@ export function createDpsMeter(window = DPS_LIVE_WINDOW) {
       }
       return lastWave.has(uid) ? { value: lastWave.get(uid), kind: 'lastWave' } : { value: null, kind: 'none' };
     },
-    clear() {
-      meter.clear();
-      start.clear();
-      lastWave.clear();
-      lastTime = null;
-      inWave = false;
-    },
+    clear,
   };
 }
 
@@ -108,7 +123,8 @@ export function perTargetLine(st, hits) {
   const parts = [];
   if (hits > 0) parts.push(`${fmtNum(hits, 'stat')} hits`);
   if (dot.dps > 0 || dot.pct > 0) {
-    const kind = (st.status || []).some((s) => s.type === 'poison') ? 'poison' : 'burn';
+    const has = (type) => (st.status || []).some((s) => s.type === type && ((s.dps || 0) > 0 || (s.pct || 0) > 0));
+    const kind = has('poison') && has('burn') ? 'poison + burn' : has('poison') ? 'poison' : 'burn';
     parts.push(`${dot.dps > 0 ? `${fmtNum(dot.dps, 'stat')}/s ` : ''}${kind}${dot.pct > 0 ? ` (+${fmtSmallPct(dot.pct * 100)}% HP/s)` : ''}`);
   }
   return parts.length ? parts.join(' + ') : null;
@@ -119,19 +135,22 @@ function buffMul(src, kind, key, target) {
   const s = src.stats || {};
   if (kind === 'brew') return (s.brew?.dmgMul || 1) * (s.brew?.rateMul || 1);
   if (kind === 'link' || kind === 'overclock') {
+    if (src.disabled > 0) return 1; // (a disabled linker's link pauses: src/sim/buffs.js)
     const l = s.link || {};
     return (l.dmgMul || 1) * (l.rateMul || 1) * (kind === 'overclock' ? (l.overclock?.rateMul || 1) : 1);
   }
   if (kind === 'aura') {
+    // (an aura girl's own aura, or a hub's rules: Ouka's radius folds into the same buff slots, src/sim/hubs.js)
     const a = s.aura || {};
-    if (key === 'dmg') return a.dmgMul || 1;
-    if (key === 'rate') return a.rateMul || 1;
+    const hub = s.hub || {};
+    if (key === 'dmg') return Math.max(a.dmgMul || 1, hub.dmgMul || 1);
+    if (key === 'rate') return Math.max(a.rateMul || 1, hub.rateMul || 1);
   }
   return 1;
 }
 
 /**
- * A support's boost to her allies, estimated: for every girl she buffs now, that girl's measured DPS × (1 − 1 / the
+ * A support's boost to her allies, estimated: for every girl she buffs now (brew, link, aura, hub, drink), that girl's measured DPS × (1 − 1 / the
  * buff's factor), the share of her damage the buff adds. An estimate (factors stack with other buffs; armor and crits
  * are not split out), so the drawer labels it "~".
  * @param {object} sim the Sim (buffTargets(uid), getTower(uid))
@@ -153,6 +172,16 @@ export function boostEstimate(sim, uid, dpsOf) {
       if (kind === 'aura') for (const k of keys) mul *= buffMul(src, kind, k, o);
       else mul *= buffMul(src, kind, null, o);
     }
+    if (!(mul > 1)) continue;
+    const d = dpsOf(o.uid);
+    girls++;
+    if (d > 0) value += d * (1 - 1 / mul);
+  }
+  // a drink thrower's Hydrated girls (Wakaba, src/sim/drinks.js: t.hydrated = { src, dmgMul, rateMul, ... })
+  for (const o of sim.towers || []) {
+    const hy = o.hydrated;
+    if (!hy || hy.src !== uid || o.uid === uid) continue;
+    const mul = (hy.dmgMul || 1) * (hy.rateMul || 1);
     if (!(mul > 1)) continue;
     const d = dpsOf(o.uid);
     girls++;

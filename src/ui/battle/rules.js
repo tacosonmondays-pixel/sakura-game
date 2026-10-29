@@ -73,6 +73,16 @@ export const ONE_PER_PATH_RULE = 'Each path\'s T5 is one girl at a time: one 5-x
 /** Co-op tooltip on the lock: your ally's copies never block yours. */
 export const ONE_PER_PATH_COOP = 'In co-op each player has her own.';
 
+/**
+ * A girl's name in a tight one-line string (a toast, the held row's line): a duo's pair name ("Kohaku & Tsubaki") by
+ * its initials ("K & T", as on her card); every other name as it is. Titles and full sentences keep the whole name.
+ */
+export function lineName(girl) {
+  const s = String(girl ?? '');
+  if (s.length <= 12 || !s.includes(' & ')) return s;
+  return s.split(' & ').map((w) => w.trim()[0] || '').join(' & ');
+}
+
 /** The lock line on a final tier another copy holds. */
 export function onePerPathReason(girl, pathName) {
   return `Only one ${girl} can hold ${pathName} ${FINAL_NUMERAL}. Sell or upgrade that one.`;
@@ -83,12 +93,12 @@ export function onePerPathReason(girl, pathName) {
  * Sango at a time".
  */
 export function onePerPathLine(girl) {
-  return `Tier ${FINAL_NUMERAL}: one ${girl} at a time`;
+  return `Tier ${FINAL_NUMERAL}: one ${lineName(girl)} at a time`;
 }
 
 /** The same rule in one toast line (the phone's held-tier "i", a buy that lost the tier): no second sentence. */
 export function onePerPathWhy(girl, pathName) {
-  return `Only one ${girl} can hold ${pathName} ${FINAL_NUMERAL}`;
+  return `Only one ${lineName(girl)} can hold ${pathName} ${FINAL_NUMERAL}`;
 }
 
 /** Tooltip of the final-tier pip when another copy holds it. */

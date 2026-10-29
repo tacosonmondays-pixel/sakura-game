@@ -11,7 +11,7 @@
 // are never slanted; the -8 degree slant lives on plates.
 // Geometry: an open-source line icon set (ISC licence; its earlier-set parts MIT), restyled; both licence texts are in
 // public/licenses/ and named in Settings > About. Our own drawings: coin, gem, energy, store, sakura, armorbreak,
-// pierce, lantern and every chapter emblem.
+// pierce, lantern, every chapter emblem, and Tryout Day's marble, eraser, hall-pass, desk, stamp and chalk.
 //
 // Use: lineGlyph('mail') returns the SVG markup (class "g lg": the kit's sizing classes s / xs / l apply to "g");
 // emblemSvg('gate', { size: 64 }) a chapter emblem; hydrateGlyphs(root) swaps <i data-g="mail"> and
@@ -198,6 +198,19 @@ export const LINE_GLYPHS = Object.freeze({
   armorbreak: P('M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z') + P('m12.6 4.2-2.1 5.6 3.4 2.6-2.4 5.8'),
   pierce: '<rect x="9.5" y="3" width="5" height="18" rx="1"/>' + P('M2 12h5.5') + P('M16.5 12H21') + P('m17.5 8.5 3.5 3.5-3.5 3.5') + P('M2 9.5 4 12l-2 2.5'),
   lantern: P('M12 2v1.5') + P('M8.5 3.5h7v2h-7z') + P('M8.5 5.5C5.2 7.1 4.5 9.6 4.5 12.25S5.2 17.4 8.5 19h7c3.3-1.6 4-4.1 4-6.75s-.7-5.15-4-6.75') + P('M5.3 9.5h13.4') + P('M5.3 15h13.4') + P('M8.5 19h7v2h-7z'),
+  // ----- Tryout Day (ours): the Marbles wallet, Erasers, Hall Passes, the Window Seats' desks, assignment stamps, chalk -----
+  // a glass marble: the ring, one swirl through it and a short shine at the top left
+  marble: C(12, 12, 9) + P('M4.6 13.6c2.2-3.4 5.4-2.2 7.2-.6s4.6 2.4 7.4-1.4') + P('M8.2 6.9a6 6 0 0 1 3-1.2'),
+  // an eraser on its side, the sleeve line across it, the table under it
+  eraser: P('M4.9 14.6 13.4 6a2 2 0 0 1 2.8 0l3.8 3.8a2 2 0 0 1 0 2.8L12.6 20H8.2l-3.3-3.3a1.5 1.5 0 0 1 0-2.1z') + P('m9.2 10.3 6.5 6.5') + P('M12.6 20H20'),
+  // a hall pass on its lanyard: the cord's V, the card, two lines of writing
+  'hall-pass': P('M8.5 2.5 12 6.5l3.5-4') + '<rect x="5" y="6.5" width="14" height="14.5" rx="2"/>' + P('M8.5 12.5h7') + P('M8.5 16.5h4.5'),
+  // a school desk: the top, two legs, the book box under the top
+  desk: '<rect x="3" y="6.5" width="18" height="3.5" rx="1"/>' + P('M5 10v10') + P('M19 10v10') + P('M8 10v4.5h8V10'),
+  // a rubber stamp: the knob, the neck, the block and the mark it leaves
+  stamp: C(12, 5.5, 2.5) + P('M10.6 8 9.8 12.5h4.4L13.4 8') + '<rect x="4" y="12.5" width="16" height="4" rx="1"/>' + P('M6 20.5h12'),
+  // a stick of chalk at a slant, its paper band, the line it drew
+  chalk: P('M14.6 4.6a2 2 0 0 1 2.8 0l2 2a2 2 0 0 1 0 2.8L10 18.8 5.2 14z') + P('m12.4 6.8 4.8 4.8') + P('M3 21h7'),
 });
 
 /** The groups of the glyph sheet (the kit fixture's board 7) and of the direction's glyph list. */
@@ -210,10 +223,11 @@ export const GLYPH_GROUPS = Object.freeze({
   'Sections and sheets': ['daily', 'weekly', 'gift', 'trophy', 'key', 'store', 'crown', 'monitor', 'volume', 'idcard', 'inbox', 'history', 'hourglass', 'book',
     'booktext', 'journal', 'library', 'user', 'userplus', 'backpack', 'box', 'timer', 'castle', 'map', 'award', 'sakura'],
   'Drawn for the mock-ups': ['armorbreak', 'pierce', 'lantern'],
+  'Tryout Day': ['marble', 'eraser', 'hall-pass', 'desk', 'stamp', 'chalk'],
 });
 
 /** The 86 glyphs of the approved set (the five groups, each once). */
-export const CORE_GLYPHS = Object.freeze([...new Set(Object.entries(GLYPH_GROUPS).filter(([g]) => g !== 'Drawn for the mock-ups').flatMap(([, n]) => n))]);
+export const CORE_GLYPHS = Object.freeze([...new Set(Object.entries(GLYPH_GROUPS).filter(([g]) => g !== 'Drawn for the mock-ups' && g !== 'Tryout Day').flatMap(([, n]) => n))]);
 
 /** Frame glyphs: their top-right corner is cut at 45 degrees by 2.5 px (the panel chamfer in miniature). */
 export const FRAME_GLYPHS = Object.freeze(['mail', 'clipboard', 'ticket', 'image', 'daily', 'weekly', 'idcard', 'monitor', 'store']);

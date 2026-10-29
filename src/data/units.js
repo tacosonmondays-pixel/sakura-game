@@ -22,6 +22,8 @@ import { HERO_TRACKS } from './heroTracks.js';
 import { attachAbilities } from './abilities.js';
 import { EXPANSION_UNITS } from './unitsExpansion.js';
 import { NEW_GIRLS } from './unitsNewGirls.js';
+import { DUO_UNITS } from './unitsDuo.js';
+import { STAFF_UNITS } from './unitsStaff.js';
 
 // ---------------------------------------------------------------------------
 // Builders (internal)
@@ -1406,6 +1408,10 @@ export const UNITS = [
   ...EXPANSION_UNITS,
   // the new girls (UNIT_GAPS §5): src/data/unitsNewGirls.js
   ...NEW_GIRLS,
+  // the duo unit (docs/specs/DUO_LR.md): src/data/unitsDuo.js
+  ...DUO_UNITS,
+  // the staff heroes of the banners wave (BANNERS §D): src/data/unitsStaff.js
+  ...STAFF_UNITS,
 ];
 
 /** id -> UnitDef */

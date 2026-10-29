@@ -72,7 +72,8 @@ async function frameInfo(page, selector) {
       badge: text ? text.textContent.trim() : null,
       textAnim: text ? getComputedStyle(text).animationName : null,
       textClip: text ? (getComputedStyle(text).webkitBackgroundClip || getComputedStyle(text).backgroundClip) : null,
-      label: (el.querySelector('.unit-card-rarity')?.textContent || '').trim(),
+      // (a girl tile, UI v2 V3, writes no rarity: its frame step and data-rarity carry it)
+      label: (el.querySelector('.unit-card-rarity')?.textContent || (el.classList.contains('ui-girltile') ? el.dataset.rarity : '') || '').trim(),
       dataRarity: el.dataset.rarity || null,
       visible: r.width > 0 && r.height > 0,
     };
@@ -94,6 +95,9 @@ async function textOverlap(page, a, b) {
 }
 
 const isUrFrame = (f) => !!f && f.ur && f.ring && f.badge === 'UR' && /conic-gradient/.test(f.ringPaint);
+// [ui-v2-menus] M3: a girl tile (Students, Formation, the sandbox picker) shows UR by its frame alone (5.6 step 5: the
+// turning rainbow ring and its glints), no letters on the tile
+const isUrTile = (f) => !!f && f.ur && f.ring && f.badge == null && f.dataRarity === 'UR' && /conic-gradient/.test(f.ringPaint);
 const showsPlain = (f, label) => !!f && !f.ur && !f.ring && f.badge == null && (label == null || f.label === label);
 
 // screenshots are evidence, not checks: a slow (shared, software-GL) machine gets a long wait and
@@ -135,15 +139,17 @@ try {
     // ---- students list
     await go(page, '#/students', '.unit-card[data-unit="hotaru"]');
     const sHot = await frameInfo(page, '.unit-card[data-unit="hotaru"]');
-    check(isUrFrame(sHot) && sHot.dataRarity === 'UR', `${tag} students: Hotaru ★5 has the rainbow frame + "UR" badge (${JSON.stringify({ ur: sHot?.ur, ring: sHot?.ring, badge: sHot?.badge })})`);
-    check(sHot?.ringAnim === 'ur-spin' && sHot?.textAnim === 'ur-shimmer' && sHot?.textClip === 'text', `${tag} students: the rainbow turns and the letters shimmer (ring ${sHot?.ringAnim}, text ${sHot?.textAnim}, clip ${sHot?.textClip})`);
+    check(isUrTile(sHot), `${tag} students: Hotaru ★5 has the rainbow frame, UR on the tile (${JSON.stringify({ ur: sHot?.ur, ring: sHot?.ring, badge: sHot?.badge, rarity: sHot?.dataRarity })})`);
+    check(sHot?.ringAnim === 'ur-spin', `${tag} students: the rainbow turns (ring ${sHot?.ringAnim})`);
     const edge = await page.evaluate(() => {
       const c = document.querySelector('.unit-card[data-unit="hotaru"]');
-      const nameGap = (id) => { const e = document.querySelector(`.unit-card[data-unit="${id}"] .unit-card-name`); const r = document.createRange(); r.selectNodeContents(e); return Math.round(e.closest('.unit-card').getBoundingClientRect().bottom - r.getBoundingClientRect().bottom); };
+      const nameGap = (id) => { const e = document.querySelector(`.unit-card[data-unit="${id}"] :is(.unit-card-name, .cap > .nm)`); const r = document.createRange(); r.selectNodeContents(e); return Math.round((e.closest('.unit-card').getBoundingClientRect().bottom - r.getBoundingClientRect().bottom) * 10) / 10; };
       const glints = [...c.querySelectorAll(':scope > .ur-sparkles i')];
       return { border: getComputedStyle(c).borderBottomWidth, gapUr: nameGap('hotaru'), gapSsr: nameGap('kaede'), glints: glints.length, glintAnim: glints[0] ? getComputedStyle(glints[0]).animationName : null, shown: getComputedStyle(c.querySelector(':scope > .ur-sparkles')).display };
     });
-    check(edge.border === '0px' && edge.gapUr === edge.gapSsr, `${tag} students: the rainbow runs to the card's bottom edge (no rarity strip under it: border ${edge.border}), her name sits where Kaede's does (${edge.gapUr} / ${edge.gapSsr} px)`);
+    // (a girl tile's caption centres its words in the band its frame leaves: the rainbow ring and the SSR Glow differ by
+    // a fraction of a pixel, so within 1 px)
+    check(edge.border === '0px' && Math.abs(edge.gapUr - edge.gapSsr) <= 1, `${tag} students: the rainbow runs to the card's bottom edge (no rarity strip under it: border ${edge.border}), her name sits where Kaede's does (${edge.gapUr} / ${edge.gapSsr} px)`);
     check(edge.glints === 3 && edge.shown === 'block' && edge.glintAnim === 'ur-glint', `${tag} students: three glints twinkle on her frame (${edge.glints}, ${edge.glintAnim})`);
     for (const [id, label] of [['kaede', 'SSR'], ['akane', 'SR'], ['aoi', 'R']]) {
       const f = await frameInfo(page, `.unit-card[data-unit="${id}"]`);
@@ -192,9 +198,9 @@ try {
     const fKae = await frameInfo(page, '.mb-fslot.filled[data-unit="kaede"]');
     const fHero = await frameInfo(page, '.mb-fslot.filled[data-unit="hikari"]');
     const fPick = await frameInfo(page, '.mb-pick .unit-card[data-unit="hotaru"]');
-    check(isUrFrame(fHot), `${tag} formation: Hotaru's squad slot has the rainbow frame + UR badge`);
-    check(isUrFrame(fHero), `${tag} formation: Hikari (SSR hero ★5) in the hero slot is UR`);
-    check(isUrFrame(fPick), `${tag} formation: Hotaru's picker card is UR`);
+    check(isUrTile(fHot), `${tag} formation: Hotaru's squad slot has the rainbow frame`);
+    check(isUrTile(fHero), `${tag} formation: Hikari (SSR hero ★5) in the hero slot is UR`);
+    check(isUrTile(fPick), `${tag} formation: Hotaru's picker card is UR`);
     check(fKae && !fKae.ur && !fKae.ring, `${tag} formation: Kaede's slot (★4) has no rainbow`);
     await shot(page, `formation-${tag}`);
 
@@ -367,7 +373,7 @@ try {
     const glint = await page.evaluate(() => { const g = document.querySelector('.unit-card[data-unit="hotaru"] > .ur-sparkles i'); const cs = getComputedStyle(g); return { anim: cs.animationName, opacity: Number(cs.opacity) }; });
     check(glint.anim === 'none' && glint.opacity > 0.5, `reduced motion (${mode}): the glints hold still and stay visible (${glint.anim}, opacity ${glint.opacity})`);
     const attr = await page.evaluate(() => document.documentElement.hasAttribute('data-reduce-motion'));
-    check(isUrFrame(f) && f.ringAnim === 'none' && f.textAnim === 'none', `reduced motion (${mode}${mode === 'setting' ? `, data-reduce-motion=${attr}` : ''}): still rainbow, no turning, no shimmer (ring ${f?.ringAnim}, text ${f?.textAnim})`);
+    check(isUrTile(f) && f.ringAnim === 'none' && (f.textAnim == null || f.textAnim === 'none'), `reduced motion (${mode}${mode === 'setting' ? `, data-reduce-motion=${attr}` : ''}): still rainbow, no turning, no shimmer (ring ${f?.ringAnim}, text ${f?.textAnim})`);
     if (SHOTS && mode === 'system') await shot(page, 'students-reduced-motion-1280x720');
     await page.close();
   }

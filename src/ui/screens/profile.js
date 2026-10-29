@@ -10,7 +10,7 @@
 // Freeplay Records. Preview renders the visitor layout from the card this save would publish.
 // The root carries data-hold-info="off": each card wires its own hold (PROFILE.md R17).
 import '../styles/profile.css';
-import { h, svgEl, glyph, stars, accountLevel, applyMotionPreference, modal, button } from '../components.js';
+import { h, svgEl, glyph, stars, accountLevel, applyMotionPreference, button } from '../components.js';
 import { store } from '../../core/store.js';
 import { navigate, back } from '../router.js';
 import { UNIT_MAP } from '../../data/units.js';
@@ -27,6 +27,7 @@ import { CAMPAIGN_IDS } from '../../data/stages.js';
 import { HONOR_TOTAL, earnedHonors } from '../../systems/profileHonors.js';
 import { ribbonArt, liveHonors } from '../honorFx.js';
 import { openSheetFor, onEscape } from '../hold.js';
+import { openSheet } from '../sheet.js';
 import { urBadge } from '../rarity.js';
 import { storedName, askName, ensureOnline } from '../online/common.js';
 import { inlineLoader, holdInline } from '../loading/loader.js';
@@ -189,7 +190,11 @@ function topBar({ title, acts = null, onBack = () => back() }) {
     acts ? h('div.pf-top-acts', acts) : null);
 }
 
-const topBtn = (kind, icon, label, testid, onClick, short = null) => h(`button.btn.btn-${kind}.btn-small`, { type: 'button', 'data-testid': testid, onclick: onClick },
+/**
+ * [ui-v2 M7a] A button on the ink top bar: clear glass with a hairline ('ghost'), or with the cyan edge ('edit': Edit
+ * profile, whose sheet holds the one yellow). Its tap square hangs from the band's top (v2-records.css .rk-topbtn).
+ */
+const topBtn = (kind, icon, label, testid, onClick, short = null) => h(`button.rk-topbtn${kind === 'edit' ? '.cy' : ''}`, { type: 'button', 'data-testid': testid, 'aria-label': label, onclick: onClick },
   ico(icon), h('span', short ? [h('span.pf-long', label), h('span.pf-short', short)] : label));
 
 /**
@@ -209,10 +214,11 @@ function profileView(m, ctx) {
 
   // ---- top bar
   const acts = preview
-    ? [h('span.pf-preview-tag', ico('eye'), preview.onlyMe ? 'Preview · only you can see your profile' : 'Preview · what other Senseis see'), topBtn('ghost', 'close', 'Close', 'profile-preview-close', preview.onClose)]
-    : own ? [topBtn('ghost', 'eye', 'Preview', 'profile-preview', actions.preview), topBtn('yellow', 'edit', 'Edit profile', 'profile-edit', () => actions.editProfile('picture'), 'Edit')]
+    ? [h('span.pf-preview-tag', ico('eye'), h('span.rk-wide', preview.onlyMe ? 'Preview · only you can see your profile' : 'Preview · what other Senseis see'), h('span.rk-narrow', 'Preview')), topBtn('ghost', 'close', 'Close', 'profile-preview-close', preview.onClose)]
+    // (Edit profile is the cyan-edged one: the sheet it opens holds the one yellow, Save)
+    : own ? [topBtn('ghost', 'eye', 'Preview', 'profile-preview', actions.preview), topBtn('edit', 'edit', 'Edit profile', 'profile-edit', () => actions.editProfile('picture'), 'Edit')]
       : visit ? visit.acts : null;
-  const title = own ? 'Sensei Profile' : `${m.name}'s Profile`;
+  const title = own ? 'Sensei Profile' : [m.name, h('span.rk-wide', "'s Profile")]; // (a phone held upright: the name alone)
 
   // ---- favorite column
   const fav = favInfo(m.fav.id, m.fav.prof);
@@ -222,12 +228,15 @@ function profileView(m, ctx) {
     onTap: own ? () => navigate('student', { id: fav.u.id }) : (el) => holdOpen({ id: fav.u.id, prof: m.fav.prof })(el),
     onHold: holdOpen({ id: fav.u.id, prof: m.fav.prof }),
   }));
-  const plate = h('div.pf-fav-plate', { 'data-testid': 'profile-fav-plate' },
-    h('span.pf-fav-kicker', h('span.tag-ribbon', h('span', '♥ Favorite'))),
-    own ? h('button.pf-fav-swap', { type: 'button', title: 'Choose your favorite', 'aria-label': 'Choose your favorite', 'data-testid': 'profile-fav-swap', onclick: () => actions.editProfile('favorite') }, svgEl(glyph('refresh'), 'pf-ico-fill')) : null,
+  // [ui-v2 M7a] her nameplate is the kit's night plate (.ui-np): a caps kicker, her name, LV, stars and P; the swap
+  // is an icon button on the ink (44 px)
+  const plate = h('div.pf-fav-plate.ui-np', { 'data-testid': 'profile-fav-plate' },
+    h('div.pf-fav-top',
+      h('span.lbl.pf-fav-kicker', ico('heart'), 'Favorite'),
+      own ? h('button.ui-ibtn.pf-fav-swap', { type: 'button', title: 'Choose your favorite', 'aria-label': 'Choose your favorite', 'data-testid': 'profile-fav-swap', onclick: () => actions.editProfile('favorite') }, ico('swap')) : null),
     h('div.pf-fav-name', fav.ur ? urBadge('pf-fav-ur') : null, h('b', fav.u.name)),
     h('div.pf-fav-sub', fav.u.title || ROLES[fav.u.role]?.name || ''),
-    fav.level != null ? h('div.pf-fav-meta', h('span.lv', 'Lv.', h('b', String(fav.level))), stars(fav.awaken, MAX_AWAKEN), potPill(fav.p)) : null);
+    fav.level != null ? h('div.pf-fav-meta', h('span.lv', h('span.lbl', 'LV'), h('b.num', String(fav.level))), stars(fav.awaken, MAX_AWAKEN), potPill(fav.p)) : null);
   const favCol = h('aside.pf-fav', h('div.pf-fav-halo'), h('div.pf-fav-ring'),
     PETALS.map(([x, y, r], i) => h('i.pf-petal', { style: { left: `${x}%`, top: `${y}%`, '--r': `${r}deg`, '--d': `${i * 1.3}s` } })),
     favWrap, plate);
@@ -434,7 +443,7 @@ function renderVisit(root, userId) {
       h('p.pf-basic-note', { 'data-testid': 'profile-basic-note' }, ico('info'), BASIC_NOTE),
       why);
     host.replaceChildren(h('div.screen.pf.pf-visit-state.pf-visit-basic', { 'data-hold-info': 'off', 'data-testid': 'profile-visit' },
-      h('div.pf-banner', bannerArt('academy:day')), topBar({ title: `${view.name}'s Profile`, acts: top }), card));
+      h('div.pf-banner', bannerArt('academy:day')), topBar({ title: [view.name, h('span.rk-wide', "'s Profile")], acts: top }), card));
   }
 
   const retry = (b, how = () => b.recheckProfile()) => button('Retry', { kind: 'yellow', small: true, icon: 'refresh', testid: 'profile-retry', onClick: () => { stateScreen({ text: 'Loading', testid: 'profile-loading', loading: true }); how().finally(load); } });
@@ -454,8 +463,9 @@ function renderVisit(root, userId) {
         // fresh pieces: the top bar keeps its own (one element can't sit in two places). The friend control
         // and the why line are on the page already: the sheet holds only what the top bar does not.
         const x = playerActions(view, { context: 'profile', close: closeSheet, ...actionHooks(closeSheet) });
-        const mm = modal({
-          title: view.name, actions: [], cls: 'sc-card-modal',
+        // [ui-v2 M7a] the kit's bottom sheet (sheet.js): its ink head with the name and a 44 px close, the actions on paper
+        const mm = openSheet({
+          title: view.name, cls: 'pf-more-sheet', testid: 'profile-more-frame',
           body: h('div.pf-more-body', { 'data-testid': 'profile-more-sheet' }, x.clanInvite, h('div.sc-card-foot', x.block, x.report)),
           onClose: () => { if (sheet === mm) sheet = null; },
         });
@@ -463,8 +473,9 @@ function renderVisit(root, userId) {
         mm.el.addEventListener('click', (e) => { if (e.target.closest('button[data-testid="card-block"], button[data-testid="card-report"], button[data-testid="card-unblock"]')) closeSheet(); });
       },
     }, svgEl(glyph('more'), 'btn-icon'));
-    a.message.classList.add('btn-small');
-    a.coop.classList.add('btn-small');
+    // [ui-v2 M7a] the bar's glass buttons (v2-records.css .pf-top-acts .btn); on a narrow phone their glyphs, so the
+    // name goes on aria-label too
+    for (const el of [a.message, a.coop]) el.setAttribute('aria-label', el.textContent.trim());
     // why Message / Co-op (or Add friend) are off: a note under the bio, tied to the disabled buttons
     const whyId = `pf-why-${userId}`;
     const lines = [a.whyText, a.friendWhyText].filter(Boolean);
@@ -595,7 +606,8 @@ async function openPreview() {
   const on = ownOnline.status === 'ready';
   const m = cardModel(card, { name, level: accountLevel(p).level, avatar: p.sensei.avatar || p.secretary, bio: on && ownOnline.own?.bioHidden ? '' : p.sensei.bio, clan: on ? ownOnline.clan : null, since: on ? ownOnline.since : null });
   const detach = [];
-  const overlay = h('div.pf-preview', { 'data-testid': 'profile-preview-overlay' });
+  // [ui-v2 M7a] a full-screen layer over the profile (the kit's .ui-layer: the page under it waits until it closes)
+  const overlay = h('div.pf-preview.ui-layer', { 'data-testid': 'profile-preview-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Profile preview' });
   const close = () => {
     for (const off of detach.splice(0)) off();
     offEsc();

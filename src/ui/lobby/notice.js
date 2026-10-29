@@ -15,13 +15,23 @@ import { currentEvent, f2pIncomeSummary } from '../../systems/missions.js';
 import { betaNoticeState } from '../../systems/mail.js';
 import { store } from '../../core/store.js';
 import { PATCH_NOTES } from '../../data/patchNotes.js';
+import { activeBanners } from '../../systems/banners.js';
 import { PATCH_GIFT_GEMS, unclaimedPatchGifts, isPatchGiftClaimed, claimPatchGift, claimAllPatchGifts } from '../../systems/patchGifts.js';
-import { LEGEND_UNITS } from '../../data/recruitFeature.js';
 
 /** Bump when the notice list gains a new article (shows the red dot again). */
 export const NOTICE_VERSION = 'patch-notes-1';
 const SEEN_KEY = 'sakura-lobby-notice-seen';
 export const RECRUIT_FEATURED = ['luna', 'hotaru', 'kaede'];
+
+/** [banners] Today's featured girls (LR Banner, Student and Guardian Spotlights): the lobby carousel and the notice. */
+export function recruitFeatured(profile = store.profile) {
+  try {
+    const ids = activeBanners(profile).filter((b) => b.slot !== 'standard').map((b) => b.select);
+    return ids.length ? ids : RECRUIT_FEATURED;
+  } catch {
+    return RECRUIT_FEATURED;
+  }
+}
 
 export function noticeUnread(profile = store.profile) {
   if (profile && unclaimedPatchGifts(profile).length) return true;
@@ -117,7 +127,7 @@ function articles() {
   } catch {
     f2p = null;
   }
-  const featured = RECRUIT_FEATURED.map((id) => UNIT_MAP[id]?.name).filter(Boolean);
+  const featured = recruitFeatured().map((id) => UNIT_MAP[id]?.name).filter(Boolean);
   // the beta gift article: "Until Nov 7" while new accounts qualify; afterwards only for a player
   // whose letter is still unclaimed; hidden once the window closed and nothing waits in the Mail
   const beta = betaNoticeState(store.profile);
@@ -126,7 +136,7 @@ function articles() {
       id: 'beta', tag: 'Gift', icon: 'gift', title: 'Thank you, beta Sensei!', date: beta === 'active' ? 'Until Nov 7' : 'In your Mail', paint: 'thumbs/academy.webp',
       body: [
         'Every account created on or before November 7 (CST) — and every save from before this update, including everyone who tried the original Codex version — gets a Beta Tester Thank-You package in the Mail.',
-        'Inside: five 10× Recruit Tickets, an SSR Select Ticket (choose ANY SSR student), a big bundle of upgrade materials and books, 300,000 coins and 3,000 gems.',
+        'Inside: five 10× Recruit Tickets, an SSR Select Ticket (choose any SSR student; LR units arrive only through their LR Banners), a big bundle of upgrade materials and books, 300,000 coins and 3,000 gems.',
         'Open the Mail at the top right to claim it. Accounts created after November 7 (CST) no longer receive it.',
       ],
       cta: { label: 'Open Mail', go: () => import('./mailbox.js').then((m) => m.openMailbox()) },
@@ -145,10 +155,10 @@ function articles() {
       cta: { label: 'Go to Bounty', go: () => navigate('bounty', { arena: event.arena }) },
     },
     {
-      id: 'recruit', tag: 'Recruit', icon: 'recruit', title: 'Standard recruitment', date: 'Now',
+      id: 'recruit', tag: 'Recruit', icon: 'recruit', title: 'Today\'s banners', date: 'Now',
       body: [
-        `Every student is in the pool${legendExcept()} — this banner's poster girls are ${featured.join(', ')}.`,
-        `An SSR is guaranteed within ${GACHA.pity} recruits, and every recruit gives a Recruit Point — ${GACHA.sparkCost} points let you choose any SSR you like${legendExcept()}.`,
+        `Today's featured girls: ${featured.join(', ')}. Student and Guardian Spotlights change every day at 7 PM Central; the Standard banner is always open, and you pick its featured SSR.`,
+        `One pity counter for every gem banner: an SSR within ${GACHA.pity} recruits. Every recruit gives a Recruit Point: ${GACHA.sparkCost} points spark a Standard SSR any day, or a Premium SSR on her Spotlight day. LR units come only from their LR Banner (the Legend Promise: her at your 300th pull there).`,
       ],
       cta: { label: 'Recruit', go: () => navigate('recruit') },
     },
@@ -214,9 +224,4 @@ export function showNoticeModal() {
   // waiting patch gifts are what lights the red dot, so open straight onto them
   open((unclaimedPatchGifts(store.profile).length && list.find((a) => a.id === 'patch')) || list[0]);
   return m;
-}
-
-/** " but Tenka" (the LR units: only on their own spotlight, never sparked), or "" with none. */
-function legendExcept() {
-  return LEGEND_UNITS.length ? ` but ${LEGEND_UNITS.map((id) => UNIT_MAP[id]?.name || id).join(' and ')}` : '';
 }
