@@ -100,7 +100,7 @@ const NEEDS_HASTED_ABILITY = 'bell';
  * @param {{ kind: string }|null} [abil] in battle, her running ability (t.abil, or null when she has none); left out,
  *   the menu's view from the ability table (her ⚡ abilities, a hero's skill)
  * @returns {null|'later'|'kind'|'locked'} 'later' none of her abilities runs in this build ("Comes in a later update":
- *   Kage, Suzu, Chika, Iroha, Kanna); 'kind' hers is a rally or a debuff; 'locked' (battle) she has not unlocked
+ *   since A4–A6 only Kanna's skill among the girls); 'kind' hers is a rally or a debuff; 'locked' (battle) she has not unlocked
  *   hers yet (⚡ tier 3, Lv 7)
  */
 export function trickIdle(clubId, unitId, abil) {

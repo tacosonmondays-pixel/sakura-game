@@ -1539,7 +1539,7 @@ deploys.js:  doubleSpots, shadowDoubles, carpetSpots, bellCarpet, droneSurge, su
   events deploy { kind: 'double'|'drone' }, doubleAttack { uid, towerUid, targetUid, x, y }, deployEnd { kind };
   caps DOUBLES_PER_SIM 36, BELL_TRAPS_PER_SIM 96, SURGE_DRONES_PER_SIM 48 (a cast places what is left, never evicts);
   everything ends at the wave clear and with its girl; the co-op hash folds sim.deployables while non-empty
-abilities.js: deploy types 'strips', 'sentries', 'double', 'trap' and 'drone' run ('mirror' stays locked); a rally may target one girl
+abilities.js: deploy types 'strips', 'sentries', 'double', 'trap', 'drone' and 'mirror' (Iroha, src/sim/mirrors.js) run; a rally may target one girl
   (effect.target 'girl'; rally record `to`; the girl-target rule above, Wakaba's Time Out!) or the whole map (effect.radius 'map', scope 'map'; record
   `map: true`) and add pierce (effect.pierceAdd → record pierceAdd → t.buff.pierceAdd, only when set);
   castAbility(sim, t, { aim }) passes the aim to the kind (Yuzuha's sentries land at the edge spots nearest it)

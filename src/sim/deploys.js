@@ -4,8 +4,9 @@
 //   Kage's Shadow Doubles ('double'): sim.deployables [{ uid, kind: 'double', ownerUid, x, y, left, dmgMul,
 //     cooldown, facing }] (created on the first cast). Each double stands on a road spot (path samples every
 //     STRIP_SPOT_STEP tiles in her range, nearest the exit first, at least `spacing` apart among the doubles of
-//     one cast) and throws her CURRENT volley from there (her projectiles, range, rate, target mode and hit,
-//     read from her each throw) × dmgMul, never critting (no rng). Its shots are hers: spawnProjectile with
+//     one cast) and throws her CURRENT volley from there (her projectiles with Potential N13's extra shuriken and her
+//     gear Pierce, range, rate, target mode and hit, read from her each throw) × dmgMul, never critting (no rng); a
+//     double holds while she is sabotaged. Its shots are hers: spawnProjectile with
 //     her as the owner, so damage, kills and hero XP credit Kage through Sim._hit.
 //   Suzu's Bell Carpet ('trap'): extra traps in sim.traps { …her trap record, extra: true, ttl } spread
 //     evenly (by road order, lane by lane: index floor((i + 0.5) × n / k), the Spike Rain rule, no rng) over
@@ -31,6 +32,7 @@ import { STEP, DOUBLES_PER_SIM, BELL_TRAPS_PER_SIM, SURGE_DRONES_PER_SIM } from 
 import { roadSpots } from './strips.js';
 import { samplePath } from './path.js';
 import { selectTargets, spawnProjectile, makeDrone, hasRoamingDrones } from './towers.js';
+import { pierceCarry, pierceK, pierceMax } from './gearRules.js';
 
 export { ownDrones } from './towers.js';
 
@@ -91,14 +93,27 @@ export function shadowDoubles(sim, t, { count, spacing, dmgMul, duration }) {
   return out;
 }
 
-/** One volley of a double: her volley from its spot (targets by her mode in her range), × dmgMul, no crit. */
+/**
+ * One volley of a double: her FULL volley from its spot (targets by her mode in her range), × dmgMul, no crit. As her
+ * own attack counts it (src/sim/towers.js volleyFrom): her projectiles, the extra shuriken of Potential N13
+ * (projScale, through an integer carry) and her gear Pierce on each shot (pierceK through pierceCarry, none on a
+ * splash shot); the carries are the double's own (d.projCarry, d.pierceCarry), so her own throws keep their count.
+ */
 function doubleVolley(sim, t, d) {
   const base = t.eff;
-  const n = Math.max(1, base.projectiles || 1);
+  let n = Math.max(1, base.projectiles || 1);
   // (a fresh spec per volley: her hit as it stands now; never a crit, so no rng is drawn)
   const spec = { ...base, damage: base.damage * d.dmgMul, critChance: 0 };
   const targets = selectTargets(sim, d.x, d.y, base.range, spec, t.targetMode, n);
   if (!targets.length) return null;
+  if (base.projScale > 0) {
+    const k = Math.round(base.projScale * 100);
+    d.projCarry = (d.projCarry || 0) + n * k;
+    const extra = Math.floor(d.projCarry / 100);
+    d.projCarry -= extra * 100;
+    n += extra;
+  }
+  const gk = spec.splash > 0 ? 0 : pierceK(t);
   for (let i = 0; i < n; i++) {
     const tgt = targets[i % targets.length];
     const dup = Math.floor(i / targets.length);
@@ -108,7 +123,8 @@ function doubleVolley(sim, t, d) {
     }
     // a second shot at the same enemy fans out like her own volley's duplicates
     const spread = dup === 0 ? 0 : (dup % 2 ? 1 : -1) * 0.12 * Math.ceil(dup / 2);
-    spawnProjectile(sim, t, spec, tgt, d.x, d.y, spread ? { spread } : {});
+    const extra = gk > 0 ? pierceCarry(d, 'pierceCarry', gk, pierceMax(t)) : 0;
+    spawnProjectile(sim, t, spec, tgt, d.x, d.y, extra ? { spread, pierce: spec.pierce + extra } : spread ? { spread } : {});
   }
   d.facing = Math.atan2(targets[0].x - d.x, targets[0].y - d.y);
   return targets[0];
@@ -128,9 +144,14 @@ function bellCount(sim) {
 /** Bell Carpet's road samples: this many tiles apart. */
 export const CARPET_STEP = 0.25;
 
+/** Two carpet samples closer than this (squared, tiles) are one spot: lanes that share a road stretch share its spots. */
+const CARPET_SAME2 = (CARPET_STEP / 2) * (CARPET_STEP / 2);
+
 /**
  * The road samples Bell Carpet spreads over: every CARPET_STEP tiles of every path, outside the tunnels, within
- * her range; in road order (lane by lane, along each lane).
+ * her range; in road order (lane by lane, along each lane). A sample within CARPET_STEP / 2 of one already taken (a
+ * stretch two lanes share, at a fork or a join) is dropped, so the carpet never stacks two traps on one spot; the
+ * earlier lane keeps it (path order: deterministic).
  */
 export function carpetSpots(sim, t) {
   const out = [];
@@ -140,7 +161,17 @@ export function carpetSpots(sim, t) {
       if (s.hidden) continue;
       const dx = s.x - t.x;
       const dy = s.y - t.y;
-      if (dx * dx + dy * dy <= r2) out.push(s);
+      if (dx * dx + dy * dy > r2) continue;
+      let dup = false;
+      for (let i = 0; i < out.length; i++) {
+        const ex = out[i].x - s.x;
+        const ey = out[i].y - s.y;
+        if (ex * ex + ey * ey < CARPET_SAME2) {
+          dup = true;
+          break;
+        }
+      }
+      if (!dup) out.push(s);
     }
   }
   return out;
@@ -251,7 +282,8 @@ export function tickDeploys(sim) {
   for (let i = 0; i < list.length; i++) {
     const d = list[i];
     const t = sim.getTower(d.ownerUid);
-    if (!t || t.removed) continue;
+    // (a sabotaged Kage's doubles hold too, like her own attack, sentries and drones; their clocks wait with her)
+    if (!t || t.removed || t.disabled > 0) continue;
     if (d.cooldown > 0) d.cooldown -= STEP;
     if (d.cooldown > 0) continue;
     const first = doubleVolley(sim, t, d);

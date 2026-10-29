@@ -8,8 +8,8 @@ import { Sim } from '../../src/sim/Sim.js';
 import { STEP, FLIGHT_POINT_ROAM_MUL, DOUBLES_PER_SIM, BELL_TRAPS_PER_SIM, SURGE_DRONES_PER_SIM } from '../../src/sim/constants.js';
 import { makeDrone } from '../../src/sim/towers.js';
 import { autoPlan } from '../../src/sim/headless.js';
-import { abilityPathOf, droneReach } from '../../src/sim/abilities.js';
-import { doubleSpots, ownDrones, carpetSpots } from '../../src/sim/deploys.js';
+import { abilityPathOf, droneReach, autoWants, abilityDef } from '../../src/sim/abilities.js';
+import { doubleSpots, ownDrones, carpetSpots, CARPET_STEP } from '../../src/sim/deploys.js';
 import { roadSpots } from '../../src/sim/strips.js';
 import { samplePath, pointAt } from '../../src/sim/path.js';
 import { snapshotDigest } from '../../src/sim/snapshot.js';
@@ -179,7 +179,9 @@ describe('Suzu, Bell Carpet (deploy trap)', () => {
     expect(extra).toHaveLength(6);
     expect(t.trapCount).toBe(own); // never counted against her limit
     // evenly by road order: the road samples 0.25 apart in her range, lane by lane, index floor((i + 0.5) × n / 6), no rng
-    const spots = sim.pathData.flatMap((q) => samplePath(q, 0.25)).filter((p) => !p.hidden && d2(p, t) <= t.eff.range * t.eff.range);
+    // (a stretch both lanes share counts once: a sample within 0.125 of an earlier one is the same spot)
+    const spots = sim.pathData.flatMap((q) => samplePath(q, 0.25)).filter((p) => !p.hidden && d2(p, t) <= t.eff.range * t.eff.range)
+      .reduce((out, p) => (out.some((o) => d2(o, p) < 0.125 * 0.125) ? out : [...out, p]), []);
     expect(carpetSpots(sim, t)).toEqual(spots);
     const n = spots.length;
     const at = [0, 1, 2, 3, 4, 5].map((i) => spots[Math.floor(((i + 0.5) * n) / 6)]);
@@ -473,6 +475,73 @@ function battle(seed, until = null) {
   }
   return { sim, args, casts };
 }
+
+describe('review fixes: sabotage, her full volley, shared road, Pursuit\'s count', () => {
+  test('a sabotaged Kage\'s doubles hold (no throw, their clocks wait), and throw again once she is free', () => {
+    const { sim, t, spawn } = real('kage');
+    for (const k of [0, 1, 2, 3, 4, 5]) spawn('orc_grunt', k);
+    run(sim, STEP);
+    t.abil.cd = 0;
+    expect(sim.castAbility(t.uid).ok).toBe(true);
+    run(sim, 0.5);
+    sim.drainEvents();
+    t.disabled = 1;
+    const cd = sim.deployables.map((d) => d.cooldown);
+    steps(sim, 50);
+    expect(events(sim, 'doubleAttack')).toEqual([]);
+    expect(sim.deployables.map((d) => d.cooldown)).toEqual(cd);
+    run(sim, 1);
+    expect(t.disabled).toBe(0);
+    expect(events(sim, 'doubleAttack').length).toBeGreaterThan(0);
+  });
+
+  test('a double throws her full volley: Potential N13\'s extra shuriken and her gear Pierce, on its own carries', () => {
+    const { sim, t, spawn } = real('kage', 3, { stats: { pierceK: 76 } });
+    for (const k of [0, 1, 2, 3, 4, 5]) spawn('orc_grunt', k);
+    run(sim, STEP);
+    t.abil.cd = 0;
+    expect(sim.castAbility(t.uid).ok).toBe(true);
+    const own = { projCarry: t.projCarry, pierceCarry: t.pierceCarry };
+    t.cooldown = 1e9; // her own throws held: only the doubles throw
+    const base = t.eff.projectiles;
+    t.eff.projScale = 1; // (as Potential N13 at +100 %: one extra shuriken per shuriken)
+    const before = new Set(sim.projectiles.map((p) => p.uid));
+    for (const d of sim.deployables) d.cooldown = 0;
+    steps(sim, 1);
+    const thrown = sim.projectiles.filter((p) => !before.has(p.uid) && p.ownerUid === t.uid);
+    expect(thrown.length).toBe(2 * base * sim.deployables.length);
+    expect(thrown.some((p) => p.pierce > t.eff.pierce)).toBe(true); // her gear Pierce rode some of them
+    expect(sim.deployables.every((d) => d.projCarry === 0 && d.pierceCarry >= 0)).toBe(true);
+    expect({ projCarry: t.projCarry, pierceCarry: t.pierceCarry }).toEqual(own); // her own counts untouched
+  });
+
+  test('Bell Carpet counts a road stretch two lanes share once (4-5: the lanes meet in her range), by position, the earlier lane\'s', () => {
+    const { sim, t } = real('suzu');
+    const spots = carpetSpots(sim, t);
+    for (let i = 0; i < spots.length; i++) for (let j = 0; j < i; j++) expect(d2(spots[i], spots[j])).toBeGreaterThanOrEqual((CARPET_STEP / 2) ** 2);
+    const r2 = t.eff.range * t.eff.range;
+    const raw = sim.pathData.flatMap((q) => samplePath(q, CARPET_STEP)).filter((x) => !x.hidden && d2(x, t) <= r2);
+    expect(spots.length).toBeLessThan(raw.length);
+    expect(carpetSpots(sim, t)).toEqual(spots); // the same order every time
+  });
+
+  test('Drone Surge\'s Auto in Pursuit counts only the enemies her drones can hit (veiled ones need Veil Sight)', () => {
+    const { sim, t, keepOpen } = real('chika');
+    sim.setFlight(t.uid, 'pursuit');
+    expect(t.turretSpec.detection).toBeFalsy();
+    for (let k = 0; k < 6; k++) {
+      const e = sim.spawnEnemy('slime_violet', { pathIndex: 0, dist: 1 + k * 0.3, hpMul: 1e4 });
+      e.baseSpeed = 0;
+      e.speed = 0;
+    }
+    run(sim, STEP);
+    const def = abilityDef(t);
+    expect(autoWants(sim, t, def)).toBe(false);
+    for (let k = 0; k < 5; k++) keepOpen();
+    run(sim, STEP);
+    expect(autoWants(sim, t, def)).toBe(true);
+  });
+});
 
 describe('determinism and snapshots', () => {
   test('the same seed and orders twice: the same battle (hash and full state), every deploy cast', () => {

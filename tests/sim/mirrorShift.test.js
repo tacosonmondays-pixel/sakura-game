@@ -146,6 +146,40 @@ describe('where the mirror goes', () => {
     expect(iroha.oy).toBeCloseTo(iroha.y + iroha.stats.relay.reach, 9);
   });
 
+  test('an un-aimed cast (a tap or Auto) keeps the panel her player placed and opens the window there; with no placed aim it goes to the leader', () => {
+    const { sim, iroha } = lane();
+    at(sim, 11.5);
+    steps(sim, 1);
+    expect(sim.setAim(iroha.uid, 7.5, 5.25)).toBe(true);
+    const placed = { ...iroha.aim };
+    sim.drainEvents();
+    ready(iroha);
+    expect(sim.castAbility(iroha.uid).ok).toBe(true);
+    expect(iroha.aim).toEqual(placed);
+    expect([iroha.ox, iroha.oy]).toEqual([placed.x, placed.y]);
+    expect(iroha.abil.active).toBe(WINDOW);
+    const evs = sim.drainEvents();
+    expect(of(evs, 'relay')).toEqual([]); // no jump
+    expect(of(evs, 'ability')[0]).toMatchObject({ x: placed.x, y: placed.y, mirror: 'panel' });
+    // Auto does the same: it never moves the placed panel (its rule: 5 enemies in her mirror's reach)
+    for (const x of [9, 9.5, 10]) at(sim, x);
+    ready(iroha);
+    sim.setAbilityAuto(iroha.uid, true);
+    steps(sim, 12);
+    expect(iroha.abil.n).toBe(2);
+    expect(iroha.aim).toEqual(placed);
+    // an aimed tap still moves it; clearing her aim lets the next un-aimed cast go to the leader's road spot
+    ready(iroha);
+    sim.setAbilityAuto(iroha.uid, false);
+    expect(sim.castAbility(iroha.uid, { aim: [9, 5] }).ok).toBe(true);
+    expect(iroha.aim).toEqual({ x: 9, y: 5 });
+    sim.clearAim(iroha.uid);
+    ready(iroha);
+    expect(sim.castAbility(iroha.uid).ok).toBe(true);
+    expect(iroha.oy).toBeCloseTo(ROAD_Y, 6);
+    expect(iroha.ox).toBeCloseTo(11.5, 6); // the leader (at 11.5) stands on the road
+  });
+
   test('without an aim: the road spot nearest the leader (Front of the line) within her mirror\'s reach', () => {
     const { sim, iroha } = lane();
     const lead = at(sim, 11.5); // further along than 8.5 and 10.5, still within 3.7 of her
@@ -237,11 +271,13 @@ describe('the reflection', () => {
     const p = arrow(sim, aoi, e);
     const splits = of(steps(sim, 12), 'mirrorSplit');
     expect(splits.map((s) => s.uid)).toEqual([p.uid]);
-    // a full stretch of both girls firing through both mirrors: every shot splits at most once, no copy ever does
+    // a full stretch of both girls firing through both mirrors: every shot splits at most once, no copy ever does (Aoi's
+    // only: a mirror never splits its owner's shots; the leader alone stays, on Aoi's line through both mirrors)
+    for (const x of sim.enemies) if (x !== e) x.dead = true;
     iroha.cooldown = 0;
     aoi.cooldown = 0;
     const all = of(steps(sim, 300), 'mirrorSplit');
-    expect(all.length).toBeGreaterThan(10);
+    expect(all.length).toBeGreaterThan(5);
     const uids = all.map((s) => s.uid);
     expect(new Set(uids).size).toBe(uids.length);
     const copies = new Set(all.map((s) => s.copyUid));
@@ -267,9 +303,9 @@ describe('the reflection', () => {
     expect([iroha.ox, iroha.oy]).toEqual([8.5, 5.5]); // the panel stays where it jumped
   });
 
-  test('her own bolts split as they leave a reflecting panel; a partner\'s girl\'s shots count as ally shots and stay theirs', () => {
+  test('her own bolts never split at her own mirror (panel or tier 5\'s second); a partner\'s girl\'s shots count as ally shots and stay theirs', () => {
     const sim = mk();
-    const iroha = girl(sim, 'iroha', 8.5, 2.5);
+    const iroha = girl(sim, 'iroha', 8.5, 2.5, { tier: 5 });
     const aoi = girl(sim, 'aoi', 8.5, 6.5, { tier: 0, owner: 1 }); // the other player's girl
     silence(aoi);
     wave(sim);
@@ -277,11 +313,18 @@ describe('the reflection', () => {
     at(sim, 10.5);
     steps(sim, 1);
     ready(iroha);
-    sim.castAbility(iroha.uid, { aim: [8.5, 5.5] });
-    iroha.cooldown = 0;
-    const own = of(steps(sim, 30), 'mirrorSplit');
-    expect(own.length).toBeGreaterThan(0);
-    expect(own.every((s) => s.ownerUid === iroha.uid)).toBe(true);
+    // the panel reflects for good (tier 5) and the cast adds a second mirror right on her bolts' way to the road
+    sim.setAim(iroha.uid, 8.5, 5.5);
+    sim.castAbility(iroha.uid, { aim: [8.5, 4] });
+    expect(collectMirrors(sim)).toBe(2);
+    iroha.cooldown = 0; // she fires, from her panel and from where she stands, through both mirrors
+    const fired = of(steps(sim, 120), 'attack').filter((x) => x.towerUid === iroha.uid).length;
+    expect(fired).toBeGreaterThan(1);
+    expect(of(steps(sim, 1), 'mirrorSplit')).toEqual([]);
+    const own = of(steps(sim, 120), 'mirrorSplit');
+    expect(own).toEqual([]);
+    expect(sim.projectiles.filter((p) => p.ownerUid === iroha.uid).every((p) => !p.split)).toBe(true);
+    // an ally's shot through the same glass splits, and stays hers
     silence(iroha);
     steps(sim, 60);
     const before = { iroha: iroha.damageDealt, aoi: aoi.damageDealt || 0, hp: sim.enemies.map((x) => x.hp) };
@@ -293,6 +336,24 @@ describe('the reflection', () => {
     const lost = sim.enemies.map((x, i) => before.hp[i] - x.hp);
     expect(lost.every((v) => v > 0)).toBe(true);
     expect(aoi.damageDealt - before.aoi).toBeCloseTo(lost[0] + lost[1], 6);
+  });
+
+  test('another Iroha\'s mirror splits her shots (her own never does)', () => {
+    const sim = new Sim({ ...opts(5), loadout: [{ unitId: 'iroha' }, { unitId: 'aoi' }] });
+    sim.cash = 1e9;
+    const a = girl(sim, 'iroha', 8.5, 2.5, { tier: 5 });
+    const b = girl(sim, 'iroha', 6.5, 3.5, { tier: 5 });
+    silence(b);
+    wave(sim);
+    at(sim, 8.5);
+    at(sim, 10.5);
+    steps(sim, 1);
+    sim.setAim(a.uid, 8.5, 5.5);
+    sim.setAim(b.uid, 8.5, 4.2); // b's panel on a's line to the road
+    a.cooldown = 0;
+    const splits = of(steps(sim, 200), 'mirrorSplit');
+    expect(splits.length).toBeGreaterThan(0);
+    for (const x of splits) expect([x.ownerUid, x.mirrorUid]).toEqual([a.uid, b.uid]);
   });
 });
 
@@ -376,7 +437,7 @@ describe('snapshots and determinism', () => {
   test('the same seed and commands twice give the same battle hash; the splits did happen', () => {
     const a = script(7);
     const b = script(7);
-    expect(a.splits).toBeGreaterThan(20);
+    expect(a.splits).toBeGreaterThan(10);
     expect(b.splits).toBe(a.splits);
     expect(hashSim(b.sim)).toBe(hashSim(a.sim));
     expect(snapshotDigest(snapshotSim(b.sim))).toBe(snapshotDigest(snapshotSim(a.sim)));

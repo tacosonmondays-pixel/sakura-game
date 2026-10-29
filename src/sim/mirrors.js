@@ -2,15 +2,17 @@
 // ⚡ Mirror Hall ability, deploy type 'mirror' (src/sim/abilities.js DEPLOYS.mirror), and the reflection it opens.
 //
 //   - The cast: her mirror panel (her relay origin t.ox / t.oy, which she also fires from: base kit) jumps at once to
-//     the cast's aim point, or, with none, to the road spot nearest the leader within her mirror's reach; the point is
+//     the cast's aim point; with none (an un-aimed tap, an auto-cast) it stays on the spot her player placed it (t.aim),
+//     and only with neither does it jump to the road spot nearest the leader within her mirror's reach. The point is
 //     quantised and clamped exactly as Sim.setAim clamps a mirror aim, and it becomes her aim (t.aim), so the panel
 //     stays there after the window. For `duration` (8 s, her t.abil.active) the panel reflects.
 //   - Tier 5 (Infinite Reflection, `permanentReflect`): the panel reflects for good (no window needed; derived from her
 //     tier, so nothing is stored), and the cast (`count` 2) leaves the panel where it stands and adds a second mirror
-//     (t.mirror2 { x, y }) at that point for its duration (10 s). The second mirror reflects; she does not fire from it.
-//   - Reflection: any girl's projectile (both players' in co-op: every projectile in sim.projectiles is a girl's, a
-//     drone's or a sentry's, and all of them are ally shots; Iroha's own included, so her bolts leaving a reflecting
-//     panel split as they go through the glass) whose step segment passes within MIRROR_RADIUS of a reflecting mirror
+//     (t.mirror2 { x, y }) at the cast's aim, else the leader's road spot, for its duration (10 s). The second mirror
+//     reflects; she does not fire from it.
+//   - Reflection: an ally's projectile (both players' girls in co-op: every projectile in sim.projectiles is a girl's, a
+//     drone's or a sentry's; never the mirror owner's own, so Iroha's bolts leaving her panel or crossing it do not split
+//     there, though another Iroha's mirror splits them) whose step segment passes within MIRROR_RADIUS of a reflecting mirror
 //     splits in two, once: the original flies on unchanged and a copy leaves the crossing point (the segment's point
 //     nearest the mirror) at the next target, the best enemy within the shot's range of that point by the shooter's
 //     target mode that is neither the original's target nor already hit by it; with none, at the original's target
@@ -82,7 +84,8 @@ export function reflectStep(sim, p, ax, ay, n) {
     const cy = ay + dy * f;
     const ex = cx - mx;
     const ey = cy - my;
-    if (ex * ex + ey * ey > R2) continue;
+    // (a mirror reflects allies' shots, never its owner's: her own stay unmarked, free to split at another's mirror)
+    if (ex * ex + ey * ey > R2 || p.ownerUid === MIR[i * 3 + 2]) continue;
     splitShot(sim, p, cx, cy, MIR[i * 3 + 2]);
     return;
   }
@@ -163,15 +166,19 @@ function roadNear(sim, x, y) {
 }
 
 /**
- * Mirror Shift: where the mirror goes (the aim, else the road spot nearest the leader within her mirror's reach;
- * refused with neither), then the panel jumps there (base) or a second mirror stands there (tier 5, count ≥ 2).
+ * Mirror Shift: where the mirror goes (the cast's aim; else, for the panel, the spot her player placed it, t.aim; else
+ * the road spot nearest the leader within her mirror's reach; refused with none), then the panel jumps there (base) or
+ * a second mirror stands there (tier 5, count ≥ 2).
  * The window is her t.abil.active (castAbility sets it from the duration).
  * @returns {{ x, y, radius, targets: [], placed: 1, mirror: 'panel'|'second' }|null}
  */
 export function mirrorShift(sim, t, def, aim) {
   const relay = t.stats?.relay;
   if (!relay || relay.kind !== 'mirror') return null;
+  const second = (def.effect.count || 1) >= 2;
   let want = aim ? { x: aim[0], y: aim[1] } : null;
+  // an un-aimed cast (an auto-cast) never moves a panel her player placed: it opens the window where it stands
+  if (!want && !second && t.aim) return { x: t.aim.x, y: t.aim.y, radius: relay.reach, targets: [], placed: 1, mirror: 'panel' };
   if (!want) {
     const lead = topTargets(sim, t.x, t.y, relay.reach, abilitySpec(t, def), 'first', 1, [], [])[0] || null;
     if (!lead) return null;
@@ -179,7 +186,6 @@ export function mirrorShift(sim, t, def, aim) {
     want = road ? { x: road.x, y: road.y } : { x: lead.x, y: lead.y };
   }
   const p = mirrorPoint(sim, t, want.x, want.y);
-  const second = (def.effect.count || 1) >= 2;
   if (second) t.mirror2 = p;
   else {
     t.aim = p;

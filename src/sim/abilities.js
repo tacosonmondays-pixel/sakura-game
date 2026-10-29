@@ -936,9 +936,10 @@ function anyIn(sim, t, reach, spec) {
 
 /**
  * The deploy kind (ABILITIES_SPEC §4, A4) one object type at a time, by `effect.deploy`. A type that
- * is not here stays locked (Iroha's mirror waits for A6). Each cast is refused (`noTarget`, nothing spent)
- * when no enemy its objects could hit is in reach, or when nothing could be placed (no road in her range,
- * the sim-wide cap full: src/sim/deploys.js).
+ * is not here stays locked (every type in the data runs today: the A4 three, Azami's strips, Yuzuha's sentries and
+ * Iroha's mirror). Each A4 cast is refused (`noTarget`, nothing spent) when no enemy its objects could hit is in
+ * reach, or when nothing could be placed (no road in her range, the sim-wide cap full: src/sim/deploys.js); Mirror
+ * Shift's rule is src/sim/mirrors.js mirrorShift.
  */
 const DEPLOYS = {
   // Kage's Shadow Doubles (src/sim/deploys.js): doubles on the road spots nearest the exit in her range
@@ -1291,6 +1292,9 @@ export function autoWants(sim, t, def) {
     AUTO_NEAR.length = 0;
     const from = castFrom(t, def, FROM);
     list = sim.grid.query(from.x, from.y, reach, AUTO_NEAR);
+  }
+  // (Drone Surge in Pursuit looks over the whole map, yet still counts only what her drones can hit)
+  if (reach !== Infinity || def.effect?.deploy === 'drone') {
     if (def.kind !== 'rally') {
       // abilitySpec's eligibility fields (a finite reach is never map scope: no free Veil Sight); Drone Surge
       // counts what her drones can hit, Bell Carpet what her traps can

@@ -215,6 +215,8 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   effProc: 'derived', effEcho: 'derived', trapSpecProc: 'derived',
   // abilities: her ability's state (`ak`); a boost runs only during a wave
   abil: 'snap', abilMods: 'calm',
+  // Iroha's tier-5 Mirror Shift: her second mirror stands only while the cast runs (it ends at the wave clear)
+  mirror2: 'calm',
   // gear (src/sim/gearRules.js): her Pierce carries (shots, drones), her club trick's count, Big Beat's
   // trap / drone counts and Follow-Through's trap count — only on a girl whose gear uses them
   pierceCarry: 'snap', droneCarry: 'snap', trickN: 'snap', trapBeatN: 'snap', droneBeatN: 'snap', trapFtN: 'snap',

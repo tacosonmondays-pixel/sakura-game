@@ -820,7 +820,7 @@ const ABIL_REASONS = Object.freeze(['cooldown', 'notWave', 'active', 'noTarget',
  * `casts` / `kinds` count the `ability` events (both players' casts, auto and manual); `deploys` counts the A4 deploy
  * casts by ability id (Shadow Doubles, Bell Carpet, Drone Surge) and the doubles / Bell Carpet traps / surge drones placed.
  */
-export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 60 * 60 * 20 } = {}) {
+export function runAbilitiesBattle({ toWave = 20, checkpointAt = 8, maxFrames = 60 * 60 * 30 } = {}) {
   const t0 = Date.now();
   const rng = createRng(29);
   const clock = { t: 0 };

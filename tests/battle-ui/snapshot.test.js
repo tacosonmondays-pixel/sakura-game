@@ -1625,6 +1625,18 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of duoRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the staff heroes: Norika's barricades, Hold the Line and One-Way Street; Kogane's Overdrive)
     for (const id of ['norika', 'kogane']) for (const t of staffRun(id, 25).sim.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Iroha at Mirror Hall tier 5 mid-cast: Infinite Reflection's second mirror, gone at the wave clear)
+    const ir = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['iroha', 'aoi'], hero: null, stats: {}, seed: 15 });
+    ir.cash = 1e6;
+    for (const a of autoPlan('1-1', ['iroha', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') ir.placeTower(a.unitId, a.x, a.y);
+    const iro = ir.towers.find((t) => t.unitId === 'iroha');
+    for (let k = 0; k < 5; k++) expect(ir.upgradeTower(iro.uid, 0)).toBe(true);
+    ir.startNextWave();
+    ir.update(STEP);
+    iro.abil.cd = 0;
+    expect(ir.castAbility(iro.uid, { aim: [iro.ox, iro.oy] }).ok).toBe(true);
+    expect(iro.mirror2).toBeTruthy();
+    for (const t of ir.towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 
