@@ -260,7 +260,7 @@ for (const vp of viewports) {
       console.log(`  ${k}: ${JSON.stringify({ ...d, text: undefined })}`);
       await shot(`dps-${k}`);
       if (!BEFORE && num(d.live) > 0) {
-        check(num(d.avg) > 0 && d.tips[1] === true, `${vp} ${k}: DPS (avg) ${d.avg} beside DPS (live) ${d.live}, with its tooltip and aria text`);
+        check(num(d.avg) > 0 && d.tips[1] === true && d.sameRow === true, `${vp} ${k}: DPS (avg) ${d.avg} beside DPS (live) ${d.live} in one row, with its tooltip and aria text`);
       }
     }
     // a boss alone in her cloud (her poison's share of max HP is a tenth on a boss: the boss's HP stays as it is)
