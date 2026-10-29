@@ -20,6 +20,21 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.60', version: '0.1.60', date: '2026-10-29', title: 'Gate Arc Acts 3–6 and Extended Day',
+    added: [
+      'Gate Arc Acts 3–6: twenty new stages from Old Town Lanes to the Sky-Rail Viaduct, four new bosses (the Ashen Warden, the Frost Vanguard, the Reservoir Willow and Gatekeeper Unit 01) and a side stage, The Star Dome.',
+      'Tryout Day: Extended Day keeps the run going after period 12 until your hearts run out (clear a Full Day first), and Random Class draws your girls and every pick for you, solo or in co-op.',
+      'Tenka can now Limit Break to LR: at level 60 and ★5, pay the fee and win her Thesis Defense trial. Kohaku & Tsubaki hit far harder at their top tiers, and at Grand Spectrum their beams run on to the edge of the map.',
+    ],
+    changed: [
+      'The stage screen shows the whole map, Recruit banners are laid out cleaner, Tryout Day has its own card in Play Modes, and the battle DPS readout shows both Live and Average.',
+      'Co-op partners need this update too before you can play together.',
+    ],
+    fixed: [
+      'A chat line typed right after opening a clan tab is no longer lost, and Yuzuha\'s sentries and nets pop an orange ring when they unfold.',
+    ],
+  },
+  {
     id: 'v0.1.59', version: '0.1.59', date: '2026-10-28', title: 'Banners and Tryout Day',
     added: [
       'Tryout Day, a new run mode (opens after 2-5): play one school day of waves solo or in co-op, pick a Pep Talk after every period and watch new girls try out for your squad, from Grade 1 to Grade 12.',
