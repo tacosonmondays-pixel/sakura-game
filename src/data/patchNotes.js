@@ -20,6 +20,15 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.61', version: '0.1.61', date: '2026-10-29', title: 'Strings, Blades and Academy Flair',
+    added: [
+      'Yoriko’s doll now hangs from thin lilac strings tied to her control bar: each attack it glides out on an arc, strikes with a lilac cut and swings back home.',
+      'Kaede dashes with maple afterimages, her blade arts cut bright crescent streaks, and each hit lands with a crisp flash.',
+      'The academy girls get real attacks: Azami’s tumbling spike strips, Kinu’s threaded needles, Wakaba’s drink bottles, Yuzuha’s taser darts, Ouka’s office seal, Chigusa’s seeds and vines, and Marumi’s ball you can see bounce.',
+      'New 3D props for what they place: Azami’s spike strips, Yuzuha’s fold-out sentries and Capture Nets, Chigusa’s thorn vines and beds, Ouka’s council banners, Wakaba’s drink bottle and Kinu’s heat ring and scissors.',
+    ],
+  },
+  {
     id: 'v0.1.60', version: '0.1.60', date: '2026-10-29', title: 'Gate Arc Acts 3–6 and Extended Day',
     added: [
       'Gate Arc Acts 3–6: twenty new stages across chapters 3 to 6, four new bosses (the Ashen Warden, the Frost Vanguard, the Reservoir Willow and Gatekeeper Unit 01) and a side stage, The Star Dome.',
