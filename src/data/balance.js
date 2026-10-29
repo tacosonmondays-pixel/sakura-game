@@ -51,9 +51,8 @@ const ROWS = {
   iroha: { boss: 3.9 },
   marumi: { boss: 5.6 },
   ruri: { boss: 9 },
-  // (the duo: Umeko's raised aura shifts her shell and beam timing on a stream, so ×1.12 keeps every build of hers, alone
-  // and with supports, at or above today; her boss row reaches the shells, not Kohaku's beam)
-  kohaku_tsubaki: { dmg: 1.12, boss: 7.6 },
+  // (the duo, Kohaku & Tsubaki: no row. The owner's Oct 29 buff (v0.1.60) makes her an intended outlier above Kage, so
+  // round 5 leaves her out of the band and never tunes her; tools/balance/r5Bench.mjs checks no build of hers falls)
   // controllers: their crowd DPS sits in the band; control lasts 20% longer. Fuu's stronger wind pushes walkers out of
   // her reach (her Returning Gale build alone lost 46% at ×1), so her damage rises until every build of hers, alone and
   // with supports, deals at least what it does today (×2.45; her best build then reads ~3.9M on a crowd, no cap)

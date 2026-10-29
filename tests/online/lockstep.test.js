@@ -1,3 +1,4 @@
+import { POWER } from '../../src/data/balance.js';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Lockstep, REBUILD_TIMEOUT_MS } from '../../src/online/coop/lockstep.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
@@ -1322,13 +1323,16 @@ describe('co-op lockstep: Tenka\'s lab team through a drop, a rejoin and a resyn
 // the viaduct fixture (previews/viaductMaps.js; not in MAPS, so it is registered in the sim's data source
 // here) with the same command log stay bit-identical while enemies climb onto it and walk under it.
 describe('co-op lockstep: the viaduct board', () => {
+  const neutral = (id) => ({ ...CHEAP, damageMul: (CHEAP.damageMul ?? 1) / (POWER[id]?.dmg ?? 1) });
   const VSTART = {
     seed: 4242,
     stageId: 'fixture:viaduct',
     difficulty: 'normal',
     players: [
-      { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: CHEAP }, { unitId: 'rei', stats: CHEAP }], hero: null },
-      { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'yuki', stats: CHEAP }], hero: null },
+      // (power-neutral: balance round 5's damage rows divided back out, src/data/balance.js, so a walker still reaches the
+      // underpass before the girls clear it)
+      { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: neutral('aoi') }, { unitId: 'rei', stats: neutral('rei') }], hero: null },
+      { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'yuki', stats: neutral('yuki') }], hero: null },
     ],
   };
   const maps = defaultData().maps;
