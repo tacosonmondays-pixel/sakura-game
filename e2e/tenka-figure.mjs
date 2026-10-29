@@ -222,6 +222,10 @@ try {
   }
 
   log('\n--- quality low (a new battle with the Low setting, as a phone player would have it) ---');
+  if (skipHigh) {
+    await page.goto(base, { waitUntil: 'load', timeout: 90000 });
+    await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 90000 });
+  }
   await page.evaluate(() => {
     const { store } = window.__sakura;
     store.profile.settings.quality = 'low';
