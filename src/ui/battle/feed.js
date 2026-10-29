@@ -93,6 +93,12 @@ export function createFeed(layer) {
     if (corners && lay.top != null) list.style.top = `${lay.top}px`;
     cap = corners ? lay.cap : null;
     capAlways = lay.capAlways;
+    // a dropped stack on a short (landscape phone) screen keeps to one toast, so it never reaches the NEXT WAVE
+    // button or spreads over the board below the gates (Gate Arc Step 6 visual review)
+    if (corners && lay.top != null && shortScreen()) {
+      cap = 1;
+      capAlways = true;
+    }
   };
   const banner = h('div.bt-banner-host');
   layer.append(list, banner);
