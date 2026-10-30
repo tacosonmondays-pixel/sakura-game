@@ -46,9 +46,12 @@ export const SET_PASSIVES = Object.freeze({
 /**
  * The attack kinds whose hits carry Right Angle's sure crit and Confetti Burst (towers.js gearSpec). Other kinds (traps,
  * turrets, mortars, rings, strips, drinks, rolls) neither count nor fire them; their girls get the idle chip
- * (src/systems/gearSets.js setIdle).
+ * (src/systems/gearSets.js setIdle). The attack shapes S1–S4 that a tier turns her live attack into (wheel, spin,
+ * stream, sweep, spikes, return; each builds its hits through gearSpec) carry them too, so a girl keeps her set's
+ * passive at the tiers where her attack changes shape (v0.1.66 release decision (A)). S5's shape hits are extra
+ * clean hits beside her live attack and never carry them (src/sim/shapes.js shapeSpec).
  */
-export const SET_ATTACK_BEHAVIORS = Object.freeze(['projectile', 'pulse', 'duel', 'beam', 'chain']);
+export const SET_ATTACK_BEHAVIORS = Object.freeze(['projectile', 'pulse', 'duel', 'beam', 'chain', 'wheel', 'spin', 'stream', 'sweep', 'spikes', 'return']);
 
 /** Big Cheer with no aura: her nearest girls within this many tiles (ties by lower uid). */
 export const CHEER_NEAR = 2;

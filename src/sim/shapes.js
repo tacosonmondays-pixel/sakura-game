@@ -107,7 +107,8 @@ export function onRoad(sim, e, pathIndex, d0, d1) {
  * Attack shapes S5 (docs/specs/ATTACK_SHAPES_S5.md rules 2, 3 and 6): the clean copy of her attack `spec` for a shape
  * hit at `mul` of one hit. Damage only: no statuses, marks, pushes, splash, silence or reveal; `noShare` (Ena's
  * threads neither share nor split it, Sim._hit); `shape` (its damage goes to t.shapeDealt, which every damage-ranked
- * pick leaves out). It rolls no crit: her expected crit, 1 + c × (m − 1) as computeHit reads them (src/sim/combat.js), is
+ * pick leaves out). It rolls no crit and carries no gear set trick (sure crit, super crit, Confetti Burst): her
+ * expected crit, 1 + c × (m − 1) as computeHit reads them (src/sim/combat.js), is
  * in its damage, so the shared rng sees exactly live's draws. `share: mul` scales flat armour, the floor and a crystal
  * shell's count with it.
  */
@@ -121,6 +122,12 @@ export function shapeSpec(spec, mul) {
     share: mul,
     critChance: 0,
     critMul: 1,
+    // (a gear set's Right Angle and Confetti Burst, towers.js gearSpec, stay on her live attack: no sure crit, super
+    // crit or burst on a shape hit)
+    superChance: 0,
+    sure: 0,
+    confetti: null,
+    burstLeft: 0,
     status: [],
     procStatus: null,
     mark: null,

@@ -287,3 +287,64 @@ describe('Bake Sale · Nightglass: the first paid upgrade each wave costs 10 % l
     expect(sim.upgradeStatus(t.uid, 0).cost).toBeLessThan(full);
   });
 });
+
+// v0.1.66 release decision (A): the attack shapes S1–S4 a tier turns her live attack into carry Right Angle and Confetti
+// Burst like the attack they replaced (setRules.js SET_ATTACK_BEHAVIORS); S5's shape hits stay clean (shapes.js shapeSpec).
+describe('set passives on the attack shapes', () => {
+  const SHAPES = [
+    ['wheel', 'momo', 2, 4], ['spin', 'kage', 0, 5], ['stream', 'akane', 1, 4],
+    ['sweep', 'umeko', 0, 4], ['spikes', 'yuki', 1, 4], ['return', 'fuu', 0, 4],
+  ];
+  const run = (unitId, path, tier, stats) => {
+    const loadout = [{ unitId, stats: { ...unitBattleStats(null, unitId), damageMul: 3, ...stats, critChance: 0, costMul: 0.01 } }];
+    const sim = new Sim({ stageId: '1-3', difficulty: 'normal', seed: 7, loadout, options: { autoStart: false } });
+    sim.cash = 1e9;
+    let t = null;
+    for (let y = 0.55; y < sim.map.height && !t; y += 0.35) {
+      for (let x = 0.55; x < sim.map.width && !t; x += 0.35) {
+        if (!sim.placementReason(unitId, x, y) && sim.placement.pathDistance(x, y) < 1.2) t = sim.placeTower(unitId, x, y);
+      }
+    }
+    for (let k = 0; k < tier; k++) expect(sim.upgradeTower(t.uid, path)).toBe(true);
+    if (path !== 2) for (let k = 0; k < 2; k++) sim.upgradeTower(t.uid, 2);
+    else for (let k = 0; k < 2; k++) sim.upgradeTower(t.uid, 0);
+    t.stats.crit.chance = 0;
+    const ev = { set: {}, crits: 0, hits: 0 };
+    let steps = 60 * 200;
+    for (let w = 0; w < 4 && steps > 0; w++) {
+      sim.startNextWave();
+      for (; steps > 0 && sim.state === 'wave'; steps--) {
+        sim.update(STEP);
+        for (const e of sim.drainEvents()) {
+          if (e.type === 'setTrick') ev.set[e.kind] = (ev.set[e.kind] || 0) + 1;
+          if (e.type === 'hit') {
+            ev.hits++;
+            if (e.crit) ev.crits++;
+          }
+        }
+      }
+    }
+    return { t, ev };
+  };
+
+  for (const [behavior, unitId, path, tier] of SHAPES) {
+    test(`${behavior} (${unitId} path ${path} tier ${tier}): Right Angle's sure crit lands on her hits; Confetti Burst bursts`, () => {
+      const g = run(unitId, path, tier, { set: 'geometry', setN: 4 });
+      expect(g.t.eff.behavior).toBe(behavior);
+      expect(g.ev.set.rightAngle || 0).toBeGreaterThan(0);
+      // her crit chance is 0: every crit is a sure one, so the shape's hits carry gearSpec's `sure`
+      expect(g.ev.crits).toBeGreaterThan(0);
+      const p = run(unitId, path, tier, { set: 'popper', setN: 4 });
+      expect(p.t.eff.behavior).toBe(behavior);
+      // confettiBurst fires only from a hit whose spec carries `confetti`
+      expect(p.ev.set.confetti || 0).toBeGreaterThan(0);
+    }, 60000);
+  }
+
+  test('an S5 shape hit carries no sure crit, super crit or Confetti Burst (shapeSpec)', async () => {
+    const { shapeSpec } = await import('../../src/sim/shapes.js');
+    const s = shapeSpec({ damage: 10, critChance: 0.5, critMul: 2, superChance: 0.3, sure: 1.2, confetti: { share: 0.5, radius: 1 }, burstLeft: 1 }, 0.5);
+    expect(s).toMatchObject({ critChance: 0, superChance: 0, sure: 0, confetti: null, burstLeft: 0, shape: true });
+    expect(s.damage).toBeCloseTo(10 * 0.5 * 1.5, 9);
+  });
+});

@@ -107,6 +107,7 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
     const ch = t.ch;
     if (ch) {
       h.int(ch.uid).int(ch.k).int(ch.lock).int(ch.tick).int(ch.grace).int(ch.src).int(ch.trick).int(ch.px).int(ch.c).int(ch.ph).int(ch.pass).int(ch.n);
+      if (ch.set) h.int(ch.set); // (gear set passives on a held channel; v0.1.66)
       h.int(ch.hits.length);
       for (let i = 0; i < ch.hits.length; i++) h.int(ch.hits[i]);
     }

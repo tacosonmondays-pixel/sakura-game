@@ -857,9 +857,25 @@ function linePierceInto(sim, t, spec, target, length, halfWidth, pierce, hits, n
 function heldBase(t) {
   const ch = t.ch;
   const s = ch && ch.src === 1 && t.effProc ? t.effProc : t.eff;
-  if (!ch || !ch.trick) return s;
-  const tr = ch.trick === 1 ? { mul: TRICK.thrust.mul, pen: THRUST_PEN } : { mul: TRICK.bigBeat.mul, pen: 0 };
-  return { ...s, damage: s.damage * tr.mul, ...(tr.pen ? { armorPen: (s.armorPen || 0) + tr.pen } : null) };
+  if (!ch || (!ch.trick && !ch.set)) return s;
+  const out = { ...s };
+  if (ch.trick) {
+    const tr = ch.trick === 1 ? { mul: TRICK.thrust.mul, pen: THRUST_PEN } : { mul: TRICK.bigBeat.mul, pen: 0 };
+    out.damage = s.damage * tr.mul;
+    if (tr.pen) out.armorPen = (s.armorPen || 0) + tr.pen;
+  }
+  // her set's passives on a counted attack (gearSpec's `sure` and `confetti`): Right Angle's sure crit rides every tick
+  // until her next attack, as a trick does; a Confetti Burst rides her ticks until one of their hits bursts it
+  // (confettiBurst clears the bit)
+  if (ch.set) {
+    const sp = setPassive(t.unitStats);
+    if (sp && ch.set & 1) out.sure = sp.mul;
+    if (sp && ch.set & 2) {
+      out.confetti = sp;
+      out.burstLeft = 1;
+    }
+  }
+  return out;
 }
 
 /** The helpers a held channel uses (src/sim/held.js heldTick). */
@@ -867,15 +883,17 @@ const HELD_HELP = Object.freeze({ bestTarget, base: heldBase });
 
 /**
  * A held girl's counted attack (src/sim/held.js attackHeld): her enemy by target mode, and what the channel
- * carries until her next attack (a rhythm attack's spec, her gear trick, her gear Pierce's extra victims); an echo is one flare.
+ * carries until her next attack (a rhythm attack's spec, her gear trick and set passives, her gear Pierce's extra victims); an
+ * echo is one flare.
  */
 function attackHeldWith(sim, t) {
   const src = t.effProc && t.eff === t.effProc ? 1 : 0;
   const trick = echoing || !gearTrick ? 0 : gearTrick.kind === 'thrust' ? 1 : 2;
+  const set = echoing ? 0 : (gearSure ? 1 : 0) | (gearConfetti ? 2 : 0);
   // gear Pierce: 2 more victims a tick (a stream) or a pass (a sweep) per 100 %, the pulse's carry and limit (asked
   // only once she has an enemy, on a counted attack)
   const extra = () => (gearK > 0 && !echoing ? pierceCarry(t, 'pierceCarry', 2 * gearK, PULSE_MAX_EXTRA) : 0);
-  const e = attackHeld(sim, t, t.eff, HELD_HELP, { src, trick, echo: echoing, extra });
+  const e = attackHeld(sim, t, t.eff, HELD_HELP, { src, trick, set, echo: echoing, extra });
   if (e) lastFaced = e;
   return !!e;
 }
@@ -2471,6 +2489,7 @@ let popping = false;
 export function confettiBurst(sim, tower, spec, e) {
   if (!spec.confetti || !(spec.burstLeft > 0) || !tower || tower.removed) return;
   spec.burstLeft = 0;
+  if (tower.ch) tower.ch.set &= 1; // (a held channel's pending burst is spent: heldBase)
   if (!(sim.burstBudget >= BURST_COST)) return;
   sim.burstBudget -= BURST_COST;
   const c = spec.confetti;

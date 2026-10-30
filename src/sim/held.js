@@ -73,7 +73,7 @@ function emitChannel(sim, t, e) {
 /**
  * One counted attack of a held girl (her attack loop, at her rate): picks her enemy by target mode (h.bestTarget),
  * opens the channel or switches it, and sets what it carries until her next attack (o.src: 1 for a rhythm attack,
- * o.trick: her gear trick code, o.extra(): her gear Pierce's extra victims, asked once she has an enemy). An echo (o.echo) is one flare with `spec` (the echo's hit) instead.
+ * o.trick: her gear trick code, o.set: her gear set passives (channel.js `set`), o.extra(): her gear Pierce's extra victims, asked once she has an enemy). An echo (o.echo) is one flare with `spec` (the echo's hit) instead.
  * @returns {object|null} her enemy (null: none in reach, not a counted attack)
  */
 export function attackHeld(sim, t, spec, h, o) {
@@ -97,6 +97,7 @@ export function attackHeld(sim, t, spec, h, o) {
   }
   ch.src = o.src;
   ch.trick = o.trick;
+  ch.set = o.set | 0;
   ch.px = o.extra ? o.extra() : 0;
   t.targetUid = e.uid;
   sim._emit('attack', { towerUid: t.uid, targetUid: e.uid, kind: t.eff.behavior });
