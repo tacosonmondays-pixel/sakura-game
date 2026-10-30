@@ -93,6 +93,21 @@ for (const [W, H] of [[844, 390], [1280, 720]]) {
   const idle = await page.locator('[data-testid="gear-set-line"] [data-testid="gear-set-idle"]').innerText().catch(() => '');
   check(idle.trim().length > 3, `${W}x${H} Momo's Spirit Squad set cap greyed with its reason ("${idle.trim()}")`);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/gear-slots-momo-${W}x${H}.png` });
+  // the Set Box picker says what her kit cannot use of the set before it opens (review M2 r3 S1): Momo first in the team,
+  // Spirit Squad picked (no aura: its set cap does nothing for her), then Geometry (her coins crit: nothing to say)
+  await page.evaluate(async () => {
+    const { store } = window.__sakura;
+    store.profile.items.setbox_pick_legendary = 1;
+    store.profile.formation.towers = ['momo', ...store.profile.formation.towers.filter((id) => id !== 'momo')];
+    (await import('/src/ui/gearUr.js')).setBoxModal('setbox_pick_legendary');
+  });
+  await page.waitForSelector('[data-testid="set-box-modal"]', { timeout: 10000 });
+  await page.locator('[data-testid="set-box-set-spirit"]').click();
+  const boxIdle = await page.locator('[data-testid="set-box-idle"]').innerText().catch(() => '');
+  check(/^For Momo: .*aura/.test(boxIdle.trim()), `${W}x${H} Set Box picker: Spirit Squad's idle note for Momo ("${boxIdle.trim()}")`);
+  await page.locator('[data-testid="set-box-set-geometry"]').click();
+  check(await page.locator('[data-testid="set-box-idle"]').count() === 0, `${W}x${H} Set Box picker: no idle note when her kit uses the set`);
+  await page.keyboard.press('Escape');
   check(!errs.length, `${W}x${H} no page errors${errs.length ? `: ${errs.join(' | ')}` : ''}`);
   await page.close();
 }

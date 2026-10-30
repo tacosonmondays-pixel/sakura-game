@@ -362,6 +362,8 @@
 .gk-set.idle .gk-pips i { border-color: #6f7675; }
 .gk-set.idle .gk-pips i.on { background: #6f7675; }
 .gk-set-idle { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--ink); }
+/* (a full sentence, the set line's and the Set Box's: normal line height, so a wrapped reason does not crowd) */
+p.gk-set-idle, .gk-setline .gk-set-idle { line-height: normal; }
 
 /* ---------- Sheets: the slot sheet, a piece's Details, the gear totals ---------- */
 .ui-sheet.gk-sheet { width: min(100%, 960px); background: #fbfdff; }
