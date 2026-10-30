@@ -6,8 +6,8 @@ The shapes S5 (with round 5), Ena's spreading curse, Iroha's mirror network, the
 and Build Coach / loadouts merged on main v0.1.64 / v0.1.65. What the merge itself changed:
 
 - **Gear sets on the attack shapes (decision A).** Right Angle and Confetti Burst counted only projectile, pulse, duel,
-  beam and chain attacks, so the 11 path/tier rows whose attack turns into a shape (Yuki 2-4/5 spikes, Momo 3-4/5 wheel,
-  Akane 2-4/5 stream, Kage 1-5 spin, Umeko 1-4/5 sweep, Fuu 1-4/5 return) would have lost them; `SET_ATTACK_BEHAVIORS`
+  beam and chain attacks, so the 11 path/tier rows whose attack turns into a shape (path index, tiers: Yuki 1 T4–5 spikes, Momo 2 T4–5
+  wheel, Akane 1 T4–5 stream, Kage 0 T5 spin, Umeko 0 T4–5 sweep, Fuu 0 T4–5 return) would have lost them; `SET_ATTACK_BEHAVIORS`
   now includes wheel, spin, stream, sweep, spikes and return. Held channels carry them like a gear trick (channel.js
   `set`). S5's shape hits stay clean (shapeSpec clears the sure crit, super crit and Confetti Burst).
 - **The average crit never costs a damage source (decision 2).** A girl with dead crit lines took the average-crit path
