@@ -333,7 +333,7 @@ describe('performance budget: link attack shapes', () => {
 // widest bursts) with Omen Card on Auto, in a huge wave of 600 walkers bunched along the road: every cursed enemy rots
 // each step and queries the grid for its pass once a second. Never more passes in a step than CURSE_SPREADS_PER_TICK,
 // the chain never deeper than CURSE_SPREAD_MAX_DEPTH. Its time is judged against the SAME board with the rot taken out
-// of her data (the old kill-only curse: the same girls, cards, bursts and walkers), run right before it, so a loaded
+// of her data (the old kill-only curse: the same girls, cards, bursts and walkers), run right after it, so a loaded
 // machine slows both: the rot and the spread may cost at most CURSE_PERF_RATIO × that baseline (locally at least the
 // usual 2 ms is always allowed; CI keeps its flat 6 ms).
 const CURSE_PERF_RATIO = 2;
@@ -401,8 +401,8 @@ function curseBoard(units) {
 describe('performance budget: the spreading curse', () => {
   test('12 Garden of Calamity Enas (Omen Card on Auto) + 600 enemies: a step stays within its budget', () => {
     const real = defaultData().units;
-    const base = curseBoard(withoutRot(real));
     const { sim, placed, most, passes, perStep } = curseBoard(real);
+    const base = curseBoard(withoutRot(real)); // second, on a warm JIT (it never flatters the run it judges)
     console.log(`[perf] spreading curse: ${sim.enemies.length} enemies, at most ${most.cursed} rotting, ${passes} passes (at most ${most.passes} a step, depth ${most.depth}), ${most.casts} Omen Cards: ${perStep.toFixed(3)} ms/step (without the rot ${base.perStep.toFixed(3)})`);
     expect(placed).toBe(12);
     expect(base.passes).toBe(0);

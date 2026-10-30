@@ -362,7 +362,9 @@ export class RosterFx {
       case 'curseSpread':
         if (this._spreads.length >= SPREAD_MAX) this._spreads.shift();
         // at the two enemies' own height (an overpass deck: e.elev), each read once
-        this._spreads.push({ x0: ev.x0, y0: ev.y0, x1: ev.x1, y1: ev.y1, h0: this._elevOf(ev.from), h1: this._elevOf(ev.to), age: 0 });
+        // (a target that died the same frame is gone from the list: it takes the source's height)
+        const h0 = this._elevOf(ev.from, 0);
+        this._spreads.push({ x0: ev.x0, y0: ev.y0, x1: ev.x1, y1: ev.y1, h0, h1: this._elevOf(ev.to, h0), age: 0 });
         return true;
       case 'ult':
         // the renderer keeps its screen flash + shake; the map-wide ring is skipped for these two
@@ -693,15 +695,16 @@ export class RosterFx {
     if (!self) this._tether(t.x, t.y, x, y, c, p.kind === 'mirror' ? 0.6 : 0.7);
   }
 
-  /** An enemy's road height by uid (0 when gone); the uid map is built at most once a frame, only when a pass came. */
-  _elevOf(uid) {
+  /** An enemy's road height by uid (`fallback` when gone); the uid map is built at most once a frame, only when a pass came. */
+  _elevOf(uid, fallback) {
     if (this._elevFrame !== this.time) {
       this._elevFrame = this.time;
       const m = this._elevMap || (this._elevMap = new Map());
       m.clear();
       for (const e of this.sim.enemies || []) m.set(e.uid, e.elev || 0);
     }
-    return this._elevMap.get(uid) || 0;
+    const h = this._elevMap.get(uid);
+    return h === undefined ? fallback : h;
   }
 
   /** The spreading curse's threads (see SPREAD_LIFE): one stretched ground quad each, fading out. */

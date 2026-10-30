@@ -54,6 +54,10 @@ describe('the spreading curse thread', () => {
     const { roster, frame } = board({ reduceMotion: true, enemies: [{ uid: 1, elev: 2 }, { uid: 2, elev: 2 }] });
     roster.handle(spread());
     expect(frame()[0][1]).toBeCloseTo(2.12, 6);
+    // a target that died the same frame (not in the list any more) takes the source's height
+    const gone = board({ reduceMotion: true, enemies: [{ uid: 1, elev: 2 }] });
+    gone.roster.handle(spread());
+    expect(gone.frame()[0][1]).toBeCloseTo(2.12, 6);
     const flat = board({ reduceMotion: true });
     flat.roster.handle(spread());
     expect(flat.frame()[0][1]).toBeCloseTo(0.12, 6);
