@@ -12,7 +12,7 @@ import { h } from '../dom.js';
 import { createVisualRandom, visualSeed } from '../../render/vfx/random.js';
 import { FlashGuard, FAINT, SOFT_FLASH } from '../../render/vfx/flashGuard.js';
 import { portraitUrl, portraitHTML } from '../../art/portraits.js';
-import { planCinematic, gateAt, gatePhaseStart, revealAt, revealHoldStart, revealStars, openLightPeak, openLightFade, TAP_SPEED } from './plan.js';
+import { planCinematic, gateAt, gatePhaseStart, revealAt, revealHoldStart, revealStars, openLightPeak, openLightFade, idleGateEnergy, TAP_SPEED } from './plan.js';
 import { createGate } from './gate.js';
 import { CinematicFx } from './fx.js';
 import { markSVG } from './emblem.js';
@@ -285,7 +285,7 @@ export function createCinematic(overlay, results, o) {
     state.t += dt;
     if (state.mode === 'gate' && gate) stepGate(dt);
     // (behind a full-screen reveal the Gate is hidden: it is not redrawn)
-    else if (gate && state.mode !== 'settled' && state.mode !== 'reveal') gate.update({ t: state.t, dt, phase: 'done', p: 1, tier: plan.tier, accent: plan.accent, energy: 0.5, hue: (state.t * 60) % 360, reduce: plan.reduce, openPeak: state.openedAt == null ? 0 : openLightFade(state.openPeak, state.rt - state.openedAt) });
+    else if (gate && state.mode !== 'settled' && state.mode !== 'reveal') gate.update({ t: state.t, dt, phase: 'done', p: 1, tier: plan.tier, accent: plan.accent, energy: idleGateEnergy(state.openedAt == null ? null : state.rt - state.openedAt), hue: (state.t * 60) % 360, reduce: plan.reduce, openPeak: state.openedAt == null ? 0 : openLightFade(state.openPeak, state.rt - state.openedAt) });
     if (state.mode === 'reveal' && state.reveal) stepReveal(dtReal);
     fx.update(dtReal);
     // the flash fades out; the shake is a sideways shift only (never a rotation)
@@ -406,7 +406,7 @@ export function createCinematic(overlay, results, o) {
       state.mode = 'settled';
       state.shake = 0;
       // one last, quiet frame of the Gate (no opening light left on it)
-      gate?.update({ t: state.t, dt: 0, phase: 'done', p: 1, tier: plan.tier, accent: plan.accent, energy: 0.5, hue: (state.t * 60) % 360, reduce: plan.reduce, openPeak: 0 });
+      gate?.update({ t: state.t, dt: 0, phase: 'done', p: 1, tier: plan.tier, accent: plan.accent, energy: idleGateEnergy(state.openedAt == null ? null : state.rt - state.openedAt), hue: (state.t * 60) % 360, reduce: plan.reduce, openPeak: 0 });
       fx.sparkRate = fx.arcRate = fx.petalRate = 0;
       fx.rays = 0;
       fx.starAmount = 0;

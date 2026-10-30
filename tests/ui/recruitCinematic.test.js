@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import {
   planCinematic, gateAt, gatePhaseStart, revealAt, revealHoldStart, revealStars, GATE_TIMES, GATE_TIMES_CALM, REVEAL_TIMES, GATE_PHASES,
-  openLightPeak, openLightFade, OPEN_FADE,
+  openLightPeak, openLightFade, OPEN_FADE, idleGateEnergy,
 } from '../../src/ui/recruit/plan.js';
 import { FlashGuard, FAINT, SOFT_FLASH, MAX_FLASH } from '../../src/render/vfx/flashGuard.js';
 import { compact } from '../../src/ui/recruit/fx.js';
@@ -138,6 +138,18 @@ describe('the opening light (a full-screen light: one flash)', () => {
     expect(openLightFade(0.5, OPEN_FADE / 2)).toBeCloseTo(0.25);
     expect(openLightFade(0.5, OPEN_FADE)).toBe(0);
     expect(openLightFade(0.5, OPEN_FADE * 3)).toBe(0);
+  });
+});
+
+describe('the Gate after it opens', () => {
+  it('its glow eases from full to resting over OPEN_FADE (no one-frame drop)', () => {
+    expect(idleGateEnergy(0)).toBe(1);
+    expect(idleGateEnergy(OPEN_FADE / 2)).toBeCloseTo(0.75);
+    expect(idleGateEnergy(OPEN_FADE)).toBe(0.5);
+    expect(idleGateEnergy(10)).toBe(0.5);
+    expect(idleGateEnergy(null)).toBe(0.5);
+    // frame to frame at 60 fps it never moves more than a frame's share of the fade
+    for (let t = 0; t < OPEN_FADE + 0.1; t += 1 / 60) expect(Math.abs(idleGateEnergy(t + 1 / 60) - idleGateEnergy(t))).toBeLessThanOrEqual(0.5 / (OPEN_FADE * 60) + 1e-9);
   });
 });
 

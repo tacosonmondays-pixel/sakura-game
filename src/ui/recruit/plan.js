@@ -138,3 +138,11 @@ export function openLightPeak(plan, guardFlash, { faint, soft }, want = 0.55) {
 export function openLightFade(peak, since) {
   return Math.max(0, peak * (1 - Math.max(0, since) / OPEN_FADE));
 }
+
+/**
+ * The Gate's glow behind the cards once it has opened: it eases from full (1) down to its resting 0.5 over
+ * OPEN_FADE, never in one frame. `since`: seconds since it opened (null: it never opened, e.g. a spark: resting).
+ */
+export function idleGateEnergy(since) {
+  return since == null ? 0.5 : 1 - 0.5 * Math.min(1, Math.max(0, since) / OPEN_FADE);
+}
