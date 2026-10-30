@@ -820,7 +820,9 @@ GearInstance = { uid, slot, rarity, level /*0-10; 0-12 when ur*/, main: { stat, 
   // unitGearCaps(profile, unitId) = gearCaps of her set info: every MAX tag and stitch warning reads it. A hero's ult
   // haste (src/sim/hero.js ultCooldown): gear + Potential capped at SKILL_HASTE_CAP 0.5; with gear haste above 0.5
   // (LR caps only) the cap is ULT_HASTE_MAX 0.75 and Potential stacks on top (the spec's "0.75" is this split). Pierce
-  // above 200 % (PIERCE_SHOT_PCT, what a shot uses) also fills in as ATK unless a 5-piece Party Popper's blasts read it.
+  // above 200 % (PIERCE_SHOT_PCT, what a shot uses) fills in as ATK for a kit whose blasts Pierce never widens (blastKit:
+  // the sim's reach test); a hero whose blasts come with her levels (heroBlastLevel, Kogane 15) carries `pierceAtkMul`:
+  // the sim's resolveStats makes the band ATK at a level without a blast and reach from it (re-resolved at level-up).
 ```
 
 ### `src/systems/battleSave.js` (battle saves)

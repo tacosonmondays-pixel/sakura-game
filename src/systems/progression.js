@@ -11,7 +11,7 @@ import { UNIT_MAP, getUnit } from '../data/units.js';
 import { ITEMS, materialId, bookId, zenithId } from '../data/items.js';
 import { ITEM_RARITY_ORDER } from '../data/types.js';
 import { consumeItems, missingItems, itemCount, normalizeList } from './inventory.js';
-import { gearStatTotals, gearFillIn, gearSetInfo, gearCaps, pierceUseCap } from './gear.js';
+import { gearStatTotals, gearFillIn, gearSetInfo, gearCaps, pierceUseCap, blastKit, heroBlastLevel } from './gear.js';
 import { BATTLE_CAPS, DOT_BY_PIECES, fillStats } from '../data/gearStats.js';
 import { averageCrit, ABIL_HASTE_CEIL, BLAST_K_MAX } from '../sim/setRules.js';
 import { BLANK_FIVE } from '../data/gearAwaken.js';
@@ -474,13 +474,24 @@ export const GEAR_DOT_CAP = 1.25;
  * @returns {{ damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, pierceK, auraPct, auraRangeMul, dotMul, club, clubN, rainbow, awakenPassive, level, awaken, breakthrough, potential }}
  */
 export function unitBattleStats(profile, unitId) {
+  const a = battleStatsAt(profile, unitId, blastKit(unitId));
+  // a hero whose blasts come with her levels (Kogane, Lv 15): her 200–300 % Pierce band as ATK until then, as reach
+  // from then (the sim switches at her level-up: src/sim/mods.js resolveStats, `pierceAtkMul`; review M3 r4 LOW 2)
+  if (!(heroBlastLevel(unitId) > 1)) return a;
+  const b = battleStatsAt(profile, unitId, false);
+  const mul = b.damageMul / a.damageMul;
+  return mul > 1 + 1e-9 ? { ...a, pierceAtkMul: Math.round(mul * 10000) / 10000 } : a;
+}
+
+/** unitBattleStats with her Pierce judged as a blast kit's (`blast`: all of it reach) or a shot kit's (200 %, then ATK). */
+function battleStatsAt(profile, unitId, blast) {
   const unit = profile?.units?.[unitId] || { level: 1, awaken: 0, breakthrough: 0 };
   const prof = profile || { units: {}, gear: {} };
   const g = gearStatTotals(prof, unitId);
   const set = gearSetInfo(prof, unitId);
   // her caps, with her 5-piece set cap lifted (GEAR_UPDATE.md §3.2)
   const C = gearCaps(set);
-  let fill = gearFillIn(prof, unitId);
+  let fill = gearFillIn(prof, unitId, { blast });
   // her average crit on damage that cannot crit (traps that never crit, burns, poisons: §8.3 lever 1). Never weaker:
   // where her crit lines fill in as ATK, she gets the better of that fill-in and the average crit
   const critChance = Math.min(C.critChance, g.critChance);
@@ -490,7 +501,7 @@ export function unitBattleStats(profile, unitId) {
   // (the aura girls' crit lines fill into their aura: never both, so no average crit for them)
   if (fill.target === 'aura' && (dead.has('critChance') || dead.has('critDmg'))) avgCrit = 1;
   if (fill.target === 'atk' && (dead.has('critChance') || dead.has('critDmg'))) {
-    const alt = gearFillIn(prof, unitId, { skip: ['critChance', 'critDmg'] });
+    const alt = gearFillIn(prof, unitId, { skip: ['critChance', 'critDmg'], blast });
     if ((1 + g.atkPct + alt.total) * avgCrit > 1 + g.atkPct + fill.total) fill = alt;
     else avgCrit = 1;
   }
@@ -525,7 +536,7 @@ export function unitBattleStats(profile, unitId) {
     costMul: r4(Math.max(1 - C.costCut, 1 - g.costCut)),
     ultHaste: r4(Math.min(B.ultHaste, g.ultHaste)),
     // (a kit with no blasts stops at the 200 % a shot uses: the rest fills in as ATK, gearFillIn; review M3 r2 #1)
-    pierceK: Math.round(100 * Math.min(pierceUseCap(unitId, B.piercePct), g.piercePct)),
+    pierceK: Math.round(100 * Math.min(pierceUseCap(unitId, B.piercePct, blast), g.piercePct)),
     auraPct: r4((1 + Math.min(C.auraPct, g.auraPct) + auraFill) * boost.aura - 1),
     auraRangeMul: r4((1 + Math.min(C.auraRangePct, g.auraRangePct)) * (1 + auraFill)),
     dotMul: r4(Math.min(dotCap, 1 + dotShare * gearAtk)),

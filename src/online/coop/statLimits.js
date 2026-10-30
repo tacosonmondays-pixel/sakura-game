@@ -73,6 +73,8 @@ export const UNIT_STAT_LIMITS = Object.freeze({
   controlMul: num(1, CONTROL_MUL_MAX),
   abilHaste: num(0, ABIL_HASTE_CEIL),
   blastK: int(0, BLAST_K_MAX),
+  // a hero whose blasts come with her levels: her 200–300 % Pierce band as ATK while her level has no blast (mods.js)
+  pierceAtkMul: num(1, 2),
   avgCrit: num(1, 20),
   // crit chance's ceiling: 2 (super crits) with Geometry's set cap or five Blank LR pieces, else 1
   critCeil: int(1, CRIT_CEIL),

@@ -12,7 +12,7 @@ import { DEFAULT_UNIT_STATS } from './constants.js';
 import { HERO_GROWTH } from '../data/heroTracks.js';
 import { potentialFold } from '../data/potential.js';
 import { BREW_TARGETS_MAX } from './constants.js';
-import { BLAST_PER_PIERCE, PIERCE_K_MAX } from './gearRules.js';
+import { BLAST_PER_PIERCE, PIERCE_K_MAX, PIERCE_MAX_EXTRA } from './gearRules.js';
 import { splitCrit, critCeilOf, BLAST_K_MAX } from './setRules.js';
 import { BARRICADES_PER_HERO } from './constants.js';
 
@@ -915,7 +915,8 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   for (const m of pot.sets) applyModSet(s, m, acc);
   if (extra) for (const m of Array.isArray(extra) ? extra : [extra]) applyModSet(s, m, acc);
   s.damage = (s.damage + acc.damageAdd) * acc.damageMul;
-  applyUnitStats(s, pot.level > 1 ? { ...us, damageMul: us.damageMul * pot.damageMul, rateMul: us.rateMul * pot.rateMul, rangeMul: us.rangeMul * pot.rangeMul } : us);
+  const ub = pierceBand(s, us);
+  applyUnitStats(s, pot.level > 1 ? { ...ub, damageMul: ub.damageMul * pot.damageMul, rateMul: ub.rateMul * pot.rateMul, rangeMul: ub.rangeMul * pot.rangeMul } : ub);
   if (s.income && pot.incomeMul !== 1) s.income.perWave *= pot.incomeMul;
   if (s.hub && pot.incomeMul !== 1) s.hub.costCut *= pot.incomeMul; // (Ouka's coins track: her discount)
   if (pot.level > 1) potentialTail(s, pot, acc);
@@ -964,6 +965,19 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
     br.lineAdd = Math.max(0, Math.round(br.lineAdd));
   }
   return s;
+}
+
+/**
+ * A hero whose blasts come with her levels (`pierceAtkMul`, src/systems/progression.js unitBattleStats; Kogane from
+ * Lv 15): while the build she stands at has no blast or splash trap her Pierce can widen (the test of applyGearReach),
+ * her Pierce stops at the 200 % a shot uses and the band above it is ATK (× pierceAtkMul); once it has one, all of it
+ * widens her splash. Read at stat build only (a level-up re-resolves her), never per frame.
+ */
+function pierceBand(s, us) {
+  if (!(us.pierceAtkMul > 1)) return us;
+  const widens = (s.splash > 0 && (s.behavior === 'projectile' || s.behavior === 'turret')) || s.trap?.splash > 0;
+  if (widens) return us;
+  return { ...us, damageMul: us.damageMul * Math.min(2, us.pierceAtkMul), pierceK: Math.min(us.pierceK || 0, 100 * PIERCE_MAX_EXTRA) };
 }
 
 /**

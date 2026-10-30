@@ -304,3 +304,40 @@ describe('Blank LR from a set piece, Pierce past 200 % (review r1 #6, #9)', () =
     expect(pierce('akane', 'popper').over).toBe(0);
   });
 });
+
+describe('a hero whose blasts come with her levels (review M3 r4 LOW 2)', () => {
+  it('Kogane in five all-Pierce Blank LR: the 200–300 % band is ATK at Lv 10 and 14, splash reach at Lv 15 and 25; never lost, never twice', async () => {
+    const { heroBlastLevel } = await import('../../src/systems/gear.js');
+    const { resolveStats } = await import('../../src/sim/mods.js');
+    const { UNIT_MAP } = await import('../../src/data/units.js');
+    expect(heroBlastLevel('kogane')).toBe(15);
+    expect(heroBlastLevel('hikari')).toBe(0);
+    const p = rich();
+    grantIfMissing(p, 'kogane');
+    const uids = SLOT_IDS.map((slot) => urPiece(p, slot, { set: null, seed: `kogane${slot}` }));
+    for (const u of uids) { limitBreakGear(p, u, 'blank'); equipGear(p, 'kogane', u); }
+    for (const u of uids) for (const x of p.gear[u].subs) { x.stat = 'piercePct'; x.base = 0.08; x.value = 0.08; x.upgrades = 0; }
+    const us = unitBattleStats(p, 'kogane');
+    expect(us.pierceK).toBeGreaterThan(200);
+    expect(us.pierceAtkMul).toBeGreaterThan(1);
+    const def = UNIT_MAP.kogane;
+    const at = (heroLevel, stats) => resolveStats(def, { heroLevel, unitStats: stats });
+    // the same hero with the band left out entirely (pierceK 200, no ATK): what the band adds on top of it
+    const bare = { ...us, pierceK: 200, pierceAtkMul: undefined };
+    for (const L of [10, 14]) {
+      const s = at(L, us);
+      const b = at(L, bare);
+      expect(s.damage / b.damage, `Lv ${L}`).toBeCloseTo(us.pierceAtkMul, 9); // the band as ATK
+      expect(s.splash || 0, `Lv ${L}`).toBe(b.splash || 0); // and no reach (she has no blast yet)
+    }
+    for (const L of [15, 25]) {
+      const s = at(L, us);
+      const b = at(L, bare);
+      expect(s.damage, `Lv ${L}`).toBeCloseTo(b.damage, 9); // no ATK from it
+      expect(s.splash, `Lv ${L}`).toBeGreaterThan(b.splash); // the band widens her splash
+    }
+    // a girl without it resolves exactly as before
+    const aoi = unitBattleStats(p, 'aoi');
+    expect('pierceAtkMul' in aoi).toBe(false);
+  });
+});

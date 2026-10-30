@@ -1030,24 +1030,45 @@ export function blastKit(unitId) {
     const def = UNIT_MAP[unitId];
     let found = false;
     if (def) {
-      const hero = def.kind === 'hero';
-      const builds = hero ? [{ heroLevel: 25 }] : REACH_BUILDS.filter((t) => t.every((n, p) => !n || def.paths?.[p]?.tiers?.length)).map((tiers) => ({ tiers }));
-      const reach = (o, k) => {
-        const s = resolveStats(def, { ...o, unitStats: { pierceK: k } });
-        return [s.splash || 0, s.trap?.splash || 0];
-      };
-      found = builds.some((o) => {
-        const [a, b] = [reach(o, Math.round(100 * PIERCE_SHOT_PCT)), reach(o, PIERCE_K_MAX)];
-        return a[0] !== b[0] || a[1] !== b[1];
-      });
+      const builds = def.kind === 'hero' ? [{ heroLevel: HERO_TOP_LEVEL }] : REACH_BUILDS.filter((t) => t.every((n, p) => !n || def.paths?.[p]?.tiers?.length)).map((tiers) => ({ tiers }));
+      found = builds.some((o) => bandWidens(def, o));
     }
     BLAST_KITS.set(unitId, found);
   }
   return BLAST_KITS.get(unitId);
 }
 
+/** A hero's top battle level (her blasts are judged there; she levels in battle from Lv 1). */
+const HERO_TOP_LEVEL = 25;
+/** Whether her 200–300 % Pierce band moves her blast or splash-trap radius on this build (`{ tiers }` / `{ heroLevel }`). */
+function bandWidens(def, o) {
+  const reach = (k) => {
+    const s = resolveStats(def, { ...o, unitStats: { pierceK: k } });
+    return [s.splash || 0, s.trap?.splash || 0];
+  };
+  const [a, b] = [reach(Math.round(100 * PIERCE_SHOT_PCT)), reach(PIERCE_K_MAX)];
+  return a[0] !== b[0] || a[1] !== b[1];
+}
+
+const HERO_BLAST_LEVELS = new Map();
+/**
+ * The battle level from which a hero's blasts widen with her 200–300 % Pierce band, or 0 (none, or not a hero). A hero
+ * levels in battle from Lv 1, so a hero whose splash comes from her levels (Kogane, from Lv 15) gets both halves: below
+ * it the band fills in as ATK, from it the band widens her splash (the sim switches at her level-up, src/sim/mods.js
+ * resolveStats with `pierceAtkMul`; review M3 r4 LOW 2).
+ */
+export function heroBlastLevel(unitId) {
+  if (!HERO_BLAST_LEVELS.has(unitId)) {
+    const def = UNIT_MAP[unitId];
+    let lv = 0;
+    if (def?.kind === 'hero' && blastKit(unitId)) for (let l = 1; l <= HERO_TOP_LEVEL && !lv; l++) if (bandWidens(def, { heroLevel: l })) lv = l;
+    HERO_BLAST_LEVELS.set(unitId, lv);
+  }
+  return HERO_BLAST_LEVELS.get(unitId);
+}
+
 /** The most Pierce she uses in battle: her cap, or PIERCE_SHOT_PCT for a kit with no blasts (the rest fills in). */
-export const pierceUseCap = (unitId, cap) => (blastKit(unitId) ? cap : Math.min(cap, PIERCE_SHOT_PCT));
+export const pierceUseCap = (unitId, cap, blast = blastKit(unitId)) => (blast ? cap : Math.min(cap, PIERCE_SHOT_PCT));
 
 /** Her caps as she is geared now (gearCaps of her set info): what the MAX tags and the stitch warning read. */
 export const unitGearCaps = (profile, unitId) => gearCaps(gearSetInfo(profile, unitId));
@@ -1101,7 +1122,7 @@ function fillWorth(stat, value, target, scaleKey = 'legendary') {
  * limit: fill = M·f / (f + M). Fill lines still feed their own stat too.
  * @returns {{ target: 'atk'|'aura', total: number, cap: number, lines: { uid, index, stat, value, share }[], over: { stat, value, share }[] }}
  */
-export function gearFillIn(profile, unitId, { skip = null } = {}) {
+export function gearFillIn(profile, unitId, { skip = null, blast = blastKit(unitId) } = {}) {
   const unit = profile?.units?.[unitId];
   const aura = GEAR_FIT[unitId]?.fillTo === 'aura';
   const target = aura ? 'auraPct' : 'atkPct';
@@ -1138,7 +1159,7 @@ export function gearFillIn(profile, unitId, { skip = null } = {}) {
     // Aura Power fills in above AURA_FILL_FROM (15 %), as before its cap moved to 25 %, whatever lifts it; Pierce above
     // what she uses fills in too: a kit with no blasts or splash traps uses PIERCE_SHOT_PCT (200 %; LR lifts the cap
     // to 300 %) and battle stats stop her pierceK there, a blast kit uses all of it and fills nothing in (M3 review r2 #1)
-    const from = stat === 'auraPct' ? AURA_FILL_FROM : stat === 'piercePct' ? pierceUseCap(unitId, caps[stat]) : caps[stat];
+    const from = stat === 'auraPct' ? AURA_FILL_FROM : stat === 'piercePct' ? pierceUseCap(unitId, caps[stat], blast) : caps[stat];
     const over = totals[stat] - from;
     if (over > 1e-9 && !dead.has(stat)) parts.push({ kind: 'over', stat, value: roundStat(stat, over), w: fillWorth(stat, over, target) });
   }
