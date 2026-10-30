@@ -26,7 +26,7 @@ export const BASE_STAT_KEYS = Object.freeze(Object.keys(GEAR_STATS));
 export const STAT_LABELS = Object.freeze(Object.fromEntries(GEAR_STAT_KEYS.map((k) => [k, GEAR_STAT_DEFS[k].name])));
 /** Short tooltips for the stat names a child may not know. */
 export const STAT_HINTS = Object.freeze({
-  piercePct: 'Hits more enemies: shots go through one more, blasts and traps grow, sweeps hit more, lightning jumps further.',
+  piercePct: 'Hits more enemies: shots go through one more, blasts and traps grow, sweeps hit more, lightning jumps further. Shots use up to 200%; only blasts and traps use more (for a girl without them, the rest turns into ATK).',
   auraPct: 'Makes her aura stronger.',
   ultHaste: 'Speeds up hero ults (and, at half strength, every girl\'s ⚡ ability, not team rallies or debuffs).',
   auraRangePct: 'Her aura reaches further.',
