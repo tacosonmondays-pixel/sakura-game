@@ -82,8 +82,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned for Kaede's AoE rework (was 23752 / '317/222' / 4242036526 / '57997ea1'): her Maple
     // Cleave every 3rd strike and her new P5 (Maple Gale ×1.1 on her blade arts, not the 0.1-tile cut);
     // only Kaede's kit changed (every other girl resolves bit-identically, tests/sim/mods.test.js)
+    // Re-pinned Oct 30 (Hotaru ×1.06, Momo ×1.06: the final review): was 23736 / 1305949636 / 604a609f.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 23736, state: 'won', wallets: '317/222', final: 1305949636, hashes: '604a609f' });
+      .toEqual({ ticks: 23704, state: 'won', wallets: '317/222', final: 3922205631, hashes: 'a2e2b843' });
   }, 120000);
 
   it('runs the Potential boss battle (POTENTIAL_BOSS_START: Hotaru vs spectral, Kaede vs the Grave Lych, Rei\'s duel echo) in sync', () => {
@@ -104,8 +105,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned for Kaede's AoE rework (was 35101 / '6568/4679' / 3492961063 / 'b2b2f34d'): her Maple
     // Cleave, her full-focus maple splash on Unbroken Rhythm, Crimson Eternity ×1.6 vs bosses (was ×1.5)
     // Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10, Hotaru ×1.04): was 33178 / 6532/4652 / 1833621268 / 6aef2a11 (Hotaru's row).
+    // Re-pinned Oct 30 (Hotaru ×1.06, Momo ×1.06: the final review): was 33176 / 6608/4607 / 2717645599 / 5d8a6467.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes })
-      .toEqual({ ticks: 33176, state: 'lost', wallets: '6608/4607', final: 2717645599, hashes: '5d8a6467' });
+      .toEqual({ ticks: 33523, state: 'lost', wallets: '6452/4858', final: 1785592890, hashes: '2bf2bfce' });
   }, 120000);
 
   it('runs a co-op freeplay battle through the goal into the boss waves, in sync, ended by both Finish votes', () => {
@@ -189,8 +191,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // 3/3): the round's rows (src/data/balance.js) move every girl's damage, so the crowds and the Auto rules' moments
     // move; every coverage rule above still holds.
     // Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10, Hotaru ×1.04): hashSim only (was ee689ad3).
+    // Re-pinned Oct 30 (Hotaru ×1.06, Momo ×1.06: the final review): hashSim only (was 2029691f).
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind, splits: r.splits, deploys: r.deploys })
-      .toEqual({ ticks: 58197, state: 'between', wallets: '4138/3072', final: 2618839254, hashes: '2029691f', casts: 153, byKind: 'boost 11 · burst 28 · debuff 17 · deploy 47 · econ 10 · move 5 · rally 13 · strike 22', splits: '1/1', deploys: 'chika.droneSurge 11×44 · iroha.mirrorShift 26×26 · kage.doubles 3×6 · suzu.bellCarpet 7×42' });
+      .toEqual({ ticks: 58197, state: 'between', wallets: '4138/3072', final: 2618839254, hashes: 'd0624155', casts: 153, byKind: 'boost 11 · burst 28 · debuff 17 · deploy 47 · econ 10 · move 5 · rally 13 · strike 22', splits: '1/1', deploys: 'chika.droneSurge 11×44 · iroha.mirrorShift 26×26 · kage.doubles 3×6 · suzu.bellCarpet 7×42' });
   }, 240000);
 
   it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {
@@ -275,8 +278,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // sale, so only ckDigest holds a lab record). Attack shapes S4 moved both digests and nothing else (the Sim's tether
     // fields and each enemy's `tie` are stored by the generic serializer): e864bd71 → d529f30d, 8e111df8 → a6ec7988
     // Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10, Hotaru ×1.04): digests only (was 60f651e2 / 98e117c2).
+    // Re-pinned Oct 30 (Hotaru ×1.06, Momo ×1.06: the final review): hashes and digests (was 56118d0f / 908e0502 / 2e213a40).
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '56118d0f', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: '908e0502', finalDigest: '2e213a40' });
+      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '88532403', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'ce8b48fe', finalDigest: '3557ee77' });
   }, 240000);
 
   it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s two firing points with Pierce, every club trick) in sync', () => {
@@ -317,8 +321,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // tier 5 only with arms that stay on an enemy, a lighter halo); cheaper upgrades so both Kages reach tier 5.
     // Change only with a deliberate sim / data change, and say why.
     // Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10, Hotaru ×1.04): was 16314 / 3223573651 / f68f68df / 4/275/391 (every Blade Cyclone attack throws her aimed volley, the arms at a quarter).
+    // Re-pinned Oct 30 (Hotaru ×1.06, Momo ×1.06: the final review): was 16307 / 1790642613 / 77aa58ea / 4/136/320.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, shapes: r.shapes, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 16307, state: 'won', wave: 22, wallets: '2207/1257', final: 1790642613, hashes: '77aa58ea', shapes: '4/136/320', rejoinTick: 10754 });
+      .toEqual({ ticks: 16302, state: 'won', wave: 22, wallets: '2207/1257', final: 2481460562, hashes: '5c4c2651', shapes: '4/134/318', rejoinTick: 10754 });
   }, 240000);
 
   it('runs the attack shapes S2 (HELD_START: Hearth Stream, Searchlight Sweep) in sync, and a mid-wave rejoin lands on the run', () => {

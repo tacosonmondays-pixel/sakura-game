@@ -121,7 +121,7 @@ describe('Momo: Coin Wheel (Blossom Wheel) on Encore Toss tiers 4-5', () => {
     expect(setup('momo', COIN, 3).t.eff.behavior).toBe('projectile');
     const { t } = setup('momo', COIN, 4);
     expect(t.eff.behavior).toBe('wheel');
-    expect(t.stats.wheel).toEqual({ spokes: 12, lead: 0.98, mul: 0.15 });
+    expect(t.stats.wheel).toEqual({ spokes: 12, lead: 1, mul: 0.15 }); // (her toss coins at full damage: never below live)
     expect(setup('momo', COIN, 5).t.stats.wheel.spokes).toBe(16);
     for (const p of [0, 1]) {
       const o = setup('momo', p, 5).t;
@@ -144,7 +144,7 @@ describe('Momo: Coin Wheel (Blossom Wheel) on Encore Toss tiers 4-5', () => {
     expect(list.slice(0, 2).map(dirOf)).toEqual([k0, k0]);
     for (const p of list.slice(0, 2)) {
       expect(p.pierce).toBe(t.eff.pierce);
-      expect(p.scale).toBe(0.98);
+      expect(p.scale).toBe(1);
     }
     expect(list.slice(2).map(dirOf)).toEqual(Array.from({ length: 11 }, (_, i) => wrapDir(k0 + (i + 1) * 20)));
     for (const p of list.slice(2)) {

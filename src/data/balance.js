@@ -47,9 +47,9 @@ const ROWS = {
   azami: { dmg: 2.45 },
   akane: { boss: 3.5 },
   sango: { boss: 3.1 },
-  // (Hotaru ×1.04: with the attack shapes her Firefly Halo build alone read 1% under today on a crowd, and her tier-3
-  // halo 0.6% under on the ability bench's pinned column at ×1.03)
-  hotaru: { dmg: 1.04, boss: 2.5 },
+  // (Hotaru ×1.06: with the attack shapes her Firefly Halo build alone read 1% under today on a crowd, her tier-3 halo
+  // 0.6% under on the ability bench's pinned column at ×1.03, and her 3-0-2 alone on a crowd 1.0% under at ×1.04)
+  hotaru: { dmg: 1.06, boss: 2.5 },
   iroha: { boss: 3.9 },
   marumi: { boss: 5.6 },
   ruri: { boss: 9 },
@@ -77,7 +77,8 @@ const ROWS = {
   ouka: { buff: 1.05 },
   // Momo: her coins are the economy and stay as they are; ×1.03 damage because the attack shapes' Coin Wheel left her
   // Encore Toss build alone 2% under today on a boss
-  momo: { dmg: 1.03 },
+  // (×1.06: her 2-0-4 alone on a held boss read 2.3% under today at ×1.03, the final review's no-support sweep)
+  momo: { dmg: 1.06 },
   // (Shiro, Tenka and Chika are in the band already: no damage row, no nerf. The held heroes Kogane and Norika keep
   // their data.)
 };

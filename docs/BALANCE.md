@@ -294,6 +294,26 @@ under on a held boss (×1.05 → ×1.07); the duo's best crowd build read 0.3% u
 held: the rows reach every new shape exactly once; Fuu's wind applies to her fans; Chigusa's lives rule survives the
 new vines; Momo's coins and Umeko's aura do not move; no test weakened.
 
+**Final review** (of 5a2fbf84; NOT OK, two HIGH and one LOW). (1) Hotaru 3-0-2 alone on a crowd read ×0.990 of live:
+her row ×1.04 → ×1.06. (2) Momo 2-0-4 alone on a held boss read ×0.977 of live. Cause: the Coin Wheel's lead coins
+(Jackpot, Fortune's Favourite) threw at ×0.98, so her tier-4 wheel lost more than the row gave; the lead coins now throw
+at ×1 and her row ×1.03 → ×1.06 (per seed she is at or above live on all six seeds). (3) The LR footnote on her page
+(`src/ui/girlView.js` `lrBoostText`) now names the LR row and each path's tier-5 row. Tenka's Joint Research LR with a
+full lab (176.9M) is unchanged, pending the owner.
+
+**The no-nerf gate** (`tools/balance/noNerfGate.mjs`): every non-hero girl, each path at tiers 1–5 (a tier-2
+crosspath as r5Bench builds it), boss / walking boss / crowd, seeds 9/1/2, run in a live tree (`origin/main` a741aef7)
+and on the branch, then `--compare` (tolerance ×0.995). 1,395 cells per support setting:
+
+| Supports | t1 | t2 | t3 | t4 | t5 | under live |
+|---|---:|---:|---:|---:|---:|---:|
+| none (alone) | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | **0** |
+| Umeko + Midori | 0 / 279 | 0 / 279 | 1 / 279 | 0 / 279 | 0 / 279 | 1, rounding |
+
+The one cell is Noa 2-0-3 on the walking boss with supports, 57 → 56 (×0.982): one step of the bench's whole-number
+rounding on a tiny number (Noa's row is unchanged; only the supports moved). On eight seeds both trees read 55 (sums 440
+live, 438 branch; per seed 2 up, 4 down, 2 equal), so it is seed noise, not a nerf.
+
 ## Marumi rework (2026-10-21, `feature/marumi-rework`)
 
 Owner request (Oct 21): a bowling-ball ricochet that bounces from walker to walker. Player feedback: her
