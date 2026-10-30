@@ -86,7 +86,7 @@ describe('UR Resonance and the LR boost (§C.3)', () => {
 
 describe('Limit Break (§C.2)', () => {
   it('Tenka: "Thesis Defense", her LR form Critical Mass · Event Horizon and the orbit-ring crest, on the same stand-in as the duo', () => {
-    expect(LR_TRIALS.tenka).toEqual({ name: 'Thesis Defense', form: 'Critical Mass · Event Horizon · ×3.4 vs bosses', crest: 'orbit ring', standIn: { stageId: '8-5', difficulty: 'nightmare' } });
+    expect(LR_TRIALS.tenka).toEqual({ name: 'Thesis Defense', form: 'Critical Mass · Event Horizon · ×3.4 vs bosses; Joint Research and Singularity tier 5 hit far harder', crest: 'orbit ring', standIn: { stageId: '8-5', difficulty: 'nightmare' } });
     // every LR unit in the game has her trial now: no "LR form coming" left
     for (const [id, trial] of Object.entries(LR_TRIALS)) if (UNIT_MAP[id]) expect(trial, id).toBeTruthy();
   });
