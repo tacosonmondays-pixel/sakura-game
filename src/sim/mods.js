@@ -1024,7 +1024,7 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   const us = { ...DEFAULT_UNIT_STATS, ...(unitStats || {}) };
   // balance round 5 (src/data/balance.js): her damage row folds in like level and gear ATK (`noPower`: the menus' kit
   // numbers, src/ui/girlView.js, read her without it; `unitStats.powerOff`: a titan battle reads no row and no hero curve)
-  const pw = noPower ? null : powerFor(def, heroLevel, { rows: !us.powerOff, lr: us.lr === true });
+  const pw = noPower ? null : powerFor(def, heroLevel, { rows: !us.powerOff, lr: us.lr === true, tiers });
   if (pw && pw.dmg !== 1) us.damageMul *= pw.dmg;
   for (const m of collectModSets(def, tiers, heroLevel, !!us.awakenPassive, heroMastery)) applyModSet(s, m, acc);
   // Kaede's maple splash keys on her focus cap before Potential (a Potential cap raise never delays it)
