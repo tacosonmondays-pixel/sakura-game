@@ -372,6 +372,27 @@ way across the map, so the light boss numbers rise most); r5 = fully maxed with 
   the whole lab. Not lowered (the owner's call); reported for the release audit.
 - Abilities are not in these numbers (the rulers are her attack only).
 
+**LR premium (Oct 30, the owner: LRs clearly above every non-LR; the coordinator: the 2.5–3× is a floor).** `t5` rows
+lift every LR tier-5 build's crowd a quarter past the best SSR crowd on the round-5 bench (Hotaru 5-0-2, 8.67M; Iroha
+2-0-5 6.81M on her rework): the duo Starfall ×2.35, Grand Spectrum ×1.8, Constellation ×1.1; Tenka Rail Arms ×1.7, Joint
+Research ×11.5 (was 5.2), Singularity ×22.5 (was 10). Kage meanwhile rose (Blade Cyclone throws her aimed volley every
+attack, docs/BALANCE.md): her best T5 is now 2.44M crowd / 2.70M boss. Absolute numbers (r5, fully maxed, seeds 9/1/2),
+the first column the state before this session's LR work:
+
+| build | r5 no-LR crowd / boss, before → after | r5 LR crowd / boss, before → after | LR ÷ Kage now (2.44M / 2.70M) |
+|---|---|---|---|
+| Duo Starfall T5 | 3.42M / 3.11M → 3.42M / 3.11M | 4.09M / 3.98M → 11.12M / 15.71M | ×4.56 / ×5.83 |
+| Duo Grand Spectrum T5 | 3.67M / 2.88M → 3.97M / 2.88M | 4.65M / 3.69M → 11.15M / 11.15M | ×4.57 / ×4.14 |
+| Duo Constellation T5 | 6.74M / 2.92M → 6.74M / 2.92M | 8.80M / 3.77M → 11.33M / 6.97M | ×4.64 / ×2.59 |
+| Tenka Joint Research T5 | 0.80M / 0.26M → 0.80M / 0.26M | 0.96M / 0.31M → 11.04M / 13.54M | ×4.53 / ×5.02 |
+| Tenka Rail Arms T5 | 5.43M / 1.49M → 5.43M / 1.49M | 6.55M / 1.80M → 11.14M / 10.38M | ×4.57 / ×3.85 |
+| Tenka Singularity T5 | 0.41M / 0.03M → 0.41M / 0.03M | 0.49M / 0.03M → 11.09M / 13.13M | ×4.55 / ×4.87 |
+
+**No unit lowered**: every axis of every build, LR or not, is at or above where it was. Akane (SR) 16.47M on a crowd stays
+above every LR crowd (a splash specialist; the owner's call whether LRs must clear her too). A Joint Research LR Tenka
+with a full lab team (`tools/balance/labBench.mjs`) reads 176.9M / 184.4M (×72.5 / ×68.4 Kage; without LR 15.43M /
+3.55M): reported, not lowered.
+
 **Perf** (`tests/sim/perf.test.js` "the long beam": 4 LR duos at Grand Spectrum, 16 held map-long beams, 200 walkers on
 6-3). Outside vitest, median of five: 0.11–0.21 ms a step before, 0.13–0.21 ms after (best 0.083 → 0.128). In vitest:
 0.289 ms a step against its 2 ms budget (one run under a full suite at load 15–25 read 2.38 ms, with the untouched
