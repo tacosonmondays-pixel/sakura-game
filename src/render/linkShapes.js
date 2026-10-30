@@ -19,6 +19,11 @@ export const THREAD_H = 0.16;
 export const THREAD_SAG = 0.08;
 /** Ground quads a span is made of (the sag's steps). */
 export const THREAD_PARTS = 4;
+/** Raika's Static Web: a zig-zag of STATIC_ZIGS strokes a span, STATIC_ZIG tiles either side of the line, STATIC_H over the
+ * ground (above the walkers' heads, so a packed road does not hide it). */
+export const STATIC_H = 0.62;
+export const STATIC_ZIGS = 6;
+export const STATIC_ZIG = 0.09;
 /** A member's ground ring (tiles) and its additive knot (under the flash guard's 0.3). */
 export const THREAD_RING = 0.85;
 export const THREAD_KNOT = 0.16;
@@ -52,23 +57,51 @@ export function drawLinkShapes(sim, gN, gA, R) {
 }
 
 /**
- * Raika's Static Webs (attack shapes S5b, sim.statics): her members joined by yellow ground lines, a brighter line for a
- * few steps after each zap (an alpha colour pulse, never additive: the flash guard; Reduce Motion keeps it the same).
+ * Raika's Static Webs (attack shapes S5b, sim.statics): her members joined by yellow zig-zag lines above their heads, a
+ * brighter line for a few steps after each zap (an alpha colour pulse, never additive: the flash guard; Reduce Motion keeps
+ * it the same).
  */
 function drawStatics(list, gN, R) {
   let n = 0;
   for (const g of list) {
     const a = g.left < 30 ? Math.max(0, g.left / 30) : 1;
     if (!(a > 0)) continue;
-    const zap = g.every - g.zapCd < 4 ? 1 : 0;
+    const rgb = g.every - g.zapCd < 4 ? [1, 0.98, 0.75] : [0.95, 0.76, 0.3];
     let prev = null;
     for (const m of g.m) {
       if (m.dead || m.hidden) continue;
-      if (prev) n += span(gN, R, prev, m, a, zap ? [1, 0.98, 0.75] : [0.95, 0.76, 0.3]);
+      if (prev) n += zigzag(gN, R, prev, m, a, rgb);
       prev = m;
     }
   }
   return n;
+}
+
+/** One web span: STATIC_ZIGS strokes from p to q, the joints alternating STATIC_ZIG either side (the ends on the line). */
+function zigzag(gN, R, p, q, a, rgb) {
+  const dx = q.x - p.x;
+  const dy = q.y - p.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (!(len > 1e-6)) return 0;
+  const nx = -dy / len;
+  const ny = dx / len;
+  let px = p.x;
+  let py = p.y;
+  for (let i = 1; i <= STATIC_ZIGS; i++) {
+    const f = i / STATIC_ZIGS;
+    const off = i === STATIC_ZIGS ? 0 : (i % 2 ? STATIC_ZIG : -STATIC_ZIG);
+    const x = p.x + dx * f + nx * off;
+    const y = p.y + dy * f + ny * off;
+    const sx = x - px;
+    const sy = y - py;
+    const sl = Math.sqrt(sx * sx + sy * sy);
+    const rot = Math.atan2(-sy, sx);
+    gN.push((px + x) / 2, STATIC_H, (py + y) / 2, sl + 0.02, 0.09, R.white, 0.25, 0.18, 0.05, 0.6 * a, rot);
+    gN.push((px + x) / 2, STATIC_H + 0.004, (py + y) / 2, sl + 0.02, 0.05, R.white, rgb[0], rgb[1], rgb[2], a, rot);
+    px = x;
+    py = y;
+  }
+  return 2 * STATIC_ZIGS;
 }
 
 function span(gN, R, p, q, a, rgb = null) {

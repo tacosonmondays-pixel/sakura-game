@@ -5,10 +5,11 @@
 // damage never moves a pick (allocDealt), the wave clear, saves across it, hashSim and determinism.
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
-import { STEP, STRAIGHT_PER_SIM, CHARMS_PER_GIRL, TOLLS_PER_GIRL } from '../../src/sim/constants.js';
+import { STEP, STRAIGHT_PER_SIM, CHARMS_PER_GIRL, TOLLS_PER_GIRL, STATIC_MEMBERS, STATIC_PER_GIRL, STATIC_PER_SIM, STATIC_ZAPS_PER_STEP } from '../../src/sim/constants.js';
 import { defaultData } from '../../src/sim/data.js';
 import { straightRoom, shapeRoom, spawnStraight } from '../../src/sim/rings.js';
-import { charmDirs, endS5Wave, crescentAim } from '../../src/sim/s5shapes.js';
+import { charmDirs, endS5Wave, crescentAim, s5AfterAttack, webStep } from '../../src/sim/s5shapes.js';
+import { applyStatus } from '../../src/sim/status.js';
 import { nearestDir } from '../../src/sim/dirs.js';
 import { shapeSpec, allocDealt } from '../../src/sim/shapes.js';
 import { wrapDir } from '../../src/sim/dirs.js';
@@ -402,11 +403,11 @@ describe("rule 2: shape hits are never shared or split by Ena's threads (noShare
 
 describe('rule 6: shape damage never moves a pick', () => {
   test('projectedDps of every S5 girl is live\'s', () => {
-    for (const [unitId, path] of [['rei', WHIRL], ['miko', PURIFY], ['suzu', MINES]]) {
-      for (const tier of [4, 5]) {
+    for (const [unitId, path, tiers] of [['rei', WHIRL, [4, 5]], ['miko', PURIFY, [4, 5]], ['suzu', MINES, [4, 5]], ['midori', FIELD, [4, 5]], ['raika', RHYTHM, [4, 5]], ['luna', 0, [22, 25]]]) {
+      for (const tier of tiers) {
         const a = setup({ unitId, path, tier, live: true }).t;
         const b = setup({ unitId, path, tier }).t;
-        expect(projectedDps(b)).toBe(projectedDps(a));
+        expect(projectedDps(b), `${unitId} ${tier}`).toBe(projectedDps(a));
       }
     }
   });
@@ -437,6 +438,39 @@ describe('rule 6: shape damage never moves a pick', () => {
       return picks;
     };
     expect(run(false)).toEqual(run(true));
+  });
+
+  test("beside the S5b girls (Field Kit Midori, Raika, Luna), a brewer's brews (her first too) go where they went live", () => {
+    const run = (live) => {
+      const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'midori' }, { unitId: 'raika' }, { unitId: 'kage' }], hero: { unitId: 'luna' }, seed: 3, data: { stage: STAGE, map: MAP, units: live ? LIVE : units, enemies: ENEMIES } });
+      sim.cash = 1e9;
+      const md = sim.placeTower('midori', 6.5, 3.5);
+      const tox = units.midori.paths.findIndex((p) => p.id === 'toxicology');
+      for (let k = 0; k < 5; k++) sim.upgradeTower(md.uid, tox);
+      const field = sim.placeTower('midori', 5.5, 5.5);
+      expect(field, 'a second Midori').toBeTruthy();
+      for (let k = 0; k < 5; k++) sim.upgradeTower(field.uid, FIELD);
+      const raika = sim.placeTower('raika', 7.5, 5.5);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(raika.uid, RHYTHM);
+      sim.placeTower('kage', 8.5, 5.5);
+      const luna = sim.placeTower('luna', 9.5, 6.2);
+      gainHeroXp(sim, luna, xpToReach(luna.def.hero, 25), 'restore');
+      sim.state = 'wave';
+      sim._spawnQueue = [{ t: 1e9, enemy: 'tank' }];
+      sim._spawnIndex = 0;
+      for (let d = 2; d <= 14; d += 0.5) park(sim, 'tank', d);
+      const picks = [];
+      for (let i = 0; i < 40; i++) {
+        steps(sim, 30);
+        picks.push(sim.towers.map((t) => JSON.stringify(t.limIn ?? null)).join('|'));
+      }
+      return { picks, shape: [field, raika].map((t) => t.shapeDealt ?? 0) };
+    };
+    const live = run(true);
+    const s5 = run(false);
+    expect(s5.picks).toEqual(live.picks);
+    expect(s5.shape[0]).toBeGreaterThan(0);
+    expect(s5.shape[1]).toBeGreaterThan(0);
   });
 
   test("beside each S5 girl, a drink's target and a rally's own pick go where they went live", () => {
@@ -642,6 +676,30 @@ describe('Spore Mist (Midori): its own status, seen by no other system', () => {
     const pot = readFileSync(new URL('../../src/sim/potential.js', import.meta.url), 'utf8');
     expect(pot).toMatch(/for \(const type of \['burn', 'poison'\]\)/);
   });
+
+  test("spore leaves a siphon's drain and a regen's heal running, as live (poison stops both)", () => {
+    const world = (status) => {
+      const sim = new Sim({ stageId: STAGE.id, loadout: [], hero: null, seed: 7, data: { stage: STAGE, map: MAP, units, enemies: ENEMIES } });
+      sim.state = 'wave';
+      sim._spawnQueue = [{ t: 1e9, enemy: 'tank' }];
+      sim._spawnIndex = 0;
+      const ghoul = park(sim, 'ghoul', 6);
+      const prey = park(sim, 'tank', 6.5);
+      const healer = park(sim, 'tank', 12);
+      healer.traits = { ...healer.traits, regen: { pct: 0.1, delay: 0 } };
+      healer.hp = healer.maxHp / 2;
+      ghoul.hp = ghoul.maxHp / 2;
+      if (status) for (const e of [ghoul, healer]) expect(applyStatus(e, { type: status, dps: 0, duration: 10 }), status).toBeTruthy();
+      steps(sim, 60);
+      if (status) expect(healer.statuses[status], 'still on').toBeTruthy();
+      return { ghoul: ghoul.hp, prey: prey.hp, healer: healer.hp };
+    };
+    const none = world(null);
+    expect(world('spore')).toEqual(none);
+    const poison = world('poison');
+    expect(poison.healer).toBeLessThan(none.healer); // poison stops the heal
+    expect(poison.prey).toBeGreaterThan(none.prey); // and the drain
+  });
 });
 
 describe('Static Web (Raika)', () => {
@@ -662,6 +720,54 @@ describe('Static Web (Raika)', () => {
     const s2 = [];
     steps(solo.sim, 120, s2);
     expect(s2.some((e) => e.type === 'web')).toBe(false);
+  });
+
+  /** Raika at T5 and `n` parked tanks 0.3 apart (one web's reach): her attack's chain is set by hand. */
+  const webWorld = (n) => {
+    const { sim, t } = setup({ unitId: 'raika', path: RHYTHM, tier: 5 });
+    t.cooldown = 1e9;
+    const es = [];
+    for (let i = 0; i < n; i++) es.push(park(sim, 'tank', 5 + 0.3 * i));
+    steps(sim, 1);
+    const tie = (members) => {
+      t._lead = members[0];
+      t._chain = members;
+      t._struck = members.slice();
+      s5AfterAttack(sim, t);
+    };
+    return { sim, t, es, tie };
+  };
+
+  test('STATIC_PER_GIRL: a fifth web of hers evicts her oldest; at STATIC_PER_SIM no new web is tied', () => {
+    const { sim, t, es, tie } = webWorld(12);
+    for (let i = 0; i < 5; i++) tie([es[2 * i], es[2 * i + 1]]);
+    const mine = sim.statics.filter((g) => g.owner === t);
+    expect(mine).toHaveLength(STATIC_PER_GIRL);
+    expect(mine.some((g) => g.m.includes(es[0]))).toBe(false); // the oldest went
+    expect(mine[STATIC_PER_GIRL - 1].m).toEqual([es[8], es[9]]);
+    // the sim's cap: other girls' webs fill it, hers waits (nothing evicted)
+    const other = { uid: -1, removed: false, eff: t.eff };
+    sim.statics.length = 0;
+    for (let i = 0; i < STATIC_PER_SIM; i++) sim.statics.push({ uid: -2 - i, owner: other, m: [], left: 999, zapCd: 99, every: 12, share: 0 });
+    tie([es[10], es[11]]);
+    expect(sim.statics).toHaveLength(STATIC_PER_SIM);
+    expect(sim.statics.some((g) => g.owner === t)).toBe(false);
+  });
+
+  test('STATIC_ZAPS_PER_STEP: webs past the step budget wait a step, in creation order, and zap the next', () => {
+    const { sim, t, es } = webWorld(STATIC_MEMBERS);
+    sim.drainEvents();
+    const webs = 12; // 12 × 12 members = 144 zaps > 128
+    sim.statics = [];
+    for (let i = 0; i < webs; i++) sim.statics.push({ uid: 900 + i, owner: t, m: es.slice(), left: 999, zapCd: 1, every: 12, share: 0.3 });
+    webStep(sim);
+    let zaps = sim.drainEvents().filter((e) => e.type === 'zap');
+    const fit = Math.floor(STATIC_ZAPS_PER_STEP / STATIC_MEMBERS);
+    expect(zaps.map((z) => z.uid)).toEqual([...Array(fit)].map((_, i) => 900 + i));
+    expect(sim.statics.filter((g) => g.zapCd === 0).map((g) => g.uid)).toEqual([...Array(webs - fit)].map((_, i) => 900 + fit + i));
+    webStep(sim);
+    zaps = sim.drainEvents().filter((e) => e.type === 'zap');
+    expect(zaps.map((z) => z.uid)).toEqual([...Array(webs - fit)].map((_, i) => 900 + fit + i));
   });
 });
 
