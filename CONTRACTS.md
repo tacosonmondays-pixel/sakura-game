@@ -800,8 +800,10 @@ GearInstance = { uid, slot, rarity, level /*0-10; 0-12 when ur*/, main: { stat, 
   // (src/data/gearSlots.js; types.js stays frozen; random drops roll the classic three), `set?` (src/data/gearSets.js
   // SET_IDS, SR+), `lr?` (1 Set LR, 2 Blank LR: ur + level 12-18, read ×lrMul / ×blankMul), a line's `night?` (the
   // Nightglass ✦, LR only, never in `tuned`) and `top?` (a pin: base = the best roll). Mirrors: gst:, glr:, gtx:, gtp:
-  // on classic pieces; a Hair Clip / Necklace is mirrored whole (gph:, gpm:, gps:<uid>:<i>, gpc:) and NEVER by a legacy
-  // mark. Teams and loadouts (profile.teams, unit.presets / preset; src/systems/teamsSave.js): tm:, gp:. Exports carry
+  // on classic pieces (glr: also carries its ▲ per line); a Hair Clip / Necklace is mirrored whole (gph:, gpm:,
+  // gps:<uid>:<i>, gpc:) and never by a paying legacy mark (gur:, gtn:, gbx:); `gbl:` (a box-born UR piece's UR-priced
+  // levels) is allowed on it (spec r3 L19). One-time box marks: su:welcome, su:titanbox:<titan>. A girl's accessory is
+  // `unit.accItem` (an `acc_…` item id, kept by the reader; never in unit.gear or a loadout). Teams and loadouts (profile.teams, unit.presets / preset; src/systems/teamsSave.js): tm:, gp:. Exports carry
   // version 3 (EXPORT_VERSION), which older builds refuse; the stored save stays version 2.
 ```
 

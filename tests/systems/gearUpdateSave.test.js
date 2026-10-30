@@ -18,21 +18,21 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 /** Round trip through the stored text, as the game does. */
 const reload = (p) => migrateProfile(JSON.parse(saveText(p, 1)));
 
-/** What an older build (origin/main before the gear update) keeps of a stored save: it does not know the new slots,
- *  sets, LR, the Nightglass ✦, pins, teams, loadouts or the new items; it keeps missions.counters word for word. */
-function oldBuild(stored) {
-  const raw = clone(stored);
-  for (const [uid, g] of Object.entries(raw.gear)) {
-    if (g.slot === 'hair' || g.slot === 'necklace') { delete raw.gear[uid]; continue; }
-    delete g.set; delete g.lr;
-    if (g.level > 12) g.level = 12;
-    delete g.main.top;
-    for (const s of g.subs) { delete s.night; delete s.top; }
-  }
-  for (const u of Object.values(raw.units)) { delete u.gear.hair; delete u.gear.necklace; delete u.presets; delete u.preset; }
-  delete raw.teams;
-  for (const id of GEAR_UPDATE_ITEM_IDS) delete raw.items[id];
-  return raw;
+// The real older build: origin/main 60ce9cad's save.js, gearMarks.js, gear.js, rosterSave.js and its data, vendored
+// under tests/fixtures (GEAR_UPDATE.md §13; review M0 r1 M2).
+const OLD = (f) => import(`../fixtures/main-60ce9cad/src/${f}`);
+const [oldSave, oldMarks, oldRoster, oldGear] = await Promise.all([OLD('systems/save.js'), OLD('systems/gearMarks.js'), OLD('systems/rosterSave.js'), OLD('systems/gear.js')]);
+/** The older build's stored text (store.js saveText on main: its gear and roster marks, then JSON). */
+function oldSaveText(p) {
+  oldMarks.writeGearMarks(p);
+  oldRoster.writeRosterMarks(p);
+  return JSON.stringify(p);
+}
+/** An older build's tab loads the stored save (`act` runs in it, e.g. a salvage) and saves it again. */
+function oldBuild(stored, act = null) {
+  const p = oldSave.migrateProfile(clone(stored));
+  if (act) act(p);
+  return JSON.parse(oldSaveText(p));
 }
 
 function legendaryPiece(p, slot, { set = null, ur = false, lr = 0, level = 10, club = null, seed = slot } = {}) {
@@ -41,6 +41,8 @@ function legendaryPiece(p, slot, { set = null, ur = false, lr = 0, level = 10, c
   if (set) g.set = set;
   if (ur) g.ur = 1;
   if (lr) g.lr = lr;
+  // +10 → `level`: the ▲ grown on the way (one each 3 levels, least-grown line first), so the piece is canonical
+  for (let l = 11; l <= level; l++) if (l % 3 === 0 && g.subs.length) g.subs.reduce((m, x) => ((x.upgrades || 0) < (m.upgrades || 0) ? x : m), g.subs[0]).upgrades += 1;
   g.level = level;
   if (set) g.name = pieceName(g);
   recomputeGear(g);
@@ -133,6 +135,18 @@ describe('M0 reader: after an older build', () => {
     expect(reload(after)).toEqual(after);
   });
 
+  it('a mirrored Hair Clip\'s Armor Pierce line comes back at its value (gps: base up to 9.99; spec r3 L28)', () => {
+    const p = createProfile();
+    const uid = legendaryPiece(p, 'hair', { set: 'spirit', level: 6 });
+    const g = p.gear[uid];
+    g.subs[0] = { stat: 'armorPen', base: 3.8, value: 3.8, upgrades: 0 };
+    recomputeGear(g);
+    equipGear(p, 'aoi', uid);
+    const back = migrateProfile(oldBuild(JSON.parse(saveText(p, 1))));
+    expect(back.gear[uid].subs[0]).toMatchObject({ stat: 'armorPen', base: 3.8 });
+    expect(back.gear[uid]).toEqual(reload(p).gear[uid]);
+  });
+
   it('a spare +0 Super Rare Hair Clip is the only kind left out of the mirror', () => {
     const p = createProfile();
     const g = rollGear(createRng(3), { slot: 'hair', rarity: 'superRare' });
@@ -161,41 +175,77 @@ describe('M0 reader: after an older build', () => {
     expect(after.items).toEqual(before.items);
   });
 
-  it('an older build\'s salvage of an LR piece is completed once: Lens, +13 … +18 coins, Nightglass ✦ and pins', () => {
+  it('an older build\'s salvage of an LR piece is completed once (Lens, +13 … +18 coins, Nightglass ✦, pins), on top of the stock', () => {
     const p = createProfile();
+    Object.assign(p.items, { [LENS_ID]: 1, [TIE_PIN_ID]: 2, [COLLAR_PIN_ID]: 4 });
+    p.missions.counters[MARK.seedGift] = 1; // (the first-bloom Seed was paid long ago)
     const uid = legendaryPiece(p, 'shoes', { ur: true, lr: 2, level: 18 });
     p.gear[uid].subs[0].night = 1;
     p.gear[uid].subs[1].top = 1;
     p.gear[uid].main.top = 1;
+    const ownSalvage = salvageRewards({ ...p.gear[uid], locked: false }, p);
     const stored = JSON.parse(saveText(p, 1));
-    const old = oldBuild(stored);
-    // the older build salvages what it sees as a UR +12 piece: it pays the UR part and drops the marks it knows
-    delete old.gear[uid];
-    for (const k of Object.keys(old.missions.counters)) if ([MARK.ur, MARK.tuned, MARK.club, MARK.newLine, MARK.newFp].some((x) => k === x + uid)) delete old.missions.counters[k];
-    const coins = old.currencies.coins;
+    // the older build's own salvage of what it sees as a UR +12 piece (unlocked first, as a player would)
+    let oldCoins = 0;
+    const old = oldBuild(stored, (o) => {
+      o.gear[uid].locked = false;
+      const c0 = o.currencies.coins;
+      expect(oldGear.salvageGear(o, uid).ok).toBe(true);
+      oldCoins = o.currencies.coins - c0;
+    });
     const q = migrateProfile(old);
-    expect(q.items[LENS_ID]).toBe(1);
-    expect(q.items[NEEDLE_ID] || 0).toBe(1);
-    expect(q.items[TIE_PIN_ID]).toBe(1);
-    expect(q.items[COLLAR_PIN_ID]).toBe(1);
-    expect(q.currencies.coins - coins).toBe(Math.floor(lrLevelsInvested(18) / 2));
-    expect(q.items[SEED_ID] || 0).toBe(0); // the older build paid the Seed itself
+    expect(q.items[LENS_ID]).toBe(2);
+    expect(q.items[TIE_PIN_ID]).toBe(3);
+    expect(q.items[COLLAR_PIN_ID]).toBe(5);
+    // the old salvage plus the "piece gone" rows pay what this build's own salvage pays
+    const own = Object.fromEntries(ownSalvage.map((r) => [r.id, r.count]));
+    expect(oldCoins + (q.currencies.coins - old.currencies.coins)).toBe(own.coins);
+    expect(q.items[NEEDLE_ID] || 0).toBe(own[NEEDLE_ID]);
+    expect(q.items[SEED_ID] || 0).toBe(1); // the older build paid the Seed itself
     const again = reload(q);
     expect(again.items).toEqual(q.items);
     expect(again.currencies).toEqual(q.currencies);
+    // and another trip through the old tab pays nothing more
+    const twice = migrateProfile(oldBuild(JSON.parse(saveText(again, 1))));
+    expect(twice.items).toEqual(again.items);
+    expect(twice.currencies).toEqual(again.currencies);
   });
 
-  it('a pinned line an old reroll changed pays its Collar Pin back, once', () => {
+  it('a pinned line an old Fortune Dice rerolled to another stat pays its Collar Pin back, once', () => {
     const p = createProfile();
+    p.items[COLLAR_PIN_ID] = 2;
     const uid = legendaryPiece(p, 'ribbon', { level: 10 });
     p.gear[uid].subs[0].top = 1;
+    const was = p.gear[uid].subs[0].stat;
     const stored = JSON.parse(saveText(p, 1));
-    const old = oldBuild(stored);
-    old.gear[uid].subs[0].stat = old.gear[uid].subs[0].stat === 'atkPct' ? 'ratePct' : 'atkPct';
-    if (old.gear[uid].subs.slice(1).some((s) => s.stat === old.gear[uid].subs[0].stat)) old.gear[uid].subs[0].stat = 'costCut';
+    let seed = 0;
+    let old;
+    do {
+      old = oldBuild(stored, (o) => {
+        Object.assign(o.items, { dice_reroll: 9 });
+        o.currencies.coins = 1e6;
+        expect(oldGear.rerollSubstats(o, uid, createRng(seed++)).ok).toBe(true);
+      });
+    } while (old.gear[uid].subs.some((x) => x.stat === was) && seed < 50);
     const q = migrateProfile(old);
-    expect(q.items[COLLAR_PIN_ID]).toBe(1);
-    expect(reload(q).items[COLLAR_PIN_ID]).toBe(1);
+    expect(q.items[COLLAR_PIN_ID]).toBe(3);
+    expect(reload(q).items[COLLAR_PIN_ID]).toBe(3);
+  });
+
+  it('an LR piece keeps one suffix and its ▲ on their lines through two trips (real old step 6)', () => {
+    const p = createProfile();
+    const uid = legendaryPiece(p, 'charm', { ur: true, lr: 2, level: 18 });
+    p.gear[uid].name = 'Keen Pendant of the Nightglass Sakura';
+    p.gear[uid].subs[3].upgrades += 2;
+    p.gear[uid].subs[0].upgrades -= 2;
+    if (p.gear[uid].subs[0].upgrades < 0) { p.gear[uid].subs[3].upgrades += p.gear[uid].subs[0].upgrades; p.gear[uid].subs[0].upgrades = 0; }
+    recomputeGear(p.gear[uid]);
+    const ups = p.gear[uid].subs.map((x) => x.upgrades);
+    let cur = reload(p);
+    for (let trip = 0; trip < 2; trip++) cur = migrateProfile(oldBuild(JSON.parse(saveText(cur, 1))));
+    expect(cur.gear[uid].name).toBe('Keen Pendant of the Nightglass Sakura');
+    expect(cur.gear[uid].subs.map((x) => x.upgrades)).toEqual(ups);
+    expect(cur.gear[uid].level).toBe(18);
   });
 
   it('teams and loadouts come back from their mirrors; present fields win', () => {

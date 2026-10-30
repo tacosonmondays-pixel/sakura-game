@@ -24,7 +24,7 @@ export const GEAR_SETS = Object.freeze({
     pieces: Object.freeze({ charm: 'Popper Keyring', ribbon: 'Streamer Bow', shoes: 'Glitter-Trail Trainers', hair: 'Confetti Clip', necklace: 'Party Locket' }),
   }),
   treasurer: Object.freeze({
-    name: 'Treasurer', role: 'money', color: '#3fbf9f',
+    name: 'Treasurer', role: 'money', color: '#9fd8c4',
     pieces: Object.freeze({ charm: 'Abacus Bracelet', ribbon: 'Coin-Clasp Ribbon', shoes: 'Coin-Buckle Loafers', hair: 'Calculator Clip', necklace: 'Coin Locket' }),
   }),
   powerbank: Object.freeze({

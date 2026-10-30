@@ -252,9 +252,18 @@ export function pieceName(g) {
 
 /** The name with its rarity suffix swapped for `suffix` (or added). */
 function withSuffix(name, suffix) {
-  const n = String(name || '');
-  if (n.endsWith(suffix)) return n;
-  for (const old of SUFFIXES) if (n.endsWith(old)) return n.slice(0, -old.length) + suffix;
+  // every trailing rarity suffix goes (an older build's urName adds "of the Rainbow Sakura" after an LR one), so a
+  // name keeps exactly one however many trips it makes (review M0 r1 M1)
+  let n = String(name || '').trim();
+  for (let found = true; found;) {
+    found = false;
+    for (const old of SUFFIXES) {
+      if (n.endsWith(old)) {
+        n = n.slice(0, -old.length).trim();
+        found = true;
+      }
+    }
+  }
   return `${n} ${suffix}`.trim();
 }
 /** The name with its rarity suffix swapped for the UR one (or added). */
@@ -504,6 +513,8 @@ export function rerollSubstats(profile, uid, rng, { lockIndex = null } = {}) {
   if (lockIndex != null && (!Number.isInteger(lockIndex) || lockIndex < 0 || lockIndex >= gear.subs.length)) return { ok: false, error: 'badLock' };
   if (lockIndex != null && gear.subs.length < 2) return { ok: false, error: 'badLock' };
   if (lockIndex != null && !canLockPin(gear, lockIndex)) return { ok: false, error: 'badLock' };
+  // ✦, Nightglass and pinned lines stay for free: a reroll that would keep every line charges nothing and does nothing
+  if (keptIndices(gear).length >= gear.subs.length) return { ok: false, error: 'allKept' };
   const cost = rerollCost(gear, { lockIndex });
   if (!consumeItems(profile, cost)) return { ok: false, error: 'missing', missing: missingItems(profile, cost) };
   const before = cloneGear(gear);

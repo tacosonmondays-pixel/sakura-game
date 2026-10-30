@@ -4,9 +4,9 @@
 
 import { UNIT_MAP, UNITS } from '../data/units.js';
 import { ITEMS } from '../data/items.js';
-import { ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE } from '../data/types.js';
+import { ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE, GEAR_STATS } from '../data/types.js';
 import { SUB_STAT_KEYS, NEW_STAT_SLOT, newStatFits } from '../data/gearStats.js';
-import { SLOT_IDS, MAIN_STATS_BY_SLOT, slotName, emptySlots } from '../data/gearSlots.js';
+import { SLOT_IDS, MAIN_STATS_BY_SLOT, isNewSlot, slotName, emptySlots } from '../data/gearSlots.js';
 import { isSet, SET_RARITIES } from '../data/gearSets.js';
 import { CLUB_IDS, CLUB_RARITIES } from '../data/clubs.js';
 import { UR_MAX_LEVEL, LR_MAX_LEVEL, LR_SET, LR_BLANK } from '../data/gearAwaken.js';
@@ -266,6 +266,9 @@ function cleanUnit(raw, now, unitId) {
     ...(raw.pl != null ? { pl: int(raw.pl, 1, 1, 6) } : {}),
     skin: cleanSkins(raw.skin, unitId),
     ...presets,
+    // [accessories A0] her accessory, an item id of its own (docs/specs/ACCESSORIES.md §2, never in `gear` or a
+    // loadout): kept as it is until the accessories ship; an older build drops it
+    ...(typeof raw.accItem === 'string' && /^acc_[a-z0-9_]{1,36}$/.test(raw.accItem) ? { accItem: raw.accItem } : {}),
   };
 }
 
@@ -275,7 +278,9 @@ function cleanUnit(raw, now, unitId) {
  * line marks: `night` (the Nightglass ✦, LR only, never in `tuned`) and `top` (a pin: the base is its best roll).
  */
 function cleanStat(raw, { sub = false, slot = null } = {}) {
-  if (!isObj(raw) || !(sub ? SUB_STAT_KEYS.includes(raw.stat) : MAIN_STATS_BY_SLOT[slot]?.includes(raw.stat))) return null;
+  // (a classic slot keeps main's rule, any of today's eight stats; the Hair Clip and the Necklace check their pool)
+  const mainOk = isNewSlot(slot) ? MAIN_STATS_BY_SLOT[slot].includes(raw.stat) : !!GEAR_STATS[raw.stat];
+  if (!isObj(raw) || !(sub ? SUB_STAT_KEYS.includes(raw.stat) : mainOk)) return null;
   const out = { stat: raw.stat, value: num(raw.value, 0, 0) };
   if (raw.base != null) out.base = num(raw.base, out.value, 0);
   if (raw.upgrades != null) out.upgrades = int(raw.upgrades, 0, 0, 10);
