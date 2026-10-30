@@ -133,7 +133,10 @@ export function wornLoadout(p, unitId, prev) {
     // while another girl wears it; anything else is what she wears
     const flagged = ((prev?.lent | 0) & bit) || ((prev?.wish | 0) & bit);
     if (mine) out[s] = mine;
-    else if (flagged && g && g.slot === s && g.equippedBy && g.equippedBy !== unitId) {
+    // (a `lent` slot holds while the piece exists and she does not wear it, spare included: only teams.js settleLent
+    // clears it, so a borrower letting it go mid-switch never drops the lender's claim; review r3 H1. `wish` needs a
+    // wearer.)
+    else if (flagged && g && g.slot === s && g.equippedBy !== unitId && (g.equippedBy || ((prev?.lent | 0) & bit))) {
       out[s] = was;
       if ((prev?.lent | 0) & bit) lent |= bit;
       else wish |= bit;
