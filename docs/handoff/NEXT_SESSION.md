@@ -4,6 +4,13 @@
 
 This page is for a session that only has the GitHub repo (a cloud session), not the owner's PC. Read `docs/HANDOFF.md` too; it has the rules (§6), the shipping flow (§7) and the branch table (§3). Check out the coordination branch `claude/sakura-sentinels`; `main` is the live build (every push to `main` deploys).
 
+## UPDATE Oct 30, 12:15 UTC: v0.1.64 GO (awaiting owner's yes); approvals and escalations
+- **v0.1.64** staged on `release/v0.1.64` = `c6d06118` (fast-forwards from main a741aef7). Go/no-go r2 GO (`06c8a92c` on `review/v0.1.64-r2`). Push to main only after the owner's explicit yes; then poll version.json and run an independent live check.
+- **Approved (review OK):** Ena contagion (`feature/ena-contagion` 4855bc3b; r3 d2a03070), recruit cinematic (`feature/recruit-cinematic` 8bbc9fb7; r2 91dbe61e), gear M0 (8e8aeae1) and M2 (`feature/gear-sets` 9d94b3c5; r3 b2ce7201).
+- **Escalated to the owner after 3 failed rounds:** Iroha mirrors (`feature/iroha-mirrors` ddd4f512, r3 1fb39f99: Auto only good at one boss spot, placement search ×1.5–1.7, restore moves mirrors, Laser Web T3) and loadouts M1 (`feature/gear-loadouts` e610e761, r3 dc30459d: one lent-piece loss path; reviewer verified a one-line wornLoadout fix). Both sessions are standing by. Recommended: one more round each.
+- **In review:** balance r5 final fixes (7b042643, no-nerf gate 0 under live without supports), gear M3 r2 (a3079fb0), Tryout Pep Talks r2 (0abb2d73). Build Coach r2 fixes still being built.
+- **Owner questions open:** ship v0.1.64; Iroha/loadouts extra round; keep Tenka's LR lab 176.9M (×72 Kage); should LRs beat Akane's 16.5M crowd; next attack-shape girls; gear icon look.
+
 ## UPDATE Oct 30, 10:40 UTC: v0.1.63 SHIPPED; v0.1.64 in its go/no-go; review rounds
 - **v0.1.63 "Two More Spooky Weeks"** pushed `a741aef7` to main 09:09 UTC (owner said yes), live 09:23. Independent live check LIVE_OK (all functional smoke checks, every request 200, Halloween 26/26, fake-clock date edges 6/6).
 - **v0.1.64 "A Ribbon for the Night Watch"** on `fix/wyrm-ribbon` (off main a741aef7, sim unchanged): a one-time Mailbox gift of the Starlight Vigil Ribbon (honor only) to saves with best Freeplay wave ≥ 200 (window to 2026-12-01 01:00Z), and the profile card now publishes ~8 s after any change (≥ 60 s apart; flush on hide). Go/no-go `5b75df1d` on `review/v0.1.64` was NO-GO: `cleanMail` strips the honor reward on reload (fix: accept honor ids + repair stripped letters). Fix requested; needs a fresh go/no-go, then the owner's yes.
