@@ -55,6 +55,12 @@ async function run(vp) {
   log(`\n=== ${vp} ===`);
   const touch = Math.min(w, hh) < 600;
   const ctx = await browser.newContext({ viewport: { width: w, height: hh }, deviceScaleFactor: 1, hasTouch: touch });
+  // counts the cinematic loop's frames (its rAF callback is the function `frame`): after leaving it must stay still
+  await ctx.addInitScript(() => {
+    const raf = window.requestAnimationFrame.bind(window);
+    window.__rcFrames = 0;
+    window.requestAnimationFrame = (cb) => raf((t) => { if (cb.name === 'frame') window.__rcFrames++; cb(t); });
+  });
   const page = await ctx.newPage();
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error' && !IGNORE.some((re) => re.test(m.text()))) errors.push(m.text()); });
@@ -165,6 +171,8 @@ async function run(vp) {
   const m1 = await moment(() => window.__sakura.recruitCinematic?.state()?.gatePhase === 'power' && window.__sakura.recruitCinematic.state().timeScale === 1, null, '1-gate-power');
   check(m1.ok, '10×: the Gate powers on in blue');
   const st2 = m1.state;
+  const skipBox = await page.evaluate(() => { const r = document.querySelector('[data-testid="reveal-skip"]').getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; });
+  check(skipBox[0] >= 44 && skipBox[1] >= 44, `"Skip all" is a 44 px tap target (${skipBox.join('×')})`);
   check(st2?.tier === 'rainbow' && st2.shake && st2.flashes && st2.reveals >= 1, `10×: tier rainbow, shake and flashes on, ${st2?.reveals} reveal(s) (${JSON.stringify(st2)})`);
   // mid-surge (half a second in): the rainbow, the arcs and the shake
   const m2 = await moment(() => { const s = window.__sakura.recruitCinematic?.state(); return s?.gatePhase === 'surge' && s.seen.length && performance.now() - (window.__rcSurge ||= performance.now()) > 500; }, null, '2-gate-surge');
@@ -198,6 +206,7 @@ async function run(vp) {
   const order = ['power', 'surge', 'open', 'done', 'reveal:silhouette', 'reveal:sweep', 'reveal:text', 'reveal:mark', 'reveal:hold'];
   check(order.every((x, i) => seen.indexOf(x) >= 0 && (i === 0 || seen.indexOf(x) > seen.indexOf(order[i - 1]))), `the Gate then the reveal played in order (${seen.join(' → ')})`);
   check(m6.state.flashCount <= 3, `flashes stayed within the flash guard (${m6.state.flashCount} in the window)`);
+  check(m6.state.openPeak > 0.08 && m6.state.openPeak <= 0.55, `the opening light went through the flash guard (peak ${m6.state.openPeak})`);
   // tap through: the hold moves on (to the next reveal or the results); the reveal is tracked as an element (the
   // same girl can come twice in a 10×)
   await page.evaluate(() => { document.querySelector('[data-testid="reveal-cine"]:not(.rc-out)').dataset.e2e = 'first'; });
@@ -263,13 +272,16 @@ async function run(vp) {
   check(sr?.reduce && !sr.shake && !sr.flashes, `Reduce motion: calm (no shake, no flashes) (${JSON.stringify(sr)})`);
   let shook = false;
   const watch = setInterval(async () => { try { if (await page.evaluate(() => document.querySelector('.rc-shake')?.style.transform)) shook = true; } catch { /* closed */ } }, 120);
-  check((await moment(() => document.querySelector('[data-testid="reveal-cine"].rc-calm')?.dataset.stage === 'hold', null, '11-calm-reveal')).ok, 'Reduce motion: the reveal fades in (calm)');
+  const calm = await moment(() => document.querySelector('[data-testid="reveal-cine"].rc-calm')?.dataset.stage === 'hold', null, '11-calm-reveal');
+  const sr2 = calm.state;
+  check(calm.ok, 'Reduce motion: the reveal fades in (calm)');
   check(await waitCine(page, () => document.querySelector('[data-testid="reveal-summary"]'), null, 20000), 'Reduce motion: plays through to the results');
   clearInterval(watch);
   const calmSecs = (Date.now() - t1) / 1000;
   const cr = await cineState(page).catch(() => null);
   check(!shook, 'Reduce motion: nothing shook');
   check(!cr || cr.flashCount === 0, 'Reduce motion: no flashes counted');
+  check(sr2?.openPeak > 0 && sr2.openPeak <= 0.2, `Reduce motion: the opening light stays soft (peak ${sr2?.openPeak})`);
   log(`  (calm 10× with ${sr?.reveals} SSR: ${calmSecs.toFixed(1)} s to the results)`);
   await closeResults();
 
@@ -282,8 +294,37 @@ async function run(vp) {
   await waitCine(page, () => window.__sakura.recruitCinematic?.state()?.gatePhase === 'surge');
   await page.waitForTimeout(400);
   check(!(await page.evaluate(() => document.querySelector('.rc-shake')?.style.transform)), 'Flashes & shake off: no shake in the surge');
+  const off = await moment(() => window.__sakura.recruitCinematic?.state()?.gatePhase === 'done', null, '12-effects-off-opened');
+  check(off.ok && off.state.openPeak <= 0.08 && off.state.flashCount === 0, `Flashes & shake off: the opening light stays faint (peak ${off.state?.openPeak}, ${off.state?.flashCount} flashes)`);
   await tap('[data-testid="reveal-skip"]');
   await closeResults();
+
+  // ---- 7. Leaving mid-Gate and mid-reveal: everything stops for good; the pull stays saved and in the history -------
+  for (const when of ['gate', 'reveal']) {
+    await setup({ pity: 89 });
+    await openTab('standard');
+    const before = await page.evaluate(() => window.__sakura.store.profile.gacha.totalPulls || 0);
+    await pullN(10);
+    if (when === 'gate') await waitCine(page, () => window.__sakura.recruitCinematic?.state()?.gatePhase === 'surge');
+    else await waitCine(page, () => ['silhouette', 'sweep'].includes(document.querySelector('[data-testid="reveal-cine"]')?.dataset.stage));
+    await page.evaluate(() => history.back());
+    await page.waitForFunction(() => !location.hash.startsWith('#/recruit') && !document.querySelector('.ma-gacha'), null, { timeout: 15000 }).catch(() => {});
+    const left = await page.evaluate(() => ({ frames: window.__rcFrames, cues: (window.__sakura.recruitCues || []).length, hook: !!window.__sakura.recruitCinematic, hash: location.hash }));
+    await page.waitForTimeout(1500);
+    const later = await page.evaluate(() => ({ frames: window.__rcFrames, cues: (window.__sakura.recruitCues || []).slice(), canvases: document.querySelectorAll('.rc-gate, .rc-fx').length }));
+    const newCues = later.cues.slice(left.cues);
+    check(left.cues > 0 && !left.hook && later.frames === left.frames && !newCues.length && !later.canvases,
+      `leaving mid-${when} (${left.hash}): no hook, no frames (${later.frames - left.frames}), no sounds (${left.cues} before, new: ${newCues.join(',') || 'none'}), no canvases (${later.canvases})`);
+    const saved = await page.evaluate(() => window.__sakura.store.profile.gacha.totalPulls || 0);
+    await page.evaluate(() => { location.hash = '#/recruit'; });
+    await page.waitForSelector('.bn-rail', { timeout: 20000 });
+    await page.waitForTimeout(500);
+    await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+    await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'History')?.click());
+    const total = await page.waitForSelector('[data-testid="history-total"]', { timeout: 5000 }).then((e) => e.textContent()).catch(() => '');
+    check(saved === before + 10 && new RegExp(`^${saved}\\b`).test(total.replace(/,/g, '')), `leaving mid-${when}: the 10× stays saved and in the history (${before} → ${saved}; "${total}")`);
+    await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+  }
 
   check(!errors.length, `no page errors (${errors.slice(0, 3).join(' | ')})`);
   await ctx.close();

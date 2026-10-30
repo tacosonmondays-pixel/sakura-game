@@ -67,7 +67,10 @@ export function markSVG(unit, { lr = false, label = '' } = {}) {
   const line = lr ? '#ffd27a' : '#ffffff';
   let s = `<svg class="rc-mark-svg" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${label.replace(/["<>&]/g, '')}">`;
   s += `<defs><radialGradient id="${id}-d" cx="50%" cy="40%" r="65%"><stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/><stop offset="0.45" stop-color="${r.accent}"/><stop offset="1" stop-color="${r.main}"/></radialGradient>`;
-  s += `<linearGradient id="${id}-p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.5" stop-color="${r.main}"/><stop offset="1" stop-color="${r.accent}"/></linearGradient></defs>`;
+  s += `<linearGradient id="${id}-p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.5" stop-color="${r.main}"/><stop offset="1" stop-color="${r.accent}"/></linearGradient>`;
+  s += `<radialGradient id="${id}-s"><stop offset="0.55" stop-color="#050a1e" stop-opacity="0.55"/><stop offset="1" stop-color="#050a1e" stop-opacity="0"/></radialGradient></defs>`;
+  // its soft shadow, drawn in (a gradient, not a filter: nothing to re-blur while it stamps or breathes)
+  s += `<circle cx="60" cy="64" r="58" fill="url(#${id}-s)"/>`;
   s += `<g fill="url(#${id}-p)" stroke="${lr ? '#0e1930' : 'rgba(20,24,48,0.55)'}" stroke-width="1.6" stroke-linejoin="round">${rays.join('')}</g>`;
   s += `<g fill="${lr ? '#cfe0ff' : '#ffffff'}" opacity="0.85">${minor.join('')}</g>`;
   s += `<circle cx="60" cy="60" r="31" fill="${lr ? '#ffd27a' : 'rgba(20,24,48,0.6)'}"/>`;

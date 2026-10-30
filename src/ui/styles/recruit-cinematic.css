@@ -10,7 +10,7 @@
 .rc-layers.rc-settled .rc-gate { opacity: 0.22; }
 .rc-flash { position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0;
   background: radial-gradient(circle at 50% 48%, #ffffff 0%, rgba(232, 244, 255, 0.85) 30%, rgba(200, 226, 255, 0.35) 60%, rgba(200, 226, 255, 0) 85%); }
-.ma-gacha .ma-gacha-skip { z-index: 7; }
+.ma-gacha .ma-gacha-skip { z-index: 7; min-height: 44px; min-width: 44px; justify-content: center; } /* a 44 px tap target on every size */
 /* the cards deal over the dimmed Gate: the sky stays, the stage sits above the layers */
 .ma-gacha.rc-on .ma-gacha-stage { z-index: 2; }
 .rc-gate-hint { position: absolute; left: 0; right: 0; bottom: calc(18px + var(--safe-bottom, 0px)); z-index: 2; text-align: center; color: #fff; font-weight: 800; font-size: 0.9rem; opacity: 0.8; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6); pointer-events: none; animation: rc-fade-in 0.6s 0.4s both; }
@@ -82,7 +82,7 @@
 
 /* her mark stamps in (it lands at 45% of --d-mark, when the cinematic bursts it), then a ring rolls out */
 .rc-rv-mark { position: absolute; z-index: 3; left: 49%; top: 50%; width: clamp(96px, 26vh, 168px); aspect-ratio: 1; margin: calc(clamp(96px, 26vh, 168px) / -2) 0 0 calc(clamp(96px, 26vh, 168px) / -2);
-  opacity: 0; transform: scale(2.6) rotate(-28deg); filter: drop-shadow(0 4px 12px rgba(5, 10, 30, 0.6));
+  opacity: 0; transform: scale(2.6) rotate(-28deg); /* (its shadow is drawn inside the SVG: no CSS filter to redo each frame) */
   transition: opacity calc(var(--d-mark, 0.5s) * 0.3) ease, transform calc(var(--d-mark, 0.5s) * 0.45) cubic-bezier(0.5, 0, 0.75, 0); }
 .rc-reveal.is-lr .rc-rv-mark { width: clamp(110px, 32vh, 210px); margin: calc(clamp(110px, 32vh, 210px) / -2) 0 0 calc(clamp(110px, 32vh, 210px) / -2); }
 .rc-reveal.s-mark .rc-rv-mark { opacity: 1; transform: none; }

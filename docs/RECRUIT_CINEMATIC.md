@@ -41,6 +41,13 @@ or moves on by itself after 2.8 s (LR 3.6 s).
   each mark stamp ask it, so never more than 3 a second, never a full-white frame (the flash is a radial
   tint capped at 0.55).
 - The shake is a sideways shift only, never a rotation (docs/VFX.md).
+- The Gate's opening light fills the screen, so it counts as one guard flash (`openLightPeak` in plan.js):
+  faint (≤ `FAINT`) with Flashes & shake off, at most `SOFT_FLASH` with Reduce motion, otherwise what
+  the guard grants. Once open it fades out over 0.3 s, never a cut.
+- "Skip all" is a 44 px tap target on every size.
+- Leaving the screen mid-reveal (back, a link) tears the cinematic down for good: timers, the loop,
+  listeners, canvases, sounds and the debug hooks. The pull was saved before it started, so it is in the
+  history and the academy when the player comes back.
 
 ## Phones first
 
@@ -70,6 +77,7 @@ or moves on by itself after 2.8 s (LR 3.6 s).
 
 ## Testing notes
 
+- The hooks below exist only in the dev build or with `?e2e` in the address, never for players.
 - Headless Chromium rasterises on the CPU and falls seconds behind a full-screen animated canvas at 60 fps
   (a phone's GPU does not). The e2e therefore sets `window.__sakura.recruitFrameCap` (12 fps); skipped
   frames draw nothing and the next one steps the clock by the whole gap, so the timeline keeps real time.

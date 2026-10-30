@@ -4,7 +4,10 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import {
   planCinematic, gateAt, gatePhaseStart, revealAt, revealHoldStart, revealStars, GATE_TIMES, GATE_TIMES_CALM, REVEAL_TIMES, GATE_PHASES,
+  openLightPeak, openLightFade, OPEN_FADE,
 } from '../../src/ui/recruit/plan.js';
+import { FlashGuard, FAINT, SOFT_FLASH, MAX_FLASH } from '../../src/render/vfx/flashGuard.js';
+import { compact } from '../../src/ui/recruit/fx.js';
 import { markRecipe, markSVG, MARK_SHAPES } from '../../src/ui/recruit/emblem.js';
 import { UNIT_MAP, UNITS } from '../../src/data/units.js';
 import { unitClass } from '../../src/data/banners.js';
@@ -100,6 +103,51 @@ describe('the Gate and reveal clocks', () => {
     expect(revealAt(t, revealHoldStart(t) + t.hold + 0.01).stage).toBe('done');
     // the calm one starts with the sweep (a fade): no silhouette stage
     expect(revealAt(REVEAL_TIMES.calm, 0).stage).toBe('sweep');
+  });
+});
+
+describe('the opening light (a full-screen light: one flash)', () => {
+  const caps = { faint: FAINT, soft: SOFT_FLASH };
+  const res = [R('hikari', 'SSR')];
+
+  it('Flashes & shake off: faint, and the guard is never asked', () => {
+    let asked = 0;
+    for (const reduce of [false, true]) {
+      const p = planCinematic(res, { isLegend, effects: false, reduce });
+      expect(openLightPeak(p, () => { asked++; return 1; }, caps)).toBeLessThanOrEqual(FAINT);
+    }
+    expect(asked).toBe(0);
+  });
+
+  it('Reduce motion: at most the soft flash', () => {
+    const p = planCinematic(res, { isLegend, reduce: true });
+    expect(openLightPeak(p, () => 1, caps)).toBeLessThanOrEqual(SOFT_FLASH);
+  });
+
+  it('otherwise the flash guard decides, and it is counted as one flash', () => {
+    const p = planCinematic(res, { isLegend });
+    const guard = new FlashGuard();
+    const peak = openLightPeak(p, (want) => guard.flash(want, 1), caps);
+    expect(peak).toBeGreaterThan(FAINT);
+    expect(peak).toBeLessThanOrEqual(MAX_FLASH);
+    expect(guard.times.length).toBe(1);
+  });
+
+  it('fades out over OPEN_FADE once open (never a cut)', () => {
+    expect(openLightFade(0.5, 0)).toBe(0.5);
+    expect(openLightFade(0.5, OPEN_FADE / 2)).toBeCloseTo(0.25);
+    expect(openLightFade(0.5, OPEN_FADE)).toBe(0);
+    expect(openLightFade(0.5, OPEN_FADE * 3)).toBe(0);
+  });
+});
+
+describe('effects pools', () => {
+  it('compact keeps the survivors in place, in order', () => {
+    const arr = [1, 2, 3, 4, 5, 6];
+    const same = arr;
+    compact(arr, (v) => v % 2 === 0);
+    expect(arr).toBe(same);
+    expect(arr).toEqual([2, 4, 6]);
   });
 });
 

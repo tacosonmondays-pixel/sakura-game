@@ -63,6 +63,7 @@ export function planCinematic(results, { reduce = false, effects = true, skipGat
     shake: !!effects && !reduce && tier !== 'blue',
     // flashes go through the flash guard; none at all with Flashes & shake off or Reduce motion (a faint tint stays)
     flashes: !!effects && !reduce,
+    effects: !!effects,
     arcs: !reduce && tier !== 'blue',
     gate,
     reveals: reveals.map((r) => ({ ...r, times: reduce ? REVEAL_TIMES.calm : r.lr ? REVEAL_TIMES.lr : REVEAL_TIMES.ssr })),
@@ -114,4 +115,26 @@ export function revealHoldStart(times) {
 /** Rarity stars shown on a reveal: SSR 5, LR 6. */
 export function revealStars(lr) {
   return lr ? 6 : 5;
+}
+
+/** How long the opening light takes to fade once the Gate has opened (s): a fade, never a cut. */
+export const OPEN_FADE = 0.3;
+
+/**
+ * The brightest the Gate's opening light may get (it is a full-screen light, so it counts as one flash).
+ * Flashes & shake off: faint (too weak to count as a flash); Reduce motion: at most the soft flash; otherwise what
+ * the flash guard grants for `want` (guardFlash: (strength) => granted opacity, which books the flash).
+ * @param {{ flashes: boolean, effects: boolean, reduce: boolean }} plan
+ * @param {(strength: number) => number} guardFlash
+ * @param {{ faint: number, soft: number }} caps FAINT and SOFT_FLASH from the flash guard
+ */
+export function openLightPeak(plan, guardFlash, { faint, soft }, want = 0.55) {
+  if (!plan.effects) return Math.min(faint, want);
+  if (plan.reduce) return Math.min(soft, want);
+  return guardFlash(want);
+}
+
+/** The opening light `since` s after the Gate opened: fades from `peak` to 0 over OPEN_FADE. */
+export function openLightFade(peak, since) {
+  return Math.max(0, peak * (1 - Math.max(0, since) / OPEN_FADE));
 }

@@ -11,6 +11,14 @@ export const PETALS = 36;
 export const ARCS = 10;
 export const STARS = 60;
 
+/** Keeps the items that pass, in place (no new array each frame). */
+export function compact(arr, keep) {
+  let n = 0;
+  for (let i = 0; i < arr.length; i++) if (keep(arr[i])) arr[n++] = arr[i];
+  arr.length = n;
+  return arr;
+}
+
 export class CinematicFx {
   /** @param {ReturnType<import('../../render/vfx/random.js').createVisualRandom>} rand */
   constructor(rand, { reduce = false } = {}) {
@@ -164,22 +172,22 @@ export class CinematicFx {
       s.y += s.vy * dt;
       s.life -= dt;
     }
-    this.sparks = this.sparks.filter((s) => s.life > 0);
+    compact(this.sparks, (s) => s.life > 0);
     for (const p of this.petals) {
       p.sway += dt * 1.6;
       p.x += (p.vx + Math.sin(p.sway) * 22) * dt;
       p.y += p.vy * dt;
       p.rot += p.vr * dt;
     }
-    this.petals = this.petals.filter((p) => p.x < this.w + 30 && p.y < this.h + 30);
+    compact(this.petals, (p) => p.x < this.w + 30 && p.y < this.h + 30);
     for (const a of this.arcs) a.life -= dt;
-    this.arcs = this.arcs.filter((a) => a.life > 0);
+    compact(this.arcs, (a) => a.life > 0);
     for (const g of this.rings) {
       g.r += g.v * dt;
       g.v *= Math.exp(-3 * dt);
       g.life -= dt;
     }
-    this.rings = this.rings.filter((g) => g.life > 0);
+    compact(this.rings, (g) => g.life > 0);
     this.draw();
   }
 
@@ -304,6 +312,9 @@ export class CinematicFx {
 
   dispose() {
     this.el.remove();
-    this.sparks = this.petals = this.arcs = this.rings = [];
+    this.sparks = [];
+    this.petals = [];
+    this.arcs = [];
+    this.rings = [];
   }
 }

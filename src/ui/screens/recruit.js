@@ -33,7 +33,7 @@ import { formatCountdown } from '../../core/reset.js';
 import { itemCount } from '../../systems/inventory.js';
 import { uiRng, card, cssVar } from './stage.js';
 import { cue } from '../../audio/cue.js'; // [audio]
-import { createCinematic } from '../recruit/cinematic.js';
+import { createCinematic, DEBUG_HOOKS } from '../recruit/cinematic.js';
 import '../styles/recruit-cinematic.css';
 import { MAX_POTENTIAL, potentialLevel, potentialNext, potentialRises, potentialDupesRule, dupePastMaxPay } from '../../systems/potential.js';
 import { revealTag, revealRibbon, showPotentialUp, spareText } from '../potential.js';
@@ -215,6 +215,8 @@ export function render(root, params = {}) {
   return () => {
     off();
     clearInterval(tick);
+    // leaving mid-reveal (back, a link): the cinematic stops for good (its loop, timers, sounds); the pull is saved
+    overlay?.teardown?.();
     overlay?.remove();
   };
 }
@@ -573,13 +575,19 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
   const timers = [];
   const later = (fn, ms) => timers.push(setTimeout(fn, reduce ? Math.min(ms, 60) : ms));
   let phase = 'intro';
+  let disposed = false; // torn down (closed, or the screen left mid-reveal): nothing more plays or sounds
+  const sound = (name, data) => { // [audio]
+    if (disposed) return;
+    if (DEBUG_HOOKS) ((window.__sakura ||= {}).recruitCues ||= []).push(name); // e2e: every reveal sound, in order
+    cue(name, data);
+  };
 
   const overlay = h(`div.ma-gacha.rc-on.best-${best}${results.length === 1 ? '.single' : ''}`, { role: 'dialog', 'aria-modal': 'true' });
   const stageEl = h('div.ma-gacha-stage');
   const skip = h('button.ma-gacha-skip', { onclick: (e) => { e.stopPropagation(); finish(); }, 'data-testid': 'reveal-skip' }, 'Skip all', svgEl(uiIcon('ff'), 'ma-inline-icon'));
   overlay.append(h('div.ma-gacha-sky'), stageEl, skip);
   document.body.appendChild(overlay);
-  cue('gacha.envelope', { best, count: results.length }); // [audio]
+  sound('gacha.envelope', { best, count: results.length }); // [audio]
 
   const cine = createCinematic(overlay, results, {
     reduce,
@@ -588,7 +596,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     isLegend: (id) => unitClass(id) === 'legend',
     unitOf: (id) => UNIT_MAP[id],
     kickerOf: showcaseKicker,
-    cue,
+    cue: sound,
   });
   const hint = skipIntro ? null : h('div.rc-gate-hint', { 'data-testid': 'reveal-gate' }, 'Tap to speed up');
   if (hint) overlay.appendChild(hint);
@@ -599,7 +607,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
 
   // the Gate opens before the cards are dealt
   const showGrid = () => {
-    if (phase !== 'intro') return;
+    if (disposed || phase !== 'intro') return;
     phase = 'flip';
     hint?.remove();
     clear(stageEl);
@@ -611,7 +619,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
 
   // every SSR and LR: her full-screen reveal (silhouette → art → name → mark), one after another
   const showcase = (i) => {
-    if (phase === 'done') return;
+    if (disposed || phase === 'done') return;
     if (i >= cine.plan.reveals.length) {
       showResults();
       return;
@@ -621,7 +629,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
   };
 
   const showResults = () => {
-    if (phase === 'done') return;
+    if (disposed || phase === 'done') return;
     phase = 'done';
     timers.forEach(clearTimeout);
     cine.settle();
@@ -634,7 +642,7 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     cards.forEach((c) => c.flip(true));
     skip.remove();
     const newCount = results.filter((r) => r.isNew).length;
-    cue('gacha.results', { best, newCount }); // [audio]
+    sound('gacha.results', { best, newCount }); // [audio]
     // Ascension: a duplicate gives her 1 Essence; past her hold cap it is a spare (Mementos, Moonpearls, points)
     const essence = results.reduce((a, r) => a + (r.essence || 0), 0);
     const ready = new Set(results.filter((r) => r.readyStep).map((r) => r.unitId)).size;
@@ -678,10 +686,18 @@ function playReveal(results, { onClose, onAgain = null, againLabel = '', skipInt
     showResults();
   }
 
-  function close(silent = false) {
+  /** Stops everything for good: timers, the cinematic (loop, listeners, canvases, debug hooks) and its sounds. */
+  function teardown() {
+    if (disposed) return;
+    disposed = true;
     timers.forEach(clearTimeout);
     cine.dispose();
-    cue('gacha.close'); // [audio]
+    cue('gacha.close'); // [audio] the riser stems and the SSR duck go back to normal
+  }
+  overlay.teardown = teardown;
+
+  function close(silent = false) {
+    teardown();
     overlay.classList.add('closing');
     setTimeout(() => overlay.remove(), 200);
     if (!silent) onClose?.();

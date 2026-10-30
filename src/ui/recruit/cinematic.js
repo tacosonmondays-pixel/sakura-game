@@ -10,12 +10,18 @@
 // performance.now; randomness only from the seeded visual stream.
 import { h } from '../dom.js';
 import { createVisualRandom, visualSeed } from '../../render/vfx/random.js';
-import { FlashGuard, FAINT } from '../../render/vfx/flashGuard.js';
+import { FlashGuard, FAINT, SOFT_FLASH } from '../../render/vfx/flashGuard.js';
 import { portraitUrl, portraitHTML } from '../../art/portraits.js';
-import { planCinematic, gateAt, gatePhaseStart, revealAt, revealHoldStart, revealStars, TAP_SPEED } from './plan.js';
+import { planCinematic, gateAt, gatePhaseStart, revealAt, revealHoldStart, revealStars, openLightPeak, openLightFade, TAP_SPEED } from './plan.js';
 import { createGate } from './gate.js';
 import { CinematicFx } from './fx.js';
 import { markSVG } from './emblem.js';
+
+/**
+ * The e2e / capture hooks (window.__sakura.recruitCinematic, window.__sakura.recruitFrameCap): only in the dev build
+ * or with ?e2e in the address, never for players.
+ */
+export const DEBUG_HOOKS = !!import.meta.env?.DEV || (typeof location !== 'undefined' && /[?&]e2e\b/.test(location.search));
 
 /** Longest frame step (s): a dropped frame or a background tab never jumps the cinematic ahead. */
 const MAX_STEP = 1 / 10;
@@ -75,6 +81,8 @@ export function createCinematic(overlay, results, o) {
     taps: 0,
     seen: [], // phases and stages in the order they played (e2e)
     frozen: false, // e2e captures: the clock holds still
+    openPeak: 0, // the opening light's peak (comfort settings and the flash guard decide it)
+    openedAt: null, // real time the Gate finished opening (its light then fades)
   };
   let raf = 0;
   let last = null;
@@ -84,12 +92,12 @@ export function createCinematic(overlay, results, o) {
   // e2e and debugging: what is playing (window.__sakura.recruitCinematic)
   const debug = () => ({ tier: plan.tier, mode: state.mode, gatePhase: state.gatePhase, reveal: state.reveal ? { unitId: state.reveal.r.unitId, lr: state.reveal.r.lr, stage: state.reveal.stage } : null,
     reveals: plan.reveals.length, reduce: plan.reduce, shake: plan.shake, flashes: plan.flashes, flashCount: guard.times.length, refused: guard.refused, timeScale: state.timeScale,
-    seen: state.seen.slice() });
-  try {
+    openPeak: state.openPeak, seen: state.seen.slice() });
+  if (DEBUG_HOOKS) {
     window.__sakura ||= {};
     // freeze(true) holds the clock still so a capture lands on an exact moment (e2e, the owner boards)
     window.__sakura.recruitCinematic = { state: debug, freeze: (on) => { state.frozen = !!on; if (!on) { last = null; run(); } } };
-  } catch { /* no window */ }
+  }
 
   function size() {
     const w = overlay.clientWidth || window.innerWidth;
@@ -180,10 +188,12 @@ export function createCinematic(overlay, results, o) {
         const c = gate.center();
         fx.burst(c.x, c.y, { count: plan.tier === 'blue' ? 50 : plan.tier === 'lr' ? 140 : 110, speed: plan.tier === 'lr' ? 620 : 520,
           hue: plan.tier === 'rainbow' ? hue : null, color: plan.tier === 'lr' ? [255, 222, 160] : plan.accent === 'gold' ? [255, 214, 130] : [190, 230, 255] });
-        flash(plan.tier === 'blue' ? 0.35 : 0.5);
+        // the opening light is the flash here (one guard flash): no separate flash tint on top of it
+        state.openPeak = openLightPeak(plan, (want) => guard.flash(want, state.rt), { faint: FAINT, soft: SOFT_FLASH }, plan.tier === 'blue' ? 0.4 : 0.55);
       }
       if (at.phase === 'done') {
         state.mode = 'idle';
+        state.openedAt = state.rt;
         layers.classList.add('rc-opened');
         fx.rays = 0;
         fx.starAmount = plan.tier === 'lr' ? 0.35 : 0;
@@ -192,7 +202,7 @@ export function createCinematic(overlay, results, o) {
         done?.();
       }
     }
-    const s = { t: state.t, dt, phase: at.phase, p: at.p, tier: plan.tier, accent: plan.accent, energy: gateEnergy(at.phase, at.p), hue, reduce: plan.reduce, openPeak: plan.flashes ? guard.cap : 0.3 };
+    const s = { t: state.t, dt, phase: at.phase, p: at.p, tier: plan.tier, accent: plan.accent, energy: gateEnergy(at.phase, at.p), hue, reduce: plan.reduce, openPeak: state.openPeak };
     if (at.phase !== 'done') setGateFx(s);
     gate.update(s);
   }
@@ -266,7 +276,7 @@ export function createCinematic(overlay, results, o) {
     if (state.frozen) return; // held still for a capture: nothing redraws until freeze(false)
     // a frame-rate cap (window.__sakura.recruitFrameCap, e2e on software-rendered browsers): skipped frames draw
     // nothing and the next drawn one steps the clock by the whole gap, so the timeline keeps real time
-    const cap = window.__sakura?.recruitFrameCap;
+    const cap = DEBUG_HOOKS ? window.__sakura?.recruitFrameCap : 0;
     if (cap > 0 && last != null && ts - last < 1000 / cap) { raf = requestAnimationFrame(frame); return; }
     const dtReal = last == null ? 1 / 60 : Math.min(MAX_STEP, Math.max(0, (ts - last) / 1000));
     last = ts;
@@ -275,7 +285,7 @@ export function createCinematic(overlay, results, o) {
     state.t += dt;
     if (state.mode === 'gate' && gate) stepGate(dt);
     // (behind a full-screen reveal the Gate is hidden: it is not redrawn)
-    else if (gate && state.mode !== 'settled' && state.mode !== 'reveal') gate.update({ t: state.t, dt, phase: 'done', p: 1, tier: plan.tier, accent: plan.accent, energy: 0.5, hue: (state.t * 60) % 360, reduce: plan.reduce, openPeak: 0 });
+    else if (gate && state.mode !== 'settled' && state.mode !== 'reveal') gate.update({ t: state.t, dt, phase: 'done', p: 1, tier: plan.tier, accent: plan.accent, energy: 0.5, hue: (state.t * 60) % 360, reduce: plan.reduce, openPeak: state.openedAt == null ? 0 : openLightFade(state.openPeak, state.rt - state.openedAt) });
     if (state.mode === 'reveal' && state.reveal) stepReveal(dtReal);
     fx.update(dtReal);
     // the flash fades out; the shake is a sideways shift only (never a rotation)
@@ -395,6 +405,8 @@ export function createCinematic(overlay, results, o) {
       }
       state.mode = 'settled';
       state.shake = 0;
+      // one last, quiet frame of the Gate (no opening light left on it)
+      gate?.update({ t: state.t, dt: 0, phase: 'done', p: 1, tier: plan.tier, accent: plan.accent, energy: 0.5, hue: (state.t * 60) % 360, reduce: plan.reduce, openPeak: 0 });
       fx.sparkRate = fx.arcRate = fx.petalRate = 0;
       fx.rays = 0;
       fx.starAmount = 0;
@@ -422,7 +434,7 @@ export function createCinematic(overlay, results, o) {
       gateDone = revealDone = null;
       g?.();
       rd?.();
-      try { if (window.__sakura?.recruitCinematic) delete window.__sakura.recruitCinematic; } catch { /* no window */ }
+      if (DEBUG_HOOKS && window.__sakura?.recruitCinematic?.state === debug) delete window.__sakura.recruitCinematic;
     },
   };
 }
