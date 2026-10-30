@@ -1,8 +1,18 @@
-# Next session: start here (updated Oct 29, 2026, afternoon)
+# Next session: start here (updated Oct 30, 2026)
 
 **Read `docs/handoff/HANDOFF_2026-10-29.md` first** (detailed state, next steps, and how to split the work into sessions with suggested effort).
 
 This page is for a session that only has the GitHub repo (a cloud session), not the owner's PC. Read `docs/HANDOFF.md` too; it has the rules (§6), the shipping flow (§7) and the branch table (§3). Check out the coordination branch `claude/sakura-sentinels`; `main` is the live build (every push to `main` deploys).
+
+## UPDATE Oct 30: new account; the owner's new requests; four workstreams started
+- **New account.** The Oct 28–29 sessions (HANDOFF_2026-10-29 §4) belong to another account and cannot be opened from this one. This account's coordinator is `session_01Ayo4emhaccfvZbckwbnYTR`. The NovelAI and Meshy keys are not in this environment yet (both answer 401), so art v3 (§3.2) waits until the owner adds them as network secrets.
+- **Tools in this container:** `npm ci`; the bpy 4.2 venv (`tools/blender/.venv`, kept out of git by `.git/info/exclude`); Blender 5.2.3 LTS (`/usr/local/bin/blender`, headless EEVEE through Mesa's software OpenGL; Pillow for its Python in `/home/user/venvs/blender-pylibs`); the audio toolkit (`tools/audio/.venv`, FluidSynth, soundfonts); rembg with `isnet-anime` (`/home/user/venvs/rembg`); `gltf-transform` and `gltfpack`; a mesh venv (`/home/user/venvs/mesh`: pymeshlab, trimesh, Instant Meshes, manifold3d). The KTX2 encoder (`toktx`) is not installed: the session's safety check refused the GitHub .deb. The owner has a setup script that installs all of this in new sessions.
+- **Owner requests, Oct 30:**
+  1. Tryout Day ("odyssey mode" in the owner's words): let players see which Pep Talks they chose, and make its UI match the rest of the game. Branch `feature/tryout-pep-talks`, display only.
+  2. "Certain bosses on nightmare past 100-200 are impossible to kill": balance testing on `feature/balance-r5`, with the round 5 validation (HANDOFF_2026-10-29 §3.1). Ships after Nov 1, 8 PM Central, with `COOP_PROTOCOL` 14.
+  3. Flat 3D icons for gear, like the v0.1.46 item icons. Branch `feature/gear-icons`, display only.
+  4. New gear sets with custom designs, LR gear, multiple girl loadouts. The spec and owner board come first, on `spec/gear-update` (`docs/specs/GEAR_UPDATE.md`, `docs/review/gear-update/OWNER_BOARD.md`).
+- **Not started:** art v3 (needs the NovelAI key), the display lows and e2e hygiene (HANDOFF_2026-10-29 §3.3), the Tripo import (waiting on the owner's files).
 
 ## UPDATE Oct 29 (afternoon): v0.1.61 SHIPPED; art v3 in Look B under way
 - **v0.1.61 "Five More Ultimates and Academy Flair"** (run #61, main `60ce9cad`): the last five tower ultimates (Kage, Suzu, Chika, Fuu, Iroha), VFX M0/M1 (hit-holds, squash, impact frames, colour grade, halos, the flash guard; Settings "Flashes & shake" and "Impact frames"), visual reworks batch B (Yoriko's strings, Kaede's afterimages, the academy girls' attacks and props), Tryout Day's Extended Day rewards, the DPS round, the Recruit fit; `COOP_PROTOCOL` 13, sim `be940ecb2087`. Go/no-go GO and a delta GO. Details and the lows: `docs/HANDOFF.md` §1.
