@@ -67,7 +67,7 @@ Generated from the rows by `python3 tools/blender/items/gear_sets.py --write-doc
 
 | Slot | Piece | Base and options | Hero detail | Lore |
 |---|---|---|---|---|
-| Charm | **Tag Token** | `keyring`: fob token | a chalk ring and a coral LED dot | Tap it to someone and they have to hold still: playground rules. |
+| Charm | **Tag Token** | `keyring`: fob token | a chalk ring, a coral tag stripe and an LED dot | Tap it to someone and they have to hold still: playground rules. |
 | Ribbon | **Chalk-Line Ribbon** | `setbow`: knot chalk, stripes 2, stripe white | white chalk lines and a coral tag band on the knot | Drawn like the court lines, so you always know where safe is. |
 | Shoes | **Hopscotch Sneakers** | `setshoe`: style trainer, sole grid, side stripe | a hopscotch grid along the soles | One, two, freeze: the soles count your steps for you. |
 | Hair Clip | **Pause-Button Clip** | `setclip`: ornament button | a round pause button with coral bars | Press pause on the whole game, just for a moment. |
@@ -85,7 +85,7 @@ Generated from the rows by `python3 tools/blender/items/gear_sets.py --write-doc
 | Charm | **Compass Keyring** | `keyring`: fob compass | a compass needle and a laser-dot lens on the rim | It never points north: it points at the answer. |
 | Ribbon | **Protractor Ribbon** | `setbow`: knot protractor | a brass protractor arc for a clasp | Tied at exactly ninety degrees, every morning. |
 | Shoes | **Ruler-Step Loafers** | `setshoe`: style loafer, sole ticks, strap dark | ruler ticks along brass soles | Every step measured, every corner square. |
-| Hair Clip | **Set-Square Clip** | `setclip`: ornament setsquare | a set-square with a window and ruler ticks | Keeps a fringe perfectly straight and a sight line perfectly clear. |
+| Hair Clip | **Set-Square Clip** | `setclip`: ornament setsquare | a set-square with ruler ticks and a finger hole, lying along the clip | Keeps a fringe perfectly straight and a sight line perfectly clear. |
 | Necklace | **Crosshair Locket** | `setlocket`: locket crosshair | a round window with a crosshair and a laser dot | Look through it and the target is already centred. |
 
 ### Party Popper (`popper`, crowd)
@@ -127,11 +127,11 @@ Generated from the rows by `python3 tools/blender/items/gear_sets.py --write-doc
 
 | Slot | Piece | Base and options | Hero detail | Lore |
 |---|---|---|---|---|
-| Charm | **Power Bank Keyring** | `keyring`: fob powerbank | four lime charge-bar LEDs and a port | Always full, because she always remembers to charge it. |
+| Charm | **Power Bank Keyring** | `keyring`: fob powerbank | four lime charge-bar LEDs and a short charging cable | Always full, because she always remembers to charge it. |
 | Ribbon | **Charging-Cable Bow** | `setbow`: knot plug, tails cable, stripes 1 | a bow tied from a charging cable, the plug for a knot | Never tangled, never left behind in a classroom socket. |
 | Shoes | **Charge-Bar Trainers** | `setshoe`: style trainer, side chargebars, laces accent | battery bars that fill along the side | The bars fill up as she runs: four bars, ready to go. |
 | Hair Clip | **Lightning Clip** | `setclip`: ornament bolt, body #9be22e, accent #4446b8, light #eaffb0 | a lightning bolt with a glowing core | A quick charge for a sleepy morning. |
-| Necklace | **Battery Locket** | `setlocket`: locket battery | a battery showing a full charge | Four bars means she has energy to spare for everyone. |
+| Necklace | **Battery Locket** | `setlocket`: locket battery | a wide battery cell with a full charge gauge and a bolt | A full gauge means she has energy to spare for everyone. |
 <!-- sets:end -->
 
 ## 4. How it is built

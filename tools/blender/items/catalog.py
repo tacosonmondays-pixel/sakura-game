@@ -207,7 +207,7 @@ GEAR_SETS = dict(
                    light='#ff7a6b', trim='silver', note='ice blue, chalk white, coral',
                    slots=dict(
                        charm=dict(base='keyring', fob='token', piece='Tag Token',
-                                  hero='a chalk ring and a coral LED dot',
+                                  hero='a chalk ring, a coral tag stripe and an LED dot',
                                   lore='Tap it to someone and they have to hold still: playground rules.'),
                        ribbon=dict(base='setbow', knot='chalk', stripes=2, stripe='white', piece='Chalk-Line Ribbon',
                                    hero='white chalk lines and a coral tag band on the knot',
@@ -237,7 +237,7 @@ GEAR_SETS = dict(
                                  hero='ruler ticks along brass soles',
                                  lore='Every step measured, every corner square.'),
                       hair=dict(base='setclip', ornament='setsquare', piece='Set-Square Clip',
-                                hero='a set-square with a window and ruler ticks',
+                                hero='a set-square with ruler ticks and a finger hole, lying along the clip',
                                 lore='Keeps a fringe perfectly straight and a sight line perfectly clear.'),
                       necklace=dict(base='setlocket', locket='crosshair', piece='Crosshair Locket',
                                     hero='a round window with a crosshair and a laser dot',
@@ -288,7 +288,7 @@ GEAR_SETS = dict(
                    light='#b6ff4a', trim='steel', note='indigo and lime charge green',
                    slots=dict(
                        charm=dict(base='keyring', fob='powerbank', piece='Power Bank Keyring',
-                                  hero='four lime charge-bar LEDs and a port',
+                                  hero='four lime charge-bar LEDs and a short charging cable',
                                   lore='Always full, because she always remembers to charge it.'),
                        ribbon=dict(base='setbow', knot='plug', tails='cable', stripes=1, piece='Charging-Cable Bow',
                                    hero='a bow tied from a charging cable, the plug for a knot',
@@ -300,8 +300,8 @@ GEAR_SETS = dict(
                                  piece='Lightning Clip', hero='a lightning bolt with a glowing core',
                                  lore='A quick charge for a sleepy morning.'),
                        necklace=dict(base='setlocket', locket='battery', piece='Battery Locket',
-                                     hero='a battery showing a full charge',
-                                     lore='Four bars means she has energy to spare for everyone.'))),
+                                     hero='a wide battery cell with a full charge gauge and a bolt',
+                                     lore='A full gauge means she has energy to spare for everyone.'))),
 )
 
 # The options each set-look base draws (gear_design refuses any other option name or value; REQUIRED names the options
