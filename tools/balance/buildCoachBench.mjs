@@ -1,18 +1,26 @@
 // Build Coach bench (docs/specs/BUILD_COACH.md §7): measures, per girl and path, how her damage answers each gear
 // stat, and writes src/data/buildCoachData.js (generated; regenerate it in each balance round's checklist).
 //
-//   node --import ./tools/simLoader.mjs tools/balance/buildCoachBench.mjs [girls…] [--seconds 12] [--dry]
+//   node --import ./tools/simLoader.mjs tools/balance/buildCoachBench.mjs [girls…] [--seconds 20] [--dry]
 //
-// Sampling (review r2 L25): one stat step at a time, never a grid. Per girl × path: her base build (level 60, gate 5,
-// ★3, no gear, the path at tier 5 with the bench's usual tier-2 crosspath: P1 x-0-2, P2 2-x-0, P3 2-0-x), then the
-// base plus one step of each stat: ATK +30 %, Attack Speed +30 %, Crit Rate +30 points, Crit DMG +60 points (measured
-// over the base with Crit Rate +30, so it has crits to grow), Range +30 %, Pierce +50 %, Skill Haste +30 %. Two
-// targets each, on stage 4-5's road: the crowd (a column of 10 unkillable grunts) and the boss (one). That is 8 runs ×
-// 2 targets × 3 paths = 48 runs a girl, about 1,500 for the roster, a few minutes.
+// Sampling (spec r3 §7, review r2 L25): one change at a time, never a grid. Per girl × path: her base build (level 60,
+// gate 5, ★3, no gear, the path at tier 5 with the bench's usual tier-2 crosspath: P1 x-0-2, P2 2-x-0, P3 2-0-x), then
+// the base plus one step of each stat: ATK +30 %, Attack Speed +30 %, Crit Rate +30 points, Crit DMG +60 points
+// (measured over the base with Crit Rate +30, so it has crits to grow), Range +30 %, Pierce +50 %, Skill Haste +30 %.
+// Two targets, both walking stage 4-5's road with late-Freeplay HP healed back every step (tools/bench.mjs's way, so
+// %-max-HP damage reads true and Range counts): the crowd (an Orc Grunt every 0.1 s, 50k HP) and the boss (the Ashwing
+// Matriarch, 30M HP). 5 s warm-up, then 20 s measured, abilities on auto. The sim is deterministic: one seed is the
+// run. That is 8 runs × 2 targets × 3 paths = 48 runs a girl, about 1,500 for the roster (well under r3's 11,000: no
+// set or club runs yet, since the sets are not in the sim; their lines are role numbers until they ship).
 //
-// Her ruler is the target she is for (r5's measure): the crowd for a girl whose crowd damage is 3× her boss damage or
-// more, else the boss. A path dealing under 100 damage a second herself (an aura, a brew, a link) is a support: her weights
-// come from SUPPORT_WEIGHTS below (marked measured: false), since her worth is her allies' damage.
+// Not seen by a 20 s run: Skill Haste and, for some kits, Range. Where her step reads 0 and her kit uses the stat
+// (GEAR_FIT), its weight is 25 % of her ATK weight and the row lists it in `est` (the coach says so). Her kit's dead
+// lines (GEAR_FIT fill) weigh 0. A path no step moves is not a measurement: it plans by role (measured: false).
+//
+// Her ruler is the target she is for (r5's measure): the crowd for a path whose crowd damage is 3× its boss damage or
+// more, else the boss. A path dealing under 100 damage a second herself (an aura, a brew, a link) is a support: its
+// weights are the role weights (SUPPORT_WEIGHTS, measured: false), since her worth is her allies' damage. `rank`
+// picks the path the coach opens on: damage over the roster's median on the same ruler; a support class's support path.
 //
 // A weight w is the damage gained per whole unit of a stat, (D' / D0 − 1) / step; the score model multiplies
 // (1 + w · x) over her stats (src/systems/buildCoach.js). The recommendations (mains per slot, substat order, clubs,
@@ -20,33 +28,35 @@
 import { writeFileSync } from 'node:fs';
 import { Sim } from '../../src/sim/Sim.js';
 import { UNITS } from '../../src/data/units.js';
-import { ENEMY_MAP } from '../../src/data/enemies.js';
 import { createProfile } from '../../src/systems/save.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
+import { GEAR_FIT } from '../../src/data/gearStats.js';
 import { simId } from '../simId.mjs';
 import { recommend, STEP } from '../../src/systems/buildCoachModel.js';
 
 const args = process.argv.slice(2);
 const opt = (k, d) => (args.includes(`--${k}`) ? args[args.indexOf(`--${k}`) + 1] : d);
-const SECONDS = Number(opt('seconds', 12));
+const SECONDS = Number(opt('seconds', 20));
 const DRY = args.includes('--dry');
 const only = args.filter((a, i) => !a.startsWith('--') && !['--seconds'].includes(args[i - 1]));
 const OUT = new URL('../../src/data/buildCoachData.js', import.meta.url);
 const BALANCE_ROUND = opt('round', 'main v0.1.61 (before balance round 5)');
 
-/** A plain ground enemy: normal tier, no traits, no armor, not airborne (tools/balance/bench.js). */
-const plain = Object.values(ENEMY_MAP).find((e) => e.tier === 'normal' && !(e.armor > 0) && !Object.keys(e.traits || {}).some((k) => e.traits[k]) && !e.phases?.length);
+const STREAM = { crowd: 'orc_grunt', boss: 'dragon_ashwing' };
+// late-Freeplay HP, healed back every step (tools/bench.mjs): %-max-HP damage (burns, poisons, executions) meets
+// realistic numbers, and nothing ever dies (review r1 B1: 1e9-HP targets read tens of millions on a DoT path)
+const HP = { crowd: 5e4, boss: 3e7 };
+const WARM = 5;
 
-/** Her damage per second with these battle stats against `count` unkillable enemies. */
-function dps(unitId, stats, tiers, count) {
-  const sim = new Sim({ stageId: '4-5', loadout: [{ unitId, stats }], seed: 1, options: { autoStart: false } });
+/** Her damage per second with these battle stats on a moving stream (crowd) or a walking boss, after a warm-up. */
+function dps(unitId, stats, tiers, target) {
+  const sim = new Sim({ stageId: '4-5', loadout: [{ unitId, stats }], seed: 1, options: { autoStart: false, autoAbilities: true } });
   sim.cash = 1e9;
   const path = sim.pathData[0];
+  // her spot: the placeable point nearest the road's middle (a walking target spends range-dependent time in reach)
   const mid = Math.min(path.length * 0.5, 12);
-  const pts = [];
-  for (let i = 0; i < count; i++) pts.push(mid - 1 + (count > 1 ? (2 * i) / (count - 1) : 1));
-  const probe = sim.spawnEnemy(plain.id, { dist: mid, hpMul: 1 });
+  const probe = sim.spawnEnemy(STREAM.crowd, { dist: mid, hpMul: 1 });
   const cx = probe.x;
   const cy = probe.y;
   probe.dead = true;
@@ -66,13 +76,20 @@ function dps(unitId, stats, tiers, count) {
   sim.wave = 1;
   sim._spawnQueue = [];
   sim._spawnIndex = 0;
-  for (const d of pts) {
-    const e = sim.spawnEnemy(plain.id, { dist: d, hpMul: 1e9 / (plain.hp || 1) });
-    e.baseSpeed = 0;
+  if ('lives' in sim) sim.lives = 1e9;
+  const hpOf = (id) => sim.data.enemy(id)?.hp || 1;
+  const spawn = (id) => sim.spawnEnemy(id, { pathIndex: 0, dist: 0, hpMul: HP[target] / hpOf(id) });
+  let dealt0 = 0;
+  for (let step = 0; step < (WARM + SECONDS) * 60; step++) {
+    if (target === 'crowd' && step % 6 === 0) spawn(STREAM.crowd);
+    if (target === 'boss' && !sim.enemies.some((e) => !e.dead && e.id === STREAM.boss)) spawn(STREAM.boss);
+    if (sim.state !== 'wave') sim.state = 'wave';
+    if ('lives' in sim) sim.lives = 1e9;
+    sim.update(1 / 60);
+    sim.drainEvents?.();
+    for (const e of sim.enemies) if (!e.dead) e.hp = e.maxHp;
+    if (step === WARM * 60) dealt0 = t.damageDealt;
   }
-  const dealt0 = t.damageDealt;
-  const steps = Math.round(SECONDS * 60);
-  for (let i = 0; i < steps; i++) sim.update(1 / 60);
   return (t.damageDealt - dealt0) / SECONDS;
 }
 
@@ -108,12 +125,12 @@ function measure(unitId, path) {
   const base = baseStats(unitId);
   const tiers = TIERS[path];
   const out = {};
-  for (const [target, count] of [['crowd', 10], ['boss', 1]]) {
-    const d0 = dps(unitId, base, tiers, count);
-    const critBase = dps(unitId, stepped(base, 'critChance'), tiers, count);
+  for (const target of ['crowd', 'boss']) {
+    const d0 = dps(unitId, base, tiers, target);
+    const critBase = dps(unitId, stepped(base, 'critChance'), tiers, target);
     const w = {};
     for (const stat of MEASURED) {
-      const d1 = dps(unitId, stepped(base, stat), tiers, count);
+      const d1 = dps(unitId, stepped(base, stat), tiers, target);
       const ref = stat === 'critDmg' ? critBase : d0;
       w[stat] = ref > 0 ? Math.max(0, +((d1 / ref - 1) / STEP[stat]).toFixed(3)) : 0;
     }
@@ -122,27 +139,55 @@ function measure(unitId, path) {
   return out;
 }
 
+/** Classes whose worth is their team (their support paths open first in the coach; review r1 M7). */
+const SUPPORT_ROLES = new Set(['support', 'enchanter', 'purifier', 'economy', 'manager', 'council', 'controller', 'displacement', 'hexer']);
+/** Stats the bench cannot see on a short run: an estimate from her ATK weight when it reads 0 and her kit uses it. */
+const ESTIMATE = Object.freeze({ ultHaste: 0.25, rangePct: 0.25 });
+
 const towers = UNITS.filter((u) => u.kind === 'tower' && (!only.length || only.includes(u.id)));
 const heroes = UNITS.filter((u) => u.kind === 'hero' && (!only.length || only.includes(u.id)));
 const rows = {};
 const t0 = Date.now();
 for (const u of towers) {
   const paths = [];
+  const dead = new Set(GEAR_FIT[u.id]?.fill || []);
   for (let p = 0; p < 3; p++) {
     const m = measure(u.id, p);
-    const support = m.crowd.dps < 100 && m.boss.dps < 100;
+    let support = m.crowd.dps < 100 && m.boss.dps < 100;
     const ruler = support ? 'support' : m.crowd.dps >= 3 * m.boss.dps ? 'crowd' : 'boss';
-    const w = support ? null : m[ruler].w;
-    paths.push({ path: p, name: u.paths?.[p]?.name || `Path ${p + 1}`, ruler, dps: support ? 0 : m[ruler].dps, measured: !support, w });
+    let w = support ? null : { ...m[ruler].w };
+    const est = [];
+    if (w) {
+      // her kit's dead lines (GEAR_FIT) weigh nothing
+      for (const k of Object.keys(w)) if (dead.has(k)) w[k] = 0;
+      // a row no step moved is not a measurement (review r1 B1): she plans by role
+      if (Object.values(w).every((v) => !v)) { support = true; w = null; }
+      else {
+        for (const [k, f] of Object.entries(ESTIMATE)) {
+          if (!w[k] && !dead.has(k)) { w[k] = +(f * w.atkPct).toFixed(3); est.push(k); }
+        }
+      }
+    }
+    paths.push({ path: p, name: u.paths?.[p]?.name || `Path ${p + 1}`, ruler: support ? 'support' : ruler, dps: support ? 0 : m[ruler].dps, measured: !support, w, est });
   }
-  rows[u.id] = paths;
+  rows[u.id] = { role: u.role, paths };
   console.log(`${u.id.padEnd(10)} ${paths.map((x) => `${x.name}: ${x.ruler} ${x.dps}`).join(' · ')}  (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 }
-// heroes: one row (their 25-level track), not benched here; supports' weights by role
-for (const u of heroes) rows[u.id] = [{ path: 0, name: 'Hero', ruler: 'hero', dps: 0, measured: false, w: null }];
+// heroes: one row (their 25-level track), not benched here: role weights
+for (const u of heroes) rows[u.id] = { role: 'hero', paths: [{ path: 0, name: 'Hero', ruler: 'hero', dps: 0, measured: false, w: null, est: [] }] };
 
+// the default path (review r1 B1, M7): never raw damage across rulers. A damage path ranks by her damage over the
+// roster's median on the same ruler; a support class opens on a support path; a damage class on her best damage path.
+const median = (xs) => { const v = [...xs].sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : 1; };
+const med = {};
+for (const r of ['crowd', 'boss']) med[r] = median(Object.values(rows).flatMap((x) => x.paths).filter((x) => x.ruler === r).map((x) => x.dps)) || 1;
 const data = {};
-for (const [id, paths] of Object.entries(rows)) data[id] = paths.map((p) => ({ ...p, ...recommend(id, p) }));
+for (const [id, { role, paths }] of Object.entries(rows)) {
+  data[id] = paths.map((p) => {
+    const rank = p.ruler === 'hero' ? 1 : p.ruler === 'support' ? (SUPPORT_ROLES.has(role) ? 10 : 0.01) : +(p.dps / med[p.ruler]).toFixed(3);
+    return { ...p, rank, ...recommend(id, p) };
+  });
+}
 
 const sid = simId().id;
 const file = `// GENERATED by tools/balance/buildCoachBench.mjs — do not edit by hand. Regenerate it in each balance round's

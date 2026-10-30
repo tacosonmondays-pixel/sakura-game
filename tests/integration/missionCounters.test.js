@@ -25,6 +25,7 @@ import { LEVEL_SHADOW_PREFIX } from '../../src/systems/progression.js';
 import { FP_TOME_PREFIX } from '../../src/online/coop/rewards.js';
 import { TRACK_EVENTS } from '../../src/data/missions.js';
 import { MARK } from '../../src/data/gearAwaken.js';
+import { MAIN_MARK } from '../../src/systems/buildCoachSave.js';
 import { OWN_PREFIX } from '../../src/systems/rosterSave.js';
 import { TRYOUT_META } from '../../src/data/tryoutMeta.js';
 
@@ -91,7 +92,7 @@ describe('missions.counters namespaces: Potential shadows vs freeplay milestone 
 describe('missions.counters marks: patch gifts and the story outlive an older build', () => {
   it('the new prefixes are disjoint from each other and from pot: / fpm:', () => {
     // (v3: the level shadow 'lv:<id>' and the freeplay cache Tome counter 'fpTome:<week>' too)
-    const all = [SHADOW_PREFIX, MILESTONE_MARK, PATCH_MARK, LESSON_MARK, SEEN_MARK, STORY_NEW_MARK, STORY_ANNOUNCED_MARK, LEVEL_SHADOW_PREFIX, FP_TOME_PREFIX, OWN_PREFIX, MARK.team, MARK.preset];
+    const all = [SHADOW_PREFIX, MILESTONE_MARK, PATCH_MARK, LESSON_MARK, SEEN_MARK, STORY_NEW_MARK, STORY_ANNOUNCED_MARK, LEVEL_SHADOW_PREFIX, FP_TOME_PREFIX, OWN_PREFIX, MARK.team, MARK.preset, MAIN_MARK];
     for (const a of all) for (const b of all) if (a !== b) expect(a.startsWith(b)).toBe(false);
     // Tryout Day's 'ty:' numbers never overlap them either
     for (const a of all) expect(a.startsWith('ty:') || 'ty:'.startsWith(a)).toBe(false);

@@ -17,18 +17,21 @@ import { SHOWN_SLOTS, SLOT_IDS, slotName } from '../data/gearSlots.js';
 import { GEAR_SETS } from '../data/gearSets.js';
 import { CLUBS } from '../data/clubs.js';
 import { statName, midRoll } from '../data/gearStats.js';
-import { GEAR_SUBSTATS_BY_RARITY } from '../data/types.js';
 import { BUILD_COACH_DATA, BUILD_COACH_META } from '../data/buildCoachData.js';
 import { potentialSteps, MAX_POTENTIAL } from '../data/potential.js';
+import { STAGE_MAP } from '../data/stages.js';
+import { DIFFICULTIES, DIFFICULTY_ORDER, GEAR_SUBSTATS_BY_RARITY } from '../data/types.js';
+import { STITCH_COINS, UR_MAX_LEVEL } from '../data/gearAwaken.js';
+import { eventDifficultyStatus } from './events.js';
 import { potentialTextRow } from '../data/potentialText.js';
 import {
   levelCap, expForLevel, breakthroughCost, awakenCost, gatePotential, MAX_BREAKTHROUGH, MAX_AWAKEN, COINS_PER_EXP,
-  BREAKTHROUGH_LEVEL_CAP, EXP_PER_LEVEL_ABOVE_60, COINS_PER_LEVEL_ABOVE_60,
+  BREAKTHROUGH_LEVEL_CAP, EXP_PER_LEVEL_ABOVE_60, COINS_PER_LEVEL_ABOVE_60, MAX_LEVEL, LEVEL_PAST_GATES,
 } from './progression.js';
-import { raiseCost, essenceBalance, boughtP } from './essence.js';
+import { raiseCost, essenceBalance, boughtP, kindredFor } from './essence.js';
 import { potentialLevel } from './potential.js';
 import {
-  gearLines, enhanceCost, maxGearLevel, mainStatMax, substatRange, isUrGear, stitchSlots, awakenGearCost, mainRerollCost,
+  gearLines, enhanceCost, maxGearLevel, mainStatMax, substatRange, isUrGear, stitchSlots, awakenGearCost, mainRerollCost, armbandCost,
   gearStatTotals, gearSetInfo, wornGear,
 } from './gear.js';
 import * as gearSystem from './gear.js';
@@ -43,10 +46,13 @@ import { mainGirl } from './buildCoachSave.js';
 // Data
 // ---------------------------------------------------------------------------
 
-/** Her rows in the bench data, best path first (highest measured damage; a support's order as written). */
+/**
+ * Her rows in the bench data, the path the coach opens on first: by `rank` (damage over the roster's median on the
+ * same ruler; a support class opens on her support path), never raw damage across rulers (review r1 B1, M7).
+ */
 export function coachPaths(unitId) {
   const rows = BUILD_COACH_DATA[unitId] || [];
-  return [...rows].sort((a, b) => (b.dps || 0) - (a.dps || 0) || a.path - b.path);
+  return [...rows].sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0) || a.path - b.path);
 }
 
 /** True when the data was measured on another sim than this build's (the stale-data warning). */
@@ -73,24 +79,28 @@ const needRows = (p, map) => [...map].map(([id, need]) => {
   return { id, need, have, missing: Math.max(0, need - have) };
 });
 
-/** EXP and coins from her level to `toLevel` (the game's own EXP table and coin rates). */
+/**
+ * EXP, coins and Akashic Tomes from her level (and the EXP she holds) to `toLevel`, by the game's rules: coins per EXP
+ * applied up to 60 (COINS_PER_EXP), LEVEL_PAST_GATES' coins per level above it, one Tome per level above 60
+ * (progression.js coinsFor, expForLevel; review r1 M2).
+ */
 function levelNeed(st, toLevel) {
-  let exp = 0;
-  let coins = 0;
+  let below = 0;
+  let above = 0;
   for (let l = st.level; l < toLevel; l++) {
-    const e = expForLevel(l);
+    const e = expForLevel(l) - (l === st.level ? st.exp || 0 : 0);
     if (!Number.isFinite(e)) break;
-    exp += e;
-    coins += l >= BREAKTHROUGH_LEVEL_CAP ? COINS_PER_LEVEL_ABOVE_60 * (e / EXP_PER_LEVEL_ABOVE_60) : e * COINS_PER_EXP;
+    if (l >= BREAKTHROUGH_LEVEL_CAP) above += Math.max(0, e);
+    else below += Math.max(0, e);
   }
-  exp = Math.max(0, exp - (st.exp || 0));
-  return { exp, coins: Math.ceil(coins) };
+  const coins = Math.ceil(below * COINS_PER_EXP + (above * COINS_PER_LEVEL_ABOVE_60) / EXP_PER_LEVEL_ABOVE_60);
+  return { exp: below, tomes: Math.ceil(above / EXP_PER_LEVEL_ABOVE_60), coins };
 }
 
-/** EXP the books in the bag hold. */
+/** EXP the books in the bag hold (the Akashic Tome counts as its own row above 60). */
 function bookExp(p) {
   let n = 0;
-  for (const [id, count] of Object.entries(p.items || {})) if (ITEMS[id]?.category === 'book') n += (ITEMS[id].xp || 0) * count;
+  for (const [id, count] of Object.entries(p.items || {})) if (ITEMS[id]?.category === 'book' && id !== LEVEL_PAST_GATES.book) n += (ITEMS[id].xp || 0) * count;
   return n;
 }
 
@@ -111,14 +121,17 @@ export function toMax(p, unitId, plan = null) {
     rows.push({ key, title, line, done: !map.size && !extra.todo, needs, ...extra });
   };
 
-  // Level: to her cap now
+  // Level: to 85 (the cap at P6 with every gate), saying the cap she has now
   const cap = levelCap(st);
-  const lv = levelNeed(st, cap);
+  const lv = levelNeed(st, MAX_LEVEL);
   const lvMap = new Map();
   add(lvMap, 'coins', lv.coins);
+  add(lvMap, LEVEL_PAST_GATES.book, lv.tomes);
   const books = bookExp(p);
-  row('level', 'Level', st.level >= cap ? `Level ${st.level}: at her cap` : `Level ${st.level} → ${cap}: ${lv.exp.toLocaleString('en-US')} EXP (your books hold ${books.toLocaleString('en-US')})`, lvMap,
-    { exp: { need: lv.exp, have: books, missing: Math.max(0, lv.exp - books) }, todo: st.level < cap, go: { route: 'student', params: { id: unitId, tab: 'level' } } });
+  const lvLine = st.level >= MAX_LEVEL ? `Level ${MAX_LEVEL}`
+    : `Level ${st.level} → ${MAX_LEVEL} (her cap now ${cap})${lv.exp ? `: ${lv.exp.toLocaleString('en-US')} EXP below 60 (your books hold ${books.toLocaleString('en-US')})` : ''}`;
+  row('level', 'Level', lvLine, lvMap,
+    { exp: { need: lv.exp, have: books, missing: Math.max(0, lv.exp - books) }, todo: st.level < MAX_LEVEL, go: { route: 'student', params: { id: unitId, tab: 'level' } } });
 
   // Gates
   const gMap = new Map();
@@ -145,8 +158,14 @@ export function toMax(p, unitId, plan = null) {
     essence += 1;
   }
   const ess = essenceBalance(p, unitId);
-  row('potential', 'Potential', P >= MAX_POTENTIAL ? 'P6' : `P${P} → P${MAX_POTENTIAL}: ${essence} Essence (she holds ${ess}), from her duplicates`, pMap,
-    { essence: { need: essence, have: ess, missing: Math.max(0, essence - ess) }, todo: P < MAX_POTENTIAL, go: { route: 'student', params: { id: unitId, tab: 'awaken' } } });
+  // Essence she lacks is earned by playing as Kindred Essence (Titan Trials first clears; review r1 M1): her rarity's
+  // Kindred goes to the Farm list
+  const kin = kindredFor(def)[0] || null;
+  const kinHave = kindredFor(def).reduce((a, id) => a + itemCount(p, id), 0);
+  const essMissing = Math.max(0, essence - ess - kinHave);
+  if (kin && essMissing) add(pMap, kin, essMissing + itemCount(p, kin));
+  row('potential', 'Potential', P >= MAX_POTENTIAL ? 'P6' : `P${P} → P${MAX_POTENTIAL}: ${essence} Essence (she holds ${ess}; Kindred Essence from Titan Trials stands in)`, pMap,
+    { essence: { need: essence, have: ess + kinHave, missing: essMissing }, todo: P < MAX_POTENTIAL, go: { route: 'student', params: { id: unitId, tab: 'info', focus: 'potential' } } });
 
   // Gear: enhance every shown slot to its max, the Rainbow Seed and the open stitches
   const gMap2 = new Map();
@@ -158,17 +177,26 @@ export function toMax(p, unitId, plan = null) {
       lines.push(`${slotName(slot)}: empty`);
       continue;
     }
+    // the whole road (review r1 M3): +10, then for a Legendary the Rainbow Bloom (Seed + coins) and UR +10 → +12 at
+    // UR prices, and both ✦ stitches (gold, rainbow: a Needle and the stitch coins each)
+    const legend = g.rarity === 'legendary';
+    const top = legend ? UR_MAX_LEVEL : maxGearLevel(g);
     let coins = 0;
     const probe = { ...g };
-    while (probe.level < maxGearLevel(probe)) {
+    while (probe.level < top) {
+      if (legend && probe.level >= maxGearLevel(probe) && !isUrGear(probe)) probe.ur = 1;
       coins += enhanceCost(probe) || 0;
       probe.level += 1;
     }
     add(gMap2, 'coins', coins);
-    if (g.rarity === 'legendary' && !isUrGear(g)) for (const c of awakenGearCost()) add(gMap2, c.id, c.count);
-    const sl = stitchSlots(g);
-    if (sl.free) add(gMap2, 'needle_star', 1);
-    if (g.level < maxGearLevel(g)) lines.push(`${slotName(slot)} +${g.level} → +${maxGearLevel(g)}`);
+    if (legend && !isUrGear(g)) for (const c of awakenGearCost()) add(gMap2, c.id, c.count);
+    if (legend) {
+      const sl = stitchSlots(g);
+      const open = (sl.gold.used ? 0 : 1) + (sl.rainbow.used ? 0 : 1);
+      add(gMap2, 'needle_star', open);
+      add(gMap2, 'coins', open * STITCH_COINS);
+    }
+    if (g.level < top) lines.push(`${slotName(slot)} +${g.level} → +${top}${legend && !isUrGear(g) ? ' (UR)' : ''}`);
   }
   // her plan's pins (when the pins have a source)
   if (plan?.pins && features().pins) {
@@ -189,14 +217,44 @@ export function toMax(p, unitId, plan = null) {
 // Farm: where each missing material comes from
 // ---------------------------------------------------------------------------
 
-/** A source players reach by playing: never the Gem Shop, gems, or a banner. */
+/**
+ * Currencies a banner pays: Recruit Points (pulls) and the Memento / Moonpearl a spare duplicate pays (review r1 H2,
+ * M1). The coach never prices a source in them (owner Q18: never the Gem Shop or a banner); the owner may rule the
+ * duplicate exchanges in (OWNER_BOARD Q18), which is this one list.
+ */
+export const BANNER_FED = Object.freeze(['recruitPoints', 'memento', 'moonpearl']);
+
+/** A source players reach by playing: never the Gem Shop, gems, or a banner (or a currency only banners pay). */
 function earnedByPlay(src) {
   if (src.route === 'recruit') return false;
   if (src.kind === 'shop') {
     const offer = SHOP_OFFER_MAP[src.offerId];
-    if (!offer || offer.currency === 'gems' || offer.tab === 'gems') return false;
+    if (!offer || offer.currency === 'gems' || offer.tab === 'gems' || BANNER_FED.includes(offer.currency)) return false;
   }
   return true;
+}
+
+/**
+ * Her yield per run of an item on a stage at its hardest difficulty open on this save (review r1 M4): every difficulty
+ * of an open campaign stage is open; an event stage asks the event.
+ * @returns {{ difficulty: string, expected: number, chance: number }|null}
+ */
+function stageYield(p, stageId, itemId) {
+  const st = STAGE_MAP[stageId];
+  if (!st) return null;
+  const order = st.kind === 'event' && st.difficulties ? st.difficulties : DIFFICULTY_ORDER;
+  for (const d of [...order].reverse()) {
+    if (st.kind === 'event' && !eventDifficultyStatus(p, stageId, d)?.ok) continue;
+    let none = 1;
+    let expected = 0;
+    for (const x of st.drops || []) {
+      if (x.item !== itemId || DIFFICULTY_ORDER.indexOf(x.difficulty || 'easy') > DIFFICULTY_ORDER.indexOf(d)) continue;
+      none *= 1 - x.chance;
+      expected += (x.chance * (x.min + x.max)) / 2;
+    }
+    if (expected > 0) return { difficulty: d, expected: Math.round(expected * 100) / 100, chance: 1 - none };
+  }
+  return null;
 }
 
 /**
@@ -206,14 +264,17 @@ function earnedByPlay(src) {
 export function farmPlan(p, missing, { per = 3 } = {}) {
   return missing.map(({ id, missing: n }) => {
     const all = itemSources(id).filter(earnedByPlay);
-    const stages = all.filter((s) => s.kind === 'stage' && isStageUnlocked(p, s.stageId)).sort((a, b) => (b.expected || 0) - (a.expected || 0) || (a.order || 0) - (b.order || 0));
+    const stages = all.filter((s) => s.kind === 'stage' && isStageUnlocked(p, s.stageId))
+      .map((s) => ({ ...s, y: stageYield(p, s.stageId, id) })).filter((s) => s.y)
+      .sort((a, b) => b.y.expected - a.y.expected || (a.order || 0) - (b.order || 0));
     const rest = all.filter((s) => s.kind !== 'stage');
     const sources = [...stages, ...rest].slice(0, per).map((s) => ({
       label: s.label,
-      note: s.kind === 'stage' && s.expected ? `≈ ${s.expected} per run · ${s.note}` : s.note,
-      expected: s.expected || null,
+      note: s.y ? `≈ ${s.y.expected} per run on ${DIFFICULTIES[s.y.difficulty]?.name || s.y.difficulty} (${Math.round(s.y.chance * 100)}%)` : s.note,
+      expected: s.y ? s.y.expected : null,
+      difficulty: s.y ? s.y.difficulty : null,
       stageId: s.stageId || null,
-      go: s.stageId ? { route: 'stage', params: { id: s.stageId, ...(s.minDifficulty ? { difficulty: s.minDifficulty } : {}) } } : { route: s.route, params: s.params || {} },
+      go: s.stageId ? { route: 'stage', params: { id: s.stageId, difficulty: s.y.difficulty } } : { route: s.route, params: s.params || {} },
     }));
     return { id, name: getItem(id)?.name || id, missing: n, sources };
   });
@@ -242,7 +303,7 @@ export function gearPlan(p, unitId, pathIndex = null) {
   const row = paths.find((r) => r.path === pathIndex) || paths[0] || null;
   const f = features();
   const st = p.units[unitId];
-  const out = { row, paths, features: f, slots: [], subs: row?.subs || [], club: null, set: null, pins: null, lr: null };
+  const out = { row, paths, features: f, slots: [], subs: row?.subs || [], club: null, set: null, pins: null, lr: null, est: (row?.est || []).map((k) => statName(k)) };
   if (!row || !st) return out;
   for (const slot of f.slots) {
     const uid = st.gear?.[slot];
@@ -316,7 +377,7 @@ function idealTotals(row, slot, rarity, level) {
   const out = {};
   const want = row.mains?.[slot];
   if (want) out[want] = mainStatMax(want, rarity, level);
-  const n = GEAR_SUBSTATS_BY_RARITY[rarity] ?? 0;
+  const n = GEAR_SUBSTATS_BY_RARITY[rarity === 'ur' ? 'legendary' : rarity] ?? 0;
   for (const s of row.subs.filter((x) => x !== want).slice(0, n)) {
     const [a, b] = substatRange(s, rarity);
     out[s] = (out[s] || 0) + (a + b) / 2;
@@ -346,7 +407,7 @@ export function buildScore(p, unitId, pathIndex = null) {
     const spare = g ? null : spareFor(p, unitId, slot, w);
     const ref = g || spare;
     if (ref) best.push(idealTotals(row, slot, ref.rarity, ref.level));
-    maxed.push(idealTotals(row, slot, 'legendary', 10));
+    maxed.push(idealTotals(row, slot, 'ur', UR_MAX_LEVEL));
   }
   const clubTwo = CLUBS[row.club?.three]?.two;
   const vBest = Math.max(vCur, modelValue(w, sumTotals(...best)));
@@ -401,7 +462,7 @@ function nextSteps(p, unitId, plan, w, vCur, vMax) {
       const cost = mainRerollCost(g);
       const coins = cost.find((c) => c.id === 'coins')?.count || 0;
       const dice = itemCount(p, 'dice_prism');
-      out.push({ kind: 'prism', text: `Prism Dice: her ${s.name}'s main → ${s.wantName}`, chip: `${s.name} main → ${s.wantName}`, gain, cost: coins + 20000, costText: `1 Prism Dice + ${coins.toLocaleString('en-US')} coins`, short: dice < 1 ? 'dice_prism' : null, go: { route: 'student', params: { id: unitId, tab: 'gear' } } });
+      out.push({ kind: 'prism', text: `Prism Dice: the main on her ${s.name} → ${s.wantName}`, chip: `${s.name} main → ${s.wantName}`, gain, cost: coins, costText: `1 Prism Dice + ${coins.toLocaleString('en-US')} coins`, short: dice < 1 ? 'dice_prism' : null, go: { route: 'student', params: { id: unitId, tab: 'gear' } } });
     }
     const spare = spareFor(p, unitId, s.slot, w);
     if (spare) {
@@ -421,7 +482,9 @@ function nextSteps(p, unitId, plan, w, vCur, vMax) {
       const two = CLUBS[want].two;
       const after = { ...cur, [two.stat]: (cur[two.stat] || 0) + (set.club === want ? 0 : two.value) };
       const gain = Math.max(0.5, points(modelValue(w, after), vCur, vMax));
-      out.push({ kind: 'club', text: `Tie an Armband: ${CLUBS[want].name} on her ${slotName(piece.slot)}`, chip: `${CLUBS[want].name} Armband`, gain, cost: 4000, costText: '1 Club Armband', short: itemCount(p, 'club_band') < 1 ? 'club_band' : null, go: { route: 'student', params: { id: unitId, tab: 'gear' } } });
+      const ac = armbandCost(piece);
+      const acCoins = ac.find((c) => c.id === 'coins')?.count || 0;
+      out.push({ kind: 'club', text: `Tie an Armband: ${CLUBS[want].name} on her ${slotName(piece.slot)}`, chip: `${CLUBS[want].name} Armband`, gain, cost: acCoins, costText: `1 Club Armband + ${acCoins.toLocaleString('en-US')} coins`, short: itemCount(p, 'club_band') < 1 ? 'club_band' : null, go: { route: 'student', params: { id: unitId, tab: 'gear' } } });
     }
   }
   // nothing to do on gear: her level
@@ -430,7 +493,13 @@ function nextSteps(p, unitId, plan, w, vCur, vMax) {
     .filter((s) => s.gain > 0 || s.kind === 'level')
     .sort((a, b) => b.gain / Math.max(1, b.cost) - a.gain / Math.max(1, a.cost) || b.gain - a.gain)
     .slice(0, 3)
-    .map((s) => ({ ...s, gain: Math.max(1, Math.round(s.gain)) }));
+    .map((s) => ({
+      ...s,
+      gain: s.gain > 0 ? Math.max(1, Math.round(s.gain)) : 0,
+      per: s.gain / Math.max(1, s.cost), // (the order: score per coin)
+      // a step that needs something missing points to where it is earned (§6)
+      farm: s.short ? farmPlan(p, [{ id: s.short, missing: 1 }], { per: 1 })[0]?.sources[0] || null : null,
+    }));
 }
 
 /** The home chip's one line: "Kage · next: Enhance her Ribbon +8 → +10". */

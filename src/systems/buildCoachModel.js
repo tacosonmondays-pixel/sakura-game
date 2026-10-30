@@ -72,14 +72,17 @@ export function recommend(unitId, row) {
   const mains = {};
   for (const slot of SLOT_IDS) {
     const opts = (MAIN_STATS_BY_SLOT[slot] || []).filter((s) => GEAR_STAT_DEFS[s]);
-    mains[slot] = [...opts].sort((a, b) => w[b] * mainScale(b) - w[a] * mainScale(a) || opts.indexOf(a) - opts.indexOf(b))[0];
+    // a slot whose options all weigh nothing for her: any main does (null; review r1 M7)
+    const pick = [...opts].sort((a, b) => w[b] * mainScale(b) - w[a] * mainScale(a) || opts.indexOf(a) - opts.indexOf(b))[0];
+    mains[slot] = pick && w[pick] > 0 ? pick : null;
   }
   const clubWorth = (id) => w[CLUBS[id].two.stat] * CLUBS[id].two.value + (TRICK_WORTH[id]?.(w, row?.ruler) || 0);
   const clubs = [...LIVE_CLUBS].sort((a, b) => clubWorth(b) - clubWorth(a) || a.localeCompare(b));
   // 3 + 2 across five pieces: the best club's three, and the next best two-piece stat
   const twoOnly = clubs.filter((c) => c !== clubs[0]).sort((a, b) => w[CLUBS[b].two.stat] * CLUBS[b].two.value - w[CLUBS[a].two.stat] * CLUBS[a].two.value)[0] || null;
   const sets = [...SET_IDS].sort((a, b) => w[SET_SIGNATURE[b]] * mainScale(SET_SIGNATURE[b]) - w[SET_SIGNATURE[a]] * mainScale(SET_SIGNATURE[a]) || SET_IDS.indexOf(a) - SET_IDS.indexOf(b));
-  const tieSlot = SLOT_IDS.slice().sort((a, b) => w[mains[b]] * mainScale(mains[b]) - w[mains[a]] * mainScale(mains[a]))[0];
+  const worth = (slot) => (mains[slot] ? w[mains[slot]] * mainScale(mains[slot]) : 0);
+  const tieSlot = SLOT_IDS.slice().sort((a, b) => worth(b) - worth(a))[0];
   // Blank LR doubles every cap: it suits a girl whose best lines are capped stats (crit, range); else she keeps her set
   const capped = subs.slice(0, 2).filter((s) => BATTLE_CAPS[s] != null).length;
   return {

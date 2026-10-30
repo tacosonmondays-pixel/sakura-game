@@ -14,7 +14,7 @@ describe('buildCoachData', () => {
       expect(rows, u.id).toBeTruthy();
       if (u.kind === 'tower') expect(rows.map((r) => r.path).sort()).toEqual([0, 1, 2]);
       for (const r of rows) {
-        for (const s of SLOT_IDS) expect(r.mains[s], `${u.id} ${s}`).toBeTruthy();
+        for (const s of SLOT_IDS) expect(r.mains[s] === null || typeof r.mains[s] === 'string', `${u.id} ${s}`).toBe(true);
         expect(LIVE_CLUBS).toContain(r.club.three);
         for (const s of r.sets) expect(SET_IDS).toContain(s);
         expect(['set', 'blank']).toContain(r.lr);
@@ -22,6 +22,31 @@ describe('buildCoachData', () => {
         if (r.measured) for (const v of Object.values(r.w)) expect(Number.isFinite(v) && v >= 0).toBe(true);
       }
     }
+  });
+
+  it('review r1 B1: a measured row moves on some stat, and no damage reads absurd against the roster', () => {
+    const rows = Object.values(BUILD_COACH_DATA).flat();
+    const med = {};
+    for (const r of ['crowd', 'boss']) {
+      const v = rows.filter((x) => x.ruler === r).map((x) => x.dps).sort((a, b) => a - b);
+      med[r] = v[Math.floor(v.length / 2)];
+    }
+    for (const [id, list] of Object.entries(BUILD_COACH_DATA)) {
+      for (const r of list) {
+        if (!r.measured) continue;
+        expect(Object.values(r.w).some((v) => v > 0), `${id} ${r.name}: all-zero weights`).toBe(true);
+        expect(r.dps, `${id} ${r.name}: ${r.dps} dps vs median ${med[r.ruler]}`).toBeLessThan(100 * med[r.ruler]);
+      }
+    }
+  });
+
+  it('review r1 M7: a support class opens on her support path; a slot whose options all weigh 0 says "any"', () => {
+    for (const id of ['miko', 'momo', 'noa', 'umeko']) {
+      const best = [...BUILD_COACH_DATA[id]].sort((a, b) => b.rank - a.rank)[0];
+      expect(best.ruler, id).toBe('support');
+    }
+    const umeko = BUILD_COACH_DATA.umeko.find((r) => r.ruler === 'support');
+    expect(umeko.mains.charm).toBe(null);
   });
 
   it('records the sim id it was measured on (a warning when stale)', () => {

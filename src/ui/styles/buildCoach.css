@@ -16,7 +16,7 @@
 @media (min-width: 700px) { :where(.ui-day, .ui-night) .bc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 :where(.ui-day, .ui-night) .bc-card { min-width: 0; }
 :where(.ui-day, .ui-night) .bc-card > .ui-panel-in { display: flex; flex-direction: column; gap: 6px; }
-:where(.ui-day, .ui-night) .bc-card-head { display: flex; align-items: center; gap: 6px; min-height: 28px; }
+:where(.ui-day, .ui-night) .bc-card-head { display: flex; align-items: center; gap: 6px; min-height: var(--tap); }
 :where(.ui-day, .ui-night) .ui-ghost.bc-more { display: inline-flex; align-items: center; gap: 2px; min-height: var(--tap); padding: 0 6px; font: 600 var(--fs-label)/1 var(--font-num); text-transform: uppercase; color: var(--m-text); cursor: pointer; }
 
 :where(.ui-day, .ui-night) .bc-rows, :where(.ui-day, .ui-night) .bc-steps, :where(.ui-day, .ui-night) .bc-needs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
@@ -46,5 +46,9 @@
 :where(.ui-day, .ui-night) .bc-need.ok .ui-ico { width: 14px; height: 14px; color: var(--good-on-plate, #2f8a4e); }
 
 /* Stage Prep: the map tag */
-:where(.ui-day, .ui-night) .ui-chip.bc-farm-tag { gap: 4px; max-width: 100%; text-transform: none; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(.ui-day, .ui-night) .ui-chip.bc-farm-tag { gap: 4px; max-width: 100%; min-width: 0; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+:where(.ui-day, .ui-night) .bc-farm-tag .bc-farm-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+:where(.ui-day, .ui-night) .bc-farm-tag .bc-farm-more { flex: none; }
+:where(.ui-day, .ui-night) .bc-role { color: var(--m-dim); font-weight: 400; }
 :where(.ui-day, .ui-night) .ui-chip.bc-farm-tag .ui-ico { flex: none; width: 14px; height: 14px; }
+

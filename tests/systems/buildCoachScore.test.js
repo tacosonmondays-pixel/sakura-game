@@ -50,8 +50,7 @@ describe('build score', () => {
     const s = buildScore(p, 'kage');
     expect(s.steps.length).toBeGreaterThan(0);
     expect(s.steps.length).toBeLessThanOrEqual(3);
-    const r = (x) => x.gain / Math.max(1, x.cost);
-    for (let i = 1; i < s.steps.length; i++) expect(r(s.steps[i - 1]) >= r(s.steps[i]) - 1e-9 || s.steps[i - 1].gain >= s.steps[i].gain).toBe(true);
+    for (let i = 1; i < s.steps.length; i++) expect(s.steps[i - 1].per).toBeGreaterThanOrEqual(s.steps[i].per);
     expect(s.steps[0].kind).toBe('equip');
     const before = buildScore(p, 'kage');
     equipGear(p, 'kage', spare);

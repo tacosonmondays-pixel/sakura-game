@@ -431,7 +431,7 @@ function buildCoachArticle() {
     sec('Set as Main',
       list([
         'Open a girl\'s page, tap Coach, then Set as Main. One girl is your Main at a time; Clear Main removes it.',
-        'Her next step shows on the home screen, and Stage Prep marks stages that drop what she still needs.',
+        'Her next step is a page of the home screen\'s news card, and Stage Prep marks stages that drop what she still needs.',
       ])),
     sec('What the Coach shows',
       list([

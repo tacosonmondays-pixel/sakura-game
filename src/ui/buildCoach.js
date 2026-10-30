@@ -86,7 +86,8 @@ export function coachTab(unit, { onChange = () => {} } = {}) {
   const steps = card('Next steps', { testid: 'coach-steps' },
     score.steps.length
       ? h('ol.bc-steps', score.steps.map((s, i) => h('li.bc-step', { 'data-testid': `coach-step-${i}` },
-        h('span.bc-step-txt', s.text, h('small.bc-step-sub', `+${s.gain} · ${s.costText}${s.short ? ` · need ${getItem(s.short)?.name || s.short}` : ''}`)),
+        h('span.bc-step-txt', s.text, h('small.bc-step-sub', [s.gain ? `+${s.gain}` : null, s.costText,
+          s.short ? `need ${getItem(s.short)?.name || s.short}${s.farm ? ` (${s.farm.label})` : ''}` : null].filter(Boolean).join(' · '))),
         goBtn(s.go, { testid: `coach-step-go-${i}` }))))
       : h('p.bc-line', 'Her gear is the best of what you have. Farm for better pieces, or level her up.'));
 
@@ -110,14 +111,15 @@ export function coachTab(unit, { onChange = () => {} } = {}) {
   const gearCard = card('Gear plan', { testid: 'coach-gear' },
     h('ul.bc-rows', g.slots.map((s) => h(`li.bc-row${s.piece?.ok ? '.done' : ''}`, { 'data-testid': `coach-slot-${s.slot}` },
       s.piece?.ok ? ico('check') : ico('info'),
-      h('span.bc-row-t', h('b', `${s.name}: ${s.wantName || '—'}`),
-        h('span', !s.piece ? 'Empty: equip one' : s.piece.ok ? `${s.piece.name} has it` : `${s.piece.name} has ${statName(s.piece.main)}: change it with a Prism Dice`))))),
+      h('span.bc-row-t', h('b', `${s.name}: ${s.wantName || 'any main'}`),
+        h('span', !s.piece ? 'Empty: equip one' : !s.want || s.piece.ok ? `${s.piece.name}${s.want ? ' has it' : ''}` : `${s.piece.name} has ${statName(s.piece.main)}: change it with a Prism Dice`))))),
     h('p.bc-line', { 'data-testid': 'coach-subs' }, h('b', 'Substats: '), g.subs.slice(0, 5).map((x) => statName(x)).join(' > ')),
-    g.club ? h('p.bc-line', { 'data-testid': 'coach-club' }, h('b', 'Club: '), g.club.split, g.club.now ? ` (now ${g.club.now})` : '') : null,
-    g.set ? h('p.bc-line', { 'data-testid': 'coach-set' }, h('b', 'Set: '), `${g.set.name} (no cap on ${g.set.stat}), then ${g.set.nextName}`) : null,
+    // (review r1 M6: what the bench measured and what follows her role, said plainly)
+    g.club ? h('p.bc-line', { 'data-testid': 'coach-club' }, h('b', 'Club: '), g.club.split, g.club.now ? ` (now ${g.club.now})` : '', h('span.bc-role', ' · by her role')) : null,
+    g.set ? h('p.bc-line', { 'data-testid': 'coach-set' }, h('b', 'Set: '), `${g.set.name} (no cap on ${g.set.stat}), then ${g.set.nextName}`, h('span.bc-role', ' · by her role')) : null,
     g.pins ? h('p.bc-line', { 'data-testid': 'coach-pins' }, h('b', 'Pins: '), `Tie Pin on her ${g.pins.tieName}; Collar Pins on ${g.pins.collar.join(', ')}`) : null,
-    g.lr ? h('p.bc-line', { 'data-testid': 'coach-lr' }, h('b', 'Limit Break: '), g.lr === 'blank' ? 'Blank LR (her best lines are capped stats)' : 'Set LR (keep her set)') : null,
-    g.row && !g.row.measured ? h('p.bc-note', 'Her plan follows her role (her own damage is small on this path: her worth is her team).') : null);
+    g.lr ? h('p.bc-line', { 'data-testid': 'coach-lr' }, h('b', 'Limit Break: '), g.lr === 'blank' ? 'Blank LR (her best lines are capped stats)' : 'Set LR (keep her set)', h('span.bc-role', ' · by her role')) : null,
+    g.row ? h('p.bc-note', { 'data-testid': 'coach-basis' }, basisNote(g.row, g.est)) : null);
 
   // Potential
   const potCard = card('Potential', { testid: 'coach-pot' },
@@ -128,6 +130,14 @@ export function coachTab(unit, { onChange = () => {} } = {}) {
 
   return h('div.mb-tab-body.bc', { 'data-testid': 'coach-tab' }, head, pathRow,
     h('div.bc-grid', steps, maxCard, farmCard, gearCard, potCard));
+}
+
+/** What her plan stands on, said per ruler (review r1 M6). */
+function basisNote(row, est) {
+  if (row.ruler === 'hero') return 'A hero: her plan follows her role (heroes are not benched yet).';
+  if (row.ruler === 'support') return 'Her worth on this path is her team: her plan follows her role, not a bench run.';
+  const on = row.ruler === 'boss' ? 'a walking boss' : 'a crowd';
+  return `Measured on ${on}${est.length ? `; ${est.join(' and ')} estimated (a short run cannot see ${est.length > 1 ? 'them' : 'it'})` : ''}.`;
 }
 
 function openMaxSheet(unit, need) {
@@ -150,11 +160,13 @@ function openFarmSheet(farm) {
   });
 }
 
-/** Stage Prep: a map tag "Farming for Kage: Phoenix Plume ×2" when this stage drops what she misses (null otherwise). */
+/** Stage Prep: a map tag "Farming for Kage: Phoenix Plume ×2 +1" when this stage drops what she misses (null otherwise). */
 export function stageFarmTag(stageId) {
   const f = farmingHere(store.profile, stageId);
   if (!f) return null;
-  const what = f.items.slice(0, 2).map((i) => `${i.name} ×${n(i.missing)}`).join(', ');
-  return h('span.ui-chip.stp-tag.bc-farm-tag', { 'data-testid': 'stage-farming', title: `Farming for ${UNIT_MAP[f.unitId]?.name}: ${what}` },
-    ico('star'), `Farming for ${UNIT_MAP[f.unitId]?.name}: ${what}`);
+  const first = f.items[0];
+  const more = f.items.length - 1;
+  const all = f.items.map((i) => `${i.name} ×${n(i.missing)}`).join(', ');
+  return h('span.ui-chip.stp-tag.bc-farm-tag', { 'data-testid': 'stage-farming', title: `Farming for ${UNIT_MAP[f.unitId]?.name}: ${all}` },
+    ico('star'), h('span.bc-farm-t', `For ${UNIT_MAP[f.unitId]?.name}: ${first.name} ×${n(first.missing)}`), more ? h('b.bc-farm-more', `+${more}`) : null);
 }

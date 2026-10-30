@@ -13,6 +13,7 @@ import { SHOP_OFFER_MAP } from '../../src/data/shop.js';
 import { itemSources } from '../../src/systems/inventory.js';
 import {
   setMain, clearMain, mainGirl, toMax, farmPlan, gearPlan, features, potentialPlan, homeLine, farmingHere, MAIN_MARK,
+  BANNER_FED, coachPaths,
 } from '../../src/systems/buildCoach.js';
 
 const reload = (p) => migrateProfile(JSON.parse(saveText(p, 1)));
@@ -79,16 +80,54 @@ describe('To max', () => {
     expect(res.rows.find((r) => r.key === 'gear').needs.find((n) => n.id === 'coins').need).toBe(coins);
   });
 
+  it('review r1 M2: level counts to 85 (Tomes above 60), and coins do not charge the EXP she holds', () => {
+    const { p } = setup();
+    Object.assign(p.units.kage, { level: 60, exp: 0, breakthrough: 5, awaken: 0 });
+    const lv = toMax(p, 'kage').rows.find((r) => r.key === 'level');
+    expect(lv.done).toBe(false);
+    expect(lv.needs.find((n) => n.id === 'book_legendary').need).toBe(25);
+    expect(lv.needs.find((n) => n.id === 'coins').need).toBe(25 * 12000);
+    Object.assign(p.units.kage, { level: 5, exp: 0 });
+    const a = toMax(p, 'kage').rows.find((r) => r.key === 'level').needs.find((n) => n.id === 'coins').need;
+    p.units.kage.exp = 100;
+    const b = toMax(p, 'kage').rows.find((r) => r.key === 'level').needs.find((n) => n.id === 'coins').need;
+    expect(a - b).toBe(40);
+  });
+
+  it('review r1 M3: a Legendary counts its whole road (+10, Bloom, UR +12, two stitches)', () => {
+    const p = createProfile();
+    grantUnit(p, 'kage', 0);
+    const u = addGear(p, rollGear(createRng(4), { slot: 'charm', rarity: 'legendary', level: 0 }));
+    equipGear(p, 'kage', u);
+    const gear = toMax(p, 'kage').rows.find((r) => r.key === 'gear');
+    expect(gear.needs.find((n) => n.id === 'seed_rainbow').need).toBe(1);
+    expect(gear.needs.find((n) => n.id === 'needle_star').need).toBe(2);
+    expect(gear.line).toMatch(/\+0 → \+12/);
+  });
+
+  it('review r1 M5: the Potential row opens her Info tab on Potential', () => {
+    const { p } = setup();
+    expect(toMax(p, 'kage').rows.find((r) => r.key === 'potential').go).toEqual({ route: 'student', params: { id: 'kage', tab: 'info', focus: 'potential' } });
+  });
+
   it('finished rows collapse to done', () => {
     const { p } = setup();
     Object.assign(p.units.kage, { breakthrough: MAX_BREAKTHROUGH, awaken: 5, pl: 6 });
     p.units.kage.level = 85;
     const res = toMax(p, 'kage');
-    for (const k of ['gates', 'stars', 'potential']) expect(res.rows.find((r) => r.key === k).done).toBe(true);
+    for (const k of ['gates', 'stars', 'potential', 'level']) expect(res.rows.find((r) => r.key === k).done).toBe(true);
   });
 });
 
 describe('Farm', () => {
+  it('review r1 M4: a stage row says its yield at the difficulty its Go opens', () => {
+    const { p } = setup();
+    const [f] = farmPlan(p, [{ id: 'mat_feather_rare', missing: 3 }]);
+    const s = f.sources.find((x) => x.stageId);
+    expect(s.go.params.difficulty).toBe(s.difficulty);
+    expect(s.note).toContain(`per run on `);
+  });
+
   it('ranks open stages by expected units per run, and never lists the Gem Shop or a banner', () => {
     const { p } = setup();
     const plan = farmPlan(p, [{ id: 'mat_feather_common', missing: 10 }, { id: 'star_fragment', missing: 5 }, { id: 'moonpearl', missing: 3 }], { per: 10 });
@@ -98,6 +137,13 @@ describe('Farm', () => {
       for (const s of f.sources) {
         expect(s.go.route).not.toBe('recruit');
         if (s.go.route === 'mall') expect(s.go.params.tab).not.toBe('gems');
+      }
+    }
+    // review r1 H2/M1: nothing priced in a currency only banners pay (Recruit Points, Mementos, Moonpearls)
+    for (const id of ['star_fragment', 'mat_feather_superRare', 'mat_feather_mythic', 'book_legendary']) {
+      for (const s of farmPlan(p, [{ id, missing: 1 }], { per: 50 })[0].sources) {
+        const raw = itemSources(id).find((x) => x.label === s.label && x.offerId);
+        if (raw) expect(BANNER_FED).not.toContain(SHOP_OFFER_MAP[raw.offerId].currency);
       }
     }
     // every gem-priced offer of any item is filtered out
