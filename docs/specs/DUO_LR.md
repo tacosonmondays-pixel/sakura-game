@@ -364,9 +364,34 @@ way across the map, so the light boss numbers rise most); r5 = fully maxed with 
 - **Tenka's Joint Research and Singularity builds** (a lab build and a control build) deal little of their own on these
   benches (the lab weapons need girls to join her after her purchase; Singularity's value is its wells and Last Line).
   Their LR form lifts them to the floor with LR-only `t5` rows (`LR_POWER.tenka.t5`, while that path is at tier 5):
-  Joint Research ×5.2 damage and ×1.1 more vs bosses, Singularity ×10 damage and ×5.5 more vs bosses. Watch the lab:
-  a Joint Research LR Tenka with a full lab team was not on this bench (the bench places her supports after her purchase).
+  Joint Research ×5.2 damage and ×1.1 more vs bosses, Singularity ×10 damage and ×5.5 more vs bosses.
+- **With a full lab team** (`tools/balance/labBench.mjs`: fully maxed Kage 5-0-2, Akane 5-0-2, Yuki 2-5-0, Miko 5-2-0
+  and Momo 5-0-2 in her reach before she buys Joint Research to tier 5, both absorbs, then Umeko and Midori beside her;
+  ÷ the best Kage T5): without LR 8.43× / 1.60× (crowd / boss); **with LR 52.85× / 37.55×**. Without the `t5.lab` row
+  her LR would read 10.16× / 6.56× (already over the floor). Her lab weapons scale with her damage, so the ×5.2 lands on
+  the whole lab. Not lowered (the owner's call); reported for the release audit.
 - Abilities are not in these numbers (the rulers are her attack only).
+
+**LR premium (Oct 30, the owner: LRs clearly above every non-LR; the coordinator: the 2.5–3× is a floor).** `t5` rows
+lift every LR tier-5 build's crowd a quarter past the best SSR crowd on the round-5 bench (Hotaru 5-0-2, 8.67M; Iroha
+2-0-5 6.81M on her rework): the duo Starfall ×2.35, Grand Spectrum ×1.8, Constellation ×1.1; Tenka Rail Arms ×1.7, Joint
+Research ×11.5 (was 5.2), Singularity ×22.5 (was 10). Kage meanwhile rose (Blade Cyclone throws her aimed volley every
+attack, docs/BALANCE.md): her best T5 is now 2.44M crowd / 2.70M boss. Absolute numbers (r5, fully maxed, seeds 9/1/2),
+the first column the state before this session's LR work:
+
+| build | r5 no-LR crowd / boss, before → after | r5 LR crowd / boss, before → after | LR ÷ Kage now (2.44M / 2.70M) |
+|---|---|---|---|
+| Duo Starfall T5 | 3.42M / 3.11M → 3.42M / 3.11M | 4.09M / 3.98M → 11.12M / 15.71M | ×4.56 / ×5.83 |
+| Duo Grand Spectrum T5 | 3.67M / 2.88M → 3.97M / 2.88M | 4.65M / 3.69M → 11.15M / 11.15M | ×4.57 / ×4.14 |
+| Duo Constellation T5 | 6.74M / 2.92M → 6.74M / 2.92M | 8.80M / 3.77M → 11.33M / 6.97M | ×4.64 / ×2.59 |
+| Tenka Joint Research T5 | 0.80M / 0.26M → 0.80M / 0.26M | 0.96M / 0.31M → 11.04M / 13.54M | ×4.53 / ×5.02 |
+| Tenka Rail Arms T5 | 5.43M / 1.49M → 5.43M / 1.49M | 6.55M / 1.80M → 11.14M / 10.38M | ×4.57 / ×3.85 |
+| Tenka Singularity T5 | 0.41M / 0.03M → 0.41M / 0.03M | 0.49M / 0.03M → 11.09M / 13.13M | ×4.55 / ×4.87 |
+
+**No unit lowered**: every axis of every build, LR or not, is at or above where it was. Akane (SR) 16.47M on a crowd stays
+above every LR crowd (a splash specialist; the owner's call whether LRs must clear her too). A Joint Research LR Tenka
+with a full lab team (`tools/balance/labBench.mjs`) reads 176.9M / 184.4M (×72.5 / ×68.4 Kage; without LR 15.43M /
+3.55M): reported, not lowered.
 
 **Perf** (`tests/sim/perf.test.js` "the long beam": 4 LR duos at Grand Spectrum, 16 held map-long beams, 200 walkers on
 6-3). Outside vitest, median of five: 0.11–0.21 ms a step before, 0.13–0.21 ms after (best 0.083 → 0.128). In vitest:

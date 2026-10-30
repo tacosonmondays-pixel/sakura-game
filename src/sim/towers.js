@@ -1541,11 +1541,8 @@ const BEHAVIORS = {
     const targets = selectTargets(sim, t.ox, t.oy, spec.range, spec, t.targetMode, Math.max(1, spec.projectiles));
     return attackWheel(sim, t, spec, targets, targets.length ? shotPierce(t) : 0);
   },
-  // (never below her aimed volley: on a packed crowd it throws her shuriken at her targets instead, attackProjectile)
-  spin: (sim, t) => attackSpin(sim, t, gearSpec(t.eff), () => shotPierce(t), {
-    volley: () => attackProjectile(sim, t),
-    targets: (n, out) => selectTargetsInto(sim, t.ox, t.oy, t.eff.range, gearSpec(t.eff), t.targetMode, n, out),
-  }),
+  // (never below her aimed volley: every attack throws her shuriken at her targets, attackProjectile, and the arms on top)
+  spin: (sim, t) => attackSpin(sim, t, gearSpec(t.eff), () => shotPierce(t), { volley: () => attackProjectile(sim, t) }),
   // attack shapes S2 (src/sim/held.js): a held channel; her counted attacks pick her enemy and what it carries
   stream: attackHeldWith,
   sweep: attackHeldWith,

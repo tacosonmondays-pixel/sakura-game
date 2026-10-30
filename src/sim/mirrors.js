@@ -19,7 +19,7 @@
 //     next mirror (relay.allyBounces mirrors in chain order, capped at ALLY_BOUNCE_CAP), then the best enemy by the
 //     shooter's target mode within the shot's range that is neither the original's target nor already hit by it (else
 //     that target; else the copy ends). Both are marked `split` and never split again (no loops, two networks included).
-//     A copy is the same shot (spec, kind, speed, pierce, splash, credit, the original's hits). A guided or returning
+//     A copy is the same shot (spec, kind, speed, pierce, splash, its damage share `scale`, credit, the original's hits). A guided or returning
 //     shot splits the old way (its copy fanned from the crossing point, no route). A shot that ends its step dead does
 //     not split that step.
 //   - ⚡ Laser Web (§5; deploy type 'mirror', src/sim/abilities.js DEPLOYS.mirror): while it runs (her t.abil.active,
@@ -585,6 +585,9 @@ function splitShot(sim, p, cx, cy, mt, slot) {
     guided: p.guided, drone: p.drone, turretUid: p.turretUid,
   });
   c.split = true;
+  // (a shot that carries a share of a volley, a Blade Cyclone arm or her folded stream, src/sim/wheels.js: the copy
+  // carries the same share, so it is the same shot)
+  if (p.scale != null) c.scale = p.scale;
   for (let i = 0; i < p.hits.length; i++) c.hits.push(p.hits[i]);
   if (routed) {
     const route = [];

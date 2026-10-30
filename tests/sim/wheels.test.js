@@ -6,13 +6,13 @@
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import {
-  STEP, RING_DIRS, SPIN_TURN, SPIN_LOCK, HALO_REACH, HALO_GAP, HALO_HITS,
+  STEP, RING_DIRS, SPIN_TURN, SPIN_LOCK, SPIN_ARMS_SHARE, HALO_REACH, HALO_GAP, HALO_HITS,
 } from '../../src/sim/constants.js';
 import { defaultData } from '../../src/sim/data.js';
 import { DIR_X, DIR_Y, dir, nearestDir, turnToward, wrapDir } from '../../src/sim/dirs.js';
 import { ringDir } from '../../src/sim/rings.js';
 import { inDisc, onLine } from '../../src/sim/shapes.js';
-import { haloPos, endWheelWave, attackSpin, spinVolleyBetter } from '../../src/sim/wheels.js';
+import { haloPos, endWheelWave, attackSpin } from '../../src/sim/wheels.js';
 import { roadSpots } from '../../src/sim/strips.js';
 import { samplePath } from '../../src/sim/path.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
@@ -184,13 +184,14 @@ describe('Kage: Blade Cyclone (Pinwheel Stream) on Storm of Steel tier 5', () =>
     expect(t.spinK ?? null).toBe(null);
   });
 
-  test('a lone enemy: the arms fold into one stream that turns toward it, carrying her whole volley × fold', () => {
+  test('a lone enemy: the arms fold into one stream that turns toward it, carrying her whole volley × fold (× the arms\' share in battle)', () => {
     const { sim, t } = setup('kage', STEEL, 5);
     const e = parkAt(sim, 'tank', 8, 4.5);
     steps(sim, 1);
     const list = shots(sim, t);
     expect(list).toHaveLength(1);
-    expect(list[0].scale).toBeCloseTo(t.eff.projectiles * 1.04, 12);
+    // (in battle the stream rides on her aimed volley at SPIN_ARMS_SHARE: the volley's own shuriken are not straight)
+    expect(list[0].scale).toBeCloseTo(t.eff.projectiles * 1.04 * SPIN_ARMS_SHARE, 12);
     steps(sim, 120);
     expect(t.spinK).toBe(nearestDir(e.x - t.x, e.y - t.y));
     expect(e.hp).toBeLessThan(1e6);
@@ -201,8 +202,8 @@ describe('Kage: Blade Cyclone (Pinwheel Stream) on Storm of Steel tier 5', () =>
     const { sim, t } = setup('kage', STEEL, 5);
     const es = [parkAt(sim, 'tank', 8, 4.5), parkAt(sim, 'tank', 5, 4.5)];
     const spin = () => attackSpin(sim, t, t.eff);
-    steps(sim, 1); // (the enemies into the grid; the battle's own first attack is her volley here)
-    expect(t.spinK ?? 0).toBe(0);
+    steps(sim, 1); // (the enemies into the grid; then the arms from the start of their turn)
+    t.spinK = 0;
     for (const p of sim.projectiles) p.dead = true;
     expect(spin()).toBe(true);
     const list = shots(sim, t);
@@ -218,13 +219,13 @@ describe('Kage: Blade Cyclone (Pinwheel Stream) on Storm of Steel tier 5', () =>
     // (the arms turn SPIN_TURN an attack while no arm is on an enemy: the first attack above)
   });
 
-  test('never below her aimed volley: when her shuriken at her targets would land more than the arms, she throws them', () => {
-    // two enemies on either side of her, off every arm's line: the arms would hit nothing, her volley both
+  test('never below her aimed volley: in battle every attack throws her shuriken at her targets, and the arms add their share', () => {
     const { sim, t } = setup('kage', STEEL, 5);
     parkAt(sim, 'tank', 8, 4.5);
     parkAt(sim, 'tank', 5, 4.5);
     let spins = 0;
     let volleys = 0;
+    let armScale = null;
     for (let i = 0; i < 300; i++) {
       sim._step(STEP);
       for (const ev of sim.drainEvents()) {
@@ -232,19 +233,15 @@ describe('Kage: Blade Cyclone (Pinwheel Stream) on Storm of Steel tier 5', () =>
         if (ev.kind === 'spin') spins++;
         else volleys++;
       }
+      const arm = shots(sim, t)[0];
+      if (arm && armScale === null) armScale = arm.scale;
     }
+    // a volley with every spin (her aimed shuriken: the attack she had before the shapes)
     expect(volleys).toBeGreaterThan(0);
-    // the count it decides by: a line of enemies straight out from her lies on one arm, and the arms win it
-    const k = t.spinK ?? 0;
-    const line = [];
-    for (let j = 1; j <= 4; j++) line.push({ x: t.ox + DIR_X[k] * j * 0.5, y: t.oy + DIR_Y[k] * j * 0.5, dead: false, def: { size: 1 }, traits: {}, statuses: {} });
-    const pick = (n, out) => {
-      out.length = 0;
-      out.push(line[0]);
-      return out;
-    };
-    expect(typeof spinVolleyBetter(sim, t, t.eff, line, k, 4, t.eff.projectiles, 2.02, pick)).toBe('boolean');
-    expect(spins + volleys).toBeGreaterThan(t.eff.rate * 5 * 0.8 * 0.5);
+    expect(volleys).toBe(spins);
+    expect(sim.projectiles.some((p) => p.owner === t && !p.straight) || volleys > 0).toBe(true);
+    // the arms at SPIN_ARMS_SHARE of their own damage
+    expect(armScale).toBeCloseTo(((t.eff.projectiles * 2.02) / 4) * SPIN_ARMS_SHARE, 12);
   });
 
   test('an attack like any other: her rate sets the throws; Potential 6 keeps its Shuriken Storm echo, tempo and extra shuriken', () => {

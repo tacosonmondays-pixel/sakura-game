@@ -329,9 +329,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // re-pinned Oct 29 for the refit on both rulers (the Coin Wheel keeps her toss coins, the Blade Cyclone at
     // tier 5 only with arms that stay on an enemy, a lighter halo); cheaper upgrades so both Kages reach tier 5.
     // Change only with a deliberate sim / data change, and say why.
-    // Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10, Hotaru ×1.04): was 16314 / 3223573651 / f68f68df / 4/275/391 (her packed waves take her aimed volley).
+    // Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10, Hotaru ×1.04): was 16314 / 3223573651 / f68f68df / 4/275/391 (every Blade Cyclone attack throws her aimed volley, the arms at a quarter).
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, shapes: r.shapes, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 16343, state: 'won', wave: 22, wallets: '2207/1257', final: 595370753, hashes: 'ca098394', shapes: '4/247/384', rejoinTick: 10754 });
+      .toEqual({ ticks: 16307, state: 'won', wave: 22, wallets: '2207/1257', final: 1790642613, hashes: '77aa58ea', shapes: '4/136/320', rejoinTick: 10754 });
   }, 240000);
 
   it('runs the attack shapes S2 (HELD_START: Hearth Stream, Searchlight Sweep) in sync, and a mid-wave rejoin lands on the run', () => {
@@ -454,8 +454,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // pinned when the battle was added (Tenka's LR form, Oct 29). Change only with a deliberate sim / data change, and say why.
     // Re-pinned Oct 30 for the LR rows (src/data/balance.js LR_POWER: the host's LR Tenka × bosses): the same waves,
     // ticks and coins; final 747075865 → 2042327016, hashes 8ab4dbef → c121be7a, horizon 3/2/2/3 → 3/2/2/2.
+    // Re-pinned Oct 30 for the LR premium (Rail Arms tier 5 ×1.7 while LR): final 2042327016 → 1684999597, hashes c121be7a →
+    // b70575f5, wallets 1730/6014 → 1731/6015 (the same waves and ticks).
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, horizon: r.horizon })
-      .toEqual({ ticks: 43031, state: 'won', wave: 26, tiers: '050 030 000 000', wallets: '1730/6014', final: 2042327016, hashes: 'c121be7a', horizon: '3/2/2/2' });
+      .toEqual({ ticks: 43031, state: 'won', wave: 26, tiers: '050 030 000 000', wallets: '1731/6015', final: 1684999597, hashes: 'b70575f5', horizon: '3/2/2/2' });
   }, 240000);
 
   it('runs the staff heroes (STAFF_START: Norika\'s barricades and Hold the Line on a forked map, Kogane\'s plow and Moves) in sync', () => {

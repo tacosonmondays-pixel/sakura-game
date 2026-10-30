@@ -95,11 +95,15 @@ export const POWER = Object.freeze(Object.fromEntries(Object.entries(ROWS).map((
 const LR_ROWS = {
   // the duo: ×1.05 damage and ×1.6 vs bosses on every build (her LR line, PRISM_EDGE_MUL_LR in src/sim/constants.js,
   // lifts her crowd; ×1.05 takes her Starfall build's crowd over 2.5×)
-  kohaku_tsubaki: { dmg: 1.05, boss: 1.6 },
+  // LR premium (the owner, Oct 30: LRs clearly above every non-LR): `t5` rows lift each tier-5 crowd past the best SSR
+  // crowd on the round-5 bench (Hotaru 5-0-2, 8.67M; Iroha 2-0-5 6.81M on her rework) by a quarter: about 11M
+  kohaku_tsubaki: { dmg: 1.05, boss: 1.6, t5: { starfall: { dmg: 2.35 }, corridor: { dmg: 1.8 }, refraction: { dmg: 1.1 } } },
   // Tenka (Thesis Defense): ×3.4 vs bosses on every build (her Rail Arms crowd is above the floor already); `t5` rows on
   // top while that path is at tier 5: her Joint Research and Singularity builds deal little of their own (a lab and a
-  // control build), so their LR form lifts their own bolts to the floor too
-  tenka: { boss: 3.4, t5: { lab: { dmg: 5.2, boss: 1.1 }, singularity: { dmg: 10, boss: 5.5 } } },
+  // control build), so their LR form lifts their own bolts to the floor too; each t5 row also carries the LR premium
+  // (her crowd a quarter past the best SSR crowd, about 11M: Rail Arms ×1.7, Joint Research 5.2 × 2.2, Singularity
+  // 10 × 2.25)
+  tenka: { boss: 3.4, t5: { rails: { dmg: 1.7 }, lab: { dmg: 11.5, boss: 1.1 }, singularity: { dmg: 22.5, boss: 5.5 } } },
 };
 /** Her LR row (frozen): folded into her power row while she is LR. */
 export const LR_POWER = Object.freeze(Object.fromEntries(Object.entries(LR_ROWS).map(([id, row]) => [id, Object.freeze({

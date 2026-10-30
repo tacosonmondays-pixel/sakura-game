@@ -2,7 +2,7 @@
 // drawer's live meter shows: damage the sim credits her a second, src/ui/battle/dpsView.js) on her ruler.
 //
 //   node --import ./tools/simLoader.mjs tools/balance/r5Bench.mjs [girls…] [--support um|none] [--targets boss,crowd]
-//        [--builds best|all|p0t5,…] [--stage 4-5] [--seed 9] [--seeds 9,1,2] [--warm 15] [--run 40] [--no-resonance] [--no-lr] [--json]
+//        [--builds best|all|p0t5,…] [--stage 4-5] [--seed 9] [--seeds 9,1,2] [--warm 15] [--run 40] [--no-resonance] [--no-lr] [--ally] [--json]
 //
 // --no-lr: an LR unit (the duo, Tenka) at UR, without her Limit Break (no LR form, no LR boost).
 //
@@ -48,7 +48,7 @@ const parseBuild = (b) => {
  * One run: her (fully maxed) on the best-covered spot, the supports beside her, a never-dying target.
  * @returns {{ dps, tiers, support: object }|{ error }}
  */
-export function measure({ d, unitId, build, target, support = 'um', stageId = '4-5', seed = 9, warm = 15, run = 40, lr = true }) {
+export function measure({ d, unitId, build, target, support = 'um', stageId = '4-5', seed = 9, warm = 15, run = 40, lr = true, ally = false }) {
   const def = d.units[unitId];
   // `support`: 'um' (Umeko 2-5-0 + Midori 5-0-2), 'none', or 'girl:pNtM' (one support at that build: her boost)
   const one = /^([a-z_]+):p(\d)t(\d)$/.exec(support);
@@ -92,7 +92,8 @@ export function measure({ d, unitId, build, target, support = 'um', stageId = '4
       const dd = (s.x - spot.x) ** 2 + (s.y - spot.y) ** 2;
       return dd < b.dd ? { dd, s } : b;
     }, { dd: 1e9 }).s;
-    const dealt = () => t.damageDealt || 0;
+    // --ally: the damage of everyone beside her (her boost to an ally, e.g. a girl whose shots split at her mirror)
+    const dealt = ally ? () => sim.towers.reduce((a, o) => a + (o === t ? 0 : o.damageDealt || 0), 0) : () => t.damageDealt || 0;
     let d0 = 0;
     for (let step = 0; step < (warm + run) * 60; step++) {
       if (target === 'crowd' && step % CROWD_EVERY === 0) sim.spawnEnemy('orc_grunt', { pathIndex: 0, dist: 0, hpMul: CROWD_HP / hpOf('orc_grunt') });
@@ -127,7 +128,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const targets = opt('targets', 'boss,bossw,crowd').split(',');
   const buildsOpt = opt('builds', 'best');
   const support = opt('support', 'um');
-  const common = { d, support, lr: !argv.includes('--no-lr'), stageId: opt('stage', '4-5'), seed: Number(opt('seed', 9)), warm: Number(opt('warm', 15)), run: Number(opt('run', 40)) };
+  const common = { d, support, lr: !argv.includes('--no-lr'), ally: argv.includes('--ally'), stageId: opt('stage', '4-5'), seed: Number(opt('seed', 9)), warm: Number(opt('warm', 15)), run: Number(opt('run', 40)) };
   const girls = names.length ? names : Object.keys(d.units).filter((id) => d.units[id].kind !== 'hero');
   for (const unitId of girls) {
     for (const target of targets) {
