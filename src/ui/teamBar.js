@@ -7,7 +7,7 @@ import { h, modal, toast } from './components.js';
 import { store } from '../core/store.js';
 import { UNIT_MAP } from '../data/units.js';
 import {
-  TEAM_COUNT, PRESET_COUNT, TEAM_NAME_MAX, getTeams, getPresets, teamName, teamMembers, presetLetter, planTeam,
+  TEAM_COUNT, PRESET_COUNT, TEAM_NAME_MAX, getTeams, getPresets, teamName, teamMembers, presetLetter, planTeam, lentPieces,
   planPreset, selectTeam, usePreset, copyPreset, copyTeam, renameTeam, restoreLoadouts, takeLines, teamClashes,
 } from '../systems/teams.js';
 import { ico, secondaryBtn } from './kit.js';
@@ -82,7 +82,8 @@ export async function switchTeam(t, onDone) {
   const res = selectTeam(profile, t);
   if (!res.ok) return false;
   store.commit('teams');
-  undoToast(res.clashes.length ? `${name} is on. ${clashLine(res.clashes)}` : `${name} is on`, res.undo, onDone);
+  const home = res.returns?.length ? ` ${res.returns.length === 1 ? `${profile.gear[res.returns[0].uid]?.name || 'A piece'} went back to ${UNIT_MAP[res.returns[0].to]?.name}.` : `${res.returns.length} lent pieces went back to their girls.`}` : '';
+  undoToast(`${name} is on.${res.clashes.length ? ` ${clashLine(res.clashes)}` : ''}${home}`, res.undo, onDone);
   onDone?.();
   return true;
 }
@@ -164,11 +165,11 @@ function openRename(t, onChange) {
   setTimeout(() => input.focus(), 0);
 }
 
-/** A small "Team 2" chip that opens the chips (Stage Prep beside Start, the co-op hub): "Team 1 · Bosses" when renamed. */
+/** A small "Team 2" chip that opens the chips (Stage Prep beside Start, the co-op hub): "Team: Bosses" when renamed. */
 export function teamChip({ onSwitched = null, testid = 'team-chip', locked = false } = {}) {
   const t = getTeams(store.profile);
   const custom = teamName(t.list[t.active], t.active);
-  const name = custom === `Team ${t.active + 1}` ? custom : `Team ${t.active + 1} · ${custom}`;
+  const name = custom === `Team ${t.active + 1}` ? custom : `Team: ${custom}`;
   return h(`button.ui-chip.tb-team-chip${locked ? '.locked' : ''}`, {
     type: 'button', 'data-testid': testid, disabled: locked,
     title: locked ? `${name} (you are Ready)` : `${name}: tap to switch team`,
@@ -214,7 +215,8 @@ export function loadoutChips(unitId, { onChange = null } = {}) {
   };
   // "Copy A → B": into her next loadout (adding one is the + chip's job)
   const next = (preset + 1) % presets.length;
-  return h('div.tb-loadouts', { role: 'group', 'aria-label': 'Gear loadouts', 'data-testid': 'loadouts' },
+  const lent = lentPieces(profile, unitId);
+  const row = h('div.tb-loadouts', { role: 'group', 'aria-label': 'Gear loadouts', 'data-testid': 'loadouts' },
     h('span.lbl.tb-chips-lbl', 'Loadout'),
     presets.map((pr, n) => h(`button.ui-opt.tb-chip.tb-lo${n === preset ? '.on' : ''}`, {
       type: 'button', 'data-testid': `loadout-${presetLetter(n)}`, 'aria-pressed': n === preset ? 'true' : 'false',
@@ -236,6 +238,11 @@ export function loadoutChips(unitId, { onChange = null } = {}) {
         onChange?.();
       },
     }, `Copy ${presetLetter(preset)} → ${presetLetter(next)}`) : null);
+  if (!lent.length) return row;
+  // pieces a team switch lent to another girl: they come back when her loadout or team goes on, or when the next team
+  // does not use them
+  return h('div.tb-loadouts-wrap', row, h('p.tb-lent', { 'data-testid': 'loadout-lent' }, ico('info'),
+    lent.map((l) => `${profile.gear[l.uid]?.name || 'A piece'} lent to ${UNIT_MAP[l.to]?.name || l.to}`).join(' · ')));
 }
 
 /** The members of the active team who name a piece another member names too (Formation marks their tiles). */

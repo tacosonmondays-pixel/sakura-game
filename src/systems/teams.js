@@ -338,9 +338,9 @@ export function usePreset(p, unitId, n) {
 export function selectTeam(p, t) {
   if (!Number.isInteger(t) || t < 0 || t >= TEAM_COUNT) return { ok: false, error: 'badTeam' };
   const undo = snapshotLoadouts(p);
-  if (t === getTeams(p).active) return { ok: true, takes: [], clashes: [], undo };
+  if (t === getTeams(p).active) return { ok: true, takes: [], clashes: [], returns: [], undo };
   ensureTeams(p);
-  if (t === p.teams.active) return { ok: true, takes: [], clashes: [], undo };
+  if (t === p.teams.active) return { ok: true, takes: [], clashes: [], returns: [], undo };
   const team = p.teams.list[t];
   // the loadouts the team remembers, read before it becomes active (from then on it follows what they wear)
   const wants = teamMembers(team).map((id) => ({ unitId: id, n: teamUse(team, id) }));
@@ -349,7 +349,44 @@ export function selectTeam(p, t) {
   const plan = planLoadouts(p, wants);
   for (const step of plan.steps) applyStep(p, step);
   syncTeams(p);
-  return { ok: true, takes: plan.takes, clashes: plan.clashes, undo };
+  const returns = returnLent(p, new Set(teamMembers(team)));
+  syncTeams(p);
+  return { ok: true, takes: plan.takes, clashes: plan.clashes, returns, undo };
+}
+
+/**
+ * Lent pieces go home (coordinator ruling on review r1 H1): after a team switch, a piece a girl's worn loadout lent to
+ * another girl goes back on her when no member of the new active team wears it. Otherwise it stays lent ("lent to
+ * Kage"). Each piece moves at most once per switch, so two loadouts naming it never trade it back and forth.
+ * @returns {{ uid, slot, from, to }[]} the pieces that went home
+ */
+function returnLent(p, members) {
+  const out = [];
+  const moved = new Set();
+  for (const [id, u] of Object.entries(p.units)) {
+    if (members.has(id) || !Array.isArray(u.presets) || !u.presets.length) continue;
+    const worn = u.presets[u.preset];
+    for (const slot of SLOT_IDS) {
+      const uid = worn?.[slot];
+      const g = uid ? p.gear[uid] : null;
+      if (!g || moved.has(uid) || u.gear[slot] || !g.equippedBy || g.equippedBy === id || members.has(g.equippedBy)) continue;
+      const from = g.equippedBy;
+      ensurePresets(p, from);
+      equipGear(p, id, uid);
+      moved.add(uid);
+      out.push({ uid, slot, from, to: id });
+    }
+  }
+  return out;
+}
+
+/** The pieces her worn loadout has lent to other girls: [{ uid, slot, to }] (the "lent to Kage" note). */
+export function lentPieces(p, unitId) {
+  const u = p.units[unitId];
+  if (!u || !Array.isArray(u.presets) || !u.presets.length) return [];
+  const worn = u.presets[u.preset] || {};
+  return SLOT_IDS.filter((s) => worn[s] && !u.gear?.[s] && p.gear[worn[s]]?.equippedBy && p.gear[worn[s]].equippedBy !== unitId)
+    .map((s) => ({ uid: worn[s], slot: s, to: p.gear[worn[s]].equippedBy }));
 }
 
 /** Copy team `from` into the first empty team. @returns {number} its index, or -1 when every team has girls */

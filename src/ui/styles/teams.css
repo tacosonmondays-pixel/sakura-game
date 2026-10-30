@@ -62,3 +62,8 @@
   :where(.ui-day, .ui-night) .tb-bar .tb-btn { padding: 0 10px; min-width: var(--tap); }
   :where(.ui-day, .ui-night) .tb-bar .tb-gap { display: none; }
 }
+
+/* "Keen Charm lent to Kage" under the loadout chips */
+:where(.ui-day, .ui-night) .tb-loadouts-wrap { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+:where(.ui-day, .ui-night) .tb-lent { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-label); color: var(--m-dim); overflow-wrap: anywhere; }
+:where(.ui-day, .ui-night) .tb-lent .ui-ico { flex: none; width: 14px; height: 14px; }
