@@ -5,10 +5,14 @@
 //   - the feed for hero events, attributed by towerUid (co-op: your hero gets the toast / banner,
 //     the ally's hero a small chip at most every 3 s);
 //   - the level texts the widget, panel and scout share.
-import { fmtCoins } from './util.js';
+import { heroMoveDowntime } from '../../sim/hero.js';
+import { fmtNum } from '../format.js';
 import { quantize } from '../../online/coop/commands.js';
 import { BATTLE } from '../../data/types.js';
 import { HERO_LEVEL_PRICES } from '../../data/heroTracks.js';
+import { abilityText, abilityUnlockLine, abilityUpgradeLine, abilityValues } from '../../data/abilityText.js';
+import { skillAtLevel, abilityRuns } from '../../data/abilities.js';
+import { boltText } from '../kit.js';
 
 /** The widget and panel re-read the price at most this often (seconds): passive XP moves it every frame. */
 export const PRICE_TICK = 0.5;
@@ -17,6 +21,47 @@ const ALLY_CHIP_MS = 3000;
 /** Track row for a level: { level, from, desc, mods } or null. */
 export function trackLevel(def, level) {
   return def?.hero?.levels?.find((l) => l.level === level) || null;
+}
+
+/**
+ * What her Lv 7 skill does at a level (UI only): { kind: 'unlock' | 'rank', skill, later } or null. A skill this build
+ * does not run yet (abilityRuns: Kanna's Heavy Beat) only says so at its unlock level; its ranks say nothing.
+ */
+export function skillAt(def, level) {
+  const s = def?.hero?.skill;
+  if (!s) return null;
+  const later = !abilityRuns(s);
+  if (level === (s.unlockLevel ?? 7)) return { kind: 'unlock', skill: s, later };
+  return !later && (s.ranks || []).some((r) => r.level === level) ? { kind: 'rank', skill: s, later } : null;
+}
+
+/**
+ * A track level's words with her skill added (ABILITIES_SPEC §5.1 heroes; UI only, no ModSet): "Wider Sweep: +1 target
+ * per sweep, +0.2 range … and unlocks ⚡ Morning Rally" at Lv 7, "… and ⚡ Morning Rally ranks up" at Lv 17; a skill that
+ * waits: "… (⚡ Heavy Beat comes in a later update)".
+ */
+export function trackDesc(def, level) {
+  const row = trackLevel(def, level);
+  if (!row) return '';
+  const k = skillAt(def, level);
+  if (!k) return row.desc;
+  const name = abilityText(k.skill.id)?.name || k.skill.id;
+  const base = row.desc.replace(/[.\s]+$/, '');
+  if (k.later) return `${base} (⚡ ${name} comes in a later update)`;
+  return k.kind === 'unlock' ? `${base} … and unlocks ⚡ ${name}` : `${base} … and ⚡ ${name} ranks up`;
+}
+
+/** The skill's long line for the full track (Details): the unlock sentence, or the rank's numbers. */
+export function trackSkillLine(def, level) {
+  const k = skillAt(def, level);
+  if (!k) return '';
+  if (k.later) return `⚡ ${abilityText(k.skill.id)?.name || k.skill.id} comes in a later update.`;
+  if (k.kind === 'unlock') return abilityUnlockLine(k.skill.id);
+  try {
+    return abilityUpgradeLine(k.skill.id, abilityValues(skillAtLevel(k.skill, level), def.base || null));
+  } catch {
+    return '';
+  }
 }
 
 /** "Radiant Edge T3" / "old Lv 5" for a level's `from` (the panel's small source line). */
@@ -81,7 +126,7 @@ export function createHeroLevels(ctx, ls) {
     if (st.reason === 'noHero' || st.reason === 'max' || st.reason === 'ended') return false;
     const cur = sim.heroLevelStatus();
     if (cur.reason === 'cash' || sim.cash < st.price) {
-      ctx.feed.push(`Need ${fmtCoins(Math.max(5, st.price - sim.cash))} more coins.`, 'warn', { key: 'lvl-cash', ms: 1500 });
+      ctx.feed.push(`Need ${fmtNum(Math.max(5, st.price - sim.cash), 'money', { round: 'up' })} more coins.`, 'warn', { key: 'lvl-cash', ms: 1500 });
       ctx.bump?.('cash');
       return false;
     }
@@ -120,7 +165,7 @@ export function createHeroLevels(ctx, ls) {
   function moveState(t) {
     if (!t || ctx.ended) return { label: 'Move', disabled: true };
     if (t.moveCd > 0) return { label: `Move · ${Math.ceil(t.moveCd)}s`, disabled: true, reason: 'cooldown' };
-    if (sim.state === 'wave') return { label: 'Move · pauses 3s', disabled: false };
+    if (sim.state === 'wave') return { label: `Move · pauses ${heroMoveDowntime(t)}s`, disabled: false };
     return { label: 'Move', disabled: false };
   }
 
@@ -191,8 +236,9 @@ export function createHeroLevels(ctx, ls) {
     if (isCapstone(def, level)) ctx.feed.announce(`LV ${level} · ${(row?.desc.split(':')[0] || '').toUpperCase()}`, def.name, 'good', 2000);
     const rank = rankAt(def, level);
     if (rank) ctx.feed.announce(`${ult?.name || 'Ultimate'} rank ${rank}!`, `${def.name} Lv ${level}`, 'good', 1800);
-    const text = row ? `${def.name} Lv ${level} · ${row.desc}` : `${def.name} reached Lv ${level}`;
-    ctx.feed.push(text, 'good', { key: `lvl-${t.uid}-${level}`, ms: 2600 });
+    const text = row ? `${def.name} Lv ${level} · ${trackDesc(def, level)}` : `${def.name} reached Lv ${level}`;
+    // (her skill's ⚡ is drawn as the kit bolt, never the colour emoji)
+    ctx.feed.push(boltText(text), 'good', { key: `lvl-${t.uid}-${level}`, ms: 2600 });
   }
 
   return { levelUp, move, moveState, handle, onApplied, mine };
@@ -208,6 +254,6 @@ export function heroWarnText(sim, text) {
   const name = hero.def.name;
   return text.replace(new RegExp(`${name} at Lv (\\d+)`), (m, lv) => {
     const price = priceToLevel(sim, hero, Number(lv));
-    return price > 0 ? `${m} · Level up now 🪙 ${fmtCoins(price)}` : m;
+    return price > 0 ? `${m} · Level up now 🪙 ${fmtNum(price, 'money', { round: 'up' })}` : m;
   });
 }

@@ -126,7 +126,8 @@ async function runViewport(vp) {
   await page.evaluate(() => { location.hash = '#/formation'; });
   await page.waitForTimeout(1200);
   const formText = await page.evaluate(() => document.querySelector('#app')?.innerText || '');
-  check(/free in battle/i.test(formText), 'formation: hero slot says "free in battle"');
+  // (since UI M5d the line under the slots says it: "… deploy cost N (heroes are free)")
+  check(/heroes are free/i.test(formText), 'formation: the line under the slots says heroes are free');
   await shot('formation');
 
   // ---- battle 1-2 ----
@@ -193,11 +194,25 @@ async function runViewport(vp) {
     upgrades: /Upgrades/i.test(document.querySelector('[data-testid="tower-panel"]')?.innerText || ''),
   }));
   check(panel.lvup && !!panel.move && !panel.sell && !panel.upgrades, `panel: Level up and Move, no Sell, no Upgrades (${JSON.stringify(panel)})`);
+  // the hero drawer (A3 M4): the XP bar carries no numbers, one Next line, and the HUD widget steps away while it is open
+  const drawer = await page.evaluate(() => {
+    const w = document.querySelector('[data-testid="hero-widget"]');
+    return {
+      xpText: document.querySelector('[data-testid="hero-xp"]')?.textContent.trim() ?? null,
+      next: document.querySelector('[data-testid="hero-next"]')?.textContent.replace(/\s+/g, ' ').trim() || '',
+      lvup: document.querySelector('[data-testid="hero-levelup"]')?.textContent.replace(/\s+/g, ' ').trim() || '',
+      widget: w ? getComputedStyle(w).display !== 'none' && !w.hidden : null,
+    };
+  });
+  check(drawer.xpText === '' && /^NEXT /.test(drawer.next) && /^Level up · [\d,]+$/.test(drawer.lvup) && drawer.widget === false, `hero drawer: XP bar without numbers, "${drawer.next}", "${drawer.lvup}", the HUD widget hidden (${JSON.stringify(drawer)})`);
   await shot('panel');
-  await tapEl('[data-testid="hero-track-toggle"]');
+  // the full 25-level track is in MORE
+  await tapEl('[data-testid="panel-more"]');
   await page.waitForTimeout(300);
-  check(await page.evaluate(() => document.querySelectorAll('[data-testid="hero-track"] .bt-track-row').length === 25), 'panel: the full track lists 25 levels');
+  check(await page.evaluate(() => document.querySelectorAll('[data-testid="hero-track"] .bt-track-row').length === 25), 'panel: MORE lists the full track (25 levels)');
   await shot('panel-track');
+  await tapEl('[data-testid="panel-more"]');
+  await page.waitForTimeout(200);
 
   // ---- Move between waves: instant, same level ----
   const lv0 = await page.evaluate(() => window.__battle.sim.hero.level);
@@ -231,6 +246,7 @@ async function runViewport(vp) {
   check(/Move · \d+s/i.test(await page.evaluate(() => document.querySelector('[data-testid="hero-move"]')?.innerText || '')), 'Move button shows the recharge ("Move · 14s")');
   await shot('moved-in-wave');
   await page.evaluate(() => window.__battle.ui.select(null));
+  check(await page.evaluate(() => { const w = document.querySelector('[data-testid="hero-widget"]'); return !!w && getComputedStyle(w).display !== 'none' && !w.hidden; }), 'the HUD hero widget is back once her drawer closes');
 
   // ---- keys (PC): Q fires the ult, L buys a level ----
   if (!touch) {

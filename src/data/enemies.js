@@ -1,6 +1,6 @@
 // Sakura Sentinels — the bestiary (owner: world). See CONTRACTS.md §4 and docs/BESTIARY.md.
 //
-// 12 families, 74 campaign enemies + 4 co-op freeplay titans (introducedIn: 'freeplay', bosses
+// 13 families, 92 campaign enemies + 4 co-op freeplay titans (introducedIn: 'freeplay', bosses
 // that break open into bosses when they fall). Readability rules (CONTRACTS §12):
 // * Ordinary enemies have exactly ONE rule — one trait, or none for plain fodder (their armor
 //   class is their only quirk). Flat armor counts as the 'armored' rule.
@@ -38,7 +38,7 @@ export const FAMILIES = {
   },
   ghost: {
     id: 'ghost', name: 'Ghosts', color: '#a8e6ff',
-    desc: 'Lost lantern-lights of the Moonveil Shrine.',
+    desc: 'Lost lantern-lights of the Moonveil Shrine, and cold violet wisps that frost cannot slow.',
     behavior: 'Spectral bodies shrug off blades and arrows. Some vanish behind veils, some phase out of reality.',
   },
   ghoul: {
@@ -58,8 +58,8 @@ export const FAMILIES = {
   },
   construct: {
     id: 'construct', name: 'Constructs', color: '#8a94a6',
-    desc: 'Clockwork and crystal machines from the Foundry.',
-    behavior: 'Heavy bodies with crystal shells (cap damage per hit) or barriers (break with blast).',
+    desc: 'Clockwork and crystal machines from the Foundry, and glass machines out of a cold gate.',
+    behavior: 'Heavy bodies with crystal shells (cap damage per hit) or barriers (break with blast). The glass machines blink ahead, wear plate, raise barriers or grow glass lattices.',
   },
   beast: {
     id: 'beast', name: 'Beasts', color: '#c08552',
@@ -81,9 +81,16 @@ export const FAMILIES = {
     desc: 'The brood of the Ashwing Matriarch.',
     behavior: 'Scaled and often airborne. Fire-warded ashdrakes laugh at burns.',
   },
+  // Gate Arc Step 4: the Gate Response Brigade. Our own city's people and machines, not monsters; until the Brigade's
+  // own model arrives with the enemy rebuild its units wear shipped construct models in navy and amber (`model.base`)
+  brigade: {
+    id: 'brigade', name: 'Gate Response Brigade', color: '#f4a62a',
+    desc: 'Our own city. Signed up for floods and fires.',
+    behavior: 'Troopers in plate and shield lines, drones that run ahead, armoured vans that let their crews out when they break down.',
+  },
 };
 
-export const FAMILY_ORDER = ['slime', 'goblin', 'orc', 'ghost', 'ghoul', 'oni', 'lizard', 'construct', 'beast', 'fae', 'plant', 'dragon'];
+export const FAMILY_ORDER = ['slime', 'goblin', 'orc', 'ghost', 'ghoul', 'oni', 'lizard', 'construct', 'beast', 'fae', 'plant', 'dragon', 'brigade'];
 
 const DEFAULT_LEAK = { normal: 1, elite: 5, miniboss: 25, boss: Infinity };
 
@@ -109,7 +116,9 @@ function enemy(o) {
     size: o.size ?? 0.8,
     color: o.color,
     accent: o.accent,
-    model: { base: o.family, variant: o.variant || 'basic', props: o.props || [] },
+    ...(o.line ? { line: o.line } : {}),
+    // (a family without a model of its own names the shipped family GLB it wears: `base`, e.g. the Brigade on construct)
+    model: { base: o.base || o.family, variant: o.variant || 'basic', props: o.props || [] },
     traits: o.traits || {},
     ...(o.phases ? { phases: o.phases } : {}),
     lore: o.lore,
@@ -245,6 +254,20 @@ const SLIMES = [
     counters: 'Pile damage on him early. When he pops he becomes three Royal Guards — keep a cleaver or splash near the exit.',
     introducedIn: '1-5',
   }),
+  // Gate Arc, chapter 1 Act II: the Slime Prince's model (royal variant, crown and cape) in frost colours, no new GLB
+  enemy({
+    id: 'slime_frost_heir', name: 'The Frostbitten Heir', family: 'slime', tier: 'miniboss', hp: 3400, speed: 0.5,
+    armorClass: 'light', bounty: 320, leak: 25, threat: 150, size: 2.3, color: '#cfe9f7', accent: '#9fd3ff',
+    variant: 'royal', props: ['crown', 'cape'],
+    traits: { splitter: { spawn: 'slime_courtier', count: 3 } },
+    phases: [
+      { atHp: 0.66, announce: 'The Frostbitten Heir shivers. Gold Slimes spill out of its frosty cape!', set: { traits: { summoner: { spawn: 'slime_gold', count: 2, every: 5 } } } },
+      { atHp: 0.33, announce: 'The Heir breaks into a shivering sprint!', set: { speed: 0.7, traits: { hasty: { mul: 1.8, every: 5, duration: 1.5 } } } },
+    ],
+    lore: 'A huge slime that came through the crack from somewhere very cold. It sat in the dry fountain because it was the only throne it could find. When it pops, it goes home through the crack.',
+    counters: 'Like the Prince, only colder: pile damage on it early, and keep splash or a cleaver near the exit for its three Royal Guards.',
+    introducedIn: '1-10',
+  }),
 ];
 
 // ---------------------------------------------------------------------------
@@ -378,6 +401,19 @@ const ORCS = [
     counters: 'Phase 2 armor 10: only armor pierce and shred matter — stack Shiro and Sango. Phase 3 he sprints: have Yuki ready.',
     introducedIn: '4-5',
   }),
+  // Gate Arc Act II miniboss (4-10): the Orc Warlord's GLB at miniboss scale in frost iron; no crown (the General's)
+  enemy({
+    id: 'orc_frost_vanguard', name: 'The Frost Vanguard', family: 'orc', tier: 'miniboss', hp: 3950, speed: 0.45, armorClass: 'heavy', armor: 6,
+    bounty: 400, leak: 25, threat: 200, size: 2.3, color: '#9fb8cc', accent: '#e8f4ff', variant: 'warlord', props: ['helmet', 'towerShield', 'cape'],
+    traits: { guardian: { radius: 1.8, reduction: 0.3 } },
+    phases: [
+      { atHp: 0.66, announce: 'The Vanguard plants its banner. Alpha Wolves answer the horn!', set: { traits: { guardian: { radius: 1.8, reduction: 0.3 }, summoner: { spawn: 'beast_alpha', count: 1, every: 9 } } } },
+      { atHp: 0.33, announce: 'NO. MORE. GUNS.', set: { armor: 8, speed: 0.38, traits: { guardian: { radius: 1.8, reduction: 0.3 }, summoner: { spawn: 'beast_alpha', count: 1, every: 9 } } } },
+    ],
+    lore: 'The rearguard of a people running from the cold. It stood on the bridge until the children were across.',
+    counters: 'Armoured guardian like the Warlord, only bigger: armour pierce and shred (Shiro, Sango), blast for its escort, and a girl free for the Alpha Wolves it calls.',
+    introducedIn: '4-10',
+  }),
 ];
 
 // ---------------------------------------------------------------------------
@@ -391,6 +427,17 @@ const GHOSTS = [
     lore: 'A candle flame that forgot to go out. Arrows pass through it like mist.',
     counters: 'Spectral: pierce and slash do half damage. Holy (Hikari) and mystic (Yuki) work well.',
     introducedIn: '3-1',
+  }),
+  // Gate Arc Step 6 (STEP6_BUILD_PLAN decision 2): the Rime Wisp, a cold violet wisp out of 6-10's gate on the last three
+  // waves. The shipped ghost wisp in violet-black with a pale rime outline and no prop (the ghost GLB has no crystals);
+  // frost-warded, budgeted like the Shrine Wisp
+  enemy({
+    id: 'rime_wisp', name: 'Rime Wisp', family: 'ghost', hp: 14, speed: 1.25, armorClass: 'spectral',
+    bounty: 2, threat: 1.2, size: 0.62, color: '#3d2f6b', accent: '#b9a8ff', line: '#e8e4ff', variant: 'wisp', props: [],
+    traits: { ward: 'frost' },
+    lore: 'A cold violet light that drifted out of the gate. Frost cannot slow it, and it flinches back from anything warm.',
+    counters: 'Frost-warded: frost slows and freezes slide off, and frost hits do half. Spectral: holy and mystic work well.',
+    introducedIn: '6-10',
   }),
   enemy({
     id: 'ghost_veilwraith', name: 'Veil Wraith', family: 'ghost', hp: 24, speed: 1.0, armorClass: 'spectral',
@@ -423,6 +470,20 @@ const GHOSTS = [
     lore: 'Empty armor still guarding a shrine that fell long ago.',
     counters: 'Armored and phasing: holy damage ignores the phase and hits spirits ×2.',
     introducedIn: '3-5',
+  }),
+  // Gate Arc Act II miniboss (3-10): the Hollow Samurai's GLB at miniboss scale, charred, embers in its seams
+  enemy({
+    id: 'ghost_ashen_warden', name: 'The Ashen Warden', family: 'ghost', tier: 'miniboss', hp: 3950, speed: 0.45,
+    armorClass: 'spectral', armor: 3, bounty: 380, leak: 25, threat: 190, size: 2.3, color: '#4a4440', accent: '#ffb347',
+    variant: 'samurai', props: ['helmet', 'sword', 'mask'],
+    traits: { phasing: { every: 5, duration: 1.5 } },
+    phases: [
+      { atHp: 0.66, announce: 'The Warden plants its blade. Lantern Bearers answer the bell!', set: { traits: { phasing: { every: 5, duration: 1.5 }, summoner: { spawn: 'ghost_lanternbearer', count: 1, every: 8 } } } },
+      { atHp: 0.33, announce: 'Ash falls from the empty armour. It will not bow.', set: { armor: 5, traits: { phasing: { every: 4, duration: 1.5 }, summoner: { spawn: 'ghost_lanternbearer', count: 1, every: 8 } } } },
+    ],
+    lore: 'An empty armour that kept the watch at the Lakeside Shrine. When the bell rings over the ash, it rests.',
+    counters: 'Phasing and armoured like the Hollow Samurai, only bigger: holy damage ignores the phase, and keep a girl free for the Lantern Bearers it calls.',
+    introducedIn: '3-10',
   }),
 ];
 
@@ -579,6 +640,21 @@ const LIZARDS = [
     counters: 'Armored and regenerating: Sango\'s shells crack the scales; keep it under constant fire.',
     introducedIn: '2-5',
   }),
+  // Gate Arc Act II miniboss (2-10): the Bog Basilisk's GLB at miniboss scale, curled round the school's old lamp
+  enemy({
+    id: 'lizard_lamp_hugger', name: 'Old Lamp-Hugger', family: 'lizard', tier: 'miniboss', hp: 3900, speed: 0.45,
+    armorClass: 'scaled', armor: 4, bounty: 360, leak: 25, threat: 170, size: 2.4, color: '#8a7a3e', accent: '#ffd08a',
+    // warm lamplight scales (the Bog Basilisk is mossy green); the lizard GLB carries no lantern prop
+    variant: 'basilisk', props: ['tail', 'crystals'],
+    traits: { regen: { pct: 0.025, delay: 3 } },
+    phases: [
+      { atHp: 0.66, announce: 'Old Lamp-Hugger thumps its tail. Marsh Hunters wade in from the lake!', set: { traits: { regen: { pct: 0.025, delay: 3 }, summoner: { spawn: 'lizard_hunter', count: 2, every: 6 } } } },
+      { atHp: 0.33, announce: 'Old Lamp-Hugger curls up tight round its lamp: scales harden, steps slow!', set: { armor: 7, speed: 0.32 } },
+    ],
+    lore: 'A great old lake lizard that came through the crack looking for somewhere warm, and found the school\'s old iron lamp. It will not let go of it. When the lamp lights, it lets go and goes home.',
+    counters: 'Regrows like the Bog Basilisk and hardens late: shred its scales early, keep it under fire, and save splash for the Marsh Hunters it calls.',
+    introducedIn: '2-10',
+  }),
 ];
 
 // ---------------------------------------------------------------------------
@@ -623,6 +699,76 @@ const CONSTRUCTS = [
     lore: 'Foundry guardian wrapped in a barrier and, under that, a crystal shell.',
     counters: 'Barrier then shell: blast first, then many quick hits.',
     introducedIn: '6-4',
+  }),
+  // Gate Arc Step 5 (STEP5_BUILD_PLAN decisions 1-3): the first glass machines out of the Noon Gate (5-8). Data on the
+  // shipped construct GLB (no new model: the Halo Drone's own ring body waits for the enemy rebuild), in white glass
+  // and cyan with an outline (`line`) so they read on the pale grating road; each budgeted like the def it stands in for
+  // (the Cogling, the Fog Skulker, the Iron Sentry). They break apart when beaten (src/render/fallStyles.js, `vesper_`).
+  enemy({
+    id: 'vesper_patrol_orb', name: 'Patrol Orb', family: 'construct', hp: 35, speed: 1.05, armorClass: 'heavy',
+    bounty: 13, threat: 2.5, size: 0.75, color: '#f2f7fb', accent: '#3fd0e8', line: '#1f3b4d', variant: 'cogling', props: ['gears'],
+    lore: 'A glass orb that drifts along a patrol route nobody has walked for a long time, humming, looking for something it was told to find.',
+    counters: 'Plain heavy fodder: blast and mystic deal extra; slash bounces off.',
+    introducedIn: '5-8',
+  }),
+  enemy({
+    id: 'vesper_halo_drone', name: 'Halo Drone', family: 'construct', hp: 30, speed: 1.0, armorClass: 'heavy',
+    bounty: 10, threat: 4, size: 0.72, color: '#2a9fb8', accent: '#7ff0ff', line: '#0b2a35', variant: 'cogling', props: ['crystals'],
+    traits: { blink: { every: 5, distance: 3 } },
+    lore: 'A teal glass drone with one cyan lens. When its lens flickers it is already three tiles further on.',
+    counters: 'Blink: a slow, stun or silence during the warning cancels the jump. Heavy body: blast and mystic deal extra.',
+    introducedIn: '5-8',
+  }),
+  enemy({
+    id: 'vesper_line_sentry', name: 'Line Sentry', family: 'construct', hp: 70, speed: 0.7, armorClass: 'heavy', armor: 4,
+    bounty: 25, threat: 5.5, size: 1.05, color: '#e9f1f6', accent: '#2ec4e6', line: '#1f3b4d', variant: 'sentry', props: ['gears'],
+    lore: 'Its last order was "hold the line". It is still holding it, wherever the line has gone.',
+    counters: 'Armoured (4): armour pierce and shred, or big blast shells.',
+    introducedIn: '5-8',
+  }),
+  // Gate Arc Step 6 (STEP6_BUILD_PLAN decisions 1-4): the rest of Vesperline's machines (6-6 … 6-8), one per stage,
+  // data on the shipped construct GLB in white and ice-blue glass with cyan and a dark outline, each budgeted like the
+  // def it stands in for (the Shellback, the Aegis Automaton, the Prism Warden). Greyscale: on a shared body variant
+  // they sit ≥ 50 apart in luma from every def they can meet (Lattice Shell 231 vs Shellback 177 and Tortoise 110,
+  // Vesper Aegis 209 vs the Aegis Automaton 139, Vesper Warden 244 vs Shieldline 57, Badger 76, Prism Warden 44).
+  enemy({
+    id: 'vesper_lattice_shell', name: 'Lattice Shell', family: 'construct', hp: 50, speed: 0.8, armorClass: 'heavy',
+    bounty: 18, threat: 4.5, size: 1.0, color: '#dbe9f2', accent: '#5fe1f2', line: '#1f3b4d', variant: 'beetle', props: ['crystals'],
+    traits: { crystal: { cap: 5, hits: 10 } },
+    lore: 'A cleaning machine that grew a coat of glass lattice in the cold. It still polishes the road as it walks.',
+    counters: 'Crystal Shell (max 5 per hit for 10 hits): rapid hitters shatter the lattice, then heavy hitters finish.',
+    introducedIn: '6-6',
+  }),
+  enemy({
+    id: 'vesper_aegis', name: 'Vesper Aegis', family: 'construct', hp: 50, speed: 0.8, armorClass: 'heavy',
+    bounty: 18, threat: 5, size: 1.0, color: '#b9d6e6', accent: '#7ff0ff', line: '#14303f', variant: 'automaton', props: ['shield', 'gears'],
+    traits: { barrier: { hp: 60, regenDelay: 4 } },
+    lore: 'A glass guard that raises a pale barrier over itself and anything behind it. It was built to stand in a doorway.',
+    counters: 'Barrier: blast deals +50% to it. Keep the pressure on so it cannot recharge.',
+    introducedIn: '6-7',
+  }),
+  enemy({
+    id: 'vesper_warden', name: 'Vesper Warden', family: 'construct', tier: 'elite', hp: 300, speed: 0.6, armorClass: 'heavy',
+    bounty: 110, threat: 24, size: 1.45, color: '#eef5fa', accent: '#3fd0e8', line: '#1f3b4d', variant: 'warden', props: ['crystals', 'shield'],
+    traits: { barrier: { hp: 200, regenDelay: 5 }, crystal: { cap: 8, hits: 14 } },
+    lore: 'A tall white glass warden with a barrier on the outside and a crystal lattice under it. It walks the same round, over and over, and lets nobody past.',
+    counters: 'Barrier then shell: blast first, then many quick hits.',
+    introducedIn: '6-8',
+  }),
+  // Gate Arc Act II miniboss (6-10, STEP6_BUILD_PLAN decision 6): Gatekeeper Unit 01 on the Iron Colossus's GLB at
+  // miniboss size in white glass with an amber heater (the one warm thing on the board: it is still heating an empty
+  // shelter); a glass shell over plate, two Line Sentries at 66 %, a thicker shell at 33 %; no crown, no lines
+  enemy({
+    id: 'vesper_gatekeeper', name: 'Gatekeeper Unit 01', family: 'construct', tier: 'miniboss', hp: 3950, speed: 0.4, armorClass: 'heavy', armor: 5,
+    bounty: 400, threat: 200, size: 2.5, color: '#dfe8ee', accent: '#ffb347', line: '#1f3b4d', variant: 'colossus', props: ['crystals', 'gears', 'chimney'],
+    traits: { crystal: { cap: 12, hits: 24 } },
+    phases: [
+      { atHp: 0.66, announce: 'HOLD THE LINE. Gatekeeper Unit 01 calls the line to its side!', set: { traits: { crystal: { cap: 12, hits: 24 }, summoner: { spawn: 'vesper_line_sentry', count: 2, every: 9 } } } },
+      { atHp: 0.33, announce: 'Its heater core glows. The glass shell grows back thicker!', set: { armor: 7, speed: 0.34, traits: { crystal: { cap: 8, hits: 30 }, summoner: { spawn: 'vesper_line_sentry', count: 2, every: 9 } } } },
+    ],
+    lore: 'The gate\'s last guardian. Its orders were to hold the line, and it has held it for a very long time, alone, with its heater on.',
+    counters: 'A glass shell (max 12 per hit, later 8) over plate (armour 5, then 7): rapid hitters break the shell, armour pierce and shred for the plate, splash for the Line Sentries it calls.',
+    introducedIn: '6-10',
   }),
   enemy({
     id: 'iron_colossus', name: 'Iron Colossus', family: 'construct', tier: 'boss', hp: 14000, speed: 0.35, armorClass: 'heavy', armor: 6,
@@ -765,6 +911,20 @@ const PLANTS = [
     counters: 'Armored brood: break the bark, and keep splash behind it for the pods and sprouts.',
     introducedIn: '5-4',
   }),
+  // Gate Arc Act II miniboss (5-10, STEP5_BUILD_PLAN decision 5): the Elder Treant's GLB at miniboss scale in
+  // frost-silvered sage with a pale outline for the night-and-fog board; no crown (as 4-10) and no lines of its own
+  enemy({
+    id: 'plant_reservoir_willow', name: 'The Reservoir Willow', family: 'plant', tier: 'miniboss', hp: 3950, speed: 0.42, armorClass: 'light', armor: 4,
+    bounty: 380, threat: 190, size: 2.4, color: '#8fae9c', accent: '#e6f4ff', line: '#f2fbf6', variant: 'treant', props: ['leaves', 'moss'],
+    traits: { brood: { spawn: 'plant_seedpod', count: 3 } },
+    phases: [
+      { atHp: 0.66, announce: 'The willow shivers. Seed pods drop onto the causeways!', set: { traits: { brood: { spawn: 'plant_seedpod', count: 3 }, summoner: { spawn: 'plant_seedpod', count: 2, every: 8 } } } },
+      { atHp: 0.33, announce: 'The willow wraps its roots round the stone. Its bark hardens!', set: { armor: 7, speed: 0.34, traits: { brood: { spawn: 'plant_seedpod', count: 3 }, summoner: { spawn: 'plant_seedpod', count: 2, every: 8 } } } },
+    ],
+    lore: 'A great willow from the frozen fens that walked a long way looking for somewhere warm. When its stone wakes, it sleeps.',
+    counters: 'Bark armour (4, then 7): armour pierce and shred. Keep splash behind it for the seed pods it drops and the sprouts inside them.',
+    introducedIn: '5-10',
+  }),
 ];
 
 // ---------------------------------------------------------------------------
@@ -808,6 +968,56 @@ const DRAGONS = [
     lore: 'Mother of every dragon on the peaks. Her wingbeat scatters ash across three valleys.',
     counters: 'Bring anti-air for her flights, armor break for her landing, and never rely on fire. Pierce hits her scales ×1.5.',
     introducedIn: '8-5',
+  }),
+];
+
+// ---------------------------------------------------------------------------
+// The Gate Response Brigade (Gate Arc Step 4, STEP4_BUILD_PLAN decisions 1-3): our own city's people and machines.
+// They are never monsters: the troopers wear the Iron Sentry and Prism Warden's models, the vans the Shellback's,
+// all in Brigade navy (#2b3a5c; the van in steel navy, the Badger with an amber rim) with amber, a white visor and a pale
+// outline (`line`) so a column reads on grey roads, until the Brigade's own model arrives with the
+// enemy rebuild. A beaten trooper falls and fades (src/render/fallStyles.js); nobody is ever shown hurt.
+// ---------------------------------------------------------------------------
+
+const BRIGADE = [
+  // the spotter drone (3-9), on the Cogling's GLB (Step 3 kept it on the construct family; Step 4 moves it here)
+  enemy({
+    id: 'brigade_gnat', name: 'Gnat Spotter', family: 'brigade', base: 'construct', hp: 12, speed: 1.6, armorClass: 'light',
+    bounty: 1, threat: 1.2, size: 0.72, color: '#2b3a5c', accent: '#f4a62a', line: '#e8edf4', variant: 'cogling', props: ['gears'],
+    traits: { hasty: { mul: 2.2, every: 3.5, duration: 1 } },
+    lore: 'A little Brigade drone that flies ahead of the column and reports everything it sees. It is very good at its job.',
+    counters: 'Fast and fragile, and it comes in a group: splash or a quick shooter near the start.',
+    introducedIn: '3-9',
+  }),
+  enemy({
+    id: 'brigade_trooper', name: 'Response Trooper', family: 'brigade', base: 'construct', hp: 40, speed: 0.85, armorClass: 'light', armor: 1,
+    bounty: 4, threat: 3.5, size: 0.95, color: '#2b3a5c', accent: '#eef3f8', line: '#e8edf4', variant: 'sentry', props: ['helmet'],
+    lore: 'Signed up for floods and fires. Got a gate instead. Still says sorry.',
+    counters: 'Light plate (armour 1): anything quick wears it down; splash for a squad.',
+    introducedIn: '4-8',
+  }),
+  enemy({
+    id: 'brigade_shieldline', name: 'Shieldline Trooper', family: 'brigade', base: 'construct', hp: 60, speed: 0.75, armorClass: 'light',
+    bounty: 7, threat: 6, size: 1.1, color: '#2b3a5c', accent: '#f4a62a', line: '#e8edf4', variant: 'warden', props: ['shield', 'helmet'],
+    traits: { guardian: { radius: 1.6, reduction: 0.3 } },
+    lore: 'Carries the riot shield in front of the squad, because somebody has to. Hums while it walks.',
+    counters: 'Guardian: troopers near it take 30% less, except from blast. Shell the line or pick off the shield first.',
+    introducedIn: '4-8',
+  }),
+  enemy({
+    id: 'brigade_tortoise', name: 'Tortoise', family: 'brigade', base: 'construct', tier: 'elite', hp: 240, speed: 0.6, armorClass: 'heavy', armor: 3,
+    bounty: 50, threat: 16, size: 1.35, color: '#5a7096', accent: '#ffb627', line: '#e8edf4', variant: 'beetle', props: ['shell'],
+    traits: { splitter: { spawn: 'brigade_trooper', count: 3 } },
+    lore: 'An armoured van with a hatch at the back. When it breaks down, the crew climbs out and keeps walking.',
+    counters: 'Armoured (3), and three troopers climb out when it stops: break it with armour pierce, keep splash for the crew.',
+    introducedIn: '4-8',
+  }),
+  enemy({
+    id: 'brigade_badger', name: 'Badger', family: 'brigade', base: 'construct', tier: 'elite', hp: 400, speed: 0.5, armorClass: 'heavy', armor: 6,
+    bounty: 90, threat: 22, size: 1.7, color: '#3a4d72', accent: '#ff9f1c', line: '#ffcf70', variant: 'warden', props: ['helmet'],
+    lore: 'The Brigade\'s little tank. Its crew named it, painted a badger on the side and never once called it little.',
+    counters: 'Armour 6: chip damage does almost nothing. Armour pierce and shred (Shiro, Sango), or big blast shells.',
+    introducedIn: '4-9',
   }),
 ];
 
@@ -873,7 +1083,7 @@ const TITANS = [
 
 export const ENEMIES = [
   ...SLIMES, ...GOBLINS, ...ORCS, ...GHOSTS, ...GHOULS, ...ONI,
-  ...LIZARDS, ...CONSTRUCTS, ...BEASTS, ...FAE, ...PLANTS, ...DRAGONS, ...TITANS,
+  ...LIZARDS, ...CONSTRUCTS, ...BEASTS, ...FAE, ...PLANTS, ...DRAGONS, ...BRIGADE, ...TITANS,
 ];
 
 export const ENEMY_MAP = Object.fromEntries(ENEMIES.map((e) => [e.id, e]));

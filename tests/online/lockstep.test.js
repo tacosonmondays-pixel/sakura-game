@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Lockstep, REBUILD_TIMEOUT_MS } from '../../src/online/coop/lockstep.js';
+import { hashSim } from '../../src/online/coop/simHash.js';
+import { defaultData } from '../../src/sim/data.js';
+import { VIADUCT_FIXTURE, VIADUCT_CROSSING, viaductStage } from '../../previews/viaductMaps.js';
 import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
+import { withDetMath } from '../../src/online/coop/detMath.js';
 import { COOP, coopStage, coopStartCash } from '../../src/data/coop.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
 import { createRng } from '../../src/core/rng.js';
@@ -57,6 +61,7 @@ function harness({ seed = 7, drop = 0, maxLag = 9, net = null, start = START, op
   let frame = 0;
   let lose = null; // (slot, msg) => true drops that message (set through the returned object)
   const sent = [[], []];
+  const absorbed = [[], []]; // Tenka's lab absorbs each client ran: { t, p, uids }
   const mk = (slot) => new Lockstep({
     start,
     mySlot: slot,
@@ -64,7 +69,10 @@ function harness({ seed = 7, drop = 0, maxLag = 9, net = null, start = START, op
     ...(net ? { delay: net.inputDelay, heartbeatMs: net.heartbeatMs, keepaliveMs: net.keepaliveMs } : {}),
     ...opts,
     hooks: {
-      onApplied: (c, r) => { if (!r.ok) failed.push({ slot, c, r: r.reason }); },
+      onApplied: (c, r) => {
+        if (!r.ok) failed.push({ slot, c, r: r.reason });
+        if (r.absorbed) absorbed[slot].push({ t: c.t, p: c.p, uids: r.absorbed });
+      },
       onPeerGone: (s, why) => events.push({ slot, ev: 'gone', why, frame }),
       onPeerBack: () => events.push({ slot, ev: 'back', frame }),
       onResync: () => events.push({ slot, ev: 'resync', frame }),
@@ -88,7 +96,7 @@ function harness({ seed = 7, drop = 0, maxLag = 9, net = null, start = START, op
     clients.forEach((c, i) => { if (!frozen.has(i)) c.advance(1 / 60, budget == null ? undefined : { budgetMs: budget }); });
   }
   return {
-    clients, stepFrame, clock, failed, events, link, frozen, sent,
+    clients, stepFrame, clock, failed, events, link, frozen, sent, absorbed,
     get frame() { return frame; },
     set lose(fn) { lose = fn; },
     set budget(v) { budget = v; },
@@ -1131,4 +1139,245 @@ describe('co-op lockstep: big messages and the idle saver', () => {
     expect(A.hashPairs().slice(-3).every((p) => p.mine === p.theirs)).toBe(true);
     console.log(`idle saver: messages/s per client ${before.rates.map((r) => r.toFixed(2)).join(' / ')} → ${after.rates.map((r) => r.toFixed(2)).join(' / ')}`);
   }, 120000);
+});
+
+// T3 review coop-1 (the review's probe notes/t3-review/coop-lockstep.test.js part C, folded in): Tenka's lab
+// team through the network flow, not only through CoopSim views and one-go rebuilds. The host buys Unified
+// Theory (the second absorb) while the guest is dropped, the guest rejoins (the host's offer, her catch-up
+// through that absorb), a corrupted lab.interest on the guest is caught by the hash and repaired by a resync
+// from the host's checkpoint, and rebuilds from that checkpoint and from tick 0 reach the host's battle.
+describe('co-op lockstep: Tenka\'s lab team through a drop, a rejoin and a resync', () => {
+  const cheap = (ids) => ids.map((unitId) => ({ unitId, stats: { costMul: unitId === 'tenka' ? 0.01 : 0.05 } }));
+  const TENKA = {
+    seed: 777,
+    stageId: '2-5',
+    difficulty: 'normal',
+    players: [
+      { slot: 0, uid: 'host', name: 'Host', loadout: cheap(['tenka', 'momo', 'aoi', 'akane']), hero: null },
+      { slot: 1, uid: 'guest', name: 'Guest', loadout: cheap(['rei', 'yuki']), hero: null },
+    ],
+  };
+  /** Her spot (nearest the road with room) and spots for `units` within `maxD` of her, ≥ 1.3 tiles apart. */
+  function layout(start, units, maxD) {
+    return withDetMath(() => {
+      const sim = createCoopSim(start).sim;
+      const cand = (u) => {
+        const out = [];
+        for (let y = 0.55; y < sim.map.height; y += 0.35) {
+          for (let x = 0.55; x < sim.map.width; x += 0.35) {
+            const q = quantize(x, y);
+            if (!sim.placementReason(u, q[0] / 1024, q[1] / 1024)) out.push(q);
+          }
+        }
+        return out;
+      };
+      const order = (a, b) => a[0] - b[0] || a[1][1] - b[1][1] || a[1][0] - b[1][0];
+      const tk = cand('tenka').map((q) => [sim.placement.pathDistance(q[0] / 1024, q[1] / 1024), q]).sort(order);
+      for (const [, q] of tk) {
+        const taken = [[q[0] / 1024, q[1] / 1024]];
+        const out = { tenka: q };
+        for (const u of units) {
+          const best = cand(u).map((p) => [((p[0] - q[0]) / 1024) ** 2 + ((p[1] - q[1]) / 1024) ** 2, p])
+            .filter(([d2, p]) => d2 <= maxD * maxD && !taken.some(([x, y]) => (x - p[0] / 1024) ** 2 + (y - p[1] / 1024) ** 2 < 1.69))
+            .sort(order)[0];
+          if (!best) break;
+          out[u] = best[1];
+          taken.push([best[1][0] / 1024, best[1][1] / 1024]);
+        }
+        if (units.every((u) => out[u])) return out;
+      }
+      throw new Error('no layout for Tenka and her girls');
+    });
+  }
+  const runUntil = (h, pred, max, each = null) => {
+    for (let f = 0; f < max; f++) {
+      if (pred()) return true;
+      h.stepFrame();
+      each?.();
+    }
+    return pred();
+  };
+
+  it('Unified Theory while the guest is gone, her rejoin (a catch-up through that absorb), a resync after a corrupted lab.interest: one battle on both', () => {
+    const L = layout(TENKA, ['momo', 'aoi', 'rei', 'akane'], 3.6);
+    const h = harness({ seed: 91, maxLag: 6, start: TENKA });
+    const [A, B] = h.clients;
+    const mineOf = (c, slot, unitId) => c.sim.towers.find((t) => t.unitId === unitId && t.owner === slot) || null;
+    const distTo = (sim, a, b) => {
+      const p = sim.getTower(a);
+      const q = sim.getTower(b);
+      return Math.sqrt((p.x - q.x) ** 2 + (p.y - q.y) ** 2);
+    };
+    // the orders, each given once its effect shows on the client that gave it (again after 90 frames if not):
+    // her Tenka, the guest's Rei in her range, Momo with Merch Table (interest) and Aoi, Joint Research, the
+    // waves on Auto, then Akane, who waits for Unified Theory
+    const plan = [
+      { p: 0, place: 'tenka' }, { p: 1, place: 'rei' }, { p: 0, place: 'momo' }, { p: 0, place: 'aoi' },
+      { p: 0, upg: 'momo', path: 1, to: 1 }, { p: 0, upg: 'momo', path: 1, to: 2 },
+      { p: 0, upg: 'tenka', path: 0, to: 1 }, { p: 0, upg: 'tenka', path: 0, to: 2 }, { p: 0, upg: 'tenka', path: 0, to: 3 },
+      { p: 0, auto: true }, { p: 0, wave: true }, { p: 0, place: 'akane' }, { p: 0, upg: 'tenka', path: 0, to: 4 },
+    ];
+    let next = 0;
+    let at = -1e9;
+    const uidOf = {}; // the host's girls, as they stood
+    const isDone = (s) => {
+      const c = h.clients[s.p];
+      if (s.place) return !!mineOf(c, s.p, s.place);
+      if (s.upg) return (mineOf(c, s.p, s.upg)?.tiers[s.path] ?? 0) >= s.to;
+      if (s.auto) return c.sim.options.autoStart === true;
+      return c.sim.wave >= 1;
+    };
+    const drive = () => {
+      for (const t of A.sim.towers) if (t.owner === 0) uidOf[t.unitId] = t.uid;
+      while (next < plan.length && isDone(plan[next])) next++;
+      if (next >= plan.length || h.frame - at < 90) return;
+      const s = plan[next];
+      const c = h.clients[s.p];
+      at = h.frame;
+      if (s.place) c.queue('place', [s.place, ...L[s.place]]);
+      else if (s.upg) {
+        const t = mineOf(c, s.p, s.upg);
+        if (t) c.queue('upg', [t.uid, s.path]);
+      } else if (s.auto) c.queue('auto', [true]);
+      else c.queue('wave');
+    };
+    expect(runUntil(h, () => next >= plan.length && A.sim.wavesCleared >= 2 && A.ck, 60 * 60 * 6, drive)).toBe(true);
+    const tk = mineOf(A, 0, 'tenka').uid;
+    const rei = mineOf(B, 1, 'rei').uid;
+    const akane = mineOf(A, 0, 'akane').uid;
+    const range = A.sim.getTower(tk).eff.range;
+    // Joint Research took her Momo and Aoi; the guest's Rei stood in her range and stays the guest's
+    expect(distTo(A.sim, rei, tk)).toBeLessThanOrEqual(range);
+    expect(distTo(A.sim, akane, tk)).toBeLessThanOrEqual(range);
+    expect(h.absorbed[0]).toHaveLength(1);
+    expect(h.absorbed[0][0].uids).toEqual([uidOf.momo, uidOf.aoi].sort((a, b) => a - b));
+    expect(h.absorbed[1]).toEqual(h.absorbed[0]); // the guest's client ran the same absorb
+    expect(B.coop.ownerOf(uidOf.momo)).toBeUndefined();
+    expect(A.sim.getTower(tk).lab.interest).toHaveLength(1); // Momo's Merch Table
+    // the guest's tab freezes mid-wave until the host drops her
+    expect(runUntil(h, () => A.sim.state === 'wave' && A.sim._waveTime > 3, 60 * 60)).toBe(true);
+    h.frozen.add(1);
+    expect(runUntil(h, () => A.peers.get(1).gone, Math.ceil((COOP.maxTimeoutMs / 1000 + 3) * 60))).toBe(true);
+    // the host buys Unified Theory mid-wave while she is gone: Akane joins
+    let ut = null;
+    expect(runUntil(h, () => (A.sim.getTower(tk)?.tiers[0] ?? 0) >= 5, 60 * 60 * 3, () => {
+      if (A.sim.state === 'wave' && (ut == null || h.frame - ut.f > 90) && !A.sim.upgradeStatus(tk, 0).locked) {
+        ut = { f: h.frame, wave: A.sim.wave, guestGone: A.peers.get(1).gone };
+        A.queue('upg', [tk, 0]);
+      }
+    })).toBe(true);
+    expect(ut.guestGone).toBe(true);
+    expect(h.absorbed[0].slice(1).map((x) => x.uids)).toEqual([[akane]]);
+    expect(A.coop.ownerOf(akane)).toBeUndefined();
+    expect(A.sim.getTower(tk).lab.rounds).toBe(2);
+    // the guest wakes up and adopts the host's timeline: a frozen tab never ran a tick of its own, so she
+    // catches up in place, replaying the host's log on her own battle, Unified Theory's absorb included
+    h.frozen.delete(1);
+    expect(runUntil(h, () => A.rejoins >= 1 && B.rejoins >= 1 && !B.job, 60 * 20)).toBe(true);
+    expect(B.lastRebuild).toMatchObject({ kind: 'catchup' });
+    expect(B.lastRebuild.T).toBeGreaterThan(h.absorbed[0][1].t);
+    runUntil(h, () => false, 400);
+    expect(B.coop.ownerOf(akane)).toBeUndefined();
+    expect(B.coop.ownerOf(rei)).toBe(1);
+    expect(B.sim.getTower(tk).lab).toEqual(A.sim.getTower(tk).lab);
+    expect(B.hashPairs().slice(-3).every((p) => p.mine === p.theirs)).toBe(true);
+    // a drift in the field T3 added (her lab's interest rates), on the guest only, mid-wave: the hash
+    // catches it and one resync, rebuilt from the host's checkpoint (which holds her lab), repairs it
+    expect(runUntil(h, () => A.sim.state === 'wave' && B.sim.state === 'wave' && B.sim._waveTime > 2, 60 * 60)).toBe(true);
+    const resyncs = B.resyncs;
+    const wave = A.sim.wave;
+    B.sim.getTower(tk).lab.interest.push(0.0137);
+    const badTick = B.tick;
+    expect(runUntil(h, () => B.resyncs > resyncs && !B.job, 60 * 30)).toBe(true);
+    expect(B.resyncs).toBe(resyncs + 1);
+    // caught by the hash's own lab fold, before the clear could pay the wrong interest into a wallet
+    expect([A.sim.wave, A.sim.state]).toEqual([wave, 'wave']);
+    expect(B.lastRebuild).toMatchObject({ kind: 'resync', restored: true });
+    expect(B.sim.getTower(tk).lab.interest).toEqual(A.sim.getTower(tk).lab.interest);
+    expect(B.sim.getTower(tk).lab).toEqual(A.sim.getTower(tk).lab);
+    expect(A.hashPairs().some((p) => p.t > badTick && p.mine !== p.theirs)).toBe(true); // (it was the hash)
+    // two more waves, then both agree tick for tick since the repair, and both rebuilds reach the host
+    const target = A.sim.wavesCleared + 2;
+    expect(runUntil(h, () => A.sim.wavesCleared >= target && B.sim.wavesCleared >= target, 60 * 60 * 6)).toBe(true);
+    expect(runUntil(h, () => A.tick === B.tick, 600)).toBe(true);
+    const repaired = B.trace.filter((x) => x.ev === 'rebuilt').pop().tick;
+    const after = [...A.hashPairs(), ...B.hashPairs()].filter((p) => p.t > repaired);
+    expect(after.length).toBeGreaterThan(5);
+    expect(after.every((p) => p.mine === p.theirs)).toBe(true);
+    expect(B.coop.hash()).toBe(A.coop.hash());
+    expect(B.coop.wallets).toEqual(A.coop.wallets);
+    const fromCk = new Lockstep({ start: TENKA, mySlot: 1, send: () => {}, now: () => 0 });
+    fromCk.rebuild(TENKA, A.log, A.tick, { t: A.ck.t, snap: JSON.parse(JSON.stringify(A.ck.snap)) });
+    const fromZero = new Lockstep({ start: TENKA, mySlot: 1, send: () => {}, now: () => 0 });
+    fromZero.rebuild(TENKA, A.log, A.tick, null);
+    expect(fromCk.lastRebuild?.restored).toBe(true);
+    expect(fromCk.coop.hash()).toBe(A.coop.hash());
+    expect(fromZero.coop.hash()).toBe(A.coop.hash());
+    expect(A.desynced || B.desynced).toBe(false);
+    expect(h.failed).toEqual([]);
+  }, 120000);
+});
+
+// Gate Arc Step 6 S6v: the viaduct (STEP6_BUILD_PLAN §4) is geometry computed once per map: two clients on
+// the viaduct fixture (previews/viaductMaps.js; not in MAPS, so it is registered in the sim's data source
+// here) with the same command log stay bit-identical while enemies climb onto it and walk under it.
+describe('co-op lockstep: the viaduct board', () => {
+  const VSTART = {
+    seed: 4242,
+    stageId: 'fixture:viaduct',
+    difficulty: 'normal',
+    players: [
+      { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: CHEAP }, { unitId: 'rei', stats: CHEAP }], hero: null },
+      { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'yuki', stats: CHEAP }], hero: null },
+    ],
+  };
+  const maps = defaultData().maps;
+  beforeAll(() => { maps[VIADUCT_FIXTURE.id] = VIADUCT_FIXTURE; });
+  afterAll(() => { delete maps[VIADUCT_FIXTURE.id]; });
+
+  it('two CoopSims with the same command log keep identical checksums', () => {
+    const stage = viaductStage();
+    const A = createCoopSim(VSTART, { mySlot: 0, stage });
+    const B = createCoopSim(VSTART, { mySlot: 1, stage });
+    expect(A.sim.map.id).toBe(VIADUCT_FIXTURE.id);
+    // legal spots near the crossing (beside the viaduct's flat top and the return road), nearest the road first
+    const cands = [];
+    for (let y = 0.55; y < A.sim.map.height; y += 0.35) {
+      for (let x = 0.55; x < A.sim.map.width; x += 0.35) {
+        if (!A.sim.placementReason('aoi', x, y)) cands.push([x, y, A.sim.placement.pathDistance(x, y), Math.hypot(x - VIADUCT_CROSSING.x, y - VIADUCT_CROSSING.y)]);
+      }
+    }
+    cands.sort((p, q) => p[2] - q[2] || p[3] - q[3]);
+    const spots = [];
+    for (const c of cands) if (spots.length < 3 && c[3] < 3.5 && spots.every((s) => Math.hypot(s[0] - c[0], s[1] - c[1]) >= 1.3)) spots.push(c);
+    expect(spots.length).toBe(3);
+    const log = [
+      { t: 0, p: 0, s: 0, k: 'place', a: ['aoi', ...quantize(spots[0][0], spots[0][1])] },
+      { t: 0, p: 1, s: 0, k: 'place', a: ['yuki', ...quantize(spots[1][0], spots[1][1])] },
+      { t: 0, p: 0, s: 1, k: 'wave', a: [] },
+      { t: 600, p: 0, s: 2, k: 'place', a: ['rei', ...quantize(spots[2][0], spots[2][1])] },
+    ];
+    const hashes = [[], []];
+    let raisedHit = false;
+    let underSeen = false;
+    let seq = 10;
+    for (let tick = 0; tick < 60 * 50; tick++) {
+      for (const cmd of log) if (cmd.t === tick) for (const c of [A, B]) expect(c.apply(cmd).ok).toBe(true);
+      if (tick > 0 && (A.sim.state === 'between' || A.sim.state === 'prep')) {
+        const next = { t: tick, p: 0, s: seq++, k: 'wave', a: [] };
+        for (const c of [A, B]) c.apply(next);
+      }
+      for (const c of [A, B]) c.step();
+      for (const e of A.sim.enemies) {
+        if (e.elev > 0.5 && e.hp < e.maxHp) raisedHit = true;
+        if (e.underDeck) underSeen = true;
+      }
+      if (tick % 60 === 59) [A, B].forEach((c, i) => hashes[i].push(hashSim(c.sim, { tick: c.tick, wallets: c.wallets })));
+    }
+    expect(A.sim.towers.length).toBe(3);
+    expect(raisedHit).toBe(true);
+    expect(underSeen).toBe(true);
+    expect(hashes[0].length).toBe(50);
+    expect(hashes[1]).toEqual(hashes[0]);
+  });
 });

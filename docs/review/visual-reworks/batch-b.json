@@ -1,0 +1,89 @@
+{
+  "reviewer": "independent look + logic reviewer (did not build batch B)",
+  "scope": "feature/visual-reworks-b: e39d624d (Kaede rework, Yoriko marionette, academy attack FX; git diff 16e78a37...e39d624d) plus the academy placed props merged on top (git diff e39d624d..6a9ecb4b)",
+  "sha": "6a9ecb4b",
+  "verdict": "NOT OK",
+  "summary": "Determinism, pooling, dispose, the merges and the fallbacks are sound, and the targeted tests pass. There are three MEDIUM findings: two on Yoriko's marionette, where the owner's spec is missed (Extend is a 4-frame dart, and the Strike whites out), and one where Azami's bite spikes no longer line up with the new 3D strips. All three are display-only fixes. Everything else is LOW.",
+  "checks": {
+    "simId": "35748b1b58db at e39d624d and at 6a9ecb4b, equal to origin/main. No file under src/sim, src/online or src/data changed against 16e78a37.",
+    "tests": "vitest tests/render/{kaedeFx,marionette,academyFx,attackFx-*}: 7 files, 91/91 passed. tests/models/props + tests/render/placedProps: 2 files, 18/18 passed (--maxWorkers=2).",
+    "e2e": "e2e/attack-fx.mjs NOT run. Both machine-wide pw.sh slots were held by other sessions for about 20 minutes, and the deadline would not allow it. It should run at the go/no-go with SIM_REF=origin/main.",
+    "live": "A real battle (stage 1-1) driven by hand, sim and renderer stepped frame by frame, at 844x390. Yoriko as the hero with the doll: a frame strip around one attack. Azami, Yuzuha, Wakaba and Marumi at medium graphics with the props: all four GLBs load (covers true), with no console errors from the batch. Then the same board at low graphics (flat drawing, no props). Kaede live frames were lost to a camera tween, so her look is judged from the builder's preview shots plus code. The 1280x720 spot check and live Reduce motion shots were not taken (time), so Reduce motion was checked in code.",
+    "performance": "Kaede: one instanced streak mesh, pooled flashes, ghost figures built once per girl and reused oldest-first, released on sell (onRemove) and on a figure rebuild, all disposed with attack FX (ctx.layers). Yoriko: one pooled ribbon mesh per doll, made in bind() and freed in release()/dispose(). The cut-thread geometry is freed by disposeObject on a rebuild. Lobs: a pool of 24, cleared on dispose. Academy styles keep pooled cue and leg arrays in init(). Marumi's lob trail is a Float32Array per projectile record. Props: one InstancedMesh per part, matrices composed into module scratch. No per-frame allocation in steady state was found.",
+    "fallbacks": "Low graphics: no ghosts, one string and a plain glide (no side arc or pendulum), props load nothing and actors.js keeps the flat drawing (confirmed live). Reduce motion: no lunge or ghosts, the doll stays home and only tilts, props skip the deploy and idle motion.",
+    "merge": "companions.js: the Kaze and doll header text are both kept, dollRow is fine, and Marionette is created, ticked, bound, released and disposed. attackFx/index.js: ctx.layers and ctx.lobs are both set up and torn down in dispose(). BattleRenderer.js: rosterProbe and placedPropsProbe are both kept, and placedProps gets setQuality, update in a try block and dispose.",
+    "marumiBall": "The props do not touch the ball: placedProps has no ball code, and the actors.js ball block (shadow only when fxHook.ballArcs) is unchanged by the props merge.",
+    "wakabaBottle": "Seen live for the first time: a small blue squeeze bottle with a white cap stands by the girl it hydrated (Azami), with an outline, and reads at 844x390. Its palette matches the thrown sprite (blue body, white cap, water stripe), so the two are consistent."
+  },
+  "findings": [
+    {
+      "severity": "MEDIUM",
+      "where": "src/render/marionetteLogic.js planStages + aimMarionette; 844x390 and every size",
+      "what": "The owner's spec says Extend is an arc, but at base speed Extend is a 4-frame dart. Her needle lands about 0.1 s after the attack event, so Command and Extend are squeezed to 0.033 s and 0.067 s while the glide stays at least MIN_REACH = 0.7 tiles: about 10 tiles/s. At 3x game speed that is about 1 real frame, so the doll simply appears at the target. Reel and settle are good.",
+      "scenario": "Yoriko at rate 0.9 with a slime 1.5 tiles away. In the live strip, the frame after Command already shows the doll at the target (batch-b/yoriko-live-844x390-strip.jpg).",
+      "fix": "Pre-roll the sequence from the sim's own cooldown (display read only): when t.cooldown <= plan.lead and she has a target in range, start Command early so that Extend ends on the projected hit; the existing land/catch-up logic covers a sooner hit. Failing that, raise LEAD_MIN to about 0.2 s and let the doll's strike trail the sim's hit by up to 0.1 s, firing the slash flash from the doll's strike instead of onImpact."
+    },
+    {
+      "severity": "MEDIUM",
+      "where": "src/render/attackFx/styles/yoriko.js onImpact; 844x390",
+      "what": "The Strike's slash is lost in a white-out. Two white or near-white slash sprites (0.4–0.5 tiles) plus a white flash() stack on top of the enemy's own white hit flash. At 3.5 attacks/s the enemy stays white nearly all the time (the builder's strip-fast-844x390.jpg) and the two crossed cuts cannot be read.",
+      "scenario": "Live at 844x390, the struck slimes become a white blob in the strike frame (batch-b/yoriko-live-strike-whiteout-844x390.jpg).",
+      "fix": "Colour the slash lilac (a lilac core with only a thin white edge), offset it toward the camera in front of the body as Kaede's streak does (towardCamera × 0.3), and drop or greatly shrink the extra flash(). At high rates, skip the slash when the last one on the same enemy is under about 0.15 s old."
+    },
+    {
+      "severity": "MEDIUM",
+      "where": "src/render/attackFx/styles/azami.js stripDir(uid*0.7) vs src/render/placedProps.js _draw_strip (roadFacing); 844x390",
+      "what": "With the 3D props on, every strip lies across the road, but the bite spikes and ground streak (onTrap trigger and the toss landing) are still laid at the old placeholder's random angle, uid × 0.7. In a live wave the 8 strips had uid × 0.7 mod π of 0.05, 0.07, 0.38, 0.8, 1.43, 2.53, 2.88 and 2.9 rad, so most bites cross the strip at a skew.",
+      "scenario": "Azami at T3+ on stage 1-1, 8 strips across the road (batch-b/props-live-844x390-zoom2x.jpg): when an enemy triggers one, the spike fan does not run along the plates.",
+      "fix": "When ctx.actors.placedProps?.covers('strip') is true, take the strip axis from the road: export roadFacing (or add placedProps.stripAxis(uid), which reuses its cached _facing). The strip's long axis is the road normal, (cos f, -sin f) for facing f, matching compose(yaw = f) with local x. Keep uid × 0.7 only for the flat low-graphics drawing, and add a unit test that the bite direction equals the prop's axis."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/marionetteLogic.js MIN_SCALE",
+      "what": "At 3.5 attacks/s the stages floor at 0.3 of base (0.33 s in all), which is longer than the 0.286 s interval. The doll never rests and the settle is always cut by the next attack. The restart from reel or settle is smooth and Command/Extend/Strike (0.15 s) never block an attack, so this is cosmetic.",
+      "scenario": "Yoriko with max attack-speed buffs.",
+      "fix": "At high rates, let MIN_SCALE drop to about 0.25, or skip the settle when the interval is under BASE_TOTAL × 0.4."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/marionette.js _strings / Yoriko's figure",
+      "what": "The control bar on her hand does not move. Only the string tops flick up on Command (s.flick), so the Command beat is carried by the strings alone.",
+      "scenario": "Any attack, zoomed in.",
+      "fix": "Optional: tilt her bar (or her hand bone) by s.flick for 0.1 s. This is not required by the spec."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/companions.js _update (the final else branch, about line 588) and const SWOOP_OPTS (line 805)",
+      "what": "Merge leftovers. The doll returns early into the marionette, so the else branch (sortieStep with DASH_OPTS) is unreachable: the only cids are kon, kaze and doll. SWOOP_OPTS is now declared but never used. Both are harmless, with no behaviour change.",
+      "scenario": "None.",
+      "fix": "Delete the dead branch and SWOOP_OPTS, plus DASH_OPTS and the doll's old Dream Detour path in _onAttack if nothing else uses them."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/attackFx/styles/kaede.js onOther (maple storm)",
+      "what": "It allocates a 3-colour array on every bladeArt storm event (const cols = [...]). The event is rare, so the cost is negligible.",
+      "scenario": "Flowing Blade 5 storms.",
+      "fix": "Cache the colours on tw.data, as ghostCols already does."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/attackFx/styles/kaede.js + patterns/ghosts.js; builder shots kaede/lunge-844x390-strip.jpg",
+      "what": "At phone size the 2–4 flat-tinted ghosts merge into an orange smear under her that reads more like a flame trail than her silhouette. They work, and they snapshot the camera-facing pose correctly (quaternion copied at spawn), but the shape is not legible at 844x390.",
+      "scenario": "Kaede lunging toward the camera on a phone.",
+      "fix": "Optional: on high and medium graphics, keep 2 ghosts spaced further apart (DASH reach × 0.5 / 1.0) at lower opacity (about 0.45 → 0), or add a darker rim colour per ghost."
+    }
+  ],
+  "notOpen": [
+    "Yuzuha: the white dashed circles in the builder's academy-fx shot were the old flat sentry and net drawings. With the props on, sentries are orange-headed tripods and nets are square grids laid along the road, and both read at 844x390 (academy-props/yuzuha-sentry and the live shot).",
+    "The academy FX status fallback (statusSource) only fires when no attack owns the status and the source girl was skipped, so there is no double cue.",
+    "Kaede's ghosts snapshot the live, camera-facing pose. Flash Lunge ghosts use cameraFacing() as her figure does."
+  ],
+  "evidence": [
+    "docs/review/visual-reworks/batch-b/yoriko-live-844x390-strip.jpg",
+    "docs/review/visual-reworks/batch-b/yoriko-live-strike-whiteout-844x390.jpg",
+    "docs/review/visual-reworks/batch-b/props-live-844x390.jpg",
+    "docs/review/visual-reworks/batch-b/props-live-844x390-zoom2x.jpg",
+    "docs/review/visual-reworks/batch-b/props-live-844x390-low.jpg"
+  ],
+  "notCovered": "e2e/attack-fx.mjs (machine browser slots were busy), the 1280x720 spot check, live Reduce motion shots, a live Kaede strip, deploy-animation strips, and Chigusa, Ouka and Kinu props live (the builder's stills only). The next round's reviewer should run these."
+}

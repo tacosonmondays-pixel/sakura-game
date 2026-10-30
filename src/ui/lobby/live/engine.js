@@ -88,9 +88,10 @@ function plateMesh(def, tex) {
 }
 
 /**
- * The home's left, top and right scrims (base.css --scrim-l / -t / -r), drawn between the plate and her: the CSS scrims
- * would lie over her too (the canvas is one layer), and a host is never graded (5.5). The lobby hides those three CSS
- * scrims while the scene shows; the bottom one stays over her, as over every host.
+ * The home's top scrim (home.css .ui-scrim.t: a soft wash in each top corner, behind the avatar and the news chip on the
+ * left and the wallets and buttons on the right, her hair left clear; no side bands since the quiet home), drawn between
+ * the plate and her: the CSS scrim would lie over her too (the canvas is one layer), and a host is never graded (5.5).
+ * The lobby hides the CSS top scrim while the scene shows; the bottom one stays over her, as over every host.
  */
 function scrimMesh() {
   const m = new THREE.ShaderMaterial({
@@ -98,12 +99,13 @@ function scrimMesh() {
     vertexShader: /* glsl */ `uniform vec2 uSize; varying vec2 vP;
       void main(){ vP = position.xy * uSize; gl_Position = projectionMatrix * modelViewMatrix * vec4(vP.x, -vP.y, 0.0, 1.0); }`,
     fragmentShader: /* glsl */ `uniform vec2 uSize; varying vec2 vP;
-      float ramp(float t, float a0, float t1, float a1, float t2){ return t < t1 ? mix(a0, a1, t / t1) : mix(a1, 0.0, clamp((t - t1) / (t2 - t1), 0.0, 1.0)); }
+      // (a radial-gradient(R at corner, a0, a1 50%, 0 100%), as the CSS draws it)
+      float wash(vec2 p, vec2 c, vec2 R, float a0, float a1){ float d = length((p - c) / R); return d < 0.5 ? mix(a0, a1, d / 0.5) : mix(a1, 0.0, clamp((d - 0.5) / 0.5, 0.0, 1.0)); }
       void main(){
-        float l = ramp(vP.x / uSize.x, 0.82, 0.26, 0.58, 0.50);
-        float t = ramp(vP.y, 0.62, 48.0, 0.5, 104.0);
-        float r = ramp((uSize.x - vP.x) / uSize.x, 0.62, 0.28, 0.5, 0.46);
-        float a = 1.0 - (1.0 - l) * (1.0 - t) * (1.0 - r);
+        bool phone = uSize.y <= 480.0;
+        float l = wash(vP, vec2(0.0), phone ? vec2(300.0, 140.0) : vec2(440.0, 200.0), 0.86, 0.62);
+        float r = wash(vP, vec2(uSize.x, 0.0), phone ? vec2(520.0, 76.0) : vec2(720.0, 120.0), 0.62, 0.34);
+        float a = 1.0 - (1.0 - l) * (1.0 - r);
         gl_FragColor = vec4(vec3(14.0, 25.0, 48.0) / 255.0 * a, a);
       }`,
     transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide, ...PREM,

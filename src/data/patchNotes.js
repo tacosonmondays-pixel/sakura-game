@@ -20,6 +20,114 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.61', version: '0.1.61', date: '2026-10-29', title: 'Five More Ultimates and Academy Flair',
+    added: [
+      'Five more ⚡ ultimates go live: Kage’s Shadow Doubles, Suzu’s Bell Carpet, Chika’s Drone Surge (her Drones tab counts the extra drones), Fuu’s Backdraft Fan and Iroha’s Mirror Shift, which turns into Infinite Reflection at her top tier. Other girls’ shots that cross Iroha’s mirror split in two, your co-op partner’s included. Every tower girl now has a ⚡ that works in battle; only Ruri’s Star Falcon and Tide Otter paths still wait for theirs.',
+      'Battles hit harder: on Medium and High graphics, strong hits squash monsters with a brief hold and bright effects glow softly even without Bloom; on High, a boss kill or a hero’s map-wide ultimate lands with a split-second impact frame, and with Bloom on each map gets a gentle colour grade. Reduce motion, Flashes & shake and the new Impact frames setting turn them down or off.',
+      'Yoriko’s doll now hangs from thin lilac strings tied to her control bar and glides out on an arc to strike; Kaede dashes with maple afterimages and her blade arts cut bright crescent streaks.',
+      'The academy girls get real attacks: Azami’s tumbling spike strips, Kinu’s threaded needles, Wakaba’s drink bottles, Yuzuha’s taser darts, Ouka’s office seal, Chigusa’s seeds and vines, and Marumi’s ball you can see bounce.',
+      'New 3D props for what they place: Azami’s spike strips, Yuzuha’s fold-out sentries and Capture Nets, Chigusa’s thorn vines and beds, Ouka’s council banners, Wakaba’s drink bottle and Kinu’s heat ring and scissors.',
+    ],
+    changed: [
+      'Tryout Day’s Extended Day: a Home Time button after wave 48 (in co-op, both players vote), your best wave kept for each Grade, three one-time milestones at waves 50, 75 and 100 (Stayed After, Late Bus, Last One Out), reaching period 12 counts as a Full Day clear, and the timetable fits a phone held upright.',
+      'Chika’s Overall tab now shows her average DPS beside Live too, drones included; between waves the readout says “DPS (wave)”.',
+      'Co-op partners need this update too before you can play together.',
+    ],
+    fixed: [
+      'Recruit on a phone held sideways: both Recruit buttons show without scrolling on every banner, and picking a banner no longer jumps the page.',
+    ],
+  },
+  {
+    id: 'v0.1.60', version: '0.1.60', date: '2026-10-29', title: 'Gate Arc Acts 3–6 and Extended Day',
+    added: [
+      'Gate Arc Acts 3–6: twenty new stages across chapters 3 to 6, four new bosses (the Ashen Warden, the Frost Vanguard, the Reservoir Willow and Gatekeeper Unit 01) and a side stage, The Star Dome.',
+      'Tryout Day: Extended Day keeps the run going after period 12 until your hearts run out (clear a Full Day first), and Random Class draws your girls and every pick for you, solo or in co-op.',
+      'Tenka can now Limit Break to LR: at level 60 with all 5 gates and ★5, pay the fee and win her Thesis Defense trial. Kohaku & Tsubaki hit far harder at their top tiers, and at Grand Spectrum their beams run on to the edge of the map.',
+      'New looks in battle: Tenka takes the field as her real 3D figure, coilgun in hand; Iroha’s mirror panel turns and glints as bolts bounce through it and her Shattered Glass path scatters glinting shards; Kon bounds to Ruri’s relay spot and pounces, Kaze stoops onto each enemy Hana shoots, and Seiran’s sky dragon arrives bigger, with a roar.',
+    ],
+    changed: [
+      'The stage screen shows the whole map, Recruit banners are laid out cleaner, Tryout Day gets a big card in Play Modes, and the battle DPS readout shows both Live and Average.',
+      'Co-op partners need this update too before you can play together.',
+    ],
+    fixed: [
+      'A chat line typed right after opening a clan tab is no longer lost, and Yuzuha\'s sentries and nets pop an orange ring when they unfold.',
+      'On small phones the Events tab keeps clear of Co-op, the hero card and battle portrait no longer cover her name or the top bar, patch-note dates stay on one line, the Recruit rate line no longer sits over the girls, and the girl page’s matchups fit.',
+    ],
+  },
+  {
+    id: 'v0.1.59', version: '0.1.59', date: '2026-10-28', title: 'Banners and Tryout Day',
+    added: [
+      'Tryout Day, a new run mode (opens after 2-5): play one school day of waves solo or in co-op, pick a Pep Talk after every period and watch new girls try out for your squad, from Grade 1 to Grade 12.',
+      'Daily Spotlights in Recruit: one SSR and three SRs, new every day at 7 PM Central, with one shared pity. Kanna, Yoriko, Seiran, Iroha and Ena now come from their Spotlight days (for your first 30 days you can still spark them on any day).',
+      'Two LR Banners premiere side by side: Tenka (until Nov 5) and Kohaku & Tsubaki, two friends in one tower (until Nov 4). Win the Starfall Trial to make the duo LR.',
+      'After 6-5, a Coin banner paid in coins. The Club Lab adds a Workbench that crafts while you play, and Friend Support lets you borrow a friend\'s girl and earn Friend Points.',
+    ],
+    changed: [
+      'Girl Details in battle now show her real damage per second, measured live (splash, poison, crits, drones and traps included).',
+      'UR Resonance from Nov 1, 7 PM Central: every SSR girl at ★5 deals 10% more damage and attacks 4% faster.',
+      'Co-op partners need this update too before you can play together.',
+    ],
+  },
+  {
+    id: 'v0.1.58', version: '0.1.58', date: '2026-10-28', title: 'Brighter Details',
+    added: [
+      'An Events button on the home, right beside Co-op: it opens the running event (with the time left and a red dot when a gift or reward waits), or Happening Now between events.',
+    ],
+    changed: [
+      'Marumi’s living scene on the home now shows in full colour too.',
+      'The “new lesson” bubble on the home no longer covers your coins or your secretary’s face.',
+      'Locked stage numbers stay readable on phones.',
+    ],
+  },
+  {
+    id: 'v0.1.57', version: '0.1.57', date: '2026-10-28', title: 'Ultimates',
+    added: [
+      'Tower abilities are here! Upgrade a girl along her ability path and her ultimate joins the ability bar: tap it to cast, or hold it (right-click on PC) and switch on Auto. Heroes get their skill button too.',
+      'Meet Tenka, the Coilgun Physicist and the ultimate tower: her Critical Mass blast ignores armor. Find her in the "New: Tenka" spotlight in Recruit, and your 300th recruit without her is always her.',
+    ],
+    changed: [
+      'Tap a placed girl to open the new tactical drawer: her stats, her three paths, her targeting and her ability in one place. Tap a price twice to buy.',
+      'Co-op partners need this update too before you can play together.',
+    ],
+    fixed: [
+      'Seiran’s Dragonflight now flies all the way back to the start of the road.',
+    ],
+  },
+  {
+    id: 'v0.1.56', version: '0.1.56', date: '2026-10-28', title: 'Brighter Home',
+    changed: [
+      'The home background shows in its full colours again: brighter, sharper and much less gloomy.',
+    ],
+    added: [
+      'A Clan button on the home, next to chat and mail, with a red dot when donations or an invite wait for you.',
+    ],
+  },
+  {
+    id: 'v0.1.55', version: '0.1.55', date: '2026-10-28', title: 'Rush Hour and Hilltop After Dark',
+    added: [
+      'The Gate Arc begins: chapters 1 and 2 each get an Act II of five new stages. "Rush Hour" (1-6 to 1-10) opens once you clear 1-5, and "Hilltop After Dark" (2-6 to 2-10) once you clear both 2-5 and 1-10.',
+      'Eighteen new story scenes and two new bosses, the Frostbitten Heir and the Old Lamp-Hugger. This arc deals with war and loss; a short note says so before it starts.',
+      'New ways to play: girls on rooftops, a level crossing at 1-9 that shuts a lane every other wave, and a blackout at 2-7.',
+    ],
+    changed: [
+      'Yuzuha now joins after stage 1-7. If she is already on your team nothing changes, and clearing 4-2 still brings her.',
+      'Act II stages give half the medal gems of Act I stages.',
+      'Co-op needs this version on both sides: if your partner sees a version message, they just refresh the page.',
+    ],
+  },
+  {
+    id: 'v0.1.54', version: '0.1.54', date: '2026-10-28', title: 'Quiet Home',
+    added: [
+      'A calmer new home: your secretary takes centre stage, with one news card, four shortcuts and a big Battle button. Everything else lives in the new Menu.',
+      'Every chapter of the story now plays in its own painted places, from the shrine steps to the festival square with its great drum.',
+    ],
+    changed: [
+      'Coins and gems keep their colour icons, and screens slide and fade smoothly as you move between them.',
+      'The menus have a fresh ink-and-paper look, and each top bar now shows only the currencies that screen uses.',
+      'Full illustrations on the home always show the whole picture.',
+    ],
+  },
+  {
     id: 'v0.1.53', version: '0.1.53', date: '2026-10-24', title: 'Hubs and Hosts',
     added: [
       'New hub screens with a host girl to greet you: Missions, Titan Trials, Story and Achievements, plus cleaner campaign cards.',

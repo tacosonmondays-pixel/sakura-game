@@ -5,7 +5,9 @@
 // her to the bar (a short toast only explains non-obvious reasons such as water-only girls or
 // missing coins). Move mode (a hero's Move button) reuses the same ghost: tap where she should
 // stand and she walks over (during a wave she pauses for 3 s).
-import { h, icon, fmtCoins } from './util.js';
+import { heroMoveDowntime } from '../../sim/hero.js';
+import { h, icon } from './util.js';
+import { fmtNum } from '../format.js';
 import { cue } from '../../audio/cue.js'; // [audio]
 
 export const PLACE_REASONS = {
@@ -27,6 +29,17 @@ const MOVE_EPS = 0.015;
 /** Reasons the red circle alone already explains (no toast). */
 const SILENT_REASONS = new Set(['occupied', 'path', 'blocked', 'outOfBounds']);
 
+/**
+ * A card armed (or Move mode): every other board-tap mode steps aside — an ability aim or Set aim (aimControl.js),
+ * a Midori / Chika pick, a flight point — so the next board tap places her (ABILITIES_SPEC §8.1: a placement tap
+ * never fires an ability; the board tap asks aim, then flight, then placement).
+ */
+export function clearBoardModes(ctx) {
+  if (ctx.aim?.active) ctx.aim.cancel();
+  ctx.cancelPick?.();
+  if (ctx.flight?.active) ctx.flight.cancel();
+}
+
 export function createPlacement(ctx) {
   const { sim } = ctx;
   let unitId = null;
@@ -34,6 +47,10 @@ export function createPlacement(ctx) {
   let last = null; // { x, y, ok, reason }
   let moving = false; // Move mode: the ghost is the placed hero, the drop moves her
   let padHint = null;
+  // when a board tap (or a drag's release) last ended the placement: the ability bar keeps ignoring taps a moment
+  // longer, because a phone's click lands a frame or two after the touch (abilityBar.js placingNow)
+  let tapEndedAt = null;
+  const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
   const hint = h('div.bt-place-hint', { 'data-testid': 'place-hint' });
   hint.hidden = true;
   ctx.layer.append(hint);
@@ -57,7 +74,7 @@ export function createPlacement(ctx) {
       const wave = sim.state === 'wave';
       hint.classList.toggle('bt-place-water', def.placement === 'water');
       hint.replaceChildren(...[
-        h('span.bt-place-text', `Tap ${where} to move `, h('b', def.name), h('span.bt-place-cost', wave ? ' · she pauses 3s' : ' · free')),
+        h('span.bt-place-text', `Tap ${where} to move `, h('b', def.name), h('span.bt-place-cost', wave ? ` · she pauses ${heroMoveDowntime(sim.hero)}s` : ' · free')),
         padHint ? h('span.bt-place-pad', { 'data-testid': 'place-pad' }, padHint) : null,
         h('button.bt-place-cancel', { 'data-testid': 'place-cancel', onclick: () => cancel() }, icon('close'), 'Cancel'),
       ].filter(Boolean));
@@ -65,7 +82,7 @@ export function createPlacement(ctx) {
     }
     hint.classList.toggle('bt-place-water', def.placement === 'water');
     hint.replaceChildren(...[
-      h('span.bt-place-text', mode === 'drag' ? `Release anywhere on ${where} to deploy ` : `Tap anywhere on ${where} to deploy `, h('b', def.name), h('span.bt-place-cost', cost > 0 ? ` · ${fmtCoins(cost)}` : ' · free')),
+      h('span.bt-place-text', mode === 'drag' ? `Release anywhere on ${where} to deploy ` : `Tap anywhere on ${where} to deploy `, h('b', def.name), h('span.bt-place-cost', cost > 0 ? ` · ${fmtNum(cost, 'money', { round: 'up' })}` : ' · free')),
       padHint ? h('span.bt-place-pad', { 'data-testid': 'place-pad' }, padHint) : null,
       mode === 'drag' ? null : h('button.bt-place-cancel', { 'data-testid': 'place-cancel', onclick: () => cancel() }, icon('close'), 'Cancel'),
     ].filter(Boolean));
@@ -82,11 +99,12 @@ export function createPlacement(ctx) {
     }
     const cost = sim.placeCost(id);
     if (sim.cash < cost) {
-      ctx.feed.push(`Need ${fmtCoins(cost - sim.cash)} more coins for ${def.name}.`, 'warn', { key: `poor-${id}`, ms: 1800 });
+      ctx.feed.push(`Need ${fmtNum(cost - sim.cash, 'money', { round: 'up' })} more coins for ${def.name}.`, 'warn', { key: `poor-${id}`, ms: 1800 });
       ctx.bump?.('cash');
       return false;
     }
     ctx.select(null);
+    clearBoardModes(ctx);
     unitId = id;
     mode = how;
     last = null;
@@ -166,6 +184,12 @@ export function createPlacement(ctx) {
   /** Renderer tap while placing. Returns true when the tap was consumed. */
   function handleTap(p) {
     if (!unitId) return false;
+    const used = boardTap(p);
+    if (!unitId) tapEndedAt = clock();
+    return used;
+  }
+
+  function boardTap(p) {
     if (!p.inBounds) {
       cancel();
       return true;
@@ -239,6 +263,7 @@ export function createPlacement(ctx) {
         return false;
       }
       ctx.select(null);
+      clearBoardModes(ctx);
       unitId = hero.unitId;
       moving = true;
       mode = 'tap';
@@ -264,6 +289,7 @@ export function createPlacement(ctx) {
     },
     dragEnd(clientX, clientY, pointerType) {
       if (!unitId || mode !== 'drag') return;
+      tapEndedAt = clock();
       if (overBar(clientY)) {
         cancel();
         return;
@@ -276,6 +302,10 @@ export function createPlacement(ctx) {
       const t = tryPlace(p.x, p.y);
       // released on a red spot: she just goes back to the bar
       if (!t && unitId) cancel();
+    },
+    /** performance.now() of the board tap or drag release that last ended a placement (null: none yet). */
+    get tapEndedAt() {
+      return tapEndedAt;
     },
     handleTap,
     hover,

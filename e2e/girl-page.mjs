@@ -7,7 +7,7 @@
 //   Equipment            tap a spare to equip it, Undo puts the old piece back; hold a spare for its Details without
 //                        equipping it; Salvage asks with a second tap; taking a classmate's piece asks first, Undo
 //                        gives it back to her.
-//   Info                 the Profile sheet promises no ⚡ ability while abilities are dormant; Base stats › Role keeps
+//   Info                 the Profile sheet shows her ⚡ tip only when her ability runs (unitTips.abilityTipsShown), naming an ability of her own kit; Base stats › Role keeps
 //                        her subclass and both role lines; the "+N" chip's hit area reaches the dense tap size.
 //   Rail and band        an open locked tab's label stays readable on the ink plate (≥ 4.5:1); in 3D view the
 //                        Idle / Attack / Cheer / Victory row sits under the model's canvas, not over her legs.
@@ -251,14 +251,26 @@ try {
     check(sc.lastShown && sc.sheetScroll === 0 && !(await page.$('[data-testid="unit-sheet-open-page"]')), `${tag} showcase build: her whole build is reachable by scrolling ("${sc.lastText}"), no Full page`);
     await closeHold();
 
-    // ---- 2. Info: Profile (no ⚡), Base stats › Role, the "+N" hit area ---------------------------------------
+    // ---- 2. Info: Profile (her ⚡ tip only when her ability runs), Base stats › Role, the "+N" hit area ---------
     for (const id of ['aoi', 'chika', 'momo', 'umeko', 'miko', 'akane', 'ouka']) {
       await go(page, `#/student/${id}?tab=info`, '[data-testid="info-profile"]');
       await page.click('[data-testid="info-profile"]');
       await page.waitForSelector('[data-testid="profile-sheet"]');
       const txt = await page.textContent('[data-testid="profile-sheet"]');
       const tips = await page.locator('[data-testid="profile-tips"] li').count();
-      check(!txt.includes('⚡') && !/\bteaches\b/.test(txt) && tips >= 2, `${tag} ${id}'s Profile sheet: ${tips} tips, no ⚡ ability promise`);
+      // (the live rule, A3 M2: a girl's ⚡ tip shows when ABILITY_TIPS_SHOWN is on and her first ⚡ ability runs; a
+      // waiting ability (Chika's Drone Surge) never promises a button. A shown ⚡ tip names an ability of her own kit)
+      const rule = await page.evaluate(async (gid) => {
+        const { UNIT_MAP } = await import('/src/data/units.js');
+        const { abilityTipsShown } = await import('/src/data/unitTips.js');
+        const { abilityText } = await import('/src/data/abilityText.js');
+        const u = UNIT_MAP[gid];
+        const names = (u.paths || []).flatMap((p) => (p.ability ? [abilityText(p.ability.id)?.name] : [])).filter(Boolean);
+        return { shown: abilityTipsShown(u), names };
+      }, id);
+      const bolt = txt.includes('⚡') || /\bteaches\b/.test(txt);
+      const named = rule.names.some((n) => txt.includes(n));
+      check(tips >= 2 && (rule.shown ? bolt && named : !bolt), `${tag} ${id}'s Profile sheet: ${tips} tips, ${rule.shown ? `her ⚡ tip names her own ability (${rule.names.join(', ')}: ${named})` : `no ⚡ ability promise (her ability waits)`}`);
       if (id === 'aoi') await shot(page, `aoi-profile-${tag}`);
       await page.keyboard.press('Escape');
       await page.waitForSelector('[data-testid="profile-sheet"]', { state: 'detached' });
@@ -357,10 +369,15 @@ try {
     const locked = await page.evaluate(`(() => {
       const c = ${CONTRAST};
       const t = document.querySelector('[data-testid="tab-gear"]');
-      const cs = getComputedStyle(t);
-      return { on: t.classList.contains('on'), locked: t.classList.contains('locked'), ratio: Math.round(c(getComputedStyle(t.querySelector('span') || t).color, cs.backgroundColor) * 100) / 100 };
+      // (UI v2 M3: a folder tab, S4: the open tab's face is its ::before, the label its .ui-tab-word)
+      const clear = (v) => v === 'transparent' || v === 'rgba(0, 0, 0, 0)';
+      let bg = getComputedStyle(t).backgroundColor;
+      if (clear(bg)) bg = getComputedStyle(t, '::before').backgroundColor;
+      if (clear(bg)) bg = getComputedStyle(t.closest('.ui-tabbed') || document.body).backgroundColor;
+      const word = t.querySelector('.ui-tab-word') || t.querySelector('span') || t;
+      return { on: t.classList.contains('on'), locked: t.classList.contains('locked'), ratio: Math.round(c(getComputedStyle(word).color, bg) * 100) / 100 };
     })()`);
-    check(locked.on && locked.locked && locked.ratio >= 4.5, `${tag} Kinu (not recruited) on Gear: the open locked tab's label is ${locked.ratio}:1 on the plate`);
+    check(locked.on && locked.locked && locked.ratio >= 4.5, `${tag} Kinu (not recruited) on Gear: the open locked tab's label is ${locked.ratio}:1 on its face`);
     await go(page, '#/student/aoi?tab=info', '[data-testid="view-3d"]');
     await page.click('[data-testid="view-3d"]');
     await page.waitForSelector('.gp-band.is-3d .gp-acts .gp-act');

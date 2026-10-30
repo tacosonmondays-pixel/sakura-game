@@ -93,6 +93,15 @@ export const PORTRAIT_DATA = {
   ouka: { face: [49, 33], cut: 0.356 },
   chigusa: { face: [45, 32], cut: 0.363 },
   marumi: { face: [58, 19], cut: 0.432 },
+  // Tenka's drawn art (the ultimates release; her battle figure is the Oct 20 Meshy GLB since it was wired in)
+  tenka: { face: [49, 18], cut: 0.383 },
+  // the duo (DUO_LR §1.6): one pair illustration, Kohaku on the left and Tsubaki on the right; `face` is the
+  // point between their two faces
+  kohaku_tsubaki: { face: [51, 31], cut: 0.65 },
+  // the staff heroes (BANNERS §D.5): the coming-soon signboard until their drawn art lands
+  // (tools/art/placeholder_portraits.py; replace their six files and drop `placeholder` then)
+  kogane: { face: [49, 31], cut: 0.621, placeholder: true },
+  norika: { face: [49, 31], cut: 0.621, placeholder: true },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */
@@ -114,8 +123,7 @@ export function hasPortrait(unitOrId) {
 
 /**
  * @returns {boolean} her six files are the coming-soon signboard (tools/art/placeholder_portraits.py prints
- * her line with `placeholder: true`), not her drawn art. No roster girl shows one today; the flag stays for
- * a future girl who ships before her art.
+ * her line with `placeholder: true`), not her drawn art: Kogane and Norika today (BANNERS §D.5).
  */
 export function isPlaceholderPortrait(unitOrId) {
   return !!PORTRAIT_DATA[idOf(unitOrId)]?.placeholder;
@@ -146,6 +154,12 @@ export function portraitEdges(unitOrId) {
 export function portraitFig(unitOrId) {
   const f = PORTRAIT_DATA[idOf(unitOrId)]?.fig;
   return typeof f === 'number' && f > 0 && f < 1 ? f : 1;
+}
+
+/** @returns {number} her -cut stand's width over its height (PORTRAIT_DATA cut; 0.6, about a full figure's, when unknown) */
+export function portraitCutAspect(unitOrId) {
+  const a = PORTRAIT_DATA[idOf(unitOrId)]?.cut;
+  return typeof a === 'number' && a > 0.2 && a < 2 ? a : 0.6;
 }
 
 /** Face position (% of the full illustration) for object-position / bubbles. */

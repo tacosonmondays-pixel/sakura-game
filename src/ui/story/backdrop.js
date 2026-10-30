@@ -4,13 +4,17 @@
 //          soft = blurred + dimmed); a story place carries its focal point (object-position)
 //   cg     a painted lobby scene with a girl in it (the player hides portraits while it is up)
 //   solid  a flat colour (black for fades and title cards)
-//   stage  `stage:<id>` — that stage's painted place (STAGE_PLACE), else the chapter's academy tint
-//          (CHAPTER_FALLBACK_BG). A still from the stage-still hook would replace either; nothing registers one.
-//          A still is never a reason to delay text.
+//   stage  `stage:<id>` — that stage's painted place (STAGE_PLACE); an Act II stage without one shows its map
+//          theme's painted skyline (svg: the Gate Arc's Noon city, not the academy); else the chapter's academy
+//          tint (CHAPTER_FALLBACK_BG). `stage:<id>@dusk` / `@night`: the skyline re-lit for that time of day
+//          (themeBackdropSVG `time`), or the painted place's `-sunset` / `-night` picture when one is listed. A still from the stage-still hook would replace any of these; nothing
+//          registers one. A still is never a reason to delay text.
 import { h } from '../dom.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
-import { BACKGROUNDS, CHAPTER_FALLBACK_BG, placeOfStage, stageOfBackground } from '../../data/story/backgrounds.js';
+import { BACKGROUNDS, CHAPTER_FALLBACK_BG, placeOfStage, stageOfBackground, timeOfBackground } from '../../data/story/backgrounds.js';
 import { STAGE_MAP } from '../../data/stages.js';
+import { MAP_MAP } from '../../data/maps.js';
+import { themeBackdropSVG } from '../../art/backdrops.js';
 
 const FADE_MS = 420;
 
@@ -29,6 +33,31 @@ export function setStageStillProvider(fn) {
   stillCache.clear();
 }
 
+
+/** Act II stage maps whose story background shows a place of its own (src/art/backdrops.js themeBackdropSVG variant). */
+export const PLACE_VARIANT = {
+  noon_rowing_jetty: 'jetty', noon_boathouse_lamp: 'lamp',
+  // Act 3 (the Bell Festival): Old Town at night, then the night it burns
+  noon_old_town: 'oldtown', noon_takoyaki_row: 'oldtown', noon_shrine_steps: 'oldtown',
+  noon_old_town_burning: 'burning', noon_lakeside_shrine: 'burning',
+  // Act 4 (the Checkpoint): the mountain highway, its tunnel mouth in snow, then the far north: the frozen
+  // villages, and the snow bridge over the ravine in a blizzard
+  noon_toll_plaza: 'highway', noon_checkpoint: 'highway', noon_tunnel_mouth: 'highwaySnow',
+  north_frozen_villages: 'north', north_snow_bridge: 'northBridge',
+  // Act 5 (the Drowned Line, Gate Arc Step 5; the maps arrive with S5b): the flooded platform, the Line 2
+  // tunnels and the Noon Gate's pump hall underground (`drowned`), then the reservoir park in fog and the
+  // willow on its island (`city`, district 'park'; `stage:5-10@night` re-lights it)
+  noon_flooded_platform: 'platform', noon_line2_tunnels: 'tunnels', noon_pump_station: 'noonGate',
+  noon_reservoir_park: 'reservoir', noon_reservoir_willow: 'willow',
+  // Act 6 (Vesperline, Gate Arc Step 6; the maps arrive with S6b): the frozen city's drawn places (`vesper`;
+  // `stage:<id>@night` re-lights each), the Starfall Deck at night for the side stage
+  vesper_frost_causeway: 'causeway', vesper_skyrail: 'skyrail', vesper_museum: 'museum',
+  vesper_tower_ring: 'towers', vesper_spindle_foot: 'spindle', vesper_starfall: 'starfall',
+};
+
+/** A painted place's own picture for a time of day (`<place>-sunset` / `<place>-night`), when one is listed. */
+const PLACE_TIME_SUFFIX = { dusk: 'sunset', dawn: 'sunset', night: 'night' };
+
 /**
  * What a background id draws. Stage backgrounds resolve to their painted place (STAGE_PLACE), or to their
  * chapter's academy tint when the stage has none (with the stage id kept, so a still can replace either).
@@ -39,9 +68,19 @@ export function setStageStillProvider(fn) {
 export function resolveBackground(id, chapter = 0) {
   const stageId = stageOfBackground(id);
   if (stageId) {
-    const place = placeOfStage(stageId);
-    if (place) return { ...resolveBackground(place, chapter), id, stageId, place, fallback: true };
-    const ch = STAGE_MAP[stageId]?.chapter ?? chapter;
+    const time = timeOfBackground(id);
+    const painted = placeOfStage(stageId);
+    if (painted) {
+      const timed = time ? `${painted}-${PLACE_TIME_SUFFIX[time]}` : null;
+      const place = timed && BACKGROUNDS[timed] ? timed : painted;
+      return { ...resolveBackground(place, chapter), id, stageId, place, time, fallback: true };
+    }
+    // an Act II stage (Gate Arc: the Noon city, not the academy) or a side stage (`side-<c>-<slug>`, drawn after its
+    // Act II anchor) without a painted place shows its map theme's skyline
+    const st = STAGE_MAP[stageId];
+    const theme = st?.act === 2 || st?.kind === 'side' ? MAP_MAP[st.mapId]?.theme : null;
+    if (theme) return { id, kind: 'svg', html: themeBackdropSVG(theme, { variant: PLACE_VARIANT[st.mapId] ?? null, time }), stageId, time, fallback: true };
+    const ch = st?.chapter ?? chapter;
     const fb = resolveBackground(CHAPTER_FALLBACK_BG[ch] || CHAPTER_FALLBACK_BG[chapter] || 'academy-day', chapter);
     return { ...fb, id, stageId, fallback: true };
   }
@@ -155,6 +194,7 @@ function stillFor(stageId) {
 
 function layerFor(spec) {
   if (spec.kind === 'solid') return h('div.sp-bg-layer.solid', { style: { background: spec.color } });
+  if (spec.kind === 'svg') return h('div.sp-bg-layer.svg', { html: spec.html });
   const img = h('img.sp-bg-img', { src: spec.url, alt: '', draggable: false, decoding: 'async', style: spec.focus ? { objectPosition: spec.focus } : null });
   const cls = spec.kind === 'cg' ? '.cg' : `.paint.tint-${spec.tint || 'day'}${spec.blur ? '.soft' : ''}`;
   const layer = h(`div.sp-bg-layer${cls}`, img, spec.kind === 'cg' ? null : h('div.sp-bg-tint'));

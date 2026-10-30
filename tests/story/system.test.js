@@ -8,16 +8,20 @@ import {
   createProfile, migrateProfile, serializeProfile, deserializeProfile, loadSaveText, SAVE_VERSION,
 } from '../../src/systems/save.js';
 import {
-  newStory, legacyStory, cleanStory, storyOf, clearedCampaign, onboardingRoute, tutorialRoute, setOpening, setTutorial,
+  newStory, legacyStory, cleanStory, storyOf, clearedCampaign, clearedStoryStages, STORY_TRIGGER_STAGE_IDS, onboardingRoute,
+  tutorialRoute, setOpening, setTutorial,
   skipOnboarding, setStoryPrefs, stageOpen, STORY_VERSION, SEEN_LIMIT, QUEUE_LIMIT,
 } from '../../src/systems/story.js';
 import {
   beforeSceneFor, queueAfterClears, nextQueued, pruneQueue, markSeen, recordChoice, episodeList, sceneUnlocked,
-  requirementFor, unseenEpisodeCount, episodeNumber,
+  requirementFor, unseenEpisodeCount, episodeNumber, ownedReady, ownedRequirementFor,
 } from '../../src/systems/storyTriggers.js';
+import { grantUnit } from '../../src/systems/unlocks.js';
+import { resolveText } from '../../src/data/story/tokens.js';
+import { lockedToast } from '../../src/ui/story/archive.js';
 import { SCENE_LIST, sceneById, LESSON_SCENES } from '../../src/data/story/index.js';
 import { STORY_REWARDS } from '../../src/data/story/lessons.js';
-import { CAMPAIGN_IDS, CHAPTERS } from '../../src/data/stages.js';
+import { CAMPAIGN_IDS, CHAPTERS, STAGES, STAGE_MAP, act2Stage } from '../../src/data/stages.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -279,8 +283,15 @@ describe('triggers (T-trig-1)', () => {
     expect(requirementFor({ trigger: { before: '1-1' } })).toBeNull();
   });
 
-  it('a fully cleared save can reach every episode of the archive', () => {
+  it('a fully cleared save (owning the side scenes\' girls) can reach every episode of the archive', () => {
     const p = clearUpTo(createProfile(), CAMPAIGN_IDS[CAMPAIGN_IDS.length - 1]);
+    // and every side stage (kind 'side', not in CAMPAIGN_IDS: the Star Dome carries g6.star1 / g6.star2)
+    for (const s of STAGES.filter((x) => x.kind === 'side')) {
+      p.progress.stages[s.id] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+    }
+    grantUnit(p, 'fuu'); // g2.class waits for Ruri, Iroha, Ena or Fuu (ifOwned); g3.fuu for Fuu
+    grantUnit(p, 'iroha'); // g3.iroha
+    grantUnit(p, 'noa'); // g3.noa
     const rows = episodeList(p, SCENE_LIST, hasUnit);
     expect(rows.length).toBeGreaterThanOrEqual(27);
     expect(rows.filter((r) => !r.unlocked)).toEqual([]);
@@ -315,5 +326,283 @@ describe('bundle (T-bundle-1)', () => {
     const statics = [...src.matchAll(/^import[^;]*?from\s+['"]([^'"]+)['"]/gm)].map((m) => m[1]);
     expect(statics.filter((s) => /story/.test(s))).toEqual([]);
     expect(src).toMatch(/import\(['"]\.\/ui\/story\/install\.js['"]\)/);
+  });
+});
+
+describe('Act II order and two-key requirements (Gate Arc; docs/CAMPAIGN.md "Act II")', () => {
+  // synthetic scenes: the queue sorts by (chapter, act, n) from the trigger id alone, so they work before 1-6 exists
+  const SYN = [
+    { id: 'syn.c2', kind: 'epilogue', chapter: 2, trigger: { after: '2-1' } },
+    { id: 'syn.g1', kind: 'event', chapter: 1, act: 2, trigger: { after: '1-10' } },
+    { id: 'syn.c1', kind: 'epilogue', chapter: 1, trigger: { after: '1-5' } },
+    { id: 'syn.g1b', kind: 'event', chapter: 1, act: 2, trigger: { after: '1-6' } },
+  ];
+
+  it('a 1-10 after-scene plays before a waiting 2-1 one, and 1-5 before 1-6', () => {
+    const p = createProfile();
+    const added = queueAfterClears(p, ['2-1', '1-10', '1-5', '1-6'], SYN, hasUnit);
+    expect(added).toEqual(['syn.c1', 'syn.g1b', 'syn.g1', 'syn.c2']);
+    p.story.queue = ['syn.c2', 'syn.g1'];
+    expect(nextQueued(p, SYN, hasUnit).id).toBe('syn.g1');
+    markSeen(p, 'syn.g1', { kind: 'event' });
+    expect(nextQueued(p, SYN, hasUnit).id).toBe('syn.c2');
+  });
+
+  it('requirementFor names both stages of a two-key x-6; a single-key stage reads as before', () => {
+    const base = { name: 'Fixture', mapId: 'sakura_court', desc: 'x', budget: [8, 200], pool: [{ enemy: 'slime_green', weight: 1, from: 1 }], fam: ['charm', 'rune'], scenery: { props: ['x'] } };
+    // keep whatever is registered (Act II stages land in stages.js) and put it back afterwards
+    const had = { '2-6': STAGE_MAP['2-6'], '1-6': STAGE_MAP['1-6'] };
+    STAGE_MAP['2-6'] = act2Stage({ ...base, id: '2-6' });
+    STAGE_MAP['1-6'] = act2Stage({ ...base, id: '1-6' });
+    try {
+      expect(requirementFor({ trigger: { before: '2-6' } })).toBe('Clear 2-5 {stage:2-5} and 1-10 {stage:1-10}');
+      expect(requirementFor({ trigger: { before: '1-6' } })).toBe('Clear 1-5 {stage:1-5}');
+      expect(requirementFor({ trigger: { before: '2-1' } })).toBe('Clear 1-5 {stage:1-5}');
+      const p = clearUpTo(createProfile(), '2-5');
+      expect(sceneUnlocked(p, { trigger: { before: '2-6' } })).toBe(false); // 1-10 is still missing
+      expect(sceneUnlocked(p, { trigger: { before: '1-6' } })).toBe(true);
+    } finally {
+      for (const [id, st] of Object.entries(had)) {
+        if (st) STAGE_MAP[id] = st;
+        else delete STAGE_MAP[id];
+      }
+    }
+  });
+});
+
+describe('ifOwned episodes wait for a girl the player owns (g2.class: Ruri, Iroha, Ena or Fuu)', () => {
+  const CLASS = ['ruri', 'iroha', 'ena', 'fuu'];
+  /** A save that cleared 2-9 (an after-trigger reads progress only, so this needs no stage data) and owns none of them. */
+  const at29 = () => {
+    const p = createProfile();
+    for (const id of CLASS) delete p.units[id];
+    p.progress.stages['2-9'] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+    return p;
+  };
+
+  it('stays queued while none is owned, plays once one is, and never twice', () => {
+    const p = at29();
+    const cls = sceneById('g2.class');
+    expect([...cls.ifOwned]).toEqual(CLASS);
+    expect(ownedReady(p, cls)).toBe(false);
+    expect(queueAfterClears(p, ['2-9'], SCENE_LIST, hasUnit)).toEqual(['g2.class', 'g2.roof']);
+    // the class is skipped, not dropped: the roof plays first
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g2.roof');
+    markSeen(p, sceneById('g2.roof'));
+    expect(nextQueued(p, SCENE_LIST, hasUnit)).toBeNull();
+    expect(pruneQueue(p, SCENE_LIST, hasUnit)).toEqual(['g2.class']);
+    expect(nextQueued(p, SCENE_LIST, hasUnit)).toBeNull(); // still waiting, still queued
+    expect(p.story.queue).toEqual(['g2.class']);
+    // the archive lists it, locked with the girls it needs (never NEW)
+    let row = episodeList(p, SCENE_LIST, hasUnit).find((r) => r.id === 'g2.class');
+    expect(row).toMatchObject({ unlocked: false, isNew: false, seen: false });
+    expect(row.requirement).toBe('Needs {name:ruri}, {name:iroha}, {name:ena} or {name:fuu}');
+    expect(resolveText(row.requirement)).toBe('Needs Ruri, Iroha, Ena or Fuu');
+    expect(lockedToast(row.requirement)).toBe('Needs Ruri, Iroha, Ena or Fuu. Recruit one of them to unlock this episode.');
+    expect(unseenEpisodeCount(p, SCENE_LIST, hasUnit)).toBe(episodeList(p, SCENE_LIST, hasUnit).filter((r) => r.isNew).length);
+    // one of them joins (any one): it plays next
+    grantUnit(p, 'ena');
+    expect(ownedReady(p, cls)).toBe(true);
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g2.class');
+    row = episodeList(p, SCENE_LIST, hasUnit).find((r) => r.id === 'g2.class');
+    expect(row).toMatchObject({ unlocked: true, isNew: true, requirement: null });
+    expect(markSeen(p, cls).first).toBe(true);
+    // never twice: not queued again, not offered again, a repeat mark grants nothing
+    expect(nextQueued(p, SCENE_LIST, hasUnit)).toBeNull();
+    expect(queueAfterClears(p, ['2-9'], SCENE_LIST, hasUnit)).toEqual([]);
+    expect(markSeen(p, cls)).toEqual({ first: false, rewards: [] });
+    expect(episodeList(p, SCENE_LIST, hasUnit).find((r) => r.id === 'g2.class')).toMatchObject({ seen: true, isNew: false });
+  });
+
+  it('a waiting scene keeps its place behind later clears and plays in campaign order once owned', () => {
+    const p = at29();
+    queueAfterClears(p, ['2-9'], SCENE_LIST, hasUnit);
+    p.progress.stages['2-10'] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+    queueAfterClears(p, ['2-10'], SCENE_LIST, hasUnit);
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g2.roof');
+    markSeen(p, sceneById('g2.roof'));
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g2.after'); // the class waits, the act goes on
+    grantUnit(p, 'iroha');
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g2.class'); // 2-9 plays before 2-10's remaining scenes
+  });
+
+  it('the trigger still comes first: before 2-9 is cleared the card asks for the stage, not the girls', () => {
+    const p = createProfile();
+    grantUnit(p, 'fuu');
+    const row = episodeList(p, SCENE_LIST, hasUnit).find((r) => r.id === 'g2.class');
+    expect(row.unlocked).toBe(false);
+    expect(row.requirement).toBe('Clear 2-9 {stage:2-9}');
+  });
+
+  it('Act 3\'s three side scenes (Iroha 3-7, Noa 3-9, Fuu 3-10) wait for their girl, then play once each', () => {
+    const SIDES = { 'g3.iroha': 'iroha', 'g3.noa': 'noa', 'g3.fuu': 'fuu' };
+    const p = createProfile();
+    for (const id of Object.values(SIDES)) delete p.units[id];
+    const clear = (id) => { p.progress.stages[id] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false }; };
+    for (const [id, girl] of Object.entries(SIDES)) expect([...sceneById(id).ifOwned], id).toEqual([girl]);
+    // after-triggers read progress only, so this needs no stage data
+    for (const st of ['3-7', '3-8', '3-9', '3-10']) clear(st);
+    expect(queueAfterClears(p, ['3-7', '3-8', '3-9', '3-10'], SCENE_LIST, hasUnit)).toEqual([
+      'g3.iroha', 'g3.hammer', 'g3.noa', 'g3.after', 'g3.fuu', 'g3.epi',
+    ]);
+    // the main episodes play in order; the sides are skipped, not dropped
+    for (const id of ['g3.hammer', 'g3.after', 'g3.epi']) {
+      expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe(id);
+      markSeen(p, sceneById(id));
+    }
+    expect(nextQueued(p, SCENE_LIST, hasUnit)).toBeNull();
+    expect(pruneQueue(p, SCENE_LIST, hasUnit)).toEqual(['g3.iroha', 'g3.noa', 'g3.fuu']);
+    const rows = Object.fromEntries(episodeList(p, SCENE_LIST, hasUnit).map((r) => [r.id, r]));
+    expect(rows['g3.iroha']).toMatchObject({ unlocked: false, isNew: false, requirement: 'Needs {name:iroha}' });
+    expect(rows['g3.noa'].requirement).toBe('Needs {name:noa}');
+    expect(resolveText(rows['g3.fuu'].requirement)).toBe('Needs Fuu');
+    // each girl opens only her own scene, and each plays once
+    grantUnit(p, 'noa');
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g3.noa');
+    expect(markSeen(p, sceneById('g3.noa')).first).toBe(true);
+    expect(nextQueued(p, SCENE_LIST, hasUnit)).toBeNull();
+    grantUnit(p, 'fuu');
+    grantUnit(p, 'iroha');
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g3.iroha'); // 3-7 before 3-10
+    markSeen(p, sceneById('g3.iroha'));
+    expect(nextQueued(p, SCENE_LIST, hasUnit).id).toBe('g3.fuu');
+    markSeen(p, sceneById('g3.fuu'));
+    expect(nextQueued(p, SCENE_LIST, hasUnit)).toBeNull();
+    expect(queueAfterClears(p, ['3-7', '3-9', '3-10'], SCENE_LIST, hasUnit)).toEqual([]);
+    for (const id of Object.keys(SIDES)) expect(markSeen(p, sceneById(id))).toEqual({ first: false, rewards: [] });
+  });
+
+  it('Act 4 plays in order after 4-7, 4-8 and 4-10; Azami\'s join plays once, whether or not the save already has her', () => {
+    // after-triggers read progress only, so this needs no stage data
+    const run = (ownsAzami) => {
+      const p = createProfile();
+      if (ownsAzami) grantUnit(p, 'azami'); // a save that met her at 2-2 (the legacy grant or the catch-up letter)
+      else delete p.units.azami;
+      for (const st of ['4-7', '4-8', '4-10']) p.progress.stages[st] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+      expect(queueAfterClears(p, ['4-10', '4-8', '4-7'], SCENE_LIST, hasUnit)).toEqual([
+        'g4.azami', 'g4.cross', 'g4.logs', 'g4.after', 'g4.epi',
+      ]);
+      const played = [];
+      for (let sc = nextQueued(p, SCENE_LIST, hasUnit); sc; sc = nextQueued(p, SCENE_LIST, hasUnit)) {
+        played.push(sc.id);
+        expect(markSeen(p, sc).first, sc.id).toBe(true);
+      }
+      expect(played).toEqual(['g4.azami', 'g4.cross', 'g4.logs', 'g4.after', 'g4.epi']);
+      // never twice: a second clear queues nothing, a repeat mark grants nothing
+      expect(queueAfterClears(p, ['4-7'], SCENE_LIST, hasUnit)).toEqual([]);
+      expect(markSeen(p, sceneById('g4.azami'))).toEqual({ first: false, rewards: [] });
+      const row = episodeList(p, SCENE_LIST, hasUnit).find((r) => r.id === 'g4.azami');
+      expect(row).toMatchObject({ unlocked: true, seen: true, isNew: false, requirement: null });
+    };
+    run(true);
+    run(false);
+  });
+
+  it('Act 5 plays g5.pro before 5-6 (once 5-5 and 4-10 are clear), g5.mid before 5-8, g5.boss before 5-10', () => {
+    // before-triggers need the stages registered (src/data/stages.js, 5-6 … 5-10 with the two-key 5-6)
+    const clear = (p, id) => { p.progress.stages[id] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false }; };
+    const early = clearUpTo(createProfile(), '5-5');
+    expect(beforeSceneFor(early, '5-6', SCENE_LIST, hasUnit)).toBeNull(); // 4-10 is still missing
+    const p = clearUpTo(createProfile(), '4-10');
+    expect(beforeSceneFor(p, '5-6', SCENE_LIST, hasUnit)?.id).toBe('g5.pro');
+    for (const st of ['5-6', '5-7']) clear(p, st);
+    expect(beforeSceneFor(p, '5-8', SCENE_LIST, hasUnit)?.id).toBe('g5.mid');
+    for (const st of ['5-8', '5-9']) clear(p, st);
+    expect(beforeSceneFor(p, '5-10', SCENE_LIST, hasUnit)?.id).toBe('g5.boss');
+    expect(requirementFor(sceneById('g5.pro'))).toBe('Clear 5-5 {stage:5-5} and 4-10 {stage:4-10}');
+  });
+
+  it('Act 5 queues in order after 5-7, 5-8, 5-9 and 5-10; the three after-5-10 scenes play after, epi, board', () => {
+    // after-triggers read progress only, so this needs no stage data
+    const p = createProfile();
+    for (const st of ['5-7', '5-8', '5-9', '5-10']) p.progress.stages[st] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+    expect(queueAfterClears(p, ['5-10', '5-9', '5-8', '5-7'], SCENE_LIST, hasUnit)).toEqual([
+      'g5.embers', 'g5.raid', 'g5.whiteboard', 'g5.after', 'g5.epi', 'g5.board',
+    ]);
+    const played = [];
+    for (let sc = nextQueued(p, SCENE_LIST, hasUnit); sc; sc = nextQueued(p, SCENE_LIST, hasUnit)) {
+      played.push(sc.id);
+      expect(markSeen(p, sc), sc.id).toEqual({ first: true, rewards: [] });
+    }
+    expect(played).toEqual(['g5.embers', 'g5.raid', 'g5.whiteboard', 'g5.after', 'g5.epi', 'g5.board']);
+    expect(queueAfterClears(p, ['5-10'], SCENE_LIST, hasUnit)).toEqual([]);
+  });
+
+  it('Act 6 plays g6.pro before 6-6 (once 6-5 and 5-10 are clear), g6.mid before 6-8, g6.boss before 6-10', () => {
+    // before-triggers need the stages registered (src/data/stages.js, 6-6 … 6-10 with the two-key 6-6; S6c)
+    const clear = (p, id) => { p.progress.stages[id] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false }; };
+    const early = clearUpTo(createProfile(), '6-5');
+    expect(beforeSceneFor(early, '6-6', SCENE_LIST, hasUnit)).toBeNull(); // 5-10 is still missing
+    const p = clearUpTo(createProfile(), '5-10');
+    expect(beforeSceneFor(p, '6-6', SCENE_LIST, hasUnit)?.id).toBe('g6.pro');
+    for (const st of ['6-6', '6-7']) clear(p, st);
+    expect(beforeSceneFor(p, '6-8', SCENE_LIST, hasUnit)?.id).toBe('g6.mid');
+    for (const st of ['6-8', '6-9']) clear(p, st);
+    expect(beforeSceneFor(p, '6-10', SCENE_LIST, hasUnit)?.id).toBe('g6.boss');
+    expect(requirementFor(sceneById('g6.pro'))).toBe('Clear 6-5 {stage:6-5} and 5-10 {stage:5-10}');
+  });
+
+  it('Act 6 queues in order after 6-7, 6-8 and 6-10; the three after-6-10 scenes play after, epi, doorie', () => {
+    // after-triggers read progress only, so this needs no stage data
+    const p = createProfile();
+    for (const st of ['6-7', '6-8', '6-10']) p.progress.stages[st] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+    expect(queueAfterClears(p, ['6-10', '6-8', '6-7'], SCENE_LIST, hasUnit)).toEqual([
+      'g6.sleep', 'g6.chair', 'g6.after', 'g6.epi', 'g6.doorie',
+    ]);
+    const played = [];
+    for (let sc = nextQueued(p, SCENE_LIST, hasUnit); sc; sc = nextQueued(p, SCENE_LIST, hasUnit)) {
+      played.push(sc.id);
+      expect(markSeen(p, sc), sc.id).toEqual({ first: true, rewards: [] });
+    }
+    expect(played).toEqual(['g6.sleep', 'g6.chair', 'g6.after', 'g6.epi', 'g6.doorie']);
+  });
+
+  it('the Star Dome: g6.star1 plays when the side stage is opened, g6.star2 on its first clear, nothing else', () => {
+    const SIDE = 'side-6-starfall';
+    // the side stage (S6c): kind 'side', anchored after 6-10, not a campaign stage (so not in co-op or the counters)
+    expect(STAGE_MAP[SIDE]).toMatchObject({ kind: 'side', chapter: 6, anchor: '6-10', requires: '6-10' });
+    expect(CAMPAIGN_IDS).not.toContain(SIDE);
+    expect(STORY_TRIGGER_STAGE_IDS).toContain(SIDE);
+    const p = clearUpTo(createProfile(), '5-10');
+    for (const st of ['6-6', '6-7', '6-8', '6-9']) p.progress.stages[st] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+    expect(beforeSceneFor(p, SIDE, SCENE_LIST, hasUnit)).toBeNull(); // locked until 6-10 is cleared
+    p.progress.stages['6-10'] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+    expect(beforeSceneFor(p, SIDE, SCENE_LIST, hasUnit)?.id).toBe('g6.star1');
+    expect(requirementFor(sceneById('g6.star1'))).toBe('Clear 6-10 {stage:6-10}');
+    expect(requirementFor(sceneById('g6.star2'))).toBe(`Clear {stage:${SIDE}}`);
+    expect(resolveText(requirementFor(sceneById('g6.star2')))).toBe(`Clear ${STAGE_MAP[SIDE].name}`);
+    markSeen(p, sceneById('g6.star1'));
+    expect(beforeSceneFor(p, SIDE, SCENE_LIST, hasUnit)).toBeNull();
+    // its first clear is watched like a campaign clear, and queues g6.star2 and never a chapter scene
+    expect(clearedStoryStages(p).has(SIDE)).toBe(false);
+    p.progress.stages[SIDE] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+    expect(clearedStoryStages(p).has(SIDE)).toBe(true);
+    expect(clearedCampaign(p).has(SIDE)).toBe(false);
+    expect(queueAfterClears(p, [SIDE], SCENE_LIST, hasUnit)).toEqual(['g6.star2']);
+    expect(nextQueued(p, SCENE_LIST, hasUnit)?.id).toBe('g6.star2');
+    expect(markSeen(p, sceneById('g6.star2'))).toEqual({ first: true, rewards: [] });
+    expect(queueAfterClears(p, [SIDE], SCENE_LIST, hasUnit)).toEqual([]);
+  });
+
+  it('a side stage only ever triggers its own scenes (pure: works before the side stage is registered)', () => {
+    const p = createProfile();
+    p.progress.stages['side-6-starfall'] = { clears: 1, easy: false, normal: true, hard: false, nightmare: false };
+    expect(queueAfterClears(p, ['side-6-starfall'], SCENE_LIST, hasUnit)).toEqual(['g6.star2']);
+    const sideScenes = SCENE_LIST.filter((s) => /^side-/.test(s.trigger?.before || s.trigger?.after || ''));
+    expect(sideScenes.map((s) => s.id)).toEqual(['g6.star1', 'g6.star2']);
+    for (const s of sideScenes) expect([s.kind, s.act, s.chapter], s.id).toEqual(['event', 2, 6]);
+  });
+
+  it('a before-scene with ifOwned is offered only once a listed girl is owned; requirement text for one or many', () => {
+    const p = clearUpTo(createProfile(), '1-1');
+    for (const id of CLASS) delete p.units[id];
+    const syn = [{ id: 'syn.owned', kind: 'event', chapter: 1, trigger: { before: '1-2' }, ifOwned: ['fuu'] }];
+    expect(beforeSceneFor(p, '1-2', syn, hasUnit)).toBeNull();
+    grantUnit(p, 'fuu');
+    expect(beforeSceneFor(p, '1-2', syn, hasUnit)?.id).toBe('syn.owned');
+    expect(ownedRequirementFor(syn[0])).toBe('Needs {name:fuu}');
+    expect(ownedRequirementFor({ ifOwned: ['ruri', 'ena'] })).toBe('Needs {name:ruri} or {name:ena}');
+    expect(ownedRequirementFor(sceneById('g2.roof'))).toBeNull();
+    expect(ownedReady(p, sceneById('g2.roof'))).toBe(true);
   });
 });

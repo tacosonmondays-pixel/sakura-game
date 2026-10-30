@@ -92,6 +92,10 @@ function kitFields(s) {
     strip: s.strip, ring: s.ring, drink: s.drink, sentry: s.sentry, hub: s.hub, vine: s.vine, ball: s.ball,
     // Kaede's blade arts (her AoE rework)
     blade: s.blade,
+    // the duo's beam and prism (src/sim/duo.js)
+    duo: s.duo,
+    // the staff heroes (BANNERS §D): Norika's barricades and skill count, Kogane's Move downtime and Overdrive
+    barricade: s.barricade, skillCount: s.skillCount, moveDowntime: s.moveDowntime, overdrive: s.overdrive,
   };
   return JSON.stringify(f);
 }
@@ -114,7 +118,7 @@ describe('Potential v3 data: rows', () => {
     }
     // no row for a girl who does not exist (a kit variant is `id@kitStyle`)
     for (const id of Object.keys(POTENTIAL_GIRLS)) expect(UNIT_MAP[id.split('@')[0]], id).toBeTruthy();
-    expect(Object.keys(POTENTIAL_GIRLS).length).toBe(UNITS.length);
+    expect(Object.keys(POTENTIAL_GIRLS).length).toBe(UNITS.length); // one row per girl (no kit-variant rows yet)
   });
 
   test('kind per step matches the rarity table (heroes, Nami included, use the SSR kinds)', () => {
@@ -136,7 +140,7 @@ describe('Potential v3 data: rows', () => {
 
   test('step names are unique and clash with no other name in the game', () => {
     const names = Object.values(POTENTIAL_GIRLS).flatMap((row) => STEPS.map((k) => row[k].name));
-    expect(names.length).toBe(UNITS.length * 5); // every girl, five steps each
+    expect(names.length).toBe(UNITS.length * STEPS.length); // five steps per girl
     expect(new Set(names.map((n) => n.toLowerCase())).size).toBe(names.length);
     const taken = new Set();
     const add = (n) => { if (typeof n === 'string' && n) taken.add(n.toLowerCase()); };
@@ -192,7 +196,7 @@ describe('Potential v3 data: keys', () => {
     for (const bad of banned) expect(modKeys(bad).every((k) => POTENTIAL_MOD_KEYS.includes(k)), JSON.stringify(bad)).toBe(false);
   });
 
-  test('one-girl keys: projScale and tempo Kage, classMul Hotaru (spectral only), bossMul Kaede', () => {
+  test('one-girl keys: projScale and tempo Kage, classMul Hotaru (spectral only), bossMul Kaede, the Move keys Kogane, skillCount Norika', () => {
     const seen = {};
     for (const [id, row] of Object.entries(POTENTIAL_GIRLS)) {
       for (const k of STEPS) {
@@ -205,7 +209,7 @@ describe('Potential v3 data: keys', () => {
         if (cm) expect(Object.keys(cm)).toEqual(['spectral']);
       }
     }
-    expect(Object.fromEntries(Object.entries(seen).map(([k, v]) => [k, [...v]]))).toEqual({ projScale: ['kage'], tempo: ['kage'], classMul: ['hotaru'], bossMul: ['kaede'] });
+    expect(Object.fromEntries(Object.entries(seen).map(([k, v]) => [k, [...v]]))).toEqual({ projScale: ['kage'], tempo: ['kage'], classMul: ['hotaru'], bossMul: ['kaede'], moveDowntime: ['kogane'], overdrive: ['kogane'], skillCount: ['norika'] });
   });
 
   test('projScale only where every build is a projectile attack; echo only on projectile / beam / chain / pulse (a duel only at a share < 1; never traps)', () => {

@@ -3,7 +3,8 @@
 import { describe, it, expect } from 'vitest';
 import { droneName, DRONE_NAMES } from '../../src/data/droneNames.js';
 import { createRateMeter } from '../../src/ui/battle/util.js';
-import { hasDroneTabs, wingNumbers, sampleDroneRates } from '../../src/ui/battle/chikaPanel.js';
+import { hasDroneTabs, wingNumbers, sampleDroneRates, wingDpsCells, DRONE_TABS, droneHeader, surgeRowText, droneLabel } from '../../src/ui/battle/chikaPanel.js';
+import { fmtNum } from '../../src/ui/format.js';
 import { createBattleSim } from '../../src/ui/battle/setup.js';
 import { createProfile } from '../../src/systems/save.js';
 import { FLIGHT_PURSUIT_RATE_MUL, STEP } from '../../src/sim/constants.js';
@@ -74,5 +75,54 @@ describe('the tabs share one DPS basis', () => {
     const p = wingNumbers(sim.towerStats(t.uid));
     expect(p.wing).toBeCloseTo(w.wing * FLIGHT_PURSUIT_RATE_MUL, 9);
     expect(hasDroneTabs(sim.towerStats(sim.towers.find((x) => x !== t)?.uid ?? -1))).toBe(false);
+  });
+});
+
+describe('the drawer (A3 M4): her paths on the Glance, the tabs behind MORE', () => {
+  it('MORE has Overall · Chika · Drones and no Upgrades tab (the path rows are on the drawer)', () => {
+    expect(DRONE_TABS).toEqual(['overall', 'chika', 'drones']);
+  });
+
+  it('her DPS cells read in the one number style ("3.6", never "3.6000001")', () => {
+    const { sim, t } = chikaBattle();
+    const cells = wingDpsCells(sim.towerStats(t.uid));
+    for (const c of [cells.overall, cells.wing]) expect(c.value).toMatch(/^\d[\d,]*(\.\d)?[kMBT]?$/);
+  });
+});
+
+describe('Drone Surge in the Drones tab (her ⚡, ABILITIES_SPEC §5.1)', () => {
+  it('the header counts her own drones + the surge; surge rows are "Surge 1…k" with a live timer, never a serial name', () => {
+    expect(droneHeader(4)).toBe('4');
+    expect(droneHeader(4, 0)).toBe('4');
+    expect(droneHeader(4, 4)).toBe('4 + 4 surge');
+    expect(droneHeader(9, 8)).toBe('9 + 8 surge');
+    expect(surgeRowText(1, 12)).toEqual({ name: 'Surge 1', timer: `${fmtNum(12, 'time')}s` });
+    expect(surgeRowText(3, 7.5).name).toBe('Surge 3');
+    expect(surgeRowText(3, 7.5).timer).toBe(`${fmtNum(7.5, 'time')}s`);
+    expect(surgeRowText(2, -1).timer).toBe(`${fmtNum(0, 'time')}s`);
+    expect(droneLabel({ n: 0, surge: 2, left: 3 })).toBe('Surge 2');
+    expect(droneLabel({ n: 2, surge: 0, left: 0 })).toBe('#2 Rivet');
+  });
+
+  it('from a real cast: droneStats marks the surge drones (k and seconds left), towerStats counts them apart', () => {
+    const { sim, t } = chikaBattle();
+    const path = t.def.paths.findIndex((p) => p.ability);
+    for (let i = 0; i < 3; i++) expect(sim.upgradeTower(t.uid, path)).toBe(true);
+    sim.startNextWave();
+    let cast = false;
+    for (let i = 0; i < 60 * 60 && !cast; i++) {
+      sim.update(STEP);
+      if (t.abil && sim.state === 'wave' && i % 10 === 0) {
+        t.abil.cd = 0;
+        cast = sim.castAbility(t.uid).ok;
+      }
+    }
+    expect(cast).toBe(true);
+    const st = sim.towerStats(t.uid).turret;
+    expect(st.surge).toBe(4);
+    const rows = sim.droneStats(t.uid).filter((d) => d.surge > 0);
+    expect(rows.map((d) => droneLabel(d))).toEqual(['Surge 1', 'Surge 2', 'Surge 3', 'Surge 4']);
+    expect(rows.every((d) => d.left > 11.9 && d.left <= 12)).toBe(true);
+    expect(droneHeader(st.active, st.surge)).toBe(`${st.active} + 4 surge`);
   });
 });

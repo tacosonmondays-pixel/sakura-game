@@ -6,6 +6,7 @@ import { createRng } from '../core/rng.js';
 import {
   STEP, MAX_STEPS_PER_UPDATE, HOLY_SILENCE, AUTO_START_DELAY,
   BUFF_REFRESH, DEFAULT_UNIT_STATS, KNOCKBACK_RESIST, HERO_PUSH_LOCK, FLIGHT_POINT_ROAM_MUL, DPS_WINDOW,
+  INCOME_INTEREST_MAX,
 } from './constants.js';
 import {
   AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
@@ -27,7 +28,7 @@ import {
 } from './enemies.js';
 import {
   createTower, refreshTowerStats, recomputeBuffs, costCutAt, updateTower,
-  updateProjectiles, updateTraps, baseCost, setFlight, flightMode, signalRange, hasRoamingDrones, finalePop,
+  updateProjectiles, updateTraps, baseCost, setFlight, flightMode, signalRange, hasRoamingDrones, finalePop, ownDrones,
 } from './towers.js';
 import { POP_BUDGET_MAX, POP_COST } from './gearRules.js';
 import { updateShells, aimMode, updateRelayOrigin } from './towers.js';
@@ -36,15 +37,18 @@ import {
   initHero, gainHeroXp, tickHero, heroUltStatus, activateUlt as fireUlt, heroXpInfo, heroPace, waveClearXp,
   damageXp, heroLevelStatus, buyHeroLevel, canMoveHero, moveHero, ultRank,
 } from './hero.js';
-import { generateWave, summarizeWave } from './waves.js';
+import { generateWave, summarizeWave, openLanes } from './waves.js';
 import { generateFreeplayWave } from './freeplay.js';
 import { buildWaveWarnings, buildDebrief } from './report.js';
 import { snapshotSim, restoreSim } from './snapshot.js';
 import {
   syncAbility, tickAbilities, castAbility as castAbilityOn, abilityStatus as abilityStatusOf, setAbilityAuto as setAbilityAutoOn,
   setAbilityAutoAll as setAbilityAutoAllOn, abilitySlots as abilitySlotsOf, startAbilityWave, endAbilityWave, clearAbilityEffects,
+  abilityKill,
 } from './abilities.js';
 import { applyFoeVuln, bountyMulAt, spreadDot } from './potential.js';
+import { syncZones, updateZones, endZoneWave, clearZones, nearExit } from './zones.js';
+import { syncLab, absorbInto, updateLab, labIncome, endLabWave } from './lab.js';
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
 import { endStripWave } from './strips.js';
 import { endRingWave } from './rings.js';
@@ -53,10 +57,19 @@ import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
 import { onVineKill, endVineWave } from './vines.js';
 import { endBallWave } from './balls.js';
+import { syncBarricades, updateBarricades, endBarricadeWave, detourOnHit } from './barricades.js';
 import {
   createRuleRuntime, routeReversedFor, routeFlippedFor, reversePath, rebuildRuleTables, ruleStep, ruleWaveStart,
   ruleWaveEnd, ruleWaveClear, ruleBountyAdd, ruleHitScale, ruleDotScale, assignPads, ruleInfo, ruleAffinityFor,
 } from './rules.js';
+import {
+  createTryout, tryoutLoadouts, tryoutCanStart, tryoutWaveStart, tryoutWaveEnd, tryoutTick, tryoutSpawn, tryoutKill, tryoutLeak,
+  tryoutCount, tryoutPlaceCost, tryoutPlaced, tryoutTowerMods, tryoutUpgradeCost, tryoutUpgraded, tryoutResult, tryoutCommand,
+  tryoutMove, windowOpen, tryoutBackGate, tryoutCanHeal, pendingAutoPick,
+} from './tryout/index.js';
+import { randomPlayers } from './tryout/random.js';
+import { assignSeats, nextSeats } from './tryout/breaks.js';
+import { hasCards, refreshRunMods } from './tryout/pep.js';
 
 const MAX_EVENT_BACKLOG = 20000;
 
@@ -64,6 +77,9 @@ const MAX_EVENT_BACKLOG = 20000;
 export function roundCost(c) {
   return Math.max(5, Math.round(c / 5) * 5);
 }
+
+/** Sim → the last openLanes() answer (render-side cache; outside the Sim's fields and its snapshots). */
+const LANE_MEMO = new WeakMap();
 
 export class Sim {
   /**
@@ -81,7 +97,9 @@ export class Sim {
     this.map = ds.map;
     this.difficulty = DIFFICULTIES[difficulty] ? difficulty : 'normal';
     this.diff = DIFFICULTIES[this.difficulty];
-    this.options = { endless: false, autoStart: false, ...options };
+    // Tryout Day (src/sim/tryout): its config is read once here and never kept in options (a snapshot stores options)
+    const { tryout: tryoutCfg = null, ...opts } = options;
+    this.options = { endless: false, autoStart: false, ...opts };
     this.seed = seed;
     this.rng = createRng(seed);
 
@@ -128,10 +146,14 @@ export class Sim {
     // totalWaves stays the goal (the "15" of 16/15). Clearing it emits a non-terminal 'goal' event;
     // waves past it come from generateFreeplayWave, and the run ends on defeat or finish() (a
     // Finish vote) — there is no last wave unless the table sets maxWave.
-    this.freeplay = !this.endless && !!this.options.freeplay && !!this.stage.freeplay && Number.isFinite(this.totalWaves);
+    // Tryout Day's Extended Day (docs/specs/TRYOUT_DAY.md §20.2) runs the same freeplay waves past its 48, switched on
+    // by the run's length (its stage carries the table), never by options.freeplay: a co-op start keeps freeplay null.
+    const tyAfter = !!tryoutCfg && tryoutCfg.length === 'after';
+    this.freeplay = !this.endless && (!!this.options.freeplay || tyAfter) && !!this.stage.freeplay && Number.isFinite(this.totalWaves);
     this.lastWave = this.freeplay ? Math.max(this.totalWaves, this.stage.freeplay.maxWave ?? Infinity) : this.totalWaves;
-    /** Past this wave (freeplay, solo endless on a campaign map) a rule keeps only its combat effects. */
-    this._ruleGoal = Number.isFinite(this.stage.waves) ? this.stage.waves : Infinity;
+    /** Past this wave (freeplay, solo endless on a campaign map) a rule keeps only its combat effects (never in a run:
+     *  the run owns its rule, its Subjects and seats, all day). */
+    this._ruleGoal = Number.isFinite(this.stage.waves) && !(tyAfter && this.freeplay) ? this.stage.waves : Infinity;
     /** Freeplay pressure of the current wave (flat armor, Resolve budgets) for every enemy entering it. */
     this._fp = null;
     /** A freeplay run ended by finish() (state 'won' after the goal), not by defeat. */
@@ -215,6 +237,64 @@ export class Sim {
       this._bountyAdd = ruleBountyAdd(this.rule.def, this);
       rebuildRuleTables(this);
     }
+    if (tryoutCfg) this._initTryout(tryoutCfg);
+  }
+
+  /**
+   * Tryout Day (docs/specs/TRYOUT_DAY.md): `cfg` = { seed, grade, length, mapId, players: [{ squad }], pools:
+   * [{ girlId: account stats }], squads?, period? } (squads / period: a restore's, §12.2). The heroes come in
+   * the usual hero arguments with their account stats; the run bands them. Fields the snapshot skips
+   * (REBUILT): _tryoutCfg (the pools and the heroes' account stats), _loadouts (each player's loadout map),
+   * viewOwner (the viewing or commanding player; co-op's view() sets it).
+   */
+  _initTryout(cfg) {
+    const n = Math.max(1, Math.min(2, cfg.players?.length || 1));
+    // (Random Class, §20.4: each player's three are drawn from their own six here; any draft is ignored)
+    const players = randomPlayers(cfg, (cfg.players || [{}]).slice(0, n));
+    this._tryoutCfg = { ...cfg, players, pools: (cfg.pools || []).slice(0, n), heroAcct: this.heroConfigs.map((c) => (c ? { ...c.stats } : null)) };
+    this.viewOwner = 0;
+    this.loadout.clear();
+    this._loadouts = players.map((_, i) => (i === 0 ? this.loadout : new Map()));
+    tryoutLoadouts(this, cfg.squads || players.map((p) => p.squad || []), cfg.period || 1);
+    createTryout(this, this._tryoutCfg);
+    if (cfg.squads) this.tryout.players.forEach((p, i) => { p.squad = cfg.squads[i].slice(); });
+    // Back Gate (History) flips even waves: the reversed paths, built when any period may offer it
+    // (Extended Day draws its later Subjects as it goes, so it always has them)
+    if (!this._pathsRev && (tryoutBackGate(this) || this.freeplay)) {
+      this._pathsRev = this._pathsFwd.map(reversePath);
+    }
+  }
+
+  /** A Tryout Day run command for player `slot` (solo: 0): see src/sim/tryout/index.js tryoutCommand. */
+  tryoutCommand(slot, op, args = []) {
+    return this.tryout ? tryoutCommand(this, slot, op, args) : { ok: false, reason: 'noRun' };
+  }
+
+  /** A Tryout Day Hall Pass move for player `slot`. */
+  tryoutMove(slot, uid, x, y) {
+    return this.tryout ? tryoutMove(this, slot, uid, x, y) : { ok: false, reason: 'noRun' };
+  }
+
+  /** Random Class (§20.4): player `slot`'s pending auto-pick for the reveal (src/sim/tryout/random.js pendingAutoPick); null: none. */
+  tryoutAutoPick(slot = this.viewOwner ?? 0) {
+    return this.tryout ? pendingAutoPick(this, slot) : null;
+  }
+
+  /** Is a Tryout Day pick or break open (the next wave waits)? */
+  tryoutWindowOpen() {
+    return !!this.tryout && windowOpen(this);
+  }
+
+  /** The run's seat assigner (rules.js assignPads hands runs over to it). */
+  tryoutSeats() {
+    // placement cards (Desk Partners, Quiet Corner) read where the girls stand: re-folded on every placement, sale and move
+    if (hasCards(this, (c) => c?.group === 'placement')) refreshRunMods(this);
+    assignSeats(this);
+  }
+
+  /** A run's per-player counter (hero.js: ults). */
+  tryoutCount(owner, key, n = 1) {
+    if (this.tryout) tryoutCount(this, owner, key, n);
   }
 
   // -------------------------------------------------------------------------
@@ -278,6 +358,8 @@ export class Sim {
     this._curseBudget = CURSE_BURSTS_PER_TICK;
     if (this._curseQueue.length && !this._flushingCurses) this._flushCurses();
     updateEnemyAuras(this);
+    // Norika's barricades: spots, rebuilds and Hold the Line timers, before the enemies move into them
+    if (this._blockOn) updateBarricades(this);
     for (let i = 0; i < this.enemies.length; i++) {
       const e = this.enemies[i];
       if (!e.dead) updateEnemy(this, e, dt);
@@ -288,13 +370,18 @@ export class Sim {
     // rally cast this step applies this step
     if (this._abilOn > 0 || this.abilGroups.size > 0) tickAbilities(this);
     for (let i = 0; i < this.towers.length; i++) updateTower(this, this.towers[i], dt);
+    // Tenka's lab weapons (src/sim/lab.js): only once a girl has a lab team
+    if (this._labOn) updateLab(this);
     updateProjectiles(this, dt);
     updateTraps(this, dt);
+    // zones (Tenka's wells and Last Line, src/sim/zones.js): only once a girl with one was placed
+    if (this.zones) updateZones(this, dt);
     updateShells(this, dt);
     if (this.runners.length) updateRunners(this, dt);
     this._removeDead();
     tickHero(this, dt);
     this._checkWaveEnd();
+    if (this.tryout) tryoutTick(this);
     if (this.state === 'between' && this._autoTimer >= 0) {
       this._autoTimer -= dt;
       if (this._autoTimer <= 0) {
@@ -365,9 +452,10 @@ export class Sim {
   // Events / ids / cash
   // -------------------------------------------------------------------------
 
+  /** Queues an event. A payload built for it that already carries this `type` first (a hit) is queued as is, uncopied. */
   _emit(type, payload) {
     if (this.events.length >= MAX_EVENT_BACKLOG) this.events.splice(0, this.events.length >> 1);
-    this.events.push({ type, ...payload });
+    this.events.push(payload.type === type ? payload : { type, ...payload });
   }
 
   /** Returns and clears every event since the last call. */
@@ -453,6 +541,7 @@ export class Sim {
     if (o.parent) e.parentUid = o.parent.uid;
     if (o.leak != null) e.leak = o.leak;
     if (o.mods) applySpawnMods(e, o.mods);
+    if (this.tryout) tryoutSpawn(this, e);
     if (this._fp) applyPressure(e, this._fp);
     if (this._modeArmor) {
       const add = e.tier === 'boss' || e.tier === 'miniboss' ? this._modeArmor * (this.mode.bossArmorMul ?? 1) : this._modeArmor;
@@ -488,13 +577,21 @@ export class Sim {
     const res = computeHit(e, spec, roll, scale, this._hitOut);
     if (!res) return -1;
     const hpBefore = e.hp;
-    const flags = applyHitResult(e, res);
+    const flags = applyHitResult(e, res, spec.share);
     const dealt = Math.min(res.toHp, Math.max(0, hpBefore)) + res.toBarrier;
     e.flash = 1;
     e.lastDamageAt = this.time;
-    this._emit('hit', {
-      uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective,
-    });
+    // (`tick`: a constant beam's damage tick, src/sim/duo.js: the display sums those instead of popping each)
+    // (one object per hit event: built with its type, so _emit queues it uncopied)
+    if (spec.tick) {
+      this._emit('hit', {
+        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective, tick: true,
+      });
+    } else {
+      this._emit('hit', {
+        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective,
+      });
+    }
     if (flags & BARRIER_BROKE) this._emit('barrierBreak', { uid: e.uid });
     if (flags & SHELL_BROKE) this._emit('shellBreak', { uid: e.uid });
     this._credit(tower, dealt, e, drone);
@@ -537,7 +634,9 @@ export class Sim {
     }
     // push lock (roster B3): a girl in PUSH_LOCK_KITS (Fuu; or a spec with `pushLock`) moves an enemy at most once
     // per PUSH_LOCK window; a hero's own push-back has its own shorter lock (HERO_PUSH_LOCK, hero
-    // rework). The two never block each other, and the live girls' pushes stay unlocked, as on live.
+    // rework). The two never block each other, and the live girls' pushes stay unlocked, as on live. The lock
+    // remembers whose hit set it (e.pushLockBy: Backdraft Fan ignores the locks of Fuu's own gusts). The field exists
+    // only once such a lock was set (createEnemy leaves it out, so a battle without one keeps its snapshots exactly).
     if (spec.knockback > 0) {
       const hero = !!tower?.isHero;
       const locks = !hero && (PUSH_LOCK_KITS.includes(tower?.unitId) || spec.pushLock === true);
@@ -549,19 +648,25 @@ export class Sim {
           e.dist = Math.max(0, e.dist - amt);
           placeOnPath(e, this.pathData[e.pathIndex]);
           if (hero) e.heroPushLock = this.time + HERO_PUSH_LOCK;
-          else if (locks) e.pushLock = PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal;
+          else if (locks) {
+            e.pushLock = PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal;
+            e.pushLockBy = tower ? tower.uid : -1;
+          }
         }
       }
     }
-    if (spec.gather > 0 && !e.dead) this._gather(e, spec.gather);
+    if (spec.gather > 0 && !e.dead) this._gather(e, spec.gather, tower ? tower.uid : -1);
+    // Norika's Detour Sign: her waves send an enemy still before a fork down the longer branch
+    if (spec.barricade?.detour && !e.dead) detourOnHit(this, e);
     syncStatusFlags(e);
   }
 
   /**
    * Gather: enemies AHEAD of `e` on its path within GATHER_RADIUS are pulled back toward it by
-   * `amount` of the gap (max GATHER_MAX). Never minibosses/bosses, never past `e`, push lock respected.
+   * `amount` of the gap (max GATHER_MAX). Never minibosses/bosses, never past `e`, push lock respected; the lock it
+   * sets remembers `byUid`, the girl whose hit gathered (e.pushLockBy).
    */
-  _gather(e, amount) {
+  _gather(e, amount, byUid = -1) {
     const f = Math.min(GATHER_MAX, amount);
     const path = this.pathData[e.pathIndex];
     const near = this._scratch3;
@@ -575,6 +680,7 @@ export class Sim {
       q.dist -= (q.dist - e.dist) * f;
       placeOnPath(q, path);
       q.pushLock = PUSH_LOCK[q.tier] ?? PUSH_LOCK.normal;
+      q.pushLockBy = byUid;
     }
     near.length = 0;
   }
@@ -648,6 +754,9 @@ export class Sim {
     const bounty = this._gainCash(bm > 1 ? e.bounty * bm : e.bounty);
     if (this._hubBounty) payHubBounty(this, e); // Ouka's Sponsorship (src/sim/hubs.js)
     this.kills[e.id] = (this.kills[e.id] || 0) + 1;
+    if (this.tryout) tryoutKill(this, e);
+    // a rally that brings lives back counts the kills near its caster (Noa's First Aid Call; only while a rally runs)
+    if (this._rallies.length) abilityKill(this, e);
     if (tower && !tower.removed) {
       tower.kills++;
       if (!drone && tower.stats?.vine) onVineKill(this, tower, e); // Chigusa's thorn beds (src/sim/vines.js)
@@ -710,6 +819,11 @@ export class Sim {
     this._flushingCurses = false;
   }
 
+  /** The near-exit hook (GAPS P-14; src/sim/enemies.js, only while _nearExitOn): Last Line listens. */
+  _nearExit(e) {
+    nearExit(this, e);
+  }
+
   _leak(e) {
     if (e.dead) return;
     e.dead = true;
@@ -718,6 +832,7 @@ export class Sim {
     this.lives -= lost;
     this.stats.leaks += lost;
     this.stats.enemiesLeaked++;
+    if (this.tryout) tryoutLeak(this, e);
     const wave = e.wave || this.wave;
     this.stats.leakLog.push({ wave, enemyId: e.id, lives: lost, time: this.time });
     this.stats.leaksByEnemy[e.id] = (this.stats.leaksByEnemy[e.id] || 0) + lost;
@@ -753,7 +868,9 @@ export class Sim {
   startNextWave() {
     if (this.state !== 'prep' && this.state !== 'between') return false;
     if (!this.endless && this.wave >= this.lastWave) return false;
+    if (this.tryout && !tryoutCanStart(this)) return false;
     this.wave++;
+    if (this.tryout) tryoutWaveStart(this); // (first: a Subject's rule can flip the route, Back Gate)
     if (this._pathsRev) this.setRouteOrientation(routeReversedFor(this, this.wave));
     // a long freeplay run would keep every past wave's spawn list: keep only the waves around now
     // (the cache is a pure function of the wave number, so dropping it changes nothing)
@@ -771,9 +888,30 @@ export class Sim {
       this._waveTick = 0;
       ruleWaveStart(this);
     }
-    this._emit('waveStart', { wave: this.wave, reversed: this.routeReversed, flipped: routeFlippedFor(this, this.wave) });
+    // a lane schedule (Gate Arc): which lanes this wave walks (absent on stages without one)
+    this._emit('waveStart', { wave: this.wave, reversed: this.routeReversed, flipped: routeFlippedFor(this, this.wave), ...(w.lanes ? { lanes: w.lanes } : {}) });
     this._spawnTick(0);
     return true;
+  }
+
+  /**
+   * The lanes open on wave `n` under the stage's lane schedule (waves.js openLanes; a pure function
+   * of the stage and the wave, so a restored battle reads the same): by default the wave running
+   * now, or the next one between waves (a level crossing's barrier shows it before the column
+   * arrives). null = every lane open (no schedule).
+   * @param {number} [n]
+   * @returns {number[]|null}
+   */
+  openLanes(n = this.state === 'wave' ? this.wave : this.wave + 1) {
+    if (!this.stage.waveGen?.laneCycle) return null;
+    const w = Math.max(1, n);
+    // (asked every frame by the renderer: the last answer is kept beside the Sim, never on it, so a
+    // snapshot, which copies the Sim's own fields, stays exactly as before)
+    const memo = LANE_MEMO.get(this);
+    if (memo?.w === w) return memo.lanes;
+    const lanes = openLanes(this.stage, w, this._pathsFwd.length);
+    LANE_MEMO.set(this, { w, lanes });
+    return lanes;
   }
 
   _checkWaveEnd() {
@@ -786,7 +924,7 @@ export class Sim {
       for (const t of this.towers) {
         const inc = t.stats.income;
         if (!inc || t.disabled > 0) continue;
-        const interest = Math.min(150, (inc.interest || 0) * this.cash);
+        const interest = Math.min(INCOME_INTEREST_MAX, (inc.interest || 0) * this.cash);
         const amount = this._gainCash(((inc.perWave || 0) * cashMul + interest) * this.incomeMul);
         if (amount > 0) this._emit('cash', { amount, reason: 'income', towerUid: t.uid });
         // Potential N8 (Momo's Golden Harvest): every Nth wave clear her wave income once more (no interest)
@@ -796,6 +934,9 @@ export class Sim {
           if (extra > 0) this._emit('cash', { amount: extra, reason: 'harvest', towerUid: t.uid });
         }
       }
+      // Tenka's economy weapon (src/sim/lab.js): every joiner's income and interest (owner decision #146),
+      // owner-credited, never on a noIncome difficulty
+      if (this._labOn) labIncome(this, cashMul);
     }
     // every placed hero (both players' in co-op), never the view-dependent sim.hero
     const k = heroPace(this);
@@ -816,18 +957,24 @@ export class Sim {
     endVineWave(this);
     // Marumi's balls end (src/sim/balls.js)
     endBallWave(this);
+    // Hold the Line ends; Norika's own barricades stand again at full budget (src/sim/barricades.js)
+    if (this._blockOn) endBarricadeWave(this);
     this._curseQueue.length = 0;
     this.wavesCleared = this.wave;
     this._emit('waveEnd', { wave: this.wave, bonus });
     // Freeplay: the stage's own last wave is the goal — the clear is banked, the battle goes on.
     const goal = this.freeplay && this.wave === this.totalWaves;
-    if (goal) this._emit('goal', { wave: this.wave });
+    // (an Extended Day run: the Stay Late banner, not a freeplay clear card)
+    if (goal) this._emit('goal', { wave: this.wave, ...(this.tryout ? { stayLate: true } : null) });
     if (this.rule) {
       ruleWaveClear(this);
       ruleWaveEnd(this);
     }
     // every lasting ability effect ends with the wave (the calm point holds none)
     endAbilityWave(this);
+    if (this.zones) endZoneWave(this);
+    if (this._labOn) endLabWave(this);
+    if (this.tryout) tryoutWaveEnd(this);
     if (!this.endless && this.wave >= this.lastWave) {
       this.state = 'won';
       this._emit('won', {});
@@ -835,6 +982,8 @@ export class Sim {
     }
     this.state = 'between';
     if (this.options.autoStart) this._autoTimer = goal ? this.stage.freeplay.clearPause ?? AUTO_START_DELAY : AUTO_START_DELAY;
+    // a Tryout Day pick or break holds the next wave until every player has resolved it
+    if (this.tryout && windowOpen(this)) this._autoTimer = -1;
   }
 
   /**
@@ -854,8 +1003,14 @@ export class Sim {
   finish() {
     if (!this.freeplay || this.wavesCleared < this.totalWaves || this.state === 'won' || this.state === 'lost') return false;
     this.finished = true;
-    this.state = 'won';
     this._autoTimer = -1;
+    // Tryout Day's Extended Day has no win past wave 48: Home Time ends it the way running out of hearts does (§20.1, A6)
+    if (this.tryout) {
+      this.state = 'lost';
+      this._emit('lost', { finished: true });
+      return true;
+    }
+    this.state = 'won';
     this._emit('won', { finished: true });
     return true;
   }
@@ -901,7 +1056,14 @@ export class Sim {
       }
       cut = costCutAt(this, x, y);
     }
-    return roundCost(raw * (this.diff.costMul ?? 1) * (us.costMul ?? 1) * (1 - cut));
+    const price = raw * (this.diff.costMul ?? 1) * (us.costMul ?? 1) * (1 - cut);
+    if (this.tryout && def.kind !== 'hero') {
+      // Tryout Day: a girl's voucher places her free; Scholarship cuts her price (the viewing player's)
+      const run = tryoutPlaceCost(this, this.viewOwner, unitId);
+      if (run.free) return 0;
+      if (run.cut > 0) return roundCost(price * (1 - run.cut));
+    }
+    return roundCost(price);
   }
 
   /** Terrain char at a tile ('X' outside the map). */
@@ -963,10 +1125,13 @@ export class Sim {
 
   /**
    * Places a girl with her footprint centred at world (x, y). Two integer arguments are a
-   * tile (legacy) and resolve to its centre.
+   * tile (legacy) and resolve to its centre. `owner`: her player (co-op's `place` command passes the
+   * slot), set before anything reads it — her ability's Auto default and unlock event (a fixture that
+   * unlocks at tier 0) already see it.
+   * @param {{ owner?: number }} [opts]
    * @returns {object|null} TowerRT
    */
-  placeTower(unitId, x, y) {
+  placeTower(unitId, x, y, { owner = 0 } = {}) {
     if (this.state === 'won' || this.state === 'lost') return null;
     const chk = this.canPlace(unitId, x, y);
     if (!chk.ok) return null;
@@ -975,12 +1140,13 @@ export class Sim {
     const def = this.data.unit(unitId);
     const isHero = !!this.heroConfig && unitId === this.heroConfig.unitId;
     this._spend(chk.cost);
-    const t = createTower(def, { uid: this._nextUid(), x, y, radius: footprintRadius(def), isHero, unitStats: this._unitStats(unitId), cost: chk.cost });
+    const t = createTower(def, { uid: this._nextUid(), x, y, radius: footprintRadius(def), isHero, unitStats: this._unitStats(unitId), cost: chk.cost, owner });
     if (isHero) {
       initHero(t);
       t.heroIndex = this._heroConfig.index;
       this.heroes[t.heroIndex] = t;
     }
+    if (this.tryout) tryoutTowerMods(this, t);
     refreshTowerStats(t, this.globalRateMul, this.globalDmgMul);
     this.towers.push(t);
     this._towerByUid.set(t.uid, t);
@@ -989,9 +1155,12 @@ export class Sim {
     recomputeBuffs(this);
     this.stats.towersPlaced++;
     this.stats.towerUnits[t.uid] = unitId;
+    if (this.tryout) tryoutPlaced(this, owner, t, chk.cost);
     this._emit('place', { towerUid: t.uid, unitId, x, y, tx: t.tx, ty: t.ty });
     updateRelayOrigin(this, t);
     syncAbility(this, t); // (a fixture girl whose ability unlocks at tier 0)
+    syncZones(this, t);
+    syncBarricades(this, t);
     return t;
   }
 
@@ -1007,6 +1176,12 @@ export class Sim {
     this._buffsDirty = true;
     // an upgrade or a hero level: her ability unlocks (tier 3 / Lv 7) or upgrades (tier 5 / Lv 17)
     syncAbility(this, t);
+    // a well or Last Line (Singularity tier 3 / 5): the zone list and the near-exit hook
+    syncZones(this, t);
+    // her lab team's frag and control weapons follow her lab power (Grand Lab, Unified Theory)
+    syncLab(this, t);
+    // Norika's barricade lists (src/sim/barricades.js)
+    syncBarricades(this, t);
   }
 
   /**
@@ -1095,7 +1270,14 @@ export class Sim {
     if (t.rules && isFreeTier(t, index)) return 0; // Ouka's Club Grants (src/sim/hubs.js)
     const us = t.unitStats || DEFAULT_UNIT_STATS;
     const cut = Math.min(0.5, t.buff?.costCut || 0);
-    return roundCost((tier.cost || 0) * (this.diff.costMul ?? 1) * (us.costMul ?? 1) * (1 - cut));
+    const price = (tier.cost || 0) * (this.diff.costMul ?? 1) * (us.costMul ?? 1) * (1 - cut);
+    if (this.tryout) {
+      // Tryout Day: Free Refills (tiers 1-3) and Scholarship
+      const run = tryoutUpgradeCost(this, t, index);
+      if (run.free) return 0;
+      if (run.cut > 0) return roundCost(price * (1 - run.cut));
+    }
+    return roundCost(price);
   }
 
   /**
@@ -1130,6 +1312,9 @@ export class Sim {
 
   /**
    * Buys the next tier of `path`. `opts.restoring`: see upgradeStatus (battle-save restore only).
+   * A tier that raises Tenka's lab rounds (Joint Research, Unified Theory; src/sim/lab.js) has her owner's
+   * girls in range join her lab team, never under `restoring`; who joined is the new tail of her
+   * `t.lab.uids` (and the labJoin event), for the caller (T3: the co-op layer forgets them as owners).
    * @returns {boolean}
    */
   upgradeTower(uid, path, opts = {}) {
@@ -1137,13 +1322,19 @@ export class Sim {
     const st = this.upgradeStatus(uid, path, opts);
     if (st.locked) return false;
     const t = this.getTower(uid);
+    const rounds = t.stats.lab ? t.stats.lab.rounds : 0;
     this._spend(st.cost);
     t.spent += st.cost;
+    if (this.tryout) tryoutUpgraded(this, t, st.cost, t.tiers[path]);
     t.tiers[path]++;
     this._refreshTower(t);
     recomputeBuffs(this);
     this.stats.upgrades++;
     this._emit('upgrade', { towerUid: uid, path, tier: t.tiers[path] });
+    if (!opts.restoring && t.stats.lab && t.stats.lab.rounds > rounds) {
+      absorbInto(this, t);
+      recomputeBuffs(this);
+    }
     return true;
   }
 
@@ -1172,21 +1363,38 @@ export class Sim {
     const t = this.getTower(uid);
     if (t && t.isHero) return false;
     if (!t || this.state === 'won' || this.state === 'lost') return 0;
+    // (Tenka: 70% of her own spent coins; her lab team does not come back this battle)
     const refund = this.sellValue(uid);
+    if (this.tryout) tryoutCount(this, t.owner, 'sells');
     this.cash += refund;
+    this._removeTower(t);
+    this._emit('sell', { towerUid: uid, refund });
+    return refund;
+  }
+
+  /**
+   * Takes a girl off the field: a sale (sellTower) and a girl who joins Tenka's lab team (src/sim/lab.js
+   * absorbInto) leave exactly the same way. Her rallies, queued shots and drinks end; she is flagged
+   * `removed` (her projectiles and runners in flight fizzle, her drones, sentries, balls and rings go
+   * with her); her traps and strips, zones and pending shells go; the final tier she held is free again
+   * (finalTier.js skips her); brews / links she gave or held and pins on her fall away on the next step;
+   * pads and auras are rebuilt. No coins: the caller pays any refund.
+   */
+  _removeTower(t) {
+    const uid = t.uid;
     clearAbilityEffects(this, t);
     clearDrinksFrom(this, t);
     t.removed = true;
     this.towers = this.towers.filter((x) => x !== t);
     this._towerByUid.delete(uid);
     this.traps = this.traps.filter((tr) => tr.ownerUid !== uid);
+    if (this.zones) clearZones(this, t);
     this.shells = this.shells.filter((sh) => sh.ownerUid !== uid); // pending shells never land
     t.turrets = [];
+    if (this._labOn) syncLab(this, null); // (a girl with a lab team leaves: the count follows)
     if (this.rule) assignPads(this);
     this._buffsDirty = true;
     recomputeBuffs(this);
-    this._emit('sell', { towerUid: uid, refund });
-    return refund;
   }
 
   /**
@@ -1330,6 +1538,9 @@ export class Sim {
       kills: d.kills,
       shots: d.shots,
       born: d.born,
+      // Drone Surge's extra drones (src/sim/deploys.js): Surge 1…k and the seconds they have left; 0 / 0 for hers
+      surge: d.temp ? d.surge : 0,
+      left: d.temp ? d.left / 60 : 0,
     }));
   }
 
@@ -1366,12 +1577,14 @@ export class Sim {
     const roam = !!ts && ts.leash > 0;
     let turret = null;
     if (e.turret) {
-      turret = { ...e.turret, damage: ts?.damage ?? e.turret.damage, active: t.turrets.length };
+      // active: her own drones (her limit counts them); surge: Drone Surge's extra drones flying now (roaming only)
+      turret = { ...e.turret, damage: ts?.damage ?? e.turret.damage, active: ownDrones(t) };
       if (roam) {
         Object.assign(turret, {
           rate: ts.rate, range: ts.range, leash: ts.leash, speed: ts.speed, build: ts.build || 1 / Math.max(0.05, t.def.base?.rate || 0.25),
           dealt: t.droneDmg, kills: t.droneKills, shots: t.droneShots,
-          nextIn: this.state === 'wave' && t.turrets.length < e.turret.max ? Math.max(0, t.buildTimer) : 0,
+          nextIn: this.state === 'wave' && ownDrones(t) < e.turret.max ? Math.max(0, t.buildTimer) : 0,
+          surge: t.turrets.length - ownDrones(t),
           flight: flightMode(t),
         });
       }
@@ -1444,6 +1657,8 @@ export class Sim {
       ...(e.proc ? { proc: { name: e.proc.name, every: e.proc.every, of: e.proc.of, count: t.potCount || 0 } } : null),
       ...(e.tempo ? { tempo: { stacks: t.tempoStacks || 0, max: Math.round(e.tempo.max / e.tempo.per), per: e.tempo.per } } : null),
       ...(e.projScale > 0 ? { projScale: e.projScale } : null),
+      // Ouka's office (src/sim/hubs.js; only on a hub girl): the panel's Office line reads it
+      ...(e.hub ? { hub: { ...e.hub } } : null),
     };
   }
 
@@ -1453,7 +1668,10 @@ export class Sim {
 
   /** The map rule's HUD state (numbers and ids only), or null without a rule. */
   ruleInfo() {
-    return ruleInfo(this);
+    const info = ruleInfo(this);
+    // Tryout Day: during a break the next block's Window Seats show too (dashed)
+    if (info && this.tryout) info.nextPads = nextSeats(this);
+    return info;
   }
 
   /** Absolute route orientation of wave n (true = walked backwards). */
@@ -1471,9 +1689,9 @@ export class Sim {
     return ruleAffinityFor(this, n);
   }
 
-  /** Can hearts come back? (Not in Last Petal.) */
+  /** Can hearts come back? (Not in Last Petal, nor in a Grade 12 Tryout Day run.) */
   canHeal() {
-    return !this.mode.noHeal;
+    return !this.mode.noHeal && !(this.tryout && !tryoutCanHeal(this));
   }
 
   /**
@@ -1655,12 +1873,14 @@ export class Sim {
       heroes: this.heroes.map((h) => (h ? { unitId: h.unitId, level: h.level, levelsBought: h.levelsBought || 0, levelSpent: h.levelSpent || 0 } : null)),
       // co-op freeplay: the tier, the goal (the stage's last wave), whether it was cleared, and
       // whether the run ended on a Finish vote (otherwise it fell)
-      freeplay: this.freeplay ? this.stage.freeplay.id : null,
+      // (an Extended Day run reads 'tryout': no freeplay reward path pays it, §20.2)
+      freeplay: this.freeplay ? (this.tryout ? 'tryout' : this.stage.freeplay.id) : null,
       goal: this.freeplay ? this.totalWaves : null,
       goalReached: this.freeplay && this.wavesCleared >= this.totalWaves,
       finished: this.finished,
       mode: this.mode.id,
       rule: this.rule?.id ?? null,
+      ...(this.tryout ? { tryout: tryoutResult(this) } : null),
     };
   }
 }

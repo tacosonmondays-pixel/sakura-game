@@ -35,7 +35,7 @@ export default [
     say('kage', "{name:kage}, courier club. Don't recruit me, though. I was always here. Mostly.", { at: 'left', face: 'wink', fx: 'jolt' }),
     say('hikari', 'See? Everyone wants to meet you.', { face: 'laugh' }),
     say('hikari', 'Every ten-pull has at least one SR, and an SSR is guaranteed by pull ninety.'),
-    say('hikari', 'Each pull earns recruit points too. Save enough and you can pick any SSR you like.'),
+    say('hikari', 'Each pull earns recruit points too. Save enough to spark an SSR, featured girls on their day.'),
     say('momo', 'And if a friend shows up twice?', { face: 'question' }),
     say('hikari', 'Duplicates become Star Fragments for awakening. Nothing goes to waste here.'),
     say('kage', "I'll be in the rafters if anyone needs a cracker."),

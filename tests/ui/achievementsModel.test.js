@@ -1,5 +1,5 @@
 // The Achievements tab's rows (src/ui/screens/achievements/model.js; spec §5.1): one row per series at its lowest
-// unclaimed step, 129 live defs → 78 rows (26 series + 52 single), the section order, and the category counts.
+// unclaimed step, 150 live defs → 90 rows (29 series + 61 single), the section order, and the category counts.
 import { describe, it, expect } from 'vitest';
 import { createProfile } from '../../src/systems/save.js';
 import { achievementList, claimAllAchievements, claimAllCount } from '../../src/systems/missions.js';
@@ -7,11 +7,12 @@ import { buildRows, sections, sortRows, categoryStats, visibleCategories, badgeT
 import { veteran } from '../fixtures/veterans.js';
 
 describe('achievement rows', () => {
-  it('129 defs → 78 rows: 26 series rows + 52 single rows (launch 116 → 69, + the donation series, + Codex 11 → 8)', () => {
+  it('150 defs → 90 rows: 29 series rows + 61 single rows (launch 116 → 69, + the donation series, + Codex 11 → 8, + the Act II series a_ch1_act2 → a_ch6_act2, + Tryout Day 15 → 11)', () => {
     const rows = buildRows(achievementList(createProfile()));
-    expect(rows).toHaveLength(78);
-    expect(rows.filter((r) => r.steps)).toHaveLength(26);
+    expect(rows).toHaveLength(90);
+    expect(rows.filter((r) => r.steps)).toHaveLength(29);
     expect(rows.filter((r) => r.cat === 'codex')).toHaveLength(8);
+    expect(rows.filter((r) => r.cat === 'tryout')).toHaveLength(11);
   });
 
   it('a series shows its lowest unclaimed step and advances in place', () => {
@@ -44,10 +45,10 @@ describe('achievement rows', () => {
     expect(rowState({ hidden: true, met: false })).toBe('secret');
     const list = achievementList(createProfile());
     const stats = categoryStats(list);
-    expect(stats.all.total).toBe(129);
+    expect(stats.all.total).toBe(150);
     expect([stats.campaign.total, stats.assault.total, stats.battle.total, stats.freeplay.total, stats.together.total, stats.students.total,
-      stats.gear.total, stats.bestiary.total, stats.academy.total, stats.secret.total, stats.codex.total]).toEqual([24, 15, 9, 7, 6, 20, 9, 10, 12, 6, 11]);
-    expect(visibleCategories(list).map((c) => c.id).at(-1)).toBe('codex');
+      stats.gear.total, stats.bestiary.total, stats.academy.total, stats.secret.total, stats.codex.total, stats.tryout.total]).toEqual([30, 15, 9, 7, 6, 20, 9, 10, 12, 6, 11, 15]);
+    expect(visibleCategories(list).map((c) => c.id).at(-1)).toBe('tryout');
     expect([badgeText(3), badgeText(12)]).toEqual(['3', '9+']);
   });
 });

@@ -2,10 +2,12 @@
 // plus a detail popover with names, trait explanations and the sim's pre-wave warnings.
 // Co-op freeplay: the label reads "NEXT 16/15" in the tier's colours, and a pressure chip at the
 // end of the strip sums up what the coming wave carries (HP ×, armor, speed, Resolve).
-import { h, icon, traitBadge, enemyToken, enemyDef, fmtBig } from './util.js';
+import { h, icon, traitBadge, enemyToken, enemyDef } from './util.js';
+import { fmtNum } from '../format.js';
 import { TRAITS } from '../../data/types.js';
 import { freeplayHpRamp } from '../../sim/freeplay.js';
 import { heroWarnText } from './heroLevels.js';
+import { EXTENDED_TEXT } from '../text/tryout.js';
 
 /** What each freeplay affix (src/data/freeplay.js) does, for the scout and the visitor toast. */
 export const AFFIX_TEXT = {
@@ -36,7 +38,7 @@ export const BOSS_COUNTER = {
 };
 
 /** Armor in the UI: fractional pressure armor rounds to 0.1 ("+2.4"). */
-export const fmtArmor = (a) => String(Math.round((a || 0) * 10) / 10);
+export const fmtArmor = (a) => fmtNum(Math.max(0, a || 0), 'flat').replace(/^\+/, '');
 
 /** Resolve at or below this many seconds turns the pressure chip orange. */
 const RESOLVE_WARN = 4;
@@ -107,18 +109,11 @@ export function freeplayPressureInfo(sim, n) {
   };
 }
 
-/** "×353", "×3,004", "×2.19M" (the explanation) */
-const fmtMul = (x) => `×${x < 10 ? x.toFixed(1).replace(/\.0$/, '') : fmtBig(Math.round(x))}`;
+/** "×2.5", "×353", "×3,004", "×2.2M": the one number style (a multiplier below 10, then a count) */
+const fmtMul = (x) => (x < 10 ? fmtNum(x, 'mul') : `×${fmtNum(Math.round(x))}`);
 
-/** "×353", "×3k", "×16k", "×2.2M": the chip's short form (the strip leaves the room to the enemies) */
+/** The chip's form: the same as the explanation's ("×353", "×16k", "×2.2M"). */
 export function fmtMulShort(x) {
-  if (x < 1000) return fmtMul(x);
-  for (const [u, sfx] of [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'k']]) {
-    if (x >= u) {
-      const v = x / u;
-      return `×${v < 10 ? v.toFixed(1).replace(/\.0$/, '') : Math.round(v)}${sfx}`;
-    }
-  }
   return fmtMul(x);
 }
 
@@ -133,7 +128,7 @@ export function pressureText(pr) {
 /** "Boss in 2 waves: Grave Lych, 1.2M HP. Spectral: …" (the popover and the pill's tooltip). */
 export function telegraphText(tg) {
   const when = tg.inWaves === 1 ? 'Boss next wave' : 'Boss in 2 waves';
-  return `${when}: ${tg.name}, ${fmtBig(Math.round(tg.hp))} HP.${tg.counter ? ` ${tg.counter}.` : ''}`;
+  return `${when}: ${tg.name}, ${fmtNum(Math.round(tg.hp))} HP.${tg.counter ? ` ${tg.counter}.` : ''}`;
 }
 
 const MAX_CHIPS = 6;
@@ -199,12 +194,15 @@ export function createScout(ctx) {
     strip.classList.toggle('bt-scout-boss', boss);
     // freeplay past the goal: "NEXT 16/15" in the tier's colours
     const over = sim.freeplay && n > sim.totalWaves;
-    strip.classList.toggle('bt-scout-over', !!over);
-    if (over) strip.dataset.tier = sim.stage.freeplay.id;
+    // (a Tryout Day Extended Day past its 48: the wave alone and "Stay Late", not a freeplay tier's "16/15", §20.8)
+    const stayLate = !!over && !!sim.tryout;
+    strip.classList.toggle('bt-scout-over', !!over && !stayLate);
+    if (over && !stayLate) strip.dataset.tier = sim.stage.freeplay.id;
+    else delete strip.dataset.tier;
     // map rule: "NEXT 4 ⇄" when the wave comes in through the goal gate (Rear Ambush)
     const flipped = !!ctx.modes?.flipped(n);
     strip.title = flipped ? 'Comes in through the goal gate' : 'Next wave — tap for details';
-    strip.append(h('span.bt-scout-label', { 'data-testid': 'scout-label' }, h('small', 'NEXT'), ` ${n}`, over ? h('span.bt-scout-goal', `/${sim.totalWaves}`) : null, flipped ? h('span.bt-scout-flip', ' ⇄') : null));
+    strip.append(h('span.bt-scout-label', { 'data-testid': 'scout-label' }, h('small', 'NEXT'), ` ${n}`, stayLate ? h('small.bt-scout-late', ` · ${EXTENDED_TEXT.stayLate}`) : over ? h('span.bt-scout-goal', `/${sim.totalWaves}`) : null, flipped ? h('span.bt-scout-flip', ' ⇄') : null));
     // freeplay: the boss telegraph from two waves ahead
     const tg = over ? freeplayBossTelegraph(sim, n) : null;
     if (tg) {
@@ -212,7 +210,7 @@ export function createScout(ctx) {
         enemyToken(tg.enemyId, { size: 22 }),
         h('b.bt-tele-when', tg.inWaves === 1 ? 'BOSS NEXT' : 'BOSS IN 2'),
         h('span.bt-tele-name', tg.name),
-        h('span.bt-tele-hp', `${fmtBig(Math.round(tg.hp))} HP`)));
+        h('span.bt-tele-hp', `${fmtNum(Math.round(tg.hp))} HP`)));
     }
     const info = over ? freeplayPressureInfo(sim, n) : null;
     const chips = h('span.bt-scout-chips');
@@ -261,7 +259,7 @@ export function createScout(ctx) {
     const pr = hasNext() && sim.freeplay && n > sim.totalWaves ? freeplayPressureInfo(sim, n) : null;
     const tg = pr ? freeplayBossTelegraph(sim, n) : null;
     popover.replaceChildren(...[
-      h('div.bt-pop-head', h('span.bt-pop-title', hasNext() ? `Scouting · Wave ${n}${pr ? `/${sim.totalWaves}` : ''}` : 'Final wave'), h('button.bt-x', { onclick: () => togglePopover(false), title: 'Close' }, '×')),
+      h('div.bt-pop-head', h('span.bt-pop-title', hasNext() ? `Scouting · Wave ${n}${pr && !sim.tryout ? `/${sim.totalWaves}` : ''}` : 'Final wave'), h('button.bt-x', { onclick: () => togglePopover(false), title: 'Close' }, '×')),
       tg ? h('div.bt-tele-pop', { 'data-testid': 'scout-tele-text' }, telegraphText(tg)) : null,
       pr ? h(`div.bt-pr-pop${pr.warn ? '.warn' : ''}`, { 'data-testid': 'scout-pressure-text' }, pressureText(pr), pr.affix ? h('b', ` ${AFFIX_TEXT[pr.affix]?.[0] || pr.affix}: ${AFFIX_TEXT[pr.affix]?.[1] || ''}.`) : null) : null,
       warnings.length

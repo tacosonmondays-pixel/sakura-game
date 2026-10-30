@@ -1,0 +1,31 @@
+{
+  "review": "batch A fix: Iroha Shattered Glass T5 white disc (commit 27a8ad31)",
+  "branch": "feature/visual-reworks",
+  "verdict": "NOT OK",
+  "logic": {
+    "result": "OK",
+    "tests": "tests/render/irohaMirror.test.js + tests/render/attackFx-integration.test.js: 25/25 pass",
+    "notes": [
+      "flashFree is correct: Manhattan distance under 0.6 tiles within 0.1 game seconds blocks; a ring of 8 typed arrays, created once per renderer context, so nothing is allocated per call.",
+      "A game-clock reset is handled: the time >= ft[i] guard ignores entries from a later clock (covered by the new test). The worst case after a reset is one skipped flash, which is harmless.",
+      "flash() returns the pooled sprite or null; setting a0 after a null check is safe.",
+      "Nothing writes to the sim: display-only, so the sim id and COOP_PROTOCOL stay as they are."
+    ]
+  },
+  "look": {
+    "setup": "Battle 1-1 normal, Iroha 2-0-5 (Shattered Glass 5), quality high, default camera, 844x390, swiftshader. Five extra slimes spawned at the target's spot, hp kept full and slowed, so the clump stays alive. 10 default-camera frames plus 6 zoomed.",
+    "white_disc_gone": false,
+    "glass_read": "OK: the kaleidoscope flare reads as a lilac glass ring with blades and stars, not dull (t5-clump-844-disc-vs-flare.jpg, right).",
+    "single_bolt": "Not verified: the single-target pass framed the wrong area. Moot while the blocker stands; check it on the re-review."
+  },
+  "findings": [
+    {
+      "severity": "BLOCKER",
+      "title": "The white disc is still there on a clumped T5 volley",
+      "detail": "Opaque warm-white disc about 60x40 px over the clump at the default camera in 1 of 10 frames on the first run and 1 of 10 on the second. When zoomed it covers the targets in 3 of 6 frames. Evidence: t5-clump-844-disc-vs-flare.jpg (left), t5-clump-844-zoom-disc.jpg.",
+      "cause": "Most of the bloom is not from the layer the fix touched. A hook on the sim's explode events logged 3 explode events at the same time and spot (t=11.05, x 9.7, y 3.62, radius 1.7) for one volley. BattleRenderer.js 'explode' calls fx.explosion() once per event. fx.js explosion() spawns an additive bbA glow at a0 1, colour #ffd08a, size r*1.6 to r*2.2 (about 2.7 to 3.7 tiles at r 1.7), plus 5 to 14 additive soft puffs per event. Three of these stacked on one spot bloom to white, and this happens whatever flashFree does. The disc's warm-yellow tint and fringe of yellow puffs match fx.explosion, not the silver impact flash.",
+      "suggested_fix": "Display only: coalesce the generic explosion glow the same way as flashFree. At most one big glow per spot per about 0.1 s, with puffs capped. Do it either in fx.explosion or in BattleRenderer's 'explode' case for Iroha's splash bolts (or for any styled tower whose attackFx draws its own impact). Re-check the clump at 844x390 and 1280x720 afterwards."
+    }
+  ],
+  "evidence": ["t5-clump-844-disc-vs-flare.jpg", "t5-clump-844-zoom-disc.jpg"]
+}

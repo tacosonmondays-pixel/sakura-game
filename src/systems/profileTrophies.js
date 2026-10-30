@@ -21,11 +21,22 @@ const fpLegacy = (p, key) => (Array.isArray(p?.progress?.freeplay?.[key]) ? p.pr
 const claimed = (p, id) => p?.missions?.achievements?.[id] === true;
 const ACH_IDS = new Set(ACHIEVEMENTS.map((a) => a.id));
 const ACH_MAP = Object.fromEntries(ACHIEVEMENTS.map((a) => [a.id, a]));
-const STAGE_INDEX = Object.fromEntries(STAGES.map((s, i) => [s.id, i]));
+/**
+ * Where a stage sits on the campaign ramp, for "later (harder) first": an Act I stage its place 0 … 39, an Act II
+ * stage its ACT2_PLAN rung (5c + k − 1, k = n − 5) just after the Act I stage on the same rung (1-10 ranks beside 2-5,
+ * never above 8-5); other stages keep their STAGES order after the campaign.
+ */
+const STAGE_INDEX = Object.fromEntries(STAGES.map((s, i) => [s.id, s.kind !== 'campaign' ? 1000 + i
+  : s.act === 2 ? 5 * s.chapter + Number(s.id.split('-')[1]) - 6 + 0.5 : CAMPAIGN_IDS.indexOf(s.id)]));
 
 /** Medal names by difficulty (bronze, silver, gold, sakura). */
 export const MEDAL_NAMES = Object.freeze({ easy: 'Bronze Medal', normal: 'Silver Medal', hard: 'Gold Medal', nightmare: 'Sakura Medal' });
-export const STAGE_COUNT = STAGES.length;
+/**
+ * The stages that count on the profile (medals, medal pins, "stages cleared"): every stage but the side stages (Gate Arc
+ * Step 6: an optional side stage such as the Star Dome adds no medal, trophy or counter).
+ */
+const TROPHY_STAGES = STAGES.filter((s) => s.kind !== 'side');
+export const STAGE_COUNT = TROPHY_STAGES.length;
 
 // ---------------------------------------------------------------------------
 // Titles, frames, banners
@@ -93,7 +104,8 @@ export function bannerUnlocked(p, id) {
   if (b.kind === 'academy') return true;
   if (b.kind === 'scene') return !!p?.units?.[b.girl];
   const chapter = CHAPTERS.find((c) => c.id === b.chapter);
-  const ids = STAGES.filter((s) => s.kind === 'campaign' && s.chapter === b.chapter).map((s) => s.id);
+  // the chapter's Act I (`stages`): an Act II that ships later never re-locks a banner a player already has
+  const ids = chapter ? chapter.stages : [];
   return !!chapter && ids.length > 0 && ids.every((sid) => stageCleared(p, sid));
 }
 
@@ -103,7 +115,7 @@ export function bannerUnlocked(p, id) {
 
 /** [easy, normal, hard, nightmare] medal counts over every stage. */
 export function medalTally(p) {
-  return DIFFICULTY_ORDER.map((d) => STAGES.filter((s) => p?.progress?.stages?.[s.id]?.[d] === true).length);
+  return DIFFICULTY_ORDER.map((d) => TROPHY_STAGES.filter((s) => p?.progress?.stages?.[s.id]?.[d] === true).length);
 }
 
 /** Battle-mode ribbons a campaign stage can hold (4 difficulties × 5 modes). */
@@ -146,7 +158,7 @@ export function parsePin(pin) {
 export function pinEarned(p, pin) {
   const x = parsePin(pin);
   if (!x) return false;
-  if (x.kind === 'medal') return !!STAGE_MAP[x.stage] && p?.progress?.stages?.[x.stage]?.[x.diff] === true;
+  if (x.kind === 'medal') return !!STAGE_MAP[x.stage] && STAGE_MAP[x.stage].kind !== 'side' && p?.progress?.stages?.[x.stage]?.[x.diff] === true;
   if (x.kind === 'ach') return ID_RE.test(x.id) && claimed(p, x.id) && !NO_COSMETIC(x.id);
   if (!p || !isCampaign(x.stage)) return false;
   if (x.kind === 'ribbon') return RIBBON_MODES.includes(x.mode) && modeRibbons(p, x.stage)[`${x.diff}:${x.mode}`] === true;
@@ -159,7 +171,7 @@ const DIFF_RANK = Object.fromEntries(DIFFICULTY_ORDER.map((d, i) => [d, i]));
 /** Earned medal pins, best first: Sakura → Gold → Silver → Bronze; campaign stages (later first), then the rest. */
 function medalPins(p) {
   const out = [];
-  for (const s of STAGES) {
+  for (const s of TROPHY_STAGES) {
     for (const d of DIFFICULTY_ORDER) if (p?.progress?.stages?.[s.id]?.[d] === true) out.push({ pin: `${s.id}:${d}`, d, c: s.kind === 'campaign' ? 1 : 0, i: STAGE_INDEX[s.id] });
   }
   return out.sort((a, b) => DIFF_RANK[b.d] - DIFF_RANK[a.d] || b.c - a.c || b.i - a.i).map((x) => x.pin);
@@ -195,7 +207,8 @@ function ribbonPins(p) {
   if (!p) return [];
   const perfect = [];
   const out = [];
-  CAMPAIGN_IDS.forEach((id, i) => {
+  CAMPAIGN_IDS.forEach((id) => {
+    const i = STAGE_INDEX[id];
     const r = modeRibbons(p, id);
     let have = 0;
     for (const d of DIFFICULTY_ORDER) {
@@ -284,7 +297,7 @@ export function freeplayByTier(p) {
 export function collectionStats(p) {
   return {
     u: Object.keys(p?.units || {}).filter((id) => UNIT_MAP[id]).length,
-    s: STAGES.filter((s) => stageCleared(p, s.id)).length,
+    s: TROPHY_STAGES.filter((s) => stageCleared(p, s.id)).length,
     b: bestiaryPercent(p || {}),
     k: killsAll(p),
     h: honorCount(p),

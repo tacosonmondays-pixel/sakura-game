@@ -1,6 +1,6 @@
 // Settings (owner: meta-a). Graphics (quality, shadows, bloom, lighting sliders, reduced
-// motion, the loading screen's look), audio, battle defaults (placement range, auto start, default
-// speed, camera locked / free) and save data
+// motion, hit effects, impact frames, the loading screen's look), audio, battle defaults (placement range, auto
+// start, default speed, camera locked / free) and save data
 // (export as text, import, reset with confirmation). Every change saves immediately.
 // [ui-m5] UI M5c: a left rail of five sections (Display · Audio · Battle · Account · About) over the same panels, and
 // each row's description behind "i" (settingsView / wrapSettings at the end; ../settingsSections.js maps the panels).
@@ -16,6 +16,7 @@ import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
 import { formatNumber } from '../../core/util.js';
 import { BATTLE } from '../../data/types.js';
+import { ABILITY_COPY } from '../../data/abilityText.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { DEFAULT_SETTINGS, SAVE_VERSION, deserializeProfile } from '../../systems/save.js';
 import { ask } from './stage.js';
@@ -79,7 +80,13 @@ function build(redraw) {
       segmented(['high', 'medium', 'low'], s.quality, (v) => { s.quality = v; save(); redraw(); }, { high: 'High', medium: 'Medium', low: 'Low' }, 'quality')),
     row('Shadows', s.quality === 'high' ? 'Soft shadows under girls, enemies and props.' : 'Only on High quality.', toggle(s.shadows, (v) => { s.shadows = v; save(); }, 'shadows', s.quality !== 'high')),
     row('Bloom', s.quality === 'high' ? 'Glow on halos, spells and explosions.' : 'Only on High quality.', toggle(s.bloom, (v) => { s.bloom = v; save(); }, 'bloom', s.quality !== 'high')),
-    row('Reduce motion', 'Tones down screen shake, flashes, transitions and reveal animations.', toggle(!!s.reduceMotion, (v) => { s.reduceMotion = v; save(); applyMotionPreference(); }, 'reduceMotion')),
+    row('Reduce motion', 'Tones down screen shake, flashes, transitions and reveal animations.', toggle(!!s.reduceMotion, (v) => { s.reduceMotion = v; save(); applyMotionPreference(); redraw(); }, 'reduceMotion')),
+    row('Flashes & shake', s.reduceMotion
+      ? 'Reduce motion already stops the shake and freezes; switch this off to stop screen flashes too.'
+      : 'Screen flashes, screen shake, impact frames and the split-second freeze on big hits in battle.',
+    toggle(s.hitEffects !== false, (v) => { s.hitEffects = v; save(); redraw(); }, 'hitEffects')),
+    row('Impact frames', impactFramesDesc(s),
+      toggle(s.impactFrames !== false && !s.reduceMotion && s.hitEffects !== false, (v) => { s.impactFrames = v; save(); }, 'impactFrames', !!s.reduceMotion || s.hitEffects === false)),
     loadingLookRow(s, redraw),
   ));
 
@@ -123,6 +130,7 @@ function build(redraw) {
     segmented(['locked', 'free'], s.camera === 'free' ? 'free' : 'locked', (v) => { s.camera = v; save(); redraw(); }, { locked: 'Locked', free: 'Free' }, 'camera')),
     row('Buff icons', 'Small icons over buffed girls; their rim colour shows who gives the buff.',
       segmented(['all', 'selected', 'off'], ['selected', 'off'].includes(s.buffIcons) ? s.buffIcons : 'all', (v) => { s.buffIcons = v; save(); redraw(); }, { all: 'All', selected: 'Selected', off: 'Off' }, 'buffIcons')),
+    row(ABILITY_COPY.autoSetting, ABILITY_COPY.autoHelp, toggle(!!s.autoCastAbilities, (v) => { s.autoCastAbilities = v; save(); }, 'autoCastAbilities')),
   ));
 
   wrap.appendChild(onlineSection({ redraw, importText: importSaveText })); // [online] name, status, transfer codes
@@ -157,6 +165,14 @@ function loadingLookRow(s, redraw) {
 function named(el, label) {
   el.setAttribute('aria-label', label);
   return el;
+}
+
+/** The Impact frames row's line: what they are, or why they are off. */
+function impactFramesDesc(s) {
+  if (s.reduceMotion) return 'Reduce motion turns these off.';
+  if (s.hitEffects === false) return 'Off while Flashes & shake is off.';
+  const what = 'A split-second navy-and-pink frame when an ultimate or a boss kill lands.';
+  return s.quality === 'high' ? what : `${what} Only on High quality.`;
 }
 
 function row(label, desc, control) {

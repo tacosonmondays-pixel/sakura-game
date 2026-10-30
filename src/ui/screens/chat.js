@@ -1,8 +1,10 @@
 // #/chat?tab=global|clan — full-screen chat with the player's online card on the side.
-import { h, screen, tabs as tabBar, svgEl, button, glyph } from '../components.js';
+// [ui-v2 M8] the channels as the kit's folder tabs on the chat's panel; the side card says who you are once (the top
+// bar's pill says whether you are online), then the links as kit rows.
+import { h, screen, svgEl, button, glyph } from '../components.js';
 import { navigate } from '../router.js';
 import { createChatPanel } from '../online/chatPanel.js';
-import { ensureOnline, onlinePill, avatar, levelChip, askName, storedName, PEOPLE_GLYPH } from '../online/common.js';
+import { ensureOnline, avatar, levelChip, askName, storedName, folderTabs, PEOPLE_GLYPH } from '../online/common.js';
 import { inlineLoader } from '../loading/loader.js';
 import { store } from '../../core/store.js';
 import { profileCard } from '../../online/identity.js';
@@ -23,7 +25,8 @@ export function render(root, params = {}) {
   const dmLink = h('button.ol-link', { onclick: () => navigate('messages'), 'data-testid': 'chat-to-messages', hidden: !hub.ready });
   const paintDm = () => {
     dmLink.hidden = !hub.ready;
-    dmLink.replaceChildren(svgEl(glyph('mail'), 'ol-link-ico'), h('span', 'Messages', hub.count ? h('span.sc-pill', String(hub.count)) : null));
+    // ([ui-v2 M8] the unread count is the top bar envelope's: said once)
+    dmLink.replaceChildren(svgEl(glyph('mail'), 'ol-link-ico'), h('span', 'Messages'));
   };
   paintDm();
   const offHub = [hub.on('badges', paintDm), hub.on('status', paintDm)];
@@ -49,10 +52,10 @@ export function render(root, params = {}) {
     const items = [{ id: 'global', label: 'Global' }];
     if (clan) items.push({ id: 'clan', label: `[${clan.tag}] ${clan.name}` });
     panel = createChatPanel({ channel: tab === 'clan' ? `clan:${clan.id}` : 'global', ...(known ? { myClanId: clan?.id || null } : {}) });
-    main.append(tabBar(items, tab, (id) => {
+    main.append(h('section.ui-tabbed.ol-tabbed.ol-chat-tabbed', folderTabs(items, tab, (id) => {
       panel.setChannel(id === 'clan' ? `clan:${clan.id}` : 'global');
       navigate('chat', { tab: id }, { replace: true });
-    }), panel.el);
+    }, { label: 'Chat channels' }), panel.el));
     paintSide(clan);
   })();
 
@@ -64,7 +67,6 @@ export function render(root, params = {}) {
     side.replaceChildren(
       h('section.panel.ol-me',
         h('div.ol-me-row', avatar(card.avatar, 56), h('div', nameEl, h('div', levelChip(card.level)))),
-        onlinePill(),
         button('Change name', { kind: 'ghost', small: true, testid: 'chat-rename', onClick: async () => { await askName({ title: 'Change name', current: storedName() }); nameEl.textContent = shownName(); } })),
       h('section.panel.ol-side-links',
         h('button.ol-link', { onclick: () => navigate('clan'), 'data-testid': 'chat-to-clan' }, svgEl(PEOPLE_GLYPH, 'ol-link-ico'), h('span', clan ? `Clan · ${clan.name}` : 'Find a clan')),

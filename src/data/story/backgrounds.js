@@ -7,13 +7,23 @@
 //          above the text box on a landscape phone (and its middle on a portrait one)
 //   cg     a painted lobby scene with a girl already in it; the player hides portraits while it is up
 //   stage  `stage:<stageId>` — that stage's painted place (STAGE_PLACE below); a stage without one falls back to
-//          its chapter's academy tint (CHAPTER_FALLBACK_BG). Not listed here: any campaign stage id works (the
-//          content test checks it exists)
+//          its chapter's academy tint (CHAPTER_FALLBACK_BG). Not listed here: any campaign stage id works, and so does
+//          a side stage's `side-<c>-<slug>` id (the content test checks it exists). `stage:<stageId>@dusk` / `@dawn` / `@night` asks for that time of day (STAGE_TIMES):
+//          a drawn skyline is re-lit (src/art/backdrops.js TIME_OF_DAY); a painted place shows its `-sunset` /
+//          `-night` picture when one is listed, else the place as painted
 //   solid  a flat colour for fades and title cards
 //
 // Files are relative to public/art/lobby/ (lobbyArtUrl in src/data/lobbyArt.js adds the deploy base).
 
 export const STAGE_BG_PREFIX = 'stage:';
+/** Times of day a `stage:<id>@<time>` background may ask for. */
+export const STAGE_TIMES = ['dusk', 'dawn', 'night'];
+/**
+ * A stage id a scene may name (a `stage:` background or a before / after trigger): a campaign id `<c>-<n>`, or a side
+ * stage `side-<c>-<slug>` (kind 'side', e.g. `side-6-starfall`: not in CAMPAIGN_IDS, drawn after its anchor).
+ */
+export const STORY_STAGE_ID = '(?:[0-9]+-[0-9]+|side-[0-9]+-[a-z][a-z0-9]*)';
+const STAGE_BG_RE = new RegExp(`^(${STORY_STAGE_ID})(?:@(${STAGE_TIMES.join('|')}))?$`);
 
 /** A story place: public/art/lobby/story/<id>.webp, its 320 px archive thumb, and its focal point. */
 function place(id, focus) {
@@ -58,7 +68,7 @@ export const BACKGROUNDS = {
   'festival-drum': place('festival-drum', '54% 40%'),
   'base-camp': place('base-camp', '50% 75%'),
   'summit-nest': place('summit-nest', '50% 75%'),
-  // Gate Arc, Act 1 (its scenes and stages 1-6 to 1-10 are not written yet)
+  // Gate Arc places (Act II stages and scenes)
   'station-plaza': place('station-plaza', '50% 55%'),
   'covered-arcade': place('covered-arcade', '50% 55%'),
   'corner-store': place('corner-store', '50% 60%'),
@@ -70,14 +80,20 @@ export const BACKGROUND_IDS = Object.keys(BACKGROUNDS);
 
 /**
  * The painted place a `stage:<id>` background shows (scenes stay written as `stage:<id>`). Every campaign stage
- * has one; the Gate Arc stages get theirs when they exist (1-6 and 1-9 station-plaza, 1-7 covered-arcade,
- * 1-8 corner-store, 1-10 dry-fountain).
+ * has one, and so do chapter 1's Act II stages (Rush Hour: 1-6 and 1-9 station-plaza, 1-7 covered-arcade, 1-8
+ * corner-store, 1-10 dry-fountain). An Act II stage without one (chapter 2's Hilltop After Dark, 2-6…2-10: no painted
+ * Hilltop-at-night place exists yet) shows its map theme's night skyline, with its own jetty and old-lamp variants for
+ * 2-7 and 2-10 (backdrop.js PLACE_VARIANT); so do chapters 3 and 4's Act II stages (Old Town, the mountain highway,
+ * the frozen north).
  */
 export const STAGE_PLACE = {
   '1-1': 'blossom-court', '1-2': 'blossom-court', '1-3': 'blossom-court', '1-4': 'blossom-court', '1-5': 'blossom-court',
+  '1-6': 'station-plaza', '1-7': 'covered-arcade', '1-8': 'corner-store', '1-9': 'station-plaza', '1-10': 'dry-fountain',
   '2-1': 'lakeshore', '2-2': 'lakeshore', '2-3': 'lakeshore', '2-4': 'moon-pier', '2-5': 'moon-pier',
   '3-1': 'shrine-steps', '3-2': 'shrine-steps', '3-3': 'shrine-steps', '3-4': 'shrine-bell', '3-5': 'shrine-bell',
   '4-1': 'mountain-pass', '4-2': 'mountain-pass', '4-3': 'beacon-gate', '4-4': 'mountain-pass', '4-5': 'beacon-gate',
+  // (Gate Arc Act 4, 4-6…4-10, has no painted place: the highway and far-north skyline variants draw it,
+  // src/ui/story/backdrop.js PLACE_VARIANT; the summer mountain paintings are not the frozen north)
   '5-1': 'marsh', '5-2': 'marsh', '5-3': 'marsh', '5-4': 'drowned-willow', '5-5': 'drowned-willow',
   '6-1': 'foundry', '6-2': 'foundry', '6-3': 'foundry', '6-4': 'foundry', '6-5': 'foundry',
   '7-1': 'festival-street', '7-2': 'festival-drum', '7-3': 'festival-street', '7-4': 'festival-drum', '7-5': 'festival-drum',
@@ -85,12 +101,12 @@ export const STAGE_PLACE = {
 };
 
 /**
- * Listed but not used by any scene yet: the old academy looks (kept for scenes that want the lobby painting), the
- * day gate and night fountain variants, and the Gate Arc places. The content test keeps this list honest.
+ * Listed but not used by any scene yet: the old academy looks (kept for scenes that want the lobby picture) and the
+ * day gate and night fountain variants. (The Gate Arc's daylit shelter left the list in Act 5: g5.whiteboard and
+ * g5.board play there in the morning.) The content test keeps this list honest.
  */
 export const SPARE_BACKGROUNDS = [
   'academy-soft', 'academy-gate', 'blossom-court-night',
-  'station-plaza', 'covered-arcade', 'corner-store', 'dry-fountain', 'shelter',
 ];
 
 /** Academy tint shown for a stage background whose stage has no STAGE_PLACE (and no still). */
@@ -118,11 +134,16 @@ export function placeOfStage(stageId) {
   return id && BACKGROUNDS[id] ? id : null;
 }
 
-/** @returns {string|null} the stage id of a `stage:<id>` background, else null */
+/** @returns {string|null} the stage id of a `stage:<id>` (or `stage:<id>@<time>`) background, else null */
 export function stageOfBackground(id) {
   if (typeof id !== 'string' || !id.startsWith(STAGE_BG_PREFIX)) return null;
-  const stageId = id.slice(STAGE_BG_PREFIX.length);
-  return /^[0-9]+-[0-9]+$/.test(stageId) ? stageId : null;
+  return STAGE_BG_RE.exec(id.slice(STAGE_BG_PREFIX.length))?.[1] ?? null;
+}
+
+/** @returns {string|null} the time of day a `stage:<id>@<time>` background asks for ('dusk' / 'night'), else null */
+export function timeOfBackground(id) {
+  if (typeof id !== 'string' || !id.startsWith(STAGE_BG_PREFIX)) return null;
+  return STAGE_BG_RE.exec(id.slice(STAGE_BG_PREFIX.length))?.[2] ?? null;
 }
 
 /** @returns {boolean} a listed background or a well-formed `stage:<id>` (existence is checked by tests) */

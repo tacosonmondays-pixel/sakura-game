@@ -19,6 +19,34 @@ export function crosspathReason(tiers, path, names) {
   return 'Locked by crosspathing.';
 }
 
+/** The crosspath rule in one sentence (the lock's "i" title carries it after the full reason). */
+export const CROSSPATH_RULE = 'One path can go past T2, a second up to T2.';
+
+/**
+ * The longest a lock's one-line reason may be, in characters. The "i" beside a drawer lock puts the reason in the feed,
+ * and a toast is ONE line (UI_DIRECTION §5.8 "One toast at a time, one line"; §6.6 "tap for the one-line reason"): a
+ * phone's toast holds 331 px of 12 px bold text (the type floor; the feed is 350 px there, and Sango's widest reason
+ * needs about 328 px), the 1280 one 332 px of 13 px. The widest real reasons are measured in the browser by e2e/lib/m4Scenes.mjs (m4-lock-why); a longer toast
+ * (a tip) wraps on a phone rather than being cut.
+ */
+export const LOCK_WHY_MAX = 46;
+
+/**
+ * The crosspath lock's one-line reason (its "i"): "Capped at T2: Rapid Volley is T3", or "Max two paths per girl".
+ * The full sentence is crosspathReason (the "i"'s title, with CROSSPATH_RULE).
+ * @param {number[]} tiers current tiers [a, b, c]
+ * @param {number} path path index 0-2 that is locked
+ * @param {string[]} names path names
+ * @returns {string}
+ */
+export function crosspathWhy(tiers, path, names) {
+  const others = [0, 1, 2].filter((p) => p !== path);
+  if ((tiers[path] || 0) === 0 && others.filter((p) => tiers[p] > 0).length >= 2) return 'Max two paths per girl';
+  const high = others.find((p) => tiers[p] > 2);
+  if (high != null) return `Capped at T2: ${names[high]} is T${tiers[high]}`;
+  return 'Locked by crosspathing';
+}
+
 /**
  * Highest tier this path can still reach given the other paths (for pip styling).
  * @param {number[]} tiers
@@ -45,9 +73,32 @@ export const ONE_PER_PATH_RULE = 'Each path\'s T5 is one girl at a time: one 5-x
 /** Co-op tooltip on the lock: your ally's copies never block yours. */
 export const ONE_PER_PATH_COOP = 'In co-op each player has her own.';
 
+/**
+ * A girl's name in a tight one-line string (a toast, the held row's line): a duo's pair name ("Kohaku & Tsubaki") by
+ * its initials ("K & T", as on her card); every other name as it is. Titles and full sentences keep the whole name.
+ */
+export function lineName(girl) {
+  const s = String(girl ?? '');
+  if (s.length <= 12 || !s.includes(' & ')) return s;
+  return s.split(' & ').map((w) => w.trim()[0] || '').join(' & ');
+}
+
 /** The lock line on a final tier another copy holds. */
 export function onePerPathReason(girl, pathName) {
   return `Only one ${girl} can hold ${pathName} ${FINAL_NUMERAL}. Sell or upgrade that one.`;
+}
+
+/**
+ * The rule as the held row's one line (1280; the path is the row's name, the whole sentence its title): "Tier V: one
+ * Sango at a time".
+ */
+export function onePerPathLine(girl) {
+  return `Tier ${FINAL_NUMERAL}: one ${lineName(girl)} at a time`;
+}
+
+/** The same rule in one toast line (the phone's held-tier "i", a buy that lost the tier): no second sentence. */
+export function onePerPathWhy(girl, pathName) {
+  return `Only one ${lineName(girl)} can hold ${pathName} ${FINAL_NUMERAL}`;
 }
 
 /** Tooltip of the final-tier pip when another copy holds it. */

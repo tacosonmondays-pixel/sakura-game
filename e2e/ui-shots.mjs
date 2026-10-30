@@ -12,6 +12,12 @@
 //   node e2e/ui-shots.mjs --out /tmp/m5 --screens lobby,missions,mail --probe   # + probe-<W>x<H>.json (e2e/probe.mjs)
 //   node e2e/ui-shots.mjs --screens m5 --now live                    # the real clock
 //   node e2e/ui-shots.mjs --screens profile --probe --judge spill    # + fail (exit 1) when a probe check named fails
+//   node e2e/ui-shots.mjs --out <dir> --scenes m1-bar-idle,m1-cast-fx   # only the battle milestones' staged scenes
+//                                                                        # (e2e/lib/abilityScenes.mjs for m1-…,
+//                                                                        # e2e/lib/m2Scenes.mjs for m2-…,
+//                                                                        # e2e/lib/m3Scenes.mjs for m3-…,
+//                                                                        # e2e/lib/m4Scenes.mjs for m4-…;
+//                                                                        # --probes <file> writes their probe log)
 //
 // [ui-ink] UI v2 "Ink & Paper" (notes/ui-v2/build/PLAN.md, V1 tooling):
 //   --seed ink        the mock-ups' sample save (uiSeed.mjs seedInkSave) on its clock (INK_NOW) with a seeded
@@ -30,8 +36,13 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { launchChromium } from './browser.mjs';
 import { probe, judge, summary } from './probe.mjs';
+import { SHOT_DEFS, MILESTONES, GATE } from './shots/index.mjs';
 import { tabJunction, ringContinuity, contrastOnPixels } from './pixels.mjs';
 import { seedUiSave, seedInkSave, inkRandomInit, seedOnlineInvite, seedOnlineHub, goOffline, SHOT_NOW, INK_NOW, INK_RANDOM_SEED, MORE_FRIENDS } from './uiSeed.mjs';
+import { runM1Scenes, M1_SCENES } from './lib/abilityScenes.mjs';
+import { runM2Scenes, M2_SCENES } from './lib/m2Scenes.mjs';
+import { runM3Scenes, M3_SCENES } from './lib/m3Scenes.mjs';
+import { runM4Scenes, M4_SCENES } from './lib/m4Scenes.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -42,8 +53,18 @@ const flag = (name) => args.includes(`--${name}`);
 const out = opt('out', 'ui-shots');
 // (--viewport takes one size or a comma list; the UI M5 final review added the common landscape phones 915x412 and
 // 932x430 and the tablets in landscape 1024x768 and 1180x820 to the default two)
+/** --scenes a,b: the battle milestones' staged scenes (m1-… to m4-…); alone, no screen is shot. */
+const SCENES = opt('scenes', null) ? opt('scenes').split(',').map((s) => s.trim()).filter(Boolean) : null;
+const sceneRuns = [[runM1Scenes, M1_SCENES, ''], [runM2Scenes, M2_SCENES, '-m2'], [runM3Scenes, M3_SCENES, '-m3'], [runM4Scenes, M4_SCENES, '-m4']]
+  .map(([run, list, tag]) => ({ run, tag, want: SCENES ? SCENES.filter((s) => list.includes(s)) : [] }));
+const unknownScenes = SCENES ? SCENES.filter((s) => !sceneRuns.some((r) => r.want.includes(s))) : [];
+if (unknownScenes.length) {
+  console.error(`unknown scene(s): ${unknownScenes.join(', ')}`);
+  process.exit(2);
+}
+const probeLog = {};
 const viewports = opt('viewport', null) ? opt('viewport').split(',').map((s) => s.trim()).filter(Boolean)
-  : ['844x390', '1280x720', '915x412', '932x430', '1024x768', '1180x820'];
+  : SCENES ? ['844x390', '1280x720'] : ['844x390', '1280x720', '915x412', '932x430', '1024x768', '1180x820'];
 const PORT = Number(opt('port', '0'));
 const SEED = opt('seed', 'm5'); // 'm5' (the M5 save) or 'ink' (the UI v2 mock-ups' sample save)
 const INK = SEED === 'ink';
@@ -296,6 +317,13 @@ const INK_LIST = ['lobby', 'home-menu', 'home-marumi', 'home-marumi-2s', 'home-m
 const REGRESS = ['bounty', 'assault', 'titans', 'campaign', 'happening', 'settings', 'profile', 'event-halloween', 'coop', 'backpack-equipment', 'stage-prep',
   'achievements', 'battle-drawer', 'battle-drawer-ui'];
 const LISTS = { m5: M5, ink: INK_LIST, regress: REGRESS };
+// [ui-v2-menus] the per-milestone shot lists (e2e/shots/m*.mjs): their shots join these, each list is `--screens <id>`
+for (const [name, s] of Object.entries(SHOT_DEFS)) {
+  if (SHOTS[name]) throw new Error(`e2e/shots defines "${name}", which ui-shots already has`);
+  SHOTS[name] = s;
+}
+for (const [id, l] of Object.entries(MILESTONES)) LISTS[id] = l;
+LISTS.menus = [...new Set(Object.values(MILESTONES).flat())];
 
 /**
  * A Settings section: its rail tab (M5c), or before the rail, the old panel with that title scrolled to the top.
@@ -317,7 +345,7 @@ function settingsSection(id, title) {
 }
 
 const pick = opt('screens', null);
-const names = !pick ? FIRST_SIX : [...new Set(pick.split(',').flatMap((s) => LISTS[s.trim()] || [s.trim()]).filter(Boolean))];
+const names = !pick ? (SCENES ? [] : FIRST_SIX) : [...new Set(pick.split(',').flatMap((s) => LISTS[s.trim()] || [s.trim()]).filter(Boolean))];
 const unknown = names.filter((n) => !SHOTS[n]);
 if (unknown.length) {
   console.error(`unknown screen(s): ${unknown.join(', ')}\nknown: ${Object.keys(SHOTS).join(', ')}`);
@@ -364,6 +392,8 @@ const closeModals = (page) => page.evaluate(() => {
   document.querySelectorAll('.modal-overlay').forEach((o) => o.remove());
   // ([ui-ink] V2: the home's menu sheet closes through its own X, so the home's UI comes back)
   document.querySelector('[data-testid="menu-sheet-close"]')?.click();
+  // ([ui-v2-menus] the kit sheets too: a shot on the same hash as the one before finds them still open)
+  return import('/src/ui/sheet.js').then((m) => m.closeSheets?.()).catch(() => {});
 });
 
 async function go(page, hash, ready, settleMs = 900) {
@@ -476,6 +506,30 @@ async function battleDrawer(page) {
 for (const vp of viewports) {
   const [W, H] = vp.split('x').map(Number);
   const touch = W < 1000;
+  if (sceneRuns.some((r) => r.want.length)) {
+    const sp = await browser.newPage({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce', deviceScaleFactor: 1 });
+    // (a busy shared machine can take longer than Playwright's 30 s to load even about:blank; the M4 review, round r3)
+    sp.setDefaultNavigationTimeout(120000);
+    sp.on('pageerror', (e) => console.log(`  [pageerror] ${e.message}`));
+    console.log(`viewport ${vp} (scenes)`);
+    for (const r of sceneRuns) {
+      if (!r.want.length) continue;
+      try {
+        const log = await r.run(sp, { base, vp, want: r.want, shot: (name) => shot(sp, name, vp) });
+        probeLog[`${vp}${r.tag}`] = log;
+        // (the M4 scenes check the drawer's layout and type floor themselves: a miss fails the run)
+        for (const f of log?.failures || []) {
+          failed++;
+          console.log(`  FAILED (${r.tag.slice(1) || 'm1'} check): ${f}`);
+        }
+      } catch (e) {
+        failed++;
+        console.log(`  FAILED (${r.tag.slice(1) || 'm1'} scenes): ${e.stack || e.message}`);
+      }
+    }
+    await sp.close();
+  }
+  if (!names.length) continue;
   const context = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce', deviceScaleFactor: DSF, timezoneId: 'America/Chicago' });
   const page = await context.newPage();
   if (NOW !== 'live' && page.clock?.setFixedTime) await page.clock.setFixedTime(new Date(NOW));
@@ -558,7 +612,7 @@ for (const vp of viewports) {
       }
       await shot(page, name, vp);
       if (withProbe) {
-        const r = await probe(page, { kind: s.kind || 'hub', list: s.list || null, apart: s.apart || [], v2: true });
+        const r = await probe(page, { kind: s.kind || 'hub', list: s.list || null, apart: s.apart || [], v2: true, dense: (GATE[name]?.dense ?? s.dense)?.join(', ') || null });
         probes[name] = r;
         console.log(`    probe: ${summary(r)}`);
         const fails = judged ? judge(r, { only: judged, v2: true }) : [];
@@ -595,4 +649,5 @@ for (const vp of viewports) {
 
 await browser.close();
 await server.close();
+if (opt('probes')) writeFileSync(opt('probes'), JSON.stringify(probeLog, null, 2));
 process.exit(failed ? 1 : 0);

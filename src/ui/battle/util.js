@@ -1,71 +1,22 @@
-// Small helpers shared by the battle UI modules (owner: battle-ui).
+// Small helpers shared by the battle UI modules (owner: battle-ui). Numbers are not formatted here: every number in
+// battle goes through src/ui/format.js fmtNum (UI_DIRECTION §2, one number style; tests/battle-ui/battleNumbers.test.js).
 import { h } from '../dom.js';
 import { svgEl } from '../components.js';
 import { uiIcon, traitIcon } from '../../art/icons.js';
 import { ENEMY_MAP } from '../../data/enemies.js';
 import { TRAITS } from '../../data/types.js';
-import { fmtNum as fmtShort } from '../format.js';
+
+/**
+ * A phone's battle drawer: the window height at or under which the drawer takes its phone density (battle.css
+ * @media (max-height: 480px); 844x390, 667x375). The one threshold every battle-UI module reads.
+ */
+export const PHONE_H = 480;
+export const isPhone = () => typeof window !== 'undefined' && window.innerHeight <= PHONE_H;
 
 /** Sets a CSS custom property on an existing element (skipped when the value is null). */
 export function setVar(el, name, value) {
   if (el && value != null) el.style.setProperty(name, String(value));
   return el;
-}
-
-/** Compact number: 1234 -> "1,234", 125000 -> "125k" (only above 100k). Rounds down, so 999,999 reads "999.9k", never more than there is. */
-export function fmtCoins(n) {
-  const v = Math.floor(n || 0);
-  if (v >= 1e6) return `${Math.floor(v / 1000)}k`;
-  if (v >= 100000) return `${(Math.floor(v / 100) / 10).toFixed(1).replace(/\.0$/, '')}k`;
-  return v.toLocaleString('en-US');
-}
-
-/**
- * Big numbers with k / M / B / T (freeplay HP: "132.3M", not "132300k"): plain below 100,000,
- * then three significant digits at most.
- */
-export function fmtBig(n) {
-  const v = Math.floor(Number(n) || 0);
-  if (Math.abs(v) < 100000) return v.toLocaleString('en-US');
-  const units = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M'], [1e3, 'k']];
-  for (const [u, s] of units) {
-    if (Math.abs(v) >= u) {
-      const x = v / u;
-      const digits = x >= 100 ? 0 : x >= 10 ? 1 : 2;
-      const txt = x.toFixed(digits);
-      return `${digits ? txt.replace(/0+$/, '').replace(/\.$/, '') : txt}${s}`;
-    }
-  }
-  return String(v);
-}
-
-/** Short decimal formatting for stats (1 → "1", 1.25 → "1.25", 0.333 → "0.33"). */
-export function fmtNum(n, digits = 2) {
-  if (n == null || !Number.isFinite(n)) return '–';
-  const f = Number(n.toFixed(digits));
-  return String(f);
-}
-
-/**
- * Damage and DPS in the selected-girl panels, short enough for their cells (HANDOFF §10): one decimal below 1,000
- * ("45.3"), whole numbers with commas below 10,000 ("4,524"), then the menus' short form ("136.2k", "1.2M").
- */
-export function fmtDps(n) {
-  if (n == null || !Number.isFinite(n)) return '–';
-  const tenth = Math.round(n * 10) / 10;
-  if (Math.abs(tenth) < 1000) return String(tenth);
-  const whole = Math.round(n);
-  if (Math.abs(whole) < 10000) return whole.toLocaleString('en-US');
-  return fmtShort(n);
-}
-
-/**
- * A damage total in the selected-girl panels (the header's "Damage", Chika's and her drones' "Dealt"): whole numbers
- * with commas below 10,000, then the menus' short form ("123.5M"), never fmtCoins' "123456k".
- */
-export function fmtDealt(n) {
-  const v = Math.floor(Number(n) || 0);
-  return fmtShort(Math.max(0, v));
 }
 
 /**
@@ -86,11 +37,6 @@ export function buildErrorContext({ req = null, params = {}, quality = null, coo
     coop: !!coop,
     quality: quality || null,
   };
-}
-
-export function fmtTime(sec) {
-  const s = Math.max(0, Math.ceil(sec));
-  return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
 }
 
 /** UI icon element. */
@@ -147,7 +93,7 @@ export function createThrottle() {
 }
 
 /**
- * Live rates over a sliding window of game time (the drone panel's "Dealing" and "DPS (last 5 s)"):
+ * Live rates over a sliding window of game time (the drone panel's "DPS (live)" and "DPS (last 5 s)"):
  * sample(time, key, value) records a running total (damage dealt so far); rate(key) is how fast it
  * grew over the last `window` seconds (null until a second of samples exists).
  */

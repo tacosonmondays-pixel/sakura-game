@@ -263,7 +263,8 @@ try {
     await tap(A, '[data-testid="clan-back"]');
     const ranked = await A.waitForFunction(() => document.querySelectorAll('.ol-board-list li').length === 1 && /Aiko/.test(document.querySelector('.ol-board-list')?.innerText || ''), null, { timeout: 10000 }).then(() => true).catch(() => false);
     check(ranked, 'clan boss: back in the clan, the ranking lists the attempt');
-    check(/Fight \(2\/3 left\)/.test(await A.locator('[data-testid="boss-fight"]').innerText().catch(() => '')), 'clan boss: one of three daily attempts used');
+    // (textContent: the ink buttons set their labels in capitals with CSS, which innerText reports)
+    check(/Fight \(2\/3 left\)/.test(await A.locator('[data-testid="boss-fight"]').textContent().catch(() => '')), 'clan boss: one of three daily attempts used');
     await shot(A, 'clan-boss-ranked');
   }
 
@@ -364,7 +365,7 @@ try {
   // 2. The guest leaves: the host is told and offered a new room (a guest coming back from
   //    another browser or device might find the seat still taken)
   await tap(B, '[data-testid="coop-leave"]');
-  const goneText = await A.waitForSelector('[data-testid="coop-ally-gone"]', { timeout: 10000 }).then((e) => e.innerText()).catch(() => '');
+  const goneText = await A.waitForSelector('[data-testid="coop-ally-gone"]', { timeout: 10000 }).then((e) => e.textContent()).catch(() => '');
   check(/Bea left the room/.test(goneText) && /New room/.test(goneText), `co-op: when the guest leaves, the host sees "Bea left the room" with a New room button (${goneText.replace(/\s+/g, ' ').slice(0, 80)})`);
   await shot(A, 'coop-ally-gone-host');
 
@@ -522,6 +523,18 @@ try {
   // battle 2 runs the long checks below: back to Normal
   await pickDifficulty('Normal');
   await B.waitForFunction(() => window.__coop?.difficulty === 'normal', null, { timeout: 15000 }).catch(() => null);
+  // battle 2's abilities block needs the guest's girl at her ability tier (Aoi: 940 coins over three tiers, more than
+  // a whole 1-1 co-op battle pays one player). Both pages give the room's stage the same bigger start purse BEFORE the
+  // battle is built, so both co-op sims start from the same wallets (test-only staging, like __ab's coins in solo; the
+  // pages keep it, so a rebuilt battle replays from the same start)
+  const purse = await Promise.all([A, B].map((p) => p.evaluate(async () => {
+    const { STAGE_MAP } = await import('/src/data/stages.js');
+    const id = window.__coop?.stageId;
+    if (!STAGE_MAP[id]) return null;
+    STAGE_MAP[id].startCash = 5000;
+    return { id, startCash: STAGE_MAP[id].startCash };
+  }).catch((e) => ({ error: e.message }))));
+  check(purse.every((x) => x?.startCash === 5000 && x.id === purse[0].id), `co-op abilities: battle 2 gives both players the same bigger purse (${JSON.stringify(purse)})`);
   await tap(B, '[data-testid="coop-ready"]');
   check(await A.waitForFunction(() => !document.querySelector('[data-testid="coop-start"]')?.disabled, null, { timeout: 15000 }).then(() => true).catch(() => false),
     'rematch: Start unlocks once the guest is ready again');
@@ -672,6 +685,35 @@ try {
   check(coopCam2.every((c, i) => sameCam(coopCam0[i], c)), 'co-op: placing the girls never moved either camera');
   const owners = await A.evaluate(() => window.__battle.sim.towers.map((t) => window.__battle.coop.ownerOf(t.uid)).sort());
   check(JSON.stringify(owners) === '[0,1]', `co-op: one girl per player (owners ${JSON.stringify(owners)})`);
+  // the ally drawer (A3 M4): the host selects the guest's girl: the same ink drawer, read only, with the ally note
+  // (no price buttons, no Sell, the target chips disabled), and its MORE still opens
+  const allyUid = await A.evaluate(() => window.__battle.sim.towers.find((t) => window.__battle.coop.ownerOf(t.uid) === 1)?.uid ?? null);
+  if (allyUid != null) {
+    await A.evaluate((u) => window.__battle.ui.select(u), allyUid);
+    await A.waitForSelector('[data-testid="tower-panel"]:not([hidden]) [data-testid="ally-note"]', { timeout: 20000 }).catch(() => null);
+    const ally = await A.evaluate(() => {
+      const p = document.querySelector('[data-testid="tower-panel"]');
+      const r = p.getBoundingClientRect();
+      return {
+        note: p.querySelector('[data-testid="ally-note"]')?.textContent || '',
+        noteTitle: p.querySelector('[data-testid="ally-note"]')?.title || '',
+        buys: p.querySelectorAll('[data-testid^="buy-"]').length,
+        prices: p.querySelectorAll('.bt-dw-price').length,
+        sell: !!p.querySelector('[data-testid="sell"]'),
+        chips: [...p.querySelectorAll('.bt-target .bt-tchip')].map((b) => b.disabled),
+        stats: p.querySelectorAll('[data-testid="drawer-stats"] .bt-dw-stat').length,
+        width: Math.round(r.width),
+      };
+    });
+    // (a phone's note is one short line; the full sentence is its title)
+    check((H <= 480 ? /'s girl · view only$/ : /'s girl — only .+ can upgrade, retarget or sell her\./).test(ally.note)
+      && /'s girl — only .+ can upgrade, retarget or sell her\./.test(ally.noteTitle), `ally drawer: the note says whose girl she is ("${ally.note}", title "${ally.noteTitle}")`);
+    check(ally.buys === 0 && ally.prices > 0 && !ally.sell, `ally drawer: prices shown read only, no price buttons, no Sell (${JSON.stringify(ally)})`);
+    check(ally.chips.length > 0 && ally.chips.every(Boolean), 'ally drawer: her target chips are read only');
+    check(ally.stats >= 3, `ally drawer: her stat row shows (${ally.stats} cells)`);
+    await shot(A, 'm4-ally-drawer');
+    await A.evaluate(() => window.__battle.ui.select(null));
+  } else check(false, 'ally drawer: the guest\'s girl is on the host\'s board');
   // the host starts the wave: one 'wave' order in its log, and it runs on both clients
   const waveOrder = await A.evaluate(() => {
     const ls = window.__battle.coop.lockstep;
@@ -718,10 +760,16 @@ try {
   // (the guest searches from the opposite corner and after the host's hero stands, so the two
   // orders never race for the same spot)
   async function placeHero(page, fromEnd) {
+    // (a frame-starved page is dropped and re-admitted by design: while it rebuilds there is no window.__battle)
+    await page.waitForFunction(() => window.__battle?.sim && window.__battle.ui?.act, null, { timeout: 120000, polling: 250 }).catch(() => null);
     return page.evaluate((rev) => {
       const { sim, ui } = window.__battle;
       const id = sim.heroConfig?.unitId;
-      if (!id || sim.hero) return id ? 'already' : null;
+      if (!id) {
+        window.__heroWhy = `no heroConfig (player ${sim.localPlayer ?? '?'}; configs ${JSON.stringify((sim.heroConfigs || []).map((c) => c?.unitId ?? null))})`;
+        return null;
+      }
+      if (sim.hero) return 'already';
       const ys = [];
       // a centre right on the map's edge can round out of bounds on the 1/1024 command grid: stay 1 tile in
       for (let y = 1; y < sim.map.height - 1; y += 0.35) ys.push(y);
@@ -733,16 +781,32 @@ try {
       }
       for (const y of ys) {
         for (const x of xs) {
-          if (sim.canPlace(id, x, y).ok && sim.towers.every((t) => Math.hypot(t.x - x, t.y - y) > 1.6)) return ui.act.place(id, x, y) ? id : null;
+          if (sim.canPlace(id, x, y).ok && sim.towers.every((t) => Math.hypot(t.x - x, t.y - y) > 1.6)) {
+            if (ui.act.place(id, x, y)) return id;
+            window.__heroWhy = `place(${id}, ${x.toFixed(2)}, ${y.toFixed(2)}) refused`;
+            return null;
+          }
         }
       }
+      window.__heroWhy = `no free spot for ${id}`;
       return null;
     }, fromEnd);
   }
-  const heroA = await placeHero(A, false);
+  // (a placement is refused while the client rebuilds after a resync: a frame-starved page is dropped and re-admitted
+  // under load; try again for up to a minute)
+  const placeHeroRetry = async (page, fromEnd) => {
+    for (let i = 0; i < 30; i++) {
+      const r = await placeHero(page, fromEnd).catch(() => null);
+      if (r) return r;
+      await page.waitForTimeout(2000);
+    }
+    return null;
+  };
+  const heroA = await placeHeroRetry(A, false);
   await B.waitForFunction(() => !!window.__battle.sim.heroes[0], null, { timeout: 120000, polling: 250 }).catch(() => null);
-  const heroB = await placeHero(B, true);
-  check(!!heroA && !!heroB, `co-op heroes: both players deploy their hero for free (${heroA} / ${heroB})`);
+  const heroB = await placeHeroRetry(B, true);
+  const why = !heroA || !heroB ? await Promise.all([A, B].map((p) => p.evaluate(() => window.__heroWhy || '').catch(() => ''))) : null;
+  check(!!heroA && !!heroB, `co-op heroes: both players deploy their hero for free (${heroA} / ${heroB}${why ? `; ${why.join(' / ')}` : ''})`);
   const twoHeroes = (p) => p.waitForFunction(() => window.__battle.sim.heroes.filter(Boolean).length === 2, null, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false);
   if (!check(await twoHeroes(A) && await twoHeroes(B), 'co-op heroes: both heroes stand on both screens')) await dump('lockstep state');
   await A.evaluate(() => window.__battle.ui.feed.clear?.());
@@ -762,6 +826,151 @@ try {
   await shot(B, 'coop-two-heroes-guest');
   const hh = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.hashes)));
   check(hh.every((list) => list.length > 0 && list.every((q) => q.mine === q.theirs)), `co-op heroes: hashes still equal on both (${hh.map((l) => l.length).join(' / ')} checkpoints)`);
+  // (A3 M4 review logic-4) the HUD hero widget is the host's own hero: it steps away only for her own hero's drawer;
+  // the guest's hero drawer is read only, so the host's ult and Level up stay on the widget
+  const widgetShown = () => A.evaluate(() => {
+    const w = document.querySelector('[data-testid="hero-widget"]');
+    return !!w && !w.hidden && getComputedStyle(w).display !== 'none';
+  });
+  const allyHero = await A.evaluate(() => window.__battle.sim.heroes.find((h) => h && !window.__battle.coop.isMine(h.uid))?.uid ?? null);
+  const ownHero = await A.evaluate(() => window.__battle.sim.hero?.uid ?? null);
+  if (check(allyHero != null && ownHero != null, `co-op heroes: the host sees both heroes (own ${ownHero}, ally ${allyHero})`)) {
+    await A.evaluate((u) => window.__battle.ui.select(u), allyHero);
+    await A.waitForSelector('[data-testid="tower-panel"]:not([hidden]) [data-testid="ally-note"]', { timeout: 20000 }).catch(() => null);
+    await A.waitForTimeout(250);
+    const withAlly = { widget: await widgetShown(), note: await A.evaluate(() => document.querySelector('[data-testid="ally-note"]')?.textContent || ''), levelUp: await A.evaluate(() => !!document.querySelector('[data-testid="tower-panel"] [data-testid="hero-levelup"]')) };
+    check(withAlly.widget && /'s hero/.test(withAlly.note) && !withAlly.levelUp, `co-op heroes: the guest's hero drawer is read only and the host's hero widget stays (${JSON.stringify(withAlly)})`);
+    await shot(A, 'm4-ally-hero-drawer');
+    await A.evaluate((u) => window.__battle.ui.select(u), ownHero);
+    await A.waitForTimeout(250);
+    const withOwn = await widgetShown();
+    check(!withOwn, 'co-op heroes: the host\'s own hero drawer hides her widget (said once)');
+    await A.evaluate(() => window.__battle.ui.select(null));
+    await A.waitForTimeout(250);
+    check(await widgetShown(), 'co-op heroes: the widget is back once the drawer closes');
+  }
+
+  // ---- abilities (ABILITIES_SPEC §7, §13; plan M1): the guest fires her own girl's ability from the bar ---------
+  // Her ability path is bought to tier 3 through the upgrade command (battle 2 started with a bigger purse, above);
+  // the waves run by themselves at 3× while she charges; once she is ready with enemies in reach the guest taps her
+  // slot (the bar's real DOM path): one `abil` goes out and the slot waits (pending), a second tap sends nothing; the
+  // cast runs with the same (successful) result on both views; the slot stops waiting (onApplied); the host shows the
+  // ally chip and its bar never holds the guest's girl. No fallback: every step must really happen.
+  const guestGirl = await B.evaluate(() => {
+    const { sim, coop } = window.__battle;
+    const t = sim.towers.find((o) => !o.isHero && coop.isMine(o.uid));
+    return t ? { uid: t.uid, unitId: t.unitId, path: t.def.paths.findIndex((p) => p.ability) } : null;
+  });
+  if (check(!!guestGirl && guestGirl.path >= 0, `co-op abilities: the guest has a girl with an ability path (${guestGirl?.unitId})`)) {
+    for (let i = 0; i < 3; i++) {
+      const before = await B.evaluate((g) => window.__battle.sim.getTower(g.uid).tiers[g.path], guestGirl);
+      if (before >= 3) break;
+      const sent = await B.evaluate((g) => {
+        const { sim, ui } = window.__battle;
+        if (sim.upgradeStatus(g.uid, g.path).locked) return false;
+        return ui.act.upgrade(g.uid, g.path);
+      }, guestGirl);
+      if (!sent) break;
+      await B.waitForFunction(([g, n]) => window.__battle.sim.getTower(g.uid).tiers[g.path] > n, [guestGirl, before], { timeout: 60000, polling: 250 }).catch(() => null);
+    }
+    const tier = await B.evaluate((g) => ({ tier: window.__battle.sim.getTower(g.uid).tiers[g.path], wallet: window.__battle.sim.cash, id: window.__battle.sim.getTower(g.uid).abil?.id || null }), guestGirl);
+    if (check(tier.tier >= 3 && !!tier.id, `co-op abilities: the guest bought her ability path to tier 3 through the upgrade command (${JSON.stringify(tier)})`)) {
+      const id = tier.id;
+      // the waves keep coming at 3× while she charges (put back after the cast, so the battle outlasts the checks below)
+      await A.evaluate(() => {
+        const ls = window.__battle.coop.lockstep;
+        ls.queue('auto', [true]);
+        ls.queue('speed', [3]);
+      });
+      // ready with enemies in reach, on a settled link: not while this client rebuilds (a frame-starved page is dropped
+      // and re-admitted on this machine; while it rebuilds every order answers "busy", by design)
+      const readyNow = (g) => {
+        const { sim, coop } = window.__battle;
+        const ls = coop?.lockstep;
+        if (!ls || ls.job || !ls.running || ls.livePeers().length !== 1 || window.__coop?.peerGone) return false;
+        const t = sim.getTower(g.uid);
+        if (!t || !sim.abilityStatus(g.uid)?.ready) return false;
+        const r = t.eff.range;
+        return sim.enemies.filter((e) => !e.dead && !e.hidden && (e.x - t.x) ** 2 + (e.y - t.y) ** 2 <= r * r).length >= 2;
+      };
+      const ready = await B.waitForFunction(readyNow, guestGirl, { timeout: 240000, polling: 50 }).then(() => true).catch(() => false);
+      const why = ready ? '' : await B.evaluate((g) => {
+        const { sim, coop } = window.__battle || {};
+        const ls = coop?.lockstep;
+        const t = sim?.getTower(g.uid);
+        const st = sim?.abilityStatus(g.uid);
+        const r = t?.eff.range || 0;
+        const near = t ? sim.enemies.filter((e) => !e.dead && !e.hidden && (e.x - t.x) ** 2 + (e.y - t.y) ** 2 <= r * r).length : -1;
+        return JSON.stringify({ battle: !!sim, job: !!ls?.job, running: !!ls?.running, peers: ls?.livePeers?.().length, gone: !!window.__coop?.peerGone, state: sim?.state, wave: sim?.wave, ready: st?.ready, cd: st?.cd ?? st?.left, reason: st?.reason, near, enemies: sim?.enemies.filter((e) => !e.dead).length });
+      }, guestGirl).catch((e) => `(${e.message.split('\n')[0]})`);
+      check(ready, `co-op abilities: the guest\'s girl is ready with enemies in reach (the link settled)${why ? ` ${why}` : ''}`);
+      // the real tap on her slot, then a second one while the first waits (both in one go: no tick runs between). A
+      // tap that met a rebuild ("busy") is tapped again once the link has settled, as a player would.
+      let tapped = null;
+      for (let attempt = 1; attempt <= 6; attempt++) {
+        await Promise.all([A, B].map((p) => p.evaluate(() => { window.__applied = []; })));
+        tapped = await B.evaluate((abil) => {
+          const { ui, coop } = window.__battle;
+          const ls = coop.lockstep;
+          const q = ls.queue.bind(ls);
+          let sent = 0;
+          ls.queue = (k, a) => {
+            if (k === 'abil') sent++;
+            return q(k, a);
+          };
+          try {
+            // (a card still armed fades the bar and it takes no taps, by design: put it back first, as a player would)
+            const armed = ui.placement?.unitId || null;
+            ui.placement?.cancel?.();
+            ui.abilityBar.refresh();
+            ui.abilityBar.update();
+            const btn = document.querySelector(`[data-testid="ability-bar"] .bt-ab[data-id="${abil}"]`);
+            if (!btn) return { slot: false, armed };
+            const before = btn.dataset.state;
+            const job = !!ls.job;
+            btn.click();
+            const pending = ui.abilityPending.has(abil);
+            ui.abilityBar.update();
+            const state = btn.dataset.state;
+            const spin = !btn.querySelector('.bt-ab-spin')?.hidden;
+            btn.click();
+            const toasts = [...document.querySelectorAll('[data-testid="battle-feed"] .bt-toast-text')].map((e) => e.textContent).slice(0, 3);
+            return { slot: true, armed, job, before, sent, pending, state, spin, toasts };
+          } finally {
+            ls.queue = q;
+          }
+        }, id);
+        if (tapped.sent > 0 || !tapped.slot) break;
+        log(`    (tap ${attempt} sent nothing: ${JSON.stringify(tapped)} — tapping again once the link has settled)`);
+        await B.waitForFunction(readyNow, guestGirl, { timeout: 120000, polling: 50 }).catch(() => null);
+      }
+      check(tapped.slot && tapped.sent === 1 && tapped.pending && tapped.state === 'pending' && tapped.spin,
+        `co-op abilities: a tap on the guest's slot sends one abil and the slot spins (pending); a second tap sends nothing (${JSON.stringify(tapped)})`);
+      const ran = await Promise.all([A, B].map((p) => p.waitForFunction(() => (window.__applied || []).some((s) => s.startsWith('abil:1@')), null, { timeout: 120000, polling: 250 }).then(() => true).catch(() => false)));
+      const seen = await Promise.all([A, B].map((p) => p.evaluate(() => (window.__applied || []).filter((s) => s.startsWith('abil:')))));
+      check(ran.every(Boolean) && seen[0].length === 1 && seen[0][0] === seen[1][0] && /^abil:1@\d+$/.test(seen[0][0] || ''),
+        `co-op abilities: the guest's cast ran once, with the same successful result on both views (${seen.map((l) => l.join(',')).join(' / ')})`);
+      const released = await B.waitForFunction((abil) => {
+        const { ui } = window.__battle;
+        ui.abilityBar.update();
+        const btn = document.querySelector(`[data-testid="ability-bar"] .bt-ab[data-id="${abil}"]`);
+        return !ui.abilityPending.has(abil) && !!btn && btn.dataset.state !== 'pending';
+      }, id, { timeout: 15000, polling: 100 }).then(() => true).catch(() => false);
+      check(released, 'co-op abilities: once it ran, the guest\'s slot stops waiting (onApplied clears it)');
+      const allyChip = await A.waitForFunction(() => [...document.querySelectorAll('.bt-toast-text')].some((t) => /^Bea's \w+: .+!$/.test(t.textContent)), null, { timeout: 30000, polling: 250 }).then(() => true).catch(() => false);
+      check(allyChip, 'co-op abilities: the host shows the ally chip ("Bea\'s <girl>: <ability>!")');
+      const foreign = await A.evaluate(() => window.__battle.ui.abilityBar.slots.flatMap((s) => s.casters).filter((u) => !window.__battle.coop.isMine(u)));
+      const hostSlots = await A.evaluate(() => window.__battle.ui.abilityBar.slots.length);
+      check(foreign.length === 0, `co-op abilities: the host's bar never holds the guest's girl (${hostSlots} slots, foreign ${JSON.stringify(foreign)})`);
+      await A.evaluate(() => {
+        const ls = window.__battle.coop.lockstep;
+        ls.queue('auto', [false]);
+        ls.queue('speed', [1]);
+      });
+    }
+    const hx = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.hashes)));
+    check(hx.every((list) => list.length > 0 && list.every((q) => q.mine === q.theirs)), `co-op abilities: hashes still equal on both (${hx.map((l) => l.length).join(' / ')} checkpoints)`);
+  }
 
   // a network cut longer than the timeout: both play on alone; when the link is back the host
   // re-admits the guest, whose battle screen rebuilds from the host's log, and the hashes agree

@@ -35,10 +35,13 @@ export function modeId(id) {
   return typeof id === 'string' && Object.hasOwn(BATTLE_MODES, id) ? id : 'standard';
 }
 
-/** Ironclad's flat armor for a stage and difficulty (0 for any other mode). */
+/**
+ * Ironclad's flat armor for a stage and difficulty (0 for any other mode). The row is the stage's `modeChapter` when it
+ * has one (an Act II stage of chapter c plays at chapter c+1's numbers), else its chapter.
+ */
 export function modeArmor(mode, stage, difficulty) {
   if (!mode || !mode.armorByChapter) return 0;
   const table = mode.armorByDifficulty?.[difficulty] ?? mode.armorByChapter;
-  const ch = Math.max(1, Math.min(8, Math.floor(stage?.chapter ?? 4)));
+  const ch = Math.max(1, Math.min(8, Math.floor(stage?.modeChapter ?? stage?.chapter ?? 4)));
   return table[ch] || 0;
 }

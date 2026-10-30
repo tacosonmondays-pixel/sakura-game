@@ -372,7 +372,8 @@ async function runViewport(vp) {
   }
   await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
   await page.evaluate(() => { location.hash = '#/mall?tab=general'; });
-  await page.waitForTimeout(900);
+  // (waits for the offer itself, not a fixed 900 ms: a slow machine draws the Mall later)
+  await page.waitForSelector('[data-testid="buy-gen_book_common"]', { timeout: 30000 }).catch(() => null);
   const coins0 = await page.evaluate(() => window.__sakura.store.profile.currencies.coins);
   const books0 = await page.evaluate(() => window.__sakura.store.profile.items.book_common || 0);
   const buy = await page.$('[data-testid="buy-gen_book_common"]');
@@ -434,6 +435,18 @@ async function runViewport(vp) {
     }
     return true;
   }, null, { timeout: 15000 }).catch(() => null);
+  // ...and once the camera stopped settling: for a moment after the battle opens the framing still glides (~14 px,
+  // half a tile at 844x390), so a spot aimed then was missed by the drop. Projection and pick agree at any one
+  // instant; the board just moved between the aim and the release.
+  await page.waitForFunction(() => {
+    const { renderer, sim } = window.__battle;
+    const p = renderer.worldToScreen(sim.map.width / 2, sim.map.height / 2, 0);
+    const w = (window.__camStill ||= { x: p.clientX, y: p.clientY, n: 0 });
+    w.n = Math.hypot(p.clientX - w.x, p.clientY - w.y) < 0.5 ? w.n + 1 : 0;
+    w.x = p.clientX;
+    w.y = p.clientY;
+    return w.n >= 4;
+  }, null, { timeout: 15000, polling: 150 }).catch(() => null);
   const drag = await page.evaluate((liftPx) => {
     const { sim, renderer, ui } = window.__battle;
     const unitId = [...sim.loadout.keys()].find((id) => sim.data.unit(id)?.placement === 'land' && sim.cash >= sim.placeCost(id));
@@ -635,10 +648,12 @@ async function runViewport(vp) {
     await sw.click();
     await page.waitForTimeout(1200);
     check(await page.evaluate((c) => window.__sakura.store.profile.currencies.coins > c, coinsS), 'sweep: rewards granted');
-    // the Clears fact behind the rewards modal follows the sweep without leaving the stage
+    // the Clears fact behind the rewards modal follows the sweep without leaving the stage (UI v2 M1: in the "i" sheet)
+    await page.evaluate(() => document.querySelector('#app [data-testid="prep-info"]')?.click());
+    await page.waitForSelector('[data-testid="info-sheet"]', { timeout: 10000 }).catch(() => null);
     const clearsFact = await page.evaluate(() => {
       const n = window.__sakura.store.profile.progress.stages['1-1'].clears;
-      const fact = [...document.querySelectorAll('#app .ma-facts > *')].find((f) => /clears/i.test(f.textContent))?.textContent || '';
+      const fact = [...document.querySelectorAll('#app .ma-facts > *, [data-testid="info-sheet"] .ma-facts > *')].find((f) => /clears/i.test(f.textContent))?.textContent || '';
       return { ok: fact.replace(/\D/g, '') === String(n), text: `"${fact}" (profile: ${n} clears)` };
     });
     check(clearsFact.ok, `sweep: stage prep Clears count updated without leaving — ${clearsFact.text}`);

@@ -97,6 +97,7 @@ async function runViewport(vp) {
   const touch = Math.min(W, H) < 600;
   log(`\n=== viewport ${vp} (${touch ? 'touch' : 'mouse'}) ===`);
   const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: touch, isMobile: touch });
+  context.setDefaultNavigationTimeout(90000); // (a busy machine: a load of the dev build can take over 30 s)
   const page = await context.newPage();
   const errors = [];
   page.on('console', (m) => {
@@ -113,7 +114,8 @@ async function runViewport(vp) {
   const shot = async (name) => {
     await settle();
     await page.evaluate(() => Promise.all([...document.images].filter((i) => !i.complete).map((i) => new Promise((r) => { i.onload = i.onerror = r; setTimeout(r, 3000); })))).catch(() => {});
-    await page.screenshot({ path: `${shotsDir}/${vp}-${name}.png` });
+    // (90 s: on a busy machine the software renderer can take over 30 s for one frame of the profile)
+    await page.screenshot({ path: `${shotsDir}/${vp}-${name}.png`, timeout: 90000 });
   };
   const cdp = touch ? await context.newCDPSession(page) : null;
   const touchEvent = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1 }] });
@@ -191,7 +193,9 @@ async function runViewport(vp) {
   }));
   check(first.fav === 'luna' && first.favImg, `the favorite stand shows the secretary (${first.fav})`);
   check(first.slots === 8 && first.auto === '1', `an auto showcase of 8 (${first.slots}, auto=${first.auto})`);
-  check(first.medals.length === 4 && first.medals[0] === '59/59', `the medal tally over 59 stages (${first.medals.join(' ')})`);
+  // (every stage of the campaign: 59 before the Gate Arc's Acts, 89 with Acts 1-6; the game's own count)
+  const stages = await page.evaluate(async () => (await import('/src/systems/profileTrophies.js')).STAGE_COUNT);
+  check(first.medals.length === 4 && first.medals[0] === `${stages}/${stages}`, `the medal tally over every stage (${stages}: ${first.medals.join(' ')})`);
   check(first.pins === 4, `the best 4 medals are pinned automatically (${first.pins})`);
   check(first.fp.join(',') === '212,168,121', `Freeplay Records per tier (${first.fp.join(',')})`);
   check(first.hold === 'off', 'the profile root opts out of the global hold');
@@ -440,6 +444,7 @@ async function runVisit(vp) {
   log(`\n=== visiting · viewport ${vp} (${touch ? 'touch' : 'mouse'}) ===`);
   const vbase = `${base}?online=local&onboarding=0`;
   const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, hasTouch: touch, isMobile: touch, reducedMotion: 'reduce' });
+  context.setDefaultNavigationTimeout(90000);
   const errors = [];
   const noErrors = (what) => {
     const errs = errors.splice(0);
@@ -504,7 +509,7 @@ async function runVisit(vp) {
     o.__pvWrapped = true;
   });
   async function setName(page, name) {
-    await wait(page, '[data-testid="name-input"]', { timeout: 20000 });
+    await wait(page, '[data-testid="name-input"]', { timeout: 60000 }); // (a busy machine: the clan screen's prompt can take a while)
     await page.fill('[data-testid="name-input"]', name);
     await tap(page, '[data-testid="name-save"]');
     await wait(page, '[data-testid="name-input"]', { state: 'detached', timeout: 10000 });
@@ -768,7 +773,7 @@ async function runVisit(vp) {
   await wait(B, '[data-testid="profile-more-sheet"]', { timeout: 6000 });
   const styled = await B.evaluate(() => ({
     foot: getComputedStyle(document.querySelector('[data-testid="profile-more-sheet"] .sc-card-foot')).display,
-    width: document.querySelector('.modal.sc-card-modal')?.getBoundingClientRect().width || 0,
+    width: document.querySelector('[data-testid="profile-more-sheet"]')?.closest('.ui-sheet')?.getBoundingClientRect().width || 0,
   }));
   check(styled.foot === 'flex' && styled.width > 0 && styled.width <= 641, `visitor after a reload: the ⋯ sheet is styled (${JSON.stringify(styled)})`);
   await B.keyboard.press('Escape').catch(() => {});
@@ -829,7 +834,8 @@ async function runVisit(vp) {
   // ---- 9. before the profile SQL: the needs-update card; chat and M1 still work
   log('-- 9. before the profile SQL (&profile=0)');
   await B.goto(`${vbase}&profile=0#/profile/${uidA}`, { waitUntil: 'load' });
-  check(await has(B, '[data-testid="profile-needs-update"]', 15000), 'profile=0: visiting shows "needs the latest server update"');
+  // (45 s: a fresh load of the dev build that then goes online can take more than 15 s on a busy machine)
+  check(await has(B, '[data-testid="profile-needs-update"]', 45000), 'profile=0: visiting shows "needs the latest server update"');
   await shot(B, 'visit-needs-update');
   await go(B, '#/profile');
   check(await has(B, '[data-testid="profile-showcase"]', 15000), 'profile=0: the own profile still works from the save');

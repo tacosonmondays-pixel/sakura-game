@@ -1,6 +1,8 @@
 // Catch-up joins (src/systems/catchUpJoins.js): the free girls who join on a stage win join once, with a
 // letter, for a save that cleared her stage before she existed, through the same grant as a stage win:
-// Noa (6-2) and Hana (7-5) since v0.1.39, Azami (2-2), Yuzuha (4-2) and Wakaba (6-5) since v0.1.40.
+// Noa (6-2) and Hana (7-5) since v0.1.39, Azami (2-2), Yuzuha (4-2) and Wakaba (6-5) since v0.1.40. Gate Arc moves
+// Yuzuha's join to 1-7 (chapter 1's Act II); a 4-2 clear still settles her once (LEGACY_JOIN_STAGES). Step 4 moves
+// Azami's to 4-7; a 2-2 clear made before this build still brings her once (PRE_UPDATE_JOIN_STAGES), a later one never.
 // The marks ('join:<id>') live in missions.counters, which every build keeps word for word, so reloads
 // and older tabs never bring a second grant. The older builds, played the way their migrateProfile
 // treats a save (as in rosterSave.test.js): v0.1.39 knows Noa and Hana but not the seven new academy
@@ -8,7 +10,7 @@
 // keep counters word for word and never run the catch-up at their start.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UNITS, UNIT_MAP } from '../../src/data/units.js';
-import { CAMPAIGN_IDS, STAGE_MAP } from '../../src/data/stages.js';
+import { CAMPAIGN_IDS, STAGE_MAP, stageOrderKey } from '../../src/data/stages.js';
 import { EXPANSION_IDS } from '../../src/data/unitsExpansion.js';
 import { NEW_GIRL_IDS } from '../../src/data/unitsNewGirls.js';
 import { ACHIEVEMENT_MAP } from '../../src/data/achievements.js';
@@ -20,7 +22,8 @@ import { metricValue } from '../../src/systems/achievementMetrics.js';
 import { OWN_PREFIX } from '../../src/systems/rosterSave.js';
 import { createRng } from '../../src/core/rng.js';
 import {
-  ensureCatchUpJoins, joinStageOf, joinLetter, joinLetterId, joinToastText, JOIN_PREFIX, CATCH_UP_UNITS,
+  ensureCatchUpJoins, joinStageOf, joinLetter, joinLetterId, joinToastText, JOIN_PREFIX, CATCH_UP_UNITS, LEGACY_JOIN_STAGES,
+  PRE_UPDATE_JOIN_STAGES, JOIN_WINDOW_PREFIX,
 } from '../../src/systems/catchUpJoins.js';
 
 const NOW = Date.parse('2026-10-22T18:00:00Z');
@@ -29,9 +32,12 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 const V0139_IDS = new Set(UNITS.map((u) => u.id).filter((id) => !NEW_GIRL_IDS.includes(id)));
 /** The girls v0.1.38 knows: the roster before the returning girls (and before the seven). */
 const V0138_IDS = new Set([...V0139_IDS].filter((id) => !EXPANSION_IDS.includes(id)));
-/** The v0.1.40 catch-up girls, each with her stage. */
-const NEW_JOINS = [['azami', '2-2'], ['yuzuha', '4-2'], ['wakaba', '6-5']];
-const ALL_JOINS = ['azami', 'yuzuha', 'noa', 'wakaba', 'hana'];
+/**
+ * The v0.1.40 catch-up girls: her catch-up stage, and the stage whose win grants her now (Yuzuha: 4-2 legacy, 1-7;
+ * Azami: a pre-update 2-2 clear, 4-7). The fixtures are saves from before this build (no catch-up run yet).
+ */
+const NEW_JOINS = [['azami', '2-2', '4-7'], ['yuzuha', '4-2', '1-7'], ['wakaba', '6-5', '6-5']];
+const ALL_JOINS = ['yuzuha', 'azami', 'noa', 'wakaba', 'hana'];
 const medal = (d = 'normal') => ({ easy: false, normal: false, hard: false, nightmare: false, [d]: true, clears: 1 });
 const letters = (p, id) => p.mail.letters.filter((l) => l.id === joinLetterId(id));
 const joinLetters = (p) => p.mail.letters.filter((l) => /^joined-/.test(l.id));
@@ -67,16 +73,20 @@ function clearedUpTo(last) {
 }
 
 describe('catch-up joins: data', () => {
-  it('Azami 2-2, Yuzuha 4-2, Noa 6-2, Wakaba 6-5 and Hana 7-5, the stages whose win grants them, in campaign order', () => {
+  it('Yuzuha 1-7, Azami 4-7, Noa 6-2, Wakaba 6-5 and Hana 7-5, the stages whose win grants them, in play order', () => {
     expect(CATCH_UP_UNITS).toEqual(ALL_JOINS);
-    const stages = { azami: '2-2', yuzuha: '4-2', noa: '6-2', wakaba: '6-5', hana: '7-5' };
+    expect(LEGACY_JOIN_STAGES).toEqual({ yuzuha: ['4-2'] });
+    expect(PRE_UPDATE_JOIN_STAGES).toEqual({ azami: ['2-2'] });
+    expect(STAGE_MAP['4-2'].unlocks.units).toBeUndefined();
+    expect(STAGE_MAP['2-2'].unlocks.units).toBeUndefined();
+    const stages = { yuzuha: '1-7', azami: '4-7', noa: '6-2', wakaba: '6-5', hana: '7-5' };
     for (const [id, stage] of Object.entries(stages)) {
       expect(joinStageOf(id).id, id).toBe(stage);
       expect(UNIT_MAP[id].acquisition).toMatchObject({ type: 'free', afterStage: stage });
       expect(joinLetter(id).title).toBe(`${UNIT_MAP[id].name} joined your academy!`);
       expect(joinLetter(id).rewards).toEqual([]);
     }
-    const order = CATCH_UP_UNITS.map((id) => CAMPAIGN_IDS.indexOf(joinStageOf(id).id));
+    const order = CATCH_UP_UNITS.map((id) => stageOrderKey(joinStageOf(id).id));
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(joinLetter('nobody')).toBe(null);
   });
@@ -95,7 +105,7 @@ describe('catch-up joins: data', () => {
     expect(joinToastText(['azami'])).toBe('Azami joined your academy! Details in your Mailbox.');
     expect(joinToastText(['noa', 'hana'])).toBe('Noa and Hana joined your academy! Details in your Mailbox.');
     expect(joinToastText(['azami', 'yuzuha', 'wakaba'])).toBe('Azami, Yuzuha and Wakaba joined your academy! Details in your Mailbox.');
-    expect(joinToastText(ALL_JOINS)).toBe('Azami, Yuzuha, Noa, Wakaba and Hana joined your academy! Details in your Mailbox.');
+    expect(joinToastText(ALL_JOINS)).toBe('Yuzuha, Azami, Noa, Wakaba and Hana joined your academy! Details in your Mailbox.');
   });
 });
 
@@ -128,7 +138,7 @@ describe('catch-up joins', () => {
       expect(letters(p, id)).toHaveLength(1);
       expect(letters(p, id)[0].claimed).toBe(false);
     }
-    // the Mailbox (newest first) reads top to bottom in campaign order
+    // the Mailbox (newest first) reads top to bottom in play order
     expect(joinLetters(p).map((l) => l.title)).toEqual(ALL_JOINS.map((id) => `${UNIT_MAP[id].name} joined your academy!`));
     expect(metricValue(p, ACHIEVEMENT_MAP.a_units_10)).toBe(owned + 5); // the roster achievements count them
     expect(ensureCatchUpJoins(p, NOW + 1000)).toEqual([]);
@@ -137,10 +147,10 @@ describe('catch-up joins', () => {
 
   it('she is exactly the girl a stage win grants (same unit, same marks)', () => {
     const won = clearedUpTo('6-1');
-    expect(ensureCatchUpJoins(won, NOW)).toEqual(['azami', 'yuzuha']);
+    expect(ensureCatchUpJoins(won, NOW)).toEqual(['yuzuha', 'azami']);
     expect(win(won, '6-2').unlockedUnits).toEqual(['noa']);
     const caught = clearedUpTo('6-2');
-    expect(ensureCatchUpJoins(caught, NOW)).toEqual(['azami', 'yuzuha', 'noa']);
+    expect(ensureCatchUpJoins(caught, NOW)).toEqual(['yuzuha', 'azami', 'noa']);
     expect(sans(caught.units.noa)).toEqual(sans(won.units.noa));
     for (const k of ['own:noa', 'pot:noa']) expect(caught.missions.counters[k]).toBe(won.missions.counters[k]);
     // after that win the next load only marks her as settled: no letter, nothing granted
@@ -151,7 +161,7 @@ describe('catch-up joins', () => {
 
   it('only the cleared stage counts: Hana waits for her 7-5 win, which grants her as usual', () => {
     const p = clearedUpTo('7-4');
-    expect(ensureCatchUpJoins(p, NOW)).toEqual(['azami', 'yuzuha', 'noa', 'wakaba']);
+    expect(ensureCatchUpJoins(p, NOW)).toEqual(['yuzuha', 'azami', 'noa', 'wakaba']);
     expect(isOwned(p, 'hana')).toBe(false);
     expect(p.missions.counters[JOIN_PREFIX + 'hana']).toBeUndefined();
     expect(win(p, '7-5', 2).unlockedUnits).toEqual(['hana']);
@@ -167,7 +177,7 @@ describe('catch-up joins', () => {
     p.units.noa.dupes = 2;
     const before = clone(p.units.noa);
     const items = clone(p.items);
-    expect(ensureCatchUpJoins(p, NOW)).toEqual(['azami', 'yuzuha', 'wakaba', 'hana']);
+    expect(ensureCatchUpJoins(p, NOW)).toEqual(['yuzuha', 'azami', 'wakaba', 'hana']);
     expect(p.units.noa).toEqual(before);
     expect(p.items).toEqual(items);
     expect(p.missions.counters[JOIN_PREFIX + 'noa']).toBe(1);
@@ -191,7 +201,7 @@ describe('catch-up joins', () => {
 
   it('a settled mark is final: a girl lost without her own mark is never granted a second time', () => {
     const p = clearedUpTo('6-2');
-    expect(ensureCatchUpJoins(p, NOW)).toEqual(['azami', 'yuzuha', 'noa']);
+    expect(ensureCatchUpJoins(p, NOW)).toEqual(['yuzuha', 'azami', 'noa']);
     delete p.units.noa;
     delete p.missions.counters['own:noa'];
     const q = migrateProfile(clone(p));
@@ -201,7 +211,7 @@ describe('catch-up joins', () => {
   });
 });
 
-describe.each(NEW_JOINS)('catch-up joins: %s (%s)', (id, stage) => {
+describe.each(NEW_JOINS)('catch-up joins: %s (%s)', (id, stage, winStage) => {
   const name = UNIT_MAP[id].name;
 
   it(`a save that cleared ${stage} gets ${name} once, with one letter and her marks`, () => {
@@ -221,13 +231,14 @@ describe.each(NEW_JOINS)('catch-up joins: %s (%s)', (id, stage) => {
     expect(letters(p, id)).toHaveLength(1);
   });
 
-  it(`a save that has not cleared ${stage} gets nothing, and the ${stage} win still grants ${name}`, () => {
+  it(`a save that has not cleared ${stage} gets nothing, and the ${winStage} win still grants ${name}`, () => {
     const p = clearedUpTo(prevStage(stage));
     expect(ensureCatchUpJoins(p, NOW)).not.toContain(id);
     expect(isOwned(p, id)).toBe(false);
     expect(p.missions.counters[JOIN_PREFIX + id]).toBeUndefined();
     expect(letters(p, id)).toHaveLength(0);
-    expect(win(p, stage, 3).unlockedUnits).toEqual([id]);
+    if (winStage !== stage) p.progress.stages[prevStage(winStage)] = medal(); // (1-7 opens after 1-6, 4-7 after 4-6)
+    expect(win(p, winStage, 3).unlockedUnits).toEqual([id]);
     expect(p.units[id].dupes || 0).toBe(0);
     expect(ensureCatchUpJoins(p, NOW)).toEqual([]); // the next load only marks her as settled
     expect(p.missions.counters[JOIN_PREFIX + id]).toBe(1);
@@ -299,6 +310,115 @@ describe.each(NEW_JOINS)('catch-up joins: %s (%s)', (id, stage) => {
   });
 });
 
+describe('Yuzuha joins after 1-7 now; a 4-2 clear still settles her once', () => {
+  /** A save that cleared exactly these stages (Normal). */
+  const clearedOnly = (ids) => {
+    const p = createProfile();
+    for (const id of ids) p.progress.stages[id] = medal();
+    return migrateProfile(clone(p));
+  };
+  const act1Upto = (last) => CAMPAIGN_IDS.slice(0, CAMPAIGN_IDS.indexOf(last) + 1);
+
+  it('a save that cleared 4-2 but never met her (v0.1.39 and before) gets her once, the letter naming 4-2', () => {
+    const p = clearedOnly(act1Upto('4-2'));
+    expect(ensureCatchUpJoins(p, NOW)).toEqual(['yuzuha', 'azami']);
+    expect(letters(p, 'yuzuha')[0].body).toContain('stage 4-2 (Wolves on the Bridge)');
+    expect(ensureCatchUpJoins(p, NOW + 1)).toEqual([]);
+    expect(letters(p, 'yuzuha')).toHaveLength(1);
+  });
+
+  it('a 4-2 win still grants her (with the results card) to a player who has not met her; a 1-7 win grants her', () => {
+    const p = clearedOnly(act1Upto('4-1'));
+    expect(ensureCatchUpJoins(p, NOW)).toEqual(['azami']);
+    expect(win(p, '4-2', 4).unlockedUnits).toEqual(['yuzuha']);
+    expect(p.missions.counters[JOIN_PREFIX + 'yuzuha']).toBe(1);
+    expect(ensureCatchUpJoins(p, NOW)).toEqual([]); // settled: no letter, no second grant
+    expect(letters(p, 'yuzuha')).toHaveLength(0);
+    expect(win(p, '4-2', 6).unlockedUnits).toEqual([]); // a re-clear grants nothing
+    // a girl lost after her join (an older tab's save) is never granted again by a 4-2 win: her join mark holds
+    const lost = clone(p);
+    delete lost.units.yuzuha;
+    for (const k of Object.keys(lost.missions.counters)) if (k.startsWith(`${OWN_PREFIX}yuzuha`)) delete lost.missions.counters[k];
+    const back = migrateProfile(lost);
+    expect(win(back, '4-2', 7).unlockedUnits).toEqual([]);
+    const q = clearedOnly(act1Upto('1-5').concat('1-6'));
+    expect(ensureCatchUpJoins(q, NOW)).toEqual([]);
+    expect(win(q, '1-7', 5).unlockedUnits).toEqual(['yuzuha']);
+    expect(ensureCatchUpJoins(q, NOW)).toEqual([]);
+    expect(letters(q, 'yuzuha')).toHaveLength(0);
+    const r = clearedOnly(act1Upto('1-5').concat('1-6', '1-7'));
+    expect(ensureCatchUpJoins(r, NOW)).toEqual(['yuzuha']);
+    expect(letters(r, 'yuzuha')[0].body).toContain('stage 1-7');
+  });
+
+  it('owned already (a recruit, or the v0.1.40 4-2 win): nothing, and the join mark is set once', () => {
+    const p = clearedOnly(act1Upto('4-2').concat('1-6', '1-7'));
+    grantUnit(p, 'yuzuha', NOW);
+    const before = clone(p.units.yuzuha);
+    expect(ensureCatchUpJoins(p, NOW)).toEqual(['azami']);
+    expect(p.units.yuzuha).toEqual(before);
+    expect(p.missions.counters[JOIN_PREFIX + 'yuzuha']).toBe(1);
+    expect(letters(p, 'yuzuha')).toHaveLength(0);
+    // an older tab that settled her (join mark kept word for word) is never granted again
+    const lost = clone(p);
+    delete lost.units.yuzuha;
+    for (const k of Object.keys(lost.missions.counters)) if (k.startsWith(`${OWN_PREFIX}yuzuha`)) delete lost.missions.counters[k];
+    const again = migrateProfile(lost);
+    expect(ensureCatchUpJoins(again, NOW)).toEqual([]);
+    expect(isOwned(again, 'yuzuha')).toBe(false);
+  });
+});
+
+describe('Azami joins after 4-7 now; only a 2-2 clear from before this build still brings her', () => {
+  const clearedOnly = (ids) => {
+    const p = createProfile();
+    for (const id of ids) p.progress.stages[id] = medal();
+    return migrateProfile(clone(p));
+  };
+  const act1Upto = (last) => CAMPAIGN_IDS.slice(0, CAMPAIGN_IDS.indexOf(last) + 1);
+
+  it('a save that cleared 2-2 before this build (never met her) gets her on its first load here, the letter naming 2-2', () => {
+    const p = clearedOnly(act1Upto('2-2'));
+    expect(p.missions.counters[JOIN_WINDOW_PREFIX + 'azami']).toBeUndefined();
+    expect(ensureCatchUpJoins(p, NOW)).toEqual(['azami']);
+    expect(letters(p, 'azami')[0].body).toContain('stage 2-2 (Through the Reeds)');
+    expect(p.missions.counters[JOIN_WINDOW_PREFIX + 'azami']).toBe(1);
+    expect(ensureCatchUpJoins(p, NOW + 1)).toEqual([]);
+  });
+
+  it('a new player: the first load closes the window; a later 2-2 clear or win never brings her; the 4-7 win does', () => {
+    const p = createProfile();
+    expect(ensureCatchUpJoins(p, NOW)).toEqual([]);
+    expect(p.missions.counters[JOIN_WINDOW_PREFIX + 'azami']).toBe(1);
+    expect(p.missions.counters[JOIN_PREFIX + 'azami']).toBeUndefined();
+    p.progress.stages['2-1'] = medal();
+    expect(win(p, '2-2', 3).unlockedUnits).toEqual([]);
+    expect(isOwned(p, 'azami')).toBe(false);
+    // the window survives a save and a reload (counters are kept word for word)
+    const q = migrateProfile(JSON.parse(saveText(p, 2)));
+    expect(ensureCatchUpJoins(q, NOW)).toEqual([]);
+    expect(isOwned(q, 'azami')).toBe(false);
+    for (const id of act1Upto('4-5').concat(...[1, 2, 3].flatMap((c) => [6, 7, 8, 9, 10].map((n) => `${c}-${n}`)), '4-6')) q.progress.stages[id] = medal();
+    expect(ensureCatchUpJoins(q, NOW)).toEqual(['yuzuha']); // (1-7 marked cleared here without its win)
+    expect(win(q, '4-7', 4).unlockedUnits).toEqual(['azami']);
+    expect(ensureCatchUpJoins(q, NOW)).toEqual([]);
+    expect(q.missions.counters[JOIN_PREFIX + 'azami']).toBe(1);
+    expect(letters(q, 'azami')).toHaveLength(0);
+  });
+
+  it('a save that already owns her (every v0.1.40+ save past 2-2) keeps her; nothing is granted twice', () => {
+    const p = clearedOnly(act1Upto('3-1'));
+    grantUnit(p, 'azami', NOW);
+    p.missions.counters[JOIN_PREFIX + 'azami'] = 1;
+    const before = clone(p.units.azami);
+    expect(ensureCatchUpJoins(p, NOW)).toEqual([]);
+    expect(p.units.azami).toEqual(before);
+    p.progress.stages['4-6'] = medal();
+    expect(win(p, '4-7', 5).unlockedUnits).toEqual([]);
+    expect(p.units.azami.dupes || 0).toBe(0);
+  });
+});
+
 describe('catch-up joins and older tabs', () => {
   it('a v0.1.39 tab that loads and saves keeps Noa and Hana and every mark; back here nothing happens twice', () => {
     const p = clearedUpTo('7-5');
@@ -342,7 +462,7 @@ describe('catch-up joins and older tabs', () => {
     const old = migrateProfile(v0139Save(migrateProfile(raw)));
     expect(isOwned(old, 'noa')).toBe(false); // v0.1.39 grants her only on a new 6-2 win
     const here = migrateProfile(JSON.parse(saveText(old, 2)));
-    expect(ensureCatchUpJoins(here, NOW)).toEqual(['azami', 'yuzuha', 'noa']);
+    expect(ensureCatchUpJoins(here, NOW)).toEqual(['yuzuha', 'azami', 'noa']);
     // the next v0.1.38 round trip loses nothing and grants nothing again
     const again = migrateProfile(v0138Save(JSON.parse(saveText(here, 3))));
     for (const id of ['azami', 'yuzuha', 'noa']) expect(isOwned(again, id), id).toBe(true);

@@ -1,0 +1,162 @@
+/* Tryout Day's timetable strip with tap previews (src/ui/battle/tryout/timetable.js; docs/specs/TRYOUT_DAY.md §13.3,
+   §13.4): Before Class's strip (.ty-bct, with the Final boss portrait at its end), the tappable cells (.ty-tt.live,
+   here and on the pick sheet) and the small preview card (.ty-ttp). Every rule sits under one of those classes, so
+   nothing here reaches another screen; the pick sheet's own strip rules stay in tryoutBattle.css (.ty-layer).
+   12 px minimum text (cssFloor: none under it). Reduce Motion (system and html[data-reduce-motion]) holds the card
+   still. */
+
+/* ---------- tappable cells (both strips) ---------- */
+.ty-tt.live > :is(button.ty-tt-cell, button.ty-tt-brk, button.ty-tt-bosscell) {
+  margin: 0; border: 0; border-radius: 0; font: inherit; font-size: 12px; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.ty-tt.live > :is(button.ty-tt-cell, button.ty-tt-bosscell):focus-visible,
+.ty-tt.live > button.ty-tt-brk:focus-visible { outline: 2px solid var(--cyan-ink); outline-offset: 1px; }
+.ty-tt.live > button[aria-expanded="true"] { box-shadow: inset 0 0 0 2px var(--cyan-ink); }
+.ty-tt.live > button.ty-tt-cell.current[aria-expanded="true"] { box-shadow: inset 0 0 0 2px var(--yellow), 0 0 0 2px var(--cyan-ink); }
+
+/* ---------- the wrapper: the strip, and the preview card under it ---------- */
+.ty-ttw { position: relative; min-width: 0; }
+
+/* ---------- the preview card ---------- */
+.ty-ttp {
+  position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; width: min(470px, 100%); max-width: 100%; box-sizing: border-box;
+  overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 3px; padding: 7px 10px 8px; text-align: left;
+  background: var(--panel-w); color: var(--ink); font-size: 12px; line-height: 1.3;
+  box-shadow: inset 0 0 0 2px var(--plate), 0 4px 14px rgba(14, 25, 48, 0.28);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  animation: ty-ttp-in 0.12s ease-out both;
+}
+@keyframes ty-ttp-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.ty-ttp-head { display: flex; align-items: baseline; gap: 8px; padding-right: 26px; }
+.ty-ttp-title { font: italic 900 14px/1.15 var(--font-head); color: var(--ink); }
+.ty-ttp-waves { font: 600 12px/1 var(--font-num); letter-spacing: 0.04em; color: var(--muted); }
+.ty-ttp-x {
+  position: absolute; top: 2px; right: 8px; width: 30px; height: 30px; display: grid; place-items: center; padding: 0;
+  border: 0; background: transparent; color: var(--ink); font: 700 18px/1 var(--font-num); cursor: pointer;
+}
+.ty-ttp-x:focus-visible { outline: 2px solid var(--cyan-ink); outline-offset: -2px; }
+.ty-ttp-row { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.ty-ttp-k {
+  flex: 0 0 auto; min-width: 54px; display: inline-flex; align-items: center; gap: 3px;
+  font: 600 12px/1.2 var(--font-num); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
+}
+.ty-ttp-v { min-width: 0; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; }
+.ty-ttp-v b { font-weight: 800; }
+.ty-ttp-traits { color: var(--ink); font-weight: 600; }
+.ty-ttp-big .ty-ttp-v .bt-enemy-token { flex: none; }
+.ty-ttp-big.boss .ty-ttp-k { color: var(--pink-text); }
+.ty-ttp-pair { flex-direction: column; align-items: flex-start; }
+.ty-ttp-subj b { font-weight: 800; }
+.ty-ttp-subj span { color: var(--muted); font-weight: 600; }
+.ty-ttp-gate .ty-ttp-k { font-size: 14px; color: var(--ink); }
+.ty-ttp-mute { color: var(--muted); font-weight: 600; }
+.ty-ttp .ty-tt-affix { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--tier-advanced); }
+.ty-ttp-next .ty-ttp-v { color: var(--ink); }
+
+/* ---------- Before Class's strip (§13.3): one slim row under the Grade row (the six stay above the foot, R2 review):
+   each period's label, its marks and its Subject pair (a Full Day's twelve and a short screen fold the pair away), the
+   breaks as thin hatched slivers (their names in the tooltip and the preview), the Final boss portrait at the end ----- */
+.ty-bct { display: flex; align-items: center; min-width: 0; }
+.ty-bct > .ty-ttw { flex: 1 1 auto; min-width: 0; }
+.ty-bct .ty-tt { display: flex; align-items: stretch; gap: 3px; min-width: 0; overflow-x: auto; scrollbar-width: none; padding: 0; }
+/* (the row scrolls sideways when it must, so its focus ring sits inside each cell, never clipped) */
+.ty-bct .ty-tt.live > button:focus-visible { outline-offset: -3px; }
+.ty-bct .ty-tt::-webkit-scrollbar { display: none; }
+.ty-bct .ty-tt-cell {
+  flex: 1 1 0; min-width: 34px; display: flex; flex-direction: row; align-items: center; gap: 4px; padding: 0 5px; min-height: 26px;
+  box-shadow: inset 0 0 0 1px var(--line-ink); color: var(--ink); background: var(--panel-w); line-height: 1.1; overflow: hidden;
+}
+.ty-bct .ty-tt-cell.final { box-shadow: inset 0 0 0 2px var(--plate); }
+.ty-bct .ty-tt-top { display: flex; flex: none; align-items: center; gap: 3px; white-space: nowrap; }
+.ty-bct .ty-tt-p { font: 700 12px/1 var(--font-num); letter-spacing: 0.04em; }
+.ty-bct .ty-tt-gate, .ty-bct .ty-tt-crown { font-weight: 900; }
+.ty-bct .ty-tt-crown { color: var(--tier-advanced); }
+.ty-bct .ty-tt-affix { width: 7px; height: 7px; border-radius: 50%; background: var(--tier-advanced); flex: none; }
+.ty-bct .ty-tt-subj { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; color: var(--muted); }
+.ty-bct .ty-tt-brk {
+  flex: 0 0 12px; min-height: 26px; padding: 0; color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--line-ink); background: repeating-linear-gradient(135deg, var(--panel-w) 0 4px, var(--line-ink-soft) 4px 5px);
+}
+.ty-bct .ty-tt-brk > span { display: none; }
+.ty-bct .ty-tt-bosscell {
+  flex: 0 1 auto; display: flex; align-items: center; gap: 5px; padding: 0 8px 0 2px; min-height: 26px; max-width: 150px; min-width: 30px;
+  background: var(--plate); color: var(--on-ink); box-shadow: inset 0 0 0 2px var(--yellow);
+}
+.ty-bct .ty-tt-bossart { flex: none; width: 22px; height: 22px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: rgba(255, 255, 255, 0.12); }
+.ty-bct .ty-tt-bossart > * { max-width: 100%; max-height: 100%; }
+.ty-bct .ty-tt-bossart img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ty-bct .ty-tt-bossname { font: italic 800 12px/1.15 var(--font-head); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* a Full Day: twelve periods in the row, so the pair folds to the tooltip and the preview, the boss to his portrait */
+.ty-bct[data-length="full"] .ty-tt-subj { display: none; }
+.ty-bct[data-length="full"] .ty-tt-cell { justify-content: center; padding: 0 3px; }
+.ty-bct[data-length="full"] .ty-tt-bossname { display: none; }
+.ty-bct[data-length="full"] .ty-tt-bosscell { padding: 0 2px; }
+/* the preview card over Before Class's columns */
+.ty-bct .ty-ttp { width: min(500px, 100%); }
+
+/* ---------- short screens (844 x 390): as the pick sheet's slim row, the pair (in each cell's tooltip and preview)
+   and the boss's name (his portrait stays) fold away ---------- */
+@media (max-height: 480px) {
+  .ty-bct .ty-tt-cell { padding: 0 4px; justify-content: center; }
+  .ty-bct .ty-tt-subj { display: none; }
+  .ty-bct .ty-tt-brk { flex-basis: 10px; }
+  .ty-bct .ty-tt-bosscell { padding: 0 2px; }
+  .ty-bct .ty-tt-bossname { display: none; }
+  .ty-ttp { padding: 5px 8px 6px; gap: 2px; }
+}
+
+/* ---------- Reduce Motion: the card appears without its small drop ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .ty-ttp { animation: none; }
+}
+html[data-reduce-motion] .ty-ttp { animation: none; }
+
+/* ---------- Extended Day (§20.8, minimal): the Full Day's twelve folded as a Full Day's, then the day's open end ("P13+ ·
+   on and on") where the boss portrait sits on a Full Day: a dashed ink cell, never a button ---------- */
+.ty-bct[data-length="after"] .ty-tt-cell > .ty-tt-subj { display: none; }
+.ty-bct[data-length="after"] .ty-tt-cell { justify-content: center; padding: 0 3px; }
+.ty-bct .ty-tt-more {
+  flex: 0 1 auto; display: flex; align-items: center; gap: 5px; padding: 0 8px; min-height: 26px; min-width: 40px; max-width: 150px;
+  color: var(--ink); background: var(--panel-w); outline: 1px dashed var(--plate); outline-offset: -2px; white-space: nowrap; overflow: hidden;
+}
+.ty-bct .ty-tt-more > .ty-tt-p { flex: none; }
+.ty-bct .ty-tt-more > .ty-tt-subj { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: italic 700 12px/1.1 var(--font-head); color: var(--muted); }
+@media (max-height: 480px) {
+  .ty-bct .ty-tt-more { padding: 0 5px; }
+  .ty-bct .ty-tt-more > .ty-tt-subj { display: none; }
+}
+
+/* ---------- a narrow screen (a Full Day or an Extended Day at 390 px): each cell keeps its whole label ("P10", never
+   "10"), the row scrolls, and a soft fade marks the edge with more cells past it (data-more, edgeHints) ---------- */
+/* (the Subject pair adds nothing to a cell's minimum: width 0, it grows into the room left and ellipsizes) */
+.ty-bct .ty-tt-cell { min-width: min-content; justify-content: safe center; }
+.ty-bct .ty-tt-cell > .ty-tt-subj { width: 0; flex: 1 1 auto; min-width: 0; }
+.ty-bct > .ty-ttw { position: relative; }
+.ty-bct[data-more] > .ty-ttw::before, .ty-bct[data-more] > .ty-ttw::after {
+  content: ''; position: absolute; top: 0; bottom: 0; z-index: 2; width: 22px; pointer-events: none; opacity: 0;
+}
+.ty-bct[data-more] > .ty-ttw::before { left: 0; background: linear-gradient(to right, var(--panel-w), transparent); }
+.ty-bct[data-more] > .ty-ttw::after { right: 0; background: linear-gradient(to left, var(--panel-w), transparent); }
+.ty-bct:is([data-more="left"], [data-more="both"]) > .ty-ttw::before,
+.ty-bct:is([data-more="right"], [data-more="both"]) > .ty-ttw::after { opacity: 1; }
+/* (the edge hint says so plainly: a chevron on the faded edge, not only the fade, v0.1.61 review) */
+.ty-bct[data-more] > .ty-ttw::before, .ty-bct[data-more] > .ty-ttw::after {
+  display: grid; align-items: center; font: 900 16px/1 var(--font-num); color: var(--plate);
+}
+.ty-bct[data-more] > .ty-ttw::before { content: '‹'; justify-items: start; padding-left: 2px; background: linear-gradient(to right, var(--panel-w) 45%, transparent); }
+.ty-bct[data-more] > .ty-ttw::after { content: '›'; justify-items: end; padding-right: 2px; background: linear-gradient(to left, var(--panel-w) 45%, transparent); }
+
+/* ---------- a phone held upright (390 px wide): a Full Day's or an Extended Day's twelve fit the width with nothing past
+   the edge: hairline gaps, slimmer cells and break slivers, the open end as its label alone ("P13+", the words in its
+   tooltip) (v0.1.61 review: P12 and "P13+" were cut off at 390 x 844) ---------- */
+@media (max-width: 480px) {
+  .ty-bct:is([data-length="full"], [data-length="after"]) .ty-tt { gap: 1px; }
+  .ty-bct:is([data-length="full"], [data-length="after"]) .ty-tt-cell { padding: 0 2px; gap: 2px; }
+  .ty-bct:is([data-length="full"], [data-length="after"]) .ty-tt-top { gap: 1px; }
+  .ty-bct:is([data-length="full"], [data-length="after"]) .ty-tt-p { letter-spacing: 0; }
+  .ty-bct:is([data-length="full"], [data-length="after"]) .ty-tt-brk { flex-basis: 7px; }
+  .ty-bct .ty-tt-more { padding: 0 4px; min-width: 0; flex: none; }
+  .ty-bct .ty-tt-more > .ty-tt-subj { display: none; }
+  .ty-bct[data-length="full"] .ty-tt-bosscell { padding: 0 1px; }
+}

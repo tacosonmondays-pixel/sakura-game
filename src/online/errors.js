@@ -6,9 +6,13 @@ import { formatCountdown, RESET } from '../core/reset.js';
 // needs_update: a social feature whose server functions are not installed yet (the frontend
 // deploys before the owner runs supabase/migrations/20261013000000_social.sql);
 // daily_limit:<ms>: a cap of the 7 PM Central game day (retryMs = time until the reset)
-export const ERROR_CODES = ['rate_limited', 'offline', 'not_member', 'name_taken', 'forbidden', 'invalid', 'not_found', 'full', 'already_member', 'expired', 'needs_update', 'daily_limit'];
-const CODE_RE = /\b(rate_limited|daily_limit|needs_update|not_member|name_taken|forbidden|invalid|not_found|full|already_member|expired)(?::(\d+))?/;
-const CODE_STRIP = /^.*?\b(rate_limited|daily_limit|needs_update|not_member|name_taken|forbidden|invalid|not_found|full|already_member|expired)(:\d+)?:?\s*/;
+// [friend support] supabase/migrations/20261028000000_friend_support.sql: stale_day:<ms> (the battle's game day is
+// over: retryMs = time until the reset), stale_key (a collect key older than 24 h), unavailable (that Support
+// Student can't be borrowed: not a friend, a block, lends to nobody — one answer), stale_card (she changed)
+export const ERROR_CODES = ['rate_limited', 'offline', 'not_member', 'name_taken', 'forbidden', 'invalid', 'not_found', 'full', 'already_member', 'expired', 'needs_update', 'daily_limit',
+  'stale_day', 'stale_key', 'unavailable', 'stale_card'];
+const CODE_RE = /\b(rate_limited|daily_limit|needs_update|not_member|name_taken|forbidden|invalid|not_found|full|already_member|expired|stale_day|stale_key|unavailable|stale_card)(?::(\d+))?/;
+const CODE_STRIP = /^.*?\b(rate_limited|daily_limit|needs_update|not_member|name_taken|forbidden|invalid|not_found|full|already_member|expired|stale_day|stale_key|unavailable|stale_card)(:\d+)?:?\s*/;
 
 export class OnlineError extends Error {
   /**
@@ -50,7 +54,7 @@ export function toOnlineError(e) {
   const m = msg.match(CODE_RE);
   if (m) {
     const detail = msg.replace(CODE_STRIP, '');
-    const retryMs = m[1] === 'rate_limited' ? Number(m[2]) || 2000 : m[1] === 'daily_limit' ? Number(m[2]) || 0 : 0;
+    const retryMs = m[1] === 'rate_limited' ? Number(m[2]) || 2000 : m[1] === 'daily_limit' || m[1] === 'stale_day' ? Number(m[2]) || 0 : 0;
     // a 'code: detail' raised by a server function (Postgres P0001) is a definitive refusal
     return new OnlineError(m[1], detail || m[1], { retryMs, definitive: e?.code === 'P0001' });
   }
@@ -77,6 +81,10 @@ export function errorText(e) {
     case 'already_member': return 'Leave your current clan first.';
     case 'expired': return 'That code has expired or was already used.';
     case 'needs_update': return 'Needs the latest server update — chat, clans and co-op still work.';
+    case 'unavailable': return 'That Support Student isn\'t available.';
+    case 'stale_card': return 'That Support Student changed. Pick again.';
+    case 'stale_day': return `A new day started at ${RESET.label}: pick your Support Student again.`;
+    case 'stale_key': return 'That collect is too old. Tap Collect again.';
     case 'daily_limit': return err.retryMs ? `Daily limit reached — resets at ${RESET.label} (in ${formatCountdown(err.retryMs)}).` : `Daily limit reached — resets at ${RESET.label}.`;
     default: return err.message && err.message !== 'invalid' ? sentence(err.message) : 'That did not work.';
   }

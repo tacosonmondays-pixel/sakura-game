@@ -1,19 +1,23 @@
 import { describe, it, expect } from 'vitest';
+import { unitClass } from '../../src/data/banners.js';
 import { POOL, rollOnce, pull, pullCost, canSpark, spark, expectedSSRRate, ratesTable } from '../../src/systems/gacha.js';
 import { createProfile } from '../../src/systems/save.js';
 import { essenceBalance } from '../../src/systems/essence.js';
 import { createRng } from '../../src/core/rng.js';
 import { UNITS } from '../../src/data/units.js';
 import { GACHA } from '../../src/data/types.js';
+import { rngOn, noWelcome } from '../fixtures/gachaRng.js';
 
 /** rng stub that always rolls the same value and picks the first pool entry. */
 const fixedRng = (value, pickIndex = 0) => ({ next: () => value, pick: (arr) => arr[Math.min(pickIndex, arr.length - 1)], int: (a) => a, range: (a) => a, chance: () => false });
 
 describe('pool', () => {
-  it('contains every unit under its rarity', () => {
+  it('contains every unit under its rarity, except LR units (their LR Banner only) and held units (not yet)', () => {
+    const lr = (id) => ['legend', 'held'].includes(unitClass(id));
     const all = [...POOL.R, ...POOL.SR, ...POOL.SSR];
-    expect(all.sort()).toEqual(UNITS.map((u) => u.id).sort());
-    for (const u of UNITS) expect(POOL[u.rarity]).toContain(u.id);
+    expect(all.sort()).toEqual(UNITS.filter((u) => !lr(u.id)).map((u) => u.id).sort());
+    for (const u of UNITS) if (!lr(u.id)) expect(POOL[u.rarity]).toContain(u.id);
+    expect(POOL.SSR).not.toContain('tenka');
   });
 });
 
@@ -73,7 +77,7 @@ describe('pity', () => {
   });
 
   it('pity carries across pulls on the profile', () => {
-    const p = createProfile();
+    const p = noWelcome(createProfile());
     p.currencies.gems = 1_000_000;
     p.gacha.pity = 85;
     const r = pull(p, 10, fixedRng(0.99), { useTickets: false });
@@ -84,7 +88,7 @@ describe('pity', () => {
 
 describe('pull', () => {
   it('ten-pull guarantees at least one SR', () => {
-    const p = createProfile();
+    const p = noWelcome(createProfile());
     p.currencies.gems = 100000;
     const r = pull(p, 10, fixedRng(0.99), { useTickets: false });
     expect(r.ok).toBe(true);
@@ -104,18 +108,17 @@ describe('pull', () => {
     const p = createProfile();
     p.currencies.gems = 10000;
     // aoi is owned (R) → dupe
-    const rIdx = POOL.R.indexOf('aoi');
-    const r1 = pull(p, 1, fixedRng(0.99, rIdx));
+    const r1 = pull(p, 1, rngOn('aoi'));
     expect(r1.results[0]).toMatchObject({ unitId: 'aoi', isNew: false, potential: 1, potentialUp: false });
     expect(p.units.aoi.dupes).toBe(1);
     expect(essenceBalance(p, 'aoi')).toBe(1);
     expect(p.items.star_fragment || 0).toBe(0);
-    // first SSR in pool not owned → new
-    const target = POOL.SSR.find((id) => !p.units[id]);
-    const r2 = pull(p, 1, fixedRng(0.001, POOL.SSR.indexOf(target)));
+    // a standard SSR not owned → new
+    const target = ['hotaru', 'kaede', 'chika', 'luna'].find((id) => !p.units[id]);
+    const r2 = pull(p, 1, rngOn(target));
     expect(r2.results[0]).toMatchObject({ unitId: target, rarity: 'SSR', isNew: true, potential: 1 });
     expect(p.units[target].level).toBe(1);
-    const r3 = pull(p, 1, fixedRng(0.001, POOL.SSR.indexOf(target)));
+    const r3 = pull(p, 1, rngOn(target));
     expect(r3.results[0]).toMatchObject({ unitId: target, isNew: false });
     expect(essenceBalance(p, target)).toBe(1);
     expect(p.items.star_fragment || 0).toBe(0);

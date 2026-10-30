@@ -23,11 +23,10 @@ import { spawnSync } from 'node:child_process';
 import { launchChromium } from './browser.mjs';
 import { simId } from '../tools/simId.mjs';
 
-// The live game's co-op id: computed from the live branch (SIM_REF, default the live branch) when
-// git has it, else this pin (the live game after the co-op rematch merge). Renderer-only work must
-// leave it unchanged.
-const SIM_ID_PIN = '06763e510bb4';
-const SIM_REF = process.env.SIM_REF || 'claude/sakura-sentinels';
+// The live game's co-op id: computed from the live branch (SIM_REF, default origin/main: every push to main deploys)
+// when git has it, else this pin (v0.1.60's protocol 12). Renderer-only work must leave it unchanged.
+const SIM_ID_PIN = 'd35092f141d3';
+const SIM_REF = process.env.SIM_REF || 'origin/main';
 const args = process.argv.slice(2);
 const opt = (name, def) => {
   const i = args.indexOf(`--${name}`);
@@ -203,6 +202,9 @@ async function runViewport(vp) {
       // core truth cues (drones, shadows, reticles, tracers) are never shed; decor sheds at 60–95 %
       check(r.maxQuads <= r.budget + 150, `${quality} ${build}: attack-FX quads ${r.maxQuads} within budget ${r.budget} (+150 core)`);
       check(r.defaultPulses === 0, `${quality} ${build}: styled pulse girls replace the default pulse ring`);
+      // (its numbers are read: close it before the FX-off twin opens — two WebGL galleries at once in a phone-sized
+      // touch context never got the second one ready, on main too)
+      await page.close();
       if (build === (quick ? 'max' : 'p0')) {
         const off = await open(ctxB, `mode=gallery&build=${build}&quality=${quality}&seed=3&speed=2&preroll=15&fx=off&tiny=1`, errors);
         const callsOff = await off.evaluate((n) => {
@@ -217,7 +219,6 @@ async function runViewport(vp) {
         await off.close();
         check(r.calls <= callsOff + 1, `${quality} ${build}: draw calls with FX ${r.calls} ≤ without ${callsOff} + 1 (median of the last 60 frames)`);
       }
-      await page.close();
     }
   }
 

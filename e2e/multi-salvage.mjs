@@ -27,6 +27,14 @@ try {
     const cards = () => page.locator('.mb-gear-grid .mb-gear');
     const picked = () => page.locator('.mb-gear-grid .mb-gear.selected').count();
     const barText = () => page.locator('[data-testid="salvage-count"]').innerText();
+    // UI v2 M2: the rarity chips live in the Filter sheet (opened from the toolbar, closed with Escape)
+    const pickRarity = async (id) => {
+      await tap(page.locator('#app [data-testid="bp-filter"]'));
+      await page.waitForSelector('[data-testid="gear-filter-sheet"]', { timeout: 10000 });
+      await tap(page.locator(`[data-testid="bp-rarity-${id}"]`));
+      await page.keyboard.press('Escape');
+      await page.waitForSelector('.ui-layer', { state: 'detached', timeout: 5000 }).catch(() => {});
+    };
     await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
     await page.evaluate(() => { localStorage.clear(); });
     await page.goto(`${base}?onboarding=0#/lobby`, { waitUntil: 'load' });
@@ -65,16 +73,19 @@ try {
     check(await picked() === 0 && /Locked gear is protected/.test(toastText), `${W}x${H} tapping locked gear: not picked, toast "${toastText}"`);
     await tap(page.locator(`.mb-gear[data-gear="${seeded.worn}"]`));
     check(await picked() === 0, `${W}x${H} tapping equipped gear: not picked`);
-    check(await page.locator('.modal').count() === 0, `${W}x${H} picking never opens the gear popup`);
+    // (UI v2 M3: a tap outside pick mode opens the piece sheet, the girl page's sheet in its spare mode)
+    check(await page.locator('.modal, [data-testid="gear-piece-sheet"]').count() === 0, `${W}x${H} picking never opens the gear popup`);
 
     // phone: scroll into the middle of the list, pick there, and the bar is still on screen
-    await page.evaluate(() => { const b = document.querySelector('.screen-body'); b.scrollTop = b.scrollHeight / 2; });
+    // (salvage mode: the grid scrolls in its own window above the bar, .bp-scroll)
+    const scroller = '#app .bp-scroll';
+    await page.evaluate((sel) => { const b = document.querySelector(sel); b.scrollTop = b.scrollHeight / 2; }, scroller);
     await page.waitForTimeout(200);
-    const scrolled = await page.evaluate(() => document.querySelector('.screen-body').scrollTop);
+    const scrolled = await page.evaluate((sel) => document.querySelector(sel).scrollTop, scroller);
     const mid = page.locator('.mb-gear-grid .mb-gear:not(.blocked)').nth(8);
     await mid.scrollIntoViewIfNeeded();
     await tap(mid);
-    const keptScroll = await page.evaluate(() => document.querySelector('.screen-body').scrollTop);
+    const keptScroll = await page.evaluate((sel) => document.querySelector(sel).scrollTop, scroller);
     check(await picked() === 1 && /1 picked/.test(await barText()), `${W}x${H} tap picks one ("${await barText()}")`);
     check(Math.abs(keptScroll - scrolled) < H, `${W}x${H} picking does not jump the list (scroll ${scrolled} → ${keptScroll})`);
     const barBox = await page.locator('[data-testid="salvage-bar"]').boundingBox();
@@ -84,11 +95,11 @@ try {
     check(await picked() === 0, `${W}x${H} tap again un-picks`);
 
     // filters: Common only → Select all shown picks the 3 free commons (the worn one is skipped)
-    await tap(page.locator('.mb-chips-rarity .mb-chip', { hasText: 'Common' }).first());
+    await pickRarity('common');
     check(await cards().count() === 4, `${W}x${H} Common filter → 4 shown`);
     await tap(page.locator('[data-testid="salvage-select-all"]'));
     check(await picked() === 3 && /3 picked/.test(await barText()), `${W}x${H} Select all shown → 3 picked ("${await barText()}")`);
-    check(/Clear picks/.test(await page.locator('[data-testid="salvage-select-all"]').innerText()), `${W}x${H} the button turns into Clear picks`);
+    check(/clear picks/i.test(await page.locator('[data-testid="salvage-select-all"]').innerText()), `${W}x${H} the button turns into Clear picks`);
     const pickedUids = await page.locator('.mb-gear-grid .mb-gear.selected').evaluateAll((els) => els.map((e) => e.dataset.gear));
     const preview = await page.evaluate(async (uids) => {
       const s = await import('/src/systems/salvage.js');
@@ -99,9 +110,9 @@ try {
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/pick-commons-${W}x${H}.png` });
 
     // a filter change drops picks that are no longer shown
-    await tap(page.locator('.mb-chips-rarity .mb-chip', { hasText: 'Rare' }).first());
+    await pickRarity('rare');
     check(await picked() === 0 && /Nothing picked/.test(await barText()), `${W}x${H} switching to Rare drops the hidden Common picks`);
-    await tap(page.locator('.mb-chips-rarity .mb-chip', { hasText: 'Common' }).first());
+    await pickRarity('common');
     await tap(page.locator('[data-testid="salvage-select-all"]'));
 
     // Cancel changes nothing
@@ -142,7 +153,7 @@ try {
     await tap(page.locator('[data-testid="salvage-mode"]'));
     check(await page.locator('[data-testid="salvage-bar"]').count() === 0, `${W}x${H} Done leaves pick mode`);
     await tap(cards().first());
-    check(await page.locator('.modal-title', { hasText: 'Gear' }).count() === 1, `${W}x${H} after Done, a tap opens the gear popup`);
+    check(await page.locator('[data-testid="gear-piece-sheet"]').count() === 1, `${W}x${H} after Done, a tap opens the piece sheet`);
     check(errs.length === 0, `${W}x${H} no page errors${errs.length ? `: ${errs.slice(0, 3).join(' | ')}` : ''}`);
     await page.close();
   }

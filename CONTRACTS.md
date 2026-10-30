@@ -92,6 +92,7 @@ Roster (ids fixed — other areas rely on them):
 | hotaru | tower | SSR | exorcist | holy | – | land | charm | gacha |
 | kaede | tower | SSR | duelist | slash | – | land | blade | gacha |
 | chika | tower | SSR | engineer | pierce | lightning | land | cog | gacha |
+| tenka | tower | SSR | powerhouse | mystic | – | land | cog | gacha |
 
 Every unit (free ones too) is also in the gacha pool of its rarity (duplicates → Star Fragments).
 
@@ -145,6 +146,12 @@ BaseStats = {
   brew?: { targets, dmgMul?, rateMul?, armorPen?, critChance? },  // limited buff (Midori): a few girls in her range, src/sim/buffs.js
   link?: { targets, dmgMul?, rateMul?, armorPen?, critChance?, overclock?: { rateMul, every, time } }, // limited (Chika): in her aura
   hpPct?: { pct, boss, cap },  // execution: + pct of the target's current HP per hit (boss rate on bosses), at most cap × the hit
+  // Tenka (BUILD_PLAN 6.1). On the stats only once a tier sets them (no null default: every other girl
+  // resolves as before). well and lastLine run in src/sim/zones.js (T1, §6 Zones); lab in src/sim/lab.js
+  // (T2, §6 Joint Research).
+  lab?: { rounds, power },     // Joint Research: absorbs `rounds` times (on purchase), lab weapons × power
+  well?: { every, time, radius, pull, slow, vuln },  // Gravity Well: every s a well for `time` s (P-4 zones)
+  lastLine?: { radius, max, time, cooldown },        // Last Line: a near-exit well that swallows up to `max` (P-14)
   income?: { perWave, interest? },  // coins at wave end (interest = fraction of current cash, capped 150)
   trap?: { max, damage, triggerRadius: 0.6, armTime: 1.0, splash: 0.8, status: [] }, // placed on path tiles within range, 1 per attack
   turret?: { max, damage, rate, range, leash?, speed?, build?, attackType?, status? },
@@ -185,11 +192,23 @@ SkillDef   = { unlockLevel: 7, id, kind, scope, cooldown, duration, effect, auto
                ranks: [{ level /* 17 */, cooldown?, duration?, effect? }] }   // skillAtLevel
 ABILITIES  = { [id | 'id@kitStyle']: AbilityDef[] /* towers: one per ⚡ path */ | { skill: SkillDef } /* heroes */ }
 ABILITY_RULES = { ticksPerSecond: 60, chargePerTick: 100, initialShare: 3, ccGuardTicks: 240, autoEvery: 6,
-                  econCapPerWave: 2, densestCap: 60, hasteShare: 0.5, hasteCap: 0.5, unhastedKinds: ['rally', 'debuff'] }
+                  econCapPerWave: 2, densestCap: 60, girlAimRadius: 0.6 }
+                  // Skill Haste on abilities: ONE rule, src/sim/gearRules.js abilityChargePerTick (half rate,
+                  // cap 0.5, never rally / debuff: NOT_HASTED_KINDS); First Bell: firstBellCharge at wave start
 ABILITY_KINDS = boost | rally | strike | burst | debuff | econ | deploy | move | zone | runner
+abilityRuns(entry) → boolean   // THE live rule: kinds ABILITY_KINDS_RUN (a boost needs effect.mods), deploys
+                               // ABILITY_DEPLOYS_RUN ('strips', 'sentries', 'double', 'trap', 'drone', 'mirror'), runners ABILITY_RUNNERS_RUN ('giantBall'),
+                               // moves ABILITY_MOVES_RUN ('push': Fuu's Backdraft Fan; 'carry' waits);
+                               // the sim's handlerOf, the bar, the girl page, the ⚡ tips and GEAR_FIT all agree with it
 ABILITY_SCOPES = local (a cooldown per girl) | map (per player, per ability) | player (per-player rules: econ)
-AUTO_WHEN = enemies | elite | leak | veiled | caster | poisoned | ready
+AUTO_WHEN = enemies | elite | leak | veiled | caster | poisoned | ready | flyers | sabotage
+            // flyers: a flyer in the sky (map scope: anywhere) or ≥ min enemies; sabotage: a girl in the rally's radius
+            // is sabotaged, or ≥ min enemies in it (A3 M3: Kaze's Swoop, First Aid Call)
 ABILITY_TEXT = { [abilityId]: { name, icon /* a glyph key */, desc, short, up } }   // abilityValues + fillAbilityText
+// A3 M3 effect fields: strike pick 'air' (+ fallback) / 'chain', reachAdd, fromOrigin (her relay origin t.ox/t.oy),
+// noBossStatus; rally stunImmune, lifeEvery / lifeRadius / lifeMax (lives from kills near her while it runs:
+// abilityKill in Sim._killEnemy, a `lifeRestored` event with the ability id); debuff reachAdd; a status's curse bursts
+// for burstMul × her current hit. Ruri carries one entry per familiar path (only the one she raises past tier 2 unlocks).
 ```
 
 Rules (tests/data/abilities.test.js): one ⚡ path per tower (the spec's), the kind mix of §5.1, Momo has
@@ -218,6 +237,9 @@ her ⚡ path and her ability.
 | aura: {range (max), dmgMul (mul), rateMul (mul), rangeMul (mul), detection, costCut (add), cleanse, armorPen (add), critChance (add)} | strongest of each key wins per girl (never stacks) |
 | brew / link: {targets (max), dmgMul (mul), rateMul (mul), armorPen (add), critChance (add); link.overclock (replace)} | limited buffs: one brew + one link per girl, multiplied on top of auras |
 | hpPct: {pct, boss, cap} (max) | % of current HP per hit |
+| lab: {rounds (max), power (max)} | Tenka's Joint Research (§6 Joint Research, src/sim/lab.js) |
+| well: {every (min: a period), time, radius, pull, slow, vuln (max each)} | Tenka's Gravity Well (§6 Zones) |
+| lastLine: {radius, max, time, cooldown} (replace) | Tenka's Last Line (§6 Zones) |
 | income: {perWave (add), interest (add)} | |
 | trap: {max, damage, splash (add); status append} | |
 | turret: {max, damage, range, leash, speed (add); rate (mul)} | unit rangeMul scales range and leash; rateMul divides build |
@@ -366,7 +388,7 @@ article. `tests/data/legacy.test.js` checks all 19 have one and that no current 
 ```js
 export const EXPANSION_UNITS  // [KANNA, YORIKO, SEIRAN, FUU, HANA, RURI, NOA, IROHA, ENA]; units.js appends them to UNITS
 export const EXPANSION_IDS    // their ids (the 19 originals are everything else)
-export const RETURNING_ABILITIES // { [id]: AbilityData[] } towers, { [id]: { skill } } heroes — ABILITIES.md §6.1 shape, data only
+// (their ⚡ abilities live in src/data/abilities.js ABILITIES like everyone's since A3 M3; RETURNING_ABILITIES is gone)
 unitKit.js: S (+ ground, curse, mark, hex), stats, tier, path, free, STARTER, GACHA_ONLY   // copies of units.js's builders
 heroTracksReturning.js: RETURNING_HERO_TRACKS { kanna, yoriko, seiran }                     // HERO_TRACKS spreads them in
 ```
@@ -374,7 +396,9 @@ New BaseStats keys (roster B3, `mods.js normalizeBase`): `airMul` (1; mul), `gat
 (`{ kind: 'familiar'|'mirror', reach, both? }` or null; ModSet `relay: { reach }` adds, only for a relay girl).
 Behaviour `mortar`. Statuses `ground { duration }`, `curse { burstMul, radius, duration }`, `hex { pct, duration }`.
 Hero ult shapes: `strike { target, damage, armorPen?, splash?, splashMul?, status? }`, `nova { center: 'aim' }`,
-`runner { runner: 'dragon', center: 'aim', damage, length, time, segments, gap, status? }`; any ult may add
+`runner { runner: 'dragon', center: 'aim', damage, length, time, segments, gap, status? }` (a fixed flight) or
+`runner { …, toStart: true, time, minSpeed, … }` (the whole road back to START: at most `time` s, never slower
+than `minSpeed` tiles/s; Seiran's Dragonflight); any ult may add
 `dmgBuff` / `dmgBuffDuration`. Roles: displacement, falconer, summoner, purifier, mortar, prism, mirror,
 hexer, champion, puppeteer, stormrider. Stand-in models: `src/models/standins.js` (`STANDIN_UNITS`,
 `isStandIn`); painted portraits for all nine since the art wave; coming-soon signboard portraits for any girl without art yet:
@@ -401,8 +425,11 @@ EnemyDef = {
   id, name, family, tier: 'normal'|'elite'|'miniboss'|'boss',
   hp, speed /*tiles/s, normal ≈ 1.0*/, armorClass, armor /*flat per-hit reduction*/,
   bounty /*coins on kill*/, leak /*lives lost; bosses = all*/, threat /*wave budget cost*/,
-  size /*model scale 0.6-3*/, color, accent,
-  model: { base: FamilyId, variant: string, props: string[] },   // models agent draws from this
+  size /*model scale 0.6-3*/, color, accent, line? /*outline colour; default a deep shade of color*/,
+  model: { base: FamilyId, variant: string, props: string[] },   // models agent draws from this; `base` is the family
+                                   // itself, except for a family without a GLB of its own (Gate Arc Step 4: every
+                                   // `brigade` def wears a shipped `construct` model in Brigade navy/amber until the
+                                   // enemy rebuild; tests/models/enemies.test.js GLB_FAMILIES). Loaders read model.base
   traits: {
     barrier?: { hp, regenDelay? },
     crystal?: { cap /*max dmg per hit*/, hits /*hits to shatter*/ },
@@ -451,10 +478,27 @@ export function getMap(id)
 export function pathTiles(map)     // Set of "x,y" tiles the road band touches (curves rasterised exactly)
 MapDef = {
   id, name, theme: 'sakura'|'lake'|'shrine'|'mountain'|'marsh'|'foundry'|'festival'|'volcano'|'snow'|'night'|'arena',
+        // (+ 'city', the Gate Arc's Noon city: render only so far, src/render/city/; no map uses
+        //  it until the Act II maps, which may also carry `city` render hints: { railway?: { z }
+        //  (no railway unless given; z ≈ -1.2…-0.5 is the strip the battle shows past the far edge),
+        //  waterBus: { z, x0, x1 } | { x, z0, z1 }, areas: [{ type: 'plaza'|'lawn', x, y, w, h }],
+        //  spawnGate?, goalGate?, goalVariant? })
+        // (+ 'campus', Hilltop High at night (Gate Arc Step 2): the city kit with the school set,
+        //  src/render/city/campusProps.js; extra `city` hints: road?: 'track' (the running track),
+        //  searchlight?: { x, z, rot?, sweep?, reach?, period?, variant? } (its beam sweeps the water),
+        //  pieces?: [{ type, x, z, rot?, variant?, s? }] (free-standing set pieces))
+        // (+ 'drowned', the Drowned Line (Gate Arc Step 5, Act 5 underground): the city kit with the
+        //  drowned set, src/render/city/drownedProps.js; see "Drowned Line" below. `city.spawnGate:
+        //  'noonGate'` (5-8) stands the Noon Gate as a map's spawn gate on any city-kit theme)
+        // (+ 'vesper', Vesperline (Gate Arc Step 6, Act 6): the city kit with the vesper set,
+        //  src/render/city/vesperProps.js; see "Vesperline" below. `city.spawnGate: 'vesperGate'` (6-10)
+        //  stands the Vesper Gate; `bridge: { skyRail: true }` the sky-rail girder on raised runs)
   tier: MapTierKey, width /*14-22*/, height /*9-13*/,
   rows: string[height]  // each length width; '.' grass, '~' water, 'T' tree, 'R' rock,
                         // 'H' building/shrine, 'B' bridge (path over water: path stamp wins),
-                        // ',' flowers/decor (buildable), 'X' void/blocked
+                        // ',' flowers/decor (buildable), 'X' void/blocked,
+                        // 'U' rooftop (Gate Arc): a low flat roof girls stand on (§6); like 'X' it is
+                        // never cleared under a road, and a road over a roof fails the path test
   // Tracks v3 (src/core/track.js): paths are authored as smooth curves in WORLD coords and
   // sampled ONCE into dense centrelines that the sim walks, the renderer draws and the
   // thumbnails trace (no re-smoothing downstream).
@@ -462,16 +506,49 @@ MapDef = {
              tunnels: [[d0,d1]...],   // enemies inside are hidden AND untargetable
              under: [[d0,d1]...],     // walking under an overpass deck (hidden by the renderer, still targetable)
              elev: number[]|null,     // overpass deck height per point (0 on the ground, ≤ BRIDGE_HEIGHT)
+             viaducts?: [[a,b]...],   // Gate Arc Step 6: the viaducts this path authors (foot to foot, in distance);
+                                      // the key exists ONLY on a track with one (shipped tracks are unchanged);
+                                      // a fork prefix / join suffix shows its parent's viaduct through elev only
              fork?, join?, forkD, joinD }],
   crossings: [{ x, y, a: {path,d}, b: {path,d}, angle, mode: 'flat'|'bridge'|'tunnel', over }],
   paths: [[[x,y], ...], ...], // legacy view: the same dense centrelines in tile coords (centre = integer)
-  decor?: [{ type, x, y, rot? }],  // optional composed set pieces for the renderer
+  decor?: [{ type, x, y, rot?, r?, s? }],  // optional composed set pieces for the renderer; `r` (Gate Arc): the set
+                                   // piece draws the building tiles within r of it itself (1-10's dry fountain);
+                                   // `s`: a land piece's scale (default 1; 2-10's old lamp stands at 1.7)
   bridge?, path?, tunnel?: {...},  // optional per-map looks merged over the theme's (e.g. a steel-
                                    // grating overpass, conveyor-belt road, ice-cave tunnel)
   ground?: [{ type: 'vat', x, y, w, h }      // machined tank rim, square water / lava mask
           | { type: 'icefall', x0, x1, y }  // frozen falls over a river head
           | { type: 'runeRing', x, y, r }], // glowing rune circle under a junction
   concept: string,                 // the track's silhouette name (unique per map)
+  city?: {...},                    // the city kit's render hints (see `theme` above)
+  district?: 'oldtown'|'highway'|'park',  // Gate Arc Step 3: a district of a `city` map (the Old Town block set; see "District");
+                                   // Step 4: 'highway' (Act 4's mountain highway, 4-6…4-8; see "Highway");
+                                   // Step 5: 'park' (the reservoir park, 5-9 / 5-10: lawns, the dam, the willow)
+                                   // Step 4 `city` hints (render only): barriers?: [{ lane: number, at?: [x, y] }] (a checkpoint
+                                   // barrier arm across `lane`, lowered by the lane schedule; 4-7), snowRows?: number
+                                   // (how far south the 'snowCover' keyword's snow reaches; default 6; 4-8)
+                                   // a path spec `{ inside: true, nodes, join? }` starts inside the board (a rift, 3-8):
+                                   // defineMap copies the flag onto tracks[i].inside; the sim spawns at the first point
+                                   // as always, the renderer stands the rift gate there with no run-out.
+                                   // Step 5: district 'park' (Act 5's reservoir park, 5-9 / 5-10; see "Reservoir park");
+                                   // Step 5 (5-6): an inside lane may open in a tunnel (`street(..., { tunnel: [from, to] })`
+                                   // with `from` 0.1 behind the first point, so tunnels[0][0] ≈ 0.1): the subway spawn; the
+                                   // column stays hidden until the OUT mouth, where the renderer stands the gate
+                                   // Step 5 `city` hint: spawnGate: 'noonGate' (5-8: the Noon Gate on the north edge)
+                                   // Step 5 theme 'drowned' (5-6…5-8: the flooded Line 2 under the city, its own THEMES
+                                   // entry sharing the city kit)
+                                   // Step 6 (S6b) theme 'vesper' on the six Vesperline maps (6-6…6-10 + the side map
+                                   // vesper_starfall; their stages carry scenery.ruined 'frozen'; the theme gives the
+                                   // sentry-bay spawn and light-bridge decks), `city: { spawnGate: 'vesperGate' }` on 6-10's
+                                   // vesper_spindle_foot, `bridge: { skyRail: true }` (6-7's sky-rail viaduct: the first map
+                                   // with UP / DOWN), decor `doorieStatue` (6-8) and `spindle` { r: 2, variant: 0 } (6-10);
+                                   // S6a draws them
+  echoOf?: mapId, echoDiff?: [{ x, y, w?, h?, from?, to }],
+                                   // Gate Arc echo: the same place as an Act I map in another era, its
+                                   // rows / paths / crossings / tunnels literal except the tiles echoDiff
+                                   // lists (e.g. the dry fountain basin '~' → '.'). At most three; only
+                                   // declared pairs skip the silhouette and turning tests
 }
 ```
 
@@ -487,7 +564,23 @@ point nearest `at` (it shares that path's entrance or exit). The first point sit
 board (spawn), the last is the exit. Crossings are found automatically; `crossings` is one mode
 for all or one per crossing in `findCrossings` order: `'bridge'` (default: the later pass rises
 over the earlier one), `'bridgeUnder'` (the earlier pass goes over) or `'flat'` (a junction);
-where one pass is inside a tunnel the crossing is always `'tunnel'`. Everything is sampled ONCE
+where one pass is inside a tunnel the crossing is always `'tunnel'`. **Viaducts** (Gate Arc Step 6, S6v): `UP` / `DOWN`
+(= `RAISE` `'^'` / `LOWER` `'v'`) after a point start / end a viaduct there, a long overpass the road climbs onto on
+purpose: `elev(d) = BRIDGE_HEIGHT × ramp(d − a) × ramp(b − d)` on [a, b] (`ramp` the shipped smoothstep over
+`VIADUCT_RAMP` = `BRIDGE_RAMP` 1.3 tiles, rounded like every elevation), written before the crossings. A crossing
+with one pass on a viaduct's flat top (≥ `VIADUCT_CLEAR` 2.1 tiles from each foot: the ramp plus an overpass's flat)
+and the other on the ground is always `'bridge'` with `over` = the viaduct pass, whatever `crossings` says (the
+ground pass gets its `under` span as under any overpass; the deck adds no bump); a tunnel pass under it stays
+`'tunnel'`. Authoring errors (thrown at module load, prefixed `map <id>:`): an unclosed, unopened or nested viaduct,
+a span under `VIADUCT_MIN` (2 × 1.3 + 2 = 4.6 tiles), a viaduct overlapping a tunnel, a fork or join point on a
+parent's viaduct, both passes of a crossing on viaducts (no three-level interchanges), a crossing on a viaduct ramp
+(closer than 2.1 tiles to a foot), an ordinary overpass within 2.1 tiles of a viaduct's span, a road under a viaduct
+within 2.1 tiles of its own viaduct's foot, a lane whose shared fork prefix / join suffix differs from its parent's
+elevation by more than `SEAM_TOL` (0.015: an overpass ramp reaching over the seam) or whose fork / join seam is raised
+(also by inherited elevation: nested forks / joins). In battle a viaduct is
+a shipped overpass: `EnemyRT.elev` 0.62 on the top, never `hidden` (every attack that reaches its 2D position hits
+it), forge-vent zones skip raised and under-deck walkers, the band is road (nobody builds on or under it), no new
+command or message. Fixture: `previews/viaductMaps.js` (`VIADUCT_FIXTURE`, never in MAPS). Everything is sampled ONCE
 (`TRACK_STEP` 0.1) by `src/core/track.js` (`buildMapTracks`); `mapTracks(map)` returns
 `map.tracks`, or a straight-segment view of a legacy MapDef that only has tile-waypoint `paths`
 (test fixtures passed as `data.map` keep working).
@@ -498,7 +591,9 @@ edge, no two maps with the same silhouette: coarse 10×6 raster IoU < 0.65, and 
 turning signatures match (the sequence of signed curvature lobes, mirrored / reversed variants
 included — tests/data/trackShape.js) must sit differently on the board (IoU < 0.5, < 0.45 for three
 or more lobes); at most two maps may be meanders (three or more alternating U-bends marching across
-the board).
+the board). A declared echo pair (`echoOf`, `isDeclaredEcho`) is the only exemption from the
+silhouette and turning rules: at most three echoes, each of a map of another era (Morning = the
+eleven shipped themes, Noon = city / campus / drowned, Evening = vesper), literal except `echoDiff`.
 
 Rendering rules for the road (src/render/trackMesh.js, terrain.js): a road section over water is
 ONE continuous plank ribbon along the centreline over the whole wet span (short dry gaps bridged,
@@ -525,21 +620,47 @@ Tunnels: between `IN` and `OUT` the road is drawn under a hill / hall / cave and
 enemies are hidden AND untargetable (`EnemyRT.hidden`: every direct hit fails `isEligible`, traps
 are never laid inside, hero ults skip them, sappers cannot sabotage from inside; burn / poison
 already on them keeps ticking). Overpasses: the lower pass is hidden under the deck by the
-renderer only (`EnemyRT.underDeck`) — enemies there stay targetable.
+renderer only (`EnemyRT.underDeck`) — enemies there stay targetable. Viaducts draw through `elev` on the
+overpass deck code (any run with elev > 0.015 is decked); their own looks (sky-rail girder, piers along the raised
+run, the deck's shadow) read `track.viaducts` (Gate Arc Step 6 S6a).
 
 ### `src/data/stages.js`
 
 ```js
-export const CHAPTERS = [{ id: 1, name, theme, tier, desc, mechanic /*what it teaches*/, stages: ['1-1',...] }] // 8 chapters × 5 stages
-export const STAGES = [StageDef...]   // campaign (40) + resource (5 arenas × 3 tiers) + boss (3) + challenge (1 endless template)
+export const CHAPTERS = [{ id: 1, name, theme, tier, desc, mechanic /*what it teaches*/, stages: ['1-1',...] /*Act I*/,
+  act2: ['1-6',...] /*registered Act II ids, [] until that act ships*/, act2Name, act2Theme, act2Desc /*null until then*/ }] // 8 chapters × 5 (+5)
+export const STAGES = [StageDef...]   // campaign (40 Act I + registered Act II) + resource (5 arenas × 3 tiers) + boss (3) + challenge (1 endless template)
+                                      // + side (Gate Arc Step 6: optional stages after an anchor, last in the list)
 export const STAGE_MAP
+export const CAMPAIGN_IDS             // Act I (1-1 … 8-5) first, then Act II by (chapter, n); never a play-order index
 export function getStage(id)
-export function campaignStages()
+export function campaignStages()      // StageDefs in CAMPAIGN_IDS order
 export function stagesOfKind(kind)
+// Gate Arc Act II (docs/CAMPAIGN.md "Act II", docs/specs/GATE_ARC.md):
+export const ACT2_PLAN, ACT2_PLAN_MAP // the 40 computed Act II rows { id, chapter, k, n, waves, hpScale, hpPass, cashScale,
+                                      //   startCash, tier, requires, dropChapter, modeChapter, medalGemMul, finale }
+export const CHAPTER_HP_PASS_MEAN     // { [chapter]: mean HERO_HP_PASS of its Act I }
+export function act2Stage(o)          // Act II StageDef builder: authored parts from o, numbers/requires/tier/drops from the plan
+export function stageRequires(stageOrId)            // -> string[]: the ONLY reader of StageDef.requires
+export function requirementsMet(stageOrId, isCleared) // every requirement cleared (the unlock rule)
+export function stageOrderKey(id)     // (chapter, act, n) as a number; non-campaign ids → Infinity
+export function actStages(chapterId, act = 1)       // chapter.stages (act 1) / chapter.act2 (act 2)
+export function nextInAct(id)         // the next campaign stage in the same act (8-5 → null; a side stage → null)
+export const SIDE_STAGES              // Gate Arc Step 6: the registered side stages (side-6-starfall, anchor 6-10)
+export function sideStagesAfter(id)   // the side stages anchored on a stage (drawn after it in its act row)
 
 StageDef = {
-  id /*'1-1' | 'res-books-1' | 'boss-ashwing' | 'challenge'*/, kind: 'campaign'|'resource'|'boss'|'challenge',
-  chapter?, name, mapId, desc,
+  id /*'1-1' | 'res-books-1' | 'boss-ashwing' | 'challenge' | 'side-6-starfall'*/, kind: 'campaign'|'resource'|'boss'|'challenge'|'side',
+  chapter?, act? /*campaign: 1 | 2; side: its anchor's*/, finale? /*campaign: x-5 and x-10*/, name, mapId, desc,
+  anchor?: stageId,                    // kind 'side' only (Gate Arc Step 6): the Act II stage it is drawn after and
+                                       // opens with (requires = the anchor). A side stage takes its anchor's ACT2_PLAN
+                                       // numbers with HP × 1.1, medal gems at 0.5, coins and books on the first clear
+                                       // (no recruit ticket); it is NOT in CAMPAIGN_IDS, so never in co-op (coopStages),
+                                       // campaign counters, medals / ribbons (campaignShowcase), missions, achievements
+                                       // or profile trophies (profileTrophies STAGE_COUNT); no battle modes, freeplay or
+                                       // endless; it introduces no enemy. stageOrderKey sorts it just after its anchor;
+                                       // labels read "Side · <name>". The campaign screen draws it as a small card after
+                                       // its anchor (campaignActs.js sideCards) that opens route `stage` { id }.
   waves /*count; challenge = Infinity*/,
   waveGen: {
     pool: [{ enemy, weight, from /*wave idx, 1-based*/, to? }],
@@ -548,18 +669,32 @@ StageDef = {
     groups /*max groups per wave*/,
     fixed: [{ wave, enemy, count, spacing?, delay?, path? }],   // scripted additions (minibosses, intros);
                                                           // bosses/minibosses default to the longest path
+    laneCycle?: [[laneIdx...]...],  // Gate Arc lane schedule: wave n walks only the lanes of entry (n-1) mod
+                                    // length, e.g. [[0, 1], [1]] = even waves keep off lane 0 (a level
+                                    // crossing's barrier). Generated groups round-robin over the open
+                                    // lanes; a fixed group pinned to a closed lane moves to the first open
+                                    // one, a boss to the longest open one; freeplay waves follow the same
+                                    // cycle. Absent = the waves exactly as before (waves.js openLanes)
   },
   hpScale /*1.0 at 1-1 rising to ~6 at 8-5*/, startCash, lives /*base before difficulty override*/,
   cashScale? /*optional economy multiplier on kill bounties + wave-clear bonus (default 1; campaign = hpScale^0.6)*/,
   introduces: (enemyId|TraitKey)[],   // shown as "New!" on prep + reflected in scenery
   recommended: CapabilityKey[],        // drives the "add counters" shortcut
   unlocks: { units?: unitId[] },       // free recruits granted on first clear (any difficulty)
-  requires: stageId|null,              // previous stage that must be cleared
+  requires: stageId|stageId[]|null,    // stage(s) that must be cleared: Act I the previous stage; an Act II x-6 two
+                                       // (x-5 and (c-1)-10). Read it only through stageRequires / requirementsMet
+  medalGemMul?: number,                // campaign Act II: 0.5 (medal gems × it, rewards.js medalGems); default 1
+  modeChapter?: number,                // campaign Act II: Ironclad's armor row (c+1); default `chapter`
   drops: [{ item, chance, min, max, difficulty? /*min difficulty*/ }],
   firstClear: [{ id, count }],         // in addition to difficulty gem bonus
   scenery: { props: string[], fog?: boolean, night?: boolean, weather?: 'rain'|'snow'|'petals'|'embers'|null },
+                                       // (Gate Arc: ruined?: 'burning'; keywords in props, e.g. Step 4's 'frost',
+                                       // 'snowCover', 'tollPlaza', 'checkpoint', … : src/render/terrain.js SCENERY)
+  look?: { night?: 'lantern', costumes?: boolean, blackout?: boolean, dusk?: boolean },
+                                       // render only (outside the sim; in the data hash like every StageDef field):
+                                       // Step 4 dusk = the warm low sun of 4-7 (themes.DUSK; ignored on a night stage)
   tier: MapTierKey,
-  rule?: MapRule|null,                 // campaign only: the stage's map rule (src/data/rules.js stageRule(id)), see below
+  rule?: MapRule|null,                 // campaign (and side) only: the stage's map rule (src/data/rules.js stageRule(id)), see below
 }
 ```
 
@@ -569,9 +704,13 @@ reverse, rush, ironclad, frugal, laststand; numbers and ids only), `MODE_ORDER`,
 active: {...}, always: {...}, pastGoal: 'combat'|'off' }` in a fixed effect vocabulary (dmgMul, typeMul, elementMul,
 enemySpeed, familySpeed, classSpeed, rangeMul, rangeAdd, € bountyAdd, € livesPerWave, € bonusEvery, zoneDps + zones,
 padDmgMul / padRangeAdd + pads, reverseEvenWaves, affinity / affinityMul, portals), `STAGE_RULES[stageId] = { id,
-zones?, pads? }`, `stageRule(stageId)`. One rule on every campaign stage from 1-4 to 8-5 (37 stages, 15 rules); none on
-1-1…1-3, bounty, boss or challenge stages. Display text lives outside the co-op id in `src/ui/text/modes.js`
-(`MODE_TEXT`, `modeDesc`) and `src/ui/text/rules.js` (`RULE_TEXT`).
+zones?, pads? }`, `stageRule(stageId)`. One rule on every campaign stage from 1-4 to 8-5 (37 stages, 15 rules) and on every
+side stage; none on 1-1…1-3, bounty, boss or challenge stages. Display text lives outside the co-op id in `src/ui/text/modes.js`
+(`MODE_TEXT`, `modeDesc`) and `src/ui/text/rules.js` (`RULE_TEXT`). Screens read a stage's rule text through
+`ruleTextFor(stage, ruleId?)`: Gate Arc stages may tell a shipped rule in their own words
+(`STAGE_RULE_SKINS[stageId] = { rule, name?, short?, desc?, toast?, activeWord? }`, applied only to the rule it
+names; the numbers stay the rule's own, tests/ui/ruleSkins.test.js). A lane schedule's wave banner line is
+`laneClosedText(stage)` (`STAGE_LANE_TEXT` per stage, else "Crossing closed: long way round").
 
 Free recruits arrive one stage **before** their mechanic (see roster table). Chapters:
 1 Sakura Gardens (basics, slimes, hasty goblins; 1-5 Slime Prince), 2 Moonlit Lakeshore
@@ -630,7 +769,7 @@ Profile = {
   progress: { stages: { [stageId]: { easy, normal, hard, nightmare /*bools*/, clears, bestWave?, modes? /*battle-mode ribbons: { 'hard:rush': true }*/ } } },
   bestiary: { [enemyId]: { seen /*encountered in battle*/, discovered /*won a battle containing it*/, kills } },
   formation: { hero, towers: unitId[] /*≤ 8*/ },
-  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js), 'lv:<unitId>' = her level once above 60 (the level shadow, progression.js), 'own:<unitId>' / 'own:<unitId>:<slot>' = her ownership marks (src/systems/rosterSave.js) and 'fpTome:<weekKey>' = Akashic Tomes freeplay caches paid this week (max 2; src/online/coop/rewards.js; a new week's key deletes the old): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
+  missions: { day, daily: {[id]: progress}, dailyClaimed: [], week, weekly: {}, weeklyClaimed: [], login: { lastDay, streak, claimedDays: [] }, achievements: { [id]: claimed }, counters: {} /*event counts; also 'pot:<unitId>' = shadow of units[id].dupes and 'pot:at' = when it last changed (Potential), and 'fpm:<tier>:<id>' = 1 for a paid co-op freeplay milestone (src/online/coop/rewards.js), 'pg:<noteId>' = 1 for a claimed patch gift (src/systems/patchGifts.js), and the story's 'story:new' (created with the story, so not legacy), 'story:ann' (legacy toast shown), 'sl:<lessonId>' (lesson reward claimed) and 'ss:<sceneId>' (scene read or skipped) = 1 (src/systems/story.js), 'lv:<unitId>' = her level once above 60 (the level shadow, progression.js), 'own:<unitId>' / 'own:<unitId>:<slot>' = her ownership marks (src/systems/rosterSave.js) and 'fpTome:<weekKey>' = Akashic Tomes freeplay caches paid this week (max 2; src/online/coop/rewards.js; a new week's key deletes the old), and Tryout Day's 'ty:*' numbers (Marbles, weekly caps, the Jar's owned mask, Yearbook tens, achievement counters, the Grade cleared; keys in src/data/tryoutMeta.js `keys`, rules in src/systems/tryoutRewards.js): older builds keep this map word for word, so migrateProfile rebuilds dupes, milestones, patchGifts and the story block from them; the prefixes never overlap (tests/integration/missionCounters.test.js)*/ },
   shop: { day, week, bought: { [offerId]: count } },
   redeemed: string[],
   settings: { quality: 'high'|'medium'|'low', shadows, bloom, music, sfx, volume, showRanges /*show the range circle while placing*/, autoStart, defaultSpeed, lighting: { exposure, warmth }, reduceMotion, camera: 'locked'|'free' /*battle camera; missing = 'locked'*/ },
@@ -769,6 +908,17 @@ her level, her formation / secretary place. A girl in the save is never changed 
 
 `craftPreview` / `craft(profile, 'combine'|'swap', itemId, times, toFamily?)`: 3 → 1 up to Zenith, 2 → 1 family swap,
 coin fees `COMBINE_FEE` / `SWAP_FEE`, weekly caps `WEEKLY_CAP` (counters `craft:*`, reset on the game week).
+
+### `src/systems/workbench.js` (timed Workbench, BANNERS §G)
+
+Recipes in `src/data/workbench.js` (`WB_RECIPES`, **append-only numeric ids**, pinned id → output by
+`tests/systems/workbench.test.js`). `startCraft(profile, slot, recipeId, family, now)` pays inputs + coins and one weekly
+use up front; `cancelCraft` (before done) refunds all of it; `collectCraft` / `collectAll` add the output; `workbenchState`,
+`slotState`, `workbenchReady` read without writing; `touchWorkbench` (on Workbench actions only) re-anchors running slots
+after a clock set back > 10 min (time left kept) and writes `wb:seen` at most once a minute. Slots 1..3 (3rd after 6-5).
+State (numbers only, `missions.counters`): `wb:<slot>:r` recipe id, `wb:<slot>:n` family index (`WB_FAMILIES`, append-only),
+`wb:<slot>:s` / `wb:<slot>:e` start / end ms, `wb:wk` cap week (forward only), `wb:cap:<id>` uses this week, `wb:seen`.
+An unknown recipe id or family index is kept and shows "Update to collect". Hub: `#/workbench?tab=bench|craft`.
 
 ### `src/systems/skins.js` (roster merge)
 
@@ -928,6 +1078,7 @@ export function applyBattleResult(profile, result, rng, { now, eventAt? } = {}) 
 export function rewardDifficulty(profile, stageId, difficulty, mode) // Standard: difficulty; a mode: min(difficulty, best Standard medal here)
 export function resultMode(profile, stageId, difficulty, mode)       // the mode a result counts as (Standard when locked / Nightmare × Last Petal)
 export const MODE_RIBBON_GEMS  // { easy: 0, normal: 0, hard: 0, nightmare: 0 } (owner Q1; switching on needs a SAVE_VERSION bump)
+export function medalGems(stage, difficulty) // a first medal's gems: DIFFICULTIES[d].firstClearGems × (stage.medalGemMul ?? 1), rounded
 export function sweep(profile, stageId, difficulty, times, rng)  // instant rewards; allowed when stage cleared on hard+
 export function canSweep(profile, stageId)
 ```
@@ -939,17 +1090,17 @@ export function ownedUnits(profile)          // unitId[]
 export function isOwned(profile, unitId)
 export function grantUnit(profile, unitId, now?) // -> { isNew, fragments, tomes, potential, potentialUp }; a duplicate adds 1 to units[id].dupes and keeps its fragments;
   // past P6 it also pays Akashic Tomes (SR 1, SSR 5; potential.js DUPE_PAST_MAX_TOMES / dupePastMaxTomes, next to potentialLevel)
-export function isStageUnlocked(profile, stageId)
+export function isStageUnlocked(profile, stageId)  // stages.js requirementsMet (story.js stageOpen reads the same)
 export function isPracticeRun(profile, stageId) // locked stage reached by a deep link: plays, saves nothing
 export function canPlayEndless(profile, stageId) // challenge stage once unlocked, campaign maps once cleared
 export function stageMedals(profile, stageId) // -> { easy, normal, hard, nightmare }
-export function chapterProgress(profile, chapterId) // -> { cleared, total, medals }
-export function nextStage(profile)           // first uncleared campaign stage
+export function chapterProgress(profile, chapterId, act = 1) // -> { cleared, total, medals } over that act's stages
+export function nextStage(profile)           // first uncleared stage in CAMPAIGN_IDS (Act I first: never pulls a veteran to 1-6)
 export function recommendedFor(profile, stageId) // -> { needs: CapabilityKey[], ownedCounters: {cap: unitId[]}, missing: cap[] }
 export function modesUnlocked(profile, stageId)  // a campaign stage cleared once (any difficulty)
 export function modeRibbons(profile, stageId)    // -> { 'easy:reverse': bool, … } 20 keys (nightmare:laststand derived from the medal)
 export function ribbonCount(profile, stageId)    // -> { have, total: 20 }
-export function chapterRibbons(profile, chapterId) // -> { have, total: 100 }
+export function chapterRibbons(profile, chapterId, act = 1) // -> { have, total: 100 } over that act's stages
 export function stageShowcase(profile, stageId)  // the medal and ribbon showcase of a stage (the profile showcase reads this):
   // -> { stageId, chapter, cleared, modesUnlocked, medals: { have, total: 4 }, ribbons: { have, total: 20 },
   //      grid: { [mode in MODE_ORDER]: { [difficulty in DIFFICULTY_ORDER]: { earned, kind: 'medal'|'ribbon', merged? } } } }
@@ -999,7 +1150,10 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 
 - **Def fields** (`src/data/achievements.js`): `{ id, name, desc, metric, param?, goal, rewards, cat, tier, series?,
   honor?: { no, name, cls: plain|shiny|special, fx, emblem }, title?: { text, tier: std|gold|prism }, hidden?, hint?,
-  since?, grind?, wave: launch|social|codex|later, shipped?, retired? }`. Ids are permanent (`^a_[a-z0-9_]+$`, ≤ 24);
+  since?, grind?, wave: launch|social|codex|later|act2, needs?, shipped?, retired? }`. `needs` (Gate Arc Act II rows):
+  stage ids that must all exist in this build before the row is live (`achievementLive` → `achievementStagesExist`), so
+  "Chapter c · Act II Complete" (`chapterActClear`, param `'c:2'`) and the 80-stage rows light up as their stages ship.
+  Ids are permanent (`^a_[a-z0-9_]+$`, ≤ 24);
   a shipped row's `rewards` never change (frozen in `tests/fixtures/achievements-ledger.json`); rewards are item ids
   only, never a ribbon or a title. Metrics: `src/systems/achievementMetrics.js` (pure; an unknown metric throws).
 - **Claim gate**: a `gearbox_*` reward waits for `featureOpen(p, 'gear')`, a `crown_*` for `featureOpen(p, 'awaken')`
@@ -1018,7 +1172,12 @@ export function buyOffer(profile, offerId, qty = 1)    // -> { ok, error?, rewar
 * Starter tower Aoi: cost 200, damage 4, rate 1.4/s, range 3.2. R towers ≈ 5–7 raw DPS per 200 coins.
 * Upgrade costs: tiers 1–2: 80–450, tier 3: 500–1400, tier 4: 1800–4500, tier 5: 12000–36000 (one girl
   per path holds it, so it is priced and tuned as a one-of-a-kind centrepiece). Heroes have no tiers:
-  they buy levels on their track (hero rework).
+  they buy levels on their track (hero rework). Tower base costs: 150–900.
+* **Named price bands** (`PRICE_BANDS` in tests/data/units.test.js). A role may sit outside the windows
+  above only through a named band, and only that role may use it. Today there is one:
+  `powerhouse` (Tenka, BUILD_PLAN 6.2: a deliberate late-game investment unit). Its windows are base
+  1500–2000, tier 1 80–450 (the live window), tier 2 450–900, tier 3 2000–3500, tier 4 6000–10000 and
+  tier 5 20000–36000. Tenka's tier 5 is re-checked at the balance pass (owner: balance LAST).
 * Heroes: cost 450–650, level 1 roughly equal to a tier-2 tower; level 10 ≈ a strong tier-4 tower (nerfed: they used to be OP).
 * Enemies (before hpScale): Green Slime hp 14 speed 1.0 bounty 1 threat 1; goblin runner hp 10 speed 1.7;
   ironhide orc hp 60 armor 3 speed 0.7 threat 5; elites ≈ 150–400 hp; minibosses ≈ 2500–4000; bosses ≈ 9000–20000.
@@ -1038,7 +1197,14 @@ a UnitDef may override with `footprint`). A spot is legal when the centre is ins
 footprint overlaps (dist ≥ r1 + r2), the footprint clears the path band (distance from any path centre
 line ≥ 0.55 + r), it clears obstacles (trees = discs r 0.45 at the tile centre; rocks / buildings /
 void = the tile square) and the terrain under the CENTRE matches her placement ('~' and 'B' water —
-the road itself is excluded by the band —, '.' / ',' land). Path distance is measured to the dense
+the road itself is excluded by the band —, '.' / ',' / 'U' land). Rooftops ('U', Gate Arc): a girl
+whose centre is on a roof needs her whole footprint on roof tiles (every other tile, and the board's
+outside, is the roof's edge: else 'blocked'); for a girl on the ground a roof tile blocks like a
+building; water girls get 'needsWater' there, amphibious girls may stand there; a roof adds no range.
+`sim.placement.isRoof(x, y)` answers it; the renderer (terrain `roofAt`) stands roof girls ROOF_Y (0.56) higher, and their
+shots, hand flashes, beams, first chain links, sparkles and pick rings start up there too (display only: a projectile
+blends down to the sim's own height by f′ 0.6; `fx.liftAt`, attack-FX `ctx.lift(t)`); autoPlan
+takes roofs as land and marks such place actions `roof: true`. Path distance is measured to the dense
 Tracks v3 centrelines (segments bucketed per tile, so the hundreds of short segments stay cheap).
 Nothing snaps. Two INTEGER arguments to `canPlace` / `placeTower` /
 `towerAt` / `placeCost` are read as a tile (tx, ty) and resolve to its centre (legacy wrapper;
@@ -1150,10 +1316,17 @@ SimEvent = { type, ...payload } with types:
   'heroBuy' {towerUid,level,price} 'heroMove' {towerUid,x,y,fromX,fromY,downtime} 'heroMastery' {towerUid,bonus}
   'bossPhase' {uid, announce} 'cash' {amount, reason /*…|'ability' (+ towerUid, owner)*/} 'won' {} 'lost' {}
   'abilityUnlock' {towerUid,id,kind,owner} 'abilityUpgrade' {towerUid,id} 'abilityReady' {towerUid,id} | {group,id,owner}
-  'ability' {towerUid,id,kind,scope,owner,auto,x,y,radius /*0 = map-wide*/,targets:[uid ≤12],coins?} 'abilityWarn' {towerUid,id,x,y,radius,delay,targets?|shells?}
+  'ability' {towerUid,id,kind,scope,owner,auto,x,y,radius /*0 = map-wide*/,targets:[uid ≤12],coins?,placed?,moved? /*a move: enemies it pushed*/} 'abilityWarn' {towerUid,id,x,y,radius,delay,targets?|shells?}
   'abilityShell' {towerUid,id,x,y,radius,hits} 'abilityEnd' {towerUid,id,wave?} 'abilityFizzle' {towerUid,id,uid}
+  'ability' for Iroha's Mirror Shift also carries mirror: 'panel' (her panel jumped to x,y; a 'relay'
+            and an 'aim' event come with it) | 'second' (tier 5: a second mirror stands at x,y for the window; t.mirror2)
+  'mirrorSplit' {uid /*the shot that split*/, copyUid, ownerUid /*the shooter: the copy's credit*/, mirrorUid /*Iroha*/, x, y /*the crossing*/, targetUid /*the copy's*/}
   'goal' {wave}  (co-op freeplay: the stage's last wave cleared — NOT terminal)
-  'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/ }
+  'waveStart' also carries { reversed /*absolute route orientation*/, flipped /*routeFlippedFor(wave)*/,
+               lanes? /*the open lane indices, only on a stage with waveGen.laneCycle*/ }
+  sim.openLanes(n?) → number[]|null   // lanes open on wave n (default: this wave, or the next between waves); null = all
+                                      // (city kit: one level crossing per road crossing; a fork's shared trunk guards all its lanes
+                                      //  and shuts only when every one is closed; a line with no schedule keeps the 40 s timetable)
   'ruleState' {id, active}  'ruleBonus' {id, kind: 'lives'|'ult', amount?}  'cash' {amount, reason: 'rule', rule}
   'rift' {uid, x, y, x2, y2} (Shifting Stars)   'won' {finished: true} (freeplay Finish)
 ```
@@ -1209,17 +1382,39 @@ Suzu, Chika) stays locked until A4 (`abilityStatus` → `later: true`). Rules: c
 fresh ability starts with 1/3 of its cooldown left, econ empty; casting only in a wave; refusals (none spends
 the cooldown) in order `ended`, `locked`, `notYours`, `notWave`, `disabled`, `moving`, `active`, `cooldown`, `cap`
 (econ: 2 per player per wave), `noIncome`, `noTarget`. Map-scope abilities also share one cooldown per player
-(`sim.abilGroups`, key "owner|id"). Ability hits never crit and their statuses are certain (no rng draw); a
+(`sim.abilGroups`, key "owner|id"). A strike with `effect.splash` (any pick but `poisoned`, which detonates
+instead) is a blast: every eligible enemy within `splash` of where the struck one stood (also when the hit
+kills it, and also outside her own range) takes the same hit (with `fullRamp`, at 1 + ramp.max) × `splashShare`
+(default 1), in grid order (row by row, cell by cell, spawn order inside a cell), and one `explode` event marks it
+(`{ x, y, radius: splash, element, attackType }`, the strike's element (or null) and attack type, which the FX
+colours it by; also when no neighbour was there to hit); `effect.after: { mods, duration }` is a boost tail
+(Tenka's Zero Point; any strike pick, Catalyst's too): that ModSet rides on her (`abilMods`) for `duration` s
+after each cast (`active` counts it down: the longer of the ability's own `duration` and the tail's, never their
+sum, and the tail rides until it runs out; the wave clear and a sale end it; a co-op checkpoint carries it). A telegraphed strike's tail (`delay`) starts with the
+cast, not when its shots land. `effect.horizon: { time, pull, share }` (Tenka's LR form Event Horizon, merged from the
+entry's `lr` while her battle stats carry `lr: true`): each blast queues a `'horizon'` item in `sim._abilQueue` that,
+on each of its `time` s of ticks, pulls every enemy within `splash` of the centre `pull` tiles a second toward it by path
+distance (the well's rule, `zones.js pullAlong`: never past it, × `KNOCKBACK_RESIST` of the tier, the freeplay
+knockback budget, hidden enemies untouched), then detonates there: every eligible enemy within `splash` takes the
+same strikes at `share` × the struck enemy's scale (events `abilityHorizon { towerUid, id, x, y, radius, time }`, then
+`abilityShell { …, horizon: true }` and an `explode`). Ability hits never crit and their statuses are certain (no rng draw); a
 miniboss / boss ignores ability freezes and stuns for 4 s after one lands (`e.abilCc`). Lasting effects (a boost's
 `abilMods`, `sim._rallies`, queued hits and shells `sim._abilQueue`) end at every wave clear and on a sale, so a
 calm point holds none. A boost resolves last in `resolveStats` (`extra`, so `towerResolvedStats` sees it); rallies
 fold into `t.buff` after the limited buffs (strongest per key, both players' girls, never the caster). Coins go to
 the caster's owner: `sim._gainCashFor(owner, n)` (solo: cash; co-op: `sim.ownerCash[owner]`, moved into that
-player's wallet by the command layer, A2). Auto-cast (per girl, default Off; `sim.abilityAutoDefault[owner]` for
-later unlocks) runs inside the step on each girl's 6th step (staggered by uid) when her `auto` rule holds.
+player's wallet by the command layer after every command and step, A2). Auto-cast (per girl, default Off;
+`sim.abilityAutoDefault[owner]` for later unlocks; co-op: the start message's `players[i].autoAbil` and `acast`)
+runs inside the step on each girl's 6th step (staggered by uid) when her `auto` rule holds. **Girl-target rule**
+(spec §7.2): an ability on one girl (a rally with `effect.target: 'girl'`, no radius) takes the cast's `aim`: the
+girl nearest it within `ABILITY_RULES.girlAimRadius` (0.6 tiles; any player's, never the caster; ties: the lower
+uid), else the girl in the caster's range who dealt the most damage (ties: the lower uid); none: `noTarget`
+(`rallyGirl(sim, t, aim)` resolves it; a malformed aim, not two finite numbers, counts as none). The rally record
+carries `to: uid` and reaches only her while her caster stands; the `ability` event is at her, radius 0 (no ring),
+`targets: [uid]`. `placeTower(unitId, x, y, { owner })` sets her player before her ability syncs.
 ```js
 t.abil              // { id, kind, scope, cdMax, cd /*charge points*/, rate /*points a tick*/, active /*ticks*/, auto, t5, n /*casts*/ }
-sim.castAbility(uid, { group?, owner?, auto? })  // -> { ok, reason, casterUid }; group: the selected copy if ready, else her
+sim.castAbility(uid, { group?, owner?, auto?, aim? })  // -> { ok, reason, casterUid }; aim [x, y] (girl-target rule); group: the selected copy if ready, else her
                     //   player's ready copy with the most enemies in reach (ties: lower uid), even while the selected
                     //   copy is locked; none ready: the selected copy's refusal (locked: her first copy that has it)
 sim.abilityStatus(uid)   // -> null | { id, kind, scope, unlocked, ready, reason, later, path, unlockTier, unlockLevel, cooldown (s),
@@ -1231,6 +1426,76 @@ sim.result().stats       // + abilitiesUsed, abilityByTower {uid: n} — created
 Headless: `runHeadless({ …, autoAbilities })`, plan action `{ action: 'ability', uid | x, y, group? }` (waits on a
 refusal a later moment can lift), `autoPlan(stageId, units, { ability: true })` (every girl's main path = her ⚡ path).
 Bench: `tools/abilityBench.mjs` (spec §11).
+
+**Zones** (`src/sim/zones.js`; GAPS P-4 zones and P-14 the near-exit hook; Tenka's Singularity, BUILD_PLAN 6.4).
+Road patches with a radius, a lifetime in ticks and an effect every step, run right after `updateTraps`. Lazy:
+`sim.zones` and `sim._nearExitOn` exist only once a girl with `well` / `lastLine` was placed or upgraded, so
+other battles run as before. **Gravity Well**: every `well.every` s of wave time (`t.wellCd`, ticks) she opens
+one for `time` s at the trap spot in her range with the most enemies within `radius` (ties: nearest the exit;
+none: she looks again after `WELL_RETRY_TICKS`); it pulls the enemies inside toward its centre by path distance
+(`pull` tiles/s × `KNOCKBACK_RESIST[tier]`: bosses stand firm, never past the centre, only within
+`WELL_PULL_REACH` × radius of it along the road; a pull back spends the freeplay `kbLeft` budget) and refreshes a
+`slow` and a Brittle (`vulnerable`, `vuln`) status every `ZONE_STATUS_TICKS` for `ZONE_STATUS_TIME` s. **Last
+Line**: `updateEnemy` calls `sim._nearExit(e)` once per enemy (`e.nearExit`) when it comes within `NEAR_EXIT`
+tiles (path distance) of its exit, only while `sim._nearExitOn` (placed girls with Last Line) > 0. A normal or
+elite enemy outside any open Last Line sets it off: the lowest-uid girl whose Last Line is ready and who is not
+sabotaged opens a zone at that exit and rests `cooldown` s of wave time (`t.lastLineCd`, ticks). The zone
+swallows the lowest-uid normal / elite enemy inside it every `LAST_LINE_EVERY` ticks (the first at once), up to
+`max`, for `time` s; a swallow is her kill through `_killEnemy` (bounty paid, no life lost). Zones touch every
+live enemy outside tunnels (no sight needed). Caps: `ZONE_CAP_PLAYER` (12) per player, `ZONE_CAP_SIM` (24) per
+sim, the oldest (lowest uid) first. Every zone ends at the wave clear and on her sale.
+```js
+sim.zones          // [{ uid, src, owner, kind: 'well'|'lastLine', x, y, r, r2, left /*ticks*/, anchors: [{ pathIndex, dist }],
+                   //    pull, slow, vuln, max, eaten, next }]   (absent in a battle without a well / Last Line girl)
+// events: zoneOpen { uid, kind, towerUid, owner, x, y, radius, time }, zoneEnd { uid, kind, towerUid,
+//   reason: 'time'|'full'|'cap'|'wave'|'sold' }, swallow { zoneUid, towerUid, uid, id, x, y } (then the death)
+sim.result().stats // + wells, lastLines, swallowed — created by the first one
+```
+
+**Joint Research** (`src/sim/lab.js`; GAPS 5.10 / P-13 the offering, P-16 owner coins; Tenka T2). A tier that
+raises her `lab.rounds` (Joint Research tier 3; Unified Theory tier 5: a second round) has her owner's girls in her
+range join her lab team: `t.owner` equal to hers, never a hero, never another Tenka (or any girl with a lab), centre
+within her effective range, in uid order. Never under `{ restoring: true }`. No refund. Each one leaves through
+`Sim._removeTower` exactly like a sale (traps / strips, zones, shells, drones, ability effects, drinks; `removed`
+so projectiles and runners fizzle; the final tier is free again; brews / links / pins fall away next step);
+`sellTower` = refund + `_removeTower`. Story: they join her lab team; nothing happens to them; they are back after
+the battle. Selling her refunds 70 % of her own `spent` (never the lab's coins); the team does not come back.
+Weapons by class (`ROLES[role].category`; another category counts as dps), each at strength
+`k = lab.power × √(coins of that class / LAB_REF_COINS)`: dps `projectiles + 2k` (≤ `LAB_BOLTS_MAX`), support an
+aura `{ range 3, dmgMul 1 + 0.15k }` (≤ +60 %) — both resolve in `towerResolvedStats` (`labMods`, before a running
+boost), so a checkpoint's `rederiveStats` agrees; frag a blast grenade every `LAB_FRAG_TICKS` (her bolt damage ×
+`LAB_FRAG_MUL` × k, radius `LAB_FRAG_SPLASH`) at her best target; control a slow field (`0.2k` ≤ `LAB_SLOW_MAX`)
+within `LAB_FIELD_RANGE` of her, refreshed every `LAB_FIELD_TICKS` — both on `t.labAtk`, only during waves and not
+while sabotaged. Economy (owner decision #146): EVERY girl who joins feeds it with her wave income, whatever her
+class (a Harvest Chigusa lends the slow field and her income), Momo's interest included: at each wave clear,
+after the girls' own income, `LAB_ECON_SHARE` × power × (Σ joiners' `perWave` × `diff.cashMul` + Σ per joiner
+with interest `min(INCOME_INTEREST_MAX, rate × sim.cash)`) × `incomeMul`, through `_gainCashFor(t.owner)` (none
+on a `noIncome` difficulty or while she is sabotaged). The interest reads the coins as a girl's own interest
+does at that clear (solo: the wallet; co-op: the step's pooled coins). Potential's Golden Harvest is not carried.
+```js
+t.lab      // { rounds, members: { dps, frag, control, support, economy }, coins: {…same}, income, interest: [rate…], uids }
+           //   (in the generic snapshot; the battle save's `lb` row)
+t.labAtk   // { frag /*k*/, slow, fragCd, fieldCd /*ticks; 0 at every wave clear*/ } (derived by syncLab)
+sim._labOn // girls with a lab (absent until the first absorb: the step skips the lab)
+// who joined in an upgradeTower: the new tail of her t.lab.uids (length before vs after; also labJoin.uids).
+// No Sim field holds them: a battle save's restore never absorbs, so nothing may outlive the command.
+// Co-op (T3, §13): the `upg` handler reports them (`absorbed`) and forgets them as owners, like a sale; only
+// her own player's girls ever join (t.owner), whoever is gone. Her lab coins go to her owner's wallet
+// (ownerCash), also while her owner is gone (kept for the rejoin).
+// Hash (simHash.js): her lab (rounds, member count and uids, members / coins per class, income, interest,
+// labAtk timers) only on a girl with one; her wellCd / lastLineCd only on a girl with one; sim.zones only
+// while non-empty. Battles without Tenka keep their digests.
+// Battle save (src/ui/battle/snapshot.js): `lb` = [rounds, members[5], coins[5], income, uids, interest]
+// (LAB_CLASSES order), restored only on a girl whose restored tiers give her a lab (rounds held to them);
+// `zc` = [wellCd, lastLineCd] (-1: none); zones 'calm', _nearExitOn / _labOn / labAtk 'derived'.
+// events: labJoin { towerUid, owner, round, uids, members }, labFrag { towerUid, x, y, radius } (then the explode),
+//   cash { amount, reason: 'lab', towerUid }
+// Display: a joiner gets no `sell` event (no sell puff or coin), but every layer that draws a girl's extras
+// reconciles with sim.towers each frame (src/render/companions.js Kon / Kaze / the doll, rosterFx relay props,
+// actors), so her companion and props go exactly as a sold girl's do (tests/render/companionsLab.test.js).
+// Yoriko is a hero and never joins, so her doll stays.
+sim.result().stats // + labJoined — created by the first absorb
+```
 
 **Snapshots** (`src/sim/snapshot.js`): the whole battle state as plain JSON and back — co-op's wave-end
 checkpoints (§13), and what a saved match would need. Generic on purpose: every own field of the Sim is
@@ -1264,6 +1529,13 @@ player-made state that lives across waves must be added to `snapshotSim` / `rest
 point contract: in 'prep' / 'between' there are no enemies, statuses, shots or aura fields, and no
 random draw happens; `_step` starts auto-waves through `this.startNextWave()` (the save wraps it on
 the instance). See docs/BATTLE_SAVE.md.
+
+**Kohaku & Tsubaki's long beam** (`src/sim/duo.js`, docs/specs/DUO_LR.md §6): `duo.edge` (normDuo, default 0; in
+DUO_MAX) set at Grand Spectrum, or `unitStats.lr === true`, gives her `beamSpec` `edge: true`, `nearPierce` (her own
+pierce, kept inside her reach) and `pierce = PRISM_EDGE_PIERCE`. A held beam still locks onto an enemy within her reach;
+its line runs `beamLength(sim, t, spec, e)` = max(range, `edgeReach(...)`) (the first map edge along her aim; division
+and one Math.sqrt, no trig). Enemies whose body is off the old reach segment take the tick × `PRISM_EDGE_MUL`. The LR
+form also multiplies her damage (shells, shards, beam) × `DUO_LR_MUL`. The beam spec carries `bossMul`. No new state.
 
 Damage pipeline (in order): tunnel/veil/phasing/air eligibility → type multiplier → element ward (×0.5) →
 soak bonus → mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
@@ -1318,6 +1590,12 @@ balls.js:    addBall, rollBall, ballTick, endBallWave                        // 
   Bowling Thunder: Sim._hit skips KNOCKBACK_RESIST for minibosses); shared stretches (P-17): another
   path's walker counts where its road segment runs parallel to the ball's (dot > 0.95)
   abilities.js: the runner kind by effect.runner (only 'giantBall' runs); startRunner(..., at) takes an entry
+  abilities.js: the move kind by effect.move (only 'push' runs: MOVES.push): every eligible non-boss enemy in reach
+  (reachMul × range + reachAdd) moves `push` tiles back by path distance on its own path, clamped at 0
+  (minibosses pushMiniboss, default half), uid order; push lock (e.pushLock > 0 stays put unless e.pushLockBy is the
+  caster's uid: her own gusts' / gather's locks never stop her ult; a moved one takes PUSH_LOCK[tier] with
+  pushLockBy −1) and the freeplay budget e.kbLeft apply; then the statuses (ground). e.pushLockBy: the uid of the girl
+  whose hit set the lock (Sim._onHitEffects, _gather), −1 after a move's push; absent until a lock was set.
 vines.js:    vineTarget, castVine, addBed, onVineKill, vineTick, endVineWave   // t.vineCd, t.vineHold, t.beds, t.bloomT/bloomIdle
   Bloom Rush multiplies her cooldown rate in updateTower; thorn beds BEDS_PER_GIRL 6 / BEDS_PER_SIM 40
   (oldest first); harvest lives at the wave clear, sim.stats.harvestLives (absent until given)
@@ -1327,14 +1605,26 @@ hubs.js:     hubsOn, hubCovers, applyHubs, isFreeTier, payHubBounty, plantBanner
   (strongest wins with the auras) and its rule keys into t.rules { src, freeTiers, sellMul, cdCut,
   airGrant, typeFloor } (absent on a girl no hub covers); Sim._upgradeCost(t, tier, index) is 0 for a
   free tier; sellValue uses max(sellRefund, rules.sellMul); _killEnemy pays killBounty to the hub's owner
-  (sim._hubBounty set only while one pays); tickAbilities charges round(rate × (1 + cdCut));
+  (sim._hubBounty set only while one pays); tickAbilities charges round(rate × (1 + cdCut)), and a map-scope
+  abilGroups entry round(g.rate × (1 + the largest cdCut among that player's living copies)); abilityStatus'
+  cooldown / cooldownLeft are seconds at those same rates;
   refreshEffective: rules.airGrant → canHitAir, rules.typeFloor → eff.typeFloor (computeHit floor)
 aimMode(t) adds 'checkpoint' (Azami tier 3; clamped to her range) and 'banner' (Ouka's Rally Banner:
   setAim plants one within bannerReach, the oldest moves past her count; clearAim takes them down)
-abilities.js: deploy types 'strips' and 'sentries' run (others stay locked); a rally may target one girl
-  (effect.target 'girl'; rally record `to`) or the whole map (effect.radius 'map', scope 'map'; record
+deploys.js:  doubleSpots, shadowDoubles, carpetSpots, bellCarpet, droneSurge, surgeDrones, ownDrones, tickDeploys,
+             endDeployWave, clearDeploys   // the A4 deploys (Kage, Suzu, Chika):
+  sim.deployables [{ uid, kind: 'double', ownerUid, x, y, left /*ticks*/, dmgMul, cooldown, facing }] (lazy; Shadow Doubles:
+  her volley as it stands × dmgMul from the spot, no crit, credited to her); Bell Carpet traps in sim.traps
+  { …trap, extra: true, ttl /*s*/ } (never in trapCount; updateTraps fizzles them: trapExpired { extra: true });
+  surge drones in t.turrets { …makeDrone, n: 0, temp: true, surge: k, left /*ticks*/ } (her limit counts ownDrones;
+  towerStats().turret.active = her own, .surge = the extra; droneStats rows carry surge / left (s));
+  events deploy { kind: 'double'|'drone' }, doubleAttack { uid, towerUid, targetUid, x, y }, deployEnd { kind };
+  caps DOUBLES_PER_SIM 36, BELL_TRAPS_PER_SIM 96, SURGE_DRONES_PER_SIM 48 (a cast places what is left, never evicts);
+  everything ends at the wave clear and with its girl; the co-op hash folds sim.deployables while non-empty
+abilities.js: deploy types 'strips', 'sentries', 'double', 'trap', 'drone' and 'mirror' (Iroha, src/sim/mirrors.js) run; a rally may target one girl
+  (effect.target 'girl'; rally record `to`; the girl-target rule above, Wakaba's Time Out!) or the whole map (effect.radius 'map', scope 'map'; record
   `map: true`) and add pierce (effect.pierceAdd → record pierceAdd → t.buff.pierceAdd, only when set);
-  castAbility(sim, t, { aim }) passes the aim to the kind
+  castAbility(sim, t, { aim }) passes the aim to the kind (Yuzuha's sentries land at the edge spots nearest it)
 Caps (constants.js): ROAD_OBJECTS 80/160, STRAIGHT 60/200/400, SENTRIES 24/40 per player/sim, oldest first
 ```
 Battle save: carried Sticky Tar strips in `tr` (+ hits, ttl), `sc` Spread cursor, `rg` ring turn,
@@ -1349,6 +1639,8 @@ aimMode(t)                                   // towers.js: 'mortar' | 'mirror' |
 relayOrigin(samples, x, y, relay, aim?), updateRelayOrigin(sim, t)  // t.origin, t.ox, t.oy; 'relay' event; samples from _pathsFwd
 sim.shells                                   // mortar shells: 'mortarWarn' / 'shellLand'; end at the wave clear
 sim.runners; runners.js startRunner / updateRunners / runnerSegment(sim, r, k)  // 'runner' / 'runnerEnd'; end at the wave clear
+  // r.end: the head dist where it ends (0; a toStart runner: -(segments-1)·gap, so the tail clears START)
+  // runnerEntry(sim, aim): an aim on a stretch several roads share takes the road with more enemies ahead
 sim.addGlobalDamageBuff(mul, duration, src?) // sim.globalDmgMul (strongest wins), in refreshEffective
 sim._curseQueue, CURSE_BURSTS_PER_TICK 32    // FIFO, the rest spill to the next step; 'curseBurst' event
 PUSH_LOCK { normal 1.5, elite 1.5, miniboss 3, boss 3 } // gathers and the pushes of PUSH_LOCK_KITS girls (['fuu']); the live girls' pushes stay
@@ -1456,6 +1748,7 @@ r.dispose()
 r.canvas                         // the WebGL canvas
 r.towerSkin(uid)                 // the outfit (skin id) a placed girl's model wears, null before it is drawn (e2e / debug)
 r.pick(clientX, clientY)         // -> { x, y /*continuous world point, free placement*/, tx, ty /*tile under it*/, towerUid|null, inBounds }
+                                 //    (a ray over a rooftop lands on the roof's top first: boardInput.js boardPoint)
 r.setGhost(unitId|null, x, y, valid)  // placement preview at a continuous point (translucent girl + small footprint
                                  //    circle: white = valid, red = invalid; neutral white range circle). Two integers = a tile centre (legacy).
 r.setPlacementRange(on)          // show/hide the ghost's range circle (settings.showRanges)
@@ -1471,9 +1764,33 @@ r.cameraMode, r.cameraState     // current mode; { mode, locked, zoom, pan, posi
 r.onTap(cb)                      // cb({ tx, ty, towerUid, clientX, clientY }) — taps only (not drags)
 r.onLongPress(cb)
 r.worldToScreen(x, y, z?)        // -> { x, y } CSS px (for floating HUD labels)
-r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (drones keep pace); battle controller calls it every frame
+r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (drones keep pace) and rosterFx (a wave-clear sky dragon reaches START before an Auto start); battle controller calls it every frame
 r.info.attackFx                  // attack-FX stats { drones, engaged, quads, quadBudget, ms, … } or null when off
+r.hitStop(seconds)               // hold everything drawn ≤ 60 ms of frame time (never the sim); Reduce Motion: ignored → freeze left
+r.visualClock                    // read-only { t, dt, frameT, realT, frame, freezeLeft, slowLeft, … } (docs/VFX.md)
+r.vfx                            // read-only hit-effect stats { hitStops, holds, impacts, flashesRefused, flashLoad, worldFlashesDimmed, halos, shakePx, punchZoom, bloom, grade, … }
+r.hdrProbe({ effects })          // dev tooling: share of pixels above luminance levels this frame (bloom threshold tuning)
 ```
+
+Settings the renderer reads (`opts.settings`, the profile's live settings object): `quality`,
+`shadows`, `bloom`, `reduceMotion` (at creation), `hitEffects` (read live: `false` = no screen flash,
+no impact frames, no shake or zoom punch, no hit-stop or local hold; Settings → Graphics → Flashes &
+shake and the pause menu), `impactFrames` (read live: `false` = a soft tint instead of the tinted
+impact frame; Settings → Graphics → Impact frames and the pause menu), `camera`, `buffIcons`,
+`attackFx`. Hit feel (docs/VFX.md §M1): the global hit-stop (boss kills, ult impacts), local holds of
+the struck enemy (each girl's weak / strong / crit impact preset; counted in rendered frames, the
+struck look shown from the first held frame), tinted impact frames, hit squash, camera shake in screen
+pixels (a shift, never a roll; a girl's basic splash never shakes) and the zoom punch all change only
+what is drawn; the flash guard counts flashing screen area a second (world flashes too), keeps
+full-screen flashes to ≤ 3 a second, never white, reddish ones softened and dimmer; scaled by the
+graphics tier.
+
+Time and randomness (docs/VFX.md): every animation and effect the renderer draws runs on its one
+visual clock (`src/render/vfx/clock.js`): visual time = the frame's time minus any hit-stop, times
+any slow motion; board feedback (ghost, rings, buff icons) runs on the frame's own time and the panel
+slide on wall time. Render code draws its random numbers from seeded render-only streams
+(`src/render/vfx/random.js`, one fork per layer, seeded from the map and stage), never from
+Math.random and never from `sim.rng`, so the same battle on the same frames gives the same picture.
 
 Attack FX (`src/render/attackFx/**`, docs/ATTACK_FX.md): every girl has a signature attack look
 (Chika's drones fly sorties after the sim's targets, lobbed shells show landing reticles, area girls
@@ -1508,6 +1825,190 @@ on an overpass; `EnemyRT.hidden` (tunnel) and `EnemyRT.underDeck` (ground walker
 hide the model, its shadow and its HP bar. Flat junctions get painted travel chevrons; per-map
 `bridge` / `path` / `tunnel` looks and `ground` features (vat, icefall, runeRing) override the
 theme. The entrance / exit arrows follow the road's first / last tangent.
+
+Gate Arc Step 3 render hooks (S3a; render only, no sim field, no co-op change; spec
+docs/specs/gate-arc/STEP3_BUILD_PLAN.md §2-3):
+- **Mid-board rift** — a path spec `{ nodes, inside: true, join?, fork? }` whose first node lies inside
+  the board; `defineMap` copies the flag onto the built track (`MapDef.tracks[i].inside === true`;
+  `buildTrack` itself ignores unknown keys, so maps.js does `if (spec.inside) tracks[i].inside = true`).
+  `trackMesh.startsInside(track, W, H)` (the flag, or a non-fork first point ≥ 0.25 tiles inside every
+  edge) drops that lane's head run-out; its entrance (`inside: true`) sits on the first point facing
+  along the lane, and terrain.js stands the spawn gate there (the city's `petalRift`, at `PATH_H` on
+  water / a jetty: gate marker `{ inside: true, onWater }`, no road cracks under it). The sim needs
+  nothing: enemies already spawn at a track's first point. The edge-spawn test exempts flagged tracks
+  only (`if (!t.fork && !t.inside)`).
+- **District** — `MapDef.district: 'oldtown'` on a `city` map: `resolveLook(theme, scenery, stageLook,
+  map)` merges `themes.DISTRICTS.oldtown` (stone ground, `setts` road, `oldHouse` buildings, stone
+  gutters instead of raised kerbs, lantern strings on bamboo posts instead of utility poles, tiled
+  timber blocks under 'U' roofs, no signals or painted crossings; src/render/city/oldTownProps.js).
+- **Families found** (Gate Arc Step 4, `src/systems/achievementMetrics.js` `familiesFound`): a family counts only
+  when the save needs at least one member (introduced in Act I, or in an Act II stage the save can open) and every
+  needed member is discovered. Never vacuous: the Brigade (every member an Act II one) counts for nobody until 3-9
+  opens, and a veteran's count never rises with it.
+- **Join moves** (`src/systems/catchUpJoins.js`): `LEGACY_JOIN_STAGES` (Yuzuha's 4-2: a win there still grants her to
+  a player who has not met her; the balance bot counts it) and `PRE_UPDATE_JOIN_STAGES` (Azami's 2-2: only a clear made
+  before Step 4, read once by the first catch-up run of this build, mark `missions.counters['joinWindow:azami']`; never
+  a win's grant, never the bot's roster). Azami joins on a 4-7 win.
+- **Burning** — `StageDef.scenery.ruined: 'burning'` (resolveScenery passes `ruined`): the
+  `themes.BURNING` table (dark sky, key ≥ 1.2, ash ground under the road's tone, `ruinBlock` shells,
+  rubble / wrecks / charred trees, ash weather) and the burning layer (ruinProps.burningLayer: ≤ 12
+  amber fire glows on H / X tiles ≥ 1.5 from every centreline, ≤ 6 smoke columns in the skirt, scorch
+  marks off the road, a stray cat). On a city map 'X' tiles are rubble heaps, never lava.
+- **The tear** — decor `{ type: 'hammerTear', x, y }`: a black-violet seam of glow geometry over the
+  tile; it pulses with the map rule (`ruleState` → src/render/tear.js → `terrain.setTear(k)` uniform +
+  `ambient.tear` level), as the blackout does; `terrain.tear` says a board has one.
+- **Brigade falls and barks** — `fallStyleOf(def)` (src/render/fallStyles.js): an explicit `def.fall`,
+  else `brigade_gnat*` → `sparkFall` (amber sparks, `fx.sparkFall`), `brigade_tortoise|badger|strider|
+  hammer*` → `breakdown`, any other `brigade_*` id or a `brigade` family → `fade` (the shipped poof
+  without the homeward sparkle); every shipped monster keeps `sparkle`. Barks (src/ui/text/barks.js
+  table by unit id and event, src/ui/battle/barks.js chips): ≤ 6 words, one chip per board side at a
+  time, ≤ 1.6 s, over a group on spawn and over a unit when beaten (the Gnat: "Gnats up!" / "Channel 9,
+  moving up!", LINK LOST). `r.info` adds `district`, `ruined`, `tear` (level or null) and `barks`.
+
+Gate Arc Step 4 render hooks (S4a; render only, no sim field, no co-op change; spec
+docs/specs/gate-arc/STEP4_BUILD_PLAN.md §2-3; preview boards in previews/highwayMaps.js):
+- **Highway** — `MapDef.district: 'highway'` on a `city` map: `themes.DISTRICTS.highway` (gravel ground, the pale
+  `concrete` road with a dark hard shoulder painted along it, kept the lightest band; `roadsideBlock` buildings:
+  embankments with sound walls, rock cuts, a depot, a salt dome, a control hut, a rest stop, all ≤ BOARD_MAX_H, rock
+  inside a big block of H (the mountain); `soundWall` on the border; a concrete flyover deck look; the `highway`
+  tunnel style). The city kit then draws steel crash barriers along every road on the ground instead of raised
+  kerbs, highway lamps instead of utility poles and wires, no signals or painted crossings, toll canopies under 'U'
+  roofs (the booth islands girls stand on, ROOF_Y, lit price boards), the bore dressing (`tunnelPortal`: hood, jet
+  fans, sodium lamps) at every tunnel mouth, a flyover on its piers down one side skirt (src/render/city/highwayProps.js).
+- **Checkpoint barrier** — `MapDef.city.barriers: [{ lane, at? }]`: an arm across lane `lane` on two Brigade posts
+  (amber beacons), by default at the first point of that lane's road on the board ≥ 1.4 tiles from every other road
+  and clear of forks, joins, gates, tunnel mouths and crossings (or the point nearest `at`); a checkpoint hut beside
+  it. `setLanes(open)` lowers it while every lane through it is closed, exactly as a level crossing's arms (one
+  shared arms part in the facade mesh, re-posed only while it swings), but no train runs for it. `terrain.barriers`
+  and `r.info.barriers` ('down' / 'up') for tests and previews. 4-7: `waveGen.laneCycle: [[1], [0, 1]]` + `city:
+  { barriers: [{ lane: 0 }] }`.
+- **Looks** — `StageDef.look.dusk` (themes.DUSK); scenery keywords 'frost' (themes.FROST: a cold wash under the road's
+  tone, rime on rails and barriers, flurries), 'snowCover' (themes.SNOW_COVER: snow painted over the north rows down
+  to `map.city.snowRows`, slush by the road, snowdrifts, a snowy top on the bores' ridges), 'snowBridge'
+  (themes.BRIDGE_LAYER: the Brigade's folding deck over the water, no piles, plus `stoneBridgePier`s beside it).
+  `r.info` adds `dusk`, `frost`.
+- **Dressing keywords** (src/render/terrain.js SCENERY; `also` dresses further keywords): 'tollPlaza' (booths beside
+  the road + 'signGantries' across a straight + 'restStops'), 'checkpoint' (Azami's citation stand + 'jerseyBarriers'
+  + 'brigadeCamp'), 'brigadeCamp' (tents, vans with a ticket under each wiper, searchlight towers, a drone dock),
+  'tunnelPortals' (snow blowing out of the bores' mouths, emitter 'snowGust'; a stopped lorry), 'frozenVillage' (the
+  board's houses become `frozenHut`, huts in the skirt + 'villageBits': sleds, a fire going out), 'villageHearths'
+  (a `villageHearth` round each of the stage rule's relay pads, `resolveScenery(...).pads`; the pad decals turn
+  ember-warm), 'beachhead' (sandbag pits and a searchlight beside the spawn gate), 'gateSandbags' (by the goal),
+  'hostBanners', 'passCairn', 'vastShadow' (a huge soft shadow crossing the board once a minute, never named). The
+  far north stays the shipped `snow` theme (no city kit); its spawn gate can be the city's rift through `map.city.
+  spawnGate: 'petalRift'` (already read on any theme). Brigade props: src/render/city/brigadeProps.js; far north:
+  src/render/northProps.js.
+
+Gate Arc Step 5 render hooks (S5a; render only, no sim field, no co-op change; spec
+docs/specs/gate-arc/STEP5_BUILD_PLAN.md §2-3; preview boards in previews/drownedMaps.js):
+- **Drowned Line** — `MapDef.theme: 'drowned'`: `themes.THEMES.drowned` on the city kit (`city.kit: 'drowned'`, no
+  drones, no raised kerbs): wet station tiles (`groundStyle: 'tile'`), the pale galvanised `grating` road with a
+  yellow platform edge (the lightest band), the painted platform band along every lane, `stationBox` blocks on the
+  board (platform office, ticket hall, kiosk, stair head, vent shaft, control room; all ≤ BOARD_MAX_H),
+  `retainingWall` on the border, the `subway` tunnel style, dark teal flood water; lit underground (`forceNight`
+  with its own light, `nightFog` in fog; `look.bg` keeps its own dark). The kit draws work lamps with a red
+  emergency lamp on their posts along the lanes instead of utility poles (`emergencyLight` 2), a red emergency
+  lamp beside every tunnel mouth, no signals, wires or painted crossings; the lake mosaic, station blocks and pump
+  halls round the board. Water drips from the OUT mouths (emitter 'drip'). Decks over water are platform slabs
+  (`bridge.platform`: a yellow edge, no rails), overpasses the pipe gantry (`bridge.pipes`). The goal is the Line
+  2 station exit (`shelterDoor` variant 3, `goalVariant: 3`). Music family 'lantern'.
+- **Subway spawn** — an inside lane that opens in a tunnel (trackMesh `headTunnel`: `startsInside` and its first
+  tunnel starts within `HEAD_TUNNEL` = 0.5 of d = 0): no run-out, no portal behind its start, its entrance (and
+  spawn gate, `gates[i].mouth`) at the tunnel's OUT mouth facing along the lane: the `subwayMouth` seam (glow
+  geometry and sprites kept lit, petals and motes), no cracked road. The sim is untouched (it spawns at the first
+  point, hidden in the bore by the shipped tunnel rule).
+- **Noon Gate** — `MapDef.city.spawnGate: 'noonGate'`: a disc of cyan-white light on the board edge leaning like the
+  rift, `noonGatePlacement` (1.7 tiles in on the far edge so it reads whole under the HUD), `NOON_GATE.R` 1.08 (≥ 2
+  tiles across), unlit seams, the largest glow sprite on the board, frost at its foot; its ring of glass shards is
+  the city kit's one instanced mover (`noonGateShards`, 20, ≤ 24 in all, MeshBasic, opaque). `gates[i].noon`.
+- **Steam valves** — stage rule zones reach the scenery (`resolveScenery(...).zones`); keyword 'steamValves' (slot
+  'vent': one spot per zone, off the road, clear of the kit's furniture) stands a `steamValve` (red wheel, a
+  'steamColumn' emitter per stack); `RuleDecals({ steam })` (BattleRenderer: the drowned kit or 'steamValves')
+  draws the vents as pale steel rings with white steam bursts while ACTIVE.
+- **Blackout on drowned** — `StageDef.look.blackout` as Step 2's; the red emergency lamps keep their light: a
+  builder's glow sprite may carry `keep` and `pulse` (ambient: a slow pulse, quick and strong while dimmed), a prop
+  `keepLit` (its glow geometry never dims).
+- **Reservoir park** — `MapDef.district: 'park'` on a `city` map: `themes.DISTRICTS.park` (`city.kit: 'park'`): mown
+  lawns with paved bands, a pale park road (asphalt tone 2.5, the lightest band by day, in fog and at night; deep
+  green lawns at night), `damWall` on the board's H tiles, park lamps instead of poles and wires, no signals or
+  painted crossings, no construction fence, willows and cherries round the board with the bandstand and the city's
+  towers beyond; fireflies over the water at night. A big tree decor (`sakura`, `willow`, `pine`, `greatWillow`)
+  takes the decor's own `s` when given (`{ type: 'greatWillow', x, y, s }`: the willow on its island, 5-10).
+- **Dressing keywords** (src/render/terrain.js SCENERY): 'floodedPlatform' (the lake mosaic and stair entrances in
+  the skirt + 'sunkenTrain' in the water + 'emergencyLights' + 'litVending'), 'line2Cuttings' (signal lamps, a
+  maintenance cart, a stair entrance + 'shardWater' glass shards in the water + 'emergencyLights'), 'pumpStation'
+  (giant pumps and pipe runs in the skirt + 'steamValves'), 'noonGateFrost' (look: `look.frost`, rime on pipes and
+  the gantry, a light cold wash, no snow + 'gateShards' beside the gate), 'reservoirDam' (the bandstand +
+  'parkBoats', 'rescueBuoys', 'reservoirCrown': the great willow far off in the skirt), 'reservoirWillow' (dam walls
+  in the skirt + boats, buoys, 'fireflies'), 'searchBoats' (Brigade search boats on the water whose searchlight
+  beams the ambient layer sweeps: `terrain.searchlights`, 0 draw calls).
+- **Noon machines' fall** — `fallStyleOf`: `vesper_patrol_orb` / `vesper_halo_drone` (and any other `vesper_*`)
+  'sparkFall', `vesper_line_sentry` 'breakdown'; `playFall(fx, style, p, def)` passes `fallTintOf(def)` (the def's
+  accent for the sparks, white glass scrap; null for every other def), never the homeward sparkle.
+- **Story places** — `themeBackdropSVG('drowned', { variant: 'platform'|'tunnels'|'noonGate', time })` and
+  `themeBackdropSVG('city', { variant: 'reservoir'|'willow', time })`; `PLACE_VARIANT` (src/ui/story/backdrop.js,
+  exported) maps `noon_flooded_platform`, `noon_line2_tunnels`, `noon_pump_station`, `noon_reservoir_park`,
+  `noon_reservoir_willow`; thumbnail palettes `drowned`, `park`.
+
+Gate Arc Step 6 render hooks (S6a; render only, no sim field, no co-op change; spec
+docs/specs/gate-arc/STEP6_BUILD_PLAN.md §2-3; preview boards in previews/vesperMaps.js):
+- **Vesperline** — `MapDef.theme: 'vesper'`: `themes.THEMES.vesper` on the city kit (`city.kit: 'vesper'`, no drones,
+  no raised kerbs): the LIVING city by itself (white glass panels, `groundStyle: 'glass'`; the `glassway` road: white
+  panels with a cyan guide line, `textures.GLASSWAY`, the lightest band; sky-blue pools; cherry trees in glass
+  courtyards; a bright morning). `lectureHall` / `podium` on the board (≤ BOARD_MAX_H), `frostedPane` on the border,
+  holo lane lamps (`holoSign` 0) along the lanes instead of poles (no signals, wires, subway signs or painted
+  crossings, no cracked road at a spawn), glass towers / lecture halls / courtyard trees round the board, the
+  `gallery` tunnel style (the museum's wings: white halls, a glass roof strip, a pale gold band, pedimented
+  portals), the glass light-bridge on water decks and overpasses (`bridge.glass`: a pale deck, a cyan edge glow in
+  unlit glow geometry, `buildDecks().glow`), spawn `sentryBay` (a hangar ≥ 2 tiles across, red status lights kept
+  lit), goal `vesperShelter` (one warm window kept lit). Music family 'ironclock'.
+- **Frozen** — `StageDef.scenery.ruined: 'frozen'` on a `vesper` map (any other theme ignores it): `themes.FROZEN`,
+  resolved in `resolveLook` (sets `look.frozen`, `look.frost`, `look.aurora`; `look.dusk` unless the stage is at
+  night): frosted blue-grey glass with cyan cracks (`groundPaint.rime`) and snow drifts (`drifts`), the glassway kept
+  the lightest band, near-black open water (the darkest band; ice, islands and shores lighter), an eclipse dusk
+  (key ≥ 1.2, the lamps and holo signs on with their pools), snow, a cold aurora over the back skirt (ambient
+  'aurora'), the holo signs flickering hard (some lane lamps dead), snow and icicles on every ledge, the cherry
+  crowns frosted; at night `FROZEN.nightLight` / `nightBg`. The prop cache keys on `look.frozen`.
+- **Sky-rail and viaducts** — `MapDef.bridge: { skyRail: true }`: raised runs are a box girder (a pale running deck
+  whose kerb strips frame the glassway, so the road stays the lightest band on top; a deep fascia; a parapet post
+  every ≈ 1.6 tiles) on single white pylons. Piers stand all along a long raised run — every `PYLON_STEP` (2.0) on
+  any road with S6v's `track.viaducts` (carried by `planRoads` as `road.viaducts`) or under the sky-rail look —
+  besides the shipped pairs at crossings, always clear of the lower road (`buildDecks().piers` lists them). The
+  far end of every viaduct span is `buildDecks().viaductEnds`: SCENERY 'brokenSpan' (slot 'railEnd') hangs a pod
+  there (`skyRailPod` 0) beside the road. The deck's shadow is the shipped overpass shadow. Shipped maps (no
+  viaducts, no sky-rail) are unchanged (terrainGolden).
+- **Vesper Gate** — `MapDef.city.spawnGate: 'vesperGate'`: a white-gold glass ring round a black-violet disc on the
+  board edge, leaning like the rift (`vesperGatePlacement`: 2 tiles in on the far edge, clear of the HUD band),
+  `VESPER_GATE.R` 1.08 (≥ 2 tiles across), the largest glow sprite on the board (`VESPER_GATE.glow` 2.6, pooling on
+  the road at its foot so the disc stays dark), dark snow falling out (emitter 'darkSnow'). `gates[i].vesper`.
+- **Transit pads** — `RuleDecals({ transit })` (BattleRenderer: a `vesper` board or the keyword 'transitPads'): the
+  shifting_stars rift points (`portals.at`, `at + jump`) draw as cyan floor rings `TRANSIT_PAD.d` (1.6) across with
+  a light pulsing inward; the jump flashes cyan.
+- **Decor** — a decor may give its `variant` (`{ type: 'spindle', x, y, r: 2, variant: 0 }`: the Spindle's foot on
+  the board, drawing its own tiles within `r`); any vesperProps type may be decor (`doorieStatue` in the rotunda).
+- **Dressing keywords** (src/render/terrain.js SCENERY): 'frostCauseway' (a Doorie bus + 'gateStatues' halo statues
+  inside the goal + 'skyRailRuins' pods in the skirt), 'prismBatteries' (slot 'pad': a `prismBattery` ring round each
+  relay pad, the middle clear), 'skyRailViaduct' (look + 'brokenSpan', 'railPods', 'stationCanopy', 'deadHolo'),
+  'frozenCanal' (glass shards on the water), 'museumWings' (look + 'museumBits': frozen fountains, a halo statue),
+  'doorieStatue', 'reflectingPools' (sparkles on the water), 'towerRing' (podiums and halo statues + 'holoSigns'),
+  'transitPads' (transit pad rings in the skirt; the decals are the rule's), 'cleaningRobot' (look: the kit's one
+  mover, a cleaning robot circling the paving of the west skirt; `buildCity({ keywords })`), 'spindleFoot' (slot
+  'spire': the Spindle's shaft in the back skirt behind its foot + 'vesperTerminal' consoles inside the spawn gates +
+  'terminalHall' bays in the skirt), 'frozenNest' (the nest in the skirt + 'greyWool' on the board), 'warmWindow'
+  (look: the shelter's window glows brighter), 'starDome' (dome ribs and orrery rings in the skirt + 'starShards' on
+  the board), 'coldAurora' (ambient 'aurora'), 'holoSigns' (billboards and arrow kiosks along the lanes), 'frostHaze'
+  (ambient: pale wisps creeping low over the board).
+- **Blackout on vesper** — as Step 2's: the holo signs and exhibits dim; the gates (`sentryBay`, `vesperGate`,
+  `vesperShelter` in KEEP_LIT), the warm window and the light-bridge's edge glow keep their light.
+- **Falls** — `fallStyleOf`: `vesper_lattice_shell` 'sparkFall', `vesper_aegis` / `vesper_warden` /
+  `vesper_gatekeeper` 'breakdown' (the def's accent: the Gatekeeper's amber); any `rime_*` id 'fade' with
+  `fallTintOf` → `RIME_TINT` (violet motes and puff), never the homeward sparkle even with `def.fall: 'sparkle'`.
+  `fx.death(…, { homeward, puff })`.
+- **Story places** — `themeBackdropSVG('vesper', { variant, time })` with `VESPER_PLACES` 'causeway' (default),
+  'skyrail', 'museum', 'towers', 'spindle', 'starfall' (a night place); every one takes `dusk` / `dawn` / `night`;
+  the eclipse stays inside the 16:9 crop. `PLACE_VARIANT` maps `vesper_frost_causeway`, `vesper_skyrail`,
+  `vesper_museum`, `vesper_tower_ring`, `vesper_spindle_foot`, `vesper_starfall`; thumbnail palettes `vesper`
+  (living) and `frozen` (`stageThumbSVG(map, { ruined: 'frozen' })`).
 
 ## 10. Battle UI — `src/ui/screens/battle.js` + `src/ui/battle/**` (owner: battle-ui)
 
@@ -1974,13 +2475,26 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   `place` sets the tower's `owner` (the slot); `upg` checks `upgradeStatus` in that player's view and refuses
   with `{ ok: false, reason, holder }` (`'onePerPath'`: her own other copy holds that tier 5 — a partner's never
   does); two tier-5 orders in one tick resolve in command order on every client; `pick` (Midori / Chika's
-  target, any player's girl) is owner-checked and refused `'notYours'|'invalid'|'self'|'gone'|'range'|'noBuff'`,
+  target, any player's girl) is owner-checked and refused `'notYours'|'invalid'|'self'|'gone'|'range'|'noBuff'`;
+  **abilities** (A2): `abil[uid, group 0|1, qx, qy]` fires her own girl's or hero's ⚡ ability (`qx, qy` an aim in
+  1/1024 tiles, or -1, -1 for none; `abilArgs(uid, { group, aim })` builds it) → `{ ok: true, casterUid }` or
+  `{ ok: false, reason, casterUid? }` with `'invalid'|'notYours'` or the sim's reason at the command's tick (a tap
+  behind an auto-cast is `'cooldown'`, one after the clear `'notWave'`; nothing is spent); `acast[uid, on 0|1]` sets
+  her Auto switch (`uid` 0: every girl she owns and her default, `sim.setAbilityAutoAll`); `start.players[i].autoAbil`
+  (only `true`; the lobby sends it only when on) is her Auto-cast setting from tick 0; owner-credited coins
+  (`sim.ownerCash`, an econ cast auto or manual) go into their owner's wallet after every command and step, never
+  into the pooled split; the kill coins of a manual cast (an instant strike or burst kills inside the `abil`
+  command) are pooled and split evenly like a step's (`splitIncome`, the odd coin taking turns), as an auto-cast's
+  are, never the caster's alone (spec §7.1); `hashSim` folds a girl's ability (cd, active, auto, casts) only once she cast or is on Auto,
+  and `abilGroups`, rallies / queued shots, the Auto defaults and the econ counts only while non-empty, so battles
+  that never cast keep their hash. `COOP_PROTOCOL` stays 5: the sim id and the data hash already keep apart builds
+  that differ;
   per-player wallets / loadouts / colours swapped around each command; `isValidCmd()` rejects malformed
   network input. `start.freeplay` (a tier) builds the freeplay battle (`coopStage(id, { freeplay })`);
   `end[true|false]` is a player's Finish vote, counted only in freeplay after the goal: the run ends
   (`sim.finish()`) on the tick every player still in the battle has voted, and a `gone` marker re-checks the
   votes (the one left can finish alone; a player who comes back keeps her vote); `coop.endVotes()`.
-  `COOP_PROTOCOL` 8 (`version.js`; 8 is v0.1.41: Marumi's ricochet rework and Kaede's maple blade arts; 7 was v0.1.40: the seven new academy girls and the sim's ability core; 6 was
+  `COOP_PROTOCOL` 10 (`version.js`; 10 is the ultimates release: tower abilities and hero skills cast in battle, Tenka, Seiran's Dragonflight back to START; 9 was Gate Arc Acts 1–2: the Act II stages, rooftops and the lane schedule; 8 was v0.1.41: Marumi's ricochet rework and Kaede's maple blade arts; 7 was v0.1.40: the seven new academy girls and the sim's ability core; 6 was
   v0.1.39: the nine returning girls with the `aim` command, UR gear in battle and Ascension's gates; 5 was Potential v3; 4 was battle train C — the hero rework's commands, Chika's
   `fly`, the path cap's `pick` and battle modes share that one bump; 3 was freeplay), and the freeplay table,
   Potential's tables and `BATTLE_MODES` are in the battle-data hash. A client on another protocol is refused in
@@ -2164,7 +2678,11 @@ production; in dev builds only, `localStorage['sakura-dev-now']` (an ISO instant
 
 **Render** — `stage.look.night === 'lantern'` (warm lantern night) and `look.costumes` (render-only monster
 costumes, `src/render/costumes.js`; never bosses / minibosses, never over armour or ward signs); scenery
-keyword `pumpkins`; `ENEMY_EXTRAS` for an event boss's own look.
+keyword `pumpkins`; `ENEMY_EXTRAS` for an event boss's own look. `look.blackout: true` (Gate Arc, render only,
+`src/render/blackout.js`): while the stage's map rule is ACTIVE (`ruleState` events) the lamps, lit windows, glow
+sprites and light pools ease to 25 % and the hemisphere light to 60 % (0.4 s); enemies, girls, the road, the gates
+and the HUD get no dimming of their own (only the shared hemisphere light; the road stays the lightest band). Set
+pieces built as separate objects (water set pieces) keep their glow geometry lit: none stands on a blackout stage yet.
 
 **Tests** — `tests/core/resetBounds.test.js`, `tests/data/events.test.js`, `tests/systems/events*.test.js`,
 `tests/integration/event-balance.test.js`, `tests/render/halloween.test.js`, `node e2e/halloween.mjs`.

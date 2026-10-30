@@ -27,7 +27,7 @@ export const noa = {
       if (p) {
         p.vy = 0.7;
         p.vrot = 6;
-        p.vx = (Math.random() - 0.5) * 0.6;
+        p.vx = (ctx.rand() - 0.5) * 0.6;
       }
     }
     return true;

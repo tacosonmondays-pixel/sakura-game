@@ -2,6 +2,9 @@
 // Co-op freeplay: once the goal wave is cleared it becomes the clear card — "STAGE CLEAR ✓" over a
 // violet → pink GO BEYOND ▶ Wave 16/15 (the normal 'wave' command, either player) with a countdown
 // ring while Auto is on, and a small "Finish here" pill (this player's Finish vote).
+// Tryout Day's Extended Day: no clear card and no Finish pill at its wave 48; past it, between waves, the Home Time
+// pill sits in the Finish pill's place (ctx.homeTime, src/ui/battle/tryout/homeTime.js: solo asks and ends the run,
+// co-op is this player's vote on the same 'end' command and says who has voted).
 import { h, icon } from './util.js';
 
 export function createWaveControl(ctx) {
@@ -15,9 +18,12 @@ export function createWaveControl(ctx) {
   // freeplay: the clear card's head and the Finish pill (hidden outside the clear)
   const clearHead = h('div.bt-clear-head', { 'data-testid': 'clear-card' }, h('b', 'STAGE CLEAR ✓'), h('small', 'Rewards saved'));
   const finish = h('button.bt-finish-pill', { 'data-testid': 'finish-here', onclick: () => ctx.voteFinish?.(!ctx.myFinishVote?.()) });
+  // Extended Day past wave 48: Home Time (the Finish pill's look; .on once this player has voted, co-op)
+  const home = h('button.bt-finish-pill.bt-home-pill', { 'data-testid': 'home-time', onclick: () => ctx.homeTime?.tap() });
   clearHead.hidden = true;
   finish.hidden = true;
-  const el = h('div.bt-wavectl', clearHead, start, h('div.bt-wavectl-row', finish, auto));
+  home.hidden = true;
+  const el = h('div.bt-wavectl', clearHead, start, h('div.bt-wavectl-row', finish, home, auto));
   ctx.layer.append(el);
   const lastWave = () => sim.lastWave ?? sim.totalWaves;
 
@@ -25,13 +31,20 @@ export function createWaveControl(ctx) {
   let fp = null;
   function update() {
     // read live: a solo run that won its last wave can Keep going into freeplay
-    fp = sim.freeplay ? sim.stage.freeplay : null;
+    // (a Tryout Day Extended Day runs freeplay waves past its 48 but is not freeplay: no clear card, no Finish pill, no
+    // "49/48"; its wave 48 just goes on, with the Stay Late banner, TRYOUT_DAY §20.8)
+    fp = sim.freeplay && !sim.tryout ? sim.stage.freeplay : null;
     if (fp && el.dataset.tier !== fp.id) el.dataset.tier = fp.id;
     const canStart = (sim.state === 'prep' || sim.state === 'between') && (sim.endless || sim.wave < lastWave());
     // the goal wave just cleared (freeplay): the clear card
     const atClear = !!fp && sim.state === 'between' && sim.wave === sim.totalWaves;
     const voted = !!ctx.myFinishVote?.();
-    const key = `${canStart}|${sim.wave}|${sim.options.autoStart}|${sim.state}|${atClear}|${voted}|${fp?.id}`;
+    // (Home Time: only an Extended Day past its 48, between waves; its words say who has voted in co-op)
+    const ht = ctx.homeTime?.state?.() || null;
+    // (a narrow screen: shorter words, so the pill keeps one line beside Auto)
+    const narrow = !!ht?.coop && typeof window !== 'undefined' && window.innerWidth <= 480;
+    const htText = ht?.show ? ctx.homeTime.label(ht, { short: narrow }) : '';
+    const key = `${canStart}|${sim.wave}|${sim.options.autoStart}|${sim.state}|${atClear}|${voted}|${fp?.id}|${htText}|${ht?.mine}|${ht?.ally}`;
     if (key !== last) {
       last = key;
       start.hidden = !canStart;
@@ -42,10 +55,19 @@ export function createWaveControl(ctx) {
       finish.hidden = !atClear || !ctx.voteFinish;
       finish.classList.toggle('on', voted);
       finish.textContent = voted ? 'Finish ✓ — tap to keep going' : 'Finish here';
+      home.hidden = !ht?.show;
+      // (the ally's name ellipsizes alone, so the pill stays one line: battle.css .bt-home-name)
+      const [pre, name, post] = ht?.show ? ctx.homeTime.parts?.(ht, { short: narrow }) || [htText, '', ''] : ['', '', ''];
+      home.replaceChildren(...[pre ? h('span', pre) : null, name ? h('span.bt-home-name', name) : null, post ? h('span', post) : null].filter(Boolean));
+      home.title = htText;
+      home.classList.toggle('on', !!ht?.mine);
+      home.classList.toggle('ally', !!ht?.ally && !ht?.mine);
+      if (ht?.coop) home.setAttribute('aria-pressed', String(!!ht.mine));
+      else home.removeAttribute('aria-pressed');
       const n = sim.wave + 1;
       const over = !!fp && n > sim.totalWaves;
       label.textContent = sim.state === 'prep' ? 'START' : atClear ? 'GO BEYOND' : 'NEXT WAVE';
-      sub.textContent = Number.isFinite(sim.totalWaves) ? `Wave ${n}/${sim.totalWaves}` : `Wave ${n}`;
+      sub.textContent = Number.isFinite(sim.totalWaves) && !(sim.tryout && sim.freeplay && n > sim.totalWaves) ? `Wave ${n}/${sim.totalWaves}` : `Wave ${n}`;
       sub.classList.toggle('bt-start-sub-over', over);
       auto.classList.toggle('on', !!sim.options.autoStart);
       auto.setAttribute('aria-pressed', sim.options.autoStart ? 'true' : 'false');

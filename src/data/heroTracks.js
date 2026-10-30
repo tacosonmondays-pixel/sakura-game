@@ -26,6 +26,7 @@
 // rule 5 moves counters forward. `node tools/heroTrack.mjs <heroId>` prints the rule-5 report.
 
 import { RETURNING_HERO_TRACKS } from './heroTracksReturning.js';
+import { STAFF_HERO_TRACKS } from './heroTracksStaff.js';
 
 const withChance = (spec, chance) => (chance != null && chance < 1 ? { ...spec, chance } : spec);
 const S = {
@@ -182,5 +183,8 @@ function deepFreeze(o) {
   return o;
 }
 
-/** HERO_TRACKS[heroId] = { pathKeys, levels[25], ultRanks[] } (the returning heroes: heroTracksReturning.js). */
-export const HERO_TRACKS = deepFreeze({ hikari: HIKARI, luna: LUNA, nami: NAMI, ...RETURNING_HERO_TRACKS });
+/**
+ * HERO_TRACKS[heroId] = { pathKeys, levels[25], ultRanks[] } (the returning heroes: heroTracksReturning.js;
+ * the staff heroes of the banners wave: heroTracksStaff.js).
+ */
+export const HERO_TRACKS = deepFreeze({ hikari: HIKARI, luna: LUNA, nami: NAMI, ...RETURNING_HERO_TRACKS, ...STAFF_HERO_TRACKS });

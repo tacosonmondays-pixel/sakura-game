@@ -7,7 +7,7 @@
 // the max of the solo stat and the kill counter that co-op also feeds).
 
 import { ACHIEVEMENT_MAP, ACHIEVEMENT_METRICS, achievementLive } from '../data/achievements.js';
-import { STAGES, STAGE_MAP, CAMPAIGN_IDS, CHAPTERS, stageEnemies } from '../data/stages.js';
+import { STAGES, STAGE_MAP, CAMPAIGN_IDS, CHAPTERS, stageEnemies, actStages, requirementsMet } from '../data/stages.js';
 import { ENEMY_MAP } from '../data/enemies.js';
 import { UNIT_MAP } from '../data/units.js';
 import { DIFFICULTY_ORDER, ITEM_RARITY_ORDER } from '../data/types.js';
@@ -80,9 +80,38 @@ export function familyFound(p, family) {
   return (enemyFamilies()[family] || []).filter((id) => p?.bestiary?.[id]?.discovered).length;
 }
 
-/** Families with every discoverable member discovered. */
+/**
+ * A member a family needs before it counts as complete: every enemy, except one introduced in an Act II stage the
+ * save cannot open yet (Gate Arc: the Frostbitten Heir, Old Lamp-Hugger). A veteran who had found every lizard keeps
+ * "Family Portrait" on update day; once the new member's stage is open, the family needs it again.
+ */
+function familyNeeds(p, id) {
+  const intro = STAGE_MAP[ENEMY_MAP[id]?.introducedIn];
+  if (!intro || intro.act !== 2) return true;
+  const cleared = (sid) => !!p?.progress?.stages?.[sid]?.clears;
+  return requirementsMet(intro, cleared);
+}
+
+/**
+ * A family's bestiary count as "Family Portrait" sees it: members found, out of the members the save needs plus any it
+ * has found anyway (a co-op guest can meet a member early). The bestiary tab shows this, so a full tab means the
+ * family counts.
+ */
+export function familyProgress(p, family) {
+  const ids = (enemyFamilies()[family] || []).filter((id) => p?.bestiary?.[id]?.discovered || familyNeeds(p, id));
+  return { found: ids.filter((id) => p?.bestiary?.[id]?.discovered).length, total: ids.length };
+}
+
+/**
+ * Families with every discoverable member discovered (members of an Act II stage the save cannot open yet aside). A
+ * family counts only when the save needs at least one of its members (Gate Arc Step 4: never vacuously; the Brigade's
+ * members all arrive in Act II stages, so a save that cannot open any of them has not found the family).
+ */
 export function familiesFound(p) {
-  return Object.values(enemyFamilies()).filter((ids) => ids.every((id) => p?.bestiary?.[id]?.discovered)).length;
+  return Object.values(enemyFamilies()).filter((ids) => {
+    const needed = ids.filter((id) => familyNeeds(p, id));
+    return needed.length > 0 && needed.every((id) => p?.bestiary?.[id]?.discovered);
+  }).length;
 }
 
 /** Sum of a counter family over rarities at or above `rarity`: gear:<r> / gear10:<r>. */
@@ -187,7 +216,8 @@ function stageRibbons(entry) {
 export const RIBBONS_PER_STAGE = DIFFICULTY_ORDER.length * RIBBON_MODES.length;
 
 /**
- * The Codex modes' ribbons over the 40 campaign stages (800 in all): per mode, the total and the stages with all 20
+ * The Codex modes' ribbons over the campaign stages (CAMPAIGN_IDS: 800 over Act I's 40, 20 more per Act II stage): per
+ * mode, the total and the stages with all 20
  * (a rosette). Ribbons are never taken back, so every count only rises.
  * @returns {{ total: number, perfect: number, byMode: Object<string, number> }}
  */
@@ -258,7 +288,13 @@ export function metricValue(p, a, ctx = achievementContext(p)) {
   switch (a.metric) {
     // ---- campaign
     case 'stagesCleared': return ctx.once('stagesCleared', () => CAMPAIGN_IDS.filter((id) => cleared(st[id])).length);
-    case 'chapterClear': return CAMPAIGN_IDS.filter((id) => id.startsWith(`${a.param}-`) && cleared(st[id])).length;
+    // a chapter is its Act I (CHAPTERS[c].stages, never an id prefix: '1-' would also match 1-6 … 1-10)
+    case 'chapterClear': return actStages(a.param, 1).filter((id) => cleared(st[id])).length;
+    // param 'c:act' ('1:2' = chapter 1's Act II): the registered stages of that act
+    case 'chapterActClear': {
+      const [c, act] = String(a.param).split(':').map(Number);
+      return actStages(c, act).filter((id) => cleared(st[id])).length;
+    }
     case 'medals': return ctx.once(`medals:${a.param}`, () => CAMPAIGN_IDS.filter((id) => has(id, a.param)).length);
     case 'medalsAll': return ctx.once('medalsAll', () => CAMPAIGN_IDS.filter((id) => DIFFICULTY_ORDER.every((d) => has(id, d))).length);
     case 'chapterSets': return CHAPTERS.filter((ch) => ch.stages.every((id) => has(id, a.param))).length;

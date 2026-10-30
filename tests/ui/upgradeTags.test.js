@@ -15,14 +15,15 @@ import {
 // The reviewed tag combinations of every path tier (update on purpose when units.js changes).
 // (path cap: Midori's brews and Chika's tune-up links are Allies, so her 15 tiers and Repair Bay 4-5
 // gained an Allies tag; aura armor pen / crit on tier 4-5 auras; the tier 4 / 5 first pass)
+// (Tenka, T0: her lab and Rail Arms tiers read Self, Singularity's slow / wells / Last Line Enemies: +11 self, +4 enemies)
 // (re-reviewed for the six returning towers' 90 tiers, roster wave: their gather, flyer bonus and
 // familiar / mirror reach tags read Enemies / Her / Her)
 const COMBOS = {
-  self: 207, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi)
+  self: 232, // (+13: Azami, +13: Kinu, +2: Wakaba, +10: Yuzuha, +3: Chigusa, +12: Marumi; +11: Tenka; +14: Kohaku & Tsubaki)
   'enemies* + self': 35,
-  'enemies + self': 51, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41)
+  'enemies + self': 52, // (Marumi's Concussion: its stun and her blast share, rework Oct 21, tuned in v0.1.41; +1: the duo's Thousand Star Bombardment stun)
   allies: 58, // (+12: Wakaba, +1: Yuzuha, +15: Ouka)
-  enemies: 28,
+  enemies: 32, // (+4: Tenka; -1: the v0.1.41 Marumi / Kaede reworks)
   coins: 8,
   'coins + enemies': 1,
   'allies + coins + enemies': 1,
@@ -59,7 +60,7 @@ describe('every tier of every girl is classified', () => {
   it('covers the whole roster (3 paths × 5 tiers each; heroes: one 25-level track, no paths)', () => {
     expect(UNITS.length).toBeGreaterThanOrEqual(19);
     const heroes = UNITS.filter((u) => u.kind === 'hero');
-    expect(heroes.map((u) => u.id).sort()).toEqual(['hikari', 'kanna', 'luna', 'nami', 'seiran', 'yoriko']);
+    expect(heroes.map((u) => u.id).sort()).toEqual(['hikari', 'kanna', 'kogane', 'luna', 'nami', 'norika', 'seiran', 'yoriko']);
     for (const u of heroes) {
       expect(u.paths, u.id).toEqual([]);
       expect(u.hero.levels.map((l) => l.level), u.id).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));

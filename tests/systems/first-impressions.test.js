@@ -23,13 +23,31 @@ import { redeemSelectTicket, POOL, SSR_SELECT_TICKET } from '../../src/systems/g
 import { grantUnit } from '../../src/systems/unlocks.js';
 import { itemCount } from '../../src/systems/inventory.js';
 import { createProfile, migrateProfile, serializeProfile, deserializeProfile, STARTER_UNITS } from '../../src/systems/save.js';
+import { isStandIn } from '../../src/models/standins.js';
 
 const ROOT = process.cwd();
 const fileOf = (url) => join(ROOT, 'public', url.replace(/^.*?art\//, 'art/'));
+// a stand-in girl (src/models/standins.js) whose art the owner has not approved yet keeps the SVG
+// portrait; every other roster girl is drawn
+const ART_PENDING = UNITS.filter((u) => isStandIn(u.id) && !hasPortrait(u.id)).map((u) => u.id);
+const DRAWN = UNITS.filter((u) => !ART_PENDING.includes(u.id));
 
 describe('drawn portraits', () => {
+  it('a girl whose art is pending is a stand-in and shows the SVG portrait everywhere', () => {
+    // none today: Tenka's drawn portraits shipped with the ultimates (and her battle figure is a GLB now)
+    expect(ART_PENDING).toEqual([]);
+    expect(hasPortrait('tenka')).toBe(true);
+    for (const id of ART_PENDING) {
+      expect(PORTRAIT_DATA[id], id).toBeUndefined();
+      for (const kind of Object.keys(PORTRAIT_KINDS)) {
+        expect(portraitUrl(id, kind), `${id} ${kind}`).toBeNull();
+        expect(portraitHTML(UNIT_MAP[id], kind), `${id} ${kind}`).toMatch(/<svg/);
+      }
+    }
+  });
+
   it('every roster girl has every portrait file on disk (no SVG fallback in menus)', () => {
-    for (const u of UNITS) {
+    for (const u of DRAWN) {
       expect(hasPortrait(u.id), u.id).toBe(true);
       const files = portraitFiles(u.id);
       expect(files).toHaveLength(Object.keys(PORTRAIT_KINDS).length);
@@ -42,7 +60,7 @@ describe('drawn portraits', () => {
   });
 
   it('keeps list art small (thumbs and cards load fast)', () => {
-    for (const u of UNITS) {
+    for (const u of DRAWN) {
       expect(statSync(fileOf(portraitUrl(u.id, 'thumb'))).size, u.id).toBeLessThan(20_000);
       expect(statSync(fileOf(portraitUrl(u.id, 'card'))).size, u.id).toBeLessThan(80_000);
     }
@@ -71,7 +89,7 @@ describe('drawn portraits', () => {
   const FRAME_CUT = { ena: 'b', ruri: 'b' };
 
   it('gives every roster girl a full-figure stand (only the known frame-cut paintings fade an edge)', () => {
-    for (const u of UNITS) {
+    for (const u of DRAWN) {
       expect(portraitEdges(u.id), u.id).toBe(FRAME_CUT[u.id] || '');
       if (FRAME_CUT[u.id]) expect(portraitHTML(u, 'cut'), u.id).toContain('pt-edge');
       else expect(portraitHTML(u, 'cut'), u.id).not.toContain('pt-edge');

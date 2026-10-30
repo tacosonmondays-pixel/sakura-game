@@ -1,0 +1,439 @@
+// Tryout Day's per-run rewards (docs/specs/TRYOUT_DAY.md §10.1, §11, §12.4): Marbles, the Lunchbox, coins, Grade
+// first clears, the Weekly Timetable's chest, the achievement counters, the Yearbook and the records. Paid exactly
+// once at the run's end (a win, an Early Dismissal, giving up, or an update closing the run): the battle's
+// results.apply() calls applyTryoutResult and then saver.finish() deletes the run in the same synchronous write
+// (src/ui/battle/results.js); the hub's Give up and a stale close pay from the record's last calm snapshot
+// (applyTryoutRecord). Pure: no DOM, no storage.
+//
+// Everything that must survive an older cached build lives in missions.counters (numbers every build keeps):
+//   ty:mb      Marbles held                    ty:wk      the game week the weekly counters below belong to
+//   ty:mbw     Marbles earned this week (cap)  ty:lbw     Lunchbox sevenths opened this week (3 boxes = 21)
+//   ty:cw      coin waves paid this week       ty:jw:<id> Marble Jar weekly stock bought (src/systems/tryoutJar.js)
+//   ty:cpd     the start seed of the last co-op run paid (a resync remount never pays twice)
+//   ty:wkc     the last game week whose Weekly Timetable first clear was paid
+//   ty:half · ty:full · ty:spot · ty:tick · ty:dare · ty:seen · ty:lr · ty:win · ty:mv · ty:grade   achievement counters
+//   ty:aw      Extended Day: the most waves survived in one run, over every Grade (the a_try_aw* milestones read it)
+//   ty:aw:<g>  Extended Day: the most waves survived in one run at Grade g (§20.5)
+// Extended Day (§20.1, §20.5, Q-A1): never won; reaching the end of P12 counts as a Full Day clear (the Grade ladder,
+// ty:full, the +6 Marbles); its Run Score has no hearts term (Home Time by choice or by hearts pays the same). Past 12
+// periods the Sim shrinks old period rows to { period, score, cleared } and folds old pick rows into counts (§20.6), so
+// the assignments and the Pep Talks taken are read from what survives the trim (assignmentsIn, fullPeriods, takenCards).
+// KNOWN GAP (needs a sim change, so it waits for the next sim bump): ty:dare (Daredevil) and ty:win (Window Watcher)
+// cannot count a shrunk row, which keeps neither the period's Double Dare nor its By the Window mark; the periods
+// older than the last 12 of a long Extended Day count for neither. The fix, at the next sim bump: keep `dare` and a
+// per-player window flag in the shrunk row (src/sim/tryout/extended.js extendDay; TRYOUT_DAY.md §20.6).
+// A practice run (§12.3, share codes) pays only the periods banked before it turned practice (rec.paidPeriods) and
+// counts nothing else: no Grade clear, no achievements, no records, no Yearbook.
+import { TRYOUT, PEP_CARDS } from '../data/tryout.js';
+import { TRYOUT_META } from '../data/tryoutMeta.js';
+import { CHAPTERS, STAGE_MAP } from '../data/stages.js';
+import { UNIT_MAP } from '../data/units.js';
+import { FREEPLAY_TIERS } from '../data/freeplay.js';
+import { gameWeekNumber, nextWeeklyReset } from '../core/reset.js';
+import { createRng, hashString } from '../core/rng.js';
+import { buildTryoutPlan } from '../sim/tryout/plan.js';
+import { soloWaveCoins } from './freeplayRewards.js';
+import { addItems } from './inventory.js';
+import { track, recordMax } from './missions.js';
+import { isStageCleared } from './unlocks.js';
+import { recordGradeClear, snapField } from './tryoutRuns.js';
+import { stampRun, yearbookTensDue, recordBest, bestKey, recordWeeklyBest } from './tryoutYearbook.js';
+
+const M = TRYOUT_META;
+const K = M.keys;
+const whole = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
+const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
+export { snapField, snapPeriods } from './tryoutRuns.js';
+export const counters = (profile) => ((profile.missions ||= {}).counters ||= {});
+
+// ---------------------------------------------------------------------------
+// The week and the wallet
+// ---------------------------------------------------------------------------
+
+/**
+ * Starts the weekly counters over on the first look of a new game week (idempotent; a clock moved backwards never
+ * resets them). @returns {number} the game week the counters belong to
+ */
+export function syncWeek(profile, now = Date.now()) {
+  const c = counters(profile);
+  const week = gameWeekNumber(+now);
+  if (!(K.week in c) || week > c[K.week]) {
+    c[K.week] = week;
+    delete c[K.weekMarbles];
+    delete c[K.weekBox];
+    delete c[K.weekWaves];
+    for (const k of Object.keys(c)) if (k.startsWith(K.weekJar)) delete c[k];
+  }
+  return c[K.week];
+}
+
+/** Marbles held. */
+export function marbles(profile) {
+  return whole(profile?.missions?.counters?.[K.marbles]);
+}
+
+/**
+ * Adds Marbles: `capped` ones count toward the week's cap (the rest are dropped), the others never do.
+ * @returns {{ paid: number, over: number }}
+ */
+export function addMarbles(profile, n, { capped = true, now = Date.now() } = {}) {
+  const want = whole(n);
+  if (!want) return { paid: 0, over: 0 };
+  const c = counters(profile);
+  syncWeek(profile, now);
+  let paid = want;
+  if (capped) {
+    paid = Math.max(0, Math.min(want, M.marbles.weeklyCap - whole(c[K.weekMarbles])));
+    if (paid) c[K.weekMarbles] = whole(c[K.weekMarbles]) + paid;
+  }
+  if (paid) c[K.marbles] = marbles(profile) + paid;
+  return { paid, over: want - paid };
+}
+
+/** Spends Marbles. @returns {boolean} */
+export function spendMarbles(profile, n) {
+  const cost = whole(n);
+  if (marbles(profile) < cost) return false;
+  counters(profile)[K.marbles] = marbles(profile) - cost;
+  return true;
+}
+
+/** The hub's wallet line: Marbles, this week's cap, Lunchboxes and coin waves left, the reset. */
+export function weekState(profile, now = Date.now()) {
+  const c = counters(profile);
+  syncWeek(profile, now);
+  const sev = M.lunchbox.sevenths;
+  return {
+    marbles: marbles(profile),
+    week: whole(c[K.weekMarbles]),
+    cap: M.marbles.weeklyCap,
+    boxSevenths: Math.max(0, M.lunchbox.perWeek * sev - whole(c[K.weekBox])),
+    boxesLeft: Math.max(0, M.lunchbox.perWeek * sev - whole(c[K.weekBox])) / sev,
+    coinWavesLeft: Math.max(0, M.coins.weeklyWaves - whole(c[K.weekWaves])),
+    resetsAt: nextWeeklyReset(+now),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The pay rules
+// ---------------------------------------------------------------------------
+
+/** Marbles for a run (before the cap): (2 × periods + assignments + 6 on a full clear) × the Grade factor, rounded. */
+export function marblesFor({ periods = 0, assignments = 0, full = false, grade = 1 }) {
+  const m = M.marbles;
+  const base = m.perPeriod * whole(periods) + m.perAssignment * whole(assignments) + (full ? m.clear : 0);
+  return Math.round(base * (1 + m.perGrade * (Math.max(1, Math.min(12, grade | 0)) - 1)));
+}
+
+/** The furthest cleared campaign stage in a content window (null when none). */
+export function furthestStage(profile, window) {
+  const win = TRYOUT.windows[window];
+  if (!win) return null;
+  let last = null;
+  for (const ch of CHAPTERS) {
+    if (!win.chapters.includes(ch.id)) continue;
+    for (const id of ch.stages) if (STAGE_MAP[id]?.kind === 'campaign' && isStageCleared(profile, id)) last = id;
+  }
+  return last;
+}
+
+/** Coins per wave cleared in a window: 60 % of soloWaveCoins of the furthest cleared stage there. */
+export function waveCoinRate(profile, window) {
+  const id = furthestStage(profile, window);
+  return id ? Math.floor(soloWaveCoins(id, M.coins.difficulty, FREEPLAY_TIERS[0]) * M.coins.share) : 0;
+}
+
+/** The squad's material family: the one most of the starting three share (ties: the first girl's). */
+export function squadFamily(squad = []) {
+  const n = {};
+  let best = null;
+  for (const id of squad.slice(0, TRYOUT.squad.start)) {
+    const f = UNIT_MAP[id]?.materialFamily;
+    if (!f) continue;
+    n[f] = (n[f] || 0) + 1;
+    if (!best || n[f] > n[best]) best = f;
+  }
+  return best || 'charm';
+}
+
+/**
+ * A Lunchbox filled `fill` sevenths (1 per period cleared) for a content window: every count × fill/7, the fraction
+ * rolled (so a part-filled box pays its share on average); the gear box's chance × fill/7.
+ * @returns {{ id: string, count: number }[]}
+ */
+export function lunchboxItems(window, fill, family, rng) {
+  const box = M.boxes[window] || M.boxes.spring;
+  const f = Math.max(0, Math.min(M.lunchbox.sevenths, fill | 0)) / M.lunchbox.sevenths;
+  if (!f) return [];
+  const share = (count) => {
+    const x = count * f;
+    return Math.floor(x) + (rng.next() < x - Math.floor(x) ? 1 : 0);
+  };
+  const out = [];
+  for (const it of box.items) out.push({ id: it.id, count: share(it.count) });
+  for (const mt of box.mats) out.push({ id: `mat_${family}_${mt.rarity}`, count: share(mt.count) });
+  if (box.gear && rng.next() < box.gear.chance * f) out.push({ id: box.gear.id, count: 1 });
+  return out.filter((x) => x.count > 0);
+}
+
+/** A period row an Extended Day shrank to { period, score, cleared } (§20.6): cleared per player, team marks included. */
+const trimmed = (p) => !Array.isArray(p?.team) && !Array.isArray(p?.own) && p?.cleared != null;
+/** Player `slot`'s locked-in assignments of a shrunk row (a resumed period's were never stamped: st -1). */
+const trimmedCleared = (p, slot) => whole(Array.isArray(p.cleared) ? p.cleared[slot] : p.cleared);
+
+/** Assignments locked in for player `slot` in a list of banked periods (a resumed period's are void, §12.3). */
+export function assignmentsIn(periods, slot = 0) {
+  let n = 0;
+  for (const p of periods) {
+    if (p.resumed) continue;
+    if (trimmed(p)) {
+      n += trimmedCleared(p, slot);
+      continue;
+    }
+    for (const [, st] of [...(p.team || []), ...((p.own || [])[slot] || [])]) if (st === 1) n++;
+  }
+  return n;
+}
+
+/** Periods where player `slot` locked in every one of their 3 assignments. */
+export function fullPeriods(periods, slot = 0) {
+  return periods.filter((p) => {
+    if (trimmed(p)) return trimmedCleared(p, slot) >= 3;
+    const all = [...(p.team || []), ...((p.own || [])[slot] || [])];
+    return !p.resumed && all.length >= 3 && all.every(([, st]) => st === 1);
+  }).length;
+}
+
+/**
+ * Were some of player `pl`'s pick rows folded into counts (§20.6)? A record's snapshot says so (`pickCounts`); a
+ * finished run's result does not carry the counts, so there a pick number past the first `keepPicks` and before the
+ * newest `keepPicksNew` that has no row of its own tells (a skipped pick leaves a gap too: then the hand is read as
+ * well, which only ever adds cards the player held).
+ */
+export function picksFolded(pl, length) {
+  if (length !== 'after') return false;
+  if (Array.isArray(pl?.pickCounts)) return pl.pickCounts.some((n) => whole(n) > 0);
+  const X = TRYOUT.afterSchool;
+  const nums = new Set((pl?.picks || []).map((p) => p?.pick).filter(Number.isInteger));
+  const max = Math.max(0, ...nums);
+  for (let k = X.keepPicks + 1; k <= max - X.keepPicksNew; k++) if (!nums.has(k)) return true;
+  return false;
+}
+
+/**
+ * The Pep Talks player `pl` took (the Yearbook's card stamps): the pick rows' cards; and when an Extended Day folded
+ * pick rows into counts (§20.6, picksFolded), the cards in hand too, but never a Hidden Talent card that no pick row
+ * took (an LR girl's arrival package grants hers: it was never a pick).
+ */
+export function takenCards(pl, length) {
+  const out = (pl?.picks || []).filter((p) => p?.card).map((p) => p.card);
+  if (!picksFolded(pl, length)) return out;
+  for (const c of pl?.cards || []) {
+    if (typeof c?.id !== 'string' || out.includes(c.id)) continue;
+    if (PEP_CARDS[c.id]?.group === 'talent') continue;
+    out.push(c.id);
+  }
+  return out;
+}
+
+/**
+ * An Extended Day's Run Score for player `slot` (§20.5): the period scores and the assignment credits × the Grade
+ * factor, as the Sim's runScore (src/sim/tryout/index.js tryoutResult) but with the hearts term at 0, so Home Time by
+ * choice and running out of hearts score alike. null when the result has no score to read.
+ */
+export function extendedRunScore(ty, slot = 0) {
+  const total = Number(ty?.score);
+  if (!Number.isFinite(total)) return null;
+  const cleared = Array.isArray(ty.cleared) ? whole(ty.cleared[slot]) : whole(ty.players?.[slot]?.cleared);
+  const grade = Math.max(1, ty.grade | 0);
+  return Math.floor(((total + TRYOUT.score.perAssignment * cleared) * (9 + grade)) / 10);
+}
+
+/**
+ * Extended Day's records for one paid run (§20.5): the best waves survived at this Grade ('ty:aw:<grade>') and over
+ * every Grade ('ty:aw', which the a_try_aw* milestones read). @returns {{ waves, best, isNew, prev, milestones }}
+ *   milestones: [{ wave, reached (this run), first (this run reached it for the first time), done (ever) }]
+ */
+export function recordExtendedWaves(profile, grade, waves) {
+  const c = counters(profile);
+  const w = whole(waves);
+  const key = `${K.waveGrade}${Math.max(1, grade | 0)}`;
+  const prev = whole(c[key]);
+  const prevAll = whole(c[K.waveBest]);
+  if (w > prev) recordMax(profile, key, w);
+  if (w > prevAll) recordMax(profile, K.waveBest, w);
+  const all = Math.max(prevAll, w);
+  return {
+    waves: w, best: Math.max(prev, w), isNew: w > prev, prev,
+    milestones: M.extended.milestones.map((m) => ({ wave: m, reached: w >= m, first: w >= m && prevAll < m, done: all >= m })),
+  };
+}
+
+/** Extended Day's best waves at Grade `grade` (or over every Grade when it is null; 0: none yet), for Before Class. */
+export function extendedBest(profile, grade = null) {
+  const c = profile?.missions?.counters || {};
+  if (grade != null) return whole(c[`${K.waveGrade}${grade}`]);
+  return whole(c[K.waveBest]);
+}
+
+function blankOut() {
+  return { firstClear: false, newMedal: false, medal: null, rewards: [], gear: [], unlockedUnits: [], discovered: [], gemsEarned: 0, tryout: true, gradeUp: false, run: null };
+}
+
+/**
+ * Pays a finished run for one player (solo slot 0, or a co-op player's own slot), once.
+ * @param {object} profile
+ * @param {object} result Sim.result() (or applyTryoutRecord's stand-in): won, wavesCleared, kills, tryout
+ * @param {{ rec?: object, slot?: number, coop?: boolean, coopKey?: number, rng?: object, now?: number }} [o]
+ *   rec: the solo run record (practice, paidPeriods, makeUpUsed, weekly); coopKey: the co-op start seed
+ * @returns {object} the results-sheet shape plus `run` (what the Class Photo shows)
+ */
+export function applyTryoutResult(profile, result, { rec = null, slot = 0, coop = false, coopKey = null, rng = null, now = Date.now() } = {}) {
+  const out = blankOut();
+  const ty = result?.tryout;
+  if (!ty || !Array.isArray(ty.periods)) return out;
+  const c = counters(profile);
+  if (coop && coopKey != null) {
+    if (c[K.coopPaid] === (coopKey >>> 0)) return { ...out, run: { already: true } };
+    c[K.coopPaid] = coopKey >>> 0;
+  }
+  rng ||= createRng(hashString(`tryout-pay|${ty.seed}|${rec?.id || ''}|${slot}`));
+  const week = syncWeek(profile, now);
+  const practice = !coop && !!rec?.practice;
+  const weekly = !coop && Number.isInteger(rec?.weekly) ? rec.weekly : null;
+  const len = TRYOUT.lengths[ty.length] || TRYOUT.lengths.half;
+  const grade = Math.max(1, ty.grade | 0);
+  const window = TRYOUT.grades[grade]?.window || 'spring';
+  const won = !!result.won;
+  const extended = ty.length === 'after';
+  const banked = practice ? ty.periods.slice(0, whole(rec?.paidPeriods)) : ty.periods;
+  const periods = banked.length;
+  const assignments = assignmentsIn(banked, slot);
+  // (an Extended Day is never won: reaching the end of P12 is its Full Day clear, Q-A1; never in practice or the Weekly)
+  const extendedFull = extended && !practice && weekly == null && periods >= M.extended.fullPeriods;
+  const full = (won && !practice && periods >= len.periods) || extendedFull;
+  const pl = ty.players?.[slot] || { squad: [], cards: [], picks: [] };
+  const run = { practice, weekly, won, periods, assignments, full, grade, length: ty.length, marbles: null, box: null, coins: null, stamps: [], best: null, gradeUp: false, waves: null };
+
+  // ---- Marbles (inside the week's cap) and the Weekly's chest
+  const earned = marblesFor({ periods, assignments, full, grade });
+  const m = addMarbles(profile, earned, { capped: true, now });
+  run.marbles = { earned, paid: m.paid, over: m.over, grade: 0, yearbook: 0, chest: 0 };
+  if (weekly != null && won && !practice && whole(c[K.weeklyDone]) !== weekly) {
+    c[K.weeklyDone] = weekly;
+    run.marbles.chest = addMarbles(profile, M.weekly.chest, { capped: true, now }).paid;
+    run.weeklyFirst = true;
+  }
+
+  // ---- the Lunchbox (1/7 a period, at most one box a run, 3 a week)
+  const fill = Math.min(M.lunchbox.sevenths, periods, Math.max(0, M.lunchbox.perWeek * M.lunchbox.sevenths - whole(c[K.weekBox])));
+  const rewards = [];
+  if (fill > 0) {
+    c[K.weekBox] = whole(c[K.weekBox]) + fill;
+    const items = lunchboxItems(window, fill, squadFamily(pl.squad), rng);
+    rewards.push(...items);
+    run.box = { fill, items };
+  } else run.box = { fill: 0, items: [], weekFull: periods > 0 };
+
+  // ---- coins per wave (60 % of the furthest cleared stage's freeplay wave pay; 150 waves a week)
+  const waves = Math.min(whole(result.wavesCleared), practice ? periods * len.wavesPerPeriod : Infinity);
+  const rate = waveCoinRate(profile, window);
+  const paidWaves = Math.min(waves, Math.max(0, M.coins.weeklyWaves - whole(c[K.weekWaves])));
+  if (paidWaves > 0) c[K.weekWaves] = whole(c[K.weekWaves]) + paidWaves;
+  const coins = paidWaves * rate;
+  if (coins > 0) rewards.push({ id: 'coins', count: coins });
+  run.coins = { waves, paidWaves, rate, coins };
+  out.rewards = addItems(profile, rewards);
+
+  if (!practice) {
+    // ---- the Grade ladder (a co-op win only when it is this player's own next Grade, M2) and its first-clear Marbles
+    // (an Extended Day that reached the end of P12 clears its Grade as a Full Day does, Q-A1)
+    if ((won || extendedFull) && weekly == null) {
+      run.gradeUp = out.gradeUp = recordGradeClear(profile, grade);
+      if (run.gradeUp && !coop) run.marbles.grade = addMarbles(profile, M.marbles.gradeFirstClear, { capped: false, now }).paid;
+    }
+    // ---- achievement counters (§10.2)
+    // an Extended Day never ends won (Home Time ends it like running out of hearts): reaching the end of P12 counts as
+    // Full Day's Work (Q-A1)
+    if (extendedFull) track(profile, K.full, 1);
+    else if (won && !extended) track(profile, ty.length === 'full' ? K.full : K.half, 1);
+    const hearts = ty.periods.every((p) => !p.resumed && (p.team || []).some(([id, st]) => id === 'a_hearts' && st === 1));
+    if (won && !rec?.makeUpUsed && hearts) track(profile, K.spotless, 1);
+    if (fullPeriods(ty.periods, slot) >= 5) track(profile, K.ticked, 1);
+    track(profile, K.dare, ty.periods.filter((p) => p.dare).length);
+    track(profile, K.lr, (pl.picks || []).filter((p) => p.rarity === 4 && p.card).length);
+    track(profile, K.window, ty.periods.filter((p) => !p.resumed && [...(p.team || []), ...((p.own || [])[slot] || [])].some(([id, st]) => id === 'a_window' && st === 1)).length);
+    // Hall Pass moves: the player's own (the Sim's players[i].moves); solo falls back to the run's total
+    const moves = Number.isInteger(pl.moves) ? pl.moves : !coop ? whole(ty.moves) : 0;
+    track(profile, K.moves, moves);
+    // ---- the Yearbook and the records
+    let bosses = [];
+    try {
+      const plan = buildTryoutPlan({ seed: ty.seed, grade, length: ty.length, mapId: ty.mapId });
+      bosses = [...plan.minibosses, plan.boss].filter((id) => whole(result.kills?.[id]) > 0);
+    } catch { /* (a plan that no longer builds stamps no bosses) */ }
+    run.stamps = stampRun(profile, {
+      // (a girl tries out when a Tryout pick offers her, or she is in the squad)
+      squad: [...new Set([...(pl.squad || []), ...(pl.tried || [])])], cards: takenCards(pl, ty.length), seen: pl.seen || [], bosses,
+      week: run.weeklyFirst ? weekly : null,
+    });
+    run.marbles.yearbook = addMarbles(profile, yearbookTensDue(profile), { capped: false, now }).paid;
+    // (an Extended Day: the Run Score without its hearts term, §20.5; the Sim's own runScore is left as it is)
+    const score = extended ? extendedRunScore(ty, slot) : Array.isArray(ty.runScore) ? ty.runScore[slot] : null;
+    if (Number.isFinite(score)) {
+      run.best = weekly != null ? recordWeeklyBest(profile, weekly, score) : recordBest(profile, bestKey(ty.length, grade, ty.mapId), score);
+      run.score = score;
+    }
+    // ---- Extended Day's best wave per Grade and its milestones (§20.5)
+    if (extended && weekly == null) run.waves = recordExtendedWaves(profile, grade, result.wavesCleared);
+  }
+  run.held = marbles(profile);
+  run.week = whole(c[K.weekMarbles]);
+  run.cap = M.marbles.weeklyCap;
+  run.weekNo = week;
+  out.run = run;
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// A run closed outside the battle (Give up, an update): paid from the record's last calm snapshot
+// ---------------------------------------------------------------------------
+
+/** A Sim.result() stand-in from a record's snapshot (a loss: what was banked by its last calm point). */
+export function resultFromRecord(rec) {
+  const ty = snapField(rec?.snap, 'tryout');
+  if (!isObj(ty) || !Array.isArray(ty.periods)) return null;
+  const kills = snapField(rec.snap, 'kills');
+  return {
+    won: false,
+    wavesCleared: whole(snapField(rec.snap, 'wavesCleared')),
+    kills: isObj(kills) ? kills : {},
+    tryout: {
+      seed: ty.seed >>> 0, grade: ty.grade, length: ty.length, mapId: ty.mapId, periods: ty.periods.filter(isObj), moves: whole(ty.moves),
+      // (the banked score and each player's assignments: an Extended Day's Run Score reads them, extendedRunScore)
+      ...(Number.isFinite(ty.score) ? { score: ty.score } : null),
+      cleared: (Array.isArray(ty.players) ? ty.players : []).map((p) => whole(p?.cleared)),
+      players: (Array.isArray(ty.players) ? ty.players : []).map((p) => ({
+        squad: Array.isArray(p?.squad) ? p.squad.filter((x) => typeof x === 'string') : [],
+        picks: Array.isArray(p?.picks) ? p.picks.filter(isObj) : [],
+        cards: Array.isArray(p?.cards) ? p.cards.filter(isObj) : [],
+        // (an Extended Day's folded pick rows, §20.6: takenCards reads the hand only when some were folded)
+        ...(Array.isArray(p?.pickCounts) ? { pickCounts: p.pickCounts.map(whole) } : null),
+        ...(Number.isInteger(p?.moves) ? { moves: p.moves } : null),
+        // (the Yearbook's seen Pep Talks and the girls who tried out, as a finished run gives them)
+        seen: Array.isArray(p?.seen) ? p.seen.filter((x) => typeof x === 'string') : [],
+        tried: Array.isArray(p?.tried) ? p.tried.filter((x) => typeof x === 'string') : [],
+      })),
+    },
+  };
+}
+
+/**
+ * Pays an open run that ends outside a battle (the hub's Give up, a run an update closed): the periods banked by its
+ * last calm point, as an Early Dismissal. The caller deletes the record in the same write.
+ */
+export function applyTryoutRecord(profile, rec, { now = Date.now() } = {}) {
+  const result = resultFromRecord(rec);
+  if (!result) return blankOut();
+  return applyTryoutResult(profile, result, { rec, now });
+}

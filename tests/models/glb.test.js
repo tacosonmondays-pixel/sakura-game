@@ -1,8 +1,8 @@
 // Checks the generated character GLBs (public/models/characters) without WebGL: parses the
 // GLB JSON header in node and verifies every unit ships the actions, bones, materials and
 // face atlas the runtime relies on, within the size budget. The stand-ins (src/models/standins.js:
-// the returning girls without approved art) are procedural on purpose: they must NOT ship a GLB or
-// a manifest entry (tests/models/standins.test.js checks they build procedurally instead).
+// girls whose art is not approved yet; none since Tenka's figure landed) are procedural on purpose: they must NOT ship a GLB or a
+// manifest entry (tests/models/standins.test.js checks they build procedurally instead).
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -22,9 +22,11 @@ const REQUIRED_BONES = [
 ];
 const MAX_FULL_BYTES = 480 * 1024;
 const MAX_LOD_BYTES = 240 * 1024;
-// imported Meshy figures (tools/meshy/build_meshy_chibi.py): painted texture + sword, phone-packed
+// imported Meshy figures (tools/meshy/build_meshy_chibi.py): painted texture + hand gear, phone-packed
 const MAX_MESHY_FULL_BYTES = 2.5 * 1024 * 1024;
 const MAX_MESHY_LOD_BYTES = 1.25 * 1024 * 1024;
+// a hand prop in its own GLB (tools/meshy/build_meshy_prop.py, Tenka's coilgun), shared by both detail levels
+const MAX_MESHY_PROP_BYTES = 256 * 1024;
 const MESHY_CLIPS = ['idle', 'walk', 'cheer', 'hurt'];
 const MESHY_BONES = [
   'root', 'hips', 'spine', 'chest', 'neck', 'head', 'upper_arm_L', 'forearm_L', 'hand_L', 'upper_arm_R', 'forearm_R', 'hand_R',
@@ -32,8 +34,10 @@ const MESHY_BONES = [
 ];
 
 // every other unit must have a GLB; the count guards against quietly moving a girl to the stand-ins
-const GLB_UNITS = UNITS.filter((u) => !isStandIn(u.id));
-const GLB_UNIT_COUNT = 35; // + noa, hana, ruri (Meshy, art wave), fuu, iroha, ena, kanna, yoriko, seiran (temporary Blender chibis), the seven new girls (UNIT_GAPS §5)
+// (a duo unit has no model of its own: its members' models stand side by side, src/models/duo.js; checked below)
+const GLB_UNITS = UNITS.filter((u) => !isStandIn(u.id) && !u.duo);
+const DUO_UNITS = UNITS.filter((u) => u.duo);
+const GLB_UNIT_COUNT = 36; // + noa, hana, ruri (Meshy, art wave), fuu, iroha, ena, kanna, yoriko, seiran (temporary Blender chibis), the seven new girls (UNIT_GAPS §5), tenka (Meshy, Oct 20 figure + coilgun prop)
 
 const manifest = existsSync(path.join(dir, 'manifest.json')) ? JSON.parse(readFileSync(path.join(dir, 'manifest.json'), 'utf8')) : null;
 
@@ -59,7 +63,7 @@ describe('character GLBs', () => {
   for (const u of GLB_UNITS) {
     if (manifest?.[u.id]?.source === 'meshy') {
       for (const detail of ['full', 'lod']) {
-        it(`${u.id} ${detail}: imported Meshy figure with textured body, sword, rig and clips`, () => {
+        it(`${u.id} ${detail}: imported Meshy figure with textured body, hand gear, rig and clips`, () => {
           const file = path.join(dir, `${u.id}${detail === 'lod' ? '.lod' : ''}.glb`);
           expect(existsSync(file), file).toBe(true);
           expect(statSync(file).size).toBeLessThanOrEqual(detail === 'lod' ? MAX_MESHY_LOD_BYTES : MAX_MESHY_FULL_BYTES);
@@ -84,8 +88,9 @@ describe('character GLBs', () => {
           expect(json.skins).toHaveLength(1);
           const joints = json.skins[0].joints.map((j) => json.nodes[j].name);
           for (const b of MESHY_BONES) expect(joints, `${u.id} bone ${b}`).toContain(b);
-          // a hand-held prop (Hikari's sword) hangs off the right hand; girls whose gear is part of
-          // the body mesh (Noa's folded shield on her forearm) ship none
+          // hand gear hangs off the right hand: a mesh child (Hikari's sword) or an empty socket that a
+          // separate prop GLB hangs on at load time (Tenka's coilgun, extras.props); girls whose gear is
+          // part of the body mesh (Noa's folded shield on her forearm) ship neither
           const hand = json.nodes.findIndex((n) => n.name === 'hand_R');
           const sword = json.nodes.findIndex((n) => n.name === 'sword');
           if (ex.weaponKind === 'slash') expect(sword, `${u.id} sword`).toBeGreaterThanOrEqual(0);
@@ -96,6 +101,26 @@ describe('character GLBs', () => {
           expect(textured[0].attributes.TEXCOORD_0).toBeDefined();
           expect(textured[0].attributes.JOINTS_0).toBeDefined();
           if (sword >= 0) expect(json.meshes[json.nodes[sword].mesh].primitives[0].attributes.COLOR_0).toBeDefined();
+          // separate prop GLBs: listed in the manifest as well, socket (no mesh) under the hand bone,
+          // one textured primitive, phone-packed like the figure
+          expect(manifest[u.id].props || []).toEqual((ex.props || []).map((p) => p.file));
+          for (const p of ex.props || []) {
+            const sock = json.nodes.findIndex((n) => n.name === p.socket);
+            expect(sock, `${u.id} socket ${p.socket}`).toBeGreaterThanOrEqual(0);
+            expect(json.nodes[sock].mesh).toBeUndefined();
+            expect(json.nodes[json.nodes.findIndex((n) => n.name === p.bone)].children).toContain(sock);
+            const pf = path.join(dir, p.file);
+            expect(existsSync(pf), pf).toBe(true);
+            expect(statSync(pf).size).toBeLessThanOrEqual(MAX_MESHY_PROP_BYTES);
+            const pj = readGlbHeader(pf).json;
+            expect(pj.asset.extras).toMatchObject({ unit: u.id, socket: p.socket, source: 'meshy', style: 'textured-prop' });
+            const pprims = pj.meshes.flatMap((m) => m.primitives);
+            expect(pprims).toHaveLength(1);
+            expect(pj.materials[pprims[0].material].pbrMetallicRoughness?.baseColorTexture).toBeDefined();
+            expect(pj.accessors[pprims[0].attributes.POSITION].componentType).toBe(5122);
+            expect(pj.extensionsRequired).toEqual(expect.arrayContaining(['KHR_mesh_quantization', 'EXT_texture_webp']));
+            for (const im of pj.images) expect(im.mimeType).toBe('image/webp');
+          }
           for (const p of prims) {
             const pos = json.accessors[p.attributes.POSITION];
             expect(pos.componentType).toBe(5122);
@@ -131,6 +156,12 @@ describe('character GLBs', () => {
             expect(r[1]).toBeLessThan(top * 0.1);
           }
           for (const k of ['skin', 'skinLow', 'lash']) expect(eyes[k]).toMatch(/^#[0-9a-f]{6}$/);
+          // her own hair colour for the closed eyes (figurine.js figGuard); none = Hikari's pink rule
+          if (eyes.hairGuard) {
+            expect(eyes.hairGuard.hue).toHaveLength(2);
+            expect(eyes.hairGuard.hue[0]).toBeLessThan(eyes.hairGuard.hue[1]);
+            expect(eyes.hairGuard.sat).toBeGreaterThanOrEqual(0);
+          }
         });
       }
       continue;
@@ -202,4 +233,39 @@ describe('character GLBs', () => {
       expect(lod).toBeLessThan(full * 0.65);
     }
   });
+});
+
+// The duo's members (docs/specs/DUO_LR.md §1.6): Kohaku's and Tsubaki's game-ready Meshy figures (imported, painted,
+// rigged, five clips each). This checks what ships is a loadable textured rigged figure of each member; the full
+// checks (clips, bones, eyes, guards, anchors) are in tests/models/duo-members.test.js.
+describe('duo members', () => {
+  for (const u of DUO_UNITS) {
+    for (const m of u.duo.members) {
+      for (const detail of ['full', 'lod']) {
+        it(`${u.id} member ${m} ${detail}: a textured, rigged figure in the manifest`, () => {
+          expect(manifest[m], m).toBeTruthy();
+          expect(manifest[m].duoMember).toBe(u.id);
+          expect(manifest[m].file).toBe(`${m}.glb`);
+          expect(manifest[m].lod).toBe(`${m}.lod.glb`);
+          const file = path.join(dir, `${m}${detail === 'lod' ? '.lod' : ''}.glb`);
+          expect(existsSync(file), file).toBe(true);
+          expect(statSync(file).size).toBeLessThanOrEqual(detail === 'lod' ? MAX_MESHY_LOD_BYTES : MAX_MESHY_FULL_BYTES);
+          const { json, binLength } = readGlbHeader(file);
+          expect(json.buffers[0].byteLength).toBeLessThanOrEqual(binLength);
+          const ex = json.asset.extras;
+          expect(ex.unit).toBe(m);
+          expect(ex.style).toBe('textured');
+          expect(ex.lod).toBe(detail === 'lod');
+          expect(ex.height).toBeGreaterThan(1.2);
+          expect(ex.unitScale).toBeGreaterThan(0);
+          expect(json.skins).toHaveLength(1);
+          const prims = json.meshes.flatMap((x) => x.primitives);
+          const textured = prims.filter((p) => json.materials[p.material].pbrMetallicRoughness?.baseColorTexture);
+          expect(textured).toHaveLength(1);
+          expect(textured[0].attributes.JOINTS_0).toBeDefined();
+          for (const im of json.images) expect(im.mimeType).toBe('image/webp');
+        });
+      }
+    }
+  }
 });

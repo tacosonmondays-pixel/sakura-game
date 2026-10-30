@@ -8,8 +8,12 @@
 // Wallets: each command runs with that player's cash, loadout and hero swapped into the Sim,
 // then swapped back. Each tick starts from the players' combined cash (tower interest reads
 // it), and whatever the tick earned is split evenly between the players still connected
-// (odd coins take turns). At rest the Sim shows the local player's view
-// (their cash, their cards), so the single-player HUD, tower bar and panels work unchanged.
+// (odd coins take turns). So are the kill rewards of a manual ability cast, which kills inside
+// its `abil` command: the same split as when Auto fires it inside a step (spec §7.1).
+// Owner-credited coins (an econ ability, auto or manual: sim.ownerCash, GAPS P-16) are never
+// pooled: after every command and every step they move into their owner's wallet. At rest the
+// Sim shows the local player's view (their cash, their cards), so the single-player HUD, tower
+// bar and panels work unchanged.
 // Every Sim call here runs inside withDetMath() (detMath.js): bit-identical trig and hypot on
 // every JS engine, so an iPhone and an Android phone stay in lockstep too.
 import { modeId } from '../../data/modes.js';
@@ -20,6 +24,8 @@ import { freeplayTier } from '../../data/freeplay.js';
 import { TARGET_MODES } from '../../data/types.js';
 import { hashSim } from './simHash.js';
 import { withDetMath } from './detMath.js';
+import { buildTryoutPlan, buildTryoutStage, tryoutGone, tryoutLoadouts } from '../../sim/tryout/index.js';
+import { checkedDraft } from '../../sim/tryout/draft.js';
 
 /**
  * Command kinds: place[unitId,qx,qy] upg[uid,path] sell[uid] tgt[uid,mode] ult[] wave[] auto[bool]
@@ -30,11 +36,26 @@ import { withDetMath } from './detMath.js';
  * fly[uid, mode, qx1?, qy1?, qx2?, qy2?] (a drone wing's flight mode, owner only like tgt: Hold
  * takes point 1, Patrol points 1 and 2, in 1/1024 tiles; docs/specs/CHIKA_REWORK.md §16).
  * upg is refused 'onePerPath' when another of that player's girls of the same kind holds the path's
- * final tier (one final tier per path per girl type and player; src/sim/finalTier.js).
- * pick[uid, targetUid]: the girl this player's Midori brews / Chika links first (-1 = auto); the
+ * final tier (one final tier per path per girl type and player; src/sim/finalTier.js). A Tenka tier that
+ * absorbs (Joint Research, Unified Theory) reports `absorbed: [uid…]`: her player's girls who joined her lab
+ * team, now off the field and nobody's.
+ * aim[uid, qx, qy] / aim[uid, null]: a girl's standing aim point (a mortar's centre, a mirror's spot), see
+ * the 'aim' case. pick[uid, targetUid]: the girl this player's Midori brews / Chika links first (-1 = auto); the
  * target may be an ally's girl (Sim.setBuffPick).
+ * abil[uid, group, qx, qy]: fire her own girl's (or hero's) ⚡ ability (ABILITIES_SPEC §7.2): group 0|1
+ * (1: her player's best ready copy of that girl), an aim point in 1/1024 tiles or -1, -1 for none (an
+ * ability on one girl takes the girl nearest it, within 0.6 tiles; Yuzuha's Emergency Deploy lands at the
+ * edge spots nearest it). Refused 'notYours' / 'invalid', or
+ * with the sim's reason at the command's tick (a tap behind an auto-cast: 'cooldown'; after the clear:
+ * 'notWave'); a refusal spends nothing. `abilArgs()` builds it.
+ * acast[uid, on]: her Auto switch, on 0|1; uid 0 = every girl she owns now and her default for the
+ * ones that unlock later (sim.abilityAutoDefault; the start message's players[i].autoAbil sets it first).
+ * Tryout Day (docs/specs/TRYOUT_DAY.md §11; only in a run, start.tryout): tr[op, a, b] a run command of this
+ * player's (src/sim/tryout/index.js tryoutCommand: take / erase / hand carry the open offer's sequence number,
+ * snack, brush, undo, ready); mv[uid, qx, qy] a Hall Pass move of one of their own girls, in 1/1024 tiles. Both are
+ * validated inside the Sim at their tick; a stale or wrong one is a no-op with a reason.
  */
-export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly', 'pick', 'aim'];
+export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly', 'pick', 'aim', 'abil', 'acast', 'tr', 'mv'];
 const Q = 1024;
 /** Upgrade paths a tower has (Sim tiers[0..2]). */
 const UPGRADE_PATHS = [0, 1, 2];
@@ -53,6 +74,17 @@ export function flyArgs(uid, mode, a = null, b = null) {
   if (mode === 'hold' && a) return [uid, mode, q(a[0]), q(a[1])];
   if (mode === 'patrol' && a && b) return [uid, mode, q(a[0]), q(a[1]), q(b[0]), q(b[1])];
   return [uid, mode];
+}
+
+/**
+ * The `abil` command's arguments: her uid, a group tap (her player's best ready copy) and an aim point
+ * (world coordinates, quantized to 1/1024 tile; none = -1, -1).
+ * @param {number} uid
+ * @param {{ group?: boolean, aim?: number[]|null }} [opts]
+ */
+export function abilArgs(uid, { group = false, aim = null } = {}) {
+  const q = (v) => Math.max(0, Math.round(v * Q));
+  return aim ? [uid, group ? 1 : 0, q(aim[0]), q(aim[1])] : [uid, group ? 1 : 0, -1, -1];
 }
 
 /** Orders commands for one tick: player slot, then that player's sequence number. */
@@ -76,13 +108,46 @@ export function isValidCmd(c, { markers = false } = {}) {
 
 /**
  * @param {{ seed: number, stageId: string, difficulty: string, freeplay?: string|null, mode?: string,
- *   players: { slot: number, uid: string, name: string, loadout: {unitId: string, stats?: object}[], hero?: {unitId: string, stats?: object}|null }[] }} start
+ *   players: { slot: number, uid: string, name: string, loadout: {unitId: string, stats?: object}[], hero?: {unitId: string, stats?: object}|null, autoAbil?: boolean }[] }} start
  *   `freeplay` is the room's freeplay tier (FREEPLAY_TIERS) or null/absent for a normal battle.
- * @param {{ mySlot?: number, stage?: object }} [opts]
+ *   `autoAbil`: that player's Auto-cast setting (only `true` turns it on; absent = Off).
+ * @param {{ mySlot?: number, stage?: object, units?: object }} [opts] `stage` / `units`: test fixtures (a
+ *   StageDef; extra UnitDefs by id), never from the network
+ * A Tryout Day run (`start.tryout` = { seed, grade, length, mapId }, each player's `draft` (3 girl ids) and `pool`
+ * (their frozen account stats by girl id)): the stage comes from the run's plan, every player's loadout from their
+ * squad inside the band (src/sim/tryout).
  */
-export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
-  const freeplay = freeplayTier(start.freeplay);
-  const stageDef = stage || coopStage(start.stageId, { freeplay });
+export function createCoopSim(start, { mySlot = 0, stage = null, units = null } = {}) {
+  if (start.tryout) return createCoopSimOn(start, { mySlot, units }, tryoutSim(start, stage, units));
+  return createCoopSimOn(start, { mySlot, units }, null, stage);
+}
+
+/** The Sim of a Tryout Day co-op run (2 players). */
+function tryoutSim(start, stage, units) {
+  const ty = start.tryout;
+  const players = [...start.players].sort((a, b) => a.slot - b.slot);
+  const plan = buildTryoutPlan({ seed: ty.seed >>> 0, grade: ty.grade, length: ty.length, mapId: ty.mapId });
+  const stageDef = stage || buildTryoutStage(plan, { coop: true });
+  return withDetMath(() => new Sim({
+    stageId: stageDef.id, difficulty: 'normal', loadout: [], heroes: players.map((p) => p.hero || null), seed: start.seed >>> 0,
+    options: {
+      endless: false, autoStart: false,
+      tryout: {
+        seed: plan.seed, grade: plan.grade, length: plan.length, mapId: plan.mapId,
+        // (each three checked against that player's own six: a forged draft plays the first three of it; Random Class
+        // ignores the drafts, and the Sim draws each player's three from their pool and the seed, §20.4)
+        ...(ty.random === true ? { random: true } : null),
+        players: players.map((p) => ({ squad: ty.random === true ? [] : checkedDraft(p.draft, p.pool, plan.seed, p.slot) })),
+        pools: players.map((p) => (p.pool && typeof p.pool === 'object' ? p.pool : {})),
+      },
+    },
+    data: { stage: stageDef, ...(units ? { units } : null) },
+  }));
+}
+
+function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = null) {
+  const freeplay = tySim ? null : freeplayTier(start.freeplay);
+  const stageDef = tySim ? tySim.stage : stage || coopStage(start.stageId, { freeplay });
   if (!stageDef) throw new Error(`[coop] unknown stage ${start.stageId}`);
   const players = [...start.players].sort((a, b) => a.slot - b.slot);
   const host = players[0];
@@ -92,13 +157,19 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
     seen.add(e.unitId);
     union.push(e);
   }
-  const sim = withDetMath(() => new Sim({
+  const sim = tySim || withDetMath(() => new Sim({
     stageId: stageDef.id, difficulty: start.difficulty, loadout: union, heroes: players.map((p) => p.hero || null), seed: start.seed >>> 0,
     // the battle mode is the only mode/rule field read from the message (the rule rides on the
     // StageDef; freeplay runs in Standard in v1: docs/specs/CODEX_MODES.md §6.4)
-    options: { endless: false, autoStart: false, freeplay: !!freeplay, mode: modeId(freeplay ? 'standard' : start.mode) }, data: { stage: stageDef },
+    options: { endless: false, autoStart: false, freeplay: !!freeplay, mode: modeId(freeplay ? 'standard' : start.mode) }, data: { stage: stageDef, ...(units ? { units } : null) },
   }));
+  // abilities (src/sim/abilities.js): owner-credited coins wait in ownerCash until flushOwnerCash, and
+  // each player's Auto-cast setting comes from the start message (the same on every client)
+  sim.ownerCash = players.map(() => 0);
+  players.forEach((p, i) => { sim.abilityAutoDefault[i] = p.autoAbil === true; });
   const views = players.map((p, i) => {
+    // a run: the Sim built each player's loadout from their squad (src/sim/tryout); their view shares that map
+    if (sim.tryout) return { loadout: sim._loadouts[i], heroConfig: sim.heroConfigs[i] || null };
     const lo = new Map();
     for (const e of p.loadout || []) {
       const def = e && sim.data.unit(e.unitId);
@@ -128,6 +199,7 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
     sim.cash = wallets[slot];
     sim.loadout = views[slot].loadout;
     sim.heroConfig = views[slot].heroConfig;
+    if (sim.tryout) sim.viewOwner = slot;
   }
   view(viewSlot);
 
@@ -138,6 +210,30 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
 
   function ownsTower(slot, uid) {
     return owners.get(uid) === slot;
+  }
+
+  /**
+   * Pooled coins (kill rewards, wave income) split evenly between the players still connected
+   * (everyone gone: this client's player); an odd coin takes turns.
+   */
+  function splitIncome(income) {
+    if (!(income > 0)) return;
+    const alive = players.map((_, i) => i).filter((i) => !gone.has(i));
+    const to = alive.length ? alive : [viewSlot];
+    const share = Math.floor(income / to.length);
+    let rest = income - share * to.length;
+    for (const i of to) wallets[i] += share;
+    for (; rest > 0; rest--) wallets[to[oddTurn++ % to.length]] += 1;
+  }
+
+  /** Owner-credited coins (sim.ownerCash) into their owners' wallets: after every command and step. */
+  function flushOwnerCash() {
+    const oc = sim.ownerCash;
+    for (let i = 0; i < wallets.length; i++) {
+      if (!oc[i]) continue;
+      wallets[i] += oc[i];
+      oc[i] = 0;
+    }
   }
 
   /**
@@ -154,12 +250,15 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
     if (cmd.k === 'gone' || cmd.k === 'join') {
       if (cmd.k === 'gone') gone.add(slot);
       else gone.delete(slot);
+      // a run: their open pick or break resolves at once, and so does every later one while they stay gone
+      if (sim.tryout) withDetMath(() => tryoutGone(sim, slot, cmd.k === 'gone'));
       // the one left can finish alone (her vote may already be in)
       if (cmd.k === 'gone') checkEndVotes();
       return { ok: true };
     }
     view(slot);
     let res = { ok: false, reason: 'invalid' };
+    let pool = null; // a cast's cash before it fired: what it earned on top is pooled (splitIncome)
     try {
       const a = cmd.a;
       switch (cmd.k) {
@@ -173,10 +272,10 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
             res = { ok: false, reason: chk.reason };
             break;
           }
-          const t = sim.placeTower(unitId, x, y);
+          // her player is hers from the start (placeTower sets t.owner before her ability syncs)
+          const t = sim.placeTower(unitId, x, y, { owner: slot });
           if (t) {
             owners.set(t.uid, slot);
-            t.owner = slot;
             res = { ok: true, tower: t };
           }
           break;
@@ -187,7 +286,19 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
           else {
             // that player's view (cash, owner), the same on every client; never options from the network
             const st = sim.upgradeStatus(a[0], a[1]);
+            // Tenka's Joint Research / Unified Theory absorb inside this command (src/sim/lab.js): only girls
+            // whose t.owner is hers (this slot), so never the partner's, gone or not; who joined is the new
+            // tail of her lab record (no Sim field outlives the command)
+            const tw = st.locked ? null : sim.getTower(a[0]);
+            const had = tw?.lab ? tw.lab.uids.length : 0;
             res = st.locked ? { ok: false, reason: st.reason, holder: st.holder ?? null } : { ok: sim.upgradeTower(a[0], a[1]) };
+            // the girls who joined left the field, like a sale: nobody's now (a later command on one is
+            // 'notYours'; GAPS 5.10 co-op)
+            const joined = res.ok && tw?.lab ? tw.lab.uids.slice(had) : null;
+            if (joined && joined.length) {
+              for (const uid of joined) owners.delete(uid);
+              res.absorbed = joined;
+            }
           }
           break;
         case 'sell':
@@ -273,11 +384,58 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
           break;
         }
         // ---- end aim ------------------------------------------------------------------------
+        case 'abil': {
+          // her own girl or hero (heroes are placed by `place`, so they are in owners); never sim.hero
+          const [uid, group, qx, qy] = a;
+          if (!Number.isInteger(uid) || (group !== 0 && group !== 1) || !Number.isInteger(qx) || !Number.isInteger(qy)
+            || !((qx === -1 && qy === -1) || (qx >= 0 && qy >= 0))) res = { ok: false, reason: 'invalid' };
+          else if (!ownsTower(slot, uid)) res = { ok: false, reason: 'notYours' };
+          else {
+            // an instant strike or burst kills inside the command: those bounties are the team's, split as a
+            // step splits them (an auto-cast's), never the caster's alone; econ coins go through ownerCash
+            pool = sim.cash;
+            const r = sim.castAbility(uid, { group: group === 1, aim: qx >= 0 ? [qx / Q, qy / Q] : null, owner: slot });
+            res = r.ok ? { ok: true, casterUid: r.casterUid } : { ok: false, reason: r.reason, casterUid: r.casterUid };
+          }
+          break;
+        }
+        // ---- Tryout Day (docs/specs/TRYOUT_DAY.md §11) ------------------------------------------------
+        case 'tr': {
+          const [op, x, y, z] = a;
+          if (!sim.tryout) res = { ok: false, reason: 'noRun' };
+          else if (typeof op !== 'string' || a.slice(1).some((v) => v != null && !Number.isInteger(v))) res = { ok: false, reason: 'invalid' };
+          else res = sim.tryoutCommand(slot, op, [x, y, z]);
+          break;
+        }
+        case 'mv': {
+          const [uid, qx, qy] = a;
+          if (!sim.tryout) res = { ok: false, reason: 'noRun' };
+          else if (!Number.isInteger(uid) || !Number.isInteger(qx) || !Number.isInteger(qy)) res = { ok: false, reason: 'invalid' };
+          else if (!ownsTower(slot, uid)) res = { ok: false, reason: 'notYours' };
+          else res = sim.tryoutMove(slot, uid, qx / Q, qy / Q);
+          break;
+        }
+        case 'acast': {
+          const [uid, on] = a;
+          if (!Number.isInteger(uid) || uid < 0 || (on !== 0 && on !== 1)) res = { ok: false, reason: 'invalid' };
+          else if (uid === 0) {
+            sim.setAbilityAutoAll(slot, on === 1);
+            res = { ok: true };
+          } else if (!ownsTower(slot, uid)) res = { ok: false, reason: 'notYours' };
+          else {
+            const r = sim.setAbilityAuto(uid, on === 1);
+            res = r.ok ? { ok: true } : { ok: false, reason: r.reason };
+          }
+          break;
+        }
         default:
           break;
       }
     } finally {
-      wallets[slot] = sim.cash;
+      const won = pool != null && sim.cash > pool ? sim.cash - pool : 0;
+      wallets[slot] = sim.cash - won;
+      splitIncome(won);
+      flushOwnerCash();
       view(viewSlot);
     }
     return res;
@@ -293,15 +451,9 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
     for (const w of wallets) total += w;
     sim.cash = total;
     sim.update(STEP);
-    const income = sim.cash - total;
-    if (income > 0) {
-      const alive = players.map((_, i) => i).filter((i) => !gone.has(i));
-      const to = alive.length ? alive : [viewSlot];
-      const share = Math.floor(income / to.length);
-      let rest = income - share * to.length;
-      for (const i of to) wallets[i] += share;
-      for (; rest > 0; rest--) wallets[to[oddTurn++ % to.length]] += 1;
-    }
+    splitIncome(sim.cash - total);
+    // what the step paid to an owner (an auto-cast Market Day) is hers alone, never part of the split
+    flushOwnerCash();
     tick++;
     view(viewSlot);
   }
@@ -347,7 +499,10 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
       const mine = sim.cash;
       sim.cash = 0;
       try {
-        return { v: 1, tick, speed, oddTurn, wallets: wallets.slice(), owners: [...owners], gone: [...gone], endVotes: endVotes.slice(), sim: sim.snapshot(config()) };
+        // a run: each player's squad (join order) and the period whose Run Level is applied travel beside the
+        // Sim, so a fresh client rebuilds every loadout entry before the restore (docs/specs/TRYOUT_DAY.md §12.2)
+        const run = sim.tryout ? { squads: sim.tryout.players.map((p) => p.squad.slice()), period: sim.tryout.started || 1 } : null;
+        return { v: 1, tick, speed, oddTurn, wallets: wallets.slice(), owners: [...owners], gone: [...gone], endVotes: endVotes.slice(), ...run, sim: sim.snapshot(config()) };
       } finally {
         sim.cash = mine;
       }
@@ -358,6 +513,10 @@ export function createCoopSim(start, { mySlot = 0, stage = null } = {}) {
      */
     restore(snap) {
       if (!snap || snap.v !== 1 || !Number.isInteger(snap.tick) || snap.wallets?.length !== players.length) throw new Error('[coop] not a co-op checkpoint');
+      if (sim.tryout) {
+        if (!Array.isArray(snap.squads) || snap.squads.length !== players.length || !Number.isInteger(snap.period)) throw new Error('[coop] a run checkpoint without its squads');
+        withDetMath(() => tryoutLoadouts(sim, snap.squads.map((q) => (Array.isArray(q) ? q.filter((id) => typeof id === 'string') : [])), snap.period));
+      }
       withDetMath(() => sim.restore(snap.sim, config()));
       tick = snap.tick;
       speed = snap.speed;

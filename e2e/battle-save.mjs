@@ -306,7 +306,7 @@ for (const [W, H] of viewports) {
   const contText = await text(A, '[data-testid="stage-continue"]');
   check(/Wave 3\//.test(contText), `4: prep shows "${contText.replace(/\s+/g, ' ')}"`);
   check(await A.locator('[data-testid="stage-new"]').count() === 1 && await A.locator('[data-testid="stage-start"]').count() === 0, '4: prep shows New game and no Start');
-  check(/wave 3 of 12/.test(await text(A, '[data-testid="stage-saved"]')), `4: the saved line reads "${(await text(A, '[data-testid="stage-saved"]')).replace(/\s+/g, ' ')}"`);
+  check(/wave 3 of 12/i.test(await text(A, '[data-testid="stage-saved"]')), `4: the saved line reads "${(await text(A, '[data-testid="stage-saved"]')).replace(/\s+/g, ' ')}"`);
   check((await savedRec(A))?.snap?.towers?.find((t) => t.uid === uids[0])?.tiers?.[0] === expected.towers.find((t) => t.uid === uids[0]).tiers[0], '4: the mid-wave upgrade is not in the save');
   await shot(A, 'prep-continue');
   await A.evaluate(() => { location.hash = '#/campaign?chapter=1'; });

@@ -21,6 +21,13 @@
 .ug-head .ui-chip.t-allies { color: var(--good-text); }
 .ug-head .ui-chip.t-enemies { color: var(--bad-text); }
 .ug-head .ui-chip.t-coins { color: #8a5a00; }
+/* the ⚡ path: a tilted sticker after its name (ABILITIES_SPEC §10: tier 3 teaches an ability, tier 5 upgrades it) */
+.ug-abil {
+  display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 4px; flex: none; transform: rotate(var(--sticker-tilt));
+  font: 700 var(--fs-label)/1 var(--font-num); color: var(--plate); background: var(--yellow); border: var(--sticker-line); box-shadow: var(--sticker-drop);
+}
+.ug-abil-ico { width: 15px; height: 15px; line-height: 0; display: block; }
+.ug-abil-ico svg { width: 100%; height: 100%; }
 .ug-cap, .ug-lock { display: inline-flex; align-items: center; gap: var(--sp-1); font: 700 var(--fs-label)/1.1 var(--font); color: var(--muted); }
 .ug-cap[hidden], .ug-lock[hidden] { display: none; }
 .ug-lock .ui-ico { width: 16px; height: 16px; }

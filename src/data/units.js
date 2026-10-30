@@ -1,7 +1,7 @@
 // Sakura Sentinels — the full roster (owner: units). See CONTRACTS.md §3 and docs/ROSTER.md.
 //
 // 19 original characters: 3 adult heroes (Hikari, Luna, Nami) and 16 academy students who
-// serve as towers. Everything here is plain data plus tiny lookup helpers (no side effects).
+// serve as towers, plus the new girls after them (Tenka first). Everything here is plain data plus tiny lookup helpers (no side effects).
 //
 // Conventions used by every entry:
 // * `base` always carries every numeric BaseStats key (silence/reveal/knockback default to 0)
@@ -22,6 +22,8 @@ import { HERO_TRACKS } from './heroTracks.js';
 import { attachAbilities } from './abilities.js';
 import { EXPANSION_UNITS } from './unitsExpansion.js';
 import { NEW_GIRLS } from './unitsNewGirls.js';
+import { DUO_UNITS } from './unitsDuo.js';
+import { STAFF_UNITS } from './unitsStaff.js';
 
 // ---------------------------------------------------------------------------
 // Builders (internal)
@@ -1319,6 +1321,81 @@ const CHIKA = {
 };
 
 // ---------------------------------------------------------------------------
+// Tenka — the first new girl (BUILD_PLAN 6.1; GAPS 5.10): the late-game powerhouse. SSR, gacha only.
+// Her price band is a named exception (CONTRACTS §5b PRICE_BANDS.powerhouse). Rail Arms (⚡) plays in
+// full; the lab, well and lastLine keys of Joint Research and Singularity resolve onto her stats now and
+// gain their behaviour in later milestones (T1 wells and Last Line, T2 the lab team). Joint Research
+// is wholesome: the girls who join her lab team simply leave the field to help her, and are back in
+// the roster after the battle.
+// ---------------------------------------------------------------------------
+
+const TENKA = {
+  id: 'tenka',
+  name: 'Tenka',
+  title: 'Coilgun Physicist',
+  kind: 'tower',
+  rarity: 'SSR',
+  adult: false,
+  role: 'powerhouse',
+  attackType: 'mystic',
+  element: null,
+  placement: 'land',
+  materialFamily: 'cog',
+  capabilities: ['antiAir'],
+  pathCapabilities: ['armorPen', 'detection', 'slow'],
+  acquisition: GACHA_ONLY,
+  palette: {
+    // as drawn: deep blue hair with cyan streaks, amber eyes, a white lab coat over a grey vest, a violet coil glow
+    hair: '#2c4fc4', hairShade: '#1d3590', eyes: '#e3a432', skin: '#fde9dd',
+    outfit: '#eef1f6', outfitShade: '#b9c0cc', accent: '#7a5cff', halo: '#9fe8ff', weapon: '#3d4a63',
+  },
+  look: {
+    hairStyle: 'ponytail', bangs: 'swept', accessory: 'goggles', outfit: 'coat', weapon: 'rifle',
+    halo: 'bolt', eyeStyle: 'sharp', expression: 'smug',
+  },
+  bio: 'The physics club\'s resident genius, who built a hand-held coilgun for the science fair and never stopped improving it. Blue hair with cyan streaks in a high ponytail with a coil-shaped tie, safety goggles pushed up, a white lab coat with an atom patch over her grey academy vest and a teal bow, a plaid skirt, black tights and sneakers. Her bolts hum before they fly.',
+  personality: 'A confident genius who explains everything with equations, and is usually right.',
+  quote: 'Relax. I already did the math.',
+  tips: [
+    '⚡ Rail Arms tier 3 teaches Critical Mass: a plasma blast on the strongest enemy in her range that ignores armor.',
+    'She costs more than any other girl and pays it back late: place her once the waves get tough, where her bolts cover a long straight.',
+    'Joint Research tier 3 invites your own girls in her range to join her lab team for the battle: each lends her a new weapon, and they are back afterwards.',
+  ],
+  base: stats({
+    // coil bolts: hitscan, 3 mystic damage × 8 a second
+    cost: 1800, behavior: 'projectile', damage: 3, rate: 8, range: 3.4, projectileSpeed: 0,
+  }),
+  paths: [
+    path('lab', 'Joint Research', 'Her lab team lends her their skills', [
+      tier('Focus Lens', 300, 'Every bolt passes through 1 more enemy.', { pierce: 1 }),
+      tier('Long Rails', 700, '+0.6 range.', { range: 0.6 }),
+      tier('Joint Research', 3000, 'On purchase, your own girls in her range (not heroes) join her lab team for this battle: each one\'s class lends her a new weapon, stronger the more coins went into her, and 30% of her wave income still comes to you. They are back after the battle.', { lab: { rounds: 1 } }),
+      tier('Grand Lab', 9000, 'Lab weapons ×1.5; bolts +30 damage.', { lab: { power: 1.5 }, damage: 30 }),
+      tier('Unified Theory', 30000, 'On purchase, your girls in her range join her lab team once more; lab weapons ×3.', { lab: { rounds: 2, power: 3 } }),
+    ]),
+    path('rails', 'Rail Arms', 'Faster, harder coil bolts', [
+      tier('Rapid Cycle', 250, '+20% attack speed.', { rateMul: 1.2 }),
+      tier('Twin Rails', 600, 'Fires at 2 targets.', { projectiles: 1 }),
+      tier('Plasma Rails', 2500, '+5 damage; bolts ignore 3 armor and see veiled enemies (Veil Sight).', { damage: 5, armorPen: 3, detection: true }),
+      tier('Capacitor Bank', 8000, '+15 damage; every bolt passes through 1 more enemy.', { damage: 15, pierce: 1 }),
+      tier('Zero Point', 28000, '+40 damage, +25% attack speed.', { damage: 40, rateMul: 1.25 }),
+    ]),
+    path('singularity', 'Singularity', 'Gravity that holds the road', [
+      tier('Weighted Bolts', 280, 'Bolts slow 10% for 0.5s.', { status: [S.slow(0.1, 0.5)] }),
+      tier('Field Coils', 650, '+0.4 range.', { range: 0.4 }),
+      tier('Gravity Well', 2800, 'Every 8s a well opens on the road in her range for 4s: it pulls enemies within 1.5 tiles toward its centre along the road (bosses stand firm) and slows them 30%.', { well: { every: 8, time: 4, radius: 1.5, pull: 1.2, slow: 0.3 } }),
+      tier('Deep Well', 8500, 'Wells last 6s and reach 2 tiles; enemies inside take +20% damage.', { well: { time: 6, radius: 2, vuln: 0.2 } }),
+      tier('Last Line', 26000, 'When an enemy nears the exit, a well opens there and swallows up to 30 enemies (not minibosses or bosses) over 8s, counting as her kills; then it rests for 120s of wave time.', { lastLine: { radius: 1.5, max: 30, time: 8, cooldown: 120 } }),
+    ]),
+  ],
+  awakenPassive: {
+    name: 'Eureka Moment',
+    desc: '+10% attack speed.',
+    mods: { rateMul: 1.1 },
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
@@ -1326,10 +1403,15 @@ const CHIKA = {
 export const UNITS = [
   HIKARI, LUNA, NAMI,
   AOI, REI, YUKI, MOMO, AKANE, SANGO, KAGE, UMEKO, SHIRO, MIDORI, SUZU, RAIKA, MIKO, HOTARU, KAEDE, CHIKA,
+  TENKA, // the first new girl (BUILD_PLAN 6.1)
   // the returning girls (roster wave): src/data/unitsExpansion.js
   ...EXPANSION_UNITS,
   // the new girls (UNIT_GAPS §5): src/data/unitsNewGirls.js
   ...NEW_GIRLS,
+  // the duo unit (docs/specs/DUO_LR.md): src/data/unitsDuo.js
+  ...DUO_UNITS,
+  // the staff heroes of the banners wave (BANNERS §D): src/data/unitsStaff.js
+  ...STAFF_UNITS,
 ];
 
 /** id -> UnitDef */

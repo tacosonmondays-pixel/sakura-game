@@ -63,7 +63,12 @@
 }
 @media (min-height: 481px) { .gp-plate { padding: 40px var(--sp-4) var(--sp-3); gap: 7px; } }
 .gp-np1 { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
-.gp-name { font: italic 900 var(--fs-title)/1 var(--font-head); color: var(--on-plate); text-shadow: 0 2px 0 rgba(14, 25, 48, 0.5); overflow-wrap: anywhere; }
+.gp-name {
+  font: italic 900 var(--fs-title)/1 var(--font-head); color: var(--on-plate); text-shadow: 0 2px 0 rgba(14, 25, 48, 0.5);
+  /* one line, sized to fit by girlFrame.js fitName; the right padding holds the italic overhang of the last letter */
+  flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; padding-right: 0.14em;
+}
+.gp-name.fit-wrap { white-space: normal; line-height: 1.05; }
 .gp-np2 { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .gp-np2 > .lbl { color: var(--on-plate-dim); flex: 1; min-width: 0; }
 .gp-pwr { color: var(--plate-accent); flex: none; }
@@ -94,6 +99,7 @@
 /* ---------- Info ---------- */
 .gp-info { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-2); align-items: stretch; }
 @media (min-height: 481px) { .gp-info { gap: var(--sp-3); } }
+@media (max-width: 599px) { .gp-info { grid-template-columns: minmax(0, 1fr); } } /* a phone held upright: Matchup and Potential each a full row (half width cut their labels) */
 .gp-role-card, .gp-profile-card { grid-column: 1 / -1; }
 .gp-caps-card { display: none; }
 @media (min-height: 481px) {
@@ -116,6 +122,21 @@
 .gp-line .lbl { color: var(--pink-text); margin-right: 2px; }
 .gp-line-crown { width: 16px; height: 16px; display: inline-grid; color: #d6336c; vertical-align: -3px; margin-right: 4px; }
 .gp-line-crown svg { width: 100%; height: 100%; }
+/* her ⚡ ability: one line on an ink plate that opens its Details (ABILITIES_SPEC §10) */
+.gp-abil {
+  display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 40px; margin: 0 0 var(--sp-2); padding: 0 var(--sp-2) 0 var(--sp-3);
+  border: 0; border-radius: var(--radius-plate); background: var(--plate); color: var(--on-plate); text-align: left; cursor: pointer;
+}
+.gp-abil-text { min-width: 0; font: italic 900 var(--fs-body)/1.2 var(--font-head); }
+.gp-abil .ui-sticker { flex: none; }
+.gp-abil .gp-chev { color: var(--on-plate-dim); }
+.gp-abil.later .gp-abil-text { color: var(--on-plate-dim); }
+.gp-abil-later { display: flex; align-items: center; gap: 4px; font-weight: 800; color: var(--ink); }
+/* one ability per path (Ruri): each section headed by its name and its path */
+.gp-abil-form { display: flex; align-items: center; gap: 4px; margin: var(--sp-3) 0 var(--sp-1); font: italic 900 var(--fs-body)/1.2 var(--font-head); color: var(--ink); }
+.gp-abil-form .gp-abil-path { font: 700 var(--fs-body)/1.2 var(--font); font-style: normal; color: var(--muted); }
+/* the kit bolt in the Details sheet's words (white glass): the deeper yellow with a thin ink edge */
+.gp-details .kit-bolt { color: var(--yellow-deep); filter: drop-shadow(0 0 0.6px var(--ink)); }
 /* matchup: ▲▲ / ▲ / ▼ with the armor word; the arrow carries the meaning, not only the colour */
 .gp-mu-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px var(--sp-2); }
 .gp-mu { display: flex; align-items: center; gap: 6px; min-height: 26px; font: 700 var(--fs-body)/1.1 var(--font); color: var(--ink); }
@@ -331,6 +352,11 @@
 .gk-pips i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--club, var(--muted-line)); }
 .gk-pips i.on { background: var(--club, var(--muted-line)); }
 .gk-set-on { font: 700 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--ink); }
+/* a full set whose trick does nothing for her kit (trickIdle): flat grey, never opacity (VAULT_BRIEF §2.4); ink text */
+.gk-set.idle { border-color: #b9bebd; background: #d8dbda; }
+.gk-set.idle .gk-pips i { border-color: #6f7675; }
+.gk-set.idle .gk-pips i.on { background: #6f7675; }
+.gk-set-idle { font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-label); color: var(--ink); }
 
 /* ---------- Sheets: the slot sheet, a piece's Details, the gear totals ---------- */
 .ui-sheet.gk-sheet { width: min(100%, 960px); background: #fbfdff; }
@@ -413,6 +439,7 @@
 .gk-set-head { display: flex; align-items: center; gap: var(--sp-2); }
 .gk-setline { margin: 0; display: flex; align-items: center; gap: 6px; font: 500 var(--fs-body)/var(--lh-body) var(--font); color: var(--muted); }
 .gk-setline.on { color: var(--ink); font-weight: 700; }
+.gk-setline.idle { color: var(--ink); }
 .gk-setline .ui-sticker { flex: none; min-width: 26px; justify-content: center; }
 .gk-fill-row { display: flex; align-items: center; gap: var(--sp-2); font: 700 var(--fs-body)/1.2 var(--font); color: var(--good-text); }
 .gk-fill-row .gk-bar { max-width: 180px; }

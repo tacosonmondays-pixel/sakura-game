@@ -91,7 +91,7 @@ commit it) and view them with `previews/models-v2.html?view=row&assets=_lookdev/
 ## Stand-ins for the returning girls
 
 The returning girls of the roster wave (`src/data/unitsExpansion.js`) whose real chibi has not landed yet
-(`STANDIN_UNITS`, empty since the art wave: Noa, Hana and Ruri have their imported Meshy figures, see "Imported Meshy figures"; Fuu, Iroha, Ena, Kanna, Yoriko and Seiran have temporary Blender chibis, see "Temporary Blender chibis"; the path stays for a future girl who lands before her model) are drawn by
+(`STANDIN_UNITS`, empty since Tenka's figure landed: Noa, Hana, Ruri and Tenka have their imported Meshy figures, see "Imported Meshy figures"; Fuu, Iroha, Ena, Kanna, Yoriko and Seiran have temporary Blender chibis, see "Temporary Blender chibis"; the path stays for a future girl who lands before her model) are drawn by
 the procedural V1 chibi (`src/models/chibi.js`) from their own `palette` + `look`, in battle, in the student 3D
 view and in the formation / lobby. The list lives in `src/models/standins.js` (`STANDIN_UNITS`,
 `isStandIn(assetKey)`, keyed by model asset = unit id of the `<id>_default` skin row):
@@ -305,6 +305,28 @@ and her `extras.eyes.hairGuard` (`{ hue: [223, 245], sat 0.85, val 0.06 }`, meas
 just below her hair's hue) keeps her navy bangs painted during a blink. Known: her left arm stays near rest in most
 clips (it holds the grimoire); no secondary motion on the blazer or skirt.
 
+### Tenka (Oct 20 figure, Meshy API rig + a separate coilgun GLB)
+
+Built by the same tool with a per-figure profile (`--profile tenka`; the tool change and the Oct 20 notes are on the
+`assets/meshy-oct20` branch, `tools/art/src/meshy-oct20/TENKA_READY.md`). `tenka.glb` 1.33 MB (20.0k tris) /
+`tenka.lod.glb` 0.64 MB (9.0k tris), plus `tenka-coilgun.glb` 0.13 MB (3k tris) shared by both detail levels.
+
+- source: a Meshy API rig (24 bones, Armature scale 0.01, a ~0.9 m figure), normalised and renamed to the readable
+  set with an unweighted floor `root`. Battle height 1.224, like Hikari; `weaponKind 'rifle'`.
+- eyes: amber iris and blue-violet hair predicates, mirrored boxes; `extras.eyes.hairGuard` = `{ hue: [180, 260],
+  sat 0.6, val 0.12 }` keeps her blue bangs and teal streaks as painted when the eyes close.
+- clips: `idle` 1.5 s, `walk` 0.97 s (library), `attack_rifle` 0.6 s (aimed by 0.07 s, recoil kick, so the shot reads
+  when `attackFx` restarts the clip), `cheer` 1.2 s (coilgun raised), `hurt` 0.4 s; every clip has a 14° chin-up.
+- coilgun: its own GLB (base 512² + metal/roughness 256², stored at half size like the figures). The figure carries an
+  empty socket node `prop_coilgun` under `hand_R` (grip frame and scale) and lists the file in `extras.props` and the
+  manifest entry's `props`. `glbChibi.js` (`loadProps` / `attachProps`) loads each prop file once, gives it the
+  figurine material, a texture-tinted outline (not on Low) and the selection highlight, and hangs it under the socket
+  of every instance, so the clips move it with her hand. A prop that fails to load is left out with a warning.
+- fallback: while her GLB loads, or if it fails, she is the procedural chibi in her own palette (the look she had as a
+  stand-in until this figure landed).
+- known: no hair or coat bones (ponytail and lab coat follow the body rigidly); LOD plus coilgun is 12k tris against
+  Hikari's LOD 9.8k (a ~1.2k-tri LOD prop would need a second file).
+
 ### Companions taken off their girls (Oct 21)
 
 Kon (Ruri), Kaze (Hana) and Yoriko's doll are separate figures now, never part of their girl:
@@ -450,7 +472,7 @@ through the chest.
 | files | `public/models/companions/<id>.glb` + `<id>.lod.glb`, ids `kon`, `kaze`, `doll` |
 | clips | exactly `idle`, `move` (loop), `attack`, `appear` (play once); any extra clip is ignored |
 | space | glTF Y up, facing +Z, feet / paws / talons on y = 0 at the origin (the doll: its shoe soles), metres at game scale × `asset.extras.unitScale` (1 for the Blender figures) |
-| extras | `companion`, `owner`, `height` (standing height at game scale, threads and pad excluded), `unitScale`, `clips`, `home`; Blender figures add `faceCells` / `faceGrid` (cell UVs in [0, 1] of one cell, like the girls), the doll `threads = { bone: 'bar', bones }` |
+| extras | `companion`, `owner`, `height` (standing height at game scale, threads and pad excluded), `unitScale`, `clips`, `home`; Blender figures add `faceCells` / `faceGrid` (cell UVs in [0, 1] of one cell, like the girls), the doll `threads = { bone: 'bar', bones }` (in battle its thread triangles, the ones skinned to `bar`, are cut from the figure and drawn as ribbons from the bar to each thread's bottom point: `src/render/marionette.js`; keep every thread a tube from one bone to `bar`) |
 | manifest | `{ <id>: { file, lod, bytes, lodBytes, vertices, lodVertices, clips, height, owner, home: { offset, follow, note }, source, battleScale?, pageScale? } }`; `battleScale` (optional, default 1) sizes the figure in battle only, over its girl's scale, around its origin; `pageScale` (optional, default 1) does the same in the figure viewer (student page). Kon uses 2.4 for both (owner: he was too tiny). The builder keeps it across rebuilds |
 | home | `offset` = where the companion's origin sits relative to its girl's root in her bind pose (glTF axes at game scale: +X her left, +Y up, +Z her front); `follow` = her bone whose motion it rides (keep the offset from that bone's bind position), `null` = stays on the ground |
 | budget | ≤ 150 KB full, ≤ 80 KB LOD (`tests/models/companions.test.js`) |

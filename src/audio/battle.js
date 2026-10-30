@@ -11,6 +11,23 @@ import { capFrame } from './limiter.js';
 
 /** Time of the last hero level-up chime (throttle). */
 let lastHeroLevel = 0;
+/** Time of the last ability-ready chime (throttle). */
+let lastAbilityReady = -Infinity;
+
+/** An ability cast's cue by kind (ABILITIES_SPEC §8.5), from the existing sprite (no new audio files). */
+export const ABILITY_SFX = Object.freeze({
+  strike: { id: 'hero.ult', rate: 1.25, gain: -4 },
+  burst: { id: 'boom.big', rate: 1.05, gain: -2 },
+  boost: { id: 'bt.upgradeBig', rate: 1.15, gain: -3 },
+  rally: { id: 'hero.level', rate: 0.9, gain: -2 },
+  debuff: { id: 'st.debuff', rate: 0.8 },
+  econ: { id: 'eco.coins', rate: 1.1 },
+  deploy: { id: 'turret.build', rate: 1.1 },
+  runner: { id: 'boom.small', rate: 0.85 },
+});
+/** The soft "ready" chime: at most one per this many ms (your own abilities only). */
+export const ABILITY_READY_MS = 1500;
+const ABILITY_READY = { id: 'ui.chirp', rate: 1.2, gain: -9 };
 
 // ------------------------------------------------------------------------------------- SFX mapping
 const FIRE = {
@@ -49,6 +66,8 @@ export function battleSfx(events, info = {}) {
         break;
       }
       case 'hit': {
+        // (a constant beam's damage ticks are quiet: her lock-on is the beam's sound)
+        if (ev.tick) break;
         if (ev.crit) push({ id: 'hit.crit', cat: 'hit', key: 'crit', score: 3, pan: pan(ev.x) });
         if (ev.effective != null && ev.effective < 1) {
           push({ id: 'hit.resist', cat: 'hit', key: 'resist', score: 0.5, pan: pan(ev.x) });
@@ -142,11 +161,30 @@ export function battleSfx(events, info = {}) {
       case 'cash':
         if (ev.reason === 'income') push({ id: 'eco.coins', cat: 'income', key: 'income', gain: -10 });
         break;
+      case 'ability': {
+        const s = ABILITY_SFX[ev.kind];
+        if (s) push({ ...s, cat: 'ability', key: ev.kind, score: ev.auto ? 1 : 2, pan: pan(info.towerX?.(ev.towerUid) ?? ev.x) });
+        break;
+      }
+      case 'abilityReady': {
+        // a soft chime for your own abilities only (co-op: never the ally's), at most one per 1.5 s
+        if (info.isMine && !info.isMine(ev)) break;
+        const now = info.now ? info.now() : Date.now();
+        if (now - lastAbilityReady < ABILITY_READY_MS) break;
+        lastAbilityReady = now;
+        push({ ...ABILITY_READY });
+        break;
+      }
       default:
         break;
     }
   }
-  return capFrame(items, { fire: 3, hit: 2, death: 2, explode: 2, income: 1 }).map(({ cat, key, score, ...rest }) => rest);
+  return capFrame(items, { fire: 3, hit: 2, death: 2, explode: 2, income: 1, ability: 2 }).map(({ cat, key, score, ...rest }) => rest);
+}
+
+/** Tests: forget the ready chime's last time. */
+export function resetAbilityReadyThrottle() {
+  lastAbilityReady = -Infinity;
 }
 
 // ------------------------------------------------------------------------------------- music state machine
@@ -417,6 +455,8 @@ export function attachBattleAudio(ctx) {
         towerX: (uid) => sim?.getTower?.(uid)?.x,
         enemyDef,
         isHero: (uid) => !!sim?.getTower?.(uid)?.isHero,
+        // abilityReady: a girl's (towerUid) or a map-wide group's (owner)
+        isMine: (ev) => !ctx.coop || (ev.towerUid != null ? ctx.coop.isMine(ev.towerUid) : ev.owner === ctx.coop.mySlot),
       });
       const t = performance.now();
       for (const s of list) {

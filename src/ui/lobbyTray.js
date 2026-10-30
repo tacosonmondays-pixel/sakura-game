@@ -51,7 +51,7 @@ export function homeObjective(s = {}) {
     return { kind: 'continue', kicker: 'Continue', text: sub ? `${s.save.name} · ${sub}` : s.save.name, testid: 'lobby-continue' };
   }
   if (s.login?.ready) {
-    return { kind: 'login', kicker: 'Daily gift', text: s.login.day ? `Claim your login gift: day ${s.login.day}` : 'Claim your login gift', testid: 'login-claim' };
+    return { kind: 'login', kicker: 'Daily gift', text: s.login.day ? `Claim your login gift: day\u00a0${s.login.day}` : 'Claim your login gift', testid: 'login-claim' };
   }
   const n = Math.max(0, Math.floor(s.commissions?.count || 0));
   if (n > 0) {
@@ -96,7 +96,7 @@ export function homeNews(s = {}) {
     out.push({ id: 'weekly', kicker: `Event · ${s.weekly.dropMul || 2}× drops`, short: `${s.weekly.dropMul || 2}× drops`, title: s.weekly.name, testid: 'event-strip', timeTestid: 'event-strip-time', msLeft: s.weekly.msLeft ?? null, phase: null, art: null });
   }
   if (s.recruit) {
-    out.push({ id: 'recruit', kicker: 'Recruit', title: s.recruit.pity ? `Enrollment · SSR in ${s.recruit.pity}` : 'Enrollment', testid: 'banner-recruit', timeTestid: null, msLeft: null, phase: null, art: 'ticket_recruit' });
+    out.push({ id: 'recruit', kicker: 'Recruit', title: s.recruit.pity ? `Spotlights · SSR in ${s.recruit.pity}` : 'Spotlights', testid: 'banner-recruit', timeTestid: null, msLeft: null, phase: null, art: 'ticket_recruit' });
   }
   const b = s.bosses;
   if (b?.titans?.open) {

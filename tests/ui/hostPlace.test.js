@@ -10,7 +10,8 @@ import { UNITS } from '../../src/data/units.js';
 import { FACE_ANCHORS, CUT_EXTENTS } from '../../src/ui/faceAnchors.js';
 import { placeHost, homeTarget, freeShift, bandsOf, placeScene, faceBox } from '../../src/ui/lobby/hostPlace.js';
 import { placeMarumi, ANCHOR as M_ANCHOR, EXTENTS as M_EXTENTS, FRAME } from '../../src/ui/lobby/live/marumi.js';
-import { PORTRAIT_DATA } from '../../src/art/portraits.js';
+import { PORTRAIT_DATA, isPlaceholderPortrait } from '../../src/art/portraits.js';
+import { secretaryOf } from '../../src/ui/lobby/secretaryOf.js';
 
 /**
  * Home layout B's control boxes (measured in the game: window.__sakura.home.boxes()): the avatar, the three wallets and
@@ -86,11 +87,12 @@ describe('placeHost: every girl on the home, at both sizes', () => {
 
   // (v0.1.48 brought back the seven academy girls' head-to-shoes stands in place of the v0.1.47 scene cut-outs, so the
   // two drawn from above, Chigusa and Yuzuha, reach the bottom edge on a phone too now)
+  // (a coming-soon signboard, Kogane's and Norika's today, never stands on the home: src/ui/lobby/secretaryOf.js)
   it('every stand girl reaches the bottom edge, at 1280x720 and on a phone (none floats)', () => {
     const floats = { '844x390': [], '1280x720': [] };
     for (const vp of Object.keys(floats)) {
       const [W, H] = vp.split('x').map(Number);
-      for (const u of UNITS) {
+      for (const u of UNITS.filter((x) => !isPlaceholderPortrait(x))) {
         const p = placeHost({ W, H, aspect: PORTRAIT_DATA[u.id].cut, anchor: FACE_ANCHORS[u.id].cut, extents: CUT_EXTENTS[u.id], boxes: boxes(vp) });
         if (p.floats) floats[vp].push(u.id);
       }
@@ -104,6 +106,17 @@ describe('placeHost: every girl on the home, at both sizes', () => {
     expect(b.w).toBeCloseTo(Math.max(0.16 * 844, 2.2 * 100), 6);
     expect(b.y).toBeCloseTo(100 - 90, 6);
     expect(b.y + b.h).toBeCloseTo(200 + 15, 6);
+  });
+});
+
+describe('secretaryOf: only drawn art stands at the desk', () => {
+  it('a coming-soon signboard is passed over: the chosen secretary, then the hero, then the first girl with drawn art', () => {
+    const placeholders = UNITS.filter((u) => isPlaceholderPortrait(u)).map((u) => u.id);
+    expect(placeholders.sort()).toEqual(['kogane', 'norika']);
+    const units = { kogane: {}, norika: {}, luna: {}, aoi: {} };
+    expect(secretaryOf({ units, secretary: 'kogane', formation: { hero: 'luna' } })).toBe('luna');
+    expect(secretaryOf({ units, secretary: 'norika', formation: { hero: 'kogane' } })).toBe(UNITS.find((u) => units[u.id] && !placeholders.includes(u.id)).id);
+    expect(secretaryOf({ units, secretary: 'aoi', formation: { hero: 'kogane' } })).toBe('aoi');
   });
 });
 

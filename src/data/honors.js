@@ -14,7 +14,7 @@
 import { ACHIEVEMENTS, FREEPLAY_TITLES, NO_COSMETIC } from './achievements.js';
 import { TAG_TITLE_ROWS } from './playerTags.js';
 
-/** Display names of the 8 special effects (kid copy for the detail view in EFFECT_LINES). */
+/** Display names of the 9 special effects (kid copy for the detail view in EFFECT_LINES). */
 export const HONOR_EFFECTS = Object.freeze({
   prism: 'Prism',
   sakura: 'Sakura Drift',
@@ -24,6 +24,7 @@ export const HONOR_EFFECTS = Object.freeze({
   starfield: 'Starfield',
   aurora: 'Aurora',
   holo: 'Holo Foil',
+  chalk: 'Chalk Dust',
 });
 
 /** One line per effect for the ribbon detail and the fanfare (§2.3). */
@@ -36,6 +37,7 @@ export const EFFECT_LINES = Object.freeze({
   starfield: 'a night sky drifts behind the moon',
   aurora: 'soft northern lights float across',
   holo: 'shiny foil shifts like a tilted card',
+  chalk: 'chalk dust twinkles like a clapped eraser',
 });
 
 /** Class labels (every screen also writes the class as a text pill, not only the shape). */

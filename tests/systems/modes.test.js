@@ -154,9 +154,9 @@ describe('the medal and ribbon showcase', () => {
     expect(s.grid.laststand.nightmare).toEqual({ earned: true, kind: 'ribbon', merged: true });
     expect(s).toMatchObject({ stageId: '3-2', chapter: 3, cleared: true, modesUnlocked: true, medals: { have: 2, total: 4 }, ribbons: { have: 2, total: 20 } });
     const all = campaignShowcase(p);
-    expect(all.stages.length).toBe(40);
-    expect(all.medals.total).toBe(160);
-    expect(all.ribbons.total).toBe(800);
+    expect(all.stages.length).toBe(70); // 40 Act I + chapters 1-6's Act II (the side stage holds no ribbons)
+    expect(all.medals.total).toBe(280);
+    expect(all.ribbons.total).toBe(1400);
     expect(all.ribbons.have).toBe(2);
   });
 });

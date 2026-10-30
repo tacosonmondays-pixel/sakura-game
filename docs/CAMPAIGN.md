@@ -83,6 +83,138 @@ unlocked by earlier stages — `tests/data/world.test.js` enforces this ("free-c
 with detection before any veiled enemy, anti-air before any airborne enemy and a water girl
 before chapter 2.
 
+## Act II (the Gate Arc, docs/specs/GATE_ARC.md)
+
+Each chapter grows a second act of five stages, **`c-6` … `c-10`** (Act II, "the Noon", a modern city era); `c-1` …
+`c-5` are Act I ("the Morning") and never change, and `c-11` … `c-15` are reserved. Status (Gate Arc Step 1, on
+`feature/gate-arc`, not shipped): the plumbing (S1a), **chapter 1's Act II, "Rush Hour" (1-6 … 1-10)** and **chapter 2's Act II,
+"Hilltop After Dark" (2-6 … 2-10)** are in.
+
+* **Chapter 1 · Act II · Rush Hour** (Itomachi downtown by day, theme `city`; docs/specs/gate-arc/MAPS.md §1.2):
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 1-6 Rush Hour | `noon_station_plaza` | the station underpass (the hall drawn over it) | petal_sanctuary (Rush-hour Evacuation) | slime, goblin runner; scene `g1.pro` (content note) before, `g1.mahiru` after |
+  | 1-7 The Covered Arcade | `noon_covered_arcade` (22×12) | shop rooftops ('U') between the alleys | tailwind (Crowd Surge) | goblins; **Yuzuha joins** (`g1.yuzuha`) |
+  | 1-8 Time Sale | `noon_corner_store` | a flat scramble crossing passed twice | firefly_chorus (Time Sale) | gold slimes, dashers, a few orc grunts |
+  | 1-9 Canal Crossing | `noon_canal_crossing` | a level crossing shut on even waves (`laneCycle [[0,1],[1]]`) | changing_tides (Lock Cycle) | orc grunts, boars |
+  | 1-10 The Frostbitten Heir | `noon_dry_fountain` (echo of `sakura_court`) | the boss in the dry fountain | supply_ship (Brigade Airdrop) | `slime_frost_heir` (the Slime Prince's model in frost), crown drop |
+
+  Only chapter-1 families; the Brigade is dressing only (drones overhead). 1-7 now grants Yuzuha (4-2 no longer does;
+  a save that clears 4-2 before meeting her still gets her once through the lobby's catch-up, `LEGACY_JOIN_STAGES`).
+
+* **Chapter 2 · Act II · Hilltop After Dark** (Itomachi Hilltop High at night, lakeside, theme `campus`; MAPS.md §1.3).
+  Every board is a night board with ≥ 60 buildable water tiles. 2-6 is the first live two-key stage (2-5 **and** 1-10).
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 2-6 Shelter 3 | `noon_school_gate` | the corridor tunnel under the main building; a classroom-wing roof ('U') beside it | petal_sanctuary (Shelter Intake) | skinks, slimes, pearls; scene `g2.pro` before |
+  | 2-7 Lights Out | `noon_rowing_jetty` | two lanes up twin jetties over the lake, merging at the boat ramp | lunar_eclipse (Lights Out), `look.blackout` dims the board while it is dark | hunters, droplets |
+  | 2-8 Club Huts | `noon_footbridges` | a staircase of footbridges over three mill canals | prism_conduits (Sensor Pads, 3 pads) | sunscales, prism slimes |
+  | 2-9 The Running Track | `noon_running_track` | an infield straight, then one lap that crosses its own entry on a footbridge | firefly_chorus (Starting Pistol) | dashers, boars |
+  | 2-10 The Boathouse Lamp | `noon_boathouse_lamp` | a breakwater, a 270° curl round the old lamp, a flat crossing on the breakwater head | changing_tides (Lake Swell) | `lizard_lamp_hugger` (Old Lamp-Hugger, the Bog Basilisk's model at miniboss scale) |
+
+* **Chapter 3 · Act II · The Bell Festival** (Itomachi's Old Town at night, theme `city`, `district: 'oldtown'`;
+  STEP3_BUILD_PLAN). 3-6 needs 3-5 **and** 2-10. 3-9 and 3-10 burn (`scenery.ruined: 'burning'`).
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 3-6 Old Town Lanes | `noon_old_town` | three hooked lanes (north, south, north) with flat roofs ('U') inside the hooks | moonlit_blessing (Bell Festival) | wisps, two taught groups of veiled wraiths; scene `g3.pro` before |
+  | 3-7 Takoyaki Row | `noon_takoyaki_row` | three long diagonals across two stall rows | forge_vents (Hot Griddles, 2 zones on the stall rows) | phantoms, smoke goblins |
+  | 3-8 The Lake Steps | `noon_shrine_steps` | a town road and a lake lane that opens at a rift mid-lake (`inside`) meet at the foot of a Z climb | alchemists_mist (Lake Fog) | lantern bearers from wave 10; fog |
+  | 3-9 Old Town, Burning | `noon_old_town_burning` | one long S round two fallen blocks of 3-6's ground | heat_mirage (HAMMER's Smoke) | `brigade_gnat` (Gnat Spotter, construct family on the Cogling model) in fixed groups every 6th wave |
+  | 3-10 The Ashen Warden | `noon_lakeside_shrine` (echo of `shrine_sanctum`) | the sanctum tunnel under the tear | lunar_eclipse (The Tear) | `ghost_ashen_warden` (the Hollow Samurai's model at miniboss scale, charred) |
+
+* **Chapter 4 · Act II · The Checkpoint** (the mountain highway, theme `city` with `district: 'highway'`, then the far
+  north on the shipped `snow` theme; STEP4_BUILD_PLAN). 4-6 needs 4-5 **and** 3-10. The Gate Response Brigade is a
+  bestiary family now (`brigade`: the Gnat moves in from construct; its units wear shipped construct models in navy
+  and amber). Azami joins after 4-7 (a 2-2 clear from before this build still brings her once).
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 4-6 Toll Plaza | `noon_toll_plaza` | a three-booth lens: one road splits into three toll lanes round two booth islands ('U' roofs) and closes up again, then the off-ramp | supply_ship (Brigade Convoy) | the iron column: grunts, ironhides, wolves |
+  | 4-7 Azami's Checkpoint | `noon_checkpoint` | a straight lane through the checkpoint gate and a wide hook west round the barricades | heat_mirage (Flare Smoke) | `laneCycle [[1], [0, 1]]`: the gate is shut on odd waves ("Barrier down: long way round"); dusk (`look.dusk`); **Azami joins** |
+  | 4-8 Tunnel Mouth | `noon_tunnel_mouth` (22×13) | a dual carriageway: two lanes out of two bores, nested steps south-east, two exits | rear_ambush (Wrong Way) | orcs and wolves; the Brigade (`brigade_trooper`, `brigade_shieldline`, Gnats, a `brigade_tortoise` on 14 and 22) as fixed groups on even waves, which come in from the goal end |
+  | 4-9 The Frozen Villages | `north_frozen_villages` (`snow`) | a straight climb up the sled run, a wide horseshoe over the village square, a hook out north-east | prism_conduits (Village Hearths, 3 pads inside the horseshoe) | the Brigade leads (troopers, shieldlines, Gnats, Tortoises from wave 8), wolves and bears; `brigade_badger` on each of the last three waves |
+  | 4-10 The Frost Vanguard | `north_snow_bridge` (`snow`) | two columns meet at the bridgehead, then one long deck over the ravine (8 'B' tiles) | snowbell_blizzard (Blizzard) | `orc_frost_vanguard` (the Orc Warlord's model at miniboss scale in frost iron, 3,950 HP, summons Alpha Wolves) |
+
+* **Chapter 5 · Act II · The Drowned Line** (the flooded Line 2 under Itomachi on the new `drowned` theme, then the
+  reservoir park, theme `city` with `district: 'park'`; STEP5_BUILD_PLAN). 5-6 needs 5-5 **and** 4-10. Fog on every
+  stage. The first glass machines walk out of the Noon Gate on 5-8; they stay in the Constructs family (data on the
+  shipped construct model, white glass and cyan with outlines). No girl joins in Act 5.
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 5-6 Flooded Platform | `noon_flooded_platform` (`drowned`) | out of a bore mid-board (an `inside` lane that opens in a tunnel: the subway spawn), west along a deck over the flooded tracks, up the stairs, back east along the street | changing_tides (Rising Water) | ghouls (Leech Ghouls from wave 3), skinks, slimes; scene `g5.pro` before (S5d) |
+  | 5-7 Line 2 Tunnels | `noon_line2_tunnels` (`drowned`) | one gentle sag with four bores and three open vent cuttings (≈ 55 % hidden) | lunar_eclipse (Emergency Lights) | `look.blackout`; Fog Skulkers from wave 3, Seed Pods from 5, Phantoms from 8; no join |
+  | 5-8 Pump Station | `noon_pump_station` (`drowned`, `city.spawnGate: 'noonGate'`) | a loop south, east, north through the pump hall (a tunnel) and west over its own first leg on a grating gantry, then out west | forge_vents (Steam Valves, 2 zones on the road) | `vesper_patrol_orb` from wave 3, `vesper_halo_drone` (blink) from 6, `vesper_line_sentry` (armour 4) from 10 |
+  | 5-9 Reservoir Park | `noon_reservoir_park` (`district: 'park'`) | east along the dam crest, down the spillway steps, west across the bowl, north through the dam's service tunnel under its own first leg | alchemists_mist (Reservoir Fog) | ghouls and plants, a few Line Sentries from 8, a Grave Priest from 10, an Elder Treant from 14; two of each added on the last wave |
+  | 5-10 The Reservoir Willow | `noon_reservoir_willow` (`district: 'park'`, night) | two S-shaped causeways round the willow island that never cross | firefly_chorus (Reservoir Fireflies) | `plant_reservoir_willow` (the Elder Treant's model at miniboss scale, 3,950 HP, seed pods at 66 %, armour 7 at 33 %) on the longer lane |
+
+* **Chapter 6 · Act II · Vesperline** (through the Noon Gate into the glass city, frozen: theme `vesper` with
+  `scenery.ruined: 'frozen'` on every stage, snow; STEP6_BUILD_PLAN). 6-6 needs 6-5 **and** 5-10. One new glass machine
+  per stage (all Constructs on the shipped construct model, white and ice-blue glass with outlines); the Rime Wisp
+  (a Ghost) and Gatekeeper Unit 01 on 6-10. No girl joins in Act 6.
+
+  | Stage | Map | Headline | Rule (skin) | Notes |
+  |---|---|---|---|---|
+  | 6-6 Frost Causeway | `vesper_frost_causeway` | a broken causeway in a five-lobe W, two light-bridges over open leads | prism_conduits (Prism Batteries, 3 pads on the islands) | `vesper_lattice_shell` (crystal 5 / 10) from wave 3 |
+  | 6-7 Sky-Rail Viaduct | `vesper_skyrail` (`bridge.skyRail`) | up onto a 9.7-tile viaduct, an S along it, down at the broken span, back west underneath it | heat_mirage (Frost Haze) | the first viaduct: enemies on it can still be hit; `vesper_aegis` (barrier 60) from wave 3 |
+  | 6-8 Museum of Noon | `vesper_museum` (gallery tunnels) | through one gallery wing, half round the rotunda, through the other wing, out in a small S | lunar_eclipse (Dead Grid) | `look.blackout`; `vesper_warden` (elite: barrier + crystal) from wave 15 |
+  | 6-9 Lecture Tower Ring | `vesper_tower_ring` | phi: up a spoke, a full lap of the ring, across the plaza (flat) and out over the ring | shifting_stars (Transit Pads) | the Warden leads from wave 10; both pad points ≥ 2 tiles from every crossing |
+  | 6-10 Gatekeeper Unit 01 | `vesper_spindle_foot` (`city.spawnGate: 'vesperGate'`) | a double helix: two lanes cross north and south of the Spindle's foot and merge before the shelter | supply_ship (Last Watch Caches) | Rime Wisps (frost-warded) on waves 28-30; `vesper_gatekeeper` (Iron Colossus model, 3,950 HP, calls Line Sentries at 66 %, thicker shell at 33 %) on the last wave, longer lane |
+
+* **Side stages** (`kind: 'side'`, Gate Arc §20, STEP6_BUILD_PLAN decision 9). An optional stage beside an act:
+  `anchor` names the Act II stage it is drawn after (a small card in that act's row, locked "Clear 6-10" until the
+  anchor is cleared; it opens the stage screen), `requires` the anchor. Numbers are the anchor's ACT2_PLAN row with HP ×
+  1.1; medal gems at 0.5; first clear coins and books (no recruit ticket); the anchor's drop table. Not in
+  `CAMPAIGN_IDS`: no co-op, no campaign counters, medals, ribbons, missions, achievements or profile trophies; no battle
+  modes, freeplay or endless; no new enemy. The first is **The Starfall Trial** (`side-6-starfall`, after 6-10) on
+  `vesper_starfall` (The Starfall Deck, night): an orrery, the outer ring, a spiral over the star-map pool on a
+  light-bridge, the inner ring and a spur tunnelling out under the spiral; forge_vents (Starfall, three zones on ground
+  road); hpScale 9.94, 30 waves, families up to chapter 6 and the glass machines, no Rime Wisp.
+
+* **Fields.** Every campaign StageDef carries `act` (1 or 2) and `finale` (x-5 and x-10). Act II adds
+  `medalGemMul: 0.5` (medal gems 10 / 20 / 30 / 50, `src/systems/rewards.js` `medalGems`) and `modeChapter` (c+1:
+  Ironclad's armor row). `CHAPTERS[c].stages` stays Act I; `CHAPTERS[c].act2` lists the registered Act II ids (with
+  `act2Name` / `act2Theme` / `act2Desc` for the act's row once it ships).
+* **Unlocks.** `requires` is a stage id, a list of ids, or null, and is read only through `stageRequires(stage)` /
+  `requirementsMet(stage, isCleared)` (`src/data/stages.js`). 1-6 needs 1-5; every other x-6 needs **x-5 and
+  (c−1)-10** (two keys); x-7 … x-10 need the Act II stage before. The lock text names what is still missing
+  ("Clear 2-5 and 1-10 first") and Go to opens the first of them.
+* **Order.** `CAMPAIGN_IDS` is Act I (1-1 … 8-5) first, then Act II by (chapter, n). Anything that means play order
+  sorts by `stageOrderKey(id)` = (chapter, act, n): the after-scene queue plays a 1-10 epilogue before a waiting 2-1
+  one. "Next stage" (`nextStage`) stays the first uncleared stage in `CAMPAIGN_IDS`, so a veteran is never pulled back
+  to 1-6; the results screen's Next button stays inside the act (`nextInAct`: 8-5 → none, never 1-6; x-10 → (c+1)-6).
+  Act II is found through the campaign screen's act rows and its NEW sticker.
+* **Numbers** (`ACT2_PLAN`, computed, pinned by `tests/data/act2Plan.test.js`): for Act II stage k of chapter c, the
+  rung `hpScaleAt(5c + k − 1)` × chapter c's mean hero-rework HP pass (1.69 / 1.77 / 1.4 / 2.15 / 1.92 / 1.77 / 2.19 /
+  1.25); `hpPass` = that mean; cash scale and start cash from the rung (start cash ≤ 900); waves from chapter c+1's
+  Act I row (chapter 8: 30/30/31/31/32); tier from stage (c+1)-k (chapter 8: expert); drops from chapter c+1's table;
+  first clear `campaignFirstClear(c, k === 5)` (x-10 pays 100 + 20c gems and a recruit ticket). Act II starts at or
+  above its own x-5 and climbs ≈ 20 %; 7-10 (14.24) becomes the highest `hpScale`. Starting values for the balance
+  pass, not tuned numbers.
+
+  | Ch | Act II hpScale (x-6 … x-10) | Waves | Start cash |
+  |---|---|---|---|
+  | 1 | 2.15 / 2.25 / 2.37 / 2.48 / 2.6 | 18/20/20/22/22 | 720–740 |
+  | 2 | 2.87 / 3.01 / 3.15 / 3.31 / 3.47 | 22/22/24/24/25 | 750–770 |
+  | 3 | 2.87 / 3.02 / 3.16 / 3.32 / 3.49 | 24/25/25/26/26 | 770–790 |
+  | 4 | 5.61 / 5.89 / 6.17 / 6.49 / 6.79 | 25/26/26/27/28 | 800–820 |
+  | 5 | 6.37 / 6.68 / 7.01 / 7.35 / 7.72 | 26/27/27/28/28 | 830–850 |
+  | 6 | 7.47 / 7.84 / 8.23 / 8.62 / 9.04 | 28/28/29/29/30 | 850–870 |
+  | 7 | 11.74 / 12.33 / 12.94 / 13.58 / 14.24 | 28/29/29/30/30 | 880–900 |
+  | 8 | 8.53 / 8.94 / 9.39 / 9.85 / 10.33 | 30/30/31/31/32 | 900 |
+
+* **Achievements.** Chapter rows count Act I only (`chapterClear` over `CHAPTERS[c].stages`). "Chapter c · Act II
+  Complete" (`a_ch{c}_act2`, half the chapter row's gems, 848 in all) and the 80-stage goals (`a_clear_80`,
+  `a_gold_80`, `a_sakura_80`, `a_quad_80`: items and titles, no gems) stay hidden until every stage they `need`
+  exists. The "all 40" goals read "on 40 campaign stages" and the ribbon capstone "800 campaign mode ribbons".
+* **Story.** Arc 1 episodes are kind `event` (0 gems) with `act: 2`; `CHAPTER_SCENE_IDS` stays Act I, and
+  `ACT_SCENE_IDS['c:2']` indexes the Act II episodes, so the Story Time achievements never go backwards.
+* **Campaign screen.** One row per act (`src/ui/screens/campaignActs.js`, `campaign-acts.css`); a chapter with Act I
+  alone draws no header, exactly as before.
+
 ## Map rules and battle modes (docs/specs/CODEX_MODES.md)
 
 Every campaign stage from 1-4 on has one **map rule**, always on (every mode, difficulty, co-op and past the

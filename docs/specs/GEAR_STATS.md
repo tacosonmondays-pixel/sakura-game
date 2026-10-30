@@ -465,7 +465,7 @@ Miko).
 | **Fencing Club** (M1) | Crit Rate, Crit DMG, Armor Pierce | **+3 % Crit Rate** | **Finishing Thrust**: "Every 25th attack deals double damage and ignores armor." | +4 % everywhere, more vs armor |
 | **Taiko Club** (M1) | ATK, Attack Speed, Range | **+5 % Attack Speed** | **Big Beat**: "Every 10th attack hits 50 % harder." (traps: every 10th trap; drones: every 10th drone shot) | +5 % everywhere |
 | **Pyrotechnics Club** (M1) | ATK, Pierce, Range | **+5 % ATK** | **Finale Pop**: "Enemies she defeats burst for 25 % of her hit." (0.9 tiles; pops never pop; a shared budget, §C.3) | crowd only |
-| **Tea Club** (M1) | Aura Power, Range, Cost Reduction | **+6 % Aura Power** | **Second Cup**: "Girls in her aura attack 2 % faster." (no aura: the 2 nearest girls within 2 tiles) | partner ×1.02 |
+| **Tea Club** (M1) | Aura Power, Range, Cost Reduction | **+6 % Aura Power** | **Second Cup**: "Girls in her aura (no aura: the 2 nearest) attack 2 % faster." (the 2 nearest girls within 2 tiles) | partner ×1.02 |
 | **Bell Club** (M2) | Skill Haste, Attack Speed, Range | **+8 % Skill Haste** | **First Bell**: "When a wave starts, her hasted skills gain 10 % charge." | ⚡ uptime |
 
 - **Why these numbers.** In the first draft Taiko (favourites ATK, Speed, Crit DMG) was the best boss set for every
@@ -483,6 +483,12 @@ Miko).
 - **Fits** (≥ 2 strong per girl at M1 except Umeko; table §C.6). Every trick does something on every kit except the
   named ones: Follow-Through does nothing for Kaede (duel), Second Cup's value is the partner's, First Bell needs a
   hasted skill.
+- **A trick that does nothing for her is never shown as on** (owner default Q3; A3 M2 review look-1). One rule,
+  `trickIdle` in `src/data/gearStats.js`: today only First Bell can be idle (her ability waits for a later update, or
+  it is a rally or a debuff; in battle also before her ⚡ tier 3 / Lv 7). Her set chip turns flat grey with one calm
+  line ("First Bell: no effect yet"), the gear totals' set line says why, the Club Armband picker says it under Bell
+  for the girl wearing the piece, and the battle panel's Club cell drops "trick on". In this build First Bell charges
+  her ⚡ ability or hero skill only, never a hero's ultimate (§C.3 lists the ult; not built).
 
 ### C.3 Tricks in the sim (deterministic; constants in hashed `src/sim/gearRules.js`)
 

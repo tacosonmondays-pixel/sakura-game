@@ -98,9 +98,19 @@ describe('backdrops', () => {
     expect(a.length).toBeLessThan(60000);
   });
   it('theme banners still render for every theme', () => {
-    for (const t of ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena']) {
+    for (const t of ['sakura', 'lake', 'shrine', 'mountain', 'marsh', 'foundry', 'festival', 'volcano', 'snow', 'night', 'arena', 'city', 'campus']) {
       expect(themeBackdropSVG(t)).toContain('<svg');
     }
+  });
+  it('the campus banner (Hilltop at night; Act 2 story backgrounds fall back to it) is its own scene', () => {
+    const svg = themeBackdropSVG('campus');
+    expect(svg).not.toMatch(/NaN|undefined/);
+    expect(svg).toBe(themeBackdropSVG('campus'));
+    expect(svg).not.toBe(themeBackdropSVG('city'));
+    expect(svg).not.toBe(themeBackdropSVG('sakura'));
+    // the clock tower's lit face and the gym's pink banner band are in it
+    expect(svg).toContain('#fff3d0');
+    expect(svg).toContain('#ff7aa2');
   });
 });
 

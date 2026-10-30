@@ -219,6 +219,8 @@ async function recheck() {
 function goLive(backend) {
   refresh();
   refreshBlocked();
+  // [friend support] the Friendship tab opens while Friend Support is available (BANNERS §E)
+  import('../../online/supportClient.js').then((m) => m.supportClient()).then((sc) => sc.refreshLive()).catch(() => {});
   state.offInbox?.();
   const offDms = backend.subscribeInbox((e) => onInbox(e));
   // [clan invites] a new invite (local test mode delivers it live; online the 5-minute refresh does)

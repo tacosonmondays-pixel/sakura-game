@@ -26,7 +26,11 @@ import {
   GACHA, BATTLE, effectivenessLabel,
 } from './types.js';
 import { MAP_TIER_VIEW } from './mapTierNames.js';
-import { UNITS } from './units.js';
+import { UNITS as ALL_UNITS } from './units.js';
+import { listedUnits } from './banners.js';
+
+// (the wiki lists the girls players can meet: a held girl waits until she can be recruited)
+const UNITS = listedUnits(ALL_UNITS);
 import { statName, BASE_STAT_KEYS } from './gearStats.js';
 import { CLUBS, LIVE_CLUBS } from './clubs.js';
 import { LEGACY, LEGACY_IDS } from './legacy.js';
@@ -56,6 +60,7 @@ export const ROLE_SUBCLASS = {
   tideguard: { label: 'Tidal Frontline', desc: 'Water hero: frost strikes and push-back.' },
   marksman: { label: 'Generalist', desc: 'Cheap, reliable shots; good vs crystal shells.' },
   sniper: { label: 'Precision', desc: 'Removes priority targets: casters, siphoners, elites, bosses.' },
+  powerhouse: { label: 'Late Carry', desc: 'Costly coil bolts that grow into the strongest damage on the field.' },
   cleaver: { label: 'Crowd Melee', desc: 'Sweeps everything at a corner.' },
   duelist: { label: 'Melee Duelist', desc: 'Damage ramps up on the same target; every 3rd strike cleaves the crowd around it.' },
   skirmisher: { label: 'Rapid Multi-Target', desc: 'Many quick hits; innate detection.' },
@@ -88,7 +93,11 @@ export const ROLE_SUBCLASS = {
   builder: { label: 'Sentry Builder', desc: 'Timed sentries at the road\'s edge, typed for the threat.' },
   manager: { label: 'Buff Thrower', desc: 'Drinks for the hardest-working girl and everyone next to her.' },
   ring: { label: 'Ring Burst', desc: 'Pins in every direction at once; best where the road wraps around her.' },
+  battery: { label: 'Duo Battery', desc: 'Map-wide star shells, a constant beam that guards the sky, and shells that split into light.' },
   spiker: { label: 'Road Control', desc: 'Spike strips on the road: each hits everything that walks over it.' },
+  // the staff heroes of the banners wave (BANNERS §D)
+  pilot: { label: 'Mech Pilot', desc: 'Armor-piercing rivets from a walker; her plow pushes the road back.' },
+  blocker: { label: 'Barricades', desc: 'Barricades hold walkers on the road until they break.' },
 };
 
 /**
@@ -176,20 +185,27 @@ function controls() {
         'While you hold a card, the spots where she cannot stand (road, obstacles, wrong terrain, other girls) are shaded red. Water girls (Sango, Umeko, Nami) stand on water instead of land.',
         'Placement shows her range circle; a red, shaking ghost means the spot is invalid and a short message says why.',
         'Hold a girl\'s card (or right-click it) in the menus to open her info sheet.',
-        'In battle, hold a placed girl or a card in the bar (or press Tree in her panel, or T) to see her whole upgrade tree.',
+        'In battle, hold a placed girl or a card in the bar (or tap the tree button in her panel, or press T) to see her whole upgrade tree.',
       ])),
     sec('During a battle',
       table(['Action', 'Touch', 'Mouse'], [
         ['Select a girl', 'Tap her', 'Click her'],
-        ['Upgrade / sell', 'Selected panel buttons', 'Selected panel buttons'],
+        ['Upgrade / sell', 'Tap a price (or Sell) in her panel, then tap it again', 'Click a price (or Sell) in her panel, then click it again'],
         ['Pan the camera (Camera: Free)', 'Drag empty ground', 'Drag empty ground'],
         ['Zoom (Camera: Free)', 'Pinch', 'Mouse wheel'],
         ['Reset camera (Camera: Free)', 'Double-tap empty ground', 'Double-click empty ground'],
         ['Game speed', '1× / 2× / 3× button', '1× / 2× / 3× button'],
         ['Hero ultimate', 'Ult button on the hero portrait', 'Ult button (or Q)'],
+        ['Hero skill (from Lv 7)', 'Skill button next to the ult', 'Skill button (or E)'],
         ['Hero level up', 'Level up pill next to the hero portrait', 'Level up pill (or L)'],
         ['Move hero', 'Move in her panel', 'Move in her panel'],
+        ['Fire an ability', 'Ability bar button (bottom right)', 'Ability bar button (or 1–9)'],
+        ['Ability info / Auto', 'Hold the ability button', 'Right-click the ability button'],
+        ['Arm a card', 'Tap the card', 'Click the card (or Shift+1–9)'],
+        ['Start the next wave', 'Start button', 'Start button (or Space)'],
       ]),
+      p('Keys 1–9 fire the ability bar\'s buttons in order; Shift+1–9 picks the tower-bar cards (the hero card first). F changes the game speed and Esc opens the menu.'),
+      { type: 'links', ids: ['abilities'] },
       p('The battle camera is locked by default: the whole map stays framed and a drag never moves it. Settings → Battle → Camera → Free brings back drag to pan, pinch / wheel to zoom and double-tap to reset. While you place a girl the camera holds still in both modes.'),
       p(`Target modes: ${Object.values(TARGET_MODES).join(', ')}. "Priority" makes a girl shoot casters, field oni, siphoners and elites first; "Air" shoots flyers first (then the leader).`)),
     sec('Menus',
@@ -198,6 +214,38 @@ function controls() {
         'Tap any item icon anywhere to see what it does and where to get it — with a Teleport button to the best stage.',
         'In the 3D viewers, drag to rotate, pinch or scroll to zoom, and tap the model to make it act.',
       ])),
+  ]);
+}
+
+/** Abilities (ABILITIES_SPEC §10): the ⚡ path, the bar, charging, Auto, copies, heroes, co-op. */
+function abilitiesArticle() {
+  return article('abilities', 'Abilities', 'basics', 'lightning', 'Every girl learns an ability with a short recharge: how to fire it, charge it and let it fire by itself.', ['ability', 'abilities', 'skill', 'auto', 'auto-cast', 'cooldown', 'recharge', 'lightning', 'bar', 'keys'], [
+    sec('The ability path',
+      p('At tier 3 of one of her paths, marked with a yellow bolt, a girl learns an ability: a button with a short recharge. Tier 5 of that path makes it stronger and recharge faster. Her page shows it on the Info tab and marks the path on the Tree tab.'),
+      p('Some girls\' abilities, and one hero\'s skill, come in a later update: their bolt path or hero level says so, and everything else about them works as usual.')),
+    sec('Using it',
+      list([
+        'Tap her portrait in the ability bar (bottom right, above the cards), or press 1–9. Her panel has the same button (FIRE).',
+        'Abilities recharge only while a wave is running, and can be used only during a wave. Effects that last end when the wave is cleared.',
+        'Hold the button (right-click on a computer) to read what it does with her current numbers, and to switch Auto on or off.',
+        'Several copies of the same girl share one button; each tap fires the next copy that is ready. Map-wide abilities (globe badge) recharge once per player.',
+        'A few abilities aim: tap the button, then tap a girl (or a spot on the road). Tap the button again to let her pick.',
+      ])),
+    sec('Faster recharge',
+      list([
+        'Skill Haste gear speeds up an ability\'s recharge at half strength (never team rallies or debuffs).',
+        'Bell Club (3 pieces): when a wave starts, her ability gains 10% of its charge.',
+        'Inside Ouka\'s office, abilities recharge 15% faster with Club Mentors and 25% faster with Festival of Clubs. A map-wide ability\'s shared recharge speeds up while any copy of that girl stands inside.',
+      ])),
+    sec('Auto',
+      p('Settings → Battle → Auto-cast abilities (Off at first) lets every girl fire hers by herself when it is a good moment. You can still tap them, and switch Auto per girl by holding her button. Your own timing is usually better: before a bunched crowd, or a freeze saved for the leak.')),
+    sec('Heroes, bosses and co-op',
+      list([
+        'Heroes unlock their ultimate at Lv 3 and a quick skill at Lv 7 (the skill button by her portrait, or E).',
+        'Bosses and minibosses shrug off ability stuns and freezes for 4 seconds after one lands.',
+        'Co-op: you fire your own girls\' abilities; your rallies also help your ally\'s girls.',
+      ]),
+      { type: 'links', ids: ['controls', 'crosspath'] }),
   ]);
 }
 
@@ -244,7 +292,7 @@ function rolesArticle() {
   });
   return article('roles', 'Roles & Subclasses', 'students', 'students', 'Every girl\'s job in one place, at a glance: what she is for and what she cannot do.', ['role', 'class', 'subclass', 'sniper', 'artillery', 'support', 'dps', 'control', 'frag', 'economy', 'hero', 'precision', 'siege'], [
     sec('How roles work',
-      p('Like monkey classes in tower defense classics, every girl has a role. The role tells you what problems she solves; the subclass label on her Info tab ("Precision · Pierce · Armor Pierce · Veil Sight") sums up her attack type and key capabilities.'),
+      p('Every girl has a role. The role tells you what problems she solves; the subclass label on her Info tab ("Precision · Pierce · Armor Pierce · Veil Sight") sums up her attack type and key capabilities.'),
       p('A good formation covers several roles: someone to thin swarms, someone to break armor, someone to see veiled enemies, and someone to stop leaks.')),
     ...byCat,
     sec('A classic mixed wave',
@@ -383,7 +431,7 @@ function gearArticle() {
     sec('Substats by rarity',
       table(['Rarity', 'Substats'], ITEM_RARITY_ORDER.map((r) => [{ text: ITEM_RARITIES[r].name, color: ITEM_RARITIES[r].color, strong: true }, String(GEAR_SUBSTATS_BY_RARITY[r])])),
       p(`Possible stats: ${BASE_STAT_KEYS.map((k) => statName(k)).join(', ')}. A substat never repeats the main stat. Club pieces can also roll Pierce (ribbons: hits more enemies) or Aura Power (shoes: a stronger aura).`),
-      p('Every Line Counts: a line her kit can\'t use, or the part of a stat past its MAX, still helps: it turns into ATK (Umeko and Miko: into their aura). Each extra one adds a little less, up to +12%. Skill Haste (it was called Ult Haste) speeds up hero ults, and every girl\'s ⚡ ability at half strength.')),
+      p('Every Line Counts: a line her kit can\'t use, or the part of a stat past its MAX, still helps: it turns into ATK (Umeko and Miko: into their aura). Each extra one adds a little less, up to +12%. Skill Haste (it was called Ult Haste) speeds up hero ults, and every girl\'s ⚡ ability at half strength (not team rallies or debuffs). On a girl whose ability has no button yet, or is a rally or a debuff, it turns into ATK like any other line she can\'t use.')),
     sec('Enhancing',
       list(['Each enhancement (+1, max +10) costs coins and grows the main stat.', 'Every 3rd level (+3, +6, +9) the least-upgraded substat grows too.'])),
     sec('Rerolling',
@@ -422,12 +470,19 @@ function gachaArticle() {
       list([
         `Pity: the ${GACHA.pity}th recruit without an SSR is always an SSR. The counter carries over between banners and sessions.`,
         'Every 10× recruit contains at least one SR or better.',
-        `Spark: every recruit earns 1 Recruit Point. ${GACHA.sparkCost} points exchange for any SSR you choose (Mall · Recruit Exchange).`,
+        `Spark: every recruit earns 1 Recruit Point. ${GACHA.sparkCost} points spark a Standard SSR any day, or a Premium SSR on her Spotlight day (Mall · Recruit Exchange). LR units cannot be sparked: the Legend Promise gives her on the 300th pull on her LR Banners.`,
       ])),
     sec('Costs',
       table(['Recruit', 'Gems', 'Ticket'], [['Single', fmt(GACHA.costSingle), itemName('ticket_recruit')], ['10×', fmt(GACHA.costTen), itemName('ticket_recruit10')]]),
       tip('Tickets are always used before gems.', 'info'),
-      p('Every girl — free recruits and heroes included — is in her rarity\'s pool, so a free girl you already own still gains Essence from a duplicate (or Mementos and Moonpearls once she holds all she can).'),
+      p('Every Standard girl (every R and SR, free recruits and heroes included, and the five original SSRs) is in the Standard and LR Banner pools (the Student Spotlight leaves out the heroes, the Guardian Spotlight the Standard tower SSRs), so a free girl you already own still gains Essence from a duplicate (or Mementos and Moonpearls once she holds all she can).')),
+    sec('Banners',
+      list([
+        'Student Spotlight (towers) and Guardian Spotlight (heroes) change every day at 7 PM Central: one featured SSR at 1.0% and three SR rate-ups at 3.0% each.',
+        'Premium SSRs appear only as a Spotlight\'s featured girl. The Standard banner holds Standard girls only, and you choose its featured SSR (once a game day). Your first Standard 10× guarantees a Standard SSR.',
+        'LR units are on their own LR Banner: 0.5% (0.7% in their debut week), taken out of the 1.5% SSR line. They cannot be sparked or chosen with a Select Ticket; the 300th pull on their LR Banners is them (the Legend Promise). Pulls there still earn Recruit Points for other girls.',
+        'Pity is one counter for every gem banner.',
+      ]),
       { type: 'links', ids: ['potential'] }),
   ]);
 }
@@ -555,7 +610,7 @@ function economyArticle() {
       table(['Currency', 'Earned from', 'Spent on'], [
         [{ text: 'Coins', icon: 'item:coins', strong: true }, 'Stage drops, Coin Bounty, commissions, salvage', 'Levels, breakthroughs, awakening, gear, General shop'],
         [{ text: 'Sakura Gems', icon: 'item:gems', strong: true }, 'First clears, commissions, login, achievements, codes', 'Recruits, Gem Shop'],
-        [{ text: 'Recruit Points', strong: true }, '+1 per recruit', 'Spark any SSR, Star Fragments'],
+        [{ text: 'Recruit Points', strong: true }, '+1 per recruit', 'Spark an SSR, Star Fragments'],
         [{ text: itemName('token_boss'), icon: 'item:token_boss', strong: true }, 'Minibosses, Total Assault', 'Boss Exchange: crowns, dice, pins'],
         [{ text: itemName('token_bounty'), icon: 'item:token_bounty', strong: true }, 'Bounty arenas, Tactical Challenge, commissions', 'Bounty Exchange: gear boxes, dice, pins'],
       ])),
@@ -750,14 +805,14 @@ function newGirlsArticle() {
       p('Spin Shot is her pinball path. From Bumper Bounce (tier 2) a ball that blows up bounces off to the nearest other walker within 2 tiles (never a flyer or a walker in a tunnel) and blows up again: 1 bounce, then 3, 5 and 8. Glow Bowl (tier 5) ends a full run of 8 bounces with a glowing finale: triple damage on a wider blast.'),
       tip('Place her where the road runs toward the spawn in front of her. Heavy Ball makes the biggest single blasts and stuns; Lane Master rolls faster and throws pins along the road; Spin Shot is best where the walkers bunch up.', 'info')),
     sec('The council office (Ouka)',
-      p('Ouka never attacks. Girls inside her office radius follow her rules: their upgrades cost less and they sell for more. Club Budget makes the first tiers of every path free for them and pays coins for kills inside the office; Assembly makes them attack faster and reach further; Safety Code gives them Veil Sight, lets them hit flyers and blocks sabotage. Her discount is the strongest one that covers a girl, not added to other discounts.'),
+      p('Ouka never attacks. Girls inside her office radius follow her rules: their upgrades cost less and they sell for more. Club Budget makes the first tiers of every path free for them and pays coins for kills inside the office; Assembly makes them attack faster and reach further, and from Club Mentors their abilities recharge faster; Safety Code gives them Veil Sight, lets them hit flyers and blocks sabotage. Her discount is the strongest one that covers a girl, not added to other discounts.'),
       tip('Place Ouka first and build around her. Rally Banner (Safety Code tier 3): aim her to plant a banner up to 5 tiles away, and the girls next to it follow her rules too.', 'info')),
   ]);
 }
 
 function buildArticles() {
   return [
-    gettingStarted(), controls(), typeChartArticle(), rolesArticle(), crosspathArticle(), codexArticle(), returningArticle(), newGirlsArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
+    gettingStarted(), controls(), abilitiesArticle(), typeChartArticle(), rolesArticle(), crosspathArticle(), codexArticle(), returningArticle(), newGirlsArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
     itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), potentialArticle(), medalsArticle(), mapsArticle(),
     economyArticle(), unlocksArticle(), tipsArticle(),
   ];

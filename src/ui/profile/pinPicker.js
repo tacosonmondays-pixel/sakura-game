@@ -6,7 +6,7 @@ import { store } from '../../core/store.js';
 import { pinOptions, autoPins, pinEarned } from '../../systems/profileTrophies.js';
 import { setSensei } from '../../systems/senseiSave.js';
 import { PINS_MAX } from '../../online/profileRules.js';
-import { plaqueEl, openSheetFrame } from './parts.js';
+import { plaqueEl, openSheetFrame, kitBtn } from './parts.js';
 
 const TABS = [['medals', 'Medals'], ['ribbons', 'Ribbons'], ['achievements', 'Achievements']];
 const PAGE = 60;
@@ -58,8 +58,8 @@ export function openPinPicker({ pin: want = null } = {}) {
     }
     list.replaceChildren(...[...items.slice(0, shown).map((pin) => {
       const at = pins.indexOf(pin);
-      return h(`button.pp-opt${at >= 0 ? '.on' : ''}`, { type: 'button', 'data-pin': pin, 'data-testid': 'pin-option', onclick: () => toggle(pin) }, plaqueEl(pin), at >= 0 ? h('span.es-on', String(at + 1)) : null);
-    }), items.length > shown ? h('button.btn.btn-ghost.btn-small.pp-more', { type: 'button', onclick: () => { shown += PAGE; draw(); } }, h('span', `Show more (${items.length - shown})`)) : null].filter(Boolean));
+      return h(`button.pp-opt${at >= 0 ? '.on' : ''}`, { type: 'button', 'data-pin': pin, 'data-testid': 'pin-option', 'data-probe': 'tile', onclick: () => toggle(pin) }, plaqueEl(pin), at >= 0 ? h('span.es-on', String(at + 1)) : null);
+    }), items.length > shown ? kitBtn('sec', 'pp-more', { onclick: () => { shown += PAGE; draw(); } }, h('span', `Show more (${items.length - shown})`)) : null].filter(Boolean));
   }
 
   const save = () => {
@@ -75,11 +75,11 @@ export function openPinPicker({ pin: want = null } = {}) {
     testid: 'pin-picker',
     head: [note],
     body: h('div.es-body', top, h('div.es-bar', tabs, h('span.es-note', 'Only what you have earned · best first')), list),
-    foot: h('div.es-foot',
-      h('button.btn.btn-ghost.btn-small', { type: 'button', 'data-testid': 'pin-auto', onclick: () => { pins = []; draw(); } }, h('span', 'Use my best medals')),
+    foot: h('div.es-foot.pf-sheet-foot',
+      kitBtn('ghost', '', { 'data-testid': 'pin-auto', onclick: () => { pins = []; draw(); } }, h('span', 'Use my best medals')),
       h('span.es-spacer'),
-      h('button.btn.btn-ghost.btn-small', { type: 'button', onclick: () => frame.close() }, h('span', 'Cancel')),
-      h('button.btn.btn-yellow', { type: 'button', 'data-testid': 'pin-save', onclick: save }, h('span', 'Save pins'))),
+      kitBtn('sec', '', { onclick: () => frame.close() }, h('span', 'Cancel')),
+      kitBtn('pri', '', { 'data-testid': 'pin-save', onclick: save }, h('span', 'Save', h('span.pf-long', ' pins')))),
   });
   draw();
   return frame;

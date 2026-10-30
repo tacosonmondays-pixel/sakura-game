@@ -22,16 +22,18 @@
 .ui-night .home .ui-scene { position: absolute; inset: 0; }
 .home .home-scene-layer { position: absolute; inset: 0; overflow: hidden; }
 /* the baked painting under its own layer (the kit's .ui-scene > img rules, one level down) */
-.ui-night .home .home-scene-layer > img.baked { position: absolute; inset: -2%; width: 104%; height: 104%; object-fit: cover; object-position: 50% 62%; filter: blur(1.5px); }
-/* a picture with no baked night copy (an event's painted backdrop, the full illustrations from v0.1.48 on, her 3:4 full
-   art): the kit's night grade in CSS instead (ink.css .ui-scene > img: the brightest pixel stays at or under 199/255) */
-.ui-night .home .home-scene-layer > img.graded { position: absolute; inset: -2%; width: 104%; height: 104%; object-fit: cover; object-position: 50% 62%;
-  filter: saturate(0.68) brightness(0.76) contrast(0.96) blur(1.5px); }
+/* every picture on the home in its own colours, sharp, under one light grade (--home-grade; owner, Oct 28: the old night
+   grade, saturate 0.68 brightness 0.76 and a 1.5 px blur, "looks a little dead … bland"). The words over the scene keep
+   their contrast from the scrims behind the UI rows and the plates, not from dimming the whole picture. */
+.ui-night .home { --home-grade: none; }
+.ui-night .home .home-scene-layer > img.baked { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 62%; filter: none; }
+.ui-night .home .home-scene-layer > img.graded { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 62%;
+  filter: var(--home-grade); }
 .ui-night .home .home-scene-layer > .lift { position: absolute; inset: 0; background: radial-gradient(38% 52% at var(--hx, 52%) var(--hy, 46%), rgba(190, 215, 255, 0.08), transparent 70%); }
 /* a full illustration (src/data/lobbyIllustrations.js) is placed whole (src/ui/lobby/hostPlace.js placeScene): no blur,
    she is in it; graded like any picture without a baked copy */
 .ui-night .home .home-scene-layer > img.home-scene-art { position: absolute; object-fit: fill; filter: none; }
-.ui-night .home .home-scene-layer > img.home-scene-art.graded { filter: saturate(0.68) brightness(0.76) contrast(0.96); }
+.ui-night .home .home-scene-layer > img.home-scene-art.graded { filter: var(--home-grade); }
 /* her chosen time of day, over the baked night grade (only ever darker: text over the scene keeps its contrast) */
 .home .home-tint { position: absolute; inset: 0; pointer-events: none; }
 .home .home-tint.tint-sunset { background: linear-gradient(180deg, rgba(110, 46, 52, 0.16), rgba(70, 30, 60, 0.12)); }
@@ -109,8 +111,9 @@
 .home .home-top .serial { align-self: flex-start; margin-top: 6px; }
 /* (the decorative serial at full strength on the home: at the kit's 0.7 it read 4.0-4.5:1 over the brighter wallpapers) */
 .ui-night .home .home-top .serial { opacity: 1; white-space: nowrap;
-  /* (the caps' soft ink halo: 4.5:1 or more over the brightest full illustrations too) */
-  text-shadow: 0 0 2px rgba(14, 25, 48, 0.9), 0 0 6px rgba(14, 25, 48, 0.85); }
+  /* (the caps' soft ink halo, tighter and deeper since the home shows in full colour: 4.5:1 with room to spare over the
+     palest skies, Azami's gate included) */
+  text-shadow: 0 0 1px rgba(14, 25, 48, 1), 0 0 3px rgba(14, 25, 48, 0.95), 0 0 8px rgba(14, 25, 48, 0.85); }
 .home .home-top .ui-pill + .ui-pill { margin-left: -6px; }
 .home .home-top .ui-pill[role="button"] { cursor: pointer; }
 .home .home-top .ui-vr { margin: 12px 0; }
@@ -171,6 +174,8 @@
 /* a free pull (or a spark ready): the badge vocabulary's ink sticker with the word, over the glyph's top right, in the
    cell's own top right corner (never across the hairline into the next cell; --free-y: the glyph's top, less 15 px) */
 .ui-night .home .home-ico .home-free { --free-y: 1px; position: absolute; z-index: 2; right: 2px; top: var(--free-y); height: 18px; padding: 0 5px; line-height: 1; pointer-events: none; }
+/* (the Events time-left sticker in the cell's top-left corner: its red dot keeps the glyph's top right) */
+.ui-night .home .home-ico .home-free.left { right: auto; left: 2px; }
 /* a hairline between two icons; no plate at rest, the kit's slanted press plate on press and keyboard focus */
 .home .home-ico + .home-ico::after { content: ''; position: absolute; left: -2.5px; top: 22px; bottom: 22px; width: 1px; background: var(--line-lo); }
 .home .home-ico::before { content: ''; position: absolute; inset: 2px -2px; z-index: 0; transform: skewX(var(--skew)); background: var(--glass-ink-1); box-shadow: inset 0 0 0 1px var(--line-hi);
@@ -233,6 +238,19 @@
     var(--rw) calc(100% - var(--rw)),
     var(--rw) var(--rw)); }
 .home .home-coop > * { position: relative; z-index: 1; }
+/* Events: CO-OP's twin on the plate's top-right corner ("\" left end, straight where it meets the plate), its time-left
+   sticker over the lantern, its red dot by the word (lobby.js eventsTab) */
+.ui-night .home .home-evt { left: auto; right: 0; min-width: 0; padding: 0 18px 0 calc(18px + var(--s));
+  clip-path: polygon(0 0, 100% 0, 100% 100%, var(--s) 100%); }
+.ui-night .home .home-evt::after { clip-path: polygon(evenodd,
+    0 0, 100% 0, 100% 100%, var(--s) 100%, 0 0,
+    calc(var(--rw) * 1.15) var(--rw),
+    calc(100% - var(--rw)) var(--rw),
+    calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(var(--s) + var(--rw) * 0.87) calc(100% - var(--rw)),
+    calc(var(--rw) * 1.15) var(--rw)); }
+.ui-night .home .home-evt .home-evt-left { position: absolute; z-index: 2; left: calc(var(--s) + 6px); top: 2px; height: 16px; padding: 0 4px; line-height: 1; font-size: 12px; pointer-events: none; }
+.ui-night .home .home-evt .ui-dot { position: absolute; z-index: 2; right: 6px; top: 6px; }
 .ui-night .home .home-coop svg.g { width: 24px; height: 24px; }
 .ui-night .home .home-coop .lbl { font: 600 15px/1 var(--font-num); letter-spacing: var(--track-menu); color: var(--on-ink); }
 .ui-night .home .home-coop:is(:active, :focus-visible) { --fill: var(--plate-2); outline: none; }
@@ -348,6 +366,8 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   .ui-night .home .home-coop { --h: 46px; min-width: 112px; gap: 6px; padding: 0 calc(12px + var(--s)) 0 12px; }
   .ui-night .home .home-coop svg.g { width: 20px; height: 20px; }
   .ui-night .home .home-coop .lbl { font-size: 13px; }
+  /* (Events keeps its own width: the CO-OP rule above is later than .home-evt's min-width: 0) */
+  .ui-night .home .home-evt { min-width: 0; padding: 0 12px 0 calc(12px + var(--s)); }
 
   .ui-night .home .home-restore { right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 
@@ -370,6 +390,9 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   .home .home-dock { --ico-pad: 0px; display: grid; grid-template-columns: repeat(2, var(--ico-w)); }
   .ui-night .home .home-dock .home-ico { width: var(--ico-w); min-width: 0; }
   .home .home-dock .home-ico:nth-child(3)::after { display: none; }
+  .home .home-dock.five { grid-template-columns: repeat(3, var(--ico-w)); }
+  .home .home-dock.five .home-ico:nth-child(3)::after { display: block; }
+  .home .home-dock.five .home-ico:nth-child(4)::after { display: none; }
 }
 /* (.fold: a girl whose art reaches into the icons' corner on any landscape screen, Marumi's ball: the icons fold the
    same way, lobby.js refold) */
@@ -377,13 +400,38 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   .home.fold .home-dock { --ico-pad: 0px; display: grid; grid-template-columns: repeat(2, var(--ico-w)); }
   .ui-night .home.fold .home-dock .home-ico { width: var(--ico-w); min-width: 0; }
   .home.fold .home-dock .home-ico:nth-child(3)::after { display: none; }
+  /* five shortcuts (Events): three by two in 64 px cells (12 px caps), so the fold stays two rows tall and as narrow as
+     the four were (Marumi's living scene keeps her room at 1280x720) */
+  .home.fold .home-dock.five { --ico-w: 64px; grid-template-columns: repeat(3, var(--ico-w)); }
+  .ui-night .home.fold .home-dock.five .home-ico .lbl { font-size: 12px; }
+  .home.fold .home-dock.five .home-ico:nth-child(3)::after { display: block; }
+  .home.fold .home-dock.five .home-ico:nth-child(4)::after { display: none; }
 }
-@media (max-height: 480px) and (max-width: 759px) { .home .home-dock { --ico-w: 64px; } .home .home-go .kl { display: none; } }
+/* five shortcuts (Events, owner Oct 28): each cell its label plus 8 px a side, so the row stays about as wide as four
+   were; on a landscape phone they fold three by two, clear of her (lobby.js buildDock .five) */
+.home .home-dock.five { --ico-pad: 8px; }
+@media (max-height: 480px) {
+  .home .home-dock.five { --ico-pad: 0px; display: grid; grid-template-columns: repeat(3, var(--ico-w)); }
+  .ui-night .home .home-dock.five .home-ico { width: var(--ico-w); min-width: 0; }
+  .home .home-dock.five .home-ico:nth-child(4)::after { display: none; }
+}
+@media (max-height: 480px) and (max-width: 759px) {
+  .home .home-dock { --ico-w: 64px; } .home .home-go .kl { display: none; } .home .home-evt .lbl { display: none; }
+  /* Events without its word: a narrow icon tab, the lantern centred, its sticker (left) and dot (right) apart, clear of CO-OP */
+  .ui-night .home .home-evt { width: 64px; justify-content: center; padding: 0 8px 0 calc(8px + var(--s)); }
+}
 @media (min-height: 481px) and (min-width: 701px) and (max-width: 1179px) { .home .home-dock { --ico-w: 88px; --ico-h: 76px; } .ui-night .home .home-ico .home-free { --free-y: -2px; } .home .home-battle { --bw: 300px; } }
 
 /* ================================================================ a phone held upright (390x844) */
 /* the bar on two rows (the avatar and the buttons, then the wallets), her in the upper half, and under her, in thumb
    reach: the news chip across, CO-OP on the Battle plate, the four icons across */
+/* an upright tablet or a narrow window (701-899 px wide, not a landscape phone): the bar's eleven pieces with Clan need
+   836 px at the desktop spacing, so the gaps close to 8 px and the decorative serial goes */
+@media (min-width: 701px) and (max-width: 899px) and (min-height: 481px) {
+  .ui-night .home .home-top { gap: 8px; }
+  .home .home-top .serial { display: none; }
+}
+@media (min-width: 701px) and (max-width: 759px) and (min-height: 481px) { .ui-night .home .home-top { padding: 0 16px; } }
 @media (max-width: 700px) and (min-height: 481px) {
   .ui-night .home .home-top { top: 8px; height: auto; flex-wrap: wrap; row-gap: 6px; padding: 0 16px; gap: 8px 10px; }
   .home .home-top .who { height: 44px; order: 0; }
@@ -406,6 +454,7 @@ html[data-reduce-motion] .home .home-stage-host { transition: none !important; }
   .ui-night .home .home-go .title { font-size: 30px; }
   .ui-night .home .home-play { width: calc(44px + var(--s)); }
   .ui-night .home .home-coop { --h: 46px; min-width: 112px; gap: 6px; padding: 0 calc(12px + var(--s)) 0 12px; }
+  .ui-night .home .home-evt { min-width: 0; padding: 0 12px 0 calc(12px + var(--s)); }
   .ui-night .home .home-coop .lbl { font-size: 13px; }
   .home .home-news-host { --news-tall: 60px; --news-up: 1; left: 16px; right: 16px; width: auto; top: auto; bottom: 246px; }
   .home.news-down .home-news-host { bottom: 246px; }

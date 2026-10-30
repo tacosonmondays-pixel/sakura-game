@@ -126,6 +126,7 @@ export const GLYPHS = {
   tideguard: '<path d="M12 21.5V6M7 3.5v4.5a5 5 0 0 0 10 0V3.5M12 3v3"/><path d="M3 20c2-1.5 3.5-1.5 5.3 0s3.5 1.5 5.3 0 3.5-1.5 5.3 0" stroke-width="1.6"/>',
   marksman: '<path d="M6 3.5c7.5 2.5 7.5 14.5 0 17"/><path d="M6 3.5v17M3 12h17M17 9l3 3-3 3"/>',
   sniper: crosshair,
+  powerhouse: '<path d="M2.5 12h19" stroke-width="2.2"/><ellipse cx="7" cy="12" rx="1.8" ry="5"/><ellipse cx="12" cy="12" rx="1.8" ry="6.5"/><ellipse cx="17" cy="12" rx="1.8" ry="5"/>',
   cleaver: '<path d="M4 20C6 11 11 5.5 20 3.5c-1 8-6.5 13-14 15z"/><path d="M4 20l3.5-3.5"/>',
   duelist: '<path d="M4 20L18.5 5.5M20 20L5.5 5.5"/><path d="M3 15.5l5.5 5.5M21 15.5L15.5 21" stroke-width="1.8"/>',
   controller: snow,
@@ -150,6 +151,9 @@ export const GLYPHS = {
   champion: '<ellipse cx="12" cy="10" rx="7.5" ry="3"/><path d="M4.5 10v5.5c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V10"/><path d="M5.5 2.5l4.5 4.5M18.5 2.5L14 7" stroke-width="2.2"/>',
   puppeteer: '<path d="M4 4h16M12 2v4.5"/><path d="M6 4v8.5M18 4v8.5M12 6.5v4.2" stroke-width="1.2"/><circle cx="12" cy="12.8" r="2.1"/><path d="M12 14.9v3.4M9 16.6l3-1.2 3 1.2M10 21.5l2-3.2 2 3.2"/>',
   stormrider: '<path d="M3.5 20.5L16.5 7.5"/><path d="M14.5 3.5l6 .5.5 6z" fill="currentColor"/><path d="M8.5 3.5L5.5 8.5h3L7 13" stroke-width="1.6"/>',
+  // the staff heroes of the banners wave (BANNERS §D): a walker's arm with a rivet; an A-frame barricade
+  pilot: '<rect x="4" y="6" width="9" height="7" rx="1.5"/><path d="M6.5 13l-1.5 7M10.5 13l1.5 7M3.5 20.5h4M10 20.5h4M13 9.5h5l2.5-2"/><circle cx="20.5" cy="7.5" r="1.2" fill="currentColor"/>',
+  blocker: '<path d="M3 9h18v4.5H3z"/><path d="M7 9l2 4.5M12 9l2 4.5M17 9l2 4.5" stroke-width="1.4"/><path d="M5.5 13.5l-1.5 7M18.5 13.5l1.5 7M5.5 9l1-4.5M18.5 9l-1-4.5"/>',
   // the new girls (UNIT_GAPS §5)
   bowler: '<circle cx="10" cy="14" r="6.5"/><circle cx="8" cy="12" r=".9" fill="currentColor"/><circle cx="11" cy="11.2" r=".9" fill="currentColor"/><circle cx="9.6" cy="14.3" r=".9" fill="currentColor"/><path d="M14.5 9.5l3-3M17 4.5l1.2 1.2M19.5 6l1.5-.5" stroke-width="1.5"/>',
   botanist: '<path d="M12 21.5V11"/><path d="M12 13c-4 0-6.5-2.5-6.5-6.5 4 0 6.5 2.5 6.5 6.5zM12 11c0-3.5 2.2-6 6-6 0 3.8-2.5 6-6 6z" fill="currentColor" fill-opacity=".3"/><path d="M7 21.5h10" stroke-width="1.6"/>',
@@ -157,6 +161,7 @@ export const GLYPHS = {
   builder: '<path d="M5 20.5l3-6h8l3 6"/><rect x="8" y="9" width="8" height="5.5" rx="1"/><path d="M16 11.5h4.5M12 9V5.5M9.5 5.5h5"/>',
   manager: '<path d="M9 3.5h6v3l2 3v11a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 20.5v-11l2-3z"/><path d="M7.5 13h9" stroke-width="1.6"/><path d="M19 4.5l1.5-1.5M20 8h2" stroke-width="1.4"/>',
   ring: '<circle cx="12" cy="12" r="2.6"/><path d="M12 7V2.5M12 17v4.5M7 12H2.5M17 12h4.5M8.5 8.5L5.3 5.3M15.5 15.5l3.2 3.2M15.5 8.5l3.2-3.2M8.5 15.5l-3.2 3.2" stroke-width="1.6"/>',
+  battery: '<path d="M3.5 20.5h9"/><rect x="4.5" y="12" width="8" height="4.5" rx="1.4" transform="rotate(-40 8.5 14.2)"/><path d="M13.5 4.5l5 9h-10z"/><path d="M16 9l5.5-2M17 11l5 1" stroke-width="1.4"/>',
   spiker: '<path d="M2.5 16.5h19v3h-19z"/><path d="M4.5 16.5l1.5-4 1.5 4M9.5 16.5l1.5-4 1.5 4M14.5 16.5l1.5-4 1.5 4" stroke-width="1.6"/><circle cx="17.5" cy="5.5" r="2.5"/><path d="M15 5.5H9.5" stroke-width="1.6"/>',
 
   // capabilities

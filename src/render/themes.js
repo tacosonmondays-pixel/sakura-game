@@ -8,6 +8,59 @@
 //   frame        prop types cycled around the map border (fence / hedge / flower bed / rocks…)
 //   life         ambient life flags: butterflies, birds, koi, clouds, fireflies, sparkle
 //   gate         { spawn, goal } colours for the entrance / exit gates
+//
+// Gate Arc (the city, src/render/city/):
+//   spawnGate / goalGate  prop types for the entrance / exit (default spawnGate / goalGate); like the
+//                shipped gates they stand on the board edge, where the road leaves the board
+//   rocks        [single, cluster] props for 'R' tiles (default rock / boulder)
+//   nightLight   this theme's own night lighting (default: the shared moonlit preset)
+//   weatherColors petal-weather particle colours (the city mixes in paper litter)
+//   city         the city kit's config: sidewalk / kerb colours, lawn, glass tints (cityKit.js);
+//                `kit: 'campus'` picks the school set (campusProps.js), `drones: false` no drones
+//   goalVariant  the goalGate prop's variant (a map's city.goalVariant wins)
+//   groundPaint  overrides of the ground painter's style flags (textures.paintGround, e.g. kerb bands on grass)
+//   nightGround  ground colours used at night instead (the campus lawns go dark green);
+//   nightCity    city kit colours used at night instead (the campus beds and sidewalk bands)
+//
+// Gate Arc Step 3 (S3a):
+//   DISTRICTS    a map's district on a theme (MapDef.district, e.g. 'oldtown' on `city`): its own
+//                ground, road and building set, merged by resolveLook when the map is given
+//   BURNING      the `ruined: 'burning'` table (StageDef.scenery.ruined), resolved last: an ash-dusted
+//                board under a dark sky, the road kept the lightest band, amber the one accent
+//
+// Gate Arc Step 4 (S4a):
+//   DISTRICTS.highway  the mountain highway (MapDef.district 'highway' on `city`): gravel verges, a
+//                pale `concrete` road with a dark hard shoulder, roadside embankments and depots,
+//                sound walls on the border, crash barriers instead of kerbs, highway lamps, the
+//                `highway` tunnel style (concrete portals, jet fans, sodium lamps), a concrete flyover
+//   DUSK         StageDef.look.dusk: a warm low sun under a violet sky (4-7), never night
+//   FROST        scenery keyword 'frost': a cold wash on the ground, frost on the rails, flurries
+//   BRIDGE_LAYER scenery keyword 'snowBridge': the Brigade's folding military deck (navy steel,
+//                amber hazard rails) over the water instead of the theme's planks (4-10)
+//   'snowCover'  scenery keyword: snow on the board's north rows (terrain.js paints it), flurries
+//
+// Gate Arc Step 5 (S5a):
+//   THEMES.drowned  the flooded Line 2 under Itomachi (MapDef.theme 'drowned'): the city kit with its own
+//                set (`city.kit: 'drowned'`, src/render/city/drownedProps.js), wet station tiles, a pale
+//                `grating` road (the lightest band), retaining walls, the `subway` tunnel style with red
+//                emergency lamps, dark teal flood water; lit underground (`forceNight`, its own light)
+//   EMERGENCY    the drowned kit's small accent lamps (red, amber): never on the road
+//   DISTRICTS.park  the reservoir park (MapDef.district 'park' on `city`): mown lawns with paved bands,
+//                park lamps, the dam wall on its H tiles, willows, the reservoir (parkProps.js)
+//   'noonGateFrost'  scenery keyword: rime on the pipes round the Noon Gate (look.frost) without snow
+//
+// Gate Arc Step 6 (S6a):
+//   THEMES.vesper  Vesperline (MapDef.theme 'vesper'), the city of glass on the lake (GATE_ARC §18.1): the
+//                city kit with its own set (`city.kit: 'vesper'`, src/render/city/vesperProps.js), the `glass`
+//                ground (frosted panels), the `glassway` road (white panels, a cyan guide line: the lightest
+//                band), lecture halls and podiums, frosted glass panes on the border, holo signs along the
+//                lanes, the `gallery` tunnel style (museum wings), the glass light-bridge deck, the sentry bay
+//                spawn and the shelter with one warm window. The theme itself is the LIVING city (white, sky
+//                blue, cherry trees in glass courtyards, a bright morning): a preview look until Arc 2
+//   FROZEN       the `ruined: 'frozen'` table (StageDef.scenery.ruined, on `vesper` only: any other theme
+//                ignores it), resolved like BURNING: frosted blue-grey glass, snow drifts and cyan cracks, the
+//                white glassway kept the lightest band, open leads near-black blue (the darkest band: ice and
+//                islands lighter than the water), an eclipse dusk (look.dusk: the lamps on), snow, a cold aurora
 
 const BASE = {
   ground: ['#9fd77a', '#93cf6f'], // two tones blended by noise (no checker any more)
@@ -212,7 +265,8 @@ export const THEMES = {
     shore: '#dfe8f3',
     path: { style: 'cobble', color: '#bcb9c8', curb: '#8f8ca0', side: '#7d7a8e' },
     tunnel: { top: '#eef6fb', side: '#a9c2d6', portal: '#8fb9e6', dark: '#1d2a3e' },
-    water: { deep: '#3d8fc6', shallow: '#a8e4f5', foam: '#ffffff', glow: 0 },
+    // (a notch darker than the snow in greyscale: the river reads as water, not a paler drift)
+    water: { deep: '#2a6c9c', shallow: '#6fb2d2', foam: '#ffffff', glow: 0 },
     trees: ['snowPine', 'snowPine', 'pine'],
     scatter: ['snowPine', 'cliff', 'snowPine', 'boulder', 'snowPine'],
     treeColors: { leaf: '#3c7a62', leaf2: '#2f6552', trunk: '#5e4636' },
@@ -297,7 +351,248 @@ export const THEMES = {
     weather: 'petals',
     bg: '#cfeaff',
   },
+  // ----- Gate Arc · Noon: Itomachi, Sensei's present-day city (src/render/city/) -------
+  // Warm and lived-in: pale paving with slab seams, asphalt streets with lane markings and
+  // kerbs, shop fronts with green and red awnings, utility poles and wires, cherry street trees,
+  // a railway where the map lays one (map.city.railway) and the Brigade's patrol drones circling
+  // over the side skirts. The Petal Gate tears open in the street (petalRift); the goal is the
+  // shelter door (shelterDoor). No map uses it before the Gate Arc's Act II stages.
+  city: {
+    ground: ['#e9e6e0', '#e1ddd5'],
+    groundSpeck: '#f4f2ee',
+    groundShade: '#c4beb3',
+    clover: '#8fbf6a',
+    wet: '#b9c3c9',
+    dirt: '#e4dbcc',
+    pebble: '#c9c0b0',
+    groundStyle: 'paved',
+    flowers: ['#7cc96a', '#5fae55', '#ffd166', '#ff9ec4'],
+    bank: '#a8a093',
+    bankDark: '#857d71',
+    shore: '#d2cabb',
+    path: { style: 'asphalt', color: '#ffffff', curb: '#f4f1ea', side: '#8a8d96', base: '#4b505b', crisp: true, plainJunction: true },
+    bridge: { deck: '#bdb7ac', rail: '#eef0f2', post: '#8f8a80', lacquer: false, overpass: '#cbc5ba', girder: '#7d7870', overRail: '#e9ecef', grating: false, shadow: 0.32 },
+    tunnel: { style: 'subway', top: '#d8d0c2', side: '#c4bcae', portal: '#f2efe8', dark: '#22252e', stripe: '#4f9a62', hall: '#f3e7d0', roof: '#8fa3b8', glass: '#9cc4d8' },
+    water: { deep: '#2f7fae', shallow: '#68b8d0', foam: '#eef8ff', glow: 0.02 },
+    trees: ['streetTree'],
+    scatter: ['streetTree'],
+    scatterDensity: 0.3,
+    treeColors: { leaf: '#ffb3cf', leaf2: '#ff8fb8', trunk: '#7d5240' },
+    rocks: ['bollard', 'planterBox'],
+    rock: '#a9a49a',
+    building: 'cityBlock',
+    wall: 'cityWall',
+    frame: ['guardRail', 'guardRail', 'planterBox', 'guardRail', 'bollard'],
+    detail: 'manhole',
+    detailDensity: 0.05,
+    life: { butterflies: false, birds: true, koi: false, clouds: true, fireflies: false, sparkle: false },
+    gate: { spawn: '#b46cff', goal: '#ff7aa2' },
+    // on the board edge like every shipped gate: the column walks out of the rift's leaning ring
+    // onto the board, and into the shelter's doorway as it leaves (the block stands in the skirt)
+    spawnGate: 'petalRift',
+    goalGate: 'shelterDoor',
+    weather: 'petals',
+    weatherColors: ['#ffc2d8', '#ffb3cf', '#ffd6e6', '#ffffff', '#f2ead8'],
+    light: { sky: '#fff8ee', ground: '#b8ae9c', hemi: 1.05, key: '#fff0dc', keyI: 1.45, fill: '#d6e4ff', fillI: 0.34 },
+    nightLight: { sky: '#9fb2ff', ground: '#2c3150', hemi: 0.75, key: '#cdd6ff', keyI: 0.95, fill: '#ff8fd6', fillI: 0.4 },
+    bg: '#cfe1f2',
+    city: {
+      sidewalk: '#ddd3c2', kerb: '#f6f4ef', kerbSide: '#b9b0a2', lawn: '#9fcf7c', plaza: ['#efe4d2', '#e6d2bc'],
+      glass: { glassA: '#86b9d6', glassB: '#e2f1f8', warm: '#ffe6bf' },
+    },
+  },
+  // ----- Gate Arc · Noon: Itomachi Hilltop High, Sensei's old school on the hill by the lake --------
+  // The city kit with a campus set (kit 'campus', src/render/city/campusProps.js): mown lawns with
+  // paved bands along a pale campus road (a red running track where a map asks: map.city.road),
+  // classroom wings with big framed windows, the gym, club huts, bike sheds, a flagpole, cherry
+  // trees and a lakeshore with boat racks. Every Act 2 stage is a night stage: its own cool blue
+  // night, warm windows, fireflies over the reeds and a searchlight sweeping the water
+  // (map.city.searchlight). The lawns go deep green at night so the road stays the lightest band.
+  campus: {
+    ground: ['#93c97c', '#88bf72'],
+    groundSpeck: '#b4dc98',
+    groundShade: '#6ca85c',
+    clover: '#5f9d52',
+    wet: '#7fa08a',
+    dirt: '#c9c2b4',
+    pebble: '#b9b2a4',
+    groundStyle: 'grass',
+    // the painter's sidewalk bands along every road (the city's kerb flag) on mown lawn
+    groundPaint: { kerb: 1, flowers: 0.35, cloverAmt: 0.45 },
+    // lawns at night: deep green, well under the road's tone (resolveLook)
+    nightGround: { ground: ['#4d7a5f', '#467257'], groundSpeck: '#5a876a', groundShade: '#3a5f4c', clover: '#416b54' },
+    // … and the kit's painted beds and bands with them
+    nightCity: { lawn: '#4f8a5c', sidewalk: '#8f8c84' },
+    flowers: ['#ffffff', '#ffd1e3', '#ffe680', '#ff9ec4'],
+    bank: '#9a968c',
+    bankDark: '#76726a',
+    shore: '#b8b2a4',
+    // a pale campus road (its texture tone: textures.pathTexture asphalt `tone`), white edge lines
+    path: { style: 'asphalt', color: '#ffffff', curb: '#f4f1ea', side: '#9a9da6', base: '#6d727c', crisp: true, plainJunction: true, tone: 1.95 },
+    bridge: { deck: '#b9a283', rail: '#eef0f2', post: '#7d6a55', lacquer: false, overpass: '#c9c3b8', girder: '#6f6a62', overRail: '#e9ecef', grating: false, shadow: 0.32 },
+    // the corridor under the main building: the composed hall (school cream, navy band, a pale roof)
+    tunnel: { style: 'subway', top: '#d9d2c4', side: '#c4bcae', portal: '#f2efe8', dark: '#1f2430', stripe: '#3d5a8a', hall: '#efe6d6', roof: '#7d8a9a', glass: '#a8c8dc' },
+    // the lake at night: deep and calm (a soft caustic web) so the road stays the lightest band
+    water: { deep: '#245f8c', shallow: '#4c90ae', foam: '#dfeefa', glow: 0.03, caustic: 0.45, foamAmt: 0.7 },
+    trees: ['streetTree', 'sakura'],
+    scatter: ['sakura', 'streetTree', 'round'],
+    scatterDensity: 0.45,
+    treeColors: { leaf: '#ffb3cf', leaf2: '#ff8fb8', trunk: '#7d5240' },
+    rocks: ['planterBox', 'flowerBoxes'],
+    rock: '#a9a49a',
+    building: 'schoolBlock',
+    wall: 'cityWall',
+    frame: ['planterBox', 'guardRail', 'hedge', 'planterBox', 'hedge'],
+    detail: 'tuft',
+    detailDensity: 0.12,
+    life: { butterflies: false, birds: false, koi: false, clouds: true, fireflies: true, sparkle: false },
+    gate: { spawn: '#b46cff', goal: '#ff7aa2' },
+    spawnGate: 'petalRift',
+    goalGate: 'shelterDoor',
+    /** shelterDoor variant: the school's main entrance (cityProps SHELTER_KINDS) */
+    goalVariant: 1,
+    weather: 'petals',
+    weatherColors: ['#ffc2d8', '#ffb3cf', '#ffd6e6', '#ffffff'],
+    light: { sky: '#fff8ee', ground: '#a8b89c', hemi: 1.08, key: '#fff0dc', keyI: 1.45, fill: '#d6e4ff', fillI: 0.34 },
+    // a cool blue lakeside night; the warm fill is the classroom windows
+    nightLight: { sky: '#a6bcff', ground: '#2e3a56', hemi: 0.9, key: '#d2dcff', keyI: 1.1, fill: '#ffc89a', fillI: 0.32 },
+    bg: '#cfe4ef',
+    city: {
+      kit: 'campus',
+      sidewalk: '#a7a399', kerb: '#eeebe4', kerbSide: '#8f8b82', lawn: '#7fb86c', plaza: ['#cfc8ba', '#c4bdae'],
+      glass: { glassA: '#8fb9cf', glassB: '#e2eef4', warm: '#ffe2b0' },
+      // no Brigade drones over the school (dressing stays the city's)
+      drones: false,
+    },
+  },
+  // ----- Gate Arc · Noon: the Drowned Line, Itomachi's old Line 2 under the city, flooded --------------
+  // The city kit with the drowned set (kit 'drowned', src/render/city/drownedProps.js): wet station
+  // tiles with grout lines and puddles, a pale galvanised `grating` road (the lightest band, a yellow
+  // platform edge), the painted platform band along it, station blocks, retaining walls on the
+  // border, pump halls and the lake mosaic in the skirt, work lamps and red emergency lamps along the
+  // lanes, the `subway` tunnel style, dark teal flood water. Underground: always lit by its own lamps
+  // (forceNight with its own cool light), fog on every drowned stage (StageDef.scenery.fog). The
+  // Petal Gate tears open in the street as in the city; the goal is the station exit (goalVariant 3).
+  drowned: {
+    ground: ['#66777a', '#5e6f72'],
+    groundSpeck: '#738487',
+    groundShade: '#4b5a5f',
+    clover: '#506259',
+    wet: '#3e4f58',
+    dirt: '#6d7575',
+    pebble: '#7d8584',
+    groundStyle: 'tile',
+    flowers: ['#5d6d6a', '#6a7a76'],
+    bank: '#4a5458',
+    bankDark: '#353d42',
+    shore: '#56636a',
+    // the grating carries its own colour (textures.pathTexture 'grating'): the theme's tint is white
+    path: { style: 'grating', color: '#ffffff', curb: '#e7c64a', side: '#4f565c', base: '#454b51', crisp: true, plainJunction: true },
+    // decks over the flooded track bed are platform slabs (concrete, a yellow edge, no rails: trackMesh
+    // `platform`); an overpass is the pipe gantry (steel grating with pipes along its girders)
+    bridge: { deck: '#a7aaa6', rail: '#e7c64a', post: '#5a6066', lacquer: false, overpass: '#b4b9bd', girder: '#40464c', overRail: '#e7c64a', grating: true, platform: true, pipes: true, shadow: 0.34 },
+    // the Line 2 bores: square portals, the line's blue band, red emergency lamps (the kit hangs them)
+    tunnel: { style: 'subway', top: '#58626a', side: '#465057', portal: '#c4c2b8', dark: '#0b0f13', stripe: '#3f8fbf', hall: '#7f888c', roof: '#3a434a', glass: '#3c5560', lamp: '#ff4d5a' },
+    // flood water: deep, dark teal, a soft caustic web (a clear step darker than the tiles in greyscale)
+    water: { deep: '#0a2a31', shallow: '#14424b', foam: '#8fbcbc', glow: 0.04, caustic: 0.35, foamAmt: 0.45 },
+    trees: ['pumpUnit', 'pipes'],
+    scatter: ['pipeRun', 'maintenanceCart', 'pipes', 'crate', 'pumpUnit'],
+    scatterDensity: 0.3,
+    treeColors: { leaf: '#5d6d6a', leaf2: '#4d5d5a', trunk: '#4d535c' },
+    rocks: ['maintenanceCart', 'pumpUnit'],
+    rock: '#7d8584',
+    building: 'stationBox',
+    wall: 'retainingWall',
+    frame: ['pipeRun', 'pipeRun', 'bollard', 'pipeRun', 'crate'],
+    detail: 'manhole',
+    detailDensity: 0.03,
+    life: { butterflies: false, birds: false, koi: false, clouds: false, fireflies: false, sparkle: false },
+    gate: { spawn: '#b46cff', goal: '#ff7aa2' },
+    spawnGate: 'petalRift',
+    goalGate: 'shelterDoor',
+    /** shelterDoor variant: the Line 2 station exit (cityProps SHELTER_KINDS) */
+    goalVariant: 3,
+    weather: null,
+    // underground: always lit by its own lamps, never by the sky (its dark keeps its own colour)
+    forceNight: true,
+    underground: true,
+    light: { sky: '#cfe2ea', ground: '#3a4a52', hemi: 1.0, key: '#e6f0f4', keyI: 1.2, fill: '#ffb48a', fillI: 0.3 },
+    nightLight: { sky: '#a9cad6', ground: '#25333b', hemi: 1.0, key: '#dcebf2', keyI: 1.2, fill: '#ff9a7a', fillI: 0.34 },
+    /** the fog down here (StageDef.scenery.fog): a dark teal haze, not the moonlit blue */
+    nightFog: '#2f434b',
+    bg: '#0d171b',
+    city: {
+      kit: 'drowned', drones: false, kerbs: false,
+      // the painted platform band along every lane (textures.paintGround kerb band) and its yellow edge
+      sidewalk: '#7f878a', kerb: '#d9b740', kerbSide: '#4a5056', lawn: '#4f6159', plaza: ['#6c7779', '#667173'],
+      glass: { glassA: '#3c5a66', glassB: '#7fa2ae', warm: '#ffe2b0' },
+    },
+  },
+  // ----- Gate Arc · Evening: Vesperline, the city of glass on the same lake (src/render/city/vesperProps.js) ----
+  // The LIVING city (Arc 2; a preview fixture until then): white glass panels underfoot, the white glassway
+  // with its cyan guide line (the lightest band), lecture halls and podiums along the lanes, holo signs,
+  // cherry trees in glass courtyards, sky-blue pools, glass towers in the skirt, a bright morning. Every
+  // Step 6 stage wears the FROZEN table over it (`scenery.ruined: 'frozen'`, resolveLook). The column walks
+  // out of a sentry bay (hangar shutter, red status lights); the goal is the shelter with one warm window.
+  vesper: {
+    ground: ['#b6c6d5', '#afbfcf'],
+    groundSpeck: '#c5d3e0',
+    groundShade: '#93a6b8',
+    clover: '#8fb87c',
+    wet: '#a2b7c8',
+    dirt: '#bccad7',
+    pebble: '#aab9c7',
+    groundStyle: 'glass',
+    // (the courtyards: a little green between the panels)
+    groundPaint: { cloverAmt: 0.25 },
+    flowers: ['#ffd1e3', '#ffffff', '#bfe8ff'],
+    bank: '#8b9eb0',
+    bankDark: '#6a7c8e',
+    shore: '#a5b8c9',
+    // the glassway carries its own colour (textures.pathTexture 'glassway'): the theme's tint is white; the living
+    // city lifts its grey-cyan panel back to white glass (tone), the frozen city keeps it grey-cyan (FROZEN.pathTone)
+    path: { style: 'glassway', color: '#ffffff', curb: '#eef6fb', side: '#7f93a6', base: '#788b9e', crisp: true, plainJunction: true, tone: 1.6 },
+    // the fold-out light-bridge (trackMesh `glass`): an opaque pale glass deck with a cyan edge glow, on
+    // water decks and overpasses alike; a map may ask for the sky-rail girder instead (map.bridge.skyRail)
+    bridge: { deck: '#cfe2ec', rail: '#e6f3f9', post: '#7f97aa', lacquer: false, overpass: '#d4e6ef', girder: '#5a7084', overRail: '#e6f3f9', grating: false, glass: true, edge: '#5fe1f2', shadow: 0.32 },
+    // the museum's wings (trackMesh `gallery`): white halls with a glass roof strip and a pale gold band
+    tunnel: { style: 'gallery', top: '#dde7ee', side: '#c1cfda', portal: '#f1f5f8', dark: '#121826', stripe: '#d9b45a', hall: '#e6edf2', roof: '#93a8ba', glass: '#bfe4f0' },
+    water: { deep: '#2f74a2', shallow: '#5e9fc4', foam: '#f2fbff', glow: 0.04, caustic: 0.4, foamAmt: 0.6 },
+    trees: ['courtyardTree'],
+    scatter: ['courtyardTree', 'courtyardTree', 'frostedPane', 'haloStatue'],
+    scatterDensity: 0.32,
+    treeColors: { leaf: '#ffb3cf', leaf2: '#ff8fb8', trunk: '#6f5a52' },
+    rocks: ['frostedPane', 'frozenFountain'],
+    rock: '#b4c2ce',
+    building: 'lectureHall',
+    wall: 'frostedPane',
+    frame: ['frostedPane', 'frostedPane', 'courtyardTree', 'frostedPane', 'frostedPane'],
+    detail: 'pebbles',
+    detailDensity: 0.04,
+    life: { butterflies: false, birds: true, koi: false, clouds: true, fireflies: false, sparkle: false },
+    // the sentry bay's red status lights; the shelter's one warm window
+    gate: { spawn: '#ff5a6a', goal: '#ffb347' },
+    spawnGate: 'sentryBay',
+    goalGate: 'vesperShelter',
+    weather: 'petals',
+    weatherColors: ['#ffd1e3', '#ffffff', '#ffe4ef', '#e8f4ff'],
+    light: { sky: '#f4fbff', ground: '#b4c2ce', hemi: 1.1, key: '#fff6ea', keyI: 1.5, fill: '#cfe6ff', fillI: 0.36 },
+    nightLight: { sky: '#9fb6e6', ground: '#28304a', hemi: 0.85, key: '#cfdcff', keyI: 1.05, fill: '#7fe9ff', fillI: 0.36 },
+    bg: '#d3e6f3',
+    city: {
+      kit: 'vesper', drones: false, kerbs: false,
+      // the frosted band along every lane (textures.paintGround kerb band) and its pale edge, both under the road
+      sidewalk: '#a4b5c5', kerb: '#c3d1dd', kerbSide: '#7d8fa1', lawn: '#9fcf8a', plaza: ['#b2c2d1', '#aabbca'],
+      glass: { glassA: '#9fd0e6', glassB: '#eaf6fb', warm: '#ffe2b0' },
+    },
+  },
 };
+
+/**
+ * The drowned kit's small accent lamps (Gate Arc S5a, src/render/city/drownedProps.js): red emergency
+ * lamps (they stay lit and pulse through a blackout) and amber beacons. Small lamps only, never on the road.
+ */
+export const EMERGENCY = Object.freeze({ red: '#ff4d5a', amber: '#ffb347' });
 
 /**
  * `stage.look.night === 'lantern'` (Halloween event stages): night re-lit warm — a deep
@@ -318,14 +613,275 @@ export const LANTERN_NIGHT = {
 };
 
 /**
+ * Map districts (Gate Arc, `MapDef.district`): a district re-dresses its theme's board. Old Town
+ * (`city` maps of the Bell Festival, GATE_ARC §18.1): plaster and stone ground with a stone gutter
+ * along every lane (no raised kerbs), pale stone setts on the road (the lightest band, by day and
+ * by night), wooden houses with tiled roofs (oldTownProps.js), cherry trees, lantern strings on
+ * the poles instead of bare wires. Keys merge over the theme (path / city merge field by field).
+ */
+export const DISTRICTS = {
+  oldtown: {
+    ground: ['#b8ad98', '#b0a48f'],
+    groundSpeck: '#c6bca8',
+    groundShade: '#978a74',
+    clover: '#8fae6a',
+    wet: '#a9aeb0',
+    dirt: '#cfc2ab',
+    pebble: '#b3a690',
+    groundStyle: 'stone',
+    shore: '#c4b8a2',
+    bank: '#9a8f7e',
+    bankDark: '#776d5f',
+    // stone setts carry their own colour (textures.pathTexture 'setts'): the theme's tint is white
+    path: { style: 'setts', color: '#ffffff', curb: '#efe6d2', side: '#8f8474', base: '#837867', crisp: true, plainJunction: false },
+    trees: ['sakura', 'streetTree'],
+    scatter: ['sakura', 'streetTree'],
+    building: 'oldHouse',
+    frame: ['planterBox', 'bollard', 'planterBox', 'guardRail', 'bollard'],
+    // the stone ground darkens at night under the setts' tone (the road stays the lightest band)
+    nightGround: { ground: ['#9a917f', '#928a78'], groundSpeck: '#a59c8a', groundShade: '#7b7364', clover: '#5f7a52' },
+    nightCity: { sidewalk: '#8a8170', kerb: '#766e60', lawn: '#56784c' },
+    city: {
+      district: 'oldtown', kerbs: false, lanterns: true,
+      sidewalk: '#b9ad97', kerb: '#9f937e', kerbSide: '#8a7f6c', lawn: '#8fb46e', plaza: ['#d9cdb6', '#cdbfa6'],
+    },
+  },
+};
+
+/**
+ * The mountain highway (Gate Arc S4a, `MapDef.district: 'highway'` on `city` maps of Act 4,
+ * GATE_ARC §18.1): gravel verges with scrub grass, a pale concrete road (the lightest band: its own
+ * colour, textures.pathTexture 'concrete') with a dark hard shoulder painted along it, steel crash
+ * barriers instead of raised kerbs, roadside embankments, rock cuts and depots on the board
+ * (highwayProps.js roadsideBlock), sound walls on the border, highway lamps instead of utility
+ * poles, pines and a concrete flyover in the skirt, concrete tunnel portals with jet fans.
+ */
+const HIGHWAY = {
+  ground: ['#8f8a80', '#878278'],
+  groundSpeck: '#a29d93',
+  groundShade: '#6f6a62',
+  clover: '#7f8b5e',
+  wet: '#7b7b78',
+  dirt: '#9b958b',
+  pebble: '#a49e93',
+  groundStyle: 'gravel',
+  shore: '#9e998f',
+  bank: '#807b73',
+  bankDark: '#635f59',
+  // concrete slabs carry their own colour (textures.pathTexture 'concrete'): the theme's tint is white
+  path: { style: 'concrete', color: '#ffffff', curb: '#e8e6e0', side: '#7a7c80', base: '#64666b', crisp: true, plainJunction: true },
+  // a concrete flyover: pale deck, pale parapet rails, grey piers
+  bridge: { deck: '#c4c1b9', rail: '#dfe2e5', post: '#8b8882', overpass: '#cdcac2', girder: '#76746f', overRail: '#e4e6e8', grating: false, shadow: 0.32 },
+  // the highway bores (trackMesh.buildTunnels style 'highway'): a rock ridge over the bore, a
+  // concrete headwall with the Brigade-amber hazard band, jet fans and sodium lamps in the mouth
+  tunnel: { style: 'highway', top: '#8c8f94', side: '#74767b', portal: '#cbc8c0', dark: '#1b1e26', stripe: '#f4a62a', hall: '#bdb9b0', roof: '#686b70', lamp: '#ffc46b' },
+  // mountain water a notch darker than the city's, so it never reads as more pale concrete
+  water: { deep: '#22557c', shallow: '#4a88a8', foam: '#e4eef6', glow: 0.02 },
+  trees: ['pine', 'pine', 'cedar'],
+  scatter: ['pine', 'pine', 'cliff', 'boulder', 'pine', 'cedar'],
+  scatterDensity: 0.45,
+  treeColors: { leaf: '#3d7f5a', leaf2: '#2e6a4b', trunk: '#6a4a36' },
+  rocks: ['jerseyBarrier', 'boulder'],
+  rock: '#9fa3ab',
+  building: 'roadsideBlock',
+  wall: 'soundWall',
+  frame: ['crashBarrier', 'crashBarrier', 'jerseyBarrier', 'crashBarrier', 'pineSmall'],
+  detail: 'pebbles',
+  detailDensity: 0.12,
+  weather: null,
+  life: { butterflies: false, birds: true, koi: false, clouds: true, fireflies: false, sparkle: false },
+  city: {
+    district: 'highway', kerbs: false,
+    // the painted hard shoulder (textures.paintGround kerb band) and its dark seam by the road
+    sidewalk: '#77797e', kerb: '#55575c', kerbSide: '#55575c', lawn: '#7f8b5e', plaza: ['#a8a59e', '#9c9992'],
+  },
+};
+DISTRICTS.highway = HIGHWAY;
+
+/**
+ * The reservoir park (Gate Arc S5a, `MapDef.district: 'park'` on `city` maps of Act 5, GATE_ARC §18.1):
+ * mown lawns with paved bands along the paths, a pale park road (the lightest band, by day, in fog and
+ * at night), park lamps instead of utility poles and wires, willows and cherries, the dam wall on the
+ * board's H tiles (parkProps.js damWall), the reservoir's cold water, the city beyond the trees in the
+ * skirt. At night the lawns go deep green so the road stays the lightest band; fireflies over the water.
+ */
+const PARK = {
+  // (mown lawn a shade deeper than the campus's: the pale park road stays the lightest band by day)
+  ground: ['#7cb068', '#73a760'],
+  groundSpeck: '#93c47e',
+  groundShade: '#5f9652',
+  clover: '#548f4a',
+  wet: '#7c9e88',
+  dirt: '#c6bfb1',
+  pebble: '#b6afa1',
+  groundStyle: 'grass',
+  groundPaint: { kerb: 1, flowers: 0.3, cloverAmt: 0.45 },
+  shore: '#b4aea0',
+  bank: '#97938a',
+  bankDark: '#736f68',
+  path: { style: 'asphalt', color: '#ffffff', curb: '#f4f1ea', side: '#9a9da6', base: '#6d727c', crisp: true, plainJunction: true, tone: 2.5 },
+  // the reservoir: cold and deep, a notch darker than the lawns in greyscale
+  water: { deep: '#245a74', shallow: '#4a879c', foam: '#e2f0f4', glow: 0.03, caustic: 0.26, foamAmt: 0.55 },
+  trees: ['willow', 'sakura', 'round'],
+  scatter: ['round', 'willow', 'sakura', 'streetTree'],
+  scatterDensity: 0.45,
+  treeColors: { leaf: '#86b86a', leaf2: '#6a9e58', trunk: '#6a4a36' },
+  rocks: ['planterBox', 'rescueBuoy'],
+  building: 'damWall',
+  frame: ['hedge', 'planterBox', 'hedge', 'bollard', 'hedge'],
+  detail: 'tuft',
+  detailDensity: 0.12,
+  life: { butterflies: true, birds: true, koi: false, clouds: true, fireflies: true, sparkle: false },
+  // lawns at night: deep green, well under the road's tone (resolveLook)
+  nightGround: { ground: ['#4b785c', '#447055'], groundSpeck: '#588568', groundShade: '#385d4a', clover: '#3f6952' },
+  // (the willow's island at night: a moonlit lawn kept lighter than the reservoir round it, under the road)
+  nightCity: {
+    lawn: '#4d8859', sidewalk: '#8d8a82',
+    isle: { lawn: '#5c9c6c', stripe: 'rgba(255,255,255,0.06)', tuft: '#4a8a5c', shore: '#aeab9e', stone: '#cdc8ba', blossoms: ['#ffffff', '#ffd1e3', '#fff2b0'] },
+  },
+  city: {
+    district: 'park', kit: 'park', kerbs: false,
+    // (the paved bands and plazas a notch under the park road's tone)
+    sidewalk: '#b5afa2', kerb: '#e9e5dc', kerbSide: '#8f8b82', lawn: '#7fb86c', plaza: ['#b3ad9f', '#aaa496'],
+    // an island the reservoir rings (Gate Arc 5-10: cityGround.js cityIslePainter): a mown lawn, a pale
+    // stone shore band, stepping stones to its willow
+    isle: { lawn: '#86c172', stripe: 'rgba(255,255,255,0.08)', tuft: '#5f9a52', shore: '#d6cfbc', stone: '#ebe5d6', blossoms: ['#ffffff', '#ffc4d9', '#ffe680'] },
+  },
+};
+DISTRICTS.park = PARK;
+
+/**
+ * `stage.look.dusk` (Gate Arc 4-7, Azami's checkpoint): evening, not noon. The sun low (keyY: the key
+ * light comes in from just over the horizon, so shadows run long) and orange under a violet sky, a
+ * violet hemisphere and fill, a light violet wash on the ground, and the highway lamps already on
+ * (ambient.js lights their glows and pools at dusk). Not night (no lit windows, no fireflies); the
+ * board stays readable, the road the lightest band.
+ */
+export const DUSK = {
+  light: { sky: '#c8a6dc', ground: '#4a3f62', hemi: 0.9, key: '#ff9a5c', keyI: 1.35, fill: '#7f78e6', fillI: 0.46, keyY: 5 },
+  bg: '#8a6496',
+  fogColor: '#9a7896',
+  groundTint: '#8a6aa8',
+  groundAmt: 0.1,
+};
+
+/**
+ * Scenery keyword 'frost' (Gate Arc 4-6, 4-8): a cold wash over the ground (it stays under the road's
+ * tone), cooler light, frost on the rails (props read look.frost), snow flurries.
+ */
+export const FROST = {
+  tint: '#d2dce6',
+  amount: 0.3,
+  key: '#eef3ff',
+  weather: 'snow',
+};
+
+/**
+ * Scenery keyword 'snowBridge' (Gate Arc 4-10): the Brigade's bridge-layer deck over the ravine
+ * (trackMesh.buildDecks `layer`): navy steel treadway in folding sections, amber hazard rails.
+ */
+export const BRIDGE_LAYER = { deck: '#66707f', rail: '#f4a62a', post: '#2b3a5c', overpass: '#66707f', girder: '#2b3a5c', overRail: '#f4a62a', lacquer: false, grating: false, boardwalk: false, layer: true };
+
+/** Snow over the north rows (scenery keyword 'snowCover'): its colour stays under the road's tone. */
+export const SNOW_COVER = { color: '#c9d1db', shade: '#b3bdc9', rows: 6 };
+
+/**
+ * `stage.scenery.ruined === 'burning'` (Gate Arc 3-9, 3-10; GATE_ARC §18.1, §18.6): the city after
+ * HAMMER's barrage. The sky goes dark, not the board: an ash-dusted, desaturated ground, a low warm
+ * key light ≥ 1.2, the road an ash-grey kept lighter than the ground (asphalt paler, setts dimmed a
+ * little), amber the one accent (fire glows, embers; never an oni's red), ash falling, the gates
+ * untouched (the brightest things on the board). Buildings become ruinBlock shells, the skirt's
+ * scatter rubble and wrecks, trees charred (ruinProps.js); the burning layer adds fire and smoke.
+ */
+export const BURNING = {
+  light: { sky: '#c4a294', ground: '#3a3030', hemi: 0.82, key: '#ffd6b0', keyI: 1.3, fill: '#7c6c9c', fillI: 0.3 },
+  bg: '#2a1e22',
+  fogColor: '#4d3a3a',
+  ground: ['#6b6560', '#635d58'],
+  groundSpeck: '#7a746d',
+  groundShade: '#4f4a46',
+  clover: '#57544a',
+  wet: '#4a4846',
+  dirt: '#6d6862',
+  pebble: '#6a645e',
+  shore: '#5b5550',
+  bank: '#55504a',
+  bankDark: '#3f3b37',
+  water: { deep: '#1d2736', shallow: '#3a4858', glow: 0.12 },
+  /** asphalt brightened to ash-grey, setts dimmed a little: both stay well over the ground */
+  pathTone: { asphalt: 1.55, setts: 0.9 },
+  pathSide: '#55504b',
+  city: { sidewalk: '#7a746c', kerb: '#8f8981', kerbSide: '#5d5852', lawn: '#59574a', plaza: ['#716b64', '#69635c'] },
+  trees: ['charred'],
+  scatter: ['rubble', 'debris', 'burntCar', 'rubble', 'fallenPole'],
+  scatterDensity: 0.32,
+  building: 'ruinBlock',
+  frame: ['barricade', 'guardRail', 'debris', 'barricade', 'bollard'],
+  weather: 'ash',
+  emberColor: '#ffc46b',
+  /** the hall over a tunnel, charred (3-10's sanctum): never lighter than the road */
+  tunnel: { top: '#4f4844', side: '#3d3734', hall: '#5a524c', roof: '#3a3431', portal: '#6b625a', stripe: '#8a3a2a', glass: '#3b2c26' },
+  life: { butterflies: false, birds: false, koi: false, clouds: false, fireflies: false, sparkle: false },
+};
+
+/**
+ * `stage.scenery.ruined === 'frozen'` on `vesper` (Gate Arc S6a, GATE_ARC §18.1): Vesperline frozen in the
+ * moment it fell. Frosted blue-grey glass underfoot with snow drifts and cyan cracks in the ice, the white
+ * glassway kept the lightest band (its own colour), the open leads and moats near-black blue (the darkest
+ * band: the ice, the causeway islands and the snow lighter than the water), an eclipse dusk (a violet-teal
+ * sky, a cool key light ≥ 1.2: the board stays readable; look.dusk: the holo signs and lamps on with their
+ * pools), snow falling, frost on the rails (look.frost), a cold aurora over the back skirt (look.aurora), the
+ * cherry trees frosted white (look.frozen). `nightLight` / `nightBg`: the same frozen city at night (the
+ * Starfall Deck). Any other theme ignores `ruined: 'frozen'`.
+ */
+export const FROZEN = {
+  light: { sky: '#bcb8ee', ground: '#30365a', hemi: 1.0, key: '#dce8ff', keyI: 1.4, fill: '#8a70f0', fillI: 0.4, keyY: 8 },
+  nightLight: { sky: '#8f9fe0', ground: '#1e2440', hemi: 0.85, key: '#c8d6ff', keyI: 1.1, fill: '#6fe0ff', fillI: 0.38 },
+  bg: '#1b2033',
+  nightBg: '#0e1426',
+  fogColor: '#5c6688',
+  ground: ['#8496a8', '#7d8fa1'],
+  groundSpeck: '#a7b6c5',
+  groundShade: '#64768a',
+  clover: '#98a9bb',
+  wet: '#6f8297',
+  dirt: '#a1b0c0',
+  pebble: '#91a1b2',
+  shore: '#a6b6c6',
+  bank: '#7b8d9f',
+  bankDark: '#58687a',
+  /** the cyan cracks in the ice (textures.paintGround `rime`), muted so they never outshine the road */
+  crack: '#57c9df',
+  water: { deep: '#06101d', shallow: '#122339', foam: '#9cc2da', glow: 0.05, caustic: 0.1, foamAmt: 0.4 },
+  groundPaint: { cloverAmt: 0.2, rime: 1, drifts: 0.55 },
+  pathSide: '#55677a',
+  /**
+   * the glassway's grey-cyan panel as it is (textures.GLASSWAY, no lift): ≈ 130 luma on the board, the lightest
+   * band, and ≥ 40 under the white glass machines (Step 6 visual review round 1)
+   */
+  pathTone: 1,
+  /** the light-bridge's deck and overpass frosted down under the road (the living city's are pale glass) */
+  bridge: { deck: '#9fb1c0', overpass: '#a3b5c4' },
+  city: { sidewalk: '#98a9ba', kerb: '#a4b3c1', kerbSide: '#5e7083', lawn: '#8798aa', plaza: ['#8b9cae', '#8395a6'] },
+  scatter: ['courtyardTree', 'frostedPane', 'courtyardTree', 'haloStatue'],
+  scatterDensity: 0.3,
+  weather: 'snow',
+  life: { butterflies: false, birds: false, koi: false, clouds: false, fireflies: false, sparkle: true },
+};
+
+/**
  * Resolves the final look for a map + stage scenery: merged theme, night/fog flags,
  * weather and lighting.
  * @param {string} themeId
- * @param {{ night?: boolean, fog?: boolean, weather?: string|null }} scenery
- * @param {{ night?: string, costumes?: boolean }|null} [stageLook] the stage's render-only
- *   `look` (StageDef.look): night 'lantern' = warm lantern-lit night (implies night)
+ * @param {{ night?: boolean, fog?: boolean, weather?: string|null, ruined?: string|null, keywords?: string[] }} scenery
+ *   ruined 'burning' = the burning table (BURNING; implies a dark sky); ruined 'frozen' on `vesper` = the
+ *   frozen table (FROZEN: an eclipse dusk, look.frozen; other themes ignore it); keywords 'frost', 'snowCover'
+ *   and 'snowBridge' re-dress the look (FROST, SNOW_COVER, BRIDGE_LAYER)
+ * @param {{ night?: string, costumes?: boolean, dusk?: boolean }|null} [stageLook] the stage's render-only
+ *   `look` (StageDef.look): night 'lantern' = warm lantern-lit night (implies night); dusk = DUSK
+ * @param {{ district?: string }|null} [map] the MapDef (its `district`, e.g. 'oldtown')
  */
-export function resolveLook(themeId, scenery = {}, stageLook = null) {
+export function resolveLook(themeId, scenery = {}, stageLook = null, map = null) {
   const t = THEMES[themeId] || THEMES.sakura;
   const look = {
     ...BASE,
@@ -338,19 +894,64 @@ export function resolveLook(themeId, scenery = {}, stageLook = null) {
     treeColors: { ...BASE.treeColors, ...(t.treeColors || {}) },
     life: { ...BASE.life, ...(t.life || {}) },
     gate: { ...BASE.gate, ...(t.gate || {}) },
+    ...(t.city ? { city: { ...t.city } } : {}),
     theme: THEMES[themeId] ? themeId : 'sakura',
   };
-  look.ground = [look.ground[0], mixBg(look.ground[1], look.ground[0], 0.35)];
+  // a map's district (Old Town on a city map): its ground, road, buildings and kit hints
+  const dist = DISTRICTS[map?.district] || null;
+  if (dist) {
+    const { path, city, nightGround, nightCity, bridge, tunnel, treeColors, life, ...rest } = dist;
+    Object.assign(look, rest);
+    look.path = { ...look.path, ...path };
+    if (bridge) look.bridge = { ...look.bridge, ...bridge };
+    if (tunnel) look.tunnel = { ...look.tunnel, ...tunnel };
+    if (treeColors) look.treeColors = { ...look.treeColors, ...treeColors };
+    if (life) look.life = { ...look.life, ...life };
+    if (look.city) look.city = { ...look.city, ...city };
+    look.district = map.district;
+  }
+  // Gate Arc S4a scenery keywords that re-dress the look (frost, the bridge-layer deck, snow cover)
+  const kw = scenery.keywords || [];
+  const ruined = scenery.ruined === 'burning' ? 'burning' : null;
+  // Vesperline frozen (FROZEN, Gate Arc S6a): only the vesper theme knows it
+  const frozen = scenery.ruined === 'frozen' && look.theme === 'vesper';
   const lantern = stageLook?.night === 'lantern';
   look.lantern = lantern;
-  look.night = !!(scenery.night || t.forceNight || lantern);
+  look.night = !!(scenery.night || t.forceNight || lantern || ruined);
+  // a theme whose lawns go dark at night (the campus: the road stays the lightest band)
+  const nightGround = dist?.nightGround || t.nightGround;
+  const nightCity = dist?.nightCity || t.nightCity;
+  if (look.night && nightGround) Object.assign(look, nightGround);
+  if (look.night && nightCity && look.city) look.city = { ...look.city, ...nightCity };
+  look.ground = [look.ground[0], mixBg(look.ground[1], look.ground[0], 0.35)];
+  // blackout dimming (StageDef.look.blackout, Gate Arc): the renderer dims the lamps and windows
+  // while the stage's rule is active (src/render/blackout.js)
+  look.blackout = !!stageLook?.blackout;
   look.fog = !!scenery.fog;
   look.weather = scenery.weather !== undefined ? scenery.weather : look.weather;
+  if (frozen) {
+    // the frozen city (FROZEN): its own ground, ice and water (the night block below may still tint it)
+    const Z = FROZEN;
+    look.frozen = true;
+    look.frost = true;
+    Object.assign(look, {
+      ground: [Z.ground[0], mixBg(Z.ground[1], Z.ground[0], 0.35)], groundSpeck: Z.groundSpeck, groundShade: Z.groundShade,
+      clover: Z.clover, wet: Z.wet, dirt: Z.dirt, pebble: Z.pebble, shore: Z.shore, bank: Z.bank, bankDark: Z.bankDark, crack: Z.crack,
+      groundPaint: { ...(look.groundPaint || {}), ...Z.groundPaint }, scatter: [...Z.scatter], scatterDensity: Z.scatterDensity,
+    });
+    look.water = { ...look.water, ...Z.water };
+    look.path = { ...look.path, side: Z.pathSide, tone: Z.pathTone };
+    look.bridge = { ...look.bridge, ...Z.bridge };
+    if (look.city) look.city = { ...look.city, ...Z.city };
+    look.life = { ...Z.life };
+    if (scenery.weather === undefined) look.weather = Z.weather;
+  }
   if (look.night) {
-    look.light = {
+    // a theme may bring its own night (the city's warm neon night); otherwise the moonlit preset
+    look.light = t.nightLight ? { ...t.nightLight } : {
       sky: '#aebfff', ground: '#39406a', hemi: 0.8, key: '#d8e2ff', keyI: 1.15, fill: '#ffb8de', fillI: 0.35,
     };
-    look.bg = themeId === 'night' ? look.bg : mixBg(look.bg, '#232c52', 0.75);
+    look.bg = themeId === 'night' || t.underground ? look.bg : mixBg(look.bg, '#232c52', 0.75);
     look.ground = look.ground.map((g) => mixBg(g, '#4f8fb0', 0.08));
     look.groundShade = mixBg(look.groundShade, '#2c3a66', 0.2);
     look.clover = mixBg(look.clover, '#2c3a66', 0.15);
@@ -372,8 +973,76 @@ export function resolveLook(themeId, scenery = {}, stageLook = null) {
     look.fireflyColor = L.firefly;
     look.life = { ...look.life, fireflies: true };
   }
+  if (ruined) {
+    // the city burning (BURNING): ash ground, dark sky, warm low key, the road kept the lightest band
+    const B = BURNING;
+    look.ruined = ruined;
+    look.light = { ...B.light };
+    look.bg = B.bg;
+    Object.assign(look, {
+      ground: [...B.ground], groundSpeck: B.groundSpeck, groundShade: B.groundShade, clover: B.clover, wet: B.wet,
+      dirt: B.dirt, pebble: B.pebble, shore: B.shore, bank: B.bank, bankDark: B.bankDark,
+      trees: [...B.trees], scatter: [...B.scatter], scatterDensity: B.scatterDensity, building: B.building, frame: [...B.frame],
+      emberColor: B.emberColor, flowers: ['#6d6862', '#77716a'],
+    });
+    look.water = { ...look.water, ...B.water };
+    look.path = { ...look.path, side: B.pathSide, tone: B.pathTone[look.path.style] ?? look.path.tone };
+    if (look.city) look.city = { ...look.city, ...B.city };
+    look.tunnel = { ...look.tunnel, ...B.tunnel };
+    look.life = { ...B.life };
+    if (scenery.weather === undefined) look.weather = B.weather;
+  }
+  if (frozen) {
+    // the eclipse dusk over the frozen city (its lamps and holo signs on), or its night
+    look.light = { ...(look.night ? FROZEN.nightLight : FROZEN.light) };
+    look.bg = look.night ? FROZEN.nightBg : FROZEN.bg;
+    if (!look.night) look.dusk = true;
+    look.aurora = true;
+  }
+  // dusk (stage.look.dusk, Gate Arc 4-7): a warm low sun, never on a night stage
+  const dusk = !!stageLook?.dusk && !look.night;
+  if (dusk) {
+    const D = DUSK;
+    look.dusk = true;
+    look.light = { ...D.light };
+    look.bg = D.bg;
+    look.ground = look.ground.map((g) => mixBg(g, D.groundTint, D.groundAmt));
+    look.groundShade = mixBg(look.groundShade, D.groundTint, D.groundAmt);
+    look.life = { ...look.life, butterflies: false };
+  }
+  // frost (scenery keyword 'frost', Gate Arc 4-6 / 4-8): a cold wash, cooler key light, flurries
+  if (kw.includes('frost')) {
+    const F = FROST;
+    look.frost = true;
+    look.ground = look.ground.map((g) => mixBg(g, F.tint, F.amount));
+    look.groundSpeck = mixBg(look.groundSpeck, '#ffffff', F.amount);
+    look.groundShade = mixBg(look.groundShade, F.tint, F.amount * 0.6);
+    look.clover = mixBg(look.clover, F.tint, F.amount);
+    if (!look.night && !dusk) look.light = { ...look.light, key: mixBg(look.light.key, F.key, 0.6) };
+    look.life = { ...look.life, butterflies: false };
+    if (scenery.weather === undefined) look.weather = F.weather;
+  }
+  // snow over the north rows (scenery keyword 'snowCover', Gate Arc 4-8): terrain.js paints it
+  if (kw.includes('snowCover')) {
+    look.snowCover = { ...SNOW_COVER };
+    // (the ridges over the bores sit in the snowy north rows)
+    look.tunnel = { ...look.tunnel, top: SNOW_COVER.color };
+    if (scenery.weather === undefined) look.weather = 'snow';
+  }
+  // the frozen villages (scenery keyword 'frozenVillage', Gate Arc 4-9): the board's houses are the
+  // villagers' huts, gone cold (northProps.js frozenHut)
+  if (kw.includes('frozenVillage')) look.building = 'frozenHut';
+  // the Brigade's bridge-layer deck over the water (scenery keyword 'snowBridge', Gate Arc 4-10)
+  if (kw.includes('snowBridge')) look.bridge = { ...look.bridge, ...BRIDGE_LAYER };
+  // the Noon Gate's cold (scenery keyword 'noonGateFrost', Gate Arc 5-8): rime on the pipes and rails
+  // (props read look.frost) and a light cold wash on the tiles; no snow falls underground
+  if (kw.includes('noonGateFrost')) {
+    look.frost = true;
+    look.ground = look.ground.map((g) => mixBg(g, FROST.tint, 0.12));
+    look.groundShade = mixBg(look.groundShade, FROST.tint, 0.08);
+  }
   if (look.fog) {
-    look.fogColor = lantern ? LANTERN_NIGHT.fogColor : look.night ? '#4a5378' : (t.fogTint || '#dfe7ef');
+    look.fogColor = frozen ? FROZEN.fogColor : ruined ? BURNING.fogColor : lantern ? LANTERN_NIGHT.fogColor : dusk ? DUSK.fogColor : look.night ? (t.nightFog || '#4a5378') : (t.fogTint || '#dfe7ef');
   }
   return look;
 }

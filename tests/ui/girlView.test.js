@@ -7,6 +7,7 @@ import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 import { ROLES } from '../../src/data/types.js';
 import { ROLE_SUBCLASS } from '../../src/data/wiki.js';
 import { newUnitState } from '../../src/systems/save.js';
+import { abilityRuns } from '../../src/data/abilities.js';
 
 const profileWith = (over = {}) => {
   const p = { units: {}, gear: {} };
@@ -85,23 +86,18 @@ describe('roleDetails (Base stats › Role)', () => {
   });
 });
 
-describe('profileTips (abilities are dormant)', () => {
-  it('no ⚡ ability tip and no ability promise in any girl\'s Profile sheet; the other tips stay, in order', () => {
-    let hidden = 0;
+describe('profileTips (a ⚡ tip only when her ability runs)', () => {
+  it('a working ability\'s ⚡ tip shows (Kage, Suzu and Chika since A4, Fuu since A5, Iroha since A6); the other tips stay, in order', () => {
     for (const u of UNITS) {
       const t = profileTips(u);
-      for (const x of t) {
-        expect(x.startsWith('⚡'), `${u.id}: ${x}`).toBe(false);
-        expect(/\bteaches\b/.test(x), `${u.id}: ${x}`).toBe(false);
-      }
-      expect(t).toEqual((u.tips || []).filter((x) => !isAbilityTip(x)));
-      hidden += (u.tips || []).length - t.length;
+      const runs = abilityRuns(u.paths?.find((p) => p.ability)?.ability || u.hero?.skill || null);
+      expect(t, u.id).toEqual(runs ? u.tips || [] : (u.tips || []).filter((x) => !isAbilityTip(x)));
     }
-    expect(hidden).toBeGreaterThan(0);
-    for (const id of ['aoi', 'chika', 'momo', 'umeko', 'miko', 'akane', 'ouka']) {
+    for (const id of ['aoi', 'momo', 'umeko', 'miko', 'akane', 'ouka', 'kage', 'suzu', 'chika', 'fuu', 'iroha']) {
       expect(UNIT_MAP[id].tips.some(isAbilityTip), id).toBe(true);
-      expect(profileTips(UNIT_MAP[id]).some((x) => x.includes('⚡')), id).toBe(false);
+      expect(profileTips(UNIT_MAP[id]).some((x) => x.startsWith('⚡')), id).toBe(true);
     }
+    // (a girl whose ability waits promises no button: none today among the towers, the first loop holds the rule)
   });
 });
 

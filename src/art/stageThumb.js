@@ -19,6 +19,24 @@ export const MAP_THEMES = {
   snow: { ground: '#eef6fb', alt: '#e3eef6', edge: '#a9c2d6', path: '#d7e0ea', pathEdge: '#8ea4ba', water: '#8fd0f5', tree: '#3f7d5c', treeDark: '#24563a', rock: '#a7b4c2', roof: '#5c7cfa', wall: '#ffffff', flower: ['#a5d8ff', '#fff', '#d0ebff'], voidc: '#4a5a6a', snowy: true },
   night: { ground: '#4a6b8a', alt: '#45647f', edge: '#2c4560', path: '#c7d2e2', pathEdge: '#7f8fa6', water: '#2f6db0', tree: '#2f5d62', treeDark: '#1c3c40', rock: '#6c7a89', roof: '#7b3fd4', wall: '#d9d4f0', flower: ['#ffe066', '#c0eb75', '#b197fc'], voidc: '#151a2a' },
   arena: { ground: '#e3cfa0', alt: '#d9c494', edge: '#a88c5c', path: '#f7ead0', pathEdge: '#b08960', water: '#4cc9f0', tree: '#5f9e3f', treeDark: '#3d6e28', rock: '#b0a08a', roof: '#c1121f', wall: '#f4e9d8', flower: ['#ffd166', '#fff', '#ff8fab'], voidc: '#3a2f22' },
+  // Gate Arc · Noon: Itomachi's paving, dark asphalt with a pale line, canals, cherry street trees, warm roofs
+  city: { ground: '#e3d9c9', alt: '#dbd0bf', edge: '#a99e8c', path: '#5a5f6a', pathEdge: '#f4f1ea', water: '#3f8fbc', tree: '#ffb3cf', treeDark: '#e07fa6', rock: '#9aa3ae', roof: '#4f9a62', wall: '#f3e7d0', flower: ['#7cc96a', '#ffd166', '#ff9ec4'], voidc: '#2e3138' },
+  // Gate Arc · Noon: Hilltop High at night: deep green lawns, the pale campus road (the lightest band), the lake, cherry trees, slate-blue roofs
+  campus: { ground: '#3f6b55', alt: '#3a644f', edge: '#2a4a3c', path: '#c9ccd4', pathEdge: '#eeebe4', water: '#2f6f9e', tree: '#ffb3cf', treeDark: '#e07fa6', rock: '#c98a6e', roof: '#6f8fa8', wall: '#efe6d6', flower: ['#ffd1e3', '#ffe680', '#ffffff'], voidc: '#1d2433' },
+  // Gate Arc S3a · Old Town (MapDef.district 'oldtown'): stone ground, pale stone setts (the lightest band), tiled roofs, cherry trees, the mill race
+  oldtown: { ground: '#8f8775', alt: '#877f6e', edge: '#615a4d', path: '#e3dccd', pathEdge: '#b9ad97', water: '#2f6f9e', tree: '#ffb3cf', treeDark: '#e07fa6', rock: '#a8a093', roof: '#56606e', wall: '#8a5a3a', flower: ['#ffd1e3', '#ffc46b', '#ffffff'], voidc: '#3a3330' },
+  // Gate Arc S3a · the burning look (StageDef.scenery.ruined 'burning'): ash ground, an ash-grey road kept lightest, rubble, amber embers
+  // Gate Arc S4a · the mountain highway (MapDef.district 'highway'): gravel verges, the pale concrete road (the lightest band) with its dark shoulder, sound walls, pines
+  highway: { ground: '#8f8a80', alt: '#878278', edge: '#5f5b55', path: '#e2e0d9', pathEdge: '#6f7176', water: '#3f86b4', tree: '#3d7f5a', treeDark: '#2e6a4b', rock: '#8d9097', roof: '#cfccc4', wall: '#7a9a8c', flower: ['#f4a62a', '#eef3f8', '#7f8b5e'], voidc: '#3a3a3c' },
+  // Gate Arc S5a · the Drowned Line (theme 'drowned'): wet slate tiles, the pale grating road (the lightest band), dark teal flood water, the line's blue
+  drowned: { ground: '#5e6f72', alt: '#58686b', edge: '#3a464b', path: '#c9ced1', pathEdge: '#e7c64a', water: '#1d5660', tree: '#5f7a72', treeDark: '#475c56', rock: '#7d8584', roof: '#3f8fbf', wall: '#c4c9c3', flower: ['#ff4d5a', '#e7c64a', '#7ff0ff'], voidc: '#11191d' },
+  // Gate Arc S5a · the reservoir park (MapDef.district 'park'): mown lawns, the pale park road, the reservoir, willows, the dam's concrete
+  park: { ground: '#7cb068', alt: '#73a760', edge: '#4f7a46', path: '#d6d3cb', pathEdge: '#b5afa2', water: '#2f6f8a', tree: '#7fa88a', treeDark: '#5f8a6c', rock: '#b9b6ad', roof: '#3f7a5a', wall: '#b9b6ad', flower: ['#ffd98f', '#ff7a2a', '#ffffff'], voidc: '#2a3a34' },
+  // Gate Arc S6a · Vesperline living (theme 'vesper'): white glass panels, the white glassway (the lightest band) with its cyan line, sky-blue pools, cherry courtyards
+  vesper: { ground: '#b6c6d5', alt: '#afbfcf', edge: '#7d8fa1', path: '#f4f8fb', pathEdge: '#5fe1f2', water: '#4f94bf', tree: '#ffb3cf', treeDark: '#e07fa6', rock: '#c7d9e4', roof: '#e4eff5', wall: '#9db3c2', flower: ['#ffd1e3', '#ffffff', '#7ff0ff'], voidc: '#1b2033' },
+  // Gate Arc S6a · Vesperline frozen (StageDef.scenery.ruined 'frozen'): frosted blue-grey glass, the white glassway kept lightest, near-black open water, frosted trees, snow
+  frozen: { ground: '#8496a8', alt: '#7d8fa1', edge: '#55677a', path: '#eef3f7', pathEdge: '#5fe1f2', water: '#0b1626', tree: '#e2ecf4', treeDark: '#9db3c2', rock: '#b4c2ce', roof: '#c7d9e4', wall: '#5a6f81', flower: ['#f1f5f9', '#7ff0ff', '#b9a8ff'], voidc: '#0e1426' },
+  burning: { ground: '#5f5955', alt: '#58524e', edge: '#3d3936', path: '#bdb8b0', pathEdge: '#8f8981', water: '#26384a', tree: '#3a3330', treeDark: '#241f1d', rock: '#6f6963', roof: '#3d3734', wall: '#6e675e', flower: ['#ffb347', '#ffd27a', '#6d6862'], voidc: '#2b2624' },
 };
 
 const DECOR_COLORS = {
@@ -27,6 +45,14 @@ const DECOR_COLORS = {
   campfire: '#ff7b25', banner: '#ff5d73', flag: '#ff5d73', stall: '#ff8fab', taiko: '#9c2f2f', boat: '#a47148',
   pier: '#a47148', waterwheel: '#8d6e63', statue: '#c0c7d6', bones: '#f1ece2', chimney: '#6c757d', gearTower: '#adb5bd',
   vent: '#ff9f1c', crane: '#ffb703', nest: '#a47148', bookshelf: '#8d6e63', candle: '#ffe066', bench: '#a47148', signpost: '#a47148',
+  // the city kit's set pieces (Gate Arc)
+  stationHall: '#f3e7d0', ticketGates: '#9aa3ae', clockTower: '#b8674e', levelCrossing: '#ffd84d', waterBus: '#f7f4ee',
+  lockGate: '#7a5a40', arcadeRibs: '#9aa3ae', roofBlock: '#dcc29c', busStop: '#4f9a62', vendingMachine: '#e8473f',
+  missingPoster: '#f7f4ee', bunSteamer: '#c9b08a', streetTree: '#ffb3cf',
+  // the campus kit's set pieces (Gate Arc)
+  schoolBlock: '#efe6d6', clubHut: '#f0dcc0', bikeShed: '#5f9a72', flagpole: '#3d5a8a', goalPosts: '#f7f4ee',
+  scoreboard: '#ffe6a0', finishGantry: '#9aa3ae', boatRack: '#d9604a', oldLamp: '#3a3d46', searchlight: '#fff2cc',
+  flowerBoxes: '#ff9ec4',
 };
 
 function treeSym(x, y, t, th) {
@@ -73,13 +99,14 @@ function arrow(x, y, dx, dy, t, fill) {
 /**
  * Top-down mini map of a MapDef.
  * @param {object} mapDef
- * @param {{width?: number, height?: number}} [opts]
+ * @param {{width?: number, height?: number, ruined?: string|null}} [opts] ruined: the stage's
+ *   scenery.ruined ('burning' = the burning palette); a map's district (Old Town) has its own
  */
-export function stageThumbSVG(mapDef, { width = 320, height = 200 } = {}) {
+export function stageThumbSVG(mapDef, { width = 320, height = 200, ruined = null } = {}) {
   const W = mapDef?.width || 20;
   const H = mapDef?.height || 12;
   const rows = mapDef?.rows || [];
-  const th = MAP_THEMES[mapDef?.theme] || MAP_THEMES.sakura;
+  const th = (ruined && MAP_THEMES[ruined]) || (mapDef?.district && MAP_THEMES[mapDef.district]) || MAP_THEMES[mapDef?.theme] || MAP_THEMES.sakura;
   const t = Math.min(width / W, height / H);
   const ox = (width - W * t) / 2;
   const oy = (height - H * t) / 2;

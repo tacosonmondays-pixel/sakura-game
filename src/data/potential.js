@@ -45,9 +45,13 @@ export const POTENTIAL_MOD_KEYS = Object.freeze([
   'sentry.max', 'sentry.damage', 'sentry.ttl',
   // Kaede's blade arts (her AoE rework): Maple Gale sharpens every shape
   'blade.shareMul',
+  // the duo (DUO_LR §1.5): Kohaku's beam, the shards, and the capstone's full split
+  'duo.beamDmg', 'duo.beamPierce', 'duo.shardShare', 'duo.shardAdd', 'duo.fullEvery',
+  // the staff heroes (BANNERS §D): Kogane's Move downtime and Overdrive; Norika's barricades and her skill's count
+  'moveDowntime', 'overdrive', 'barricade.budgetMul', 'barricade.rebuildCut', 'barricade.count', 'barricade.held', 'skillCount',
 ]);
 /** Keys whose value is one whole object or list (never split into dotted keys). */
-export const POTENTIAL_WHOLE_KEYS = Object.freeze(['statusAdd', 'proc', 'ult', 'harvest', 'dotSpread', 'tempo', 'classMul']);
+export const POTENTIAL_WHOLE_KEYS = Object.freeze(['statusAdd', 'proc', 'ult', 'harvest', 'dotSpread', 'tempo', 'classMul', 'overdrive']);
 
 function deepFreeze(o) {
   if (o && typeof o === 'object' && !Object.isFrozen(o)) {
@@ -58,7 +62,7 @@ function deepFreeze(o) {
 }
 
 /** One-girl keys (data test): projScale / tempo → kage, classMul → hotaru (spectral only), bossMul → kaede. */
-export const POTENTIAL_GIRL_ONLY = deepFreeze({ projScale: ['kage'], tempo: ['kage'], classMul: ['hotaru'], bossMul: ['kaede'] });
+export const POTENTIAL_GIRL_ONLY = deepFreeze({ projScale: ['kage'], tempo: ['kage'], classMul: ['hotaru'], bossMul: ['kaede'], moveDowntime: ['kogane'], overdrive: ['kogane'], skillCount: ['norika'] });
 
 export const POTENTIAL_LADDERS = deepFreeze({
   // kind per step P2..P6; 'kit' = stat + kit; 'cap' = stat + capstone. Heroes (Nami too) use SSR kinds.
@@ -245,6 +249,15 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p5: step('Extra Wing', 'kit', { rateMul: 1.08 }, { turret: { max: 1 }, statusAdd: [S.shred(1, 3)] }),
     p6: step('Grand Uplink', 'cap', { damageMul: 1.09 }, { turret: { overclock: { every: 20, rateMul: 1.75 } }, link: { targetsAdd: 1 } }),
   },
+  // Tenka, SSR powerhouse (BUILD_PLAN 6.7; not in the v3 spec, built to its SSR rules): her bolts pierce
+  // armor, crit, resonate on a rhythm (every 10th, then every 8th bolt) and pass through one more enemy
+  tenka: {
+    p2: step('Lab Notes', 'kit', { rateMul: 1.05 }, { armorPen: 1 }),
+    p3: step('Field Equations', 'kit', { damageMul: 1.07 }, { crit: { chance: 0.04 } }),
+    p4: step('Coil Resonance', 'kit', { rateMul: 1.07 }, { proc: { name: 'Coil Resonance', every: 10, damageMul: 2, splash: 0.5 } }),
+    p5: step('Superconductor', 'kit', { damageMul: 1.08 }, { pierce: 1 }),
+    p6: step('Eureka Cascade', 'cap', { rateMul: 1.09 }, { proc: { every: 8, damageMul: 3, status: [S.vulnerable(0.1, 3)] } }),
+  },
   // §5.18 Hikari, SSR hero (P3 and P5 live in her ultimate)
   hikari: {
     p2: step('Sunrise Step', 'kit', { damageMul: 1.05 }, { proc: { name: 'Sunrise', every: 6, damageMul: 1.5 } }),
@@ -386,6 +399,15 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p5: step('Quick Sprouts', 'kit', { rateMul: 1.06 }, { vine: { every: -0.5 } }),
     p6: step('Evergreen', 'cap', { damageMul: 1.07 }, { pierce: 1, vine: { hold: 0.3, every: -0.5 } }),
   },
+  // Kohaku & Tsubaki, SSR duo (DUO_LR §1.5: SSR track, kit steps from P2): a harder beam, brighter shards,
+  // one more shard, and the capstone: every 8th volley splits completely (every shell in it)
+  kohaku_tsubaki: {
+    p2: step('Steady Lens', 'kit', { damageMul: 1.05 }, { duo: { beamDmg: 1 } }),
+    p3: step('Brighter Facets', 'kit', { rateMul: 1.07 }, { duo: { shardShare: 0.05 } }),
+    p4: step('Clear Corridor', 'kit', { damageMul: 1.07 }, { duo: { beamPierce: 1 } }),
+    p5: step('Extra Facet', 'kit', { rateMul: 1.08 }, { duo: { shardAdd: 1 } }),
+    p6: step('Full Spectrum', 'cap', { damageMul: 1.09 }, { duo: { fullEvery: 8 } }),
+  },
   // Ouka, SR campus hub (the coins track, like Momo: she deals no damage, and her coins are the
   // discount; incomeMul deepens it. Her kit steps widen her office and add to the discount)
   ouka: {
@@ -394,6 +416,24 @@ export const POTENTIAL_GIRLS = deepFreeze({
     p4: step('Open Plan', 'kit', { incomeMul: 1.04 }, { hub: { radiusAdd: 0.2 } }),
     p5: step('Corridor Notices', 'kit', { incomeMul: 1.04 }, { hub: { cutAdd: 0.02 } }),
     p6: step('Council Seal', 'cap', { incomeMul: 1.04 }, { hub: { radiusAdd: 0.3, cutAdd: 0.03 } }),
+  },
+  // Kogane, SSR hero (BANNERS §D.3): every 6th volley fires 2 more rivets (N3 with `projectiles`), a shorter
+  // Move downtime, a longer and quicker plow, and the capstone: +30% attack speed for 6 s after each Move in a wave
+  kogane: {
+    p2: step('Spare Rivets', 'kit', { damageMul: 1.05 }, { proc: { name: 'Spare Rivets', every: 6, projectiles: 2 } }),
+    p3: step('Quick Clutch', 'kit', { rateMul: 1.07 }, { moveDowntime: 1 }),
+    p4: step('Wide Blade', 'kit', { damageMul: 1.07 }, { ult: { length: 2 } }),
+    p5: step('Hydraulics', 'kit', { rateMul: 1.08 }, { ult: { haste: 0.1 } }),
+    p6: step('Big Yellow Overdrive', 'cap', { damageMul: 1.09 }, { overdrive: { rateMul: 1.3, time: 6 } }),
+  },
+  // Norika, SR hero (BANNERS §D.4; the SR stat track, kit steps from P2 like every hero): sturdier and quicker
+  // barricades, a longer Hold the Line, a louder Whistle Stop, and the capstone: one more barricade, held enemies +10%
+  norika: {
+    p2: step('Sturdy Cones', 'kit', { damageMul: 1.04 }, { barricade: { budgetMul: 1.25 } }),
+    p3: step('Quick Rebuild', 'kit', { rateMul: 1.05 }, { barricade: { rebuildCut: 1 } }),
+    p4: step('Longer Line', 'kit', { damageMul: 1.05 }, { ult: { duration: 4 } }),
+    p5: step('Loud Whistle', 'kit', { rateMul: 1.06 }, { skillCount: 2 }),
+    p6: step('Safety Week', 'cap', { damageMul: 1.07 }, { barricade: { count: 1, held: 0.1 } }),
   },
 });
 

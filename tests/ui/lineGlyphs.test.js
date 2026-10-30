@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  LINE_GLYPHS, GLYPH_GROUPS, CORE_GLYPHS, FRAME_GLYPHS, LINE_ALIASES, EMBLEM_GLYPHS, CHAPTER_EMBLEMS, chapterEmblem, lineGlyph, lineFor, hasLineGlyph, emblemSvg,
+  LINE_GLYPHS, GLYPH_GROUPS, CORE_GLYPHS, FRAME_GLYPHS, LINE_ALIASES, PENDING_GLYPHS, EMBLEM_GLYPHS, CHAPTER_EMBLEMS, chapterEmblem, lineGlyph, lineFor, hasLineGlyph, emblemSvg,
 } from '../../src/ui/lineGlyphs.js';
 
 /** The glyph names the kit fixture (the approved specimen's boards) draws with <i data-g="…">. */
@@ -49,7 +49,8 @@ describe('line glyphs', () => {
   it('the approved set: 86 glyphs in five groups, each one drawn', () => {
     expect(CORE_GLYPHS).toHaveLength(86);
     for (const names of Object.values(GLYPH_GROUPS)) for (const n of names) expect(hasLineGlyph(n), n).toBe(true);
-    expect(Object.keys(LINE_GLYPHS)).toHaveLength(89); // the 86 + armorbreak, pierce and lantern (the mock-ups)
+    expect(Object.keys(LINE_GLYPHS)).toHaveLength(95); // the 86 + armorbreak, pierce and lantern (the mock-ups) + Tryout Day's 6
+    expect(GLYPH_GROUPS['Tryout Day']).toEqual(['marble', 'eraser', 'hall-pass', 'desk', 'stamp', 'chalk']);
   });
   it('every glyph the kit fixture draws exists', () => {
     expect(FIXTURE_NAMES.length).toBeGreaterThan(36);
@@ -88,8 +89,14 @@ describe('line glyphs', () => {
     }
   });
   it('the game icon names chrome uses map onto line glyphs; game-data icons do not', () => {
-    for (const [from, to] of Object.entries(LINE_ALIASES)) expect(hasLineGlyph(to), `${from} → ${to}`).toBe(true);
+    for (const [from, to] of Object.entries(LINE_ALIASES)) if (!PENDING_GLYPHS.includes(to)) expect(hasLineGlyph(to), `${from} → ${to}`).toBe(true);
     expect(lineFor('home')).toBe('house');
+    // Tryout Day's aliases: its six glyphs are drawn, so none is pending and each alias draws its line glyph
+    expect(PENDING_GLYPHS).toEqual([]);
+    for (const a of ['marble', 'eraser', 'hall-pass', 'hallpass', 'desk', 'stamp', 'chalk']) {
+      expect(LINE_ALIASES[a], a).toBeTruthy();
+      expect(lineFor(a), a).toBe(LINE_ALIASES[a]);
+    }
     expect(lineFor('close')).toBe('x');
     expect(lineFor('settings')).toBe('settings');
     expect(lineFor('calendar')).toBe('daily');

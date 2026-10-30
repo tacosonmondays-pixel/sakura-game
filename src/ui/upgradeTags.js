@@ -44,6 +44,8 @@ export const MOD_TAGS = {
   maxTargets: 'self', splash: 'self', armorPen: 'self', projectileSpeed: 'self', canHitAir: 'self', detection: 'self',
   crit: 'self', eliteMul: 'self', bossMul: 'self', barrierMul: 'self', ramp: 'self', hpPct: 'self',
   behavior: 'transform', attackType: 'transform', element: 'transform',
+  // Tenka: her lab team is her own power; a gravity well and Last Line act on the enemies
+  lab: 'self', well: 'enemies', lastLine: 'enemies',
   turret: 'drones',
   trap: 'traps',
   aura: 'allies',
@@ -69,11 +71,18 @@ export const MOD_TAGS = {
   sentry: 'drones',
   // Kaede's blade arts (cleave, crescents, storm, shockwave, maple leaves) are her attack
   blade: 'self',
+  // the duo: Kohaku's beam and the prism's shards are her attack (DUO_LR §1)
+  duo: 'self',
+  // the staff heroes (BANNERS §D): Kogane's faster Move is hers; Norika's barricades hold the enemies
+  moveCd: 'self', barricade: 'enemies',
 };
 
 /** Sub-keys understood inside the object-valued mods (anything else trips the test). */
 const SUB_KEYS = {
   aura: new Set(['range', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'costCut', 'cleanse', 'armorPen', 'critChance']),
+  lab: new Set(['rounds', 'power']),
+  well: new Set(['every', 'time', 'radius', 'pull', 'slow', 'vuln']),
+  lastLine: new Set(['radius', 'max', 'time', 'cooldown']),
   brew: new Set(['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance']),
   link: new Set(['targets', 'dmgMul', 'rateMul', 'armorPen', 'critChance', 'overclock']),
   // execution shot (path cap): % of the target's current HP, bosses, cap in shots
@@ -93,6 +102,9 @@ const SUB_KEYS = {
   drink: new Set(['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'detection', 'cleanse', 'permanent', 'season', 'towel', 'towelDmg', 'life']),
   ring: new Set(['travel', 'turn', 'heat', 'double', 'sparks', 'scissors', 'scissorDmg', 'scissorMul', 'spiral', 'spiralPierce']),
   strip: new Set(['hits', 'ttl', 'forever', 'carry', 'boom', 'boomR', 'boomStun', 'air', 'aim', 'opening', 'lanes', 'pair', 'rain', 'rainCount']),
+  duo: new Set(['edge', 'beamDmg', 'beamRate', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'beamAir', 'beamMul', 'rampPer', 'rampMax', 'beamSilence',
+    'every', 'shards', 'shardAdd', 'shardShare', 'shardDmg', 'shardSplash', 'shardSlow', 'slowTime', 'shardShred', 'shardVuln', 'vulnTime', 'fullEvery']),
+  barricade: new Set(['count', 'budget', 'budgetMul', 'rebuild', 'rebuildCut', 'held', 'reveal', 'bounce', 'breakSlow', 'releaseSlow', 'miniHalf', 'detour', 'oneWay', 'lineAdd']),
   blade: new Set(['every', 'radius', 'share', 'targets', 'crescents', 'cLen', 'cWidth', 'cShare', 'cTargets', 'storm', 'sShare', 'sTargets', 'wave', 'wWidth', 'wShare', 'wTargets', 'maple', 'mShare', 'mTargets', 'shareMul']),
 };
 
@@ -256,7 +268,8 @@ export function ultTags(ult) {
   const tag = (id) => (by[id] ||= { id, keys: [] });
   for (const [k, v] of Object.entries(e)) {
     if (!present(v)) continue;
-    if (k === 'damage' || k === 'slow' || k === 'pushback' || k === 'status') {
+    // (budget / held: Hold the Line's barricades and the extra damage held enemies take; push: Kogane's plow)
+    if (k === 'damage' || k === 'slow' || k === 'pushback' || k === 'status' || k === 'budget' || k === 'held' || k === 'push') {
       const t = tag('enemies');
       t.keys.push(k);
       if (k === 'status' && Array.isArray(v) && v.some((s) => TEAM_STATUS.has(s.type))) t.team = true;
@@ -353,6 +366,9 @@ const SHORT_ORDER = [
   ['behavior', (m) => `Becomes ${BEHAVIOR_SHORT[m.behavior] || m.behavior}`],
   ['attackType', (m) => `${ATTACK_TYPES[m.attackType]?.name || m.attackType} attacks`],
   ['element', (m) => `${ELEMENTS[m.element]?.name || m.element} element`],
+  ['lab', (m) => (m.lab.rounds ? (m.lab.rounds > 1 ? 'Lab team joins again' : 'Lab team joins') : `Lab weapons ×${round1(m.lab.power || 1)}`)],
+  ['well', (m) => (m.well.every ? `Gravity well every ${round1(m.well.every)}s` : `Wells ${round1(m.well.time || 0)}s${m.well.vuln ? `, +${Math.round(m.well.vuln * 100)}% dmg taken` : ''}`)],
+  ['lastLine', (m) => `Last Line: up to ${m.lastLine.max} enemies`],
   ['aura', (m) => auraShort(m.aura)],
   ['brew', (m) => limitedShort(m.brew, 'Brew')],
   ['link', (m) => limitedShort(m.link, 'Tune-up')],
@@ -397,6 +413,7 @@ const ICON_ORDER = [
   'airMul', 'relay',
   'canHitAir', 'detection', 'crit', 'splash', 'chain', 'pierce', 'projectiles', 'maxTargets', 'armorPen', 'hpPct', 'eliteMul', 'bossMul',
   'barrierMul', 'ramp', 'rateMul', 'range', 'projectileSpeed', 'damageMul', 'damage',
+  'lab', 'well', 'lastLine', // Tenka (a tier with only these keys shows their icon)
 ];
 const SHORT_MAX = 34;
 
@@ -446,6 +463,9 @@ const ICON_RULES = {
   element: (m) => ({ set: 'element', key: m.element }),
   attackType: (m) => ({ set: 'attack', key: m.attackType }),
   behavior: () => ({ set: 'ui', key: 'sparkle' }),
+  lab: () => ({ set: 'cap', key: 'buff' }),
+  well: () => ({ set: 'status', key: 'slow' }),
+  lastLine: () => ({ set: 'cap', key: 'trap' }),
   aura: (m) => {
     const keys = Object.keys(m.aura || {}).filter((k) => k !== 'range' && present(m.aura[k]));
     if (keys.length === 1 && keys[0] === 'cleanse') return { set: 'cap', key: 'cleanse' };

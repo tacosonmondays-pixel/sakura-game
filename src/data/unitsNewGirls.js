@@ -33,7 +33,7 @@ const AZAMI = {
   materialFamily: 'cog',
   capabilities: ['trap'],
   pathCapabilities: ['armorShred', 'barrierBreak', 'stun', 'slow', 'detection', 'antiAir'],
-  acquisition: free('2-2', 'Joins after 2-2: the Disciplinary Committee lends you its strictest prefect and her spike strips.'),
+  acquisition: free('4-7', 'Joins after 4-7: the Disciplinary Committee lends you its strictest prefect, her spike strips and her checkpoint.'),
   palette: {
     hair: '#3b2d40', hairShade: '#241a29', eyes: '#c2414f', skin: '#ffe5d8',
     outfit: '#25262f', outfitShade: '#15161c', accent: '#a57cc4', halo: '#ffb3c1', weapon: '#b7bfcb',
@@ -226,7 +226,7 @@ const YUZUHA = {
   materialFamily: 'cog',
   capabilities: ['antiAir', 'summon'],
   pathCapabilities: ['slow', 'stun', 'buff', 'reveal'],
-  acquisition: free('4-2', 'Joins after 4-2: the Campus Security Bureau sends its technician, her tablet and a case of fold-out sentries.'),
+  acquisition: free('1-7', 'Joins after 1-7 (or 4-2, whichever comes first): the Campus Security Bureau sends its technician, her tablet and a case of fold-out sentries, to the rush-hour evacuation route.'),
   palette: {
     hair: '#8f7f73', hairShade: '#665850', eyes: '#e08a3c', skin: '#ffe4d4',
     outfit: '#2a3c66', outfitShade: '#182440', accent: '#ff8a2a', halo: '#ffd29a', weapon: '#3a4256',
@@ -322,9 +322,9 @@ const OUKA = {
     path('assembly', 'Assembly', 'Club activities', [
       tier('Morning Bell', 140, 'Girls in her radius attack 10% faster.', { hub: { rateMul: 1.1 } }),
       tier('Bigger Office', 300, 'Radius 3.2 tiles.', { hub: { radius: 3.2 } }),
-      tier('Club Mentors', 1100, 'Girls in her radius attack 15% faster.', { hub: { rateMul: 1.15 } }),
+      tier('Club Mentors', 1100, 'Girls in her radius attack 15% faster, and their abilities recharge 15% faster.', { hub: { rateMul: 1.15, cdCut: 0.15 } }),
       tier('Student Body', 3400, 'Radius 3.6 tiles; girls in her radius reach 10% further.', { hub: { radius: 3.6, rangeMul: 1.1 } }),
-      tier('Festival of Clubs', 19200, 'Girls in her radius attack 25% faster and reach 15% further.', { hub: { rateMul: 1.25, rangeMul: 1.15 } }),
+      tier('Festival of Clubs', 19200, 'Girls in her radius attack 25% faster and reach 15% further; their abilities recharge 25% faster.', { hub: { rateMul: 1.25, rangeMul: 1.15, cdCut: 0.25 } }),
     ]),
     path('safety', 'Safety Code', 'Rules for every threat', [
       tier('Hall Monitors', 120, 'Girls in her radius gain Veil Sight.', { hub: { detection: true } }),

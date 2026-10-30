@@ -15,7 +15,7 @@
 // already pulls in) and NEVER the scene chunk (the story index and its scene files). Scene-aware logic lives in
 // src/systems/storyTriggers.js.
 
-import { STAGE_MAP, CAMPAIGN_IDS } from '../data/stages.js';
+import { STAGE_MAP, CAMPAIGN_IDS, requirementsMet } from '../data/stages.js';
 import { DIFFICULTY_ORDER } from '../data/types.js';
 import { UNIT_MAP } from '../data/units.js';
 import { LESSONS, LESSON_IDS, LESSON_MAP, FEATURE_GATES, WELCOME_MAIL, JOURNAL_TEXT } from '../data/story/lessons.js';
@@ -220,16 +220,32 @@ export function stageCleared(profile, stageId) {
   return !!e && DIFFICULTY_ORDER.some((d) => e[d]);
 }
 
-/** Same rule as systems/unlocks.js isStageUnlocked (kept local: unlocks.js imports save.js). */
+/**
+ * Same rule as systems/unlocks.js isStageUnlocked: both read stages.js requirementsMet (kept local: unlocks.js imports
+ * save.js).
+ */
 export function stageOpen(profile, stageId) {
   const stage = STAGE_MAP[stageId];
   if (!stage) return false;
-  return !stage.requires || stageCleared(profile, stage.requires);
+  return requirementsMet(stage, (id) => stageCleared(profile, id));
 }
 
 /** @returns {Set<string>} campaign stage ids cleared on any difficulty */
 export function clearedCampaign(profile) {
   return new Set(CAMPAIGN_IDS.filter((id) => stageCleared(profile, id)));
+}
+
+/**
+ * Stage ids whose first clear can queue an `after` scene: the campaign, plus the side stages (kind 'side', e.g.
+ * `side-6-starfall`: not in CAMPAIGN_IDS, so not in clearedCampaign, but g6.star2 plays on its first clear).
+ */
+export const STORY_TRIGGER_STAGE_IDS = Object.freeze([
+  ...CAMPAIGN_IDS, ...Object.values(STAGE_MAP).filter((s) => s.kind === 'side').map((s) => s.id),
+]);
+
+/** @returns {Set<string>} campaign and side stage ids cleared on any difficulty (the after-scene watcher's view) */
+export function clearedStoryStages(profile) {
+  return new Set(STORY_TRIGGER_STAGE_IDS.filter((id) => stageCleared(profile, id)));
 }
 
 /**
