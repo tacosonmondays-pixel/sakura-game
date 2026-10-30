@@ -101,3 +101,49 @@ scrolls under the slots: the row cut by the scroller's edge reads as 41 px taps.
   the player card's restyle (the online screens, M8), only the sheet around them is M7a's.
 - Edit profile is no longer yellow on the profile: the sheet's Save is.
 - The showcase still uses today's cards: the girl tiles come with M3.
+
+## Round 2 prep (Oct 30): the merged head (main `60ce9cad`, v0.1.61)
+
+**M7a is live.** Tryout Day merged this branch at `b60f2196` (M7a with the round-1 fixes) into v0.1.59 on Oct 28.
+So the round-2 review looks at what players have; this branch's game files are main's.
+
+**What main changed in M7a's files after round 1** (worth the reviewer's look):
+- `profile/parts.js`: an LR girl's showcase card wears the banners' Nightglass frame (`.pf-slot.is-lr`, `lrFrame()`
+  and the LR sticker). New shot: `profile-lr` (Tenka after her Limit Break).
+- `story/archive.js`: a locked episode that waits for a girl the player owns says so in its toast ("Needs Ruri, Iroha,
+  Ena or Fuu. Recruit one of them to unlock this episode.").
+- `journal.css`: the lesson toast's place on the home (display polish). `story.css`: the scene player only.
+
+**Round-1 findings on the merged head** (shots from `node e2e/menus.mjs --milestone m7a`, at the review's sizes):
+
+| # | Finding | On the merged head |
+|---|---|---|
+| 1 | Daily Gifts at 1024x768 and 1280x720 | both tiles and their counts sit inside every day card |
+| 2 | Edit Showcase and Pin trophies footers at 390x844 | the ghost action has its own row; Cancel and "Save" below it |
+| 3 | Journal rows at 667x375 | titles clamp to two lines with their numbers (01-04); whole rows only |
+| 4 | the selected Story chapter's emblem | white lines on the ink fill |
+| 5 | Save after a touch drag in Edit Showcase | the slot drag cancels its touchmoves (`showcaseEditor.js`); `e2e/profile.mjs` at 844x390 (touch): drag, then Save writes the order |
+| 6 | Daily Gifts vs M5's calendar (a note) | in "For the owner" above |
+| 7 | the event header at 390x844 | no lanterns or host under 560 px wide; the kicker reads clean |
+| 8 | the visitor's profile | glass bar buttons (Invite to co-op with the cyan edge), More as the bar icon, the kit's bottom sheet |
+| 9 | the event host | her bust in a square window at the header band's right end |
+| 10 | gift tiles; claimed missions | gift tiles are display only (`displayOnly()` in `event.js`); a claimed row says "Claimed" and what it paid |
+| 11 | read, NEW and locked cards; Replay tutorial; plaques | `story-mixed` shows all three; "Replay tutorial"; plaques read "Stage" / "4-3" |
+| 12 | one row of eight at 667x375 | Edit Showcase and the Profile showcase each keep one row of eight |
+
+At 667x375 the Edit Showcase picker's row cut by its scroller still reads as 41 px taps (the probe note above).
+
+**The new shot fails the gate at all three sizes** (`profile-lr`, for the reviewer to rule on):
+- the LR sticker is rounded (`span.lr-badge`, 5 px; lr.css), sits inside the card's ink tag, and its "LR" is 12.48 px
+  where the gate wants 13 px (1280x720, 390x844);
+- the Nightglass crest is cut by the card's chamfered clip (the kit girl tile moves its crest inside the top edge);
+- an earned frame shows as a chip in Freeplay Records (`button.pf-chip-frame`, opens Edit Profile): a 21 px tap at
+  1280x720. No shot had an earned frame before (it comes with a ★5 SSR).
+
+**e2e changes (test only):** `e2e/profile.mjs` counted 59 stages, stale since the Gate Arc's Acts (the game has 89);
+it reads `STAGE_COUNT` now, and its screenshots wait up to 90 s. `e2e/shots/m7-records.mjs` gains `profile-lr`.
+
+**For the owner (Oct 30, "Profile sensei page should match menus"):** the showcase still uses its own cards, while
+M3's kit girl tiles have been live in Students, Formation and Tryout since v0.1.59 (see "the girl tiles come with
+M3" above). The plan's target for the Profile is "showcase as girl tiles" (UI_V2_MENUS.md section 3): moving the
+showcase onto `girlTile()` would also give an LR girl the kit tile's Nightglass edge and crest.
