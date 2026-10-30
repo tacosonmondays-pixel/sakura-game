@@ -15,13 +15,15 @@
 // The gear update (docs/specs/GEAR_UPDATE.md §9) adds marks no older build reads, so none of them can be refunded or
 // clamped by a build that cannot see what they describe:
 //   gst:<uid>  a Charm / Ribbon / Shoes piece's set (set index + 1)
-//   glr:<uid>  a Charm / Ribbon / Shoes LR piece: LR kind × 100 + level (an older build reads it as UR +12)
+//   glr:<uid>  a Charm / Ribbon / Shoes LR piece: LR kind × 100 + level + 1000 × its ▲ per line (a digit per substat,
+//              line 0 lowest), so the ▲ an older build trims at +12 come back on their own lines (it reads UR +12)
 //   gtx:<uid>  its Nightglass ✦ (1 bit per stat, TUNE_BITS order)   gtp:<uid>  its pins (bit 0 main, 1 + TUNE_BITS index)
 //   A piece gone with one of these marks was salvaged by an older build, which paid only the UR part: the "piece gone"
 //   rows pay the rest once (the Lens, half of +13 … +18 at LR prices, a Needle per Nightglass ✦, every pin).
 //   gph: / gpm: / gps:<uid>:<i> / gpc:  a Hair Clip or Necklace, whole (§9.5). An older build drops the piece (it does
-//   not know the slot); this build rebuilds it. NO legacy mark (gur, gtn, gbx, gbl, gcl, gnx, gnf) ever names one, so
-//   an older build that drops it finds nothing to refund.
+//   not know the slot); this build rebuilds it. No legacy mark that pays (gur, gtn, gbx) or that an older build rewrites
+//   (gcl, gnx, gnf) ever names one, so an older build that drops it finds nothing to refund. `gbl:` (a box-born UR
+//   piece's UR-priced levels) is allowed on them (spec r3 L19): an older build reads it only through a `gbx:` key.
 import { GEAR_SUBSTATS_BY_RARITY, ITEM_RARITIES, ITEM_RARITY_ORDER } from '../data/types.js';
 import { NEW_STAT_SLOT } from '../data/gearStats.js';
 import { SLOT_IDS, SET_ONLY_SLOTS, MAIN_STATS_BY_SLOT, isNewSlot } from '../data/gearSlots.js';
@@ -112,7 +114,7 @@ export function wholePieceMarks(g) {
   const head = (SET_ONLY_SLOTS.indexOf(g.slot) + 1) + 10 * ITEM_RARITIES[g.rarity].order + 100 * Math.min(99, g.level) + 1e4 * setIndex(g.set)
     + 1e6 * MAIN_STATS_BY_SLOT[g.slot].indexOf(g.main.stat) + 1e8 * flags;
   const subs = (g.subs || []).slice(0, 4).map((s) => TUNE_BITS.indexOf(s.stat) * 1e10 + Math.min(9, s.upgrades || 0) * 1e9 + (s.top ? 1e8 : 0)
-    + (((s.tuned || 0) & 3) + (s.night ? 4 : 0)) * 1e7 + Math.min(999999, Math.round((s.base ?? s.value) * 1e6)));
+    + (((s.tuned || 0) & 3) + (s.night ? 4 : 0)) * 1e7 + Math.min(9999999, Math.round((s.base ?? s.value) * 1e6)));
   return { head, main: Math.round((g.main.base ?? g.main.value) * 1e6), subs, club: g.club ? clubIndex(g.club) : 0 };
 }
 
@@ -204,7 +206,7 @@ export function writeGearMarks(p) {
     }
     // the gear update's marks on a classic piece: its set, LR kind and level, the Nightglass ✦ and pins
     if (g.set) c[MARK.set + g.uid] = setIndex(g.set);
-    if (isLrGear(g)) c[MARK.lr + g.uid] = lrKind(g) * 100 + g.level;
+    if (isLrGear(g)) c[MARK.lr + g.uid] = lrKind(g) * 100 + g.level + 1000 * g.subs.slice(0, 4).reduce((n, s, i) => n + Math.min(9, s.upgrades || 0) * 10 ** i, 0);
     const night = lineBits(g, (s) => s.night);
     if (night) c[MARK.night + g.uid] = night;
     const top = topMark(g);
@@ -245,13 +247,18 @@ function restoreUpdateMarks(p, c, refund) {
     const uid = key.slice(MARK.lr.length);
     const g = p.gear[uid];
     const v = whole(c[key]);
-    const kind = Math.floor(v / 100);
+    const kind = Math.floor(v / 100) % 10;
     const lv = Math.max(UR_MAX_LEVEL, Math.min(LR_MAX_LEVEL, v % 100));
+    const ups = [0, 1, 2, 3].map((i) => Math.floor(v / 1000 / 10 ** i) % 10);
     if (g) {
       if (isUrGear(g) && !isNewSlot(g.slot) && (kind === LR_BLANK || (kind === LR_SET && g.set))) {
         g.lr = kind;
         if (kind === LR_BLANK) delete g.set;
         g.level = Math.max(g.level, lv);
+        // its ▲ back on the lines that had them (an older build trims the ones above +12 from the most-grown line)
+        if (ups.reduce((a, b) => a + b, 0) === Math.floor(g.level / SUB_GROWTH_EVERY) && ups.every((u, i) => !u || g.subs[i])) {
+          g.subs.forEach((s, i) => { s.upgrades = ups[i] || 0; });
+        }
       }
       continue;
     }
@@ -305,14 +312,15 @@ export function restoreGearMarks(p) {
       refunds[id] = (refunds[id] || 0) + n;
     }
   };
-  // 0. the gear update's marks on classic pieces (GEAR_UPDATE.md §9.2, §9.3): sets, LR, the Nightglass ✦ and pins an
-  //    older build dropped come back; a piece gone with them was salvaged there, which paid only its UR part
-  restoreUpdateMarks(p, c, refund);
-  // 1. items an older build dropped (spent items have mirror 0 and never come back)
+  // 1. items an older build dropped (spent items have mirror 0 and never come back): first, so a refund below adds to
+  //    the restored stock instead of standing in for it (review M0 r1 H1)
   for (const id of MIRRORED_ITEMS) {
     const v = Math.min(ITEM_MAX, whole(c[MARK.inv + id]));
     if (v > 0 && !p.items[id]) p.items[id] = v;
   }
+  // 1a. the gear update's marks on classic pieces (GEAR_UPDATE.md §9.2, §9.3): sets, LR, the Nightglass ✦ and pins an
+  //     older build dropped come back; a piece gone with them was salvaged there, which paid only its UR part
+  restoreUpdateMarks(p, c, refund);
   // 1b. box-born UR (the Rainbow Gear Box, ASCENSION.md §C.8): `ur` back at any level when a Legendary with that
   //     uid and slot is present. Its main stat need not match: an older build's Prism Dice (rerollMainStat, no
   //     lock check there) changes it on what that build sees as a plain Legendary and leaves `gbx:` as it was;

@@ -34,7 +34,7 @@ export const GEAR_SETS = Object.freeze({
   }),
   treasurer: Object.freeze({
     two: Object.freeze({ stat: 'costCut', value: 0.04 }), cap: 'interest',
-    name: 'Treasurer', role: 'money', color: '#3fbf9f',
+    name: 'Treasurer', role: 'money', color: '#9fd8c4',
     pieces: Object.freeze({ charm: 'Abacus Bracelet', ribbon: 'Coin-Clasp Ribbon', shoes: 'Coin-Buckle Loafers', hair: 'Calculator Clip', necklace: 'Coin Locket' }),
   }),
   powerbank: Object.freeze({
@@ -43,6 +43,9 @@ export const GEAR_SETS = Object.freeze({
     pieces: Object.freeze({ charm: 'Power Bank Keyring', ribbon: 'Charging-Cable Bow', shoes: 'Charge-Bar Trainers', hair: 'Lightning Clip', necklace: 'Battery Locket' }),
   }),
 });
+
+/** The set each titan's chests drop (GEAR_UPDATE.md §3.6): the four titan sets (the Rainbow Gear Box offers these). */
+export const TITAN_SETS = Object.freeze({ daimyo: 'spirit', regent: 'freezetag', wyrm: 'geometry', foundry: 'popper' });
 
 /** Rarities a set piece exists at (UR and LR by awakening and Limit Break). */
 export const SET_RARITIES = Object.freeze(['superRare', 'mythic', 'legendary']);
