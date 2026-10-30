@@ -90,8 +90,9 @@ export const POWER = Object.freeze(Object.fromEntries(Object.entries(ROWS).map((
  * docs/specs/DUO_LR.md §7). LR-only: her UR self and every other girl are untouched; never in a titan battle.
  */
 const LR_ROWS = {
-  // the duo: × bosses on every build (her LR line, PRISM_EDGE_MUL_LR in src/sim/constants.js, lifts her crowd)
-  kohaku_tsubaki: { boss: 1.6 },
+  // the duo: ×1.05 damage and ×1.6 vs bosses on every build (her LR line, PRISM_EDGE_MUL_LR in src/sim/constants.js,
+  // lifts her crowd; ×1.05 takes her Starfall build's crowd over 2.5×)
+  kohaku_tsubaki: { dmg: 1.05, boss: 1.6 },
   // Tenka (Thesis Defense): × bosses; her rail build's crowd is above the band already
   tenka: { boss: 3.4 },
 };

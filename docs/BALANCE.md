@@ -190,6 +190,26 @@ watched on the sweeps instead: Grade 12 maxed reads 15% live, 30% with round 5 a
 not bumped here (the coordinator assigns it at ship). Goldens re-pinned with no win becoming a loss; mechanics
 scenarios (save/restore, co-op casts) run power-neutral (`powerOff`, or the row divided back out in co-op).
 
+**Validated on v0.1.61 (Oct 30; the merge of `main` 60ce9cad, COOP 13, the five new ultimates).** Sim id
+`174f17a76dd5` with the merge (pinned as PENDING_BUMP {13: …}; the duo's laser and the LR rows below move it again).
+- The five girls whose ⚡ changed in v0.1.61 (`r5Bench`, every build, boss / walking boss / crowd, seeds 9/1/2): Kage
+  2.22M / 0.83M / 1.83M, Suzu 0.7k / 13.1k / 1.87M, Chika 1.78M / 1.87M / 682k, Fuu 263k / 152k / 4.04M, Iroha 1.09M /
+  171k / 5.88M: the same as before the merge, and every build at or above live v0.1.61 (×1.01–×4.5).
+  Their casts (`tools/abilityBench.mjs`, Auto on): Suzu, Fuu and Iroha's casts rise with their rows (×1.8, ×2.4, ×4.0 on
+  a boss); Chika and Kage T3 equal live. **Kage 5-0-2 on the ability bench's pinned crowd (ten grunts held in two
+  tiles) reads 2.24M Auto off / 4.77M on, against live's 3.36M / 5.90M**: the attack shapes' Blade Cyclone, identical
+  before the merge (c40ed217: 2.24M) and not on the round's rulers (her r5 crowd 1.83M ≥ live 1.82M). Kage has no row.
+- No build falls: every girl, all three tier-5 builds, boss / walking boss / crowd, seeds 9/1/2, against live
+  v0.1.61: none of the 279 build × ruler cells (31 girls) under live.
+- The 14 finales (Normal, Hard, Nightmare × free and common × mid, late and max × 2 seeds, 504 battles): **0 wins become
+  losses, 42 losses become wins**, the same as before the merge.
+- Tryout sweeps (20 runs, solo Half Day), live → round 5: Grade 1 new / mid / maxed 55 / 100 / 100% → 95 / 100 / 100%;
+  Grade 6 15 / 55 / 65% → 15 / 80 / 85%; Grade 12 0 / 5 / 15% → 0 / 20 / 35%. Unchanged from the merge's base.
+- Ceiling gate (`tools/bench.mjs --hit --ceiling --maxed geared`): 41 rows, 0 failing, max ×1.584 (Kage with her
+  talent, a recorded exception), mean ×0.680.
+- Tests re-pinned after the merge (no win became a loss): abilitiesGolden 8-5 (the round's wins, hashSim only), the
+  engines abilities battle (main's A4–A6 scenario with the round), the hit-stop battle power-neutral.
+
 **Review.** An independent adversarial review (FIX-THEN-SHIP, no blocker) found Fuu's two lower builds, the titan claim,
 the Golem ship gate and four nits (the footnote naming only damage and boss rows, Chigusa judged on the wrong ruler, the
 wiki's Fuu line, the duo's beam and boss row); all fixed above. Not fixed: Umeko's tier text keeps her own words (+15%)

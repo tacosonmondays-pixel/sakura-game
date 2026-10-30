@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   freeplayHpRamp, freeplaySpeed, freeplayPressure, freeplayChapterCap, freeplayFirstBossWave,
-  freeplayBosses, freeplayInfo, generateFreeplayWave, freeplayBossFactor, freeplayEliteArmor, freeplayEliteHp,
+  freeplayBosses, freeplayInfo, generateFreeplayWave, freeplayBossFactor, freeplayBossDamp, freeplayEliteArmor, freeplayEliteHp,
 } from '../../src/sim/freeplay.js';
 import { powInt, waveHpRamp } from '../../src/sim/waves.js';
 import { Sim } from '../../src/sim/Sim.js';
@@ -294,7 +294,8 @@ describe('boss cadence: a boss every 5 waves from ladder level 50 (path-cap pass
         const ramp = wd.hpMul;
         b.bosses.forEach((id, i) => {
           const rank = fp.titans.includes(id) ? 'titan' : look(id).tier;
-          const f = wd.freeplay.bossHpMul[i] / ramp;
+          // (the boss bands' damp and a boss's own factor divided out: below)
+          const f = wd.freeplay.bossHpMul[i] / ramp / freeplayBossDamp(st, w) / (fp.bossHpOf?.[id] ?? 1);
           if (b.small) {
             // bossHpSmall: L 50–99 miniboss ×0.6, 100–149 ×0.8, 150–199 boss ×0.45 / titan ×0.35,
             // 200+ boss ×0.75
@@ -302,13 +303,13 @@ describe('boss cadence: a boss every 5 waves from ladder level 50 (path-cap pass
             expect(f, `${tier} ${w} ${id}`).toBeCloseTo(want, 12);
           } else if (rank === 'boss' && L < 150) expect(f, `${tier} ${w}`).toBeCloseTo(0.6, 12);
           else expect(f, `${tier} ${w} ${id}`).toBeCloseTo(fp.bossHp[rank], 12);
-          expect(freeplayBossFactor(st, w, b, rank)).toBeCloseTo(f, 12);
+          expect(freeplayBossFactor(st, w, b, rank, id)).toBeCloseTo(f * freeplayBossDamp(st, w) * (fp.bossHpOf?.[id] ?? 1), 12);
         });
       }
-      // past 200: the fives are a boss ×0.75, the tens titans ×1 (as before)
-      expect(freeplayBossFactor(st, 215, freeplayBosses(st, 215), 'boss')).toBe(0.75);
+      // past 200: the fives are a boss ×0.75, the tens titans ×1 (as before), × the boss bands' damp
+      expect(freeplayBossFactor(st, 215, freeplayBosses(st, 215), 'boss')).toBeCloseTo(0.75 * freeplayBossDamp(st, 215), 12);
       expect(freeplayBosses(st, 215).small).toBe(true);
-      expect(freeplayBossFactor(st, 200, freeplayBosses(st, 200), 'finale')).toBe(fp.finale.hp);
+      expect(freeplayBossFactor(st, 200, freeplayBosses(st, 200), 'finale')).toBeCloseTo(fp.finale.hp * freeplayBossDamp(st, 200), 12);
     }
   });
 
@@ -465,13 +466,16 @@ describe('numeric safety deep in (waves 200, 250, 400)', () => {
 // one lane and two lanes on the lane-schedule stage 1-9). A change here changes every freeplay room: never re-freeze
 // these to make a tryout change pass.
 describe('golden freeplay waves (every tier, waves goal+1..260)', () => {
+  // Re-frozen Oct 30 for the boss bands and the Gloom Regent's factor (src/data/freeplay.js bossBands, bossHpOf; the
+  // owner: "certain bosses on nightmare past 100-200 are impossible to kill"): a deliberate freeplay change, every
+  // boss-wave enemy's HP from wave 151 (Tempest, Crimson Moon) or 201 (Blossom), nothing else in any wave.
   const GOLDEN = {
-    'blossom:1-1': '30c7b73f', 'blossom:1-9': '3ea4b255', 'blossom:2-5': 'b20ef7cb', 'blossom:2-10': 'ded2f741', 'blossom:3-5': 'aee72ddf',
-    'blossom:4-3': 'afd6d472', 'blossom:5-5': 'c5eb8a72', 'blossom:6-3': '8d98f436', 'blossom:7-5': 'dd3801b2', 'blossom:8-5': '1b9c765d',
-    'tempest:1-1': 'efbb489b', 'tempest:1-9': '121c7b02', 'tempest:2-5': 'd0ad44a1', 'tempest:2-10': 'fbd029c1', 'tempest:3-5': 'eda5dab6',
-    'tempest:4-3': 'c78fc1db', 'tempest:5-5': 'e1513fcf', 'tempest:6-3': 'e10618ce', 'tempest:7-5': 'f46e5cf1', 'tempest:8-5': '747c71af',
-    'crimson:1-1': '9f7510f4', 'crimson:1-9': '71dd9d8e', 'crimson:2-5': '737b63c0', 'crimson:2-10': '69e95a54', 'crimson:3-5': '093e7a6b',
-    'crimson:4-3': 'f95b44d1', 'crimson:5-5': 'df817a01', 'crimson:6-3': '2f211a8a', 'crimson:7-5': 'ae4037df', 'crimson:8-5': '285e06e8',
+    'blossom:1-1': '0945e130', 'blossom:1-9': '5294051d', 'blossom:2-5': '6875fb68', 'blossom:2-10': '25e25095', 'blossom:3-5': 'db482d09',
+    'blossom:4-3': '05894f1d', 'blossom:5-5': '52699e07', 'blossom:6-3': 'd8599587', 'blossom:7-5': '31ed6d75', 'blossom:8-5': 'f667c5de',
+    'tempest:1-1': 'ad63940f', 'tempest:1-9': '13a1c775', 'tempest:2-5': '5c405d50', 'tempest:2-10': 'b09be96e', 'tempest:3-5': '499b6dc9',
+    'tempest:4-3': '98a0e829', 'tempest:5-5': 'ff35711c', 'tempest:6-3': '9afeff51', 'tempest:7-5': '1536e421', 'tempest:8-5': 'b151b242',
+    'crimson:1-1': 'd75079cd', 'crimson:1-9': '1a420d1d', 'crimson:2-5': 'f566b12c', 'crimson:2-10': '3468d553', 'crimson:3-5': '4c403203',
+    'crimson:4-3': '8e2b9307', 'crimson:5-5': '7ee76c00', 'crimson:6-3': '6861d6a5', 'crimson:7-5': '9c990c00', 'crimson:8-5': '24cdbfe1',
   };
   const fnv = (text) => {
     let h = 0x811c9dc5;

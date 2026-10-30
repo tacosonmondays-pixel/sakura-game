@@ -415,9 +415,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // the battle ends sooner, ticks 44656 → 39421, final 1485318803 → 1647005069, hashes baad978d → f97c7537.
     // Re-pinned Oct 30 for the map-wide laser (the host's LR duo: a free beam locks on anywhere, her line runs edge to
     // edge, × PRISM_EDGE_MUL_LR past her short beam, her LR row × bosses): the battle ends sooner, ticks 37736 → 31940,
-    // final 3211732776 → 3125619877, hashes e4374577 → 2ac47ed2, duo 244/1117/437/22/9/1 → 220/998/700/19/10/1.
+    // final 3211732776 → 3125619877, hashes e4374577 → 2ac47ed2, duo 244/1117/437/22/9/1 → 220/998/700/19/10/1. Then her LR
+    // row ×1.05 damage (the LR floor): ticks 31940 → 32000, final 1109559171, hashes 5d0756a0, duo 218/989/653/19/10/1.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, duo: r.duo })
-      .toEqual({ ticks: 31940, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3357/3772', final: 3125619877, hashes: '2ac47ed2', duo: '220/998/700/19/10/1' });
+      .toEqual({ ticks: 32000, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3357/3772', final: 1109559171, hashes: '5d0756a0', duo: '218/989/653/19/10/1' });
   }, 240000);
 
   it('runs Tenka\'s LR form (TENKA_LR_START: Critical Mass · Event Horizon\'s pull and second detonation on the host\'s LR Tenka, the guest\'s without) in sync', () => {

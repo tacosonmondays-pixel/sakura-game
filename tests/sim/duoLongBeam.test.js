@@ -178,11 +178,12 @@ describe('the long beam', () => {
     expect(plain.beam.get(plain.far.uid) || 0).toBe(0);
   });
 
-  test('the LR form: her shells, shards and beam × DUO_LR_MUL, × her LR row against bosses', () => {
+  test('the LR form: her shells, shards and beam × DUO_LR_MUL × her LR row, and × her LR row against bosses', () => {
     const lr = setup({ tiers: [2, 0, 0], stats: { lr: true } });
     const plain = setup({ tiers: [2, 0, 0] });
-    expect(lr.t.eff.damage).toBeCloseTo(plain.t.eff.damage * DUO_LR_MUL, 9);
-    expect(lr.t.beamSpec.damage).toBeCloseTo(plain.t.beamSpec.damage * DUO_LR_MUL, 9);
+    const k = DUO_LR_MUL * (LR_POWER[ID].dmg ?? 1);
+    expect(lr.t.eff.damage).toBeCloseTo(plain.t.eff.damage * k, 9);
+    expect(lr.t.beamSpec.damage).toBeCloseTo(plain.t.beamSpec.damage * k, 9);
     expect(lr.t.stats.bossMul).toBeCloseTo(plain.t.stats.bossMul * LR_POWER[ID].boss, 9);
     expect(lr.t.beamSpec.bossMul).toBeCloseTo(plain.t.beamSpec.bossMul * LR_POWER[ID].boss, 9);
   });
