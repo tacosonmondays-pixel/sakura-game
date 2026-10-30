@@ -495,6 +495,7 @@ export function updateEnemy(sim, e, dt) {
   // or detonated (those read `poison` only), so no other girl's numbers see it
   if (!e.dead && st.spore) sim._dot(e, 'poison', dotAmount(e, st.spore, dt), st.spore);
   if (!e.dead && st.hex) sim._hex(e, st.hex, dt);
+  if (!e.dead && st.curse) sim._curseTick(e, st.curse, dt); // Ena's spreading curse: rot and pass it on
   if (e.dead) return;
   tickStatusDurations(e, dt);
   syncStatusFlags(e);

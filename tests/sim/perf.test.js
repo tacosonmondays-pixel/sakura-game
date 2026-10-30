@@ -3,7 +3,7 @@ import { Sim } from '../../src/sim/Sim.js';
 import { STAGE, UNITS, ENEMIES } from './fixtures.js';
 import { defaultData } from '../../src/sim/data.js';
 import { gainHeroXp, xpToReach } from '../../src/sim/hero.js';
-import { TETHER_SHARES_PER_STEP, STRAIGHT_PER_SIM, CHARMS_PER_GIRL, CRESCENTS_PER_GIRL, TOLLS_PER_GIRL, TOLLS_PER_SIM, STATIC_PER_SIM, STATIC_ZAPS_PER_STEP } from '../../src/sim/constants.js';
+import { TETHER_SHARES_PER_STEP, STRAIGHT_PER_SIM, CHARMS_PER_GIRL, CRESCENTS_PER_GIRL, TOLLS_PER_GIRL, TOLLS_PER_SIM, STATIC_PER_SIM, STATIC_ZAPS_PER_STEP, CURSE_SPREADS_PER_TICK, CURSE_SPREAD_MAX_DEPTH } from '../../src/sim/constants.js';
 
 // 22 × 13 serpentine map: the path snakes across rows 1, 5, 9 and exits at the bottom.
 const PERF_MAP = {
@@ -525,6 +525,93 @@ describe('performance budget: S5b attack shapes', () => {
     expect(most.webs).toBeLessThanOrEqual(STATIC_PER_SIM);
     expect(most.zaps).toBeLessThanOrEqual(STATIC_ZAPS_PER_STEP);
     expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+});
+
+// Ena's spreading curse (Omen Rot, src/sim/Sim.js _curseTick): 12 Enas at Garden of Calamity (the strongest rot, the
+// widest bursts) with Omen Card on Auto, in a huge wave of 600 walkers bunched along the road: every cursed enemy rots
+// each step and queries the grid for its pass once a second. Never more passes in a step than CURSE_SPREADS_PER_TICK,
+// the chain never deeper than CURSE_SPREAD_MAX_DEPTH. Its time is judged against the SAME board with the rot taken out
+// of her data (the old kill-only curse: the same girls, cards, bursts and walkers), run right after it, so a loaded
+// machine slows both: the rot and the spread may cost at most CURSE_PERF_RATIO × that baseline (locally at least the
+// usual 2 ms is always allowed; CI keeps its flat 6 ms).
+const CURSE_PERF_RATIO = 2;
+
+/** Ena's data with every `rot` removed (the curse as it was before the spreading curse). */
+function withoutRot(units) {
+  const strip = (v) => (Array.isArray(v) ? v.map(strip) : v && typeof v === 'object'
+    ? Object.fromEntries(Object.entries(v).filter(([k]) => k !== 'rot').map(([k, x]) => [k, strip(x)])) : v);
+  return { ...units, ena: strip(units.ena) };
+}
+
+function curseBoard(units) {
+  const sim = new Sim({
+    stageId: 'perf',
+    difficulty: 'normal',
+    loadout: [{ unitId: 'ena' }],
+    hero: null,
+    seed: 13,
+    data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units, enemies: PERF_ENEMIES },
+  });
+  sim.cash = 1e12;
+  const spots = [];
+  for (const ty of [3, 7, 11]) for (let tx = 1; tx < 21; tx += 2) spots.push([tx, ty]);
+  const bloom = units.ena.paths.findIndex((q) => q.id === 'bloom');
+  let placed = 0;
+  for (let i = 0; i < spots.length && placed < 12; i++) {
+    const t = sim.placeTower('ena', spots[i][0], spots[i][1]);
+    if (!t) continue;
+    placed++;
+    for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, bloom, { restoring: true });
+    sim.setAbilityAuto(t.uid, true);
+  }
+  sim.state = 'wave';
+  sim.wave = 1;
+  sim._spawnQueue = [];
+  const kinds = ['blob', 'blob', 'blob', 'armoredBlob', 'fieldOni', 'guardOrc', 'leech', 'flyer'];
+  const len = sim.pathData[0].length;
+  for (let j = 0; j < 600; j++) sim.spawnEnemy(kinds[j % kinds.length], { dist: (j / 600) * (len - 8) });
+  for (let j = 0; j < 120; j++) {
+    sim.update(1 / 60);
+    sim.drainEvents();
+  }
+  // Omen Card charged: Auto casts it inside the timed steps (12 cards' worth of curses at once)
+  for (const t of sim.towers) if (t.abil) t.abil.cd = 0;
+  const steps = 600;
+  const most = { cursed: 0, passes: 0, depth: 0, casts: 0 };
+  let passes = 0;
+  const t0 = performance.now();
+  for (let j = 0; j < steps; j++) {
+    sim.update(1 / 60);
+    let n = 0;
+    for (const ev of sim.drainEvents()) {
+      if (ev.type === 'ability') most.casts++;
+      if (ev.type !== 'curseSpread') continue;
+      n++;
+      most.depth = Math.max(most.depth, ev.depth);
+    }
+    passes += n;
+    most.passes = Math.max(most.passes, n);
+    if (j % 20 === 0) most.cursed = Math.max(most.cursed, sim.enemies.reduce((a, e) => a + (e.statuses.curse?.rotDps > 0 ? 1 : 0), 0));
+  }
+  return { sim, placed, most, passes, perStep: (performance.now() - t0) / steps };
+}
+
+describe('performance budget: the spreading curse', () => {
+  test('12 Garden of Calamity Enas (Omen Card on Auto) + 600 enemies: a step stays within its budget', () => {
+    const real = defaultData().units;
+    const { sim, placed, most, passes, perStep } = curseBoard(real);
+    const base = curseBoard(withoutRot(real)); // second, on a warm JIT (it never flatters the run it judges)
+    console.log(`[perf] spreading curse: ${sim.enemies.length} enemies, at most ${most.cursed} rotting, ${passes} passes (at most ${most.passes} a step, depth ${most.depth}), ${most.casts} Omen Cards: ${perStep.toFixed(3)} ms/step (without the rot ${base.perStep.toFixed(3)})`);
+    expect(placed).toBe(12);
+    expect(base.passes).toBe(0);
+    expect(sim.enemies.length).toBeGreaterThan(450);
+    expect(most.cursed).toBeGreaterThan(150);
+    expect(passes).toBeGreaterThan(100);
+    expect(most.passes).toBeLessThanOrEqual(CURSE_SPREADS_PER_TICK);
+    expect(most.depth).toBeLessThanOrEqual(CURSE_SPREAD_MAX_DEPTH);
+    expect(most.casts).toBeGreaterThan(0); // Omen Card cast
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : Math.max(2, CURSE_PERF_RATIO * base.perStep));
   });
 });
 

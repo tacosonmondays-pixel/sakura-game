@@ -1,7 +1,7 @@
 // Status effects on enemies: application (with ward immunity, boss resistance, chance
 // rolls and "keep the stronger values" merging), duration ticking and query helpers.
 
-import { CC_RESIST, SLOW_RESIST, MAX_SLOW, SHRED_MAX_STACKS, HEX_BOSS_CAP } from './constants.js';
+import { CC_RESIST, SLOW_RESIST, MAX_SLOW, SHRED_MAX_STACKS, HEX_BOSS_CAP, CURSE_SPREAD_STEPS } from './constants.js';
 
 // (spore: Midori's Spore Mist, attack shapes S5b: a damage over time of its own key, poison's element for wards)
 const STATUS_ELEMENT = { burn: 'fire', poison: 'poison', spore: 'poison', freeze: 'frost', shock: 'lightning', soak: 'water' };
@@ -63,6 +63,14 @@ export function applyStatus(enemy, spec, ctx = {}) {
     incoming.burst = spec.burst ?? (spec.burstMul ?? 0) * (ctx.hitDamage ?? 0);
     incoming.radius = spec.radius ?? 1;
     incoming.depth = ctx.curseDepth ?? 0;
+    // rot: a share of the cursing hit a second while it lives (a passed curse carries an absolute rotDps); a
+    // rotting curse also spreads while its enemy lives (src/sim/Sim.js _curseTick), first after a full interval
+    incoming.rotDps = spec.rotDps ?? (spec.rot ?? 0) * (ctx.hitDamage ?? 0);
+    if (incoming.rotDps > 0) {
+      incoming.spreadIn = CURSE_SPREAD_STEPS;
+      // whose rot it is (credit and co-op bounty): a passed curse names it, a hit's is the hitter's
+      incoming.rotUid = spec.rotUid ?? ctx.sourceUid ?? null;
+    }
   }
 
   const cur = enemy.statuses[type];
@@ -88,6 +96,11 @@ export function applyStatus(enemy, spec, ctx = {}) {
       cur.burst = incoming.burst;
       cur.depth = incoming.depth;
       if (incoming.sourceUid != null) cur.sourceUid = incoming.sourceUid;
+    }
+    if (incoming.rotDps > (cur.rotDps ?? 0)) {
+      cur.rotDps = incoming.rotDps;
+      cur.rotUid = incoming.rotUid;
+      if (cur.spreadIn == null) cur.spreadIn = CURSE_SPREAD_STEPS;
     }
     cur.radius = Math.max(cur.radius, incoming.radius);
     cur.duration = Math.max(cur.duration ?? 0, duration);

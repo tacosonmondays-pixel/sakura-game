@@ -211,7 +211,8 @@ describe('display only: the battle sim is untouched', () => {
     // Suzu's Bell Toll, and the shared S5 rules: straightRoom's guard, noShare, the shape-damage tally) and S5b (Midori's Spore
     // Mist with its own `spore` status, Luna's Moonbeam Sweep, Raika's Static Web) ride the same bump.
     // (merged with balance round 5's 96c3547b, Akane's Inferno Queen cone: '5990a48aa47f' there)
-    const PENDING_BUMP = { 13: '53662b519844' };
+    // Ena's spreading curse (feature/ena-contagion, on top of round 5) rides the same bump.
+    const PENDING_BUMP = { 13: '35443e922dbf' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

@@ -506,12 +506,13 @@ export const ABILITIES = deepFreeze({
     t5: { cooldown: 25, duration: 10, effect: { count: 2, permanentReflect: true } },
   }],
   ena: [{
-    // every enemy within 1.5× her range is cursed: it bursts for 3× her current hit when it falls (the curse queue
-    // and its per-step burst budget, src/sim/Sim.js _flushCurses), so a dense wave chain-reacts
+    // every enemy within 1.5× her range is cursed: it rots for 60% of her current hit a second and passes the hex on
+    // while it lives (src/sim/Sim.js _curseTick), and bursts for 3× her hit when it falls (the curse queue and its
+    // per-step burst budget, _flushCurses), so a dense wave chain-reacts
     path: 'bloom', unlockTier: 3, id: 'ena.omenCard', kind: 'debuff', scope: 'local', cooldown: 40, duration: 0,
-    effect: { reachMul: 1.5, status: [S.curse(3, 1.6, 6)] },
+    effect: { reachMul: 1.5, status: [{ ...S.curse(3, 1.6, 6), rot: 0.6 }] },
     auto: { when: 'enemies', min: 6 },
-    t5: { cooldown: 32, effect: { reachMul: 2, status: [S.curse(4, 1.6, 6)] } },
+    t5: { cooldown: 32, effect: { reachMul: 2, status: [{ ...S.curse(4, 1.6, 6), rot: 0.8 }] } },
   }],
 });
 

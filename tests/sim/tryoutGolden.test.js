@@ -62,9 +62,11 @@ describe('golden Half Day and Full Day', () => {
 
   // The runs re-pinned once for balance round 5 (src/data/balance.js: the girls' rows apply in Tryout too), not for an
   // Extended Day change: was 2b80a063 / f85067ef (seed 1212 lost on wave 12; with the round the maxed team wins) / f134cb88 (after the attack shapes S3 re-pin).
+  // Seed 1212 re-pinned for Ena's spreading hex (a sim change, not an Extended Day one): her curse rots and spreads while
+  // its enemy lives, so the calm points' hashes move; the same wave 28 win. Was 2b6c4bc5.
   const RUNS = [
     { seed: 77, grade: 1, length: 'half', run: 'dd8cdd02', wave: 28, state: 'won' },
-    { seed: 1212, grade: 12, length: 'half', strength: 'maxed', run: '2b6c4bc5', wave: 28, state: 'won' },
+    { seed: 1212, grade: 12, length: 'half', strength: 'maxed', run: '4795fe99', wave: 28, state: 'won' },
     { seed: 1201, grade: 6, length: 'full', strength: 'mid', run: 'f4db3669', wave: 48, state: 'won' },
   ];
   for (const r of RUNS) {

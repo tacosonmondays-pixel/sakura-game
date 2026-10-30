@@ -189,9 +189,9 @@ export const ABILITY_TEXT = Object.freeze({
     'a mirror that splits the team\'s shots in two',
     'Infinite Reflection: the panel splits shots for good, Mirror Shift adds a second panel for {dur}s, and it recharges in {cd}s.'),
   'ena.omenCard': t('Omen Card', 'curse',
-    'Every enemy within {reach} tiles draws a cursed card: when it falls it bursts for {curseBurst} damage ({curseMul}× her hit) within {curseRadius} tiles and passes a weaker curse on, so a dense wave chain-reacts.',
-    'a cursed card for every enemy around her',
-    'Omen Card reaches {reach} tiles, bursts for {curseMul}× her hit and recharges in {cd}s.'),
+    'Every enemy within {reach} tiles draws a cursed card: its Omen Rot eats {curseRot}% of her hit a second and the curse spreads to its neighbours while it lives, and when it falls it bursts for {curseBurst} damage ({curseMul}× her hit) within {curseRadius} tiles, so a dense wave chain-reacts.',
+    'a spreading curse for every enemy around her',
+    'Omen Card reaches {reach} tiles, its Omen Rot eats {curseRot}% of her hit a second, bursts for {curseMul}× her hit and recharges in {cd}s.'),
 });
 
 /** Settings and hold-card copy (spec §8.6). */
@@ -253,6 +253,8 @@ export function abilityValues(def, stats = null) {
       if (s.burstMul != null) {
         put(`${k}Mul`, s.burstMul);
         if (s.radius != null) put(`${k}Radius`, s.radius);
+        // (the spreading curse's Omen Rot: a share of her hit a second)
+        if (s.rot != null) put(`${k}Rot`, r2(s.rot * 100));
         if (stats) put(`${k}Burst`, Math.round(s.burstMul * stats.damage));
       }
     }

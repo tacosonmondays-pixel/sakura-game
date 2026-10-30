@@ -11,6 +11,7 @@ import { withDetMath } from '../../src/online/coop/detMath.js';
 import { rederiveStats } from '../../src/online/coop/lockstep.js';
 import { abilityPathOf, abilityReach, abilityDef } from '../../src/sim/abilities.js';
 import { UNIT_MAP } from '../../src/data/units.js';
+import { samplePath, pointAt } from '../../src/sim/path.js';
 import { abilityCommandArgs } from '../../src/ui/battle/abilityBar.js';
 
 const start = ({ p0 = {}, p1 = {}, seed = 2025, stageId = '2-5' } = {}) => ({
@@ -108,6 +109,30 @@ function place(cs, slot, unitId, skip = 0) {
 function placeNear(cs, slot, unitId, near) {
   const o = cs[0].sim.getTower(near);
   const d2 = (q) => (q[0] / 1024 - o.x) * (q[0] / 1024 - o.x) + (q[1] / 1024 - o.y) * (q[1] / 1024 - o.y);
+  for (const q of candidates(cs[0], unitId).sort((p, r) => d2(p) - d2(r))) {
+    const r = all(cs, cmd(slot, 'place', [unitId, ...q]));
+    if (r.ok) return r.tower.uid;
+  }
+  throw new Error(`no spot for ${unitId}`);
+}
+/**
+ * Places a girl for `slot` at the legal spot nearest the road point `by` tiles further down the road (the way enemies
+ * walk) from the road point nearest girl `near`: her reach then starts about at `near`, so the enemies she kills fall
+ * around `near`, whatever her damage.
+ */
+function placeDownRoad(cs, slot, unitId, near, by) {
+  const sim = cs[0].sim;
+  const o = sim.getTower(near);
+  let best = null;
+  sim.pathData.forEach((path, i) => {
+    for (const q of samplePath(path, 0.25)) {
+      const d2 = (q.x - o.x) ** 2 + (q.y - o.y) ** 2;
+      if (!best || d2 < best.d2) best = { d2, i, d: q.d };
+    }
+  });
+  const path = sim.pathData[best.i];
+  const at = pointAt(path, Math.min(path.length, best.d + by), {});
+  const d2 = (q) => (q[0] / 1024 - at.x) ** 2 + (q[1] / 1024 - at.y) ** 2;
   for (const q of candidates(cs[0], unitId).sort((p, r) => d2(p) - d2(r))) {
     const r = all(cs, cmd(slot, 'place', [unitId, ...q]));
     if (r.ok) return r.tower.uid;
@@ -679,9 +704,19 @@ describe('the M2 sim fixes in co-op: strip and sentry crits, First Bell, Ouka\'s
 
 describe('the returning girls in co-op (A3 M3)', () => {
   it('Kaze\'s Swoop (map) and First Aid Call (lives) through abil on two views: equal hashes, every life restored once on both', () => {
-    // (power-neutral: the girls' balance round 5 rows divided back out, and ÷1.1 for Noa's raised aura (her `buff`), so
-    // enemies still reach her 3 tiles; the scenario is seed-sensitive: 6 and 6.5 miss the rally's kills, 6 / 1.1 and 4 hit)
+    // (power-neutral: the girls' balance round 5 rows divided back out, and ÷1.1 for Noa's raised aura (her `buff`).
+    // Laid out so it does not hang on how hard anyone hits (review r1 L5 of Ena's spreading curse: with every girl
+    // beside Noa the wave died 3.5–4 tiles up the road, just outside her 3-tile lifeRadius, and only one damage value
+    // still gave a life): the strikers stand DOWN_ROAD tiles down the road from her, so the wave dies around her, and
+    // her call waits for NOA_CROWD enemies inside her 3 tiles, not only for its charge. Measured: lives come back at
+    // every damageMul from 3 to 10 (3, 3.5, 4, 5, 6 / 1.1, 7, 8, 10; 2 is too weak to kill 10 in one call).)
     const STRONG = { damageMul: 6 / 1.1, rateMul: 1.3 };
+    const DOWN_ROAD = 1.5;
+    const NOA_CROWD = 10;
+    const crowdNear = (sim, uid) => {
+      const t = sim.getTower(uid);
+      return sim.enemies.filter((e) => !e.dead && !e.hidden && (e.x - t.x) ** 2 + (e.y - t.y) ** 2 <= 9).length;
+    };
     const st = start({
       stageId: '8-1',
       p0: { loadout: [{ unitId: 'noa' }, neutral('hana', STRONG), neutral('aoi', STRONG)], hero: null },
@@ -689,10 +724,12 @@ describe('the returning girls in co-op (A3 M3)', () => {
     });
     const cs = views(st);
     const noa = upAbil(cs, 0, place(cs, 0, 'noa'));
-    const hana = upAbil(cs, 0, placeNear(cs, 0, 'hana', noa));
-    placeNear(cs, 0, 'aoi', noa);
-    const ena = upAbil(cs, 1, placeNear(cs, 1, 'ena', noa));
-    placeNear(cs, 1, 'aoi', noa); // the partner's girls kill near Noa too: their kills count
+    // the strikers stand DOWN_ROAD tiles down the road from Noa, so the wave dies around her (inside her 3-tile
+    // lifeRadius) however hard they hit
+    const hana = upAbil(cs, 0, placeDownRoad(cs, 0, 'hana', noa, DOWN_ROAD));
+    placeDownRoad(cs, 0, 'aoi', noa, DOWN_ROAD);
+    const ena = upAbil(cs, 1, placeDownRoad(cs, 1, 'ena', noa, DOWN_ROAD));
+    placeDownRoad(cs, 1, 'aoi', noa, DOWN_ROAD); // the partner's girls kill near Noa too: their kills count
     // lives down so they can come back (the same on both views: the hash folds them)
     for (const c of cs) c.sim.lives = c.sim.maxLives - 12;
     expect(cs[0].hash()).toBe(cs[1].hash());
@@ -700,20 +737,36 @@ describe('the returning girls in co-op (A3 M3)', () => {
     all(cs, cmd(0, 'wave'));
     const seen = [[], []];
     const casts = [{}, {}];
+    // per First Aid Call (host view): the lives its kills brought back (events after that cast, before the next one;
+    // her calls never overlap: 50 s cooldown, 10 s long) and every life rally record the sim kept
+    const perCall = [];
+    const rallies = new Set();
     let checks = 0;
     // (until a few lives came back after wave 4, or wave 20: a life needs 10 kills within 3 tiles of Noa in one rally)
     const done = (s) => (s.wavesCleared >= 4 && seen[0].length >= 2) || s.wavesCleared >= 20 || ['won', 'lost'].includes(s.state);
     for (let i = 0; i < 200000 && !done(cs[0].sim); i++) {
       if (i % 10 === 0) {
-        for (const [slot, uid] of [[0, noa], [0, hana], [1, ena]]) if (cs[0].sim.abilityStatus(uid).ready) all(cs, cmd(slot, 'abil', abilArgs(uid)));
+        for (const [slot, uid] of [[0, noa], [0, hana], [1, ena]]) {
+          if (!cs[0].sim.abilityStatus(uid).ready) continue;
+          // Noa's call waits for a crowd inside her lifeRadius (the kills it counts), not just for its charge
+          if (uid === noa && crowdNear(cs[0].sim, noa) < NOA_CROWD) continue;
+          all(cs, cmd(slot, 'abil', abilArgs(uid)));
+        }
       }
       step(cs);
       cs.forEach((c, v) => {
         for (const ev of c.sim.drainEvents()) {
-          if (ev.type === 'lifeRestored') seen[v].push(`${ev.towerUid}:${ev.lives}:${ev.id}`);
-          if (ev.type === 'ability') casts[v][ev.id] = (casts[v][ev.id] || 0) + 1;
+          if (ev.type === 'lifeRestored') {
+            seen[v].push(`${ev.towerUid}:${ev.lives}:${ev.id}`);
+            if (v === 0) perCall[perCall.length - 1]++;
+          }
+          if (ev.type === 'ability') {
+            casts[v][ev.id] = (casts[v][ev.id] || 0) + 1;
+            if (v === 0 && ev.id === 'noa.firstAid') perCall.push(0);
+          }
         }
       });
+      for (const r of cs[0].sim._rallies) if (r.life) rallies.add(r);
       if (i % 120 === 0) {
         expect(cs[1].hash(), `tick ${i}`).toBe(cs[0].hash());
         checks++;
@@ -729,8 +782,13 @@ describe('the returning girls in co-op (A3 M3)', () => {
     expect(seen[0].length).toBeGreaterThan(0);
     expect(seen[1]).toEqual(seen[0]);
     for (const s of seen[0]) expect(s).toMatch(new RegExp(`^${noa}:\\d+:noa\\.firstAid$`));
-    const lives = seen[0].map((s) => Number(s.split(':')[1]));
-    for (let k = 1; k < lives.length; k++) expect(lives[k]).not.toBe(lives[k - 1]); // never the same life twice
+    // each life counted once: never more than a call's lifeMax from one call, and exactly the lives the rallies gave
+    const max = abilityDef(cs[0].sim.getTower(noa)).effect.lifeMax;
+    expect(perCall).toHaveLength(casts[0]['noa.firstAid']);
+    for (const n of perCall) expect(n).toBeLessThanOrEqual(max);
+    expect(rallies.size).toBe(casts[0]['noa.firstAid']);
+    for (const r of rallies) expect(r.life.given).toBeLessThanOrEqual(r.life.max);
+    expect(seen[0].length).toBe([...rallies].reduce((a, r) => a + r.life.given, 0));
     expect(cs[1].sim.lives).toBe(cs[0].sim.lives);
   }, 240000);
 

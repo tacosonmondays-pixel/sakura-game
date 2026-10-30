@@ -394,7 +394,9 @@ heroTracksReturning.js: RETURNING_HERO_TRACKS { kanna, yoriko, seiran }         
 ```
 New BaseStats keys (roster B3, `mods.js normalizeBase`): `airMul` (1; mul), `gather` (0; add), `relay`
 (`{ kind: 'familiar'|'mirror', reach, both? }` or null; ModSet `relay: { reach }` adds, only for a relay girl).
-Behaviour `mortar`. Statuses `ground { duration }`, `curse { burstMul, radius, duration }`, `hex { pct, duration }`.
+Behaviour `mortar`. Statuses `ground { duration }`, `curse { burstMul, radius, duration, rot? }`, `hex { pct, duration }`.
+A curse's `rot` (Ena's spreading curse, Omen Rot): a share of the cursing hit a second while the enemy lives; a curse with
+rot also spreads while its enemy lives (§6 `_curseTick`). Spread specs carry absolute `burst`, `rotDps` and `rotUid`.
 Hero ult shapes: `strike { target, damage, armorPen?, splash?, splashMul?, status? }`, `nova { center: 'aim' }`,
 `runner { runner: 'dragon', center: 'aim', damage, length, time, segments, gap, status? }` (a fixed flight) or
 `runner { …, toStart: true, time, minSpeed, … }` (the whole road back to START: at most `time` s, never slower
@@ -1901,7 +1903,17 @@ sim.runners; runners.js startRunner / updateRunners / runnerSegment(sim, r, k)  
   // r.end: the head dist where it ends (0; a toStart runner: -(segments-1)·gap, so the tail clears START)
   // runnerEntry(sim, aim): an aim on a stretch several roads share takes the road with more enemies ahead
 sim.addGlobalDamageBuff(mul, duration, src?) // sim.globalDmgMul (strongest wins), in refreshEffective
-sim._curseQueue, CURSE_BURSTS_PER_TICK 32    // FIFO, the rest spill to the next step; 'curseBurst' event
+sim._curseQueue, CURSE_BURSTS_PER_TICK 32    // FIFO, the rest spill to the next step; 'curseBurst' event; entries carry rotDps / rotUid
+// The spreading curse (Omen Rot): the runtime curse status { burst, radius, depth, sourceUid, rotDps, rotUid, spreadIn }.
+// rotDps = rot × the cursing hit (keep the larger; rotUid = whose rot it is: credit and co-op bounty; sourceUid / depth
+// follow the larger burst). spreadIn: integer sim steps to the next pass (set to CURSE_SPREAD_STEPS when the rot starts).
+sim._curseTick(e, c, dt)                     // from updateEnemy: the rot (sim._dot 'curse', credited to rotUid), then the pass
+sim._spreadBudget, CURSE_SPREADS_PER_TICK 64 // passes left this step (refilled every step); over it, or while the enemy is
+                                             // hidden (a tunnel), spreadIn waits at 0 and it tries next step
+CURSE_SPREAD_STEPS 60, CURSE_SPREAD_RADIUS 1.2, CURSE_SPREAD_DECAY 0.8, CURSE_SPREAD_MAX_DEPTH 4, CURSE_ROT_BOSS_MUL 0.5
+  // every 60 steps: the nearest uncursed, visible enemy within 1.2 (grid query; ties: grid order) catches burst and rot × 0.8
+  // at depth + 1 ≤ 4; bosses and minibosses take half the rot; the on-death burst passes rot × CURSE_DECAY
+'curseSpread' { from, to, x0, y0, x1, y1, depth, towerUid }  // one pass (towerUid: the rot's girl); src/render/rosterFx.js draws a thread
 PUSH_LOCK { normal 1.5, elite 1.5, miniboss 3, boss 3 } // gathers and the pushes of PUSH_LOCK_KITS girls (['fuu']); the live girls' pushes stay
                                                      // unlocked, as on live; a hero's own push keeps HERO_PUSH_LOCK (0.5 s, separate)
 HEX_TIER_MUL, HEX_BOSS_CAP                   // hex: pct × maxHp × tier factor per second, ≤ 10% per application on minibosses / bosses, no regen
