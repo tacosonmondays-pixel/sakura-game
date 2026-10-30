@@ -73,6 +73,8 @@ export function createCinematic(overlay, results, o) {
     shake: 0,
     reveal: null,
     taps: 0,
+    seen: [], // phases and stages in the order they played (e2e)
+    frozen: false, // e2e captures: the clock holds still
   };
   let raf = 0;
   let last = null;
@@ -81,10 +83,12 @@ export function createCinematic(overlay, results, o) {
 
   // e2e and debugging: what is playing (window.__sakura.recruitCinematic)
   const debug = () => ({ tier: plan.tier, mode: state.mode, gatePhase: state.gatePhase, reveal: state.reveal ? { unitId: state.reveal.r.unitId, lr: state.reveal.r.lr, stage: state.reveal.stage } : null,
-    reveals: plan.reveals.length, reduce: plan.reduce, shake: plan.shake, flashes: plan.flashes, flashCount: guard.times.length, refused: guard.refused, timeScale: state.timeScale });
+    reveals: plan.reveals.length, reduce: plan.reduce, shake: plan.shake, flashes: plan.flashes, flashCount: guard.times.length, refused: guard.refused, timeScale: state.timeScale,
+    seen: state.seen.slice() });
   try {
     window.__sakura ||= {};
-    window.__sakura.recruitCinematic = { state: debug };
+    // freeze(true) holds the clock still so a capture lands on an exact moment (e2e, the owner boards)
+    window.__sakura.recruitCinematic = { state: debug, freeze: (on) => { state.frozen = !!on; if (!on) { last = null; run(); } } };
   } catch { /* no window */ }
 
   function size() {
@@ -168,6 +172,7 @@ export function createCinematic(overlay, results, o) {
     if (at.phase !== lastPhase) {
       lastPhase = at.phase;
       state.gatePhase = at.phase;
+      state.seen.push(at.phase);
       if (at.phase === 'surge') cue('gacha.surge', { tier: plan.tier });
       if (at.phase === 'night') cue('gacha.surge', { tier: 'lr' });
       if (at.phase === 'open') {
@@ -203,6 +208,7 @@ export function createCinematic(overlay, results, o) {
 
   function enterStage(rv, stage) {
     rv.stage = stage;
+    state.seen.push(`reveal:${stage}`);
     if (stage === 'done') return;
     rv.el.classList.add(`s-${stage}`);
     rv.el.dataset.stage = stage;
@@ -257,13 +263,19 @@ export function createCinematic(overlay, results, o) {
   function frame(ts) {
     raf = 0;
     if (state.mode === 'disposed') return;
+    if (state.frozen) return; // held still for a capture: nothing redraws until freeze(false)
+    // a frame-rate cap (window.__sakura.recruitFrameCap, e2e on software-rendered browsers): skipped frames draw
+    // nothing and the next drawn one steps the clock by the whole gap, so the timeline keeps real time
+    const cap = window.__sakura?.recruitFrameCap;
+    if (cap > 0 && last != null && ts - last < 1000 / cap) { raf = requestAnimationFrame(frame); return; }
     const dtReal = last == null ? 1 / 60 : Math.min(MAX_STEP, Math.max(0, (ts - last) / 1000));
     last = ts;
     state.rt += dtReal;
     const dt = dtReal * state.timeScale;
     state.t += dt;
     if (state.mode === 'gate' && gate) stepGate(dt);
-    else if (gate && state.mode !== 'settled') gate.update({ t: state.t, dt, phase: 'done', p: 1, tier: plan.tier, accent: plan.accent, energy: 0.5, hue: (state.t * 60) % 360, reduce: plan.reduce, openPeak: 0 });
+    // (behind a full-screen reveal the Gate is hidden: it is not redrawn)
+    else if (gate && state.mode !== 'settled' && state.mode !== 'reveal') gate.update({ t: state.t, dt, phase: 'done', p: 1, tier: plan.tier, accent: plan.accent, energy: 0.5, hue: (state.t * 60) % 360, reduce: plan.reduce, openPeak: 0 });
     if (state.mode === 'reveal' && state.reveal) stepReveal(dtReal);
     fx.update(dtReal);
     // the flash fades out; the shake is a sideways shift only (never a rotation)

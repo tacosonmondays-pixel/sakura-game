@@ -7,17 +7,17 @@ nothing here changes what is pulled, the rates or the save. The sim id stays `be
 
 ## What plays
 
-1. **The Gate** (the academy's Gate) powers on, glowing blue. It is drawn as a vast whirlpool on a dark
-   sea, seen low and at an angle, with misty mountains on the horizon (owner reference, Oct 30). Spiral
-   streaks of light pull into a black eye, turning faster near the eye. Twelve runes around its rim
-   light one by one, sparks lift off the rim and sakura petals drift across.
+1. **The Gate** (the academy's Gate) powers on, glowing blue. It is the portal itself, a vortex almost
+   facing the camera (owner reference, Oct 30): spiral streaks of light pull into a black eye, turning
+   faster near the eye, inside a glowing rim. Twelve runes around the rim light one by one, sparks lift
+   off it and sakura petals drift across.
    - an SR in the pull adds gold to the blue;
    - **an SSR**: the Gate surges from blue to a rainbow, with electric arcs crackling around the
      portal, rainbow light rays and a sideways screen shake;
    - **an LR**: blue → rainbow → the starlit Nightglass (navy, white-gold, starlight across the
      screen), longer and bigger, before it opens.
-   - It opens: a column of light wells up out of the eye and fills the screen, with a burst of sparks
-     and a shockwave ring.
+   - It opens: the light in the eye swells to fill the screen, with a burst of sparks and a shockwave
+     ring.
 2. The cards are dealt and flip with their rarity glow over the dimmed Gate (unchanged).
 3. **Every SSR and LR** then gets a full-screen reveal: her glowing silhouette → her art sweeps in
    behind a light bar → her rarity stars (5; LR 6, gold), kicker, name, title and quote → her
@@ -48,7 +48,10 @@ or moves on by itself after 2.8 s (LR 3.6 s).
 - No new assets: the Gate, the effects and the marks are drawn (2D canvas and SVG). The only file a
   reveal loads is her own `-cut` portrait, which starts loading when the Gate starts.
 - Two canvases at most 1.5× device pixels, fixed particle pools (220 sparks, 36 petals, 10 arcs), no
-  canvas shadows or filters; the loop stops once the results are up and nothing is moving.
+  canvas shadows or filters; the dark behind the portal is drawn once a size; the Gate is not redrawn
+  behind a full-screen reveal; the loop stops once the results are up and nothing is moving.
+- The reveal animates only opacity, transform and clip-path: no animated CSS filters (the silhouette is
+  one cheap `brightness(0)`, its glow a gradient behind it), and the turning rays are one 150vmax layer.
 - Time comes from one `requestAnimationFrame` loop stepping its own clock by the frame delta (capped at
   1/10 s), never `Date.now` / `performance.now`; randomness only from the seeded visual stream
   (`src/render/vfx/random.js`, seeded from the pulled unit ids).
@@ -63,7 +66,22 @@ or moves on by itself after 2.8 s (LR 3.6 s).
 | `src/ui/recruit/fx.js` | sparks, arcs, petals, rays, starlight |
 | `src/ui/recruit/emblem.js` | the girls' marks |
 | `src/ui/styles/recruit-cinematic.css` | layers and the reveal |
-| `e2e/recruit-cinematic.mjs` | the e2e (1×, SSR 10×, LR, Skip all, Reduce motion, Flashes & shake off) and the owner board recording (`--video <dir>`) |
+| `e2e/recruit-cinematic.mjs` | the e2e (1×, SSR 10×, LR, Skip all, Reduce motion, Flashes & shake off) and the owner board recording (`--video <dir> --record-only`) |
+
+## Testing notes
+
+- Headless Chromium rasterises on the CPU and falls seconds behind a full-screen animated canvas at 60 fps
+  (a phone's GPU does not). The e2e therefore sets `window.__sakura.recruitFrameCap` (12 fps); skipped
+  frames draw nothing and the next one steps the clock by the whole gap, so the timeline keeps real time.
+- Don't use Playwright's `page.clock.install` around the cinematic: its fake `requestAnimationFrame`
+  stalls for seconds at a time.
+- `window.__sakura.recruitCinematic.state()` reports the tier, phase, stage, flags and `seen` (every phase
+  and stage in the order it played); `freeze(true)` holds the clock still so a capture lands on an exact
+  moment.
+- The board recording is filmed frame by frame (`--video <dir> --record-only`): Playwright's fake clock is
+  paused and stepped 1/30 s a frame (it drives `requestAnimationFrame` and the timers), every CSS animation
+  and transition is paused and stepped the same 1/30 s by hand, and each frame is captured; ffmpeg joins them,
+  so the video plays at true speed whatever the machine.
 
 ## Swapping in a 3D Gate
 

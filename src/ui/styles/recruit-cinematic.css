@@ -22,16 +22,20 @@
 .rc-rv-bg { position: absolute; inset: 0; overflow: hidden; background: radial-gradient(circle at var(--rv-x) 48%, #ffd6ea 0%, #c39cff 26%, #44408f 58%, #121c44 82%, #0b1430 100%); }
 .rc-reveal.is-lr { --rv-glow: #ffd27a; }
 .rc-reveal.is-lr .rc-rv-bg { background: radial-gradient(circle at var(--rv-x) 48%, #4b5fa6 0%, #233470 30%, #0e1930 64%, #050a1c 100%); }
-.rc-reveal:not(.s-sweep) .rc-rv-bg { filter: brightness(0.45); }
-.rc-rv-bg { transition: filter var(--d-sweep, 0.5s) ease; }
-.rc-rv-rays { position: absolute; left: calc(var(--rv-x) - 135%); width: 270%; top: -100%; height: 300%; opacity: 0;
+/* the sky is dimmed until her art sweeps in (an opacity fade over it: no full-screen filter) */
+.rc-rv-bg::after { content: ''; position: absolute; inset: 0; background: rgba(5, 10, 30, 0.55); transition: opacity var(--d-sweep, 0.5s) ease; }
+.rc-reveal.s-sweep .rc-rv-bg::after { opacity: 0; }
+/* one square layer (150vmax: it covers the screen while it turns), not a huge strip: light on phone memory */
+.rc-rv-rays { position: absolute; left: calc(var(--rv-x) - 75vmax); top: calc(48% - 75vmax); width: 150vmax; height: 150vmax; opacity: 0;
   background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 255, 255, 0.24) 0deg 6deg, rgba(255, 255, 255, 0) 6deg 18deg);
   animation: ma-spin 40s linear infinite; transition: opacity var(--d-sweep, 0.5s) ease; }
 .rc-reveal.is-lr .rc-rv-rays { background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(255, 214, 140, 0.2) 0deg 4deg, rgba(255, 255, 255, 0) 4deg 15deg); }
 .rc-reveal.s-sweep .rc-rv-rays { opacity: 1; }
 .rc-rv-glow { position: absolute; left: calc(var(--rv-x) - 30vmax); top: calc(48% - 30vmax); width: 60vmax; height: 60vmax; border-radius: 50%; opacity: 0;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.75) 0%, color-mix(in srgb, var(--rv-glow) 45%, transparent) 35%, transparent 70%); transition: opacity var(--d-sil, 0.5s) ease; }
-.rc-reveal.s-silhouette .rc-rv-glow { opacity: 0.7; }
+.rc-reveal.s-silhouette .rc-rv-glow { opacity: 0.95; }
+/* the LR sky is dark: her silhouette stands in a brighter starlit glow */
+.rc-reveal.is-lr .rc-rv-glow { background: radial-gradient(circle, rgba(255, 246, 220, 0.9) 0%, rgba(255, 210, 122, 0.55) 30%, rgba(120, 140, 255, 0.25) 55%, transparent 72%); }
 .rc-reveal.s-sweep .rc-rv-glow { opacity: 1; }
 
 /* her stand: a glowing silhouette first, then the painted art sweeps in left to right behind a light bar */
@@ -39,7 +43,8 @@
   transition: transform calc(var(--d-sweep, 0.5s) + var(--d-text, 0.5s)) cubic-bezier(0.2, 0.8, 0.2, 1); }
 .rc-reveal.s-sweep .rc-rv-art { transform: translateX(-50%) scale(1); }
 .rc-rv-art img { height: 100%; width: auto; max-width: none; display: block; user-select: none; -webkit-user-drag: none; }
-.rc-rv-sil { position: absolute; left: 0; top: 0; opacity: 0; filter: brightness(0) drop-shadow(0 0 3px #ffffff) drop-shadow(0 0 14px var(--rv-glow));
+/* (brightness(0) is a cheap colour filter; a drop-shadow here would re-blur the whole stand every frame on phones) */
+.rc-rv-sil { position: absolute; left: 0; top: 0; opacity: 0; filter: brightness(0) contrast(0.9);
   transition: opacity var(--d-sil, 0.5s) ease; }
 .rc-reveal.s-silhouette .rc-rv-sil { opacity: 1; }
 .rc-reveal.s-text .rc-rv-sil { opacity: 0; transition-duration: 0.3s; }
@@ -69,9 +74,10 @@
 .rc-reveal.is-lr .rc-rv-kicker { background: linear-gradient(90deg, #0e1930, #3b4f8f); border: 1px solid #ffd27a; color: #ffefcf; }
 .rc-rv-name { font-family: var(--font-head); font-style: italic; font-weight: 900; font-size: clamp(2rem, 9.5vh, 3.6rem); line-height: 1.05; margin-top: 6px; }
 .rc-reveal.is-lr .rc-rv-name { color: #ffefcf; text-shadow: 0 0 18px rgba(255, 210, 122, 0.6), 0 2px 10px rgba(5, 10, 30, 0.8); }
-.rc-rv-title { font-weight: 800; font-size: 1.05rem; opacity: 0.95; }
+.rc-rv-title { font-weight: 800; font-size: 1.05rem; color: rgba(255, 255, 255, 0.95); }
 .rc-rv-quote { margin-top: 12px; font-size: 0.95rem; font-weight: 700; background: rgba(10, 20, 40, 0.45); padding: 8px 12px; border-radius: 10px; max-width: 420px; }
 .rc-reveal.s-text .rc-rv-text > .rc-rv-quote { opacity: 1; }
+.rc-reveal.s-text .rc-rv-text > .rc-rv-kicker { transform: skewX(var(--skew, 0deg)); }
 .rc-reveal .bn-lr-reveal { margin-top: 6px; }
 
 /* her mark stamps in (it lands at 45% of --d-mark, when the cinematic bursts it), then a ring rolls out */
@@ -85,7 +91,7 @@
 .rc-reveal.s-mark .rc-rv-mark::after { animation: rc-ring 0.7s calc(var(--d-mark, 0.5s) * 0.45) ease-out both; }
 .rc-reveal.is-lr.s-hold .rc-rv-mark svg { animation: rc-mark-breathe 3s ease-in-out infinite; }
 @keyframes rc-ring { 0% { opacity: 0.9; transform: scale(0.9); } 100% { opacity: 0; transform: scale(1.7); } }
-@keyframes rc-mark-breathe { 50% { filter: drop-shadow(0 0 12px rgba(255, 210, 122, 0.8)); } }
+@keyframes rc-mark-breathe { 50% { transform: scale(1.05); } }
 
 .rc-rv-tap { position: absolute; z-index: 3; left: 0; right: 0; bottom: calc(12px + var(--safe-bottom, 0px)); text-align: center; color: #fff; font-weight: 700; font-size: 0.85rem; opacity: 0; transition: opacity 0.4s ease; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); }
 .rc-reveal.s-hold .rc-rv-tap { opacity: 0.8; }
@@ -112,7 +118,7 @@
   .ma-showcase.rc-reveal { --rv-x: 50%; }
   .rc-rv-bg { background-position: 50% 0; }
   .rc-rv-art { top: 3%; bottom: auto; height: 58%; }
-  .rc-rv-rays { top: -116%; }
+  .rc-rv-rays { top: calc(32% - 75vmax); }
   .rc-rv-glow { top: calc(32% - 30vmax); }
   .rc-rv-text { left: 6%; right: 6%; top: auto; bottom: calc(44px + var(--safe-bottom, 0px)); transform: none; text-align: center; }
   .rc-rv-stars { justify-content: center; }

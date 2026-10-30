@@ -104,7 +104,7 @@ export class CinematicFx {
   _spawnArc() {
     if (this.arcs.length >= ARCS) this.arcs.shift();
     const { x, y, r } = this.center;
-    const sq = this.center.squash ?? 1; // the whirlpool's rim is an ellipse on the sea
+    const sq = this.center.squash ?? 1; // the tilted portal's rim is an ellipse
     const a = this.rand() * TAU;
     const x0 = x + Math.cos(a) * r * 0.9;
     const y0 = y + Math.sin(a) * r * 0.9 * sq;
