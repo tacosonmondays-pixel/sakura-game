@@ -823,8 +823,9 @@ export function presetsNaming(p, uid) / loadoutUseText(p, uid)  // salvage: 'loa
 // whose piece another girl wears: `lent` (a switch took it from her: she is its one lender) or `wish` (her loadout
 // names a piece its lender took back). Lending is one way (M1 review r2): settleLent gives a lent piece back to its
 // lender the moment its borrower lets it go (unequip, another loadout: every syncTeams / save write) or a team switch
-// leaves it unworn by the new team; a borrower passing it on never becomes a lender. Flags: gp: + gpf:<id> (lent +
-// 32 × wish). lenderOf(p, uid), settleLent(p, members?) → returns; lentPieces → the "lent to X" note + Take back.
+// leaves it unworn by the new team; a borrower passing it on never becomes a lender. A loadout she takes off keeps its
+// `lent` claim (lenderOf reads every loadout; only the worn one is settled). Flags: gp: + gpf:<id> (lent + 32 × wish)
+// + gpf:<id>:<n> (a taken-off loadout's lent bits). lenderOf(p, uid), settleLent(p, members?) → returns; lentPieces → the "lent to X" note + Take back.
 // Pieces are never copied. Not hashed; the battle reads only profile.formation and unit.gear.
 // Deferred (owner board / M2): the co-op room's in-room switch "until Ready" needs session.js (hashed) → rides M2's
 // COOP_PROTOCOL bump (the hub switches; the room shows "You bring Team N"); Clear works on the active team only;

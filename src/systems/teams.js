@@ -81,11 +81,16 @@ function foldGear(p, unitId) {
   if (!Number.isInteger(u.preset) || u.preset < 0 || u.preset >= u.presets.length) u.preset = 0;
   u.presets.forEach((pr, n) => {
     if (n === u.preset) return;
+    delete pr.wish;
     for (const s of SLOT_IDS) {
       if (pr[s] && !(p.gear[pr[s]] && p.gear[pr[s]].slot === s)) {
         pr[s] = null;
         pr.gone = 1;
       }
+      // a loadout she took off keeps its `lent` claim while another girl wears (or nobody wears) the piece it names
+      // (review r4 M1); the claim ends when the slot no longer names it, the piece is gone, or she wears it
+      const bit = bitOf(s);
+      if ((pr.lent | 0) & bit && (!pr[s] || u.gear?.[s] === pr[s])) clearBit(pr, 'lent', bit);
     }
   });
   u.presets[u.preset] = wornLoadout(p, unitId, u.presets[u.preset]);
@@ -139,9 +144,9 @@ const clearBit = (w, key, bit) => {
 export function lenderOf(p, uid) {
   const g = p.gear?.[uid];
   if (!g) return null;
+  // (any of her loadouts: a loadout she took off keeps its claim, review r4 M1)
   for (const id of Object.keys(p.units).sort()) {
-    const w = wornOf(p, id);
-    if (w && w[g.slot] === uid && ((w.lent | 0) & bitOf(g.slot))) return id;
+    for (const pr of p.units[id]?.presets || []) if (pr[g.slot] === uid && ((pr.lent | 0) & bitOf(g.slot))) return id;
   }
   return null;
 }
@@ -394,8 +399,8 @@ function applyStep(p, step) {
       if (u.gear[slot] !== uid) equipGear(p, step.unitId, uid);
     } else if (u.gear[slot]) unequipGear(p, step.unitId, slot);
   }
-  // a loadout she takes off keeps no lend flags (only the worn one does)
-  if (u.preset !== step.n && u.presets[u.preset]) { delete u.presets[u.preset].lent; delete u.presets[u.preset].wish; }
+  // a loadout she takes off keeps its `lent` claims (review r4 M1; foldGear ends them), never a wish
+  if (u.preset !== step.n && u.presets[u.preset]) delete u.presets[u.preset].wish;
   u.preset = step.n;
   const pr = u.presets[step.n];
   if (pr) delete pr.gone;
@@ -419,6 +424,8 @@ export function usePreset(p, unitId, n) {
   if (n === u.presets.length) {
     u.presets.push({ ...u.presets[u.preset] });
     delete u.presets[n].gone;
+    delete u.presets[n].lent; // (a copy names her pieces; it carries no claims)
+    delete u.presets[n].wish;
     created = true;
   }
   const plan = planPreset(p, unitId, n);
@@ -493,6 +500,8 @@ export function copyPreset(p, unitId, from, to) {
   if (!u.presets[from] || from === to || to === u.preset || to < 0 || to >= PRESET_COUNT || to > u.presets.length) return { ok: false, error: 'badLoadout' };
   const copy = { ...u.presets[from] };
   delete copy.gone;
+  delete copy.lent;
+  delete copy.wish;
   if (to === u.presets.length) u.presets.push(copy);
   else u.presets[to] = copy;
   let takes = [];

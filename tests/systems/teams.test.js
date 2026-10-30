@@ -467,6 +467,40 @@ describe('lending is one way (M1 review r2)', () => {
     expect(lenderOf(p, rA)).toBe('aoi');
   });
 
+  it('r4-M1: a loadout she took off keeps her claim, so the lending never flips direction', () => {
+    const { p, g } = sharedTeams();
+    // Aoi: c2 on A; her loadout B has no charm
+    usePreset(p, 'aoi', 1);
+    unequipGear(p, 'aoi', 'charm');
+    usePreset(p, 'aoi', 0);
+    expect(p.units.aoi.gear.charm).toBe(g.c2);
+    selectTeam(p, 1); // Kage borrows c2
+    usePreset(p, 'aoi', 1); // on her page Aoi puts on B (no charm)
+    expect(lenderOf(p, g.c2)).toBe('aoi');
+    selectTeam(p, 0); // Team 1: Aoi on A takes c2 back from Kage
+    expect(p.gear[g.c2].equippedBy).toBe('aoi');
+    expect(lenderOf(p, g.c2)).toBe(null);
+    const r = selectTeam(p, 3); // Team 4 (Yuki only): c2 stays with Aoi
+    expect(r.returns).toEqual([]);
+    expect(p.gear[g.c2].equippedBy).toBe('aoi');
+    expect(lenderOf(p, g.c2)).toBe(null);
+  });
+
+  it('r4-M1: the taken-off loadout\'s claim rides the mirrors through an older build', () => {
+    const { p, g } = sharedTeams();
+    usePreset(p, 'aoi', 1);
+    unequipGear(p, 'aoi', 'charm'); // her Loadout B: no charm
+    usePreset(p, 'aoi', 0);
+    selectTeam(p, 1); // Kage borrows c2
+    usePreset(p, 'aoi', 1); // Aoi puts on B: A keeps the claim
+    expect(lenderOf(p, g.c2)).toBe('aoi');
+    const raw = JSON.parse(saveText(p, 1));
+    delete raw.teams;
+    for (const u of Object.values(raw.units)) { delete u.presets; delete u.preset; }
+    const m = migrateProfile(raw);
+    expect(lenderOf(m, g.c2)).toBe('aoi');
+  });
+
   it('the lend flags ride the gp:/gpf: mirrors through an older build', () => {
     const { p, g } = sharedTeams();
     selectTeam(p, 1);
@@ -480,7 +514,8 @@ describe('lending is one way (M1 review r2)', () => {
     expect(m.gear[g.c2].equippedBy).toBe('aoi');
   });
 
-  it('fuzz: switches, loadouts, equips, salvage, Undo and reloads never duplicate or lose a piece', () => {
+  // (600 seeds take about 6 s: past vitest's 5 s default, review r4 H1)
+  it('fuzz: switches, loadouts, equips, salvage, Undo and reloads never duplicate or lose a piece', { timeout: 60_000 }, () => {
     for (let seed = 1; seed <= 600; seed++) {
       const rng = createRng(seed);
       let { p } = setup();
@@ -532,14 +567,15 @@ describe('lending is one way (M1 review r2)', () => {
           p = migrateProfile(raw);
         }
         syncTeams(p);
-        // a lent piece nobody touched by hand is still lent by the same girl, or back on her (review r3 H1)
+        // a lent piece nobody touched by hand keeps its lender: still lent by the same girl (on whichever of her
+        // loadouts names it: a loadout she took off keeps its claim, review r4 M1) or back on her (review r3 H1); the
+        // lender never changes without a hand action
         if (!wholeSave) {
           for (const [uid, l] of Object.entries(lentBefore)) {
             if (touched.has(uid) || touched.has(l) || !p.gear[uid]) continue;
-            // (a team that puts her on another loadout moves her claim there: that loadout still names it, takes it back
-            // when put on, and guards it from salvage)
-            const named = (p.units[l]?.presets || []).some((pr) => pr[p.gear[uid].slot] === uid);
-            expect(lenderOf(p, uid) === l || p.gear[uid].equippedBy === l || named, `seed ${seed} step ${step} (${op || r.toFixed(2)}): ${uid} lent by ${l} is lost (now ${p.gear[uid].equippedBy}, lender ${lenderOf(p, uid)})`).toBe(true);
+            const now = lenderOf(p, uid);
+            expect(now === l || now === null, `seed ${seed} step ${step} (${op || r.toFixed(2)}): ${uid}'s lender ${l} became ${now}`).toBe(true);
+            expect(now === l || p.gear[uid].equippedBy === l, `seed ${seed} step ${step} (${op || r.toFixed(2)}): ${uid} lent by ${l} is lost (now ${p.gear[uid].equippedBy}, lender ${lenderOf(p, uid)})`).toBe(true);
           }
         }
         // invariants: one wearer per piece, wearers and slots agree, the formation is the active team
