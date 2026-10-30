@@ -3,7 +3,8 @@
 // Claim-all modal and the Backpack's Open all.
 
 import { h } from './dom.js';
-import { ITEM_RARITIES, ITEM_RARITY_ORDER, GEAR_SLOTS } from '../data/types.js';
+import { ITEM_RARITIES, ITEM_RARITY_ORDER } from '../data/types.js';
+import { SLOT_IDS, slotName } from '../data/gearSlots.js';
 import { gearTile } from './screens/stage.js';
 
 /** Above this many pieces the opener shows boxSummary() instead of every card. */
@@ -43,7 +44,7 @@ export function boxSummary(gear, { onSeeAll = null, title = true } = {}) {
         chip.style.setProperty('--rc', ITEM_RARITIES[r]?.color || '#999');
         return chip;
       }),
-      Object.keys(GEAR_SLOTS).filter((s) => slot[s]).map((s) => h('span.gear-summary-chip.slot', `${GEAR_SLOTS[s].name} ×${slot[s]}`))),
+      SLOT_IDS.filter((s) => slot[s]).map((s) => h('span.gear-summary-chip.slot', `${slotName(s)} ×${slot[s]}`))),
     h('div.gear-summary-best', bestGear(gear).map((g) => h('div.item-tile-wrap', gearTile(g, { size: 60 }), h('div.item-tile-name', g.name)))),
     onSeeAll ? h('button.gear-summary-all', { onclick: onSeeAll, 'data-testid': 'gear-summary-all' }, 'See all in Equipment ›') : null,
   );

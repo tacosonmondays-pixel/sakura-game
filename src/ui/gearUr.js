@@ -8,7 +8,8 @@ import { h, clear, svgEl, button, modal, toast, confirmDialog, showItemInfo, rar
 import { store } from '../core/store.js';
 import { createRng } from '../core/rng.js';
 import { formatNumber } from '../core/util.js';
-import { ITEM_RARITIES, GEAR_SLOTS } from '../data/types.js';
+import { ITEM_RARITIES } from '../data/types.js';
+import { ROLL_SLOTS, slotName } from '../data/gearSlots.js';
 import { UNIT_MAP } from '../data/units.js';
 import { getItem } from '../data/items.js';
 import { GEAR_STAT_DEFS, BATTLE_CAPS, statName, STAT_HINTS, trickIdle } from '../data/gearStats.js';
@@ -94,7 +95,7 @@ export function gearCard(gear, { onClick = null, compact = false, highlightSubs 
         h('div.mb-gear-name', gear.name),
         h('div.mb-gear-meta',
           ur ? h('span.gu-ur-pill', { title: 'UR — awakened gear' }, urBadge()) : rarityBadge(gear.rarity),
-          h('span.mb-gear-slot', GEAR_SLOTS[gear.slot]?.name || gear.slot), h('span.mb-gear-level', `+${gear.level}`),
+          h('span.mb-gear-slot', slotName(gear.slot)), h('span.mb-gear-level', `+${gear.level}`),
           gear.club ? clubChip(gear.club, { short: compact }) : null,
           awakenReady(gear) ? h('span.gu-can', { title: 'This gold piece can awaken into rainbow UR gear' }, '✦ Can awaken') : null)),
       gear.locked ? h('span.mb-gear-lock', { title: 'Locked' }, svgEl(uiIcon('lock'))) : null),
@@ -501,7 +502,7 @@ export function rainbowBoxModal(onDone = () => {}) {
     wide: true,
     body: h('div.gu-rainbow-box', { 'data-testid': 'rainbow-box-modal' },
       h('p.muted', 'Pick a slot: the box opens into one Legendary piece already awakened to rainbow UR, at +0 with four substats.'),
-      h('div.row', Object.entries(GEAR_SLOTS).map(([slot, def]) => button(def.name, {
+      h('div.row', ROLL_SLOTS.map((slot) => button(slotName(slot), {
         kind: 'primary', testid: `rainbow-box-${slot}`, icon: null,
         onClick: () => {
           if (Date.now() - busy < 600) return; // double-tap guard

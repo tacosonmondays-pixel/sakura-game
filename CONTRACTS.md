@@ -762,7 +762,7 @@ Profile = {
   version, createdAt,
   currencies: { coins, gems },
   items: { [itemId]: count },
-  units: { [unitId]: { level, exp, breakthrough /*gates passed 0-5*/, awaken /*0-5*/, gear: { charm, ribbon, shoes } /*gear uid|null*/, obtainedAt, favorite?, dupes /*duplicates since she joined, ≥ 0, never spent; Potential = min(6, 1 + dupes); missing on an old save → credited once on load*/ } },
+  units: { [unitId]: { level, exp, breakthrough /*gates passed 0-5*/, awaken /*0-5*/, gear: { charm, ribbon, shoes, hair, necklace } /*gear uid|null*/, obtainedAt, favorite?, dupes /*duplicates since she joined, ≥ 0, never spent; Potential = min(6, 1 + dupes); missing on an old save → credited once on load*/ } },
             // skin: equipped SkinDef id, null = her default (roster merge; additive, no version bump)
   gear: { [uid]: GearInstance },
   gacha: { pity, totalPulls, recruitPoints, history: [{ unitId, rarity, at }] /*last 100*/ },
@@ -796,6 +796,13 @@ GearInstance = { uid, slot, rarity, level /*0-10; 0-12 when ur*/, main: { stat, 
   // Box-born UR (the Rainbow Gear Box, ASCENSION.md §C.8): openRainbowBox(profile, slot, rng) makes a Legendary
   // piece with ur: 1 at +0 (four substats, locked, joins a club); gbx:<uid> = slot index × 100 + main-stat index + 1
   // brings `ur` back at any level (gur: keeps its +10 rule); salvage pays the Seed and writes gbx: 0.
+  // The gear update's reader (M0, docs/specs/GEAR_UPDATE.md §9): slots `charm|ribbon|shoes|hair|necklace`
+  // (src/data/gearSlots.js; types.js stays frozen; random drops roll the classic three), `set?` (src/data/gearSets.js
+  // SET_IDS, SR+), `lr?` (1 Set LR, 2 Blank LR: ur + level 12-18, read ×lrMul / ×blankMul), a line's `night?` (the
+  // Nightglass ✦, LR only, never in `tuned`) and `top?` (a pin: base = the best roll). Mirrors: gst:, glr:, gtx:, gtp:
+  // on classic pieces; a Hair Clip / Necklace is mirrored whole (gph:, gpm:, gps:<uid>:<i>, gpc:) and NEVER by a legacy
+  // mark. Teams and loadouts (profile.teams, unit.presets / preset; src/systems/teamsSave.js): tm:, gp:. Exports carry
+  // version 3 (EXPORT_VERSION), which older builds refuse; the stored save stays version 2.
 ```
 
 ### `src/systems/battleSave.js` (battle saves)

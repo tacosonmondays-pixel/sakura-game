@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createProfile, migrateProfile, serializeProfile, deserializeProfile, loadSaveText, migrationDropsData, backupNotice, SAVE_VERSION, STARTER_UNITS,
+  createProfile, migrateProfile, serializeProfile, deserializeProfile, loadSaveText, migrationDropsData, backupNotice, SAVE_VERSION, EXPORT_VERSION, STARTER_UNITS,
 } from '../../src/systems/save.js';
 import { SKIN_MAP } from '../../src/data/skins.js';
 import { setSkin, equippedSkinId } from '../../src/systems/skins.js';
@@ -142,9 +142,10 @@ describe('serialize / deserialize', () => {
   });
 
   it('refuses a save code from a newer build instead of stripping it', () => {
-    const p = createProfile();
-    p.version = SAVE_VERSION + 1;
-    expect(() => deserializeProfile(serializeProfile(p))).toThrow('Newer save');
+    // (an export carries EXPORT_VERSION, apart from the stored save's SAVE_VERSION: GEAR_UPDATE.md §9.4)
+    const p = { ...createProfile(), version: EXPORT_VERSION + 1 };
+    expect(() => deserializeProfile(Buffer.from(JSON.stringify(p)).toString('base64'))).toThrow('Newer save');
+    expect(deserializeProfile(serializeProfile(createProfile())).version).toBe(SAVE_VERSION);
   });
 });
 
