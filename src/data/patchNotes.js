@@ -20,6 +20,13 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.63', version: '0.1.63', date: '2026-10-30', title: 'Two More Spooky Weeks',
+    changed: [
+      'Pumpkin Lantern Night runs two weeks longer: its operations and missions now end Nov 15 and the Candy Exchange closes Nov 22 (7 PM Central).',
+      'Festival gifts already in your Mailbox stay claimable until the Candy Exchange closes.',
+    ],
+  },
+  {
     id: 'v0.1.62', version: '0.1.62', date: '2026-10-30', title: 'Sharper Details',
     fixed: [
       'Iroha’s mirror stands beside her instead of in front of her when it has no aim.',
