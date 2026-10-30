@@ -189,15 +189,18 @@ describe('Farm', () => {
 });
 
 describe('Gear plan and Potential', () => {
-  it('today: three slots, no sets, pins or LR rows (they light up as the update ships)', () => {
+  // (release v0.1.66: the gear update ships with it, so the five slots, the sets and the LR rows light up; pins stay
+  // off while no shop or drop lists a Tie Pin, itemSources)
+  it('with the gear update: five slots, a best set and LR rows; pins once a Tie Pin has a source', () => {
     const f = features();
-    expect(f.slots).toEqual(['charm', 'ribbon', 'shoes']);
-    expect(f.sets).toBe(false);
+    expect(f.slots).toEqual(['charm', 'ribbon', 'shoes', 'hair', 'necklace']);
+    expect(f.sets).toBe(true);
+    expect(f.lr).toBe(true);
     const { p } = setup();
     const plan = gearPlan(p, 'kage');
-    expect(plan.slots.map((s) => s.slot)).toEqual(['charm', 'ribbon', 'shoes']);
-    expect(plan.set).toBe(null);
-    expect(plan.pins).toBe(null);
+    expect(plan.slots.map((s) => s.slot)).toEqual(['charm', 'ribbon', 'shoes', 'hair', 'necklace']);
+    expect(plan.set?.best).toBeTruthy();
+    expect(plan.pins === null).toBe(!f.pins);
     expect(plan.subs.length).toBeGreaterThan(2);
     expect(plan.club.three).toBeTruthy();
     expect(plan.slots[0].piece.uid).toBeTruthy();

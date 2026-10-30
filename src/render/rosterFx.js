@@ -666,8 +666,9 @@ export class RosterFx {
       const ms = relay.kind === 'mirror' && t.mirrors ? t.mirrors : null;
       for (let k = 0; k < (ms ? ms.length : 1); k++) {
         const key = k === 0 ? t.uid : `${t.uid}#${k}`;
-        let tx = ms ? ms[k].x : t.ox;
-        let ty = ms ? ms[k].y : t.oy;
+        // (slot 0 is her relay origin t.ox / t.oy: towers.js updateRelayOrigin sets it from her first mirror)
+        let tx = ms && k > 0 ? ms[k].x : t.ox;
+        let ty = ms && k > 0 ? ms[k].y : t.oy;
         let beside = false;
         if (k === 0 && relay.kind === 'mirror') {
           const s = this._mirrorSpot(t, tx, ty);
