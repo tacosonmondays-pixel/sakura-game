@@ -489,8 +489,20 @@ or Blank) adds one step. **Five Blank LR pieces** double every base cap instead.
 | DoT cap (§8.3) | ×2.0 at five pieces | — | ×2.0 | ×3.0 |
 
 A set's 5-piece **set cap** (§3.2) removes that one stat's cap whatever the rarity. The sim's guard caps follow the
-highest honest values: `PIERCE_K_MAX` 300 (`src/sim/gearRules.js:18`; blasts up to 500 for a Party Popper 5-piece),
-`SKILL_HASTE_CAP` 0.75 for hero ults and abilities (`:80`, and the ult cap in `src/sim/hero.js:113`).
+highest honest values: `PIERCE_K_MAX` 300 (`src/sim/gearRules.js:18`; blasts up to 500 for a Party Popper 5-piece).
+
+**Skill Haste, as built (M3 review r1 #4, r2).** `SKILL_HASTE_CAP` stays **0.5**; a new `ULT_HASTE_MAX` **0.75** is
+the hero ult's ceiling (`src/sim/hero.js ultCooldown`, `src/sim/gearRules.js`). Gear + Potential ult haste is capped at
+0.5 exactly as before (bit-identical to main for gear haste ≤ 0.5). Gear ult haste above 0.5 (only LR caps get there)
+lifts the ceiling to 0.75 and her Potential ult haste stacks on top (0.55 gear + 0.2 Potential = 0.75). Abilities keep
+half her capped haste (`abilHaste`, `ABIL_HASTE_CEIL` 0.75 with Power Bank's set cap). CONTRACTS.md records the same.
+The step at the boundary is real: gear haste 0.50 → 0.51 adds her whole Potential ult haste (up to +21 points), so the
+deferred G1 and G4 runs must measure a hero at 0.50 and at 0.51 gear haste, not only the presets' values.
+
+**Pierce counts once (M3 review r1 #9, r2 #1).** A kit with no blasts and no splash traps uses Pierce on shots only, up
+to 200 % (`PIERCE_SHOT_PCT` = `PIERCE_MAX_EXTRA` 2): its battle `pierceK` stops at 200 and the part above fills in as
+ATK (Every Line Counts, `src/systems/gear.js gearFillIn`). A kit with a blast or a splash trap anywhere in its base or
+tiers (`blastKit`) keeps all of it (up to 300 %, 500 % for its blasts with Party Popper 5) and fills none of it in.
 
 ### 4.4 LR Set Forms
 
@@ -518,7 +530,7 @@ When all five pieces she wears are LR **and** of one set, her passive takes its 
 |---|---|---|
 | Weekly commission **Nightglass Hunt**: "Win 3 Titan Trials victories at Mayhem this week (sweeps count)" (`WEEKLY_MISSIONS`, `src/data/missions.js:25`) | 1 | 1 a week |
 | Freeplay milestone "Reached wave 225", per tier (`src/online/coop/rewards.js` milestone items) | 1 × 3 | once per tier |
-| Achievements "First Nightglass" and "Nightglass Form" | 2 | once |
+| Achievements "First Nightglass" (a Limit Break) and "Nightglass Form" (an LR Set Form worn): one Lens each, no gems (tier 0, their own `gear` wave: the frozen gem caps stay) | 2 | once |
 | Each limited event's exchange, top shelf | 1 | 1 an event |
 
 No gem price, no stage drop, no Workbench output. About one LR piece a week for an active top player (the Lens and the
@@ -816,7 +828,7 @@ change and no bump. Pins ship with M2's measured pass.
 |---|---|---|
 | A Hair Clip or Necklace piece | dropped whole (`save.js:271`), the load marked `lossy` with a backup (`:690-697`, `:722`) | whole-piece mirror (§9.5); **no legacy mark that pays is ever written for it** (§9.4) |
 | `set` on a Charm / Ribbon / Shoes piece | dropped (`:288-302`) | `gst:<uid>` |
-| `lr`, level 13–18 | `lr` dropped, level clamped to 12 (`:291`): the piece reads as UR +12 (understated, never corrupt) | `glr:<uid>` = LR kind × 100 + level; GA §8.3 step 4 gives back missing ▲ |
+| `lr`, level 13–18 | `lr` dropped, level clamped to 12 (`:291`): the piece reads as UR +12 (understated, never corrupt) | `glr:<uid>` = LR kind × 100 + level + 1000 × ▲ per line (one digit a line, line 0 lowest); GA §8.3 step 4 gives back missing ▲ |
 | The Nightglass ✦ | **never in `tuned`** (F5): its own line field `night` (0 / 1), so no build ever reads `tuned` above 3 | `gtx:<uid>` (1 bit per stat, `TUNE_BITS` order); a bit whose stat is gone pays its Needle back (§9.3) |
 | Pin marks (`top`) | dropped; the best roll stays in `base` | `gtp:<uid>` (bit 0 main, bit 1 + `TUNE_BITS` index per sub): re-applied on load; a sub bit whose stat is gone pays its Collar Pin back (§9.3) |
 | `unit.gear.hair/necklace`, `teams`, `presets` | dropped | `own:<id>:hair`, `own:<id>:necklace`; `tm:`, `gp:` (§7.5: present fields win) |
@@ -896,7 +908,7 @@ player sees. M1 can follow at once; **M2 waits at least one week after M0** (two
 |---|---|---|---|
 | M0 reader, M1 teams and loadouts, the pins, the Build Coach (C1) | none | unchanged | unchanged |
 | **M2** five pieces and sets | `src/sim/setRules.js` (new); `constants.js` (`DEFAULT_UNIT_STATS` + `set`, `setN`, `setLr`, `buffDurMul`, `controlMul`, `abilHaste`, `critCeil`, `avgCrit`; `INCOME_INTEREST_SET_MAX` 5,000 and `CASH_MAX` 1e12, §3.2); `status.js` (`controlMul`, You're It); the **control call sites** of §2.4: `Sim.js`, `abilities.js`, `hero.js`, `barricades.js`, `vines.js`, `zones.js`, `lab.js`, `potential.js`, `duo.js`; `Sim.js` also `_gainCash` (`CASH_MAX`) and the interest ceiling (`:927`), `lab.js` the joiners' interest (`:247`); `combat.js` (You're It inside `damageTakenBonus`, average crit on DoT); `towers.js` (tricks, sure crits, average crit on traps, Confetti Burst's stripped spec); `buffs.js` (Buff Duration; `critCeil` at `:35-36`), `drinks.js` (Buff Duration); `mods.js` (splash cap; `critCeil` at `:803`); `gearRules.js` (super crits, ability haste ceiling); `enemies.js` (the `it` record); `statLimits.js` | changes | **one bump** |
-| **M3** LR gear | `gearRules.js` (`PIERCE_K_MAX` 300, `SKILL_HASTE_CAP` 0.75), `hero.js` (ult cap), `setRules.js` (LR Set Forms), `statLimits.js` | changes | **one bump** (or M2's, shipping together) |
+| **M3** LR gear | `gearRules.js` (`PIERCE_K_MAX` 300; `SKILL_HASTE_CAP` stays 0.5, new `ULT_HASTE_MAX` 0.75, §4.3), `hero.js` (the ult ceiling split, §4.3), `setRules.js` (LR Set Forms), `Sim.js` (Bake Sale · Nightglass only on a paid upgrade), `statLimits.js` | changes | **one bump** (or M2's, shipping together) |
 | Accessories A2 | ACCESSORIES.md §7 | changes | its own bump (or M3's) |
 
 Protocol 13 today (`src/online/coop/version.js`); round 5 takes the next number. The coordinator assigns M2's and M3's
@@ -1076,7 +1088,7 @@ JavaScriptCore.
 | **M0 Reader** | every reader, mirror and refund row of §9; the versioned export; LR- and pin-aware salvage, reroll and enhance; the new item ids with no sources | unchanged | save tests; full vitest; smoke; `simId()` unchanged | 4–5 days |
 | **M1 Teams and loadouts** | §7 | unchanged | teams tests; e2e Formation / Stage Prep / co-op | 3–4 days |
 | **M2 Five pieces and sets** | the two slots, six sets, passives and set caps, super crits, support stats in battle (the 24 call sites), the F1 levers and the **raise-only pass over r5's rows**, clubs across five, sources, Set Boxes and the welcome and veteran boxes (one mark per box, §5.3), the maths ceilings (§3.2), the Rainbow Gear Box over five slots, pins, the set icons from `feature/gear-icons`, the card (after the owner's SQL paste) | **bump** | **G0 first**, then §8.4 G1–G13 with `maxed5'` / `late5'` / `urLate5'`; ≥ 1 week after M0; after round 5 and its LR rows | **3–4 weeks** |
-| **M3 LR gear** | Limit Break (Set and Blank), the Lens, +18, the numbers, the third ✦ and second Collar Pin, cap raises and the Blank doubling, LR Set Forms, a second raise-only pass if G1 needs it | **bump** (or M2's) | **G0 first**, then G1, G4 (the Wyrm band: `tools/wyrmGate.mjs`, 24 runs a preset), G5, G7, G10–G12 with `lrSet5'` / `lrBlank4'` / `lrBlank5'` | **2–2.5 weeks** (G4's tools, 3–4 days: capBot's W and LR boards, the presets, `wyrmGate.mjs`; 24 runs a knob step and two overnight full passes) |
+| **M3 LR gear** | Limit Break (Set and Blank), the Lens, +18, the numbers, the third ✦ and second Collar Pin, cap raises and the Blank doubling, LR Set Forms, a second raise-only pass if G1 needs it | **bump** (or M2's) | **Deferred** (Oct 30, M3 review r2): G0, G1, G4, G5, G7 and G10–G12 run after M3's code review, on `feature/gear-g4` (M2 + M3 with round 5 merged; its tools: the five-piece presets, capBot's W and LR boards, `tools/wyrmGate.mjs`, gearGuard `--build`). Then: **G0 first**, then G1, G4 (the Wyrm band: 24 runs a preset), G5, G7, G10–G12 with `lrSet5'` / `lrBlank4'` / `lrBlank5'`; G1 and G4 measure the haste step at 0.50 → 0.51 (§4.3); G4 tuning waits for the owner's F10 answer | **2–2.5 weeks** (G4's tools, 3–4 days: capBot's W and LR boards, the presets, `wyrmGate.mjs`; 24 runs a knob step and two overnight full passes) |
 | Accessories A0–A2, Build Coach C1 | ACCESSORIES.md §11, BUILD_COACH.md §9 | A2 bumps; C1 none | in their specs | in their specs |
 
 Patch-note lines: M1 "Save up to 5 teams and up to 3 gear loadouts per girl"; M2 "Two new pieces: the Hair Clip and the
