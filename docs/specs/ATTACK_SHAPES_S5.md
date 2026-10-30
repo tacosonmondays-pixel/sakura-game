@@ -530,3 +530,60 @@ Bosses are exact for Rei and Miko (rule 4). Suzu's bells ring for a boss that st
 - **`tollCd` is not packed in the trap record** of a battle save (§2 "Battle-save classes"). It is 1 at every calm point (`endS5Wave`), and `tollBell` and `hashSim` read a missing one as `?? 1`, so a restored bell rings on the next wave's first armed step as it would have (build review r1 LOW 2).
 - Pins: PENDING_BUMP {13: `722edb51def8`}. The 456-resolution stats hash is re-pinned to `2f6a4fcb`; with the three girls left out the 384 others hash `70150afc` before and after. The battle-save tower keys gain `shapeDealt` (snap), `_struck` / `_lead` (scratch) and `wheelK` / `tolls` (calm). **No `COOP_PROTOCOL` bump on the branch.**
 - `npm test`: 401 files, 6,304 tests passed.
+
+## 16. S5b as built (feature/attack-shapes-s5)
+
+Midori's Spore Mist, Raika's Static Web and Luna's Moonbeam Sweep, on the S5a base. The branch merges `origin/feature/balance-r5` 96c3547b (Akane's Inferno Queen cone 45° → 55°, LR_BAR re-pinned at crowd 17.40M / boss 6.13M); all the gates below were run on the merged tree, against live = 96c3547b. Code is in `src/sim/s5shapes.js` (`mistTick` / `mistTarget`, `moonPass` / `moonTick`, `tieWeb` / `webStep`), the `spore` status in `status.js` and `enemies.js`; the contract is `CONTRACTS.md` "Attack shapes S5b".
+
+| Girl, path | Tiers / levels | Data |
+|---|---|---|
+| Midori, Field Kit | T4 Paralysis Spore, T5 Elixir Barrage | `mist { half: 30, len: 1, cap: 32, mul: 0.15, dot: 0.3 }`, `{ half: 36, cap: 96, mul: 0.65, dot: 0.6 }` (`src/data/units.js`) |
+| Raika, Storm Rhythm | T4 Thunder Festival, T5 Endless Thunder | `web { dur: 2, every: 15, share: 0.15 }`, `{ dur: 3, every: 12, share: 0.3 }` |
+| Luna (hero), Moonbeam | Lv 22 Lunatic Lance, Lv 25 Lunar Sovereign | `moon { beams: 1, arc: 30, mul: 0.55 }`, `{ beams: 2, mul: 0.35 }` (`src/data/heroTracks.js`) |
+
+**Changes from the spec, and why:**
+
+1. **The mist follows the densest cone, not her lead** (the coordinator's crescent rule, Oct 30, applied to the mist). Her lead often stands past the mist's reach, so a cone along her lead's line found few walkers. `mistTarget` scores her lead and the CRESCENT_AIMS nearest eligible enemies within the mist's reach by how many of them that direction's cone holds. Ties go to the direction nearest her lead's, then the lower table index. With nobody in reach, it follows her lead.
+2. **Midori's mist is longer, wider-capped and stronger than the starting values:** `len` 1 × her range (not 0.75), cap 32 / 96 (not 24 / 32), `mul` 0.15 / 0.65 and `dot` 0.3 / 0.6 (not 0.12 / 0.15 and 0.25 / 0.3). At the starting values her crowd rows fell under Q9's +10 % floor. Her T5's flasks already hold a crowd, so the mist's share had to be large to show. Every row is now ×1.10–1.31.
+3. **Raika's T5 share is 0.3, not 0.2.** At 0.2 her T5 crowd fell under the +10 % floor.
+4. **Luna's beams are stronger:** ×0.55 at Lv 22 (not 0.35) and two at ×0.35 at Lv 25 (not 0.3). At the starting values her crowd fell under the +10 % floor.
+5. **No panel line** (as S5a, §15 deviation 2). The panel is her one-target figure. The mist's held-boss ticks are the only S5b damage on one target, and they stay out of `projectedDps` (rule 6).
+6. **Luna's fixture cases** (`tests/sim/s5shapes.test.js`): on the straight fixture road, her 5–6 lances pierce every walker, so the moonbeams find nobody unstruck, and the crowd case allows `shapeDealt` 0 there. Her gain is measured on the bench below and in the engines battle.
+
+**The no-nerf gate** (`tools/balance/noNerfGate.mjs`, live = 96c3547b with the tools byte-identical, the merged tree as the branch; every girl, every path, tiers 1–5, boss / walking boss / crowd, seeds 9 / 1 / 2, three profiles and the LR-off pass):
+
+| Pass | cells | missing | under live ×0.995 | cells off the shape tiers identical to live |
+|---|---:|---:|---:|---:|
+| Umeko + Midori | 4,455 | 0 | **0** | 4,365 of 4,365 |
+| alone | 4,455 | 0 | **0** | 4,365 of 4,365 |
+
+The S5b shape tiers, live → S5b (maxed boss / walking boss / crowd; crowd at L1 and L40):
+
+| Girl, tier | Supported: boss / walking / crowd | Alone: boss / walking / crowd | L1 crowd (supp. / alone) | L40 crowd (supp. / alone) |
+|---|---|---|---|---|
+| Midori T4 | ×1.18 / ×1.18 / 97,429 → 115,677 ×1.19 | ×1.19 / ×1.20 / 60,078 → 72,951 ×1.21 | ×1.22 / ×1.31 | ×1.19 / ×1.24 |
+| Midori T5 | ×1.17 / ×1.17 / 1.08M → 1.19M ×1.10 | ×1.23 / ×1.24 / 329,001 → 406,035 ×1.23 | ×1.21 / ×1.27 | ×1.18 / ×1.23 |
+| Raika T4 | ×1.00 / ×1.00 / 148,464 → 168,457 ×1.13 | ×1.00 / ×1.00 / 11,133 → 12,643 ×1.14 | ×1.19 / ×1.18 | ×1.19 / ×1.17 |
+| Raika T5 | ×1.00 / ×1.00 / 1.30M → 1.45M ×1.12 | ×1.00 / ×1.00 / 139,387 → 181,502 ×1.30 | ×1.42 / ×1.37 | ×1.39 / ×1.37 |
+
+Midori's boss rows rise by her mist's ticks on the held boss (§3.1 "Parity": the lone-enemy rule cannot apply to a held stream). Raika's bosses are exact (a lone enemy makes no web). The S5a rows read as §15, the same on the merged tree.
+
+**Luna** (the gate has no hero rows; `tools/balance/r5Bench.mjs measure` with her levels bought to 22 / 25, a temporary copy, seeds 9 / 1 / 2, both trees):
+
+| Level | Crowd, supported | Crowd, alone | Boss / walking boss |
+|---|---|---|---|
+| Lv 22 | 3.16M → 3.49M ×1.11 | 313,677 → 345,271 ×1.10 | exact |
+| Lv 25 | 5.91M → 6.61M ×1.12 | 676,193 → 752,828 ×1.11 | exact |
+
+**The ability bench** (`tools/abilityBench.mjs --tiers`, strong preset, 120 s, Auto off → on, both trees). Midori 2-0-4 / 2-0-5 / 0-2-4 / 0-2-5 (Catalyst): crowd 29.3k → 34.8k, 671k → 784k, 41.3k → 50.5k and 731k → 870k, bosses up by her mist, Auto's own gain ×1 as live. Raika (Drumstorm): crowd 121k → 140k, 1.18M → 1.53M, 169k → 195k and 1.54M → 2.01M, with Auto on as live (×1.11–1.23); bosses identical. Luna Lv 22 / 25 (Moonbrand): crowd 2.19M → 2.24M and 4.25M → 4.27M, with Auto's own gain as live (×1.07); bosses identical. Nothing under live.
+
+**The LR bar** (`tools/balance/lrBar.mjs` on the merged tree): all six LR builds pass (×1.31–1.33 crowd, ×2.29–4.61 boss). `--bar` reads the pinned bar (crowd Akane 17.40M beside Umeko + Chika, boss Iroha 6.13M), worst LR ÷ same-pair best ×1.149. No S5 girl is in either top-10 list.
+
+**Determinism and co-op:**
+
+- `tests/sim/s5shapes.test.js` (49 cases with S5a's). The S5b data. Each girl's lone boss against a live copy (Midori's mist excepted, asserted alone). `spore` is its own status: Catalyst, its Auto count and `spreadDot` read poison only. The web: the chain stays linked and zapped on its clock, a lone enemy makes no web, webs end at the wave clear. The moonbeam's pass. A mid-wave co-op checkpoint with a mist, a web and a pass continuing bit-identically.
+- `e2e/engines/scriptedBattle.js` `runS5bBattle` (S5B_START, 2-4 Hard): the host's Midori and Raika at tier 5 with Luna bought past Lv 22, the guest's at tier 4. Won at wave 22: 9,767 mist hits, 893 zaps, 14 moonbeam strikes, 64 webs tied. The wave-3 checkpoint rejoined at tick 6,054 lands on the run. Pinned in `tests/online/engines.test.js`, unchanged by the merge.
+- Perf (`tests/sim/perf.test.js` "S5b attack shapes": 6 mists, 6 webs, Luna at Lv 25, 200 enemies): 0.53–0.62 ms a step (limit 2 ms). Zaps stay within STATIC_ZAPS_PER_STEP, webs within their caps.
+- Pins: PENDING_BUMP {13: `53662b519844`} (S5a, S5b and balance round 5 together). The stats hash is `456:f6e6e8c7`. With the six S5 girls left out, the 312 others hash `a49bafea` on 96c3547b and on the merge. Battle saves gain `mist` / `moon` (tower, calm), `_chain` (scratch) and `statics` (sim, calm). **No `COOP_PROTOCOL` bump on the branch.**
+
+**The S5a build review r1 LOWs, folded in here:** `shapeRoom` keeps her player's and the sim's overflow apart, so another player's shape shots free no room under her player's cap (shape-only). A test checks the drink and rally picks beside each S5 girl, with a direct 400 + 600 shape vs 500 probe, and Suzu joins the brewer test. A perf case reaches the toll caps (18 Suzus, a stress copy ringing every 6 steps: 128 rings, 0.08 ms a step). The engines OK line names S5a and S5b. In the plain looks, the crescent is an open arc and a bell wobbles after it rings. `tollCd` is not packed in the trap record (§15). The superseded panel and drawer rows are marked in §2 and §8. The gate's S5 cells were re-run after the `shapeRoom` change: all 1,350 are identical.
