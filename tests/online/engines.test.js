@@ -457,8 +457,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // ticks and coins; final 747075865 → 2042327016, hashes 8ab4dbef → c121be7a, horizon 3/2/2/3 → 3/2/2/2.
     // Re-pinned Oct 30 for the LR premium (Rail Arms tier 5 ×1.7 while LR): final 2042327016 → 1684999597, hashes c121be7a →
     // b70575f5, wallets 1730/6014 → 1731/6015 (the same waves and ticks).
+    // Re-pinned Oct 30 for the LR bar (Rail Arms tier 5 ×1.7 → ×3.5 while LR): hashSim only, b70575f5 → 74403ee3 (the
+    // same waves, ticks, coins, final and Event Horizon counts: her bolts already took what they hit).
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, horizon: r.horizon })
-      .toEqual({ ticks: 43031, state: 'won', wave: 26, tiers: '050 030 000 000', wallets: '1731/6015', final: 1684999597, hashes: 'b70575f5', horizon: '3/2/2/2' });
+      .toEqual({ ticks: 43031, state: 'won', wave: 26, tiers: '050 030 000 000', wallets: '1731/6015', final: 1684999597, hashes: '74403ee3', horizon: '3/2/2/2' });
   }, 240000);
 
   it('runs the staff heroes (STAFF_START: Norika\'s barricades and Hold the Line on a forked map, Kogane\'s plow and Moves) in sync', () => {

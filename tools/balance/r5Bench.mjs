@@ -15,12 +15,14 @@
 // (a support's boost: the striker's DPS beside her ÷ alone).
 // Targets never die (healed every step), so her number is her rate, not the HP left to take: `boss` = the Ashwing
 // Matriarch (3e7 HP) held at her nearest road point; `bossw` = the same boss walking through from 1.5 tiles before it
-// (a trap or strip girl's boss); `crowd` = a late stream, an Orc Grunt every 0.5 s at 2e6 HP.
+// (a trap or strip girl's boss); `crowd` = a late stream, an Orc Grunt every 0.5 s at 2e6 HP. A hero (no paths) is
+// placed as the battle's hero and maxed at Lv 25 with Mastery full; her `build` is ignored.
 import { Sim } from '../../src/sim/Sim.js';
 import { defaultData } from '../../src/sim/data.js';
 import { samplePath } from '../../src/sim/path.js';
 import { withDetMath } from '../../src/core/detMath.js';
 import { placeOnPath } from '../../src/sim/enemies.js';
+import { gainHeroXp, heroXpCap } from '../../src/sim/hero.js';
 import { maxedProfile, maxedStats, RESONANCE_ON } from './maxedProfile.mjs';
 
 const argv = process.argv.slice(2);
@@ -75,8 +77,13 @@ export function measure({ d, unitId, build, target, support = 'um', stageId = '4
     }
     const t = sim.placeTower(unitId, spot.x, spot.y);
     const [mp, mt] = build;
-    for (let i = 0; i < 2; i++) sim.upgradeTower(t.uid, CROSS[mp]);
-    for (let i = 0; i < mt; i++) sim.upgradeTower(t.uid, mp);
+    if (def.kind === 'hero') {
+      // a hero has no paths: she is maxed at Lv 25 with Mastery full (her whole XP cap; `build` is ignored)
+      gainHeroXp(sim, t, heroXpCap(def.hero) + 1, 'bought');
+    } else {
+      for (let i = 0; i < 2; i++) sim.upgradeTower(t.uid, CROSS[mp]);
+      for (let i = 0; i < mt; i++) sim.upgradeTower(t.uid, mp);
+    }
     // supports: inside 1.6 tiles of her (every aura reaches), on the most road they can
     for (const [sid, [p1, t1, p2, t2]] of sup) {
       const ps = lattice.filter((c) => (c.x - spot.x) ** 2 + (c.y - spot.y) ** 2 < 1.6 * 1.6).map((c) => ({ ...c, cov: cov(c, 3) }))
@@ -116,7 +123,7 @@ export function measure({ d, unitId, build, target, support = 'um', stageId = '4
       }
       if (step === warm * 60) d0 = dealt();
     }
-    out = { dps: Math.round((dealt() - d0) / run), tiers: t.tiers.join('-'), supports: sim.towers.length - 1 };
+    out = { dps: Math.round((dealt() - d0) / run), tiers: t.tiers.join('-'), supports: sim.towers.length - 1, ...(t.isHero ? { level: t.level } : {}) };
   });
   return out;
 }

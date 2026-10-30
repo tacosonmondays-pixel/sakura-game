@@ -398,6 +398,14 @@ above every LR crowd (a splash specialist; the owner's call whether LRs must cle
 with a full lab team (`tools/balance/labBench.mjs`) reads 176.9M / 184.4M (×72.5 / ×68.4 Kage; without LR 15.43M /
 3.55M): reported, not lowered.
 
+**The LR bar (owner, Oct 30: "LRs should beat every character, that's the point").** Every LR tier-5 build must deal at
+least 1.25× the best non-LR build of any unit, heroes included (crowd: Akane 16.47M; boss: Iroha's best player layout on
+`feature/iroha-mirrors`, 5.96M). The `t5` rows above go up (duo Starfall ×4.4, Prism Corridor ×3.35, Refraction ×2.0;
+Tenka Joint Research ×24, Rail Arms ×3.5, Singularity ×46.5): every LR crowd reads about 23M (×1.39–1.40 of the bar)
+and every LR boss 14–28M (×2.36–4.74). The bar table, the before/after numbers and the gate are in docs/BALANCE.md
+"The LR bar" (`tools/balance/lrBar.mjs`, `tests/sim/lrBar.test.js`). Tenka's lab LR with a full team (kept, the owner)
+reads 384.6M on a boss and 446.4M on a crowd of 2e8-HP grunts.
+
 **Perf** (`tests/sim/perf.test.js` "the long beam": 4 LR duos at Grand Spectrum, 16 held map-long beams, 200 walkers on
 6-3). Outside vitest, median of five: 0.11–0.21 ms a step before, 0.13–0.21 ms after (best 0.083 → 0.128). In vitest:
 0.289 ms a step against its 2 ms budget (one run under a full suite at load 15–25 read 2.38 ms, with the untouched

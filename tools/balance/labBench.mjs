@@ -4,7 +4,7 @@
 // beside her as on the round-5 bench. Her DPS (the honest readout) on a held boss and on a late crowd, ÷ the best
 // Kage tier 5 on the same bench (tools/balance/r5Bench.mjs), seeds 9/1/2.
 //
-//   node --import ./tools/simLoader.mjs tools/balance/labBench.mjs [--members kage:5-0-2,akane:5-0-2,…] [--json]
+//   node --import ./tools/simLoader.mjs tools/balance/labBench.mjs [--members kage:5-0-2,akane:5-0-2,…] [--crowd-hp 2e6] [--json]
 import { Sim } from '../../src/sim/Sim.js';
 import { defaultData } from '../../src/sim/data.js';
 import { samplePath } from '../../src/sim/path.js';
@@ -22,7 +22,8 @@ const MEMBERS = opt('members', 'kage:5-0-2,akane:5-0-2,yuki:2-5-0,miko:5-2-0,mom
 });
 const SEEDS = [9, 1, 2];
 const BOSS_HP = 3e7;
-const CROWD_HP = 2e6;
+// (--crowd-hp: a bigger grunt when one hit of hers would kill a 2e6 grunt outright, which caps the crowd number at the bench's spawn rate)
+const CROWD_HP = Number(opt('crowd-hp', 2e6));
 
 function run(d, target, lr, seed) {
   const stats = (id) => maxedStats(id, RESONANCE_ON, { lr: id === 'tenka' ? lr : true });

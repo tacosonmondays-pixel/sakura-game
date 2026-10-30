@@ -299,7 +299,7 @@ her row ×1.04 → ×1.06. (2) Momo 2-0-4 alone on a held boss read ×0.977 of l
 (Jackpot, Fortune's Favourite) threw at ×0.98, so her tier-4 wheel lost more than the row gave; the lead coins now throw
 at ×1 and her row ×1.03 → ×1.06 (per seed she is at or above live on all six seeds). (3) The LR footnote on her page
 (`src/ui/girlView.js` `lrBoostText`) now names the LR row and each path's tier-5 row. Tenka's Joint Research LR with a
-full lab (176.9M) is unchanged, pending the owner.
+full lab (176.9M) is unchanged, pending the owner (the owner, Oct 30: keep it; it rises with the LR bar below).
 
 **Final review, round 2** (of 7b042643; NOT OK on one number). Noa 2-0-3 on a walking boss beside Umeko + Midori
 read under live on some seed counts (seeds 1…N: worst N = 12, ×0.968; alone she is bit-identical, only the supports
@@ -356,6 +356,44 @@ Kage on the r5 crowd). Re-pins: PENDING_BUMP 13 `3e9875ef40f9`; the duo's engine
 wave, tiers and wallets; ticks 32000 → 31481); the battle-boost footnote (×1.12); `tests/sim/duoBeam.test.js` (a
 beam-mechanics check against her pre-buff numbers) now reads her without the balance row (`powerOff`), as it reads her
 without the owner's Oct 29 buff.
+
+**The LR bar** (the owner, Oct 30: "LRs should beat every character, that's the point"; `tools/balance/lrBar.mjs`,
+`tests/sim/lrBar.test.js`). Every LR build (the duo's Starfall, Grand Spectrum and Constellation, Tenka's Joint Research,
+Rail Arms and Singularity, all tier 5 in their LR form) must deal at least **1.25×** the best non-LR build of any unit,
+heroes included, on a crowd and on a boss, on the round-5 bench (fully maxed, Umeko + Midori, seeds 9/1/2; boss = the
+better of the held and the walking boss). `lrBar.mjs --bar` measures every non-hero unit's three tier-5 builds (an LR
+unit at UR, without her Limit Break), every hero at Lv 25 with Mastery full, and adds the numbers from other benches
+(`KNOWN`); `LR_BAR` pins the result and the test fails if any LR build falls under 1.25× it. Lower tiers never beat
+tier 5 on either axis (the no-nerf gate's fully maxed cells with supports).
+
+| Bar, crowd | | Bar, boss | |
+|---|---:|---|---:|
+| **Akane 5-0-2 (SR)** | **16.47M** | **Iroha 5-0-2, best player layout** (`feature/iroha-mirrors` 7d1cc0bf, in review; on Auto 2.77M) | **5.96M** |
+| Tenka Joint Research at UR, full lab team (`labBench.mjs`) | 15.43M | Tenka Joint Research at UR, full lab team | 3.55M |
+| Hotaru 5-0-2 | 8.83M | the duo at UR, Starfall 5-0-2 | 3.44M |
+| Iroha 2-0-5, best player layout (`feature/iroha-mirrors`; on Auto 6.96M) | 8.70M | Shiro 5-0-2 | 3.24M |
+| Kanna, hero Lv 25 | 8.10M | Kage 5-0-2 | 2.70M |
+| Sango 2-0-5 | 7.87M | Kogane, hero Lv 25 | 1.78M |
+| the duo at UR, Constellation 2-0-5 | 7.47M | Kanna, hero Lv 25 | 1.76M |
+
+So each LR build needs at least 20.59M on a crowd and 7.45M on a boss. The S5 shapes (+10–30% on six girls, all under 3M)
+stay under both bars. The LR `t5` rows (`LR_POWER`, LR-only; nobody else moves) go up so every LR crowd reads about
+23M (×1.39–1.40 of the bar); every boss axis was already over and rises with them:
+
+| LR build | LR `t5` row | crowd before → after | ÷ bar | boss before → after | ÷ bar |
+|---|---|---:|---:|---:|---:|
+| Duo Starfall 5-0-2 | ×2.35 → ×4.4 | 12.33M → 23.09M | ×1.40 | 17.43M → 20.40M | ×3.42 |
+| Duo Grand Spectrum 2-5-0 | ×1.8 → ×3.35 | 12.36M → 23.01M | ×1.40 | 12.37M → 23.02M | ×3.86 |
+| Duo Constellation 2-0-5 | ×1.1 → ×2.0 | 12.56M → 22.84M | ×1.39 | 7.73M → 14.06M | ×2.36 |
+| Tenka Joint Research 5-0-2 | ×11.5 → ×24 | 11.04M → 23.04M | ×1.40 | 13.54M → 28.25M | ×4.74 |
+| Tenka Rail Arms 2-5-0 | ×1.7 → ×3.5 | 11.14M → 22.93M | ×1.39 | 10.38M → 21.37M | ×3.59 |
+| Tenka Singularity 2-0-5 | ×22.5 → ×46.5 | 11.09M → 22.92M | ×1.39 | 13.13M → 27.14M | ×4.55 |
+
+Tenka's Joint Research LR with a full lab team (the owner: keep) rises with it: 384.6M on a boss (was 184.4M) and, on
+grunts of 2e8 HP, 446.4M on a crowd (was 176.9M on 2e6 grunts). On the bench's 2e6 grunts it now reads 7.17M, because
+one hit kills a grunt outright and the number stops at the spawn rate; `labBench.mjs --crowd-hp` lifts the grunt. The
+no-nerf gate after the change: 0 cells under live alone; with supports the same six low-profile cells as above, with
+the same numbers (the LR rows touch nothing else).
 
 ## Marumi rework (2026-10-21, `feature/marumi-rework`)
 

@@ -102,13 +102,17 @@ const LR_ROWS = {
   // lifts her crowd; ×1.05 takes her Starfall build's crowd over 2.5×)
   // LR premium (the owner, Oct 30: LRs clearly above every non-LR): `t5` rows lift each tier-5 crowd past the best SSR
   // crowd on the round-5 bench (Hotaru 5-0-2, 8.67M; Iroha 2-0-5 6.81M on her rework) by a quarter: about 11M
-  kohaku_tsubaki: { dmg: 1.05, boss: 1.6, t5: { starfall: { dmg: 2.35 }, corridor: { dmg: 1.8 }, refraction: { dmg: 1.1 } } },
+  // The LR bar (the owner, Oct 30: "LRs should beat every character, that's the point"; tools/balance/lrBar.mjs): every
+  // LR tier-5 build at least 1.25× the best non-LR build of any unit, heroes included, on a crowd (Akane 5-0-2, 16.47M)
+  // and on a boss (Tenka's lab at UR with a full lab team, 3.55M); the t5 rows take each LR crowd to about 23M
+  kohaku_tsubaki: { dmg: 1.05, boss: 1.6, t5: { starfall: { dmg: 4.4 }, corridor: { dmg: 3.35 }, refraction: { dmg: 2.0 } } },
   // Tenka (Thesis Defense): ×3.4 vs bosses on every build (her Rail Arms crowd is above the floor already); `t5` rows on
   // top while that path is at tier 5: her Joint Research and Singularity builds deal little of their own (a lab and a
   // control build), so their LR form lifts their own bolts to the floor too; each t5 row also carries the LR premium
   // (her crowd a quarter past the best SSR crowd, about 11M: Rail Arms ×1.7, Joint Research 5.2 × 2.2, Singularity
   // 10 × 2.25)
-  tenka: { boss: 3.4, t5: { rails: { dmg: 1.7 }, lab: { dmg: 11.5, boss: 1.1 }, singularity: { dmg: 22.5, boss: 5.5 } } },
+  // 10 × 2.25); the LR bar (above) takes each to about 23M on a crowd: Rail Arms ×3.5, Joint Research ×24, Singularity ×46.5
+  tenka: { boss: 3.4, t5: { rails: { dmg: 3.5 }, lab: { dmg: 24, boss: 1.1 }, singularity: { dmg: 46.5, boss: 5.5 } } },
 };
 /** Her LR row (frozen): folded into her power row while she is LR. */
 export const LR_POWER = Object.freeze(Object.fromEntries(Object.entries(LR_ROWS).map(([id, row]) => [id, Object.freeze({
