@@ -294,7 +294,7 @@ export function applyLimited(sim, t, nb) {
 export function ralliesOn(sim, t) {
   let out = null;
   for (const r of sim._rallies) {
-    if (r.cheer || !rallyReaches(sim, r, t)) continue; // (a cheer is its own key: cheersOn)
+    if (r.cheer || !rallyReaches(sim, r, t)) continue; // (a cheer is its own key: applyRallies multiplies the strongest one on top)
     if (!out) out = { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, ward: false, src: r.src, by: { dmg: -1, rate: -1, range: -1, det: -1, ward: -1 }, left: {} };
     const o = out;
     if (r.dmgMul > o.dmgMul) { o.dmgMul = r.dmgMul; o.by.dmg = r.src; o.left.dmg = r.left; }

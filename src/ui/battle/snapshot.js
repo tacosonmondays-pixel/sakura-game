@@ -62,7 +62,7 @@ import { BURST_BUDGET_MAX } from '../../sim/setRules.js';
 import { Sim } from '../../sim/Sim.js';
 import { gainHeroXp, xpToReach } from '../../sim/hero.js';
 import { restoreDrone, recomputeBuffs } from '../../sim/towers.js';
-import { FLIGHT_MODES, PRISM_BEAM_TICK } from '../../sim/constants.js';
+import { FLIGHT_MODES, PRISM_BEAM_TICK, INCOME_INTEREST_MAX, INCOME_INTEREST_SET_MAX } from '../../sim/constants.js';
 import { POP_BUDGET_MAX } from '../../sim/gearRules.js';
 import { BATTLE } from '../../data/types.js';
 import { createRng, hashString } from '../../core/rng.js';
@@ -373,7 +373,11 @@ function packTower(sim, t) {
   // Tenka's lab team (never a hero's row, whose `lb` is her levels bought): rounds, members and coins per
   // class (LAB_CLASSES order), the joiners' wave income, who joined, the joiners' interest rates
   const lab = t.lab;
-  if (lab && !t.isHero) o.lb = [lab.rounds, LAB_CLASSES.map((k) => lab.members[k]), LAB_CLASSES.map((k) => lab.coins[k]), lab.income, lab.uids.slice(), (lab.interest || []).slice()];
+  if (lab && !t.isHero) {
+    o.lb = [lab.rounds, LAB_CLASSES.map((k) => lab.members[k]), LAB_CLASSES.map((k) => lab.coins[k]), lab.income, lab.uids.slice(), (lab.interest || []).slice()];
+    // (each joiner's own interest cap, only when one is lifted: Treasurer 5 on her)
+    if (lab.interestCap?.some((c) => c > INCOME_INTEREST_MAX)) o.lb.push(lab.interestCap.slice());
+  }
   // Tenka's well and Last Line timers (wave-time ticks; -1: she has none yet)
   if (t.wellCd != null || t.lastLineCd != null) o.zc = [t.wellCd ?? -1, t.lastLineCd ?? -1];
   // the duo: shells since the last split, volleys since the last full split, Kohaku's beam timer (ticks)
@@ -398,7 +402,14 @@ function unpackLab(row, maxRounds) {
   });
   lab.income = Math.max(0, r(row[3]));
   lab.uids = Array.isArray(row[4]) ? row[4].filter((v) => Number.isInteger(v)) : [];
-  lab.interest = Array.isArray(row[5]) ? row[5].filter((v) => typeof v === 'number' && v > 0 && v < 1) : [];
+  // the joiners' interest rates and, beside each, her interest cap (the default, or Treasurer 5's lifted one)
+  const rates = Array.isArray(row[5]) ? row[5] : [];
+  const caps = Array.isArray(row[6]) ? row[6] : [];
+  rates.forEach((v, i) => {
+    if (!(typeof v === 'number' && v > 0 && v < 1)) return;
+    lab.interest.push(v);
+    lab.interestCap.push(caps[i] === INCOME_INTEREST_SET_MAX ? INCOME_INTEREST_SET_MAX : INCOME_INTEREST_MAX);
+  });
   return lab;
 }
 

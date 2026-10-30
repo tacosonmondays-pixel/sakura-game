@@ -208,7 +208,7 @@ describe('display only: the battle sim is untouched', () => {
     // Control Strength and Buff Duration at every call site, the average crit and DoT share levers; GEAR_UPDATE.md
     // §10.1) changes the sim on protocol 13. The release assigns COOP_PROTOCOL, adds its KNOWN line and removes this
     // pin. Only this exact in-progress id passes here.
-    const PENDING_BUMP = { 13: 'c086fd626d88' };
+    const PENDING_BUMP = { 13: '9c9284d51061' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     expect(simId().id).toBe(PENDING_BUMP[COOP_PROTOCOL] ?? KNOWN[COOP_PROTOCOL]);
   });

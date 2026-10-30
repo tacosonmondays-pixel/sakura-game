@@ -306,3 +306,33 @@ describe('pins', () => {
     expect(topMainRoll(p, mythic).error).toBe('rarity');
   });
 });
+
+// review M2 r2 R3: setIdle judges by her base behavior (def.base.behavior); the sim gates Right Angle / Confetti Burst
+// on the behavior she fights with (t.eff.behavior). The two must agree on every path and tier, or the idle chip lies.
+describe('setIdle reads the behavior she fights with', () => {
+  it('for every girl, path and tier: base behavior and t.eff.behavior agree on SET_ATTACK_BEHAVIORS', async () => {
+    const { Sim } = await import('../../src/sim/Sim.js');
+    const { SET_ATTACK_BEHAVIORS } = await import('../../src/sim/setRules.js');
+    const { UNITS } = await import('../../src/data/units.js');
+    const carries = (b) => SET_ATTACK_BEHAVIORS.includes(b);
+    const odd = [];
+    let checked = 0;
+    for (const def of UNITS.filter((u) => u.kind === 'tower' && u.paths?.length)) {
+      for (let path = 0; path < 3; path++) {
+        if (!def.paths[path]?.tiers?.length) continue;
+        const sim = new Sim({ stageId: '1-3', difficulty: 'normal', seed: 1, loadout: [{ unitId: def.id, stats: { costMul: 0.01 } }], options: { autoStart: false } });
+        sim.cash = 1e12;
+        let t = null;
+        for (let y = 0.3; y < sim.map.height && !t; y += 0.25) for (let x = 0.3; x < sim.map.width && !t; x += 0.25) if (sim.canPlace(def.id, x, y).ok) t = sim.placeTower(def.id, x, y);
+        if (!t) continue;
+        for (let tier = 1; tier <= 5; tier++) {
+          if (!sim.upgradeTower(t.uid, path)) break;
+          checked++;
+          if (carries(t.eff.behavior) !== carries(def.base.behavior)) odd.push(`${def.id} path ${path} tier ${tier}: ${def.base.behavior} → ${t.eff.behavior}`);
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(200);
+    expect(odd).toEqual([]);
+  }, 60000);
+});

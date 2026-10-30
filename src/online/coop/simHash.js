@@ -1,6 +1,7 @@
 // FNV-1a hash over the quantized, gameplay-relevant state of a co-op battle. Both clients
 // compare it every COOP.hashEvery ticks to detect a desync.
 import { LAB_CLASSES } from '../../sim/lab.js';
+import { INCOME_INTEREST_MAX } from '../../sim/constants.js';
 
 const FNV_OFFSET = 0x811c9dc5;
 const FNV_PRIME = 0x01000193;
@@ -76,6 +77,9 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
       const ir = lab.interest;
       h.int(ir ? ir.length : 0);
       if (ir) for (const v of ir) h.int(v * 10000);
+      // (a joiner's lifted interest cap, Treasurer 5 on her: only when one is lifted, so other labs keep their digest)
+      const ic = lab.interestCap;
+      if (ic && ic.some((c) => c > INCOME_INTEREST_MAX)) for (const c of ic) h.int(c);
       const la = t.labAtk;
       if (la) h.int(la.fragCd).int(la.fieldCd);
     }
