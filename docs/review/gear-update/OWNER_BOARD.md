@@ -3,7 +3,8 @@
 Oct 30, 2026. Specs: `docs/specs/GEAR_UPDATE.md`, `docs/specs/ACCESSORIES.md`, `docs/specs/BUILD_COACH.md`.
 Each question has a recommended default; **"default all"** takes every one.
 
-**Your answers so far (Oct 30): "default all" on Q0–Q14, except Q6, which you changed.** Q15–Q18 are new and open.
+**Your answers so far (Oct 30): "default all" on Q0–Q14, except Q6, which you changed.** Q19 records your decision on
+the LR units ("LR floors, no nerfs"). Q15–Q18 are new and open.
 
 ---
 
@@ -41,8 +42,10 @@ close to Kage. Nobody is lowered.
 
 **Q6. The Eclipse Wyrm (Freeplay wave 250) with full LR gear? Answer: CHANGED (you, Oct 30).**
 A team in full **blank LR** **can** beat it: "not too easy but not impossible", a hard, earned kill with the best
-builds. We measure it with the balance round 5 bench plan: the best full blank-LR team should win some runs but not
-every run (1–3 of 4 test runs); full UR and set-LR teams should not.
+builds. We measure it with the balance round 5 tools on **24 test runs** (two maps × 12 seeds): the best full blank-LR
+team should win a quarter to three quarters of them (your "1–3 of 4"), and we tune it to the low end (6–10 of 24) so the
+LR accessories still have room to help. Full UR and set-LR teams should win none. Every run also records how close it
+was, so the result does not hang on a lucky seed.
 
 **Q7. "Multiple girl loadouts" = 5 saved teams and 3 gear loadouts per girl? Answer: default (both).**
 
@@ -69,6 +72,13 @@ the six sets, Set Boxes and pins after balance round 5 (a co-op update); then LR
 *Note added after your answer (review r1):* the sets update needs **one SQL paste from you** (one file, no keys) so
 profile cards and Support Students can carry five pieces, set ids and the LR marker. Until then they show the three
 classic pieces, as today.
+*Note added (review r2):* balance round 5 and its LR rows come first (Q19); the gear update is tuned on top of them.
+
+**Q19. LR units at least about 2.5–3× the best Kage? DECIDED (you, Oct 30): "LR floors, no nerfs".**
+Every LR unit (today Kohaku & Tsubaki and Tenka) is at least about 2.5–3× the best tier-5 Kage, **on both a boss and a
+crowd**. It is a floor, never a cap: an LR unit above 3× stays there, and nobody is lowered to get there. Balance round 5
+is lifting the LR units now (its new LR rows); the gear update is tuned **on top of that, never before**, and checks the
+floor again with five pieces and with LR gear.
 
 ---
 
@@ -84,15 +94,29 @@ moves any piece into a set.
 **Q16. Veteran players get the new boxes once?**
 **Default: yes.** When the sets update first loads: one **Legendary Set Box** of that titan's set for each titan you
 already cleared on Nightmare (new players get it from that first clear), and the **welcome Mythic Set Box** for every
-save past 3-5.
+save past 3-5. Each box is paid once per save, whichever way it comes first (one mark per box), so nobody gets two.
 
 **Q17. The Accessory Banner for LR personal accessories?**
 **Default:** 120 gems a pull (as recruiting); the featured LR's personal accessory at 1 %; **a guaranteed one by the
 80th pull** (the count carries over to that LR's next accessory banner); copies raise it R1 → R5; extra copies become
 tokens for standard accessories; no spark; rates and the pity count always shown. Proposed first two: the
 **Walkie-Talkie Pair** for Kohaku & Tsubaki (Target Call: her shells land instantly on the enemy Kohaku calls) and the
-**Lab Goggles** for Tenka (Charged Rail: her bolts leave rails that hurt enemies crossing them).
-*Other options:* pity at 60 (gentler) or 100; or one free R1 copy from each LR's bond story.
+**Lab Goggles** for Tenka (Charged Rail: once a second her bolt lays a rail that hurts the enemies it touches).
+
+*What it buys:* R1 makes her about 15–20 % stronger and unlocks the new mechanic; R5 about 40–50 %. With the LR floor
+(Q19), an LR unit with R5 is at least about 3.5× the best Kage. The Wyrm stays a hard kill even then (never every run).
+
+*What it costs* (each copy starts a new count):
+
+| | Pulls on average | At most | Gems on average / at most | A free player's gems (1,700 a week) |
+|---|---:|---:|---:|---|
+| R1 | about 55 | 80 | about 6,600 / 9,600 | about 4 weeks (at most 6) |
+| R5 | about 276 | 400 | about 33,000 / **48,000** | about 20 weeks (at most 28), pulling nothing else |
+
+About 55 % of players get the accessory before the guarantee. For comparison, the LR girl herself is guaranteed by her
+300th pull. **The accessory update waits for your answer here**: it would be the game's first new gem price.
+*Other options:* pity at 60 (gentler: R1 about 45 pulls on average, R5 at most 300 pulls = 36,000 gems) or 100; or one
+free R1 copy from each LR's bond story.
 
 **Q18. The Build Coach plans only with what players earn by playing?**
 **Default: yes.** "Set as Main" on a girl, and the coach shows what she still needs, where to farm it (with a Go
