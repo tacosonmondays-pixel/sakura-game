@@ -24,7 +24,7 @@ import { CLUBS, CLUB_IDS, LIVE_CLUBS, CLUB_RARITIES, ARMBAND_COIN_STEP, ARMBAND_
 import {
   UR_SCALE, UR_MAX_LEVEL, TUNE_GOLD, TUNE_RAINBOW, SEED_ID, NEEDLE_ID, ARMBAND_ID, AWAKEN_COINS, STITCH_COINS, TAKE_BACK_COINS,
   RESONANCE, LEGENDARY_SUFFIX, UR_SUFFIX, MARK, LR_SET, LR_BLANK, LR_SCALE, BLANK_SCALE, LR_MAX_LEVEL, LR_TIER, LR_SUFFIX,
-  LENS_ID, TIE_PIN_ID, COLLAR_PIN_ID,
+  LENS_ID, TIE_PIN_ID, COLLAR_PIN_ID, LIMIT_BREAK_COINS, LR_CAP_STEP, BLANK_FIVE,
 } from '../data/gearAwaken.js';
 import { getItem } from '../data/items.js';
 import { createRng } from '../core/rng.js';
@@ -774,6 +774,55 @@ export function awakenGear(profile, uid) {
   return { ok: true, before, after: cloneGear(g) };
 }
 
+// ---------------------------------------------------------------------------
+// Limit Break: Set LR or Blank LR (docs/specs/GEAR_UPDATE.md §4)
+// ---------------------------------------------------------------------------
+
+/** @returns {{id:string,count:number}[]} 1 Nightglass Lens + 150,000 coins */
+export const limitBreakCost = () => [{ id: LENS_ID, count: 1 }, { id: 'coins', count: LIMIT_BREAK_COINS }];
+
+/**
+ * Can this piece Limit Break into `kind` ('set' keeps its set; 'blank' has none, or gives its set up for good)?
+ * A UR piece at +12, not LR yet; Set LR needs a set.
+ * @returns {{ ok: boolean, reason?: 'noGear'|'rarity'|'level'|'already'|'noSet'|'kind'|'missing', missing?: object[], cost?: object[] }}
+ */
+export function canLimitBreakGear(profile, uid, kind = 'blank') {
+  const g = profile.gear?.[uid];
+  if (!g) return { ok: false, reason: 'noGear' };
+  if (kind !== 'set' && kind !== 'blank') return { ok: false, reason: 'kind' };
+  if (!isUrGear(g)) return { ok: false, reason: 'rarity' };
+  if (isLrGear(g)) return { ok: false, reason: 'already' };
+  if (g.level < UR_MAX_LEVEL) return { ok: false, reason: 'level' };
+  if (kind === 'set' && !g.set) return { ok: false, reason: 'noSet' };
+  const cost = limitBreakCost();
+  const missing = missingItems(profile, cost);
+  if (missing.length) return { ok: false, reason: 'missing', missing, cost };
+  return { ok: true, cost };
+}
+
+/**
+ * Limit Break: a UR +12 piece becomes Nightglass LR. Set LR (`lr: 1`) keeps its set and reads ×4.0/2.8; Blank LR
+ * (`lr: 2`) has no set (a set piece gives it up for good) and reads ×5.0/2.8. Both go to +18, take the Nightglass ✦ and a
+ * second Collar Pin, and raise her caps. Always works; auto-locks; no undo (salvage pays everything back).
+ * @returns {{ ok: boolean, error?: string, missing?: object[], before?: object, after?: object }}
+ */
+export function limitBreakGear(profile, uid, kind = 'blank') {
+  const check = canLimitBreakGear(profile, uid, kind);
+  if (!check.ok) return { ok: false, error: check.reason, missing: check.missing };
+  if (!consumeItems(profile, check.cost)) return { ok: false, error: 'missing', missing: missingItems(profile, check.cost) };
+  const g = profile.gear[uid];
+  const before = cloneGear(g);
+  g.lr = kind === 'set' ? LR_SET : LR_BLANK;
+  if (g.lr === LR_BLANK) delete g.set;
+  g.locked = true;
+  g.name = lrName(g.set ? pieceName(g) : g.name);
+  const c = (profile.missions ||= {}).counters ||= {};
+  c[MARK.lrEver] = (c[MARK.lrEver] || 0) + 1;
+  track(profile, 'gearLimitBreak', 1);
+  track(profile, 'spendCoins', LIMIT_BREAK_COINS);
+  return { ok: true, before, after: cloneGear(g) };
+}
+
 /**
  * The stitch slots of a piece: gold (Legendary +10 or UR), rainbow (UR only). `used` = already stitched.
  * @returns {{ gold: { open: boolean, used: boolean }, rainbow: { open: boolean, used: boolean }, free: 'gold'|'rainbow'|null }}
@@ -782,8 +831,10 @@ export function stitchSlots(g) {
   const tuned = (g?.subs || []).reduce((m, s) => m | (s.tuned | 0), 0);
   const gold = { open: !!g && g.rarity === 'legendary' && (isUrGear(g) || g.level >= MAX_GEAR_LEVEL), used: !!(tuned & TUNE_GOLD) };
   const rainbow = { open: isUrGear(g), used: !!(tuned & TUNE_RAINBOW) };
-  const free = gold.open && !gold.used ? 'gold' : rainbow.open && !rainbow.used ? 'rainbow' : null;
-  return { gold, rainbow, free };
+  // LR gear's third ✦ (GEAR_UPDATE.md §4.2): the Nightglass ✦, its own line field `night`
+  const night = { open: isLrGear(g), used: (g?.subs || []).some((s) => s.night) };
+  const free = gold.open && !gold.used ? 'gold' : rainbow.open && !rainbow.used ? 'rainbow' : night.open && !night.used ? 'night' : null;
+  return { gold, rainbow, night, free };
 }
 
 /** @returns {{id:string,count:number}[]} 1 Starlight Needle + 20,000 coins */
@@ -814,7 +865,8 @@ export function stitchSub(profile, uid, subIndex) {
   const g = profile.gear[uid];
   const before = cloneGear(g);
   const sub = g.subs[subIndex];
-  sub.tuned = (sub.tuned | 0) | (check.slot === 'gold' ? TUNE_GOLD : TUNE_RAINBOW);
+  if (check.slot === 'night') sub.night = 1;
+  else sub.tuned = (sub.tuned | 0) | (check.slot === 'gold' ? TUNE_GOLD : TUNE_RAINBOW);
   applySubUpgrades(sub, g.rarity);
   track(profile, 'gearStitch', 1);
   track(profile, 'spendCoins', STITCH_COINS);
@@ -829,11 +881,13 @@ export function takeBackStitch(profile, uid, subIndex) {
   const g = profile.gear?.[uid];
   const sub = g?.subs?.[subIndex];
   if (!sub) return { ok: false, error: 'badLine' };
-  if (!sub.tuned) return { ok: false, error: 'notTuned' };
+  if (!sub.tuned && !sub.night) return { ok: false, error: 'notTuned' };
   const cost = [{ id: 'coins', count: TAKE_BACK_COINS }];
   if (!consumeItems(profile, cost)) return { ok: false, error: 'missing', missing: missingItems(profile, cost) };
   const before = cloneGear(g);
-  sub.tuned = sub.tuned & TUNE_RAINBOW ? sub.tuned & ~TUNE_RAINBOW : sub.tuned & ~TUNE_GOLD;
+  // the Nightglass ✦ comes off first, then rainbow, then gold
+  if (sub.night) delete sub.night;
+  else sub.tuned = sub.tuned & TUNE_RAINBOW ? sub.tuned & ~TUNE_RAINBOW : sub.tuned & ~TUNE_GOLD;
   if (!sub.tuned) delete sub.tuned;
   applySubUpgrades(sub, g.rarity);
   addItems(profile, [{ id: NEEDLE_ID, count: 1 }]);
@@ -931,6 +985,10 @@ export function gearSetInfo(profile, unitId) {
  */
 export function gearCaps(info) {
   const caps = { ...BATTLE_CAPS };
+  // LR gear (§4.3): each LR piece raises every cap a step (aura most, crit least); five Blank LR pieces double every
+  // base cap instead (crit 75 % → 150 %: the part over 100 % = super crits)
+  if (info?.blankN >= BLANK_FIVE) for (const k of Object.keys(caps)) caps[k] = BATTLE_CAPS[k] * 2;
+  else if (info?.lrN > 0) for (const k of Object.keys(caps)) caps[k] = BATTLE_CAPS[k] + (LR_CAP_STEP[k] || 0) * info.lrN;
   if (info?.set && info.setN >= 5) Object.assign(caps, SET_CAP_STATS[info.set] || {});
   return caps;
 }
@@ -988,7 +1046,8 @@ export function gearFillIn(profile, unitId, { skip = null } = {}) {
   const target = aura ? 'auraPct' : 'atkPct';
   const set = gearSetInfo(profile, unitId);
   // the soft limit grows with the pieces she wears (GEAR_UPDATE.md §8.3 lever 3)
-  const M = aura ? AURA_FILL_M : FILL_SOFT_BY_PIECES[Math.min(5, set.pieces)];
+  // (five Blank LR pieces double it: 40 %)
+  const M = (aura ? AURA_FILL_M : FILL_SOFT_BY_PIECES[Math.min(5, set.pieces)]) * (set.blankN >= BLANK_FIVE ? 2 : 1);
   const out = { target: aura ? 'aura' : 'atk', total: 0, cap: M, lines: [], over: [] };
   if (!unit) return out;
   const dead = fillStats(unitId, { awaken: unit.awaken || 0, potential: potentialLevel(unit) });

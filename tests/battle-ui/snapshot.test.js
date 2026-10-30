@@ -864,7 +864,7 @@ const ftTrapRun = () => (ftTrapPlayed ??= (() => {
 const SETS = {
   ...GEAR, towers: ['aoi', 'rei', 'yuki', 'momo'], hero: null,
   per: {
-    aoi: { set: 'geometry', setN: 5, critChance: 0.3 }, rei: { set: 'popper', setN: 4 }, yuki: { set: 'spirit', setN: 4 }, momo: { set: 'treasurer', setN: 5 },
+    aoi: { set: 'geometry', setN: 5, critChance: 0.3 }, rei: { set: 'popper', setN: 4 }, yuki: { set: 'spirit', setN: 4 }, momo: { set: 'treasurer', setN: 5, setLr: true },
   },
 };
 function setsBuild() {
@@ -884,7 +884,7 @@ const setsRun = () => (setsPlayed ??= (() => {
   potWaves(sim, 4, () => {});
   return sim;
 })());
-const SET_FIELDS = ['cheerT', 'angleN', 'burstN', 'bakeC'];
+const SET_FIELDS = ['cheerT', 'angleN', 'burstN', 'bakeC', 'bakeW'];
 
 describe('battle save and gear (Pierce carries, club tricks, Finale Pop budget)', SLOW, () => {
   it('every gear counter comes back exactly, and a split run plays on like the straight one', () => {

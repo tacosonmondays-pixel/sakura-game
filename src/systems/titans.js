@@ -274,6 +274,7 @@ export function applyTitanResult(profile, r, { now = Date.now() } = {}) {
     if (tierIndex(tier) >= tierIndex('hard')) track(profile, 'battleWinHard', 1);
     // one weekly boss loop: the Rainbow Hunt mission (src/data/missions.js w_rainbow) also counts titan wins
     track(profile, 'titanWin', 1);
+    if (tier === 'mayhem') track(profile, 'titanMayhem', 1); // Nightglass Hunt (GEAR_UPDATE.md §4.6)
   }
   const killed = Object.values(r.kills || {}).reduce((a, n) => a + (whole(n) || 0), 0);
   if (killed) track(profile, 'kill', killed);
@@ -351,6 +352,7 @@ export function sweepTitan(profile, titanId, { now = Date.now(), seed = 0 } = {}
   const g = grantAll(profile, normalizeList(rolled.items), boxes, rng, TITAN_SETS[titanId]);
   track(profile, 'sweep', 1);
   track(profile, 'titanWin', 1);
+  if (tier === 'mayhem') track(profile, 'titanMayhem', 1);
   return { ok: true, tier, rank, label: tierLabel(tier, rank), rewards: g.rewards, gear: g.gear, fused: g.fused, box: rolled.box, rainbowForced: rolled.rainbowForced, chest: rolled.chest, meter: cnt(profile, METER_KEY), keysLeft: whole(c['tk:left']) };
 }
 

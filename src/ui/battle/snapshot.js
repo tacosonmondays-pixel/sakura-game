@@ -223,7 +223,7 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   pierceCarry: 'snap', droneCarry: 'snap', trickN: 'snap', trapBeatN: 'snap', droneBeatN: 'snap', trapFtN: 'snap',
   // gear sets (src/sim/setRules.js): Big Cheer's step count, Right Angle's and Confetti Burst's attack counts, Bake
   // Sale's coin fraction — only on a girl whose set uses them
-  cheerT: 'snap', angleN: 'snap', burstN: 'snap', bakeC: 'snap',
+  cheerT: 'snap', angleN: 'snap', burstN: 'snap', bakeC: 'snap', bakeW: 'snap',
   // Kaede's blade arts: her strike count toward the next Maple Cleave ('kb')
   bladeN: 'snap',
   // roster B3: her aim point stays (a mirror's spot, a mortar's centre; GAPS §7.3), and her attack
@@ -455,7 +455,7 @@ function unpackPotential(t, o) {
 
 /** Gear's counters on a girl (`gr`), each only when she has it: [key, value] pairs. */
 // index-coded in the save (`gr`): append only, never reorder
-const GEAR_FIELDS = ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN', 'trapFtN', 'cheerT', 'angleN', 'burstN'];
+const GEAR_FIELDS = ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN', 'trapFtN', 'cheerT', 'angleN', 'burstN', 'bakeW'];
 function packGear(t, o) {
   const gr = [];
   GEAR_FIELDS.forEach((k, i) => { if (t[k] != null) gr.push(i, t[k]); });

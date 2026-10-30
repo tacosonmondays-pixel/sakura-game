@@ -112,7 +112,7 @@ describe('a hostile loadout', () => {
   const hostile = { damageMul: 1000, rateMul: -3, rangeMul: Number.NaN, critChance: 5, critMul: 0, armorPen: 1e9, costMul: 0.01, ultHaste: 9, awakenPassive: 'yes', level: 1e9, awaken: 99, breakthrough: -1, potential: 99, rainbow: 3, pierceK: 9999, auraPct: 5, auraRangeMul: 0, dotMul: 'x', club: 'chess', clubN: 7, __proto__x: 1, damage: 5000 };
 
   it('clamps every field to its rule, falls back on non-numbers and drops unknown keys', () => {
-    expect(clampUnitStats(hostile)).toEqual({ damageMul: 40, rateMul: 0, rangeMul: 1, critChance: 2, critMul: 1, armorPen: 100, costMul: 0.75, ultHaste: 0.5, awakenPassive: false, level: 99, awaken: 5, breakthrough: 0, potential: 6, rainbow: 3, pierceK: 200, auraPct: 5, auraRangeMul: 1, dotMul: 1, club: null, clubN: 3 });
+    expect(clampUnitStats(hostile)).toEqual({ damageMul: 40, rateMul: 0, rangeMul: 1, critChance: 2, critMul: 1, armorPen: 100, costMul: 0.5, ultHaste: 1, awakenPassive: false, level: 99, awaken: 5, breakthrough: 0, potential: 6, rainbow: 3, pierceK: 350, auraPct: 5, auraRangeMul: 1, dotMul: 1, club: null, clubN: 3 });
     expect(clampUnitStats('nope')).toEqual({});
     expect(clampUnitStats([1, 2])).toEqual({});
     expect(clampUnitStats(null)).toBeNull();

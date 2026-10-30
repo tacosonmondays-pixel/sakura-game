@@ -16,8 +16,8 @@ export const PIERCE_MAX_EXTRA = 2;
 export const PULSE_MAX_EXTRA = 4;
 /** Blasts and traps: radius × (1 + this × Pierce). */
 export const BLAST_PER_PIERCE = 0.2;
-/** Gear Pierce cap in hundredths (the battle stats cap it at source; this guards a hand-made loadout). */
-export const PIERCE_K_MAX = 150;
+/** Gear Pierce cap in hundredths (the battle stats cap it at source; this guards a hand-made loadout). 300: five Blank LR. */
+export const PIERCE_K_MAX = 300;
 
 /** Club tricks (3 pieces of one club). */
 export const TRICK = Object.freeze({
@@ -78,8 +78,8 @@ export function followThroughBlast(unitStats) {
 export const NOT_HASTED_KINDS = Object.freeze(['rally', 'debuff']);
 /** Abilities and hero skills take this share of her Skill Haste (hero ults keep all of it). */
 export const ABILITY_HASTE_SHARE = 0.5;
-/** Skill Haste cap (the battle stats cap it at source too). */
-export const SKILL_HASTE_CAP = 0.5;
+/** Skill Haste cap for hero ults and abilities (the battle stats cap it at source too; LR gear raises it, ≤ 75 %). */
+export const SKILL_HASTE_CAP = 0.75;
 /** Charge points an ability gains per tick with no haste (the abilities spec's integer charge). */
 export const ABILITY_CHARGE_BASE = 100;
 

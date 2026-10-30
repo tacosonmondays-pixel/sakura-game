@@ -6,7 +6,7 @@
 // (see src/systems/achievementMetrics.js).
 
 /** Events the game reports through track(). 'dailyDone' is internal (all dailies claimed). */
-export const TRACK_EVENTS = ['battleWin', 'battleWinHard', 'pull', 'levelUp', 'gearReroll', 'sweep', 'kill', 'bossKill', 'login', 'spendCoins', 'dailyDone', 'assaultClear', 'gearAwaken', 'gearStitch', 'potentialUp', 'titanWin'];
+export const TRACK_EVENTS = ['battleWin', 'battleWinHard', 'pull', 'levelUp', 'gearReroll', 'sweep', 'kill', 'bossKill', 'login', 'spendCoins', 'dailyDone', 'assaultClear', 'gearAwaken', 'gearStitch', 'potentialUp', 'titanWin', 'titanMayhem'];
 
 /** Daily commissions: 120 gems per day in total. */
 export const DAILY_MISSIONS = [
@@ -32,6 +32,8 @@ export const WEEKLY_MISSIONS = [
   // wins and sweeps count too (one weekly boss loop, ASCENSION.md build notes: 'titanWin')
   { id: 'w_rainbow', name: 'Rainbow Hunt', desc: 'Clear Total Assault or win a Titan Trial 3 times (sweeps count).', events: ['assaultClear', 'titanWin'], goal: 3, requires: '5-5', rewards: [{ id: 'seed_rainbow', count: 1 }, { id: 'needle_star', count: 1 }] },
   // Academy Clubs (docs/specs/GEAR_STATS.md §C.4): a weekly Club Armband once gear is open (2-5)
+  // LR gear (docs/specs/GEAR_UPDATE.md §4.6): the weekly Nightglass Lens for Titan Trials at Mayhem
+  { id: 'w_nightglass', name: 'Nightglass Hunt', desc: 'Win 3 Titan Trials victories at Mayhem this week (sweeps count).', events: ['titanMayhem'], goal: 3, requires: '8-5', rewards: [{ id: 'lens_nightglass', count: 1 }] },
   { id: 'w_club', name: 'Club Day', desc: 'Win 10 battles (sweeps count).', events: ['battleWin', 'sweep'], goal: 10, requires: '2-5', rewards: [{ id: 'club_band', count: 1 }, { id: 'coins', count: 10000 }] },
 ];
 

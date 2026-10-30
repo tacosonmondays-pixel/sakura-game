@@ -47,6 +47,7 @@ export const FREEPLAY_REWARDS = Object.freeze({
   milestones: Object.freeze([
     Object.freeze({ id: 'w100', wave: 100, gems: 50, label: 'Reached wave 100' }),
     Object.freeze({ id: 'w150', wave: 150, gems: 100, items: MILESTONE_ITEMS.w150, label: 'Reached wave 150' }),
+    Object.freeze({ id: 'w225', wave: 225, gems: 150, items: MILESTONE_ITEMS.w225, label: 'Reached wave 225' }),
     Object.freeze({ id: 'matriarch', kill: 'dragon_ashwing', gems: 200, items: MILESTONE_ITEMS.matriarch, title: 'Ashwing Slayer', crimsonTitle: 'Crimson Slayer', label: 'Ashwing Matriarch defeated' }),
     Object.freeze({ id: 'wyrm', kill: 'fp_eclipse_wyrm', gems: 0, frame: 'eclipse', label: 'Eclipse Wyrm defeated' }),
   ]),

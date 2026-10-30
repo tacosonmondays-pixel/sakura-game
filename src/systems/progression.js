@@ -499,13 +499,16 @@ export function unitBattleStats(profile, unitId) {
   const gates = unit.breakthrough || 0;
   const r4 = (v) => Math.round(v * 10000) / 10000;
   // gear ATK's share of her burns and poisons and its cap grow with the pieces she wears (§8.3 lever 2)
-  const [dotShare, dotCap] = DOT_BY_PIECES[Math.min(5, set.pieces)];
+  const [dotShare, dotBase] = DOT_BY_PIECES[Math.min(5, set.pieces)];
+  // five Blank LR pieces double the cap's bonus part (×2.0 → ×3.0)
+  const dotCap = set.blankN >= 5 ? 1 + 2 * (dotBase - 1) : dotBase;
   // her ⚡ ability's haste: half her capped Skill Haste; Power Bank's set cap gives it half of all of it (§3.2)
   const abilHaste = Math.min(ABIL_HASTE_CEIL, 0.5 * Math.min(C.ultHaste, g.ultHaste));
   // Party Popper's set cap: her blasts read all her Pierce up to 500 % (shots keep the cap)
   const blastK = set.set === 'popper' && set.setN >= 5 ? Math.min(BLAST_K_MAX, Math.round(100 * Math.min(C.piercePct, g.piercePct))) : 0;
-  // what only the set cap lifts stays at today's cap for the rest of her kit: her hero ult's haste and her shots' Pierce
-  const B = BATTLE_CAPS;
+  // what only the set cap lifts stays at her LR-raised cap for the rest of her kit: her hero ult's haste (the battle
+  // reads ≤ 75 %) and her shots' Pierce
+  const B = gearCaps({ ...set, set: null, setN: 0 });
   // [banners G3/G6] UR Resonance (★5 SSR) and Limit Break (LR) multiply on top, along her Potential axis
   const boost = rankBoost(prof, unitId, UNIT_MAP[unitId] ? potentialTrack(UNIT_MAP[unitId]) : null);
   return {
@@ -528,8 +531,8 @@ export function unitBattleStats(profile, unitId) {
     // ability's haste, her blasts' Pierce and her average crit (src/sim/setRules.js reads them)
     set: set.set,
     setN: set.set ? set.setN : 0,
-    setLr: false, // (the LR Set Form comes with LR gear)
-    // crit over 100 % (super crits) only with Geometry's set cap (five Blank LR pieces come with LR gear)
+    setLr: set.setLr, // five Set LR pieces of her set: its LR Set Form
+    // crit over 100 % (super crits) only with Geometry's set cap or five Blank LR pieces (their caps pass 100 %)
     critCeil: C.critChance > 1 ? 2 : 1,
     buffDurMul: r4(1 + Math.min(C.buffDurPct, g.buffDurPct)),
     controlMul: r4(1 + Math.min(C.controlPct, g.controlPct)),

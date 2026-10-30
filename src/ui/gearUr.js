@@ -15,13 +15,13 @@ import { UNIT_MAP } from '../data/units.js';
 import { getItem } from '../data/items.js';
 import { GEAR_STAT_DEFS, BATTLE_CAPS, statName, STAT_HINTS, trickIdle } from '../data/gearStats.js';
 import { CLUBS, LIVE_CLUBS, CLUB_RARITIES } from '../data/clubs.js';
-import { SEED_ID, NEEDLE_ID, ARMBAND_ID, TAKE_BACK_COINS, TIE_PIN_ID, COLLAR_PIN_ID } from '../data/gearAwaken.js';
+import { SEED_ID, NEEDLE_ID, ARMBAND_ID, TAKE_BACK_COINS, TIE_PIN_ID, COLLAR_PIN_ID, LENS_ID } from '../data/gearAwaken.js';
 import {
   TITAN_SETS, setBoxSets, fillMainsFor, openSetBox, canTopMainRoll, canTopSubRoll, topMainRoll, topSubRoll, isPinnable, collarPinsMax,
 } from '../systems/gearSets.js';
 import { itemCount, hasItems } from '../systems/inventory.js';
 import {
-  describeStat, describeLine, gearLines, isUrGear, isUrLook, awakenReady, canAwakenGear, awakenGear, awakenGearCost, enhanceCost, enhanceGear,
+  describeStat, describeLine, gearLines, isUrGear, isLrGear, isUrLook, readMul, canLimitBreakGear, limitBreakGear, awakenReady, canAwakenGear, awakenGear, awakenGearCost, enhanceCost, enhanceGear,
   maxGearLevel, stitchSlots, canStitch, stitchSub, takeBackStitch, stitchCost, tuneCount, rerollCost, mainRerollCost, rerollSubstats,
   rerollMainStat, mainStatChoices, canLockPin, tunedIndices, setGearLocked, armbandCost, tieArmband, gearFillIn, gearSetInfo,
   gearStatTotals, nextGrowthIndex, subGrowth, effectiveValue, urMul, SUB_GROWTH_EVERY, openRainbowBox, GEAR_BAG_MAX,
@@ -227,6 +227,9 @@ export function gearActions(gear, { onChange, unitId = null, extra = [] }) {
     }));
   }
   if (slots.gold.open) btns.push(button(slots.free ? 'Stitch ✦' : 'Stitches', { kind: 'primary', small: true, testid: 'gear-stitch', onClick: () => stitchModal(gear.uid, { unitId, onDone: onChange }) }));
+  // LR gear (GEAR_UPDATE.md §4): a UR piece at +12 Limit Breaks into Set LR or Blank LR; gold, UR and LR pieces take pins
+  if (isUrGear(gear) && !isLrGear(gear) && gear.level >= 12) btns.push(button('Limit Break', { kind: 'primary', small: true, testid: 'gear-limit-break', onClick: () => limitBreakModal(gear.uid, { onDone: onChange }) }));
+  if (isPinnable(gear)) btns.push(button('Pin', { kind: 'ghost', small: true, testid: 'gear-pin', onClick: () => pinPicker(gear.uid, onChange) }));
   btns.push(button('Reroll subs', { kind: 'primary', icon: 'dice', small: true, testid: 'reroll-subs', disabled: !gear.subs.length, onClick: () => rerollModal(gear, 'subs', onChange) }));
   btns.push(button('Change main', { kind: 'pink', icon: 'dice', small: true, testid: 'reroll-main', onClick: () => rerollModal(gear, 'main', onChange) }));
   if (CLUB_RARITIES.includes(gear.rarity)) btns.push(button(gear.club ? 'Club' : 'Join a club', { kind: 'ghost', small: true, testid: 'gear-club', onClick: () => armbandModal(gear.uid, { onDone: onChange }) }));
@@ -409,7 +412,7 @@ export function stitchModal(uid, { unitId = null, onDone = () => {} } = {}) {
     put(bodyEl,
       h('div.gu-stitch-head',
         h('span', 'Starlight Needle ', h('b', `×${itemCount(profile, NEEDLE_ID)}`)),
-        h('span.muted', ` · this piece: gold ✦ ${slots.gold.used ? 'used' : 'free'}`, isUrGear(g) ? ` · rainbow ✦ ${slots.rainbow.used ? 'used' : 'free'}` : '')),
+        h('span.muted', ` · this piece: gold ✦ ${slots.gold.used ? 'used' : 'free'}`, isUrGear(g) ? ` · rainbow ✦ ${slots.rainbow.used ? 'used' : 'free'}` : '', isLrGear(g) ? ` · Nightglass ✦ ${slots.night.used ? 'used' : 'free'}` : '')),
       h('p.muted', 'Pick a substat. Each stitch adds one growth step (✦). Rerolls never touch a ✦ line.'),
       h('div.gu-stitch-rows', { role: 'radiogroup' }, L.subs.map((s, i) => h(`div.gu-stitch-row${i === pick ? '.on' : ''}`, {
         role: 'radio', tabindex: '0', 'aria-checked': i === pick ? 'true' : 'false', 'data-testid': `stitch-line-${i}`,
@@ -431,7 +434,7 @@ export function stitchModal(uid, { unitId = null, onDone = () => {} } = {}) {
       }) : null))),
       sub && slots.free ? h('div.gu-preview', statName(sub.stat), ' ', h('b', describeStat(sub.stat, L.subs[pick].value)), ' → ', h('b.gu-up', describeStat(sub.stat, L.subs[pick].value + step)), ` (${slots.free} ✦)`) : null,
       atCap ? h('div.mb-note.gu-warn', `${statName(sub.stat)} is already at MAX on her: the extra fills in as ATK instead.`) : null,
-      sub && slots.free && wearer ? powerPreview(wearer, uid, (x) => { x.subs[pick].tuned = (x.subs[pick].tuned | 0) | (slots.free === 'gold' ? 1 : 2); x.subs[pick].value += step / (isUrGear(g) ? urMul(sub.stat) : 1); }) : null,
+      sub && slots.free && wearer ? powerPreview(wearer, uid, (x) => { if (slots.free === 'night') x.subs[pick].night = 1; else x.subs[pick].tuned = (x.subs[pick].tuned | 0) | (slots.free === 'gold' ? 1 : 2); x.subs[pick].value += step / (isUrGear(g) ? readMul(g, sub.stat) : 1); }) : null,
       slots.free ? h('div.mb-reroll-foot',
         h('div.mb-reroll-cost', h('div.mb-sub-title', 'Cost'), costLine(stitchCost())),
         button('Stitch', {
@@ -445,7 +448,7 @@ export function stitchModal(uid, { unitId = null, onDone = () => {} } = {}) {
             onDone();
           },
         }))
-        : h('p.muted', isUrGear(g) ? 'Both ✦ slots are stitched. Take one back to move it.' : 'The gold ✦ slot is stitched. Awaken the piece to open a rainbow ✦ slot.'));
+        : h('p.muted', isLrGear(g) ? 'All three ✦ slots are stitched. Take one back to move it.' : isUrGear(g) ? 'Both ✦ slots are stitched. Take one back to move it.' : 'The gold ✦ slot is stitched. Awaken the piece to open a rainbow ✦ slot.'));
   };
   draw();
   modal({ title: 'Stitch', body: bodyEl, wide: true, actions: [{ label: 'Done', kind: 'ghost', testid: 'stitch-done' }] });
@@ -603,6 +606,58 @@ export function setBoxModal(itemId, onDone = () => {}) {
   return m;
 }
 
+/** Pin picker on a piece: the Tie Pin (main) or a Collar Pin (a substat). */
+function pinPicker(uid, onDone) {
+  const m = modal({
+    title: 'Pins',
+    body: h('p.muted', 'The Tie Pin sets the main stat to its best roll; a Collar Pin sets one substat to its best roll.'),
+    actions: [
+      { label: 'Tie Pin', kind: 'primary', testid: 'pin-tie', onClick: (close) => { close(); pinModal(uid, TIE_PIN_ID, { onDone }); } },
+      { label: 'Collar Pin', kind: 'primary', testid: 'pin-collar', onClick: (close) => { close(); pinModal(uid, COLLAR_PIN_ID, { onDone }); } },
+      { label: 'Close', kind: 'ghost' },
+    ],
+  });
+  return m;
+}
+
+/**
+ * Limit Break (GEAR_UPDATE.md §4.1): a UR piece at +12 and a Nightglass Lens make Nightglass LR gear, +18. Set LR keeps
+ * its set (×1.25 over UR, its LR Set Form at five); Blank LR has no set (×1.56 over UR; five of them double every cap).
+ * No undo: salvage pays everything back.
+ */
+export function limitBreakModal(uid, { onDone = () => {} } = {}) {
+  const profile = store.profile;
+  const g = profile.gear[uid];
+  if (!g) return null;
+  const lens = itemCount(profile, LENS_ID);
+  const kinds = [
+    { kind: 'set', label: 'Set LR', text: g.set ? `Keeps the ${GEAR_SETS[g.set].name} set. Numbers ×1.25 over UR; five Set LR pieces of one set wake its LR form.` : 'Only a set piece can become Set LR.' },
+    { kind: 'blank', label: 'Blank LR', text: g.set ? `This piece leaves the ${GEAR_SETS[g.set].name} set for good. Numbers ×1.56 over UR; five Blank LR pieces double every stat limit.` : 'Numbers ×1.56 over UR; five Blank LR pieces double every stat limit (crit over 100% becomes super crits).' },
+  ];
+  const m = modal({
+    title: 'Limit Break',
+    wide: true,
+    body: h('div.gu-lb', { 'data-testid': 'limit-break-modal' },
+      h('p', `Nightglass Lens: ${lens} · 150,000 coins. The piece goes to +18 and takes a third ✦ and a second Collar Pin. No undo.`),
+      kinds.map((k) => {
+        const check = canLimitBreakGear(profile, uid, k.kind);
+        return h('div.row', h('div', h('b', k.label), h('p.muted', k.text)), button(check.ok ? k.label : check.reason === 'missing' ? 'Need Lens + coins' : 'Not possible', {
+          kind: 'primary', small: true, icon: null, disabled: !check.ok, testid: `limit-break-${k.kind}`,
+          onClick: () => {
+            const res = limitBreakGear(profile, uid, k.kind);
+            if (!res.ok) { toast('Could not Limit Break it.', 'bad'); return; }
+            store.commit('gear-limit-break');
+            toast('Limit Broken! Nightglass LR.', 'good');
+            m.close();
+            onDone();
+          },
+        }));
+      })),
+    actions: [{ label: 'Not now', kind: 'ghost' }],
+  });
+  return m;
+}
+
 /**
  * Pins (GEAR_UPDATE.md §6): the Tie Pin sets the main stat to its best roll, the Collar Pin one substat. The preview
  * shows before → after; there is no undo (salvage returns every pin).
@@ -647,7 +702,7 @@ export function pickGearFor(itemId, onDone = () => {}) {
   const tag = (g) => {
     if (pin) return isPinnable(g) ? (ok(g) ? 'Can pin' : 'Pinned') : null;
     if (itemId === SEED_ID) return awakenReady(g) ? 'Ready' : g.rarity === 'legendary' && !isUrGear(g) ? 'Reach +10 first' : null;
-    if (itemId === NEEDLE_ID) { const s = stitchSlots(g); return !s.gold.open ? (g.rarity === 'legendary' ? 'Reach +10 first' : null) : s.free === 'gold' ? 'Gold slot free' : s.free === 'rainbow' ? 'Rainbow slot free' : 'Full'; }
+    if (itemId === NEEDLE_ID) { const s = stitchSlots(g); return !s.gold.open ? (g.rarity === 'legendary' ? 'Reach +10 first' : null) : s.free === 'gold' ? 'Gold slot free' : s.free === 'rainbow' ? 'Rainbow slot free' : s.free === 'night' ? 'Nightglass slot free' : 'Full'; }
     return g.club ? CLUBS[g.club].name : 'No club';
   };
   const list = all.filter((g) => tag(g)).sort((a, b) => Number(ok(b)) - Number(ok(a)) || b.level - a.level);

@@ -36,6 +36,13 @@ export const LENS_ID = 'lens_nightglass';
 export const LIMIT_BREAK_COINS = 150000;
 /** The Nightglass ✦: a third ✦ on an LR piece, its own line field `night` (never in `tuned`, which stays 0–3). */
 export const NIGHT_STAR = 1;
+/** Each LR piece she wears raises her caps by this much (§4.3: aura most, crit least). */
+export const LR_CAP_STEP = Object.freeze({
+  auraPct: 0.04, auraRangePct: 0.03, buffDurPct: 0.04, controlPct: 0.04, rangePct: 0.04, piercePct: 0.1, critDmg: 0.1, armorPen: 2, ultHaste: 0.01,
+  costCut: 0.005, critChance: 0.01,
+});
+/** Blank LR pieces that double every base cap (and her fill-in limit and DoT cap bonus). */
+export const BLANK_FIVE = 5;
 
 /** Pins (GEAR_UPDATE.md §6): the Tie Pin sets a main stat to its best roll, the Collar Pin one substat. Line mark `top`. */
 export const TIE_PIN_ID = 'tie_pin';
@@ -84,6 +91,7 @@ export const MARK = Object.freeze({
   team: 'tm:', // teams: `tm:a` the active team, `tm:<team>:<unitId>` her place and loadout
   preset: 'gp:', // gear loadouts: `gp:<unitId>` active + 10 × count, `gp:<unitId>:<n>:<slot>` the piece
   veteran: 'su:vet', // the veterans' one-time Set Boxes (the sets update)
+  lrEver: 'ach:lrEver', // Limit Breaks ever (achievements "First Nightglass")
 });
 /** Items mirrored in `inv:` (an older build drops unknown item ids). */
 export const MIRRORED_ITEMS = Object.freeze([SEED_ID, NEEDLE_ID, ARMBAND_ID, ...GEAR_UPDATE_ITEM_IDS]);
@@ -91,6 +99,8 @@ export const MIRRORED_ITEMS = Object.freeze([SEED_ID, NEEDLE_ID, ARMBAND_ID, ...
 /** Freeplay milestone items, once per tier (gear-awaken §6.1, §6.2): the Matriarch a Seed, wave 150 two Needles. */
 export const MILESTONE_ITEMS = Object.freeze({
   w150: Object.freeze([Object.freeze({ id: NEEDLE_ID, count: 2 })]),
+  // LR gear (GEAR_UPDATE.md §4.6): wave 225 pays a Nightglass Lens, once per tier
+  w225: Object.freeze([Object.freeze({ id: LENS_ID, count: 1 })]),
   matriarch: Object.freeze([Object.freeze({ id: SEED_ID, count: 1 })]),
 });
 /** missions.counters prefixes: a paid freeplay milestone ('fpm:tier:id') and its items paid ('fpu:tier:id'). */

@@ -1297,7 +1297,10 @@ export class Sim {
     if (t.rules && isFreeTier(t, index)) return 0; // Ouka's Club Grants (src/sim/hubs.js)
     const us = t.unitStats || DEFAULT_UNIT_STATS;
     const cut = Math.min(0.5, t.buff?.costCut || 0);
-    const price = (tier.cost || 0) * (this.diff.costMul ?? 1) * (us.costMul ?? 1) * (1 - cut);
+    let price = (tier.cost || 0) * (this.diff.costMul ?? 1) * (us.costMul ?? 1) * (1 - cut);
+    // Bake Sale · Nightglass (the Treasurer LR Set Form, src/sim/setRules.js): her first upgrade each wave
+    const bake = setPassive(us, 'treasurer');
+    if (bake?.firstBuy > 0 && t.bakeW !== this.wave) price *= 1 - bake.firstBuy;
     if (this.tryout) {
       // Tryout Day: Free Refills (tiers 1-3) and Scholarship
       const run = tryoutUpgradeCost(this, t, index);
@@ -1352,6 +1355,7 @@ export class Sim {
     const rounds = t.stats.lab ? t.stats.lab.rounds : 0;
     this._spend(st.cost);
     t.spent += st.cost;
+    if (setPassive(t.unitStats, 'treasurer')?.firstBuy > 0) t.bakeW = this.wave;
     if (this.tryout) tryoutUpgraded(this, t, st.cost, t.tiers[path]);
     t.tiers[path]++;
     this._refreshTower(t);

@@ -38,8 +38,9 @@ export const UNIT_STAT_LIMITS = Object.freeze({
   critChance: num(0, CRIT_CEIL),
   critMul: num(1, 12),
   armorPen: num(0, 100),
-  costMul: num(0.75, 1),
-  ultHaste: num(0, 0.5),
+  // LR gear (GEAR_UPDATE.md §10.2): five Blank LR pieces double Cost Reduction (50 %) and Skill Haste (100 %; ults read ≤ 75 %)
+  costMul: num(0.5, 1),
+  ultHaste: num(0, 1),
   // gear (docs/specs/GEAR_STATS.md §F.2): Pierce in hundredths (capped at source at 150), Aura Power
   // (15 % lines + 5 % fill), the aura girls' fill-in radius, gear ATK's share of burns, her club set,
   // and the UR pieces she wears (the renderer's rainbow sparkles; the sim never reads it)
