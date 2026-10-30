@@ -29,11 +29,13 @@ import { pickMarks } from './pickMarks.js';
 export const STAT_GLYPH = Object.freeze({
   atkPct: 'sword', ratePct: 'ff2', rangePct: 'mark', critChance: 'crosshair', critDmg: 'blast', armorPen: 'armorPen',
   costCut: 'coin', ultHaste: 'hourglass', piercePct: 'pierce', auraPct: 'ring',
+  auraRangePct: 'ruleSun', buffDurPct: 'buff', controlPct: 'freeze',
 });
 /** Caps labels for strips and chips (the stat's card name stays in titles and Details). */
 export const STAT_SHORT = Object.freeze({
   atkPct: 'ATK', ratePct: 'RATE', rangePct: 'RANGE', critChance: 'CRIT', critDmg: 'CRIT DMG', armorPen: 'ARMOR PEN',
   costCut: 'COST', ultHaste: 'HASTE', piercePct: 'PIERCE', auraPct: 'AURA',
+  auraRangePct: 'AURA RADIUS', buffDurPct: 'BUFF TIME', controlPct: 'CONTROL',
 });
 /** Rarity → frame class (§5.6): Common and Rare flat, Super Rare tinted, Mythic glow, Legendary metal, UR rainbow. */
 export const GEAR_FRAME = Object.freeze({ common: 'common', rare: 'rare', superRare: 'superRare', mythic: 'mythic', legendary: 'legendary', ur: 'ur' });
