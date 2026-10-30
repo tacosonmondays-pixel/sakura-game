@@ -614,11 +614,13 @@ for (const [W, H] of viewports) {
   check(cls.next === cls.pair[1] && cls.dare === true, `a Subject and the Dare are chosen (${JSON.stringify(cls)})`);
   // (the Dare stays on for this one period: the list's "this period" lines are checked mid-period below; the sim turns
   // every player's tap off when a period starts, so the rest of the run plays without the curse)
+  // (the switch repaints on a frame after the tap: wait for its "on" words before reading them)
+  await page.waitForFunction(() => /Double Dare: on · /.test(document.querySelector('[data-testid="ty-dare"] > span:last-child')?.textContent || ''), null, { timeout: 5000, polling: 50 }).catch(() => {});
   const dareLbl = await page.evaluate(() => {
     const s = document.querySelector('[data-testid="ty-dare"] > span:last-child');
     return { text: s?.textContent || '', cut: !!s && s.scrollWidth > s.clientWidth + 1 };
   });
-  check(!dareLbl.cut && / · \S/.test(dareLbl.text), `the Double Dare switch names its curse in full (${JSON.stringify(dareLbl)})`);
+  check(!dareLbl.cut && /^Double Dare: on · \S/.test(dareLbl.text), `the Double Dare switch names its curse in full (${JSON.stringify(dareLbl)})`);
   await shot('ty-class');
   // the period starts: its Subject is named in the tracker head (and on the rule pill when it has a map rule)
   await page.evaluate(() => {

@@ -589,7 +589,7 @@ html[data-reduce-motion] .ty-layer .ty-rv-deck > .ty-rv-on { transform: none; }
   background: var(--plate); color: var(--on-ink); font: 700 12px/1 var(--font-num); font-variant-numeric: tabular-nums;
 }
 .ty-layer .ty-pep-grp { margin-left: auto; font: 600 12px/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
-.ty-layer .ty-pep-team { padding: 2px 6px; font: 600 12px/1.1 var(--font-num); letter-spacing: 0.04em; background: var(--cyan-wash); color: var(--cyan-text); }
+.ty-layer .ty-pep-team { display: inline-block; white-space: nowrap; padding: 2px 6px; font: 600 12px/1.1 var(--font-num); letter-spacing: 0.04em; background: var(--cyan-wash); color: var(--cyan-text); }
 .ty-layer .ty-pep-ln { margin: 3px 0 0; font-size: 12px; line-height: 1.35; color: var(--ink); }
 .ty-layer .ty-pep-ln b { font-family: var(--font-num); font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; }
 .ty-layer .ty-pep-tier { font: 700 12px/1 var(--font-num); letter-spacing: 0.04em; color: var(--muted); }
