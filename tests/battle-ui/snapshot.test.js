@@ -12,7 +12,7 @@
 // Hover, Hold, Patrol, Pursuit), so the checkpoints catch drones flying home, jammed or far out.
 import { describe, it, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
-import { STEP, PRISM_BEAM_TICK } from '../../src/sim/constants.js';
+import { STEP, PRISM_BEAM_TICK, INCOME_INTEREST_MAX, INCOME_INTEREST_SET_MAX } from '../../src/sim/constants.js';
 import { autoPlan } from '../../src/sim/headless.js';
 import { createRng } from '../../src/core/rng.js';
 import { TARGET_MODES } from '../../src/data/types.js';
@@ -1361,6 +1361,24 @@ describe('Tenka\'s lab team in a battle save (src/sim/lab.js)', SLOW, () => {
     expect(hashSim(back)).toBe(hashSim(sim));
   });
 
+  it('a joiner\'s lifted interest cap (Treasurer 5 on her) travels as `lb[6]`; a default lab writes none (review M2 r2 N1)', () => {
+    const { c, sim, tk } = tenkaLabRun();
+    let row = JSON.parse(JSON.stringify(snapshotSim(sim))).towers.find((t) => t.u === 'tenka');
+    expect(tk.lab.interestCap).toEqual([INCOME_INTEREST_MAX]);
+    expect(row.lb).toHaveLength(6);
+    const plain = hashSim(sim);
+    tk.lab.interestCap = [INCOME_INTEREST_SET_MAX]; // (Momo had joined in Treasurer 5)
+    expect(hashSim(sim)).not.toBe(plain);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    row = snap.towers.find((t) => t.u === 'tenka');
+    expect(row.lb[6]).toEqual([INCOME_INTEREST_SET_MAX]);
+    const bt = restoreSim(recordOf(c, snap)).sim.towers.find((t) => t.unitId === 'tenka');
+    expect(bt.lab).toEqual(tk.lab);
+    // a hand-made cap is never more than Treasurer's: anything else reads as the default
+    row.lb[6] = [1e9];
+    expect(restoreSim(recordOf(c, snap)).sim.towers.find((t) => t.unitId === 'tenka').lab.interestCap).toEqual([INCOME_INTEREST_MAX]);
+  });
+
   it('Continue plays on like the original: her lab weapons and income, then Unified Theory absorbs a second time', () => {
     const { c, sim, tk } = tenkaLabRun();
     const { sim: back } = restoreSim(recordOf(c, JSON.parse(JSON.stringify(snapshotSim(sim)))), { settings: { autoStart: false } });
@@ -1421,6 +1439,7 @@ describe('Tenka\'s lab team in a battle save (src/sim/lab.js)', SLOW, () => {
       coins: { dps: 100, frag: 0, control: 0, support: 50, economy: 9 },
       income: 0,
       interest: [0.03],
+      interestCap: [INCOME_INTEREST_MAX],
       uids: [3],
     });
     expect(back._labOn).toBe(1);

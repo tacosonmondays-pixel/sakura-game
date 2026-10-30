@@ -17,6 +17,7 @@ import {
 import { rederiveStats } from '../../src/online/coop/lockstep.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
 import { BATTLE } from '../../src/data/types.js';
+import { INCOME_INTEREST_MAX, INCOME_INTEREST_SET_MAX } from '../../src/sim/constants.js';
 
 const LAB = 0;
 const RAILS = 1;
@@ -97,6 +98,7 @@ describe('who joins her lab team', () => {
       coins: { dps: a.spent, frag: b.spent, control: 0, support: 0, economy: 0 },
       income: 0,
       interest: [],
+      interestCap: [],
       uids: [b.uid, a.uid],
     });
     const evs = sim.drainEvents();
@@ -479,6 +481,32 @@ describe('the lab weapons', () => {
     up(sim, t, LAB);
     r = clearAt(sim, 2000);
     expect(r.paid).toEqual([['lab', t.uid, Math.floor(LAB_ECON_SHARE * 1.5 * (65 * cashMul + Math.min(150, rate * r.before)) * sim.incomeMul + 1e-9)]]);
+  });
+
+  // review M2 r2 N1: each joiner brings her own interest cap (GEAR_UPDATE.md §3.2 "5,000 a girl"): Treasurer 5 on
+  // HER lifts it; Tenka's own set does not lift a set-less joiner's
+  test('Treasurer 5: a joiner wearing it keeps her 5,000 interest cap in the lab; Tenka wearing it lifts nobody', () => {
+    const T5 = { set: 'treasurer', setN: 5 };
+    const run = (who) => {
+      const loadout = [...TEAM, 'momo'].map((unitId) => ({ unitId, ...(unitId === who ? { stats: T5 } : null) }));
+      const sim = new Sim({ ...simArgs(), loadout });
+      sim.cash = 1e9;
+      const t = tenkaAt(sim, [2, 0, 0]);
+      const m = place(sim, 'momo', 7.5, 3.4);
+      up(sim, m, 1, 2);
+      const rate = m.stats.income.interest;
+      up(sim, t, LAB);
+      const r = clearAt(sim, 1e9);
+      const cashMul = sim.diff.cashMul ?? 1;
+      const pay = (cap) => Math.floor(LAB_ECON_SHARE * 1 * (t.lab.income * cashMul + Math.min(cap, rate * r.before)) * sim.incomeMul + 1e-9);
+      return { t, r, pay };
+    };
+    const momo = run('momo');
+    expect(momo.t.lab.interestCap).toEqual([INCOME_INTEREST_SET_MAX]);
+    expect(momo.r.paid.find((x) => x[0] === 'lab')[2]).toBe(momo.pay(INCOME_INTEREST_SET_MAX));
+    const tenka = run('tenka');
+    expect(tenka.t.lab.interestCap).toEqual([INCOME_INTEREST_MAX]);
+    expect(tenka.r.paid.find((x) => x[0] === 'lab')[2]).toBe(tenka.pay(INCOME_INTEREST_MAX));
   });
 
   test('a sabotaged Tenka\'s frag and field rest, like her bolts', () => {

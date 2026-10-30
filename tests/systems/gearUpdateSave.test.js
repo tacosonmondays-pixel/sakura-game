@@ -20,8 +20,11 @@ const reload = (p) => migrateProfile(JSON.parse(saveText(p, 1)));
 
 // The real older build: origin/main 60ce9cad's save.js, gearMarks.js, gear.js, rosterSave.js and its data, vendored
 // under tests/fixtures (GEAR_UPDATE.md §13; review M0 r1 M2).
-const OLD = (f) => import(`../fixtures/main-60ce9cad/src/${f}`);
-const [oldSave, oldMarks, oldRoster, oldGear] = await Promise.all([OLD('systems/save.js'), OLD('systems/gearMarks.js'), OLD('systems/rosterSave.js'), OLD('systems/gear.js')]);
+// (static imports: a path built at runtime is beyond vite's import analysis, review M0 r2 L2)
+import * as oldSave from '../fixtures/main-60ce9cad/src/systems/save.js';
+import * as oldMarks from '../fixtures/main-60ce9cad/src/systems/gearMarks.js';
+import * as oldRoster from '../fixtures/main-60ce9cad/src/systems/rosterSave.js';
+import * as oldGear from '../fixtures/main-60ce9cad/src/systems/gear.js';
 /** The older build's stored text (store.js saveText on main: its gear and roster marks, then JSON). */
 function oldSaveText(p) {
   oldMarks.writeGearMarks(p);

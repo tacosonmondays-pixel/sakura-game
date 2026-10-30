@@ -19,7 +19,9 @@
 //   income    the wave income (perWave) of EVERY girl who joined, whatever her class (owner decision #146),
 //             as her stats gave it (Potential's income steps included)
 //   interest  the interest rate of each girl who joined with one (Momo's Merch Table / Golden Peach Bank), in
-//             join order: each pays min(INCOME_INTEREST_MAX, rate × coins) at the clear, like her own did
+//             join order: each pays min(her cap, rate × coins) at the clear, like her own did
+//   interestCap  each of those girls' own interest cap, in the same order (INCOME_INTEREST_MAX; a joiner who wore
+//             Treasurer 5 brings INCOME_INTEREST_SET_MAX, GEAR_UPDATE.md §3.2 "5,000 a girl"); missing = the default
 //   uids      who joined, in order (the UI's "lab team" list later)
 //
 // The weapons, one per class that has a member; each one's strength k = power × √(coins / LAB_REF_COINS)
@@ -74,6 +76,7 @@ export function emptyLab() {
     coins: { dps: 0, frag: 0, control: 0, support: 0, economy: 0 },
     income: 0,
     interest: [],
+    interestCap: [],
     uids: [],
   };
 }
@@ -150,7 +153,11 @@ export function absorbInto(sim, t) {
     const inc = o.stats?.income;
     if (inc) {
       if (inc.perWave > 0) lab.income += inc.perWave;
-      if (inc.interest > 0) lab.interest.push(inc.interest);
+      if (inc.interest > 0) {
+        lab.interest.push(inc.interest);
+        // her own interest cap comes with her (Treasurer 5 on HER lifts it; the lab girl's set does not, review M2 r2 N1)
+        (lab.interestCap ||= []).push(interestCapOf(o));
+      }
     }
     lab.uids.push(o.uid);
     uids.push(o.uid);
@@ -245,15 +252,20 @@ export function labIncome(sim, cashMul) {
     const n = rates ? rates.length : 0;
     if (!(lab.income > 0) && n === 0) continue;
     let interest = 0;
-    // (her Treasurer 5-piece set cap lifts each joiner's interest cap like her own, GEAR_UPDATE.md §3.2)
-    const cap = setPassive(t.unitStats, 'treasurer') && t.unitStats.setN >= 5 ? INCOME_INTEREST_SET_MAX : INCOME_INTEREST_MAX;
-    for (let i = 0; i < n; i++) interest += Math.min(cap, rates[i] * sim.cash);
+    // (each joiner's own cap, recorded when she joined: lab.interestCap)
+    const caps = lab.interestCap;
+    for (let i = 0; i < n; i++) interest += Math.min(caps?.[i] ?? INCOME_INTEREST_MAX, rates[i] * sim.cash);
     const power = t.stats?.lab?.power ?? 1;
     const perWave = lab.income > 0 ? lab.income : 0;
     const amount = sim._gainCashFor(t.owner ?? 0, LAB_ECON_SHARE * power * (perWave * cashMul + interest) * sim.incomeMul);
     if (amount > 0) sim._emit('cash', { amount, reason: 'lab', towerUid: t.uid });
     sim._bakeOn(t, amount);
   }
+}
+
+/** A girl's interest cap: INCOME_INTEREST_SET_MAX with her own Treasurer 5-piece set cap, else INCOME_INTEREST_MAX. */
+export function interestCapOf(t) {
+  return setPassive(t?.unitStats, 'treasurer') && t.unitStats.setN >= 5 ? INCOME_INTEREST_SET_MAX : INCOME_INTEREST_MAX;
 }
 
 /** The wave clear: the frag and field timers start over (a calm point's labAtk is syncLab's). */

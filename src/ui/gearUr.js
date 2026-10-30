@@ -17,7 +17,7 @@ import { GEAR_STAT_DEFS, statName, STAT_HINTS, trickIdle } from '../data/gearSta
 import { CLUBS, LIVE_CLUBS, CLUB_RARITIES } from '../data/clubs.js';
 import { SEED_ID, NEEDLE_ID, ARMBAND_ID, TAKE_BACK_COINS, TIE_PIN_ID, COLLAR_PIN_ID, LENS_ID } from '../data/gearAwaken.js';
 import {
-  TITAN_SETS, setBoxSets, fillMainsFor, openSetBox, canTopMainRoll, canTopSubRoll, topMainRoll, topSubRoll, isPinnable, collarPinsMax,
+  TITAN_SETS, setBoxSets, fillMainsFor, openSetBox, setIdle, canTopMainRoll, canTopSubRoll, topMainRoll, topSubRoll, isPinnable, collarPinsMax,
 } from '../systems/gearSets.js';
 import { itemCount, hasItems } from '../systems/inventory.js';
 import {
@@ -573,6 +573,10 @@ export function setBoxModal(itemId, onDone = () => {}) {
     }
     const t = SET_TEXT[set];
     body.appendChild(h('p', h('b', `${GEAR_SETS[set].name}: ${t.passive}. `), `4 pieces: ${t.four} 5 pieces: ${t.five}`));
+    // the dead-passive rule (§3.1): what her kit cannot use of this set, said before the box opens
+    const idle = setIdle(set, girl);
+    const why = idle.passive || idle.cap;
+    if (why) body.appendChild(h('p.muted.gk-set-idle', { 'data-testid': 'set-box-idle' }, `For ${UNIT_MAP[girl]?.name || 'her'}: ${why}`));
     for (const slot of SLOT_IDS) {
       body.appendChild(h('div.row', h('b', `${slotName(slot)}: `), MAIN_STATS_BY_SLOT[slot].map((k) => button(statName(k), {
         kind: mains[slot] === k ? 'primary' : 'ghost', small: true, icon: null, testid: `set-box-main-${slot}-${k}`, onClick: () => { mains = { ...mains, [slot]: k }; draw(); },

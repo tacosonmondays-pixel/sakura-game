@@ -969,7 +969,10 @@ export class Sim {
         const lifted = bake && t.unitStats.setN >= 5 ? Math.min(INCOME_INTEREST_SET_MAX, raw) - interest : 0;
         const amount = this._gainCash(((inc.perWave || 0) * cashMul + interest) * this.incomeMul);
         if (amount > 0) this._emit('cash', { amount, reason: 'income', towerUid: t.uid });
-        if (lifted > 0) this._gainCashFor(t.owner ?? 0, lifted * this.incomeMul);
+        if (lifted > 0) {
+          const more = this._gainCashFor(t.owner ?? 0, lifted * this.incomeMul);
+          if (more > 0) this._emit('cash', { amount: more, reason: 'income', towerUid: t.uid }); // (its coin popup)
+        }
         if (bake) this._bake(t, ((inc.perWave || 0) * cashMul + interest + lifted) * this.incomeMul * bake.share);
         // Potential N8 (Momo's Golden Harvest): every Nth wave clear her wave income once more (no interest)
         const hv = t.stats.harvest;

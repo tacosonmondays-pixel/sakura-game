@@ -809,7 +809,10 @@ GearInstance = { uid, slot, rarity, level /*0-10; 0-12 when ur*/, main: { stat, 
   // sets, setStats (2+ pieces, ≤ 2), setLr, lrN, blankN, pieces; gearCaps(info) lifts a 5-piece set's signature caps.
   // unitBattleStats adds set, setN, setLr, buffDurMul, controlMul, abilHaste, blastK and avgCrit (src/sim/setRules.js
   // reads them; statLimits rows in src/online/coop/statLimits.js). Set pieces, Set Boxes, pins and the set sources:
-  // src/systems/gearSets.js.
+  // src/systems/gearSets.js. The one-time Set Boxes owed at load (migrateProfile → grantSetBoxGifts mode 'mail') land
+  // in the mailbox and are marked by M0's one-mark-per-box keys: M0 ships with or before M2 (the same release), so an
+  // older build's reader never meets an M2 save. A Tenka lab joiner keeps her own interest cap (lab.interestCap,
+  // INCOME_INTEREST_SET_MAX with Treasurer 5 on her; the battle save's `lb[6]` only when one is lifted).
   // LR gear (M3, §4): limitBreakGear(profile, uid, 'set'|'blank') (a UR +12 piece, 1 Nightglass Lens + 150,000 coins;
   // Blank LR gives its set up); the Nightglass ✦ is stitchSlots().night; gearCaps adds LR_CAP_STEP per LR piece and
   // doubles every base cap with five Blank LR pieces (critCeil 2, fill-in limit ×2, DoT cap bonus ×2); setLr wakes the
