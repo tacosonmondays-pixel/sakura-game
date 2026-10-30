@@ -4,7 +4,7 @@
 // The mock-ups step at the sim's 60 steps a second and use the sim's own direction table
 // (src/sim/dirs.js: 240 directions, nearestDir, turnToward), integer step timers and the spec's tick
 // rules, so what the owner approves is what the sim can do. Query: ?speed=0.5 for slow motion,
-// ?shot=1 for the one-column phone layout used by the board image.
+// ?shot=1 for the one-column phone layout used by the board image, ?set=s5 for the six S5 proposals only.
 
 import { DIR_X, DIR_Y, dir, wrapDir, nearestDir, turnToward } from '../src/sim/dirs.js';
 import { DET_MATH } from '../src/core/detMath.js';
@@ -53,12 +53,13 @@ function newState() {
   return { step: 0, uid: 1, walkers: [], fx: [] };
 }
 function stepWalkers(S) {
-  if (S.step % SPAWN_EVERY === 0) S.walkers.push({ uid: S.uid++, dist: 0, slowT: 0, holdT: 0, burnT: 0, flash: 0, flashC: '#fff', hop: 0, held: false });
+  if (S.step % SPAWN_EVERY === 0) S.walkers.push({ uid: S.uid++, dist: 0, slowT: 0, holdT: 0, burnT: 0, poisonT: 0, flash: 0, flashC: '#fff', hop: 0, held: false });
   for (const w of S.walkers) {
     if (w.holdT > 0) w.holdT--;
     else w.dist += WALK * (w.slowT > 0 ? 0.5 : 1);
     if (w.slowT > 0) w.slowT--;
     if (w.burnT > 0) w.burnT--;
+    if (w.poisonT > 0) w.poisonT--;
     if (w.flash > 0) w.flash--;
     if (w.hop > 0) w.hop--;
     const p = pointAt(w.dist);
@@ -202,6 +203,18 @@ function drawWalkers(g, S) {
       g.arc(x, y - 3, 10 + Math.sin(w.burnT * 0.7) * 1.5, 0, Math.PI * 2);
       g.fill();
     }
+    if (w.poisonT > 0) {
+      g.fillStyle = '#8fd14f88';
+      g.beginPath();
+      g.arc(x, y - 2, 10, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#c9f27a';
+      for (let i = 0; i < 2; i++) {
+        g.beginPath();
+        g.arc(x + (i ? 5 : -4), y - 10 - ((w.poisonT + i * 9) % 18) * 0.4, 2, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
     g.fillStyle = w.flash > 0 ? w.flashC : C.walker;
     g.strokeStyle = w.flash > 0 ? C.walker : '#ffffffcc';
     g.lineWidth = 2;
@@ -240,7 +253,7 @@ function streak(g, x, y, ux, uy, len, w, color) {
   g.stroke();
 }
 
-// ---------------------------------------------------------------------------- the ten shapes
+// ---------------------------------------------------------------------------- the shapes (ten built in S1-S4, six S5 proposals)
 const COS2 = []; // cos² of h table steps (spec §4.1), built once
 for (let h = 0; h <= 60; h++) {
   const c = DET_MATH.cos((2 * Math.PI * h) / N);
@@ -765,12 +778,515 @@ const SHAPES = [
       }
     },
   },
+  // ---------------------------------------------------------------- S5 proposal (docs/specs/ATTACK_SHAPES_S5.md)
+  // Each girl keeps the attack she has today; the shape runs on top of it (the S5 rule 1).
+  {
+    id: 'mist', pose: (S) => S.on && S.walkers.filter((w) => w.poisonT > 0).length >= 3 && S.flask, n: 11, name: 'Spore Mist', batch: 5,
+    does: 'Midori, Field Kit T4-5. Her flasks still fly and splash. A wide, short cone of spore mist also pours from her flask, swings after her target and poisons everything in it; the poison stays after they leave.',
+    suits: 'Built on Hearth Stream (its poison kind). Poison only in the mist; her slow and paralysis stay on the flask.',
+    range: 3.2,
+    step(S) {
+      const tgt = firstInRange(S, 3.2);
+      if (tgt) {
+        S.k = S.k == null ? aimAt(tgt) : turnToward(S.k, aimAt(tgt), 2);
+        S.on = true;
+        S.grace = 12;
+      } else if (S.grace > 0) S.grace--;
+      else S.on = false;
+      // the mist: half-angle 30 table steps (45°), length 0.75 × her range, a tick every 6 steps
+      if (S.on && S.step % 6 === 0) {
+        const L = 3.2 * 0.75;
+        for (const w of S.walkers) {
+          const ex = w.x - GIRL.x;
+          const ey = w.y - GIRL.y;
+          const dd = ex * ex + ey * ey;
+          const dot = ex * DIR_X[S.k] + ey * DIR_Y[S.k];
+          if (dd <= (L + 0.3) * (L + 0.3) && dot > 0 && dot * dot >= COS2[30] * dd) {
+            w.poisonT = 120;
+            if (S.step % 30 === 0) hit(w, '#e4f7b8');
+          }
+        }
+      }
+      // her live attack: a flask lobbed at her target every 80 steps, splash 1.1
+      if (S.step % 80 === 0 && tgt) S.flask = { x0: GIRL.x, y0: GIRL.y, x1: tgt.x, y1: tgt.y, t: 0 };
+      const f = S.flask;
+      if (f && ++f.t >= 24) {
+        for (const w of S.walkers) if (d2(w.x, w.y, f.x1, f.y1) <= 1.1 * 1.1) { hit(w, C.gold); w.poisonT = 150; }
+        S.splash = { x: f.x1, y: f.y1, t: 12 };
+        S.flask = null;
+      }
+      if (S.splash && --S.splash.t <= 0) S.splash = null;
+    },
+    draw(g, S) {
+      const x = px(GIRL.x);
+      const y = px(GIRL.y);
+      if (S.on) {
+        for (let layer = 0; layer < 3; layer++) {
+          const h = 30 - layer * 8;
+          const L = 2.4 - layer * 0.45 + Math.sin(S.step * 0.15 + layer) * 0.06;
+          const [ax, ay] = dir(S.k - h);
+          const [bx, by] = dir(S.k + h);
+          const [mx, my] = dir(S.k);
+          g.fillStyle = ['#9fd95c55', '#b9e77a66', '#e2f7b077'][layer];
+          g.beginPath();
+          g.moveTo(x, y);
+          g.quadraticCurveTo(x + px(ax * L * 0.8), y + px(ay * L * 0.8), x + px(ax * L), y + px(ay * L));
+          g.quadraticCurveTo(x + px(mx * (L + 0.35)), y + px(my * (L + 0.35)), x + px(bx * L), y + px(by * L));
+          g.quadraticCurveTo(x + px(bx * L * 0.8), y + px(by * L * 0.8), x, y);
+          g.fill();
+        }
+        // drifting spore puffs (from the step number: no randomness)
+        g.fillStyle = '#f2ffd6aa';
+        for (let i = 0; i < 9; i++) {
+          const a = ((i * 53 + S.step * 2) % 61) - 30;
+          const r = 0.4 + (((i * 37 + S.step) % 90) / 90) * 2.0;
+          const [dx, dy] = dir(S.k + a);
+          g.beginPath();
+          g.arc(x + px(dx * r), y + px(dy * r), 3 + (i % 3), 0, Math.PI * 2);
+          g.fill();
+        }
+        S.face = S.k;
+      }
+      const f = S.flask;
+      if (f) {
+        const u = f.t / 24;
+        const fx = px(f.x0 + (f.x1 - f.x0) * u);
+        const fy = px(f.y0 + (f.y1 - f.y0) * u) - Math.sin(u * Math.PI) * 26;
+        g.fillStyle = '#80ed99';
+        g.strokeStyle = '#2f6b45';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.arc(fx, fy, 6, 0, Math.PI * 2);
+        g.fill();
+        g.stroke();
+        g.fillStyle = C.gold;
+        g.fillRect(fx - 2, fy - 10, 4, 4);
+      }
+      if (S.splash) {
+        g.fillStyle = `rgba(143,209,79,${0.45 * (S.splash.t / 12)})`;
+        g.beginPath();
+        g.arc(px(S.splash.x), px(S.splash.y), px(1.1), 0, Math.PI * 2);
+        g.fill();
+      }
+    },
+  },
+  {
+    id: 'static', pose: (S) => (S.webs || []).some((wb) => wb.zapT > 2 && wb.m.length >= 3), n: 12, name: 'Static Web', batch: 5,
+    does: 'Raika, Storm Rhythm T4-5. Her bolt still jumps from enemy to enemy. The enemies it struck then stay linked by static for 2 s, and a zap runs along the links 4 times a second. Links snap when enemies drift apart.',
+    suits: 'Built on Spirit Tether (its group record and tie walk), without sharing other girls\' hits (that stays Ena\'s). A lone enemy gets no web.',
+    range: 3.2,
+    step(S) {
+      S.webs ??= [];
+      if (S.step % 70 === 0) {
+        const tgt = firstInRange(S, 3.2);
+        if (tgt) {
+          S.face = aimAt(tgt);
+          // the chain: nearest unstruck walker within 1.6 tiles of the last, 4 jumps, ties by uid
+          const m = [tgt];
+          let cur = tgt;
+          for (let j = 0; j < 4; j++) {
+            let best = null;
+            for (const w of S.walkers) {
+              if (m.includes(w) || d2(w.x, w.y, cur.x, cur.y) > 1.6 * 1.6) continue;
+              if (!best || d2(w.x, w.y, cur.x, cur.y) < d2(best.x, best.y, cur.x, cur.y)) best = w;
+            }
+            if (!best) break;
+            m.push(best);
+            cur = best;
+          }
+          for (const w of m) hit(w, C.gold);
+          S.bolt = { pts: [[GIRL.x, GIRL.y], ...m.map((w) => [w.x, w.y])], t: 9 };
+          const mine = S.webs.find((wb) => wb.m.includes(tgt.uid));
+          if (mine) mine.left = 120;
+          else if (m.length >= 2) {
+            S.webs.push({ m: m.map((w) => w.uid), left: 120, zapCd: 15, zapT: 0 });
+            if (S.webs.length > 4) S.webs.shift();
+          }
+        }
+      }
+      for (const wb of S.webs) {
+        wb.left--;
+        if (wb.zapT > 0) wb.zapT--;
+        // members that left the road or drifted more than 2.4 tiles from the previous member drop out
+        const ms = [];
+        for (const u of wb.m) {
+          const w = S.walkers.find((q) => q.uid === u);
+          if (!w) continue;
+          const prev = ms[ms.length - 1];
+          if (prev && d2(prev.x, prev.y, w.x, w.y) > 2.4 * 2.4) continue;
+          ms.push(w);
+        }
+        wb.m = ms.map((w) => w.uid);
+        if (--wb.zapCd <= 0) {
+          wb.zapCd = 15;
+          wb.zapT = 5;
+          for (const w of ms) hit(w, '#fff3a3');
+        }
+      }
+      S.webs = S.webs.filter((wb) => wb.left > 0 && wb.m.length >= 2);
+      if (S.bolt && --S.bolt.t <= 0) S.bolt = null;
+    },
+    draw(g, S) {
+      const zig = (ax, ay, bx, by, seed, w, col) => {
+        const n = 6;
+        const dx = bx - ax;
+        const dy = by - ay;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        g.strokeStyle = col;
+        g.lineWidth = w;
+        g.beginPath();
+        g.moveTo(ax, ay);
+        for (let i = 1; i < n; i++) {
+          const o = (((seed * 7 + i * 13) % 5) - 2) * 2.2;
+          g.lineTo(ax + (dx * i) / n - (dy / len) * o, ay + (dy * i) / n + (dx / len) * o);
+        }
+        g.lineTo(bx, by);
+        g.stroke();
+      };
+      for (const wb of S.webs || []) {
+        const ms = wb.m.map((u) => S.walkers.find((w) => w.uid === u)).filter(Boolean);
+        for (let i = 1; i < ms.length; i++) {
+          const a = ms[i - 1];
+          const b = ms[i];
+          const seed = (S.step >> 2) + i;
+          zig(px(a.x), px(a.y), px(b.x), px(b.y), seed, 4, '#5b3a5e66');
+          zig(px(a.x), px(a.y), px(b.x), px(b.y), seed, wb.zapT > 0 ? 3 : 1.6, wb.zapT > 0 ? '#fff3a3' : '#f2c14ecc');
+        }
+      }
+      if (S.bolt) {
+        const p = S.bolt.pts;
+        for (let i = 1; i < p.length; i++) zig(px(p[i - 1][0]), px(p[i - 1][1]), px(p[i][0]), px(p[i][1]), i + S.bolt.t, 3, `rgba(255,236,140,${S.bolt.t / 9})`);
+      }
+    },
+  },
+  {
+    id: 'crescent', pose: (S) => S.waves?.some((c) => c.leg === 1 && c.left < 2.2), n: 13, name: 'Crescent Return', batch: 5,
+    does: 'Rei, Whirlwind T4-5. Every sweep still cuts everything in her reach. It also sends a crescent of air out past her reach, which turns and comes back, cutting walkers on the road beyond. It skips the ones her sweep just cut.',
+    suits: 'Built on Homecoming Throw (a straight throw: exact reversal, a fresh hit list on the way home). A boss held in her reach takes exactly what it takes today.',
+    range: 1.8,
+    step(S) {
+      S.waves ??= [];
+      if (S.step % 60 === 0) {
+        const struck = S.walkers.filter((w) => inRange(w, 1.8));
+        if (struck.length) {
+          for (const w of struck) hit(w, '#ffd1e3');
+          S.slash = 10;
+          const lead = firstInRange(S, 1.8);
+          const k = aimAt(lead);
+          S.face = k;
+          const skip = struck.map((w) => w.uid);
+          S.waves.push({ x: GIRL.x, y: GIRL.y, vx: DIR_X[k] * 8 * STEP, vy: DIR_Y[k] * 8 * STEP, left: 3.8, leg: 0, skip, hits: [...skip], cuts: 0, age: 0 });
+        }
+      }
+      if (S.slash > 0) S.slash--;
+      for (const c of S.waves) {
+        c.x += c.vx;
+        c.y += c.vy;
+        c.age++;
+        c.left -= 8 * STEP;
+        for (const w of S.walkers) {
+          if (c.cuts >= 6 || c.hits.includes(w.uid) || d2(c.x, c.y, w.x, w.y) > 0.5 * 0.5) continue;
+          c.hits.push(w.uid);
+          c.cuts++;
+          hit(w, c.leg ? '#ffc2d6' : '#ffffff');
+        }
+        if (c.left <= 0) {
+          if (c.leg === 0) {
+            c.leg = 1;
+            c.vx = -c.vx; // exact negation, no trig
+            c.vy = -c.vy;
+            c.left = 3.8;
+            c.hits = [...c.skip];
+            c.cuts = 0;
+          } else c.done = true;
+        }
+      }
+      S.waves = S.waves.filter((c) => !c.done);
+    },
+    draw(g, S) {
+      if (S.slash > 0) {
+        g.strokeStyle = `rgba(255,209,227,${S.slash / 10})`;
+        g.lineWidth = 5;
+        g.beginPath();
+        g.arc(px(GIRL.x), px(GIRL.y), px(1.8) * (1 - S.slash / 30), 0, Math.PI * 2);
+        g.stroke();
+      }
+      for (const c of S.waves || []) {
+        const sp = Math.sqrt(c.vx * c.vx + c.vy * c.vy);
+        const ux = c.vx / sp;
+        const uy = c.vy / sp;
+        const ang = Math.atan2(uy, ux);
+        g.save();
+        g.translate(px(c.x), px(c.y));
+        g.rotate(ang);
+        g.fillStyle = c.leg ? '#ffc2d6cc' : '#ffe3eecc';
+        g.strokeStyle = '#d0608f';
+        g.lineWidth = 1.5;
+        g.beginPath();
+        g.arc(-6, 0, 16, -1.1, 1.1);
+        g.arc(-12, 0, 13, 1.0, -1.0, true);
+        g.closePath();
+        g.fill();
+        g.stroke();
+        g.restore();
+      }
+    },
+  },
+  {
+    id: 'moonsweep', pose: (S) => S.beams && S.pass && S.pass.i >= 12 && S.pass.hits.length > (S.pass.struck ?? 0), n: 14, name: 'Moonbeam Sweep', batch: 5,
+    does: 'Luna (hero), Lv 22 and Lv 25. Her moon beams still flash at her targets. A held moonbeam also swings across them, one side to the other with every volley and back on the next; from Lv 25 a second one swings the other way.',
+    suits: 'Built on Searchlight Sweep, with one pass per volley. Each walker is struck once a pass, and her beams\' own victims are skipped.',
+    range: 3.6,
+    step(S) {
+      const R = 3.6;
+      const ARC = 30; // ±45°
+      if (S.step % 50 === 0) {
+        const tgts = S.walkers.filter((w) => inRange(w, R)).sort((a, b) => b.dist - a.dist).slice(0, 3);
+        if (tgts.length) {
+          // her live volley: three straight beams, each piercing 3 along its line
+          const lines = [];
+          const struck = [];
+          for (const tg of tgts) {
+            const k = aimAt(tg);
+            lines.push(k);
+            let n = 0;
+            for (const w of [...S.walkers].sort((a, b) => d2(a.x, a.y, GIRL.x, GIRL.y) - d2(b.x, b.y, GIRL.x, GIRL.y))) {
+              const ex = w.x - GIRL.x;
+              const ey = w.y - GIRL.y;
+              const t = ex * DIR_X[k] + ey * DIR_Y[k];
+              const cr = ex * DIR_Y[k] - ey * DIR_X[k];
+              if (n < 3 && t > 0 && t <= R && cr * cr <= 0.3 * 0.3 && !struck.includes(w.uid)) {
+                struck.push(w.uid);
+                n++;
+                hit(w, '#e6dcff');
+              }
+            }
+          }
+          S.beams = { lines, t: 22 };
+          S.c = aimAt(tgts[0]);
+          S.face = S.c;
+          // a pass: from the side the last one ended to the other, 36 steps, 2 × ARC table steps
+          S.side = S.side === 1 ? -1 : 1;
+          S.pass = { i: 0, from: -S.side * ARC, to: S.side * ARC, hits: [...struck], struck: struck.length };
+        }
+      }
+      if (S.beams && --S.beams.t <= 0) S.beams = null;
+      const p = S.pass;
+      if (!p) return;
+      if (p.i < 36) p.i++;
+      // Bresenham-style integer swing: the offset after i of 36 steps
+      S.k = wrapDir(S.c + p.from + Math.floor(((p.to - p.from) * p.i) / 36));
+      if (S.step % 2 === 0) {
+        const [dx, dy] = dir(S.k);
+        for (const w of S.walkers) {
+          if (p.hits.includes(w.uid)) continue;
+          const ex = w.x - GIRL.x;
+          const ey = w.y - GIRL.y;
+          let t = ex * dx + ey * dy;
+          t = Math.max(0, Math.min(R, t));
+          if (d2(w.x, w.y, GIRL.x + dx * t, GIRL.y + dy * t) > 0.3 * 0.3) continue;
+          p.hits.push(w.uid);
+          hit(w, '#c3b4e9');
+        }
+      }
+    },
+    draw(g, S) {
+      const x = px(GIRL.x);
+      const y = px(GIRL.y);
+      if (S.pass && S.k != null) {
+        const [ax, ay] = dir(S.k - 4);
+        const [bx, by] = dir(S.k + 4);
+        g.fillStyle = '#d9ceff55';
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x + px(ax * 3.6), y + px(ay * 3.6));
+        g.lineTo(x + px(bx * 3.6), y + px(by * 3.6));
+        g.fill();
+        const [dx, dy] = dir(S.k);
+        g.strokeStyle = '#f3eeff';
+        g.lineWidth = 3;
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x + px(dx * 3.6), y + px(dy * 3.6));
+        g.stroke();
+      }
+      if (S.beams) {
+        for (const k of S.beams.lines) {
+          const [dx, dy] = dir(k);
+          g.strokeStyle = `rgba(150,136,255,${Math.min(1, S.beams.t / 12)})`;
+          g.lineWidth = 4;
+          g.beginPath();
+          g.moveTo(x, y);
+          g.lineTo(x + px(dx * 3.6), y + px(dy * 3.6));
+          g.stroke();
+        }
+      }
+    },
+  },
+  {
+    id: 'charms', pose: (S) => (S.shots || []).filter((p) => !p.lead).length >= 8 && S.shots.some((p) => !p.lead && p.age >= 8), n: 15, name: 'Charm Wheel', batch: 5,
+    does: 'Miko, Purification T4-5. Her three talismans still fly at her targets (at T5 her mirror\'s beam flashes). A wheel of 9 paper charms (12 at T5) also bursts out all round her, and each throw\'s wheel sits 15° further round, so it turns.',
+    suits: 'Built on Blossom Wheel (spokes only, her own throw is the lead) with a turn from her throw count. Each charm cuts the first enemy it meets, skipping her talismans\' victims.',
+    range: 2.8,
+    step(S) {
+      S.wheelK ??= 0;
+      if (S.step % 60 === 0) {
+        const tgts = S.walkers.filter((w) => inRange(w, 2.8)).sort((a, b) => b.dist - a.dist).slice(0, 3);
+        if (tgts.length) {
+          const k0 = aimAt(tgts[0]);
+          S.face = k0;
+          S.struck = [];
+          for (const tg of tgts) shoot(S, aimAt(tg), { lead: true, pierce: 3, speed: 12, travel: 2.8, kind: 'talisman' });
+          // spokes i = 1..9 of 10 evenly round from her target's direction (none down her own line), turned by wheelK
+          for (let i = 1; i <= 9; i++) shoot(S, k0 + Math.floor((i * N) / 10) + S.wheelK, { pierce: 1, speed: 10, travel: 2.8, kind: 'charm' });
+          S.wheelK = wrapDir(S.wheelK + 10);
+          S.bloom = 12;
+        }
+      }
+      if (S.bloom > 0) S.bloom--;
+      stepShots(S, (w, p) => {
+        if (p.lead) {
+          S.struck.push(w.uid);
+          hit(w, '#ffffff');
+        } else hit(w, '#ffd6e7');
+      });
+      // charms pass through her talismans' victims without cutting them (the skip)
+      for (const p of S.shots || []) if (!p.lead) p.hits = [...new Set([...p.hits, ...(S.struck || [])])];
+    },
+    draw(g, S) {
+      if (S.bloom > 0) {
+        g.strokeStyle = `rgba(208,56,74,${S.bloom / 16})`;
+        g.lineWidth = 2;
+        g.beginPath();
+        g.arc(px(GIRL.x), px(GIRL.y), 12 + (12 - S.bloom) * 1.5, 0, Math.PI * 2);
+        g.stroke();
+      }
+      drawShots(g, S, (g2, p, x, y, ux, uy) => {
+        g2.save();
+        g2.translate(x, y);
+        g2.rotate(Math.atan2(uy, ux) + Math.PI / 2 + (p.lead ? 0 : p.age * 0.25));
+        const w = p.lead ? 6 : 4.5;
+        const h = p.lead ? 12 : 9;
+        g2.fillStyle = '#fffaf0';
+        g2.strokeStyle = '#d0384a';
+        g2.lineWidth = 1.5;
+        g2.fillRect(-w / 2, -h / 2, w, h);
+        g2.strokeRect(-w / 2, -h / 2, w, h);
+        g2.fillStyle = '#d0384a';
+        g2.fillRect(-w / 2 + 1, -h / 2 + 2, w - 2, 1.5);
+        g2.restore();
+      });
+    },
+  },
+  {
+    id: 'toll', pose: (S) => (S.tolls || []).some((r) => r.r > 0.5 && r.r < 0.9) && S.bells.length >= 2, n: 16, name: 'Bell Toll', batch: 5,
+    does: 'Suzu, Explosive Mines T4-5. Her bells still go off when stepped on. Every bell also rings as it arms and then on its own beat, every 1.5 s, sending a gold shock ring across the road around it; walkers it crosses hop.',
+    suits: 'Built on Ripple Quake, from each armed bell instead of from her. A ring never sets a bell off, and tolls do not count as explosions for her Potential rhythms.',
+    range: 2.6,
+    step(S) {
+      S.bells ??= [];
+      S.tolls ??= [];
+      // her live trap kit: a bell every 40 steps on the next free road spot in her range, at most 5, armed after 30 steps
+      const SPOTS = [1.6, 5.3, 10.8, 3.8, 12.6, 14.4];
+      if (S.step % 40 === 0 && S.bells.length < 5) {
+        // the next spot in turn (a cursor), so bells spread along the road
+        S.spot = ((S.spot ?? -1) + 1) % SPOTS.length;
+        const d = SPOTS[S.spot];
+        if (!S.bells.some((b) => b.d === d)) {
+          const p = pointAt(d);
+          S.bells.push({ d, x: p.x, y: p.y, arm: 30, tollCd: 0 });
+        }
+      }
+      for (const b of S.bells) {
+        if (b.arm > 0) {
+          if (--b.arm === 0) b.tollCd = 1; // the first toll as it arms, then every 90 steps
+          continue;
+        }
+        // the toll first (its own clock from when it armed), then the trigger, so a bell stepped on as it arms still rings
+        if (--b.tollCd <= 0) {
+          b.tollCd = 90;
+          b.ring = 10;
+          S.tolls.push({ x: b.x, y: b.y, r: 0, hit: [] });
+        }
+        if (b.ring > 0) b.ring--;
+        // stepped on: the bell goes off (her live blast)
+        const on = S.walkers.find((w) => d2(w.x, w.y, b.x, b.y) <= 0.6 * 0.6);
+        if (on) {
+          for (const w of S.walkers) if (d2(w.x, w.y, b.x, b.y) <= 0.9 * 0.9) hit(w, C.fire2);
+          S.boom = { x: b.x, y: b.y, t: 12 };
+          b.gone = true;
+        }
+      }
+      S.bells = S.bells.filter((b) => !b.gone);
+      for (const ring of S.tolls) {
+        const prev = ring.r;
+        ring.r = Math.min(1.2, ring.r + 6 * STEP);
+        for (const w of S.walkers) {
+          const dd = d2(w.x, w.y, ring.x, ring.y);
+          if (ring.hit.includes(w.uid) || dd <= prev * prev || dd > ring.r * ring.r) continue;
+          ring.hit.push(w.uid);
+          w.hop = 12;
+          hit(w, '#ffe08a');
+        }
+      }
+      S.tolls = S.tolls.filter((r) => r.r < 1.2);
+      if (S.boom && --S.boom.t <= 0) S.boom = null;
+    },
+    draw(g, S) {
+      for (const ring of S.tolls || []) {
+        const a = 1 - ring.r / 1.2;
+        g.strokeStyle = `rgba(233,196,106,${0.35 + 0.6 * a})`;
+        g.lineWidth = 3.5;
+        g.beginPath();
+        g.arc(px(ring.x), px(ring.y), px(ring.r), 0, Math.PI * 2);
+        g.stroke();
+      }
+      if (S.boom) {
+        g.fillStyle = `rgba(255,211,106,${0.6 * (S.boom.t / 12)})`;
+        g.beginPath();
+        g.arc(px(S.boom.x), px(S.boom.y), px(0.9) * (1.2 - S.boom.t / 24), 0, Math.PI * 2);
+        g.fill();
+      }
+      for (const b of S.bells || []) {
+        const x = px(b.x);
+        const y = px(b.y);
+        const wob = b.ring > 0 ? Math.sin(b.ring * 1.6) * 0.35 : 0;
+        g.save();
+        g.translate(x, y);
+        g.rotate(wob);
+        g.fillStyle = b.arm > 0 ? '#e9c46a88' : '#e9c46a';
+        g.strokeStyle = '#8a6a1f';
+        g.lineWidth = 1.5;
+        g.beginPath();
+        g.moveTo(-7, 5);
+        g.quadraticCurveTo(-7, -8, 0, -8);
+        g.quadraticCurveTo(7, -8, 7, 5);
+        g.closePath();
+        g.fill();
+        g.stroke();
+        g.fillStyle = '#3f9a96';
+        g.beginPath();
+        g.arc(0, 6, 2.2, 0, Math.PI * 2);
+        g.fill();
+        g.restore();
+      }
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------- cards and loop
 const grid = document.getElementById('grid');
-const BATCH = { 1: 'S1 Wheels', 2: 'S2 Held', 3: 'S3 Ground', 4: 'S4 Links' };
-const cards = SHAPES.map((sh) => {
+const BATCH = { 1: 'S1 Wheels', 2: 'S2 Held', 3: 'S3 Ground', 4: 'S4 Links', 5: 'S5 proposal' };
+// ?set=s5: only the six S5 proposals (docs/specs/ATTACK_SHAPES_S5.md), the page the S5 phone board is made from
+const SET = Q.get('set');
+if (SET === 's5') {
+  document.title = 'Attack Shapes S5 Board';
+  document.querySelector('h1').innerHTML = 'Attack shapes S5 <span>— six more girls</span>';
+  document.querySelector('header p').textContent = 'Mock-ups of the S5 proposal on the sample road: the pink girl in the middle, plum dots walking. Each girl keeps the attack she has today and the shape is added on top. Timing, reach and turning follow the S5 spec at real speed.';
+  document.querySelector('footer').innerHTML = 'Proposal, not built. Plain look first; the polished look comes with the effects update. Spec: <b>docs/specs/ATTACK_SHAPES_S5.md</b>.';
+}
+const SHOWN = SET === 's5' ? SHAPES.filter((sh) => sh.batch === 5) : SHAPES;
+const cards = SHOWN.map((sh) => {
   const el = document.createElement('section');
   el.className = 'card';
   el.innerHTML = `<canvas width="${px(BW) * DPR}" height="${px(BH) * DPR}"></canvas>
