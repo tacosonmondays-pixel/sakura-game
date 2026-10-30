@@ -486,6 +486,8 @@ export function unitBattleStats(profile, unitId) {
   const critMul = 1 + Math.min(C.critDmg, g.critDmg);
   let avgCrit = averageCrit(critChance, (UNIT_MAP[unitId]?.base?.crit?.mul || 1.5) * critMul);
   const dead = fillStats(unitId, { awaken: unit.awaken || 0, potential: potentialLevel(unit) });
+  // (the aura girls' crit lines fill into their aura: never both, so no average crit for them)
+  if (fill.target === 'aura' && (dead.has('critChance') || dead.has('critDmg'))) avgCrit = 1;
   if (fill.target === 'atk' && (dead.has('critChance') || dead.has('critDmg'))) {
     const alt = gearFillIn(prof, unitId, { skip: ['critChance', 'critDmg'] });
     if ((1 + g.atkPct + alt.total) * avgCrit > 1 + g.atkPct + fill.total) fill = alt;
@@ -503,7 +505,8 @@ export function unitBattleStats(profile, unitId) {
   // five Blank LR pieces double the cap's bonus part (×2.0 → ×3.0)
   const dotCap = set.blankN >= 5 ? 1 + 2 * (dotBase - 1) : dotBase;
   // her ⚡ ability's haste: half her capped Skill Haste; Power Bank's set cap gives it half of all of it (§3.2)
-  const abilHaste = Math.min(ABIL_HASTE_CEIL, 0.5 * Math.min(C.ultHaste, g.ultHaste));
+  // (rounded as before the sets: 0.5 × her rounded haste, so no existing girl's charge per tick moves)
+  const abilHaste = Math.min(ABIL_HASTE_CEIL, 0.5 * r4(Math.min(C.ultHaste, g.ultHaste)));
   // Party Popper's set cap: her blasts read all her Pierce up to 500 % (shots keep the cap)
   const blastK = set.set === 'popper' && set.setN >= 5 ? Math.min(BLAST_K_MAX, Math.round(100 * Math.min(C.piercePct, g.piercePct))) : 0;
   // what only the set cap lifts stays at her LR-raised cap for the rest of her kit: her hero ult's haste (the battle
@@ -536,7 +539,7 @@ export function unitBattleStats(profile, unitId) {
     critCeil: C.critChance > 1 ? 2 : 1,
     buffDurMul: r4(1 + Math.min(C.buffDurPct, g.buffDurPct)),
     controlMul: r4(1 + Math.min(C.controlPct, g.controlPct)),
-    abilHaste: r4(abilHaste),
+    abilHaste,
     blastK,
     avgCrit: r4(avgCrit),
     awakenPassive: stars >= 3,

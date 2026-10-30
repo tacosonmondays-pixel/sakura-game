@@ -283,6 +283,9 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
     rewards.push(...split.items);
     const pity = celestialRun(profile, stage.id, payAt, split.gear);
     out.gear = pity ? [...split.gear, pity] : split.gear;
+    // (a mode win is a win: the set post-roll too, GEAR_UPDATE.md §3.6)
+    const modeSet = setPostRoll(profile, stage, payAt, rng, now.getTime());
+    if (modeSet) out.gear = [...out.gear, modeSet];
     tick('battleWin', 1);
     if (diffIndex(payAt) >= diffIndex('hard')) tick('battleWinHard', 1);
     if (stage.kind === 'boss') tick('assaultClear', 1);
@@ -345,7 +348,7 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
 
   out.sandboxUnlocked = clearsBefore < SANDBOX_UNLOCK_CLEARS && campaignClears(profile) >= SANDBOX_UNLOCK_CLEARS;
   // the welcome Mythic Set Box once Titan Trials open (3-5 cleared; src/systems/gearSets.js)
-  if (won) rewards.push(...grantSetBoxGifts(profile, { add: false }));
+  if (won) rewards.push(...grantSetBoxGifts(profile, { mode: 'list' }));
   if (stage.kind === 'event') Object.assign(out, eventAfterBattle(profile, stage, { won, firstClear: out.firstClear, newMedal: out.newMedal, difficulty, totalKills, now: now.getTime() }));
   out.rewards = addItems(profile, rewards);
   out.gemsEarned = out.rewards.reduce((a, r) => a + (r.id === 'gems' ? r.count : 0), 0);

@@ -25,8 +25,8 @@ import { isStageCleared } from './unlocks.js';
 import { track } from './missions.js';
 import { fuseShards } from './essence.js';
 import { breakthroughCost, MAX_BREAKTHROUGH, BASE_GATES } from './progression.js';
-import { TITAN_SETS } from './gearSets.js';
-import { setBoxId } from '../data/gearAwaken.js';
+import { TITAN_SETS } from '../data/gearSets.js';
+import { grantSetBoxGifts } from './gearSets.js';
 import { rollTitanRewards, firstClearRewards, grantGearBox, notchFor, titanDropSeed, METER_KEY, RAINBOW_METER } from './titanRewards.js';
 
 export const WEEKLY_KEYS = 12;
@@ -248,8 +248,9 @@ export function applyTitanResult(profile, r, { now = Date.now() } = {}) {
       if (!cnt(profile, fcKey)) {
         const fc = firstClearRewards(tier, rank, target);
         items.push(...fc.items);
-        // Nightmare's first-clear Legendary box becomes that titan's Legendary Set Box (§3.6)
-        boxes.push(...(tier === 'nightmare' ? fc.boxes.map((b) => (b === 'legendary' && TITAN_SETS[titanId] ? setBoxId(TITAN_SETS[titanId], 'legendary') : b)) : fc.boxes));
+        // Nightmare's first-clear Legendary box becomes that titan's Legendary Set Box, paid by the one-time box check
+        // below (su:titanbox:<titan>, §5.3), never on its own
+        boxes.push(...(tier === 'nightmare' && TITAN_SETS[titanId] ? fc.boxes.filter((b) => b !== 'legendary') : fc.boxes));
         out.firstClear = fc;
         c[fcKey] = 1;
       }
@@ -281,6 +282,8 @@ export function applyTitanResult(profile, r, { now = Date.now() } = {}) {
   profile.stats ||= {};
   profile.stats.battles = whole(profile.stats.battles) + 1;
   if (victory) profile.stats.wins = whole(profile.stats.wins) + 1;
+  // the one-time Set Boxes this result makes owed (a Nightmare first clear: that titan's; §5.3)
+  items.push(...grantSetBoxGifts(profile, { mode: 'list' }));
   const g = grantAll(profile, normalizeList(items), boxes, rng, TITAN_SETS[titanId]);
   out.rewards = g.rewards;
   out.gear = g.gear;

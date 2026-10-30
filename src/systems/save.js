@@ -4,9 +4,9 @@
 
 import { UNIT_MAP, UNITS } from '../data/units.js';
 import { ITEMS } from '../data/items.js';
-import { ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE } from '../data/types.js';
+import { ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE, GEAR_STATS } from '../data/types.js';
 import { SUB_STAT_KEYS, NEW_STAT_SLOT, newStatFits } from '../data/gearStats.js';
-import { SLOT_IDS, MAIN_STATS_BY_SLOT, slotName, emptySlots } from '../data/gearSlots.js';
+import { SLOT_IDS, MAIN_STATS_BY_SLOT, isNewSlot, slotName, emptySlots } from '../data/gearSlots.js';
 import { isSet, SET_RARITIES } from '../data/gearSets.js';
 import { CLUB_IDS, CLUB_RARITIES } from '../data/clubs.js';
 import { UR_MAX_LEVEL, LR_MAX_LEVEL, LR_SET, LR_BLANK, MARK } from '../data/gearAwaken.js';
@@ -146,8 +146,6 @@ export function createProfile() {
   // [story] this save was created with the story: an older build that drops profile.story keeps
   // this mark (missions.counters), so the block comes back as a new player's, never as legacy
   missions.counters[STORY_NEW_MARK] = 1;
-  // [gear update] born after the sets update: no veterans' Set Boxes (gearSets.js grantSetBoxGifts)
-  missions.counters[MARK.veteran] = 1;
   const p = {
     version: SAVE_VERSION,
     createdAt: now,
@@ -269,6 +267,9 @@ function cleanUnit(raw, now, unitId) {
     ...(raw.pl != null ? { pl: int(raw.pl, 1, 1, 6) } : {}),
     skin: cleanSkins(raw.skin, unitId),
     ...presets,
+    // [accessories A0] her accessory, an item id of its own (docs/specs/ACCESSORIES.md §2, never in `gear` or a
+    // loadout): kept as it is until the accessories ship; an older build drops it
+    ...(typeof raw.accItem === 'string' && /^acc_[a-z0-9_]{1,36}$/.test(raw.accItem) ? { accItem: raw.accItem } : {}),
   };
 }
 
@@ -278,7 +279,9 @@ function cleanUnit(raw, now, unitId) {
  * line marks: `night` (the Nightglass ✦, LR only, never in `tuned`) and `top` (a pin: the base is its best roll).
  */
 function cleanStat(raw, { sub = false, slot = null } = {}) {
-  if (!isObj(raw) || !(sub ? SUB_STAT_KEYS.includes(raw.stat) : MAIN_STATS_BY_SLOT[slot]?.includes(raw.stat))) return null;
+  // (a classic slot keeps main's rule, any of today's eight stats; the Hair Clip and the Necklace check their pool)
+  const mainOk = isNewSlot(slot) ? MAIN_STATS_BY_SLOT[slot].includes(raw.stat) : !!GEAR_STATS[raw.stat];
+  if (!isObj(raw) || !(sub ? SUB_STAT_KEYS.includes(raw.stat) : mainOk)) return null;
   const out = { stat: raw.stat, value: num(raw.value, 0, 0) };
   if (raw.base != null) out.base = num(raw.base, out.value, 0);
   if (raw.upgrades != null) out.upgrades = int(raw.upgrades, 0, 0, 10);
@@ -680,8 +683,8 @@ export function migrateProfile(raw) {
   // [gear update] teams and gear loadouts an older build dropped come back from 'tm:' / 'gp:'; present fields win
   // (the formation is the active team, what she wears is her active loadout), and the mirrors are rewritten
   restoreTeams(p);
-  // [gear update] the veterans' Set Boxes once (su:vet) and the welcome Set Box for a save past 3-5 (gearSets.js)
-  grantSetBoxGifts(p);
+  // [gear update] the one-time Set Boxes owed (su:welcome, su:titanbox:<titan>; gearSets.js), in one letter
+  grantSetBoxGifts(p, { mode: 'mail', now });
   // [ascension] bought Potential, gates 6–10 and the Ascension items an older build dropped, then the
   // one-time switch to Essence (counted duplicates become Potential for free + the welcome pouch)
   restoreAscension(p);

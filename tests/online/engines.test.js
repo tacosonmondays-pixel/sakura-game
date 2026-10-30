@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runSetBattle, runGlowBowlBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 import { launchAttempts } from '../../e2e/browser.mjs';
 
 // T3 review coop-3: e2e/engines.mjs only ever tried Playwright's own browsers, so on a machine without
@@ -288,6 +288,27 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // on V8 and JavaScriptCore). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, iroha: r.iroha })
       .toEqual({ ticks: 54615, state: 'won', wallets: '5521/5179', final: 3900917007, hashes: '7ad51e89', iroha: '572/522/885' });
+  }, 240000);
+
+  it('runs the gear sets (SET_START: every set\'s passive and set cap, super crits) in sync, its checkpoint replaying', () => {
+    const r = runSetBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.cleared).toBe(14);
+    // every passive ran: Right Angle, Confetti Burst and Big Cheer as tricks, crit over 100 % as super crits, You're It
+    // on hit enemies, Bake Sale's coins, Supercharge's lance
+    for (const k of ['aoi:rightAngle', 'hana:confetti', 'noa:cheer']) expect(r.sets, k).toMatch(new RegExp(`${k}=[1-9]`));
+    expect(r.superCrits).toBeGreaterThan(0);
+    expect(r.itHits).toBeGreaterThan(0);
+    expect(r.baked).toBeGreaterThan(0);
+    expect(r.byId).toMatch(/seiran\.stormLance [1-9]/);
+    expect(r.ckWave).toBe(8);
+    expect(r.ckSame).toBe(true);
+    expect(r.checkpoints).toBeGreaterThan(100);
+    expect(runSetBattle().final).toBe(r.final);
+    // pinned when the scenario landed (GEAR_UPDATE.md M2 review): change only with a deliberate sim / data change, and say why
+    expect({ ticks: r.ticks, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, sets: r.sets, superCrits: r.superCrits, itHits: r.itHits, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
+      .toEqual({ ticks: 50043, wallets: '579/792', lives: 100, final: 545400673, hashes: 'ed5275a5', sets: 'aoi:rightAngle=31 hana:confetti=36 noa:cheer=36', superCrits: 146, itHits: 1132, ckDigest: 'f7ecf5de', finalDigest: 'b35a0ce8' });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

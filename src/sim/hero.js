@@ -14,7 +14,7 @@
 import { BATTLE } from '../data/types.js';
 import { HERO_XP_STEPS, HERO_LEVEL_PRICES, HERO_XP, HERO_MOVE } from '../data/heroTracks.js';
 import { ULT_INITIAL_CHARGE, KNOCKBACK_RESIST, DEFAULT_UNIT_STATS, HERO_MOVE_CD_MIN, HERO_MOVE_DOWNTIME_MIN } from './constants.js';
-import { buffDur, statusCtxFor } from './setRules.js';
+import { buffDur, statusCtxFor, pushMul } from './setRules.js';
 import { SKILL_HASTE_CAP, ULT_HASTE_MAX } from './gearRules.js';
 import { normalizeBase } from './mods.js';
 import { applyStatus } from './status.js';
@@ -450,7 +450,7 @@ export function activateUlt(sim) {
     for (const e of victims) {
       sim._hit(e, h, spec, 1);
       if (e.dead) continue;
-      if (effect.pushback) pushBack(e, effect.pushback, sim.pathData[e.pathIndex]);
+      if (effect.pushback) pushBack(e, effect.pushback * pushMul(h.unitStats), sim.pathData[e.pathIndex]);
       if (effect.slow) applyStatus(e, { type: 'slow', amount: effect.slow, duration: effect.duration ?? 3 }, ctx);
     }
   } else if (effect.type === 'runner') {

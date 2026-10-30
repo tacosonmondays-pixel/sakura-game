@@ -87,11 +87,12 @@ export const MARK = Object.freeze({
   pieceMain: 'gpm:', // its main stat's base × 1e6
   pieceSub: 'gps:', // its substat i: stat, ▲, pin, ✦ bits, base
   pieceClub: 'gpc:', // its club index (never the legacy `gcl:`)
-  piecePaid: 'gpl:', // a box-born UR Hair Clip / Necklace: bit L = its +L → +L+1 (below +10) was paid at UR prices
   team: 'tm:', // teams: `tm:a` the active team, `tm:<team>:<unitId>` her place and loadout
   preset: 'gp:', // gear loadouts: `gp:<unitId>` active + 10 × count, `gp:<unitId>:<n>:<slot>` the piece
-  veteran: 'su:vet', // the veterans' one-time Set Boxes (the sets update)
   lrEver: 'ach:lrEver', // Limit Breaks ever (achievements "First Nightglass")
+  // the one-time Set Boxes (GEAR_UPDATE.md §5.3, r3): one mark per box, for veterans and new players alike
+  welcomeBox: 'su:welcome', // the welcome Mythic Set Box (Titan Trials open)
+  titanBox: 'su:titanbox:', // su:titanbox:<titan> — that titan's Legendary Set Box (its Nightmare first clear)
 });
 /** Items mirrored in `inv:` (an older build drops unknown item ids). */
 export const MIRRORED_ITEMS = Object.freeze([SEED_ID, NEEDLE_ID, ARMBAND_ID, ...GEAR_UPDATE_ITEM_IDS]);

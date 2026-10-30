@@ -168,6 +168,10 @@ export const LAB_SLOW_MAX = 0.5;
 export const LAB_ECON_SHARE = 0.3;
 /** A girl's interest at a wave clear (stats.income.interest × coins) pays at most this many coins (Momo). */
 export const INCOME_INTEREST_MAX = 150;
+/** Treasurer's 5-piece set cap lifts a girl's interest to at most this a wave (GEAR_UPDATE.md §3.2, r3 L16). */
+export const INCOME_INTEREST_SET_MAX = 5000;
+/** The most cash (pooled or one player's wallet) a battle holds: an overflow guard like Freeplay's hpMax (r3 L16). */
+export const CASH_MAX = 1e12;
 
 /** Seconds before the next wave auto-starts when options.autoStart is on. */
 export const AUTO_START_DELAY = 1.0;

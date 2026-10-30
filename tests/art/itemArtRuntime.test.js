@@ -209,7 +209,7 @@ describe('display only: the battle sim is untouched', () => {
     // levers; LR gear's guards PIERCE_K_MAX 300 and ULT_HASTE_MAX 0.75, the LR Set Forms; GEAR_UPDATE.md §10.1)
     // change the sim on protocol 13. The release assigns COOP_PROTOCOL, adds its KNOWN line and removes this
     // pin. Only this exact in-progress id passes here.
-    const PENDING_BUMP = { 13: '9fb25a1248dc' };
+    const PENDING_BUMP = { 13: 'd3d719fe8559' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     expect(simId().id).toBe(PENDING_BUMP[COOP_PROTOCOL] ?? KNOWN[COOP_PROTOCOL]);
   });
