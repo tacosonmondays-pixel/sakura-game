@@ -369,6 +369,6 @@ way across the map, so the light boss numbers rise most); r5 = fully maxed with 
 - Abilities are not in these numbers (the rulers are her attack only).
 
 **Perf** (`tests/sim/perf.test.js` "the long beam": 4 LR duos at Grand Spectrum, 16 held map-long beams, 200 walkers on
-6-3). Outside vitest, median of five: 0.11–0.21 ms a step before, 0.13–0.21 ms after (best 0.083 → 0.128). The vitest
-case read 2.38 ms on a machine at load 15–25, where the untouched ground-shapes case read 2.60 ms beside it; it passes
-its 2 ms budget on a quiet machine.
+6-3). Outside vitest, median of five: 0.11–0.21 ms a step before, 0.13–0.21 ms after (best 0.083 → 0.128). In vitest:
+0.289 ms a step against its 2 ms budget (one run under a full suite at load 15–25 read 2.38 ms, with the untouched
+ground-shapes case at 2.60 ms beside it).
