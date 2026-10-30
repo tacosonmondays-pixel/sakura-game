@@ -170,6 +170,7 @@ Then poll `version.json` until it shows the new version. Patch-note tests: `test
 - `npm test` (vitest, node environment, no DOM: test pure functions), `npm run e2e` (`e2e/smoke.mjs`). Browser scripts use `launchChromium()` from `e2e/browser.mjs`.
 - `tools/simId.mjs`: the sim id. `tools/bench.mjs`: one girl's DPS against test targets. `tools/capBot.mjs` / `tools/freeplayBot.mjs`: real-coin Freeplay runs that respect the path cap. `tools/heroTrack.mjs`: a hero's 25-level track. `tools/killcap.mjs`: board kill capacity.
 - Test-target numbers flatter splash and trap girls; settle close calls with real-coin runs.
+- **Balance gates (round 5, `docs/BALANCE.md`):** `tools/balance/noNerfGate.mjs` (no girl below live in any measured cell; run it in a live tree and on the branch, then `--compare`) and the LR bar (`tools/balance/lrBar.mjs`, `tests/sim/lrBar.test.js`: every LR build at least 1.25× the best non-LR build of any unit). When a non-LR unit is raised or merged, run `lrBar.mjs --bar` and re-pin `LR_BAR` from its BAR line. **When `feature/iroha-mirrors` merges:** run `tools/balance/irohaLayouts.mjs` (her best hand-placed mirror layouts), put its best boss and crowd in `lrBar.mjs` `KNOWN`, run `lrBar.mjs --bar`, re-pin `LR_BAR` and raise the LR rows if any LR build falls under 1.25×.
 
 ## 9. Published pages (owned by the original account)
 

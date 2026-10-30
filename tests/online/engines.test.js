@@ -347,8 +347,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // when hashSim began folding t.ch.px (gear Pierce, review fix): the battle itself is the same (same final). Change
     // only with a deliberate sim / data change, and say why.
     // Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10, Hotaru ×1.04): was 28655 / 4139458384 / 89dbb28e / 4148/881 (Umeko's row).
+    // Re-pinned Oct 30 (Akane's Inferno Queen stream 45° → 55° each side: from a corner her 2-5-0 crowd read ×0.92 of live):
+    // the same loss, wave, ticks, coins and rejoin; final 2141733565 → 844707250, hashes b8a0c27c → 322c2f61, held
+    // 4147/879 → 4167/873 (her wider cone reaches a few more of the stream)
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, held: r.held, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 28654, state: 'lost', wave: 16, wallets: '615/669', final: 2141733565, hashes: 'b8a0c27c', held: '4147/879', rejoinTick: 5568 });
+      .toEqual({ ticks: 28654, state: 'lost', wave: 16, wallets: '615/669', final: 844707250, hashes: '322c2f61', held: '4167/873', rejoinTick: 5568 });
   }, 240000);
 
   it('runs the attack shapes S3 (GROUND_START: Bramble Road, Rising Spikes, Ripple Quake) in sync, and a mid-wave rejoin lands on the run', () => {

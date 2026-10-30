@@ -360,40 +360,74 @@ without the owner's Oct 29 buff.
 **The LR bar** (the owner, Oct 30: "LRs should beat every character, that's the point"; `tools/balance/lrBar.mjs`,
 `tests/sim/lrBar.test.js`). Every LR build (the duo's Starfall, Grand Spectrum and Constellation, Tenka's Joint Research,
 Rail Arms and Singularity, all tier 5 in their LR form) must deal at least **1.25×** the best non-LR build of any unit,
-heroes included, on a crowd and on a boss, on the round-5 bench (fully maxed, Umeko + Midori, seeds 9/1/2; boss = the
-better of the held and the walking boss). `lrBar.mjs --bar` measures every non-hero unit's three tier-5 builds (an LR
-unit at UR, without her Limit Break), every hero at Lv 25 with Mastery full, and adds the numbers from other benches
-(`KNOWN`); `LR_BAR` pins the result and the test fails if any LR build falls under 1.25× it. Lower tiers never beat
-tier 5 on either axis (the no-nerf gate's fully maxed cells with supports).
+heroes included, on a crowd and on a boss. **The 1.25× margin is measured on the fixed round-5 bench** (fully maxed,
+Umeko 2-5-0 + Midori 5-0-2, seeds 9/1/2; boss = the better of the held and the walking boss); the bar it is measured
+against is the best non-LR number under any of seven support pairs (`PAIRS`: the bench's, Umeko + Chika 2-5-0, Umeko +
+Midori 2-0-5, Umeko + Miko 5-0-2, Midori 5-0-2 + Miko, Midori 2-0-5 + Chika, from the LR-bar review's single-support
+screen). `lrBar.mjs --bar` measures every non-hero unit's three tier-5 builds with both tier-2 crosspaths (an LR unit at
+UR, without her Limit Break) and every hero at Lv 25 with Mastery full on the bench, the top six per axis again under
+every pair, and the numbers from other benches (`KNOWN`); `LR_BAR` pins the max and the test fails if any LR build on
+the bench falls under 1.25× it. Lower tiers never beat tier 5 on either axis (the no-nerf gate's fully maxed cells with
+supports).
 
 | Bar, crowd | | Bar, boss | |
 |---|---:|---|---:|
-| **Akane 5-0-2 (SR)** | **16.47M** | **Iroha 5-0-2, best player layout** (`feature/iroha-mirrors` 7d1cc0bf, in review; on Auto 2.77M) | **5.96M** |
-| Tenka Joint Research at UR, full lab team (`labBench.mjs`) | 15.43M | Tenka Joint Research at UR, full lab team | 3.55M |
-| Hotaru 5-0-2 | 8.83M | the duo at UR, Starfall 5-0-2 | 3.44M |
-| Iroha 2-0-5, best player layout (`feature/iroha-mirrors`; on Auto 6.96M) | 8.70M | Shiro 5-0-2 | 3.24M |
-| Kanna, hero Lv 25 | 8.10M | Kage 5-0-2 | 2.70M |
-| Sango 2-0-5 | 7.87M | Kogane, hero Lv 25 | 1.78M |
-| the duo at UR, Constellation 2-0-5 | 7.47M | Kanna, hero Lv 25 | 1.76M |
+| **Akane 5-0-2 (SR), Umeko + Chika** | **17.40M** | **Iroha 5-0-2, best mirror layout** (`feature/iroha-mirrors` 7d1cc0bf; her review r4's search; on Auto 2.77M) | **6.13M** |
+| Akane 5-0-2, Umeko + Midori 2-0-5 | 16.59M | Aoi 0-2-5 (the other crosspath), the bench | 4.40M |
+| Akane 5-0-2, the bench | 16.47M | Aoi 0-2-5, Umeko + Chika | 3.98M |
+| Tenka Joint Research at UR, full lab team (`labBench.mjs`) | 15.43M | Aoi 0-2-5, Midori 5-0-2 + Miko | 3.95M |
+| Hotaru 5-0-2, the bench | 8.83M | Tenka Joint Research at UR, full lab team | 3.55M |
+| Iroha 2-0-5, best mirror layout (on Auto 6.96M) | 8.70M | the duo at UR, Starfall 5-0-2, the bench | 3.44M |
+| Kanna, hero Lv 25 | 8.10M | Shiro 5-0-2, the bench | 3.24M |
+| Sango 2-0-5, the bench | 7.87M | Kogane, hero Lv 25 | 1.78M |
 
-So each LR build needs at least 20.59M on a crowd and 7.45M on a boss. The S5 shapes (+10–30% on six girls, all under 3M)
-stay under both bars. The LR `t5` rows (`LR_POWER`, LR-only; nobody else moves) go up so every LR crowd reads about
-23M (×1.39–1.40 of the bar); every boss axis was already over and rises with them:
+So each LR build needs at least 21.75M on a crowd and 7.66M on a boss on the bench. The S5 shapes (+10–30% on six girls,
+all under 3M) stay under both bars. The LR `t5` rows (`LR_POWER`, LR-only; nobody else moves) went up so every LR crowd
+reads about 23M on the bench (×1.31–1.33 of the bar); every boss axis was already over and rises with them:
 
 | LR build | LR `t5` row | crowd before → after | ÷ bar | boss before → after | ÷ bar |
 |---|---|---:|---:|---:|---:|
-| Duo Starfall 5-0-2 | ×2.35 → ×4.4 | 12.33M → 23.09M | ×1.40 | 17.43M → 20.40M | ×3.42 |
-| Duo Grand Spectrum 2-5-0 | ×1.8 → ×3.35 | 12.36M → 23.01M | ×1.40 | 12.37M → 23.02M | ×3.86 |
-| Duo Constellation 2-0-5 | ×1.1 → ×2.0 | 12.56M → 22.84M | ×1.39 | 7.73M → 14.06M | ×2.36 |
-| Tenka Joint Research 5-0-2 | ×11.5 → ×24 | 11.04M → 23.04M | ×1.40 | 13.54M → 28.25M | ×4.74 |
-| Tenka Rail Arms 2-5-0 | ×1.7 → ×3.5 | 11.14M → 22.93M | ×1.39 | 10.38M → 21.37M | ×3.59 |
-| Tenka Singularity 2-0-5 | ×22.5 → ×46.5 | 11.09M → 22.92M | ×1.39 | 13.13M → 27.14M | ×4.55 |
+| Duo Starfall 5-0-2 | ×2.35 → ×4.4 | 12.33M → 23.09M | ×1.33 | 17.43M → 20.40M | ×3.33 |
+| Duo Grand Spectrum 2-5-0 | ×1.8 → ×3.35 | 12.36M → 23.01M | ×1.32 | 12.37M → 23.02M | ×3.76 |
+| Duo Constellation 2-0-5 | ×1.1 → ×2.0 | 12.56M → 22.84M | ×1.31 | 7.73M → 14.06M | ×2.29 |
+| Tenka Joint Research 5-0-2 | ×11.5 → ×24 | 11.04M → 23.04M | ×1.32 | 13.54M → 28.25M | ×4.61 |
+| Tenka Rail Arms 2-5-0 | ×1.7 → ×3.5 | 11.14M → 22.93M | ×1.32 | 10.38M → 21.37M | ×3.49 |
+| Tenka Singularity 2-0-5 | ×22.5 → ×46.5 | 11.09M → 22.92M | ×1.32 | 13.13M → 27.14M | ×4.43 |
+
+**Under the same supports** (every LR build and the top non-LR builds beside each pair, and beside Umeko + Midori 2-0-5
++ Chika): LRs beat every non-LR every time, but not always by 1.25×. The closest: Tenka Joint Research ×1.16 of Akane
+5-0-2 beside Umeko + Midori 2-0-5 + Chika (44.77M against 38.63M), Tenka Rail Arms ×1.15 beside Umeko + Midori 2-0-5
+(19.07M against 16.59M), Tenka Rail Arms ×1.20 beside the three, Tenka Joint Research ×1.24 beside Umeko + Chika; every
+other cell ×1.28 or more. Beside the three the best non-LR boss is Aoi 0-2-5 at 8.78M and the weakest LR boss (duo
+Constellation) ×3.04 of it. `lrBar.mjs --bar` prints this check per pair and exits 1 if an LR build is under ×1.0 anywhere.
+
+**Iroha's layouts.** Her KNOWN row is her best hand-placed mirror layout on `feature/iroha-mirrors`, which this tree
+cannot measure (no mirrors here). `tools/balance/irohaLayouts.mjs` is that search (stars of radius 0.5–1.8 around her road
+point and 120 random five-point layouts within 3 tiles, the best four re-run on three seeds; it says so and stops on a
+tree without her mirrors); run on her branch (7d1cc0bf) it reads 5-0-2 boss 5.95M, 2-5-0 boss 4.78M, 2-0-5 crowd 8.45M,
+Auto 2.77M / 6.96M (her spec: 5.96M / 4.79M / 8.70M; her review's search: 6.13M on a boss). Its best layouts are in
+`tools/balance/irohaLayouts.best.json`. KNOWN keeps the larger numbers (6.13M, 8.70M). **When `feature/iroha-mirrors`
+merges:** run `irohaLayouts.mjs`, put its best boss and crowd in `lrBar.mjs` KNOWN if higher, run `lrBar.mjs --bar`, re-pin
+`LR_BAR`, and raise the LR rows if an LR build falls under 1.25× (also in docs/HANDOFF.md §8).
 
 Tenka's Joint Research LR with a full lab team (the owner: keep) rises with it: 384.6M on a boss (was 184.4M) and, on
 grunts of 2e8 HP, 446.4M on a crowd (was 176.9M on 2e6 grunts). On the bench's 2e6 grunts it now reads 7.17M, because
 one hit kills a grunt outright and the number stops at the spawn rate; `labBench.mjs --crowd-hp` lifts the grunt. The
 no-nerf gate after the change: 0 cells under live alone; with supports the same six low-profile cells as above, with
 the same numbers (the LR rows touch nothing else).
+
+**Akane's Inferno Queen from a corner** (Iroha's review r4: Akane 2-5-0 on a crowd across the road from Iroha read ×0.92
+of live, the same on this branch without her branch). Reproduced with Iroha 5-0-2 on her best spot on 4-5 and Akane on
+the placeable point nearest the reflection of that spot through the road (1.56, 1.56), no supports, 16 seeds: live
+417,162, branch 383,332 (×0.919), and the same without Iroha (417,165 → 383,444): Akane's own kit, not Iroha. The cause
+is the attack shapes' Hearth Stream: from that corner the old splash fireballs set burns on both legs of the road, and
+the stream's cone (45° each side) reaches one. Her other builds there are at or above live (2-4-0 ×1.06; 5-0-2 and
+2-0-5 unchanged), and her burns are the damage, so the stream's ×1.07 hit barely moves it (×1.2 reads 387,784). Inferno
+Queen's cone goes 45° → **55°** each side (the smallest whole step that clears: 54° reads 414,567): 422,679 without
+Iroha and 422,707 beside her (×1.013), and only wider elsewhere. The no-nerf gate after it: 0 cells under live alone; with supports the same six
+explained cells with the same numbers; of Akane's cells only her 2-5-0 crowd ones moved, all up. Tenka
+2-0-5 next to Iroha alone (×0.994 of r5 on her branch, 8 seeds) compares her branch with this one, not with live, and
+is left as her review's LOW.
 
 ## Marumi rework (2026-10-21, `feature/marumi-rework`)
 

@@ -254,7 +254,9 @@ describe('Potential in resolveStats', () => {
     // on two tiers of one path each, their live numbers unchanged); with those three left out the 384 others hash 70150afc
     // before and after; '456:2f6a4fcb' before S5b (Midori's Spore Mist, Raika's Static Web, Luna's Moonbeam Sweep); with all six
     // S5 girls left out the 312 others hash 83e10fae before S5 and after
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:0389f303');
+    // (merged with balance round 5's 96c3547b: '456:9150ad57' there, Akane's Inferno Queen stream 45° → 55° each side; with
+    // the six S5 girls left out the 312 others hash a49bafea on 96c3547b and on the merge)
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:f6e6e8c7');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders

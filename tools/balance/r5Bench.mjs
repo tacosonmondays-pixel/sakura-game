@@ -12,7 +12,8 @@
 // Builds pNtM: path N to tier M with a tier-2 crosspath (P1 x-0-2, P2 2-x-0, P3 2-0-x); `best` = all three at tier 5,
 // the best one reported. Supports `um` (default): Umeko 2-5-0 and Midori 5-0-2, both fully maxed, placed in her reach
 // (the round-3 fixed bench); `none`: she stands alone (a partner-less run); `girl:pNtM`: one support at that build
-// (a support's boost: the striker's DPS beside her ÷ alone).
+// (a support's boost: the striker's DPS beside her ÷ alone); `girl:pNtM+girl:pNtM…`: those supports together.
+// A build `pNtMcK` puts her tier-2 crosspath on path K instead (measure's `build` [N, M, K]).
 // Targets never die (healed every step), so her number is her rate, not the HP left to take: `boss` = the Ashwing
 // Matriarch (3e7 HP) held at her nearest road point; `bossw` = the same boss walking through from 1.5 tiles before it
 // (a trap or strip girl's boss); `crowd` = a late stream, an Orc Grunt every 0.5 s at 2e6 HP. A hero (no paths) is
@@ -42,20 +43,21 @@ const BOSS_HP = Number(opt('boss-hp', 3e7));
 const CROWD_HP = Number(opt('crowd-hp', 2e6));
 const CROWD_EVERY = Math.round(60 * Number(opt('crowd-every', 0.5)));
 const parseBuild = (b) => {
-  const m = /^p(\d)t(\d)$/.exec(b);
-  return [+m[1], +m[2]];
+  const m = /^p(\d)t(\d)(?:c(\d))?$/.exec(b);
+  return m[3] != null ? [+m[1], +m[2], +m[3]] : [+m[1], +m[2]];
 };
 
 /**
  * One run: her (fully maxed) on the best-covered spot, the supports beside her, a never-dying target.
  * @returns {{ dps, tiers, support: object }|{ error }}
  */
-export function measure({ d, unitId, build, target, support = 'um', stageId = '4-5', seed = 9, warm = 15, run = 40, lr = true, ally = false, profile = 'maxed' }) {
+export function measure({ d, unitId, build, target, support = 'um', stageId = '4-5', seed = 9, warm = 15, run = 40, lr = true, ally = false, profile = 'maxed', setup = null }) {
   const def = d.units[unitId];
-  // `support`: 'um' (Umeko 2-5-0 + Midori 5-0-2), 'none', or 'girl:pNtM' (one support at that build: her boost)
-  const one = /^([a-z_]+):p(\d)t(\d)$/.exec(support);
+  // `support`: 'um' (Umeko 2-5-0 + Midori 5-0-2), 'none', or 'girl:pNtM' joined by '+' (those supports at those builds)
+  const many = support === 'um' || support === 'none' ? [] : support.split('+').map((s) => /^([a-z_]+):p(\d)t(\d)$/.exec(s));
+  if (many.some((m) => !m)) return { error: `support ${support}` };
   const sup = support === 'um' ? [['umeko', [1, 5, 0, 2]], ['midori', [0, 5, 2, 2]]].filter(([id]) => id !== unitId)
-    : one ? [[one[1], [+one[2], +one[3], CROSS[+one[2]], 2]]] : [];
+    : many.map((m) => [m[1], [+m[2], +m[3], CROSS[+m[2]], 2]]).filter(([id]) => id !== unitId);
   const loadout = [{ unitId, stats: maxedStats(unitId, null, { lr, profile }) }, ...sup.map(([id]) => ({ unitId: id, stats: maxedStats(id) }))];
   const sim = withDetMath(() => new Sim({ stageId, loadout, hero: null, seed }));
   sim.cash = 1e15;
@@ -76,12 +78,12 @@ export function measure({ d, unitId, build, target, support = 'um', stageId = '4
       return;
     }
     const t = sim.placeTower(unitId, spot.x, spot.y);
-    const [mp, mt] = build;
+    const [mp, mt, mc = CROSS[mp]] = build;
     if (def.kind === 'hero') {
       // a hero has no paths: she is maxed at Lv 25 with Mastery full (her whole XP cap; `build` is ignored)
       gainHeroXp(sim, t, heroXpCap(def.hero) + 1, 'bought');
     } else {
-      for (let i = 0; i < 2; i++) sim.upgradeTower(t.uid, CROSS[mp]);
+      for (let i = 0; i < 2; i++) sim.upgradeTower(t.uid, mc);
       for (let i = 0; i < mt; i++) sim.upgradeTower(t.uid, mp);
     }
     // supports: inside 1.6 tiles of her (every aura reaches), on the most road they can
@@ -93,6 +95,8 @@ export function measure({ d, unitId, build, target, support = 'um', stageId = '4
       for (let i = 0; i < t2; i++) sim.upgradeTower(st.uid, p2);
       for (let i = 0; i < t1; i++) sim.upgradeTower(st.uid, p1);
     }
+    // a caller's own set-up before the run (tools/balance/irohaLayouts.mjs: her mirrors placed by hand)
+    if (setup) setup(sim, t, { spot, path0 });
     sim.update(0.5);
     const hpOf = (id) => sim.data.enemy(id)?.hp || 1;
     const near = path0.reduce((b, s) => {
