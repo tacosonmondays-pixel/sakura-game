@@ -433,6 +433,40 @@ describe('lending is one way (M1 review r2)', () => {
     expect(p.gear[g.c2].equippedBy).toBe('aoi');
   });
 
+  it('r3-H1: the borrower lets it go while a later step takes another piece from the lender (team switch)', () => {
+    const { p, g } = sharedTeams();
+    const rA = addGear(p, rollGear(createRng(9), { slot: 'ribbon', rarity: 'epic', level: 1 }));
+    equipGear(p, 'aoi', rA); // Aoi: c2 + rA
+    selectTeam(p, 1); // Kage B borrows c2
+    // Team 3: Kage on C (c1), then Yuki on a loadout that names rA
+    usePreset(p, 'yuki', 1);
+    usePreset(p, 'yuki', 0);
+    p.units.yuki.presets[1] = { ...p.units.yuki.presets[1], ribbon: rA };
+    p.teams.list[2] = { name: 'Team 3', hero: null, towers: ['kage', 'yuki'], use: { kage: 2, yuki: 1 } };
+    const r = selectTeam(p, 2);
+    expect(r.returns).toEqual([{ uid: g.c2, slot: 'charm', from: null, to: 'aoi' }]);
+    expect(p.gear[g.c2].equippedBy).toBe('aoi');
+    expect(p.gear[rA].equippedBy).toBe('yuki');
+    expect(lenderOf(p, rA)).toBe('aoi');
+    selectTeam(p, 0);
+    expect(p.units.aoi.gear.charm).toBe(g.c2);
+  });
+
+  it('r3-H1: the same on the girl page (Kage puts on a loadout naming a piece Aoi wears)', () => {
+    const { p, g } = sharedTeams();
+    const rA = g.r1;
+    unequipGear(p, 'kage', 'ribbon');
+    equipGear(p, 'aoi', rA);
+    p.units.kage.presets[1] = { ...p.units.kage.presets[1], ribbon: null }; // B: c2 only
+    selectTeam(p, 1); // Kage B borrows c2
+    expect(p.gear[rA].equippedBy).toBe('aoi');
+    p.units.kage.presets[2] = { ...p.units.kage.presets[2], charm: g.c1, ribbon: rA };
+    const res = usePreset(p, 'kage', 2);
+    expect(res.returns).toEqual([{ uid: g.c2, slot: 'charm', from: null, to: 'aoi' }]);
+    expect(p.gear[g.c2].equippedBy).toBe('aoi');
+    expect(lenderOf(p, rA)).toBe('aoi');
+  });
+
   it('the lend flags ride the gp:/gpf: mirrors through an older build', () => {
     const { p, g } = sharedTeams();
     selectTeam(p, 1);
@@ -447,7 +481,7 @@ describe('lending is one way (M1 review r2)', () => {
   });
 
   it('fuzz: switches, loadouts, equips, salvage, Undo and reloads never duplicate or lose a piece', () => {
-    for (let seed = 1; seed <= 80; seed++) {
+    for (let seed = 1; seed <= 600; seed++) {
       const rng = createRng(seed);
       let { p } = setup();
       for (const id of ['shiro', 'midori']) grantUnit(p, id, NOW);
@@ -459,15 +493,37 @@ describe('lending is one way (M1 review r2)', () => {
       for (let step = 0; step < 60; step++) {
         const r = rng.next();
         const uids = Object.keys(p.gear);
-        if (r < 0.2) undo = selectTeam(p, Math.floor(rng.next() * TEAM_COUNT)).undo;
-        else if (r < 0.35) undo = usePreset(p, pick(girls), Math.floor(rng.next() * 3)).undo || undo;
-        else if (r < 0.55 && uids.length) equipGear(p, pick(girls), pick(uids));
-        else if (r < 0.62) unequipGear(p, pick(girls), pick(['charm', 'ribbon', 'shoes']));
+        // the lent pieces before this step (lender by piece), and what this step touches by hand
+        const lentBefore = {};
+        for (const uid of uids) { const l = lenderOf(p, uid); if (l) lentBefore[uid] = l; }
+        const touched = new Set();
+        let wholeSave = false;
+        let op = '';
+        if (r < 0.2) { op = 'team'; undo = selectTeam(p, Math.floor(rng.next() * TEAM_COUNT)).undo; }
+        else if (r < 0.35) { op = 'preset'; undo = usePreset(p, pick(girls), Math.floor(rng.next() * 3)).undo || undo; }
+        else if (r < 0.55 && uids.length) { const who = pick(girls); const u = pick(uids); touched.add(u).add(who); equipGear(p, who, u); }
+        else if (r < 0.62) { const who = pick(girls); touched.add(who); unequipGear(p, who, pick(['charm', 'ribbon', 'shoes'])); }
         else if (r < 0.7) p.formation = { hero: null, towers: [...new Set([pick(girls), pick(girls)])] };
-        else if (r < 0.75 && uids.length) { const u = pick(uids); if (!p.gear[u].equippedBy) salvageGear(p, u); }
-        else if (r < 0.8 && undo) { restoreLoadouts(p, undo); undo = null; }
+        else if (r < 0.75 && uids.length) { const u = pick(uids); touched.add(u); if (!p.gear[u].equippedBy) salvageGear(p, u); }
+        else if (r < 0.8 && undo) { wholeSave = true; restoreLoadouts(p, undo); undo = null; }
         else if (r < 0.85) p = reload(p);
         else if (r < 0.88) salvageMany(p, uids);
+        else if (r < 0.94) {
+          // build teams and loadouts that share pieces (the paths a lend takes): a team of two with loadouts, and an
+          // inactive loadout naming a random piece of its slot
+          const t = Math.floor(rng.next() * TEAM_COUNT);
+          const a = pick(girls);
+          const b = pick(girls);
+          if (t !== p.teams.active) p.teams.list[t] = { name: `Team ${t + 1}`, hero: null, towers: [...new Set([a, b])], use: { [a]: Math.floor(rng.next() * 3), [b]: Math.floor(rng.next() * 3) } };
+          ensurePresets(p, a);
+          const u = p.units[a];
+          while (u.presets.length < 3) u.presets.push({ ...u.presets[0], lent: undefined, wish: undefined });
+          for (const pr of u.presets) { delete pr.lent; delete pr.wish; }
+          const n = [0, 1, 2].find((k) => k !== u.preset);
+          const piece = pick(uids.length ? uids : [null]);
+          if (piece && p.gear[piece]) u.presets[n][p.gear[piece].slot] = piece;
+          touched.add(a);
+        }
         else if (r < 0.91) {
           // an older build: drops teams and loadouts, keeps counters
           const raw = JSON.parse(saveText(p, 1));
@@ -476,6 +532,16 @@ describe('lending is one way (M1 review r2)', () => {
           p = migrateProfile(raw);
         }
         syncTeams(p);
+        // a lent piece nobody touched by hand is still lent by the same girl, or back on her (review r3 H1)
+        if (!wholeSave) {
+          for (const [uid, l] of Object.entries(lentBefore)) {
+            if (touched.has(uid) || touched.has(l) || !p.gear[uid]) continue;
+            // (a team that puts her on another loadout moves her claim there: that loadout still names it, takes it back
+            // when put on, and guards it from salvage)
+            const named = (p.units[l]?.presets || []).some((pr) => pr[p.gear[uid].slot] === uid);
+            expect(lenderOf(p, uid) === l || p.gear[uid].equippedBy === l || named, `seed ${seed} step ${step} (${op || r.toFixed(2)}): ${uid} lent by ${l} is lost (now ${p.gear[uid].equippedBy}, lender ${lenderOf(p, uid)})`).toBe(true);
+          }
+        }
         // invariants: one wearer per piece, wearers and slots agree, the formation is the active team
         for (const [id, u] of Object.entries(p.units)) {
           for (const s of ['charm', 'ribbon', 'shoes']) if (u.gear[s]) expect(p.gear[u.gear[s]]?.equippedBy, `seed ${seed} step ${step}`).toBe(id);

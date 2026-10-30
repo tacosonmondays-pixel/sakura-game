@@ -114,7 +114,6 @@ export function syncTeams(p) {
   const returns = settleLent(p);
   for (const id of Object.keys(p.units)) foldGear(p, id);
   if (!isObj(p.teams) || !Array.isArray(p.teams.list) || !p.teams.list.length) return returns;
-  if (!isObj(p.teams) || !Array.isArray(p.teams.list) || !p.teams.list.length) return;
   if (!Number.isInteger(p.teams.active) || p.teams.active < 0 || p.teams.active >= p.teams.list.length) p.teams.active = 0;
   foldFormation(p);
   return returns;
