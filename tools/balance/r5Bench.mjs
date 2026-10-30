@@ -2,7 +2,9 @@
 // drawer's live meter shows: damage the sim credits her a second, src/ui/battle/dpsView.js) on her ruler.
 //
 //   node --import ./tools/simLoader.mjs tools/balance/r5Bench.mjs [girls…] [--support um|none] [--targets boss,crowd]
-//        [--builds best|all|p0t5,…] [--stage 4-5] [--seed 9] [--seeds 9,1,2] [--warm 15] [--run 40] [--no-resonance] [--json]
+//        [--builds best|all|p0t5,…] [--stage 4-5] [--seed 9] [--seeds 9,1,2] [--warm 15] [--run 40] [--no-resonance] [--no-lr] [--json]
+//
+// --no-lr: an LR unit (the duo, Tenka) at UR, without her Limit Break (no LR form, no LR boost).
 //
 // Fully maxed (the profile a player reaches): L85, ★5, 10 gates, P6, three UR +12 Taiko pieces at average rolls
 // (crit damage / crit chance / attack speed mains, ATK and crit subs), through the game's own unitBattleStats, with
@@ -19,8 +21,7 @@ import { defaultData } from '../../src/sim/data.js';
 import { samplePath } from '../../src/sim/path.js';
 import { withDetMath } from '../../src/core/detMath.js';
 import { placeOnPath } from '../../src/sim/enemies.js';
-import { unitBattleStats } from '../../src/systems/progression.js';
-import { mainStatRange, substatRange, subGrowth } from '../../src/systems/gear.js';
+import { maxedProfile, maxedStats, RESONANCE_ON } from './maxedProfile.mjs';
 
 const argv = process.argv.slice(2);
 const VALUED = ['--seeds', '--crowd-every', '--boss-hp', '--crowd-hp', '--support', '--targets', '--builds', '--stage', '--seed', '--warm', '--run'];
@@ -29,34 +30,10 @@ const names = argv.filter((a, i) => !a.startsWith('--') && !VALUED.includes(argv
 
 // UR Resonance switches on at the Nov 2 game week (src/systems/limitBreak.js resonanceOn): measure with it on
 if (!argv.includes('--no-resonance')) {
-  const fixed = Date.UTC(2026, 10, 4, 12);
-  Date.now = () => fixed;
+  Date.now = () => RESONANCE_ON;
 }
 
-const avg = ([a, b]) => (a + b) / 2;
-function piece(uid, slot, mainStat, subs) {
-  const mb = +avg(mainStatRange(mainStat, 'legendary')).toFixed(4);
-  const growth = mainStat === 'armorPen' ? 0.04 : 0.06;
-  const main = { stat: mainStat, base: mb, value: +(mb * (1 + growth * 12)).toFixed(4) };
-  const sl = subs.map(([stat, ups]) => {
-    const base = +avg(substatRange(stat, 'legendary')).toFixed(4);
-    return { stat, base, upgrades: ups, tuned: 0, value: +(base + ups * subGrowth(stat, 'legendary')).toFixed(4) };
-  });
-  return { uid, slot, rarity: 'legendary', level: 12, main, subs: sl, ur: 1, club: 'taiko', locked: false, equippedBy: null, name: uid };
-}
-/** The fully maxed profile (the round-3/4 bench's, unchanged), plus the duo's Limit Break. */
-export function maxedProfile(id) {
-  const c = piece(`${id}_c`, 'charm', 'critDmg', [['atkPct', 2], ['critChance', 2], ['ratePct', 0], ['armorPen', 0]]);
-  const r = piece(`${id}_r`, 'ribbon', 'critChance', [['atkPct', 2], ['critDmg', 2], ['ratePct', 0], ['armorPen', 0]]);
-  const s = piece(`${id}_s`, 'shoes', 'ratePct', [['atkPct', 2], ['critChance', 1], ['critDmg', 1], ['armorPen', 0]]);
-  for (const g of [c, r, s]) g.equippedBy = id;
-  return {
-    units: { [id]: { level: 85, awaken: 5, breakthrough: 10, pl: 6, gear: { charm: c.uid, ribbon: r.uid, shoes: s.uid } } },
-    gear: { [c.uid]: c, [r.uid]: r, [s.uid]: s },
-    missions: { counters: { [`lr:${id}`]: 1, [`lbt:${id}`]: 1 } },
-  };
-}
-export const maxedStats = (id) => unitBattleStats(maxedProfile(id), id);
+export { maxedProfile, maxedStats };
 
 const CROSS = [2, 0, 0];
 const BOSS_HP = Number(opt('boss-hp', 3e7));
@@ -71,13 +48,13 @@ const parseBuild = (b) => {
  * One run: her (fully maxed) on the best-covered spot, the supports beside her, a never-dying target.
  * @returns {{ dps, tiers, support: object }|{ error }}
  */
-export function measure({ d, unitId, build, target, support = 'um', stageId = '4-5', seed = 9, warm = 15, run = 40 }) {
+export function measure({ d, unitId, build, target, support = 'um', stageId = '4-5', seed = 9, warm = 15, run = 40, lr = true }) {
   const def = d.units[unitId];
   // `support`: 'um' (Umeko 2-5-0 + Midori 5-0-2), 'none', or 'girl:pNtM' (one support at that build: her boost)
   const one = /^([a-z_]+):p(\d)t(\d)$/.exec(support);
   const sup = support === 'um' ? [['umeko', [1, 5, 0, 2]], ['midori', [0, 5, 2, 2]]].filter(([id]) => id !== unitId)
     : one ? [[one[1], [+one[2], +one[3], CROSS[+one[2]], 2]]] : [];
-  const loadout = [{ unitId, stats: maxedStats(unitId) }, ...sup.map(([id]) => ({ unitId: id, stats: maxedStats(id) }))];
+  const loadout = [{ unitId, stats: maxedStats(unitId, null, { lr }) }, ...sup.map(([id]) => ({ unitId: id, stats: maxedStats(id) }))];
   const sim = withDetMath(() => new Sim({ stageId, loadout, hero: null, seed }));
   sim.cash = 1e15;
   sim.lives = 1e15;
@@ -150,7 +127,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const targets = opt('targets', 'boss,bossw,crowd').split(',');
   const buildsOpt = opt('builds', 'best');
   const support = opt('support', 'um');
-  const common = { d, support, stageId: opt('stage', '4-5'), seed: Number(opt('seed', 9)), warm: Number(opt('warm', 15)), run: Number(opt('run', 40)) };
+  const common = { d, support, lr: !argv.includes('--no-lr'), stageId: opt('stage', '4-5'), seed: Number(opt('seed', 9)), warm: Number(opt('warm', 15)), run: Number(opt('run', 40)) };
   const girls = names.length ? names : Object.keys(d.units).filter((id) => d.units[id].kind !== 'hero');
   for (const unitId of girls) {
     for (const target of targets) {

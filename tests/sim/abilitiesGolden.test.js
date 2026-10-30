@@ -30,7 +30,9 @@ const GOLDEN = {
   // ability unlocks and casts on Auto now (Shadow Doubles / Bell Carpet / Drone Surge: 22 → 24 casts). Re-pinned in the
   // A4–A6 review (was L30/0/37625/8800/a9b9e720/24): her doubles throw her full volley and hold while she is sabotaged,
   // Bell Carpet counts a shared road stretch once, Drone Surge's Pursuit count reads her drones' eligibility
-  '8-5:normal': 'L30/0/37547/8586/3a996187/24',
+  // Balance round 5 on v0.1.61 (the merge of main 60ce9cad): the round's win, its waves, lives, steps, coins and casts
+  // exactly as before the merge (W30/100/33673/18646/…/13); hashSim only moved (main's A4 folds the deploy girls' state)
+  '8-5:normal': 'W30/100/33673/18646/d8bb3e7f/13',
 };
 // With the new girls (UNIT_GAPS §5) left out: the merged base's digests (before the new girls).
 const BASE_GOLDEN = {
@@ -41,13 +43,15 @@ const BASE_GOLDEN = {
   // and Noa's abilities cast on Auto now (18 → 23 casts)
   // Re-pinned in A4 (was L30/0/38801/7168/d359d2ce/23): the deploy girl's ability casts on Auto (23 → 24 casts).
   // Re-pinned in the A4–A6 review (was L30/0/38800/7168/604541eb/24): the deploy fixes above (24 → 25 casts)
-  '8-5:normal': 'L30/0/38881/7168/cdb4f61a/25',
+  // balance round 5 on v0.1.61: as before the merge (W30/100/35855/17176/…/15), hashSim only
+  '8-5:normal': 'W30/100/35855/17176/5b0838f0/15',
 };
 // The A1 pins with the returning girls left out of the free pool (the 19 girls play exactly as at A1).
 // Re-pinned in A4, hashSim only (was …/a5d9340a/30): the deploy girl's ability now unlocks and sits on Auto, so the
 // co-op hash folds its state (simHash.js); she never finds a moment to cast here, so the battle is unchanged.
 const LIVE_GOLDEN = {
-  '8-5:normal': 'L30/0/40233/8036/b909b4d2/30',
+  // balance round 5 on v0.1.61: as before the merge (W30/100/37148/19002/…/23), hashSim only
+  '8-5:normal': 'W30/100/37148/19002/553fbd4a/23',
 };
 
 const digest = (r) => `${r.won ? 'W' : 'L'}${r.wave}/${r.lives}/${Math.round(r.time * 60)}/${r.cash}/${hashSim(r.sim).toString(16)}/${r.result.stats.abilitiesUsed || 0}`;

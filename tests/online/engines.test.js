@@ -184,8 +184,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // checks the other engines agree). Then (was 30346 / 2173867755 / '4d00c481', 35 casts) the A4–A6 review: a mirror never
     // splits its owner's shots, Auto keeps a placed panel, doubles hold while sabotaged and throw her full volley, Bell
     // Carpet counts a shared stretch once; and the battle runs to wave 20 so each coverage girl casts at least twice.
+    // Re-pinned for balance round 5 on v0.1.61 (was 54756 / '4071/2770' / 1840728084 / '571b75af', 144 casts, splits
+    // 3/3): the round's rows (src/data/balance.js) move every girl's damage, so the crowds and the Auto rules' moments
+    // move; every coverage rule above still holds.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind, splits: r.splits, deploys: r.deploys })
-      .toEqual({ ticks: 54756, state: 'between', wallets: '4071/2770', final: 1840728084, hashes: '571b75af', casts: 144, byKind: 'boost 11 · burst 29 · debuff 20 · deploy 44 · econ 11 · move 2 · rally 8 · strike 19', splits: '3/3', deploys: 'chika.droneSurge 13×52 · iroha.mirrorShift 18×18 · kage.doubles 5×10 · suzu.bellCarpet 8×48' });
+      .toEqual({ ticks: 58197, state: 'between', wallets: '4138/3072', final: 2618839254, hashes: 'ee689ad3', casts: 153, byKind: 'boost 11 · burst 28 · debuff 17 · deploy 47 · econ 10 · move 5 · rally 13 · strike 22', splits: '1/1', deploys: 'chika.droneSurge 11×44 · iroha.mirrorShift 26×26 · kage.doubles 3×6 · suzu.bellCarpet 7×42' });
   }, 240000);
 
   it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {

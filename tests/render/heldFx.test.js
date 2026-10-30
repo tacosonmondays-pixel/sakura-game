@@ -65,7 +65,7 @@ describe('held shapes FX (plain)', () => {
     }
     expect(open.akane).toBeGreaterThan(60);
     expect(open.umeko).toBeGreaterThan(60);
-  });
+  }, 60000); // four 1500-frame battles: past vitest's 5 s default on a loaded machine
 
   it('draws nothing without a channel, or while she is sabotaged', () => {
     const sim = gallerySim(['akane'], [[2, 5, 0]]);
