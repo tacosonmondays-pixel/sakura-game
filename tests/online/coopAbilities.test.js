@@ -737,6 +737,10 @@ describe('the returning girls in co-op (A3 M3)', () => {
     all(cs, cmd(0, 'wave'));
     const seen = [[], []];
     const casts = [{}, {}];
+    // per First Aid Call (host view): the lives its kills brought back (events after that cast, before the next one;
+    // her calls never overlap: 50 s cooldown, 10 s long) and every life rally record the sim kept
+    const perCall = [];
+    const rallies = new Set();
     let checks = 0;
     // (until a few lives came back after wave 4, or wave 20: a life needs 10 kills within 3 tiles of Noa in one rally)
     const done = (s) => (s.wavesCleared >= 4 && seen[0].length >= 2) || s.wavesCleared >= 20 || ['won', 'lost'].includes(s.state);
@@ -752,10 +756,17 @@ describe('the returning girls in co-op (A3 M3)', () => {
       step(cs);
       cs.forEach((c, v) => {
         for (const ev of c.sim.drainEvents()) {
-          if (ev.type === 'lifeRestored') seen[v].push(`${ev.towerUid}:${ev.lives}:${ev.id}`);
-          if (ev.type === 'ability') casts[v][ev.id] = (casts[v][ev.id] || 0) + 1;
+          if (ev.type === 'lifeRestored') {
+            seen[v].push(`${ev.towerUid}:${ev.lives}:${ev.id}`);
+            if (v === 0) perCall[perCall.length - 1]++;
+          }
+          if (ev.type === 'ability') {
+            casts[v][ev.id] = (casts[v][ev.id] || 0) + 1;
+            if (v === 0 && ev.id === 'noa.firstAid') perCall.push(0);
+          }
         }
       });
+      for (const r of cs[0].sim._rallies) if (r.life) rallies.add(r);
       if (i % 120 === 0) {
         expect(cs[1].hash(), `tick ${i}`).toBe(cs[0].hash());
         checks++;
@@ -771,8 +782,13 @@ describe('the returning girls in co-op (A3 M3)', () => {
     expect(seen[0].length).toBeGreaterThan(0);
     expect(seen[1]).toEqual(seen[0]);
     for (const s of seen[0]) expect(s).toMatch(new RegExp(`^${noa}:\\d+:noa\\.firstAid$`));
-    const lives = seen[0].map((s) => Number(s.split(':')[1]));
-    for (let k = 1; k < lives.length; k++) expect(lives[k]).not.toBe(lives[k - 1]); // never the same life twice
+    // each life counted once: never more than a call's lifeMax from one call, and exactly the lives the rallies gave
+    const max = abilityDef(cs[0].sim.getTower(noa)).effect.lifeMax;
+    expect(perCall).toHaveLength(casts[0]['noa.firstAid']);
+    for (const n of perCall) expect(n).toBeLessThanOrEqual(max);
+    expect(rallies.size).toBe(casts[0]['noa.firstAid']);
+    for (const r of rallies) expect(r.life.given).toBeLessThanOrEqual(r.life.max);
+    expect(seen[0].length).toBe([...rallies].reduce((a, r) => a + r.life.given, 0));
     expect(cs[1].sim.lives).toBe(cs[0].sim.lives);
   }, 240000);
 

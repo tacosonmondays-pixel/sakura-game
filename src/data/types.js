@@ -120,7 +120,7 @@ export const ROLES = {
   mortar: { name: 'Mortar', category: 'frag', goodAgainst: 'Clumps anywhere on the map', limitation: '1 s delay; fast foes escape; no flyers', desc: 'Aimed shells with a warning ring.' },
   prism: { name: 'Beam Caster', category: 'dps', goodAgainst: 'Long straights and lined-up crowds', limitation: 'Weak where the path twists', desc: 'Piercing prism beams that build focus.' },
   mirror: { name: 'Mirror Caster', category: 'dps', goodAgainst: 'A second lane or a far bend', limitation: 'Needs a good mirror spot', desc: 'Bolts fired from a placed mirror.' },
-  hexer: { name: 'Hex Caster', category: 'dps', goodAgainst: 'Dense waves that fall together', limitation: 'Curses need kills to spread', desc: 'Curses that burst and spread on death.' },
+  hexer: { name: 'Curse Caster', category: 'dps', goodAgainst: 'Dense waves, even when others land the kills', limitation: 'Lone enemies and bosses (half the rot) feel it least', desc: 'Curses that rot, pass on to neighbours while they live, and burst on death.' },
   champion: { name: 'Champion', category: 'hero', goodAgainst: 'Elites and armored bosses', limitation: 'Melee; no flyers', desc: 'Melee hero whose drum rhythm cracks armor.' },
   puppeteer: { name: 'Puppeteer', category: 'hero', goodAgainst: 'Fast waves and leaks', limitation: 'Low damage', desc: 'Hero whose threads slow two foes; her finale sends the wave back.' },
   // the new girls (UNIT_GAPS §5)

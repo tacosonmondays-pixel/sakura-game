@@ -361,7 +361,8 @@ export class RosterFx {
         return true;
       case 'curseSpread':
         if (this._spreads.length >= SPREAD_MAX) this._spreads.shift();
-        this._spreads.push({ x0: ev.x0, y0: ev.y0, x1: ev.x1, y1: ev.y1, age: 0 });
+        // at the two enemies' own height (an overpass deck: e.elev), each read once
+        this._spreads.push({ x0: ev.x0, y0: ev.y0, x1: ev.x1, y1: ev.y1, h0: this._elevOf(ev.from), h1: this._elevOf(ev.to), age: 0 });
         return true;
       case 'ult':
         // the renderer keeps its screen flash + shake; the map-wide ring is skipped for these two
@@ -692,6 +693,17 @@ export class RosterFx {
     if (!self) this._tether(t.x, t.y, x, y, c, p.kind === 'mirror' ? 0.6 : 0.7);
   }
 
+  /** An enemy's road height by uid (0 when gone); the uid map is built at most once a frame, only when a pass came. */
+  _elevOf(uid) {
+    if (this._elevFrame !== this.time) {
+      this._elevFrame = this.time;
+      const m = this._elevMap || (this._elevMap = new Map());
+      m.clear();
+      for (const e of this.sim.enemies || []) m.set(e.uid, e.elev || 0);
+    }
+    return this._elevMap.get(uid) || 0;
+  }
+
   /** The spreading curse's threads (see SPREAD_LIFE): one stretched ground quad each, fading out. */
   _drawSpreads(dt) {
     const list = this._spreads;
@@ -712,7 +724,7 @@ export class RosterFx {
       const len = Math.hypot(dx, dy);
       if (len < 0.05) continue;
       const a = 0.85 * (1 - f);
-      this.b.groundN.push(t.x0 + dx / 2, 0.12, t.y0 + dy / 2, len, SPREAD_W, R.white, SPREAD_RGB[0], SPREAD_RGB[1], SPREAD_RGB[2], a, Math.atan2(-dy, dx));
+      this.b.groundN.push(t.x0 + dx / 2, 0.12 + t.h0 + ((t.h1 - t.h0) * run) / 2, t.y0 + dy / 2, len, SPREAD_W, R.white, SPREAD_RGB[0], SPREAD_RGB[1], SPREAD_RGB[2], a, Math.atan2(-dy, dx));
     }
     list.length = n;
   }

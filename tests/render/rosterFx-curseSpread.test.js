@@ -7,10 +7,10 @@ import { RosterFx } from '../../src/render/rosterFx.js';
 const noop = () => {};
 const DT = 1 / 60;
 
-function board({ reduceMotion = false } = {}) {
+function board({ reduceMotion = false, enemies = [] } = {}) {
   const log = { ground: [], additive: 0, flashes: 0 };
   const fx = { sparkle: noop, puff: noop, ring: noop, flash: () => log.flashes++, spawn: () => log.additive++, shards: noop, beam: noop, n: (x) => x };
-  const sim = Object.freeze({ pathData: [], runners: [], towers: [], time: 0, getTower: () => null, state: 'wave', _autoTimer: -1 });
+  const sim = Object.freeze({ pathData: [], runners: [], towers: [], enemies, time: 0, getTower: () => null, state: 'wave', _autoTimer: -1 });
   const groundN = { push: (...a) => log.ground.push(a) };
   const groundA = { push: () => log.additive++ };
   const roster = new RosterFx({ sim, scene: { add: noop }, fx, batches: { bbA: { push: noop }, bbN: { push: noop }, groundN, groundA }, atlas: { regions: {} }, actors: null, reduceMotion });
@@ -48,6 +48,15 @@ describe('the spreading curse thread', () => {
     expect(frame()[0][3]).toBeCloseTo(1, 6);
     for (let i = 0; i < 18; i++) frame();
     expect(frame()).toHaveLength(0);
+  });
+
+  test('drawn at the enemies\' road height (an overpass deck)', () => {
+    const { roster, frame } = board({ reduceMotion: true, enemies: [{ uid: 1, elev: 2 }, { uid: 2, elev: 2 }] });
+    roster.handle(spread());
+    expect(frame()[0][1]).toBeCloseTo(2.12, 6);
+    const flat = board({ reduceMotion: true });
+    flat.roster.handle(spread());
+    expect(flat.frame()[0][1]).toBeCloseTo(0.12, 6);
   });
 
   test('at most 24 live threads', () => {
