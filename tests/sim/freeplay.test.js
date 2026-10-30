@@ -468,14 +468,15 @@ describe('numeric safety deep in (waves 200, 250, 400)', () => {
 describe('golden freeplay waves (every tier, waves goal+1..260)', () => {
   // Re-frozen Oct 30 for the boss bands and the Gloom Regent's factor (src/data/freeplay.js bossBands, bossHpOf; the
   // owner: "certain bosses on nightmare past 100-200 are impossible to kill"): a deliberate freeplay change, every
-  // boss-wave enemy's HP from wave 151 (Tempest, Crimson Moon) or 201 (Blossom), nothing else in any wave.
+  // boss-wave enemy's HP from wave 151 (Tempest, Crimson Moon) or 201 (Blossom), nothing else in any wave. Then the
+  // OVERTIME bands (the Eclipse Wyrm within reach on Blossom): every wave from 201.
   const GOLDEN = {
-    'blossom:1-1': '0945e130', 'blossom:1-9': '5294051d', 'blossom:2-5': '6875fb68', 'blossom:2-10': '25e25095', 'blossom:3-5': 'db482d09',
-    'blossom:4-3': '05894f1d', 'blossom:5-5': '52699e07', 'blossom:6-3': 'd8599587', 'blossom:7-5': '31ed6d75', 'blossom:8-5': 'f667c5de',
-    'tempest:1-1': 'ad63940f', 'tempest:1-9': '13a1c775', 'tempest:2-5': '5c405d50', 'tempest:2-10': 'b09be96e', 'tempest:3-5': '499b6dc9',
-    'tempest:4-3': '98a0e829', 'tempest:5-5': 'ff35711c', 'tempest:6-3': '9afeff51', 'tempest:7-5': '1536e421', 'tempest:8-5': 'b151b242',
-    'crimson:1-1': 'd75079cd', 'crimson:1-9': '1a420d1d', 'crimson:2-5': 'f566b12c', 'crimson:2-10': '3468d553', 'crimson:3-5': '4c403203',
-    'crimson:4-3': '8e2b9307', 'crimson:5-5': '7ee76c00', 'crimson:6-3': '6861d6a5', 'crimson:7-5': '9c990c00', 'crimson:8-5': '24cdbfe1',
+    'blossom:1-1': 'dfcdfb52', 'blossom:1-9': '04d04cb4', 'blossom:2-5': '7994535f', 'blossom:2-10': 'f6c7de71', 'blossom:3-5': 'c4e6d449',
+    'blossom:4-3': 'a69dcc14', 'blossom:5-5': '1c96c352', 'blossom:6-3': '37c3e5a6', 'blossom:7-5': '9d05002a', 'blossom:8-5': '717ebc54',
+    'tempest:1-1': '402b6edf', 'tempest:1-9': 'efd1a618', 'tempest:2-5': 'ee245976', 'tempest:2-10': 'd168c89a', 'tempest:3-5': '073639c7',
+    'tempest:4-3': '15e2b690', 'tempest:5-5': '8dc8f405', 'tempest:6-3': 'c387c0a7', 'tempest:7-5': '21068bf1', 'tempest:8-5': '20e4a34b',
+    'crimson:1-1': '5823d994', 'crimson:1-9': '3a186fba', 'crimson:2-5': '08c49457', 'crimson:2-10': '4f2fc65c', 'crimson:3-5': 'c5a0d8d2',
+    'crimson:4-3': '5eee0494', 'crimson:5-5': '160eea09', 'crimson:6-3': '6a4a35ca', 'crimson:7-5': '9192f30f', 'crimson:8-5': '632f2b12',
   };
   const fnv = (text) => {
     let h = 0x811c9dc5;

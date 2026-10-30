@@ -122,15 +122,17 @@ const TIERS = {
   blossom: {
     name: 'Blossom', order: 0,
     /** HP growth per wave by ABSOLUTE wave: [firstWave, growth ‰]. Exact integer ‰, powInt compounding. */
-    hpBands: [[1, 1030], [51, 1045], [101, 1050], [151, 1040], [201, 1100]],
+    hpBands: [[1, 1030], [51, 1045], [101, 1050], [151, 1040], [201, 1035]],
     /** Boss waves (owner, Oct 30: "certain bosses on nightmare past 100-200 are impossible to kill"): every boss-wave
      *  enemy (minibosses up to the Matriarch and the Eclipse Wyrm) grows by these ‰ a wave from the band's first wave
      *  instead of hpBands (src/sim/freeplay.js freeplayBossDamp). Blossom keeps its bosses to 200 (the owner's 70M+
-     *  at 166+, killable on Nightmare) and past 200 they grow 5% a wave, the swarm 10%; Tempest and Crimson Moon grow
-     *  2.5% / 2.2% a wave from 151, so a fully maxed board kills each boss alone up to the Matriarch at 200 on
-     *  Nightmare, Blossom < Tempest < Crimson Moon at every boss wave, and the Eclipse Wyrm at 250 stays out of reach
-     *  (tools/bossCap.mjs; docs/FREEPLAY.md "Bosses past 150"). */
-    bossBands: [[201, 1050]],
+     *  at 166+, killable on Nightmare); Tempest and Crimson Moon grow 2.5% / 2.2% a wave from 151, so a fully maxed
+     *  board kills each boss alone up to the Matriarch at 200 on Nightmare (tools/bossCap.mjs; docs/FREEPLAY.md
+     *  "Bosses past 150"). Past 200 (OVERTIME; the owner, Oct 30: "Eclipse Wyrm doesn't show up"): the swarm grows
+     *  3.5% a wave on Blossom (was 10%), so today's best team reaches the Eclipse Wyrm at 250 and fights it (a hard but
+     *  possible kill), and the bosses 1.8%; Tempest 6% / 4% and Crimson Moon 7% / 4.5% stay harder. Blossom < Tempest
+     *  < Crimson Moon at every boss wave. */
+    bossBands: [[201, 1018]],
     /** + depth / every flat armor (fractional, smooth) up to `max`, on normal and elite enemies;
      *  minibosses, bosses and titans get armor × bossMul (0: their own armor and phases only). */
     armor: { every: 20, max: 10, bossMul: 0 },
@@ -150,8 +152,8 @@ const TIERS = {
   },
   tempest: {
     name: 'Tempest', order: 1,
-    hpBands: [[1, 1035], [51, 1050], [101, 1060], [151, 1060], [201, 1100]],
-    bossBands: [[151, 1025], [201, 1050]],
+    hpBands: [[1, 1035], [51, 1050], [101, 1060], [151, 1060], [201, 1060]],
+    bossBands: [[151, 1025], [201, 1040]],
     armor: { every: 15, max: 12, bossMul: 0 },
     eliteBand: { from: 20, every: 12, max: 12 },
     speed: { slope: 0.002, max: 1.3 },
@@ -165,8 +167,8 @@ const TIERS = {
     name: 'Crimson Moon', order: 2,
     /** 1040 / 1055 / 1060 ‰ (was 1045 / 1060 / 1065) and countSlope 0.05 (was 0.06): its
      *  structural growth was 7.6 % a wave, too steep for any smoothing. */
-    hpBands: [[1, 1040], [51, 1055], [101, 1060], [151, 1060], [201, 1100]],
-    bossBands: [[151, 1022], [201, 1050]],
+    hpBands: [[1, 1040], [51, 1055], [101, 1060], [151, 1060], [201, 1070]],
+    bossBands: [[151, 1022], [201, 1045]],
     armor: { every: 10, max: 15, bossMul: 0 },
     eliteBand: { from: 20, every: 10, max: 10 },
     speed: { slope: 0.003, max: 1.35 },
