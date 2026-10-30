@@ -209,7 +209,7 @@ describe('display only: the battle sim is untouched', () => {
     // the LR premium and the OVERTIME bands (Oct 30).
     // feature/attack-shapes-s5 (on balance round 5): S5a (src/sim/s5shapes.js; Miko's Charm Wheel, Rei's Crescent Return,
     // Suzu's Bell Toll, and the shared S5 rules: straightRoom's guard, noShare, the shape-damage tally) rides the same bump.
-    const PENDING_BUMP = { 13: 'a80dafccd10d' };
+    const PENDING_BUMP = { 13: '722edb51def8' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

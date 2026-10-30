@@ -8,7 +8,8 @@ import { Sim } from '../../src/sim/Sim.js';
 import { STEP, STRAIGHT_PER_SIM, CHARMS_PER_GIRL, TOLLS_PER_GIRL } from '../../src/sim/constants.js';
 import { defaultData } from '../../src/sim/data.js';
 import { straightRoom, shapeRoom, spawnStraight } from '../../src/sim/rings.js';
-import { charmDirs, endS5Wave } from '../../src/sim/s5shapes.js';
+import { charmDirs, endS5Wave, crescentAim } from '../../src/sim/s5shapes.js';
+import { nearestDir } from '../../src/sim/dirs.js';
 import { shapeSpec, allocDealt } from '../../src/sim/shapes.js';
 import { wrapDir } from '../../src/sim/dirs.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
@@ -227,6 +228,26 @@ describe('Crescent Return (Rei)', () => {
     expect(p.maxTravel).toBeLessThan(t.eff.range + 2); // it turned before its full way out
     for (let i = 0; i < 240 && !p.dead; i++) steps(sim, 1);
     expect(p.dead).toBe(true);
+  });
+});
+
+describe('Crescent Return aim: the densest line beyond her sweep', () => {
+  test('a crescent flies along the denser group, not her lead; nobody out there: her lead', () => {
+    const { sim, t } = setup({ tier: 4 });
+    const lead = park(sim, 'tank', 9); // in her reach (her sweep's), downstream
+    const lone = park(sim, 'tank', 10.2); // one walker past it
+    const group = [3.4, 3.8, 4.2].map((d) => park(sim, 'tank', d)); // three upstream, past her reach
+    t.cooldown = 1e9;
+    steps(sim, 1);
+    const spec = shapeSpec(t.eff, 0.3);
+    const len = t.eff.range + 2;
+    const k0 = nearestDir(lead.x - t.ox, lead.y - t.oy);
+    const k = crescentAim(sim, t, k0, len, [lead.uid], spec);
+    const toGroup = nearestDir(group[1].x - t.ox, group[1].y - t.oy);
+    expect(Math.min((k - toGroup + 240) % 240, (toGroup - k + 240) % 240)).toBeLessThanOrEqual(8);
+    expect(lone.dead).toBe(false);
+    // everything skipped (her sweep struck it all): her lead's line
+    expect(crescentAim(sim, t, k0, len, [lead.uid, lone.uid, ...group.map((e) => e.uid)], spec)).toBe(k0);
   });
 });
 

@@ -5,8 +5,8 @@
 //     fixed to the world and turned charms.turn table steps a throw (t.wheelK), leaves her as straight charms; the
 //     spoke nearest her target's line is left out, so no charm flies down it. A charm cuts the first enemy it meets
 //     that her throw did not aim at (p.skip), × charms.mul.
-//   - Crescent Return (kit 'cres'; Rei's Whirlwind T4-5): after each counted sweep one crescent flies from her toward
-//     her lead target out to her range + cres.out, turns (an exact reversal) and comes back to where it was thrown. Each
+//   - Crescent Return (kit 'cres'; Rei's Whirlwind T4-5): after each counted sweep one crescent flies from her along the
+//     densest line of walkers her sweep did not strike (crescentAim; none: toward her lead) out to her range + cres.out, turns (an exact reversal) and comes back to where it was thrown. Each
 //     leg cuts up to cres.cuts enemies her sweep did not strike (p.skip) × cres.mul; a leg whose cuts run out turns at
 //     once (out) or ends (home). Its own cut branch never touches p.pierce (src/sim/towers.js projectileStep).
 //   - Bell Toll (kit 'toll'; Suzu's Explosive Mines T4-5): every armed bell rings on its first armed step of a wave and
@@ -21,11 +21,12 @@
 // every surviving bell's tollCd to 1 (a restored trap without one reads 1), so calm saves carry a constant.
 
 import { isEligible } from './combat.js';
-import { nearestDir, wrapDir, dirAngle } from './dirs.js';
-import { shapeSpec, inBand } from './shapes.js';
+import { nearestDir, wrapDir, dirAngle, DIR_X, DIR_Y } from './dirs.js';
+import { shapeSpec, inBand, hitRadius } from './shapes.js';
+import { segDistSq } from './path.js';
 import { shapeRoom, spawnStraight } from './rings.js';
 import {
-  STEP, RING_DIRS, CHARMS_PER_GIRL, CHARM_SPEED, CRESCENTS_PER_GIRL, CRESCENT_SPEED, CRESCENT_HALF_WIDTH,
+  STEP, RING_DIRS, CHARMS_PER_GIRL, CHARM_SPEED, CRESCENTS_PER_GIRL, CRESCENT_SPEED, CRESCENT_HALF_WIDTH, CRESCENT_AIMS,
   TOLLS_PER_GIRL, TOLLS_PER_SIM, TOLL_SPEED,
 } from './constants.js';
 
@@ -61,6 +62,7 @@ export function charmDirs(wheelK, n, k0, out = []) {
 }
 
 const DIRS = [];
+const NEAR = [];
 
 /** After a counted attack (src/sim/towers.js updateTower): her S5a shot shapes, read from t._struck / t._lead. */
 export function s5AfterAttack(sim, t) {
@@ -91,17 +93,80 @@ function throwCharms(sim, t, c, k0) {
   sim._emit('s5', { towerUid: t.uid, kind: 'charms', k: k0, wheelK: wk, n: fit });
 }
 
+const AIM = [];
+const AIM_D2 = [];
+const AIM_ORDER = [];
+
+/**
+ * The crescent's line (the coordinator's call, Oct 30): the densest stretch within its reach. The candidates are her lead's
+ * line k0 and the lines toward the CRESCENT_AIMS nearest eligible walkers her sweep did not strike (d², uid); each scores
+ * the walkers within reach of the segment out to `len` that a leg could cut (her sweep's victims never count). The best
+ * score wins; ties go to the line nearest k0, then the lower table index. Nobody out there: k0 (a lone held boss reads live).
+ */
+export function crescentAim(sim, t, k0, len, skip, spec) {
+  AIM.length = 0;
+  AIM_D2.length = 0;
+  NEAR.length = 0;
+  const near = sim.grid.query(t.ox, t.oy, len + 1, NEAR);
+  for (let i = 0; i < near.length; i++) {
+    const e = near[i];
+    if (e.dead || (e.airborne && !e.grounded) || skip.includes(e.uid) || !isEligible(e, spec)) continue;
+    const dx = e.x - t.ox;
+    const dy = e.y - t.oy;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > len * len) continue;
+    AIM.push(e);
+    AIM_D2.push(d2);
+  }
+  NEAR.length = 0;
+  if (!AIM.length) return k0;
+  AIM_ORDER.length = 0;
+  for (let i = 0; i < AIM.length; i++) AIM_ORDER.push(i);
+  AIM_ORDER.sort((a, b) => AIM_D2[a] - AIM_D2[b] || AIM[a].uid - AIM[b].uid);
+  const n = Math.min(AIM_ORDER.length, CRESCENT_AIMS);
+  let best = k0;
+  let bestScore = aimScore(t, k0, len);
+  let bestGap = 0;
+  for (let j = 0; j < n; j++) {
+    const e = AIM[AIM_ORDER[j]];
+    const k = nearestDir(e.x - t.ox, e.y - t.oy);
+    const sc = aimScore(t, k, len);
+    const gap = dirGap(k, k0);
+    if (sc > bestScore || (sc === bestScore && (gap < bestGap || (gap === bestGap && k < best)))) {
+      best = k;
+      bestScore = sc;
+      bestGap = gap;
+    }
+  }
+  return best;
+}
+
+/** How many of AIM a crescent along table direction k, `len` tiles long, would cross. */
+function aimScore(t, k, len) {
+  const bx = t.ox + DIR_X[k] * len;
+  const by = t.oy + DIR_Y[k] * len;
+  let n = 0;
+  for (let i = 0; i < AIM.length; i++) {
+    const e = AIM[i];
+    const r = hitRadius(e) + CRESCENT_HALF_WIDTH;
+    if (segDistSq(e.x, e.y, t.ox, t.oy, bx, by) <= r * r) n++;
+  }
+  return n;
+}
+
 function throwCrescent(sim, t, c, k0) {
   if (shapeRoom(sim, t, 1, CRESCENTS_PER_GIRL) <= 0) return;
   const spec = shapeSpec(t.eff, c.mul);
-  const p = spawnStraight(sim, t, spec, t.ox, t.oy, k0, t.eff.range + c.out, { pierce: 1, kind: 'crescent', speed: CRESCENT_SPEED });
+  const len = t.eff.range + c.out;
+  const k = crescentAim(sim, t, k0, len, t._struck, spec);
+  const p = spawnStraight(sim, t, spec, t.ox, t.oy, k, len, { pierce: 1, kind: 'crescent', speed: CRESCENT_SPEED });
   p.shape = true;
   p.split = true;
   p.skip = t._struck.slice();
   p.half = CRESCENT_HALF_WIDTH;
   p.cres = { leg: 0, n: 0, cuts: Math.max(1, Math.round(c.cuts)) };
-  t.facing = dirAngle(k0);
-  sim._emit('s5', { towerUid: t.uid, kind: 'cres', k: k0 });
+  t.facing = dirAngle(k);
+  sim._emit('s5', { towerUid: t.uid, kind: 'cres', k });
 }
 
 /**
@@ -162,8 +227,6 @@ function sendToll(sim, t, tr, toll) {
   sim._emit('toll', { towerUid: t.uid, uid: tr.uid, x: tr.x, y: tr.y, r: toll.r });
   return true;
 }
-
-const NEAR = [];
 
 /** Every step of a girl with toll rings (src/sim/towers.js updateTower, before her sabotage check): they grow and strike. */
 export function tollTick(sim, t) {

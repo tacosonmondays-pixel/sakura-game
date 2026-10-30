@@ -406,9 +406,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.rejoinSame).toBe(true);
     expect(runS5aBattle().final).toBe(r.final);
     // pinned when the battle was added (feature/attack-shapes-s5, S5a; the host's girls at tier 5, the guest's at tier 4:
-    // one girl per path at the final tier). Change only with a deliberate sim / data change, and say why.
+    // one girl per path at the final tier); re-pinned when Rei's crescent aimed at the densest line (Oct 30). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, s5a: r.s5a, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 32047, state: 'won', wave: 22, wallets: '772/2866', final: 1666898807, hashes: '33616d25', s5a: '663/172/69/3287', rejoinTick: 7560 });
+      .toEqual({ ticks: 32480, state: 'won', wave: 22, wallets: '770/2865', final: 2356239460, hashes: '39790359', s5a: '1045/159/66/3121', rejoinTick: 7560 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

@@ -516,6 +516,8 @@ export const CRESCENTS_PER_GIRL = 8;
 /** Crescent Return: a crescent's speed (tiles a second) and its half-width (tiles, the swept hit's reach). */
 export const CRESCENT_SPEED = 9;
 export const CRESCENT_HALF_WIDTH = 0.45;
+/** Crescent Return: the nearest walkers (d², uid) whose lines a crescent's aim weighs, besides her lead's (crescentAim). */
+export const CRESCENT_AIMS = 24;
 /** Bell Toll (Suzu): toll rings a girl / the sim may have rolling at once (a full cap defers a toll; nothing is evicted). */
 export const TOLLS_PER_GIRL = 32;
 export const TOLLS_PER_SIM = 128;
