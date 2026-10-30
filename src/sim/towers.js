@@ -29,7 +29,7 @@ import { attackHeld, heldTick, heldOff } from './held.js';
 import { hitRadius } from './shapes.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
 import { sentryTick } from './sentries.js';
-import { collectMirrors, reflectStep, routeBolt, routeStep, syncMirrors, stepStart as mirrorStepStart, updateWebs } from './mirrors.js';
+import { collectMirrors, reflectStep, routeBolt, routeStep, syncMirrors, stepStart as mirrorStepStart, updateWebs, MIRROR_BOLT_SPEED } from './mirrors.js';
 import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick, vineObjects } from './vines.js';
 import { attackSpikes, sendQuake, groundTick } from './ground.js';
@@ -874,7 +874,9 @@ function mirrorVolley(sim, t) {
   for (let i = 0; i < n; i++) {
     const extra = spec.splash > 0 ? 0 : shotPierce(t);
     const blast = spec.splash > 0 ? blastRadius(t, spec.splash) : 0;
-    const opts = extra ? { pierce: spec.pierce + extra } : blast !== spec.splash ? { splash: blast } : undefined;
+    const opts = extra ? { pierce: spec.pierce + extra } : blast !== spec.splash ? { splash: blast } : {};
+    // (a mirror girl whose spec has no flight speed still sends bolts round her mirrors: MIRROR_BOLT_SPEED)
+    if (!(spec.projectileSpeed > 0)) opts.speed = MIRROR_BOLT_SPEED;
     const p = spawnProjectile(sim, t, spec, lead, t.x, t.y, opts);
     routeBolt(t, p, i);
   }

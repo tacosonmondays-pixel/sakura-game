@@ -39,6 +39,8 @@ import { segDistSq, projectOnSegment } from './path.js';
 import { hitRadius } from './shapes.js';
 import { MIRROR_RADIUS, SPLIT_FAN, AIM_QUANT } from './constants.js';
 
+/** A routed bolt's speed (tiles/s) when her spec has none (an instant-hit mirror girl). */
+export const MIRROR_BOLT_SPEED = 18;
 /** Most mirrors a girl owns. */
 export const MIRROR_MAX = 5;
 /** Most mirrors one of her bolts visits. */

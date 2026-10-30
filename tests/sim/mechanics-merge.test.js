@@ -51,13 +51,14 @@ describe('aim points', () => {
     expect(s.events.some((e) => e.type === 'aim' && e.x === null)).toBe(true);
   });
 
-  test('a mirror aim is clamped to her reach and moves her origin', () => {
+  test('a mirror aim is clamped to her reach and moves her origin (her mirror 0; src/sim/mirrors.js)', () => {
     const s = sim();
     const t = place(s, 'mirrorer');
-    expect(s.setAim(t.uid, t.x + 20, t.y)).toBe(true);
-    expect(Math.hypot(t.aim.x - t.x, t.aim.y - t.y)).toBeCloseTo(3.7, 2);
-    expect(t.ox).toBe(t.aim.x);
-    expect(t.oy).toBe(t.aim.y);
+    expect(s.setAim(t.uid, t.x + 20, t.y, 0)).toBe(true);
+    expect(Math.hypot(t.mirrorAim[0].x - t.x, t.mirrorAim[0].y - t.y)).toBeCloseTo(3.7, 2);
+    expect(t.ox).toBe(t.mirrors[0].x);
+    expect(t.oy).toBe(t.mirrors[0].y);
+    expect(t.mirrors[0]).toEqual(t.mirrorAim[0]);
   });
 });
 
@@ -102,31 +103,27 @@ describe('relay origins', () => {
     expect(relayOrigin(s._relaySamples, t.x, t.y, t.stats.relay)).toEqual(t.origin);
   });
 
-  test('two firing points: she volleys from the mirror and from where she stands', () => {
+  test('a mirror girl\'s bolts leave where she stands and bounce through her mirrors (src/sim/mirrors.js)', () => {
+    // (her old two firing points: the bounce is her second firing point now, docs/specs/IROHA_MIRRORS.md §2)
     const s = sim();
     const a = spawn(s, 'tank', 3, { speed: 0 });
-    const b = spawn(s, 'tank', 12, { speed: 0 });
     a.speed = 0;
-    b.speed = 0;
     const t = place(s, 'twinmirror', a.x - 0.5, a.y - 1.6);
-    expect(Math.hypot(a.x - t.x, a.y - t.y)).toBeLessThan(2.3);
-    s.setAim(t.uid, t.x + 3.6, a.y);
-    expect(Math.hypot(t.ox - t.x, t.oy - t.y)).toBeGreaterThan(3);
-    const hits = { a: a.hp, b: b.hp };
-    run(s, 2);
-    expect(a.hp).toBeLessThan(hits.a); // from her own spot
-    // the mirror's targets: whatever is in its range (b only when the panel reaches it)
-    const viaMirror = Math.hypot(b.x - t.ox, b.y - t.oy) <= t.eff.range;
-    if (viaMirror) expect(b.hp).toBeLessThan(hits.b);
-    // without "both", only the panel fires: the enemy beside her but out of the panel's range is safe
-    const s2 = sim();
-    const a2 = spawn(s2, 'tank', 3, { speed: 0 });
-    a2.speed = 0;
-    const m = place(s2, 'mirrorer', a2.x - 0.5, a2.y - 1.6);
-    s2.setAim(m.uid, m.x + 3.6, a2.y);
-    const a20 = a2.hp;
-    run(s2, 2);
-    if (Math.hypot(a2.x - m.ox, a2.y - m.oy) > m.eff.range) expect(a2.hp).toBe(a20);
+    s.setAim(t.uid, t.x + 3.6, a.y, 0);
+    const hp = a.hp;
+    const fromHer = new Set();
+    const bounced = new Set();
+    for (let i = 0; i < 120; i++) {
+      run(s, STEP);
+      for (const p of s.projectiles) {
+        if (p.ownerUid !== t.uid) continue;
+        if (p.route && p.ri === 0 && p.travel <= p.speed * STEP + 1e-9) fromHer.add(p.uid);
+        if (p.bounce > 0) bounced.add(p.uid);
+      }
+    }
+    expect(fromHer.size).toBeGreaterThan(0);
+    expect(bounced.size).toBeGreaterThan(0);
+    expect(a.hp).toBeLessThan(hp);
   });
 });
 

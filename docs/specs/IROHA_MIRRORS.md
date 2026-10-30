@@ -40,7 +40,8 @@ Code: `src/sim/mirrors.js` (all the rules below), `src/sim/towers.js` (her attac
 
 ## 2. Her bolts bounce (Reflected Bolt)
 
-- **The volley.** Her attack (`relay.kind 'mirror'`) fires `projectiles` bolts from where she stands when any eligible
+- **The volley.** Her attack (`relay.kind 'mirror'`) fires `projectiles` bolts (at `MIRROR_BOLT_SPEED` 18 when her spec
+  has no flight speed) from where she stands when any eligible
   enemy is within her range of her or of any of her mirrors. She no longer fires a second plain volley from the panel:
   the bounce IS her second firing point (this replaces UNIT_GAPS §4.1's "two origins").
 - **The route.** Bolt `i` enters her chain at mirror `i mod m` and visits mirrors in chain order (`k, k+1, …`, wrapping),

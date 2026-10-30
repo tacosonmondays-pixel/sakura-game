@@ -408,14 +408,19 @@ describe('resolveStats `extra` (a running ability boost, src/sim/abilities.js)',
 // Roster B3 keys (ROSTER_SPEC §6.2): airMul multiplies, gather adds, relay reach adds (only for a relay
 // girl), and the neutral defaults.
 describe('roster B3 mod keys', () => {
-  test('defaults, airMul (mul), gather (add), relay reach (add, relay girls only), both', () => {
+  test('defaults, airMul (mul), gather (add), relay reach (add, relay girls only), a mirror\'s network fields', () => {
     const s = normalizeBase({});
     expect([s.airMul, s.gather, s.relay]).toEqual([1, 0, null]);
+    // (Iroha's mirror network, docs/specs/IROHA_MIRRORS.md §4: her mirrors and allies' bounces keep the most, the bounce
+    // numbers add; the old `both` is gone: her bolts bounce instead of a second volley)
     const r = normalizeBase({ airMul: 2, relay: { kind: 'mirror', reach: 3, both: true } });
-    applyModSet(r, { airMul: 1.5, gather: 0.2, relay: { reach: 0.5 } }, { damageAdd: 0, damageMul: 1 });
+    applyModSet(r, { airMul: 1.5, gather: 0.2, relay: { reach: 0.5, mirrors: 3, bounces: 1, bounceMul: 0.15 } }, { damageAdd: 0, damageMul: 1 });
+    applyModSet(r, { relay: { mirrors: 2, bounceMul: 0.25, allyBounces: 2 } }, { damageAdd: 0, damageMul: 1 });
     expect(r.airMul).toBe(3);
     expect(r.gather).toBeCloseTo(0.2, 12);
-    expect(r.relay).toEqual({ kind: 'mirror', reach: 3.5, both: true });
+    expect(r.relay).toEqual({ kind: 'mirror', reach: 3.5, mirrors: 3, bounces: 3, bounceMul: 0.4, bounceSplash: 0, shards: 0, allyBounces: 2 });
+    const f = normalizeBase({ relay: { kind: 'familiar', reach: 2 } });
+    expect(f.relay).toEqual({ kind: 'familiar', reach: 2 });
     const n = normalizeBase({});
     applyModSet(n, { relay: { reach: 1 } }, { damageAdd: 0, damageMul: 1 });
     expect(n.relay).toBe(null);
