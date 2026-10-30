@@ -46,7 +46,8 @@ export function deadLines(unitId) {
 /** Her full weight table for one path row of the data (every gear stat, zeros where she gains nothing). */
 export function weightsOf(row, unitId = null) {
   // an aura girl (GEAR_FIT fillTo 'aura': her damage lines feed her aura) plans by the aura weights on any path the
-  // bench could not read (review r3 L2: never "any main / Cost Reduction")
+  // bench could not read (review r3 L2). The aura plan never ranks a dead line as a main; "any main" or Cost Reduction
+  // appear only on a slot where every other option is one of her dead lines (Miko's Charm and Shoes)
   const aura = GEAR_FIT[unitId]?.fillTo === 'aura';
   const base = row?.w || (row?.ruler === 'hero' ? HERO_WEIGHTS : row?.ruler === 'support' || aura ? SUPPORT_WEIGHTS : DAMAGE_WEIGHTS);
   // role weights skip her kit's dead lines (GEAR_FIT); a measured row has them at 0 already
