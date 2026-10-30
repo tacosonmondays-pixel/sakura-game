@@ -244,6 +244,7 @@ scenarios (save/restore, co-op casts) run power-neutral (`powerOff`, or the row 
   a boss); Chika and Kage T3 equal live. **Kage 5-0-2 on the ability bench's pinned crowd (ten grunts held in two
   tiles) reads 2.24M Auto off / 4.77M on, against live's 3.36M / 5.90M**: the attack shapes' Blade Cyclone, identical
   before the merge (c40ed217: 2.24M) and not on the round's rulers (her r5 crowd 1.83M ≥ live 1.82M). Kage has no row.
+  **Fixed (Oct 30, below).**
 - No build falls: every girl, all three tier-5 builds, boss / walking boss / crowd, seeds 9/1/2, against live
   v0.1.61: none of the 279 build × ruler cells (31 girls) under live.
 - The 14 finales (Normal, Hard, Nightmare × free and common × mid, late and max × 2 seeds, 504 battles): **0 wins become
@@ -254,6 +255,73 @@ scenarios (save/restore, co-op casts) run power-neutral (`powerOff`, or the row 
   talent, a recorded exception), mean ×0.680.
 - Tests re-pinned after the merge (no win became a loss): abilitiesGolden 8-5 (the round's wins, hashSim only), the
   engines abilities battle (main's A4–A6 scenario with the round), the hit-stop battle power-neutral.
+
+**Blade Cyclone never below her aimed volley (Oct 30; owner: no nerfs in any measured scenario).** Why Kage 5-0-2 fell on
+the ability bench's pinned column (ten grunts held in two tiles): not lost attacks, targeting or cast timing (10.62
+attacks a second, live and branch); a packed crowd meets one of the four fixed arms, which stops at her pierce 5, so an
+attack landed 4.0 hits of 360 against live's 13 aimed shuriken landing 38.9 hits of 55. `spinVolleyBetter`
+(src/sim/wheels.js) counts both per attack (the enemies on each arm's line, at most her pierce, × the arm's share; the
+enemies on the line through each of her targets); when her aimed volley lands more than `SPIN_AIM_MARGIN` 1.25 × the
+arms, that attack is her old aimed volley (attackProjectile). Table directions and squared distances only. The same
+bench (`tools/abilityBench.mjs --tiers`, strong preset, 120 s, Auto off / on) for every attack-shape girl found two
+more small falls from the shapes: Umeko's Sea of Lanterns on the lone boss (2% under live) and Hotaru's tier-3 halo on
+the column (0.6% under); their rows rise (Umeko ×1.07 → ×1.10, Hotaru ×1.03 → ×1.04). Every cell is now at or above
+live and at or above the branch before the fix:
+
+| girl | build | target | live off / on | before fix off / on | after fix off / on |
+|---|---|---|---|---|---|
+| yuki | 2-4-0 | crowd | 80.3k / 80.3k | 104.1k / 104.1k | 104.1k / 104.1k |
+| yuki | 2-4-0 | boss | 13.2k / 13.2k | 19.5k / 19.5k | 19.5k / 19.5k |
+| yuki | 2-5-0 | crowd | 766.7k / 766.7k | 816.6k / 816.6k | 816.6k / 816.6k |
+| yuki | 2-5-0 | boss | 125.3k / 125.3k | 188.9k / 188.9k | 188.9k / 188.9k |
+| momo | 2-0-4 | crowd | 98.3k / 98.3k | 103.3k / 103.3k | 103.3k / 103.3k |
+| momo | 2-0-4 | boss | 61.4k / 61.4k | 61.9k / 61.9k | 61.9k / 61.9k |
+| momo | 2-0-5 | crowd | 841.5k / 841.5k | 898.6k / 898.6k | 898.6k / 898.6k |
+| momo | 2-0-5 | boss | 566.0k / 566.0k | 571.3k / 571.3k | 571.3k / 571.3k |
+| akane | 2-4-0 | crowd | 2156.52M / 2156.52M | 2429.80M / 2429.80M | 2429.80M / 2429.80M |
+| akane | 2-4-0 | boss | 3.7k / 3.7k | 14.6k / 14.6k | 14.6k / 14.6k |
+| akane | 2-5-0 | crowd | 5391.48M / 5391.48M | 5399.73M / 5399.73M | 5399.73M / 5399.73M |
+| akane | 2-5-0 | boss | 12.5k / 12.5k | 47.3k / 47.3k | 47.3k / 47.3k |
+| fuu | 4-0-2 | crowd | 34.8k / 34.8k | 86.2k / 86.2k | 86.2k / 86.2k |
+| fuu | 4-0-2 | boss | 32.7k / 32.7k | 83.3k / 83.3k | 83.3k / 83.3k |
+| fuu | 5-0-2 | crowd | 167.9k / 167.9k | 406.4k / 406.4k | 406.4k / 406.4k |
+| fuu | 5-0-2 | boss | 163.1k / 163.1k | 402.7k / 402.7k | 402.7k / 402.7k |
+| ena | 2-0-4 | crowd | 59.9k / 59.9k | 331.6k / 331.6k | 331.6k / 331.6k |
+| ena | 2-0-4 | boss | 58.5k / 58.5k | 351.2k / 351.2k | 351.2k / 351.2k |
+| ena | 2-0-5 | crowd | 350.2k / 350.2k | 1.91M / 1.91M | 1.91M / 1.91M |
+| ena | 2-0-5 | boss | 340.8k / 340.8k | 2.02M / 2.02M | 2.02M / 2.02M |
+| chigusa | 5-0-2 | crowd | 829.4k / 829.4k | 3.37M / 3.37M | 3.37M / 3.37M |
+| chigusa | 5-0-2 | boss | 821.9k / 821.9k | 3.36M / 3.36M | 3.36M / 3.36M |
+| chigusa | 2-5-0 | crowd | 24.0k / 26.9k | 99.2k / 115.6k | 99.2k / 115.6k |
+| chigusa | 2-5-0 | boss | 13.8k / 13.8k | 60.5k / 60.5k | 60.5k / 60.5k |
+| chigusa | 2-0-5 | crowd | 15.6k / 15.6k | 63.3k / 63.3k | 63.3k / 63.3k |
+| chigusa | 2-0-5 | boss | 13.9k / 13.9k | 61.0k / 61.0k | 61.0k / 61.0k |
+| kanna | Lv24 | crowd | 1.83M / 1.83M | 1.94M / 1.94M | 1.94M / 1.94M |
+| kanna | Lv24 | boss | 1.41M / 1.41M | 1.41M / 1.41M | 1.41M / 1.41M |
+| kanna | Lv25 | crowd | 2.15M / 2.15M | 2.28M / 2.28M | 2.28M / 2.28M |
+| kanna | Lv25 | boss | 1.66M / 1.66M | 1.66M / 1.66M | 1.66M / 1.66M |
+| umeko | 4-0-2 | crowd | 13.3k / 13.3k | 14.3k / 14.3k | 14.7k / 14.7k |
+| umeko | 4-0-2 | boss | 1.8k / 1.8k | 2.0k / 2.0k | 2.1k / 2.1k |
+| umeko | 4-0-2 | mixed | 5.2k / 5.2k | 5.6k / 5.6k | 5.7k / 5.7k |
+| umeko | 5-0-2 | crowd | 13.3k / 13.3k | 13.7k / 13.7k | 14.1k / 14.1k |
+| umeko | 5-0-2 | boss | 1.8k / 1.8k | 1.8k / 1.8k | 1.9k / 1.9k |
+| umeko | 5-0-2 | mixed | 5.2k / 5.2k | 5.5k / 5.5k | 5.7k / 5.7k |
+| hotaru | 3-0-2 | crowd | 114.1k / 114.1k | 113.4k / 113.4k | 114.5k / 114.5k |
+| hotaru | 3-0-2 | boss | 7.3k / 7.3k | 18.8k / 18.8k | 18.9k / 18.9k |
+| hotaru | 3-0-2 | mixed | 184.3k / 184.3k | 183.4k / 183.4k | 185.2k / 185.2k |
+| hotaru | 4-0-2 | crowd | 421.4k / 421.4k | 423.8k / 423.8k | 428.0k / 428.0k |
+| hotaru | 4-0-2 | boss | 38.8k / 38.8k | 98.6k / 98.6k | 99.6k / 99.6k |
+| hotaru | 4-0-2 | mixed | 684.9k / 684.9k | 689.4k / 689.4k | 696.1k / 696.1k |
+| hotaru | 5-0-2 | crowd | 1.65M / 1.65M | 1.74M / 1.74M | 1.76M / 1.76M |
+| hotaru | 5-0-2 | boss | 384.6k / 384.6k | 1.01M / 1.01M | 1.02M / 1.02M |
+| hotaru | 5-0-2 | mixed | 2.68M / 2.68M | 2.83M / 2.83M | 2.86M / 2.86M |
+| kage | 5-0-2 | crowd | 3.36M / 5.90M | 2.24M / 4.77M | 3.36M / 5.90M |
+| kage | 5-0-2 | boss | 2.91M / 2.91M | 3.04M / 3.04M | 3.04M / 3.04M |
+
+On the round-5 rulers (`r5Bench`, every girl, all three tier-5 builds, boss / walking boss / crowd, seeds 9/1/2) none
+of the 279 cells is under live or under the branch before the fix (Kage's r5 crowd 1.831M, was 1.831M, live 1.822M; her
+light bench crowd 57.1k → 60.9k, live 46.6k). The ceiling gate passes (see the final run). Goldens re-pinned with no win
+becoming a loss.
 
 **Review.** An independent adversarial review (FIX-THEN-SHIP, no blocker) found Fuu's two lower builds, the titan claim,
 the Golem ship gate and four nits (the footnote naming only damage and boss rows, Chigusa judged on the wrong ruler, the
