@@ -46,17 +46,18 @@ export const KNOWN = Object.freeze([
   // feature/iroha-mirrors 7d1cc0bf (her round 4, in review), fully maxed with Umeko + Midori, her mirrors placed by hand:
   // the best layout found (tools/balance/irohaLayouts.mjs, which runs once her mirrors are in the tree; her spec §10
   // and her review r4's search): 5-0-2 on a boss 6.13M, 2-0-5 on a crowd 8.70M (on Auto: 2.77M / 6.96M).
-  // When iroha-mirrors merges: run irohaLayouts.mjs, put its best here, run --bar and re-pin LR_BAR.
+  // Re-run on release/v0.1.66 (iroha-mirrors merged): 5-0-2 boss 5.95M, 2-0-5 crowd 8.45M, under these; kept.
   { unitId: 'iroha', build: 'best layout, feature/iroha-mirrors', crowd: 8.70e6, boss: 6.13e6 },
 ]);
 
 /**
- * The bar, measured on `feature/balance-r5` (`--bar`, Oct 30): the best non-LR crowd and boss of any unit under any
+ * The bar, measured on `feature/balance-r5` (`--bar`, Oct 30) and re-measured on release/v0.1.66 (the shapes S5, Ena,
+ * Iroha's mirrors and the gear update merged; crowd 17,397,696 → 17,399,281, boss unchanged): the best non-LR crowd and boss of any unit under any
  * pair in PAIRS, KNOWN included. Re-measure and re-pin it when a non-LR unit is raised or merged in. Headroom for the
  * S5 shapes (+10–30% on six girls, all under 3M) is inside both axes.
  */
 export const LR_BAR = Object.freeze({
-  crowd: { dps: 17397696, unitId: 'akane', build: 'p0t5', support: 'umeko:p1t5+chika:p1t5' },
+  crowd: { dps: 17399281, unitId: 'akane', build: 'p0t5', support: 'umeko:p1t5+chika:p1t5' },
   boss: { dps: 6130000, unitId: 'iroha', build: 'best layout, feature/iroha-mirrors', support: 'um' },
 });
 

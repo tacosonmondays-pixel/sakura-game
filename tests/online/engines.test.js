@@ -231,13 +231,14 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned for Ena's spreading hex (feature/ena-contagion): her curse now rots and passes on while its enemy lives (was 47676 ticks / 843868789 / '0b57c250', 76 casts, digests 76e7917e / 8bc5612b): the
     // crowds thin sooner, so the Auto rules' moments move; every coverage check above still holds. Then the review r1
     // fixes (each curse records whose rot it is, `rotUid`) moved the checkpoint digest only (588f2a6d → ab003279).
+    // Re-pinned for release v0.1.66 (the merged tree: round 5 with the shapes S1–S5, Ena's spreading curse, Iroha's
+    // mirrors and the gear update, COOP_PROTOCOL 14): the same battle (ticks, casts, lives) with new digests (ab003279 / 50bdf2cd were the Ena branch's): the snapshot
+    // holds the gear update's Sim state and status context, and Iroha's mirror fields
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, casts: r.casts, byId: r.byId, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
       .toEqual({
         ticks: 47193, state: 'between', wallets: '568/782', lives: 100, final: 2186080864, hashes: '00357611', casts: 75,
         byId: 'aoi.skyfall 12 · ena.omenCard 11 · hana.swoop 19 · noa.firstAid 4 · ruri.moonPounce 3 · seiran.stormLance 13 · yoriko.puppetHex 13',
-        // (the gear sets, GEAR_UPDATE.md M2: the same battle — final and hashes unchanged — but the snapshot holds the
-        // new Sim state, Confetti Burst's budget and the status context's Control Strength / You're It fields)
-        ckDigest: 'ab003279', finalDigest: '50bdf2cd',
+        ckDigest: 'd8ff8335', finalDigest: '335c2bcf',
       });
   }, 240000);
 
@@ -266,8 +267,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // review (was 3868163333 / 'dfc9903d'): her Auto mirror spots moved (slot k's spot no longer depends on her count),
     // and the hash carries them; the battle is the same. r4 review (was 178939267 / '63490430'): her Auto slot 0 moved to
     // her old panel spot; the hash only
+    // Re-pinned for release v0.1.66 (the merged tree: round 5 with the shapes S1–S5, Ena's spreading curse, Iroha's
+    // mirrors and the gear update, COOP_PROTOCOL 14): the same ticks, damage and lives; the kills land a little differently between the players
+    // (wallets 2842/3529, the same 6371 coins in all), Ena's curses burst 13 times (was 10 or 11 on each branch), new hashes
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, towers: r.towers, damage: r.damage, lives: r.lives, wallets: r.wallets, final: r.final, hashes: r.hashes, curseBursts: r.curseBursts, runners: r.runners })
-      .toEqual({ ticks: 9821, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2828/3543', final: 1673214357, hashes: '761d09a8', curseBursts: 10, runners: 2 });
+      .toEqual({ ticks: 9821, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2842/3529', final: 2101051185, hashes: 'b8428c4f', curseBursts: 13, runners: 2 });
   }, 240000);
 
   it('runs a co-op battle with Tenka (TENKA_START: her lab team over two absorbs, every class, the economy weapon, wells, Last Line, a sale) in sync, its checkpoint replaying', () => {
@@ -310,8 +314,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Ena's spreading curse moved both digests and nothing else (the Sim's spread budget fields; no Ena here):
     // 60f651e2 → 2af38483, 98e117c2 → cddc50f8. Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10,
     // Hotaru ×1.04): digests only (on balance-r5 alone 60f651e2 → 908e0502, 98e117c2 → 2e213a40); both together 9436008b / 61d0c02a.
+    // Re-pinned for release v0.1.66 (the merged tree: round 5 with the shapes S1–S5, Ena's spreading curse, Iroha's
+    // mirrors and the gear update, COOP_PROTOCOL 14): the same battle, final and hashes as round 5 (88532403); both digests move (the snapshot holds the merged
+    // Sim and tower state: the spread budget, the set fields, the mirrors)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '88532403', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'ce8b48fe', finalDigest: '3557ee77' }); // (M2: new Sim state only; review M2 r2 N1: her lab record's interestCap)
+      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '88532403', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: '632eb7e9', finalDigest: '7508bbc5' });
   }, 240000);
 
   it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s bolts bouncing off her mirrors with Pierce, every club trick) in sync', () => {
@@ -342,8 +349,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // now bounces / bolts / pierced (her bolts leave her and bounce through her mirrors). r2 review (was 41912 /
     // '5464/5627' / 1048598229 / '1c0cbfb8', 2112/1056/844): her Auto spots, bounces ≥ mirrors, the re-set numbers. r4
     // (was 41794 / '5460/5631' / 1497122937 / 'c42139b0', 2118/1059/846): slot 0 at her old panel spot, glints, the merge
+    // Re-pinned for release v0.1.66 (the merged tree: round 5 with the shapes S1–S5, Ena's spreading curse, Iroha's
+    // mirrors and the gear update, COOP_PROTOCOL 14): still won, Iroha's bounces / bolts / pierced the same (1668/834/666); Ena's curse rots and spreads
+    // here too, so the waves end a little later (41667 → 41896 ticks), new wallets and hashes
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, iroha: r.iroha })
-      .toEqual({ ticks: 41667, state: 'won', wallets: '5457/5634', final: 646202039, hashes: '9d2cf959', iroha: '1668/834/666' });
+      .toEqual({ ticks: 41896, state: 'won', wallets: '5462/5629', final: 871511511, hashes: '3a1d437f', iroha: '1668/834/666' });
   }, 240000);
 
   it('runs the attack shapes S1 (SHAPES_START: Coin Wheel, Blade Cyclone, Firefly Halo) in sync, and a mid-wave rejoin lands on the run', () => {
@@ -492,8 +502,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.checkpoints).toBeGreaterThan(100);
     expect(runSetBattle().final).toBe(r.final);
     // pinned when the scenario landed (GEAR_UPDATE.md M2 review): change only with a deliberate sim / data change, and say why
+    // Re-pinned for release v0.1.66 (the merged tree: round 5 with the shapes S1–S5, Ena's spreading curse, Iroha's
+    // mirrors and the gear update, COOP_PROTOCOL 14): SET_START now runs on Hard with Ruri and Aoi nearest Noa (scriptedBattle.js: on Normal the merged
+    // kits killed everything before Aoi's and Ruri's spots, so Right Angle and Bake Sale never ran); every passive runs
     expect({ ticks: r.ticks, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, sets: r.sets, superCrits: r.superCrits, itHits: r.itHits, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 50043, wallets: '579/792', lives: 100, final: 545400673, hashes: 'ed5275a5', sets: 'aoi:rightAngle=31 hana:confetti=36 noa:cheer=36', superCrits: 146, itHits: 1132, ckDigest: 'f7ecf5de', finalDigest: 'b35a0ce8' });
+      .toEqual({ ticks: 43324, wallets: '411/633', lives: 50, final: 1094358524, hashes: 'ec3ad99b', sets: 'aoi:rightAngle=12 hana:confetti=14 noa:cheer=31', superCrits: 53, itHits: 1000, ckDigest: '1c9f7d50', finalDigest: 'c39417b2' });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

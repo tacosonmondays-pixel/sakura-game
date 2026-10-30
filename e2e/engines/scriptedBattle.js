@@ -1516,7 +1516,8 @@ export function runReturningAbilBattle({ toWave = 14, checkpointAt = 8, maxFrame
   // happens at her feet and her rally's kills can bring lives back; the heroes take the next road spots
   const spots = spotsFor(start, ['noa', 'seiran', 'yoriko'], 3);
   const taken = Object.values(spots).flat().map(([qx, qy]) => [qx / 1024, qy / 1024]);
-  const around = spotsAround(start, spots.noa[0], ['hana', 'ena', 'aoi', 'ruri'], 6, taken);
+  // (start.aroundOrder: the order the four take the spots around Noa, nearest first; SET_START sets its own)
+  const around = spotsAround(start, spots.noa[0], start.aroundOrder || ['hana', 'ena', 'aoi', 'ruri'], 6, taken);
   for (const u of ['hana', 'ena', 'aoi', 'ruri']) spots[u] = [around[u]];
   const want = [];
   for (let i = 0; i < 3; i++) for (const slot of [0, 1]) if (girls[slot][i]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
@@ -2011,6 +2012,11 @@ const SH = (more) => ({ ...RETURNING_ABIL_HERO, ...more });
 export const SET_START = Object.freeze({
   ...RETURNING_ABIL_START,
   seed: 646464,
+  // (release v0.1.66: with round 5, the attack shapes and Ena's spreading curse merged, Normal died before Aoi's spot,
+  // 5 enemies in her reach in 14 waves, so Right Angle never fired, and Ruri's last spot never killed (no Bake Sale);
+  // on Hard, with Ruri and Aoi nearest Noa, every passive runs again)
+  difficulty: 'hard',
+  aroundOrder: ['ruri', 'aoi', 'hana', 'ena'],
   players: [
     { slot: 0, uid: 'host', name: 'Host', loadout: [
       { unitId: 'hana', stats: S({ set: 'popper', setN: 5, blastK: 120, pierceK: 46 }) },
