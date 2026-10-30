@@ -484,8 +484,16 @@ export function unitBattleStats(profile, unitId) {
   return mul > 1 + 1e-9 ? { ...a, pierceAtkMul: Math.round(mul * 10000) / 10000 } : a;
 }
 
+/**
+ * Her battle stats on the ATK fill-in path alone (her dead crit lines all as ATK, no average crit for them): the floor
+ * every damage source of hers is held to (tests/systems/avgCritTrade.test.js).
+ */
+export function fillOnlyBattleStats(profile, unitId) {
+  return battleStatsAt(profile, unitId, blastKit(unitId), true);
+}
+
 /** unitBattleStats with her Pierce judged as a blast kit's (`blast`: all of it reach) or a shot kit's (200 %, then ATK). */
-function battleStatsAt(profile, unitId, blast) {
+function battleStatsAt(profile, unitId, blast, fillOnly = false) {
   const unit = profile?.units?.[unitId] || { level: 1, awaken: 0, breakthrough: 0 };
   const prof = profile || { units: {}, gear: {} };
   const g = gearStatTotals(prof, unitId);
@@ -501,10 +509,15 @@ function battleStatsAt(profile, unitId, blast) {
   const dead = fillStats(unitId, { awaken: unit.awaken || 0, potential: potentialLevel(unit) });
   // (the aura girls' crit lines fill into their aura: never both, so no average crit for them)
   if (fill.target === 'aura' && (dead.has('critChance') || dead.has('critDmg'))) avgCrit = 1;
-  if (fill.target === 'atk' && (dead.has('critChance') || dead.has('critDmg'))) {
+  // Per damage source, never weaker than the ATK fill-in (release v0.1.66): her hits (shots, towels, abilities, S5
+  // shapes) never read the average crit, so damageMul keeps the fill-in; what reads it (traps and curses: damage ×
+  // avgCrit; burns and poisons: dotMul × avgCrit) gets the better of the fill-in and the average crit on the ATK
+  // left without her crit lines (`trade`), folded into avgCrit and dotMul below
+  let trade = null;
+  if (fill.target === 'atk' && (dead.has('critChance') || dead.has('critDmg')) && fillOnly) avgCrit = 1;
+  else if (fill.target === 'atk' && (dead.has('critChance') || dead.has('critDmg'))) {
     const alt = gearFillIn(prof, unitId, { skip: ['critChance', 'critDmg'], blast });
-    if ((1 + g.atkPct + alt.total) * avgCrit > 1 + g.atkPct + fill.total) fill = alt;
-    else avgCrit = 1;
+    trade = alt.total;
   }
   const atkFill = fill.target === 'atk' ? fill.total : 0;
   const auraFill = fill.target === 'aura' ? fill.total : 0;
@@ -517,6 +530,15 @@ function battleStatsAt(profile, unitId, blast) {
   const [dotShare, dotBase] = DOT_BY_PIECES[Math.min(5, set.pieces)];
   // five Blank LR pieces double the cap's bonus part (×2.0 → ×3.0)
   const dotCap = set.blankN >= BLANK_FIVE ? 1 + 2 * (dotBase - 1) : dotBase;
+  let dotMul = Math.min(dotCap, 1 + dotShare * gearAtk);
+  if (trade != null) {
+    // traps and curses: (1 + ATK without the crit lines) × avgCrit against (1 + ATK with them), the better one
+    const hitAvg = avgCrit * (1 + g.atkPct + trade) / (1 + gearAtk);
+    // burns and poisons: dotMul × avgCrit reads the better of the two too (dotMul ≥ 1: dotAlt × avgCrit ≥ hitAvg)
+    const dotBest = Math.max(dotMul, Math.min(dotCap, 1 + dotShare * (g.atkPct + trade)) * avgCrit);
+    avgCrit = hitAvg > 1 ? hitAvg : 1;
+    dotMul = dotBest / avgCrit;
+  }
   // her ⚡ ability's haste: half her capped Skill Haste; Power Bank's set cap gives it half of all of it (§3.2)
   // (rounded as before the sets: 0.5 × her rounded haste, so no existing girl's charge per tick moves)
   const abilHaste = Math.min(ABIL_HASTE_CEIL, 0.5 * r4(Math.min(C.ultHaste, g.ultHaste)));
@@ -540,7 +562,7 @@ function battleStatsAt(profile, unitId, blast) {
     pierceK: Math.round(100 * Math.min(pierceUseCap(unitId, B.piercePct, blast), g.piercePct)),
     auraPct: r4((1 + Math.min(C.auraPct, g.auraPct) + auraFill) * boost.aura - 1),
     auraRangeMul: r4((1 + Math.min(C.auraRangePct, g.auraRangePct)) * (1 + auraFill)),
-    dotMul: r4(Math.min(dotCap, 1 + dotShare * gearAtk)),
+    dotMul: r4(dotMul),
     club: set.club,
     clubN: Math.min(3, set.clubN),
     rainbow: Math.min(3, set.ur),
