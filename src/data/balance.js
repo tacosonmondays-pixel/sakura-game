@@ -47,8 +47,9 @@ const ROWS = {
   azami: { dmg: 2.45 },
   akane: { boss: 3.5 },
   sango: { boss: 3.1 },
-  // (Hotaru ×1.03: with the attack shapes her Firefly Halo build alone read 1% under today on a crowd)
-  hotaru: { dmg: 1.03, boss: 2.5 },
+  // (Hotaru ×1.04: with the attack shapes her Firefly Halo build alone read 1% under today on a crowd, and her tier-3
+  // halo 0.6% under on the ability bench's pinned column at ×1.03)
+  hotaru: { dmg: 1.04, boss: 2.5 },
   // (Iroha: re-set for her mirror network, docs/specs/IROHA_MIRRORS.md §10: her Mirror Hall build ~Kage on a boss)
   iroha: { boss: 6 },
   marumi: { boss: 5.6 },
@@ -69,8 +70,9 @@ const ROWS = {
   chika: { buff: 1.05, ctl: 1.2 },
   midori: { buff: 1.05, ctl: 1.2 },
   miko: { buff: 1.05, reach: 1.1 },
-  // (Umeko ×1.07 damage: the attack shapes' Searchlight Sweep left her own small hits up to 5% under today)
-  umeko: { dmg: 1.07, buff: 1.05, reach: 1.1, ctl: 1.2 },
+  // (Umeko ×1.10 damage: the attack shapes' Searchlight Sweep left her own small hits up to 5% under today, and her
+  // Sea of Lanterns 2% under on the ability bench's lone boss at ×1.07)
+  umeko: { dmg: 1.1, buff: 1.05, reach: 1.1, ctl: 1.2 },
   noa: { buff: 1.05, reach: 1.1 },
   wakaba: { buff: 1.05 },
   ouka: { buff: 1.05 },

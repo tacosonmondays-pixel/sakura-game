@@ -205,10 +205,10 @@ describe('display only: the battle sim is untouched', () => {
     // them sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only this exact in-progress id
     // passes.
     // Balance round 5 (feature/balance-r5) rides the same bump: this id is the shapes and round 5 together, on v0.1.61,
-    // with the duo's map-wide laser, the LR rows and freeplay's boss bands (Oct 30).
+    // with the duo's map-wide laser, the LR rows, freeplay's boss bands and Blade Cyclone's aimed volley (Oct 30).
     // feature/iroha-mirrors rides it too: Iroha's mirror network (docs/specs/IROHA_MIRRORS.md; src/sim/mirrors.js) on top
     // of round 5 (the coordinator assigns the bump).
-    const PENDING_BUMP = { 13: 'ccd4be469ce8' };
+    const PENDING_BUMP = { 13: 'cd19c89712f6' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

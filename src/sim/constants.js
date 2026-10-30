@@ -339,6 +339,9 @@ export const SPIN_HALF_WIDTH = 0.3;
 export const SPIN_SPEED = 10;
 /** Pinwheel Stream with a single enemy in range: the folded stream turns at most this many table steps a shot. */
 export const SPIN_FOLD_TURN = 20;
+/** Blade Cyclone throws her aimed volley instead of the arms when the volley would land more than this × the arms
+ *  (src/sim/wheels.js spinVolleyBetter: a packed crowd meets one arm, capped at her pierce). */
+export const SPIN_AIM_MARGIN = 1.25;
 /** Petal Halo: table steps per sim step (one turn in 2 s), orbit radius, contact radius (tiles), the
  *  re-hit gap per piece (steps), a piece's memory (entries, oldest dropped) and pieces per girl at most. */
 export const HALO_STEPS = 2;

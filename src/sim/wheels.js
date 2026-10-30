@@ -6,7 +6,9 @@
 //     straight shot along its direction and the arms turn spin.turn table steps, only spin.lock while an
 //     arm has an enemy on its line (the stream lingers on crowds); with a single eligible enemy in range
 //     the arms fold into one stream that follows it. An attack carries her volley's damage (damage ×
-//     projectiles), split over the arms × spin.mul, or whole × spin.fold when folded.
+//     projectiles), split over the arms × spin.mul, or whole × spin.fold when folded. Never below her aimed
+//     volley (owner: no nerfs): when her shuriken thrown at her targets would land more than the arms (a packed
+//     crowd meets one arm, capped at her pierce), that attack is her aimed volley instead (spinVolleyBetter).
 //   - Petal Halo (kit `halo`, beside her own attack): `halo.pieces` pieces orbit her at HALO_REACH; each
 //     cuts the enemies it touches, each enemy at most once per piece every HALO_GAP steps (a re-hit list
 //     per piece, §4.4), for damage × rate × halo.mul. The pieces only cut: t.haloSpec (src/sim/towers.js)
@@ -24,7 +26,7 @@ import { dir, wrapDir, nearestDir, turnToward, DIR_X, DIR_Y } from './dirs.js';
 import { inDisc, onLine, hitRadius } from './shapes.js';
 import { straightRoom, spawnStraight } from './rings.js';
 import {
-  STEP, RING_DIRS, WHEEL_SPEED, SPIN_HALF_WIDTH, SPIN_SPEED, SPIN_FOLD_TURN,
+  STEP, RING_DIRS, WHEEL_SPEED, SPIN_HALF_WIDTH, SPIN_SPEED, SPIN_FOLD_TURN, SPIN_AIM_MARGIN,
   HALO_STEPS, HALO_REACH, HALO_RADIUS, HALO_GAP, HALO_HITS, HALO_MAX,
 } from './constants.js';
 
@@ -81,7 +83,7 @@ const SPIN_SCRATCH = [];
  * volley × spin.mul / arms, and the arms turn spin.turn table steps, only spin.lock while an arm has an
  * enemy on its line.
  */
-export function attackSpin(sim, t, spec, extraPierce = () => 0) {
+export function attackSpin(sim, t, spec, extraPierce = () => 0, aimed = null) {
   const sp = t.stats.spin;
   if (!sp) return false;
   const near = sim.grid.query(t.ox, t.oy, spec.range, SPIN_SCRATCH);
@@ -106,6 +108,11 @@ export function attackSpin(sim, t, spec, extraPierce = () => 0) {
     straightRoom(sim, t, 1);
     spawnStraight(sim, t, spec, t.ox, t.oy, k, spec.range, { pierce, kind: t.projKind, speed: SPIN_SPEED, scale: volley * sp.fold });
   } else {
+    // her aimed volley when it lands more than the arms would (the arms keep their turn: they did not shoot)
+    if (aimed && spinVolleyBetter(sim, t, spec, near, k, arms, volley, sp.mul, aimed.targets)) {
+      SPIN_SCRATCH.length = 0;
+      return aimed.volley();
+    }
     const scale = (volley * sp.mul) / arms;
     straightRoom(sim, t, arms);
     for (let a = 0; a < arms; a++) {
@@ -132,6 +139,49 @@ export function attackSpin(sim, t, spec, extraPierce = () => 0) {
   t.targetUid = first.uid;
   sim._emit('attack', { towerUid: t.uid, targetUid: count === 1 ? first.uid : null, kind: 'spin', k, arms: count === 1 ? 1 : arms });
   return true;
+}
+
+const AIM_SCRATCH = [];
+
+/**
+ * Would her aimed volley (her shuriken at her targets, each piercing along its line) land more damage than the
+ * arms now? Counted, not simulated: per arm the eligible enemies on its line (at most her pierce) × the arm's share;
+ * per shuriken (her volley, targets in turn) the eligible enemies on the line from her through its target out to
+ * her reach + 1 (at most her pierce) × 1. Table directions and squared distances only (deterministic).
+ */
+export function spinVolleyBetter(sim, t, spec, near, k, arms, volley, mul, targetsOf) {
+  const P = Math.max(1, spec.pierce);
+  let armHits = 0;
+  for (let a = 0; a < arms; a++) {
+    const i = wrapDir(k + Math.floor((a * RING_DIRS) / arms));
+    let c = 0;
+    for (let j = 0; j < near.length && c < P; j++) {
+      const e = near[j];
+      if (e.dead || !isEligible(e, spec)) continue;
+      if (onLine(e.x - t.ox, e.y - t.oy, DIR_X[i], DIR_Y[i], spec.range, SPIN_HALF_WIDTH, hitRadius(e))) c++;
+    }
+    armHits += c;
+  }
+  const armDmg = (armHits * volley * mul) / arms;
+  const shots = Math.max(1, spec.projectiles);
+  const targets = targetsOf(shots, AIM_SCRATCH);
+  if (!targets.length) return false;
+  let aimHits = 0;
+  for (let s = 0; s < shots; s++) {
+    const tg = targets[s % targets.length];
+    const i = nearestDir(tg.x - t.ox, tg.y - t.oy);
+    let c = 0;
+    for (let j = 0; j < near.length && c < P; j++) {
+      const e = near[j];
+      if (e.dead || !isEligible(e, spec)) continue;
+      if (e === tg || onLine(e.x - t.ox, e.y - t.oy, DIR_X[i], DIR_Y[i], spec.range + 1, SPIN_HALF_WIDTH, hitRadius(e))) c++;
+    }
+    aimHits += c;
+  }
+  AIM_SCRATCH.length = 0;
+  // (her volley's extra shuriken, Potential's projScale, ride both the same way; the volley only when it is clearly
+  // more, SPIN_AIM_MARGIN, so a near tie keeps the arms the round-5 rulers measured)
+  return aimHits * (volley / shots) > armDmg * SPIN_AIM_MARGIN;
 }
 
 /** Where piece j of n is at step `step`: HALO_REACH × reach from her, read from the step number. */
