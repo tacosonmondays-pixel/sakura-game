@@ -206,9 +206,33 @@ bosses at 190–225 no longer end the runs either (4-5 Tempest 200 → 205, 8-5 
 With lives to spare (`capBot --lives 1000000`, Nightmare), where each kind first gets through: before, bosses first
 (180–220) and the swarm 1–11 waves later; after, the swarm first (elites 189–225) and bosses 210–225, 5–25 waves later.
 
-**The endgame gate:** the Eclipse Wyrm at 250 is 10–17B on Nightmare (5.6–10B on Normal) against a fully maxed board's
-~1.2B: still far out of reach. Past 200 the bosses still climb 5% a wave, so a run's end comes at 205–225 from them or
-the swarm.
+**The endgame gate:** the OVERTIME section below (Oct 30) retunes waves 201+ so the Eclipse Wyrm at 250 is reached on
+Blossom.
+
+## OVERTIME and the Eclipse Wyrm (Oct 30)
+
+Owner: "Eclipse Wyrm doesn't show up" (a diagnosis on fix/wyrm-ribbon: it spawns fine; nobody reaches wave 250), and
+the wave-250 boss should be "not too easy but not impossible". Before: every tier grew the swarm 10% a wave from 201, so a
+fully maxed team fell at 205–235 and the first Wyrm's pool was ~246× the wave-200 Matriarch's on live (~24× with round 5's
+boss bands). Enemies get easier; nobody is lowered.
+
+- `hpBands` from 201: Blossom 3.5% a wave (was 10%), Tempest 6%, Crimson Moon 7%. `bossBands` from 201: Blossom 1.8%,
+  Tempest 4%, Crimson Moon 4.5% (were 5%). The Wyrm stays at 250 (`calamity` unchanged).
+- The Wyrm at 250 (Normal): 4-5 1.20B, 8-5 1.60B, 1-5 0.59B on Blossom (Tempest 3.9–5.1B, Crimson Moon 6.1–7.8B); a full
+  board kills 1.41B (4-5, 8-5) to 2.39B (1-5) of a lone Wyrm: ×1.18 / ×0.89 / ×4.05. On Nightmare ×0.53 / ×0.37 / ×2.05.
+- `tests/sim/freeplayWyrmReach.test.js` (from fix/wyrm-ribbon): its reproduction is a plain `it()` now: on Blossom the
+  Wyrm with the Matriarch it releases is at most 5.5× the wave-200 Matriarch, Tempest and Crimson Moon above that.
+
+Fully maxed Build A2 (`capBot --profile full`), where the run ends (before this → now):
+
+| stage | Blossom Normal | Blossom Nightmare | Tempest Normal / Nightmare | Crimson Moon Normal / Nightmare |
+|---|---|---|---|---|
+| 1-5 | 235 → **260+** (the Wyrm killed) | 225 → **260+** | 214 → 224 / 210 → 214 | 214 → 215 / 207 → 210 |
+| 4-5 | 224 → **250** (falls at the Wyrm's wave, to its escorts) | 212 → 238 | 205 → 210 / 190 → 190 | 204 → 205 / 189 → 189 |
+| 8-5 | 225 → **250** (the Wyrm walks through) | 217 → 241 | 208 → 213 / 191 → 197 | 206 → 208 / 191 → 191 |
+
+Today's best non-LR team reaches the Wyrm on Blossom and fights it: an easy stage kills it, the harder stages lose to it
+by a little (the room LR gear and better play fill). Tempest and Crimson Moon end 10–60 waves earlier.
 
 ## Rewards (never above normal play per minute)
 
