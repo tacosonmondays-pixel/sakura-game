@@ -9,6 +9,7 @@ import { h, icon, enemyDef } from './util.js';
 import { fmtNum } from '../format.js';
 import { droneName } from '../../data/droneNames.js';
 import { FLIGHT_PURSUIT_RATE_MUL } from '../../sim/constants.js';
+import { DPS_AVG_TIP } from './dpsView.js';
 
 /** MORE's tabs for a drone owner (her paths are on the drawer's Glance). */
 export const DRONE_TABS = ['overall', 'chika', 'drones'];
@@ -26,6 +27,25 @@ const count = (n) => fmtNum(Math.max(0, n || 0));
 const rate = (n) => fmtNum(n, 'rate');
 const tiles = (n) => `${fmtNum(n, 'range')} tiles`;
 const secs = (n) => fmtNum(n, 'time');
+
+/**
+ * The Drones tab's count (ABILITIES_SPEC §5.1 Drone Surge): her own drones, plus Drone Surge's extra ones while they
+ * fly: "4", "4 + 4 surge".
+ */
+export function droneHeader(own, surge = 0) {
+  const n = count(own);
+  return surge > 0 ? `${n} + ${count(surge)} surge` : n;
+}
+
+/** A surge drone's row: "Surge 2" and the seconds it has left before it docks ("7.5s"). */
+export function surgeRowText(k, left) {
+  return { name: `Surge ${count(k)}`, timer: `${secs(Math.max(0, left || 0))}s` };
+}
+
+/** A drone's name in the list and on its card: her own by serial number, a surge drone as "Surge k". */
+export function droneLabel(d) {
+  return d.surge > 0 ? surgeRowText(d.surge, d.left).name : droneName(d.n);
+}
 
 /** Does this girl get the drone parts? */
 export function hasDroneTabs(st) {
@@ -56,9 +76,9 @@ export function wingDpsCells(st) {
 
 /**
  * @param {object} ctx battle context (sim, act, select, selectDrone, flight, coop, rates)
- * @param {{ rerender(): void }} hooks
+ * @param {{ rerender(): void, avgDps?: (uid: number) => number|null }} hooks (avgDps: the drawer meter's average, dpsView.js)
  */
-export function createDronePanel(ctx, { rerender }) {
+export function createDronePanel(ctx, { rerender, avgDps = null }) {
   const { sim } = ctx;
   const lastTab = new Map(); // girl uid -> the tab she reopens on (this battle only)
   let uid = null;
@@ -168,7 +188,8 @@ export function createDronePanel(ctx, { rerender }) {
 
   // ---- tab row (MORE): Overall · Chika · Drones n
   function tabRow(t) {
-    const names = { overall: 'Overall', chika: t.def.name, drones: `Drones ${t.turrets.length}` };
+    const surge = t.turrets.filter((d) => d.temp).length;
+    const names = { overall: 'Overall', chika: t.def.name, drones: `Drones ${droneHeader(t.turrets.length - surge, surge)}` };
     const cur = droneUid != null ? 'drones' : tab;
     return h('div.bt-dr-tabs', { role: 'tablist' }, DRONE_TABS.map((k) => h(
       `button.bt-dr-tab${cur === k ? '.on' : ''}`,
@@ -191,6 +212,19 @@ export function createDronePanel(ctx, { rerender }) {
     return r == null ? '—' : stat(r);
   };
 
+  /** Her average DPS (the drawer meter's, dpsView.js), painted every frame; "—" before 1 s on the field. */
+  const avgValue = (t) => {
+    const b = liveB(() => {
+      const a = avgDps?.(t.uid);
+      return a == null ? '—' : stat(a);
+    });
+    b.dataset.testid = 'drawer-dps-avg';
+    return b;
+  };
+
+  /** Her Overall Live tip: the wing's rate over the last few seconds (it never switches to a last-wave figure). */
+  const WING_LIVE_TIP = 'Live: everything she and her drones dealt over the last few seconds.';
+
   function overallTab(t, st, cells) {
     const dps = wingDpsCells(st).overall;
     const tu = st.turret;
@@ -199,7 +233,12 @@ export function createDronePanel(ctx, { rerender }) {
     // her Potential rows (the drones' overclock) first, so they tick in view
     return h('div', { 'data-testid': 'stats-overall' }, cells.pot || null, h('div.bt-stats-grid',
       cell(dps.label, dps.value, '.bt-stat-main.bt-stat-wide2'),
-      cell('Dealing', liveB(() => rateText(`t${t.uid}`)), '.bt-stat-wide2'),
+      // Live and Avg: everything she and her drones dealt (her damageDealt holds the wing's), one column each (on a
+      // phone Live sits beside DPS and Avg starts the next row, which Live alone took before: the tab is no taller).
+      // Her Live is the wing's own rate (sampleDroneRates), which keeps sampling between waves, so its tip leaves out
+      // the drawer's "last wave" line
+      h('div.bt-stat-cell', { 'data-testid': 'drawer-dps', role: 'group', title: WING_LIVE_TIP, 'aria-label': `DPS live. ${WING_LIVE_TIP}` }, h('span', 'DPS (live)'), liveB(() => rateText(`t${t.uid}`))),
+      h('div.bt-stat-cell', { 'data-testid': 'drawer-dps-avg-cell', role: 'group', title: DPS_AVG_TIP, 'aria-label': `DPS average. ${DPS_AVG_TIP}` }, h('span', 'DPS (avg)'), avgValue(t)),
       cells.rest,
       cell('Drones fly', fly, '.bt-stat-wide2'),
       cell('Flight', { hover: 'Hover', hold: 'Hold', patrol: 'Patrol', pursuit: 'Pursuit' }[tu.flight] || tu.flight, '.bt-stat-wide2'),
@@ -220,7 +259,7 @@ export function createDronePanel(ctx, { rerender }) {
       cell('Dealt', liveB(() => dealt((t.damageDealt || 0) - (t.droneDmg || 0)))),
       cell('Kills', liveB(() => count((t.kills || 0) - (t.droneKills || 0)))),
       cell('Share', liveB(() => (t.damageDealt >= 1 ? `${Math.round(((t.damageDealt - t.droneDmg) / t.damageDealt) * 100)}%` : '—'))),
-      cell('Dealing', liveB(() => {
+      cell('DPS (live)', liveB(() => {
         const all = ctx.rates?.rate(`t${t.uid}`);
         const dr = ctx.rates?.rate(`d${t.uid}`);
         return all == null || dr == null ? '—' : stat(Math.max(0, all - dr));
@@ -255,7 +294,8 @@ export function createDronePanel(ctx, { rerender }) {
     );
     const focus = t.targetMode === 'strong' || t.targetMode === 'elite';
     const hint = h('p.bt-dr-note', focus ? `Target ${t.targetMode === 'strong' ? 'Strong' : 'Priority'}: the wing focuses one target` : 'Target First / Last / Close: drones spread out');
-    const ds = sim.droneStats(t.uid);
+    const all = sim.droneStats(t.uid);
+    const ds = all.filter((d) => !(d.surge > 0));
     const rows = ds.map((d) => {
       const dot = h('span.bt-dr-dot');
       const dmg = h('b.bt-dr-row-dmg');
@@ -273,8 +313,27 @@ export function createDronePanel(ctx, { rerender }) {
       return h('button.bt-dr-row', { type: 'button', 'data-testid': `drone-row-${d.n}`, onclick: () => showDrone(d.uid, 'drones') },
         dot, h('span.bt-dr-row-name', droneName(d.n)), top, kills, dmg);
     });
+    // Drone Surge's extra drones (her ⚡): their own heading, "Surge 1…k" with the seconds left before they dock
+    const surge = all.filter((d) => d.surge > 0).map((d) => {
+      const dot = h('span.bt-dr-dot');
+      const timer = h('span.bt-dr-row-kills', { 'data-testid': `surge-timer-${d.surge}` });
+      const dmg = h('b.bt-dr-row-dmg');
+      live.push((list) => {
+        const cur = list.find((x) => x.uid === d.uid);
+        if (!cur) return;
+        dot.dataset.state = cur.state;
+        timer.textContent = surgeRowText(cur.surge, cur.left).timer;
+        dmg.textContent = dealt(cur.dmg);
+      });
+      return h('button.bt-dr-row', { type: 'button', 'data-testid': `drone-row-s${d.surge}`, onclick: () => showDrone(d.uid, 'drones') },
+        dot, h('span.bt-dr-row-name', surgeRowText(d.surge, d.left).name), timer, dmg);
+    });
+    const surgeList = surge.length
+      ? [h('div.bt-dr-surge-head', { 'data-testid': 'surge-head' }, 'Surge'), h('div.bt-dr-list', { 'data-testid': 'surge-list' }, surge)]
+      : [];
     return h('div', { 'data-testid': 'stats-drones' },
       h('div.bt-dr-list', { 'data-testid': 'drone-list' }, rows.length ? rows : h('p.bt-dr-note', sim.state === 'wave' ? 'Her first drone is on its way.' : 'Drones are built during waves.')),
+      ...surgeList,
       grid, hint);
   }
 
@@ -315,7 +374,7 @@ export function createDronePanel(ctx, { rerender }) {
     return h('div.bt-dr-card', { 'data-testid': 'drone-card' },
       h('div.bt-dr-card-head',
         h('button.bt-dr-back', { type: 'button', 'data-testid': 'drone-back', title: 'Back', onclick: back }, '‹ ', cardFrom && cardFrom !== 'drones' ? tabLabel(t, cardFrom) : 'Drones'),
-        h('b.bt-dr-card-name', { 'data-testid': 'drone-name' }, droneName(d.n)),
+        h('b.bt-dr-card-name', { 'data-testid': 'drone-name' }, droneLabel(d)),
         h('span.bt-dr-steps',
           h('button.bt-dr-step', { type: 'button', 'data-testid': 'drone-prev', title: 'Previous drone', 'aria-label': 'Previous drone', onclick: () => step(-1) }, '◀'),
           h('button.bt-dr-step', { type: 'button', 'data-testid': 'drone-next', title: 'Next drone', 'aria-label': 'Next drone', onclick: () => step(1) }, '▶'))),

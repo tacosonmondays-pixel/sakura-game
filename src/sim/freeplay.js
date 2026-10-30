@@ -68,9 +68,15 @@ function eliteShareRamp(fp, d) {
 /** Visiting chapters for a stage: nearest to the home chapter first (ties: lower first). */
 function chapterOrder(stage) {
   const hc = stage.chapter ?? 1;
-  return stage.freeplay.chapters.map((c) => c.chapter).filter((c) => c !== hc)
+  return stage.freeplay.chapters.map((c) => c.chapter).filter((c) => c !== hc && inList(stage.freeplay, c))
     .sort((a, b) => Math.abs(a - hc) - Math.abs(b - hc) || a - b);
 }
+
+/**
+ * Optional `chapterList` (Tryout Day's Extended Day, docs/specs/TRYOUT_DAY.md §20.2): visitors, elites and the prelude
+ * come only from these chapters. No freeplay tier sets it, so their waves are untouched.
+ */
+const inList = (fp, c) => !fp.chapterList || fp.chapterList.includes(c);
 
 /** Chapter cap of freeplay wave `wave`: visitors and the miniboss ladder open one chapter at a time. */
 export function freeplayChapterCap(stage, wave) {
@@ -114,6 +120,7 @@ export function freeplayBosses(stage, wave) {
     if (cal && wave >= cal.wave && (wave - cal.wave) % cal.every === 0) return { kind: 'calamity', bosses: [cal.enemy, titan(n)] };
     if ((wave - fin.wave) % fin.every === 0) return { kind: 'finale', bosses: [fin.enemy, titan(n)] };
   }
+  if (fp.bossPlan) return planBosses(fp, wave, salt, cap);
   const L = wave + fp.bossShift;
   const period = L >= fp.fastFrom ? 5 : 10;
   if (wave % period !== 0 || wave < first) return null;
@@ -128,6 +135,27 @@ export function freeplayBosses(stage, wave) {
   if (L < 200) return { kind: 'boss', bosses: [boss(n), mini(j)] };
   if (L < 260) return { kind: 'titan', bosses: [titan(n)] };
   return { kind: 'titan', bosses: [titan(n), boss(n)] };
+}
+
+/**
+ * Optional `bossPlan` (Extended Day, §20.2) in place of the tens and fives ladder: from wave `from`, every `miniEvery`
+ * waves a miniboss (freeplay's open minibosses, only the plan's), every `bossEvery` waves a boss: the plan's own bosses
+ * for the first `windowBosses` boss waves, then those with the freeplay bosses and titans (seeded by the stage id).
+ * Marked `plan: true`, so a boss ranks as a boss or titan by the pool it came from (never a finale's HP or leak).
+ */
+function planBosses(fp, wave, salt, cap) {
+  const bp = fp.bossPlan;
+  const d = wave - bp.from + 1;
+  if (d < 1 || d % bp.miniEvery !== 0) return null;
+  if (d % bp.bossEvery === 0) {
+    const k = d / bp.bossEvery - 1;
+    const pool = k < bp.windowBosses ? bp.bosses : [...new Set([...bp.bosses, ...fp.bosses, ...fp.titans])];
+    const id = pool[(k + (salt % pool.length)) % pool.length];
+    return { kind: fp.titans.includes(id) ? 'titan' : 'boss', bosses: [id], plan: true };
+  }
+  const open = fp.minibosses.filter((m) => m[1] <= cap && bp.minibosses.includes(m[0])).map((m) => m[0]);
+  const list = open.length ? open : [bp.minibosses[0]];
+  return { kind: 'miniboss', bosses: [list[(d / bp.miniEvery) % list.length]], plan: true };
 }
 
 /** Piecewise-linear lookup in [[x, y], …] (flat before the first and after the last point). */
@@ -205,7 +233,7 @@ export function freeplayInfo(stage, wave) {
   const order = chapterOrder(stage).filter((c) => c <= cap);
   let visitors;
   const fin = fp.finale.wave;
-  if (wave >= fin - fp.prelude && wave <= fin) visitors = [fp.chapters.length];
+  if (wave >= fin - fp.prelude && wave <= fin) visitors = [fp.chapterList ? Math.max(...fp.chapterList) : fp.chapters.length];
   else {
     visitors = order.length ? [order[r % order.length]] : [];
     if (d > 60 && order.length > 1) {
@@ -286,6 +314,7 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
   }
   const eliteCands = [];
   for (let c = 1; c <= info.chapterCap; c++) {
+    if (!inList(fp, c)) continue;
     for (const id of chap(c).elites) if (lookupEnemy(id)) eliteCands.push({ enemy: id, w: vis.includes(c) ? 4 : 1 });
   }
   const nElite = d > 80 ? 2 : 1;
@@ -312,6 +341,22 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
     groups.push({ enemyId: pick.enemy, def, count, spacing: groupSpacing(baseSpacing, def), start: 0, fixed: false, elite, eliteMod });
   }
   groups.sort((a, b) => (a.def.speed ?? 1) - (b.def.speed ?? 1) || (b.def.threat ?? 1) - (a.def.threat ?? 1));
+  // Optional `spawnCap` (Extended Day, docs/specs/TRYOUT_DAY.md §20.2: its goal wave's budget is far past waves.js's
+  // spawn cap): the regular groups' counts shrink to the cap and the excess becomes HP (capMul), as waves.js does, so the
+  // wave keeps its total HP with a stage-like enemy count. No freeplay tier sets it.
+  let capMul = 1;
+  if (fp.spawnCap) {
+    const total = groups.reduce((a, g) => a + g.count, 0);
+    if (total > fp.spawnCap) {
+      let kept = 0;
+      for (const g of groups) {
+        g.full = g.count;
+        g.count = Math.max(1, Math.floor((g.count * fp.spawnCap) / total));
+        kept += g.count;
+      }
+      capMul = total / kept;
+    }
+  }
   // Lay the groups out like waves.js: slow, tough groups lead; each next group starts once the
   // previous one is GROUP_OVERLAP through. `last` = when the last regular spawn enters.
   const layout = () => {
@@ -368,14 +413,14 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
       const tr = g.def.traits || {};
       const hp = (g.def.hp || 1) * (tr.barrier ? 1 : 1 + (g.mods?.barrierPct || 0)) + (tr.barrier?.hp || 0);
       const armor = (g.def.armor || 0) + (g.mods?.armor || 0) + pa;
-      actual += (g.count * hp * H) / Math.max(1, H - Math.max(0, armor - P), H * FREEPLAY_ARMOR_FLOOR) * (g.elite ? eliteHp : 1);
+      actual += ((g.full ?? g.count) * hp * H) / Math.max(1, H - Math.max(0, armor - P), H * FREEPLAY_ARMOR_FLOOR) * (g.elite ? eliteHp : 1);
     }
     const es = eliteShareRamp(fp, d);
     const target = regular * (sm.refN * (1 - es) + sm.refE * es) * lerpTable(sm.refMul, d);
     if (actual > 0) k = Math.min(sm.hi, Math.max(sm.lo, target / actual));
   }
   for (const g of groups) {
-    g.hpMul = ramp * k * (g.elite ? eliteHp : 1);
+    g.hpMul = ramp * k * capMul * (g.elite ? eliteHp : 1);
     g.speedMul = speed;
   }
 
@@ -387,7 +432,8 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
     for (const id of bossWave.bosses) {
       const def = lookupEnemy(id);
       if (!def) continue;
-      const rank = rankOf(fp, id, def);
+      // (a boss-plan boss is a boss or a titan by its pool, never the finale's rank: §20.2)
+      const rank = bossWave.plan ? (fp.titans.includes(id) ? 'titan' : def.tier === 'miniboss' ? 'miniboss' : 'boss') : rankOf(fp, id, def);
       const factor = freeplayBossFactor(stage, wave, bossWave, rank);
       bossHpMul.push(ramp * factor);
       const leak = fp.leak[rank] ?? null;

@@ -1,6 +1,6 @@
 // The menus show a ⚡ ability tip only when her ability runs in this build (src/data/unitTips.js, the one rule
-// abilityRuns in src/data/abilities.js): Kage, Suzu and Chika (deploys, A4), Fuu (A5) and Iroha (A6) never advertise a button that isn't
-// there (owner default Q3). The student page, the lobby secretary and the Wiki's student tables read shownTips;
+// abilityRuns in src/data/abilities.js): a girl whose ability waits never advertises a button that isn't there (owner
+// default Q3; since A4–A6 every tower's runs). The student page, the lobby secretary and the Wiki's student tables read shownTips;
 // the New Students article names no ability.
 import { describe, test, expect } from 'vitest';
 import { UNITS } from '../../src/data/units.js';
@@ -30,13 +30,13 @@ describe('shown tips', () => {
     }
   });
 
-  test('every tower with a working ability shows her ⚡ tip; Kage, Suzu, Chika, Fuu and Iroha show none', () => {
+  test('every tower with a working ability shows her ⚡ tip: today every tower\'s runs, so none is hidden', () => {
     const withTip = UNITS.filter((u) => (u.tips || []).some(isAbilityTip));
     const shown = withTip.filter((u) => shownTips(u).some(isAbilityTip)).map((u) => u.id).sort();
     const hidden = withTip.filter((u) => !shownTips(u).some(isAbilityTip)).map((u) => u.id).sort();
-    // (A3 M3: the returning girls have their ⚡ tips; Fuu's move and Iroha's mirror wait, so theirs stay hidden)
-    expect(hidden).toEqual(['chika', 'fuu', 'iroha', 'kage', 'suzu']);
-    for (const id of ['aoi', 'midori', 'ouka', 'azami', 'yuzuha', 'marumi', 'tenka', 'hana', 'ruri', 'noa', 'ena']) expect(shown, id).toContain(id);
+    // (A3 M3: the returning girls have their ⚡ tips; A4: the deploy girls; A5: Fuu's push; A6: Iroha's mirror)
+    expect(hidden).toEqual([]);
+    for (const id of ['fuu', 'aoi', 'midori', 'ouka', 'azami', 'yuzuha', 'marumi', 'tenka', 'hana', 'ruri', 'noa', 'ena', 'iroha', 'kage', 'suzu', 'chika']) expect(shown, id).toContain(id);
     // a hidden girl's tips never name her ability either
     for (const u of withTip.filter((x) => hidden.includes(x.id))) {
       for (const t of shownTips(u)) for (const n of ABILITY_NAMES) expect(t.includes(n), `${u.id}: ${n}`).toBe(false);
@@ -51,13 +51,19 @@ describe('shown tips', () => {
     expect(shownTips({ tips: ['⚡ X tier 3 teaches Y.', 'Plain.'] })).toEqual(['Plain.']);
   });
 
-  test('the secretary\'s first two tips: Chika\'s ⚡ tip (her first) stays hidden, Midori\'s (her second) shows', () => {
+  test('the secretary\'s first two tips: Chika\'s ⚡ tip (her first) and Midori\'s (her second) show; a waiting one never does', () => {
     const midori = UNITS.find((u) => u.id === 'midori');
     const chika = UNITS.find((u) => u.id === 'chika');
     expect(midori.tips.slice(0, 2).some(isAbilityTip)).toBe(true);
     expect(chika.tips.slice(0, 2).some(isAbilityTip)).toBe(true);
     expect(shownTips(midori).slice(0, 2).some(isAbilityTip)).toBe(true);
-    expect(shownTips(chika).slice(0, 2).some(isAbilityTip)).toBe(false);
+    expect(shownTips(chika).slice(0, 2).some(isAbilityTip)).toBe(true); // Drone Surge runs since A4
+    // a skill that waits (Kanna's Heavy Beat, A5): a ⚡ tip of hers stays hidden even when it comes first (every tower's
+    // ability runs since A4–A6, so the waiting one is a hero's)
+    const kanna = UNITS.find((u) => u.id === 'kanna');
+    const first = { ...kanna, tips: ['⚡ Heavy Beat: a test tip.', ...(kanna.tips || [])] };
+    expect(isAbilityTip(first.tips[0])).toBe(true);
+    expect(shownTips(first).some(isAbilityTip)).toBe(false);
   });
 });
 

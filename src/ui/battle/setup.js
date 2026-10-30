@@ -14,6 +14,8 @@ import { TITAN_MAP, tierIndex, titanBattle, MAX_RANK } from '../../data/titans.j
 import { tierOpen, refreshKeys } from '../../systems/titans.js';
 import { eventBattleStage } from '../../data/events/wire.js';
 import { eventDifficultyStatus } from '../../systems/events.js';
+import { buildTryoutPlan, buildTryoutStage } from '../../sim/tryout/index.js';
+import { simConfig } from '../../sim/snapshot.js';
 
 /**
  * A Titan Trials battle (`titan=<id>&tier=<tier>[&rank=n][&practice=1]`, docs/specs/ASCENSION.md §C):
@@ -129,14 +131,21 @@ export const autoAbilities = (profile) => (profile?.settings?.autoCastAbilities 
 /**
  * Creates the Sim for a battle. `cfg` is what a battle save freezes at New game: the run seed
  * and the team's battle stats as they are now (Continue never reads the live profile again).
+ * [friend support] `support` (BANNERS §E.1): a friend's girl, already clamped to this save's range — `entry` her
+ * loadout entry, `mark` the record's `{ unitId, owner, key, card }`. She joins as an extra card beside the 8
+ * (supportSlotMode: 'extra'), never in Titan Trials or Sandbox, never a girl the formation already brings.
  * @param {object} profile
  * @param {{ stageId: string, difficulty: string, mode?: string, endless?: boolean, freeplay?: string|null, seed?: number }} req
+ * @param {{ support?: { entry: { unitId: string, stats: object }, mark: object }|null }} [opts]
  */
-export function createBattleSim(profile, req) {
+export function createBattleSim(profile, req, { support = null } = {}) {
   const seed = (req.seed ?? (Date.now() ^ Math.floor(performance.now() * 1000))) >>> 0;
   if (req.sandbox) return createSandboxSim(req, seed, profile);
-  const { towers, hero } = resolveFormation(profile);
-  const loadout = towers.map((unitId) => ({ unitId, stats: unitBattleStats(profile, unitId) }));
+  const { towers: own, hero } = resolveFormation(profile);
+  const loadout = own.map((unitId) => ({ unitId, stats: unitBattleStats(profile, unitId) }));
+  const sup = support && !req.titan ? withSupport(own, loadout, support) : null;
+  const towers = sup ? sup.towers : own;
+  if (sup) loadout.splice(0, loadout.length, ...sup.loadout);
   const heroEntry = hero ? { unitId: hero, stats: unitBattleStats(profile, hero) } : null;
   if (req.titan) {
     // Titan Trials: the titan's stage and enemy overrides through the Sim's data hook (no hashed file)
@@ -157,7 +166,23 @@ export function createBattleSim(profile, req) {
     options: { endless: !!req.endless, autoStart: !!profile.settings?.autoStart, mode: fpStage ? 'standard' : modeId(req.mode), ...(fpStage ? { freeplay: true } : {}), ...autoAbilities(profile) },
     ...(fpStage || evStage ? { data: { stage: fpStage || evStage } } : {}),
   });
-  return { sim, towers, hero, seed, cfg: { seed, loadout, hero: heroEntry } };
+  return { sim, towers, hero, seed, cfg: { seed, loadout, hero: heroEntry, ...(sup ? { support: support.mark } : {}) } };
+}
+
+/**
+ * Where a borrowed girl goes: 'extra' (a 9th card; the tower bar holds hero + 8 + her at 844×390, checked at build:
+ * docs/specs/BANNERS.md §E.1) or 'replace' (she takes the last of the 8).
+ */
+export const SUPPORT_SLOT_MODE = 'extra';
+
+/** The formation with a borrowed girl added (null when she is already in it). */
+export function withSupport(towers, loadout, support, mode = SUPPORT_SLOT_MODE) {
+  const id = support?.entry?.unitId;
+  if (!id || towers.includes(id)) return null;
+  if (mode === 'replace' && towers.length >= BATTLE.maxTowers) {
+    return { towers: [...towers.slice(0, BATTLE.maxTowers - 1), id], loadout: [...loadout.slice(0, BATTLE.maxTowers - 1), support.entry] };
+  }
+  return { towers: [...towers, id], loadout: [...loadout, support.entry] };
 }
 
 /**
@@ -205,3 +230,37 @@ export function followingStage(stageId) {
 
 /** Route that "Back to map" leads to for a stage kind (shared with the back arrow: src/ui/nav.js). */
 export { mapRouteFor } from '../nav.js';
+
+/**
+ * Tryout Day (docs/specs/TRYOUT_DAY.md §12): the Sim of the open run (profile.tryoutRun). A fresh run is built from its
+ * config; a saved one is built with the record's squad and period (the constructor fills the loadout first) and
+ * the stored battle snapshot restored into it (§12.2). A mid-wave Continue voids that period's assignments.
+ * @returns {{ sim: Sim, towers: string[], hero: string|null, seed: number, cfg: null }}
+ */
+export function createTryoutSim(profile, rec) {
+  const plan = buildTryoutPlan({ seed: rec.seed, grade: rec.grade, length: rec.length, mapId: rec.mapId });
+  const stage = buildTryoutStage(plan);
+  const resume = !!rec.snap;
+  const hasPerks = !!rec.perks && Object.keys(rec.perks).length > 0;
+  const sim = new Sim({
+    stageId: stage.id, hero: rec.hero || null, seed: (rec.seed ^ 0x5eed) >>> 0, data: { stage },
+    options: {
+      autoStart: !!profile.settings?.autoStart, ...autoAbilities(profile),
+      tryout: {
+        seed: rec.seed, grade: rec.grade, length: rec.length, mapId: plan.mapId, players: [{ squad: rec.squad, ...(hasPerks ? { perks: { ...rec.perks } } : null) }], pools: [rec.pool || {}],
+        // the Desk Supplies the run was started with (src/systems/tryoutRuns.js activePerks; solo only, never in the Weekly):
+        // the Sim reads options.tryout.perks (createTryout); players[0].perks rides along for the run config's contract
+        ...(hasPerks ? { perks: { ...rec.perks } } : null),
+        // Random Class (§20.4): the Sim draws the three from the pool and lands every pick itself (only when exactly true)
+        ...(rec.random === true ? { random: true } : null),
+        ...(resume ? { squads: [rec.squad], period: rec.period || 1 } : null),
+      },
+    },
+  });
+  if (resume) {
+    sim.restore(rec.snap, simConfig(sim));
+    sim.options.autoStart = !!profile.settings?.autoStart;
+    if (rec.voidPeriod && sim.tryout.assign) sim.tryout.assign.resumed = true;
+  }
+  return { sim, towers: sim.tryout.players[0].squad.slice(), hero: rec.hero?.unitId || null, seed: sim.seed, cfg: null };
+}

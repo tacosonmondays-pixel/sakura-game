@@ -22,7 +22,10 @@ import { createBattleSim, resolveFormation, parseBattleParams, followingStage } 
 import { hasItemIcon } from '../../src/art/icons.js';
 import { cardArtSVG } from '../../src/art/cardArt.js';
 import { stageThumbSVG } from '../../src/art/stageThumb.js';
-import { LEGEND_UNITS } from '../../src/data/recruitFeature.js';
+import { UNIT_CLASS, HELD } from '../../src/data/banners.js';
+
+// (LR units come only from their LR Banners; held units, from nowhere until their art lands)
+const LEGEND_UNITS = [...Object.keys(UNIT_CLASS).filter((id) => UNIT_CLASS[id] === 'legend'), ...HELD].filter((id, i, a) => a.indexOf(id) === i && UNITS.some((u) => u.id === id));
 
 const ROUTES = [...readFileSync(new URL('../../src/main.js', import.meta.url), 'utf8').matchAll(/registerRoute\('([a-z]+)'/g)].map((m) => m[1]);
 
@@ -91,7 +94,7 @@ describe('ids line up across modules', () => {
     for (const rewards of lists) for (const r of [].concat(rewards)) expect(ITEMS[r.id], `reward ${r.id}`).toBeTruthy();
   });
 
-  test('gacha pool covers the whole roster under the right rarity (LR units only through their spotlight)', () => {
+  test('gacha pool covers the whole roster under the right rarity (LR units only through their spotlight; held units nowhere)', () => {
     for (const u of UNITS) {
       if (LEGEND_UNITS.includes(u.id)) expect(POOL[u.rarity], u.id).not.toContain(u.id);
       else expect(POOL[u.rarity], u.id).toContain(u.id);
@@ -112,11 +115,11 @@ describe('ids line up across modules', () => {
 
   test('battle-ui route params: Next Stage follows the campaign order', () => {
     // inside one act (docs/CAMPAIGN.md "Act II"): Act I runs 1-1 … 8-5 and stops (never 1-6); Act II runs 1-6 … 1-10,
-    // 2-6 … 2-10 and stops until 3-6 exists (the results screen shows Next only when that stage is unlocked: 2-6 is a
+    // 2-6 … 2-10, 3-6 … 3-10, 4-6 … 4-10, 5-6 … 5-10, 6-6 … 6-10 and stops until 7-6 exists (the results screen shows Next only when that stage is unlocked: 2-6 is a
     // two-key stage)
     const act1 = CAMPAIGN_IDS.filter((id) => STAGE_MAP[id].act === 1);
     const act2 = CAMPAIGN_IDS.filter((id) => STAGE_MAP[id].act === 2);
-    expect(act2).toEqual(['1-6', '1-7', '1-8', '1-9', '1-10', '2-6', '2-7', '2-8', '2-9', '2-10']);
+    expect(act2).toEqual([1, 2, 3, 4, 5, 6].flatMap((c) => [6, 7, 8, 9, 10].map((n) => `${c}-${n}`)));
     act1.forEach((id, i) => expect(followingStage(id), id).toBe(act1[i + 1] ?? null));
     act2.forEach((id, i) => expect(followingStage(id), id).toBe(act2[i + 1] ?? null));
     expect(parseBattleParams({ stage: '1-1', difficulty: 'easy' }).difficulty).toBe('easy');

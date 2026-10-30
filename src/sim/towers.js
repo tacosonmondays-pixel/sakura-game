@@ -26,10 +26,12 @@ import { layStrip, stripStep, stripTick } from './strips.js';
 import { attackRing, ringTick } from './rings.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
 import { sentryTick } from './sentries.js';
+import { collectMirrors, reflectStep } from './mirrors.js';
 import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick } from './vines.js';
 import { rollBall, ballTick } from './balls.js';
 import { labMods } from './lab.js';
+import { buildPartnerSpec, partnerTick, partnerOff, beginVolley, refract } from './duo.js';
 import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax, followThroughBlast } from './gearRules.js';
 
 const WEAPON_KIND = {
@@ -146,7 +148,11 @@ export function createTower(def, o) {
  * no buffs). A restored co-op checkpoint is checked against it (lockstep.js).
  */
 export function towerResolvedStats(t) {
-  const o = { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0, extra: t.abilMods || null };
+  // Tryout Day's Pep Talks (`runMods`, src/sim/tryout/pep.js) come after a running boost; a girl without
+  // them resolves exactly as before
+  const run = t.runMods || null;
+  const tail = (m) => (run ? [].concat(m || [], run) : m);
+  const o = { tiers: t.tiers, heroLevel: t.isHero ? t.level : 0, unitStats: t.unitStats, heroMastery: t.isHero ? t.mastery || 0 : 0, extra: tail(t.abilMods || null) };
   const s = resolveStats(t.def, o);
   // Tenka's lab team (src/sim/lab.js): her dps and support weapons from her lab record and her lab power,
   // after every tier and before a running boost (a girl without a lab resolves exactly as before)
@@ -154,6 +160,7 @@ export function towerResolvedStats(t) {
   const lm = labMods(t.lab, s.lab.power);
   if (!lm) return s;
   o.extra = t.abilMods ? [lm, t.abilMods] : lm;
+  if (run) o.extra = [].concat(o.extra, run);
   return resolveStats(t.def, o);
 }
 
@@ -212,6 +219,8 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     critChance: s.crit.chance,
     critMul: s.crit.mul,
   };
+  // Kogane's Big Yellow Overdrive (Potential P6, src/sim/hero.js): faster for a while after a Move in a wave
+  if (t.overdriveLeft > 0 && s.overdrive) t.eff.rate *= s.overdrive.rateMul;
   // a rally's extra pierce (Ouka's Assembly Bell; absent otherwise)
   if (b.pierceAdd > 0) t.eff.pierce += b.pierceAdd;
   // Ouka's rules (src/sim/hubs.js): anti-air and a type-chart floor for the girls she covers
@@ -319,6 +328,8 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
   }
   if (s.ring) t.scissorSpec = s.ring.scissors > 0 ? { ...t.eff, damage: s.ring.scissorDmg * s.ring.scissorMul * dmgMul, canHitAir: true, critChance: 0 } : null;
   applyBuffExtras(t, b);
+  // the duo (src/sim/duo.js): Kohaku's beam, the partner weapon, follows the same buffs
+  if (s.duo) buildPartnerSpec(t);
   if (s.strip || s.sentry) deployCrits(t);
   // Potential's rhythm (src/sim/potential.js N3): its specs follow her effective stats and buffs
   if (s.proc) buildProcSpecs(t);
@@ -527,15 +538,31 @@ export function bestTarget(sim, x, y, range, spec, mode) {
 
 /** Up to `n` distinct targets sorted by preference (new array). */
 export function selectTargets(sim, x, y, range, spec, mode, n) {
+  return selectTargetsInto(sim, x, y, range, spec, mode, n, []);
+}
+
+// the preference order's comparator, hoisted (no closure per call): set just before each sort
+let byMode = null;
+let byX = 0;
+let byY = 0;
+const byScore = (a, b) => targetScore(byMode, byX, byY, b) - targetScore(byMode, byX, byY, a);
+
+/** selectTargets into `out` (emptied first; a hot path's own scratch array): the same targets in the same order. */
+export function selectTargetsInto(sim, x, y, range, spec, mode, n, out) {
+  out.length = 0;
   if (n <= 1) {
     const b = bestTarget(sim, x, y, range, spec, mode);
-    return b ? [b] : [];
+    if (b) out.push(b);
+    return out;
   }
   const c = gatherTargets(sim, x, y, range, spec, sim._scratch);
-  const arr = c.slice();
-  arr.sort((a, b) => targetScore(mode, x, y, b) - targetScore(mode, x, y, a));
-  if (arr.length > n) arr.length = n;
-  return arr;
+  for (let i = 0; i < c.length; i++) out.push(c[i]);
+  byMode = mode;
+  byX = x;
+  byY = y;
+  out.sort(byScore);
+  if (out.length > n) out.length = n;
+  return out;
 }
 
 /**
@@ -715,6 +742,23 @@ export function spawnProjectile(sim, t, spec, target, fromX, fromY, opts = {}) {
 }
 
 function linePierce(sim, t, spec, target, length, halfWidth, pierce) {
+  const hits = linePierceInto(sim, t, spec, target, length, halfWidth, pierce, [], []);
+  return { hits, ex: lineEnd.x, ey: lineEnd.y };
+}
+
+// the line's order comparator, hoisted (no closure per call): set just before each sort; lineEnd: the last line's end
+const lineEnd = { x: 0, y: 0 };
+let lnSx = 0;
+let lnSy = 0;
+let lnEx = 0;
+let lnEy = 0;
+const byLine = (a, b) => projectOnSegment(a.x, a.y, lnSx, lnSy, lnEx, lnEy) - projectOnSegment(b.x, b.y, lnSx, lnSy, lnEx, lnEy);
+
+/**
+ * linePierce into `hits` (its targets, in line order), `near` a scratch array for the grid query (both emptied first;
+ * a hot path's own scratch arrays): the same enemies in the same order. The line's end goes to lineEnd.
+ */
+function linePierceInto(sim, t, spec, target, length, halfWidth, pierce, hits, near) {
   const sx = t.ox;
   const sy = t.oy;
   const dx = target.x - sx;
@@ -722,18 +766,29 @@ function linePierce(sim, t, spec, target, length, halfWidth, pierce) {
   const d = Math.hypot(dx, dy) || 1e-6;
   const ex = sx + (dx / d) * length;
   const ey = sy + (dy / d) * length;
-  const near = sim.grid.query((sx + ex) / 2, (sy + ey) / 2, length / 2 + 1, []);
-  const hits = [];
-  for (const e of near) {
+  near.length = 0;
+  sim.grid.query((sx + ex) / 2, (sy + ey) / 2, length / 2 + 1, near);
+  hits.length = 0;
+  for (let i = 0; i < near.length; i++) {
+    const e = near[i];
     if (!isEligible(e, spec)) continue;
     const hr = halfWidth + hitRadius(e);
     if (segDistSq(e.x, e.y, sx, sy, ex, ey) <= hr * hr) hits.push(e);
   }
-  hits.sort((a, b) => projectOnSegment(a.x, a.y, sx, sy, ex, ey) - projectOnSegment(b.x, b.y, sx, sy, ex, ey));
+  lnSx = sx;
+  lnSy = sy;
+  lnEx = ex;
+  lnEy = ey;
+  hits.sort(byLine);
   if (!hits.includes(target)) hits.unshift(target);
   if (hits.length > pierce) hits.length = pierce;
-  return { hits, ex, ey };
+  lineEnd.x = ex;
+  lineEnd.y = ey;
+  return hits;
 }
+
+/** The targeting helpers Kohaku's constant beam uses (src/sim/duo.js partnerTick). */
+const PRISM_HELP = Object.freeze({ selectTargetsInto, linePierceInto, face });
 
 /**
  * Potential N13 (Kage): projectiles × (1 + f) through an integer carry: k = round(f × 100) hundredths
@@ -749,7 +804,9 @@ function projExtra(t, n, f) {
 }
 
 function attackProjectile(sim, t) {
-  const first = volleyFrom(sim, t, t.ox, t.oy);
+  // (a shot leaving a mirror panel is born split, src/sim/mirrors.js: a panel shot never splits, so two panels stacked
+  // on one spot cannot double each other's)
+  const first = volleyFrom(sim, t, t.ox, t.oy, t.stats.relay?.kind === 'mirror' && !!t.origin);
   // a mirror girl with two firing points (Iroha, UNIT_GAPS §4.1): she also fires from where she stands
   const second = t.stats.relay?.both && t.origin && (t.ox !== t.x || t.oy !== t.y) ? volleyFrom(sim, t, t.x, t.y) : null;
   const lead = first || second;
@@ -758,8 +815,11 @@ function attackProjectile(sim, t) {
   return true;
 }
 
-/** One volley of her projectiles from (sx, sy) at the targets in range of it; the first target or null. */
-function volleyFrom(sim, t, sx, sy) {
+/**
+ * One volley of her projectiles from (sx, sy) at the targets in range of it; the first target or null. `panel`: the
+ * volley leaves her mirror panel, so its shots are born split (they never split at a mirror).
+ */
+function volleyFrom(sim, t, sx, sy, panel = false) {
   const spec = gearSpec(t.eff);
   let n = spec.projectiles;
   const targets = selectTargets(sim, sx, sy, spec.range, spec, t.targetMode, n);
@@ -783,7 +843,8 @@ function volleyFrom(sim, t, sx, sy) {
       const extra = spec.splash > 0 ? 0 : shotPierce(t);
       const blast = spec.splash > 0 ? blastRadius(t, spec.splash) : 0;
       const opts = extra ? { spread, pierce: spec.pierce + extra } : blast !== spec.splash ? { spread, splash: blast } : { spread };
-      spawnProjectile(sim, t, spec, tgt, sx, sy, opts);
+      const p = spawnProjectile(sim, t, spec, tgt, sx, sy, opts);
+      if (panel) p.split = true;
     }
   }
   return targets[0];
@@ -1187,13 +1248,20 @@ export function restoreDrone(t, row, i) {
   return d;
 }
 
+/** Her own drones: what her drone limit counts (Drone Surge's drones, `temp`, fly beyond it; src/sim/deploys.js). */
+export function ownDrones(t) {
+  let n = 0;
+  for (const d of t.turrets) if (!d.temp) n++;
+  return n;
+}
+
 /** Does this girl fly roaming drones (Chika)? */
 export function hasRoamingDrones(t) {
   return !!t.turretSpec && t.turretSpec.leash > 0;
 }
 
 function spawnTurret(sim, t) {
-  const n = t.turrets.length;
+  const n = ownDrones(t);
   let tu;
   if (hasRoamingDrones(t)) {
     t.droneSerial++;
@@ -1209,7 +1277,7 @@ function spawnTurret(sim, t) {
 
 function attackTurret(sim, t) {
   const tur = t.stats.turret;
-  if (tur && sim.state === 'wave' && t.turrets.length < tur.max) return spawnTurret(sim, t);
+  if (tur && sim.state === 'wave' && ownDrones(t) < tur.max) return spawnTurret(sim, t);
   if (t.eff.damage > 0) return attackProjectile(sim, t);
   return false;
 }
@@ -1247,6 +1315,8 @@ function attackMortar(sim, t) {
   const snap = { ...spec }; // later upgrades / buffs do not change shells in flight
   const n = Math.max(1, spec.projectiles);
   const radius = spec.splash;
+  // the duo's prism (src/sim/duo.js): some shells split into shards of light that land with them
+  const prism = t.stats.duo ? beginVolley(t) : null;
   for (let i = 0; i < n; i++) {
     const off = MORTAR_SCATTER[i % MORTAR_SCATTER.length];
     const sh = {
@@ -1269,6 +1339,7 @@ function attackMortar(sim, t) {
     };
     sim.shells.push(sh);
     sim._emit('mortarWarn', { uid: sh.uid, x: sh.x, y: sh.y, radius, delay: MORTAR_DELAY, towerUid: t.uid });
+    if (prism) refract(sim, t, prism, snap, sh.x, sh.y);
   }
   sim._emit('attack', { towerUid: t.uid, targetUid, kind: 'mortar' });
   return true;
@@ -1759,7 +1830,7 @@ function updateRoamingDrones(sim, t, spec, dt, ocMul = 1) {
  */
 function buildDrones(sim, t, dt) {
   const tur = t.stats.turret;
-  if (!tur || t.eff.behavior === 'turret' || sim.state !== 'wave' || t.turrets.length >= tur.max) return;
+  if (!tur || t.eff.behavior === 'turret' || sim.state !== 'wave' || ownDrones(t) >= tur.max) return;
   t.buildTimer -= dt;
   if (t.buildTimer > 0) return;
   spawnTurret(sim, t);
@@ -1884,6 +1955,7 @@ export function updateTower(sim, t, dt) {
   }
   if (t.disabled > 0) {
     t.disabled = Math.max(0, t.disabled - dt);
+    if (s.duo) partnerOff(t); // a sabotage breaks Kohaku's beams (src/sim/duo.js)
     return;
   }
   if (t.moveLock > 0) return; // a hero repositioning mid-wave (hero.js moveHero)
@@ -1917,6 +1989,8 @@ export function updateTower(sim, t, dt) {
     if (s.vine?.bloom > 0) t.bloomIdle = 0;
     t.cooldown += 1 / Math.max(0.05, (tempo ? t.eff.rate * (1 + tempo.per * t.tempoStacks) : t.eff.rate) * bloom);
   }
+  // the duo's partner weapon (Kohaku's constant beam, src/sim/duo.js): its own tick timer, after the main weapon
+  if (s.duo) partnerTick(sim, t, PRISM_HELP);
 }
 
 // ---------------------------------------------------------------------------
@@ -2059,13 +2133,24 @@ function projectileStep(sim, p, dt) {
   p.z = p.arc > 0 ? PROJECTILE_Z + p.arc * 4 * f * (1 - f) : PROJECTILE_Z + p.targetAlt * f;
 }
 
-/** Moves every projectile, resolves contacts, removes spent ones. */
+/**
+ * Moves every projectile, resolves contacts, removes spent ones. While a mirror reflects (Iroha's Mirror Shift /
+ * Infinite Reflection, src/sim/mirrors.js), a shot that has not split yet and lives through its step is tested
+ * against the reflecting mirrors along that step's segment.
+ */
 export function updateProjectiles(sim, dt) {
   const list = sim.projectiles;
+  const mirrors = sim._abilOn > 0 ? collectMirrors(sim) : 0;
   for (let i = 0; i < list.length; i++) {
     const p = list[i];
     if (p.owner.removed && !p.dead) p.dead = true;
-    if (!p.dead) projectileStep(sim, p, dt);
+    if (p.dead) continue;
+    if (mirrors && !p.split) {
+      const ax = p.x;
+      const ay = p.y;
+      projectileStep(sim, p, dt);
+      if (!p.dead) reflectStep(sim, p, ax, ay, mirrors);
+    } else projectileStep(sim, p, dt);
   }
   let n = 0;
   for (let i = 0; i < list.length; i++) if (!list[i].dead) list[n++] = list[i];
@@ -2086,6 +2171,16 @@ export function updateTraps(sim, dt) {
       }
       continue;
     }
+    // a Bell Carpet trap (Suzu's ⚡, src/sim/deploys.js) fizzles when its time runs out
+    if (tr.extra) {
+      tr.ttl -= dt;
+      if (tr.ttl <= 0) {
+        tr.dead = true;
+        removedAny = true;
+        sim._emit('trapExpired', { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid, extra: true });
+        continue;
+      }
+    }
     if (!tr.armed) {
       tr.armLeft -= dt;
       if (tr.armLeft <= 0) tr.armed = true;
@@ -2105,8 +2200,8 @@ export function updateTraps(sim, dt) {
     tr.dead = true;
     removedAny = true;
     const owner = tr.owner;
-    owner.trapCount = Math.max(0, owner.trapCount - 1);
-    sim._emit('trapTriggered', { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid });
+    if (!tr.extra) owner.trapCount = Math.max(0, owner.trapCount - 1);
+    sim._emit('trapTriggered', tr.extra ? { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid, extra: true } : { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid });
     // Potential N3 on traps (Suzu): every Nth of her traps that goes off is the rhythm's
     const p = owner.stats?.proc;
     let boom = spec;

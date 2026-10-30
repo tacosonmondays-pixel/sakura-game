@@ -49,7 +49,8 @@ describe('line glyphs', () => {
   it('the approved set: 86 glyphs in five groups, each one drawn', () => {
     expect(CORE_GLYPHS).toHaveLength(86);
     for (const names of Object.values(GLYPH_GROUPS)) for (const n of names) expect(hasLineGlyph(n), n).toBe(true);
-    expect(Object.keys(LINE_GLYPHS)).toHaveLength(89); // the 86 + armorbreak, pierce and lantern (the mock-ups)
+    expect(Object.keys(LINE_GLYPHS)).toHaveLength(95); // the 86 + armorbreak, pierce and lantern (the mock-ups) + Tryout Day's 6
+    expect(GLYPH_GROUPS['Tryout Day']).toEqual(['marble', 'eraser', 'hall-pass', 'desk', 'stamp', 'chalk']);
   });
   it('every glyph the kit fixture draws exists', () => {
     expect(FIXTURE_NAMES.length).toBeGreaterThan(36);
@@ -90,10 +91,11 @@ describe('line glyphs', () => {
   it('the game icon names chrome uses map onto line glyphs; game-data icons do not', () => {
     for (const [from, to] of Object.entries(LINE_ALIASES)) if (!PENDING_GLYPHS.includes(to)) expect(hasLineGlyph(to), `${from} → ${to}`).toBe(true);
     expect(lineFor('home')).toBe('house');
-    // Tryout Day's aliases: drawn once its glyphs exist, null (ico keeps its old drawing) until then
+    // Tryout Day's aliases: its six glyphs are drawn, so none is pending and each alias draws its line glyph
+    expect(PENDING_GLYPHS).toEqual([]);
     for (const a of ['marble', 'eraser', 'hall-pass', 'hallpass', 'desk', 'stamp', 'chalk']) {
       expect(LINE_ALIASES[a], a).toBeTruthy();
-      expect(lineFor(a), a).toBe(hasLineGlyph(LINE_ALIASES[a]) ? LINE_ALIASES[a] : null);
+      expect(lineFor(a), a).toBe(LINE_ALIASES[a]);
     }
     expect(lineFor('close')).toBe('x');
     expect(lineFor('settings')).toBe('settings');

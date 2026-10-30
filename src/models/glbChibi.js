@@ -13,6 +13,7 @@ import { toonMaterial, outlineMaterial, gradientMap } from './toon.js';
 import { figurineMaterial, figurineOutlineMaterial, outlineBeforeRender, addOutlineNormals, OUTLINE_FRACTION, EYE_MODES } from './figurine.js';
 import { selectToonMaterial, selectTwin } from './highlight.js';
 import { isStandIn } from './standins.js';
+import { UNIT_MAP } from '../data/units.js';
 
 const assets = new Map(); // `${id}|${detail}` -> asset | null (null = failed)
 const loading = new Map(); // key -> Promise<asset|null>
@@ -57,6 +58,11 @@ export function characterUrl(id, detail = 'full') {
   return `${baseUrl()}models/characters/${id}${detail === 'lod' ? '.lod' : ''}.glb${assetExt()}`;
 }
 
+/** URL of a prop GLB a figure lists in asset.extras.props (e.g. 'tenka-coilgun.glb'). */
+export function propUrl(file) {
+  return `${baseUrl()}models/characters/${file}${assetExt()}`;
+}
+
 export function canLoadCharacters() {
   return typeof window !== 'undefined' && typeof document !== 'undefined' && typeof fetch === 'function';
 }
@@ -84,8 +90,9 @@ function loader() {
 
 /** Loads one character GLB at a detail level (cached; resolves null when unavailable). */
 export function loadCharacter(id, detail = 'full') {
-  // stand-ins (standins.js) have no GLB on purpose: never request one
-  if (isStandIn(id)) return Promise.resolve(null);
+  // stand-ins (standins.js) have no GLB on purpose, and a duo unit has none of her own (her members' files
+  // stand in for it, src/models/duo.js): never request one
+  if (noFile(id)) return Promise.resolve(null);
   // a LOD file that the manifest does not list falls back to the full model
   if (detail === 'lod' && manifestData && manifestData[id] && !manifestData[id].lod) detail = 'full';
   const key = `${id}|${detail}`;
@@ -94,8 +101,8 @@ export function loadCharacter(id, detail = 'full') {
   if (!canLoadCharacters()) return Promise.resolve(null);
   const p = loader()
     .then((l) => l.loadAsync(characterUrl(id, detail)))
-    .then((gltf) => {
-      const asset = prepareAsset(id, detail, gltf);
+    .then((gltf) => loadProps(prepareAsset(id, detail, gltf)))
+    .then((asset) => {
       assets.set(key, asset);
       if (detail === 'lod') assets.set(`${id}|lod`, asset);
       return asset;
@@ -123,7 +130,7 @@ export async function preloadCharacters(ids = null, detail = 'full') {
   } else {
     await loadManifest();
   }
-  const queue = list.filter((id) => !isStandIn(id));
+  const queue = list.filter((id) => !noFile(id));
   let any = false;
   const worker = async () => {
     while (queue.length) {
@@ -134,6 +141,11 @@ export async function preloadCharacters(ids = null, detail = 'full') {
   };
   await Promise.all(Array.from({ length: Math.min(PRELOAD_CONCURRENCY, queue.length) }, worker));
   return any;
+}
+
+/** A model asset key that never has a file: a stand-in, or a duo unit's own id. */
+function noFile(id) {
+  return isStandIn(id) || !!UNIT_MAP[id]?.duo;
 }
 
 function prepareAsset(id, detail, gltf) {
@@ -192,6 +204,91 @@ function prepareAsset(id, detail, gltf) {
   };
 }
 
+const propCache = new Map(); // file -> Promise<prop|null>, shared by both detail levels
+
+/**
+ * Hand props kept in their own GLB (Tenka's coilgun): asset.extras.props = [{ socket, bone, file }].
+ * Each file is loaded once; its mesh hangs under the figure's socket node (an empty on the hand
+ * bone that places and scales the prop's frame, so the clips move it). A prop that fails to load
+ * is left out with a console warning; the figure still shows (empty-handed).
+ */
+function loadProps(asset) {
+  const list = (asset.extras.props || []).filter((p) => p?.socket && p?.file);
+  asset.props = [];
+  if (!list.length) return Promise.resolve(asset);
+  return Promise.all(list.map((p) => {
+    if (!propCache.has(p.file)) {
+      propCache.set(p.file, loader()
+        .then((l) => l.loadAsync(propUrl(p.file)))
+        .then((gltf) => prepareProp(gltf))
+        .catch((e) => {
+          console.warn(`[models] prop ${p.file} unavailable`, e?.message || e);
+          return null;
+        }));
+    }
+    return propCache.get(p.file).then((prop) => (prop ? { ...prop, socket: p.socket } : null));
+  })).then((props) => {
+    asset.props = props.filter(Boolean);
+    return asset;
+  });
+}
+
+function prepareProp(gltf) {
+  let mesh = null;
+  gltf.scene.traverse((o) => {
+    if (o.isMesh && !mesh) mesh = o;
+  });
+  if (!mesh?.material?.map) return null;
+  const m = mesh.material;
+  const maps = { map: m.map, mrMap: m.metalnessMap || m.roughnessMap || null, normalMap: m.normalMap || null, normalScale: m.normalScale?.clone() };
+  maps.map.colorSpace = THREE.SRGBColorSpace;
+  for (const t of [maps.map, maps.mrMap, maps.normalMap]) {
+    if (!t) continue;
+    t.userData.shared = true;
+    t.anisotropy = 4;
+  }
+  const geometry = mesh.geometry;
+  geometry.userData.shared = true;
+  addOutlineNormals(geometry);
+  geometry.computeBoundingBox();
+  const size = geometry.boundingBox.getSize(new THREE.Vector3());
+  // outline as wide as the figure's (the prop is ~1/4 of her height) but pushed back only 12 % of
+  // the prop's length, so the white gun keeps its line in front of her white coat. The hull
+  // material is cached per (map, height), so this prop owns it.
+  const length = Math.max(size.x, size.y, size.z);
+  const outline = figurineOutlineMaterial(maps.map, length / 0.25);
+  outline.userData.uniforms.outlineZ.value = 0.12 * length;
+  return { geometry, material: figurineMaterial(maps), hlMaterial: figurineMaterial(maps, { highlight: true }), outline };
+}
+
+/**
+ * Hangs the asset's props under their socket nodes of one instance (shared geometry and materials).
+ * @returns {Array<{ mesh: THREE.Mesh, prop: object }>} for the selection highlight
+ */
+function attachProps(asset, root, quality) {
+  const out = [];
+  for (const p of asset.props || []) {
+    const socket = root.getObjectByName(p.socket);
+    if (!socket) continue;
+    const m = new THREE.Mesh(p.geometry, p.material);
+    m.name = 'prop';
+    m.castShadow = true;
+    m.frustumCulled = false;
+    socket.add(m);
+    out.push({ mesh: m, prop: p });
+    if (quality !== 'low') {
+      const ol = new THREE.Mesh(p.geometry, p.outline);
+      ol.name = 'outline';
+      ol.userData.isOutline = true;
+      ol.onBeforeRender = outlineBeforeRender;
+      ol.castShadow = false;
+      ol.frustumCulled = false;
+      socket.add(ol);
+    }
+  }
+  return out;
+}
+
 /** Figurine body material of a textured asset (shared by its instances, one per eye state). */
 function texturedMaterial(asset, highlight = false, eyeMode = 0) {
   const mode = asset.eyes ? eyeMode : 0;
@@ -230,6 +327,7 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
   }
   const meshes = [];
   let bodyMesh = null;
+  let bodyOutline = null;
   let headMesh = null;
   root.traverse((o) => {
     if (o.isMesh) meshes.push(o);
@@ -280,15 +378,23 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
       ol.frustumCulled = false;
       if (o.isSkinnedMesh) ol.bind(o.skeleton, o.bindMatrix);
       o.parent.add(ol);
+      if (o === bodyMesh) bodyOutline = ol;
     }
   }
+  const propMeshes = attachProps(asset, root, quality);
   group.add(root);
   // painted face: blink / happy / hurt swap the body to that eye state's material
   const look = { hl: false, eyes: 0 };
+  // a figure whose eye sockets are hollow carries a morph that fills them (extras.eyes.closedTarget, Tsubaki's
+  // 'eyesClosed'): it is on while her eyes are closed, on the body and its outline
+  const closedIdx = asset.eyes?.closedTarget != null ? bodyMesh?.morphTargetDictionary?.[asset.eyes.closedTarget] : undefined;
   const onEyes = asset.textured && asset.eyes && bodyMesh ? (mode) => {
     if (mode === look.eyes) return;
     look.eyes = mode;
     bodyMesh.material = texturedMaterial(asset, look.hl, mode);
+    if (closedIdx != null) {
+      for (const m of [bodyMesh, bodyOutline]) if (m?.morphTargetInfluences) m.morphTargetInfluences[closedIdx] = mode ? 1 : 0;
+    }
   } : null;
   const anim = new GlbAnimator(root, asset, faceTex, unit, onEyes);
   group.userData.unitId = unit.id;
@@ -313,6 +419,7 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
       if (!bodyMesh) return;
       look.hl = on;
       bodyMesh.material = texturedMaterial(asset, look.hl, look.eyes);
+      for (const pm of propMeshes) pm.mesh.material = on ? pm.prop.hlMaterial : pm.prop.material;
       return;
     }
     if (bodyMesh) {

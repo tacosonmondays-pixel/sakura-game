@@ -43,6 +43,16 @@ export const ABILITY_TEXT = Object.freeze({
     'a thrown lance that chains through a crowd',
     'Storm Lance chains through {count} enemies at {dmgMul}× her hit and recharges in {cd}s.'),
 
+  // the staff heroes
+  'kogane.podSalvo': t('Pod Salvo', 'blast',
+    'Big Yellow\'s missile pods fire at the {count} strongest enemies within {reach} tiles: a blast of {dmg} damage on each (splash {splash} tiles) that ignores {armorPen} more armor.',
+    'a missile salvo at the strongest enemies near her',
+    'Pod Salvo fires at {count} enemies at {dmgMul}× her hit and recharges in {cd}s.'),
+  'norika.whistleStop': t('Whistle Stop', 'stun',
+    'One long whistle: the {count} lead walkers within {reach} tiles stop for {hold}s (minibosses for half as long, bosses not at all) and take {dmg} damage.',
+    'a whistle that stops the lead walkers in their tracks',
+    'Whistle Stop stops {count} walkers for {hold}s at {dmgMul}× her hit and recharges in {cd}s.'),
+
   // towers (tier 3 of the ⚡ path, upgraded at tier 5)
   'aoi.skyfall': t('Skyfall Volley', 'pierce',
     'Rains arrows on up to {count} enemies within {reach} tiles, picked by her target mode: {dmg} damage each and a {stun}s pin.',
@@ -143,6 +153,12 @@ export const ABILITY_TEXT = Object.freeze({
     'vines that hold a whole group of walkers',
     'Forest Corridor: Overgrowth holds up to {count} walkers within {reachMul}× her range for {hold}s, squeezes for {dmgMul}×, and recharges in {cd}s.'),
 
+  // the duo (DUO_LR §1.4)
+  'kohaku_tsubaki.prismfall': t('Prismfall', 'battery',
+    'Tsubaki fires {shells} star shells at her aim point, or at the densest crowd anywhere on the map. Each lands for {dmgMul}× her shell hit within {radius} tiles, and Kohaku\'s prism splits it into {shards} shards of light ({shardMul}× her hit, they hit flyers too). Everything hit turns Brittle (+{vulnerablePct}% damage taken) for {vulnerable}s. One recharge for all your copies.',
+    'a barrage of split star shells anywhere on the map',
+    'Constellation Lattice: Prismfall fires {shells} shells for {dmgMul}× with {shards} shards each, Brittle +{vulnerablePct}%, and recharges in {cd}s.', 'point'),
+
   // the returning girls (ABILITIES_SPEC §5.2)
   'fuu.backdraft': t('Backdraft Fan', 'displacement',
     'One great sweep: every enemy within {reach} tiles but a boss is blown {push} tiles back up the road (minibosses {pushMiniboss}), and flyers are grounded for {ground}s.',
@@ -169,7 +185,7 @@ export const ABILITY_TEXT = Object.freeze({
     'a call that protects the girls around her and brings back lives',
     'First Aid Call lasts {dur}s, brings back up to {lifeMax} lives and recharges in {cd}s.'),
   'iroha.mirrorShift': t('Mirror Shift', 'mirror',
-    'Her mirror panel jumps to where you aim (or the road spot nearest the leader in her reach) and for {dur}s splits every one of your shots that crosses it in two, once each.',
+    'Her mirror panel jumps to where you aim (or the road spot nearest the leader in her reach) and stays there; for {dur}s every shot that crosses it, yours or your ally\'s, splits in two, once each.',
     'a mirror that splits the team\'s shots in two',
     'Infinite Reflection: the panel splits shots for good, Mirror Shift adds a second panel for {dur}s, and it recharges in {cd}s.'),
   'ena.omenCard': t('Omen Card', 'curse',
@@ -273,6 +289,41 @@ export const ABILITY_NOTES = Object.freeze({
 });
 /** @param {string} id */
 export const abilityNote = (id) => ABILITY_NOTES[id] || null;
+
+/**
+ * The LR form of an ability (BANNERS §C.2; src/data/abilities.js `lr`): its name, the sentence it adds (the ability
+ * card: the girl page's Details and the battle's hold card while her battle stats carry `lr: true`) and a short
+ * phrase for her page's Limit Break panel. {placeholders} come from the LR entry (abilityLrValues): the duo's
+ * `finale`, Tenka's `horizon` (time, pull, sharePct).
+ */
+export const ABILITY_LR_TEXT = Object.freeze({
+  'kohaku_tsubaki.prismfall': Object.freeze({
+    name: 'Prismfall · Twin Star',
+    add: 'Twin Star: after the last shell, one white-gold Twin Star shell lands on the same spot for {dmgMul}× her hit within {radius} tiles.',
+    short: 'a white-gold Twin Star shell lands after the barrage',
+  }),
+  'tenka.criticalMass': Object.freeze({
+    name: 'Critical Mass · Event Horizon',
+    add: 'Event Horizon: the blast collapses into a gravity pull for {time}s that draws the enemies in its area toward its centre (minibosses half as fast, bosses stand firm), then detonates again for {sharePct}% of the first blast.',
+    short: 'the blast pulls enemies toward its centre for {time}s, then detonates again for {sharePct}% of the blast',
+  }),
+});
+/** @param {string} id @returns {{ name: string, add: string, short: string }|null} */
+export const abilityLrText = (id) => ABILITY_LR_TEXT[id] || null;
+
+/** The LR entry's numbers for its text: a finale's dmgMul / radius, a horizon's time / pull / share and sharePct. */
+export function abilityLrValues(entry) {
+  const e = entry?.lr?.effect || {};
+  const v = { ...(e.finale || {}), ...(e.horizon || {}) };
+  if (e.horizon?.share != null) v.sharePct = Math.round(e.horizon.share * 100);
+  return v;
+}
+
+/** One LR text field ('add' | 'short') filled from her ⚡ entry, or '' when the ability has no LR form. */
+export function abilityLrLine(entry, field = 'add') {
+  const row = entry?.lr ? abilityLrText(entry.id) : null;
+  return row ? fillAbilityText(row[field], abilityLrValues(entry)) : '';
+}
 
 /** Fills {placeholders}; an unknown one is left as is (the data test fails on any left over). */
 export function fillAbilityText(template, values) {

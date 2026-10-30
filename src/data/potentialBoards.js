@@ -25,7 +25,7 @@ export const CLASS_FAMILY = Object.freeze({
   bombardment: 'burst', artillery: 'burst', chain: 'burst', alchemist: 'burst', trapper: 'burst', spiker: 'burst', bowler: 'burst',
   mirror: 'burst', mortar: 'burst',
   support: 'ring', enchanter: 'ring', exorcist: 'ring', controller: 'ring', displacement: 'ring', purifier: 'ring', hexer: 'ring',
-  ring: 'ring', council: 'ring',
+  ring: 'ring', council: 'ring', battery: 'ring',
   economy: 'circuit', engineer: 'circuit', manager: 'circuit', builder: 'circuit', summoner: 'circuit', botanist: 'circuit',
 });
 
@@ -33,6 +33,7 @@ export const CLASS_FAMILY = Object.freeze({
 export const CLASS_EMBLEM = Object.freeze({
   // heroes
   vanguard: 'shield', mystic: 'moon', tideguard: 'waves', champion: 'trophy', puppeteer: 'users', stormrider: 'zap',
+  pilot: 'refresh', blocker: 'shield',
   // spear
   marksman: 'target', sniper: 'pierce', powerhouse: 'zap', duelist: 'sword', skirmisher: 'gauge', cleaver: 'swords', falconer: 'feather', prism: 'search',
   // burst
@@ -40,7 +41,7 @@ export const CLASS_EMBLEM = Object.freeze({
   mirror: 'image', mortar: 'castle',
   // ring
   support: 'heart', enchanter: 'sparkle', exorcist: 'lantern', controller: 'hourglass', displacement: 'refresh', purifier: 'sakura',
-  hexer: 'book', ring: 'maximize', council: 'percent',
+  hexer: 'book', ring: 'maximize', council: 'percent', battery: 'sparkle',
   // circuit
   economy: 'bag', engineer: 'settings', manager: 'clipboard', builder: 'box', summoner: 'paw', botanist: 'tree',
 });
@@ -103,6 +104,10 @@ export const POTENTIAL_BOARDS = Object.freeze({
   ouka: row('ring', 1, false, '#d85a6b', 'percent'), // council · card #884a52
   chigusa: row('circuit', 1, false, '#d6d551', 'tree'), // botanist · card #9e9e65
   marumi: row('burst', 1, false, '#d65e51', 'timer'), // bowler · card #b95045
+  // the banners' girls: the family default hue until their card art is sampled; variant and mirror from boardPick(id)
+  kohaku_tsubaki: row('ring', 1, false, '#5fd3c0', 'sparkle'), // battery (the duo)
+  kogane: row('crest', 2, true, '#ff8fb1', 'refresh'), // pilot (staff hero)
+  norika: row('crest', 2, true, '#ff8fb1', 'shield'), // blocker (staff hero)
 });
 
 /** Her class's family: heroes are crest; an unknown class gets FALLBACK_BOARD's. */

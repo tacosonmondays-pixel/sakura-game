@@ -12,6 +12,7 @@ import { Sim } from '../src/sim/Sim.js';
 import { createBattleRenderer } from '../src/render/BattleRenderer.js';
 import { STAGE_MAP } from '../src/data/stages.js';
 import { UNIT_MAP } from '../src/data/units.js';
+import { NEW_GIRL_IDS } from '../src/data/unitsNewGirls.js';
 import { buildMapTracks } from '../src/core/track.js';
 import { gainHeroXp } from '../src/sim/hero.js';
 
@@ -133,6 +134,8 @@ async function main() {
   const heroFocus = mode === 'focus' && UNIT_MAP[unit].kind === 'hero' && params.has('level');
   for (const id of ORDER) if (UNIT_MAP[id].kind === 'hero' && !heroFocus) units[id] = { ...UNIT_MAP[id], kind: 'tower' };
   const loadout = ORDER.filter((id) => !(heroFocus && id === unit)).map((unitId) => ({ unitId }));
+  // focus: the girls outside the gallery roster (the academy girls) join the loadout, so __setup can swap to them
+  if (mode === 'focus') for (const id of [unit, ...NEW_GIRL_IDS]) if (!ORDER.includes(id) && !loadout.some((l) => l.unitId === id)) loadout.push({ unitId: id });
   const sim = new Sim({
     stageId: 'fx-gallery', difficulty: 'normal', seed, loadout, hero: heroFocus ? { unitId: unit } : null,
     options: { autoStart: true }, data: { stage, map, units },
@@ -357,9 +360,9 @@ async function main() {
     speed = s;
   };
   /** Focus: swap the girl in place (sell everyone, place `id` with `build`, pre-roll `secs`). */
-  window.__setup = (id, build = 'base', secs = 30) => {
+  window.__setup = (id, build = 'base', secs = 30, at = null) => {
     for (const t of [...sim.towers]) sim.sellTower(t.uid);
-    const [bx, by] = boothOf(id);
+    const [bx, by] = at || boothOf(id);
     const t = snapPlace(sim, id, bx, by);
     if (!t) return null;
     applyBuild(sim, t, parseBuild(build, ORDER.indexOf(id)));

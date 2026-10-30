@@ -64,6 +64,22 @@ for (const vp of viewports) {
   });
   const tap = async (sel) => (touch ? page.locator(sel).tap({ force: true }) : page.locator(sel).click({ force: true }));
   const tapAt = async (x, y) => (touch ? page.touchscreen.tap(x, y) : page.mouse.click(x, y));
+  /**
+   * Waits for `fn(arg)` in GAME time: polls it, stepping the sim a quarter-second between polls, up to `gameSec` game
+   * seconds. A software-rendered page draws a few frames a second and the game clock moves per frame, so a real-time
+   * wait for something the battle has to do (an enemy walks into reach, Auto fires, a wave ends) can take minutes;
+   * e2e/gate-arc.mjs steps the sim the same way.
+   */
+  const gameUntil = async (fn, arg, gameSec) => {
+    for (let i = 0; i < gameSec * 4; i++) {
+      if (await page.evaluate(fn, arg)) return true;
+      await page.evaluate(() => {
+        const { sim } = window.__battle;
+        for (let k = 0; k < 15 && sim.state !== 'won' && sim.state !== 'lost'; k++) sim.update(1 / 60);
+      });
+    }
+    return page.evaluate(fn, arg);
+  };
   const shot = async (name) => {
     if (SHOTS) await page.screenshot({ path: join(SHOTS, `${name}-${vp}.png`) });
   };
@@ -104,6 +120,8 @@ for (const vp of viewports) {
     check(slot0 === 'between', `${vp} her slot appears, grey before the wave (${slot0})`);
     // the first-unlock toast points at what is on screen (her portrait in the bar), on one line, and is SEEN: on a
     // phone the tier is bought from the open panel, so the feed must not sit under it
+    // (polled: on a slow frame rate the toast can show a moment after the buy)
+    await until(page, () => __ab.toastSeen('^Skyfall Volley: ').found, null, 5000);
     const seen = await page.evaluate(() => __ab.toastSeen('^Skyfall Volley: '));
     const learned = seen.text || '';
     check(seen.found && (touch ? learned === 'Skyfall Volley: tap Aoi, bottom right' : learned === 'Skyfall Volley: press 1 or tap Aoi'), `${vp} unlock toast: "${learned}"`);
@@ -166,7 +184,7 @@ for (const vp of viewports) {
     check((await page.evaluate(() => window.__abilEv.length)) > before, `${vp} the cast reached the renderer's event stream`);
     if (!touch) {
       await page.evaluate((u) => __ab.ready(u), aoi);
-      await until(page, (u) => __ab.inReach(u) >= 1, aoi, 20000);
+      await gameUntil((u) => __ab.inReach(u) >= 1, aoi, 40);
       await page.keyboard.press('Digit1');
       await settle(page, 100);
       check((await page.evaluate((u) => __ab.abil(u).n, aoi)) === 2, `${vp} key 1 fires slot 1`);
@@ -218,7 +236,7 @@ for (const vp of viewports) {
     await settle(page, 150);
     check((await page.evaluate((u) => __ab.abil(u).auto, momo)) === true, `${vp} the card's switch turns her Auto on`);
     await page.evaluate((u) => __ab.ready(u), momo);
-    check(await until(page, (u) => __ab.abil(u).n >= 1, momo, 8000), `${vp} with Auto on, Market Day fires by itself`);
+    check(await gameUntil((u) => __ab.abil(u).n >= 1, momo, 8), `${vp} with Auto on, Market Day fires by itself`);
     await page.locator('[data-testid="ability-card-close"]').click({ force: true }).catch(() => {});
 
     // ---- 6. a card armed: the bar fades and ignores taps -------------------------------------------------------
@@ -360,7 +378,8 @@ for (const vp of viewports) {
     await settle(page, 200);
     const aimNow = await page.evaluate(() => ({ aim: window.__battle.ui.aim.abilityId, banner: !document.querySelector('[data-testid="aim-banner"]').hidden, toasts: __ab.toasts() }));
     if (!aimNow.banner) console.log(`  (FIRE before the tap: ${JSON.stringify(fireBefore)}; after: ${JSON.stringify(aimNow)})`);
-    await page.evaluate(() => window.__battle.ui.feed.push('Tap a point on the map.', 'warn', { key: 'e2e-aim-feed', ms: 4000 }));
+    // (15 s: a slow software-rendered frame can let a few real seconds pass before the read below)
+    await page.evaluate(() => window.__battle.ui.feed.push('Tap a point on the map.', 'warn', { key: 'e2e-aim-feed', ms: 15000 }));
     await settle(page, 250);
     const panelAim = await page.evaluate(() => {
       const b = document.querySelector('[data-testid="aim-banner"]');
@@ -376,7 +395,8 @@ for (const vp of viewports) {
     });
     check(!!panelAim && /tap FIRE again/.test(panelAim.text) && panelAim.left >= 0 && panelAim.right <= panelAim.panelLeft,
       `${vp} the aim banner from her panel's FIRE stays on screen and left of the panel (${JSON.stringify(panelAim)})`);
-    check(!!panelAim?.toast && !panelAim.toastUnder, `${vp} a toast during the aim is not under the banner (${JSON.stringify(panelAim?.toast)})`);
+    const feedNow = panelAim?.toast ? null : await page.evaluate(() => [...document.querySelectorAll('[data-testid="battle-feed"] .bt-toast')].map((n) => `${n.dataset.key || '-'}:${n.className.replace('bt-toast ', '')}:${n.textContent.slice(0, 40)}`));
+    check(!!panelAim?.toast && !panelAim.toastUnder, `${vp} a toast during the aim is not under the banner (${JSON.stringify(panelAim?.toast)}${feedNow ? `; feed: ${JSON.stringify(feedNow)}` : ''})`);
     await shot('e2e-panel-aim');
     await page.keyboard.press('Escape');
     await settle(page, 150);
@@ -444,7 +464,7 @@ for (const vp of viewports) {
     // ---- 9. Continue keeps a charging ability and the Auto switch (battle save) ---------------------------------
     await page.evaluate(() => clearInterval(window.__keepWave));
     await page.evaluate((u) => __ab.ready(u, { cd: Math.round(window.__battle.sim.getTower(u).abil.cdMax * 0.7), auto: true }), aoi);
-    check(await until(page, () => window.__battle.sim.state === 'between', null, 120000), `${vp} the wave clears`);
+    check(await gameUntil(() => window.__battle.sim.state === 'between', null, 120), `${vp} the wave clears`);
     await settle(page, 400);
     const kept = await page.evaluate(([a, m]) => {
       const s = window.__battle.sim;
@@ -452,7 +472,7 @@ for (const vp of viewports) {
       return { aoi: { cd: s.getTower(a).abil.cd, auto: s.getTower(a).abil.auto }, momo: { auto: s.getTower(m).abil.auto } };
     }, [aoi, momo]);
     check(kept.aoi.cd > 0, `${vp} Aoi still charging at the calm point (${kept.aoi.cd})`);
-    await page.reload({ waitUntil: 'load' });
+    await page.reload({ waitUntil: 'load', timeout: 120000 }); // (a cold dev-server reload of the battle: slow under load)
     await page.waitForFunction(() => window.__battle?.sim?.towers?.length > 0, null, { timeout: 90000 });
     await settle(page, 600);
     const back = await page.evaluate(() => {

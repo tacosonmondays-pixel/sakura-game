@@ -31,8 +31,8 @@ export const raika = {
       const forks = lookAt(lk, 0) >= 3 ? 2 : 1;
       for (let k = 1; k < pts.length; k++) {
         for (let f = 0; f < forks; f++) {
-          const a = Math.random() * Math.PI * 2;
-          const s = ctx.segs.add(pts[k][0], 0.35, pts[k][1], pts[k][0] + Math.sin(a) * 0.3, 0.2 + Math.random() * 0.3, pts[k][1] + Math.cos(a) * 0.3, 0.08, c, 0.12, SEG_FLICKER | SEG_ZIGZAG);
+          const a = ctx.rand() * Math.PI * 2;
+          const s = ctx.segs.add(pts[k][0], 0.35, pts[k][1], pts[k][0] + Math.sin(a) * 0.3, 0.2 + ctx.rand() * 0.3, pts[k][1] + Math.cos(a) * 0.3, 0.08, c, 0.12, SEG_FLICKER | SEG_ZIGZAG);
           if (s) {
             s.k = 2;
             s.delay = (k - 1) * 0.018;

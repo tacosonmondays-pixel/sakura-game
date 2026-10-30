@@ -80,7 +80,7 @@ export function createPauseMenu(ctx) {
       'div.bt-sheet.bt-pause',
       h('div.bt-sheet-title', ctx.coop ? 'MENU' : 'PAUSED'),
       ctx.coop ? h('p.bt-pause-sub', 'Co-op battles keep running while this menu is open.') : null,
-      h('div.bt-pause-sub', `${stage.kind === 'campaign' ? `${stage.id} · ` : ''}${stage.name} — ${diff.name}`),
+      h('div.bt-pause-sub', `${stage.kind === 'campaign' ? `${stage.id} · ` : stage.kind === 'side' ? 'Side · ' : ''}${stage.name} — ${diff.name}`),
       ctx.modes?.pauseRow() || null,
       h(
         'div.bt-pause-actions',
@@ -111,6 +111,8 @@ export function createPauseMenu(ctx) {
         render();
       }, 'set-autocast'),
       toggle('Reduce motion', 'Less shake and flashing (next battle)', !!s.reduceMotion, (v) => save({ reduceMotion: v }), 'set-motion'),
+      toggle('Flashes & shake', 'Screen flashes, shake and the freeze on big hits', s.hitEffects !== false, (v) => save({ hitEffects: v }), 'set-hitfx'),
+      toggle('Impact frames', 'A split-second tinted frame on ultimates and boss kills (High)', s.impactFrames !== false, (v) => save({ impactFrames: v }), 'set-impactfx'),
       h('div.bt-sheet-section', 'Controls'),
       h(
         'ul.bt-help',
@@ -132,7 +134,10 @@ export function createPauseMenu(ctx) {
   }
 
   async function restart() {
-    const text = saving()
+    // (a Tryout Day run cannot start over: Restart ends it, pays what it banked and goes back to the hub)
+    const text = ctx.req?.tryout && !ctx.coop
+      ? 'Give up this run? It ends here and pays what you have earned so far.'
+      : saving()
       ? 'Start this battle again from wave 1? Your saved progress in it will be deleted.'
       : 'Restart this stage from wave 1? Progress in this battle is lost.';
     if (!(await confirmDialog(text, { title: 'Restart', ok: 'Restart', danger: saving() }))) return;
@@ -156,7 +161,8 @@ export function createPauseMenu(ctx) {
 
   /** "wave 3 of 12", or just "wave 31" in an endless run. */
   function waveOf(n) {
-    return Number.isFinite(ctx.sim.totalWaves) ? `wave ${n} of ${ctx.sim.totalWaves}` : `wave ${n}`;
+    // (a Tryout Day Extended Day past its 48: the wave alone, never "of 48")
+    return Number.isFinite(ctx.sim.totalWaves) && !(ctx.sim.tryout && ctx.sim.freeplay && n > ctx.sim.totalWaves) ? `wave ${n} of ${ctx.sim.totalWaves}` : `wave ${n}`;
   }
 
   /** What Save & quit (or Quit / Leave co-op) says before it leaves. Co-op (freeplay included) is never saved. */

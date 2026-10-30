@@ -12,9 +12,11 @@ import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 import { BASE_CARD, firstSentence, cardFromText, stepCardText } from '../../src/ui/potentialBoard/card.js';
 
 /** Keys whose numbers read as "+N %" (a multiplier m → (m − 1) × 100, or "m×"). */
-const MUL_KEYS = new Set(['damageMul', 'rateMul', 'rangeMul', 'incomeMul', 'dotMul', 'bossMul', 'bountyAura', 'dmgMul', 'spectral', 'shareMul']);
+const MUL_KEYS = new Set(['damageMul', 'rateMul', 'rangeMul', 'incomeMul', 'dotMul', 'bossMul', 'bountyAura', 'dmgMul', 'spectral', 'shareMul',
+  // Norika's barricade budget (BANNERS §D.4)
+  'budgetMul']);
 /** Keys whose numbers are fractions read as percent or points (× 100). */
-const FRACTION_KEYS = new Set(['chance', 'bonus', 'share', 'projScale', 'per', 'max', 'foeVuln', 'critChance', 'haste', 'rateBuff', 'pct', 'echo', 'keepRamp',
+const FRACTION_KEYS = new Set(['held', 'chance', 'bonus', 'share', 'projScale', 'per', 'max', 'foeVuln', 'critChance', 'haste', 'rateBuff', 'pct', 'echo', 'keepRamp',
   // Wakaba's drink bonuses (drink.dmg 0.03 = 3%); Ouka's extra discount (hub.cutAdd 0.02 = 2%)
   'dmg', 'rate', 'cutAdd']);
 /** Context keys whose value is not player-facing on its own. */

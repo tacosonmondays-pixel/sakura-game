@@ -218,6 +218,49 @@ for (const { name, r } of results) {
   if (!(bounced > 0 && finales > 0)) failures.push(`the Glow Bowl battle: no bounce or no finale (${g.bowl})`);
 }
 
+// the duo Kohaku & Tsubaki (DUO_START): Refraction, Kohaku's beam, Prismfall on Auto-cast, the LR Twin Star
+log('\nScripted co-op DUO battle (2-5, DUO_START: Refraction to Constellation Lattice, Kohaku\'s beam, Prismfall on Auto-cast, the host\'s LR Twin Star):');
+for (const { name, r } of results) {
+  const g = r.duo;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · refract/shards/beams/casts/twinStar/aims ${g.duo} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two duo-battle clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} duo battle command(s) refused: ${g.refused}`);
+  for (const k of [...POT_KEYS.filter((x) => x !== 'aoi'), 'tiers', 'duo', 'dealt']) if (g[k] !== ref.duo[k]) failures.push(`${name}: duo ${k} ${g[k]} ≠ ${ref.duo[k]} (${results[0].name})`);
+}
+{
+  const [refract, , beams, casts, twinStar] = ref.duo.duo.split('/').map(Number);
+  if (!(refract > 0 && beams > 0 && casts > 0 && twinStar > 0)) failures.push(`the duo battle: a part never ran (refract/shards/beams/casts/twinStar/aims ${ref.duo.duo})`);
+}
+
+// Tenka's LR form (TENKA_LR_START): Critical Mass · Event Horizon's pull and second detonation, the host's Tenka only
+log('\nScripted co-op TENKA LR battle (4-5, TENKA_LR_START: the host\'s LR Tenka to Zero Point, Event Horizon\'s pull and second detonation; the guest\'s Tenka without LR):');
+for (const { name, r } of results) {
+  const g = r.tenkaLr;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · casts/pulls/blasts/hit ${g.horizon} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two LR Tenka battle clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} LR Tenka battle command(s) refused: ${g.refused}`);
+  for (const k of [...POT_KEYS.filter((x) => x !== 'aoi'), 'tiers', 'horizon', 'dealt']) if (g[k] !== ref.tenkaLr[k]) failures.push(`${name}: LR Tenka ${k} ${g[k]} ≠ ${ref.tenkaLr[k]} (${results[0].name})`);
+}
+{
+  const [casts, pulls, blasts, hit] = ref.tenkaLr.horizon.split('/').map(Number);
+  // only the host's Tenka is LR: some casts pull, never all of them
+  if (!(pulls > 0 && blasts > 0 && hit > 0 && pulls < casts)) failures.push(`the LR Tenka battle: a part never ran (casts/pulls/blasts/hit ${ref.tenkaLr.horizon})`);
+}
+
+// the staff heroes (STAFF_START): Norika's barricades and Hold the Line on a forked map, Kogane's plow and Moves
+log('\nScripted co-op STAFF battle (2-2, STAFF_START: Norika\'s barricades and Hold the Line, Kogane\'s Clear the Road and Moves):');
+for (const { name, r } of results) {
+  const g = r.staff;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · held/breaks/lines/oneWay/detours/plows/moves ${g.staff} · heroes Lv ${g.heroLevels} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two staff-battle clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} staff battle command(s) refused: ${g.refused}`);
+  for (const k of ['ticks', 'state', 'wave', 'wallets', 'final', 'hashes', 'staff', 'heroLevels']) if (g[k] !== ref.staff[k]) failures.push(`${name}: staff ${k} ${g[k]} ≠ ${ref.staff[k]} (${results[0].name})`);
+}
+{
+  const [held, breaks, lines, , , plows, moves] = ref.staff.staff.split('/').map(Number);
+  if (!(held > 0 && breaks > 0 && lines > 0 && plows > 0 && moves > 0)) failures.push(`the staff battle: a part never ran (held/breaks/lines/oneWay/detours/plows/moves ${ref.staff.staff})`);
+}
+
 // co-op freeplay: the same wave tables and the same whole freeplay battle everywhere
 const FP_KEYS = ['ticks', 'state', 'wave', 'cleared', 'finished', 'goalTick', 'endTicks', 'towers', 'wallets', 'lives', 'bosses', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckTick', 'ckDigest', 'ckReplay', 'finalDigest'];
 log('\nScripted co-op FREEPLAY battle (Crimson Moon on 1-3, past the goal, ended by a Finish vote):');
@@ -313,8 +356,8 @@ if (ref.roster.curseBursts < 5) failures.push(`the roster battle burst only ${re
 if (ref.drones.drones < 3) failures.push(`the drones battle flew only ${ref.drones.drones} drones`);
 if (ref.drones.flies < 4) failures.push(`the drones battle sent only ${ref.drones.flies} fly commands`);
 // abilities: every live kind, manual taps (some refused), Auto-cast, owner coins, the checkpoint replay
-const AB_KEYS = ['ticks', 'state', 'wave', 'cleared', 'towers', 'casts', 'kinds', 'byKind', 'byOwner', 'taps', 'wallets', 'lives', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
-log('\nScripted co-op ABILITIES battle (4-5, ABILITIES_START: the host taps 5 girls + Luna, the guest on Auto-cast + taps, to wave 12):');
+const AB_KEYS = ['ticks', 'state', 'wave', 'cleared', 'towers', 'casts', 'kinds', 'byKind', 'byOwner', 'splits', 'deploys', 'taps', 'wallets', 'lives', 'final', 'hashes', 'checkpoints', 'ckWave', 'ckDigest', 'finalDigest'];
+log('\nScripted co-op ABILITIES battle (4-5, ABILITIES_START: the host taps 7 girls + Luna (Fuu and Suzu among them), the guest (Kage, Iroha and Chika among hers) on Auto-cast + taps, to wave 20):');
 for (const { name, r } of results) {
   const b = r.abilities;
   log(`  ${name.padEnd(46)} ticks ${b.ticks} · ${b.state} · cleared ${b.cleared} · ${b.casts} casts (${b.byKind}; host/guest ${b.byOwner}) · ${b.taps} · coins ${b.wallets} · final ${b.final} · ${b.checkpoints} hash checkpoints → ${b.hashes} · checkpoint w${b.ckWave} ${b.ckSame ? 'replays to the run' : 'REPLAY DIFFERS'} · ${b.ms} ms`);
@@ -326,9 +369,10 @@ for (const { name, r } of results) {
 {
   const b = ref.abilities;
   log(`  towers: ${b.towers}`);
+  log(`  deploys (A4): ${b.deploys || 'none'}`);
   if (b.casts < 30) failures.push(`the abilities battle cast only ${b.casts} abilities`);
   if (b.kinds.split(',').length < 6) failures.push(`the abilities battle cast only these kinds: ${b.kinds}`);
-  if (b.cleared < 12) failures.push(`the abilities battle cleared only ${b.cleared} waves`);
+  if (b.cleared < 20) failures.push(`the abilities battle cleared only ${b.cleared} waves`);
 }
 // the returning girls' abilities (A3 M3): Kaze's Swoop, Moon Pounce, First Aid Call (a life back), Omen Card, Puppet
 // Hex and Storm Lance (both heroes to their Lv 17 rank), manual taps and Auto-cast, the checkpoint replay
@@ -366,6 +410,43 @@ for (const { name, r } of results) {
   // (the same coverage check as tests/online/engines.test.js: every lab class, both absorbs, each weapon)
   for (const miss of battle.tenkaCoverage(b)) failures.push(`the Tenka battle: ${miss}`);
 }
+// Tryout Day: a 2-player run on two views to wave 16, a third client rejoining from the wave-9 checkpoint
+const TY_KEYS = ['wave', 'lives', 'score', 'squads', 'lastDigest', 'digests', 'hash'];
+log('\nScripted co-op TRYOUT DAY run (two views, personal picks, a Tryout join, Recess moves, a rejoin at wave 9):');
+for (const { name, r } of results) {
+  const b = r.tryout;
+  log(`  ${name.padEnd(46)} wave ${b.wave} · ♥ ${b.lives} · score ${b.score} · ${b.digests} calm digests → ${b.lastDigest} · hash ${b.hash}`);
+  if (!b.sameViews) failures.push(`${name}: its two Tryout Day views disagreed`);
+  for (const k of TY_KEYS) if (JSON.stringify(b[k]) !== JSON.stringify(ref.tryout[k])) failures.push(`${name}: tryout ${k} ${JSON.stringify(b[k])} ≠ ${JSON.stringify(ref.tryout[k])} (${results[0].name})`);
+}
+// Random Class (§20.4): no pick commands; every pick lands inside the Sim, a rejoin at wave 8 mid-reveal
+const TR_KEYS = [...TY_KEYS, 'picks'];
+log('\nScripted co-op TRYOUT DAY Random Class run (two views, drawn threes, auto-picks, a rejoin mid-reveal at wave 8):');
+for (const { name, r } of results) {
+  const b = r.tryoutRandom;
+  log(`  ${name.padEnd(46)} wave ${b.wave} · ♥ ${b.lives} · score ${b.score} · picks ${b.picks.map((x) => x.split(',').length).join('+')} · ${b.digests} calm digests → ${b.lastDigest} · hash ${b.hash}`);
+  if (!b.sameViews) failures.push(`${name}: its two Random Class views disagreed`);
+  for (const k of TR_KEYS) if (JSON.stringify(b[k]) !== JSON.stringify(ref.tryoutRandom[k])) failures.push(`${name}: tryoutRandom ${k} ${JSON.stringify(b[k])} ≠ ${JSON.stringify(ref.tryoutRandom[k])} (${results[0].name})`);
+}
+// Tryout Day's Extended Day: a 2-player run past wave 48 into the freeplay waves, a rejoin from the wave-50 checkpoint
+log('\nScripted co-op EXTENDED DAY run (two views, past wave 48 into the freeplay waves, a rejoin at wave 50):');
+for (const { name, r } of results) {
+  const b = r.tryoutAfter;
+  log(`  ${name.padEnd(46)} wave ${b.wave} · ♥ ${b.lives} · score ${b.score} · ${b.digests} calm digests → ${b.lastDigest} · hash ${b.hash}`);
+  if (!b.sameViews || !b.sameHashes) failures.push(`${name}: its two Extended Day views disagreed`);
+  if (!b.freeplay || b.wave < 61) failures.push(`${name}: the Extended Day run did not reach its freeplay waves (wave ${b.wave})`);
+  for (const k of TY_KEYS) if (JSON.stringify(b[k]) !== JSON.stringify(ref.tryoutAfter[k])) failures.push(`${name}: extended day ${k} ${JSON.stringify(b[k])} ≠ ${JSON.stringify(ref.tryoutAfter[k])} (${results[0].name})`);
+}
+// Random Class + Extended Day: auto-picks past P12, a rejoin mid-reveal past wave 48
+const TAR_KEYS = [...TY_KEYS, 'picks', 'rejoinWave'];
+log('\nScripted co-op RANDOM CLASS + EXTENDED DAY run (two views, auto-picks past P12, a rejoin mid-reveal past wave 48):');
+for (const { name, r } of results) {
+  const b = r.tryoutAfterRandom;
+  log(`  ${name.padEnd(46)} wave ${b.wave} · ♥ ${b.lives} · score ${b.score} · rejoin w${b.rejoinWave}${b.midReveal ? ' mid-reveal' : ''} · ${b.digests} calm digests → ${b.lastDigest} · hash ${b.hash}`);
+  if (!b.sameViews || !b.sameHashes) failures.push(`${name}: its two Random Class + Extended Day views disagreed`);
+  if (!b.freeplay || b.wave < 57 || b.rejoinWave <= 48 || !b.midReveal) failures.push(`${name}: the Random Class + Extended Day run missed its checks (wave ${b.wave}, rejoin w${b.rejoinWave}, mid-reveal ${b.midReveal})`);
+  for (const k of TAR_KEYS) if (JSON.stringify(b[k]) !== JSON.stringify(ref.tryoutAfterRandom[k])) failures.push(`${name}: random + extended ${k} ${JSON.stringify(b[k])} ≠ ${JSON.stringify(ref.tryoutAfterRandom[k])} (${results[0].name})`);
+}
 log('\nEngine-native Math (information only; co-op runs on the deterministic ports):');
 for (const fn of Object.keys(ref.math.native)) {
   const groups = new Map();
@@ -380,4 +461,4 @@ if (failures.length) {
   log(`\nFAIL (${failures.length}):\n  ${failures.join('\n  ')}`);
   process.exit(1);
 }
-log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical Glow Bowl battle, the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle, the identical returning girls' abilities battle, the identical Tenka battle and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);
+log(`\nOK: ${results.length} runs on ${engines.size} engines (${[...engines].join(', ')}) computed the identical battle, the identical Potential battles (1-3 and the spectral boss), the identical gear battles (live girls and returning girls), the identical Glow Bowl battle, the identical two-hero battle, the identical drones battle, the identical returning-girls battle, the identical abilities battle, the identical returning girls' abilities battle, the identical Tenka battle, the identical Tryout Day, Extended Day and Random Class + Extended Day runs and the identical freeplay run, wrote the identical wave-${ref.freeplay.battle.ckWave} checkpoint, and each restored it and replayed to the run's final state.`);

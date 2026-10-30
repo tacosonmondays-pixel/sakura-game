@@ -178,11 +178,14 @@ describe('abilityBarView: slots', () => {
 
   it('only the abilities whose cast reads an aim are aimed (Time Out! a girl, Emergency Deploy a point)', () => {
     const aimed = Object.keys(ABILITY_TEXT).filter((id) => abilityAim(id));
-    expect(aimed.sort()).toEqual(['wakaba.timeOut', 'yuzuha.emergencyDeploy']);
+    // (Prismfall: a point, else her mortar's aim, else the densest crowd: DUO_LR §1.4)
+    expect(aimed.sort()).toEqual(['kohaku_tsubaki.prismfall', 'wakaba.timeOut', 'yuzuha.emergencyDeploy']);
+    expect(abilityAim('kohaku_tsubaki.prismfall')).toBe('point');
     const all = Object.values(ABILITIES).flatMap((r) => (Array.isArray(r) ? r : [r.skill]));
     const def = (id) => all.find((d) => d.id === id);
     expect(def('wakaba.timeOut').effect.target).toBe('girl');
     expect(def('yuzuha.emergencyDeploy').effect.deploy).toBe('sentries');
+    expect(def('kohaku_tsubaki.prismfall').effect.at).toBe('aim');
   });
 
   it('never an ally\'s girl, never a hero (her skill lives in the hero widget)', () => {
@@ -210,6 +213,21 @@ describe('abilityBarView: slots', () => {
 });
 
 describe('the hold card', () => {
+  it('an LR Tenka\'s card names Critical Mass · Event Horizon and adds its sentence; without LR it is plain Critical Mass', () => {
+    const lrSim = new Sim({ stageId: '1-2', difficulty: 'normal', loadout: [{ unitId: 'tenka', stats: { lr: true } }], hero: null, seed: 11 });
+    lrSim.cash = 1e7;
+    unlock(lrSim, place(lrSim, 'tenka'));
+    const v = abilityCardView(lrSim, abilityBarView(lrSim, 0)[0]);
+    expect(v.name).toBe('Critical Mass · Event Horizon');
+    expect(v.desc).toMatch(/Event Horizon: the blast collapses into a gravity pull for 1\.5s .* detonates again for 50% of the first blast\.$/);
+    expect(v.desc).not.toMatch(/[{}]/);
+    const sim = battle(['tenka'], { hero: null });
+    unlock(sim, place(sim, 'tenka'));
+    const p = abilityCardView(sim, abilityBarView(sim, 0)[0]);
+    expect(p.name).toBe('Critical Mass');
+    expect(p.desc).not.toMatch(/Event Horizon/);
+  });
+
   it('her live description, the cooldown, the copies sharing it, Auto and the reach ring', () => {
     const sim = battle(['aoi']);
     const a1 = unlock(sim, place(sim, 'aoi'));

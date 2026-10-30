@@ -2,7 +2,7 @@
 // per-frame caps hold, unknown events pass through, and Reduce motion keeps everything to opacity fades (no ring
 // changes size, nothing flies or rises, no shake).
 import { describe, it, expect } from 'vitest';
-import { createAbilityFx, ABILITY_FX_CAPS, ABILITY_FX_EVENTS, SWOOP_COLORS, STRIKE_DROP } from '../../src/render/abilityFx.js';
+import { createAbilityFx, ABILITY_FX_CAPS, ABILITY_FX_EVENTS, SWOOP_COLORS, STRIKE_DROP, HORIZON_COLORS } from '../../src/render/abilityFx.js';
 
 function stubFx() {
   const calls = [];
@@ -47,6 +47,11 @@ const EVENTS = [
   { type: 'ability', towerUid: 1, id: 'seiran.stormLance', kind: 'strike', scope: 'local', x: 4, y: 5, radius: 4, targets: [102, 100, 101] },
   { type: 'ability', towerUid: 1, id: 'hana.swoop', kind: 'strike', scope: 'map', x: 4, y: 5, radius: 0, targets: [100, 101] },
   { type: 'lifeRestored', towerUid: 2, lives: 18, n: 1, id: 'noa.firstAid' },
+  // Tenka's LR Event Horizon: the pull over the blast's area, then its second detonation
+  { type: 'abilityHorizon', towerUid: 1, id: 'tenka.criticalMass', x: 3, y: 3, radius: 2, time: 1.5 },
+  { type: 'abilityShell', towerUid: 1, id: 'tenka.criticalMass', x: 3, y: 3, radius: 2, hits: 3, horizon: true },
+  // A5: a move (Backdraft Fan's gust; the last event, which its own test replays)
+  { type: 'ability', towerUid: 1, id: 'fuu.backdraft', kind: 'move', scope: 'local', x: 4, y: 5, radius: 4.5, targets: [100, 101, 102], moved: 3 },
 ];
 
 describe('ability FX', () => {
@@ -76,6 +81,20 @@ describe('ability FX', () => {
     expect(fx.calls.filter((c) => c.name === 'sparkle').map((c) => [c.args[0], c.args[1]])).toEqual([[6, 5], [7, 2]]);
     a.handle(EVENTS[5]);
     expect(fx.calls.some((c) => c.name === 'coin' && c.args[3] === 100)).toBe(true);
+  });
+
+  it('a move: her reach\'s edge, a fan of five wind glows sweeping toward the crowd, a puff on each enemy it reached', () => {
+    const fx = stubFx();
+    const a = createAbilityFx({ sim: stubSim(), fx, colorOf: () => '#4f9e88' });
+    a.frame();
+    a.handle(EVENTS[EVENTS.length - 1]);
+    expect(fx.calls.some((c) => c.name === 'ring' && c.args[0] === 4 && c.args[1] === 5 && c.args[3] === 4.5)).toBe(true);
+    const fan = fx.calls.filter((c) => c.name === 'spawn' && c.args[0].life === 0.5 && c.args[0].vx != null);
+    expect(fan).toHaveLength(5);
+    // (the targets lie to the west and north of her: the fan sweeps that way)
+    for (const c of fan) expect(c.args[0].vx).toBeLessThan(0);
+    // one puff on each enemy it reached, where it stands
+    expect(fx.calls.filter((c) => c.name === 'puff').map((c) => c.args[0])).toEqual([0, 1, 2].map((i) => 1 + i * 0.3));
   });
 
   it('per-frame caps: lines, rings, puffs and events stop at their budget and start again next frame', () => {
@@ -269,6 +288,30 @@ describe('ability FX', () => {
     const h = rm.calls.find((c) => c.name === 'spawn').args[0];
     expect([h.uv, h.s0 === h.s1, h.vy || 0, h.a1 < h.a0]).toEqual(['heart', true, 0, true]);
     expect(rm.calls.some((c) => c.name === 'text')).toBe(false);
+  });
+
+  it('Event Horizon: thin rings collapse onto the centre for the whole pull, the second detonation adds a white ring; Reduce motion: a still ring that fades', () => {
+    const [pull, blast] = EVENTS.filter((e) => e.id === 'tenka.criticalMass' && (e.type === 'abilityHorizon' || e.horizon));
+    const fx = stubFx();
+    let shakes = 0;
+    const a = createAbilityFx({ sim: stubSim(), fx, shake: () => shakes++ });
+    a.frame();
+    a.handle(pull);
+    const rings = fx.calls.filter((c) => c.name === 'ring');
+    expect(rings.length).toBe(2);
+    // (x, z, r0, r1, life, colour): from the edge (2 tiles) and inside it toward the centre, over the 1.5 s pull
+    expect(rings[0].args.slice(0, 6)).toEqual([3, 3, 2, 0.15, 1.5, HORIZON_COLORS.ring]);
+    expect(rings.every((c) => c.args[2] > c.args[3] && c.args[6].a0 <= 0.55 && c.args[6].additive === false)).toBe(true);
+    expect(shakes).toBe(0); // gentle: the pull never shakes
+    fx.calls.length = 0;
+    a.handle(blast);
+    expect(fx.calls.filter((c) => c.name === 'ring').map((c) => c.args[5])).toEqual(expect.arrayContaining([HORIZON_COLORS.ring, HORIZON_COLORS.core]));
+    expect(shakes).toBe(1);
+    const rm = stubFx();
+    const b = createAbilityFx({ sim: stubSim(), fx: rm, reduceMotion: true });
+    b.frame();
+    b.handle(pull);
+    expect(rm.calls.filter((c) => c.name === 'ring').map((c) => c.args.slice(2, 5))).toEqual([[2, 2, 1.5]]);
   });
 
   it('full motion: bursts shake a little, rings grow', () => {

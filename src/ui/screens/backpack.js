@@ -16,6 +16,7 @@
 //
 // Also exports small shared pieces used by other meta-b screens: put, cssVars, rarityTile, unitMini, howToGet,
 // crosspathDiagram, emptyState, gearCard.
+import { unitClass } from '../../data/banners.js'; // [banners] howToGet: held, LR Banner, Spotlight
 import '../styles/meta-b.css';
 import '../styles/v2-backpack.css';
 import { h, clear, screen, svgEl, button, itemTile, modal, toast, confirmDialog } from '../components.js';
@@ -33,6 +34,7 @@ import { BACKPACK_TABS, ITEMS, ITEM_CATEGORIES, getItem, compareItemsByRarity } 
 import { ITEM_RARITIES, ITEM_RARITY_ORDER, GEAR_SLOTS, MATERIAL_FAMILIES } from '../../data/types.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { itemCount } from '../../systems/inventory.js';
+import { workbenchReady } from '../../systems/workbench.js';
 import { gearList, salvageGear, salvageRewards, openGearBox, GEAR_BAG_MAX, OPEN_BATCH_MAX, gearCount } from '../../systems/gear.js';
 import { gearIcon, uiIcon, itemIcon } from '../../art/icons.js';
 import { applyGearFilter, activeGearFilters, GEAR_SORTS } from '../../systems/gearFilter.js';
@@ -46,7 +48,6 @@ import { boxSummary, SUMMARY_ABOVE } from '../gearSummary.js';
 import { gearCard, gearActions, pickGearFor, rainbowBoxModal } from '../gearUr.js';
 import { openPieceSheet } from '../girlGear.js';
 import '../styles/achievements.css'; // the gear summary
-import { isLegendUnit, RECRUIT_FEATURE } from '../../data/recruitFeature.js';
 
 /** Gear tiles drawn per page in the Equipment tab. */
 const GEAR_PAGE = 200;
@@ -93,7 +94,11 @@ export function howToGet(unit) {
   const a = unit.acquisition || {};
   if (a.type === 'starter') return { short: 'Starter', long: 'Part of your starting team.' };
   if (a.type === 'free') return { short: `Free after ${a.afterStage}`, long: a.note || `Joins for free after clearing stage ${a.afterStage}.`, stageId: a.afterStage };
-  if (isLegendUnit(unit.id)) return { short: 'Recruit', long: RECRUIT_FEATURE?.unit === unit.id ? `Recruit her on the ${RECRUIT_FEATURE.kicker} spotlight (${(1.5 * RECRUIT_FEATURE.share).toFixed(1)}%; your ${RECRUIT_FEATURE.promise}th recruit without her is her). She can't be sparked.` : 'Recruit her on her own banner. She can\'t be sparked.' };
+  // [banners] where she can be pulled (BANNERS §B): LR units only on their LR Banner, premium SSRs on their Spotlights
+  const cls = unitClass(unit.id);
+  if (cls === 'held') return { short: 'Coming soon', long: 'She joins the academy in a later update.' };
+  if (cls === 'legend') return { short: 'LR Banner', long: 'LR unit: recruit her on her own LR Banner (Legend Promise at 300). She cannot be sparked.' };
+  if (unit.rarity === 'SSR' && cls === 'premium') return { short: 'Spotlight', long: `Recruit her on her ${unit.kind === 'hero' ? 'Guardian' : 'Student'} Spotlight (1.0%), or spark her there with 200 Recruit Points.` };
   return { short: 'Recruit', long: unit.rarity === 'SSR' ? 'Recruit (1.5%, pity at 90) or spark her with 200 Recruit Points.' : 'Recruit her in the gacha.' };
 }
 
@@ -561,6 +566,17 @@ export function render(root, params = {}) {
         toolBtn(rarityOn ? ITEM_RARITIES[state.rarity].name : 'Filter', { icon: 'filter', testid: 'bp-filter', narrow: true, on: rarityOn, title: rarityOn ? 'Rarity filter is on' : 'Filter by rarity', onClick: () => openItemFilter(rerender) }),
         toolBtn(SORTS[state.sort], { icon: 'sort', testid: 'bp-sort', title: 'Sort', narrow: true, onClick: () => openSortSheet(SORTS, state.sort, (id) => { state.sort = id; rerender(); }, 'item-sort') }));
       renderItems(content, rerender);
+    }
+    // [workbench] the club lab (timed Workbench + instant Craft Room, BANNERS §G): its one entry, on every tab but while
+    // picking gear to salvage; a dot when a craft is ready (the Menu's Backpack row lights by the same rule)
+    if (!(state.pick && state.tab === 'equipment')) {
+      const ready = workbenchReady(profile);
+      const wb = toolBtn('Workbench', { icon: 'timer', testid: 'backpack-workbench', narrow: true, dot: ready, onClick: () => navigate('workbench'), cls: 'bp-wb-btn' });
+      wb.setAttribute('aria-label', ready ? 'Workbench (a craft is ready)' : 'Workbench');
+      // with the other tools: before the GEAR tab's gap (so never after the danger Salvage), else after Sort
+      const gap = toolbar.querySelector(':scope > .bp-gap');
+      if (gap) toolbar.insertBefore(wb, gap);
+      else toolbar.append(wb);
     }
     body.scrollTop = scrollTop;
   };

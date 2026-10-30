@@ -12,6 +12,8 @@ import { navigate } from '../router.js';
 import { ledgerBusy } from '../../online/donateLedger.js';
 import { DM_PRIVACY, DM_PRIVACY_DEFAULT, PRIVACY_LABELS, PRIVACY_HELP, formatFriendCode } from '../../online/socialRules.js';
 import { setPrivacyCache } from './socialHub.js';
+import { supportRows } from './supportSettings.js';
+import { isFriendshipLive } from '../../systems/banners.js';
 
 /**
  * [social] Who can message me · friend code · blocked players. Filled once the account is online
@@ -190,6 +192,9 @@ export function onlineSection({ redraw, importText }) {
       h('div.ma-set-text', h('div.ma-set-label', 'Online name'), h('div.ma-set-desc', 'Shown in chat, clans and co-op.')),
       h('div.ma-set-control.ol-settings-row', nameEl, button(storedName() ? 'Change' : 'Set', { kind: 'ghost', small: true, testid: 'online-rename', onClick: rename }))),
     socialRows(),
+    // [friend support] Lend my Support Student to · which girl: only once the server's friend-support SQL is live, as
+    // stage prep's Support row (before it, nobody can borrow or lend, so the rows would promise nothing)
+    isFriendshipLive() ? supportRows() : null,
     h('div.ma-save-block',
       h('div.ma-set-label', 'Transfer code'),
       h('p.muted', 'Move your save to another device: create a code here, then redeem it on the other device within 24 hours. Each code works once — treat it like a password and never share it.'),

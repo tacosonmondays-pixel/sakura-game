@@ -1,0 +1,46 @@
+{
+  "reviewer": "independent look + logic reviewer (did not build batch B or its fixes)",
+  "scope": "Batch B review fixes on feature/visual-reworks-b: f269a361 (fix/azami-b), 2f386461 + 53cd6308 + df09326b (fix/yoriko-b), merged at 2d0e90dd. The batch A fx.js / iroha.js changes in the last merge are reviewed elsewhere.",
+  "sha": "2d0e90dd",
+  "verdict": "NOT OK",
+  "summary": "Two of the three MEDIUM findings are fixed. Yoriko's Extend is now a real arc glide (MEDIUM 1), and Azami's bite follows the 3D strip's axis (MEDIUM 3). The LOWs are done. MEDIUM 2 is only half fixed. The cut is now pushed in front of the enemy and reads as a crescent shape, but on screen it is a WHITE crescent with a faint lilac fringe, not a lilac cut with a thin white edge. The additive white 'edge' sprite (0.8 x 0.95 of the core size, alpha 0.75, same rotation) covers the lilac core and adds it up to white. On the strike frame the part of the cut that lies over the enemy's own white body flash disappears. It is a small display-only fix.",
+  "checks": {
+    "simId": "35748b1b58db at 2d0e90dd (tools/simId.mjs simId()), as required. No file under src/sim, src/online or src/data is touched by the fixes.",
+    "tests": "vitest --maxWorkers=2 on tests/render: marionette, academyFx, kaedeFx, placedProps, companions, companionsLab, companionsLow, companionsSwoop, attackFx-droneBounds/-integration/-math/-registry: 12 files, 136/136 passed.",
+    "simReadOnly": "Code check: Marionette._early only reads t.cooldown, t.eff.rate/range/projectileSpeed and t.ox/oy, plus the renderer's enemy actors. It writes only the doll's display state (a.mar, a.lastUid, a.earlyAfter, a.projUid). A grep finds no assignment to t.*, p.*, e.* or sim.* in marionette.js, yoriko.js or azami.js. slashFree keeps its memory on the attack-FX display record (rec.tw, pooled), not on the sim tower.",
+    "live": "Real battle, stage 1-2 normal, medium graphics, 844x390 (swiftshader). Yoriko is the hero with her doll and Azami is upgraded; the sim and renderer are stepped one 1/60 s frame at a time while the UI is paused. Shots: two attacks at 1x, two at 3x, three Azami strip bites. No console errors.",
+    "yorikoTiming1x": "Early start from cooldown: Command takes 6 frames from cd=0.19 s, then Extend 12 frames. Her attack event arrives mid-Extend (frame 12) and is adopted. The strike starts on frame 18, the same frame as the sim's hit (+1 and damage number). In all, about 0.3 s along a Bezier arc that is visibly lifted and swung to the side (yoriko-live-1x-844x390.jpg). It reads as a glide, not a dart.",
+    "yorikoTiming3x": "Command 3 real frames, Extend 3 real frames, then Strike (yoriko-live-3x-844x390.jpg). Before the fix it was about 1 frame. That is short but visibly a swing out along the arc. In one 3x sample the Extend progress jumps 0.31 -> 0.80 when the attack is adopted (adoptAttack refits a shorter eta); see LOW 1.",
+    "predictionMismatch": "In the first 1x sample the predicted enemy died on the hit frame. The doll re-aimed at the next enemy (uid 3 -> 5) through the existing loseTarget path. That gives a jump of about 0.2 tiles in one frame (pre-existing behaviour, not new). onAttack always takes ev.targetUid and calls retargetMarionette + adoptAttack, so a wrong guess curves to the real target during the glide. A missed early start hovers at most 0.2 s, reels home and waits 0.6 s (unit-tested).",
+    "azamiBite": "Live with 3D strips on (placedProps.covers('strip') true): three bites on two strips. stripAxis returns the prop's cached road facing (0.81, 0.59) and (0.89, 0.45). The unit test proves it is the same cached facing the prop is drawn with, and perpendicular to the road. In the 3x crops the spike row stands along the strip, across the road (azami-live-bites-3d-strips-844x390.jpg). The flat uid x 0.7 fallback is kept for Low and for a GLB that is missing.",
+    "lows": "MIN_SCALE is 0.25 and settle is dropped when the stages do not fit (planStages; the builder's 3.5/s strip shows the doll resting). companions.js no longer has the dead doll sortie branch, SWOOP_OPTS, DASH_OPTS or the old Dream Detour dash; Kon and Kaze use their own paths (kon, swoops, dives, pounce) and the companions*/companionsSwoop tests pass. The doll still returns before the generic frame code (cid === 'doll' -> marionette.update). Kaede's storm colours are cached per girl in tw.data.stormCols, like ghostCols."
+  },
+  "findings": [
+    {
+      "severity": "MEDIUM",
+      "where": "src/render/attackFx/styles/yoriko.js onImpact (the EDGE sprite); 844x390, at 1x and 3x",
+      "what": "MEDIUM 2 is still open. The fix places the cut 0.3 tiles toward the camera and removes the flash, so the cut now reads as a crescent that sticks out of the body onto the road. But its colour is white, not lilac. The 'thin' additive white edge is the same slash texture at 0.8 x 0.95 of the core's size, at alpha 0.75 and the same rotation, so it covers most of the lilac normal-blend core and adds it to near white. Only a faint lilac fringe is left. Over the enemy's white body flash on the strike frame, the inner half of the cut is lost. At 3x the struck slime is a white disc with a white streak (frame f3-6).",
+      "scenario": "Live strike frames zoomed 3x: yoriko-strike-zoom-844x390.jpg (1x hit frame, 1x next frame, 3x hit frame). The builder's own strip-fixes-844x390.jpg strike frame shows the same white blob and white streak.",
+      "fix": "Make the edge actually thin and secondary. For example, scale it to about 0.35-0.45 of the core's height (or offset it to one side of the crescent), drop its alpha to about 0.3-0.4, or draw the edge in normal blend white under the core. Then check that the cut reads lilac on the strike frame over the white body at 844x390."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/marionette.js onAttack / marionetteLogic.js adoptAttack",
+      "what": "When the early Extend reaches u = 1 in the same frame her attack arrives (update steps before the event is handled), the doll is already in Strike. onAttack then finds it busy and not early, so the strike lands up to one needle flight (about 0.1 game s) before the sim's hit. The same happens when the attack comes during the 0.2 s hover: adoptAttack does nothing at u >= 1, so the strike starts at once. After a missed early start whose attack comes during the reel, that attack gets no doll strike at all. All three cases are rare and short (seen once at 3x: strike frame = attack frame).",
+      "fix": "Optional: at u >= 1 in adoptAttack, hold the hover until eta (or until the needle lands), and let a reel after a miss be interrupted by an attack."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/marionetteLogic.js adoptAttack (command/extend refit)",
+      "what": "When the real needle's eta is much shorter than the early plan, the refit jumps Extend progress in one frame (0.31 -> 0.80 at 3x). It is a visible skip at 3x, but small.",
+      "fix": "Optional: clamp the per-frame progress gain, or accept it."
+    }
+  ],
+  "evidence": [
+    "yoriko-live-1x-844x390.jpg",
+    "yoriko-live-3x-844x390.jpg",
+    "yoriko-strike-zoom-844x390.jpg",
+    "azami-live-bites-3d-strips-844x390.jpg",
+    "azami-live-bite-full-844x390.jpg"
+  ]
+}

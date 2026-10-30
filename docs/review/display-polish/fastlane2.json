@@ -1,0 +1,24 @@
+{
+  "review": "fast lane re-review: display polish",
+  "commit": "00bf41c5",
+  "verdict": "OK",
+  "summary": "F1 is fixed. With the lock chip at inset 36px, every locked stage card at all seven sizes keeps the chip clear of the stage tag and of the medals pill. Chapters 1, 2, 4 and 5 were checked on the seeded save (75 locked cards in all). The tag gap is 4 to 10 px and the medals gap is 6.6 to 105 px. At 844x390 the gap is now 6.6 px, where before the chip covered the pill by 1.4 px. Every tag is whole. F2 is fixed at 667x375 and 844x390: the narrower lesson pill now ends left of her face box and is clear of the wallets, the news chip and the dock, and its words wrap cleanly. One minor remains, carried over from F2. At 1024x768 the 380 px cap still applies, so the change does not narrow the pill there. The pill's box reaches into the padded edge of her face box: by about 15 px for Ruri on the seeded save and 1.5 px on a fresh save. The pill's rounded end stays clear of her hair and face pixels. The change is CSS only: no sim or protocol change is needed.",
+  "findings": [
+    {
+      "id": "R1",
+      "severity": "minor",
+      "title": "At 1024x768 the lesson pill's box still reaches into the padded edge of her face box",
+      "detail": "max-width is min(380px, calc(40vw - 24px)). At 1024 wide, 40vw - 24 is 385.6 px, so the 380 px cap applies, as it did before the change, and the pill still spans x 24 to 404 (y 160 to 214). On the seeded save (Ruri), window.__sakura.home.placement().face starts at x 389.3, y 183.2, an overlap of about 15 px by 31 px of box. On a fresh save it starts at x 402.5, an overlap of 1.5 px. In the zoomed crop the pill's rounded right end sits in the box's padded margin, left of her hair, and never covers her face. Capping the pill at about 360 px, or at calc(40vw - 64px), from 1024 wide would close it. It is not a blocker.",
+      "evidence": "scratchpad fastlane-polish2/shots/pill-1024x768-seeded.png, z-pill-1024x768-seeded.png (red = face box), pill-1024x768-fresh.png"
+    }
+  ],
+  "checks_passed": [
+    "git diff 18e1d0e0 00bf41c5: two one-value CSS changes (meta-a.css .ma-stage-card.locked .ma-sc-lock inset 44px to 36px; journal.css landscape home .jn-toast max-width 45vw to 40vw) plus the earlier review file; no names, secrets or images",
+    "Locked stage cards on the seeded save (seedInkSave), chapters 1 (1-7 to 1-10), 2 (2-6 to 2-10), 4 (4-5) and 5 (5-1 to 5-5), at 844x390, 390x844, 360x800, 667x375, 740x360, 1024x768 and 1280x720 (75 cards): the chip's box overlaps neither the tag nor the medals pill on any card. Gap from the tag's bottom to the chip: 10 px (844x390, 667x375, 740x360) and 4 px (390x844, 360x800, 1024x768, 1280x720). Gap from the chip to the medals pill: 6.6 px (844x390), 20.7, 11.3, 105, 53.3, 26.9 and 50.9 px. Every tag ('1-10', '4-5' and the rest) is whole",
+    "Zoomed crops (3x) of 1-7 at 844x390 and 360x800, 2-6 at 844x390 and 4-5 at 1024x768: the tag, the chip ('Clear 1-6 first', 'Clear 1-10 first', 'Clear 4-4 first') and all four medals are whole and separate; the 1-10 echo label sits apart from the chip",
+    "The lesson pill (showJournalToast({ids:['home'], ms:60000})), seeded and fresh. 667x375: x 16 to 259, y 120 to 186, face box from x 259.9 (Ruri) or 285.4. 844x390: x 16 to 330, face box from x 354.5 or 377.8. 1280x720: x 24 to 404, face box from x 529 or 558. All clear of the face box, the wallets, the top bar, the news chip and the dock, with no overflow. At 667x375 the words wrap to three lines; at 844x390 and larger, two",
+    "npx vitest run tests/ui: 55 files, 623 tests passed",
+    "node e2e/home.mjs: 221 ok, 0 failed (HOME PASS)",
+    "COOP_PROTOCOL 9 unchanged; the change is display only (CSS)"
+  ]
+}

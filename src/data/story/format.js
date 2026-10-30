@@ -18,7 +18,7 @@
 // (src/data/story/tokens.js): {name:<unitId>} {title:<unitId>} {ult:<heroId>} {stage:<stageId>} {chapter:<n>}.
 // `ifUnit: '<id>'` on a line or a scene drops it while UNIT_MAP has no such unit (girls not merged yet).
 
-import { isBackgroundId } from './backgrounds.js';
+import { isBackgroundId, STORY_STAGE_ID } from './backgrounds.js';
 import { STORY_MUSIC, STORY_SFX } from './music.js';
 import { UNIT_MAP } from '../units.js';
 
@@ -63,6 +63,7 @@ export const PLAIN_SPEAKERS = ['narrator', 'sensei', 'unknown'];
 export const ENEMY_SPEAKERS = [
   'slime_prince', 'slime_frost_heir', 'slime_droplet', 'lizard_basilisk', 'ghost_hollowknight', 'orc_general', 'plant_treant',
   'goblin_machine', 'goblin_chief', 'oni_champion', 'dragon_ashwing', 'lizard_lamp_hugger',
+  'ghost_ashen_warden', 'orc_frost_vanguard',
 ];
 export const NPCS = [...PLAIN_SPEAKERS, ...ENEMY_SPEAKERS];
 
@@ -96,7 +97,8 @@ const NARRATE_KEYS = ['ifUnit'];
 const CUE_KEYS = ['bg', 'music', 'sfx', 'exit', 'enter', 'flash', 'shake', 'petals', 'fade', 'wait'];
 const META_KEYS = ['title', 'chapter', 'kind', 'trigger', 'bg', 'music', 'cast', 'ifUnit', 'ifOwned', 'act', 'note'];
 const ID_RE = /^[a-z][a-z0-9_]*$/;
-const STAGE_RE = /^[0-9]+-[0-9]+$/;
+/** A trigger stage: a campaign id, or a side stage's `side-<c>-<slug>` (backgrounds.js STORY_STAGE_ID). */
+const STAGE_RE = new RegExp(`^${STORY_STAGE_ID}$`);
 
 function fail(msg) {
   throw new Error(`story format: ${msg}`);

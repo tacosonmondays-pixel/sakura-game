@@ -1,0 +1,40 @@
+{
+  "review": "batch-b-vfx",
+  "commit": "97725cffb794b6eff6d599641752367c5d9463ec",
+  "merges": { "batchB": "5d659609", "vfx": "a3d2f282" },
+  "verdict": "OK",
+  "tests": "npx vitest run --maxWorkers=2 tests/render: 47 files, 578 passed",
+  "simId": "d35092f141d3 (matches main); no src/sim or src/online changes in the merge",
+  "checks": {
+    "attackFxStats": "stats has both lobs and halos (index.js:102-103); both are filled each frame (index.js:492-494)",
+    "layersAndLobs": "ctx.layers and ctx.lobs are created (index.js:44-45), updated (lobs index.js:440, layers index.js:475 with (gdt, d)) and disposed (index.js:553-555) alongside VFX's halo, flashGate and update(d, frameDt) changes",
+    "kaedeMarumi": "VFX's side of kaede.js only swapped one Math.random for ctx.rand; batch B's kaede has no Math.random. Marumi now uses ctx.rand, still emits/handles 'ballPop' with fin (marumi.js:179-186), which feel.js:200 momentTrauma reads from the sim event. Nothing VFX needed is lost",
+    "fxJs": "VFX cel blast present; _exRepeat (fx.js:218) and dimBlast (fx.js:240) intact",
+    "random": "no Math.random under src/render or src/models; vfx-random test passes",
+    "clock": "Kaede's hit flash runs on rdt = the renderer's visual dt (index.js:475 passes d = clock.dt), which holds during pause and hit-stop. It is not wall time; the 'real time' wording is stale (see LOW-1)",
+    "marumiAlpha": "spokes / groundStreak / squashPuff take additive (default true); only marumi.js passes false, so the other girls are unchanged. Marumi's ground quads go to groundN (alpha), consistent with vfx-hits' hard alpha rings; squashPuff's billboard glow stays bbA via ctx.spr and so goes through flashGate. vfx-hits passes",
+    "simReadOnly": "no sim writes seen in the new render modules"
+  },
+  "findings": [
+    {
+      "severity": "MEDIUM",
+      "where": "src/render/attackFx/patterns/hitFlash.js:141-147",
+      "issue": "Kaede's hit flashes are bright, short (80 ms), additive white stars of up to about 0.5 world units, so they meet isWorldFlash (life <= 0.35, size >= 0.3). They are pushed straight into bbA through ctx.quadRGB and skip ctx.flashGate, so they don't count toward the flash guard's shared screen-area budget, Reduce Motion's half budget included. FlashLayer's own merge and caps (at most 16 alive and 6 new per frame) limit the strobe, but this breaks the 'bright short additive sprites go through flashGate' rule.",
+      "fix": "In FlashLayer.hit(), when a new flash starts, store f.gate = ctx.flashGate ? ctx.flashGate(size * 1.1, ctx.R.star, 1) : 1, then multiply _s.alpha by f.gate in update(). This is one gate call per new flash and allocates nothing. Add a kaedeFx test with a fake flashGate that returns 0.2 and check the pushed alphas."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/attackFx/patterns/hitFlash.js:7,17,109",
+      "issue": "Comments say 'real time' or 'real seconds', but rdt is the visual clock's dt: not scaled by game speed, held by pause and hit-stop. Readers may take it for wall time, which the VFX rules forbid.",
+      "fix": "Reword to 'visual seconds (the renderer's clock.dt: not scaled by game speed, held by pause and hit-stop)'."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/marionette.js:220-231 (called from src/render/companions.js:324)",
+      "issue": "tick(dt) now gets visual dt. Its game-speed estimate (sim.time advance / dt) is inflated on the frame a hit-stop ends, when visual dt is smaller than the frame dt (it clamps to 4, smoothed by 0.2), so the doll briefly speeds up. VFX fixed the same issue in attackFx by passing frameDt. Also, the doc says the doll runs on real time while paused, but with visual dt = 0 it now freezes during a pause. Freezing is the correct behaviour; the comment is stale.",
+      "fix": "Pass clock.frameDt: companions.update(d, zoom, fd) then marionette.tick(d, fd), and estimate the speed from fd, as in attackFx.update(d, frameDt). Update the comment at marionette.js:220."
+    }
+  ],
+  "reviewer": "independent review agent",
+  "date": "2026-10-29"
+}

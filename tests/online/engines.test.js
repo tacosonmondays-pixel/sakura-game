@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 import { launchAttempts } from '../../e2e/browser.mjs';
 
 // T3 review coop-3: e2e/engines.mjs only ever tried Playwright's own browsers, so on a machine without
@@ -38,10 +38,13 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // pinned: re-pinned by the hero rework (START fields Hikari, who now deploys for free and levels
     // on her track; landing plan S12) together with its stage-HP pass. The wave tables re-pinned by Gate Arc Step 1:
     // chapter 1's five Act II stages add 252 tables (102 waves + 5 × 30 endless), and Step 2's chapter-2 five add 267
-    // (117 waves + 5 × 30 endless); the tables of the stages that existed
+    // (117 waves + 5 × 30 endless), Step 3's chapter-3 five add 276 (126 waves + 5 × 30 endless), Step 4's chapter-4
+    // five add 282 (132 waves + 5 × 30 endless), Step 5's chapter-5 five add 286 (136 waves + 5 × 30 endless) and Step 6's
+    // chapter-6 five and the side stage side-6-starfall add 354 (144 + 30 waves + 6 × 30 endless); the
+    // tables of the stages that existed
     // before stay pinned bit for bit in tests/sim/campaignGolden.test.js
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, waves: r.waves })
-      .toEqual({ ticks: 28995, state: 'won', wallets: '1499/1347', final: 93082125, hashes: '7db1eed1', waves: '3537:0a7cd674' });
+      .toEqual({ ticks: 28995, state: 'won', wallets: '1499/1347', final: 93082125, hashes: '7db1eed1', waves: '4735:a2a5a5b3' });
   }, 120000);
 
   it('runs the Potential battle (POTENTIAL_START: every kind of step, Aoi at P1 for the host and P6 for the guest, Kage and Rei at P6) in sync', () => {
@@ -146,9 +149,19 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     const r = runAbilitiesBattle();
     expect(r.agree).toBe(true);
     expect(r.refused).toBe('');
-    expect(r.cleared).toBeGreaterThanOrEqual(12);
+    expect(r.cleared).toBeGreaterThanOrEqual(20);
     expect(r.casts).toBeGreaterThanOrEqual(30);
-    expect(r.kinds.split(',')).toEqual(['boost', 'burst', 'debuff', 'econ', 'rally', 'strike']); // no deploy (A4)
+    // deploy: the A4 deploys and the guest's Iroha (Mirror Shift, A6; shots split at her panel); move: the host's Fuu (A5)
+    expect(r.kinds.split(',')).toEqual(['boost', 'burst', 'debuff', 'deploy', 'econ', 'move', 'rally', 'strike']);
+    expect(r.deploys.split(' · ').map((x) => x.split(' ')[0])).toEqual(['chika.droneSurge', 'iroha.mirrorShift', 'kage.doubles', 'suzu.bellCarpet']);
+    expect(Number(r.splits.split('/')[0])).toBeGreaterThan(0);
+    // each coverage girl casts at least twice (the deploys by id, Fuu's move by kind), and the bursts and strikes stay
+    // well above the floor
+    for (const x of r.deploys.split(' · ')) expect(Number(x.split(' ')[1].split('×')[0]), x).toBeGreaterThanOrEqual(2);
+    const by = Object.fromEntries(r.byKind.split(' · ').map((x) => x.split(' ')).map(([k, n]) => [k, Number(n)]));
+    expect(by.move).toBeGreaterThanOrEqual(2);
+    expect(by.burst).toBeGreaterThanOrEqual(15);
+    expect(by.strike).toBeGreaterThanOrEqual(10);
     // both players cast, and some host taps met a recharging girl (the late-tap rule)
     expect(r.byOwner.split('/').every((n) => Number(n) > 0)).toBe(true);
     expect(r.taps).toMatch(/ cooldown/);
@@ -160,9 +173,16 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // deliberate sim / data / ability change, and say why. Re-pinned by the A2 review fixes (was 40227 /
     // '636/487' / 2145385076 / '5726405e', 46 casts): a manual cast's kill coins are pooled and split like
     // an auto-cast's (the same battle, the same 1123 coins, now 652/471: 2017100116 / '7ad61cb6'), then
-    // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine.
-    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind })
-      .toEqual({ ticks: 37655, state: 'between', wallets: '800/520', final: 4047740824, hashes: 'c84c23e1', casts: 51, byKind: 'boost 2 · burst 21 · debuff 11 · econ 3 · rally 4 · strike 10' });
+    // the guest's girls and Nami carry Skill Haste 0.3 so the haste path runs on every engine. Re-pinned for A4–A6 (was
+    // 37655 / '800/520' / 4047740824 / 'c84c23e1', 51 casts): the host fields Fuu (Backdraft Fan, the move kind; it
+    // ignores her own gusts' push locks) and Suzu, the guest Kage, Iroha (Mirror Shift splitting shots, the host's too) and
+    // Chika, all cheap, weak shooters (ABIL_DEPLOY, so the crowds the others' Auto rules wait for still form), each player
+    // taps them on their own cadence (COVER), and their abilities cast (V8 here; the cross-engine run, e2e/engines.mjs,
+    // checks the other engines agree). Then (was 30346 / 2173867755 / '4d00c481', 35 casts) the A4–A6 review: a mirror never
+    // splits its owner's shots, Auto keeps a placed panel, doubles hold while sabotaged and throw her full volley, Bell
+    // Carpet counts a shared stretch once; and the battle runs to wave 20 so each coverage girl casts at least twice.
+    expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind, splits: r.splits, deploys: r.deploys })
+      .toEqual({ ticks: 54756, state: 'between', wallets: '4071/2770', final: 1840728084, hashes: '571b75af', casts: 144, byKind: 'boost 11 · burst 29 · debuff 20 · deploy 44 · econ 11 · move 2 · rally 8 · strike 19', splits: '3/3', deploys: 'chika.droneSurge 13×52 · iroha.mirrorShift 18×18 · kage.doubles 5×10 · suzu.bellCarpet 8×48' });
   }, 240000);
 
   it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {
@@ -283,6 +303,67 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Heavy Ball share tune). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, bowl: r.bowl })
       .toEqual({ ticks: 72006, state: 'wave', wave: 26, wallets: '7258/6667', final: 821407225, hashes: '018423c4', bowl: '659/397/7/0' });
+  }, 240000);
+
+  it('runs the duo Kohaku & Tsubaki (DUO_START: Refraction, Kohaku\'s beam, Prismfall on Auto-cast, the host\'s LR Twin Star) in sync', () => {
+    const r = runDuoBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(20);
+    const [refract, shards, beams, casts, twinStar, aims] = r.duo.split('/').map(Number);
+    expect(refract).toBeGreaterThan(0);
+    expect(shards).toBeGreaterThan(refract * 2); // 3+ shards a split
+    expect(beams).toBeGreaterThan(0);
+    expect(casts).toBeGreaterThan(0);
+    // only the host's duo carries the LR flag: some casts end with a Twin Star, never all of them
+    expect(twinStar).toBeGreaterThan(0);
+    expect(twinStar).toBeLessThan(casts);
+    expect(aims).toBe(1);
+    expect(runDuoBattle().final).toBe(r.final);
+    // pinned when the battle was added (the duo build, Oct 28). Change only with a deliberate sim / data change, and say why.
+    // Re-pinned Oct 28 for Kohaku's constant beam (src/sim/duo.js: damage ticks every 6 steps instead of a flash every
+    // ~1.4 s, beams that hold their enemy, `beams` now counts lock-ons and a repeat every 1.5 s held): ticks 44632 → 44656, final 3327486567 → 1485318803,
+    // hashes 8b361ee7 → baad978d, duo 273/1262/388/… → 274/1266/616/… (a lock-on and every 1.5 s held: Kohaku's clip)
+    // Re-pinned Oct 29 for the Oct 29 duo buff (base +25%, the LR form ×1.1 and her long beam: the host's duo is LR):
+    // the battle ends sooner, ticks 44656 → 39421, final 1485318803 → 1647005069, hashes baad978d → f97c7537.
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, duo: r.duo })
+      .toEqual({ ticks: 39421, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3357/3772', final: 1647005069, hashes: 'f97c7537', duo: '251/1153/498/24/9/1' });
+  }, 240000);
+
+  it('runs Tenka\'s LR form (TENKA_LR_START: Critical Mass · Event Horizon\'s pull and second detonation on the host\'s LR Tenka, the guest\'s without) in sync', () => {
+    const r = runTenkaLrBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(20);
+    const [casts, pulls, blasts, hit] = r.horizon.split('/').map(Number);
+    expect(pulls).toBeGreaterThan(0);
+    expect(pulls).toBeLessThan(casts); // only the host's Tenka is LR
+    expect(blasts).toBeGreaterThan(0);
+    expect(hit).toBeGreaterThan(0); // the second detonation found enemies the pull held in its area
+    expect(r.tiers.split(' ')[0]).toBe('050'); // the host's LR Tenka reached Zero Point (Event Horizon on the tier-5 blast)
+    expect(runTenkaLrBattle().final).toBe(r.final);
+    // pinned when the battle was added (Tenka's LR form, Oct 29). Change only with a deliberate sim / data change, and say why.
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, horizon: r.horizon })
+      .toEqual({ ticks: 47644, state: 'won', wave: 26, tiers: '050 030 000 000', wallets: '1709/5994', final: 3127393822, hashes: 'e2b30df2', horizon: '3/2/2/3' });
+  }, 240000);
+
+  it('runs the staff heroes (STAFF_START: Norika\'s barricades and Hold the Line on a forked map, Kogane\'s plow and Moves) in sync', () => {
+    const r = runStaffBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(20);
+    const [held, breaks, lines, , , plows, moves] = r.staff.split('/').map(Number);
+    expect(held).toBeGreaterThan(0);
+    expect(breaks).toBeGreaterThan(0);
+    expect(lines).toBeGreaterThan(0);
+    expect(plows).toBeGreaterThan(0);
+    expect(moves).toBeGreaterThan(0);
+    expect(runStaffBattle().final).toBe(r.final);
+    // pinned when the battle was added (banners G7, Oct 28). Change only with a deliberate sim / data change, and say why.
+    // Re-pinned the same day (final review): Hold the Line now casts only during a wave (a calm point holds no lines),
+    // and the host casts it in waves only (ultInWave).
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, staff: r.staff, heroLevels: r.heroLevels })
+      .toEqual({ ticks: 49465, state: 'won', wave: 20, wallets: '778/268', final: 3094781041, hashes: '8552ea5e', staff: '1082/21/32/0/0/15/28', heroLevels: '21/24' });
   }, 240000);
 
   it('hashes the freeplay wave tables of every stage and tier', () => {

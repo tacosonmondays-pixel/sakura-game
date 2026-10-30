@@ -24,12 +24,13 @@
 // The slot list is rebuilt on ability / upgrade / sell / wave events and at most 4× a second; the rings are
 // painted every frame straight from t.abil (no allocation).
 import { h } from './util.js';
+import { lineName } from './rules.js';
 import { svgEl } from '../components.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { fmtNum } from '../format.js';
 import { KIT_SVG } from '../kit.js';
-import { abilityText, abilityAim, abilityValues, fillAbilityText, ABILITY_COPY } from '../../data/abilityText.js';
-import { abilityDef, abilityReach, abilityOrigin, abilitySpec } from '../../sim/abilities.js';
+import { abilityText, abilityAim, abilityValues, fillAbilityText, ABILITY_COPY, abilityLrText, abilityLrLine } from '../../data/abilityText.js';
+import { abilityDef, abilityReach, abilityOrigin, abilitySpec, abilitySource } from '../../sim/abilities.js';
 import { gatherTargets } from '../../sim/towers.js';
 import { ABILITY_RULES } from '../../data/abilities.js';
 import { abilArgs } from '../../online/coop/commands.js';
@@ -434,7 +435,8 @@ export function battleKeyAction(e, { paused = false, typing = false, blocked = f
  * tap Aoi"); a hero's skill is the bolt button by her portrait — "Morning Rally: tap ⚡ by Hikari" (PC: "… press E or
  * tap ⚡ by Hikari"). The toast leads with the bolt icon; a ⚡ here is drawn as the kit bolt (kit.js boltText).
  */
-export function unlockText(girl, ability, { hover = false, key = null, hero = false } = {}) {
+export function unlockText(name, ability, { hover = false, key = null, hero = false } = {}) {
+  const girl = lineName(name); // (a duo by its initials: the one-line toast)
   if (hero) return `${ability}: ${hover ? 'press E or ' : ''}tap ⚡ by ${girl}`;
   return hover && key ? `${ability}: press ${key} or tap ${girl}` : `${ability}: tap ${girl}, bottom right`;
 }
@@ -511,6 +513,9 @@ export function abilityCardView(sim, slot) {
   } catch {
     /* a template the values cannot fill keeps its words */
   }
+  // her LR form (Twin Star, Event Horizon) while her battle stats carry `lr: true`: its name and the sentence it adds
+  const lrText = t.unitStats?.lr === true ? abilityLrText(slot.id) : null;
+  if (lrText) desc = `${desc} ${abilityLrLine(abilitySource(t)?.entry, 'add')}`.trim();
   const st = sim.abilityStatus(t.uid);
   const casters = (slot.casters || [t.uid]).map((u) => sim.getTower(u)).filter(Boolean);
   const reach = abilityReach(t, def);
@@ -522,7 +527,7 @@ export function abilityCardView(sim, slot) {
   const charging = st?.reason === 'cooldown';
   return {
     id: slot.id,
-    name: text.name,
+    name: lrText ? lrText.name : text.name,
     girl: t.def.name,
     kind: KIND_WORD[def.kind] || def.kind,
     scope: map ? 'Map-wide · one cooldown per player' : def.scope === 'player' ? 'Per player' : 'Around her',

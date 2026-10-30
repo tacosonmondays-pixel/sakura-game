@@ -449,8 +449,10 @@ Ordered by value. Files are the new owners (battle-ui `src/ui/battle/**`, render
    stage card. Needs map rules (§3.4).
 3. **Ult cut-in** (old "HERO SIGNATURE" overlay, `sb-ult.png`; owner req 6 "cool cutscene animation
    attack"): a skill cut-in, ≤ 1.2 s — diagonal panel slides in with the girl's
-   illustration (the old `assets/*.webp` art), skill name in navy italic, the sim slowed to 0.3× for
-   ~0.6 s then resumes; skippable by tap; settings toggle (old had `settings.cinematics`). New file
+   illustration (the old `assets/*.webp` art), skill name in navy italic, played as an overlay over
+   the running battle: the sim never slows or pauses for it (co-op runs in lockstep); only what is
+   drawn may slow, on the renderer's visual clock (`slowMo` ≤ 1.2 s, hit-stop ≤ 60 ms, docs/VFX.md);
+   skippable by tap; settings toggle (old had `settings.cinematics`). New file
    `src/ui/battle/cutin.js`, hook in `controller.js` `case 'ult'` (controller.js:349). Add the **Q**
    hotkey (controller.js:247-262).
 4. **Tap an enemy to inspect** (old `inspectEnemy` → enemy info with 3D model, mechanics, matchups):

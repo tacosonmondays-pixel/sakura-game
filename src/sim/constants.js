@@ -208,6 +208,8 @@ export const DEFAULT_UNIT_STATS = Object.freeze({
   level: 1,
   awaken: 0,
   potential: 1,
+  // [banners G6] an LR unit after Limit Break (her LR ability form reads it: src/sim/abilities.js isLr)
+  lr: false,
 });
 
 // ---------------------------------------------------------------------------
@@ -225,6 +227,10 @@ export const MORTAR_AIM_SLACK = 0.5;
 export const MORTAR_SCATTER = [[0, 0], [0.6, 0], [-0.3, 0.52], [-0.3, -0.52], [0, 0.6], [0, -0.6]];
 /** A familiar / un-aimed mirror stops this far short of the nearest lane sample. */
 export const FAMILIAR_STANDOFF = 0.7;
+/** Iroha's reflecting mirror (Mirror Shift / Infinite Reflection, src/sim/mirrors.js): a shot whose step passes within this many tiles of it splits. */
+export const MIRROR_RADIUS = 0.5;
+/** A split copy with no other target flies at the original's, fanned this many radians to one side. */
+export const SPLIT_FAN = 0.18;
 /** Lane sampling step for relay origins (tiles). */
 export const RELAY_SAMPLE_STEP = 0.25;
 /** Seconds an enemy cannot be knocked back / gathered again after it was moved (bosses never move). */
@@ -318,3 +324,80 @@ export const PIN_REACH = 2;
 export const BOUNCE_SPEED = 9;
 export const BOUNCE_MAX_T = 1;
 export const FINALE_RADIUS = 1.5;
+
+// ---------------------------------------------------------------------------
+// The duo (Kohaku & Tsubaki, docs/specs/DUO_LR.md §1; src/sim/duo.js)
+// ---------------------------------------------------------------------------
+
+/**
+ * Where a split shell's shards land, in tiles from the shell's spot: shard k uses entry k % 8. A small fixed
+ * triangle first (3 shards), then the points between. Fixed table, no rng, no trig.
+ */
+export const PRISM_SHARDS = Object.freeze([
+  [0, -0.7], [0.6, 0.35], [-0.6, 0.35], [0, 0.7], [0.6, -0.35], [-0.6, -0.35], [0.35, 0], [-0.35, 0],
+].map((p) => Object.freeze(p)));
+
+/**
+ * Kohaku's constant beam (src/sim/duo.js): every beam that holds an enemy deals one damage tick every
+ * PRISM_BEAM_TICK steps (0.1 s), each tick the share PRISM_BEAM_TICK / beamTicks(rate) of one old flash.
+ */
+export const PRISM_BEAM_TICK = 6;
+/** Grand Spectrum's silence: when a beam locks on, then again every PRISM_SILENCE_TICKS steps (2 s) it holds the same enemy. */
+export const PRISM_SILENCE_TICKS = 120;
+/** Kohaku's clip and sound: her beam's `attack` event on a lock-on, and again every PRISM_CLIP_TICKS damage ticks (1.5 s) a beam holds. */
+export const PRISM_CLIP_TICKS = 15;
+/** The long beam (Grand Spectrum, and the duo's LR form): a held beam's line runs through its enemy on to the map
+ *  edge, hitting at most PRISM_EDGE_PIERCE enemies on it (a perf guard, not a game limit); a hit past her reach is
+ *  × PRISM_EDGE_MUL (the per-hit knob that keeps her DPS where the capped beam had it: docs/specs/DUO_LR.md §6). */
+export const PRISM_EDGE_PIERCE = 64;
+export const PRISM_EDGE_MUL = 0.03;
+/** The duo's LR form (her battle stats carry `lr: true`): her shells, shards and beam × DUO_LR_MUL (src/sim/duo.js). */
+export const DUO_LR_MUL = 1.1;
+
+// ---------------------------------------------------------------------------
+// The staff heroes (BANNERS §D): Kogane's Move, Norika's barricades (src/sim/barricades.js)
+// ---------------------------------------------------------------------------
+
+/** A hero's Move: her `moveCd` / `moveDowntime` never take the recharge / the mid-wave pause below these (s). */
+export const HERO_MOVE_CD_MIN = 5;
+export const HERO_MOVE_DOWNTIME_MIN = 1;
+/** Norika's own barricades (GAPS §7.2 road-object caps, per hero, so per player in co-op). */
+export const BARRICADES_PER_HERO = 4;
+/** Hold the Line barricades standing at once, per player (the oldest of that player's goes first). */
+export const LINE_BARRICADES_MAX = 4;
+/** Hold budget a held enemy drains per second, by tier (whole numbers: a budget is kept in drain ticks). */
+export const BARRICADE_DRAIN = Object.freeze({ normal: 10, elite: 25, miniboss: 60, boss: 200 });
+/** Own barricade spots at least this far apart (tiles); Hold the Line's barricades this far apart along the road. */
+export const BARRICADE_SPACING = 1;
+export const LINE_GAP = 1;
+/** Without an aim, Hold the Line lands this far ahead of the lead walker in her range (tiles). */
+export const LINE_LEAD = 1.5;
+/** A barricade registers on every road whose centreline passes within this (tiles) in the same direction (a shared stretch). */
+export const BARRICADE_SHARED = 0.3;
+/** Same direction: the two roads' unit directions have at least this dot product (a crossing road does not). */
+export const BARRICADE_SAME_DIR = 0.7;
+/** A barricade is never rebuilt faster than this (s). */
+export const BARRICADE_REBUILD_MIN = 0.5;
+/** One-Way Street: tiles an enemy is sent back, by tier. */
+export const ONE_WAY_PUSH = Object.freeze({ normal: 6, elite: 6, miniboss: 2, boss: 0 });
+/** Water-filled Barriers: a breaking barricade slows the walkers within this radius for this long; Long Way Round's release slow lasts this long. */
+export const BREAK_SLOW_RADIUS = 1.2;
+export const BREAK_SLOW_TIME = 2;
+export const RELEASE_SLOW_TIME = 3;
+/** Detour Sign on a map without forks: every barricade budget × this. */
+export const DETOUR_NO_FORK_MUL = 1.5;
+/** Bright Sash: a held enemy is revealed for this long, refreshed every step it is held (s). */
+export const HELD_REVEAL = 0.25;
+
+// ---------------------------------------------------------------------------
+// The A4 deploys (src/sim/deploys.js; ABILITIES_SPEC §4 deploy): Kage's shadow doubles, Suzu's Bell Carpet
+// traps and Chika's surge drones. Each lives beyond its girl's own limit; these sim-wide caps keep the work
+// per step bounded however many copies cast. A cast places only what its cap leaves (none left: refused
+// `noTarget`, nothing spent); nothing already placed is evicted.
+// ---------------------------------------------------------------------------
+/** Shadow doubles standing on the map at once (every Kage, both players). */
+export const DOUBLES_PER_SIM = 36;
+/** Bell Carpet traps on the road at once (every Suzu, both players). */
+export const BELL_TRAPS_PER_SIM = 96;
+/** Surge drones flying at once (every Chika, both players). */
+export const SURGE_DRONES_PER_SIM = 48;

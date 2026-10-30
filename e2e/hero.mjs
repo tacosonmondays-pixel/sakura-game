@@ -126,7 +126,8 @@ async function runViewport(vp) {
   await page.evaluate(() => { location.hash = '#/formation'; });
   await page.waitForTimeout(1200);
   const formText = await page.evaluate(() => document.querySelector('#app')?.innerText || '');
-  check(/free in battle/i.test(formText), 'formation: hero slot says "free in battle"');
+  // (since UI M5d the line under the slots says it: "… deploy cost N (heroes are free)")
+  check(/heroes are free/i.test(formText), 'formation: the line under the slots says heroes are free');
   await shot('formation');
 
   // ---- battle 1-2 ----

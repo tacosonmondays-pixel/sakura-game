@@ -16,7 +16,7 @@ export { preloadEnemies, enemyUrl, loadFamily, getFamily, ENEMY_FACE_CELLS, visi
  * @param {object} def EnemyDef ({ id, family, tier, size, color, accent, model: { base, variant, props }, traits })
  * @param {{quality?: 'high'|'medium'|'low'}} [opts]
  * @returns {THREE.Group} feet at y=0, faces +z, height 0.6 × size. userData: animate(time, dt, {moving, speed}),
- *   hitFlash(), setVeiled(b), setBarrier(frac), setPhasing(b), setStatus(map), playDeath() -> seconds,
+ *   hitFlash(color?, strength?), setVeiled(b), setBarrier(frac), setPhasing(b), setStatus(map), playDeath() -> seconds,
  *   playSpecial() -> seconds, setCasting(b), attach(obj, 'head'|'back') -> bool (render-side
  *   extras riding a head / chest slot; kept when the placeholder upgrades), height, enemyId,
  *   family, glb (true for the V2 model)

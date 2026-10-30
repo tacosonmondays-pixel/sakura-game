@@ -1,13 +1,17 @@
-// End-to-end check of the companion figures (src/render/companions.js) in a battle at 844×390:
+// End-to-end check of the companion figures (src/render/companions.js) in a battle at 844×390 (or --size WxH):
 //   Ruri, Hana and Yoriko (hero) are placed; their three companions exist as 3D figures (Kon, Kaze, the doll);
 //   Kon runs from Ruri to her relay origin and sits there; Kaze leaves Hana's shoulder on one of her attacks and
 //   comes back (and is drawn 1.3x in battle, Kon 2.4x); the doll dashes on Yoriko's needles (an enemy parked by her on the
 //   road; Dream Detour is only a fallback after that check); the lowest graphics setting keeps the figures (LOD files,
 //   since v0.1.45); the student page shows the companion beside the girl; no console errors.
+// Their signature moves: Kon's bounding run lasts long enough to read; on Moon Pounce (Ruri's ⚡, Moonhound tier 3) he
+// crouches, leaps, lands on the target and hops back; Kaze's swoop climbs, stoops onto the enemy Hana shot and swings
+// back; Seiran's sky dragon (a second battle with her as the hero) flies with its head, beads and tail tip in step
+// with the sim's runner.
 // Frame strips of each behaviour (the battle paused, the renderer stepped by hand) and overview shots go to
 // --shots <dir> (jpg). Compose the strips with tools of your choice; the frames are named <behaviour>-<n>.jpg.
 //
-//   node e2e/companions.mjs [--shots /tmp/shots]
+//   node e2e/companions.mjs [--shots /tmp/shots] [--size 1280x720] [--moves]
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1 when a check fails.
 import { createServer } from 'vite';
 import { mkdirSync } from 'node:fs';
@@ -20,6 +24,9 @@ const opt = (name, def) => {
 };
 const shotsDir = opt('shots', null);
 const onlyStudents = args.includes('--students'); // only the student pages (quick look)
+const movesOnly = args.includes('--moves'); // only the signature moves (Kon, Kaze, Moon Pounce, the dragon): screenshot runs
+const [VW, VH] = String(opt('size', '844x390')).split('x').map(Number);
+const TAG = `${VW}x${VH}`;
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
 const IGNORE = [
   /GPU stall due to ReadPixels/i, /WebGL: too many errors/i, /Automatic fallback to software WebGL/i, /GL_CLOSE_PATH_NV|GroupMarkerNotSet/i, /favicon\.ico/i,
@@ -33,14 +40,15 @@ function check(cond, msg) {
   return cond;
 }
 
-const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+// (no file watching or HMR: an edit while it runs must not reload the battle under it)
+const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1', hmr: false, watch: null }, logLevel: 'error' });
 await server.listen();
 const { port } = server.httpServer.address();
 const base = `http://127.0.0.1:${port}/`;
 
 const save = await server.ssrLoadModule('/src/systems/save.js');
 const profile = save.createProfile();
-for (const id of ['ruri', 'hana', 'yoriko']) profile.units[id] = { ...save.newUnitState(), level: 40, breakthrough: 3 };
+for (const id of ['ruri', 'hana', 'yoriko', 'seiran']) profile.units[id] = { ...save.newUnitState(), level: 40, breakthrough: 3 };
 profile.formation = { ...(profile.formation || {}), towers: ['ruri', 'hana'], hero: 'yoriko' };
 profile.progress.stages['1-1'] = { easy: false, normal: true, hard: false, nightmare: false, clears: 1 };
 profile.settings = { ...profile.settings, autoStart: false, quality: 'high', camera: 'free' };
@@ -48,7 +56,7 @@ const saveText = JSON.stringify(profile);
 
 const { browser, label } = await launchChromium();
 log(`browser: ${label}`);
-const context = await browser.newContext({ viewport: { width: 844, height: 390 }, deviceScaleFactor: 1 });
+const context = await browser.newContext({ viewport: { width: VW, height: VH }, deviceScaleFactor: 1 });
 await context.addInitScript(([key, text]) => {
   if (!sessionStorage.getItem('comp-e2e-seeded')) {
     localStorage.setItem(key, text);
@@ -87,8 +95,8 @@ async function boxAround(points, pad = 40, minW = 200, minH = 150) {
   let y1 = Math.max(...s.map((p) => p.clientY)) + pad;
   if (x1 - x0 < minW) { const c = (x0 + x1) / 2; x0 = c - minW / 2; x1 = c + minW / 2; }
   if (y1 - y0 < minH) { const c = (y0 + y1) / 2; y0 = c - minH / 2; y1 = c + minH / 2; }
-  const vw = 844;
-  const vh = 390;
+  const vw = VW;
+  const vh = VH;
   x0 = Math.max(0, Math.min(vw - 20, x0));
   y0 = Math.max(0, Math.min(vh - 20, y0));
   return { x: Math.round(x0), y: Math.round(y0), width: Math.round(Math.min(vw, x1) - x0), height: Math.round(Math.min(vh, y1) - y0) };
@@ -189,7 +197,7 @@ try {
 
   log('\n--- Kon runs to the relay origin ---');
   log(`    zoom ${await zoomAt((t0.x + t0.ox) / 2, (t0.y + t0.oy) / 2, 6)}`);
-  const konBox = await boxAround([[t0.x, t0.y, 0], [t0.ox, t0.oy, 0], [t0.x, t0.y, 1.2]], 50, 260, 170);
+  const konBox = await boxAround([[t0.x, t0.y, 0], [t0.ox, t0.oy, 0], [t0.x, t0.y, 1.2]], 60, Math.round(VW * 0.42), Math.round(VH * 0.55));
   const konModes = [];
   for (let i = 0; i < 10; i++) {
     await step(0.14);
@@ -198,24 +206,28 @@ try {
     await shot(`kon-${i}`, konBox);
   }
   check(konModes.includes('travel'), `Kon runs (${konModes.join(' ')})`);
+  // (a 1.5-tile run at his pace: about a second on screen, a hop and a dust puff per stride)
+  const runFx = (await probe()).fx;
+  check(runFx.spawned > 0 && runFx.ribbons > 0, `his run leaves dust, paw marks and a holo streak (${JSON.stringify(runFx)})`);
+  check(konModes.filter((m) => m === 'travel').length >= 5, `his run lasts long enough to read (${konModes.filter((m) => m === 'travel').length} frames of 0.14 s)`);
   for (let i = 0; i < 20 && (await actor('kon'))?.mode !== 'spot'; i++) await step(0.2);
   const kon1 = await actor('kon');
   check(kon1?.mode === 'spot' && Math.hypot(kon1.x - t0.ox, kon1.z - t0.oy) < 0.05, `Kon sits at her relay origin (${kon1?.x}, ${kon1?.z} vs ${t0.ox.toFixed(3)}, ${t0.oy.toFixed(3)})`);
   await page.evaluate(() => window.__battle.renderer.resetCamera());
   await step(0.05);
   await settle(500);
-  await shot('battle-844x390');
+  await shot(`battle-${TAG}`);
   const mid = await page.evaluate(() => { const ts = window.__battle.sim.towers; return [ts.reduce((a, t) => a + t.x, 0) / ts.length, ts.reduce((a, t) => a + t.y, 0) / ts.length]; });
   await zoomAt(mid[0], mid[1], 2);
   await step(0.05);
-  await shot('battle-zoom-844x390');
+  await shot(`battle-zoom-${TAG}`);
   await page.evaluate(() => window.__battle.renderer.resetCamera());
   await step(0.05);
 
   log('\n--- Kaze swoops on Hana\'s attack and comes back ---');
   await pause(false);
   await page.evaluate(() => { window.__battle.ui.speed = 3; window.__battle.ui.startWave(); });
-  const swoop = await page.waitForFunction(() => window.__battle.renderer.companionsProbe().actors.find((a) => a.cid === 'kaze')?.mode === 'sortie', null, { timeout: 150000, polling: 'raf' }).then(() => true, () => false);
+  const swoop = await page.waitForFunction(() => window.__battle.renderer.companionsProbe().actors.find((a) => a.cid === 'kaze')?.mode === 'sortie', null, { timeout: 300000, polling: 'raf' }).then(() => true, () => false);
   await pause(true);
   check(swoop, 'Hana attacks: Kaze sets off on a swoop');
   if (!swoop) {
@@ -227,7 +239,7 @@ try {
     const hb = await page.evaluate((u) => { const t = window.__battle.sim.getTower(u); return [t.x, t.y]; }, hana);
     await zoomAt((hb[0] + k0.target[0]) / 2, (hb[1] + k0.target[2]) / 2, 5);
     const k1 = await actor('kaze');
-    const box = await boxAround([[k1.homeX, k1.homeZ, k1.homeY], [k1.target[0], k1.target[2], 0], [k1.target[0], k1.target[2], 1], [hb[0], hb[1], 0]], 45, 240, 170);
+    const box = await boxAround([[k1.homeX, k1.homeZ, k1.homeY], [k1.target[0], k1.target[2], 0], [k1.target[0], k1.target[2], 2], [hb[0], hb[1], 0], [hb[0], hb[1], 2.2]], 45, Math.round(VW * 0.42), Math.round(VH * 0.55));
     let away = 0;
     for (let i = 0; i < 9; i++) {
       await step(0.11);
@@ -250,6 +262,7 @@ try {
     await step(0.05);
   }
 
+  if (!movesOnly) {
   log('\n--- the doll dashes on Yoriko\'s needles ---');
   // park a sturdy slime on the road just upstream of her (as tests/sim/hero.test.js parks enemies), so her
   // needles fire at it; the sortie names the enemy it chases (targetUid), Dream Detour has none
@@ -318,6 +331,57 @@ try {
     await step(0.05);
   }
 
+  }
+  log('\n--- Moon Pounce: Kon crouches, leaps on the target, lands and hops back ---');
+  await pause(true);
+  const pounceSet = await page.evaluate(([u]) => {
+    const { sim, ui } = window.__battle;
+    sim.cash = 1e9;
+    for (let i = 0; i < 3; i++) ui.act.upgrade(u, 0);
+    const t = sim.getTower(u);
+    // a sturdy slime on the road by Kon's spot (her relay origin), the strongest thing in reach
+    let best = null;
+    sim.pathData.forEach((p, pi) => p.points.forEach((pt, i) => {
+      const d = Math.hypot(pt[0] - t.ox, pt[1] - t.oy);
+      if (!best || d < best.d) best = { d, pi, dist: p.cum[i] };
+    }));
+    const e = best ? sim.spawnEnemy('slime_green', { pathIndex: best.pi, dist: Math.max(0, best.dist + 0.4), hpMul: 200 }) : null;
+    if (sim.state !== 'wave') ui.startWave();
+    const ab = sim.abilityStatus(u);
+    return { tiers: t.tiers?.join?.('-') ?? null, ability: ab?.id ?? null, enemy: e?.uid ?? null };
+  }, [ruri]);
+  check(pounceSet.ability === 'ruri.moonPounce' && pounceSet.enemy != null, `Ruri knows Moon Pounce (${JSON.stringify(pounceSet)})`);
+  await pause(true);
+  // (a fresh unlock may start on its cooldown: the harness clears it, as it does the hero's ult below)
+  const cast = await page.evaluate((u) => { const { sim } = window.__battle; const t = sim.getTower(u); if (t.abil) t.abil.cd = 0; return sim.castAbility(u); }, ruri);
+  check(cast?.ok, `Moon Pounce cast (${cast?.reason ?? 'ok'})`);
+  await step(0.016);
+  const p0k = await actor('kon');
+  check(p0k?.pounce != null, `Kon pounces (target ${p0k?.pounce})`);
+  if (p0k?.pounce != null) {
+    const ep = await page.evaluate((uid) => { const e = window.__battle.sim.enemies.find((x) => x.uid === uid); return e ? [e.x, e.y] : null; }, p0k.pounce);
+    const kp = [p0k.x, p0k.z];
+    await zoomAt((kp[0] + (ep?.[0] ?? kp[0])) / 2, (kp[1] + (ep?.[1] ?? kp[1])) / 2, VW > 1000 ? 4 : 6); // (a wider view: the leap stays in frame)
+    const box = await boxAround([[kp[0], kp[1], 0], [kp[0], kp[1], 1.2], ...(ep ? [[ep[0], ep[1], 0], [ep[0], ep[1], 1.2]] : [])], 90, Math.round(VW * 0.42), Math.round(VH * 0.55));
+    let top = 0;
+    const phases = [];
+    for (let i = 0; i < 12; i++) {
+      await step(0.1);
+      await settle(30);
+      const k = await actor('kon');
+      top = Math.max(top, k.y);
+      phases.push(k.pounce != null ? 'p' : '-');
+      await shot(`pounce-${i}`, box);
+    }
+    check(top > p0k.y + 0.3, `he leaps (top ${top.toFixed(2)} over ${p0k.y.toFixed(2)})`);
+    for (let i = 0; i < 10 && (await actor('kon'))?.pounce != null; i++) await step(0.1);
+    const back = await actor('kon');
+    check(back?.pounce == null && back?.mode === 'spot', `and is back on his spot (${phases.join('')}, ${back?.mode})`);
+    await page.evaluate(() => window.__battle.renderer.resetCamera());
+    await step(0.05);
+  }
+
+  if (!movesOnly) {
   log('\n--- removal and the lowest graphics setting ---');
   await page.evaluate((u) => window.__battle.ui.act.sell(u), hana);
   await step(0.05);
@@ -337,7 +401,64 @@ try {
   check((await probe()).actors.length === 2, 'back on quality high: Kon and the doll are recreated');
   await pause(false);
 
-  await studentPages();
+  }
+  log('\n--- Seiran\'s sky dragon (Dragonflight): big, in step with the sim\'s runner ---');
+  await page.goto(base, { waitUntil: 'load', timeout: 90000 });
+  await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 90000 });
+  await page.evaluate(() => {
+    const { store } = window.__sakura;
+    store.profile.formation.hero = 'seiran';
+    store.profile.battleSaves = {};
+    store.commit('formation');
+  });
+  await go('#/battle?stage=1-1&difficulty=normal');
+  const sOk = await page.waitForFunction(() => window.__battle?.ui?.act && window.__battle.sim.heroConfig?.unitId === 'seiran', null, { timeout: 90000 }).then(() => true, () => false);
+  check(sOk, 'battle 1-1 opens with Seiran as the hero');
+  await settle(800);
+  const sUid = await placeNear('seiran', 0.8, 2.0);
+  check(sUid != null, `Seiran placed (${sUid})`);
+  await page.evaluate(() => {
+    const { sim, ui } = window.__battle;
+    sim.cash = 1e7;
+    const h = sim.hero;
+    while (h.level < 3) if (!sim.buyHeroLevel({ level: h.level + 1, maxPrice: 1e9 })?.ok) break;
+    ui.startWave();
+  });
+  await page.waitForFunction(() => window.__battle.sim.enemies.some((e) => !e.dead), null, { timeout: 60000 }).catch(() => null);
+  await pause(true);
+  const fired = await page.evaluate(() => {
+    const { sim } = window.__battle;
+    sim.hero.ultUnlocked = true;
+    sim.hero.ultCooldown = 0;
+    return !!sim.activateUlt();
+  });
+  check(fired, 'Dragonflight fires');
+  /** Steps the sim and the board together (paused UI): the dragon flies as the sim moves its runner. */
+  const fly = (dt) => page.evaluate((d) => { const { sim, renderer } = window.__battle; sim.update(d); renderer.update(d); }, dt);
+  const drawn = () => page.evaluate(() => {
+    const { sim, renderer } = window.__battle;
+    const r = sim.runners.find((x) => x.kind === 'dragon' && !x.dead);
+    const D = renderer.rosterProbe?.() || {};
+    return { runner: r ? { dist: +r.dist.toFixed(2), segments: r.segments } : null, heads: D.heads ?? null, beads: D.beads ?? null, tails: D.tails ?? null };
+  });
+  await fly(0.02);
+  await shot(`dragon-arrive`);
+  const dr0 = await drawn();
+  check(dr0.runner != null, `a sky dragon runner flies (${JSON.stringify(dr0)})`);
+  // (it enters at the road's end: the body behind the head is still off the road there, as in the sim)
+  let full = null;
+  for (let i = 0; i < 6; i++) {
+    await fly(0.35);
+    await settle(30);
+    await shot(`dragon-${i}`);
+    const d = await drawn();
+    if (d.runner && d.beads >= 2 * (d.runner.segments - 1) && !full) full = d;
+  }
+  check(!!full && full.heads === 1 && full.tails === 1, `in flight: one head, ${full?.beads} beads and a tail tip (${full?.runner?.segments} sim segments)`);
+  await page.evaluate(() => window.__battle.ui.select?.(null));
+  await pause(false);
+
+  if (!movesOnly) await studentPages();
 
   check(errors.length === 0, `no console errors${errors.length ? `:\n    ${errors.slice(0, 8).join('\n    ')}` : ''}`);
 } catch (e) {

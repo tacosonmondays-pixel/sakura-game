@@ -100,7 +100,7 @@ const NEEDS_HASTED_ABILITY = 'bell';
  * @param {{ kind: string }|null} [abil] in battle, her running ability (t.abil, or null when she has none); left out,
  *   the menu's view from the ability table (her ⚡ abilities, a hero's skill)
  * @returns {null|'later'|'kind'|'locked'} 'later' none of her abilities runs in this build ("Comes in a later update":
- *   Kage, Suzu, Chika, Fuu, Iroha, Kanna); 'kind' hers is a rally or a debuff; 'locked' (battle) she has not unlocked
+ *   since A4–A6 only Kanna's skill among the girls); 'kind' hers is a rally or a debuff; 'locked' (battle) she has not unlocked
  *   hers yet (⚡ tier 3, Lv 7)
  */
 export function trickIdle(clubId, unitId, abil) {
@@ -163,6 +163,12 @@ const KIT_FIT = Object.freeze({
   marumi: { fill: DEAD_TOWER },
   // Tenka (BUILD_PLAN 6.1): an attacking student like the live towers (no aura; her Critical Mass is hasted)
   tenka: { fill: DEAD_TOWER },
+  // the duo (DUO_LR §1): no aura; her shells are a mortar and Kohaku's beam fires outside the gear wrap, so gear
+  // Pierce reaches neither yet and fills in too (Prismfall is hasted)
+  kohaku_tsubaki: { fill: [...DEAD_TOWER, 'piercePct'] },
+  // the staff heroes (BANNERS §D): as Hikari and Nami (no aura anywhere on their kits)
+  kogane: { fill: ['auraPct'] },
+  norika: { fill: ['auraPct'] },
 });
 export const GEAR_FIT = Object.freeze(Object.fromEntries(Object.entries(KIT_FIT).map(([id, row]) => [
   id,

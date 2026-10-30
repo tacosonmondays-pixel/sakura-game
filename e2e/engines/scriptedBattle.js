@@ -10,6 +10,7 @@
 //
 // Plain ES module: no Vite-only imports, so Node and Bun can import it straight from disk and a
 // browser through the Vite dev server.
+import { runCoop as runTryoutCoop, coopStart as tryoutStart } from '../../tools/tryoutBot.mjs';
 import { Lockstep } from '../../src/online/coop/lockstep.js';
 import { createCoopSim, quantize, flyArgs, abilArgs } from '../../src/online/coop/commands.js';
 import { withDetMath, DET_MATH } from '../../src/online/coop/detMath.js';
@@ -28,6 +29,7 @@ import { hashSim } from '../../src/online/coop/simHash.js';
 import { stageRule } from '../../src/data/rules.js';
 import { abilityPathOf } from '../../src/sim/abilities.js';
 import { LAB_CLASSES } from '../../src/sim/lab.js';
+import { pointAt } from '../../src/sim/path.js';
 
 const CHEAP = { costMul: 0.5 };
 export const START = Object.freeze({
@@ -783,32 +785,42 @@ export function runDronesBattle({ checkpointAt = 8, maxFrames = 60 * 60 * 14 } =
 const ABIL_STATS = { costMul: 0.2, damageMul: 0.5 };
 const ABIL_STATS_HASTE = { ...ABIL_STATS, ultHaste: 0.3 };
 const abilLoadout = (ids, stats = ABIL_STATS) => ids.map((unitId) => ({ unitId, stats }));
+// (A4: the deploy girls join at a quarter of the others' price, so they reach their ⚡ tier 3 without starving the rest)
+const ABIL_DEPLOY = { ...ABIL_STATS, costMul: 0.05, damageMul: 0.15 };
+const ABIL_DEPLOY_HASTE = { ...ABIL_STATS_HASTE, costMul: 0.05, damageMul: 0.15 };
 /** The host fires her girls and Luna by hand; the guest plays on Auto-cast and taps her ready girls. */
 export const ABILITIES_START = Object.freeze({
   seed: 454545,
   stageId: '4-5',
   difficulty: 'normal',
   players: [
-    { slot: 0, uid: 'host', name: 'Host', loadout: abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori']), hero: { unitId: 'luna', stats: ABIL_STATS } },
-    { slot: 1, uid: 'guest', name: 'Guest', loadout: abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro'], ABIL_STATS_HASTE), hero: { unitId: 'nami', stats: ABIL_STATS_HASTE } },
+    // (the girls added for ability coverage, cheap and weak, ABIL_DEPLOY, so each reaches her ⚡ tier 3 in time and the
+    // five-girl battle keeps its 30-cast floor: the host's Fuu (A5, the move kind's push) and Suzu, the guest's Kage,
+    // Iroha (A6, the mirror deploy) and Chika (A4, the three deploys); of the splits tried, this one casts all five)
+    { slot: 0, uid: 'host', name: 'Host', loadout: [...abilLoadout(['aoi', 'akane', 'momo', 'hotaru', 'midori']), ...abilLoadout(['fuu', 'suzu'], ABIL_DEPLOY)], hero: { unitId: 'luna', stats: ABIL_STATS } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [...abilLoadout(['yuki', 'rei', 'miko', 'sango', 'shiro'], ABIL_STATS_HASTE), ...abilLoadout(['kage', 'iroha', 'chika'], ABIL_DEPLOY_HASTE)], hero: { unitId: 'nami', stats: ABIL_STATS_HASTE } },
   ],
 });
+/** The girls ABILITIES_START adds for ability coverage (A4 deploys, A5 move, A6 mirror): tapped on their own cadence. */
+const COVER = Object.freeze(['iroha', 'suzu', 'kage', 'fuu', 'chika']);
 /** Refusals a scripted tap may meet (the sim re-checks at the command's tick); anything else fails the run. */
 const ABIL_REASONS = Object.freeze(['cooldown', 'notWave', 'active', 'noTarget', 'cap', 'disabled', 'moving']);
 
 /**
  * A whole co-op battle with abilities (stage 4-5 Normal, to `toWave` waves cleared): the host takes
- * Aoi 0-3-0, Akane 3-0-0, Momo 3-0-0, Hotaru 0-3-0 and Midori 3-0-0 (each to her ⚡ tier 3) and hero
+ * Aoi 0-3-0, Akane 3-0-0, Momo 3-0-0, Hotaru 0-3-0, Midori 3-0-0, Fuu and Suzu (each to her ⚡ tier 3) and hero
  * Luna to Lv 7 (Moonbrand), and taps one of them by hand every 7 s in a round robin (some taps are
  * group taps, some carry an aim point, some land on a recharging girl and are refused); from wave 4
- * her Momo is on Auto. The guest takes Yuki, Rei, Miko 3-0-0, Sango 0-3-0, Shiro 3-0-0 and hero Nami
+ * her Momo is on Auto. The guest takes Yuki, Rei, Miko 3-0-0, Sango 0-3-0, Shiro 3-0-0, Kage, Iroha (Mirror Shift: her
+ * panel jumps to the leader's road spot and every girl's shots that cross it split, the host's too), Chika (⚡ tier 3) and hero Nami
  * (Lv 7, Frost Net; she and Sango stand on the water), all with Skill Haste 0.3, with `acast[0, 1]` (everything on Auto), taps one
  * of her ready girls every 4 s as well, and switches Shiro off and on once. Two Lockstep clients over
  * the seeded fake network; every state hash collected (they fold the ability state once cast or on
  * Auto); the host's checkpoint after wave `checkpointAt` is restored into a fresh client and replayed.
- * `casts` / `kinds` count the `ability` events (both players' casts, auto and manual).
+ * `casts` / `kinds` count the `ability` events (both players' casts, auto and manual); `deploys` counts the A4 deploy
+ * casts by ability id (Shadow Doubles, Bell Carpet, Drone Surge) and the doubles / Bell Carpet traps / surge drones placed.
  */
-export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 60 * 60 * 20 } = {}) {
+export function runAbilitiesBattle({ toWave = 20, checkpointAt = 8, maxFrames = 60 * 60 * 30 } = {}) {
   const t0 = Date.now();
   const rng = createRng(29);
   const clock = { t: 0 };
@@ -840,16 +852,20 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
   });
   const [A, B] = [mk(0), mk(1)];
   const clients = [A, B];
-  const girls = [['aoi', 'akane', 'momo', 'hotaru', 'midori'], ['yuki', 'rei', 'miko', 'sango', 'shiro']];
+  const girls = [['aoi', 'akane', 'momo', 'hotaru', 'midori', 'fuu', 'suzu'], ['yuki', 'rei', 'miko', 'sango', 'shiro', 'kage', 'iroha', 'chika']];
   // land spots (two each: the second when the first is taken); Nami and Sango stand on the water
-  const spots = { ...spotsFor(ABILITIES_START, ['luna', ...girls[0], 'yuki', 'rei', 'miko', 'shiro'], 2), ...spotsFor(ABILITIES_START, ['nami', 'sango'], 2, { water: true }) };
+  // (the coverage girls take the first spots, in COVER order, so each finds targets for her ability in time)
+  const land = [...girls[0], ...girls[1].filter((u) => u !== 'sango')];
+  const spots = { ...spotsFor(ABILITIES_START, ['luna', ...COVER.filter((u) => land.includes(u)), ...land.filter((u) => !COVER.includes(u))], 2), ...spotsFor(ABILITIES_START, ['nami', 'sango'], 2, { water: true }) };
   // [slot, unitId, spots, retry frame]: a place her view could afford can still meet a wallet that
   // changed by its tick (refused 'cash'): she is tried again until she stands
   const want = [];
-  for (let i = 0; i < 5; i++) for (const slot of [0, 1]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
+  for (let i = 0; i < Math.max(girls[0].length, girls[1].length); i++) for (const slot of [0, 1]) if (girls[slot][i]) want.push([slot, girls[slot][i], spots[girls[slot][i]], 0]);
   const seen = [new Map(), new Map()];
   const byKind = {};
   const byOwner = [0, 0];
+  const splits = [0, 0];
+  const deploys = {};
   let ck = null;
   let turn = 0;
   let guestTurn = 0;
@@ -907,6 +923,16 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
       const ready = mine(B).filter((t) => t.abil && !t.isHero && B.sim.abilityStatus(t.uid).ready).sort((p, q) => p.uid - q.uid);
       if (ready.length) B.queue('abil', abilArgs(ready[guestTurn++ % ready.length].uid));
     }
+    // the girls added for ability coverage (A4–A6: Fuu, Kage, Suzu; Iroha, Chika) are each player's to tap as well, every
+    // 5 s, every one her view shows ready (uid order; a tap with nothing to act on is refused noTarget and spends
+    // nothing), so every kind and type casts however the round robins fall (Iroha's panel jumps to the leader's road spot)
+    if (frame % 300 === 150) {
+      clients.forEach((c, slot) => {
+        if (c.sim.state !== 'wave') return;
+        const ready = mine(c).filter((t) => COVER.includes(t.unitId) && t.abil && c.sim.abilityStatus(t.uid).ready).sort((p, q) => p.uid - q.uid);
+        for (const t of ready) c.queue('abil', abilArgs(t.uid));
+      });
+    }
     // switches: from wave 4 the host's Momo on Auto; the guest's Shiro off after wave 5, on again after wave 7
     if (frame % 60 === 0) {
       const momo = mine(A).find((t) => t.unitId === 'momo' && t.abil);
@@ -936,9 +962,19 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
       for (const [t, hv] of c.hashes) seen[i].set(t, hv);
       if (i === 0) {
         for (const ev of c.sim.events) {
+          // Iroha's mirror splits (src/sim/mirrors.js): all of them, and the host's girls' shots among them
+          if (ev.type === 'mirrorSplit') {
+            splits[0]++;
+            if (A.coop.isMine(ev.ownerUid)) splits[1]++;
+          }
           if (ev.type !== 'ability') continue;
           byKind[ev.kind] = (byKind[ev.kind] || 0) + 1;
           byOwner[ev.owner]++;
+          if (ev.kind === 'deploy') {
+            const d = deploys[ev.id] || (deploys[ev.id] = { casts: 0, placed: 0 });
+            d.casts++;
+            d.placed += ev.placed || 0;
+          }
         }
       }
     });
@@ -967,6 +1003,8 @@ export function runAbilitiesBattle({ toWave = 12, checkpointAt = 8, maxFrames = 
     kinds: kinds.join(','),
     byKind: kinds.map((k) => `${k} ${byKind[k]}`).join(' · '),
     byOwner: byOwner.join('/'),
+    splits: splits.join('/'),
+    deploys: Object.keys(deploys).sort().map((k) => `${k} ${deploys[k].casts}×${deploys[k].placed}`).join(' · '),
     taps: `${taps.abil} abil: ${taps.ok} cast, ${Object.keys(taps.reasons).sort().map((k) => `${taps.reasons[k]} ${k}`).join(', ')} · ${taps.acast} acast`,
     refused: odd.join(' '),
     wallets: A.coop.wallets.join('/'),
@@ -1666,7 +1704,7 @@ const POTENTIAL_BOSS_UPGRADES = Object.freeze([
  * by Hotaru / Kaede at P6).
  * @returns {object} the same fields as runScriptedBattle plus `aoi` (both Aois' resolved stats) and `mech`
  */
-export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTIAL_UPGRADES, spotsFirst = POTENTIAL_SPOTS_FIRST, maxFrames = 60 * 60 * 14, probe = null } = {}) {
+export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTIAL_UPGRADES, spotsFirst = POTENTIAL_SPOTS_FIRST, maxFrames = 60 * 60 * 14, probe = null, script = null, ultInWave = false } = {}) {
   const t0 = Date.now();
   const rng = createRng(11);
   const clock = { t: 0 };
@@ -1719,6 +1757,8 @@ export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTI
     if (frame === 20) A.queue('wave');
     if (frame === 30) A.queue('auto', [true]);
     if (frame === 40) B.queue('speed', [2]);
+    // (an optional script of extra commands: the duo battle's Auto-cast and aim)
+    script?.(frame, A, B);
     // each player: her next girl when her own wallet allows it; one in flight at a time, and a
     // girl leaves the list only once she stands on the map (a refused place is tried again)
     for (const c of clients) {
@@ -1754,7 +1794,8 @@ export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTI
         todo[0][3] = frame;
       } else if (!waiting && (!st || st.reason !== 'cash')) todo.shift(); // never placed, maxed or locked: skip
     }
-    if (frame % 30 === 0 && A.sim.hero && A.sim.heroUltStatus().ready && A.tick > lastUlt + 120) {
+    // (ultInWave: a hero whose ult only works during a wave, Norika's Hold the Line, casts in waves only)
+    if (frame % 30 === 0 && A.sim.hero && A.sim.heroUltStatus().ready && A.tick > lastUlt + 120 && (!ultInWave || (A.sim.state === 'wave' && A.sim.enemies.length > 3))) {
       lastUlt = A.tick;
       A.queue('ult');
       ults++;
@@ -2073,7 +2114,263 @@ export function runGlowBowlBattle({ maxFrames = 60 * 60 * 10 } = {}) {
   return r;
 }
 
-/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka and the mode battles. */
+// ---------------------------------------------------------------------------
+// The duo Kohaku & Tsubaki (docs/specs/DUO_LR.md §4 "Engines scenario DUO_START"): Refraction (the shell counter and
+// the fixed shard table), Kohaku's beam on its tick timer, Prismfall on Auto-cast and its LR form Twin Star
+// ---------------------------------------------------------------------------
+
+const DUO_STATS = { costMul: 0.12, damageMul: 3, rateMul: 1.2 };
+/**
+ * The host's duo carries the LR flag (`lr: true`: Prismfall · Twin Star), the guest's is P6 (every 8th volley splits
+ * completely) without it; both go Refraction ⚡ to tier 3 (Prismfall) and the host's on to tier 5, the guest's takes
+ * Prism Corridor 2 beside it. 2-5 Normal has flyers for the beam and the shards.
+ */
+export const DUO_START = Object.freeze({
+  seed: 545454,
+  stageId: '2-5',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'kohaku_tsubaki', stats: { ...DUO_STATS, lr: true } }, { unitId: 'aoi', stats: DUO_STATS }], hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'kohaku_tsubaki', stats: { ...DUO_STATS, potential: 6 } }, { unitId: 'akane', stats: DUO_STATS }], hero: null },
+  ],
+});
+const DUO_UPGRADES = Object.freeze([
+  [0, 'kohaku_tsubaki', 2], [1, 'kohaku_tsubaki', 2], [0, 'kohaku_tsubaki', 2], [1, 'kohaku_tsubaki', 2], [0, 'kohaku_tsubaki', 2],
+  [1, 'kohaku_tsubaki', 2], [1, 'kohaku_tsubaki', 1], [1, 'kohaku_tsubaki', 1], [0, 'kohaku_tsubaki', 2], [0, 'kohaku_tsubaki', 2],
+]);
+
+/**
+ * DUO_START to the end (or 10 minutes): the runPotentialBattle fields plus `duo` (refractions / shards / beams /
+ * Prismfall casts / Twin Star shells / mortar aims, counted on the host's copy). Both players switch Auto-cast on;
+ * the host aims her duo's mortar at the road once, a little after the first wave starts.
+ */
+export function runDuoBattle({ maxFrames = 60 * 60 * 10 } = {}) {
+  const t0 = Date.now();
+  const duo = { refract: 0, shards: 0, beams: 0, casts: 0, twinStar: 0, aims: 0 };
+  const probe = (sim) => {
+    const emit0 = sim._emit;
+    Object.defineProperty(sim, '_emit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function emit(type, ev, ...rest) {
+        if (type === 'refract') {
+          duo.refract++;
+          duo.shards += ev.shards;
+        } else if (type === 'attack' && ev?.kind === 'beam' && sim.getTower(ev.towerUid)?.def.id === 'kohaku_tsubaki') duo.beams++;
+        else if (type === 'ability' && ev?.id === 'kohaku_tsubaki.prismfall') duo.casts++;
+        else if (type === 'abilityShell' && ev?.finale) duo.twinStar++;
+        return emit0.call(this, type, ev, ...rest);
+      },
+    });
+  };
+  let aimed = false;
+  const script = (frame, A, B) => {
+    if (frame === 21) A.queue('acast', [0, 1]);
+    if (frame === 22) B.queue('acast', [0, 1]);
+    if (!aimed && frame > 600 && frame % 60 === 0) {
+      const t = A.sim.towers.find((x) => x.def.id === 'kohaku_tsubaki' && A.coop.isMine(x.uid));
+      const e = t && A.sim.enemies.find((x) => !x.dead && !x.hidden && !x.airborne);
+      if (e) {
+        A.queue('aim', [t.uid, Math.round(e.x * 1024), Math.round(e.y * 1024)]);
+        aimed = true;
+        duo.aims++;
+      }
+    }
+  };
+  const r = runPotentialBattle({ start: DUO_START, upgrades: DUO_UPGRADES, spotsFirst: ['kohaku_tsubaki', 'aoi', 'akane'], maxFrames, probe, script });
+  r.duo = `${duo.refract}/${duo.shards}/${duo.beams}/${duo.casts}/${duo.twinStar}/${duo.aims}`;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
+// Tenka's LR form (docs/specs/BANNERS.md §C.2): Critical Mass · Event Horizon, the blast's 1.5 s gravity pull (the ability
+// queue's integer countdown, the well's path-distance pull rule) and its second detonation for 50%, in co-op
+// ---------------------------------------------------------------------------
+
+const TENKA_LR_STATS = Object.freeze({ costMul: 0.12, damageMul: 1.5, rateMul: 1.2 });
+/**
+ * The host's Tenka carries the LR flag (`lr: true`: Event Horizon) and goes Rail Arms to Zero Point; the guest's has no
+ * LR and stops at Plasma Rails (Critical Mass). Both on Auto-cast (Critical Mass fires on an elite, miniboss or boss).
+ * 4-5 Normal (half the duo battle's damage, so crowds outlive the first blast): elites and bosses for the pull's rule
+ * (bosses stand firm, minibosses move at half).
+ */
+export const TENKA_LR_START = Object.freeze({
+  seed: 595959,
+  stageId: '4-5',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'tenka', stats: { ...TENKA_LR_STATS, lr: true } }, { unitId: 'aoi', stats: TENKA_LR_STATS }], hero: null },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'tenka', stats: TENKA_LR_STATS }, { unitId: 'akane', stats: TENKA_LR_STATS }], hero: null },
+  ],
+});
+const TENKA_LR_UPGRADES = Object.freeze([
+  [0, 'tenka', 1], [1, 'tenka', 1], [0, 'tenka', 1], [1, 'tenka', 1], [0, 'tenka', 1], [1, 'tenka', 1], [0, 'tenka', 1], [0, 'tenka', 1],
+]);
+
+/**
+ * TENKA_LR_START to the end (or 10 minutes): the runPotentialBattle fields plus `horizon` (Critical Mass casts by both
+ * players / Event Horizon pulls / second detonations / enemies those detonations hit, counted on the host's copy). Both
+ * players switch Auto-cast on.
+ */
+export function runTenkaLrBattle({ maxFrames = 60 * 60 * 10 } = {}) {
+  const t0 = Date.now();
+  const hz = { casts: 0, pulls: 0, blasts: 0, hit: 0 };
+  const probe = (sim) => {
+    const emit0 = sim._emit;
+    Object.defineProperty(sim, '_emit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function emit(type, ev, ...rest) {
+        if (type === 'ability' && ev?.id === 'tenka.criticalMass') hz.casts++;
+        else if (type === 'abilityHorizon') hz.pulls++;
+        else if (type === 'abilityShell' && ev?.horizon) {
+          hz.blasts++;
+          hz.hit += ev.hits;
+        }
+        return emit0.call(this, type, ev, ...rest);
+      },
+    });
+  };
+  const script = (frame, A, B) => {
+    if (frame === 21) A.queue('acast', [0, 1]);
+    if (frame === 22) B.queue('acast', [0, 1]);
+  };
+  const r = runPotentialBattle({ start: TENKA_LR_START, upgrades: TENKA_LR_UPGRADES, spotsFirst: ['tenka', 'aoi', 'akane'], maxFrames, probe, script });
+  r.horizon = `${hz.casts}/${hz.pulls}/${hz.blasts}/${hz.hit}`;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
+// The staff heroes (docs/specs/BANNERS.md §D.6 "Each hero wave adds co-op engines scenarios"): Norika's barricades on a
+// forked map (2-2, lake_reeds: two roads from one start, so her Detour Sign can switch walkers to the longer one), Hold
+// the Line, and Kogane's Clear the Road plow with its push and her Moves (Treads, Overdrive at P6), in one co-op battle.
+// Both players buy hero levels with their coins; the host's ult fires through runPotentialBattle, the guest's ult and
+// Moves through the script.
+const STAFF_STATS = Object.freeze({ costMul: 0.3, damageMul: 2, rateMul: 1.1 });
+export const STAFF_START = Object.freeze({
+  seed: 565656,
+  stageId: '2-2',
+  difficulty: 'normal',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'aoi', stats: STAFF_STATS }, { unitId: 'yuki', stats: STAFF_STATS }], hero: { unitId: 'norika', stats: { ...STAFF_STATS, potential: 6 } } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'rei', stats: STAFF_STATS }, { unitId: 'akane', stats: STAFF_STATS }], hero: { unitId: 'kogane', stats: { ...STAFF_STATS, potential: 6 } } },
+  ],
+});
+
+/**
+ * STAFF_START to the end (or 10 minutes): the runPotentialBattle fields plus `staff` (held walkers, sampled every second /
+ * barricade breaks / Hold the Line
+ * barricades / One-Way Street sends / detours / plows / Kogane's mid-wave Moves, counted on the host's copy) and
+ * `heroLevels` (Norika / Kogane at the end).
+ */
+export function runStaffBattle({ maxFrames = 60 * 60 * 10 } = {}) {
+  const t0 = Date.now();
+  const st = { held: 0, breaks: 0, lines: 0, oneWay: 0, detours: 0, plows: 0, moves: 0 };
+  let host = null;
+  let aimed = false;
+  const probe = (sim) => {
+    host = sim;
+    const emit0 = sim._emit;
+    Object.defineProperty(sim, '_emit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function emit(type, ev, ...rest) {
+        if (type === 'barricadeBreak') st.breaks++;
+        else if (type === 'barricade' && ev?.kind === 'line') st.lines++;
+        else if (type === 'oneWay') st.oneWay++;
+        else if (type === 'detour') st.detours++;
+        else if (type === 'runner' && ev?.kind === 'plow') st.plows++;
+        else if (type === 'heroMove' && ev?.downtime > 0) st.moves++;
+        return emit0.call(this, type, ev, ...rest);
+      },
+    });
+  };
+  let home = null;
+  const script = (frame, A, B) => {
+    // walkers held at her barricades, sampled every second on the host's copy
+    if (frame % 60 === 0) for (const e of A.sim.enemies) if (e.heldBy) st.held++;
+    // the host aims Norika once, at the shorter road a few tiles past the shared start (Hold the Line lands there)
+    const n = A.sim.hero;
+    if (n && !aimed && frame === 300) {
+      const road = A.sim.pathData[A.sim.pathData.length > 1 ? 1 : 0];
+      const p = pointAt(road, Math.min(road.length - 1, 4), {});
+      A.queue('aim', [n.uid, Math.round(p.x * 1024), Math.round(p.y * 1024)]);
+      aimed = true;
+    }
+    // both buy a hero level whenever their wallet allows it (one every 2 s)
+    if (frame % 120 === 60) {
+      for (const c of [A, B]) {
+        if (!c.sim.hero) continue;
+        const s = c.sim.heroLevelStatus();
+        if (!s.reason) c.queue('hlv', [s.level + 1, s.price]);
+      }
+    }
+    const k = B.sim.hero;
+    if (!k) return;
+    if (frame % 240 === 200 && B.sim.heroUltStatus().ready) B.queue('ult');
+    // the guest moves Kogane between her spot and one beside it during the waves
+    if (B.sim.state === 'wave' && frame % 900 === 450 && !(k.moveCd > 0)) {
+      if (!home) home = { x: k.x, y: k.y };
+      const away = k.x === home.x && k.y === home.y;
+      for (const [dx, dy] of [[1.5, 0], [-1.5, 0], [0, 1.5], [0, -1.5]]) {
+        const x = away ? home.x + dx : home.x;
+        const y = away ? home.y + dy : home.y;
+        if (B.sim.canMoveHero(x, y).ok) {
+          B.queue('hmv', [Math.round(x * 1024), Math.round(y * 1024)]);
+          break;
+        }
+      }
+    }
+  };
+  const r = runPotentialBattle({ start: STAFF_START, upgrades: [], spotsFirst: ['norika', 'kogane', 'aoi', 'rei'], maxFrames, probe, script, ultInWave: true });
+  r.staff = `${st.held}/${st.breaks}/${st.lines}/${st.oneWay}/${st.detours}/${st.plows}/${st.moves}`;
+  r.heroLevels = host ? host.heroes.map((h) => h?.level ?? 0).join('/') : '';
+  r.ms = Date.now() - t0;
+  return r;
+}
+
+/**
+ * Tryout Day (docs/specs/TRYOUT_DAY.md §15): one 2-player co-op run on two lockstep views (tools/tryoutBot.mjs runCoop: personal
+ * picks, a Tryout join, Hall Pass moves at Recess, Snack, the seats), a third client rejoining from the wave-9 checkpoint
+ * after a mid-run join, to wave 16. Every engine must reach the same digests and hashes. `random`: a Random Class run
+ * (§20.4: the Sim draws both threes and lands every pick by itself; a checkpoint at wave 8 rejoins mid-reveal).
+ */
+export function runTryoutBattle({ maxWaves = 16, checkpointAt = 9, seed = 2026, random = false } = {}) {
+  const { views, digests, hashes } = runTryoutCoop({ start: tryoutStart({ seed, random }), policy: 'random', maxWaves, checkpointAt });
+  const sim = views[0].sim;
+  return {
+    wave: sim.wave, lives: sim.lives, score: sim.tryout.score, squads: sim.tryout.players.map((p) => p.squad.join(',')),
+    lastDigest: digests[0][digests[0].length - 1], digests: digests[0].length, sameViews: JSON.stringify(digests[0]) === JSON.stringify(digests[1]),
+    hash: hashes[0][hashes[0].length - 1],
+    ...(random ? { picks: sim.tryout.players.map((p) => p.picks.map((x) => x.girl || x.card || x.varsity).join(',')) } : null),
+  };
+}
+
+/**
+ * Tryout Day's Extended Day (docs/specs/TRYOUT_DAY.md §20): a 2-player co-op run past wave 48 into the freeplay waves (the
+ * Grade's tier, the window's chapters, the grid miniboss on wave 60), a third client rejoining from the wave-50 checkpoint,
+ * to wave 61. The hearts are topped up on both clients alike at every calm point (the bot only has to last). Every engine
+ * must reach the same digests and hashes.
+ */
+export function runTryoutExtendedBattle({ maxWaves = 61, checkpointAt = 50, seed = 4820, random = false } = {}) {
+  const top = (sim) => { sim.lives = Math.max(sim.lives, 40); };
+  // (Random Class: the third client rejoins mid-reveal, while a pick's reveal clock is running)
+  const midReveal = random ? (s) => s.tryout.players.some((p) => p.win === 'pick' && p.winTicks > 0) : null;
+  const { views, digests, hashes, rejoin } = runTryoutCoop({ start: tryoutStart({ seed, length: 'after', random }), policy: 'random', maxWaves, checkpointAt, onCalm: top, checkpointIf: midReveal });
+  const sim = views[0].sim;
+  return {
+    wave: sim.wave, lives: sim.lives, score: sim.tryout.score, squads: sim.tryout.players.map((p) => p.squad.join(',')), freeplay: sim.freeplay,
+    lastDigest: digests[0][digests[0].length - 1], digests: digests[0].length, sameViews: JSON.stringify(digests[0]) === JSON.stringify(digests[1]),
+    sameHashes: JSON.stringify(hashes[0]) === JSON.stringify(hashes[1]), hash: hashes[0][hashes[0].length - 1],
+    rejoinWave: rejoin?.wave ?? 0, midReveal: !!rejoin?.winTicks.some((t) => t > 0),
+    ...(random ? { picks: sim.tryout.players.map((p) => p.picks.map((x) => x.girl || x.card || x.varsity || 'hand').join(',')) } : null),
+  };
+}
+
+/** Everything e2e/engines.mjs compares between engines: the campaign co-op battle, Potential (1-3 and the spectral boss), gear (live and returning girls), Marumi's Glow Bowl, the duo (DUO_START), the staff heroes (STAFF_START), freeplay (scripted and deep), two heroes, drones, the returning girls, abilities, the returning girls' abilities, Tenka, Tryout Day and the mode battles. */
 export function runEngineChecks() {
   const r = runScriptedBattle();
   const t1 = Date.now();
@@ -2087,5 +2384,6 @@ export function runEngineChecks() {
   const freeplayMs = Date.now() - t0;
   const heroes = runHeroBattle();
   const modes = runModeBattles();
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), modes };
+  const tryoutRandom = runTryoutBattle({ seed: 2027, random: true, maxWaves: 14, checkpointAt: 8 });
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), duo: runDuoBattle(), tenkaLr: runTenkaLrBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), tryoutAfter: runTryoutExtendedBattle(), tryoutAfterRandom: runTryoutExtendedBattle({ seed: 4821, random: true, maxWaves: 57, checkpointAt: 52 }), modes, tryoutRandom };
 }

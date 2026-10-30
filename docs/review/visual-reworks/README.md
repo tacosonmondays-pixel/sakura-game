@@ -1,0 +1,85 @@
+# Visual reworks: owner board
+
+Display only. The sim id equals main's (35748b1b58db) and COOP_PROTOCOL is unchanged.
+
+## Batch A (v0.1.60)
+
+### Tenka's real 3D figure
+She takes the field as her Meshy figure, coilgun in hand. Low graphics uses the lighter model. If her model fails to load, her recoloured stand-in stays.
+
+| | |
+|---|---|
+| In battle | `tenka/battle-844x390.jpg`, `tenka/battle-1280x720.jpg` |
+| Close-up, coilgun in hand | `tenka/closeup-844x390.jpg`, `tenka/closeup-1280x720.jpg`, `tenka/closeup-low-844x390.jpg` (Low) |
+| Muzzle flash at the barrel tip | `batch-a-look/tenka-844x390-muzzle-strip.jpg` |
+| Girl page 3D view | `tenka/student-844x390.jpg`, `tenka/student-1280x720.jpg`, `batch-a-look/tenka-page-390x844.jpg` |
+| Fallback (her model blocked) | `tenka/fallback-844x390.jpg` |
+
+### Iroha's animations (the owner's defaults)
+| | |
+|---|---|
+| The panel turns and glints on each relayed bolt | `iroha/844x390-flip-glint.jpg`, `iroha/844x390-flip-strip.jpg` (and 1280x720) |
+| Afterimages when the panel jumps | `iroha/1280x720-shift-afterimages.jpg` |
+| Mirror Shift echo (preview only) | `iroha/844x390-shift-echo.jpg` |
+| Shattered Glass shards and the Kaleidoscope flare | `iroha/844x390-shards-strip.jpg`, `iroha/844x390-shards-kaleidoscope.jpg` |
+
+Mirror Shift itself is not built in the sim yet; that is planned for its own sim round, A6. Its echo and split bolts switch on when the sim casts it. The second panel of Infinite Reflection waits until the sim gives it a position.
+
+### Companions
+| | |
+|---|---|
+| Kon bounds to Ruri's relay spot | `companions/kon-run-844x390.jpg` |
+| Kon's Moon Pounce (crouch, leap, impact, hop back) | `companions/kon-pounce-844x390.jpg` |
+| Kaze climbs and stoops onto Hana's targets | `companions/kaze-swoop-844x390.jpg`, `companions/kaze-swoop-1280x720.jpg` |
+| Seiran's sky dragon (bigger; mane, whiskers, arrival roar) | `companions/dragon-strip-844x390.jpg`, `companions/dragon-flight-1280x720.jpg` |
+
+### Display fixes (backlog lows)
+| | |
+|---|---|
+| Home Events tab: an icon-only tab clear of Co-op on small phones | `backlog/1-home-events-tab.jpg`, `backlog/1b-home-667x375.jpg` |
+| Hero widget clears the HUD at 667x375 | `backlog/2-hero-widget-lift.jpg` |
+| Hero card "Deployed" and "Lv N" without wrapping | `backlog/3-hero-card-deployed.jpg` |
+| Patch-note date on one line | `backlog/4-notice-patch-date.jpg` |
+| Recruit rate line without the grey box | `backlog/5-recruit-banner-box.jpg` |
+| Girl page Matchup on upright phones | `backlog/6-girl-page-matchup.jpg` |
+
+### Reviews
+- **Logic:** OK in two rounds, at adf61830 and c28918a4 (`batch-a-logic.json`). Of its lows, the panel snap and the stale comments are fixed. The lingering panel states past 24 relay panels are accepted: they are bounded and freed with the battle.
+- **Look:** OK at c28918a4 (`batch-a-look.json`, evidence in `batch-a-look/`), apart from one MEDIUM: on Shattered Glass T5, a white disc covered the targets on impact frames.
+  - **Round 2 (27a8ad31):** capped Iroha's silver flash. NOT OK (`batch-a-fix/`).
+  - **Round 3 (16e78a37):** coalesced repeat generic blasts on one spot. NOT OK (`batch-a-fix3/`).
+  - **Round 4 (d448fa38),** the coordinator's exception to the 3-round rule. Her flash, sparks, ripple and stars now draw once per spot per 0.1 s, the generic glow is halved under her impact, and enemy death blasts are never folded. **OK** (`batch-a-fix4/`): 8 of 10 impact frames are clean, near-white pixels are back to round 3's clean-frame level, and Akane's blast is unchanged.
+- **Lows left for later:**
+  - About 1 in 10 T5 impact frames is still bright over a clump, with the targets visible. The single-target T5 frame was not re-captured in round 4.
+  - Iroha's un-aimed panel stands over her.
+  - The Events "10D" sticker touches the lantern at 390x844.
+  - Kon's run is short on 1-1, because the sim puts his spot about a tile from Ruri.
+  - The 1280x720 pounce e2e crop misses the leap. That is a capture gap, not a game bug.
+
+## Batch B (v0.1.61)
+
+### Kaede's visual rework (the owner's defaults)
+Dash afterimages, slash streaks shaped per blade art, and a crisp hit flash: `kaede/lunge-844x390-strip.jpg`, `kaede/cleave-844x390.jpg`, `kaede/crescents-844x390.jpg`, `kaede/storm-844x390.jpg` and `kaede/flash-844x390.jpg` (and 1280x720).
+
+### Yoriko's marionette (the owner's spec)
+Strings from her control bar, then Command, Extend (an arc), Strike (a lilac cut timed to the sim's hit) and Reel with a pendulum settle. The doll retargets or reels home if its target dies.
+- Strips: `yoriko/strip-fixes-844x390.jpg` and `yoriko/strip-fixes-fast-844x390.jpg`.
+- The strike: `batch-b-fix3/yoriko-strike-1x-3x-844x390.jpg`.
+
+### The academy girls' attacks
+Each of the seven has a distinct attack instead of dotted circles, and Marumi's bounces are visible: `academy-fx/*.jpg`. Azami's bites follow the 3D strips: `academy-fx/azami-5-2-0-bite-3d-strips-844x390.jpg`.
+
+### The academy girls' placed props (Blender, `tools/blender/props/`)
+Azami's spike strip, Yuzuha's sentry and Capture Net, Chigusa's vines and beds, Ouka's banners, Wakaba's bottle, and Kinu's heat ring and scissors: `academy-props/*.jpg`.
+
+### Reviews
+- **One look+logic review** at 6a9ecb4b (`batch-b.json`, `batch-b/`) found 3 MEDIUMs:
+  - **Yoriko's dart-like Extend:** fixed in round 1 (`batch-b-fix/`).
+  - **Azami's skewed bites:** fixed in round 1.
+  - **Yoriko's white Strike:** fixed in round 3 (`batch-b-fix2/`, `batch-b-fix3/`).
+- **Lows left for later:**
+  - The doll's strike can be up to about 0.1 s early in rare timing cases, or skipped when an attack lands during a reel.
+  - A one-frame skip ahead when the needle lands early.
+  - The bar bone doesn't animate.
+  - Kaede's ghosts read as a maple smear at phone size.
+  - Ouka's pennant is a little dark.

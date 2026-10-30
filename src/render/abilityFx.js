@@ -2,9 +2,13 @@
 // from the attack-FX work. Called from BattleRenderer.handleEvents for the sim's ability events (spec §6.6):
 //   ability        a cue ring on the caster, then by kind: strike = lines from her to her targets; burst = a blast
 //                  ring; rally = a rising glow on the buffed girls; debuff = a status pulse over the targets;
-//                  deploy = a spawn-in puff; econ = a coin fountain; boost / runner = a ring and puff on her
+//                  deploy = a spawn-in puff; econ = a coin fountain; move = a gust (her reach's edge, a fan of wind
+//                  sweeping out toward the crowd, a white puff on each enemy it reached); boost / runner = a ring and puff on her
 //   abilityWarn    warning rings before delayed shells, a reticle on each target of a delayed strike
-//   abilityShell   a shock ring where a shell lands (the blast itself is the sim's `explode` event)
+//   abilityShell   a shock ring where a shell lands (the blast itself is the sim's `explode` event); Event Horizon's
+//                  second detonation (`horizon`) adds a white ring and a soft glow
+//   abilityHorizon Tenka's LR Event Horizon: a gentle collapsing ring over the pull's area for its 1.5 s (two thin
+//                  rings closing on the centre and a small spark growing there); Reduce motion: one still ring that fades
 //   abilityFizzle  a small puff (a queued hit or shell found nothing)
 //   abilityUnlock  a sparkle on the girl (abilityUpgrade: a brighter one at her tier 5)
 //   lifeRestored   a heart pop over the girl who brought the life back (Noa's First Aid Call; Chigusa's harvest and
@@ -23,7 +27,9 @@ import * as THREE from 'three';
 /** Per-frame budgets (ability events, target lines, rings, puffs / sparkles, Swoop feather strikes). */
 export const ABILITY_FX_CAPS = Object.freeze({ events: 10, lines: 16, rings: 24, puffs: 8, strikes: 8 });
 /** The event types this layer draws. */
-export const ABILITY_FX_EVENTS = new Set(['ability', 'abilityWarn', 'abilityShell', 'abilityFizzle', 'abilityUnlock', 'abilityUpgrade', 'lifeRestored']);
+export const ABILITY_FX_EVENTS = new Set(['ability', 'abilityWarn', 'abilityShell', 'abilityHorizon', 'abilityFizzle', 'abilityUnlock', 'abilityUpgrade', 'lifeRestored']);
+/** Event Horizon's colours: Tenka's coil violet and her cyan halo (src/data/units.js palette), a white core. */
+export const HORIZON_COLORS = Object.freeze({ ring: '#7a5cff', inner: '#9fe8ff', core: '#ffffff' });
 /** Strikes a companion performs (src/render/companions.js): no lines from her while he is drawn. */
 export const COMPANION_STRIKES = new Set(['hana.swoop', 'ruri.moonPounce']);
 /** Strikes drawn as one chain through their targets, in strike order. */
@@ -39,6 +45,12 @@ const WARN = '#ffb703';
 const GOLD = '#ffd84d';
 const COIN = '#ffd43b';
 const HEART = '#ff6b9a';
+/** A move's gust (Backdraft Fan): pale wind over the caster's own colour. */
+const GUST = '#eefaf4';
+/** Glows in a gust's fan, and its half-width (radians) and radius (tiles). */
+const FAN_N = 5;
+const FAN_HALF = 0.7;
+const FAN_R = 1.1;
 const TAU = Math.PI * 2;
 
 /**
@@ -210,6 +222,29 @@ export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, 
     }
   }
 
+  /**
+   * A move's gust from (x, z): FAN_N glows on an arc facing the targets' mean direction (none: east) that sweep outward
+   * and fade (Reduce motion: still on the arc, fading). One puff of budget for the whole fan.
+   */
+  function fan(x, z, pts, color) {
+    if (!can('puffs')) return;
+    let dx = 0;
+    let dz = 0;
+    for (const p of pts) {
+      dx += p.x - x;
+      dz += p.z - z;
+    }
+    const a0 = dx || dz ? Math.atan2(dz, dx) : 0;
+    for (let i = 0; i < FAN_N; i++) {
+      const a = a0 + FAN_HALF * ((2 * i) / (FAN_N - 1) - 1);
+      const c = Math.cos(a);
+      const sn = Math.sin(a);
+      const o = { batch: 'bbA', uv: R.glow, x: x + c * FAN_R, y: 0.55, z: z + sn * FAN_R, life: 0.5, color: i % 2 ? color : GUST, a0: 0.85, a1: 0 };
+      if (rm) fx.spawn({ ...o, s0: 0.7, s1: 0.7 });
+      else fx.spawn({ ...o, vx: c * 3.2, vz: sn * 3.2, drag: 2, s0: 0.5, s1: 0.95 });
+    }
+  }
+
   /** A heart over a girl (a life came back): it rises and grows a little; Reduce motion: still, fading. */
   function heart(x, z, n) {
     if (!can('puffs')) return;
@@ -279,6 +314,18 @@ export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, 
         if (ev.scope === 'map') flash?.(col, 0.15, 2.2);
         else if (ev.radius > 0) ring(tx, tz, ev.radius, 0.5, col, { grow: false });
         break;
+      case 'move': {
+        // a gust: her reach's edge, the fan sweeping toward the crowd, a white puff on each enemy it reached
+        if (ev.radius > 0) ring(tx, tz, ev.radius, 0.5, col, { grow: false });
+        const pts = [];
+        for (const uid of targets) {
+          const p = enemyAt(uid);
+          if (p) pts.push(p);
+        }
+        fan(tx, tz, pts, col);
+        for (const p of pts) puff(p.x, p.y, p.z, GUST, 5);
+        break;
+      }
       case 'deploy':
         puff(ev.x, 0.3, ev.y, '#ffffff', 8);
         ring(ev.x, ev.y, 0.6, 0.45, col);
@@ -303,6 +350,37 @@ export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, 
         puff(tx, 0.3, tz, col, 5);
         break;
     }
+  }
+
+  /**
+   * Event Horizon's pull (abilityHorizon): over its whole time, a thin violet ring closes from the blast's edge to the
+   * centre and a cyan one follows inside it, while a small spark grows at the centre. Gentle: thin rings at half
+   * brightness, no flash, no shake. Reduce motion: the edge ring holds its size and fades; the spark stays still.
+   */
+  function horizon(ev) {
+    const C = HORIZON_COLORS;
+    const r = Math.max(0.6, ev.radius || 0);
+    const life = Math.max(0.3, ev.time || 1.5);
+    // (normal blending, not additive: a violet ring added onto the bright road and lawns would not show)
+    const o = { uv: 'ring', additive: false };
+    if (rm) {
+      if (can('rings')) fx.ring(ev.x, ev.y, r, r, life, C.ring, { ...o, a0: 0.55 });
+      glow(ev.x, 0.4, ev.y, C.inner, 0.5, life);
+      return;
+    }
+    if (can('rings')) fx.ring(ev.x, ev.y, r, 0.15, life, C.ring, { ...o, a0: 0.55 });
+    if (can('rings')) fx.ring(ev.x, ev.y, r * 0.7, 0.1, life * 0.85, C.inner, { ...o, a0: 0.5 });
+    fx.spawn({ batch: 'bbA', uv: R.glow, x: ev.x, y: 0.4, z: ev.y, s0: 0.2, s1: 0.75, life, color: C.inner, a0: 0.25, a1: 0.8 });
+  }
+
+  /** Event Horizon's second detonation: a violet ring out to the blast's edge, a white one inside it, a soft glow. */
+  function horizonBlast(ev) {
+    const C = HORIZON_COLORS;
+    const r = Math.max(0.6, ev.radius || 0);
+    if (can('rings')) fx.ring(ev.x, ev.y, rm ? r : r * 0.3, r, 0.55, C.ring, { uv: 'ring', additive: false, a0: 0.8 });
+    ring(ev.x, ev.y, r * 0.6, 0.45, C.core, { uv: 'ring' });
+    glow(ev.x, 0.45, ev.y, C.ring, r * 0.9, 0.32);
+    if (!rm) shake?.(0.1);
   }
 
   function warn(ev) {
@@ -344,8 +422,12 @@ export function createAbilityFx({ sim, fx, actors = null, colorOf = () => GOLD, 
           const col = colorOf(ev.towerUid) || GOLD;
           ring(ev.x, ev.y, Math.max(0.5, ev.radius || 0), 0.35, col);
           glow(ev.x, 0.35, ev.y, col, Math.max(0.6, ev.radius || 0), 0.22);
+          if (ev.horizon) horizonBlast(ev);
           break;
         }
+        case 'abilityHorizon':
+          horizon(ev);
+          break;
         case 'abilityFizzle': {
           const p = ev.uid >= 0 ? enemyAt(ev.uid) : null;
           const t = girl(ev.towerUid);

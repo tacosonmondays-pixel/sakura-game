@@ -134,10 +134,53 @@ export function createHeroWidget(ctx) {
     lvup.title = `Buy Lv ${shown.level + 1} for ${fmtNum(shown.price, 'money', { round: 'up' })} coins (L)`;
   }
 
+  /**
+   * A road's goal (or start) that the widget would lie over (a phone: Gate Arc 4-6's goal sat under Lv 3 and LV UP):
+   * the widget, and the ability card that opens above it, rise until the gate's marker is clear (--herow-lift on the
+   * battle root), never into the top bar. Checked every 400 ms, so a free camera's pan is followed too.
+   */
+  let liftAt = 0;
+  let lift = 0;
+  function keepGoalsClear() {
+    const r = ctx.renderer;
+    const root = ctx.shell || el.parentElement;
+    if (!r?.worldToScreen || !root || !sim.paths?.length) return;
+    const box = el.getBoundingClientRect();
+    if (!box.width) return;
+    const R = 22; // (a gate marker's half size on screen, and the room around it)
+    const top = box.top + lift;
+    const bottom = box.bottom + lift;
+    let want = 0;
+    for (const pts of sim.paths) {
+      for (const pt of [pts[0], pts[pts.length - 1]]) {
+        if (!pt) continue;
+        const s = r.worldToScreen(pt[0], pt[1], 0);
+        if (!s || s.visible === false || !Number.isFinite(s.clientX)) continue;
+        if (s.clientX + R < box.left || s.clientX - R > box.right || s.clientY + R < top || s.clientY - R > bottom) continue;
+        want = Math.max(want, bottom - (s.clientY - R - 8));
+      }
+    }
+    // (never into the top bar: its real bottom plus an 8 px margin; a phone's HUD with its NEXT row is about 100 px tall,
+    // a wide one 56. Before the HUD is drawn, 64 px under the battle's top)
+    const hudBottom = root.querySelector?.('.bt-hud')?.getBoundingClientRect?.().bottom;
+    const ceiling = hudBottom > 0 ? hudBottom + 8 : (root.getBoundingClientRect?.().top ?? 0) + 64;
+    const max = Math.max(0, top - ceiling);
+    const next = Math.round(Math.min(want, max) / 4) * 4;
+    if (next !== lift) {
+      lift = next;
+      root.style.setProperty('--herow-lift', `${lift}px`);
+    }
+  }
+
   function update() {
     const hero = sim.hero;
     el.hidden = !hero;
     if (!hero) return;
+    const now = performance.now();
+    if (now - liftAt > 400) {
+      liftAt = now;
+      keepGoalsClear();
+    }
     paintPill(hero);
     const badge = hero.level >= (shown?.max ?? 25) ? (hero.mastery > 0 ? `MAX · ${fmtNum(hero.mastery, 'pct')}` : 'MAX') : fmtNum(hero.level, 'level');
     if (badge !== lastBadge) {

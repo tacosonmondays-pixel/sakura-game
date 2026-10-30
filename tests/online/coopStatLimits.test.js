@@ -1,7 +1,7 @@
 // The co-op plausibility clamp (src/online/coop/statLimits.js; gear-awaken spec §9.1, Potential v3
 // §2.2 / §4.7 / §13.2): an honest loadout passes through unchanged, an absurd one is clamped the
 // same way on both clients, `potential` is an integer 1–6 and every unit-stat key has a rule.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { clampUnitStats, clampPlayer, clampStart, UNIT_STAT_LIMITS, LOADOUT_MAX } from '../../src/online/coop/statLimits.js';
 import { createCoopSim, quantize } from '../../src/online/coop/commands.js';
 import { withDetMath } from '../../src/online/coop/detMath.js';
@@ -13,14 +13,22 @@ import { potentialState } from '../../src/systems/potential.js';
 import { addGear, equipGear, rollGear } from '../../src/systems/gear.js';
 import { createRng } from '../../src/core/rng.js';
 import { UNITS } from '../../src/data/units.js';
+import { RESONANCE_FROM_DAY } from '../../src/systems/limitBreak.js';
+import { gameDayStart } from '../../src/core/reset.js';
+
+// (on a day UR Resonance and the LR boost count, so the honest top includes them)
+beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(gameDayStart(RESONANCE_FROM_DAY) + 3600_000); });
+afterAll(() => { vi.useRealTimers(); });
 
 /** Every girl at L85 ★5, gate 5, P6, in strong legendary gear (the honest top of this build). */
-function maxedProfile() {
+function maxedProfile(geared = 'kage') {
   const p = createProfile();
   const rng = createRng(77);
   for (const u of UNITS) {
     p.units[u.id] = { ...(p.units[u.id] || p.units.aoi), level: 85, exp: 0, breakthrough: 10, awaken: 5, ...potentialState(6), gear: { charm: null, ribbon: null, shoes: null } };
   }
+  // [banners G6] every LR unit past Limit Break (UR Resonance × the LR boost)
+  for (const id of ['tenka', 'kohaku_tsubaki']) p.missions.counters[`lr:${id}`] = 1;
   const piece = (slot, main, subs) => {
     const g = rollGear(rng, { slot, rarity: 'legendary' });
     g.main = { stat: main[0], value: main[1], base: main[1] };
@@ -28,9 +36,9 @@ function maxedProfile() {
     g.level = 10;
     return g;
   };
-  equipGear(p, 'kage', addGear(p, piece('charm', ['atkPct', 0.6], [['critChance', 0.3], ['critDmg', 0.9], ['armorPen', 12], ['ratePct', 0.25]])));
-  equipGear(p, 'kage', addGear(p, piece('ribbon', ['critDmg', 1.0], [['atkPct', 0.3], ['critChance', 0.3], ['armorPen', 10], ['ratePct', 0.2]])));
-  equipGear(p, 'kage', addGear(p, piece('shoes', ['ratePct', 0.6], [['atkPct', 0.3], ['costCut', 0.2], ['ultHaste', 0.3], ['rangePct', 0.3]])));
+  equipGear(p, geared, addGear(p, piece('charm', ['atkPct', 0.6], [['critChance', 0.3], ['critDmg', 0.9], ['armorPen', 12], ['ratePct', 0.25]])));
+  equipGear(p, geared, addGear(p, piece('ribbon', ['critDmg', 1.0], [['atkPct', 0.3], ['critChance', 0.3], ['armorPen', 10], ['ratePct', 0.2]])));
+  equipGear(p, geared, addGear(p, piece('shoes', ['ratePct', 0.6], [['atkPct', 0.3], ['costCut', 0.2], ['ultHaste', 0.3], ['rangePct', 0.3]])));
   return p;
 }
 
@@ -41,7 +49,7 @@ describe('the rules', () => {
   });
 
   it("keeps gear's ceilings and adds potential 1–6", () => {
-    expect(UNIT_STAT_LIMITS.damageMul).toMatchObject({ lo: 0, hi: 10 });
+    expect(UNIT_STAT_LIMITS.damageMul).toMatchObject({ lo: 0, hi: 15 });
     expect(UNIT_STAT_LIMITS.rateMul).toMatchObject({ lo: 0, hi: 5 });
     expect(UNIT_STAT_LIMITS.level).toMatchObject({ type: 'int', lo: 1, hi: 99 });
     expect(UNIT_STAT_LIMITS.potential).toMatchObject({ type: 'int', lo: 1, hi: 6 });
@@ -76,6 +84,23 @@ describe('an honest loadout is the identity', () => {
     expect(clampUnitStats({ ...DEFAULT_UNIT_STATS })).toEqual({ ...DEFAULT_UNIT_STATS });
   });
 
+  it('an honest LR Tenka (L85 P6 ★5, Limit Break, the strong gear) passes unchanged, her LR flag (Event Horizon) included, with headroom', () => {
+    const p = maxedProfile('tenka');
+    const s = unitBattleStats(p, 'tenka');
+    expect(s.lr).toBe(true);
+    expect(clampUnitStats(s)).toEqual(s);
+    // her LR form adds no loadout stat (the pull and the second detonation are ability data), so the caps only see
+    // UR Resonance × the LR boost on top of the gear: still well under damageMul 15 and rateMul 5
+    expect(s.damageMul).toBeLessThan(UNIT_STAT_LIMITS.damageMul.hi * 0.8);
+    expect(s.rateMul).toBeLessThan(UNIT_STAT_LIMITS.rateMul.hi * 0.8);
+    // and the same Tenka without Limit Break is lower (the boost is real), also unchanged
+    delete p.missions.counters['lr:tenka'];
+    const ur = unitBattleStats(p, 'tenka');
+    expect(ur.lr).toBe(false);
+    expect(ur.damageMul).toBeLessThan(s.damageMul);
+    expect(clampUnitStats(ur)).toEqual(ur);
+  });
+
   it('a start player passes through unchanged (a partial stats object stays partial, a missing one missing)', () => {
     const player = { slot: 1, uid: 'g', name: 'G', loadout: [{ unitId: 'aoi', stats: { potential: 6 } }, { unitId: 'rei' }], hero: { unitId: 'hikari', stats: unitBattleStats(maxedProfile(), 'hikari') } };
     expect(clampPlayer(player)).toEqual(player);
@@ -86,7 +111,7 @@ describe('a hostile loadout', () => {
   const hostile = { damageMul: 1000, rateMul: -3, rangeMul: Number.NaN, critChance: 5, critMul: 0, armorPen: 1e9, costMul: 0.01, ultHaste: 9, awakenPassive: 'yes', level: 1e9, awaken: 99, breakthrough: -1, potential: 99, rainbow: 3, pierceK: 9999, auraPct: 5, auraRangeMul: 0, dotMul: 'x', club: 'chess', clubN: 7, __proto__x: 1, damage: 5000 };
 
   it('clamps every field to its rule, falls back on non-numbers and drops unknown keys', () => {
-    expect(clampUnitStats(hostile)).toEqual({ damageMul: 10, rateMul: 0, rangeMul: 1, critChance: 0.75, critMul: 1, armorPen: 50, costMul: 0.75, ultHaste: 0.5, awakenPassive: false, level: 99, awaken: 5, breakthrough: 0, potential: 6, rainbow: 3, pierceK: 200, auraPct: 0.3, auraRangeMul: 1, dotMul: 1, club: null, clubN: 3 });
+    expect(clampUnitStats(hostile)).toEqual({ damageMul: 15, rateMul: 0, rangeMul: 1, critChance: 0.75, critMul: 1, armorPen: 50, costMul: 0.75, ultHaste: 0.5, awakenPassive: false, level: 99, awaken: 5, breakthrough: 0, potential: 6, rainbow: 3, pierceK: 200, auraPct: 0.75, auraRangeMul: 1, dotMul: 1, club: null, clubN: 3 });
     expect(clampUnitStats('nope')).toEqual({});
     expect(clampUnitStats([1, 2])).toEqual({});
     expect(clampUnitStats(null)).toBeNull();
@@ -97,7 +122,7 @@ describe('a hostile loadout', () => {
     const ids = UNITS.filter((u) => u.kind === 'tower').map((u) => u.id);
     const p = clampPlayer({ slot: 0, loadout: [null, 'aoi', { stats: {} }, ...ids.map((unitId) => ({ unitId, stats: hostile }))], hero: { stats: hostile } });
     expect(p.loadout.length).toBeLessThanOrEqual(LOADOUT_MAX);
-    expect(p.loadout.every((e) => typeof e.unitId === 'string' && e.stats.damageMul === 10)).toBe(true);
+    expect(p.loadout.every((e) => typeof e.unitId === 'string' && e.stats.damageMul === 15)).toBe(true);
     expect(p.hero).toBeNull();
   });
 
@@ -116,7 +141,7 @@ describe('a hostile loadout', () => {
     expect({ ...start, players: null }).toEqual({ ...raw, players: null });
     const A = createCoopSim(start, { mySlot: 0 });
     const B = createCoopSim(clampStart(JSON.parse(JSON.stringify(raw))), { mySlot: 1 });
-    expect(A.players[1].loadout[0].stats).toMatchObject({ damageMul: 10, level: 99, potential: 6 });
+    expect(A.players[1].loadout[0].stats).toMatchObject({ damageMul: 15, level: 99, potential: 6 });
     let seq = 0;
     const cmd = (pl, k, a = []) => ({ t: 0, p: pl, s: seq++, k, a });
     const spot = withDetMath(() => {
@@ -128,7 +153,7 @@ describe('a hostile loadout', () => {
     });
     for (const c of [A, B]) expect(c.apply(cmd(1, 'place', ['rei', ...spot])).ok).toBe(true);
     const rei = A.sim.towers[0];
-    expect(rei.unitStats.damageMul).toBe(10);
+    expect(rei.unitStats.damageMul).toBe(15);
     expect(rei.unitStats.potential).toBe(6);
     expect(Number.isFinite(rei.stats.damage) && Number.isFinite(rei.stats.range)).toBe(true);
     expect(A.hash()).toBe(B.hash());
