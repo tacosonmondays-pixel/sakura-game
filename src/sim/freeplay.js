@@ -192,11 +192,30 @@ export function freeplayEliteHp(stage, wave) {
 }
 
 /**
- * HP factor (× the wave's ramp) of a boss-wave enemy of rank `rank`: the finale / calamity's own,
- * the fives' bossHpSmall band, the early tens' bossHpEarly, else bossHp by rank.
+ * The boss bands' share of the wave's ramp (1 before the first band): Π over waves k from the first band's wave to `wave`
+ * of the boss growth ÷ the tier's growth at k (+ − × ÷ only, in wave order: the same bits on every engine).
  */
-export function freeplayBossFactor(stage, wave, bossWave, rank) {
+export function freeplayBossDamp(stage, wave) {
   const fp = stage.freeplay;
+  const bb = fp.bossBands;
+  if (!bb || !bb.length) return 1;
+  let m = 1;
+  for (let k = Math.max(stage.waves + 1, bb[0][0]); k <= wave; k++) m *= stepTable(bb, k) / stepTable(fp.hpBands, k);
+  return m;
+}
+
+/**
+ * HP factor (× the wave's ramp) of boss-wave enemy `id` of rank `rank`: the finale / calamity's own,
+ * the fives' bossHpSmall band, the early tens' bossHpEarly, else bossHp by rank; × the boss bands' damp
+ * (freeplayBossDamp) and, off a boss plan, its own bossHpOf factor.
+ */
+export function freeplayBossFactor(stage, wave, bossWave, rank, id = null) {
+  const fp = stage.freeplay;
+  const own = (!bossWave?.plan && id && fp.bossHpOf?.[id]) || 1;
+  return bossRankFactor(fp, wave, bossWave, rank) * freeplayBossDamp(stage, wave) * own;
+}
+
+function bossRankFactor(fp, wave, bossWave, rank) {
   if (rank === 'finale') return fp.finale.hp;
   if (rank === 'calamity') return fp.calamity.hp;
   const L = wave + fp.bossShift;
@@ -434,7 +453,7 @@ export function generateFreeplayWave(stage, wave, lookupEnemy, { pathCount = 1, 
       if (!def) continue;
       // (a boss-plan boss is a boss or a titan by its pool, never the finale's rank: §20.2)
       const rank = bossWave.plan ? (fp.titans.includes(id) ? 'titan' : def.tier === 'miniboss' ? 'miniboss' : 'boss') : rankOf(fp, id, def);
-      const factor = freeplayBossFactor(stage, wave, bossWave, rank);
+      const factor = freeplayBossFactor(stage, wave, bossWave, rank, id);
       bossHpMul.push(ramp * factor);
       const leak = fp.leak[rank] ?? null;
       groups.push({ enemyId: id, def, count: 1, spacing: 1, start: bt, fixed: true, path: longest, hpMul: ramp * factor, speedMul: 1, leak, rank });

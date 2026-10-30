@@ -92,6 +92,7 @@ export function createEnemy(def, o) {
     silenced: false,
     grounded: false, // airborne but knocked down by a 'ground' status (ground-only attacks can hit)
     pushLock: 0, // seconds until knockback / gather may move it again (PUSH_LOCK)
+    tie: null, // the Spirit Tether group it is tied in (attack shapes S4, src/sim/links.js), null when untied
     facing: 0,
     flash: 0,
     traits,
@@ -490,6 +491,9 @@ export function updateEnemy(sim, e, dt) {
   const st = e.statuses;
   if (st.burn) sim._dot(e, 'burn', dotAmount(e, st.burn, dt), st.burn);
   if (!e.dead && st.poison) sim._dot(e, 'poison', dotAmount(e, st.poison, dt), st.poison);
+  // Midori's Spore Mist (attack shapes S5b): its own key, poison's damage rules; no siphon or regen block, never spread
+  // or detonated (those read `poison` only), so no other girl's numbers see it
+  if (!e.dead && st.spore) sim._dot(e, 'poison', dotAmount(e, st.spore, dt), st.spore);
   if (!e.dead && st.hex) sim._hex(e, st.hex, dt);
   if (e.dead) return;
   tickStatusDurations(e, dt);

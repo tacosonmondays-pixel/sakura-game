@@ -155,6 +155,85 @@ land on the same wave. Live (`fddf01c`) numbers are the research runs.
   owner's ×1.6 stays. Two bots with two wallets reach the solo wave (P1's Shiro and Kage hold their own final
   tiers: 23 in total).
 
+## Bosses past 150 (Oct 30)
+
+Owner: "balance testing because certain bosses on nightmare past 100-200 are impossible to kill". **Which mode:** Freeplay
+played on the campaign's **Nightmare** difficulty (stage prep: "Nightmare · 1 life: the first leak ends freeplay"; HP
+×1.75), waves 100–200, on Tempest and Crimson Moon. Freeplay has no tier named Nightmare, the campaign's Nightmare
+stages end at their last wave (12–30), and Tryout's Extended Day stops at 100; a Freeplay room or prep pairs a tier with
+a difficulty, and on Nightmare the one life makes the first boss that walks off the end of the run.
+
+**How it was measured** (all real coins, Build A2 of `tools/capBot.mjs` with `--profile full`: every girl fully maxed,
+L85 ★5, 10 gates, P6, UR gear, UR Resonance). `tools/bossCap.mjs`: the board the bot built by a wave, then each boss
+alone (its phases, shell, regen, summons and split; no escorts, no swarm) walking the longest lane, HP bisected to the
+most the board kills. `capBot --lives 1000000`: where bosses, elites and the swarm first get through.
+
+**Before.** The full 33-girl board's capacity stops growing at ~175: a lone Gloom Regent 0.40–0.54B, a Grave Lych
+0.49–0.66B (both phase), a Hyakki Daimyo 0.84–0.98B, the Iron Colossus and Foundry Titan 0.77–1.25B, the Ashwing
+Matriarch 1.15–1.53B, each in 55–100 s on the road (the board deals 5–20M a second to a boss). On Tempest and Crimson
+Moon the boss HP from 151 kept the swarm's 6% a wave: on 4-5 / 8-5 Nightmare a Regent was 0.6–1.95B at 180–190, a Lych
+0.7–1.3B at 175–195, the Matriarch 3.2–5.8B at 200 (×0.2–0.35 of what the board kills), and every boss past 200 2–24B.
+Fully maxed runs fell at 180–190 to the Gloom Regent and the Daimyo, while the swarm first got through at 189–191 (Blossom:
+bosses 210–220, the swarm 215–218).
+
+**Both ways were measured.** Girls: the board's capacity scales with its boss damage, so killing the Crimson Moon
+Matriarch and the 190 Regent on 8-5 Nightmare with a 1.3× margin needs about ×6 boss damage on every girl; that moves
+every campaign and event boss, the Tryout ceiling gate and the round-5 band with it. Enemy HP: only freeplay's boss
+waves move. **Chosen: enemy HP** (no girl lowered or raised for this).
+
+**The change** (`src/data/freeplay.js`, `src/sim/freeplay.js` freeplayBossDamp):
+- `bossBands`: every boss-wave enemy (minibosses to the Matriarch and the Eclipse Wyrm) grows by its own ‰ a wave
+  instead of the tier's: Tempest 2.5% and Crimson Moon 2.2% from 151; every tier 5% from 201 (the swarm 10%). Blossom
+  keeps its bosses to 200 (the owner's 70M+ at 166+; they were killable on Nightmare). Blossom < Tempest < Crimson Moon
+  at every boss wave.
+- `bossHpOf`: the Gloom Regent ×0.5 (it phases half the time and splits into two phasing Lychs: a board kills about half
+  the HP it kills of any other boss). Not on a boss plan (Extended Day).
+
+**After** (Nightmare; the boss's HP on its waves in the band ÷ what the board kills; ≥ 1 = killable alone):
+
+| stage, tier | 175–199 before → after | 200 Matriarch | 200–224 before → after |
+|---|---|---|---|
+| 4-5 Tempest | Lych ×0.69 → 3.1, Regent ×0.73 → 4.0, Daimyo ×0.92 → 3.6 | ×0.35 → 2.1 | ×0.08–0.59 → 1.07–4.5 |
+| 4-5 Crimson | Lych ×0.50 → 2.5, Regent ×0.51 → 2.7, Daimyo ×0.62 → 2.7 | ×0.25 → 1.6 | ×0.06–0.11 → 0.84–1.8 |
+| 8-5 Tempest | Lych ×0.62 → 2.8, Regent ×0.33 → 2.5, Foundry ×1.05 → 2.9 | ×0.31 → 1.7 | ×0.03–0.45 → 0.80–3.1 |
+| 8-5 Crimson | Lych ×0.43 → 2.2, Regent ×0.22 → 1.9, Foundry ×0.66 → 2.0 | ×0.21 → 1.3 | ×0.02–0.08 → 0.59–1.2 |
+| 4-5 / 8-5 Blossom | unchanged (×4.2–19) | ×2.1–2.5 (unchanged) | Regent ×0.18–0.64 → 0.94–2.0, Lych ×0.73–0.83 → 1.5–1.7 |
+
+Fully maxed real-coin runs (A2): every Nightmare run now ends to the swarm (elites), not to a boss: 4-5 Tempest 180 →
+190, 4-5 Crimson 180 → 189, 8-5 Tempest 190 → 191, 8-5 Crimson 180 → 191, 1-5 Crimson 190 → 207, Blossom 210–220 → 212–225; on Normal the
+bosses at 190–225 no longer end the runs either (4-5 Tempest 200 → 205, 8-5 Tempest 200 → 208, 8-5 Crimson 200 → 206).
+
+With lives to spare (`capBot --lives 1000000`, Nightmare), where each kind first gets through: before, bosses first
+(180–220) and the swarm 1–11 waves later; after, the swarm first (elites 189–225) and bosses 210–225, 5–25 waves later.
+
+**The endgame gate:** the OVERTIME section below (Oct 30) retunes waves 201+ so the Eclipse Wyrm at 250 is reached on
+Blossom.
+
+## OVERTIME and the Eclipse Wyrm (Oct 30)
+
+Owner: "Eclipse Wyrm doesn't show up" (a diagnosis on fix/wyrm-ribbon: it spawns fine; nobody reaches wave 250), and
+the wave-250 boss should be "not too easy but not impossible". Before: every tier grew the swarm 10% a wave from 201, so a
+fully maxed team fell at 205–235 and the first Wyrm's pool was ~246× the wave-200 Matriarch's on live (~24× with round 5's
+boss bands). Enemies get easier; nobody is lowered.
+
+- `hpBands` from 201: Blossom 3.5% a wave (was 10%), Tempest 6%, Crimson Moon 7%. `bossBands` from 201: Blossom 1.8%,
+  Tempest 4%, Crimson Moon 4.5% (were 5%). The Wyrm stays at 250 (`calamity` unchanged).
+- The Wyrm at 250 (Normal): 4-5 1.20B, 8-5 1.60B, 1-5 0.59B on Blossom (Tempest 3.9–5.1B, Crimson Moon 6.1–7.8B); a full
+  board kills 1.41B (4-5, 8-5) to 2.39B (1-5) of a lone Wyrm: ×1.18 / ×0.89 / ×4.05. On Nightmare ×0.53 / ×0.37 / ×2.05.
+- `tests/sim/freeplayWyrmReach.test.js` (from fix/wyrm-ribbon): its reproduction is a plain `it()` now: on Blossom the
+  Wyrm with the Matriarch it releases is at most 5.5× the wave-200 Matriarch, Tempest and Crimson Moon above that.
+
+Fully maxed Build A2 (`capBot --profile full`), where the run ends (before this → now):
+
+| stage | Blossom Normal | Blossom Nightmare | Tempest Normal / Nightmare | Crimson Moon Normal / Nightmare |
+|---|---|---|---|---|
+| 1-5 | 235 → **260+** (the Wyrm killed) | 225 → **260+** | 214 → 224 / 210 → 214 | 214 → 215 / 207 → 210 |
+| 4-5 | 224 → **250** (falls at the Wyrm's wave, to its escorts) | 212 → 238 | 205 → 210 / 190 → 190 | 204 → 205 / 189 → 189 |
+| 8-5 | 225 → **250** (the Wyrm walks through) | 217 → 241 | 208 → 213 / 191 → 197 | 206 → 208 / 191 → 191 |
+
+Today's best non-LR team reaches the Wyrm on Blossom and fights it: an easy stage kills it, the harder stages lose to it
+by a little (the room LR gear and better play fill). Tempest and Crimson Moon end 10–60 waves earlier.
+
 ## Rewards (never above normal play per minute)
 
 `src/systems/freeplayRewards.js`, the co-op rule (`src/online/coop/rewards.js`) applied to solo:

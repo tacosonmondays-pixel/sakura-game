@@ -52,6 +52,7 @@ import { abilityChargePerTick, firstBellCharge } from './gearRules.js';
 import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL, PRISM_SHARDS, KNOCKBACK_RESIST, PUSH_LOCK, WELL_PULL_REACH } from './constants.js';
 import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs, chainJump, chainNext, hasRoamingDrones } from './towers.js';
 import { isEligible } from './combat.js';
+import { allocDealt } from './shapes.js';
 import { isCaster, syncStatusFlags, placeOnPath } from './enemies.js';
 import { spikeRain } from './strips.js';
 import { emergencyDeploy } from './sentries.js';
@@ -714,7 +715,8 @@ function topDamageGirl(sim, t) {
     const dx = o.x - t.x;
     const dy = o.y - t.y;
     if (dx * dx + dy * dy > r2) continue;
-    if (!best || o.damageDealt > best.damageDealt || (o.damageDealt === best.damageDealt && o.uid < best.uid)) best = o;
+    // (attack shapes S5 rule 6: ranked without her shape damage, src/sim/buffs.js allocDealt)
+    if (!best || allocDealt(o) > allocDealt(best) || (allocDealt(o) === allocDealt(best) && o.uid < best.uid)) best = o;
   }
   return best;
 }

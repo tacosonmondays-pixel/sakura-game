@@ -776,7 +776,8 @@ describe('hit-stop is display only: the battle never slows, pauses or skips', ()
   it('a battle with a freeze on every hit it can get plays exactly like one without', () => {
     const plan = autoPlan('1-1', ['aoi']).filter((a) => a.action === 'place').slice(0, 3);
     const battle = (freeze) => {
-      const sim = new Sim({ stageId: '1-1', seed: 11, loadout: [{ unitId: 'aoi' }], options: { autoStart: true } });
+      // power-neutral (balance round 5's row would one-shot 1-1's enemies and leave too few hits to hold on)
+      const sim = new Sim({ stageId: '1-1', seed: 11, loadout: [{ unitId: 'aoi', stats: { powerOff: true } }], options: { autoStart: true } });
       for (const a of plan) sim.placeTower(a.unitId, a.x, a.y);
       sim.startNextWave();
       const clock = new VisualClock();

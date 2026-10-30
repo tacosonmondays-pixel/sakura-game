@@ -199,6 +199,13 @@ describe('limited buffs and aura pen / crit (ModSet vocabulary)', () => {
 // Potential (src/data/potential.js): P1 / absent is bit-identical to the build before Potential,
 // and each kind of step lands where the spec says (docs/specs/POTENTIAL.md v3 §5, §13.2).
 import { UNITS as REAL_UNITS, UNIT_MAP as REAL } from '../../src/data/units.js';
+import { POWER } from '../../src/data/balance.js';
+
+// balance round 5 (src/data/balance.js): her damage row, and `buff` on the bonus part of an aura
+const pdmg = (id) => POWER[id]?.dmg ?? 1;
+const pbuff = (id) => POWER[id]?.buff ?? 1;
+const grow = (v, id) => 1 + (v - 1) * pbuff(id);
+const ungrow = (v, id) => 1 + (v - 1) / pbuff(id);
 
 describe('Potential in resolveStats', () => {
   test('P1 and no potential: every girl × tiers × hero level × stats hashes as before Potential', () => {
@@ -232,7 +239,24 @@ describe('Potential in resolveStats', () => {
     // now also widens an aura's radius; nothing else in these resolutions moved.
     // '456:055ce472' before Kaede's AoE rework (her `blade` block and new tiers, Crimson Eternity ×1.6 vs
     // bosses); every other girl's resolutions are bit-identical (checked with Kaede left out, P1 and P6)
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:bd28cc90');
+    // '456:bd28cc90' before the attack shapes S1 (Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's Firefly
+    // Halo: new tier data on one path each); with those three left out the 384 others hash 8cb286a4 before and after
+    // '456:be9bef3b' before the attack shapes S2 (Akane's Hearth Stream, Umeko's Searchlight Sweep: new tier data on
+    // one path each); with those two left out the 408 others hash 4158a051 before and after ('456:f509ac67' before the
+    // review dropped Inferno Queen's unused splash)
+    // '456:77d05324' before the attack shapes S3 (Yuki's Rising Spikes: new tier data on her Frostbite path; Chigusa and
+    // Kanna are not pinned here); with Yuki left out the 432 others hash 05819da7 before and after
+    // balance round 5 on top (src/data/balance.js: rows and hero curves; its round-by-round hashes on feature/balance-r5);
+    // '456:23908890' before Umeko ×1.10 and Hotaru ×1.04 (Oct 30: the ability bench's pinned column, no build below live);
+    // '456:2d2bdb38' before Hotaru ×1.06 and Momo ×1.06 (the final review's no-support sweep); '456:4513c1a5' before
+    // Momo's Coin Wheel toss coins went ×0.98 → ×1 (her 2-0-4 alone on a held boss under live on some seeds)
+    // '456:19f2bb53' before the attack shapes S5a (Miko's Charm Wheel, Rei's Crescent Return, Suzu's Bell Toll: a shape block
+    // on two tiers of one path each, their live numbers unchanged); with those three left out the 384 others hash 70150afc
+    // before and after; '456:2f6a4fcb' before S5b (Midori's Spore Mist, Raika's Static Web, Luna's Moonbeam Sweep); with all six
+    // S5 girls left out the 312 others hash 83e10fae before S5 and after
+    // (merged with balance round 5's 96c3547b: '456:9150ad57' there, Akane's Inferno Queen stream half 45 → 55 steps, 67.5° → 82.5° per side; with
+    // the six S5 girls left out the 312 others hash a49bafea on 96c3547b and on the merge)
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:f6e6e8c7');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders
@@ -290,7 +314,7 @@ describe('Potential in resolveStats', () => {
 
   test('Potential multiplies on top of level and gear (one product with damageMul)', () => {
     const s = resolveStats(REAL.aoi, { unitStats: { damageMul: 1.5, potential: 2 } });
-    expect(s.damage).toBeCloseTo(REAL.aoi.base.damage * 1.5 * 1.04, 12);
+    expect(s.damage).toBeCloseTo(REAL.aoi.base.damage * 1.5 * 1.04 * pdmg('aoi'), 12);
   });
 
   test('Chika P6: drones +1, 0.3 tiles more reach, damage and speed from her track, overclock merged, armor crack, +1 linked girl', () => {
@@ -330,15 +354,16 @@ describe('Potential in resolveStats', () => {
   test('auras: Miko ×1.03⁵ damage, +1 pen, 0.4 tiles wider, enemy Brittle; Umeko tier-0 speed aura 1 → 1.03⁵, wider, pen and crit', () => {
     const m1 = resolveStats(REAL.miko, { unitStats: { potential: 1 } }).aura;
     const m6 = resolveStats(REAL.miko, { unitStats: { potential: 6 } }).aura;
-    expect(m6.dmgMul).toBeCloseTo(m1.dmgMul * 1.03 ** 5, 12);
+    expect(m6.dmgMul).toBeCloseTo(grow(ungrow(m1.dmgMul, 'miko') * 1.03 ** 5, 'miko'), 12);
     expect(m6.range).toBeCloseTo(m1.range + 0.4, 12);
-    expect(m6.armorPen).toBe(m1.armorPen + 1);
-    expect(m6.foeVuln).toBe(0.06);
+    expect(m6.armorPen).toBeCloseTo(m1.armorPen + 1 * pbuff('miko'), 12);
+    expect(m6.foeVuln).toBeCloseTo(0.06 * pbuff('miko'), 12);
     expect(resolveStats(REAL.umeko, { unitStats: { potential: 1 } }).aura.rateMul).toBe(1);
     const u6 = resolveStats(REAL.umeko, { unitStats: { potential: 6 } }).aura;
-    expect(u6.rateMul).toBeCloseTo(1.03 ** 5, 12);
+    expect(u6.rateMul).toBeCloseTo(grow(1.03 ** 5, 'umeko'), 12);
     expect(u6.range).toBeCloseTo(resolveStats(REAL.umeko).aura.range + 0.7, 12);
-    expect([u6.armorPen, u6.critChance]).toEqual([1, 0.06]);
+    expect(u6.armorPen).toBeCloseTo(1 * pbuff('umeko'), 12);
+    expect(u6.critChance).toBeCloseTo(0.06 * pbuff('umeko'), 12);
   });
 
   test('Hotaru: holy ×1.2 vs spectral, 1 more target, a firefly aura; Kaede: kept focus, +2 % focus, +30 points cap, bosses ×1.2; heroes\' ultimates', () => {
@@ -346,7 +371,7 @@ describe('Potential in resolveStats', () => {
     expect(d('hotaru', 6, (s) => s.classMul)).toEqual({ spectral: 1.2 });
     expect(d('hotaru', 6, (s) => s.maxTargets) - d('hotaru', 2, (s) => s.maxTargets)).toBe(1);
     expect(d('hotaru', 6, (s) => s.aura)).toMatchObject({ range: 2.6 });
-    expect(d('hotaru', 6, (s) => s.aura.dmgMul)).toBeCloseTo(1.06 * 1.06, 12);
+    expect(d('hotaru', 6, (s) => s.aura.dmgMul)).toBeCloseTo(grow(1.06 * 1.06, 'hotaru'), 12);
     expect(d('kaede', 6, (s) => s.keepRamp)).toBe(0.5);
     expect(d('kaede', 6, (s) => s.ramp.per) - d('kaede', 1, (s) => s.ramp.per)).toBeCloseTo(0.02, 12);
     expect(d('kaede', 6, (s) => s.ramp.max) - d('kaede', 1, (s) => s.ramp.max)).toBeCloseTo(0.3, 12);

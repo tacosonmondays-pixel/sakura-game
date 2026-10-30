@@ -1530,12 +1530,17 @@ point contract: in 'prep' / 'between' there are no enemies, statuses, shots or a
 random draw happens; `_step` starts auto-waves through `this.startNextWave()` (the save wraps it on
 the instance). See docs/BATTLE_SAVE.md.
 
-**Kohaku & Tsubaki's long beam** (`src/sim/duo.js`, docs/specs/DUO_LR.md §6): `duo.edge` (normDuo, default 0; in
-DUO_MAX) set at Grand Spectrum, or `unitStats.lr === true`, gives her `beamSpec` `edge: true`, `nearPierce` (her own
-pierce, kept inside her reach) and `pierce = PRISM_EDGE_PIERCE`. A held beam still locks onto an enemy within her reach;
-its line runs `beamLength(sim, t, spec, e)` = max(range, `edgeReach(...)`) (the first map edge along her aim; division
-and one Math.sqrt, no trig). Enemies whose body is off the old reach segment take the tick × `PRISM_EDGE_MUL`. The LR
-form also multiplies her damage (shells, shards, beam) × `DUO_LR_MUL`. The beam spec carries `bossMul`. No new state.
+**Kohaku & Tsubaki's long beam** (`src/sim/duo.js`, docs/specs/DUO_LR.md §6–§7): `duo.edge` (normDuo, default 0; in
+DUO_MAX) set from Prism Corridor tier 3, or `unitStats.lr === true`, gives her `beamSpec` `edge: true`, `nearPierce` (her
+own pierce), `pierce = PRISM_EDGE_PIERCE` and `edgeMul` (`PRISM_EDGE_MUL`, `PRISM_EDGE_MUL_LR` in her LR form). Her
+beams lock on within her reach (her target mode); a long beam's beams left free lock on anywhere on the map (the same
+mode, `selectTargetsInto` with an Infinity reach). Each line runs edge to edge through her prism and her enemy:
+`beamLength(sim, t, spec, e)` = max(range, distance, `edgeReach(...)`) ahead and `beamBack(sim, t, spec, e)` =
+`edgeReach` behind (division and one Math.sqrt, no trig; `linePierceInto(..., back)` puts her enemy first, then line
+order). Her enemy and the enemies on her short beam's segment (to her reach, up to `nearPierce`) take the full tick;
+everyone else on the line the tick × `edgeMul`. The LR form also multiplies her damage (shells, shards, beam) ×
+`DUO_LR_MUL`, and while she is LR her `LR_POWER` row (`src/data/balance.js` `lrRowFor`, folded in by `powerFor(..., { lr,
+tiers })`: `dmg` and `boss`, × a `t5` row for each of her paths at tier 5) multiplies her damage (the duo and Tenka). The beam spec carries `bossMul`. No new state.
 
 Damage pipeline (in order): tunnel/veil/phasing/air eligibility → type multiplier → element ward (×0.5) →
 soak bonus → mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
@@ -1570,7 +1575,7 @@ damage, rate ×, range, burst, kits, nets, netBudget, netElite, netBoss), `hub` 
 new value, strongest wins — radius, costCut, sellMul, freeTiers, killBounty, cdCut, rateMul, rangeMul,
 dmgMul, typeFloor, banners, bannerRange, bannerReach; flags detection, airGrant, cleanse; radiusAdd and
 cutAdd add on top; her `range` is set to the radius), `vine` (Chigusa: every, hold, dps, beds, bedDmg,
-bedTtl, bloom, bloomPer, bloomIdle, lives, livesCap; numbers add), `ball` (Marumi: travel, speed, through,
+bedTtl, bloom, bloomPer, bloomIdle, lives, livesCap, and Bramble Road's len, grow, life, slow, lash, cap, max; numbers add), `ball` (Marumi: travel, speed, through,
 lanes, pins, pinDmg, pinPierce, sticky, stickyStack, stickyTime add; hook, lob, pushBig OR), `blade` (Kaede's
 blade arts, src/sim/towers.js bladeArts: every, radius, share, targets; crescents, cLen, cWidth, cShare, cTargets;
 storm, sShare, sTargets; wave, wWidth, wShare, wTargets; maple, mShare, mTargets add, shareMul ×; `capMax`, her
@@ -1582,7 +1587,7 @@ immune; `isHeld`).
 
 ```js
 strips.js:   roadSpots, addStrip, layStrip, stripStep, spikeRain, stripTick, endStripWave   // traps with strip: true
-rings.js:    ringDir (240-step DET_MATH table), spawnStraight, attackRing, ringTick, scissorPos, endRingWave
+rings.js:    ringDir (= dirs.js dir), spawnStraight (+ scale), straightRoom, attackRing, ringTick, scissorPos, endRingWave
 drinks.js:   drinkTarget, hydrate, useDrink, throwDrink, drinkTick, endDrinkWave, clearDrinksFrom  // t.hydrated
 sentries.js: edgeSpots, addSentry, sentryType, sentrySpots, sentryTick, emergencyDeploy, endSentryWave // t.sentries, t.nets
 balls.js:    addBall, rollBall, ballTick, endBallWave                        // t.balls [{ uid, pathIndex, dist, left, through, hit, stuck }]
@@ -1596,7 +1601,8 @@ balls.js:    addBall, rollBall, ballTick, endBallWave                        // 
   caster's uid: her own gusts' / gather's locks never stop her ult; a moved one takes PUSH_LOCK[tier] with
   pushLockBy −1) and the freeplay budget e.kbLeft apply; then the statuses (ground). e.pushLockBy: the uid of the girl
   whose hit set the lock (Sim._onHitEffects, _gather), −1 after a move's push; absent until a lock was set.
-vines.js:    vineTarget, castVine, addBed, onVineKill, vineTick, endVineWave   // t.vineCd, t.vineHold, t.beds, t.bloomT/bloomIdle
+vines.js:    vineSpot, rootVine, vineGrown, vineObjects, addBed, onVineKill, vineTick, endVineWave   // t.vineCd (steps), t.vines, t.beds, t.bloomT/bloomIdle
+  Bramble Road (attack shapes S3, below): vineTick roots her vines on their timer, vineObjects (before her sabotage check) ages them
   Bloom Rush multiplies her cooldown rate in updateTower; thorn beds BEDS_PER_GIRL 6 / BEDS_PER_SIM 40
   (oldest first); harvest lives at the wave clear, sim.stats.harvestLives (absent until given)
   abilities.js debuff: pick 'ground' (non-boss walkers, lead first), dmgMul (a hit each), reachMul
@@ -1630,6 +1636,259 @@ Caps (constants.js): ROAD_OBJECTS 80/160, STRAIGHT 60/200/400, SENTRIES 24/40 pe
 Battle save: carried Sticky Tar strips in `tr` (+ hits, ttl), `sc` Spread cursor, `rg` ring turn,
 `nt` nets, `bn` Ouka's banners (replaces `am` for her); everything else of theirs ends at the wave clear
 (UNIT_GAPS §7.3).
+
+### Attack shapes S1 "Wheels" (`docs/specs/ATTACK_SHAPES.md` §4, §5.1, §5.2, §5.5, addendum; branch `feature/attack-shapes`)
+
+```js
+dirs.js:   DIR_X, DIR_Y (Float64Array[RING_DIRS], k 0 = +y, clockwise, built once with DET_MATH), wrapDir(k), dir(k) -> [x, y],
+           nearestDir(dx, dy) -> k (arg-max dot product, ties to the lower index; (0,0) -> 0; replaces atan2 for aiming),
+           turnToward(k, kTarget, maxSteps) (the short way round; a half turn goes clockwise)
+shapes.js: hitRadius(e) (moved from towers.js, which re-exports it), inDisc(cx, cy, r, ex, ey, hr), onLine(ex, ey, dx, dy, len, halfWidth, hr)
+wheels.js: attackWheel(sim, t, spec, targets, extraPierce) // behaviour 'wheel' (Blossom Wheel)
+           attackSpin(sim, t, spec, extraPierce)           // behaviour 'spin'  (Pinwheel Stream), an attack at her own rate
+           haloPos(t, j, n, step, reach), wheelTick(sim, t) (Petal Halo, kit `halo`, from updateTower), endWheelWave(sim)
+```
+Stats blocks (`mods.js` SHAPE_NORM), unlike the kits above created by the first ModSet that names them (a path that turns
+into a shape); counts add, the rest is stated per tier (replaced): `wheel { spokes +, lead, mul }`, `spin { arms +, mul, fold,
+turn (SPIN_TURN), lock (SPIN_LOCK) }`, `halo { pieces +, reach +, mul }`. Behaviours `wheel`, `spin` (tier 4+, like every
+transformation). Shots are straight projectiles (spawnStraight, `p.straight`) with `p.scale` = sim._hit's scale (absent = 1;
+projectileStep passes `p.scale ?? 1`), under STRAIGHT_PER_GIRL/PLAYER/SIM (oldest first), ended by endRingWave.
+- wheel: her toss coins, one per projectile at her targets in turn (selectTargets by her target mode; a lone target takes them all),
+  her pierce (+ gear Pierce) × `lead`; then spokes 1…spokes−1 at k0 + floor(i × 240 / spokes) (k0 = nearestDir to her first
+  target), pierce 1 × `mul` (a dense crowd cannot multiply them); all fly her range; event `attack { towerUid, targetUid, kind: 'wheel', k, spokes, leads }`.
+- spin (an attack at her rate): one eligible enemy in range → one shot along k = turnToward(k, nearestDir(…), SPIN_FOLD_TURN)
+  carrying projectiles × (1 + projScale) × `fold`; more → one shot per arm at k + floor(a × 240 / arms) carrying that × `mul` /
+  arms, then k += `turn` (`lock`, 0 by default: the arms stay while one has an enemy onLine within SPIN_HALF_WIDTH); gear
+  Pierce is asked only when she shoots; `t.spinK` (integer); event `attack { …, kind: 'spin', k, arms }`.
+- halo: piece j at dir(step × HALO_STEPS + floor(j × 240 / n)) × (HALO_REACH + reach) from her spot; cuts what inDisc(HALO_RADIUS)
+  touches for damage × rate × `mul` with `t.haloSpec` (her eff without statuses, procStatus, mark, silence, reveal, knockback,
+  gather, crits); per piece a flat [uid, step, …] memory in `t.haloHits` (≤ HALO_HITS pairs, oldest dropped, gap HALO_GAP steps).
+- `t.spinK` and `t.haloHits` end at the wave clear (null); `hashSim` folds them only while present; battle saves carry none.
+- Renderer: straight shots draw as her projectile kind; halo pieces from sim state each frame (`actors.js`, a plain glow).
+- Units (one path each, the rest of each girl unchanged): Momo Encore Toss T4-5 (Coin Wheel: 2 / 4 toss coins + a 12 / 16-spoke wheel), Kage Storm of
+  Steel T5 (Blade Cyclone, 4 arms), Hotaru Lantern Light T3-5 (Firefly Halo 4 / 6 / 8, her pulse × 0.95).
+- Constants (appended block): WHEEL_SPEED, SPIN_TURN, SPIN_LOCK, SPIN_HALF_WIDTH, SPIN_SPEED, SPIN_FOLD_TURN, HALO_STEPS,
+  HALO_REACH, HALO_RADIUS, HALO_GAP, HALO_HITS, HALO_MAX.
+
+### Attack shapes S2 "Held" (`docs/specs/ATTACK_SHAPES.md` §4.1-4.4, §5.3, §5.9, addendum A7; branch `feature/attack-held`)
+
+```js
+dirs.js:    COS2 (Float64Array[COS2_MAX + 1], cos² of h table steps, built once with DET_MATH; COS2[COS2_MAX] = 0)
+shapes.js:  inCone(ex, ey, k, h, L, hr) (d² ≤ (L + hr)², and d² ≤ hr² or dot > 0 with dot² ≥ COS2[h] · d²),
+            nearSegment(px, py, ax, ay, bx, by, halfWidth, hr) (segDistSq ≤ (halfWidth + hr)²)
+channel.js: chOpen(t, uid, k), chShare(rate, steps) = rate × steps × STEP, chRamp(ramp, rate, lock), chCadence(lock, every),
+            chEnemy(sim, uid), chKeeps(e, x, y, spec), chLock(t, e, keeps, find, emit), chRecent(list, uid, at, gap), chRemember(list, uid, at)
+held.js:    attackHeld(sim, t, spec, h, { src, trick, echo })  // behaviours 'stream' / 'sweep': a counted attack at her rate
+            heldTick(sim, t, h) (every step after her attack loop, from updateTower), heldOff(sim, t), heldDps(t, e, perTarget),
+            swingOffset(ph, arc), sweepPass(w), streamFalloff(d2, L), STREAM_KINDS, endHeldWave(sim)
+```
+- `t.ch = { uid, k, lock, tick, grace, src, trick, px, c, ph, pass, n, hits }`, integers only (hits: flat [uid, step or pass] pairs, ≤ CH_HITS).
+  Opened by her first counted attack with an enemy; kept while the enemy is alive, eligible and in range, else the next by her
+  target mode (a switch: lock 0), else CH_GRACE steps of grace (still ticking where it aims), then `t.ch = null`. Ends at the wave
+  clear (endHeldWave), when she is sabotaged or repositioning (heldOff), or when she is sold; `hashSim` folds it only while open;
+  battle saves carry none (`ch: 'calm'`). Events: `channel { towerUid, targetUid (null on release), k, shape }` on lock / switch /
+  release; `attack { towerUid, targetUid, kind: 'stream' | 'sweep' }` on each counted attack; the ticks are `hit` events with `tick: true`.
+- Her attack loop runs as before (rhythm, tempo, gear tricks, drinks count attacks). A counted attack re-picks her enemy and sets what
+  the channel carries until her next one: `src` 1 after a rhythm attack (the ticks use t.effProc), `trick` 1 / 2 after a Finishing
+  Thrust / Big Beat (gearSpec's harder copy), `px` her gear Pierce's extra victims (the pulse's carry: pierceCarry(t, 'pierceCarry',
+  2 × gearK, PULSE_MAX_EXTRA), asked once she has an enemy; added to a stream's tick cap and a sweep's pass cap). A rhythm echo is
+  one flare: the shape's test once at the echo's whole hit × mul.
+- stream (Hearth Stream): aim k turns `stream.turn` table steps a step toward her enemy; every CH_TICK steps every eligible enemy
+  `inCone(k, stream.half, range)`, at most `stream.cap` by (d², uid), takes damage × chShare(rate, CH_TICK) × `stream.mul`
+  (spec `share` = chShare: combat.js scales flat armour, the floor and the crystal count), × chRamp × streamFalloff
+  (1 at her, STREAM_TIP at the tip, linear in d²). Her statuses ride on every tick (Akane's burn: no chance).
+- sweep (Searchlight Sweep): centre c turns `sweep.turn` a step toward her enemy; phase ph += `sweep.swing` mod 4 × arc; k =
+  c + swingOffset(ph, arc); a pass (2 × arc ÷ swing steps) flips `pass` and zeroes `n`. Every SWEEP_TICK steps the eligible enemies
+  `nearSegment` her beam (SWEEP_HALF_WIDTH, length range), not yet struck this pass, nearest first, up to `sweep.cap` (0: her
+  maxTargets) a pass, take damage × chShare(rate, sweepPass) × `sweep.mul`; her reveal / silence ride on the hits.
+- Stats blocks (mods.js SHAPE_NORM, every field stated per tier): `stream { kind ('fire'; frost / poison / water are data only),
+  half, turn, mul, cap }`, `sweep { arc, swing, turn, mul, cap }`.
+- Panel DPS: heldDps (stream damage × rate × mul; sweep damage × rate × mul). The drawer shows no Splash row for a held shape
+  (drawerView TARGETABLE has `wheel`, `stream`, `sweep`: they pick by target mode; `spin` does not).
+- Renderer: `src/render/attackFx/patterns/held.js` drawHeld from `t.ch` each frame (alpha bodies on bbN, thin additive cores on bbA).
+- Units (one path each, tiers 4-5): Akane Wildfire (Phoenix Feather, Inferno Queen), Umeko Lighthouse (Moonlit Beacon, Sea of Lanterns).
+- Kohaku's constant beam stays in duo.js (A7): her beams are several holds re-picked every tick with a rounded share.
+- Constants (appended block): CH_TICK, CH_GRACE, CH_HITS, COS2_MAX, STREAM_TIP, STREAM_HALF, STREAM_TURN, SWEEP_TICK,
+  SWEEP_HALF_WIDTH, SWEEP_ARC, SWEEP_SWING, SWEEP_TURN.
+
+### Attack shapes S3 "Ground" (`docs/specs/ATTACK_SHAPES.md` §4.2, §5.4, §5.7, §5.8, addendum A8; branch `feature/attack-ground`)
+
+```js
+shapes.js:  inBand(d2, r0, r1) (r0 < d ≤ r1; r0 ≤ 0: from the centre), onRoad(sim, e, pathIndex, d0, d1) (same path: d0 ≤ e.dist ≤ d1;
+            another path: within ROAD_SHARED of the stretch's segments, its ends clipped to [d0, d1] with pointAt, unit direction
+            dot > ROAD_SAME_DIR: Marumi's shared stretch)
+dirs.js:    dirAngle(k) (her facing angle from a table index, k × 2π / RING_DIRS, no trig)
+vines.js:   vineSpot(sim, t), rootVine(sim, t, spot), vineGrown(vine, v), vineObjects(sim, t)   // Bramble Road (Chigusa's vine kit)
+ground.js:  attackSpikes(sim, t, spec, { bestTarget, volley, extra })   // behaviour 'spikes' (Rising Spikes), a counted attack
+            spikeAt(row, i), spikeRise(row, i, delay), sendQuake(sim, t, spec, x, y, skip)   // Ripple Quake, from a duel strike
+            groundTick(sim, t) (every step, before her sabotage check), endGroundWave(sim)
+render/groundShapes.js: drawGroundShapes(sim, gN, gA, R)   // the plain look, from Actors.drawGround, reads the sim only
+```
+- Road objects tick before `updateTower`'s sabotage / Move check (they stand on while she is sabotaged; a sold girl's go with her)
+  and end at the wave clear; `hashSim` folds each list only while it holds something; battle saves carry none (`vines`, `spikeRows`,
+  `quakes`: 'calm'; `vineHold` is gone). Every timer is an integer of steps.
+- `t.vines [{ uid, pathIndex, root, len, age, life, held }]` (Bramble Road): every `vine.every` s (t.vineCd, integer steps) she
+  roots one on the first spot of roadSpots in her range (nearest the exit) with a walker on `onRoad(pathIndex, d − len, d)` and
+  not under the full length of a vine of hers; it grows `vine.grow` tiles a second up the road to `len` and stands `vine.life` s.
+  Every VINE_STEP steps the walkers on [root − grown, root] (never a boss or a flyer, grounded or not; in the grid's order)
+  are slowed (`vine.slow`, VINE_SLOW_T s), the lead one of them not held already (remaining, uid) is held once a vine (`hold` status, `vine.hold` s;
+  minibosses resist), and on a lash step (`vine.lash` s, whole VINE_STEPs) the walkers on it (lead first, at most `vine.cap`;
+  0 = all) share one lash of `vine.dps × vine.lash`: each takes t.vineSpec × share (spec `share` = lash ÷ walkers: combat.js
+  scales flat armour and the floor). Caps: `vine.max` of hers standing, VINES_PER_GIRL, VINES_PER_SIM (her oldest first).
+  Events: `bramble { towerUid, uid, pathIndex, root, len }` on rooting, `vine { towerUid, targetUid, x, y, hold }` on the hold,
+  `lash { towerUid, uid }` on a lash.
+- `t.spikeRows [{ uid, pathIndex, dist, n, age, next, lead, pts, hit, spec }]` (Rising Spikes): a counted attack picks her enemy by
+  target mode; a flyer (not grounded) gets her projectile volley; else a row of `spike.count` (+ her gear Pierce's shot carry)
+  spikes from its road point up the road, `spike.gap` apart (pointAt); spike i rises at age 1 + i × `spike.delay` and strikes
+  each eligible ground enemy `inDisc(r = spike.r, its hitRadius)` not yet struck by the row: her enemy (`lead`) with her whole
+  spec, the others × `spike.mul`; a row lives
+  SPIKE_UP steps past its last spike. Caps SPIKE_ROWS_PER_GIRL / SPIKE_ROWS_PER_SIM. Events: `spikes { towerUid, uid, pathIndex,
+  dist, n, gap }`, `attack { kind: 'spikes' }`.
+- `t.quakes [{ uid, x, y, wait, g, r, max, i, skip, hit, spec }]` (Ripple Quake): a duel strike of a girl with `quake` sends
+  `quake.rings` rings from her origin, `quake.gap` steps apart (wait), each growing `quake.speed` tiles a second (r = g growth
+  steps) to her range; a ring strikes each ground enemy in `inBand(prev r, r)` once, never `skip` (the enemy she struck), with a
+  clean copy of her plain spec (no statuses, marks, pushes, splash) × `quake.mul` (the first ring) or `quake.later`; the last
+  ring adds `quake.status`. Caps QUAKES_PER_GIRL / QUAKES_PER_SIM. Event: `quake { towerUid, x, y, rings, gap, max }`.
+- Stats blocks (mods.js SHAPE_NORM, every field stated per tier / level): `spike { count, gap, r, delay, mul }`, `quake { rings,
+  gap, speed, mul, later, status }`; `vine` gains len, grow, life, slow, lash, cap, max (normVine defaults 2, 4, 3, 0.2, 1, 0, 1).
+- Units: Chigusa's whole vine kit (base and Greenhouse T3-5: Strangler Vine, Thorn Hedge, Forest Corridor), Yuki Frostbite T4-5
+  (Shatter Point, Diamond Dust; `behavior: 'spikes'`), Kanna's Lv 24 (Hundred Demons' Parade; `quake`). drawerView TARGETABLE has
+  `spikes`.
+- Constants (appended block): ROAD_SHARED, ROAD_SAME_DIR, VINE_STEP, VINE_SLOW_T, VINES_PER_GIRL, VINES_PER_SIM,
+  SPIKE_ROWS_PER_GIRL, SPIKE_ROWS_PER_SIM, SPIKE_UP, QUAKES_PER_GIRL, QUAKES_PER_SIM.
+
+### Attack shapes S4 "Links" (`docs/specs/ATTACK_SHAPES.md` §5.6, §5.10, addendum A9; branch `feature/attack-links`)
+
+```js
+links.js:   attackReturn(sim, t, spec, targets, extraPierce, spawn)   // behaviour 'return' (Homecoming Throw), a counted attack
+            fanCount(spec, ret), retSteer(sim, p, stepLen) / retCut(sim, p, e) / retFlip(sim, p)   // projectileStep's fan hooks
+            tieTether(sim, t, e)   // Spirit Tether: her counted attack ties her lead target (updateTower's attack loop)
+            ownShare(sim, g, e, tower, spec), shareTether(sim, g, e, tower, spec, scale, crit, drone)   // the Sim._hit hook
+            tetherStep(sim) (every step while a group lives), endLinkWave(sim), linkDps(t, e, perTarget)   // the panel DPS
+render/linkShapes.js: drawLinkShapes(sim, gN, gA, R)   // the plain threads (solid ground lines, a ring under each member),
+                                                       // from Actors.drawGround, reads the sim only
+```
+- Homecoming Throw: a counted attack picks her targets by target mode (her projectiles); a rhythm spec with splash (her Turbine
+  Kick) is her plain projectile volley. Otherwise `round(projectiles × ret.per)` fans, one at each target in turn: a fan is a
+  targeted projectile record (spawnProjectile) marked `straight` (her straight-shot caps; it ends at the wave clear in
+  endRingWave, and with her sale) carrying `p.ret { leg, n, full, pierce, mul, cut, aim, home, back, reach }`. Its out leg homes
+  on its target like her shot and flies to `spec.range × ret.reach` (on, up to a shot's own reach, while its target is uncut),
+  then turns (fresh hit list and count) and flies back through its target while that one stands and the leg can still cut, then
+  to her hand (`home`); within one step of it the fan is caught (`retCatch { towerUid, uid, x, y }`). Each leg cuts each enemy at
+  most once: `full` = her pierce + gear Pierce at × `ret.mul`, then `ret.pierce` more at × `ret.cut`. A cut is her spec with
+  `share: mul` (flat armour, the floor and a shell's count × mul); the out leg carries her whole spec (pushes, statuses), the way
+  home a clean copy (`back`: no statuses, marks, pushes, splash). Event `attack { kind: 'return', k, fans }`. drawerView
+  TARGETABLE and gearPierce have `return`.
+- Spirit Tether (kit `tether`, on a projectile girl): after each counted attack her lead target (lastFaced, her targetUid) is tied
+  to up to `tether.links` enemies, each the nearest untied eligible one within `tether.reach` of the last (d², ties by uid; none:
+  no group); a target already tied in her group is held again for `tether.dur`. `sim.tethers [{ uid, owner, m: [enemies], left,
+  share, pull }]` (`left` integer steps), `e.tie` the group (null untied), `sim._tetherOn` = living groups. Caps
+  TETHERS_PER_GIRL (her oldest first) and TETHERS_PER_SIM (no new group). Events `tether { towerUid, uid, members, left }`,
+  `tetherShare { uid, from, n }`, `tetherPull { uid, towerUid, n }`.
+- The hook, `Sim._hit`: `if (this._tetherOn !== 0 && e.tie && !this._sharing)` (with no group alive the hit path adds a compare
+  plus a few locals; no measurable cost). A tether girl's own hit on a tied enemy (in her group or another tether girl's) keeps
+  `1 − n × share` (n: the other members a share reaches: not dead, not in a tunnel, not phasing unless holy / mystic; at most the
+  shares this step's budget still runs); after the hit lands (and after a kill), every other reachable member in tie order
+  takes a clean copy of it at the hit's scale × `share` (her type chart, tier and air multipliers; flat armour, the floor and a
+  crystal shell's cap and count × the hit's own `spec.share` × `share`; critical when the hit was, no roll, no statuses), credited to the hitter (and her drone), events `hit { tick: true }`.
+  `sim._sharing` is up while shares land: no shared hit, and no hit inside one (a curse burst from a share's kill), shares again.
+  At most TETHER_SHARES_PER_STEP (256) shares a step (`sim._shareBudget`, refilled by tetherStep and by the first group); the rest
+  are dropped. Burns, poison and hexes (not `_hit`) never share.
+- tetherStep: a sold girl's groups end; each group's `left` counts down; at 0 it ends, and with `tether.pull` the living members
+  ahead of its lead on the lead's road (never a miniboss, a boss or one under the push lock) close `pull` (≤ GATHER_MAX) of their
+  gap to it and take the push lock (the gather rule). Groups end at the wave clear (endLinkWave, no pull).
+- hashSim folds `sim.tethers` (and the share budget) and the fans in the air only while there are some; battle saves: `tethers`,
+  `_tetherOn`, `_shareBudget` 'calm', `_sharing` 'scratch'; fans are `projectiles` ('calm').
+- Stats blocks (mods.js SHAPE_NORM, stated per tier): `ret { per, mul, cut, pierce, reach }` (defaults 0.5, 1, 0, 1, 1),
+  `tether { links, reach, dur, share, pull }` (2, 1.5, 3, 0.2, 0).
+- Units: Fuu Returning Gale T4-5 (Typhoon Fans, Heaven's Gate Wind; `behavior: 'return'`), Ena Shared Fate T4-5 (Red Threads,
+  Threads of Destiny; `tether`). Upgrade tags: `ret` self, `tether` enemies.
+- Constants (appended block): RET_HOME, TETHERS_PER_GIRL, TETHERS_PER_SIM, TETHER_SHARES_PER_STEP.
+
+### Attack shapes S5a (`docs/specs/ATTACK_SHAPES_S5.md` §2, §3.3, §3.5, §3.6; branch `feature/attack-shapes-s5`)
+
+```js
+shapes.js:    shapeSpec(spec, mul)   // the clean, unshared, no-roll copy of a spec for a shape hit (rules 2, 3)
+              allocDealt(t)          // damageDealt − shapeDealt: what every damage-ranked pick reads (rule 6)
+rings.js:     shapeRoom(sim, t, n, perGirl)   // room for n shape shots: counts live + shape, evicts shape shots only (rule 5)
+s5shapes.js:  s5AfterAttack(sim, t)   // after a counted attack (updateTower): Charm Wheel / Crescent Return from t._struck / t._lead
+              charmDirs(wheelK, n, k0, out), crescentCut(sim, p, e) / crescentFlip(p)   // projectileStep's crescent hooks
+              tollBell(sim, tr, toll) (updateTraps, an armed bell, before its trigger, waves only), tollTick(sim, t), endS5Wave(sim)
+render:       actors.js projectile kinds 'charm', 'crescent'; groundShapes.js drawTolls (gold rings from t.tolls)
+```
+- The S5 rules: every girl keeps her live attack and the shape goes on top (1); a shape hit is `shapeSpec(spec, mul)`: damage × mul ×
+  her expected crit `1 + c × (m − 1)` (c clamped to [0, 1], m = critMul || 1.5), `share: mul`, critChance 0, no statuses, marks,
+  pushes, splash, silence, reveal, hpPct or barricade, `noShare` and `shape` (2, 3); it rolls past what her attack struck or
+  aimed at (4); shape objects never take room from live ones (5); shape damage never moves a pick (6).
+- `Sim._hit`: the tether condition gains `&& !spec.noShare` (a shape hit is neither split nor shared); a hit with `spec.shape` adds
+  its dealt damage to `t.shapeDealt` (a running total like damageDealt, saved as `sd` only when non-zero). `recentDps`
+  (buffs.js), `topDamageGirl` (abilities.js) and the drink target (drinks.js) read `allocDealt(t)`; `projectedDps` never takes an
+  S5 line. damageDealt keeps all of it (results, the honest readout, stats).
+- `straightRoom` skips `p.shape` when it counts and when it evicts (a no-op with no shape shot on the field). Shape shots carry
+  `shape`, `split: true` (mirrors never reflect them), `skip` (a copy of t._struck: uids it rolls past, read in projectileStep's
+  contact scan) and optionally `half` (extra swept reach, tiles).
+- `t._struck` (uid array) and `t._lead` (her first struck / aimed enemy) exist only on a girl with `charms` or `cres`: cleared at
+  the start of each counted attack (an echo adds to them), filled by attackPulse (victims), attackBeam (linePierce hits) and
+  volleyFrom (all its targets); return values unchanged. (attackChain's cur walk joins in S5b, for Raika.)
+- Charm Wheel (kit `charms { n, turn, mul }`): after a counted attack `t.wheelK` (integer, the throw's wheel) advances by
+  `charms.turn`; the wheel's n + 1 spokes at `wheelK + floor(j × 240 / (n + 1))` less the one nearest k0 (her lead's
+  direction; ties to the lower j) leave as straight charms (kind `charm`, pierce 1, travel = her range, CHARM_SPEED) in
+  shapeRoom (CHARMS_PER_GIRL), each `shapeSpec(t.eff, charms.mul)`. Event `s5 { towerUid, kind: 'charms', k, wheelK, n }`.
+- Crescent Return (kit `cres { out, cuts, mul }`): after a counted attack one straight crescent (kind `crescent`, half-width
+  CRESCENT_HALF_WIDTH, CRESCENT_SPEED) toward her lead, to her range + `cres.out`, in shapeRoom (CRESCENTS_PER_GIRL), with
+  `p.cres { leg, n, cuts }`. Its cuts go through crescentCut (never `p.pierce`); a leg's `cuts` spent: the out leg turns at once,
+  the way home ends; at maxTravel crescentFlip negates the velocity, sets maxTravel to the way flown out and clears the hit list
+  (the skip list stays); the way home ends where it was thrown. Event `s5 { towerUid, kind: 'cres', k }`.
+- Bell Toll (kit `toll { every, r, mul }`): an armed bell (`sim.traps`, Bell Carpet's too) whose girl has `toll`, while a wave
+  runs, counts `tr.tollCd` (absent reads 1) down; at 0 it sends a ring (`t.tolls [{ uid, x, y, g, r, max, hit, spec }]`, spec
+  `shapeSpec(t.trapSpec, toll.mul)`) and resets to `toll.every`; at TOLLS_PER_GIRL / TOLLS_PER_SIM (counted over `t.tolls` only,
+  never Kanna's `t.quakes`) it defers a step. tollTick (updateTower, before the sabotage check, `if (t.tolls)`) grows each ring
+  `g × TOLL_SPEED × STEP` and strikes ground walkers in `inBand(prev, r)` once. A ring never triggers a trap; tolls are not
+  explosions (Potential `of: 'trap'` counts are unchanged). Event `toll { towerUid, uid, x, y, r }`.
+- endS5Wave (the wave clear): `t.tolls` emptied, `t.wheelK` 0, every surviving bell's `tollCd` 1 (shape shots end with the
+  straight shots in endRingWave). hashSim folds `t.wheelK`, `t.tolls`, the shape shots in flight and the toll owners' bells'
+  `tollCd ?? 1`, each only while present. Battle saves: `shapeDealt` snap, `_struck` / `_lead` scratch, `wheelK` / `tolls` calm;
+  traps keep their row; `tollCd` is not packed in it (it is 1 at every calm point, and a missing one reads `?? 1` in
+  `tollBell` and `hashSim`).
+
+### Attack shapes S5b (`docs/specs/ATTACK_SHAPES_S5.md` §3.1, §3.2, §3.4; branch `feature/attack-shapes-s5`)
+
+```js
+s5shapes.js:  mistTick(sim, t), moonTick(sim, t)   // updateTower, after her attack loop (t.mist / t.moon)
+              moonDir(m, b)                        // beam b's table direction in a pass (the renderer reads it too)
+              webStep(sim)                         // Sim._step1 beside tetherStep, while sim.statics holds a web
+status.js / enemies.js: the `spore` status (Midori's Spore Mist)
+render:       attackFx/patterns/s5held.js drawS5Held (mist puffs, moonbeam bands); linkShapes.js drawStatics (web lines);
+              actors.js STATUS_ICONS.spore (the poison icon; one icon when an enemy has both)
+```
+- The S5 rules of S5a apply. `t._struck` / `t._lead` also exist on a girl with `mist`, `moon` or `web`; `t._chain` (enemies, her
+  first bolt's `cur` walk) on a girl with `web`, filled by attackChain; attackBeam's `t._lead` is her first target.
+- Spore Mist (kit `mist { half, len, cap, mul, dot }`): her counted attack aims `t.mist { uid, k, tick, grace }` (integers) at
+  the enemy whose cone (half-angle `half` table steps, reach `len` × her range) holds the most eligible enemies (her lead and
+  the CRESCENT_AIMS nearest within reach by (d², uid); ties to the direction nearest her lead, then the lower index). mistTick
+  turns k toward it (MIST_TURN a step) while it is alive, eligible and in her range, else counts `grace` (at MIST_GRACE the
+  mist ends: event `mist { targetUid: null }`); every MIST_TICK steps the eligible enemies in the cone, at most `cap` by (d², uid),
+  take `shapeSpec(eff, mul × rate × MIST_TICK × STEP)` × streamFalloff, with `status: [spore]`: her strongest poison's dps and
+  pct × `dot` for its duration. Sabotage, a Move and the wave clear end the mist.
+- `spore` (status.js: the burn / poison branch, STATUS_ELEMENT poison; merges only with spore): ticks in updateEnemy through
+  `sim._dot(e, 'poison', …)` (poison's damage rules and credit); `_dot` adds a spore tick to `t.shapeDealt`. Nothing else reads
+  it: not the siphon or regen blocks, spreadDot, Catalyst Burst or its Auto count, nor the poison merge.
+- Moonbeam Sweep (kit `moon { beams, arc, mul }`; Luna's hero levels): each counted volley starts `t.moon { c, side, arc, i, P,
+  hits: [[uid…] per beam], n: [per beam] }`: c = her lead's direction, side alternating, P = min(MOON_PASS, round(1 / (rate ×
+  STEP))). moonTick advances i; every MOON_TICK steps (and at i = P) each beam (`moonDir`: c ± the integer offset
+  −side·arc + floor(2·side·arc·i / P), the second beam mirrored) strikes the eligible enemies within MOON_HALF_WIDTH of it not in
+  its list, nearest first by (d², uid), at most her pierce a pass, each `shapeSpec(eff, mul)`. Each list starts as a copy of
+  `t._struck` (her volley's victims). A finished pass idles (drawn MOON_LINGER steps more). Sabotage, a Move and the wave clear
+  end it. Event `moon { towerUid, k, side, beams, P }`.
+- Static Web (kit `web { dur, every, share }`): after a counted attack, if her lead (t._chain[0]) is in one of her webs its `left`
+  is refreshed; else a web of the chain's enemies not in any web (at most STATIC_MEMBERS, at least two) joins `sim.statics`
+  (created on the first web) `{ uid, owner, m, left, zapCd, every, share }`; STATIC_PER_GIRL (her oldest goes) and STATIC_PER_SIM
+  (no new web). webStep: a sold owner's web or one whose `left` runs out ends; when `zapCd` reaches 0 the members that died, went
+  into a tunnel or stand past (CHAIN_JUMP_RANGE + splash) × STATIC_REACH from the one before drop out (fewer than two: the web
+  ends), then each takes `shapeSpec(eff, share × rate × every × STEP)`; past STATIC_ZAPS_PER_STEP a web's zap waits a step.
+  Events `web { towerUid, uid, members, left }`, `zap { towerUid, uid, n }`. Webs survive her sabotage; the wave clear ends them.
+- hashSim folds `t.mist`, `t.moon` (its integers and lists) and `sim.statics` (uid, owner, left, zapCd, members) only while
+  present. Battle saves: `mist` / `moon` calm, `_chain` scratch (towers); `statics` calm (the Sim).
 
 ### Roster B3 mechanics (track 5; `docs/merge/ROSTER_SPEC.md` §6, `docs/merge/ROSTER_WAVE_NOTES.md`)
 

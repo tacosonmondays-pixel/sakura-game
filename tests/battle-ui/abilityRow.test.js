@@ -3,6 +3,7 @@
 // WAVE, the ⚡ teasers on the tier-3 and tier-5 path rows, "Comes in a later update" for a kind this build does not
 // run, and an ally's girl read only.
 import { describe, it, expect } from 'vitest';
+import { POWER, heroPowerAt } from '../../src/data/balance.js';
 import { Sim } from '../../src/sim/Sim.js';
 import { abilityRowView, abilityLine, pathAbilityTeaser, rowSignature, keepPhrases, LINE_MAX, LINE_NUMBERS } from '../../src/ui/battle/abilityRow.js';
 import { abilityPathOf } from '../../src/sim/abilities.js';
@@ -63,7 +64,8 @@ describe('abilityLine', () => {
     const u = UNIT_MAP.aoi;
     const e = u.paths[1].ability;
     const line = abilityLine(e, abilityValues(e, resolveStats(u, { tiers: [0, 3, 0] })));
-    expect(line).toBe('6 targets · 24 dmg · pin 0.5s');
+    // (× her balance round 5 row, src/data/balance.js)
+    expect(line).toBe(`6 targets · ${Math.round(24 * POWER.aoi.dmg)} dmg · pin 0.5s`);
     const m = UNIT_MAP.momo.paths[0].ability;
     expect(abilityLine(m, abilityValues(m, null), { coinMul: 1.5 })).toBe('+150 coins · twice per wave');
   });
@@ -82,16 +84,17 @@ describe('abilityLine', () => {
       const e = skillAtLevel(u.hero.skill, level);
       return abilityLine(e, abilityValues(e, resolveStats(u, { heroLevel: level })));
     };
-    expect(at('hana', 'falconry', 3)).toBe('4 targets · 30 dmg · ground 4s');
+    expect(at('hana', 'falconry', 3)).toBe(`4 targets · ${Math.round(30 * POWER.hana.dmg)} dmg · ground 4s`);
     expect(at('ruri', 'hound', 3)).toBe('64 dmg · 3 hits · hold 1.5s'); // (one enemy: no "1 target")
     expect(at('ruri', 'falcon', 3)).toBe('1 target · carry 3 tiles');
     expect(at('ruri', 'otter', 3)).toBe('4 tiles · 1 tile back · soak 4s');
     expect(at('noa', 'sanctuary', 3)).toBe('4 tiles · 10s · up to 3 lives');
     expect(at('noa', 'sanctuary', 5)).toBe('4 tiles · 14s · up to 5 lives');
-    expect(at('ena', 'bloom', 3)).toBe('bursts 36 · 4.8 tiles');
+    expect(at('ena', 'bloom', 3)).toBe(`bursts ${Math.round(36 * POWER.ena.dmg)} · 4.8 tiles`);
     expect(at('iroha', 'hall', 3)).toBe('1 mirror · 8s');
     expect(hero('yoriko', 7)).toBe('1 target · hex 1.5%/s · slow 30%');
-    expect(hero('seiran', 17)).toBe('12 targets · 91 dmg · ground 3s');
+    // (91 before balance round 5: × her Lv 17 multiplier, src/data/balance.js HERO_POWER)
+    expect(hero('seiran', 17)).toBe(`12 targets · ${Math.round(91 * heroPowerAt('seiran', 17))} dmg · ground 3s`);
   });
 });
 

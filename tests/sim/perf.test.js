@@ -1,6 +1,9 @@
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STAGE, UNITS, ENEMIES } from './fixtures.js';
+import { defaultData } from '../../src/sim/data.js';
+import { gainHeroXp, xpToReach } from '../../src/sim/hero.js';
+import { TETHER_SHARES_PER_STEP, STRAIGHT_PER_SIM, CHARMS_PER_GIRL, CRESCENTS_PER_GIRL, TOLLS_PER_GIRL, TOLLS_PER_SIM, STATIC_PER_SIM, STATIC_ZAPS_PER_STEP } from '../../src/sim/constants.js';
 
 // 22 × 13 serpentine map: the path snakes across rows 1, 5, 9 and exits at the bottom.
 const PERF_MAP = {
@@ -78,6 +81,450 @@ describe('performance budget', () => {
     // Shared CI runners are slow and noisy, so the wall-clock budget is looser there (CI=true).
     expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
     expect(per3x).toBeLessThan(process.env.CI ? 12 : 4);
+  });
+});
+
+// The attack shapes S1 stress case (docs/specs/ATTACK_SHAPES.md §7.2 step 7): 6 copies of each shape girl at
+// her shape tiers (Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's Firefly Halo, all at tier 5), 200 enemies,
+// the same budget.
+describe('performance budget: attack shapes', () => {
+  test('18 shape girls + 200 enemies: a step stays under the same limits, straight shots within their caps', () => {
+    const real = defaultData().units;
+    const SHAPES = [['momo', 'cointoss'], ['kage', 'steel'], ['hotaru', 'lantern']];
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: SHAPES.map(([unitId]) => ({ unitId })),
+      seed: 11,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units: real, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    const spots = [];
+    for (const ty of [3, 7, 11]) for (let tx = 1; tx < 21; tx += 2) spots.push([tx, ty]);
+    let placed = 0;
+    for (let i = 0; i < spots.length && placed < 18; i++) {
+      const [id, pathId] = SHAPES[placed % 3];
+      const t = sim.placeTower(id, spots[i][0], spots[i][1]);
+      if (!t) continue;
+      placed++;
+      const p = real[id].paths.findIndex((q) => q.id === pathId);
+      // (beyond any real board: six final tiers of one path, so the one-per-path rule is skipped as a save restore does)
+      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p, { restoring: true });
+    }
+    expect(placed).toBe(18);
+    expect(sim.towers.filter((t) => t.eff.behavior === 'wheel')).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.eff.behavior === 'spin')).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.halo)).toHaveLength(6);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const kinds = ['blob', 'blob', 'blob', 'armoredBlob', 'fieldOni', 'guardOrc', 'leech', 'flyer'];
+    const len = sim.pathData[0].length;
+    for (let i = 0; i < 200; i++) sim.spawnEnemy(kinds[i % kinds.length], { dist: (i / 200) * (len - 8) });
+    for (let i = 0; i < 120; i++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    let maxStraight = 0;
+    const t0 = performance.now();
+    for (let i = 0; i < steps; i++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+      if (i % 20 === 0) maxStraight = Math.max(maxStraight, sim.projectiles.filter((p) => p.straight && !p.dead).length);
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] shapes: ${sim.enemies.length} enemies, ${sim.towers.length} girls, ${maxStraight} straight shots at most: ${perStep.toFixed(3)} ms/step`);
+    expect(sim.enemies.length).toBeGreaterThan(150);
+    expect(maxStraight).toBeGreaterThan(0);
+    expect(maxStraight).toBeLessThanOrEqual(400);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+});
+
+// The attack shapes S2 stress case (docs/specs/ATTACK_SHAPES.md §7.2 step 7): 6 copies of each held shape girl at
+// tier 5 (Akane's Hearth Stream, Umeko's Searchlight Sweep), 200 enemies, the same budget as S1's case.
+describe('performance budget: held attack shapes', () => {
+  test('12 held girls + 200 enemies: a step stays under the same limits, every channel open', () => {
+    const real = defaultData().units;
+    const HELD = [['akane', 'wildfire'], ['umeko', 'lighthouse']];
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: HELD.map(([unitId]) => ({ unitId })),
+      seed: 12,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units: real, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    const spots = [];
+    for (const ty of [3, 7, 11]) for (let tx = 1; tx < 21; tx += 2) spots.push([tx, ty]);
+    let placed = 0;
+    for (let i = 0; i < spots.length && placed < 12; i++) {
+      const [id, pathId] = HELD[placed % 2];
+      const t = sim.placeTower(id, spots[i][0], spots[i][1]);
+      if (!t) continue;
+      placed++;
+      const p = real[id].paths.findIndex((q) => q.id === pathId);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p, { restoring: true });
+    }
+    expect(placed).toBe(12);
+    expect(sim.towers.filter((t) => t.eff.behavior === 'stream')).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.eff.behavior === 'sweep')).toHaveLength(6);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const kinds = ['blob', 'blob', 'blob', 'armoredBlob', 'fieldOni', 'guardOrc', 'leech', 'flyer'];
+    const len = sim.pathData[0].length;
+    for (let i = 0; i < 200; i++) sim.spawnEnemy(kinds[i % kinds.length], { dist: (i / 200) * (len - 8) });
+    for (let i = 0; i < 120; i++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    let open = 0;
+    const t0 = performance.now();
+    for (let i = 0; i < steps; i++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+      if (i % 20 === 0) open = Math.max(open, sim.towers.filter((t) => t.ch).length);
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] held shapes: ${sim.enemies.length} enemies, ${sim.towers.length} girls, ${open} channels open at most: ${perStep.toFixed(3)} ms/step`);
+    expect(sim.enemies.length).toBeGreaterThan(150);
+    expect(open).toBeGreaterThanOrEqual(10);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+});
+
+// Attack shapes S3 "Ground" (src/sim/vines.js, src/sim/ground.js): 6 Chigusas at Forest Corridor (two Bramble Road vines
+// each, slowing, holding and lashing), 6 Yukis at Diamond Dust (spike rows) and Kanna at Lv 24 (quake rings), 200
+// walkers: the same step budget.
+describe('performance budget: ground attack shapes', () => {
+  test('6 Bramble Roads + 6 Rising Spikes + a Ripple Quake + 200 enemies: a step stays under the same limits', () => {
+    const real = defaultData().units;
+    const GROUND = [['chigusa', 'greenhouse'], ['yuki', 'frostbite']];
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: GROUND.map(([unitId]) => ({ unitId })),
+      hero: { unitId: 'kanna' },
+      seed: 12,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units: real, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    const spots = [];
+    for (const ty of [3, 7, 11]) for (let tx = 1; tx < 21; tx += 2) spots.push([tx, ty]);
+    let placed = 0;
+    let i = 0;
+    for (; i < spots.length && placed < 12; i++) {
+      const [id, pathId] = GROUND[placed % 2];
+      const t = sim.placeTower(id, spots[i][0], spots[i][1]);
+      if (!t) continue;
+      placed++;
+      const p = real[id].paths.findIndex((q) => q.id === pathId);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p, { restoring: true });
+    }
+    let kanna = null;
+    for (; i < spots.length && !kanna; i++) kanna = sim.placeTower('kanna', spots[i][0], spots[i][1]);
+    expect(placed).toBe(12);
+    expect(kanna).toBeTruthy();
+    gainHeroXp(sim, kanna, xpToReach(kanna.def.hero, 24), 'restore');
+    expect(sim.towers.filter((t) => t.eff.behavior === 'spikes')).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.vine?.max === 2)).toHaveLength(6);
+    expect(kanna.stats.quake).toBeTruthy();
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const kinds = ['blob', 'blob', 'blob', 'armoredBlob', 'fieldOni', 'guardOrc', 'leech', 'flyer'];
+    const len = sim.pathData[0].length;
+    for (let j = 0; j < 200; j++) sim.spawnEnemy(kinds[j % kinds.length], { dist: (j / 200) * (len - 8) });
+    for (let j = 0; j < 120; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    const most = { vines: 0, spikeRows: 0, quakes: 0 };
+    const t0 = performance.now();
+    for (let j = 0; j < steps; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+      if (j % 20 === 0) for (const k of Object.keys(most)) most[k] = Math.max(most[k], sim.towers.reduce((a, t) => a + (t[k]?.length || 0), 0));
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] ground shapes: ${sim.enemies.length} enemies, ${sim.towers.length} girls, at most ${most.vines} vines, ${most.spikeRows} spike rows, ${most.quakes} quake rings: ${perStep.toFixed(3)} ms/step`);
+    expect(sim.enemies.length).toBeGreaterThan(150);
+    expect(most.vines).toBeGreaterThanOrEqual(6);
+    expect(most.spikeRows).toBeGreaterThanOrEqual(6);
+    expect(most.quakes).toBeGreaterThanOrEqual(1);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+});
+
+// Attack shapes S4 "Links" (src/sim/links.js): 6 Fuus at Heaven's Gate Wind (8 returning fans a throw) and 6 Enas at
+// Threads of Destiny (tether groups of 4: every hit on a tied enemy runs the share hook), with 2 Akanes' Hearth Streams
+// beside them (35-56 tick hits ten times a second: the hook's worst caller), 200 walkers: the same step budget, the share
+// budget never spent past TETHER_SHARES_PER_STEP in a step.
+describe('performance budget: link attack shapes', () => {
+  test('6 Homecoming Throws + 6 Spirit Tethers + 2 Hearth Streams + 200 enemies: a step stays under the same limits', () => {
+    const real = defaultData().units;
+    const LINKS = [['fuu', 'gale'], ['ena', 'fate']];
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: [...LINKS.map(([unitId]) => ({ unitId })), { unitId: 'akane' }],
+      hero: null,
+      seed: 12,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units: real, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    const spots = [];
+    for (const ty of [3, 7, 11]) for (let tx = 1; tx < 21; tx += 2) spots.push([tx, ty]);
+    const girls = [...Array(12)].map((_, k) => LINKS[k % 2]).concat([['akane', 'wildfire'], ['akane', 'wildfire']]);
+    let placed = 0;
+    for (let i = 0; i < spots.length && placed < girls.length; i++) {
+      const [id, pathId] = girls[placed];
+      const t = sim.placeTower(id, spots[i][0], spots[i][1]);
+      if (!t) continue;
+      placed++;
+      const p = real[id].paths.findIndex((q) => q.id === pathId);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p, { restoring: true });
+    }
+    expect(placed).toBe(14);
+    expect(sim.towers.filter((t) => t.eff.behavior === 'return')).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.tether?.links === 3)).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.eff.behavior === 'stream')).toHaveLength(2);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const kinds = ['blob', 'blob', 'blob', 'armoredBlob', 'fieldOni', 'guardOrc', 'leech', 'flyer'];
+    const len = sim.pathData[0].length;
+    for (let j = 0; j < 200; j++) sim.spawnEnemy(kinds[j % kinds.length], { dist: (j / 200) * (len - 8) });
+    for (let j = 0; j < 120; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    const most = { fans: 0, tethers: 0, shares: 0 };
+    let shares = 0;
+    const t0 = performance.now();
+    for (let j = 0; j < steps; j++) {
+      sim.update(1 / 60);
+      let n = 0;
+      for (const ev of sim.drainEvents()) if (ev.type === 'tetherShare') n += ev.n;
+      shares += n;
+      most.shares = Math.max(most.shares, n);
+      if (j % 20 === 0) {
+        most.fans = Math.max(most.fans, sim.projectiles.reduce((a, p) => a + (p.ret ? 1 : 0), 0));
+        most.tethers = Math.max(most.tethers, sim.tethers.length);
+      }
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] link shapes: ${sim.enemies.length} enemies, ${sim.towers.length} girls, at most ${most.fans} fans, ${most.tethers} tether groups, ${shares} shares (at most ${most.shares} a step): ${perStep.toFixed(3)} ms/step`);
+    expect(sim.enemies.length).toBeGreaterThan(150);
+    expect(most.fans).toBeGreaterThanOrEqual(6);
+    expect(most.tethers).toBeGreaterThanOrEqual(6);
+    expect(shares).toBeGreaterThan(0);
+    expect(most.shares).toBeLessThanOrEqual(TETHER_SHARES_PER_STEP);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+});
+
+// attack shapes S5a (src/sim/s5shapes.js; docs/specs/ATTACK_SHAPES_S5.md §5): 6 Charm Wheels, 6 Crescent Returns and 6
+// Bell Tolls at tier 5 with 200 walkers; the straight-shot ceiling with straightRoom's guard is the live caps plus the
+// per-girl shape caps (400 + 6 × 48 + 6 × 8 = 736), toll rings within their own caps.
+describe('performance budget: S5a attack shapes', () => {
+  test('6 Charm Wheels + 6 Crescent Returns + 6 Bell Tolls + 200 enemies: a step stays under the same limits', () => {
+    const real = defaultData().units;
+    const S5A = [['miko', 'purify'], ['rei', 'whirlwind'], ['suzu', 'mines']];
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: S5A.map(([unitId]) => ({ unitId })),
+      hero: null,
+      seed: 13,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units: real, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    const spots = [];
+    for (const ty of [2, 4, 6, 8, 10]) for (let tx = 1; tx < 21; tx += 2) spots.push([tx, ty]);
+    const girls = [...Array(18)].map((_, k) => S5A[k % 3]);
+    let placed = 0;
+    for (let i = 0; i < spots.length && placed < girls.length; i++) {
+      const [id, pathId] = girls[placed];
+      const t = sim.placeTower(id, spots[i][0], spots[i][1]);
+      if (!t) continue;
+      placed++;
+      const p = real[id].paths.findIndex((q) => q.id === pathId);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p, { restoring: true });
+    }
+    expect(placed).toBe(18);
+    expect(sim.towers.filter((t) => t.stats.charms)).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.cres)).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.toll)).toHaveLength(6);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const kinds = ['blob', 'blob', 'blob', 'armoredBlob', 'fieldOni', 'guardOrc', 'leech', 'flyer'];
+    const len = sim.pathData[0].length;
+    for (let j = 0; j < 200; j++) sim.spawnEnemy(kinds[j % kinds.length], { dist: (j / 200) * (len - 8) });
+    for (let j = 0; j < 120; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    const most = { straight: 0, shape: 0, tolls: 0 };
+    const t0 = performance.now();
+    for (let j = 0; j < steps; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+      if (j % 10 === 0) {
+        let st = 0;
+        let sh = 0;
+        for (const p of sim.projectiles) {
+          if (!p.straight || p.dead) continue;
+          st++;
+          if (p.shape) sh++;
+        }
+        most.straight = Math.max(most.straight, st);
+        most.shape = Math.max(most.shape, sh);
+        most.tolls = Math.max(most.tolls, sim.towers.reduce((a, t) => a + (t.tolls?.length ?? 0), 0));
+      }
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] S5a shapes: ${sim.enemies.length} enemies, ${sim.towers.length} girls, at most ${most.straight} straight shots (${most.shape} shape), ${most.tolls} toll rings: ${perStep.toFixed(3)} ms/step`);
+    expect(sim.enemies.length).toBeGreaterThan(150);
+    expect(most.shape).toBeGreaterThan(0);
+    expect(most.tolls).toBeGreaterThan(0);
+    expect(most.straight).toBeLessThanOrEqual(STRAIGHT_PER_SIM + 6 * CHARMS_PER_GIRL + 6 * CRESCENTS_PER_GIRL);
+    expect(most.tolls).toBeLessThanOrEqual(TOLLS_PER_SIM);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+
+  // the toll caps: real data rings a few at a time, so a stress copy of her T5 toll rings every 6 steps out to 3 tiles,
+  // 18 Suzus on a sparse road (12 walkers: the bells stay armed); the rings stay within TOLLS_PER_GIRL and TOLLS_PER_SIM
+  test('18 Bell Tolls at their caps (a stress copy ringing every 6 steps) on a sparse road: within the caps and the limits', () => {
+    const units = structuredClone(defaultData().units);
+    const mines = units.suzu.paths.findIndex((q) => q.id === 'mines');
+    units.suzu.paths[mines].tiers[4].mods.toll = { every: 6, r: 3, mul: 0.2 };
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: [{ unitId: 'suzu' }],
+      hero: null,
+      seed: 15,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    let placed = 0;
+    for (const ty of [2, 4, 6, 8, 10]) {
+      for (let tx = 1; tx < 21 && placed < 18; tx += 2) {
+        const t = sim.placeTower('suzu', tx, ty);
+        if (!t) continue;
+        placed++;
+        for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, mines, { restoring: true });
+      }
+    }
+    expect(placed).toBe(18);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const len = sim.pathData[0].length;
+    for (let j = 0; j < 12; j++) sim.spawnEnemy('blob', { dist: (j / 12) * (len - 8) });
+    for (let j = 0; j < 600; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    let most = 0;
+    let mostGirl = 0;
+    const t0 = performance.now();
+    for (let j = 0; j < steps; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+      let n = 0;
+      for (const t of sim.towers) {
+        n += t.tolls?.length ?? 0;
+        mostGirl = Math.max(mostGirl, t.tolls?.length ?? 0);
+      }
+      most = Math.max(most, n);
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] S5a toll caps: ${sim.towers.length} girls, ${sim.traps?.length ?? 0} bells, at most ${most} toll rings (${mostGirl} one girl's): ${perStep.toFixed(3)} ms/step`);
+    expect(most).toBe(TOLLS_PER_SIM);
+    expect(mostGirl).toBeLessThanOrEqual(TOLLS_PER_GIRL);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+});
+
+// attack shapes S5b (src/sim/s5shapes.js): 6 Spore Mists (96 victims a tick at T5), 6 Static Webs and Luna's two moonbeams
+// at Lv 25 with 200 walkers; zaps within STATIC_ZAPS_PER_STEP, webs within their caps.
+describe('performance budget: S5b attack shapes', () => {
+  test('6 Spore Mists + 6 Static Webs + Luna at Lv 25 + 200 enemies: a step stays under the same limits', () => {
+    const real = defaultData().units;
+    const S5B = [['midori', 'fieldkit'], ['raika', 'rhythm']];
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: S5B.map(([unitId]) => ({ unitId })),
+      hero: { unitId: 'luna' },
+      seed: 14,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units: real, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    const spots = [];
+    for (const ty of [3, 7, 11]) for (let tx = 1; tx < 21; tx += 2) spots.push([tx, ty]);
+    const girls = [...Array(12)].map((_, k) => S5B[k % 2]);
+    let placed = 0;
+    let i = 0;
+    for (; i < spots.length && placed < girls.length; i++) {
+      const [id, pathId] = girls[placed];
+      const t = sim.placeTower(id, spots[i][0], spots[i][1]);
+      if (!t) continue;
+      placed++;
+      const p = real[id].paths.findIndex((q) => q.id === pathId);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p, { restoring: true });
+    }
+    for (; i < spots.length; i++) {
+      const l = sim.placeTower('luna', spots[i][0], spots[i][1]);
+      if (!l) continue;
+      gainHeroXp(sim, l, xpToReach(l.def.hero, 25), 'restore');
+      break;
+    }
+    expect(placed).toBe(12);
+    expect(sim.towers.filter((t) => t.stats.mist)).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.web)).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.moon)).toHaveLength(1);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const kinds = ['blob', 'blob', 'blob', 'armoredBlob', 'fieldOni', 'guardOrc', 'leech', 'flyer'];
+    const len = sim.pathData[0].length;
+    for (let j = 0; j < 200; j++) sim.spawnEnemy(kinds[j % kinds.length], { dist: (j / 200) * (len - 8) });
+    for (let j = 0; j < 120; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    const most = { webs: 0, zaps: 0, mists: 0 };
+    const t0 = performance.now();
+    for (let j = 0; j < steps; j++) {
+      sim.update(1 / 60);
+      let z = 0;
+      for (const ev of sim.drainEvents()) if (ev.type === 'zap') z += ev.n;
+      most.zaps = Math.max(most.zaps, z);
+      if (j % 10 === 0) {
+        most.webs = Math.max(most.webs, sim.statics?.length ?? 0);
+        most.mists = Math.max(most.mists, sim.towers.filter((t) => t.mist).length);
+      }
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] S5b shapes: ${sim.enemies.length} enemies, ${sim.towers.length} girls, at most ${most.mists} mists, ${most.webs} webs, ${most.zaps} zaps a step: ${perStep.toFixed(3)} ms/step`);
+    expect(sim.enemies.length).toBeGreaterThan(150);
+    expect(most.mists).toBeGreaterThan(0);
+    expect(most.webs).toBeGreaterThan(0);
+    expect(most.webs).toBeLessThanOrEqual(STATIC_PER_SIM);
+    expect(most.zaps).toBeLessThanOrEqual(STATIC_ZAPS_PER_STEP);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
   });
 });
 

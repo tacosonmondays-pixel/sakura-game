@@ -20,7 +20,7 @@
 //     target mode that is neither the original's target nor already hit by it; with none, at the original's target
 //     fanned SPLIT_FAN to one side (the side by uid parity). With no live target at all nothing is copied. A split
 //     projectile and every copy carry `split: true`, so neither ever splits again (two mirrors included). A copy is
-//     the same shot: the shooter's spec, kind, speed, remaining pierce, splash, guided / drone / sentry credit and the
+//     the same shot: the shooter's spec, kind, speed, remaining pierce, splash, its damage share (`scale`), guided / drone / sentry credit and the
 //     enemies the original already hit, so its damage credits the original's owner (and drone).
 //   - A projectile that ends its step dead (it hit, burst or ran out) does not split that step.
 //
@@ -123,6 +123,9 @@ function splitShot(sim, p, cx, cy, mirrorUid) {
     guided: p.guided, drone: p.drone, turretUid: p.turretUid,
   });
   c.split = true;
+  // (a shot that carries a share of a volley, a Blade Cyclone arm or her folded stream, src/sim/wheels.js: the copy
+  // carries the same share, so it is the same shot)
+  if (p.scale != null) c.scale = p.scale;
   for (let i = 0; i < p.hits.length; i++) c.hits.push(p.hits[i]);
   sim._emit('mirrorSplit', { uid: p.uid, copyUid: c.uid, ownerUid: p.ownerUid, mirrorUid, x: cx, y: cy, targetUid: tgt.uid });
   return c;

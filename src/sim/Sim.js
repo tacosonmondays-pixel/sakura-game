@@ -2,6 +2,7 @@
 // sequence of player actions, fixed 1/60 s internal timestep.
 
 import { DIFFICULTIES, BATTLE, TARGET_MODES } from '../data/types.js';
+import { TITAN_POWER } from '../data/balance.js';
 import { createRng } from '../core/rng.js';
 import {
   STEP, MAX_STEPS_PER_UPDATE, HOLY_SILENCE, AUTO_START_DELAY,
@@ -9,7 +10,8 @@ import {
   INCOME_INTEREST_MAX,
 } from './constants.js';
 import {
-  AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
+  AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, WIND_KITS, WIND_LOCK, WIND_KB_COST, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
+  TETHER_SHARES_PER_STEP,
 } from './constants.js';
 import { createDataSource } from './data.js';
 import { buildPaths, pathTileSet } from './path.js';
@@ -52,6 +54,11 @@ import { syncLab, absorbInto, updateLab, labIncome, endLabWave } from './lab.js'
 import { BATTLE_MODES, modeArmor } from '../data/modes.js';
 import { endStripWave } from './strips.js';
 import { endRingWave } from './rings.js';
+import { endWheelWave, shapeDps } from './wheels.js';
+import { endHeldWave, heldDps } from './held.js';
+import { endGroundWave } from './ground.js';
+import { tetherStep, shareTether, ownShare, endLinkWave, linkDps } from './links.js';
+import { endS5Wave, webStep } from './s5shapes.js';
 import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
@@ -97,6 +104,8 @@ export class Sim {
     this.map = ds.map;
     this.difficulty = DIFFICULTIES[difficulty] ? difficulty : 'normal';
     this.diff = DIFFICULTIES[this.difficulty];
+    // Titan Trials keep today's numbers (src/data/balance.js TITAN_POWER): no power row and no hero curve
+    this._powerOff = !TITAN_POWER && this.stage?.kind === 'titan';
     // Tryout Day (src/sim/tryout): its config is read once here and never kept in options (a snapshot stores options)
     const { tryout: tryoutCfg = null, ...opts } = options;
     this.options = { endless: false, autoStart: false, ...opts };
@@ -227,6 +236,12 @@ export class Sim {
     this._curseQueue = [];
     this._flushingCurses = false;
     this._curseBudget = CURSE_BURSTS_PER_TICK; // bursts left this step (refilled at every step)
+    // Spirit Tether (attack shapes S4, src/sim/links.js): the living tether groups and their count (0: Sim._hit's share
+    // hook is one compare), the re-entrancy flag (a shared hit never shares again) and this step's share budget
+    this.tethers = [];
+    this._tetherOn = 0;
+    this._sharing = false;
+    this._shareBudget = TETHER_SHARES_PER_STEP;
     this.runners = []; // path runners in flight (Seiran's sky dragon): end with the wave
     this._leadPt = {}; // scratch point (a mortar's lead)
     this._scratch3 = [];
@@ -357,6 +372,10 @@ export class Sim {
     // curse bursts that spilled over the last step's budget go first, in FIFO order
     this._curseBudget = CURSE_BURSTS_PER_TICK;
     if (this._curseQueue.length && !this._flushingCurses) this._flushCurses();
+    // Spirit Tether (src/sim/links.js): only while a group lives: the share budget refills, groups age and end
+    if (this._tetherOn !== 0) tetherStep(this);
+    // Static Web (attack shapes S5b, src/sim/s5shapes.js): only while a web lives
+    if (this.statics?.length) webStep(this);
     updateEnemyAuras(this);
     // Norika's barricades: spots, rebuilds and Hold the Line timers, before the enemies move into them
     if (this._blockOn) updateBarricades(this);
@@ -574,8 +593,18 @@ export class Sim {
     if (e.dead) return -1;
     const roll = spec.critChance > 0 ? this.rng.next() : 1;
     if (this._ruleMul) scale *= ruleHitScale(this._ruleMul, tower, spec.attackType, spec.element);
+    // Spirit Tether (attack shapes S4, src/sim/links.js): only while a group lives, and never for a shared hit; her own
+    // hit on her tied enemy keeps its part, the rest goes down the threads after it lands
+    let tie = null;
+    const base = scale;
+    // (attack shapes S5: a shape hit, spec.noShare, is neither split nor shared, src/sim/shapes.js shapeSpec)
+    if (this._tetherOn !== 0 && e.tie && !this._sharing && !spec.noShare) {
+      tie = e.tie;
+      scale *= ownShare(this, tie, e, tower, spec);
+    }
     const res = computeHit(e, spec, roll, scale, this._hitOut);
     if (!res) return -1;
+    const crit = tie !== null && res.crit; // (a critical hit's shares are critical too)
     const hpBefore = e.hp;
     const flags = applyHitResult(e, res, spec.share);
     const dealt = Math.min(res.toHp, Math.max(0, hpBefore)) + res.toBarrier;
@@ -595,13 +624,17 @@ export class Sim {
     if (flags & BARRIER_BROKE) this._emit('barrierBreak', { uid: e.uid });
     if (flags & SHELL_BROKE) this._emit('shellBreak', { uid: e.uid });
     this._credit(tower, dealt, e, drone);
+    // attack shapes S5 (rule 6): her shape damage, which every damage-ranked pick leaves out (src/sim/buffs.js allocDealt)
+    if (spec.shape && tower && dealt > 0) tower.shapeDealt = (tower.shapeDealt || 0) + dealt;
     this.stats.damageByType[spec.attackType] = (this.stats.damageByType[spec.attackType] || 0) + dealt;
     if (e.hp <= 0) {
       this._killEnemy(e, tower, drone);
+      if (tie !== null) shareTether(this, tie, e, tower, spec, base, crit, drone);
       return dealt;
     }
     this._onHitEffects(e, tower, spec);
     checkPhases(this, e);
+    if (tie !== null) shareTether(this, tie, e, tower, spec, base, crit, drone);
     return dealt;
   }
 
@@ -640,16 +673,22 @@ export class Sim {
     if (spec.knockback > 0) {
       const hero = !!tower?.isHero;
       const locks = !hero && (PUSH_LOCK_KITS.includes(tower?.unitId) || spec.pushLock === true);
+      // (Fuu's wind, WIND_KITS: its own shorter lock and half the Freeplay Resolve cost; balance round 5)
+      const wind = locks && WIND_KITS.includes(tower?.unitId);
       if (!(hero ? e.heroPushLock > this.time : locks && e.pushLock > 0)) {
         // (Marumi's Bowling Thunder, spec.pushBig: minibosses take the whole push)
         let amt = spec.knockback * (spec.pushBig === true && e.tier === 'miniboss' ? 1 : (KNOCKBACK_RESIST[e.tier] ?? 1));
-        if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
+        if (e.kbLeft != null) {
+          const cost = wind ? WIND_KB_COST : 1;
+          amt = Math.min(amt, e.kbLeft / cost);
+          e.kbLeft -= amt * cost;
+        }
         if (amt > 0) {
           e.dist = Math.max(0, e.dist - amt);
           placeOnPath(e, this.pathData[e.pathIndex]);
           if (hero) e.heroPushLock = this.time + HERO_PUSH_LOCK;
           else if (locks) {
-            e.pushLock = PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal;
+            e.pushLock = wind ? (WIND_LOCK[e.tier] ?? WIND_LOCK.normal) : (PUSH_LOCK[e.tier] ?? PUSH_LOCK.normal);
             e.pushLockBy = tower ? tower.uid : -1;
           }
         }
@@ -724,6 +763,8 @@ export class Sim {
     const tower = status.sourceUid != null ? this._towerByUid.get(status.sourceUid) || null : null;
     const dealt = Math.min(res.toHp, Math.max(0, hpBefore)) + res.toBarrier;
     this._credit(tower, dealt, e);
+    // attack shapes S5b (rule 6): a spore tick is shape damage (applyStatus keeps the status's type, not a spec flag)
+    if (status.type === 'spore' && tower && dealt > 0) tower.shapeDealt = (tower.shapeDealt || 0) + dealt;
     this.stats.damageByType[kind] = (this.stats.damageByType[kind] || 0) + dealt;
     if (e.hp <= 0) this._killEnemy(e, tower);
     else checkPhases(this, e);
@@ -949,6 +990,16 @@ export class Sim {
     if (this.traps.length) endStripWave(this);
     // Kinu's pins, blades, sparks and heat rings end with the wave (src/sim/rings.js)
     endRingWave(this);
+    // the wheel shapes' spin index and halo memory end (src/sim/wheels.js)
+    endWheelWave(this);
+    // the held shapes' channels end (src/sim/held.js)
+    endHeldWave(this);
+    // the ground shapes' spike rows and quake rings end (src/sim/ground.js; Bramble Road's vines end in endVineWave)
+    endGroundWave(this);
+    // the link shapes' tether groups end (src/sim/links.js; returning fans end with the straight shots)
+    endLinkWave(this);
+    // S5a: toll rings and the wheel turn end; surviving bells ring on the next wave's first armed step (src/sim/s5shapes.js)
+    endS5Wave(this);
     // Wakaba's drinks end; Recovery Plan may give a life back (src/sim/drinks.js)
     endDrinkWave(this);
     // Yuzuha's sentries end; her nets stay (src/sim/sentries.js)
@@ -1031,8 +1082,9 @@ export class Sim {
   // -------------------------------------------------------------------------
 
   _unitStats(unitId) {
-    if (this.heroConfig && unitId === this.heroConfig.unitId) return this.heroConfig.stats;
-    return this.loadout.get(unitId) || null;
+    const us = this.heroConfig && unitId === this.heroConfig.unitId ? this.heroConfig.stats : this.loadout.get(unitId) || null;
+    // a titan battle: her stats without balance round 5 (src/sim/mods.js resolveStats reads `powerOff`)
+    return this._powerOff ? { ...(us || DEFAULT_UNIT_STATS), powerOff: true } : us;
   }
 
   /**
@@ -1570,6 +1622,12 @@ export class Sim {
       const blasts = 1 + ball.bounce + (ball.finish > 0 && ball.bounce > 0 ? ball.finish - 1 : 0);
       dps = e.rate * (e.damage * blasts + ball.pins * (t.pinSpec?.damage ?? 0));
     }
+    // the attack shapes (src/sim/wheels.js): a wheel's lead coin, a spin's folded stream, a halo's cuts
+    if (t.stats.wheel || t.stats.spin || t.stats.halo) dps = shapeDps(t, e, dps);
+    // the held shapes (src/sim/held.js): a stream's ticks at its mouth, a sweep's passes
+    if (t.stats.stream || t.stats.sweep) dps = heldDps(t, e, dps);
+    // the link shapes (src/sim/links.js): a Homecoming Throw's fans, each cutting a lone enemy out and back
+    if (t.stats.ret) dps = linkDps(t, e, dps);
     if (dps > 0 && e.tempo) dps *= 1 + e.tempo.per * (t.tempoStacks || 0);
     const echo = e.proc && e.proc.of !== 'trap' && e.proc.every > 0 ? (e.proc.echo === true ? 1 : typeof e.proc.echo === 'number' ? e.proc.echo : 0) : 0;
     if (dps > 0 && echo > 0) dps *= 1 + echo / e.proc.every;

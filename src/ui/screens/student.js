@@ -57,7 +57,7 @@ import { ico, lbl, num, chip as kitChip, moreChip, sticker, statStrip, folderTab
 import { fmtNum } from '../format.js';
 import { gearTab, reqChips, coinsOf } from '../girlGear.js';
 import { openSheet, closeSheets } from '../sheet.js';
-import { headlineStats, roleSentence, roleDetails, profileTips, traitList, matchArrows, abilityInfoView } from '../girlView.js';
+import { headlineStats, roleSentence, roleDetails, profileTips, traitList, matchArrows, abilityInfoView, battleBoostText } from '../girlView.js';
 import { namePlate, potPips } from '../girlFrame.js';
 import { treeGrid, tierPanel, RULE_LINE, RULE_FULL, RULE_EXAMPLES } from '../treeGrid.js';
 import { buildTreeModel } from '../treeModel.js';
@@ -74,7 +74,7 @@ const TABS = [
   { id: 'gear', label: 'Gear', icon: 'shield' },
   { id: 'tree', label: 'Tree', icon: 'sparkle' },
 ];
-const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support' };
+const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support', wheel: 'Wheel of shots', spin: 'Turning stream', stream: 'Held stream', sweep: 'Sweeping beam', spikes: 'Rising spikes', return: 'Returning shot' };
 // skin: outfit being tried on in the showcase (not saved), null = the equipped one
 // manual: Level Up shows the per-book steppers (UI_DIRECTION.md §6.2)
 const view = { mode: 'card', skin: null, manual: false, manualFor: null };
@@ -115,7 +115,7 @@ export function describeMods(mods = {}) {
   const out = [];
   const add = (cond, text) => { if (cond) out.push(text); };
   add(mods.damage, `${mods.damage > 0 ? '+' : ''}${n1(mods.damage)} damage`);
-  add(mods.damageMul && mods.damageMul !== 1, `+${pctOf(mods.damageMul)} damage`);
+  add(mods.damageMul && mods.damageMul !== 1, mods.damageMul < 1 ? `−${pctOf(2 - mods.damageMul)} damage` : `+${pctOf(mods.damageMul)} damage`);
   add(mods.rateMul && mods.rateMul !== 1, mods.rateMul >= 2 ? `×${n1(mods.rateMul)} attack speed` : `+${pctOf(mods.rateMul)} attack speed`);
   add(mods.range, `+${n1(mods.range)} range`);
   add(mods.projectiles, `+${mods.projectiles} ${mods.projectiles === 1 ? 'projectile' : 'projectiles'}`);
@@ -209,8 +209,9 @@ export function effectivenessRow(attackType) {
 /** Base stats next to hers (`label`: 'yours' on your own save, 'theirs' on someone's build snapshot). */
 function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
   const b = unit.base;
-  // Yours / theirs = what she fights with at tier 0: level, gear, awakening (★3 passive too) and Potential
-  const y = resolveStats(unit, { unitStats: battle });
+  // Yours / theirs = what she fights with at tier 0: level, gear, awakening (★3 passive too) and Potential; her kit's
+  // numbers, like the headline strip (girlView.js headlineStats): balance round 5's boost is the footnote (battleBoostText)
+  const y = resolveStats(unit, { unitStats: battle, noPower: true });
   const rows = [];
   const dual = (label, base, yours, fmt = n1) => rows.push([label, fmt(base), owned && yours != null && Math.abs(yours - base) > 1e-6 ? fmt(yours) : null]);
   if (unit.kind === 'hero') {
@@ -257,7 +258,7 @@ function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
     h('table.stat-table.mb-stats',
       owned ? h('thead', h('tr', h('th', ''), h('th', 'Base'), h('th', who))) : null,
       h('tbody', rows.map(([label, base, yours]) => h('tr', h('td', label), h('td', base), owned ? h(`td${yours ? '.mb-yours' : ''}`, yours || base) : null)))),
-    owned ? h('p.muted.mb-stats-note', `${who} = level, gear, awakening and Potential, before upgrades.`) : null);
+    owned ? h('p.muted.mb-stats-note', `${who} = level, gear, awakening and Potential, before upgrades.${battleBoostText(unit) ? ` ${battleBoostText(unit)}` : ''}`) : null);
 }
 
 // ---------------------------------------------------------------------------

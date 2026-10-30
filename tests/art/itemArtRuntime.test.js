@@ -198,7 +198,22 @@ describe('display only: the battle sim is untouched', () => {
     // buff with the long beam, the sentry deploy event and Tryout Day's Extended Day + Random Class; 13: the last five
     // tower ultimates: Kage's Shadow Doubles, Suzu's Bell Carpet, Chika's Drone Surge, Fuu's Backdraft Fan, Iroha's Mirror Shift)
     const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db', 12: 'd35092f141d3', 13: 'be940ecb2087' };
+    // feature/attack-links only: the attack shapes S1 "Wheels" (src/sim/wheels.js, dirs.js, shapes.js), Kohaku's long
+    // beam (src/sim/duo.js), S2 "Held" (src/sim/channel.js, held.js; Akane's Hearth Stream, Umeko's Searchlight Sweep),
+    // S3 "Ground" (src/sim/ground.js, vines.js; Chigusa's Bramble Road, Yuki's Rising Spikes, Kanna's Ripple Quake) and
+    // S4 "Links" (src/sim/links.js; Fuu's Homecoming Throw, Ena's Spirit Tether) change the sim. The release that ships
+    // them sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only this exact in-progress id
+    // passes.
+    // Balance round 5 (feature/balance-r5) rides the same bump: this id is the shapes and round 5 together, on v0.1.61,
+    // with the duo's map-wide laser, the LR rows, freeplay's boss bands, Blade Cyclone's aimed volley, the mirror copies' share,
+    // the LR premium and the OVERTIME bands (Oct 30).
+    // feature/attack-shapes-s5 (on balance round 5): S5a (src/sim/s5shapes.js; Miko's Charm Wheel, Rei's Crescent Return,
+    // Suzu's Bell Toll, and the shared S5 rules: straightRoom's guard, noShare, the shape-damage tally) and S5b (Midori's Spore
+    // Mist with its own `spore` status, Luna's Moonbeam Sweep, Raika's Static Web) ride the same bump.
+    // (merged with balance round 5's 96c3547b, Akane's Inferno Queen cone: '5990a48aa47f' there)
+    const PENDING_BUMP = { 13: '53662b519844' };
     if (!KNOWN[COOP_PROTOCOL]) return;
+    if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });
 });

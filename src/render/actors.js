@@ -9,8 +9,11 @@ import { facesCamera, cameraFacing } from './facing.js';
 import { FIELD_COLORS, fxColor } from './themes.js';
 import { WATER_Y, PATH_H } from './terrain.js';
 import { scissorPos } from '../sim/rings.js';
+import { haloPos } from '../sim/wheels.js';
+import { drawGroundShapes } from './groundShapes.js';
+import { drawLinkShapes } from './linkShapes.js';
 import { pointAt } from '../sim/path.js';
-import { STEP } from '../sim/constants.js';
+import { STEP, HALO_REACH, HALO_MAX } from '../sim/constants.js';
 import { costumeFor, enemyExtraFor, buildCostume, COSTUME_SLOT } from './costumes.js';
 import { headTunnel } from './trackMesh.js';
 
@@ -35,7 +38,9 @@ const SQUASH_RETRIGGER = 0.09;
 const STILL = Object.freeze({ moving: false, speed: 1 });
 
 const STATUS_ICONS = {
-  burn: ['st_burn', '#ff8a4a'], poison: ['st_poison', '#7be08a'], freeze: ['st_freeze', '#bff0ff'], slow: ['st_slow', '#8fe3ff'],
+  burn: ['st_burn', '#ff8a4a'], poison: ['st_poison', '#7be08a'],
+  // Midori's Spore Mist (attack shapes S5b): the poison icon; one icon when an enemy has both
+  spore: ['st_poison', '#a8e05f'], freeze: ['st_freeze', '#bff0ff'], slow: ['st_slow', '#8fe3ff'],
   shock: ['st_shock', '#ffe45c'], stun: ['st_stun', '#ffd84d'], shred: ['st_shred', '#d0d6e2'], mark: ['st_mark', '#ff6b8b'],
   vulnerable: ['st_mark', '#9fd8ff'], silence: ['st_silence', '#c4a6ff'], reveal: ['st_reveal', '#ffe066'], soak: ['st_soak', '#4cc9f0'],
   // roster B3: Ena's curse (bursts on death), Yoriko's hex, grounded flyers
@@ -43,7 +48,7 @@ const STATUS_ICONS = {
   // Chigusa's vines
   hold: ['st_hold', '#6fcf5e'],
 };
-const STATUS_ORDER = ['freeze', 'stun', 'shock', 'hold', 'curse', 'hex', 'ground', 'burn', 'poison', 'slow', 'shred', 'mark', 'vulnerable', 'silence', 'reveal', 'soak'];
+const STATUS_ORDER = ['freeze', 'stun', 'shock', 'hold', 'curse', 'hex', 'ground', 'burn', 'poison', 'spore', 'slow', 'shred', 'mark', 'vulnerable', 'silence', 'reveal', 'soak'];
 const TIER_RING = [null, null, null, '#6fb8ff', '#c08bff', '#ffd84d'];
 const PATH_COLORS = ['#ff6b8b', '#4cc9f0', '#ffd43b'];
 const WHITE = new THREE.Color('#ffffff');
@@ -96,11 +101,17 @@ function projectileGeometries() {
     .finish();
   g.bolt = b().add(new THREE.OctahedronGeometry(0.08, 0), { sz: 2.8, color: '#ffffff' }).finish();
   g.spark = b().add(new THREE.OctahedronGeometry(0.07, 0), { color: '#ffffff' }).finish();
+  // attack shapes S5a (plain look): Miko's paper charm (a white slip with a red band) and Rei's crescent of air
+  g.charm = b()
+    .box(0.07, 0.012, 0.14, { color: '#fffaf0' })
+    .box(0.072, 0.014, 0.025, { z: 0.035, color: '#d0384a' })
+    .finish();
+  g.crescent = b().torus(0.17, 0.03, 4, 12, { arc: Math.PI * 1.2, rx: Math.PI / 2, color: '#ffd6e6' }).finish(); // an open arc
   return g;
 }
 
 const GLOW_KINDS = { orb: 0.42, fireball: 0.6, bolt: 0.45, spark: 0.5, bullet: 0.22, needle: 0.2 };
-const SPIN_KINDS = { shuriken: 18, flask: 9, shell: 4 };
+const SPIN_KINDS = { shuriken: 18, flask: 9, shell: 4, charm: 7, crescent: 12 };
 const TINT_KINDS = { orb: true, bolt: true, spark: true, bullet: true, needle: true, fireball: true };
 
 // ---------------------------------------------------------------------------
@@ -738,7 +749,14 @@ export class Actors {
       const armed = tr.armed;
       const c = this._c.set(armed ? '#ffb347' : '#8a8fa0');
       const s = armed ? 0.62 : 0.45;
-      gN.push(tr.x, 0.07, tr.y, s, s, R.rune, c.r, c.g, c.b, armed ? 0.95 : 0.55, t * 0.8 + tr.uid);
+      // Suzu's Bell Toll (attack shapes S5a, plain look): the bell wobbles for 12 steps after it rings (tollCd reset to every)
+      let wob = 0;
+      if (armed && tr.tollCd != null) {
+        const toll = tr.owner?.stats?.toll;
+        const since = toll ? Math.max(1, Math.round(toll.every)) - tr.tollCd : 99;
+        if (since >= 0 && since < 12) wob = 0.35 * Math.sin(since * 1.6) * (1 - since / 12);
+      }
+      gN.push(tr.x, 0.07, tr.y, s, s, R.rune, c.r, c.g, c.b, armed ? 0.95 : 0.55, t * 0.8 + tr.uid + wob);
       if (armed) gA.push(tr.x, 0.075, tr.y, s * 1.1, s * 1.1, R.glow, c.r, c.g, c.b, 0.35 + 0.2 * Math.sin(t * 5 + tr.uid));
     }
     // Kinu's heat rings and orbit scissors (src/sim/rings.js): read from the sim every frame
@@ -757,6 +775,19 @@ export class Actors {
           gA.push(sx, 0.35, sy, 0.3, 0.3, R.ringSoft, 0.95, 0.95, 1, 0.7, t * 9 + j);
           gN.push(sx, 0.07, sy, 0.22, 0.22, R.disc, 0.2, 0.2, 0.3, 0.25);
         }
+      }
+    }
+    // Petal Halo pieces (attack shapes S1, src/sim/wheels.js; Hotaru's fireflies): read from the sim every
+    // frame at the sim's own orbit (the plain look until the effects update draws them properly)
+    for (const tw of sim.towers) {
+      const h = tw.stats?.halo;
+      if (!(h?.pieces > 0)) continue;
+      const n = Math.min(HALO_MAX, h.pieces);
+      const step = Math.round(sim.time / STEP);
+      for (let j = 0; j < n; j++) {
+        const [hx, hy] = haloPos(tw, j, n, step, HALO_REACH + h.reach);
+        gA.push(hx, 0.42, hy, 0.34, 0.34, R.glow, 1, 0.9, 0.45, 0.75, 0);
+        gA.push(hx, 0.42, hy, 0.12, 0.12, R.ringSoft, 1, 1, 0.8, 0.95, t * 7 + j);
       }
     }
     // Yuzuha's lane sentries and Capture Nets (src/sim/sentries.js), from the sim every frame
@@ -804,6 +835,10 @@ export class Actors {
         gA.push(p.x, 0.07, p.y, 0.48, 0.48, R.ring, 1, 0.77, 0.42, 0.5, 0);
       }
     }
+    // the ground attack shapes (attack shapes S3): Chigusa's vines, Yuki's spike rows, Kanna's quake rings, from the sim
+    drawGroundShapes(sim, gN, gA, R);
+    // the link attack shapes (attack shapes S4): Ena's threads between the enemies she tied, from the sim
+    drawLinkShapes(sim, gN, gA, R);
     // Chigusa's thorn beds (src/sim/vines.js): a dark green patch with a thorny dashed rim, fading out
     for (const tw of sim.towers) {
       if (!tw.beds || pp?.covers('bed')) continue;
@@ -912,7 +947,7 @@ export class Actors {
       const hpFrac = e.maxHp > 0 ? Math.max(0, e.hp / e.maxHp) : 0;
       const hasBarrier = e.maxBarrier > 0 && e.barrier > 0;
       let icons = 0;
-      for (const s in e.statuses) if (STATUS_ICONS[s]) icons++;
+      for (const s in e.statuses) if (STATUS_ICONS[s] && !(s === 'spore' && e.statuses.poison)) icons++;
       const important = e.tier !== 'normal';
       if (hpFrac > 0.999 && !hasBarrier && !important && !icons) continue;
       const big = e.tier === 'boss' ? 1.5 : e.tier === 'miniboss' ? 1.15 : 1;
@@ -950,7 +985,7 @@ export class Actors {
         let i = 0;
         const oy = (hasBarrier || e.maxBarrier > 0 ? 0.17 : 0.12) + (hpFrac > 0.999 && !important ? -0.12 : 0);
         for (const s of STATUS_ORDER) {
-          if (!e.statuses[s] || i >= n) continue;
+          if (!e.statuses[s] || i >= n || (s === 'spore' && e.statuses.poison)) continue;
           const [icon] = STATUS_ICONS[s];
           const c = this._statusColors[s];
           ov.push(x, y, z, sz, sz, R[icon], c.r, c.g, c.b, veiledA, 0, (i - (n - 1) / 2) * (sz + 0.02), oy);

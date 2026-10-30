@@ -8,6 +8,7 @@
 // Midori's brews and Chika's tune-up links are Allies (a few picked girls, `limited`), an
 // execution shot (hpPct) is Self, aura armor pen / crit are Allies.
 import { ATTACK_TYPES, ELEMENTS, STATUSES } from '../data/types.js';
+import { POWER } from '../data/balance.js';
 
 /** @typedef {'self'|'allies'|'enemies'|'coins'} TagId */
 /**
@@ -71,6 +72,18 @@ export const MOD_TAGS = {
   sentry: 'drones',
   // Kaede's blade arts (cleave, crescents, storm, shockwave, maple leaves) are her attack
   blade: 'self',
+  // the attack shapes S1 (src/sim/wheels.js): Momo's Coin Wheel, Kage's Blade Cyclone, Hotaru's fireflies
+  wheel: 'self', spin: 'self', halo: 'self',
+  // the attack shapes S2 (src/sim/held.js): Akane's Hearth Stream, Umeko's Searchlight Sweep
+  stream: 'self', sweep: 'self',
+  // the attack shapes S3 (src/sim/ground.js): Yuki's Rising Spikes, Kanna's Ripple Quake (Bramble Road is Chigusa's `vine`)
+  spike: 'self', quake: 'self',
+  // the attack shapes S4 (src/sim/links.js): Fuu's Homecoming Throw (her fans), Ena's Spirit Tether (threads on enemies)
+  ret: 'self', tether: 'enemies',
+  // the attack shapes S5a (src/sim/s5shapes.js): Miko's Charm Wheel, Rei's Crescent Return, Suzu's Bell Toll
+  charms: 'self', cres: 'self', toll: 'self',
+  // S5b: Midori's Spore Mist, Luna's Moonbeam Sweep, Raika's Static Web (links on enemies)
+  mist: 'self', moon: 'self', web: 'enemies',
   // the duo: Kohaku's beam and the prism's shards are her attack (DUO_LR §1)
   duo: 'self',
   // the staff heroes (BANNERS §D): Kogane's faster Move is hers; Norika's barricades hold the enemies
@@ -97,11 +110,26 @@ const SUB_KEYS = {
   relay: new Set(['reach']),
   sentry: new Set(['max', 'every', 'speed', 'ttl', 'damage', 'rate', 'range', 'burst', 'kits', 'nets', 'netBudget', 'netElite', 'netBoss']),
   ball: new Set(['travel', 'speed', 'through', 'share', 'lobMul', 'pins', 'pinDmg', 'pinPierce', 'hook', 'lob', 'pushBig', 'bounce', 'reach', 'finish']),
-  vine: new Set(['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap']),
+  vine: new Set(['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap', 'len', 'grow', 'life', 'slow', 'lash', 'cap', 'max']),
   hub: new Set(['radius', 'costCut', 'sellMul', 'freeTiers', 'killBounty', 'cdCut', 'rateMul', 'rangeMul', 'dmgMul', 'detection', 'airGrant', 'cleanse', 'typeFloor', 'banners', 'bannerRange', 'bannerReach', 'radiusAdd', 'cutAdd']),
   drink: new Set(['splash', 'shots', 'dmg', 'rate', 'range', 'pierce', 'detection', 'cleanse', 'permanent', 'season', 'towel', 'towelDmg', 'life']),
   ring: new Set(['travel', 'turn', 'heat', 'double', 'sparks', 'scissors', 'scissorDmg', 'scissorMul', 'spiral', 'spiralPierce']),
   strip: new Set(['hits', 'ttl', 'forever', 'carry', 'boom', 'boomR', 'boomStun', 'air', 'aim', 'opening', 'lanes', 'pair', 'rain', 'rainCount']),
+  wheel: new Set(['spokes', 'lead', 'mul']),
+  spin: new Set(['arms', 'mul', 'fold', 'turn', 'lock']),
+  halo: new Set(['pieces', 'reach', 'mul']),
+  stream: new Set(['kind', 'half', 'turn', 'mul', 'cap']),
+  sweep: new Set(['arc', 'swing', 'turn', 'mul', 'cap']),
+  spike: new Set(['count', 'gap', 'r', 'delay', 'mul']),
+  quake: new Set(['rings', 'gap', 'speed', 'mul', 'later', 'status']),
+  ret: new Set(['per', 'mul', 'cut', 'pierce', 'reach']),
+  tether: new Set(['links', 'reach', 'dur', 'share', 'pull']),
+  charms: new Set(['n', 'turn', 'mul']),
+  cres: new Set(['out', 'cuts', 'mul']),
+  toll: new Set(['every', 'r', 'mul']),
+  mist: new Set(['half', 'len', 'cap', 'mul', 'dot']),
+  moon: new Set(['beams', 'arc', 'mul']),
+  web: new Set(['dur', 'every', 'share']),
   duo: new Set(['edge', 'beamDmg', 'beamRate', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'beamAir', 'beamMul', 'rampPer', 'rampMax', 'beamSilence',
     'every', 'shards', 'shardAdd', 'shardShare', 'shardDmg', 'shardSplash', 'shardSlow', 'slowTime', 'shardShred', 'shardVuln', 'vulnTime', 'fullEvery']),
   barricade: new Set(['count', 'budget', 'budgetMul', 'rebuild', 'rebuildCut', 'held', 'reveal', 'bounce', 'breakSlow', 'releaseSlow', 'miniHalf', 'detour', 'oneWay', 'lineAdd']),
@@ -291,7 +319,7 @@ export function ultTags(ult) {
 // One-line effect + tier icon
 // ---------------------------------------------------------------------------
 
-const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support' };
+const BEHAVIOR_SHORT = { projectile: 'Projectiles', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support', wheel: 'Coin wheel', spin: 'Turning stream', stream: 'Fire stream', sweep: 'Sweeping beam', spikes: 'Rising spikes', return: 'Returning fans' };
 
 /** Short status phrase: "Slow 30%", "Freeze 1s", "Brittle +20%"… (chance as a suffix). */
 export function statusShort(s) {
@@ -386,7 +414,7 @@ const SHORT_ORDER = [
   ['canHitAir', () => 'Hits flyers'],
   ['detection', () => 'Veil Sight'],
   ['damage', (m) => `+${round1(m.damage)} dmg`],
-  ['damageMul', (m) => `+${pct(m.damageMul)} dmg`],
+  ['damageMul', (m) => `${m.damageMul < 1 ? '−' : '+'}${pct(m.damageMul < 1 ? 2 - m.damageMul : m.damageMul)} dmg`],
   ['crit', (m) => `${Math.round((m.crit.chance || 0) * 100)}% crits ×${round1(m.crit.mul || 1.5)}`],
   ['splash', (m) => `+${round1(m.splash)} splash`],
   ['chain', (m) => `+${m.chain} ${m.chain === 1 ? 'jump' : 'jumps'}`],
@@ -621,6 +649,9 @@ export function auraTotals(unit, path, tier) {
     }
     if (any) out.tiers++;
   }
+  // balance round 5 (src/data/balance.js): her `buff` grows the bonus part, as in battle (src/sim/mods.js)
+  const b = POWER[unit?.id]?.buff ?? 1;
+  if (b !== 1) for (const [key] of AURA_MULS) if (out[key] > 1) out[key] = 1 + (out[key] - 1) * b;
   return out;
 }
 
