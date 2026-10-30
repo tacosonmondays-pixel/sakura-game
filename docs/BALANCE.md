@@ -1,5 +1,27 @@
 # Balance notes
 
+## Release v0.1.66 assembly (2026-10-30, `release/v0.1.66`, COOP_PROTOCOL 14, sim `36cba1c215b0`)
+
+The shapes S5 (with round 5), Ena's spreading curse, Iroha's mirror network, the gear update (M0 + M2 sets + M3 LR gear)
+and Build Coach / loadouts merged on main v0.1.64 / v0.1.65. What the merge itself changed:
+
+- **Gear sets on the attack shapes (decision A).** Right Angle and Confetti Burst counted only projectile, pulse, duel,
+  beam and chain attacks, so the 11 path/tier rows whose attack turns into a shape (Yuki 2-4/5 spikes, Momo 3-4/5 wheel,
+  Akane 2-4/5 stream, Kage 1-5 spin, Umeko 1-4/5 sweep, Fuu 1-4/5 return) would have lost them; `SET_ATTACK_BEHAVIORS`
+  now includes wheel, spin, stream, sweep, spikes and return. Held channels carry them like a gear trick (channel.js
+  `set`). S5's shape hits stay clean (shapeSpec clears the sure crit, super crit and Confetti Burst).
+- **The average crit never costs a damage source (decision 2).** A girl with dead crit lines took the average-crit path
+  for her whole kit, so hits that never read it lost ATK: Wakaba's towel (the gate's 2-0-3/4/5 boss cells, 18 → 17),
+  Ouka −0.28 %, Suzu's direct hits −1.5 %. Now every hit keeps the ATK fill-in (live's damageMul) and only traps, curses,
+  burns and poisons take the better of the two (`fillOnlyBattleStats`, `tests/systems/avgCritTrade.test.js`).
+- **Iroha's layouts** on the merged tree (`irohaLayouts.mjs`): 5-0-2 boss 5.95M, 2-0-5 crowd 8.45M, under KNOWN (6.13M,
+  8.70M), kept. **LR bar** (`lrBar.mjs --bar`): crowd 17,397,696 → 17,399,281 (Akane 5-0-2 beside Umeko + Chika), boss
+  6.13M unchanged; every LR build ×1.31–1.33 of the crowd bar, ×2.29+ of the boss bar, so no LR row moved; under the
+  same supports every LR still beats every non-LR (worst ×1.149, Tenka Rail Arms beside Umeko + Midori 2-0-5).
+- **No-nerf gate** (live c6d06118, the same sim as v0.1.65's c34f7bd3): alone 0 / 4,455 under; beside Umeko + Midori 5,
+  all among the six explained cells above (Sango 2-0-4 crowd L1, Shiro 2-0-1 crowd L1, 4-0-2 and 5-0-2 held boss L1,
+  Midori 2-0-3 walking boss L1; Suzu's L40 cell is no longer under).
+
 ## Ena's spreading curse, Omen Rot (2026-10-30, `feature/ena-contagion`, on top of round 5)
 
 The owner asked for Ena's curse to spread like a contagion: before, it only did something when the cursed enemy died
