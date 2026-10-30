@@ -203,6 +203,9 @@ Fully maxed real-coin runs (A2): every Nightmare run now ends to the swarm (elit
 190, 4-5 Crimson 180 → 189, 8-5 Tempest 190 → 191, 8-5 Crimson 180 → 191, 1-5 Crimson 190 → 207, Blossom 210–220 → 212–225; on Normal the
 bosses at 190–225 no longer end the runs either (4-5 Tempest 200 → 205, 8-5 Tempest 200 → 208, 8-5 Crimson 200 → 206).
 
+With lives to spare (`capBot --lives 1000000`, Nightmare), where each kind first gets through: before, bosses first
+(180–220) and the swarm 1–11 waves later; after, the swarm first (elites 189–225) and bosses 210–225, 5–25 waves later.
+
 **The endgame gate:** the Eclipse Wyrm at 250 is 10–17B on Nightmare (5.6–10B on Normal) against a fully maxed board's
 ~1.2B: still far out of reach. Past 200 the bosses still climb 5% a wave, so a run's end comes at 205–225 from them or
 the swarm.
