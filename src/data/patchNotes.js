@@ -20,6 +20,19 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.65', version: '0.1.65', date: '2026-10-30', title: 'The Summoning Gate Opens',
+    added: [
+      'Recruiting now opens a summoning Gate: it glows blue, surges to a rainbow when an SSR is coming, and turns to a starlit Nightglass sky for an LR.',
+      'Every SSR and LR girl gets her own full-screen reveal: her silhouette, her art sweeping in, her stars, name and quote, then her mark stamping in. Tap to move on, or press Skip all to jump to your results.',
+      'Tryout Day: a Pep Talks list shows every Pep Talk you have taken this run, and you can open it any time.',
+    ],
+    changed: [
+      'The Gate and reveals follow your Reduce motion setting (a calm fade instead of spins and sparks) and your Flashes & shake setting (no flashes or shake when it is off).',
+      'Gear has new icons: chunkier 3D-style pieces whose shape and trim grow fancier with rarity, and set gear wears its set’s look.',
+      'Tryout Day’s Pep Talk cards have a fresh look.',
+    ],
+  },
+  {
     id: 'v0.1.64', version: '0.1.64', date: '2026-10-30', title: 'A Ribbon for the Night Watch',
     added: [
       'Reached wave 200 or beyond in Freeplay (any difficulty, solo or co-op)? A letter in your Mailbox holds the Starlight Vigil Ribbon for your Honor Ribbon Case. The Eclipse Wyrm at wave 250 turned out far stronger than intended, so nobody could earn it. Claim it by Nov 30; reach wave 200 before then and it comes to you too.',
