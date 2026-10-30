@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, runShapesBattle, runHeldBattle, runGroundBattle, runLinksBattle, runS5aBattle, runS5bBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runSetBattle, runGlowBowlBattle, runShapesBattle, runHeldBattle, runGroundBattle, runLinksBattle, runS5aBattle, runS5bBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 import { launchAttempts } from '../../e2e/browser.mjs';
 
 // T3 review coop-3: e2e/engines.mjs only ever tried Playwright's own browsers, so on a machine without
@@ -235,6 +235,8 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
       .toEqual({
         ticks: 47193, state: 'between', wallets: '568/782', lives: 100, final: 2186080864, hashes: '00357611', casts: 75,
         byId: 'aoi.skyfall 12 · ena.omenCard 11 · hana.swoop 19 · noa.firstAid 4 · ruri.moonPounce 3 · seiran.stormLance 13 · yoriko.puppetHex 13',
+        // (the gear sets, GEAR_UPDATE.md M2: the same battle — final and hashes unchanged — but the snapshot holds the
+        // new Sim state, Confetti Burst's budget and the status context's Control Strength / You're It fields)
         ckDigest: 'ab003279', finalDigest: '50bdf2cd',
       });
   }, 240000);
@@ -309,7 +311,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // 60f651e2 → 2af38483, 98e117c2 → cddc50f8. Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10,
     // Hotaru ×1.04): digests only (on balance-r5 alone 60f651e2 → 908e0502, 98e117c2 → 2e213a40); both together 9436008b / 61d0c02a.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '88532403', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'ce8b48fe', finalDigest: '3557ee77' });
+      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '88532403', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'ce8b48fe', finalDigest: '3557ee77' }); // (M2: new Sim state only; review M2 r2 N1: her lab record's interestCap)
   }, 240000);
 
   it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s bolts bouncing off her mirrors with Pierce, every club trick) in sync', () => {
@@ -471,6 +473,27 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Lv 22, the guest's at tier 4). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, s5b: r.s5b, rejoinTick: r.rejoinTick })
       .toEqual({ ticks: 20410, state: 'won', wave: 22, wallets: '1499/3038', final: 1874512872, hashes: '8f5eaf93', s5b: '9767/893/14/64', rejoinTick: 6054 });
+  }, 240000);
+
+  it('runs the gear sets (SET_START: every set\'s passive and set cap, super crits) in sync, its checkpoint replaying', () => {
+    const r = runSetBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.cleared).toBe(14);
+    // every passive ran: Right Angle, Confetti Burst and Big Cheer as tricks, crit over 100 % as super crits, You're It
+    // on hit enemies, Bake Sale's coins, Supercharge's lance
+    for (const k of ['aoi:rightAngle', 'hana:confetti', 'noa:cheer']) expect(r.sets, k).toMatch(new RegExp(`${k}=[1-9]`));
+    expect(r.superCrits).toBeGreaterThan(0);
+    expect(r.itHits).toBeGreaterThan(0);
+    expect(r.baked).toBeGreaterThan(0);
+    expect(r.byId).toMatch(/seiran\.stormLance [1-9]/);
+    expect(r.ckWave).toBe(8);
+    expect(r.ckSame).toBe(true);
+    expect(r.checkpoints).toBeGreaterThan(100);
+    expect(runSetBattle().final).toBe(r.final);
+    // pinned when the scenario landed (GEAR_UPDATE.md M2 review): change only with a deliberate sim / data change, and say why
+    expect({ ticks: r.ticks, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, sets: r.sets, superCrits: r.superCrits, itHits: r.itHits, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
+      .toEqual({ ticks: 50043, wallets: '579/792', lives: 100, final: 545400673, hashes: 'ed5275a5', sets: 'aoi:rightAngle=31 hana:confetti=36 noa:cheer=36', superCrits: 146, itHits: 1132, ckDigest: 'f7ecf5de', finalDigest: 'b35a0ce8' });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

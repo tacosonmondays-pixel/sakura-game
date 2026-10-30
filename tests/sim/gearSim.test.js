@@ -29,7 +29,8 @@ describe('Pierce carry', () => {
   test('half rate and at most +1 a shot for Shiro, Momo and Miko; Follow-Through adds 100 after the cap', () => {
     expect(pierceK({ unitId: 'shiro', unitStats: { pierceK: 46 } })).toBe(23);
     expect(pierceK({ unitId: 'aoi', unitStats: { pierceK: 46 } })).toBe(46);
-    expect(pierceK({ unitId: 'aoi', unitStats: { pierceK: 999 } })).toBe(150);
+    // (the guard is 300 with LR gear: five Blank LR pieces double the 150 % cap, GEAR_UPDATE.md §4.3)
+    expect(pierceK({ unitId: 'aoi', unitStats: { pierceK: 999 } })).toBe(300);
     expect(pierceK({ unitId: 'aoi', unitStats: { pierceK: 150 } }, true)).toBe(250);
     const t = {};
     expect(pierceCarry(t, 'c', 250, 1)).toBe(1);
@@ -142,7 +143,7 @@ describe('club tricks in a battle', () => {
   test('Follow-Through widens a blast kit\'s 5th blast and a trap girl\'s 5th trap: ×(1 + 0.2 × (Pierce + 1)) over ×(1 + 0.2 × Pierce)', () => {
     expect(followThroughBlast({})).toBeCloseTo(1.2, 12);
     expect(followThroughBlast({ pierceK: 150 })).toBeCloseTo(1.5 / 1.3, 12);
-    expect(followThroughBlast({ pierceK: 999 })).toBeCloseTo(1.5 / 1.3, 12);
+    expect(followThroughBlast({ pierceK: 999 })).toBeCloseTo((1 + 0.2 * 4) / (1 + 0.2 * 3), 12);
     const radii = (ev, r) => {
       const wide = ev.explode.filter((x) => Math.abs(x - r.wide) < 1e-9).length;
       const plain = ev.explode.filter((x) => Math.abs(x - r.plain) < 1e-9).length;

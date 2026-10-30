@@ -20,10 +20,10 @@
 //
 // Pure functions on the profile; nothing here is co-op hashed.
 
-import { GEAR_SLOTS } from '../data/types.js';
+import { SLOT_IDS } from '../data/gearSlots.js';
 
 export const OWN_PREFIX = 'own:';
-const SLOTS = Object.keys(GEAR_SLOTS);
+const SLOTS = SLOT_IDS;
 /** The lowest mark of an owned girl (level 1, no gates, no stars). */
 export const OWNED_MIN = 1000;
 

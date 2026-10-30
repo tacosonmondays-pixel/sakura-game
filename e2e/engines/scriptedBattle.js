@@ -1479,7 +1479,7 @@ export const RETURNING_ABIL_IDS = Object.freeze(['ena.omenCard', 'hana.swoop', '
  * into a fresh client and replayed. `byId` counts the `ability` events per ability; `crowd` / `rallyKills` (the most
  * enemies by Noa, the most kills one rally counted) say how close the lives part came.
  */
-export function runReturningAbilBattle({ toWave = 14, checkpointAt = 8, maxFrames = 60 * 60 * 20, start = RETURNING_ABIL_START } = {}) {
+export function runReturningAbilBattle({ toWave = 14, checkpointAt = 8, maxFrames = 60 * 60 * 20, start = RETURNING_ABIL_START, probe = null } = {}) {
   const t0 = Date.now();
   const rng = createRng(31);
   const clock = { t: 0 };
@@ -1509,6 +1509,8 @@ export function runReturningAbilBattle({ toWave = 14, checkpointAt = 8, maxFrame
   });
   const [A, B] = [mk(0), mk(1)];
   const clients = [A, B];
+  // (an optional observer of the host's copy, as runPotentialBattle's: it never changes the battle)
+  probe?.(A.sim);
   const girls = [['hana', 'ruri', 'noa'], ['ena', 'aoi']];
   // Noa takes the spot nearest the road and the four damage girls the nearest free spots around her, so the killing
   // happens at her feet and her rally's kills can bring lives back; the heroes take the next road spots
@@ -1990,6 +1992,73 @@ const GEAR_UPGRADES = Object.freeze([[0, 'aoi', 0], [0, 'akane', 0], [1, 'chika'
 export function runGearBattle({ maxFrames = 60 * 60 * 14 } = {}) {
   const t0 = Date.now();
   const r = runPotentialBattle({ start: GEAR_START, upgrades: GEAR_UPGRADES, spotsFirst: ['aoi', 'rei', 'akane', 'chika', 'suzu', 'miko', 'shiro', 'kaede'], maxFrames });
+  r.ms = Date.now() - t0;
+  return r;
+}
+
+// ---------------------------------------------------------------------------
+// The gear sets (GEAR_UPDATE.md M2): SET_START, the returning abilities' battle with every set worn
+// ---------------------------------------------------------------------------
+
+const S = (more) => ({ ...RETURNING_ABIL_STATS, ...more });
+const SH = (more) => ({ ...RETURNING_ABIL_HERO, ...more });
+/**
+ * RETURNING_ABIL_START with a set on every girl (five pieces, so each set cap is on too): Noa's Spirit Squad (Big
+ * Cheer from her aura, Buff Duration), Aoi's Geometry (Right Angle, crit over 100 %: super crits), Hana's Party Popper
+ * (Confetti Burst, her blasts reading her Pierce), Ruri's Treasurer (Bake Sale on her kills), Ena and Yoriko in Freeze
+ * Tag (You're It, Control Strength) and Seiran's Power Bank (Supercharge on Storm Lance, Ability Haste).
+ */
+export const SET_START = Object.freeze({
+  ...RETURNING_ABIL_START,
+  seed: 646464,
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [
+      { unitId: 'hana', stats: S({ set: 'popper', setN: 5, blastK: 120, pierceK: 46 }) },
+      { unitId: 'ruri', stats: S({ set: 'treasurer', setN: 5 }) },
+      { unitId: 'noa', stats: S({ set: 'spirit', setN: 5, buffDurMul: 1.3 }) },
+    ], hero: { unitId: 'seiran', stats: SH({ set: 'powerbank', setN: 5, abilHaste: 0.3 }) } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [
+      { unitId: 'ena', stats: S({ set: 'freezetag', setN: 4, controlMul: 1.4 }) },
+      { unitId: 'aoi', stats: S({ set: 'geometry', setN: 5, critChance: 1.4, critCeil: 2, avgCrit: 2.1 }) },
+    ], hero: { unitId: 'yoriko', stats: SH({ set: 'freezetag', setN: 5, controlMul: 2.5 }) } },
+  ],
+});
+
+/**
+ * SET_START through 14 waves (runReturningAbilBattle's fields, its checkpoint replayed) plus `sets`: the set tricks by
+ * girl (`aoi:rightAngle`, `hana:confetti`, `noa:cheer`), `superCrits` (hits that rolled one), `itHits` (hits on an
+ * enemy under You're It) and `baked` (Bake Sale's coins), all counted on the host's copy.
+ */
+export function runSetBattle(opts = {}) {
+  const t0 = Date.now();
+  const tricks = {};
+  const mech = { superCrits: 0, itHits: 0, baked: 0 };
+  const quiet = (sim, key, wrap) => {
+    const f0 = sim[key];
+    Object.defineProperty(sim, key, { configurable: true, writable: true, enumerable: false, value: wrap(f0) });
+  };
+  const probe = (sim) => {
+    quiet(sim, '_emit', (f0) => function emit(type, ev, ...rest) {
+      if (type === 'setTrick') {
+        const id = sim.towers.find((t) => t.uid === ev?.towerUid)?.unitId || '?';
+        tricks[`${id}:${ev.kind}`] = (tricks[`${id}:${ev.kind}`] || 0) + 1;
+      } else if (type === 'hit' && ev?.superCrit) mech.superCrits++;
+      return f0.call(this, type, ev, ...rest);
+    });
+    quiet(sim, '_hit', (f0) => function hit(e, ...rest) {
+      if (e?.it && !e.dead) mech.itHits++;
+      return f0.call(this, e, ...rest);
+    });
+    quiet(sim, '_bake', (f0) => function bake(t, amount, ...rest) {
+      if (amount > 0) mech.baked += amount;
+      return f0.call(this, t, amount, ...rest);
+    });
+  };
+  const r = runReturningAbilBattle({ start: SET_START, ...opts, probe });
+  r.sets = Object.keys(tricks).sort().map((k) => `${k}=${tricks[k]}`).join(' ');
+  r.superCrits = mech.superCrits;
+  r.itHits = mech.itHits;
+  r.baked = Math.floor(mech.baked);
   r.ms = Date.now() - t0;
   return r;
 }
@@ -2859,5 +2928,5 @@ export function runEngineChecks() {
   const heroes = runHeroBattle();
   const modes = runModeBattles();
   const tryoutRandom = runTryoutBattle({ seed: 2027, random: true, maxWaves: 14, checkpointAt: 8 });
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), shapes: runShapesBattle(), held: runHeldBattle(), ground: runGroundBattle(), links: runLinksBattle(), s5a: runS5aBattle(), s5b: runS5bBattle(), duo: runDuoBattle(), tenkaLr: runTenkaLrBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), tryoutAfter: runTryoutExtendedBattle(), tryoutAfterRandom: runTryoutExtendedBattle({ seed: 4821, random: true, maxWaves: 57, checkpointAt: 52 }), modes, tryoutRandom };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), sets: runSetBattle(), glowBowl: runGlowBowlBattle(), shapes: runShapesBattle(), held: runHeldBattle(), ground: runGroundBattle(), links: runLinksBattle(), s5a: runS5aBattle(), s5b: runS5bBattle(), duo: runDuoBattle(), tenkaLr: runTenkaLrBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), tryoutAfter: runTryoutExtendedBattle(), tryoutAfterRandom: runTryoutExtendedBattle({ seed: 4821, random: true, maxWaves: 57, checkpointAt: 52 }), modes, tryoutRandom };
 }

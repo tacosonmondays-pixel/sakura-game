@@ -498,6 +498,8 @@ export function updateEnemy(sim, e, dt) {
   if (!e.dead && st.curse) sim._curseTick(e, st.curse, dt); // Ena's spreading curse: rot and pass it on
   if (e.dead) return;
   tickStatusDurations(e, dt);
+  // You're It's mark (src/sim/status.js), in fixed steps
+  if (e.it && --e.it.left <= 0) delete e.it;
   syncStatusFlags(e);
   if (e.pushLock > 0) e.pushLock -= dt;
 

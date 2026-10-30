@@ -40,6 +40,7 @@ import { nearestDir, dirAngle } from './dirs.js';
 import {
   STEP, BED_RADIUS, BEDS_PER_GIRL, BEDS_PER_SIM, VINE_STEP, VINE_SLOW_T, VINES_PER_GIRL, VINES_PER_SIM,
 } from './constants.js';
+import { statusCtxFor } from './setRules.js';
 
 const NEAR = [];
 const HITS = [];
@@ -171,7 +172,7 @@ function holdLead(sim, t, vine, list) {
   const ctx = sim._statusCtx;
   ctx.element = null;
   ctx.attackType = t.eff.attackType;
-  ctx.sourceUid = t.uid;
+  statusCtxFor(ctx, t);
   if (!sim._applyStatusEvent(lead, { type: 'hold', duration: t.stats.vine.hold }, ctx)) return;
   syncStatusFlags(lead);
   sim._emit('vine', { towerUid: t.uid, targetUid: lead.uid, x: lead.x, y: lead.y, hold: lead.statuses.hold?.left ?? t.stats.vine.hold });
@@ -198,7 +199,7 @@ export function vineObjects(sim, t) {
         if (v.slow > 0) {
           ctx.element = null;
           ctx.attackType = t.eff.attackType;
-          ctx.sourceUid = t.uid;
+          statusCtxFor(ctx, t);
           const slow = { type: 'slow', amount: v.slow, duration: VINE_SLOW_T };
           for (let j = 0; j < list.length; j++) sim._applyStatusEvent(list[j], slow, ctx);
         }

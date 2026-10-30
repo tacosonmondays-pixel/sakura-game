@@ -27,14 +27,14 @@ const boxes = (a) => a.rewards.filter((r) => r.id.startsWith('gearbox_')).map((r
 const LEDGER = JSON.parse(readFileSync(new URL('../fixtures/achievements-ledger.json', import.meta.url), 'utf8')).achievements;
 
 describe('ids and names', () => {
-  it('159 rows: the shipped 30 (first, in their order) + 102 new + 12 Act II + 15 Tryout Day; 116 live at launch + 2 with social + 11 Codex + a_ch1_act2 … a_ch6_act2 + 15 Tryout Day = 150', () => {
-    expect(ACHIEVEMENTS).toHaveLength(159);
+  it('161 rows: the shipped 30 (first, in their order) + 104 new + 12 Act II + 15 Tryout Day; 116 live at launch + 2 with social + 11 Codex + a_ch1_act2 … a_ch6_act2 + 15 Tryout Day + 2 LR gear = 152 (LR gear\'s two rows, GEAR_UPDATE.md §4.6)', () => {
+    expect(ACHIEVEMENTS).toHaveLength(161);
     expect(ACHIEVEMENTS.filter((a) => a.shipped)).toHaveLength(30);
     expect(ACHIEVEMENTS.slice(0, 30).every((a) => a.shipped)).toBe(true);
-    expect(PRE).toHaveLength(102);
+    expect(PRE).toHaveLength(104);
     expect(ACT2.map((a) => a.id)).toEqual(ACT2_IDS);
     expect(LAUNCH).toHaveLength(86);
-    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(150);
+    expect(ACHIEVEMENTS.filter((a) => achievementLive(a))).toHaveLength(152);
     expect(TRYOUT_ROWS.map((a) => a.id)).toEqual(['a_try_half', 'a_try_full', 'a_try_spotless', 'a_try_ticked', 'a_try_dare', 'a_try_seen', 'a_try_lr',
       'a_try_window', 'a_try_moves', 'a_try_g4', 'a_try_g8', 'a_try_g12', 'a_try_aw50', 'a_try_aw75', 'a_try_aw100']);
     expect(TRYOUT_ROWS.every((a) => achievementLive(a) && a.cat === 'tryout' && a.metric === 'counter' && a.param.startsWith('ty:'))).toBe(true);
@@ -51,7 +51,7 @@ describe('ids and names', () => {
     }
     expect(REEXPORTED).toBe(ACHIEVEMENTS);
     expect(ACH_V2_LIVE).toBe(true);
-    expect(ACHIEVEMENT_WAVES).toEqual({ launch: true, social: true, codex: true, tryout: true, later: false, act2: true });
+    expect(ACHIEVEMENT_WAVES).toEqual({ launch: true, social: true, codex: true, tryout: true, gear: true, later: false, act2: true });
   });
 
   it('ids are unique, ^a_[a-z0-9_]+$ and at most 24 characters (valid title ids and ach: pins)', () => {
@@ -76,7 +76,7 @@ describe('ids and names', () => {
     for (const a of ACHIEVEMENTS) {
       expect(cats.has(a.cat), a.id).toBe(true);
       expect(ACHIEVEMENT_METRICS, a.id).toContain(a.metric);
-      expect(['launch', 'social', 'codex', 'tryout', 'later', 'act2'], a.id).toContain(a.wave);
+      expect(['launch', 'social', 'codex', 'tryout', 'gear', 'later', 'act2'], a.id).toContain(a.wave);
       expect(Number.isInteger(a.goal) && a.goal > 0, a.id).toBe(true);
       expect(ACHIEVEMENT_MAP[a.id]).toBe(a);
       if (a.hidden) expect(a.hint?.length, a.id).toBeGreaterThan(5);

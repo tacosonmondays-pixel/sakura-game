@@ -12,18 +12,20 @@
 //
 // Every gear action of the old tab stays one tap from the slot: equip, swap, take from a classmate, unequip,
 // enhance, awaken to UR, stitch, reroll, clubs, lock and salvage. Styles: src/ui/styles/girl.css (.gk-*).
+import { SHOWN_SLOTS, slotName } from '../data/gearSlots.js';
 import { h, button, toast, confirmDialog } from './components.js';
 import { store } from '../core/store.js';
 import { navigate } from './router.js';
-import { GEAR_SLOTS } from '../data/types.js';
 import { UNIT_MAP } from '../data/units.js';
 import { getItem } from '../data/items.js';
 import { statName, STAT_HINTS } from '../data/gearStats.js';
 import { CLUBS, CLUB_RARITIES } from '../data/clubs.js';
 import {
   gearList, equipGear, unequipGear, salvageGear, salvageRewards, enhanceCost, maxGearLevel, awakenReady, isUrGear,
-  stitchSlots, gearLines, gearFillIn, tuneCount,
+  stitchSlots, gearLines, gearFillIn, tuneCount, gearSetInfo, describeStat,
 } from '../systems/gear.js';
+import { GEAR_SETS, SET_TEXT } from '../data/gearSets.js';
+import { setIdle } from '../systems/gearSets.js';
 import { itemCount } from '../systems/inventory.js';
 import { applyGearFilter, activeGearFilters } from '../systems/gearFilter.js';
 import { gearFilterBar, gearFilterFor } from './gearFilterBar.js';
@@ -38,7 +40,7 @@ import { fmtNum } from './format.js';
 import { urRing } from './rarity.js';
 import { itemIcon } from '../art/icons.js';
 
-const SLOTS = Object.keys(GEAR_SLOTS);
+const SLOTS = SHOWN_SLOTS;
 const pieceOf = (profile, unitId, slot) => {
   const uid = profile.units[unitId]?.gear?.[slot];
   return uid ? profile.gear[uid] || null : null;
@@ -62,10 +64,31 @@ export function gearTab(unit, { onChange, mode = girlPageMode(store.profile) }) 
   return h(`div.mb-tab-body.gk-gear${from.mode === 'detailed' ? '.detailed' : ''}`,
     h('section.ui-panel.gk-panel', h('div.ui-panel-in',
       h('div.gk-slots', SLOTS.map((slot) => slotCard(unit, slot, onChange, mode))),
+      gearSetLine(profile, unit.id),
       h('div.gk-from',
         h('div.ui-panel-head', h('span.ui-kicker', 'From gear'), set ? setChip(set, unit) : null),
         from.mode === 'detailed' ? gearTotalsAll(unit, from)
           : statStrip(from.cells, { onMore: () => openGearTotals(unit), testid: 'gear-strip', moreTestid: 'gear-more' })))));
+}
+
+/**
+ * Her gear set's line (GEAR_UPDATE.md §11.1): the set with the most pieces she wears (2+), its pips out of five and the
+ * bonus that is on (2: its stat, 4: the passive, 5: the stronger passive and the set cap). Nothing below 2 pieces.
+ */
+function gearSetLine(profile, unitId) {
+  const info = gearSetInfo(profile, unitId);
+  const id = info.set || info.setStats[0];
+  if (!id) return null;
+  const n = info.sets[id];
+  const t = SET_TEXT[id];
+  const two = GEAR_SETS[id].two;
+  const on = n >= 5 ? `5: ${t.passive}. ${t.five}` : n >= 4 ? `4: ${t.passive}. ${t.four}` : `2: ${describeStat(two.stat, two.value)}`;
+  // the dead-passive rule (§3.1): a passive or set cap her kit cannot use is greyed with the reason
+  const idle = n >= 4 ? setIdle(id, unitId) : { passive: null, cap: null };
+  const why = idle.passive || (n >= 5 ? idle.cap : null);
+  return h(`p.gk-setline${idle.passive ? '.idle' : ''}`, { 'data-testid': 'gear-set-line', style: { '--set': GEAR_SETS[id].color } },
+    h('b', `${GEAR_SETS[id].name} `), h('span.gk-set-pips', '●'.repeat(Math.min(5, n)) + '○'.repeat(Math.max(0, 5 - n))), ` · ${on}`,
+    why ? h('span.gk-set-idle', { 'data-testid': 'gear-set-idle' }, ` (${why})`) : null);
 }
 
 /** Detailed: every gear total on ink (MAX marked), the fill-in line and each set bonus that is on with its effect. */
@@ -84,7 +107,7 @@ function gearTotalsAll(unit, from) {
 /** One slot card: the card is the action (P2), so an empty slot's "Equip" is a label, not a second button. */
 function slotCard(unit, slot, onChange, mode = 'compact') {
   const g = pieceOf(store.profile, unit.id, slot);
-  const name = GEAR_SLOTS[slot].name;
+  const name = slotName(slot);
   const main = g ? gearLines(g).main : null;
   const v = slotCardView(g, mode);
   // Detailed: the label reads the substats out too (the card's own words are hidden behind it)
@@ -140,7 +163,7 @@ function setChip(set, unit) {
  */
 export function openSlotSheet(unit, slot, { onChange = () => {} } = {}) {
   const profile = store.profile;
-  const name = GEAR_SLOTS[slot].name;
+  const name = slotName(slot);
   const ui = { undo: null, filter: false };
   const body = h('div.gk-ss');
   const titleOf = (g) => (g ? g.name : `${name} · empty`);
@@ -351,7 +374,7 @@ export function openPieceSheet(g, { onChange = () => {} } = {}) {
       h('div.gk-item-top',
         gearTile(x, { slot: x.slot, cls: 'gk-item-tile' }),
         h('div.gk-item-id',
-          pieceTag(x), h('span.gk-flag', `${GEAR_SLOTS[x.slot]?.name} · +${x.level}`),
+          pieceTag(x), h('span.gk-flag', `${slotName(x.slot)} · +${x.level}`),
           x.club ? clubTag(x.club) : null,
           x.locked ? h('span.gk-flag', ico('lock'), 'Locked') : null,
           wearer ? h('span.gk-flag', `Worn by ${wearer.name}`) : null)),
@@ -378,12 +401,12 @@ function compareTarget(g) {
     const order = [f.hero, ...(f.towers || [])].filter((id) => id && profile.units[id]);
     for (const id of order) {
       const uid = profile.units[id].gear?.[g.slot];
-      if (uid && profile.gear[uid] && uid !== g.uid) return { g: profile.gear[uid], label: `${UNIT_MAP[id]?.name}'s ${GEAR_SLOTS[g.slot].name.toLowerCase()}` };
+      if (uid && profile.gear[uid] && uid !== g.uid) return { g: profile.gear[uid], label: `${UNIT_MAP[id]?.name}'s ${slotName(g.slot).toLowerCase()}` };
     }
     return null;
   }
   const spare = gearList(profile, { slot: g.slot }).filter((x) => !x.equippedBy && x.uid !== g.uid).sort((a, b) => b.level - a.level)[0];
-  return spare ? { g: spare, label: `your best spare ${GEAR_SLOTS[g.slot].name.toLowerCase()}` } : null;
+  return spare ? { g: spare, label: `your best spare ${slotName(g.slot).toLowerCase()}` } : null;
 }
 
 /** Hold an element (pointer or a pressed key) to compare: `on(true)` while held, `on(false)` when let go. */
@@ -478,11 +501,11 @@ export function openPieceDetails(g, { unit = null, slot = g.slot, onChange = () 
       h('div.gk-item-top',
         gearTile(x, { slot, cls: 'gk-item-tile' }),
         h('div.gk-item-id',
-          pieceTag(x), h('span.gk-flag', `${GEAR_SLOTS[x.slot]?.name} · +${x.level} of +${maxGearLevel(x)}`),
+          pieceTag(x), h('span.gk-flag', `${slotName(x.slot)} · +${x.level} of +${maxGearLevel(x)}`),
           awakenReady(x) ? h('span.gk-flag.ready', '✦ Can awaken') : null,
           x.locked ? h('span.gk-flag', ico('lock'), 'Locked') : null,
           who ? h('span.gk-flag', `Worn by ${who}`) : null)),
-      cur ? h('p.gp-sub', `▲ / ▼ against her ${GEAR_SLOTS[slot].name.toLowerCase()}: ${cur.name}.`) : null,
+      cur ? h('p.gp-sub', `▲ / ▼ against her ${slotName(slot).toLowerCase()}: ${cur.name}.`) : null,
       h('ul.gk-lines', line(L.main, -1), L.subs.length ? L.subs.map((s, i) => line(s, i)) : h('li.gk-line.none', 'No substats (Common)')),
       isUrGear(x) ? bloom(x) : null,
       next ? h('p.gk-next', ico('upgrade'), `Next growth at +${next.at} → ${next.name}`) : null,
@@ -576,7 +599,7 @@ export function openGearTotals(unit, { focus = null } = {}) {
       growth.length ? h('section.gk-sec', h('div.ui-kicker', 'Next growth'),
         h('ul.gk-growth', growth.map(({ slot, g }) => {
           const n = nextGrowth(g);
-          return h('li', h('b', GEAR_SLOTS[slot].name), ` +${g.level} · `, n ? `next growth at +${n.at} → ${n.name}` : 'all substats grown');
+          return h('li', h('b', slotName(slot)), ` +${g.level} · `, n ? `next growth at +${n.at} → ${n.name}` : 'all substats grown');
         }))) : null),
   });
   if (focus === 'set' && setEl) requestAnimationFrame(() => setEl.scrollIntoView({ block: 'start' }));

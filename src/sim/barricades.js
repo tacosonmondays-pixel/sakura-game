@@ -39,6 +39,7 @@ import { roadSpots } from './strips.js';
 import { pointAt, pathInTunnel } from './path.js';
 import { applyStatus } from './status.js';
 import { syncStatusFlags, placeOnPath } from './enemies.js';
+import { statusCtxFor } from './setRules.js';
 
 /** Ticks a second (a budget point is TICKS drain units; timers count ticks). */
 export const TICKS = Math.round(1 / STEP);
@@ -360,7 +361,7 @@ export function blockStep(sim, e, prev) {
     const ctx = sim._statusCtx;
     ctx.element = null;
     ctx.attackType = null;
-    ctx.sourceUid = owner.uid;
+    statusCtxFor(ctx, owner);
     applyStatus(e, { type: 'reveal', duration: HELD_REVEAL }, ctx);
     syncStatusFlags(e);
   }
@@ -405,7 +406,7 @@ function breakBarricade(sim, t, b, line) {
   const ctx = sim._statusCtx;
   ctx.element = null;
   ctx.attackType = t.eff.attackType;
-  ctx.sourceUid = t.uid;
+  statusCtxFor(ctx, t);
   const r2 = BREAK_SLOW_RADIUS * BREAK_SLOW_RADIUS;
   for (const q of sim.enemies) {
     if (q.dead || q.hidden || q.airborne) continue;

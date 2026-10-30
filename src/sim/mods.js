@@ -13,7 +13,8 @@ import { HERO_GROWTH } from '../data/heroTracks.js';
 import { potentialFold } from '../data/potential.js';
 import { BREW_TARGETS_MAX, HARVEST_LIVES_PER_WAVE, SPIN_TURN, SPIN_LOCK, STREAM_HALF, STREAM_TURN, SWEEP_ARC, SWEEP_SWING, SWEEP_TURN } from './constants.js';
 import { powerFor } from '../data/balance.js';
-import { BLAST_PER_PIERCE, PIERCE_K_MAX } from './gearRules.js';
+import { BLAST_PER_PIERCE, PIERCE_K_MAX, PIERCE_MAX_EXTRA } from './gearRules.js';
+import { splitCrit, critCeilOf, BLAST_K_MAX } from './setRules.js';
 import { BARRICADES_PER_HERO } from './constants.js';
 
 const ADD_KEYS = ['range', 'projectiles', 'pierce', 'chain', 'maxTargets', 'splash', 'armorPen', 'projectileSpeed', 'silence', 'reveal', 'knockback', 'gather'];
@@ -932,10 +933,16 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
   s.damage *= u.damageMul;
   s.rate *= u.rateMul;
   s.range *= u.rangeMul;
-  s.crit.chance = Math.min(1, s.crit.chance + (u.critChance || 0));
+  // crit chance above 100 % (Geometry Set's set cap, five Blank LR pieces): the part over 1 is her super-crit chance
+  const [crit, superCrit] = splitCrit(s.crit.chance + (u.critChance || 0), critCeilOf(u));
+  s.crit.chance = crit;
+  if (superCrit > 0) s.crit.super = superCrit;
   s.crit.mul *= u.critMul || 1;
   s.armorPen += u.armorPen || 0;
   if (s.trap) s.trap.damage *= u.damageMul;
+  // her average crit on damage that cannot crit (GEAR_UPDATE.md §8.3 lever 1): traps that never crit (no strip)
+  const avg = u.avgCrit > 1 ? u.avgCrit : 1;
+  if (s.trap && !s.strip && avg > 1) s.trap.damage *= avg;
   // Azami's Charged Strips / Detonation Line blasts follow her level, stars, gear ATK and Potential's whole-girl
   // damage step like her strips do (copy-on-write: a strip block is never shared after this)
   if (s.strip && s.strip.boom > 0) s.strip = { ...s.strip, boom: s.strip.boom * u.damageMul };
@@ -971,7 +978,8 @@ export function applyUnitStats(s, us = DEFAULT_UNIT_STATS) {
  * %-of-max-HP part). Shots, beams, sweeps, chains and drones take Pierce per attack (towers.js).
  */
 function applyGearReach(s, u) {
-  const pk = Math.min(PIERCE_K_MAX, Math.max(0, Math.floor(u.pierceK || 0)));
+  // blasts read `blastK` when Party Popper's set cap lifts her Pierce for them (setRules.js), else her capped Pierce
+  const pk = Math.max(Math.min(PIERCE_K_MAX, Math.max(0, Math.floor(u.pierceK || 0))), Math.min(BLAST_K_MAX, Math.max(0, Math.floor(u.blastK || 0))));
   if (pk > 0) {
     const blast = 1 + BLAST_PER_PIERCE * (pk / 100);
     if (s.splash > 0 && (s.behavior === 'projectile' || s.behavior === 'turret')) s.splash *= blast;
@@ -987,7 +995,8 @@ function applyGearReach(s, u) {
     if (typeof a.range === 'number') a.range *= (u.rangeMul || 1) * Math.max(1, u.auraRangeMul || 1);
     s.aura = a;
   }
-  const dm = Math.max(1, u.dotMul || 1);
+  // her burns and poisons: gear ATK's share (dotMul) and her average crit (they cannot crit)
+  const dm = Math.max(1, u.dotMul || 1) * (u.avgCrit > 1 ? u.avgCrit : 1);
   if (dm > 1) {
     const grow = (list) => (list || []).map((st) => ((st.type === 'burn' || st.type === 'poison') && typeof st.dps === 'number' ? { ...st, dps: st.dps * dm } : st));
     if (s.status) s.status = grow(s.status);
@@ -1090,7 +1099,8 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
   for (const m of pot.sets) applyModSet(s, m, acc);
   if (extra) for (const m of Array.isArray(extra) ? extra : [extra]) applyModSet(s, m, acc);
   s.damage = (s.damage + acc.damageAdd) * acc.damageMul;
-  applyUnitStats(s, pot.level > 1 ? { ...us, damageMul: us.damageMul * pot.damageMul, rateMul: us.rateMul * pot.rateMul, rangeMul: us.rangeMul * pot.rangeMul } : us);
+  const ub = pierceBand(s, us);
+  applyUnitStats(s, pot.level > 1 ? { ...ub, damageMul: ub.damageMul * pot.damageMul, rateMul: ub.rateMul * pot.rateMul, rangeMul: ub.rangeMul * pot.rangeMul } : ub);
   if (pw) applyPower(s, pw);
   if (s.income && pot.incomeMul !== 1) s.income.perWave *= pot.incomeMul;
   if (s.hub && pot.incomeMul !== 1) s.hub.costCut *= pot.incomeMul; // (Ouka's coins track: her discount)
@@ -1143,6 +1153,19 @@ export function resolveStats(def, { tiers = [0, 0, 0], heroLevel = 0, unitStats 
     br.lineAdd = Math.max(0, Math.round(br.lineAdd));
   }
   return s;
+}
+
+/**
+ * A hero whose blasts come with her levels (`pierceAtkMul`, src/systems/progression.js unitBattleStats; Kogane from
+ * Lv 15): while the build she stands at has no blast or splash trap her Pierce can widen (the test of applyGearReach),
+ * her Pierce stops at the 200 % a shot uses and the band above it is ATK (× pierceAtkMul); once it has one, all of it
+ * widens her splash. Read at stat build only (a level-up re-resolves her), never per frame.
+ */
+function pierceBand(s, us) {
+  if (!(us.pierceAtkMul > 1)) return us;
+  const widens = (s.splash > 0 && (s.behavior === 'projectile' || s.behavior === 'turret')) || s.trap?.splash > 0;
+  if (widens) return us;
+  return { ...us, damageMul: us.damageMul * Math.min(2, us.pierceAtkMul), pierceK: Math.min(us.pierceK || 0, 100 * PIERCE_MAX_EXTRA) };
 }
 
 /**

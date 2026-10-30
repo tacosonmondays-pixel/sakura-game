@@ -11,8 +11,10 @@ import { UNIT_MAP, getUnit } from '../data/units.js';
 import { ITEMS, materialId, bookId, zenithId } from '../data/items.js';
 import { ITEM_RARITY_ORDER } from '../data/types.js';
 import { consumeItems, missingItems, itemCount, normalizeList } from './inventory.js';
-import { gearStatTotals, gearFillIn, gearSetInfo } from './gear.js';
-import { BATTLE_CAPS } from '../data/gearStats.js';
+import { gearStatTotals, gearFillIn, gearSetInfo, gearCaps, pierceUseCap, blastKit, heroBlastLevel } from './gear.js';
+import { BATTLE_CAPS, DOT_BY_PIECES, fillStats } from '../data/gearStats.js';
+import { averageCrit, ABIL_HASTE_CEIL, BLAST_K_MAX } from '../sim/setRules.js';
+import { BLANK_FIVE } from '../data/gearAwaken.js';
 import { powerKitOf } from '../data/powerKit.js';
 
 export { BATTLE_CAPS };
@@ -473,11 +475,37 @@ export const GEAR_DOT_CAP = 1.25;
  * @returns {{ damageMul, rateMul, rangeMul, critChance, critMul, armorPen, costMul, ultHaste, pierceK, auraPct, auraRangeMul, dotMul, club, clubN, rainbow, awakenPassive, level, awaken, breakthrough, potential }}
  */
 export function unitBattleStats(profile, unitId) {
+  const a = battleStatsAt(profile, unitId, blastKit(unitId));
+  // a hero whose blasts come with her levels (Kogane, Lv 15): her 200–300 % Pierce band as ATK until then, as reach
+  // from then (the sim switches at her level-up: src/sim/mods.js resolveStats, `pierceAtkMul`; review M3 r4 LOW 2)
+  if (!(heroBlastLevel(unitId) > 1)) return a;
+  const b = battleStatsAt(profile, unitId, false);
+  const mul = b.damageMul / a.damageMul;
+  return mul > 1 + 1e-9 ? { ...a, pierceAtkMul: Math.round(mul * 10000) / 10000 } : a;
+}
+
+/** unitBattleStats with her Pierce judged as a blast kit's (`blast`: all of it reach) or a shot kit's (200 %, then ATK). */
+function battleStatsAt(profile, unitId, blast) {
   const unit = profile?.units?.[unitId] || { level: 1, awaken: 0, breakthrough: 0 };
   const prof = profile || { units: {}, gear: {} };
   const g = gearStatTotals(prof, unitId);
-  const fill = gearFillIn(prof, unitId);
   const set = gearSetInfo(prof, unitId);
+  // her caps, with her 5-piece set cap lifted (GEAR_UPDATE.md §3.2)
+  const C = gearCaps(set);
+  let fill = gearFillIn(prof, unitId, { blast });
+  // her average crit on damage that cannot crit (traps that never crit, burns, poisons: §8.3 lever 1). Never weaker:
+  // where her crit lines fill in as ATK, she gets the better of that fill-in and the average crit
+  const critChance = Math.min(C.critChance, g.critChance);
+  const critMul = 1 + Math.min(C.critDmg, g.critDmg);
+  let avgCrit = averageCrit(critChance, (UNIT_MAP[unitId]?.base?.crit?.mul || 1.5) * critMul);
+  const dead = fillStats(unitId, { awaken: unit.awaken || 0, potential: potentialLevel(unit) });
+  // (the aura girls' crit lines fill into their aura: never both, so no average crit for them)
+  if (fill.target === 'aura' && (dead.has('critChance') || dead.has('critDmg'))) avgCrit = 1;
+  if (fill.target === 'atk' && (dead.has('critChance') || dead.has('critDmg'))) {
+    const alt = gearFillIn(prof, unitId, { skip: ['critChance', 'critDmg'], blast });
+    if ((1 + g.atkPct + alt.total) * avgCrit > 1 + g.atkPct + fill.total) fill = alt;
+    else avgCrit = 1;
+  }
   const atkFill = fill.target === 'atk' ? fill.total : 0;
   const auraFill = fill.target === 'aura' ? fill.total : 0;
   const gearAtk = g.atkPct + atkFill;
@@ -485,25 +513,49 @@ export function unitBattleStats(profile, unitId) {
   const stars = unit.awaken || 0;
   const gates = unit.breakthrough || 0;
   const r4 = (v) => Math.round(v * 10000) / 10000;
-  const C = BATTLE_CAPS;
+  // gear ATK's share of her burns and poisons and its cap grow with the pieces she wears (§8.3 lever 2)
+  const [dotShare, dotBase] = DOT_BY_PIECES[Math.min(5, set.pieces)];
+  // five Blank LR pieces double the cap's bonus part (×2.0 → ×3.0)
+  const dotCap = set.blankN >= BLANK_FIVE ? 1 + 2 * (dotBase - 1) : dotBase;
+  // her ⚡ ability's haste: half her capped Skill Haste; Power Bank's set cap gives it half of all of it (§3.2)
+  // (rounded as before the sets: 0.5 × her rounded haste, so no existing girl's charge per tick moves)
+  const abilHaste = Math.min(ABIL_HASTE_CEIL, 0.5 * r4(Math.min(C.ultHaste, g.ultHaste)));
+  // Party Popper's set cap: her blasts read all her Pierce up to 500 % (shots keep the cap)
+  const blastK = set.set === 'popper' && set.setN >= 5 ? Math.min(BLAST_K_MAX, Math.round(100 * Math.min(C.piercePct, g.piercePct))) : 0;
+  // what only the set cap lifts stays at her LR-raised cap for the rest of her kit: her hero ult's haste (the battle
+  // reads ≤ 75 %) and her shots' Pierce
+  const B = gearCaps({ ...set, set: null, setN: 0 });
   // [banners G3/G6] UR Resonance (★5 SSR) and Limit Break (LR) multiply on top, along her Potential axis
   const boost = rankBoost(prof, unitId, UNIT_MAP[unitId] ? potentialTrack(UNIT_MAP[unitId]) : null);
   return {
     damageMul: r4((1 + PER_LEVEL_DAMAGE * (level - 1) + PER_GATE_DAMAGE * gates + PER_STAR_DAMAGE * stars) * (1 + gearAtk) * boost.damage),
     rateMul: r4((1 + PER_LEVEL_RATE * (level - 1)) * (1 + g.ratePct) * boost.rate),
     rangeMul: r4(1 + Math.min(C.rangePct, g.rangePct)),
-    critChance: r4(Math.min(C.critChance, g.critChance)),
-    critMul: r4(1 + Math.min(C.critDmg, g.critDmg)),
-    armorPen: Math.round(g.armorPen * 10) / 10,
+    critChance: r4(critChance),
+    critMul: r4(critMul),
+    armorPen: Math.round(Math.min(C.armorPen, g.armorPen) * 10) / 10,
     costMul: r4(Math.max(1 - C.costCut, 1 - g.costCut)),
-    ultHaste: r4(Math.min(C.ultHaste, g.ultHaste)),
-    pierceK: Math.round(100 * Math.min(C.piercePct, g.piercePct)),
+    ultHaste: r4(Math.min(B.ultHaste, g.ultHaste)),
+    // (a kit with no blasts stops at the 200 % a shot uses: the rest fills in as ATK, gearFillIn; review M3 r2 #1)
+    pierceK: Math.round(100 * Math.min(pierceUseCap(unitId, B.piercePct, blast), g.piercePct)),
     auraPct: r4((1 + Math.min(C.auraPct, g.auraPct) + auraFill) * boost.aura - 1),
-    auraRangeMul: r4(1 + auraFill),
-    dotMul: r4(Math.min(GEAR_DOT_CAP, 1 + 0.5 * gearAtk)),
+    auraRangeMul: r4((1 + Math.min(C.auraRangePct, g.auraRangePct)) * (1 + auraFill)),
+    dotMul: r4(Math.min(dotCap, 1 + dotShare * gearAtk)),
     club: set.club,
-    clubN: set.clubN,
-    rainbow: set.ur,
+    clubN: Math.min(3, set.clubN),
+    rainbow: Math.min(3, set.ur),
+    // the gear update (GEAR_UPDATE.md §2.4, §3.4): her set (4+ pieces), Buff Duration, Control Strength, her ⚡
+    // ability's haste, her blasts' Pierce and her average crit (src/sim/setRules.js reads them)
+    set: set.set,
+    setN: set.set ? set.setN : 0,
+    setLr: set.setLr, // five Set LR pieces of her set: its LR Set Form
+    // crit over 100 % (super crits) only with Geometry's set cap or five Blank LR pieces (their caps pass 100 %)
+    critCeil: C.critChance > 1 ? 2 : 1,
+    buffDurMul: r4(1 + Math.min(C.buffDurPct, g.buffDurPct)),
+    controlMul: r4(1 + Math.min(C.controlPct, g.controlPct)),
+    abilHaste,
+    blastK,
+    avgCrit: r4(avgCrit),
     awakenPassive: stars >= 3,
     level,
     awaken: stars,

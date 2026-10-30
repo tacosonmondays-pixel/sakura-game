@@ -215,7 +215,9 @@ async function runViewport(vp) {
     // [ui-ink] (the bar check below reads what is on top: a screen change still running on a busy machine paints its
     // layers over the bar, so wait for it to end, as e2e/ui-shots.mjs does)
     await page.waitForFunction(() => !document.documentElement.dataset.tx && !document.querySelector('.ld-chip.on'), null, { timeout: 8000 }).catch(() => {});
-    const info = await page.evaluate(() => {
+    // (measured again, up to 3 times 0.5 s apart, while a control reads as covered: mid-transition the point test can hit
+    // the page body before the new screen settles; a real overlap stays covered)
+    const measure = () => page.evaluate(() => {
       const app = document.querySelector('#app');
       const text = (app?.innerText || '').trim();
       // [ui-ink] the top bar can be reached (UI v2 V1 review 1: on portrait phones the wallets pushed Settings and Home
@@ -249,6 +251,11 @@ async function runViewport(vp) {
       }
       return { screen: app?.dataset.screen, len: text.length, crashed: /Something went wrong/.test(text), overflow: document.documentElement.scrollWidth > window.innerWidth + 1, bar, heads };
     });
+    let info = await measure();
+    for (let i = 0; i < 3 && (info.bar.length || info.heads.length); i++) {
+      await page.waitForTimeout(500);
+      info = await measure();
+    }
     const errs = takeErrors();
     check(info.len > 40 && !info.crashed, `${label}: renders content (${info.len} chars, screen=${info.screen})`);
     check(!errs.length, `${label}: no page/console errors${errs.length ? `\n       ${errs.slice(0, 5).join('\n       ')}` : ''}`);

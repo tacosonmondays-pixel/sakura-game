@@ -1,6 +1,7 @@
 // Battle rewards: stage drops, medals, first clears, unlocks, bestiary and sweeps
 // (owner: systems). See CONTRACTS.md §5.
 
+import { setPostRoll, grantSetBoxGifts } from './gearSets.js';
 import { creditLimitBreak, LB_REWARD } from './limitBreak.js';
 import { supportAllowed } from './friendSupport.js';
 import { STAGE_MAP, getStage } from '../data/stages.js';
@@ -282,6 +283,9 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
     rewards.push(...split.items);
     const pity = celestialRun(profile, stage.id, payAt, split.gear);
     out.gear = pity ? [...split.gear, pity] : split.gear;
+    // (a mode win is a win: the set post-roll too, GEAR_UPDATE.md §3.6)
+    const modeSet = setPostRoll(profile, stage, payAt, rng, now.getTime());
+    if (modeSet) out.gear = [...out.gear, modeSet];
     tick('battleWin', 1);
     if (diffIndex(payAt) >= diffIndex('hard')) tick('battleWinHard', 1);
     if (stage.kind === 'boss') tick('assaultClear', 1);
@@ -329,6 +333,9 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
     rewards.push(...split.items);
     const pity = celestialRun(profile, stage.id, difficulty, split.gear);
     out.gear = pity ? [...split.gear, pity] : split.gear;
+    // the gear update: Market Canal's Treasurer and Total Assault's Power Bank pieces (src/systems/gearSets.js)
+    const setPiece = setPostRoll(profile, stage, difficulty, rng, now.getTime());
+    if (setPiece) out.gear = [...out.gear, setPiece];
     tick('battleWin', 1);
     if (diffIndex(difficulty) >= diffIndex('hard')) tick('battleWinHard', 1);
     if (stage.kind === 'boss') tick('assaultClear', 1); // Rainbow Hunt (gear-awaken §6.1)
@@ -340,6 +347,8 @@ export function applyBattleResult(profile, result, rng, { now = new Date(), even
   if (!support) countSoloBattle(profile, result, { won, difficulty, eventBonus: out.eventBonus });
 
   out.sandboxUnlocked = clearsBefore < SANDBOX_UNLOCK_CLEARS && campaignClears(profile) >= SANDBOX_UNLOCK_CLEARS;
+  // the welcome Mythic Set Box once Titan Trials open (3-5 cleared; src/systems/gearSets.js)
+  if (won) rewards.push(...grantSetBoxGifts(profile, { mode: 'list' }));
   if (stage.kind === 'event') Object.assign(out, eventAfterBattle(profile, stage, { won, firstClear: out.firstClear, newMedal: out.newMedal, difficulty, totalKills, now: now.getTime() }));
   out.rewards = addItems(profile, rewards);
   out.gemsEarned = out.rewards.reduce((a, r) => a + (r.id === 'gems' ? r.count : 0), 0);
@@ -392,6 +401,8 @@ export function sweep(profile, stageId, difficulty, times, rng, { now = new Date
     const split = splitDrops(profile, rollStageDrops(stageId, d, rng, { dropMul: mul }));
     const pity = celestialRun(profile, stageId, d, split.gear);
     if (pity) split.gear.push(pity);
+    const setPiece = setPostRoll(profile, STAGE_MAP[stageId], d, rng.fork ? rng.fork(`set${i}`) : rng, now.getTime());
+    if (setPiece) split.gear.push(setPiece);
     runs.push([...split.items, ...split.gear.map((g) => ({ id: `gearbox_${g.rarity}`, count: 1, gearUid: g.uid }))]);
     allItems.push(...split.items);
     allGear.push(...split.gear);

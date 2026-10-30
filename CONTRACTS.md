@@ -764,7 +764,7 @@ Profile = {
   version, createdAt,
   currencies: { coins, gems },
   items: { [itemId]: count },
-  units: { [unitId]: { level, exp, breakthrough /*gates passed 0-5*/, awaken /*0-5*/, gear: { charm, ribbon, shoes } /*gear uid|null*/, obtainedAt, favorite?, dupes /*duplicates since she joined, ≥ 0, never spent; Potential = min(6, 1 + dupes); missing on an old save → credited once on load*/ } },
+  units: { [unitId]: { level, exp, breakthrough /*gates passed 0-5*/, awaken /*0-5*/, gear: { charm, ribbon, shoes, hair, necklace } /*gear uid|null*/, obtainedAt, favorite?, dupes /*duplicates since she joined, ≥ 0, never spent; Potential = min(6, 1 + dupes); missing on an old save → credited once on load*/ } },
             // skin: equipped SkinDef id, null = her default (roster merge; additive, no version bump)
   gear: { [uid]: GearInstance },
   gacha: { pity, totalPulls, recruitPoints, history: [{ unitId, rarity, at }] /*last 100*/ },
@@ -798,6 +798,33 @@ GearInstance = { uid, slot, rarity, level /*0-10; 0-12 when ur*/, main: { stat, 
   // Box-born UR (the Rainbow Gear Box, ASCENSION.md §C.8): openRainbowBox(profile, slot, rng) makes a Legendary
   // piece with ur: 1 at +0 (four substats, locked, joins a club); gbx:<uid> = slot index × 100 + main-stat index + 1
   // brings `ur` back at any level (gur: keeps its +10 rule); salvage pays the Seed and writes gbx: 0.
+  // The gear update's reader (M0, docs/specs/GEAR_UPDATE.md §9): slots `charm|ribbon|shoes|hair|necklace`
+  // (src/data/gearSlots.js; types.js stays frozen; random drops roll the classic three), `set?` (src/data/gearSets.js
+  // SET_IDS, SR+), `lr?` (1 Set LR, 2 Blank LR: ur + level 12-18, read ×lrMul / ×blankMul), a line's `night?` (the
+  // Nightglass ✦, LR only, never in `tuned`) and `top?` (a pin: base = the best roll). Mirrors: gst:, glr:, gtx:, gtp:
+  // on classic pieces (glr: also carries its ▲ per line); a Hair Clip / Necklace is mirrored whole (gph:, gpm:,
+  // gps:<uid>:<i>, gpc:) and never by a paying legacy mark (gur:, gtn:, gbx:); `gbl:` (a box-born UR piece's UR-priced
+  // levels) is allowed on it (spec r3 L19). One-time box marks: su:welcome, su:titanbox:<titan>. A girl's accessory is
+  // `unit.accItem` (an `acc_…` item id, kept by the reader; never in unit.gear or a loadout). Teams and loadouts (profile.teams, unit.presets / preset; src/systems/teamsSave.js): tm:, gp:. Exports carry
+  // version 3 (EXPORT_VERSION), which older builds refuse; the stored save stays version 2.
+  // Sets (M2, GEAR_UPDATE.md §3): gearSetInfo adds clubStats (every club with 2+ pieces, ≤ 2), set / setN (4+ pieces),
+  // sets, setStats (2+ pieces, ≤ 2), setLr, lrN, blankN, pieces; gearCaps(info) lifts a 5-piece set's signature caps.
+  // unitBattleStats adds set, setN, setLr, buffDurMul, controlMul, abilHaste, blastK and avgCrit (src/sim/setRules.js
+  // reads them; statLimits rows in src/online/coop/statLimits.js). Set pieces, Set Boxes, pins and the set sources:
+  // src/systems/gearSets.js. The one-time Set Boxes owed at load (migrateProfile → grantSetBoxGifts mode 'mail') land
+  // in the mailbox and are marked by M0's one-mark-per-box keys: M0 ships with or before M2 (the same release), so an
+  // older build's reader never meets an M2 save. A Tenka lab joiner keeps her own interest cap (lab.interestCap,
+  // INCOME_INTEREST_SET_MAX with Treasurer 5 on her; the battle save's `lb[6]` only when one is lifted).
+  // LR gear (M3, §4): limitBreakGear(profile, uid, 'set'|'blank') (a UR +12 piece, 1 Nightglass Lens + 150,000 coins;
+  // Blank LR gives its set up); the Nightglass ✦ is stitchSlots().night; gearCaps adds LR_CAP_STEP per LR piece and
+  // doubles every base cap with five Blank LR pieces (critCeil 2, fill-in limit ×2, DoT cap bonus ×2); setLr wakes the
+  // LR Set Form. Lens sources: the weekly Nightglass Hunt (titanMayhem) and Freeplay's wave-225 milestone.
+  // unitGearCaps(profile, unitId) = gearCaps of her set info: every MAX tag and stitch warning reads it. A hero's ult
+  // haste (src/sim/hero.js ultCooldown): gear + Potential capped at SKILL_HASTE_CAP 0.5; with gear haste above 0.5
+  // (LR caps only) the cap is ULT_HASTE_MAX 0.75 and Potential stacks on top (the spec's "0.75" is this split). Pierce
+  // above 200 % (PIERCE_SHOT_PCT, what a shot uses) fills in as ATK for a kit whose blasts Pierce never widens (blastKit:
+  // the sim's reach test); a hero whose blasts come with her levels (heroBlastLevel, Kogane 15) carries `pierceAtkMul`:
+  // the sim's resolveStats makes the band ATK at a level without a blast and reach from it (re-resolved at level-up).
 ```
 
 ### `src/systems/battleSave.js` (battle saves)

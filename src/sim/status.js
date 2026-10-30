@@ -2,6 +2,8 @@
 // rolls and "keep the stronger values" merging), duration ticking and query helpers.
 
 import { CC_RESIST, SLOW_RESIST, MAX_SLOW, SHRED_MAX_STACKS, HEX_BOSS_CAP, CURSE_SPREAD_STEPS } from './constants.js';
+import { CONTROL_TYPES } from './setRules.js';
+import { STEP } from './constants.js';
 
 // (spore: Midori's Spore Mist, attack shapes S5b: a damage over time of its own key, poison's element for wards)
 const STATUS_ELEMENT = { burn: 'fire', poison: 'poison', spore: 'poison', freeze: 'frost', shock: 'lightning', soak: 'water' };
@@ -20,7 +22,9 @@ export function statusElement(type, sourceElement) {
  * @param {object} enemy EnemyRT
  * @param {object} spec StatusSpec ({ type, amount|dps|bonus, duration, chance? })
  * @param {{ rng?: { next(): number }, element?: string|null, attackType?: string, sourceUid?: number|null,
- *   hitDamage?: number, curseDepth?: number }} ctx  hitDamage/curseDepth: curse burst + generation
+ *   hitDamage?: number, curseDepth?: number, controlMul?: number, itBonus?: number }} ctx  hitDamage/curseDepth:
+ *   curse burst + generation; controlMul / itBonus: the applier's Control Strength and You're It (setRules.js
+ *   statusCtxFor; GEAR_UPDATE.md §2.4, §3.4)
  * @returns {'new'|'refresh'|null} null when not applied (chance failed, warded, dead)
  */
 export function applyStatus(enemy, spec, ctx = {}) {
@@ -37,6 +41,8 @@ export function applyStatus(enemy, spec, ctx = {}) {
 
   const tier = enemy.tier || 'normal';
   let duration = spec.duration ?? 1;
+  // Control Strength: her control lasts longer, before boss resistance and the Freeplay CC budget
+  if (CONTROL_TYPES[type] && ctx.controlMul > 1) duration *= ctx.controlMul;
   if (CC_TYPES[type]) {
     duration *= CC_RESIST[tier] ?? 1;
     if (enemy.ccLeft != null) { duration = Math.min(duration, enemy.ccLeft); enemy.ccLeft -= duration; }
@@ -73,6 +79,10 @@ export function applyStatus(enemy, spec, ctx = {}) {
     }
   }
 
+  // You're It (Freeze Tag): her control landing or refreshing marks the enemy; the stronger bonus wins and the mark
+  // lasts as long as the longer of its own time and this status's (in steps; enemies.js counts it down)
+  // (the longer of the mark's own time and the status's time after the merge: a refresh keeps the longer left)
+  if (ctx.itBonus > 0 && CONTROL_TYPES[type]) markIt(enemy, ctx.itBonus, Math.max(duration, enemy.statuses[type]?.left || 0));
   const cur = enemy.statuses[type];
   if (!cur) {
     if (type === 'shred') incoming.stacks = 1;
@@ -120,6 +130,17 @@ export function applyStatus(enemy, spec, ctx = {}) {
   cur.left = Math.max(cur.left, duration);
   if (type === 'shred') cur.stacks = Math.min(SHRED_MAX_STACKS, (cur.stacks || 1) + 1);
   return 'refresh';
+}
+
+/** You're It's record on an enemy: `{ bonus, left }` (left in fixed steps), created only when first set. */
+function markIt(enemy, bonus, duration) {
+  const steps = Math.ceil(duration / STEP - 1e-9);
+  const it = enemy.it;
+  if (!it) enemy.it = { bonus, left: steps };
+  else {
+    if (bonus > it.bonus) it.bonus = bonus;
+    if (steps > it.left) it.left = steps;
+  }
 }
 
 /** Removes a status if present. */

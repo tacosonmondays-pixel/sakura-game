@@ -39,6 +39,7 @@ import {
   STEP, MORTAR_DELAY, PRISM_SHARDS, PRISM_BEAM_TICK, PRISM_SILENCE_TICKS, PRISM_CLIP_TICKS, BEAM_HALF_WIDTH, PRISM_EDGE_PIERCE, PRISM_EDGE_MUL, PRISM_EDGE_MUL_LR, DUO_LR_MUL,
 } from './constants.js';
 import { segDistSq } from './path.js';
+import { statusCtxFor } from './setRules.js';
 
 /** Ticks of one old flash interval at `rate` attacks a second (at least 1): a damage tick's share is PRISM_BEAM_TICK / this. */
 export function beamTicks(rate) {
@@ -292,7 +293,7 @@ function silenceOn(sim, t, e, duration) {
   const ctx = sim._statusCtx;
   ctx.element = null;
   ctx.attackType = 'mystic';
-  ctx.sourceUid = t.uid;
+  statusCtxFor(ctx, t);
   ctx.hitDamage = 0;
   ctx.curseDepth = 0;
   sim._applyStatusEvent(e, { type: 'silence', duration }, ctx);

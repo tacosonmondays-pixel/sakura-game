@@ -18,7 +18,7 @@
 // every JS engine, so an iPhone and an Android phone stay in lockstep too.
 import { modeId } from '../../data/modes.js';
 import { Sim } from '../../sim/Sim.js';
-import { STEP, DEFAULT_UNIT_STATS, FLIGHT_MODES } from '../../sim/constants.js';
+import { STEP, DEFAULT_UNIT_STATS, FLIGHT_MODES, CASH_MAX } from '../../sim/constants.js';
 import { coopStage, COOP } from '../../data/coop.js';
 import { freeplayTier } from '../../data/freeplay.js';
 import { TARGET_MODES } from '../../data/types.js';
@@ -222,8 +222,8 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
     const to = alive.length ? alive : [viewSlot];
     const share = Math.floor(income / to.length);
     let rest = income - share * to.length;
-    for (const i of to) wallets[i] += share;
-    for (; rest > 0; rest--) wallets[to[oddTurn++ % to.length]] += 1;
+    for (const i of to) wallets[i] = Math.min(CASH_MAX, wallets[i] + share);
+    for (; rest > 0; rest--) { const i = to[oddTurn++ % to.length]; wallets[i] = Math.min(CASH_MAX, wallets[i] + 1); }
   }
 
   /** Owner-credited coins (sim.ownerCash) into their owners' wallets: after every command and step. */
@@ -231,7 +231,7 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
     const oc = sim.ownerCash;
     for (let i = 0; i < wallets.length; i++) {
       if (!oc[i]) continue;
-      wallets[i] += oc[i];
+      wallets[i] = Math.min(CASH_MAX, wallets[i] + oc[i]); // (CASH_MAX: GEAR_UPDATE.md r3 L16)
       oc[i] = 0;
     }
   }

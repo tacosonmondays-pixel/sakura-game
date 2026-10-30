@@ -168,6 +168,10 @@ export const LAB_SLOW_MAX = 0.5;
 export const LAB_ECON_SHARE = 0.3;
 /** A girl's interest at a wave clear (stats.income.interest × coins) pays at most this many coins (Momo). */
 export const INCOME_INTEREST_MAX = 150;
+/** Treasurer's 5-piece set cap lifts a girl's interest to at most this a wave (GEAR_UPDATE.md §3.2, r3 L16). */
+export const INCOME_INTEREST_SET_MAX = 5000;
+/** The most cash (pooled or one player's wallet) a battle holds: an overflow guard like Freeplay's hpMax (r3 L16). */
+export const CASH_MAX = 1e12;
 
 /** Seconds before the next wave auto-starts when options.autoStart is on. */
 export const AUTO_START_DELAY = 1.0;
@@ -210,6 +214,18 @@ export const DEFAULT_UNIT_STATS = Object.freeze({
   potential: 1,
   // [banners G6] an LR unit after Limit Break (her LR ability form reads it: src/sim/abilities.js isLr)
   lr: false,
+  // the gear update (docs/specs/GEAR_UPDATE.md §2.4, §3.4, src/sim/setRules.js): her set (4+ pieces) and its LR Set
+  // Form, Buff Duration and Control Strength, her ⚡ ability's haste (half her Skill Haste; Power Bank's set cap lifts
+  // it), her blasts' Pierce (Party Popper's set cap) and her average crit on damage that cannot crit
+  set: null,
+  setN: 0,
+  setLr: false,
+  buffDurMul: 1,
+  controlMul: 1,
+  abilHaste: 0,
+  blastK: 0,
+  avgCrit: 1,
+  critCeil: 1,
 });
 
 // ---------------------------------------------------------------------------

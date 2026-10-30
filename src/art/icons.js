@@ -16,13 +16,17 @@ import { n, lighten, darken, linGrad, starPoints, blossom, slug } from './svgUti
 import { GLYPHS, glyphSVG } from './icons/glyphs.js';
 import {
   icon64, materialBody, bookBody, crownBody, diceBody, starFragmentBody, gearboxBody, ticketBody,
-  coinBody, gemBody, recruitPointsBody, tokenBody, gearBody, eventCurrencyBody, gearBodyUR, rainbowSeedBody, needleBody, armbandBody,
+  coinBody, gemBody, recruitPointsBody, tokenBody, gearBody, eventCurrencyBody, gearBodyUR, rainbowSeedBody, needleBody, armbandBody, gearPinBody, lensBody,
 } from './icons/items.js';
 import { eventOfItem } from '../data/events/index.js';
 import { ASCENSION_ICON_BODIES } from './icons/ascension.js';
 import { ITEM_ART, ITEM_ART_SMALL } from './itemArt.js';
 import { artUrl } from './portraits.js';
-import { TRAITS, ROLES, ROLE_CATEGORIES, ATTACK_TYPES, ARMOR_CLASSES, CAPABILITIES, ELEMENTS, STATUSES, MATERIAL_FAMILIES, ITEM_RARITIES, GEAR_SLOTS, DIFFICULTIES } from '../data/types.js';
+import { TRAITS, ROLES, ROLE_CATEGORIES, ATTACK_TYPES, ARMOR_CLASSES, CAPABILITIES, ELEMENTS, STATUSES, MATERIAL_FAMILIES, ITEM_RARITIES, DIFFICULTIES } from '../data/types.js';
+import { ROLL_SLOTS } from '../data/gearSlots.js';
+
+/** Slots with drawn and baked gear art (the Hair Clip and the Necklace show the charm's until feature/gear-icons lands). */
+const ART_SLOTS = ROLL_SLOTS;
 
 // ---------------------------------------------------------------------------------
 // Items
@@ -36,6 +40,9 @@ const SPECIAL_ITEMS = {
   seed_rainbow: rainbowSeedBody,
   needle_star: needleBody,
   club_band: armbandBody,
+  tie_pin: () => gearPinBody('tie'),
+  collar_pin: () => gearPinBody('collar'),
+  lens_nightglass: lensBody,
   star_fragment: starFragmentBody,
   ticket_recruit: () => ticketBody('ticket_recruit'),
   ticket_recruit10: () => ticketBody('ticket_recruit10'),
@@ -59,10 +66,13 @@ function itemBody(itemId) {
   if (m && MATERIAL_FAMILIES[m[1]] && ITEM_RARITIES[m[2]]) return materialBody(m[1], m[2]);
   m = /^book_([a-zA-Z]+)$/.exec(id);
   if (m && ITEM_RARITIES[m[1]]) return bookBody(m[1]);
+  // Set Boxes (the gear update): the gear box of their rarity until the set art lands (feature/gear-icons)
+  m = /^setbox_[a-z]+_([a-zA-Z]+)$/.exec(id);
+  if (m && ITEM_RARITIES[m[1]]) return gearboxBody(m[1]);
   m = /^gearbox_([a-zA-Z]+)$/.exec(id);
   if (m && ITEM_RARITIES[m[1]]) return gearboxBody(m[1]);
   m = /^gear_([a-z]+)_([a-zA-Z]+)$/.exec(id);
-  if (m && GEAR_SLOTS[m[1]] && ITEM_RARITIES[m[2]]) return gearBody(m[1], m[2]);
+  if (m && ART_SLOTS.includes(m[1]) && ITEM_RARITIES[m[2]]) return gearBody(m[1], m[2]);
   return null;
 }
 
@@ -85,7 +95,7 @@ function gearIconSVG(slot, rarity, ur) {
 
 /** Art key of a gear piece: `gear_<slot>_<rarity>`, or `gear_<slot>_ur` for the awakened UR piece. */
 export function gearArtKey(slot, rarity = 'common', { ur = false } = {}) {
-  const s = GEAR_SLOTS[slot] ? slot : 'charm';
+  const s = ART_SLOTS.includes(slot) ? slot : 'charm';
   const r = ITEM_RARITIES[rarity] ? rarity : 'common';
   return `gear_${s}_${ur && r === 'legendary' ? 'ur' : r}`;
 }
@@ -128,7 +138,7 @@ export function preloadSmallItemArt() {
 /** The drawn SVG for any art key (the error fallback the UI swaps in): items, gear keys, recruitPoints. */
 export function itemArtSVG(key) {
   const m = /^gear_([a-z]+)_([a-zA-Z]+)$/.exec(String(key));
-  if (m && GEAR_SLOTS[m[1]]) return m[2] === 'ur' ? gearIconSVG(m[1], 'legendary', true) : gearIconSVG(m[1], ITEM_RARITIES[m[2]] ? m[2] : 'common', false);
+  if (m && ART_SLOTS.includes(m[1])) return m[2] === 'ur' ? gearIconSVG(m[1], 'legendary', true) : gearIconSVG(m[1], ITEM_RARITIES[m[2]] ? m[2] : 'common', false);
   return itemIconSVG(key);
 }
 

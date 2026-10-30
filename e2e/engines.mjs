@@ -185,6 +185,17 @@ for (const { name, r } of results) {
 }
 if (ref.gear.state !== 'won' && ref.gear.state !== 'lost' && !(ref.gear.wave >= 10)) failures.push(`the gear battle stopped early (state ${ref.gear.state}, wave ${ref.gear.wave})`);
 
+// the gear sets (SET_START): every set's passive and set cap, super crits, the checkpoint replayed
+log('\nScripted co-op GEAR SETS battle (2-5, SET_START: Big Cheer, You\'re It, Right Angle, Confetti Burst, Bake Sale, Supercharge; super crits):');
+for (const { name, r } of results) {
+  const g = r.sets;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · cleared ${g.cleared} · coins ${g.wallets} · ${g.sets} · super crits ${g.superCrits} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two gear-sets clients disagreed`);
+  if (!g.ckSame) failures.push(`${name}: the gear-sets checkpoint did not replay to the same state`);
+  if (g.refused) failures.push(`${name}: gear-sets commands refused: ${g.refused}`);
+  for (const k of ['ticks', 'wallets', 'final', 'hashes', 'sets', 'superCrits', 'itHits', 'baked', 'ckDigest', 'finalDigest']) if (g[k] !== ref.sets[k]) failures.push(`${name}: gear sets ${k} ${g[k]} ≠ ${ref.sets[k]} (${results[0].name})`);
+}
+
 // the returning girls in gear (GEAR_GIRLS_START): Iroha's two firing points with Pierce, the club tricks
 log('\nScripted co-op RETURNING GIRLS GEAR battle (4-5, GEAR_GIRLS_START: Iroha mirror + own volleys with Pierce, pulse / beam / chain Pierce from the relay origin, every club trick):');
 for (const { name, r } of results) {

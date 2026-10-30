@@ -25,8 +25,10 @@ describe('buildModel', () => {
     expect(live.cap).toBe(85);
     expect(snap.potential).toBe(6);
     expect(snap.equipped).toBe(3);
-    expect(snap.gear.map((g) => g.main.text)).toEqual(live.gear.map((g) => g.main.text));
-    expect(snap.gear.flatMap((g) => g.subs.map((s) => `${s.name}${s.text}${s.ups}`))).toEqual(live.gear.flatMap((g) => g.subs.map((s) => `${s.name}${s.text}${s.ups}`)));
+    // (five slots since the sets update; the card carries the three classic pieces: CARD_FIVE_PIECES)
+    const worn = (m) => m.gear.filter((g) => !g.empty);
+    expect(worn(snap).map((g) => g.main.text)).toEqual(worn(live).map((g) => g.main.text));
+    expect(worn(snap).flatMap((g) => g.subs.map((s) => `${s.name}${s.text}${s.ups}`))).toEqual(worn(live).flatMap((g) => g.subs.map((s) => `${s.name}${s.text}${s.ups}`)));
     expect(snap.totals).toEqual(live.totals);
     expect(snap.stats).toEqual(live.stats);
     expect(Math.abs(snap.power - live.power)).toBeLessThanOrEqual(2);

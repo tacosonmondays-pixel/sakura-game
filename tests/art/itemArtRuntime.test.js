@@ -2,6 +2,7 @@
 // gear piece and currency the game draws maps to its own baked image, the drawn SVG stays under it as the error
 // fallback only (a slow load shows a neutral placeholder), small boxes get the small cut, tiles wear their tier's
 // plate, and the change is display only (the battle sim id does not move).
+import { GEAR_UPDATE_ITEM_IDS } from '../../src/data/gearAwaken.js';
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -28,9 +29,14 @@ function img(markup) {
   return { src: attr('src'), srcset: attr('srcset'), sizes: attr('sizes'), art: attr('data-art'), cls: attr('class'), onerror: attr('onerror') };
 }
 
+// The gear update's items (Set Boxes, pins, the Nightglass Lens: docs/specs/GEAR_UPDATE.md §3.3) are baked on
+// feature/gear-icons; until it lands they have no source and draw their SVG. Nothing else may fall back.
+const ART_PENDING = new Set(GEAR_UPDATE_ITEM_IDS);
+const BAKED_IDS = ITEM_IDS.filter((id) => !ART_PENDING.has(id));
+
 describe('item art at runtime: every item has baked art', () => {
   it('every item id has a manifest entry, so no item falls back to the drawing', () => {
-    const missing = ITEM_IDS.filter((id) => !hasItemArt(id));
+    const missing = BAKED_IDS.filter((id) => !hasItemArt(id));
     expect(missing).toEqual([]);
     expect(ITEM_IDS.length).toBe(Object.keys(ITEMS).length);
   });
@@ -41,7 +47,7 @@ describe('item art at runtime: every item has baked art', () => {
   });
 
   it('itemIcon(id) is that item\'s own image over its drawn SVG', () => {
-    for (const id of ITEM_IDS) {
+    for (const id of BAKED_IDS) {
       const html = itemIcon(id);
       const i = img(html);
       expect(i, id).not.toBeNull();
@@ -59,8 +65,8 @@ describe('item art at runtime: every item has baked art', () => {
   });
 
   it('two different items never share an image', () => {
-    const srcs = ITEM_IDS.map((id) => img(itemIcon(id)).src);
-    expect(new Set(srcs).size).toBe(ITEM_IDS.length);
+    const srcs = BAKED_IDS.map((id) => img(itemIcon(id)).src);
+    expect(new Set(srcs).size).toBe(BAKED_IDS.length);
   });
 
   it('gearIcon maps slot + rarity (and UR) to the gear keys', () => {
@@ -213,7 +219,12 @@ describe('display only: the battle sim is untouched', () => {
     // (merged with balance round 5's 96c3547b, Akane's Inferno Queen cone: '5990a48aa47f' there)
     // Ena's spreading curse (feature/ena-contagion, on top of round 5) rides the same bump.
     // feature/iroha-mirrors rides it too: Iroha's mirror network (docs/specs/IROHA_MIRRORS.md; src/sim/mirrors.js).
-    const PENDING_BUMP = { 13: '6cd94cd1ad0d' };
+    // PENDING_BUMP: feature/gear-sets and feature/gear-lr (the gear update's M2 and M3: five-piece sets, their passives
+    // and set caps, super crits, Control Strength and Buff Duration at every call site, the average crit and DoT share
+    // levers; LR gear's guards PIERCE_K_MAX 300 and ULT_HASTE_MAX 0.75, the LR Set Forms; GEAR_UPDATE.md §10.1)
+    // change the sim on protocol 13. The release assigns COOP_PROTOCOL, adds its KNOWN line and removes this
+    // pin. Only this exact in-progress id passes here.
+    const PENDING_BUMP = { 13: 'eae5a9fc6022' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

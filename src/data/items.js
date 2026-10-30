@@ -14,6 +14,8 @@
 
 import { MATERIAL_FAMILIES, ITEM_RARITIES, ITEM_RARITY_ORDER } from './types.js';
 import { EVENT_CURRENCIES } from './events/index.js';
+import { SET_IDS, GEAR_SETS } from './gearSets.js';
+import { SET_BOX_RARITIES, setBoxId, TIE_PIN_ID, COLLAR_PIN_ID, LENS_ID } from './gearAwaken.js';
 
 /** Backpack tabs (CONTRACTS §12 — category, not rarity). */
 export const BACKPACK_TABS = [
@@ -231,8 +233,16 @@ function buildItems() {
   add({ id: 'dice_prism', name: 'Prism Dice', category: 'dice', rarity: 'mythic', desc: 'Changes the main stat of a piece of gear into another stat for its slot. You choose which one.', sort: 5002 });
   // rainbow UR gear (docs/specs/GEAR_AWAKEN.md §4) and the Academy Clubs (GEAR_STATS.md §C.4); never sold for gems
   add({ id: 'seed_rainbow', name: 'Rainbow Seed', category: 'dice', rarity: 'legendary', display: 'ur', usable: 'gearAwaken', desc: 'A seven-colour sakura seed. Plant it in a +10 gold piece and it blooms into rainbow UR gear.', sort: 5003 });
-  add({ id: 'needle_star', name: 'Starlight Needle', category: 'dice', rarity: 'legendary', usable: 'gearStitch', desc: 'Stitch a ✦ onto the substat you choose. Gold gear at +10 takes one; rainbow UR gear takes two, even on the same line.', sort: 5004 });
+  add({ id: 'needle_star', name: 'Starlight Needle', category: 'dice', rarity: 'legendary', usable: 'gearStitch', desc: 'Stitch a ✦ onto the substat you choose. Gold gear at +10 takes one; rainbow UR gear takes two, Nightglass LR gear three (its Nightglass ✦), even on the same line.', sort: 5004 });
   add({ id: 'club_band', name: 'Club Armband', category: 'dice', rarity: 'mythic', usable: 'gearClub', desc: 'Tie it on a Mythic, Legendary or UR piece: it joins the club you pick. Its stats don\'t change.', sort: 5005 });
+
+  // the gear update (docs/specs/GEAR_UPDATE.md §4–§6): known to every save from the reader (M0) on, so an older build
+  // that drops them gets them back from their `inv:` mirrors; their sources come with the sets update and LR gear
+  SET_BOX_RARITIES.forEach((r, i) => add({ id: setBoxId('pick', r), name: `${ITEM_RARITIES[r].name} Set Box`, category: 'gearbox', rarity: r, pickSet: true, desc: `Open it to pick a gear set: all five pieces of that set at ${ITEM_RARITIES[r].name}, +0, main stats chosen, substats rolled.`, sort: 4020 + i }));
+  SET_IDS.forEach((id, k) => SET_BOX_RARITIES.forEach((r, i) => add({ id: setBoxId(id, r), name: `${GEAR_SETS[id].name} Box (${ITEM_RARITIES[r].name})`, category: 'gearbox', rarity: r, pickSet: true, set: id, desc: `All five ${GEAR_SETS[id].name} pieces at ${ITEM_RARITIES[r].name}, +0: you choose each main stat, the substats are rolled.`, sort: 4030 + k * 2 + i })));
+  add({ id: TIE_PIN_ID, name: 'Tie Pin', category: 'dice', rarity: 'legendary', usable: 'gearPin', desc: 'Pin it on a gold, UR or LR piece: its main stat becomes its best roll and keeps growing with the level.', sort: 5006 });
+  add({ id: COLLAR_PIN_ID, name: 'Collar Pin', category: 'dice', rarity: 'mythic', usable: 'gearPin', desc: 'Pin it on one substat of a gold, UR or LR piece: that line becomes its best roll, its ▲ and ✦ on top.', sort: 5007 });
+  add({ id: LENS_ID, name: 'Nightglass Lens', category: 'dice', rarity: 'legendary', display: 'ur', desc: 'Limit Break a rainbow UR piece at +12 into Nightglass LR gear: keep its set, or go blank for bigger numbers.', sort: 5008 });
 
   add({ id: 'ticket_recruit', name: 'Recruit Ticket', category: 'ticket', rarity: 'superRare', desc: 'One free recruitment. Used before gems.', sort: 6000 });
   add({ id: 'ticket_recruit10', name: '10× Recruit Ticket', category: 'ticket', rarity: 'mythic', desc: 'One free 10× recruitment (SR or better guaranteed). Used before gems.', sort: 6001 });
