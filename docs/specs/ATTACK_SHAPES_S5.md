@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Design spec, **nothing built**. Revised after review round 1 (`docs/review/attack-shapes-s5/review-r1.md` on `review/attack-shapes-s5-r1`: 3 HIGH, 5 MEDIUM, all addressed, §12). The owner accepted the defaults on Oct 30. It waits for a fresh reviewer's OK |
+| Status | Design spec, **nothing built**. Revised after review round 1 (3 HIGH, 5 MEDIUM, §12) and round 2 (`docs/review/attack-shapes-s5/review-r2.md` on `review/attack-shapes-s5-r2`: 1 HIGH, 3 MEDIUM, LOWs, §13), all addressed. The owner accepted the defaults on Oct 30. It waits for a fresh reviewer's OK |
 | Owner request | Oct 30, 2026: six more "unique attack reworks", one path each, the shape arriving at tier 4–5, other paths unchanged, plain effects first. **No nerfs** (shapes may be stronger) |
 | Written against | `origin/feature/balance-r5` b2f4345c (S1–S4 merged in, balance round 5, the no-nerf gate `tools/balance/noNerfGate.mjs`); sim id PENDING_BUMP {13: `3e9875ef40f9`}; `COOP_PROTOCOL` 13 live |
 | Builds on | `docs/specs/ATTACK_SHAPES.md` §4 (shared blocks), §5 (catalogue), Addendum A2–A9 (S1–S4 as built, the parity method); `docs/BALANCE.md` round 5 (the Blade Cyclone rule, the no-nerf gate) |
@@ -24,12 +24,13 @@
 The S5 design rules, from what S1–S4 and round 5 learned (§1):
 
 1. **Her live attack stays; the shape goes on top.** This is the Blade Cyclone rule (`docs/BALANCE.md` "Blade Cyclone never below her aimed volley"). It is the only construction that keeps "no nerfs in any scenario" without one rescue round per girl.
-2. **Shape hits are clean and unshared.** They carry damage only: no statuses, marks, pushes, splash or silence. Midori's mist carries her poison and nothing else, under its own knob and guard (§3.1). This is S1 A3 #7, S3 A8 #9 and S4 A9 #2 again. They also carry `noShare: true`, so Ena's share hook in `Sim._hit` (`Sim.js:593-600`) neither shares them nor splits them (Q5).
+2. **Shape hits are clean and unshared.** They carry damage only: no statuses, marks, pushes, splash or silence. Midori's mist carries nothing but its own damage-over-time status, `spore`, which no other girl's system reads (§3.1). This is S1 A3 #7, S3 A8 #9 and S4 A9 #2 again. They also carry `noShare: true`, so Ena's share hook in `Sim._hit` (`Sim.js:593-600`) neither shares them nor splits them (Q5).
 3. **Shape hits draw no rng.** A shape hit takes her expected crit as a plain multiplier, `1 + c × (m − 1)` with `c` = her `critChance` clamped to [0, 1] and `m` = `critMul || 1.5` (as `computeHit` reads them, `combat.js:91-92`), and never rolls. The shared `sim.rng` therefore sees exactly live's draws. That removes the partner and seed noise of A7 / A9 and makes the gate's live-vs-branch cells exact.
 4. **A lone enemy reads live.** Where a shape would hit the enemy her attack just struck (or, for a projectile attack, just aimed at), it rolls past it (Kanna's quake rule, A8 #9). The gain lands on crowds. Suzu's tolls are the exception: a bell rings for whoever stands by it. The owner accepted "no gain on a lone boss" (Oct 30, pending any override).
-5. **A shape never takes room from a live object.** Shape shots and shape rings have their own caps and evict only shape objects. When a cap is full the shape skips; the live object is never cut (H1, H2).
+5. **A shape never takes room from a live object.** Shape shots and shape rings have their own caps and evict only shape objects. When a cap is full the shape skips; the live object is never cut, and **live caps never count shape objects** (review r1 H1, H2; r2 H1').
+6. **Shape damage never moves who gets a buff.** Every allocation that ranks girls by their damage reads her damage *without* her shape damage. Today those are brews and links (`recentDps`, `buffs.js:219`, `:83`), a rally's own pick (`topDamageGirl`, `abilities.js:717`) and a drink's target (`drinks.js:33`). So a partner never loses a brew, link, rally or drink to an S5 girl. Shape damage still counts everywhere it is shown: the results screen, the honest DPS readout, achievements and stats (review r2 M-2).
 
-With 1–3 and 5, every gate cell is live's number plus the shape's damage. The bench heals targets every step, so their paths, statuses and rng are identical. The tuning question is therefore **how much stronger**, never "is anything under". This "never below live" is a claim about **the healed bench and the gate**, and the gate is the measure. In a real battle the extra damage kills sooner, which moves splitters, enrage timers and the crowd behind them. That is a different battle, not a nerf, and the finales (§7.7) check it. The proposal (Q9) is her ruler +10–30 % at the shape tiers, the Blade Cyclone's range.
+With 1–3, 5 and 6, every gate cell is live's number plus the shape's damage. The bench heals targets every step, so their paths, statuses and rng are identical. The tuning question is therefore **how much stronger**, never "is anything under". This "never below live" is a claim about **the healed bench and the gate**, and the gate is the measure. In a real battle the extra damage kills sooner, which moves splitters, enrage timers and the crowd behind them. That is a different battle, not a nerf, and the finales (§7.7) check it. The proposal (Q9) is her ruler +10–30 % at the shape tiers, the Blade Cyclone's range.
 
 ---
 
@@ -47,22 +48,25 @@ With 1–3 and 5, every gate cell is live's number plus the shape's damage. The 
 | Piece | Where | What |
 |---|---|---|
 | `shapeSpec(t, spec, mul)` | `src/sim/shapes.js` (new helper) | The clean copy (rule 2) of her attack spec for a shape hit: `status: []`, `procStatus: null`, `mark: null`, `silence: 0`, `reveal: 0`, `knockback: 0`, `gather: 0`, `splash: 0`, `noShare: true`. It also folds in `critChance: 0, critMul: 1` and multiplies `damage` by `mul × (1 + c × (m − 1))` from her spec's crit, with `c` clamped to [0, 1] and `m = critMul \|\| 1.5` (rule 3). It sets `share: mul` so flat armour and the 1-damage floor scale with it (A8 #1). It generalises `sendQuake`'s `clean` (`ground.js:149`) and Kaede's `bladeSpec`. |
+| The shape-damage tally | `Sim._hit` / `Sim._dot` → `_credit` (`Sim.js:622`, `:735`, `:759`, `:772`) | Rule 6. A hit spec or DoT status with `shape: true` (set by `shapeSpec` and on the `spore` status) also adds its dealt damage to `t.shapeDealt`. The four allocators read `damageDealt − shapeDealt`: `recentDps` (`buffs.js:219-220`, both the delta and `_dmgMark`), `topDamageGirl` (`abilities.js:717`) and the drink target (`drinks.js:33`). `damageDealt` itself still includes shape damage, so the results screen, the honest DPS readout (`src/ui/battle/dpsView.js`) and stats show it. `shapeDealt` is a running total saved with the tower like `damageDealt` (neither is in `hashSim`; their effects reach it through enemy HP). A hero's damage XP (`Sim.js:778`, Luna) still counts shape damage, which can only level her faster. |
 | `noShare` in `Sim._hit` | `src/sim/Sim.js:597` | The tether condition gains `&& !spec.noShare`. A shape hit is neither split by `ownShare` nor sent down Ena's threads (rule 2, Q5). Live hits are unchanged. |
-| `shapeRoom(sim, t, n, perGirl)` | `src/sim/rings.js`, beside `straightRoom` | Rule 5 for straight shots. Shape shots carry `p.shape = true`. It counts the straight list as `straightRoom` does (`rings.js:40-47`), but it **evicts only shape shots**: hers first, then her player's, then anyone's. It returns how many of the `n` fit. The caller spawns that many and skips the rest. `straightRoom` itself is unchanged, so a live shot can still evict a shape shot, never the other way round. Mirrors (`src/sim/mirrors.js`) never copy a shape shot. |
-| Her attack's victims | `attackPulse`, `attackBeam`, `attackChain`, `attackProjectile` (`towers.js:899`, `:1121`, `:1179`, `:852`) | A small refactor: each fills `t._struck` (a scratch uid array, cleared at her next attack) with the enemies it hit, or for a projectile attack the targets it aimed at. They keep returning `true` / `false` and nothing else changes. Rule 4's skip lists read it. |
+| `shapeRoom(sim, t, n, perGirl)` | `src/sim/rings.js`, beside `straightRoom` | Rule 5 for straight shots. Shape shots carry `p.shape = true`. It counts **live and shape** straight shots against the live caps (STRAIGHT_PER_PLAYER 200, STRAIGHT_PER_SIM 400) and its own per-girl cap, but it **evicts only shape shots**: hers first, then her player's, then anyone's. It returns how many of the `n` fit. The caller spawns that many and skips the rest. Shape shots spawn with `split: true`, so `updateProjectiles` never tests them against Iroha's mirrors (`towers.js:2247`), and `mirrors.js` needs no new branch. |
+| The `straightRoom` guard | `src/sim/rings.js:42`, `:52` | **`straightRoom` skips shape shots** both when counting (`if (!p.straight \|\| p.dead \|\| p.shape) continue;` at `:42`) and when evicting (the same at `:52`). Live caps therefore see only live shots, exactly as today, and a live volley never evicts a live shot because shape shots are on the field (review r2 H1': 380 live pins + 20 charms would otherwise make a 16-pin Kinu volley evict 16 live pins). With no shape shot on the field the guard changes nothing, so live hashes do not move. Fuu's fans (`links.js:70`, `:80`) are live straights and are counted as before. |
+| Her attack's victims | `attackPulse`, `attackBeam`, `attackChain`, `volleyFrom` (`towers.js:899`, `:1121`, `:1179`, `:869-896`) | A small refactor, **only for a girl with an S5 shape stat** (`t.stats.cres`, `charms`, `moon`, `web`; other girls never get the field, so their perf and snapshot keys stay the same). Each fills `t._struck`, a scratch uid array reused across attacks with no allocation, with what it hit: the pulse's `victims` (already a fresh array, `:903`), the beam's `linePierce` hits, the chain's victims **in the `cur` walk order** (not the `Set`'s), and `volleyFrom` pushes **all** its `targets` (today it returns only `targets[0]`; its return value is unchanged). Return values and live behaviour are unchanged. A shape that keeps a skip list stores **a copy** (`p.skip`, one copy per throw, shared read-only by that throw's shots), because `t._struck` is overwritten by her next attack or an echo. |
 | The `S5` constants block | `src/sim/constants.js`, appended | Caps, clocks and widths below. One block, as S1–S4. |
-| `endS5Wave(sim)` | beside `endHeldWave` / `endLinkWave` / `endGroundWave` | Every S5 object ends at the wave clear: `sim.statics`, `t.tolls`, `t.wheelK`, pass counters, shape shots. **One exception: Suzu's bells survive the wave clear** (`Sim.js:981`, traps are `'snap'`, `src/ui/battle/snapshot.js:135`). `endS5Wave` sets each surviving bell's `tollCd` to 1, so a calm save holds a constant on every bell (§3.6). |
+| `endS5Wave(sim)` | beside `endHeldWave` / `endLinkWave` / `endGroundWave` | Every S5 object ends at the wave clear: `sim.statics`, `t.tolls`, `t.wheelK`, pass counters, shape shots (as `endRingWave` ends straights). **One exception: Suzu's bells survive the wave clear** (`Sim.js:981`, traps are `'snap'`, `src/ui/battle/snapshot.js:135`). `endS5Wave` sets each surviving bell's `tollCd` to 1, so a calm save holds a constant on every bell (§3.6). |
 | `hashSim` folds | `src/sim/Sim.js` | Each new list folds only while non-empty (old battles keep their hash). |
 | Battle-save classes | the snapshot classifier | New lists `calm`; per-step scratch (`t._struck`) `scratch` (S4 pattern). `tr.tollCd` rides in the trap record (`snap`); a restored armed trap without it reads 1. |
 | Shape DPS for the panel | `shapeDps` / `heldDps` / `linkDps` | Each new shape adds its on-one-target and crowd lines, so the honest readout and the drawer follow it (the S1 rule, A4 last paragraph). |
 
-The existing shared blocks used as they are: the direction table (`src/sim/dirs.js`: `nearestDir`, `turnToward`, `COS2`, `dirAngle`), the shape tests (`inCone`, `nearSegment`, `inBand`, `inDisc`), the held channel (`channel.js`), the tether group record and walk (`tieTether` / `nextLink`), `spawnStraight`, `chainNext` (`towers.js:1163`). **Not reused as-is** (review r1): `retFlip` retargets and clears the hit list (`links.js:134-150`), so Rei gets a straight `crescentFlip`. `sendQuake` reads `t.stats.quake`, sizes rings by her range and counts against Kanna's caps (`ground.js:43-53`, `:143-157`, `:194-197`), so Suzu gets her own `sendToll`. `straightRoom` evicts other girls' live shots (`rings.js:47-58`), so shape shots use `shapeRoom`.
+The existing shared blocks used as they are: the direction table (`src/sim/dirs.js`: `nearestDir`, `turnToward`, `COS2`, `dirAngle`), the shape tests (`inCone`, `nearSegment`, `inBand`, `inDisc`), the held channel (`channel.js`), the tether group record and walk (`tieTether` / `nextLink`), `spawnStraight`, `chainNext` (`towers.js:1163`). **Not reused as-is** (review r1): `retFlip` retargets and clears the hit list (`links.js:134-150`), so Rei gets a straight `crescentFlip`. `sendQuake` reads `t.stats.quake`, sizes rings by her range and counts against Kanna's caps (`ground.js:43-53`, `:143-157`, `:194-197`), so Suzu gets her own `sendToll`. `straightRoom` evicts other girls' live shots (`rings.js:47-58`) and counts every straight shot, so shape shots use `shapeRoom`, and `straightRoom` gains a guard that skips shape shots (review r2 H1').
 
 ---
 
 ## 3. The six, girl by girl
 
-Tier numbers below are **starting values for the bench fit**, not final. Every shape knob is a plain per-tier field on the tier's mods (A3 #9), so the data reads as the fit set it.
+Tier numbers below are **starting values for the bench fit**, not final.
+Every shape knob is a plain per-tier field on the tier's mods (A3 #9), so the data reads as the fit set it. **The S5 stat keys are new names**: `mist`, `web`, `cres`, `moon`, `charms` and `toll`. They never reuse S1–S4's `ret`, `wheel` or `sweep`, which Fuu's, Momo's and Umeko's code reads (`t.stats.ret`, `t.stats.wheel`, `t.stats.sweep`); a shared key would run their branches for an S5 girl.
 
 ### 3.1 Midori: Spore Mist on Field Kit T4–T5
 
@@ -82,19 +86,28 @@ Tier numbers below are **starting values for the bench fit**, not final. Every s
 **Sim.** This is Akane's Hearth Stream (`held.js`, `behavior: 'stream'`) with `STREAM_KINDS.poison` (`held.js:46`, data until now). Here it runs as a **kit beside her attack**, not as her behaviour:
 
 - Her behaviour stays `projectile` (rule 1). Her held channel `t.ch` is opened by her counted attack and ticks after the attack loop in `updateTower`, as S2 does (A7 #2). Lock, `turnToward`, grace and release come from `channel.js`.
-- Every `CH_TICK` (6 steps) the cone (`inCone` over `sim.grid.query`, victims by (d², uid), capped) strikes each victim once with `shapeSpec(t, spec, mist.mul × rate × CH_TICK × STEP)` and the tip falloff (`streamFalloff`, × 0.85 at the tip). Its status list is **her poisons only, scaled by `mist.dot`**: every `poison`-type entry of her spec, Potential P4 Evergreen Venom's `statusAdd` poison included, with `dps` and `pct` × `mist.dot` and her duration. `mist.mul` tunes the ticks and `mist.dot` the poison, which is the larger gain (review r1 M3), so both are fit. No chance, so no rng.
-- **The poison guard.** The mist poisons an enemy only if it has no poison or its poison is hers (`sourceUid` = her uid). The merge is per key `>=` with `left = max` (`status.js:97-101`, `:105`), so without the guard the mist would refresh another girl's poison: a Toxicology support's 56/s would last longer, and her numbers would move. With the guard, nobody else's poison is touched. An enemy already carrying hers gains a refresh, and her stronger flask values win the per-key merge.
-- **Not fully clean, by design:** a poisoned enemy cannot siphon-heal (`enemies.js:369`), so the mist's poison stops siphoners in the cone. That is a gain and never a nerf. It is the one way the mist can move other girls' numbers (a siphoner heals less), so §7.5 excepts Midori beside siphoning enemies.
+- Every `CH_TICK` (6 steps) the cone (`inCone` over `sim.grid.query`, victims by (d², uid), capped) strikes each victim once with `shapeSpec(t, spec, mist.mul × rate × CH_TICK × STEP)` and the tip falloff (`streamFalloff`, × 0.85 at the tip). Its only status is **`spore`**, a damage-over-time of its own: `dps` and `pct` = the sum of her `eff` poison entries × `mist.dot`, for her poison's duration. Her `eff` already carries her balance row, Potential `dotMul` (P2, P4, P6) and Evergreen Venom's `statusAdd`, so `spore` follows them. `mist.mul` tunes the ticks and `mist.dot` the spore, which is the larger gain (review r1 M3), so both are fit. No chance, so no rng.
+- **Why `spore` and not `poison`** (review r2 M-3; it replaces round 1's guard). Every system that reads poison reads `e.statuses.poison` by that key:
+  - Catalyst Burst detonates it (`abilities.js:582-601`), and its Auto counts it (`:1390`, `:1402`).
+  - A poisoned death spreads it (`spreadDot`, `potential.js:133-134`, from `Sim.js:805`).
+  - Poison blocks siphon healing (`enemies.js:369`) and regeneration (`:501`).
+  - The merge takes `left = max` with whoever lands next (`status.js:97-105`).
+
+  A mist that wrote `poison` would show up in all of these and move other girls: a support Midori's Catalyst could fire earlier on a smaller pile, and another girl's weaker poison could be absorbed into the mist's. A separate key `spore` is seen by none of them, so the mist is invisible to every other girl. Midori's own flask poison is a different key, so the two stack on her enemies, which is a gain for her only.
+  - **`spore` in `status.js`**: `applyStatus` takes it in the burn / poison branch (`:47`: `dps`, `pct`). It merges only with another `spore`, per key `>=` as poison does. `STATUS_ELEMENT.spore = 'poison'`, so a poison-warded enemy is immune, as to her flask.
+  - **`spore` in `enemies.js`**: it ticks in `updateEnemy` beside poison (`:493`) through `sim._dot(e, 'poison', …)`, so it takes poison's damage rules (ignores armour, poison's type rules, `DOT_PCT_BOSS_MUL` on bosses) and credits her, with `shape: true` for rule 6. It is left out of the siphon block (`:369`), the regen block (`:501`), `spreadDot`, Catalyst and its Auto count.
+  - With no `spore` on the field, every live path is unchanged.
+  - Renderer: the poison look.
 - Her slow and her paralysis stay on the flask (rule 2). The paralysis keeps its live 20 % roll per flask hit, so her stun count and rng are live's.
 - The mist reaches flyers from T3 on, because her spec has `canHitAir`.
 - Gear Pierce adds victims (A7 #8's carry into `t.ch.px`).
 - State is `t.ch` only (integers), ended by a sabotage, a Move, her sale or the wave clear.
 
-**Must keep working.** Swift Draught brews (her kit timer, untouched). The P5 Cauldron Bomb rhythm, which is her flask harder with a splash, untouched because the flask is her attack. P6 Double Batch (+1 brew target). P2 / P4 `dotMul` scale the mist's poison as they scale the flask's. Drinks and gear scale her spec. The mist reads it. Catalyst Burst (another path) is unaffected.
+**Must keep working.** Swift Draught brews (her kit timer, untouched). The P5 Cauldron Bomb rhythm, which is her flask harder with a splash, untouched because the flask is her attack. P6 Double Batch (+1 brew target). P2 / P4 / P6 `dotMul` scale the mist's `spore` as they scale the flask's poison (the spore is derived from her `eff` poison). Drinks and gear scale her spec. The mist reads it. Catalyst Burst (another path) is unaffected.
 
-**Parity.** Enemies she already poisons gain only refresh. Enemies with no poison outside her splash gain her poison × `mist.dot`, and enemies under another girl's poison gain only the ticks. Boss cells: the held boss is in her splash already. Its gain is the mist's ticks plus refresh, small (the lone-enemy rule cannot apply to a held stream; the ticks are her ruler's +). Her ruler is "judged by boost" (`docs/BALANCE.md` round 5), and her brews are unchanged. Her own crowd number is expected to land at +15–30 %.
+**Parity.** Every enemy in the cone gains the ticks and her `spore`; her flask poison and everyone else's statuses are exactly live's. Boss cells: the held boss is in her splash already. Its gain is the mist's ticks plus her `spore`, small (the lone-enemy rule cannot apply to a held stream; the ticks are her ruler's +). Her ruler is "judged by boost" (`docs/BALANCE.md` round 5), and her brews are unchanged. Her own crowd number is expected to land at +15–30 %.
 
-**The credit question, answered (review r1).** The merge is per key `>=` (`status.js:97-101`): the stronger poison keeps its values and its `sourceUid`, so the supported cell's Toxicology Midori keeps the credit on shared enemies. The guard above means the mist never offers a poison to her anyway.
+**The credit question, answered (review r1).** The poison merge is per key `>=` (`status.js:97-101`), and the stronger poison keeps its values and `sourceUid`. With `spore` as its own key the question no longer arises: no poison of anyone's is ever merged with the mist.
 
 ### 3.2 Raika: Static Web on Storm Rhythm T4–T5
 
@@ -103,16 +116,16 @@ Tier numbers below are **starting values for the bench fit**, not final. Every s
 | Tier | Live | With the shape |
 |---|---|---|
 | T3 Drum Roll | +30 % speed, silence 0.5 s | unchanged |
-| T4 Thunder Festival | +40 % speed, +2 jumps, silence +0.5 s, pen 3, +25 % damage | all of that, **plus Static Web**: links last 2 s, a zap every 15 steps (0.25 s), `zap.share` 0.15 |
-| T5 Endless Thunder | double speed, +8 damage, +3 jumps, Brittle + crack, +45 % damage | all of that, **plus**: links last 3 s, a zap every 12 steps (0.2 s), `zap.share` 0.2 |
+| T4 Thunder Festival | +40 % speed, +2 jumps, silence +0.5 s, pen 3, +25 % damage | all of that, **plus Static Web**: links last 2 s, a zap every 15 steps (0.25 s), `web.share` 0.15 |
+| T5 Endless Thunder | double speed, +8 damage, +3 jumps, Brittle + crack, +45 % damage | all of that, **plus**: links last 3 s, a zap every 12 steps (0.2 s), `web.share` 0.2 |
 
 **Player sees.** Her bolt jumps from enemy to enemy as today. The enemies it struck then stay joined by thin flickering yellow zig-zags. Four (five) times a second a zap runs along the zig-zags and every linked enemy jolts. When linked enemies drift too far apart the link snaps, and when fewer than two remain the web fades. Tier text, T4: "…; the enemies her bolt strikes stay linked by static for 2 s, zapped 4 times a second."
 
 **Sim.** It reuses S4's group record and tie walk, but **not the share hook** (Q5). Its zaps carry `noShare`, so the hook skips them too (review r1 M5):
 
-- A static web is `{ uid, owner, m: [enemy…], left, zapCd }` in a new list `sim.statics` (not `sim.tethers`). Ena's threads and Raika's webs then coexist on the same enemy without fighting over `e.tie`. Members are her first bolt's chain in hit order (`attackChain`'s `hitSet` order, `towers.js:1179`), capped at STATIC_MEMBERS 12. A chain of one (a lone enemy) makes no web, so a lone boss reads exactly live (rule 4).
+- A static web is `{ uid, owner, m: [enemy…], left, zapCd }` in a new list `sim.statics` (not `sim.tethers`). Ena's threads and Raika's webs then coexist on the same enemy without fighting over `e.tie`. Members are her first bolt's chain in hit order: the `cur` walk of `attackChain` from her first `start` (`towers.js:1189-1198`), recorded into `t._struck`. That is not the `hitSet` `Set`'s order. Capped at STATIC_MEMBERS 12. A chain of one (a lone enemy) makes no web, so a lone boss reads exactly live (rule 4).
 - Her counted attack: if her lead target is already in one of her webs, that web's `left` is refreshed and nothing new is made (S4 A9 #10). Otherwise a new web is made, unless every member is already in a web, any owner's (a second Raika makes none: no double zaps). Caps: STATIC_PER_GIRL 4 (her oldest goes first), STATIC_PER_SIM 48 (no new web past it).
-- Each step, for each web in creation order: `left−−`. When `zapCd` hits 0 it resets to `zap.every`. Members that died, entered a tunnel or stand further than STATIC_REACH (her `chainJump(spec)` × 1.5) from the previous member in the list drop out. Then every remaining member takes one hit of `shapeSpec(t, spec, zap.share × rate × zap.every × STEP)`. Per second each member takes `zap.share × rate` of her bolts, which is `zap.share` of her bolt DPS on it. The zaps are unshared (rule 2), so a member also tied by Ena's threads does not echo them. Shock, silence, Brittle and crack stay on the bolt (rule 2). With fewer than 2 members, or `left` 0, the web ends.
+- Each step, for each web in creation order: `left−−`. When `zapCd` hits 0 it resets to `web.every`. Members that died, entered a tunnel or stand further than STATIC_REACH (her `chainJump(spec)` × 1.5) from the previous member in the list drop out. Then every remaining member takes one hit of `shapeSpec(t, spec, web.share × rate × web.every × STEP)`. Per second each member takes `web.share × rate` of her bolts, which is `web.share` of her bolt DPS on it. The zaps are unshared (rule 2), so a member also tied by Ena's threads does not echo them. Shock, silence, Brittle and crack stay on the bolt (rule 2). With fewer than 2 members, or `left` 0, the web ends.
 - Zap budget: STATIC_ZAPS_PER_STEP 128. Past it, the remaining webs skip this zap (their `zapCd` stays 0 and they zap next step). That is a deferral, not a drop, because zaps are her own damage. The stress board's expected peak is about 30.
 - Her eligibility for the zap is her spec's (`canHitAir`, veils by her detection). Members are walked with `chainNext`'s tie order, so the same enemies are picked as by her bolt.
 
@@ -127,18 +140,19 @@ Tier numbers below are **starting values for the bench fit**, not final. Every s
 | Tier | Live | With the shape |
 |---|---|---|
 | T3 Crescent Gale | 9 targets, +2 damage, +0.3 range | unchanged |
-| T4 Tempest Dance | +50 % speed, +4 damage, +4 targets, ×1.25 elites, +30 % damage | all of that, **plus Crescent Return**: one crescent per sweep, out to her range + 2.0 tiles and back, half-width 0.45, 6 cuts a leg, `ret.mul` 0.3 a cut |
-| T5 Thousand Petal Storm | hits everything in reach, +14 damage, +60 % speed, +0.6 range, crits, ×2.5 bosses | all of that, **plus**: out to her range + 2.5 tiles, 10 cuts a leg, `ret.mul` 0.35 |
+| T4 Tempest Dance | +50 % speed, +4 damage, +4 targets, ×1.25 elites, +30 % damage | all of that, **plus Crescent Return**: one crescent per sweep, out to her range + 2.0 tiles and back, half-width 0.45, 6 cuts a leg, `cres.mul` 0.3 a cut |
+| T5 Thousand Petal Storm | hits everything in reach, +14 damage, +60 % speed, +0.6 range, crits, ×2.5 bosses | all of that, **plus**: out to her range + 2.5 tiles, 10 cuts a leg, `cres.mul` 0.35 |
 
 **Player sees.** She draws and everything in her reach falls as today. A pale pink crescent of air also leaves her blade toward her target, flies on past the edge of her reach, slows, turns and comes back to her. It cuts walkers further down the road both ways. Tier text, T4: "…; every sweep sends a crescent wave out past her reach and back."
 
 **Sim.** Fuu's fan idea as a **straight** throw with its own flip. Her Whirlwind has no push, so S4's homing fix (A9 #1) is not needed, and S4's `retFlip` is not used: it retargets the fan at its aim and clears the hit list (`links.js:134-150`), which would home a crescent onto a live lead boss and drop rule 4's skip (review r1 M1):
 
-- After her pulse (`attackPulse`, `towers.js:899`; its victims in `t._struck`), she spawns one straight record (`spawnStraight`, `p.shape`, no `target`, `aim: null`) along `nearestDir(lead − her)`, with `cres: { leg: 0, out }` and `maxTravel` = her range + `ret.out`.
-- `crescentFlip` (new, in `links.js` beside `retFlip`): at `maxTravel` on leg 0 it negates `vx` / `vy` exactly (no trig), sets `leg` 1, `travel` 0 and `maxTravel` to the same length, and clears `p.hits`. On leg 1 at `maxTravel` (back at her) it ends. It never sets a target, so nothing is chased.
-- **The skip list is its own field**, `p.skip` (uids), set at spawn from `t._struck` and read in `projectileStep` before a hit. It is never cleared by the flip, so both legs roll past the sweep's victims (rule 4). A held boss in her reach is never cut by her crescent, so her boss rows are exact. A walking boss is cut on the way in, before it reaches her.
-- **Ground only:** her spec has `canHitAir: false` (`units.js` Rei base), and the crescent uses it. Mirrors never copy a crescent (`p.shape`).
-- Each cut is `shapeSpec(t, spec, ret.mul)`. Her crits, ×2.5 vs bosses and ×1.25 vs elites ride on the multiplier (her spec's tier multipliers stay; S4 A9 #8). She never waits for a crescent (A9 #4).
+- After her pulse (`attackPulse`, `towers.js:899`; its victims in `t._struck`), she spawns one straight record (`spawnStraight` in `shapeRoom`, `p.shape`, `split: true`, no `target`, `aim: null`, `splash` 0) along `nearestDir(lead − her)`, with `cres: { leg: 0, n: 0, cuts }` and `maxTravel` = her range + `cres.out`.
+- **Cuts go through their own branch** (review r2 M-1). `projectileStep` kills a shot when `p.pierce` reaches 0 (`towers.js:2219-2222`), before the `maxTravel` check (`:2226-2228`), so a crescent counting down `p.pierce` would die on its way out in a crowd. A `p.cres` branch beside the `p.ret` one (`:2213`) calls `crescentCut(sim, p, e)`: it hits, pushes `p.hits` and counts `cres.n`, and never touches `p.pierce`. When `cres.n` reaches `cres.cuts` (+ her gear Pierce carry), on leg 0 the crescent **turns at once** (`crescentFlip` from where it is, and the rest of that step's contacts are left), and on leg 1 it ends. At `maxTravel`, a `p.cres` branch at `:2228` calls `crescentFlip` in place of `retFlip`.
+- `crescentFlip` (new, in `links.js` beside `retFlip`), on leg 0 (at `maxTravel`, or early when its cuts run out): it negates `vx` / `vy` exactly (no trig) and sets `leg` 1. `maxTravel` becomes the distance it flew out (`p.travel`), and `travel` 0. It clears `p.hits` and resets `cres.n` to 0. On leg 1 it returns false and the crescent ends where it was thrown from. It never sets a target, so nothing is chased.
+- **The skip list is its own field**, `p.skip` (uids), **a copy** of `t._struck` taken at spawn (an echo or her next sweep overwrites `t._struck`). It is read in `projectileStep`'s contact scan beside `p.hits` (`towers.js:2193`). It is never cleared by the flip, so both legs roll past the sweep's victims (rule 4). A held boss in her reach is never cut by her crescent, so her boss rows are exact. A walking boss is cut on the way in, before it reaches her.
+- **Ground only:** her spec has `canHitAir: false` (`units.js` Rei base), and the crescent uses it. It is born `split: true`, so mirrors never reflect it.
+- Each cut is `shapeSpec(t, spec, cres.mul)`. Her crits, ×2.5 vs bosses and ×1.25 vs elites ride on the multiplier (her spec's tier multipliers stay; S4 A9 #8). She never waits for a crescent (A9 #4).
 - Caps: `shapeRoom` with CRESCENTS_PER_GIRL 8 (her oldest crescent ends early; rule 5). A full field skips the crescent and never evicts a live shot. Gear Pierce adds cuts a leg (her pulse's carry, A7 #8).
 
 **Must keep working.** P3 Third Step and P5 Breaking Petal rhythms, which are her sweep harder with a stun / shred: one crescent per counted sweep, statuses on the sweep only. P6 Twin Crescent's echo (`echo: 0.3`): an echo is one more sweep, so one more crescent, at the echo's share (`mul × 0.3`). Hurricane Draw's `maxTargets: 99` means her sweep takes everything in reach and the crescent only what lies beyond.
@@ -152,7 +166,7 @@ Tier numbers below are **starting values for the bench fit**, not final. Every s
 | Level | Live | With the shape |
 |---|---|---|
 | Lv 17 Full Moon Lance (lances.4) | +8 damage, +4 pierce, ×1.25 elites | unchanged |
-| Lv 22 Lunatic Lance (lances.5) | one more beam, +8 damage, +20 % speed | all of that, **plus one Moonbeam**: swings ±45° (30 steps) round her lead target, one pass per volley, strikes up to her pierce a pass, `sweep.mul` 0.35 |
+| Lv 22 Lunatic Lance (lances.5) | one more beam, +8 damage, +20 % speed | all of that, **plus one Moonbeam**: swings ±45° (30 steps) round her lead target, one pass per volley, strikes up to her pierce a pass, `moon.mul` 0.35 |
 | Lv 25 Lunar Sovereign | +15 % damage, +2 pierce | all of that, **plus a second Moonbeam** swinging the other way (both at 0.3) |
 
 **Player sees.** Her moon beams still flash at her targets with every volley. A long, soft, held moonbeam also stands from her staff and swings across them, one side to the other with each volley, back on the next. At Lv 25 two moonbeams cross like scissors. Level text, Lv 22: "…; a moonbeam swings across her targets with every volley."
@@ -162,7 +176,7 @@ Tier numbers below are **starting values for the bench fit**, not final. Every s
 - Each counted beam volley (`attackBeam`, `towers.js:1121`, untouched) starts a pass from the side where the last one ended to the other. The pass lasts P = min(her cooldown in steps, 36) steps and covers 2 × arc table steps, using an integer accumulator (Bresenham). No fractional angle, deterministic at any attack speed.
 - The centre follows `nearestDir(lead − her)` at `turnToward` 1 step a step.
 - Every SWEEP_TICK (2) steps the segment is tested. Each enemy is struck at most once a pass, up to her pierce a pass, in crossing order (step, then grid order, then uid).
-- Pre-seeded skip: the victims of this volley's beams (`t._struck` from `attackBeam`, rule 4), so a lone boss reads live. Strikes are unshared (rule 2). Each strike is `shapeSpec(t, spec, sweep.mul)`.
+- Pre-seeded skip: the victims of this volley's beams (`t._struck` from `attackBeam`, rule 4), so a lone boss reads live. Strikes are unshared (rule 2). Each strike is `shapeSpec(t, spec, moon.mul)`.
 - Moonbeam two at Lv 25 is the same with the phase mirrored (`240 − k` about the centre, as reverse arms).
 - State: `t.ch` (S2's record, its memory integer pairs) with a pass counter. The Moonfall ult and the Moonbrand skill are untouched. Her gravity statuses (slow, Brittle, stun and freeze chances) stay on her beams (rules 2 and 3), so her stun and freeze rolls are live's.
 
@@ -177,20 +191,20 @@ Tier numbers below are **starting values for the bench fit**, not final. Every s
 | Tier | Live | With the shape |
 |---|---|---|
 | T3 Exorcism Rite | silence 0.8 s, reveal 2 s | unchanged |
-| T4 Divine Wind | three talismans a throw, +6 damage, +2 pierce, pen 2, +25 % damage | all of that, **plus a Charm Wheel of 9**: a wheel of 10 evenly spaced spokes that turns `wheel.turn` 10 steps (15°) each throw, minus the spoke nearest her target's line; each charm pierce 1, travel = her range, `wheel.mul` 0.25 |
-| T5 Amaterasu's Mirror | a piercing holy beam (6), +20 damage, +1.5 range, silence +1 s, ×1.5 bosses | the beam as live, **plus a Charm Wheel of 12** (13 spokes minus the one nearest her line) with every flash, `wheel.mul` 0.3 |
+| T4 Divine Wind | three talismans a throw, +6 damage, +2 pierce, pen 2, +25 % damage | all of that, **plus a Charm Wheel of 9**: a wheel of 10 evenly spaced spokes that turns `charms.turn` 10 steps (15°) each throw, minus the spoke nearest her target's line; each charm pierce 1, travel = her range, `charms.mul` 0.25 |
+| T5 Amaterasu's Mirror | a piercing holy beam (6), +20 damage, +1.5 range, silence +1 s, ×1.5 bosses | the beam as live, **plus a Charm Wheel of 12** (13 spokes minus the one nearest her line) with every flash, `charms.mul` 0.3 |
 
 **Player sees.** Her three talismans fly at her targets as today. A ring of small white-and-red paper charms also bursts out from her all round, flying straight to the edge of her range, and each throw's ring sits a little further round than the last, so over a few throws the wheel visibly turns. At T5 the mirror's beam flashes and the wheel of 12 goes out with it. Tier text, T4: "…; a wheel of 9 paper charms spins out with every throw." T5: "…; the charm wheel grows to 12 and goes out with every flash."
 
 **Sim.** Momo's Blossom Wheel (`attackWheel`, `wheels.js:50`) **spokes only**. Her own attack (`attackProjectile`, or at T5 `attackBeam`) is untouched and is the "lead":
 
 - **The wheel is fixed to the world and turns.** After her counted attack the wheel has m = n + 1 spokes at `wrapDir(t.wheelK + floor(j × 240 / m))`, j = 0…m − 1. The spoke nearest her target's line k0 = `nearestDir(lead − her)` is dropped (the smallest circular distance to k0, ties to the lower j), and the other n leave as straight charms. **No charm ever flies down her line:** every remaining spoke is at least half a gap (12 steps, 18°, at T4) from k0, whatever `wheelK` is. The first version, `k0 + spoke(i) + wheelK`, put a charm on her line whenever `spoke(i) + wheelK ≡ 0 (mod 240)` (review r1 M2).
-- `t.wheelK` (an integer, new) advances by `wheel.turn` each counted attack, mod 240. That is the Pinwheel's lock-free turn from S1 A3 #4, read from her own attack count, so no clock and no rng.
-- **The skip list is the throw's selected targets.** At T4 her talismans are projectiles, so who they will hit is unknown when the charms spawn. `t._struck` holds the targets `attackProjectile` aimed at. At T5 the beam is instant, and `t._struck` holds its `linePierce` victims. Each charm carries it as `p.skip` (rule 4). A lone boss is always a selected target, so her boss row is exact. A charm cuts the first eligible enemy it meets that is not in its skip list, with swept hits. Each cut is `shapeSpec(t, spec, wheel.mul)`, unshared.
+- `t.wheelK` (an integer, new) advances by `charms.turn` each counted attack, mod 240. That is the Pinwheel's lock-free turn from S1 A3 #4, read from her own attack count, so no clock and no rng.
+- **The skip list is the throw's selected targets.** At T4 her talismans are projectiles, so who they will hit is unknown when the charms spawn. `t._struck` holds the targets `volleyFrom` aimed at (all of them, from the refactor in §2). At T5 the beam is instant, and `t._struck` holds its `linePierce` victims. Each charm carries **a copy** of it as `p.skip` (one copy per throw, shared read-only by that throw's charms; rule 4). A lone boss is always a selected target, so her boss row is exact. A charm cuts the first eligible enemy it meets that is not in its skip list, with swept hits. Each cut is `shapeSpec(t, spec, charms.mul)`, unshared. Charms spawn in `shapeRoom` with `split: true`.
 - Holy's own on-hit rules still apply, as with Hotaru's holy cuts (A3 #7): a cut ends phasing and silences field casters. That is the attack type's rule, not her statuses.
 - Caps: `shapeRoom` with CHARMS_PER_GIRL 48 (rule 5: her oldest charms go first, a full field skips spokes, live shots are never evicted). `t.wheelK` ends at the wave clear. Gear Pierce adds to her talismans (live), not to charms (one cut each).
 
-**Must keep working.** Her whole aura track (P2–P6 aura keys, Festival Bells), her ⚡ Shrine Chorus, gear on her own talismans, mirror copies (Iroha's mirrors copy her talismans with their share, as live, and never copy a charm, `p.shape`, `src/sim/mirrors.js`).
+**Must keep working.** Her whole aura track (P2–P6 aura keys, Festival Bells), her ⚡ Shrine Chorus, gear on her own talismans, mirror copies (Iroha's mirrors copy her talismans with their share, as live, and never reflect a charm, which is born `split: true`; `towers.js:2247`).
 
 **Parity.** The boss is exact (the throw's selected targets are skipped, and a lone boss is always one of them). Crowd gains. Her ruler is boost (`docs/BALANCE.md`: Miko "judged by boost"). Her own crowd number is expected +20–40 %, since her own damage is small next to her aura.
 
@@ -209,7 +223,7 @@ Tier numbers below are **starting values for the bench fit**, not final. Every s
 **Sim.** Kanna's Ripple Quake rule (a growing ring, `inBand`, each walker once) from a trap, through **its own `sendToll` and list**. Calling `sendQuake` as the first draft said would break Kanna (review r1 H2): it reads `t.stats.quake` and `max: spec.range`, `room()` counts every girl's `t.quakes` against QUAKES_PER_SIM 64 (`ground.js:43-53`, `:143-157`), and `groundTick` clears `t.quakes` for a girl without `stats.quake` (`:194-197`). So tolls would refuse Kanna's live rings.
 
 - Each trap record in `sim.traps` (`towers.js:1223`, `:2259`) gains `tollCd`, an integer set to 1 when it arms, so it rings on its first armed step. **The first toll comes as it arms because on a busy road a bell is stepped on within about a second** (the board's mock-up showed bells going off before a 1.5 s first toll, so they never rang). `updateTraps` counts it down while the trap is armed, and checks the toll **before** the trigger on each step, so a bell stepped on the moment it arms still rings once. At 0 it calls `sendToll(sim, owner, tr)` and resets to `toll.every`.
-- `sendToll` pushes `{ uid, x, y, r: 0, max: toll.r, hit: [] }` onto **`t.tolls`** (her own list, never `t.quakes`). `tollTick(sim, t)` (beside `groundTick`, which is untouched) grows each ring at TOLL_SPEED 6 tiles/s and strikes what `inBand(prevR, r)` finds. It shares only `inBand` and `shapeSpec` with S3. Caps count `t.tolls` only: TOLLS_PER_GIRL 32 and TOLLS_PER_SIM 128 (the sum over girls' `t.tolls`). At a cap the bell defers its toll a step, and nothing is evicted (rule 5). Kanna's QUAKES caps never see a toll.
+- `sendToll` pushes `{ uid, x, y, r: 0, max: toll.r, hit: [] }` onto **`t.tolls`** (her own list, never `t.quakes`). `tollTick(sim, t)` runs beside `groundTick`, which is untouched, **before the sabotage check** (`groundTick` at `towers.js:2037`, the check at `:2038`), so a sabotaged Suzu's rings still grow as her bells still stand. It grows each ring at TOLL_SPEED 6 tiles/s and strikes what `inBand(prevR, r)` finds. It shares only `inBand` and `shapeSpec` with S3. Caps count `t.tolls` only: TOLLS_PER_GIRL 32 and TOLLS_PER_SIM 128 (the sum over girls' `t.tolls`). At a cap the bell defers its toll a step, and nothing is evicted (rule 5). Kanna's QUAKES caps never see a toll.
 - **Across the wave clear** (review r1 H3): her traps survive it (`Sim.js:981`, "Suzu's traps stay"), and traps are `'snap'` in battle saves (`src/ui/battle/snapshot.js:135`), so `tr.tollCd` lives in calm saves and co-op checkpoints. Rule: `tollCd` counts down only while a wave runs. `endS5Wave` clears `t.tolls` and sets every surviving armed bell's `tollCd` to 1, so each bell rings on the next wave's first armed step, and every calm save holds the constant 1. A restored armed trap without `tollCd` (an old save, or a trap armed before the update) reads 1, the same. `hashSim` folds `tollCd` for traps whose owner has `stats.toll` (old battles: no such trap, hash unchanged).
 - Bells arm at different steps, so tolls stagger on their own and the cost spreads over the beat.
 - A ring is ground only (`!e.airborne`, as her traps), hits each walker it crosses once (`inBand`), and **never triggers a trap** (a ring is not a step). The walkers' "hop" on the board is a render effect only: a toll pushes nobody (rule 2).
@@ -229,7 +243,7 @@ The rules of ATTACK_SHAPES §2.4 / §7.2 step 5, per shape:
 
 | Shape | State (all integers but positions) | Order | rng |
 |---|---|---|---|
-| Spore Mist | `t.ch` (S2's) | cone victims by (d², uid), capped | none (rule 3; poison has no chance) |
+| Spore Mist | `t.ch` (S2's), the `spore` status on enemies | cone victims by (d², uid), capped | none (rule 3; `spore` has no chance) |
 | Static Web | `sim.statics`: members as enemy refs serialised by uid, `left`, `zapCd` | webs in creation order, members in chain order | none |
 | Crescent Return | a straight projectile with `cres` (leg, out) and its own `skip` uid list | `projectileStep` order | none |
 | Moonbeam Sweep | `t.ch` + pass counter and Bresenham accumulator | crossing order (step, grid, uid) | none |
@@ -237,9 +251,9 @@ The rules of ATTACK_SHAPES §2.4 / §7.2 step 5, per shape:
 | Bell Toll | `tr.tollCd` on traps (survives the wave clear as the constant 1), `t.tolls` rings | `sim.traps` order, then ring order | none |
 
 - Directions come only from the table (`nearestDir`, `turnToward`, `dir`), distances are squared, and timers are integer steps. There is no `Math.random`, no runtime `sin` / `cos` / `atan2` / `hypot`, no `**` and no `Map` / `Set` in the new code. The grep test covers the new files and the new functions.
-- `hashSim` folds `sim.statics`, the toll timers (only while some trap has one), `t.wheelK` and the pass counters only while present. An old battle's hash is unchanged.
-- Everything ends at the wave clear, so the wave-end checkpoint carries none of it. The one exception is the bells' `tollCd`, which is 1 on every surviving bell, a constant. A **mid-wave rejoin** replays from the checkpoint and the log, so every new field must be rebuilt by replay alone. No field may depend on render time.
-- The renderer reads only sim state (`t.ch`, `sim.statics`, projectile records, `sim.traps[i].tollCd`, quake rings) and uses seeded visual randomness, never `sim.rng`.
+- `hashSim` folds `sim.statics`, the toll timers (only while some trap has one), `t.wheelK` and the pass counters only while present. It also folds **shape shots in flight** (uid, kind, `cres.leg`, `cres.n`, x, y, travel in 1/256 tiles, `hits.length`, `skip.length`), only while one flies, as S4 folds fans (`src/online/coop/simHash.js:146-152`; projectiles are not hashed anywhere else). Enemy statuses and girls' `damageDealt` are not in `hashSim` today (`src/online/coop/simHash.js`), so neither `spore` nor `t.shapeDealt` is folded. Their effects reach the hash through enemy HP, as poison's do. An old battle's hash is unchanged.
+- Every S5 object ends at the wave clear, so the wave-end checkpoint carries none of them. The one exception is the bells' `tollCd`, which is 1 on every surviving bell, a constant. (`t.shapeDealt` is a running total like `damageDealt`, not an object.) A **mid-wave rejoin** replays from the checkpoint and the log, so every new field must be rebuilt by replay alone. No field may depend on render time.
+- The renderer reads only sim state (`t.ch`, `sim.statics`, projectile records, `sim.traps[i].tollCd`, `t.tolls` rings, enemies' `spore`) and uses seeded visual randomness, never `sim.rng`.
 - Sim id: one PENDING_BUMP for S5. **`COOP_PROTOCOL` +1 at S5's release** (after round 5's own bump; never two for one release).
 
 ---
@@ -280,17 +294,19 @@ The polished looks (flipbooks M2, mesh shapes M4) come later on the effects trac
 
 The owner's rule: **no nerfs, shapes may be stronger.** Every touched tier must be **≥ live** on:
 
-1. **The no-nerf gate** (`tools/balance/noNerfGate.mjs`, the BALANCE.md round 5 recipe): her paths at tiers 1–5, crowd / boss / walking boss. Both `--support um` and `--support none`, all three profiles (maxed, L1, L40), seeds 9/1/2, tolerance ×0.995. Run in the live tree and on the branch, then `--compare`. Expected result with rules 1–3: **every untouched cell identical, every touched cell ≥ 1.000** (no seed noise to explain). Any under-cell is a bug, not noise.
+1. **The no-nerf gate** (`tools/balance/noNerfGate.mjs`, the BALANCE.md round 5 recipe): her paths at tiers 1–5, crowd / boss / walking boss. Both `--support um` and `--support none`, all three profiles (maxed, L1, L40), seeds 9/1/2, tolerance ×0.995. Run in the live tree and on the branch, then `--compare`. Expected result with rules 1–3, 5 and 6: **every untouched cell identical, every touched cell ≥ 1.000** (no seed noise to explain). Any under-cell is a bug, not noise.
 2. **The ability bench** (`tools/abilityBench.mjs --tiers`, strong preset, 120 s, Auto off / on): the pinned column, which caught the Blade Cyclone. Rei (Hurricane Draw), Raika (Drumstorm), Suzu (Bell Carpet) with their ⚡ on.
 3. **The light bench** (`tools/bench.mjs`, A4's four configurations + L25) and the maxed hit bench (`bench.mjs --hit`), for the A4-style table in the as-built addendum.
 4. **Luna**: Kanna's hero harness copies at Lv 22 and Lv 25 and `tools/heroTrack.mjs` (no level below live).
-5. **Partners**: with rules 2, 3 and 5, Aoi (light bench) and Umeko + Midori (gate) must read **bit-identical** beside every S5 girl. Any move means a shape drew rng, laid a status, shared through a tie or took a live object's room. **One exception, Midori**: her mist's poison stops siphon healing (`enemies.js:369`). Beside a siphoning enemy the other girls' numbers may move, always up. The guard (§3.1) keeps every other girl's poison untouched.
+5. **Partners**: with rules 2, 3 and 5, Aoi (light bench) and Umeko + Midori (gate) must read **bit-identical** beside every S5 girl. Any move means a shape drew rng, laid a status, shared through a tie or took a live object's room. Midori is no exception any more: `spore` is invisible to every other girl's system (§3.1). Rule 6 keeps brews, links, rallies and drinks where they were.
+   **A brewing support beside each S5 girl** (review r2 M-2): Midori 5-0-2's brews and links, and a rally / drink girl's picks, beside each S5 girl. The picks and the partner's cells are bit-identical to live.
+   **Catalyst on Auto beside Midori** (review r2 M-3): an ability-bench row (`tools/abilityBench.mjs --tiers`, Auto on) with the support Midori 5-0-2 casting Catalyst Burst beside Field Kit Midori T4 / T5. The support's casts (count and steps) and burst damage are bit-identical to live.
    **Ena beside each shape** (review r1 M5): Ena at Shared Fate T4 / T5 with each S5 girl. Ena's own cells must be bit-identical to Ena beside that girl's live build, and the S5 girl's must be live plus her shape (shape hits unshared).
 6. **The ceiling gate** (`tools/bench.mjs --hit --ceiling --maxed geared`): report each S5 girl's row. Under "no cap", a row over the limit is a recorded exception (`CEILING_EXCEPTIONS`, as Kage), not a trim, if the coordinator agrees.
 7. **Finales** (the round-5 set): no win becomes a loss. It should not, since everything is ≥ on the bench, but kill timing moves real battles (rule note above), so they run. The goldens re-pin.
 8. **The LR bar** (owner: an LR beats every non-LR; review r1 M4). After S5, `tools/balance/lrBench.mjs` runs, and each S5 girl's maxed tier-5 row is compared with the LR rows' bar. The LR `t5` rows sit a quarter past the best SSR crowd, Hotaru's 8.67M (`src/data/balance.js:100-113`). The S5 rulers (Rei 1.82M, Raika 2.20M, Suzu 1.87M, +30 % at most) stay under 3M, so no crossing is expected. **If one ever crosses, the LR rows are raised. The S5 girl is never trimmed.**
 
-The fit: each shape's knob (`mist.mul` and `mist.dot`, `zap.share`, `ret.mul`, `sweep.mul`, `wheel.mul`, `toll.mul`) is set so her ruler lands in the band Q9 picks (default +10–30 %). It is reported as live → new in DPS and as a ratio, per tier and profile.
+The fit: each shape's knob (`mist.mul` and `mist.dot`, `web.share`, `cres.mul`, `moon.mul`, `charms.mul`, `toll.mul`) is set so her ruler lands in the band Q9 picks (default +10–30 %). It is reported as live → new in DPS and as a ratio, per tier and profile.
 
 ---
 
@@ -298,12 +314,15 @@ The fit: each shape's knob (`mist.mul` and `mist.dot`, `zap.share`, `ret.mul`, `
 
 | Risk | Why | Mitigation |
 |---|---|---|
-| The poison credit and refresh (Midori) | The merge is per key `>=` with `left = max` (`status.js:97-105`): the credit stays with the stronger poison, but a refresh would lengthen another girl's poison | The guard: the mist poisons only enemies with no poison or hers (§3.1); its own poison is scaled by `mist.dot` |
+| Mist poison seen by other girls (Midori) | Catalyst, its Auto, spreadDot, the siphon and regen blocks and the poison merge all read `poison` (review r2 M-3) | The mist writes its own key `spore`, read by none of them (§3.1) |
+| Shape damage moves buff picks | `recentDps`, `topDamageGirl` and the drink target rank girls by damage (review r2 M-2) | Rule 6: they read `damageDealt − shapeDealt` |
+| Kill credit in real battles | A shape kill takes the last hit from a partner whose kill effects need it (Chigusa's thorn beds `Sim.js:795`, Finale Pop `:803`) | Accepted: as with any stronger girl, kills move in a real battle. It never happens on the healed bench, which is the measure, and the finales check real battles |
+| A crescent dies on its way out | `p.pierce` death before the `maxTravel` flip (review r2 M-1) | Its own `crescentCut` branch; it turns early when its cuts run out |
 | Shape objects take live objects' room | `straightRoom` evicts other girls' straight shots, and `room()` counts every girl's quake rings (review r1 H1, H2) | Rule 5: `shapeRoom` evicts only shape shots and skips at the cap; tolls have their own `t.tolls` and caps |
 | Bell state in calm saves | Traps survive the wave clear (review r1 H3) | `tollCd` paused between waves and set to 1 at the clear; old saves read 1; save/restore test |
 | Too strong in real battles | Additive shapes are ≥ by construction, so the only failure is excess: tolls on a full Bell Carpet, webs on a dense stream | The fit band (Q9), the ceiling gate, finales; caps per girl and sim |
 | The panel / drawer honest DPS lies | A new damage source not in `shapeDps` | Each shape adds its line; the drawer test pins one number per shape |
-| Mid-wave rejoin drift | New per-trap and per-girl fields | The engines battle rejoins mid-wave with every shape live; hashSim folds every field |
+| Mid-wave rejoin drift | New per-trap and per-girl fields, shape shots in flight | The engines battle rejoins mid-wave with every shape live; hashSim folds every new state field and the shape shots in flight (§4) |
 | Crit numbers on screen | Shape hits never "crit" (rule 3), so no crit popups from them | Accepted (Q3); her own attack's crits show as live |
 | Holy charms silence casters (Miko) | Holy's own rule on every cut | As Hotaru (A3 #7); caster silence is a gain, never a loss |
 | Static zaps read as flashes | A 4–5 Hz line pulse | Alpha colour pulse within the flash guard; Reduce Motion static (§6); the guard report checks it |
@@ -318,20 +337,27 @@ The fit: each shape's knob (`mist.mul` and `mist.dot`, `zap.share`, `ret.mul`, `
 
 Unit tests, `tests/sim/s5shapes.test.js` (the `held` / `ground` / `links` test pattern):
 
-- **Geometry**: who is inside the mist cone (the tip falloff); which enemies join a web (chain order, ties by uid, the reach snap); the crescent's legs (exact negation, a fresh hit list, the skip list on both legs); the sweep's pass (Bresenham steps from one side to the other per volley, crossing order, once a pass, the pierce cap, the skip); the charm offsets (`k0 + spoke(i) + wheelK`, `wheelK` advance); the toll ring band from a bell.
+- **Geometry**: who is inside the mist cone (the tip falloff); which enemies join a web (chain order, ties by uid, the reach snap); the crescent's legs (exact negation, a fresh hit list, the skip list on both legs); the sweep's pass (Bresenham steps from one side to the other per volley, crossing order, once a pass, the pierce cap, the skip); the charm wheel (m spokes at `wheelK + floor(j × 240 / m)`, the one nearest k0 dropped, ties to the lower j; `wheelK` advance); the toll ring band from a bell.
 - **Timing**: mist ticks every 6 steps; zaps every 15 / 12 steps; a toll on the first armed step, then every 90 / 72 steps; the crescent's turn step.
-- **Rules 1–4**: her live attack's hits and rng draws are identical with and without the shape (count `sim.rng` calls); shape hits carry no statuses (Midori: poison only); expected crit equals `1 + c(m − 1)`; a lone enemy takes exactly live's damage (Midori's held boss and Suzu excepted, asserted separately).
-- **Caps and eviction**: webs 4 / 48, zaps 128 deferred; crescents 8; charms 48 / 400; toll rings 32 / 128 with deferral; the oldest first.
-- **Lifetimes**: the wave clear ends everything; sabotage / Move ends the mist and the sweep (channels), webs survive her sabotage (threads on enemies, A9 #11) and end with her sale; crescents and charms end with straight shots on her sale; bells toll on while she is sabotaged (traps are road objects, A8 #3) and her sale removes them as live.
-- **Interactions**: each Potential key in §3 (P-rhythms count as live; Twin Crescent's echo throws a crescent at 0.3; Temple Bell's count ignores tolls); drinks and gear scale shape damage; Drumstorm / Hurricane Draw / Bell Carpet; Swift Draught brews unchanged; Moonfall; Iroha's mirrors with charms and crescents.
+- **Rules 1–6**: her live attack's hits and rng draws are identical with and without the shape (count `sim.rng` calls); shape hits carry no statuses (Midori's mist: `spore` only) and `noShare`; expected crit equals `1 + c(m − 1)`; a lone enemy takes exactly live's damage (Midori's held boss and Suzu excepted, asserted separately).
+- **Caps and eviction**: webs 4 / 48 (her oldest first; no new web past the sim cap), zaps 128 a step deferred; crescents 8 and charms 48 a girl, via `shapeRoom` (oldest shape shot first, skip when nothing but live shots is left); toll rings 32 / 128, deferred, never evicted.
+- **Lifetimes**: the wave clear ends every S5 object (surviving bells keep `tollCd` 1); sabotage / Move ends the mist and the sweep (channels), webs survive her sabotage (threads on enemies, A9 #11) and end with her sale; crescents and charms end with straight shots on her sale; bells toll on while she is sabotaged (traps are road objects, A8 #3) and her sale removes them as live.
+- **Interactions**: each Potential key in §3 (P-rhythms count as live; Twin Crescent's echo throws a crescent at 0.3; Temple Bell's count ignores tolls); drinks and gear scale shape damage; Drumstorm / Hurricane Draw / Bell Carpet; Swift Draught brews unchanged; Moonfall; Iroha's mirrors never reflect charms or crescents (`split: true`) and copy her talismans as live.
 - **hashSim**: an old battle's hash unchanged; the new state folded only while present.
 - **Review r1 cases**:
   - **H1**: 6 Kinus with their straight shots at the per-player and per-sim caps, plus Miko T5 and Rei T5. The Kinus' damage and shot counts are bit-identical with and without Miko's and Rei's shapes. Shape shots are skipped, not the Kinus'.
   - **H2**: Kanna at Lv 24 and Suzu T5 with Bell Carpet, with Kanna's quake rings at QUAKES_PER_SIM. Kanna's ring count and damage are bit-identical with and without the tolls.
   - **H3**: save and restore across a wave clear with armed bells (`tollCd` 1 on each, the next wave's first armed step rings). Restore an old save whose armed traps have no `tollCd` (reads 1). Hash equal across the round trip.
-  - **M1**: a crescent whose lead boss is alive when it turns. The way home neither chases the boss nor cuts it (skip list intact), and it ends at her.
+  - **M1**: a crescent whose lead boss is alive when it turns. The way home neither chases the boss nor cuts it (skip list intact), and it ends where it was thrown from.
   - **M2**: T4 Miko against a lone boss is bit-exact to live. For every `wheelK` 0…239, no charm's direction is closer than 12 steps to k0 (T4).
-  - **M3**: the mist never changes a poison whose `sourceUid` is not hers, and `mist.dot` scales its `dps` / `pct`.
+  - **M3** (r1, superseded by r2 M-3): `mist.dot` scales `spore`'s `dps` / `pct`.
+- **Review r2 cases**:
+  - **H1'**: Kinu at the straight caps (380 live pins) with 20 charms and a crescent in flight. Her next 16-pin volley evicts exactly what it evicts in live (none at 380 + 16 ≤ 400), and charms are skipped instead. The same with Fuu's fans in place of Kinu.
+  - **M-1**: a crescent whose leg-0 cuts run out at a crowd turns there, comes home and ends where it was thrown. A crescent that never cuts turns at `maxTravel`.
+  - **M-2**: beside each S5 girl, Midori 5-0-2's brew and link targets, a rally's own pick and a drink target are bit-identical to live. `damageDealt` includes shape damage, and `damageDealt − shapeDealt` equals live's `damageDealt`.
+  - **M-3**: with Field Kit Midori's mist on the field, no enemy's `poison` differs from live. The support's Catalyst count, Auto steps and bursts are bit-identical. `spreadDot` and the siphon / regen blocks are unchanged.
+  - **The skip copy**: `p.skip` keeps its uids after an echo (Rei's Twin Crescent) and after her next attack overwrite `t._struck`.
+  - **`_struck` scope**: a girl without an S5 stat never gets `t._struck` (snapshot keys unchanged).
   - **M5**: Ena beside each S5 girl. The shape hits are not shared or split.
 
 Determinism and co-op:
@@ -357,15 +383,17 @@ Working time for one session, including tests, the fit, the engines battle, the 
 
 | Part | Days |
 |---|---|
-| Shared: `shapeSpec` (clean + expected crit + `noShare`), `noShare` in `_hit`, `shapeRoom`, the `t._struck` refactor, constants, `endS5Wave`, hashSim / save classes, shape DPS lines | 0.9 |
-| **S5a** (projectiles and rings): Charm Wheel 0.4, Crescent Return (own flip and skip) 0.6, Bell Toll (own `sendToll`, trap save across the clear) 0.7 | 1.7 |
-| **S5b** (held and links): Spore Mist 0.5, Moonbeam Sweep (pass per volley, hero harness) 0.75, Static Web (new list, zap clock, snap) 0.75 | 2.0 |
+| **Shared base** (built first, in S5a): `shapeSpec` and `noShare` 0.2; `shapeRoom` + the `straightRoom` guard 0.15; the `t._struck` refactor 0.15; the shape-damage tally in four allocators 0.15; constants, `endS5Wave`, hashSim (shape shots in flight too), save classes 0.25; shape DPS lines 0.1 | 1.0 |
+| **S5a** (projectiles and rings): Charm Wheel 0.4, Crescent Return (own cut branch, flip and skip) 0.7, Bell Toll (own `sendToll`, trap save across the clear) 0.7 | 1.8 |
+| **S5b** (held and links): Spore Mist with the `spore` status 0.6, Moonbeam Sweep (pass per volley, hero harness) 0.75, Static Web (new list, zap clock, snap) 0.75 | 2.1 |
 | Plain renderers (six, mostly reuse) | 0.5 |
 | The fit and the gates (two full no-nerf gates per tree, about 9k cells each; ability bench; hero harness; ceiling; finales) | 1.0 |
 | Engines battle with the mid-wave rejoin, perf case | 0.5 |
 | Review rounds (two halves) | 0.5 |
-| The LR bench check (§7.8) and Ena-beside runs (§7.5) | 0.2 |
-| **Total** | **≈ 7.3 days** (S5a ≈ 3, S5b ≈ 3.7, sharing the gate runs) |
+| The LR bench check (§7.8); Ena-, brew- and Catalyst-beside runs (§7.5) | 0.3 |
+| **Total** | **≈ 7.7 days** |
+
+By half: **S5a ≈ 4.3** (the shared base 1.0, its shapes 1.8, and half of the renderers, gates, engines, review and beside runs, 1.5). **S5b ≈ 3.4** (its shapes 2.1, and the other half, 1.3; Luna's hero harness sits in her 0.75). S5a carries all the straight-shot risk, so it goes first.
 
 Recommended staging (Q10): one branch and one sim release with one `COOP_PROTOCOL` bump, built in two halves with a review checkpoint between: **S5a** (Miko, Rei, Suzu) then **S5b** (Midori, Luna, Raika).
 
@@ -386,7 +414,7 @@ Recommended staging (Q10): one branch and one sim release with one `COOP_PROTOCO
 | 9 | How much stronger? | **Her ruler +10–30 % at the shape tiers** (the Blade Cyclone's +22–33 %). Below that the shape is barely felt; above it, the band. |
 | 10 | Staging? | **One release, one protocol bump, built in two halves** (S5a: Miko, Rei, Suzu; S5b: Midori, Luna, Raika). |
 | 11 | Suzu: should a toll ring that reaches another bell ring it (a chain peal)? | **No, data for later.** Cascades need their own budget and read as a big flash on a full carpet. |
-| 12 | Midori's mist: slow and paralysis too? | **No**, poison only (rule 2: crowd control on everything in a cone is the pile-up of A8 #9). Her flasks keep both. |
+| 12 | Midori's mist: slow and paralysis too? | **No**, its own `spore` damage-over-time only (rule 2: crowd control on everything in a cone is the pile-up of A8 #9). Her flasks keep both. |
 
 ---
 
@@ -398,15 +426,36 @@ Review round 1 (`docs/review/attack-shapes-s5/review-r1.md` on `review/attack-sh
 |---|---|---|
 | H1 `straightRoom` evicts partners' live shots | Rule 5; `shapeRoom` evicts only shape shots and skips at the cap; mirrors never copy shape shots; the 6-Kinu cap test | §0 rule 5, §2, §3.3, §3.5, §5, §9 |
 | H2 `sendQuake` would refuse Kanna's rings | Suzu's own `sendToll`, `t.tolls`, `tollTick`, caps, speed and mul; `groundTick` untouched; the Kanna + Suzu cap test | §3.6, §5, §8, §9 |
-| H3 traps survive the wave clear | `tollCd` paused between waves and set to 1 by `endS5Wave`; old saves read 1; hashed for toll owners; the save/restore test | §2, §3.6, §4, §9 |
+| H3 traps survive the wave clear | `tollCd` paused between waves and set to 1 by `endS5Wave`; old saves read 1; hashed for toll owners; `tollTick` before the sabotage check (round 2); the save/restore test | §2, §3.6, §4, §9 |
 | M1 `retFlip` retargets and clears hits | A straight `crescentFlip`, a separate `p.skip`, `aim: null`, ground only, never mirrored | §3.3, §4, §9 |
 | M2 Miko's T4 victims unknown at spawn; a charm on her line | Skip the throw's selected targets (T5: the beam's victims); a world-fixed wheel of n + 1 spokes minus the one nearest her line | §3.5, §9 |
-| M3 Midori's poison untunable and not clean | `mist.dot`; the poison guard (no poison or hers); the siphon block stated; the merge answer recorded; Midori excepted in §7.5 for siphoners | §3.1, §7.5, §8 |
+| M3 Midori's poison untunable and not clean | `mist.dot`; the poison guard (no poison or hers); the siphon block stated; the merge answer recorded; Midori excepted in §7.5 for siphoners (**superseded in round 2** by the `spore` status, §13) | §3.1, §7.5, §8 |
 | M4 the LR bar | §7.8: `lrBench` after S5; raise the LR rows, never trim the S5 girl | §7 |
 | M5 shape hits share along Ena's ties | `noShare` on every shape hit; Ena-beside runs | §0 rule 2, §2, §3.2, §7.5, §9 |
 | LOW expected crit | `critMul \|\| 1.5`, chance clamped to [0, 1] | §0 rule 3, §2 |
 | LOW victims not returned | The `t._struck` refactor, called out | §2 |
-| LOW zap wording | Per second: `zap.share × rate` bolts | §3.2 |
+| LOW zap wording | Per second: `web.share × rate` bolts | §3.2 |
 | LOW tunnel-hidden bells | Dropped (bells are never in a tunnel) | §3.6 |
 | LOW the board's hop | Render only, stated | §3.6 |
 | LOW "never below live" | Stated as a claim about the healed bench and the gate | §0 |
+
+---
+
+## 13. Review round 2: what changed
+
+Review round 2 (`docs/review/attack-shapes-s5/review-r2.md` on `review/attack-shapes-s5-r2` 6708b91) found 1 HIGH, 3 MEDIUM and 7 LOW issues. Each one was checked against the code before the fix:
+
+| Finding | Fix | Where |
+|---|---|---|
+| H1' live `straightRoom` counts and evicts around shape shots (`rings.js:40-56`) | `straightRoom` skips `p.shape` in both loops (a no-op with no shape shot); `shapeRoom` counts live + shape, evicts only shape; the "unchanged" sentence is gone; Fuu's fans in the test | §0 rule 5, §2, §9 |
+| M-1 a crescent dies on `p.pierce` before the flip (`towers.js:2219-2228`) | A `p.cres` cut branch that never touches `p.pierce`; it turns early when leg 0's cuts run out, ends on leg 1; a `p.cres` flip branch at `maxTravel` | §3.3, §8, §9 |
+| M-2 shape damage feeds `recentDps` and brew / link picks | Rule 6: `t.shapeDealt`. **Beyond the review:** `topDamageGirl` (`abilities.js:717`) and the drink target (`drinks.js:33`) also rank by `damageDealt`, so all four allocators read `damageDealt − shapeDealt`. Shown totals keep shape damage | §0 rule 6, §2, §7.5, §8, §9 |
+| M-3 the mist's poison is seen by Catalyst, its Auto, spreadDot and the merge | The mist writes its own `spore` status, which none of them read (nor the siphon or regen blocks); it ticks with poison's damage rules. That replaces round 1's guard and removes the Midori exception. Catalyst-on-Auto bench row | §3.1, §4, §7.5, §8, §9 |
+| LOW `p.skip` must be a copy | A copy at spawn (one per throw) | §2, §3.3, §3.5, §9 |
+| LOW `_struck` scope and `volleyFrom` | Only for S5-stat girls; reused array; `volleyFrom` records all its targets; Raika's order from the `cur` walk | §2, §3.2, §9 |
+| LOW mirrors | Shape shots born `split: true` (`towers.js:2247`), no `mirrors.js` branch | §2, §3.3, §3.5 |
+| LOW shape shots in the hash | Folded while in flight, as S4 fans | §4 |
+| LOW `tollTick` order | Before the sabotage check | §3.6 |
+| LOW stale §9 text | The charm wheel, the shape-shot caps and "tolls defer, never evict" corrected | §9 |
+| LOW the estimate | The shared base named (1.0) and split by half; +0.4 for round 2's fixes: 7.7 days | §10 |
+| Also found | S5 stat keys renamed (`cres`, `charms`, `moon`, `web`): the first draft's `ret`, `wheel` and `sweep` are live S1–S4 keys. Kill credit in real battles (thorn beds, Finale Pop) is accepted and stated; hero damage XP from shape damage only levels Luna faster | §2, §8 |
