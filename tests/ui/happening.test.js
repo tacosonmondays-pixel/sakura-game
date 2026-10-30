@@ -8,10 +8,12 @@ import { linesFor } from '../../src/ui/hostLines.js';
 import { veteran } from '../fixtures/veterans.js';
 
 const DAY = 24 * 3600e3;
-const LIVE = Date.UTC(2026, 9, 27, 17); // Tue Oct 27: Halloween runs (until Nov 1, 7 PM Central)
-const LAST_DAY = Date.UTC(2026, 10, 1, 18); // Sun Nov 1, 1 PM Central: its last day
-const EXCHANGE = Date.UTC(2026, 10, 4, 17); // Wed Nov 4: the exchange days
-const AFTER = Date.UTC(2026, 10, 20, 18); // Nov 20: everything closed
+// Halloween runs until Nov 15, 7 PM Central, its exchange until Nov 22 (extended two weeks, owner Oct 30). In its last
+// week its end is the nearest deadline (the same instant as the Sunday weekly reset, and listed first).
+const LIVE = Date.UTC(2026, 10, 10, 17); // Tue Nov 10, 11 AM Central: Halloween runs, its last week
+const LAST_DAY = Date.UTC(2026, 10, 15, 18); // Sun Nov 15, noon Central: its last day
+const EXCHANGE = Date.UTC(2026, 10, 18, 17); // Wed Nov 18: the exchange days
+const AFTER = Date.UTC(2026, 11, 4, 18); // Fri Dec 4: everything closed
 
 const ids = (rows) => rows.map((r) => r.id);
 

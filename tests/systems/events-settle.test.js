@@ -12,8 +12,8 @@ const EV = EVENT_MAP['halloween-2026'];
 const CANDY = 'evt_halloween_candy';
 const T = (iso) => Date.parse(iso);
 const MID = T('2026-10-25T18:00:00Z');
-const END = T('2026-11-02T01:00:00Z');
-const XEND = T('2026-11-09T01:00:00Z');
+const END = T('2026-11-16T01:00:00Z'); // Sun Nov 15, 7 PM CST (extended two weeks, owner Oct 30)
+const XEND = T('2026-11-23T01:00:00Z'); // Sun Nov 22, 7 PM CST
 
 function joined() {
   const p = createProfile();
