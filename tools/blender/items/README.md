@@ -109,24 +109,28 @@ python3 tools/blender/items/build_items.py --list       # keys and families
 
 ## Gear (gearIcon)
 
-Gear is drawn from three tables in `catalog.py`; `models/gear.py` only holds the base models (`BASES`: pendant,
-bow, sneaker, hairclip, necklace) and reads the rows, so gear changes are rows, not code:
+Gear is drawn from three tables in `catalog.py`; `models/gear.py` holds the base models (`BASES`: pendant, bow,
+sneaker, hairclip, necklace) and reads the rows. A new slot on an existing base, a ladder tweak or a set look that
+re-skins a base is a row; a design that needs a new form (a keyring, a bracelet, loafers) is a new base in
+`models/gear.py` first. `catalog.gear_design` refuses a shape or motif its base does not draw.
 
 - `GEAR_SLOT_ART`: one row per slot (`src/data/types.js` `GEAR_SLOTS`) naming its base and default design (`shape`,
-  `motif`, `body`). A row whose slot the game does not have yet is a preview: today `hair` (a bar clip with a sakura
-  ornament) and `necklace` (a heart on a chain loop) for the coming gear update. When the update adds the slots to
-  `GEAR_SLOTS`, rename the rows to the shipped slot ids and run `--family gear`; the keys come from the game data.
-- `GEAR_TIERS`: the rarity ladder every slot and set shares; rarity reads from the shape and the trim, not the colour
+  `motif`, `body`, `trim`). A row whose slot the game does not have yet is a preview: today `hair` (the Hair Clip: a
+  bar clip with a sakura ornament; never a bow, a star or a snowflake) and `necklace` (a heart on a chain loop).
+- `GEAR_TIERS`: the rarity ladder of the default looks; rarity reads from the shape and the trim, not the colour
   alone. Common: plain, pewter. Rare: silver (the charm's bail cap). Super rare: silver, ball studs (shoes: eyelets,
-  ribbon: tail bands) and a violet gem. Mythic: rose gold, the first crest (charm: a laurel of leaves, ribbon:
-  layered loops, shoes: a sole stripe and small wings), a drop bead, a glow. Legendary: gold, the big crest (charm:
-  sunburst rays, ribbon: a star medallion, shoes: a gold toe bumper and wings), a star glint. UR: iridescent with
-  a saturated shadow, the big crest (the charm swaps its rays for the wings) plus rainbow wings (one pastel per
-  feather: pink, gold, mint, sky) and two sparkles.
-- `GEAR_SETS`: a look per gear set (a club id in `src/data/clubs.js`): per-slot overrides of any design field.
-  Each row bakes `gear_<slot>_<rarity|ur>_<set>` for every slot and tier; `gearIcon(slot, rarity, { set: g.club })`
-  shows it and falls back to the default look while a set has no art. `preview=True` bakes to the scratch folder
-  only (`sample` is one).
+  ribbon: tail bands), a violet gem, and a small wing on the shoes. Mythic: rose gold, the first crest (charm: a
+  rose-gold sakura blossom behind the stone, ribbon: layered loops, shoes: a sole stripe and a bigger wing), a drop
+  bead, a glow. Legendary: gold, the big crest (charm: sunburst rays, ribbon: a star medallion, shoes: a gold rim
+  round the white toe cap and a big wing), a star glint. UR: iridescent with a saturated shadow, the big crest (the
+  charm swaps its rays for the wings) plus rainbow wings (one pastel per feather: pink, gold, mint, sky). No glint
+  floats beside the piece. The `set` row is the ladder of the set looks.
+- `GEAR_SETS`: one look per gear set and slot, `gear_<set>_<slot>` (the gear update spec 3.3: 6 sets x 5 slots, about
+  0.46 MB in all), with rarity on the tile and the UR ring. The set id is the piece's own `set` (`SET_IDS` in the
+  update's `src/data/gearSets.js`), never its club: a set is fixed per piece, a club is re-tagged by the armband and
+  already shows as its tile emblem. Set ids are `[a-z0-9]+` and never a slot or tier name. A row overrides any design
+  field per slot; `gearIcon(slot, rarity, { set: g.set })` shows it and falls back to the default look while a set
+  has no art. `preview=True` bakes to the scratch folder only (`sample` is one).
 
 ```
 ... build_items.py -- --family gear                     # the game's gear keys (+ the set looks of GEAR_SETS)
@@ -223,22 +227,22 @@ Visual targets are our own approved icons only (kept outside the repo, except a 
 | `coins` | Coins | currency | common | 256, 128, small | two gold coins (hero + echo): rounded rim, groove, embossed cream sakura with a pearl, glint (appr.) |
 | `gems` | Sakura Gems | currency | legendary | 256, 128, small | two faceted sakura-flower crystals (hero + echo), white blossom centre (appr.) |
 | `gear_charm_common` | Charm (common) | gear | common | 256, 128 | faceted diamond stone in a bezel on a short chain; plain: pewter trim |
-| `gear_charm_rare` | Charm (rare) | gear | rare | 256, 128 | faceted diamond stone in a bezel on a short chain; silver trim |
-| `gear_charm_superRare` | Charm (superRare) | gear | superRare | 256, 128 | faceted diamond stone in a bezel on a short chain; silver trim, studs and a violet gem |
-| `gear_charm_mythic` | Charm (mythic) | gear | mythic | 256, 128 | faceted diamond stone in a bezel on a short chain; rose-gold trim, petal crest (bow: layered loops; shoes: stripe and small wings), drop bead, glow |
-| `gear_charm_legendary` | Charm (legendary) | gear | legendary | 256, 128 | faceted diamond stone in a bezel on a short chain; gold trim, sunburst rays (bow: star medallion; shoes: gold bumper and wings), drop bead, star |
-| `gear_charm_ur` | Charm (UR) | gear | ur | 256, 128 | faceted diamond stone in a bezel on a short chain; iridescent body (saturated shadow) and trim, the legendary crest (the charm swaps its rays for the wings) plus rainbow wings (one pastel per feather) and sparkles |
+| `gear_charm_rare` | Charm (rare) | gear | rare | 256, 128 | faceted diamond stone in a bezel on a short chain; silver trim (charm: a bail cap) |
+| `gear_charm_superRare` | Charm (superRare) | gear | superRare | 256, 128 | faceted diamond stone in a bezel on a short chain; silver trim, studs (ribbon: tail bands, shoes: eyelets) and a violet gem; shoes: a small wing |
+| `gear_charm_mythic` | Charm (mythic) | gear | mythic | 256, 128 | faceted diamond stone in a bezel on a short chain; rose-gold trim, a rose-gold sakura blossom behind the stone (ribbon: layered loops; shoes: a sole stripe and a wing), drop bead, glow |
+| `gear_charm_legendary` | Charm (legendary) | gear | legendary | 256, 128 | faceted diamond stone in a bezel on a short chain; gold trim, sunburst rays (ribbon: a star medallion; shoes: a gold toe rim and a bigger wing), drop bead, star |
+| `gear_charm_ur` | Charm (UR) | gear | ur | 256, 128 | faceted diamond stone in a bezel on a short chain; iridescent body (saturated shadow) and trim, the legendary crest (the charm swaps its rays for the wings) plus rainbow wings (one pastel per feather) |
 | `gear_ribbon_common` | Ribbon (common) | gear | common | 256, 128 | chunky satin bow with a knot clip and two notched tails; plain: pewter trim |
-| `gear_ribbon_rare` | Ribbon (rare) | gear | rare | 256, 128 | chunky satin bow with a knot clip and two notched tails; silver trim |
-| `gear_ribbon_superRare` | Ribbon (superRare) | gear | superRare | 256, 128 | chunky satin bow with a knot clip and two notched tails; silver trim, studs and a violet gem |
-| `gear_ribbon_mythic` | Ribbon (mythic) | gear | mythic | 256, 128 | chunky satin bow with a knot clip and two notched tails; rose-gold trim, petal crest (bow: layered loops; shoes: stripe and small wings), drop bead, glow |
-| `gear_ribbon_legendary` | Ribbon (legendary) | gear | legendary | 256, 128 | chunky satin bow with a knot clip and two notched tails; gold trim, sunburst rays (bow: star medallion; shoes: gold bumper and wings), drop bead, star |
-| `gear_ribbon_ur` | Ribbon (UR) | gear | ur | 256, 128 | chunky satin bow with a knot clip and two notched tails; iridescent body (saturated shadow) and trim, the legendary crest (the charm swaps its rays for the wings) plus rainbow wings (one pastel per feather) and sparkles |
+| `gear_ribbon_rare` | Ribbon (rare) | gear | rare | 256, 128 | chunky satin bow with a knot clip and two notched tails; silver trim (charm: a bail cap) |
+| `gear_ribbon_superRare` | Ribbon (superRare) | gear | superRare | 256, 128 | chunky satin bow with a knot clip and two notched tails; silver trim, studs (ribbon: tail bands, shoes: eyelets) and a violet gem; shoes: a small wing |
+| `gear_ribbon_mythic` | Ribbon (mythic) | gear | mythic | 256, 128 | chunky satin bow with a knot clip and two notched tails; rose-gold trim, a rose-gold sakura blossom behind the stone (ribbon: layered loops; shoes: a sole stripe and a wing), drop bead, glow |
+| `gear_ribbon_legendary` | Ribbon (legendary) | gear | legendary | 256, 128 | chunky satin bow with a knot clip and two notched tails; gold trim, sunburst rays (ribbon: a star medallion; shoes: a gold toe rim and a bigger wing), drop bead, star |
+| `gear_ribbon_ur` | Ribbon (UR) | gear | ur | 256, 128 | chunky satin bow with a knot clip and two notched tails; iridescent body (saturated shadow) and trim, the legendary crest (the charm swaps its rays for the wings) plus rainbow wings (one pastel per feather) |
 | `gear_shoes_common` | Shoes (common) | gear | common | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; plain: pewter trim |
-| `gear_shoes_rare` | Shoes (rare) | gear | rare | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; silver trim |
-| `gear_shoes_superRare` | Shoes (superRare) | gear | superRare | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; silver trim, studs and a violet gem |
-| `gear_shoes_mythic` | Shoes (mythic) | gear | mythic | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; rose-gold trim, petal crest (bow: layered loops; shoes: stripe and small wings), drop bead, glow |
-| `gear_shoes_legendary` | Shoes (legendary) | gear | legendary | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; gold trim, sunburst rays (bow: star medallion; shoes: gold bumper and wings), drop bead, star |
-| `gear_shoes_ur` | Shoes (UR) | gear | ur | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; iridescent body (saturated shadow) and trim, the legendary crest (the charm swaps its rays for the wings) plus rainbow wings (one pastel per feather) and sparkles |
+| `gear_shoes_rare` | Shoes (rare) | gear | rare | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; silver trim (charm: a bail cap) |
+| `gear_shoes_superRare` | Shoes (superRare) | gear | superRare | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; silver trim, studs (ribbon: tail bands, shoes: eyelets) and a violet gem; shoes: a small wing |
+| `gear_shoes_mythic` | Shoes (mythic) | gear | mythic | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; rose-gold trim, a rose-gold sakura blossom behind the stone (ribbon: layered loops; shoes: a sole stripe and a wing), drop bead, glow |
+| `gear_shoes_legendary` | Shoes (legendary) | gear | legendary | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; gold trim, sunburst rays (ribbon: a star medallion; shoes: a gold toe rim and a bigger wing), drop bead, star |
+| `gear_shoes_ur` | Shoes (UR) | gear | ur | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; iridescent body (saturated shadow) and trim, the legendary crest (the charm swaps its rays for the wings) plus rainbow wings (one pastel per feather) |
 | `recruitPoints` | Recruit Points | currency | superRare | 256, 128, small | sakura rosette badge: a ring of petals, a gold star boss, two ribbon tails |
 <!-- table:end -->

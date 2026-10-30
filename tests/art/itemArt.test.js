@@ -9,7 +9,6 @@ import { fileURLToPath } from 'node:url';
 import { ITEM_ART, ITEM_ART_SMALL } from '../../src/art/itemArt.js';
 import { ITEMS } from '../../src/data/items.js';
 import { GEAR_SLOTS, ITEM_RARITY_ORDER } from '../../src/data/types.js';
-import { CLUBS } from '../../src/data/clubs.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, '..', '..', 'public', 'art', 'items');
@@ -23,10 +22,12 @@ const ART_KEYS = new Set([
   'recruitPoints',
 ]);
 
-/** A set look (tools/blender/items catalog.GEAR_SETS): gear_<slot>_<rarity|ur>_<club id>. */
+// The gear set ids (docs/specs/GEAR_UPDATE.md 3.2; SET_IDS of the coming src/data/gearSets.js: switch to it when it
+// lands). A set look is gear_<set>_<slot>: one per set and slot, rarity on the tile. Never keyed by club.
+const SET_IDS = ['spirit', 'freezetag', 'geometry', 'popper', 'treasurer', 'powerbank'];
 const isSetKey = (k) => {
-  const m = /^gear_([a-z]+)_([a-zA-Z]+)_([a-z0-9]+)$/.exec(k);
-  return Boolean(m && ART_KEYS.has(`gear_${m[1]}_${m[2]}`) && CLUBS[m[3]]);
+  const m = /^gear_([a-z0-9]+)_([a-z]+)$/.exec(k);
+  return Boolean(m && SET_IDS.includes(m[1]) && GEAR_SLOTS[m[2]]);
 };
 
 const file = (key, size) => path.join(dir, `${key}-${size}.webp`);
@@ -52,6 +53,7 @@ const sha8 = (paths) => {
 
 describe('item art', () => {
   it('every manifest key is an item id, a gear key (or a gear set look) or recruitPoints', () => {
+    for (const id of SET_IDS) expect(GEAR_SLOTS[id] || ITEM_RARITY_ORDER.includes(id) || id === 'ur', id).toBeFalsy();
     expect(Object.keys(ITEM_ART).length).toBeGreaterThan(0);
     for (const k of Object.keys(ITEM_ART)) expect(ART_KEYS.has(k) || isSetKey(k), k).toBe(true);
     for (const k of Object.keys(ITEM_ART_SMALL)) expect(ITEM_ART[k], `${k} small cut without full art`).toBeTruthy();

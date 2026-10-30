@@ -1701,9 +1701,9 @@ export function cardArtSVG(unitDef, { variant = 'full' /*'full' 3:5 large | 'por
 // (≤ 24 picks the 96 px small cut). The drawing shows only on a failed image (.ia.bad); a slow load shows a neutral
 // placeholder (.ia::before). Unknown keys return the drawn SVG alone. preloadSmallItemArt() warms the small cuts.
 export function itemIcon(itemId, { px = 64 } = {})   // materials per family+rarity, books, crowns, dice, tickets, tokens, coins, gems, gear
-export function gearIcon(slot, rarity, { ur = false, px = 64 } = {})
+export function gearIcon(slot, rarity, { ur = false, px = 64, set = null } = {})   // set = the piece's gear set id (SET_IDS; absent = No set; never the club): its look gear_<set>_<slot> when baked, else the default
 export function currencyIcon(kind /*'coins'|'gems'|'recruitPoints'|'token_boss'|'token_bounty'*/, { px = 22 } = {})
-export function itemIconSVG(itemId), itemArtSVG(key), itemArtUrl(key, 256|128|'small'), hasItemArt(key), gearArtKey(slot, rarity, { ur })
+export function itemIconSVG(itemId), itemArtSVG(key), itemArtUrl(key, 256|128|'small'), hasItemArt(key), gearArtKey(slot, rarity, { ur, set })
 export function traitIcon(traitKey)
 export function roleIcon(roleKey)
 export function attackTypeIcon(attackType)

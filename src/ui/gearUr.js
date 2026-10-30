@@ -89,7 +89,7 @@ export function gearCard(gear, { onClick = null, compact = false, highlightSubs 
     `${tag}.mb-gear${compact ? '.compact' : ''}${selected ? '.selected' : ''}${ur ? '.is-ur' : ''}`,
     { style: cssVars({ '--rarity': r?.color || '#999' }), onclick: onClick, 'data-gear': gear.uid },
     h('div.mb-gear-head',
-      svgEl(gearIcon(gear.slot, gear.rarity, { ur, set: gear.club }), 'mb-gear-icon'),
+      svgEl(gearIcon(gear.slot, gear.rarity, { ur, set: gear.set }), 'mb-gear-icon'),
       h('div.mb-gear-title',
         h('div.mb-gear-name', gear.name),
         h('div.mb-gear-meta',
@@ -370,7 +370,7 @@ export function showGearAscension(g, { boxed = false } = {}) {
         h('div.ur-ascend-burst', { 'aria-hidden': 'true' }),
         [0, 1, 2, 3, 4, 5].map((i) => h(`span.ur-ascend-spark.s${i}`, { 'aria-hidden': 'true' }, '✦')),
         h('span.gu-seed', { 'aria-hidden': 'true' }, svgEl(itemIcon(SEED_ID))),
-        h('div.ur-ascend-card.gu-ascend-card', svgEl(gearIcon(g.slot, 'legendary', { ur: true, px: 104 }), 'gu-ascend-icon'), urRing())),
+        h('div.ur-ascend-card.gu-ascend-card', svgEl(gearIcon(g.slot, 'legendary', { ur: true, px: 104, set: g.set }), 'gu-ascend-icon'), urRing())),
       h('h2.ur-ascend-title', h('span.ur-text', 'Awakened to UR!')),
       h('p.ur-ascend-text', boxed
         ? `${g.name} came out of the Rainbow Gear Box: rainbow gear at +0, up to +12, with a rainbow ✦ slot.`

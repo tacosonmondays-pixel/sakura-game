@@ -152,20 +152,35 @@ describe('gear art: the 3D-flat gear icons (tools/blender/items models/gear.py, 
     }
   });
 
-  it('a set look shows only when baked; an unbaked set or no set keeps the default look', () => {
+  it('a set look (keyed by the gear set id, never the club) shows only when baked; otherwise the default look', () => {
     for (const slot of Object.keys(GEAR_SLOTS)) {
-      expect(gearArtKey(slot, 'mythic', { set: 'tea' })).toBe(ITEM_ART[`gear_${slot}_mythic_tea`] ? `gear_${slot}_mythic_tea` : `gear_${slot}_mythic`);
+      const baked = ITEM_ART[`gear_spirit_${slot}`];
+      expect(gearArtKey(slot, 'mythic', { set: 'spirit' })).toBe(baked ? `gear_spirit_${slot}` : `gear_${slot}_mythic`);
       expect(gearArtKey(slot, 'legendary', { ur: true, set: 'no_such_set' })).toBe(`gear_${slot}_ur`);
       expect(gearArtKey(slot, 'rare', { set: null })).toBe(`gear_${slot}_rare`);
+      expect(gearArtKey(slot, 'mythic', { set: 'tea' })).toBe(`gear_${slot}_mythic`); // a club id is not a set
       expect(img(gearIcon(slot, 'rare', { set: 'no_such_set' })).art).toBe(`gear_${slot}_rare`);
     }
-    // every baked set look resolves through gearIcon and keeps the slot's drawing as its fallback
-    for (const k of Object.keys(ITEM_ART).filter((x) => /^gear_[a-z]+_[a-zA-Z]+_[a-z0-9]+$/.test(x))) {
-      const [, slot, r, set] = /^gear_([a-z]+)_([a-zA-Z]+)_([a-z0-9]+)$/.exec(k);
-      const markup = gearIcon(slot, r === 'ur' ? 'legendary' : r, { ur: r === 'ur', set });
-      expect(img(markup).art).toBe(k);
-      expect(markup).toContain(itemArtSVG(`gear_${slot}_${r}`));
-      expect(itemArtSVG(k)).toBe(itemArtSVG(`gear_${slot}_${r}`));
+    // every baked set look resolves through gearIcon for every rarity and keeps the piece's own drawing as fallback
+    for (const k of Object.keys(ITEM_ART).filter((x) => /^gear_[a-z0-9]+_[a-z]+$/.test(x) && !GEAR_KEYS.includes(x))) {
+      const [, set, slot] = /^gear_([a-z0-9]+)_([a-z]+)$/.exec(k);
+      for (const r of ['superRare', 'mythic', 'legendary']) {
+        const markup = gearIcon(slot, r, { set });
+        expect(img(markup).art).toBe(k);
+        expect(markup).toContain(itemArtSVG(`gear_${slot}_${r}`));
+      }
+      expect(img(gearIcon(slot, 'legendary', { ur: true, set })).art).toBe(k);
+      expect(itemArtSVG(k)).toMatch(/^<svg /);
+    }
+  });
+
+  it('every gear screen passes the piece\'s gear set, never its club', () => {
+    const files = ['src/ui/gearTile.js', 'src/ui/gearUr.js', 'src/ui/unitBuild.js', 'src/ui/battle/results.js', 'src/ui/screens/stage.js'];
+    for (const f of files) {
+      const src = readFileSync(join(ROOT, f), 'utf8');
+      const calls = src.match(/gearIcon\([^)]*\{[^}]*\}\)/g) || [];
+      for (const c of calls.filter((x) => !/'common'\)|'rare'\)/.test(x))) expect(c, f).toMatch(/set: (g|gear)\.set/);
+      expect(src, f).not.toMatch(/set: (g|gear|v)\.club/);
     }
   });
 });

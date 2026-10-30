@@ -1,20 +1,21 @@
-"""Gear pieces drawn by gearIcon: gear_<slot>_<rarity>, gear_<slot>_ur and the set looks gear_<slot>_<tier>_<set>.
+"""Gear pieces drawn by gearIcon: gear_<slot>_<rarity>, gear_<slot>_ur and the set looks gear_<set>_<slot>.
 
 Data-driven: catalog.GEAR_SLOT_ART names the base model of each slot and its default design, catalog.GEAR_TIERS is
-the rarity ladder every base reads (trim metal, gem, studs, crest, wings, drop bead, glow, glints), and
-catalog.GEAR_SETS overrides the design per set. This module only holds the base models (BASES):
+the rarity ladder every base reads (trim metal, gem, studs, crest, wings, drop bead, glow, glint), and
+catalog.GEAR_SETS gives each gear set one look per slot (rarity on the tile). This module holds the base models
+(BASES); a design that needs a new form is a new base here:
 
   pendant   the charm: a faceted stone (shape: diamond, heart, round, star, blossom) in a bezel on a short chain
   bow       the ribbon: two loops, a knot clip and two notched tails (shape: classic, wide)
   sneaker   the shoes: a chunky sneaker (shape: low, high)
-  hairclip  a bar clip with an ornament at its end (shape: blossom, star, heart)
-  necklace  a pendant (shape as pendant) hanging from a chain loop
+  hairclip  the Hair Clip: a bar clip with a flower or heart ornament at its end (never a bow, star or snowflake)
+  necklace  the Necklace: a pendant (shape as pendant) hanging from a chain loop
 
 Rarity reads from the shape and the trim, not the colour alone: common plain with pewter, rare silver, super rare
-silver with studs and a gem, mythic rose gold with the first crest (petals, layered loops, a sole stripe and small
-wings), a drop bead and a glow, legendary gold with the big crest (sunburst rays, a star medallion, a gold toe
-bumper and wings) and a star glint, UR iridescent (saturated shadow) with the big crest, iridescent wings and
-sparkles. The body takes the tier tint unless the design fixes a colour (UR always stays iridescent).
+silver with studs, a gem and (shoes) a small wing, mythic rose gold with a sakura blossom behind the stone
+(ribbon: layered loops; shoes: a sole stripe and a bigger wing), a drop bead and a glow, legendary gold with the big
+crest (sunburst rays, a star medallion, a gold toe rim and a big wing) and a star glint, UR iridescent (saturated
+shadow) with rainbow wings. Glints sit on the object, never in the air beside it.
 """
 import math
 
@@ -42,8 +43,8 @@ WHITE = C.paint('#fbfcff', light='#ffffff', shadow='#d3dcea', ink='#3a4560', rim
 FEATHER = C.paint('#ffffff', light='#ffffff', shadow='#dfe6f2', ink='#3a4560', rim=0.2)
 # UR wings: one pastel per feather (pink, gold, mint, sky), so the UR piece reads as rainbow even at 22 px
 FEATHER_UR = [C.paint(b, light=l, shadow=sh, ink='#3f2266', iri=0.35, rim=0.3) for b, l, sh in (
-    ('#ffb0d8', '#ffe3f1', '#e77bb6'), ('#ffdc7a', '#fff1c4', '#eaa94a'), ('#9fe8c4', '#dcfbea', '#5fc39b'),
-    ('#a6d0ff', '#e0efff', '#6f9fe8'))]
+    ('#ffb0d8', '#ffe3f1', '#f592c6'), ('#ffd86a', '#fff1c4', '#f8bd4e'), ('#8fe6bc', '#dcfbea', '#62d3a2'),
+    ('#9ccbff', '#e0efff', '#7cb0f6'))]   # bright shadow tones: the shoe's wing faces away from the key light
 MOTIF = C.paint('#fff6fb', light='#ffffff', shadow='#f3cde0', ink='#6e1a3c', rim=0.3)
 
 
@@ -55,11 +56,11 @@ class Look:
         self.t = catalog.GEAR_TIERS[tier]
         self.d = design
         if tier == 'ur' or not design.get('body'):
-            body = BODY[tier]
+            body = BODY['superRare' if tier == 'set' else tier]
         else:
             body = C.paint(design['body'])
         self.body = dict(body, glow=self.t['glow']) if self.t['glow'] and tier != 'ur' else dict(body)
-        self.trim = TRIMS[self.t['trim']]
+        self.trim = TRIMS[design.get('trim') or self.t['trim']]
         self.gem = GEM.get(tier, GEM['superRare']) if self.t['gem'] else None
         ink = self.body['ink']
         self.white = dict(WHITE, ink=ink)
@@ -126,11 +127,6 @@ def _wing(side, root, look, n, length=0.62, spread=(25.0, 112.0), y=0.0, width=0
         P.paint(f, look.feather_k(k, n), line=1.6)
 
 
-def _sparkles(look, pts):
-    for p in pts[:look.sparkle]:
-        P.glint(p, 7)
-
-
 def _drop(look, x, y, z, r=0.085):
     ln = P.torus(0.055, 0.02, 18, 6, 'droplink')
     P.xf(ln, rot=(90, 0, 0), loc=(x, y, z - 0.04))
@@ -180,12 +176,12 @@ def _stone(look, shape, chain=True):
         rays = P.slab(P.poly_round(P.star2(8, R, R * 0.66, a0=90.0), 0.035, 2), 0.08, 0.03, 2, 'rays')
         P.xf(rays, loc=(0, 0.17, cz))
         P.paint(rays, look.trim, line=2.0)
-    elif look.crest == 1:                                # petal crest: two leaves on each side
-        for s in (-1, 1):
-            for ang, ln, dz in ((68, 0.54, 0.06), (116, 0.44, -0.12)):   # a laurel of leaves out and down
-                lf = P.slab(P.leaf2(0.3, ln, 30, tip_sharp=1.1), 0.07, 0.025, 2, 'petal')
-                P.xf(lf, rot=(0, s * ang, 0), loc=(s * hw * 0.7, 0.12, cz + dz))
-                P.paint(lf, look.trim, line=1.8)
+    elif look.crest == 1:                                # a sakura blossom of rose gold behind the stone
+        petal = C.over(look.trim, base=look.trim['light'], light='#fff4ef', shadow=look.trim['base'])
+        R = max(hw * 1.75, (top - bot) / 2 * 1.12)
+        bl = P.slab(P.blossom2(R, inner=0.5, notch=0.1), 0.08, 0.03, 2, 'blossom')
+        P.xf(bl, loc=(0, 0.17, cz + 0.04))
+        P.paint(bl, petal, line=2.0)
     if look.studs:                                       # ball studs on the frame points
         pts = bez_out
         cands = [min(pts, key=lambda p: p[0]), max(pts, key=lambda p: p[0])]
@@ -193,7 +189,7 @@ def _stone(look, shape, chain=True):
             cands.append(min(pts, key=lambda p: p[1]))
         for x, z in cands:
             v = (x * 1.04, z - (0.04 if z < cz - 0.3 else 0.0))
-            b = P.sphere(0.075, 20, 10, 'stud')
+            b = P.sphere(0.095, 20, 10, 'stud')
             P.xf(b, loc=(v[0], -0.06, v[1]))
             P.paint(b, look.trim, line=1.4)
     if chain:
@@ -225,7 +221,6 @@ def pendant(look):
     hw, bot, top, cz = _stone(look, shape)
     if look.star:
         P.glint((-0.12, -0.35, cz + 0.22), look.star)
-    _sparkles(look, [(hw + 0.6, -0.1, top + 0.1), (-hw - 0.55, -0.1, bot + 0.1)])
     return dict(kind='flat', roll=-14.0, turn=14.0, tip=10.0)
 
 
@@ -248,21 +243,21 @@ def bow(look):
     tail_len = 0.66 if wide else 0.8
     if look.wings:
         for s in (-1, 1):
-            _wing(s, (s * 0.5 * sx, 0.24, 0.3), look, look.wings, length=0.86, spread=(8.0, 70.0), width=0.24)
+            _wing(s, (s * 0.62 * sx, 0.24, 0.08), look, look.wings, length=0.78, spread=(48.0, 124.0), width=0.24)
     for side in (-1, 1):
         K.ribbon_tail(side * 0.18, -0.12, tail_len, 0.3, 0.06, dict(body), notch=0.45, rot=side * -20, line=2.4)
         if look.studs:                                   # a metal band on each tail
             r = math.radians(side * -20)
             d = 0.42 * tail_len
-            band = P.rbox(0.36, 0.1, 0.07, r=0.03, seg=2, name='tailband')
+            band = P.rbox(0.38, 0.12, 0.1, r=0.035, seg=2, name='tailband')
             P.xf(band, rot=(0, side * -20, 0), loc=(side * 0.18 - math.sin(r) * d, 0.0, -0.12 - math.cos(r) * d))
             P.paint(band, trim, line=1.4)
     for side in (-1, 1):
         _loop(side, body, sx=sx)
         fold = P.tube([(side * 0.18, -0.16, 0.05), (side * 0.58 * sx, -0.12, 0.05)], 0.035, 8, name='fold')
         P.paint(fold, C.over(body, base=body['shadow'], light=body['shadow']), line=0.0)
-    if look.crest >= 1:                                  # layered loops: a smaller lighter pair in front
-        inner = C.over(body, base=body['light'], shadow=body['base'])
+    if look.crest >= 1:                                  # layered loops: a smaller pair in front (lighter below gold)
+        inner = dict(body) if look.tier == 'legendary' else C.over(body, base=body['light'], shadow=body['base'])
         for side in (-1, 1):
             _loop(side, inner, sx=0.62 * sx, sz=0.66, y=-0.1, name='innerloop', line=2.0)
     knot = P.rbox(0.36, 0.38, 0.44, r=0.14, seg=4, name='knot')
@@ -289,7 +284,6 @@ def bow(look):
         _drop(look, 0.0, -0.1, -0.2, r=0.075)
     if look.star:
         P.glint((-0.02, front - 0.09, 0.12), look.star)
-    _sparkles(look, [(1.1 * sx, -0.1, 0.6), (-1.05 * sx, -0.1, -0.5)])
     return dict(kind='flat', roll=-8.0, turn=14.0, tip=14.0)
 
 
@@ -371,7 +365,11 @@ def sneaker(look):
     P.paint(upper, dict(body, sheen=0.2), line=2.6)
     cap = _shoe_piece(0.0, 0.25, _arch(), lambda u: _shoe_w(u) * 1.045 + 0.006, lambda u: _shoe_h(u) * 1.06 + 0.012,
                       z0=SOLE_H - 0.02, n=16, name='toecap')
-    P.paint(cap, trim if look.crest >= 2 else white, line=2.0)  # legendary and UR: a metal toe bumper
+    P.paint(cap, white, line=2.0)
+    if look.crest >= 2:                                  # legendary and UR: a metal rim round the toe cap
+        rim = _shoe_piece(0.215, 0.27, _arch(), lambda u: _shoe_w(u) * 1.07 + 0.012, lambda u: _shoe_h(u) * 1.09 + 0.02,
+                          z0=SOLE_H - 0.02, n=6, name='toerim')
+        P.paint(rim, trim, line=1.6)
     heel_p = trim if t != 'common' else C.over(body, base=body['light'], light='#ffffff', shadow=body['base'])
     heel = _shoe_piece(0.8, 1.0, _arch(), lambda u: _shoe_w(u) * 1.05 + 0.008, lambda u: _shoe_h(u) * 0.55,
                        z0=SOLE_H - 0.02, n=14, name='heelcounter')
@@ -416,11 +414,11 @@ def sneaker(look):
         g = P.cabochon(0.055, 0.035)
         P.xf(g, rot=(90, 0, 0), loc=(-SHOE_L / 2 + SHOE_L * tt, -_shoe_w(tt) * 1.05 - 0.03, SOLE_H + _shoe_h(tt) * 0.3))
         P.paint(g, look.gem, line=1.0)
-    n = look.wings or (3 if look.crest >= 2 else 2 if look.crest == 1 else 0)
-    if n:                                                # feathers fanned back and up from the heel
+    n = look.shoe_wing
+    if n:                                                # feathers fanned back and up from the heel, growing per tier
         wx = -SHOE_L / 2 + SHOE_L * 0.72
         wy = -_shoe_w(0.72) - 0.05
-        size = {2: 1.0, 3: 1.3, 4: 1.65}[n]
+        size = dict(superRare=0.72, mythic=1.0, legendary=1.3, ur=1.65).get(t, 1.0)
         angs = {2: (34, 64), 3: (26, 50, 76), 4: (18, 40, 62, 86)}[n]
         for k, ang in enumerate(angs):
             ln = (0.44 - 0.07 * k) * size
@@ -429,7 +427,6 @@ def sneaker(look):
             P.paint(f, look.feather_k(k, n), line=1.6)
     if look.star >= 10:
         P.glint((-0.5, -0.2, SOLE_H + 0.3), look.star - 1)
-    _sparkles(look, [(0.2, -0.3, SOLE_H + 1.0), (-0.85, -0.3, SOLE_H + 0.55)])
     return dict(kind='standing', yaw=-18.0, elev=26.0, roll=-4.0)
 
 
@@ -454,15 +451,15 @@ def hairclip(look):
             P.paint(b, C.PEARL, line=1.0)
     # the ornament at the right end
     R = 0.46
-    if look.crest >= 2:
-        rays = P.slab(P.poly_round(P.star2(8, R * 1.55, R * 1.02), 0.03, 2), 0.06, 0.02, 2, 'rays')
-        P.xf(rays, loc=(0.55, 0.12, 0.02))
-        P.paint(rays, trim, line=1.8)
+    if look.crest >= 2:                                  # a scalloped metal disc behind the flower (never a star)
+        disc = P.slab(P.blossom2(R * 1.38, inner=0.86, notch=0.0), 0.06, 0.02, 2, 'disc')
+        P.xf(disc, rot=(0, 36, 0), loc=(0.55, 0.12, 0.02))
+        P.paint(disc, trim, line=1.8)
     if look.crest >= 1:
-        o2 = P.slab(_motif2(shape if shape != 'blossom' else 'sakura', R * 0.6), 0.12, 0.04, 2, 'ornament2')
+        o2 = P.slab(_motif2('sakura' if shape == 'blossom' else shape, R * 0.6), 0.12, 0.04, 2, 'ornament2')
         P.xf(o2, rot=(0, 25, 0), loc=(0.12, 0.06, 0.32))
         P.paint(o2, C.over(body, base=body['light'], shadow=body['base']), line=1.8)
-    orn = P.slab(_motif2(shape if shape != 'blossom' else 'sakura', R), 0.16, 0.06, 3, 'ornament')
+    orn = P.slab(_motif2('sakura' if shape == 'blossom' else shape, R), 0.16, 0.06, 3, 'ornament')
     P.xf(orn, loc=(0.55, -0.04, 0.02))
     P.paint(orn, dict(body, sheen=0.25), line=2.4)
     c = P.cabochon(0.12 if look.gem else 0.1, 0.08)
@@ -476,7 +473,6 @@ def hairclip(look):
         _wing(1, (0.85, 0.1, 0.12), look, look.wings, length=0.6, spread=(20.0, 110.0))
     if look.star:
         P.glint((0.45, -0.2, 0.15), look.star)
-    _sparkles(look, [(1.4, -0.1, 0.6), (-1.2, -0.1, 0.35)])
     return dict(kind='flat', roll=-24.0, turn=14.0, tip=12.0)
 
 
@@ -498,7 +494,6 @@ def necklace(look):
     P.paint(bail, trim, line=1.3)
     if look.star:
         P.glint((-0.1, -0.34, -0.3), look.star)
-    _sparkles(look, [(0.95, -0.1, 1.2), (-0.95, -0.1, -0.5)])
     return dict(kind='flat', roll=-10.0, turn=14.0, tip=10.0)
 
 
