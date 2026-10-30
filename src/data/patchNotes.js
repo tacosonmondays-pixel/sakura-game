@@ -24,12 +24,14 @@ export const PATCH_NOTES = [
     added: [
       'Recruiting now opens a summoning Gate: it glows blue, surges to a rainbow when an SSR is coming, and turns to a starlit Nightglass sky for an LR.',
       'Every SSR and LR girl gets her own full-screen reveal: her silhouette, her art sweeping in, her stars, name and quote, then her mark stamping in. Tap to move on, or press Skip all to jump to your results.',
-      'Tryout Day: a Pep Talks list shows every Pep Talk you have taken this run, and you can open it any time.',
+      'Tryout Day: a Pep Talks list shows every Pep Talk you have taken this run, and you can open it any time; the Pep Talk cards get a fresh look too.',
     ],
     changed: [
       'The Gate and reveals follow your Reduce motion setting (a calm fade instead of spins and sparks) and your Flashes & shake setting (no flashes or shake when it is off).',
-      'Gear has new icons: chunkier 3D-style pieces whose shape and trim grow fancier with rarity, and set gear wears its set’s look.',
-      'Tryout Day’s Pep Talk cards have a fresh look.',
+      'Gear has new icons: chunkier 3D-style pieces whose shape and trim grow fancier with rarity.',
+    ],
+    fixed: [
+      'A ribbon from a Mailbox gift now reads “Earned: Yes · a gift” in your Honor Ribbon Case instead of naming a title you haven’t earned yet.',
     ],
   },
   {

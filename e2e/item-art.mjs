@@ -304,7 +304,27 @@ for (const vp of viewports) {
       if (potSkip) await potSkip.click({ force: true }).catch(() => {});
       await settle(page, 1200);
       await shot('recruit-results');
+      // close the results so the cinematic is torn down (loop, canvases, dev hook): its last particles keep the main
+      // thread busy for ~0.75 s, which on software rendering held back the fallback probe's image events below
+      const close = await page.$('[data-testid="reveal-close"]');
+      if (close) await close.click({ force: true }).catch(() => {});
+      await page.waitForFunction(() => !window.__sakura?.recruitCinematic && !document.querySelector('.rc-gate, .rc-fx'), null, { timeout: 5000 })
+        .catch(() => console.log(`  (${tag}: the recruit cinematic was still up before the fallback probe)`));
     }
+    // then until the main thread is quiet (8 frames in a row under 50 ms apart; at most 6 s), so the probe's timers
+    // and its placeholder animation run on time
+    const quiet = await page.evaluate(() => new Promise((done) => {
+      const t0 = performance.now();
+      let prev = t0;
+      let calm = 0;
+      const step = (t) => {
+        calm = t - prev < 50 ? calm + 1 : 0;
+        prev = t;
+        if (calm >= 8 || t - t0 > 6000) done(Math.round(t - t0)); else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }));
+    if (quiet > 6000) console.log(`  (${tag}: the page was still busy before the fallback probe)`);
 
     // the fallbacks: a broken image shows the old drawing at once (the only case it ever shows); a slow one shows
     // the neutral placeholder after 0.3 s, never the drawing, and drops it when the image arrives; a cached one

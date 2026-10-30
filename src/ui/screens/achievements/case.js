@@ -10,7 +10,7 @@ import { navigate, hasRoute } from '../../router.js';
 import { store } from '../../../core/store.js';
 import { ACHIEVEMENT_MAP } from '../../../data/achievements.js';
 import { HONOR_CLASSES, HONOR_EFFECTS, EFFECT_LINES } from '../../../data/honors.js';
-import { ownedRibbons, liveRibbons, newHonorCount, markHonorsSeen } from '../../../systems/honors.js';
+import { ownedRibbons, liveRibbons, newHonorCount, markHonorsSeen, ribbonEarnedNote } from '../../../systems/honors.js';
 import { achievementList } from '../../../systems/missions.js';
 import { ribbonArt, titlePlate, liveHonors } from '../../honorFx.js';
 import { ico, KIT_SVG } from '../../kit.js';
@@ -115,6 +115,12 @@ export function ribbonCaseView({ onBack, onAchievement, onTitles = null }) {
     spotTimer = setInterval(() => { if (!root.isConnected) clearInterval(spotTimer); else move(); }, 6000);
   }
 
+  // a claimed achievement's title, or "a gift" for a ribbon a Mailbox letter gave (its title is still unearned)
+  function earnedNote(id) {
+    const note = ribbonEarnedNote(profile, id);
+    return note === 'title' ? [' · came with the title ', titlePlate(id, { small: true })] : note === 'gift' ? ' · a gift' : null;
+  }
+
   function detail(id) {
     const hr = live.find((x) => x.id === id);
     const a = ACHIEVEMENT_MAP[id];
@@ -130,7 +136,7 @@ export function ribbonCaseView({ onBack, onAchievement, onTitles = null }) {
       h('p.ach-detail-from', secret ? 'A secret achievement grants this one.' : ['From ', h('b', a.name), ` · ${a.desc}`]),
       h('div.ach-detail-lines',
         h('div', h('span.ach-micro', 'Effect'), h('span', hr.effect ? `${HONOR_EFFECTS[hr.effect]}: ${EFFECT_LINES[hr.effect]}` : hr.class === 'shiny' ? 'Shiny foil that catches the light' : 'A classic Honor Ribbon')),
-        h('div', h('span.ach-micro', have ? 'Earned' : 'How'), have ? h('span', 'Yes', a.title ? [' · came with the title ', titlePlate(id, { small: true })] : null) : h('span', how))),
+        h('div', h('span.ach-micro', have ? 'Earned' : 'How'), have ? h('span', 'Yes', earnedNote(id)) : h('span', how))),
       h('div.ach-detail-btns',
         have && hasRoute('profile') ? h('button.ach-pin', { 'data-testid': 'ach-pin', onclick: () => navigate('profile', { pin: `ach:${id}` }) }, '♡ Pin to profile') : null,
         h('button.ach-goach', { 'data-testid': 'ach-goto', onclick: () => { document.querySelectorAll('.ach-sheet-modal').forEach((m) => m.closest('.modal-overlay')?.remove()); onAchievement(id); } }, 'Achievement ›')),
