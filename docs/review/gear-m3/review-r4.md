@@ -35,9 +35,9 @@ Lv 1.
 
 - **My own loop (every unit, not the branch's test):** 39 units, five Blank LR, all-Pierce. For each kit I resolved
   **every** tier combination (0…n per path), or a hero at each level 1–25, at `pierceK` 200 and at 300. Results:
-  - 16 kits: `pierceK` 286, ATK 0, and something widens (akane, sango, midori, suzu, yuki, fuu, ruri, iroha, ena,
-    kogane, nami, norika, …).
-  - 18 kits: `pierceK` 200, ATK fill-in 0.858, and nothing widens. This includes **Tenka and Marumi**.
+  - 12 kits: `pierceK` 286, ATK 0, and something widens (akane, sango, midori, suzu, yuki, fuu, ruri, iroha, ena,
+    kogane, nami, norika).
+  - 22 kits: `pierceK` 200, ATK fill-in 0.858, and nothing widens. This includes **Tenka and Marumi**.
   - 5 dead-Pierce kits (umeko, miko, wakaba, ouka, kohaku_tsubaki): Pierce fills in as lines.
   - No kit is in both groups, no kit is in neither, and the exhaustive search agrees with `blastKit` on all 39.
   - Per path at tier 5: yuki `-WW`, fuu `-W-`, ruri `W-W`, iroha `--W`, ena `W--`.
