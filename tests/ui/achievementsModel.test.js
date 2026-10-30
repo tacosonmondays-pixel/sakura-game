@@ -7,9 +7,9 @@ import { buildRows, sections, sortRows, categoryStats, visibleCategories, badgeT
 import { veteran } from '../fixtures/veterans.js';
 
 describe('achievement rows', () => {
-  it('150 defs → 90 rows: 29 series rows + 61 single rows (launch 116 → 69, + the donation series, + Codex 11 → 8, + the Act II series a_ch1_act2 → a_ch6_act2, + Tryout Day 15 → 11)', () => {
+  it('152 defs → 92 rows: 29 series rows + 63 single rows (launch 116 → 69, + the donation series, + Codex 11 → 8, + the Act II series a_ch1_act2 → a_ch6_act2, + Tryout Day 15 → 11, + LR gear\'s two)', () => {
     const rows = buildRows(achievementList(createProfile()));
-    expect(rows).toHaveLength(90);
+    expect(rows).toHaveLength(92);
     expect(rows.filter((r) => r.steps)).toHaveLength(29);
     expect(rows.filter((r) => r.cat === 'codex')).toHaveLength(8);
     expect(rows.filter((r) => r.cat === 'tryout')).toHaveLength(11);
@@ -45,9 +45,9 @@ describe('achievement rows', () => {
     expect(rowState({ hidden: true, met: false })).toBe('secret');
     const list = achievementList(createProfile());
     const stats = categoryStats(list);
-    expect(stats.all.total).toBe(150);
+    expect(stats.all.total).toBe(152);
     expect([stats.campaign.total, stats.assault.total, stats.battle.total, stats.freeplay.total, stats.together.total, stats.students.total,
-      stats.gear.total, stats.bestiary.total, stats.academy.total, stats.secret.total, stats.codex.total, stats.tryout.total]).toEqual([30, 15, 9, 7, 6, 20, 9, 10, 12, 6, 11, 15]);
+      stats.gear.total, stats.bestiary.total, stats.academy.total, stats.secret.total, stats.codex.total, stats.tryout.total]).toEqual([30, 15, 9, 7, 6, 20, 11, 10, 12, 6, 11, 15]);
     expect(visibleCategories(list).map((c) => c.id).at(-1)).toBe('tryout');
     expect([badgeText(3), badgeText(12)]).toEqual(['3', '9+']);
   });
