@@ -347,7 +347,8 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // when hashSim began folding t.ch.px (gear Pierce, review fix): the battle itself is the same (same final). Change
     // only with a deliberate sim / data change, and say why.
     // Re-pinned Oct 30 (Blade Cyclone never below her aimed volley; Umeko ×1.10, Hotaru ×1.04): was 28655 / 4139458384 / 89dbb28e / 4148/881 (Umeko's row).
-    // Re-pinned Oct 30 (Akane's Inferno Queen stream 45° → 55° each side: from a corner her 2-5-0 crowd read ×0.92 of live):
+    // Re-pinned Oct 30 (Akane's Inferno Queen stream half 45 → 55 steps, 67.5° → 82.5° per side, a 165° cone: from a corner
+    // her 2-5-0 crowd read ×0.92 of live):
     // the same loss, wave, ticks, coins and rejoin; final 2141733565 → 844707250, hashes b8a0c27c → 322c2f61, held
     // 4147/879 → 4167/873 (her wider cone reaches a few more of the stream)
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, held: r.held, rejoinTick: r.rejoinTick })

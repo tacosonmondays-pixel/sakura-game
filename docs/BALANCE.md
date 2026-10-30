@@ -421,11 +421,13 @@ of live, the same on this branch without her branch). Reproduced with Iroha 5-0-
 the placeable point nearest the reflection of that spot through the road (1.56, 1.56), no supports, 16 seeds: live
 417,162, branch 383,332 (×0.919), and the same without Iroha (417,165 → 383,444): Akane's own kit, not Iroha. The cause
 is the attack shapes' Hearth Stream: from that corner the old splash fireballs set burns on both legs of the road, and
-the stream's cone (45° each side) reaches one. Her other builds there are at or above live (2-4-0 ×1.06; 5-0-2 and
+the stream's cone (`half` 45 table steps of 1.5°: 67.5° each side) reaches one. Her other builds there are at or above live (2-4-0 ×1.06; 5-0-2 and
 2-0-5 unchanged), and her burns are the damage, so the stream's ×1.07 hit barely moves it (×1.2 reads 387,784). Inferno
-Queen's cone goes 45° → **55°** each side (the smallest whole step that clears: 54° reads 414,567): 422,679 without
-Iroha and 422,707 beside her (×1.013), and only wider elsewhere. The no-nerf gate after it: 0 cells under live alone; with supports the same six
-explained cells with the same numbers; of Akane's cells only her 2-5-0 crowd ones moved, all up. Tenka
+Queen's cone goes `half` 45 → **55** steps (67.5° → 82.5° each side, a 165° cone; the smallest whole step that clears:
+54 steps, 81°, reads 414,567): 422,679 without Iroha and 422,707 beside her (×1.013), and only wider elsewhere. **It is
+also a buff:** her 2-5-0 crowd on the fixed bench goes 686,497 → 1,016,751 (×1.48), and ×1.46 alone (still far under
+the LR bar's 17.40M). The no-nerf gate after it: 0 cells under live alone; with supports the same six explained cells
+with the same numbers; of Akane's cells only her 2-5-0 crowd ones moved, all up. Tenka
 2-0-5 next to Iroha alone (×0.994 of r5 on her branch, 8 seeds) compares her branch with this one, not with live, and
 is left as her review's LOW.
 

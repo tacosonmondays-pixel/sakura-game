@@ -529,7 +529,7 @@ Written on `feature/attack-held` (S1 merged with Kohaku & Tsubaki's long beam).
 
 | Girl, path | Tiers | Shape | What the player sees |
 |---|---|---|---|
-| Akane, Wildfire | T4 Phoenix Feather, T5 Inferno Queen | Hearth Stream (`behavior: 'stream'`) | A held cone of fire (half-angle 54°, 67.5° at T5; her range) that swings toward her target and burns the nearest 35 (56) enemies in it every 0.1 s. Her burn rides on every tick; it reaches flyers. T3 keeps her fireballs. |
+| Akane, Wildfire | T4 Phoenix Feather, T5 Inferno Queen | Hearth Stream (`behavior: 'stream'`) | A held cone of fire (half-angle 54°, 82.5° at T5 since balance round 5, was 67.5°; her range) that swings toward her target and burns the nearest 35 (56) enemies in it every 0.1 s. Her burn rides on every tick; it reaches flyers. T3 keeps her fireballs. |
 | Umeko, Lighthouse | T4 Moonlit Beacon, T5 Sea of Lanterns | Searchlight Sweep (`behavior: 'sweep'`) | Her pulse becomes a beam of light of her range that swings ±45° (±60° at T5) round her target; what it crosses is struck once a pass and revealed (her reveal, and at T5 her silence, ride on the hits). Her aura is unchanged. T3 keeps her pulse. |
 
 Built as the shared pieces: `src/sim/channel.js` (the held channel), `src/sim/held.js` (both shapes), `inCone` and
@@ -549,7 +549,9 @@ Changes from the spec, and why:
    shape. Between attacks the channel ticks on its own clock, after her attack loop in `updateTower`.
 3. **The cone is wide and its cap high.** A fireball's blast (radius 1.5, 2.0 at T5) on the light bench's dense crowd (a
    walker every 0.1 s) burns 30-40 enemies at once; a narrow cone of 6 read 0.45. A 54° / 67.5° half-angle and 35 / 56
-   victims a tick fit both rulers (perf: 0.44 ms a step with 12 held girls and 200 enemies).
+   victims a tick fit both rulers (perf: 0.44 ms a step with 12 held girls and 200 enemies). T5 since balance round 5:
+   82.5°, `half` 55 table steps of 1.5°, a 165° cone (from a corner spot the 67.5° cone left her 2-5-0 crowd ×0.92 of
+   live, docs/BALANCE.md).
 4. **The tip falloff is × 0.85, not × 0.7.** At × 0.7 the walking boss read 0.82 (it meets her at the edge of her range).
 5. **The sweep's re-hit gap is one pass**, not a step count: each enemy inside the arc is crossed once a pass, so a hit
    carries a pass's share (`rate × pass × STEP`), and a big body under the beam for several tests is struck once. A pass

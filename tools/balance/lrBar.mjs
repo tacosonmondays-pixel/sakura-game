@@ -167,7 +167,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     if (argv.includes('--json')) for (const r of rows) console.log(JSON.stringify(r));
     for (const ax of ['crowd', 'boss']) {
       console.log(`top ${ax}:`);
-      for (const r of [...rows].sort((a, b) => b[ax] - a[ax]).slice(0, 10)) console.log(`  ${r.unitId} ${r.build} [${r.support}] ${fmt(r[ax])}`);
+      // (TEAMS rows, three supports, print for reference and stay outside the bar)
+      for (const r of [...rows].sort((a, b) => b[ax] - a[ax]).slice(0, 10)) console.log(`  ${r.unitId} ${r.build} [${r.support}] ${fmt(r[ax])}${r.team ? '  (TEAMS: outside the bar)' : ''}`);
     }
     const worst = printPairs(perPair);
     console.log(`BAR ${JSON.stringify(bar)}`);

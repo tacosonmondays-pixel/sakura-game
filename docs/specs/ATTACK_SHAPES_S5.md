@@ -533,7 +533,7 @@ Bosses are exact for Rei and Miko (rule 4). Suzu's bells ring for a boss that st
 
 ## 16. S5b as built (feature/attack-shapes-s5)
 
-Midori's Spore Mist, Raika's Static Web and Luna's Moonbeam Sweep, on the S5a base. The branch merges `origin/feature/balance-r5` 96c3547b (Akane's Inferno Queen cone 45° → 55°, LR_BAR re-pinned at crowd 17.40M / boss 6.13M); all the gates below were run on the merged tree, against live = 96c3547b. Code is in `src/sim/s5shapes.js` (`mistTick` / `mistTarget`, `moonPass` / `moonTick`, `tieWeb` / `webStep`), the `spore` status in `status.js` and `enemies.js`; the contract is `CONTRACTS.md` "Attack shapes S5b".
+Midori's Spore Mist, Raika's Static Web and Luna's Moonbeam Sweep, on the S5a base. The branch merges `origin/feature/balance-r5` 96c3547b (Akane's Inferno Queen cone half 45 → 55 steps, 67.5° → 82.5° per side, LR_BAR re-pinned at crowd 17.40M / boss 6.13M); all the gates below were run on the merged tree, against live = 96c3547b. Code is in `src/sim/s5shapes.js` (`mistTick` / `mistTarget`, `moonPass` / `moonTick`, `tieWeb` / `webStep`), the `spore` status in `status.js` and `enemies.js`; the contract is `CONTRACTS.md` "Attack shapes S5b".
 
 | Girl, path | Tiers / levels | Data |
 |---|---|---|
