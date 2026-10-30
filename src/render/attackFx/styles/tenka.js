@@ -1,11 +1,12 @@
 // Tenka (powerhouse · hitscan coil bolts). STAND-IN until her FX milestone (BUILD_PLAN 6.9 T4): the
 // generic attack look in her own colour. T4 draws the coil bolts, Critical Mass and the wells.
 // Her muzzle flash sits on her figure's coilgun (tenka.glb + tenka-coilgun.glb on hand_R): in
-// attack_rifle the barrel tip is ~0.62 in front of her feet, ~0.68 up and ~0.16 to her right at the
-// battle's tower scale, not at the generic chest-height spot 0.3 in front of her.
+// attack_rifle the barrel tip is ~0.71 in front of her feet, ~0.69 up and ~0.21 to her right at the
+// battle's tower scale (the coilgun drawn 1.25x about its grip, src/models/glbChibi.js PROP_LOOK; measured by
+// e2e/display-polish-2.mjs), not at the generic chest-height spot 0.3 in front of her.
 import { genericAttack, towerHex } from './generic.js';
 
-const MUZZLE = { fwd: 0.6, up: 0.65, right: 0.15 };
+const MUZZLE = { fwd: 0.71, up: 0.69, right: 0.21 };
 
 export const tenka = {
   id: 'tenka',

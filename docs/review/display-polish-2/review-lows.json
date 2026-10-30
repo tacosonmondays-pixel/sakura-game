@@ -1,0 +1,55 @@
+{
+  "scope": "fix/display-polish-2 @ 50c15894: git diff 13471635 50c15894 (merge 19a4fc1e of vr2/props-shells = vr2/lows + props-shells, and the v0.1.62 patch note bullets)",
+  "reviewer": "independent look + logic reviewer (did not build it)",
+  "verdict": "OK",
+  "checks": {
+    "simId": "be940ecb2087 (unchanged; no COOP_PROTOCOL bump needed)",
+    "vitest": "npx vitest run --maxWorkers=2 tests/render tests/models: 61 files, 792 tests passed",
+    "e2e_lows": "node e2e/display-polish-2-lows.mjs: all checks passed; 3x trace 8 attacks, 8 strikes, 0 strikes 2+ frames before her hit, largest Extend jerk 0.03",
+    "e2e_props": "node e2e/display-polish-2-props.mjs: all checks passed, no console errors",
+    "glb_sizes": "azami_strip 9672, chigusa_vines 46156, kinu_pins 29564, ouka_banners 42308 bytes (each < 60 KB); whole props set 166368 bytes (< 300 KB)",
+    "vfx_rules": "no Math.random under src/render or src/models; ghosts are NormalBlending (no flashGate needed); Reduce motion: ghostPlan -> low (no ghosts), BAR_TILT 0 when calm; sim read only (projectiles / enemies read, nothing written)",
+    "pause_guard": "13471635's Marionette.tick guard (dt > 0 && frameDt > 0) survives the merge; stepMarionette with dt 0 advances neither the wait, the hold nor the 3-frame blend",
+    "fixInsideOutShells": "added in 5be994b6 and removed in 0b17c4b0: absent from placedProps.js at head; tests/render/placedProps.test.js checks every shell of all 6 prop files (holes capped) and normals vs winding (tests/models/props.test.js is unchanged)"
+  },
+  "look": {
+    "kaede": "844x390 high and medium, 1280x720 high: the amber copy reads as her silhouette (head, hair, body, darker rim) instead of a smear; medium is the clearest. The maple-red copy is mostly hidden in her own figure (LOW 1).",
+    "yoriko": "Command frames at 844x390, zoomed: strings and doll draw cleanly, no stray string tops; the tilt is subtle at phone size.",
+    "ouka": "Pennant white with pink stripes and a gold crest (was navy-dark).",
+    "kinu": "Scissor blades light steel (were black), handle loops full red; heat ring bright (it was already mostly bright).",
+    "chigusa": "Leaves light green (were black) on the thorn bed and on the held walker.",
+    "azami": "Strip caps: the reel handle loop now shows; it is near-black by design (AZAMI.shade #15161c)."
+  },
+  "findings": [
+    {
+      "severity": "LOW",
+      "where": "src/render/attackFx/patterns/ghosts.js dashOffset / styles/kaede.js (reach <= 0.9); screen: battle 844x390",
+      "size": "1 of the 2 copies per lunge",
+      "issue": "The first (maple-red) copy stands at reach/2 (about 0.45 tiles), inside her own figure and shadow, and is drawn without depth write behind her, so in practice one amber silhouette is seen. At high quality the amber copy is a faint olive on the grass by +0.05 s.",
+      "fix": "Optional: place the copies at about 0.6 and 1.0 of reach (or at least 0.55 tiles out), or accept as is."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/data/patchNotes.js v0.1.62, props bullet",
+      "size": "1 bullet",
+      "issue": "'... Kinu's heat ring and scissors ... and Azami's strip handles shade in their real colours instead of dark' overstates two of them: Kinu's heat ring looked nearly the same before; Azami's handle is near-black by design (it was hidden inside its outline, now it shows).",
+      "fix": "For example: 'Ouka's council banners and Chigusa's leaves show their real colours instead of dark, and Kinu's scissors and Azami's strip handles are drawn properly.'"
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/marionetteLogic.js landMarionette / enter",
+      "size": "up to about 3 frames",
+      "issue": "blendNext, set by adoptAttack in Command, survives a landMarionette from Command: enter('extend') spreads the CATCH_UP extend over BLEND_STEPS frames, so once the needle has landed the strike trails it by up to 3 frames (about 50 ms at 60 fps, 100 ms at 30 fps) instead of within CATCH_UP.",
+      "fix": "Optional: in landMarionette clear s.blendNext (and s.blend) before enter('extend'); in its extend branch clear s.blend too."
+    },
+    {
+      "severity": "LOW",
+      "where": "src/render/attackFx/patterns/ghosts.js ghostAlpha comment",
+      "size": "1 comment",
+      "issue": "'the later copies (closer to her) are brighter': the later copies stand farther from her (dashOffset idx + 1). Comment only.",
+      "fix": "Say 'the later copies (nearer her target) are brighter'."
+    }
+  ],
+  "patch_note": "The Kaede and Yoriko bullets are accurate and player-readable; the props bullet is readable but overstates the heat ring and Azami's handles (LOW 2).",
+  "evidence": "docs/review/display-polish-2/review-lows/*.jpg"
+}

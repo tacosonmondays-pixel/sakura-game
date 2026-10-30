@@ -1014,7 +1014,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     actors.sync(d);
     if (!compBroken) {
       try {
-        companions.update(d, rig.zoom);
+        companions.update(d, rig.zoom, fd);
       } catch (err) {
         compFail(err);
       }

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { streakWindow, StreakLayer, SWEEP, FLY, SPIN } from '../../src/render/attackFx/patterns/streaks.js';
 import { flashShape, FlashLayer, FLASH_CAPS, FLASH_LIFE, FLASH_LIFE_SOFT } from '../../src/render/attackFx/patterns/hitFlash.js';
-import { ghostPlan, ghostAlpha, dashOffset, GhostLayer, GHOST_PLAN, DASH_GAP } from '../../src/render/attackFx/patterns/ghosts.js';
+import { ghostPlan, ghostAlpha, dashOffset, GhostLayer, GHOST_PLAN, DASH_GAP, GHOST_PEAK, GHOST_RIM, rimColor, ghostMaterial } from '../../src/render/attackFx/patterns/ghosts.js';
 import { crescentAngles, hitsBefore, STORM_STREAKS, STREAK_CAP } from '../../src/render/attackFx/styles/kaede.js';
 import { harness, gallerySim, streamer } from './attackFxHarness.js';
 
@@ -173,8 +173,16 @@ describe('dash afterimages', () => {
       expect(p.life).toBeGreaterThanOrEqual(0.15);
       expect(p.life).toBeLessThanOrEqual(0.25);
       expect(p.cap).toBeGreaterThanOrEqual(p.count);
+      // phone read: 2 copies per lunge (they merged into a smear at 4), spaced at least 0.05 s
+      expect(p.dash).toBe(2);
+      expect(p.dash).toBeLessThanOrEqual(p.count);
+      expect(p.interval).toBeGreaterThanOrEqual(0.05);
     }
-    // fades out, the later copies brighter
+    expect(GHOST_PEAK).toBeLessThanOrEqual(0.45);
+    expect(ghostAlpha(0, 1, 2)).toBeCloseTo(GHOST_PEAK);
+    // a lunge's two copies peak equally bright (the first one must still read when the second arrives)
+    expect(ghostAlpha(0, 0, 2)).toBeCloseTo(GHOST_PEAK);
+    // fades out; in a longer trail the later copies are brighter
     expect(ghostAlpha(0, 3, 4)).toBeGreaterThan(ghostAlpha(0, 0, 4));
     expect(ghostAlpha(0.5, 1, 4)).toBeLessThan(ghostAlpha(0.1, 1, 4));
     expect(ghostAlpha(1, 1, 4)).toBe(0);
@@ -223,8 +231,8 @@ describe('dash afterimages', () => {
     // she moves (her lunge) and raises her arm: the next snapshot copies that, the first stays put
     model.position.x = 3.25;
     arm.rotation.z = 1;
-    for (let i = 0; i < 8; i++) G.update(plan.interval / 2);
-    expect(G.alive).toBe(plan.count);
+    for (let i = 0; i < 3; i++) G.update(plan.interval / 2);
+    expect(G.alive).toBe(plan.dash);
     const xs = parent.children.map((c) => c.position.x).sort();
     expect(xs[0]).toBeCloseTo(3);
     expect(xs[xs.length - 1]).toBeCloseTo(3.25);
@@ -271,18 +279,53 @@ describe('dash afterimages', () => {
   });
 
   it('the copies step out toward her target, the last one `reach` ahead', () => {
-    expect(dashOffset(0, 4, 0.8)).toBeCloseTo(0.2);
+    expect(dashOffset(0, 4, 0.8)).toBeCloseTo(0.55); // 0.48, lifted to DASH_NEAR (clear of her own figure)
     expect(dashOffset(3, 4, 0.8)).toBeCloseTo(0.8);
+    expect(dashOffset(0, 2, 0.9)).toBeCloseTo(0.55);
+    expect(dashOffset(1, 2, 0.9)).toBeCloseTo(0.9);
+    expect(dashOffset(0, 2, 0.4)).toBeCloseTo(0.4); // a short reach: never past it
     expect(dashOffset(1, 4, 0)).toBe(0);
     const { ctx, model } = ghostCtx('high');
     const parent = new THREE.Group();
     const G = new GhostLayer(ctx, parent);
     G.dash(5, [WHITE], 0, 2, 0.8); // straight down +z
-    for (let i = 0; i < 10; i++) G.update(0.02);
-    const zs = parent.children.map((c) => c.position.z - model.position.z).sort((a, b) => a - b);
-    expect(zs[0]).toBeCloseTo(0.2);
-    expect(zs[3]).toBeCloseTo(0.8);
-    expect(parent.children.every((c) => Math.abs(c.position.x - model.position.x) < 1e-9)).toBe(true);
+    for (let i = 0; i < 4; i++) G.update(0.02);
+    const shown = parent.children.filter((c) => c.visible);
+    expect(shown.length).toBe(2);
+    const zs = shown.map((c) => c.position.z - model.position.z).sort((a, b) => a - b);
+    // two copies, the first clear of her own figure (≥ 0.55), the last all of the way
+    expect(zs[0]).toBeCloseTo(0.55);
+    expect(zs[1]).toBeCloseTo(0.8);
+    expect(shown.every((c) => Math.abs(c.position.x - model.position.x) < 1e-9)).toBe(true);
+    G.dispose();
+  });
+
+  it('each ghost has a darker rim of its own hue (the silhouette read), set when it spawns', () => {
+    const c = new THREE.Color('#ff8a2e');
+    const r = rimColor(c, new THREE.Color());
+    expect(r.r).toBeCloseTo(c.r * GHOST_RIM.shade);
+    expect(r.g).toBeCloseTo(c.g * GHOST_RIM.shade);
+    expect(r.r + r.g + r.b).toBeLessThan((c.r + c.g + c.b) * 0.25);
+    // the material carries the rim into its shader (one program for every ghost)
+    const m = ghostMaterial();
+    const shader = { uniforms: {}, vertexShader: THREE.ShaderLib.basic.vertexShader, fragmentShader: THREE.ShaderLib.basic.fragmentShader };
+    m.onBeforeCompile(shader);
+    expect(shader.uniforms.ghostRim.value).toBe(m.userData.rim);
+    expect(shader.vertexShader).toContain('vGhostN = normalize( normalMatrix * objectNormal )');
+    expect(shader.fragmentShader).toContain('mix( diffuseColor.rgb, ghostRim, gK )');
+    expect(m.customProgramCacheKey()).toBe('ghost-rim');
+    expect([m.transparent, m.depthWrite]).toEqual([true, false]);
+    m.dispose();
+    // a spawned ghost wears its colour's rim
+    const { ctx } = ghostCtx('medium');
+    const parent = new THREE.Group();
+    const G = new GhostLayer(ctx, parent);
+    G.dash(5, [c]);
+    G.update(0);
+    let mat = null;
+    parent.children.find((g) => g.visible).traverse((o) => { if (o.isMesh && o.visible) mat = o.material; });
+    expect(mat.color.getHex()).toBe(c.getHex());
+    expect(mat.userData.rim.r).toBeCloseTo(c.r * GHOST_RIM.shade);
     G.dispose();
   });
 

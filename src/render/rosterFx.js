@@ -15,8 +15,10 @@ import { aimMode } from '../sim/towers.js';
 import { runnerSegment } from '../sim/runners.js';
 import { pointAt } from '../sim/path.js';
 import { MirrorFx } from './mirrorFx.js';
+import { panelSpot } from './mirrorPanel.js';
 
 const TAU = Math.PI * 2;
+const _spot = { x: 0, y: 0, beside: false };
 
 /** Caps (keep draw calls and quads modest on phones). */
 const MAX_WARN = 48;
@@ -309,16 +311,21 @@ export class RosterFx {
         return true; // the 'explode' event draws the blast
       case 'relay': {
         const p = this.props.get(ev.towerUid);
-        if (p && Math.hypot(p.x - ev.x, p.y - ev.y) > 0.5) {
-          if (p.kind === 'mirror') {
+        if (p && p.kind === 'mirror') {
+          // where the panel will be drawn (beside her when the origin is her own spot)
+          const t = this._tower(ev.towerUid);
+          const s = t ? this._mirrorSpot(t, ev.x, ev.y) : { x: ev.x, y: ev.y, beside: false };
+          if (Math.hypot(p.x - s.x, p.y - s.y) > 0.5) {
             // the panel jumps (no glide): afterimages bridge where it was and where it lands
-            this.mirrors.jump(ev.towerUid, p.x, p.y, ev.x, ev.y);
-            p.x = ev.x;
-            p.y = ev.y;
-            if (this.reduceMotion) this.fx.ring(ev.x, ev.y, 0.5, 0.5, 0.35, COL.mirror);
-            else this.fx.ring(ev.x, ev.y, 0.1, 0.6, 0.35, COL.mirror);
-            return true;
+            this.mirrors.jump(ev.towerUid, p.x, p.y, s.x, s.y);
+            p.x = s.x;
+            p.y = s.y;
+            if (this.reduceMotion) this.fx.ring(s.x, s.y, 0.5, 0.5, 0.35, COL.mirror);
+            else this.fx.ring(s.x, s.y, 0.1, 0.6, 0.35, COL.mirror);
           }
+          return true;
+        }
+        if (p && Math.hypot(p.x - ev.x, p.y - ev.y) > 0.5) {
           // the 3D Kon runs there himself: no puff where he left
           if (!this.companions?.konAt(ev.towerUid)) this.fx.puff(p.x, 0.2, p.y, '#ffffff', 4, 0.3, 0.25);
           this.fx.ring(ev.x, ev.y, 0.1, 0.55, 0.35, COL.familiar);
@@ -609,12 +616,23 @@ export class RosterFx {
         // yaw first, then the tip about the panel's own axis (mirrorFx flips)
         mesh.rotation.order = 'YXZ';
         this.root.add(mesh);
-        p = { kind, mesh, x: t.ox, y: t.oy };
+        p = { kind, mesh, x: t.ox, y: t.oy, beside: false };
+        if (kind === 'mirror') {
+          const s = this._mirrorSpot(t, t.ox, t.oy);
+          p.x = s.x;
+          p.y = s.y;
+        }
         this.props.set(t.uid, p);
       }
-      // glide to the sim origin (snaps when far: a new placement)
-      const tx = t.ox;
-      const ty = t.oy;
+      // glide to the sim origin (snaps when far: a new placement); her panel glides to where it is drawn
+      let tx = t.ox;
+      let ty = t.oy;
+      if (p.kind === 'mirror') {
+        const s = this._mirrorSpot(t, tx, ty);
+        tx = s.x;
+        ty = s.y;
+        p.beside = s.beside;
+      }
       const dd = Math.hypot(tx - p.x, ty - p.y);
       if (dd > 6) {
         p.x = tx;
@@ -629,15 +647,36 @@ export class RosterFx {
     for (const uid of this.props.keys()) if (!seen.has(uid)) this._dropProp(uid);
   }
 
+  /**
+   * Where Iroha's panel is drawn for the origin (ox, oy) (display only, src/render/mirrorPanel.js panelSpot): an
+   * un-aimed origin (her own spot) stands beside her, a little behind on screen and on the side away from the
+   * road, so the bright glass never covers her. A shared scratch: copy what you keep.
+   */
+  _mirrorSpot(t, ox, oy) {
+    let fx = 0;
+    let fz = -1;
+    const cam = this.camera;
+    if (cam?.matrixWorld) {
+      // the camera's own +z (backward) in world space; its ground part, reversed, is the view's forward
+      const e = cam.matrixWorld.elements;
+      const l = Math.hypot(e[8], e[10]);
+      if (l > 1e-4) {
+        fx = -e[8] / l;
+        fz = -e[10] / l;
+      }
+    }
+    return panelSpot(t.x, t.y, ox, oy, fx, fz, this.sim.placement?.pathDistance || null, _spot);
+  }
+
   _drawProp(t, p) {
     const R = this.R;
     const v = this.actors.towers.get(t.uid);
     const facing = v ? v.facing : t.facing || 0;
-    // standing on the girl (origin = her spot): step aside so both read
+    // standing on the girl (origin = her spot): step aside so both read (her panel already stands beside her)
     let x = p.x;
     let y = p.y;
-    const self = Math.hypot(x - t.x, y - t.y) < 0.3;
-    if (self) {
+    const self = p.kind === 'mirror' ? p.beside : Math.hypot(x - t.x, y - t.y) < 0.3;
+    if (self && p.kind !== 'mirror') {
       x = t.x + Math.cos(facing) * 0.34;
       y = t.y - Math.sin(facing) * 0.34;
     }

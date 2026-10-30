@@ -191,3 +191,133 @@ describe('placed props: the layer', () => {
     p.dispose();
   });
 });
+
+/**
+ * The shells of an indexed geometry (triangles welded by position, joined through shared edges) with each one's signed volume, its holes
+ * capped first (a fan per boundary loop to the loop's centre), so an open shell (a tube with one end open,
+ * a half ring) has a meaningful sign too and a lone triangle comes out at 0. Positive = faces wound outward.
+ */
+function cappedShellVolumes(geometry) {
+  const P = geometry.attributes.position;
+  const I = geometry.index;
+  const key = (i) => `${Math.round(P.getX(i) * 1e4)},${Math.round(P.getY(i) * 1e4)},${Math.round(P.getZ(i) * 1e4)}`;
+  const weld = new Map();
+  const pt = [];
+  const id = (i) => {
+    const k = key(i);
+    let w = weld.get(k);
+    if (w == null) {
+      weld.set(k, (w = pt.length));
+      pt.push(new THREE.Vector3().fromBufferAttribute(P, i));
+    }
+    return w;
+  };
+  const tris = [];
+  for (let t = 0; t < I.count; t += 3) tris.push([id(I.getX(t)), id(I.getX(t + 1)), id(I.getX(t + 2))]);
+  // shells: triangles joined through a shared edge (two parts touching at a corner stay apart)
+  const up = tris.map((_, i) => i);
+  const find = (i) => {
+    while (up[i] !== i) i = up[i] = up[up[i]];
+    return i;
+  };
+  const edgeOwner = new Map();
+  tris.forEach(([a, b, c], ti) => {
+    for (const [u, v] of [[a, b], [b, c], [c, a]]) {
+      const k = u < v ? `${u},${v}` : `${v},${u}`;
+      const o = edgeOwner.get(k);
+      if (o == null) edgeOwner.set(k, ti);
+      else up[find(ti)] = find(o);
+    }
+  });
+  const vol = ([a, b, c]) => pt[a].dot(new THREE.Vector3().crossVectors(pt[b], pt[c])) / 6;
+  const shells = new Map();
+  tris.forEach((t, ti) => {
+    const r = find(ti);
+    if (!shells.has(r)) shells.set(r, { tris: [], vol: 0, open: 0 });
+    shells.get(r).tris.push(t);
+  });
+  for (const sh of shells.values()) {
+    const directed = new Map();
+    for (const [a, b, c] of sh.tris) for (const [u, v] of [[a, b], [b, c], [c, a]]) directed.set(`${u},${v}`, [u, v]);
+    // boundary: a directed edge whose reverse no face carries; follow them into loops
+    const next = new Map();
+    for (const [u, v] of directed.values()) if (!directed.has(`${v},${u}`)) next.set(u, v);
+    sh.open = next.size;
+    const caps = [];
+    const seen = new Set();
+    for (const start of next.keys()) {
+      if (seen.has(start)) continue;
+      const loop = [];
+      for (let v = start; v != null && !seen.has(v); v = next.get(v)) {
+        seen.add(v);
+        loop.push(v);
+      }
+      const c = loop.reduce((acc, v) => acc.add(pt[v]), new THREE.Vector3()).divideScalar(loop.length);
+      pt.push(c);
+      for (let i = 0; i < loop.length; i++) caps.push([pt.length - 1, loop[(i + 1) % loop.length], loop[i]]);
+    }
+    sh.vol = [...sh.tris, ...caps].reduce((acc, t) => acc + vol(t), 0);
+  }
+  return [...shells.values()];
+}
+
+/** Triangles whose stored normals point against their winding (the toon ramp would shade them as the back). */
+function normalsAgainstWinding(geometry) {
+  const P = geometry.attributes.position;
+  const N = geometry.attributes.normal;
+  const I = geometry.index;
+  const va = new THREE.Vector3();
+  const vb = new THREE.Vector3();
+  const vc = new THREE.Vector3();
+  const vn = new THREE.Vector3();
+  let bad = 0;
+  for (let t = 0; t < I.count; t += 3) {
+    va.fromBufferAttribute(P, I.getX(t));
+    vb.fromBufferAttribute(P, I.getX(t + 1)).sub(va);
+    vc.fromBufferAttribute(P, I.getX(t + 2)).sub(va);
+    vn.fromBufferAttribute(N, I.getX(t)).add(_n.fromBufferAttribute(N, I.getX(t + 1))).add(_n.fromBufferAttribute(N, I.getX(t + 2)));
+    if (vb.cross(vc).dot(vn) < 0) bad++;
+  }
+  return bad;
+}
+const _n = new THREE.Vector3();
+
+describe('placed props: every shell right way out', () => {
+  it('the check itself: a box is positive, an inside-out one negative, an open one keeps its sign, a lone triangle is 0', () => {
+    expect(cappedShellVolumes(new THREE.BoxGeometry(1, 1, 1))[0].vol).toBeCloseTo(1);
+    const inv = new THREE.BoxGeometry(1, 1, 1);
+    const a = inv.index.array;
+    for (let t = 0; t < a.length; t += 3) [a[t + 1], a[t + 2]] = [a[t + 2], a[t + 1]];
+    expect(cappedShellVolumes(inv)[0].vol).toBeCloseTo(-1);
+    // a box without its +x face (an open shell), and the same turned inside out
+    const open = new THREE.BoxGeometry(1, 1, 1);
+    open.setIndex([...open.index.array].slice(6));
+    const [o] = cappedShellVolumes(open);
+    expect(o.open).toBe(4);
+    expect(o.vol).toBeCloseTo(1);
+    const openInv = open.clone();
+    const b = openInv.index.array;
+    for (let t = 0; t < b.length; t += 3) [b[t + 1], b[t + 2]] = [b[t + 2], b[t + 1]];
+    openInv.index.needsUpdate = true;
+    expect(cappedShellVolumes(openInv)[0].vol).toBeCloseTo(-1);
+    const tri = new THREE.BufferGeometry();
+    tri.setAttribute('position', new THREE.Float32BufferAttribute([3, 1, 2, 4, 1, 2, 3, 2, 5], 3));
+    tri.setIndex([0, 1, 2]);
+    expect(cappedShellVolumes(tri)[0].vol).toBeCloseTo(0, 12);
+  });
+
+  // The builder's tori (ring bands, the scissor's handle loop, the strip cap's reel handle) and Chigusa's leaves
+  // were wound inward and its clockwise outlines (the pennant, the scissor blade) extruded inside out: the toon
+  // ramp shaded them dark under their own outline hull. The files are rebuilt with the windings fixed.
+  for (const file of Object.keys(PROP_FILES)) {
+    it(`${file}: no inside-out shell, normals agree with the winding`, () => {
+      for (const [name, part] of loadedParts[file]) {
+        const shells = cappedShellVolumes(part.geometry);
+        const scale = shells.reduce((m, sh) => Math.max(m, Math.abs(sh.vol)), 0);
+        const inside = shells.filter((sh) => sh.vol < -1e-6 * scale - 1e-12).map((sh) => `${sh.tris.length} tris ${sh.vol.toExponential(2)}`);
+        expect(inside, `${file}/${name}`).toEqual([]);
+        expect(normalsAgainstWinding(part.geometry), `${file}/${name}`).toBe(0);
+      }
+    });
+  }
+});

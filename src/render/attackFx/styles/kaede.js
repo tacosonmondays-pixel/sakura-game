@@ -12,8 +12,12 @@
 //   maple splash (Unbroken Rhythm 3+, at full focus): crimson leaves bursting from her target
 //
 // Visual rework (display only; drawn from sim state and drained sim events, never written back):
-//   dash afterimages  2–4 fading copies of her own figure along each lunge, maple red to amber
-//                     (patterns/ghosts.js; none on low graphics or Reduce motion, which has no lunge)
+//   dash afterimages  2 fading copies of her own figure along each lunge (from about 0.6 of the way to
+//                     her target to all of it), each with a darker rim. At phone size the amber one at her target is the one
+//                     that reads as her silhouette; the maple one nearer her mostly sits over her own shadow (owner's
+//                     call, Oct 29: accepted)
+//                     at phone size (patterns/ghosts.js; none on low graphics or Reduce motion, which has
+//                     no lunge)
 //   slash streaks     thin bright-edged crescent ribbons, one instanced mesh for the whole field
 //                     (patterns/streaks.js): a quick arc on every strike, a wide sweeping arc for the
 //                     Maple Cleave, flying crescents along the fan, fast spinning streaks for the storm
@@ -117,8 +121,9 @@ function towardCamera(ctx, out) {
 }
 const _cam = { x: 0, z: 1 };
 
-/** Ghost colours, oldest (left at her spot) to newest: maple red to amber. */
-const GHOST_HEX = ['#d8283a', '#ff5a2e', '#ff8a2e', '#ffb347'];
+/** Ghost colours, oldest (nearer her) to newest (at her target): maple red, then amber (each with a darker rim). The
+ * maple one mostly sits over her shadow at phone size; the amber one carries the read. */
+const GHOST_HEX = ['#d8283a', '#ff8a2e'];
 const _hits = [];
 const _angs = [];
 const _pts = [];

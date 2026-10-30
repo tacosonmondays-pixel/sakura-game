@@ -57,8 +57,9 @@ export function treeGridView(model, { prices = false, selected = null } = {}) {
         index: row.index,
         name: row.name,
         tag: pathTag(row),
-        // the ⚡ path: a sticker on its head (no number: the tier is in its title)
-        ability: row.ability ? { name: row.ability.name, title: row.ability.live ? `Ability ${row.ability.name}: unlocks at tier ${row.ability.unlockTier}` : `Ability ${row.ability.name}: comes in a later update` } : null,
+        // the ⚡ path: a sticker on its head (no number: the tier is in its title); one that waits for a later update
+        // is the flat grey sticker, so a live ⚡ and a waiting one never look the same
+        ability: row.ability ? { name: row.ability.name, live: row.ability.live, title: row.ability.live ? `Ability ${row.ability.name}: unlocks at tier ${row.ability.unlockTier}` : `Ability ${row.ability.name}: comes in a later update` } : null,
         locked,
         lockLine: locked ? 'Locked: two paths in use' : null,
         lockWhy: locked ? row.reason : null,
@@ -158,7 +159,7 @@ export function treeGrid(model, { prices = false, onPick = null, onPrice = null,
     const tag = r.tag ? chip({ icon: TAG_GLYPHS[r.tag.id] || null, text: r.tag.word, cls: `ug-tag.t-${r.tag.id}`, title: r.tag.title }) : null;
     const lock = h('span.ug-lock', { hidden: true }, ico('lock'), h('span.ug-lock-text'), onRule ? h('button.ug-why', { type: 'button', 'aria-label': 'Why is this path locked?', onclick: () => onRule(r.index) }, ico('info')) : null);
     const cap = h('span.ug-cap', { hidden: true });
-    const abil = r.ability ? h('span.ug-abil', { title: r.ability.title, 'aria-label': r.ability.title, 'data-testid': `ug-abil-${r.index}` }, ico(KIT_SVG.bolt, 'ug-abil-ico')) : null;
+    const abil = r.ability ? h(`span.ug-abil${r.ability.live ? '' : '.later'}`, { title: r.ability.title, 'aria-label': r.ability.title, 'data-testid': `ug-abil-${r.index}` }, ico(KIT_SVG.bolt, 'ug-abil-ico')) : null;
     const head = h('div.ug-head', h('span.ug-bar', { 'aria-hidden': 'true' }), h('span.ug-pname', r.name), abil, tag, cap, lock);
     const fill = h('i');
     const cells = h('div.ug-cells', { role: 'row' }, h('span.ug-track', { 'aria-hidden': 'true' }, fill));
