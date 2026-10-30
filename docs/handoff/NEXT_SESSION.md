@@ -4,6 +4,13 @@
 
 This page is for a session that only has the GitHub repo (a cloud session), not the owner's PC. Read `docs/HANDOFF.md` too; it has the rules (§6), the shipping flow (§7) and the branch table (§3). Check out the coordination branch `claude/sakura-sentinels`; `main` is the live build (every push to `main` deploys).
 
+## UPDATE Oct 30, 16:25 UTC: battle-release parts approved; three items escalated
+- **Approved (review OK), waiting for the combined battle release (COOP 14):** `feature/balance-r5` b2f4345c (final r3 2505d624; no-nerf gate `tools/balance/noNerfGate.mjs`: 0 under live except 6 explained seed/rounding cells; duo non-LR ×1.12; Wyrm reachable), `feature/ena-contagion` 4855bc3b, gear M0 `feature/gear-m0` 8e8aeae1 and M2 `feature/gear-sets` 9d94b3c5.
+- **Approved display-only, waiting for the next display release:** `feature/recruit-cinematic` 8bbc9fb7 (r2 91dbe61e), `feature/tryout-pep-talks` 2cb3da8d (r2 872f30b8), gear icons `feature/gear-icons` a069d2f1 (needs the owner's yes on the look).
+- **Escalated after 3 failed rounds (owner decides on a 4th round; sessions standing by, fixes known):** Iroha mirrors (`feature/iroha-mirrors` ddd4f512, r3 1fb39f99), loadouts M1 (`feature/gear-loadouts` e610e761, r3 dc30459d; fix committed locally as local/m1-r3-fix 16c6c67f in the loadouts session), gear M3 LR gear (`feature/gear-lr` c2eafc35, r3 6aecd632: blastKit must match applyGearReach — Tenka/Marumi lose the 200–300% Pierce band).
+- **In review:** Build Coach r3 (final round) on `feature/build-coach` 0a5f053f.
+- **v0.1.64** still staged on `release/v0.1.64` c6d06118 (GO); waiting on the owner's yes.
+
 ## UPDATE Oct 30, 12:15 UTC: v0.1.64 GO (awaiting owner's yes); approvals and escalations
 - **v0.1.64** staged on `release/v0.1.64` = `c6d06118` (fast-forwards from main a741aef7). Go/no-go r2 GO (`06c8a92c` on `review/v0.1.64-r2`). Push to main only after the owner's explicit yes; then poll version.json and run an independent live check.
 - **Approved (review OK):** Ena contagion (`feature/ena-contagion` 4855bc3b; r3 d2a03070), recruit cinematic (`feature/recruit-cinematic` 8bbc9fb7; r2 91dbe61e), gear M0 (8e8aeae1) and M2 (`feature/gear-sets` 9d94b3c5; r3 b2ce7201).
