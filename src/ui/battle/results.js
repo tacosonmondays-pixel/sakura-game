@@ -442,7 +442,7 @@ export function createResults(ctx) {
       summary(),
       section(`Stage clear · saved at ${sim.totalWaves}/${sim.totalWaves}`, tiles(bankRewards)),
       section('Freeplay bonus', h('ul.bt-free-lines', bonusLines.map((l) => h('li', l))), tiles(fpRewards),
-        (fp.milestones || []).length ? h('div.bt-free-milestones', fp.milestones.map((m) => h('div.bt-free-ms', h('b', m.label), h('span', [m.gems ? `+${m.gems} gems` : '', m.title ? `Title: ${m.title}` : '', m.frame ? 'New profile frame' : ''].filter(Boolean).join(' · '))))) : null),
+        (fp.milestones || []).length ? h('div.bt-free-milestones', fp.milestones.map((m) => h('div.bt-free-ms', h('b', m.label), h('span', [m.gems ? `+${m.gems} gems` : '', ...(m.items || []).map((r) => `+${r.count} ${getItem(r.id)?.name || r.id}`), m.title ? `Title: ${m.title}` : '', m.frame ? 'New profile frame' : ''].filter(Boolean).join(' · '))))) : null),
       (() => {
         const m = mvp();
         return m ? section('Top damage', m) : null;

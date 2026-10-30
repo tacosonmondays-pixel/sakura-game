@@ -14,6 +14,7 @@ import { consumeItems, missingItems, itemCount, normalizeList } from './inventor
 import { gearStatTotals, gearFillIn, gearSetInfo, gearCaps } from './gear.js';
 import { BATTLE_CAPS, DOT_BY_PIECES, fillStats } from '../data/gearStats.js';
 import { averageCrit, ABIL_HASTE_CEIL, BLAST_K_MAX } from '../sim/setRules.js';
+import { BLANK_FIVE } from '../data/gearAwaken.js';
 
 export { BATTLE_CAPS };
 import { track } from './missions.js';
@@ -503,7 +504,7 @@ export function unitBattleStats(profile, unitId) {
   // gear ATK's share of her burns and poisons and its cap grow with the pieces she wears (§8.3 lever 2)
   const [dotShare, dotBase] = DOT_BY_PIECES[Math.min(5, set.pieces)];
   // five Blank LR pieces double the cap's bonus part (×2.0 → ×3.0)
-  const dotCap = set.blankN >= 5 ? 1 + 2 * (dotBase - 1) : dotBase;
+  const dotCap = set.blankN >= BLANK_FIVE ? 1 + 2 * (dotBase - 1) : dotBase;
   // her ⚡ ability's haste: half her capped Skill Haste; Power Bank's set cap gives it half of all of it (§3.2)
   // (rounded as before the sets: 0.5 × her rounded haste, so no existing girl's charge per tick moves)
   const abilHaste = Math.min(ABIL_HASTE_CEIL, 0.5 * r4(Math.min(C.ultHaste, g.ultHaste)));

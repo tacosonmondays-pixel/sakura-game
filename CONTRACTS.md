@@ -814,6 +814,10 @@ GearInstance = { uid, slot, rarity, level /*0-10; 0-12 when ur*/, main: { stat, 
   // Blank LR gives its set up); the Nightglass ✦ is stitchSlots().night; gearCaps adds LR_CAP_STEP per LR piece and
   // doubles every base cap with five Blank LR pieces (critCeil 2, fill-in limit ×2, DoT cap bonus ×2); setLr wakes the
   // LR Set Form. Lens sources: the weekly Nightglass Hunt (titanMayhem) and Freeplay's wave-225 milestone.
+  // unitGearCaps(profile, unitId) = gearCaps of her set info: every MAX tag and stitch warning reads it. A hero's ult
+  // haste (src/sim/hero.js ultCooldown): gear + Potential capped at SKILL_HASTE_CAP 0.5; with gear haste above 0.5
+  // (LR caps only) the cap is ULT_HASTE_MAX 0.75 and Potential stacks on top (the spec's "0.75" is this split). Pierce
+  // above 200 % (PIERCE_SHOT_PCT, what a shot uses) also fills in as ATK unless a 5-piece Party Popper's blasts read it.
 ```
 
 ### `src/systems/battleSave.js` (battle saves)

@@ -113,8 +113,10 @@ export function ultCooldown(hero) {
   for (const k of ult.ranks || []) if (hero.level >= k.level && k.cooldownMul > 0) cd *= k.cooldownMul;
   const pot = hero.stats?.ult?.haste || 0;
   const gear = hero.unitStats?.ultHaste || 0;
-  // (LR gear's raised cap: her own gear haste above 50 % lifts the ceiling, up to ULT_HASTE_MAX)
-  const cap = Math.min(ULT_HASTE_MAX, Math.max(SKILL_HASTE_CAP, gear));
+  // (LR gear's raised cap: her own gear haste above 50 % — only LR caps reach it — lifts the ceiling to ULT_HASTE_MAX,
+  // and her Potential's haste stacks on top of it (M3 review r1 #4: 0.55 gear + 0.2 Potential = 0.75); without that,
+  // the 50 % cap over gear and Potential together, exactly as before)
+  const cap = gear > SKILL_HASTE_CAP ? ULT_HASTE_MAX : SKILL_HASTE_CAP;
   const haste = Math.min(cap, Math.max(0, pot > 0 ? gear + pot : gear));
   return cd * (1 - haste);
 }

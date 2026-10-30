@@ -233,7 +233,7 @@ function buildItems() {
   add({ id: 'dice_prism', name: 'Prism Dice', category: 'dice', rarity: 'mythic', desc: 'Changes the main stat of a piece of gear into another stat for its slot. You choose which one.', sort: 5002 });
   // rainbow UR gear (docs/specs/GEAR_AWAKEN.md §4) and the Academy Clubs (GEAR_STATS.md §C.4); never sold for gems
   add({ id: 'seed_rainbow', name: 'Rainbow Seed', category: 'dice', rarity: 'legendary', display: 'ur', usable: 'gearAwaken', desc: 'A seven-colour sakura seed. Plant it in a +10 gold piece and it blooms into rainbow UR gear.', sort: 5003 });
-  add({ id: 'needle_star', name: 'Starlight Needle', category: 'dice', rarity: 'legendary', usable: 'gearStitch', desc: 'Stitch a ✦ onto the substat you choose. Gold gear at +10 takes one; rainbow UR gear takes two, even on the same line.', sort: 5004 });
+  add({ id: 'needle_star', name: 'Starlight Needle', category: 'dice', rarity: 'legendary', usable: 'gearStitch', desc: 'Stitch a ✦ onto the substat you choose. Gold gear at +10 takes one; rainbow UR gear takes two, Nightglass LR gear three (its Nightglass ✦), even on the same line.', sort: 5004 });
   add({ id: 'club_band', name: 'Club Armband', category: 'dice', rarity: 'mythic', usable: 'gearClub', desc: 'Tie it on a Mythic, Legendary or UR piece: it joins the club you pick. Its stats don\'t change.', sort: 5005 });
 
   // the gear update (docs/specs/GEAR_UPDATE.md §4–§6): known to every save from the reader (M0) on, so an older build

@@ -6,7 +6,7 @@
 // (see src/systems/achievementMetrics.js).
 
 /** Events the game reports through track(). 'dailyDone' is internal (all dailies claimed). */
-export const TRACK_EVENTS = ['battleWin', 'battleWinHard', 'pull', 'levelUp', 'gearReroll', 'sweep', 'kill', 'bossKill', 'login', 'spendCoins', 'dailyDone', 'assaultClear', 'gearAwaken', 'gearStitch', 'potentialUp', 'titanWin', 'titanMayhem'];
+export const TRACK_EVENTS = ['battleWin', 'battleWinHard', 'pull', 'levelUp', 'gearReroll', 'sweep', 'kill', 'bossKill', 'login', 'spendCoins', 'dailyDone', 'assaultClear', 'gearAwaken', 'gearStitch', 'potentialUp', 'titanWin', 'titanMayhem', 'gearLimitBreak'];
 
 /** Daily commissions: 120 gems per day in total. */
 export const DAILY_MISSIONS = [

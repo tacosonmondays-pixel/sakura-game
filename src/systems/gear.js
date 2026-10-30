@@ -32,6 +32,7 @@ import { consumeItems, addItems, missingItems, itemCount } from './inventory.js'
 import { track } from './missions.js';
 import { potentialLevel } from './potential.js';
 import { writeRosterMark } from './rosterSave.js';
+import { PIERCE_MAX_EXTRA } from '../sim/gearRules.js';
 
 export const MAX_GEAR_LEVEL = 10;
 /** Stat multiplier per gear rarity (UR, the awakened Legendary, is 3.2). */
@@ -824,12 +825,15 @@ export function limitBreakGear(profile, uid, kind = 'blank') {
   if (!consumeItems(profile, check.cost)) return { ok: false, error: 'missing', missing: missingItems(profile, check.cost) };
   const g = profile.gear[uid];
   const before = cloneGear(g);
+  const wasSet = !!g.set;
   g.lr = kind === 'set' ? LR_SET : LR_BLANK;
   if (g.lr === LR_BLANK) delete g.set;
   g.locked = true;
-  g.name = lrName(g.set ? pieceName(g) : g.name);
+  // a set piece's fixed name goes with its set: Blank LR from one is named by its rarity and slot (pieceName)
+  g.name = wasSet ? pieceName(g) : lrName(g.name);
   const c = (profile.missions ||= {}).counters ||= {};
   c[MARK.lrEver] = (c[MARK.lrEver] || 0) + 1;
+  if (g.equippedBy) noteUrWorn(profile, g.equippedBy); // (her fifth Set LR piece wakes the LR Set Form)
   track(profile, 'gearLimitBreak', 1);
   track(profile, 'spendCoins', LIMIT_BREAK_COINS);
   return { ok: true, before, after: cloneGear(g) };
@@ -1002,14 +1006,24 @@ export function gearCaps(info) {
   if (info?.blankN >= BLANK_FIVE) for (const k of Object.keys(caps)) caps[k] = BATTLE_CAPS[k] * 2;
   else if (info?.lrN > 0) for (const k of Object.keys(caps)) caps[k] = BATTLE_CAPS[k] + (LR_CAP_STEP[k] || 0) * info.lrN;
   if (info?.set && info.setN >= 5) Object.assign(caps, SET_CAP_STATS[info.set] || {});
+  // (rounded to 1e-6: 0.3 + 0.05 × 3 is 0.44999999999999996, and a total exactly at its cap must read MAX)
+  for (const k of Object.keys(caps)) caps[k] = Math.round(caps[k] * 1e6) / 1e6;
   return caps;
 }
+
+/** The most Pierce a shot can use (PIERCE_MAX_EXTRA more targets at 100 % each): the rest fills in as ATK. */
+export const PIERCE_SHOT_PCT = PIERCE_MAX_EXTRA;
+
+/** Her caps as she is geared now (gearCaps of her set info): what the MAX tags and the stitch warning read. */
+export const unitGearCaps = (profile, unitId) => gearCaps(gearSetInfo(profile, unitId));
 
 /** The highest number of UR pieces one girl has worn (counter-backed, never goes down). */
 function noteUrWorn(profile, unitId) {
   const n = wornGear(profile, unitId).filter(isUrGear).length;
   const c = (profile.missions ||= {}).counters ||= {};
   if (n > (c[MARK.urWorn] || 0)) c[MARK.urWorn] = n;
+  // an LR Set Form worn (five Set LR pieces of one set): the "Nightglass Form" achievement, kept once reached
+  if (!c[MARK.lrForm] && gearSetInfo(profile, unitId).setLr) c[MARK.lrForm] = 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -1086,8 +1100,11 @@ export function gearFillIn(profile, unitId, { skip = null } = {}) {
   const totals = gearStatTotals(profile, unitId);
   const caps = gearCaps(set);
   for (const stat of CAPPED_STATS) {
-    // Aura Power fills in above AURA_FILL_FROM (15 %), as before its cap moved to 25 %, whatever lifts it
-    const from = stat === 'auraPct' ? AURA_FILL_FROM : caps[stat];
+    // Aura Power fills in above AURA_FILL_FROM (15 %), as before its cap moved to 25 %, whatever lifts it; Pierce above
+    // what a shot can use (PIERCE_SHOT_PCT, 200 %: LR lifts its cap to 300 %) fills in too, unless a 5-piece Party
+    // Popper's blasts read all of it (M3 review r1 #9; her blasts still widen with it either way)
+    const from = stat === 'auraPct' ? AURA_FILL_FROM
+      : stat === 'piercePct' && !(set.set === 'popper' && set.setN >= 5) ? Math.min(caps[stat], PIERCE_SHOT_PCT) : caps[stat];
     const over = totals[stat] - from;
     if (over > 1e-9 && !dead.has(stat)) parts.push({ kind: 'over', stat, value: roundStat(stat, over), w: fillWorth(stat, over, target) });
   }

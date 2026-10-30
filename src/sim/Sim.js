@@ -1373,7 +1373,8 @@ export class Sim {
     const rounds = t.stats.lab ? t.stats.lab.rounds : 0;
     this._spend(st.cost);
     t.spent += st.cost;
-    if (setPassive(t.unitStats, 'treasurer')?.firstBuy > 0) t.bakeW = this.wave;
+    // (a free upgrade — Free Refills, Club Grants — leaves her first paid one this wave still discounted)
+    if (st.cost > 0 && setPassive(t.unitStats, 'treasurer')?.firstBuy > 0) t.bakeW = this.wave;
     if (this.tryout) tryoutUpgraded(this, t, st.cost, t.tiers[path]);
     t.tiers[path]++;
     this._refreshTower(t);

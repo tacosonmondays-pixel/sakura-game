@@ -3,16 +3,17 @@
 // summary strip (its main stat + the 2 best substats), the comparison of two pieces, her Academy Club set and the
 // next substat growth. Pure (no DOM): the Equipment tab and its sheets (src/ui/girlGear.js) read these, and so can
 // the Backpack (M3). tests/ui/gearView.test.js.
-import { GEAR_STAT_DEFS, GEAR_STAT_KEYS, BATTLE_CAPS, statName, midRoll, trickIdle } from '../data/gearStats.js';
+import { GEAR_STAT_DEFS, GEAR_STAT_KEYS, statName, midRoll, trickIdle } from '../data/gearStats.js';
 import { CLUBS } from '../data/clubs.js';
 import { UNIT_MAP } from '../data/units.js';
-import { gearStatTotals, gearFillIn, gearSetInfo, gearLines, maxGearLevel, nextGrowthIndex, SUB_GROWTH_EVERY, isUrLook } from '../systems/gear.js';
+import { gearStatTotals, gearFillIn, gearSetInfo, unitGearCaps, gearLines, maxGearLevel, nextGrowthIndex, SUB_GROWTH_EVERY, isUrLook } from '../systems/gear.js';
 import { headlineKind } from './girlView.js';
 import { STAT_SHORT, statValue, statFact } from './gearTile.js';
 import { fmtNum, MINUS } from './format.js';
 
-const capped = (stat, v) => (BATTLE_CAPS[stat] != null ? Math.min(BATTLE_CAPS[stat], v) : v);
-const atCap = (stat, v) => BATTLE_CAPS[stat] != null && v >= BATTLE_CAPS[stat] - 1e-9;
+// (her own caps: a 5-piece set's set cap and LR gear's raises lift them, src/systems/gear.js gearCaps)
+const capped = (caps, stat, v) => (caps[stat] != null ? Math.min(caps[stat], v) : v);
+const atCap = (caps, stat, v) => caps[stat] != null && v >= caps[stat] - 1e-9;
 
 /**
  * What gear gives her, per stat, as she fights: the raw totals (main stats, substats, her club's 2-piece stat and
@@ -23,12 +24,13 @@ const atCap = (stat, v) => BATTLE_CAPS[stat] != null && v >= BATTLE_CAPS[stat] -
 export function gearShare(profile, unitId) {
   const t = gearStatTotals(profile, unitId);
   const fill = gearFillIn(profile, unitId);
+  const caps = unitGearCaps(profile, unitId);
   const out = {};
   for (const k of GEAR_STAT_KEYS) {
-    let v = capped(k, t[k] || 0);
+    let v = capped(caps, k, t[k] || 0);
     if (k === 'atkPct' && fill.target === 'atk') v += fill.total;
     if (k === 'auraPct' && fill.target === 'aura') v += fill.total;
-    out[k] = { raw: t[k] || 0, value: Math.round(v * 10000) / 10000, max: atCap(k, t[k] || 0) };
+    out[k] = { raw: t[k] || 0, value: Math.round(v * 10000) / 10000, max: atCap(caps, k, t[k] || 0) };
   }
   return out;
 }
@@ -65,9 +67,10 @@ export function gearStripCells(unit, profile) {
  */
 export function gearTotalsRows(profile, unitId) {
   const share = gearShare(profile, unitId);
+  const caps = unitGearCaps(profile, unitId);
   return GEAR_STAT_KEYS.filter((k) => share[k].value > 1e-9).map((k) => {
     const s = share[k];
-    const cap = BATTLE_CAPS[k];
+    const cap = caps[k];
     return {
       stat: k, name: statName(k), value: statValue(k, s.value, { detail: true }),
       cap: cap != null ? statValue(k, cap, { detail: true }) : null, max: s.max,

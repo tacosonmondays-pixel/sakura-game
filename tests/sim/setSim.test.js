@@ -246,3 +246,44 @@ describe('set passives in a battle', () => {
     expect(per.every((d) => d === 1)).toBe(true);
   });
 });
+
+describe('Bake Sale · Nightglass: the first paid upgrade each wave costs 10 % less (review M3 r1 #3, #5)', () => {
+  const board = () => {
+    const sim = new Sim({ stageId: '1-3', difficulty: 'normal', seed: 7, loadout: [{ unitId: 'aoi', stats: { ...unitBattleStats(null, 'aoi'), set: 'treasurer', setN: 5, setLr: true } }], options: { autoStart: false } });
+    sim.cash = 1e6;
+    let t = null;
+    for (let y = 0.55; y < sim.map.height && !t; y += 0.35) for (let x = 0.55; x < sim.map.width && !t; x += 0.35) if (!sim.placementReason('aoi', x, y)) t = sim.placeTower('aoi', x, y);
+    return { sim, t };
+  };
+
+  test('first upgrade −10 %, the next full price, a new wave −10 % again; `spent` counts what she paid', () => {
+    const { sim, t } = board();
+    const full = (path) => { const keep = t.bakeW; t.bakeW = sim.wave; const c = sim.upgradeStatus(t.uid, path).cost; t.bakeW = keep; return c; };
+    const p0 = full(0);
+    const first = sim.upgradeStatus(t.uid, 0).cost;
+    expect(first).toBeLessThan(p0);
+    expect(first).toBeCloseTo(p0 * 0.9, -1);
+    const spent0 = t.spent;
+    expect(sim.upgradeTower(t.uid, 0)).toBe(true);
+    expect(t.spent - spent0).toBe(first);
+    const p1 = full(1);
+    expect(sim.upgradeStatus(t.uid, 1).cost).toBe(p1); // (the second this wave: full price)
+    sim.startNextWave();
+    expect(sim.upgradeStatus(t.uid, 1).cost).toBeLessThan(p1);
+  });
+
+  test('a free upgrade leaves the discount for her first paid one', () => {
+    const { sim, t } = board();
+    const cost0 = sim._upgradeCost;
+    sim._upgradeCost = () => 0; // (a free tier: Free Refills, Club Grants)
+    expect(sim.upgradeStatus(t.uid, 0).cost).toBe(0);
+    expect(sim.upgradeTower(t.uid, 0)).toBe(true);
+    sim._upgradeCost = cost0;
+    expect(t.bakeW).not.toBe(sim.wave);
+    const keepW = t.bakeW;
+    t.bakeW = sim.wave;
+    const full = sim.upgradeStatus(t.uid, 0).cost;
+    t.bakeW = keepW;
+    expect(sim.upgradeStatus(t.uid, 0).cost).toBeLessThan(full);
+  });
+});

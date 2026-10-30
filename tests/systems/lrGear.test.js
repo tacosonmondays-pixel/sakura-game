@@ -126,14 +126,138 @@ describe('caps with LR pieces', () => {
 });
 
 describe('the hero ult\'s haste ceiling', () => {
-  it('stays 50 % with her Potential haste on top; only her own LR-raised gear haste lifts it, up to 75 %', async () => {
+  it('stays 50 % with her Potential haste on top; her own LR-raised gear haste lifts it to 75 %, Potential stacking on top (review r1 #4)', async () => {
     const { ultCooldown } = await import('../../src/sim/hero.js');
     const { UNIT_MAP } = await import('../../src/data/units.js');
     const def = UNIT_MAP.hikari;
     const base = def.hero.ult.cooldown ?? 60;
     const h = (ultHaste, pot) => ({ def, level: 1, stats: { ult: { haste: pot } }, unitStats: { ultHaste } });
     expect(ultCooldown(h(0.5, 0.2)) / base).toBeCloseTo(0.5, 9);
-    expect(ultCooldown(h(0.6, 0.2)) / base).toBeCloseTo(0.4, 9);
+    expect(ultCooldown(h(0.45, 0.2)) / base).toBeCloseTo(0.5, 9); // (no LR gear: the 50 % cap, as before)
+    // above 50 % gear haste (LR caps only) her Potential's haste adds on top, up to 75 %: 0.55 + 0.2 = 0.75
+    expect(ultCooldown(h(0.55, 0.2)) / base).toBeCloseTo(0.25, 9);
+    expect(ultCooldown(h(0.55, 0.1)) / base).toBeCloseTo(0.35, 9);
+    expect(ultCooldown(h(0.6, 0)) / base).toBeCloseTo(0.4, 9);
     expect(ultCooldown(h(1, 0.2)) / base).toBeCloseTo(0.25, 9);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M3 review r1: the Lens sources, the LR achievements, caps shown as she fights, the Blank LR name, Pierce past 200 %
+// ---------------------------------------------------------------------------
+
+describe('Nightglass Lens sources (§4.6)', () => {
+  const T0 = Date.UTC(2026, 9, 21, 12); // a Wednesday
+  const gates = (p, ids) => { for (const id of ids) p.progress.stages[id] = { easy: false, normal: true, hard: false, nightmare: false, clears: 1 }; };
+  const win = { share: 1, victory: true, damage: 1, pool: 1, leaked: false };
+
+  it('titanMayhem: a Mayhem Victory and a Mayhem sweep count; a lower tier does not', async () => {
+    const { applyTitanResult, sweepTitan } = await import('../../src/systems/titans.js');
+    const p = createProfile();
+    gates(p, ['3-5', '6-5', '8-5']);
+    p.currencies.coins = 1e8;
+    p.missions.counters['tbest:wyrm'] = 3; // (Mayhem open)
+    const fight = (tier) => applyTitanResult(p, { titanId: 'wyrm', tier, rank: 0, seed: 7, read: win, kills: { wyrm: 1 }, encountered: [] }, { now: T0 });
+    fight('hard');
+    expect(p.missions.weekly.w_nightglass || 0).toBe(0);
+    fight('mayhem');
+    expect(p.missions.weekly.w_nightglass).toBe(1);
+    expect(sweepTitan(p, 'wyrm', { now: T0, seed: 3 })).toMatchObject({ ok: true, tier: 'mayhem' });
+    expect(p.missions.weekly.w_nightglass).toBe(2);
+  });
+
+  it('Nightglass Hunt pays one Lens at 3, and only once 8-5 is cleared', async () => {
+    const { track, claimMission } = await import('../../src/systems/missions.js');
+    const p = createProfile();
+    track(p, 'titanMayhem', 3);
+    expect(claimMission(p, 'weekly', 'w_nightglass').ok).toBe(false); // (8-5 not cleared: the row is closed)
+    gates(p, ['8-5']);
+    const lens = p.items[LENS_ID] || 0;
+    const r = claimMission(p, 'weekly', 'w_nightglass');
+    expect(r.ok).toBe(true);
+    expect(r.rewards).toEqual([{ id: LENS_ID, count: 1 }]);
+    expect(p.items[LENS_ID]).toBe(lens + 1);
+    expect(claimMission(p, 'weekly', 'w_nightglass').error).toBe('claimed');
+  });
+
+  it('wave 225 pays one Lens once per tier, never twice', async () => {
+    const { applyCoopFreeplayEnd } = await import('../../src/online/coop/rewards.js');
+    const p = createProfile();
+    const end = (freeplay, wavesCleared) => applyCoopFreeplayEnd(p, {
+      stageId: '1-3', difficulty: 'normal', won: false, wave: wavesCleared + 1, wavesCleared, livesLeft: 0, maxLives: 100, encountered: [], kills: {}, stats: {},
+      freeplay, goal: 15, goalReached: true, finished: false,
+    }, createRng(1), { banked: null });
+    const lens = () => p.items[LENS_ID] || 0;
+    const r1 = end('blossom', 226);
+    expect(r1.freeplay.milestones.find((m) => m.id === 'w225').items).toEqual([{ id: LENS_ID, count: 1 }]);
+    expect(lens()).toBe(1);
+    end('blossom', 240);
+    expect(lens()).toBe(1);
+    end('tempest', 230);
+    expect(lens()).toBe(2);
+    end('tempest', 231);
+    expect(lens()).toBe(2);
+  });
+
+  it('the achievements: First Nightglass on a Limit Break, Nightglass Form on five Set LR of one set worn', async () => {
+    const { achievementList } = await import('../../src/systems/missions.js');
+    const p = rich();
+    const state = (id) => achievementList(p).find((a) => a.id === id);
+    expect(state('a_lr_first').progress ?? 0).toBe(0);
+    const uids = SLOT_IDS.map((slot) => urPiece(p, slot));
+    limitBreakGear(p, uids[0], 'set');
+    expect(p.missions.counters['ach:lrEver']).toBe(1);
+    for (const u of uids) equipGear(p, 'aoi', u);
+    expect(p.missions.counters['ach:lrForm'] || 0).toBe(0); // (one LR piece: no form)
+    for (const u of uids.slice(1)) limitBreakGear(p, u, 'set');
+    expect(p.missions.counters['ach:lrForm']).toBe(1);
+  });
+});
+
+describe('her caps as she fights (review r1 #1, #2, #8)', () => {
+  it('the totals and the Details sheet read her own caps: five Blank LR show crit up to 150 %, not 75 % MAX', async () => {
+    const { gearShare, gearTotalsRows } = await import('../../src/ui/gearView.js');
+    const p = rich();
+    const uids = SLOT_IDS.map((slot) => urPiece(p, slot, { set: null }));
+    for (const u of uids) { limitBreakGear(p, u, 'blank'); equipGear(p, 'aoi', u); }
+    p.gear[uids[1]].main = { stat: 'critChance', base: 0.3, value: 0.3 }; // (the ribbon's main: crit, read ×blankMul)
+    const raw = gearShare(p, 'aoi').critChance.raw;
+    expect(raw).toBeGreaterThan(BATTLE_CAPS.critChance);
+    const share = gearShare(p, 'aoi').critChance;
+    expect(share.value).toBeCloseTo(Math.min(raw, 2 * BATTLE_CAPS.critChance), 4);
+    expect(share.max).toBe(raw >= 2 * BATTLE_CAPS.critChance - 1e-9);
+    const row = gearTotalsRows(p, 'aoi').find((r) => r.stat === 'critChance');
+    expect(row.cap).toMatch(/150/);
+  });
+
+  it('gearCaps is rounded: a cap reached exactly reads MAX', () => {
+    const caps = gearCaps({ lrN: 3, blankN: 0, set: null, setN: 0 });
+    for (const [k, v] of Object.entries(caps)) expect(Math.round(v * 1e6) / 1e6, k).toBe(v);
+  });
+});
+
+describe('Blank LR from a set piece, Pierce past 200 % (review r1 #6, #9)', () => {
+  it('a set piece made Blank LR loses its set\'s name: rarity and slot, the Nightglass suffix', () => {
+    const p = rich();
+    const a = urPiece(p, 'hair');
+    const setName = p.gear[a].name;
+    limitBreakGear(p, a, 'blank');
+    expect(p.gear[a].name).not.toBe(setName);
+    expect(p.gear[a].name).toMatch(/Hair Clip of the Nightglass Sakura$/);
+  });
+
+  it('Pierce above 200 % fills in as ATK (what a shot cannot use), unless a 5-piece Party Popper reads it', async () => {
+    const { gearFillIn, PIERCE_SHOT_PCT } = await import('../../src/systems/gear.js');
+    const pierce = (set) => {
+      const p = rich();
+      const uids = SLOT_IDS.map((slot) => urPiece(p, slot, { set }));
+      for (const u of uids) { limitBreakGear(p, u, set ? 'set' : 'blank'); equipGear(p, 'aoi', u); }
+      // every substat a Pierce line: about 286 % in Blank LR, 229 % in Set LR (under Party Popper's 500 % set cap)
+      for (const u of uids) for (const s of p.gear[u].subs) { s.stat = 'piercePct'; s.base = 0.08; s.value = 0.08; s.upgrades = 0; }
+      return gearFillIn(p, 'aoi').over.find((o) => o.stat === 'piercePct');
+    };
+    expect(PIERCE_SHOT_PCT).toBe(2);
+    expect(pierce(null)?.value).toBeGreaterThan(0);
+    expect(pierce('popper')).toBeUndefined();
   });
 });

@@ -81,9 +81,10 @@ export const ABILITY_HASTE_SHARE = 0.5;
 /** Skill Haste cap (the battle stats cap it at source too). */
 export const SKILL_HASTE_CAP = 0.5;
 /**
- * LR gear raises her Skill Haste cap at source (GEAR_UPDATE.md §4.3); a hero's ult then reads up to this. The ult's
- * ceiling is her gear's own haste when that is above SKILL_HASTE_CAP, so a hero without LR gear keeps the 50 % cap with
- * her Potential's haste on top, exactly as before.
+ * LR gear raises her Skill Haste cap at source (GEAR_UPDATE.md §4.3); a hero's ult then reads up to this. With her gear
+ * haste above SKILL_HASTE_CAP (only LR caps get there) her ult's ceiling is this and her Potential's ult haste stacks on
+ * top; at or below it, the 50 % cap over gear and Potential together, exactly as before (no hero without LR gear moves).
+ * The spec's "SKILL_HASTE_CAP 0.75" is this split: the gear cap stays 0.5 where LR gear does not lift it.
  */
 export const ULT_HASTE_MAX = 0.75;
 /** Charge points an ability gains per tick with no haste (the abilities spec's integer charge). */

@@ -13,7 +13,7 @@ import { SLOT_IDS, MAIN_STATS_BY_SLOT, isNewSlot, slotName } from '../data/gearS
 import { GEAR_SETS, SET_TEXT } from '../data/gearSets.js';
 import { UNIT_MAP } from '../data/units.js';
 import { getItem } from '../data/items.js';
-import { GEAR_STAT_DEFS, BATTLE_CAPS, statName, STAT_HINTS, trickIdle } from '../data/gearStats.js';
+import { GEAR_STAT_DEFS, statName, STAT_HINTS, trickIdle } from '../data/gearStats.js';
 import { CLUBS, LIVE_CLUBS, CLUB_RARITIES } from '../data/clubs.js';
 import { SEED_ID, NEEDLE_ID, ARMBAND_ID, TAKE_BACK_COINS, TIE_PIN_ID, COLLAR_PIN_ID, LENS_ID } from '../data/gearAwaken.js';
 import {
@@ -24,7 +24,7 @@ import {
   describeStat, describeLine, gearLines, isUrGear, isLrGear, isUrLook, readMul, canLimitBreakGear, limitBreakGear, awakenReady, canAwakenGear, awakenGear, awakenGearCost, enhanceCost, enhanceGear,
   maxGearLevel, stitchSlots, canStitch, stitchSub, takeBackStitch, stitchCost, tuneCount, rerollCost, mainRerollCost, rerollSubstats,
   rerollMainStat, mainStatChoices, canLockPin, tunedIndices, setGearLocked, armbandCost, tieArmband, gearFillIn, gearSetInfo,
-  gearStatTotals, nextGrowthIndex, subGrowth, effectiveValue, urMul, SUB_GROWTH_EVERY, openRainbowBox, GEAR_BAG_MAX,
+  gearStatTotals, unitGearCaps, nextGrowthIndex, subGrowth, effectiveValue, SUB_GROWTH_EVERY, openRainbowBox, GEAR_BAG_MAX,
 } from '../systems/gear.js';
 import { unitPower } from '../systems/progression.js';
 import { gearIcon, uiIcon, itemIcon } from '../art/icons.js';
@@ -144,8 +144,9 @@ function fillNotes(unitId, uid) {
 /** Total gear bonuses as compact chips; a capped stat shows MAX and what spills over. */
 export function gearTotals(unitId) {
   const t = gearStatTotals(store.profile, unitId);
+  const caps = unitGearCaps(store.profile, unitId);
   const parts = Object.entries(t).filter(([, v]) => v > 0).map(([k, v]) => {
-    const cap = BATTLE_CAPS[k];
+    const cap = caps[k];
     if (cap != null && v > cap + 1e-9) return h('span.chip.gu-max', { title: `${statName(k)} stops at ${pct1(cap)}; the rest turns into ATK` }, `${describeStat(k, cap)} `, h('b', 'MAX'));
     return h('span.chip', describeStat(k, v));
   });
@@ -404,9 +405,10 @@ export function stitchModal(uid, { unitId = null, onDone = () => {} } = {}) {
     const L = gearLines(g);
     if (pick == null || !g.subs[pick]) pick = g.subs.findIndex(() => true);
     const sub = g.subs[pick];
-    const step = sub ? subGrowth(sub.stat, 'legendary') * (isUrGear(g) ? urMul(sub.stat) : 1) : 0;
+    // (its read form: ×UR, ×LR or ×Blank LR, as effectiveValue reads the line)
+    const step = sub ? subGrowth(sub.stat, 'legendary') * readMul(g, sub.stat) : 0;
     const total = wearer ? gearStatTotals(profile, wearer) : null;
-    const cap = sub ? BATTLE_CAPS[sub.stat] : null;
+    const cap = sub && wearer ? unitGearCaps(profile, wearer)[sub.stat] : null;
     const atCap = total && cap != null && total[sub.stat] >= cap - 1e-9;
     const check = canStitch(profile, uid, pick);
     put(bodyEl,
@@ -434,7 +436,7 @@ export function stitchModal(uid, { unitId = null, onDone = () => {} } = {}) {
       }) : null))),
       sub && slots.free ? h('div.gu-preview', statName(sub.stat), ' ', h('b', describeStat(sub.stat, L.subs[pick].value)), ' → ', h('b.gu-up', describeStat(sub.stat, L.subs[pick].value + step)), ` (${slots.free} ✦)`) : null,
       atCap ? h('div.mb-note.gu-warn', `${statName(sub.stat)} is already at MAX on her: the extra fills in as ATK instead.`) : null,
-      sub && slots.free && wearer ? powerPreview(wearer, uid, (x) => { if (slots.free === 'night') x.subs[pick].night = 1; else x.subs[pick].tuned = (x.subs[pick].tuned | 0) | (slots.free === 'gold' ? 1 : 2); x.subs[pick].value += step / (isUrGear(g) ? readMul(g, sub.stat) : 1); }) : null,
+      sub && slots.free && wearer ? powerPreview(wearer, uid, (x) => { if (slots.free === 'night') x.subs[pick].night = 1; else x.subs[pick].tuned = (x.subs[pick].tuned | 0) | (slots.free === 'gold' ? 1 : 2); x.subs[pick].value += step / readMul(g, sub.stat); }) : null,
       slots.free ? h('div.mb-reroll-foot',
         h('div.mb-reroll-cost', h('div.mb-sub-title', 'Cost'), costLine(stitchCost())),
         button('Stitch', {
@@ -643,7 +645,9 @@ export function limitBreakModal(uid, { onDone = () => {} } = {}) {
         const check = canLimitBreakGear(profile, uid, k.kind);
         return h('div.row', h('div', h('b', k.label), h('p.muted', k.text)), button(check.ok ? k.label : check.reason === 'missing' ? 'Need Lens + coins' : 'Not possible', {
           kind: 'primary', small: true, icon: null, disabled: !check.ok, testid: `limit-break-${k.kind}`,
-          onClick: () => {
+          onClick: async () => {
+            // Blank LR is for good: the piece leaves its set (a set piece) and never comes back
+            if (k.kind === 'blank' && !(await confirmDialog(g.set ? `Blank LR takes this piece out of the ${GEAR_SETS[g.set].name} set for good. Limit Break it as Blank LR?` : 'Blank LR is for good: the piece never joins a set. Limit Break it as Blank LR?', { title: 'Blank LR', ok: 'Limit Break', danger: true }))) return;
             const res = limitBreakGear(profile, uid, k.kind);
             if (!res.ok) { toast('Could not Limit Break it.', 'bad'); return; }
             store.commit('gear-limit-break');

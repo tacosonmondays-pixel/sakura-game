@@ -90,6 +90,7 @@ export const MARK = Object.freeze({
   team: 'tm:', // teams: `tm:a` the active team, `tm:<team>:<unitId>` her place and loadout
   preset: 'gp:', // gear loadouts: `gp:<unitId>` active + 10 × count, `gp:<unitId>:<n>:<slot>` the piece
   lrEver: 'ach:lrEver', // Limit Breaks ever (achievements "First Nightglass")
+  lrForm: 'ach:lrForm', // 1 once a girl has worn an LR Set Form (achievement "Nightglass Form")
   // the one-time Set Boxes (GEAR_UPDATE.md §5.3, r3): one mark per box, for veterans and new players alike
   welcomeBox: 'su:welcome', // the welcome Mythic Set Box (Titan Trials open)
   titanBox: 'su:titanbox:', // su:titanbox:<titan> — that titan's Legendary Set Box (its Nightmare first clear)
