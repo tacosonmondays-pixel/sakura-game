@@ -42,6 +42,9 @@ const shotsDir = opt('shots', null);
 // --only s20: only the Extended Day and Random Class steps (11b, 11c) after the unlock
 const only = opt('only', null);
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
+// --shots-r2 dir: the Pep Talks list mid-period only (the review's shots)
+const SHOTS_R2 = opt('shots-r2', null);
+if (SHOTS_R2) mkdirSync(SHOTS_R2, { recursive: true });
 const SAVE_KEY = 'sakura-sentinels-save-v1';
 const IGNORE = [/GPU stall/i, /WebGL/i, /GL_CLOSE_PATH_NV|GroupMarkerNotSet/i, /favicon\.ico/i, /Failed to load resource/i];
 
@@ -88,6 +91,8 @@ for (const [W, H] of viewports) {
     } catch { /* (a test helper) */ }
   }, SAVE_KEY);
   const page = await context.newPage();
+  // (opt-in for a loaded shared machine: --slow raises the default action timeout from 30 s to 90 s)
+  if (args.includes('--slow')) page.setDefaultTimeout(90000);
   page.on('console', (m) => { if (m.type() === 'error' && !IGNORE.some((r) => r.test(m.text()))) errors.push(`${W}x${H} ${m.text()}`); });
   page.on('pageerror', (e) => errors.push(`${W}x${H} pageerror ${e.message}`));
   // (a screenshot is not a check: a WebGL frame that will not settle under load is logged and the run goes on)
@@ -491,7 +496,7 @@ for (const [W, H] of viewports) {
   check(await marblesPill().isVisible(), 'Marbles sit in the top bar on the Tryout hub');
   await shot('ty-hub-locked');
   await page.evaluate(() => sessionStorage.setItem('__tyUnlock', '1'));
-  await page.reload();
+  await page.reload({ timeout: 180000 }); // (a loaded shared machine: the default 30 s timed out)
   await screenIs('tryout');
   check(await page.waitForSelector('[data-testid="tryout-hub"][data-state="fresh"]', { timeout: 10000 }).then(() => true).catch(() => false), 'the hub opens after 2-5');
   if (only === 's20') {
@@ -607,8 +612,16 @@ for (const [W, H] of viewports) {
   await page.waitForTimeout(200);
   const cls = await page.evaluate(() => { const t = window.__battle.sim.tryout; return { next: t.nextSubject, pair: t.subjects[2], dare: t.players[0].dare }; });
   check(cls.next === cls.pair[1] && cls.dare === true, `a Subject and the Dare are chosen (${JSON.stringify(cls)})`);
+  // (the Dare stays on for this one period: the list's "this period" lines are checked mid-period below; the sim turns
+  // every player's tap off when a period starts, so the rest of the run plays without the curse)
+  // (the switch repaints on a frame after the tap: wait for its "on" words before reading them)
+  await page.waitForFunction(() => /Double Dare: on · /.test(document.querySelector('[data-testid="ty-dare"] > span:last-child')?.textContent || ''), null, { timeout: 5000, polling: 50 }).catch(() => {});
+  const dareLbl = await page.evaluate(() => {
+    const s = document.querySelector('[data-testid="ty-dare"] > span:last-child');
+    return { text: s?.textContent || '', cut: !!s && s.scrollWidth > s.clientWidth + 1 };
+  });
+  check(!dareLbl.cut && /^Double Dare: on · \S/.test(dareLbl.text), `the Double Dare switch names its curse in full (${JSON.stringify(dareLbl)})`);
   await shot('ty-class');
-  await page.click('[data-testid="ty-dare"]'); // (off again: the rest of the run plays without the curse)
   // the period starts: its Subject is named in the tracker head (and on the rule pill when it has a map rule)
   await page.evaluate(() => {
     const { sim, ui } = window.__battle;
@@ -624,6 +637,43 @@ for (const [W, H] of viewports) {
   });
   check(pill.rule === 'tryout' ? !pill.shown : pill.shown && pill.text.includes(subjName), `the rule pill follows the period's Subject (${JSON.stringify(pill)})`);
   await shot('ty-period');
+  // (r1 F1) the list mid-period, the Dare on: its curse in words, never "[object Object]"; and a Grade twist (Grade 8+;
+  // this run's Grade has none, so the period's affix is set for the look only and put back before the sim steps again)
+  const midPeps = await page.evaluate(async () => {
+    const { sim } = window.__battle;
+    const t = sim.tryout;
+    const had = Array.isArray(t.affixes) ? [...t.affixes] : t.affixes;
+    const a = Array.isArray(t.affixes) ? [...t.affixes] : [];
+    while (a.length <= t.period) a.push(null);
+    a[t.period] = t.dare?.id === 'regen' ? 'swift' : 'regen';
+    t.affixes = a;
+    const want = { dare: t.dare?.id || null, affix: t.affixes[t.period] };
+    document.querySelector('[data-testid="ty-peps-open"]').click();
+    for (let i = 0; i < 20 && !document.querySelector('[data-testid="ty-peps-sheet"]'); i++) await new Promise((r) => requestAnimationFrame(r));
+    const lines = [...document.querySelectorAll('[data-testid="ty-peps-drawbacks"] li')].map((l) => l.textContent.trim());
+    return { want, lines, had };
+  });
+  const dareLine = midPeps.lines.find((l) => l.startsWith('Double Dare this period: ')) || '';
+  const twistLine = midPeps.lines.find((l) => l.startsWith('Grade twist this period: ')) || '';
+  check(!!midPeps.want.dare && dareLine.length > 26 && !/object|undefined/i.test(dareLine), `mid-period, the list names the Double Dare curse (${JSON.stringify(dareLine)}, dare ${midPeps.want.dare})`);
+  check(twistLine.length > 26 && !/object|undefined/i.test(twistLine), `mid-period, the list names the Grade twist (${JSON.stringify(twistLine)})`);
+  // (r1 F2) the tracker's opener and the list's × are full taps (the kit's 44 px at least)
+  const taps = await page.evaluate(() => {
+    const sz = (q) => { const r = document.querySelector(q)?.getBoundingClientRect(); return r ? [Math.round(r.width), Math.round(r.height)] : [0, 0]; };
+    return { open: sz('[data-testid="ty-peps-open"]'), x: sz('[data-testid="ty-peps-close"]') };
+  });
+  await shot('ty-peps-mid');
+  if (SHOTS_R2) await page.screenshot({ path: `${SHOTS_R2}/peps-mid-${W}x${H}.png`, timeout: 60000 }).catch(() => {});
+  await page.keyboard.press('Escape');
+  await page.evaluate((had) => { window.__battle.sim.tryout.affixes = had; }, midPeps.had);
+  // (the list closed: the opener's tap square is what a tap at its corners hits)
+  await page.waitForFunction(() => !document.querySelector('[data-testid="ty-peps-sheet"]'), null, { timeout: 3000 }).catch(() => {});
+  taps.edges = await page.evaluate(() => {
+    const o = document.querySelector('[data-testid="ty-peps-open"]').getBoundingClientRect();
+    const hitAt = (x, y) => document.elementFromPoint(x, y)?.closest('[data-testid="ty-peps-open"]') != null;
+    return hitAt(o.left + 2, o.bottom - 2) && hitAt(o.right - 2, o.top + 2) && hitAt(o.left + o.width / 2, o.bottom - 2);
+  });
+  check(Math.min(...taps.open, ...taps.x) >= 44 && taps.edges, `the tracker's Pep Talks button and the list's × are 44 px taps (${JSON.stringify(taps)})`);
 
   // 4. to Recess (R2: at the Pep Talk picks, the cap bars, MORE and a tap outside a preview)
   let barsSeen = 0;
@@ -701,10 +751,68 @@ for (const [W, H] of viewports) {
     return null;
   });
   check(moved && moved.passes === 2, 'a Hall Pass move spends a pass');
+  await peps('ty-peps-open', 'the tracker');
+
+  // (Oct 30) the Pep Talks taken: a button opens the list any time in the run (here: the tracker's, and the break
+  // bar's); every card taken is a row (a stack: one row with its count), the drawbacks and the Seat Change are listed
+  // (the move just made counts), it stays inside the screen, and Escape or × closes it with the focus back on the button
+  async function peps(btn, where, { end = false } = {}) {
+    const want = await page.evaluate((e) => {
+      const { sim } = window.__battle;
+      const cards = e ? sim.result().tryout.players[0].cards : sim.tryout.players[0].cards;
+      return { rows: new Set(cards.map((c) => `${c.id}|${c.unit || ''}`)).size, n: cards.length, moves: e ? sim.result().tryout.players[0].moves : sim.tryout.players[0].moves };
+    }, end);
+    await page.click(`[data-testid="${btn}"]`);
+    const open = await page.waitForSelector('[data-testid="ty-peps-sheet"]', { timeout: 3000 }).then(() => true).catch(() => false);
+    check(open, `${where}'s Pep Talks button opens the list`);
+    const got = await page.evaluate(() => {
+      const box = document.querySelector('[data-testid="ty-peps-sheet"]');
+      const r = box?.getBoundingClientRect();
+      return {
+        rows: box?.querySelectorAll('.ty-pep').length || 0, none: !!box?.querySelector('[data-testid="ty-peps-none"]'),
+        count: box?.querySelector('[data-testid="ty-peps-count"]')?.textContent || '',
+        lines: [...(box?.querySelectorAll('.ty-pep-ln') || [])].every((l) => l.textContent.trim().length > 4),
+        draw: !!box?.querySelector('[data-testid="ty-peps-drawbacks"]'), seats: box?.querySelector('[data-testid="ty-peps-seats"]')?.textContent || '',
+        inside: !!r && r.left >= -1 && r.right <= window.innerWidth + 1 && r.top >= -1 && r.bottom <= window.innerHeight + 1,
+        hscroll: !!box && box.scrollWidth > box.clientWidth + 1,
+        focus: !!document.activeElement?.closest('[data-testid="ty-peps-sheet"]'),
+      };
+    });
+    check(got.rows === want.rows && (want.rows > 0 || got.none) && got.count.startsWith(`${want.n} `) && got.lines,
+      `${where}: a row per Pep Talk taken, each with its effect (${got.rows} of ${want.rows}, ${got.count})`);
+    check(got.draw && got.seats.includes(`moves this run: ${want.moves}`), `${where}: the drawbacks and the Seat Change (${got.seats.slice(0, 80)})`);
+    check(got.inside && !got.hscroll && got.focus, `${where}: the list fits the screen, no sideways scroll, focus inside (${JSON.stringify({ inside: got.inside, h: got.hscroll, focus: got.focus })})`);
+    await shot(`ty-peps-${btn.replace('ty-peps-', '')}`);
+    await page.keyboard.press('Escape');
+    const closed = await page.waitForFunction(() => !document.querySelector('[data-testid="ty-peps-sheet"]'), null, { timeout: 3000 }).then(() => true).catch(() => false);
+    check(closed && await page.evaluate((b) => document.activeElement?.dataset?.testid === b, btn), `${where}: Escape closes the list, the focus back on its button`);
+  }
+  // the break bar's button too (wide screens: a phone's break bar keeps to one row, the tracker's button above it), × closes
+  if (await page.locator('[data-testid="ty-peps-break"]').isVisible()) {
+    await page.click('[data-testid="ty-peps-break"]');
+    check(await page.waitForSelector('[data-testid="ty-peps-sheet"]', { timeout: 3000 }).then(() => true).catch(() => false), 'the break bar\'s Pep Talks button opens the list');
+  } else await page.click('[data-testid="ty-peps-open"]');
+  await page.click('[data-testid="ty-peps-close"]');
+  check(await page.locator('[data-testid="ty-peps-sheet"]').count() === 0, 'the list\'s × closes it');
+  const brkRow = await page.evaluate(() => {
+    const b = [...document.querySelectorAll('[data-testid="ty-break"] .ty-acts > *')].filter((e) => e.getClientRects().length);
+    const t = document.querySelector('[data-testid="ty-tracker"]').getBoundingClientRect();
+    const k = document.querySelector('[data-testid="ty-break"]').getBoundingClientRect();
+    return { rows: new Set(b.map((e) => Math.round(e.getBoundingClientRect().top))).size, clear: t.bottom <= k.top || t.right <= k.left || window.innerWidth < 600 };
+  });
+  // (r1 F6) Back to class, the primary, is on the bar's first row whatever wraps
+  const readyRow = await page.evaluate(() => {
+    const vis = [...document.querySelectorAll('[data-testid="ty-break"] .ty-acts > *')].filter((e) => e.getClientRects().length);
+    const top = (e) => Math.round(e.getBoundingClientRect().top);
+    return { first: top(vis[0]), ready: top(document.querySelector('[data-testid="ty-ready"]')) };
+  });
+  // (wide screens, where the bar holds the Pep Talks button; a phone's bar has none, and a portrait phone's own wrap is its width)
+  if (W >= 700) check(Math.abs(readyRow.first - readyRow.ready) <= 2, `Back to class sits on the break bar's first row (${JSON.stringify(readyRow)})`);
+  check((H > 430 || brkRow.rows === 1) && brkRow.clear, `the break bar keeps its buttons in one row on a phone and clear of the tracker (${JSON.stringify(brkRow)})`);
 
   // 5. reload mid-break: the same run, the same break
   await page.evaluate(() => window.__battle.ui.saver?.markProgress?.({ now: true }));
-  await page.reload();
+  await page.reload({ timeout: 180000 }); // (a loaded shared machine: the default 30 s timed out)
   check(await battleReady(), 'a reload continues the run');
   check(await page.evaluate(() => window.__battle.sim.tryout.players[0].win === 'break'), 'still at the break after the reload');
   await page.waitForSelector('[data-testid="ty-ready"]', { timeout: 30000 }).catch(() => {});
@@ -799,6 +907,7 @@ for (const [W, H] of viewports) {
   });
   check(againSeen, 'the Class Photo buttons are in view without scrolling');
   await shot('ty-photo');
+  await peps('ty-peps-photo', 'the Class Photo', { end: true });
 
   // 9. Replay this seed: a practice Before Class of the same seed
   await page.click('[data-testid="ty-replay"]');
@@ -853,11 +962,28 @@ for (const [W, H] of viewports) {
   check(await page.waitForSelector('[data-testid="yb-page"]', { timeout: 5000 }).then(() => true).catch(() => false) && await page.locator('[data-testid="yb-page"] [data-testid="girl-plate"]').count() === 1, 'her page opens with her nameplate');
   await shot('ty-yearbook-page');
   await page.keyboard.press('Escape');
+  // (Oct 30) a Pep Talk taken opens its page: its effect at each rarity it comes in (this test's runs may end before a
+  // Pep Talk is taken: stamp one as taken, as the pencil step above stamps a girl)
+  await page.evaluate(() => {
+    const { store } = window.__sakura;
+    store.profile.tryoutMeta.yb.cards.E01 = 1;
+    store.commit('test');
+  });
+  await page.goto(`${base}#/tryout/yearbook?tab=cards`);
+  await page.waitForSelector('[data-testid^="yb-card-"]', { timeout: 10000 }).catch(() => {});
+  await screenIs('tryout');
+  const ybCard = await page.locator('button.ty-yb-slot:has(> .ty-yb-card.on)').first().getAttribute('data-card').catch(() => null);
+  if (ybCard) await page.click(`[data-testid="yb-card-${ybCard}"]`);
+  const ybRows = await page.waitForSelector('[data-testid="yb-card-page"] .ty-yb-rars > li', { timeout: 5000 }).then(() => page.locator('[data-testid="yb-card-page"] .ty-yb-rars > li').count()).catch(() => 0);
+  check(!!ybCard && ybRows > 0, `a taken Pep Talk's Yearbook page lists its effect by rarity (${ybCard}: ${ybRows})`);
+  check(await noHScroll(), 'no horizontal scroll with a Pep Talk\'s page open');
+  await shot('ty-yearbook-card');
+  await page.keyboard.press('Escape');
 
   // 11. the Marble Jar: a purchase (Pencil Money) and its switch; the perk rides into Before Class
   await page.evaluate(() => sessionStorage.setItem('__tyMarbles', '200'));
   await page.goto(`${base}#/tryout/jar`);
-  await page.reload();
+  await page.reload({ timeout: 180000 }); // (a loaded shared machine: the default 30 s timed out)
   await screenIs('tryout');
   check(await page.waitForSelector('[data-testid="tryout-jar"]', { timeout: 10000 }).then(() => true).catch(() => false), 'the Marble Jar opens');
   const jarTabs = await page.locator('[data-testid="jar-rail"] .ui-stab').evaluateAll((els) => els.map((e) => `${e.dataset.tab}:${e.querySelector('.num')?.textContent || ''}`));

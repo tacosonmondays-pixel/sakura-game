@@ -232,6 +232,21 @@ body.ui-day .ty-yb-page.blank .ty-yb-pic { filter: grayscale(1); opacity: 0.35; 
 body.ui-day .ty-yb-plate { position: absolute; left: 6px; right: 6px; bottom: 6px; z-index: 2; }
 body.ui-day .ty-yb-side { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 body.ui-day .ty-yb-line { margin: 0; font: 600 var(--fs-body)/1.35 var(--font); color: var(--ink); }
+/* a Pep Talk's page (a sheet): its group, a row per rarity it comes in (the kit's rarity tag, then its effect), its
+   drawback */
+/* (each Pep Talk chip sits in a slot one tap tall, so the rows sit a tap apart and the targets never overlap; a button's
+   slot is the kit's .ui-hit around the chip) */
+body.ui-day .ty-yb-cards:has(> .ty-yb-slot) { row-gap: 0; }
+body.ui-day .ty-yb-slot { display: inline-flex; align-items: center; min-height: var(--tap); }
+body.ui-day button.ty-yb-slot { cursor: pointer; }
+body.ui-day button.ty-yb-slot:active > .ty-yb-card { transform: scale(0.96); }
+body.ui-day button.ty-yb-slot:focus-visible > .ty-yb-card { --edge: var(--m-cy-stroke); }
+body.ui-day .ty-yb-cardpage { display: flex; flex-direction: column; gap: 8px; }
+body.ui-day .ty-yb-cardpage .ty-yb-line > .lbl { color: var(--ink); }
+body.ui-day .ty-yb-rars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+body.ui-day .ty-yb-rars > li { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line-ink-soft); font: 600 var(--fs-body)/1.35 var(--font); color: var(--ink); }
+body.ui-day .ty-yb-rars > li > .ui-rtag { flex: none; }
+body.ui-day .ty-yb-draw { margin: 0; font: 600 var(--fs-body)/1.35 var(--font); color: var(--ink); }
 @media (max-height: 480px) {
   body.ui-day .ty-yb-girls { grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; }
   body.ui-day .ty-yb-girls > .ui-girltile > .cap { height: 22px; padding-left: 5px; }

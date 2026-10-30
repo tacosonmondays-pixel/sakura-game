@@ -2,12 +2,13 @@
 // kit list screen. The rail: Students (n / 29), Pep Talks (taken / in the game), Bosses and Records (?tab=records opens
 // it: the hub's Records tile). A page per student as her girl tile: colour once she tried out and is yours, a pencil
 // sketch while she is a Loaner ("Not in your class yet", the tile's not-met frame), blank before she tries out; a tap
-// opens her page (her nameplate, how her page fills in). Rules: src/systems/tryoutYearbook.js.
+// opens her page (her nameplate, how her page fills in). A Pep Talk seen or taken opens its page: what it does at each
+// rarity it comes in, and its drawback. Rules: src/systems/tryoutYearbook.js.
 import '../styles/hubs.css';
 import '../styles/v2-roster.css';
 import '../styles/tryout.css';
 import { h, girlTile } from '../components.js';
-import { ghostBtn } from '../kit.js';
+import { ghostBtn, rarityTag } from '../kit.js';
 import { listScreen } from '../listScreen.js';
 import { openSheet } from '../sheet.js';
 import { namePlate } from '../girlFrame.js';
@@ -19,7 +20,8 @@ import { getMap } from '../../data/maps.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { fmtNum } from '../format.js';
 import { yearbookPages } from '../../systems/tryoutYearbook.js';
-import { CARD_TEXT, YEARBOOK_TEXT, YEARBOOK_SCREEN, LENGTH_NAMES, WAVE_RECORD_TEXT } from '../text/tryout.js';
+import { PEP_CARDS, RARITIES } from '../../data/tryout.js';
+import { CARD_TEXT, YEARBOOK_TEXT, YEARBOOK_SCREEN, LENGTH_NAMES, WAVE_RECORD_TEXT, PEP_LIST_TEXT, DRAWBACK_TEXT, cardText } from '../text/tryout.js';
 
 export const YB_SECTIONS = Object.freeze(['girls', 'cards', 'bosses', 'records']);
 const YB_GLYPH = { girls: 'cap', cards: 'stamp', bosses: 'crown', records: 'trophy' };
@@ -60,6 +62,31 @@ function openGirlPage(g) {
   });
 }
 
+/**
+ * Pure: a Pep Talk's Yearbook page: its group, and its effect at each rarity it comes in (a One girl card says "One
+ * squad girl"; a Hidden Talent names her), and its drawback.
+ * @returns {{ name: string, group: string, rows: Array<{ r: number, rarity: string, line: string }>, drawback: string|null }}
+ */
+export function cardPage(id) {
+  const c = PEP_CARDS[id];
+  if (!c) return { name: id, group: '', rows: [], drawback: null };
+  const rows = (c.rar || []).map((r) => ({ r, rarity: RARITIES[r], line: cardText({ id, r, unit: c.unit || null }, { who: PEP_LIST_TEXT.yearbookWho }).line }));
+  return { name: CARD_TEXT[id]?.name || id, group: PEP_LIST_TEXT.groups[c.group] || c.group, rows, drawback: DRAWBACK_TEXT[id] ? DRAWBACK_TEXT[id]() : null };
+}
+
+/** A Pep Talk's page (a sheet): taken or seen, its group, each rarity's line, its drawback. */
+function openCardPage(c) {
+  const pg = cardPage(c.id);
+  openSheet({
+    title: pg.name, testid: 'yb-card-page', cls: 'ty-yb-sheet',
+    body: h('div.ty-yb-cardpage', { 'data-card': c.id },
+      h('p.ty-yb-line', h('span.lbl', PEP_LIST_TEXT.yearbookGroup(pg.group)), ' · ', c.taken ? PEP_LIST_TEXT.yearbookTaken : PEP_LIST_TEXT.yearbookSeen),
+      h('ul.ty-yb-rars', { 'aria-label': PEP_LIST_TEXT.yearbookRar },
+        ...pg.rows.map((row) => h('li', rarityTag(row.rarity), h('span', row.line)))),
+      pg.drawback ? h('p.ty-yb-draw', h('b', `${PEP_LIST_TEXT.drawback}: `), pg.drawback) : null),
+  });
+}
+
 export function renderYearbook(root, params = {}) {
   if (YB_SECTIONS.includes(params.tab)) sectionOn = params.tab;
   let railKey = JSON.stringify(sectionTabs(yearbookPages(store.profile)));
@@ -93,8 +120,13 @@ export function renderYearbook(root, params = {}) {
     if (!shown.length) return h('p.ty-list-note', YEARBOOK_TEXT.none);
     return h('div.ty-yb-cards', yb.cards.map((c) => {
       const name = c.taken || c.seen ? CARD_TEXT[c.id]?.name || c.id : YEARBOOK_SCREEN.unseen;
-      return h(`span.ui-chip.ty-yb-card${c.taken ? '.on' : c.seen ? '.seen' : '.unseen'}`, { 'data-card': c.id, title: c.taken ? 'Taken' : c.seen ? 'Seen, not taken yet' : 'Not seen yet' },
-        h('span', name));
+      const state = c.taken ? '.on' : c.seen ? '.seen' : '.unseen';
+      const title = c.taken ? 'Taken' : c.seen ? 'Seen, not taken yet' : 'Not seen yet';
+      // (a card seen or taken opens its page; an unseen one stays a blank chip. Each sits in a tap-tall slot: a button's
+      // slot is the kit's .ui-hit, the 44 px target around the shorter chip)
+      const chip = h(`span.ui-chip.ty-yb-card${state}`, h('span', name));
+      if (!c.taken && !c.seen) return h('span.ty-yb-slot', { 'data-card': c.id, title }, chip);
+      return h('button.ui-hit.ty-yb-slot', { type: 'button', 'data-card': c.id, 'data-testid': `yb-card-${c.id}`, title, onclick: () => openCardPage(c) }, chip);
     }));
   };
 
