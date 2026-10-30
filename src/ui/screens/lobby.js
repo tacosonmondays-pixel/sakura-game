@@ -69,6 +69,7 @@ import '../styles/events.css';
 import { portraitUrl } from '../../art/portraits.js';
 import { lobbyBackgroundFor, stageModeOf, LOBBY_BG_MAP } from '../../data/lobbyArt.js';
 import { ensureBetaGift, ensurePotentialLetter, unclaimedMailCount } from '../../systems/mail.js';
+import { ensureVigilRibbonGift } from '../../systems/vigilRibbonGift.js';
 import { ensureCatchUpJoins } from '../../systems/catchUpJoins.js';
 import { itemIcon } from '../../art/icons.js';
 import { nextStage, chapterProgress, isStageUnlocked, stageMedals } from '../../systems/unlocks.js';
@@ -646,6 +647,7 @@ export function render(root) {
   // Beta Tester Thank-You: delivered on app start (main.js), also after a reset/import here, celebrated once a session
   if (ensureBetaGift(store.profile)) store.commit('mail');
   if (ensurePotentialLetter(store.profile)) store.commit('mail');
+  if (ensureVigilRibbonGift(store.profile)) store.commit('mail'); // after a reset or an import, or a run that just passed wave 200
   if (ensureCatchUpJoins(store.profile).length) store.commit('mail'); // the catch-up girls after a reset or an import too
   // [story] never over a story scene or before a new player has met Hikari: try again when the scene ends
   const betaGift = () => {

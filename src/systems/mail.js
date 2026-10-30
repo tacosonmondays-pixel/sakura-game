@@ -16,6 +16,7 @@ import { UNITS } from '../data/units.js';
 import { potentialLevel, potentialStepInfo, BACKFILL_MARKER, MAX_POTENTIAL, V3_MARKER, NEW_PREFIX } from './potential.js';
 import { potentialLevelCap, levelCapAt, MAX_BREAKTHROUGH, MAX_LEVEL, BREAKTHROUGH_LEVEL_CAP, BASE_GATES } from './progression.js';
 import { FREEPLAY_REWARDS } from '../online/coop/rewards.js';
+import { HONOR_REWARD_PREFIX, HONOR_GIFT_MARK } from './profileHonors.js';
 
 /** Most letters kept (oldest claimed letters are dropped first). */
 export const MAIL_LIMIT = 60;
@@ -146,7 +147,19 @@ export function claimMail(profile, id, now = Date.now()) {
   if (expired(l, now)) return { ok: false, error: 'expired', rewards: [] };
   l.claimed = true;
   l.claimedAt = ms(now);
-  return { ok: true, rewards: addItems(profile, l.rewards), letter: l };
+  return { ok: true, rewards: payRewards(profile, l.rewards), letter: l };
+}
+
+/**
+ * A letter's rewards into the save: items and currencies to the Backpack, an 'honor:<achId>' reward as that Honor
+ * Ribbon (the 'hgift:' counter mark; the ribbon only, never the achievement). Returns every reward paid.
+ */
+function payRewards(profile, rewards) {
+  const list = normalizeList(rewards);
+  const c = ((profile.missions ||= {}).counters ||= {});
+  for (const r of list) if (r.id.startsWith(HONOR_REWARD_PREFIX)) c[HONOR_GIFT_MARK + r.id.slice(HONOR_REWARD_PREFIX.length)] = 1;
+  addItems(profile, list.filter((r) => !r.id.startsWith(HONOR_REWARD_PREFIX)));
+  return list;
 }
 
 /**

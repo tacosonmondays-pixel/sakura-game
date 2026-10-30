@@ -20,6 +20,13 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.64', version: '0.1.64', date: '2026-10-30', title: 'A Ribbon for the Night Watch',
+    added: [
+      'Reached wave 200 or beyond in Freeplay (any difficulty, solo or co-op)? A letter in your Mailbox holds the Starlight Vigil Ribbon for your Honor Ribbon Case. The Eclipse Wyrm at wave 250 turned out far stronger than intended, so nobody could earn it. Claim it by Nov 30; reach wave 200 before then and it comes to you too.',
+      'The Starlight Vigil achievement itself stays open, with its gems and title still to win.',
+    ],
+  },
+  {
     id: 'v0.1.63', version: '0.1.63', date: '2026-10-30', title: 'Two More Spooky Weeks',
     changed: [
       'Pumpkin Lantern Night runs two weeks longer: its operations and missions now end Nov 15 and the Candy Exchange closes Nov 22 (7 PM Central).',

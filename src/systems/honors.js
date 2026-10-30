@@ -1,6 +1,6 @@
 // Honor Ribbons and titles owned (owner: systems; docs/specs/ACHIEVEMENTS.md §2, §3.1, §6.1). Ownership is NEVER
 // stored: it is derived from the achievement claims (missions.achievements[id] === true), which every build keeps
-// word for word. So a past claimer owns the ribbons and titles added to shipped rows the moment this build loads,
+// word for word (a ribbon a Mailbox letter gave also reads its 'hgift:' counter mark: profileHonors.ribbonGifted). So a past claimer owns the ribbons and titles added to shipped rows the moment this build loads,
 // nothing can be dropped by an older cached tab, and nothing can pay twice.
 //
 // Stable interface for the Sensei Profile (feature/profile):
@@ -18,6 +18,7 @@ import { ACHIEVEMENT_MAP, achievementLive, NO_COSMETIC } from '../data/achieveme
 import { HONOR_RIBBONS, TITLES } from '../data/honors.js';
 import { markedTags, isTagTitle } from '../data/playerTags.js';
 import { ALL_EVENTS } from '../data/events/index.js';
+import { ribbonGifted } from './profileHonors.js';
 
 export { ribbonArt, titlePlate } from '../ui/honorFx.js';
 
@@ -56,9 +57,9 @@ export function titlesFromText(ids) {
   return tags ? TITLES_FROM_TAGS : TITLES_FROM;
 }
 
-/** Ribbon ids owned (claimed, known and live in this build), in case order. */
+/** Ribbon ids owned (claimed or gifted by a letter, known and live in this build), in case order. */
 export function ownedRibbons(profile) {
-  return HONOR_RIBBONS.filter((h) => claimed(profile, h.id)).map((h) => h.id);
+  return HONOR_RIBBONS.filter((h) => claimed(profile, h.id) || ribbonGifted(profile, h.id)).map((h) => h.id);
 }
 
 /** The two freeplay titles: from the 'fpm:' marks every build keeps, or the older progress.freeplay strings. */
