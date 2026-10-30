@@ -498,6 +498,10 @@ const IROHA = {
   awakenPassive: { name: 'Polished Silver', desc: 'Bolts pierce 1 more enemy and +6% damage.', mods: { pierce: 1, damageMul: 1.06 } },
 };
 
+// Ena's spreading hex: a curse that rots for `rot` × the cursing hit a second and passes on while its enemy lives
+// (src/sim/Sim.js _curseTick); it still bursts when the enemy falls
+const hex = (burstMul, radius, duration, rot) => ({ ...S.curse(burstMul, radius, duration), rot });
+
 const ENA = {
   id: 'ena',
   name: 'Ena',
@@ -521,23 +525,23 @@ const ENA = {
     hairStyle: 'braid', bangs: 'split', accessory: 'flower', outfit: 'blazer', weapon: 'cards',
     halo: 'moon', eyeStyle: 'sharp', expression: 'smug',
   },
-  bio: 'The occult club\'s fortune-teller. Rose-pink hair with a braid and a red rose ornament, a black academy blazer with a crimson tie, a long black cardigan and a wrist launcher that deals holo curse cards on red threads of light. When a cursed enemy falls, the curse blooms onto its neighbours.',
+  bio: 'The occult club\'s fortune-teller. Rose-pink hair with a braid and a red rose ornament, a black academy blazer with a crimson tie, a long black cardigan and a wrist launcher that deals holo curse cards on red threads of light. Her curse is a spreading hex: it eats at a cursed enemy, creeps on to its neighbours and blooms when the enemy falls.',
   personality: 'Teasing, dramatic and fond of ominous predictions, which are usually about lunch.',
   quote: 'Draw a card. Oh dear... that one\'s for you.',
   tips: [
-    'Cursed enemies burst when they fall, hurting their neighbours and passing on a weaker curse.',
-    'A curse spreads at most two more times: dense waves chain beautifully.',
+    'Her curse is a spreading hex: a cursed enemy loses a share of her hit every second, even when another girl lands the kill, and passes a weaker hex to the nearest uncursed enemy within 1.2 tiles every second, up to four times.',
+    'Cursed enemies still burst when they fall, hurting their neighbours and passing on a weaker curse (at most two more times).',
     'Withering Script stops regeneration like poison.',
-    '⚡ Cursed Bloom tier 3 teaches Omen Card: a cursed card for every enemy around her, so a dense wave bursts in a chain.',
+    '⚡ Cursed Bloom tier 3 teaches Omen Card: a spreading hex for every enemy around her, so a dense wave rots and bursts in a chain.',
   ],
-  base: stats({ cost: 580, damage: 12, rate: 1.0, range: 3.2, projectileSpeed: 14, canHitAir: true, status: [S.curse(0.8, 1.1, 4)] }),
+  base: stats({ cost: 580, damage: 12, rate: 1.0, range: 3.2, projectileSpeed: 14, canHitAir: true, status: [hex(0.8, 1.1, 4, 0.15)] }),
   paths: [
-    path('bloom', 'Cursed Bloom', 'Bigger bursts', [
-      tier('Deeper Ink', 150, 'Curse bursts for 120% of the cursing hit.', { status: [S.curse(1.2, 1.1, 4)] }),
-      tier('Wider Bloom', 340, 'Bursts reach 1.4 tiles.', { status: [S.curse(1.2, 1.4, 4)] }),
-      tier('Cursed Bloom', 1100, 'Bursts for 200% of the hit within 1.6 tiles; cards splash 0.4 tiles.', { status: [S.curse(2.0, 1.6, 5)], splash: 0.4 }),
-      tier('Red Spider Lily', 3400, 'Bursts reach 1.9 tiles; +14 damage.', { status: [S.curse(2.0, 1.9, 5)], damage: 14 }),
-      tier('Garden of Calamity', 24000, 'Bursts for 220% within 2.3 tiles; +40 damage, +30% attack speed.', { status: [S.curse(2.2, 2.3, 6)], damage: 40, rateMul: 1.3 }),
+    path('bloom', 'Cursed Bloom', 'Bigger bursts, a hungrier hex', [
+      tier('Deeper Ink', 150, 'Curse bursts for 120% of the cursing hit; the hex eats 20% of it a second.', { status: [hex(1.2, 1.1, 4, 0.2)] }),
+      tier('Wider Bloom', 340, 'Bursts reach 1.4 tiles; the hex eats 25% of the hit a second.', { status: [hex(1.2, 1.4, 4, 0.25)] }),
+      tier('Cursed Bloom', 1100, 'Bursts for 200% of the hit within 1.6 tiles; the hex eats 40% of it a second; cards splash 0.4 tiles.', { status: [hex(2.0, 1.6, 5, 0.4)], splash: 0.4 }),
+      tier('Red Spider Lily', 3400, 'Bursts reach 1.9 tiles; the hex eats 50% of the hit a second; +14 damage.', { status: [hex(2.0, 1.9, 5, 0.5)], damage: 14 }),
+      tier('Garden of Calamity', 24000, 'Bursts for 220% within 2.3 tiles; the hex eats 60% of the hit a second; +40 damage, +30% attack speed.', { status: [hex(2.2, 2.3, 6, 0.6)], damage: 40, rateMul: 1.3 }),
     ]),
     path('withering', 'Withering Script', 'Anti-heal and armor', [
       tier('Fine Stylus', 130, '+1 damage.', { damage: 1 }),
@@ -554,7 +558,7 @@ const ENA = {
       tier('Threads of Destiny', 25000, 'Two more cards, Brittle +25%, 15% stun for 0.4s, +40 damage; her threads tie three enemies for 4s at 25% each, and pull tight as they fade, dragging the enemies ahead of her target back toward it.', { projectiles: 2, status: [S.vulnerable(0.25, 3), S.stun(0.4, 0.15)], damage: 40, tether: { links: 3, reach: 1.8, dur: 4, share: 0.25, pull: 0.25 } }),
     ]),
   ],
-  awakenPassive: { name: 'Lingering Hex', desc: 'Curses burst for the whole hit within 1.2 tiles and last 5s.', mods: { status: [S.curse(1.0, 1.2, 5)] } },
+  awakenPassive: { name: 'Lingering Hex', desc: 'Curses burst for the whole hit within 1.2 tiles, eat 20% of it a second and last 5s.', mods: { status: [hex(1.0, 1.2, 5, 0.2)] } },
 };
 
 /** The nine returning girls, in roster order (heroes first, then towers by rarity). */

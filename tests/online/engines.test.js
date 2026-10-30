@@ -212,11 +212,13 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // deliberate sim / data / ability change, and say why. (Attack shapes S4: the checkpoint and final digests moved, the
     // battle did not: every Sim now carries the tether fields and every enemy its `tie`, which the generic serializer
     // stores; ckDigest c653f418 → b2fe614b, finalDigest 089da6b4 → e0834a0a, same ticks, hashes and final.)
+    // Re-pinned for Ena's spreading hex (feature/ena-contagion): her curse now rots and passes on while its enemy lives (was 47676 ticks / 843868789 / '0b57c250', 76 casts, digests 76e7917e / 8bc5612b): the
+    // crowds thin sooner, so the Auto rules' moments move; every coverage check above still holds.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, casts: r.casts, byId: r.byId, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
       .toEqual({
-        ticks: 47676, state: 'between', wallets: '568/782', lives: 100, final: 843868789, hashes: '0b57c250', casts: 76,
-        byId: 'aoi.skyfall 12 · ena.omenCard 10 · hana.swoop 20 · noa.firstAid 3 · ruri.moonPounce 6 · seiran.stormLance 12 · yoriko.puppetHex 13',
-        ckDigest: '76e7917e', finalDigest: '8bc5612b',
+        ticks: 47193, state: 'between', wallets: '568/782', lives: 100, final: 2186080864, hashes: '00357611', casts: 75,
+        byId: 'aoi.skyfall 12 · ena.omenCard 11 · hana.swoop 19 · noa.firstAid 4 · ruri.moonPounce 3 · seiran.stormLance 13 · yoriko.puppetHex 13',
+        ckDigest: '588f2a6d', finalDigest: '50bdf2cd',
       });
   }, 240000);
 
@@ -234,7 +236,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // ticks, 60 → 61 curse bursts, new hashes) and a few kills land with the other player (wallets 2796/3575 →
     // 2891/3480, the same 6371 coins in all); damage, lives and the zero casts are unchanged
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, towers: r.towers, damage: r.damage, lives: r.lives, wallets: r.wallets, final: r.final, hashes: r.hashes, curseBursts: r.curseBursts, runners: r.runners })
-      .toEqual({ ticks: 9821, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2828/3543', final: 3279512551, hashes: '8c876068', curseBursts: 10, runners: 2 });
+    // Re-pinned for Ena's spreading hex (feature/ena-contagion): her curse now rots and passes on while its enemy lives (was wallets
+    // 2828/3543, final 3279512551, hashes '8c876068', 10 curse bursts): Ena's curses rot and spread here even with no cast,
+    // so a few kills land with the other player (the same 6371 coins in all); ticks, damage, lives and the zero casts hold
+      .toEqual({ ticks: 9821, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2762/3609', final: 1866148272, hashes: '8b43e29c', curseBursts: 11, runners: 2 });
   }, 240000);
 
   it('runs a co-op battle with Tenka (TENKA_START: her lab team over two absorbs, every class, the economy weapon, wells, Last Line, a sale) in sync, its checkpoint replaying', () => {
@@ -271,9 +276,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // fixes; JavaScriptCore not run yet): change only with a deliberate sim / data change, and say why. The
     // T3 review added the class counts and the wave-7 checkpoint's digest (finalDigest is taken after the
     // sale, so only ckDigest holds a lab record). Attack shapes S4 moved both digests and nothing else (the Sim's tether
-    // fields and each enemy's `tie` are stored by the generic serializer): e864bd71 → d529f30d, 8e111df8 → a6ec7988
+    // fields and each enemy's `tie` are stored by the generic serializer): e864bd71 → d529f30d, 8e111df8 → a6ec7988.
+    // Ena's spreading hex moved both digests and nothing else (the Sim's spread budget fields; no Ena here):
+    // 60f651e2 → 2af38483, 98e117c2 → cddc50f8
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '56118d0f', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: '60f651e2', finalDigest: '98e117c2' });
+      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '56118d0f', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: '2af38483', finalDigest: 'cddc50f8' });
   }, 240000);
 
   it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s two firing points with Pierce, every club trick) in sync', () => {
@@ -293,8 +300,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(runGearGirlsBattle().final).toBe(r.final);
     // pinned when the battle was added (v0.1.40 train; the same final as the merge review's ad hoc run
     // on V8 and JavaScriptCore). Change only with a deliberate sim / data change, and say why.
+    // Re-pinned for Ena's spreading hex (was 42380 ticks / '5467/5624' / 32796160 / '7cc84608' / iroha 550/504/850): her
+    // curse rots and spreads while its enemy lives, so the kills and the waves' ends move a little; the battle is still won
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, iroha: r.iroha })
-      .toEqual({ ticks: 42380, state: 'won', wallets: '5467/5624', final: 32796160, hashes: '7cc84608', iroha: '550/504/850' });
+      .toEqual({ ticks: 42475, state: 'won', wallets: '5458/5633', final: 729662771, hashes: '1712520f', iroha: '552/504/851' });
   }, 240000);
 
   it('runs the attack shapes S1 (SHAPES_START: Coin Wheel, Blade Cyclone, Firefly Halo) in sync, and a mid-wave rejoin lands on the run', () => {
@@ -371,8 +380,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(runLinksBattle().final).toBe(r.final);
     // pinned when the battle was added (feature/attack-links, S4 data fitted on both rulers; the host's girls at tier 5,
     // the guest's at tier 4: one girl per path at the final tier). Change only with a deliberate sim / data change, and say why.
+    // Re-pinned for Ena's spreading hex (was 24568 ticks / '714/714' / 2324168228 / 'd26468f3', links 2203/1347/87/1922):
+    // her curse rots and spreads, so the waves end sooner and fewer throws and tethers happen; every floor above holds
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, links: r.links, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 24568, state: 'won', wave: 22, wallets: '714/714', final: 2324168228, hashes: 'd26468f3', links: '2203/1347/87/1922', rejoinTick: 7076 });
+      .toEqual({ ticks: 23154, state: 'won', wave: 22, wallets: '716/716', final: 3583454853, hashes: '12ca779f', links: '2029/1265/86/1831', rejoinTick: 7076 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

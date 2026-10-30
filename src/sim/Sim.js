@@ -11,6 +11,7 @@ import {
 } from './constants.js';
 import {
   AIM_QUANT, PUSH_LOCK, PUSH_LOCK_KITS, WIND_KITS, WIND_LOCK, WIND_KB_COST, GATHER_RADIUS, GATHER_MAX, CURSE_DECAY, CURSE_MAX_DEPTH, CURSE_BURSTS_PER_TICK, HEX_TIER_MUL,
+  CURSE_SPREAD_STEPS, CURSE_SPREAD_RADIUS, CURSE_SPREAD_DECAY, CURSE_SPREAD_MAX_DEPTH, CURSE_SPREADS_PER_TICK, CURSE_ROT_BOSS_MUL,
   TETHER_SHARES_PER_STEP,
 } from './constants.js';
 import { createDataSource } from './data.js';
@@ -235,6 +236,8 @@ export class Sim {
     this._curseQueue = [];
     this._flushingCurses = false;
     this._curseBudget = CURSE_BURSTS_PER_TICK; // bursts left this step (refilled at every step)
+    this._spreadBudget = CURSE_SPREADS_PER_TICK; // living curse passes left this step (refilled at every step)
+    this._spreadCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0 };
     // Spirit Tether (attack shapes S4, src/sim/links.js): the living tether groups and their count (0: Sim._hit's share
     // hook is one compare), the re-entrancy flag (a shared hit never shares again) and this step's share budget
     this.tethers = [];
@@ -370,6 +373,7 @@ export class Sim {
     if (this.rule) ruleStep(this, dt);
     // curse bursts that spilled over the last step's budget go first, in FIFO order
     this._curseBudget = CURSE_BURSTS_PER_TICK;
+    this._spreadBudget = CURSE_SPREADS_PER_TICK;
     if (this._curseQueue.length && !this._flushingCurses) this._flushCurses();
     // Spirit Tether (src/sim/links.js): only while a group lives: the share budget refills, groups age and end
     if (this._tetherOn !== 0) tetherStep(this);
@@ -807,7 +811,7 @@ export class Sim {
     const c = e.statuses.curse;
     if (c && c.burst > 0) {
       this._curseQueue.push({
-        x: e.x, y: e.y, burst: c.burst, radius: c.radius, duration: c.duration, depth: c.depth || 0, sourceUid: c.sourceUid ?? null,
+        x: e.x, y: e.y, burst: c.burst, rotDps: c.rotDps || 0, radius: c.radius, duration: c.duration, depth: c.depth || 0, sourceUid: c.sourceUid ?? null,
       });
       if (!this._flushingCurses) this._flushCurses();
     }
@@ -843,13 +847,56 @@ export class Sim {
         if (!spread || q.dead) continue;
         ctx.sourceUid = c.sourceUid;
         ctx.curseDepth = c.depth + 1;
-        this._applyStatusEvent(q, { type: 'curse', burst: c.burst * CURSE_DECAY, radius: c.radius, duration: c.duration }, ctx);
+        this._applyStatusEvent(q, { type: 'curse', burst: c.burst * CURSE_DECAY, rotDps: (c.rotDps || 0) * CURSE_DECAY, radius: c.radius, duration: c.duration }, ctx);
       }
     }
     // the rest (over this step's budget) waits for the next step, still in FIFO order
     if (i >= queue.length) queue.length = 0;
     else queue.splice(0, i);
     this._flushingCurses = false;
+  }
+
+  /**
+   * A rotting curse while its enemy lives (Ena's spreading hex, src/sim/enemies.js updateEnemy): its rot (a DoT
+   * credited to the curser, mystic, no element; bosses and minibosses take CURSE_ROT_BOSS_MUL of it), then every
+   * CURSE_SPREAD_STEPS steps it passes a CURSE_SPREAD_DECAY-weaker curse to the nearest uncursed, visible enemy
+   * within CURSE_SPREAD_RADIUS while the generation stays ≤ CURSE_SPREAD_MAX_DEPTH (ties: the grid's order). The
+   * timer is an integer of steps; over this step's CURSE_SPREADS_PER_TICK it waits at 0 and tries next step.
+   */
+  _curseTick(e, c, dt) {
+    if (!(c.rotDps > 0)) return;
+    const boss = e.tier === 'boss' || e.tier === 'miniboss';
+    this._dot(e, 'curse', c.rotDps * (boss ? CURSE_ROT_BOSS_MUL : 1) * dt, c);
+    if (e.dead || c.depth + 1 > CURSE_SPREAD_MAX_DEPTH) return;
+    if (c.spreadIn > 0) c.spreadIn--;
+    if (c.spreadIn > 0 || this._spreadBudget <= 0) return;
+    const near = this._scratch3;
+    near.length = 0;
+    this.grid.query(e.x, e.y, CURSE_SPREAD_RADIUS, near);
+    let best = null;
+    let bestD = Infinity;
+    for (let i = 0; i < near.length; i++) {
+      const q = near[i];
+      if (q === e || q.dead || q.hidden || q.statuses.curse) continue;
+      const dx = q.x - e.x;
+      const dy = q.y - e.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD) {
+        bestD = d2;
+        best = q;
+      }
+    }
+    near.length = 0;
+    c.spreadIn = CURSE_SPREAD_STEPS;
+    if (!best) return;
+    this._spreadBudget--;
+    const ctx = this._spreadCtx;
+    ctx.sourceUid = c.sourceUid ?? null;
+    ctx.curseDepth = c.depth + 1;
+    this._applyStatusEvent(best, {
+      type: 'curse', burst: c.burst * CURSE_SPREAD_DECAY, rotDps: c.rotDps * CURSE_SPREAD_DECAY, radius: c.radius, duration: c.duration,
+    }, ctx);
+    this._emit('curseSpread', { from: e.uid, to: best.uid, depth: c.depth + 1, towerUid: c.sourceUid ?? null });
   }
 
   /** The near-exit hook (GAPS P-14; src/sim/enemies.js, only while _nearExitOn): Last Line listens. */

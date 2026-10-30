@@ -251,6 +251,20 @@ export const ROLE_TARGET_MODE = { sniper: 'elite', falconer: 'air', stormrider: 
  */
 export const CURSE_BURSTS_PER_TICK = 32;
 /**
+ * The spreading hex (Ena's contagion, owner Oct 30): a curse that rots (`rotDps` > 0) also spreads while its
+ * enemy lives. Every CURSE_SPREAD_STEPS sim steps a cursed enemy passes it to the nearest uncursed, visible
+ * enemy within CURSE_SPREAD_RADIUS tiles, its burst and rot × CURSE_SPREAD_DECAY, while the generation stays
+ * ≤ CURSE_SPREAD_MAX_DEPTH (the on-death burst keeps CURSE_DECAY and CURSE_MAX_DEPTH). At most
+ * CURSE_SPREADS_PER_TICK passes a step; an enemy over the budget tries again next step. Bosses and minibosses
+ * take CURSE_ROT_BOSS_MUL of the rot (they still catch and pass the curse).
+ */
+export const CURSE_SPREAD_STEPS = 60;
+export const CURSE_SPREAD_RADIUS = 1.2;
+export const CURSE_SPREAD_DECAY = 0.8;
+export const CURSE_SPREAD_MAX_DEPTH = 4;
+export const CURSE_SPREADS_PER_TICK = 64;
+export const CURSE_ROT_BOSS_MUL = 0.5;
+/**
  * Hex (UNIT_GAPS P-15): each second a hexed enemy loses pct × its max HP × this tier factor and
  * cannot regenerate; one application never takes more than HEX_BOSS_CAP of a miniboss's or
  * boss's max HP. Plain arithmetic on maxHp (no armor, no type chart).

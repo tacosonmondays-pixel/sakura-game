@@ -3,10 +3,10 @@
 // every 0.5 s of game time, and prints one JSON line: the wave it fell on, the first leak, lives
 // lost by enemy tier, final-tier and tier-4 counts, the girls, coins earned and left unspent.
 //
-//   node --import ./tools/simLoader.mjs tools/capBot.mjs --build A|A2|B|C --stage 4-5 --tier blossom
+//   node --import ./tools/simLoader.mjs tools/capBot.mjs --build A|A2|AE|B|C --stage 4-5 --tier blossom
 //        [--seed 7] [--maxWave 260] [--coop 1|2] [--difficulty normal] [--log]
 //        [--profile p1|f2p-steady|f2p-late|whale] [--potential p1|f2p-steady|whale|1…6]
-//        [--level 60|75|85] [--gear maxed|late|urLate|full] [--lives N]
+//        [--level 60|75|85] [--gear maxed|late|urLate|full] [--lives N] [--shares]
 //
 // Profile (tools/potentialProfiles.mjs): default p1 = MAXED (tools/freeplayBot.mjs: ★5, legendary +10,
 // average rolls) at level 60 and P1; the Potential v3 profiles change Potential, level and gear for
@@ -18,6 +18,7 @@
 //      (carries first) → final tiers on the copy-1 main paths (carries, then supports) → copy 2 of
 //      each type to its own final path → further copies at tier 4 up to the cap → any free final path.
 //   A2 Build A with Chika (copy 1 0-5-2: tune-up / overclock; copy 2 5-2-0) instead of Momo.
+//   AE Build A with Ena in Kage's place.
 //   B  "Kage army", 28 Kages: 5-0-2 / 2-0-5 / 2-5-0, then 4-0-2. Order: 8 copies at 2-0-0 → all to
 //      tier 3 → tier 4 → the three final tiers → more copies.
 //   C  the research's std team (tools/freeplayBot.mjs, cheapest step first, cap-aware).
@@ -64,9 +65,10 @@ const PLANS = {
   midori: ['5-0-2', '2-0-5', null, null],
   momo: ['5-0-2', '0-5-2', null, null],
   chika: ['0-5-2', '5-2-0', null, null],
+  ena: ['5-0-2', '2-0-5', null, '4-0-2'],
 };
 const KAGE_ARMY = ['5-0-2', '2-0-5', '2-5-0', '4-0-2'];
-const CARRIES = ['shiro', 'kage', 'aoi', 'akane', 'sango'];
+const CARRIES = ['shiro', 'kage', 'aoi', 'akane', 'sango', 'ena'];
 const SUPPORTS = new Set(['miko', 'midori', 'chika']);
 const HERO = 'hikari';
 const HERO_PLAN = '5-0-2';
@@ -298,7 +300,9 @@ function makeBrain({ sim, types, first, cap, copiesOf, carries, hero, act, cash,
 
 function buildConfig(name) {
   if (name === 'B') return { types: ['kage'], first: null, cap: 28, copiesOf: () => KAGE_ARMY, carries: ['kage'] };
-  const types = name === 'A2' ? ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'chika'] : ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'momo'];
+  // AE: Build A with Ena in Kage's place (her spreading hex in a team where the others take the kills)
+  const types = name === 'A2' ? ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'chika']
+    : name === 'AE' ? ['shiro', 'ena', 'aoi', 'akane', 'sango', 'miko', 'midori', 'momo'] : ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'momo'];
   return { types, first: name === 'A2' ? null : 'momo', cap: 32, copiesOf: (ty) => PLANS[ty], carries: CARRIES };
 }
 
@@ -359,8 +363,19 @@ export function runSolo({ data = {}, after = null, maxWave: lastWave = maxWave }
       if (verbose && sim.state === 'between') process.stderr.write(`w${sim.wave} lives ${sim.lives} girls ${sim.towers.length} cash ${Math.round(sim.cash)}\n`);
     }
   });
-  const sum = summarize(sim, { unspent: Math.round(sim.cash), wallSec: Math.round((Date.now() - t0) / 1000) });
+  const sum = summarize(sim, { unspent: Math.round(sim.cash), wallSec: Math.round((Date.now() - t0) / 1000), ...(args.includes('--shares') ? { shares: shares(sim) } : {}) });
   return after ? { ...sum, kc: withDetMath(() => after(sim)) } : sum;
+}
+
+/** --shares: each girl type's share of the run's damage (%), largest first. */
+function shares(sim) {
+  const by = {};
+  let all = 0;
+  for (const t of sim.towers) {
+    by[t.unitId] = (by[t.unitId] || 0) + (t.damageDealt || 0);
+    all += t.damageDealt || 0;
+  }
+  return Object.fromEntries(Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, +(100 * v / (all || 1)).toFixed(1)]));
 }
 
 /** Build B's order on top of the generic placement / upgrade steps. */

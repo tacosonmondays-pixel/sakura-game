@@ -147,7 +147,7 @@ const STATUS_FIELDS = {
   vulnerable: ['bonus', 'duration'],
   // roster B3
   ground: ['duration'],
-  curse: ['burstMul', 'radius', 'duration'],
+  curse: ['burstMul', 'radius', 'duration', 'rot'],
   hex: ['pct', 'duration'],
 };
 

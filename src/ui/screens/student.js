@@ -98,7 +98,7 @@ export function describeStatus(s) {
     case 'burn': case 'poison': core = `${name} ${n1(s.dps)}/s for ${n1(s.duration)}s`; break;
     case 'shred': core = `Armor −${n1(s.amount)} for ${n1(s.duration)}s (stacks ×3)`; break;
     case 'mark': case 'vulnerable': core = `${name}: +${Math.round(s.bonus * 100)}% damage taken for ${n1(s.duration)}s`; break;
-    case 'curse': core = `Curse: bursts for ${Math.round(s.burstMul * 100)}% of the hit within ${n1(s.radius)} tiles when it falls (${n1(s.duration)}s)`; break;
+    case 'curse': core = `Curse${s.rot > 0 ? `: a spreading hex eating ${Math.round(s.rot * 100)}% of the hit a second;` : ':'} bursts for ${Math.round(s.burstMul * 100)}% of the hit within ${n1(s.radius)} tiles when it falls (${n1(s.duration)}s)`; break;
     case 'hex': core = `Hex ${n1(s.pct * 100)}% max HP/s for ${n1(s.duration)}s, no regen`; break;
     case 'ground': core = `Grounds flyers for ${n1(s.duration)}s`; break;
     default: core = `${name} ${n1(s.duration)}s`;
