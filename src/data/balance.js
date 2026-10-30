@@ -94,11 +94,33 @@ const LR_ROWS = {
   // the duo: ×1.05 damage and ×1.6 vs bosses on every build (her LR line, PRISM_EDGE_MUL_LR in src/sim/constants.js,
   // lifts her crowd; ×1.05 takes her Starfall build's crowd over 2.5×)
   kohaku_tsubaki: { dmg: 1.05, boss: 1.6 },
-  // Tenka (Thesis Defense): × bosses; her rail build's crowd is above the band already
-  tenka: { boss: 3.4 },
+  // Tenka (Thesis Defense): ×3.4 vs bosses on every build (her Rail Arms crowd is above the floor already); `t5` rows on
+  // top while that path is at tier 5: her Joint Research and Singularity builds deal little of their own (a lab and a
+  // control build), so their LR form lifts their own bolts to the floor too
+  tenka: { boss: 3.4, t5: { lab: { dmg: 5.2, boss: 1.1 }, singularity: { dmg: 10, boss: 5.5 } } },
 };
 /** Her LR row (frozen): folded into her power row while she is LR. */
-export const LR_POWER = Object.freeze(Object.fromEntries(Object.entries(LR_ROWS).map(([id, row]) => [id, Object.freeze({ ...row })])));
+export const LR_POWER = Object.freeze(Object.fromEntries(Object.entries(LR_ROWS).map(([id, row]) => [id, Object.freeze({
+  ...row, ...(row.t5 ? { t5: Object.freeze(Object.fromEntries(Object.entries(row.t5).map(([k, v]) => [k, Object.freeze({ ...v })]))) } : null),
+})])));
+
+/** Her LR row for her current tiers: the row, × the `t5` row of each path at tier 5 (null when she has none). */
+export function lrRowFor(def, tiers) {
+  const row = LR_POWER[def?.id];
+  if (!row) return null;
+  let dmg = row.dmg ?? 1;
+  let boss = row.boss ?? 1;
+  if (row.t5 && tiers) {
+    (def.paths || []).forEach((p, i) => {
+      const t = p && (tiers[i] || 0) >= 5 ? row.t5[p.id] : null;
+      if (t) {
+        dmg *= t.dmg ?? 1;
+        boss *= t.boss ?? 1;
+      }
+    });
+  }
+  return { dmg, boss };
+}
 
 /**
  * Titan Trials (src/data/titans.js): false = a titan battle reads no row and no hero curve (today's numbers for
@@ -138,14 +160,14 @@ export function heroPowerAt(id, heroLevel) {
  * TITAN_POWER is false (src/sim/Sim.js powerOff).
  * @param {object} def UnitDef
  * @param {number} heroLevel 0 for towers
- * @param {{ rows?: boolean, lr?: boolean }} [o]
+ * @param {{ rows?: boolean, lr?: boolean, tiers?: number[]|null }} [o] `tiers`: her path tiers (an LR row's `t5` reads them)
  * @returns {{ dmg: number, boss: number, buff: number, reach: number, ctl: number }|null}
  */
-export function powerFor(def, heroLevel = 0, { rows = true, lr = false } = {}) {
+export function powerFor(def, heroLevel = 0, { rows = true, lr = false, tiers = null } = {}) {
   if (!rows) return null;
   const id = def?.id;
   const row = POWER[id];
-  const lrRow = lr ? LR_POWER[id] : null;
+  const lrRow = lr ? lrRowFor(def, tiers) : null;
   const h = heroPowerAt(id, heroLevel);
   if (!row && !lrRow && h === 1) return null;
   return {

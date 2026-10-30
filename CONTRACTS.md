@@ -1539,8 +1539,8 @@ mode, `selectTargetsInto` with an Infinity reach). Each line runs edge to edge t
 `edgeReach` behind (division and one Math.sqrt, no trig; `linePierceInto(..., back)` puts her enemy first, then line
 order). Her enemy and the enemies on her short beam's segment (to her reach, up to `nearPierce`) take the full tick;
 everyone else on the line the tick × `edgeMul`. The LR form also multiplies her damage (shells, shards, beam) ×
-`DUO_LR_MUL`, and while she is LR her `LR_POWER` row (`src/data/balance.js`, folded in by `powerFor(..., { lr })`)
-multiplies her boss damage (the duo and Tenka). The beam spec carries `bossMul`. No new state.
+`DUO_LR_MUL`, and while she is LR her `LR_POWER` row (`src/data/balance.js` `lrRowFor`, folded in by `powerFor(..., { lr,
+tiers })`: `dmg` and `boss`, × a `t5` row for each of her paths at tier 5) multiplies her damage (the duo and Tenka). The beam spec carries `bossMul`. No new state.
 
 Damage pipeline (in order): tunnel/veil/phasing/air eligibility → type multiplier → element ward (×0.5) →
 soak bonus → mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →
