@@ -231,8 +231,13 @@ Every lower tier at or above today (`tools/bench.mjs iroha`, seed 9, crowd ×1.0
 profile, seeds 7 and 8): an Iroha army fell on wave 108 / 108 before → 121 / 121; a team of Iroha, Kage, Aoi, Miko and
 Momo 134 / 137 → 148 / 148.
 
+Laser Web (`tools/abilityBench.mjs iroha`, Auto off → on, 120 s, seed 9): crowd ×1.10 at 3-0-2 and ×1.21 at 5-0-2 (Mirror
+Shift: ×0.85 and ×1.00); a lone boss never triggers its Auto rule (5 enemies), so ×1. Kage's doubles on the same bench:
+×1.21 / ×2.13.
+
 Cost (`tests/sim/perf.mirror.test.js`, 6 Irohas 5-0-2 with 5 mirrors each and their webs, 24 Aois 5-0-0, 300 enemies):
-about 0.7 ms a step, ×1.7 of the same board at tier 4.
+about 0.7–1.3 ms a step, ×1.6–1.8 of the same board at tier 4, p99 2–3 ms; six Kaleidoscope Irohas (2-0-5) about 0.8–1.4
+ms a step, p99 3 ms.
 
 ## 11. Tests
 

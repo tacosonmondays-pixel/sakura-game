@@ -178,17 +178,19 @@ for (const [w, h] of SIZES) {
     }
 
     // a wave: her bolts bounce off her mirrors
-    const bounces = await page.evaluate(async (u) => {
+    const bounces = await page.evaluate((u) => {
       const { sim } = window.__battle;
       sim.startNextWave();
-      // (polled: a bolt of hers that has bounced at least once; up to 40 s while the first enemies walk in)
+      // (stepped here, up to 90 s of game time, so a slow first walk-in on a small screen can't time it out: a bolt
+      // of hers that has bounced at least once)
       const seen = new Set();
-      for (let i = 0; i < 400 && seen.size < 5; i++) {
-        await new Promise((r) => setTimeout(r, 100));
+      for (let i = 0; i < 90 * 60 && seen.size < 5 && sim.state === 'wave'; i++) {
+        sim.update(1 / 60);
         for (const p of sim.projectiles) if (p.ownerUid === u && p.bounce > 0) seen.add(p.uid);
       }
       return seen.size;
     }, uid);
+    await settle(600);
     check(bounces > 0, `her bolts bounce off her mirrors in a wave (${bounces} bolts seen bounced)`);
     await shot('wave');
 
