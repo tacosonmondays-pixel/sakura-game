@@ -105,7 +105,16 @@ try {
     // an aura girl's damage path says why it follows her role (Miko, Purification: path 1)
     await go('#/student/miko?tab=coach', '[data-testid="coach-tab"]');
     await tap('[data-testid="coach-path-1"]');
-    check(/turn into her aura/.test(await page.locator('[data-testid="coach-basis"]').innerText()), `${tag} Miko's Purification: the aura note`);
+    const mikoNote = await page.locator('[data-testid="coach-basis"]').innerText();
+    // (review r3 L1: the note names her own unused lines: Miko's include Attack Speed)
+    check(/turn into her aura/.test(mikoNote) && /Attack Speed/.test(mikoNote), `${tag} Miko's Purification: the aura note names her lines ("${mikoNote.slice(0, 60)}…")`);
+    check(/Aura Power/.test(await page.locator('[data-testid="coach-gear"]').innerText()), `${tag} Miko's Purification: an aura plan`);
+    // Umeko's note names hers (Crit Rate, not Attack Speed)
+    await page.evaluate(async () => { const { grantUnit } = await import('/src/systems/unlocks.js'); grantUnit(window.__sakura.store.profile, 'umeko', Date.now()); window.__sakura.store.commit('test'); });
+    await go('#/student/umeko?tab=coach', '[data-testid="coach-tab"]');
+    await tap('[data-testid="coach-path-2"]');
+    const umeNote = await page.locator('[data-testid="coach-basis"]').innerText();
+    check(/Crit Rate/.test(umeNote) && !/Attack Speed/.test(umeNote), `${tag} Umeko's Undertow Ripples: the note names her own lines`);
 
     // ----- the home: her next step is a page of the news chip (no new element) -----
     await go('#/lobby', '[data-testid="lobby"]');

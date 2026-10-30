@@ -66,6 +66,22 @@ describe('buildCoachData', () => {
     }
   });
 
+  it('review r3 M1, L2: a flat DoT path plans without crit; an aura girl\'s unread path plans by her aura', () => {
+    const tox = BUILD_COACH_DATA.midori.find((r) => r.name === 'Toxicology');
+    expect(tox.measured).toBe(false);
+    expect(tox.noCrit).toBe(true);
+    expect(Object.values(tox.mains)).not.toContain('critChance');
+    expect(Object.values(tox.mains)).not.toContain('critDmg');
+    expect(tox.subs).not.toContain('critChance');
+    expect(tox.subs).not.toContain('critDmg');
+    for (const [id, nm] of [['miko', 'Purification'], ['umeko', 'Undertow Ripples']]) {
+      const r = BUILD_COACH_DATA[id].find((x) => x.name === nm);
+      expect(r.measured, `${id} ${nm}`).toBe(false);
+      expect(r.mains.hair, `${id} ${nm}`).toBe('auraPct');
+      expect(r.subs[0], `${id} ${nm}`).toBe('auraPct');
+    }
+  });
+
   it('records the sim id it was measured on (a warning when stale)', () => {
     expect(BUILD_COACH_META.simId).toMatch(/^[0-9a-f]{12}$/);
     const now = simId().id;

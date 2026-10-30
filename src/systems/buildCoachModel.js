@@ -45,11 +45,16 @@ export function deadLines(unitId) {
 
 /** Her full weight table for one path row of the data (every gear stat, zeros where she gains nothing). */
 export function weightsOf(row, unitId = null) {
-  const base = row?.w || (row?.ruler === 'hero' ? HERO_WEIGHTS : row?.ruler === 'support' ? SUPPORT_WEIGHTS : DAMAGE_WEIGHTS);
+  // an aura girl (GEAR_FIT fillTo 'aura': her damage lines feed her aura) plans by the aura weights on any path the
+  // bench could not read (review r3 L2: never "any main / Cost Reduction")
+  const aura = GEAR_FIT[unitId]?.fillTo === 'aura';
+  const base = row?.w || (row?.ruler === 'hero' ? HERO_WEIGHTS : row?.ruler === 'support' || aura ? SUPPORT_WEIGHTS : DAMAGE_WEIGHTS);
   // role weights skip her kit's dead lines (GEAR_FIT); a measured row has them at 0 already
   const dead = row?.w ? null : deadLines(unitId);
+  // a flat path whose crit steps read about 0 (damage over time cannot crit): no crit (review r3 M1)
+  const noCrit = !row?.w && row?.noCrit;
   const out = {};
-  for (const k of Object.keys(GEAR_STAT_DEFS)) out[k] = dead?.has(k) ? 0 : Math.max(0, base[k] || 0);
+  for (const k of Object.keys(GEAR_STAT_DEFS)) out[k] = dead?.has(k) || (noCrit && (k === 'critChance' || k === 'critDmg')) ? 0 : Math.max(0, base[k] || 0);
   if (!out.costCut) out.costCut = COST_WEIGHT;
   return out;
 }

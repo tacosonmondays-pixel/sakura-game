@@ -160,6 +160,7 @@ for (const u of towers) {
     const support = m.crowd.dps < 100 && m.boss.dps < 100;
     // a damage path the bench cannot read (flat): damage-role weights (buildCoachModel DAMAGE_WEIGHTS), measured: false
     let flat = false;
+    let noCrit = false;
     const ruler = support ? 'support' : m.crowd.dps >= 3 * m.boss.dps ? 'crowd' : 'boss';
     let w = support ? null : { ...m[ruler].w };
     const est = [];
@@ -169,14 +170,20 @@ for (const u of towers) {
       // a row no step moved is not a measurement (review r1 B1): she plans by role
       // a row her ATK step barely moves (< 5 %) or whose largest weight is under 0.15 is not a measurement of her
       // damage (review r1 B1, r2 H1): she plans by role
-      if (w.atkPct * STEP.atkPct < 0.05 || Math.max(...Object.values(w)) < 0.15) { flat = true; w = null; }
+      if (w.atkPct * STEP.atkPct < 0.05 || Math.max(...Object.values(w)) < 0.15) {
+        // (review r3 M1: a flat path whose crit steps read about 0, mostly damage over time that cannot crit, plans
+        // without crit)
+        noCrit = (w.critChance || 0) < 0.03 && (w.critDmg || 0) < 0.03;
+        flat = true;
+        w = null;
+      }
       else {
         for (const [k, f] of Object.entries(ESTIMATE)) {
           if (!w[k] && !dead.has(k)) { w[k] = +(f * w.atkPct).toFixed(3); est.push(k); }
         }
       }
     }
-    paths.push({ path: p, name: u.paths?.[p]?.name || `Path ${p + 1}`, ruler, dps: support ? 0 : m[ruler].dps, measured: !support && !flat, w, est });
+    paths.push({ path: p, name: u.paths?.[p]?.name || `Path ${p + 1}`, ruler, dps: support ? 0 : m[ruler].dps, measured: !support && !flat, w, est, ...(noCrit ? { noCrit: true } : {}) });
   }
   rows[u.id] = { role: u.role, paths };
   console.log(`${u.id.padEnd(10)} ${paths.map((x) => `${x.name}: ${x.ruler} ${x.dps}`).join(' · ')}  (${((Date.now() - t0) / 1000).toFixed(0)} s)`);

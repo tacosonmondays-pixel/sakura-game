@@ -65,6 +65,16 @@ describe('the model', () => {
     expect(modelValue(w, { atkPct: 0.5, critChance: 0.5 })).toBeCloseTo(2.25);
   });
 
+  it('review r3: noCrit zeroes crit on a role row; an aura girl\'s unread damage path takes the aura weights', () => {
+    expect(weightsOf({ ruler: 'crowd', w: null, noCrit: true }, 'midori').critChance).toBe(0);
+    expect(weightsOf({ ruler: 'crowd', w: null, noCrit: true }, 'midori').critDmg).toBe(0);
+    expect(weightsOf({ ruler: 'crowd', w: null }, 'midori').critChance).toBeGreaterThan(0);
+    const miko = weightsOf({ ruler: 'crowd', w: null }, 'miko');
+    expect(miko.auraPct).toBeGreaterThan(0);
+    expect(miko.atkPct).toBe(0);
+    expect(miko.ratePct).toBe(0);
+  });
+
   it('a support path plans by role weights', () => {
     const row = { ruler: 'support', w: null };
     const w = weightsOf(row);

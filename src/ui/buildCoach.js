@@ -10,6 +10,7 @@ import { navigate } from './router.js';
 import { UNIT_MAP } from '../data/units.js';
 import { getItem } from '../data/items.js';
 import { statName, GEAR_FIT } from '../data/gearStats.js';
+import { deadLines } from '../systems/buildCoachModel.js';
 import {
   mainGirl, setMain, clearMain, coachPaths, gearPlan, toMax, farmPlan, potentialPlan, buildScore, farmingHere,
 } from '../systems/buildCoach.js';
@@ -138,7 +139,12 @@ function basisNote(row, est, unitId) {
   if (row.ruler === 'support') return 'Her worth on this path is her team: her plan follows her role, not a bench run.';
   // an aura girl's damage lines feed her aura (GEAR_FIT fillTo, Every Line Counts): the bench's ATK step cannot move
   // her own damage, by design
-  if (!row.measured && GEAR_FIT[unitId]?.fillTo === 'aura') return 'Her ATK, speed and crit lines turn into her aura, so her own damage on this path does not follow them: her plan follows her role.';
+  if (!row.measured && GEAR_FIT[unitId]?.fillTo === 'aura') {
+    // (review r3 L1: the lines named are her own dead lines, as her plan reads them)
+    const names = [...deadLines(unitId)].filter((k) => k !== 'armorPen').map((k) => statName(k));
+    const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] || 'damage';
+    return `Her ${list} lines turn into her aura, so her own damage on this path does not follow them: her plan follows her aura.`;
+  }
   if (!row.measured) return 'Her damage on this path barely answers a short bench run (it grows over a long fight): her plan follows her role.';
   const on = row.ruler === 'boss' ? 'a walking boss' : 'a crowd';
   return `Measured on ${on}${est.length ? `; ${est.join(' and ')} estimated (a short run cannot see ${est.length > 1 ? 'them' : 'it'})` : ''}.`;
