@@ -25,6 +25,7 @@ import { newSocial, cleanSocial } from '../online/socialSave.js';
 import { newEvents, cleanEvents } from './events.js';
 import { SKIN_MAP } from '../data/skins.js';
 import { ownsSkin, isStoredSkin } from './skins.js';
+import { cleanPresets, cleanTeams, syncTeams, writeTeamMarks, emptyTeam, TEAM_COUNT } from './teams.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /**
@@ -101,7 +102,7 @@ const GIRL_PAGE_LOOKS = ['compact', 'detailed'];
  * her bought Potential (src/systems/essence.js).
  */
 export function newUnitState(now = Date.now()) {
-  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false, dupes: 0, pl: 1, skin: null };
+  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false, dupes: 0, pl: 1, skin: null, presets: [{ charm: null, ribbon: null, shoes: null }], preset: 0 };
 }
 
 function emptyMissions() {
@@ -152,6 +153,8 @@ export function createProfile() {
     progress: { stages: {} },
     bestiary: {},
     formation: { hero: 'hikari', towers: ['aoi', 'rei'] },
+    // [teams] 5 saved teams; the active one is the formation (src/systems/teams.js)
+    teams: { active: 0, list: Array.from({ length: TEAM_COUNT }, (_, i) => (i ? emptyTeam() : { ...emptyTeam(), hero: 'hikari', towers: ['aoi', 'rei'] })) },
     missions,
     shop: { day: null, week: null, bought: {} },
     redeemed: [],
@@ -178,6 +181,7 @@ export function createProfile() {
   markSensei(p); // [profile] the picks' shadows in missions.counters (an older build drops the block)
   markEssenceBorn(p); // [ascension] born on Essence: no switch-over migration, no welcome pouch
   writeRosterMarks(p); // [roster] every owned girl's 'own:' mark (src/systems/rosterSave.js)
+  writeTeamMarks(p); // [teams] the teams' 'tm:' mirrors (src/systems/teams.js)
   return p;
 }
 
@@ -604,6 +608,10 @@ export function migrateProfile(raw) {
   if (!Array.isArray(f.towers)) p.formation.towers = ['aoi', 'rei'];
 
   p.missions = cleanMissions(raw.missions);
+  // [teams] gear loadouts, then the 5 teams (GEAR_UPDATE §7): present gear and formation win, the rest comes from
+  // the stored blocks or their 'gp:' / 'tm:' mirrors (src/systems/teams.js)
+  cleanPresets(raw.units, p);
+  cleanTeams(raw.teams, p);
   const shop = isObj(raw.shop) ? raw.shop : {};
   p.shop = { day: str(shop.day), week: str(shop.week), bought: cleanCounts(shop.bought) };
   p.redeemed = strList(raw.redeemed);
@@ -659,6 +667,8 @@ export function migrateProfile(raw) {
   for (const u of Object.values(p.units)) if (u.skin && !ownsSkin(p, u.skin)) u.skin = null;
   // [roster] every owned girl's 'own:' mark, from her settled state
   writeRosterMarks(p);
+  syncTeams(p);
+  writeTeamMarks(p);
   p.version = SAVE_VERSION;
   return p;
 }

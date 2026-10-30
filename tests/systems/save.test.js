@@ -249,7 +249,8 @@ describe('achievements: old-build safety', () => {
     expect(SAVE_VERSION).toBe(2);
     // the achievements add no key; the only additive blocks are 'sensei' (the Sensei Profile, docs/specs/PROFILE.md §2)
     // and 'social' (v0.1.29's friends/messages/block list, already live), 'events' (limited events, EVENT_SPEC §3.5), plus 'skins' (shop/event outfits owned; empty today)
-    expect(Object.keys(createProfile())).toEqual(['version', 'createdAt', 'currencies', 'items', 'units', 'gear', 'gacha', 'progress', 'bestiary', 'formation', 'missions', 'shop', 'redeemed', 'settings', 'secretary', 'lobbyBg', 'bond', 'mail', 'patchGifts', 'stats', 'seenIntro', 'seq', 'battleSaves', 'story', 'sensei', 'social', 'events', 'skins']);
+    // and 'teams' (the 5 saved teams, GEAR_UPDATE §7.4; mirrored as 'tm:', src/systems/teams.js)
+    expect(Object.keys(createProfile())).toEqual(['version', 'createdAt', 'currencies', 'items', 'units', 'gear', 'gacha', 'progress', 'bestiary', 'formation', 'teams', 'missions', 'shop', 'redeemed', 'settings', 'secretary', 'lobbyBg', 'bond', 'mail', 'patchGifts', 'stats', 'seenIntro', 'seq', 'battleSaves', 'story', 'sensei', 'social', 'events', 'skins']);
     const p = createProfile();
     p.seenIntro.push('ach2');
     expect(deserializeProfile(serializeProfile(p)).seenIntro).toContain('ach2');

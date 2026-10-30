@@ -25,6 +25,7 @@ import {
   stitchSlots, gearLines, gearFillIn, tuneCount,
 } from '../systems/gear.js';
 import { itemCount } from '../systems/inventory.js';
+import { loadoutUseText } from '../systems/teams.js';
 import { applyGearFilter, activeGearFilters } from '../systems/gearFilter.js';
 import { gearFilterBar, gearFilterFor } from './gearFilterBar.js';
 import { awakenModal, stitchModal, rerollModal, armbandModal, enhanceOnce, toggleGearLock } from './gearUr.js';
@@ -39,6 +40,11 @@ import { urRing } from './rarity.js';
 import { itemIcon } from '../art/icons.js';
 
 const SLOTS = Object.keys(GEAR_SLOTS);
+/** A spare piece another loadout names: ask first ("Kage's Loadout B uses this piece. Salvage it anyway?"). */
+const askLoadoutSalvage = (profile, uid) => {
+  const who = loadoutUseText(profile, uid);
+  return who ? confirmDialog(`${who} uses this piece. Salvage it anyway?`, { title: 'Salvage', ok: 'Salvage', danger: true }) : Promise.resolve(true);
+};
 const pieceOf = (profile, unitId, slot) => {
   const uid = profile.units[unitId]?.gear?.[slot];
   return uid ? profile.gear[uid] || null : null;
@@ -337,8 +343,9 @@ export function openPieceSheet(g, { onChange = () => {} } = {}) {
     // her page for a worn piece, Salvage (a second tap) for a spare: on the primary's row, at its far end
     const foot = wearer
       ? secondaryBtn(`Open ${wearer.name}`, { icon: 'students', testid: 'gear-open-wearer', onClick: () => { sheet?.close(); navigate('student', { id: wearer.id, tab: 'gear' }); } })
-      : rewards ? danger(button(armed ? 'Tap again to salvage' : 'Salvage', { kind: 'ghost', small: true, testid: 'gear-salvage', onClick: () => {
+      : rewards ? danger(button(armed ? 'Tap again to salvage' : 'Salvage', { kind: 'ghost', small: true, testid: 'gear-salvage', onClick: async () => {
         if (!armed) { armed = true; draw(); return; }
+        if (!(await askLoadoutSalvage(profile, x.uid))) return;
         const res = salvageGear(profile, x.uid);
         if (!res.ok) { toast('Cannot salvage this piece.', 'bad'); return; }
         store.commit('gear-salvage');
@@ -490,8 +497,9 @@ export function openPieceDetails(g, { unit = null, slot = g.slot, onChange = () 
         h('span', `2 pieces: ${statFact(club.two.stat, club.two.value)} · 3 pieces: ${club.trick.name}, ${club.trick.text}`)) : null,
       worn ? null : h('div.gk-acts-main',
         onEquip ? button(x.equippedBy ? `Take from ${who}` : 'Equip', { kind: 'yellow', testid: 'gear-equip', onClick: () => { sheet?.close(); onEquip(); } }) : null,
-        rewards ? danger(button(armed ? 'Tap again to salvage' : 'Salvage', { kind: 'ghost', small: true, testid: 'gear-salvage', onClick: () => {
+        rewards ? danger(button(armed ? 'Tap again to salvage' : 'Salvage', { kind: 'ghost', small: true, testid: 'gear-salvage', onClick: async () => {
           if (!armed) { armed = true; draw(); return; }
+          if (!(await askLoadoutSalvage(profile, x.uid))) return;
           const res = salvageGear(profile, x.uid);
           if (!res.ok) { toast('Cannot salvage this piece.', 'bad'); return; }
           store.commit('gear-salvage');

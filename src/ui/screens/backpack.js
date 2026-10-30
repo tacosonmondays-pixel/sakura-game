@@ -39,6 +39,7 @@ import { gearList, salvageGear, salvageRewards, openGearBox, GEAR_BAG_MAX, OPEN_
 import { gearIcon, uiIcon, itemIcon } from '../../art/icons.js';
 import { applyGearFilter, activeGearFilters, GEAR_SORTS } from '../../systems/gearFilter.js';
 import { salvageBlock, salvagePreview, salvageMany } from '../../systems/salvage.js';
+import { loadoutUseText } from '../../systems/teams.js';
 import { gearFilterBar, gearFilterFor, loadGearFilter, saveGearFilter } from '../gearFilterBar.js';
 import { gearTile } from '../gearTile.js';
 import { openItemSheet } from '../itemSheet.js';
@@ -375,7 +376,7 @@ function renderGear(tools, host, rerender) {
   const pickBar = pick ? h('div.mb-salvage-bar.bp-svbar', { 'data-testid': 'salvage-bar' }) : null;
   const refreshPick = () => {
     for (const [uid, el] of tiles) markPicked(el, pick.has(uid));
-    const pickable = gear.filter((g) => !salvageBlock(g));
+    const pickable = gear.filter((g) => !salvageBlock(g, profile));
     const all = pickable.length > 0 && pickable.every((g) => pick.has(g.uid));
     fillIn(pickTools,
       h('span.bp-hint', 'Tap gear to pick it'),
@@ -398,9 +399,11 @@ function renderGear(tools, host, rerender) {
   };
   const onTile = (g) => {
     if (!pick) return openGearModal(g, rerender);
-    const why = salvageBlock(g);
+    const why = salvageBlock(g, profile);
     if (why) {
-      toast(why === 'locked' ? 'Locked gear is protected. Unlock it first to salvage it.' : `Equipped by ${UNIT_MAP[g.equippedBy]?.name || 'a student'}. Unequip it first to salvage it.`, 'bad');
+      toast(why === 'locked' ? 'Locked gear is protected. Unlock it first to salvage it.'
+        : why === 'loadout' ? `${loadoutUseText(profile, g.uid)} uses this piece. Salvage it from her page or take it out of the loadout first.`
+          : `Equipped by ${UNIT_MAP[g.equippedBy]?.name || 'a student'}. Unequip it first to salvage it.`, 'bad');
       return;
     }
     if (pick.has(g.uid)) pick.delete(g.uid);
@@ -415,7 +418,7 @@ function renderGear(tools, host, rerender) {
       // salvage mode shows the main stat value (the owner's default: the value only where you pick)
       const tile = gearTile(g, { mainIcon: true, wearer: true, value: !!pick, cls: 'mb-gear.bp-gtile', onClick: () => onTile(g) });
       if (pick) {
-        if (salvageBlock(g)) {
+        if (salvageBlock(g, profile)) {
           tile.classList.add('blocked');
           if (g.locked) tile.append(h('span.bp-lockb', { 'aria-hidden': 'true' }, ico('lock')));
         } else tiles.set(g.uid, tile);

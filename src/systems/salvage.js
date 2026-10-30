@@ -3,12 +3,17 @@
 // and equipped gear stay protected exactly as for a single salvage; rewards are merged per item.
 import { salvageGear, salvageRewards } from './gear.js';
 import { ITEM_RARITY_ORDER } from '../data/types.js';
+import { presetsNaming } from './teams.js';
 
-/** Why a piece can't be salvaged right now, or null when it can. */
-export function salvageBlock(gear) {
+/**
+ * Why a piece can't be salvaged right now, or null when it can. With the profile, a spare piece that a girl's
+ * other loadout names is 'loadout' (multi-salvage skips it like a locked one; GEAR_UPDATE §7.5).
+ */
+export function salvageBlock(gear, profile = null) {
   if (!gear) return 'missing';
   if (gear.locked) return 'locked';
   if (gear.equippedBy) return 'equipped';
+  if (profile && presetsNaming(profile, gear.uid).length) return 'loadout';
   return null;
 }
 
@@ -33,7 +38,7 @@ export function salvagePreview(profile, uids) {
   const ok = [];
   const skipped = [];
   for (const uid of new Set(uids)) {
-    const why = salvageBlock(profile.gear[uid]);
+    const why = salvageBlock(profile.gear[uid], profile);
     if (why) skipped.push({ uid, why });
     else ok.push(uid);
   }
