@@ -20,8 +20,18 @@ function piece(uid, slot, mainStat, subs) {
   });
   return { uid, slot, rarity: 'legendary', level: 12, main, subs: sl, ur: 1, club: 'taiko', locked: false, equippedBy: null, name: uid };
 }
-/** The fully maxed profile (the round-3/4 bench's, unchanged), plus an LR unit's Limit Break (`lr: false`: without it). */
-export function maxedProfile(id, { lr = true } = {}) {
+/** Bare profiles for the no-nerf gate's low pass (tools/balance/noNerfGate.mjs --profile): no gear. */
+export const LOW_PROFILES = {
+  l1: { level: 1, awaken: 0, breakthrough: 0, pl: 0 },
+  l40: { level: 40, awaken: 3, breakthrough: 4, pl: 2 },
+};
+/**
+ * The fully maxed profile (the round-3/4 bench's, unchanged), plus an LR unit's Limit Break (`lr: false`: without it).
+ * `profile: 'l1' | 'l40'`: a bare profile instead (LOW_PROFILES, no gear).
+ */
+export function maxedProfile(id, { lr = true, profile = 'maxed' } = {}) {
+  const missions = { counters: lr ? { [`lr:${id}`]: 1, [`lbt:${id}`]: 1 } : {} };
+  if (LOW_PROFILES[profile]) return { units: { [id]: { ...LOW_PROFILES[profile], gear: {} } }, gear: {}, missions };
   const c = piece(`${id}_c`, 'charm', 'critDmg', [['atkPct', 2], ['critChance', 2], ['ratePct', 0], ['armorPen', 0]]);
   const r = piece(`${id}_r`, 'ribbon', 'critChance', [['atkPct', 2], ['critDmg', 2], ['ratePct', 0], ['armorPen', 0]]);
   const s = piece(`${id}_s`, 'shoes', 'ratePct', [['atkPct', 2], ['critChance', 1], ['critDmg', 1], ['armorPen', 0]]);
@@ -29,16 +39,16 @@ export function maxedProfile(id, { lr = true } = {}) {
   return {
     units: { [id]: { level: 85, awaken: 5, breakthrough: 10, pl: 6, gear: { charm: c.uid, ribbon: r.uid, shoes: s.uid } } },
     gear: { [c.uid]: c, [r.uid]: r, [s.uid]: s },
-    missions: { counters: lr ? { [`lr:${id}`]: 1, [`lbt:${id}`]: 1 } : {} },
+    missions,
   };
 }
 /** Her battle stats fully maxed; `now` (default the clock) decides UR Resonance; `lr: false` leaves an LR unit at UR. */
-export function maxedStats(id, now = null, { lr = true } = {}) {
-  if (now == null) return unitBattleStats(maxedProfile(id, { lr }), id);
+export function maxedStats(id, now = null, { lr = true, profile = 'maxed' } = {}) {
+  if (now == null) return unitBattleStats(maxedProfile(id, { lr, profile }), id);
   const keep = Date.now;
   Date.now = () => now;
   try {
-    return unitBattleStats(maxedProfile(id, { lr }), id);
+    return unitBattleStats(maxedProfile(id, { lr, profile }), id);
   } finally {
     Date.now = keep;
   }

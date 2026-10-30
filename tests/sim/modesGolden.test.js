@@ -23,6 +23,10 @@ export const GOLDEN_STAGES = ['1-1', '2-3', '3-3', '4-2', '5-4', '6-1', '6-3', '
 
 // Re-pinned for balance round 5 (src/data/balance.js) on top of the attack shapes: a deliberate sim change; every
 // table below moved with it. No win became a loss.
+// Re-pinned Oct 30 (the final review round 2: Noa's row ×1.04 damage): from 6-3 on the bot's free team has Noa, so
+// those rows (GOLDEN, BASE_GOLDEN) and the three gacha rows on 8-4 Hard moved; every result letter is the same (no win
+// became a loss, no loss a win). The bot's plan reacts to the small change: 7-3 Hard keeps its win with 12 lives
+// (was 26), and the base roster's 7-3 Hard is lost at wave 14 (was 19).
 
 const GOLDEN = {
   '1-1:easy': 'W12/150/21293/685/a23ad39a',
@@ -37,14 +41,14 @@ const GOLDEN = {
   '5-4:hard': 'W27/43/80477/977/8c91bc69',
   '6-1:easy': 'W26/150/53140/4542/812713d8',
   '6-1:hard': 'W26/47/58198/560/a119e7df',
-  '6-3:easy': 'W27/148/28410/1146/7d89e05',
-  '6-3:hard': 'W27/45/34119/655/39c0c39d',
-  '7-3:easy': 'W29/146/82504/20496/2e11ab58',
-  '7-3:hard': 'W29/26/96032/9003/33373d1d',
-  '8-4:easy': 'W30/150/41300/14820/5c1d462b',
-  '8-4:hard': 'W30/50/46368/5033/f1da7c79',
-  '8-5:easy': 'W30/150/34236/26294/a777e402',
-  '8-5:hard': 'L30/0/36960/4969/d9f901ae',
+  '6-3:easy': 'W27/149/27724/1339/d9460bd8',
+  '6-3:hard': 'W27/43/34809/587/70a315a2',
+  '7-3:easy': 'W29/143/85706/19712/b586bc0',
+  '7-3:hard': 'W29/12/101295/7453/f475d0fd',
+  '8-4:easy': 'W30/150/41045/14435/776b4a1d',
+  '8-4:hard': 'W30/50/46056/4568/3d0663cb',
+  '8-5:easy': 'W30/150/35907/26078/43d4be20',
+  '8-5:hard': 'L30/0/38683/4650/76197797',
 };
 
 // The same stages with the new girls (UNIT_GAPS §5) left out of the free pool: the digests the merged
@@ -63,14 +67,14 @@ const BASE_GOLDEN = {
   '5-4:hard': 'W27/42/80858/1507/16e38a43',
   '6-1:easy': 'W26/150/51301/6477/5ad72fd9',
   '6-1:hard': 'W26/50/56995/1230/3f25d8d9',
-  '6-3:easy': 'W27/150/30069/1030/539f5b6b',
-  '6-3:hard': 'W27/43/41958/672/80cea3c0',
-  '7-3:easy': 'W29/147/83396/20058/860bc5aa',
-  '7-3:hard': 'L19/0/66851/2355/3a98a744',
-  '8-4:easy': 'W30/150/43190/13545/65aa014d',
-  '8-4:hard': 'W30/45/47045/2911/19eff220',
-  '8-5:easy': 'W30/150/35632/25019/cbd787a',
-  '8-5:hard': 'L30/0/39525/2978/89f712fc',
+  '6-3:easy': 'W27/148/32354/1136/4aba345d',
+  '6-3:hard': 'W27/42/44288/589/8d67c5ea',
+  '7-3:easy': 'W29/143/83613/19615/594c326b',
+  '7-3:hard': 'L14/0/49614/148/d99faa78',
+  '8-4:easy': 'W30/150/42290/13160/fa18e064',
+  '8-4:hard': 'W30/44/46865/2418/e3a77fcf',
+  '8-5:easy': 'W30/150/36614/24094/e1906dd2',
+  '8-5:hard': 'L30/0/39321/1754/c3012326',
 };
 
 // The same stages with the 19 live girls only (the returning girls left out of the free pool): the
@@ -119,20 +123,20 @@ const GACHA_GOLDEN = {
   'kinu:5-4:hard': 'W27/43/88931/1935/12ffd865',
   'kinu:6-1:hard': 'W26/47/57153/830/303c9b74',
   'ouka:5-4:hard': 'W27/43/81440/1258/d0b12b17',
-  'ouka:8-4:hard': 'W30/50/46077/4013/5a4c9442',
+  'ouka:8-4:hard': 'W30/50/46396/3733/239234cb',
   // (re-pinned for Bramble Road, attack shapes S3: her vine grows along the road, slows and lashes; was
   // 'W27/36/90183/930/cf2018c6' / 'W30/41/54755/1802/185583ae'; lives and waves unchanged). 8-4 again at the S3 review
   // (was 'W30/41/55092/1805/11b09815': vines skip grounded flyers and walkers already held; 41 → 42 lives)
   // 5-4 re-pinned again at the v0.1.60 merge: main's Gate Arc free team without Azami (main's own pin moved to
   // 'W27/34/93158/774/e2b016f0') together with Bramble Road; waves unchanged
   'chigusa:5-4:hard': 'W27/43/79000/839/11e1b387',
-  'chigusa:8-4:hard': 'W30/50/45908/2558/e61ba22b',
+  'chigusa:8-4:hard': 'W30/50/44317/2093/62e70b3c',
   // (re-pinned for her rework, Oct 21: ricochet Spin Shot, the lob on every path, damage in the regular
   // band and her own lane on a shared stretch; 37 → 38 and 36 → 40 lives). Re-pinned for v0.1.41 (was
   // 'W27/38/100632/1471/ac3188a3' / 'W30/40/53939/1579/6c70e78'): her lob is flyers only (it also hit
   // walkers on other lanes) and the Heavy Ball share tune; lives and waves unchanged
   'marumi:5-4:hard': 'W27/43/87640/1092/cc6ac2c0',
-  'marumi:8-4:hard': 'W30/50/46491/2363/549b1291',
+  'marumi:8-4:hard': 'W30/50/45524/1898/dc1f4c00',
 };
 
 describe.skipIf(!hasRealData())('the gacha new girls in a bot battle (pinned)', () => {

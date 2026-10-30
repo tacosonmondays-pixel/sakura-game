@@ -187,7 +187,7 @@ export function battleBoostText(unit) {
 
 /**
  * An LR unit's LR form boost (src/data/balance.js LR_POWER: on top while she is LR, never in a titan battle), for the
- * same footnote: her row and each path's tier-5 row by the path's name. Null for every other girl.
+ * same footnote: her row and each path's tier-5 row by the path's name (the duo: "their"). Null for every other girl.
  * @param {object} unit UnitDef
  * @returns {string|null}
  */
@@ -208,7 +208,9 @@ export function lrBoostText(unit) {
     if (parts.length) t5.push(`${p.name} ${parts.join(' and ')}`);
   }
   if (t5.length) bits.push(`at tier 5 ${t5.join('; ')}`);
-  return bits.length ? `In her LR form she also gets ${bits.join(', ')}.` : null;
+  // (the duo is two girls: "their LR form")
+  const lead = unit.duo?.members ? 'In their LR form they also get' : 'In her LR form she also gets';
+  return bits.length ? `${lead} ${bits.join(', ')}.` : null;
 }
 
 /**

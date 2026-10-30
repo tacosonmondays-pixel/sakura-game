@@ -48,13 +48,13 @@ const parseBuild = (b) => {
  * One run: her (fully maxed) on the best-covered spot, the supports beside her, a never-dying target.
  * @returns {{ dps, tiers, support: object }|{ error }}
  */
-export function measure({ d, unitId, build, target, support = 'um', stageId = '4-5', seed = 9, warm = 15, run = 40, lr = true, ally = false }) {
+export function measure({ d, unitId, build, target, support = 'um', stageId = '4-5', seed = 9, warm = 15, run = 40, lr = true, ally = false, profile = 'maxed' }) {
   const def = d.units[unitId];
   // `support`: 'um' (Umeko 2-5-0 + Midori 5-0-2), 'none', or 'girl:pNtM' (one support at that build: her boost)
   const one = /^([a-z_]+):p(\d)t(\d)$/.exec(support);
   const sup = support === 'um' ? [['umeko', [1, 5, 0, 2]], ['midori', [0, 5, 2, 2]]].filter(([id]) => id !== unitId)
     : one ? [[one[1], [+one[2], +one[3], CROSS[+one[2]], 2]]] : [];
-  const loadout = [{ unitId, stats: maxedStats(unitId, null, { lr }) }, ...sup.map(([id]) => ({ unitId: id, stats: maxedStats(id) }))];
+  const loadout = [{ unitId, stats: maxedStats(unitId, null, { lr, profile }) }, ...sup.map(([id]) => ({ unitId: id, stats: maxedStats(id) }))];
   const sim = withDetMath(() => new Sim({ stageId, loadout, hero: null, seed }));
   sim.cash = 1e15;
   sim.lives = 1e15;

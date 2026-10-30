@@ -238,8 +238,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Dragonflight now flies all the way back to START, so the run reaches the same wave sooner (12239 → 11492
     // ticks, 60 → 61 curse bursts, new hashes) and a few kills land with the other player (wallets 2796/3575 →
     // 2891/3480, the same 6371 coins in all); damage, lives and the zero casts are unchanged
+    // Re-pinned Oct 30 (Noa's row ×1.04 damage, the final review round 2): the guest fields Noa, so her stats and the
+    // state hashes move (final 3279512551 → 3763507503, hashes 8c876068 → 3224f922); ticks, damage, lives, coins and
+    // the bursts are unchanged
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, towers: r.towers, damage: r.damage, lives: r.lives, wallets: r.wallets, final: r.final, hashes: r.hashes, curseBursts: r.curseBursts, runners: r.runners })
-      .toEqual({ ticks: 9821, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2828/3543', final: 3279512551, hashes: '8c876068', curseBursts: 10, runners: 2 });
+      .toEqual({ ticks: 9821, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2828/3543', final: 3763507503, hashes: '3224f922', curseBursts: 10, runners: 2 });
   }, 240000);
 
   it('runs a co-op battle with Tenka (TENKA_START: her lab team over two absorbs, every class, the economy weapon, wells, Last Line, a sale) in sync, its checkpoint replaying', () => {
@@ -300,8 +303,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(runGearGirlsBattle().final).toBe(r.final);
     // pinned when the battle was added (v0.1.40 train; the same final as the merge review's ad hoc run
     // on V8 and JavaScriptCore). Change only with a deliberate sim / data change, and say why.
+    // Re-pinned Oct 30 (Noa's row ×1.04 damage, the final review round 2): Noa is in this team, so her stats and the
+    // state hashes move (final 32796160 → 2652086745, hashes 7cc84608 → 690a6f5b); the win, ticks, wallets and
+    // Iroha's counts are unchanged
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, iroha: r.iroha })
-      .toEqual({ ticks: 42380, state: 'won', wallets: '5467/5624', final: 32796160, hashes: '7cc84608', iroha: '550/504/850' });
+      .toEqual({ ticks: 42380, state: 'won', wallets: '5467/5624', final: 2652086745, hashes: '690a6f5b', iroha: '550/504/850' });
   }, 240000);
 
   it('runs the attack shapes S1 (SHAPES_START: Coin Wheel, Blade Cyclone, Firefly Halo) in sync, and a mid-wave rejoin lands on the run', () => {

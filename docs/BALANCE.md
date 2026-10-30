@@ -301,18 +301,45 @@ at ×1 and her row ×1.03 → ×1.06 (per seed she is at or above live on all si
 (`src/ui/girlView.js` `lrBoostText`) now names the LR row and each path's tier-5 row. Tenka's Joint Research LR with a
 full lab (176.9M) is unchanged, pending the owner.
 
+**Final review, round 2** (of 7b042643; NOT OK on one number). Noa 2-0-3 on a walking boss beside Umeko + Midori
+read under live on some seed counts (seeds 1…N: worst N = 12, ×0.968; alone she is bit-identical, only the supports
+moved). Her row gets ×1.04 damage (`noa: { dmg: 1.04, buff: 1.05, reach: 1.1 }`): on seeds 1–24 every running mean
+from 3 seeds up is at or above live (24 seeds: live 55.4, branch 60.0). The duo's footnote says "their LR form".
+Re-pins: PENDING_BUMP 13 `1c5b546f9e89`; two engines battles that field Noa (ROSTER_START: final and hashes only, the
+same ticks, damage, lives and coins; GEAR_GIRLS_START: final and hashes only, the same win, ticks, wallets and Iroha's
+counts); the bot goldens from 6-3 on, where the free team has Noa (`tests/sim/modesGolden.test.js`, the three gacha
+rows on 8-4 Hard, `tests/sim/abilitiesGolden.test.js` 8-5): every result letter the same, though the bot's plan reacts
+(7-3 Hard won with 12 lives, was 26; the base roster's 7-3 Hard lost at wave 14, was 19); the mods hash does not move
+(its pinned girls do not include Noa).
+
 **The no-nerf gate** (`tools/balance/noNerfGate.mjs`): every non-hero girl, each path at tiers 1–5 (a tier-2
-crosspath as r5Bench builds it), boss / walking boss / crowd, seeds 9/1/2, run in a live tree (`origin/main` a741aef7)
-and on the branch, then `--compare` (tolerance ×0.995). 1,395 cells per support setting:
+crosspath as r5Bench builds it), boss / walking boss / crowd, the mean of seeds 9/1/2 on every tier, three profiles
+(fully maxed; bare L1 ★0; bare L40 ★3, 4 gates, P2; no gear on the bare two; the supports always fully maxed), and the
+LR units (the duo, Tenka) once more without their Limit Break (`|lroff`). `--compare` counts the cells missing or
+errored on either side and fails on any; tolerance ×0.995. Live is `origin/main` a741aef7, with the three tools copied
+in (they read `src/` beside them). Exactly what ran, in each tree:
 
-| Supports | t1 | t2 | t3 | t4 | t5 | under live |
-|---|---:|---:|---:|---:|---:|---:|
-| none (alone) | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | **0** |
-| Umeko + Midori | 0 / 279 | 0 / 279 | 1 / 279 | 0 / 279 | 0 / 279 | 1, rounding |
+    node --import ./tools/simLoader.mjs tools/balance/noNerfGate.mjs --support um   > um.jsonl
+    node --import ./tools/simLoader.mjs tools/balance/noNerfGate.mjs --support none > none.jsonl
+    node tools/balance/noNerfGate.mjs --compare live/um.jsonl branch/um.jsonl
 
-The one cell is Noa 2-0-3 on the walking boss with supports, 57 → 56 (×0.982): one step of the bench's whole-number
-rounding on a tiny number (Noa's row is unchanged; only the supports moved). On eight seeds both trees read 55 (sums 440
-live, 438 branch; per seed 2 up, 4 down, 2 equal), so it is seed noise, not a nerf.
+| Pass | t1 | t2 | t3 | t4 | t5 | cells | missing | under live |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| maxed, alone | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 1,395 | 0 | **0** |
+| maxed, Umeko + Midori | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 1,395 | 0 | **0** |
+| LR off, alone / supported | 0 / 18 | 0 / 18 | 0 / 18 | 0 / 18 | 0 / 18 | 90 / 90 | 0 | **0 / 0** |
+| L1 and L40, alone (+ LR off) | 0 / 594 | 0 / 594 | 0 / 594 | 0 / 594 | 0 / 594 | 2,970 | 0 | **0** |
+| L1 and L40, Umeko + Midori (+ LR off) | 1 / 594 | 0 / 594 | 3 / 594 | 4 / 594 | 2 / 594 | 2,970 | 0 | 10 (below) |
+
+The ten supported low-profile cells, re-run on seeds 1–16: Sango 2-0-4 crowd (L1), Shiro 2-0-1 crowd and 4-0-2 / 5-0-2
+on a held boss (L1), and Suzu 5-0-2 on a held boss (L40) are at or above live (seed noise); Midori 2-0-3
+on a walking boss (L1) reads 4 → 3 a second, whole-number rounding (over 400 s the branch is at or above live). **Open:
+the duo's Starfall 3-0-2 and 4-0-2 at L40 on a crowd beside Umeko + Midori read ×0.93 and ×0.92 of live** (LR on or
+off alike: at L40 they have no LR form), on every seed and every crowd spacing from 0.4 to 0.7 s. The cause is Umeko's
+round-5 buff row, through Blooming Ocean's attack-speed aura (×1.05 stronger): the L40 duo's damage on this stream is
+not smooth in attack speed (it moves up and down by ±5% with small steps of aura speed), and this step lands in a dip;
+without Umeko's buff row they read 3,047 against live 3,044 (seed 9). The same pair reads ×1.03 at L1 and ×1.23–1.24 fully maxed. Lifting it needs their non-LR row ×1.01 → about
+×1.12, which also lifts Grand Spectrum without LR off the owner's 2.17×, so it is left to the owner.
 
 ## Marumi rework (2026-10-21, `feature/marumi-rework`)
 

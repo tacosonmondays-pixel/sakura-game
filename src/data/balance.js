@@ -72,7 +72,9 @@ const ROWS = {
   // (Umeko ×1.10 damage: the attack shapes' Searchlight Sweep left her own small hits up to 5% under today, and her
   // Sea of Lanterns 2% under on the ability bench's lone boss at ×1.07)
   umeko: { dmg: 1.1, buff: 1.05, reach: 1.1, ctl: 1.2 },
-  noa: { buff: 1.05, reach: 1.1 },
+  // (Noa ×1.04: her 2-0-3 on a walking boss beside Umeko + Midori read under today on some seed counts (worst 12 seeds
+  // ×0.968; her own kit is unchanged, only the supports moved); ×1.04 holds every running mean from 3 seeds up)
+  noa: { dmg: 1.04, buff: 1.05, reach: 1.1 },
   wakaba: { buff: 1.05 },
   ouka: { buff: 1.05 },
   // Momo: her coins are the economy and stay as they are; ×1.03 damage because the attack shapes' Coin Wheel left her
