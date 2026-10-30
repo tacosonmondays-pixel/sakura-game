@@ -827,6 +827,33 @@ GearInstance = { uid, slot, rarity, level /*0-10; 0-12 when ur*/, main: { stat, 
   // the sim's resolveStats makes the band ATK at a level without a blast and reach from it (re-resolved at level-up).
 ```
 
+### `src/systems/teams.js` (teams and gear loadouts, M1; the save half is `teamsSave.js`)
+
+```js
+export const TEAM_COUNT /*5*/, PRESET_COUNT /*3*/, PRESET_LETTERS;
+export function getTeams(p)                 // { active, list[5] }: a view (writes nothing) until the player uses teams
+export function getPresets(p, unitId)       // { presets, preset }: a view (A = what she wears) until she uses loadouts
+export function ensureTeams(p) / ensurePresets(p, unitId)   // make the blocks on first use (Team 1 = the formation)
+export function syncTeams(p)                // fold formation → active team, worn gear → worn loadout (store.saveText)
+export function planTeam(p, t) / planPreset(p, unitId, n)  // { steps, takes: [{uid,slot,from,to}], clashes } — no change
+export function selectTeam(p, t) / usePreset(p, unitId, n) / copyPreset(p, unitId, from, to)  // → { ok, takes, undo }
+export function copyTeam(p, from) /*→ index|-1*/, clearTeam(p, t), renameTeam(p, t, name)
+export function restoreLoadouts(p, undo)    // Undo
+export function teamClashes(p, t)           // Map uid → member ids naming it (the first in team order gets it)
+export function presetsNaming(p, uid) / loadoutUseText(p, uid)  // salvage: 'loadout' block, "Kage's Loadout B"
+// Invariants: profile.formation === the active team's squad; unit.gear === the worn loadout except a flagged slot
+// whose piece another girl wears: `lent` (a switch took it from her: she is its one lender) or `wish` (her loadout
+// names a piece its lender took back). Lending is one way (M1 review r2): settleLent gives a lent piece back to its
+// lender the moment its borrower lets it go (unequip, another loadout: every syncTeams / save write) or a team switch
+// leaves it unworn by the new team; a borrower passing it on never becomes a lender. A loadout she takes off keeps its
+// `lent` claim (lenderOf reads every loadout; only the worn one is settled). Flags: gp: + gpf:<id> (lent + 32 × wish)
+// + gpf:<id>:<n> (a taken-off loadout's lent bits). lenderOf(p, uid), settleLent(p, members?) → returns; lentPieces → the "lent to X" note + Take back.
+// Pieces are never copied. Not hashed; the battle reads only profile.formation and unit.gear.
+// Deferred (owner board / M2): the co-op room's in-room switch "until Ready" needs session.js (hashed) → rides M2's
+// COOP_PROTOCOL bump (the hub switches; the room shows "You bring Team N"); Clear works on the active team only;
+// Stage Prep with a saved battle shows no Team chip (Continue plays the saved team).
+```
+
 ### `src/systems/battleSave.js` (battle saves)
 
 ```js

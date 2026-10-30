@@ -30,6 +30,8 @@ import {
 } from '../systems/save.js';
 import { droppedBattleSaveNames } from '../systems/battleSave.js';
 import { writeGearMarks } from '../systems/gearMarks.js';
+import { syncTeams } from '../systems/teams.js';
+import { writeBuildCoachMark } from '../systems/buildCoachSave.js';
 import { writeRosterMarks } from '../systems/rosterSave.js';
 import { writeTeamMarks } from '../systems/teamsSave.js';
 
@@ -66,7 +68,11 @@ export function saveText(profile, rev, by = '') {
   if (profile?.gear && profile?.missions) writeGearMarks(profile);
   // and so do the girls' 'own:' marks (an older build leaves out a girl it does not know)
   if (profile?.units && profile?.missions) writeRosterMarks(profile);
-  if (profile?.units && profile?.missions) writeTeamMarks(profile); // [gear update] teams and gear loadouts (teamsSave.js)
+  // [gear update] teams and gear loadouts (teamsSave.js): the active team = the formation and her active loadout = her
+  // gear (src/systems/teams.js syncTeams, only where the blocks exist), then their 'tm:' / 'gp:' mirrors
+  if (profile?.units && profile?.gear && profile?.missions) syncTeams(profile);
+  if (profile?.units && profile?.missions) writeTeamMarks(profile);
+  if (profile?.units && profile?.missions) writeBuildCoachMark(profile); // [build coach] the main girl's 'cm:' mark
   const body = JSON.stringify(profile);
   const head = by ? `{"saveRev":${rev},"saveBy":"${by}"` : `{"saveRev":${rev}`;
   return body.length > 2 ? `${head},${body.slice(1)}` : `${head}}`;

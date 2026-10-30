@@ -3,7 +3,8 @@
 // agree with what the save already says, and mirrors them so an older build that drops them cannot lose them.
 //
 //   profile.teams = { active: 0…4, list: [{ name, hero, towers, use: { [unitId]: 0…2 } }] }   (1–5 teams)
-//   unit.presets  = [{ charm, ribbon, shoes, hair, necklace }] (1–3 loadouts) and unit.preset (the active one)
+//   unit.presets  = [{ charm, ribbon, shoes, hair, necklace }] (1–3 loadouts) and unit.preset (the active one); the
+//                   active one is what she wears, plus the pieces another girl took from it (wornLoadout: lent)
 //
 // Present fields win: an older build can change `profile.formation` and `unit.gear` while it drops `teams` and
 // `presets`, so on load the formation becomes the active team and what she wears becomes her active loadout.
@@ -12,6 +13,8 @@
 //   tm:<t>:<unitId>     1 + her place (0 the hero, 1… the students in order) + 10 × the loadout the team gives her
 //   gp:<unitId>         1 + active loadout + 10 × loadout count
 //   gp:<unitId>:<n>:<slot>  the number of the piece loadout n names in that slot (gear uid 'g<n>')
+//   gpf:<unitId>        the worn loadout's lend flags (wornLoadout): lent bits + 32 × wish bits
+//   gpf:<unitId>:<n>    the lent bits a loadout she took off keeps (teams.js foldGear)
 // Pure functions on the profile; nothing here is co-op hashed.
 
 import { UNIT_MAP } from '../data/units.js';
@@ -20,6 +23,8 @@ import { SLOT_IDS, emptySlots } from '../data/gearSlots.js';
 import { MARK } from '../data/gearAwaken.js';
 
 export const TEAMS_MAX = 5;
+/** The worn loadout's lend flags: 'gpf:<unitId>' = lent bits + 32 × wish bits (SLOT_IDS order). */
+export const LEND_MARK = 'gpf:';
 export const PRESETS_MAX = 3;
 const NAME_MAX = 16;
 
@@ -42,6 +47,11 @@ export function cleanPresets(raw, rawPreset) {
   const presets = raw.slice(0, PRESETS_MAX).map((l) => {
     const out = emptySlots();
     if (isObj(l)) for (const s of SLOT_IDS) out[s] = typeof l[s] === 'string' ? l[s] : null;
+    // [M1] the red dot: a piece this loadout named was salvaged (teams.js; never mirrored)
+    if (isObj(l) && (l.gone === 1 || l.gone === true)) out.gone = 1;
+    // [M1] lend flags (bits by SLOT_IDS) on the worn loadout: `lent` = a switch took this slot's piece from her (she
+    // is its lender); `wish` = her loadout names a piece its lender took back (wornLoadout)
+    if (isObj(l)) for (const k of ['lent', 'wish']) if (Number.isInteger(l[k]) && l[k] > 0 && l[k] < 1 << SLOT_IDS.length) out[k] = l[k];
     return out;
   });
   return { presets, preset: index(rawPreset, presets.length) };
@@ -102,10 +112,46 @@ function presetsFromMarks(c, unitId) {
   return { presets, preset: index((v - 1) % 10, count) };
 }
 
+/**
+ * Her worn loadout: what she wears, plus a flagged slot whose piece another girl wears (M1 reviews r1 H1, r2 H1/M1):
+ *   lent  a switch took it from her: she is its lender, the one owner. teams.js settleLent gives it back the moment
+ *         its borrower lets it go (unequip, another loadout, salvage guard) or a team switch leaves it unused.
+ *   wish  her loadout names a piece its lender took back: no claim on it, but this loadout or its team takes it again
+ *         when put on (with the list).
+ * An empty slot without a flag is simply empty: she let it go.
+ */
+export function wornLoadout(p, unitId, prev) {
+  const u = p.units[unitId];
+  const out = emptySlots();
+  let lent = 0;
+  let wish = 0;
+  SLOT_IDS.forEach((s, i) => {
+    const mine = u?.gear?.[s] || null;
+    const was = prev?.[s];
+    const g = was ? p.gear?.[was] : null;
+    const bit = 1 << i;
+    // a slot she leaves empty keeps its piece only with a flag (one way: the lender's `lent`, the borrower's `wish`)
+    // while another girl wears it; anything else is what she wears
+    const flagged = ((prev?.lent | 0) & bit) || ((prev?.wish | 0) & bit);
+    if (mine) out[s] = mine;
+    // (a `lent` slot holds while the piece exists and she does not wear it, spare included: only teams.js settleLent
+    // clears it, so a borrower letting it go mid-switch never drops the lender's claim; review r3 H1. `wish` needs a
+    // wearer.)
+    else if (flagged && g && g.slot === s && g.equippedBy !== unitId && (g.equippedBy || ((prev?.lent | 0) & bit))) {
+      out[s] = was;
+      if ((prev?.lent | 0) & bit) lent |= bit;
+      else wish |= bit;
+    } else out[s] = null;
+  });
+  if (lent) out.lent = lent;
+  if (wish) out.wish = wish;
+  return out;
+}
+
 /** Rewrite the 'tm:' and 'gp:' mirrors from the profile (nothing for a save without teams or loadouts). */
 export function writeTeamMarks(p) {
   const c = ((p.missions ||= {}).counters ||= {});
-  for (const k of Object.keys(c)) if (k.startsWith(MARK.team) || k.startsWith(MARK.preset)) delete c[k];
+  for (const k of Object.keys(c)) if (k.startsWith(MARK.team) || k.startsWith(MARK.preset) || k.startsWith(LEND_MARK)) delete c[k];
   if (p.teams?.list?.length) {
     c[`${MARK.team}a`] = 1 + p.teams.active + 10 * p.teams.list.length;
     p.teams.list.forEach((t, i) => {
@@ -117,6 +163,11 @@ export function writeTeamMarks(p) {
   for (const [id, u] of Object.entries(p.units || {})) {
     if (!Array.isArray(u.presets) || !u.presets.length) continue;
     c[`${MARK.preset}${id}`] = 1 + (u.preset || 0) + 10 * u.presets.length;
+    const worn = u.presets[u.preset || 0] || {};
+    const flags = (worn.lent | 0) + 32 * (worn.wish | 0);
+    if (flags) c[`${LEND_MARK}${id}`] = flags;
+    // a loadout she took off keeps its lent claims (teams.js foldGear): 'gpf:<id>:<n>' = its lent bits
+    u.presets.forEach((l, n) => { if (n !== (u.preset || 0) && (l.lent | 0)) c[`${LEND_MARK}${id}:${n}`] = l.lent; });
     u.presets.forEach((l, n) => {
       for (const s of SLOT_IDS) {
         const g = gearNumber(l[s]);
@@ -146,11 +197,29 @@ export function restoreTeams(p) {
   for (const [id, u] of Object.entries(p.units)) {
     if (!u.presets) {
       const back = presetsFromMarks(c, id);
-      if (back) Object.assign(u, back);
+      if (back) {
+        // the worn loadout's lend flags ride 'gpf:' (lent + 32 × wish)
+        const f = whole(c[`${LEND_MARK}${id}`]);
+        const worn = back.presets[back.preset];
+        if (f % 32) worn.lent = f % 32;
+        if (Math.floor(f / 32) % 32) worn.wish = Math.floor(f / 32) % 32;
+        back.presets.forEach((l, n) => {
+          const b = whole(c[`${LEND_MARK}${id}:${n}`]) % 32;
+          if (n !== back.preset && b) l.lent = b;
+        });
+        Object.assign(u, back);
+      }
     }
     if (!u.presets) continue;
-    for (const l of u.presets) for (const s of SLOT_IDS) if (l[s] && p.gear[l[s]]?.slot !== s) l[s] = null;
-    u.presets[u.preset] = { ...emptySlots(), ...u.gear };
+    for (const l of u.presets) {
+      for (const s of SLOT_IDS) {
+        if (l[s] && p.gear[l[s]]?.slot !== s) {
+          l[s] = null;
+          l.gone = 1; // [M1] the red dot on its chip
+        }
+      }
+    }
+    u.presets[u.preset] = wornLoadout(p, id, u.presets[u.preset]); // (the one she wears: no red dot)
   }
   writeTeamMarks(p);
 }

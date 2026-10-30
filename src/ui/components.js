@@ -584,9 +584,11 @@ export function girlTile(unitId, { onClick = null, owned = true, level = null, s
   const join = owned ? null : rule || joinRule(u);
   // a screen's own short status on an owned tile (Tryout Day: "Yours · band cap", "Loaner"): the join chip's place
   const tagText = owned && tag ? String(tag) : null;
+  // [build coach] the Main girl's tile says so in every list (BUILD_COACH.md §1)
+  const isMain = owned && profile?.buildCoach?.main === unitId;
   const f = tileFrame(u.id);
   const name = `${u.name}${hero ? ', hero' : ''}`;
-  const aria = owned ? `${name}, ${shown}${level != null ? `, level ${level}` : ''}${pot >= 2 ? `, Potential ${pot}` : ''}${tagText ? `, ${tagText}` : ''}${selected ? ', selected' : ''}`
+  const aria = owned ? `${name}, ${shown}${level != null ? `, level ${level}` : ''}${pot >= 2 ? `, Potential ${pot}` : ''}${tagText ? `, ${tagText}` : ''}${isMain ? ', your Main' : ''}${selected ? ', selected' : ''}`
     : `${name}, ${shown}, not recruited: ${join}`;
   const el = h(`button.ui-girltile.unit-card${step ? `.${step}` : ''}${owned ? '' : '.locked'}${selected ? '.sel' : ''}${cls ? `.${cls}` : ''}`, {
     type: 'button', 'data-unit': unitId, 'data-rarity': shown, 'data-hero': hero ? '' : null, 'data-testid': testid, 'aria-label': aria,
@@ -595,11 +597,12 @@ export function girlTile(unitId, { onClick = null, owned = true, level = null, s
     html: portraitHTML(u, 'card', { cls: 'card', alt: '' }),
   },
   step === 'ssr' && owned ? h('span.glow', { 'aria-hidden': 'true' }) : null,
-  selected || pot >= 2 || isNew ? h('span.st',
+  selected || pot >= 2 || isNew || isMain ? h('span.st',
     selected ? h('span.ui-chip.pick', { 'aria-hidden': 'true' }, ico('check')) : null,
     pot >= 2 ? h('span.gt-p', { 'data-testid': 'card-pot' }, potPill(pot, { def: u })) : null,
     // one-time NEW: a girl who was P2+ when Potential v3 arrived, until her Info tab is opened
-    isNew ? h('span.ui-bdg.new', { 'data-testid': 'card-potnew', title: 'New Potential steps — see her Info tab' }, 'New') : null) : null,
+    isNew ? h('span.ui-bdg.new', { 'data-testid': 'card-potnew', title: 'New Potential steps — see her Info tab' }, 'New') : null,
+    isMain ? h('span.ui-bdg.gt-main', { 'data-testid': 'card-main', title: 'Your Main: her Build Coach plans for her' }, 'Main') : null) : null,
   h(`span.role${hero ? '.hero' : ''}`, { 'aria-hidden': 'true', title: hero ? 'Hero' : ROLES[u.role]?.name || null },
     h('span.ui-ico', { html: lineGlyph(ROLE_GLYPH[fam] || 'sword', '', { kitSize: false }) })),
   join ? h('span.ui-chip.ink.dup.gt-join', { 'data-testid': 'card-join' }, join) : null,
