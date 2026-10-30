@@ -242,6 +242,30 @@ const picks = await Promise.all([A, B].map((p) => p.evaluate(() => JSON.stringif
 check(picks[0] === picks[1], `both clients drew the same picks (${picks[0]})`);
 await snap(B, 'tycoop-battle-guest');
 
+// (Oct 30) the Pep Talks taken, in co-op: the tracker's button opens the list with Yours / Partner; the partner's tab
+// shows their cards; Escape closes it. Display only: nothing goes to the lockstep
+const coopPeps = await A.evaluate(async () => {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const { sim, coop } = window.__battle;
+  const slot = coop.lockstep.mySlot;
+  const rows = (i) => new Set(sim.tryout.players[i].cards.map((c) => `${c.id}|${c.unit || ''}`)).size;
+  document.querySelector('[data-testid="ty-peps-open"]')?.click();
+  await wait(100);
+  const box = () => document.querySelector('[data-testid="ty-peps-sheet"]');
+  const out = { open: !!box(), tabs: box()?.querySelectorAll('.ty-peps-tabs > .ui-opt').length || 0, mine: box()?.querySelectorAll('.ty-pep').length ?? -1, wantMine: rows(slot) };
+  document.querySelector('[data-testid="ty-peps-tab-partner"]')?.click();
+  await wait(100);
+  out.partner = box()?.querySelectorAll('.ty-pep').length ?? -1;
+  out.wantPartner = rows(1 - slot);
+  out.partnerOn = document.querySelector('[data-testid="ty-peps-tab-partner"]')?.getAttribute('aria-checked') === 'true';
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await wait(100);
+  out.closed = !box();
+  return out;
+});
+check(coopPeps.open && coopPeps.tabs === 2 && coopPeps.mine === coopPeps.wantMine, `co-op: the Pep Talks list opens with Yours / Partner (${JSON.stringify(coopPeps)})`);
+check(coopPeps.partnerOn && coopPeps.partner === coopPeps.wantPartner && coopPeps.closed, 'co-op: the Partner tab lists the partner\'s Pep Talks; Escape closes it');
+
 // v0.1.61: the Home Time vote (§20.1, Q-A6). Before wave 48 neither tab shows the pill (nor freeplay's Finish). Playing
 // a browser co-op run to wave 48 for real is out of this test's reach, so the vote past 48 is STAGED: Auto off, both
 // locksteps held still at a calm point, both Sims given the same "48 waves cleared" state, and the same 'end' commands

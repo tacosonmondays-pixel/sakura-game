@@ -80,14 +80,17 @@ export const CARD_TEXT = {
   X04: { name: 'Final Bell', line: () => `Last wave of every period: all girls +${pct(PEP_CARDS.X04.lastWave.rateMul)} attack speed, +${pct(PEP_CARDS.X04.lastWave.damageMul)} damage; first wave: −${pct(-PEP_CARDS.X04.firstWave.damageMul)} damage` },
 };
 
-/** A card instance's name and effect line. */
-export function cardText(inst) {
+/**
+ * A card instance's name and effect line. `who`: the words for the girl when the instance names none (the Yearbook's
+ * page for a One girl card: "One squad girl"); a named girl always wins.
+ */
+export function cardText(inst, { who: anyone = '' } = {}) {
   const t = CARD_TEXT[inst.id];
   const c = PEP_CARDS[inst.id];
   if (!t || !c) return { name: inst.id, line: '' };
   // The battle's own numbers (scaling cards × SCALE[r]; talents, build cards and capstones as written).
   const m = cardMods(c, inst.r) || {};
-  const who = inst.unit ? UNIT_MAP[inst.unit]?.name || inst.unit : '';
+  const who = inst.unit ? UNIT_MAP[inst.unit]?.name || inst.unit : anyone;
   // a Hidden Talent at UR also adds +20 % damage (pep.js familySums): the card says so
   const ur = c.group === 'talent' && inst.r >= 3 ? '; UR: +20% damage' : '';
   return { name: t.name, line: t.line(m, who, inst.r) + ur };
@@ -601,4 +604,65 @@ export const WAVE_RECORD_TEXT = {
   bcBest: (n) => `Best wave ${n}`,
   ybBest: 'Best wave',
   ybRow: (g) => `Extended Day · Grade ${g}`,
+};
+
+// ---- Pep Talks taken (the run's list: the battle's Pep Talks panel, the Class Photo and the Yearbook) ----------------
+
+/**
+ * What a card costs, on its own line (the cards' drawbacks, §4.3): the same words as the end of its effect line, so the
+ * panel can list every drawback in play in one place. Cards without a drawback have no entry.
+ */
+export const DRAWBACK_TEXT = {
+  B07: () => 'Hand it in no longer pays coins',
+  B08: () => `Max hearts −${-PEP_CARDS.B08.draw.maxHearts}`,
+  U01: () => `−${-PEP_CARDS.U01.draw.passes} Hall Pass at every later break`,
+  U02: () => `−${pct(-PEP_CARDS.U02.draw.othersDamage)} damage for girls who are neither fire nor frost`,
+  U03: () => `−${pct(-PEP_CARDS.U03.draw.othersDamage)} damage for girls who are neither water nor lightning`,
+  U04: () => `−${pct(-PEP_CARDS.U04.draw.othersDamage)} damage for girls who are neither holy nor pierce`,
+  X01: () => `Foes +${pct(PEP_CARDS.X01.draw.foeHp)} HP for the rest of the run`,
+  X02: () => 'The pick after it is skipped',
+  X03: () => `−${-PEP_CARDS.X03.draw.passes} Hall Pass at every later break`,
+  X04: () => `First wave of every period: −${pct(-PEP_CARDS.X04.firstWave.damageMul)} damage`,
+};
+
+/** The Pep Talks panel (in battle, on the Class Photo) and the Yearbook's card page. */
+export const PEP_LIST_TEXT = {
+  title: 'Pep Talks',
+  open: 'Pep Talks',
+  openLabel: (n) => `Pep Talks taken: ${n}. Show the list`,
+  close: 'Close',
+  count: (n) => `${n} taken`,
+  none: 'No Pep Talks yet. Each pick after a period offers some.',
+  noneEnd: 'No Pep Talks this run.',
+  mine: 'Yours',
+  partner: 'Partner',
+  partnerOf: 'Your partner\'s Pep Talks (Team-wide ones help you too)',
+  stacks: (n) => `×${n}`,
+  stackLabel: (n) => `taken ${n} times`,
+  each: 'each',
+  refills: (n) => `${n} free upgrade${n === 1 ? '' : 's'} left`,
+  teamWide: 'Team-wide',
+  groups: { everyone: 'Everyone', group: 'Group', personal: 'One girl', board: 'Board', placement: 'Placement', talent: 'Hidden Talent', build: 'Build', capstone: 'Capstone' },
+  drawbacks: 'Drawbacks and twists in play',
+  drawback: 'Drawback',
+  noDrawbacks: 'None.',
+  dareNow: (curse) => `Double Dare this period: ${curse}`,
+  affixNow: (twist) => `Grade twist this period: ${twist}`,
+  varsity: 'Varsity',
+  varsityLine: (name, line) => `${name}: ${line}`,
+  seats: 'Seat Change',
+  seatsNow: (n, bonus) => `${n} Window Seat${n === 1 ? '' : 's'} in play · ${bonus}`,
+  seatBonus: (dmg, reach) => `+${pct(dmg)} damage, +${tiles(reach)} reach`,
+  holders: (names) => `Seated: ${names.join(', ')}`,
+  noHolders: 'Seated: nobody yet',
+  partnerGirl: (name) => `${name} (partner)`,
+  passes: (per, max) => `Hall Passes: ${per} at each break (hold up to ${max})`,
+  moves: (n) => `Hall Pass moves this run: ${n}`,
+  desk: 'Desk Supplies',
+  yearbookTitle: (name) => name,
+  yearbookGroup: (g) => `${g} card`,
+  yearbookRar: 'By rarity',
+  yearbookWho: 'One squad girl',
+  yearbookTaken: 'Taken in a run',
+  yearbookSeen: 'Seen, not taken yet',
 };

@@ -3,8 +3,10 @@
 // frames §13.1, girls in their own unit frames §13.7), the class bar, the break bar (Window Seats, Hall Pass moves with
 // Undo, Snack or Brush Up, Back to class), the Make-up sheet and the Class Photo at the end (§13.9). Solo sends run
 // commands straight to the Sim; co-op queues `tr` / `mv` (src/online/coop/commands.js). Reads the Sim, never writes it.
-// The sheets carry `ui-day` so the kit's girl tile and rarity tag draw inside the battle (src/ui/styles/ink.css is
-// scoped to that class); their own rules are src/ui/styles/tryoutBattle.css, all under .ty-layer.
+// The whole layer carries `ui-day`, so the kit's controls, girl tile and rarity tag draw inside the battle as on the
+// menus (src/ui/styles/ink.css is scoped to that class: .ui-btn, .ui-opt, the rings and chamfers); its own rules are
+// src/ui/styles/tryoutBattle.css, all under .ty-layer. The Pep Talks panel (./tryout/pepTalks.js) opens from the
+// tracker, the pick sheet, the break bar and the Class Photo: every Pep Talk taken, its stacks and drawbacks.
 import { h } from './util.js';
 import { fmtNum } from '../format.js';
 import { svgEl, girlTile, confirmDialog } from '../components.js';
@@ -18,12 +20,15 @@ import { PEP_CARDS, RARITIES, TRYOUT } from '../../data/tryout.js';
 import { assignProgress, dareOf, chooserOf } from '../../sim/tryout/index.js';
 import { rarityWeights, pityFloor, hasVarsity } from '../../sim/tryout/offers.js';
 import { buildTryoutPlan } from '../../sim/tryout/plan.js';
-import { passMax } from '../../sim/tryout/breaks.js';
-import { cardText, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN, rewardLines, SHARE_TEXT, PHOTO_TEXT, GIRL_CARD_TEXT, TIMETABLE_TEXT, CAP_TEXT, MORE_TEXT, RANDOM_TEXT, EXTENDED_TEXT, WAVE_RECORD_TEXT } from '../text/tryout.js';
+import { passMax, seatCount } from '../../sim/tryout/breaks.js';
+import { seatBonus } from '../../sim/tryout/pep.js';
+import { cardText, PEP_LIST_TEXT, SLOT_NAMES, ASSIGN_TEXT, BREAK_NAMES, MOVE_REASONS, oddsLine, SUBJECT_TEXT, DARE_TEXT, DARE_SHORT, DARE_GAIN, rewardLines, SHARE_TEXT, PHOTO_TEXT, GIRL_CARD_TEXT, TIMETABLE_TEXT, CAP_TEXT, MORE_TEXT, RANDOM_TEXT, EXTENDED_TEXT, WAVE_RECORD_TEXT } from '../text/tryout.js';
 import { timetableModel as baseModel, timetableStrip, timetableMini, bandParts, markEl, previewStrip, periodPreview, extendedCells } from './tryout/timetable.js';
 import { capBar, barWho, oddsTable, capsTable } from './tryout/caps.js';
 import { isRandomRun, isExtendedRun, viewLength, revealOf, revealStep, extendedPast, periodMarks, affixOf, FULL_PERIODS } from './tryout/adapters.js';
 import { createHomeTime } from './tryout/homeTime.js';
+import { pepBody } from './tryout/pepTalks.js';
+import { lineGlyph } from '../lineGlyphs.js';
 import { encodeShareCode } from '../../systems/tryoutRuns.js';
 import { extendedRunScore } from '../../systems/tryoutRewards.js';
 import { selectedCosmetic } from '../../systems/tryoutJar.js';
@@ -124,6 +129,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   const mini = h('div.ty-head-mini', { 'data-testid': 'ty-band' });
   const chips = h('div.ty-chips');
   const odds = h('div.ty-odds', { 'data-testid': 'ty-odds' });
+  // (the Pep Talks taken so far: a button at the end of the tracker's head, so it adds no height on a phone; the pick
+  // sheet, the break bar and the Class Photo carry one too)
   const tracker = h('div.ty-tracker', { 'data-testid': 'ty-tracker' }, head, mini, chips, odds);
 
   // ---- pick sheet / break bar / result ------------------------------------------------------------
@@ -131,7 +138,9 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
   const brk = h('div.ty-break', { 'data-testid': 'ty-break', hidden: true });
   const cls = h('div.ty-class', { 'data-testid': 'ty-class', hidden: true });
   const photo = h('div.ty-sheet-wrap', { 'data-testid': 'ty-photo', hidden: true });
-  const el = h('div.ty-layer', tracker, cls, sheet, brk, photo);
+  // (the Pep Talks panel: above every sheet, so it opens over the pick and the Class Photo too)
+  const peps = h('div.ty-peps-wrap', { 'data-testid': 'ty-peps', hidden: true, onclick: (e) => { if (e.target === e.currentTarget) closePeps(true); } });
+  const el = h('div.ty-layer.ui-day', tracker, cls, sheet, brk, photo, peps);
   ctx.layer.append(el);
   /** A sheet (the pick, the Make-up Test, the Class Photo) covers the board: the tracker steps aside (phones: it covered the title). */
   const syncSheets = () => {
@@ -176,6 +185,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
         affixOf(t, p) ? h('span.ty-head-affix', { 'data-testid': 'ty-head-affix', title: DARE_TEXT[affixOf(t, p)] }, ` · ${DARE_SHORT[affixOf(t, p)] || affixOf(t, p)}`) : null,
         t.base && t.dare ? h('span.ty-head-dare', { title: TIMETABLE_TEXT.dare }, ' ⚑') : null),
       h('span.ty-score', `Score ${fmtNum(t.score + t.periodScore, 'count', { detail: true })}`),
+      pepsBtn('ty-peps-open', me().cards.length, 'ty-peps-head'),
     ].filter(Boolean));
     mini.replaceChildren(timetableMini(timetableModel(t, len, { mySlot, win: me().win })));
     const list = assignProgress(sim, mySlot);
@@ -195,6 +205,119 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       odds.textContent = `Next pick, if the open ones clear: ${oddsLine(w)}`;
       odds.hidden = false;
     } else odds.hidden = true;
+  }
+
+  // ---- the Pep Talks taken (any time in a run, solo and co-op; on the Class Photo: the run's result) ----------------
+  // A modal panel over the board, opened on demand only (it never stays up by itself): the list with stacks and each
+  // tier's effect, Varsity, the drawbacks in play (the cards', the period's Double Dare and Grade twist), the Seat
+  // Change (seats, who sits in them, passes, moves) and the Desk Supplies. Co-op: Yours / Partner.
+  let pepsOpen = false;
+  let pepsSlot = mySlot;
+  let pepsKey = '';
+  let pepsFrom = null; // the button that opened it (focus goes back there)
+  let pepsEnd = null; // the Class Photo's result (sim.result().tryout) once the run ended
+  let offPepsEsc = null;
+  let offPepsTab = null;
+  const megaphone = lineGlyph('megaphone', '', { kitSize: false });
+
+  /** The Pep Talks button: a glyph, the word and the count. `n`: the count when it is not my live one (the photo's). */
+  function pepsBtn(testid, n = me().cards.length, cls = '') {
+    const b = h(`button.ui-btn.sec.dense.ty-peps-btn${cls ? `.${cls}` : ''}`, { type: 'button', 'data-testid': testid, 'aria-label': PEP_LIST_TEXT.openLabel(n), title: PEP_LIST_TEXT.openLabel(n),
+      'aria-haspopup': 'dialog', onclick: (e) => { e.stopPropagation(); openPeps(e.currentTarget); } },
+    h('span.ty-peps-ico', { 'aria-hidden': 'true', html: megaphone }), h('span.ty-peps-word', PEP_LIST_TEXT.open), h('span.num.ui-btn-n', String(n)));
+    return b;
+  }
+
+  /** What the panel shows for player `slot`: their cards and the run's state (live), or the result's (the photo). */
+  function pepsData(slot) {
+    const t = ty();
+    const pl = t.players[slot];
+    const end = pepsEnd ? pepsEnd.players?.[slot] : null;
+    const cards = end ? end.cards || [] : pl.cards;
+    const now = [];
+    if (!pepsEnd && t.base) {
+      // the period in play: its Double Dare curse and its Grade twist (§8.3, Grade 8+)
+      if (t.dare) now.push(PEP_LIST_TEXT.dareNow(DARE_SHORT[t.dare] || t.dare));
+      const affix = affixOf(t, t.period);
+      if (affix) now.push(PEP_LIST_TEXT.affixNow(DARE_SHORT[affix] || affix));
+    }
+    const seats = [];
+    if (!pepsEnd) {
+      const bonus = seatBonus(sim);
+      const names = (t.seats?.holder || []).filter((u) => u != null).map((u) => sim.getTower(u)).filter(Boolean)
+        .map((tw) => ((tw.owner ?? 0) === mySlot || !t.coop ? tw.def.name : PEP_LIST_TEXT.partnerGirl(tw.def.name)));
+      seats.push(PEP_LIST_TEXT.seatsNow(seatCount(sim), PEP_LIST_TEXT.seatBonus(bonus.dmg, bonus.reach)));
+      seats.push(names.length ? PEP_LIST_TEXT.holders(names) : PEP_LIST_TEXT.noHolders);
+      // a break's passes, as openBreak adds them: the Grade's, Spare Pass's, the drawbacks'; held up to the pocket's max
+      const draw = pl.cards.reduce((a, x) => a + (PEP_CARDS[x.id]?.draw?.passes || 0), 0);
+      const per = Math.max(0, (TRYOUT.grades[t.grade]?.passes || 0) + (pl.passBonus || 0) + draw);
+      seats.push(PEP_LIST_TEXT.passes(per, passMax(sim)));
+    }
+    seats.push(PEP_LIST_TEXT.moves(end ? end.moves || 0 : pl.moves || 0));
+    return { cards, refills: pepsEnd ? {} : pl.refills, varsity: pl.varsity, perks: t.perks, now, seats, end: !!pepsEnd, partner: slot !== mySlot, coop: !!t.coop };
+  }
+
+  /** A cheap signature of what the panel shows: it repaints only when that changes. */
+  function pepsSig() {
+    const t = ty();
+    const pl = t.players[pepsSlot];
+    return `${pepsSlot}:${pepsEnd ? 'end' : ''}:${pl.cards.map((c) => `${c.id}${c.unit || ''}${c.r}`).join()}:${JSON.stringify(pl.refills)}:${Object.keys(pl.varsity || {}).join()}:${pl.moves || 0}:${pl.passBonus}:${t.base ? 1 : 0}:${t.dare}:${t.period}:${(t.seats?.holder || []).join()}:${seatCount(sim)}`;
+  }
+
+  function paintPeps() {
+    const t = ty();
+    const data = pepsData(pepsSlot);
+    pepsKey = pepsSig();
+    const hadFocus = peps.contains(document.activeElement) ? document.activeElement?.dataset?.testid : null;
+    const close = h('button.ui-close.ty-peps-x', { type: 'button', 'data-testid': 'ty-peps-close', 'aria-label': PEP_LIST_TEXT.close, title: PEP_LIST_TEXT.close, onclick: () => closePeps(true),
+      html: lineGlyph('x', '', { kitSize: false }) });
+    // co-op: whose list (the kit's options); a Team-wide card of the partner's helps me too
+    const tabs = t.coop ? h('div.ty-peps-tabs', { role: 'radiogroup', 'aria-label': PEP_LIST_TEXT.title },
+      ...t.players.map((_, i) => h(`button.ui-opt.dense${i === pepsSlot ? '.on' : ''}`, {
+        type: 'button', role: 'radio', 'aria-checked': String(i === pepsSlot), 'data-testid': `ty-peps-tab-${i === mySlot ? 'mine' : 'partner'}`,
+        onclick: () => { pepsSlot = i; paintPeps(); },
+      }, `${i === mySlot ? PEP_LIST_TEXT.mine : PEP_LIST_TEXT.partner} · ${(pepsEnd ? pepsEnd.players?.[i]?.cards : t.players[i].cards)?.length || 0}`))) : null;
+    const box = h('div.ty-sheet.ty-peps', { role: 'dialog', 'aria-modal': 'true', 'aria-label': PEP_LIST_TEXT.title, 'data-testid': 'ty-peps-sheet' },
+      h('div.ty-shead',
+        h('b.ty-stitle', PEP_LIST_TEXT.title),
+        h('span.ty-peps-count', { 'data-testid': 'ty-peps-count' }, PEP_LIST_TEXT.count(data.cards.length)),
+        close),
+      tabs,
+      pepBody(data));
+    peps.replaceChildren(box);
+    if (hadFocus) (box.querySelector(`[data-testid="${hadFocus}"]`) || close).focus({ preventScroll: true });
+  }
+
+  function openPeps(from = null) {
+    pepsFrom = from;
+    pepsOpen = true;
+    pepsSlot = mySlot;
+    paintPeps();
+    peps.hidden = false;
+    el.classList.add('ty-peps-on');
+    offPepsEsc?.();
+    offPepsEsc = onEscape(() => closePeps(true));
+    const onTab = (e) => trapTab(e, peps);
+    offPepsTab?.();
+    document.addEventListener('keydown', onTab, true);
+    offPepsTab = () => document.removeEventListener('keydown', onTab, true);
+    peps.querySelector('[data-testid="ty-peps-close"]')?.focus({ preventScroll: true });
+  }
+
+  function closePeps(focus = false) {
+    if (!pepsOpen) return;
+    pepsOpen = false;
+    peps.hidden = true;
+    peps.replaceChildren();
+    el.classList.remove('ty-peps-on');
+    offPepsEsc?.();
+    offPepsEsc = null;
+    offPepsTab?.();
+    offPepsTab = null;
+    // (back to the button that opened it, or its twin after a repaint)
+    const back = pepsFrom?.isConnected ? pepsFrom : pepsFrom?.dataset?.testid ? el.querySelector(`[data-testid="${pepsFrom.dataset.testid}"]`) : null;
+    pepsFrom = null;
+    if (focus) back?.focus({ preventScroll: true });
   }
 
   // ---- the pick ------------------------------------------------------------------------------------
@@ -220,7 +343,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     const pack = TRYOUT.arrival[Math.max(0, Math.min(4, o.rarity - (TRYOUT.grades[ty().grade]?.arrivalDown || 0)))];
     const tier = pack.tier;
     const paths = tier > 0 ? def?.paths || [] : [];
-    const pathRow = paths.length > 1 && !random ? h('span.ty-paths', ...paths.map((pa, k) => h('button.bt-btn.ty-path', {
+    const pathRow = paths.length > 1 && !random ? h('span.ty-paths', ...paths.map((pa, k) => h('button.ui-opt.dense.ty-path', { type: 'button',
       'data-testid': `ty-path-${i}-${k}`, onclick: (e) => { e.stopPropagation(); take(i, k); },
     }, pa.name || `Path ${k + 1}`))) : null;
     const G = GIRL_CARD_TEXT;
@@ -417,10 +540,10 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
         { cls: 'ty-tt-sheet', wrapCls: 'ty-ttw-sheet', open: ttOpen, onToggle: (k) => { ttOpen = k; } })).el,
       h(`div.ty-deck.n${cards.length}`, ...cards),
       h('div.ty-acts',
-        h('button.bt-btn', { 'data-testid': 'ty-erase', disabled: p.erasers <= 0, onclick: () => send('tr', ['erase', o.seq]) }, `Eraser (${p.erasers})`),
-        h('button.bt-btn', { 'data-testid': 'ty-hand', onclick: () => send('tr', ['hand', o.seq]) }, `Hand it in later (+${fmtNum(pay, 'money')}${last ? '' : ' · next pick +1'})`),
+        h('button.ui-btn.sec.dense', { type: 'button', 'data-testid': 'ty-erase', disabled: p.erasers <= 0, onclick: () => send('tr', ['erase', o.seq]) }, `Eraser (${p.erasers})`),
+        h('button.ui-btn.sec.dense.ty-hand', { type: 'button', 'data-testid': 'ty-hand', onclick: () => send('tr', ['hand', o.seq]) }, `Hand it in later (+${fmtNum(pay, 'money')}${last ? '' : ' · next pick +1'})`),
         partner ? h('span.ty-mute', { 'data-testid': 'ty-partner' }, partner.win === 'pick' ? 'Partner: choosing…' : 'Partner: ✓') : null,
-        h('span.ty-acts-more', moreSticker(() => (moreOpen ? closeMore(true) : openMore()), { testid: 'ty-more', label: MORE_TEXT.label })))));
+        h('span.ty-acts-more', pepsBtn('ty-peps-pick'), moreSticker(() => (moreOpen ? closeMore(true) : openMore()), { testid: 'ty-more', label: MORE_TEXT.label })))));
     if (moreOpen) {
       const wrap = morePanel(o);
       sheet.append(wrap);
@@ -533,8 +656,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     cls.replaceChildren(...[
       pair ? h('div.ty-class-row',
         h('b.ty-class-q', mine ? 'Next class:' : 'Next class (partner picks; tap to suggest):'),
-        ...pair.map((id, k) => h(`button.bt-btn.ty-subject${id === chosen ? '.on' : ''}${k === mySug ? '.sug' : ''}`, {
-          'data-testid': `ty-subject-${k}`, title: SUBJECT_TEXT[id]?.line,
+        ...pair.map((id, k) => h(`button.ty-subject${id === chosen ? '.on' : ''}${k === mySug ? '.sug' : ''}`, {
+          type: 'button', 'data-testid': `ty-subject-${k}`, title: SUBJECT_TEXT[id]?.line,
           'aria-pressed': mine ? String(id === chosen) : String(k === mySug),
           onclick: () => (mine ? send('tr', ['subject', k]) : suggest(next, k)),
         }, h('b', SUBJECT_TEXT[id]?.name || id), ...twist(id)))) : null,
@@ -544,8 +667,10 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
         h('span.ty-long.ty-mute', ` (${DARE_TEXT[affixOf(t, next)] || ''})`)) : null,
       // (Random Class: no Double Dare, §20.4)
       random ? null : h('div.ty-class-row',
-        h(`button.bt-btn.ty-dare${me().dare ? '.on' : ''}`, { 'data-testid': 'ty-dare', onclick: () => send('tr', ['dare', me().dare ? 0 : 1]) },
-          `Double Dare: ${me().dare ? 'on' : 'off'} · ${DARE_SHORT[dare.id] || dare.id}`),
+        // (the kit's switch, as Before Class's Random Class: a knob, pink when on)
+        h(`button.ui-opt.ty-switch.ty-dare${me().dare ? '.on' : ''}`, { type: 'button', role: 'switch', 'aria-checked': String(!!me().dare), 'data-testid': 'ty-dare', onclick: () => send('tr', ['dare', me().dare ? 0 : 1]) },
+          h('span.ty-switch-knob', { 'aria-hidden': 'true' }),
+          h('span', `Double Dare: ${me().dare ? 'on' : 'off'} · ${DARE_SHORT[dare.id] || dare.id}`)),
         h('span.ty-long.ty-mute', ` ${DARE_TEXT[dare.id] || dare.id} · ${DARE_GAIN}${t.coop ? ' · both must tap' : ''}`),
         h('span.ty-short', { 'data-testid': 'ty-dare-gain' }, `${DARE_GAIN}${t.coop ? ' · both tap' : ''}`),
         partner ? h('span.ty-partner-dare', ` Partner: ${partner.dare ? 'on' : 'off'}`) : null),
@@ -573,11 +698,12 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       h('div.ty-break-title', h('b.ty-break-name', BREAK_NAMES[kind]), h('span', ' · Seat Change · Hall Passes '), dots),
       h('div.ty-break-hint', moving ? `Tap where ${sim.getTower(moving)?.def.name || 'she'} should sit.` : 'New Window Seats (dashed) count from the next period. Tap one of your girls to move her.'),
       h('div.ty-acts',
-        h('button.bt-btn', { 'data-testid': 'ty-undo', disabled: !p.undo.length, onclick: () => send('tr', ['undo']) }, 'Undo'),
-        h('button.bt-btn', { 'data-testid': 'ty-snack', disabled: p.snack, onclick: () => send('tr', ['snack']) }, !sim.canHeal() ? 'Snack (+1 pass)' : full ? (rise > 0 ? `Snack (+${rise} max ♥)` : 'Snack (hearts full)') : `Snack (+${ty().coop ? TRYOUT.snack.coopHeal : TRYOUT.snack.heal} ♥)`),
+        h('button.ui-btn.sec.dense', { type: 'button', 'data-testid': 'ty-undo', disabled: !p.undo.length, onclick: () => send('tr', ['undo']) }, 'Undo'),
+        h('button.ui-btn.sec.dense', { type: 'button', 'data-testid': 'ty-snack', disabled: p.snack, onclick: () => send('tr', ['snack']) }, !sim.canHeal() ? 'Snack (+1 pass)' : full ? (rise > 0 ? `Snack (+${rise} max ♥)` : 'Snack (hearts full)') : `Snack (+${ty().coop ? TRYOUT.snack.coopHeal : TRYOUT.snack.heal} ♥)`),
         scaling.length && !p.snack ? h('select.ty-brushup', { 'data-testid': 'ty-brush', onchange: (e) => { if (e.target.value !== '') send('tr', ['brush', Number(e.target.value)]); } },
           h('option', { value: '' }, 'Brush Up…'), ...scaling.map(({ c, i }) => h('option', { value: String(i) }, `${cardText(c).name} ${RARITIES[c.r]} → ${RARITIES[c.r + 1]}`))) : null,
-        h('button.bt-cta', { 'data-testid': 'ty-ready', onclick: () => { moving = null; send('tr', ['ready']); } }, 'Back to class')));
+        pepsBtn('ty-peps-break'),
+        h('button.ui-btn.pri.dense.ty-ready', { type: 'button', 'data-testid': 'ty-ready', onclick: () => { moving = null; send('tr', ['ready']); } }, 'Back to class')));
     brk.hidden = false;
   }
 
@@ -684,6 +810,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
 
   function showPhoto({ practice = false, outcome = null } = {}) {
     const res = sim.result().tryout;
+    closePeps();
+    pepsEnd = res;
     const run = outcome?.run || null;
     // what the run paid (§13.9); a practice run shows only what it banked before it turned practice
     const lines = rewardLines(run).filter((l) => !practice || l.key === 'marbles' || l.key === 'box' || l.key === 'coins');
@@ -726,9 +854,10 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
           code ? h('div.ty-mute.ty-code', { 'data-testid': 'ty-share-code' }, `${SHARE_TEXT.title}: `, h('b', code))
             : extended ? h('div.ty-mute.ty-code', { 'data-testid': 'ty-seed-only' }, EXTENDED_TEXT.seedOnly(res.seed ?? ty().seed)) : null)),
       h('div.ty-acts.ty-photo-acts',
-        h('button.bt-cta', { 'data-testid': 'ty-again', onclick: () => ctx.tryoutAgain?.() }, PHOTO_TEXT.again),
-        h('button.bt-btn', { 'data-testid': 'ty-hub', onclick: () => ctx.quit() }, PHOTO_TEXT.hub),
-        code && ctx.tryoutReplay ? h('button.bt-btn', { 'data-testid': 'ty-replay', title: SHARE_TEXT.note, onclick: () => ctx.tryoutReplay(code) }, SHARE_TEXT.replay) : null)));
+        h('button.ui-btn.pri.dense', { type: 'button', 'data-testid': 'ty-again', onclick: () => ctx.tryoutAgain?.() }, PHOTO_TEXT.again),
+        h('button.ui-btn.sec.dense', { type: 'button', 'data-testid': 'ty-hub', onclick: () => ctx.quit() }, PHOTO_TEXT.hub),
+        code && ctx.tryoutReplay ? h('button.ui-btn.sec.dense', { type: 'button', 'data-testid': 'ty-replay', title: SHARE_TEXT.note, onclick: () => ctx.tryoutReplay(code) }, SHARE_TEXT.replay) : null,
+        h('span.ty-acts-more', pepsBtn('ty-peps-photo', pl.cards.length)))));
     photo.hidden = false;
     sheet.hidden = true;
     brk.hidden = true;
@@ -745,8 +874,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       timetableStrip(cells, { cls: 'ty-tt-sheet' }),
       h('p.ty-makeup-line', PHOTO_TEXT.makeupLine(wave)),
       h('div.ty-acts.ty-photo-acts',
-        h('button.bt-cta', { 'data-testid': 'ty-makeup-go', onclick: retry }, PHOTO_TEXT.makeupGo),
-        h('button.bt-btn', { 'data-testid': 'ty-makeup-no', onclick: giveUp }, PHOTO_TEXT.makeupNo))));
+        h('button.ui-btn.pri.dense', { type: 'button', 'data-testid': 'ty-makeup-go', onclick: retry }, PHOTO_TEXT.makeupGo),
+        h('button.ui-btn.sec.dense', { type: 'button', 'data-testid': 'ty-makeup-no', onclick: giveUp }, PHOTO_TEXT.makeupNo))));
     photo.hidden = false;
     sheet.hidden = true;
     brk.hidden = true;
@@ -769,6 +898,7 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     homeTime?.update();
     const sig = `${sim.wave}:${sim.state}:${t.period}:${t.score + t.periodScore}:${sim.stats.leaks}:${JSON.stringify(t.ctr[mySlot])}:${p.win}:${p.passes}:${p.undo.length}:${p.snack}:${p.erasers}:${p.bank}:${t.players.map((x) => `${x.win}${x.dare ? 1 : 0}`).join()}:${t.nextSubject}:${t.subject}:${p.offer?.seq ?? ''}`;
     stepReveal();
+    if (pepsOpen && !pepsEnd && pepsSig() !== pepsKey) paintPeps();
     if (sig === last) return;
     last = sig;
     paintTracker();
@@ -785,12 +915,19 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     handleTap,
     showPhoto,
     showMakeUp,
+    /** The Pep Talks panel (tests and the battle's keys): open it, close it, is it open? */
+    openPeps: () => openPeps(null),
+    closePeps: () => closePeps(),
+    get pepsOpen() {
+      return pepsOpen;
+    },
     /** Is my pick sheet open (the Start button waits)? */
     get open() {
       return !!me().win;
     },
     destroy() {
       offNote?.();
+      closePeps();
       if (ctx.homeTime === homeTime) ctx.homeTime = null;
       pickStrip?.close();
       closeMore();

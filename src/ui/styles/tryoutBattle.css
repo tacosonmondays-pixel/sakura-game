@@ -1,6 +1,8 @@
 /* Tryout Day in battle (src/ui/battle/tryout.js; docs/specs/TRYOUT_DAY.md §13.1, §13.4-§13.9; M3 Ink & Paper on the
    battle HUD). Every rule sits under .ty-layer, so nothing here reaches the menus (their rules: tryout.css under
-   .ui-day). The sheets carry .ui-day so the kit's girl tile and rarity tag draw inside them (ink.css).
+   .ui-day). The layer carries .ui-day, so the kit (ink.css) draws its controls, girl tile and rarity tag inside it,
+   as on the menus: buttons are the kit's slanted .ui-btn (one yellow per surface), choices its .ui-opt; panels are
+   white paper with one navy hairline ring and a cut top-right corner; sheets wear the kit sheet's bleed ink head.
    12 px minimum text (cssFloor: this file has none under it). A missed assignment is grey ink, never red: failing is
    not danger. Rarity colour only on frames and labels, never on names or numbers. */
 
@@ -15,7 +17,6 @@
   --pep-lr: var(--rar-lr);
   --pep-ur-face: linear-gradient(135deg, #fffaf0 0%, #f8ecc6 45%, #fffaf0 70%, #f5e6b8 100%);
   --pep-lr-face: linear-gradient(115deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 38%), linear-gradient(160deg, #1f3566 0%, #14254a 45%, var(--plate) 100%);
-  --ty-glass: rgba(255, 255, 255, 0.94);
   --ty-strike: #8a90a4;
   position: absolute; inset: 0; pointer-events: none; z-index: 6;
 }
@@ -131,27 +132,36 @@
   text-transform: uppercase; background: var(--pink-ink); color: #fff; clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 50%, 100% 100%, 0 100%);
 }
 .ty-layer .ty-paths { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
-.ty-layer .ty-paths .ty-path { font-size: 12px; padding: 2px 8px; min-height: 30px; white-space: nowrap; }
+.ty-layer .ty-paths .ty-path { --h: 30px; font-size: 12px; padding: 0 calc(8px + var(--s)); white-space: nowrap; }
 
 /* ---------- sheets: the pick, the Make-up Test, the Class Photo ---------- */
 .ty-layer .ty-sheet-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--scrim); pointer-events: auto; padding: 12px; }
 .ty-layer .ty-sheet {
-  --c: 12px; --paper-img: linear-gradient(var(--panel-w), var(--panel-w));
-  position: relative; width: 100%; max-width: 780px; max-height: calc(100% - 8px); overflow: auto; padding: 12px 14px;
-  color: var(--ink); font-size: 13px; border: 2px solid var(--plate); border-radius: 0;
-  /* the two cut corners keep the ring: a 2 px line on each diagonal, painted on the box (the sheet scrolls under it) */
+  /* the kit sheet (ink.css .ui-sheet): white paper, ONE navy hairline ring, the chamfer pair, a bleed ink head */
+  --c: var(--cut); --py: 12px; --px: 14px; --paper-img: linear-gradient(var(--panel-w), var(--panel-w));
+  position: relative; width: 100%; max-width: 780px; max-height: calc(100% - 8px); overflow: auto; padding: var(--py) var(--px);
+  color: var(--ink); font-size: 13px; border: 1px solid var(--line-ink); border-radius: 0;
+  /* the two cut corners keep the ring: a 1 px line on each diagonal, painted on the box (the sheet scrolls under it) */
   background:
-    linear-gradient(45deg, transparent calc(50% - 2.8px), var(--plate) calc(50% - 2.8px), var(--plate) 50%, transparent 50%) right top / var(--c) var(--c) no-repeat border-box,
-    linear-gradient(45deg, transparent 50%, var(--plate) 50%, var(--plate) calc(50% + 2.8px), transparent calc(50% + 2.8px)) left bottom / var(--c) var(--c) no-repeat border-box,
+    linear-gradient(45deg, transparent calc(50% - 1.4px), var(--line-ink) calc(50% - 1.4px), var(--line-ink) 50%, transparent 50%) right top / var(--c) var(--c) no-repeat border-box,
+    linear-gradient(45deg, transparent 50%, var(--line-ink) 50%, var(--line-ink) calc(50% + 1.4px), transparent calc(50% + 1.4px)) left bottom / var(--c) var(--c) no-repeat border-box,
     var(--paper-img) border-box;
   clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c)));
   scrollbar-width: thin;
 }
 .ty-layer .ty-shead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding-right: 10px; }
-.ty-layer .ty-stitle { font: italic 900 20px/1.1 var(--font-head); color: var(--ink); position: relative; padding-bottom: 3px; }
-.ty-layer .ty-stitle::after { content: ''; position: absolute; left: 0; bottom: 0; width: 34px; height: 3px; background: var(--yellow); }
+/* a sheet's head: the kit's bleed ink band (the sheet's padding taken back), its title in the display italics */
+.ty-layer .ty-sheet > .ty-shead {
+  margin: calc(var(--py) * -1) calc(var(--px) * -1) 8px; padding: 6px calc(var(--px) + var(--c) * 0.5) 6px var(--px); min-height: 44px;
+  background: var(--plate); color: var(--on-ink);
+}
+.ty-layer .ty-stitle { font: italic 900 20px/1.1 var(--font-head); color: var(--ink); }
+.ty-layer .ty-sheet > .ty-shead .ty-stitle { color: var(--on-ink); }
 .ty-layer .ty-credits { display: inline-flex; align-items: center; gap: 4px; font: 600 13px/1 var(--font-num); letter-spacing: 0.04em; color: var(--ink); }
 .ty-layer .ty-note { font-size: 12px; font-weight: 700; color: var(--pink-text); }
+.ty-layer .ty-sheet > .ty-shead .ty-credits { color: var(--on-ink); }
+.ty-layer .ty-sheet > .ty-shead .ty-note { color: var(--pink-on-ink); }
+.ty-layer .ty-sheet > .ty-shead :is(.ty-mute, .ty-rv-state) { color: var(--on-ink-dim); }
 .ty-layer .ty-reasons { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--ink); }
 .ty-layer .ty-why { display: inline-flex; align-items: center; gap: 4px; }
 .ty-layer .ty-deck { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
@@ -159,10 +169,14 @@
 .ty-layer .ty-deck.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .ty-layer .ty-deck.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .ty-layer .ty-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
-.ty-layer .ty-acts .bt-btn, .ty-layer .ty-acts .bt-cta { font-size: 13px; }
-.ty-layer .ty-acts-more { margin-left: auto; display: inline-flex; align-items: center; }
+/* the kit's buttons, battle-dense: 36 px (32 on phones), the label at the battle's size (the menus' 19 px is for a
+   screen with room) */
+.ty-layer :is(.ui-btn, .ui-opt).dense { --h: 36px; }
+.ty-layer .ui-btn { font-size: 14px; }
+.ty-layer .ui-btn.dense { padding: 0 calc(10px + var(--s)); }
+.ty-layer .ty-acts-more { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
 .ty-layer .ty-acts-more .ui-more { min-height: 32px; font-size: 12px; }
-.ty-layer .ty-brushup { font: inherit; font-size: 13px; padding: 6px; border-radius: 0; border: 1px solid var(--line-ink); background: var(--panel-w); color: var(--ink); }
+.ty-layer .ty-brushup { height: 36px; font: 600 13px/1 var(--font); padding: 0 8px; border-radius: 0; border: 1px solid var(--line-ink); background: var(--panel-w); color: var(--ink); }
 
 /* ---------- the pick's MORE (§13.6): the odds table for this pick and the per-girl caps, over the pick sheet ---------- */
 .ty-layer .ty-more-wrap { position: absolute; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 12px; background: var(--scrim); }
@@ -170,9 +184,9 @@
 .ty-layer .ty-more .ty-shead { padding-right: 34px; }
 .ty-layer .ty-more-x {
   position: absolute; top: 6px; right: 12px; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 0;
-  background: transparent; color: var(--ink); font: 700 20px/1 var(--font-num); cursor: pointer;
+  background: transparent; color: var(--on-ink); font: 700 20px/1 var(--font-num); cursor: pointer;
 }
-.ty-layer .ty-more-x:focus-visible { outline: 2px solid var(--cyan-ink); outline-offset: -2px; }
+.ty-layer .ty-more-x:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
 .ty-layer .ty-more-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 8px 16px; margin-top: 8px; }
 .ty-layer .ty-more-body.one { grid-template-columns: minmax(0, 1fr); }
 .ty-layer .ty-more-col { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -236,18 +250,46 @@
 .ty-layer .ty-tt-mini > i.p.dare { box-shadow: inset 0 -2px 0 var(--pink-ink); }
 
 /* ---------- the tracker (battle HUD, §13.5) ---------- */
+/* the battle's floating panels (tracker, class bar, break bar): the kit's small paper panel, white, one navy hairline
+   ring drawn over the children (::after, cut from the clip polygon), a cut top-right corner, no radius and no blur */
+.ty-layer :is(.ty-tracker, .ty-class, .ty-break) {
+  --c: var(--cut-s); --rw: 1px; --edge: var(--line-ink);
+  isolation: isolate; background: var(--panel-w); border-radius: 0; box-shadow: none;
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%);
+}
+.ty-layer :is(.ty-tracker, .ty-class, .ty-break)::after {
+  content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none; background: var(--edge);
+  clip-path: polygon(evenodd,
+    0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%, 0 0,
+    var(--rw) var(--rw),
+    var(--rw) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(100% - var(--rw)),
+    calc(100% - var(--rw)) calc(var(--c) + var(--rw) * 0.4142),
+    calc(100% - var(--c) - var(--rw) * 0.4142) var(--rw),
+    var(--rw) var(--rw));
+}
 .ty-layer .ty-tracker {
   position: absolute; left: 8px; top: calc(var(--bt-hud-h) + 10px + var(--safe-top, 0px)); width: max-content; max-width: min(340px, 46vw);
-  background: var(--ty-glass); border-radius: 6px; padding: 6px 8px; box-shadow: inset 0 0 0 1px var(--line-ink-soft), 0 2px 8px rgba(29, 78, 137, 0.18);
-  color: var(--ink); font-size: 12px; line-height: 1.35; pointer-events: auto;
+  padding: 0 8px 6px; color: var(--ink); font-size: 12px; line-height: 1.35; pointer-events: auto;
 }
-.ty-layer .ty-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px; }
+/* its head: the timetable's thin band on a bleed ink strip (the kit's plate head), the score on the right */
+.ty-layer .ty-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 13px;
+  margin: 0 -8px; padding: 5px calc(8px + var(--c) * 0.5) 4px 8px; background: var(--plate); color: var(--on-ink);
+}
 .ty-layer .ty-band { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ty-layer .ty-band-p { font: 700 14px/1 var(--font-num); letter-spacing: 0.04em; }
-.ty-layer .ty-band-next { font: 600 12px/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+.ty-layer .ty-band-next { font: 600 12px/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--on-ink-dim); }
 .ty-layer .ty-head-subj { font-weight: 800; }
-.ty-layer .ty-head-dare { color: var(--pink-text); font-weight: 900; }
-.ty-layer .ty-score { flex: none; font: 700 13px/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap; }
+.ty-layer .ty-head-dare { color: var(--pink-on-ink); font-weight: 900; }
+.ty-layer .ty-head .ty-mute { color: var(--on-ink-dim); }
+/* the head's Pep Talks button: the kit's secondary button as it sits on ink (a light hairline, white words), short */
+.ty-layer .ty-head { align-items: center; }
+.ty-layer .ty-head .ty-peps-btn.ty-peps-head { --h: 26px; --fill: transparent; --edge: var(--line-hi); color: var(--on-ink); font-size: 12px; margin: -2px 0; }
+.ty-layer .ty-head .ty-peps-head:active { --fill: rgba(76, 214, 255, 0.12); }
+.ty-layer .ty-head .ty-peps-head:focus-visible { --edge: var(--cyan); --rw: 2px; }
+.ty-layer .ty-head .ty-peps-head .ui-btn-n { background: var(--on-ink); color: var(--plate); min-width: 18px; height: 18px; }
+.ty-layer .ty-score { flex: none; font: 700 13px/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap; color: var(--on-ink); }
 .ty-layer .ty-chips { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
 .ty-layer .ty-chip { display: flex; gap: 6px; align-items: center; white-space: nowrap; overflow: hidden; min-height: 18px; }
 .ty-layer .ty-chip-name { font-weight: 800; }
@@ -261,16 +303,30 @@
 /* ---------- the class bar (between periods: the Subject and Double Dare) ---------- */
 .ty-layer .ty-class {
   position: absolute; right: 8px; top: calc(var(--bt-hud-h) + 10px + var(--safe-top, 0px)); max-width: min(420px, 48vw);
-  background: var(--ty-glass); border-radius: 6px; padding: 6px 8px; box-shadow: inset 0 0 0 1px var(--line-ink-soft), 0 2px 8px rgba(29, 78, 137, 0.18);
-  color: var(--ink); font-size: 12px; line-height: 1.35; pointer-events: auto; display: flex; flex-direction: column; gap: 4px;
+  padding: 6px 8px; color: var(--ink); font-size: 12px; line-height: 1.35; pointer-events: auto; display: flex; flex-direction: column; gap: 4px;
 }
 .ty-layer .ty-class-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .ty-layer .ty-class-q { font: 600 12px/1.2 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
-.ty-layer .ty-subject, .ty-layer .ty-dare { font-size: 12px; padding: 3px 8px; text-align: left; min-height: 32px; }
-.ty-layer .ty-subject.on, .ty-layer .ty-dare.on { background: var(--plate); color: var(--on-ink); box-shadow: inset 0 0 0 2px var(--yellow); }
+/* a Subject: the kit's option on paper (a hairline, a cut corner); chosen = the inverse ink fill and the sakura bar */
+.ty-layer .ty-subject {
+  --c: var(--cut-s); position: relative; display: inline-block; margin: 0; border: 0; border-radius: 0; cursor: pointer;
+  font: inherit; font-size: 12px; padding: 3px 8px 5px; text-align: left; min-height: 32px; color: var(--ink);
+  background: var(--panel-w); box-shadow: inset 0 0 0 1px var(--line-ink);
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%);
+}
+.ty-layer .ty-subject > b { font: italic 900 13px/1.15 var(--font-head); }
+.ty-layer .ty-subject:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--cyan-ink); }
+.ty-layer .ty-subject.on { background: var(--plate); color: var(--on-ink); box-shadow: inset 0 -3px 0 var(--pink); }
 .ty-layer .ty-subject.on :is(.ty-mute, .ty-short) { color: var(--on-ink-dim); }
 /* co-op: the Subject I suggested to the chooser (a room note, not a choice) */
 .ty-layer .ty-subject.sug { box-shadow: inset 0 0 0 2px var(--cyan-ink); }
+/* Double Dare: the kit's switch (Before Class's Random Class), a knob that turns pink when on */
+.ty-layer .ui-opt.ty-switch { --h: 32px; gap: 8px; max-width: 100%; padding: 0 calc(10px + var(--s)); font-size: 12px; text-transform: none; letter-spacing: 0; }
+.ty-layer .ui-opt.ty-switch > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ty-layer .ty-switch-knob { position: relative; width: 30px; height: 16px; flex: none; border-radius: 8px; background: var(--line-ink); }
+.ty-layer .ty-switch-knob::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+.ty-layer .ui-opt.ty-switch.on .ty-switch-knob { background: var(--pink-ink); }
+.ty-layer .ui-opt.ty-switch.on .ty-switch-knob::after { left: 16px; }
 .ty-layer .ty-suggest { font-size: 12px; font-weight: 700; color: var(--ink); }
 .ty-layer .ty-affix b { color: var(--ink); }
 .ty-layer .ty-partner-dare { color: var(--muted); font-weight: 600; }
@@ -280,8 +336,7 @@
 /* ---------- the break bar (§13.8) ---------- */
 .ty-layer .ty-break {
   position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--bt-bar-h) + 10px); width: min(620px, calc(100% - 24px));
-  background: var(--ty-glass); border-radius: 6px; padding: 8px 12px; pointer-events: auto; color: var(--ink); font-size: 13px;
-  box-shadow: inset 0 0 0 2px var(--plate), 0 2px 10px rgba(29, 78, 137, 0.2);
+  padding: 8px 12px; pointer-events: auto; color: var(--ink); font-size: 13px;
 }
 .ty-layer .ty-break-title { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; font-size: 13px; font-weight: 700; }
 .ty-layer .ty-break-name { padding: 2px 8px; font: 700 13px/1.1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; background: var(--plate); color: var(--yellow); }
@@ -339,7 +394,7 @@
 /* the Class Photo scrolls on short screens: its buttons stay in view at the bottom (M4 review); the row's margins
    match the sheet's padding, so the sheet never scrolls sideways */
 .ty-layer .ty-photo > .ty-photo-acts {
-  position: sticky; z-index: 6; bottom: -12px; margin: 10px -14px -12px; padding: 8px 14px; background: var(--panel-w); border-top: 1px solid var(--line-ink-soft);
+  position: sticky; z-index: 6; bottom: calc(var(--py) * -1); margin: 10px calc(var(--px) * -1) calc(var(--py) * -1); padding: 8px var(--px); background: var(--panel-w); border-top: 1px solid var(--line-ink-soft);
 }
 /* the Marble Jar's backdrops behind the photo (a cosmetic) */
 .ty-layer .ty-sheet.ty-bd-classroom { --paper-img: linear-gradient(180deg, #fffaf0, #f3ead6); }
@@ -349,8 +404,16 @@
 
 /* ---------- phones (844 x 390 and narrower) ---------- */
 @media (max-width: 700px), (max-height: 430px) {
-  .ty-layer .ty-tracker { max-width: 44vw; padding: 4px 6px; }
+  .ty-layer .ty-tracker { max-width: 44vw; padding: 0 6px 4px; }
+  .ty-layer .ty-head { margin: 0 -6px; padding: 4px calc(6px + var(--c) * 0.5) 3px 6px; }
+  /* (a phone: the head's button is its glyph and its count; its name is its label) */
+  .ty-layer .ty-head .ty-peps-head .ty-peps-word { display: none; }
+  .ty-layer .ty-head .ty-peps-btn.ty-peps-head { --h: 24px; gap: 4px; padding: 0 calc(6px + var(--s)); }
+  /* (the break bar keeps one row on a phone: the tracker's button above it opens the same list) */
+  .ty-layer .ty-break .ty-peps-btn { display: none; }
   .ty-layer .ty-class { max-width: 50vw; padding: 4px 6px; font-size: 12px; gap: 3px; }
+  .ty-layer :is(.ui-btn, .ui-opt).dense { --h: 32px; }
+  .ty-layer .ui-btn { font-size: 13px; }
   /* touch screens have no tooltips: each Subject shows its twist in one short line under its name, and the
      Dare its reward (the long lines stay on bigger screens) */
   .ty-layer .ty-class .ty-long { display: none; }
@@ -359,9 +422,10 @@
   .ty-layer .ty-class-q { flex: 1 0 100%; }
   .ty-layer .ty-class .ty-subject { flex: 1 1 100%; min-width: 0; padding: 2px 8px; display: flex; flex-direction: column; align-items: flex-start; }
   .ty-layer .ty-class .ty-subject .ty-short { display: block; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ty-layer .ty-class .ty-subject, .ty-layer .ty-class .ty-dare { min-height: 30px; }
-  .ty-layer .ty-class .ty-dare { padding: 2px 8px; }
-  .ty-layer .ty-sheet { padding: 8px 10px; --c: 10px; }
+  .ty-layer .ty-class .ty-subject { min-height: 30px; }
+  .ty-layer .ty-class .ui-opt.ty-switch { --h: 30px; }
+  .ty-layer .ty-sheet { --py: 8px; --px: 10px; }
+  .ty-layer .ty-sheet > .ty-shead { min-height: 32px; padding-top: 3px; padding-bottom: 3px; margin-bottom: 6px; }
   .ty-layer .ty-stitle { font-size: 17px; }
   .ty-layer .ty-deck { gap: 6px; margin: 6px 0; }
   .ty-layer .ty-stn { padding: 6px 8px 8px; gap: 2px 6px; }
@@ -372,8 +436,7 @@
   .ty-layer .ty-gcard { padding: 6px; gap: 6px; }
   .ty-layer .ty-gcard .ui-girltile { --gw: 56px; }
   .ty-layer .ty-gcard .ty-tag { white-space: normal; }
-  .ty-layer .ty-paths .ty-path { padding: 2px 6px; min-height: 30px; }
-  .ty-layer .ty-acts .bt-btn, .ty-layer .ty-acts .bt-cta { min-height: 36px; padding: 6px 12px; }
+  .ty-layer .ty-paths .ty-path { padding: 0 calc(6px + var(--s)); }
   /* the pick sheet's strip on short screens: one slim row (label, twist marks, stamps); a tap shows the rest */
   .ty-layer .ty-pick-sheet .ty-tt-sheet { margin: 4px 0 0; gap: 2px; }
   .ty-layer .ty-pick-sheet .ty-tt-sheet > .ty-tt-cell { flex-direction: row; align-items: center; gap: 4px; padding: 2px 4px; min-height: 26px; }
@@ -383,8 +446,8 @@
   .ty-layer .ty-more-wrap { padding: 6px; }
   .ty-layer .ty-more-body { gap: 6px 12px; margin-top: 4px; }
   .ty-layer .ty-more-t th, .ty-layer .ty-more-t td { padding: 1px 4px; }
-  .ty-layer .ty-photo > .ty-photo-acts { bottom: -8px; margin: 6px -10px -8px; padding: 6px 10px; }
-  .ty-layer .ty-photo-main { gap: 8px 12px; margin-top: 6px; }
+  .ty-layer .ty-photo > .ty-photo-acts { margin-top: 6px; padding-top: 6px; padding-bottom: 6px; }
+  .ty-layer .ty-photo-main { gap: 8px 12px; margin-top: 2px; }
   .ty-layer .ty-pose { padding: 6px; gap: 8px; }
   .ty-layer .ty-pose .ui-girltile { --gw: 52px; }
   .ty-layer .ty-pose-teacher .ui-girltile { --gw: 58px; }
@@ -395,20 +458,25 @@
   .ty-layer .ty-more-body { grid-template-columns: minmax(0, 1fr); }
   .ty-layer .ty-photo-main { grid-template-columns: minmax(0, 1fr); }
   .ty-layer .ty-deck { grid-template-columns: minmax(0, 1fr); }
+  /* a portrait phone: the tracker is narrow, so its head wraps (the band on its own line, the score and the Pep Talks
+     button under it) rather than cut the period to "N…" */
+  .ty-layer .ty-head { flex-wrap: wrap; row-gap: 3px; }
+  .ty-layer .ty-head > .ty-band { flex: 1 0 100%; }
+  .ty-layer .ty-head > .ty-score { margin-right: auto; }
 }
 /* short screens (phones in landscape): the break bar is one compact strip docked bottom-left, so the board above it
    (seats and girls to move) stays visible and tappable (M1 review, M2) */
 @media (max-height: 430px) {
   .ty-layer .ty-break {
-    left: 8px; transform: none; width: min(470px, 58vw); bottom: calc(var(--bt-bar-h) + 4px); padding: 4px 8px;
-    font-size: 12px; box-shadow: inset 0 0 0 1px var(--plate), 0 2px 8px rgba(29, 78, 137, 0.2);
+    left: 8px; transform: none; width: min(520px, 62vw); bottom: calc(var(--bt-bar-h) + 4px); padding: 4px 8px;
+    font-size: 12px;
   }
   .ty-layer .ty-break-title { font-size: 12px; }
   .ty-layer .ty-break-name { font-size: 12px; padding: 1px 6px; }
   .ty-layer .ty-break-hint { display: none; }
   .ty-layer .ty-break .ty-acts { gap: 4px; margin-top: 3px; }
-  .ty-layer .ty-break .ty-acts .bt-btn, .ty-layer .ty-break .ty-acts .bt-cta { font-size: 12px; padding: 4px 8px; min-height: 0; }
-  .ty-layer .ty-brushup { font-size: 12px; padding: 3px; max-width: 120px; }
+  .ty-layer .ty-break .ty-acts :is(.ui-btn, .ui-opt).dense { --h: 30px; font-size: 12px; padding: 0 calc(7px + var(--s)); }
+  .ty-layer .ty-brushup { height: 30px; font-size: 12px; padding: 0 3px; max-width: 120px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ty-layer :is(.ty-stn, .ty-gcard) { transition: none; }
@@ -466,3 +534,69 @@ html[data-reduce-motion] .ty-layer .ty-stn > .ty-glint { animation: none; backgr
 }
 html[data-reduce-motion] .ty-layer .ty-rv-deck > * { transition: none; }
 html[data-reduce-motion] .ty-layer .ty-rv-deck > .ty-rv-on { transform: none; }
+
+/* ---------- the Pep Talks taken (src/ui/battle/tryout/pepTalks.js): a button on the tracker, the pick sheet, the break
+   bar and the Class Photo opens the list. It opens on demand only and closes with ×, Escape or a tap outside, so it
+   never covers the board for long. Wide screens: a column docked right, the board still in view on the left; a
+   portrait phone: a sheet from the bottom ---------- */
+.ty-layer.ty-peps-on { z-index: 12; }
+.ty-layer .ty-peps-btn { --h: 30px; gap: 6px; font-size: 13px; padding: 0 calc(8px + var(--s)); }
+.ty-layer .ty-peps-btn .ui-btn-n { min-width: 20px; height: 20px; font-size: 12px; }
+.ty-layer .ty-peps-ico { display: inline-flex; width: 16px; height: 16px; line-height: 0; flex: none; }
+.ty-layer .ty-peps-ico > svg { width: 100%; height: 100%; }
+.ty-layer .ty-peps-wrap {
+  position: absolute; inset: 0; z-index: 12; display: flex; align-items: stretch; justify-content: flex-end; pointer-events: auto;
+  padding: calc(var(--bt-hud-h, 56px) + 8px + var(--safe-top, 0px)) calc(8px + var(--safe-right, 0px)) 8px 8px; background: var(--scrim);
+}
+.ty-layer .ty-sheet.ty-peps { max-width: 440px; max-height: 100%; align-self: flex-start; overscroll-behavior: contain; }
+.ty-layer .ty-peps > .ty-shead { position: sticky; z-index: 4; top: calc(var(--py) * -1); flex-wrap: nowrap; padding-right: 4px; }
+.ty-layer .ty-peps-count { font: 600 12px/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--on-ink-dim); }
+.ty-layer .ty-peps-x { margin-left: auto; width: 40px; height: 40px; padding: 8px; color: var(--on-ink); cursor: pointer; }
+.ty-layer .ty-peps-x > svg { width: 22px; height: 22px; display: block; }
+.ty-layer .ty-peps-x:focus-visible { outline: 2px solid var(--cyan); outline-offset: -4px; }
+.ty-layer .ty-peps-tabs { flex: none; display: flex; gap: 6px; margin-bottom: 8px; }
+.ty-layer .ty-peps-tabs > .ui-opt { flex: 1 1 0; }
+.ty-layer .ty-peps-body { display: flex; flex-direction: column; gap: 10px; }
+.ty-layer .ty-peps-sub, .ty-layer .ty-peps-none { margin: 0; font: 600 12px/1.35 var(--font); color: var(--muted); }
+.ty-layer .ty-pep-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+/* a row: a paper card, its rarity on its left edge (rarity colour on frames only) and on its tag */
+.ty-layer .ty-pep {
+  --rc: var(--rar-r); --c: var(--cut-s);
+  padding: 6px 8px 6px 11px; background: var(--panel-w); box-shadow: inset 3px 0 0 var(--rc), inset 0 0 0 1px var(--line-ink-soft);
+  clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, 0 100%);
+}
+.ty-layer .ty-pep.r1 { --rc: var(--rar-sr); }
+.ty-layer .ty-pep.r2 { --rc: var(--rar-ssr); }
+.ty-layer .ty-pep.r3 { --rc: #c99a2e; }
+.ty-layer .ty-pep.r4 { --rc: var(--plate); }
+.ty-layer .ty-pep-top { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+.ty-layer .ty-pep-top .ui-rtag { height: 18px; }
+.ty-layer .ty-pep-face { width: 24px; height: 24px; flex: none; overflow: hidden; border-radius: 50%; line-height: 0; box-shadow: 0 0 0 1px var(--line-ink); }
+.ty-layer .ty-pep-face :is(img, svg) { width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
+.ty-layer .ty-pep-nm { font: italic 900 14px/1.15 var(--font-head); color: var(--ink); }
+.ty-layer .ty-pep-n {
+  display: inline-grid; place-items: center; min-width: 26px; height: 20px; padding: 0 6px; border-radius: 10px;
+  background: var(--plate); color: var(--on-ink); font: 700 12px/1 var(--font-num); font-variant-numeric: tabular-nums;
+}
+.ty-layer .ty-pep-grp { margin-left: auto; font: 600 12px/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+.ty-layer .ty-pep-team { padding: 2px 6px; font: 600 12px/1.1 var(--font-num); letter-spacing: 0.04em; background: var(--cyan-wash); color: var(--cyan-text); }
+.ty-layer .ty-pep-ln { margin: 3px 0 0; font-size: 12px; line-height: 1.35; color: var(--ink); }
+.ty-layer .ty-pep-ln b { font-family: var(--font-num); font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; }
+.ty-layer .ty-pep-tier { font: 700 12px/1 var(--font-num); letter-spacing: 0.04em; color: var(--muted); }
+.ty-layer .ty-pep-each, .ty-layer .ty-pep-note { color: var(--muted); font-weight: 600; }
+.ty-layer .ty-peps-sec { display: flex; flex-direction: column; gap: 3px; }
+.ty-layer .ty-peps-h { margin: 0; font: 600 12px/1.2 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--ink); }
+.ty-layer .ty-peps-h::after { content: ''; display: block; height: 1px; margin-top: 3px; background: var(--line-ink-soft); }
+.ty-layer .ty-peps-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12px; line-height: 1.35; color: var(--ink); }
+.ty-layer .ty-peps-lines b { font-weight: 800; }
+@media (max-width: 700px), (max-height: 430px) {
+  .ty-layer .ty-peps-btn { --h: 28px; font-size: 12px; }
+  .ty-layer .ty-peps-wrap { padding: calc(6px + var(--safe-top, 0px)) calc(6px + var(--safe-right, 0px)) 6px 6px; }
+  .ty-layer .ty-sheet.ty-peps { max-width: min(400px, 62vw); }
+  .ty-layer .ty-peps-x { width: 36px; height: 36px; padding: 7px; }
+}
+/* a portrait phone: a sheet from the bottom, three quarters of the screen at most */
+@media (max-width: 560px) {
+  .ty-layer .ty-peps-wrap { align-items: flex-end; justify-content: center; padding: 6px 6px calc(6px + var(--safe-bottom, 0px)); }
+  .ty-layer .ty-sheet.ty-peps { max-width: none; max-height: 75%; align-self: auto; }
+}

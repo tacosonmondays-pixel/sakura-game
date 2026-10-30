@@ -232,6 +232,15 @@ body.ui-day .ty-yb-page.blank .ty-yb-pic { filter: grayscale(1); opacity: 0.35; 
 body.ui-day .ty-yb-plate { position: absolute; left: 6px; right: 6px; bottom: 6px; z-index: 2; }
 body.ui-day .ty-yb-side { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 body.ui-day .ty-yb-line { margin: 0; font: 600 var(--fs-body)/1.35 var(--font); color: var(--ink); }
+/* a Pep Talk's page (a sheet): its group, a row per rarity it comes in (the kit's rarity tag, then its effect), its
+   drawback */
+body.ui-day button.ty-yb-card { cursor: pointer; }
+body.ui-day .ty-yb-cardpage { display: flex; flex-direction: column; gap: 8px; }
+body.ui-day .ty-yb-cardpage .ty-yb-line > .lbl { color: var(--ink); }
+body.ui-day .ty-yb-rars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+body.ui-day .ty-yb-rars > li { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line-ink-soft); font: 600 var(--fs-body)/1.35 var(--font); color: var(--ink); }
+body.ui-day .ty-yb-rars > li > .ui-rtag { flex: none; }
+body.ui-day .ty-yb-draw { margin: 0; font: 600 var(--fs-body)/1.35 var(--font); color: var(--ink); }
 @media (max-height: 480px) {
   body.ui-day .ty-yb-girls { grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; }
   body.ui-day .ty-yb-girls > .ui-girltile > .cap { height: 22px; padding-left: 5px; }
