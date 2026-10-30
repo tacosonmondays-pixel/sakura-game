@@ -6,6 +6,7 @@ import { SHOP_OFFERS } from '../data/shop.js';
 import { STAGES, bountyArenas } from '../data/stages.js';
 import { ACHIEVEMENT_MAP, ACHIEVEMENT_CATEGORIES, ACH_V2_LIVE, NO_COSMETIC, achievementLive } from '../data/achievements.js';
 import { achievementContext, metricValue } from './achievementMetrics.js';
+import { ribbonGifted } from './profileHonors.js';
 import { featureOpen } from './story.js';
 import { UNITS } from '../data/units.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER, GACHA } from '../data/types.js';
@@ -312,7 +313,8 @@ export function claimAllAchievements(profile, { v2 = ACH_V2_LIVE, cat = null } =
     ok: ids.length > 0,
     ids,
     rewards: normalizeList(all),
-    honors: ids.filter((id) => ACHIEVEMENT_MAP[id].honor && cosmetic(id)),
+    // (a ribbon a letter already gave is not new: no "New Honor Ribbon" strip, no fanfare)
+    honors: ids.filter((id) => ACHIEVEMENT_MAP[id].honor && cosmetic(id) && !ribbonGifted(profile, id)),
     titles: ids.filter((id) => ACHIEVEMENT_MAP[id].title && cosmetic(id)),
     skipped,
   };

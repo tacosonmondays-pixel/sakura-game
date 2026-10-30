@@ -35,6 +35,7 @@ export function createProfileSync({ backend, store, now = () => Date.now(), supp
   let lastHash = null; // the card hash the server holds, from the last sync (null before one)
   let lastAutoAt = -Infinity; // when watch() last started a publish
   let timer = null;
+  let paused = false; // a sync found the server not ready (offline, no profile SQL): no auto checks until the next sync from an online screen
 
   const setOwn = (o) => {
     own = o || null;
@@ -43,7 +44,10 @@ export function createProfileSync({ backend, store, now = () => Date.now(), supp
 
   async function run(reason) {
     const b = backend();
-    if ((await b.profileStatus()) !== 'ready') return 'skipped';
+    if ((await b.profileStatus()) !== 'ready') {
+      paused = true;
+      return 'skipped';
+    }
     if (reason !== 'edit' && !dirty && now() - lastAuto < AUTO_SYNC_MS) return 'throttled';
     const p = store.profile;
     const s = p.sensei;
@@ -103,6 +107,7 @@ export function createProfileSync({ backend, store, now = () => Date.now(), supp
 
   function fire() {
     timer = null;
+    if (paused) return;
     let changed;
     try {
       changed = cardChanged();
@@ -122,10 +127,11 @@ export function createProfileSync({ backend, store, now = () => Date.now(), supp
 
   const api = {
     /**
-     * @param {{ reason?: 'online'|'tick'|'edit' }} [o]
+     * @param {{ reason?: 'online'|'tick'|'edit'|'auto' }} [o]
      * @returns {Promise<'synced'|'skipped'|'throttled'|'failed'>} never throws, except for reason 'edit'
      */
     sync({ reason = 'online' } = {}) {
+      if (reason !== 'auto') paused = false; // going online, the social tick, an editor's Save: watch again
       const go = async () => {
         try {
           return await run(reason);
@@ -165,6 +171,7 @@ export function createProfileSync({ backend, store, now = () => Date.now(), supp
      */
     noteChange(reason) {
       if (reason === 'replace') dirty = true;
+      if (paused) return;
       schedule(AUTO_PUBLISH_DEBOUNCE_MS);
     },
     /** The page is being hidden or closed: a waiting check runs now (best effort; the gap still holds). */

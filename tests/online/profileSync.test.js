@@ -221,3 +221,37 @@ describe('profileSync: the card follows the save', () => {
     ps.stop();
   });
 });
+
+describe('profileSync: offline pauses the watch', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('after a skipped sync no automatic check runs until the next online sync', async () => {
+    vi.useFakeTimers();
+    const p = lateSave();
+    const { be, calls } = fakeBackend({ status: 'needs_update' });
+    let probes = 0;
+    const status = be.profileStatus;
+    be.profileStatus = async () => {
+      probes++;
+      return status();
+    };
+    const ps = createProfileSync({ backend: () => be, store: fakeStore(p), now: () => Date.now() });
+    expect(await ps.sync()).toBe('skipped');
+    probes = 0;
+    p.gear[p.units[buildCard(p).units[0].id].gear.charm].main.value += 4;
+    ps.noteChange('gear');
+    vi.advanceTimersByTime(10 * PUBLISH_GAP_MS);
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    expect(probes).toBe(0);
+    // the server comes back and an online screen syncs: the card goes up, and the watch runs again
+    be.profileStatus = async () => 'ready';
+    expect(await ps.sync({ reason: 'online' })).toBe('synced');
+    expect(calls).toHaveLength(1);
+    p.gear[p.units[buildCard(p).units[0].id].gear.charm].main.value += 4;
+    ps.noteChange('gear');
+    vi.advanceTimersByTime(PUBLISH_GAP_MS + AUTO_PUBLISH_DEBOUNCE_MS);
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    expect(calls).toHaveLength(2);
+    ps.stop();
+  });
+});

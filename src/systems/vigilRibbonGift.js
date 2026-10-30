@@ -6,7 +6,8 @@
 // its gems and its title still to earn.
 //
 // Call on app start and on the lobby (next to the other one-time letters). Idempotent: the Mailbox never delivers an
-// id twice, and a save that already owns the ribbon gets no letter. Pure; nothing here touches the sim.
+// id twice, and a save that already owns the ribbon gets no letter. A letter an older build stripped of its ribbon
+// gets it back while the gift is still owed (repairVigilLetter). Pure; nothing here touches the sim.
 
 import { deliverMail } from './mail.js';
 import { freeplayBestOf } from './achievementMetrics.js';
@@ -42,10 +43,26 @@ export function vigilGiftEligible(profile, now = Date.now()) {
 }
 
 /**
- * Deliver the letter once to a qualifying save.
- * @returns {object|null} the delivered letter (null when not eligible or already delivered)
+ * Deliver the letter once to a qualifying save (or give a stripped letter its ribbon back).
+ * @returns {object|null} the delivered or repaired letter (null when nothing changed)
  */
 export function ensureVigilRibbonGift(profile, now = Date.now()) {
   if (!vigilGiftEligible(profile, now)) return null;
-  return deliverMail(profile, { ...VIGIL_GIFT, rewards: VIGIL_GIFT.rewards.map((r) => ({ ...r })) }, now);
+  const repaired = repairVigilLetter(profile);
+  return deliverMail(profile, { ...VIGIL_GIFT, rewards: VIGIL_GIFT.rewards.map((r) => ({ ...r })) }, now) || repaired;
+}
+
+/**
+ * A build from before v0.1.64 (an open tab, a cached copy) cleans an 'honor:' reward out of a letter when it loads
+ * and saves the save, and the Mailbox never delivers the id again. While the gift is still owed (eligible: window
+ * open, ribbon not owned), the unclaimed letter gets its ribbon back. A claimed letter is never touched.
+ */
+function repairVigilLetter(profile) {
+  const l = (Array.isArray(profile.mail?.letters) ? profile.mail.letters : []).find((x) => x?.id === VIGIL_GIFT_ID);
+  if (!l || l.claimed) return null;
+  const want = VIGIL_GIFT.rewards[0];
+  if (Array.isArray(l.rewards) && l.rewards.some((r) => r?.id === want.id && r.count > 0)) return null;
+  l.rewards = VIGIL_GIFT.rewards.map((r) => ({ ...r }));
+  if (l.expiresAt == null || l.expiresAt > VIGIL_GIFT_UNTIL) l.expiresAt = VIGIL_GIFT_UNTIL;
+  return l;
 }

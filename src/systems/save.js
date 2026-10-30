@@ -12,6 +12,8 @@ import { restoreGearMarks } from './gearMarks.js';
 import { RIBBON_MODES } from '../data/modes.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT, amendBetaLetter } from './mail.js';
+import { HONOR_REWARD_PREFIX } from './profileHonors.js';
+import { HONOR_MAP } from '../data/honors.js';
 import { cleanBattleSaves, droppedBattleSaves } from './battleSave.js';
 import { backfillDupes, restoreFromShadow, shadowPotential, BACKFILL_MARKER, V3_MARKER as POT_V3_MARKER, SHADOW_PREFIX as POT_SHADOW_PREFIX, SHADOW_AT as POT_SHADOW_AT } from './potential.js';
 import { settleLevels, MAX_LEVEL } from './progression.js';
@@ -376,7 +378,9 @@ function cleanBond(raw, units) {
   return out;
 }
 
-const isRewardId = (id) => id === 'coins' || id === 'gems' || (ITEMS[id] && ITEMS[id].category !== 'currency');
+// (an Honor Ribbon a letter gives: 'honor:<achId>' for a known ribbon; mail.js claimMail pays it as the ribbon)
+const isRewardId = (id) => id === 'coins' || id === 'gems' || (ITEMS[id] && ITEMS[id].category !== 'currency')
+  || (typeof id === 'string' && id.startsWith(HONOR_REWARD_PREFIX) && !!HONOR_MAP[id.slice(HONOR_REWARD_PREFIX.length)]);
 
 /** Mailbox. A save without one was made before the mailbox existed: it belongs to a beta player. */
 function cleanMail(raw) {
