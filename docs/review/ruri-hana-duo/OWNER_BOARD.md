@@ -1,7 +1,7 @@
 # Ruri's rework and the Ruri & Hana duo: owner board
 
-Oct 30, 2026. The full spec is `docs/specs/RURI_HANA_DUO.md`.
-- Each question has a recommended default, and **"default all"** takes every one.
+Oct 30, 2026. The full spec is `docs/specs/RURI_HANA_DUO.md`. This board was revised after the first independent review (`review-r1.md`).
+- Each question has a recommended default, and **"default all"** takes every one, **except the Anlas spend in Q13**, which needs its own yes.
 - The build follows the defaults until you say otherwise.
 
 **Who is who:**
@@ -13,15 +13,15 @@ Oct 30, 2026. The full spec is `docs/specs/RURI_HANA_DUO.md`.
 **Q1. Do both, Ruri's rework first?**
 **Default: yes.**
 - Ruri's rework ships first, free for everyone who owns her, as one co-op update after balance round 5.
-- The duo comes next: her battle code first, held (not pullable), then her art, then her premiere.
+- The duo comes next: her battle code first, held (not pullable, not named in the patch notes), then her art and her premiere together.
 *Other options:* the rework only; or the duo only, with Ruri left as she is.
 
 **Q2. Ruri's three new paths, all about Kon?**
 
 | Path | What Kon does | Her ⚡ |
 |---|---|---|
-| **Bounding Fox** (was Moonhound) | pounces from enemy to enemy along the road; her bites come from where he lands | **Moon Pounce** (stays as it is) |
-| **Fox Tricks** (was Star Falcon) | leaves holo lure foxes on the road; the walkers that reach one turn round and trot back up the road | **Follow the Fox**: a row of lure foxes along her lane |
+| **Bounding Fox** (was Moonhound) | leaves his spot to bite, a tile further than before (her reach 2.4 → 3.4 tiles from his spot), and trots home between bites | **Moon Pounce** (stays; it reaches a tile further with this path) |
+| **Fox Tricks** (was Star Falcon) | sets holo lure foxes on the road; the walkers that reach one turn round and trot back up the road | **Follow the Fox**: a row of lure foxes along her lane |
 | **Paw Prints** (was Tide Otter) | her bolts leave glowing prints on an enemy; at the 5th, Kon leaps out of cover for a big hit (her boss path) | **Spirit Fox**: Kon grows big and her bolts hit harder |
 
 **Default: yes.**
@@ -31,49 +31,69 @@ Oct 30, 2026. The full spec is `docs/specs/RURI_HANA_DUO.md`.
 *Other option:* keep Tide Otter and replace only Star Falcon.
 
 **Q3. Lured walkers really walk backwards?**
-**Default: yes.** They walk back at their own speed for 1.5–2.5 s.
-- Bosses and flyers are never lured; minibosses are lured half as long.
-- An enemy can be lured at most once every 8 s.
-- A lure shares Fuu's push lock, so Ruri and Fuu together can never stall a wave.
+**Default: yes.** A Lured walker walks back at its own speed:
+
+| Source | Lure time |
+|---|---|
+| Lure Fox (tier 3) | 1.5 s |
+| Two-Tailed Trick (tier 4) | 2 s |
+| Hundred-Fox Trick (tier 5) | 2.5 s |
+| Follow the Fox (her ⚡) | 2.5 s, 3 s at tier 5 |
+
+- **Who:** bosses and flyers are never lured; minibosses are lured half as long.
+- **How often:** each walker is lured **at most twice a wave** (minibosses once), with at least 8 s between two lures (minibosses 12 s).
+- **Not with pushes:** while a walker is lured, and for 1.5 s after, nobody can push it, and a walker that was just pushed cannot be lured.
+- **So:** Ruri can slow a walker, but never hold it forever. A test checks that every wave with her and Fuu both at tier 5 still ends, at most 10 s later than with Fuu alone.
 - Fast runners go back the furthest, which makes Ruri the answer to leaks. Fuu keeps her crowd push.
 *Other option:* lure foxes only stop walkers for a moment.
 
-**Q4. Players lose nothing?**
+**Q4. "No job falls" for Ruri, rather than "no build falls"?**
 **Default: yes.**
-- Her best crowd build stays at least as strong as Great Otter Spirit is today, and her boss damage rises into round 5's band.
-- Level, stars, Potential, gear and bond are untouched, and the patch note says where her old paths went.
+- Her best crowd build stays at least as strong as Great Otter Spirit is today (Bounding Fox takes over that job), and her boss damage rises into round 5's band.
+- One change to know: her old Tide Otter build (2-0-5), a crowd build today, becomes Paw Prints 2-0-5, a boss build. Players who used it for crowds switch to Bounding Fox 5-0-2.
+- Level, stars, Potential, gear and bond are untouched. A saved battle with her on a retired path gives back every coin spent on her. The patch note says where her old paths went.
 
 **Q5. The new duo: "Ruri & Hana · Fox and Falcon", a new LR unit?**
 **Default: yes.**
 - It is a separate unit, so solo Ruri and solo Hana stay with all their progress. Nothing is merged or used up.
 - In one sentence: *Kon runs the road and flushes walkers out of cover; Kaze stoops from the sky on whatever Kon startles, and every flyer Kaze knocks down lands in front of Kon.*
-- Both girls stand on one base and take one slot. Kon runs up the road biting walkers and leaves them **Startled**; Kaze dives on flyers and Startled enemies.
+- Both girls stand on one base and take one slot. Kon dashes up the road from his spot biting walkers and leaves them **Startled**; Kaze dives on flyers and Startled enemies.
 - Her paths are High Stoop (Kaze leads), Fox Run (Kon leads) and Flush and Stoop (both), and she climbs SSR → UR at ★5 → LR through Limit Break.
 
-**Q6. Her ⚡ "Wind Chase" and her LR form "Daybreak"?**
+**Q6. Her ⚡ "Wind Chase" and her LR form "Paw and Feather"?**
 **Default: yes.**
 - **Wind Chase:** Kon sprints up the lane startling everything, and Kaze dives on each enemy he startled in turn (up to 10, 16 at tier 5).
-- **Daybreak (LR):**
+- **Paw and Feather (LR):**
   - one more dive chain on every build;
   - Kon's runs 50% longer;
   - a damage boost on top of the usual LR boost;
-  - a finishing Daybreak Stoop on the strongest enemy on the map.
-- Her crest is a paw print crossed by a feather.
+  - a finishing **Great Stoop** on the strongest enemy on the map.
+- Her crest is a paw print crossed by a feather. ("Daybreak" was the first name; the dawn belongs to Hikari.)
 
-**Q7. LR power: 2.5–3× the best Kage tier 5?**
-**Default: yes.**
-- In LR form her best build reaches 2.7–3.0× the best Kage tier 5 on crowds and on bosses, and every build stays at or above 2×.
-- Before LR she sits at about 1.3–1.7×.
-- Nothing goes above 3× in LR form.
+**Q7. LR power: 2.5–3× the best Kage tier 5, as a floor?**
+**Default: yes. A floor, never a cap.**
+- **Before LR:** at least 1.3× on her main job and at least 1.0× on the other.
+- **In LR form:**
+  - every build at least 2.5× on crowds and on bosses;
+  - her best boss build at least 3×;
+  - her best crowd build never the weakest of the LR units' (today she would need about 4.3×).
+- Later balance passes may raise her, never lower her.
 
-**Q8. Lift Kohaku & Tsubaki and Tenka into the same LR band?**
-**Default: yes**, through the balance work, before the new duo ships.
-- Today the first duo reads under 2× on a boss in LR form, so no LR unit should outshine another.
-*Other option:* only the new duo uses the band.
+**Q8. The other LR units: lift their boss numbers, keep their crowd numbers?**
+Today on round 5's test bench, against the best Kage tier 5:
+
+| LR unit | Crowds | Bosses |
+|---|---|---|
+| Kohaku & Tsubaki, in LR form | **4.76×** | **1.77×** |
+| Tenka, before LR | **3.58×** | **0.81×** |
+| Tenka, with her LR boost (estimated) | about 4.3× | about 1.0× |
+
+**Default: yes.** The balance work lifts both to at least 2.5× on bosses before the new duo ships. Their crowd numbers stay where they are: nobody is cut.
+*Other option:* only the new duo uses the floor.
 
 **Q9. How players get her?**
 **Default:**
-- her own LR Banner, **"Field Trip Premiere"**: 7 days at 0.7%, then the daily LR tab at 0.5%;
+- her own LR Banner, **"Fox and Falcon Premiere"**: 7 days at 0.7%, then the daily LR tab at 0.5%;
 - the 300-pull Legend Promise; never sparked, never from a Select Ticket or Chosen Essence;
 - SR rate-ups **Ruri, Chigusa and Marumi** (Ruri so pulls for the duo also help solo Ruri);
 - she premieres only after her art is approved, and not before Tenka's premiere ends (Nov 5);
@@ -85,7 +105,10 @@ Oct 30, 2026. The full spec is `docs/specs/RURI_HANA_DUO.md`.
 - Then her trial, **"The Field Survey"**: solo, with fast walkers and flyer swarms. Until its map exists, the stand-in is 8-5 on Nightmare.
 
 **Q11. A thank-you for players who own both Ruri and Hana?**
-**Default: yes.** Owning both unlocks a free bond scene, **"Kon Meets Kaze"**, and the profile title **"Old Friends"**. You don't need the duo for it, and it gives no power.
+**Default: yes.**
+- Owning both unlocks a free bond scene, **"Kon Meets Kaze"**, and the profile title **"Fast Friends"**.
+- It works for everyone who already owns both: the game checks on your first load after the update.
+- You don't need the duo for it, and it gives no power.
 *Other option:* none.
 
 **Q12. May the duo share a team with solo Ruri or solo Hana?**
@@ -94,15 +117,16 @@ Oct 30, 2026. The full spec is `docs/specs/RURI_HANA_DUO.md`.
 
 **Q13. The duo's picture?**
 **Default:** made with the art v3 tool in the clean academy look (B), after art v3 ships, from Ruri's and Hana's own portraits.
-- About 60 Anlas; we ask your yes before spending.
+- About 60 Anlas. **"Default all" does not say yes to this spend: we ask you separately before spending.**
 - Both girls are in uniform, with Kon at Ruri's feet and Kaze on Hana's glove.
+- The NovelAI key goes in as an environment secret, never into chat.
 *Other option:* you draw it.
 
-**Q14. 3D figures in Tripo?**
-**Default:** you make four models: Ruri, Hana, Kon and Kaze.
-- We rig them, add their moves and fit them to the game.
+**Q14. 3D figures: Tripo or Meshy?**
+**Default:** you make four models in Tripo (Ruri, Hana, Kon and Kaze), and we rig them, add their moves and fit them to the game.
 - Solo Ruri and Hana get the new figures too.
 - Until they are ready, the duo uses today's figures.
+*Other option:* we make them with Meshy, which is already approved for spending (one test run first, every run's cost reported). The Meshy key also goes in as an environment secret, never into chat.
 
 **Q15. Names OK?**
 **Default: keep.**
@@ -110,8 +134,9 @@ Oct 30, 2026. The full spec is `docs/specs/RURI_HANA_DUO.md`.
 | What | Names |
 |---|---|
 | Ruri's paths and ⚡ | Bounding Fox, Fox Tricks, Paw Prints, Lured, Trail's End, Follow the Fox, Spirit Fox (Moon Pounce stays) |
-| The duo | Ruri & Hana · Fox and Falcon; Startled; High Stoop, Fox Run, Flush and Stoop; Wind Chase; Daybreak |
-| Banner and Limit Break | Field Trip Premiere; The Field Survey |
-| Gift for owners of both | Kon Meets Kaze; Old Friends |
+| The duo | Ruri & Hana · Fox and Falcon; Startled; High Stoop, Fox Run, Flush and Stoop; Wind Chase; Paw and Feather; Great Stoop; Trusty Pair |
+| Banner and Limit Break | Fox and Falcon Premiere; The Field Survey |
+| Gift for owners of both | Kon Meets Kaze; Fast Friends |
 
-Ruri's new names avoid the moon and foxfire, because those belong to Luna.
+- Ruri's new names avoid the moon and foxfire, which belong to Luna, and the dawn, which belongs to Hikari.
+- The first names "Field Trip" (kept for a future game mode), "Daybreak" (Hikari's dawn), "Kindred Companions" (Kindred Essence) and "Old Friends" (they only just met) were changed.
