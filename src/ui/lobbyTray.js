@@ -122,18 +122,20 @@ const RUNNING = new Set(['active', 'exchange']);
  *     objective (the login gift, commissions); an objective that is that event itself ("Last day", "exchange open") gives
  *     way to the event's own page, whose countdown says the same;
  *   - otherwise the objective first, then the event (or the week's double drops);
- * then the weekly bosses, the unread Notice and the recruit banner while a page is free.
- * @param {{ objective?: { kind: string }|null, news?: { id: string, phase?: string|null }[], notice?: { id: string }|null }} s
- *   news: homeNews() pages; notice: the Notice page when it is unread
+ * then the Main girl's next step (the Build Coach, BUILD_COACH.md §8: a filler page, never a new home element), the weekly
+ * bosses, the unread Notice and the recruit banner while a page is free.
+ * @param {{ objective?: { kind: string }|null, news?: { id: string, phase?: string|null }[], notice?: { id: string }|null,
+ *   coach?: { id: string }|null }} s
+ *   news: homeNews() pages; notice: the Notice page when it is unread; coach: the Main girl's next-step page
  * @returns {{ id: string }[]} the objective's page is { id: 'objective', o: objective }; the others are the news pages
  */
-export function homeChipPages({ objective = null, news = [], notice = null } = {}) {
+export function homeChipPages({ objective = null, news = [], notice = null, coach = null } = {}) {
   const ev = news.find((n) => n.id === 'event' || n.id === 'weekly') || null;
   const running = ev?.id === 'event' && RUNNING.has(ev.phase);
   let obj = objective && CHIP_OBJECTIVES.includes(objective.kind) ? { id: 'objective', o: objective } : null;
   if (obj && running && objective.kind === 'event') obj = null;
   const lead = running && obj?.o.kind !== 'continue' ? [ev, obj] : [obj, ev];
-  const pages = [...lead, ...news.filter((n) => n.id === 'bosses'), notice, ...news.filter((n) => n.id === 'recruit')];
+  const pages = [...lead, coach, ...news.filter((n) => n.id === 'bosses'), notice, ...news.filter((n) => n.id === 'recruit')];
   return pages.filter(Boolean).slice(0, NEWS_MAX);
 }
 

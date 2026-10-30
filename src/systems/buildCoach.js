@@ -392,7 +392,7 @@ function nextSteps(p, unitId, plan, w, vCur, vMax) {
       const grown = mainStatMax(L.main.stat, g.rarity, to) / Math.max(1e-9, mainStatMax(L.main.stat, g.rarity, g.level));
       const after = { ...cur, [L.main.stat]: (cur[L.main.stat] || 0) + L.main.value * (grown - 1) };
       const gain = points(modelValue(w, after), vCur, vMax);
-      out.push({ kind: 'enhance', text: `Enhance her ${s.name} +${g.level} → +${to}`, gain, cost: coins, costText: `${coins.toLocaleString('en-US')} coins`, short: coinsHave < coins ? 'coins' : null, go: { route: 'student', params: { id: unitId, tab: 'gear' } } });
+      out.push({ kind: 'enhance', text: `Enhance her ${s.name} +${g.level} → +${to}`, chip: `${s.name} to +${to}`, gain, cost: coins, costText: `${coins.toLocaleString('en-US')} coins`, short: coinsHave < coins ? 'coins' : null, go: { route: 'student', params: { id: unitId, tab: 'gear' } } });
     }
     if (g && !s.piece.ok && s.want) {
       const L = gearLines(g);
@@ -401,7 +401,7 @@ function nextSteps(p, unitId, plan, w, vCur, vMax) {
       const cost = mainRerollCost(g);
       const coins = cost.find((c) => c.id === 'coins')?.count || 0;
       const dice = itemCount(p, 'dice_prism');
-      out.push({ kind: 'prism', text: `Prism Dice: her ${s.name}'s main → ${s.wantName}`, gain, cost: coins + 20000, costText: `1 Prism Dice + ${coins.toLocaleString('en-US')} coins`, short: dice < 1 ? 'dice_prism' : null, go: { route: 'student', params: { id: unitId, tab: 'gear' } } });
+      out.push({ kind: 'prism', text: `Prism Dice: her ${s.name}'s main → ${s.wantName}`, chip: `${s.name} main → ${s.wantName}`, gain, cost: coins + 20000, costText: `1 Prism Dice + ${coins.toLocaleString('en-US')} coins`, short: dice < 1 ? 'dice_prism' : null, go: { route: 'student', params: { id: unitId, tab: 'gear' } } });
     }
     const spare = spareFor(p, unitId, s.slot, w);
     if (spare) {
@@ -409,7 +409,7 @@ function nextSteps(p, unitId, plan, w, vCur, vMax) {
       const on = pieceTotals(spare);
       const after = sumTotals(cur, on, Object.fromEntries(Object.entries(off).map(([k, v]) => [k, -v])));
       const gain = points(modelValue(w, after), vCur, vMax);
-      if (gain > 0.5) out.push({ kind: 'equip', text: `Equip ${spare.name} on her ${s.name}`, gain, cost: 1, costText: 'free', short: null, go: { route: 'student', params: { id: unitId, tab: 'gear' } } });
+      if (gain > 0.5) out.push({ kind: 'equip', text: `Equip ${spare.name} on her ${s.name}`, chip: `a better ${s.name}`, gain, cost: 1, costText: 'free', short: null, go: { route: 'student', params: { id: unitId, tab: 'gear' } } });
     }
   }
   // her club: an Armband ties a Mythic or better piece into it
@@ -421,11 +421,11 @@ function nextSteps(p, unitId, plan, w, vCur, vMax) {
       const two = CLUBS[want].two;
       const after = { ...cur, [two.stat]: (cur[two.stat] || 0) + (set.club === want ? 0 : two.value) };
       const gain = Math.max(0.5, points(modelValue(w, after), vCur, vMax));
-      out.push({ kind: 'club', text: `Tie an Armband: ${CLUBS[want].name} on her ${slotName(piece.slot)}`, gain, cost: 4000, costText: '1 Club Armband', short: itemCount(p, 'club_band') < 1 ? 'club_band' : null, go: { route: 'student', params: { id: unitId, tab: 'gear' } } });
+      out.push({ kind: 'club', text: `Tie an Armband: ${CLUBS[want].name} on her ${slotName(piece.slot)}`, chip: `${CLUBS[want].name} Armband`, gain, cost: 4000, costText: '1 Club Armband', short: itemCount(p, 'club_band') < 1 ? 'club_band' : null, go: { route: 'student', params: { id: unitId, tab: 'gear' } } });
     }
   }
   // nothing to do on gear: her level
-  if (!out.length && st.level < levelCap(st)) out.push({ kind: 'level', text: `Level her up to ${levelCap(st)}`, gain: 0, cost: 1, costText: 'books and coins', short: null, go: { route: 'student', params: { id: unitId, tab: 'level' } } });
+  if (!out.length && st.level < levelCap(st)) out.push({ kind: 'level', text: `Level her up to ${levelCap(st)}`, chip: `level ${levelCap(st)}`, gain: 0, cost: 1, costText: 'books and coins', short: null, go: { route: 'student', params: { id: unitId, tab: 'level' } } });
   return out
     .filter((s) => s.gain > 0 || s.kind === 'level')
     .sort((a, b) => b.gain / Math.max(1, b.cost) - a.gain / Math.max(1, a.cost) || b.gain - a.gain)

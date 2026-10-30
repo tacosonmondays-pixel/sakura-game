@@ -1,5 +1,5 @@
-/* The Build Coach (src/ui/buildCoach.js, BUILD_COACH.md §8): the girl page's Coach tab, the home chip and the Stage
-   Prep tag. Ink & Paper kit; every label 12 px or more; rows 36 px or more. Not the tutorial's coach.css. */
+/* The Build Coach (src/ui/buildCoach.js, BUILD_COACH.md §8): the girl page's Coach tab and the Stage Prep tag.
+   Ink & Paper kit; every label 12 px or more; rows 36 px or more. Not the tutorial's coach.css. */
 
 :where(.ui-day, .ui-night) .bc { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 :where(.ui-day, .ui-night) .bc-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
@@ -45,17 +45,6 @@
 :where(.ui-day, .ui-night) .bc-miss { color: var(--bad-text); }
 :where(.ui-day, .ui-night) .bc-need.ok .ui-ico { width: 14px; height: 14px; color: var(--good-on-plate, #2f8a4e); }
 
-/* the home chip, over the battle plate */
-/* (the Co-op / Events row sits --ch above the plate's box: the chip goes over it) */
-.home .home-battle > .ui-chip.bc-home-chip { position: absolute; right: 0; bottom: calc(100% + var(--ch, 44px) + 8px); max-width: 100%; min-height: 36px; gap: 6px; padding: 0 10px; cursor: pointer;
-  text-transform: none; letter-spacing: 0; z-index: 5; background: var(--plate, #0e1930); color: var(--on-ink, #fff); border: 0; }
-.home .bc-home-chip .bc-home-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-label, 12px); }
-.home .bc-home-chip .ui-ico { flex: none; width: 14px; height: 14px; }
-
 /* Stage Prep: the map tag */
 :where(.ui-day, .ui-night) .ui-chip.bc-farm-tag { gap: 4px; max-width: 100%; text-transform: none; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :where(.ui-day, .ui-night) .ui-chip.bc-farm-tag .ui-ico { flex: none; width: 14px; height: 14px; }
-/* an upright phone: the news card sits just over the Co-op row, so it moves up by the chip's height */
-@media (max-width: 700px) and (min-height: 481px) {
-  .home:has(.bc-home-chip) .home-news-host, .home.news-down:has(.bc-home-chip) .home-news-host { bottom: 290px; }
-}

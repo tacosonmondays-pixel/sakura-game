@@ -1,7 +1,8 @@
-// The Build Coach on screen (docs/specs/BUILD_COACH.md §8, milestone C1): the girl page's Coach tab ("Set as Main",
-// her build score and next three steps, To max, Farm, Gear plan, Potential), the home chip for the main girl and the
-// Stage Prep line "Farming for Kage: …". Not the tutorial's coach (src/ui/story/coach.js). The rules and numbers are
-// src/systems/buildCoach.js; this file only draws them. Styles: src/ui/styles/buildCoach.css (.bc-*).
+// The Build Coach on screen (docs/specs/BUILD_COACH.md §8, milestone C1): the girl page's Coach tab ("Set as Main", her
+// build score and next three steps, To max, Farm, Gear plan, Potential) and Stage Prep's "Farming for Kage: …" tag. The
+// home adds no element: her next step is a page of its news chip (src/ui/screens/lobby.js chipPages). Not the
+// tutorial's coach (src/ui/story/coach.js). The rules and numbers are src/systems/buildCoach.js; this file only draws
+// them. Styles: src/ui/styles/buildCoach.css (.bc-*).
 import './styles/buildCoach.css';
 import { h, toast } from './components.js';
 import { store } from '../core/store.js';
@@ -10,7 +11,7 @@ import { UNIT_MAP } from '../data/units.js';
 import { getItem } from '../data/items.js';
 import { statName } from '../data/gearStats.js';
 import {
-  mainGirl, setMain, clearMain, coachPaths, gearPlan, toMax, farmPlan, potentialPlan, buildScore, homeLine, farmingHere,
+  mainGirl, setMain, clearMain, coachPaths, gearPlan, toMax, farmPlan, potentialPlan, buildScore, farmingHere,
 } from '../systems/buildCoach.js';
 import { ico, curArt, secondaryBtn, primaryBtn } from './kit.js';
 import { openSheet } from './sheet.js';
@@ -147,17 +148,6 @@ function openFarmSheet(farm) {
         h('div.bc-sec-head', h('b', `${f.name} ×${n(f.missing)}`)),
         h('ul.bc-rows', f.sources.map((s) => h('li.bc-row.bc-farm', h('span.bc-row-t', h('b', s.label), h('span', s.note)), goBtn(s.go))))))),
   });
-}
-
-/** The home chip: "Kage · next: Enhance her Ribbon +8 → +10 →" (null when no main is set). */
-export function homeCoachChip() {
-  const line = homeLine(store.profile);
-  if (!line) return null;
-  return h('button.ui-chip.bc-home-chip', {
-    type: 'button', 'data-testid': 'home-coach-chip',
-    title: line.next ? `${line.name}'s next step: ${line.next.text}` : `${line.name}'s Build Coach`,
-    onclick: () => navigate('student', { id: line.unitId, tab: 'coach' }),
-  }, ico('star'), h('span.bc-home-t', h('b', line.name), line.next ? ` · next: ${line.next.text}` : ' · Build Coach'), ico('chevR'));
 }
 
 /** Stage Prep: a map tag "Farming for Kage: Phoenix Plume ×2" when this stage drops what she misses (null otherwise). */

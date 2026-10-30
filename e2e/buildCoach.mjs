@@ -1,6 +1,6 @@
 // The Build Coach (docs/specs/BUILD_COACH.md §8, §10; milestone C1) at 844 x 390, 1280 x 720 and 390 x 844: the girl
 // page's Coach tab (Set as Main, the build score, the next steps with Go, To max and its sheet, Farm, Gear plan,
-// Potential, the path toggle), the home chip for the main girl, Stage Prep's "Farming for" tag, Clear Main. No
+// Potential, the path toggle), the Main's page in the home's news chip, Stage Prep's "Farming for" tag, Clear Main. No
 // horizontal overflow anywhere.
 // Usage: node e2e/buildCoach.mjs [--shots dir]
 import { createServer } from 'vite';
@@ -98,26 +98,35 @@ try {
       }
     }
 
-    // ----- the home chip -----
+    // ----- the home: her next step is a page of the news chip (no new element) -----
     await go('#/lobby', '[data-testid="lobby"]');
-    const chip = await page.waitForSelector('[data-testid="home-coach-chip"]', { timeout: 10000 }).catch(() => null);
-    check(!!chip, `${tag} home: the Main's chip`);
-    if (chip) {
-      const b = await chip.boundingBox();
-      check(b && b.x >= 0 && b.x + b.width <= W + 1 && b.y >= 0 && b.y + b.height <= H + 1, `${tag} the chip is on screen`);
-      check(/Kage/.test(await chip.innerText()), `${tag} the chip names Kage`);
+    await page.waitForSelector('[data-testid="lobby-news"]', { timeout: 10000 }).catch(() => {});
+    let found = false;
+    for (let k = 0; k < 4 && !found; k++) {
+      if (await page.locator('[data-testid="lobby-news"][data-page="coach"]').count()) { found = true; break; }
+      if (!(await page.locator('[data-testid="lobby-news-next"]').count())) break;
+      await tap('[data-testid="lobby-news-next"]');
+      await page.waitForTimeout(400);
+    }
+    check(found, `${tag} home: the news chip has the Main's page`);
+    check(await page.locator('.bc-home-chip').count() === 0, `${tag} home: no new element`);
+    if (found) {
+      const card = page.locator('[data-testid="lobby-news-coach"]');
+      check(/Kage/.test(await card.getAttribute('aria-label')), `${tag} the page names Kage`);
+      const b = await page.locator('[data-testid="lobby-news"]').boundingBox();
+      check(b && b.x >= 0 && b.x + b.width <= W + 1, `${tag} the news chip fits`);
       await noOverflow(page, W, `${tag} home`);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/coach-home-${tag}.png` });
-      await tap('[data-testid="home-coach-chip"]');
+      await tap('[data-testid="lobby-news-coach"]');
       await page.waitForSelector('[data-testid="coach-tab"]', { timeout: 10000 }).catch(() => {});
-      check(await page.locator('[data-testid="coach-tab"]').count() === 1, `${tag} the chip opens her Coach tab`);
+      check(await page.locator('[data-testid="coach-tab"]').count() === 1, `${tag} the page opens her Coach tab`);
     }
-    // Clear Main hides the chip
+    // Clear Main takes the page away
     await go('#/student/kage?tab=coach', '[data-testid="coach-tab"]');
     await tap('[data-testid="coach-clear-main"]');
     check(await page.evaluate(() => window.__sakura.store.profile.buildCoach?.main ?? null) === null, `${tag} Clear Main`);
     await go('#/lobby', '[data-testid="lobby"]');
-    check(await page.locator('[data-testid="home-coach-chip"]').count() === 0, `${tag} no chip without a Main`);
+    check(await page.locator('[data-testid="lobby-news"][data-page="coach"], [data-testid="lobby-news-coach"]').count() === 0, `${tag} no coach page without a Main`);
 
     check(!errs.length, `${tag} no page errors${errs.length ? `: ${errs.slice(0, 3).join(' | ')}` : ''}`);
     await page.close();

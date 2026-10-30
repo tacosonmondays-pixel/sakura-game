@@ -80,7 +80,7 @@ import { listBattleSaves, saveSummary, saveTitle } from '../../systems/battleSav
 import { showRewardsModal, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
-import { homeCoachChip } from '../buildCoach.js';
+import { homeLine } from '../../systems/buildCoach.js';
 import { workbenchReady } from '../../systems/workbench.js'; // [workbench] a ready craft lights the Backpack row (its Workbench button)
 import { showNoticeModal, noticeUnread } from '../lobby/notice.js';
 import { openMenuSheet, closeMenuSheet, menuSheetOpen } from '../lobby/menuSheet.js';
@@ -204,7 +204,7 @@ export function render(root) {
   // (all: the controls' boxes while the UI is hidden too: whether her living scene can stand here at all)
   const uiBoxes = ({ all = false } = {}) => {
     if (!all && el.classList.contains('ui-hidden')) return [];
-    const sel = [...top.children, ...dock.children, ...newsHost.querySelectorAll('.ui-news'), ...battleHost.querySelectorAll('.home-plate, .home-coop, .bc-home-chip')];
+    const sel = [...top.children, ...dock.children, ...newsHost.querySelectorAll('.ui-news'), ...battleHost.querySelectorAll('.home-plate, .home-coop')];
     const inner = [...top.querySelectorAll(':scope > .ui-pill > *')];
     const o = laidOut(el);
     // (the news chip counts at its two-line height on every page: a page turn never brings it over her)
@@ -891,9 +891,6 @@ function buildBattle(host) {
   const { chapter, prog, complete } = campaignStatus(profile);
   const invites = lastInvites().count;
   clear(host);
-  // [build coach] the main girl's next step, over the battle plate (hidden when no main is set; BUILD_COACH.md §8)
-  const coachChip = homeCoachChip();
-  if (coachChip) host.appendChild(coachChip);
   const coop = h('button.home-coop', { type: 'button', 'data-testid': 'lobby-multiplayer', 'aria-label': multiplayerLabel(invites), onclick: () => navigate('multiplayer') },
     g('users'), h('span.lbl', 'Co-op'),
     badge(invites ? h('span.ui-count', { 'data-testid': 'lobby-multiplayer-count', title: multiplayerLabel(invites) }, String(invites)) : null, 'home:count:multiplayer'));
@@ -1021,7 +1018,10 @@ function newsState(profile) {
 function chipPages(profile) {
   const s = objectiveState(profile);
   const notice = noticeUnread() ? { id: 'notice', kicker: 'Notice', title: 'Patch notes and news', testid: 'lobby-news-notice', timeTestid: null, msLeft: null, phase: null, art: null } : null;
-  return homeChipPages({ objective: homeObjective(s), news: homeNews(newsState(profile)), notice }).map((pg) => (pg.id === 'objective' ? { ...pg, s } : pg));
+  // [build coach] the Main girl's next step: one filler page, only when a step is ready (BUILD_COACH.md §8)
+  const line = homeLine(profile);
+  const coach = line?.next ? { id: 'coach', kicker: 'Next step', short: 'Next', title: `${line.name}: ${line.next.chip || line.next.text}`, full: `${line.name} · next: ${line.next.text}`, testid: 'lobby-news-coach', timeTestid: null, msLeft: null, phase: null, art: null, unitId: line.unitId } : null;
+  return homeChipPages({ objective: homeObjective(s), news: homeNews(newsState(profile)), notice, coach }).map((pg) => (pg.id === 'objective' ? { ...pg, s } : pg));
 }
 
 const PHASE_LABEL = { upcoming: 'Opens in', active: 'Ends in', exchange: 'Exchange closes in' };
@@ -1052,6 +1052,7 @@ function buildNews(host, { page = 0, onPage }) {
       if (n.id === 'event') return navigate('event', { id: st.limited.id });
       if (n.id === 'weekly') return navigate('bounty', { arena: st.weekly.arena });
       if (n.id === 'recruit') return navigate('recruit');
+      if (n.id === 'coach') return navigate('student', { id: n.unitId, tab: 'coach' });
       if (n.id === 'notice') {
         showNoticeModal();
         return store.commit('notice');
@@ -1061,10 +1062,10 @@ function buildNews(host, { page = 0, onPage }) {
       return null;
     };
     const when = n.msLeft != null && n.id === 'event' ? `, ${(PHASE_LABEL[n.phase] || 'Ends in').toLowerCase()} ${countdownState(n.msLeft).text}` : '';
-    const thumb = n.art ? h('span.ui-thumb', { html: itemIcon(n.art, { px: 34 }) }) : h('span.ui-thumb', g(n.id === 'weekly' ? 'map' : n.id === 'notice' ? 'megaphone' : 'sparkles'));
+    const thumb = n.art ? h('span.ui-thumb', { html: itemIcon(n.art, { px: 34 }) }) : h('span.ui-thumb', g(n.id === 'weekly' ? 'map' : n.id === 'notice' ? 'megaphone' : n.id === 'coach' ? 'star' : 'sparkles'));
     // (a page with a short kicker carries both: fitTexts shows the short one where the long one would wrap)
     const kicker = n.short ? [h('span.kl', n.kicker), h('span.ks', n.short)] : n.kicker;
-    body = h('button.go', { type: 'button', 'data-testid': n.testid, 'aria-label': `${n.kicker}: ${n.title}${when}`, title: n.title, onclick: go },
+    body = h('button.go', { type: 'button', 'data-testid': n.testid, 'aria-label': `${n.kicker}: ${n.full || n.title}${when}`, title: n.full || n.title, onclick: go },
       thumb,
       h('span.col', h('span.k', h('span.lbl', kicker), chip), h('span.body', n.title)));
   }
