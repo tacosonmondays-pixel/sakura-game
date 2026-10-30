@@ -7,8 +7,8 @@ tags:
   - rarity
   - abilities
   - duo
-status: proposal (r2)
-source: "main 60ce9cad (v0.1.61, sim be940ecb2087, COOP_PROTOCOL 13): src/data/unitsExpansion.js (Hana, Ruri), src/data/abilities.js, src/data/abilityText.js, src/data/potential.js, src/data/banners.js, src/data/unitsDuo.js, src/sim/towers.js (relay origins, guided shots, chainNext), src/sim/duo.js, src/sim/runners.js, src/sim/strips.js, src/sim/balls.js, src/sim/status.js, src/sim/mods.js, src/sim/Sim.js, src/sim/combat.js, src/sim/enemies.js, src/systems/limitBreak.js, src/ui/battle/snapshot.js, src/render/companionLogic.js, src/models/companions.js, src/models/duo.js; docs/specs/DUO_LR.md, ABILITIES.md, ATTACK_SHAPES.md, BANNERS.md, UNIT_GAPS.md, TRYOUT_DAY.md; feature/balance-r5 (83b72083) docs/BALANCE.md, src/data/balance.js, src/data/powerKit.js; tools/bench.mjs run on main for this note; review r1 (docs/review/ruri-hana-duo/review-r1.md)"
+status: proposal (r3)
+source: "main 60ce9cad (v0.1.61, sim be940ecb2087, COOP_PROTOCOL 13): src/data/unitsExpansion.js (Hana, Ruri), src/data/abilities.js, src/data/abilityText.js, src/data/potential.js, src/data/banners.js, src/data/unitsDuo.js, src/sim/towers.js (relay origins, guided shots, chainNext), src/sim/duo.js, src/sim/runners.js, src/sim/strips.js, src/sim/balls.js, src/sim/status.js, src/sim/mods.js, src/sim/Sim.js, src/sim/combat.js, src/sim/enemies.js, src/systems/limitBreak.js, src/ui/battle/snapshot.js, src/render/companionLogic.js, src/models/companions.js, src/models/duo.js; docs/specs/DUO_LR.md, ABILITIES.md, ATTACK_SHAPES.md, BANNERS.md, UNIT_GAPS.md, TRYOUT_DAY.md; feature/balance-r5 (83b72083, and its tip d6f092b7 for the LR numbers) docs/BALANCE.md, docs/specs/DUO_LR.md, src/data/balance.js (LR_POWER), src/data/powerKit.js; tools/bench.mjs run on main for this note; reviews r1 and r2 (docs/review/ruri-hana-duo/)"
 date: 2026-10-30
 game_version: v0.1.61
 aliases:
@@ -23,13 +23,31 @@ aliases:
 >
 > **Owner, Oct 30:** "LR's should be more op!" The current target for LR units is about **2.5–3× the best Kage tier 5, on crowds and on bosses**.
 
+## Changes since r2
+
+Review r2 (`docs/review/ruri-hana-duo/review-r2.md`) was NOT OK: 3 MEDIUM, 8 LOW. Every finding is fixed in this revision.
+
+| Finding | What changed | Where |
+|---|---|---|
+| **R2-M1** LR figures out of date, and Tenka's counted twice | Re-based on round 5's tip, `feature/balance-r5` `d6f092b7`, which has `LR_POWER` (`6954c757`, tuned in `d6f092b7`).<br>• Tenka's 3.58× is already her LR form; the ×1.21 double count is gone.<br>• In LR form the first duo reads 2.58–3.38× on a crowd (Constellation 5.63×) and 2.79–3.01× on a boss; Tenka's Rail Arms reads 3.58× / 2.75×.<br>• The new duo's crowd floor is max(3×, the weakest other LR unit's best crowd) = 3.58× today.<br>• Her LR knob is a `ruri_hana` row in `LR_POWER`; `RH_LR_MUL` is gone.<br>• Tenka's Joint Research and Singularity builds stay below the floor; that is round 5's open owner question, which this spec only points to. Q8 now asks whether to keep round 5's lift | summary, §1.3, §3.5, §3.6, §3.7, §7; board Q7, Q8 |
+| **R2-M2** The lure bound did not hold against Fuu's re-push | A lure holds the walker's push lock (`pushLockBy = −1`) until the walker is back at the road distance it was lured from. So a locked push never acts on ground a lure took back, and each lure costs at most its own walk back plus walking that ground again. Q3 states that bound, not "10 s". The test runs healed walkers that never die, with a named team and a baseline checked not to stall | §2.2, §5.5; board Q3 |
+| **R2-M3** Reversed roads | Kon's road point is stored on the forward path and turned into the live distance (`L − d`) while the route is reversed, so START always means the live start. Wind Chase's lane, Follow the Fox's laying and lure-fox placement read the live road. Tests on a Rear Ambush even wave | §2.2, §3.2, §3.4, §5.5 |
+| **R2-L1** Whose lock, which pushes | The lure writes `pushLockBy = −1`, so Fuu's Backdraft Fan cannot move a Lured walker. The pushes the lock covers are listed in full. Grounded flyers are never lured | §2.2; board Q3 |
+| **R2-L2** What strip records bring | A `lure` branch in the strip code (Ruri has no strip, trap or trapSpec); a trigger radius; the display files (`actors.js`, `placedProps.js`, and `companionLogic.js` for the duo's Kon); the deterministic side effects on Azami's strips and Suzu's traps, with a test | §2.2, §5.1, §5.5 |
+| **R2-L3** Kon's run edges | No stretch when no road lies within his leash; one run in flight at a time, with the timer counting from his return; bosses are bitten but never Startled (stated as intended); the shared rule is Marumi's `sameRoad` at `RUNNER_HIT_RADIUS` for every road; Kon idles while his lane is closed | §3.2, §3.3 |
+| **R2-L4** The `du` restore | A `pair` branch with its own clamp in the battle-save restore, and `pair` branches at `towers.js:332`, `:1958` and `:1993` | §5.1, §5.4 |
+| **R2-L5** Q4 and the refund | Per-build floors against round 5 ("no build falls"), so Fox Tricks 2-5-0 keeps Star Falcon's boss number and Paw Prints 2-0-5 keeps Tide Otter's crowd number. The refund wording says "above tier 2" | §2.1, §2.5, §4, §5.7; board Q4 |
+| **R2-L6** Bounding Fox is reach plus a look | Q2 and §2.2 say plainly that the hunt is a look and the change is a tile more reach. A real-coin check is added | §2.2, §2.5; board Q2 |
+| **R2-L7** Tools and a chain | A capBot build with Ruri and one with the duo; `src/sim/headless.js` scores `lure`, `prints` and `pair`; Silent Stalk's leap prints stop one short, so Trail's End never chains inside a step | §2.2, §2.5, §5.1, §5.5 |
+| **R2-L8** Text | One banner name, "Fox and Falcon Premiere", everywhere. A D2 shipped alone gets a patch line about the solo girls' new figures | §3.9, §5.6 |
+
 ## Changes since r1
 
 Review r1 (`docs/review/ruri-hana-duo/review-r1.md`) was NOT OK: 1 HIGH, 6 MEDIUM, 8 LOW. Every finding is fixed in this revision.
 
 | Finding | What changed | Where |
 |---|---|---|
-| **H1** The band capped the LR units | The 2.5–3× band is a **floor, never a cap**. The two LR units keep their crowd numbers (the first duo 4.76×, Tenka 3.58× before LR), and the balance work lifts their boss numbers. The new duo clears 2.5–3× on both rulers, and her best crowd build is at least the weakest LR unit's. Q8 now shows crowd and boss numbers for both | summary, §3.6, §3.7, §4; board Q7, Q8 |
+| **H1** The band capped the LR units | The 2.5–3× band is a **floor, never a cap**. The two LR units keep their crowd numbers (the first duo 4.76×, Tenka 3.58×; r3 re-bases these on round 5's tip and finds Tenka's was already her LR form, see Changes since r2), and the balance work lifts their boss numbers. The new duo clears 2.5–3× on both rulers, and her best crowd build is at least the weakest LR unit's. Q8 now shows crowd and boss numbers for both | summary, §3.6, §3.7, §4; board Q7, Q8 |
 | **M1** Files missing from the impact table | Every file each milestone touches, in and out of the co-op graph: `mods.js` (Ruri's `lure` and `prints` blocks, and a duo `pair` block so Kon's bites grow with level, gear and Potential), `Sim.js`, `combat.js`, `enemies.js`, `strips.js`, the duo's row in `potential.js`, `unitKit.js`, CONTRACTS.md, the ability vocabulary and `src/ui/battle/snapshot.js` | §5.1 |
 | **M2** The hunting Kon had no rules | Kon's firing point in the sim never leaves his lane spot. Bounding Fox T3 adds +1.0 range, so her bites reach 3.4 tiles from his spot (her real reach is stated). The pounce and the trot home are drawn only, so he can never be stranded | §2.2, §2.3, §2.6, §2.7 |
 | **M3** Lures did not back the stall promise | At most 2 lures per walker a wave (minibosses 1). A lure holds the push lock for its whole length plus 1.5 s, and a push-locked walker cannot be lured. Freeplay counts lure tiles against Resolve. A lure interrupts a blink. Lure foxes are strip records, so they inherit the caps, Spike Rain's rule for ability foxes, the positional trigger (shared roads) and the wave-end cleanup. The placement rule is written out. Q3's promise is reworded and backed by a test | §2.2, §2.6, §5.5; board Q3 |
@@ -57,7 +75,7 @@ This is a design note. Nothing in the game changes on this branch. Every number 
 > [!summary] On one screen
 > - **Today:** Ruri is a plain shooter whose bolts leave a fox who never moves. Two of her three ⚡ are still teasers (the last two in the game). Her Star Falcon path is a weaker copy of Hana: 0.03× the best Kage tier 5 on a crowd and 0.05× on a boss. Hana is a flyer archer whose falcon is mostly decoration.
 > - **Ruri's rework (free for everyone who owns her):** Kon becomes the point of her kit.
->   - **Bounding Fox:** Kon leaves his spot to bite, a tile further than before.
+>   - **Bounding Fox:** a tile more reach; Kon is drawn leaving his spot to bite (a look: her bites still count from his spot).
 >   - **Fox Tricks:** holo lure foxes lead the fastest walkers back up the road.
 >   - **Paw Prints:** prints count up on one enemy until Kon leaps out of cover (her boss path).
 >
@@ -67,7 +85,7 @@ This is a design note. Nothing in the game changes on this branch. Every number 
 > - **Power, a floor and never a cap:**
 >   - before LR, at least 1.3× the best Kage tier 5 on her main job and 1.0× on the other;
 >   - in LR form, at least 2.5× on crowds and on bosses for every tier-5 build, with her best boss build at least 3×;
->   - her best crowd build is never the weakest LR unit's (the other two read about 4.3× and 4.8× on crowds today).
+>   - her best crowd build is never the weakest LR unit's: at least 3.58× today (Tenka's Rail Arms in LR form, on round 5's tip `d6f092b7`).
 > - **Getting the duo:** her own LR Banner, "Fox and Falcon Premiere" (7 days at 0.7%, Legend Promise at 300, never sparked), with SR rate-ups Ruri, Chigusa and Marumi. Price 850, family feather.
 > - **Recommendation:** do both. **Ruri's rework first** (one co-op update after balance round 5), **then the duo** (her sim held first, then her art and her premiere together). Solo Ruri and Hana stay, with every bit of progress.
 
@@ -143,7 +161,9 @@ Two rulers, the same two DUO_LR §6 used:
 | Ruri | 2.69M (1.48×) → 3.16M (1.73×) | 104k (0.05×) → 1.02M (0.46×), with her row `boss ×9` |
 | Hana | 231k (0.13×) → 1.37M (0.75×) | 322k (0.16×) → 1.91M (0.86×), with her row `dmg ×5.45` |
 | Kohaku & Tsubaki at LR | 7.99M (4.39×) → 8.71M (4.76×) | 3.70M (1.88×) → 3.94M (1.77×) |
-| Tenka (not LR on this bench) | 6.05M (3.32×) → 6.55M (3.58×) | 1.67M (0.85×) → 1.80M (0.81×) |
+| Tenka at LR (the bench gives every girl her Limit Break counter, so this is her LR form) | 6.05M (3.32×) → 6.55M (3.58×) | 1.67M (0.85×) → 1.80M (0.81×) |
+
+The two LR rows above are round 5 at `83b72083`. Its tip, `d6f092b7`, adds `LR_POWER` (the LR form only, never in titan battles: the first duo ×1.05 damage and ×1.6 on bosses, Tenka ×3.4 on bosses) and records the new LR numbers in its `docs/specs/DUO_LR.md`. §3.6 uses those.
 
 **Reading.**
 - Ruri is a crowd girl (Tide Otter's splash, Moonhound's bites) with almost no boss damage on any path.
@@ -187,11 +207,12 @@ So on a flyer stage, a player who owns both gets nothing from Star Falcon that H
 - **Nothing of Hana's.** Her kit has no flyer multiplier, grounding, Veil Sight, bird or map-wide anti-air. Her ordinary bolts still hit flyers, as most girls' do.
 - **Nothing of Luna's or Hikari's.** No moon, foxfire or dawn in her new names; the live ability Moon Pounce keeps its name.
 - **Every ⚡ runs.** She keeps one ⚡ per path: ABILITIES §3.1 lets her data hold three, and the crosspath rule unlocks one per battle.
-- **No job falls.**
-  - Her best crowd build is at least today's (Great Otter Spirit).
-  - Her best boss build lands in round 5's single-target band.
-  - No tier 3–4 reads below today's same-tier best for its job, on either ruler.
-  - This is **"no job falls", not round 5's "no build falls"** (`docs/BALANCE.md` on `feature/balance-r5`). Her Tide Otter 2-0-5, a crowd build today, becomes Paw Prints 2-0-5, a boss build. Her crowd job moves to Bounding Fox 5-0-2. Board Q4 puts this to the owner.
+- **No build falls, against round 5** (round 5's own bar, "no build falls, not only the best one", `docs/BALANCE.md` on `feature/balance-r5`). Each new build is at least the round-5 number of the build it replaces, at the same path index, on both rulers, measured on round 5's tip when she is built:
+  - Bounding Fox 5-0-2 ≥ Moonhound 5-0-2;
+  - Fox Tricks 2-5-0 ≥ Star Falcon 2-5-0, which on the light bench is her best boss build (409 against 282 and 203), so it keeps her round-5 boss number;
+  - Paw Prints 2-0-5 ≥ Tide Otter 2-0-5, which is her best crowd build, so her boss path also keeps that crowd number;
+  - the same at tiers 3 and 4.
+- **On top of that, each path gets its new job** (§2.5): Bounding Fox the crowd, Fox Tricks the control, Paw Prints the boss.
 - **Kept as they are:** Moon Pounce, Kon's lane spot (reach 3.5, standoff 0.7), her Pounce procs (P4, P6), and Tryout Day's `T_ruri` talent (+1.0 relay reach, which moves Kon's spot further out, `src/data/tryout.js:324`).
 
 ### 2.2 Three paths
@@ -203,43 +224,67 @@ So on a flyer stage, a player who owns both gets nothing from Star Falcon that H
 | **Paw Prints** (was Tide Otter): *Kon stalks one enemy* · ⚡ Spirit Fox | Fresh Tracks 140: +1 damage | Sniff Out 320: +15% speed | **Paw Prints** 1,000: each bolt leaves a glowing paw print on its target (up to 5; each lasts 4 s, and a new one refreshes them). At the 5th, Kon leaps out of cover: **Trail's End**, 6× her hit that ignores 2 armour; the prints reset | Double Prints 3,000: her bolts leave 2 prints on elites and bosses; Trail's End 8×; +6 damage | **Silent Stalk** 21,000: Trail's End at 4 prints, for 12× her hit; half of it leaps to the nearest enemy within 1 tile and leaves 2 prints there; +22 damage; a boss factor fitted on the bench (§2.5) |
 
 **Bounding Fox: where she looks and how far she reaches.**
+- **What changes, plainly:** Bounding Fox is Moonhound with a tile more reach at tier 3. The hunt is a look: her bites still count from Kon's spot. Kon is really *deployed* on her other two paths (lure foxes on the road; Trail's End's leap).
 - **One targeting rule, the one she has today:** every attack picks her target by her target mode within her range of Kon's lane spot. The spot is `t.ox` / `t.oy` (`volleyFrom`, `towers.js:809`), and her bites start there in the sim.
 - **Her reach:**
-  - Bounding Fox T3 is a plain +1.0 range, so her bites reach 3.4 tiles from his spot (2.4 today).
+  - Bounding Fox T3 is a plain +1.0 range, so her bites reach 3.4 tiles from his spot (2.4 today). That is her largest range step (her only other one was Sky Perch's +0.3), and it about doubles the area she covers, so it gets a real-coin check (§2.5).
   - The spot itself is at most 3.5 tiles from her (3.8 awakened, +1.0 with Tryout's `T_ruri`), so she hits up to about 6.9 tiles from where she stands (7.2 awakened), against 5.9 today.
   - Her ring and the placement ghost keep their centre on the spot (`relayOrigin`), at radius 3.4.
 - **The hunt is drawn, not simulated.** On screen, Kon leaps with the first bite of each attack (her bolt style already draws bites from wherever Kon is drawn, `src/render/attackFx/styles/ruri.js` `origin`). He trots back to his spot when he has not bitten for 0.5 s. His point in the sim never moves, so he can never be stranded on another lane or a closed road.
 - **Moon Pounce** reads her range ("her range + 2", `fromOrigin`), so with Bounding Fox T3 it reaches 5.4 tiles from his spot (4.4 today). It still leaps from his spot.
 
+**The live road.** The road can turn round between waves (Rear Ambush's even waves, the Reverse Route mode, Tryout's Back Gate, Freeplay: `setRouteOrientation`, `src/sim/Sim.js:1701-1714`; `reversePath` mirrors every distance, `d → L − d`, `src/sim/rules.js:56`). Everything below reads the live `sim.pathData`: "ahead" means towards the live exit and "back" or "up the road" towards the live START. Kon's spot is a point, not a distance, so it needs nothing more.
+
 **Lure foxes** (Fox Tricks):
-- **Where:** on the walker's own road, 0.6 tiles ahead of it.
+- **Where:** on the walker's own live road, 0.6 tiles ahead of it.
   - "His reach" is her range around Kon's spot.
   - "Fastest" means current speed, after slows; ties go to the lower uid.
   - If that point is in a tunnel, the fox goes to the first visible point up to 1 tile further ahead. If there is none, or the point is past the road's end, no fox is set this time and the timer stays ready.
-- **What they are:** strip records, `sim.traps` entries with `strip: true` and a `lure` block (`src/sim/strips.js`). A lure fox deals no damage. It Lures each eligible walker that reaches it, once, until its budget (4, then 6 at T5) or its 3 s life runs out.
+- **What they are:** strip records, `sim.traps` entries with `strip: true` and a `lure` block (`src/sim/strips.js`).
+  - A lure fox deals no damage. It Lures each eligible walker that reaches it, once, until its budget (4, then 6 at T5) or its life (3 s; Follow the Fox's 6 s) runs out.
+  - **Its trigger radius is 0.4 tiles** (a strip uses its trap spec's `triggerRadius`, `strips.js:252`; a lure fox carries its own).
+  - **The strip code needs a `lure` branch first.** `addStrip` and `stripStep` read `t.stats.strip`, `t.stats.trap` and `owner.trapSpec` (`strips.js:106-110`, `:235`, `:245`, `:273`), and Ruri has none of them; without the branch an expiring fox would throw on `owner.stats.strip.boom`. The branch reads the fox's own `lure` block instead.
 - **What they inherit from strips:**
-  - **The positional trigger** (`sim.grid.each` around the fox, `strips.js:252`): a walker on any road over that spot is lured, shared stretches included. A walker in a tunnel never is.
-  - **The caps:** her own cap is 2 lure foxes (4 at T5). Follow the Fox's foxes ignore it, by Spike Rain's rule (`strips.js:9-10`). Then `ROAD_OBJECTS_PER_PLAYER` and `ROAD_OBJECTS_PER_SIM` apply, the oldest fox (lowest uid) going first.
-  - **Cleanup:** they end at the wave clear and when she is sold.
+  - **The positional trigger** (`sim.grid.each` around the fox): a walker on any road over that spot is lured, shared stretches included. A walker in a tunnel never is.
+  - **The caps:** her own cap is 2 lure foxes (4 at T5). Follow the Fox's foxes ignore it, by Spike Rain's rule (`strips.js:9-10`). Then `ROAD_OBJECTS_PER_PLAYER` and `ROAD_OBJECTS_PER_SIM` apply through `makeRoom` (`strips.js:78-99`), which evicts that player's oldest strip record, then anyone's. That can be one of Azami's strips, not only a fox.
+  - **Cleanup:** they end at the wave clear (`endStripWave`) and when she is sold (`_removeTower` filters her traps).
+- **Effects on other girls**, all deterministic (no rng is added, and Suzu's existing rng pick sees the same free spots on both clients):
+  - a live fox counts as taken road for Azami's strips (`spotFree`, `strips.js:58-67`) and for Suzu's traps (the 0.45-tile check before her pick, `src/sim/towers.js:1179-1191`);
+  - the shared cap can evict an Azami strip (above).
+
+  A test covers one case of each (§5.5).
 - **Hundred-Fox Trick's pop:** when a fox's life ends or its budget is used up, whichever comes first, it pops for 4× her hit within 1 tile. The pop never crits (no rng draw) and carries no statuses.
 - **The interval timer** (`lureCd`) counts whole steps and resets to its first wait at every wave clear.
 
 **Lured:**
-- **Who:** walkers only. Never flyers or bosses, and never anything in a tunnel. Minibosses are Lured half as long.
-- **How it moves:** a Lured walker trots back toward the road's START, by path distance, at its own current speed (slows apply), and stops at the start. It can still be hit and stunned. Fast walkers go back furthest, so Fox Tricks answers the runners that leak.
+- **Who:** walkers only: never flyers, grounded or not (the lure branch skips every `airborne` enemy, although a grounded flyer passes a ground-only check, `combat.js:27-28`); never bosses; never anything in a tunnel. Minibosses are Lured half as long.
+- **How it moves:** a Lured walker trots back towards the live START, by path distance, at its own current speed (slows apply), and stops at the start. It can still be hit and stunned. Fast walkers go back furthest, so Fox Tricks answers the runners that leak.
 - **How often:**
   - At most **twice a wave** per walker (minibosses once). The count lives on the enemy (`e.lureN`) and goes when it does.
   - At least 8 s between two lures of one walker (minibosses 12 s).
-- **No stacking with pushes:**
-  - A lure holds the walker's push lock (`PUSH_LOCK`, `src/sim/constants.js:237`) for its whole length plus 1.5 s, so neither Fuu's gusts nor an ability's push moves it while it walks back. These are the two pushes the lock covers today (`PUSH_LOCK_KITS`, `movePush`); ordinary knockback from hits still applies, as it does today.
+- **The push lock, until it has made the ground up again:**
+  - When a lure starts, the walker's road distance is kept (`e.lureFrom`). The lure sets the push lock with **`pushLockBy = −1`**, as an ability's push does (`src/sim/abilities.js:1112-1113`). So Fuu's Backdraft Fan, which passes only a lock her own gusts set (`v.pushLockBy !== ownUid`, `:1103`), cannot move it either.
+  - The lock holds until the walker is back at `e.lureFrom`, however long that takes, and then lapses as a normal lock would.
   - A walker that is already push-locked cannot be Lured.
+- **The pushes the lock covers** (all of them today):
+  - Fuu's gusts (`PUSH_LOCK_KITS`, `src/sim/Sim.js:642-653`);
+  - gather (`Sim.js:679`);
+  - hit specs with `pushLock: true`: Marumi's blasts (`towers.js:291`) and Giant Strike (`src/sim/abilities.js:1161`);
+  - ability pushes (`movePush`, `abilities.js:1102-1115`), Backdraft Fan included.
+
+  It does not cover Kogane's plow (`src/sim/runners.js:134-144`) or ordinary knockback from hits (`Sim.js:641-643`), which move a walker as they do today.
 - **Freeplay:** the tiles a lure walks a walker back count against Resolve's knockback budget (`kbLeft`, `src/sim/enemies.js:185-190`), and the lure ends when the budget runs out.
 - **Blinks:** a lure interrupts a blink. `lure` joins `BLINK_INTERRUPTS` (`src/sim/constants.js:40`), so a blinker Lured during its warning does not jump (`enemies.js:300-315`).
-- **What this backs:** Ruri can only add a bounded delay to a walker (at most two lures a wave), and a lure never stacks with Fuu's pushes. A wave that ends without her also ends with her. A wave-length test with Ruri T5 and Fuu T5 checks it (§5.5).
+- **The bound this gives.**
+  - One lure costs a walker its lure time (at most 3 s, 1.5 s for a miniboss) plus the time it takes to walk that ground again. No locked push acts on that ground in between, because the lock holds until it is back.
+  - At most two lures a wave (minibosses one). So Ruri adds at most two lure detours to any walker's trip, and never more pushback from the locked pushes.
+  - She can slow a walker but never hold it. Unlocked knockback (other girls' hits, Kogane's plow) is the same with or without her.
+  - §5.5 tests this on walkers that never die.
 
 **Paw Prints:**
 - The prints are an integer stack on the enemy (a `prints` status with `stacks`). Every Ruri adds to the same stack, and the bolt that fills it gets the credit.
 - Trail's End is one hit through `_hit`, mystic, fired from the on-hit step (`_onHitEffects`, `src/sim/Sim.js:615`). It never crits (no rng draw) and carries no statuses.
+- **No chain.** Silent Stalk's leap leaves its 2 prints capped one short of Trail's End. Only a bolt can fill a stack, so Trail's End never fires again inside the step that fired it.
 - On screen, Kon vanishes from his spot and leaps at the enemy (the existing pounce clip, `pounceStep`), then trots back.
 
 **Timers.**
@@ -251,7 +296,7 @@ So on a flyer stage, a player who owns both gets nothing from Star Falcon that H
 | ⚡ | Kind, scope | Tier 3 | Tier 5 | Auto-cast |
 |---|---|---|---|---|
 | **Moon Pounce** (Bounding Fox; live) | strike, local | Kon leaps at the strongest enemy within her range + 2: 3 bites of 8× her hit, then holds it 1.5 s (never a boss). 30 s. With Bounding Fox T3 her range is 1 tile longer, so it reaches 5.4 tiles from his spot | 5 bites, hold 2 s, 25 s | ≥ 4 enemies, or an elite |
-| **Follow the Fox** (Fox Tricks; new, replaces Star Snatch) | deploy `lure`, local, lasts 6 s | Kon lays 5 lure foxes along her lane, one every tile up the road from his spot. Each Lures up to 4 walkers for 2.5 s, and they ignore her own lure-fox cap. 40 s | 8 lure foxes, lure 3 s, 34 s | ≥ 5 walkers in reach, or a walker past 70% of the road (`orLeak`) |
+| **Follow the Fox** (Fox Tricks; new, replaces Star Snatch) | deploy `lure`, local, lasts 6 s | Kon lays 5 lure foxes along her lane, one every tile from the road point nearest his spot towards the live START. Each Lures up to 4 walkers for 2.5 s, and they ignore her own lure-fox cap. 40 s | 8 lure foxes, lure 3 s, 34 s | ≥ 5 walkers in reach, or a walker past 70% of the road (`orLeak`) |
 | **Spirit Fox** (Paw Prints; new, replaces River Rush) | boost, local, 8 s | Kon grows into a great spirit fox: her bolts ×1.6, each leaves 2 prints, and Trail's End splashes 1 tile (a boost ModSet with `prints` riders). 35 s | ×2, 10 s, 30 s | an elite or a boss in reach |
 
 **Ability coins** (placement plus tiers 1–3): Moon Pounce 1,780 (as today), Follow the Fox 1,790, Spirit Fox 1,860.
@@ -274,12 +319,20 @@ The attack-shapes plan suggested a turning star stream or a circling holo pack f
 
 ### 2.5 Targets (on top of balance round 5)
 
-| Build | Job | Today (light bench / round 5's bench) | Target |
+Every row also keeps the floor from §2.1: at least the round-5 number of the build it replaces, on both rulers.
+
+| Build | Job | Today (light bench / round 5's bench) | Target, beyond that floor |
 |---|---|---|---|
-| Bounding Fox 5-0-2 | crowd | light 0.89 on a crowd; her round-5 crowd of 1.73× belongs to Tide Otter | crowd ≥ Great Otter Spirit's today on both rulers (light ≥ 1.95×, round 5 ≥ 1.73×); boss ≈ 0.46× (round 5) |
-| Fox Tricks 2-5-0 | control | 0.03 / 0.05 | crowd ≥ 1M on round 5's bench, the band floor (≈ 0.55×). In real-coin runs (`tools/capBot.mjs`, 4-5 and 7-5 Hard, the free team plus her, 2 seeds) she keeps at least as many lives as with Bounding Fox |
-| Paw Prints 2-0-5 | boss | light 1.95 on a crowd, 0.02 on a boss | boss 0.86–0.90× Kage on round 5's bench (the single-target band, about 1.9M); crowd ≥ 0.5× |
+| Bounding Fox 5-0-2 | crowd | light 0.89 on a crowd; her round-5 crowd of 1.73× belongs to Tide Otter | crowd ≥ Great Otter Spirit's today on both rulers (light ≥ 1.95×, round 5 ≥ 1.73×). Real-coin runs (below) keep at least as many lives as Moonhound 5-0-2 did, so her extra reach is checked where it counts |
+| Fox Tricks 2-5-0 | control | 0.03 / 0.05 | crowd ≥ 1M on round 5's bench, the band floor (≈ 0.55×); boss ≥ Star Falcon 2-5-0's round-5 boss. Real-coin runs keep at least as many lives as Bounding Fox |
+| Paw Prints 2-0-5 | boss | light 1.95 on a crowd, 0.02 on a boss | boss 0.86–0.90× Kage on round 5's bench (the single-target band, about 1.9M); crowd ≥ Tide Otter 2-0-5's round-5 crowd |
 | every tier 3 | its job | | within ±20% of the SR tier-3 median for its job (light bench) |
+
+**Real-coin runs.**
+- `tools/capBot.mjs` plays fixed builds (A, A2, B and C) in Freeplay, and none of them has Ruri (`tools/capBot.mjs:1-24`).
+- So the rework adds a build "R": build A with Ruri in Aoi's place, run once for each of her main paths (5-0-2, 2-5-0, 2-0-5). Run it before and after the rework, on 4-5 and 7-5 at the blossom tier, seeds 7 and 1. The measure is the wave reached and the lives lost, and "keeps at least as many lives" above means this run.
+- The duo adds a build "D" the same way.
+- The finale bot scores each kit block in `src/sim/headless.js` (`pathScore`, `:156-196`), so it learns to score `lure`, `prints` and `pair`; otherwise it would score them at 0.
 
 **Her round-5 rows are re-fitted with the rework:**
 - **The damage row** (`ruri: { boss: 9 }` in `src/data/balance.js` on `feature/balance-r5`). Her boss damage now comes from Paw Prints, so a ×9 on the whole girl would overshoot that build. The kit sets the builds against each other, and the row sets the level.
@@ -290,13 +343,15 @@ The attack-shapes plan suggested a turning star stream or a circling holo pack f
 | Piece | How | Files |
 |---|---|---|
 | Bounding Fox | a plain `range +1.0` at T3; her firing point stays Kon's lane spot; the pounce and the trot home are drawn | data only (`unitsExpansion.js`) |
-| Lure foxes | strip records with a `lure` block; the interval timer `lureCd` ticked in her kit tick; the placement rule above; Follow the Fox lays its foxes like Spike Rain | `src/sim/strips.js`, `src/sim/towers.js` (kit tick), `src/sim/Sim.js` (`lureCd` reset in `_checkWaveEnd`) |
-| Lured | a `lure` status: the walk back, the per-wave count, the lure gap, the push lock, Resolve and the blink interrupt | `src/sim/status.js`, `src/sim/enemies.js`, `src/sim/constants.js` |
+| Lure foxes | strip records with a `lure` block (a `lure` branch in `addStrip`, `stripStep` and the expiry, with a 0.4-tile trigger); the interval timer `lureCd` ticked in her kit tick; the placement rule above, on the live road; Follow the Fox lays its foxes like Spike Rain | `src/sim/strips.js`, `src/sim/towers.js` (kit tick), `src/sim/Sim.js` (`lureCd` reset in `_checkWaveEnd`) |
+| Lured | a `lure` status: the walk back towards the live START, the per-wave count, the lure gap, `e.lureFrom` and the push lock held until it is reached (`pushLockBy = −1`), Resolve and the blink interrupt | `src/sim/status.js`, `src/sim/enemies.js`, `src/sim/constants.js` |
 | ×1.3 / ×1.5 vs Lured | a per-victim factor (`luredMul`) in `computeHit`, beside `airMul` and soak (`combat.js:78-89`) | `src/sim/combat.js` |
 | Paw Prints | a `prints` status with integer `stacks`; Trail's End in `_onHitEffects` | `src/sim/status.js`, `src/sim/Sim.js` |
 | Tier keys | the `lure` and `prints` blocks: defaults, ModSet merge rules (adds, maxes) and integer rounding, as for the duo block (`mods.js:270-298`, `:643-651`, `:926-934`) | `src/sim/mods.js` |
 | ⚡ | deploy `lure` (Follow the Fox); Spirit Fox is a boost whose ModSet carries `prints` riders | `src/sim/abilities.js`, `src/data/abilities.js` |
 | Builders | `S.lure` in the data kit, and the same in the abilities file's `S` | `src/data/unitKit.js`, `src/data/abilities.js` |
+| Display of the foxes | the strip drawing gets a `lure` branch: today every `strip` record is drawn as Azami's steel bar or her 3D strip prop (`src/render/actors.js:728-736`, `src/render/placedProps.js:510-518`) | `actors.js`, `placedProps.js` |
+| The finale bot | `pathScore` scores `lure` and `prints` | `src/sim/headless.js` |
 | Hash | enemies' positions and HP are already hashed (`simHash.js:46`), so lures show there; `lureCd` is folded only on girls who have it, like Tenka's well timers | `src/online/coop/simHash.js` |
 
 **Determinism:** no rng and no trig, and road movement by path distance. Victims are taken in uid order, or by (distance², uid) when a cap cuts the list.
@@ -350,23 +405,34 @@ The attack-shapes plan suggested a turning star stream or a circling holo pack f
 - **The duo has no `relay`.**
   - In the sim a `relay` moves the firing point of every behaviour, and her ring with it (projectiles, pulses, beams, chains, mortars all read `t.ox` / `t.oy`).
   - So the duo carries none. Kaze's stoops leave the base, and her ring (reach 4.0) is drawn round the base.
-- **Kon's spot** uses the relay rule (`relayOrigin` over `relaySamples`, leash 3.5), but is stored apart, as `t.kon = { x, y, pathIndex, d0 }`:
-  - `(pathIndex, d0)` is the nearest visible road sample to the base. Ties go by path order, then distance (the `relaySamples` order).
+- **Kon's spot** uses the relay rule (`relayOrigin` over `relaySamples`, leash 3.5), but is stored apart, as `t.kon = { x, y, pathIndex, dFwd }`:
+  - `(pathIndex, dFwd)` is the nearest visible road sample to the base, **on the forward path**. `relaySamples` is built from the forward paths (`src/sim/towers.js:1445`). Ties go by path order, then distance (the `relaySamples` order).
   - `x, y` is the point 0.7 tiles short of that sample.
   - It is recomputed on placement and on any upgrade that changes the leash, and it is never a firing point.
+  - **No road in reach, no stretch.** If that sample is more than the leash plus the standoff (4.2 tiles) from the base, she has no stretch: Kon sits by her, never runs, and Wind Chase is refused. The placement ghost says so.
+- **The live road.** The road can turn round between waves: Rear Ambush's even waves, the Reverse Route mode, Tryout's Back Gate and Freeplay (`setRouteOrientation`, `src/sim/Sim.js:1701-1714`). `reversePath` mirrors every distance, `d → L − d` (`src/sim/rules.js:56`).
+  - So every run reads **`d0 = sim.routeReversed ? L − dFwd : dFwd`** on the live `sim.pathData`, and "towards START" means the live START.
+  - Marumi's lanes do the same by caching on the `sim.pathData` object (`lanesOf`, `src/sim/balls.js:79-85`). Either way, a turned wave runs Kon up his own stretch, never its mirror.
 - **His stretch:**
-  - It lies on path `pathIndex`, from `d0 − runLen` (towards START) to `d0 + 0.5`, clipped to the visible road: a run stops at a tunnel's mouth.
+  - It lies on path `pathIndex`, from `d0 − runLen` (towards the live START) to `d0 + 0.5`, clipped to the visible road: a run stops at a tunnel's mouth.
   - "A walker on his stretch" means an eligible ground enemy, or a grounded flyer, inside that span. It also counts one on another road through the same stretch, by the shared rule below.
-- **When he runs:** when his partner timer is ready (whole steps, `1 / runRate` s) and at least one walker is on his stretch. Otherwise the timer waits at ready.
+  - **A closed lane.** While a lane schedule closes his lane, no walker can be on his stretch, so Kon idles for that wave. Her tier text says so.
+- **When he runs.**
+  - He runs when his partner timer is ready (whole steps, `1 / runRate` s) and at least one walker is on his stretch. Otherwise the timer waits at ready.
+  - **One run in flight at a time.** The timer starts counting only when Kon is home, after the cycle's last run. Long cycles (Silver Trail's two 6-tile runs, the LR form's 50% and P3's half tile, about 2.8 s of running) simply make the cycle longer; speed factors shorten only the wait.
 - **The run:**
-  - It is a runner record from `d0` towards START at 8 tiles a second (2 tiles take 15 steps).
+  - It is a runner record from `d0` towards the live START at 8 tiles a second (2 tiles take 15 steps).
   - It bites every eligible enemy within `RUNNER_HIT_RADIUS` (0.6, `src/sim/constants.js:261`) of his point, once per run, in uid order within a step.
   - At its end he is back on his spot in the sim at once. The display trots him back along the road in 0.4 s, and nothing is hit on the way back. The next run starts again from `d0`.
+- **Bosses are bitten but never Startled.**
+  - Runners drop statuses on bosses (`src/sim/runners.js:115`, `:172`). That is intended: the prey bonus never reaches a boss through Kon.
+  - The duo's boss floors (§3.6) come from Kaze's stoops, his chains off Startled escorts, and High Stoop's own factors.
 - **Shared roads.**
   - Runners hit only their own path today (`src/sim/runners.js:5-6`, `:168`).
-  - Kon's run adds a `shared` option to the runner record: Marumi's rule (`src/sim/balls.js:29`, `sameSpot` `:87-90`). An enemy on another road counts when its road point is within 0.3 tiles of the run's point and the two roads run the same way there (unit direction dot > 0.95).
+  - Kon's run adds a `shared` option to the runner record that uses Marumi's walker test, **`sameRoad`** (`src/sim/balls.js:50-57`). An enemy counts when it is on his road, or when its road runs the same way at that point (the precomputed `path.dirs`, dot > 0.95).
+  - The same `RUNNER_HIT_RADIUS` applies to every road.
   - A crossing road or an overpass never counts. Future runners can take the same option, which gives them UNIT_GAPS rule P-17.
-- **A run in flight ends** at the wave clear or when the duo is sold. The timer is the partner timer `duoCd`, which the battle save already stores in `du` (§5.4).
+- **A run in flight ends** at the wave clear or when the duo is sold. The timer is the partner timer `duoCd`; the battle save writes it in `du` today, and D1 adds the read for her (§5.4).
 
 Two damage types, pierce and mystic, suit the Eclipse Wyrm: it is weak to both (×1.5 and ×1.25) and drops feather. Kon's mystic bites also reach phasing ghosts.
 
@@ -389,7 +455,7 @@ Prices sit inside today's windows (T2 ≤ 450, T3 ≤ 1,400, T4 ≤ 4,500, T5 12
 |---|---|
 | Unlock and upgrade | Flush and Stoop tier 3 unlocks it and tier 5 upgrades it. Ability coins: 850 + 160 + 400 + 1,350 = **2,760** |
 | Kind and scope | A runner (a new type, `chase`) with a stoop queue on `sim._abilQueue`. **Map** scope: one cooldown per player, like Prismfall, because the LR finale reaches the whole map. No aim |
-| Its lane | Kon's stretch rule (§3.2) with the run's length. If Kon's road point sits on a stretch several roads share, it takes the road with the most living, visible enemies between `d0` and START (`runnerEntry`'s shared-point rule, `src/sim/runners.js:20-66`). Ties go to the lower path index. It bites enemies on the other roads of that shared stretch by the `shared` rule |
+| Its lane | Kon's stretch rule (§3.2) with the run's length, on the live road (`d0` from `dFwd`, towards the live START). If Kon's road point sits on a stretch several roads share, it takes the road with the most living, visible enemies between `d0` and the live START (`runnerEntry`'s shared-point rule, `src/sim/runners.js:20-66`). Ties go to the lower path index. It bites enemies on the other roads of that shared stretch by the `shared` rule |
 | Tier 3 | Kon sprints 6 tiles up his lane from his spot. He bites every walker once (2× a bite) and Startles it for 5 s, and flyers within 0.6 tiles of his point are knocked down for 3 s. Kaze follows and stoops on each enemy Kon reached, in the order Kon reached them, one every 0.1 s (up to 10). Each stoop is 3× his stoop, with the prey bonus. Cooldown **40 s**; it starts ⅓ charged |
 | Tier 5 (Shared Instinct) | 10 tiles, up to 16 stoops at 4× each. Cooldown **34 s** |
 | LR form (§3.5) | After the last stoop, Kaze climbs out of sight and makes one **Great Stoop** on the strongest enemy on the map: 10× his stoop, splash 1.2, white-gold |
@@ -413,7 +479,7 @@ Like every ability, its hits never crit and scale with the duo's current hit, so
 
 **The LR form, "Wind Chase · Paw and Feather".** A real kit change, because the owner wants LR "much more powerful":
 - **Every build:** Kaze's stoops chain once more on Startled prey, and Kon's runs are 50% longer.
-- **Every build:** the duo's damage × `RH_LR_MUL`, a knob fitted last (first guess 1.3), read from `unitStats.lr` like the first duo's `DUO_LR_MUL`.
+- **Every build:** a `ruri_hana` row in round 5's `LR_POWER` (`src/data/balance.js`; first guess `{ dmg: 1.3 }`, plus a `boss` factor if the boss floor needs it), fitted last. Like the other LR rows it applies only while her battle stats carry `lr: true` and never in a titan battle (`powerFor(…, { lr })`), so every LR knob stays in one table.
 - **Wind Chase** ends with the Great Stoop (§3.4).
 - **On top,** like every LR unit: LR_BOOST (×1.15 damage, ×1.05 speed; `src/systems/limitBreak.js:127`) and UR Resonance from ★5.
 
@@ -430,7 +496,7 @@ Each number is the duo's DPS ÷ the best Kage tier 5 on the same bench, on whate
 | Build (tier-2 crosspath) | Job | Light bench, crowd / boss | Round 5's bench, UR form, crowd / boss | Round 5's bench, **LR form**, crowd / boss |
 |---|---|---|---|---|
 | High Stoop 5 | bosses, flyers | ≥ 1.0 / ≥ 1.25 | ≥ 1.0 / ≥ 1.5 | ≥ 2.5 / **≥ 3.0** |
-| Fox Run 5 | crowds | ≥ 1.25 / ≥ 1.0 | ≥ 1.5 / ≥ 1.0 | **≥ 3.0, and at least the weakest other LR unit's best crowd** / ≥ 2.5 |
+| Fox Run 5 | crowds | ≥ 1.25 / ≥ 1.0 | ≥ 1.5 / ≥ 1.0 | **≥ max(3.0, the weakest other LR unit's best crowd): 3.58 today** / ≥ 2.5 |
 | Flush and Stoop 5 | both | ≥ 1.0 / ≥ 1.0 | ≥ 1.3 / ≥ 1.3 | ≥ 2.5 / ≥ 2.5 |
 | every tier 3 | | within ±20% of the SSR tier-3 median | | |
 
@@ -439,20 +505,24 @@ Each number is the duo's DPS ÷ the best Kage tier 5 on the same bench, on whate
 - **In LR form:**
   - every tier-5 build is at least 2.5× on both rulers;
   - her best boss build is at least 3.0×;
-  - her best crowd build is at least 3.0× and at least the weakest other LR unit's best crowd, so she is never the weakest LR unit on crowds.
-- **In raw numbers:** Kage's best tier 5 on round 5's bench reads about 2.2M on a boss and 1.8M on a crowd. So her LR floors are about 5.5M on a boss (6.7M for her best boss build) and 4.6M on a crowd.
-- **She is not the weakest LR unit on crowds.** The other two LR units already read more than 3× on crowds (below). Fox Run's crowd floor is set from them when she is built: today about 4.3× (Tenka with her LR boost, an estimate), about 7.9M.
+  - her best crowd build is at least **max(3.0×, the weakest other LR unit's best crowd)**, so she is never the weakest LR unit on crowds. Today that is 3.58× (Tenka's Rail Arms), about 6.55M.
+- **In raw numbers:** Kage's best tier 5 on round 5's bench reads about 2.2M on a boss and 1.8M on a crowd. So her LR floors are about 5.5M on a boss (6.7M for her best boss build) and 4.6M on a crowd (6.55M for her best crowd build).
+- These floors are measured again on round 5's tip, or whatever is live, when she is built.
 
-**The other LR units (round 5's bench, ÷ the best Kage tier 5):**
+**The other LR units in LR form** (round 5's tip, `feature/balance-r5` `d6f092b7`, with `LR_POWER`; its `docs/specs/DUO_LR.md` LR table; ÷ the best Kage tier 5):
 
-| LR unit | Crowd | Boss |
+| LR unit, build | Crowd | Boss |
 |---|---|---|
-| Kohaku & Tsubaki, in LR form | 8.71M, **4.76×** | 3.94M, **1.77×** |
-| Tenka, without LR (the bench does not make her LR) | 6.55M, **3.58×** | 1.80M, **0.81×** |
-| Tenka with her LR boost (an estimate: ×1.21 from LR_BOOST; her LR form changes only her ⚡) | about 4.3× | about 1.0× |
+| Kohaku & Tsubaki, Starfall T5 | 2.58× | 3.01× |
+| Kohaku & Tsubaki, Grand Spectrum T5 | 3.38× | 2.79× |
+| Kohaku & Tsubaki, Constellation T5 | 5.63× | 2.85× |
+| Tenka, Rail Arms T5 | 3.58× | 2.75× |
+| Tenka, Joint Research T5 | 0.52× | 0.48× |
+| Tenka, Singularity T5 | 0.27× | 0.05× |
 
-- **The band is a floor for them too.** Their crowd numbers stay where they are: round 5 keeps the first duo out of the band and never tunes her down, and no unit is nerfed.
-- The balance work lifts their boss numbers to at least 2.5× (board Q8) before the fox-and-falcon duo ships. So no LR unit is left below the floor, and none is cut.
+- **Round 5 has already lifted both LR units.** Its `LR_POWER` rows are the first duo ×1.05 damage and ×1.6 on bosses, and Tenka ×3.4 on bosses. They apply in the LR form only and never in titan battles, and no axis of any build fell. Round 5 records the band as a floor, too.
+- **Tenka's 3.58× / 0.81× in §1.3 was already her LR form:** the round-5 bench gives every girl her Limit Break counter. r1's "×1.21 on top" counted LR_BOOST twice and is gone.
+- **Two of Tenka's builds stay below the floor.** Joint Research is an economy and lab build, and Singularity a control build; round 5 gives them its LR row only and leaves them as "a question for the owner" (`d6f092b7:docs/specs/DUO_LR.md`). That question belongs to the balance session; this spec does not answer it. So the floor holds for every build of the new duo, and for the two existing LR units only on the builds round 5 lifted.
 
 **Knobs, in the order to turn them:**
 1. Each tier 5's own factors, with these first guesses:
@@ -462,7 +532,7 @@ Each number is the duo's DPS ÷ the best Kage tier 5 on the same bench, on whate
 
    The first duo needed ×6.4–×36.8 on damage and ×11.7–×150 on its partner weapon at tier 5 to clear Kage on these rulers (DUO_LR §6), so the factors look large by design. Fox Run's crowd floor may need more than its first guess.
 2. The prey bonus.
-3. `RH_LR_MUL`, last, so that only the LR form moves.
+3. Her `LR_POWER` row, last, so that only the LR form moves.
 
 ### 3.7 How it differs from Kohaku & Tsubaki
 
@@ -474,8 +544,8 @@ Each number is the duo's DPS ÷ the best Kage tier 5 on the same bench, on whate
 | Aim | an aim point for shells and Prismfall | none: Kon and Kaze pick their own prey |
 | Movement | both stand on the base | Kon runs the road, Kaze flies |
 | ⚡ | Prismfall: a barrage of split shells on one spot | Wind Chase: a run up her lane and a chain of stoops on everything Kon startled |
-| LR form | Twin Star finale, beams to the map edge, ×1.1 | Great Stoop finale, one more chain, 50% longer runs, `RH_LR_MUL` |
-| Best at | crowds anywhere (4.76× in LR form) | bosses and flyers with Kaze, and her own lane's crowd with Kon (in LR form at least 2.5× on both) |
+| LR form | Twin Star finale, beams to the map edge, ×1.1, and her `LR_POWER` row (×1.05 damage, ×1.6 on bosses) | Great Stoop finale, one more chain, 50% longer runs, and her own `LR_POWER` row |
+| Best at | crowds anywhere (2.58–5.63× in LR form on round 5's tip) | bosses and flyers with Kaze, and her own lane's crowd with Kon (in LR form at least 2.5× on both) |
 | Solo versions | none | Ruri and Hana stay as their own units |
 | Damage types | blast + mystic (the Foundry Titan's weak spots) | pierce + mystic (the Eclipse Wyrm's) |
 | Family, trial | ember, Starfall Trial | feather, The Field Survey |
@@ -499,7 +569,7 @@ Each number is the duo's DPS ÷ the best Kage tier 5 on the same bench, on whate
 ### 3.9 Rarity, banner, price, family, Potential
 
 - **Rarity and class:** SSR form in data, gacha class `legend` (`UNIT_CLASS` in `src/data/banners.js`). ★5 shows her as UR, and Limit Break makes her LR.
-- **Getting her:** only on her own LR Banner, **"Ruri & Hana · Fox and Falcon Premiere"**. "Field Trip" was the first idea, but it is kept for a future mode (`docs/specs/TRYOUT_DAY.md:1451`, `:1498`).
+- **Getting her:** only on her own LR Banner, **"Fox and Falcon Premiere"** (the house pattern of the pins: "Starfall Premiere", "Physics Club Premiere"). "Field Trip" was the first idea, but it is kept for a future mode (`docs/specs/TRYOUT_DAY.md:1451`, `:1498`).
   - 0.7% in her debut week (7 game days, carved out of the 1.5% SSR rate), then 0.5% in the daily LR tab.
   - Legend Promise at 300 pulls (`gl:ruri_hana`).
   - Never sparked, never a Select Ticket or Chosen Essence. Kindred SSR Essence works once she is owned.
@@ -537,7 +607,7 @@ Each number is the duo's DPS ÷ the best Kage tier 5 on the same bench, on whate
 
 **Fairness for players who own Ruri and Hana:**
 - **Nobody loses a girl.** Solo Ruri and Hana stay, with level, gates, stars, Potential, gear and bond. Nothing is merged, retired or consumed, and no duplicate is needed for anything.
-- **Ruri gets better first, for free.** No job falls: her best crowd build and her best boss build both land at or above today. A battle saved with her on a retired path refunds her in full (§5.4).
+- **Ruri gets better first, for free.** No build falls against round 5: each new build is at least the round-5 number of the build it replaces, on both rulers. A battle saved with her on a retired path *above tier 2* refunds her in full; at tiers 1–2 she comes back on the new tiers (§5.4).
 - **The duo is not a strict upgrade of either girl:**
   - solo Ruri keeps her lures and paw prints;
   - solo Hana keeps her team mark (Hunter's Mark), her volleys and her map-wide Swoop;
@@ -575,11 +645,12 @@ Hashed means the file is in the co-op graph (`tools/simId.mjs`), which hashes 81
 | | `src/sim/combat.js` | `luredMul` in `computeHit` |
 | | `src/sim/constants.js` | `BLINK_INTERRUPTS` gains `lure`; `LURE_*` and `PRINT_*` |
 | | `src/sim/abilities.js` | deploy `lure` |
+| | `src/sim/headless.js` | the finale bot's `pathScore` scores `lure` and `prints` |
 | | `src/online/coop/simHash.js` | `lureCd` |
 | Not hashed | `CONTRACTS.md` | the StatusSpec union (`:168-174`), the ability vocabulary (`:187-212`), the ModSet table (`:221-240`) |
 | | `src/ui/battle/snapshot.js` | the kit mark and drop rule, `lureCd` classified (§5.4) |
 | | text and rows | `src/data/abilityText.js`, `src/data/unitTips.js`, `src/data/wiki.js` |
-| | rendering | `src/render/attackFx/styles/ruri.js`, `src/render/companionLogic.js`, `src/models/companions.js` |
+| | rendering | `src/render/attackFx/styles/ruri.js`, `src/render/companionLogic.js`, `src/models/companions.js`; `src/render/actors.js` (`:728-736`) and `src/render/placedProps.js` (`:510-518`), which draw every strip record as Azami's bar or prop, need a `lure` branch that draws a lure fox |
 | | Power | `src/data/powerKit.js` (her round-5 Power factor) |
 | | patch note | `src/data/patchNotes.js` |
 
@@ -594,17 +665,18 @@ Hashed means the file is in the co-op graph (`tools/simId.mjs`), which hashes 81
 | Hashed: sim | `src/sim/mods.js` | a **`pair` block**, so Kon's bites grow with level, gear and Potential as Kohaku's beam does: `normPair`, the `pair` ModSet keys, the scaling beside `:814` (run damage × her damage factor, run rate × her rate factor), and the rounding beside `:926-934` |
 | | `src/sim/duo.js` | the partner dispatch: `beam` for the first duo, `run` for this one; `buildPartnerSpec` builds the run spec from `stats.pair`; `t.kon` |
 | | `src/sim/runners.js` | Kon's run, the `shared` option, the `chase` type |
-| | `src/sim/towers.js` | Kaze's prey order on the guided shot, chains, the `noTarget` check for Kon's stretch |
+| | `src/sim/towers.js` | Kaze's prey order on the guided shot, chains, the `noTarget` check for Kon's stretch; a `pair` branch beside each `if (s.duo)` gate (`:332` the partner spec, `:1958`, `:1993` the partner tick) |
 | | `src/sim/combat.js` | the prey bonus against Startled enemies and against grounded flyers |
 | | `src/sim/status.js` | `startled` |
-| | `src/sim/constants.js` | `RH_LR_MUL`, `KAZE_STOOP_SPEED`, `KON_RUN_SPEED`, `STARTLE_*`, chain caps |
+| | `src/sim/constants.js` | `KAZE_STOOP_SPEED`, `KON_RUN_SPEED`, `STARTLE_*`, chain caps |
 | | `src/sim/abilities.js` | the `chase` runner, its stoop queue and the Great Stoop |
 | | `src/sim/Sim.js` | a run ends when the duo is sold (`_removeTower`); runners already end at the wave clear |
+| | `src/sim/headless.js` | `pathScore` scores `pair` |
 | | `src/online/coop/simHash.js` | the run timer, only on a girl who has it |
 | Not hashed | `CONTRACTS.md` | `startled`, the `pair` block, runner `chase`, and `cluster` (missing there today) |
-| | `src/ui/battle/snapshot.js` | `t.kon` and run state classified (§5.4) |
+| | `src/ui/battle/snapshot.js` | `t.kon` and run state classified; a `pair` branch in the `du` restore with its own clamp (§5.4) |
 | | text and rows | `src/data/abilityText.js`, `potentialText.js`, `potentialBoards.js`, `src/data/gearStats.js` (`GEAR_FIT`), `unitTips.js`, `wiki.js` (role `rangers`) |
-| | rendering | `src/models/duo.js`, `src/render/attackFx/styles/ruri_hana.js`, `public/models/companions/manifest.json` |
+| | rendering | `src/models/duo.js`, `src/render/attackFx/styles/ruri_hana.js`, `public/models/companions/manifest.json`; `src/render/companionLogic.js` (`:86-93` places Kon from `t.origin`, which the duo does not have: it reads `t.kon`, with the live `d0` for his runs) |
 | | Power | `src/data/powerKit.js` (a factor for her, or none) |
 | | held | `src/data/banners.js`: `HELD` |
 | | patch note | one that does not name her |
@@ -664,7 +736,7 @@ Hashed means the file is in the co-op graph (`tools/simId.mjs`), which hashes 81
     - Endless runs and the Colosseum are saved too (`isSavableRun`, `src/systems/battleSave.js:71`), so this matters for long runs.
   - **New timers:**
     - Ruri's `lureCd` resets at every wave clear (classed `calm`).
-    - The duo's run timer is the partner timer `duoCd`, already saved in `du` (`:48-49`, `:375`).
+    - The duo's run timer is the partner timer `duoCd`. The `du` row writes it today (`:375`), but the restore reads `du` only on a girl whose stats carry `duo`, and it clamps the timer to `PRISM_BEAM_TICK`, 6 steps (`:585-591`). Her run timer is about 150 steps. So D1 adds a `pair` branch to the restore with its own clamp (her full wait in steps).
     - Kon's spot `t.kon` is `derived` (rebuilt from her spot).
     - Runs and lure foxes end at the wave clear, so a calm point holds none (`runners` is already `calm`; lure foxes are traps that end at the wave clear).
     - Lured, Startled and prints are statuses on enemies, and a calm point has no enemies.
@@ -677,15 +749,15 @@ Hashed means the file is in the co-op graph (`tools/simId.mjs`), which hashes 81
 | Data | `tests/data/units.test.js`: the roster count +1; rarity totals; the look guard on the duo; footprint 0.5; the price band; transformations only at tiers 4–5 and "every tier 3+ changes behaviour"; path and tier names unique across girls, with the renames. A new "Ruri is not Hana" check: no `airMul`, `ground` status or `detection` anywhere in Ruri's paths |
 | Data | `tests/data/abilities.test.js`:<br>• `RURI_PATHS` becomes Moon Pounce 1,780, Follow the Fox 1,790 and Spirit Fox 1,860, and all three run;<br>• the duo has exactly one ⚡ path;<br>• `carry` and `river` leave the vocabulary, and `lure` and `chase` join it;<br>• ability names are unique and absent from every path, tier, title and enemy name |
 | Data | `tests/data/potential.test.js` (the duo's row); `tests/systems/banners.test.js` (class, no spark, pin, the `since` rule, `hold`); `tests/systems/limitBreak.test.js` (her trial row, a feather fee); `tests/systems/powerKit.test.js` (Ruri's refit, the duo's factor or none: Power never drops) |
-| Sim | **New `tests/sim/ruriFox.test.js`:**<br>• Bounding Fox: her targets within 3.4 of Kon's spot, her firing point never moves;<br>• lure foxes: placement (tunnel, road's end, ties), budget, her cap, Follow the Fox ignoring it, the oldest going first at the player and sim caps, a walker on a shared stretch lured, wave clear, removal on sale;<br>• the lure: backwards by path distance, clamped at START, bosses and flyers never, minibosses half, twice a wave (minibosses once), the 8 s gap, the push lock held through the lure, a push-locked walker refused, Freeplay Resolve, a blink interrupted;<br>• paw prints: stacks, expiry, Trail's End, two Ruris;<br>• Follow the Fox and Spirit Fox |
-| Sim | **Wave length:** on 4-5 and 7-5 Hard, with Ruri at Fox Tricks T5 and Fuu at Returning Gale T5, every wave ends, and no wave lasts more than 10 s longer than with Fuu alone |
-| Sim | **New `tests/sim/foxFalcon.test.js`:**<br>• the duo has no relay, and Kaze fires from the base;<br>• Kaze's prey order, the guided stoop hitting only its target, his fixed speed, grounding;<br>• Kon's spot and stretch: nearest sample, ties, clipping at a tunnel;<br>• the run: integer tick timer, one bite per enemy per run, waiting with no walker, the `shared` rule (an enemy on a shared stretch is bitten, one on a crossing road is not);<br>• Startled, and the prey bonus both ways;<br>• chains (order and caps) and Startle Bark;<br>• Wind Chase: its lane on a shared stretch, the stoop queue, the map-scope cooldown, `noTarget` keeping the charge;<br>• the `pair` block growing with level, gear and Potential;<br>• the LR form from `lr: true` |
+| Sim | **New `tests/sim/ruriFox.test.js`:**<br>• Bounding Fox: her targets within 3.4 of Kon's spot, her firing point never moves;<br>• lure foxes: placement (tunnel, road's end, ties), the 0.4-tile trigger, budget, her cap, Follow the Fox ignoring it, `makeRoom` evicting the oldest strip record (one case where it is an Azami strip), a walker on a shared stretch lured, wave clear, removal on sale, an expiring fox through the `lure` branch;<br>• side effects: a live fox makes Azami's next strip and Suzu's next trap pick another spot, the same on both clients;<br>• the lure: backwards by path distance, clamped at the live START, bosses and flyers (grounded too) never, minibosses half, twice a wave (minibosses once), the 8 s gap, the lock (`pushLockBy = −1`) held until the walker is back at `e.lureFrom`, Backdraft Fan and gather refused on a Lured walker, a push-locked walker refused, Freeplay Resolve, a blink interrupted;<br>• paw prints: stacks, expiry, Trail's End, two Ruris, Silent Stalk's leap prints stopping one short (no second Trail's End in the step);<br>• Follow the Fox and Spirit Fox;<br>• **a turned road:** on a Rear Ambush even wave, lure foxes are set ahead on the live road and Follow the Fox lays towards the live START |
+| Sim | **The lure bound, on walkers that never die** (in `tests/sim/ruriFox.test.js`, the bench harness of `tools/bench.mjs`: walkers healed every step):<br>• Stage 4-5, path 0 only. A stream of Goblin Runners (1.7 tiles a second) every 0.5 s, so Fuu cannot hold them: the test first checks that with Fuu alone every runner leaks (a baseline that does not stall).<br>• Team A: Fuu at Returning Gale 5-2-0 with round 5's row, STRONG preset, on the bench's best spot. Team B: the same plus Ruri at Fox Tricks 2-5-0 T5, Follow the Fox on Auto, beside her.<br>• For every runner the test records each lure and its leak time. It asserts: every runner leaks; no runner is lured more than twice; a locked push never moves a runner between its lure and its return to `e.lureFrom`; and each runner's leak time in B minus A is at most the sum of its own lure detours (each lure's time plus the time to walk that ground again at its recorded speed), plus one step |
+| Sim | **New `tests/sim/foxFalcon.test.js`:**<br>• the duo has no relay, and Kaze fires from the base;<br>• Kaze's prey order, the guided stoop hitting only its target, his fixed speed, grounding;<br>• Kon's spot and stretch: nearest sample on the forward path, ties, clipping at a tunnel, no stretch when the nearest road is beyond 4.2 tiles, an idle Kon while his lane is closed;<br>• **a turned road:** on a Rear Ambush even wave Kon runs his own stretch (live `d0 = L − dFwd`) towards the live START, and Wind Chase takes the same lane;<br>• the run: integer tick timer counted from his return (one run in flight), one bite per enemy per run, a boss bitten but not Startled, waiting with no walker, the `shared` rule through `sameRoad` (an enemy on a shared stretch is bitten, one on a crossing road is not);<br>• Startled, and the prey bonus both ways;<br>• chains (order and caps) and Startle Bark;<br>• Wind Chase: its lane on a shared stretch, the stoop queue, the map-scope cooldown, `noTarget` keeping the charge;<br>• the `pair` block growing with level, gear and Potential;<br>• the LR form from `lr: true` |
 | Sim | • **Mid-wave co-op checkpoint:** `tests/sim/snapshot.test.js` gains a checkpoint taken mid-wave with lure foxes on the road, Lured walkers, prints, a run in flight, Startled enemies and a chain, rebuilt and stepped to the same hash.<br>• Determinism: the same battle plain and inside `withDetMath`, `hashSim` equal every 60 ticks.<br>• Goldens re-pinned with no win becoming a loss: `abilitiesGolden`, `campaignGolden`, `modesGolden` and `tests/sim/tryoutGolden.test.js` (Ruri and Hana are Tryout Day students).<br>• `tests/sim/perf.test.js`: 6 copies of each new build at tier 5 with 200 enemies, under 2 ms a step.<br>• `tests/art/itemArtRuntime.test.js`: `PENDING_BUMP`, then `KNOWN[n]` |
-| Battle save | `tests/battle-ui/snapshot.test.js`:<br>• every new field classified;<br>• a pre-rework Ruri on a retired path is dropped and refunded, and one on Moonhound comes back on Bounding Fox;<br>• the duo's `du` row restores her run timer;<br>• Save & quit in the middle of a wave, with lure foxes out, Lured walkers and a run in flight, restores at that wave's start with none of them and fresh lure timers |
+| Battle save | `tests/battle-ui/snapshot.test.js`:<br>• every new field classified;<br>• a pre-rework Ruri on a retired path is dropped and refunded, and one on Moonhound comes back on Bounding Fox;<br>• the duo's `du` row restores her run timer through the new `pair` branch (not clamped to 6 steps);<br>• Save & quit in the middle of a wave, with lure foxes out, Lured walkers and a run in flight, restores at that wave's start with none of them and fresh lure timers |
 | Co-op | `tests/online/engines.test.js` and `e2e/engines.mjs`: the two scenarios, with `--require-all` before ship |
 | Render and UI | `tests/render/companions*.test.js`: Kon's looks, lure foxes, his leap and trot home, Kaze circling and stooping for the duo, Reduce motion. `tests/models/duo.test.js`: the layout rows and model ids. The girl page: the duo, her LR chip and Ruri's Tree tab stickers |
 | e2e | `e2e/abilities.mjs`: Ruri's three casts and Wind Chase. A new `e2e/fox-falcon.mjs`: the duo on 1-1 with a run, a stoop chain, Wind Chase and LR. `e2e/recruit-banners.mjs` and the smoke run |
-| Balance | • The light bench (mean of four configurations) and round 5's bench (3 seeds): Ruri's "no job falls" and the duo's floors in §3.6.<br>• Finales: no win becomes a loss.<br>• Titans: `r5Titans` with the duo, so UR_LATE never beats the Eclipse Wyrm.<br>• **The Tryout ceiling gate** (`tools/bench.mjs --hit --ceiling`, `tests/tools/tryoutCeiling.test.js`), run with `T_ruri` on each of her new builds |
+| Balance | • The light bench (mean of four configurations) and round 5's bench (3 seeds): Ruri's "no build falls against round 5" and her new jobs (§2.1, §2.5), and the duo's floors in §3.6.<br>• Finales: no win becomes a loss.<br>• Titans: `r5Titans` with the duo, so UR_LATE never beats the Eclipse Wyrm.<br>• **The Tryout ceiling gate** (`tools/bench.mjs --hit --ceiling`, `tests/tools/tryoutCeiling.test.js`), run with `T_ruri` on each of her new builds |
 
 ### 5.6 Milestones (each ships on its own)
 
@@ -694,24 +766,24 @@ Every push to `main` carries a patch note at the top of `src/data/patchNotes.js`
 | # | What | Ships as | Gate | Patch note |
 |---|---|---|---|---|
 | **M0** | This note and the owner board | — | the owner's answers ("default all" works, except for spending) | — |
-| **R1** | Ruri's rework: her kit, the renames, three ⚡, the new statuses and objects, her round-5 rows re-fitted, plain looks (Kon's tints, lure foxes as copies of Kon, print sprites) | a co-op update after round 5 | independent review OK; both benches; "no job falls"; the wave-length test; engines; perf; go/no-go; live check | "Ruri's fox Kon learns three new tricks…" (her new paths, the two new ⚡, where her old paths went, saved battles refunding her, the co-op line) |
+| **R1** | Ruri's rework: her kit, the renames, three ⚡, the new statuses and objects, her round-5 rows re-fitted, plain looks (Kon's tints, lure foxes as copies of Kon, print sprites) | a co-op update after round 5 | independent review OK; both benches; "no build falls against round 5"; the lure-bound test; the capBot R build; engines; perf; go/no-go; live check | "Ruri's fox Kon learns three new tricks…" (her new paths, the two new ⚡, where her old paths went, saved battles refunding her, the co-op line) |
 | R1a / R1b | Only if time runs short:<br>• **R1a:** Fox Tricks and Follow the Fox replace Star Falcon; Tide Otter stays.<br>• **R1b:** Paw Prints and Spirit Fox replace Tide Otter, together with Bounding Fox's crowd fit, so her crowd job never falls in between | two co-op updates | the same | one each |
 | **R2** | Ruri's look: polished effects, her Tree tab stickers, a new Kon figure if one is ready | display only, **full gate** (new effects and a figure are not a small tweak) | two independent reviewers (look and logic), go/no-go, live check | "Kon's new look" |
 | **D1** | The duo's sim and data, held: the unit, partner dispatch, Startled, stoops, runs, chains, Wind Chase, the LR form, her Potential row, text, and plain looks (today's GLBs on one base) | a co-op update (it can share R1's) | the full gate; the duo's floors measured | the co-op line only ("co-op partners need this update too"); she is not named |
 | **D2 + D3** | Her art and her premiere, shipped together: the pair picture and crops, the four figures (for the solo girls too), the duo's effects, her LR crest; then un-hold, the pin, rate-ups, `LR_TRIALS` (The Field Survey, with the 8-5 Nightmare stand-in), "Kon Meets Kaze" and "Fast Friends" | no sim change | an owner board with screenshots; visual review; go/no-go; live check | announces her, her banner, her Limit Break and the gift |
 | D4 | Later: The Field Survey's own map | a co-op update | the full gate | "The Field Survey has its own stage" |
 
-D2 can ship before D3 only with a patch note that does not name her ("Behind-the-scenes stability fixes."). The default is that D2 rides D3.
+D2 can ship before D3, but its patch note must still tell players what they see: the solo girls' new figures (for example "Ruri, Hana, Kon and Kaze have new 3D figures in battle."), without naming the duo. "Behind-the-scenes stability fixes." is only for deploys with internal changes (`src/data/patchNotes.js:12-13`). The default is that D2 rides D3.
 
 ### 5.7 Risks
 
-- **Lures and pushes.** Each walker is lured at most twice a wave, a lure holds the push lock, and a push-locked walker cannot be lured. Freeplay counts lure tiles against Resolve. The wave-length test runs Ruri and Fuu together.
+- **Lures and pushes.** Each walker is lured at most twice a wave. A lure holds the push lock (`pushLockBy = −1`) until the walker has walked back to where it was lured, and a push-locked walker cannot be lured. So a lure costs at most its own detour, and Freeplay counts lure tiles against Resolve. The lure-bound test checks this on healed walkers, with a baseline that leaks.
 - **Bounding Fox's longer reach.** Her ring grows from 2.4 to 3.4 around Kon's spot; the tier text says so, and the bench fits her crowd factor with it.
-- **Power creep and nerfs among LR units.** The band is a floor for every LR unit: no crowd number is cut, and the boss numbers are lifted. The new duo is never the weakest LR unit on crowds.
+- **Power creep and nerfs among LR units.** The band is a floor: no number is cut. Round 5's `LR_POWER` has already lifted the other two units' main builds; Tenka's Joint Research and Singularity builds stay below it as round 5's open owner question. The new duo is never the weakest LR unit on crowds.
 - **The Eclipse Wyrm is weak to both of the duo's damage types.** Titan battles read no round-5 row (`TITAN_POWER` false), and the gear rule "UR_LATE never beats the Eclipse Wyrm" is re-checked with the duo at LR.
 - **Two Kons can be on one board** (solo Ruri's and the duo's). The bandana tells them apart.
 - **Art keys.** The NovelAI and Meshy keys are not in this environment yet (both answer 401). They go in as environment secrets, never into chat. Until then the pair picture waits, or the owner draws it, and the figures wait for Tripo models from the owner or a Meshy run.
-- **Tide Otter players lose the otter.** Bounding Fox takes over its crowd job at the same level or higher. The patch note says where her old paths went, and a saved battle refunds her.
+- **Tide Otter players lose the otter.** Paw Prints 2-0-5 keeps Tide Otter's round-5 crowd number and adds a boss job; Bounding Fox also takes over the crowd job. The patch note says where her old paths went, and a saved battle with a retired path above tier 2 refunds her.
 
 ---
 
@@ -742,7 +814,7 @@ The questions are on `docs/review/ruri-hana-duo/OWNER_BOARD.md`, each with a rec
   - `startled` and `lure` as plain timed statuses, and `prints` as an integer stack;
   - lure foxes as strip records;
   - the `chase` runner, with a stoop queue on `sim._abilQueue`;
-  - `RH_LR_MUL`, read from `unitStats.lr` like `DUO_LR_MUL`.
+  - her LR knob as a `ruri_hana` row in `LR_POWER` (`src/data/balance.js`), not a new constant.
 
   Report each sim id; the coordinator bumps `COOP_PROTOCOL` once per ship.
 - **UI:**
