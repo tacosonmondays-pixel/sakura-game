@@ -1530,12 +1530,17 @@ point contract: in 'prep' / 'between' there are no enemies, statuses, shots or a
 random draw happens; `_step` starts auto-waves through `this.startNextWave()` (the save wraps it on
 the instance). See docs/BATTLE_SAVE.md.
 
-**Kohaku & Tsubaki's long beam** (`src/sim/duo.js`, docs/specs/DUO_LR.md §6): `duo.edge` (normDuo, default 0; in
-DUO_MAX) set at Grand Spectrum, or `unitStats.lr === true`, gives her `beamSpec` `edge: true`, `nearPierce` (her own
-pierce, kept inside her reach) and `pierce = PRISM_EDGE_PIERCE`. A held beam still locks onto an enemy within her reach;
-its line runs `beamLength(sim, t, spec, e)` = max(range, `edgeReach(...)`) (the first map edge along her aim; division
-and one Math.sqrt, no trig). Enemies whose body is off the old reach segment take the tick × `PRISM_EDGE_MUL`. The LR
-form also multiplies her damage (shells, shards, beam) × `DUO_LR_MUL`. The beam spec carries `bossMul`. No new state.
+**Kohaku & Tsubaki's long beam** (`src/sim/duo.js`, docs/specs/DUO_LR.md §6–§7): `duo.edge` (normDuo, default 0; in
+DUO_MAX) set from Prism Corridor tier 3, or `unitStats.lr === true`, gives her `beamSpec` `edge: true`, `nearPierce` (her
+own pierce), `pierce = PRISM_EDGE_PIERCE` and `edgeMul` (`PRISM_EDGE_MUL`, `PRISM_EDGE_MUL_LR` in her LR form). Her
+beams lock on within her reach (her target mode); a long beam's beams left free lock on anywhere on the map (the same
+mode, `selectTargetsInto` with an Infinity reach). Each line runs edge to edge through her prism and her enemy:
+`beamLength(sim, t, spec, e)` = max(range, distance, `edgeReach(...)`) ahead and `beamBack(sim, t, spec, e)` =
+`edgeReach` behind (division and one Math.sqrt, no trig; `linePierceInto(..., back)` puts her enemy first, then line
+order). Her enemy and the enemies on her short beam's segment (to her reach, up to `nearPierce`) take the full tick;
+everyone else on the line the tick × `edgeMul`. The LR form also multiplies her damage (shells, shards, beam) ×
+`DUO_LR_MUL`, and while she is LR her `LR_POWER` row (`src/data/balance.js`, folded in by `powerFor(..., { lr })`)
+multiplies her boss damage (the duo and Tenka). The beam spec carries `bossMul`. No new state.
 
 Damage pipeline (in order): tunnel/veil/phasing/air eligibility → type multiplier → element ward (×0.5) →
 soak bonus → mark/vulnerable bonus → crit → guardian reduction (not blast) → field shield →

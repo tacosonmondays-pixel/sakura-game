@@ -204,8 +204,9 @@ describe('display only: the battle sim is untouched', () => {
     // S4 "Links" (src/sim/links.js; Fuu's Homecoming Throw, Ena's Spirit Tether) change the sim. The release that ships
     // them sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only this exact in-progress id
     // passes.
-    // Balance round 5 (feature/balance-r5) rides the same bump: this id is the shapes and round 5 together.
-    const PENDING_BUMP = { 13: '174f17a76dd5' };
+    // Balance round 5 (feature/balance-r5) rides the same bump: this id is the shapes and round 5 together, on v0.1.61,
+    // with the duo's map-wide laser and the LR rows (Oct 30).
+    const PENDING_BUMP = { 13: '8faa6096678e' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

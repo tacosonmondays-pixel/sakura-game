@@ -1,13 +1,14 @@
-// Kohaku's long beam (src/sim/duo.js; owner, Oct 29: "cover a line from one side of the map to the other"): at
-// Grand Spectrum (Prism Corridor tier 5, `duo.edge`) and in the duo's LR form (`unitStats.lr`), a held beam still
-// locks onto an enemy within her reach, and its line runs on through that enemy to the map edge. Within her reach
-// it hits as the old beam did (her pierce); past it every enemy on the line takes the tick × PRISM_EDGE_MUL. The
-// map-bounds clip, both triggers, the reach rule, the perf guard, the drawing and determinism.
+// Kohaku's long beam (src/sim/duo.js; owner, Oct 29-30: "cover a line from one side of the map to the other", "it's
+// limited"): from Prism Corridor tier 3 (`duo.edge`) and in the duo's LR form (`unitStats.lr`), her beams lock on within
+// her reach and a beam left free anywhere on the map; each line runs edge to edge through her prism and her enemy. Her
+// enemy and what her short beam would hit take the full tick; every other enemy on the line the tick × PRISM_EDGE_MUL
+// (LR: × PRISM_EDGE_MUL_LR). The map-bounds clip, the triggers, the reach rule, the perf guard and determinism.
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
-import { STEP, PRISM_EDGE_MUL, PRISM_EDGE_PIERCE, DUO_LR_MUL } from '../../src/sim/constants.js';
+import { STEP, PRISM_EDGE_MUL, PRISM_EDGE_MUL_LR, PRISM_EDGE_PIERCE, DUO_LR_MUL } from '../../src/sim/constants.js';
+import { LR_POWER } from '../../src/data/balance.js';
 import { defaultData } from '../../src/sim/data.js';
-import { edgeReach, beamLength } from '../../src/sim/duo.js';
+import { edgeReach, beamLength, beamBack } from '../../src/sim/duo.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
 import { withDetMath } from '../../src/core/detMath.js';
 import { MAP2, STAGE, ENEMIES } from './fixtures.js';
@@ -68,26 +69,30 @@ describe('the map-bounds clip', () => {
 });
 
 describe('the long beam', () => {
-  test('Grand Spectrum: the line runs on to the map edge; within her reach as before, past it × PRISM_EDGE_MUL', () => {
+  test('Grand Spectrum: the line runs edge to edge; her enemy at full, past her short beam × PRISM_EDGE_MUL', () => {
     const { sim, t, near, far, beam } = setup({ tiers: [0, 5, 2] });
     const lost = (e) => beam.get(e.uid) || 0;
     expect(t.beamSpec.edge).toBe(true);
     expect(t.beamSpec.pierce).toBe(PRISM_EDGE_PIERCE);
     expect(t.beamSpec.nearPierce).toBe(8);
+    expect(t.beamSpec.edgeMul).toBe(PRISM_EDGE_MUL);
     const len = beamLength(sim, t, t.beamSpec, near);
     expect(len).toBeGreaterThan(t.beamSpec.range);
     expect(len).toBeCloseTo(t.oy, 6); // straight up from her to y = 0
+    expect(beamBack(sim, t, t.beamSpec, near)).toBeCloseTo(MAP2.height - t.oy, 6); // and down behind her to the far edge
+    // one beam only (her spare beams would lock onto the far enemy at full damage: the next tests)
+    t.beamSpec.projectiles = 1;
     run(sim, 2);
     expect(lost(near)).toBeGreaterThan(0);
     expect(lost(far)).toBeGreaterThan(0);
-    // the far enemy takes the same ticks thinned to PRISM_EDGE_MUL (both tanks; the near one is her beam's own
-    // enemy and ramps, so the far one takes at most PRISM_EDGE_MUL of it)
+    // the far enemy takes the same ticks × PRISM_EDGE_MUL (both tanks; the near one is her beam's own enemy and
+    // ramps, so the far one takes at most PRISM_EDGE_MUL of it)
     expect(lost(far) / lost(near)).toBeLessThanOrEqual(PRISM_EDGE_MUL + 1e-9);
     expect(lost(far) / lost(near)).toBeGreaterThan(PRISM_EDGE_MUL / 2);
   });
 
-  test('within her reach the full-damage hits are those of the beam without the edge (her pierce cap included)', () => {
-    // a crowd on the lower lane in her reach (more than her pierce of 8) and the far lane beyond it
+  test('the full-damage hits are those of her short beam (her pierce cap included), so the long beam never hits softer', () => {
+    // a crowd on the lower lane in her reach (more than her pierce) and the far lane beyond it
     const play = (edge) => {
       const { sim, t } = setup({ tiers: [0, 5, 2] });
       for (let k = 0; k < 14; k++) {
@@ -108,7 +113,7 @@ describe('the long beam', () => {
       const hit0 = sim._hit.bind(sim);
       sim._hit = (e, tw, spec, scale, drone) => {
         if (spec === t.beamTickSpec) {
-          if (scale > PRISM_EDGE_MUL * 2) full.push(`${Math.round(sim.time / STEP)}:${e.uid}:${scale}`);
+          if (scale > PRISM_EDGE_MUL * 2) full.push(`${Math.round(sim.time / STEP)}:${e.uid}`);
           else far++;
         }
         return hit0(e, tw, spec, scale, drone);
@@ -119,41 +124,67 @@ describe('the long beam', () => {
     const a = play(true);
     const b = play(false);
     expect(a.full.length).toBeGreaterThan(0);
-    expect(a.full).toEqual(b.full);
+    // every full hit of the short beam is a full hit of the long one (her spare beams add their own far enemies)
+    const longFull = new Set(a.full);
+    for (const h of b.full) expect(longFull.has(h), h).toBe(true);
+    expect(a.full.length).toBeGreaterThanOrEqual(b.full.length);
+    expect(a.far).toBeGreaterThan(0);
     expect(b.far).toBe(0);
-    // the cap: at most 4 beams × 2 full hits a tick, and some tick reached it on one beam's line
+    // the cap: at most 4 beams × 2 full hits a tick, and some tick took more than one beam's worth
     const perTick = new Map();
     for (const h of a.full) perTick.set(h.split(':')[0], (perTick.get(h.split(':')[0]) || 0) + 1);
     expect(Math.max(...perTick.values())).toBeLessThanOrEqual(8);
     expect(Math.max(...perTick.values())).toBeGreaterThan(4);
   });
 
-  test('the tiers below Grand Spectrum keep her beam to her reach', () => {
-    const { sim, t, near, far, beam } = setup({ tiers: [0, 4, 2] });
+  test('a beam with no enemy in her reach locks on anywhere on the map, at full damage', () => {
+    const { sim, t, near, far, beam } = setup({ tiers: [0, 3, 0] });
+    expect(t.beamSpec.edge).toBe(true);
+    near.dead = true;
+    sim._removeDead();
+    expect((far.x - t.ox) ** 2 + (far.y - t.oy) ** 2).toBeGreaterThan(t.beamSpec.range ** 2);
+    run(sim, 1);
+    expect(t.prismBeams.some((b) => b.e === far)).toBe(true);
+    expect(beam.get(far.uid)).toBeGreaterThan(0);
+    // and a short beam (Prism Corridor tier 2) never reaches it
+    const short = setup({ tiers: [0, 2, 0] });
+    short.near.dead = true;
+    short.sim._removeDead();
+    run(short.sim, 1);
+    expect(short.beam.get(short.far.uid) || 0).toBe(0);
+  });
+
+  test('the tiers below Prism Corridor tier 3 keep her beam to her reach', () => {
+    const { sim, t, near, far, beam } = setup({ tiers: [2, 2, 0] });
     const lost = (e) => beam.get(e.uid) || 0;
     expect(t.beamSpec.edge).toBeUndefined();
     expect(beamLength(sim, t, t.beamSpec, near)).toBe(t.beamSpec.range);
+    expect(beamBack(sim, t, t.beamSpec, near)).toBe(0);
     run(sim, 2);
     expect(lost(near)).toBeGreaterThan(0);
     expect(lost(far)).toBe(0);
   });
 
-  test('the LR form: every build of hers has the long beam', () => {
+  test('the LR form: every build of hers has the long beam, its line × PRISM_EDGE_MUL_LR', () => {
     const { sim, t, near, far, beam } = setup({ tiers: [2, 0, 0], stats: { lr: true } });
     expect(t.beamSpec.edge).toBe(true);
+    expect(t.beamSpec.edgeMul).toBe(PRISM_EDGE_MUL_LR);
     run(sim, 2);
     expect(beam.get(near.uid)).toBeGreaterThan(0);
     expect(beam.get(far.uid)).toBeGreaterThan(0);
+    expect(beam.get(far.uid) / beam.get(near.uid)).toBeLessThanOrEqual(PRISM_EDGE_MUL_LR + 1e-9);
     const plain = setup({ tiers: [2, 0, 0] });
     run(plain.sim, 2);
     expect(plain.beam.get(plain.far.uid) || 0).toBe(0);
   });
 
-  test('the LR form: her shells, shards and beam × DUO_LR_MUL', () => {
+  test('the LR form: her shells, shards and beam × DUO_LR_MUL, × her LR row against bosses', () => {
     const lr = setup({ tiers: [2, 0, 0], stats: { lr: true } });
     const plain = setup({ tiers: [2, 0, 0] });
     expect(lr.t.eff.damage).toBeCloseTo(plain.t.eff.damage * DUO_LR_MUL, 9);
     expect(lr.t.beamSpec.damage).toBeCloseTo(plain.t.beamSpec.damage * DUO_LR_MUL, 9);
+    expect(lr.t.stats.bossMul).toBeCloseTo(plain.t.stats.bossMul * LR_POWER[ID].boss, 9);
+    expect(lr.t.beamSpec.bossMul).toBeCloseTo(plain.t.beamSpec.bossMul * LR_POWER[ID].boss, 9);
   });
 
   test('the silence of Grand Spectrum reaches everything on the long line', () => {

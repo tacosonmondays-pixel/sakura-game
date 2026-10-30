@@ -46,9 +46,10 @@ describe('Kohaku\'s constant beam FX', () => {
     expect(longest).toBeGreaterThan(120); // on for 2 s and more, frame after frame
     expect(most).toBeGreaterThanOrEqual(3);
     expect(mismatched).toBe(0);
-    // flat cost: 4 quads a beam (glow, core, tail, impact glow) and one on her prism, however many beams
+    // flat cost: 4 quads a short beam (glow, core, tail, impact glow), 7 a long one (glow and core on to the far edge
+    // and back through her prism to the near edge, no tail), and one on her prism, however many beams
     expect(perBeam.length).toBeGreaterThan(0);
-    expect(Math.max(...perBeam)).toBeLessThanOrEqual(5);
+    expect(Math.max(...perBeam)).toBeLessThanOrEqual(7);
   });
 
   it('a beam stays on while its enemy lives and fades out within a few frames of its death', () => {

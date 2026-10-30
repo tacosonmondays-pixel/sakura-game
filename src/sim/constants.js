@@ -431,11 +431,15 @@ export const PRISM_BEAM_TICK = 6;
 export const PRISM_SILENCE_TICKS = 120;
 /** Kohaku's clip and sound: her beam's `attack` event on a lock-on, and again every PRISM_CLIP_TICKS damage ticks (1.5 s) a beam holds. */
 export const PRISM_CLIP_TICKS = 15;
-/** The long beam (Grand Spectrum, and the duo's LR form): a held beam's line runs through its enemy on to the map
- *  edge, hitting at most PRISM_EDGE_PIERCE enemies on it (a perf guard, not a game limit); a hit past her reach is
- *  × PRISM_EDGE_MUL (the per-hit knob that keeps her DPS where the capped beam had it: docs/specs/DUO_LR.md §6). */
+/** The long beam (Prism Corridor from tier 3, and the duo's LR form; owner, Oct 29-30: one laser across the map): her
+ *  beams lock on within her reach, a beam left free anywhere on the map, and each line runs edge to edge through her
+ *  prism and her enemy, hitting at most PRISM_EDGE_PIERCE enemies on it (a perf guard, not a game limit). Her enemy
+ *  and what her short beam would hit (her reach, her pierce) take the full tick; every other enemy on the line the
+ *  tick × PRISM_EDGE_MUL, × PRISM_EDGE_MUL_LR in her LR form (docs/specs/DUO_LR.md §7: Grand Spectrum about 1.4-1.9×
+ *  the best Kage tier 5 on a crowd; the LR form about 2.5-3×). */
 export const PRISM_EDGE_PIERCE = 64;
-export const PRISM_EDGE_MUL = 0.03;
+export const PRISM_EDGE_MUL = 0.08;
+export const PRISM_EDGE_MUL_LR = 0.25;
 /** The duo's LR form (her battle stats carry `lr: true`): her shells, shards and beam × DUO_LR_MUL (src/sim/duo.js). */
 export const DUO_LR_MUL = 1.1;
 

@@ -762,18 +762,20 @@ const byLine = (a, b) => projectOnSegment(a.x, a.y, lnSx, lnSy, lnEx, lnEy) - pr
 
 /**
  * linePierce into `hits` (its targets, in line order), `near` a scratch array for the grid query (both emptied first;
- * a hot path's own scratch arrays): the same enemies in the same order. The line's end goes to lineEnd.
+ * a hot path's own scratch arrays): the same enemies in the same order. The line's end goes to lineEnd. `back` > 0 (Kohaku's
+ * long beam): the line also runs that far behind her, and her enemy leads the hits.
  */
-function linePierceInto(sim, t, spec, target, length, halfWidth, pierce, hits, near) {
-  const sx = t.ox;
-  const sy = t.oy;
-  const dx = target.x - sx;
-  const dy = target.y - sy;
+function linePierceInto(sim, t, spec, target, length, halfWidth, pierce, hits, near, back = 0) {
+  const dx = target.x - t.ox;
+  const dy = target.y - t.oy;
   const d = Math.hypot(dx, dy) || 1e-6;
-  const ex = sx + (dx / d) * length;
-  const ey = sy + (dy / d) * length;
+  // `back` (Kohaku's long beam, src/sim/duo.js): the line starts that far behind her, on the far side of her prism
+  const sx = back > 0 ? t.ox - (dx / d) * back : t.ox;
+  const sy = back > 0 ? t.oy - (dy / d) * back : t.oy;
+  const ex = t.ox + (dx / d) * length;
+  const ey = t.oy + (dy / d) * length;
   near.length = 0;
-  sim.grid.query((sx + ex) / 2, (sy + ey) / 2, length / 2 + 1, near);
+  sim.grid.query((sx + ex) / 2, (sy + ey) / 2, (length + back) / 2 + 1, near);
   hits.length = 0;
   for (let i = 0; i < near.length; i++) {
     const e = near[i];
@@ -786,7 +788,15 @@ function linePierceInto(sim, t, spec, target, length, halfWidth, pierce, hits, n
   lnEx = ex;
   lnEy = ey;
   hits.sort(byLine);
-  if (!hits.includes(target)) hits.unshift(target);
+  if (back > 0) {
+    // an edge-to-edge line: her enemy always among the hits (first), the rest in line order up to the cap
+    const ti = hits.indexOf(target);
+    if (ti < 0) hits.unshift(target);
+    else if (ti > 0) {
+      for (let k = ti; k > 0; k--) hits[k] = hits[k - 1];
+      hits[0] = target;
+    }
+  } else if (!hits.includes(target)) hits.unshift(target);
   if (hits.length > pierce) hits.length = pierce;
   lineEnd.x = ex;
   lineEnd.y = ey;

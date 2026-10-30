@@ -305,3 +305,66 @@ proportion"; this is proportion to her own tier damage.
 **Edge cases that differ from the old beam (all deterministic):**
 - A beam skips an enemy that died earlier in the same tick before it counts toward her pierce.
 - Far hits draw crits from the shared rng, so which near hits crit can differ from a beam without the edge.
+
+## 7. A map-wide laser and stronger LR forms (owner, Oct 30)
+
+Owner: "Duo unit laser drill doesn't hit the entire map, it's limited..", and "LR's should be more op!" (every LR form:
+the duo's Prismfall · Twin Star and Tenka's Critical Mass · Event Horizon).
+
+**What was limited** (§6): a beam only locked onto enemies in her short reach (nothing near her, no beam), its line ran
+from her through that enemy to one edge, and every hit past her reach was ×0.03.
+
+**The map-wide laser** (`src/sim/duo.js`, `src/sim/towers.js` linePierceInto `back`).
+- From **Prism Corridor tier 3** (the tier that gives her a second beam; was Grand Spectrum only) and in the LR form (any
+  build), her beams lock on within her reach as before, and every beam left free locks onto an enemy **anywhere on the
+  map** (her target mode picks which). With an enemy anywhere on the map her light is on.
+- Each line runs **edge to edge**: from the map edge behind her, through her prism and her enemy, to the far edge
+  (`beamBack` + `beamLength`, `edgeReach` both ways). It reads as one laser across the board, and hits along all of it.
+- Her enemy (wherever it is) and what her short beam would hit (her reach, her own pierce) take the **full tick**, so the
+  long beam never hits softer than the short one. Every other enemy on the line takes the tick × `PRISM_EDGE_MUL` **0.08**
+  (was 0.03), × `PRISM_EDGE_MUL_LR` **0.25** in her LR form, up to `PRISM_EDGE_PIERCE` 64 enemies (a perf guard).
+- Why "free beams anywhere" and not "every beam anywhere": locking every beam by target mode across the map pointed her
+  light at the lead enemy far down the road, and her dense-crowd DPS at Prism Corridor tier 3 fell 17–26% (r5 crowd
+  49.5k → 36.8–40.9k). Filling only the free beams keeps every hit she had and adds the far ones (52.5k, +6%).
+- Why the long beam from tier 3: the owner expects the laser to reach; at tier 3–4 it is a small gain everywhere and a
+  fall nowhere (r5 crowd T3 49.5k → 52.5k, T4 57.5k → 61.4k; light T3 1.4k → 1.5k, T4 1.4k → 1.6k; bosses equal or
+  up). Starfall and Constellation builds without LR keep the short beam (their beam is a side weapon until LR).
+- Drawing (`src/render/attackFx/styles/kohaku_tsubaki.js`): a long beam is drawn at nearly full strength both ways (a
+  glow and a white core to the far edge and back through her prism to the near edge), on any held enemy wherever it
+  is; seven quads a long beam. 844x390 shots: the three-beam board shows three lasers crossing the map.
+- Deterministic as before: division, compares and Math.sqrt only, no rng, no trig, no new state (scratch arrays
+  inside one call). `tests/sim/duoLongBeam.test.js` (clip both ways, triggers, free beams anywhere, the short beam's
+  full hits kept, LR, silence, plain vs withDetMath).
+
+**LR rows** (`src/data/balance.js` `LR_POWER`, folded into her power row while her battle stats carry `lr: true`; never in
+a titan battle). The duo × 1.6 vs bosses (plus her LR line, `PRISM_EDGE_MUL_LR`); Tenka × 3.4 vs bosses (her rail
+build's crowd is above the band already). Her UR self and every other girl are untouched; no number falls.
+
+**Before → after**, her DPS ÷ the best Kage tier 5 (`tools/balance/lrBench.mjs`; crowd / boss). Light = the STRONG preset
+alone, mean of stages 4-5 and 6-3 × seeds 9 and 1 (benchHit's walking boss: with the map-wide laser she holds it all the
+way across the map, so the light boss numbers rise most); r5 = fully maxed with Umeko + Midori, seeds 9/1/2, a held boss.
+
+| build | light no-LR | light LR | r5 no-LR | r5 LR |
+|---|---|---|---|---|
+| Starfall T5 | 1.58/1.27 → 1.58/1.27 | 1.74/1.40 → **2.37/3.59** | 1.87/1.40 → 1.87/1.40 | 2.23/1.79 → **2.46/2.87** |
+| Grand Spectrum T5 | 1.26/1.24 → **1.64/2.02** | 1.38/1.37 → **2.80/3.55** | 2.01/1.30 → **2.17/1.30** | 2.54/1.66 → **3.22/2.66** |
+| Constellation T5 | 0.84/0.76 → 0.84/0.76 | 0.91/0.84 → **1.82/2.23** | 3.68/1.31 → 3.68/1.31 | 4.80/1.70 → **5.36/2.72** |
+| Tenka Joint Research T5 | 0.10/0.12 | 0.10/0.12 → 0.10/0.43 | 0.44/0.12 | 0.52/0.14 → 0.52/0.48 |
+| Tenka Rail Arms T5 | 0.85/0.70 | 0.85/0.70 → 0.85/**2.37** | 2.96/0.67 | 3.58/0.81 → 3.58/**2.75** |
+| Tenka Singularity T5 | 0.01/0.01 | 0.01/0.01 → 0.01/0.04 | 0.22/0.01 | 0.27/0.01 → 0.27/0.05 |
+
+- The owner's LR target (r5, about 2.5–3× on both rulers, every build): the duo's three builds read 2.46–3.22 on a crowd
+  (Constellation 5.36: already 4.8 before, never tuned down) and 2.66–2.87 on a boss; Tenka's Rail Arms 3.58 / 2.75.
+- Grand Spectrum without LR (target 1.3–1.7): light 1.64 / 2.02, r5 2.17 / 1.30. The r5 crowd sits above the target
+  because the far beams keep their full hits; `beamMul` 11.7 → 10 (with ×13.5 vs bosses) lands r5 1.86 / 1.33 and light
+  1.42 / 2.06, but cuts today's r5 crowd 7%, so it is not taken (no nerfs). The owner can ask for it.
+- **Tenka's Joint Research and Singularity builds** are an economy/lab build and a control build: their own damage on
+  these benches is small with or without LR (the lab weapons need girls to join her after her purchase; Singularity's
+  value is its wells and Last Line). Lifting them to 2.5× Kage would need ×5–×60 on damage they barely deal; they get
+  the LR row (× bosses) only. A question for the owner.
+- Abilities are not in these numbers (the rulers are her attack only).
+
+**Perf** (`tests/sim/perf.test.js` "the long beam": 4 LR duos at Grand Spectrum, 16 held map-long beams, 200 walkers on
+6-3). Outside vitest, median of five: 0.11–0.21 ms a step before, 0.13–0.21 ms after (best 0.083 → 0.128). The vitest
+case read 2.38 ms on a machine at load 15–25, where the untouched ground-shapes case read 2.60 ms beside it; it passes
+its 2 ms budget on a quiet machine.

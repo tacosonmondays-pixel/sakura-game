@@ -21,6 +21,8 @@ const OLD_DATA = (() => {
   const u = JSON.parse(JSON.stringify(d.units.kohaku_tsubaki));
   u.base.damage = 12;
   Object.assign(u.base.duo, { beamDmg: 5, shardShare: 0.4 });
+  // her short beam (the long beam from Prism Corridor tier 3 is measured in tests/sim/duoLongBeam.test.js)
+  u.paths[1].tiers[2].mods = { duo: { beams: 1, beamPen: 2, beamAir: 1.3 } };
   u.paths[1].tiers[4].mods = { duo: { beams: 2, beamDmg: 16, beamPierce: 3, beamSilence: 1 } };
   return { ...d, units: { ...d.units, kohaku_tsubaki: u } };
 })();

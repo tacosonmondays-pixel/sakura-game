@@ -413,8 +413,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // hashes 8b361ee7 → baad978d, duo 273/1262/388/… → 274/1266/616/… (a lock-on and every 1.5 s held: Kohaku's clip)
     // Re-pinned Oct 29 for the Oct 29 duo buff (base +25%, the LR form ×1.1 and her long beam: the host's duo is LR):
     // the battle ends sooner, ticks 44656 → 39421, final 1485318803 → 1647005069, hashes baad978d → f97c7537.
+    // Re-pinned Oct 30 for the map-wide laser (the host's LR duo: a free beam locks on anywhere, her line runs edge to
+    // edge, × PRISM_EDGE_MUL_LR past her short beam, her LR row × bosses): the battle ends sooner, ticks 37736 → 31940,
+    // final 3211732776 → 3125619877, hashes e4374577 → 2ac47ed2, duo 244/1117/437/22/9/1 → 220/998/700/19/10/1.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, duo: r.duo })
-      .toEqual({ ticks: 37736, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3330/3744', final: 3211732776, hashes: 'e4374577', duo: '244/1117/437/22/9/1' });
+      .toEqual({ ticks: 31940, state: 'won', wave: 22, tiers: '004 023 000 000', wallets: '3357/3772', final: 3125619877, hashes: '2ac47ed2', duo: '220/998/700/19/10/1' });
   }, 240000);
 
   it('runs Tenka\'s LR form (TENKA_LR_START: Critical Mass · Event Horizon\'s pull and second detonation on the host\'s LR Tenka, the guest\'s without) in sync', () => {
@@ -430,8 +433,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.tiers.split(' ')[0]).toBe('050'); // the host's LR Tenka reached Zero Point (Event Horizon on the tier-5 blast)
     expect(runTenkaLrBattle().final).toBe(r.final);
     // pinned when the battle was added (Tenka's LR form, Oct 29). Change only with a deliberate sim / data change, and say why.
+    // Re-pinned Oct 30 for the LR rows (src/data/balance.js LR_POWER: the host's LR Tenka × bosses): the same waves,
+    // ticks and coins; final 747075865 → 2042327016, hashes 8ab4dbef → c121be7a, horizon 3/2/2/3 → 3/2/2/2.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, tiers: r.tiers, wallets: r.wallets, final: r.final, hashes: r.hashes, horizon: r.horizon })
-      .toEqual({ ticks: 43031, state: 'won', wave: 26, tiers: '050 030 000 000', wallets: '1730/6014', final: 747075865, hashes: '8ab4dbef', horizon: '3/2/2/3' });
+      .toEqual({ ticks: 43031, state: 'won', wave: 26, tiers: '050 030 000 000', wallets: '1730/6014', final: 2042327016, hashes: 'c121be7a', horizon: '3/2/2/2' });
   }, 240000);
 
   it('runs the staff heroes (STAFF_START: Norika\'s barricades and Hold the Line on a forked map, Kogane\'s plow and Moves) in sync', () => {

@@ -84,6 +84,21 @@ const ROWS = {
 export const POWER = Object.freeze(Object.fromEntries(Object.entries(ROWS).map(([id, row]) => [id, Object.freeze({ ...row })])));
 
 /**
+ * LR forms (owner, Oct 30: "LR's should be more op!"): on top of her row while her battle stats carry `lr: true` (her
+ * Limit Break; src/systems/progression.js unitBattleStats), so an LR form is clearly the strongest thing in the game:
+ * about 2.5-3x the best Kage tier 5 on a crowd and on a boss in the fully maxed bench (tools/balance/lrBench.mjs,
+ * docs/specs/DUO_LR.md §7). LR-only: her UR self and every other girl are untouched; never in a titan battle.
+ */
+const LR_ROWS = {
+  // the duo: × bosses on every build (her LR line, PRISM_EDGE_MUL_LR in src/sim/constants.js, lifts her crowd)
+  kohaku_tsubaki: { boss: 1.6 },
+  // Tenka (Thesis Defense): × bosses; her rail build's crowd is above the band already
+  tenka: { boss: 3.4 },
+};
+/** Her LR row (frozen): folded into her power row while she is LR. */
+export const LR_POWER = Object.freeze(Object.fromEntries(Object.entries(LR_ROWS).map(([id, row]) => [id, Object.freeze({ ...row })])));
+
+/**
  * Titan Trials (src/data/titans.js): false = a titan battle reads no row and no hero curve (today's numbers for
  * every girl and hero), so a team's titan rank, weekly pay and titan board damage stay where they are. The rows
  * are per girl and a titan's HP is one number for every team, so no titan-side scale holds every team's rank.
@@ -117,21 +132,23 @@ export function heroPowerAt(id, heroLevel) {
 
 /**
  * Her power row at this hero level (null when nothing changes): a girl's POWER row, a hero's HERO_POWER multiplier
- * folded into `dmg`. `rows: false` is a titan battle while TITAN_POWER is false (src/sim/Sim.js powerOff).
+ * folded into `dmg`, and while she is LR (`lr`) her LR_POWER row on top. `rows: false` is a titan battle while
+ * TITAN_POWER is false (src/sim/Sim.js powerOff).
  * @param {object} def UnitDef
  * @param {number} heroLevel 0 for towers
- * @param {{ rows?: boolean }} [o]
+ * @param {{ rows?: boolean, lr?: boolean }} [o]
  * @returns {{ dmg: number, boss: number, buff: number, reach: number, ctl: number }|null}
  */
-export function powerFor(def, heroLevel = 0, { rows = true } = {}) {
+export function powerFor(def, heroLevel = 0, { rows = true, lr = false } = {}) {
   if (!rows) return null;
   const id = def?.id;
   const row = POWER[id];
+  const lrRow = lr ? LR_POWER[id] : null;
   const h = heroPowerAt(id, heroLevel);
-  if (!row && h === 1) return null;
+  if (!row && !lrRow && h === 1) return null;
   return {
-    dmg: (row?.dmg ?? 1) * h,
-    boss: row?.boss ?? 1,
+    dmg: (row?.dmg ?? 1) * (lrRow?.dmg ?? 1) * h,
+    boss: (row?.boss ?? 1) * (lrRow?.boss ?? 1),
     buff: row?.buff ?? 1,
     reach: row?.reach ?? 1,
     ctl: row?.ctl ?? 1,
