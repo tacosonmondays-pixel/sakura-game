@@ -65,6 +65,7 @@ import { heroTrackBand, fullTrackList } from '../heroTrack.js';
 import { UPGRADE_TAGS, TAG_ORDER } from '../upgradeTags.js';
 import { girlPageMode, infoView, awakenStars, starBonus, manualOpen, pathTiers } from '../girlDetail.js';
 import { tabSwap } from '../motion.js';
+import { coachTab } from '../buildCoach.js';
 
 // one word per tab (§5.3); the ids and their tab-<id> testids never change
 const TABS = [
@@ -73,6 +74,7 @@ const TABS = [
   { id: 'awaken', label: 'Awaken', icon: 'star' },
   { id: 'gear', label: 'Gear', icon: 'shield' },
   { id: 'tree', label: 'Tree', icon: 'sparkle' },
+  { id: 'coach', label: 'Coach', icon: 'target' }, // [build coach] BUILD_COACH.md §8
 ];
 const BEHAVIOR_NAMES = { projectile: 'Projectile', pulse: 'Area pulse', duel: 'Duel', beam: 'Beam', chain: 'Chain', trap: 'Traps', turret: 'Sentries', mortar: 'Aimed shells', none: 'Support' };
 // skin: outfit being tried on in the showcase (not saved), null = the equipped one
@@ -1227,7 +1229,7 @@ export function render(root, params = {}) {
   }
 
   const tabDefs = () => TABS.map((t) => {
-    const locked = (!store.profile.units[unit.id] && ['level', 'awaken', 'gear'].includes(t.id))
+    const locked = (!store.profile.units[unit.id] && ['level', 'awaken', 'gear', 'coach'].includes(t.id))
       || ((t.id === 'gear' || t.id === 'awaken') && !featureOpen(store.profile, t.id)); // [story]
     // a rainbow dot only when one of her pieces can awaken now (a Seed in the backpack)
     const dot = t.id === 'gear' && !locked && gearCanAwakenNow(unit.id);
@@ -1261,6 +1263,10 @@ export function render(root, params = {}) {
             : gearTab(unit, { mode, onChange: () => { band.refresh(); renderTab(false); } });
         break;
       case 'tree': content = treeTab(unit, { mode }); break;
+      case 'coach':
+        content = !store.profile.units[unit.id] ? lockedTab(unit, 'her Build Coach')
+          : coachTab(unit, { onChange: () => { band.refresh(); renderTab(false); } });
+        break;
       default:
         content = infoTab(unit, { onChange: refreshAll, mode });
         // her Potential steps are on screen now: the one-time NEW badge on her card goes

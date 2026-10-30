@@ -80,6 +80,7 @@ import { listBattleSaves, saveSummary, saveTitle } from '../../systems/battleSav
 import { showRewardsModal, requirementText } from './stage.js';
 import { createArtStage } from '../lobby/artStage.js';
 import { secretaryOf } from '../lobby/secretaryOf.js';
+import { homeCoachChip } from '../buildCoach.js';
 import { workbenchReady } from '../../systems/workbench.js'; // [workbench] a ready craft lights the Backpack row (its Workbench button)
 import { showNoticeModal, noticeUnread } from '../lobby/notice.js';
 import { openMenuSheet, closeMenuSheet, menuSheetOpen } from '../lobby/menuSheet.js';
@@ -203,7 +204,7 @@ export function render(root) {
   // (all: the controls' boxes while the UI is hidden too: whether her living scene can stand here at all)
   const uiBoxes = ({ all = false } = {}) => {
     if (!all && el.classList.contains('ui-hidden')) return [];
-    const sel = [...top.children, ...dock.children, ...newsHost.querySelectorAll('.ui-news'), ...battleHost.querySelectorAll('.home-plate, .home-coop')];
+    const sel = [...top.children, ...dock.children, ...newsHost.querySelectorAll('.ui-news'), ...battleHost.querySelectorAll('.home-plate, .home-coop, .bc-home-chip')];
     const inner = [...top.querySelectorAll(':scope > .ui-pill > *')];
     const o = laidOut(el);
     // (the news chip counts at its two-line height on every page: a page turn never brings it over her)
@@ -890,6 +891,9 @@ function buildBattle(host) {
   const { chapter, prog, complete } = campaignStatus(profile);
   const invites = lastInvites().count;
   clear(host);
+  // [build coach] the main girl's next step, over the battle plate (hidden when no main is set; BUILD_COACH.md §8)
+  const coachChip = homeCoachChip();
+  if (coachChip) host.appendChild(coachChip);
   const coop = h('button.home-coop', { type: 'button', 'data-testid': 'lobby-multiplayer', 'aria-label': multiplayerLabel(invites), onclick: () => navigate('multiplayer') },
     g('users'), h('span.lbl', 'Co-op'),
     badge(invites ? h('span.ui-count', { 'data-testid': 'lobby-multiplayer-count', title: multiplayerLabel(invites) }, String(invites)) : null, 'home:count:multiplayer'));

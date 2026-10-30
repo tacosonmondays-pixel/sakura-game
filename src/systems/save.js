@@ -12,6 +12,7 @@ import { CLUB_IDS, CLUB_RARITIES } from '../data/clubs.js';
 import { UR_MAX_LEVEL, LR_MAX_LEVEL, LR_SET, LR_BLANK } from '../data/gearAwaken.js';
 import { restoreGearMarks, restoreNewSlotPieces } from './gearMarks.js';
 import { cleanTeams, cleanPresets, restoreTeams } from './teamsSave.js';
+import { cleanBuildCoach, writeBuildCoachMark } from './buildCoachSave.js';
 import { RIBBON_MODES } from '../data/modes.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT, amendBetaLetter } from './mail.js';
@@ -677,6 +678,10 @@ export function migrateProfile(raw) {
   // [gear update] teams and gear loadouts an older build dropped come back from 'tm:' / 'gp:'; present fields win
   // (the formation is the active team, what she wears is her active loadout), and the mirrors are rewritten
   restoreTeams(p);
+  // [build coach] the main girl (BUILD_COACH.md §1): kept when present, else back from her 'cm:' mark
+  const coach = cleanBuildCoach(raw.buildCoach, p);
+  if (coach) p.buildCoach = coach;
+  writeBuildCoachMark(p);
   // [ascension] bought Potential, gates 6–10 and the Ascension items an older build dropped, then the
   // one-time switch to Essence (counted duplicates become Potential for free + the welcome pouch)
   restoreAscension(p);

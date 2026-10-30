@@ -75,6 +75,7 @@ import { isFriendshipLive } from '../../systems/banners.js'; // [friend support]
 import { supportPick } from '../battle/supportPick.js';
 import { wentOnline } from '../online/common.js';
 import { teamChips, teamChip } from '../teamBar.js';
+import { stageFarmTag } from '../buildCoach.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers (exported for the other meta-a screens)
@@ -666,6 +667,7 @@ function mapBand(stage, state, ctx, f, supportEl = null) {
     f.dropMul > 1 ? h('span.ui-chip.cy.stp-tag', `${f.dropMul}× drops`) : null,
     f.isEndless ? h('span.ui-chip.ink.stp-tag', 'Endless') : null,
     f.fpOn ? h(`span.ui-chip.ink.stp-tag.stp-fp-${state.freeplay}`, { 'data-testid': 'prep-fp-badge' }, `Freeplay · ${f.fpName}`) : null,
+    stageFarmTag(stage.id), // [build coach] this stage drops what the main girl misses
   ].filter(Boolean);
   const mapEl = h('div.ui-panel.stp-map', { style: { '--map-ar': `${tw} / ${th}`, ...(edge ? { '--map-edge': edge } : {}) } }, thumb,
     tags.length ? h('div.stp-map-tags', tags) : null,

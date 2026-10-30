@@ -425,6 +425,31 @@ function levelingArticle() {
   ]);
 }
 
+// [build coach] BUILD_COACH.md §8; [teams] GEAR_UPDATE.md §7
+function buildCoachArticle() {
+  return article('buildCoach', 'Build Coach, Teams and Loadouts', 'progress', 'sparkle', 'Set a Main girl and the Coach plans her road to max; save teams and gear loadouts.', ['build coach', 'coach', 'main', 'set as main', 'team', 'teams', 'loadout', 'loadouts', 'plan', 'farm'], [
+    sec('Set as Main',
+      list([
+        'Open a girl\'s page, tap Coach, then Set as Main. One girl is your Main at a time; Clear Main removes it.',
+        'Her next step shows on the home screen, and Stage Prep marks stages that drop what she still needs.',
+      ])),
+    sec('What the Coach shows',
+      list([
+        'Next steps: the three changes that help her most for what they cost, each with Go.',
+        'To max: exactly what she still needs for her level, gates, stars, Potential and gear, and what you already have.',
+        'Farm: the best places to earn each missing material, by how many drop per run. Only places you play: never the Gem Shop or recruiting.',
+        'Gear plan: the main stat she wants on each piece, her substat order and her club.',
+        'Build score: what she wears against her best build of what you have (Build), and against her fully maxed build (Max).',
+      ])),
+    sec('Teams and loadouts',
+      list([
+        'Save up to 5 teams on Formation (and switch them from Stage Prep). Each team remembers its girls and which loadout each one uses.',
+        'Each girl can keep up to 3 gear loadouts (A, B, C) on her Gear tab. A piece is never copied: putting on a loadout takes its pieces from whoever wears them, and says so first. Undo puts everything back.',
+        'A red dot on a loadout means one of its pieces was salvaged.',
+      ])),
+  ]);
+}
+
 function gearArticle() {
   return article('gear', 'Gear & Rerolls', 'progress', 'dice', 'Charms, ribbons and shoes: main stats, substats, enhancing, rerolling and locking.', ['gear', 'equipment', 'charm', 'ribbon', 'shoes', 'substat', 'main stat', 'reroll', 'lock', 'enhance', 'salvage', 'dice', 'prism'], [
     sec('Slots and main stats',
@@ -814,7 +839,7 @@ function newGirlsArticle() {
 function buildArticles() {
   return [
     gettingStarted(), controls(), abilitiesArticle(), typeChartArticle(), rolesArticle(), crosspathArticle(), codexArticle(), returningArticle(), newGirlsArticle(), buffsArticle(), traitsArticle(), statusesArticle(),
-    itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), gachaArticle(), potentialArticle(), medalsArticle(), mapsArticle(),
+    itemsArticle(), materialsArticle(), levelingArticle(), gearArticle(), buildCoachArticle(), gachaArticle(), potentialArticle(), medalsArticle(), mapsArticle(),
     economyArticle(), unlocksArticle(), tipsArticle(),
   ];
 }

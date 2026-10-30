@@ -1,0 +1,61 @@
+/* The Build Coach (src/ui/buildCoach.js, BUILD_COACH.md §8): the girl page's Coach tab, the home chip and the Stage
+   Prep tag. Ink & Paper kit; every label 12 px or more; rows 36 px or more. Not the tutorial's coach.css. */
+
+:where(.ui-day, .ui-night) .bc { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+:where(.ui-day, .ui-night) .bc-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+:where(.ui-day, .ui-night) .bc-gap { flex: 1 1 0; min-width: 0; }
+:where(.ui-day, .ui-night) .bc-score { display: inline-flex; align-items: baseline; gap: 6px; }
+:where(.ui-day, .ui-night) .bc-score b.num { font: 800 var(--fs-name, 18px)/1 var(--font-num); color: var(--m-text); margin-right: 6px; }
+:where(.ui-day, .ui-night) .ui-chip.bc-main-tag { gap: 4px; }
+:where(.ui-day, .ui-night) .ui-chip.bc-main-tag .ui-ico { width: 14px; height: 14px; }
+:where(.ui-day, .ui-night) .bc-paths { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+:where(.ui-day, .ui-night) .bc-paths .lbl { margin-right: 4px; }
+:where(.ui-day, .ui-night) .ui-opt.bc-path { --h: 36px; padding: 0 calc(10px + var(--s)); cursor: pointer; text-transform: none; letter-spacing: 0; font-size: var(--fs-label); }
+
+:where(.ui-day, .ui-night) .bc-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+@media (min-width: 700px) { :where(.ui-day, .ui-night) .bc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+:where(.ui-day, .ui-night) .bc-card { min-width: 0; }
+:where(.ui-day, .ui-night) .bc-card > .ui-panel-in { display: flex; flex-direction: column; gap: 6px; }
+:where(.ui-day, .ui-night) .bc-card-head { display: flex; align-items: center; gap: 6px; min-height: 28px; }
+:where(.ui-day, .ui-night) .ui-ghost.bc-more { display: inline-flex; align-items: center; gap: 2px; min-height: 36px; padding: 0 6px; font: 600 var(--fs-label)/1 var(--font-num); text-transform: uppercase; color: var(--m-text); cursor: pointer; }
+
+:where(.ui-day, .ui-night) .bc-rows, :where(.ui-day, .ui-night) .bc-steps, :where(.ui-day, .ui-night) .bc-needs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+:where(.ui-day, .ui-night) .bc-row, :where(.ui-day, .ui-night) .bc-step { display: flex; align-items: center; gap: 8px; min-height: 36px; min-width: 0; }
+:where(.ui-day, .ui-night) .bc-row > .ui-ico { flex: none; width: 16px; height: 16px; color: var(--m-dim); }
+:where(.ui-day, .ui-night) .bc-row.done > .ui-ico { color: var(--good-on-plate, #2f8a4e); }
+:where(.ui-day, .ui-night) .bc-row-t, :where(.ui-day, .ui-night) .bc-step-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-body); line-height: 1.25; color: var(--m-text); overflow-wrap: anywhere; }
+:where(.ui-day, .ui-night) .bc-row-t > span, :where(.ui-day, .ui-night) .bc-step-sub { font-size: var(--fs-label); color: var(--m-dim); }
+:where(.ui-day, .ui-night) .bc-row-cost { flex: none; font-size: var(--fs-label); color: var(--m-dim); }
+:where(.ui-day, .ui-night) .bc-steps { counter-reset: bc; }
+:where(.ui-day, .ui-night) .bc-step::before { counter-increment: bc; content: counter(bc); flex: none; width: 22px; height: 22px; display: grid; place-items: center; background: var(--plate); color: var(--on-ink); font: 700 var(--fs-label)/1 var(--font-num); }
+:where(.ui-day, .ui-night) .ui-btn.bc-go { flex: none; min-height: 36px; padding: 0 10px; gap: 2px; }
+:where(.ui-day, .ui-night) .bc-line { margin: 0; font-size: var(--fs-label); line-height: 1.35; color: var(--m-text); }
+:where(.ui-day, .ui-night) .bc-coins { display: flex; align-items: center; gap: 6px; }
+:where(.ui-day, .ui-night) .bc-coins .ui-ico { width: 16px; height: 16px; }
+:where(.ui-day, .ui-night) .bc-note { margin: 0; font-size: var(--fs-label); color: var(--m-dim); }
+
+/* the sheets */
+:where(.ui-day, .ui-night) .bc-sheet { display: flex; flex-direction: column; gap: 12px; }
+:where(.ui-day, .ui-night) .bc-sec { display: flex; flex-direction: column; gap: 4px; }
+:where(.ui-day, .ui-night) .bc-sec-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: var(--fs-body); }
+:where(.ui-day, .ui-night) .bc-sec-head > span { font-size: var(--fs-label); color: var(--m-dim); }
+:where(.ui-day, .ui-night) .bc-need { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 8px; min-height: 32px; font-size: var(--fs-label); }
+:where(.ui-day, .ui-night) .bc-need-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-body); }
+:where(.ui-day, .ui-night) .bc-need-have { color: var(--m-dim); }
+:where(.ui-day, .ui-night) .bc-miss { color: var(--bad-text); }
+:where(.ui-day, .ui-night) .bc-need.ok .ui-ico { width: 14px; height: 14px; color: var(--good-on-plate, #2f8a4e); }
+
+/* the home chip, over the battle plate */
+/* (the Co-op / Events row sits --ch above the plate's box: the chip goes over it) */
+.home .home-battle > .ui-chip.bc-home-chip { position: absolute; right: 0; bottom: calc(100% + var(--ch, 44px) + 8px); max-width: 100%; min-height: 36px; gap: 6px; padding: 0 10px; cursor: pointer;
+  text-transform: none; letter-spacing: 0; z-index: 5; background: var(--plate, #0e1930); color: var(--on-ink, #fff); border: 0; }
+.home .bc-home-chip .bc-home-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-label, 12px); }
+.home .bc-home-chip .ui-ico { flex: none; width: 14px; height: 14px; }
+
+/* Stage Prep: the map tag */
+:where(.ui-day, .ui-night) .ui-chip.bc-farm-tag { gap: 4px; max-width: 100%; text-transform: none; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:where(.ui-day, .ui-night) .ui-chip.bc-farm-tag .ui-ico { flex: none; width: 14px; height: 14px; }
+/* an upright phone: the news card sits just over the Co-op row, so it moves up by the chip's height */
+@media (max-width: 700px) and (min-height: 481px) {
+  .home:has(.bc-home-chip) .home-news-host, .home.news-down:has(.bc-home-chip) .home-news-host { bottom: 290px; }
+}
