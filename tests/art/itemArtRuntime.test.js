@@ -174,14 +174,59 @@ describe('gear art: the 3D-flat gear icons (tools/blender/items models/gear.py, 
     }
   });
 
-  it('every gear screen passes the piece\'s gear set, never its club', () => {
-    const files = ['src/ui/gearTile.js', 'src/ui/gearUr.js', 'src/ui/unitBuild.js', 'src/ui/battle/results.js', 'src/ui/screens/stage.js'];
+  it('every gearIcon / gearArtKey call in src passes the piece\'s gear set (set: <piece>.set), never its club', () => {
+    // Calls with no piece to take a set from, each with its reason. Anything else must pass `set: <piece>.set`.
+    const ALLOWED = [
+      ['src/ui/unitBuild.js', "gearIcon(g.slot, 'common')", 'the empty-slot placeholder: no piece is equipped'],
+      ['src/ui/screens/backpack.js', "gearIcon(id, 'rare')", 'the slot filter chips: a generic icon per slot, no piece'],
+      ['src/art/icons.js', 'gearArtKey(slot, rarity, { ur })', "gearIcon's own drawn fallback: always the default slot and rarity"],
+    ];
+    const files = [];
+    const walk = (dir) => {
+      for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (/\.(js|mjs)$/.test(e.name)) files.push(rel);
+      }
+    };
+    walk('src');
+    /** Every call `name(...)` in a source (balanced parentheses), without definitions or doc comments. */
+    const callsOf = (src, name) => {
+      const out = [];
+      const re = new RegExp(`(?<![\\w.])${name}\\(`, 'g');
+      let m;
+      while ((m = re.exec(src))) {
+        const line = src.slice(src.lastIndexOf('\n', m.index) + 1, m.index);
+        if (/function\s*$/.test(line) || /^\s*(\*|\/\/)/.test(line)) continue;
+        let depth = 0;
+        let k = m.index + name.length;
+        for (; k < src.length; k++) {
+          if (src[k] === '(') depth++;
+          else if (src[k] === ')' && --depth === 0) break;
+        }
+        out.push(src.slice(m.index, k + 1));
+      }
+      return out;
+    };
+    let seen = 0;
+    const used = new Set();
     for (const f of files) {
       const src = readFileSync(join(ROOT, f), 'utf8');
-      const calls = src.match(/gearIcon\([^)]*\{[^}]*\}\)/g) || [];
-      for (const c of calls.filter((x) => !/'common'\)|'rare'\)/.test(x))) expect(c, f).toMatch(/set: (g|gear)\.set/);
-      expect(src, f).not.toMatch(/set: (g|gear|v)\.club/);
+      for (const name of ['gearIcon', 'gearArtKey']) {
+        for (const call of callsOf(src, name)) {
+          seen++;
+          const allow = ALLOWED.find(([af, ac]) => af === f && ac === call);
+          if (allow) {
+            used.add(allow);
+            continue;
+          }
+          expect(call, `${f}: ${call}`).toMatch(/\bset: [\w.]*\.set\b|\bset\b(?!:)/);
+          expect(call, `${f}: ${call}`).not.toMatch(/\.club\b/);
+        }
+      }
     }
+    expect(seen).toBeGreaterThan(8);
+    expect(ALLOWED.filter((a) => !used.has(a)), 'stale allow-list rows').toEqual([]);
   });
 });
 

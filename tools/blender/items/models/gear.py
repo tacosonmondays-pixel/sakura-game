@@ -13,9 +13,9 @@ catalog.GEAR_SETS gives each gear set one look per slot (rarity on the tile). Th
 
 Rarity reads from the shape and the trim, not the colour alone: common plain with pewter, rare silver, super rare
 silver with studs, a gem and (shoes) a small wing, mythic rose gold with a sakura blossom behind the stone
-(ribbon: layered loops; shoes: a sole stripe and a bigger wing), a drop bead and a glow, legendary gold with the big
-crest (sunburst rays, a star medallion, a gold toe rim and a big wing) and a star glint, UR iridescent (saturated
-shadow) with rainbow wings. Glints sit on the object, never in the air beside it.
+(ribbon: layered loops; shoes: a sole stripe and a bigger wing) and a glow, legendary gold with the big crest
+(sunburst rays, a star medallion, a gold toe rim and a big wing) and a star glint, UR iridescent (saturated shadow)
+with rainbow wings; from mythic up a drop bead hangs below every piece but the shoes. Glints sit on the object, never in the air beside it.
 """
 import math
 

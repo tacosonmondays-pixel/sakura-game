@@ -139,7 +139,7 @@ GEAR_SLOT_ART = dict(
 #   crest    0 none; 1 a sakura blossom behind the stone / layered loops / a sole stripe;
 #            2 sunburst rays / a star medallion / a gold toe rim (hair clip: a gold disc behind the flower)
 #   shoe_wing  feathers in the sneaker's heel wing (0..4)         wings  feathers per side wing on every base (UR)
-#   drop     a bead hanging below                               glow   inner glow of the body
+#   drop     a bead hanging below (never on the shoes)          glow   inner glow of the body
 #   star     the 4-point glint (px at 256)
 # 'set' is the ladder row of the set looks: one look per set and slot, rarity shows on the tile (and the UR ring).
 GEAR_TIERS = dict(
@@ -151,10 +151,10 @@ GEAR_TIERS = dict(
                    note='silver trim, studs (ribbon: tail bands, shoes: eyelets) and a violet gem; shoes: a small wing'),
     mythic=dict(trim='rose', gem=True, studs=True, crest=1, shoe_wing=2, wings=0, drop=True, glow=0.3, star=10,
                 note='rose-gold trim, a rose-gold sakura blossom behind the stone (ribbon: layered loops; shoes: a sole '
-                     'stripe and a wing), drop bead, glow'),
+                     'stripe and a wing), glow'),
     legendary=dict(trim='gold', gem=True, studs=True, crest=2, shoe_wing=3, wings=0, drop=True, glow=0.3, star=12,
                    note='gold trim, sunburst rays (ribbon: a star medallion; shoes: a gold toe rim and a bigger wing), '
-                        'drop bead, star'),
+                        'star'),
     ur=dict(trim='iri', gem=True, studs=True, crest=2, shoe_wing=4, wings=4, drop=True, glow=0.35, star=13,
             note='iridescent body (saturated shadow) and trim, the legendary crest (the charm swaps its rays for the '
                  'wings) plus rainbow wings (one pastel per feather)'),
@@ -251,7 +251,8 @@ def _gear_note(key):
         extra.append(f"body {d['body']}")
     if d.get('trim'):
         extra.append(f"{d['trim']} trim")
-    return d['note'] + (' (' + ', '.join(extra) + ')' if extra else '') + '; ' + GEAR_TIERS[tier]['note']
+    tail = ', a drop bead' if GEAR_TIERS[tier]['drop'] and d['base'] != 'sneaker' else ''   # the sneaker draws none
+    return d['note'] + (' (' + ', '.join(extra) + ')' if extra else '') + '; ' + GEAR_TIERS[tier]['note'] + tail
 
 
 def note(key):
