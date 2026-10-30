@@ -14,6 +14,7 @@
 //   gp:<unitId>         1 + active loadout + 10 × loadout count
 //   gp:<unitId>:<n>:<slot>  the number of the piece loadout n names in that slot (gear uid 'g<n>')
 //   gpf:<unitId>        the worn loadout's lend flags (wornLoadout): lent bits + 32 × wish bits
+//   gpf:<unitId>:<n>    the lent bits a loadout she took off keeps (teams.js foldGear)
 // Pure functions on the profile; nothing here is co-op hashed.
 
 import { UNIT_MAP } from '../data/units.js';
@@ -165,6 +166,8 @@ export function writeTeamMarks(p) {
     const worn = u.presets[u.preset || 0] || {};
     const flags = (worn.lent | 0) + 32 * (worn.wish | 0);
     if (flags) c[`${LEND_MARK}${id}`] = flags;
+    // a loadout she took off keeps its lent claims (teams.js foldGear): 'gpf:<id>:<n>' = its lent bits
+    u.presets.forEach((l, n) => { if (n !== (u.preset || 0) && (l.lent | 0)) c[`${LEND_MARK}${id}:${n}`] = l.lent; });
     u.presets.forEach((l, n) => {
       for (const s of SLOT_IDS) {
         const g = gearNumber(l[s]);
@@ -200,6 +203,10 @@ export function restoreTeams(p) {
         const worn = back.presets[back.preset];
         if (f % 32) worn.lent = f % 32;
         if (Math.floor(f / 32) % 32) worn.wish = Math.floor(f / 32) % 32;
+        back.presets.forEach((l, n) => {
+          const b = whole(c[`${LEND_MARK}${id}:${n}`]) % 32;
+          if (n !== back.preset && b) l.lent = b;
+        });
         Object.assign(u, back);
       }
     }
