@@ -52,6 +52,7 @@ try {
       const { createRng } = await import('/src/core/rng.js');
       const p = store.profile;
       grantUnit(p, 'kage', Date.now());
+      grantUnit(p, 'miko', Date.now());
       if (p.story) p.story.legacy = true;
       const rng = createRng(3);
       for (const slot of ['charm', 'ribbon']) gear.equipGear(p, 'kage', gear.addGear(p, gear.rollGear(rng, { slot, rarity: 'mythic', level: 4 })));
@@ -100,6 +101,11 @@ try {
       await noOverflow(page, W, `${tag} Stage Prep`);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/coach-stage-${tag}.png` });
     }
+
+    // an aura girl's damage path says why it follows her role (Miko, Purification: path 1)
+    await go('#/student/miko?tab=coach', '[data-testid="coach-tab"]');
+    await tap('[data-testid="coach-path-1"]');
+    check(/turn into her aura/.test(await page.locator('[data-testid="coach-basis"]').innerText()), `${tag} Miko's Purification: the aura note`);
 
     // ----- the home: her next step is a page of the news chip (no new element) -----
     await go('#/lobby', '[data-testid="lobby"]');

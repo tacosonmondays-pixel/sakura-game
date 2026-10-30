@@ -9,7 +9,7 @@ import { store } from '../core/store.js';
 import { navigate } from './router.js';
 import { UNIT_MAP } from '../data/units.js';
 import { getItem } from '../data/items.js';
-import { statName } from '../data/gearStats.js';
+import { statName, GEAR_FIT } from '../data/gearStats.js';
 import {
   mainGirl, setMain, clearMain, coachPaths, gearPlan, toMax, farmPlan, potentialPlan, buildScore, farmingHere,
 } from '../systems/buildCoach.js';
@@ -119,7 +119,7 @@ export function coachTab(unit, { onChange = () => {} } = {}) {
     g.set ? h('p.bc-line', { 'data-testid': 'coach-set' }, h('b', 'Set: '), `${g.set.name} (no cap on ${g.set.stat}), then ${g.set.nextName}`, h('span.bc-role', ' · by her role')) : null,
     g.pins ? h('p.bc-line', { 'data-testid': 'coach-pins' }, h('b', 'Pins: '), `Tie Pin on her ${g.pins.tieName}; Collar Pins on ${g.pins.collar.join(', ')}`) : null,
     g.lr ? h('p.bc-line', { 'data-testid': 'coach-lr' }, h('b', 'Limit Break: '), g.lr === 'blank' ? 'Blank LR (her best lines are capped stats)' : 'Set LR (keep her set)', h('span.bc-role', ' · by her role')) : null,
-    g.row ? h('p.bc-note', { 'data-testid': 'coach-basis' }, basisNote(g.row, g.est)) : null);
+    g.row ? h('p.bc-note', { 'data-testid': 'coach-basis' }, basisNote(g.row, g.est, unit.id)) : null);
 
   // Potential
   const potCard = card('Potential', { testid: 'coach-pot' },
@@ -133,9 +133,12 @@ export function coachTab(unit, { onChange = () => {} } = {}) {
 }
 
 /** What her plan stands on, said per ruler (review r1 M6). */
-function basisNote(row, est) {
+function basisNote(row, est, unitId) {
   if (row.ruler === 'hero') return 'A hero: her plan follows her role (heroes are not benched yet).';
   if (row.ruler === 'support') return 'Her worth on this path is her team: her plan follows her role, not a bench run.';
+  // an aura girl's damage lines feed her aura (GEAR_FIT fillTo, Every Line Counts): the bench's ATK step cannot move
+  // her own damage, by design
+  if (!row.measured && GEAR_FIT[unitId]?.fillTo === 'aura') return 'Her ATK, speed and crit lines turn into her aura, so her own damage on this path does not follow them: her plan follows her role.';
   if (!row.measured) return 'Her damage on this path barely answers a short bench run (it grows over a long fight): her plan follows her role.';
   const on = row.ruler === 'boss' ? 'a walking boss' : 'a crowd';
   return `Measured on ${on}${est.length ? `; ${est.join(' and ')} estimated (a short run cannot see ${est.length > 1 ? 'them' : 'it'})` : ''}.`;
