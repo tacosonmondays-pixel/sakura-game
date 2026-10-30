@@ -168,7 +168,7 @@ const battleReady = (page) => page.waitForFunction(() => window.__battle?.ui?.pl
 
 /**
  * The lobby's bottom-left EVENT card: the weekly Bounty strip, or, while a limited event runs
- * (Halloween: Oct 20 – Nov 8), that event's card in its place (src/ui/events/lobby.js). Which one is
+ * (Halloween: Oct 20 – Nov 22), that event's card in its place (src/ui/events/lobby.js). Which one is
  * there: 'event-strip', 'event-card' or null.
  */
 const eventEntry = (page) => page.waitForSelector('#app [data-testid="event-strip"], #app [data-testid="event-card"]', { timeout: 20000 })

@@ -20,7 +20,8 @@ const T = (iso) => Date.parse(iso);
 const DAY = 24 * 3600 * 1000;
 const MID = T('2026-10-25T18:00:00Z'); // Sun Oct 25 13:00 CDT (game day 2026-10-25)
 const RESET = gameDayEnd(gameDay(MID)); // Sun Oct 25 7 PM CDT
-const XEND = T('2026-11-09T01:00:00Z');
+const END = T('2026-11-16T01:00:00Z'); // Sun Nov 15, 7 PM CST: the operations close (extended two weeks, owner Oct 30)
+const XEND = T('2026-11-23T01:00:00Z'); // Sun Nov 22, 7 PM CST
 const COUNT = `${SWEEP_MARK}${EV.id}`;
 const DAYKEY = `${SWEEP_DAY_MARK}${EV.id}`;
 
@@ -85,7 +86,8 @@ describe('SW-2 a partial tap', () => {
     const p = farmer();
     go(p, 'ev-halloween-1', 10);
     expect(go(p, 'ev-halloween-1', 1, MID, 'nightmare').error).toBe('difficulty');
-    expect(go(p, 'ev-halloween-1', 1, T('2026-11-02T01:00:00Z')).error).toBe('event');
+    expect(go(p, 'ev-halloween-1', 1, END)).toMatchObject({ ok: false, error: 'event' });
+    expect(go(p, 'ev-halloween-1', 1, END - 60000)).toMatchObject({ ok: true, sweepsLeft: 9 }); // 6:59 PM: a new game day's 10
   });
 });
 
@@ -194,10 +196,10 @@ describe('SW-7 the settle', () => {
   });
 });
 
-// The owner's check: a grinder still affords the whole limited stock before the operations close (Nov 1, 7 PM
-// Central) with 10 sweeps a day plus played battles. Counted from the data, from the first full game day this build
-// can have (Oct 21; a later ship leaves fewer limited days but unlimited ones before). Played battles: one win per
-// medal and one Op 4 win a day (what the 250-kill daily needs; dailies assume it).
+// The owner's check: a grinder still affords the whole limited stock before the operations close (Nov 15, 7 PM
+// Central since the Oct 30 two-week extension; Nov 1 before) with 10 sweeps a day plus played battles. Counted from the
+// data, from the first full game day this build can have (Oct 21; a later ship leaves fewer limited days but unlimited
+// ones before). Played battles: one win per medal and one Op 4 win a day (what the 250-kill daily needs; dailies assume it).
 describe('SW-8 the economy', () => {
   const candy = (list) => (list || []).filter((r) => r.id === CANDY).reduce((a, r) => a + r.count, 0);
   const perWin = (stageId, d) => candy(rollStageDrops(stageId, d, createRng(1)));
@@ -210,7 +212,7 @@ describe('SW-8 the economy', () => {
     + EV.login.reduce((a, g) => a + candy(g), 0);
   const OPS = ['ev-halloween-1', 'ev-halloween-2', 'ev-halloween-3', 'ev-halloween-4'];
   const NORMAL_MISSIONS = ['hw_t_op1', 'hw_t_op2', 'hw_t_op3', 'hw_t_op4', 'hw_t_boss_n', 'hw_t_boss_h', 'hw_t_clear20', 'hw_t_read', 'hw_t_kill'];
-  /** Candy by Nov 1 and the smallest daily limit that still reaches the stock. */
+  /** Candy by Nov 15 and the smallest daily limit that still reaches the stock. */
   function plan({ nightmareOps, bossNightmare, missions, farm }) {
     const medals = OPS.reduce((a, id) => a + perWin(id, 'normal') + (nightmareOps.includes(id) ? perWin(id, 'nightmare') : 0), 0)
       + perWin('ev-halloween-boss', 'normal') + perWin('ev-halloween-boss', 'hard') + (bossNightmare ? perWin('ev-halloween-boss', 'nightmare') : 0);
@@ -222,7 +224,7 @@ describe('SW-8 the economy', () => {
 
   it('the stock, the days and the candy per sweep', () => {
     expect(stock).toBe(15800);
-    expect(days).toBe(12); // Oct 21 – Nov 1
+    expect(days).toBe(26); // Oct 21 – Nov 15 (12 days to Nov 1 before the extension)
     expect(daily).toBe(120);
     expect(base).toBe(150 + 1040 + 550);
     expect(OPS.map((id) => [perWin(id, 'normal'), perWin(id, 'nightmare')])).toEqual([[60, 120], [70, 140], [80, 160], [90, 180]]);
@@ -233,21 +235,21 @@ describe('SW-8 the economy', () => {
     const r = plan({ nightmareOps: OPS, bossNightmare: true, missions: EV.missions.total.map((m) => m.id), farm: 'nightmare' });
     expect(r.sweepCandy).toBe(180);
     expect(r.total).toBeGreaterThanOrEqual(stock);
-    expect(r.total).toBe(32260);
-    expect(r.smallest).toBe(3);
+    expect(r.total).toBe(61660); // 32,260 by Nov 1
+    expect(r.smallest).toBe(1); // 3 by Nov 1
   });
 
   it('a mid grinder (Op 4 Nightmare only, the Golem on Normal and Hard) too', () => {
     const r = plan({ nightmareOps: ['ev-halloween-4'], bossNightmare: false, missions: [...NORMAL_MISSIONS, 'hw_t_nm4', 'hw_t_nm_clear15'], farm: 'nightmare' });
-    expect(r.total).toBe(29740);
-    expect(r.smallest).toBe(4);
+    expect(r.total).toBe(59140); // 29,740 by Nov 1
+    expect(r.smallest).toBe(1); // 4 by Nov 1
   });
 
   it('even without any Nightmare, 10 a day on Op 4 Normal reaches the stock', () => {
     const r = plan({ nightmareOps: [], bossNightmare: false, missions: NORMAL_MISSIONS, farm: 'normal' });
     expect(r.sweepCandy).toBe(90);
-    expect(r.total).toBe(16980);
-    expect(r.smallest).toBe(9);
+    expect(r.total).toBe(32520); // 16,980 by Nov 1
+    expect(r.smallest).toBe(3); // 9 by Nov 1
     expect(r.smallest).toBeLessThanOrEqual(EVENT_SWEEPS_PER_DAY);
   });
 });

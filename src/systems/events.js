@@ -301,7 +301,7 @@ function dayLabel(key, startOfDay = false) {
   return `${MONTHS[m - 1]} ${d}`;
 }
 
-/** 'Oct 23 – Nov 1 · ends 7 PM Central' and 'Nov 8, 7 PM Central' strings, from the window. */
+/** 'Oct 19 – Nov 15 · ends 7 PM Central' and 'Nov 22, 7 PM Central' strings, from the window. */
 export function windowText(ev) {
   return {
     dates: `${dayLabel(ev.window.opens, true)} – ${dayLabel(ev.window.lastDay)} · ends 7 PM Central`,
@@ -678,6 +678,19 @@ function fill(text, vars) {
 }
 
 /**
+ * The event letters that expire (login gifts; an unclaimed-missions letter holding the currency) were stamped with the
+ * exchange end of the window they were sent in. When the window moves later (Halloween 2026: extended two weeks, owner
+ * Oct 30), the run's letters still unclaimed expire with the exchange again: moved to its new end, never earlier.
+ */
+function extendRunLetters(profile, ev, run, exchangeEndAt) {
+  const head = `ev:${ev.id}:${run}:`;
+  for (const l of Array.isArray(profile.mail?.letters) ? profile.mail.letters : []) {
+    if (!l || l.claimed || l.expiresAt == null || typeof l.id !== 'string' || !l.id.startsWith(head)) continue;
+    if (Number(l.expiresAt) < exchangeEndAt) l.expiresAt = exchangeEndAt;
+  }
+}
+
+/**
  * Idempotent end-of-event work, from app start and the reset clock:
  * - at endAt: one letter with every finished but unclaimed mission reward (expires with the exchange
  *   when it holds event currency). A player first back after exchangeEndAt gets it without the
@@ -690,6 +703,8 @@ function fill(text, vars) {
  *   drops those missions' progress and marks with it: nothing is left to recover then.)
  * - at exchangeEndAt: the leftover currency is removed and mailed back as coins; `settled` is set
  *   (final: a clock rolled back never reopens it) and the state is pruned.
+ * - first, while the run is open: its unclaimed letters stamped with an earlier exchange end (sent before the window
+ *   moved later, as Halloween 2026 did on Oct 30) expire with the exchange again (extendRunLetters).
  * @returns {{ letters: object[], settled: string[] }}
  */
 export function settleEvents(profile, now = Date.now()) {
@@ -701,6 +716,7 @@ export function settleEvents(profile, now = Date.now()) {
     const st = peekState(profile, ev.id);
     if (st?.settled) continue;
     const w = eventWindow(ev);
+    if (st) extendRunLetters(profile, ev, st.run, w.exchangeEndAt);
     const cur = ev.currency.id;
     let lateCurrency = 0; // the unclaimed missions' currency when the exchange had already closed
     if (t >= w.endAt && st) {

@@ -2663,7 +2663,8 @@ that imports the event systems (save, rewards) has the stages. Event stages neve
 `eventAfterBattle`, `trackEvent`, `missionRows` / `claimEventMission` / `claimAllEventMissions`, `markEventLogin`
 (login mission + gift letter, once per game day), `shopRows` / `buyEventOffer`, `eventCosmetics`, `episodeRows` /
 `readEpisode`, `settleEvents` (endAt: unclaimed mission rewards by mail; exchangeEndAt: leftover currency →
-coins by mail, `settled`, state pruned). `applyBattleResult(profile, result, rng, { now, eventAt, startedAt })`
+coins by mail, `settled`, state pruned; while the run is open, its unclaimed letters stamped with an earlier
+exchange end, sent before the window moved later, expire with the current exchange end). `applyBattleResult(profile, result, rng, { now, eventAt, startedAt })`
 calls the gate and `eventAfterBattle`; `canSweep(profile, id, now)` / `sweep` handle event operations.
 
 **Save** — `profile.events = { v: 1, byId: { [eventId]: { run, joinedAt, read, daily: { day, progress, claimed },

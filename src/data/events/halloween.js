@@ -28,7 +28,10 @@ export default {
   // Open at ship (owner, Oct 20: "Open the event as soon it ships pls"): any game day already past when
   // v0.1.38 deploys works; it was '2026-10-24' (Fri Oct 23, 7 PM Central). The tease days before it are
   // in the past at ship, so no player ever sees the 'upcoming' phase.
-  window: { opens: '2026-10-20', lastDay: '2026-11-01', exchangeLastDay: '2026-11-08' },
+  // Extended two weeks (owner, Oct 30: "Halloween extended 2 weeks"): lastDay was '2026-11-01' (Sun Nov 1, 7 PM
+  // Central) and exchangeLastDay '2026-11-08'; both are 14 days later. Daylight time ends Nov 1, so the new ends are
+  // 7 PM CST: 2026-11-16T01:00Z and 2026-11-23T01:00Z (src/core/reset.js gameDayEnd).
+  window: { opens: '2026-10-20', lastDay: '2026-11-15', exchangeLastDay: '2026-11-22' },
   teaseDays: 3,
   unlock: { stage: '1-5' },
   // lobbyBackdrop: painted behind every girl's stand while the event runs (public/art/lobby/, + thumbs/); owner, Oct 24:
@@ -37,7 +40,7 @@ export default {
   music: 'battle_lantern',
   currency: {
     id: CANDY, name: 'Pumpkin Candy', plural: 'Pumpkin Candy',
-    desc: 'Earned at the Pumpkin Lantern Night event. Spend it in the Candy Exchange before Nov 8, 7 PM Central; leftovers become coins (50 each).',
+    desc: 'Earned at the Pumpkin Lantern Night event. Spend it in the Candy Exchange before Nov 22, 7 PM Central; leftovers become coins (50 each).',
     icon: { shape: 'candy', color: '#f28c28', accent: '#9d4edd' },
     leftover: { to: 'coins', rate: 50 },
   },
@@ -214,7 +217,8 @@ export default {
   ],
 
   // One gift per game day the player visits (the nth gift on the nth visiting day), sent to the Mailbox on
-  // the first visit that day. Nine gifts in a 13-day event, so a few missed days cost nothing.
+  // the first visit that day. Nine gifts in a 27-day event (13 days before the Oct 30 extension), so a few missed
+  // days cost nothing.
   login: [
     [{ id: CANDY, count: 100 }, { id: 'gems', count: 50 }],
     [{ id: CANDY, count: 50 }, { id: 'book_rare', count: 3 }],
@@ -230,9 +234,9 @@ export default {
   notice: {
     title: 'Pumpkin Lantern Night',
     body: [
-      'The academy\'s autumn lantern festival is here — and the monsters have shown up in costumes! Join the Trick-or-Treat Patrol until Nov 1 (7 PM Central).',
+      'The academy\'s autumn lantern festival is here — and the monsters have shown up in costumes! Join the Trick-or-Treat Patrol until Nov 15 (7 PM Central).',
       'Read three short episodes, clear four night operations for Pumpkin Candy, and calm the Gourdlight Golem. Operations play on Normal or Nightmare; the Golem on Normal, Hard or Nightmare.',
-      'Spend candy in the Candy Exchange until Nov 8 on a title, a frame, gear boxes, books and tickets. A small gift arrives in your Mailbox on each day you visit, nine in all. Nothing here costs real money.',
+      'Spend candy in the Candy Exchange until Nov 22 on a title, a frame, gear boxes, books and tickets. A small gift arrives in your Mailbox on each day you visit, nine in all. Nothing here costs real money.',
     ],
     cta: 'Go to the festival',
   },
@@ -250,7 +254,7 @@ export default {
     },
     unclaimed: {
       title: 'You left these at the candy table!',
-      body: 'The operations are over, but some finished missions still had rewards waiting. Here they are. The Exchange stays open until Nov 8, 7 PM Central.',
+      body: 'The operations are over, but some finished missions still had rewards waiting. Here they are. The Exchange stays open until Nov 22, 7 PM Central.',
       // a player first back after the Exchange closed: the missions' candy joined the leftover coins
       lateBody: 'The festival is over, but some finished missions still had rewards waiting. Here they are. The Exchange has closed, so their Pumpkin Candy went into your leftover candy and became coins.',
     },

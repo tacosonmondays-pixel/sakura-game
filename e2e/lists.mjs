@@ -505,7 +505,7 @@ async function offSeason(page, vp) {
   const bandUp = await page.evaluate(() => document.querySelector('#app [data-testid="happening-offseason"] .ui-offseason-date')?.textContent || '');
   check(/^Opens [A-Z][a-z]{2} \d{1,2}$/.test(bandUp), `happening: before it opens, the band gives the next date ("${bandUp}")`);
   // after the event and its exchange closed
-  await devClock(page, '2026-11-20T18:00:00Z');
+  await devClock(page, '2026-12-04T18:00:00Z');
   await go(page, '#/rewards', 'rewards');
   const band = await page.evaluate(() => {
     const b = document.querySelector('#app [data-testid="happening-offseason"]');

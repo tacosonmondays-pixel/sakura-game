@@ -11,6 +11,10 @@ describe('game-day bounds', () => {
     expect(iso(gameDayEnd('2026-11-01'))).toBe('2026-11-02T01:00:00.000Z'); // Sun Nov 1 19:00 CST
     expect(iso(gameDayEnd('2026-11-08'))).toBe('2026-11-09T01:00:00.000Z'); // Sun Nov 8 19:00 CST
     expect(iso(gameDayStart('2026-10-17'))).toBe('2026-10-17T00:00:00.000Z');
+    // extended two weeks (owner, Oct 30): opens at ship, operations to Nov 15, the exchange to Nov 22
+    expect(iso(gameDayStart('2026-10-20'))).toBe('2026-10-20T00:00:00.000Z'); // Mon Oct 19 19:00 CDT
+    expect(iso(gameDayEnd('2026-11-15'))).toBe('2026-11-16T01:00:00.000Z'); // Sun Nov 15 19:00 CST
+    expect(iso(gameDayEnd('2026-11-22'))).toBe('2026-11-23T01:00:00.000Z'); // Sun Nov 22 19:00 CST
   });
 
   it('the 25 h fall-back day and the 23 h spring-forward day', () => {

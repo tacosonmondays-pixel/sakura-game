@@ -17,7 +17,7 @@ const CANDY = 'evt_halloween_candy';
 const T = (iso) => Date.parse(iso);
 const DAY = 24 * 3600 * 1000;
 const MID = T('2026-10-25T18:00:00Z'); // Sun Oct 25 13:00 CDT
-const XEND = T('2026-11-09T01:00:00Z');
+const XEND = T('2026-11-23T01:00:00Z'); // Sun Nov 22, 7 PM CST (extended two weeks, owner Oct 30)
 
 /** A save that has cleared 1-5 (the event's unlock). */
 function joined() {
@@ -184,15 +184,15 @@ describe('HW-2 a dropped events block keeps stock limits, one-time claims, progr
 });
 
 describe('HW-3 an unclaimed-missions letter is never born expired', () => {
-  const NOV1 = T('2026-11-01T18:00:00Z');
-  /** Ops 1-4 and the boss on Normal and Hard, 20 operation wins on Nov 1, nothing claimed, candy spent. */
+  const LAST_DAY = T('2026-11-15T18:00:00Z'); // Sun Nov 15, noon CST: the operations' last day
+  /** Ops 1-4 and the boss on Normal and Hard, 20 operation wins on the last day, nothing claimed, candy spent. */
   function leftUnclaimed() {
     const p = joined();
-    const at = (s, d) => play(p, s, d, NOV1);
-    readEpisode(p, EV.id, 'ev.halloween.01', NOV1);
+    const at = (s, d) => play(p, s, d, LAST_DAY);
+    readEpisode(p, EV.id, 'ev.halloween.01', LAST_DAY);
     at('ev-halloween-1', 'normal');
     at('ev-halloween-2', 'normal');
-    readEpisode(p, EV.id, 'ev.halloween.02', NOV1);
+    readEpisode(p, EV.id, 'ev.halloween.02', LAST_DAY);
     at('ev-halloween-3', 'normal');
     at('ev-halloween-4', 'normal');
     at('ev-halloween-boss', 'normal');
@@ -205,7 +205,7 @@ describe('HW-3 an unclaimed-missions letter is never born expired', () => {
 
   it('back during the exchange: one letter with candy, gems, book and ticket, expiring with the exchange', () => {
     const p = leftUnclaimed();
-    const at = T('2026-11-03T18:00:00Z');
+    const at = T('2026-11-17T18:00:00Z'); // Tue Nov 17: the exchange days
     settleEvents(p, at);
     const l = unclaimed(p, at);
     expect(l.expiresAt).toBe(XEND);
@@ -215,12 +215,13 @@ describe('HW-3 an unclaimed-missions letter is never born expired', () => {
 
   it('first back after the exchange closed: the letter keeps gems, book and ticket with no expiry; its candy becomes coins', () => {
     const ref = leftUnclaimed();
-    settleEvents(ref, T('2026-11-03T18:00:00Z'));
-    const candy = unclaimed(ref, T('2026-11-03T18:00:00Z')).rewards.find((r) => r.id === CANDY).count;
+    settleEvents(ref, T('2026-11-17T18:00:00Z'));
+    const candy = unclaimed(ref, T('2026-11-17T18:00:00Z')).rewards.find((r) => r.id === CANDY).count;
     expect(candy).toBeGreaterThan(0);
 
     const p = leftUnclaimed();
-    const at = T('2026-11-10T18:00:00Z');
+    const at = T('2026-11-24T18:00:00Z'); // Tue Nov 24: the exchange has closed
+    expect(at).toBeGreaterThan(XEND);
     const gems = p.currencies.gems;
     const { letters, settled } = settleEvents(p, at);
     expect(settled).toEqual(['halloween-2026']);

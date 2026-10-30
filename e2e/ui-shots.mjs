@@ -146,14 +146,14 @@ const SHOTS = {
   },
   happening: { hash: '#/rewards', ready: isScreen('rewards'), kind: 'list', seed: 'm5' },
   // nothing limited running (E9): the dev clock after the Halloween exchange closed (src/ui/events/clock.js)
-  'happening-empty': { hash: '#/rewards', ready: isScreen('rewards'), kind: 'list', seed: 'm5', devNow: '2026-11-20T18:00:00Z' },
+  'happening-empty': { hash: '#/rewards', ready: isScreen('rewards'), kind: 'list', seed: 'm5', devNow: '2026-12-04T18:00:00Z' },
   settings: { hash: '#/settings', ready: isScreen('settings'), kind: 'list', seed: 'm5' },
   'settings-display': { hash: '#/settings?section=display', ready: isScreen('settings'), kind: 'list', seed: 'm5', open: settingsSection('display', 'Display') },
   'settings-audio': { hash: '#/settings?section=audio', ready: isScreen('settings'), kind: 'list', seed: 'm5', open: settingsSection('audio', 'Audio') },
   recruit: { hash: '#/recruit', ready: isScreen('recruit'), seed: 'm5' },
   'event-halloween': { hash: '#/event/halloween-2026', ready: isScreen('event'), seed: 'm5', resolve: eventHash },
   // the event page after the event and its exchange closed (E9 on the ended phase), on the dev clock
-  'event-halloween-ended': { hash: '#/event/halloween-2026', ready: isScreen('event'), seed: 'm5', resolve: eventHash, devNow: '2026-11-20T18:00:00Z' },
+  'event-halloween-ended': { hash: '#/event/halloween-2026', ready: isScreen('event'), seed: 'm5', resolve: eventHash, devNow: '2026-12-04T18:00:00Z' },
   // the Multiplayer hub comes in M5d: until its route exists, its "before" is the co-op hub it replaces. `multiplayer`
   // is signed in on the local test server with one open invite from a friend (uiSeed.mjs seedOnlineInvite);
   // `multiplayer-empty` is a player who never went online (no account, no invites: goOffline)
