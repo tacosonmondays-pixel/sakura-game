@@ -1850,6 +1850,45 @@ render:       actors.js projectile kinds 'charm', 'crescent'; groundShapes.js dr
   `tollCd ?? 1`, each only while present. Battle saves: `shapeDealt` snap, `_struck` / `_lead` scratch, `wheelK` / `tolls` calm;
   traps keep their row (tollCd is 1 at every calm point).
 
+### Attack shapes S5b (`docs/specs/ATTACK_SHAPES_S5.md` §3.1, §3.2, §3.4; branch `feature/attack-shapes-s5`)
+
+```js
+s5shapes.js:  mistTick(sim, t), moonTick(sim, t)   // updateTower, after her attack loop (t.mist / t.moon)
+              moonDir(m, b)                        // beam b's table direction in a pass (the renderer reads it too)
+              webStep(sim)                         // Sim._step1 beside tetherStep, while sim.statics holds a web
+status.js / enemies.js: the `spore` status (Midori's Spore Mist)
+render:       attackFx/patterns/s5held.js drawS5Held (mist puffs, moonbeam bands); linkShapes.js drawStatics (web lines);
+              actors.js STATUS_ICONS.spore (the poison icon; one icon when an enemy has both)
+```
+- The S5 rules of S5a apply. `t._struck` / `t._lead` also exist on a girl with `mist`, `moon` or `web`; `t._chain` (enemies, her
+  first bolt's `cur` walk) on a girl with `web`, filled by attackChain; attackBeam's `t._lead` is her first target.
+- Spore Mist (kit `mist { half, len, cap, mul, dot }`): her counted attack aims `t.mist { uid, k, tick, grace }` (integers) at
+  the enemy whose cone (half-angle `half` table steps, reach `len` × her range) holds the most eligible enemies (her lead and
+  the CRESCENT_AIMS nearest within reach by (d², uid); ties to the direction nearest her lead, then the lower index). mistTick
+  turns k toward it (MIST_TURN a step) while it is alive, eligible and in her range, else counts `grace` (at MIST_GRACE the
+  mist ends: event `mist { targetUid: null }`); every MIST_TICK steps the eligible enemies in the cone, at most `cap` by (d², uid),
+  take `shapeSpec(eff, mul × rate × MIST_TICK × STEP)` × streamFalloff, with `status: [spore]`: her strongest poison's dps and
+  pct × `dot` for its duration. Sabotage, a Move and the wave clear end the mist.
+- `spore` (status.js: the burn / poison branch, STATUS_ELEMENT poison; merges only with spore): ticks in updateEnemy through
+  `sim._dot(e, 'poison', …)` (poison's damage rules and credit); `_dot` adds a spore tick to `t.shapeDealt`. Nothing else reads
+  it: not the siphon or regen blocks, spreadDot, Catalyst Burst or its Auto count, nor the poison merge.
+- Moonbeam Sweep (kit `moon { beams, arc, mul }`; Luna's hero levels): each counted volley starts `t.moon { c, side, arc, i, P,
+  hits: [[uid…] per beam], n: [per beam] }`: c = her lead's direction, side alternating, P = min(MOON_PASS, round(1 / (rate ×
+  STEP))). moonTick advances i; every MOON_TICK steps (and at i = P) each beam (`moonDir`: c ± the integer offset
+  −side·arc + floor(2·side·arc·i / P), the second beam mirrored) strikes the eligible enemies within MOON_HALF_WIDTH of it not in
+  its list, nearest first by (d², uid), at most her pierce a pass, each `shapeSpec(eff, mul)`. Each list starts as a copy of
+  `t._struck` (her volley's victims). A finished pass idles (drawn MOON_LINGER steps more). Sabotage, a Move and the wave clear
+  end it. Event `moon { towerUid, k, side, beams, P }`.
+- Static Web (kit `web { dur, every, share }`): after a counted attack, if her lead (t._chain[0]) is in one of her webs its `left`
+  is refreshed; else a web of the chain's enemies not in any web (at most STATIC_MEMBERS, at least two) joins `sim.statics`
+  (created on the first web) `{ uid, owner, m, left, zapCd, every, share }`; STATIC_PER_GIRL (her oldest goes) and STATIC_PER_SIM
+  (no new web). webStep: a sold owner's web or one whose `left` runs out ends; when `zapCd` reaches 0 the members that died, went
+  into a tunnel or stand past (CHAIN_JUMP_RANGE + splash) × STATIC_REACH from the one before drop out (fewer than two: the web
+  ends), then each takes `shapeSpec(eff, share × rate × every × STEP)`; past STATIC_ZAPS_PER_STEP a web's zap waits a step.
+  Events `web { towerUid, uid, members, left }`, `zap { towerUid, uid, n }`. Webs survive her sabotage; the wave clear ends them.
+- hashSim folds `t.mist`, `t.moon` (its integers and lists) and `sim.statics` (uid, owner, left, zapCd, members) only while
+  present. Battle saves: `mist` / `moon` calm, `_chain` scratch (towers); `statics` calm (the Sim).
+
 ### Roster B3 mechanics (track 5; `docs/merge/ROSTER_SPEC.md` §6, `docs/merge/ROSTER_WAVE_NOTES.md`)
 
 ```js
