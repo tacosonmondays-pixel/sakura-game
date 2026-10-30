@@ -76,7 +76,7 @@
 //   econ    coins (× the difficulty's coin rate and the mode's income rate; owner-credited)
 //   deploy  deploy ('strips' Azami, 'sentries' Yuzuha, 'double' Kage, 'trap' Suzu, 'drone' Chika (src/sim/deploys.js),
 //           'mirror' Iroha (src/sim/mirrors.js)), count, spacing (tiles between doubles), dmgMul, arm (s), hits, reachMul,
-//           reflect / permanentReflect (Iroha's mirror)
+//           reflect / permanentReflect / web (Iroha's mirrors: they reflect allies' shots; the Laser Web)
 //   runner  runner ('giantBall' Marumi; 'river' with A6), length, speed (tiles), segments, gap, dmgMul, knockback,
 //           allPaths, toSpawn, push, status
 //   boost   (a status-only splash rider, A5: Kanna) splashArmor { radius, shred }, status
@@ -498,12 +498,13 @@ export const ABILITIES = deepFreeze({
     t5: { cooldown: 42, duration: 14, effect: { lifeMax: 5 } },
   }],
   iroha: [{
-    // (an aimed deploy and the mirror redirect, A6) her mirror panel jumps to the aim point (or the road spot nearest
-    // the leader in her reach) and splits every ally projectile that crosses it, once each, while it lasts
-    path: 'hall', unlockTier: 3, id: 'iroha.mirrorShift', kind: 'deploy', scope: 'local', cooldown: 30, duration: 8,
-    effect: { deploy: 'mirror', count: 1, reflect: true },
+    // Laser Web (docs/specs/IROHA_MIRRORS.md §5; the id is Mirror Shift's, kept for saves and casts): beams join every
+    // pair of her mirrors and hit what crosses them every 0.2 s; her mirrors reflect allies' shots while it runs
+    // (tier 5, Infinite Reflection: for good, src/sim/mirrors.js)
+    path: 'hall', unlockTier: 3, id: 'iroha.mirrorShift', kind: 'deploy', scope: 'local', cooldown: 30, duration: 6,
+    effect: { deploy: 'mirror', web: true, dmgMul: 0.8, reflect: true },
     auto: { when: 'enemies', min: 5 },
-    t5: { cooldown: 25, duration: 10, effect: { count: 2, permanentReflect: true } },
+    t5: { cooldown: 25, duration: 9, effect: { dmgMul: 2, permanentReflect: true } },
   }],
   ena: [{
     // every enemy within 1.5× her range is cursed: it rots for 60% of her current hit a second and passes the hex on

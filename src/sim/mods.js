@@ -501,6 +501,25 @@ function normLastLine(l = {}) {
  * @param {object[]} list mutated
  * @param {object[]} specs
  */
+
+/**
+ * A girl's relay (ROSTER_SPEC §6.2: a familiar or a mirror). A mirror girl (Iroha) also carries her network
+ * (docs/specs/IROHA_MIRRORS.md §4): mirrors, bounces per bolt, damage per bounce, a bounce splash, shards per bounce and
+ * the bounces an ally's reflected shot makes.
+ */
+function normRelay(r) {
+  const o = { kind: r.kind, reach: r.reach ?? 3 };
+  if (r.kind === 'mirror') {
+    o.mirrors = r.mirrors ?? 2;
+    o.bounces = r.bounces ?? 2;
+    o.bounceMul = r.bounceMul ?? 0;
+    o.bounceSplash = r.bounceSplash ?? 0;
+    o.shards = r.shards ?? 0;
+    o.allyBounces = r.allyBounces ?? 1;
+  }
+  return o;
+}
+
 export function mergeStatusList(list, specs) {
   for (const spec of specs || []) {
     if (!spec || !spec.type) continue;
@@ -566,7 +585,7 @@ export function normalizeBase(base = {}, unitDef = {}) {
     airMul: b.airMul ?? 1,
     gather: b.gather ?? 0,
     // both: she also fires from her own spot (Iroha's two firing points)
-    relay: b.relay ? { kind: b.relay.kind, reach: b.relay.reach ?? 3, ...(b.relay.both ? { both: true } : {}) } : null,
+    relay: b.relay ? normRelay(b.relay) : null,
     // new girls (UNIT_GAPS §5): present only on a girl whose base declares the block
     ...(b.strip ? { strip: normStrip(b.strip) } : null),
     ...(b.ring ? { ring: normRing(b.ring) } : null),
@@ -837,8 +856,17 @@ export function applyModSet(s, mods, acc) {
     } else if (key === 'lastLine') {
       s.lastLine = normLastLine(v); // replace: one Last Line
     } else if (key === 'relay') {
-      // only a girl who already has a familiar / mirror can extend its reach
-      if (s.relay) s.relay.reach += v.reach ?? 0;
+      // only a girl who already has a familiar / mirror can extend its reach; Iroha's mirror network (docs/specs/
+      // IROHA_MIRRORS.md §4): her mirror count and ally bounces keep the most, the bounce numbers add up
+      if (s.relay) {
+        s.relay.reach += v.reach ?? 0;
+        if (s.relay.kind === 'mirror') {
+          const r = s.relay;
+          if (v.mirrors != null) r.mirrors = Math.max(r.mirrors, v.mirrors);
+          if (v.allyBounces != null) r.allyBounces = Math.max(r.allyBounces, v.allyBounces);
+          for (const f of ['bounces', 'bounceMul', 'bounceSplash', 'shards']) if (v[f] != null) r[f] += v[f];
+        }
+      }
     } else if (key === 'dotMul') {
       // Tryout Day's Weather Report (src/sim/tryout/pep.js): her burns and poisons × v (absent everywhere else)
       for (const list of [s.status, s.trap?.status, s.turret?.status]) {

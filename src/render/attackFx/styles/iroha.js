@@ -1,12 +1,11 @@
-// Iroha (projectile ×2 from her mirror panel and from herself). Signature "Mirror bolts": each
-// bolt is a silver glint with a plum trail. Every bolt that leaves the panel is reported to the panel's
-// own animation (src/render/mirrorFx.js via ctx.mirrors, drawn by src/render/rosterFx.js): the glass
-// flips toward the shot, a glint sweeps it and a small flash marks where the bolt left (rate-limited
-// there); her hand flashes when she fires too.
-//   P1+ T3: a second, wider plum trail (as before)
-//   Mirror Shift (her Mirror Hall ⚡) running: the panel shows a ghost echo (mirrorFx); the split shots are the sim's
-//      own copies (src/sim/mirrors.js: allies' shots crossing the glass), drawn like any bolt, so nothing is faked here
-//      (her panel bolts never split: they are born split)
+// Iroha (her mirror network, src/sim/mirrors.js). Signature "Mirror bolts": each bolt is a silver glint with a plum
+// trail. Her bolts leave her hand and bounce from mirror to mirror; each bounce is drawn by src/render/rosterFx.js (the
+// sim's 'mirrorBounce': the leg just flown as a bright line, a glint on that glass, her first mirror flipping toward
+// it through src/render/mirrorFx.js), and the Laser Web's beams too. The bolts themselves are the sim's projectiles,
+// drawn where they really fly, so nothing is faked here.
+//   P1+ T3: a second, wider plum trail
+//   Laser Web (her Mirror Hall ⚡) running: her first mirror shows a ghost echo (mirrorFx); allies' split shots are the
+//      sim's own copies, drawn like any bolt
 //   P2 Shattered Glass: her splash hits scatter glinting glass shards, more with each tier —
 //      Splintered Glass (T2) 3, Glass Shards (T3) 5 + a glitter ring, Glass Storm (T4) 7 + sparkles,
 //      Kaleidoscope Burst (T5) 9 + a kaleidoscope flare (six blades blooming out, a turning star);
@@ -155,6 +154,17 @@ export const iroha = {
 
   // her two firing points: the sim spawn S is wherever this bolt really started (mirror or her)
   origin(p, t, idx, n, rec, ctx) {
+    // her routed bolts (src/sim/mirrors.js) always leave her hand; their mirrors turn through the 'mirrorBounce' events
+    // (src/render/rosterFx.js), so no panel kick here
+    if (p.mirrorOf != null && p.ownerUid === t.uid) {
+      const h = hand(ctx, t);
+      rec.sx = t.x;
+      rec.sy = t.y;
+      rec.mx = h.x;
+      rec.my = h.y;
+      rec.mz = h.h;
+      return true;
+    }
     const vl = Math.hypot(p.vx, p.vy) || 1;
     const sx = p.x - (p.vx / vl) * (p.travel || 0);
     const sy = p.y - (p.vy / vl) * (p.travel || 0);

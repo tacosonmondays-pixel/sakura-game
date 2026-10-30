@@ -1280,6 +1280,107 @@ describe('the new girls in a battle save: Ouka\'s banners (UNIT_GAPS §7.3)', SL
   });
 });
 
+/** Iroha at Mirror Hall tier 5 on 1-1 with mirrors 0 and 2 placed, mid-cast in wave 1 (her Laser Web running). */
+function irohaRun() {
+  const c = { stageId: '1-1', difficulty: 'normal', towers: ['iroha', 'aoi'], hero: null, stats: {}, seed: 15 };
+  const sim = makeSim(c);
+  wrapWaves(sim, c.seed);
+  sim.cash = 1e6;
+  for (const a of autoPlan('1-1', ['iroha', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+  const iro = sim.towers.find((t) => t.unitId === 'iroha');
+  for (let k = 0; k < 5; k++) expect(sim.upgradeTower(iro.uid, 0)).toBe(true);
+  expect(iro.mirrors).toHaveLength(5);
+  // (both near their road spots, so the leaders pass them)
+  expect(sim.setAim(iro.uid, iro.mirrors[0].x + 0.25, iro.mirrors[0].y, 0)).toBe(true);
+  expect(sim.setAim(iro.uid, iro.mirrors[2].x, iro.mirrors[2].y - 0.25, 2)).toBe(true);
+  sim.startNextWave();
+  for (let i = 0; i < 60 * 60 && !(iro.abil.active > 0); i++) {
+    sim.update(STEP);
+    sim.drainEvents();
+    if (iro.abil.cd > 0) iro.abil.cd = 0;
+    if (sim.enemies.length) sim.castAbility(iro.uid);
+  }
+  expect(iro.abil.active).toBeGreaterThan(0);
+  return { c, sim, iro };
+}
+
+describe('Iroha\'s mirror network in a battle save (docs/specs/IROHA_MIRRORS.md §6)', SLOW, () => {
+  it('the mirrors her player placed come back on their slots; the Auto ones follow the road; the battle plays on the same', () => {
+    const { c, sim, iro } = irohaRun();
+    while (sim.state === 'wave') {
+      sim.update(STEP);
+      sim.drainEvents();
+    }
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((t) => t.u === 'iroha');
+    expect(row.mr).toEqual([[iro.mirrorAim[0].x, iro.mirrorAim[0].y], 0, [iro.mirrorAim[2].x, iro.mirrorAim[2].y], 0, 0]);
+    const { sim: back, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    const bi = back.towers.find((t) => t.unitId === 'iroha');
+    expect(bi.mirrorAim).toEqual(iro.mirrorAim);
+    expect(bi.mirrors).toEqual(iro.mirrors);
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+    // both play the next wave the same
+    wrapWaves(back, c.seed);
+    for (const s of [sim, back]) {
+      s.startNextWave();
+      while (s.state === 'wave') {
+        s.update(STEP);
+        s.drainEvents();
+      }
+    }
+    expect(hashSim(back)).toBe(hashSim(sim));
+  });
+});
+
+describe('Iroha\'s placed mirrors come back exactly (review r3 MEDIUM-1)', SLOW, () => {
+  /** Iroha at Mirror Hall tier 5 on 1-1 (five mirrors), placed in `order` at random spots around her; a calm point. */
+  function layout(seed) {
+    const c = { stageId: '1-1', difficulty: 'normal', towers: ['iroha', 'aoi'], hero: null, stats: {}, seed: 15 };
+    const sim = makeSim(c);
+    sim.cash = 1e6;
+    const a = autoPlan('1-1', ['iroha'], { maxCopies: 1 }).find((x) => x.action === 'place');
+    const t = sim.placeTower('iroha', a.x, a.y);
+    for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, 0);
+    const rng = createRng(seed);
+    const order = [0, 1, 2, 3, 4].sort(() => rng.next() - 0.5);
+    for (const k of order) sim.setAim(t.uid, t.x + (rng.next() * 2 - 1) * 4, t.y + (rng.next() * 2 - 1) * 4, k);
+    return { c, sim, t };
+  }
+
+  it('over 40 random layouts placed in random slot orders: the same spots, mirrors and battle hash after a restore', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const { c, sim, t } = layout(seed);
+      // every placed spot on the 1/1024 grid and inside her reach
+      for (const m of t.mirrorAim) {
+        expect(m.x * 1024).toBe(Math.round(m.x * 1024));
+        expect(Math.hypot(m.x - t.x, m.y - t.y)).toBeLessThanOrEqual(t.stats.relay.reach);
+      }
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      const { sim: back } = restoreSim(recordOf(c, snap));
+      const bt = back.towers.find((x) => x.unitId === 'iroha');
+      expect(bt.mirrorAim, `seed ${seed}`).toEqual(t.mirrorAim);
+      expect(bt.mirrors, `seed ${seed}`).toEqual(t.mirrors);
+      expect(hashSim(back), `seed ${seed}`).toBe(hashSim(sim));
+    }
+  });
+
+  it('an older save\'s `am` (her one panel) becomes her mirror 0', () => {
+    const { c, sim, t } = layout(3);
+    sim.clearAim(t.uid);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((x) => x.u === 'iroha');
+    expect('mr' in row).toBe(false);
+    const g = (v) => Math.round(v * 1024) / 1024;
+    row.am = [g(t.x + 1), g(t.y + 0.5)];
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    const bt = back.towers.find((x) => x.unitId === 'iroha');
+    expect(bt.mirrorAim[0]).toEqual({ x: row.am[0], y: row.am[1] });
+    expect(bt.mirrorAim.slice(1).every((m) => m === null)).toBe(true);
+    expect(bt.mirrors[0]).toEqual(bt.mirrorAim[0]);
+  });
+});
+
 /** The legal spot for `unitId` nearest girl `o` (a 0.25-tile scan of the map), or null. */
 function spotNear(sim, unitId, o) {
   let best = null;
@@ -1745,18 +1846,8 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of duoRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the staff heroes: Norika's barricades, Hold the Line and One-Way Street; Kogane's Overdrive)
     for (const id of ['norika', 'kogane']) for (const t of staffRun(id, 25).sim.towers) for (const k of Object.keys(t)) keys.add(k);
-    // (and Iroha at Mirror Hall tier 5 mid-cast: Infinite Reflection's second mirror, gone at the wave clear)
-    const ir = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['iroha', 'aoi'], hero: null, stats: {}, seed: 15 });
-    ir.cash = 1e6;
-    for (const a of autoPlan('1-1', ['iroha', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') ir.placeTower(a.unitId, a.x, a.y);
-    const iro = ir.towers.find((t) => t.unitId === 'iroha');
-    for (let k = 0; k < 5; k++) expect(ir.upgradeTower(iro.uid, 0)).toBe(true);
-    ir.startNextWave();
-    ir.update(STEP);
-    iro.abil.cd = 0;
-    expect(ir.castAbility(iro.uid, { aim: [iro.ox, iro.oy] }).ok).toBe(true);
-    expect(iro.mirror2).toBeTruthy();
-    for (const t of ir.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Iroha at Mirror Hall tier 5 mid-cast with a mirror placed: her placed slots and her mirrors)
+    for (const t of irohaRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the attack shapes S5 mid-wave: Miko's wheel turn, Suzu's toll rings, Midori's mist, Luna's moonbeam pass, Raika's
     // first-bolt chain, the attack scratch and shape damage)
     const s5Keys = new Set();

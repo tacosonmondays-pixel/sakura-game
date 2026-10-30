@@ -29,7 +29,7 @@ import { attackHeld, heldTick, heldOff } from './held.js';
 import { hitRadius } from './shapes.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
 import { sentryTick } from './sentries.js';
-import { collectMirrors, reflectStep } from './mirrors.js';
+import { collectMirrors, reflectStep, routeBolt, routeStep, syncMirrors, stepStart as mirrorStepStart, updateWebs, MIRROR_BOLT_SPEED } from './mirrors.js';
 import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick, vineObjects } from './vines.js';
 import { attackSpikes, sendQuake, groundTick } from './ground.js';
@@ -858,22 +858,41 @@ function projExtra(t, n, f) {
 }
 
 function attackProjectile(sim, t) {
-  // (a shot leaving a mirror panel is born split, src/sim/mirrors.js: a panel shot never splits, so two panels stacked
-  // on one spot cannot double each other's)
-  const first = volleyFrom(sim, t, t.ox, t.oy, t.stats.relay?.kind === 'mirror' && !!t.origin);
-  // a mirror girl with two firing points (Iroha, UNIT_GAPS §4.1): she also fires from where she stands
-  const second = t.stats.relay?.both && t.origin && (t.ox !== t.x || t.oy !== t.y) ? volleyFrom(sim, t, t.x, t.y) : null;
-  const lead = first || second;
+  // Iroha's mirror network (docs/specs/IROHA_MIRRORS.md §2): her bolts leave her and bounce through her mirrors
+  const lead = t.stats.relay?.kind === 'mirror' && t.mirrors ? mirrorVolley(sim, t) : volleyFrom(sim, t, t.ox, t.oy);
   if (!lead) return false;
   sim._emit('attack', { towerUid: t.uid, targetUid: lead.uid, kind: t.projKind });
   return true;
 }
 
 /**
- * One volley of her projectiles from (sx, sy) at the targets in range of it; the first target or null. `panel`: the
- * volley leaves her mirror panel, so its shots are born split (they never split at a mirror).
+ * Reflected Bolt (src/sim/mirrors.js): when an eligible enemy is in her range of her or of one of her mirrors (that
+ * order), her volley leaves where she stands, each bolt routed through her mirrors (mirrors.js routeBolt; born split,
+ * so no mirror splits it). @returns the lead enemy or null
  */
-function volleyFrom(sim, t, sx, sy, panel = false) {
+function mirrorVolley(sim, t) {
+  const spec = gearSpec(t.eff);
+  let lead = bestTarget(sim, t.x, t.y, spec.range, spec, t.targetMode);
+  const ms = t.mirrors;
+  for (let k = 0; !lead && k < ms.length; k++) lead = bestTarget(sim, ms[k].x, ms[k].y, spec.range, spec, t.targetMode);
+  if (!lead) return null;
+  let n = spec.projectiles;
+  if (spec.projScale > 0) n += projExtra(t, n, spec.projScale);
+  face(t, lead);
+  for (let i = 0; i < n; i++) {
+    const extra = spec.splash > 0 ? 0 : shotPierce(t);
+    const blast = spec.splash > 0 ? blastRadius(t, spec.splash) : 0;
+    const opts = extra ? { pierce: spec.pierce + extra } : blast !== spec.splash ? { splash: blast } : {};
+    // (a mirror girl whose spec has no flight speed still sends bolts round her mirrors: MIRROR_BOLT_SPEED)
+    if (!(spec.projectileSpeed > 0)) opts.speed = MIRROR_BOLT_SPEED;
+    const p = spawnProjectile(sim, t, spec, lead, t.x, t.y, opts);
+    routeBolt(t, p, i);
+  }
+  return lead;
+}
+
+/** One volley of her projectiles from (sx, sy) at the targets in range of it; the first target or null. */
+function volleyFrom(sim, t, sx, sy) {
   const spec = gearSpec(t.eff);
   let n = spec.projectiles;
   const targets = selectTargets(sim, sx, sy, spec.range, spec, t.targetMode, n);
@@ -898,8 +917,7 @@ function volleyFrom(sim, t, sx, sy, panel = false) {
       const extra = spec.splash > 0 ? 0 : shotPierce(t);
       const blast = spec.splash > 0 ? blastRadius(t, spec.splash) : 0;
       const opts = extra ? { spread, pierce: spec.pierce + extra } : blast !== spec.splash ? { spread, splash: blast } : { spread };
-      const p = spawnProjectile(sim, t, spec, tgt, sx, sy, opts);
-      if (panel) p.split = true;
+      spawnProjectile(sim, t, spec, tgt, sx, sy, opts);
     }
   }
   return targets[0];
@@ -1520,7 +1538,8 @@ export function updateRelayOrigin(sim, t) {
     // geometry caches come from the forward paths (CODEX_MODES §6.3): a familiar's spot never depends
     // on which route orientation was live when the first relay girl was placed
     if (!sim._relaySamples) sim._relaySamples = relaySamples(sim._pathsFwd ?? sim.pathData);
-    o = relayOrigin(sim._relaySamples, t.x, t.y, relay, t.aim);
+    // Iroha's mirror network (src/sim/mirrors.js): her mirrors from her placed slots and Auto; mirror 0 is her origin
+    o = relay.kind === 'mirror' ? syncMirrors(sim, t) : relayOrigin(sim._relaySamples, t.x, t.y, relay, t.aim);
   }
   const ox = o ? o.x : t.x;
   const oy = o ? o.y : t.y;
@@ -2190,6 +2209,11 @@ function projectileStep(sim, p, dt) {
     guidedStep(sim, p, dt);
     return;
   }
+  // a bolt on its way through Iroha's mirrors (src/sim/mirrors.js): legs, bounces; then a plain homing bolt
+  if (p.route) {
+    routeStep(sim, p, dt);
+    return;
+  }
   // a returning fan on its way home (attack shapes S4, src/sim/links.js): back through its target, then to her hand
   if (p.ret && retSteer(sim, p, p.speed * dt)) return;
   const tgt = p.target;
@@ -2285,13 +2309,19 @@ function projectileStep(sim, p, dt) {
 }
 
 /**
- * Moves every projectile, resolves contacts, removes spent ones. While a mirror reflects (Iroha's Mirror Shift /
- * Infinite Reflection, src/sim/mirrors.js), a shot that has not split yet and lives through its step is tested
- * against the reflecting mirrors along that step's segment.
+ * Moves every projectile, resolves contacts, removes spent ones. While some girl has an ability, Iroha's Laser Webs hit
+ * first; while a mirror reflects (her ⚡ running, or Infinite Reflection; src/sim/mirrors.js), a shot that has not split
+ * yet and lives through its step is tested against the reflecting mirrors along that step's segment.
  */
 export function updateProjectiles(sim, dt) {
   const list = sim.projectiles;
-  const mirrors = sim._abilOn > 0 ? collectMirrors(sim) : 0;
+  mirrorStepStart();
+  let mirrors = 0;
+  if (sim._abilOn > 0) {
+    // Iroha's Laser Web beams, then the mirrors that reflect allies' shots this step (src/sim/mirrors.js)
+    updateWebs(sim);
+    mirrors = collectMirrors(sim);
+  }
   for (let i = 0; i < list.length; i++) {
     const p = list[i];
     if (p.owner.removed && !p.dead) p.dead = true;

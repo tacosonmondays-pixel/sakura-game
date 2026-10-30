@@ -39,7 +39,7 @@ import { checkedDraft } from '../../sim/tryout/draft.js';
  * final tier (one final tier per path per girl type and player; src/sim/finalTier.js). A Tenka tier that
  * absorbs (Joint Research, Unified Theory) reports `absorbed: [uid…]`: her player's girls who joined her lab
  * team, now off the field and nobody's.
- * aim[uid, qx, qy] / aim[uid, null]: a girl's standing aim point (a mortar's centre, a mirror's spot), see
+ * aim[uid, qx, qy(, k)] / aim[uid, null]: a girl's standing aim point (a mortar's centre, Iroha's mirror k), see
  * the 'aim' case. pick[uid, targetUid]: the girl this player's Midori brews / Chika links first (-1 = auto); the
  * target may be an ally's girl (Sim.setBuffPick).
  * abil[uid, group, qx, qy]: fire her own girl's (or hero's) ⚡ ability (ABILITIES_SPEC §7.2): group 0|1
@@ -375,12 +375,13 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
         // an aimed hero ult): whole 1/1024 tiles, like `place`; [uid, null] clears it (automatic
         // aim). The Sim quantises, clamps into the map (a mirror into her reach) and refuses girls
         // without an aim mode. Owner only, like tgt.
+        // Iroha (src/sim/mirrors.js): aim[uid, qx, qy, k] places her mirror k (0-based); without k the nearest moves.
         case 'aim': {
-          const [uid, qx, qy] = a;
+          const [uid, qx, qy, k] = a;
           if (!ownsTower(slot, uid)) res = { ok: false, reason: 'notYours' };
           else if (qx === null && a.length <= 2) res = { ok: sim.clearAim(uid) };
-          else if (!Number.isInteger(qx) || !Number.isInteger(qy)) res = { ok: false, reason: 'invalid' };
-          else res = { ok: sim.setAim(uid, qx / Q, qy / Q) };
+          else if (!Number.isInteger(qx) || !Number.isInteger(qy) || (a.length > 3 && !(Number.isInteger(k) && k >= 0))) res = { ok: false, reason: 'invalid' };
+          else res = { ok: sim.setAim(uid, qx / Q, qy / Q, a.length > 3 ? k : null) };
           break;
         }
         // ---- end aim ------------------------------------------------------------------------

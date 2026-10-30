@@ -33,7 +33,7 @@
 //
 // State (all plain data, so the generic snapshot stores it):
 //   t.abil      { id, kind, scope, cdMax, cd, rate, active, auto, t5, n }  — created when she unlocks
-//   t.mirror2   Iroha's tier-5 second mirror { x, y } while her Mirror Shift runs (src/sim/mirrors.js), else null
+//   t.mirrors   Iroha's mirrors (derived from t.mirrorAim, her tiers and the road; src/sim/mirrors.js)
 //   t.abilMods  a running boost's ModSet, or a strike's boost tail (`after`: Zero Point); null otherwise
 //               (resolved last, src/sim/mods.js `extra`)
 //   sim.abilGroups  Map "<owner>|<id>" → { cd, cdMax, rate }   (map scope; deleted once charged)
@@ -56,7 +56,7 @@ import { allocDealt } from './shapes.js';
 import { isCaster, syncStatusFlags, placeOnPath } from './enemies.js';
 import { spikeRain } from './strips.js';
 import { emergencyDeploy } from './sentries.js';
-import { mirrorShift, mirrorShiftEnd } from './mirrors.js';
+import { laserWeb } from './mirrors.js';
 import { shadowDoubles, bellCarpet, droneSurge, tickDeploys, endDeployWave, clearDeploys } from './deploys.js';
 import { startRunner } from './runners.js';
 import { samplePath } from './path.js';
@@ -271,7 +271,7 @@ export function abilityReach(t, def) {
     case 'boost': return t.eff.range + (e.mods?.range || 0);
     case 'rally': return rallyRadius(t, e);
     case 'debuff': return (e.reachMul ?? 1) * t.eff.range + (e.reachAdd || 0);
-    // (Mirror Shift: her mirror's reach, where the panel can stand; Drone Surge: her drones' reach)
+    // (Laser Web: her mirror reach, where her mirrors stand; Drone Surge: her drones' reach)
     case 'deploy': return e.deploy === 'mirror' && t.stats?.relay ? t.stats.relay.reach : e.deploy === 'drone' ? droneReach(t) : (e.reachMul ?? 1) * t.eff.range;
     case 'move': return (e.reachMul ?? 1) * t.eff.range + (e.reachAdd || 0);
     default: return t.eff.range;
@@ -1006,8 +1006,8 @@ function anyIn(sim, t, reach, spec) {
  * The deploy kind (ABILITIES_SPEC §4, A4) one object type at a time, by `effect.deploy`. A type that
  * is not here stays locked (every type in the data runs today: the A4 three, Azami's strips, Yuzuha's sentries and
  * Iroha's mirror). Each A4 cast is refused (`noTarget`, nothing spent) when no enemy its objects could hit is in
- * reach, or when nothing could be placed (no road in her range, the sim-wide cap full: src/sim/deploys.js); Mirror
- * Shift's rule is src/sim/mirrors.js mirrorShift.
+ * reach, or when nothing could be placed (no road in her range, the sim-wide cap full: src/sim/deploys.js); Laser
+ * Web's rule is src/sim/mirrors.js laserWeb.
  */
 const DEPLOYS = {
   // Kage's Shadow Doubles (src/sim/deploys.js): doubles on the road spots nearest the exit in her range
@@ -1058,15 +1058,12 @@ const DEPLOYS = {
       return { x: placed[0].x, y: placed[0].y, radius: reach, targets: [], placed: placed.length };
     },
   },
-  // Iroha's Mirror Shift (src/sim/mirrors.js): her panel jumps to her aim point (or the road spot nearest the leader
-  // in her mirror's reach) and reflects for the window: every girl's shot that crosses it splits in two, once; tier 5
-  // (Infinite Reflection) leaves the panel reflecting for good and the cast adds a second mirror for the window
+  // Iroha's Laser Web (src/sim/mirrors.js; the id is Mirror Shift's): beams join every pair of her mirrors for the
+  // window (her t.abil.active; mirrors.js updateWebs hits) and her mirrors reflect allies' shots; tier 5 (Infinite
+  // Reflection) reflects for good. Her mirrors stay put: an aim is ignored
   mirror: {
-    cast(sim, t, def, step, aim) {
-      return mirrorShift(sim, t, def, aim);
-    },
-    end(sim, t) {
-      mirrorShiftEnd(sim, t);
+    cast(sim, t) {
+      return laserWeb(sim, t);
     },
   },
   // Azami's Spike Rain (src/sim/strips.js): extra strips spread evenly along the road in her reach,
@@ -1305,7 +1302,7 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
     ...(fx.coins != null ? { coins: fx.coins } : null),
     ...(fx.placed != null ? { placed: fx.placed } : null),
     ...(fx.moved != null ? { moved: fx.moved } : null),
-    // (Mirror Shift: 'panel' her panel jumped to x, y; 'second' tier 5's second mirror stands there)
+    // (Laser Web: 'web', with its beam count)
     ...(fx.mirror != null ? { mirror: fx.mirror } : null),
   });
   return { ok: true, reason: null, casterUid: t.uid };

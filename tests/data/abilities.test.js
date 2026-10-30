@@ -294,11 +294,11 @@ const SPEC_TOWERS = {
     t5: { cooldown: 42, duration: 14, effect: { lifeMax: 5 } },
   },
   iroha: {
-    // (an aimed deploy with the mirror redirect: A6)
-    path: 'hall', id: 'iroha.mirrorShift', kind: 'deploy', scope: 'local', cooldown: 30, duration: 8,
-    effect: { deploy: 'mirror', count: 1, reflect: true },
+    // (Laser Web, the mirror network's ⚡: docs/specs/IROHA_MIRRORS.md §5; the id is Mirror Shift's)
+    path: 'hall', id: 'iroha.mirrorShift', kind: 'deploy', scope: 'local', cooldown: 30, duration: 6,
+    effect: { deploy: 'mirror', web: true, dmgMul: 0.8, reflect: true },
     auto: { when: 'enemies', min: 5 },
-    t5: { cooldown: 25, duration: 10, effect: { count: 2, permanentReflect: true } },
+    t5: { cooldown: 25, duration: 9, effect: { dmgMul: 2, permanentReflect: true } },
   },
   ena: {
     path: 'bloom', id: 'ena.omenCard', kind: 'debuff', scope: 'local', cooldown: 40, duration: 0,
@@ -399,7 +399,7 @@ const EFFECT_KEYS = {
   rally: ['radius', 'inAura', 'dmgMul', 'rateMul', 'rangeMul', 'detection', 'cleanse', 'ward', 'target', 'pierceAdd', 'stunImmune', 'lifeEvery', 'lifeRadius', 'lifeMax'],
   debuff: ['pick', 'count', 'casterStatus', 'rally', 'dmgMul', 'reachMul', 'reachAdd', ...STATUS_LIST],
   econ: ['coins'],
-  deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm', 'hits', 'reachMul', 'reflect', 'permanentReflect'],
+  deploy: ['deploy', 'count', 'spacing', 'dmgMul', 'arm', 'hits', 'reachMul', 'reflect', 'permanentReflect', 'web'],
   // (Marumi's Giant Strike: a runner type, its length and speed in tiles, body segments, push; Ruri's River Rush)
   runner: ['runner', 'length', 'speed', 'segments', 'gap', 'dmgMul', 'knockback', 'allPaths', 'toSpawn', 'push', ...STATUS_LIST],
   // (A5: Fuu's Backdraft Fan, Ruri's Star Snatch)
@@ -476,7 +476,7 @@ function defErrors(d, where) {
   if ('lifeEvery' in e && !(e.lifeRadius > 0 && 'lifeMax' in e)) errs.push(`${where}: lives need a radius and a cap`);
   if ('reach' in e && e.reach !== 'map') errs.push(`${where}: reach is 'map' or a reachMul`);
   if ('reachMul' in e && 'reachAdd' in e) errs.push(`${where}: a reachMul or a reachAdd, not both`);
-  for (const k of ['fromOrigin', 'noBossStatus', 'stunImmune', 'reflect', 'permanentReflect']) if (k in e && e[k] !== true) errs.push(`${where}: ${k} is true or absent`);
+  for (const k of ['fromOrigin', 'noBossStatus', 'stunImmune', 'reflect', 'permanentReflect', 'web']) if (k in e && e[k] !== true) errs.push(`${where}: ${k} is true or absent`);
   if (e.fallback) {
     // Kaze's Swoop with no flyer up: another strike pick, a whole count, ground-only or not
     const f = e.fallback;

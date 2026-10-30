@@ -1,6 +1,8 @@
-// Iroha's animations (display only): the mirror panel flips and glints for each relayed bolt (merged when bolts come
-// faster than a flip lasts), leaves afterimages when it jumps, echoes while Mirror Shift runs, and her Shattered Glass
-// splash hits scatter glass shards by tier (src/render/mirrorPanel.js, mirrorFx.js, attackFx/styles/iroha.js).
+// Iroha's animations (display only): her first mirror flips and glints for each bolt reflected off it (merged when
+// bolts come faster than a flip lasts), leaves afterimages when it jumps, echoes while her Laser Web runs; every mirror
+// of hers stands as a panel, each bounce draws its leg as a line (capped per frame), the web draws a beam between every
+// pair of her mirrors, and her Shattered Glass splash hits scatter glass shards by tier (src/render/mirrorPanel.js,
+// mirrorFx.js, rosterFx.js, attackFx/styles/iroha.js).
 // Nothing here writes to the sim: the sim digest is identical with the FX on and off, and strict mode passes.
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
@@ -9,7 +11,7 @@ import {
   nearAngle, shotYaw, shardLevel, shardCount, kaleidoscope, SHARD_CAP, ghostCount, ghostAt, panelSpot,
 } from '../../src/render/mirrorPanel.js';
 import { MirrorFx, MAX_GHOSTS } from '../../src/render/mirrorFx.js';
-import { RosterFx } from '../../src/render/rosterFx.js';
+import { RosterFx, BEAMS_PER_FRAME } from '../../src/render/rosterFx.js';
 import { SHARDS_PER_FRAME, flashFree, iroha } from '../../src/render/attackFx/styles/iroha.js';
 import { harness, gallerySim, streamer, fakeAtlas } from './attackFxHarness.js';
 
@@ -149,17 +151,21 @@ describe('mirror panel timing (pure)', () => {
 
 /** A RosterFx over a stand-in sim with one Iroha (her panel at ox, oy). */
 function board({ reduceMotion = false, quality = 'high' } = {}) {
-  const t = { uid: 7, unitId: 'iroha', x: 2, y: 2, ox: 5, oy: 2, origin: { x: 5, y: 2 }, tiers: [0, 0, 0], facing: 0, stats: { relay: { kind: 'mirror', reach: 3.7, both: true } } };
+  const t = {
+    uid: 7, unitId: 'iroha', x: 2, y: 2, ox: 5, oy: 2, origin: { x: 5, y: 2 }, mirrors: [{ x: 5, y: 2 }, { x: 3.5, y: 4.25 }, { x: 1, y: 4 }],
+    tiers: [0, 0, 0], facing: 0, stats: { relay: { kind: 'mirror', reach: 3.7, mirrors: 3, bounces: 2 } },
+  };
   const sim = { towers: [t], time: 0, getTower: (u) => (u === 7 ? t : null), runners: [], pathData: [] };
   const pushes = { n: 0 };
   const batch = { push: () => { pushes.n++; return true; } };
   const scene = new THREE.Scene();
-  const fx = { ring: noop, puff: noop, flash: noop, spawn: noop, sparkle: noop, shards: noop, beam: noop, n: (x) => x };
+  const beams = [];
+  const fx = { ring: noop, puff: noop, flash: noop, spawn: noop, sparkle: noop, shards: noop, beam: (a, b) => beams.push([a, b]), n: (x) => x };
   const roster = new RosterFx({
     sim, scene, fx, batches: { bbA: batch, bbN: batch, groundA: batch, groundN: batch }, atlas: fakeAtlas(),
     actors: { towers: new Map() }, quality, reduceMotion,
   });
-  return { t, sim, roster, scene, pushes };
+  return { t, sim, roster, scene, pushes, beams };
 }
 
 describe('mirror panel on the board (RosterFx + MirrorFx)', () => {
@@ -198,6 +204,7 @@ describe('mirror panel on the board (RosterFx + MirrorFx)', () => {
     const before = roster.root.children.length;
     for (let k = 0; k < 6; k++) {
       t.ox = k % 2 ? 9 : 5;
+      t.mirrors[0] = { x: t.ox, y: 2 };
       roster.handle({ type: 'relay', towerUid: 7, x: t.ox, y: 2, kind: 'mirror' });
     }
     roster.update(1 / 60);
@@ -219,6 +226,7 @@ describe('mirror panel on the board (RosterFx + MirrorFx)', () => {
     const { roster, t } = board({ quality: 'low' });
     roster.update(1 / 60);
     t.ox = 9;
+    t.mirrors[0] = { x: 9, y: 2 };
     roster.handle({ type: 'relay', towerUid: 7, x: 9, y: 2, kind: 'mirror' });
     roster.update(1 / 60);
     const pr = roster.mirrors.probe();
@@ -237,20 +245,47 @@ describe('mirror panel on the board (RosterFx + MirrorFx)', () => {
     expect(roster.mirrors.shifting(t)).toBe(true);
   });
 
-  it('Infinite Reflection: the sim\'s second mirror (t.mirror2) draws a glass of light and a ring where it stands, gone with it', () => {
+  it('every mirror of hers stands as a panel; a mirror that goes (an Auto change) takes its panel with it', () => {
+    const { roster, t } = board();
+    roster.update(1 / 60);
+    expect([...roster.props.keys()].sort()).toEqual([7, '7#1', '7#2'].sort());
+    expect(roster.props.get('7#1').mesh.position.x).toBeCloseTo(3.5, 6);
+    t.mirrors = t.mirrors.slice(0, 2);
+    roster.update(1 / 60);
+    expect(roster.props.has('7#2')).toBe(false);
+  });
+
+  it('a bounce draws its leg (capped per frame) and flips her first mirror toward it', () => {
+    const { roster, beams } = board();
+    roster.update(1 / 60);
+    const before = roster.mirrors.probe().shots;
+    expect(roster.handle({ type: 'mirrorBounce', uid: 1, towerUid: 7, ownerUid: 7, mirror: 0, n: 1, x: 5, y: 2, fx: 2, fy: 2 })).toBe(true);
+    expect(beams).toEqual([[[2, 2], [5, 2]]]);
+    expect(roster.mirrors.probe().shots).toBe(before + 1);
+    for (let i = 0; i < 200; i++) roster.handle({ type: 'mirrorBounce', uid: 2, towerUid: 7, ownerUid: 7, mirror: 1, n: 2, x: 3.5, y: 4.25, fx: 5, fy: 2 });
+    expect(beams.length).toBe(BEAMS_PER_FRAME);
+    roster.update(1 / 60);
+    roster.handle({ type: 'mirrorBounce', uid: 3, towerUid: 7, ownerUid: 7, mirror: 1, n: 2, x: 3.5, y: 4.25, fx: 5, fy: 2 });
+    expect(beams.length).toBe(BEAMS_PER_FRAME + 1);
+  });
+
+  it('Laser Web: a beam between every pair of her mirrors while it runs, none after', () => {
     const { roster, t } = board();
     const at = [];
-    const rec = { push: (x, h, y) => { at.push([x, y]); return true; } };
-    roster.mirrors.b = { ...roster.mirrors.b, bbA: rec, groundA: rec };
+    const rec = { push: (x, h, y, w) => { at.push([x, y, w]); return true; } };
+    roster.b = { ...roster.b, groundA: rec };
+    const mid = (a, b) => [(t.mirrors[a].x + t.mirrors[b].x) / 2, (t.mirrors[a].y + t.mirrors[b].y) / 2];
+    const has = ([x, y]) => at.some((p) => Math.abs(p[0] - x) < 1e-9 && Math.abs(p[1] - y) < 1e-9);
     roster.update(1 / 60);
-    expect(at.some(([x, y]) => x === 3.5 && y === 4.25)).toBe(false);
-    t.mirror2 = { x: 3.5, y: 4.25 };
-    roster.update(1 / 60);
-    expect(at.filter(([x, y]) => x === 3.5 && y === 4.25).length).toBeGreaterThanOrEqual(3);
+    expect(has(mid(0, 1))).toBe(false);
+    t.abil = { id: 'iroha.mirrorShift', active: 30 };
     at.length = 0;
-    t.mirror2 = null;
     roster.update(1 / 60);
-    expect(at.some(([x, y]) => x === 3.5 && y === 4.25)).toBe(false);
+    for (const [a, b] of [[0, 1], [0, 2], [1, 2]]) expect(has(mid(a, b)), `${a}-${b}`).toBe(true);
+    t.abil.active = 0;
+    at.length = 0;
+    roster.update(1 / 60);
+    expect(has(mid(0, 1))).toBe(false);
   });
 });
 
@@ -306,13 +341,9 @@ describe('Iroha over a real sim', { timeout: 180000 }, () => {
     expect(digest(a.sim)).toBe(digest(b.sim));
   });
 
-  it('every relayed bolt reaches the panel layer; flips stay rate-limited; Shattered Glass 5 scatters shards (capped per frame)', () => {
-    const { mfx, shards, maxFrame, h } = run({ frames: 1200 });
-    const st = mfx.probe();
-    expect(st.shots).toBeGreaterThan(20);
-    expect(st.flips).toBeGreaterThan(0);
-    expect(st.flips).toBeLessThanOrEqual(st.shots);
-    expect(st.panels).toBeGreaterThanOrEqual(2);
+  it('Shattered Glass 5 scatters shards (capped per frame); the pools stay inside their caps', () => {
+    // (her bolts leave her hand now; the bounces reach the panel layer through RosterFx, tested above)
+    const { shards, maxFrame, h } = run({ frames: 1200 });
     expect(shards).toBeGreaterThan(10);
     expect(maxFrame).toBeLessThanOrEqual(SHARDS_PER_FRAME);
     expect(h.fxa.ctx.pool.count).toBeLessThanOrEqual(h.fxa.ctx.pool.cap);

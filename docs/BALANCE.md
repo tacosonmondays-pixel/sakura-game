@@ -45,6 +45,29 @@ falls on wave 152 / 152 / 152 → 152 / 152 / 153 (Build A with Kage: 175). Thos
 targets the hex barely touches, so the wave does not move; Ena's share of the team's damage to wave 140 (seed 7,
 `--shares`) rises 4.3% → 4.8% (Kage's in the same slot: 2.3%; Shiro carries 85%).
 
+## Iroha's mirror network (2026-10-30, `feature/iroha-mirrors`; docs/specs/IROHA_MIRRORS.md)
+
+The owner's ask: several mirrors she places, her attacks reflecting off them. Her kit changed shape (2–5 mirrors, bolts
+bouncing mirror to mirror and hitting on every leg), so her numbers were re-set with the round-5 bench against live
+`main` and round 5: no build of hers and no ally beside her below either, her best boss build close to Kage (spec §10
+has every build, best placement and the ally rows).
+
+| build (fully maxed, 3 seeds, Auto mirrors) | boss main / r5 → branch | late crowd main / r5 → branch |
+|---|---:|---:|
+| Mirror Hall 5-0-2 | 255k / 1.09M → 2.77M | 772k / 836k → 5.13M |
+| Silver Reflection 2-5-0 | 129k / 549k → 2.10M | 248k / 270k → 1.16M |
+| Shattered Glass 2-0-5 | 120k / 509k → 1.86M | 5.45M / 5.88M → 6.96M |
+
+With the boss held anywhere from 4 tiles before to 3 tiles after her nearest road point every build is ×1.07 of r5 or
+more. The best of ~200 layouts: 5-0-2 boss 5.96M, 2-5-0 boss 4.79M, 2-0-5 crowd 8.70M (spec §10; the owner's rule: the LR
+rows rise above these, Iroha is not lowered).
+
+Knobs: base 3 bolts, pierce 1; slot 0 on her old panel's spot; every tier that adds a mirror adds a bounce; a real
+bounce glints at the nearest enemy (0.8× the bolt's hit); a bounce splash strikes each enemy once a bolt; Mirror Hall
+tiers 4 and 5 two more bolts each; Polish 0.50 a bounce at tier 5; Kaleidoscope Burst +10 damage; Laser Web 0.8× (tier
+5: 2×); allies' shots reflect within 0.8 tiles; the `iroha` row `{ boss: 3.6 }` (was 3.9). Real coins on 4-5 Blossom
+Freeplay: an Iroha army wave 108 → 129.
+
 ## Balance round 5 (2026-10-29, `feature/balance-r5`; ships after Nov 1, 7 PM Central with its own COOP_PROTOCOL bump)
 
 The owner's direction (Oct 27–28): "no cap, everyone close to Kage". Every fully maxed striker's honest DPS (the battle

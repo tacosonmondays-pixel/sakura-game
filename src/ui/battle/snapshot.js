@@ -48,6 +48,10 @@
 // The duo (src/sim/duo.js; additive): her Refraction counter, her volley count and Kohaku's beam tick timer (`du`).
 // A save without it restores her with fresh counters.
 //
+// Iroha's mirror network (src/sim/mirrors.js, docs/specs/IROHA_MIRRORS.md §6; additive): the spots her player placed,
+// by slot (`mr`: [x, y] or 0 for an Auto slot), replayed through setAim after her tiers. An older save's `am` (her one
+// panel, her relay origin) becomes her mirror 0; a save with neither restores her mirrors on Auto.
+//
 // The staff heroes (BANNERS §D.6; additive): Norika's own barricades, their spots, budgets and rebuild timers (`br`;
 // at a calm point they all stand at full budget, since the wave clear refills them). Her Hold the Line barricades and
 // One-Way Street's count end at every wave clear, and Kogane's Overdrive ends with the wave, so a calm point holds
@@ -60,7 +64,8 @@
 // is not classified here (add it to the table and, if it is state, to snapshotSim/restoreSim).
 import { Sim } from '../../sim/Sim.js';
 import { gainHeroXp, xpToReach } from '../../sim/hero.js';
-import { restoreDrone, recomputeBuffs } from '../../sim/towers.js';
+import { restoreDrone, recomputeBuffs, updateRelayOrigin } from '../../sim/towers.js';
+import { restoreMirrors } from '../../sim/mirrors.js';
 import { FLIGHT_MODES, PRISM_BEAM_TICK } from '../../sim/constants.js';
 import { POP_BUDGET_MAX } from '../../sim/gearRules.js';
 import { BATTLE } from '../../data/types.js';
@@ -225,8 +230,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   effProc: 'derived', effEcho: 'derived', trapSpecProc: 'derived',
   // abilities: her ability's state (`ak`); a boost runs only during a wave
   abil: 'snap', abilMods: 'calm',
-  // Iroha's tier-5 Mirror Shift: her second mirror stands only while the cast runs (it ends at the wave clear)
-  mirror2: 'calm',
+  // Iroha's mirror network (src/sim/mirrors.js): the spots her player placed travel ('mr', by slot); her mirrors follow
+  // from them, her tiers and the road (syncMirrors)
+  mirrorAim: 'snap', mirrors: 'derived',
   // gear (src/sim/gearRules.js): her Pierce carries (shots, drones), her club trick's count, Big Beat's
   // trap / drone counts and Follow-Through's trap count — only on a girl whose gear uses them
   pierceCarry: 'snap', droneCarry: 'snap', trickN: 'snap', trapBeatN: 'snap', droneBeatN: 'snap', trapFtN: 'snap',
@@ -382,6 +388,8 @@ function packTower(sim, t) {
   if (t.recentDps || t._dmgMark) o.rd = [t.recentDps, t._dmgMark];
   if (t.banners?.length) o.bn = t.banners.map((b) => [b.x, b.y]);
   else if (t.aim) o.am = [t.aim.x, t.aim.y];
+  // Iroha: each mirror her player placed, by slot (0 = Auto)
+  if (t.mirrorAim?.some(Boolean)) o.mr = t.mirrorAim.map((a) => (a ? [a.x, a.y] : 0));
   packPotential(t, o);
   // her ability: cooldown left (charge points), Auto, casts this battle
   if (t.abil) o.ak = [t.abil.cd, t.abil.auto ? 1 : 0, t.abil.n];
@@ -613,7 +621,13 @@ export function restoreSim(rec, profile = null) {
       if (o.du[2] >= 0) t.duoCd = Math.min(whole(o.du[2]), PRISM_BEAM_TICK);
     }
     if (o.tm) sim.setTargetMode(t.uid, o.tm);
-    if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);
+    // Iroha (src/sim/mirrors.js restoreMirrors): her placed mirrors by slot, written back as saved (clamped, never pushed
+    // apart again, so the layout and the battle hash come back exactly); an older save's `am`, her one panel (her relay
+    // origin), becomes her mirror 0
+    if (t.mirrors && (Array.isArray(o.mr) || Array.isArray(o.am))) {
+      restoreMirrors(sim, t, Array.isArray(o.mr) ? o.mr.slice(0, 5) : [o.am]);
+      updateRelayOrigin(sim, t);
+    } else if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);
     // Ouka's banners, oldest first (setAim keeps at most her count)
     if (Array.isArray(o.bn)) for (const b of o.bn.slice(0, 4)) if (Array.isArray(b) && Number.isFinite(b[0]) && Number.isFinite(b[1])) sim.setAim(t.uid, b[0], b[1]);
     t.spent = r(o.spent);

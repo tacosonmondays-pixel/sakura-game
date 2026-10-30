@@ -583,7 +583,7 @@ export function mountBattle(root, params, hooks) {
       target: (uid, mode) => progress(sim.setTargetMode(uid, mode)),
       fly: (uid, mode, a, b) => progress(sim.setFlight(uid, mode, a?.[0], a?.[1], b?.[0], b?.[1])),
       // an aim point (x, y), or null to go back to automatic aim
-      aim: (uid, x, y) => progress(x == null ? sim.clearAim(uid) : sim.setAim(uid, x, y)),
+      aim: (uid, x, y, k = null) => progress(x == null ? sim.clearAim(uid) : sim.setAim(uid, x, y, k)),
       pick: (uid, target) => {
         const r = sim.setBuffPick(uid, target);
         if (r?.ok) saver?.markProgress();
@@ -1522,7 +1522,8 @@ export function mountBattle(root, params, hooks) {
   }
 
   /** The co-op `aim` command's arguments: a world point in 1/1024 tiles, or null (automatic aim). */
-  const aimArgs = (uid, x, y) => (x == null || y == null ? [uid, null] : [uid, Math.round(x * 1024), Math.round(y * 1024)]);
+  const aimArgs = (uid, x, y, k = null) => (x == null || y == null ? [uid, null]
+    : k == null ? [uid, Math.round(x * 1024), Math.round(y * 1024)] : [uid, Math.round(x * 1024), Math.round(y * 1024), k]);
 
   function coopActions() {
     const mine = (uid) => {
@@ -1562,9 +1563,9 @@ export function mountBattle(root, params, hooks) {
         ls.queue('fly', flyArgs(uid, mode, a, b));
         return true;
       },
-      aim(uid, x, y) {
+      aim(uid, x, y, k = null) {
         if (ls.job || !mine(uid)) return false;
-        ls.queue('aim', aimArgs(uid, x, y));
+        ls.queue('aim', aimArgs(uid, x, y, k));
         return true;
       },
       pick(uid, target) {

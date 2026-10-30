@@ -277,7 +277,8 @@ export function createAttackFx(o) {
       rec.ownerUid = p.ownerUid;
       rec.turretUid = p.turretUid ?? null;
       rec.kind = p.kind;
-      rec.splash = p.splash || 0;
+      // (an Iroha bolt on its mirror route holds its landing splash in fsplash until its last bounce: src/sim/mirrors.js)
+      rec.splash = p.splash || p.fsplash || 0;
       rec.speed = p.speed || 10;
       rec.targetUid = p.target ? p.target.uid : null;
       rec.bend = 0;

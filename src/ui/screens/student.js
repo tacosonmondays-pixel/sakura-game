@@ -243,7 +243,11 @@ function statsTable(unit, battle, { owned = false, label = 'yours' } = {}) {
   rows.push(['Hits flyers', b.canHitAir ? 'Yes' : 'No', null]);
   rows.push(['Veil Sight', b.detection ? 'Yes' : 'No', null]);
   if (b.airMul && b.airMul !== 1) rows.push(['Vs flyers', `×${n1(b.airMul)}`, null]);
-  if (b.relay) rows.push([b.relay.kind === 'mirror' ? 'Mirror panel' : 'Familiar', `reach ${n1(b.relay.reach)} tiles${b.relay.both ? ' · fires from both' : ''}`, null]);
+  if (b.relay) {
+    rows.push(b.relay.kind === 'mirror'
+      ? ['Mirrors', `${b.relay.mirrors ?? 2} · ${b.relay.bounces ?? 2} bounces · reach ${n1(b.relay.reach)} tiles`, null]
+      : ['Familiar', `reach ${n1(b.relay.reach)} tiles`, null]);
+  }
   if (b.status?.length) rows.push(['On hit', b.status.map(describeStatus).join(' · '), null]);
   for (const k of ['aura', 'income', 'trap', 'turret', 'ramp', 'mark']) {
     if (b[k]) rows.push([k[0].toUpperCase() + k.slice(1), describeMods({ [k]: b[k] }).join(' · ') || '—', null]);
