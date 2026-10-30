@@ -26,7 +26,7 @@ import { stageThumbSVG } from '../../art/stageThumb.js';
 import { unitMini, howToGet, put, emptyState } from './backpack.js';
 import { ico, secondaryBtn } from '../kit.js';
 import { lg } from '../girlFrame.js';
-import { teamBar, loadoutBadge } from '../teamBar.js';
+import { teamBar, loadoutBadge, clashMembers, clashBadge } from '../teamBar.js';
 import { getTeams, teamUse } from '../../systems/teams.js';
 
 const pickState = { kind: 'tower' };
@@ -64,6 +64,8 @@ function slotTile(unitId, onRemove) {
   const teams = getTeams(store.profile);
   const badge = loadoutBadge(teamUse(teams.list[teams.active], unitId));
   if (badge) t.append(badge);
+  // [teams] she and another member name one piece (review r1 M1): both tiles are marked
+  if (clashMembers().has(unitId)) { t.classList.add('tb-clashed'); t.append(clashBadge()); }
   t.title = `Remove ${UNIT_MAP[unitId].name}`;
   t.setAttribute('aria-label', `${t.getAttribute('aria-label')}. Tap to remove her from the squad`);
   // (her P chip keeps the squad slot's test id)

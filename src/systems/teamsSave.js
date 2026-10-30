@@ -3,7 +3,8 @@
 // agree with what the save already says, and mirrors them so an older build that drops them cannot lose them.
 //
 //   profile.teams = { active: 0…4, list: [{ name, hero, towers, use: { [unitId]: 0…2 } }] }   (1–5 teams)
-//   unit.presets  = [{ charm, ribbon, shoes, hair, necklace }] (1–3 loadouts) and unit.preset (the active one)
+//   unit.presets  = [{ charm, ribbon, shoes, hair, necklace }] (1–3 loadouts) and unit.preset (the active one); the
+//                   active one is what she wears, plus the pieces another girl took from it (wornLoadout: lent)
 //
 // Present fields win: an older build can change `profile.formation` and `unit.gear` while it drops `teams` and
 // `presets`, so on load the formation becomes the active team and what she wears becomes her active loadout.
@@ -104,6 +105,24 @@ function presetsFromMarks(c, unitId) {
   return { presets, preset: index((v - 1) % 10, count) };
 }
 
+/**
+ * Her worn loadout: what she wears, plus each piece it named that another girl now wears ("lent": a team or loadout
+ * switch took it from her). A lent piece comes back, with the "Takes … from …" list, the next time this loadout or a
+ * team that gives it to her is put on (GEAR_UPDATE §7.2; M1 review r1 H1). An empty slot whose piece is spare or gone
+ * is simply empty: she let it go.
+ */
+export function wornLoadout(p, unitId, prev) {
+  const u = p.units[unitId];
+  const out = emptySlots();
+  for (const s of SLOT_IDS) {
+    const mine = u?.gear?.[s] || null;
+    const was = prev?.[s];
+    const g = was ? p.gear?.[was] : null;
+    out[s] = mine || (g && g.slot === s && g.equippedBy && g.equippedBy !== unitId ? was : null);
+  }
+  return out;
+}
+
 /** Rewrite the 'tm:' and 'gp:' mirrors from the profile (nothing for a save without teams or loadouts). */
 export function writeTeamMarks(p) {
   const c = ((p.missions ||= {}).counters ||= {});
@@ -159,7 +178,7 @@ export function restoreTeams(p) {
         }
       }
     }
-    u.presets[u.preset] = { ...emptySlots(), ...u.gear }; // (the one she wears: no red dot)
+    u.presets[u.preset] = wornLoadout(p, id, u.presets[u.preset]); // (the one she wears: no red dot)
   }
   writeTeamMarks(p);
 }

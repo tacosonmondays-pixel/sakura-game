@@ -153,6 +153,12 @@ try {
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/stage-pick-${tag}.png` });
     await tap('[data-testid="team-3"]');
     await page.waitForTimeout(300);
+    // (Team 3 is a copy of Team 1: a switch that moves or shares pieces lists them first)
+    if (await page.locator('.modal-overlay:not(.closing) [data-testid="takes-ok"]').count()) {
+      check(await page.locator('[data-testid="takes-list"], [data-testid="clash-list"]').count() >= 1, `${tag} the switch lists what moves or is shared`);
+      if (SHOTS) await page.screenshot({ path: `${SHOTS}/switch-confirm-${tag}.png` });
+      await tap('.modal-overlay:not(.closing) [data-testid="takes-ok"]');
+    }
     check(/Team 3/i.test(await page.locator('[data-testid="stage-team"]').innerText()), `${tag} switched to Team 3 from Stage Prep`);
 
     // ----- the co-op hub: "You bring Team 3" -----
@@ -165,13 +171,24 @@ try {
       await page.waitForSelector('[data-testid="name-input"]', { state: 'detached', timeout: 10000 }).catch(() => {});
     }
     await page.evaluate(() => { location.hash = '#/coop'; });
-    const bring = await page.waitForSelector('[data-testid="coop-bring"]', { timeout: 30000 }).catch(() => null);
-    if (bring) {
-      check(/You bring Team 3/i.test(await bring.innerText()), `${tag} co-op hub: "You bring Team 3"`);
+    const team = await page.waitForSelector('[data-testid="coop-team"]', { timeout: 30000 }).catch(() => null);
+    if (team) {
+      check(/Team 3/i.test(await team.innerText()), `${tag} co-op hub: the Host panel's chip says Team 3`);
+      const b = await team.boundingBox();
+      check(!!b && b.y + b.height <= H + 400 && b.x >= 0 && b.x + b.width <= W + 1, `${tag} co-op hub: the chip fits across`);
+      const bring = page.locator('[data-testid="coop-bring"]');
+      if (await bring.isVisible().catch(() => false)) check(/You bring Team 3/i.test(await bring.innerText()), `${tag} co-op hub: "You bring Team 3"`);
+      // a switch here redraws the chip in place
+      await tap('[data-testid="coop-team"]');
+      await tap('[data-testid="team-pick"] [data-testid="team-1"]');
+      await page.waitForTimeout(300);
+      if (await page.locator('.modal-overlay:not(.closing) [data-testid="takes-ok"]').count()) await tap('.modal-overlay:not(.closing) [data-testid="takes-ok"]');
+      check(/Bosses/i.test(await page.locator('[data-testid="coop-team"]').innerText()), `${tag} co-op hub: switched to Team 1 ("Bosses")`);
       await noOverflow(page, W, `${tag} co-op hub`);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/coop-${tag}.png` });
     } else {
-      console.log(`  skip ${tag} co-op hub (offline in this run)`);
+      // (review r1 M2: a hidden chip is a failure, never a skip)
+      check(false, `${tag} co-op hub: the team chip is on screen`);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/coop-skip-${tag}.png` });
     }
 

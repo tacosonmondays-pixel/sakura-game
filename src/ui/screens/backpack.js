@@ -433,7 +433,7 @@ function renderGear(tools, host, rerender) {
     put(tools, filterBtn, pickTools, h('span.bp-gap'),
       toolBtn('Done', { icon: 'check', testid: 'salvage-mode', onClick: () => { state.pick = null; rerender(); } }));
   } else {
-    const canSalvage = slotGear.some((g) => !salvageBlock(g));
+    const canSalvage = slotGear.some((g) => !salvageBlock(g, profile));
     const fsort = loadGearFilter('backpack').sort;
     put(tools,
       toolBtn('Supplies', { icon: 'box', testid: 'supplies-open', dot: boxReady(profile), onClick: () => openSupplies(rerender), cls: 'bp-supplies-btn' }),

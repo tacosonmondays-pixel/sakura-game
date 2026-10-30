@@ -8,7 +8,9 @@
 //
 // Both blocks are made only when a player first uses them (a team chip, a loadout chip); until then the screens read
 // a view: Team 1 is the formation, loadout A is what she wears. Two invariants every reader keeps relying on:
-// `profile.formation` is the active team's hero and towers, and `unit.gear` is `unit.presets[unit.preset]`. Every
+// `profile.formation` is the active team's hero and towers, and `unit.gear` is `unit.presets[unit.preset]` except for
+// a slot whose piece another girl took ("lent", teamsSave.js wornLoadout: it comes back when her loadout or team is put
+// on again). Every
 // writer of the formation and of worn gear stays as it is: syncTeams() folds both back, at every write (store.js
 // saveText, before the mirrors) and before every switch. A piece is never copied: it is worn by one girl, and a
 // loadout that names a piece another girl wears takes it when it is put on ("Takes Keen Charm from Aoi"). `gone` is
@@ -18,7 +20,7 @@
 import { BATTLE } from '../data/types.js';
 import { UNIT_MAP } from '../data/units.js';
 import { SLOT_IDS, emptySlots } from '../data/gearSlots.js';
-import { TEAMS_MAX, PRESETS_MAX } from './teamsSave.js';
+import { TEAMS_MAX, PRESETS_MAX, wornLoadout } from './teamsSave.js';
 import { equipGear, unequipGear } from './gear.js';
 
 export const TEAM_COUNT = TEAMS_MAX;
@@ -71,7 +73,7 @@ export function ensurePresets(p, unitId) {
   return u.presets;
 }
 
-/** Her active loadout = what she wears; a loadout naming a piece that is gone gets the red dot (`gone`). */
+/** Her active loadout = what she wears (+ lent pieces); a loadout naming a piece that is gone gets the red dot. */
 function foldGear(p, unitId) {
   const u = p.units[unitId];
   if (!u || !Array.isArray(u.presets) || !u.presets.length) return;
@@ -86,7 +88,7 @@ function foldGear(p, unitId) {
       }
     }
   });
-  u.presets[u.preset] = { ...emptySlots(), ...u.gear };
+  u.presets[u.preset] = wornLoadout(p, unitId, u.presets[u.preset]);
 }
 
 /** The active team = the formation (whoever changed it: Formation, Stage Prep's Add, an older build). */
@@ -291,6 +293,9 @@ function applyStep(p, step) {
   ensurePresets(p, step.unitId);
   for (const { slot, uid } of step.slots) {
     if (uid) {
+      // the girl it is taken from keeps naming it in her worn loadout (lent): it comes back with her team (H1)
+      const from = p.gear[uid]?.equippedBy;
+      if (from && from !== step.unitId) ensurePresets(p, from);
       if (u.gear[slot] !== uid) equipGear(p, step.unitId, uid);
     } else if (u.gear[slot]) unequipGear(p, step.unitId, slot);
   }
@@ -385,7 +390,8 @@ export function copyPreset(p, unitId, from, to) {
   if (!u) return { ok: false, error: 'notOwned' };
   const undo = snapshotLoadouts(p);
   ensurePresets(p, unitId);
-  if (!u.presets[from] || from === to || to < 0 || to >= PRESET_COUNT || to > u.presets.length) return { ok: false, error: 'badLoadout' };
+  // (into the loadout she wears: refused, the fold would put back what she wears; the UI copies into the next one)
+  if (!u.presets[from] || from === to || to === u.preset || to < 0 || to >= PRESET_COUNT || to > u.presets.length) return { ok: false, error: 'badLoadout' };
   const copy = { ...u.presets[from] };
   delete copy.gone;
   if (to === u.presets.length) u.presets.push(copy);

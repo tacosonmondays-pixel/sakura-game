@@ -8,7 +8,7 @@ import { createRng } from '../../src/core/rng.js';
 import { salvagePreview, salvageMany, salvageBlock } from '../../src/systems/salvage.js';
 import {
   TEAM_COUNT, getTeams, getPresets, usePreset, selectTeam, planTeam, teamClashes, copyTeam, clearTeam, renameTeam,
-  copyPreset, restoreLoadouts, presetsNaming, loadoutUseText, takeLines, syncTeams, teamName, ensureTeams,
+  copyPreset, restoreLoadouts, presetsNaming, loadoutUseText, takeLines, syncTeams, teamName, ensureTeams, ensurePresets,
 } from '../../src/systems/teams.js';
 import { writeTeamMarks } from '../../src/systems/teamsSave.js';
 
@@ -288,5 +288,65 @@ describe('after an older build (present fields win)', () => {
     expect(keys).toContain('tm:a');
     expect(keys).toContain('gp:kage');
     for (const k of keys) expect(Number.isFinite(p.missions.counters[k])).toBe(true);
+  });
+});
+
+describe('review r1', () => {
+  it('H1: a piece shared by two teams through two girls goes back and forth, and neither loadout forgets it', () => {
+    const { p, g } = setup();
+    // Team 1: Aoi wears c2. Team 2: Kage, whose loadout A names c2 too.
+    p.formation = { hero: null, towers: ['aoi'] };
+    ensureTeams(p);
+    equipGear(p, 'kage', g.c2); // (Kage takes it by hand once so her loadout A names it)
+    usePreset(p, 'kage', 0);
+    equipGear(p, 'aoi', g.c2);
+    p.teams.list[1] = { name: 'Team 2', hero: null, towers: ['kage'], use: {} };
+    ensurePresets(p, 'kage');
+    p.units.kage.presets[0].charm = g.c2;
+    const to2 = selectTeam(p, 1);
+    expect(to2.takes).toEqual([{ uid: g.c2, slot: 'charm', from: 'aoi', to: 'kage' }]);
+    expect(p.gear[g.c2].equippedBy).toBe('kage');
+    // Aoi's worn loadout still names it (lent)
+    expect(p.units.aoi.presets[p.units.aoi.preset].charm).toBe(g.c2);
+    const to1 = selectTeam(p, 0);
+    expect(to1.takes).toEqual([{ uid: g.c2, slot: 'charm', from: 'kage', to: 'aoi' }]);
+    expect(p.gear[g.c2].equippedBy).toBe('aoi');
+    expect(p.units.kage.presets[p.units.kage.preset].charm).toBe(g.c2);
+    // and again, after a reload in between
+    const m = reload(p);
+    expect(m.units.kage.presets[m.units.kage.preset].charm).toBe(g.c2);
+    expect(selectTeam(m, 1).takes.length).toBe(1);
+    expect(m.gear[g.c2].equippedBy).toBe('kage');
+  });
+
+  it('M1: the active team\'s clash shows when two members name one piece', () => {
+    const { p, g } = setup();
+    p.formation = { hero: null, towers: ['aoi'] };
+    ensureTeams(p);
+    p.teams.list[1] = { name: 'Team 2', hero: null, towers: ['kage'], use: {} };
+    unequipGear(p, 'kage', 'charm');
+    ensurePresets(p, 'kage');
+    p.units.kage.presets[0].charm = g.c2;
+    expect(selectTeam(p, 1).takes.length).toBe(1); // Kage takes Aoi's charm: Aoi lends it
+    p.formation = { hero: null, towers: ['kage', 'aoi'] };
+    syncTeams(p);
+    expect(teamClashes(p, 1).get(g.c2)).toEqual(['kage', 'aoi']);
+  });
+
+  it('L1: copying into the worn loadout is refused (it would be folded away)', () => {
+    const { p } = setup();
+    usePreset(p, 'kage', 1);
+    expect(copyPreset(p, 'kage', 0, 1).ok).toBe(false);
+  });
+
+  it('L7: Undo puts a piece back on its wearer even when a girl recruited after the snapshot took it', () => {
+    const { p, g } = setup();
+    const res = usePreset(p, 'kage', 1);
+    grantUnit(p, 'shiro', NOW);
+    equipGear(p, 'shiro', g.c2); // from Aoi
+    restoreLoadouts(p, res.undo);
+    expect(p.gear[g.c2].equippedBy).toBe('aoi');
+    expect(p.units.aoi.gear.charm).toBe(g.c2);
+    expect(p.units.shiro.gear.charm).toBe(null);
   });
 });

@@ -45,8 +45,6 @@ import { openSocialSession } from '../../online/coop/socialRoom.js';
 import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
 import { pickLoadout } from '../../online/coop/loadout.js';
 import { teamChip, activeTeamName } from '../teamBar.js';
-/** [teams] The team name the open room brings (its girls are sent when the room opens). */
-let roomTeam = null;
 import { setHoldSheet } from '../hold.js';
 import { allySheet } from '../allySheet.js';
 import { resolveFormation } from '../battle/setup.js';
@@ -61,6 +59,9 @@ import { hub as social, takePendingInvites, addPendingInvite, joinInvite, liveIn
 import { getBackend } from '../../online/backend.js';
 import { sendRoomInvite } from '../online/coopInvite.js';
 import { INVITE_TTL_MS } from '../../online/socialRules.js';
+
+/** [teams] The team name the open room brings (its girls are sent when it opens). */
+let roomTeam = null;
 
 const PREF_KEY = 'ss-coop-pref';
 
@@ -275,16 +276,25 @@ function expireMyInvites(s) {
 }
 
 /**
- * [teams] "You bring Team 2" with its chip (GEAR_UPDATE §11.1): the team is picked before the room opens (a room
- * sends its girls when it opens; switching inside a room would need a co-op protocol change, so the room shows the
- * team it brings, locked).
+ * [teams] "You bring Team 2" (GEAR_UPDATE §11.1): the team is picked before the room opens (a room sends its girls when
+ * it opens; switching inside a room needs the co-op protocol bump of M2, so the room shows the team it brings, locked).
+ * The Host panel's foot carries the switch chip.
  */
+/** The Host panel's team chip; a switch redraws it and the intro's line in place (the stage picks stay). */
+function teamSlot() {
+  const slot = h('span.ol-coop-team');
+  const fill = () => {
+    slot.replaceChildren(teamChip({ testid: 'coop-team', onSwitched: fill }));
+    const line = document.querySelector('[data-testid="coop-bring"]');
+    if (line) line.replaceWith(bringLine());
+  };
+  fill();
+  return slot;
+}
+
 function bringLine() {
   const box = h('div.ol-coop-bring', { 'data-testid': 'coop-bring' });
-  const fill = () => box.replaceChildren(
-    h('p.muted', `You bring ${activeTeamName()}: your hero and ${COOP.towersPerPlayer} girls each. Drops go to both; medals stay solo.`),
-    teamChip({ testid: 'coop-team', onSwitched: fill }));
-  fill();
+  box.append(h('p.muted', `You bring ${activeTeamName()}: your hero and ${COOP.towersPerPlayer} girls each. Drops go to both; medals stay solo.`));
   return box;
 }
 
@@ -474,7 +484,8 @@ export function render(root, params = {}) {
         h('section.panel.ol-coop-create', { 'data-testid': 'coop-create-panel' },
           h('h3.panel-title', 'Host a room'),
           stagePane,
-          h('div.ol-row-end.ol-coop-foot', changeStage, create)),
+          // [teams] the team this room will bring, switchable until the room opens (always shown: a short phone hides the intro)
+          h('div.ol-row-end.ol-coop-foot', teamSlot(), changeStage, create)),
         h('div.ol-coop-right',
           lastPanel(),
           h('section.panel.ol-coop-join',
