@@ -361,6 +361,11 @@ way across the map, so the light boss numbers rise most); r5 = fully maxed with 
 - Grand Spectrum without LR (target 1.3–1.7): light 1.64 / 2.02, r5 2.17 / 1.30. The r5 crowd sits above the target
   because the far beams keep their full hits; `beamMul` 11.7 → 10 (with ×13.5 vs bosses) lands r5 1.86 / 1.33 and light
   1.42 / 2.06, but cuts today's r5 crowd 7%, so it is not taken (no nerfs). The owner can ask for it.
+- **Final review round 2 (Oct 30):** the duo's non-LR row ×1.01 → ×1.12 (the owner's no-nerf rule: their Starfall
+  3-0-2 / 4-0-2 at L40 beside Umeko + Midori read ×0.92–0.93 of live; ×1.12 clears every seed 1–16 with 0.9% headroom;
+  docs/BALANCE.md). Every duo number above rises ×1.109 (1.12 / 1.01), LR forms included (the LR rows are unchanged and
+  sit on top): Grand Spectrum without LR reads about 2.41 / 1.44 on r5, above the 2.17× frame, by the owner's decision
+  (floors, never caps).
 - **Tenka's Joint Research and Singularity builds** (a lab build and a control build) deal little of their own on these
   benches (the lab weapons need girls to join her after her purchase; Singularity's value is its wells and Last Line).
   Their LR form lifts them to the floor with LR-only `t5` rows (`LR_POWER.tenka.t5`, while that path is at tier 5):

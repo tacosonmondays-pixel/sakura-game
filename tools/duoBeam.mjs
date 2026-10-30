@@ -38,15 +38,16 @@ export function buildTiers(b) {
 
 /**
  * Her beam's DPS on one target kind: { dps, hits } over `run` seconds after a `warm`-second warm-up.
- * @param {{ build: string, target: 'boss'|'crowd'|'armor', run?: number, warm?: number, seed?: number, crit?: number, data?: object }} o
+ * `powerOff`: without the balance rows (src/data/balance.js; as a titan battle reads her), for the mechanics checks.
+ * @param {{ build: string, target: 'boss'|'crowd'|'armor', run?: number, warm?: number, seed?: number, crit?: number, data?: object, powerOff?: boolean }} o
  */
-export function duoBeamDps({ build, target, run = 60, warm = 10, seed = 9, crit = 0, data = defaultData() }) {
+export function duoBeamDps({ build, target, run = 60, warm = 10, seed = 9, crit = 0, data = defaultData(), powerOff = false }) {
   const tg = TARGETS[target];
   const tiers = buildTiers(build);
   // the parked boss is measured from her first beam on it, so the ramp's climb is in the number
   if (tg.park) warm = 0;
   return withDetMath(() => {
-    const sim = new Sim({ stageId: '4-5', loadout: [{ unitId: ID, stats: { ...STRONG, critChance: crit } }], hero: null, seed, data });
+    const sim = new Sim({ stageId: '4-5', loadout: [{ unitId: ID, stats: { ...STRONG, critChance: crit, ...(powerOff ? { powerOff: true } : {}) } }], hero: null, seed, data });
     sim.cash = 1e15;
     sim.lives = 1e15;
     const samples = sim.pathData.flatMap((p) => samplePath(p, 0.5)).filter((s) => !s.hidden);

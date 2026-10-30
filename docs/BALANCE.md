@@ -312,6 +312,69 @@ under on a held boss (×1.05 → ×1.07); the duo's best crowd build read 0.3% u
 held: the rows reach every new shape exactly once; Fuu's wind applies to her fans; Chigusa's lives rule survives the
 new vines; Momo's coins and Umeko's aura do not move; no test weakened.
 
+**Final review** (of 5a2fbf84; NOT OK, two HIGH and one LOW). (1) Hotaru 3-0-2 alone on a crowd read ×0.990 of live:
+her row ×1.04 → ×1.06. (2) Momo 2-0-4 alone on a held boss read ×0.977 of live. Cause: the Coin Wheel's lead coins
+(Jackpot, Fortune's Favourite) threw at ×0.98, so her tier-4 wheel lost more than the row gave; the lead coins now throw
+at ×1 and her row ×1.03 → ×1.06 (per seed she is at or above live on all six seeds). (3) The LR footnote on her page
+(`src/ui/girlView.js` `lrBoostText`) now names the LR row and each path's tier-5 row. Tenka's Joint Research LR with a
+full lab (176.9M) is unchanged, pending the owner.
+
+**Final review, round 2** (of 7b042643; NOT OK on one number). Noa 2-0-3 on a walking boss beside Umeko + Midori
+read under live on some seed counts (seeds 1…N: worst N = 12, ×0.968; alone she is bit-identical, only the supports
+moved). Her row gets ×1.04 damage (`noa: { dmg: 1.04, buff: 1.05, reach: 1.1 }`): on seeds 1–24 every running mean
+from 3 seeds up is at or above live (24 seeds: live 55.4, branch 60.0). The duo's footnote says "their LR form".
+Re-pins: PENDING_BUMP 13 `1c5b546f9e89`; two engines battles that field Noa (ROSTER_START: final and hashes only, the
+same ticks, damage, lives and coins; GEAR_GIRLS_START: final and hashes only, the same win, ticks, wallets and Iroha's
+counts); the bot goldens from 6-3 on, where the free team has Noa (`tests/sim/modesGolden.test.js`, the three gacha
+rows on 8-4 Hard, `tests/sim/abilitiesGolden.test.js` 8-5): every result letter the same, though the bot's plan reacts
+(7-3 Hard won with 12 lives, was 26; the base roster's 7-3 Hard lost at wave 14, was 19); the mods hash does not move
+(its pinned girls do not include Noa).
+
+**The no-nerf gate** (`tools/balance/noNerfGate.mjs`): every non-hero girl, each path at tiers 1–5 (a tier-2
+crosspath as r5Bench builds it), boss / walking boss / crowd, the mean of seeds 9/1/2 on every tier, three profiles
+(fully maxed; bare L1 ★0; bare L40 ★3, 4 gates, P2; no gear on the bare two; the supports always fully maxed), and the
+LR units (the duo, Tenka) once more without their Limit Break (`|lroff`). `--compare` counts the cells missing or
+errored on either side and fails on any; tolerance ×0.995. Live is `origin/main` a741aef7, with the three tools copied
+in (they read `src/` beside them). Exactly what ran, in each tree:
+
+    node --import ./tools/simLoader.mjs tools/balance/noNerfGate.mjs --support um   > um.jsonl
+    node --import ./tools/simLoader.mjs tools/balance/noNerfGate.mjs --support none > none.jsonl
+    node tools/balance/noNerfGate.mjs --compare live/um.jsonl branch/um.jsonl
+
+| Pass | t1 | t2 | t3 | t4 | t5 | cells | missing | under live |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| maxed, alone | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 1,395 | 0 | **0** |
+| maxed, Umeko + Midori | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 1,395 | 0 | **0** |
+| LR off, maxed, alone / supported | 0 / 18 | 0 / 18 | 0 / 18 | 0 / 18 | 0 / 18 | 90 / 90 | 0 | **0 / 0** |
+| L1 and L40, alone (+ LR off) | 0 / 594 | 0 / 594 | 0 / 594 | 0 / 594 | 0 / 594 | 2,970 | 0 | **0** |
+| L1 and L40, Umeko + Midori (+ LR off) | 1 / 594 | 0 / 594 | 1 / 594 | 2 / 594 | 2 / 594 | 2,970 | 0 | 6, each checked (below) |
+
+(4,455 cells per support setting.) The six supported low-profile cells, re-run on seeds 1–16, live → branch: Sango
+2-0-4 crowd (L1) 4,001 → 4,339; Shiro 2-0-1 crowd (L1) 126 → 135, 4-0-2 held boss (L1) 5,097 → 5,394, 5-0-2 held boss
+(L1) 99,233 → 105,027; Suzu 5-0-2 held boss (L40) 29 → 32 (a trap girl's held boss; her walking boss reads 1,338 →
+2,888): all seed noise. (The final review round 3, running means over seeds 1…N: Sango 2-0-4 crowd (L1) and Shiro 2-0-1
+crowd (L1) dip below live only on the running mean of seeds 1–3 and are above it at every N from 4 to 48: 48 seeds,
+Sango 3,985 → 4,301, Shiro 126.8 → 137.9.) Midori 2-0-3 walking boss (L1) reads 4 → 3 a second on 16 seeds too: whole-number rounding
+(measured over 400 s the branch is at or above live on every seed). The duo's own cells on seeds 1–16 (all three
+profiles, LR on and off, with and without supports: 540 cells) are all at or above live, the closest ×1.025 (Starfall
+4-0-2 at L40 on a crowd beside Umeko + Midori).
+
+**The duo at L40 (the final review round 2, the owner's decision: no nerfs ever, floors never caps).** Their Starfall
+3-0-2 and 4-0-2 at L40 on a crowd beside Umeko + Midori read ×0.93 and ×0.92 of live with their row at ×1.01 (LR on or
+off alike: at L40 they have no LR form). The cause is Umeko's round-5 buff row, through Blooming Ocean's attack-speed
+aura (×1.05 stronger): the L40 duo's damage on this stream is not smooth in attack speed (it moves up and down by ±5%
+with small steps of aura speed), and this step lands in a dip; without Umeko's buff row they read 3,047 against live
+3,044 (seed 9). Their non-LR row goes ×1.01 → **×1.12**. On seeds 1–16 at every crowd spacing 0.4–0.7 s (192 cells
+per row) ×1.10 leaves 3 under (worst ×0.991), ×1.11 is the smallest that clears but only just (worst ×1.0002), and
+×1.12 keeps 0.9% headroom (worst ×1.009). On the gate's seeds they now read 3,148 and 4,621 (live 3,044 and 4,515).
+Only the duo moved: against the branch's gate run at ×1.01, 538 of the 540 duo cells rose (none fell) and every other
+cell of the 8,910 is identical. Their LR rows (`LR_POWER.kohaku_tsubaki`) are unchanged and sit on top, so every LR form
+rises with the row (×1.109 on every tier-5 cell); Grand Spectrum without LR moves above the owner's 2.17× (about 2.41×
+Kage on the r5 crowd). Re-pins: PENDING_BUMP 13 `3e9875ef40f9`; the duo's engines battle (DUO_START: the same win,
+wave, tiers and wallets; ticks 32000 → 31481); the battle-boost footnote (×1.12); `tests/sim/duoBeam.test.js` (a
+beam-mechanics check against her pre-buff numbers) now reads her without the balance row (`powerOff`), as it reads her
+without the owner's Oct 29 buff.
+
 ## Marumi rework (2026-10-21, `feature/marumi-rework`)
 
 Owner request (Oct 21): a bowling-ball ricochet that bounces from walker to walker. Player feedback: her

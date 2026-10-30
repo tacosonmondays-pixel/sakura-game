@@ -32,7 +32,9 @@ const GOLDEN = {
   // Bell Carpet counts a shared road stretch once, Drone Surge's Pursuit count reads her drones' eligibility
   // Balance round 5 on v0.1.61 (the merge of main 60ce9cad): the round's win, its waves, lives, steps, coins and casts
   // exactly as before the merge (W30/100/33673/18646/…/13); hashSim only moved (main's A4 folds the deploy girls' state)
-  '8-5:normal': 'W30/100/33793/18646/e1b845c7/13',
+  // Re-pinned Oct 30 (the final review round 2: Noa's row ×1.04 damage; she is in the free team): the same win,
+  // waves and lives (was W30/100/33793/18646/e1b845c7/13)
+  '8-5:normal': 'W30/100/35324/17651/555426c0/17',
 };
 // With the new girls (UNIT_GAPS §5) left out: the merged base's digests (before the new girls).
 const BASE_GOLDEN = {
@@ -44,7 +46,9 @@ const BASE_GOLDEN = {
   // Re-pinned in A4 (was L30/0/38801/7168/d359d2ce/23): the deploy girl's ability casts on Auto (23 → 24 casts).
   // Re-pinned in the A4–A6 review (was L30/0/38800/7168/604541eb/24): the deploy fixes above (24 → 25 casts)
   // balance round 5 on v0.1.61: as before the merge (W30/100/35855/17176/…/15), hashSim only
-  '8-5:normal': 'W30/100/35855/17176/ae6167ff/15',
+  // Re-pinned Oct 30 (the final review round 2: Noa's row ×1.04 damage; she is in the free team): the same win,
+  // waves and lives (was W30/100/35855/17176/ae6167ff/15)
+  '8-5:normal': 'W30/100/35812/16242/fc7c03e2/18',
 };
 // The A1 pins with the returning girls left out of the free pool (the 19 girls play exactly as at A1).
 // Re-pinned in A4, hashSim only (was …/a5d9340a/30): the deploy girl's ability now unlocks and sits on Auto, so the

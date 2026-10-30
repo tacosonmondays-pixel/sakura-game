@@ -247,8 +247,10 @@ describe('Potential in resolveStats', () => {
     // '456:77d05324' before the attack shapes S3 (Yuki's Rising Spikes: new tier data on her Frostbite path; Chigusa and
     // Kanna are not pinned here); with Yuki left out the 432 others hash 05819da7 before and after
     // balance round 5 on top (src/data/balance.js: rows and hero curves; its round-by-round hashes on feature/balance-r5);
-    // '456:23908890' before Umeko ×1.10 and Hotaru ×1.04 (Oct 30: the ability bench's pinned column, no build below live)
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:2d2bdb38');
+    // '456:23908890' before Umeko ×1.10 and Hotaru ×1.04 (Oct 30: the ability bench's pinned column, no build below live);
+    // '456:2d2bdb38' before Hotaru ×1.06 and Momo ×1.06 (the final review's no-support sweep); '456:4513c1a5' before
+    // Momo's Coin Wheel toss coins went ×0.98 → ×1 (her 2-0-4 alone on a held boss under live on some seeds)
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:19f2bb53');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders

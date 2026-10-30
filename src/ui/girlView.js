@@ -6,7 +6,7 @@ import { ROLES, ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, CAPABILITIES,
 import { ROLE_SUBCLASS } from '../data/wiki.js';
 import { unitBattleStats } from '../systems/progression.js';
 import { resolveStats } from '../sim/mods.js';
-import { POWER, HERO_POWER } from '../data/balance.js';
+import { POWER, HERO_POWER, LR_POWER } from '../data/balance.js';
 import { fmtNum } from './format.js';
 import { shownTips, isAbilityTip } from '../data/unitTips.js';
 import { abilityAtTier, skillAtLevel, abilityRuns } from '../data/abilities.js';
@@ -180,7 +180,37 @@ export function battleBoostText(unit) {
   if ((row?.buff ?? 1) > 1) bits.push(`+${Math.round((row.buff - 1) * 100)}% on what she gives`);
   if ((row?.reach ?? 1) > 1) bits.push(`${Math.round((row.reach - 1) * 100)}% more aura reach`);
   if ((row?.ctl ?? 1) > 1) bits.push(`control ${Math.round((row.ctl - 1) * 100)}% longer`);
-  return bits.length ? `In battle the balance boost adds ${bits.join(', ')}.` : null;
+  const base = bits.length ? `In battle the balance boost adds ${bits.join(', ')}.` : null;
+  const lr = lrBoostText(unit);
+  return base && lr ? `${base} ${lr}` : base || lr;
+}
+
+/**
+ * An LR unit's LR form boost (src/data/balance.js LR_POWER: on top while she is LR, never in a titan battle), for the
+ * same footnote: her row and each path's tier-5 row by the path's name (the duo: "their"). Null for every other girl.
+ * @param {object} unit UnitDef
+ * @returns {string|null}
+ */
+export function lrBoostText(unit) {
+  const row = LR_POWER[unit?.id];
+  if (!row) return null;
+  const x = (v) => `×${+v.toFixed(2)}`;
+  const bits = [];
+  if ((row.dmg ?? 1) !== 1) bits.push(`damage ${x(row.dmg)}`);
+  if ((row.boss ?? 1) !== 1) bits.push(`${x(row.boss)} vs bosses`);
+  const t5 = [];
+  for (const p of unit.paths || []) {
+    const r = p && row.t5?.[p.id];
+    if (!r) continue;
+    const parts = [];
+    if ((r.dmg ?? 1) !== 1) parts.push(`damage ${x(r.dmg)}`);
+    if ((r.boss ?? 1) !== 1) parts.push(`${x(r.boss)} vs bosses`);
+    if (parts.length) t5.push(`${p.name} ${parts.join(' and ')}`);
+  }
+  if (t5.length) bits.push(`at tier 5 ${t5.join('; ')}`);
+  // (the duo is two girls: "their LR form")
+  const lead = unit.duo?.members ? 'In their LR form they also get' : 'In her LR form she also gets';
+  return bits.length ? `${lead} ${bits.join(', ')}.` : null;
 }
 
 /**
