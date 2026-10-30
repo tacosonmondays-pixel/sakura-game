@@ -50,7 +50,7 @@ function gearCard(g) {
   const rarity = ITEM_RARITIES[g.rarity];
   const card = h(
     'div.bt-gear',
-    h('div.bt-gear-head', svgEl(gearIcon(g.slot, g.rarity), 'bt-gear-ico'), h('div', h('div.bt-gear-name', g.name || `${rarity?.name} ${GEAR_SLOTS[g.slot]?.name}`), h('div.bt-gear-meta', `${rarity?.name || g.rarity} ${GEAR_SLOTS[g.slot]?.name || g.slot}`))),
+    h('div.bt-gear-head', svgEl(gearIcon(g.slot, g.rarity, { set: g.club }), 'bt-gear-ico'), h('div', h('div.bt-gear-name', g.name || `${rarity?.name} ${GEAR_SLOTS[g.slot]?.name}`), h('div.bt-gear-meta', `${rarity?.name || g.rarity} ${GEAR_SLOTS[g.slot]?.name || g.slot}`))),
     h('div.bt-gear-main', describeStat(g.main.stat, g.main.value)),
     g.subs?.length ? h('ul.bt-gear-subs', g.subs.map((s) => h('li', describeStat(s.stat, s.value)))) : h('div.bt-gear-subs.muted', 'No substats'),
   );

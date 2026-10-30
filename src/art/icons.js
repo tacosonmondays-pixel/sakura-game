@@ -83,11 +83,16 @@ function gearIconSVG(slot, rarity, ur) {
   return icon64(ur && rarity === 'legendary' ? gearBodyUR(slot) : gearBody(slot, rarity));
 }
 
-/** Art key of a gear piece: `gear_<slot>_<rarity>`, or `gear_<slot>_ur` for the awakened UR piece. */
-export function gearArtKey(slot, rarity = 'common', { ur = false } = {}) {
+/**
+ * Art key of a gear piece: `gear_<slot>_<rarity>`, or `gear_<slot>_ur` for the awakened UR piece. With `set` (the
+ * piece's club id), a set's own look `gear_<slot>_<rarity|ur>_<set>` when that is baked (tools/blender/items
+ * catalog.GEAR_SETS), else the default look.
+ */
+export function gearArtKey(slot, rarity = 'common', { ur = false, set = null } = {}) {
   const s = GEAR_SLOTS[slot] ? slot : 'charm';
   const r = ITEM_RARITIES[rarity] ? rarity : 'common';
-  return `gear_${s}_${ur && r === 'legendary' ? 'ur' : r}`;
+  const key = `gear_${s}_${ur && r === 'legendary' ? 'ur' : r}`;
+  return set && ITEM_ART[`${key}_${set}`] ? `${key}_${set}` : key;
 }
 
 /** Art key of a currency icon (unknown kinds draw the coin). */
@@ -127,7 +132,7 @@ export function preloadSmallItemArt() {
 
 /** The drawn SVG for any art key (the error fallback the UI swaps in): items, gear keys, recruitPoints. */
 export function itemArtSVG(key) {
-  const m = /^gear_([a-z]+)_([a-zA-Z]+)$/.exec(String(key));
+  const m = /^gear_([a-z]+)_([a-zA-Z]+)(?:_[a-z0-9]+)?$/.exec(String(key));
   if (m && GEAR_SLOTS[m[1]]) return m[2] === 'ur' ? gearIconSVG(m[1], 'legendary', true) : gearIconSVG(m[1], ITEM_RARITIES[m[2]] ? m[2] : 'common', false);
   return itemIconSVG(key);
 }
@@ -165,10 +170,13 @@ export function itemIcon(itemId, { px = 64 } = {}) {
   return withArt(String(itemId ?? ''), itemIconSVG(itemId), px);
 }
 
-/** Gear piece icon (charm pendant, ribbon, shoes) by rarity; `ur` = the rainbow UR art. px as in itemIcon. */
-export function gearIcon(slot, rarity = 'common', { ur = false, px = 64 } = {}) {
-  const key = gearArtKey(slot, rarity, { ur });
-  const [, s, r] = /^gear_([a-z]+)_([a-zA-Z]+)$/.exec(key);
+/**
+ * Gear piece icon (charm pendant, ribbon, shoes) by rarity; `ur` = the rainbow UR art; `set` = the piece's club id
+ * (its set look when baked, see gearArtKey). px as in itemIcon.
+ */
+export function gearIcon(slot, rarity = 'common', { ur = false, px = 64, set = null } = {}) {
+  const key = gearArtKey(slot, rarity, { ur, set });
+  const [, s, r] = /^gear_([a-z]+)_([a-zA-Z]+)/.exec(key);
   return withArt(key, r === 'ur' ? gearIconSVG(s, 'legendary', true) : gearIconSVG(s, r, false), px);
 }
 

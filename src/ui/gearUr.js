@@ -89,7 +89,7 @@ export function gearCard(gear, { onClick = null, compact = false, highlightSubs 
     `${tag}.mb-gear${compact ? '.compact' : ''}${selected ? '.selected' : ''}${ur ? '.is-ur' : ''}`,
     { style: cssVars({ '--rarity': r?.color || '#999' }), onclick: onClick, 'data-gear': gear.uid },
     h('div.mb-gear-head',
-      svgEl(gearIcon(gear.slot, gear.rarity, { ur }), 'mb-gear-icon'),
+      svgEl(gearIcon(gear.slot, gear.rarity, { ur, set: gear.club }), 'mb-gear-icon'),
       h('div.mb-gear-title',
         h('div.mb-gear-name', gear.name),
         h('div.mb-gear-meta',

@@ -37,7 +37,7 @@ def _args():
     ap = argparse.ArgumentParser(description='Bake the 3D-flat item icons.')
     ap.add_argument('keys', nargs='*', help='item keys (default: all, or the --family)')
     ap.add_argument('--family', action='append', default=[], help='books, currency, tickets, materials, mat_rime, boxes, '
-                    'crowns, fragments, tools, gear (repeatable)')
+                    'crowns, fragments, tools, gear, gear-preview (repeatable)')
     ap.add_argument('--out', default=os.path.join(ROOT, 'public', 'art', 'items'))
     ap.add_argument('--manifest', default=os.path.join(ROOT, 'src', 'art', 'itemArt.js'))
     ap.add_argument('--no-manifest', action='store_true')
@@ -78,23 +78,29 @@ def main():
     if a.pylibs:
         sys.path.append(a.pylibs)
     import models  # noqa: E402
+    import catalog  # noqa: E402
     rows = _catalogue(a)
+    slots = {r['family']: r['name'].split(' (')[0] for r in rows if r.get('kind') == 'gear'}
+    rows += catalog.gear_rows(slots, slots)                  # the set looks of the game's slots (catalog.GEAR_SETS)
+    preview = [r for r in catalog.gear_rows(slots, slots, preview=True) if r['kind'] == 'calibration']
     if a.keys:
         want = set(a.keys)
-        rows += [dict(c) for c in models.CALIBRATION if c['key'] in want]
+        rows += [dict(c) for c in models.CALIBRATION + preview if c['key'] in want]
         unknown = want - {r['key'] for r in rows}
         if unknown:
             raise SystemExit('unknown keys: %s' % ', '.join(sorted(unknown)))
         rows = [r for r in rows if r['key'] in want]
     if a.family:
         fams = set(a.family)
-        rows = [r for r in rows if models.family(r['key']) in fams or models.subfamily(r['key']) in fams]
+        if 'gear-preview' in fams:              # the preview slots and sets: scratch only (catalog.GEAR_SLOT_ART)
+            rows += preview
+        rows = [r for r in rows if models.family(r['key']) in fams or models.subfamily(r['key']) in fams
+                or ('gear-preview' in fams and r in preview)]
     if a.list:
         for r in rows:
             print(r['key'], models.family(r['key']), r['rarity'], r['name'])
         return
     if a.table:
-        import catalog  # noqa: E402
         missing = [r['key'] for r in rows if not catalog.note(r['key'])]
         md = catalog.table(rows, models.family, models.SMALL_CUT, models.SHIPPED)
         readme = os.path.join(HERE, 'README.md')

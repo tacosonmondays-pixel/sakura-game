@@ -102,18 +102,128 @@ for _fam, _rows in _MAT.items():
     for _t, _txt in zip(_TIERS, _rows):
         NOTES[f'mat_{_fam}_{_t}'] = _txt
 
-_GEAR = dict(charm='rounded faceted diamond pendant in a bezel, short chain', ribbon='chunky satin bow with a knot clip and two tails',
-             shoes='chunky sneaker: white toe cap and sole with toe spring, three fat laces, padded collar and tongue, heel counter')
-_GEAR_TIER = dict(common='plain', rare='silver trim', superRare='silver trim + gem (shoes: wing)',
-                  mythic='rose-gold trim + glow (shoes: wing)', legendary='gold trim + star (shoes: wing)',
-                  ur='iridescent body (saturated shadow) and trim (shoes: wing)')
-for _slot, _txt in _GEAR.items():
-    for _t, _tt in _GEAR_TIER.items():
-        NOTES[f'gear_{_slot}_{_t}'] = f'{_txt}; {_tt}'
+# ---------------------------------------------------------------------------
+# Gear (gearIcon: gear_<slot>_<rarity>, gear_<slot>_ur, gear_<slot>_<rarity|ur>_<set>)
+# ---------------------------------------------------------------------------
+# Three tables drive every gear icon; models/gear.py holds the base models and reads only these rows, so a new
+# slot, a new set look or a ladder tweak is a row here, never new code.
+#
+# GEAR_SLOT_ART: one row per gear slot (src/data/types.js GEAR_SLOTS) -> the base model and its default design.
+#   base: pendant | bow | sneaker | hairclip | necklace (models/gear.py BASES).
+#   shape: the base's main form (pendant / necklace: diamond, heart, round, star, blossom, drop;
+#          hairclip: blossom, star, heart, bow; bow: classic, wide; sneaker: low, high).
+#   motif: an emblem on the piece (sakura, star, heart, note, moon, none), body: a fixed body colour (default:
+#   the rarity tint), note: the README line. A slot in this table that the game data does not have yet is a
+#   preview only (--family gear-preview bakes it into the scratch folder, never into public/).
+GEAR_SLOT_ART = dict(
+    charm=dict(base='pendant', shape='diamond', note='faceted diamond stone in a bezel on a short chain'),
+    ribbon=dict(base='bow', shape='classic', note='chunky satin bow with a knot clip and two notched tails'),
+    shoes=dict(base='sneaker', shape='low', note='chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter'),
+    # the coming gear update (preview until GEAR_SLOTS has them; rename the key to the slot id it ships with)
+    hair=dict(base='hairclip', shape='blossom', note='hair clip: a rounded bar clip with a sakura ornament at its end'),
+    necklace=dict(base='necklace', shape='heart', note='heart pendant on a chain loop with a clasp'),
+)
+
+# GEAR_TIERS: the rarity ladder every slot and set shares. Rarity reads from shape and trim, not colour alone:
+#   trim     metal of the bezel / clip / heel counter: pewter, silver, rose, gold, iri
+#   gem      a set gem in the trim (its tier colour)            studs  ball studs on the frame points
+#   crest    0 none, 1 petals / layered loops / sole stripe, 2 sunburst rays / star medallion / gold toe bumper
+#   wings    0..4 feathers per wing (UR: one pastel per feather)  drop  a bead hanging below
+#   glow     inner glow of the body                             star   the 4-point glint (px at 256)
+#   sparkle  extra small glints round the piece (UR)
+GEAR_TIERS = dict(
+    common=dict(trim='pewter', gem=False, studs=False, crest=0, wings=0, drop=False, glow=0.0, star=0, sparkle=0,
+                note='plain: pewter trim'),
+    rare=dict(trim='silver', gem=False, studs=False, crest=0, wings=0, drop=False, glow=0.0, star=8, sparkle=0,
+              note='silver trim'),
+    superRare=dict(trim='silver', gem=True, studs=True, crest=0, wings=0, drop=False, glow=0.0, star=9, sparkle=0,
+                   note='silver trim, studs and a violet gem'),
+    mythic=dict(trim='rose', gem=True, studs=True, crest=1, wings=0, drop=True, glow=0.3, star=10, sparkle=0,
+                note='rose-gold trim, petal crest (bow: layered loops; shoes: stripe and small wings), drop bead, glow'),
+    legendary=dict(trim='gold', gem=True, studs=True, crest=2, wings=0, drop=True, glow=0.3, star=12, sparkle=0,
+                   note='gold trim, sunburst rays (bow: star medallion; shoes: gold bumper and wings), drop bead, star'),
+    ur=dict(trim='iri', gem=True, studs=True, crest=2, wings=4, drop=True, glow=0.35, star=13, sparkle=2,
+            note='iridescent body (saturated shadow) and trim, the legendary crest (the charm swaps its rays for the wings) plus rainbow wings (one pastel per feather) and sparkles'),
+)
+
+# GEAR_SETS: a custom look per gear set (a club id in src/data/clubs.js). A row overrides the slot design per slot
+# (any GEAR_SLOT_ART field: shape, motif, body, even base) and bakes gear_<slot>_<rarity|ur>_<set> for every slot
+# and tier; gearIcon(slot, rarity, { set }) shows it and falls back to the default look while a set has no art.
+# preview=True bakes into the scratch folder only (for trying a look before the set ships).
+GEAR_SETS = dict(
+    sample=dict(preview=True, note='preview of a set look: a heart charm, a wide bow with a heart clip, high-tops',
+                slots=dict(charm=dict(shape='heart', motif='heart', body='#ff7eb6'),
+                           ribbon=dict(shape='wide', motif='heart', body='#ff7eb6'),
+                           shoes=dict(shape='high', motif='heart', body='#ff7eb6'))),
+)
+
+GEAR_TIER_ORDER = ('common', 'rare', 'superRare', 'mythic', 'legendary', 'ur')
+
+
+def gear_key(slot, tier, gear_set=None):
+    return f'gear_{slot}_{tier}' + (f'_{gear_set}' if gear_set else '')
+
+
+def gear_parse(key):
+    """(slot, tier, set or None) of a gear art key, or None."""
+    parts = key.split('_')
+    if len(parts) not in (3, 4) or parts[0] != 'gear' or parts[2] not in GEAR_TIER_ORDER:
+        return None
+    return parts[1], parts[2], (parts[3] if len(parts) == 4 else None)
+
+
+def gear_design(slot, gear_set=None):
+    d = dict(GEAR_SLOT_ART[slot])
+    if gear_set:
+        d.update(GEAR_SETS[gear_set]['slots'].get(slot, {}))
+    return d
+
+
+def gear_rows(slots, names=None, preview=False):
+    """Extra build rows: the set keys of the game slots and, with preview, the preview slots and sets (their
+    rows are kind='calibration', so they bake into the scratch folder only)."""
+    names = names or {}
+    out = []
+
+    def row(slot, tier, gear_set, prev):
+        r = 'legendary' if tier == 'ur' else tier
+        label = names.get(slot, slot.capitalize())
+        return dict(key=gear_key(slot, tier, gear_set), kind='calibration' if prev else 'gear',
+                    name=f"{label} ({'UR' if tier == 'ur' else tier}{', ' + gear_set if gear_set else ''})",
+                    category='gear', rarity=r, family=slot, tier='', display='ur' if tier == 'ur' else '', rainbow=tier == 'ur')
+    for gs, srow in GEAR_SETS.items():
+        if srow.get('preview') and not preview:
+            continue
+        for slot in GEAR_SLOT_ART:
+            if slot not in slots and not preview:
+                continue
+            for t in GEAR_TIER_ORDER:
+                out.append(row(slot, t, gs, srow.get('preview') or slot not in slots))
+    if preview:
+        for slot in GEAR_SLOT_ART:
+            if slot not in slots:
+                out += [row(slot, t, None, True) for t in GEAR_TIER_ORDER]
+    return out
+
+
+def _gear_note(key):
+    g = gear_parse(key)
+    if not g or g[0] not in GEAR_SLOT_ART:
+        return ''
+    slot, tier, gs = g
+    d = gear_design(slot, gs)
+    extra = []
+    if d.get('shape') != GEAR_SLOT_ART[slot].get('shape'):
+        extra.append(f"{d['shape']} shape")
+    if d.get('motif'):
+        extra.append(f"{d['motif']} motif")
+    if d.get('body'):
+        extra.append(f"body {d['body']}")
+    return d['note'] + (' (' + ', '.join(extra) + ')' if extra else '') + '; ' + GEAR_TIERS[tier]['note']
 
 
 def note(key):
-    return NOTES.get(key, '')
+    return NOTES.get(key) or _gear_note(key)
 
 
 def table(rows, family, small_cut, shipped=()):

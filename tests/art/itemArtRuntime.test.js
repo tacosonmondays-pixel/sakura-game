@@ -119,6 +119,57 @@ describe('item art at runtime: every item has baked art', () => {
   });
 });
 
+describe('gear art: the 3D-flat gear icons (tools/blender/items models/gear.py, catalog GEAR_*)', () => {
+  const catalog = readFileSync(join(ROOT, 'tools/blender/items/catalog.py'), 'utf8');
+  const block = (name) => {
+    const at = catalog.indexOf(`${name} = dict(`);
+    expect(at, name).toBeGreaterThan(-1);
+    return catalog.slice(at, catalog.indexOf('\n)\n', at));
+  };
+
+  it('every gear slot of the game has a design row and every tier a ladder row in the catalog', () => {
+    const slots = block('GEAR_SLOT_ART');
+    for (const slot of Object.keys(GEAR_SLOTS)) expect(slots, slot).toMatch(new RegExp(`\\n    ${slot}=dict\\(base='(pendant|bow|sneaker|hairclip|necklace)'`));
+    const tiers = block('GEAR_TIERS');
+    for (const t of [...ITEM_RARITY_ORDER, 'ur']) expect(tiers, t).toMatch(new RegExp(`\\n    ${t}=dict\\(trim='`));
+  });
+
+  it('each slot shows its own baked image per rarity and UR, small through big', () => {
+    for (const slot of Object.keys(GEAR_SLOTS)) {
+      const hashes = new Set();
+      for (const r of [...ITEM_RARITY_ORDER, 'ur']) {
+        const key = `gear_${slot}_${r}`;
+        hashes.add(ITEM_ART[key]);
+        const rarity = r === 'ur' ? 'legendary' : r;
+        for (const px of [22, 32, 48, 104]) {
+          const im = img(gearIcon(slot, rarity, { ur: r === 'ur', px }));
+          expect(im.art, `${key} at ${px}px`).toBe(key);
+          expect(im.src).toBe(itemArtUrl(key, 128));
+          expect(im.srcset).toContain(itemArtUrl(key, 256));
+        }
+      }
+      expect(hashes.size, `${slot}: every tier has its own art`).toBe(6);
+    }
+  });
+
+  it('a set look shows only when baked; an unbaked set or no set keeps the default look', () => {
+    for (const slot of Object.keys(GEAR_SLOTS)) {
+      expect(gearArtKey(slot, 'mythic', { set: 'tea' })).toBe(ITEM_ART[`gear_${slot}_mythic_tea`] ? `gear_${slot}_mythic_tea` : `gear_${slot}_mythic`);
+      expect(gearArtKey(slot, 'legendary', { ur: true, set: 'no_such_set' })).toBe(`gear_${slot}_ur`);
+      expect(gearArtKey(slot, 'rare', { set: null })).toBe(`gear_${slot}_rare`);
+      expect(img(gearIcon(slot, 'rare', { set: 'no_such_set' })).art).toBe(`gear_${slot}_rare`);
+    }
+    // every baked set look resolves through gearIcon and keeps the slot's drawing as its fallback
+    for (const k of Object.keys(ITEM_ART).filter((x) => /^gear_[a-z]+_[a-zA-Z]+_[a-z0-9]+$/.test(x))) {
+      const [, slot, r, set] = /^gear_([a-z]+)_([a-zA-Z]+)_([a-z0-9]+)$/.exec(k);
+      const markup = gearIcon(slot, r === 'ur' ? 'legendary' : r, { ur: r === 'ur', set });
+      expect(img(markup).art).toBe(k);
+      expect(markup).toContain(itemArtSVG(`gear_${slot}_${r}`));
+      expect(itemArtSVG(k)).toBe(itemArtSVG(`gear_${slot}_${r}`));
+    }
+  });
+});
+
 describe('item art while loading and on error', () => {
   const css = readFileSync(join(ROOT, 'src/ui/styles/base.css'), 'utf8');
   const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel, body]) => ({ sel: sel.replace(/\/\*[\s\S]*?\*\//g, '').trim(), body }));

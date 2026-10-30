@@ -104,7 +104,7 @@ function gearCard(g) {
   }
   const el = h('div.ub-gc', { 'data-testid': 'build-gear', 'data-slot': g.slot },
     h('div.ub-gc-head',
-      h('span.ub-gc-ico', svgEl(gearIcon(g.slot, g.rarity, { ur: g.ur }))),
+      h('span.ub-gc-ico', svgEl(gearIcon(g.slot, g.rarity, { ur: g.ur, set: g.club }))),
       h('span.ub-gc-slot', g.slotName, h('span.ub-gc-rar', g.rarityName), h('span.ub-gc-lv', `+${g.level}`))),
     h('div.ub-gc-main', h('span', g.main.name), h('b', g.main.text)),
     g.subs.length ? h('ul.ub-gc-subs', g.subs.map((s) => h('li', h('span', s.name), h('b', s.text), s.ups ? h('em', { title: `Upgraded ${s.ups}×` }, '▲'.repeat(s.ups)) : null))) : null);
