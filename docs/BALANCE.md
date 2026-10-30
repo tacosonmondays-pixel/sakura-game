@@ -334,7 +334,9 @@ in (they read `src/` beside them). Exactly what ran, in each tree:
 (4,455 cells per support setting.) The six supported low-profile cells, re-run on seeds 1–16, live → branch: Sango
 2-0-4 crowd (L1) 4,001 → 4,339; Shiro 2-0-1 crowd (L1) 126 → 135, 4-0-2 held boss (L1) 5,097 → 5,394, 5-0-2 held boss
 (L1) 99,233 → 105,027; Suzu 5-0-2 held boss (L40) 29 → 32 (a trap girl's held boss; her walking boss reads 1,338 →
-2,888): all seed noise. Midori 2-0-3 walking boss (L1) reads 4 → 3 a second on 16 seeds too: whole-number rounding
+2,888): all seed noise. (The final review round 3, running means over seeds 1…N: Sango 2-0-4 crowd (L1) and Shiro 2-0-1
+crowd (L1) dip below live only on the running mean of seeds 1–3 and are above it at every N from 4 to 48: 48 seeds,
+Sango 3,985 → 4,301, Shiro 126.8 → 137.9.) Midori 2-0-3 walking boss (L1) reads 4 → 3 a second on 16 seeds too: whole-number rounding
 (measured over 400 s the branch is at or above live on every seed). The duo's own cells on seeds 1–16 (all three
 profiles, LR on and off, with and without supports: 540 cells) are all at or above live, the closest ×1.025 (Starfall
 4-0-2 at L40 on a crowd beside Umeko + Midori).

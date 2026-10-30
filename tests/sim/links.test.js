@@ -472,7 +472,7 @@ describe('determinism', () => {
     const all = realBattle(false);
     expect(realBattle(true).out).toEqual(all.out);
     expect(Object.values(all.live).every((n) => n > 0)).toBe(true);
-  });
+  }, 60000); // (six real battles: over the 5 s default on a loaded machine)
 });
 
 describe('determinism: the source', () => {
