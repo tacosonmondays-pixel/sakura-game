@@ -170,7 +170,10 @@ try {
       check(/You bring Team 3/i.test(await bring.innerText()), `${tag} co-op hub: "You bring Team 3"`);
       await noOverflow(page, W, `${tag} co-op hub`);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/coop-${tag}.png` });
-    } else console.log(`  skip ${tag} co-op hub (offline in this run)`);
+    } else {
+      console.log(`  skip ${tag} co-op hub (offline in this run)`);
+      if (SHOTS) await page.screenshot({ path: `${SHOTS}/coop-skip-${tag}.png` });
+    }
 
     check(!errs.length, `${tag} no page errors${errs.length ? `: ${errs.slice(0, 3).join(' | ')}` : ''}`);
     await page.close();
