@@ -105,7 +105,7 @@ describe("roster marks ('own:')", () => {
 
   it('a mark reads back as level, gates, stars and worn pieces; below 1000 or for a girl not known it is nothing', () => {
     const c = { 'own:kanna': 67072, 'own:kanna:charm': 12, 'own:ena': 999, 'own:nobody': 5000 };
-    expect(rosterMark(c, 'kanna')).toEqual({ level: 67, breakthrough: 7, awaken: 2, gear: { charm: 'g12', ribbon: null, shoes: null } });
+    expect(rosterMark(c, 'kanna')).toEqual({ level: 67, breakthrough: 7, awaken: 2, gear: { charm: 'g12', ribbon: null, shoes: null, hair: null, necklace: null } });
     expect(rosterMark(c, 'ena')).toBeNull();
     const raw = clone(createProfile());
     Object.assign(raw.missions.counters, c);
