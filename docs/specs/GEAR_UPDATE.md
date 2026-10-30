@@ -499,10 +499,19 @@ half her capped haste (`abilHaste`, `ABIL_HASTE_CEIL` 0.75 with Power Bank's set
 The step at the boundary is real: gear haste 0.50 → 0.51 adds her whole Potential ult haste (up to +21 points), so the
 deferred G1 and G4 runs must measure a hero at 0.50 and at 0.51 gear haste, not only the presets' values.
 
-**Pierce counts once (M3 review r1 #9, r2 #1).** A kit with no blasts and no splash traps uses Pierce on shots only, up
-to 200 % (`PIERCE_SHOT_PCT` = `PIERCE_MAX_EXTRA` 2): its battle `pierceK` stops at 200 and the part above fills in as
-ATK (Every Line Counts, `src/systems/gear.js gearFillIn`). A kit with a blast or a splash trap anywhere in its base or
-tiers (`blastKit`) keeps all of it (up to 300 %, 500 % for its blasts with Party Popper 5) and fills none of it in.
+**Pierce counts once (M3 review r1 #9, r2 #1, r3).** A kit whose blasts or splash traps Pierce can widen keeps all of
+it (up to 300 %, 500 % for its blasts with Party Popper 5) and fills none of it in. `blastKit` asks the sim's own
+question (`src/sim/mods.js applyGearReach`): it resolves her stats at `pierceK` 200 and at 300 on each of her builds
+(every path at tier 5 with a tier-2 crosspath, her base, a hero at Lv 25) and checks whether her blast or splash-trap
+radius moves. Every other kit uses Pierce on shots only, up to 200 % (`PIERCE_SHOT_PCT` = `PIERCE_MAX_EXTRA` 2): its
+battle `pierceK` stops at 200 and the part above fills in as ATK (Every Line Counts, `src/systems/gear.js gearFillIn`).
+An ability's splash (Tenka), a roll (Marumi), a drink (Wakaba) and a mortar (Kohaku & Tsubaki) are not blasts Pierce
+widens; Kogane's splash from her hero levels is.
+
+*Per path (r3 LOW 1, the owner's call).* Yuki, Fuu, Ruri, Iroha and Ena blast on some paths only (e.g. Yuki 5-x-x is a
+pulse, Ena's paths 2 and 3 have no blasts). Her battle stats are made before she picks a path, so she keeps the whole
+band; on her shot-only paths the part above 200 % does nothing. Pierce by path would read her tiers in the sim (a
+protocol change), so it is left as is and said in Pierce's tooltip text.
 
 ### 4.4 LR Set Forms
 
