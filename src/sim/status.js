@@ -65,7 +65,11 @@ export function applyStatus(enemy, spec, ctx = {}) {
     // rot: a share of the cursing hit a second while it lives (a passed curse carries an absolute rotDps); a
     // rotting curse also spreads while its enemy lives (src/sim/Sim.js _curseTick), first after a full interval
     incoming.rotDps = spec.rotDps ?? (spec.rot ?? 0) * (ctx.hitDamage ?? 0);
-    if (incoming.rotDps > 0) incoming.spreadIn = CURSE_SPREAD_STEPS;
+    if (incoming.rotDps > 0) {
+      incoming.spreadIn = CURSE_SPREAD_STEPS;
+      // whose rot it is (credit and co-op bounty): a passed curse names it, a hit's is the hitter's
+      incoming.rotUid = spec.rotUid ?? ctx.sourceUid ?? null;
+    }
   }
 
   const cur = enemy.statuses[type];
@@ -94,6 +98,7 @@ export function applyStatus(enemy, spec, ctx = {}) {
     }
     if (incoming.rotDps > (cur.rotDps ?? 0)) {
       cur.rotDps = incoming.rotDps;
+      cur.rotUid = incoming.rotUid;
       if (cur.spreadIn == null) cur.spreadIn = CURSE_SPREAD_STEPS;
     }
     cur.radius = Math.max(cur.radius, incoming.radius);

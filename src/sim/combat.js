@@ -173,7 +173,7 @@ export function applyHitResult(enemy, res, share = 1) {
 export function computeDot(enemy, kind, amount, attackType, out = {}) {
   let dmg = amount;
   if (kind === 'burn') dmg *= typeMultiplier(attackType || 'blast', enemy.armorClass);
-  // a curse's rot (Ena's spreading hex) has no element: no ward cuts it, and it reduces as mystic
+  // a curse's rot (Ena's spreading curse) has no element: no ward cuts it, and it reduces as mystic
   const element = kind === 'burn' ? 'fire' : kind === 'curse' ? null : 'poison';
   if (element && enemy.ward === element) dmg *= WARD_MUL;
   dmg *= damageTakenBonus(enemy);

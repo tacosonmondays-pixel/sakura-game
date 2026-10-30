@@ -38,6 +38,17 @@ const ROAR_POP = 0.3;
 const CLOUD_EVERY = 0.07;
 const RIBBON_PTS = 5;
 const MAX_CURSE_PER_FRAME = 10;
+/**
+ * Ena's spreading curse ('curseSpread'): a thin red card-thread from the passing enemy to the one that caught it, drawn
+ * a little above the ground for SPREAD_LIFE s (shorter with Reduce motion, and drawn whole at once instead of running
+ * out from the source). Alpha-blended ground quads only, no additive sprite and no flash, so the flash guard never
+ * counts it; at most SPREAD_MAX live threads (the oldest gives way).
+ */
+const SPREAD_LIFE = 0.5;
+const SPREAD_LIFE_RM = 0.3;
+const SPREAD_MAX = 24;
+const SPREAD_W = 0.06;
+const SPREAD_RGB = [0.86, 0.12, 0.24];
 /** A warning ring with no shellLand (wave clear, sold girl) disappears this long after its delay. */
 const WARN_GRACE = 0.25;
 /**
@@ -250,6 +261,7 @@ export class RosterFx {
      * { pathIndex, dist, speed (sim tiles/s), segments, gap, end, rem (real s left to reach START), head }
      */
     this._ghosts = [];
+    this._spreads = []; // the spreading curse's live threads ('curseSpread', _drawSpreads)
     this._frame = 0;
     this._nh = 0; // heads / beads written this frame
     this._nb = 0;
@@ -346,6 +358,10 @@ export class RosterFx {
       }
       case 'curseBurst':
         this._curse(ev);
+        return true;
+      case 'curseSpread':
+        if (this._spreads.length >= SPREAD_MAX) this._spreads.shift();
+        this._spreads.push({ x0: ev.x0, y0: ev.y0, x1: ev.x1, y1: ev.y1, age: 0 });
         return true;
       case 'ult':
         // the renderer keeps its screen flash + shake; the map-wide ring is skipped for these two
@@ -548,6 +564,7 @@ export class RosterFx {
     this.time += dt;
     this._curseThisFrame = 0;
     this.mirrors.update(dt);
+    this._drawSpreads(dt);
     this._drawWarns();
     this._syncProps(dt);
     this._drawAims();
@@ -673,6 +690,31 @@ export class RosterFx {
     }
     // dashed tether from the girl to her prop (ground dashes flowing outward)
     if (!self) this._tether(t.x, t.y, x, y, c, p.kind === 'mirror' ? 0.6 : 0.7);
+  }
+
+  /** The spreading curse's threads (see SPREAD_LIFE): one stretched ground quad each, fading out. */
+  _drawSpreads(dt) {
+    const list = this._spreads;
+    if (!list.length) return;
+    const life = this.reduceMotion ? SPREAD_LIFE_RM : SPREAD_LIFE;
+    const R = this.R;
+    let n = 0;
+    for (let i = 0; i < list.length; i++) {
+      const t = list[i];
+      t.age += dt;
+      if (t.age >= life) continue;
+      list[n++] = t;
+      const f = t.age / life;
+      // the thread runs out from the passing enemy over its first third (whole at once with Reduce motion)
+      const run = this.reduceMotion ? 1 : Math.min(1, f * 3);
+      const dx = (t.x1 - t.x0) * run;
+      const dy = (t.y1 - t.y0) * run;
+      const len = Math.hypot(dx, dy);
+      if (len < 0.05) continue;
+      const a = 0.85 * (1 - f);
+      this.b.groundN.push(t.x0 + dx / 2, 0.12, t.y0 + dy / 2, len, SPREAD_W, R.white, SPREAD_RGB[0], SPREAD_RGB[1], SPREAD_RGB[2], a, Math.atan2(-dy, dx));
+    }
+    list.length = n;
   }
 
   _tether(x0, y0, x1, y1, c, a) {

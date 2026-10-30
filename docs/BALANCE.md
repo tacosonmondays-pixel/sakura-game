@@ -1,16 +1,17 @@
 # Balance notes
 
-## Ena's spreading hex (2026-10-30, `feature/ena-contagion`, on top of round 5)
+## Ena's spreading curse, Omen Rot (2026-10-30, `feature/ena-contagion`, on top of round 5)
 
 The owner asked for Ena's curse to spread like a contagion: before, it only did something when the cursed enemy died
-(HANDOFF §10: kill-only effects are weak in teams). Now a curse with `rot` (src/sim/Sim.js `_curseTick`):
+(HANDOFF §10: kill-only effects are weak in teams). Now a curse with `rot` (src/sim/Sim.js `_curseTick`; player text calls the damage over time "Omen Rot", and "hex" stays Yoriko's word):
 
 - **Rots:** rot × the cursing hit a second while it lives (mystic, no element, credited to her; bosses and minibosses
-  take `CURSE_ROT_BOSS_MUL` = half). Her tiers set it: base 15%, Cursed Bloom 20 / 25 / 40 / 50 / 60%, awaken 20%;
+  take `CURSE_ROT_BOSS_MUL` = half; with two Enas the rot is credited to the girl whose rot it is, `rotUid`). Her tiers set it: base 15%, Cursed Bloom 20 / 25 / 40 / 50 / 60%, awaken 20%;
   Omen Card 60% (80% at tier 5).
 - **Spreads while it lives:** every `CURSE_SPREAD_STEPS` (60 steps, 1 s) it passes a ×0.8 weaker hex (burst and rot) to
   the nearest uncursed, visible enemy within 1.2 tiles (a grid query), up to generation 4; at most 64 passes a step
-  (an enemy over the budget tries again next step). Integer step timers, no rng, no trig.
+  (an enemy over the budget, or inside a tunnel, tries again next step). Integer step timers, no rng, no trig.
+- **Shown** as a thin red card-thread from the passing enemy to the one that caught it (src/render/rosterFx.js, display only).
 - **The on-death burst stays** (×0.6, two generations) and now carries the rot on.
 
 **Bench** (`tools/balance/r5Bench.mjs`, fully maxed, Umeko + Midori, seeds 9/1/2; targets healed every step, so this
@@ -19,11 +20,12 @@ is the rot and the spread only, never a burst):
 | Build | crowd before → after | boss before → after | walking boss after |
 |---|---:|---:|---:|
 | Ena 5-0-2 (Cursed Bloom) | 1.58M → 1.87M | 557k → 567k | 208k |
-| Ena 2-5-0 (Withering Script) | 390k → 486k | 561k → 565k | 226k |
+| Ena 2-5-0 (Withering Script) | 390k → 472k | 561k → 565k | 226k |
 | Ena 2-0-5 (Shared Fate, her best) | 1.86M → 2.00M | 1.88M → 1.89M | 1.45M |
 | **Kage 5-0-2 (best Kage T5)** | 1.83M | 2.22M | 830k |
 
-Ena's best crowd build reads 1.09× the best Kage T5 (Bloom 1.02×); her boss number does not move. Alone (no supports)
+Ena's best crowd build reads 1.09× the best Kage T5 (Bloom 1.02×); her boss number does not move. (After the review r1
+fixes, which stop a pass out of a tunnel, Withering reads 472k, from 486k; the other rows hold to 0.2%.) Alone (no supports)
 every build rises or holds (crowd 152k / 38k / 183k → 235k / 62k / 215k). No other girl changes.
 
 **Team crowd, a stream that dies** (`tools/balance/teamCrowd.mjs kage --build p0t5 --partner ena:pNt5`: Kage 5-0-2 on

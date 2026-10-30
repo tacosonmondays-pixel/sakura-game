@@ -311,6 +311,44 @@ describe('the spreading hex (a curse that rots spreads while its enemy lives)', 
     expect(depths).toEqual([...Array.from({ length: CURSE_SPREAD_MAX_DEPTH + 1 }, (_, i) => i), null, null]);
   });
 
+  test('two cursers: the rot is credited to the girl whose rot it is, the burst to the girl whose burst it is', () => {
+    const s = sim();
+    const big = place(s, 'curser', 2, 6.5);
+    const rotter = place(s, 'curser', 6, 6.5);
+    big.disabled = 1e9;
+    rotter.disabled = 1e9;
+    const [a, b] = row(s, [3, 3.4]);
+    // a big hit with little rot (her burst wins), then a small hit with much rot (her rot wins)
+    s._applyStatusEvent(a, { type: 'curse', burstMul: 1, radius: 1, duration: 30, rot: 0.01 }, { ...s._statusCtx, hitDamage: 1000, curseDepth: 0, sourceUid: big.uid });
+    s._applyStatusEvent(a, { type: 'curse', burstMul: 1, radius: 1, duration: 30, rot: 1 }, { ...s._statusCtx, hitDamage: 100, curseDepth: 0, sourceUid: rotter.uid });
+    expect(a.statuses.curse).toMatchObject({ sourceUid: big.uid, burst: 1000, rotUid: rotter.uid, rotDps: 100 });
+    const d0 = [big.damageDealt, rotter.damageDealt];
+    steps(s, CURSE_SPREAD_STEPS - 1);
+    expect(big.damageDealt - d0[0]).toBe(0);
+    expect(rotter.damageDealt - d0[1]).toBeCloseTo(100 * (CURSE_SPREAD_STEPS - 1) / 60, 6);
+    steps(s, 1);
+    // the passed curse keeps both: its rot is still hers
+    expect(b.statuses.curse).toMatchObject({ sourceUid: big.uid, rotUid: rotter.uid });
+  });
+
+  test('a cursed enemy inside a tunnel (hidden) keeps rotting but passes nothing on until it comes out', () => {
+    const s = sim();
+    const [a, b] = row(s, [3, 3.4]);
+    hexOn(s, a, { rot: 0.5, hit: 100 });
+    const hp0 = a.hp;
+    for (let i = 0; i < CURSE_SPREAD_STEPS * 2; i++) {
+      a.hidden = true;
+      s._step(STEP);
+    }
+    expect(b.statuses.curse).toBeUndefined();
+    expect(hp0 - a.hp).toBeCloseTo(100, 6);
+    expect(a.statuses.curse.spreadIn).toBe(0);
+    a.hidden = false;
+    s._step(STEP);
+    if (a.hidden) return; // (the fixture road has no tunnel: placement never hides it)
+    expect(b.statuses.curse).toMatchObject({ depth: 1 });
+  });
+
   test('a curse without rot (the fixture curser\'s) never spreads while its enemy lives', () => {
     const s = sim();
     const [a, b] = row(s, [3, 3.4]);

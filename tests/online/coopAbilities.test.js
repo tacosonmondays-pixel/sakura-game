@@ -681,8 +681,14 @@ describe('the returning girls in co-op (A3 M3)', () => {
   it('Kaze\'s Swoop (map) and First Aid Call (lives) through abil on two views: equal hashes, every life restored once on both', () => {
     // (power-neutral: the girls' balance round 5 rows divided back out, and ÷1.1 for Noa's raised aura (her `buff`), so
     // enemies still reach her 3 tiles; the scenario is seed-sensitive: 6 and 6.5 miss the rally's kills, 6 / 1.1 and 4 hit.
-    // Ena's spreading hex (feature/ena-contagion) rots the wave before it reaches Noa: 6 / 1.1, 6 / 1.2, 5 and 4 now miss
-    // the rally's kills, 3 hits)
+    // Ena's spreading curse (feature/ena-contagion) rots the wave before it reaches Noa: 6 / 1.1, 6 / 1.2, 5 and 4 now miss
+    // the rally's kills, 3 hits.
+    // FRAGILE (review r1 L5): every girl stands beside Noa, so the wave dies where it enters their reach, 3.5–4 tiles
+    // up the road from her, just outside her 3-tile lifeRadius (measured: with 6 / 1.1 the kills within 3 tiles are a
+    // few dozen over the run, with 3 about 100), and First Aid Call (50 s cooldown) casts only once or twice. Any sim or
+    // data change that moves where the wave dies can drop the lives again; timing her call for a crowd at her feet did
+    // not help (tried). The sturdy fix is the layout: the strikers about 1.5 tiles down the road from Noa, so the kill
+    // zone sits inside her 3 tiles whatever their damage.)
     const STRONG = { damageMul: 3, rateMul: 1.3 };
     const st = start({
       stageId: '8-1',

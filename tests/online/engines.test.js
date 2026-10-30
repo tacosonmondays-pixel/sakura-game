@@ -213,12 +213,13 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // battle did not: every Sim now carries the tether fields and every enemy its `tie`, which the generic serializer
     // stores; ckDigest c653f418 → b2fe614b, finalDigest 089da6b4 → e0834a0a, same ticks, hashes and final.)
     // Re-pinned for Ena's spreading hex (feature/ena-contagion): her curse now rots and passes on while its enemy lives (was 47676 ticks / 843868789 / '0b57c250', 76 casts, digests 76e7917e / 8bc5612b): the
-    // crowds thin sooner, so the Auto rules' moments move; every coverage check above still holds.
+    // crowds thin sooner, so the Auto rules' moments move; every coverage check above still holds. Then the review r1
+    // fixes (each curse records whose rot it is, `rotUid`) moved the checkpoint digest only (588f2a6d → ab003279).
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, casts: r.casts, byId: r.byId, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
       .toEqual({
         ticks: 47193, state: 'between', wallets: '568/782', lives: 100, final: 2186080864, hashes: '00357611', casts: 75,
         byId: 'aoi.skyfall 12 · ena.omenCard 11 · hana.swoop 19 · noa.firstAid 4 · ruri.moonPounce 3 · seiran.stormLance 13 · yoriko.puppetHex 13',
-        ckDigest: '588f2a6d', finalDigest: '50bdf2cd',
+        ckDigest: 'ab003279', finalDigest: '50bdf2cd',
       });
   }, 240000);
 

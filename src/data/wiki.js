@@ -82,7 +82,7 @@ export const ROLE_SUBCLASS = {
   mortar: { label: 'Aimed Bombardment', desc: 'Map-wide shells that land 1 s after a warning ring.' },
   prism: { label: 'Line Pierce', desc: 'Prism beams pierce a whole line and build focus.' },
   mirror: { label: 'Relay Caster', desc: 'Bolts fire from a mirror placed beside a far lane.' },
-  hexer: { label: 'Chain Curse', desc: 'A spreading hex: cursed enemies rot, pass the curse on while they live and burst on death.' },
+  hexer: { label: 'Chain Curse', desc: 'A spreading curse: cursed enemies rot, pass the curse on while they live and burst on death.' },
   champion: { label: 'Armor-Breaking Melee', desc: 'Drum rhythm builds on one target and cracks armor.' },
   puppeteer: { label: 'Crowd Control', desc: 'Threads slow two enemies; the finale sends the wave back.' },
   stormrider: { label: 'Sky Chain', desc: 'Amphibious chain lightning that prefers flyers.' },
@@ -771,7 +771,7 @@ function returningArticle() {
     sec('Push-back and gathering',
       p('A push or a gather moves an enemy at most once every 1.5 seconds (3 seconds for minibosses), so most pushers cannot stall a lane forever. Fuu\'s wind moves an enemy every 1.2 seconds and, at full strength, can hold a lone walker in place (late Freeplay enemies resist pushes, her wind half as much). Bosses never move. A hero\'s own push-back has its own shorter lock.')),
     sec('Curses and hexes',
-      p('Ena\'s curse is a spreading hex: a cursed enemy loses a share of her hit every second, even when another girl lands the kill, and every second it passes a weaker hex to the nearest uncursed enemy within 1.2 tiles, up to four times (bosses take half the rot but still pass it on). When a cursed enemy falls it bursts: neighbours take a share of the cursing hit and catch a weaker curse, at most two more times. At most 32 bursts happen in one moment; the rest follow right after. Yoriko\'s Dream Detour hexes: the enemy loses a share of its max HP every second and cannot regenerate (less on minibosses and bosses).')),
+      p('Ena\'s curse spreads: its Omen Rot takes a share of her hit from a cursed enemy every second, even when another girl lands the kill, and every second it passes a weaker curse to the nearest uncursed enemy within 1.2 tiles, up to four times (bosses and minibosses take half the rot but still pass it on; nothing passes out of a tunnel). When a cursed enemy falls it bursts: neighbours take a share of the cursing hit and catch a weaker curse, at most two more times. At most 32 bursts happen in one moment; the rest follow right after. Yoriko\'s Dream Detour hexes: the enemy loses a share of its max HP every second and cannot regenerate (less on minibosses and bosses).')),
   ]);
 }
 

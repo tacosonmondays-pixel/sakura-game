@@ -879,7 +879,7 @@ describe('text (src/data/abilityText.js, UI only)', () => {
     const fill = (id, i = 0) => { const [, d, s] = states(UNIT_MAP[id])[i]; return fillAbilityText(abilityText(d.id).desc, abilityValues(d, s)); };
     // (M3 review round 2: he dives only within her reach; the rest take a strike from the sky — the card says so)
     expect(fill('hana')).toBe(`Kaze strikes up to 4 flyers still in the sky anywhere on the map (casters, bosses and elites first): he dives on the ones near Hana and strikes the rest from the sky. ${Math.round(30 * POWER.hana.dmg)} damage each, and they are grounded for 4s. With no flyer up, he takes the 2 strongest walkers instead.`);
-    expect(fill('ena')).toBe(`Every enemy within 4.8 tiles draws a cursed card: the hex eats 60% of her hit a second and spreads to its neighbours while it lives, and when it falls it bursts for ${Math.round(36 * POWER.ena.dmg)} damage (3× her hit) within 1.6 tiles, so a dense wave chain-reacts.`);
+    expect(fill('ena')).toBe(`Every enemy within 4.8 tiles draws a cursed card: its Omen Rot eats 60% of her hit a second and the curse spreads to its neighbours while it lives, and when it falls it bursts for ${Math.round(36 * POWER.ena.dmg)} damage (3× her hit) within 1.6 tiles, so a dense wave chain-reacts.`);
     expect(fill('noa')).toMatch(/^Girls within 4 tiles of her, your ally's too, are cleansed and can't be sabotaged or stunned for 10s\. Meanwhile every 10 enemies that fall within 3 tiles of her bring back a life \(at most 3;/);
     expect(fill('ruri')).toMatch(/^Kon leaps from his spot at the strongest enemy within 4\.4 tiles of him: 3 bites of \d+ damage, then he holds it for 1\.5s/);
   });

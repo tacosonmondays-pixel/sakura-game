@@ -177,7 +177,7 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   // team damage multiplier follows the saved buffs ('db')
   shells: 'calm', _curseQueue: 'calm', _flushingCurses: 'calm', _curseCtx: 'scratch', _scratch3: 'scratch',
   _relaySamples: 'scratch', globalDmgMul: 'derived', runners: 'calm', _curseBudget: 'calm', _leadPt: 'scratch',
-  // the spreading hex: the living-spread budget refills every step (like the burst budget), its ctx is scratch
+  // the spreading curse: the living-spread budget refills every step (like the burst budget), its ctx is scratch
   _spreadBudget: 'calm', _spreadCtx: 'scratch',
   // Tenka's lab team (src/sim/lab.js): how many girls have one follows their restored records (`lb`)
   _labOn: 'derived',

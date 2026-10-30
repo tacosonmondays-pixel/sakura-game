@@ -742,11 +742,11 @@ export class Sim {
     else checkPhases(this, e);
   }
 
-  /** Burn/poison tick. */
-  _dot(e, kind, amount, status) {
+  /** Burn/poison tick (and a curse's rot). `uid`: the girl credited, when not the status's sourceUid (the rot's rotUid). */
+  _dot(e, kind, amount, status, uid = status.sourceUid) {
     if (!(amount > 0) || e.dead) return;
     // rule scaling for girls' burns and poison (a vent's burn has no source and is not scaled)
-    if (this._ruleMul && status.sourceUid != null) amount *= ruleDotScale(this._ruleMul, this._towerByUid.get(status.sourceUid) || null, kind);
+    if (this._ruleMul && uid != null) amount *= ruleDotScale(this._ruleMul, this._towerByUid.get(uid) || null, kind);
     const res = computeDot(e, kind, amount, status.attackType, this._dotOut);
     const hpBefore = e.hp;
     if (res.toBarrier > 0) {
@@ -758,7 +758,7 @@ export class Sim {
     }
     e.hp -= res.toHp;
     e.lastDamageAt = this.time;
-    const tower = status.sourceUid != null ? this._towerByUid.get(status.sourceUid) || null : null;
+    const tower = uid != null ? this._towerByUid.get(uid) || null : null;
     const dealt = Math.min(res.toHp, Math.max(0, hpBefore)) + res.toBarrier;
     this._credit(tower, dealt, e);
     this.stats.damageByType[kind] = (this.stats.damageByType[kind] || 0) + dealt;
@@ -811,7 +811,7 @@ export class Sim {
     const c = e.statuses.curse;
     if (c && c.burst > 0) {
       this._curseQueue.push({
-        x: e.x, y: e.y, burst: c.burst, rotDps: c.rotDps || 0, radius: c.radius, duration: c.duration, depth: c.depth || 0, sourceUid: c.sourceUid ?? null,
+        x: e.x, y: e.y, burst: c.burst, rotDps: c.rotDps || 0, rotUid: c.rotUid ?? c.sourceUid ?? null, radius: c.radius, duration: c.duration, depth: c.depth || 0, sourceUid: c.sourceUid ?? null,
       });
       if (!this._flushingCurses) this._flushCurses();
     }
@@ -847,7 +847,7 @@ export class Sim {
         if (!spread || q.dead) continue;
         ctx.sourceUid = c.sourceUid;
         ctx.curseDepth = c.depth + 1;
-        this._applyStatusEvent(q, { type: 'curse', burst: c.burst * CURSE_DECAY, rotDps: (c.rotDps || 0) * CURSE_DECAY, radius: c.radius, duration: c.duration }, ctx);
+        this._applyStatusEvent(q, { type: 'curse', burst: c.burst * CURSE_DECAY, rotDps: (c.rotDps || 0) * CURSE_DECAY, rotUid: c.rotUid, radius: c.radius, duration: c.duration }, ctx);
       }
     }
     // the rest (over this step's budget) waits for the next step, still in FIFO order
@@ -857,19 +857,21 @@ export class Sim {
   }
 
   /**
-   * A rotting curse while its enemy lives (Ena's spreading hex, src/sim/enemies.js updateEnemy): its rot (a DoT
+   * A rotting curse while its enemy lives (Ena's spreading curse, src/sim/enemies.js updateEnemy): its rot (a DoT
    * credited to the curser, mystic, no element; bosses and minibosses take CURSE_ROT_BOSS_MUL of it), then every
    * CURSE_SPREAD_STEPS steps it passes a CURSE_SPREAD_DECAY-weaker curse to the nearest uncursed, visible enemy
    * within CURSE_SPREAD_RADIUS while the generation stays ≤ CURSE_SPREAD_MAX_DEPTH (ties: the grid's order). The
-   * timer is an integer of steps; over this step's CURSE_SPREADS_PER_TICK it waits at 0 and tries next step.
+   * timer is an integer of steps; over this step's CURSE_SPREADS_PER_TICK, or while its enemy is hidden (a tunnel), it
+   * waits at 0 and tries next step. The rot is credited to the girl whose rot it is (`rotUid`), the burst's source
+   * to hers (`sourceUid`): with two Enas they can differ.
    */
   _curseTick(e, c, dt) {
     if (!(c.rotDps > 0)) return;
     const boss = e.tier === 'boss' || e.tier === 'miniboss';
-    this._dot(e, 'curse', c.rotDps * (boss ? CURSE_ROT_BOSS_MUL : 1) * dt, c);
+    this._dot(e, 'curse', c.rotDps * (boss ? CURSE_ROT_BOSS_MUL : 1) * dt, c, c.rotUid ?? c.sourceUid);
     if (e.dead || c.depth + 1 > CURSE_SPREAD_MAX_DEPTH) return;
     if (c.spreadIn > 0) c.spreadIn--;
-    if (c.spreadIn > 0 || this._spreadBudget <= 0) return;
+    if (c.spreadIn > 0 || this._spreadBudget <= 0 || e.hidden) return;
     const near = this._scratch3;
     near.length = 0;
     this.grid.query(e.x, e.y, CURSE_SPREAD_RADIUS, near);
@@ -894,9 +896,12 @@ export class Sim {
     ctx.sourceUid = c.sourceUid ?? null;
     ctx.curseDepth = c.depth + 1;
     this._applyStatusEvent(best, {
-      type: 'curse', burst: c.burst * CURSE_SPREAD_DECAY, rotDps: c.rotDps * CURSE_SPREAD_DECAY, radius: c.radius, duration: c.duration,
+      type: 'curse', burst: c.burst * CURSE_SPREAD_DECAY, rotDps: c.rotDps * CURSE_SPREAD_DECAY, rotUid: c.rotUid ?? c.sourceUid ?? null,
+      radius: c.radius, duration: c.duration,
     }, ctx);
-    this._emit('curseSpread', { from: e.uid, to: best.uid, depth: c.depth + 1, towerUid: c.sourceUid ?? null });
+    this._emit('curseSpread', {
+      from: e.uid, to: best.uid, x0: e.x, y0: e.y, x1: best.x, y1: best.y, depth: c.depth + 1, towerUid: c.rotUid ?? c.sourceUid ?? null,
+    });
   }
 
   /** The near-exit hook (GAPS P-14; src/sim/enemies.js, only while _nearExitOn): Last Line listens. */

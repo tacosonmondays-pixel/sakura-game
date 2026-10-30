@@ -75,7 +75,7 @@ export const STATUSES = {
   ground: { name: 'Grounded', desc: 'A flyer knocked out of the sky: ground-only attacks can hit it. Bosses take 25% duration.' },
   hex: { name: 'Hexed', desc: 'Loses a share of its max HP every second and cannot regenerate (less on minibosses and bosses; one hex takes at most 10% of their HP).' },
   hold: { name: 'Held', desc: 'Held by vines: cannot move, but can still use abilities. Minibosses take 50% duration; bosses and flyers are immune.' },
-  curse: { name: 'Cursed', desc: 'A spreading hex: it eats a share of the cursing hit every second and passes a weaker hex to the nearest uncursed enemy every second (80%, up to four times). When it falls it bursts: nearby enemies take a share of the cursing hit and catch a weaker curse (60%, at most two more times).' },
+  curse: { name: 'Cursed', desc: 'A spreading curse: its Omen Rot eats a share of the cursing hit every second (bosses and minibosses take half) and it passes a weaker curse to the nearest uncursed enemy every second (80%, up to four times). When it falls it bursts: nearby enemies take a share of the cursing hit and catch a weaker curse (60%, at most two more times).' },
 };
 
 // ---------------------------------------------------------------------------

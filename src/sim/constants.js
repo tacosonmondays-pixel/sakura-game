@@ -251,7 +251,7 @@ export const ROLE_TARGET_MODE = { sniper: 'elite', falconer: 'air', stormrider: 
  */
 export const CURSE_BURSTS_PER_TICK = 32;
 /**
- * The spreading hex (Ena's contagion, owner Oct 30): a curse that rots (`rotDps` > 0) also spreads while its
+ * The spreading curse (Ena's Omen Rot, owner Oct 30): a curse that rots (`rotDps` > 0) also spreads while its
  * enemy lives. Every CURSE_SPREAD_STEPS sim steps a cursed enemy passes it to the nearest uncursed, visible
  * enemy within CURSE_SPREAD_RADIUS tiles, its burst and rot × CURSE_SPREAD_DECAY, while the generation stays
  * ≤ CURSE_SPREAD_MAX_DEPTH (the on-death burst keeps CURSE_DECAY and CURSE_MAX_DEPTH). At most
