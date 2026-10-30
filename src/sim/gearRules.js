@@ -3,6 +3,8 @@
 // battle side (Pierce travels as `pierceK`, whole hundredths; carries and trick counters are integers),
 // no rng draw anywhere, so every engine and every peer runs it the same.
 
+import { setPassive, ABIL_HASTE_CEIL } from './setRules.js';
+
 /** Club ids in the save's index order (the menu-side CLUB_IDS; tests/sim/gearSim.test.js keeps the two lists equal). */
 export const SIM_CLUB_IDS = Object.freeze(['archery', 'fencing', 'taiko', 'pyro', 'tea', 'bell']);
 
@@ -82,26 +84,42 @@ export const SKILL_HASTE_CAP = 0.5;
 export const ABILITY_CHARGE_BASE = 100;
 
 /**
- * Skill Haste an ability of `kind` gets from her unit stats: half her (capped) Skill Haste, none for
- * rallies and debuffs. @returns {number} 0 … 0.25
+ * Skill Haste an ability of `kind` gets from her unit stats: half her (capped) Skill Haste, none for rallies and
+ * debuffs. Her unit stats carry it as `abilHaste` (GEAR_UPDATE.md §3.2: Power Bank's set cap gives it half of her
+ * whole Skill Haste, so a hero's ult never reads the uncapped value); without the key, half of her `ultHaste`.
+ * @returns {number} 0 … ABIL_HASTE_CEIL
  */
 export function abilityHaste(unitStats, kind = null) {
   if (kind && NOT_HASTED_KINDS.includes(kind)) return 0;
+  const a = Number(unitStats?.abilHaste) || 0;
+  if (a > 0) return Math.min(ABIL_HASTE_CEIL, a);
   const h = Math.min(SKILL_HASTE_CAP, Math.max(0, Number(unitStats?.ultHaste) || 0));
   return ABILITY_HASTE_SHARE * h;
 }
 
 /**
- * Integer charge points an ability of `kind` gains per tick: round(100 / (1 − haste)). 100 with no haste,
- * at most 133 (cooldown 25 % shorter). Deterministic on every engine (one division, one round).
+ * Integer charge points an ability of `kind` gains per tick: round(100 / (1 − haste) × Supercharge). 100 with no haste
+ * and no Power Bank set; at most 400 × 1.2. Deterministic on every engine (one division, one round).
  */
 export function abilityChargePerTick(unitStats, kind = null) {
   const h = abilityHaste(unitStats, kind);
-  return h > 0 ? Math.round(ABILITY_CHARGE_BASE / (1 - h)) : ABILITY_CHARGE_BASE;
+  const sc = kind && NOT_HASTED_KINDS.includes(kind) ? null : setPassive(unitStats, 'powerbank');
+  const base = h > 0 ? ABILITY_CHARGE_BASE / (1 - h) : ABILITY_CHARGE_BASE;
+  return sc ? Math.round(base * (1 + sc.charge)) : h > 0 ? Math.round(base) : ABILITY_CHARGE_BASE;
+}
+
+/** Power Bank's Supercharge on her ability's damage (1 without the set). */
+export function superchargeMul(unitStats) {
+  const sc = setPassive(unitStats, 'powerbank');
+  return sc ? 1 + sc.dmg : 1;
 }
 
 /** First Bell (Bell Club, with the abilities): charge points her hasted abilities start a wave with. */
 export function firstBellCharge(unitStats, fullCharge, kind = null) {
-  if (trickClub(unitStats) !== TRICK.firstBell.club || (kind && NOT_HASTED_KINDS.includes(kind))) return 0;
-  return Math.floor(fullCharge * TRICK.firstBell.charge);
+  if (kind && NOT_HASTED_KINDS.includes(kind)) return 0;
+  // Supercharge · Nightglass (the Power Bank LR Set Form) starts every wave charged too
+  const sc = setPassive(unitStats, 'powerbank');
+  const lr = sc && sc.start > 0 ? Math.floor(fullCharge * sc.start) : 0;
+  if (trickClub(unitStats) !== TRICK.firstBell.club) return lr;
+  return Math.floor(fullCharge * TRICK.firstBell.charge) + lr;
 }

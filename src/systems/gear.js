@@ -15,9 +15,12 @@
 
 import { GEAR_SUBSTATS_BY_RARITY, ITEM_RARITIES, ITEM_RARITY_ORDER } from '../data/types.js';
 import { SLOT_IDS, ROLL_SLOTS, MAIN_STATS_BY_SLOT, isSlot, isNewSlot, slotName } from '../data/gearSlots.js';
-import { setPieceName } from '../data/gearSets.js';
-import { GEAR_STAT_DEFS, GEAR_STAT_KEYS, BASE_STAT_KEYS, statName, subPool, BATTLE_CAPS, CAPPED_STATS, fillStats, midRoll, FILL_SOFT_M, AURA_FILL_M, FILL_WORTH, GEAR_FIT } from '../data/gearStats.js';
-import { CLUBS, LIVE_CLUBS, CLUB_RARITIES, ARMBAND_COIN_STEP, ARMBAND_GIFT } from '../data/clubs.js';
+import { setPieceName, GEAR_SETS, SET_IDS } from '../data/gearSets.js';
+import {
+  GEAR_STAT_DEFS, GEAR_STAT_KEYS, BASE_STAT_KEYS, statName, subPool, BATTLE_CAPS, CAPPED_STATS, fillStats, midRoll, AURA_FILL_M, FILL_WORTH, GEAR_FIT,
+  AURA_FILL_FROM, SET_CAP_STATS, FILL_SOFT_BY_PIECES,
+} from '../data/gearStats.js';
+import { CLUBS, CLUB_IDS, LIVE_CLUBS, CLUB_RARITIES, ARMBAND_COIN_STEP, ARMBAND_GIFT } from '../data/clubs.js';
 import {
   UR_SCALE, UR_MAX_LEVEL, TUNE_GOLD, TUNE_RAINBOW, SEED_ID, NEEDLE_ID, ARMBAND_ID, AWAKEN_COINS, STITCH_COINS, TAKE_BACK_COINS,
   RESONANCE, LEGENDARY_SUFFIX, UR_SUFFIX, MARK, LR_SET, LR_BLANK, LR_SCALE, BLANK_SCALE, LR_MAX_LEVEL, LR_TIER, LR_SUFFIX,
@@ -265,16 +268,17 @@ export const lrName = (name) => withSuffix(name, LR_SUFFIX);
 /**
  * Roll a new piece of gear (not yet in the profile; uid is null until addGear).
  * @param {object} rng createRng() instance
- * @param {{ slot?: string, rarity?: string, level?: number, club?: string }} opts slot defaults to random; a club
- *   (Mythic+) rolls from the club pool with its favourites
+ * @param {{ slot?: string, rarity?: string, level?: number, club?: string, main?: string }} opts slot defaults to random
+ *   (a classic slot); a club (Mythic+) rolls from the club pool with its favourites; `main` picks the main stat
  * @returns {object} GearInstance
  */
-export function rollGear(rng, { slot = null, rarity = 'common', level = 0, club = null } = {}) {
+export function rollGear(rng, { slot = null, rarity = 'common', level = 0, club = null, main: chosen = null } = {}) {
   // no slot: one of the classic three, so every random drop draws exactly as before the Hair Clip and the Necklace
   const s = slot && isSlot(slot) ? slot : rng.pick(ROLL_SLOTS);
   const r = ITEM_RARITIES[rarity] ? rarity : 'common';
   const c = club && CLUBS[club] && CLUB_RARITIES.includes(r) ? club : null;
-  const mainStat = rng.pick(MAIN_STATS_BY_SLOT[s]);
+  // `main`: a chosen main stat (Set Boxes); without it one at random, as every drop
+  const mainStat = chosen && MAIN_STATS_BY_SLOT[s].includes(chosen) ? chosen : rng.pick(MAIN_STATS_BY_SLOT[s]);
   const main = rollMain(rng, mainStat, r);
   const subStats = pickSubStats(rng, GEAR_SUBSTATS_BY_RARITY[r] || 0, new Set([mainStat]), c ? CLUBS[c].fav : null, subPool(s, c));
   const subs = subStats.map((st) => rollSub(rng, st, r));
@@ -389,18 +393,24 @@ export function boxMark(g) {
  * @param {'charm'|'ribbon'|'shoes'} slot
  * @returns {{ ok: boolean, error?: 'slot'|'bagFull'|'missing', gear: object|null }}
  */
-export function openRainbowBox(profile, slot, rng, { club = 'random' } = {}) {
-  if (!ROLL_SLOTS.includes(slot)) return { ok: false, error: 'slot', gear: null };
+export function openRainbowBox(profile, slot, rng, { club = 'random', set = null } = {}) {
+  // the gear update (GEAR_UPDATE.md §3.6): any of the five slots and a titan set the player picks; a Hair Clip or a
+  // Necklace exists only as a set piece
+  const setId = set && SET_IDS.includes(set) ? set : null;
+  if (!SLOT_IDS.includes(slot) || (isNewSlot(slot) && !setId)) return { ok: false, error: 'slot', gear: null };
   if (gearRoom(profile) <= 0) return { ok: false, error: 'bagFull', gear: null };
   if (!consumeItems(profile, [{ id: RAINBOW_BOX_ID, count: 1 }])) return { ok: false, error: 'missing', gear: null };
   const g = rollGear(rng, { slot, rarity: 'legendary', level: 0 });
   g.ur = 1;
   g.locked = true;
-  g.name = urName(g.name);
+  if (setId) g.set = setId;
+  g.name = setId ? pieceName(g) : urName(g.name);
+  // a box-born Hair Clip / Necklace keeps `ur` below +10 through its whole-piece mirror (`box`), never a `gbx:` mark
+  if (isNewSlot(slot)) g.box = 1;
   const uid = addGear(profile, g, { club });
   const piece = profile.gear[uid];
   const c = (profile.missions ||= {}).counters ||= {};
-  c[MARK.box + uid] = boxMark(piece);
+  if (!isNewSlot(slot)) c[MARK.box + uid] = boxMark(piece);
   c[MARK.urEver] = (c[MARK.urEver] || 0) + 1;
   return { ok: true, gear: piece };
 }
@@ -491,6 +501,8 @@ export function mainRerollCost(gear) {
 export const mainStatChoices = (gear) => (MAIN_STATS_BY_SLOT[gear.slot] || []).filter((s) => s !== gear.main.stat);
 
 const cloneGear = (g) => JSON.parse(JSON.stringify(g));
+/** A deep copy of a piece (before / after previews). */
+export const cloneGearOf = cloneGear;
 
 /**
  * Reroll every substat (optionally keeping one locked). ✦ lines always stay with their ▲ (a free lock).
@@ -579,7 +591,8 @@ export function enhanceCost(gear) {
 /** Bits 0–9 of `gbl:`: the levels below +10 a box-born UR piece paid at UR prices (0 without a profile). */
 const BOX_PAID_LEVELS = (1 << MAX_GEAR_LEVEL) - 1;
 export function boxPaidBits(profile, uid) {
-  const v = profile?.missions?.counters?.[MARK.boxPaid + uid];
+  const c = profile?.missions?.counters;
+  const v = c?.[MARK.boxPaid + uid] ?? c?.[MARK.piecePaid + uid];
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) & BOX_PAID_LEVELS : 0;
 }
 
@@ -634,8 +647,9 @@ export function enhanceGear(profile, uid) {
   if (!consumeItems(profile, [{ id: 'coins', count: cost }])) return { ok: false, error: 'missing', missing: [{ id: 'coins', need: cost, have: itemCount(profile, 'coins') }] };
   // a UR piece below +10 is box-born (awakening needs +10): note that this level was paid at UR prices
   if (isUrGear(gear) && gear.level < MAX_GEAR_LEVEL) {
+    // (a Hair Clip / Necklace keeps its bits in its own key, never the legacy `gbl:`)
     const c = (profile.missions ||= {}).counters ||= {};
-    c[MARK.boxPaid + uid] = boxPaidBits(profile, uid) | (1 << gear.level);
+    c[(isNewSlot(gear.slot) ? MARK.piecePaid : MARK.boxPaid) + uid] = boxPaidBits(profile, uid) | (1 << gear.level);
   }
   gear.level += 1;
   applyMainLevel(gear.main, gear.level);
@@ -708,7 +722,7 @@ export function salvageGear(profile, uid) {
 function dropMarks(profile, uid) {
   const c = profile.missions?.counters;
   if (!c) return;
-  for (const p of [MARK.ur, MARK.tuned, MARK.club, MARK.newLine, MARK.newFp, MARK.boxPaid, MARK.set, MARK.lr, MARK.night, MARK.top, MARK.piece, MARK.pieceMain, MARK.pieceClub]) delete c[p + uid];
+  for (const p of [MARK.ur, MARK.tuned, MARK.club, MARK.newLine, MARK.newFp, MARK.boxPaid, MARK.set, MARK.lr, MARK.night, MARK.top, MARK.piece, MARK.pieceMain, MARK.pieceClub, MARK.piecePaid]) delete c[p + uid];
   for (const k of Object.keys(c)) if (k.startsWith(`${MARK.pieceSub}${uid}:`)) delete c[k];
   // a box-born piece's mark stays as 0: its Seed was paid with the salvage (ASCENSION.md §C.8)
   if (MARK.box + uid in c) c[MARK.box + uid] = 0;
@@ -752,7 +766,7 @@ export function awakenGear(profile, uid) {
   g.locked = true;
   g.name = urName(g.name);
   const c = (profile.missions ||= {}).counters ||= {};
-  c[MARK.ur + uid] = g.level;
+  if (!isNewSlot(g.slot)) c[MARK.ur + uid] = g.level; // (a Hair Clip / Necklace: its whole-piece mirror only)
   c[MARK.urEver] = (c[MARK.urEver] || 0) + 1;
   if (g.equippedBy) noteUrWorn(profile, g.equippedBy);
   track(profile, 'gearAwaken', 1);
@@ -873,9 +887,17 @@ export function wornGear(profile, unitId) {
   return SLOT_IDS.map((s) => unit.gear?.[s] && profile.gear?.[unit.gear[s]]).filter(Boolean);
 }
 
+/** Ids with at least 2 pieces, most pieces first (ties in the list's order), at most two. */
+const twoOrMore = (counts, order) => Object.entries(counts).filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1] || order.indexOf(a[0]) - order.indexOf(b[0])).slice(0, 2).map(([id]) => id);
+
 /**
- * Her club set and Rainbow Resonance.
- * @returns {{ club: string|null, clubN: number, clubs: Object<string,number>, ur: number, resonance: number }}
+ * Her clubs, her gear set and Rainbow Resonance (GEAR_UPDATE.md §3.5: `gearSetInfo` keeps its shape). `club` / `clubN`
+ * stay "the largest club with 2+ pieces" (a 3 + 2 split's largest is its trick club); `clubStats` every club with 2+
+ * pieces whose 2-piece stat she gets (at most two). `set` / `setN`: the set she wears 4+ pieces of (only one can) and
+ * how many; `setStats` the sets with 2+ pieces whose 2-piece stat she gets (at most two); `sets` every set's count;
+ * `setLr` all five pieces Set LR of that set (its LR Set Form); `lrN` LR pieces worn, `blankN` Blank LR ones; `pieces`.
+ * @returns {{ club: string|null, clubN: number, clubs: Object<string,number>, clubStats: string[], set: string|null, setN: number,
+ *   sets: Object<string,number>, setStats: string[], setLr: boolean, lrN: number, blankN: number, pieces: number, ur: number, resonance: number }}
  */
 export function gearSetInfo(profile, unitId) {
   const worn = wornGear(profile, unitId);
@@ -885,8 +907,32 @@ export function gearSetInfo(profile, unitId) {
   let clubN = 0;
   for (const [id, n] of Object.entries(clubs)) if (n > clubN) [club, clubN] = [id, n];
   if (clubN < 2) club = null;
+  const sets = {};
+  for (const g of worn) if (g.set && GEAR_SETS[g.set]) sets[g.set] = (sets[g.set] || 0) + 1;
+  let set = null;
+  let setN = 0;
+  for (const [id, n] of Object.entries(sets)) if (n >= 4) [set, setN] = [id, n];
   const ur = worn.filter(isUrLook).length;
-  return { club, clubN: club ? clubN : 0, clubs, ur, resonance: RESONANCE[Math.min(3, ur)] || 0 };
+  const lrN = worn.filter(isLrGear).length;
+  const blankN = worn.filter((g) => lrKind(g) === LR_BLANK).length;
+  const setLr = setN === 5 && worn.length === 5 && worn.every((g) => lrKind(g) === LR_SET && g.set === set);
+  return {
+    club, clubN: club ? clubN : 0, clubs, clubStats: twoOrMore(clubs, CLUB_IDS), set, setN, sets, setStats: twoOrMore(sets, SET_IDS), setLr, lrN, blankN,
+    pieces: worn.length, ur, resonance: RESONANCE[Math.min(3, ur)] || 0,
+  };
+}
+
+/**
+ * Her gear caps (BATTLE_CAPS), with what her set lifts: a 5-piece set's set cap lifts its signature stat to the
+ * battle's ceiling (GEAR_UPDATE.md §3.2, SET_CAP_STATS). LR gear's raises join here (§4.3). The part of a stat above
+ * its cap fills in (Every Line Counts).
+ * @param {ReturnType<typeof gearSetInfo>} info
+ * @returns {Object<string, number>} cap per capped stat
+ */
+export function gearCaps(info) {
+  const caps = { ...BATTLE_CAPS };
+  if (info?.set && info.setN >= 5) Object.assign(caps, SET_CAP_STATS[info.set] || {});
+  return caps;
 }
 
 /** The highest number of UR pieces one girl has worn (counter-backed, never goes down). */
@@ -916,7 +962,9 @@ export function gearStatTotals(profile, unitId) {
     for (const s of [L.main, ...L.subs]) if (s && totals[s.stat] != null) totals[s.stat] += s.value;
   }
   const set = gearSetInfo(profile, unitId);
-  if (set.club) totals[CLUBS[set.club].two.stat] += CLUBS[set.club].two.value;
+  // every club with 2+ pieces (at most two: a 3 + 2 split) and every set with 2+ pieces gives its 2-piece stat
+  for (const id of set.clubStats) totals[CLUBS[id].two.stat] += CLUBS[id].two.value;
+  for (const id of set.setStats) totals[GEAR_SETS[id].two.stat] += GEAR_SETS[id].two.value;
   totals.rangePct += set.resonance;
   for (const k of Object.keys(totals)) totals[k] = roundStat(k, totals[k]);
   return totals;
@@ -934,14 +982,21 @@ function fillWorth(stat, value, target, scaleKey = 'legendary') {
  * limit: fill = M·f / (f + M). Fill lines still feed their own stat too.
  * @returns {{ target: 'atk'|'aura', total: number, cap: number, lines: { uid, index, stat, value, share }[], over: { stat, value, share }[] }}
  */
-export function gearFillIn(profile, unitId) {
+export function gearFillIn(profile, unitId, { skip = null } = {}) {
   const unit = profile?.units?.[unitId];
   const aura = GEAR_FIT[unitId]?.fillTo === 'aura';
   const target = aura ? 'auraPct' : 'atkPct';
-  const M = aura ? AURA_FILL_M : FILL_SOFT_M;
+  const set = gearSetInfo(profile, unitId);
+  // the soft limit grows with the pieces she wears (GEAR_UPDATE.md §8.3 lever 3)
+  const M = aura ? AURA_FILL_M : FILL_SOFT_BY_PIECES[Math.min(5, set.pieces)];
   const out = { target: aura ? 'aura' : 'atk', total: 0, cap: M, lines: [], over: [] };
   if (!unit) return out;
   const dead = fillStats(unitId, { awaken: unit.awaken || 0, potential: potentialLevel(unit) });
+  // a worn 4+ Spirit Squad / Freeze Tag set makes Buff Duration / Control Strength real (Big Cheer, You're It)
+  if (set.set === 'spirit') dead.delete('buffDurPct');
+  if (set.set === 'freezetag') dead.delete('controlPct');
+  // `skip`: stats left out (unitBattleStats compares her crit lines filling in with her average crit)
+  if (skip) for (const k of skip) dead.delete(k);
   const parts = [];
   for (const g of wornGear(profile, unitId)) {
     const L = gearLines(g);
@@ -949,14 +1004,20 @@ export function gearFillIn(profile, unitId) {
     const lines = [{ ...L.main, index: -1 }, ...L.subs.map((s, i) => ({ ...s, index: i }))];
     for (const l of lines) if (dead.has(l.stat) && l.value > 0) parts.push({ kind: 'line', uid: g.uid, index: l.index, stat: l.stat, value: l.value, w: fillWorth(l.stat, l.value, target, sk) });
   }
-  const set = gearSetInfo(profile, unitId);
-  if (set.club && dead.has(CLUBS[set.club].two.stat)) {
-    const t = CLUBS[set.club].two;
-    parts.push({ kind: 'line', uid: null, index: 'club', stat: t.stat, value: t.value, w: fillWorth(t.stat, t.value, target) });
+  for (const id of set.clubStats) {
+    const t = CLUBS[id].two;
+    if (dead.has(t.stat)) parts.push({ kind: 'line', uid: null, index: 'club', stat: t.stat, value: t.value, w: fillWorth(t.stat, t.value, target) });
+  }
+  for (const id of set.setStats) {
+    const t = GEAR_SETS[id].two;
+    if (dead.has(t.stat)) parts.push({ kind: 'line', uid: null, index: 'set', stat: t.stat, value: t.value, w: fillWorth(t.stat, t.value, target) });
   }
   const totals = gearStatTotals(profile, unitId);
+  const caps = gearCaps(set);
   for (const stat of CAPPED_STATS) {
-    const over = totals[stat] - BATTLE_CAPS[stat];
+    // Aura Power fills in above AURA_FILL_FROM (15 %), as before its cap moved to 25 %, whatever lifts it
+    const from = stat === 'auraPct' ? AURA_FILL_FROM : caps[stat];
+    const over = totals[stat] - from;
     if (over > 1e-9 && !dead.has(stat)) parts.push({ kind: 'over', stat, value: roundStat(stat, over), w: fillWorth(stat, over, target) });
   }
   const f = parts.reduce((n, p) => n + p.w, 0);

@@ -55,6 +55,7 @@ import {
   INCOME_INTEREST_MAX,
 } from './constants.js';
 import { bestTarget, explode } from './towers.js';
+import { statusCtxFor } from './setRules.js';
 
 /** The lab classes, in this order everywhere (the battle save packs them as arrays). */
 export const LAB_CLASSES = Object.freeze(['dps', 'frag', 'control', 'support', 'economy']);
@@ -213,7 +214,7 @@ function labTick(sim, t) {
       const ctx = sim._statusCtx;
       ctx.element = null;
       ctx.attackType = 'mystic';
-      ctx.sourceUid = t.uid;
+      statusCtxFor(ctx, t);
       SLOW.amount = a.slow;
       F.sim = sim;
       sim.grid.each(t.x, t.y, LAB_FIELD_RANGE, inField);

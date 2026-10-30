@@ -10,6 +10,7 @@
 // Deterministic: fixed-step timers, sim.towers order (placement order), explicit tie breaks (uid); nothing
 // reads a view slot, the clock or Math.random. The pick command (setBuffPick) is the only player input.
 import { BREW_EVERY, BREW_TIME, BREW_DROP, DPS_WINDOW, LINK_SCAN } from './constants.js';
+import { buffDur } from './setRules.js';
 
 /** Aura winner uid per buff key (-1: none); `rally`: the girl whose ability rally reaches her. */
 export function emptyBuffBy() {
@@ -192,7 +193,7 @@ function linkTick(sim, t, link, dt) {
       lim.ocCd -= dt;
       if (lim.ocCd <= 0) {
         lim.ocCd += oc.every;
-        lim.ocLeft = oc.time;
+        lim.ocLeft = oc.time * buffDur(t.unitStats); // (Buff Duration, GEAR_UPDATE.md §2.4)
         for (const uid of lim.targets) limIn(sim.getTower(uid)).oc = true;
         sim._emit('overclock', { uid: t.uid, on: true, targets: lim.targets.slice() });
         changed = true;

@@ -860,6 +860,32 @@ const ftTrapRun = () => (ftTrapPlayed ??= (() => {
   return sim;
 })());
 
+/** The gear sets (GEAR_UPDATE.md §10.4): Right Angle, Confetti Burst, Big Cheer and Bake Sale on four girls. */
+const SETS = {
+  ...GEAR, towers: ['aoi', 'rei', 'yuki', 'momo'], hero: null,
+  per: {
+    aoi: { set: 'geometry', setN: 5, critChance: 0.3 }, rei: { set: 'popper', setN: 4 }, yuki: { set: 'spirit', setN: 4 }, momo: { set: 'treasurer', setN: 5 },
+  },
+};
+function setsBuild() {
+  const sim = makeSim(SETS);
+  sim.cash = 5e6;
+  const at = nearPath(sim, SETS.towers);
+  const placed = {};
+  for (const u of SETS.towers) placed[u] = sim.placeTower(u, at[u][0], at[u][1]);
+  for (const id of SETS.towers) for (let k = 0; k < 2; k++) sim.upgradeTower(placed[id].uid, 0);
+  sim.cash = 4000;
+  wrapWaves(sim, SETS.seed);
+  return sim;
+}
+let setsPlayed = null;
+const setsRun = () => (setsPlayed ??= (() => {
+  const sim = setsBuild();
+  potWaves(sim, 4, () => {});
+  return sim;
+})());
+const SET_FIELDS = ['cheerT', 'angleN', 'burstN', 'bakeC'];
+
 describe('battle save and gear (Pierce carries, club tricks, Finale Pop budget)', SLOW, () => {
   it('every gear counter comes back exactly, and a split run plays on like the straight one', () => {
     const { sim } = gearBuild();
@@ -881,6 +907,32 @@ describe('battle save and gear (Pierce carries, club tricks, Finale Pop budget)'
     const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
     const { sim: back } = restoreSim(recordOf(GEAR, snap), { settings: { autoStart: false } });
     wrapWaves(back, GEAR.seed);
+    potWaves(sim, 2, () => {});
+    potWaves(back, 2, () => {});
+    expect(hashSim(back)).toBe(hashSim(sim));
+  });
+
+  it('the gear sets\' counters (cheerT, angleN, burstN, bakeC) and Confetti Burst\'s budget come back; the split run plays on the same', () => {
+    const sim = setsBuild();
+    const seen = Object.fromEntries(SET_FIELDS.map((k) => [k, 0]));
+    potWaves(sim, 4, () => {
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      const { sim: back, dropped } = restoreSim(recordOf(SETS, snap), { settings: { autoStart: false } });
+      expect(dropped).toEqual([]);
+      for (const t of sim.towers) {
+        const b = back.towers.find((x) => x.uid === t.uid);
+        for (const k of SET_FIELDS) {
+          if (t[k] != null) seen[k]++;
+          if (k === 'bakeC') expect(b[k] ?? 0).toBeCloseTo(t[k] ?? 0, 9);
+          else expect(b[k], `${t.unitId}.${k}`).toBe(t[k]);
+        }
+      }
+      expect(back.burstBudget).toBe(sim.burstBudget);
+    });
+    for (const k of SET_FIELDS) expect(seen[k], k).toBeGreaterThan(0);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const { sim: back } = restoreSim(recordOf(SETS, snap), { settings: { autoStart: false } });
+    wrapWaves(back, SETS.seed);
     potWaves(sim, 2, () => {});
     potWaves(back, 2, () => {});
     expect(hashSim(back)).toBe(hashSim(sim));
@@ -1615,6 +1667,8 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of az.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the gear team: Pierce carries, club trick counts, Big Beat on traps and drones)
     for (const t of gearRun().towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the gear sets: Big Cheer's, Right Angle's and Confetti Burst's counts, Bake Sale's coin fraction)
+    for (const t of setsRun().towers) for (const k of Object.keys(t)) keys.add(k);
     // (and an Archery trap girl: Follow-Through's trap count)
     for (const t of ftTrapRun().towers) for (const k of Object.keys(t)) keys.add(k);
     // (and Tenka with a lab team: her record and her frag / field weapons; T2 review saves-2)

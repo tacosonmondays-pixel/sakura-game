@@ -49,8 +49,9 @@ describe('the rules', () => {
   });
 
   it("keeps gear's ceilings and adds potential 1–6", () => {
-    expect(UNIT_STAT_LIMITS.damageMul).toMatchObject({ lo: 0, hi: 15 });
-    expect(UNIT_STAT_LIMITS.rateMul).toMatchObject({ lo: 0, hi: 5 });
+    // the gear update's rows (docs/specs/GEAR_UPDATE.md §10.2): five pieces, set caps and LR gear
+    expect(UNIT_STAT_LIMITS.damageMul).toMatchObject({ lo: 0, hi: 40 });
+    expect(UNIT_STAT_LIMITS.rateMul).toMatchObject({ lo: 0, hi: 12 });
     expect(UNIT_STAT_LIMITS.level).toMatchObject({ type: 'int', lo: 1, hi: 99 });
     expect(UNIT_STAT_LIMITS.potential).toMatchObject({ type: 'int', lo: 1, hi: 6 });
     // the honest UR maximum at level 85 (spec §4.7) already fits
@@ -111,7 +112,7 @@ describe('a hostile loadout', () => {
   const hostile = { damageMul: 1000, rateMul: -3, rangeMul: Number.NaN, critChance: 5, critMul: 0, armorPen: 1e9, costMul: 0.01, ultHaste: 9, awakenPassive: 'yes', level: 1e9, awaken: 99, breakthrough: -1, potential: 99, rainbow: 3, pierceK: 9999, auraPct: 5, auraRangeMul: 0, dotMul: 'x', club: 'chess', clubN: 7, __proto__x: 1, damage: 5000 };
 
   it('clamps every field to its rule, falls back on non-numbers and drops unknown keys', () => {
-    expect(clampUnitStats(hostile)).toEqual({ damageMul: 15, rateMul: 0, rangeMul: 1, critChance: 0.75, critMul: 1, armorPen: 50, costMul: 0.75, ultHaste: 0.5, awakenPassive: false, level: 99, awaken: 5, breakthrough: 0, potential: 6, rainbow: 3, pierceK: 200, auraPct: 0.75, auraRangeMul: 1, dotMul: 1, club: null, clubN: 3 });
+    expect(clampUnitStats(hostile)).toEqual({ damageMul: 40, rateMul: 0, rangeMul: 1, critChance: 2, critMul: 1, armorPen: 100, costMul: 0.75, ultHaste: 0.5, awakenPassive: false, level: 99, awaken: 5, breakthrough: 0, potential: 6, rainbow: 3, pierceK: 200, auraPct: 5, auraRangeMul: 1, dotMul: 1, club: null, clubN: 3 });
     expect(clampUnitStats('nope')).toEqual({});
     expect(clampUnitStats([1, 2])).toEqual({});
     expect(clampUnitStats(null)).toBeNull();
@@ -122,7 +123,7 @@ describe('a hostile loadout', () => {
     const ids = UNITS.filter((u) => u.kind === 'tower').map((u) => u.id);
     const p = clampPlayer({ slot: 0, loadout: [null, 'aoi', { stats: {} }, ...ids.map((unitId) => ({ unitId, stats: hostile }))], hero: { stats: hostile } });
     expect(p.loadout.length).toBeLessThanOrEqual(LOADOUT_MAX);
-    expect(p.loadout.every((e) => typeof e.unitId === 'string' && e.stats.damageMul === 15)).toBe(true);
+    expect(p.loadout.every((e) => typeof e.unitId === 'string' && e.stats.damageMul === 40)).toBe(true);
     expect(p.hero).toBeNull();
   });
 
@@ -141,7 +142,7 @@ describe('a hostile loadout', () => {
     expect({ ...start, players: null }).toEqual({ ...raw, players: null });
     const A = createCoopSim(start, { mySlot: 0 });
     const B = createCoopSim(clampStart(JSON.parse(JSON.stringify(raw))), { mySlot: 1 });
-    expect(A.players[1].loadout[0].stats).toMatchObject({ damageMul: 15, level: 99, potential: 6 });
+    expect(A.players[1].loadout[0].stats).toMatchObject({ damageMul: 40, level: 99, potential: 6 });
     let seq = 0;
     const cmd = (pl, k, a = []) => ({ t: 0, p: pl, s: seq++, k, a });
     const spot = withDetMath(() => {
@@ -153,7 +154,7 @@ describe('a hostile loadout', () => {
     });
     for (const c of [A, B]) expect(c.apply(cmd(1, 'place', ['rei', ...spot])).ok).toBe(true);
     const rei = A.sim.towers[0];
-    expect(rei.unitStats.damageMul).toBe(15);
+    expect(rei.unitStats.damageMul).toBe(40);
     expect(rei.unitStats.potential).toBe(6);
     expect(Number.isFinite(rei.stats.damage) && Number.isFinite(rei.stats.range)).toBe(true);
     expect(A.hash()).toBe(B.hash());

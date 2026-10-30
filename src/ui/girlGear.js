@@ -22,8 +22,9 @@ import { statName, STAT_HINTS } from '../data/gearStats.js';
 import { CLUBS, CLUB_RARITIES } from '../data/clubs.js';
 import {
   gearList, equipGear, unequipGear, salvageGear, salvageRewards, enhanceCost, maxGearLevel, awakenReady, isUrGear,
-  stitchSlots, gearLines, gearFillIn, tuneCount,
+  stitchSlots, gearLines, gearFillIn, tuneCount, gearSetInfo, describeStat,
 } from '../systems/gear.js';
+import { GEAR_SETS, SET_TEXT } from '../data/gearSets.js';
 import { itemCount } from '../systems/inventory.js';
 import { applyGearFilter, activeGearFilters } from '../systems/gearFilter.js';
 import { gearFilterBar, gearFilterFor } from './gearFilterBar.js';
@@ -62,10 +63,27 @@ export function gearTab(unit, { onChange, mode = girlPageMode(store.profile) }) 
   return h(`div.mb-tab-body.gk-gear${from.mode === 'detailed' ? '.detailed' : ''}`,
     h('section.ui-panel.gk-panel', h('div.ui-panel-in',
       h('div.gk-slots', SLOTS.map((slot) => slotCard(unit, slot, onChange, mode))),
+      gearSetLine(profile, unit.id),
       h('div.gk-from',
         h('div.ui-panel-head', h('span.ui-kicker', 'From gear'), set ? setChip(set, unit) : null),
         from.mode === 'detailed' ? gearTotalsAll(unit, from)
           : statStrip(from.cells, { onMore: () => openGearTotals(unit), testid: 'gear-strip', moreTestid: 'gear-more' })))));
+}
+
+/**
+ * Her gear set's line (GEAR_UPDATE.md §11.1): the set with the most pieces she wears (2+), its pips out of five and the
+ * bonus that is on (2: its stat, 4: the passive, 5: the stronger passive and the set cap). Nothing below 2 pieces.
+ */
+function gearSetLine(profile, unitId) {
+  const info = gearSetInfo(profile, unitId);
+  const id = info.set || info.setStats[0];
+  if (!id) return null;
+  const n = info.sets[id];
+  const t = SET_TEXT[id];
+  const two = GEAR_SETS[id].two;
+  const on = n >= 5 ? `5: ${t.passive}. ${t.five}` : n >= 4 ? `4: ${t.passive}. ${t.four}` : `2: ${describeStat(two.stat, two.value)}`;
+  return h('p.gk-setline', { 'data-testid': 'gear-set-line', style: { '--set': GEAR_SETS[id].color } },
+    h('b', `${GEAR_SETS[id].name} `), h('span.gk-set-pips', '●'.repeat(Math.min(5, n)) + '○'.repeat(Math.max(0, 5 - n))), ` · ${on}`);
 }
 
 /** Detailed: every gear total on ink (MAX marked), the fill-in line and each set bonus that is on with its effect. */

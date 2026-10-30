@@ -25,6 +25,8 @@ import { isStageCleared } from './unlocks.js';
 import { track } from './missions.js';
 import { fuseShards } from './essence.js';
 import { breakthroughCost, MAX_BREAKTHROUGH, BASE_GATES } from './progression.js';
+import { TITAN_SETS } from './gearSets.js';
+import { setBoxId } from '../data/gearAwaken.js';
 import { rollTitanRewards, firstClearRewards, grantGearBox, notchFor, titanDropSeed, METER_KEY, RAINBOW_METER } from './titanRewards.js';
 
 export const WEEKLY_KEYS = 12;
@@ -173,11 +175,12 @@ export function suggestedTitan(profile, now = Date.now()) {
 // Results
 // ---------------------------------------------------------------------------
 
-function grantAll(profile, items, boxes, rng) {
+function grantAll(profile, items, boxes, rng, set = null) {
   const out = { rewards: [], gear: [] };
   out.rewards = addItems(profile, items);
   for (const kind of boxes) {
-    const g = grantGearBox(profile, kind, rng);
+    // (the gear update: a titan's chest boxes open into pieces of its set, GEAR_UPDATE.md §3.6)
+    const g = grantGearBox(profile, kind, rng, { set });
     if (g.item) out.rewards.push(g.item);
     if (g.gear) out.gear.push(g.gear);
   }
@@ -245,7 +248,8 @@ export function applyTitanResult(profile, r, { now = Date.now() } = {}) {
       if (!cnt(profile, fcKey)) {
         const fc = firstClearRewards(tier, rank, target);
         items.push(...fc.items);
-        boxes.push(...fc.boxes);
+        // Nightmare's first-clear Legendary box becomes that titan's Legendary Set Box (§3.6)
+        boxes.push(...(tier === 'nightmare' ? fc.boxes.map((b) => (b === 'legendary' && TITAN_SETS[titanId] ? setBoxId(TITAN_SETS[titanId], 'legendary') : b)) : fc.boxes));
         out.firstClear = fc;
         c[fcKey] = 1;
       }
@@ -276,7 +280,7 @@ export function applyTitanResult(profile, r, { now = Date.now() } = {}) {
   profile.stats ||= {};
   profile.stats.battles = whole(profile.stats.battles) + 1;
   if (victory) profile.stats.wins = whole(profile.stats.wins) + 1;
-  const g = grantAll(profile, normalizeList(items), boxes, rng);
+  const g = grantAll(profile, normalizeList(items), boxes, rng, TITAN_SETS[titanId]);
   out.rewards = g.rewards;
   out.gear = g.gear;
   out.fused = g.fused;
@@ -344,7 +348,7 @@ export function sweepTitan(profile, titanId, { now = Date.now(), seed = 0 } = {}
   const rng = createRng(titanDropSeed(titanId, tier, rank, (seed >>> 0) ^ 0x5eed, c.tatt));
   const target = targetFamily(profile, titanId);
   const { rolled, boxes } = payVictory(profile, titanId, tier, rank, rng, { share: 1, victory: true, target, now });
-  const g = grantAll(profile, normalizeList(rolled.items), boxes, rng);
+  const g = grantAll(profile, normalizeList(rolled.items), boxes, rng, TITAN_SETS[titanId]);
   track(profile, 'sweep', 1);
   track(profile, 'titanWin', 1);
   return { ok: true, tier, rank, label: tierLabel(tier, rank), rewards: g.rewards, gear: g.gear, fused: g.fused, box: rolled.box, rainbowForced: rolled.rainbowForced, chest: rolled.chest, meter: cnt(profile, METER_KEY), keysLeft: whole(c['tk:left']) };

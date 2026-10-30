@@ -46,7 +46,7 @@ import { openItemSheet } from '../itemSheet.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isUR } from '../rarity.js';
 import { boxSummary, SUMMARY_ABOVE } from '../gearSummary.js';
-import { gearCard, gearActions, pickGearFor, rainbowBoxModal } from '../gearUr.js';
+import { gearCard, gearActions, pickGearFor, rainbowBoxModal, setBoxModal } from '../gearUr.js';
 import { openPieceSheet } from '../girlGear.js';
 import '../styles/achievements.css'; // the gear summary
 
@@ -193,7 +193,7 @@ function groupItems(ids) {
 }
 
 /** The gear tools a piece is picked for (Seed, Needle, Armband). */
-const GEAR_TOOLS = ['gearAwaken', 'gearStitch', 'gearClub'];
+const GEAR_TOOLS = ['gearAwaken', 'gearStitch', 'gearClub', 'gearPin'];
 
 /** A gear box that can be opened now (the Supplies dot and GEAR's tab dot). */
 function boxReady(profile) {
@@ -289,7 +289,11 @@ function openSupplies(rerender) {
       // the Rainbow Gear Box opens through a slot picker into rainbow (UR) gear (ASCENSION.md §C.8): one at a time,
       // never in Open all (gearUr.js rainbowBoxModal → systems/gear.js openRainbowBox); its moment needs the screen
       if (b.pickSlot) {
-        return row(b, { testid: `box-${b.id}`, line: 'Pick charm, ribbon or shoes', acts: [inkBtn('Open', { testid: 'rainbow-box-open', onClick: () => { sheet?.close(); rainbowBoxModal(rerender); } })] });
+        return row(b, { testid: `box-${b.id}`, line: 'Pick a set and a slot', acts: [inkBtn('Open', { testid: 'rainbow-box-open', onClick: () => { sheet?.close(); rainbowBoxModal(rerender); } })] });
+      }
+      // a Set Box opens through its set and main-stat picker (gearUr.js setBoxModal → systems/gearSets.js openSetBox)
+      if (b.pickSet) {
+        return row(b, { testid: `box-${b.id}`, line: b.set ? 'Choose the main stats' : 'Choose a set and the main stats', acts: [inkBtn('Open', { testid: `set-box-open-${b.id}`, onClick: () => { sheet?.close(); setBoxModal(b.id, rerender); } })] });
       }
       return row(b, {
         testid: `box-${b.id}`,

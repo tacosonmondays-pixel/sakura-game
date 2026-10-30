@@ -58,6 +58,7 @@
 // and writes a short, documented list of Sim fields; KNOWN_SIM_KEYS / KNOWN_TOWER_KEYS classify
 // every field the Sim has, and tests/battle-ui/snapshot.test.js fails when a new one appears that
 // is not classified here (add it to the table and, if it is state, to snapshotSim/restoreSim).
+import { BURST_BUDGET_MAX } from '../../sim/setRules.js';
 import { Sim } from '../../sim/Sim.js';
 import { gainHeroXp, xpToReach } from '../../sim/hero.js';
 import { restoreDrone, recomputeBuffs } from '../../sim/towers.js';
@@ -135,8 +136,8 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   _towerByUid: 'snap',
   // path cap (src/sim/buffs.js): the recent-DPS window's timer (which girl a brew / link picks)
   _dpsTimer: 'snap',
-  // gear (src/sim/gearRules.js): Finale Pop's budget for the whole battle
-  popBudget: 'snap',
+  // gear (src/sim/gearRules.js): Finale Pop's budget for the whole battle; Confetti Burst's (src/sim/setRules.js)
+  popBudget: 'snap', burstBudget: 'snap',
   enemies: 'calm', projectiles: 'calm', fields: 'calm', warnings: 'calm', _spawnQueue: 'calm', _spawnIndex: 'calm',
   _waveTime: 'calm', _waveHpMul: 'calm', _autoTimer: 'calm', _acc: 'calm',
   globalRateMul: 'derived', _buffTimer: 'derived', _buffsDirty: 'derived',
@@ -220,6 +221,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // gear (src/sim/gearRules.js): her Pierce carries (shots, drones), her club trick's count, Big Beat's
   // trap / drone counts and Follow-Through's trap count — only on a girl whose gear uses them
   pierceCarry: 'snap', droneCarry: 'snap', trickN: 'snap', trapBeatN: 'snap', droneBeatN: 'snap', trapFtN: 'snap',
+  // gear sets (src/sim/setRules.js): Big Cheer's step count, Right Angle's and Confetti Burst's attack counts, Bake
+  // Sale's coin fraction — only on a girl whose set uses them
+  cheerT: 'snap', angleN: 'snap', burstN: 'snap', bakeC: 'snap',
   // Kaede's blade arts: her strike count toward the next Maple Cleave ('kb')
   bladeN: 'snap',
   // roster B3: her aim point stays (a mirror's spot, a mortar's centre; GAPS §7.3), and her attack
@@ -317,6 +321,7 @@ export function snapshotSim(sim) {
     ...(sim._globalBuffs.some((b) => b.left > 0 && b.kind === 'dmg') ? { db: sim._globalBuffs.filter((b) => b.left > 0 && b.kind === 'dmg').map((b) => [b.mul, b.left, b.src ?? -1]) } : {}),
     dps: sim._dpsTimer,
     ...(sim.popBudget != null && sim.popBudget !== POP_BUDGET_MAX ? { pb: sim.popBudget } : {}),
+    ...(sim.burstBudget != null && sim.burstBudget !== BURST_BUDGET_MAX ? { bb: sim.burstBudget } : {}),
     towers,
     kills: { ...sim.kills },
     enc: [...sim.encountered],
@@ -450,13 +455,15 @@ function unpackPotential(t, o) {
 
 /** Gear's counters on a girl (`gr`), each only when she has it: [key, value] pairs. */
 // index-coded in the save (`gr`): append only, never reorder
-const GEAR_FIELDS = ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN', 'trapFtN'];
+const GEAR_FIELDS = ['pierceCarry', 'droneCarry', 'trickN', 'trapBeatN', 'droneBeatN', 'trapFtN', 'cheerT', 'angleN', 'burstN'];
 function packGear(t, o) {
   const gr = [];
   GEAR_FIELDS.forEach((k, i) => { if (t[k] != null) gr.push(i, t[k]); });
   if (gr.length) o.gr = gr;
+  if (t.bakeC != null) o.bk = t.bakeC; // Bake Sale's carried fraction of a coin
 }
 function unpackGear(t, o) {
+  if (o.bk != null) t.bakeC = Math.max(0, Math.min(1, r(o.bk)));
   if (!Array.isArray(o.gr)) return;
   for (let j = 0; j + 1 < o.gr.length; j += 2) {
     const k = GEAR_FIELDS[o.gr[j]];
@@ -710,6 +717,7 @@ export function restoreSim(rec, profile = null) {
     if (cd > 0) sim.abilGroups.set(g[0], { cd, cdMax, rate });
   }
   sim.popBudget = s.pb != null ? Math.max(0, Math.min(POP_BUDGET_MAX, Math.floor(r(s.pb)))) : POP_BUDGET_MAX;
+  sim.burstBudget = s.bb != null ? Math.max(0, Math.min(BURST_BUDGET_MAX, Math.floor(r(s.bb)))) : BURST_BUDGET_MAX;
   recomputeBuffs(sim); // the brews / links held now multiply on top of the auras
   sim._uid = Math.max(r(s.uid), sim._uid);
   sim.cash = r(s.cash) + refunded;

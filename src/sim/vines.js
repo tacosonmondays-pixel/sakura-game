@@ -23,6 +23,7 @@ import { gatherTargets, targetScore } from './towers.js';
 import { isEligible } from './combat.js';
 import { syncStatusFlags } from './enemies.js';
 import { BED_RADIUS, BEDS_PER_GIRL, BEDS_PER_SIM, VINE_TICK } from './constants.js';
+import { statusCtxFor } from './setRules.js';
 
 const NEAR = [];
 const HITS = [];
@@ -52,7 +53,7 @@ export function castVine(sim, t, e = vineTarget(sim, t)) {
   const ctx = sim._statusCtx;
   ctx.element = null;
   ctx.attackType = t.eff.attackType;
-  ctx.sourceUid = t.uid;
+  statusCtxFor(ctx, t);
   if (!sim._applyStatusEvent(e, { type: 'hold', duration: v.hold }, ctx)) return null;
   syncStatusFlags(e);
   const left = e.statuses.hold?.left ?? v.hold;

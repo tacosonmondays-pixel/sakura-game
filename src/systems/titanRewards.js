@@ -10,6 +10,7 @@ import { materialId, zenithId, gearBoxId, getItem } from '../data/items.js';
 import { TITAN_MAP, tierLabel } from '../data/titans.js';
 import { hashString } from '../core/rng.js';
 import { rollGear, addGear, RAINBOW_BOX_ID } from './gear.js';
+import { rollSetPiece, addSetPiece } from './gearSets.js';
 import { addItems } from './inventory.js';
 
 /** Damage notches: the share of her HP reached → the share of the damage table paid (§C.5). */
@@ -101,16 +102,22 @@ function rollAmount(rng, x) {
  * goes to the Backpack, where only its slot picker opens it: UR gear's `openRainbowBox`
  * (src/systems/gear.js) turns it into a Legendary piece already rainbow UR, +0, four substats, with the
  * `gbx:<uid>` mirror (ASCENSION.md §C.8).
- * @param {'rare'|'superRare'|'mythic'|'legendary'|'rainbow'} rarity
+ * The gear update (GEAR_UPDATE.md §3.6): with `set` (the titan's set), a Super Rare or better box opens into a piece of
+ * that set, its slot at random among the five; Normal's Rare box stays a No-set classic piece. A box kind that is an
+ * item id (a Set Box) goes to the Backpack.
+ * @param {'rare'|'superRare'|'mythic'|'legendary'|'rainbow'|string} rarity
+ * @param {{ set?: string|null }} [opts]
  * @returns {{ item: { id: string, count: number }|null, gear: object|null }}
  */
-export function grantGearBox(profile, rarity, rng) {
-  if (rarity === 'rainbow') {
-    addItems(profile, [{ id: RAINBOW_BOX_ID, count: 1 }]);
-    return { item: { id: RAINBOW_BOX_ID, count: 1 }, gear: null };
+export function grantGearBox(profile, rarity, rng, { set = null } = {}) {
+  if (rarity === 'rainbow' || getItem(rarity)?.pickSet) {
+    const id = rarity === 'rainbow' ? RAINBOW_BOX_ID : rarity;
+    addItems(profile, [{ id, count: 1 }]);
+    return { item: { id, count: 1 }, gear: null };
   }
   const id = gearBoxId(rarity);
   if (!getItem(id)) return { item: null, gear: null };
+  if (set && rarity !== 'rare') return { item: null, gear: addSetPiece(profile, rollSetPiece(rng, set, { rarity })) };
   const g = rollGear(rng, { rarity });
   const uid = addGear(profile, g, { club: 'random' });
   return { item: null, gear: profile.gear[uid] };

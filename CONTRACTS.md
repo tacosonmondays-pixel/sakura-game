@@ -803,6 +803,11 @@ GearInstance = { uid, slot, rarity, level /*0-10; 0-12 when ur*/, main: { stat, 
   // on classic pieces; a Hair Clip / Necklace is mirrored whole (gph:, gpm:, gps:<uid>:<i>, gpc:) and NEVER by a legacy
   // mark. Teams and loadouts (profile.teams, unit.presets / preset; src/systems/teamsSave.js): tm:, gp:. Exports carry
   // version 3 (EXPORT_VERSION), which older builds refuse; the stored save stays version 2.
+  // Sets (M2, GEAR_UPDATE.md §3): gearSetInfo adds clubStats (every club with 2+ pieces, ≤ 2), set / setN (4+ pieces),
+  // sets, setStats (2+ pieces, ≤ 2), setLr, lrN, blankN, pieces; gearCaps(info) lifts a 5-piece set's signature caps.
+  // unitBattleStats adds set, setN, setLr, buffDurMul, controlMul, abilHaste, blastK and avgCrit (src/sim/setRules.js
+  // reads them; statLimits rows in src/online/coop/statLimits.js). Set pieces, Set Boxes, pins and the set sources:
+  // src/systems/gearSets.js.
 ```
 
 ### `src/systems/battleSave.js` (battle saves)

@@ -63,12 +63,43 @@ export function subPool(slot, club) {
  * Haste were live before; Crit DMG +200 %, Range +50 %, Pierce +150 % and Aura Power +15 % are new.
  * The part of a stat above its cap fills in as ATK (Every Line Counts).
  */
-export const BATTLE_CAPS = Object.freeze({ critChance: 0.75, costCut: 0.25, ultHaste: 0.5, critDmg: 2.0, rangePct: 0.5, piercePct: 1.5, auraPct: 0.15 });
+export const BATTLE_CAPS = Object.freeze({
+  critChance: 0.75, costCut: 0.25, ultHaste: 0.5, critDmg: 2.0, rangePct: 0.5, piercePct: 1.5,
+  // the gear update (GEAR_UPDATE.md §2.3): Aura Power 15 % → 25 % (never weaker: AURA_FILL_FROM), the three support
+  // stats, and Armor Pierce 40 (today's honest max is 34.8)
+  auraPct: 0.25, auraRangePct: 0.3, buffDurPct: 0.4, controlPct: 0.5, armorPen: 40,
+});
+/**
+ * Aura Power above this fills in as before the cap moved to 25 % (GS §B.1 rule 2), so the part above 15 % both counts
+ * as Aura Power (up to the cap) and keeps filling in: Umeko's and Miko's aura radius fill never shrinks (G3).
+ */
+export const AURA_FILL_FROM = 0.15;
+/**
+ * Each set's 5-piece set cap lifts its signature stat's gear cap to the battle's own ceiling (GEAR_UPDATE.md §3.2;
+ * review r2 L14: the part above a ceiling fills in like any capped stat and shows MAX): Geometry crit (200 %, super
+ * crits) and Crit DMG; Spirit Squad Aura Power; Freeze Tag Control Strength (×4 in battle); Power Bank Skill Haste
+ * for her ⚡ ability (half of it, ≤ 0.75; her hero ult keeps 50 %); Party Popper Pierce for her blasts (≤ 500 %;
+ * her shots keep 150 %).
+ */
+export const SET_CAP_STATS = Object.freeze({
+  geometry: Object.freeze({ critChance: 2, critDmg: 10 }),
+  spirit: Object.freeze({ auraPct: 3 }),
+  freezetag: Object.freeze({ controlPct: 3 }),
+  powerbank: Object.freeze({ ultHaste: 1.5 }),
+  popper: Object.freeze({ piercePct: 5 }),
+});
 /** Gear-stat key of each cap (the same keys). */
 export const CAPPED_STATS = Object.freeze(Object.keys(BATTLE_CAPS));
 
 /** Every Line Counts: the soft limit on fill-in ATK, and the aura girls' own bucket (from the battle update). */
 export const FILL_SOFT_M = 0.12;
+/** The soft limit by pieces worn (GEAR_UPDATE.md §8.3 lever 3): 12 % up to three, 16 % at four, 20 % at five. */
+export const FILL_SOFT_BY_PIECES = Object.freeze([0.12, 0.12, 0.12, 0.12, 0.16, 0.2]);
+/**
+ * Gear ATK's share of her burns and poisons and its cap, by pieces worn (§8.3 lever 2): half and ×1.25 up to three
+ * (today), three quarters and ×1.6 at four, all of it and ×2.0 at five.
+ */
+export const DOT_BY_PIECES = Object.freeze([[0.5, 1.25], [0.5, 1.25], [0.5, 1.25], [0.5, 1.25], [0.75, 1.6], [1, 2]]);
 export const AURA_FILL_M = 0.05;
 /** Half an ATK line's worth. */
 export const FILL_WORTH = 0.5;
@@ -194,6 +225,21 @@ export const GEAR_FIT = Object.freeze(Object.fromEntries(Object.entries(KIT_FIT)
 ])));
 
 /**
+ * The gear update's support stats (GEAR_UPDATE.md §2.4) are real only where her kit has what they reach: Aura Radius
+ * where her Aura Power is real; Buff Duration for a timed buff with gaps or a buff counted in shots (rally-kind ⚡
+ * abilities, hero skill buffs, Chika's overclock, Wakaba's drinks; never Midori's brews, which are continuous); Control
+ * Strength for a control status that is not re-applied every tick (or a push-back). A data test re-derives both lists
+ * from the kits (tests/data/gearSupportFit.test.js). A worn 4+ Spirit Squad or Freeze Tag set makes the matching stat
+ * real (gear.js gearFillIn).
+ */
+export const BUFF_DUR_REAL = Object.freeze(['hikari', 'luna', 'miko', 'umeko', 'chika', 'noa', 'wakaba', 'ouka']);
+export const CONTROL_REAL = Object.freeze([
+  'hikari', 'luna', 'nami', 'aoi', 'rei', 'yuki', 'akane', 'sango', 'kage', 'umeko', 'shiro', 'midori', 'suzu', 'raika', 'hotaru',
+  'kaede', 'chika', 'tenka', 'kanna', 'yoriko', 'seiran', 'fuu', 'hana', 'ruri', 'noa', 'iroha', 'ena', 'azami', 'yuzuha', 'chigusa',
+  'marumi', 'kohaku_tsubaki', 'kogane', 'norika',
+]);
+
+/**
  * Stats that fill in for her right now (her stars and Potential decide the `until` rows).
  * Unknown girls (new ones without a row yet) fill nothing.
  * @param {string} unitId
@@ -209,6 +255,10 @@ export function fillStats(unitId, { awaken = 0, potential = 1 } = {}) {
     if (u && ((u.awaken != null && awaken >= u.awaken) || (u.potential != null && potential >= u.potential))) continue;
     out.add(s);
   }
+  // the support stats (main stats of the Hair Clip and the Necklace)
+  if (out.has('auraPct')) out.add('auraRangePct');
+  if (!BUFF_DUR_REAL.includes(unitId)) out.add('buffDurPct');
+  if (!CONTROL_REAL.includes(unitId)) out.add('controlPct');
   return out;
 }
 

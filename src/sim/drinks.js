@@ -16,6 +16,7 @@
 // number staggered by uid; no rng (a towel hit can only crit through her stats, which have none).
 
 import { isEligible } from './combat.js';
+import { buffDur } from './setRules.js';
 import { STEP, TOWEL_EVERY, MAX_LIVES_RESTORED } from './constants.js';
 import { refreshEffective, bestTarget } from './towers.js';
 
@@ -42,7 +43,8 @@ export function hydrate(sim, t, o, { permanent = false } = {}) {
   const d = t.stats.drink;
   const h = {
     src: t.uid,
-    shots: permanent || d.permanent ? -1 : d.shots,
+    // (Buff Duration: a drink counted in shots gets floor(shots × her Buff Duration), GEAR_UPDATE.md §2.4)
+    shots: permanent || d.permanent ? -1 : Math.floor(d.shots * buffDur(t.unitStats) + 1e-9),
     dmgMul: 1 + d.dmg,
     rateMul: 1 + d.rate,
     rangeMul: 1 + d.range,

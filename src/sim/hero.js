@@ -14,6 +14,7 @@
 import { BATTLE } from '../data/types.js';
 import { HERO_XP_STEPS, HERO_LEVEL_PRICES, HERO_XP, HERO_MOVE } from '../data/heroTracks.js';
 import { ULT_INITIAL_CHARGE, KNOCKBACK_RESIST, DEFAULT_UNIT_STATS, HERO_MOVE_CD_MIN, HERO_MOVE_DOWNTIME_MIN } from './constants.js';
+import { buffDur, statusCtxFor } from './setRules.js';
 import { normalizeBase } from './mods.js';
 import { applyStatus } from './status.js';
 import { syncStatusFlags, placeOnPath } from './enemies.js';
@@ -402,7 +403,7 @@ export function activateUlt(sim) {
   if (sim.state === 'won' || sim.state === 'lost') return false;
   const effect = ultEffect(h);
   const scale = ultDamageScale(h);
-  const ctx = { rng: sim.rng, element: h.eff.element, attackType: effect.attackType || h.eff.attackType, sourceUid: h.uid };
+  const ctx = statusCtxFor({ rng: sim.rng, element: h.eff.element, attackType: effect.attackType || h.eff.attackType }, h);
   const victims = sim.enemies.filter((e) => !e.dead && !e.hidden); // tunnels shelter enemies from ults too
   let ux = h.x; // where the ult lands (event position)
   let uy = h.y;
@@ -439,7 +440,7 @@ export function activateUlt(sim) {
     }
     const rb = effect.rateBuff ?? 0.25;
     // the caster's uid (the buff icons tint the ultimate by her; nothing reads the view getter)
-    sim.addGlobalRateBuff(rb > 1 ? rb : 1 + rb, effect.buffDuration ?? effect.duration ?? 6, h.uid);
+    sim.addGlobalRateBuff(rb > 1 ? rb : 1 + rb, (effect.buffDuration ?? effect.duration ?? 6) * buffDur(h.unitStats), h.uid);
   } else if (effect.type === 'tide') {
     const spec = ultSpec(h, effect, (effect.damage || 0) * scale);
     for (const e of victims) {

@@ -48,7 +48,8 @@
 //   e.abilCc        (bosses and minibosses only) the step until which ability CC is ignored
 
 import { ABILITY_RULES, abilityAtTier, skillAtLevel, abilityRuns, abilityWithLr } from '../data/abilities.js';
-import { abilityChargePerTick, firstBellCharge } from './gearRules.js';
+import { abilityChargePerTick, firstBellCharge, superchargeMul } from './gearRules.js';
+import { buffDur, statusCtxFor, setPassive, CHEER_NEAR, CHEER_NEAREST } from './setRules.js';
 import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL, PRISM_SHARDS, KNOCKBACK_RESIST, PUSH_LOCK, WELL_PULL_REACH } from './constants.js';
 import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs, chainJump, chainNext, hasRoamingDrones } from './towers.js';
 import { isEligible } from './combat.js';
@@ -318,7 +319,8 @@ export function abilitySpec(t, def) {
   const s = t.eff;
   const e = def.effect || {};
   return {
-    damage: (e.dmgMul || 0) * s.damage,
+    // (Power Bank's Supercharge: her ability hits harder, src/sim/gearRules.js superchargeMul)
+    damage: (e.dmgMul || 0) * s.damage * superchargeMul(t.unitStats),
     attackType: s.attackType,
     element: s.element || null,
     critChance: 0,
@@ -422,7 +424,7 @@ function applyStatuses(sim, e, t, list, spec, step) {
   const ctx = sim._statusCtx;
   ctx.element = spec.element || null;
   ctx.attackType = spec.attackType;
-  ctx.sourceUid = t.uid;
+  statusCtxFor(ctx, t);
   // a curse bursts for burstMul × her current hit (Ena's Omen Card), as a first-generation curse; no other status
   // reads these two
   ctx.hitDamage = t.eff.damage || 0;
@@ -628,6 +630,53 @@ function addRally(sim, t, e, radius, left, to = null) {
     // the rally (a calm point never holds one)
     ...(e.lifeEvery > 0 ? { life: { every: e.lifeEvery, r2: (e.lifeRadius || 0) * (e.lifeRadius || 0), max: e.lifeMax || 0, kills: 0, given: 0 } } : null),
   });
+}
+
+/**
+ * Spirit Squad's Big Cheer (GEAR_UPDATE.md §3.2, src/sim/setRules.js), one step of a wave: each girl with the set
+ * counts fixed steps (`cheerT`); at the period the girls in her aura (no aura: her CHEER_NEAREST nearest within
+ * CHEER_NEAR tiles, ties by lower uid) get a rally-kind cheer, ×(1 + bonus) damage for its time × her Buff Duration.
+ * The strongest rally per key wins (buffs.js applyRallies); Skill Haste never speeds it. Cheer rallies count down
+ * here and end with the wave like every rally (endAbilityWave).
+ */
+export function tickCheers(sim) {
+  if (sim.state !== 'wave') return;
+  let changed = false;
+  if (sim._rallies.length) {
+    let gone = false;
+    for (const r of sim._rallies) if (r.cheer && --r.left <= 0) gone = true;
+    if (gone) {
+      sim._rallies = sim._rallies.filter((r) => r.left > 0);
+      changed = true;
+    }
+  }
+  for (const t of sim.towers) {
+    const p = setPassive(t.unitStats, 'spirit');
+    if (!p || t.removed) continue;
+    t.cheerT = (t.cheerT || 0) + 1;
+    if (t.cheerT < ticks(p.every)) continue;
+    t.cheerT = 0;
+    if (t.disabled > 0) continue;
+    const left = ticks(p.dur * buffDur(t.unitStats));
+    const e = { dmgMul: 1 + p.bonus };
+    const n = sim._rallies.length;
+    const auraR = t.stats?.aura?.range || 0;
+    if (auraR > 0) addRally(sim, t, e, auraR, left);
+    else {
+      const near = [];
+      for (const o of sim.towers) {
+        if (o === t || o.removed) continue;
+        const d2 = (o.x - t.x) * (o.x - t.x) + (o.y - t.y) * (o.y - t.y);
+        if (d2 <= CHEER_NEAR * CHEER_NEAR) near.push({ o, d2 });
+      }
+      near.sort((a, b) => a.d2 - b.d2 || a.o.uid - b.o.uid);
+      for (const { o } of near.slice(0, CHEER_NEAREST)) addRally(sim, t, e, 0, left, o.uid);
+    }
+    for (let i = n; i < sim._rallies.length; i++) sim._rallies[i].cheer = true;
+    sim._emit('setTrick', { towerUid: t.uid, kind: 'cheer' });
+    changed = true;
+  }
+  if (changed) recomputeBuffs(sim);
 }
 
 /** Is any enemy (outside the tunnels) within `r` of her? */
@@ -926,7 +975,7 @@ const KINDS = {
         const g = rallyGirl(sim, t, aim);
         if (!g) return null;
         if (e.cleanse && g.disabled > 0) g.disabled = 0;
-        addRally(sim, t, e, 0, ticks(def.duration), g.uid);
+        addRally(sim, t, e, 0, ticks(def.duration * buffDur(t.unitStats)), g.uid);
         recomputeBuffs(sim);
         return { x: g.x, y: g.y, radius: 0, targets: [g.uid] };
       }
@@ -936,7 +985,7 @@ const KINDS = {
       if (!allies.length && !(e.lifeEvery > 0 && enemyNear(sim, t, e.lifeRadius || 0))) return null;
       // a cleanse clears sabotage now; a ward (in the rally) blocks new sabotage while it lasts
       if (e.cleanse) for (const o of allies) if (o.disabled > 0) o.disabled = 0;
-      addRally(sim, t, e, r, ticks(def.duration));
+      addRally(sim, t, e, r, ticks(def.duration * buffDur(t.unitStats)));
       recomputeBuffs(sim);
       return { x: t.x, y: t.y, radius: r === Infinity ? 0 : r, targets: allies.slice(0, MAX_LISTED).map((o) => o.uid) };
     },
@@ -963,7 +1012,7 @@ const KINDS = {
         if (e.dmgMul > 0 && !v.dead) sim._hit(v, t, spec, 1); // (Overgrowth: the vines squeeze)
       }
       if (e.rally) {
-        addRally(sim, t, e.rally, rallyRadius(t, e.rally), ticks(def.duration));
+        addRally(sim, t, e.rally, rallyRadius(t, e.rally), ticks(def.duration * buffDur(t.unitStats)));
         recomputeBuffs(sim);
       }
       return { x: t.x, y: t.y, radius: map ? 0 : abilityReach(t, def), targets: listed(pool) };
@@ -1513,7 +1562,8 @@ export function tickAbilities(sim) {
   }
   if (sim._rallies.length) {
     let gone = false;
-    for (const r of sim._rallies) if (--r.left <= 0) gone = true;
+    // (Big Cheer's rallies count down in tickCheers, which runs whether or not an ability does)
+    for (const r of sim._rallies) if (!r.cheer && --r.left <= 0) gone = true;
     if (gone) {
       sim._rallies = sim._rallies.filter((r) => r.left > 0);
       recomputeBuffs(sim);

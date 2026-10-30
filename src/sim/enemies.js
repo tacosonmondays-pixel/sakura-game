@@ -493,6 +493,8 @@ export function updateEnemy(sim, e, dt) {
   if (!e.dead && st.hex) sim._hex(e, st.hex, dt);
   if (e.dead) return;
   tickStatusDurations(e, dt);
+  // You're It's mark (src/sim/status.js), in fixed steps
+  if (e.it && --e.it.left <= 0) delete e.it;
   syncStatusFlags(e);
   if (e.pushLock > 0) e.pushLock -= dt;
 

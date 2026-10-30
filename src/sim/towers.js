@@ -33,6 +33,7 @@ import { rollBall, ballTick } from './balls.js';
 import { labMods } from './lab.js';
 import { buildPartnerSpec, partnerTick, partnerOff, beginVolley, refract } from './duo.js';
 import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax, followThroughBlast } from './gearRules.js';
+import { setPassive, BURST_COST } from './setRules.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
@@ -178,6 +179,8 @@ function hitSpecFrom(s, extra) {
     element: s.element,
     critChance: s.crit.chance,
     critMul: s.crit.mul,
+    // crit chance above 100 % (Geometry Set's set cap, five Blank LR pieces): the super-crit chance (setRules.js)
+    ...(s.crit.super > 0 ? { superChance: s.crit.super } : null),
     armorPen: s.armorPen,
     eliteMul: s.eliteMul,
     bossMul: s.bossMul,
@@ -218,6 +221,7 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     detection,
     critChance: s.crit.chance,
     critMul: s.crit.mul,
+    ...(s.crit.super > 0 ? { superChance: s.crit.super } : null),
   };
   // Kogane's Big Yellow Overdrive (Potential P6, src/sim/hero.js): faster for a while after a Move in a wave
   if (t.overdriveLeft > 0 && s.overdrive) t.eff.rate *= s.overdrive.rateMul;
@@ -612,13 +616,31 @@ let gearTrick = null;
 // Whether this attack is a Follow-Through (Archery's 5th): a blast takes the trick's +100 % Pierce as a
 // wider radius (blastRadius), the way her shots take it as gearK.
 let gearFt = false;
+// Her gear set on the attack running now (GEAR_UPDATE.md §3.4): Right Angle's sure crit (its ×, 0 = none) and
+// Confetti Burst's numbers (null = none). Module state like gearTrick. The attack's spec copy carries them, so a
+// projectile that lands later still has them; its `burstLeft` lets one hit of the attack burst (confettiBurst).
+let gearSure = 0;
+let gearConfetti = null;
 /** Fan offset (rad) of an echo's projectiles, alternating sides. */
 const ECHO_FAN = 0.18;
 
-/** The spec her hits use this attack: a Finishing Thrust or a Big Beat makes a harder copy. */
+/**
+ * The spec her hits use this attack: a Finishing Thrust or a Big Beat makes a harder copy; Right Angle a sure crit
+ * (`sure`: its extra ×, 1 at 4 pieces); Confetti Burst a spec that bursts on its first hit (`confetti`).
+ */
 function gearSpec(spec) {
-  if (!gearTrick || echoing) return spec;
-  return { ...spec, damage: spec.damage * gearTrick.mul, ...(gearTrick.pen ? { armorPen: (spec.armorPen || 0) + gearTrick.pen } : null) };
+  if ((!gearTrick && !gearSure && !gearConfetti) || echoing) return spec;
+  const out = { ...spec };
+  if (gearTrick) {
+    out.damage = spec.damage * gearTrick.mul;
+    if (gearTrick.pen) out.armorPen = (spec.armorPen || 0) + gearTrick.pen;
+  }
+  if (gearSure) out.sure = gearSure;
+  if (gearConfetti) {
+    out.confetti = gearConfetti;
+    out.burstLeft = 1;
+  }
+  return out;
 }
 
 /** Her blast radius this attack: a Follow-Through widens it (none on an echo), else her usual splash. */
@@ -639,8 +661,14 @@ function beginGear(t) {
   gearTrick = null;
   gearK = 0;
   gearFt = false;
+  gearSure = 0;
+  gearConfetti = null;
   // a trap girl's tricks run when her traps go off (updateTraps); a duel takes no Pierce on her strike
   if (t.eff.behavior === 'trap') return 0;
+  // her set's counted-attack passives (Right Angle, Confetti Burst): the attack that reaches the period
+  const sp = setPassive(t.unitStats);
+  if (sp && t.unitStats.set === 'geometry' && (t.angleN || 0) + 1 >= sp.every) gearSure = sp.mul;
+  if (sp && t.unitStats.set === 'popper' && (t.burstN || 0) + 1 >= sp.every) gearConfetti = sp;
   const club = trickClub(t.unitStats);
   let n = 0;
   let ft = false;
@@ -658,6 +686,16 @@ function beginGear(t) {
 
 /** After the attack: a counted one (it found a target) advances her trick count. */
 function endGear(sim, t, n, ok) {
+  if (ok) {
+    const sp = setPassive(t.unitStats);
+    if (sp && t.unitStats.set === 'geometry') {
+      t.angleN = ((t.angleN || 0) + 1) % sp.every;
+      if (gearSure) sim._emit('setTrick', { towerUid: t.uid, kind: 'rightAngle' });
+    }
+    if (sp && t.unitStats.set === 'popper') t.burstN = ((t.burstN || 0) + 1) % sp.every;
+  }
+  gearSure = 0;
+  gearConfetti = null;
   if (ok && n > 0) {
     const every = { archery: TRICK.followThrough.every, fencing: TRICK.thrust.every, taiko: TRICK.bigBeat.every }[t.unitStats.club];
     t.trickN = n % every;
@@ -2239,6 +2277,28 @@ export function updateTraps(sim, dt) {
 }
 
 let popping = false;
+
+/**
+ * Party Popper's Confetti Burst (GEAR_UPDATE.md §3.4): the first hit of a bursting attack bursts on the OTHER enemies
+ * within its radius of the enemy it hit, for its share of that hit. Never crits, carries no status, never bursts
+ * again; one battle-wide budget (sim.burstBudget, half-bursts) like Finale Pop's.
+ */
+export function confettiBurst(sim, tower, spec, e) {
+  if (!spec.confetti || !(spec.burstLeft > 0) || !tower || tower.removed) return;
+  spec.burstLeft = 0;
+  if (!(sim.burstBudget >= BURST_COST)) return;
+  sim.burstBudget -= BURST_COST;
+  const c = spec.confetti;
+  const burst = {
+    ...spec, damage: spec.damage * c.share, critChance: 0, superChance: 0, sure: 0, confetti: null, burstLeft: 0, status: [], procStatus: null, mark: null, silence: 0, reveal: 0,
+    knockback: 0, gather: 0, hpPct: null,
+  };
+  const victims = sim.grid.query(e.x, e.y, c.radius, []);
+  for (const v of victims) if (v !== e && !v.dead) sim._hit(v, tower, burst, 1);
+  sim._emit('explode', { x: e.x, y: e.y, radius: c.radius, element: spec.element || null, attackType: spec.attackType });
+  sim._emit('setTrick', { towerUid: tower.uid, kind: 'confetti' });
+}
+
 /**
  * Pyrotechnics' Finale Pop (gear-stats §C.3): an enemy she defeats bursts for 25 % of her hit within
  * 0.9 tiles. Pops never pop, never crit and carry no status; one budget for the whole battle

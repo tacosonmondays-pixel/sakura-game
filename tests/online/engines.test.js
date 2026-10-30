@@ -208,7 +208,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
       .toEqual({
         ticks: 47017, state: 'between', wallets: '568/782', lives: 100, final: 3293782298, hashes: '6e087590', casts: 72,
         byId: 'aoi.skyfall 11 · ena.omenCard 9 · hana.swoop 19 · noa.firstAid 2 · ruri.moonPounce 5 · seiran.stormLance 13 · yoriko.puppetHex 13',
-        ckDigest: 'c653f418', finalDigest: '089da6b4',
+        // (the gear sets, GEAR_UPDATE.md M2: the same battle — final and hashes unchanged — but the snapshot holds the
+        // new Sim state, Confetti Burst's budget and the status context's Control Strength / You're It fields)
+        ckDigest: 'b63169e8', finalDigest: 'e94110b8',
       });
   }, 240000);
 
@@ -264,7 +266,7 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // T3 review added the class counts and the wave-7 checkpoint's digest (finalDigest is taken after the
     // sale, so only ckDigest holds a lab record)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '35f90fff', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'e864bd71', finalDigest: '8e111df8' });
+      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '35f90fff', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: '3929c173', finalDigest: '21bd9a0c' }); // (M2: new Sim state only, see above)
   }, 240000);
 
   it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s two firing points with Pierce, every club trick) in sync', () => {

@@ -48,6 +48,7 @@ import {
 import { pointAt } from './path.js';
 import { placeOnPath } from './enemies.js';
 import { trapSpots } from './towers.js';
+import { statusCtxFor } from './setRules.js';
 
 const TICKS_PER_SECOND = Math.round(1 / STEP);
 /** Seconds → whole ticks. */
@@ -296,6 +297,7 @@ function stepWell(sim, z, dt) {
     const ctx = sim._statusCtx;
     ctx.element = null;
     ctx.attackType = 'mystic';
+    statusCtxFor(ctx, sim.getTower(z.src) || null);
     ctx.sourceUid = z.src;
   } else if (z.next > 0) z.next--;
   if (W.amt > 0 || W.status) sim.grid.each(z.x, z.y, z.r, inWell);

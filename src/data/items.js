@@ -240,8 +240,8 @@ function buildItems() {
   // that drops them gets them back from their `inv:` mirrors; their sources come with the sets update and LR gear
   SET_BOX_RARITIES.forEach((r, i) => add({ id: setBoxId('pick', r), name: `${ITEM_RARITIES[r].name} Set Box`, category: 'gearbox', rarity: r, pickSet: true, desc: `Open it to pick a gear set: all five pieces of that set at ${ITEM_RARITIES[r].name}, +0, main stats chosen, substats rolled.`, sort: 4020 + i }));
   SET_IDS.forEach((id, k) => SET_BOX_RARITIES.forEach((r, i) => add({ id: setBoxId(id, r), name: `${GEAR_SETS[id].name} Box (${ITEM_RARITIES[r].name})`, category: 'gearbox', rarity: r, pickSet: true, set: id, desc: `All five ${GEAR_SETS[id].name} pieces at ${ITEM_RARITIES[r].name}, +0: you choose each main stat, the substats are rolled.`, sort: 4030 + k * 2 + i })));
-  add({ id: TIE_PIN_ID, name: 'Tie Pin', category: 'dice', rarity: 'legendary', desc: 'Pin it on a gold, UR or LR piece: its main stat becomes its best roll and keeps growing with the level.', sort: 5006 });
-  add({ id: COLLAR_PIN_ID, name: 'Collar Pin', category: 'dice', rarity: 'mythic', desc: 'Pin it on one substat of a gold, UR or LR piece: that line becomes its best roll, its ▲ and ✦ on top.', sort: 5007 });
+  add({ id: TIE_PIN_ID, name: 'Tie Pin', category: 'dice', rarity: 'legendary', usable: 'gearPin', desc: 'Pin it on a gold, UR or LR piece: its main stat becomes its best roll and keeps growing with the level.', sort: 5006 });
+  add({ id: COLLAR_PIN_ID, name: 'Collar Pin', category: 'dice', rarity: 'mythic', usable: 'gearPin', desc: 'Pin it on one substat of a gold, UR or LR piece: that line becomes its best roll, its ▲ and ✦ on top.', sort: 5007 });
   add({ id: LENS_ID, name: 'Nightglass Lens', category: 'dice', rarity: 'legendary', display: 'ur', desc: 'Limit Break a rainbow UR piece at +12 into Nightglass LR gear: keep its set, or go blank for bigger numbers.', sort: 5008 });
 
   add({ id: 'ticket_recruit', name: 'Recruit Ticket', category: 'ticket', rarity: 'superRare', desc: 'One free recruitment. Used before gems.', sort: 6000 });

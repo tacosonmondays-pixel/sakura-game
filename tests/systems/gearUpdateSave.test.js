@@ -235,6 +235,13 @@ describe('M0 reader: after an older build', () => {
   });
 });
 
+describe('mirror prefixes', () => {
+  it('the gear update\'s marks are disjoint from each other and from every older gear mark', () => {
+    const all = Object.values(MARK).filter((k) => k.endsWith(':'));
+    for (const a of all) for (const b of all) if (a !== b) expect(a.startsWith(b), `${a} / ${b}`).toBe(false);
+  });
+});
+
 describe('M0 reader: LR prices, refunds, rerolls', () => {
   it('LR reads ×4.0/2.8 (Set) and ×5.0/2.8 (Blank); +18; +13 … +18 at the LR tier', () => {
     const p = createProfile();

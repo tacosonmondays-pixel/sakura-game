@@ -12,6 +12,7 @@
 
 import { typeMultiplier } from '../data/types.js';
 import { WARD_MUL, SOAK_BONUS, BARRIER_BLAST_MUL, SHRED_MAX_STACKS, MAX_REDUCTION } from './constants.js';
+import { SUPER_CRIT_MUL } from './setRules.js';
 
 export const BARRIER_BROKE = 1;
 export const SHELL_BROKE = 2;
@@ -44,6 +45,13 @@ export function effectiveArmor(enemy, armorPen = 0) {
 }
 
 /** Bonus multiplier from mark + vulnerable (additive with each other). */
+/** You're It (Freeze Tag, src/sim/setRules.js): × on every hit and DoT tick while it lasts; bosses and minibosses at half. */
+export function itMul(enemy) {
+  const it = enemy.it;
+  if (!it || !(it.left > 0)) return 1;
+  return 1 + (enemy.tier === 'boss' || enemy.tier === 'miniboss' ? it.bonus / 2 : it.bonus);
+}
+
 export function damageTakenBonus(enemy) {
   const st = enemy.statuses;
   // (heldBonus: held at one of Norika's barricades, src/sim/barricades.js; absent on every other enemy)
@@ -88,8 +96,20 @@ export function computeHit(enemy, hit, critRoll = 1, scale = 1, out = {}) {
   if (warded) dmg *= WARD_MUL;
   if (enemy.statuses.soak && (hit.element === 'frost' || hit.element === 'lightning')) dmg *= 1 + SOAK_BONUS;
   dmg *= damageTakenBonus(enemy);
-  const crit = (hit.critChance || 0) > 0 && critRoll < hit.critChance;
-  if (crit) dmg *= hit.critMul || 1.5;
+  // You're It (Freeze Tag): multiplies with the marks
+  dmg *= itMul(enemy);
+  // a sure crit (Right Angle: `sure` is its extra ×) needs no draw; the hit's one crit draw also decides a super crit
+  // (crit chance above 100 %: `superChance` is the part over 1)
+  const crit = hit.sure > 0 || ((hit.critChance || 0) > 0 && critRoll < hit.critChance);
+  let superCrit = false;
+  if (crit) {
+    dmg *= hit.critMul || 1.5;
+    if (hit.sure > 1) dmg *= hit.sure;
+    if (hit.superChance > 0 && critRoll < hit.superChance) {
+      superCrit = true;
+      dmg *= SUPER_CRIT_MUL;
+    }
+  }
   dmg = reduceByModifiers(enemy, dmg, hit.attackType);
 
   let toBarrier = 0;
@@ -130,6 +150,7 @@ export function computeHit(enemy, hit, critRoll = 1, scale = 1, out = {}) {
   out.toBarrier = toBarrier;
   out.toHp = toHp;
   out.crit = crit;
+  out.superCrit = superCrit;
   out.typeMul = typeMul;
   out.effective = typeMul * (warded ? WARD_MUL : 1);
   out.shellHit = shellHit;
@@ -175,7 +196,7 @@ export function computeDot(enemy, kind, amount, attackType, out = {}) {
   if (kind === 'burn') dmg *= typeMultiplier(attackType || 'blast', enemy.armorClass);
   const element = kind === 'burn' ? 'fire' : 'poison';
   if (enemy.ward === element) dmg *= WARD_MUL;
-  dmg *= damageTakenBonus(enemy);
+  dmg *= damageTakenBonus(enemy) * itMul(enemy);
   dmg = reduceByModifiers(enemy, dmg, kind === 'burn' ? attackType : 'poison');
   let toBarrier = 0;
   if (enemy.barrier > 0 && dmg > 0) {

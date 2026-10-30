@@ -10,11 +10,8 @@ export const SLOT_IDS = Object.freeze(['charm', 'ribbon', 'shoes', 'hair', 'neck
 export const ROLL_SLOTS = Object.freeze(['charm', 'ribbon', 'shoes']);
 /** Slots that exist only as set pieces (set sources and Set Boxes). */
 export const SET_ONLY_SLOTS = Object.freeze(['hair', 'necklace']);
-/**
- * Slots the menus show. The reader (M0) knows all five but shows the classic three until the sets update (M2) gives
- * the Hair Clip and the Necklace their cards and sources.
- */
-export const SHOWN_SLOTS = ROLL_SLOTS;
+/** Slots the menus show: all five since the sets update (the reader, M0, showed the classic three). */
+export const SHOWN_SLOTS = SLOT_IDS;
 
 /** Name and blurb of every slot. */
 export const GEAR_SLOT_DEFS = Object.freeze({

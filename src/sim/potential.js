@@ -26,6 +26,7 @@
 //   N17 bossMul              the live key, one girl only (data test)
 import { isEligible } from './combat.js';
 import { syncStatusFlags } from './enemies.js';
+import { statusCtxFor } from './setRules.js';
 
 const isDot = (type) => type === 'burn' || type === 'poison';
 
@@ -98,7 +99,7 @@ export function applyFoeVuln(sim) {
     const ctx = sim._statusCtx;
     ctx.element = t.eff?.element || null;
     ctx.attackType = t.eff?.attackType;
-    ctx.sourceUid = t.uid;
+    statusCtxFor(ctx, t);
     const spec = { type: 'vulnerable', bonus, duration: 0.4 };
     for (const e of near) {
       if (e.dead || !isEligible(e, t.eff)) continue;
@@ -159,7 +160,7 @@ export function spreadDot(sim, e) {
     const ctx = sim._statusCtx;
     ctx.element = type === 'burn' ? 'fire' : null;
     ctx.attackType = st.attackType || src.eff?.attackType;
-    ctx.sourceUid = src.uid;
+    statusCtxFor(ctx, src);
     const r = sim._applyStatusEvent(best, spec, ctx);
     if (r === 'new') best.statuses[type].spread = left - 1;
     if (r) sim._emit('dotSpread', { from: e.uid, to: best.uid, towerUid: src.uid, type });

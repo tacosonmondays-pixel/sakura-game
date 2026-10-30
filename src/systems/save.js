@@ -9,9 +9,10 @@ import { SUB_STAT_KEYS, NEW_STAT_SLOT, newStatFits } from '../data/gearStats.js'
 import { SLOT_IDS, MAIN_STATS_BY_SLOT, slotName, emptySlots } from '../data/gearSlots.js';
 import { isSet, SET_RARITIES } from '../data/gearSets.js';
 import { CLUB_IDS, CLUB_RARITIES } from '../data/clubs.js';
-import { UR_MAX_LEVEL, LR_MAX_LEVEL, LR_SET, LR_BLANK } from '../data/gearAwaken.js';
+import { UR_MAX_LEVEL, LR_MAX_LEVEL, LR_SET, LR_BLANK, MARK } from '../data/gearAwaken.js';
 import { restoreGearMarks, restoreNewSlotPieces } from './gearMarks.js';
 import { cleanTeams, cleanPresets, restoreTeams } from './teamsSave.js';
+import { grantSetBoxGifts } from './gearSets.js';
 import { RIBBON_MODES } from '../data/modes.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT, amendBetaLetter } from './mail.js';
@@ -145,6 +146,8 @@ export function createProfile() {
   // [story] this save was created with the story: an older build that drops profile.story keeps
   // this mark (missions.counters), so the block comes back as a new player's, never as legacy
   missions.counters[STORY_NEW_MARK] = 1;
+  // [gear update] born after the sets update: no veterans' Set Boxes (gearSets.js grantSetBoxGifts)
+  missions.counters[MARK.veteran] = 1;
   const p = {
     version: SAVE_VERSION,
     createdAt: now,
@@ -677,6 +680,8 @@ export function migrateProfile(raw) {
   // [gear update] teams and gear loadouts an older build dropped come back from 'tm:' / 'gp:'; present fields win
   // (the formation is the active team, what she wears is her active loadout), and the mirrors are rewritten
   restoreTeams(p);
+  // [gear update] the veterans' Set Boxes once (su:vet) and the welcome Set Box for a save past 3-5 (gearSets.js)
+  grantSetBoxGifts(p);
   // [ascension] bought Potential, gates 6–10 and the Ascension items an older build dropped, then the
   // one-time switch to Essence (counted duplicates become Potential for free + the welcome pouch)
   restoreAscension(p);

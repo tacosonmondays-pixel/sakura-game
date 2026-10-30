@@ -210,6 +210,18 @@ export const DEFAULT_UNIT_STATS = Object.freeze({
   potential: 1,
   // [banners G6] an LR unit after Limit Break (her LR ability form reads it: src/sim/abilities.js isLr)
   lr: false,
+  // the gear update (docs/specs/GEAR_UPDATE.md §2.4, §3.4, src/sim/setRules.js): her set (4+ pieces) and its LR Set
+  // Form, Buff Duration and Control Strength, her ⚡ ability's haste (half her Skill Haste; Power Bank's set cap lifts
+  // it), her blasts' Pierce (Party Popper's set cap) and her average crit on damage that cannot crit
+  set: null,
+  setN: 0,
+  setLr: false,
+  buffDurMul: 1,
+  controlMul: 1,
+  abilHaste: 0,
+  blastK: 0,
+  avgCrit: 1,
+  critCeil: 1,
 });
 
 // ---------------------------------------------------------------------------

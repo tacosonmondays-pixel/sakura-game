@@ -31,7 +31,8 @@ import {
   updateProjectiles, updateTraps, baseCost, setFlight, flightMode, signalRange, hasRoamingDrones, finalePop, ownDrones,
 } from './towers.js';
 import { POP_BUDGET_MAX, POP_COST } from './gearRules.js';
-import { updateShells, aimMode, updateRelayOrigin } from './towers.js';
+import { BURST_BUDGET_MAX, INTEREST_SET_CEIL, setPassive, statusCtxFor } from './setRules.js';
+import { updateShells, aimMode, updateRelayOrigin, confettiBurst } from './towers.js';
 import { updateRunners } from './runners.js';
 import {
   initHero, gainHeroXp, tickHero, heroUltStatus, activateUlt as fireUlt, heroXpInfo, heroPace, waveClearXp,
@@ -42,7 +43,7 @@ import { generateFreeplayWave } from './freeplay.js';
 import { buildWaveWarnings, buildDebrief } from './report.js';
 import { snapshotSim, restoreSim } from './snapshot.js';
 import {
-  syncAbility, tickAbilities, castAbility as castAbilityOn, abilityStatus as abilityStatusOf, setAbilityAuto as setAbilityAutoOn,
+  syncAbility, tickAbilities, tickCheers, castAbility as castAbilityOn, abilityStatus as abilityStatusOf, setAbilityAuto as setAbilityAutoOn,
   setAbilityAutoAll as setAbilityAutoAllOn, abilitySlots as abilitySlotsOf, startAbilityWave, endAbilityWave, clearAbilityEffects,
   abilityKill,
 } from './abilities.js';
@@ -218,11 +219,13 @@ export class Sim {
     this._dpsTimer = DPS_WINDOW;
     /** Finale Pop's budget for the whole battle, in half-pops (src/sim/gearRules.js). */
     this.popBudget = POP_BUDGET_MAX;
+    /** Confetti Burst's budget for the whole battle, in half-bursts (src/sim/setRules.js). */
+    this.burstBudget = BURST_BUDGET_MAX;
     this._scratch = [];
     this._scratch2 = [];
     this._hitOut = {};
     this._dotOut = {};
-    this._statusCtx = { rng: this.rng, element: null, attackType: null, sourceUid: null, hitDamage: 0, curseDepth: 0 };
+    this._statusCtx = { rng: this.rng, element: null, attackType: null, sourceUid: null, hitDamage: 0, curseDepth: 0, controlMul: 1, itBonus: 0 };
     this._curseCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0 };
     this._curseQueue = [];
     this._flushingCurses = false;
@@ -351,6 +354,7 @@ export class Sim {
   _step1(dt) {
     this.time += dt;
     if (this.popBudget < POP_BUDGET_MAX) this.popBudget += 1;
+    if (this.burstBudget < BURST_BUDGET_MAX) this.burstBudget += 1;
     if (this.state === 'wave') this._spawnTick(dt);
     this.grid.rebuild(this.enemies);
     if (this.rule) ruleStep(this, dt);
@@ -369,6 +373,8 @@ export class Sim {
     // abilities: charge, expire, queued shells, auto-cast — before the girls attack, so a boost or a
     // rally cast this step applies this step
     if (this._abilOn > 0 || this.abilGroups.size > 0) tickAbilities(this);
+    // Spirit Squad's Big Cheer (src/sim/abilities.js tickCheers; nothing happens without a girl in the set)
+    tickCheers(this);
     for (let i = 0; i < this.towers.length; i++) updateTower(this, this.towers[i], dt);
     // Tenka's lab weapons (src/sim/lab.js): only once a girl has a lab team
     if (this._labOn) updateLab(this);
@@ -495,6 +501,15 @@ export class Sim {
     return whole;
   }
 
+  /** Bake Sale's extra coins for girl `t`: whole coins into her owner's wallet, the fraction carried on her (`bakeC`). */
+  _bake(t, amount) {
+    if (!(amount > 0)) return;
+    const c = (t.bakeC || 0) + amount;
+    const whole = Math.floor(c + 1e-9);
+    t.bakeC = c - whole;
+    if (whole > 0) this._gainCashFor(t.owner ?? 0, whole);
+  }
+
   _spend(amount) {
     this.cash -= amount;
     this.stats.cashSpent += amount;
@@ -585,17 +600,19 @@ export class Sim {
     // (one object per hit event: built with its type, so _emit queues it uncopied)
     if (spec.tick) {
       this._emit('hit', {
-        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective, tick: true,
+        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, superCrit: res.superCrit, attackType: spec.attackType, effective: res.effective, tick: true,
       });
     } else {
       this._emit('hit', {
-        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, attackType: spec.attackType, effective: res.effective,
+        type: 'hit', uid: e.uid, x: e.x, y: e.y, amount: res.toHp + res.toBarrier, crit: res.crit, superCrit: res.superCrit, attackType: spec.attackType, effective: res.effective,
       });
     }
     if (flags & BARRIER_BROKE) this._emit('barrierBreak', { uid: e.uid });
     if (flags & SHELL_BROKE) this._emit('shellBreak', { uid: e.uid });
     this._credit(tower, dealt, e, drone);
     this.stats.damageByType[spec.attackType] = (this.stats.damageByType[spec.attackType] || 0) + dealt;
+    // Party Popper's Confetti Burst: the first hit of a bursting attack (src/sim/towers.js)
+    if (spec.confetti) confettiBurst(this, tower, spec, e);
     if (e.hp <= 0) {
       this._killEnemy(e, tower, drone);
       return dealt;
@@ -616,7 +633,7 @@ export class Sim {
     const ctx = this._statusCtx;
     ctx.element = spec.element || null;
     ctx.attackType = spec.attackType;
-    ctx.sourceUid = tower ? tower.uid : null;
+    statusCtxFor(ctx, tower); // her uid, Control Strength and You're It (src/sim/setRules.js)
     ctx.hitDamage = spec.damage || 0; // curse burst = burstMul × this hit (after buffs, before crit/ramp)
     ctx.curseDepth = 0;
     const list = spec.status;
@@ -643,6 +660,8 @@ export class Sim {
       if (!(hero ? e.heroPushLock > this.time : locks && e.pushLock > 0)) {
         // (Marumi's Bowling Thunder, spec.pushBig: minibosses take the whole push)
         let amt = spec.knockback * (spec.pushBig === true && e.tier === 'miniboss' ? 1 : (KNOCKBACK_RESIST[e.tier] ?? 1));
+        // Control Strength: her push-backs push half that much further (bosses stay immune: KNOCKBACK_RESIST)
+        if (ctx.controlMul > 1) amt *= 1 + (ctx.controlMul - 1) / 2;
         if (e.kbLeft != null) { amt = Math.min(amt, e.kbLeft); e.kbLeft -= amt; }
         if (amt > 0) {
           e.dist = Math.max(0, e.dist - amt);
@@ -752,6 +771,9 @@ export class Sim {
     // Potential N7 (Momo's Lucky Pouch): a kill inside her range pays × her bounty aura (1 = none)
     const bm = bountyMulAt(this, e.x, e.y);
     const bounty = this._gainCash(bm > 1 ? e.bounty * bm : e.bounty);
+    // Treasurer's Bake Sale (src/sim/setRules.js): her kills pay more, into her owner's wallet
+    const bake = tower && !tower.removed ? setPassive(tower.unitStats, 'treasurer') : null;
+    if (bake) this._bake(tower, (bm > 1 ? e.bounty * bm : e.bounty) * bake.share);
     if (this._hubBounty) payHubBounty(this, e); // Ouka's Sponsorship (src/sim/hubs.js)
     this.kills[e.id] = (this.kills[e.id] || 0) + 1;
     if (this.tryout) tryoutKill(this, e);
@@ -808,6 +830,7 @@ export class Sim {
         if (q.dead || q.hidden) continue;
         this._hit(q, src, spec, 1);
         if (!spread || q.dead) continue;
+        statusCtxFor(ctx, null);
         ctx.sourceUid = c.sourceUid;
         ctx.curseDepth = c.depth + 1;
         this._applyStatusEvent(q, { type: 'curse', burst: c.burst * CURSE_DECAY, radius: c.radius, duration: c.duration }, ctx);
@@ -924,9 +947,13 @@ export class Sim {
       for (const t of this.towers) {
         const inc = t.stats.income;
         if (!inc || t.disabled > 0) continue;
-        const interest = Math.min(INCOME_INTEREST_MAX, (inc.interest || 0) * this.cash);
+        // Treasurer: Bake Sale grows a coin-maker's own coins; its 5-piece set cap lifts her interest's cap
+        const bake = setPassive(t.unitStats, 'treasurer');
+        const cap = bake && t.unitStats.setN >= 5 ? INTEREST_SET_CEIL : INCOME_INTEREST_MAX;
+        const interest = Math.min(cap, (inc.interest || 0) * this.cash);
         const amount = this._gainCash(((inc.perWave || 0) * cashMul + interest) * this.incomeMul);
         if (amount > 0) this._emit('cash', { amount, reason: 'income', towerUid: t.uid });
+        if (bake) this._bake(t, ((inc.perWave || 0) * cashMul + interest) * this.incomeMul * bake.share);
         // Potential N8 (Momo's Golden Harvest): every Nth wave clear her wave income once more (no interest)
         const hv = t.stats.harvest;
         if (hv && hv.every > 0 && this.wave % hv.every === 0) {
