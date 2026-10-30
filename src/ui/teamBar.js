@@ -98,7 +98,7 @@ function clashLine(clashes) {
  * @param {{ onSwitched?: Function, names?: boolean, testid?: string, label?: string|null }} o
  *   names: chips say "Team 2" (else just "2", with the name in the label)
  */
-export function teamChips({ onSwitched = null, names = false, testid = 'team-chips', label = 'Team' } = {}) {
+export function teamChips({ onSwitched = null, names = false, testid = 'team-chips', label = 'Team', beforeSwitch = null } = {}) {
   const profile = store.profile;
   const teams = getTeams(profile);
   return h('div.tb-chips', { role: 'group', 'aria-label': 'Saved teams', 'data-testid': testid },
@@ -111,7 +111,7 @@ export function teamChips({ onSwitched = null, names = false, testid = 'team-chi
         type: 'button', 'data-testid': `team-${i + 1}`, 'aria-pressed': on ? 'true' : 'false',
         title: n ? `${nm}: ${n} girl${n === 1 ? '' : 's'}` : `${nm}: empty`,
         'aria-label': `${nm}${n ? `, ${n} girl${n === 1 ? '' : 's'}` : ', empty'}${on ? ', in use' : ''}`,
-        onclick: () => switchTeam(i, onSwitched),
+        onclick: () => { if (i !== teams.active) beforeSwitch?.(); switchTeam(i, onSwitched); },
       }, names ? nm : String(i + 1));
     }));
 }
@@ -183,7 +183,8 @@ export function openTeamPicker(onSwitched) {
   const m = modal({
     title: 'Switch team',
     cls: 'tb-pick-modal',
-    body: h('div.tb-pick', teamChips({ names: true, label: null, testid: 'team-pick', onSwitched: () => { m.close(); onSwitched?.(); } }),
+    // (review r2 L4: the picker closes before the switch's confirm opens over it)
+    body: h('div.tb-pick', teamChips({ names: true, label: null, testid: 'team-pick', beforeSwitch: () => m.close(), onSwitched: () => onSwitched?.() }),
       h('p.tb-note', 'Each team remembers its girls and which loadout each one uses.')),
     actions: [{ label: 'Close', kind: 'ghost', testid: 'team-pick-close' }],
   });
@@ -210,7 +211,8 @@ export function loadoutChips(unitId, { onChange = null } = {}) {
     const res = usePreset(profile, unitId, n);
     if (!res.ok) return;
     store.commit('teams');
-    undoToast(res.created ? `Loadout ${presetLetter(n)} added: a copy of ${presetLetter(preset)}` : `${name} wears Loadout ${presetLetter(n)}`, res.undo, onChange);
+    const home = res.returns?.length ? ` ${res.returns.map((r) => `${profile.gear[r.uid]?.name || 'A piece'} went back to ${UNIT_MAP[r.to]?.name}`).join('; ')}.` : '';
+    undoToast(`${res.created ? `Loadout ${presetLetter(n)} added: a copy of ${presetLetter(preset)}` : n === preset ? `${name} took her pieces back` : `${name} wears Loadout ${presetLetter(n)}`}.${home}`, res.undo, onChange);
     onChange?.();
   };
   // "Copy A → B": into her next loadout (adding one is the + chip's job)
@@ -241,8 +243,10 @@ export function loadoutChips(unitId, { onChange = null } = {}) {
   if (!lent.length) return row;
   // pieces a team switch lent to another girl: they come back when her loadout or team goes on, or when the next team
   // does not use them
-  return h('div.tb-loadouts-wrap', row, h('p.tb-lent', { 'data-testid': 'loadout-lent' }, ico('info'),
-    lent.map((l) => `${profile.gear[l.uid]?.name || 'A piece'} lent to ${UNIT_MAP[l.to]?.name || l.to}`).join(' · ')));
+  // (review r2 L3: the note is the way to take them back, not the already-selected chip)
+  return h('div.tb-loadouts-wrap', row, h('div.tb-lent', { 'data-testid': 'loadout-lent' }, ico('info'),
+    h('span', lent.map((l) => `${profile.gear[l.uid]?.name || 'A piece'} lent to ${UNIT_MAP[l.to]?.name || l.to}`).join(' · ')),
+    h('button.ui-ghost.tb-takeback', { type: 'button', 'data-testid': 'loadout-take-back', onclick: () => go(preset) }, 'Take back')));
 }
 
 /** The members of the active team who name a piece another member names too (Formation marks their tiles). */

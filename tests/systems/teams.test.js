@@ -9,7 +9,7 @@ import { UNIT_MAP } from '../../src/data/units.js';
 import { salvagePreview, salvageMany, salvageBlock } from '../../src/systems/salvage.js';
 import {
   TEAM_COUNT, getTeams, getPresets, usePreset, selectTeam, planTeam, teamClashes, copyTeam, clearTeam, renameTeam,
-  copyPreset, restoreLoadouts, presetsNaming, loadoutUseText, takeLines, syncTeams, teamName, ensureTeams, ensurePresets, lentPieces,
+  copyPreset, restoreLoadouts, presetsNaming, loadoutUseText, takeLines, syncTeams, teamName, ensureTeams, ensurePresets, lentPieces, lenderOf,
 } from '../../src/systems/teams.js';
 import { writeTeamMarks } from '../../src/systems/teamsSave.js';
 
@@ -292,43 +292,46 @@ describe('after an older build (present fields win)', () => {
   });
 });
 
+/**
+ * The reviewers' fixture: Team 1 = Aoi wearing c2 (loadout A); Team 2 = Kage on her Loadout B, which names c2;
+ * Team 3 = Kage on Loadout C (c1) + Yuki; Team 4 = Yuki alone.
+ */
+function sharedTeams() {
+  const { p, g } = setup();
+  p.formation = { hero: null, towers: ['aoi'] };
+  ensureTeams(p);
+  usePreset(p, 'kage', 1); // B, a copy of A
+  usePreset(p, 'kage', 2); // C, a copy of A (c1)
+  usePreset(p, 'kage', 0);
+  p.units.kage.presets[1] = { ...p.units.kage.presets[1], charm: g.c2 };
+  syncTeams(p);
+  p.teams.list[1] = { name: 'Team 2', hero: null, towers: ['kage'], use: { kage: 1 } };
+  p.teams.list[2] = { name: 'Team 3', hero: null, towers: ['kage', 'yuki'], use: { kage: 2 } };
+  p.teams.list[3] = { name: 'Team 4', hero: null, towers: ['yuki'], use: {} };
+  return { p, g };
+}
+
 describe('review r1', () => {
   it('H1: a piece shared by two teams through two girls goes back and forth, and neither loadout forgets it', () => {
-    const { p, g } = setup();
-    // Team 1: Aoi wears c2. Team 2: Kage, whose loadout A names c2 too.
-    p.formation = { hero: null, towers: ['aoi'] };
-    ensureTeams(p);
-    equipGear(p, 'kage', g.c2); // (Kage takes it by hand once so her loadout A names it)
-    usePreset(p, 'kage', 0);
-    equipGear(p, 'aoi', g.c2);
-    p.teams.list[1] = { name: 'Team 2', hero: null, towers: ['kage'], use: {} };
-    ensurePresets(p, 'kage');
-    p.units.kage.presets[0].charm = g.c2;
+    const { p, g } = sharedTeams();
     const to2 = selectTeam(p, 1);
     expect(to2.takes).toEqual([{ uid: g.c2, slot: 'charm', from: 'aoi', to: 'kage' }]);
-    expect(p.gear[g.c2].equippedBy).toBe('kage');
-    // Aoi's worn loadout still names it (lent)
+    expect(lenderOf(p, g.c2)).toBe('aoi');
     expect(p.units.aoi.presets[p.units.aoi.preset].charm).toBe(g.c2);
     const to1 = selectTeam(p, 0);
     expect(to1.takes).toEqual([{ uid: g.c2, slot: 'charm', from: 'kage', to: 'aoi' }]);
     expect(p.gear[g.c2].equippedBy).toBe('aoi');
-    expect(p.units.kage.presets[p.units.kage.preset].charm).toBe(g.c2);
-    // and again, after a reload in between
+    expect(lenderOf(p, g.c2)).toBe(null);
+    // Kage's Loadout B still names it: Team 2 takes it again, after a reload too
     const m = reload(p);
-    expect(m.units.kage.presets[m.units.kage.preset].charm).toBe(g.c2);
     expect(selectTeam(m, 1).takes.length).toBe(1);
     expect(m.gear[g.c2].equippedBy).toBe('kage');
+    expect(lenderOf(m, g.c2)).toBe('aoi');
   });
 
   it('M1: the active team\'s clash shows when two members name one piece', () => {
-    const { p, g } = setup();
-    p.formation = { hero: null, towers: ['aoi'] };
-    ensureTeams(p);
-    p.teams.list[1] = { name: 'Team 2', hero: null, towers: ['kage'], use: {} };
-    unequipGear(p, 'kage', 'charm');
-    ensurePresets(p, 'kage');
-    p.units.kage.presets[0].charm = g.c2;
-    expect(selectTeam(p, 1).takes.length).toBe(1); // Kage takes Aoi's charm: Aoi lends it
+    const { p, g } = sharedTeams();
+    selectTeam(p, 1); // Kage takes Aoi's charm: Aoi lends it
     p.formation = { hero: null, towers: ['kage', 'aoi'] };
     syncTeams(p);
     expect(teamClashes(p, 1).get(g.c2)).toEqual(['kage', 'aoi']);
@@ -352,51 +355,99 @@ describe('review r1', () => {
   });
 });
 
-describe('lent pieces (coordinator ruling on review r1 H1)', () => {
-  function shared() {
-    const { p, g } = setup();
-    p.formation = { hero: null, towers: ['aoi'] };
-    ensureTeams(p);
-    unequipGear(p, 'kage', 'charm');
-    ensurePresets(p, 'kage');
-    p.units.kage.presets[0].charm = g.c2;
-    p.teams.list[1] = { name: 'Team 2', hero: null, towers: ['kage'], use: {} };
-    p.teams.list[2] = { name: 'Team 3', hero: null, towers: ['yuki'], use: {} };
-    return { p, g };
-  }
-
-  it('goes home when the new team does not use it, and says so', () => {
-    const { p, g } = shared();
+describe('lending is one way (M1 review r2)', () => {
+  it('r2-H1: the borrower switching team lets it go: it goes home in the same switch (T2 → T3 → T1)', () => {
+    const { p, g } = sharedTeams();
     selectTeam(p, 1);
-    expect(p.gear[g.c2].equippedBy).toBe('kage');
-    expect(lentPieces(p, 'aoi')).toEqual([{ uid: g.c2, slot: 'charm', to: 'kage' }]);
-    // Team 3 has neither girl: the charm goes back to Aoi
-    const res = selectTeam(p, 2);
-    expect(res.returns).toEqual([{ uid: g.c2, slot: 'charm', from: 'kage', to: 'aoi' }]);
+    const to3 = selectTeam(p, 2); // Kage on C (c1): c2 is spare at once and goes home
+    expect(to3.returns).toEqual([{ uid: g.c2, slot: 'charm', from: null, to: 'aoi' }]);
     expect(p.gear[g.c2].equippedBy).toBe('aoi');
-    expect(lentPieces(p, 'aoi')).toEqual([]);
-    // and Kage's loadout lends it in turn (she is off the active team, so it stays with Aoi)
-    expect(p.units.kage.presets[p.units.kage.preset].charm).toBe(g.c2);
-    expect(selectTeam(p, 1).takes).toEqual([{ uid: g.c2, slot: 'charm', from: 'aoi', to: 'kage' }]);
+    selectTeam(p, 0);
+    expect(p.units.aoi.gear.charm).toBe(g.c2);
   });
 
-  it('stays lent while a member of the new team wears it; the mirrors keep the mark', () => {
-    const { p, g } = shared();
+  it('r2-H1: the borrower switching loadout on her page lets it go: it goes home', () => {
+    const { p, g } = sharedTeams();
     selectTeam(p, 1);
-    p.teams.list[2] = { name: 'Team 3', hero: null, towers: ['kage', 'yuki'], use: {} };
-    const res = selectTeam(p, 2);
-    expect(res.returns).toEqual([]);
-    expect(p.gear[g.c2].equippedBy).toBe('kage');
-    // an older build drops the blocks: the lent mark comes back from 'gp:'
+    const res = usePreset(p, 'kage', 0);
+    expect(res.returns).toEqual([{ uid: g.c2, slot: 'charm', from: null, to: 'aoi' }]);
+    expect(p.gear[g.c2].equippedBy).toBe('aoi');
+  });
+
+  it('r2-H1: a manual unequip lets it go: it goes home at the next sync (every save write); never salvaged unwarned', () => {
+    const { p, g } = sharedTeams();
+    selectTeam(p, 1);
+    unequipGear(p, 'kage', 'charm');
+    // before the sync, the piece is spare but its lender's loadout names it: the salvage guard holds
+    expect(salvageBlock(p.gear[g.c2], p)).toBe('loadout');
+    expect(salvageMany(p, [g.c2]).count).toBe(0);
+    const back = syncTeams(p);
+    expect(back).toEqual([{ uid: g.c2, slot: 'charm', from: null, to: 'aoi' }]);
+    expect(p.gear[g.c2].equippedBy).toBe('aoi');
+    // the same through a save write
+    selectTeam(p, 1);
+    unequipGear(p, 'kage', 'charm');
+    expect(reload(p).gear[g.c2].equippedBy).toBe('aoi');
+  });
+
+  it('r2-M1: no ping-pong: Team 3 / Team 4 switches leave the charm with Aoi', () => {
+    const { p, g } = sharedTeams();
+    selectTeam(p, 1);
+    selectTeam(p, 2);
+    for (let i = 0; i < 4; i++) {
+      const r = selectTeam(p, 3 - (i % 2)); // T4, T3, T4, T3
+      expect(r.returns, `switch ${i}`).toEqual([]);
+      expect(p.gear[g.c2].equippedBy).toBe('aoi');
+    }
+  });
+
+  it('goes home when the new team does not use it (the borrower keeps only a wish), stays lent while a member wears it', () => {
+    const { p, g } = sharedTeams();
+    selectTeam(p, 1);
+    expect(lentPieces(p, 'aoi')).toEqual([{ uid: g.c2, slot: 'charm', to: 'kage' }]);
+    // Team 3 with Kage on B instead: she still wears c2 → stays lent
+    p.teams.list[2].use = { kage: 1 };
+    expect(selectTeam(p, 2).returns).toEqual([]);
+    expect(lenderOf(p, g.c2)).toBe('aoi');
+    // Team 4 (Yuki only): it goes home; Kage's worn loadout keeps a wish, no claim
+    const r = selectTeam(p, 3);
+    expect(r.returns).toEqual([{ uid: g.c2, slot: 'charm', from: 'kage', to: 'aoi' }]);
+    expect(lentPieces(p, 'aoi')).toEqual([]);
+    expect(p.units.kage.presets[p.units.kage.preset].wish).toBe(1);
+    expect(lenderOf(p, g.c2)).toBe(null);
+  });
+
+  it('a borrower passing it on never becomes its lender; order of the save\'s keys does not matter', () => {
+    const { p, g } = sharedTeams();
+    selectTeam(p, 1); // Aoi lends c2 to Kage
+    equipGear(p, 'momo', g.c2); // Kage passes it on by hand
+    syncTeams(p);
+    // still Aoi's: it is worn, so it stays lent
+    expect(lenderOf(p, g.c2)).toBe('aoi');
+    // a second save with the units in reverse order settles the same way
+    const q = JSON.parse(JSON.stringify(p));
+    q.units = Object.fromEntries(Object.entries(q.units).reverse());
+    unequipGear(p, 'momo', 'charm');
+    unequipGear(q, 'momo', 'charm');
+    expect(syncTeams(p)).toEqual(syncTeams(q));
+    expect(p.gear[g.c2].equippedBy).toBe('aoi');
+  });
+
+  it('the lend flags ride the gp:/gpf: mirrors through an older build', () => {
+    const { p, g } = sharedTeams();
+    selectTeam(p, 1);
     const raw = JSON.parse(saveText(p, 1));
     delete raw.teams;
     for (const u of Object.values(raw.units)) { delete u.presets; delete u.preset; }
     const m = migrateProfile(raw);
-    expect(lentPieces(m, 'aoi')).toEqual([{ uid: g.c2, slot: 'charm', to: 'kage' }]);
+    expect(lenderOf(m, g.c2)).toBe('aoi');
+    unequipGear(m, 'kage', 'charm');
+    syncTeams(m);
+    expect(m.gear[g.c2].equippedBy).toBe('aoi');
   });
 
   it('fuzz: switches, loadouts, equips, salvage, Undo and reloads never duplicate or lose a piece', () => {
-    for (let seed = 1; seed <= 40; seed++) {
+    for (let seed = 1; seed <= 80; seed++) {
       const rng = createRng(seed);
       let { p } = setup();
       for (const id of ['shiro', 'midori']) grantUnit(p, id, NOW);
@@ -416,6 +467,14 @@ describe('lent pieces (coordinator ruling on review r1 H1)', () => {
         else if (r < 0.75 && uids.length) { const u = pick(uids); if (!p.gear[u].equippedBy) salvageGear(p, u); }
         else if (r < 0.8 && undo) { restoreLoadouts(p, undo); undo = null; }
         else if (r < 0.85) p = reload(p);
+        else if (r < 0.88) salvageMany(p, uids);
+        else if (r < 0.91) {
+          // an older build: drops teams and loadouts, keeps counters
+          const raw = JSON.parse(saveText(p, 1));
+          delete raw.teams;
+          for (const u of Object.values(raw.units)) { delete u.presets; delete u.preset; }
+          p = migrateProfile(raw);
+        }
         syncTeams(p);
         // invariants: one wearer per piece, wearers and slots agree, the formation is the active team
         for (const [id, u] of Object.entries(p.units)) {
@@ -424,7 +483,20 @@ describe('lent pieces (coordinator ruling on review r1 H1)', () => {
         for (const g of Object.values(p.gear)) if (g.equippedBy) expect(p.units[g.equippedBy].gear[g.slot]).toBe(g.uid);
         const t = getTeams(p);
         expect([t.list[t.active].hero, ...t.list[t.active].towers].filter(Boolean)).toEqual([p.formation.hero, ...p.formation.towers].filter(Boolean));
-        // a worn loadout is what she wears, or a piece another girl wears (lent)
+        // every lent piece is worn by its borrower or back with its lender; one lender per piece
+        const lenders = {};
+        for (const [id, u] of Object.entries(p.units)) {
+          const worn = u.presets?.[u.preset];
+          if (!worn?.lent) continue;
+          for (const s of ['charm', 'ribbon', 'shoes']) {
+            if (!((worn.lent >> ['charm', 'ribbon', 'shoes', 'hair', 'necklace'].indexOf(s)) & 1)) continue;
+            const by = p.gear[worn[s]]?.equippedBy;
+            expect(by && by !== id, `seed ${seed} step ${step}: ${id}'s lent ${s}`).toBe(true);
+            expect(lenders[worn[s]], `seed ${seed} step ${step}: two lenders`).toBeUndefined();
+            lenders[worn[s]] = id;
+          }
+        }
+        // a worn loadout is what she wears, or a flagged piece another girl wears (lent / wish)
         for (const [id, u] of Object.entries(p.units)) {
           if (!u.presets) continue;
           const worn = u.presets[u.preset];

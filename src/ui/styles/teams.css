@@ -14,6 +14,8 @@
 :where(.ui-day, .ui-night) .tb-clash .ui-ico { width: 14px; height: 14px; }
 :where(.ui-day, .ui-night) .tb-gap { flex: 1 1 0; min-width: 0; }
 :where(.ui-day, .ui-night) .tb-btn { min-height: var(--tap); }
+/* (review r2 L1: the kit's .btn height wins over a bare class: the team bar's buttons say it twice) */
+:where(.ui-day, .ui-night) .tb-bar .btn.tb-btn { min-height: var(--tap); height: auto; }
 
 /* the red dot: a loadout whose piece was salvaged */
 :where(.ui-day, .ui-night) .tb-dot { position: absolute; z-index: 3; top: 3px; right: calc(var(--s) + 3px); width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
@@ -65,5 +67,6 @@
 
 /* "Keen Charm lent to Kage" under the loadout chips */
 :where(.ui-day, .ui-night) .tb-loadouts-wrap { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-:where(.ui-day, .ui-night) .tb-lent { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-label); color: var(--m-dim); overflow-wrap: anywhere; }
+:where(.ui-day, .ui-night) .tb-lent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-label); color: var(--m-dim); overflow-wrap: anywhere; }
 :where(.ui-day, .ui-night) .tb-lent .ui-ico { flex: none; width: 14px; height: 14px; }
+:where(.ui-day, .ui-night) .ui-ghost.tb-takeback { min-height: var(--tap); padding: 0 8px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--m-text); cursor: pointer; }

@@ -819,9 +819,12 @@ export function copyTeam(p, from) /*→ index|-1*/, clearTeam(p, t), renameTeam(
 export function restoreLoadouts(p, undo)    // Undo
 export function teamClashes(p, t)           // Map uid → member ids naming it (the first in team order gets it)
 export function presetsNaming(p, uid) / loadoutUseText(p, uid)  // salvage: 'loadout' block, "Kage's Loadout B"
-// Invariants: profile.formation === the active team's squad; unit.gear === presets[preset] except a slot whose piece a
-// switch took to another girl ("lent", teamsSave.js wornLoadout; mirrored in gp:): it comes back when her loadout or
-// team is put on, or on any team switch whose new team does not wear it (returnLent; lentPieces: the "lent to X" note).
+// Invariants: profile.formation === the active team's squad; unit.gear === the worn loadout except a flagged slot
+// whose piece another girl wears: `lent` (a switch took it from her: she is its one lender) or `wish` (her loadout
+// names a piece its lender took back). Lending is one way (M1 review r2): settleLent gives a lent piece back to its
+// lender the moment its borrower lets it go (unequip, another loadout: every syncTeams / save write) or a team switch
+// leaves it unworn by the new team; a borrower passing it on never becomes a lender. Flags: gp: + gpf:<id> (lent +
+// 32 × wish). lenderOf(p, uid), settleLent(p, members?) → returns; lentPieces → the "lent to X" note + Take back.
 // Pieces are never copied. Not hashed; the battle reads only profile.formation and unit.gear.
 // Deferred (owner board / M2): the co-op room's in-room switch "until Ready" needs session.js (hashed) → rides M2's
 // COOP_PROTOCOL bump (the hub switches; the room shows "You bring Team N"); Clear works on the active team only;

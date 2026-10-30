@@ -73,7 +73,11 @@ try {
     check(await page.locator('[data-testid="team-bar"] .tb-chip').count() === 5, `${tag} Formation: 5 team chips`);
     check(await page.locator('[data-testid="team-1"]').getAttribute('aria-pressed') === 'true', `${tag} Team 1 is in use`);
     const chipBox = await page.locator('[data-testid="team-1"]').boundingBox();
-    check(chipBox && chipBox.height >= 36, `${tag} team chip is a 36 px target (${chipBox && Math.round(chipBox.height)})`);
+    check(chipBox && chipBox.height >= 44, `${tag} team chip is a 44 px target (${chipBox && Math.round(chipBox.height)})`);
+    for (const id of ['team-rename', 'team-copy']) {
+      const b = await page.locator(`[data-testid="${id}"]`).boundingBox();
+      check(b && b.height >= 44, `${tag} ${id} is 44 px tall (${b && Math.round(b.height)})`);
+    }
     await noOverflow(page, W, `${tag} Formation`);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/formation-${tag}.png` });
     // Team 2: empty; add a girl; back to Team 1 keeps both squads
@@ -88,7 +92,8 @@ try {
     await tap('[data-testid="team-1"]');
     const f1 = await page.evaluate(() => window.__sakura.store.profile.formation);
     check(f1.hero === 'hikari' && f1.towers.join() === 'aoi,kage', `${tag} back on Team 1: its squad (${f1.hero} ${f1.towers.join(',')})`);
-    // Rename
+    // Rename (after the switch's Undo notice has gone: on an upright phone it lies over the bar)
+    await page.waitForSelector('.tb-toast-host', { state: 'detached', timeout: 8000 }).catch(() => {});
     await tap('[data-testid="team-rename"]');
     await page.fill('[data-testid="team-rename-in"]', 'Bosses');
     await tap('[data-testid="team-rename-ok"]');
@@ -138,6 +143,15 @@ try {
     if (await page.locator('[data-testid="takes-ok"]').count()) await tap('[data-testid="takes-ok"]');
     await go('#/formation', '[data-testid="team-bar"]');
     check(await page.locator('.fm-squad [data-testid="squad-loadout"]').count() === 1, `${tag} Formation: Kage's tile shows "B"`);
+    // Aoi lent her charm to Kage's Loadout B: her page says so and takes it back (review r2 L3)
+    await go('#/student?id=aoi&tab=gear', '[data-testid="loadouts"]');
+    check(/lent to Kage/i.test(await page.locator('[data-testid="loadout-lent"]').innerText().catch(() => '')), `${tag} Aoi's page: "lent to Kage"`);
+    const tb = await page.locator('[data-testid="loadout-take-back"]').boundingBox();
+    check(tb && tb.height >= 44, `${tag} Take back is 44 px tall`);
+    await tap('[data-testid="loadout-take-back"]');
+    if (await page.locator('.modal-overlay:not(.closing) [data-testid="takes-ok"]').count()) await tap('.modal-overlay:not(.closing) [data-testid="takes-ok"]');
+    const back = await page.evaluate(({ c2 }) => window.__sakura.store.profile.gear[c2].equippedBy, seeded);
+    check(back === 'aoi', `${tag} Take back: Aoi wears her charm again`);
 
     // ----- Stage Prep: the Team chip beside Start -----
     await go('#/stage?id=1-1', '[data-testid="stage-start"]');
@@ -150,10 +164,14 @@ try {
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/stage-${tag}.png` });
     await tap('[data-testid="stage-team"]');
     check(await page.locator('[data-testid="team-pick"] .tb-chip').count() === 5, `${tag} the chip opens the 5 teams`);
+    const pickH = await page.locator('[data-testid="team-pick"] .tb-chip').first().boundingBox();
+    check(pickH && pickH.height >= 44, `${tag} picker chips are 44 px tall`);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/stage-pick-${tag}.png` });
     await tap('[data-testid="team-3"]');
     await page.waitForTimeout(300);
-    // (Team 3 is a copy of Team 1: a switch that moves or shares pieces lists them first)
+    // (Team 3 is a copy of Team 1: a switch that moves or shares pieces lists them first; review r2 L4: the picker
+    // has closed under it)
+    check(await page.locator('.tb-pick-modal').count() === 0 || await page.locator('.modal-overlay:not(.closing) .tb-pick-modal').count() === 0, `${tag} the picker closes before the switch confirm`);
     if (await page.locator('.modal-overlay:not(.closing) [data-testid="takes-ok"]').count()) {
       check(await page.locator('[data-testid="takes-list"], [data-testid="clash-list"]').count() >= 1, `${tag} the switch lists what moves or is shared`);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/switch-confirm-${tag}.png` });
