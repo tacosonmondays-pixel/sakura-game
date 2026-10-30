@@ -1244,6 +1244,59 @@ describe('the new girls in a battle save: Ouka\'s banners (UNIT_GAPS §7.3)', SL
   });
 });
 
+/** Iroha at Mirror Hall tier 5 on 1-1 with mirrors 0 and 2 placed, mid-cast in wave 1 (her Laser Web running). */
+function irohaRun() {
+  const c = { stageId: '1-1', difficulty: 'normal', towers: ['iroha', 'aoi'], hero: null, stats: {}, seed: 15 };
+  const sim = makeSim(c);
+  wrapWaves(sim, c.seed);
+  sim.cash = 1e6;
+  for (const a of autoPlan('1-1', ['iroha', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') sim.placeTower(a.unitId, a.x, a.y);
+  const iro = sim.towers.find((t) => t.unitId === 'iroha');
+  for (let k = 0; k < 5; k++) expect(sim.upgradeTower(iro.uid, 0)).toBe(true);
+  expect(iro.mirrors).toHaveLength(5);
+  // (both near their road spots, so the leaders pass them)
+  expect(sim.setAim(iro.uid, iro.mirrors[0].x + 0.25, iro.mirrors[0].y, 0)).toBe(true);
+  expect(sim.setAim(iro.uid, iro.mirrors[2].x, iro.mirrors[2].y - 0.25, 2)).toBe(true);
+  sim.startNextWave();
+  for (let i = 0; i < 60 * 60 && !(iro.abil.active > 0); i++) {
+    sim.update(STEP);
+    sim.drainEvents();
+    if (iro.abil.cd > 0) iro.abil.cd = 0;
+    if (sim.enemies.length) sim.castAbility(iro.uid);
+  }
+  expect(iro.abil.active).toBeGreaterThan(0);
+  return { c, sim, iro };
+}
+
+describe('Iroha\'s mirror network in a battle save (docs/specs/IROHA_MIRRORS.md §6)', SLOW, () => {
+  it('the mirrors her player placed come back on their slots; the Auto ones follow the road; the battle plays on the same', () => {
+    const { c, sim, iro } = irohaRun();
+    while (sim.state === 'wave') {
+      sim.update(STEP);
+      sim.drainEvents();
+    }
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((t) => t.u === 'iroha');
+    expect(row.mr).toEqual([[iro.mirrorAim[0].x, iro.mirrorAim[0].y], 0, [iro.mirrorAim[2].x, iro.mirrorAim[2].y], 0, 0]);
+    const { sim: back, dropped } = restoreSim(recordOf(c, snap));
+    expect(dropped).toEqual([]);
+    const bi = back.towers.find((t) => t.unitId === 'iroha');
+    expect(bi.mirrorAim).toEqual(iro.mirrorAim);
+    expect(bi.mirrors).toEqual(iro.mirrors);
+    expect(JSON.stringify(snapshotSim(back))).toBe(JSON.stringify(snap));
+    // both play the next wave the same
+    wrapWaves(back, c.seed);
+    for (const s of [sim, back]) {
+      s.startNextWave();
+      while (s.state === 'wave') {
+        s.update(STEP);
+        s.drainEvents();
+      }
+    }
+    expect(hashSim(back)).toBe(hashSim(sim));
+  });
+});
+
 /** The legal spot for `unitId` nearest girl `o` (a 0.25-tile scan of the map), or null. */
 function spotNear(sim, unitId, o) {
   let best = null;
@@ -1702,18 +1755,8 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     for (const t of duoRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
     // (and the staff heroes: Norika's barricades, Hold the Line and One-Way Street; Kogane's Overdrive)
     for (const id of ['norika', 'kogane']) for (const t of staffRun(id, 25).sim.towers) for (const k of Object.keys(t)) keys.add(k);
-    // (and Iroha at Mirror Hall tier 5 mid-cast: Infinite Reflection's second mirror, gone at the wave clear)
-    const ir = makeSim({ stageId: '1-1', difficulty: 'normal', towers: ['iroha', 'aoi'], hero: null, stats: {}, seed: 15 });
-    ir.cash = 1e6;
-    for (const a of autoPlan('1-1', ['iroha', 'aoi'], { maxCopies: 1 })) if (a.action === 'place') ir.placeTower(a.unitId, a.x, a.y);
-    const iro = ir.towers.find((t) => t.unitId === 'iroha');
-    for (let k = 0; k < 5; k++) expect(ir.upgradeTower(iro.uid, 0)).toBe(true);
-    ir.startNextWave();
-    ir.update(STEP);
-    iro.abil.cd = 0;
-    expect(ir.castAbility(iro.uid, { aim: [iro.ox, iro.oy] }).ok).toBe(true);
-    expect(iro.mirror2).toBeTruthy();
-    for (const t of ir.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and Iroha at Mirror Hall tier 5 mid-cast with a mirror placed: her placed slots and her mirrors)
+    for (const t of irohaRun().sim.towers) for (const k of Object.keys(t)) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 

@@ -15,4 +15,4 @@ them". Each question below has a default; the build goes ahead on the default un
 | Q6 | The three paths | Mirror Hall = more mirrors and bounces; Silver Reflection = "Polish", each bounce hits harder plus armour pierce; Shattered Glass = "Kaleidoscope", each bounce splashes and (tier 4+) throws shards. Tier names kept |
 | Q7 | The ⚡ | Renamed **Laser Web**: for 6 s every pair of her mirrors is joined by a beam that hits everything crossing it (10 beams at 5 mirrors). Tier 5 **Infinite Reflection**: 9 s, much stronger beams. It no longer moves her mirror (you place them) |
 | Q8 | How strong? | Close to the best Kage tier 5 on a boss (~2M) while staying far ahead on crowds; no build of hers gets weaker than today |
-| Q9 | Phones | Numbered mirror chips in her drawer, a PLACE button that walks through them, drag on the board; a "Mirrors 3/3" count |
+| Q9 | Phones | Numbered mirror chips in her drawer and a PLACE button that walks through them (one tap on the map per mirror); a count of her mirrors. Dragging a mirror on the board is left out for now (it fights the camera pan); say if you want it |

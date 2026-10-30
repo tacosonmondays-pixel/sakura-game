@@ -48,6 +48,10 @@
 // The duo (src/sim/duo.js; additive): her Refraction counter, her volley count and Kohaku's beam tick timer (`du`).
 // A save without it restores her with fresh counters.
 //
+// Iroha's mirror network (src/sim/mirrors.js, docs/specs/IROHA_MIRRORS.md §6; additive): the spots her player placed,
+// by slot (`mr`: [x, y] or 0 for an Auto slot), replayed through setAim after her tiers. A save without it (or an
+// older save's `am`: her one panel, now slot 0 by the nearest-mirror rule) restores the rest on Auto.
+//
 // The staff heroes (BANNERS §D.6; additive): Norika's own barricades, their spots, budgets and rebuild timers (`br`;
 // at a calm point they all stand at full budget, since the wave clear refills them). Her Hold the Line barricades and
 // One-Way Street's count end at every wave clear, and Kogane's Overdrive ends with the wave, so a calm point holds
@@ -221,8 +225,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   effProc: 'derived', effEcho: 'derived', trapSpecProc: 'derived',
   // abilities: her ability's state (`ak`); a boost runs only during a wave
   abil: 'snap', abilMods: 'calm',
-  // Iroha's tier-5 Mirror Shift: her second mirror stands only while the cast runs (it ends at the wave clear)
-  mirror2: 'calm',
+  // Iroha's mirror network (src/sim/mirrors.js): the spots her player placed travel ('mr', by slot); her mirrors follow
+  // from them, her tiers and the road (syncMirrors)
+  mirrorAim: 'snap', mirrors: 'derived',
   // gear (src/sim/gearRules.js): her Pierce carries (shots, drones), her club trick's count, Big Beat's
   // trap / drone counts and Follow-Through's trap count — only on a girl whose gear uses them
   pierceCarry: 'snap', droneCarry: 'snap', trickN: 'snap', trapBeatN: 'snap', droneBeatN: 'snap', trapFtN: 'snap',
@@ -371,6 +376,8 @@ function packTower(sim, t) {
   if (t.recentDps || t._dmgMark) o.rd = [t.recentDps, t._dmgMark];
   if (t.banners?.length) o.bn = t.banners.map((b) => [b.x, b.y]);
   else if (t.aim) o.am = [t.aim.x, t.aim.y];
+  // Iroha: each mirror her player placed, by slot (0 = Auto)
+  if (t.mirrorAim?.some(Boolean)) o.mr = t.mirrorAim.map((a) => (a ? [a.x, a.y] : 0));
   packPotential(t, o);
   // her ability: cooldown left (charge points), Auto, casts this battle
   if (t.abil) o.ak = [t.abil.cd, t.abil.auto ? 1 : 0, t.abil.n];
@@ -603,6 +610,12 @@ export function restoreSim(rec, profile = null) {
     }
     if (o.tm) sim.setTargetMode(t.uid, o.tm);
     if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);
+    // Iroha's placed mirrors, slot by slot (setAim refuses a slot past her count)
+    if (Array.isArray(o.mr)) {
+      o.mr.slice(0, 5).forEach((a, k) => {
+        if (Array.isArray(a) && Number.isFinite(a[0]) && Number.isFinite(a[1])) sim.setAim(t.uid, a[0], a[1], k);
+      });
+    }
     // Ouka's banners, oldest first (setAim keeps at most her count)
     if (Array.isArray(o.bn)) for (const b of o.bn.slice(0, 4)) if (Array.isArray(b) && Number.isFinite(b[0]) && Number.isFinite(b[1])) sim.setAim(t.uid, b[0], b[1]);
     t.spent = r(o.spent);

@@ -17,6 +17,17 @@ import { POWER } from '../data/balance.js';
  */
 
 /** Tag order everywhere (chips, legend, summaries). */
+
+/** A relay tier's short tag: a familiar's / mirror's reach, or the first change to Iroha's mirror network. */
+function relayShort(r) {
+  if (r.mirrors) return `${r.mirrors} mirrors`;
+  if (r.bounces) return `+${r.bounces} ${r.bounces === 1 ? 'bounce' : 'bounces'}`;
+  if (r.bounceMul) return `+${Math.round(r.bounceMul * 100)}%/bounce`;
+  if (r.shards) return `+${r.shards} ${r.shards === 1 ? 'shard' : 'shards'}`;
+  if (r.bounceSplash) return `Bounce splash +${round1(r.bounceSplash)}`;
+  return `Reach +${round1(r.reach || 0)}`;
+}
+
 export const TAG_ORDER = ['self', 'allies', 'enemies', 'coins'];
 
 /** Chip vocabulary: word, long text, colours (text / fill / border, ≥ 4.5:1 contrast). */
@@ -103,7 +114,9 @@ const SUB_KEYS = {
   crit: new Set(['chance', 'mul']),
   ramp: new Set(['per', 'max']),
   mark: new Set(['bonus', 'duration']),
-  relay: new Set(['reach']),
+  // (Iroha's mirror network, docs/specs/IROHA_MIRRORS.md §4: her mirror count, bounces, damage per bounce, the bounce
+  // splash, shards and allies' bounces)
+  relay: new Set(['reach', 'mirrors', 'bounces', 'bounceMul', 'bounceSplash', 'shards', 'allyBounces']),
   sentry: new Set(['max', 'every', 'speed', 'ttl', 'damage', 'rate', 'range', 'burst', 'kits', 'nets', 'netBudget', 'netElite', 'netBoss']),
   ball: new Set(['travel', 'speed', 'through', 'share', 'lobMul', 'pins', 'pinDmg', 'pinPierce', 'hook', 'lob', 'pushBig', 'bounce', 'reach', 'finish']),
   vine: new Set(['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap', 'len', 'grow', 'life', 'slow', 'lash', 'cap', 'max']),
@@ -399,7 +412,7 @@ const SHORT_ORDER = [
   ['knockback', (m) => `Push back ${round1(m.knockback)}`],
   ['gather', () => 'Pulls the wave together'],
   ['airMul', (m) => `×${round1(m.airMul)} vs flyers`],
-  ['relay', (m) => `Reach +${round1(m.relay.reach || 0)}`],
+  ['relay', (m) => relayShort(m.relay)],
   ['income', (m) => (m.income.perWave ? `+${m.income.perWave} coins/wave` : `+${Math.round((m.income.interest || 0) * 100)}% interest`)],
   ['canHitAir', () => 'Hits flyers'],
   ['detection', () => 'Veil Sight'],

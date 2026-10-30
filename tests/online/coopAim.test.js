@@ -1,5 +1,7 @@
 // The co-op `aim` command (roster B3, GAPS P-2): owner only, whole 1/1024 tiles, [uid, null] clears,
-// a girl without an aim mode is refused, and both clients end up with the same aim and state.
+// a girl without an aim mode is refused, and both clients end up with the same aim and state. Iroha's mirror network
+// (docs/specs/IROHA_MIRRORS.md §6): aim[uid, qx, qy, k] places her mirror k; a checkpoint taken with her mirrors
+// placed restores on a fresh client that then stays in lockstep.
 import { describe, it, expect } from 'vitest';
 import { createCoopSim, isValidCmd, KINDS, quantize } from '../../src/online/coop/commands.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
@@ -41,6 +43,7 @@ describe('the aim command', () => {
     expect(KINDS).toContain('aim');
     expect(isValidCmd(cmd(0, 'aim', [5, 1024, 2048]))).toBe(true);
     expect(isValidCmd(cmd(0, 'aim', [5, null]))).toBe(true);
+    expect(isValidCmd(cmd(0, 'aim', [5, 1024, 2048, 1]))).toBe(true);
   });
 
   it('aims the owner\'s mirror girl identically on both clients, refuses the partner and non-aim girls, clears', () => {
@@ -54,12 +57,43 @@ describe('the aim command', () => {
     expect(clients.map((c) => c.apply(cmd(0, 'aim', [aoi, ...q])).ok)).toEqual([false, false]);
     expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, 1.5, 2])).reason)).toEqual(['invalid', 'invalid']);
     expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, ...q])).ok)).toEqual([true, true]);
-    const a0 = clients[0].sim.getTower(iroha).aim;
-    expect(a0).toEqual(clients[1].sim.getTower(iroha).aim);
-    expect(clients[0].sim.getTower(iroha).ox).toBe(clients[1].sim.getTower(iroha).ox);
+    // (no slot: the mirror nearest the point moves)
+    const a0 = clients[0].sim.getTower(iroha).mirrorAim;
+    expect(a0.filter(Boolean)).toHaveLength(1);
+    expect(a0).toEqual(clients[1].sim.getTower(iroha).mirrorAim);
+    expect(clients[0].sim.getTower(iroha).mirrors).toEqual(clients[1].sim.getTower(iroha).mirrors);
     for (let i = 0; i < 120; i++) for (const c of clients) c.step?.() ?? c.sim.update(1 / 60);
     expect(hashSim(clients[0].sim)).toBe(hashSim(clients[1].sim));
     expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, null])).ok)).toEqual([true, true]);
-    expect(clients[0].sim.getTower(iroha).aim).toBe(null);
+    expect(clients[0].sim.getTower(iroha).mirrorAim).toBe(null);
+  });
+
+  it('Iroha: aim[uid, qx, qy, k] places mirror k on both clients; a bad slot is refused; a checkpoint with her mirrors placed stays in lockstep', () => {
+    const clients = [createCoopSim(start(), { mySlot: 0 }), createCoopSim(start(), { mySlot: 1 })];
+    for (const c of clients) rich(c);
+    const iroha = placeOn(clients, 0, 'iroha');
+    placeOn(clients, 1, 'rei');
+    const t = clients[0].sim.getTower(iroha);
+    const at = (dx, dy) => [Math.round((t.x + dx) * 1024), Math.round((t.y + dy) * 1024)];
+    expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, ...at(1, 1), 1])).ok)).toEqual([true, true]);
+    expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, ...at(0.5, 1.5), 0])).ok)).toEqual([true, true]);
+    // her third slot does not exist below Mirror Hall tier 2; a slot must be a whole number ≥ 0
+    expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, ...at(0, 1), 2])).ok)).toEqual([false, false]);
+    expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, ...at(0, 1), -1])).reason)).toEqual(['invalid', 'invalid']);
+    expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, ...at(0, 1), 0.5])).reason)).toEqual(['invalid', 'invalid']);
+    const m = clients.map((c) => c.sim.getTower(iroha));
+    expect(m[0].mirrorAim).toEqual([{ x: at(0.5, 1.5)[0] / 1024, y: at(0.5, 1.5)[1] / 1024 }, { x: at(1, 1)[0] / 1024, y: at(1, 1)[1] / 1024 }]);
+    expect(m[1].mirrorAim).toEqual(m[0].mirrorAim);
+    expect(m[1].mirrors).toEqual(m[0].mirrors);
+    // the wave runs; at a checkpoint a fresh guest restores and plays on in lockstep
+    for (const c of clients) c.apply(cmd(0, 'wave', []));
+    const tick = (c) => c.step?.() ?? c.sim.update(1 / 60);
+    for (let i = 0; i < 600; i++) for (const c of clients) tick(c);
+    const snap = clients[0].snapshot();
+    const fresh = createCoopSim(start(), { mySlot: 1 }).restore(JSON.parse(JSON.stringify(snap)));
+    expect(fresh.sim.getTower(iroha).mirrorAim).toEqual(m[0].mirrorAim);
+    expect(hashSim(fresh.sim)).toBe(hashSim(clients[0].sim));
+    for (let i = 0; i < 600; i++) for (const c of [clients[0], fresh]) tick(c);
+    expect(hashSim(fresh.sim)).toBe(hashSim(clients[0].sim));
   });
 });

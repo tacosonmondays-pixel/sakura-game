@@ -61,6 +61,7 @@ import { tetherStep, shareTether, ownShare, endLinkWave, linkDps } from './links
 import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
+import { placeMirror } from './mirrors.js';
 import { onVineKill, endVineWave } from './vines.js';
 import { endBallWave } from './balls.js';
 import { syncBarricades, updateBarricades, endBarricadeWave, detourOnHit } from './barricades.js';
@@ -1469,10 +1470,12 @@ export class Sim {
 
   /**
    * Sets a tower's aim point (mortar centre, mirror spot, aimed hero ult). Quantised to the
-   * co-op grid (1/1024), clamped into the map; a mirror is clamped to its reach circle.
-   * @returns {boolean} false for unknown towers, towers without an aim mode, a finished battle or bad numbers
+   * co-op grid (1/1024), clamped into the map; a mirror is clamped to its reach circle. A mirror girl (Iroha,
+   * src/sim/mirrors.js) places mirror `slot` (0-based; without one, the mirror nearest the point moves).
+   * @returns {boolean} false for unknown towers, towers without an aim mode, a finished battle, bad numbers or a
+   *   mirror slot she does not have
    */
-  setAim(uid, x, y) {
+  setAim(uid, x, y, slot = null) {
     const t = this.getTower(uid);
     if (!t || this.state === 'won' || this.state === 'lost') return false;
     const mode = aimMode(t);
@@ -1500,8 +1503,14 @@ export class Sim {
       this._emit('aim', { towerUid: uid, x: b.x, y: b.y, banners: t.banners.map((o) => [o.x, o.y]) });
       return true;
     }
+    if (mode === 'mirror') {
+      const k = placeMirror(t, ax, ay, slot);
+      if (k < 0) return false;
+      updateRelayOrigin(this, t);
+      this._emit('aim', { towerUid: uid, x: ax, y: ay, slot: k });
+      return true;
+    }
     t.aim = { x: ax, y: ay };
-    if (mode === 'mirror') updateRelayOrigin(this, t);
     this._emit('aim', { towerUid: uid, x: ax, y: ay });
     return true;
   }
@@ -1511,6 +1520,7 @@ export class Sim {
     const t = this.getTower(uid);
     if (!t || this.state === 'won' || this.state === 'lost' || !aimMode(t)) return false;
     t.aim = null;
+    if (t.mirrorAim) t.mirrorAim = null;
     if (t.banners) {
       clearBanners(this, t);
       recomputeBuffs(this);

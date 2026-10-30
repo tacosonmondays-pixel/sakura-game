@@ -49,7 +49,8 @@ const ROWS = {
   sango: { boss: 3.1 },
   // (Hotaru ×1.03: with the attack shapes her Firefly Halo build alone read 1% under today on a crowd)
   hotaru: { dmg: 1.03, boss: 2.5 },
-  iroha: { boss: 3.9 },
+  // (Iroha: re-set for her mirror network, docs/specs/IROHA_MIRRORS.md §10: her Mirror Hall build ~Kage on a boss)
+  iroha: { boss: 6 },
   marumi: { boss: 5.6 },
   ruri: { boss: 9 },
   // (the duo, Kohaku & Tsubaki: the owner's Oct 29 buff (v0.1.60) makes her an intended outlier above Kage, so round 5

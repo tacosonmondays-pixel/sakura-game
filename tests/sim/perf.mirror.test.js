@@ -1,15 +1,16 @@
-// Cost of Iroha's mirror reflection (src/sim/mirrors.js): a full board of shots crossing mirrors. 26 Aois at Rapid
-// Volley tier 5 and 4 Irohas at Mirror Hall tier 5 (Infinite Reflection: every panel reflects for good, and each one's
-// Mirror Shift adds a second mirror, so 8 mirrors stand in the crowd) against 200 unkillable enemies packed on one leg
-// of a serpentine road (so nearly every shot flies through a mirror), measured as wall time per 1/60 s step; against the same board with the Irohas at tier 4 (their ability
-// unlocked, so the per-step gather runs, but no mirror reflects). A split shot is a real second shot (more flight,
-// more hits), so the bound is on the whole step; the per-shot test itself is a few multiplies against at most 8 points.
+// Cost of Iroha's mirror network (src/sim/mirrors.js, docs/specs/IROHA_MIRRORS.md §6): a full board of shots
+// crossing mirrors. 24 Aois at Rapid Volley tier 5 and 6 Irohas at Mirror Hall tier 5 + Shattered Glass 2 (5 mirrors
+// each, all placed in the crowd; Infinite Reflection: every mirror reflects allies' shots for good, each copy bounces
+// twice; their routed bolts bounce 5 times; their Laser Webs run, 10 beams each) against 300 unkillable enemies packed
+// on one leg of a serpentine road, measured as wall time per 1/60 s step; against the same board with the Irohas at
+// tier 4 (4 mirrors, routed bolts, their webs over and no reflection). A split shot is a real second shot (more flight,
+// more hits), so the bound is on the whole step.
 import { describe, test, expect } from 'vitest';
 import { Sim } from '../../src/sim/Sim.js';
 import { STAGE, ENEMIES } from './fixtures.js';
 import { defaultData } from '../../src/sim/data.js';
 import { abilityPathOf } from '../../src/sim/abilities.js';
-import { collectMirrors } from '../../src/sim/mirrors.js';
+import { collectMirrors, MIRROR_GATHER } from '../../src/sim/mirrors.js';
 
 const D = defaultData();
 const MAP = {
@@ -22,7 +23,7 @@ const MAP = {
   rows: Array.from({ length: 13 }, () => '......................'),
   paths: [[[-1, 1], [20, 1], [20, 5], [1, 5], [1, 9], [20, 9], [20, 13]]],
 };
-const BLOB = { ...ENEMIES.slime, id: 'blob', hp: 1e9, speed: 0.4 };
+const BLOB = { ...ENEMIES.slime, id: 'blob', hp: 1e12, speed: 0.4 };
 
 function board(irohaTier) {
   const sim = new Sim({
@@ -36,12 +37,13 @@ function board(irohaTier) {
   const irohas = [];
   let aois = 0;
   for (let i = 0; i < spots.length && aois + irohas.length < 30; i++) {
-    const id = irohas.length < 4 && i % 7 === 3 ? 'iroha' : 'aoi';
-    if (id === 'aoi' && aois >= 26) continue;
+    const id = irohas.length < 6 && i % 7 === 3 ? 'iroha' : 'aoi';
+    if (id === 'aoi' && aois >= 24) continue;
     const t = sim.placeTower(id, spots[i][0], spots[i][1]);
     if (!t) continue;
     const p = abilityPathOf(t.def);
     for (let k = 0; k < (id === 'iroha' ? irohaTier : 5); k++) sim.upgradeTower(t.uid, p, { restoring: true });
+    if (id === 'iroha') for (let k = 0; k < 2; k++) sim.upgradeTower(t.uid, 2, { restoring: true });
     if (id === 'iroha') irohas.push(t);
     else aois++;
   }
@@ -50,53 +52,61 @@ function board(irohaTier) {
   sim._spawnQueue = [{ t: 1e9, enemy: 'blob' }];
   sim._spawnIndex = 0;
   // the middle leg runs from x 20.5 (dist 25) to x 1.5 (dist 44): dist 29–36 is x 16.5–9.5
-  for (let i = 0; i < 200; i++) {
-    const e = sim.spawnEnemy('blob', { dist: 29 + (i / 200) * 7 });
+  for (let i = 0; i < 300; i++) {
+    const e = sim.spawnEnemy('blob', { dist: 29 + (i / 300) * 7 });
     e.baseSpeed = 0;
     e.speed = 0;
   }
   sim.update(1 / 60);
-  // each Iroha's panel aimed into the crowd, then her Mirror Shift on another crowd spot (tier 5: a second mirror;
-  // tier 4: the panel jumps there and reflects for 8 s)
+  // each Iroha's mirrors placed along the crowd (clamped to her reach), then her Laser Web
   irohas.forEach((t, i) => {
-    sim.setAim(t.uid, 10 + i * 2, 5.5);
+    for (let k = 0; k < t.mirrors.length; k++) expect(sim.setAim(t.uid, 9.5 + ((i + k * 3) % 8), 5 + (k % 2) * 0.5, k)).toBe(true);
     t.abil.cd = 0;
-    expect(sim.castAbility(t.uid, { aim: [11 + i * 2, 5.5] }).ok).toBe(true);
+    expect(sim.castAbility(t.uid).ok).toBe(true);
   });
   return { sim, irohas, aois };
 }
 
 function measure(sim, steps) {
   let splits = 0;
+  let bounces = 0;
   let maxProj = 0;
   const t0 = performance.now();
   for (let i = 0; i < steps; i++) {
     sim.update(1 / 60);
-    for (const ev of sim.drainEvents()) if (ev.type === 'mirrorSplit') splits++;
+    for (const ev of sim.drainEvents()) {
+      if (ev.type === 'mirrorSplit') splits++;
+      else if (ev.type === 'mirrorBounce') bounces++;
+    }
     if (sim.projectiles.length > maxProj) maxProj = sim.projectiles.length;
   }
-  return { ms: (performance.now() - t0) / steps, splits, maxProj };
+  return { ms: (performance.now() - t0) / steps, splits, bounces, maxProj };
 }
 
-describe('mirror reflection at full board (wall time per step)', () => {
-  test('8 reflecting mirrors over 26 tier-5 Aois and 4 Irohas: the step stays within budget and at most ×2.5 of the board without reflection', () => {
+describe('mirror network at full board (wall time per step)', () => {
+  test('30 mirrors over 24 tier-5 Aois and 6 tier-5 Irohas: the step stays within budget and at most ×3 of the tier-4 board', () => {
     measure(board(5).sim, 120); // warm-up (the JIT), not counted
     const runs = { 4: [], 5: [] };
     for (const tier of [4, 5, 4, 5]) {
       const { sim, irohas, aois } = board(tier);
-      expect(aois).toBe(26);
-      expect(irohas.length).toBe(4);
-      expect(collectMirrors(sim)).toBe(tier === 5 ? 8 : 4); // tier 4: the 8 s windows are open right after the casts
-      measure(sim, 8 * 60 + 5); // past tier 4's 8 s window (tier 5's second mirrors live 10 s)
-      expect(collectMirrors(sim)).toBe(tier === 5 ? 8 : 0);
+      expect(aois).toBe(24);
+      expect(irohas.length).toBe(6);
+      for (const t of irohas) expect(t.mirrors).toHaveLength(tier);
+      // tier 4: the windows are open right after the casts
+      expect(collectMirrors(sim)).toBe(Math.min(MIRROR_GATHER, 6 * tier));
+      runs[tier].push(measure(sim, 90)); // inside the webs
+      measure(sim, 9 * 60); // past both windows
+      expect(collectMirrors(sim)).toBe(tier === 5 ? MIRROR_GATHER : 0);
       runs[tier].push(measure(sim, 90));
     }
     const best = (k) => Math.min(...runs[k].map((r) => r.ms));
+    const worst = (k) => Math.max(...runs[k].map((r) => r.ms));
     const ratio = best(5) / best(4);
-    console.log(`[perf mirror] tier 4 ${runs[4].map((r) => r.ms.toFixed(3)).join(' / ')} ms/step (≤ ${runs[4][0].maxProj} shots), tier 5 ${runs[5].map((r) => r.ms.toFixed(3)).join(' / ')} ms/step (≤ ${runs[5][0].maxProj} shots, ${runs[5][0].splits} splits in 1.5 s) → ×${ratio.toFixed(2)}`);
-    expect(runs[4][0].splits).toBe(0);
-    expect(runs[5][0].splits).toBeGreaterThan(100);
-    expect(best(5)).toBeLessThan(process.env.CI ? 12 : 5);
-    expect(ratio).toBeLessThanOrEqual(process.env.CI ? 3.5 : 2.5);
-  }, 120000);
+    console.log(`[perf mirror] tier 4 ${runs[4].map((r) => r.ms.toFixed(3)).join(' / ')} ms/step (≤ ${runs[4][0].maxProj} shots, ${runs[4][0].bounces} bounces), tier 5 ${runs[5].map((r) => r.ms.toFixed(3)).join(' / ')} ms/step (≤ ${runs[5][0].maxProj} shots, ${runs[5][1].splits} splits, ${runs[5][1].bounces} bounces in 1.5 s) → ×${ratio.toFixed(2)}`);
+    expect(runs[4][1].splits).toBe(0);
+    expect(runs[4][0].bounces).toBeGreaterThan(100);
+    expect(runs[5][1].splits).toBeGreaterThan(100);
+    expect(worst(5)).toBeLessThan(process.env.CI ? 16 : 8);
+    expect(ratio).toBeLessThanOrEqual(process.env.CI ? 4 : 3);
+  }, 180000);
 });

@@ -89,8 +89,8 @@ describe('a mirror split copy on the board', () => {
     expect(calls).toEqual([]); // (Aoi has no panel; Iroha's was silent: no flip at all)
   });
 
-  it('another Iroha\'s stand shot splits at the first one\'s panel: its copy never kicks her own panel (mirrors.shot only for her real panel bolts)', () => {
-    // A reflects (Mirror Shift's window, aimed on B's line to the road); B's panel stands right by the crossing
+  it('another Iroha\'s bolts never split at the first one\'s mirrors, and leaving her hand they kick no panel', () => {
+    // A reflects (her Laser Web), B's bolts route through her own mirrors right beside A's
     const { sim, ts: [a, b], park } = board([['iroha', 8.5, 2.5, 3], ['iroha', 6.5, 3.5, 3]]);
     a.cooldown = 1e9;
     park(8.5);
@@ -100,40 +100,19 @@ describe('a mirror split copy on the board', () => {
     h.fxa.ctx.mirrors = { shot: (uid) => calls.push(uid), shifting: () => false };
     const frame = framer(h, sim);
     frame(1 / 60);
-    sim.setAim(b.uid, 8.2, 3.7);
     a.abil.cd = 0;
-    expect(sim.castAbility(a.uid, { aim: [8.5, 4] }).ok).toBe(true);
-    calls.length = 0; // (the setup frame's bolts left her un-aimed panel)
-    const copies = new Set();
-    const known = new Set(sim.projectiles.map((p) => p.uid));
-    let panelBolts = 0;
-    let drawnCopies = 0;
+    expect(sim.castAbility(a.uid).ok).toBe(true);
+    let splits = 0;
+    let bounces = 0;
     for (let f = 0; f < 240; f++) {
-      const { events, drawn } = frame(1 / 60, (evs) => {
-        for (const s of evs) if (s.type === 'mirrorSplit') copies.add(s.copyUid);
-      });
-      for (const p of sim.projectiles) {
-        if (known.has(p.uid)) continue;
-        known.add(p.uid);
-        if (p.ownerUid !== b.uid || copies.has(p.uid)) continue;
-        // a bolt of B's own: from her panel (born split) or from where she stands
-        const vl = Math.hypot(p.vx, p.vy) || 1;
-        const start = { x: p.x - (p.vx / vl) * p.travel, y: p.y - (p.vy / vl) * p.travel };
-        if (dist(start, { x: b.ox, y: b.oy }) < dist(start, b)) panelBolts++;
-      }
-      for (const s of events.filter((x) => x.type === 'mirrorSplit')) {
-        const at = drawn.get(s.copyUid);
-        if (!at) continue;
-        expect(dist(at, s)).toBeLessThan(0.5);
-        drawnCopies++;
+      const { events } = frame(1 / 60);
+      for (const s of events) {
+        if (s.type === 'mirrorSplit') splits++;
+        if (s.type === 'mirrorBounce' && s.ownerUid === b.uid) bounces++;
       }
     }
-    const bCopies = [...copies].length;
-    expect(bCopies).toBeGreaterThan(0);
-    expect(drawnCopies).toBeGreaterThan(0);
-    // her panel flips once per bolt that really left it: the copies (born by her panel, nearer it than her hand) add none
-    expect(panelBolts).toBeGreaterThan(0);
-    expect(calls.filter((u) => u === b.uid).length).toBe(panelBolts);
-    expect(calls.filter((u) => u === a.uid)).toEqual([]);
+    expect(bounces).toBeGreaterThan(0);
+    expect(splits).toBe(0);
+    expect(calls).toEqual([]);
   });
 });

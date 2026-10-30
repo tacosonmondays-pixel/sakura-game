@@ -6,7 +6,7 @@
 //   drawerStats(t, st, o)          the stat row: the role's 3 headline stats (+ PIERCE where she pierces)
 //   gearPierce(t, st)              her gear Pierce % where it adds targets (shots, beams, drones, Kaede's blade), else 0
 //   targetView(t, st, o)           FIRST · LAST · STRONG · CLOSE (+N: PRIORITY, AIR) or Azami's strip chips
-//   aimView(t, mode, o)            AUTO · SET AIM for mortar / mirror girls
+//   aimView(t, mode, o)            AUTO · SET AIM for mortar girls; AUTO · PLACE · 1…5 for Iroha's mirrors
 //   pathRowView(def, tiers, i, st, o)  one path row: edge colour, tier line, pips, price / lock / holder / MAX
 //   createBuyArm({ ms, now })      the two-tap buy: tap 1 arms (expands the row), tap 2 buys; disarms after 2.6 s
 //   footerView(spent, value, o)    INVESTED n · SELL +n (two-tap confirm)
@@ -178,9 +178,31 @@ export function targetView(t, st, { expanded = false, aiming = false, aimMode = 
   return { kind: 'target', label: 'TARGET', chips: [...chips, ...inUse.map(chip)], more: hidden.length, moreNames: hidden.map((m) => TARGET_MODES[m] || m) };
 }
 
-/** The aim row of a mortar / mirror girl (an aimed hero ult too): Auto · Set aim. Null for others and Azami. */
-export function aimView(t, mode, { aiming = false } = {}) {
+/**
+ * The aim row of a mortar / mirror girl (an aimed hero ult too): Auto · Set aim. Null for others and Azami. Iroha's
+ * mirror network (docs/specs/IROHA_MIRRORS.md §8): AUTO · PLACE (each tap places the next mirror) and one numbered chip
+ * per mirror (a tap re-places that one; `placed` when her player set it), with the count ("3/3 · 2 placed").
+ * `slot`: the mirror being placed now (-1: none).
+ */
+export function aimView(t, mode, { aiming = false, slot = -1 } = {}) {
   if (!mode || mode === 'checkpoint') return null;
+  if (mode === 'mirror' && t.mirrors) {
+    const n = t.mirrors.length;
+    const placed = t.mirrors.map((_, k) => !!t.mirrorAim?.[k]);
+    const count = placed.filter(Boolean).length;
+    return {
+      label: 'MIRRORS',
+      count: `${n} · ${count ? `${count} placed` : 'auto'}`,
+      chips: [
+        { mode: 'auto', label: 'AUTO', on: !count && !aiming, title: 'She spreads her mirrors along the road herself', testid: 'aim-auto' },
+        { mode: 'set', label: aiming && slot >= 0 ? 'TAP MAP…' : 'PLACE', on: aiming, title: 'Tap the map once for each mirror, in order', testid: 'aim-set' },
+      ],
+      slots: placed.map((p, k) => ({
+        k, label: String(k + 1), on: aiming && slot === k, placed: p, testid: `mirror-chip-${k}`,
+        title: `Mirror ${k + 1}${p ? ' (placed)' : ' (auto)'}: tap, then tap the map`,
+      })),
+    };
+  }
   return {
     label: mode === 'mirror' ? 'MIRROR' : 'AIM',
     chips: [

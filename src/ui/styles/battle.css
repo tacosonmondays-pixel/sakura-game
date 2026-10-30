@@ -442,6 +442,11 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 .bt-tchip:disabled { cursor: default; color: var(--on-plate-dim); opacity: 1; }
 .bt-tchip.on:disabled { color: var(--plate); }
 .bt-tchip-more { min-width: var(--tap-dense); color: var(--blue-on-plate); }
+/* Iroha's mirrors (docs/specs/IROHA_MIRRORS.md §8): a numbered chip per mirror, square at the dense tap size; a mirror
+   her player placed carries a small ink dot under its number */
+.bt-mirrors .bt-tchip { min-width: var(--tap-dense); position: relative; }
+.bt-tchip.bt-mirror-placed::before { content: ''; position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor; }
+.bt-mirrors .bt-dw-k { white-space: nowrap; }
 .bt-tchip-more-ico { display: inline-flex; width: 18px; height: 4px; line-height: 0; }
 .bt-tchip-more-ico svg { width: 100%; height: 100%; display: block; }
 .bt-tchip:active:not(:disabled) { transform: scale(0.96); }

@@ -86,10 +86,10 @@ describe('abilityInfoView (the Info chip and its Details)', () => {
       for (const f of v.forms) expect(f.desc, `${u.id} ${f.id}`).not.toMatch(/[{}]|NaN|undefined|Infinity/);
       expect(v.forms.length, u.id).toBe(u.id === 'ruri' ? 3 : 1);
     }
-    // the returning girls (M3): live ones (Fuu's push since A5, Iroha's mirror since A6)
+    // the returning girls (M3): live ones (Fuu's push since A5, Iroha's mirror since A6; her Laser Web since the mirror network)
     expect(abilityInfoView(UNIT_MAP.hana)).toMatchObject({ chip: '⚡ Kaze\'s Swoop · Falconry T3', live: true, multi: false });
     expect(abilityInfoView(UNIT_MAP.fuu)).toMatchObject({ chip: '⚡ Backdraft Fan · Returning Gale T3', live: true, later: null });
-    expect(abilityInfoView(UNIT_MAP.iroha)).toMatchObject({ chip: '⚡ Mirror Shift · Mirror Hall T3', live: true, later: null });
+    expect(abilityInfoView(UNIT_MAP.iroha)).toMatchObject({ chip: '⚡ Laser Web · Mirror Hall T3', live: true, later: null });
     expect(abilityInfoView(UNIT_MAP.fuu).facts.map((x) => x.t)).toEqual([
       'Unlocks at Returning Gale tier 3', 'Recharges in 40s of wave time', 'Backdraft Fan blows enemies 3 tiles back, grounds flyers for 3s and recharges in 32s.',
     ]);

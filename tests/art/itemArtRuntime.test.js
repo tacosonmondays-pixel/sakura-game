@@ -206,7 +206,9 @@ describe('display only: the battle sim is untouched', () => {
     // passes.
     // Balance round 5 (feature/balance-r5) rides the same bump: this id is the shapes and round 5 together, on v0.1.61,
     // with the duo's map-wide laser, the LR rows and freeplay's boss bands (Oct 30).
-    const PENDING_BUMP = { 13: 'bdfefc71e934' };
+    // feature/iroha-mirrors rides it too: Iroha's mirror network (docs/specs/IROHA_MIRRORS.md; src/sim/mirrors.js) on top
+    // of round 5 (the coordinator assigns the bump).
+    const PENDING_BUMP = { 13: '78f4f0e3bad0' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

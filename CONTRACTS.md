@@ -1634,7 +1634,8 @@ abilities.js: deploy types 'strips', 'sentries', 'double', 'trap', 'drone' and '
 Caps (constants.js): ROAD_OBJECTS 80/160, STRAIGHT 60/200/400, SENTRIES 24/40 per player/sim, oldest first
 ```
 Battle save: carried Sticky Tar strips in `tr` (+ hits, ttl), `sc` Spread cursor, `rg` ring turn,
-`nt` nets, `bn` Ouka's banners (replaces `am` for her); everything else of theirs ends at the wave clear
+`nt` nets, `bn` Ouka's banners (replaces `am` for her), `mr` Iroha's placed mirrors by slot ([x, y] or 0 = Auto;
+`docs/specs/IROHA_MIRRORS.md`); everything else of theirs ends at the wave clear
 (UNIT_GAPS §7.3).
 
 ### Attack shapes S1 "Wheels" (`docs/specs/ATTACK_SHAPES.md` §4, §5.1, §5.2, §5.5, addendum; branch `feature/attack-shapes`)

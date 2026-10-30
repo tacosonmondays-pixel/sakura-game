@@ -94,6 +94,9 @@ function chipBtn({ label, on = false, title = '', testid = null, mode = null, di
   }, label);
 }
 
+/** Iroha's mirrors in the drawer's signature: how many, and which her player placed. */
+const mirrorSig = (t) => (t.mirrors ? `${t.mirrors.length}:${t.mirrors.map((_, k) => (t.mirrorAim?.[k] ? 1 : 0)).join('')}` : '');
+
 export function createTowerPanel(ctx) {
   const { sim } = ctx;
   const el = h('aside.bt-panel.bt-drawer', { 'data-testid': 'tower-panel', role: 'dialog', 'aria-label': 'Selected girl' });
@@ -154,7 +157,7 @@ export function createTowerPanel(ctx) {
     const dv = t.turretSpec?.leash > 0 ? drones.signature(t) : '';
     // (the ability row's state, Auto and live line; its seconds tick in place, so a tap on a price is never lost to a
     // re-render once a second)
-    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${more ? 1 : 0}|${targetsOpen ? 1 : 0}|${arm.armedPath(t.uid) ?? '-'}|${isWide() ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? 'A' : ''}|${abRow.sig(t)}`;
+    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${more ? 1 : 0}|${targetsOpen ? 1 : 0}|${arm.armedPath(t.uid) ?? '-'}|${isWide() ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? `A${ctx.aim.slot}` : ''}|${mirrorSig(t)}|${abRow.sig(t)}`;
   }
 
   /** @param {{ drone?: number|null }} [opts] a drone of hers to show (tapped on the field: MORE opens on its card) */
@@ -298,7 +301,7 @@ export function createTowerPanel(ctx) {
       rows.push(h('div.bt-dw-row.bt-target', { 'data-testid': v.kind === 'strip' ? 'strip-row' : 'target-row' },
         h('span.bt-dw-k', v.label), h('div.bt-tchips', { role: 'group', 'aria-label': v.kind === 'strip' ? 'Strips' : 'Target' }, chips)));
     }
-    const aim = aimView(t, am, { aiming });
+    const aim = aimView(t, am, { aiming, slot: aiming ? ctx.aim?.slot ?? -1 : -1 });
     if (aim) {
       rows.push(h('div.bt-dw-row.bt-target.bt-aim', { 'data-testid': 'aim-row' },
         h('span.bt-dw-k', aim.label),
@@ -306,10 +309,26 @@ export function createTowerPanel(ctx) {
           label: c.label, on: c.on, title: c.title, testid: c.testid, disabled: !mine,
           onClick: () => {
             if (c.mode === 'auto') ctx.aim?.clear(t.uid);
-            else ctx.aim?.start(t.uid);
+            else ctx.aim?.start(t.uid, aim.slots ? { slot: 0, all: true } : undefined);
             rerender();
           },
         })))));
+      // Iroha: her mirrors one by one (a numbered chip re-places that mirror) and the count
+      if (aim.slots) {
+        rows.push(h('div.bt-dw-row.bt-target.bt-mirrors', { 'data-testid': 'mirror-row' },
+          h('span.bt-dw-k', { 'data-testid': 'mirror-count' }, aim.count),
+          h('div.bt-tchips', { role: 'group', 'aria-label': 'Mirrors' }, aim.slots.map((c) => {
+            const b = chipBtn({
+              label: c.label, on: c.on, title: c.title, testid: c.testid, disabled: !mine,
+              onClick: () => {
+                ctx.aim?.start(t.uid, { slot: c.k });
+                rerender();
+              },
+            });
+            if (c.placed) b.classList.add('bt-mirror-placed');
+            return b;
+          }))));
+      }
     }
     return rows;
   }
