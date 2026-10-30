@@ -654,7 +654,7 @@ describe('co-op lobby: the start message is clamped on both clients (statLimits.
     expect(W.until(() => guest.phase === 'battle', 5000)).not.toBe(null);
     expect(guest.lockstep.start).toEqual(host.lockstep.start);
     const g = host.lockstep.start.players.find((p) => p.uid === GUEST);
-    expect(g.loadout[0].stats).toEqual({ damageMul: 40, rateMul: 12, costMul: 0.75, level: 99, potential: 6, awakenPassive: true });
+    expect(g.loadout[0].stats).toEqual({ damageMul: 40, rateMul: 12, costMul: 0.5, level: 99, potential: 6, awakenPassive: true });
     // an honest L85 P6 girl passes through as she is
     expect(g.loadout[1].stats).toEqual({ potential: 6, level: 85 });
     expect(guest.lockstep.coop.hash()).toBe(host.lockstep.coop.hash());

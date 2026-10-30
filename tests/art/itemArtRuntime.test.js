@@ -206,10 +206,10 @@ describe('display only: the battle sim is untouched', () => {
     const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db', 12: 'd35092f141d3', 13: 'be940ecb2087' };
     // PENDING_BUMP: feature/gear-sets and feature/gear-lr (the gear update's M2 and M3: five-piece sets, their passives
     // and set caps, super crits, Control Strength and Buff Duration at every call site, the average crit and DoT share
-    // levers; LR gear's guards PIERCE_K_MAX 300 and SKILL_HASTE_CAP 0.75, the LR Set Forms; GEAR_UPDATE.md §10.1)
+    // levers; LR gear's guards PIERCE_K_MAX 300 and ULT_HASTE_MAX 0.75, the LR Set Forms; GEAR_UPDATE.md §10.1)
     // change the sim on protocol 13. The release assigns COOP_PROTOCOL, adds its KNOWN line and removes this
     // pin. Only this exact in-progress id passes here.
-    const PENDING_BUMP = { 13: '743ebce40448' };
+    const PENDING_BUMP = { 13: '9fb25a1248dc' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     expect(simId().id).toBe(PENDING_BUMP[COOP_PROTOCOL] ?? KNOWN[COOP_PROTOCOL]);
   });

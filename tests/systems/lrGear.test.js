@@ -124,3 +124,16 @@ describe('caps with LR pieces', () => {
     expect(unitBattleStats(q, 'aoi').setLr).toBe(false);
   });
 });
+
+describe('the hero ult\'s haste ceiling', () => {
+  it('stays 50 % with her Potential haste on top; only her own LR-raised gear haste lifts it, up to 75 %', async () => {
+    const { ultCooldown } = await import('../../src/sim/hero.js');
+    const { UNIT_MAP } = await import('../../src/data/units.js');
+    const def = UNIT_MAP.hikari;
+    const base = def.hero.ult.cooldown ?? 60;
+    const h = (ultHaste, pot) => ({ def, level: 1, stats: { ult: { haste: pot } }, unitStats: { ultHaste } });
+    expect(ultCooldown(h(0.5, 0.2)) / base).toBeCloseTo(0.5, 9);
+    expect(ultCooldown(h(0.6, 0.2)) / base).toBeCloseTo(0.4, 9);
+    expect(ultCooldown(h(1, 0.2)) / base).toBeCloseTo(0.25, 9);
+  });
+});

@@ -78,8 +78,7 @@ describe('resolveStats: gear reach', () => {
 describe('Skill Haste on tower abilities (the clean read for the abilities track)', () => {
   test('half of her capped Skill Haste; rallies and debuffs take none', () => {
     expect(abilityHaste({ ultHaste: 0.38 })).toBeCloseTo(0.19, 9);
-    // (LR gear raises the Skill Haste cap to 75 %, GEAR_UPDATE.md §4.3: half of it is 0.375)
-    expect(abilityHaste({ ultHaste: 0.9 })).toBeCloseTo(0.375, 9);
+    expect(abilityHaste({ ultHaste: 0.9 })).toBeCloseTo(0.25, 9);
     for (const k of NOT_HASTED_KINDS) expect(abilityHaste({ ultHaste: 0.5 }, k)).toBe(0);
     expect(abilityHaste({})).toBe(0);
   });

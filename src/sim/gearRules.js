@@ -78,8 +78,14 @@ export function followThroughBlast(unitStats) {
 export const NOT_HASTED_KINDS = Object.freeze(['rally', 'debuff']);
 /** Abilities and hero skills take this share of her Skill Haste (hero ults keep all of it). */
 export const ABILITY_HASTE_SHARE = 0.5;
-/** Skill Haste cap for hero ults and abilities (the battle stats cap it at source too; LR gear raises it, ≤ 75 %). */
-export const SKILL_HASTE_CAP = 0.75;
+/** Skill Haste cap (the battle stats cap it at source too). */
+export const SKILL_HASTE_CAP = 0.5;
+/**
+ * LR gear raises her Skill Haste cap at source (GEAR_UPDATE.md §4.3); a hero's ult then reads up to this. The ult's
+ * ceiling is her gear's own haste when that is above SKILL_HASTE_CAP, so a hero without LR gear keeps the 50 % cap with
+ * her Potential's haste on top, exactly as before.
+ */
+export const ULT_HASTE_MAX = 0.75;
 /** Charge points an ability gains per tick with no haste (the abilities spec's integer charge). */
 export const ABILITY_CHARGE_BASE = 100;
 

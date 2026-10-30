@@ -15,7 +15,7 @@ import { BATTLE } from '../data/types.js';
 import { HERO_XP_STEPS, HERO_LEVEL_PRICES, HERO_XP, HERO_MOVE } from '../data/heroTracks.js';
 import { ULT_INITIAL_CHARGE, KNOCKBACK_RESIST, DEFAULT_UNIT_STATS, HERO_MOVE_CD_MIN, HERO_MOVE_DOWNTIME_MIN } from './constants.js';
 import { buffDur, statusCtxFor } from './setRules.js';
-import { SKILL_HASTE_CAP } from './gearRules.js';
+import { SKILL_HASTE_CAP, ULT_HASTE_MAX } from './gearRules.js';
 import { normalizeBase } from './mods.js';
 import { applyStatus } from './status.js';
 import { syncStatusFlags, placeOnPath } from './enemies.js';
@@ -112,7 +112,10 @@ export function ultCooldown(hero) {
   let cd = ult.cooldown ?? 60;
   for (const k of ult.ranks || []) if (hero.level >= k.level && k.cooldownMul > 0) cd *= k.cooldownMul;
   const pot = hero.stats?.ult?.haste || 0;
-  const haste = Math.min(SKILL_HASTE_CAP, Math.max(0, pot > 0 ? (hero.unitStats?.ultHaste || 0) + pot : hero.unitStats?.ultHaste || 0));
+  const gear = hero.unitStats?.ultHaste || 0;
+  // (LR gear's raised cap: her own gear haste above 50 % lifts the ceiling, up to ULT_HASTE_MAX)
+  const cap = Math.min(ULT_HASTE_MAX, Math.max(SKILL_HASTE_CAP, gear));
+  const haste = Math.min(cap, Math.max(0, pot > 0 ? gear + pot : gear));
   return cd * (1 - haste);
 }
 
