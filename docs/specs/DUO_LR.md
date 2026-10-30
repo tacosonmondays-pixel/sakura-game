@@ -364,8 +364,12 @@ way across the map, so the light boss numbers rise most); r5 = fully maxed with 
 - **Tenka's Joint Research and Singularity builds** (a lab build and a control build) deal little of their own on these
   benches (the lab weapons need girls to join her after her purchase; Singularity's value is its wells and Last Line).
   Their LR form lifts them to the floor with LR-only `t5` rows (`LR_POWER.tenka.t5`, while that path is at tier 5):
-  Joint Research ×5.2 damage and ×1.1 more vs bosses, Singularity ×10 damage and ×5.5 more vs bosses. Watch the lab:
-  a Joint Research LR Tenka with a full lab team was not on this bench (the bench places her supports after her purchase).
+  Joint Research ×5.2 damage and ×1.1 more vs bosses, Singularity ×10 damage and ×5.5 more vs bosses.
+- **With a full lab team** (`tools/balance/labBench.mjs`: fully maxed Kage 5-0-2, Akane 5-0-2, Yuki 2-5-0, Miko 5-2-0
+  and Momo 5-0-2 in her reach before she buys Joint Research to tier 5, both absorbs, then Umeko and Midori beside her;
+  ÷ the best Kage T5): without LR 8.43× / 1.60× (crowd / boss); **with LR 52.85× / 37.55×**. Without the `t5.lab` row
+  her LR would read 10.16× / 6.56× (already over the floor). Her lab weapons scale with her damage, so the ×5.2 lands on
+  the whole lab. Not lowered (the owner's call); reported for the release audit.
 - Abilities are not in these numbers (the rulers are her attack only).
 
 **Perf** (`tests/sim/perf.test.js` "the long beam": 4 LR duos at Grand Spectrum, 16 held map-long beams, 200 walkers on
