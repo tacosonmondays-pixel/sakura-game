@@ -4,6 +4,12 @@
 
 This page is for a session that only has the GitHub repo (a cloud session), not the owner's PC. Read `docs/HANDOFF.md` too; it has the rules (§6), the shipping flow (§7) and the branch table (§3). Check out the coordination branch `claude/sakura-sentinels`; `main` is the live build (every push to `main` deploys).
 
+## UPDATE Oct 30, 23:10 UTC: v0.1.65 LIVE; v0.1.66 (battle + gear, COOP 14) assembling; owner's standing OK to ship
+- **Owner (Oct 30): "you don't need my permission to ship"** — ship any release that passes its independent go/no-go, then tell the owner. Keep every other rule (no 18:00–20:00 CT, patch note, live check).
+- **v0.1.65 "The Summoning Gate Opens"** pushed c34f7bd3 at 21:44 UTC, live 21:53; live check LIVE_OK (smoke 678/678, cinematic 139/139). Follow-up queued: defer recruit music (~660 KB) for slow phones; two transient toasts overlap panels.
+- **S5 attack shapes** all six approved (S5a ec18813, S5b 73d89d6) on feature/attack-shapes-s5 6156f08a (merged balance-r5 024b7532).
+- **v0.1.66** assembling on release/v0.1.66 (session_01Ayo4er2sMN7BYpFieFCFi6): S5+balance-r5, Ena, Iroha, gear-lr (incl. Kogane 260d8d08), build-coach (incl. loadouts), v0.1.65 merged; COOP 14. Decisions taken during assembly: (A) S1–S4 shape behaviors join SET_ATTACK_BEHAVIORS so set passives keep working (S5 hits stay clean); (2) dead-crit "better of" only takes avgCrit when her kit has damage that reads it (Wakaba/Ouka back to live; Suzu per-source ≥ live). Next: final gates → multi-reviewer audit → ship.
+
 ## UPDATE Oct 30, 18:15 UTC: v0.1.64 LIVE; everything for the battle + gear release approved; S5 building
 - **v0.1.64** pushed c6d06118 (owner yes), live 16:44 UTC, live check LIVE_OK (ribbon flow 16/16).
 - **Owner decisions (Oct 30):** LRs must beat EVERY character (done: LR rows raised, gate tools/balance/lrBar.mjs + tests/sim/lrBar.test.js, bar = best non-LR ×1.25); Tenka's full-lab LR stays; ship v0.1.64; 4th rounds approved; gear icons approved; six more attack reworks (S5) approved with defaults.
