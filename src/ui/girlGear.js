@@ -26,6 +26,7 @@ import {
 } from '../systems/gear.js';
 import { itemCount } from '../systems/inventory.js';
 import { loadoutUseText } from '../systems/teams.js';
+import { loadoutChips } from './teamBar.js';
 import { applyGearFilter, activeGearFilters } from '../systems/gearFilter.js';
 import { gearFilterBar, gearFilterFor } from './gearFilterBar.js';
 import { awakenModal, stitchModal, rerollModal, armbandModal, enhanceOnce, toggleGearLock } from './gearUr.js';
@@ -67,6 +68,8 @@ export function gearTab(unit, { onChange, mode = girlPageMode(store.profile) }) 
   const from = gearFromView(unit, profile, mode);
   return h(`div.mb-tab-body.gk-gear${from.mode === 'detailed' ? '.detailed' : ''}`,
     h('section.ui-panel.gk-panel', h('div.ui-panel-in',
+      // [teams] Loadout A · B · C (GEAR_UPDATE §7): the one she wears is selected
+      loadoutChips(unit.id, { onChange }),
       h('div.gk-slots', SLOTS.map((slot) => slotCard(unit, slot, onChange, mode))),
       h('div.gk-from',
         h('div.ui-panel-head', h('span.ui-kicker', 'From gear'), set ? setChip(set, unit) : null),

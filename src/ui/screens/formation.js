@@ -26,6 +26,8 @@ import { stageThumbSVG } from '../../art/stageThumb.js';
 import { unitMini, howToGet, put, emptyState } from './backpack.js';
 import { ico, secondaryBtn } from '../kit.js';
 import { lg } from '../girlFrame.js';
+import { teamBar, loadoutBadge } from '../teamBar.js';
+import { getTeams, teamUse } from '../../systems/teams.js';
 
 const pickState = { kind: 'tower' };
 
@@ -58,6 +60,10 @@ function needStatus(profile, f, stageId) {
 function slotTile(unitId, onRemove) {
   if (!unitId) return null;
   const t = girlTile(unitId, { owned: true, onClick: onRemove, cls: 'mb-fslot.filled.fm-slot' });
+  // [teams] her loadout letter when this team has her on B or C
+  const teams = getTeams(store.profile);
+  const badge = loadoutBadge(teamUse(teams.list[teams.active], unitId));
+  if (badge) t.append(badge);
   t.title = `Remove ${UNIT_MAP[unitId].name}`;
   t.setAttribute('aria-label', `${t.getAttribute('aria-label')}. Tap to remove her from the squad`);
   // (her P chip keeps the squad slot's test id)
@@ -82,9 +88,11 @@ export function render(root, params = {}) {
   let savedTimer = 0;
   // Landscape and up (meta-b.css): the squad strip spans the top, recommendations sit beside the picker.
   const squad = h('section.mb-card.mb-formation-squad.fm-squad');
+  // [teams] the 5 saved teams over the squad (GEAR_UPDATE §11.1): the active one is the formation
+  const teamsBox = h('div.fm-teams');
   const recBox = h('section.mb-card.mb-formation-rec.fm-rec');
   const picker = h('section.mb-card.mb-formation-pick.fm-pick');
-  body.appendChild(h('div.mb-formation.fm', squad, recBox, picker));
+  body.appendChild(h('div.mb-formation.fm', teamsBox, squad, recBox, picker));
 
   const save = (flashId) => {
     profile.formation = { hero: f.hero, towers: f.towers.slice() };
@@ -217,7 +225,13 @@ export function render(root, params = {}) {
         : emptyState(pickState.kind === 'hero' ? 'No other heroes yet' : 'No students yet', 'Recruit girls or clear stages to unlock free recruits.', secondaryBtn('Recruit', { icon: 'gacha', onClick: () => navigate('recruit') })));
   }
 
+  function renderTeams() {
+    clear(teamsBox);
+    teamsBox.appendChild(teamBar({ onChange: () => { f = formationOf(profile); renderAll(); } }));
+  }
+
   function renderAll(flashId) {
+    renderTeams();
     const needs = needStatus(profile, f, stageId);
     renderSquad(needs, flashId);
     renderRec(needs);

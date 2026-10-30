@@ -74,6 +74,7 @@ import { supportAllowed } from '../../systems/friendSupport.js'; // [friend supp
 import { isFriendshipLive } from '../../systems/banners.js'; // [friend support] the row waits for the server's SQL
 import { supportPick } from '../battle/supportPick.js';
 import { wentOnline } from '../online/common.js';
+import { teamChips, teamChip } from '../teamBar.js';
 
 // ---------------------------------------------------------------------------
 // Shared helpers (exported for the other meta-a screens)
@@ -549,7 +550,8 @@ export function render(root, params = {}) {
   document.fonts?.ready?.then(() => { if (body.isConnected) fitFooter(body); });
   const off = store.on('change', (e) => {
     // 'sweep' adds clears, 'formation' an Add from the Counters sheet, 'battle-save' a New game: redraw in place
-    if (e?.reason === 'formation' || e?.reason === 'sweep' || e?.reason === 'replace' || e?.reason === 'battle-save') draw();
+    // ('teams': a team switched from the Team chip or the Counters sheet)
+    if (e?.reason === 'formation' || e?.reason === 'teams' || e?.reason === 'sweep' || e?.reason === 'replace' || e?.reason === 'battle-save') draw();
   });
   return () => {
     off();
@@ -971,6 +973,8 @@ function footer(stage, state, ctx, f) {
     return h('div.stp-foot.has-save', left, right);
   }
 
+  // [teams] the team this battle brings, beside Start (a tap: the team chips)
+  right.appendChild(teamChip({ testid: 'stage-team' }));
   right.appendChild(primary(f.isEndless ? 'Start endless' : f.fpOn ? `Start · ${newDiff} · ${f.fpName}` : startLabel(state.difficulty, state.mode), {
     testid: 'stage-start',
     disabled: !formationOk || !f.diffGate.ok,
@@ -1165,6 +1169,8 @@ function formationSec() {
     slots.push(id ? girlFace(id, { onClick: () => navigate('formation') }) : h('button.stp-girl.empty', { type: 'button', 'aria-label': 'Empty slot', onclick: () => navigate('formation') }, ico('plus')));
   }
   return sec('Formation',
+    // [teams] the 5 saved teams (GEAR_UPDATE §11.1): a tap switches the formation and the loadouts
+    teamChips({ testid: 'stage-team-chips' }),
     h('div.stp-formation', slots),
     h('div.stp-sec-foot', h('span.lbl', `${(f.towers || []).length}/${BATTLE.maxTowers} girls${f.hero ? ' + hero' : ''}`),
       h('button.ui-btn.ghost.stp-edit', { type: 'button', onclick: () => navigate('formation') }, 'Edit formation', ico('chevR'))));
