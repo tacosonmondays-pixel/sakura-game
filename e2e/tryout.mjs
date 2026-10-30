@@ -655,19 +655,23 @@ for (const [W, H] of viewports) {
   const twistLine = midPeps.lines.find((l) => l.startsWith('Grade twist this period: ')) || '';
   check(!!midPeps.want.dare && dareLine.length > 26 && !/object|undefined/i.test(dareLine), `mid-period, the list names the Double Dare curse (${JSON.stringify(dareLine)}, dare ${midPeps.want.dare})`);
   check(twistLine.length > 26 && !/object|undefined/i.test(twistLine), `mid-period, the list names the Grade twist (${JSON.stringify(twistLine)})`);
-  // (r1 F2) the tracker's opener and the list's × are full taps (the kit's 44 px at least), and the opener's tap square
-  // is the element hit at its edges
+  // (r1 F2) the tracker's opener and the list's × are full taps (the kit's 44 px at least)
   const taps = await page.evaluate(() => {
     const sz = (q) => { const r = document.querySelector(q)?.getBoundingClientRect(); return r ? [Math.round(r.width), Math.round(r.height)] : [0, 0]; };
-    const o = document.querySelector('[data-testid="ty-peps-open"]').getBoundingClientRect();
-    const hitAt = (x, y) => document.elementFromPoint(x, y)?.closest('[data-testid="ty-peps-open"]') != null;
-    return { open: sz('[data-testid="ty-peps-open"]'), x: sz('[data-testid="ty-peps-close"]'), edges: hitAt(o.left + 2, o.bottom - 2) && hitAt(o.right - 2, o.top + 2) };
+    return { open: sz('[data-testid="ty-peps-open"]'), x: sz('[data-testid="ty-peps-close"]') };
   });
-  check(Math.min(...taps.open, ...taps.x) >= 44 && taps.edges, `the tracker's Pep Talks button and the list's × are 44 px taps (${JSON.stringify(taps)})`);
   await shot('ty-peps-mid');
   if (SHOTS_R2) await page.screenshot({ path: `${SHOTS_R2}/peps-mid-${W}x${H}.png`, timeout: 60000 }).catch(() => {});
   await page.keyboard.press('Escape');
   await page.evaluate((had) => { window.__battle.sim.tryout.affixes = had; }, midPeps.had);
+  // (the list closed: the opener's tap square is what a tap at its corners hits)
+  await page.waitForFunction(() => !document.querySelector('[data-testid="ty-peps-sheet"]'), null, { timeout: 3000 }).catch(() => {});
+  taps.edges = await page.evaluate(() => {
+    const o = document.querySelector('[data-testid="ty-peps-open"]').getBoundingClientRect();
+    const hitAt = (x, y) => document.elementFromPoint(x, y)?.closest('[data-testid="ty-peps-open"]') != null;
+    return hitAt(o.left + 2, o.bottom - 2) && hitAt(o.right - 2, o.top + 2) && hitAt(o.left + o.width / 2, o.bottom - 2);
+  });
+  check(Math.min(...taps.open, ...taps.x) >= 44 && taps.edges, `the tracker's Pep Talks button and the list's × are 44 px taps (${JSON.stringify(taps)})`);
 
   // 4. to Recess (R2: at the Pep Talk picks, the cap bars, MORE and a tap outside a preview)
   let barsSeen = 0;
@@ -800,7 +804,8 @@ for (const [W, H] of viewports) {
     const top = (e) => Math.round(e.getBoundingClientRect().top);
     return { first: top(vis[0]), ready: top(document.querySelector('[data-testid="ty-ready"]')) };
   });
-  check(Math.abs(readyRow.first - readyRow.ready) <= 2, `Back to class sits on the break bar's first row (${JSON.stringify(readyRow)})`);
+  // (wide screens, where the bar holds the Pep Talks button; a phone's bar has none, and a portrait phone's own wrap is its width)
+  if (W >= 700) check(Math.abs(readyRow.first - readyRow.ready) <= 2, `Back to class sits on the break bar's first row (${JSON.stringify(readyRow)})`);
   check((H > 430 || brkRow.rows === 1) && brkRow.clear, `the break bar keeps its buttons in one row on a phone and clear of the tracker (${JSON.stringify(brkRow)})`);
 
   // 5. reload mid-break: the same run, the same break
