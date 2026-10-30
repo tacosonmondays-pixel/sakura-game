@@ -114,7 +114,8 @@ async function runViewport(vp) {
   const shot = async (name) => {
     await settle();
     await page.evaluate(() => Promise.all([...document.images].filter((i) => !i.complete).map((i) => new Promise((r) => { i.onload = i.onerror = r; setTimeout(r, 3000); })))).catch(() => {});
-    await page.screenshot({ path: `${shotsDir}/${vp}-${name}.png` });
+    // (90 s: on a busy machine the software renderer can take over 30 s for one frame of the profile)
+    await page.screenshot({ path: `${shotsDir}/${vp}-${name}.png`, timeout: 90000 });
   };
   const cdp = touch ? await context.newCDPSession(page) : null;
   const touchEvent = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1 }] });
@@ -192,7 +193,9 @@ async function runViewport(vp) {
   }));
   check(first.fav === 'luna' && first.favImg, `the favorite stand shows the secretary (${first.fav})`);
   check(first.slots === 8 && first.auto === '1', `an auto showcase of 8 (${first.slots}, auto=${first.auto})`);
-  check(first.medals.length === 4 && first.medals[0] === '59/59', `the medal tally over 59 stages (${first.medals.join(' ')})`);
+  // (every stage of the campaign: 59 before the Gate Arc's Acts, 89 with Acts 1-6; the game's own count)
+  const stages = await page.evaluate(async () => (await import('/src/systems/profileTrophies.js')).STAGE_COUNT);
+  check(first.medals.length === 4 && first.medals[0] === `${stages}/${stages}`, `the medal tally over every stage (${stages}: ${first.medals.join(' ')})`);
   check(first.pins === 4, `the best 4 medals are pinned automatically (${first.pins})`);
   check(first.fp.join(',') === '212,168,121', `Freeplay Records per tier (${first.fp.join(',')})`);
   check(first.hold === 'off', 'the profile root opts out of the global hold');

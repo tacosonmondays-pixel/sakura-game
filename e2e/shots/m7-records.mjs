@@ -73,6 +73,33 @@ const visitAfter = async (page) => {
   await reopen(page, false);
 };
 const profileSheet = (sel, waitFor) => ({ hash: '#/profile', ready: isScreen('profile'), kind: 'detail', rebuilt: true, open: clickOpen(sel, waitFor), after: closeSheets });
+/**
+ * An LR girl in the auto showcase: Tenka at LV 60, gate 5, ★5 after her Limit Break (the banners' Nightglass frame on
+ * the showcase card, which came into profile/parts.js with v0.1.59, after M7a's review round 1). The save is put back
+ * after the shot.
+ */
+const lrPrep = (page) => page.evaluate(async () => {
+  const { store } = window.__sakura;
+  const p = store.profile;
+  const counters = (p.missions.counters ||= {});
+  window.__m7aLr = { unit: p.units.tenka ? JSON.parse(JSON.stringify(p.units.tenka)) : null, lr: counters['lr:tenka'] };
+  if (!p.units.tenka) (await import('/src/systems/unlocks.js')).grantUnit(p, 'tenka', 1760000000000);
+  Object.assign(p.units.tenka, { level: 60, breakthrough: 5, awaken: 5 });
+  counters['lr:tenka'] = 1;
+  store.commit('e2e');
+});
+const lrAfter = (page) => page.evaluate(() => {
+  const s = window.__m7aLr;
+  if (!s) return;
+  const { store } = window.__sakura;
+  const p = store.profile;
+  if (s.unit) p.units.tenka = s.unit;
+  else delete p.units.tenka;
+  if (s.lr == null) delete p.missions.counters['lr:tenka'];
+  else p.missions.counters['lr:tenka'] = s.lr;
+  window.__m7aLr = null;
+  store.commit('e2e');
+});
 export const shots = {
   'profile-edit': profileSheet('#app [data-testid="profile-edit"]', '[data-testid="edit-profile"]'),
   // the profile's other sheets: Edit Showcase, the pin picker, the Preview (the visitor layout)
@@ -94,6 +121,8 @@ export const shots = {
   'event-missions': ev('missions'),
   'event-exchange': ev('exchange'),
   'event-gifts': ev('gifts'),
+  // (last: the save changes for it) an LR girl's showcase card
+  'profile-lr': { hash: '#/profile', prepare: lrPrep, after: lrAfter, ready: isScreen('profile'), kind: 'detail', rebuilt: true },
 };
 /** Gate options for ui-shots' own `profile` shot. */
 export const gate = { profile: { rebuilt: true } };
