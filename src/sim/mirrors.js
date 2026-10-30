@@ -533,7 +533,7 @@ function glint(sim, p, x, y) {
   const e = bestTarget(sim, x, y, spec.range, spec, p.owner.targetMode || 'first');
   if (!e) return;
   sim._hit(e, p.owner, spec, (p.scale ?? 1) * GLINT_MUL);
-  sim._emit('mirrorGlint', { uid: p.uid, towerUid: p.ownerUid, x, y, tx: e.x, ty: e.y, targetUid: e.uid });
+  sim._emit('mirrorGlint', { uid: p.uid, towerUid: p.mirrorOf, ownerUid: p.ownerUid, x, y, tx: e.x, ty: e.y, targetUid: e.uid });
 }
 
 /** Kaleidoscope (§4): `n` shards from the mirror at other enemies in her range of it (SHARD_BUDGET a step). */

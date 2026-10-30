@@ -14,7 +14,7 @@ import { ABILITIES, abilityRuns } from '../../src/data/abilities.js';
 import { abilityPathOf, handlerOf } from '../../src/sim/abilities.js';
 import { spawnProjectile } from '../../src/sim/towers.js';
 import {
-  mirrorCount, mirrorsReflect, collectMirrors, autoSpots, routeBolt, MIRROR_MAX, BOUNCE_CAP, SHARD_BUDGET, WEB_TICK, MIN_LEG,
+  mirrorCount, mirrorsReflect, collectMirrors, autoSpots, routeBolt, MIRROR_MAX, BOUNCE_CAP, SHARD_BUDGET, WEB_TICK, MIN_LEG, GLINT_MUL,
   WEB_HITS_PER_STEP, stepStart, updateWebs,
 } from '../../src/sim/mirrors.js';
 import { snapshotSim, restoreSim, snapshotDigest } from '../../src/sim/snapshot.js';
@@ -391,6 +391,87 @@ describe('Reflected Bolt', () => {
     expect(shards).toBeLessThanOrEqual(SHARD_BUDGET);
     expect(shards).toBeGreaterThan(0);
     expect(sim.projectiles.length).toBeGreaterThan(before);
+  });
+});
+
+describe('the glint (a real bounce strikes the best enemy in her range of that mirror)', () => {
+  /** Her mirrors one tile off the road at x 6 and 11, an enemy on the road under mirror 0 (no leg crosses it). */
+  function glintLane(over = {}) {
+    const { sim, iroha } = lane({ spots: [[6, 3.5], [11, 3.5]] });
+    const e = at(sim, 6, { hpMul: 1e4 });
+    // (pinned: the sim recomputes a tunnel's `hidden` every step, and the fixture road has no tunnel)
+    for (const [k, v] of Object.entries(over)) Object.defineProperty(e, k, { get: () => v, set: () => {}, configurable: true, enumerable: true });
+    steps(sim, 1);
+    return { sim, iroha, e };
+  }
+  /** Fires one bolt at `tgt` and returns the hits on `e` with their scale and the glint events. */
+  function fire(sim, iroha, e, tgt = e, spec = null) {
+    const scales = [];
+    const real = sim._hit.bind(sim);
+    sim._hit = (en, tw, sp, scale) => {
+      if (en === e) scales.push(scale);
+      return real(en, tw, sp, scale);
+    };
+    const p = bolt(sim, iroha, tgt);
+    if (spec) p.spec = spec;
+    const evs = fly(sim, p);
+    sim._hit = real;
+    return { p, scales, glints: of(evs, 'mirrorGlint').filter((v) => v.uid === p.uid) };
+  }
+
+  test('a real bounce strikes it at GLINT_MUL (0.8) of the bolt\'s hit; the event names her mirror and the enemy', () => {
+    const { sim, iroha, e } = glintLane();
+    expect(GLINT_MUL).toBe(0.8);
+    const { p, scales, glints } = fire(sim, iroha, e);
+    expect(glints.length).toBeGreaterThanOrEqual(1);
+    expect(glints[0]).toMatchObject({ towerUid: iroha.uid, ownerUid: iroha.uid, targetUid: e.uid, x: 6, y: 3.5 });
+    expect(scales).toContain(0.8);
+    // (every glint is one 0.8 hit; the rest is the final leg's full hit)
+    expect(scales.filter((x) => x === 0.8)).toHaveLength(glints.length);
+    expect(p.steps).toBe(2);
+  });
+
+  test('no glint at an enemy it can\'t touch: in a tunnel, veiled without Veil Sight, or flying past a ground-only bolt', () => {
+    for (const [what, over, spec] of [
+      ['tunnel', { hidden: true }, null],
+      ['veiled', { veiled: true, revealed: false }, null],
+      ['air', { airborne: true, grounded: false }, 'ground'],
+    ]) {
+      const { sim, iroha, e } = glintLane(over);
+      // (a ground-only spec for the flyer: her own bolts hit flyers)
+      const sp = spec ? { ...iroha.eff, canHitAir: false } : null;
+      const dummy = at(sim, 13, { hpMul: 1e4 });
+      steps(sim, 1);
+      const { scales, glints } = fire(sim, iroha, e, dummy, sp);
+      expect(glints.filter((g) => g.targetUid === e.uid), what).toEqual([]);
+      expect(scales, what).toEqual([]);
+    }
+  });
+
+  test('no glint on a short leg (mirrors stacked) and none from an ally\'s reflected copy', () => {
+    // stacked: only the first (real) bounce glints
+    const { sim, iroha } = lane();
+    const e = at(sim, 8.5, { hpMul: 1e4 });
+    steps(sim, 1);
+    iroha.mirrors = [{ x: 8.5, y: 3.5 }, { x: 8.5, y: 3.5 }];
+    iroha.stats.relay.bounces = 6;
+    const p = bolt(sim, iroha, e);
+    const evs = fly(sim, p);
+    expect(of(evs, 'mirrorBounce').filter((v) => v.uid === p.uid)).toHaveLength(6);
+    expect(of(evs, 'mirrorGlint').filter((v) => v.uid === p.uid)).toHaveLength(1);
+    // an ally's copy bouncing on her mirrors never glints
+    const t2 = lane({ tiers: [5, 0, 0], spots: [[6.5, 5.5], [10.5, 4.5], [8.5, 4.5]] });
+    const aoi = girl(t2.sim, 'aoi', 7.5, 6.5);
+    silence(aoi);
+    const boss = at(t2.sim, 5.5, { hpMul: 1e4 });
+    at(t2.sim, 13, { hpMul: 1e4 });
+    steps(t2.sim, 1);
+    const a = spawnProjectile(t2.sim, aoi, aoi.eff, boss, aoi.x, aoi.y);
+    const evs2 = steps(t2.sim, 90);
+    const sp = of(evs2, 'mirrorSplit').filter((v) => v.uid === a.uid);
+    expect(sp).toHaveLength(1);
+    expect(of(evs2, 'mirrorBounce').filter((v) => v.uid === sp[0].copyUid).length).toBeGreaterThan(0);
+    expect(of(evs2, 'mirrorGlint').filter((v) => v.uid === sp[0].copyUid)).toEqual([]);
   });
 });
 
