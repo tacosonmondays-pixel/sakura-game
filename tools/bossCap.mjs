@@ -93,7 +93,11 @@ function roadTime(sim, id, path) {
   return Math.round(L / Math.max(0.01, v));
 }
 
-function measure(sim, w) {
+/**
+ * The kill capacity of the board `sim` stands on, against each of `bosses` at wave `w` (tools/wyrmGate.mjs calls it on
+ * its own board). Leaves the board standing, its enemies cleared.
+ */
+export function measure(sim, w, bosses = BOSSES) {
   const keepTowers = sim.towers.length;
   for (const e of sim.enemies) e.dead = true;
   sim._removeDead();
@@ -108,7 +112,7 @@ function measure(sim, w) {
   };
   const path = longestPath(sim);
   const res = {};
-  for (const id of BOSSES) {
+  for (const id of bosses) {
     const sch = scheduled(sim.data, id, w);
     let lo = 1e4;
     let hi = 1e13;

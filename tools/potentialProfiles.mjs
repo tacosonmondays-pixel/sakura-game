@@ -18,6 +18,8 @@
 // | whale      | everyone P6                                       | 85    | urLate|
 // | full       | everyone P6, ★5, 10 gates, UR Resonance on, the duo LR | 85 | full  |
 //
+// `--profile full --gear urLate5|lrSet5|lrBlank4|lrBlank5`: that girl in five real pieces (tools/balance/gearPresets.mjs).
+//
 // `full` is balance round 5's fully maxed girl (tools/balance/maxedProfile.mjs: three UR +12 Taiko pieces at average
 // rolls through the game's own unitBattleStats, UR Resonance on): the strongest account a player can reach.
 //
@@ -29,6 +31,7 @@ import { MAXED } from './freeplayBot.mjs';
 import { DEFAULT_UNIT_STATS } from '../src/sim/constants.js';
 import { UNIT_MAP } from '../src/data/units.js';
 import { maxedStats, RESONANCE_ON } from './balance/maxedProfile.mjs';
+import { presetId, presetStats, PRESET_IDS } from './balance/gearPresets.mjs';
 
 export const GEAR = Object.freeze({
   maxed: MAXED,
@@ -64,8 +67,10 @@ const levelRate = (L) => 1 + 0.004 * (L - 1);
 /** Battle stats of one girl under a profile ({ potential, level, gear }). */
 export function profileStats(unitId, prof) {
   if (prof.gear === 'full') return { ...DEFAULT_UNIT_STATS, ...maxedStats(unitId, RESONANCE_ON) };
+  // the five-piece presets (tools/balance/gearPresets.mjs): `full`'s girl in five real pieces
+  if (presetId(prof.gear)) return { ...DEFAULT_UNIT_STATS, ...presetStats(unitId, prof.gear) };
   const g = GEAR[prof.gear];
-  if (!g) throw new Error(`unknown gear block ${prof.gear} (maxed, late, urLate, full)`);
+  if (!g) throw new Error(`unknown gear block ${prof.gear} (maxed, late, urLate, full, ${PRESET_IDS.join(', ')})`);
   const L = prof.level;
   return {
     ...DEFAULT_UNIT_STATS,

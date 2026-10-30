@@ -3,7 +3,7 @@
 // every 0.5 s of game time, and prints one JSON line: the wave it fell on, the first leak, lives
 // lost by enemy tier, final-tier and tier-4 counts, the girls, coins earned and left unspent.
 //
-//   node --import ./tools/simLoader.mjs tools/capBot.mjs --build A|A2|B|C --stage 4-5 --tier blossom
+//   node --import ./tools/simLoader.mjs tools/capBot.mjs --build A|A2|W|LR|B|C --stage 4-5 --tier blossom
 //        [--seed 7] [--maxWave 260] [--coop 1|2] [--difficulty normal] [--log]
 //        [--profile p1|f2p-steady|f2p-late|whale] [--potential p1|f2p-steady|whale|1…6]
 //        [--level 60|75|85] [--gear maxed|late|urLate|full] [--lives N]
@@ -18,6 +18,8 @@
 //      (carries first) → final tiers on the copy-1 main paths (carries, then supports) → copy 2 of
 //      each type to its own final path → further copies at tier 4 up to the cap → any free final path.
 //   A2 Build A with Chika (copy 1 0-5-2: tune-up / overclock; copy 2 5-2-0) instead of Momo.
+//   W  GS §D.1's Build W: Kaede, Chika, Hotaru, Shiro, Kage, Sango, Midori, Miko; hero Luna (G4).
+//   LR the duo (Kohaku & Tsubaki) and Tenka as the carries with Umeko, Miko, Midori, Chika; hero Hikari (G4).
 //   B  "Kage army", 28 Kages: 5-0-2 / 2-0-5 / 2-5-0, then 4-0-2. Order: 8 copies at 2-0-0 → all to
 //      tier 3 → tier 4 → the three final tiers → more copies.
 //   C  the research's std team (tools/freeplayBot.mjs, cheapest step first, cap-aware).
@@ -64,10 +66,17 @@ const PLANS = {
   midori: ['5-0-2', '2-0-5', null, null],
   momo: ['5-0-2', '0-5-2', null, null],
   chika: ['0-5-2', '5-2-0', null, null],
+  // boards W and LR (GEAR_UPDATE.md §8.4 G4): copy 1 on her best tier-5 boss build (tools/balance/r5Bench.mjs
+  // --targets boss: Kaede 5-0-2, Hotaru 5-0-2, the duo 5-0-2, Tenka 2-5-0), copy 2 on her next final path
+  kaede: ['5-0-2', '2-0-5', null, '4-0-2'],
+  hotaru: ['5-0-2', '4-0-2', null, '4-0-2'],
+  kohaku_tsubaki: ['5-0-2', '2-0-5', null, '4-0-2'],
+  tenka: ['2-5-0', '5-0-2', null, '2-4-0'],
+  umeko: ['2-5-0', '5-2-0', null, null],
 };
 const KAGE_ARMY = ['5-0-2', '2-0-5', '2-5-0', '4-0-2'];
 const CARRIES = ['shiro', 'kage', 'aoi', 'akane', 'sango'];
-const SUPPORTS = new Set(['miko', 'midori', 'chika']);
+const SUPPORTS = new Set(['miko', 'midori', 'chika', 'umeko']);
 const HERO = 'hikari';
 const HERO_PLAN = '5-0-2';
 
@@ -84,6 +93,7 @@ function planOf(p) {
  * truthy on success; `cash()` this player's coins; `mine(t)` whether a tower is hers.
  */
 function makeBrain({ sim, types, first, cap, copiesOf, carries, hero, act, cash, mine, prep = () => {} }) {
+  const HERO = hero || 'hikari';
   const meta = new Map(); // uid → { type, idx, plan, refused: Set<path> }
   const order = []; // uids in placement order
   let heroUid = null;
@@ -298,6 +308,10 @@ function makeBrain({ sim, types, first, cap, copiesOf, carries, hero, act, cash,
 
 function buildConfig(name) {
   if (name === 'B') return { types: ['kage'], first: null, cap: 28, copiesOf: () => KAGE_ARMY, carries: ['kage'] };
+  // W: GS §D.1's Build W (Kaede, Chika, Hotaru, Shiro, Kage, Sango, Midori, Miko; hero Luna); LR: the duo and Tenka as
+  // the carries with Umeko, Miko, Midori and Chika (hero Hikari). GEAR_UPDATE.md §8.4 G4
+  if (name === 'W') return { types: ['kaede', 'chika', 'hotaru', 'shiro', 'kage', 'sango', 'midori', 'miko'], first: null, cap: 32, copiesOf: (ty) => PLANS[ty], carries: ['kaede', 'hotaru', 'shiro', 'kage', 'sango'], hero: 'luna' };
+  if (name === 'LR') return { types: ['kohaku_tsubaki', 'tenka', 'umeko', 'miko', 'midori', 'chika'], first: null, cap: 32, copiesOf: (ty) => PLANS[ty], carries: ['kohaku_tsubaki', 'tenka'], hero: 'hikari' };
   const types = name === 'A2' ? ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'chika'] : ['shiro', 'kage', 'aoi', 'akane', 'sango', 'miko', 'midori', 'momo'];
   return { types, first: name === 'A2' ? null : 'momo', cap: 32, copiesOf: (ty) => PLANS[ty], carries: CARRIES };
 }
@@ -335,7 +349,8 @@ export function runSolo({ data = {}, after = null, maxWave: lastWave = maxWave }
   const cfg = buildConfig(build);
   const stage = coop === 1 ? coopStage(stageId, { freeplay: tier }) : soloFreeplayStage(stageId, tier);
   const loadout = cfg.types.map((unitId) => ({ unitId, stats: statsOf(unitId) }));
-  const sim = withDetMath(() => new Sim({ stageId, difficulty, seed, loadout, hero: { unitId: HERO, stats: statsOf(HERO) }, options: { freeplay: true, autoStart: false }, data: { ...data, stage } }));
+  const hero = cfg.hero || HERO;
+  const sim = withDetMath(() => new Sim({ stageId, difficulty, seed, loadout, hero: { unitId: hero, stats: statsOf(hero) }, options: { freeplay: true, autoStart: false }, data: { ...data, stage } }));
   if (coop === 1) sim.cash = Math.round(sim.cash * COOP.cashShare * 2);
   if (livesOpt > 0) sim.lives = sim.maxLives = livesOpt;
   const act = (k, a, b) => {
@@ -344,7 +359,7 @@ export function runSolo({ data = {}, after = null, maxWave: lastWave = maxWave }
     if (k === 'tgt') return sim.setTargetMode(a, b);
     return null;
   };
-  const brain = makeBrain({ sim, ...cfg, hero: HERO, act, cash: () => sim.cash, mine: () => true });
+  const brain = makeBrain({ sim, ...cfg, hero, act, cash: () => sim.cash, mine: () => true });
   const spend = build === 'B' ? kageArmySpend(sim, brain, act) : brain.spend;
   const t0 = Date.now();
   withDetMath(() => {

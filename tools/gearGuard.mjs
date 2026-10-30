@@ -3,6 +3,11 @@
 // UR_LATE (rainbow gear's endpoint) and the club presets must never beat the wave-250 Eclipse Wyrm.
 //
 //   node --import ./tools/simLoader.mjs tools/gearGuard.mjs [--stages 4-5,1-5] [--tiers blossom,crimson] [--seeds 7,11] [--presets maxed,late,urLate,urLateClubs]
+//   node --import ./tools/simLoader.mjs tools/gearGuard.mjs --build A,A2,W,LR [--gears urLate,full,urLate5] [--stages …] [--tiers …] [--seeds …]
+//
+// --build (GEAR_UPDATE.md §8.4): the same rule over tools/capBot.mjs's boards with real coins (Builds A, A2, W, LR),
+// every girl in `--profile full` with each `--gears` block (capBot's --gear: urLate, full, or a five-piece preset of
+// tools/balance/gearPresets.mjs short of Blank LR). One process a run, `--jobs` at a time.
 //
 // Presets: MAXED (today's calibration), LATE (best of 10 Legendary), UR_LATE (the UR endpoint, GA §7.2),
 // and the primed club presets (gear-stats §D.4): `late'` / `urLate'` add Every Line Counts (×1.06 / ×1.065
@@ -47,7 +52,50 @@ export const PRESETS = {
   urLateClubs: { base: prime(UR_LATE, 1.065), per: lineup(prime(UR_LATE, 1.065)) },
 };
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+/** --build: capBot's boards, one process a run (capBot reads its own command line). */
+async function guardBuilds() {
+  const { spawn } = await import('node:child_process');
+  const { cpus } = await import('node:os');
+  const builds = String(arg('build', 'A')).split(',');
+  const gears = String(arg('gears', 'urLate,full,urLate5')).split(',');
+  if (gears.some((g) => /^lrBlank5/.test(g))) throw new Error('lrBlank5 is G4\'s preset (tools/wyrmGate.mjs): it may beat the Wyrm');
+  const stages = String(arg('stages', '4-5')).split(',');
+  const tiers = String(arg('tiers', 'blossom,crimson')).split(',');
+  const seeds = String(arg('seeds', '7,11')).split(',').map(Number);
+  const jobs = Math.max(1, Number(arg('jobs', Math.max(1, cpus().length - 1))));
+  const todo = [];
+  for (const build of builds) for (const gear of gears) for (const stageId of stages) for (const tier of tiers) for (const seed of seeds) todo.push({ build, gear, stageId, tier, seed });
+  const one = (j) => new Promise((resolve) => {
+    const p = spawn(process.execPath, ['--import', './tools/simLoader.mjs', 'tools/capBot.mjs', '--build', j.build, '--profile', 'full', '--gear', j.gear,
+      '--stage', j.stageId, '--tier', j.tier, '--seed', String(j.seed), '--maxWave', String(arg('maxWave', 250))], { stdio: ['ignore', 'pipe', 'inherit'] });
+    let buf = '';
+    p.stdout.on('data', (d) => { buf += d; });
+    p.on('close', (code) => {
+      try {
+        const r = JSON.parse(buf.trim().split('\n').pop());
+        resolve({ ...j, fell: r.fell, reached: r.reached, wyrm: r.fell == null && r.reached >= 250, wallSec: r.wallSec });
+      } catch {
+        resolve({ ...j, error: `exit ${code}` });
+      }
+    });
+  });
+  const rows = [];
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(jobs, todo.length) }, async () => {
+    while (next < todo.length) {
+      const row = await one(todo[next++]);
+      rows.push(row);
+      console.log(JSON.stringify(row));
+    }
+  }));
+  const beat = rows.filter((r) => r.wyrm);
+  const errs = rows.filter((r) => r.error);
+  console.log(`SUMMARY ${rows.length} runs over Builds ${builds.join(', ')}; beat the Eclipse Wyrm: ${beat.length}${beat.length ? ` (${beat.map((r) => `${r.build} ${r.gear} ${r.stageId} ${r.tier} s${r.seed}`).join(', ')})` : ''}${errs.length ? `; ${errs.length} error(s)` : ''}`);
+  process.exit(beat.length || errs.length ? 1 : 0);
+}
+
+if (import.meta.url === `file://${process.argv[1]}` && process.argv.includes('--build')) await guardBuilds();
+else if (import.meta.url === `file://${process.argv[1]}`) {
   const stages = String(arg('stages', '4-5')).split(',');
   const tiers = String(arg('tiers', 'blossom,crimson')).split(',');
   const seeds = String(arg('seeds', '7,11')).split(',').map(Number);
