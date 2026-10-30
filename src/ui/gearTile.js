@@ -111,7 +111,7 @@ export function gearTile(g, o = {}) {
   };
   if (v.selected) props['aria-pressed'] = 'true';
   return h(`${tag}.${cls}.ui-fr.${v.frame}${v.ur ? '.is-ur' : ''}`, props,
-    h('span.ui-gtile-ic', { 'aria-hidden': 'true', html: gearIcon(v.slot, g.rarity, { ur: v.ur }) }),
+    h('span.ui-gtile-ic', { 'aria-hidden': 'true', html: gearIcon(v.slot, g.rarity, { ur: v.ur, set: g.set }) }),
     corner('tl', v.tl), corner('tr', v.tr), corner('bl', v.bl),
     v.level ? h('span.ui-gtile-lv.num', { 'aria-hidden': 'true' }, v.level) : null,
     v.ur ? urRing() : null,

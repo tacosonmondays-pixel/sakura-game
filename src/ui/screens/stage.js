@@ -241,7 +241,7 @@ export function gearTile(gear, { size = 56 } = {}) {
       'data-tier': rarity ? gear.rarity : 'common',
       onclick: () => showGearInfo(gear),
     },
-    svgEl(gearIcon(gear.slot, gear.rarity, { px: size }), 'item-tile-icon'),
+    svgEl(gearIcon(gear.slot, gear.rarity, { px: size, set: gear.set }), 'item-tile-icon'),
   );
   cssVar(tile, '--rarity', rarity?.color || '#999');
   return tile;
