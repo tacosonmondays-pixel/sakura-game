@@ -22,6 +22,14 @@ const ART_KEYS = new Set([
   'recruitPoints',
 ]);
 
+// The gear set ids (docs/specs/GEAR_UPDATE.md 3.2; SET_IDS of the coming src/data/gearSets.js: switch to it when it
+// lands). A set look is gear_<set>_<slot>: one per set and slot, rarity on the tile. Never keyed by club.
+const SET_IDS = ['spirit', 'freezetag', 'geometry', 'popper', 'treasurer', 'powerbank'];
+const isSetKey = (k) => {
+  const m = /^gear_([a-z0-9]+)_([a-z]+)$/.exec(k);
+  return Boolean(m && SET_IDS.includes(m[1]) && GEAR_SLOTS[m[2]]);
+};
+
 const file = (key, size) => path.join(dir, `${key}-${size}.webp`);
 
 /** RIFF/WEBP with a VP8X header: alpha flag and canvas size. */
@@ -44,9 +52,10 @@ const sha8 = (paths) => {
 };
 
 describe('item art', () => {
-  it('every manifest key is an item id, a gear key or recruitPoints', () => {
+  it('every manifest key is an item id, a gear key (or a gear set look) or recruitPoints', () => {
+    for (const id of SET_IDS) expect(GEAR_SLOTS[id] || ITEM_RARITY_ORDER.includes(id) || id === 'ur', id).toBeFalsy();
     expect(Object.keys(ITEM_ART).length).toBeGreaterThan(0);
-    for (const k of Object.keys(ITEM_ART)) expect(ART_KEYS.has(k), k).toBe(true);
+    for (const k of Object.keys(ITEM_ART)) expect(ART_KEYS.has(k) || isSetKey(k), k).toBe(true);
     for (const k of Object.keys(ITEM_ART_SMALL)) expect(ITEM_ART[k], `${k} small cut without full art`).toBeTruthy();
   });
 

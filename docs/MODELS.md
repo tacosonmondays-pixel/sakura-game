@@ -572,6 +572,10 @@ old SVG drawing (`src/art/icons/items.js`) inside `<span class="ia">`, so every 
   and cached re-renders never show it. The ten small cuts (the HUD and the currency pills on nearly every screen)
   are fetched at boot (`preloadSmallItemArt`, from `src/main.js`). A key with no baked art returns the bare
   drawing (`hasItemArt`, `itemArtUrl`, `itemArtSVG`, `itemIconSVG`).
+- Gear (`gearIcon`, `gearArtKey`): `gear_<slot>_<rarity>` and `gear_<slot>_ur`, drawn from the gear tables in
+  `tools/blender/items/catalog.py` (a design row per slot and a shared rarity ladder in which the shape and trim grow
+  with rarity). A gear set gets one look per slot, `gear_<set>_<slot>` (rarity on the tile and the UR ring);
+  `{ set: g.set }` (the piece's gear set id, never its club) picks it when baked and the default look otherwise.
 - `crown_rainbow` ships the owner-approved file as is (PLAN C11, `models.SHIPPED` in the item pipeline), because
   the rebuild lost its iridescent band.
 - The item tile (`itemTile` in `src/ui/components.js`, CSS in `base.css` "Items") is the owner's slanted plate: a

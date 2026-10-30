@@ -62,6 +62,15 @@ export function ownedRibbons(profile) {
   return HONOR_RIBBONS.filter((h) => claimed(profile, h.id) || ribbonGifted(profile, h.id)).map((h) => h.id);
 }
 
+/**
+ * What the Case's "Earned" line adds for an owned ribbon: 'title' when the achievement was claimed and carries a
+ * title, 'gift' when a Mailbox letter gave the ribbon only (its title is still unearned), otherwise null.
+ */
+export function ribbonEarnedNote(profile, id) {
+  if (claimed(profile, id)) return ACHIEVEMENT_MAP[id]?.title ? 'title' : null;
+  return ribbonGifted(profile, id) ? 'gift' : null;
+}
+
 /** The two freeplay titles: from the 'fpm:' marks every build keeps, or the older progress.freeplay strings. */
 function freeplayTitleOwned(p, id) {
   const c = isObj(p?.missions?.counters) ? p.missions.counters : {};

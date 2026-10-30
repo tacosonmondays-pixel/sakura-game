@@ -41,7 +41,7 @@ export function buildModel(unit, prof) {
     if (!g || g.slot !== slot) return { slot, slotName: slotName(slot), empty: true };
     const L = gearLines(g);
     return {
-      slot, slotName: slotName(slot), rarity: g.rarity, ur: isUrLook(g), club: g.club || null, rarityName: isUrLook(g) ? 'UR' : ITEM_RARITIES[g.rarity]?.name || g.rarity, color: ITEM_RARITIES[g.rarity]?.color || '#9aa5b1', level: g.level || 0,
+      slot, slotName: slotName(slot), rarity: g.rarity, ur: isUrLook(g), club: g.club || null, set: g.set || null, rarityName: isUrLook(g) ? 'UR' : ITEM_RARITIES[g.rarity]?.name || g.rarity, color: ITEM_RARITIES[g.rarity]?.color || '#9aa5b1', level: g.level || 0,
       main: { name: statName(g.main.stat), text: statText(g.main.stat, L.main.value) },
       subs: L.subs.map((s) => ({ name: statName(s.stat), text: statText(s.stat, s.value), ups: Math.max(0, s.upgrades || 0), tuned: s.tuned || 0 })),
     };
@@ -105,7 +105,7 @@ function gearCard(g) {
   }
   const el = h('div.ub-gc', { 'data-testid': 'build-gear', 'data-slot': g.slot },
     h('div.ub-gc-head',
-      h('span.ub-gc-ico', svgEl(gearIcon(g.slot, g.rarity, { ur: g.ur }))),
+      h('span.ub-gc-ico', svgEl(gearIcon(g.slot, g.rarity, { ur: g.ur, set: g.set }))),
       h('span.ub-gc-slot', g.slotName, h('span.ub-gc-rar', g.rarityName), h('span.ub-gc-lv', `+${g.level}`))),
     h('div.ub-gc-main', h('span', g.main.name), h('b', g.main.text)),
     g.subs.length ? h('ul.ub-gc-subs', g.subs.map((s) => h('li', h('span', s.name), h('b', s.text), s.ups ? h('em', { title: `Upgraded ${s.ups}×` }, '▲'.repeat(s.ups)) : null))) : null);

@@ -125,6 +125,117 @@ describe('item art at runtime: every item has baked art', () => {
   });
 });
 
+describe('gear art: the 3D-flat gear icons (tools/blender/items models/gear.py, catalog GEAR_*)', () => {
+  const catalog = readFileSync(join(ROOT, 'tools/blender/items/catalog.py'), 'utf8');
+  const block = (name) => {
+    const at = catalog.indexOf(`${name} = dict(`);
+    expect(at, name).toBeGreaterThan(-1);
+    return catalog.slice(at, catalog.indexOf('\n)\n', at));
+  };
+
+  it('every gear slot of the game has a design row and every tier a ladder row in the catalog', () => {
+    const slots = block('GEAR_SLOT_ART');
+    for (const slot of Object.keys(GEAR_SLOTS)) expect(slots, slot).toMatch(new RegExp(`\\n    ${slot}=dict\\(base='(pendant|bow|sneaker|hairclip|necklace)'`));
+    const tiers = block('GEAR_TIERS');
+    for (const t of [...ITEM_RARITY_ORDER, 'ur']) expect(tiers, t).toMatch(new RegExp(`\\n    ${t}=dict\\(trim='`));
+  });
+
+  it('each slot shows its own baked image per rarity and UR, small through big', () => {
+    for (const slot of Object.keys(GEAR_SLOTS)) {
+      const hashes = new Set();
+      for (const r of [...ITEM_RARITY_ORDER, 'ur']) {
+        const key = `gear_${slot}_${r}`;
+        hashes.add(ITEM_ART[key]);
+        const rarity = r === 'ur' ? 'legendary' : r;
+        for (const px of [22, 32, 48, 104]) {
+          const im = img(gearIcon(slot, rarity, { ur: r === 'ur', px }));
+          expect(im.art, `${key} at ${px}px`).toBe(key);
+          expect(im.src).toBe(itemArtUrl(key, 128));
+          expect(im.srcset).toContain(itemArtUrl(key, 256));
+        }
+      }
+      expect(hashes.size, `${slot}: every tier has its own art`).toBe(6);
+    }
+  });
+
+  it('a set look (keyed by the gear set id, never the club) shows only when baked; otherwise the default look', () => {
+    for (const slot of Object.keys(GEAR_SLOTS)) {
+      const baked = ITEM_ART[`gear_spirit_${slot}`];
+      expect(gearArtKey(slot, 'mythic', { set: 'spirit' })).toBe(baked ? `gear_spirit_${slot}` : `gear_${slot}_mythic`);
+      expect(gearArtKey(slot, 'legendary', { ur: true, set: 'no_such_set' })).toBe(`gear_${slot}_ur`);
+      expect(gearArtKey(slot, 'rare', { set: null })).toBe(`gear_${slot}_rare`);
+      expect(gearArtKey(slot, 'mythic', { set: 'tea' })).toBe(`gear_${slot}_mythic`); // a club id is not a set
+      expect(img(gearIcon(slot, 'rare', { set: 'no_such_set' })).art).toBe(`gear_${slot}_rare`);
+    }
+    // every baked set look resolves through gearIcon for every rarity and keeps the piece's own drawing as fallback
+    for (const k of Object.keys(ITEM_ART).filter((x) => /^gear_[a-z0-9]+_[a-z]+$/.test(x) && !GEAR_KEYS.includes(x))) {
+      const [, set, slot] = /^gear_([a-z0-9]+)_([a-z]+)$/.exec(k);
+      for (const r of ['superRare', 'mythic', 'legendary']) {
+        const markup = gearIcon(slot, r, { set });
+        expect(img(markup).art).toBe(k);
+        expect(markup).toContain(itemArtSVG(`gear_${slot}_${r}`));
+      }
+      expect(img(gearIcon(slot, 'legendary', { ur: true, set })).art).toBe(k);
+      expect(itemArtSVG(k)).toMatch(/^<svg /);
+    }
+  });
+
+  it('every gearIcon / gearArtKey call in src passes the piece\'s gear set (set: <piece>.set), never its club', () => {
+    // Calls with no piece to take a set from, each with its reason. Anything else must pass `set: <piece>.set`.
+    const ALLOWED = [
+      ['src/ui/unitBuild.js', "gearIcon(g.slot, 'common')", 'the empty-slot placeholder: no piece is equipped'],
+      ['src/ui/screens/backpack.js', "gearIcon(id, 'rare')", 'the slot filter chips: a generic icon per slot, no piece'],
+      ['src/art/icons.js', 'gearArtKey(slot, rarity, { ur })', "gearIcon's own drawn fallback: always the default slot and rarity"],
+    ];
+    const files = [];
+    const walk = (dir) => {
+      for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${e.name}`;
+        if (e.isDirectory()) walk(rel);
+        else if (/\.(js|mjs)$/.test(e.name)) files.push(rel);
+      }
+    };
+    walk('src');
+    /** Every call `name(...)` in a source (balanced parentheses), without definitions or doc comments. */
+    const callsOf = (src, name) => {
+      const out = [];
+      const re = new RegExp(`(?<![\\w.])${name}\\(`, 'g');
+      let m;
+      while ((m = re.exec(src))) {
+        const line = src.slice(src.lastIndexOf('\n', m.index) + 1, m.index);
+        if (/function\s*$/.test(line) || /^\s*(\*|\/\/)/.test(line)) continue;
+        let depth = 0;
+        let k = m.index + name.length;
+        for (; k < src.length; k++) {
+          if (src[k] === '(') depth++;
+          else if (src[k] === ')' && --depth === 0) break;
+        }
+        out.push(src.slice(m.index, k + 1));
+      }
+      return out;
+    };
+    let seen = 0;
+    const used = new Set();
+    for (const f of files) {
+      const src = readFileSync(join(ROOT, f), 'utf8');
+      for (const name of ['gearIcon', 'gearArtKey']) {
+        for (const call of callsOf(src, name)) {
+          seen++;
+          const allow = ALLOWED.find(([af, ac]) => af === f && ac === call);
+          if (allow) {
+            used.add(allow);
+            continue;
+          }
+          expect(call, `${f}: ${call}`).toMatch(/\bset: [\w.]*\.set\b|\bset\b(?!:)/);
+          expect(call, `${f}: ${call}`).not.toMatch(/\.club\b/);
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(8);
+    expect(ALLOWED.filter((a) => !used.has(a)), 'stale allow-list rows').toEqual([]);
+  });
+});
+
 describe('item art while loading and on error', () => {
   const css = readFileSync(join(ROOT, 'src/ui/styles/base.css'), 'utf8');
   const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel, body]) => ({ sel: sel.replace(/\/\*[\s\S]*?\*\//g, '').trim(), body }));
