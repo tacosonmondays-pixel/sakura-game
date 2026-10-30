@@ -278,9 +278,11 @@ function cleanUnit(raw, now, unitId) {
  * line marks: `night` (the Nightglass ✦, LR only, never in `tuned`) and `top` (a pin: the base is its best roll).
  */
 function cleanStat(raw, { sub = false, slot = null } = {}) {
+  // (first: a null / missing line drops only that line, or its piece for a main, never the whole save; review M0 r2 M1)
+  if (!isObj(raw)) return null;
   // (a classic slot keeps main's rule, any of today's eight stats; the Hair Clip and the Necklace check their pool)
   const mainOk = isNewSlot(slot) ? MAIN_STATS_BY_SLOT[slot].includes(raw.stat) : !!GEAR_STATS[raw.stat];
-  if (!isObj(raw) || !(sub ? SUB_STAT_KEYS.includes(raw.stat) : mainOk)) return null;
+  if (!(sub ? SUB_STAT_KEYS.includes(raw.stat) : mainOk)) return null;
   const out = { stat: raw.stat, value: num(raw.value, 0, 0) };
   if (raw.base != null) out.base = num(raw.base, out.value, 0);
   if (raw.upgrades != null) out.upgrades = int(raw.upgrades, 0, 0, 10);
