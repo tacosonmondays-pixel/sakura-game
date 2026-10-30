@@ -10,6 +10,12 @@ export const CUE_TABLE = {
     a.music.setStems({ riser: 1, base: 0.7 }, { quantize: 'beat', fadeBars: 1 });
   },
   'gacha.open': (a) => a.sfx('gacha.open'),
+  // the recruit cinematic (docs/RECRUIT_CINEMATIC.md): the Gate surging (SSR / LR) and a girl's mark stamping in;
+  // the Gate powering on rides the envelope's riser, her name has no sound of its own
+  'gacha.gate': () => {},
+  'gacha.surge': (a) => a.sfx('gacha.flipSSR', { gain: -3 }),
+  'gacha.name': () => {},
+  'gacha.stamp': (a) => a.sfx('gacha.flipSR', { gain: -2 }),
   'gacha.flip': (a, d) => {
     const r = ['R', 'SR', 'SSR'].includes(d.rarity) ? d.rarity : 'R';
     if (d.instant) {
