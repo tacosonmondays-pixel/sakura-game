@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Status | Design spec. **S1 "Wheels" is built on `feature/attack-shapes`** (not shipped: it waits for the owner's yes on the board); defaults, parity and the S2-S4 plan in the Addendum at the end. Folded into the VFX update plan as its own track |
+| Status | Design spec. **S1 "Wheels" is built on `feature/attack-shapes`** (not shipped: it waits for the owner's yes on the board); defaults, parity and the S2-S4 plan in the Addendum at the end. S5 (six more girls) is designed in `docs/specs/ATTACK_SHAPES_S5.md` (A10). Folded into the VFX update plan as its own track |
 | Owner request | Oct 28, 2026 |
 | Written against | `main` 793dfcfa (v0.1.57 "Ultimates"), sim id `2c3c74708a2c`, `COOP_PROTOCOL` 10; `origin/feature/banners` ead2a378 (`COOP_PROTOCOL` 11, the duo); `origin/feature/vfx` 09c057a4 (`docs/VFX.md`, `docs/ATTACK_FX.md`) |
 | Reader | A future session that knows the codebase basics (sim / renderer split, co-op lockstep, attack FX layer) |
@@ -853,3 +853,7 @@ with the held ticks).
   the branch.**
 - Perf: `tests/sim/perf.test.js` "link attack shapes": 6 Fuus at T5, 6 Enas at T5 and 2 Akanes' Hearth Streams (the hook's busiest
   caller) with 200 enemies. Up to 48 fans, 15 groups and 72 shares a step, at 0.35-0.43 ms a step locally (limit 2 ms).
+
+### A10. S5: six more (design only)
+
+The owner approved six more reworks on Oct 30: Midori, Raika, Rei, Luna (hero), Miko and Suzu, one path each, no nerfs. The design is in its own page, `docs/specs/ATTACK_SHAPES_S5.md`. It covers paths and tiers, the four S5 rules (her live attack stays and the shape goes on top; clean hits; no new rng draws; a lone enemy reads live), the parity target on the no-nerf gate, risks, tests and the estimate. The owner board is `docs/review/attack-shapes-s5/`. Nothing is built yet.
