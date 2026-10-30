@@ -146,8 +146,6 @@ export function createProfile() {
   // [story] this save was created with the story: an older build that drops profile.story keeps
   // this mark (missions.counters), so the block comes back as a new player's, never as legacy
   missions.counters[STORY_NEW_MARK] = 1;
-  // [gear update] born after the sets update: no veterans' Set Boxes (gearSets.js grantSetBoxGifts)
-  missions.counters[MARK.veteran] = 1;
   const p = {
     version: SAVE_VERSION,
     createdAt: now,
@@ -685,8 +683,8 @@ export function migrateProfile(raw) {
   // [gear update] teams and gear loadouts an older build dropped come back from 'tm:' / 'gp:'; present fields win
   // (the formation is the active team, what she wears is her active loadout), and the mirrors are rewritten
   restoreTeams(p);
-  // [gear update] the veterans' Set Boxes once (su:vet) and the welcome Set Box for a save past 3-5 (gearSets.js)
-  grantSetBoxGifts(p);
+  // [gear update] the one-time Set Boxes owed (su:welcome, su:titanbox:<titan>; gearSets.js), in one letter
+  grantSetBoxGifts(p, { mode: 'mail', now });
   // [ascension] bought Potential, gates 6–10 and the Ascension items an older build dropped, then the
   // one-time switch to Essence (counted duplicates become Potential for free + the welcome pouch)
   restoreAscension(p);

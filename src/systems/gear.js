@@ -15,7 +15,7 @@
 
 import { GEAR_SUBSTATS_BY_RARITY, ITEM_RARITIES, ITEM_RARITY_ORDER } from '../data/types.js';
 import { SLOT_IDS, ROLL_SLOTS, MAIN_STATS_BY_SLOT, isSlot, isNewSlot, slotName } from '../data/gearSlots.js';
-import { setPieceName, GEAR_SETS, SET_IDS } from '../data/gearSets.js';
+import { setPieceName, GEAR_SETS, SET_IDS, TITAN_SETS } from '../data/gearSets.js';
 import {
   GEAR_STAT_DEFS, GEAR_STAT_KEYS, BASE_STAT_KEYS, statName, subPool, BATTLE_CAPS, CAPPED_STATS, fillStats, midRoll, AURA_FILL_M, FILL_WORTH, GEAR_FIT,
   AURA_FILL_FROM, SET_CAP_STATS, FILL_SOFT_BY_PIECES,
@@ -405,7 +405,8 @@ export function boxMark(g) {
 export function openRainbowBox(profile, slot, rng, { club = 'random', set = null } = {}) {
   // the gear update (GEAR_UPDATE.md §3.6): any of the five slots and a titan set the player picks; a Hair Clip or a
   // Necklace exists only as a set piece
-  const setId = set && SET_IDS.includes(set) ? set : null;
+  // (a titan set: the four Titan Trials sets, GEAR_UPDATE.md §3.6)
+  const setId = set && Object.values(TITAN_SETS).includes(set) ? set : null;
   if (!SLOT_IDS.includes(slot) || (isNewSlot(slot) && !setId)) return { ok: false, error: 'slot', gear: null };
   if (gearRoom(profile) <= 0) return { ok: false, error: 'bagFull', gear: null };
   if (!consumeItems(profile, [{ id: RAINBOW_BOX_ID, count: 1 }])) return { ok: false, error: 'missing', gear: null };
@@ -603,7 +604,7 @@ export function enhanceCost(gear) {
 const BOX_PAID_LEVELS = (1 << MAX_GEAR_LEVEL) - 1;
 export function boxPaidBits(profile, uid) {
   const c = profile?.missions?.counters;
-  const v = c?.[MARK.boxPaid + uid] ?? c?.[MARK.piecePaid + uid];
+  const v = c?.[MARK.boxPaid + uid];
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) & BOX_PAID_LEVELS : 0;
 }
 
@@ -658,9 +659,9 @@ export function enhanceGear(profile, uid) {
   if (!consumeItems(profile, [{ id: 'coins', count: cost }])) return { ok: false, error: 'missing', missing: [{ id: 'coins', need: cost, have: itemCount(profile, 'coins') }] };
   // a UR piece below +10 is box-born (awakening needs +10): note that this level was paid at UR prices
   if (isUrGear(gear) && gear.level < MAX_GEAR_LEVEL) {
-    // (a Hair Clip / Necklace keeps its bits in its own key, never the legacy `gbl:`)
+    // (a Hair Clip / Necklace too: `gbl:` is inert in an older build, spec r3 L19)
     const c = (profile.missions ||= {}).counters ||= {};
-    c[(isNewSlot(gear.slot) ? MARK.piecePaid : MARK.boxPaid) + uid] = boxPaidBits(profile, uid) | (1 << gear.level);
+    c[MARK.boxPaid + uid] = boxPaidBits(profile, uid) | (1 << gear.level);
   }
   gear.level += 1;
   applyMainLevel(gear.main, gear.level);
@@ -733,7 +734,7 @@ export function salvageGear(profile, uid) {
 function dropMarks(profile, uid) {
   const c = profile.missions?.counters;
   if (!c) return;
-  for (const p of [MARK.ur, MARK.tuned, MARK.club, MARK.newLine, MARK.newFp, MARK.boxPaid, MARK.set, MARK.lr, MARK.night, MARK.top, MARK.piece, MARK.pieceMain, MARK.pieceClub, MARK.piecePaid]) delete c[p + uid];
+  for (const p of [MARK.ur, MARK.tuned, MARK.club, MARK.newLine, MARK.newFp, MARK.boxPaid, MARK.set, MARK.lr, MARK.night, MARK.top, MARK.piece, MARK.pieceMain, MARK.pieceClub]) delete c[p + uid];
   for (const k of Object.keys(c)) if (k.startsWith(`${MARK.pieceSub}${uid}:`)) delete c[k];
   // a box-born piece's mark stays as 0: its Seed was paid with the salvage (ASCENSION.md §C.8)
   if (MARK.box + uid in c) c[MARK.box + uid] = 0;

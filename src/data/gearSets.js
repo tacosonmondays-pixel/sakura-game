@@ -70,6 +70,6 @@ export const SET_TEXT = Object.freeze({
   freezetag: Object.freeze({ passive: 'You\'re It', four: 'Enemies she slows, freezes, stuns or holds take +6% damage from every girl (bosses +3%).', five: '+8% (bosses +4%). Control Strength has no cap.' }),
   geometry: Object.freeze({ passive: 'Right Angle', four: 'Every 4th attack is a sure crit.', five: 'Those crits hit ×1.2 harder. Crit Rate and Crit DMG have no cap: crit over 100% becomes super crits.' }),
   popper: Object.freeze({ passive: 'Confetti Burst', four: 'Every 6th attack bursts on the enemies around for 50% of the hit.', five: 'Every 5th, 60%. Her blasts use all her Pierce.' }),
-  treasurer: Object.freeze({ passive: 'Bake Sale', four: 'Coins from enemies she defeats +10%, her own coins too.', five: '+15%. Her wave interest has no cap.' }),
+  treasurer: Object.freeze({ passive: 'Bake Sale', four: 'Coins from enemies she defeats +10%, and +10% on the coins she makes (wave income, Golden Harvest, her ⚡ coins, Ouka\'s coins per kill, the lab economy).', five: '+15%. Her wave interest has no cap.' }),
   powerbank: Object.freeze({ passive: 'Supercharge', four: 'Her ⚡ ability hits 15% harder and charges 10% faster.', five: '+25%, 15% faster. Her ⚡ ability takes half of all her Skill Haste.' }),
 });

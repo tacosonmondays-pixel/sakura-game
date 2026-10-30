@@ -43,6 +43,13 @@ export const SET_PASSIVES = Object.freeze({
   }),
 });
 
+/**
+ * The attack kinds whose hits carry Right Angle's sure crit and Confetti Burst (towers.js gearSpec). Other kinds (traps,
+ * turrets, mortars, rings, strips, drinks, rolls) neither count nor fire them; their girls get the idle chip
+ * (src/systems/gearSets.js setIdle).
+ */
+export const SET_ATTACK_BEHAVIORS = Object.freeze(['projectile', 'pulse', 'duel', 'beam', 'chain']);
+
 /** Big Cheer with no aura: her nearest girls within this many tiles (ties by lower uid). */
 export const CHEER_NEAR = 2;
 export const CHEER_NEAREST = 2;
@@ -54,8 +61,6 @@ export const BURST_COST = 2;
 export const SUPER_CRIT_MUL = 1.5;
 /** Crit chance counts up to this (every hit a super crit). */
 export const CRIT_CEIL = 2;
-/** Treasurer's set cap lifts her interest's 150-coin cap, up to this a wave (a maths ceiling: review r2 L16). */
-export const INTEREST_SET_CEIL = 5000;
 /** Her ⚡ ability's haste never passes this (charge ×4, so 100 / (1 − h) never divides by zero). */
 export const ABIL_HASTE_CEIL = 0.75;
 /** Party Popper's set cap: her blasts read her whole Pierce, up to this many hundredths (radius ×2.0). */
@@ -86,6 +91,11 @@ export function controlMulOf(us) {
   if (p && p.control) m *= p.control;
   return Math.min(CONTROL_MUL_MAX, m);
 }
+
+/** Her push-backs' multiplier from Control Strength: half of it (×(1 + (c − 1)/2)). */
+export const pushMul = (us) => (us && us.controlMul > 1 ? 1 + (Math.min(CONTROL_MUL_MAX, us.controlMul) - 1) / 2 : 1);
+/** Her average crit factor as her unit stats carry it (1 without). */
+export const avgCritOf = (us) => (us && us.avgCrit > 1 ? us.avgCrit : 1);
 
 /** Her You're It bonus (0 without the set). */
 export function itBonusOf(us) {

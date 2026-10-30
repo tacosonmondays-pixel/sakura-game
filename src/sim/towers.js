@@ -33,7 +33,7 @@ import { rollBall, ballTick } from './balls.js';
 import { labMods } from './lab.js';
 import { buildPartnerSpec, partnerTick, partnerOff, beginVolley, refract } from './duo.js';
 import { TRICK, THRUST_PEN, POP_COST, PULSE_MAX_EXTRA, trickClub, pierceCarry, pierceK, pierceMax, followThroughBlast } from './gearRules.js';
-import { setPassive, BURST_COST } from './setRules.js';
+import { setPassive, BURST_COST, SET_ATTACK_BEHAVIORS } from './setRules.js';
 
 const WEAPON_KIND = {
   bow: 'arrow', rifle: 'bullet', cannon: 'shell', shuriken: 'shuriken', flask: 'flask', wrench: 'bolt',
@@ -665,8 +665,9 @@ function beginGear(t) {
   gearConfetti = null;
   // a trap girl's tricks run when her traps go off (updateTraps); a duel takes no Pierce on her strike
   if (t.eff.behavior === 'trap') return 0;
-  // her set's counted-attack passives (Right Angle, Confetti Burst): the attack that reaches the period
-  const sp = setPassive(t.unitStats);
+  // her set's counted-attack passives (Right Angle, Confetti Burst): the attack that reaches the period, on the attack
+  // kinds whose hits carry them
+  const sp = SET_ATTACK_BEHAVIORS.includes(t.eff.behavior) ? setPassive(t.unitStats) : null;
   if (sp && t.unitStats.set === 'geometry' && (t.angleN || 0) + 1 >= sp.every) gearSure = sp.mul;
   if (sp && t.unitStats.set === 'popper' && (t.burstN || 0) + 1 >= sp.every) gearConfetti = sp;
   const club = trickClub(t.unitStats);
@@ -686,7 +687,7 @@ function beginGear(t) {
 
 /** After the attack: a counted one (it found a target) advances her trick count. */
 function endGear(sim, t, n, ok) {
-  if (ok) {
+  if (ok && SET_ATTACK_BEHAVIORS.includes(t.eff.behavior)) {
     const sp = setPassive(t.unitStats);
     if (sp && t.unitStats.set === 'geometry') {
       t.angleN = ((t.angleN || 0) + 1) % sp.every;

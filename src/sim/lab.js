@@ -52,10 +52,10 @@ import { ROLES } from '../data/types.js';
 import {
   LAB_REF_COINS, LAB_BOLTS, LAB_BOLTS_MAX, LAB_AURA_RANGE, LAB_AURA_DMG, LAB_AURA_MAX, LAB_FRAG_TICKS, LAB_FRAG_MUL,
   LAB_FRAG_SPLASH, LAB_FIELD_RANGE, LAB_FIELD_TICKS, LAB_SLOW, LAB_SLOW_MAX, LAB_ECON_SHARE, ZONE_STATUS_TIME,
-  INCOME_INTEREST_MAX,
+  INCOME_INTEREST_MAX, INCOME_INTEREST_SET_MAX,
 } from './constants.js';
 import { bestTarget, explode } from './towers.js';
-import { statusCtxFor } from './setRules.js';
+import { statusCtxFor, setPassive } from './setRules.js';
 
 /** The lab classes, in this order everywhere (the battle save packs them as arrays). */
 export const LAB_CLASSES = Object.freeze(['dps', 'frag', 'control', 'support', 'economy']);
@@ -245,11 +245,14 @@ export function labIncome(sim, cashMul) {
     const n = rates ? rates.length : 0;
     if (!(lab.income > 0) && n === 0) continue;
     let interest = 0;
-    for (let i = 0; i < n; i++) interest += Math.min(INCOME_INTEREST_MAX, rates[i] * sim.cash);
+    // (her Treasurer 5-piece set cap lifts each joiner's interest cap like her own, GEAR_UPDATE.md §3.2)
+    const cap = setPassive(t.unitStats, 'treasurer') && t.unitStats.setN >= 5 ? INCOME_INTEREST_SET_MAX : INCOME_INTEREST_MAX;
+    for (let i = 0; i < n; i++) interest += Math.min(cap, rates[i] * sim.cash);
     const power = t.stats?.lab?.power ?? 1;
     const perWave = lab.income > 0 ? lab.income : 0;
     const amount = sim._gainCashFor(t.owner ?? 0, LAB_ECON_SHARE * power * (perWave * cashMul + interest) * sim.incomeMul);
     if (amount > 0) sim._emit('cash', { amount, reason: 'lab', towerUid: t.uid });
+    sim._bakeOn(t, amount);
   }
 }
 

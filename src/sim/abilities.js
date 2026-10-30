@@ -49,7 +49,7 @@
 
 import { ABILITY_RULES, abilityAtTier, skillAtLevel, abilityRuns, abilityWithLr } from '../data/abilities.js';
 import { abilityChargePerTick, firstBellCharge, superchargeMul } from './gearRules.js';
-import { buffDur, statusCtxFor, setPassive, CHEER_NEAR, CHEER_NEAREST } from './setRules.js';
+import { buffDur, statusCtxFor, setPassive, pushMul, avgCritOf, CHEER_NEAR, CHEER_NEAREST } from './setRules.js';
 import { STEP, ABILITY_SCATTER, DOT_PCT_BOSS_MUL, PRISM_SHARDS, KNOCKBACK_RESIST, PUSH_LOCK, WELL_PULL_REACH } from './constants.js';
 import { selectTargets, topTargets, gatherTargets, targetScore, recomputeBuffs, chainJump, chainNext, hasRoamingDrones } from './towers.js';
 import { isEligible } from './combat.js';
@@ -427,7 +427,7 @@ function applyStatuses(sim, e, t, list, spec, step) {
   statusCtxFor(ctx, t);
   // a curse bursts for burstMul × her current hit (Ena's Omen Card), as a first-generation curse; no other status
   // reads these two
-  ctx.hitDamage = t.eff.damage || 0;
+  ctx.hitDamage = (t.eff.damage || 0) * avgCritOf(t.unitStats); // (curse bursts cannot crit: her average crit, §8.3)
   ctx.curseDepth = 0;
   const big = isBig(e);
   const guarded = big && (e.abilCc ?? -1) > step;
@@ -1031,6 +1031,7 @@ const KINDS = {
       const coins = (def.effect.coins || 0) * (sim.diff.cashMul ?? 1) * (sim.incomeMul ?? 1);
       const amount = sim._gainCashFor(t.owner ?? 0, coins);
       sim._emit('cash', { amount, reason: 'ability', towerUid: t.uid, owner: t.owner ?? 0 });
+      sim._bakeOn(t, amount); // (Treasurer's Bake Sale on her own coins)
       return { x: t.x, y: t.y, radius: 0, targets: [], coins: amount };
     },
   },
@@ -1185,7 +1186,8 @@ const MOVES = {
       pool.sort((a, b) => a.uid - b.uid);
       let moved = 0;
       for (const v of pool) {
-        if (movePush(sim, v, pushTiles(e, v), t.uid) > 0) moved++;
+        // (Control Strength: her pushes go half that much further, GEAR_UPDATE.md §2.4)
+        if (movePush(sim, v, pushTiles(e, v) * pushMul(t.unitStats), t.uid) > 0) moved++;
         applyStatuses(sim, v, t, e.status, spec, step);
       }
       return { x, y, radius: reach, targets: listed(pool), moved };

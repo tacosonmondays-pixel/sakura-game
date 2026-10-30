@@ -10,7 +10,7 @@
 // Deterministic: fixed-step timers, sim.towers order (placement order), explicit tie breaks (uid); nothing
 // reads a view slot, the clock or Math.random. The pick command (setBuffPick) is the only player input.
 import { BREW_EVERY, BREW_TIME, BREW_DROP, DPS_WINDOW, LINK_SCAN } from './constants.js';
-import { buffDur } from './setRules.js';
+import { buffDur, critCeilOf, splitCrit } from './setRules.js';
 
 /** Aura winner uid per buff key (-1: none); `rally`: the girl whose ability rally reaches her. */
 export function emptyBuffBy() {
@@ -33,8 +33,17 @@ export function applyBuffExtras(t, b) {
     if (t.turretSpec) t.turretSpec.armorPen += b.armorPen;
   }
   if (b.critChance > 0) {
-    t.eff.critChance = Math.min(1, t.stats.crit.chance + b.critChance);
-    if (t.turretSpec) t.turretSpec.critChance = Math.min(1, t.turretSpec.critChance + b.critChance);
+    // her crit ceiling (setRules.js critCeilOf: 2 with Geometry's set cap or five Blank LR pieces, else 1): the part of
+    // kit + gear + aura crit over 100 % becomes her super-crit chance (GEAR_UPDATE.md §4.5, r3 L15)
+    const ceil = critCeilOf(t.unitStats);
+    const [c, sup] = splitCrit(t.stats.crit.chance + (t.stats.crit.super || 0) + b.critChance, ceil);
+    t.eff.critChance = c;
+    if (sup > 0) t.eff.superChance = sup;
+    if (t.turretSpec) {
+      const [tc, ts] = splitCrit(t.turretSpec.critChance + (t.turretSpec.superChance || 0) + b.critChance, ceil);
+      t.turretSpec.critChance = tc;
+      if (ts > 0) t.turretSpec.superChance = ts;
+    }
   }
 }
 
@@ -285,7 +294,7 @@ export function applyLimited(sim, t, nb) {
 export function ralliesOn(sim, t) {
   let out = null;
   for (const r of sim._rallies) {
-    if (!rallyReaches(sim, r, t)) continue;
+    if (r.cheer || !rallyReaches(sim, r, t)) continue; // (a cheer is its own key: cheersOn)
     if (!out) out = { dmgMul: 1, rateMul: 1, rangeMul: 1, detection: false, ward: false, src: r.src, by: { dmg: -1, rate: -1, range: -1, det: -1, ward: -1 }, left: {} };
     const o = out;
     if (r.dmgMul > o.dmgMul) { o.dmgMul = r.dmgMul; o.by.dmg = r.src; o.left.dmg = r.left; }
@@ -328,9 +337,16 @@ export function applyRallies(sim, t, nb, by) {
   let detection = false;
   let ward = false;
   let pierceAdd = 0;
+  // Spirit Squad's Big Cheer (abilities.js tickCheers) is its own key: the strongest cheer multiplies on top of the
+  // strongest ability rally instead of competing with it (GEAR_UPDATE.md §3.4)
+  let cheer = 1;
   for (let i = 0; i < list.length; i++) {
     const r = list[i];
     if (!rallyReaches(sim, r, t)) continue;
+    if (r.cheer) {
+      if (r.dmgMul > cheer) cheer = r.dmgMul;
+      continue;
+    }
     if (r.pierceAdd > pierceAdd) pierceAdd = r.pierceAdd;
     if (src < 0) src = r.src;
     if (r.dmgMul > dmgMul) dmgMul = r.dmgMul;
@@ -338,6 +354,10 @@ export function applyRallies(sim, t, nb, by) {
     if (r.rangeMul > rangeMul) rangeMul = r.rangeMul;
     if (r.detection) detection = true;
     if (r.ward) ward = true;
+  }
+  if (cheer > 1) {
+    nb.dmgMul *= cheer;
+    if (by) by.cheer = list.find((r) => r.cheer && r.dmgMul === cheer && rallyReaches(sim, r, t))?.src ?? -1;
   }
   if (src < 0) return;
   nb.dmgMul *= dmgMul;

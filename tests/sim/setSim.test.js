@@ -7,10 +7,11 @@ import { STEP } from '../../src/sim/constants.js';
 import { resolveStats } from '../../src/sim/mods.js';
 import { applyStatus } from '../../src/sim/status.js';
 import { computeHit, computeDot } from '../../src/sim/combat.js';
+import { applyRallies, applyBuffExtras } from '../../src/sim/buffs.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 import { SET_IDS } from '../../src/data/gearSets.js';
 import {
-  SIM_SET_IDS, SET_PASSIVES, setPassive, statusCtxFor, splitCrit, averageCrit, SUPER_CRIT_MUL, controlMulOf, itBonusOf, buffDur, INTEREST_SET_CEIL,
+  SIM_SET_IDS, SET_PASSIVES, setPassive, statusCtxFor, splitCrit, averageCrit, SUPER_CRIT_MUL, controlMulOf, itBonusOf, buffDur, pushMul,
 } from '../../src/sim/setRules.js';
 import { abilityHaste, abilityChargePerTick, superchargeMul, firstBellCharge } from '../../src/sim/gearRules.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
@@ -83,6 +84,14 @@ describe('Control Strength and You\'re It in applyStatus', () => {
   test('You\'re It reaches burns and poisons too (computeDot, review r2 L18)', () => {
     const plain = computeDot(enemy(), 'poison', 10, 'physical', {}).toHp;
     expect(computeDot(enemy({ it: { bonus: 0.06, left: 5 } }), 'poison', 10, 'physical', {}).toHp / plain).toBeCloseTo(1.06, 9);
+  });
+
+  test('You\'re It lasts the longer of its time and the status\'s merged time (review M2 r1 L1)', () => {
+    const e = enemy();
+    applyStatus(e, { type: 'slow', amount: 0.3, duration: 3 }, {});
+    applyStatus(e, { type: 'slow', amount: 0.3, duration: 1 }, { itBonus: 0.06 });
+    expect(e.it.left).toBe(180);
+    expect(pushMul({ controlMul: 1.5 })).toBeCloseTo(1.25, 9);
   });
 
   test('a sure crit needs no draw; a super crit uses the same draw', () => {
@@ -186,9 +195,27 @@ describe('set passives in a battle', () => {
     expect(ev.rallyMax).toBeCloseTo(1.12, 6);
   });
 
-  test('Treasurer\'s set cap lifts the interest cap to a finite ceiling (review r2 L16)', () => {
-    expect(INTEREST_SET_CEIL).toBe(5000);
-    expect(Number.isFinite(INTEREST_SET_CEIL)).toBe(true);
+  test('Big Cheer multiplies on top of an ability rally (its own key, review M2 r1 M4)', () => {
+    const src = { uid: 1, x: 0, y: 0 };
+    const t = { uid: 2, x: 0.5, y: 0 };
+    const sim = { getTower: (uid) => (uid === 1 ? src : null), _rallies: [
+      { src: 1, r2: 4, dmgMul: 1.2, rateMul: 1, rangeMul: 1, left: 10 },
+      { src: 1, r2: 4, dmgMul: 1.12, rateMul: 1, rangeMul: 1, left: 10, cheer: true },
+    ] };
+    const nb = { dmgMul: 1, rateMul: 1, rangeMul: 1 };
+    applyRallies(sim, t, nb, {});
+    expect(nb.dmgMul).toBeCloseTo(1.2 * 1.12, 9);
+  });
+
+  test('crit buffs pass 100 % into super crits only under her ceiling (review M2 r1 M3)', () => {
+    const t = (critCeil) => ({ stats: { crit: { chance: 1, super: 0.1 }, armorPen: 0 }, unitStats: { critCeil }, eff: { critChance: 1 } });
+    const a = t(2);
+    applyBuffExtras(a, { critChance: 0.2, armorPen: 0 });
+    expect(a.eff.critChance).toBe(1);
+    expect(a.eff.superChance).toBeCloseTo(0.3, 9);
+    const b = t(1);
+    applyBuffExtras(b, { critChance: 0.2, armorPen: 0 });
+    expect(b.eff.superChance).toBeUndefined();
   });
 
   test('Bake Sale pays more coins than the same battle without the set', () => {

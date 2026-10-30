@@ -103,6 +103,7 @@ export function payHubBounty(sim, e) {
   const coins = best.stats.hub.killBounty * (sim.diff.cashMul ?? 1) * (sim.incomeMul ?? 1);
   const paid = sim._gainCashFor(best.owner ?? 0, coins);
   if (paid > 0) sim._emit('cash', { amount: paid, reason: 'bounty', towerUid: best.uid, owner: best.owner ?? 0 });
+  sim._bakeOn(best, paid); // (Treasurer's Bake Sale on Ouka's coins per kill)
   return paid;
 }
 

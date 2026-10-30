@@ -72,7 +72,8 @@ export function applyStatus(enemy, spec, ctx = {}) {
 
   // You're It (Freeze Tag): her control landing or refreshing marks the enemy; the stronger bonus wins and the mark
   // lasts as long as the longer of its own time and this status's (in steps; enemies.js counts it down)
-  if (ctx.itBonus > 0 && CONTROL_TYPES[type]) markIt(enemy, ctx.itBonus, duration);
+  // (the longer of the mark's own time and the status's time after the merge: a refresh keeps the longer left)
+  if (ctx.itBonus > 0 && CONTROL_TYPES[type]) markIt(enemy, ctx.itBonus, Math.max(duration, enemy.statuses[type]?.left || 0));
   const cur = enemy.statuses[type];
   if (!cur) {
     if (type === 'shred') incoming.stacks = 1;

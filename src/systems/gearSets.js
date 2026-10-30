@@ -3,8 +3,10 @@
 // set through unitBattleStats (`set`, `setN`) and src/sim/setRules.js.
 
 import { SLOT_IDS, MAIN_STATS_BY_SLOT } from '../data/gearSlots.js';
-import { SET_IDS, SET_RARITIES, GEAR_SETS } from '../data/gearSets.js';
-import { fillStats } from '../data/gearStats.js';
+import { SET_IDS, SET_RARITIES, GEAR_SETS, TITAN_SETS } from '../data/gearSets.js';
+import { fillStats, CONTROL_REAL, skillHasteCounts } from '../data/gearStats.js';
+import { UNIT_MAP } from '../data/units.js';
+import { SET_ATTACK_BEHAVIORS } from '../sim/setRules.js';
 import { TIE_PIN_ID, COLLAR_PIN_ID, TIE_PIN_COINS, COLLAR_PIN_COINS, MARK, setBoxId } from '../data/gearAwaken.js';
 import { getItem } from '../data/items.js';
 import { gameDayNumber } from '../core/reset.js';
@@ -12,6 +14,8 @@ import {
   rollGear, addGear, gearRoom, pieceName, recomputeGear, topMainBase, topSubBase, isLrGear, cloneGearOf,
 } from './gear.js';
 import { consumeItems, missingItems, addItems } from './inventory.js';
+import { deliverMail } from './mail.js';
+import { titansUnlocked } from './titans.js';
 import { track } from './missions.js';
 import { potentialLevel } from './potential.js';
 
@@ -22,8 +26,7 @@ const whole = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Mat
 // Set pieces
 // ---------------------------------------------------------------------------
 
-/** The set each titan's chests drop (§3.6). */
-export const TITAN_SETS = Object.freeze({ daimyo: 'spirit', regent: 'freezetag', wyrm: 'geometry', foundry: 'popper' });
+export { TITAN_SETS };
 
 /**
  * Roll one set piece (not yet in the profile): its slot (one of the five at random when none), the set's fixed name.
@@ -215,36 +218,67 @@ export function setPostRoll(profile, stage, difficulty, rng, now = Date.now()) {
 }
 
 // ---------------------------------------------------------------------------
-// One-time boxes (§5.2, §5.3)
+// One-time boxes (§5.2, §5.3): one rule and one mark per box
 // ---------------------------------------------------------------------------
 
-const WELCOME = 'su:welcome';
-
 /**
- * The welcome Mythic Set Box once Titan Trials open (3-5 cleared), and on the sets update's first load the veterans'
- * boxes (once, `su:vet`): a Legendary Set Box of each titan's set whose Nightmare first clear is already paid
- * (`tfc:<titan>:2`). A new player gets that box from the first clear itself. `add: false` leaves paying to the caller
- * (a battle result adds it with its rewards). @returns {{ id, count }[]} what was paid
+ * The one-time Set Boxes (GEAR_UPDATE.md §5.3, r3): whenever Titan Trials are open and `su:welcome` is not set, the
+ * welcome Mythic Set Box; whenever a titan's Nightmare first clear is paid (`tfc:<titan>:2`) and `su:titanbox:<titan>`
+ * is not set, that titan's Legendary Set Box. The same check serves veterans (on the sets update's first load) and new
+ * players (after the clear), in any order, so a first clear made in an older tab still pays later.
+ * @param {{ mode?: 'list'|'mail'|'items' }} [o] 'list': the caller pays the returned boxes (a battle's rewards);
+ *   'mail': one letter carries them (the notice line, migrateProfile); 'items': straight into the Backpack
+ * @returns {{ id: string, count: number }[]} what is owed now (marks set)
  */
-export function grantSetBoxGifts(profile, { add = true } = {}) {
+export function grantSetBoxGifts(profile, { mode = 'items', now = Date.now() } = {}) {
   const c = counters(profile);
   const paid = [];
-  const cleared35 = stageCleared(profile, '3-5');
-  if (!c[MARK.veteran]) {
-    c[MARK.veteran] = 1;
-    for (const [titan, set] of Object.entries(TITAN_SETS)) if (whole(c[`tfc:${titan}:2`])) paid.push({ id: setBoxId(set, 'legendary'), count: 1 });
-  }
-  if (!c[WELCOME] && cleared35) {
-    c[WELCOME] = 1;
+  if (!c[MARK.welcomeBox] && titansUnlocked(profile)) {
+    c[MARK.welcomeBox] = 1;
     paid.push({ id: setBoxId('pick', 'mythic'), count: 1 });
   }
-  if (add && paid.length) addItems(profile, paid);
+  for (const [titan, set] of Object.entries(TITAN_SETS)) {
+    if (!whole(c[`tfc:${titan}:2`]) || c[MARK.titanBox + titan]) continue;
+    c[MARK.titanBox + titan] = 1;
+    paid.push({ id: setBoxId(set, 'legendary'), count: 1 });
+  }
+  if (!paid.length || mode === 'list') return paid;
+  if (mode === 'mail') {
+    deliverMail(profile, {
+      id: `setbox-gift:${paid.map((x) => x.id).join('+')}`,
+      title: 'Set Boxes for you',
+      body: 'Gear sets are here! A thank-you for the Titan Trials you have already opened and cleared: open them from the Backpack once you claim them.',
+      rewards: paid,
+    }, now);
+  } else addItems(profile, paid);
   return paid;
 }
 
-function stageCleared(profile, stageId) {
-  const e = profile?.progress?.stages?.[stageId];
-  return !!e && ['easy', 'normal', 'hard', 'nightmare'].some((d) => e[d]);
+// ---------------------------------------------------------------------------
+// The dead-passive rule (§3.1): never promise what is not there
+// ---------------------------------------------------------------------------
+
+/**
+ * Why her set's passive (4 / 5 pieces) does nothing for her kit, or null when it works. The set line on her Equipment
+ * tab and the Set Box picker grey it with this reason. `cap`: the 5-piece set cap's own reason (null when it works).
+ * @returns {{ passive: string|null, cap: string|null }}
+ */
+export function setIdle(setId, unitId) {
+  const def = UNIT_MAP[unitId];
+  const out = { passive: null, cap: null };
+  if (!def) return out;
+  const behavior = def.base?.behavior;
+  const dead = fillStats(unitId, {});
+  if (setId === 'geometry' || setId === 'popper') {
+    if (!SET_ATTACK_BEHAVIORS.includes(behavior)) out.passive = 'Her attacks never count for it.';
+    else if (setId === 'geometry' && dead.has('critChance')) out.passive = 'Her hits cannot crit (her crit lines count as her average crit instead).';
+    if (setId === 'geometry' && dead.has('critChance')) out.cap = out.cap || 'Her hits cannot crit.';
+  }
+  if (setId === 'freezetag' && !CONTROL_REAL.includes(unitId)) out.passive = 'She slows, freezes, stuns and holds nothing.';
+  if (setId === 'powerbank' && !skillHasteCounts(unitId) && def.kind !== 'hero') out.passive = 'Her ⚡ ability is not hasted (or not in this build yet).';
+  if (setId === 'treasurer' && !def.base?.income) out.cap = 'She earns no wave interest.';
+  if (setId === 'spirit' && !def.base?.aura) out.cap = 'She has no aura (her cheer still reaches her 2 nearest girls).';
+  return out;
 }
 
 /** The name of a set for menus. */

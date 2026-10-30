@@ -25,6 +25,7 @@ import {
   stitchSlots, gearLines, gearFillIn, tuneCount, gearSetInfo, describeStat,
 } from '../systems/gear.js';
 import { GEAR_SETS, SET_TEXT } from '../data/gearSets.js';
+import { setIdle } from '../systems/gearSets.js';
 import { itemCount } from '../systems/inventory.js';
 import { applyGearFilter, activeGearFilters } from '../systems/gearFilter.js';
 import { gearFilterBar, gearFilterFor } from './gearFilterBar.js';
@@ -82,8 +83,12 @@ function gearSetLine(profile, unitId) {
   const t = SET_TEXT[id];
   const two = GEAR_SETS[id].two;
   const on = n >= 5 ? `5: ${t.passive}. ${t.five}` : n >= 4 ? `4: ${t.passive}. ${t.four}` : `2: ${describeStat(two.stat, two.value)}`;
-  return h('p.gk-setline', { 'data-testid': 'gear-set-line', style: { '--set': GEAR_SETS[id].color } },
-    h('b', `${GEAR_SETS[id].name} `), h('span.gk-set-pips', '●'.repeat(Math.min(5, n)) + '○'.repeat(Math.max(0, 5 - n))), ` · ${on}`);
+  // the dead-passive rule (§3.1): a passive or set cap her kit cannot use is greyed with the reason
+  const idle = n >= 4 ? setIdle(id, unitId) : { passive: null, cap: null };
+  const why = idle.passive || (n >= 5 ? idle.cap : null);
+  return h(`p.gk-setline${idle.passive ? '.idle' : ''}`, { 'data-testid': 'gear-set-line', style: { '--set': GEAR_SETS[id].color } },
+    h('b', `${GEAR_SETS[id].name} `), h('span.gk-set-pips', '●'.repeat(Math.min(5, n)) + '○'.repeat(Math.max(0, 5 - n))), ` · ${on}`,
+    why ? h('span.gk-set-idle', { 'data-testid': 'gear-set-idle' }, ` (${why})`) : null);
 }
 
 /** Detailed: every gear total on ink (MAX marked), the fill-in line and each set bonus that is on with its effect. */

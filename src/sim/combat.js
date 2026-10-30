@@ -44,7 +44,6 @@ export function effectiveArmor(enemy, armorPen = 0) {
   return Math.max(0, (enemy.armor || 0) - armorPen - shredAmount(enemy));
 }
 
-/** Bonus multiplier from mark + vulnerable (additive with each other). */
 /** You're It (Freeze Tag, src/sim/setRules.js): × on every hit and DoT tick while it lasts; bosses and minibosses at half. */
 export function itMul(enemy) {
   const it = enemy.it;
@@ -52,6 +51,7 @@ export function itMul(enemy) {
   return 1 + (enemy.tier === 'boss' || enemy.tier === 'miniboss' ? it.bonus / 2 : it.bonus);
 }
 
+/** Bonus multiplier from mark + vulnerable (additive with each other). */
 export function damageTakenBonus(enemy) {
   const st = enemy.statuses;
   // (heldBonus: held at one of Norika's barricades, src/sim/barricades.js; absent on every other enemy)
