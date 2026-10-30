@@ -235,16 +235,20 @@ function earnedByPlay(src) {
 }
 
 /**
- * Her yield per run of an item on a stage at its hardest difficulty open on this save (review r1 M4): every difficulty
- * of an open campaign stage is open; an event stage asks the event.
+ * Her yield per run of an item on a stage at the difficulty the coach sends her to (review r2 L1): one above the best
+ * she has cleared there (Easy when none), never past the hardest open (an event stage asks the event), and up to the
+ * first that drops the item at all.
  * @returns {{ difficulty: string, expected: number, chance: number }|null}
  */
 function stageYield(p, stageId, itemId) {
   const st = STAGE_MAP[stageId];
   if (!st) return null;
   const order = st.kind === 'event' && st.difficulties ? st.difficulties : DIFFICULTY_ORDER;
-  for (const d of [...order].reverse()) {
-    if (st.kind === 'event' && !eventDifficultyStatus(p, stageId, d)?.ok) continue;
+  const open = order.filter((d) => st.kind !== 'event' || eventDifficultyStatus(p, stageId, d)?.ok);
+  if (!open.length) return null;
+  const rec = p.progress?.stages?.[stageId] || {};
+  const best = open.reduce((m, d, i) => (rec[d] ? i : m), -1);
+  const yieldAt = (d) => {
     let none = 1;
     let expected = 0;
     for (const x of st.drops || []) {
@@ -252,7 +256,11 @@ function stageYield(p, stageId, itemId) {
       none *= 1 - x.chance;
       expected += (x.chance * (x.min + x.max)) / 2;
     }
-    if (expected > 0) return { difficulty: d, expected: Math.round(expected * 100) / 100, chance: 1 - none };
+    return expected > 0 ? { difficulty: d, expected: Math.round(expected * 100) / 100, chance: 1 - none } : null;
+  };
+  for (let i = Math.min(open.length - 1, best + 1); i < open.length; i++) {
+    const y = yieldAt(open[i]);
+    if (y) return y;
   }
   return null;
 }
@@ -276,9 +284,12 @@ export function farmPlan(p, missing, { per = 3 } = {}) {
       stageId: s.stageId || null,
       go: s.stageId ? { route: 'stage', params: { id: s.stageId, difficulty: s.y.difficulty } } : { route: s.route, params: s.params || {} },
     }));
+    // nothing open drops it yet: the first locked stage that does, as information only (no rank, no Go; review r2 M1)
+    const lockedAt = stages.length ? null : all.filter((x) => x.kind === 'stage' && !isStageUnlocked(p, x.stageId)).sort((x, y) => (x.order || 0) - (y.order || 0))[0] || null;
+    const later = lockedAt ? { label: lockedAt.label, stageId: lockedAt.stageId } : null;
     // banner-fed sources are never a plan step: one small info line, never ranked, never a Go (coordinator ruling M1)
     const recruit = itemSources(id).some((x) => !earnedByPlay(x) && (x.route === 'recruit' || BANNER_FED.includes(SHOP_OFFER_MAP[x.offerId]?.currency)));
-    return { id, name: getItem(id)?.name || id, missing: n, sources, recruit };
+    return { id, name: getItem(id)?.name || id, missing: n, sources, recruit, later };
   });
 }
 
@@ -397,7 +408,7 @@ export function buildScore(p, unitId, pathIndex = null) {
   const row = plan.row;
   const st = p.units[unitId];
   if (!row || !st) return { score: 0, max: 0, steps: [] };
-  const w = weightsOf(row);
+  const w = weightsOf(row, unitId);
   const cur = gearStatTotals(p, unitId);
   const vCur = modelValue(w, cur);
   const slots = plan.features.slots;

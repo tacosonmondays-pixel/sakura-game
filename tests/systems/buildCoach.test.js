@@ -157,6 +157,21 @@ describe('Farm', () => {
     }
   });
 
+  it('review r2 L1: Go opens one above her best cleared difficulty there (Easy on a fresh save)', () => {
+    const { p } = setup();
+    const go = (id) => farmPlan(p, [{ id, missing: 1 }], { per: 10 })[0].sources.find((s) => s.stageId === '1-1');
+    expect(go('mat_feather_common').go.params.difficulty).toBe('easy');
+    p.progress.stages['1-1'] = { clears: 3, easy: true, normal: true, hard: false, nightmare: false };
+    expect(go('mat_feather_common').go.params.difficulty).toBe('hard');
+  });
+
+  it('review r2 M1: an item no open stage drops names the first stage that will (information only)', () => {
+    const p = createProfile();
+    const [f] = farmPlan(p, [{ id: 'mat_feather_superRare', missing: 14 }], { per: 10 });
+    expect(f.sources.some((s) => s.stageId)).toBe(false);
+    expect(f.later?.stageId).toBeTruthy();
+  });
+
   it('locked stages are left out', () => {
     const p = createProfile();
     const plan = farmPlan(p, [{ id: 'mat_feather_legendary', missing: 1 }], { per: 20 })[0];

@@ -83,19 +83,22 @@ try {
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/coach-max-${tag}.png` });
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
-    // a Farm Go goes to its stage
-    if (await page.locator('[data-testid="coach-farm-go-0"]').count()) {
-      await tap('[data-testid="coach-farm-go-0"]');
-      await page.waitForTimeout(500);
-      check(/#\/(stage|mall|titans|bounty|campaign)/.test(page.url()), `${tag} Farm Go navigates (${page.url().split('#')[1]})`);
-      if (/#\/stage/.test(page.url())) {
-        await page.waitForSelector('[data-testid="stage-start"]', { timeout: 15000 }).catch(() => {});
-        check(await page.locator('[data-testid="stage-farming"]').count() === 1, `${tag} Stage Prep: "Farming for Kage" tag`);
-        const start = await page.locator('[data-testid="stage-start"]').boundingBox();
-        check(!!start && start.y + start.height <= H + 1, `${tag} Stage Prep: Start still on screen`);
-        await noOverflow(page, W, `${tag} Stage Prep`);
-        if (SHOTS) await page.screenshot({ path: `${SHOTS}/coach-stage-${tag}.png` });
-      }
+    // a Farm stage row's Go opens Stage Prep at its difficulty, which carries the "Farming for" tag (review r2 L2:
+    // a stage row is picked on purpose, and its absence fails)
+    await tap('[data-testid="coach-farm-more"]');
+    await page.waitForSelector('[data-testid="coach-farm-sheet"]', { timeout: 5000 }).catch(() => {});
+    const stageGo = page.locator('[data-testid="coach-farm-sheet"] .bc-go[data-route="stage"]').first();
+    check(await stageGo.count() === 1, `${tag} the Farm sheet has a stage row with Go`);
+    if (await stageGo.count()) {
+      await tap(stageGo);
+      await page.waitForSelector('[data-testid="stage-start"]', { timeout: 15000 }).catch(() => {});
+      check(/#\/stage/.test(page.url()), `${tag} Farm Go opens Stage Prep (${page.url().split('#')[1]})`);
+      check(/difficulty=/.test(page.url()), `${tag} Farm Go names the difficulty`);
+      check(await page.locator('[data-testid="stage-farming"]').count() === 1, `${tag} Stage Prep: "Farming for Kage" tag`);
+      const start = await page.locator('[data-testid="stage-start"]').boundingBox();
+      check(!!start && start.y + start.height <= H + 1, `${tag} Stage Prep: Start still on screen`);
+      await noOverflow(page, W, `${tag} Stage Prep`);
+      if (SHOTS) await page.screenshot({ path: `${SHOTS}/coach-stage-${tag}.png` });
     }
 
     // ----- the home: her next step is a page of the news chip (no new element) -----

@@ -22,7 +22,7 @@ const n = (v) => fmtNum(v, 'count', { detail: true });
 const pathPick = new Map();
 
 const goBtn = (go, { testid = null, label = 'Go' } = {}) => (go
-  ? h('button.ui-btn.ghost.bc-go', { type: 'button', 'data-testid': testid, onclick: () => navigate(go.route, go.params || {}) }, label, ico('chevR'))
+  ? h('button.ui-btn.ghost.bc-go', { type: 'button', 'data-testid': testid, 'data-route': go.route, onclick: () => navigate(go.route, go.params || {}) }, label, ico('chevR'))
   : null);
 
 function card(title, { testid, onOpen = null, right = null }, ...body) {
@@ -102,7 +102,7 @@ export function coachTab(unit, { onChange = () => {} } = {}) {
   const farmCard = card('Farm', { testid: 'coach-farm', onOpen: farm.length ? () => openFarmSheet(farm) : null },
     farm.length
       ? h('ul.bc-rows', farm.slice(0, 3).map((f, i) => h('li.bc-row.bc-farm', { 'data-testid': `coach-farm-${i}` },
-        h('span.bc-row-t', h('b', `${f.name} ×${n(f.missing)}`), h('span', f.sources[0] ? `${f.sources[0].label} · ${f.sources[0].note}` : 'No source open yet')),
+        h('span.bc-row-t', h('b', `${f.name} ×${n(f.missing)}`), h('span', f.sources[0] ? `${f.sources[0].label} · ${f.sources[0].note}` : f.later ? `Opens later: ${f.later.label}` : 'Opens later in the campaign')),
         goBtn(f.sources[0]?.go, { testid: `coach-farm-go-${i}` }))))
       : h('p.bc-line', 'Nothing missing: everything she needs is in your bag.'));
 
@@ -136,6 +136,7 @@ export function coachTab(unit, { onChange = () => {} } = {}) {
 function basisNote(row, est) {
   if (row.ruler === 'hero') return 'A hero: her plan follows her role (heroes are not benched yet).';
   if (row.ruler === 'support') return 'Her worth on this path is her team: her plan follows her role, not a bench run.';
+  if (!row.measured) return 'Her damage on this path barely answers a short bench run (it grows over a long fight): her plan follows her role.';
   const on = row.ruler === 'boss' ? 'a walking boss' : 'a crowd';
   return `Measured on ${on}${est.length ? `; ${est.join(' and ')} estimated (a short run cannot see ${est.length > 1 ? 'them' : 'it'})` : ''}.`;
 }
@@ -157,6 +158,7 @@ function openFarmSheet(farm) {
       farm.map((f) => h('section.bc-sec',
         h('div.bc-sec-head', h('b', `${f.name} ×${n(f.missing)}`)),
         h('ul.bc-rows', f.sources.map((s) => h('li.bc-row.bc-farm', h('span.bc-row-t', h('b', s.label), h('span', s.note)), goBtn(s.go)))),
+        f.later ? h('p.bc-note', { 'data-testid': 'farm-later-note' }, `Opens later: ${f.later.label} drops it (not open yet).`) : !f.sources.length ? h('p.bc-note', 'Opens later in the campaign.') : null,
         f.recruit ? h('p.bc-note', { 'data-testid': 'farm-recruit-note' }, 'Also from recruiting (spare duplicates and their exchanges): not part of the plan.') : null))),
   });
 }

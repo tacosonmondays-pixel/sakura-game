@@ -1,7 +1,8 @@
 // The Build Coach's bench table (docs/specs/BUILD_COACH.md §7, §10).
 import { describe, it, expect } from 'vitest';
 import { UNITS } from '../../src/data/units.js';
-import { SLOT_IDS } from '../../src/data/gearSlots.js';
+import { SLOT_IDS, MAIN_STATS_BY_SLOT } from '../../src/data/gearSlots.js';
+import { STEP } from '../../src/systems/buildCoachModel.js';
 import { LIVE_CLUBS } from '../../src/data/clubs.js';
 import { SET_IDS } from '../../src/data/gearSets.js';
 import { BUILD_COACH_DATA, BUILD_COACH_META } from '../../src/data/buildCoachData.js';
@@ -47,6 +48,22 @@ describe('buildCoachData', () => {
     }
     const umeko = BUILD_COACH_DATA.umeko.find((r) => r.ruler === 'support');
     expect(umeko.mains.charm).toBe(null);
+  });
+
+  it('review r2 H1, M2: every measured row moves with ATK (>= 5 % a step); no Cost Reduction main or top-3 line; an estimate never takes a main from a measured stat', () => {
+    for (const [id, list] of Object.entries(BUILD_COACH_DATA)) {
+      for (const r of list) {
+        if (!r.measured) continue;
+        expect(r.w.atkPct * STEP.atkPct, `${id} ${r.name}`).toBeGreaterThanOrEqual(0.05);
+        expect(Object.values(r.mains), `${id} ${r.name}`).not.toContain('costCut');
+        expect(r.subs.slice(0, 3), `${id} ${r.name}`).not.toContain('costCut');
+        for (const [slot, m] of Object.entries(r.mains)) {
+          if (!m || !r.est.includes(m)) continue;
+          const measuredOpts = MAIN_STATS_BY_SLOT[slot].filter((x) => !r.est.includes(x) && x !== 'costCut' && (r.w[x] || 0) > 0);
+          expect(measuredOpts, `${id} ${r.name} ${slot}: ${m} is estimated`).toEqual([]);
+        }
+      }
+    }
   });
 
   it('records the sim id it was measured on (a warning when stale)', () => {

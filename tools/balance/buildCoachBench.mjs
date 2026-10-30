@@ -8,14 +8,15 @@
 // the base plus one step of each stat: ATK +30 %, Attack Speed +30 %, Crit Rate +30 points, Crit DMG +60 points
 // (measured over the base with Crit Rate +30, so it has crits to grow), Range +30 %, Pierce +50 %, Skill Haste +30 %.
 // Two targets, both walking stage 4-5's road with late-Freeplay HP healed back every step (tools/bench.mjs's way, so
-// %-max-HP damage reads true and Range counts): the crowd (an Orc Grunt every 0.1 s, 50k HP) and the boss (the Ashwing
-// Matriarch, 30M HP). 5 s warm-up, then 20 s measured, abilities on auto. The sim is deterministic: one seed is the
+// %-max-HP damage reads true and Range counts): the crowd (an Orc Grunt every 0.5 s, at most 12 on the road at once,
+// leaking at its end, 50k HP) and the boss (the Ashwing Matriarch, 30M HP). 5 s warm-up, then 20 s measured, abilities on auto. The sim is deterministic: one seed is the
 // run. That is 8 runs × 2 targets × 3 paths = 48 runs a girl, about 1,500 for the roster (well under r3's 11,000: no
 // set or club runs yet, since the sets are not in the sim; their lines are role numbers until they ship).
 //
 // Not seen by a 20 s run: Skill Haste and, for some kits, Range. Where her step reads 0 and her kit uses the stat
 // (GEAR_FIT), its weight is 25 % of her ATK weight and the row lists it in `est` (the coach says so). Her kit's dead
-// lines (GEAR_FIT fill) weigh 0. A path no step moves is not a measurement: it plans by role (measured: false).
+// lines (GEAR_FIT fill) weigh 0. A path whose ATK step moves its damage under 5 %, or whose largest weight is under
+// 0.15, is not a measurement: it plans by role (measured: false).
 //
 // Her ruler is the target she is for (r5's measure): the crowd for a path whose crowd damage is 3× its boss damage or
 // more, else the boss. A path dealing under 100 damage a second herself (an aura, a brew, a link) is a support: its
@@ -30,10 +31,9 @@ import { Sim } from '../../src/sim/Sim.js';
 import { UNITS } from '../../src/data/units.js';
 import { createProfile } from '../../src/systems/save.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
-import { unitBattleStats } from '../../src/systems/progression.js';
-import { GEAR_FIT } from '../../src/data/gearStats.js';
+import { unitBattleStats, GEAR_DOT_CAP } from '../../src/systems/progression.js';
 import { simId } from '../simId.mjs';
-import { recommend, STEP } from '../../src/systems/buildCoachModel.js';
+import { recommend, STEP, deadLines } from '../../src/systems/buildCoachModel.js';
 
 const args = process.argv.slice(2);
 const opt = (k, d) => (args.includes(`--${k}`) ? args[args.indexOf(`--${k}`) + 1] : d);
@@ -47,6 +47,7 @@ const STREAM = { crowd: 'orc_grunt', boss: 'dragon_ashwing' };
 // late-Freeplay HP, healed back every step (tools/bench.mjs): %-max-HP damage (burns, poisons, executions) meets
 // realistic numbers, and nothing ever dies (review r1 B1: 1e9-HP targets read tens of millions on a DoT path)
 const HP = { crowd: 5e4, boss: 3e7 };
+const CROWD_MAX = 12;
 const WARM = 5;
 
 /** Her damage per second with these battle stats on a moving stream (crowd) or a walking boss, after a warm-up. */
@@ -81,7 +82,9 @@ function dps(unitId, stats, tiers, target) {
   const spawn = (id) => sim.spawnEnemy(id, { pathIndex: 0, dist: 0, hpMul: HP[target] / hpOf(id) });
   let dealt0 = 0;
   for (let step = 0; step < (WARM + SECONDS) * 60; step++) {
-    if (target === 'crowd' && step % 6 === 0) spawn(STREAM.crowd);
+    // the crowd: a grunt every 0.5 s while fewer than CROWD_MAX walk the road (they leak at its end), so splash and
+    // %-max-HP damage meet a late-wave crowd, never a pile of hundreds (review r2 H1)
+    if (target === 'crowd' && step % 30 === 0 && sim.enemies.filter((e) => !e.dead).length < CROWD_MAX) spawn(STREAM.crowd);
     if (target === 'boss' && !sim.enemies.some((e) => !e.dead && e.id === STREAM.boss)) spawn(STREAM.boss);
     if (sim.state !== 'wave') sim.state = 'wave';
     if ('lives' in sim) sim.lives = 1e9;
@@ -102,14 +105,15 @@ function baseStats(unitId) {
   grantUnit(p, unitId, 0);
   Object.assign(p.units[unitId], { level: 60, breakthrough: 5, awaken: 3 });
   const s = unitBattleStats(p, unitId);
-  return { damageMul: s.damageMul, rateMul: s.rateMul, rangeMul: 1, critChance: 0, critMul: 1, armorPen: 0, costMul: 1, ultHaste: 0, pierceK: 0, awakenPassive: true, level: 60, awaken: 3, breakthrough: 5, potential: 1 };
+  return { damageMul: s.damageMul, rateMul: s.rateMul, dotMul: 1, rangeMul: 1, critChance: 0, critMul: 1, armorPen: 0, costMul: 1, ultHaste: 0, pierceK: 0, awakenPassive: true, level: 60, awaken: 3, breakthrough: 5, potential: 1 };
 }
 
 /** The base plus one step of a gear stat, as unitBattleStats turns gear totals into battle stats. */
 function stepped(base, stat) {
   const s = { ...base };
   const d = STEP[stat];
-  if (stat === 'atkPct') s.damageMul = +(s.damageMul * (1 + d)).toFixed(4);
+  // gear ATK also feeds her burns and poisons at half strength, up to GEAR_DOT_CAP (progression.js unitBattleStats)
+  if (stat === 'atkPct') { s.damageMul = +(s.damageMul * (1 + d)).toFixed(4); s.dotMul = +Math.min(GEAR_DOT_CAP, 1 + 0.5 * d).toFixed(4); }
   if (stat === 'ratePct') s.rateMul = +(s.rateMul * (1 + d)).toFixed(4);
   if (stat === 'critChance') s.critChance += d;
   if (stat === 'critDmg') { s.critChance += STEP.critChance; s.critMul += d; }
@@ -150,10 +154,12 @@ const rows = {};
 const t0 = Date.now();
 for (const u of towers) {
   const paths = [];
-  const dead = new Set(GEAR_FIT[u.id]?.fill || []);
+  const dead = deadLines(u.id);
   for (let p = 0; p < 3; p++) {
     const m = measure(u.id, p);
-    let support = m.crowd.dps < 100 && m.boss.dps < 100;
+    const support = m.crowd.dps < 100 && m.boss.dps < 100;
+    // a damage path the bench cannot read (flat): damage-role weights (buildCoachModel DAMAGE_WEIGHTS), measured: false
+    let flat = false;
     const ruler = support ? 'support' : m.crowd.dps >= 3 * m.boss.dps ? 'crowd' : 'boss';
     let w = support ? null : { ...m[ruler].w };
     const est = [];
@@ -161,14 +167,16 @@ for (const u of towers) {
       // her kit's dead lines (GEAR_FIT) weigh nothing
       for (const k of Object.keys(w)) if (dead.has(k)) w[k] = 0;
       // a row no step moved is not a measurement (review r1 B1): she plans by role
-      if (Object.values(w).every((v) => !v)) { support = true; w = null; }
+      // a row her ATK step barely moves (< 5 %) or whose largest weight is under 0.15 is not a measurement of her
+      // damage (review r1 B1, r2 H1): she plans by role
+      if (w.atkPct * STEP.atkPct < 0.05 || Math.max(...Object.values(w)) < 0.15) { flat = true; w = null; }
       else {
         for (const [k, f] of Object.entries(ESTIMATE)) {
           if (!w[k] && !dead.has(k)) { w[k] = +(f * w.atkPct).toFixed(3); est.push(k); }
         }
       }
     }
-    paths.push({ path: p, name: u.paths?.[p]?.name || `Path ${p + 1}`, ruler: support ? 'support' : ruler, dps: support ? 0 : m[ruler].dps, measured: !support, w, est });
+    paths.push({ path: p, name: u.paths?.[p]?.name || `Path ${p + 1}`, ruler, dps: support ? 0 : m[ruler].dps, measured: !support && !flat, w, est });
   }
   rows[u.id] = { role: u.role, paths };
   console.log(`${u.id.padEnd(10)} ${paths.map((x) => `${x.name}: ${x.ruler} ${x.dps}`).join(' · ')}  (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
