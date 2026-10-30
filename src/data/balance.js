@@ -55,11 +55,11 @@ const ROWS = {
   ruri: { boss: 9 },
   // (the duo, Kohaku & Tsubaki: the owner's Oct 29 buff (v0.1.60) makes her an intended outlier above Kage, so round 5
   // leaves her out of the band and never tunes her. ×1.01 only so no build of hers falls: the supports' raised auras shift
-  // her shell timing on a stream, which cost her best crowd build 0.3%. ×1.11 (the final review round 2, the owner's
+  // her shell timing on a stream, which cost her best crowd build 0.3%. ×1.12 (the final review round 2, the owner's
   // no-nerf rule over the 2.17× Grand Spectrum frame): at L40 beside Umeko + Midori her Starfall 3-0-2 / 4-0-2 crowd read
-  // ×0.92–0.93 of today, Umeko's faster aura landing her mortar in a dip; ×1.11 is the smallest row at or above today on
-  // seeds 1–16 at every crowd spacing 0.4–0.7 s. Her LR row stays on top.)
-  kohaku_tsubaki: { dmg: 1.11 },
+  // ×0.92–0.93 of today, Umeko's faster aura landing her mortar in a dip; ×1.11 was the smallest row at or above today on
+  // seeds 1–16 at every crowd spacing 0.4–0.7 s (worst ×1.0002), ×1.12 keeps 0.9% headroom. Her LR row stays on top.)
+  kohaku_tsubaki: { dmg: 1.12 },
   // controllers: their crowd DPS sits in the band; control lasts 20% longer. Fuu's stronger wind pushes walkers out of
   // her reach (her Returning Gale build alone lost 46% at ×1), so her damage rises until every build of hers, alone and
   // with supports, deals at least what it does today (×2.45; her best build then reads ~3.9M on a crowd, no cap)

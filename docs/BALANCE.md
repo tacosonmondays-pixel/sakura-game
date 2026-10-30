@@ -335,22 +335,25 @@ in (they read `src/` beside them). Exactly what ran, in each tree:
 2-0-4 crowd (L1) 4,001 → 4,339; Shiro 2-0-1 crowd (L1) 126 → 135, 4-0-2 held boss (L1) 5,097 → 5,394, 5-0-2 held boss
 (L1) 99,233 → 105,027; Suzu 5-0-2 held boss (L40) 29 → 32 (a trap girl's held boss; her walking boss reads 1,338 →
 2,888): all seed noise. Midori 2-0-3 walking boss (L1) reads 4 → 3 a second on 16 seeds too: whole-number rounding
-(measured over 400 s the branch is at or above live on every seed).
+(measured over 400 s the branch is at or above live on every seed). The duo's own cells on seeds 1–16 (all three
+profiles, LR on and off, with and without supports: 540 cells) are all at or above live, the closest ×1.025 (Starfall
+4-0-2 at L40 on a crowd beside Umeko + Midori).
 
 **The duo at L40 (the final review round 2, the owner's decision: no nerfs ever, floors never caps).** Their Starfall
 3-0-2 and 4-0-2 at L40 on a crowd beside Umeko + Midori read ×0.93 and ×0.92 of live with their row at ×1.01 (LR on or
 off alike: at L40 they have no LR form). The cause is Umeko's round-5 buff row, through Blooming Ocean's attack-speed
 aura (×1.05 stronger): the L40 duo's damage on this stream is not smooth in attack speed (it moves up and down by ±5%
 with small steps of aura speed), and this step lands in a dip; without Umeko's buff row they read 3,047 against live
-3,044 (seed 9). Their non-LR row goes ×1.01 → **×1.11**, the smallest that holds every seed 1–16 at every crowd spacing
-0.4–0.7 s (192 cells per row; ×1.10 leaves 3 under, worst ×0.991; ×1.11's worst is ×1.0002, ×1.12's ×1.009). On the
-gate's seeds they now read 3,120 and 4,580 (live 3,044 and 4,515). Only the duo moved: against the branch's gate run
-before the change, 538 of the 540 duo cells rose (none fell) and every other cell of the 8,910 is identical. Their LR rows
-(`LR_POWER.kohaku_tsubaki`) are unchanged and sit on top, so every LR form rises with the row (×1.099 on every tier-5
-cell); Grand Spectrum without LR moves above the owner's 2.17× (about 2.38× Kage on the r5 crowd). Re-pins: PENDING_BUMP
-13 `ee784b0b3782`; the duo's engines battle (DUO_START: the same win, wave, tiers and wallets; ticks 32000 → 32059);
-the battle-boost footnote (×1.11); `tests/sim/duoBeam.test.js` (a beam-mechanics check against her pre-buff numbers)
-now reads her without the balance row (`powerOff`), as it reads her without the owner's Oct 29 buff.
+3,044 (seed 9). Their non-LR row goes ×1.01 → **×1.12**. On seeds 1–16 at every crowd spacing 0.4–0.7 s (192 cells
+per row) ×1.10 leaves 3 under (worst ×0.991), ×1.11 is the smallest that clears but only just (worst ×1.0002), and
+×1.12 keeps 0.9% headroom (worst ×1.009). On the gate's seeds they now read 3,148 and 4,621 (live 3,044 and 4,515).
+Only the duo moved: against the branch's gate run at ×1.01, 538 of the 540 duo cells rose (none fell) and every other
+cell of the 8,910 is identical. Their LR rows (`LR_POWER.kohaku_tsubaki`) are unchanged and sit on top, so every LR form
+rises with the row (×1.109 on every tier-5 cell); Grand Spectrum without LR moves above the owner's 2.17× (about 2.41×
+Kage on the r5 crowd). Re-pins: PENDING_BUMP 13 `3e9875ef40f9`; the duo's engines battle (DUO_START: the same win,
+wave, tiers and wallets; ticks 32000 → 31481); the battle-boost footnote (×1.12); `tests/sim/duoBeam.test.js` (a
+beam-mechanics check against her pre-buff numbers) now reads her without the balance row (`powerOff`), as it reads her
+without the owner's Oct 29 buff.
 
 ## Marumi rework (2026-10-21, `feature/marumi-rework`)
 

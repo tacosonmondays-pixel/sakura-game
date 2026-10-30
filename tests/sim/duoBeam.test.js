@@ -15,7 +15,7 @@ import { defaultData } from '../../src/sim/data.js';
 
 // The Oct 29 buff made her stronger (base +25%, tier-5 multipliers, the long beam at Grand Spectrum). This file checks the
 // beam's mechanics (constant beam = flash beam at the same stats), so it runs on a copy of her pre-buff numbers;
-// the buff itself is measured on the balance rulers (docs/specs/DUO_LR.md §6). The same for balance round 5's row (×1.11
+// the buff itself is measured on the balance rulers (docs/specs/DUO_LR.md §6). The same for balance round 5's row (×1.12
 // since the final review round 2): `powerOff` reads her without it.
 const OLD_DATA = (() => {
   const d = defaultData();
