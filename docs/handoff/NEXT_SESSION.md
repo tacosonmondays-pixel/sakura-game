@@ -4,6 +4,13 @@
 
 This page is for a session that only has the GitHub repo (a cloud session), not the owner's PC. Read `docs/HANDOFF.md` too; it has the rules (§6), the shipping flow (§7) and the branch table (§3). Check out the coordination branch `claude/sakura-sentinels`; `main` is the live build (every push to `main` deploys).
 
+## UPDATE Oct 30, 18:15 UTC: v0.1.64 LIVE; everything for the battle + gear release approved; S5 building
+- **v0.1.64** pushed c6d06118 (owner yes), live 16:44 UTC, live check LIVE_OK (ribbon flow 16/16).
+- **Owner decisions (Oct 30):** LRs must beat EVERY character (done: LR rows raised, gate tools/balance/lrBar.mjs + tests/sim/lrBar.test.js, bar = best non-LR ×1.25); Tenka's full-lab LR stays; ship v0.1.64; 4th rounds approved; gear icons approved; six more attack reworks (S5) approved with defaults.
+- **Approved for the combined battle release (COOP 14):** feature/balance-r5 04bcc258 (+ follow-ups in progress: bar support pairs/crosspaths, Akane-beside-Iroha check, Iroha 6.13M re-pin), feature/ena-contagion 4855bc3b, feature/iroha-mirrors 0af63fdb (r4 f0bd73f2), gear M0 8e8aeae1 / M2 9d94b3c5 / M3 feature/gear-lr b68b79a4 (r4 d337fcac; Kogane level-aware follow-up in progress), loadouts feature/gear-loadouts 450e2641 (r5 604b051a; L2/L3 UI polish in progress), Build Coach feature/build-coach ee1b0020 (r3/r4 OK).
+- **v0.1.65 display release** on release/v0.1.65 ba13dcf7: go/no-go NO-GO on a patch-note line + an e2e wait; fixes + the gifted-ribbon "came with the title" copy fix in progress, then a fresh go/no-go and the owner's yes.
+- **S5 attack shapes** (Midori Spore Mist, Raika Static Web, Rei Crescent Return, Luna Moonbeam Sweep, Miko Charm Wheel, Suzu Bell Toll): spec approved (spec/attack-shapes-s5 01d86b7f, r3 f065472); S5a (Miko/Rei/Suzu + shared base) building on feature/attack-shapes-s5.
+
 ## UPDATE Oct 30, 16:25 UTC: battle-release parts approved; three items escalated
 - **Approved (review OK), waiting for the combined battle release (COOP 14):** `feature/balance-r5` b2f4345c (final r3 2505d624; no-nerf gate `tools/balance/noNerfGate.mjs`: 0 under live except 6 explained seed/rounding cells; duo non-LR ×1.12; Wyrm reachable), `feature/ena-contagion` 4855bc3b, gear M0 `feature/gear-m0` 8e8aeae1 and M2 `feature/gear-sets` 9d94b3c5.
 - **Approved display-only, waiting for the next display release:** `feature/recruit-cinematic` 8bbc9fb7 (r2 91dbe61e), `feature/tryout-pep-talks` 2cb3da8d (r2 872f30b8), gear icons `feature/gear-icons` a069d2f1 (needs the owner's yes on the look).
