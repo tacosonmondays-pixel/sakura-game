@@ -5,10 +5,11 @@ import { saveText } from '../../src/core/store.js';
 import { grantUnit } from '../../src/systems/unlocks.js';
 import { addGear, rollGear, equipGear, unequipGear, salvageGear } from '../../src/systems/gear.js';
 import { createRng } from '../../src/core/rng.js';
+import { UNIT_MAP } from '../../src/data/units.js';
 import { salvagePreview, salvageMany, salvageBlock } from '../../src/systems/salvage.js';
 import {
   TEAM_COUNT, getTeams, getPresets, usePreset, selectTeam, planTeam, teamClashes, copyTeam, clearTeam, renameTeam,
-  copyPreset, restoreLoadouts, presetsNaming, loadoutUseText, takeLines, syncTeams, teamName, ensureTeams, ensurePresets,
+  copyPreset, restoreLoadouts, presetsNaming, loadoutUseText, takeLines, syncTeams, teamName, ensureTeams, ensurePresets, lentPieces,
 } from '../../src/systems/teams.js';
 import { writeTeamMarks } from '../../src/systems/teamsSave.js';
 
@@ -348,5 +349,88 @@ describe('review r1', () => {
     expect(p.gear[g.c2].equippedBy).toBe('aoi');
     expect(p.units.aoi.gear.charm).toBe(g.c2);
     expect(p.units.shiro.gear.charm).toBe(null);
+  });
+});
+
+describe('lent pieces (coordinator ruling on review r1 H1)', () => {
+  function shared() {
+    const { p, g } = setup();
+    p.formation = { hero: null, towers: ['aoi'] };
+    ensureTeams(p);
+    unequipGear(p, 'kage', 'charm');
+    ensurePresets(p, 'kage');
+    p.units.kage.presets[0].charm = g.c2;
+    p.teams.list[1] = { name: 'Team 2', hero: null, towers: ['kage'], use: {} };
+    p.teams.list[2] = { name: 'Team 3', hero: null, towers: ['yuki'], use: {} };
+    return { p, g };
+  }
+
+  it('goes home when the new team does not use it, and says so', () => {
+    const { p, g } = shared();
+    selectTeam(p, 1);
+    expect(p.gear[g.c2].equippedBy).toBe('kage');
+    expect(lentPieces(p, 'aoi')).toEqual([{ uid: g.c2, slot: 'charm', to: 'kage' }]);
+    // Team 3 has neither girl: the charm goes back to Aoi
+    const res = selectTeam(p, 2);
+    expect(res.returns).toEqual([{ uid: g.c2, slot: 'charm', from: 'kage', to: 'aoi' }]);
+    expect(p.gear[g.c2].equippedBy).toBe('aoi');
+    expect(lentPieces(p, 'aoi')).toEqual([]);
+    // and Kage's loadout lends it in turn (she is off the active team, so it stays with Aoi)
+    expect(p.units.kage.presets[p.units.kage.preset].charm).toBe(g.c2);
+    expect(selectTeam(p, 1).takes).toEqual([{ uid: g.c2, slot: 'charm', from: 'aoi', to: 'kage' }]);
+  });
+
+  it('stays lent while a member of the new team wears it; the mirrors keep the mark', () => {
+    const { p, g } = shared();
+    selectTeam(p, 1);
+    p.teams.list[2] = { name: 'Team 3', hero: null, towers: ['kage', 'yuki'], use: {} };
+    const res = selectTeam(p, 2);
+    expect(res.returns).toEqual([]);
+    expect(p.gear[g.c2].equippedBy).toBe('kage');
+    // an older build drops the blocks: the lent mark comes back from 'gp:'
+    const raw = JSON.parse(saveText(p, 1));
+    delete raw.teams;
+    for (const u of Object.values(raw.units)) { delete u.presets; delete u.preset; }
+    const m = migrateProfile(raw);
+    expect(lentPieces(m, 'aoi')).toEqual([{ uid: g.c2, slot: 'charm', to: 'kage' }]);
+  });
+
+  it('fuzz: switches, loadouts, equips, salvage, Undo and reloads never duplicate or lose a piece', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const rng = createRng(seed);
+      let { p } = setup();
+      for (const id of ['shiro', 'midori']) grantUnit(p, id, NOW);
+      for (let i = 0; i < 6; i++) addGear(p, rollGear(rng, { slot: ['charm', 'ribbon', 'shoes'][i % 3], rarity: 'epic', level: 1 }));
+      ensureTeams(p);
+      const girls = Object.keys(p.units).filter((id) => UNIT_MAP[id].kind === 'tower');
+      const pick = (a) => a[Math.floor(rng.next() * a.length)];
+      let undo = null;
+      for (let step = 0; step < 60; step++) {
+        const r = rng.next();
+        const uids = Object.keys(p.gear);
+        if (r < 0.2) undo = selectTeam(p, Math.floor(rng.next() * TEAM_COUNT)).undo;
+        else if (r < 0.35) undo = usePreset(p, pick(girls), Math.floor(rng.next() * 3)).undo || undo;
+        else if (r < 0.55 && uids.length) equipGear(p, pick(girls), pick(uids));
+        else if (r < 0.62) unequipGear(p, pick(girls), pick(['charm', 'ribbon', 'shoes']));
+        else if (r < 0.7) p.formation = { hero: null, towers: [...new Set([pick(girls), pick(girls)])] };
+        else if (r < 0.75 && uids.length) { const u = pick(uids); if (!p.gear[u].equippedBy) salvageGear(p, u); }
+        else if (r < 0.8 && undo) { restoreLoadouts(p, undo); undo = null; }
+        else if (r < 0.85) p = reload(p);
+        syncTeams(p);
+        // invariants: one wearer per piece, wearers and slots agree, the formation is the active team
+        for (const [id, u] of Object.entries(p.units)) {
+          for (const s of ['charm', 'ribbon', 'shoes']) if (u.gear[s]) expect(p.gear[u.gear[s]]?.equippedBy, `seed ${seed} step ${step}`).toBe(id);
+        }
+        for (const g of Object.values(p.gear)) if (g.equippedBy) expect(p.units[g.equippedBy].gear[g.slot]).toBe(g.uid);
+        const t = getTeams(p);
+        expect([t.list[t.active].hero, ...t.list[t.active].towers].filter(Boolean)).toEqual([p.formation.hero, ...p.formation.towers].filter(Boolean));
+        // a worn loadout is what she wears, or a piece another girl wears (lent)
+        for (const [id, u] of Object.entries(p.units)) {
+          if (!u.presets) continue;
+          const worn = u.presets[u.preset];
+          for (const s of ['charm', 'ribbon', 'shoes']) if (worn[s] !== (u.gear[s] || null)) expect(!u.gear[s] && p.gear[worn[s]]?.equippedBy && p.gear[worn[s]].equippedBy !== id).toBe(true);
+        }
+      }
+    }
   });
 });

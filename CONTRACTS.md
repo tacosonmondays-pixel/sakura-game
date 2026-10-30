@@ -820,7 +820,8 @@ export function restoreLoadouts(p, undo)    // Undo
 export function teamClashes(p, t)           // Map uid → member ids naming it (the first in team order gets it)
 export function presetsNaming(p, uid) / loadoutUseText(p, uid)  // salvage: 'loadout' block, "Kage's Loadout B"
 // Invariants: profile.formation === the active team's squad; unit.gear === presets[preset] except a slot whose piece a
-// switch took to another girl ("lent", teamsSave.js wornLoadout): it comes back when her loadout or team is put on.
+// switch took to another girl ("lent", teamsSave.js wornLoadout; mirrored in gp:): it comes back when her loadout or
+// team is put on, or on any team switch whose new team does not wear it (returnLent; lentPieces: the "lent to X" note).
 // Pieces are never copied. Not hashed; the battle reads only profile.formation and unit.gear.
 // Deferred (owner board / M2): the co-op room's in-room switch "until Ready" needs session.js (hashed) → rides M2's
 // COOP_PROTOCOL bump (the hub switches; the room shows "You bring Team N"); Clear works on the active team only;
