@@ -14,6 +14,7 @@ import {
 } from '../../src/systems/gear.js';
 import { rollSetPiece } from '../../src/systems/gearSets.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
+import { grantUnit } from '../../src/systems/unlocks.js';
 
 function urPiece(p, slot, { set = 'geometry', level = 12, seed = slot } = {}) {
   const g = rollSetPiece(createRng(seed), set || 'geometry', { slot, rarity: 'legendary', level: 10 });
@@ -25,6 +26,7 @@ function urPiece(p, slot, { set = 'geometry', level = 12, seed = slot } = {}) {
   recomputeGear(g);
   return addGear(p, g);
 }
+const grantIfMissing = (p, id) => { if (!p.units[id]) grantUnit(p, id); };
 const rich = () => {
   const p = createProfile();
   p.currencies.coins = 1e8;
@@ -246,18 +248,28 @@ describe('Blank LR from a set piece, Pierce past 200 % (review r1 #6, #9)', () =
     expect(p.gear[a].name).toMatch(/Hair Clip of the Nightglass Sakura$/);
   });
 
-  it('Pierce above 200 % fills in as ATK (what a shot cannot use), unless a 5-piece Party Popper reads it', async () => {
-    const { gearFillIn, PIERCE_SHOT_PCT } = await import('../../src/systems/gear.js');
-    const pierce = (set) => {
+  it('Pierce counts once: a kit with no blasts stops at 200 % and fills in the rest as ATK; a blast kit keeps it (review M3 r2 #1)', async () => {
+    const { gearFillIn, PIERCE_SHOT_PCT, blastKit } = await import('../../src/systems/gear.js');
+    const pierce = (unitId, set = null) => {
       const p = rich();
-      const uids = SLOT_IDS.map((slot) => urPiece(p, slot, { set }));
-      for (const u of uids) { limitBreakGear(p, u, set ? 'set' : 'blank'); equipGear(p, 'aoi', u); }
-      // every substat a Pierce line: about 286 % in Blank LR, 229 % in Set LR (under Party Popper's 500 % set cap)
+      grantIfMissing(p, unitId);
+      const uids = SLOT_IDS.map((slot) => urPiece(p, slot, { set, seed: `${unitId}${slot}` }));
+      for (const u of uids) { limitBreakGear(p, u, set ? 'set' : 'blank'); equipGear(p, unitId, u); }
+      // every substat a Pierce line: about 286 % in Blank LR (its cap 300 %), 229 % in Set LR
       for (const u of uids) for (const s of p.gear[u].subs) { s.stat = 'piercePct'; s.base = 0.08; s.value = 0.08; s.upgrades = 0; }
-      return gearFillIn(p, 'aoi').over.find((o) => o.stat === 'piercePct');
+      return { over: gearFillIn(p, unitId).over.find((o) => o.stat === 'piercePct')?.value || 0, pierceK: unitBattleStats(p, unitId).pierceK };
     };
     expect(PIERCE_SHOT_PCT).toBe(2);
-    expect(pierce(null)?.value).toBeGreaterThan(0);
-    expect(pierce('popper')).toBeUndefined();
+    expect([blastKit('aoi'), blastKit('akane')]).toEqual([false, true]);
+    // Aoi shoots: Pierce to 200 %, the rest as ATK; never both
+    const aoi = pierce('aoi');
+    expect(aoi.pierceK).toBe(200);
+    expect(aoi.over).toBeGreaterThan(0);
+    // Akane blasts: all of it widens her blasts, nothing fills in
+    const akane = pierce('akane');
+    expect(akane.pierceK).toBeGreaterThan(200);
+    expect(akane.over).toBe(0);
+    // Party Popper 5 on a blast kit: her blasts read it all (no fill-in)
+    expect(pierce('akane', 'popper').over).toBe(0);
   });
 });

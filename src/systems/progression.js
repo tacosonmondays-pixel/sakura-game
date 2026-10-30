@@ -11,7 +11,7 @@ import { UNIT_MAP, getUnit } from '../data/units.js';
 import { ITEMS, materialId, bookId, zenithId } from '../data/items.js';
 import { ITEM_RARITY_ORDER } from '../data/types.js';
 import { consumeItems, missingItems, itemCount, normalizeList } from './inventory.js';
-import { gearStatTotals, gearFillIn, gearSetInfo, gearCaps } from './gear.js';
+import { gearStatTotals, gearFillIn, gearSetInfo, gearCaps, pierceUseCap } from './gear.js';
 import { BATTLE_CAPS, DOT_BY_PIECES, fillStats } from '../data/gearStats.js';
 import { averageCrit, ABIL_HASTE_CEIL, BLAST_K_MAX } from '../sim/setRules.js';
 import { BLANK_FIVE } from '../data/gearAwaken.js';
@@ -524,7 +524,8 @@ export function unitBattleStats(profile, unitId) {
     armorPen: Math.round(Math.min(C.armorPen, g.armorPen) * 10) / 10,
     costMul: r4(Math.max(1 - C.costCut, 1 - g.costCut)),
     ultHaste: r4(Math.min(B.ultHaste, g.ultHaste)),
-    pierceK: Math.round(100 * Math.min(B.piercePct, g.piercePct)),
+    // (a kit with no blasts stops at the 200 % a shot uses: the rest fills in as ATK, gearFillIn; review M3 r2 #1)
+    pierceK: Math.round(100 * Math.min(pierceUseCap(unitId, B.piercePct), g.piercePct)),
     auraPct: r4((1 + Math.min(C.auraPct, g.auraPct) + auraFill) * boost.aura - 1),
     auraRangeMul: r4((1 + Math.min(C.auraRangePct, g.auraRangePct)) * (1 + auraFill)),
     dotMul: r4(Math.min(dotCap, 1 + dotShare * gearAtk)),

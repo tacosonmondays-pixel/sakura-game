@@ -387,3 +387,19 @@ describe('M0 reader: exports carry version 3', () => {
     expect(() => deserializeProfile(four)).toThrow('Newer save');
   });
 });
+
+describe('the marks repair, Blank LR from a set piece (review M3 r2 L1)', () => {
+  it('a `glr:` Blank LR mark on a set piece drops its set and its set name: rarity and slot, the Nightglass suffix', () => {
+    const p = createProfile();
+    const uid = legendaryPiece(p, 'ribbon', { set: 'spirit', ur: true, level: 12 });
+    const setName = p.gear[uid].name;
+    const raw = clone(p);
+    raw.missions.counters[MARK.lr + uid] = 2 * 100 + 12; // (Blank LR at +12, as an older build left the piece)
+    const q = migrateProfile(raw);
+    expect(q.gear[uid]).toMatchObject({ lr: 2 });
+    expect(q.gear[uid].set).toBeUndefined();
+    expect(q.gear[uid].name).not.toBe(setName);
+    expect(q.gear[uid].name).toBe(pieceName(q.gear[uid]));
+    expect(q.gear[uid].name).toMatch(/Ribbon of the Nightglass Sakura$/);
+  });
+});

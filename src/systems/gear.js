@@ -33,6 +33,7 @@ import { track } from './missions.js';
 import { potentialLevel } from './potential.js';
 import { writeRosterMark } from './rosterSave.js';
 import { PIERCE_MAX_EXTRA } from '../sim/gearRules.js';
+import { UNIT_MAP } from '../data/units.js';
 
 export const MAX_GEAR_LEVEL = 10;
 /** Stat multiplier per gear rarity (UR, the awakened Legendary, is 3.2). */
@@ -1014,6 +1015,32 @@ export function gearCaps(info) {
 /** The most Pierce a shot can use (PIERCE_MAX_EXTRA more targets at 100 % each): the rest fills in as ATK. */
 export const PIERCE_SHOT_PCT = PIERCE_MAX_EXTRA;
 
+const BLAST_KITS = new Map();
+/**
+ * Whether her kit blasts or lays splash traps on some path (a `splash` above 0 anywhere in her base or tiers): Pierce
+ * widens those all the way to its cap (src/sim/mods.js applyGearReach), so for her no part of it is surplus. A kit
+ * with none uses Pierce on shots only, up to PIERCE_SHOT_PCT (review M3 r2 #1).
+ */
+export function blastKit(unitId) {
+  if (!BLAST_KITS.has(unitId)) {
+    let found = false;
+    const walk = (o) => {
+      if (found || !o || typeof o !== 'object') return;
+      for (const [k, v] of Object.entries(o)) {
+        if (k === 'splash' && typeof v === 'number' && v > 0) { found = true; return; }
+        walk(v);
+      }
+    };
+    const def = UNIT_MAP[unitId];
+    if (def) walk({ base: def.base, paths: def.paths });
+    BLAST_KITS.set(unitId, found);
+  }
+  return BLAST_KITS.get(unitId);
+}
+
+/** The most Pierce she uses in battle: her cap, or PIERCE_SHOT_PCT for a kit with no blasts (the rest fills in). */
+export const pierceUseCap = (unitId, cap) => (blastKit(unitId) ? cap : Math.min(cap, PIERCE_SHOT_PCT));
+
 /** Her caps as she is geared now (gearCaps of her set info): what the MAX tags and the stitch warning read. */
 export const unitGearCaps = (profile, unitId) => gearCaps(gearSetInfo(profile, unitId));
 
@@ -1101,10 +1128,9 @@ export function gearFillIn(profile, unitId, { skip = null } = {}) {
   const caps = gearCaps(set);
   for (const stat of CAPPED_STATS) {
     // Aura Power fills in above AURA_FILL_FROM (15 %), as before its cap moved to 25 %, whatever lifts it; Pierce above
-    // what a shot can use (PIERCE_SHOT_PCT, 200 %: LR lifts its cap to 300 %) fills in too, unless a 5-piece Party
-    // Popper's blasts read all of it (M3 review r1 #9; her blasts still widen with it either way)
-    const from = stat === 'auraPct' ? AURA_FILL_FROM
-      : stat === 'piercePct' && !(set.set === 'popper' && set.setN >= 5) ? Math.min(caps[stat], PIERCE_SHOT_PCT) : caps[stat];
+    // what she uses fills in too: a kit with no blasts or splash traps uses PIERCE_SHOT_PCT (200 %; LR lifts the cap
+    // to 300 %) and battle stats stop her pierceK there, a blast kit uses all of it and fills nothing in (M3 review r2 #1)
+    const from = stat === 'auraPct' ? AURA_FILL_FROM : stat === 'piercePct' ? pierceUseCap(unitId, caps[stat]) : caps[stat];
     const over = totals[stat] - from;
     if (over > 1e-9 && !dead.has(stat)) parts.push({ kind: 'over', stat, value: roundStat(stat, over), w: fillWorth(stat, over, target) });
   }

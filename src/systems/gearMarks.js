@@ -253,7 +253,11 @@ function restoreUpdateMarks(p, c, refund) {
     if (g) {
       if (isUrGear(g) && !isNewSlot(g.slot) && (kind === LR_BLANK || (kind === LR_SET && g.set))) {
         g.lr = kind;
-        if (kind === LR_BLANK) delete g.set;
+        // Blank LR gives its set up, and with it the set's fixed name: rarity and slot (as limitBreakGear; review M3 r2 L1)
+        if (kind === LR_BLANK && g.set) {
+          delete g.set;
+          g.name = pieceName(g);
+        }
         g.level = Math.max(g.level, lv);
         // its ▲ back on the lines that had them (an older build trims the ones above +12 from the most-grown line)
         if (ups.reduce((a, b) => a + b, 0) === Math.floor(g.level / SUB_GROWTH_EVERY) && ups.every((u, i) => !u || g.subs[i])) {
