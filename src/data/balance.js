@@ -103,8 +103,9 @@ const LR_ROWS = {
   // LR premium (the owner, Oct 30: LRs clearly above every non-LR): `t5` rows lift each tier-5 crowd past the best SSR
   // crowd on the round-5 bench (Hotaru 5-0-2, 8.67M; Iroha 2-0-5 6.81M on her rework) by a quarter: about 11M
   // The LR bar (the owner, Oct 30: "LRs should beat every character, that's the point"; tools/balance/lrBar.mjs): every
-  // LR tier-5 build at least 1.25× the best non-LR build of any unit, heroes included, on a crowd (Akane 5-0-2, 16.47M)
-  // and on a boss (Tenka's lab at UR with a full lab team, 3.55M); the t5 rows take each LR crowd to about 23M
+  // LR tier-5 build at least 1.25× the best non-LR build of any unit, heroes included, on a crowd and on a boss (LR_BAR
+  // there: Akane 5-0-2 beside Umeko + Chika on a crowd, Iroha's best mirror layout on a boss); the t5 rows take each LR
+  // crowd to about 23M
   kohaku_tsubaki: { dmg: 1.05, boss: 1.6, t5: { starfall: { dmg: 4.4 }, corridor: { dmg: 3.35 }, refraction: { dmg: 2.0 } } },
   // Tenka (Thesis Defense): ×3.4 vs bosses on every build (her Rail Arms crowd is above the floor already); `t5` rows on
   // top while that path is at tier 5: her Joint Research and Singularity builds deal little of their own (a lab and a
