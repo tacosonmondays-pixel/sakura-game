@@ -31,7 +31,8 @@ import { navigate } from '../router.js';
 import { createRng } from '../../core/rng.js';
 import { formatNumber } from '../../core/util.js';
 import { BACKPACK_TABS, ITEMS, ITEM_CATEGORIES, getItem, compareItemsByRarity } from '../../data/items.js';
-import { ITEM_RARITIES, ITEM_RARITY_ORDER, GEAR_SLOTS, MATERIAL_FAMILIES } from '../../data/types.js';
+import { ITEM_RARITIES, ITEM_RARITY_ORDER, MATERIAL_FAMILIES } from '../../data/types.js';
+import { SHOWN_SLOTS, slotName } from '../../data/gearSlots.js';
 import { UNIT_MAP } from '../../data/units.js';
 import { itemCount } from '../../systems/inventory.js';
 import { workbenchReady } from '../../systems/workbench.js';
@@ -329,7 +330,7 @@ function oneLine(text) {
 function openGearFilter(rerender) {
   const profile = store.profile;
   const bodyEl = h('div.bp-fsheet.bp-gfsheet');
-  const slotOpts = [{ id: null, label: 'All' }, ...Object.entries(GEAR_SLOTS).map(([id, s]) => ({ id, label: s.name, icon: gearIcon(id, 'rare') }))];
+  const slotOpts = [{ id: null, label: 'All' }, ...SHOWN_SLOTS.map((id) => ({ id, label: slotName(id), icon: gearIcon(id, 'rare') }))];
   const changed = () => { draw(); rerender(); };
   const draw = () => {
     const slotGear = gearList(profile, { slot: state.gearSlot });

@@ -14,7 +14,8 @@
 import { h } from './dom.js';
 import { ico } from './kit.js';
 import { fmtNum } from './format.js';
-import { GEAR_SLOTS, ITEM_RARITIES } from '../data/types.js';
+import { ITEM_RARITIES } from '../data/types.js';
+import { GEAR_SLOT_DEFS } from '../data/gearSlots.js';
 import { GEAR_STAT_DEFS, statName } from '../data/gearStats.js';
 import { CLUBS } from '../data/clubs.js';
 import { UNIT_MAP } from '../data/units.js';
@@ -60,7 +61,7 @@ export const statFact = (stat, value) => `${statName(stat)} ${statValue(stat, va
  */
 export function gearTileView(g, { slot = null, mainIcon = false, value = false, wearer = false, isNew = false, selected = false, testid = null } = {}) {
   const s = g?.slot || slot;
-  const slotName = GEAR_SLOTS[s]?.name || s || 'Gear';
+  const slotName = GEAR_SLOT_DEFS[s]?.name || s || 'Gear';
   if (!g) {
     return { empty: true, slot: s, slotName, testid, frame: null, step: 0, ur: false, level: null, main: null, tl: null, tr: null, bl: null, club: null, wearer: null, locked: false, selected, aria: `${slotName}: empty` };
   }

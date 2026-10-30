@@ -9,13 +9,19 @@
 // so a stale tab that rerolls a UR piece can never leave a line silently low.
 // Academy Clubs and the two club-only substats (docs/specs/GEAR_STATS.md): `club` on Mythic+ pieces;
 // Pierce (ribbons) and Aura Power (shoes) roll only on club pieces, so un-clubbed pieces keep today's odds.
+// The gear update (docs/specs/GEAR_UPDATE.md): five slots (the Hair Clip and the Necklace, src/data/gearSlots.js), a
+// fixed `set` on set pieces, LR gear (`lr`: 1 Set LR, 2 Blank LR; +18, read ×lrMul), the Nightglass ✦ (a line's
+// `night`, apart from `tuned`) and pins (a line's `top`: its base is the best roll). This reader knows them all.
 
-import { GEAR_SLOTS, GEAR_MAIN_STATS, GEAR_SUBSTATS_BY_RARITY, ITEM_RARITIES, ITEM_RARITY_ORDER } from '../data/types.js';
+import { GEAR_SUBSTATS_BY_RARITY, ITEM_RARITIES, ITEM_RARITY_ORDER } from '../data/types.js';
+import { SLOT_IDS, ROLL_SLOTS, MAIN_STATS_BY_SLOT, isSlot, isNewSlot, slotName } from '../data/gearSlots.js';
+import { setPieceName } from '../data/gearSets.js';
 import { GEAR_STAT_DEFS, GEAR_STAT_KEYS, BASE_STAT_KEYS, statName, subPool, BATTLE_CAPS, CAPPED_STATS, fillStats, midRoll, FILL_SOFT_M, AURA_FILL_M, FILL_WORTH, GEAR_FIT } from '../data/gearStats.js';
 import { CLUBS, LIVE_CLUBS, CLUB_RARITIES, ARMBAND_COIN_STEP, ARMBAND_GIFT } from '../data/clubs.js';
 import {
   UR_SCALE, UR_MAX_LEVEL, TUNE_GOLD, TUNE_RAINBOW, SEED_ID, NEEDLE_ID, ARMBAND_ID, AWAKEN_COINS, STITCH_COINS, TAKE_BACK_COINS,
-  RESONANCE, LEGENDARY_SUFFIX, UR_SUFFIX, MARK,
+  RESONANCE, LEGENDARY_SUFFIX, UR_SUFFIX, MARK, LR_SET, LR_BLANK, LR_SCALE, BLANK_SCALE, LR_MAX_LEVEL, LR_TIER, LR_SUFFIX,
+  LENS_ID, TIE_PIN_ID, COLLAR_PIN_ID,
 } from '../data/gearAwaken.js';
 import { getItem } from '../data/items.js';
 import { createRng } from '../core/rng.js';
@@ -27,7 +33,7 @@ import { writeRosterMark } from './rosterSave.js';
 export const MAX_GEAR_LEVEL = 10;
 /** Stat multiplier per gear rarity (UR, the awakened Legendary, is 3.2). */
 export const GEAR_RARITY_SCALE = { common: 1, rare: 1.35, superRare: 1.75, mythic: 2.2, legendary: 2.8 };
-const SCALE = { ...GEAR_RARITY_SCALE, ur: UR_SCALE };
+const SCALE = { ...GEAR_RARITY_SCALE, ur: UR_SCALE, lr: LR_SCALE, blank: BLANK_SCALE };
 /** Main stats roll 1.2× a substat's range. */
 const MAIN_MUL = 1.2;
 /** Main stat growth per enhancement level (fraction of its +0 value). */
@@ -56,6 +62,7 @@ const STAT_PREFIX = {
   ultHaste: ['Eager', 'Dawnspark'],
 };
 const RARITY_SUFFIX = { mythic: 'of the Crimson Moon', legendary: LEGENDARY_SUFFIX };
+const SUFFIXES = [LR_SUFFIX, UR_SUFFIX, LEGENDARY_SUFFIX];
 
 const rarityOrder = (r) => ITEM_RARITIES[r]?.order ?? 0;
 const isPct = (stat) => !!GEAR_STAT_DEFS[stat]?.pct;
@@ -66,25 +73,39 @@ const statScale = (stat, rarity) => {
 };
 /** ✦ marks on a line (0–2). */
 export const tuneCount = (tuned) => ((tuned | 0) & TUNE_GOLD ? 1 : 0) + ((tuned | 0) & TUNE_RAINBOW ? 1 : 0);
+/** Every ✦ on a line: gold, rainbow and the Nightglass ✦ (0–3). Each is one growth step. */
+export const starCount = (line) => tuneCount(line?.tuned) + (line?.night ? 1 : 0);
 
 // ---------------------------------------------------------------------------
 // UR reads (gear-awaken §3): the only place stored values become effective values
 // ---------------------------------------------------------------------------
 
-/** @returns {boolean} an awakened (rainbow UR) piece */
+/** @returns {boolean} an awakened (rainbow UR) piece; LR pieces are UR too (they keep `ur: 1`) */
 export const isUrGear = (g) => !!g?.ur && g.rarity === 'legendary';
-/** Price / payout tier: rarity order, UR = 5 (one rule for every price, so nothing falls back to Common). */
-export const gearTier = (g) => (isUrGear(g) ? 5 : rarityOrder(g?.rarity));
-/** The rarity key a piece's numbers scale with ('ur' for UR). */
-export const gearScaleKey = (g) => (isUrLook(g) ? 'ur' : g?.rarity);
+/** @returns {0|1|2} the LR kind of a piece: 0 none, 1 Set LR, 2 Blank LR */
+export const lrKind = (g) => (isUrGear(g) && (g.lr === LR_SET || g.lr === LR_BLANK) ? g.lr : 0);
+/** @returns {boolean} a Limit Broken (Nightglass LR) piece, Set or Blank */
+export const isLrGear = (g) => lrKind(g) > 0;
+/** Price / payout tier: rarity order, UR = 5, LR = 6 (one rule for every price, so nothing falls back to Common). */
+export const gearTier = (g) => (isLrGear(g) ? LR_TIER : isUrGear(g) ? 5 : rarityOrder(g?.rarity));
+/** The rarity key a piece's numbers scale with ('ur' for UR, 'lr' / 'blank' for LR). */
+export const gearScaleKey = (g) => (lrKind(g) === LR_BLANK ? 'blank' : lrKind(g) === LR_SET ? 'lr' : isUrLook(g) ? 'ur' : g?.rarity);
 /** UR to the eye: an awakened piece, or a UR piece from someone's profile card (values already effective). */
 export const isUrLook = (g) => isUrGear(g) || (!!g?.urCard && g.rarity === 'legendary');
-/** Highest enhancement level of a piece (+12 for UR). */
-export const maxGearLevel = (g) => (isUrGear(g) ? UR_MAX_LEVEL : MAX_GEAR_LEVEL);
+/** Highest enhancement level of a piece (+12 for UR, +18 for LR). */
+export const maxGearLevel = (g) => (isLrGear(g) ? LR_MAX_LEVEL : isUrGear(g) ? UR_MAX_LEVEL : MAX_GEAR_LEVEL);
 /** UR read multiplier of a stat: ×8/7, Armor Pierce ×1.105. */
 export const urMul = (stat) => statScale(stat, 'ur') / statScale(stat, 'legendary');
+/** LR read multipliers of a stat: Set LR ×4.0/2.8, Blank LR ×5.0/2.8 (Armor Pierce at half rate). */
+export const lrMul = (stat) => statScale(stat, 'lr') / statScale(stat, 'legendary');
+export const blankMul = (stat) => statScale(stat, 'blank') / statScale(stat, 'legendary');
+/** Read multiplier of a piece's stored (Legendary-form) lines. */
+export const readMul = (g, stat) => {
+  const lr = lrKind(g);
+  return lr === LR_BLANK ? blankMul(stat) : lr === LR_SET ? lrMul(stat) : isUrGear(g) ? urMul(stat) : 1;
+};
 /** Effective value of one stored line of a piece. */
-export const effectiveValue = (g, line) => (isUrGear(g) ? roundStat(line.stat, line.value * urMul(line.stat)) : line.value);
+export const effectiveValue = (g, line) => (isUrGear(g) ? roundStat(line.stat, line.value * readMul(g, line.stat)) : line.value);
 
 /**
  * Every line of a piece with its effective value (what cards show, totals sum and battle reads).
@@ -119,10 +140,10 @@ export function substatMax(stat, rarity, upgrades = 0) {
  * Highest effective value a line can show (tests, the save repair and the profile viewer).
  * @param {{ ur?: boolean, main?: boolean, level?: number, ups?: number, tuned?: number, rarity?: string }} o
  */
-export function lineCeiling(stat, { ur = false, main = false, level = MAX_GEAR_LEVEL, ups = 0, tuned = 0, rarity = 'legendary' } = {}) {
-  const r = ur ? 'ur' : rarity;
+export function lineCeiling(stat, { ur = false, lr = null, main = false, level = MAX_GEAR_LEVEL, ups = 0, tuned = 0, night = 0, rarity = 'legendary' } = {}) {
+  const r = lr === 'blank' ? 'blank' : lr === 'set' ? 'lr' : ur ? 'ur' : rarity;
   if (main) return mainStatMax(stat, r, level);
-  return substatMax(stat, r, ups + tuneCount(tuned));
+  return substatMax(stat, r, ups + tuneCount(tuned) + (night ? 1 : 0));
 }
 
 /** Range [min, max] a main stat (+0) can roll at a rarity. */
@@ -146,9 +167,13 @@ export function subGrowth(stat, rarity) {
 
 function applySubUpgrades(sub, rarity) {
   if (sub.base == null) sub.base = sub.value;
-  sub.value = roundStat(sub.stat, sub.base + ((sub.upgrades || 0) + tuneCount(sub.tuned)) * subGrowth(sub.stat, rarity));
+  sub.value = roundStat(sub.stat, sub.base + ((sub.upgrades || 0) + starCount(sub)) * subGrowth(sub.stat, rarity));
   return sub;
 }
+
+/** The best +0 roll of a piece's main stat or substat (stored form: Legendary for UR and LR). What a pin sets. */
+export const topMainBase = (g, stat = g.main.stat) => mainStatRange(stat, g.rarity)[1];
+export const topSubBase = (g, stat) => substatRange(stat, g.rarity)[1];
 
 function rollMain(rng, stat, rarity) {
   const [a, b] = GEAR_STAT_DEFS[stat].base;
@@ -208,20 +233,34 @@ function distributeUpgrades(rng, subs, n) {
 }
 
 /** Display name from main stat + slot (+ rarity suffix; UR pieces are "…of the Rainbow Sakura"). */
-export function gearName(rng, slot, rarity, mainStat, { ur = false } = {}) {
+export function gearName(rng, slot, rarity, mainStat, { ur = false, lr = false } = {}) {
   const prefix = rng.pick(STAT_PREFIX[mainStat] || ['Fine']);
-  const noun = rng.pick(SLOT_NOUNS[slot] || [GEAR_SLOTS[slot]?.name || 'Gear']);
-  const suffix = ur ? UR_SUFFIX : RARITY_SUFFIX[rarity];
+  const noun = rng.pick(SLOT_NOUNS[slot] || [slotName(slot) || 'Gear']);
+  const suffix = lr ? LR_SUFFIX : ur ? UR_SUFFIX : RARITY_SUFFIX[rarity];
   return suffix ? `${prefix} ${noun} ${suffix}` : `${prefix} ${noun}`;
 }
 
-/** The name with its rarity suffix swapped for the UR one (or added). */
-export function urName(name) {
-  const n = String(name || '');
-  if (n.endsWith(UR_SUFFIX)) return n;
-  if (n.endsWith(LEGENDARY_SUFFIX)) return n.slice(0, -LEGENDARY_SUFFIX.length) + UR_SUFFIX;
-  return `${n} ${UR_SUFFIX}`.trim();
+/**
+ * The name a piece is rebuilt with (a Hair Clip / Necklace back from its mirror): a set piece's fixed name, else its
+ * rarity and slot, with the rarity suffix (GEAR_UPDATE.md §2.1).
+ */
+export function pieceName(g) {
+  const base = setPieceName(g.set, g.slot) || `${ITEM_RARITIES[g.rarity]?.name || ''} ${slotName(g.slot)}`.trim();
+  const suffix = isLrGear(g) ? LR_SUFFIX : isUrGear(g) ? UR_SUFFIX : RARITY_SUFFIX[g.rarity];
+  return suffix ? `${base} ${suffix}` : base;
 }
+
+/** The name with its rarity suffix swapped for `suffix` (or added). */
+function withSuffix(name, suffix) {
+  const n = String(name || '');
+  if (n.endsWith(suffix)) return n;
+  for (const old of SUFFIXES) if (n.endsWith(old)) return n.slice(0, -old.length) + suffix;
+  return `${n} ${suffix}`.trim();
+}
+/** The name with its rarity suffix swapped for the UR one (or added). */
+export const urName = (name) => withSuffix(name, UR_SUFFIX);
+/** The name with its rarity suffix swapped for the LR one, "of the Nightglass Sakura" (or added). */
+export const lrName = (name) => withSuffix(name, LR_SUFFIX);
 
 /**
  * Roll a new piece of gear (not yet in the profile; uid is null until addGear).
@@ -231,10 +270,11 @@ export function urName(name) {
  * @returns {object} GearInstance
  */
 export function rollGear(rng, { slot = null, rarity = 'common', level = 0, club = null } = {}) {
-  const s = slot && GEAR_SLOTS[slot] ? slot : rng.pick(Object.keys(GEAR_SLOTS));
+  // no slot: one of the classic three, so every random drop draws exactly as before the Hair Clip and the Necklace
+  const s = slot && isSlot(slot) ? slot : rng.pick(ROLL_SLOTS);
   const r = ITEM_RARITIES[rarity] ? rarity : 'common';
   const c = club && CLUBS[club] && CLUB_RARITIES.includes(r) ? club : null;
-  const mainStat = rng.pick(GEAR_MAIN_STATS[s]);
+  const mainStat = rng.pick(MAIN_STATS_BY_SLOT[s]);
   const main = rollMain(rng, mainStat, r);
   const subStats = pickSubStats(rng, GEAR_SUBSTATS_BY_RARITY[r] || 0, new Set([mainStat]), c ? CLUBS[c].fav : null, subPool(s, c));
   const subs = subStats.map((st) => rollSub(rng, st, r));
@@ -309,6 +349,8 @@ export function openGearBox(profile, itemId, rng, count = 1, { club = null } = {
   if (!item || item.category !== 'gearbox') return { ok: false, error: 'notGearBox', gear: [] };
   // the Rainbow Gear Box opens only through its slot picker, into rainbow (UR) gear (ASCENSION.md §C.8)
   if (item.pickSlot) return { ok: false, error: 'pickSlot', gear: [] };
+  // a Set Box opens only through its set picker, into a whole five-piece set (GEAR_UPDATE.md §5)
+  if (item.pickSet) return { ok: false, error: 'pickSet', gear: [] };
   const wanted = Math.max(1, Math.floor(count));
   const n = Math.min(wanted, OPEN_BATCH_MAX, gearRoom(profile));
   if (n <= 0) return { ok: false, error: 'bagFull', gear: [], opened: 0, wanted };
@@ -328,10 +370,14 @@ export function openGearBox(profile, itemId, rng, count = 1, { club = null } = {
 
 export const RAINBOW_BOX_ID = 'gearbox_rainbow';
 
-/** `gbx:` value of a box-born UR piece: slot index × 100 + main-stat index + 1 (0 = none / salvaged). */
+/**
+ * `gbx:` value of a box-born UR piece: slot index × 100 + main-stat index + 1 (0 = none / salvaged). A Hair Clip or
+ * Necklace never has one (an older build cannot see the piece, so no legacy mark may name it: GEAR_UPDATE.md §9.4).
+ */
 export function boxMark(g) {
-  const s = Object.keys(GEAR_SLOTS).indexOf(g?.slot);
-  const m = s >= 0 ? (GEAR_MAIN_STATS[g.slot] || []).indexOf(g.main?.stat) : -1;
+  if (isNewSlot(g?.slot)) return 0;
+  const s = SLOT_IDS.indexOf(g?.slot);
+  const m = s >= 0 ? (MAIN_STATS_BY_SLOT[g.slot] || []).indexOf(g.main?.stat) : -1;
   return s >= 0 && m >= 0 ? s * 100 + m + 1 : 0;
 }
 
@@ -344,7 +390,7 @@ export function boxMark(g) {
  * @returns {{ ok: boolean, error?: 'slot'|'bagFull'|'missing', gear: object|null }}
  */
 export function openRainbowBox(profile, slot, rng, { club = 'random' } = {}) {
-  if (!GEAR_SLOTS[slot]) return { ok: false, error: 'slot', gear: null };
+  if (!ROLL_SLOTS.includes(slot)) return { ok: false, error: 'slot', gear: null };
   if (gearRoom(profile) <= 0) return { ok: false, error: 'bagFull', gear: null };
   if (!consumeItems(profile, [{ id: RAINBOW_BOX_ID, count: 1 }])) return { ok: false, error: 'missing', gear: null };
   const g = rollGear(rng, { slot, rarity: 'legendary', level: 0 });
@@ -387,7 +433,7 @@ export function equipGear(profile, unitId, uid) {
 /** Remove whatever the unit wears in a slot. @returns {{ ok: boolean, uid?: string }} */
 export function unequipGear(profile, unitId, slot) {
   const unit = profile.units[unitId];
-  if (!unit || !GEAR_SLOTS[slot]) return { ok: false };
+  if (!unit || !isSlot(slot)) return { ok: false };
   const uid = unit.gear[slot];
   if (uid && profile.gear[uid]) profile.gear[uid].equippedBy = null;
   unit.gear[slot] = null;
@@ -409,6 +455,8 @@ export function setGearLocked(profile, uid, locked) {
 
 /** Indices of ✦ lines (kept in place by every substat reroll, a free lock). */
 export const tunedIndices = (g) => (g.subs || []).map((s, i) => (s.tuned ? i : -1)).filter((i) => i >= 0);
+/** Indices of every line a substat reroll keeps for free: ✦ lines (the Nightglass ✦ included) and pinned lines. */
+export const keptIndices = (g) => (g.subs || []).map((s, i) => (s.tuned || s.night || s.top ? i : -1)).filter((i) => i >= 0);
 
 /**
  * A Lock Pin on a piece without ✦ works as before ✦ existed (any piece with 2+ lines, Super Rare
@@ -417,8 +465,8 @@ export const tunedIndices = (g) => (g.subs || []).map((s, i) => (s.tuned ? i : -
 export function canLockPin(g, lockIndex) {
   if (lockIndex == null) return true;
   if (!Number.isInteger(lockIndex) || lockIndex < 0 || lockIndex >= (g.subs?.length || 0)) return false;
-  if (g.subs[lockIndex].tuned) return false; // already kept for free
-  const tuned = tunedIndices(g).length;
+  if (keptIndices(g).includes(lockIndex)) return false; // already kept for free
+  const tuned = keptIndices(g).length;
   if (!tuned) return g.subs.length >= 2;
   return g.subs.length - tuned - 1 >= 2;
 }
@@ -440,7 +488,7 @@ export function mainRerollCost(gear) {
 }
 
 /** Main stats a Prism Dice can turn this piece into (the player picks one). */
-export const mainStatChoices = (gear) => (GEAR_MAIN_STATS[gear.slot] || []).filter((s) => s !== gear.main.stat);
+export const mainStatChoices = (gear) => (MAIN_STATS_BY_SLOT[gear.slot] || []).filter((s) => s !== gear.main.stat);
 
 const cloneGear = (g) => JSON.parse(JSON.stringify(g));
 
@@ -459,7 +507,7 @@ export function rerollSubstats(profile, uid, rng, { lockIndex = null } = {}) {
   const cost = rerollCost(gear, { lockIndex });
   if (!consumeItems(profile, cost)) return { ok: false, error: 'missing', missing: missingItems(profile, cost) };
   const before = cloneGear(gear);
-  const keep = new Set(tunedIndices(gear));
+  const keep = new Set(keptIndices(gear));
   if (lockIndex != null) keep.add(lockIndex);
   const exclude = new Set([gear.main.stat]);
   for (const i of keep) exclude.add(gear.subs[i].stat);
@@ -493,17 +541,24 @@ export function rerollMainStat(profile, uid, rng, { stat: chosen = null } = {}) 
   if (!consumeItems(profile, cost)) return { ok: false, error: 'missing', missing: missingItems(profile, cost) };
   const before = cloneGear(gear);
   const stat = chosen ?? rng.pick(options);
-  gear.main = applyMainLevel(rollMain(rng, stat, gear.rarity), gear.level);
+  const pinned = !!gear.main.top;
+  gear.main = rollMain(rng, stat, gear.rarity);
+  // a pinned main keeps its pin: the new main stat takes its best roll too (GEAR_UPDATE.md §6)
+  if (pinned) Object.assign(gear.main, { base: topMainBase(gear, stat), top: 1 });
+  applyMainLevel(gear.main, gear.level);
   const clash = gear.subs.findIndex((s) => s.stat === stat);
   if (clash >= 0) {
     const used = new Set([stat, ...gear.subs.map((s) => s.stat)]);
     const [replacement] = pickSubStats(rng, 1, used, favOf(gear), poolOf(gear));
+    const old = gear.subs[clash];
     const sub = rollSub(rng, replacement, gear.rarity);
-    sub.upgrades = gear.subs[clash].upgrades || 0;
-    if (gear.subs[clash].tuned) sub.tuned = gear.subs[clash].tuned;
+    sub.upgrades = old.upgrades || 0;
+    if (old.tuned) sub.tuned = old.tuned;
+    if (old.night) sub.night = old.night;
+    if (old.top) Object.assign(sub, { base: topSubBase(gear, replacement), top: 1 });
     gear.subs[clash] = applySubUpgrades(sub, gear.rarity);
   }
-  gear.name = gearName(rng, gear.slot, gear.rarity, stat, { ur: isUrGear(gear) });
+  gear.name = gearName(rng, gear.slot, gear.rarity, stat, { ur: isUrGear(gear), lr: isLrGear(gear) });
   track(profile, 'gearReroll', 1);
   track(profile, 'spendCoins', cost.find((c) => c.id === 'coins').count);
   return { ok: true, before, after: cloneGear(gear), cost };
@@ -515,7 +570,7 @@ export function rerollMainStat(profile, uid, rng, { stat: chosen = null } = {}) 
 
 const levelCoins = (tier, l) => (800 + 400 * l) * (tier + 1);
 
-/** Coins for the next enhancement level (null at max; UR +11 / +12 at tier-6 prices). */
+/** Coins for the next enhancement level (null at max; UR +11 / +12 at tier-6 prices, LR +13 … +18 at tier 7). */
 export function enhanceCost(gear) {
   if (gear.level >= maxGearLevel(gear)) return null;
   return levelCoins(gearTier(gear), gear.level);
@@ -529,16 +584,23 @@ export function boxPaidBits(profile, uid) {
 }
 
 /**
- * Total coins spent enhancing a piece to its current level. +11 / +12 of a UR piece cost its UR tier. Below +10 a
- * piece paid its rarity's price, except the levels in `urPaid` (`gbl:` bits, boxPaidBits): a box-born UR piece pays
- * UR prices from +0. A level without its bit (paid in an older build that saw a Legendary, or no profile at hand)
- * counts at the Legendary price, so a refund never passes what was spent.
+ * Total coins spent enhancing a piece to its current level, by the tier each level was paid at: +13 … +18 at the LR
+ * tier, +11 / +12 at the UR tier. Below +10 a piece paid its rarity's price, except the levels in `urPaid` (`gbl:`
+ * bits, boxPaidBits): a box-born UR piece pays UR prices from +0. A level without its bit (paid in an older build that
+ * saw a Legendary, or no profile at hand) counts at the Legendary price, so a refund never passes what was spent.
  */
 export function enhanceInvested(gear, urPaid = 0) {
   let total = 0;
   const base = rarityOrder(gear.rarity);
-  const tier = gearTier(gear);
-  for (let l = 0; l < gear.level; l++) total += levelCoins(l >= MAX_GEAR_LEVEL || (urPaid >> l) & 1 ? tier : base, l);
+  const ur = isUrGear(gear) ? 5 : base;
+  for (let l = 0; l < gear.level; l++) total += levelCoins(l >= UR_MAX_LEVEL && isLrGear(gear) ? LR_TIER : l >= MAX_GEAR_LEVEL || (urPaid >> l) & 1 ? ur : base, l);
+  return total;
+}
+
+/** Coins +13 … +`level` cost at LR prices (an older build's salvage of an LR piece saw none of them). */
+export function lrLevelsInvested(level) {
+  let total = 0;
+  for (let l = UR_MAX_LEVEL; l < Math.min(LR_MAX_LEVEL, level); l++) total += levelCoins(LR_TIER, l);
   return total;
 }
 
@@ -599,9 +661,16 @@ export function firstBloomGift(profile) {
   return addItems(profile, [{ id: SEED_ID, count: 1 }]);
 }
 
+/** Pins on a piece: the Tie Pin on its main stat, a Collar Pin per pinned substat. */
+export function pinsOf(gear) {
+  const collar = (gear?.subs || []).filter((s) => s.top).length;
+  return [...(gear?.main?.top ? [{ id: TIE_PIN_ID, count: 1 }] : []), ...(collar ? [{ id: COLLAR_PIN_ID, count: collar }] : [])];
+}
+
 /**
- * Rewards salvaging would give (preview): a UR or stitched piece also returns its Seed and every Needle. Coins are
- * half of what enhancing actually cost; pass the profile so a box-born UR piece's UR-priced levels count (`gbl:`).
+ * Rewards salvaging would give (preview): a UR or stitched piece also returns its Seed and every Needle (the
+ * Nightglass ✦ included), an LR piece its Nightglass Lens, a pinned piece every pin. Coins are half of what
+ * enhancing actually cost; pass the profile so a box-born UR piece's UR-priced levels count (`gbl:`).
  */
 export function salvageRewards(gear, profile = null) {
   const o = rarityOrder(gear.rarity);
@@ -610,8 +679,10 @@ export function salvageRewards(gear, profile = null) {
   if (dice) rewards.push({ id: 'dice_reroll', count: dice });
   if (gear.rarity === 'legendary') rewards.push({ id: 'lock_pin', count: 1 });
   if (isUrGear(gear)) rewards.push({ id: SEED_ID, count: 1 });
-  const needles = (gear.subs || []).reduce((n, s) => n + tuneCount(s.tuned), 0);
+  if (isLrGear(gear)) rewards.push({ id: LENS_ID, count: 1 });
+  const needles = (gear.subs || []).reduce((n, s) => n + starCount(s), 0);
   if (needles) rewards.push({ id: NEEDLE_ID, count: needles });
+  rewards.push(...pinsOf(gear));
   return rewards;
 }
 
@@ -637,7 +708,8 @@ export function salvageGear(profile, uid) {
 function dropMarks(profile, uid) {
   const c = profile.missions?.counters;
   if (!c) return;
-  for (const p of [MARK.ur, MARK.tuned, MARK.club, MARK.newLine, MARK.newFp, MARK.boxPaid]) delete c[p + uid];
+  for (const p of [MARK.ur, MARK.tuned, MARK.club, MARK.newLine, MARK.newFp, MARK.boxPaid, MARK.set, MARK.lr, MARK.night, MARK.top, MARK.piece, MARK.pieceMain, MARK.pieceClub]) delete c[p + uid];
+  for (const k of Object.keys(c)) if (k.startsWith(`${MARK.pieceSub}${uid}:`)) delete c[k];
   // a box-born piece's mark stays as 0: its Seed was paid with the salvage (ASCENSION.md §C.8)
   if (MARK.box + uid in c) c[MARK.box + uid] = 0;
 }
@@ -798,7 +870,7 @@ export function tieArmband(profile, uid, club) {
 export function wornGear(profile, unitId) {
   const unit = profile?.units?.[unitId];
   if (!unit) return [];
-  return Object.keys(GEAR_SLOTS).map((s) => unit.gear?.[s] && profile.gear?.[unit.gear[s]]).filter(Boolean);
+  return SLOT_IDS.map((s) => unit.gear?.[s] && profile.gear?.[unit.gear[s]]).filter(Boolean);
 }
 
 /**

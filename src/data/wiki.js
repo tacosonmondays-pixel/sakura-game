@@ -19,10 +19,11 @@
 // Cell    = string | number | { text, icon?: 'attack:blast'|'armor:heavy'|'role:sniper'|'trait:veiled'|
 //            'status:slow'|'cap:detection'|'item:<id>'|'medal:<difficulty>'|'element:fire'|'unit:<id>', color?, mult?, strong? }
 
+import { SHOWN_SLOTS, GEAR_SLOT_DEFS, MAIN_STATS_BY_SLOT } from './gearSlots.js';
 import {
   ATTACK_TYPES, ARMOR_CLASSES, TYPE_CHART, ELEMENTS, STATUSES, ROLES, ROLE_CATEGORIES, CAPABILITIES, TRAITS,
   PLACEMENT, TARGET_MODES, DIFFICULTIES, DIFFICULTY_ORDER, UNIT_RARITIES, ITEM_RARITIES,
-  ITEM_RARITY_ORDER, MATERIAL_FAMILIES, GEAR_SLOTS, GEAR_MAIN_STATS, GEAR_SUBSTATS_BY_RARITY,
+  ITEM_RARITY_ORDER, MATERIAL_FAMILIES, GEAR_SUBSTATS_BY_RARITY,
   GACHA, BATTLE, effectivenessLabel,
 } from './types.js';
 import { MAP_TIER_VIEW } from './mapTierNames.js';
@@ -427,7 +428,7 @@ function levelingArticle() {
 function gearArticle() {
   return article('gear', 'Gear & Rerolls', 'progress', 'dice', 'Charms, ribbons and shoes: main stats, substats, enhancing, rerolling and locking.', ['gear', 'equipment', 'charm', 'ribbon', 'shoes', 'substat', 'main stat', 'reroll', 'lock', 'enhance', 'salvage', 'dice', 'prism'], [
     sec('Slots and main stats',
-      table(['Slot', 'Role', 'Main stat options'], Object.entries(GEAR_SLOTS).map(([id, s]) => [{ text: s.name, strong: true }, s.desc, GEAR_MAIN_STATS[id].map((k) => statName(k)).join(' / ')]))),
+      table(['Slot', 'Role', 'Main stat options'], SHOWN_SLOTS.map((id) => [GEAR_SLOT_DEFS[id], id]).map(([s, id]) => [{ text: s.name, strong: true }, s.desc, MAIN_STATS_BY_SLOT[id].map((k) => statName(k)).join(' / ')]))),
     sec('Substats by rarity',
       table(['Rarity', 'Substats'], ITEM_RARITY_ORDER.map((r) => [{ text: ITEM_RARITIES[r].name, color: ITEM_RARITIES[r].color, strong: true }, String(GEAR_SUBSTATS_BY_RARITY[r])])),
       p(`Possible stats: ${BASE_STAT_KEYS.map((k) => statName(k)).join(', ')}. A substat never repeats the main stat. Club pieces can also roll Pierce (ribbons: hits more enemies) or Aura Power (shoes: a stronger aura).`),

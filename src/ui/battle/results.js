@@ -17,7 +17,8 @@ import { medalIcon, gearIcon, traitIcon } from '../../art/icons.js';
 import { resultRibbonRow, dropsTitle } from './modes.js';
 import { getItem } from '../../data/items.js';
 import { getUnit } from '../../data/units.js';
-import { ITEM_RARITIES, DIFFICULTIES, GEAR_SLOTS, TRAITS } from '../../data/types.js';
+import { ITEM_RARITIES, DIFFICULTIES, TRAITS } from '../../data/types.js';
+import { slotName } from '../../data/gearSlots.js';
 import { FAMILIES } from '../../data/enemies.js';
 import { followingStage } from './setup.js';
 import { abilityResultLine } from './abilityBar.js';
@@ -50,7 +51,7 @@ function gearCard(g) {
   const rarity = ITEM_RARITIES[g.rarity];
   const card = h(
     'div.bt-gear',
-    h('div.bt-gear-head', svgEl(gearIcon(g.slot, g.rarity), 'bt-gear-ico'), h('div', h('div.bt-gear-name', g.name || `${rarity?.name} ${GEAR_SLOTS[g.slot]?.name}`), h('div.bt-gear-meta', `${rarity?.name || g.rarity} ${GEAR_SLOTS[g.slot]?.name || g.slot}`))),
+    h('div.bt-gear-head', svgEl(gearIcon(g.slot, g.rarity), 'bt-gear-ico'), h('div', h('div.bt-gear-name', g.name || `${rarity?.name} ${slotName(g.slot)}`), h('div.bt-gear-meta', `${rarity?.name || g.rarity} ${slotName(g.slot)}`))),
     h('div.bt-gear-main', describeStat(g.main.stat, g.main.value)),
     g.subs?.length ? h('ul.bt-gear-subs', g.subs.map((s) => h('li', describeStat(s.stat, s.value)))) : h('div.bt-gear-subs.muted', 'No substats'),
   );

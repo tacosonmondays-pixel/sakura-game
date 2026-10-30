@@ -9,19 +9,36 @@
 //              (restored on uid + slot: an older build's Prism Dice changes the main stat)
 //   gbl:<uid>  box-born UR: bit L = its +L → +L+1 (below +10) was paid at UR prices (salvage refunds by it)
 //   gcl:<uid>  club index (1…)           gnx:<uid>  a Pierce / Aura Power line   gnf:<uid>  fingerprint of the other subs
-//   inv:<id>   item count (0 included) for the Seed, the Needle and the Armband
+//   inv:<id>   item count (0 included) for the Seed, the Needle, the Armband and the gear update's items
 //   ga:gift / gc:gift  the one-time Seed and Armband gifts
-import { GEAR_SLOTS, GEAR_SUBSTATS_BY_RARITY } from '../data/types.js';
+//
+// The gear update (docs/specs/GEAR_UPDATE.md §9) adds marks no older build reads, so none of them can be refunded or
+// clamped by a build that cannot see what they describe:
+//   gst:<uid>  a Charm / Ribbon / Shoes piece's set (set index + 1)
+//   glr:<uid>  a Charm / Ribbon / Shoes LR piece: LR kind × 100 + level (an older build reads it as UR +12)
+//   gtx:<uid>  its Nightglass ✦ (1 bit per stat, TUNE_BITS order)   gtp:<uid>  its pins (bit 0 main, 1 + TUNE_BITS index)
+//   A piece gone with one of these marks was salvaged by an older build, which paid only the UR part: the "piece gone"
+//   rows pay the rest once (the Lens, half of +13 … +18 at LR prices, a Needle per Nightglass ✦, every pin).
+//   gph: / gpm: / gps:<uid>:<i> / gpc:  a Hair Clip or Necklace, whole (§9.5). An older build drops the piece (it does
+//   not know the slot); this build rebuilds it. NO legacy mark (gur, gtn, gbx, gbl, gcl, gnx, gnf) ever names one, so
+//   an older build that drops it finds nothing to refund.
+import { GEAR_SUBSTATS_BY_RARITY, ITEM_RARITIES, ITEM_RARITY_ORDER } from '../data/types.js';
 import { NEW_STAT_SLOT } from '../data/gearStats.js';
+import { SLOT_IDS, SET_ONLY_SLOTS, MAIN_STATS_BY_SLOT, isNewSlot } from '../data/gearSlots.js';
+import { setIndex, setAt } from '../data/gearSets.js';
 import { CLUB_IDS, CLUB_RARITIES, clubIndex, clubAt } from '../data/clubs.js';
-import { TUNE_BITS, TUNE_GOLD, TUNE_RAINBOW, MARK, MIRRORED_ITEMS, SEED_ID, NEEDLE_ID, UR_MAX_LEVEL, MILESTONE_ITEMS, MILESTONE_MARK, MILESTONE_ITEMS_MARK } from '../data/gearAwaken.js';
+import {
+  TUNE_BITS, TUNE_GOLD, TUNE_RAINBOW, MARK, MIRRORED_ITEMS, SEED_ID, NEEDLE_ID, UR_MAX_LEVEL, MILESTONE_ITEMS, MILESTONE_MARK, MILESTONE_ITEMS_MARK,
+  LR_SET, LR_BLANK, LR_MAX_LEVEL, LENS_ID, TIE_PIN_ID, COLLAR_PIN_ID,
+} from '../data/gearAwaken.js';
 import { createRng } from '../core/rng.js';
-import { armbandWelcome, isUrGear, urName, recomputeGear, rollFreshSub, tuneCount, boxMark, boxPaidBits, boxPaidShortfall, SUB_GROWTH_EVERY, MAX_GEAR_LEVEL, nextGrowthIndex } from './gear.js';
+import {
+  armbandWelcome, isUrGear, isLrGear, lrKind, urName, lrName, pieceName, recomputeGear, rollFreshSub, tuneCount, boxMark, boxPaidBits, boxPaidShortfall,
+  SUB_GROWTH_EVERY, MAX_GEAR_LEVEL, nextGrowthIndex, lrLevelsInvested, topMainBase, topSubBase,
+} from './gear.js';
 
 const ITEM_MAX = 9999;
-/** Slot order of a `gbx:` mark (gear.js boxMark: slot index × 100 + main-stat index + 1). */
-const SLOT_IDS = Object.keys(GEAR_SLOTS);
-const NEW_STATS = ['piercePct', 'auraPct'];
+const NEW_STATS = Object.keys(NEW_STAT_SLOT);
 const counters = (p) => ((p.missions ||= {}).counters ||= {});
 const whole = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.floor(v) : 0);
 const give = (p, id, n) => {
@@ -80,13 +97,121 @@ function decodeNewLine(v) {
   return { stat, index, upgrades, tuned, base };
 }
 
+/** 1 bit per stat in TUNE_BITS order of the lines that pass `has`. */
+const lineBits = (g, has) => (g.subs || []).reduce((v, s) => (has(s) && TUNE_BITS.includes(s.stat) ? v + 2 ** TUNE_BITS.indexOf(s.stat) : v), 0);
+const bitStats = (v) => TUNE_BITS.filter((_, i) => Math.floor(whole(v) / 2 ** i) % 2 === 1);
+/** gtp: value of a piece (bit 0 its main stat, bit 1 + TUNE_BITS index a substat), 0 without pins. */
+export const topMark = (g) => (g.main?.top ? 1 : 0) + 2 * lineBits(g, (s) => s.top);
+
+/** Mirror a Hair Clip / Necklace whole: equipped, locked, levelled or Mythic+ (a spare +0 SR piece is left out). */
+const mirrorsWhole = (g) => isNewSlot(g.slot) && (g.equippedBy || g.locked || g.level > 0 || ITEM_RARITIES[g.rarity]?.order >= 3);
+
+/** gph: / gpm: / gps: / gpc: values of a Hair Clip or Necklace (GEAR_UPDATE.md §9.5). */
+export function wholePieceMarks(g) {
+  const flags = (g.locked ? 1 : 0) + (isUrGear(g) ? 2 : 0) + (lrKind(g) === LR_SET ? 4 : 0) + (lrKind(g) === LR_BLANK ? 8 : 0) + (g.main.top ? 16 : 0) + (g.box ? 32 : 0);
+  const head = (SET_ONLY_SLOTS.indexOf(g.slot) + 1) + 10 * ITEM_RARITIES[g.rarity].order + 100 * Math.min(99, g.level) + 1e4 * setIndex(g.set)
+    + 1e6 * MAIN_STATS_BY_SLOT[g.slot].indexOf(g.main.stat) + 1e8 * flags;
+  const subs = (g.subs || []).slice(0, 4).map((s) => TUNE_BITS.indexOf(s.stat) * 1e10 + Math.min(9, s.upgrades || 0) * 1e9 + (s.top ? 1e8 : 0)
+    + (((s.tuned || 0) & 3) + (s.night ? 4 : 0)) * 1e7 + Math.min(999999, Math.round((s.base ?? s.value) * 1e6)));
+  return { head, main: Math.round((g.main.base ?? g.main.value) * 1e6), subs, club: g.club ? clubIndex(g.club) : 0 };
+}
+
+/** A Hair Clip / Necklace as a raw piece from its mirrors (save.js cleanGear checks every field), or null. */
+function pieceFromMarks(c, uid) {
+  let v = whole(c[MARK.piece + uid]);
+  const slot = SET_ONLY_SLOTS[(v % 10) - 1];
+  const rarity = ITEM_RARITY_ORDER[Math.floor(v / 10) % 10];
+  if (!slot || !rarity) return null;
+  const level = Math.floor(v / 100) % 100;
+  const set = setAt(Math.floor(v / 1e4) % 100);
+  const mainStat = MAIN_STATS_BY_SLOT[slot][Math.floor(v / 1e6) % 100];
+  v = Math.floor(v / 1e8);
+  const flags = { locked: v & 1, ur: v & 2, lr: v & 4 ? LR_SET : v & 8 ? LR_BLANK : 0, top: v & 16, box: v & 32 };
+  const base = whole(c[MARK.pieceMain + uid]) / 1e6;
+  if (!mainStat || !(base > 0)) return null;
+  const subs = [];
+  for (let i = 0; i < 4; i++) {
+    const n = whole(c[`${MARK.pieceSub}${uid}:${i}`]);
+    if (!n) continue;
+    const stat = TUNE_BITS[Math.floor(n / 1e10)];
+    const stars = Math.floor(n / 1e7) % 10;
+    const sub = { stat, base: (n % 1e7) / 1e6, upgrades: Math.floor(n / 1e9) % 10 };
+    sub.value = sub.base;
+    if (stars & 3) sub.tuned = stars & 3;
+    if (stars & 4) sub.night = 1;
+    if (Math.floor(n / 1e8) % 10) sub.top = 1;
+    if (stat) subs.push(sub);
+  }
+  const raw = { slot, rarity, level, main: { stat: mainStat, value: base, base, ...(flags.top ? { top: 1 } : {}) }, subs, locked: !!flags.locked, equippedBy: null };
+  if (set) raw.set = set;
+  if (flags.ur) raw.ur = 1;
+  if (flags.lr) raw.lr = flags.lr;
+  if (flags.box) raw.box = 1;
+  const club = clubAt(whole(c[MARK.pieceClub + uid]));
+  if (club) raw.club = club;
+  return raw;
+}
+
+/**
+ * Runs in migrateProfile on the stored counters, after the bag is cleaned and before the equip consistency: every
+ * Hair Clip / Necklace an older build dropped comes back whole (a present piece always wins over its mirror), and she
+ * wears again what her 'own:<id>:<slot>' mark says she wore when the slot is empty.
+ * @param {object} p the profile being migrated
+ * @param {object} c the stored missions.counters
+ * @param {(raw: object, uid: string) => object|null} clean save.js cleanGear
+ */
+export function restoreNewSlotPieces(p, c, clean) {
+  for (const key of Object.keys(c)) {
+    if (!key.startsWith(MARK.piece)) continue;
+    const uid = key.slice(MARK.piece.length);
+    const back = p.gear[uid];
+    const raw = pieceFromMarks(c, uid);
+    if (!raw) continue;
+    if (back) {
+      // a box-born UR piece below +10 keeps `ur` through its mirror (cleanGear wants +10 for a plain `ur`)
+      if (raw.ur && raw.box && back.slot === raw.slot && back.rarity === 'legendary') Object.assign(back, { ur: 1, box: 1 });
+      continue;
+    }
+    const g = clean(raw, uid);
+    if (!g || !isNewSlot(g.slot)) continue;
+    if (raw.ur && raw.box && g.rarity === 'legendary') Object.assign(g, { ur: 1, box: 1 });
+    g.name = pieceName(g);
+    p.gear[uid] = recomputeGear(g);
+  }
+  for (const [id, u] of Object.entries(p.units)) {
+    for (const s of SET_ONLY_SLOTS) {
+      const n = whole(c[`own:${id}:${s}`]);
+      if (!u.gear[s] && n && p.gear[`g${n}`]?.slot === s && !p.gear[`g${n}`].equippedBy) u.gear[s] = `g${n}`;
+    }
+  }
+}
+
 /** Rewrite every gear mirror from the profile; keys of pieces that no longer qualify are dropped. */
 export function writeGearMarks(p) {
   const c = counters(p);
-  for (const k of Object.keys(c)) if (k.startsWith(MARK.ur) || k.startsWith(MARK.tuned) || k.startsWith(MARK.club) || k.startsWith(MARK.newLine) || k.startsWith(MARK.newFp)) delete c[k];
+  const prefixes = [MARK.ur, MARK.tuned, MARK.club, MARK.newLine, MARK.newFp, MARK.set, MARK.lr, MARK.night, MARK.top, MARK.piece, MARK.pieceMain, MARK.pieceSub, MARK.pieceClub];
+  for (const k of Object.keys(c)) if (prefixes.some((x) => k.startsWith(x))) delete c[k];
   for (const g of Object.values(p.gear || {})) {
-    // `gur:` keeps its +10 rule; a box-born piece below +10 rides on `gbx:` alone
-    if (isUrGear(g) && g.level >= MAX_GEAR_LEVEL) c[MARK.ur + g.uid] = g.level;
+    // a Hair Clip / Necklace: its whole-piece mirror only, never a legacy mark (GEAR_UPDATE.md §9.4)
+    if (isNewSlot(g.slot)) {
+      if (!mirrorsWhole(g)) continue;
+      const m = wholePieceMarks(g);
+      c[MARK.piece + g.uid] = m.head;
+      c[MARK.pieceMain + g.uid] = m.main;
+      m.subs.forEach((v, i) => { c[`${MARK.pieceSub}${g.uid}:${i}`] = v; });
+      if (m.club) c[MARK.pieceClub + g.uid] = m.club;
+      continue;
+    }
+    // the gear update's marks on a classic piece: its set, LR kind and level, the Nightglass ✦ and pins
+    if (g.set) c[MARK.set + g.uid] = setIndex(g.set);
+    if (isLrGear(g)) c[MARK.lr + g.uid] = lrKind(g) * 100 + g.level;
+    const night = lineBits(g, (s) => s.night);
+    if (night) c[MARK.night + g.uid] = night;
+    const top = topMark(g);
+    if (top) c[MARK.top + g.uid] = top;
+    // `gur:` keeps its +10 rule (an LR piece's level above +12 rides on `glr:`); a box-born piece below +10 rides
+    // on `gbx:` alone
+    if (isUrGear(g) && g.level >= MAX_GEAR_LEVEL) c[MARK.ur + g.uid] = Math.min(UR_MAX_LEVEL, g.level);
     // a box-born piece's `gbx:` follows its main stat (a Prism Dice changes it)
     if (isUrGear(g) && c[MARK.box + g.uid] > 0) c[MARK.box + g.uid] = boxMark(g);
     const t = tunedMark(g);
@@ -100,6 +225,67 @@ export function writeGearMarks(p) {
   }
   // an item never held has no mirror; a spent one keeps 0 so it is never resurrected
   for (const id of MIRRORED_ITEMS) if (p.items?.[id] || MARK.inv + id in c) c[MARK.inv + id] = p.items?.[id] || 0;
+}
+
+/**
+ * Step 0 of restoreGearMarks: `gst:` sets, `glr:` LR, `gtx:` Nightglass ✦ and `gtp:` pins on Charm / Ribbon / Shoes
+ * pieces. A present piece gets back what an older build dropped (a pinned line whose stat an old reroll changed pays
+ * its Collar Pin back; a Nightglass ✦ whose stat is gone its Needle). A gone piece pays, once, what an older build's
+ * salvage could not: the Lens and half of +13 … +18 at LR prices (`glr:`), a Needle per Nightglass ✦ (`gtx:`) and
+ * every pin (`gtp:`). Then its keys go (writeGearMarks rewrites the rest).
+ */
+function restoreUpdateMarks(p, c, refund) {
+  const keys = (prefix) => Object.keys(c).filter((k) => k.startsWith(prefix));
+  for (const key of keys(MARK.set)) {
+    const g = p.gear[key.slice(MARK.set.length)];
+    const set = setAt(whole(c[key]));
+    if (g && !g.set && set && !isNewSlot(g.slot) && ['superRare', 'mythic', 'legendary'].includes(g.rarity) && lrKind(g) !== LR_BLANK) g.set = set;
+  }
+  for (const key of keys(MARK.lr)) {
+    const uid = key.slice(MARK.lr.length);
+    const g = p.gear[uid];
+    const v = whole(c[key]);
+    const kind = Math.floor(v / 100);
+    const lv = Math.max(UR_MAX_LEVEL, Math.min(LR_MAX_LEVEL, v % 100));
+    if (g) {
+      if (isUrGear(g) && !isNewSlot(g.slot) && (kind === LR_BLANK || (kind === LR_SET && g.set))) {
+        g.lr = kind;
+        if (kind === LR_BLANK) delete g.set;
+        g.level = Math.max(g.level, lv);
+      }
+      continue;
+    }
+    if (kind !== LR_SET && kind !== LR_BLANK) { delete c[key]; continue; }
+    refund(LENS_ID, 1);
+    refund('coins', Math.floor(lrLevelsInvested(lv) * 0.5));
+  }
+  for (const key of keys(MARK.night)) {
+    const uid = key.slice(MARK.night.length);
+    const g = p.gear[uid];
+    const stats = bitStats(c[key]);
+    let open = isLrGear(g) && !g.subs.some((s) => s.night);
+    for (const stat of stats) {
+      const sub = open ? g.subs.find((s) => s.stat === stat) : null;
+      if (sub) { sub.night = 1; open = false; } else if (!(g && g.subs.some((s) => s.stat === stat && s.night))) refund(NEEDLE_ID, 1);
+    }
+  }
+  for (const key of keys(MARK.top)) {
+    const uid = key.slice(MARK.top.length);
+    const g = p.gear[uid];
+    const v = whole(c[key]);
+    if (!g) {
+      if (v % 2) refund(TIE_PIN_ID, 1);
+      refund(COLLAR_PIN_ID, bitStats(Math.floor(v / 2)).length);
+      continue;
+    }
+    if (v % 2 && !g.main.top) Object.assign(g.main, { base: topMainBase(g), top: 1 });
+    for (const stat of bitStats(Math.floor(v / 2))) {
+      const sub = g.subs.find((s) => s.stat === stat);
+      if (!sub) refund(COLLAR_PIN_ID, 1);
+      else if (!sub.top) Object.assign(sub, { base: topSubBase(g, stat), top: 1 });
+    }
+  }
+  for (const prefix of [MARK.lr, MARK.night, MARK.top]) for (const key of keys(prefix)) if (!p.gear[key.slice(prefix.length)]) delete c[key];
 }
 
 /** The +11 / +12 coins an old salvage could not see (half of the UR levels' tier-6 price). */
@@ -119,6 +305,9 @@ export function restoreGearMarks(p) {
       refunds[id] = (refunds[id] || 0) + n;
     }
   };
+  // 0. the gear update's marks on classic pieces (GEAR_UPDATE.md §9.2, §9.3): sets, LR, the Nightglass ✦ and pins an
+  //    older build dropped come back; a piece gone with them was salvaged there, which paid only its UR part
+  restoreUpdateMarks(p, c, refund);
   // 1. items an older build dropped (spent items have mirror 0 and never come back)
   for (const id of MIRRORED_ITEMS) {
     const v = Math.min(ITEM_MAX, whole(c[MARK.inv + id]));
@@ -198,7 +387,7 @@ export function restoreGearMarks(p) {
     if (!g || !line || g.subs.some((s) => s.stat === line.stat)) continue;
     const stars = ok(g) ? (line.tuned | (held[uid]?.stat === line.stat ? held[uid].bits : 0)) & 3 : 0;
     const room = (GEAR_SUBSTATS_BY_RARITY[g.rarity] || 0) - g.subs.length;
-    if (room <= 0 || NEW_STAT_SLOT[line.stat] !== g.slot) {
+    if (room <= 0 || !NEW_STAT_SLOT[line.stat]?.includes(g.slot)) {
       refund(NEEDLE_ID, tuneCount(stars));
       continue;
     }
@@ -215,7 +404,7 @@ export function restoreGearMarks(p) {
   // 6. canonical pieces: values from base / level / ▲ / ✦, the ▲ count of the level, ✦ slot limits, UR name
   for (const g of Object.values(p.gear)) {
     const tunedAny = g.subs.some((s) => s.tuned);
-    if (!isUrGear(g) && !tunedAny && !g.subs.some((s) => NEW_STATS.includes(s.stat))) continue;
+    if (!isUrGear(g) && !tunedAny && !g.main.top && !g.subs.some((s) => NEW_STATS.includes(s.stat) || s.top)) continue;
     let gold = false;
     let rainbow = false;
     const goldOk = g.rarity === 'legendary' && (isUrGear(g) || g.level >= MAX_GEAR_LEVEL);
@@ -241,7 +430,8 @@ export function restoreGearMarks(p) {
       g.subs[i].upgrades -= 1;
       have -= 1;
     }
-    if (isUrGear(g)) g.name = urName(g.name);
+    if (isLrGear(g)) g.name = lrName(g.name);
+    else if (isUrGear(g)) g.name = urName(g.name);
     recomputeGear(g);
   }
   // 7. one-time gifts: the first-bloom Seed (a Legendary +10 in the save) and the Armband welcome (any Mythic+ piece)

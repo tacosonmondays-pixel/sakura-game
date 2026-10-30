@@ -5,7 +5,8 @@
 // viewer's client.
 import './styles/unit-build.css';
 import { h, svgEl, stars } from './components.js';
-import { GEAR_SLOTS, ITEM_RARITIES } from '../data/types.js';
+import { ITEM_RARITIES } from '../data/types.js';
+import { SHOWN_SLOTS, slotName } from '../data/gearSlots.js';
 import { GEAR_STAT_DEFS, statName } from '../data/gearStats.js';
 import { levelCap, unitBattleStats, unitPower, MAX_BREAKTHROUGH, MAX_AWAKEN } from '../systems/progression.js';
 import { gearStatTotals, gearLines, isUrLook } from '../systems/gear.js';
@@ -35,12 +36,12 @@ const pctDelta = (mul) => {
 export function buildModel(unit, prof) {
   const st = prof?.units?.[unit.id];
   if (!st) return null;
-  const gear = Object.keys(GEAR_SLOTS).map((slot) => {
+  const gear = SHOWN_SLOTS.map((slot) => {
     const g = st.gear?.[slot] && prof.gear?.[st.gear[slot]];
-    if (!g || g.slot !== slot) return { slot, slotName: GEAR_SLOTS[slot].name, empty: true };
+    if (!g || g.slot !== slot) return { slot, slotName: slotName(slot), empty: true };
     const L = gearLines(g);
     return {
-      slot, slotName: GEAR_SLOTS[slot].name, rarity: g.rarity, ur: isUrLook(g), club: g.club || null, rarityName: isUrLook(g) ? 'UR' : ITEM_RARITIES[g.rarity]?.name || g.rarity, color: ITEM_RARITIES[g.rarity]?.color || '#9aa5b1', level: g.level || 0,
+      slot, slotName: slotName(slot), rarity: g.rarity, ur: isUrLook(g), club: g.club || null, rarityName: isUrLook(g) ? 'UR' : ITEM_RARITIES[g.rarity]?.name || g.rarity, color: ITEM_RARITIES[g.rarity]?.color || '#9aa5b1', level: g.level || 0,
       main: { name: statName(g.main.stat), text: statText(g.main.stat, L.main.value) },
       subs: L.subs.map((s) => ({ name: statName(s.stat), text: statText(s.stat, s.value), ups: Math.max(0, s.upgrades || 0), tuned: s.tuned || 0 })),
     };

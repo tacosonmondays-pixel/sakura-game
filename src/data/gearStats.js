@@ -6,11 +6,17 @@ import { GEAR_STATS } from './types.js';
 import { ABILITIES, abilityRuns, abilityAtTier, skillAtLevel } from './abilities.js';
 import { NOT_HASTED_KINDS } from '../sim/gearRules.js';
 
-/** Every gear stat: today's eight (same keys, ranges and slots) + Pierce (ribbons) + Aura Power (shoes). */
+/**
+ * Every gear stat: today's eight (same keys, ranges and slots) + Pierce (ribbons) + Aura Power (shoes), and the gear
+ * update's three support stats (docs/specs/GEAR_UPDATE.md §2.3), which are main stats only (Hair Clip, Necklace).
+ */
 export const GEAR_STAT_DEFS = Object.freeze({
   ...GEAR_STATS,
   piercePct: { name: 'Pierce', pct: true, base: [0.08, 0.16] },
   auraPct: { name: 'Aura Power', pct: true, base: [0.02, 0.04] },
+  auraRangePct: { name: 'Aura Radius', pct: true, base: [0.02, 0.04] },
+  buffDurPct: { name: 'Buff Duration', pct: true, base: [0.03, 0.07] },
+  controlPct: { name: 'Control Strength', pct: true, base: [0.03, 0.07] },
 });
 export const GEAR_STAT_KEYS = Object.freeze(Object.keys(GEAR_STAT_DEFS));
 /** Today's eight keys: what a piece without a club rolls from (its odds never change). */
@@ -23,21 +29,33 @@ export const STAT_HINTS = Object.freeze({
   piercePct: 'Hits more enemies: shots go through one more, blasts and traps grow, sweeps hit more, lightning jumps further.',
   auraPct: 'Makes her aura stronger.',
   ultHaste: 'Speeds up hero ults (and, at half strength, every girl\'s ⚡ ability, not team rallies or debuffs).',
+  auraRangePct: 'Her aura reaches further.',
+  buffDurPct: 'Her timed buffs last longer.',
+  controlPct: 'Her slows, freezes, stuns and holds last longer, and her push-backs push further.',
 });
 
 /** @returns {string} the card name of a gear stat */
 export const statName = (stat) => STAT_LABELS[stat] || stat;
 
-/** A new stat rolls only on club pieces, and only in its slot (never a main stat). */
-export const NEW_STAT_SLOT = Object.freeze({ piercePct: 'ribbon', auraPct: 'shoes' });
+/**
+ * A club-only substat rolls only on club pieces, and only in its slots: Pierce on ribbons and hair clips, Aura Power
+ * on shoes and necklaces (Aura Power is also a Hair Clip main stat).
+ */
+export const NEW_STAT_SLOT = Object.freeze({ piercePct: Object.freeze(['ribbon', 'hair']), auraPct: Object.freeze(['shoes', 'necklace']) });
+/** True when a club-only substat may sit on a piece of this slot. */
+export const newStatFits = (stat, slot) => !NEW_STAT_SLOT[stat] || NEW_STAT_SLOT[stat].includes(slot);
+/** Support stats that are main stats only (never a substat line). */
+export const MAIN_ONLY_STATS = Object.freeze(['auraRangePct', 'buffDurPct', 'controlPct']);
+/** Every stat a substat line may hold. */
+export const SUB_STAT_KEYS = Object.freeze(GEAR_STAT_KEYS.filter((k) => !MAIN_ONLY_STATS.includes(k)));
 
 /**
  * The substat pool of a piece: a piece without a club keeps today's eight; a club piece adds its slot's
- * new stat (ribbons Pierce, shoes Aura Power).
+ * club-only stat (ribbons and hair clips Pierce, shoes and necklaces Aura Power).
  */
 export function subPool(slot, club) {
   if (!club) return BASE_STAT_KEYS;
-  return GEAR_STAT_KEYS.filter((k) => !NEW_STAT_SLOT[k] || NEW_STAT_SLOT[k] === slot);
+  return SUB_STAT_KEYS.filter((k) => newStatFits(k, slot));
 }
 
 /**

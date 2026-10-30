@@ -4,11 +4,14 @@
 
 import { UNIT_MAP, UNITS } from '../data/units.js';
 import { ITEMS } from '../data/items.js';
-import { GEAR_SLOTS, GEAR_STATS, ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE } from '../data/types.js';
-import { GEAR_STAT_DEFS, NEW_STAT_SLOT } from '../data/gearStats.js';
+import { ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE } from '../data/types.js';
+import { SUB_STAT_KEYS, NEW_STAT_SLOT, newStatFits } from '../data/gearStats.js';
+import { SLOT_IDS, MAIN_STATS_BY_SLOT, slotName, emptySlots } from '../data/gearSlots.js';
+import { isSet, SET_RARITIES } from '../data/gearSets.js';
 import { CLUB_IDS, CLUB_RARITIES } from '../data/clubs.js';
-import { UR_MAX_LEVEL } from '../data/gearAwaken.js';
-import { restoreGearMarks } from './gearMarks.js';
+import { UR_MAX_LEVEL, LR_MAX_LEVEL, LR_SET, LR_BLANK } from '../data/gearAwaken.js';
+import { restoreGearMarks, restoreNewSlotPieces } from './gearMarks.js';
+import { cleanTeams, cleanPresets, restoreTeams } from './teamsSave.js';
 import { RIBBON_MODES } from '../data/modes.js';
 import { LOBBY_BG_MAP, BOND_MAX } from '../data/lobbyArt.js';
 import { emptyMail, MAIL_LIMIT, amendBetaLetter } from './mail.js';
@@ -25,7 +28,6 @@ import { newSocial, cleanSocial } from '../online/socialSave.js';
 import { newEvents, cleanEvents } from './events.js';
 import { SKIN_MAP } from '../data/skins.js';
 import { ownsSkin, isStoredSkin } from './skins.js';
-import { cleanPresets, cleanTeams, syncTeams, writeTeamMarks, emptyTeam, TEAM_COUNT } from './teams.js';
 
 export const SAVE_KEY = 'sakura-sentinels-save-v1';
 /**
@@ -33,6 +35,14 @@ export const SAVE_KEY = 'sakura-sentinels-save-v1';
  * additive v2 fields (roster merge, ROSTER_WAVE_NOTES.md): an older build simply drops them.
  */
 export const SAVE_VERSION = 2;
+/**
+ * The version an export (and so a transfer code) carries, apart from the stored save's (docs/specs/GEAR_UPDATE.md
+ * §9.4). From the gear update's reader on it is 3, which every older build refuses as a "Newer save", so a transfer
+ * code can never carry five-piece, set or LR gear into a build that would drop it. The stored save keeps
+ * SAVE_VERSION (store.js writes it with JSON.stringify), so an open older tab on the same device still loads it. A
+ * later stored-save bump moves this past it.
+ */
+export const EXPORT_VERSION = 3;
 /**
  * Where store.js keeps safety copies of stored saves it could not load as they were: a JSON
  * list of `{ at, reason, version, raw }` (ISO time, loadSaveText's reason, the save's version,
@@ -44,7 +54,7 @@ export const MAX_BACKUPS = 3;
 
 export const STARTER_UNITS = ['hikari', 'aoi', 'rei'];
 const HISTORY_LIMIT = 100;
-const SLOTS = Object.keys(GEAR_SLOTS);
+const SLOTS = SLOT_IDS;
 
 /** Default settings (also used to repair partial settings). */
 export const DEFAULT_SETTINGS = {
@@ -102,7 +112,7 @@ const GIRL_PAGE_LOOKS = ['compact', 'detailed'];
  * her bought Potential (src/systems/essence.js).
  */
 export function newUnitState(now = Date.now()) {
-  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: { charm: null, ribbon: null, shoes: null }, obtainedAt: now, favorite: false, dupes: 0, pl: 1, skin: null, presets: [{ charm: null, ribbon: null, shoes: null }], preset: 0 };
+  return { level: 1, exp: 0, breakthrough: 0, awaken: 0, gear: emptySlots(), obtainedAt: now, favorite: false, dupes: 0, pl: 1, skin: null };
 }
 
 function emptyMissions() {
@@ -153,8 +163,6 @@ export function createProfile() {
     progress: { stages: {} },
     bestiary: {},
     formation: { hero: 'hikari', towers: ['aoi', 'rei'] },
-    // [teams] 5 saved teams; the active one is the formation (src/systems/teams.js)
-    teams: { active: 0, list: Array.from({ length: TEAM_COUNT }, (_, i) => (i ? emptyTeam() : { ...emptyTeam(), hero: 'hikari', towers: ['aoi', 'rei'] })) },
     missions,
     shop: { day: null, week: null, bought: {} },
     redeemed: [],
@@ -181,7 +189,6 @@ export function createProfile() {
   markSensei(p); // [profile] the picks' shadows in missions.counters (an older build drops the block)
   markEssenceBorn(p); // [ascension] born on Essence: no switch-over migration, no welcome pouch
   writeRosterMarks(p); // [roster] every owned girl's 'own:' mark (src/systems/rosterSave.js)
-  writeTeamMarks(p); // [teams] the teams' 'tm:' mirrors (src/systems/teams.js)
   return p;
 }
 
@@ -241,8 +248,10 @@ function cleanUnit(raw, now, unitId) {
   // her duplicates may not be known yet (`dupes` null until creditPotential restores it), so a girl
   // past gate 5 keeps any level up to MAX_LEVEL here; migrateProfile re-clamps to levelCap after
   const cap = breakthrough < 5 ? 10 + 10 * breakthrough : MAX_LEVEL;
-  const gear = { charm: null, ribbon: null, shoes: null };
+  const gear = emptySlots();
   if (isObj(raw.gear)) for (const s of SLOTS) gear[s] = str(raw.gear[s]);
+  // [gear update] her gear loadouts (GEAR_UPDATE.md §7.4): kept as they are; teamsSave.js makes them agree with `gear`
+  const presets = cleanPresets(raw.presets, raw.preset);
   return {
     level: int(raw.level, 1, 1, cap),
     exp: int(raw.exp, 0, 0),
@@ -256,53 +265,76 @@ function cleanUnit(raw, now, unitId) {
     // bought Potential (ASCENSION.md §A.1); absent = not bought yet (an older build drops it: 'pl:' brings it back)
     ...(raw.pl != null ? { pl: int(raw.pl, 1, 1, 6) } : {}),
     skin: cleanSkins(raw.skin, unitId),
+    ...presets,
   };
 }
 
-/** A gear line: today's eight stats, plus Pierce / Aura Power as substats (gear-stats §E.2). */
-function cleanStat(raw, { sub = false } = {}) {
-  if (!isObj(raw) || !(sub ? GEAR_STAT_DEFS : GEAR_STATS)[raw.stat]) return null;
+/**
+ * A gear line: a main stat of its slot (the classic pools are frozen; the Hair Clip and the Necklace add the support
+ * stats), or a substat (today's eight, plus Pierce / Aura Power on club pieces, gear-stats §E.2). The gear update's
+ * line marks: `night` (the Nightglass ✦, LR only, never in `tuned`) and `top` (a pin: the base is its best roll).
+ */
+function cleanStat(raw, { sub = false, slot = null } = {}) {
+  if (!isObj(raw) || !(sub ? SUB_STAT_KEYS.includes(raw.stat) : MAIN_STATS_BY_SLOT[slot]?.includes(raw.stat))) return null;
   const out = { stat: raw.stat, value: num(raw.value, 0, 0) };
   if (raw.base != null) out.base = num(raw.base, out.value, 0);
   if (raw.upgrades != null) out.upgrades = int(raw.upgrades, 0, 0, 10);
   // ✦ stitches (gear-awaken §8.1): 1 = gold, 2 = rainbow, 3 = both
   const tuned = int(raw.tuned, 0, 0, 3);
   if (sub && tuned) out.tuned = tuned;
+  if (sub && raw.night === 1) out.night = 1;
+  if (raw.top === 1) out.top = 1;
   return out;
 }
 
 function cleanGear(raw, uid) {
-  if (!isObj(raw) || !GEAR_SLOTS[raw.slot] || !ITEM_RARITIES[raw.rarity]) return null;
-  const main = cleanStat(raw.main);
+  if (!isObj(raw) || !SLOTS.includes(raw.slot) || !ITEM_RARITIES[raw.rarity]) return null;
+  const main = cleanStat(raw.main, { slot: raw.slot });
   if (!main) return null;
   const club = typeof raw.club === 'string' && CLUB_IDS.includes(raw.club) && CLUB_RARITIES.includes(raw.rarity) ? raw.club : null;
   const seen = new Set([main.stat]);
   const subs = [];
   for (const s of Array.isArray(raw.subs) ? raw.subs : []) {
     const c = cleanStat(s, { sub: true });
-    // a Pierce / Aura Power line only on a club piece of its slot
-    if (c && NEW_STAT_SLOT[c.stat] && (NEW_STAT_SLOT[c.stat] !== raw.slot || !club)) continue;
+    // a Pierce / Aura Power line only on a club piece of its slots
+    if (c && !newStatFits(c.stat, raw.slot)) continue;
+    if (c && NEW_STAT_SLOT[c.stat] && !club) continue;
     if (c && !seen.has(c.stat)) {
       seen.add(c.stat);
       subs.push(c);
     }
   }
   const ur = raw.ur === 1 || raw.ur === true ? raw.rarity === 'legendary' : false;
+  // LR gear (GEAR_UPDATE.md §4.1): a UR piece Limit Broken at +12 into Set LR (keeps its set) or Blank LR (no set)
+  // (Set LR keeps its set, so it needs one; Blank LR has none)
+  const kind = ur && (raw.lr === LR_SET || raw.lr === LR_BLANK) ? raw.lr : 0;
+  const set = isSet(raw.set) && SET_RARITIES.includes(raw.rarity) && kind !== LR_BLANK ? raw.set : null;
+  const lr = kind === LR_BLANK || (kind === LR_SET && set) ? kind : 0;
   const out = {
     uid,
     slot: raw.slot,
     rarity: raw.rarity,
-    level: int(raw.level, 0, 0, ur ? UR_MAX_LEVEL : 10),
+    level: int(raw.level, 0, 0, lr ? LR_MAX_LEVEL : ur ? UR_MAX_LEVEL : 10),
     main,
     subs: subs.slice(0, 4),
     locked: bool(raw.locked),
     equippedBy: str(raw.equippedBy),
-    name: str(raw.name, `${ITEM_RARITIES[raw.rarity].name} ${GEAR_SLOTS[raw.slot].name}`),
+    name: str(raw.name, `${ITEM_RARITIES[raw.rarity].name} ${slotName(raw.slot)}`),
   };
   // rainbow UR gear (gear-awaken §8.1): only a Legendary at +10 or more; a box-born piece below +10 (the
   // Rainbow Gear Box, ASCENSION.md §C.8) gets `ur` back from its `gbx:` mirror (gearMarks.js restoreGearMarks)
   if (ur && out.level >= 10) out.ur = 1;
+  // LR needs +12 (Limit Break takes a UR +12 piece); Set LR needs its set
+  if (out.ur && lr && out.level >= UR_MAX_LEVEL) out.lr = lr;
+  else if (out.level > UR_MAX_LEVEL) out.level = UR_MAX_LEVEL;
+  // the Nightglass ✦ only on an LR piece, on one line
+  let night = !!out.lr;
+  for (const sub of out.subs) {
+    if (sub.night && night) night = false;
+    else delete sub.night;
+  }
   if (club) out.club = club;
+  if (set) out.set = set;
   return out;
 }
 
@@ -500,6 +532,9 @@ export function migrateProfile(raw) {
       if (c) p.gear[uid] = c;
     }
   }
+  // [gear update] Hair Clips and Necklaces an older build dropped come back whole from their mirrors, and so do the
+  // ones she wore (her 'own:<id>:<slot>' mark), before the equip consistency below (gearMarks.js, GEAR_UPDATE.md §9.5)
+  restoreNewSlotPieces(p, rawCounters, cleanGear);
   for (const g of Object.values(p.gear)) {
     const owner = g.equippedBy && p.units[g.equippedBy];
     if (!owner || owner.gear[g.slot] !== g.uid) g.equippedBy = null;
@@ -606,12 +641,11 @@ export function migrateProfile(raw) {
     towers: strList(f.towers).filter((id) => p.units[id] && UNIT_MAP[id].kind === 'tower').slice(0, BATTLE.maxTowers),
   };
   if (!Array.isArray(f.towers)) p.formation.towers = ['aoi', 'rei'];
+  // [gear update] saved teams (GEAR_UPDATE.md §7.4): kept when present; the active one always equals the formation
+  const teams = cleanTeams(raw.teams, p.units);
+  if (teams) p.teams = teams;
 
   p.missions = cleanMissions(raw.missions);
-  // [teams] gear loadouts, then the 5 teams (GEAR_UPDATE §7): present gear and formation win, the rest comes from
-  // the stored blocks or their 'gp:' / 'tm:' mirrors (src/systems/teams.js)
-  cleanPresets(raw.units, p);
-  cleanTeams(raw.teams, p);
   const shop = isObj(raw.shop) ? raw.shop : {};
   p.shop = { day: str(shop.day), week: str(shop.week), bought: cleanCounts(shop.bought) };
   p.redeemed = strList(raw.redeemed);
@@ -640,6 +674,9 @@ export function migrateProfile(raw) {
   // [ur-gear] rainbow UR gear, ✦ stitches, clubs and the club-only substats an older build stripped come back
   // from their missions.counters mirrors (src/systems/gearMarks.js); the mirrors are rewritten
   restoreGearMarks(p);
+  // [gear update] teams and gear loadouts an older build dropped come back from 'tm:' / 'gp:'; present fields win
+  // (the formation is the active team, what she wears is her active loadout), and the mirrors are rewritten
+  restoreTeams(p);
   // [ascension] bought Potential, gates 6–10 and the Ascension items an older build dropped, then the
   // one-time switch to Essence (counted duplicates become Potential for free + the welcome pouch)
   restoreAscension(p);
@@ -667,8 +704,6 @@ export function migrateProfile(raw) {
   for (const u of Object.values(p.units)) if (u.skin && !ownsSkin(p, u.skin)) u.skin = null;
   // [roster] every owned girl's 'own:' mark, from her settled state
   writeRosterMarks(p);
-  syncTeams(p);
-  writeTeamMarks(p);
   p.version = SAVE_VERSION;
   return p;
 }
@@ -776,7 +811,8 @@ function fromBase64(b64) {
  * @returns {string}
  */
 export function serializeProfile(p) {
-  return toBase64(JSON.stringify(p));
+  // the export's own version (EXPORT_VERSION): every older build refuses it ("Newer save")
+  return toBase64(JSON.stringify({ ...p, version: EXPORT_VERSION }));
 }
 
 /**
@@ -804,7 +840,7 @@ export function deserializeProfile(text) {
   }
   const looksLikeProfile = isObj(parsed) && typeof parsed.version === 'number' && isObj(parsed.units) && isObj(parsed.currencies);
   if (!looksLikeProfile) throw new Error('Invalid save');
-  if (parsed.version > SAVE_VERSION) throw new Error('Newer save');
+  if (parsed.version > EXPORT_VERSION) throw new Error('Newer save');
   return migrateProfile(parsed);
 }
 

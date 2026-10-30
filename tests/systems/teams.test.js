@@ -8,8 +8,9 @@ import { createRng } from '../../src/core/rng.js';
 import { salvagePreview, salvageMany, salvageBlock } from '../../src/systems/salvage.js';
 import {
   TEAM_COUNT, getTeams, getPresets, usePreset, selectTeam, planTeam, teamClashes, copyTeam, clearTeam, renameTeam,
-  copyPreset, restoreLoadouts, presetsNaming, loadoutUseText, takeLines, syncTeams, writeTeamMarks, teamName,
+  copyPreset, restoreLoadouts, presetsNaming, loadoutUseText, takeLines, syncTeams, teamName, ensureTeams,
 } from '../../src/systems/teams.js';
+import { writeTeamMarks } from '../../src/systems/teamsSave.js';
 
 const NOW = 1_800_000_000_000;
 const clone = (x) => JSON.parse(JSON.stringify(x));
@@ -35,29 +36,33 @@ function oldBuild(p) {
 }
 
 describe('migration', () => {
-  it('Team 1 is today\'s formation and loadout A is what she wears', () => {
+  it('nothing is written until teams or loadouts are used: Team 1 is the formation, loadout A what she wears', () => {
     const { p, g } = setup();
-    const raw = clone(p);
-    delete raw.teams;
-    for (const u of Object.values(raw.units)) { delete u.presets; delete u.preset; }
-    const m = migrateProfile(raw);
-    expect(m.teams.active).toBe(0);
-    expect(m.teams.list).toHaveLength(TEAM_COUNT);
-    expect(m.teams.list[0]).toMatchObject({ hero: 'hikari', towers: ['aoi', 'rei'] });
-    for (let i = 1; i < TEAM_COUNT; i++) expect(m.teams.list[i]).toMatchObject({ hero: null, towers: [] });
-    expect(m.units.kage.presets).toEqual([{ charm: g.c1, ribbon: g.r1, shoes: null }]);
-    expect(m.units.kage.preset).toBe(0);
+    const m = reload(p);
+    expect(m.teams).toBeUndefined();
+    expect(m.units.kage.presets).toBeUndefined();
+    expect(Object.keys(m.missions.counters).filter((k) => /^(tm|gp):/.test(k))).toEqual([]);
+    const view = getTeams(m);
+    expect(view.active).toBe(0);
+    expect(view.list).toHaveLength(TEAM_COUNT);
+    expect(view.list[0]).toMatchObject({ hero: 'hikari', towers: ['aoi', 'rei'] });
+    for (let i = 1; i < TEAM_COUNT; i++) expect(view.list[i]).toMatchObject({ hero: null, towers: [] });
+    expect(getPresets(m, 'kage')).toEqual({ presets: [{ charm: g.c1, ribbon: g.r1, shoes: null, hair: null, necklace: null }], preset: 0 });
+    // the views write nothing
+    expect(m.teams).toBeUndefined();
+    expect(m.units.kage.presets).toBeUndefined();
   });
 
-  it('a fresh profile already carries the shape, and loading is idempotent', () => {
-    const p = createProfile();
-    const once = migrateProfile(clone(p));
-    expect(once.teams.list[0]).toMatchObject({ hero: 'hikari', towers: ['aoi', 'rei'] });
-    expect(once.units.hikari.presets).toHaveLength(1);
-    const { p: q } = setup();
-    usePreset(q, 'kage', 1);
-    selectTeam(q, 2);
-    const a = reload(q);
+  it('first use makes the blocks: Team 1 = the formation, five teams; loading is idempotent', () => {
+    const { p } = setup();
+    ensureTeams(p);
+    expect(p.teams.list).toHaveLength(TEAM_COUNT);
+    expect(p.teams.list[0]).toMatchObject({ name: 'Team 1', hero: 'hikari', towers: ['aoi', 'rei'] });
+    usePreset(p, 'kage', 1);
+    selectTeam(p, 2);
+    const a = reload(p);
+    expect(a.teams.active).toBe(2);
+    expect(a.units.kage.presets).toHaveLength(2);
     expect(migrateProfile(clone(a))).toEqual(a);
   });
 
@@ -85,7 +90,7 @@ describe('migration', () => {
     raw.units.kage.preset = 12;
     const m = migrateProfile(raw);
     expect(m.teams.active).toBe(0);
-    expect(m.teams.list).toHaveLength(TEAM_COUNT);
+    expect(m.teams.list.length).toBeLessThanOrEqual(TEAM_COUNT);
     // the active team = the formation (present fields win)
     expect(m.teams.list[0]).toMatchObject({ hero: 'hikari', towers: ['aoi', 'rei'] });
     expect(m.teams.list[0].name.length).toBeLessThanOrEqual(16);
@@ -99,15 +104,15 @@ describe('loadouts', () => {
     const { p, g } = setup();
     const res = usePreset(p, 'kage', 1);
     expect(res.ok && res.created).toBe(true);
-    expect(p.units.kage.gear).toEqual({ charm: g.c1, ribbon: g.r1, shoes: null });
+    expect(p.units.kage.gear).toMatchObject({ charm: g.c1, ribbon: g.r1, shoes: null });
     // change B: the shoes go on, the ribbon comes off
     equipGear(p, 'kage', g.s1);
     unequipGear(p, 'kage', 'ribbon');
     syncTeams(p);
-    expect(p.units.kage.presets[1]).toEqual({ charm: g.c1, ribbon: null, shoes: g.s1 });
-    expect(p.units.kage.presets[0]).toEqual({ charm: g.c1, ribbon: g.r1, shoes: null });
+    expect(p.units.kage.presets[1]).toMatchObject({ charm: g.c1, ribbon: null, shoes: g.s1 });
+    expect(p.units.kage.presets[0]).toMatchObject({ charm: g.c1, ribbon: g.r1, shoes: null });
     usePreset(p, 'kage', 0);
-    expect(p.units.kage.gear).toEqual({ charm: g.c1, ribbon: g.r1, shoes: null });
+    expect(p.units.kage.gear).toMatchObject({ charm: g.c1, ribbon: g.r1, shoes: null });
     expect(p.gear[g.s1].equippedBy).toBe(null);
     expect(p.gear[g.r1].equippedBy).toBe('kage');
   });
@@ -138,7 +143,7 @@ describe('loadouts', () => {
     unequipGear(p, 'kage', 'charm');
     usePreset(p, 'kage', 0);
     expect(copyPreset(p, 'kage', 0, 1).ok).toBe(true);
-    expect(p.units.kage.presets[1]).toEqual({ charm: g.c1, ribbon: g.r1, shoes: null });
+    expect(p.units.kage.presets[1]).toMatchObject({ charm: g.c1, ribbon: g.r1, shoes: null });
     expect(usePreset(p, 'kage', 2).ok).toBe(true);
     expect(usePreset(p, 'kage', 3).ok).toBe(false);
     expect(getPresets(p, 'kage').presets).toHaveLength(3);
@@ -197,7 +202,8 @@ describe('teams', () => {
     equipGear(p, 'aoi', g.c1);
     usePreset(p, 'aoi', 0);
     equipGear(p, 'kage', g.c1);
-    p.teams.list[1] = { name: '', hero: null, towers: ['kage', 'aoi'], use: { aoi: 1 } };
+    ensureTeams(p);
+    p.teams.list[1] = { name: 'Team 2', hero: null, towers: ['kage', 'aoi'], use: { aoi: 1 } };
     const clashes = teamClashes(p, 1);
     expect(clashes.get(g.c1)).toEqual(['kage', 'aoi']);
     const preview = planTeam(p, 1);
@@ -219,7 +225,7 @@ describe('teams', () => {
     clearTeam(p, 0);
     expect(p.formation).toEqual({ hero: null, towers: [] });
     expect(p.teams.list[0].towers).toEqual([]);
-    for (let i = 0; i < TEAM_COUNT; i++) p.teams.list[i] = { name: '', hero: 'hikari', towers: [], use: {} };
+    for (let i = 0; i < TEAM_COUNT; i++) p.teams.list[i] = { name: `Team ${i + 1}`, hero: 'hikari', towers: [], use: {} };
     expect(copyTeam(p, 0)).toBe(-1);
   });
 
@@ -254,10 +260,10 @@ describe('after an older build (present fields win)', () => {
     expect(m.teams.list[2]).toMatchObject({ hero: 'hikari', towers: ['yuki'] });
     expect(m.teams.list[0]).toMatchObject({ hero: before.list[0].hero, towers: before.list[0].towers, use: before.list[0].use });
     // custom names are not mirrored
-    expect(m.teams.list[0].name).toBe('');
+    expect(teamName(m.teams.list[0], 0)).toBe('Team 1');
     // Kage still wears B (present gear wins), and A comes back from 'gp:'
     expect(m.units.kage.preset).toBe(1);
-    expect(m.units.kage.presets[0]).toEqual({ charm: kageBefore[0].charm, ribbon: kageBefore[0].ribbon, shoes: null });
+    expect(m.units.kage.presets[0]).toEqual(kageBefore[0]);
     expect(m.units.kage.presets[1]).toEqual(kageBefore[1]);
   });
 
@@ -272,7 +278,7 @@ describe('after an older build (present fields win)', () => {
     expect(m.units.kage.presets[0].gone).toBe(1);
   });
 
-  it('mirrors stay numbers and drop with the data', () => {
+  it('mirrors stay numbers (M0\'s tm: / gp: encoding)', () => {
     const { p } = setup();
     usePreset(p, 'kage', 1);
     selectTeam(p, 1);
@@ -282,8 +288,5 @@ describe('after an older build (present fields win)', () => {
     expect(keys).toContain('tm:a');
     expect(keys).toContain('gp:kage');
     for (const k of keys) expect(Number.isFinite(p.missions.counters[k])).toBe(true);
-    selectTeam(p, 0);
-    writeTeamMarks(p);
-    expect('tm:a' in p.missions.counters).toBe(false);
   });
 });

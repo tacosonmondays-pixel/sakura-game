@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createProfile, migrateProfile, serializeProfile, deserializeProfile, loadSaveText, migrationDropsData, backupNotice, SAVE_VERSION, STARTER_UNITS,
+  createProfile, migrateProfile, serializeProfile, deserializeProfile, loadSaveText, migrationDropsData, backupNotice, SAVE_VERSION, EXPORT_VERSION, STARTER_UNITS,
 } from '../../src/systems/save.js';
 import { SKIN_MAP } from '../../src/data/skins.js';
 import { setSkin, equippedSkinId } from '../../src/systems/skins.js';
@@ -142,9 +142,10 @@ describe('serialize / deserialize', () => {
   });
 
   it('refuses a save code from a newer build instead of stripping it', () => {
-    const p = createProfile();
-    p.version = SAVE_VERSION + 1;
-    expect(() => deserializeProfile(serializeProfile(p))).toThrow('Newer save');
+    // (an export carries EXPORT_VERSION, apart from the stored save's SAVE_VERSION: GEAR_UPDATE.md §9.4)
+    const p = { ...createProfile(), version: EXPORT_VERSION + 1 };
+    expect(() => deserializeProfile(Buffer.from(JSON.stringify(p)).toString('base64'))).toThrow('Newer save');
+    expect(deserializeProfile(serializeProfile(createProfile())).version).toBe(SAVE_VERSION);
   });
 });
 
@@ -249,8 +250,7 @@ describe('achievements: old-build safety', () => {
     expect(SAVE_VERSION).toBe(2);
     // the achievements add no key; the only additive blocks are 'sensei' (the Sensei Profile, docs/specs/PROFILE.md §2)
     // and 'social' (v0.1.29's friends/messages/block list, already live), 'events' (limited events, EVENT_SPEC §3.5), plus 'skins' (shop/event outfits owned; empty today)
-    // and 'teams' (the 5 saved teams, GEAR_UPDATE §7.4; mirrored as 'tm:', src/systems/teams.js)
-    expect(Object.keys(createProfile())).toEqual(['version', 'createdAt', 'currencies', 'items', 'units', 'gear', 'gacha', 'progress', 'bestiary', 'formation', 'teams', 'missions', 'shop', 'redeemed', 'settings', 'secretary', 'lobbyBg', 'bond', 'mail', 'patchGifts', 'stats', 'seenIntro', 'seq', 'battleSaves', 'story', 'sensei', 'social', 'events', 'skins']);
+    expect(Object.keys(createProfile())).toEqual(['version', 'createdAt', 'currencies', 'items', 'units', 'gear', 'gacha', 'progress', 'bestiary', 'formation', 'missions', 'shop', 'redeemed', 'settings', 'secretary', 'lobbyBg', 'bond', 'mail', 'patchGifts', 'stats', 'seenIntro', 'seq', 'battleSaves', 'story', 'sensei', 'social', 'events', 'skins']);
     const p = createProfile();
     p.seenIntro.push('ach2');
     expect(deserializeProfile(serializeProfile(p)).seenIntro).toContain('ach2');

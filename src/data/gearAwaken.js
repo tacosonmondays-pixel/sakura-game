@@ -1,11 +1,13 @@
-// Rainbow UR gear: Rainbow Bloom (awakening) and the Starlight Needle (docs/specs/GEAR_AWAKEN.md).
-// Not part of the co-op hash. A UR piece stays `rarity: 'legendary'` with `ur: 1` (types.js untouched).
+// Rainbow UR gear: Rainbow Bloom (awakening) and the Starlight Needle (docs/specs/GEAR_AWAKEN.md), and LR gear, pins
+// and set pieces (docs/specs/GEAR_UPDATE.md §4, §6, §9). Not part of the co-op hash. A UR piece stays
+// `rarity: 'legendary'` with `ur: 1` (types.js untouched); an LR piece keeps `ur: 1` and adds `lr` (1 Set LR, 2 Blank LR).
+import { SET_IDS } from './gearSets.js';
 
 /** UR rarity scale (Legendary is 2.8): every number ×8/7, Armor Pierce ×1.105. */
 export const UR_SCALE = 3.2;
 export const UR_MAX_LEVEL = 12;
-/** Bit order of the `gtn:` stitch mirror: frozen, append-only (2 bits per stat, ≤ 20 bits). */
-export const TUNE_BITS = Object.freeze(['atkPct', 'ratePct', 'rangePct', 'critChance', 'critDmg', 'armorPen', 'costCut', 'ultHaste', 'piercePct', 'auraPct']);
+/** Bit order of the `gtn:` stitch mirror (2 bits per stat) and the `gtx:` / `gtp:` marks (1 bit): frozen, append-only. */
+export const TUNE_BITS = Object.freeze(['atkPct', 'ratePct', 'rangePct', 'critChance', 'critDmg', 'armorPen', 'costCut', 'ultHaste', 'piercePct', 'auraPct', 'auraRangePct', 'buffDurPct', 'controlPct']);
 /** Per-line ✦ bits: 1 = gold ✦, 2 = rainbow ✦. */
 export const TUNE_GOLD = 1;
 export const TUNE_RAINBOW = 2;
@@ -22,9 +24,37 @@ export const RESONANCE = Object.freeze([0, 0, 0.05, 0.10]);
 /** First-bloom gift: 1 Seed the first time the save holds a Legendary +10. */
 export const FIRST_BLOOM_GIFT = 1;
 
+/** LR gear (GEAR_UPDATE.md §4): Limit Break a UR +12 piece into Set LR (`lr: 1`, scale 4.0) or Blank LR (`lr: 2`, 5.0). */
+export const LR_SET = 1;
+export const LR_BLANK = 2;
+export const LR_SCALE = 4.0;
+export const BLANK_SCALE = 5.0;
+export const LR_MAX_LEVEL = 18;
+/** Price tier of an LR piece (UR is 5): +13 … +18 cost 39,200 … 53,200 coins. */
+export const LR_TIER = 6;
+export const LENS_ID = 'lens_nightglass';
+export const LIMIT_BREAK_COINS = 150000;
+/** The Nightglass ✦: a third ✦ on an LR piece, its own line field `night` (never in `tuned`, which stays 0–3). */
+export const NIGHT_STAR = 1;
+
+/** Pins (GEAR_UPDATE.md §6): the Tie Pin sets a main stat to its best roll, the Collar Pin one substat. Line mark `top`. */
+export const TIE_PIN_ID = 'tie_pin';
+export const COLLAR_PIN_ID = 'collar_pin';
+export const TIE_PIN_COINS = 20000;
+export const COLLAR_PIN_COINS = 10000;
+
+/** Set Boxes (GEAR_UPDATE.md §5): a whole five-piece set at Mythic or Legendary; the choose-boxes offer every set. */
+export const SET_BOX_RARITIES = Object.freeze(['mythic', 'legendary']);
+export const setBoxId = (setId, rarity) => `setbox_${setId}_${rarity}`;
+export const SET_PICK_BOX_IDS = Object.freeze(SET_BOX_RARITIES.map((r) => setBoxId('pick', r)));
+export const SET_BOX_IDS = Object.freeze(SET_IDS.flatMap((id) => SET_BOX_RARITIES.map((r) => setBoxId(id, r))));
+/** Every item the gear update adds: 2 choose-boxes, 12 set boxes and 3 tools. */
+export const GEAR_UPDATE_ITEM_IDS = Object.freeze([...SET_PICK_BOX_IDS, ...SET_BOX_IDS, TIE_PIN_ID, COLLAR_PIN_ID, LENS_ID]);
+
 /** Name suffixes. */
 export const LEGENDARY_SUFFIX = 'of the Eternal Sakura';
 export const UR_SUFFIX = 'of the Rainbow Sakura';
+export const LR_SUFFIX = 'of the Nightglass Sakura';
 
 /** missions.counters mirror prefixes (an older build keeps counters word for word). */
 export const MARK = Object.freeze({
@@ -41,9 +71,21 @@ export const MARK = Object.freeze({
   urEver: 'ach:urEver',
   urWorn: 'ach:urWorn',
   needleWeek: 'cap:fpNeedle',
+  // the gear update (GEAR_UPDATE.md §9): marks no build before it reads, so none of them can refund or clamp
+  set: 'gst:', // a classic-slot piece's set: set index + 1
+  lr: 'glr:', // a classic-slot LR piece: LR kind × 100 + level
+  night: 'gtx:', // the Nightglass ✦ on a classic-slot piece: 1 bit per stat, TUNE_BITS order
+  top: 'gtp:', // pins on a classic-slot piece: bit 0 the main stat, bit 1 + TUNE_BITS index a substat
+  piece: 'gph:', // a Hair Clip / Necklace, whole: slot, rarity, level, set, main stat, flags
+  pieceMain: 'gpm:', // its main stat's base × 1e6
+  pieceSub: 'gps:', // its substat i: stat, ▲, pin, ✦ bits, base
+  pieceClub: 'gpc:', // its club index (never the legacy `gcl:`)
+  team: 'tm:', // teams: `tm:a` the active team, `tm:<team>:<unitId>` her place and loadout
+  preset: 'gp:', // gear loadouts: `gp:<unitId>` active + 10 × count, `gp:<unitId>:<n>:<slot>` the piece
+  veteran: 'su:vet', // the veterans' one-time Set Boxes (the sets update)
 });
 /** Items mirrored in `inv:` (an older build drops unknown item ids). */
-export const MIRRORED_ITEMS = Object.freeze([SEED_ID, NEEDLE_ID, ARMBAND_ID]);
+export const MIRRORED_ITEMS = Object.freeze([SEED_ID, NEEDLE_ID, ARMBAND_ID, ...GEAR_UPDATE_ITEM_IDS]);
 
 /** Freeplay milestone items, once per tier (gear-awaken §6.1, §6.2): the Matriarch a Seed, wave 150 two Needles. */
 export const MILESTONE_ITEMS = Object.freeze({

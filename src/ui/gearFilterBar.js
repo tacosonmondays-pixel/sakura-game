@@ -4,8 +4,9 @@
 // choice is remembered per place (Backpack / girl page) for the next visit.
 import './styles/gearFilter.css';
 import { h } from './components.js';
-import { GEAR_MAIN_STATS, ITEM_RARITIES } from '../data/types.js';
-import { GEAR_STAT_KEYS, BASE_STAT_KEYS, statName } from '../data/gearStats.js';
+import { ITEM_RARITIES } from '../data/types.js';
+import { MAIN_STATS_BY_SLOT } from '../data/gearSlots.js';
+import { SUB_STAT_KEYS, BASE_STAT_KEYS, statName } from '../data/gearStats.js';
 import {
   DEFAULT_GEAR_FILTER, GEAR_STATUSES, GEAR_SORTS, GEAR_DISPLAY_RARITIES, normalizeGearFilter, activeGearFilters,
 } from '../systems/gearFilter.js';
@@ -44,7 +45,7 @@ export function saveGearFilter(place, filter) {
  */
 export function gearFilterFor(place, slot = null, overrides = {}) {
   const f = { ...loadGearFilter(place), ...overrides };
-  if (slot && f.main && !(GEAR_MAIN_STATS[slot] || []).includes(f.main)) f.main = null;
+  if (slot && f.main && !(MAIN_STATS_BY_SLOT[slot] || []).includes(f.main)) f.main = null;
   return f;
 }
 
@@ -70,7 +71,7 @@ export function gearFilterBar({ place, slot = null, shown, total, onChange, rari
     saveGearFilter(place, { ...f, ...patch });
     onChange();
   };
-  const mains = slot ? GEAR_MAIN_STATS[slot] || [] : BASE_STAT_KEYS;
+  const mains = slot ? MAIN_STATS_BY_SLOT[slot] || [] : BASE_STAT_KEYS;
   const active = activeGearFilters(f) + (external && rarity ? 1 : 0);
   return h('div.gf-bar', { 'data-testid': 'gear-filter' },
     external ? null : h('div.gf-rarities', { role: 'radiogroup', 'aria-label': 'Rarity' },
@@ -84,7 +85,7 @@ export function gearFilterBar({ place, slot = null, shown, total, onChange, rari
       }, r ? ITEM_RARITIES[r]?.name || r : 'All'))),
     h('div.gf-row',
       select('main', 'Main stat', mains.includes(f.main) ? f.main : null, [[null, 'Any'], ...mains.map((s) => [s, statName(s)])], (v) => set({ main: v })),
-      select('sub', 'Has substat', f.sub, [[null, 'Any'], ...GEAR_STAT_KEYS.map((s) => [s, statName(s)])], (v) => set({ sub: v })),
+      select('sub', 'Has substat', f.sub, [[null, 'Any'], ...SUB_STAT_KEYS.map((s) => [s, statName(s)])], (v) => set({ sub: v })),
       select('status', 'Show', f.status, Object.entries(GEAR_STATUSES), (v) => set({ status: v || 'all' })),
       sort ? select('sort', 'Sort', f.sort, Object.entries(GEAR_SORTS), (v) => set({ sort: v || 'best' })) : null),
     h('div.gf-foot',
