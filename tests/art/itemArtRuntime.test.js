@@ -207,7 +207,7 @@ describe('display only: the battle sim is untouched', () => {
     // Balance round 5 (feature/balance-r5) rides the same bump: this id is the shapes and round 5 together, on v0.1.61,
     // with the duo's map-wide laser, the LR rows, freeplay's boss bands, Blade Cyclone's aimed volley, the mirror copies' share,
     // the LR premium and the OVERTIME bands (Oct 30).
-    const PENDING_BUMP = { 13: '1c5b546f9e89' };
+    const PENDING_BUMP = { 13: 'ee784b0b3782' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

@@ -18,6 +18,6 @@ describe('battleBoostText', () => {
     expect(lrBoostText(UNIT_MAP.kage)).toBe(null);
     expect(lrBoostText(UNIT_MAP.tenka)).toBe('In her LR form she also gets ×3.4 vs bosses, at tier 5 Joint Research damage ×11.5 and ×1.1 vs bosses; Rail Arms damage ×1.7; Singularity damage ×22.5 and ×5.5 vs bosses.');
     expect(battleBoostText(UNIT_MAP.tenka)).toBe(lrBoostText(UNIT_MAP.tenka));
-    expect(battleBoostText(UNIT_MAP.kohaku_tsubaki)).toMatch(/^In battle the balance boost adds damage ×1\.01\. In their LR form they also get damage ×1\.05, ×1\.6 vs bosses, at tier 5 Starfall Battery damage ×2\.35; /);
+    expect(battleBoostText(UNIT_MAP.kohaku_tsubaki)).toMatch(/^In battle the balance boost adds damage ×1\.11\. In their LR form they also get damage ×1\.05, ×1\.6 vs bosses, at tier 5 Starfall Battery damage ×2\.35; /);
   });
 });

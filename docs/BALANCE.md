@@ -327,19 +327,30 @@ in (they read `src/` beside them). Exactly what ran, in each tree:
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | maxed, alone | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 1,395 | 0 | **0** |
 | maxed, Umeko + Midori | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 0 / 279 | 1,395 | 0 | **0** |
-| LR off, alone / supported | 0 / 18 | 0 / 18 | 0 / 18 | 0 / 18 | 0 / 18 | 90 / 90 | 0 | **0 / 0** |
+| LR off, maxed, alone / supported | 0 / 18 | 0 / 18 | 0 / 18 | 0 / 18 | 0 / 18 | 90 / 90 | 0 | **0 / 0** |
 | L1 and L40, alone (+ LR off) | 0 / 594 | 0 / 594 | 0 / 594 | 0 / 594 | 0 / 594 | 2,970 | 0 | **0** |
-| L1 and L40, Umeko + Midori (+ LR off) | 1 / 594 | 0 / 594 | 3 / 594 | 4 / 594 | 2 / 594 | 2,970 | 0 | 10 (below) |
+| L1 and L40, Umeko + Midori (+ LR off) | 1 / 594 | 0 / 594 | 1 / 594 | 2 / 594 | 2 / 594 | 2,970 | 0 | 6, each checked (below) |
 
-The ten supported low-profile cells, re-run on seeds 1–16: Sango 2-0-4 crowd (L1), Shiro 2-0-1 crowd and 4-0-2 / 5-0-2
-on a held boss (L1), and Suzu 5-0-2 on a held boss (L40) are at or above live (seed noise); Midori 2-0-3
-on a walking boss (L1) reads 4 → 3 a second, whole-number rounding (over 400 s the branch is at or above live). **Open:
-the duo's Starfall 3-0-2 and 4-0-2 at L40 on a crowd beside Umeko + Midori read ×0.93 and ×0.92 of live** (LR on or
-off alike: at L40 they have no LR form), on every seed and every crowd spacing from 0.4 to 0.7 s. The cause is Umeko's
-round-5 buff row, through Blooming Ocean's attack-speed aura (×1.05 stronger): the L40 duo's damage on this stream is
-not smooth in attack speed (it moves up and down by ±5% with small steps of aura speed), and this step lands in a dip;
-without Umeko's buff row they read 3,047 against live 3,044 (seed 9). The same pair reads ×1.03 at L1 and ×1.23–1.24 fully maxed. Lifting it needs their non-LR row ×1.01 → about
-×1.12, which also lifts Grand Spectrum without LR off the owner's 2.17×, so it is left to the owner.
+(4,455 cells per support setting.) The six supported low-profile cells, re-run on seeds 1–16, live → branch: Sango
+2-0-4 crowd (L1) 4,001 → 4,339; Shiro 2-0-1 crowd (L1) 126 → 135, 4-0-2 held boss (L1) 5,097 → 5,394, 5-0-2 held boss
+(L1) 99,233 → 105,027; Suzu 5-0-2 held boss (L40) 29 → 32 (a trap girl's held boss; her walking boss reads 1,338 →
+2,888): all seed noise. Midori 2-0-3 walking boss (L1) reads 4 → 3 a second on 16 seeds too: whole-number rounding
+(measured over 400 s the branch is at or above live on every seed).
+
+**The duo at L40 (the final review round 2, the owner's decision: no nerfs ever, floors never caps).** Their Starfall
+3-0-2 and 4-0-2 at L40 on a crowd beside Umeko + Midori read ×0.93 and ×0.92 of live with their row at ×1.01 (LR on or
+off alike: at L40 they have no LR form). The cause is Umeko's round-5 buff row, through Blooming Ocean's attack-speed
+aura (×1.05 stronger): the L40 duo's damage on this stream is not smooth in attack speed (it moves up and down by ±5%
+with small steps of aura speed), and this step lands in a dip; without Umeko's buff row they read 3,047 against live
+3,044 (seed 9). Their non-LR row goes ×1.01 → **×1.11**, the smallest that holds every seed 1–16 at every crowd spacing
+0.4–0.7 s (192 cells per row; ×1.10 leaves 3 under, worst ×0.991; ×1.11's worst is ×1.0002, ×1.12's ×1.009). On the
+gate's seeds they now read 3,120 and 4,580 (live 3,044 and 4,515). Only the duo moved: against the branch's gate run
+before the change, 538 of the 540 duo cells rose (none fell) and every other cell of the 8,910 is identical. Their LR rows
+(`LR_POWER.kohaku_tsubaki`) are unchanged and sit on top, so every LR form rises with the row (×1.099 on every tier-5
+cell); Grand Spectrum without LR moves above the owner's 2.17× (about 2.38× Kage on the r5 crowd). Re-pins: PENDING_BUMP
+13 `ee784b0b3782`; the duo's engines battle (DUO_START: the same win, wave, tiers and wallets; ticks 32000 → 32059);
+the battle-boost footnote (×1.11); `tests/sim/duoBeam.test.js` (a beam-mechanics check against her pre-buff numbers)
+now reads her without the balance row (`powerOff`), as it reads her without the owner's Oct 29 buff.
 
 ## Marumi rework (2026-10-21, `feature/marumi-rework`)
 
