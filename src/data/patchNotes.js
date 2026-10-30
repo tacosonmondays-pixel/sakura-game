@@ -20,7 +20,7 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    id: 'v0.1.62', version: '0.1.62', date: '2026-10-29', title: 'Sharper Details',
+    id: 'v0.1.62', version: '0.1.62', date: '2026-10-30', title: 'Sharper Details',
     fixed: [
       'Iroha’s mirror stands beside her instead of in front of her when it has no aim.',
       'Tenka’s coilgun is a little larger and glows in her violet, so it reads in battle.',
