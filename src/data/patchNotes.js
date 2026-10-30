@@ -20,6 +20,19 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.62', version: '0.1.62', date: '2026-10-30', title: 'Sharper Details',
+    fixed: [
+      'Iroha’s mirror stands beside her instead of in front of her when it has no aim.',
+      'Tenka’s coilgun is a little larger and glows in her violet, so it reads in battle.',
+      'Ruri’s Tree tab shows abilities coming in a later update with a grey ⚡; only the live one is yellow.',
+      'Chika’s DPS, live DPS and average now sit on one row on phones.',
+      'The Events button’s days-left sticker no longer overlaps its lantern.',
+      'Kaede’s dash afterimages read as her outline instead of an orange smear.',
+      'Yoriko’s doll strikes on every attack (it skipped one when her needle finished the enemy) and her control bar tilts as she commands it.',
+      'Ouka’s council banners and Chigusa’s leaves show their real colours instead of dark, and Kinu’s scissors and Azami’s strip handles are drawn properly.',
+    ],
+  },
+  {
     id: 'v0.1.61', version: '0.1.61', date: '2026-10-29', title: 'Five More Ultimates and Academy Flair',
     added: [
       'Five more ⚡ ultimates go live: Kage’s Shadow Doubles, Suzu’s Bell Carpet, Chika’s Drone Surge (her Drones tab counts the extra drones), Fuu’s Backdraft Fan and Iroha’s Mirror Shift, which turns into Infinite Reflection at her top tier. Other girls’ shots that cross Iroha’s mirror split in two, your co-op partner’s included. Every tower girl now has a ⚡ that works in battle; only Ruri’s Star Falcon and Tide Otter paths still wait for theirs.',

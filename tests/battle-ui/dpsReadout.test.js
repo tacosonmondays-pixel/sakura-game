@@ -43,9 +43,9 @@ describe('DPS and damage in the stat style', () => {
 describe("Chika's main DPS cells (Overall / Drones)", () => {
   const st = (active, max, ownDps = 21.6, damage = 40, rate = 1.5) => ({ own: { dps: ownDps }, turret: { damage, rate, max, active, flight: 'hover' } });
 
-  it('the number cell holds only the number; while the wing builds, the label says it counts the full wing', () => {
+  it('the number cell holds only the number; while the wing builds, the wing cell says it counts the full wing (Overall stays "DPS": one column, no reflow)', () => {
     const building = wingDpsCells(st(0, 2));
-    expect(building.overall).toEqual({ label: 'DPS (full wing)', value: fmtNum(21.6 + wingNumbers(st(0, 2)).wing, 'stat') });
+    expect(building.overall).toEqual({ label: 'DPS', value: fmtNum(21.6 + wingNumbers(st(0, 2)).wing, 'stat') });
     expect(building.wing).toEqual({ label: 'Full wing DPS', value: fmtNum(wingNumbers(st(0, 2)).wing, 'stat') });
     const full = wingDpsCells(st(2, 2));
     expect(full.overall.label).toBe('DPS');

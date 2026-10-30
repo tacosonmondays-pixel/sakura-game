@@ -1,0 +1,29 @@
+{
+  "scope": "fix/display-polish-2 @ 096cf2cf (git show 096cf2cf -- src tests): fixes for the 3 LOWs in review-lows2.json. Round 3, the last.",
+  "reviewer": "independent reviewer (did not build it)",
+  "verdict": "NOT OK",
+  "verdict_note": "Fixes 2 and 3 are right. Fix 1 is correct in code but does not reach its goal on screen. At 844x390 high, the maple-red copy still does not read as her silhouette, so only the amber copy shows. All findings are LOW and nothing is broken. This was the last round, so the owner or lead should decide: either accept a single visible copy and drop the two-colour claim, or try one more design change (below).",
+  "checks": {
+    "vitest": "npx vitest run --maxWorkers=2 tests/render/kaedeFx.test.js tests/render/marionette.test.js: 2 files, 56 tests passed",
+    "simId": "be940ecb2087 (as expected; no COOP_PROTOCOL bump needed)",
+    "e2e": "one run of node e2e/display-polish-2-lows.mjs --only kaede, via pw.sh: ALL CHECKS PASSED, no console errors. Ghosts shown: 2 of 4 at +1 and +3 frames, 1 at +5, 0 at +8 and +11.",
+    "fix_removed": "With `s.blendNext = false;` and `s.blend = 0;` removed from landMarionette, both new tests fail (restored with git checkout; the tree is clean)."
+  },
+  "fixes": {
+    "1_kaede_ghostAlpha": "Code OK: when count <= 2, rank = 1, so both copies peak at GHOST_PEAK, and longer trails still rank by age. The test asserts ghostAlpha(0,0,2) equals GHOST_PEAK. On screen (+0.02 s, both copies at about peak), the amber copy reads well: a faint inside, a darker rim, her head, hair and body, clearly intentional and not too strong. The maple-red copy stands at about 0.6 of her reach, which is on top of her own dark shadow. Red at about 0.45 alpha over a dark shadow has almost no contrast. It shows only as a slight reddish tint of the shadow: the 40x40 shadow patch mean is RGB 124/135/68, against 114/151/72 in the no-ghost frame. It has no readable outline. So it is no longer a smear, but it is still not visible.",
+    "2_comments": "ghosts.js header and kaede.js lines 15 and 122 now describe 0.6 to 1.0 of reach and a floor of DASH_NEAR. No 'half' wording is left. OK.",
+    "3_marionette_tests": "Both tests fail without the fix, as required. One note, not a finding: with the precondition asserts (blendNext false, blend 0) also commented out, the Command case's timing check still passes. Its 3-frame spread fits inside the 0.08 s CATCH_UP glide, so in that case the blend === 0 assertion is the part that catches the regression. The Extend case's timing check fails on its own (0.133 s > 0.097 s). Acceptable."
+  },
+  "findings": [
+    {
+      "severity": "LOW",
+      "where": "src/render/attackFx/patterns/ghosts.js dashOffset / ghost material; src/render/attackFx/styles/kaede.js GHOST_HEX; screen: battle 844x390 high",
+      "issue": "Even at full peak, the maple-red copy cannot be seen at 844x390. It sits over Kaede's own shadow, where dark red on dark shadow has no contrast. Only the amber copy reads as her silhouette.",
+      "fix": "This is the last round, so this is the owner's or lead's call. Option A: accept one readable copy, and change the docs and patch-note wording to stop promising maple red then amber. Option B: put the first copy past her shadow (DASH_NEAR about 0.8 to 0.9, or 0.75 to 1.0 of reach), or brighten or lighten the red (for example #ff5a64), or give that copy a light rim instead of a dark one."
+    }
+  ],
+  "evidence": [
+    "docs/review/display-polish-2/review-lows3/kaede-zoom-844x390-high.jpg (3x zoom at +0.02 s, +0.08 s and +0.13 s with no ghosts: one amber figure; the red copy shows only as a slight tint of her shadow)",
+    "docs/review/display-polish-2/review-lows3/kaede-vs-noghost-diff-844x390.jpg (+0.02 s, +0.13 s with no ghosts, and the difference amplified 4x: a clear amber outline and only a dim reddish blot over the shadow; her own figure shows up because her pose changed between frames)"
+  ]
+}

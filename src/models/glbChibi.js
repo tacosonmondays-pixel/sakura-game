@@ -207,6 +207,63 @@ function prepareAsset(id, detail, gltf) {
 const propCache = new Map(); // file -> Promise<prop|null>, shared by both detail levels
 
 /**
+ * How a hand prop is drawn on top of its GLB (display only; the file itself is not re-authored). Tenka's coilgun is
+ * a copper-and-graphite model about 1/4 of her height: at the default battle zoom on a phone it read as a small
+ * brown stick. It is drawn a little bigger (about its grip, so it stays in her hand), self-lit in her palette's
+ * accent (emissive = that colour x its own base map: the violet coil glow of her look, so it stands off her white
+ * coat and the grass), and a thin glowing strip along each side of the barrel in her halo colour. Prop-mesh units
+ * (the GLB's own frame: barrel along -x, grip below +x).
+ *   scale  uniform scale of the prop mesh about `grip`
+ *   glow   { unit, key, intensity }: emissive colour UNIT_MAP[unit].palette[key] over its own base map
+ *   strip  { unit, key, x0, x1, y, z, h, w }: a box from x0 to x1 at height y, h tall and w thick, mirrored at ±z,
+ *          in palette colour UNIT_MAP[unit].palette[key] (unlit, so it reads on the grass)
+ */
+export const PROP_LOOK = Object.freeze({
+  'tenka-coilgun.glb': Object.freeze({
+    scale: 1.25,
+    grip: Object.freeze([0.28, -0.22, 0]),
+    glow: Object.freeze({ unit: 'tenka', key: 'accent', intensity: 0.55 }),
+    strip: Object.freeze({ unit: 'tenka', key: 'halo', x0: -0.44, x1: 0.16, y: 0.12, z: 0.19, h: 0.1, w: 0.02 }),
+  }),
+});
+
+/** The resolved look of a prop file (scale, grip, glow and strip colours as hex strings), or null for a plain prop. */
+export function propLook(file) {
+  const l = PROP_LOOK[file];
+  if (!l) return null;
+  const pal = (o) => (o ? UNIT_MAP[o.unit]?.palette?.[o.key] || null : null);
+  const gc = pal(l.glow);
+  const sc = pal(l.strip);
+  return {
+    scale: l.scale ?? 1, grip: l.grip || [0, 0, 0],
+    glow: gc ? { color: gc, intensity: l.glow.intensity } : null,
+    strip: sc ? { ...l.strip, color: sc } : null,
+  };
+}
+
+/** Geometry of a prop's accent strips (both sides), or null. */
+function stripGeometry(st) {
+  const len = st.x1 - st.x0;
+  const a = new THREE.BoxGeometry(len, st.h, st.w);
+  a.translate(st.x0 + len / 2, st.y, st.z);
+  const b = new THREE.BoxGeometry(len, st.h, st.w);
+  b.translate(st.x0 + len / 2, st.y, -st.z);
+  const pos = [];
+  const idx = [];
+  for (const g of [a, b]) {
+    const base = pos.length / 3;
+    pos.push(...g.attributes.position.array);
+    for (const i of g.index.array) idx.push(base + i);
+    g.dispose();
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.userData.shared = true;
+  return geo;
+}
+
+/**
  * Hand props kept in their own GLB (Tenka's coilgun): asset.extras.props = [{ socket, bone, file }].
  * Each file is loaded once; its mesh hangs under the figure's socket node (an empty on the hand
  * bone that places and scales the prop's frame, so the clips move it). A prop that fails to load
@@ -220,7 +277,7 @@ function loadProps(asset) {
     if (!propCache.has(p.file)) {
       propCache.set(p.file, loader()
         .then((l) => l.loadAsync(propUrl(p.file)))
-        .then((gltf) => prepareProp(gltf))
+        .then((gltf) => prepareProp(gltf, propLook(p.file)))
         .catch((e) => {
           console.warn(`[models] prop ${p.file} unavailable`, e?.message || e);
           return null;
@@ -233,7 +290,7 @@ function loadProps(asset) {
   });
 }
 
-function prepareProp(gltf) {
+function prepareProp(gltf, look = null) {
   let mesh = null;
   gltf.scene.traverse((o) => {
     if (o.isMesh && !mesh) mesh = o;
@@ -258,7 +315,23 @@ function prepareProp(gltf) {
   const length = Math.max(size.x, size.y, size.z);
   const outline = figurineOutlineMaterial(maps.map, length / 0.25);
   outline.userData.uniforms.outlineZ.value = 0.12 * length;
-  return { geometry, material: figurineMaterial(maps), hlMaterial: figurineMaterial(maps, { highlight: true }), outline };
+  const material = figurineMaterial(maps);
+  if (look?.glow) {
+    // self-lit in her accent over its own colours (reads at a phone's battle zoom, not as a brown stick)
+    material.emissive.set(look.glow.color);
+    material.emissiveMap = maps.map;
+    material.emissiveIntensity = look.glow.intensity;
+  }
+  let accent = null;
+  if (look?.strip) {
+    const mat = new THREE.MeshBasicMaterial({ color: look.strip.color });
+    mat.userData.shared = true;
+    accent = { geometry: stripGeometry(look.strip), material: mat };
+  }
+  return {
+    geometry, material, hlMaterial: figurineMaterial(maps, { highlight: true }), outline,
+    scale: look?.scale ?? 1, grip: look?.grip || null, accent,
+  };
 }
 
 /**
@@ -270,12 +343,27 @@ function attachProps(asset, root, quality) {
   for (const p of asset.props || []) {
     const socket = root.getObjectByName(p.socket);
     if (!socket) continue;
+    // drawn bigger about its grip (PROP_LOOK), so the hand still holds it where it did
+    const k = p.scale || 1;
+    const g = p.grip;
+    const place = (o) => {
+      o.scale.setScalar(k);
+      if (g && k !== 1) o.position.set(g[0] * (1 - k), g[1] * (1 - k), g[2] * (1 - k));
+    };
     const m = new THREE.Mesh(p.geometry, p.material);
     m.name = 'prop';
     m.castShadow = true;
     m.frustumCulled = false;
+    place(m);
     socket.add(m);
     out.push({ mesh: m, prop: p });
+    if (p.accent) {
+      const a = new THREE.Mesh(p.accent.geometry, p.accent.material);
+      a.name = 'propAccent';
+      a.castShadow = false;
+      a.frustumCulled = false;
+      m.add(a);
+    }
     if (quality !== 'low') {
       const ol = new THREE.Mesh(p.geometry, p.outline);
       ol.name = 'outline';
@@ -283,6 +371,7 @@ function attachProps(asset, root, quality) {
       ol.onBeforeRender = outlineBeforeRender;
       ol.castShadow = false;
       ol.frustumCulled = false;
+      place(ol);
       socket.add(ol);
     }
   }

@@ -7,7 +7,7 @@ import {
   planStages, adoptAttack, HOLD_MAX, marionetteState, startMarionette, stepMarionette, retargetMarionette, loseTarget, landMarionette,
   marionetteBusy, stringPoint, sagFor, BASE_TIMES, BASE_TOTAL, FILL, MIN_SCALE, LEAD_MIN, CATCH_UP, CHOP_AT, REACH, STOP,
 } from '../../src/render/marionetteLogic.js';
-import { Marionette, threadInfo } from '../../src/render/marionette.js';
+import { Marionette, threadInfo, BAR_TILT } from '../../src/render/marionette.js';
 import { slashFree } from '../../src/render/attackFx/styles/yoriko.js';
 
 const DT = 1 / 120;
@@ -278,6 +278,126 @@ describe('the early start (from her cooldown)', () => {
   });
 });
 
+describe('rare timing slips (display polish 2)', () => {
+  /** Steps until the strike starts; returns the game time it took. */
+  const untilStrike = (s, dt = DT, max = 1) => {
+    let t = 0;
+    while (s.stage !== 'strike' && t < max) {
+      stepMarionette(s, dt);
+      t += dt;
+    }
+    return t;
+  };
+
+  it('an attack while the doll hovers at the end of an early glide: it holds to the needle\'s hit, then strikes', () => {
+    const s = marionetteState();
+    start(s, { eta: 0.3, early: true });
+    while (!(s.stage === 'extend' && s.u >= 1)) stepMarionette(s, DT);
+    stepMarionette(s, 0.05); // hovering
+    expect([s.stage, s.u]).toEqual(['extend', 1]);
+    expect(adoptAttack(s, 0.1)).toBe(true);
+    const at = [s.ox, s.oy, s.oz];
+    const t = untilStrike(s);
+    expect(Math.abs(t - 0.1)).toBeLessThan(2 * DT); // on the hit, not at once
+    expect(Math.hypot(s.ox - at[0], s.oy - at[1], s.oz - at[2])).toBeLessThan(0.02); // it held still
+    // the needle lands sooner than projected: the hold ends there
+    const s2 = marionetteState();
+    start(s2, { eta: 0.3, early: true });
+    while (!(s2.stage === 'extend' && s2.u >= 1)) stepMarionette(s2, DT);
+    adoptAttack(s2, 0.2);
+    stepMarionette(s2, 0.03);
+    expect(s2.stage).toBe('extend');
+    landMarionette(s2);
+    stepMarionette(s2, DT);
+    expect(s2.stage).toBe('strike');
+  });
+
+  it('extend ending in the same frame as the attack: still on the needle\'s hit (at 3×)', () => {
+    const s = marionetteState();
+    start(s, { eta: 0.3, early: true });
+    // a 3× frame (0.05 game s) that takes the glide right to its end
+    while (s.stage !== 'extend') stepMarionette(s, DT);
+    stepMarionette(s, s.plan.extend + 1e-6);
+    expect([s.stage, s.u]).toEqual(['extend', 1]);
+    adoptAttack(s, 0.09);
+    const t = untilStrike(s, 0.05);
+    expect(t).toBeGreaterThanOrEqual(0.09 - 1e-9);
+    expect(t).toBeLessThan(0.09 + 0.05 + 1e-9);
+  });
+
+  it('an attack during the reel after a missed early start gets a quick strike from where the doll is', () => {
+    const enemies = new Map([[5, { x: 3, y: 0, z: 4, height: 0.5 }]]);
+    const tower = { uid: 1, x: 1, y: 4, ox: 1, oy: 4, cooldown: 0.15, eff: { rate: 0.9, range: 3, projectileSpeed: 13 } };
+    const sim = { time: 0, projectiles: [], getTower: () => tower };
+    const m = new Marionette({ sim, actors: { enemies, enemyPos: (u) => (enemies.get(u) ? { ...enemies.get(u) } : null) }, root: new THREE.Group() });
+    const a = { uid: 1, cid: 'doll', group: new THREE.Group(), home: new THREE.Vector3(1.2, 0.6, 4), facing: 0, height: 0.3, mar: null, barRest: null };
+    m.update(a, { facing: 0 }, tower, 1 / 60, 1);
+    expect([a.mar.stage, a.mar.early]).toEqual(['command', true]);
+    tower.cooldown = 5; // the attack does not come in time
+    for (let i = 0; i < 120 && a.mar.stage !== 'reel'; i++) m.update(a, { facing: 0 }, tower, 1 / 60, 1);
+    expect(a.mar.stage).toBe('reel');
+    m.update(a, { facing: 0 }, tower, 1 / 60, 1);
+    const at = a.group.position.clone();
+    // now it comes
+    sim.projectiles.push({ uid: 9, ownerUid: 1, turretUid: null, target: { uid: 5, x: 3, y: 4 }, x: 1, y: 4, speed: 13, travel: 0, dead: false });
+    expect(m.onAttack(a, { type: 'attack', towerUid: 1, targetUid: 5 })).toBe(true);
+    expect([a.mar.stage, a.mar.early, a.projUid]).toEqual(['command', false, 9]);
+    expect(a.mar.plan.lead).toBeLessThan(0.15); // quick: on this needle
+    m.update(a, { facing: 0 }, tower, 1 / 60, 1);
+    expect(a.group.position.distanceTo(at)).toBeLessThan(0.06); // from where the doll was
+    let strike = false;
+    for (let i = 0; i < 30 && !strike; i++) {
+      m.update(a, { facing: 0 }, tower, 1 / 60, 1);
+      strike = a.mar.stage === 'strike';
+    }
+    expect(strike).toBe(true);
+    m.dispose();
+  });
+
+  it('a refit to a much sooner needle ramps the glide over a few frames, no one-frame skip (3×)', () => {
+    const s = marionetteState();
+    start(s, { eta: 0.3, early: true });
+    while (!(s.stage === 'extend' && s.u >= 0.3)) stepMarionette(s, DT);
+    const u0 = s.u;
+    adoptAttack(s, 0.06); // the real needle is due much sooner than the early plan
+    const gains = [];
+    let last = u0;
+    let t = 0;
+    while (s.stage === 'extend' && t < 1) {
+      stepMarionette(s, 0.05); // 3× frames
+      t += 0.05;
+      if (s.stage === 'extend') gains.push(s.u - last);
+      else gains.push(1 - last);
+      last = s.stage === 'extend' ? s.u : 1;
+    }
+    expect(gains.length).toBeGreaterThanOrEqual(2);
+    expect(Math.max(...gains)).toBeLessThan(0.4); // was 0.31 → 0.80 in one frame
+    expect(t).toBeLessThanOrEqual(0.06 + 0.1 + 1e-9); // and still within two frames of the hit
+    // adopted during Command (the live 3× case: c0.90 → e0.41 → e0.86): the shortened glide is spread too
+    const s3 = marionetteState();
+    start(s3, { eta: 0.3, early: true });
+    while (!(s3.stage === 'command' && s3.u >= 0.8)) stepMarionette(s3, DT);
+    adoptAttack(s3, 0.07);
+    let prev = 0;
+    let worst = 0;
+    for (let i = 0; i < 6 && s3.stage !== 'strike'; i++) {
+      stepMarionette(s3, 0.05);
+      const u = s3.stage === 'extend' ? s3.u : s3.stage === 'strike' ? 1 : 0;
+      worst = Math.max(worst, u - prev);
+      prev = u;
+    }
+    expect(s3.stage).toBe('strike');
+    expect(worst).toBeLessThan(0.4);
+    // a mild refit is taken at once (no ramp)
+    const s2 = marionetteState();
+    start(s2, { eta: 0.3, early: true });
+    while (!(s2.stage === 'extend' && s2.u >= 0.3)) stepMarionette(s2, DT);
+    const left = (1 - s2.u) / s2.rate;
+    adoptAttack(s2, left * 0.9);
+    expect(s2.blend).toBe(0);
+  });
+});
+
 describe('the slash on the hit', () => {
   it('at most one per enemy per 0.15 s', () => {
     const tw = {};
@@ -370,6 +490,19 @@ describe('strings', () => {
     expect(P.every(Number.isFinite)).toBe(true);
     // the top of the string sits on her bar (home + barRest), the bottom on the doll
     expect((P[1] + P[4]) / 2).toBeCloseTo(1.0, 3);
+    // Command's flick tilts the bar: a string tied ahead of the bar's middle rises more than the flick lift alone
+    const th = a.strings.threads[0];
+    const top0 = th.top.clone();
+    th.top.set(0, 0, 0.1); // 0.1 ahead (doll faces +z, strikes +z)
+    a.mar.flick = 1;
+    m._strings(a, { facing: 0 }, 1);
+    const lift = 0.3 * 0.14; // the flick's own lift (height × 0.14)
+    const ty = (P[1] + P[4]) / 2;
+    expect(ty - 1.0 - lift).toBeCloseTo(0.1 * Math.sin(BAR_TILT), 3);
+    a.mar.calm = true; // Reduce motion: no tilt
+    m._strings(a, { facing: 0 }, 1);
+    expect((P[1] + P[4]) / 2 - 1.0 - lift).toBeCloseTo(0, 3);
+    th.top.copy(top0);
     let disposed = false;
     geo.addEventListener('dispose', () => { disposed = true; });
     m.release(a);
@@ -454,6 +587,26 @@ describe('the renderer side reads her needles (never writes the sim)', () => {
     m.dispose();
   });
 
+  it('her own needle kills the target: the doll still strikes, at its last spot (no reel without a strike)', () => {
+    const { sim, m, a, enemies, tower } = setup();
+    m.onAttack(a, { type: 'attack', towerUid: 1, targetUid: 5 });
+    m.update(a, { facing: 0 }, tower, 1 / 60, 1);
+    const target = [a.mar.tx, a.mar.tz];
+    // the needle lands and the enemy dies on the same step
+    sim.projectiles.length = 0;
+    enemies.delete(5);
+    enemies.set(6, { x: 3.2, y: 0, z: 4.3, height: 0.5 }); // someone nearby: not taken, it was her kill
+    const stages = [];
+    for (let i = 0; i < 30; i++) {
+      m.update(a, { facing: 0 }, tower, 1 / 60, 1);
+      stages.push(a.mar.stage);
+    }
+    expect(stages).toContain('strike');
+    expect(stages.indexOf('strike')).toBeLessThan(stages.indexOf('reel'));
+    expect([a.mar.tx, a.mar.tz]).toEqual(target);
+    m.dispose();
+  });
+
   it('follows the enemy its needle flies on to when the target dies by another', () => {
     const { m, a, enemies, tower } = setup();
     m.onAttack(a, { type: 'attack', towerUid: 1, targetUid: 5 });
@@ -472,5 +625,69 @@ describe('the renderer side reads her needles (never writes the sim)', () => {
     expect([d.x, d.z]).toEqual([2, 3]);
     expect(d.h).toBeGreaterThan(1);
     m.dispose();
+  });
+});
+
+describe('marionette clock across a hit-stop', () => {
+  it('a short visual dt with a normal frame (hit-stop ending) does not spike the game-speed estimate', () => {
+    const sim = { time: 0 };
+    const m = new Marionette({ sim, actors: { enemies: new Map(), enemyPos: () => null }, root: new THREE.Group() });
+    for (let i = 0; i < 60; i++) {
+      sim.time += 1 / 60;
+      m.tick(1 / 60, 1 / 60);
+    }
+    const before = m.speed;
+    sim.time += 1 / 60; // the sim stepped a normal frame…
+    m.tick(1 / 240, 1 / 60); // …while the visual clock only moved a quarter of it (the hold ending)
+    expect(m.speed).toBeCloseTo(before, 2);
+    expect(m.speed).toBeLessThan(1.1);
+  });
+});
+
+describe('marionette clock across a pause', () => {
+  it('a paused stretch (visual dt 0, sim still) keeps the game-speed estimate for the resume', () => {
+    const sim = { time: 0 };
+    const m = new Marionette({ sim, actors: { enemies: new Map(), enemyPos: () => null }, root: new THREE.Group() });
+    for (let i = 0; i < 90; i++) {
+      sim.time += 3 / 60; // 3x
+      m.tick(1 / 60, 1 / 60);
+    }
+    const fast = m.speed;
+    expect(fast).toBeGreaterThan(2.5);
+    for (let i = 0; i < 60; i++) m.tick(0, 1 / 60); // paused: no visual time, the sim stands still
+    expect(m.speed).toBeCloseTo(fast, 5);
+  });
+});
+
+describe('marionette: a needle landing early gets the short catch-up, never the 3-frame spread', () => {
+  // Steps the pure state at 60 fps from the landing and returns how long Extend took to reach the strike.
+  async function catchUpTime(stage, setup) {
+    const L = await import('../../src/render/marionetteLogic.js');
+    const s = L.marionetteState();
+    s.stage = stage;
+    s.plan = { command: 0.1, extend: 0.3, strike: 0.1, reel: 0.3, settle: 0.2 };
+    s.u = 0;
+    s.rate = 1 / s.plan[stage];
+    s.blend = 0;
+    setup(s, L);
+    expect(L.landMarionette(s)).toBe(true);
+    expect(s.blendNext).toBe(false);
+    expect(s.blend).toBe(0);
+    let t = 0;
+    for (let i = 0; i < 120 && s.stage === 'extend'; i++) {
+      L.stepMarionette(s, 1 / 60);
+      t += 1 / 60;
+    }
+    return { t, s, L };
+  }
+
+  it('landing during Command (with a spread queued for Extend)', async () => {
+    const { t, L } = await catchUpTime('command', (s) => { s.blendNext = true; });
+    expect(t).toBeLessThanOrEqual(L.CATCH_UP + 1 / 60 + 1e-9);
+  });
+
+  it('landing during Extend (with a spread running)', async () => {
+    const { t, L } = await catchUpTime('extend', (s, Lm) => { s.u = 0.2; s.blend = Lm.BLEND_STEPS; });
+    expect(t).toBeLessThanOrEqual(L.CATCH_UP + 1 / 60 + 1e-9);
   });
 });
