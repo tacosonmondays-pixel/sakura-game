@@ -135,7 +135,9 @@ re-skins a base is a row; a design that needs a new form (a keyring, a bracelet,
   their palette, material, and per piece a base, options, a hero detail and a lore line
   (`docs/specs/GEAR_SET_LOOKS.md`, generated from these rows). Their bases are in `models/gearset.py` (`keyring`,
   `bracelet`, `setbow`, `setshoe`, `setclip`, `setlocket`; `GEAR_OPTIONS` lists what each draws). They stay
-  `preview=True` (scratch only) until the gear update ships the sets.
+  `preview=True` (scratch only) until the gear update ships the sets. `python3 tools/blender/items/gear_sets.py
+  --check` validates the rows (unknown option names or values, missing required options, bad colours), holds the
+  launch sets at preview and checks the spec's tables; `--write-doc` regenerates them (`tests/art` runs `--check`).
 
 ```
 ... build_items.py -- --family gear                     # the game's gear keys (+ the set looks of GEAR_SETS)

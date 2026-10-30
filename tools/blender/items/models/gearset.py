@@ -8,7 +8,7 @@ plus one hero detail that tells the piece's story. The rows pick a base and its 
   bracelet  the charm as a bead bracelet; beads: abacus
   setbow    the ribbon; knot: grille, chalk, protractor, star, coin, plug; stripes: 0..3; tails: notched, streamers, cable
   setshoe   the shoes; style: trainer, loafer; sole: plain, glow, grid, ticks, glitter; side: none, chargebars, stripe;
-            buckle: none, coin
+            buckle (loafer): none, plain, coin; heel: trim, accent; laces: white, accent; toe: white, body
   setclip   the hair clip; ornament: pompom, button, setsquare, confetti, calc, bolt (never a bow, star or snowflake)
   setlocket the necklace; locket: heart, timer, crosshair, party, coin, battery; cord: chain, cord
 
@@ -106,21 +106,17 @@ def keyring(look):
     star = None
     if fob == 'pompom':           # Pom-Pom Keyring: a pom-pom on a trim cap with a light-up bead
         _pom(0.56, (0, 0.0, -0.1), pp['body'])
-        for dx, dz in ((-0.3, 0.12), (0.28, -0.22)):    # white tufts: the squad colours mixed in
-            t = P.sphere(0.13, 20, 10, 'tuft', scale=(1, 0.55, 1))
-            P.xf(t, loc=(dx, -0.36, -0.1 + dz))
-            P.paint(t, pp['white'], line=1.0)
         cap = _slab(P.rrect2(0.3, 0.2, 0.06, 3), 0.22, (0, -0.02, 0.5), pp['trim'], line=1.8)
         _led((0, -0.14, 0.5), 0.085, pp['light'])
-        top, star = 0.6, (-0.2, -0.4, 0.15)
+        top, star = 0.6, (0.1, -0.42, 0.14)
     elif fob == 'token':          # Tag Token: a chalk-drawn token, a coral tag stripe and an LED dot
         _disc(0.6, 0.2, (0, 0.0, 0.0), pp['trim'], line=2.4)
         _disc(0.5, 0.06, (0, -0.1, 0.0), pp['body'], line=1.4)
         ring = P.ring_slab(P.circle2(0.4, 48), P.circle2(0.34, 48), 0.03, 0.01, 2, name='chalkring')
         P.xf(ring, loc=(0, -0.14, 0.0))
         P.paint(ring, pp['white'], line=0.9, lift=0.02)
-        _bar(0.62, 0.14, (0.0, -0.14, -0.05), pp['accent'], rot=-25.0)
-        _led((0.22, -0.17, 0.2), 0.07, pp['light'])
+        _bar(0.5, 0.12, (0.0, -0.15, -0.5), pp['accent'])           # the tag stripe across the token's foot
+        _led((0.24, -0.17, 0.24), 0.07, pp['light'])
         top, star = 0.6, (-0.3, -0.2, 0.32)
     elif fob == 'compass':        # Compass Keyring: a brass compass, a needle, a laser-dot lens on the rim
         _disc(0.6, 0.24, (0, 0.0, 0.0), pp['trim'], line=2.4)
@@ -141,7 +137,7 @@ def keyring(look):
         cone = P.poly_round([(-0.42, 0.3), (0.42, 0.3), (0.02, -0.85)], 0.07, 3)
         _slab(cone, 0.3, (0.0, 0.0, -0.05), pp['body'], line=2.4, rot=-20.0)
         for k, z in enumerate((-0.02, -0.28)):
-            _bar(0.42 - 0.14 * k, 0.07, (0.02 + 0.09 * k * 0, -0.17, z + 0.0), pp['accent'], rot=-20.0)
+            _bar(0.42 - 0.14 * k, 0.07, (0.02, -0.17, z), pp['accent'], rot=-20.0)
         rim = P.rbox(0.92, 0.36, 0.14, r=0.05, seg=2, name='rim')
         P.xf(rim, rot=(0, -20, 0), loc=(0.09, 0.0, 0.2))
         P.paint(rim, pp['trim'], line=1.8)
@@ -171,8 +167,14 @@ def keyring(look):
         _slab(P.rrect2(0.74, 1.1, 0.16, 5), 0.26, (0, 0.0, -0.05), pp['body'], line=2.4)
         _slab(P.rrect2(0.42, 0.66, 0.08, 4), 0.04, (0, -0.14, 0.02), pp['dark'], line=1.0)
         for k in range(4):
-            _bar(0.32, 0.1, (0, -0.17, -0.22 + k * 0.15), pp['light'] if k < 4 else pp['dark'], line=0.6)
+            _bar(0.32, 0.1, (0, -0.17, -0.22 + k * 0.15), pp['light'], line=0.6)
         _bar(0.22, 0.06, (0, -0.15, -0.47), pp['dark'], line=0.6)
+        cable = P.tube(P.smooth_path([(0.0, 0.0, -0.6), (0.06, 0.0, -0.78), (0.26, 0.0, -0.86), (0.42, 0.0, -0.78)], 16),
+                       0.045, 10, name='cable')                # a short charging cable from the port
+        P.paint(cable, pp['white'], line=1.4)
+        plug = P.rbox(0.12, 0.12, 0.18, r=0.03, seg=2, name='plug')
+        P.xf(plug, rot=(0, -60, 0), loc=(0.48, 0.0, -0.72))
+        P.paint(plug, pp['trim'], line=1.2)
         _slab(P.rrect2(0.3, 0.12, 0.05, 3), 0.2, (0, 0.0, 0.52), pp['trim'], line=1.6)
         top, star = 0.58, (-0.24, -0.2, 0.32)
     else:
@@ -184,7 +186,7 @@ def keyring(look):
 
 
 def bracelet(look):
-    """Abacus Bracelet: a silver bangle threaded with abacus beads, a mint counter bar and a coin tag."""
+    """Abacus Bracelet: a silver bangle threaded with abacus beads between two counter bars."""
     pp = _paints(look)
     R = 0.66
     _ring(R, 0.05, (0, 0.02, 0), pp['trim'], line=2.0)
@@ -200,10 +202,6 @@ def bracelet(look):
         a = math.radians(270 + s * 82)
         _slab(P.rrect2(0.08, 0.3, 0.03, 3), 0.12, (R * math.cos(a), -0.02, R * math.sin(a)), pp['trim'], line=1.4,
               rot=-(math.degrees(a) - 90))
-    # a coin tag on a jump ring at the top
-    _ring(0.06, 0.02, (0.0, 0.0, R + 0.06), pp['trim'], line=1.0)
-    _disc(0.2, 0.06, (0.0, -0.02, R + 0.27), pp['trim'], line=1.6)
-    _disc(0.13, 0.03, (0.0, -0.06, R + 0.27), pp['accent'], line=0.8)
     if look.star:
         P.glint((-0.38, -0.2, -0.42), look.star)
     return dict(kind='flat', roll=-8.0, turn=14.0, tip=24.0)
@@ -325,7 +323,7 @@ def setshoe(look):
     SL, SH = G.SHOE_L, G.SOLE_H
     sw, sh, piece, arch, tt = G._shoe_w, G._shoe_h, G._shoe_piece, G._arch, G._shoe_t
     sole_kind = d.get('sole', 'plain')
-    sole_p = dict(C.over(pp['light'], glow=0.55), ink=body['ink']) if sole_kind == 'glow' else \
+    sole_p = dict(C.over(pp['light'], glow=0.3), ink=body['ink']) if sole_kind == 'glow' else \
         trim if sole_kind == 'ticks' else pp['white']
     sole = piece(0.0, 1.0, P.rrect2(2.0, 1.0, 0.38, 4, cz=0.5), lambda u: sw(u) * 1.08 + 0.012,
                  lambda u: SH * (1.25 if loafer else 1.0), name='sole')
@@ -359,7 +357,7 @@ def setshoe(look):
     if not loafer:
         cap = piece(0.0, 0.25, arch(), lambda u: sw(u) * 1.045 + 0.006, lambda u: sh(u) * 1.06 + 0.012,
                     z0=SH - 0.02, n=16, name='toecap')
-        P.paint(cap, pp['white'] if d.get('toe') != 'body' else body, line=2.0)
+        P.paint(cap, body if d.get('toe') == 'body' else pp['white'], line=2.0)
     heel = piece(0.8, 1.0, arch(), lambda u: sw(u) * 1.05 + 0.008, lambda u: sh(u) * (0.55 if not loafer else 0.8),
                  z0=SH - 0.02 + (0.04 if loafer else 0.0), n=14, name='heelcounter')
     P.paint(heel, pp['accent'] if d.get('heel') == 'accent' else trim if not loafer else C.over(body, base=body['shadow']),
@@ -382,7 +380,9 @@ def setshoe(look):
         P.paint(strap, pp['strap'], line=1.6)
         t = 0.425
         x = -SL / 2 + SL * t
-        if d.get('buckle') == 'coin':
+        if d.get('buckle', 'plain') == 'none':
+            pass
+        elif d.get('buckle') == 'coin':
             _disc(0.11, 0.05, (x, -sw(t) * 1.05 - 0.03, SH + sh(t) * 0.55), trim, line=1.4, n=40)
             _disc(0.065, 0.02, (x, -sw(t) * 1.05 - 0.06, SH + sh(t) * 0.55), pp['light'], line=0.6, n=32)
         else:
@@ -442,19 +442,19 @@ def setclip(look):
         _disc(0.38, 0.08, (cx, -0.1, cz), body, line=1.4)
         for s in (-1, 1):
             _bar(0.09, 0.32, (cx + s * 0.09, -0.14, cz), pp['accent'], depth=0.05, line=1.0)
-    elif orn == 'setsquare':      # a set-square: a right triangle with a triangular window
-        tri = [(-0.4, -0.36), (0.48, -0.36), (-0.4, 0.5)]
-        outer = P.resample(P.poly_round(tri, 0.06, 4), 60)
-        inner = P.resample(P.poly_round([(-0.24, -0.22), (0.18, -0.22), (-0.24, 0.2)], 0.03, 4), 60)
-        o = P.ring_slab(outer, inner, 0.12, 0.04, 2, name='setsquare')
-        P.xf(o, loc=(cx, -0.04, cz))
-        P.paint(o, body, line=2.2)
-        for k in range(7):
-            x = -0.32 + 0.11 * k
-            K.emboss(P.rrect2(0.016, 0.1 if k % 2 == 0 else 0.06, 0.006, 2), 0.02, (cx + x, -0.11, cz - 0.3),
-                     trim, line=0.0)
-        _led((cx - 0.3, -0.12, cz + 0.36), 0.05, pp['light'])
-        star = (cx - 0.25, -0.2, cz - 0.1)
+    elif orn == 'setsquare':      # a set-square lying along the clip: its ruler leg on the bar, the right angle at the
+        # bar end, the hypotenuse sloping back down to the bar (a drafting triangle on a clip, never a head on a shaft)
+        tri = [(0.5, -0.12), (0.5, 0.5), (-1.05, -0.12)]
+        _slab(P.poly_round(tri, 0.05, 4), 0.12, (cx, -0.08, cz), body, line=2.4)
+        _slab(P.poly_round(P.offset_outline(tri, -0.08), 0.02, 4), 0.02, (cx, -0.15, cz), C.over(body, base=body['light']),
+              line=0.0)
+        for k in range(12):                               # ruler ticks along the long leg
+            x = 0.4 - 0.11 * k
+            K.emboss(P.rrect2(0.02, 0.1 if k % 2 == 0 else 0.06, 0.006, 2), 0.02, (cx + x, -0.17, cz - 0.02), trim,
+                     line=0.0)
+        _disc(0.08, 0.03, (cx + 0.3, -0.17, cz + 0.18), pp['dark'], line=0.8, n=32)   # the finger hole
+        _led((cx + 0.5, -0.17, cz + 0.5), 0.05, pp['light'])
+        star = (cx - 0.2, -0.22, cz + 0.08)
     elif orn == 'confetti':       # a clear capsule filled with confetti
         cap = _slab(P.rrect2(0.8, 0.5, 0.24, 6), 0.18, (cx, -0.04, cz), pp['glass'], line=2.2)
         _slab(P.rrect2(0.86, 0.12, 0.06, 4), 0.2, (cx, -0.02, cz + 0.27), trim, line=1.4)
@@ -551,12 +551,17 @@ def setlocket(look):
         for k in range(3):
             _bar(0.08, 0.035, (-0.12 + 0.12 * k, -0.15, pz), pp['light'], line=0.0)
         _bar(0.3, 0.06, (0, -0.12, pz - 0.25), pp['accent'], line=0.6)
-    elif kind == 'battery':       # a battery showing a full charge
-        _slab(P.rrect2(0.6, 0.92, 0.14, 5), 0.22, (0, 0.0, pz - 0.04), body, line=2.4)
-        _slab(P.rrect2(0.26, 0.1, 0.04, 3), 0.18, (0, 0.0, pz + 0.47), trim, line=1.4)
-        _slab(P.rrect2(0.42, 0.7, 0.06, 4), 0.04, (0, -0.12, pz - 0.04), pp['dark'], line=0.9)
-        for k in range(4):
-            _bar(0.34, 0.12, (0, -0.15, pz - 0.3 + 0.17 * k), pp['light'], line=0.4)
+    elif kind == 'battery':       # a horizontal battery cell, a side terminal, a full charge gauge and a bolt
+        bz = pz + 0.24
+        _slab(P.rrect2(1.0, 0.52, 0.14, 5), 0.22, (0, 0.0, bz), body, line=2.4)
+        _slab(P.rrect2(0.1, 0.24, 0.04, 3), 0.16, (0.55, 0.0, bz), trim, line=1.4)
+        _slab(P.rrect2(0.8, 0.34, 0.06, 4), 0.04, (-0.02, -0.12, bz), pp['dark'], line=0.9)
+        for k in range(3):
+            _bar(0.15, 0.24, (-0.27 + 0.18 * k, -0.15, bz), pp['light'], line=0.4)
+        bolt = P.poly_round([(0.05, 0.14), (-0.07, -0.01), (0.0, -0.01), (-0.04, -0.14), (0.08, 0.02), (0.01, 0.02)],
+                            0.01, 2)
+        K.emboss(bolt, 0.03, (0.28, -0.15, bz), pp['light'], line=0.6)
+        star = (-0.3, -0.3, bz + 0.12)
     else:
         raise ValueError(f'setlocket locket {kind!r}')
     if look.star:

@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import { ITEMS, ITEM_IDS } from '../../src/data/items.js';
 import { GEAR_SLOTS, ITEM_RARITY_ORDER } from '../../src/data/types.js';
 import { ITEM_ART, ITEM_ART_SMALL } from '../../src/art/itemArt.js';
@@ -147,6 +148,24 @@ describe('gear art: the 3D-flat gear icons (tools/blender/items models/gear.py, 
       }
       expect((row.match(/lore='|lore="/g) || []).length, `${id}: a lore line per piece`).toBe(5);
     }
+  });
+
+  it('the six launch sets stay preview-only (scratch bakes) until src/data/gearSets.js ships them', () => {
+    const sets = block('GEAR_SETS');
+    for (const id of ['spirit', 'freezetag', 'geometry', 'popper', 'treasurer', 'powerbank']) {
+      expect(sets, id).toMatch(new RegExp(`\\n    ${id}=dict\\(preview=True,`));
+    }
+    for (const k of Object.keys(ITEM_ART)) expect(k, 'no set look in the manifest yet').not.toMatch(/^gear_(spirit|freezetag|geometry|popper|treasurer|powerbank)_/);
+  });
+
+  // gear_sets.py --check: every row validates, gear_design refuses unknown option names and values, missing required
+  // options and bad colours (probed with bad rows), the launch sets are preview=True, and the spec's per-set tables
+  // (docs/specs/GEAR_SET_LOOKS.md, generated from the rows) are in sync. Needs python3 (no Blender).
+  const py = spawnSync('python3', ['--version']);
+  it.skipIf(py.error || py.status !== 0)('the gear set rows pass gear_sets.py --check (the option guard, preview, the spec in sync)', () => {
+    const r = spawnSync('python3', [join(ROOT, 'tools/blender/items/gear_sets.py'), '--check'], { encoding: 'utf8' });
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.stdout).toMatch(/\[gear_sets\] ok: \d+ sets, \d+ probes/);
   });
 
   it('each slot shows its own baked image per rarity and UR, small through big', () => {

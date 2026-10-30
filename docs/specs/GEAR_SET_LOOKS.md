@@ -22,17 +22,27 @@ baked to the scratch folder only; they go into `public/art/items` and the manife
 ## 2. Reading at 22–32 px
 
 - **Colour pair first.** Each set owns a pair no other set uses: red over white (Spirit Squad), ice blue with a coral
-  mark (Freeze Tag), dark slate with brass and a cyan dot (Geometry Set), violet with gold (Party Popper), mint with
-  silver (Treasurer), indigo with lime (Power Bank).
+  mark (Freeze Tag), teal slate with brass and a cyan dot (Geometry Set), magenta-violet with gold (Party Popper), mint
+  with silver (Treasurer), indigo with lime (Power Bank). The six main colours are at least ΔE2000 15 apart from each
+  other (the gear update's set-chip rule; the closest pair, Geometry and Power Bank, is 19.3). Beside default gear the
+  pair is what counts, not the main colour alone: Spirit Squad's cherry red is ΔE 10 from the default Mythic red and
+  Party Popper's magenta-violet ΔE 16 from the default Super Rare violet, so those two read by their white and gold.
+- **Dark tiles.** Every main colour keeps a lightness the ink and the light tones separate from LR's Nightglass navy
+  (`#0e1930`); check it again when the LR gear tile is built.
 - **Then the silhouette family.** Round and fluffy; round and flat; straight lines and circles; bursting streamers;
   coins and beads; blocky rounded rectangles (per set below). Each slot keeps its slot's outline where it can (a bow
   is a bow, shoes are shoes), so a player reads the slot before the set.
+- **No warning glyphs.** No bar through a ring's centre (a "no entry" sign), no arrowhead on a hair piece; a charm and a
+  necklace of one set never share a silhouette (Power Bank: an upright bank on a cable vs a wide battery cell).
 - **One hero detail at play size.** The hero detail is the largest contrast mark on the piece (the pom-pom, the
   pause bars, the compass needle, the streamers, the coin, the charge bars); small parts (grille dots, ticks, LCD
   digits) are for the 64–256 px views.
 
 ## 3. The six sets
 
+Generated from the rows by `python3 tools/blender/items/gear_sets.py --write-doc`; `--check` (and `tests/art`) keep it in sync.
+
+<!-- sets:start -->
 ### Spirit Squad (`spirit`, support)
 
 - **Motif:** the spirit squad at a match: pom-poms and light-up gear.
@@ -44,7 +54,7 @@ baked to the scratch folder only; they go into `public/art/items` and the manife
 |---|---|---|---|---|
 | Charm | **Pom-Pom Keyring** | `keyring`: fob pompom | a light-up bead in the pom-pom cap | Shake it once and the bead glows: the whole stand knows you are cheering. |
 | Ribbon | **Cheer Bow** | `setbow`: knot grille, stripes 2, stripe white | a tiny speaker-grille knot | The knot hums the school song at exactly the volume a teacher allows. |
-| Shoes | **Light-Up Trainers** | `setshoe`: style trainer, sole glow, heel accent, laces accent, body #f3f5fa, accent #e8364f, light #ff6b86 | soles that glow cherry red with each step | Every jump leaves a little red flash on the gym floor. |
+| Shoes | **Light-Up Trainers** | `setshoe`: style trainer, sole glow, heel accent, laces accent, body #f3f5fa, accent #e8364f, light #f0284a | soles that glow cherry red with each step | Every jump leaves a little red flash on the gym floor. |
 | Hair Clip | **Pom Clip** | `setclip`: ornament pompom | a mini pom-pom with a glowing bead | Small enough for class, loud enough for the final whistle. |
 | Necklace | **Spirit Locket** | `setlocket`: locket heart, light #ffd1da | a heart locket with a soft status light | Its light stays on while a friend is still cheering for you. |
 
@@ -53,7 +63,7 @@ baked to the scratch folder only; they go into `public/art/items` and the manife
 - **Motif:** playground freeze tag: chalk lines and a tag timer.
 - **Palette:** body `#7cc7f0`, accent `#ff7a6b`, light `#ff7a6b`; trim `silver`.
 - **Material:** frosted acrylic, chalk white and a coral tag stripe.
-- **Silhouette:** round and flat: a token, a pause button, a round timer, all ice blue with one coral mark each. Chalk white lines, never a snowflake or ice crystal (those are other looks of the game).
+- **Silhouette:** round and flat: a token, a pause button, a round timer, all ice blue with one coral mark each (never across a ring's centre). Chalk white lines, never a snowflake or an ice crystal.
 
 | Slot | Piece | Base and options | Hero detail | Lore |
 |---|---|---|---|---|
@@ -66,9 +76,9 @@ baked to the scratch folder only; they go into `public/art/items` and the manife
 ### Geometry Set (`geometry`, precision)
 
 - **Motif:** the maths geometry kit and a cyan laser dot.
-- **Palette:** body `#5a6f9a`, accent `#34e0ff`, light `#5ff0ff`, glass `#c4f4ff`; trim `brass`.
-- **Material:** brushed brass on slate blue, cyan laser glass.
-- **Silhouette:** straight lines and circles: a compass, a protractor arc, a set-square, a crosshair window, ruler-tick soles. Dark slate with brass edges and one cyan dot per piece.
+- **Palette:** body `#4a7c92`, accent `#34e0ff`, light `#5ff0ff`, glass `#c4f4ff`; trim `brass`.
+- **Material:** brushed brass on teal slate, cyan laser glass.
+- **Silhouette:** straight lines and circles: a compass, a protractor arc, a set-square standing on its clip, a crosshair window, ruler-tick soles. Teal slate with brass edges and one cyan dot per piece.
 
 | Slot | Piece | Base and options | Hero detail | Lore |
 |---|---|---|---|---|
@@ -78,12 +88,12 @@ baked to the scratch folder only; they go into `public/art/items` and the manife
 | Hair Clip | **Set-Square Clip** | `setclip`: ornament setsquare | a set-square with a window and ruler ticks | Keeps a fringe perfectly straight and a sight line perfectly clear. |
 | Necklace | **Crosshair Locket** | `setlocket`: locket crosshair | a round window with a crosshair and a laser dot | Look through it and the target is already centred. |
 
-### Party Popper (`popper`, crowds)
+### Party Popper (`popper`, crowd)
 
 - **Motif:** a class party: poppers, streamers and confetti.
-- **Palette:** body `#8a5cf0`, accent `#f6c04a`, light `#ffe27a`, glass `#efe6ff`; trim `gold`.
-- **Material:** violet foil and warm gold with fibre-optic sparkle.
-- **Silhouette:** bursting outward: a cone with streamers, curled streamer tails, a confetti capsule. Violet and gold with small multicolour confetti; the only set with loose streamers.
+- **Palette:** body `#c23dbf`, accent `#f6c04a`, light `#ffe27a`, glass `#efe6ff`; trim `gold`.
+- **Material:** magenta-violet foil and warm gold with fibre-optic sparkle.
+- **Silhouette:** bursting outward: a cone with streamers, curled streamer tails, a confetti capsule. Magenta-violet and gold with small multicolour confetti; the only set with loose streamers.
 
 | Slot | Piece | Base and options | Hero detail | Lore |
 |---|---|---|---|---|
@@ -113,7 +123,7 @@ baked to the scratch folder only; they go into `public/art/items` and the manife
 - **Motif:** phone power banks and charge bars.
 - **Palette:** body `#4446b8`, accent `#9be22e`, light `#b6ff4a`; trim `steel`.
 - **Material:** matte indigo plastic, steel and lime charge LEDs.
-- **Silhouette:** blocky rounded rectangles: a power bank, a battery, a plug, a bolt. Indigo with lime bars; the only set with stacked charge bars.
+- **Silhouette:** blocky rounded rectangles: an upright power bank on a cable, a wide battery cell, a plug, a bolt. Indigo with lime: stacked bars on the upright pieces, an upright gauge on the wide cell.
 
 | Slot | Piece | Base and options | Hero detail | Lore |
 |---|---|---|---|---|
@@ -122,17 +132,20 @@ baked to the scratch folder only; they go into `public/art/items` and the manife
 | Shoes | **Charge-Bar Trainers** | `setshoe`: style trainer, side chargebars, laces accent | battery bars that fill along the side | The bars fill up as she runs: four bars, ready to go. |
 | Hair Clip | **Lightning Clip** | `setclip`: ornament bolt, body #9be22e, accent #4446b8, light #eaffb0 | a lightning bolt with a glowing core | A quick charge for a sleepy morning. |
 | Necklace | **Battery Locket** | `setlocket`: locket battery | a battery showing a full charge | Four bars means she has energy to spare for everyone. |
+<!-- sets:end -->
 
 ## 4. How it is built
 
 - **Rows:** `tools/blender/items/catalog.py` `GEAR_SETS` holds one row per set: name, role, motif, material, the set
   colours (`body`, `accent`, `light`, `glass`, `trim`) and one row per slot with its base, options, piece name, hero
-  detail and lore. `GEAR_OPTIONS` lists what each base draws; `gear_design` refuses anything else. This document's
-  per-set tables are generated from those rows.
+  detail and lore, plus its silhouette rule. `GEAR_OPTIONS` lists what each base draws and `GEAR_REQUIRED` what it
+  cannot draw without; `gear_design` refuses any other option name or value, a missing required option and a bad
+  colour. `tools/blender/items/gear_sets.py --check` validates every row, probes the guard with bad rows, holds the
+  six launch sets at `preview=True` and checks that §3 matches the rows (`tests/art` runs it).
 - **Bases:** `tools/blender/items/models/gearset.py`: `keyring` (a fob on a split ring: pompom, token, compass, popper,
   powerbank), `bracelet` (abacus beads), `setbow` (knots: grille, chalk, protractor, star, coin, plug; tails: notched,
   streamers, cable; stripes), `setshoe` (trainer or loafer; soles: glow, grid, ticks, glitter; side: charge bars, a
-  stripe; a coin buckle), `setclip` (pompom, pause button, set-square, confetti capsule, calculator key, bolt) and
+  stripe; a loafer buckle: none, plain or coin; heel, laces, toe colours), `setclip` (pompom, pause button, set-square, confetti capsule, calculator key, bolt) and
   `setlocket` (heart, timer, crosshair, party, coin, battery; chain or cord). A new set that re-uses these options is
   rows only; a new form is a new option in `gearset.py`. The default gear looks are untouched.
 - **Preview:** every row has `preview=True`, so `build_items.py -- gear_<set>_<slot> …` (or `--family gear-preview`)
@@ -140,7 +153,14 @@ baked to the scratch folder only; they go into `public/art/items` and the manife
   `--family gear`, and commit the files and the manifest; the tests accept `gear_<set>_<slot>` keys for the six set
   ids.
 
-## 5. Owner questions (defaults in use)
+## 5. Budget
+
+`public/art/items` holds 1.61 MB of the 2.2 MiB (2.31 MB) cap. The 30 set looks add about 0.45 MB and the default Hair
+Clip and Necklace ladders about 0.17 MB, so the gear update reaches about 2.23 MB, leaving about 75 KB for the Set Box,
+pin and lens icons (GEAR_UPDATE §3.3). Before the sets ship, either trim the 256 cuts of the item art (a lower WebP
+quality on the busiest keys), or raise the cap with the owner's yes.
+
+## 6. Owner questions (defaults in use)
 
 1. **Spirit Squad's Light-Up Trainers are white with red trim** (the spec says "white"), so the shoes read less red
    than the other four pieces. Default: keep white; the hero detail is the glowing red sole.
