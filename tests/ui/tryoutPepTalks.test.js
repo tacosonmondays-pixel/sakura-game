@@ -4,10 +4,11 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { pepLedger, drawbacksOf, varsityOf, deskOf } from '../../src/ui/battle/tryout/pepTalks.js';
+import { pepLedger, drawbacksOf, varsityOf, deskOf, twistsNow, teamDrawback } from '../../src/ui/battle/tryout/pepTalks.js';
+import { dareOf } from '../../src/sim/tryout/index.js';
 import { cardPage } from '../../src/ui/screens/tryoutYearbook.js';
 import { PEP_CARDS, RARITIES } from '../../src/data/tryout.js';
-import { DRAWBACK_TEXT, PEP_LIST_TEXT, cardText } from '../../src/ui/text/tryout.js';
+import { DRAWBACK_TEXT, PEP_LIST_TEXT, DARE_SHORT, cardText } from '../../src/ui/text/tryout.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 
 const girl = Object.keys(UNIT_MAP).find((id) => !UNIT_MAP[id].isHero);
@@ -36,6 +37,11 @@ describe('pepLedger: one row per card (per girl for a One girl card), stacks and
     const [row] = pepLedger([{ id: 'P06', r: 2, unit: girl }], { refills: { [girl]: 1 } });
     expect(row.refills).toBe(1);
     expect(pepLedger([{ id: 'E01', r: 0 }])[0].refills).toBeNull();
+  });
+  it('Free Refills on the Class Photo (refills not known): no count; none left live reads as words, not "0"', () => {
+    expect(pepLedger([{ id: 'P06', r: 2, unit: girl }], { refills: null })[0].refills).toBeNull();
+    expect(PEP_LIST_TEXT.refills(0)).not.toMatch(/\b0\b/);
+    expect(PEP_LIST_TEXT.refills(2)).toBe('2 free upgrades left');
   });
   it('ignores junk and unknown cards; clamps a rarity', () => {
     expect(pepLedger(null)).toEqual([]);
@@ -108,5 +114,40 @@ describe('the battle layer wears the kit', () => {
   });
   it('the Pep Talks button sits on the tracker, the pick sheet, the break bar and the Class Photo', () => {
     for (const id of ['ty-peps-open', 'ty-peps-pick', 'ty-peps-break', 'ty-peps-photo']) expect(JS).toContain(`'${id}'`);
+  });
+});
+
+describe('the period in play: its Double Dare and Grade twist (r1 F1: the curse is an object, never "[object Object]")', () => {
+  const dares = ['swift', 'regen', 'armored', 'shielded'];
+  it('mid-period with the Dare on and a Grade twist: both lines name the twist in words', () => {
+    // a real dare as the sim stores it (dareOf: a copy of the TRYOUT.dares entry), never the period's affix
+    const t = { seed: 7, base: 3, period: 4, grade: 9, affixes: [null, null, null, null, 'armored', null], dare: null };
+    t.dare = dareOf(t, 4);
+    expect(typeof t.dare).toBe('object');
+    const lines = twistsNow(t);
+    expect(lines).toHaveLength(2);
+    expect(lines.join(' ')).not.toMatch(/object|undefined/i);
+    expect(lines[0]).toBe(PEP_LIST_TEXT.dareNow(DARE_SHORT[t.dare.id]));
+    expect(lines[1]).toBe(PEP_LIST_TEXT.affixNow(DARE_SHORT.armored));
+    expect(dares).toContain(t.dare.id);
+    expect(t.dare.id).not.toBe('armored'); // (dareOf never draws the period's affix)
+  });
+  it('every curse reads as its short name', () => {
+    for (const id of dares) expect(twistsNow({ base: 1, period: 2, dare: { id }, affixes: [null, null, null] })).toEqual([PEP_LIST_TEXT.dareNow(DARE_SHORT[id])]);
+  });
+  it('between periods (no base) and with no Dare or twist: nothing', () => {
+    expect(twistsNow({ base: null, period: 2, dare: { id: 'swift' }, affixes: [null, null, 'regen'] })).toEqual([]);
+    expect(twistsNow({ base: 1, period: 2, dare: null, affixes: [null, null, null] })).toEqual([]);
+    expect(twistsNow(null)).toEqual([]);
+  });
+});
+
+describe('co-op: drawbacks that hit both players (r1 F4)', () => {
+  it('Hundred Points (foes\' HP) and Extra Desk (shared max hearts) are Team-wide; a pass drawback is not', () => {
+    expect(teamDrawback('X01')).toBe(true);
+    expect(teamDrawback('B08')).toBe(true);
+    const passes = Object.keys(PEP_CARDS).find((k) => PEP_CARDS[k].draw?.passes);
+    if (passes) expect(teamDrawback(passes)).toBe(false);
+    expect(drawbacksOf([{ id: 'X01', r: 4 }])[0].team).toBe(true);
   });
 });

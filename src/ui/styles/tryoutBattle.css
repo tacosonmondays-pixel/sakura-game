@@ -285,9 +285,15 @@
 .ty-layer .ty-head .ty-mute { color: var(--on-ink-dim); }
 /* the head's Pep Talks button: the kit's secondary button as it sits on ink (a light hairline, white words), short */
 .ty-layer .ty-head { align-items: center; }
-.ty-layer .ty-head .ty-peps-btn.ty-peps-head { --h: 26px; --fill: transparent; --edge: var(--line-hi); color: var(--on-ink); font-size: 12px; margin: -2px 0; }
-.ty-layer .ty-head .ty-peps-head:active { --fill: rgba(76, 214, 255, 0.12); }
-.ty-layer .ty-head .ty-peps-head:focus-visible { --edge: var(--cyan); --rw: 2px; }
+.ty-layer .ty-head .ty-peps-btn.ty-peps-head { --h: var(--bh); --fill: transparent; --edge: var(--line-hi); color: var(--on-ink); font-size: 12px; }
+/* its control is the .ui-hit around it: a full tap tall from the tracker's top edge (the tracker clips above it), hanging
+   into the tracker body; its margins give the head back the drawn button's height, so the band does not grow */
+.ty-layer .ty-head .ty-peps-hit {
+  --bh: 26px; --hx: 5px; align-self: flex-start; align-items: flex-start; justify-content: flex-end;
+  padding-top: var(--hx); margin: calc(var(--hx) * -1) 0 calc(var(--bh) + var(--hx) - var(--tap)); min-height: var(--tap);
+}
+.ty-layer .ty-head .ty-peps-hit:active > .ty-peps-head { --fill: rgba(76, 214, 255, 0.12); }
+.ty-layer .ty-head .ty-peps-hit:focus-visible > .ty-peps-head { --edge: var(--cyan); --rw: 2px; }
 .ty-layer .ty-head .ty-peps-head .ui-btn-n { background: var(--on-ink); color: var(--plate); min-width: 18px; height: 18px; }
 .ty-layer .ty-score { flex: none; font: 700 13px/1 var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; white-space: nowrap; color: var(--on-ink); }
 .ty-layer .ty-chips { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
@@ -322,7 +328,9 @@
 .ty-layer .ty-subject.sug { box-shadow: inset 0 0 0 2px var(--cyan-ink); }
 /* Double Dare: the kit's switch (Before Class's Random Class), a knob that turns pink when on */
 .ty-layer .ui-opt.ty-switch { --h: 32px; gap: 8px; max-width: 100%; padding: 0 calc(10px + var(--s)); font-size: 12px; text-transform: none; letter-spacing: 0; }
-.ty-layer .ui-opt.ty-switch > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* (its label wraps rather than cut the curse's name: touch screens have no tooltip, and the curse is the choice) */
+.ty-layer .ui-opt.ty-switch { height: auto; min-height: var(--h); padding-block: 4px; }
+.ty-layer .ui-opt.ty-switch > span:last-child { min-width: 0; white-space: normal; text-align: left; line-height: 1.25; }
 .ty-layer .ty-switch-knob { position: relative; width: 30px; height: 16px; flex: none; border-radius: 8px; background: var(--line-ink); }
 .ty-layer .ty-switch-knob::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
 .ty-layer .ui-opt.ty-switch.on .ty-switch-knob { background: var(--pink-ink); }
@@ -335,7 +343,7 @@
 
 /* ---------- the break bar (§13.8) ---------- */
 .ty-layer .ty-break {
-  position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--bt-bar-h) + 10px); width: min(620px, calc(100% - 24px));
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--bt-bar-h) + 10px); width: min(700px, calc(100% - 24px));
   padding: 8px 12px; pointer-events: auto; color: var(--ink); font-size: 13px;
 }
 .ty-layer .ty-break-title { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; font-size: 13px; font-weight: 700; }
@@ -408,9 +416,10 @@
   .ty-layer .ty-head { margin: 0 -6px; padding: 4px calc(6px + var(--c) * 0.5) 3px 6px; }
   /* (a phone: the head's button is its glyph and its count; its name is its label) */
   .ty-layer .ty-head .ty-peps-head .ty-peps-word { display: none; }
-  .ty-layer .ty-head .ty-peps-btn.ty-peps-head { --h: 24px; gap: 4px; padding: 0 calc(6px + var(--s)); }
+  .ty-layer .ty-head .ty-peps-btn.ty-peps-head { gap: 4px; padding: 0 calc(6px + var(--s)); }
+  .ty-layer .ty-head .ty-peps-hit { --bh: 24px; --hx: 4px; }
   /* (the break bar keeps one row on a phone: the tracker's button above it opens the same list) */
-  .ty-layer .ty-break .ty-peps-btn { display: none; }
+  .ty-layer .ty-break .ty-acts-more:has(> .ty-peps-btn) { display: none; }
   .ty-layer .ty-class { max-width: 50vw; padding: 4px 6px; font-size: 12px; gap: 3px; }
   .ty-layer :is(.ui-btn, .ui-opt).dense { --h: 32px; }
   .ty-layer .ui-btn { font-size: 13px; }
@@ -551,7 +560,8 @@ html[data-reduce-motion] .ty-layer .ty-rv-deck > .ty-rv-on { transform: none; }
 .ty-layer .ty-sheet.ty-peps { max-width: 440px; max-height: 100%; align-self: flex-start; overscroll-behavior: contain; }
 .ty-layer .ty-peps > .ty-shead { position: sticky; z-index: 4; top: calc(var(--py) * -1); flex-wrap: nowrap; padding-right: 4px; }
 .ty-layer .ty-peps-count { font: 600 12px/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--on-ink-dim); }
-.ty-layer .ty-peps-x { margin-left: auto; width: 40px; height: 40px; padding: 8px; color: var(--on-ink); cursor: pointer; }
+/* the ×: a full tap (the kit's close), its negative margins keep the band at its 44 px */
+.ty-layer .ty-peps-x { margin: -6px 0 -6px auto; width: var(--tap); height: var(--tap); flex: none; display: grid; place-items: center; padding: 0; color: var(--on-ink); cursor: pointer; }
 .ty-layer .ty-peps-x > svg { width: 22px; height: 22px; display: block; }
 .ty-layer .ty-peps-x:focus-visible { outline: 2px solid var(--cyan); outline-offset: -4px; }
 .ty-layer .ty-peps-tabs { flex: none; display: flex; gap: 6px; margin-bottom: 8px; }
@@ -593,7 +603,6 @@ html[data-reduce-motion] .ty-layer .ty-rv-deck > .ty-rv-on { transform: none; }
   .ty-layer .ty-peps-btn { --h: 28px; font-size: 12px; }
   .ty-layer .ty-peps-wrap { padding: calc(6px + var(--safe-top, 0px)) calc(6px + var(--safe-right, 0px)) 6px 6px; }
   .ty-layer .ty-sheet.ty-peps { max-width: min(400px, 62vw); }
-  .ty-layer .ty-peps-x { width: 36px; height: 36px; padding: 7px; }
 }
 /* a portrait phone: a sheet from the bottom, three quarters of the screen at most */
 @media (max-width: 560px) {

@@ -42,6 +42,9 @@ const shotsDir = opt('shots', null);
 // --only s20: only the Extended Day and Random Class steps (11b, 11c) after the unlock
 const only = opt('only', null);
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
+// --shots-r2 dir: the Pep Talks list mid-period only (the review's shots)
+const SHOTS_R2 = opt('shots-r2', null);
+if (SHOTS_R2) mkdirSync(SHOTS_R2, { recursive: true });
 const SAVE_KEY = 'sakura-sentinels-save-v1';
 const IGNORE = [/GPU stall/i, /WebGL/i, /GL_CLOSE_PATH_NV|GroupMarkerNotSet/i, /favicon\.ico/i, /Failed to load resource/i];
 
@@ -609,8 +612,14 @@ for (const [W, H] of viewports) {
   await page.waitForTimeout(200);
   const cls = await page.evaluate(() => { const t = window.__battle.sim.tryout; return { next: t.nextSubject, pair: t.subjects[2], dare: t.players[0].dare }; });
   check(cls.next === cls.pair[1] && cls.dare === true, `a Subject and the Dare are chosen (${JSON.stringify(cls)})`);
+  // (the Dare stays on for this one period: the list's "this period" lines are checked mid-period below; the sim turns
+  // every player's tap off when a period starts, so the rest of the run plays without the curse)
+  const dareLbl = await page.evaluate(() => {
+    const s = document.querySelector('[data-testid="ty-dare"] > span:last-child');
+    return { text: s?.textContent || '', cut: !!s && s.scrollWidth > s.clientWidth + 1 };
+  });
+  check(!dareLbl.cut && / · \S/.test(dareLbl.text), `the Double Dare switch names its curse in full (${JSON.stringify(dareLbl)})`);
   await shot('ty-class');
-  await page.click('[data-testid="ty-dare"]'); // (off again: the rest of the run plays without the curse)
   // the period starts: its Subject is named in the tracker head (and on the rule pill when it has a map rule)
   await page.evaluate(() => {
     const { sim, ui } = window.__battle;
@@ -626,6 +635,39 @@ for (const [W, H] of viewports) {
   });
   check(pill.rule === 'tryout' ? !pill.shown : pill.shown && pill.text.includes(subjName), `the rule pill follows the period's Subject (${JSON.stringify(pill)})`);
   await shot('ty-period');
+  // (r1 F1) the list mid-period, the Dare on: its curse in words, never "[object Object]"; and a Grade twist (Grade 8+;
+  // this run's Grade has none, so the period's affix is set for the look only and put back before the sim steps again)
+  const midPeps = await page.evaluate(async () => {
+    const { sim } = window.__battle;
+    const t = sim.tryout;
+    const had = Array.isArray(t.affixes) ? [...t.affixes] : t.affixes;
+    const a = Array.isArray(t.affixes) ? [...t.affixes] : [];
+    while (a.length <= t.period) a.push(null);
+    a[t.period] = t.dare?.id === 'regen' ? 'swift' : 'regen';
+    t.affixes = a;
+    const want = { dare: t.dare?.id || null, affix: t.affixes[t.period] };
+    document.querySelector('[data-testid="ty-peps-open"]').click();
+    for (let i = 0; i < 20 && !document.querySelector('[data-testid="ty-peps-sheet"]'); i++) await new Promise((r) => requestAnimationFrame(r));
+    const lines = [...document.querySelectorAll('[data-testid="ty-peps-drawbacks"] li')].map((l) => l.textContent.trim());
+    return { want, lines, had };
+  });
+  const dareLine = midPeps.lines.find((l) => l.startsWith('Double Dare this period: ')) || '';
+  const twistLine = midPeps.lines.find((l) => l.startsWith('Grade twist this period: ')) || '';
+  check(!!midPeps.want.dare && dareLine.length > 26 && !/object|undefined/i.test(dareLine), `mid-period, the list names the Double Dare curse (${JSON.stringify(dareLine)}, dare ${midPeps.want.dare})`);
+  check(twistLine.length > 26 && !/object|undefined/i.test(twistLine), `mid-period, the list names the Grade twist (${JSON.stringify(twistLine)})`);
+  // (r1 F2) the tracker's opener and the list's × are full taps (the kit's 44 px at least), and the opener's tap square
+  // is the element hit at its edges
+  const taps = await page.evaluate(() => {
+    const sz = (q) => { const r = document.querySelector(q)?.getBoundingClientRect(); return r ? [Math.round(r.width), Math.round(r.height)] : [0, 0]; };
+    const o = document.querySelector('[data-testid="ty-peps-open"]').getBoundingClientRect();
+    const hitAt = (x, y) => document.elementFromPoint(x, y)?.closest('[data-testid="ty-peps-open"]') != null;
+    return { open: sz('[data-testid="ty-peps-open"]'), x: sz('[data-testid="ty-peps-close"]'), edges: hitAt(o.left + 2, o.bottom - 2) && hitAt(o.right - 2, o.top + 2) };
+  });
+  check(Math.min(...taps.open, ...taps.x) >= 44 && taps.edges, `the tracker's Pep Talks button and the list's × are 44 px taps (${JSON.stringify(taps)})`);
+  await shot('ty-peps-mid');
+  if (SHOTS_R2) await page.screenshot({ path: `${SHOTS_R2}/peps-mid-${W}x${H}.png`, timeout: 60000 }).catch(() => {});
+  await page.keyboard.press('Escape');
+  await page.evaluate((had) => { window.__battle.sim.tryout.affixes = had; }, midPeps.had);
 
   // 4. to Recess (R2: at the Pep Talk picks, the cap bars, MORE and a tap outside a preview)
   let barsSeen = 0;
@@ -752,6 +794,13 @@ for (const [W, H] of viewports) {
     const k = document.querySelector('[data-testid="ty-break"]').getBoundingClientRect();
     return { rows: new Set(b.map((e) => Math.round(e.getBoundingClientRect().top))).size, clear: t.bottom <= k.top || t.right <= k.left || window.innerWidth < 600 };
   });
+  // (r1 F6) Back to class, the primary, is on the bar's first row whatever wraps
+  const readyRow = await page.evaluate(() => {
+    const vis = [...document.querySelectorAll('[data-testid="ty-break"] .ty-acts > *')].filter((e) => e.getClientRects().length);
+    const top = (e) => Math.round(e.getBoundingClientRect().top);
+    return { first: top(vis[0]), ready: top(document.querySelector('[data-testid="ty-ready"]')) };
+  });
+  check(Math.abs(readyRow.first - readyRow.ready) <= 2, `Back to class sits on the break bar's first row (${JSON.stringify(readyRow)})`);
   check((H > 430 || brkRow.rows === 1) && brkRow.clear, `the break bar keeps its buttons in one row on a phone and clear of the tracker (${JSON.stringify(brkRow)})`);
 
   // 5. reload mid-break: the same run, the same break
@@ -916,7 +965,7 @@ for (const [W, H] of viewports) {
   await page.goto(`${base}#/tryout/yearbook?tab=cards`);
   await page.waitForSelector('[data-testid^="yb-card-"]', { timeout: 10000 }).catch(() => {});
   await screenIs('tryout');
-  const ybCard = await page.locator('button.ty-yb-card.on').first().getAttribute('data-card').catch(() => null);
+  const ybCard = await page.locator('button.ty-yb-slot:has(> .ty-yb-card.on)').first().getAttribute('data-card').catch(() => null);
   if (ybCard) await page.click(`[data-testid="yb-card-${ybCard}"]`);
   const ybRows = await page.waitForSelector('[data-testid="yb-card-page"] .ty-yb-rars > li', { timeout: 5000 }).then(() => page.locator('[data-testid="yb-card-page"] .ty-yb-rars > li').count()).catch(() => 0);
   check(!!ybCard && ybRows > 0, `a taken Pep Talk's Yearbook page lists its effect by rarity (${ybCard}: ${ybRows})`);

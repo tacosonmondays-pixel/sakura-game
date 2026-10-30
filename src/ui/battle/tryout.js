@@ -27,7 +27,7 @@ import { timetableModel as baseModel, timetableStrip, timetableMini, bandParts, 
 import { capBar, barWho, oddsTable, capsTable } from './tryout/caps.js';
 import { isRandomRun, isExtendedRun, viewLength, revealOf, revealStep, extendedPast, periodMarks, affixOf, FULL_PERIODS } from './tryout/adapters.js';
 import { createHomeTime } from './tryout/homeTime.js';
-import { pepBody } from './tryout/pepTalks.js';
+import { pepBody, twistsNow } from './tryout/pepTalks.js';
 import { lineGlyph } from '../lineGlyphs.js';
 import { encodeShareCode } from '../../systems/tryoutRuns.js';
 import { extendedRunScore } from '../../systems/tryoutRewards.js';
@@ -222,10 +222,13 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
 
   /** The Pep Talks button: a glyph, the word and the count. `n`: the count when it is not my live one (the photo's). */
   function pepsBtn(testid, n = me().cards.length, cls = '') {
-    const b = h(`button.ui-btn.sec.dense.ty-peps-btn${cls ? `.${cls}` : ''}`, { type: 'button', 'data-testid': testid, 'aria-label': PEP_LIST_TEXT.openLabel(n), title: PEP_LIST_TEXT.openLabel(n),
-      'aria-haspopup': 'dialog', onclick: (e) => { e.stopPropagation(); openPeps(e.currentTarget); } },
-    h('span.ty-peps-ico', { 'aria-hidden': 'true', html: megaphone }), h('span.ty-peps-word', PEP_LIST_TEXT.open), h('span.num.ui-btn-n', String(n)));
-    return b;
+    const attrs = { type: 'button', 'data-testid': testid, 'aria-label': PEP_LIST_TEXT.openLabel(n), title: PEP_LIST_TEXT.openLabel(n),
+      'aria-haspopup': 'dialog', onclick: (e) => { e.stopPropagation(); openPeps(e.currentTarget); } };
+    const parts = [h('span.ty-peps-ico', { 'aria-hidden': 'true', html: megaphone }), h('span.ty-peps-word', PEP_LIST_TEXT.open), h('span.num.ui-btn-n', String(n))];
+    // the tracker head's button is drawn short (the ink band): the kit's .ui-hit is the control, a full tap square
+    // around the drawn shape (it hangs into the tracker body below; the tracker's clip keeps it from reaching above)
+    if (cls === 'ty-peps-head') return h('button.ui-hit.ty-peps-hit', attrs, h('span.ui-btn.sec.dense.ty-peps-btn.ty-peps-head', ...parts));
+    return h(`button.ui-btn.sec.dense.ty-peps-btn${cls ? `.${cls}` : ''}`, attrs, ...parts);
   }
 
   /** What the panel shows for player `slot`: their cards and the run's state (live), or the result's (the photo). */
@@ -234,13 +237,8 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
     const pl = t.players[slot];
     const end = pepsEnd ? pepsEnd.players?.[slot] : null;
     const cards = end ? end.cards || [] : pl.cards;
-    const now = [];
-    if (!pepsEnd && t.base) {
-      // the period in play: its Double Dare curse and its Grade twist (§8.3, Grade 8+)
-      if (t.dare) now.push(PEP_LIST_TEXT.dareNow(DARE_SHORT[t.dare] || t.dare));
-      const affix = affixOf(t, t.period);
-      if (affix) now.push(PEP_LIST_TEXT.affixNow(DARE_SHORT[affix] || affix));
-    }
+    // the period in play: its Double Dare curse and its Grade twist
+    const now = pepsEnd ? [] : twistsNow(t);
     const seats = [];
     if (!pepsEnd) {
       const bonus = seatBonus(sim);
@@ -254,14 +252,19 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
       seats.push(PEP_LIST_TEXT.passes(per, passMax(sim)));
     }
     seats.push(PEP_LIST_TEXT.moves(end ? end.moves || 0 : pl.moves || 0));
-    return { cards, refills: pepsEnd ? {} : pl.refills, varsity: pl.varsity, perks: t.perks, now, seats, end: !!pepsEnd, partner: slot !== mySlot, coop: !!t.coop };
+    // co-op: the other player's cards (their run-wide drawbacks hit this player too: Hundred Points, Extra Desk)
+    const others = t.coop ? t.players.flatMap((_, i) => (i === slot ? [] : (pepsEnd ? pepsEnd.players?.[i]?.cards : t.players[i].cards) || [])) : [];
+    // (the Class Photo: Free Refills' unspent upgrades are not in the result, so the line is left out)
+    return { cards, others, refills: pepsEnd ? null : pl.refills, varsity: pl.varsity, perks: t.perks, now, seats, end: !!pepsEnd, partner: slot !== mySlot, coop: !!t.coop };
   }
 
   /** A cheap signature of what the panel shows: it repaints only when that changes. */
   function pepsSig() {
     const t = ty();
     const pl = t.players[pepsSlot];
-    return `${pepsSlot}:${pepsEnd ? 'end' : ''}:${pl.cards.map((c) => `${c.id}${c.unit || ''}${c.r}`).join()}:${JSON.stringify(pl.refills)}:${Object.keys(pl.varsity || {}).join()}:${pl.moves || 0}:${pl.passBonus}:${t.base ? 1 : 0}:${t.dare}:${t.period}:${(t.seats?.holder || []).join()}:${seatCount(sim)}`;
+    // every player's cards (co-op: the other tab's count and the partner's Team-wide drawbacks stay live)
+    const cards = t.players.map((x) => x.cards.map((c) => `${c.id}${c.unit || ''}${c.r}`).join()).join('/');
+    return `${pepsSlot}:${pepsEnd ? 'end' : ''}:${cards}:${JSON.stringify(pl.refills)}:${Object.keys(pl.varsity || {}).join()}:${pl.moves || 0}:${pl.passBonus}:${t.base ? 1 : 0}:${t.dare?.id || ''}:${t.period}:${(t.seats?.holder || []).join()}:${seatCount(sim)}`;
   }
 
   function paintPeps() {
@@ -702,8 +705,9 @@ export function createTryoutBattle(ctx, { mySlot = 0, send }) {
         h('button.ui-btn.sec.dense', { type: 'button', 'data-testid': 'ty-snack', disabled: p.snack, onclick: () => send('tr', ['snack']) }, !sim.canHeal() ? 'Snack (+1 pass)' : full ? (rise > 0 ? `Snack (+${rise} max ♥)` : 'Snack (hearts full)') : `Snack (+${ty().coop ? TRYOUT.snack.coopHeal : TRYOUT.snack.heal} ♥)`),
         scaling.length && !p.snack ? h('select.ty-brushup', { 'data-testid': 'ty-brush', onchange: (e) => { if (e.target.value !== '') send('tr', ['brush', Number(e.target.value)]); } },
           h('option', { value: '' }, 'Brush Up…'), ...scaling.map(({ c, i }) => h('option', { value: String(i) }, `${cardText(c).name} ${RARITIES[c.r]} → ${RARITIES[c.r + 1]}`))) : null,
-        pepsBtn('ty-peps-break'),
-        h('button.ui-btn.pri.dense.ty-ready', { type: 'button', 'data-testid': 'ty-ready', onclick: () => { moving = null; send('tr', ['ready']); } }, 'Back to class')));
+        h('button.ui-btn.pri.dense.ty-ready', { type: 'button', 'data-testid': 'ty-ready', onclick: () => { moving = null; send('tr', ['ready']); } }, 'Back to class'),
+        // (after the primary, at the row's end as on the pick sheet and the photo: if the row is short it wraps, not Back to class)
+        h('span.ty-acts-more', pepsBtn('ty-peps-break'))));
     brk.hidden = false;
   }
 

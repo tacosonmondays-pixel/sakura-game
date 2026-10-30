@@ -309,6 +309,51 @@ await Promise.all([A, B].map((p) => p.evaluate(() => {
   sim.state = 'between';
   for (const pl of sim.tryout.players) pl.win = null;
 })));
+// (r1 F9, F4, F7) the Pep Talks list once both players hold Pep Talks. STAGED like the vote below: with both locksteps
+// held still, the same cards are given to both Sims (what two picks would land). The list is the real code: the
+// partner's rows, the partner's Team-wide drawback (Hundred Points: foes' HP for both) on Yours, and the other tab's
+// count kept live while the list is open
+const stageCards = (cards) => Promise.all([A, B].map((p) => p.evaluate((cs) => {
+  const ty = window.__battle.sim.tryout;
+  for (const [slot, list] of Object.entries(cs)) ty.players[slot].cards.push(...list.map((c) => ({ ...c })));
+}, cards)));
+await stageCards({ 0: [{ id: 'E02', r: 0 }], 1: [{ id: 'X01', r: 4 }, { id: 'E01', r: 1 }] });
+await front(A);
+const pepsAfter = await A.evaluate(async () => {
+  const frames = (n) => new Promise((r) => { const f = () => (n-- > 0 ? requestAnimationFrame(f) : r()); f(); });
+  const ty = window.__battle.sim.tryout;
+  const slot = window.__battle.coop.lockstep.mySlot;
+  const rows = (i) => new Set(ty.players[i].cards.map((c) => `${c.id}|${c.unit || ''}`)).size;
+  const box = () => document.querySelector('[data-testid="ty-peps-sheet"]');
+  const tab = (k) => document.querySelector(`[data-testid="ty-peps-tab-${k}"]`)?.textContent || '';
+  document.querySelector('[data-testid="ty-peps-open"]')?.click();
+  await frames(3);
+  const their = box()?.querySelector(`[data-testid="ty-peps-their-X01"]`);
+  const out = {
+    slot, mine: box()?.querySelectorAll('.ty-pep').length ?? -1, wantMine: rows(slot),
+    theirX01: slot === 0 ? !!their && /Team-wide/.test(their.textContent) && /partner's/.test(their.textContent) : null,
+    partnerTab0: tab('partner'),
+  };
+  // the partner takes one more while the list is open (on this client: lockstep would land it here the same way)
+  ty.players[1 - slot].cards.push({ id: 'E03', r: 0 });
+  await frames(6);
+  out.partnerTab1 = tab('partner');
+  out.wantPartnerN = ty.players[1 - slot].cards.length;
+  document.querySelector('[data-testid="ty-peps-tab-partner"]')?.click();
+  await frames(3);
+  out.partner = box()?.querySelectorAll('.ty-pep').length ?? -1;
+  out.wantPartner = rows(1 - slot);
+  out.partnerLines = [...(box()?.querySelectorAll('.ty-pep-ln') || [])].every((l) => l.textContent.trim().length > 4);
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await frames(2);
+  out.closed = !box();
+  ty.players[1 - slot].cards.pop(); // (the extra card off again: both Sims hold the same cards)
+  return out;
+});
+check(pepsAfter.mine === pepsAfter.wantMine && pepsAfter.wantMine > 0 && pepsAfter.theirX01 !== false, `co-op after picks: Yours lists my Pep Talks and the partner's Team-wide drawback (${JSON.stringify(pepsAfter)})`);
+check(pepsAfter.partner === pepsAfter.wantPartner && pepsAfter.wantPartner >= 2 && pepsAfter.partnerLines && pepsAfter.closed, 'co-op after picks: the Partner tab lists the partner\'s Pep Talks, each with its effect');
+check(pepsAfter.partnerTab1.endsWith(`· ${pepsAfter.wantPartnerN}`) && pepsAfter.partnerTab0 !== pepsAfter.partnerTab1, `co-op: the other tab's count stays live while the list is open (${pepsAfter.partnerTab0} → ${pepsAfter.partnerTab1})`);
+
 const applyBoth = (slot, v) => Promise.all([A, B].map((p) => p.evaluate(([s, val]) => {
   const ls = window.__battle.coop.lockstep;
   return ls.coop.apply({ t: ls.tick, p: s, s: 900 + (val ? 1 : 0), k: 'end', a: [val] }).ok;

@@ -122,10 +122,11 @@ export function renderYearbook(root, params = {}) {
       const name = c.taken || c.seen ? CARD_TEXT[c.id]?.name || c.id : YEARBOOK_SCREEN.unseen;
       const state = c.taken ? '.on' : c.seen ? '.seen' : '.unseen';
       const title = c.taken ? 'Taken' : c.seen ? 'Seen, not taken yet' : 'Not seen yet';
-      // (a card seen or taken opens its page; an unseen one stays a blank chip)
-      if (!c.taken && !c.seen) return h(`span.ui-chip.ty-yb-card${state}`, { 'data-card': c.id, title }, h('span', name));
-      return h(`button.ui-chip.ty-yb-card${state}`, { type: 'button', 'data-card': c.id, 'data-testid': `yb-card-${c.id}`, title, onclick: () => openCardPage(c) },
-        h('span', name));
+      // (a card seen or taken opens its page; an unseen one stays a blank chip. Each sits in a tap-tall slot: a button's
+      // slot is the kit's .ui-hit, the 44 px target around the shorter chip)
+      const chip = h(`span.ui-chip.ty-yb-card${state}`, h('span', name));
+      if (!c.taken && !c.seen) return h('span.ty-yb-slot', { 'data-card': c.id, title }, chip);
+      return h('button.ui-hit.ty-yb-slot', { type: 'button', 'data-card': c.id, 'data-testid': `yb-card-${c.id}`, title, onclick: () => openCardPage(c) }, chip);
     }));
   };
 
