@@ -252,8 +252,9 @@ describe('Potential in resolveStats', () => {
     // Momo's Coin Wheel toss coins went ×0.98 → ×1 (her 2-0-4 alone on a held boss under live on some seeds)
     // '456:19f2bb53' before the attack shapes S5a (Miko's Charm Wheel, Rei's Crescent Return, Suzu's Bell Toll: a shape block
     // on two tiers of one path each, their live numbers unchanged); with those three left out the 384 others hash 70150afc
-    // before and after
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:2f6a4fcb');
+    // before and after; '456:2f6a4fcb' before S5b (Midori's Spore Mist, Raika's Static Web, Luna's Moonbeam Sweep); with all six
+    // S5 girls left out the 312 others hash 83e10fae before S5 and after
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:0389f303');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders

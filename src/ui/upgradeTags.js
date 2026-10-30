@@ -82,6 +82,8 @@ export const MOD_TAGS = {
   ret: 'self', tether: 'enemies',
   // the attack shapes S5a (src/sim/s5shapes.js): Miko's Charm Wheel, Rei's Crescent Return, Suzu's Bell Toll
   charms: 'self', cres: 'self', toll: 'self',
+  // S5b: Midori's Spore Mist, Luna's Moonbeam Sweep, Raika's Static Web (links on enemies)
+  mist: 'self', moon: 'self', web: 'enemies',
   // the duo: Kohaku's beam and the prism's shards are her attack (DUO_LR §1)
   duo: 'self',
   // the staff heroes (BANNERS §D): Kogane's faster Move is hers; Norika's barricades hold the enemies
@@ -125,6 +127,9 @@ const SUB_KEYS = {
   charms: new Set(['n', 'turn', 'mul']),
   cres: new Set(['out', 'cuts', 'mul']),
   toll: new Set(['every', 'r', 'mul']),
+  mist: new Set(['half', 'len', 'cap', 'mul', 'dot']),
+  moon: new Set(['beams', 'arc', 'mul']),
+  web: new Set(['dur', 'every', 'share']),
   duo: new Set(['edge', 'beamDmg', 'beamRate', 'beamRange', 'beamPierce', 'beams', 'beamPen', 'beamAir', 'beamMul', 'rampPer', 'rampMax', 'beamSilence',
     'every', 'shards', 'shardAdd', 'shardShare', 'shardDmg', 'shardSplash', 'shardSlow', 'slowTime', 'shardShred', 'shardVuln', 'vulnTime', 'fullEvery']),
   barricade: new Set(['count', 'budget', 'budgetMul', 'rebuild', 'rebuildCut', 'held', 'reveal', 'bounce', 'breakSlow', 'releaseSlow', 'miniHalf', 'detour', 'oneWay', 'lineAdd']),

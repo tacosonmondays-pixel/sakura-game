@@ -907,8 +907,8 @@ const MIDORI = {
       tier('Long Toss', 100, '+0.4 range. Swift Draught: she brews 1 girl in range for +12% attack speed.', { range: 0.4, brew: { targets: 1, rateMul: 1.12 } }),
       tier('Quick Mix', 260, '+20% attack speed; Swift Draught +5% stronger (+18%).', { rateMul: 1.2, brew: { rateMul: 1.05 } }),
       tier('Drifting Mist', 850, 'Gas clouds rise high enough to hit flyers and slow by 25% for 2s; Swift Draught brews 2 girls (+10% more: +29%).', { canHitAir: true, status: [S.slow(0.25, 2)], brew: { targets: 2, rateMul: 1.1 } }),
-      tier('Paralysis Spore', 2600, '20% chance to stun for 0.4s; +0.4 splash, +20% attack speed, ignores 2 armor, +20% damage; Swift Draught brews 3 girls (+12% more: +45%).', { status: [S.stun(0.4, 0.2)], splash: 0.4, rateMul: 1.2, armorPen: 2, damageMul: 1.2, brew: { targets: 3, rateMul: 1.12 } }),
-      tier('Elixir Barrage', 22500, 'Four flasks per throw, +50% attack speed, poison 12/s, +6 damage. Swift Draught: +70% attack speed and +10% crit chance on 4 girls (+17% more).', { projectiles: 3, rateMul: 1.5, status: [S.poison(12, 5)], damage: 6, brew: { targets: 4, rateMul: 1.17, critChance: 0.1 } }),
+      tier('Paralysis Spore', 2600, '20% chance to stun for 0.4s; +0.4 splash, +20% attack speed, ignores 2 armor, +20% damage; Swift Draught brews 3 girls (+12% more: +45%). Spore Mist: a wide cone of spores also pours from her flask, poisoning everything in it.', { status: [S.stun(0.4, 0.2)], splash: 0.4, rateMul: 1.2, armorPen: 2, damageMul: 1.2, brew: { targets: 3, rateMul: 1.12 }, mist: { half: 30, len: 1, cap: 32, mul: 0.15, dot: 0.3 } }),
+      tier('Elixir Barrage', 22500, 'Four flasks per throw, +50% attack speed, poison 12/s, +6 damage. Swift Draught: +70% attack speed and +10% crit chance on 4 girls (+17% more). The spore mist widens and thickens.', { projectiles: 3, rateMul: 1.5, status: [S.poison(12, 5)], damage: 6, brew: { targets: 4, rateMul: 1.17, critChance: 0.1 }, mist: { half: 36, cap: 96, mul: 0.65, dot: 0.6 } }),
     ]),
   ],
   awakenPassive: {
@@ -1040,8 +1040,8 @@ const RAIKA = {
       tier('Tempo', 120, '+15% attack speed.', { rateMul: 1.15 }),
       tier('Crackle', 280, 'Shock chance rises to 40% (0.2s).', { status: [S.shock(0.2, 0.4)] }),
       tier('Drum Roll', 900, '+30% attack speed; jolts silence blinks and siphons for 0.5s.', { rateMul: 1.3, silence: 0.5 }),
-      tier('Thunder Festival', 2800, '+40% attack speed, +2 jumps, silence +0.5s, ignores 3 armor; +25% damage.', { rateMul: 1.4, chain: 2, silence: 0.5, armorPen: 3, damageMul: 1.25 }),
-      tier('Endless Thunder', 20000, 'Double attack speed, +8 damage, +3 jumps; struck foes turn Brittle (+15%) and crack (-1 armor, stacks ×3); +45% damage.', { rateMul: 2, damage: 8, chain: 3, status: [S.vulnerable(0.15, 3), S.shred(1, 3)], damageMul: 1.45 }),
+      tier('Thunder Festival', 2800, '+40% attack speed, +2 jumps, silence +0.5s, ignores 3 armor; +25% damage. Static Web: the enemies her bolt strikes stay linked by static for 2s, zapped 4 times a second.', { rateMul: 1.4, chain: 2, silence: 0.5, armorPen: 3, damageMul: 1.25, web: { dur: 2, every: 15, share: 0.15 } }),
+      tier('Endless Thunder', 20000, 'Double attack speed, +8 damage, +3 jumps; struck foes turn Brittle (+15%) and crack (-1 armor, stacks ×3); +45% damage. Her static web lasts 3s and zaps 5 times a second.', { rateMul: 2, damage: 8, chain: 3, status: [S.vulnerable(0.15, 3), S.shred(1, 3)], damageMul: 1.45, web: { dur: 3, every: 12, share: 0.3 } }),
     ]),
   ],
   awakenPassive: {

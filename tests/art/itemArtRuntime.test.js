@@ -208,8 +208,9 @@ describe('display only: the battle sim is untouched', () => {
     // with the duo's map-wide laser, the LR rows, freeplay's boss bands, Blade Cyclone's aimed volley, the mirror copies' share,
     // the LR premium and the OVERTIME bands (Oct 30).
     // feature/attack-shapes-s5 (on balance round 5): S5a (src/sim/s5shapes.js; Miko's Charm Wheel, Rei's Crescent Return,
-    // Suzu's Bell Toll, and the shared S5 rules: straightRoom's guard, noShare, the shape-damage tally) rides the same bump.
-    const PENDING_BUMP = { 13: '722edb51def8' };
+    // Suzu's Bell Toll, and the shared S5 rules: straightRoom's guard, noShare, the shape-damage tally) and S5b (Midori's Spore
+    // Mist with its own `spore` status, Luna's Moonbeam Sweep, Raika's Static Web) ride the same bump.
+    const PENDING_BUMP = { 13: 'b6ba8d2447d7' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

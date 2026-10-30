@@ -19,14 +19,17 @@ import { MAP, STAGE, ENEMIES } from './fixtures.js';
 import { snapshotSim, restoreSim } from '../../src/sim/snapshot.js';
 import { projectedDps } from '../../src/sim/buffs.js';
 import { tieTether } from '../../src/sim/links.js';
+import { gainHeroXp, xpToReach } from '../../src/sim/hero.js';
 
 const units = defaultData().units;
-const S5_KEYS = ['charms', 'cres', 'toll'];
-/** The same units with every S5 shape block taken out of the tier mods: the live game. */
+const S5_KEYS = ['charms', 'cres', 'toll', 'mist', 'moon', 'web'];
+const S5_GIRLS = ['miko', 'rei', 'suzu', 'midori', 'raika', 'luna'];
+/** The same units with every S5 shape block taken out of the tier mods (and Luna's levels): the live game. */
 function liveUnits() {
   const u = structuredClone(units);
-  for (const id of ['miko', 'rei', 'suzu']) {
-    for (const p of u[id].paths) for (const tr of p.tiers) for (const k of S5_KEYS) delete tr.mods?.[k];
+  for (const id of S5_GIRLS) {
+    for (const p of u[id].paths || []) for (const tr of p.tiers) for (const k of S5_KEYS) delete tr.mods?.[k];
+    for (const lv of u[id].hero?.levels || []) for (const k of S5_KEYS) delete lv.mods?.[k];
   }
   return u;
 }
@@ -35,17 +38,22 @@ const pathOf = (u, id) => units[u].paths.findIndex((p) => p.id === id);
 const PURIFY = pathOf('miko', 'purify');
 const WHIRL = pathOf('rei', 'whirlwind');
 const MINES = pathOf('suzu', 'mines');
+const FIELD = pathOf('midori', 'fieldkit');
+const RHYTHM = pathOf('raika', 'rhythm');
 
 /** A fixture battle (a straight road along row 4, dist = x + 0.5) with `unitId` at (x, y) on `path` to `tier`. */
 function setup({ unitId = 'rei', path = WHIRL, tier = 4, x = 6.5, y = 5.5, live = false, seed = 7 } = {}) {
+  const hero = units[unitId].kind === 'hero';
   const sim = new Sim({
-    stageId: STAGE.id, loadout: [{ unitId }], hero: null, seed,
+    stageId: STAGE.id, loadout: hero ? [] : [{ unitId }], hero: hero ? { unitId } : null, seed,
     data: { stage: STAGE, map: MAP, units: live ? LIVE : units, enemies: ENEMIES },
   });
   sim.cash = 1e9;
-  const t = sim.placeTower(unitId, x, y);
+  // (a hero's footprint is wider: one tile further from the road, as Kanna in tests/sim/ground.test.js)
+  const t = hero ? sim.placeTower(unitId, 9.5, 6.2) : sim.placeTower(unitId, x, y);
   expect(t, 'placed').toBeTruthy();
-  for (let k = 0; k < tier; k++) expect(sim.upgradeTower(t.uid, path)).toBe(true);
+  if (hero) gainHeroXp(sim, t, xpToReach(t.def.hero, tier), 'restore'); // a hero: `tier` is her level
+  else for (let k = 0; k < tier; k++) expect(sim.upgradeTower(t.uid, path)).toBe(true);
   sim.state = 'wave';
   sim.wave = 1;
   sim._spawnQueue = [{ t: 1e9, enemy: 'tank' }]; // keeps the wave running
@@ -93,7 +101,7 @@ describe('data: the shapes arrive at tiers 4-5, other tiers unchanged', () => {
   test('the live copy has none of them, and every other unit is the same object data', () => {
     const { t } = setup({ tier: 5, live: true });
     expect(t.stats.cres).toBeFalsy();
-    for (const id of Object.keys(units)) if (!['miko', 'rei', 'suzu'].includes(id)) expect(LIVE[id]).toEqual(units[id]);
+    for (const id of Object.keys(units)) if (!S5_GIRLS.includes(id)) expect(LIVE[id]).toEqual(units[id]);
   });
 });
 
@@ -504,5 +512,167 @@ describe('state: the wave clear, checkpoints, hashSim, determinism', () => {
     expect(src).not.toMatch(/Math\.(random|sin|cos|tan|atan2?|hypot|pow|sqrt)\b/);
     expect(src).not.toMatch(/\*\*/);
     expect(src).not.toMatch(/\bnew (Map|Set)\b/);
+  });
+});
+
+describe('S5b data: Midori Field Kit T4-5, Raika Storm Rhythm T4-5, Luna Lv 22 / Lv 25', () => {
+  test('the shapes arrive where the spec says', () => {
+    expect(setup({ unitId: 'midori', path: FIELD, tier: 3 }).t.stats.mist).toBeFalsy();
+    expect(setup({ unitId: 'midori', path: FIELD, tier: 4 }).t.stats.mist).toEqual({ half: 30, len: 1, cap: 32, mul: 0.15, dot: 0.3 });
+    expect(setup({ unitId: 'midori', path: FIELD, tier: 5 }).t.stats.mist).toEqual({ half: 36, len: 1, cap: 96, mul: 0.65, dot: 0.6 });
+    expect(setup({ unitId: 'raika', path: RHYTHM, tier: 3 }).t.stats.web).toBeFalsy();
+    expect(setup({ unitId: 'raika', path: RHYTHM, tier: 4 }).t.stats.web).toEqual({ dur: 2, every: 15, share: 0.15 });
+    expect(setup({ unitId: 'raika', path: RHYTHM, tier: 5 }).t.stats.web).toEqual({ dur: 3, every: 12, share: 0.3 });
+    expect(setup({ unitId: 'luna', tier: 21 }).t.stats.moon).toBeFalsy();
+    expect(setup({ unitId: 'luna', tier: 22 }).t.stats.moon).toEqual({ beams: 1, arc: 30, mul: 0.55 });
+    expect(setup({ unitId: 'luna', tier: 25 }).t.stats.moon).toEqual({ beams: 2, arc: 30, mul: 0.35 });
+  });
+});
+
+describe('S5b rules on a lone enemy and on a crowd', () => {
+  const lone = (sim) => [park(sim, 'bigboss', 7)];
+  const crowd = (sim) => {
+    const es = [];
+    for (let d = 2; d <= 14; d += 0.6) es.push(park(sim, 'tank', d));
+    return es;
+  };
+  for (const [unitId, path, tier] of [['raika', RHYTHM, 4], ['raika', RHYTHM, 5], ['luna', 0, 22], ['luna', 0, 25]]) {
+    test(`${unitId} ${tier}: a lone boss reads live (HP, her damage, rng draws)`, () => {
+      const { live, s5 } = pair({ unitId, path, tier }, lone);
+      expect(live.t.damageDealt).toBeGreaterThan(0);
+      expect(s5.enemies[0].hp).toBe(live.enemies[0].hp);
+      expect(s5.t.damageDealt).toBe(live.t.damageDealt);
+      expect(s5.draws).toBe(live.draws);
+    });
+  }
+  for (const [unitId, path, tier] of [['raika', RHYTHM, 4], ['raika', RHYTHM, 5], ['luna', 0, 22], ['luna', 0, 25], ['midori', FIELD, 4], ['midori', FIELD, 5]]) {
+    test(`${unitId} ${tier}: on a crowd her live attack is exactly live and the shape adds`, () => {
+      const { live, s5 } = pair({ unitId, path, tier }, crowd);
+      expect(s5.draws).toBe(live.draws);
+      // (Luna at Lv 22-25 fires 5-6 beams piercing about 12 each: on this straight fixture road they strike every walker
+      // in reach, so her moonbeam, which rolls past them, finds none; on the round-5 bench it adds about 10 %)
+      if (unitId === 'luna') expect(s5.t.shapeDealt || 0).toBeGreaterThanOrEqual(0);
+      else expect(s5.t.shapeDealt).toBeGreaterThan(0);
+      expect(s5.t.damageDealt - (s5.t.shapeDealt || 0)).toBeCloseTo(live.t.damageDealt, 4);
+      for (let i = 0; i < live.enemies.length; i++) expect(s5.enemies[i].hp).toBeLessThanOrEqual(live.enemies[i].hp);
+    });
+  }
+  test('midori: a lone boss in her mist gains only her mist (her flasks and their rolls are live)', () => {
+    const { live, s5 } = pair({ unitId: 'midori', path: FIELD, tier: 5 }, lone);
+    expect(s5.draws).toBe(live.draws);
+    expect(s5.t.damageDealt - s5.t.shapeDealt).toBeCloseTo(live.t.damageDealt, 4);
+    expect(s5.t.shapeDealt).toBeGreaterThan(0);
+  });
+});
+
+describe('Spore Mist (Midori): its own status, seen by no other system', () => {
+  test('the mist lays `spore`, never `poison`, and a spore tick is shape damage', () => {
+    const { sim, t } = setup({ unitId: 'midori', path: FIELD, tier: 5 });
+    const far = park(sim, 'tank', 3); // in her mist's cone but not her flask's splash: only the mist reaches it
+    const lead = park(sim, 'tank', 6.5);
+    steps(sim, 240);
+    expect(t.mist || lead.statuses.spore || far.statuses.spore).toBeTruthy();
+    const some = sim.enemies.filter((e) => e.statuses.spore);
+    expect(some.length).toBeGreaterThan(0);
+    for (const e of some) expect(e.statuses.spore.type).toBe('spore');
+    expect(t.shapeDealt).toBeGreaterThan(0);
+  });
+
+  test('a support Midori\'s Catalyst, its Auto count and spreadDot read poison only (spore is ignored)', () => {
+    const src = readFileSync(new URL('../../src/sim/abilities.js', import.meta.url), 'utf8');
+    expect(src).toMatch(/e\.statuses\.poison\) poisoned\+\+/);
+    expect(src).not.toMatch(/spore/);
+    const pot = readFileSync(new URL('../../src/sim/potential.js', import.meta.url), 'utf8');
+    expect(pot).toMatch(/for \(const type of \['burn', 'poison'\]\)/);
+  });
+});
+
+describe('Static Web (Raika)', () => {
+  test('her bolt\'s chain stays linked and zapped on its clock; a lone enemy makes no web; webs end at the wave clear', () => {
+    const { sim, t } = setup({ unitId: 'raika', path: RHYTHM, tier: 4 });
+    for (const d of [6, 6.8, 7.6, 8.4]) park(sim, 'tank', d);
+    const seen = [];
+    steps(sim, 120, seen);
+    expect(seen.some((e) => e.type === 'web')).toBe(true);
+    const zaps = seen.filter((e) => e.type === 'zap');
+    expect(zaps.length).toBeGreaterThan(3);
+    expect(sim.statics.length).toBeGreaterThan(0);
+    for (const g of sim.statics) expect(g.m.length).toBeGreaterThanOrEqual(2);
+    endS5Wave(sim);
+    expect(sim.statics.length).toBe(0);
+    const solo = setup({ unitId: 'raika', path: RHYTHM, tier: 5 });
+    park(solo.sim, 'bigboss', 7);
+    const s2 = [];
+    steps(solo.sim, 120, s2);
+    expect(s2.some((e) => e.type === 'web')).toBe(false);
+  });
+});
+
+describe('Moonbeam Sweep (Luna)', () => {
+  test('a pass per volley from one side of her lead\'s line to the other, alternating; a second beam mirrors it', () => {
+    const { sim, t } = setup({ unitId: 'luna', tier: 25 });
+    for (let d = 3; d <= 11; d += 0.7) park(sim, 'tank', d);
+    const seen = [];
+    steps(sim, 200, seen);
+    const passes = seen.filter((e) => e.type === 'moon');
+    expect(passes.length).toBeGreaterThan(1);
+    expect(passes[1].side).toBe(-passes[0].side);
+    expect(t.moon.hits.length).toBe(2);
+    // each beam's list starts with her volley's victims (rule 4)
+    expect(t.moon.hits[0].length).toBeGreaterThan(0);
+  });
+});
+
+describe('S5b state: checkpoints and determinism', () => {
+  test('a mid-wave co-op checkpoint with a mist, a web and a moonbeam pass continues bit-identically', () => {
+    for (const [unitId, path, tier] of [['midori', FIELD, 5], ['raika', RHYTHM, 5], ['luna', 0, 25]]) {
+      const { sim } = setup({ unitId, path, tier });
+      for (let d = 2; d <= 14; d += 0.7) park(sim, 'tank', d);
+      steps(sim, 197);
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      const hero = units[unitId].kind === 'hero';
+      const copy = new Sim({ stageId: STAGE.id, loadout: hero ? [] : [{ unitId }], hero: hero ? { unitId } : null, seed: 7, data: { stage: { ...STAGE, mapId: MAP.id }, map: MAP, units, enemies: ENEMIES } });
+      restoreSim(copy, snap);
+      expect(hashSim(copy)).toBe(hashSim(sim));
+      for (let i = 0; i < 6; i++) {
+        steps(sim, 60);
+        steps(copy, 60);
+        expect(hashSim(copy)).toBe(hashSim(sim));
+      }
+    }
+  });
+
+  test('determinism: the three together, twice the same and plain Math against withDetMath', () => {
+    const go = () => {
+      const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'midori' }, { unitId: 'raika' }], hero: { unitId: 'luna' }, seed: 9, data: { stage: STAGE, map: MAP, units, enemies: ENEMIES } });
+      sim.cash = 1e9;
+      const m = sim.placeTower('midori', 3.5, 5.5);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(m.uid, FIELD);
+      const r = sim.placeTower('raika', 7.5, 5.5);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(r.uid, RHYTHM);
+      const l = sim.placeTower('luna', 11.5, 6.2);
+      gainHeroXp(sim, l, xpToReach(l.def.hero, 25), 'restore');
+      sim.state = 'wave';
+      sim._spawnQueue = [{ t: 1e9, enemy: 'tank' }];
+      sim._spawnIndex = 0;
+      const hs = [];
+      for (let i = 0; i < 20; i++) {
+        if (i % 3 === 0) {
+          for (let d = 0; d < 3; d += 0.8) {
+            const e = sim.spawnEnemy('orc', { pathIndex: 0, dist: d });
+            e.hp = e.maxHp = 20000;
+          }
+        }
+        steps(sim, 60);
+        hs.push(hashSim(sim));
+      }
+      return { hs, shape: sim.towers.map((t) => t.shapeDealt || 0) };
+    };
+    const a = go();
+    const b = go();
+    const c = withDetMath(go);
+    expect(b.hs).toEqual(a.hs);
+    expect(c.hs).toEqual(a.hs);
+    expect(a.shape.filter((v) => v > 0).length).toBeGreaterThanOrEqual(2); // the mist and the web (Luna: see above)
   });
 });

@@ -3,7 +3,8 @@
 
 import { CC_RESIST, SLOW_RESIST, MAX_SLOW, SHRED_MAX_STACKS, HEX_BOSS_CAP } from './constants.js';
 
-const STATUS_ELEMENT = { burn: 'fire', poison: 'poison', freeze: 'frost', shock: 'lightning', soak: 'water' };
+// (spore: Midori's Spore Mist, attack shapes S5b: a damage over time of its own key, poison's element for wards)
+const STATUS_ELEMENT = { burn: 'fire', poison: 'poison', spore: 'poison', freeze: 'frost', shock: 'lightning', soak: 'water' };
 // Statuses whose duration bosses/minibosses resist (CC_RESIST). 'ground' is not immobilising.
 // 'hold' (Chigusa's vines, UNIT_GAPS P-10): the enemy cannot move; bosses and flyers are immune.
 const CC_TYPES = { freeze: true, stun: true, shock: true, ground: true, hold: true };
@@ -44,7 +45,7 @@ export function applyStatus(enemy, spec, ctx = {}) {
 
   const incoming = { type, duration, left: duration };
   if (type === 'slow') incoming.amount = Math.min(MAX_SLOW, (spec.amount ?? 0.3) * (SLOW_RESIST[tier] ?? 1));
-  if (type === 'burn' || type === 'poison') {
+  if (type === 'burn' || type === 'poison' || type === 'spore') {
     incoming.dps = spec.dps ?? 0;
     if (spec.pct > 0) incoming.pct = spec.pct; // fraction of max HP per second (src/sim/enemies.js)
   }

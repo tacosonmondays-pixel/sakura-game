@@ -303,6 +303,23 @@ for (const { name, r } of results) {
   if (!(g.rejoinTick > 0)) failures.push('the S5a battle: no mid-wave rejoin with the S5a shapes live');
 }
 
+// the attack shapes S5b (S5B_START): Spore Mist, Static Web, Moonbeam Sweep, and a mid-wave rejoin
+log('\nScripted co-op S5b battle (2-4 Hard, S5B_START: Midori\'s Spore Mist, Raika\'s Static Web, Luna\'s Moonbeam Sweep):');
+for (const { name, r } of results) {
+  const g = r.s5b;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · mist/zap/moon/web ${g.s5b} · Luna Lv ${g.luna} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · rejoin w${g.ckWave} → tick ${g.rejoinTick} ${g.rejoinSame ? '= the run' : '≠ THE RUN'} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two S5b clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} S5b command(s) refused: ${g.refused}`);
+  if (!g.rejoinSame) failures.push(`${name}: the S5b battle's mid-wave rejoin from the wave-${g.ckWave} checkpoint did not land on the run`);
+  for (const k of [...POT_KEYS.filter((x) => x !== 'aoi'), 'tiers', 's5b', 'luna', 'dealt', 'rejoinTick']) if (g[k] !== ref.s5b[k]) failures.push(`${name}: s5b ${k} ${g[k]} ≠ ${ref.s5b[k]} (${results[0].name})`);
+}
+{
+  const g = ref.s5b;
+  const [mist, zap, moon, web] = g.s5b.split('/').map(Number);
+  if (!(mist > 0 && zap > 0 && moon > 0 && web > 0)) failures.push(`the S5b battle: a shape never struck (mist/zap/moon/web ${g.s5b})`);
+  if (!(g.rejoinTick > 0)) failures.push('the S5b battle: no mid-wave rejoin with the S5b shapes live');
+}
+
 // the duo Kohaku & Tsubaki (DUO_START): Refraction, Kohaku's beam, Prismfall on Auto-cast, the LR Twin Star
 log('\nScripted co-op DUO battle (2-5, DUO_START: Refraction to Constellation Lattice, Kohaku\'s beam, Prismfall on Auto-cast, the host\'s LR Twin Star):');
 for (const { name, r } of results) {

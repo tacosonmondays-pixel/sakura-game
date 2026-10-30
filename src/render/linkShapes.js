@@ -32,9 +32,9 @@ export const THREAD_KNOT = 0.16;
  * @returns {number} quads pushed
  */
 export function drawLinkShapes(sim, gN, gA, R) {
+  let n = sim.statics?.length ? drawStatics(sim.statics, gN, R) : 0;
   const list = sim.tethers;
-  if (!list || !list.length) return 0;
-  let n = 0;
+  if (!list || !list.length) return n;
   for (const g of list) {
     const a = g.left < 30 ? Math.max(0, g.left / 30) : 1;
     if (!(a > 0)) continue;
@@ -51,7 +51,27 @@ export function drawLinkShapes(sim, gN, gA, R) {
   return n;
 }
 
-function span(gN, R, p, q, a) {
+/**
+ * Raika's Static Webs (attack shapes S5b, sim.statics): her members joined by yellow ground lines, a brighter line for a
+ * few steps after each zap (an alpha colour pulse, never additive: the flash guard; Reduce Motion keeps it the same).
+ */
+function drawStatics(list, gN, R) {
+  let n = 0;
+  for (const g of list) {
+    const a = g.left < 30 ? Math.max(0, g.left / 30) : 1;
+    if (!(a > 0)) continue;
+    const zap = g.every - g.zapCd < 4 ? 1 : 0;
+    let prev = null;
+    for (const m of g.m) {
+      if (m.dead || m.hidden) continue;
+      if (prev) n += span(gN, R, prev, m, a, zap ? [1, 0.98, 0.75] : [0.95, 0.76, 0.3]);
+      prev = m;
+    }
+  }
+  return n;
+}
+
+function span(gN, R, p, q, a, rgb = null) {
   const dx = q.x - p.x;
   const dy = q.y - p.y;
   const len = Math.sqrt(dx * dx + dy * dy);
@@ -65,7 +85,8 @@ function span(gN, R, p, q, a) {
     const x = p.x + dx * f;
     const y = p.y + dy * f;
     gN.push(x, h, y, part + 0.02, THREAD_UNDER, R.white, 0.22, 0.04, 0.12, 0.7 * a, rot);
-    gN.push(x, h + 0.004, y, part + 0.02, THREAD_LINE, R.white, 1, 0.3, 0.62, a, rot);
+    if (rgb) gN.push(x, h + 0.004, y, part + 0.02, THREAD_LINE, R.white, rgb[0], rgb[1], rgb[2], a, rot);
+    else gN.push(x, h + 0.004, y, part + 0.02, THREAD_LINE, R.white, 1, 0.3, 0.62, a, rot);
   }
   return 2 * THREAD_PARTS;
 }

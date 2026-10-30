@@ -127,6 +127,17 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
     // attack shapes S5a (src/sim/s5shapes.js), only while present: the Charm Wheel's turn and Bell Toll rings with their
     // re-hit memories (a ring's radius by its step count); battles without them keep their digest
     if (t.wheelK) h.int(t.wheelK);
+    // S5b: an open Spore Mist (integers) and a moonbeam pass (its integers and each beam's struck list)
+    const mi = t.mist;
+    if (mi) h.int(mi.uid).int(mi.k).int(mi.tick).int(mi.grace);
+    const mo = t.moon;
+    if (mo) {
+      h.int(mo.c).int(mo.side).int(mo.arc).int(mo.i).int(mo.P).int(mo.hits.length);
+      for (let b = 0; b < mo.hits.length; b++) {
+        h.int(mo.n[b]).int(mo.hits[b].length);
+        for (const u of mo.hits[b]) h.int(u);
+      }
+    }
     const tl = t.tolls;
     if (tl && tl.length) {
       h.int(tl.length);
@@ -172,6 +183,15 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
       if (!p.shape || p.dead) continue;
       h.int(p.uid).str(p.kind).int(p.cres ? p.cres.leg : -1).int(p.cres ? p.cres.n : -1).int(p.x * 256).int(p.y * 256).int(p.travel * 256);
       h.int(p.hits.length).int(p.skip ? p.skip.length : 0);
+    }
+  }
+  // S5b Static Webs, only while one lives: uid, owner, steps left, zap timer and members in order
+  const sw = sim.statics;
+  if (sw && sw.length) {
+    h.int(sw.length);
+    for (const g of sw) {
+      h.int(g.uid).int(g.owner.uid).int(g.left).int(g.zapCd).int(g.m.length);
+      for (const e of g.m) h.int(e.uid);
     }
   }
   let bells = 0;

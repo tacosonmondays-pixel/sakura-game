@@ -58,7 +58,7 @@ import { endWheelWave, shapeDps } from './wheels.js';
 import { endHeldWave, heldDps } from './held.js';
 import { endGroundWave } from './ground.js';
 import { tetherStep, shareTether, ownShare, endLinkWave, linkDps } from './links.js';
-import { endS5Wave } from './s5shapes.js';
+import { endS5Wave, webStep } from './s5shapes.js';
 import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
@@ -374,6 +374,8 @@ export class Sim {
     if (this._curseQueue.length && !this._flushingCurses) this._flushCurses();
     // Spirit Tether (src/sim/links.js): only while a group lives: the share budget refills, groups age and end
     if (this._tetherOn !== 0) tetherStep(this);
+    // Static Web (attack shapes S5b, src/sim/s5shapes.js): only while a web lives
+    if (this.statics?.length) webStep(this);
     updateEnemyAuras(this);
     // Norika's barricades: spots, rebuilds and Hold the Line timers, before the enemies move into them
     if (this._blockOn) updateBarricades(this);
@@ -761,6 +763,8 @@ export class Sim {
     const tower = status.sourceUid != null ? this._towerByUid.get(status.sourceUid) || null : null;
     const dealt = Math.min(res.toHp, Math.max(0, hpBefore)) + res.toBarrier;
     this._credit(tower, dealt, e);
+    // attack shapes S5b (rule 6): a spore tick is shape damage (applyStatus keeps the status's type, not a spec flag)
+    if (status.type === 'spore' && tower && dealt > 0) tower.shapeDealt = (tower.shapeDealt || 0) + dealt;
     this.stats.damageByType[kind] = (this.stats.damageByType[kind] || 0) + dealt;
     if (e.hp <= 0) this._killEnemy(e, tower);
     else checkPhases(this, e);

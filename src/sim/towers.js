@@ -34,7 +34,7 @@ import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick, vineObjects } from './vines.js';
 import { attackSpikes, sendQuake, groundTick } from './ground.js';
 import { attackReturn, retSteer, retCut, retFlip, tieTether } from './links.js';
-import { hasStruckShape, s5AfterAttack, crescentCut, crescentFlip, tollBell, tollTick } from './s5shapes.js';
+import { hasStruckShape, s5AfterAttack, crescentCut, crescentFlip, tollBell, tollTick, mistTick, moonTick } from './s5shapes.js';
 import { rollBall, ballTick } from './balls.js';
 import { labMods } from './lab.js';
 import { buildPartnerSpec, partnerTick, partnerOff, beginVolley, refract } from './duo.js';
@@ -340,6 +340,8 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     t._struck = [];
     t._lead = null;
   }
+  // (Static Web, S5b: her first bolt's chain as enemies, in its walk order)
+  if (s.web && !t._chain) t._chain = [];
   // the duo (src/sim/duo.js): Kohaku's beam, the partner weapon, follows the same buffs
   if (s.duo) buildPartnerSpec(t);
   if (s.strip || s.sentry) deployCrits(t);
@@ -1154,6 +1156,7 @@ function attackBeam(sim, t) {
     }
     scale = 1 + Math.min(ramp.per * t.rampStacks, ramp.max);
   }
+  if (t._struck && !t._lead) t._lead = targets[0]; // (S5b: her lead is her first target, not the first enemy on its line)
   const color = attackColor(spec);
   const width = 0.12 + 0.04 * Math.min(6, spec.pierce);
   for (const tgt of targets) {
@@ -1206,8 +1209,15 @@ function attackChain(sim, t) {
     const hitSet = new Set();
     let cur = start;
     const chain = spec.chain + shotPierce(t);
+    // (attack shapes S5b: her first bolt's walk, in order, for Static Web; every bolt's victims for her skip list)
+    const rec = t._chain && start === targets[0] ? t._chain : null;
     for (let j = 0; j <= chain && cur; j++) {
       hitSet.add(cur.uid);
+      if (rec) rec.push(cur);
+      if (t._struck) {
+        if (!t._lead) t._lead = cur;
+        t._struck.push(cur.uid);
+      }
       points.push([cur.x, cur.y]);
       const cx = cur.x;
       const cy = cur.y;
@@ -2059,10 +2069,14 @@ export function updateTower(sim, t, dt) {
     t.disabled = Math.max(0, t.disabled - dt);
     if (s.duo) partnerOff(t); // a sabotage breaks Kohaku's beams (src/sim/duo.js)
     if (t.ch) heldOff(sim, t); // and a held channel (src/sim/held.js)
+    if (t.mist) delete t.mist; // and the S5b held shapes (src/sim/s5shapes.js)
+    if (t.moon) delete t.moon;
     return;
   }
   if (t.moveLock > 0) {
     if (t.ch) heldOff(sim, t);
+    if (t.mist) delete t.mist;
+    if (t.moon) delete t.moon;
     return; // a hero repositioning mid-wave (hero.js moveHero)
   }
   if (s.turret?.overclock) tickOverclock(sim, t, s.turret.overclock, dt);
@@ -2086,6 +2100,7 @@ export function updateTower(sim, t, dt) {
     if (t._struck) {
       t._struck.length = 0;
       t._lead = null;
+      if (t._chain) t._chain.length = 0;
     }
     const gn = beginGear(t);
     const ok = proc ? attackWithProc(sim, t, fn, proc) : fn(sim, t);
@@ -2097,7 +2112,7 @@ export function updateTower(sim, t, dt) {
     // Spirit Tether (attack shapes S4, src/sim/links.js): her counted attack ties her lead target to the enemies near it
     if (s.tether && lastFaced && lastFaced.uid === t.targetUid) tieTether(sim, t, lastFaced);
     // attack shapes S5a (src/sim/s5shapes.js): Charm Wheel / Crescent Return on top of her counted attack
-    if (t._struck && (s.charms || s.cres)) s5AfterAttack(sim, t);
+    if (t._struck) s5AfterAttack(sim, t);
     if (tempo) tempoStack(sim, t, tempo);
     if (t.hydrated) useDrink(sim, t); // Wakaba's drink: a charge per successful attack (src/sim/drinks.js)
     // Chigusa's Bloom Rush (src/sim/vines.js): faster for every second she keeps attacking
@@ -2109,6 +2124,9 @@ export function updateTower(sim, t, dt) {
   if (s.duo) partnerTick(sim, t, PRISM_HELP);
   // a held channel (attack shapes S2, src/sim/held.js): its lock, aim and damage ticks, after her attack loop
   if (t.ch) heldTick(sim, t, HELD_HELP);
+  // attack shapes S5b (src/sim/s5shapes.js): Midori's Spore Mist ticks, Luna's moonbeam pass
+  if (t.mist) mistTick(sim, t);
+  if (t.moon) moonTick(sim, t);
 }
 
 // ---------------------------------------------------------------------------

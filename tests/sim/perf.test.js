@@ -3,7 +3,7 @@ import { Sim } from '../../src/sim/Sim.js';
 import { STAGE, UNITS, ENEMIES } from './fixtures.js';
 import { defaultData } from '../../src/sim/data.js';
 import { gainHeroXp, xpToReach } from '../../src/sim/hero.js';
-import { TETHER_SHARES_PER_STEP, STRAIGHT_PER_SIM, CHARMS_PER_GIRL, CRESCENTS_PER_GIRL, TOLLS_PER_SIM } from '../../src/sim/constants.js';
+import { TETHER_SHARES_PER_STEP, STRAIGHT_PER_SIM, CHARMS_PER_GIRL, CRESCENTS_PER_GIRL, TOLLS_PER_SIM, STATIC_PER_SIM, STATIC_ZAPS_PER_STEP } from '../../src/sim/constants.js';
 
 // 22 × 13 serpentine map: the path snakes across rows 1, 5, 9 and exits at the bottom.
 const PERF_MAP = {
@@ -397,6 +397,78 @@ describe('performance budget: S5a attack shapes', () => {
     expect(most.tolls).toBeGreaterThan(0);
     expect(most.straight).toBeLessThanOrEqual(STRAIGHT_PER_SIM + 6 * CHARMS_PER_GIRL + 6 * CRESCENTS_PER_GIRL);
     expect(most.tolls).toBeLessThanOrEqual(TOLLS_PER_SIM);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+});
+
+// attack shapes S5b (src/sim/s5shapes.js): 6 Spore Mists (96 victims a tick at T5), 6 Static Webs and Luna's two moonbeams
+// at Lv 25 with 200 walkers; zaps within STATIC_ZAPS_PER_STEP, webs within their caps.
+describe('performance budget: S5b attack shapes', () => {
+  test('6 Spore Mists + 6 Static Webs + Luna at Lv 25 + 200 enemies: a step stays under the same limits', () => {
+    const real = defaultData().units;
+    const S5B = [['midori', 'fieldkit'], ['raika', 'rhythm']];
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: S5B.map(([unitId]) => ({ unitId })),
+      hero: { unitId: 'luna' },
+      seed: 14,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units: real, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    const spots = [];
+    for (const ty of [3, 7, 11]) for (let tx = 1; tx < 21; tx += 2) spots.push([tx, ty]);
+    const girls = [...Array(12)].map((_, k) => S5B[k % 2]);
+    let placed = 0;
+    let i = 0;
+    for (; i < spots.length && placed < girls.length; i++) {
+      const [id, pathId] = girls[placed];
+      const t = sim.placeTower(id, spots[i][0], spots[i][1]);
+      if (!t) continue;
+      placed++;
+      const p = real[id].paths.findIndex((q) => q.id === pathId);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p, { restoring: true });
+    }
+    for (; i < spots.length; i++) {
+      const l = sim.placeTower('luna', spots[i][0], spots[i][1]);
+      if (!l) continue;
+      gainHeroXp(sim, l, xpToReach(l.def.hero, 25), 'restore');
+      break;
+    }
+    expect(placed).toBe(12);
+    expect(sim.towers.filter((t) => t.stats.mist)).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.web)).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.moon)).toHaveLength(1);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const kinds = ['blob', 'blob', 'blob', 'armoredBlob', 'fieldOni', 'guardOrc', 'leech', 'flyer'];
+    const len = sim.pathData[0].length;
+    for (let j = 0; j < 200; j++) sim.spawnEnemy(kinds[j % kinds.length], { dist: (j / 200) * (len - 8) });
+    for (let j = 0; j < 120; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    const most = { webs: 0, zaps: 0, mists: 0 };
+    const t0 = performance.now();
+    for (let j = 0; j < steps; j++) {
+      sim.update(1 / 60);
+      let z = 0;
+      for (const ev of sim.drainEvents()) if (ev.type === 'zap') z += ev.n;
+      most.zaps = Math.max(most.zaps, z);
+      if (j % 10 === 0) {
+        most.webs = Math.max(most.webs, sim.statics?.length ?? 0);
+        most.mists = Math.max(most.mists, sim.towers.filter((t) => t.mist).length);
+      }
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] S5b shapes: ${sim.enemies.length} enemies, ${sim.towers.length} girls, at most ${most.mists} mists, ${most.webs} webs, ${most.zaps} zaps a step: ${perStep.toFixed(3)} ms/step`);
+    expect(sim.enemies.length).toBeGreaterThan(150);
+    expect(most.mists).toBeGreaterThan(0);
+    expect(most.webs).toBeGreaterThan(0);
+    expect(most.webs).toBeLessThanOrEqual(STATIC_PER_SIM);
+    expect(most.zaps).toBeLessThanOrEqual(STATIC_ZAPS_PER_STEP);
     expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
   });
 });

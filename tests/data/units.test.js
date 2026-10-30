@@ -259,6 +259,10 @@ function modSetErrors(mods, where) {
     charms: (k, v, w) => objErrors(v, ['n', 'turn', 'mul'], w, numCheck),
     cres: (k, v, w) => objErrors(v, ['out', 'cuts', 'mul'], w, numCheck),
     toll: (k, v, w) => objErrors(v, ['every', 'r', 'mul'], w, numCheck),
+    // the attack shapes S5b: numbers
+    mist: (k, v, w) => objErrors(v, ['half', 'len', 'cap', 'mul', 'dot'], w, numCheck),
+    moon: (k, v, w) => objErrors(v, ['beams', 'arc', 'mul'], w, numCheck),
+    web: (k, v, w) => objErrors(v, ['dur', 'every', 'share'], w, numCheck),
     duo: (k, v, w) => objErrors(v, DUO_NUMS, w, numCheck),
     // the staff heroes (BANNERS §D): Kogane's Move recharge, Norika's barricades
     moveCd: (k, v, w) => (isPos(v) ? [] : [`${w} must be > 0`]),

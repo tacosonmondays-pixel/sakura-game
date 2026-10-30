@@ -179,14 +179,27 @@ function normCres() {
 function normToll() {
   return { every: 90, r: 1, mul: 0 };
 }
-const SHAPE_NORM = { wheel: normWheel, spin: normSpin, halo: normHalo, stream: normStream, sweep: normSweep, spike: normSpike, quake: normQuake, ret: normRet, tether: normTether, charms: normCharms, cres: normCres, toll: normToll };
-const SHAPE_ADDS = { wheel: ['spokes'], spin: ['arms'], halo: ['pieces', 'reach'], stream: [], sweep: [], spike: [], quake: [], ret: [], tether: [], charms: [], cres: [], toll: [] };
+// attack shapes S5b: Spore Mist (half = half-angle in table steps, len = × her range, cap = victims a tick, × mul a tick,
+// dot = × her poison as the spore status), Moonbeam Sweep (beams, arc = table steps either side, × mul a strike), Static
+// Web (dur s, every = steps between zaps, share = of a bolt-second a zap)
+function normMist() {
+  return { half: 30, len: 0.75, cap: 24, mul: 0, dot: 0 };
+}
+function normMoon() {
+  return { beams: 0, arc: 30, mul: 0 };
+}
+function normWeb() {
+  return { dur: 2, every: 15, share: 0 };
+}
+const SHAPE_NORM = { wheel: normWheel, spin: normSpin, halo: normHalo, stream: normStream, sweep: normSweep, spike: normSpike, quake: normQuake, ret: normRet, tether: normTether, charms: normCharms, cres: normCres, toll: normToll, mist: normMist, moon: normMoon, web: normWeb };
+const SHAPE_ADDS = { wheel: ['spokes'], spin: ['arms'], halo: ['pieces', 'reach'], stream: [], sweep: [], spike: [], quake: [], ret: [], tether: [], charms: [], cres: [], toll: [], mist: [], moon: [], web: [] };
 const SHAPE_SETS = {
   wheel: ['lead', 'mul'], spin: ['mul', 'fold', 'turn', 'lock'], halo: ['mul'],
   stream: ['kind', 'half', 'turn', 'mul', 'cap'], sweep: ['arc', 'swing', 'turn', 'mul', 'cap'],
   spike: ['count', 'gap', 'r', 'delay', 'mul'], quake: ['rings', 'gap', 'speed', 'mul', 'later', 'status'],
   ret: ['per', 'mul', 'cut', 'pierce', 'reach'], tether: ['links', 'reach', 'dur', 'share', 'pull'],
   charms: ['n', 'turn', 'mul'], cres: ['out', 'cuts', 'mul'], toll: ['every', 'r', 'mul'],
+  mist: ['half', 'len', 'cap', 'mul', 'dot'], moon: ['beams', 'arc', 'mul'], web: ['dur', 'every', 'share'],
 };
 
 /**

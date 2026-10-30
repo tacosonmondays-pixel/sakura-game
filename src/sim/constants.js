@@ -523,3 +523,20 @@ export const TOLLS_PER_GIRL = 32;
 export const TOLLS_PER_SIM = 128;
 /** Bell Toll: a toll ring's growth, tiles a second. */
 export const TOLL_SPEED = 6;
+/** Spore Mist (Midori, S5b): a tick every MIST_TICK steps; the mist's turn toward her enemy (table steps a step) and grace. */
+export const MIST_TICK = 6;
+export const MIST_TURN = 2;
+export const MIST_GRACE = 12;
+/** Moonbeam Sweep (Luna, S5b): a pass lasts at most MOON_PASS steps (shorter when her volleys come faster); a beam test
+ * every MOON_TICK steps, within MOON_HALF_WIDTH tiles of the beam; a finished pass stays drawn MOON_LINGER steps. */
+export const MOON_PASS = 36;
+export const MOON_TICK = 2;
+export const MOON_HALF_WIDTH = 0.25;
+export const MOON_LINGER = 12;
+/** Static Web (Raika, S5b): members a web holds, webs per girl (her oldest first) and per sim (no new web past it), zaps a
+ * step (past it a web's zap waits a step), and a link's reach × her chain jump before it snaps. */
+export const STATIC_MEMBERS = 12;
+export const STATIC_PER_GIRL = 4;
+export const STATIC_PER_SIM = 48;
+export const STATIC_ZAPS_PER_STEP = 128;
+export const STATIC_REACH = 1.5;

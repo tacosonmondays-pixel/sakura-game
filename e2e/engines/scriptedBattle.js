@@ -2506,6 +2506,88 @@ export function runS5aBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
   return r;
 }
 
+/**
+ * The attack shapes S5b in one co-op battle (2-4 Hard, to the end or 12 minutes; docs/specs/ATTACK_SHAPES_S5.md §9 b): the
+ * host's Midori to Elixir Barrage (Spore Mist) and Raika to Endless Thunder (Static Web) with Luna as her hero, bought up
+ * past Lv 22 (Moonbeam Sweep), the guest's two to tier 4. Once the wave-3 checkpoint exists, the first frame 5 s into a
+ * wave with a mist open, a web alive and a moonbeam pass running is rebuilt by a third client from that checkpoint and the
+ * log (a mid-wave rejoin), which must land on the same hash and snapshot.
+ */
+const S5B_STATS = { costMul: 0.03, damageMul: 0.5, rateMul: 1 };
+const s5bStats = (id) => ({ ...S5B_STATS, damageMul: (S5B_STATS.damageMul ?? 1) / (POWER[id]?.dmg ?? 1) });
+export const S5B_START = Object.freeze({
+  seed: 525252,
+  stageId: '2-4',
+  difficulty: 'hard',
+  players: [
+    { slot: 0, uid: 'host', name: 'Host', loadout: [{ unitId: 'midori', stats: s5bStats('midori') }, { unitId: 'raika', stats: s5bStats('raika') }], hero: { unitId: 'luna', stats: { ...S5B_STATS, costMul: 0.002 } } },
+    { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'raika', stats: s5bStats('raika') }, { unitId: 'midori', stats: s5bStats('midori') }], hero: null },
+  ],
+});
+const S5B_UPGRADES = Object.freeze([
+  ...Array.from({ length: 4 }, () => [[0, 'midori', 2], [1, 'raika', 2], [0, 'raika', 2], [1, 'midori', 2]]).flat(),
+  [0, 'midori', 2], [0, 'raika', 2],
+]);
+
+/**
+ * S5B_START to the end (or 12 minutes): the runPotentialBattle fields plus `s5b` (mist hits / zaps / moonbeam strikes /
+ * webs tied, counted on the host's copy), Luna's level at the end and the mid-wave rejoin (`rejoinTick`, `rejoinSame`).
+ */
+export function runS5bBattle({ maxFrames = 60 * 60 * 12, ckWave = 3 } = {}) {
+  const t0 = Date.now();
+  const n = { mist: 0, zap: 0, moon: 0, web: 0 };
+  let ck = null;
+  let rejoin = null;
+  const probe = (sim) => {
+    const hit0 = sim._hit;
+    Object.defineProperty(sim, '_hit', {
+      configurable: true,
+      writable: true,
+      enumerable: false,
+      value: function hit(e, tower, spec, ...rest) {
+        if (spec?.shape && e && !e.dead) {
+          if (tower?.stats?.mist) n.mist++;
+          else if (tower?.stats?.moon) n.moon++;
+        }
+        return hit0.call(this, e, tower, spec, ...rest);
+      },
+    });
+  };
+  let luna = 0;
+  const onFrame = (A) => {
+    luna = A.sim.hero?.level ?? 0;
+    for (const ev of A.sim.events) {
+      if (ev.type === 'zap') n.zap += ev.n;
+      else if (ev.type === 'web') n.web++;
+    }
+    if (!ck && A.ck && A.ck.wave >= ckWave) ck = { t: A.ck.t, wave: A.ck.wave, json: JSON.stringify(A.ck.snap) };
+    if (!ck || rejoin || A.sim.state !== 'wave' || !(A.sim._waveTime > 5)) return;
+    if (!A.sim.towers.some((t) => t.mist) || !A.sim.statics?.length || !A.sim.towers.some((t) => t.moon && t.moon.i < t.moon.P)) return;
+    const copy = new Lockstep({ start: S5B_START, mySlot: 1, send: () => {}, now: () => 0 });
+    copy.rebuild(S5B_START, [...A.log], A.tick, { t: ck.t, snap: JSON.parse(ck.json) });
+    rejoin = {
+      tick: A.tick,
+      same: copy.lastRebuild?.restored === true && copy.tick === A.tick && copy.coop.hash() === A.coop.hash()
+        && snapshotDigest(copy.coop.snapshot()) === snapshotDigest(A.coop.snapshot()),
+    };
+  };
+  // the host buys Luna a level (her hero costs × 0.002) every 2 s while her wallet holds it and 50 more, so her moonbeam
+  // (Lv 22) comes in early in the battle
+  const script = (frame, A) => {
+    if (frame % 120 !== 60 || !A.sim.hero) return;
+    const st = A.sim.heroLevelStatus();
+    if (!st.reason && A.sim.cash >= st.price + 50) A.queue('hlv', [st.level + 1, st.price]);
+  };
+  const r = runPotentialBattle({ start: S5B_START, upgrades: S5B_UPGRADES, spotsFirst: ['luna', 'midori', 'raika'], maxFrames, probe, onFrame, script });
+  r.s5b = `${n.mist}/${n.zap}/${n.moon}/${n.web}`;
+  r.luna = luna;
+  r.ckWave = ck?.wave ?? -1;
+  r.rejoinTick = rejoin?.tick ?? -1;
+  r.rejoinSame = !!rejoin?.same;
+  r.ms = Date.now() - t0;
+  return r;
+}
+
 // ---------------------------------------------------------------------------
 // The duo Kohaku & Tsubaki (docs/specs/DUO_LR.md §4 "Engines scenario DUO_START"): Refraction (the shell counter and
 // the fixed shard table), Kohaku's beam on its tick timer, Prismfall on Auto-cast and its LR form Twin Star
@@ -2777,5 +2859,5 @@ export function runEngineChecks() {
   const heroes = runHeroBattle();
   const modes = runModeBattles();
   const tryoutRandom = runTryoutBattle({ seed: 2027, random: true, maxWaves: 14, checkpointAt: 8 });
-  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), shapes: runShapesBattle(), held: runHeldBattle(), ground: runGroundBattle(), links: runLinksBattle(), s5a: runS5aBattle(), duo: runDuoBattle(), tenkaLr: runTenkaLrBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), tryoutAfter: runTryoutExtendedBattle(), tryoutAfterRandom: runTryoutExtendedBattle({ seed: 4821, random: true, maxWaves: 57, checkpointAt: 52 }), modes, tryoutRandom };
+  return { ...r, potential, potentialBoss, gear: runGearBattle(), gearGirls: runGearGirlsBattle(), glowBowl: runGlowBowlBattle(), shapes: runShapesBattle(), held: runHeldBattle(), ground: runGroundBattle(), links: runLinksBattle(), s5a: runS5aBattle(), s5b: runS5bBattle(), duo: runDuoBattle(), tenkaLr: runTenkaLrBattle(), staff: runStaffBattle(), freeplay: { tables, battle, deep, ms: freeplayMs }, heroes, drones: runDronesBattle(), roster: runRosterBattle(), abilities: runAbilitiesBattle(), returningAbil: runReturningAbilBattle(), tenka: runTenkaBattle(), tryout: runTryoutBattle(), tryoutAfter: runTryoutExtendedBattle(), tryoutAfterRandom: runTryoutExtendedBattle({ seed: 4821, random: true, maxWaves: 57, checkpointAt: 52 }), modes, tryoutRandom };
 }

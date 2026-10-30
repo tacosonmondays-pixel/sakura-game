@@ -51,6 +51,42 @@ const team = (c) => ({
   hero: c.hero ? { unitId: c.hero, stats: { ...unitBattleStats(null, c.hero), ...c.stats, ...c.per?.[c.hero] } } : null,
 });
 const makeSim = (c) => new Sim({ stageId: c.stageId, difficulty: c.difficulty, ...team(c), seed: c.seed, options: { endless: !!c.endless, autoStart: false, mode: c.mode } });
+/**
+ * The attack shapes S5 mid-wave on 2-5 and 3-5: Miko, Rei, Suzu, Midori and Raika at tier 5 on their shape paths and Luna
+ * at Lv 25; `each(sim)` after every step (fields that live only while a wave runs: toll rings, mists, moonbeam passes, webs).
+ */
+function s5Run(each) {
+  // (each girl alone, so the early waves' few enemies reach her: Luna as the hero with no girl beside her)
+  for (const [ids, hero] of [[['miko'], null], [['rei'], null], [['suzu'], null], [['midori'], null], [['raika'], null], [[], 'luna']]) for (const st of ['2-5', '3-5']) {
+    const sim = makeSim({ stageId: st, difficulty: 'normal', towers: ids, hero, stats: {}, seed: 16 });
+    sim.cash = 1e6;
+    // each on the free spot covering the most road within 2.5 tiles (as tools/balance/r5Bench.mjs places a girl)
+    const road = sim.pathData.flatMap((q) => samplePath(q, 0.5)).filter((q) => !q.hidden);
+    for (const id of hero ? [...ids, hero] : ids) {
+      let best = null;
+      for (let y = 0.5; y < sim.map.height; y += 0.5) {
+        for (let x = 0.5; x < sim.map.width; x += 0.5) {
+          if (!sim.canPlace(id, x, y).ok) continue;
+          const cov = road.reduce((n, q) => n + ((q.x - x) ** 2 + (q.y - y) ** 2 <= 6.25 ? 1 : 0), 0);
+          if (!best || cov > best.cov) best = { x, y, cov };
+        }
+      }
+      expect(sim.placeTower(id, best.x, best.y), id).toBeTruthy();
+    }
+    const path = { miko: 1, rei: 0, suzu: 0, midori: 2, raika: 2 };
+    for (const t of sim.towers) {
+      if (t.isHero) gainHeroXp(sim, t, xpToReach(t.def.hero, 25), 'restore');
+      else for (let k = 0; k < 5; k++) expect(sim.upgradeTower(t.uid, path[t.unitId])).toBe(true);
+    }
+    for (let w = 0; w < 4; w++) {
+      if (sim.state !== 'wave') sim.startNextWave();
+      for (let i = 0; i < 60 * 60 && sim.state === 'wave'; i++) {
+        sim.update(STEP);
+        each(sim);
+      }
+    }
+  }
+}
 const recordOf = (c, snap) => ({
   v: RECORD_V, id: 'bs-test', slot: slotKey(c.stageId, !!c.endless), stageId: c.stageId, endless: !!c.endless,
   difficulty: c.difficulty, ...(c.mode ? { mode: c.mode } : {}), seed: c.seed, ...team(c), createdAt: 1, updatedAt: 1, resumes: 0, snap,
@@ -1567,6 +1603,13 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
       expect(shadowDoubles(sim, t, { count: 2, spacing: 1.5, dmgMul: 0.6, duration: 8 }).length).toBeGreaterThan(0);
       for (const k of fields(sim)) keys.add(k);
     }
+    // (and Raika's Static Webs: the web list, created on her first web; src/sim/s5shapes.js)
+    let webs = false;
+    s5Run((sim) => {
+      if (sim.statics) webs = true;
+      for (const k of fields(sim)) keys.add(k);
+    });
+    expect(webs).toBe(true);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_SIM_KEYS).sort());
   });
 
@@ -1714,24 +1757,13 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     expect(ir.castAbility(iro.uid, { aim: [iro.ox, iro.oy] }).ok).toBe(true);
     expect(iro.mirror2).toBeTruthy();
     for (const t of ir.towers) for (const k of Object.keys(t)) keys.add(k);
-    // (and the attack shapes S5a mid-wave: Miko's Charm Wheel turn on 2-5, Suzu's toll rings and shape damage on 3-5, and the
-    // attack scratch of both shape girls)
+    // (and the attack shapes S5 mid-wave: Miko's wheel turn, Suzu's toll rings, Midori's mist, Luna's moonbeam pass, Raika's
+    // first-bolt chain, the attack scratch and shape damage)
     const s5Keys = new Set();
-    for (const st of ['2-5', '3-5']) {
-      const s5 = makeSim({ stageId: st, difficulty: 'normal', towers: ['miko', 'rei', 'suzu'], hero: null, stats: {}, seed: 16 });
-      s5.cash = 1e6;
-      for (const a of autoPlan(st, ['miko', 'rei', 'suzu'], { maxCopies: 1 })) if (a.action === 'place') s5.placeTower(a.unitId, a.x, a.y);
-      const s5Path = { miko: 1, rei: 0, suzu: 0 };
-      for (const t of s5.towers) for (let k = 0; k < 5; k++) expect(s5.upgradeTower(t.uid, s5Path[t.unitId])).toBe(true);
-      for (let w = 0; w < 2; w++) {
-        if (s5.state !== 'wave') s5.startNextWave();
-        for (let i = 0; i < 60 * 40 && s5.state === 'wave'; i++) {
-          s5.update(STEP);
-          for (const t of s5.towers) for (const k of Object.keys(t)) s5Keys.add(k);
-        }
-      }
-    }
-    for (const k of ['shapeDealt', '_struck', '_lead', 'wheelK', 'tolls']) expect(s5Keys.has(k), k).toBe(true);
+    s5Run((sim) => {
+      for (const t of sim.towers) for (const k of Object.keys(t)) s5Keys.add(k);
+    });
+    for (const k of ['shapeDealt', '_struck', '_lead', 'wheelK', 'tolls', '_chain', 'mist', 'moon']) expect(s5Keys.has(k), k).toBe(true);
     for (const k of s5Keys) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });

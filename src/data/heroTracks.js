@@ -129,10 +129,10 @@ const LUNA = {
     L(19, 'gravity.4', 'Starfall Bind: +20% damage.', { damageMul: 1.2 }),
     L(20, 'court.4', 'Moon Court Regalia: aura +12% attack speed and reaches 3.6 tiles; +4 damage. Moonfall rank 3.', { aura: { rateMul: 1.12, range: 3.6 }, damage: 4 }),
     L(21, 'L9', 'Midnight Cadence: +10% attack speed.', { rateMul: 1.1 }),
-    L(22, 'lances.5', 'Lunatic Lance: one more beam, +8 damage, +20% attack speed.', { projectiles: 1, damage: 8, rateMul: 1.2 }),
+    L(22, 'lances.5', 'Lunatic Lance: one more beam, +8 damage, +20% attack speed; a moonbeam swings across her targets with every volley.', { projectiles: 1, damage: 8, rateMul: 1.2, moon: { beams: 1, arc: 30, mul: 0.55 } }),
     L(23, 'gravity.5', 'Event Horizon: freeze chance, 50% slows, Brittle +20%, +20% attack speed.', { status: [S.freeze(1.2, 0.2), S.slow(0.5, 2.5), S.vulnerable(0.2, 3)], rateMul: 1.2 }),
     L(24, 'court.5', 'Queen of the Night Sky: aura +20% damage, +10% range and speed; another beam.', { aura: { dmgMul: 1.2, rangeMul: 1.1, rateMul: 1.1 }, projectiles: 1 }),
-    L(25, 'L10', 'Lunar Sovereign: +15% damage, +2 pierce.', { damageMul: 1.15, pierce: 2 }),
+    L(25, 'L10', 'Lunar Sovereign: +15% damage, +2 pierce; a second moonbeam swings the other way.', { damageMul: 1.15, pierce: 2, moon: { beams: 2, mul: 0.35 } }),
   ],
   ultRanks: [
     { level: 10, desc: 'Rank 2: slow lasts 6s, the haste lasts 10s, recharges 15% faster.', effect: { duration: 6, buffDuration: 10 }, cooldownMul: 0.85 },

@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, runShapesBattle, runHeldBattle, runGroundBattle, runLinksBattle, runS5aBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, runShapesBattle, runHeldBattle, runGroundBattle, runLinksBattle, runS5aBattle, runS5bBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 import { launchAttempts } from '../../e2e/browser.mjs';
 
 // T3 review coop-3: e2e/engines.mjs only ever tried Playwright's own browsers, so on a machine without
@@ -406,9 +406,31 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     expect(r.rejoinSame).toBe(true);
     expect(runS5aBattle().final).toBe(r.final);
     // pinned when the battle was added (feature/attack-shapes-s5, S5a; the host's girls at tier 5, the guest's at tier 4:
-    // one girl per path at the final tier); re-pinned when Rei's crescent aimed at the densest line (Oct 30). Change only with a deliberate sim / data change, and say why.
+    // one girl per path at the final tier); re-pinned when Rei's crescent aimed at the densest line (Oct 30), and with S5b
+    // (Miko's mirror beam leads her wheel from its first target, attackBeam's t._lead; hashSim folds the S5b records).
+    // Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, s5a: r.s5a, rejoinTick: r.rejoinTick })
-      .toEqual({ ticks: 32480, state: 'won', wave: 22, wallets: '770/2865', final: 2356239460, hashes: '39790359', s5a: '1045/159/66/3121', rejoinTick: 7560 });
+      .toEqual({ ticks: 32480, state: 'won', wave: 22, wallets: '770/2865', final: 2356239460, hashes: '1a9cae93', s5a: '1045/158/66/3121', rejoinTick: 7560 });
+  }, 240000);
+
+  it('runs the attack shapes S5b (S5B_START: Spore Mist, Static Web, Moonbeam Sweep) in sync, and a mid-wave rejoin lands on the run', () => {
+    const r = runS5bBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(15);
+    const [mist, zap, moon, web] = r.s5b.split('/').map(Number);
+    expect(mist).toBeGreaterThan(1000);
+    expect(zap).toBeGreaterThan(100);
+    expect(moon).toBeGreaterThan(0);
+    expect(web).toBeGreaterThan(10);
+    expect(r.luna).toBeGreaterThanOrEqual(22);
+    expect(r.rejoinTick).toBeGreaterThan(0);
+    expect(r.rejoinSame).toBe(true);
+    expect(runS5bBattle().final).toBe(r.final);
+    // pinned when the battle was added (feature/attack-shapes-s5, S5b; the host's girls at tier 5 and Luna bought past
+    // Lv 22, the guest's at tier 4). Change only with a deliberate sim / data change, and say why.
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, s5b: r.s5b, rejoinTick: r.rejoinTick })
+      .toEqual({ ticks: 20410, state: 'won', wave: 22, wallets: '1499/3038', final: 1874512872, hashes: '8f5eaf93', s5b: '9767/893/14/64', rejoinTick: 6054 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

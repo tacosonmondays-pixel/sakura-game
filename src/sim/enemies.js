@@ -491,6 +491,9 @@ export function updateEnemy(sim, e, dt) {
   const st = e.statuses;
   if (st.burn) sim._dot(e, 'burn', dotAmount(e, st.burn, dt), st.burn);
   if (!e.dead && st.poison) sim._dot(e, 'poison', dotAmount(e, st.poison, dt), st.poison);
+  // Midori's Spore Mist (attack shapes S5b): its own key, poison's damage rules; no siphon or regen block, never spread
+  // or detonated (those read `poison` only), so no other girl's numbers see it
+  if (!e.dead && st.spore) sim._dot(e, 'poison', dotAmount(e, st.spore, dt), st.spore);
   if (!e.dead && st.hex) sim._hex(e, st.hex, dt);
   if (e.dead) return;
   tickStatusDurations(e, dt);

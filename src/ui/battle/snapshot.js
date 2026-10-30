@@ -190,6 +190,8 @@ export const KNOWN_SIM_KEYS = Object.freeze({
   // share budget refills with the first group, the re-entrancy flag is down outside a hit; the Homecoming Throw's fans
   // are straight shots (they end at the wave clear with `projectiles`)
   tethers: 'calm', _tetherOn: 'calm', _shareBudget: 'calm', _sharing: 'scratch',
+  // attack shapes S5b (src/sim/s5shapes.js): Raika's static webs, made on her first web and emptied at the wave clear
+  statics: 'calm',
 });
 
 /** Every own field of a placed girl (TowerRT), classified like KNOWN_SIM_KEYS. */
@@ -255,6 +257,8 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   // attack shapes S5a (src/sim/s5shapes.js): her shape damage (a running total, as damageDealt), what her counted attack
   // struck (per-attack scratch), the Charm Wheel's turn and her toll rings (both end at the wave clear)
   shapeDealt: 'snap', _struck: 'scratch', _lead: 'scratch', wheelK: 'calm', tolls: 'calm',
+  // S5b: Raika's first-bolt chain (per-attack scratch), Midori's mist and Luna's moonbeam pass (both end at the wave clear)
+  _chain: 'scratch', mist: 'calm', moon: 'calm',
   // Marumi: her balls end at the wave clear; the ball, blast, pin and lob specs follow her stats
   balls: 'calm', ballSpec: 'derived', blastSpec: 'derived', pinSpec: 'derived', lobSpec: 'derived',
   // Tenka: her lab team's record travels (`lb`; the girls who joined are not on the field, and the tier

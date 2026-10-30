@@ -38,7 +38,9 @@ const SQUASH_RETRIGGER = 0.09;
 const STILL = Object.freeze({ moving: false, speed: 1 });
 
 const STATUS_ICONS = {
-  burn: ['st_burn', '#ff8a4a'], poison: ['st_poison', '#7be08a'], freeze: ['st_freeze', '#bff0ff'], slow: ['st_slow', '#8fe3ff'],
+  burn: ['st_burn', '#ff8a4a'], poison: ['st_poison', '#7be08a'],
+  // Midori's Spore Mist (attack shapes S5b): the poison icon; one icon when an enemy has both
+  spore: ['st_poison', '#a8e05f'], freeze: ['st_freeze', '#bff0ff'], slow: ['st_slow', '#8fe3ff'],
   shock: ['st_shock', '#ffe45c'], stun: ['st_stun', '#ffd84d'], shred: ['st_shred', '#d0d6e2'], mark: ['st_mark', '#ff6b8b'],
   vulnerable: ['st_mark', '#9fd8ff'], silence: ['st_silence', '#c4a6ff'], reveal: ['st_reveal', '#ffe066'], soak: ['st_soak', '#4cc9f0'],
   // roster B3: Ena's curse (bursts on death), Yoriko's hex, grounded flyers
@@ -46,7 +48,7 @@ const STATUS_ICONS = {
   // Chigusa's vines
   hold: ['st_hold', '#6fcf5e'],
 };
-const STATUS_ORDER = ['freeze', 'stun', 'shock', 'hold', 'curse', 'hex', 'ground', 'burn', 'poison', 'slow', 'shred', 'mark', 'vulnerable', 'silence', 'reveal', 'soak'];
+const STATUS_ORDER = ['freeze', 'stun', 'shock', 'hold', 'curse', 'hex', 'ground', 'burn', 'poison', 'spore', 'slow', 'shred', 'mark', 'vulnerable', 'silence', 'reveal', 'soak'];
 const TIER_RING = [null, null, null, '#6fb8ff', '#c08bff', '#ffd84d'];
 const PATH_COLORS = ['#ff6b8b', '#4cc9f0', '#ffd43b'];
 const WHITE = new THREE.Color('#ffffff');
@@ -938,7 +940,7 @@ export class Actors {
       const hpFrac = e.maxHp > 0 ? Math.max(0, e.hp / e.maxHp) : 0;
       const hasBarrier = e.maxBarrier > 0 && e.barrier > 0;
       let icons = 0;
-      for (const s in e.statuses) if (STATUS_ICONS[s]) icons++;
+      for (const s in e.statuses) if (STATUS_ICONS[s] && !(s === 'spore' && e.statuses.poison)) icons++;
       const important = e.tier !== 'normal';
       if (hpFrac > 0.999 && !hasBarrier && !important && !icons) continue;
       const big = e.tier === 'boss' ? 1.5 : e.tier === 'miniboss' ? 1.15 : 1;
@@ -976,7 +978,7 @@ export class Actors {
         let i = 0;
         const oy = (hasBarrier || e.maxBarrier > 0 ? 0.17 : 0.12) + (hpFrac > 0.999 && !important ? -0.12 : 0);
         for (const s of STATUS_ORDER) {
-          if (!e.statuses[s] || i >= n) continue;
+          if (!e.statuses[s] || i >= n || (s === 'spore' && e.statuses.poison)) continue;
           const [icon] = STATUS_ICONS[s];
           const c = this._statusColors[s];
           ov.push(x, y, z, sz, sz, R[icon], c.r, c.g, c.b, veiledA, 0, (i - (n - 1) / 2) * (sz + 0.02), oy);

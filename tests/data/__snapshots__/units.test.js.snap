@@ -225,6 +225,11 @@ exports[`hero definitions > luna Lv 25 stats are frozen (catches accidental powe
   "link": null,
   "mark": null,
   "maxTargets": 99,
+  "moon": {
+    "arc": 30,
+    "beams": 2,
+    "mul": 0.35,
+  },
   "pierce": 12,
   "projectileSpeed": 0,
   "projectiles": 6,
