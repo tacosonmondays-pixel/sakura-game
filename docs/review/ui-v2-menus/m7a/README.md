@@ -133,12 +133,31 @@ So the round-2 review looks at what players have; this branch's game files are m
 
 At 667x375 the Edit Showcase picker's row cut by its scroller still reads as 41 px taps (the probe note above).
 
+**Gates on the merged head** (Oct 30, a busy shared container):
+- `node e2e/menus.mjs --milestone m7a`: the 16 round-1 shots pass at 844x390, 1280x720 and 390x844 (48/48; the
+  profile at 1280x720 on a re-run after a screenshot timeout).
+- `profile.mjs` 242/242, `story.mjs` 148/148, `halloween.mjs` 109/109, `event-title.mjs` 43/43, `nav-back.mjs` 95/95,
+  `ink-kit.mjs` 36/36.
+- `tutorial.mjs` fails outside M7a's screens:
+  - after a won battle the page stopped answering (a 60 s screenshot timed out), so "Next Stage → 1-3 prep plays the
+    1-2 epilogue first" failed in all three runs;
+  - "Not now → skipped" failed twice at 844x390 (touch) and passed at 1280x720.
+- `tools/cssFloor.mjs` 266 = baseline (0 in v2-records.css, profile.css, journal.css, events.css);
+  `tools/contrast.mjs` 190/190; targeted vitest 41 files, 539/539.
+- `smoke.mjs`: 844x390 226/226; 390x844 225/226 (the known touch-drag); 1280x720 225/226 on a re-run. The one
+  failure there was the Wiki measured while the Bestiary was still on screen. The first 1280x720 run passed that
+  check, but its Recruit "×1 again" confirm came after the check's 3 s wait.
+
 **The new shot fails the gate at all three sizes** (`profile-lr`, for the reviewer to rule on):
 - the LR sticker is rounded (`span.lr-badge`, 5 px; lr.css), sits inside the card's ink tag, and its "LR" is 12.48 px
   where the gate wants 13 px (1280x720, 390x844);
 - the Nightglass crest is cut by the card's chamfered clip (the kit girl tile moves its crest inside the top edge);
 - an earned frame shows as a chip in Freeplay Records (`button.pf-chip-frame`, opens Edit Profile): a 21 px tap at
   1280x720. No shot had an earned frame before (it comes with a ★5 SSR).
+
+**Seen beside the other menus:** the Profile's Students tile counts every girl in the data (`UNIT_COUNT`: "21/39"),
+while Students counts only the girls who can be recruited ("Recruited 21/37": the two held girls are left out by
+`listedUnits()` since v0.1.59).
 
 **e2e changes (test only):** `e2e/profile.mjs` counted 59 stages, stale since the Gate Arc's Acts (the game has 89);
 it reads `STAGE_COUNT` now, and its screenshots wait up to 90 s. `e2e/shots/m7-records.mjs` gains `profile-lr`.
