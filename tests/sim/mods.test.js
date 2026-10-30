@@ -250,7 +250,10 @@ describe('Potential in resolveStats', () => {
     // '456:23908890' before Umeko ×1.10 and Hotaru ×1.04 (Oct 30: the ability bench's pinned column, no build below live);
     // '456:2d2bdb38' before Hotaru ×1.06 and Momo ×1.06 (the final review's no-support sweep); '456:4513c1a5' before
     // Momo's Coin Wheel toss coins went ×0.98 → ×1 (her 2-0-4 alone on a held boss under live on some seeds)
-    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:19f2bb53');
+    // '456:19f2bb53' before the attack shapes S5a (Miko's Charm Wheel, Rei's Crescent Return, Suzu's Bell Toll: a shape block
+    // on two tiers of one path each, their live numbers unchanged); with those three left out the 384 others hash 70150afc
+    // before and after
+    expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:2f6a4fcb');
   });
 
   // Potential v3 (docs/specs/POTENTIAL.md v3 §5): the exact P6 numbers of the real ladders

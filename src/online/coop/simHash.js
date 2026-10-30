@@ -124,6 +124,17 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
         for (let i = 0; i < q.hit.length; i++) h.int(q.hit[i]);
       }
     }
+    // attack shapes S5a (src/sim/s5shapes.js), only while present: the Charm Wheel's turn and Bell Toll rings with their
+    // re-hit memories (a ring's radius by its step count); battles without them keep their digest
+    if (t.wheelK) h.int(t.wheelK);
+    const tl = t.tolls;
+    if (tl && tl.length) {
+      h.int(tl.length);
+      for (const q of tl) {
+        h.int(q.uid).int(q.x * 256).int(q.y * 256).int(q.g).int(q.hit.length);
+        for (let i = 0; i < q.hit.length; i++) h.int(q.hit[i]);
+      }
+    }
   }
   // open zones (wells, Last Line), only while there is one: a battle without zones keeps its digest
   const zs = sim.zones;
@@ -150,6 +161,24 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
       if (!p.ret || p.dead) continue;
       h.int(p.uid).int(p.ret.leg).int(p.ret.n).int(p.x * 256).int(p.y * 256).int(p.travel * 256).int(p.hits.length);
     }
+  }
+  // attack shapes S5a (src/sim/s5shapes.js), only while there is one: shape shots in the air (kind, a crescent's leg and
+  // cuts, spot, way flown, hit and skip lists) and the toll timers of bells whose girl tolls; battles without keep their digest
+  let shapes = 0;
+  for (const p of sim.projectiles) if (p.shape && !p.dead) shapes++;
+  if (shapes) {
+    h.int(shapes);
+    for (const p of sim.projectiles) {
+      if (!p.shape || p.dead) continue;
+      h.int(p.uid).str(p.kind).int(p.cres ? p.cres.leg : -1).int(p.cres ? p.cres.n : -1).int(p.x * 256).int(p.y * 256).int(p.travel * 256);
+      h.int(p.hits.length).int(p.skip ? p.skip.length : 0);
+    }
+  }
+  let bells = 0;
+  for (const tr of sim.traps) if (tr.owner?.stats?.toll) bells++;
+  if (bells) {
+    h.int(bells);
+    for (const tr of sim.traps) if (tr.owner?.stats?.toll) h.int(tr.uid).int(tr.tollCd ?? 1);
   }
   // Kage's shadow doubles (src/sim/deploys.js), only while one stands: a battle without them keeps its digest
   const dp = sim.deployables;

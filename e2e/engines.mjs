@@ -286,6 +286,23 @@ for (const { name, r } of results) {
   if (!(g.rejoinTick > 0)) failures.push('the links battle: no mid-wave rejoin with the link shapes live');
 }
 
+// the attack shapes S5a (S5A_START): Charm Wheel, Crescent Return, Bell Toll, and a mid-wave rejoin
+log('\nScripted co-op S5a battle (2-4 Hard, S5A_START: Rei\'s Crescent Return, Miko\'s Charm Wheel, Suzu\'s Bell Toll):');
+for (const { name, r } of results) {
+  const g = r.s5a;
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · cres/charm/toll/rung ${g.s5a} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · rejoin w${g.ckWave} → tick ${g.rejoinTick} ${g.rejoinSame ? '= the run' : '≠ THE RUN'} · ${g.ms} ms`);
+  if (!g.agree) failures.push(`${name}: its own two S5a clients disagreed`);
+  if (g.failed) failures.push(`${name}: ${g.failed} S5a command(s) refused: ${g.refused}`);
+  if (!g.rejoinSame) failures.push(`${name}: the S5a battle's mid-wave rejoin from the wave-${g.ckWave} checkpoint did not land on the run`);
+  for (const k of [...POT_KEYS.filter((x) => x !== 'aoi'), 'tiers', 's5a', 'dealt', 'rejoinTick']) if (g[k] !== ref.s5a[k]) failures.push(`${name}: s5a ${k} ${g[k]} ≠ ${ref.s5a[k]} (${results[0].name})`);
+}
+{
+  const g = ref.s5a;
+  const [cres, charm, toll, rung] = g.s5a.split('/').map(Number);
+  if (!(cres > 0 && charm > 0 && toll > 0 && rung > 0)) failures.push(`the S5a battle: a shape never struck (cres/charm/toll/rung ${g.s5a})`);
+  if (!(g.rejoinTick > 0)) failures.push('the S5a battle: no mid-wave rejoin with the S5a shapes live');
+}
+
 // the duo Kohaku & Tsubaki (DUO_START): Refraction, Kohaku's beam, Prismfall on Auto-cast, the LR Twin Star
 log('\nScripted co-op DUO battle (2-5, DUO_START: Refraction to Constellation Lattice, Kohaku\'s beam, Prismfall on Auto-cast, the host\'s LR Twin Star):');
 for (const { name, r } of results) {

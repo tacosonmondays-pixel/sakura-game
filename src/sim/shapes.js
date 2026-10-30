@@ -102,3 +102,45 @@ export function onRoad(sim, e, pathIndex, d0, d1) {
   }
   return false;
 }
+
+/**
+ * Attack shapes S5 (docs/specs/ATTACK_SHAPES_S5.md rules 2, 3 and 6): the clean copy of her attack `spec` for a shape
+ * hit at `mul` of one hit. Damage only: no statuses, marks, pushes, splash, silence or reveal; `noShare` (Ena's
+ * threads neither share nor split it, Sim._hit); `shape` (its damage goes to t.shapeDealt, which every damage-ranked
+ * pick leaves out). It rolls no crit: her expected crit, 1 + c × (m − 1) as computeHit reads them (src/sim/combat.js), is
+ * in its damage, so the shared rng sees exactly live's draws. `share: mul` scales flat armour, the floor and a crystal
+ * shell's count with it.
+ */
+export function shapeSpec(spec, mul) {
+  const c = Math.min(1, Math.max(0, spec.critChance || 0));
+  const m = spec.critMul || 1.5;
+  const crit = c > 0 ? 1 + c * (m - 1) : 1;
+  return {
+    ...spec,
+    damage: spec.damage * mul * crit,
+    share: mul,
+    critChance: 0,
+    critMul: 1,
+    status: [],
+    procStatus: null,
+    mark: null,
+    silence: 0,
+    reveal: 0,
+    knockback: 0,
+    gather: 0,
+    splash: 0,
+    hpPct: 0,
+    barricade: null,
+    noShare: true,
+    shape: true,
+  };
+}
+
+/**
+ * The damage a girl's picks rank her by (attack shapes S5 rule 6): her damage without her S5 shape damage, so a partner
+ * never loses a brew, link, rally or drink to an S5 girl (src/sim/buffs.js recentDps, src/sim/abilities.js
+ * topDamageGirl, src/sim/drinks.js). Shown totals (results, the honest readout) keep all of it.
+ */
+export function allocDealt(t) {
+  return t.damageDealt - (t.shapeDealt || 0);
+}

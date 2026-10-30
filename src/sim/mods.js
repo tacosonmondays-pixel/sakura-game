@@ -167,13 +167,26 @@ function normRet() {
 function normTether() {
   return { links: 2, reach: 1.5, dur: 3, share: 0.2, pull: 0 };
 }
-const SHAPE_NORM = { wheel: normWheel, spin: normSpin, halo: normHalo, stream: normStream, sweep: normSweep, spike: normSpike, quake: normQuake, ret: normRet, tether: normTether };
-const SHAPE_ADDS = { wheel: ['spokes'], spin: ['arms'], halo: ['pieces', 'reach'], stream: [], sweep: [], spike: [], quake: [], ret: [], tether: [] };
+// attack shapes S5a (docs/specs/ATTACK_SHAPES_S5.md, src/sim/s5shapes.js): Charm Wheel (charms.n spokes on top of her
+// throw, turned charms.turn table steps a throw, × mul), Crescent Return (out = tiles past her range, cuts a leg, × mul),
+// Bell Toll (every = steps between a bell's tolls, r = a ring's reach in tiles, × mul of her trap hit)
+function normCharms() {
+  return { n: 0, turn: 0, mul: 0 };
+}
+function normCres() {
+  return { out: 0, cuts: 1, mul: 0 };
+}
+function normToll() {
+  return { every: 90, r: 1, mul: 0 };
+}
+const SHAPE_NORM = { wheel: normWheel, spin: normSpin, halo: normHalo, stream: normStream, sweep: normSweep, spike: normSpike, quake: normQuake, ret: normRet, tether: normTether, charms: normCharms, cres: normCres, toll: normToll };
+const SHAPE_ADDS = { wheel: ['spokes'], spin: ['arms'], halo: ['pieces', 'reach'], stream: [], sweep: [], spike: [], quake: [], ret: [], tether: [], charms: [], cres: [], toll: [] };
 const SHAPE_SETS = {
   wheel: ['lead', 'mul'], spin: ['mul', 'fold', 'turn', 'lock'], halo: ['mul'],
   stream: ['kind', 'half', 'turn', 'mul', 'cap'], sweep: ['arc', 'swing', 'turn', 'mul', 'cap'],
   spike: ['count', 'gap', 'r', 'delay', 'mul'], quake: ['rings', 'gap', 'speed', 'mul', 'later', 'status'],
   ret: ['per', 'mul', 'cut', 'pierce', 'reach'], tether: ['links', 'reach', 'dur', 'share', 'pull'],
+  charms: ['n', 'turn', 'mul'], cres: ['out', 'cuts', 'mul'], toll: ['every', 'r', 'mul'],
 };
 
 /**

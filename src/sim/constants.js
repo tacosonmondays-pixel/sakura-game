@@ -503,3 +503,21 @@ export const DOUBLES_PER_SIM = 36;
 export const BELL_TRAPS_PER_SIM = 96;
 /** Surge drones flying at once (every Chika, both players). */
 export const SURGE_DRONES_PER_SIM = 48;
+// ---------------------------------------------------------------------------
+// Attack shapes S5 (docs/specs/ATTACK_SHAPES_S5.md; src/sim/s5shapes.js). Every girl keeps her live attack and the shape
+// goes on top; shape objects have their own caps and never take room from a live object (rule 5).
+// ---------------------------------------------------------------------------
+/** Charm Wheel (Miko): straight charms a girl may have in the air at once (her oldest charm goes first). */
+export const CHARMS_PER_GIRL = 48;
+/** Charm Wheel: a charm's speed, tiles a second. */
+export const CHARM_SPEED = 10;
+/** Crescent Return (Rei): crescents a girl may have in the air at once (her oldest crescent goes first). */
+export const CRESCENTS_PER_GIRL = 8;
+/** Crescent Return: a crescent's speed (tiles a second) and its half-width (tiles, the swept hit's reach). */
+export const CRESCENT_SPEED = 9;
+export const CRESCENT_HALF_WIDTH = 0.45;
+/** Bell Toll (Suzu): toll rings a girl / the sim may have rolling at once (a full cap defers a toll; nothing is evicted). */
+export const TOLLS_PER_GIRL = 32;
+export const TOLLS_PER_SIM = 128;
+/** Bell Toll: a toll ring's growth, tiles a second. */
+export const TOLL_SPEED = 6;

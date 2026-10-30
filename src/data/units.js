@@ -364,8 +364,8 @@ const REI = {
       tier('Long Reach', 100, '+0.2 range; each sweep hits 1 more enemy.', { range: 0.2, maxTargets: 1 }),
       tier('Spinning Draw', 260, '+20% attack speed; +1 target.', { rateMul: 1.2, maxTargets: 1 }),
       tier('Crescent Gale', 800, 'Sweeps hit up to 9 enemies; +2 damage, +0.3 range.', { maxTargets: 4, damage: 2, range: 0.3 }),
-      tier('Tempest Dance', 2500, '+50% attack speed, +4 damage, 4 more targets, +25% vs elites; +30% damage.', { rateMul: 1.5, damage: 4, maxTargets: 4, eliteMul: 1.25, damageMul: 1.3 }),
-      tier('Thousand Petal Storm', 22500, 'A blade hurricane: hits everything in reach (20 more targets), +14 damage, +60% speed, +0.6 range, 10% crits ×2, ×2.5 vs bosses; +25% damage.', { maxTargets: 20, damage: 14, rateMul: 1.6, range: 0.6, crit: { chance: 0.1, mul: 2 }, bossMul: 2.5, damageMul: 1.25 }),
+      tier('Tempest Dance', 2500, '+50% attack speed, +4 damage, 4 more targets, +25% vs elites; +30% damage. Crescent Return: every sweep also sends a crescent of air out past her reach and back, cutting up to 6 walkers each way that her sweep did not reach (×0.3).', { rateMul: 1.5, damage: 4, maxTargets: 4, eliteMul: 1.25, damageMul: 1.3, cres: { out: 2, cuts: 6, mul: 0.3 } }),
+      tier('Thousand Petal Storm', 22500, 'A blade hurricane: hits everything in reach (20 more targets), +14 damage, +60% speed, +0.6 range, 10% crits ×2, ×2.5 vs bosses; +25% damage. Her crescent flies further and cuts up to 10 each way (×0.35).', { maxTargets: 20, damage: 14, rateMul: 1.6, range: 0.6, crit: { chance: 0.1, mul: 2 }, bossMul: 2.5, damageMul: 1.25, cres: { out: 2.5, cuts: 10, mul: 0.35 } }),
     ]),
     path('duelist', 'Duelist Stance', 'Single-target focus', [
       tier('Sharpened Edge', 110, '+2 damage.', { damage: 2 }),
@@ -960,8 +960,8 @@ const SUZU = {
       tier('Bigger Charges', 120, 'Traps +6 damage.', { trap: { damage: 6 } }),
       tier('Stockpile', 300, 'Up to 6 traps at once.', { trap: { max: 2 } }),
       tier('Blast Mines', 1000, 'Traps +20 damage with bigger blasts; ×1.5 vs barriers.', { trap: { damage: 20, splash: 0.4 }, barrierMul: 1.5 }),
-      tier('Chain Mines', 3000, 'Up to 10 traps, +42 damage, sets traps 40% faster.', { trap: { max: 4, damage: 42 }, rateMul: 1.4 }),
-      tier('Grand Bell Detonation', 22000, 'Traps +220 damage, huge blasts (+1 splash), 4 more traps, +30% set speed, ×1.8 vs bosses.', { trap: { damage: 220, splash: 1, max: 4 }, rateMul: 1.3, bossMul: 1.8 }),
+      tier('Chain Mines', 3000, 'Up to 10 traps, +42 damage, sets traps 40% faster. Bell Toll: each bell tolls as it arms and every 1.5s after, sending a shock ring across the road (×0.18 of a trap\'s hit).', { trap: { max: 4, damage: 42 }, rateMul: 1.4, toll: { every: 90, r: 1, mul: 0.18 } }),
+      tier('Grand Bell Detonation', 22000, 'Traps +220 damage, huge blasts (+1 splash), 4 more traps, +30% set speed, ×1.8 vs bosses. The bells toll every 1.2s, their rings reaching 1.4 tiles (×0.2).', { trap: { damage: 220, splash: 1, max: 4 }, rateMul: 1.3, bossMul: 1.8, toll: { every: 72, r: 1.4, mul: 0.2 } }),
     ]),
     path('binding', 'Binding Traps', 'Slow and root', [
       tier('Sticky Seal', 110, 'Traps slow by 30% for 2s.', { trap: { status: [S.slow(0.3, 2)] } }),
@@ -1099,8 +1099,8 @@ const MIKO = {
       tier('Ofuda', 120, '+2 damage.', { damage: 2 }),
       tier('Purifying Talisman', 300, '+25% attack speed.', { rateMul: 1.25 }),
       tier('Exorcism Rite', 950, 'Talismans silence for 0.8s and reveal veiled foes for 2s.', { silence: 0.8, reveal: 2 }),
-      tier('Divine Wind', 3000, 'Three talismans per throw, +6 damage, +2 pierce, ignores 2 armor; +25% damage.', { projectiles: 2, damage: 6, pierce: 2, armorPen: 2, damageMul: 1.25 }),
-      tier('Amaterasu\'s Mirror', 20000, 'A mirror of sunlight: a piercing holy beam (pierces 6), +20 damage, +1.5 range, silence +1s, ×1.5 vs bosses; +35% damage.', { behavior: 'beam', damage: 20, pierce: 6, silence: 1, range: 1.5, bossMul: 1.5, damageMul: 1.35 }),
+      tier('Divine Wind', 3000, 'Three talismans per throw, +6 damage, +2 pierce, ignores 2 armor; +25% damage. Charm Wheel: a wheel of 9 paper charms spins out with every throw, each cutting the first enemy it meets that her talismans were not thrown at (×0.25).', { projectiles: 2, damage: 6, pierce: 2, armorPen: 2, damageMul: 1.25, charms: { n: 9, turn: 10, mul: 0.25 } }),
+      tier('Amaterasu\'s Mirror', 20000, 'A mirror of sunlight: a piercing holy beam (pierces 6), +20 damage, +1.5 range, silence +1s, ×1.5 vs bosses; +35% damage. The charm wheel grows to 12 and goes out with every flash (×0.3).', { behavior: 'beam', damage: 20, pierce: 6, silence: 1, range: 1.5, bossMul: 1.5, damageMul: 1.35, charms: { n: 12, mul: 0.3 } }),
     ]),
     path('grounds', 'Sacred Grounds', 'Utility aura', [
       tier('Incense', 100, 'Aura: +5% range.', { aura: { rangeMul: 1.05 } }),

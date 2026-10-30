@@ -58,6 +58,7 @@ import { endWheelWave, shapeDps } from './wheels.js';
 import { endHeldWave, heldDps } from './held.js';
 import { endGroundWave } from './ground.js';
 import { tetherStep, shareTether, ownShare, endLinkWave, linkDps } from './links.js';
+import { endS5Wave } from './s5shapes.js';
 import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
@@ -594,7 +595,8 @@ export class Sim {
     // hit on her tied enemy keeps its part, the rest goes down the threads after it lands
     let tie = null;
     const base = scale;
-    if (this._tetherOn !== 0 && e.tie && !this._sharing) {
+    // (attack shapes S5: a shape hit, spec.noShare, is neither split nor shared, src/sim/shapes.js shapeSpec)
+    if (this._tetherOn !== 0 && e.tie && !this._sharing && !spec.noShare) {
       tie = e.tie;
       scale *= ownShare(this, tie, e, tower, spec);
     }
@@ -620,6 +622,8 @@ export class Sim {
     if (flags & BARRIER_BROKE) this._emit('barrierBreak', { uid: e.uid });
     if (flags & SHELL_BROKE) this._emit('shellBreak', { uid: e.uid });
     this._credit(tower, dealt, e, drone);
+    // attack shapes S5 (rule 6): her shape damage, which every damage-ranked pick leaves out (src/sim/buffs.js allocDealt)
+    if (spec.shape && tower && dealt > 0) tower.shapeDealt = (tower.shapeDealt || 0) + dealt;
     this.stats.damageByType[spec.attackType] = (this.stats.damageByType[spec.attackType] || 0) + dealt;
     if (e.hp <= 0) {
       this._killEnemy(e, tower, drone);
@@ -990,6 +994,8 @@ export class Sim {
     endGroundWave(this);
     // the link shapes' tether groups end (src/sim/links.js; returning fans end with the straight shots)
     endLinkWave(this);
+    // S5a: toll rings and the wheel turn end; surviving bells ring on the next wave's first armed step (src/sim/s5shapes.js)
+    endS5Wave(this);
     // Wakaba's drinks end; Recovery Plan may give a life back (src/sim/drinks.js)
     endDrinkWave(this);
     // Yuzuha's sentries end; her nets stay (src/sim/sentries.js)

@@ -252,6 +252,9 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   vineCd: 'calm', vines: 'calm', beds: 'calm', bloomT: 'calm', bloomIdle: 'calm', vineSpec: 'derived', bedSpec: 'derived',
   // the attack shapes S3 (src/sim/ground.js): Yuki's spike rows and Kanna's quake rings end at the wave clear
   spikeRows: 'calm', quakes: 'calm',
+  // attack shapes S5a (src/sim/s5shapes.js): her shape damage (a running total, as damageDealt), what her counted attack
+  // struck (per-attack scratch), the Charm Wheel's turn and her toll rings (both end at the wave clear)
+  shapeDealt: 'snap', _struck: 'scratch', _lead: 'scratch', wheelK: 'calm', tolls: 'calm',
   // Marumi: her balls end at the wave clear; the ball, blast, pin and lob specs follow her stats
   balls: 'calm', ballSpec: 'derived', blastSpec: 'derived', pinSpec: 'derived', lobSpec: 'derived',
   // Tenka: her lab team's record travels (`lb`; the girls who joined are not on the field, and the tier
@@ -347,6 +350,8 @@ function packTower(sim, t) {
     uid: t.uid, u: t.unitId, x: t.x, y: t.y, tiers: [...t.tiers], tm: t.targetMode, spent: t.spent,
     kills: t.kills, dmg: t.damageDealt, cd: t.cooldown, dis: t.disabled, face: t.facing, bt: t.buildTimer,
   };
+  // (attack shapes S5: her shape damage, only when she has some, so other girls' rows are unchanged)
+  if (t.shapeDealt) o.sd = t.shapeDealt;
   if (t.isHero) Object.assign(o, { xp: t.xp, lvl: t.level, ultOn: t.ultUnlocked, ult: t.ultCooldown, ls: t.levelSpent || 0, lb: t.levelsBought || 0, mc: t.moveCd || 0, ml: t.moveLock || 0 });
   if (t.turrets.length) {
     o.dr = t.turrets.map((d) => (d.n != null
@@ -608,6 +613,7 @@ export function restoreSim(rec, profile = null) {
     t.spent = r(o.spent);
     t.kills = r(o.kills);
     t.damageDealt = r(o.dmg);
+    if (o.sd) t.shapeDealt = r(o.sd);
     t.cooldown = r(o.cd);
     t.disabled = r(o.dis);
     t.facing = r(o.face);

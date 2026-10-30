@@ -99,11 +99,17 @@ function projectileGeometries() {
     .finish();
   g.bolt = b().add(new THREE.OctahedronGeometry(0.08, 0), { sz: 2.8, color: '#ffffff' }).finish();
   g.spark = b().add(new THREE.OctahedronGeometry(0.07, 0), { color: '#ffffff' }).finish();
+  // attack shapes S5a (plain look): Miko's paper charm (a white slip with a red band) and Rei's crescent of air
+  g.charm = b()
+    .box(0.07, 0.012, 0.14, { color: '#fffaf0' })
+    .box(0.072, 0.014, 0.025, { z: 0.035, color: '#d0384a' })
+    .finish();
+  g.crescent = b().torus(0.17, 0.03, 4, 12, { rx: Math.PI / 2, color: '#ffd6e6' }).finish();
   return g;
 }
 
 const GLOW_KINDS = { orb: 0.42, fireball: 0.6, bolt: 0.45, spark: 0.5, bullet: 0.22, needle: 0.2 };
-const SPIN_KINDS = { shuriken: 18, flask: 9, shell: 4 };
+const SPIN_KINDS = { shuriken: 18, flask: 9, shell: 4, charm: 7, crescent: 12 };
 const TINT_KINDS = { orb: true, bolt: true, spark: true, bullet: true, needle: true, fireball: true };
 
 // ---------------------------------------------------------------------------

@@ -1714,6 +1714,25 @@ describe('battle save guards (new Sim state must be classified in snapshot.js)',
     expect(ir.castAbility(iro.uid, { aim: [iro.ox, iro.oy] }).ok).toBe(true);
     expect(iro.mirror2).toBeTruthy();
     for (const t of ir.towers) for (const k of Object.keys(t)) keys.add(k);
+    // (and the attack shapes S5a mid-wave: Miko's Charm Wheel turn on 2-5, Suzu's toll rings and shape damage on 3-5, and the
+    // attack scratch of both shape girls)
+    const s5Keys = new Set();
+    for (const st of ['2-5', '3-5']) {
+      const s5 = makeSim({ stageId: st, difficulty: 'normal', towers: ['miko', 'rei', 'suzu'], hero: null, stats: {}, seed: 16 });
+      s5.cash = 1e6;
+      for (const a of autoPlan(st, ['miko', 'rei', 'suzu'], { maxCopies: 1 })) if (a.action === 'place') s5.placeTower(a.unitId, a.x, a.y);
+      const s5Path = { miko: 1, rei: 0, suzu: 0 };
+      for (const t of s5.towers) for (let k = 0; k < 5; k++) expect(s5.upgradeTower(t.uid, s5Path[t.unitId])).toBe(true);
+      for (let w = 0; w < 2; w++) {
+        if (s5.state !== 'wave') s5.startNextWave();
+        for (let i = 0; i < 60 * 40 && s5.state === 'wave'; i++) {
+          s5.update(STEP);
+          for (const t of s5.towers) for (const k of Object.keys(t)) s5Keys.add(k);
+        }
+      }
+    }
+    for (const k of ['shapeDealt', '_struck', '_lead', 'wheelK', 'tolls']) expect(s5Keys.has(k), k).toBe(true);
+    for (const k of s5Keys) keys.add(k);
     expect([...keys].sort()).toEqual(Object.keys(KNOWN_TOWER_KEYS).sort());
   });
 

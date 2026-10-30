@@ -255,6 +255,10 @@ function modSetErrors(mods, where) {
     // the attack shapes S4 (src/sim/mods.js SHAPE_NORM): numbers
     ret: (k, v, w) => objErrors(v, ['per', 'mul', 'cut', 'pierce', 'reach'], w, numCheck),
     tether: (k, v, w) => objErrors(v, ['links', 'reach', 'dur', 'share', 'pull'], w, numCheck),
+    // the attack shapes S5a (src/sim/mods.js SHAPE_NORM; docs/specs/ATTACK_SHAPES_S5.md): numbers
+    charms: (k, v, w) => objErrors(v, ['n', 'turn', 'mul'], w, numCheck),
+    cres: (k, v, w) => objErrors(v, ['out', 'cuts', 'mul'], w, numCheck),
+    toll: (k, v, w) => objErrors(v, ['every', 'r', 'mul'], w, numCheck),
     duo: (k, v, w) => objErrors(v, DUO_NUMS, w, numCheck),
     // the staff heroes (BANNERS §D): Kogane's Move recharge, Norika's barricades
     moveCd: (k, v, w) => (isPos(v) ? [] : [`${w} must be > 0`]),

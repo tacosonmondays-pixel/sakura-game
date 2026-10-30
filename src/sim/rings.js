@@ -39,7 +39,8 @@ export function straightRoom(sim, t, n) {
   const list = sim.projectiles;
   for (let i = 0; i < list.length; i++) {
     const p = list[i];
-    if (!p.straight || p.dead) continue;
+    // attack shapes S5 (rule 5): live caps never count a shape shot (src/sim/s5shapes.js shapeRoom)
+    if (!p.straight || p.dead || p.shape) continue;
     all++;
     if ((p.owner.owner ?? 0) === owner) player++;
     if (p.owner === t) mine++;
@@ -49,13 +50,49 @@ export function straightRoom(sim, t, n) {
   for (let pass = 0; pass < 3 && over > 0; pass++) {
     for (let i = 0; i < list.length && over > 0; i++) {
       const p = list[i];
-      if (!p.straight || p.dead) continue;
+      if (!p.straight || p.dead || p.shape) continue;
       if (pass === 0 && p.owner !== t) continue;
       if (pass === 1 && (p.owner.owner ?? 0) !== owner) continue;
       p.dead = true;
       over--;
     }
   }
+}
+
+/**
+ * Room for `n` more shape shots of girl `t` (attack shapes S5, rule 5): live and shape straight shots count against the
+ * per-player and per-sim caps, hers against `perGirl`, but only shape shots are evicted (hers, then her player's, then
+ * anyone's, oldest first). A live shot is never evicted. @returns {number} how many of the `n` fit (the caller skips the rest)
+ */
+export function shapeRoom(sim, t, n, perGirl) {
+  const owner = t.owner ?? 0;
+  let mine = 0;
+  let player = 0;
+  let all = 0;
+  const list = sim.projectiles;
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    if (!p.straight || p.dead) continue;
+    all++;
+    if ((p.owner.owner ?? 0) === owner) player++;
+    if (p.shape && p.owner === t) mine++;
+  }
+  // her own cap is met by her own shape shots only; the shared caps by hers, then her player's, then anyone's
+  let overMine = Math.max(mine + n - perGirl, 0);
+  let over = Math.max(player + n - STRAIGHT_PER_PLAYER, all + n - STRAIGHT_PER_SIM, 0);
+  for (let pass = 0; pass < 3 && (over > 0 || (pass === 0 && overMine > 0)); pass++) {
+    for (let i = 0; i < list.length; i++) {
+      if (!(over > 0 || (pass === 0 && overMine > 0))) break;
+      const p = list[i];
+      if (!p.straight || p.dead || !p.shape) continue;
+      if (pass === 0 && p.owner !== t) continue;
+      if (pass === 1 && (p.owner.owner ?? 0) !== owner) continue;
+      p.dead = true;
+      if (over > 0) over--;
+      if (pass === 0 && overMine > 0) overMine--;
+    }
+  }
+  return Math.max(0, n - Math.max(over, overMine));
 }
 
 /**

@@ -12,6 +12,7 @@
 import { BREW_EVERY, BREW_TIME, BREW_DROP, DPS_WINDOW, LINK_SCAN } from './constants.js';
 import { shapeDps } from './wheels.js';
 import { heldDps } from './held.js';
+import { allocDealt } from './shapes.js';
 
 /** Aura winner uid per buff key (-1: none); `rally`: the girl whose ability rally reaches her. */
 export function emptyBuffBy() {
@@ -52,7 +53,7 @@ function inReach(src, o, range) {
   return dx * dx + dy * dy <= range * range;
 }
 
-/** DPS a girl would deal on paper (tie break for picks before any damage has been dealt). */
+/** DPS a girl would deal on paper (tie break for picks before any damage has been dealt; never an S5 shape line). */
 export function projectedDps(t) {
   const e = t.eff;
   if (!e) return 0;
@@ -216,8 +217,9 @@ export function updateLimited(sim, dt) {
   if (sim._dpsTimer <= 0) {
     sim._dpsTimer += DPS_WINDOW;
     for (const t of towers) {
-      t.recentDps = (t.damageDealt - (t._dmgMark || 0)) / DPS_WINDOW;
-      t._dmgMark = t.damageDealt;
+      const dd = allocDealt(t);
+      t.recentDps = (dd - (t._dmgMark || 0)) / DPS_WINDOW;
+      t._dmgMark = dd;
     }
   }
   let dirty = false;

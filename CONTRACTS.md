@@ -1805,6 +1805,51 @@ render/linkShapes.js: drawLinkShapes(sim, gN, gA, R)   // the plain threads (sol
   Threads of Destiny; `tether`). Upgrade tags: `ret` self, `tether` enemies.
 - Constants (appended block): RET_HOME, TETHERS_PER_GIRL, TETHERS_PER_SIM, TETHER_SHARES_PER_STEP.
 
+### Attack shapes S5a (`docs/specs/ATTACK_SHAPES_S5.md` §2, §3.3, §3.5, §3.6; branch `feature/attack-shapes-s5`)
+
+```js
+shapes.js:    shapeSpec(spec, mul)   // the clean, unshared, no-roll copy of a spec for a shape hit (rules 2, 3)
+              allocDealt(t)          // damageDealt − shapeDealt: what every damage-ranked pick reads (rule 6)
+rings.js:     shapeRoom(sim, t, n, perGirl)   // room for n shape shots: counts live + shape, evicts shape shots only (rule 5)
+s5shapes.js:  s5AfterAttack(sim, t)   // after a counted attack (updateTower): Charm Wheel / Crescent Return from t._struck / t._lead
+              charmDirs(wheelK, n, k0, out), crescentCut(sim, p, e) / crescentFlip(p)   // projectileStep's crescent hooks
+              tollBell(sim, tr, toll) (updateTraps, an armed bell, before its trigger, waves only), tollTick(sim, t), endS5Wave(sim)
+render:       actors.js projectile kinds 'charm', 'crescent'; groundShapes.js drawTolls (gold rings from t.tolls)
+```
+- The S5 rules: every girl keeps her live attack and the shape goes on top (1); a shape hit is `shapeSpec(spec, mul)`: damage × mul ×
+  her expected crit `1 + c × (m − 1)` (c clamped to [0, 1], m = critMul || 1.5), `share: mul`, critChance 0, no statuses, marks,
+  pushes, splash, silence, reveal, hpPct or barricade, `noShare` and `shape` (2, 3); it rolls past what her attack struck or
+  aimed at (4); shape objects never take room from live ones (5); shape damage never moves a pick (6).
+- `Sim._hit`: the tether condition gains `&& !spec.noShare` (a shape hit is neither split nor shared); a hit with `spec.shape` adds
+  its dealt damage to `t.shapeDealt` (a running total like damageDealt, saved as `sd` only when non-zero). `recentDps`
+  (buffs.js), `topDamageGirl` (abilities.js) and the drink target (drinks.js) read `allocDealt(t)`; `projectedDps` never takes an
+  S5 line. damageDealt keeps all of it (results, the honest readout, stats).
+- `straightRoom` skips `p.shape` when it counts and when it evicts (a no-op with no shape shot on the field). Shape shots carry
+  `shape`, `split: true` (mirrors never reflect them), `skip` (a copy of t._struck: uids it rolls past, read in projectileStep's
+  contact scan) and optionally `half` (extra swept reach, tiles).
+- `t._struck` (uid array) and `t._lead` (her first struck / aimed enemy) exist only on a girl with `charms` or `cres`: cleared at
+  the start of each counted attack (an echo adds to them), filled by attackPulse (victims), attackBeam (linePierce hits) and
+  volleyFrom (all its targets); return values unchanged. (attackChain's cur walk joins in S5b, for Raika.)
+- Charm Wheel (kit `charms { n, turn, mul }`): after a counted attack `t.wheelK` (integer, the throw's wheel) advances by
+  `charms.turn`; the wheel's n + 1 spokes at `wheelK + floor(j × 240 / (n + 1))` less the one nearest k0 (her lead's
+  direction; ties to the lower j) leave as straight charms (kind `charm`, pierce 1, travel = her range, CHARM_SPEED) in
+  shapeRoom (CHARMS_PER_GIRL), each `shapeSpec(t.eff, charms.mul)`. Event `s5 { towerUid, kind: 'charms', k, wheelK, n }`.
+- Crescent Return (kit `cres { out, cuts, mul }`): after a counted attack one straight crescent (kind `crescent`, half-width
+  CRESCENT_HALF_WIDTH, CRESCENT_SPEED) toward her lead, to her range + `cres.out`, in shapeRoom (CRESCENTS_PER_GIRL), with
+  `p.cres { leg, n, cuts }`. Its cuts go through crescentCut (never `p.pierce`); a leg's `cuts` spent: the out leg turns at once,
+  the way home ends; at maxTravel crescentFlip negates the velocity, sets maxTravel to the way flown out and clears the hit list
+  (the skip list stays); the way home ends where it was thrown. Event `s5 { towerUid, kind: 'cres', k }`.
+- Bell Toll (kit `toll { every, r, mul }`): an armed bell (`sim.traps`, Bell Carpet's too) whose girl has `toll`, while a wave
+  runs, counts `tr.tollCd` (absent reads 1) down; at 0 it sends a ring (`t.tolls [{ uid, x, y, g, r, max, hit, spec }]`, spec
+  `shapeSpec(t.trapSpec, toll.mul)`) and resets to `toll.every`; at TOLLS_PER_GIRL / TOLLS_PER_SIM (counted over `t.tolls` only,
+  never Kanna's `t.quakes`) it defers a step. tollTick (updateTower, before the sabotage check, `if (t.tolls)`) grows each ring
+  `g × TOLL_SPEED × STEP` and strikes ground walkers in `inBand(prev, r)` once. A ring never triggers a trap; tolls are not
+  explosions (Potential `of: 'trap'` counts are unchanged). Event `toll { towerUid, uid, x, y, r }`.
+- endS5Wave (the wave clear): `t.tolls` emptied, `t.wheelK` 0, every surviving bell's `tollCd` 1 (shape shots end with the
+  straight shots in endRingWave). hashSim folds `t.wheelK`, `t.tolls`, the shape shots in flight and the toll owners' bells'
+  `tollCd ?? 1`, each only while present. Battle saves: `shapeDealt` snap, `_struck` / `_lead` scratch, `wheelK` / `tolls` calm;
+  traps keep their row (tollCd is 1 at every calm point).
+
 ### Roster B3 mechanics (track 5; `docs/merge/ROSTER_SPEC.md` §6, `docs/merge/ROSTER_WAVE_NOTES.md`)
 
 ```js

@@ -35,6 +35,8 @@ export function drawGroundShapes(sim, gN, gA, R) {
     if (tw.vines?.length && tw.stats?.vine) n += drawVines(sim, tw, gN, R);
     if (tw.spikeRows?.length && tw.stats?.spike) n += drawSpikes(tw, gN, gA, R);
     if (tw.quakes?.length) n += drawQuakes(tw, gN, R);
+    // attack shapes S5a: Bell Toll rings (src/sim/s5shapes.js), gold, the same plain ring
+    if (tw.tolls?.length) n += drawTolls(tw, gN, R);
   }
   return n;
 }
@@ -82,6 +84,17 @@ function drawSpikes(tw, gN, gA, R) {
       gA.push(x, 0.072, y, SPIKE_CORE * f, SPIKE_CORE * f, R.disc, 1, 1, 1, 0.6 * f, 0);
       n += 3;
     }
+  }
+  return n;
+}
+
+function drawTolls(tw, gN, R) {
+  let n = 0;
+  for (const q of tw.tolls) {
+    if (!(q.r > 0)) continue;
+    const a = q.max > 0 ? 0.8 * (1 - q.r / q.max) + 0.15 : 0.5;
+    gN.push(q.x, 0.065, q.y, 2 * q.r, 2 * q.r, R.ringThick, 0.95, 0.78, 0.36, a, 0);
+    n++;
   }
   return n;
 }

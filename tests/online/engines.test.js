@@ -2,7 +2,7 @@
 // keep it healthy here (it must finish, nobody's scripted order may be refused, both clients
 // must agree), so the cross-engine check keeps comparing a real, whole battle.
 import { describe, it, expect } from 'vitest';
-import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, runShapesBattle, runHeldBattle, runGroundBattle, runLinksBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
+import { runScriptedBattle, runFreeplayBattle, runHeroBattle, runDronesBattle, runAbilitiesBattle, runReturningAbilBattle, RETURNING_ABIL_IDS, runRosterBattle, runTenkaBattle, tenkaCoverage, runPotentialBattle, runPotentialBossBattle, runGearGirlsBattle, runGlowBowlBattle, runShapesBattle, runHeldBattle, runGroundBattle, runLinksBattle, runS5aBattle, runDuoBattle, runTenkaLrBattle, runStaffBattle, freeplayTables, mathProbe, bitsHash } from '../../e2e/engines/scriptedBattle.js';
 import { launchAttempts } from '../../e2e/browser.mjs';
 
 // T3 review coop-3: e2e/engines.mjs only ever tried Playwright's own browsers, so on a machine without
@@ -389,6 +389,26 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // the guest's at tier 4: one girl per path at the final tier). Change only with a deliberate sim / data change, and say why.
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, links: r.links, rejoinTick: r.rejoinTick })
       .toEqual({ ticks: 24568, state: 'won', wave: 22, wallets: '714/714', final: 2324168228, hashes: 'd26468f3', links: '2203/1347/87/1922', rejoinTick: 7076 });
+  }, 240000);
+
+  it('runs the attack shapes S5a (S5A_START: Charm Wheel, Crescent Return, Bell Toll) in sync, and a mid-wave rejoin lands on the run', () => {
+    const r = runS5aBattle();
+    expect(r.refused).toBe('');
+    expect(r.agree).toBe(true);
+    expect(r.checkpoints).toBeGreaterThanOrEqual(15);
+    const [cres, charm, toll, rung] = r.s5a.split('/').map(Number);
+    expect(cres).toBeGreaterThan(300);
+    expect(charm).toBeGreaterThan(50);
+    expect(toll).toBeGreaterThan(20);
+    expect(rung).toBeGreaterThan(500);
+    expect(r.tiers).toBe('500 400 050 400 500 040');
+    expect(r.rejoinTick).toBeGreaterThan(0);
+    expect(r.rejoinSame).toBe(true);
+    expect(runS5aBattle().final).toBe(r.final);
+    // pinned when the battle was added (feature/attack-shapes-s5, S5a; the host's girls at tier 5, the guest's at tier 4:
+    // one girl per path at the final tier). Change only with a deliberate sim / data change, and say why.
+    expect({ ticks: r.ticks, state: r.state, wave: r.wave, wallets: r.wallets, final: r.final, hashes: r.hashes, s5a: r.s5a, rejoinTick: r.rejoinTick })
+      .toEqual({ ticks: 32047, state: 'won', wave: 22, wallets: '772/2866', final: 1666898807, hashes: '33616d25', s5a: '663/172/69/3287', rejoinTick: 7560 });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

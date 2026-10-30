@@ -3,7 +3,7 @@ import { Sim } from '../../src/sim/Sim.js';
 import { STAGE, UNITS, ENEMIES } from './fixtures.js';
 import { defaultData } from '../../src/sim/data.js';
 import { gainHeroXp, xpToReach } from '../../src/sim/hero.js';
-import { TETHER_SHARES_PER_STEP } from '../../src/sim/constants.js';
+import { TETHER_SHARES_PER_STEP, STRAIGHT_PER_SIM, CHARMS_PER_GIRL, CRESCENTS_PER_GIRL, TOLLS_PER_SIM } from '../../src/sim/constants.js';
 
 // 22 × 13 serpentine map: the path snakes across rows 1, 5, 9 and exits at the bottom.
 const PERF_MAP = {
@@ -325,6 +325,78 @@ describe('performance budget: link attack shapes', () => {
     expect(most.tethers).toBeGreaterThanOrEqual(6);
     expect(shares).toBeGreaterThan(0);
     expect(most.shares).toBeLessThanOrEqual(TETHER_SHARES_PER_STEP);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+});
+
+// attack shapes S5a (src/sim/s5shapes.js; docs/specs/ATTACK_SHAPES_S5.md §5): 6 Charm Wheels, 6 Crescent Returns and 6
+// Bell Tolls at tier 5 with 200 walkers; the straight-shot ceiling with straightRoom's guard is the live caps plus the
+// per-girl shape caps (400 + 6 × 48 + 6 × 8 = 736), toll rings within their own caps.
+describe('performance budget: S5a attack shapes', () => {
+  test('6 Charm Wheels + 6 Crescent Returns + 6 Bell Tolls + 200 enemies: a step stays under the same limits', () => {
+    const real = defaultData().units;
+    const S5A = [['miko', 'purify'], ['rei', 'whirlwind'], ['suzu', 'mines']];
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: S5A.map(([unitId]) => ({ unitId })),
+      hero: null,
+      seed: 13,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units: real, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    const spots = [];
+    for (const ty of [2, 4, 6, 8, 10]) for (let tx = 1; tx < 21; tx += 2) spots.push([tx, ty]);
+    const girls = [...Array(18)].map((_, k) => S5A[k % 3]);
+    let placed = 0;
+    for (let i = 0; i < spots.length && placed < girls.length; i++) {
+      const [id, pathId] = girls[placed];
+      const t = sim.placeTower(id, spots[i][0], spots[i][1]);
+      if (!t) continue;
+      placed++;
+      const p = real[id].paths.findIndex((q) => q.id === pathId);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, p, { restoring: true });
+    }
+    expect(placed).toBe(18);
+    expect(sim.towers.filter((t) => t.stats.charms)).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.cres)).toHaveLength(6);
+    expect(sim.towers.filter((t) => t.stats.toll)).toHaveLength(6);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const kinds = ['blob', 'blob', 'blob', 'armoredBlob', 'fieldOni', 'guardOrc', 'leech', 'flyer'];
+    const len = sim.pathData[0].length;
+    for (let j = 0; j < 200; j++) sim.spawnEnemy(kinds[j % kinds.length], { dist: (j / 200) * (len - 8) });
+    for (let j = 0; j < 120; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    const most = { straight: 0, shape: 0, tolls: 0 };
+    const t0 = performance.now();
+    for (let j = 0; j < steps; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+      if (j % 10 === 0) {
+        let st = 0;
+        let sh = 0;
+        for (const p of sim.projectiles) {
+          if (!p.straight || p.dead) continue;
+          st++;
+          if (p.shape) sh++;
+        }
+        most.straight = Math.max(most.straight, st);
+        most.shape = Math.max(most.shape, sh);
+        most.tolls = Math.max(most.tolls, sim.towers.reduce((a, t) => a + (t.tolls?.length ?? 0), 0));
+      }
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] S5a shapes: ${sim.enemies.length} enemies, ${sim.towers.length} girls, at most ${most.straight} straight shots (${most.shape} shape), ${most.tolls} toll rings: ${perStep.toFixed(3)} ms/step`);
+    expect(sim.enemies.length).toBeGreaterThan(150);
+    expect(most.shape).toBeGreaterThan(0);
+    expect(most.tolls).toBeGreaterThan(0);
+    expect(most.straight).toBeLessThanOrEqual(STRAIGHT_PER_SIM + 6 * CHARMS_PER_GIRL + 6 * CRESCENTS_PER_GIRL);
+    expect(most.tolls).toBeLessThanOrEqual(TOLLS_PER_SIM);
     expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
   });
 });
