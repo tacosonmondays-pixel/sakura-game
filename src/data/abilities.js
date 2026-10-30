@@ -502,7 +502,7 @@ export const ABILITIES = deepFreeze({
     // pair of her mirrors and hit what crosses them every 0.2 s; her mirrors reflect allies' shots while it runs
     // (tier 5, Infinite Reflection: for good, src/sim/mirrors.js)
     path: 'hall', unlockTier: 3, id: 'iroha.mirrorShift', kind: 'deploy', scope: 'local', cooldown: 30, duration: 6,
-    effect: { deploy: 'mirror', web: true, dmgMul: 1.2, reflect: true },
+    effect: { deploy: 'mirror', web: true, dmgMul: 0.9, reflect: true },
     auto: { when: 'enemies', min: 5 },
     t5: { cooldown: 25, duration: 9, effect: { dmgMul: 2, permanentReflect: true } },
   }],

@@ -296,7 +296,7 @@ const SPEC_TOWERS = {
   iroha: {
     // (Laser Web, the mirror network's ⚡: docs/specs/IROHA_MIRRORS.md §5; the id is Mirror Shift's)
     path: 'hall', id: 'iroha.mirrorShift', kind: 'deploy', scope: 'local', cooldown: 30, duration: 6,
-    effect: { deploy: 'mirror', web: true, dmgMul: 1.2, reflect: true },
+    effect: { deploy: 'mirror', web: true, dmgMul: 0.9, reflect: true },
     auto: { when: 'enemies', min: 5 },
     t5: { cooldown: 25, duration: 9, effect: { dmgMul: 2, permanentReflect: true } },
   },

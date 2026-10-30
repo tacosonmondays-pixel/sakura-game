@@ -14,10 +14,11 @@ import { ABILITIES, abilityRuns } from '../../src/data/abilities.js';
 import { abilityPathOf, handlerOf } from '../../src/sim/abilities.js';
 import { spawnProjectile } from '../../src/sim/towers.js';
 import {
-  mirrorCount, mirrorsReflect, collectMirrors, autoSpots, routeBolt, MIRROR_MAX, BOUNCE_CAP, SHARD_BUDGET, WEB_TICK,
+  mirrorCount, mirrorsReflect, collectMirrors, autoSpots, routeBolt, MIRROR_MAX, BOUNCE_CAP, SHARD_BUDGET, WEB_TICK, MIN_LEG,
   WEB_HITS_PER_STEP, stepStart, updateWebs,
 } from '../../src/sim/mirrors.js';
 import { snapshotSim, restoreSim, snapshotDigest } from '../../src/sim/snapshot.js';
+import { resolveStats } from '../../src/sim/mods.js';
 import { hashSim } from '../../src/online/coop/simHash.js';
 
 const D = defaultData();
@@ -111,7 +112,7 @@ describe('her mirrors', () => {
     expect(MIRROR_MAX).toBe(5);
   });
 
-  test('Auto: evenly spread along the road in her reach, in road order, quantised; with no road, where she stands', () => {
+  test('Auto: a quarter, three quarters, then the middle of the road in her reach, quantised; with no road, where she stands', () => {
     const { sim, iroha } = lane({ tiers: [2, 0, 0] });
     expect(iroha.mirrors).toHaveLength(3);
     for (const m of iroha.mirrors) {
@@ -119,12 +120,35 @@ describe('her mirrors', () => {
       expect((m.x - 8.5) ** 2 + (m.y - 2.5) ** 2).toBeLessThanOrEqual(3.7 ** 2 + 1e-9);
       expect(m.x).toBe(q(m.x));
     }
-    expect(iroha.mirrors[0].x).toBeLessThan(iroha.mirrors[1].x);
-    expect(iroha.mirrors[1].x).toBeLessThan(iroha.mirrors[2].x);
-    expect(iroha.mirrors[1].x).toBeCloseTo(8.5, 0);
+    expect(iroha.mirrors[0].x).toBeLessThan(iroha.mirrors[2].x);
+    expect(iroha.mirrors[2].x).toBeLessThan(iroha.mirrors[1].x);
+    expect(iroha.mirrors[2].x).toBeCloseTo(8.5, 0);
     // mirror 0 is her relay origin
     expect([iroha.ox, iroha.oy]).toEqual([iroha.mirrors[0].x, iroha.mirrors[0].y]);
     expect(autoSpots([], 3, 4, 3.7, 2)).toEqual([{ x: 3, y: 4 }, { x: 3, y: 4 }]);
+  });
+
+  test('every build keeps her bounces at least her mirror count, so an upgrade that adds a mirror only lengthens each route', () => {
+    const sim = mk();
+    const u = D.units.iroha;
+    const bad = [];
+    // every path to every tier with every allowed crosspath (one path past tier 2)
+    for (let main = 0; main < 3; main++) {
+      for (let cross = 0; cross < 3; cross++) {
+        if (cross === main) continue;
+        for (let ct = 0; ct <= 2; ct++) {
+          for (let mt = 0; mt <= 5; mt++) {
+            const tiers = [0, 0, 0];
+            tiers[main] = mt;
+            tiers[cross] = ct;
+            const s = resolveStats(u, { tiers });
+            if (s.relay.bounces < s.relay.mirrors) bad.push(`${tiers.join('-')}: ${s.relay.bounces} bounces, ${s.relay.mirrors} mirrors`);
+          }
+        }
+      }
+    }
+    expect(bad).toEqual([]);
+    expect(sim).toBeTruthy();
   });
 
   test('setAim by slot: quantised, clamped to her reach, refused past her count; no slot moves the nearest; clearAim back to Auto', () => {
@@ -152,6 +176,26 @@ describe('her mirrors', () => {
     expect(sim.clearAim(iroha.uid)).toBe(true);
     expect(iroha.mirrorAim).toBeNull();
     expect(iroha.mirrors).toEqual(auto);
+  });
+
+  test('placed mirrors stay MIN_LEG apart: one placed onto another is pushed out to MIN_LEG from it', () => {
+    const { sim, iroha } = lane({ tiers: [2, 0, 0] });
+    expect(sim.setAim(iroha.uid, 8.5, 4.5, 0)).toBe(true);
+    expect(sim.setAim(iroha.uid, 8.5, 4.5, 1)).toBe(true);
+    expect(sim.setAim(iroha.uid, 8.75, 4.5, 2)).toBe(true);
+    const a = iroha.mirrorAim;
+    for (let i = 0; i < 3; i++) {
+      for (let j = i + 1; j < 3; j++) expect(Math.hypot(a[i].x - a[j].x, a[i].y - a[j].y), `${i}-${j}`).toBeGreaterThanOrEqual(MIN_LEG - 2 / 1024);
+    }
+  });
+
+  test('an upgrade that adds a mirror never moves her Auto mirrors (slot k\'s Auto spot is the same at every count)', () => {
+    const { sim, iroha } = lane();
+    const two = iroha.mirrors.map((m) => ({ ...m }));
+    expect(sim.upgradeTower(iroha.uid, PATHS.hall, { restoring: true })).toBe(true);
+    expect(sim.upgradeTower(iroha.uid, PATHS.hall, { restoring: true })).toBe(true);
+    expect(iroha.mirrors).toHaveLength(3);
+    expect(iroha.mirrors.slice(0, 2)).toEqual(two);
   });
 
   test('an upgrade that adds a mirror keeps the placed ones and puts the new one on Auto', () => {
@@ -240,16 +284,41 @@ describe('Reflected Bolt', () => {
     expect(n).toBeGreaterThanOrEqual(3);
   });
 
+  test('stacked mirrors never multiply a bolt: a leg shorter than MIN_LEG is no new leg (no re-hit, no Polish step, no splash)', () => {
+    const { sim, iroha } = lane({ tiers: [0, 3, 2] });
+    const e = at(sim, 8.5, { hpMul: 1e4 });
+    // (every mirror on the enemy's spot: what Auto gives with no road, or what spacing would refuse)
+    iroha.mirrors = [{ x: 8.5, y: 4.5 }, { x: 8.5, y: 4.5 }];
+    iroha.stats.relay.bounces = 6;
+    let n = 0;
+    let splashes = 0;
+    const real = sim._hit.bind(sim);
+    sim._hit = (en, ...a) => {
+      if (en === e) n++;
+      return real(en, ...a);
+    };
+    const p = bolt(sim, iroha, e);
+    const evs = fly(sim, p);
+    sim._hit = real;
+    splashes = of(evs, 'explode').length;
+    expect(of(evs, 'mirrorBounce').filter((v) => v.uid === p.uid)).toHaveLength(6);
+    // the leg from her (one hit and one bounce splash at the first mirror), then five zero legs that add nothing, then the
+    // final leg (one more hit at most, plus its landing splash)
+    expect(n).toBeLessThanOrEqual(4);
+    expect(splashes).toBeLessThanOrEqual(2);
+    expect(p.steps ?? 1).toBeLessThanOrEqual(1);
+  });
+
   test('Polish: the damage scale grows by bounceMul each bounce', () => {
     const { sim, iroha } = lane({ tiers: [0, 3, 0], spots: [[6, 4.5], [11, 4.5]] });
-    expect(iroha.stats.relay.bounceMul).toBeCloseTo(0.4, 9);
+    expect(iroha.stats.relay.bounceMul).toBeCloseTo(0.3, 9);
     const e = at(sim, 8.5);
     const p = bolt(sim, iroha, e);
     const seen = [];
     for (let i = 0; i < 600 && sim.projectiles.includes(p); i++) {
       steps(sim, 1);
       if (!seen.includes(p.bounce)) seen.push(p.bounce);
-      if (p.bounce > 0) expect(p.scale).toBeCloseTo(1 + 0.4 * p.bounce, 9);
+      if (p.steps > 0) expect(p.scale).toBeCloseTo(1 + 0.3 * p.steps, 9);
     }
     expect(seen).toContain(2);
   });
@@ -333,6 +402,21 @@ describe('allies\' shots', () => {
     expect(e2.hp < e2.maxHp || e.hp < e.maxHp).toBe(true);
   });
 
+  test('a copy whose original already struck the lone boss and flew on still finds the boss at the end of its route', () => {
+    const { sim, iroha, aoi } = team({ hall: 5 });
+    const boss = at(sim, 5.5, { hpMul: 1e4 });
+    steps(sim, 1);
+    const a = arrow(sim, aoi, boss);
+    // (the original struck it already: it is in the hits the copy inherits, and the original has no live target)
+    a.hits.push(boss.uid);
+    a.target = null;
+    const evs = steps(sim, 120);
+    const sp = of(evs, 'mirrorSplit').filter((v) => v.uid === a.uid);
+    expect(sp).toHaveLength(1);
+    const hit = of(evs, 'hit').filter((h) => h.uid === boss.uid);
+    expect(hit.length).toBeGreaterThan(0);
+  });
+
   test('Infinite Reflection: her mirrors reflect for good and the copy bounces twice', () => {
     const { sim, iroha, aoi } = team({ hall: 5 });
     expect(mirrorsReflect(iroha)).toBe(true);
@@ -409,7 +493,8 @@ describe('⚡ Laser Web', () => {
     steps(sim, 1);
     iroha.abil.cd = 0;
     expect(sim.castAbility(iroha.uid).ok).toBe(true);
-    iroha.abil.active = WEB_TICK * 10;
+    // (a tick step for her: her web ticks are offset by her uid)
+    iroha.abil.active = WEB_TICK * 10 - (iroha.uid % WEB_TICK);
     let n = 0;
     const real = sim._hit.bind(sim);
     sim._hit = (...a) => {
@@ -429,7 +514,8 @@ describe('⚡ Laser Web', () => {
     steps(sim, 1);
     iroha.abil.cd = 0;
     expect(sim.castAbility(iroha.uid).ok).toBe(true);
-    iroha.abil.active = WEB_TICK * 10;
+    // (a tick step for her: her web ticks are offset by her uid)
+    iroha.abil.active = WEB_TICK * 10 - (iroha.uid % WEB_TICK);
     let n = 0;
     const real = sim._hit.bind(sim);
     sim._hit = (en, ...a) => {

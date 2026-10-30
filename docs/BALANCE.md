@@ -3,18 +3,20 @@
 ## Iroha's mirror network (2026-10-30, `feature/iroha-mirrors`; docs/specs/IROHA_MIRRORS.md)
 
 The owner's ask: several mirrors she places, her attacks reflecting off them. Her kit changed shape (2–5 mirrors, bolts
-bouncing mirror to mirror and hitting on every leg), so her numbers were re-set with the round-5 bench: the best build
-close to Kage on a boss, no build of hers below today on any target (spec §10 has the full table).
+bouncing mirror to mirror and hitting on every leg), so her numbers were re-set with the round-5 bench against live
+`main` and round 5: no build of hers and no ally beside her below either, her best boss build close to Kage (spec §10
+has every build, best placement and the ally rows).
 
-| build (fully maxed, 3 seeds) | boss | late crowd |
+| build (fully maxed, 3 seeds, Auto mirrors) | boss main / r5 → branch | late crowd main / r5 → branch |
 |---|---:|---:|
-| Mirror Hall 5-0-2 | 1.09M → 2.26M | 836k → 5.79M |
-| Silver Reflection 2-5-0 | 549k → 2.17M | 270k → 1.57M |
-| Shattered Glass 2-0-5 | 509k → 1.18M | 5.88M → 6.81M |
+| Mirror Hall 5-0-2 | 255k / 1.09M → 2.12M | 772k / 836k → 5.83M |
+| Silver Reflection 2-5-0 | 129k / 549k → 2.06M | 248k / 270k → 1.49M |
+| Shattered Glass 2-0-5 | 120k / 509k → 1.35M | 5.45M / 5.88M → 6.78M |
 
-Knobs: base 3 bolts (was 2 from each of two points), pierce 1 a leg, Mirror Hall tiers 4 and 5 two more bolts each,
-Shattered Glass bounce splashes 0.8 / +0.4 / +0.4 / +0.6 and one more bounce at tier 5, and the `iroha` row
-`{ boss: 6 }` (was 3.9). Real coins on 4-5 Blossom Freeplay: an Iroha army wave 108 → 121.
+Knobs: base 3 bolts, pierce 1; every tier that adds a mirror adds a bounce (Second Pane, Moonlit Looking-Glass, Glass
+Storm); Mirror Hall tiers 4 and 5 two more bolts each; Polish 0.50 a bounce at tier 5; Kaleidoscope bounce splash 1.5
+tiles and one shard; Laser Web 0.9× (tier 5: 2×); allies' shots reflect within 0.8 tiles; the `iroha` row `{ boss: 3.6 }`
+(was 3.9). Real coins on 4-5 Blossom Freeplay: an Iroha army wave 108 → 126.
 
 ## Balance round 5 (2026-10-29, `feature/balance-r5`; ships after Nov 1, 7 PM Central with its own COOP_PROTOCOL bump)
 

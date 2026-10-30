@@ -1504,7 +1504,7 @@ export class Sim {
       return true;
     }
     if (mode === 'mirror') {
-      const k = placeMirror(t, ax, ay, slot);
+      const k = placeMirror(this, t, ax, ay, slot);
       if (k < 0) return false;
       updateRelayOrigin(this, t);
       this._emit('aim', { towerUid: uid, x: ax, y: ay, slot: k });

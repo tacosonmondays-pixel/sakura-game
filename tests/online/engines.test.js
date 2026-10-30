@@ -191,9 +191,12 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // ×1.10, Hotaru ×1.04): hashSim only (was ee689ad3). Re-pinned for Iroha's mirror network (was 58197 / '4138/3072' /
     // 2618839254 / 'ee689ad3', 153 casts, splits 1/1, Mirror Shift 26×26): her bolts bounce through her mirrors, her ⚡ is
     // the Laser Web (13 casts over 39 mirrors), allies' shots now split far more often at her mirrors (78/49), and the
-    // co-op hash carries her mirror spots; every coverage rule above still holds.
+    // co-op hash carries her mirror spots; every coverage rule above still holds. Then (r2 review, was 60305 / '4138/3032' /
+    // 4134098195 / '692091c8', 141 casts, splits 78/49): Auto mirrors stay put as her count grows, her bounces never fall
+    // below her mirrors, a reflecting mirror catches allies' shots within 0.8 tiles (139/76 splits), her copies find
+    // their enemy and the tier-3 Laser Web hits at 0.9× her hit; every coverage rule above still holds.
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, casts: r.casts, byKind: r.byKind, splits: r.splits, deploys: r.deploys })
-      .toEqual({ ticks: 60305, state: 'between', wallets: '4138/3032', final: 4134098195, hashes: '692091c8', casts: 141, byKind: 'boost 10 · burst 29 · debuff 17 · deploy 34 · econ 10 · move 4 · rally 13 · strike 24', splits: '78/49', deploys: 'chika.droneSurge 11×44 · iroha.mirrorShift 13×39 · kage.doubles 4×8 · suzu.bellCarpet 6×36' });
+      .toEqual({ ticks: 58644, state: 'between', wallets: '4038/2977', final: 618107110, hashes: '6b948af0', casts: 140, byKind: 'boost 11 · burst 29 · debuff 17 · deploy 32 · econ 9 · move 6 · rally 11 · strike 25', splits: '139/76', deploys: 'chika.droneSurge 11×44 · iroha.mirrorShift 11×33 · kage.doubles 3×6 · suzu.bellCarpet 7×42' });
   }, 240000);
 
   it('runs the returning girls\' abilities (RETURNING_ABIL_START, A3 M3: Swoop, Moon Pounce, First Aid Call with a life back, Omen Card, Puppet Hex, Storm Lance at Lv 17) in sync, its checkpoint replaying', () => {
@@ -239,9 +242,11 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // ticks, 60 → 61 curse bursts, new hashes) and a few kills land with the other player (wallets 2796/3575 →
     // 2891/3480, the same 6371 coins in all); damage, lives and the zero casts are unchanged
     // Re-pinned for Iroha's mirror network (was 3279512551 / '8c876068'): the co-op hash now carries her mirror spots
-    // (src/online/coop/simHash.js); ticks, damage, lives, coins and every other field are the same
+    // (src/online/coop/simHash.js); ticks, damage, lives, coins and every other field are the same. Again for the r2
+    // review (was 3868163333 / 'dfc9903d'): her Auto mirror spots moved (slot k's spot no longer depends on her count),
+    // and the hash carries them; the battle is the same
     expect({ ticks: r.ticks, state: r.state, wave: r.wave, towers: r.towers, damage: r.damage, lives: r.lives, wallets: r.wallets, final: r.final, hashes: r.hashes, curseBursts: r.curseBursts, runners: r.runners })
-      .toEqual({ ticks: 9821, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2828/3543', final: 3868163333, hashes: 'dfc9903d', curseBursts: 10, runners: 2 });
+      .toEqual({ ticks: 9821, state: 'wave', wave: 14, towers: 9, damage: 28283, lives: 150, wallets: '2828/3543', final: 178939267, hashes: '63490430', curseBursts: 10, runners: 2 });
   }, 240000);
 
   it('runs a co-op battle with Tenka (TENKA_START: her lab team over two absorbs, every class, the economy weapon, wells, Last Line, a sale) in sync, its checkpoint replaying', () => {
@@ -302,9 +307,10 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // pinned when the battle was added (v0.1.40 train; the same final as the merge review's ad hoc run
     // on V8 and JavaScriptCore). Change only with a deliberate sim / data change, and say why. Re-pinned for Iroha's
     // mirror network (was 42380 / '5467/5624' / 32796160 / '7cc84608', shots mirror/own/pierced 550/504/850): `iroha` is
-    // now bounces / bolts / pierced (her bolts leave her and bounce through her mirrors)
+    // now bounces / bolts / pierced (her bolts leave her and bounce through her mirrors). r2 review (was 41912 /
+    // '5464/5627' / 1048598229 / '1c0cbfb8', 2112/1056/844): her Auto spots, bounces ≥ mirrors, the re-set numbers
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, iroha: r.iroha })
-      .toEqual({ ticks: 41912, state: 'won', wallets: '5464/5627', final: 1048598229, hashes: '1c0cbfb8', iroha: '2112/1056/844' });
+      .toEqual({ ticks: 41794, state: 'won', wallets: '5460/5631', final: 1497122937, hashes: 'c42139b0', iroha: '2118/1059/846' });
   }, 240000);
 
   it('runs the attack shapes S1 (SHAPES_START: Coin Wheel, Blade Cyclone, Firefly Halo) in sync, and a mid-wave rejoin lands on the run', () => {

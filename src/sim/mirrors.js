@@ -57,6 +57,13 @@ export const WEB_HALF = 0.35;
 export const WEB_HITS_PER_STEP = 600;
 /** Most reflecting mirrors a projectile is tested against (the first in tower order). */
 export const MIRROR_GATHER = 32;
+/**
+ * A leg shorter than this (tiles) is no real reflection: the bolt passes on (no new leg for its hits, no Polish step, no
+ * bounce splash or shards), so mirrors stacked on one spot never multiply a bolt. Her placed mirrors keep this far apart.
+ */
+export const MIN_LEG = 1;
+/** Where Auto puts slot k, as a fraction along the road samples in her reach: a slot never moves when her count grows. */
+export const AUTO_FRACS = Object.freeze([0.25, 0.75, 0.5, 0.125, 0.875]);
 
 const R2 = MIRROR_RADIUS * MIRROR_RADIUS;
 /** The reflecting mirrors this step: flat [x, y, towerUid, slot] quads (module scratch, refilled every step). */
@@ -118,7 +125,9 @@ export function mirrorPoint(sim, t, x, y) {
 
 /**
  * Auto spots for `m` mirrors (pure but for the samples): the visible road samples within her reach, in their order
- * (path, then distance), slot k at index floor((k + 0.5) × n / m); with none, where she stands.
+ * (path, then distance), slot k at index floor(AUTO_FRACS[k] × n) (a quarter, three quarters, the middle, then the outer
+ * eighths: slot k's spot is the same whatever her count, so an upgrade that adds a mirror never moves the others); with
+ * none, where she stands.
  * @returns {{ x: number, y: number }[]}
  */
 export function autoSpots(samples, x, y, reach, m) {
@@ -133,7 +142,7 @@ export function autoSpots(samples, x, y, reach, m) {
   for (let k = 0; k < m; k++) {
     if (!idx.length) out.push({ x, y });
     else {
-      const s = samples[idx[Math.floor(((k + 0.5) * idx.length) / m)]];
+      const s = samples[idx[Math.min(idx.length - 1, Math.floor(AUTO_FRACS[k] * idx.length))]];
       out.push({ x: Math.round(s.x * AIM_QUANT) / AIM_QUANT, y: Math.round(s.y * AIM_QUANT) / AIM_QUANT });
     }
   }
@@ -171,9 +180,11 @@ export function syncMirrors(sim, t) {
 
 /**
  * Places or moves mirror `slot` (Sim.setAim for a mirror girl; the point is already quantised and clamped). Without a
- * slot (null / undefined) the mirror nearest the point moves (ties: the lower slot). @returns {number} the slot, -1 refused
+ * slot (null / undefined) the mirror nearest the point moves (ties: the lower slot). A point closer than MIN_LEG to
+ * another mirror her player placed is pushed out to MIN_LEG from it (along the line from that mirror; from her, if they
+ * coincide), then quantised and clamped again (at most three passes). @returns {number} the slot, -1 refused
  */
-export function placeMirror(t, x, y, slot) {
+export function placeMirror(sim, t, x, y, slot) {
   const m = mirrorCount(t);
   let k = slot;
   if (k == null) {
@@ -193,7 +204,36 @@ export function placeMirror(t, x, y, slot) {
   if (!Number.isInteger(k) || k < 0 || k >= m) return -1;
   const aims = t.mirrorAim || (t.mirrorAim = []);
   while (aims.length < m) aims.push(null);
-  aims[k] = { x, y };
+  let px = x;
+  let py = y;
+  for (let pass = 0; pass < 3; pass++) {
+    let moved = false;
+    for (let j = 0; j < m; j++) {
+      const a = aims[j];
+      if (j === k || !a) continue;
+      let dx = px - a.x;
+      let dy = py - a.y;
+      let d2 = dx * dx + dy * dy;
+      if (d2 >= MIN_LEG * MIN_LEG) continue;
+      if (d2 < 1e-12) {
+        dx = px - t.x;
+        dy = py - t.y;
+        d2 = dx * dx + dy * dy;
+        if (d2 < 1e-12) {
+          dx = 1;
+          dy = 0;
+          d2 = 1;
+        }
+      }
+      const d = Math.sqrt(d2);
+      const q = mirrorPoint(sim, t, a.x + (dx / d) * MIN_LEG, a.y + (dy / d) * MIN_LEG);
+      px = q.x;
+      py = q.y;
+      moved = true;
+    }
+    if (!moved) break;
+  }
+  aims[k] = { x: px, y: py };
   return k;
 }
 
@@ -225,6 +265,7 @@ export function routeBolt(t, p, i) {
     route.push(s.x, s.y);
   }
   setRoute(p, route, true);
+  p.steps = 0;
   p.mirrorOf = t.uid;
   p.firstSlot = i % m;
 }
@@ -358,16 +399,21 @@ function bounce(sim, p, wx, wy) {
   const own = p.refill > 0;
   const mt = own ? p.owner : sim.getTower(p.mirrorOf);
   const relay = mt?.stats?.relay;
-  if (own) {
-    // a new leg: her bolt may strike again what it struck on the last one (each enemy once a leg)
-    p.hits.length = 0;
+  // a leg shorter than MIN_LEG (mirrors stacked on one spot) is no reflection: the bolt only passes on
+  const lx = wx - fx;
+  const ly = wy - fy;
+  const full = lx * lx + ly * ly >= MIN_LEG * MIN_LEG;
+  // a new leg: the bolt (hers, or an ally's copy) may strike again what it struck on the last one (each enemy once a leg)
+  if (full) p.hits.length = 0;
+  if (own && full) {
     p.pierce = p.refill;
+    p.steps++;
     const mul = relay ? relay.bounceMul : 0;
-    if (mul > 0) p.scale = 1 + mul * p.bounce;
+    if (mul > 0) p.scale = 1 + mul * p.steps;
   }
   const slot = p.firstSlot != null && mt?.mirrors ? (p.firstSlot + p.bounce - 1) % mt.mirrors.length : -1;
   sim._emit('mirrorBounce', { uid: p.uid, towerUid: p.mirrorOf, ownerUid: p.ownerUid, mirror: slot, n: p.bounce, x: wx, y: wy, fx, fy });
-  if (own && relay) {
+  if (own && relay && full) {
     if (relay.bounceSplash > 0) splashAt(sim, p, wx, wy, relay.bounceSplash, p.scale ?? 1);
     if (relay.shards > 0) throwShards(sim, p, wx, wy, relay.shards);
   }
@@ -378,36 +424,46 @@ function bounce(sim, p, wx, wy) {
   finish(sim, p, wx, wy);
 }
 
-/** Its route done: the bolt takes its enemy near the last mirror (else near her), or ends there. */
+/**
+ * Its route done: the bolt takes its enemy near the last mirror, else (hers) near her, else (an ally's copy) near the
+ * point where it crossed her mirror, then the original's target, either of them even if already struck; or it ends.
+ */
 function finish(sim, p, x, y) {
   p.route = null;
   p.splash = p.fsplash;
   const spec = p.spec;
   const reach = spec.range > 0 ? spec.range : SEEK;
   const mode = p.owner.targetMode || 'first';
-  let tgt = pick(sim, p, x, y, reach, mode);
-  if (!tgt && p.refill > 0) tgt = pick(sim, p, p.owner.x, p.owner.y, reach, mode);
-  if (!tgt && p.avoid && !p.avoid.dead && isEligible(p.avoid, spec) && !p.hits.includes(p.avoid.uid)) tgt = p.avoid;
+  let tgt = pick(sim, p, x, y, reach, mode, true);
+  if (!tgt && p.refill > 0) tgt = pick(sim, p, p.owner.x, p.owner.y, reach, mode, true);
+  if (!tgt && p.cx != null) tgt = pick(sim, p, p.cx, p.cy, reach, mode, false);
+  if (!tgt && p.avoid && !p.avoid.dead && isEligible(p.avoid, spec)) tgt = p.avoid;
   if (!tgt) {
     p.dead = true;
     return;
   }
+  // (struck already on its last leg: it may strike it once more on the final one)
+  const i = p.hits.indexOf(tgt.uid);
+  if (i >= 0) p.hits.splice(i, 1);
   p.target = tgt;
   p.tx = tgt.x;
   p.ty = tgt.y;
   p.targetAlt = tgt.alt || 0;
   p.travel = 0;
-  p.maxTravel = reach * 1.4 + 2;
   aimAt(p, tgt.x, tgt.y);
+  p.maxTravel = Math.max(reach * 1.4 + 2, p.est + 2);
 }
 
-/** The best enemy within `reach` of (x, y) by `mode` that the bolt has not hit (and not its avoided one). */
-function pick(sim, p, x, y, reach, mode) {
+/**
+ * The best enemy within `reach` of (x, y) by `mode`; `fresh`: one the bolt has not hit on this leg and not its avoided
+ * one (else any).
+ */
+function pick(sim, p, x, y, reach, mode, fresh) {
   const cand = selectTargetsInto(sim, x, y, reach, p.spec, mode, 3, PICK);
   let out = null;
   for (let i = 0; i < cand.length; i++) {
     const e = cand[i];
-    if (e !== p.avoid && !p.hits.includes(e.uid)) {
+    if (!fresh || (e !== p.avoid && !p.hits.includes(e.uid))) {
       out = e;
       break;
     }
@@ -540,6 +596,9 @@ function splitShot(sim, p, cx, cy, mt, slot) {
     c.avoid = o;
     c.mirrorOf = mt.uid;
     c.firstSlot = (slot + 1) % ms.length;
+    // (where it crossed: its last fallback looks for an enemy there)
+    c.cx = cx;
+    c.cy = cy;
     setRoute(c, route, false);
   }
   sim._emit('mirrorSplit', { uid: p.uid, copyUid: c.uid, ownerUid: p.ownerUid, mirrorUid: mt.uid, mirror: slot, x: cx, y: cy, targetUid: routed ? null : tgt.uid });
@@ -578,7 +637,8 @@ export function updateWebs(sim) {
   const list = sim.towers;
   for (let i = 0; i < list.length; i++) {
     const t = list[i];
-    if (!t.abil || !(t.abil.active > 0) || t.abil.active % WEB_TICK !== 0) continue;
+    // (offset by her uid: Irohas that cast on one step tick on different steps)
+    if (!t.abil || !(t.abil.active > 0) || (t.abil.active + t.uid) % WEB_TICK !== 0) continue;
     const def = mirrorDef(t);
     if (!def || !def.effect.web || !t.mirrors) continue;
     webHits(sim, t, def.effect.dmgMul ?? 1);

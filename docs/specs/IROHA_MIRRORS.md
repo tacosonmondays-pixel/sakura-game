@@ -27,12 +27,15 @@ Code: `src/sim/mirrors.js` (all the rules below), `src/sim/towers.js` (her attac
   it) of where she stands, inside the map, quantised to the co-op grid (1/1024 tile) exactly as today's mirror aim.
 - **Placed by the player.** Mirror `k` (0-based) has a player spot or none (`t.mirrorAim[k]`, `{x, y}` or `null`).
   `Sim.setAim(uid, x, y, k)` places or moves mirror `k`; without `k` the mirror nearest the point moves there (ties:
-  the lower slot). `Sim.clearAim(uid)` returns every mirror to Auto. A slot above her count is refused. When her count
+  the lower slot). A point closer than `MIN_LEG` (1 tile) to another mirror her player placed is pushed out to 1 tile
+  from it (along the line from that mirror; from her if they coincide), then quantised and clamped again, at most three
+  passes (review r2 HIGH 2: no stacking). `Sim.clearAim(uid)` returns every mirror to Auto. A slot above her count is refused. When her count
   grows the new slots start on Auto; a spot never moves because of an upgrade, except a reach that shrank (none does).
 - **Auto.** A slot with no player spot takes an auto spot: the visible road samples (`sim._relaySamples`, every 0.25
-  tiles, tunnels skipped) within her reach, in path-then-distance order; with `m` mirrors, auto slot `k` takes the
-  sample at index `floor((k + 0.5) × n / m)` of the `n` in reach (evenly spread along the road she covers), so the
-  legs between mirrors run along the road. With no road in reach every auto slot stands where she stands.
+  tiles, tunnels skipped) within her reach, in path-then-distance order; auto slot `k` takes the sample at index
+  `floor(AUTO_FRACS[k] × n)` of the `n` in reach, `AUTO_FRACS` = [¼, ¾, ½, ⅛, ⅞]: slot k's spot is the same whatever her
+  count, so an upgrade that adds a mirror never moves the others (review r2 M2), and the legs between mirrors run along
+  the road. With no road in reach every auto slot stands where she stands (their legs are short: §2).
 - **Derived positions.** `t.mirrors` (`[{x, y}]`, length = her count) is rebuilt from `t.mirrorAim` and the auto rule
   on placement, every upgrade, `setAim`, `clearAim` and a hero Move-style relocation; it emits `'mirrors'`
   `{ towerUid, list: [[x, y], …], placed: [0|1, …] }` when it changes. Mirror 0 stays her relay origin (`t.ox`,
@@ -54,9 +57,15 @@ Code: `src/sim/mirrors.js` (all the rules below), `src/sim/towers.js` (her attac
   refills the bolt's pierce**, so every leg can hit up to her pierce enemies; a leg that empties it stops hitting and the
   bolt flies on to its mirror. (Measured: once per bolt cost her Mirror Hall build 85% of its boss damage.)
 - **The step at a mirror.** A bolt that would pass its mirror this step stops on it (the rest of the step's distance is
-  dropped, so it is the same on every client), then bounces: `bounce += 1`, pierce refilled, damage scale
-  `1 + bounceMul × bounce` (§4 Polish), a bounce splash and shards (§4 Kaleidoscope), event `'mirrorBounce'`
-  `{ uid, towerUid, mirror: k, n: bounce, x, y, fx, fy }` (from → to, the display's reflected beam).
+  dropped, so it is the same on every client), then bounces: `bounce += 1` and event `'mirrorBounce'`
+  `{ uid, towerUid, mirror: k, n: bounce, x, y, fx, fy }` (from → to, the display's reflected beam). If the leg it just
+  flew is at least `MIN_LEG` (1 tile) long it is a **real reflection**: a new leg for its hits, pierce refilled,
+  `steps += 1` and the damage scale `1 + bounceMul × steps` (§4 Polish), a bounce splash and shards (§4 Kaleidoscope). A
+  shorter leg (mirrors stacked on one spot, every Auto slot on her) only passes the bolt on: no new leg, no Polish step,
+  no splash or shards (review r2 HIGH 2: stacking five mirrors on a boss multiplied her ×4).
+- **Bounces never fall below mirrors.** Every tier that adds a mirror adds a bounce too (§4), so each bolt visits every
+  one of her mirrors and an upgrade that adds a mirror only lengthens each route (review r2 M2: Second Pane lowered her
+  boss damage when the new mirror took a bolt's entry away from the mirror by the boss). Tested over every build.
 - **Crosses another girl's mirror?** Her own bolts never split at mirrors (they are born `split`), so two Irohas'
   networks never multiply each other. This is a deliberate change: today a shot from where an Iroha stands splits at
   another Iroha's panel.
@@ -66,23 +75,27 @@ Code: `src/sim/mirrors.js` (all the rules below), `src/sim/towers.js` (her attac
   final leg; `maxTravel` is not checked on a route and is set to `range × 1.4 + 2` for the final leg. Each leg's end point
   is the mirror's spot when the bolt was fired (stored in `route`), so moving a mirror never moves a bolt in flight. A
   bolt bounces at most once a step; a zero-length leg (two mirrors on one spot, or every Auto slot on her) is a bounce on
-  the next step. A bounce splash has no `hits` list, so mirrors stacked on one spot splash the same crowd once a bounce
-  each: intended (it is what stacking them buys). The route runs for every Iroha, ability or not (outside the
-  `sim._abilOn` gate). The final-leg pick skips the enemies the bolt hit on its last leg.
+  the next step and, being shorter than `MIN_LEG`, adds nothing (above). The route runs for every Iroha, ability or not
+  (outside the `sim._abilOn` gate). The final-leg pick skips the enemies the bolt hit on its last leg.
 
 ## 3. Allies' shots reflect too
 
 Kept from today: while her ⚡ runs, and for good from Mirror Hall tier 5, her mirrors reflect allies' shots (every
 girl's, both players' in co-op, drones' and sentries'; never hers): a shot whose step segment passes within
-`MIRROR_RADIUS` (0.5) of one splits once — the original flies on, a copy leaves the crossing point.
+`MIRROR_RADIUS` (**0.8**; was 0.5 for the one panel: five mirrors spread on the road met fewer of the allies' lines,
+review r2 H1) of one splits once — the original flies on, a copy leaves the crossing point.
 
 New: the copy flies on to **her next mirror** (chain order after the crossed one) and from there to the best enemy by
 the shooter's target mode within the shot's range (else today's fallback: the original's target, fanned). Each mirror
 it reaches is one bounce, `ALLY_BOUNCES` = 1 (2 from Mirror Hall tier 5), hard-capped at 2. The copy is `split`, so it
 never splits again — no loops, two networks included. It keeps the shooter's spec, kind, speed, pierce, splash, credit
 and the original's hits (today's rules). On its legs it is stepped like her bolts (`routeStep`: no `maxTravel`, no
-homing, never bursting at a mirror), except that its pierce is not refilled (an emptied pierce ends it, as any shot)
-and a splash copy bursts at its first contact on a leg. **Guided and returning shots are not routed** (review r1
+homing, never bursting at a mirror; **a real reflection starts a new leg for its hits too**), except that its pierce is
+not refilled (an emptied pierce ends it, as any shot) and a splash copy bursts at its first contact on a leg. At the end
+of its route it takes, in order (review r2 H1: a copy whose original had already struck a lone boss found nothing): the
+best enemy within the shot's range of the last mirror not struck on its last leg; else the best enemy within range of
+the point where it crossed her mirror, struck or not; else the original's target, struck or not; else it ends. Its
+final `maxTravel` covers the distance to that enemy. **Guided and returning shots are not routed** (review r1
 HIGH 2): a drone's guided copy or a returning fan splits the old way (the copy straight at the next target, else fanned).
 
 ## 4. Paths
@@ -93,8 +106,8 @@ Tier names kept where they fit. Coins unchanged.
 | T | name | effect |
 |---|---|---|
 | 1 | Bright Glass | +1 damage |
-| 2 | Second Pane | a third mirror |
-| 3 | Mirror Hall | +1 bounce; bolts pierce 1 more on every leg, reveal veils 1.5 s; ⚡ Laser Web |
+| 2 | Second Pane | a third mirror, +1 bounce, +1 damage |
+| 3 | Mirror Hall | +2 damage; bolts pierce 1 more on every leg, reveal veils 1.5 s; ⚡ Laser Web |
 | 4 | Hall of Reflections | a fourth mirror, +1 bounce, two more bolts, +4 damage |
 | 5 | Infinite Reflection | a fifth mirror, +1 bounce, two more bolts, +12 damage, +30% attack speed; allies' shots reflect for good, and twice; ⚡ Infinite Reflection |
 
@@ -103,9 +116,9 @@ Tier names kept where they fit. Coins unchanged.
 |---|---|---|
 | 1 | Long Frame | mirrors stand 0.6 tiles further |
 | 2 | Clear Silver | +0.3 range; each bounce +15% damage |
-| 3 | Silver Reflection | Veil Sight; mirrors 0.8 further; each bounce +25% |
-| 4 | Moonlit Looking-Glass | a third mirror, +5 damage, ignores 3 armour, each bounce +40% |
-| 5 | Mirror of Truth | +1 bounce, +14 damage, +50% vs elites, silences 0.8 s, ignores 3 more armour, each bounce +60% |
+| 3 | Silver Reflection | Veil Sight; mirrors 0.8 further; each bounce +15% more |
+| 4 | Moonlit Looking-Glass | a third mirror, +1 bounce, +5 damage, ignores 3 armour, each bounce +10% more |
+| 5 | Mirror of Truth | +1 bounce, +9 damage, +50% vs elites, silences 0.8 s, ignores 3 more armour, each bounce +10% more |
 
 **Shattered Glass — "Kaleidoscope: every bounce shatters"**
 | T | name | effect |
@@ -113,16 +126,18 @@ Tier names kept where they fit. Coins unchanged.
 | 1 | Quick Polish | +12% attack speed |
 | 2 | Splintered Glass | each bounce splashes 0.8 tiles; bolts splash 0.4 tiles on impact |
 | 3 | Glass Shards | wider splashes (+0.4 bounce, +0.3 impact); 20% slows 1 s |
-| 4 | Glass Storm | a third mirror, +5 damage, wider splashes, 15% stun 0.3 s; each bounce throws a shard at another enemy |
-| 5 | Kaleidoscope Burst | one more bounce, +13 damage, splashes +0.6, +30% attack speed, two shards per bounce |
+| 4 | Glass Storm | a third mirror, +1 bounce, +8 damage, wider splashes (+0.3 bounce, +0.4 impact), 15% stun 0.3 s; each bounce throws a shard at another enemy |
+| 5 | Kaleidoscope Burst | +1 bounce, +4 damage, a wider landing splash (+0.6), +30% attack speed |
 
 Base kit: 4 damage, 0.7/s, range 2.3, **3 bolts** (today: 2 bolts from each of two points), pierce 1, bolt speed 18,
-2 mirrors, 2 bounces, mirror reach 3.7. The `iroha` row of `src/data/balance.js` is `{ boss: 6 }` (was 3.9).
+2 mirrors, 2 bounces, mirror reach 3.7. The `iroha` row of `src/data/balance.js` is `{ boss: 3.6 }` (r5: 3.9).
+Mirrors / bounces at tier 5: Mirror Hall 5 / 5, Silver Reflection 3 / 4, Shattered Glass 3 / 4 (a crosspath Mirror Hall
+tier 2 adds a mirror and a bounce).
 
 Stats: `relay: { kind, reach, mirrors, bounces, bounceMul, bounceSplash, shards, allyBounces }`; tier mods add to them
 (`mirrors` and `allyBounces` keep the max; `src/sim/mods.js normRelay` and the relay merge). The tier texts give each
-tier's own step; the running totals at tier 5: Polish `bounceMul` 0.15 + 0.25 + 0.40 + 0.60 = **1.40 a bounce** (×2.4
-on the first bounce, ×5.2 on the third); Kaleidoscope `bounceSplash` 0.8 + 0.4 + 0.4 + 0.6 = **2.2 tiles**, 2 shards. A **bounce splash** hits every eligible enemy within the radius of the mirror at the bolt's
+tier's own step; the running totals at tier 5: Polish `bounceMul` 0.15 + 0.15 + 0.10 + 0.10 = **0.50 a real bounce**
+(×1.5 on the first, ×3 on the fourth); Kaleidoscope `bounceSplash` 0.8 + 0.4 + 0.3 = **1.5 tiles**, 1 shard. A **bounce splash** hits every eligible enemy within the radius of the mirror at the bolt's
 scaled damage. A **shard** is a plain (unrouted, `split`) bolt from the mirror at the best enemy in her range of it that
 the bolt has not hit, at her damage × its scale; `SHARD_BUDGET` = 64 shards a step for the whole board, in tower order.
 
@@ -132,11 +147,13 @@ Replaces Mirror Shift at Mirror Hall tier 3. The ability keeps its id `iroha.mir
 ability bar, co-op casts and tests address it by id); its name becomes **Laser Web**, and tier 5's upgrade keeps the name
 **Infinite Reflection**. It needs no aim (an aimed cast ignores the point); her mirrors stay where they are. For `duration` (6 s; tier 5: 9 s) every pair of her mirrors is joined by a beam
 (`m × (m − 1) / 2` beams: the web unlocks at Mirror Hall tier 3, where she has 3 mirrors, so 3, 6 or 10 beams; a
-crosspath copy with 2 mirrors can't hold tier 3 of Mirror Hall). Every `WEB_TICK` steps (12 steps, 0.2 s) each beam hits every
-eligible enemy within `WEB_HALF` (0.35) of it (plus its hit radius), at her damage × `dmgMul` (1.2; tier 5: 2.0). **One
+crosspath copy with 2 mirrors can't hold tier 3 of Mirror Hall). Every `WEB_TICK` steps (12 steps, 0.2 s; a tick is a step
+where `active + her uid` is a multiple of `WEB_TICK`, so Irohas that cast together tick on different steps: review r2
+M4) each beam hits every
+eligible enemy within `WEB_HALF` (0.35) of it (plus its hit radius), at her damage × `dmgMul` (0.9; tier 5: 2.0). **One
 web hit an enemy a tick**, however many of her beams cross it (review r1 MEDIUM 5: on a straight road all ten beams lie
-on one line). Two Irohas' webs each hit it once. The window is her `t.abil.active` (integer steps): a tick is a step where
-it is a multiple of `WEB_TICK`, so nothing new is stored. While the web runs her mirrors reflect allies' shots (§3).
+on one line). Two Irohas' webs each hit it once. The window is her `t.abil.active` (integer steps) and the tick
+is read from it and her uid (above), so nothing new is stored. While the web runs her mirrors reflect allies' shots (§3).
 Refused (`noTarget`) with no enemy within her range of her or of a mirror (the reach ring the ability bar draws is her
 mirror reach around her, where her mirrors can stand). Cooldown 30 s (tier 5: 25 s); Auto when 5 enemies are within her
 mirror reach.
@@ -215,35 +232,91 @@ Target (task brief): close to the best Kage tier 5 on boss and crowd (`tools/bal
 
 ## 10. Measured
 
-Fully maxed, `tools/balance/r5Bench.mjs iroha --builds all --seeds 9,1,2` (Umeko 2-5-0 + Midori 5-0-2 beside her; the
-bench never casts, so the Laser Web is not in these numbers). Kage on the same bench: 2.21M boss, 1.83M crowd.
+Fully maxed, the round-5 bench's measure (`tools/balance/r5Bench.mjs`: L85, ★5, P6, UR gear, Umeko 2-5-0 + Midori 5-0-2
+beside her, stage 4-5, a boss held at her nearest road point or a late crowd stream), the mean of seeds 9, 1 and 2, on
+three trees: live `main` (a741aef7), `feature/balance-r5` (09aab59b) and this branch. The bench never casts, so the
+Laser Web is not in these numbers. Kage on the same bench: 2.21M boss, 1.83M crowd. Every build is at or above both
+`main` and r5 (lowest ×1.15 vs r5), and along every path no tier is below the one before it (Auto).
 
-| build | boss before → after | walking boss before → after | late crowd before → after |
-|---|---:|---:|---:|
-| Mirror Hall 5-0-2 | 1.09M → **2.26M** | 108k → 815k | 836k → 5.79M |
-| Silver Reflection 2-5-0 | 549k → 2.17M | 120k → 869k | 270k → 1.57M |
-| Shattered Glass 2-0-5 | 509k → 1.18M | 171k → 2.22M | 5.88M → **6.81M** |
+**Boss** (Auto mirrors; best = the best of six star placements around her road point, spaced 1 tile)
 
-Alone (`--support none`, seed 9): boss 109k / 54k / 51k → 224k / 201k / 116k; crowd 83k / 26k / 299k → 561k / 154k /
-675k (Kage alone: 220k boss, 354k crowd).
+| build | live main | r5 | this branch, Auto | × r5 | best placement |
+|---|---:|---:|---:|---:|---:|
+| 1-0-2 | 13.3k | 56.7k | 144.4k | ×2.54 | 144.4k |
+| 2-0-2 | 19.9k | 85.1k | 172.1k | ×2.02 | 172.1k |
+| 3-0-2 | 19.9k | 85.1k | 229.4k | ×2.70 | 229.4k |
+| 4-0-2 | 60.0k | 254.4k | 594.5k | ×2.34 | 594.5k |
+| 5-0-2 | 255.3k | 1.09M | 2.12M | ×1.95 | 3.01M |
+| 2-1-0 | 17.9k | 76.1k | 111.9k | ×1.47 | 139.9k |
+| 2-2-0 | 18.0k | 76.2k | 142.9k | ×1.87 | 177.4k |
+| 2-3-0 | 18.0k | 76.2k | 174.7k | ×2.29 | 215.1k |
+| 2-4-0 | 35.9k | 152.5k | 503.0k | ×3.30 | 640.0k |
+| 2-5-0 | 129.3k | 548.9k | 2.06M | ×3.76 | 2.69M |
+| 2-0-1 | 19.9k | 85.1k | 125.4k | ×1.47 | 157.3k |
+| 2-0-2 | 19.9k | 85.1k | 172.1k | ×2.02 | 172.1k |
+| 2-0-3 | 19.9k | 85.1k | 172.1k | ×2.02 | 297.6k |
+| 2-0-4 | 39.9k | 169.7k | 658.6k | ×3.88 | 1.35M |
+| 2-0-5 | 120.2k | 508.7k | 1.35M | ×2.65 | 2.82M |
 
-Every lower tier at or above today (`tools/bench.mjs iroha`, seed 9, crowd ×1.00–3.00, boss ×1.56–4.84; the closest:
-2-0-1 crowd ×1.00, 2-1-0 crowd ×1.32). Real coins (`tools/freeplayBot.mjs` runBot on 4-5 Blossom Freeplay, maxed
-profile, seeds 7 and 8): an Iroha army fell on wave 108 / 108 before → 121 / 121; a team of Iroha, Kage, Aoi, Miko and
-Momo 134 / 137 → 148 / 148.
+**Crowd** (Auto mirrors; best = the best of six star placements around her road point, spaced 1 tile)
 
-Laser Web (`tools/abilityBench.mjs iroha`, Auto off → on, 120 s, seed 9): crowd ×1.10 at 3-0-2 and ×1.21 at 5-0-2 (Mirror
-Shift: ×0.85 and ×1.00); a lone boss never triggers its Auto rule (5 enemies), so ×1. Kage's doubles on the same bench:
+| build | live main | r5 | this branch, Auto | × r5 | best placement |
+|---|---:|---:|---:|---:|---:|
+| 1-0-2 | 40.0k | 42.9k | 137.5k | ×3.21 | 137.5k |
+| 2-0-2 | 60.5k | 65.1k | 253.7k | ×3.90 | 253.7k |
+| 3-0-2 | 60.5k | 65.1k | 359.7k | ×5.52 | 359.7k |
+| 4-0-2 | 181.1k | 195.7k | 1.26M | ×6.44 | 1.26M |
+| 5-0-2 | 772.1k | 835.9k | 5.83M | ×6.97 | 5.83M |
+| 2-1-0 | 46.3k | 50.5k | 122.3k | ×2.42 | 122.3k |
+| 2-2-0 | 47.3k | 51.4k | 151.7k | ×2.95 | 151.7k |
+| 2-3-0 | 47.3k | 51.4k | 186.5k | ×3.63 | 186.5k |
+| 2-4-0 | 103.2k | 112.6k | 540.0k | ×4.80 | 540.0k |
+| 2-5-0 | 247.7k | 270.2k | 1.49M | ×5.50 | 1.49M |
+| 2-0-1 | 52.3k | 55.8k | 134.6k | ×2.41 | 134.6k |
+| 2-0-2 | 60.5k | 65.1k | 253.7k | ×3.90 | 253.7k |
+| 2-0-3 | 116.5k | 125.4k | 416.5k | ×3.32 | 465.1k |
+| 2-0-4 | 1.36M | 1.77M | 3.09M | ×1.75 | 5.46M |
+| 2-0-5 | 5.45M | 5.88M | 6.78M | ×1.15 | 7.77M |
+
+**Allies beside a tier-5 Iroha** (5-0-2, Infinite Reflection; each girl at her build, Iroha within 1.6 tiles)
+
+| ally | target | live main | r5 | this branch | × main | × r5 |
+|---|---|---:|---:|---:|---:|---:|
+| kage 5-0-2 | boss | 209.5k | 219.7k | 235.4k | ×1.12 | ×1.07 |
+| kage 2-5-0 | boss | 73.6k | 73.6k | 147.8k | ×2.01 | ×2.01 |
+| kage 2-0-5 | boss | 43.2k | 43.2k | 86.3k | ×2.00 | ×2.00 |
+| kage 5-0-2 | crowd | 188.7k | 355.7k | 388.1k | ×2.06 | ×1.09 |
+| kage 2-5-0 | crowd | 71.7k | 71.7k | 78.6k | ×1.10 | ×1.10 |
+| kage 2-0-5 | crowd | 167.5k | 167.5k | 223.4k | ×1.33 | ×1.33 |
+| aoi 5-0-2 | boss | 33.4k | 94.1k | 93.8k | ×2.81 | ×1.00 |
+| aoi 2-5-0 | boss | 86.8k | 244.8k | 245.3k | ×2.83 | ×1.00 |
+| aoi 2-0-5 | boss | 138.5k | 390.7k | 393.4k | ×2.84 | ×1.01 |
+| aoi 5-0-2 | crowd | 29.9k | 84.4k | 110.4k | ×3.69 | ×1.31 |
+| aoi 2-5-0 | crowd | 59.4k | 167.5k | 221.9k | ×3.74 | ×1.33 |
+| aoi 2-0-5 | crowd | 34.0k | 95.9k | 105.2k | ×3.09 | ×1.10 |
+| akane 5-0-2 | boss | 29.5k | 103.1k | 203.6k | ×6.91 | ×1.97 |
+| akane 2-5-0 | boss | 1.0k | 3.7k | 3.7k | ×3.79 | ×1.01 |
+| akane 2-0-5 | boss | 9.5k | 33.1k | 66.4k | ×7.02 | ×2.01 |
+| akane 5-0-2 | crowd | 1.38M | 1.38M | 1.87M | ×1.36 | ×1.36 |
+| akane 2-5-0 | crowd | 336.8k | 345.1k | 345.1k | ×1.02 | ×1.00 |
+| akane 2-0-5 | crowd | 176.8k | 176.8k | 191.2k | ×1.08 | ×1.08 |
+
+Laser Web (`tools/abilityBench.mjs iroha`, Auto off → on, 120 s, seed 9): crowd ×1.31 at 3-0-2 and ×1.16 at 5-0-2 (the
+gate is ≤ 1.35×); a lone boss never triggers its Auto rule (5 enemies), so ×1. Kage's doubles on the same bench:
 ×1.21 / ×2.13.
 
-Cost (`tests/sim/perf.mirror.test.js`, 6 Irohas 5-0-2 with 5 mirrors each and their webs, 24 Aois 5-0-0, 300 enemies):
-about 0.7–1.3 ms a step, ×1.6–1.8 of the same board at tier 4, p99 2–3 ms; six Kaleidoscope Irohas (2-0-5) about 0.8–1.4
-ms a step, p99 3 ms.
+Real coins (`tools/freeplayBot.mjs` runBot on 4-5 Blossom Freeplay, maxed profile, seeds 7 and 8): an Iroha army fell on
+wave 108 / 108 on r5 → 126 / 123; a team of Iroha, Kage, Aoi, Miko and Momo 137 / 138 → 150 / 150.
+
+Cost (`tests/sim/perf.mirror.test.js`, run alone, 6 Irohas 5-0-2 with 5 mirrors each and their webs, 24 Aois 5-0-0, 300
+enemies): about 0.9–1.5 ms a step, ×2.0–2.4 of the same board at tier 4 (the wider catch radius splits more allied
+shots), p99 2.4 ms, worst 3.6–5.9 ms; six Kaleidoscope Irohas (2-0-5) 0.8 ms a step, p99 2.8 ms.
 
 ## 11. Tests
 
-- `tests/sim/irohaMirrors.test.js`: count by tier; setAim by slot (quantised, clamped, refused past her count); auto
-  spots evenly spread on the road; a bolt's route (chain order, wrap, ping-pong, the cap); hits on every leg, once per
+- `tests/sim/irohaMirrors.test.js`: count by tier; bounces ≥ mirrors on every build; setAim by slot (quantised, clamped,
+  refused past her count, pushed 1 tile from another placed mirror); Auto spots fixed per slot (an upgrade never moves
+  them); stacked mirrors adding nothing; a copy finding the lone boss its original already struck; a bolt's route (chain order, wrap, ping-pong, the cap); hits on every leg, once per
   enemy, pierce refilled; bounce scale; splash and shards (and their budget); ally copy to her next mirror, never twice;
   the laser web (beams, ticks, budget, end); refusals.
 - Golden / determinism: the same seed and commands twice → the same battle hash; no rng draws in a cast or a bounce.

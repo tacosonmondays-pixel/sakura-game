@@ -76,13 +76,13 @@ describe('the aim command', () => {
     const t = clients[0].sim.getTower(iroha);
     const at = (dx, dy) => [Math.round((t.x + dx) * 1024), Math.round((t.y + dy) * 1024)];
     expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, ...at(1, 1), 1])).ok)).toEqual([true, true]);
-    expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, ...at(0.5, 1.5), 0])).ok)).toEqual([true, true]);
+    expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, ...at(2.5, 1.5), 0])).ok)).toEqual([true, true]);
     // her third slot does not exist below Mirror Hall tier 2; a slot must be a whole number ≥ 0
     expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, ...at(0, 1), 2])).ok)).toEqual([false, false]);
     expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, ...at(0, 1), -1])).reason)).toEqual(['invalid', 'invalid']);
     expect(clients.map((c) => c.apply(cmd(0, 'aim', [iroha, ...at(0, 1), 0.5])).reason)).toEqual(['invalid', 'invalid']);
     const m = clients.map((c) => c.sim.getTower(iroha));
-    expect(m[0].mirrorAim).toEqual([{ x: at(0.5, 1.5)[0] / 1024, y: at(0.5, 1.5)[1] / 1024 }, { x: at(1, 1)[0] / 1024, y: at(1, 1)[1] / 1024 }]);
+    expect(m[0].mirrorAim).toEqual([{ x: at(2.5, 1.5)[0] / 1024, y: at(2.5, 1.5)[1] / 1024 }, { x: at(1, 1)[0] / 1024, y: at(1, 1)[1] / 1024 }]);
     expect(m[1].mirrorAim).toEqual(m[0].mirrorAim);
     expect(m[1].mirrors).toEqual(m[0].mirrors);
     // the wave runs; at a checkpoint a fresh guest restores and plays on in lockstep

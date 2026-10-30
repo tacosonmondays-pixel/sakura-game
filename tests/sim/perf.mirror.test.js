@@ -43,7 +43,7 @@ function board(irohaTier, { kaleido = false } = {}) {
     if (!t) continue;
     const p = abilityPathOf(t.def);
     if (id === 'iroha' && kaleido) {
-      // Shattered Glass 5 + Mirror Hall 2 (2-0-5): splash and two shards on every bounce, three mirrors
+      // Shattered Glass 5 + Mirror Hall 2 (2-0-5): a splash and a shard on every bounce, three mirrors, four bounces
       for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, 2, { restoring: true });
       for (let k = 0; k < 2; k++) sim.upgradeTower(t.uid, 0, { restoring: true });
     } else {
@@ -132,10 +132,10 @@ describe('mirror network at full board (wall time per step)', () => {
     expect(peak).toBeLessThan(process.env.CI ? 150 : 80);
   }, 180000);
 
-  test('6 Kaleidoscope Irohas (2-0-5: splash and two shards a bounce) over the same board: within budget, shards capped', () => {
+  test('6 Kaleidoscope Irohas (2-0-5: a splash and a shard every bounce) over the same board: within budget, shards capped', () => {
     measure(board(0, { kaleido: true }).sim, 60);
     const { sim, irohas } = board(0, { kaleido: true });
-    for (const t of irohas) expect(t.stats.relay.shards).toBe(2);
+    for (const t of irohas) expect(t.stats.relay.shards).toBe(1);
     const r = measure(sim, 180);
     console.log(`[perf mirror] kaleidoscope ${r.ms.toFixed(3)} ms/step, p99 ${r.p99.toFixed(2)} ms, worst ${r.worst.toFixed(2)} ms (≤ ${r.maxProj} shots, ${r.bounces} bounces in 3 s)`);
     expect(r.bounces).toBeGreaterThan(100);
