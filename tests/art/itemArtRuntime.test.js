@@ -208,7 +208,7 @@ describe('display only: the battle sim is untouched', () => {
     // with the duo's map-wide laser, the LR rows and freeplay's boss bands (Oct 30).
     // feature/iroha-mirrors rides it too: Iroha's mirror network (docs/specs/IROHA_MIRRORS.md; src/sim/mirrors.js) on top
     // of round 5 (the coordinator assigns the bump).
-    const PENDING_BUMP = { 13: 'adff64f68bdb' };
+    const PENDING_BUMP = { 13: '94f28d1471d5' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

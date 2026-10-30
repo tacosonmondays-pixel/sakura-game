@@ -23,8 +23,9 @@
 //     shot splits the old way (its copy fanned from the crossing point, no route). A shot that ends its step dead does
 //     not split that step.
 //   - ⚡ Laser Web (§5; deploy type 'mirror', src/sim/abilities.js DEPLOYS.mirror): while it runs (her t.abil.active,
-//     integer steps) every WEB_TICK steps each pair of her mirrors (i < j) is a beam that hits every eligible enemy
-//     within WEB_HALF (plus its hit radius) of it once, at her damage × dmgMul; WEB_HITS_PER_STEP for the whole board.
+//     integer steps) every WEB_TICK steps each pair of her mirrors (i < j) is a beam; an eligible enemy within WEB_HALF
+//     (plus its hit radius) of any of her beams takes one web hit that tick (her damage × dmgMul, however many of her
+//     beams cross it: on a straight road every beam lies on one line); WEB_HITS_PER_STEP for the whole board.
 //
 // Determinism: towers in placement order, mirrors by slot, bolts in volley order, beams by pair; + − × ÷, Math.sqrt,
 // Math.floor and squared distances only (no rng, no trig; a fanned copy's turn is spawnProjectile's, as every shot).
@@ -53,7 +54,7 @@ export const WEB_HALF = 0.35;
 /** Web beam hits a step, the whole board. */
 export const WEB_HITS_PER_STEP = 600;
 /** Most reflecting mirrors a projectile is tested against (the first in tower order). */
-export const MIRROR_GATHER = 24;
+export const MIRROR_GATHER = 32;
 
 const R2 = MIRROR_RADIUS * MIRROR_RADIUS;
 /** The reflecting mirrors this step: flat [x, y, towerUid, slot] quads (module scratch, refilled every step). */
@@ -66,6 +67,8 @@ const NEAR = [];
 const CONTACT = [];
 const PICK = [];
 const SPL = [];
+/** The enemies one Iroha's web has hit this tick (one web hit an enemy a tick, however many beams cross it). */
+const WEB_SEEN = new Set();
 
 /** Is this girl a mirror girl (her relay is a mirror)? */
 export const isMirrorGirl = (t) => t?.stats?.relay?.kind === 'mirror';
@@ -583,6 +586,7 @@ export function updateWebs(sim) {
 function webHits(sim, t, mul) {
   const ms = t.mirrors;
   const spec = t.eff;
+  WEB_SEEN.clear();
   for (let a = 0; a < ms.length; a++) {
     for (let b = a + 1; b < ms.length; b++) {
       if (webLeft <= 0) return;
@@ -597,9 +601,10 @@ function webHits(sim, t, mul) {
       const near = sim.grid.query((ax + bx) / 2, (ay + by) / 2, half + WEB_HALF + 0.9, NEAR);
       for (let i = 0; i < near.length && webLeft > 0; i++) {
         const e = near[i];
-        if (e.dead || !isEligible(e, spec)) continue;
+        if (e.dead || WEB_SEEN.has(e.uid) || !isEligible(e, spec)) continue;
         const r = WEB_HALF + hitRadius(e);
         if (segDistSq(e.x, e.y, ax, ay, bx, by) > r * r) continue;
+        WEB_SEEN.add(e.uid);
         sim._hit(e, t, spec, mul);
         webLeft--;
       }

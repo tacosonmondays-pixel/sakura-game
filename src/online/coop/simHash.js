@@ -81,6 +81,12 @@ export function hashSim(sim, { tick = 0, wallets = [] } = {}) {
     }
     // Tenka's well and Last Line timers (src/sim/zones.js), only on a girl who has one of them (ticks)
     if (t.wellCd != null || t.lastLineCd != null) h.int(t.wellCd ?? -1).int(t.lastLineCd ?? -1);
+    // Iroha's mirror network (src/sim/mirrors.js), only on a mirror girl: every mirror's spot (1/1024 tiles) and which
+    // her player placed, so a desynced mirror shows at once
+    if (t.mirrors) {
+      h.int(t.mirrors.length);
+      for (let k = 0; k < t.mirrors.length; k++) h.int(t.mirrors[k].x * 1024).int(t.mirrors[k].y * 1024).int(t.mirrorAim?.[k] ? 1 : 0);
+    }
     // attack shapes S1 (src/sim/wheels.js), only on a girl who has them this wave: the Pinwheel arm index and
     // each Petal Halo piece's memory ([uid, step] pairs); battles without them keep their digest
     if (t.spinK != null) h.int(t.spinK);

@@ -76,7 +76,7 @@
 //   econ    coins (× the difficulty's coin rate and the mode's income rate; owner-credited)
 //   deploy  deploy ('strips' Azami, 'sentries' Yuzuha, 'double' Kage, 'trap' Suzu, 'drone' Chika (src/sim/deploys.js),
 //           'mirror' Iroha (src/sim/mirrors.js)), count, spacing (tiles between doubles), dmgMul, arm (s), hits, reachMul,
-//           reflect / permanentReflect (Iroha's mirror)
+//           reflect / permanentReflect / web (Iroha's mirrors: they reflect allies' shots; the Laser Web)
 //   runner  runner ('giantBall' Marumi; 'river' with A6), length, speed (tiles), segments, gap, dmgMul, knockback,
 //           allPaths, toSpawn, push, status
 //   boost   (a status-only splash rider, A5: Kanna) splashArmor { radius, shred }, status

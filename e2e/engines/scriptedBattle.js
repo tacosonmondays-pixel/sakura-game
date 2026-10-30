@@ -2027,9 +2027,9 @@ export const GEAR_GIRLS_START = Object.freeze({
 const GEAR_GIRLS_UPGRADES = Object.freeze([[0, 'iroha', 0], [0, 'ena', 0], [1, 'hana', 0], [1, 'ruri', 0], [0, 'noa', 0], [0, 'iroha', 1]]);
 
 /**
- * GEAR_GIRLS_START to the end (or 10 minutes): the runPotentialBattle fields plus `iroha` (her shots
- * from the mirror / from where she stands / with gear Pierce, counted on the host's copy as they are
- * fired) and `tricks` (club tricks by girl and kind).
+ * GEAR_GIRLS_START to the end (or 10 minutes): the runPotentialBattle fields plus `iroha` (her bolts' bounces off
+ * her mirrors / her bolts fired from where she stands / with gear Pierce, counted on the host's copy as they happen;
+ * the mirror network, docs/specs/IROHA_MIRRORS.md) and `tricks` (club tricks by girl and kind).
  */
 export function runGearGirlsBattle({ maxFrames = 60 * 60 * 10 } = {}) {
   const t0 = Date.now();
@@ -2046,8 +2046,7 @@ export function runGearGirlsBattle({ maxFrames = 60 * 60 * 10 } = {}) {
         for (const p of ps) {
           const t = p?.owner;
           if (t?.def?.id !== 'iroha') continue;
-          if (p.x === t.ox && p.y === t.oy && (t.ox !== t.x || t.oy !== t.y)) iroha.mirror++;
-          else if (p.x === t.x && p.y === t.y) iroha.own++;
+          if (p.x === t.x && p.y === t.y) iroha.own++;
           if (p.pierce > p.spec.pierce) iroha.pierced++;
         }
         return push0.apply(this, ps);
@@ -2059,6 +2058,7 @@ export function runGearGirlsBattle({ maxFrames = 60 * 60 * 10 } = {}) {
       writable: true,
       enumerable: false,
       value: function emit(type, ev, ...rest) {
+        if (type === 'mirrorBounce' && ev?.ownerUid === ev?.towerUid && sim.towers.find((t) => t.uid === ev.towerUid)?.def.id === 'iroha') iroha.mirror++;
         if (type === 'clubTrick') {
           const id = sim.towers.find((t) => t.uid === ev?.towerUid)?.def.id || '?';
           tricks[`${id}:${ev.kind}`] = (tricks[`${id}:${ev.kind}`] || 0) + 1;

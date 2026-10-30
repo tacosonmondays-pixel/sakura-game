@@ -49,8 +49,8 @@
 // A save without it restores her with fresh counters.
 //
 // Iroha's mirror network (src/sim/mirrors.js, docs/specs/IROHA_MIRRORS.md §6; additive): the spots her player placed,
-// by slot (`mr`: [x, y] or 0 for an Auto slot), replayed through setAim after her tiers. A save without it (or an
-// older save's `am`: her one panel, now slot 0 by the nearest-mirror rule) restores the rest on Auto.
+// by slot (`mr`: [x, y] or 0 for an Auto slot), replayed through setAim after her tiers. An older save's `am` (her one
+// panel, her relay origin) becomes her mirror 0; a save with neither restores her mirrors on Auto.
 //
 // The staff heroes (BANNERS §D.6; additive): Norika's own barricades, their spots, budgets and rebuild timers (`br`;
 // at a calm point they all stand at full budget, since the wave clear refills them). Her Hold the Line barricades and
@@ -609,7 +609,8 @@ export function restoreSim(rec, profile = null) {
       if (o.du[2] >= 0) t.duoCd = Math.min(whole(o.du[2]), PRISM_BEAM_TICK);
     }
     if (o.tm) sim.setTargetMode(t.uid, o.tm);
-    if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);
+    // (an older save's Iroha: her one panel was her relay origin, now her mirror 0)
+    if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1], t.mirrors ? 0 : null);
     // Iroha's placed mirrors, slot by slot (setAim refuses a slot past her count)
     if (Array.isArray(o.mr)) {
       o.mr.slice(0, 5).forEach((a, k) => {

@@ -9,7 +9,7 @@ makes it split allies' shots once for 8 s; tier 5 (Infinite Reflection) makes th
 second mirror. Nothing of hers actually bounces.
 
 This rework makes her a mirror-network girl: she owns several mirrors, places each one, and her bolts travel mirror
-to mirror, hitting enemies on every leg. Builds on `feature/balance-r5` (sim id `bdfefc71e934` there, COOP_PROTOCOL 13 pending; this branch's sim id is pinned
+to mirror, hitting enemies on every leg. Builds on `feature/balance-r5` (sim id `daca12604a84` there, COOP_PROTOCOL 13 pending; this branch's sim id is pinned
 in `tests/art/itemArtRuntime.test.js` PENDING_BUMP).
 
 Code: `src/sim/mirrors.js` (all the rules below), `src/sim/towers.js` (her attack and the projectile step hook),
@@ -57,7 +57,17 @@ Code: `src/sim/mirrors.js` (all the rules below), `src/sim/towers.js` (her attac
   `1 + bounceMul × bounce` (§4 Polish), a bounce splash and shards (§4 Kaleidoscope), event `'mirrorBounce'`
   `{ uid, towerUid, mirror: k, n: bounce, x, y, fx, fy }` (from → to, the display's reflected beam).
 - **Crosses another girl's mirror?** Her own bolts never split at mirrors (they are born `split`), so two Irohas'
-  networks never multiply each other.
+  networks never multiply each other. This is a deliberate change: today a shot from where an Iroha stands splits at
+  another Iroha's panel.
+- **The plain projectile rules don't apply on a route** (review r1 HIGH 1): a routed bolt is stepped by
+  `mirrors.js routeStep`, never `projectileStep`, until its last bounce. So: an emptied pierce stops a leg's hits but
+  never kills the bolt; its splash is held in `fsplash` (0 on the legs, never bursting at a mirror) and given back for the
+  final leg; `maxTravel` is not checked on a route and is set to `range × 1.4 + 2` for the final leg. Each leg's end point
+  is the mirror's spot when the bolt was fired (stored in `route`), so moving a mirror never moves a bolt in flight. A
+  bolt bounces at most once a step; a zero-length leg (two mirrors on one spot, or every Auto slot on her) is a bounce on
+  the next step. A bounce splash has no `hits` list, so mirrors stacked on one spot splash the same crowd once a bounce
+  each: intended (it is what stacking them buys). The route runs for every Iroha, ability or not (outside the
+  `sim._abilOn` gate). The final-leg pick skips the enemies the bolt hit on its last leg.
 
 ## 3. Allies' shots reflect too
 
@@ -69,7 +79,10 @@ New: the copy flies on to **her next mirror** (chain order after the crossed one
 the shooter's target mode within the shot's range (else today's fallback: the original's target, fanned). Each mirror
 it reaches is one bounce, `ALLY_BOUNCES` = 1 (2 from Mirror Hall tier 5), hard-capped at 2. The copy is `split`, so it
 never splits again — no loops, two networks included. It keeps the shooter's spec, kind, speed, pierce, splash, credit
-and the original's hits (today's rules). A splash shot bursts at its first contact as always.
+and the original's hits (today's rules). On its legs it is stepped like her bolts (`routeStep`: no `maxTravel`, no
+homing, never bursting at a mirror), except that its pierce is not refilled (an emptied pierce ends it, as any shot)
+and a splash copy bursts at its first contact on a leg. **Guided and returning shots are not routed** (review r1
+HIGH 2): a drone's guided copy or a returning fan splits the old way (the copy straight at the next target, else fanned).
 
 ## 4. Paths
 
@@ -106,7 +119,9 @@ Base kit: 4 damage, 0.7/s, range 2.3, **3 bolts** (today: 2 bolts from each of t
 2 mirrors, 2 bounces, mirror reach 3.7. The `iroha` row of `src/data/balance.js` is `{ boss: 6 }` (was 3.9).
 
 Stats: `relay: { kind, reach, mirrors, bounces, bounceMul, bounceSplash, shards, allyBounces }`; tier mods add to them
-(`mirrors` keeps the max). A **bounce splash** hits every eligible enemy within the radius of the mirror at the bolt's
+(`mirrors` and `allyBounces` keep the max; `src/sim/mods.js normRelay` and the relay merge). The tier texts give each
+tier's own step; the running totals at tier 5: Polish `bounceMul` 0.15 + 0.25 + 0.40 + 0.60 = **1.40 a bounce** (×2.4
+on the first bounce, ×5.2 on the third); Kaleidoscope `bounceSplash` 0.8 + 0.4 + 0.4 + 0.6 = **2.2 tiles**, 2 shards. A **bounce splash** hits every eligible enemy within the radius of the mirror at the bolt's
 scaled damage. A **shard** is a plain (unrouted, `split`) bolt from the mirror at the best enemy in her range of it that
 the bolt has not hit, at her damage × its scale; `SHARD_BUDGET` = 64 shards a step for the whole board, in tower order.
 
@@ -115,12 +130,15 @@ the bolt has not hit, at her damage × its scale; `SHARD_BUDGET` = 64 shards a s
 Replaces Mirror Shift at Mirror Hall tier 3. The ability keeps its id `iroha.mirrorShift` (saved Auto settings, the
 ability bar, co-op casts and tests address it by id); its name becomes **Laser Web**, and tier 5's upgrade keeps the name
 **Infinite Reflection**. It needs no aim (an aimed cast ignores the point); her mirrors stay where they are. For `duration` (6 s; tier 5: 9 s) every pair of her mirrors is joined by a beam
-(`m × (m − 1) / 2` beams: 1 at 2 mirrors, 10 at 5). Every `WEB_TICK` steps (12 steps, 0.2 s) each beam hits every
-eligible enemy within `WEB_HALF` (0.35) of it (plus its hit radius) once, at her damage × `dmgMul` (1.2; tier 5: 2.0;
-an enemy crossing two beams is hit by both). The window is her `t.abil.active` (integer steps): a tick is a step where
+(`m × (m − 1) / 2` beams: the web unlocks at Mirror Hall tier 3, where she has 3 mirrors, so 3, 6 or 10 beams; a
+crosspath copy with 2 mirrors can't hold tier 3 of Mirror Hall). Every `WEB_TICK` steps (12 steps, 0.2 s) each beam hits every
+eligible enemy within `WEB_HALF` (0.35) of it (plus its hit radius), at her damage × `dmgMul` (1.2; tier 5: 2.0). **One
+web hit an enemy a tick**, however many of her beams cross it (review r1 MEDIUM 5: on a straight road all ten beams lie
+on one line). Two Irohas' webs each hit it once. The window is her `t.abil.active` (integer steps): a tick is a step where
 it is a multiple of `WEB_TICK`, so nothing new is stored. While the web runs her mirrors reflect allies' shots (§3).
-Refused (`noTarget`) with no enemy within her range of her or of a mirror. Cooldown 30 s (tier 5: 25 s); Auto when 5
-enemies are in reach.
+Refused (`noTarget`) with no enemy within her range of her or of a mirror (the reach ring the ability bar draws is her
+mirror reach around her, where her mirrors can stand). Cooldown 30 s (tier 5: 25 s); Auto when 5 enemies are within her
+mirror reach.
 
 Budget: `WEB_HITS_PER_STEP` = 600 beam hits a step for the whole board (towers in order, beams in pair order, enemies
 in the grid's order); past it the rest of that tick's beams hit nothing, so a huge wave costs a bounded step.
@@ -132,16 +150,26 @@ in the grid's order); past it the rest of that tick's beams hit nothing, so a hu
   counts. Leg starts are kept on the bolt (`lx`, `ly`) for the display's beam.
 - Order: towers in placement order; mirrors by slot; bolts in volley order; beams by pair (i < j).
 - Caps: `MIRROR_MAX` 5, `BOUNCE_CAP` 6, `ALLY_BOUNCES` ≤ 2, `SHARD_BUDGET` 64/step, `WEB_HITS_PER_STEP` 600/step, at most
-  `MIRROR_GATHER` 24 reflecting mirrors tested per projectile (the first in tower order), each behind a box test.
+  `MIRROR_GATHER` 32 reflecting mirrors tested per projectile (the first in tower order; six Irohas at five mirrors fit),
+  each behind a box test. The shard and web budgets are module scratch **reset at the top of every step**
+  (`mirrors.js stepStart`, first thing in `updateProjectiles`), never carried across steps, so a checkpoint needs nothing
+  of them. Shards are spent in projectile-list order (bounces resolve inside `updateProjectiles`).
 - `tests/sim/perf.test.js` and `perf.mirror.test.js` (rewritten: 6 Irohas at 5-0-2 with 5 mirrors each, 24 Aois, 300
   enemies) stay inside their bounds.
 - **Co-op.** The mirror spots travel in the existing `aim` command: `aim[uid, qx, qy, k]` (a 4th argument, the slot;
-  the wire already allows 4). `aim[uid, qx, qy]` keeps working (nearest mirror). The laser web is the normal `abil`
+  the wire already allows 4). `aim[uid, qx, qy]` keeps working (nearest mirror). A 4th argument must be a whole number
+  ≥ 0, else `invalid` (`null` included); a slot she does not have is refused by `setAim` (`ok: false`). The senders pass it:
+  `aimControl.send` → `act.aim(uid, x, y, k)` → `aimArgs` (co-op) or `setAim` (solo). The co-op hash
+  (`src/online/coop/simHash.js`) carries every mirror's spot and placed flag, so a desync shows at once. The laser web is the normal `abil`
   command. Sim change → new sim id; the coordinator assigns the COOP_PROTOCOL bump (this branch pins `PENDING_BUMP`).
+- **`t.aim` for a mirror girl** is never set any more (her spots are `t.mirrorAim`); every reader was checked: the
+  save writes `mr` (and no `am` for her), the drawer's AUTO / PLACE read `mirrorAim`, the redraw signature carries her
+  mirror count and placed flags, the renderer's aim reticle skips her (she has her own mirror marks), and a Tryout Hall
+  Pass move re-places each placed mirror through `setAim` (re-clamped to her reach from the new spot).
 - **Battle save.** `snapshot.js` stores `mr: [[x, y] | 0, …]` (her player spots by slot); the restore replays them
   through `setAim(uid, x, y, k)` after her tiers. `t.mirrors` is derived; the web has no state of its own (her ability
   window, which ends at the wave clear); routed bolts in flight are `projectiles` (calm). An older save's `am` (her one
-  panel) lands on the nearest mirror.
+  panel, her relay origin) becomes her **mirror 0**.
 
 ## 7. Display
 
@@ -165,6 +193,15 @@ in the grid's order); past it the rest of that tick's beams hit nothing, so a hu
   drawn; a tap outside her reach is clamped onto its edge (as today).
 - **Drag** (in the first draft) is **not in this build**: tap-to-place covers every mirror in one or two taps on a
   phone, and a drag on the board competes with the camera pan and the placement drag. Owner board Q9 asks.
+- **Layout at 844×390** (the phone drawer): two rows. Row 1 `MIRRORS` · `AUTO` · `PLACE`; row 2 the count as the row's
+  label (`3 · 2 placed`) and the numbered chips, square at the dense tap size (`--tap-dense`, the 30 px chip with the
+  full tap area above and below it). Five chips and the label fit 340 px; the drawer's body scrolls as it does today.
+- **One mirror back to Auto:** not offered. AUTO resets all of them; re-placing one is a chip tap and a board tap. A
+  per-mirror Auto needs a "clear slot" command form; left for the owner (board Q9).
+- **Modes never stack:** PLACE and a numbered chip are the drawer's Set aim (`aimControl.start`), so arming a card, an
+  ability aim or a pick ends them exactly as it ends Set aim today, and they end those; a placement tap is never eaten.
+- **Range rings:** her range ring stays centred on mirror 0 (her relay origin, `overlays.js`); the other mirrors draw
+  their reticles and numbers only when she is selected. Her tip no longer speaks of a second ring.
 - **Tactical drawer** (`drawerView.js` aimView): the row and chips above; testids `aim-auto`, `aim-set`, `mirror-chip-k`,
   `mirror-count`.
 

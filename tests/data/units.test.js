@@ -232,7 +232,8 @@ function modSetErrors(mods, where) {
     // roster B3
     airMul: (k, v, w) => (isPos(v) ? [] : [`${w} must be > 0`]),
     gather: numCheck,
-    relay: (k, v, w) => objErrors(v, ['reach'], w, numCheck),
+    // (Iroha's mirror network, docs/specs/IROHA_MIRRORS.md §4)
+    relay: (k, v, w) => objErrors(v, ['reach', 'mirrors', 'bounces', 'bounceMul', 'bounceSplash', 'shards', 'allyBounces'], w, numCheck),
     // the new girls (UNIT_GAPS §5)
     strip: (k, v, w) => stripErrors(v, w),
     ring: (k, v, w) => ringErrors(v, w),
@@ -390,7 +391,7 @@ function baseErrors(b, where) {
   if ('airMul' in b && !isPos(b.airMul)) errs.push(`${where}: airMul must be > 0`);
   if ('gather' in b && !(isNum(b.gather) && b.gather >= 0)) errs.push(`${where}: gather must be >= 0`);
   if (b.relay) {
-    errs.push(...objErrors(b.relay, ['kind', 'reach', 'both'], `${where}.relay`, (k, v, w) => {
+    errs.push(...objErrors(b.relay, ['kind', 'reach', 'both', 'mirrors', 'bounces', 'bounceMul', 'bounceSplash', 'shards', 'allyBounces'], `${where}.relay`, (k, v, w) => {
       if (k === 'kind') return ['familiar', 'mirror'].includes(v) ? [] : [`${w} must be familiar or mirror`];
       if (k === 'both') return v === true ? [] : [`${w} must be true`];
       return isPos(v) ? [] : [`${w} must be > 0`];

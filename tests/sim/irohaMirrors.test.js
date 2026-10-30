@@ -210,13 +210,34 @@ describe('Reflected Bolt', () => {
   test('pierce runs out on a leg: the bolt flies on and the bounce refills it', () => {
     const { sim, iroha } = lane({ spots: [[6, 4.5], [11, 4.5]] });
     const es = [7.5, 8.5, 9.5].map((x) => at(sim, x));
+    const hp = es.map((e) => e.hp);
     const p = bolt(sim, iroha, es[0]);
     p.pierce = 1;
     p.refill = 1;
     const evs = fly(sim, p);
     expect(of(evs, 'mirrorBounce').filter((v) => v.uid === p.uid)).toHaveLength(2);
-    // leg 2 hits one enemy (pierce 1), then the final leg one more: two of the three
-    expect(p.hits.length).toBeGreaterThanOrEqual(2);
+    // leg 2 hits one enemy (pierce 1) and flies on; the final leg hits again (its hits start over at the bounce)
+    const struck = es.filter((e, i) => e.hp < hp[i]).length;
+    expect(struck).toBeGreaterThanOrEqual(1);
+    expect(es.reduce((a, e, i) => a + (hp[i] - e.hp), 0)).toBeGreaterThan(Math.max(...es.map((e, i) => hp[i] - e.hp)) - 1e-9);
+    expect(p.dead || !sim.projectiles.includes(p)).toBe(true);
+  });
+
+  test('each enemy once a leg: a bolt bouncing past one enemy strikes it on every leg that crosses it', () => {
+    // mirrors either side of the enemy at x 8.5: ping-pong 3 bounces → legs 6→11, 11→6 both cross it, then the last leg
+    const { sim, iroha } = lane({ spots: [[6, 4.5], [11, 4.5]] });
+    const e = at(sim, 8.5, { hpMul: 1e4 });
+    iroha.stats.relay.bounces = 3;
+    let n = 0;
+    const real = sim._hit.bind(sim);
+    sim._hit = (en, ...a) => {
+      if (en === e) n++;
+      return real(en, ...a);
+    };
+    const p = bolt(sim, iroha, e);
+    fly(sim, p);
+    sim._hit = real;
+    expect(n).toBeGreaterThanOrEqual(3);
   });
 
   test('Polish: the damage scale grows by bounceMul each bounce', () => {
@@ -384,7 +405,7 @@ describe('⚡ Laser Web', () => {
 
   test('the beam hit budget holds for the whole board in one step', () => {
     const { sim, iroha } = lane({ tiers: [5, 0, 0], spots: [[6, 4.5], [11, 4.5], [7, 4.5], [10, 4.5], [8.5, 4.5]] });
-    for (let i = 0; i < 400; i++) at(sim, 5.6 + (i % 60) * 0.1, { hpMul: 1e5 });
+    for (let i = 0; i < 720; i++) at(sim, 5.6 + (i % 60) * 0.1, { hpMul: 1e5 });
     steps(sim, 1);
     iroha.abil.cd = 0;
     expect(sim.castAbility(iroha.uid).ok).toBe(true);
@@ -399,6 +420,26 @@ describe('⚡ Laser Web', () => {
     updateWebs(sim);
     sim._hit = real;
     expect(n).toBe(WEB_HITS_PER_STEP);
+  });
+
+  test('an enemy crossed by several of her beams takes one web hit a tick', () => {
+    // five mirrors on the straight road: all ten beams lie on one line, the enemy at x 8.5 sits inside six of them
+    const { sim, iroha } = lane({ tiers: [5, 0, 0], spots: [[6, 4.5], [11, 4.5], [7, 4.5], [10, 4.5], [8.5, 4.5]] });
+    const e = at(sim, 8.5, { hpMul: 1e5 });
+    steps(sim, 1);
+    iroha.abil.cd = 0;
+    expect(sim.castAbility(iroha.uid).ok).toBe(true);
+    iroha.abil.active = WEB_TICK * 10;
+    let n = 0;
+    const real = sim._hit.bind(sim);
+    sim._hit = (en, ...a) => {
+      if (en === e) n++;
+      return real(en, ...a);
+    };
+    stepStart();
+    updateWebs(sim);
+    sim._hit = real;
+    expect(n).toBe(1);
   });
 });
 

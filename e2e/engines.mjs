@@ -189,7 +189,7 @@ if (ref.gear.state !== 'won' && ref.gear.state !== 'lost' && !(ref.gear.wave >= 
 log('\nScripted co-op RETURNING GIRLS GEAR battle (4-5, GEAR_GIRLS_START: Iroha mirror + own volleys with Pierce, pulse / beam / chain Pierce from the relay origin, every club trick):');
 for (const { name, r } of results) {
   const g = r.gearGirls;
-  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · Iroha shots mirror/own/pierced ${g.iroha} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
+  log(`  ${name.padEnd(46)} ticks ${g.ticks} · ${g.state} · wave ${g.wave} · coins ${g.wallets} · Iroha bounces/shots/pierced ${g.iroha} · final ${g.final} · ${g.checkpoints} hash checkpoints → ${g.hashes} · ${g.ms} ms`);
   if (!g.agree) failures.push(`${name}: its own two returning-girls gear clients disagreed`);
   if (g.failed) failures.push(`${name}: ${g.failed} returning-girls gear command(s) refused: ${g.refused}`);
   for (const k of [...POT_KEYS.filter((x) => x !== 'aoi'), 'iroha', 'tricks', 'dealt']) if (g[k] !== ref.gearGirls[k]) failures.push(`${name}: returning-girls gear ${k} ${g[k]} ≠ ${ref.gearGirls[k]} (${results[0].name})`);
