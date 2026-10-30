@@ -13,6 +13,7 @@ import {
   followThroughBlast,
 } from '../../src/sim/gearRules.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
+import { POWER } from '../../src/data/balance.js';
 
 const us = (o) => ({ ...unitBattleStats(null, 'aoi'), ...o });
 
@@ -50,7 +51,8 @@ describe('resolveStats: gear reach', () => {
   test('Aura Power grows the aura\'s bonus parts (Miko\'s +10 % → +11.5 % at 15 %), never its cost cut', () => {
     const miko = UNIT_MAP.miko;
     const a = resolveStats(miko, { unitStats: us({ auraPct: 0.15 }) }).aura;
-    expect(a.dmgMul).toBeCloseTo(1.115, 9);
+    // her own balance round 5 row (src/data/balance.js) then grows the bonus part again: +11.5 % × 1.05
+    expect(a.dmgMul).toBeCloseTo(1 + 0.115 * (POWER.miko?.buff ?? 1), 9);
     const momoAura = resolveStats(UNIT_MAP.momo, { tiers: [0, 0, 0], unitStats: us({ auraPct: 0.15 }) }).aura;
     if (momoAura) expect(momoAura.costCut ?? 0).toBe(resolveStats(UNIT_MAP.momo, { unitStats: us({}) }).aura?.costCut ?? 0);
   });

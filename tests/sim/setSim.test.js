@@ -12,6 +12,7 @@ import { UNIT_MAP } from '../../src/data/units.js';
 import { SET_IDS } from '../../src/data/gearSets.js';
 import {
   SIM_SET_IDS, SET_PASSIVES, setPassive, statusCtxFor, splitCrit, averageCrit, SUPER_CRIT_MUL, controlMulOf, itBonusOf, buffDur, pushMul,
+  SET_ATTACK_BEHAVIORS,
 } from '../../src/sim/setRules.js';
 import { abilityHaste, abilityChargePerTick, superchargeMul, firstBellCharge } from '../../src/sim/gearRules.js';
 import { unitBattleStats } from '../../src/systems/progression.js';
@@ -145,7 +146,7 @@ describe('the sim reads the set\'s keys', () => {
 });
 
 describe('set passives in a battle', () => {
-  const run = (unitId, stats, steps = 60 * 200, extra = null) => {
+  const run = (unitId, stats, steps = 60 * 200, extra = null, prep = null) => {
     const loadout = [{ unitId, stats: { ...unitBattleStats(null, unitId), damageMul: 3, critChance: 0.2, ...stats } }];
     if (extra) loadout.push({ unitId: extra, stats: unitBattleStats(null, extra) });
     const sim = new Sim({ stageId: '1-3', difficulty: 'normal', seed: 7, loadout, options: { autoStart: false } });
@@ -153,6 +154,7 @@ describe('set passives in a battle', () => {
     const spots = [];
     for (let y = 0.55; y < sim.map.height; y += 0.35) for (let x = 0.55; x < sim.map.width; x += 0.35) if (!sim.placementReason(unitId, x, y) && sim.placement.pathDistance(x, y) < 1.2) spots.push([x, y]);
     const t = sim.placeTower(unitId, spots[0][0], spots[0][1]);
+    prep?.(sim, t);
     let o = null;
     if (extra) {
       const near = spots.find(([x, y]) => Math.hypot(x - t.x, y - t.y) >= 1 && Math.hypot(x - t.x, y - t.y) <= 1.8 && !sim.placementReason(extra, x, y));
@@ -180,6 +182,17 @@ describe('set passives in a battle', () => {
     expect(t.angleN).toBe(ev.attack % 4);
     expect(run('aoi', { set: 'geometry', setN: 5, setLr: true }).ev.set.rightAngle).toBe(Math.floor(run('aoi', { set: 'geometry', setN: 5, setLr: true }).ev.attack / 3));
     expect(run('aoi', { set: 'geometry', setN: 3 }).ev.set.rightAngle).toBeUndefined();
+  });
+
+  test('the attack shapes carry Right Angle too: Kage\'s Blade Cyclone (spin) counts and crits (r5 merge)', () => {
+    // (the path whose tier 5 is the spin, to tier 5)
+    const path = UNIT_MAP.kage.paths.findIndex((p) => JSON.stringify(p.tiers).includes('"spin"'));
+    const toSpin = (sim, t) => { for (let i = 0; i < 5; i++) sim.upgradeTower(t.uid, path); };
+    const probe = run('kage', {}, 1, null, toSpin);
+    expect(probe.t.eff.behavior).toBe('spin');
+    const { ev } = run('kage', { set: 'geometry', setN: 4 }, 60 * 120, null, toSpin);
+    expect(SET_ATTACK_BEHAVIORS).toContain('spin');
+    expect(ev.set.rightAngle || 0).toBeGreaterThan(0);
   });
 
   test('Confetti Burst bursts on every 6th attack within the shared budget; never below zero', () => {

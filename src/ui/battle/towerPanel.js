@@ -723,7 +723,8 @@ export function createTowerPanel(ctx) {
     const gear = gearPierce(t, st);
     if (pierces(t, st)) add('Pierce', `${fmtNum(Math.max(1, st.pierce || 1))}${gear > 0 ? ` (+${gear}%)` : ''}`);
     if (st.behavior === 'pulse' && st.maxTargets < 99) add('Max hits', fmtNum(st.maxTargets));
-    if (st.splash > 0) add('Splash', fmtNum(st.splash, 'range'));
+    // (a held stream or sweep has no blast: its fireball's splash stays in her stats from the tiers before, unused)
+    if (st.splash > 0 && st.behavior !== 'stream' && st.behavior !== 'sweep') add('Splash', fmtNum(st.splash, 'range'));
     if (st.chain > 0) add('Jumps', fmtNum(st.chain));
     if (st.armorPen > 0) add('Armor pen', fmtNum(st.armorPen, 'flat'));
     if (st.crit?.chance > 0) add('Crit', `${Math.round(st.crit.chance * 100)}% ${fmtNum(st.crit.mul, 'mul', { detail: true })}`, '.bt-stat-wide2');

@@ -89,7 +89,9 @@ const LOOK_ENUMS = {
   eyeStyle: ['round', 'sharp', 'sleepy', 'sparkle', 'closed'],
   expression: ['smile', 'smug', 'calm', 'determined', 'shy', 'cheerful'],
 };
-const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'drink', 'roll', 'none'];
+// wheel / spin: the attack shapes S1 (src/sim/wheels.js; docs/specs/ATTACK_SHAPES.md); stream / sweep: S2 (src/sim/held.js);
+// spikes: S3 (src/sim/ground.js); return: S4 (src/sim/links.js)
+const BEHAVIORS = ['projectile', 'pulse', 'duel', 'beam', 'chain', 'trap', 'turret', 'mortar', 'strip', 'ring', 'drink', 'roll', 'none', 'wheel', 'spin', 'stream', 'sweep', 'spikes', 'return'];
 const BASE_REQUIRED = [
   'cost', 'behavior', 'damage', 'rate', 'range', 'projectiles', 'pierce', 'splash', 'chain', 'maxTargets',
   'projectileSpeed', 'armorPen', 'canHitAir', 'detection', 'status', 'crit', 'eliteMul', 'bossMul', 'barrierMul',
@@ -240,6 +242,19 @@ function modSetErrors(mods, where) {
     vine: (k, v, w) => objErrors(v, VINE_NUMS, w, numCheck),
     ball: (k, v, w) => ballErrors(v, w),
     blade: (k, v, w) => objErrors(v, BLADE_NUMS, w, numCheck),
+    // the attack shapes S1 (src/sim/mods.js SHAPE_NORM): numbers only
+    wheel: (k, v, w) => objErrors(v, ['spokes', 'lead', 'mul'], w, numCheck),
+    spin: (k, v, w) => objErrors(v, ['arms', 'mul', 'fold', 'turn', 'lock'], w, numCheck),
+    halo: (k, v, w) => objErrors(v, ['pieces', 'reach', 'mul'], w, numCheck),
+    // the attack shapes S2 (src/sim/mods.js SHAPE_NORM): numbers, and a stream's element kind (src/sim/held.js STREAM_KINDS)
+    stream: (k, v, w) => objErrors(v, ['kind', 'half', 'turn', 'mul', 'cap'], w, (kk, vv, ww) => (kk === 'kind' ? (['fire', 'frost', 'poison', 'water'].includes(vv) ? [] : [`${ww} unknown kind ${vv}`]) : numCheck(kk, vv, ww))),
+    sweep: (k, v, w) => objErrors(v, ['arc', 'swing', 'turn', 'mul', 'cap'], w, numCheck),
+    // the attack shapes S3 (src/sim/mods.js SHAPE_NORM): numbers, and the statuses a quake's last ring adds
+    spike: (k, v, w) => objErrors(v, ['count', 'gap', 'r', 'delay', 'mul'], w, numCheck),
+    quake: (k, v, w) => objErrors(v, ['rings', 'gap', 'speed', 'mul', 'later', 'status'], w, (kk, vv, ww) => (kk === 'status' ? (Array.isArray(vv) ? [] : [`${ww} status must be a list`]) : numCheck(kk, vv, ww))),
+    // the attack shapes S4 (src/sim/mods.js SHAPE_NORM): numbers
+    ret: (k, v, w) => objErrors(v, ['per', 'mul', 'cut', 'pierce', 'reach'], w, numCheck),
+    tether: (k, v, w) => objErrors(v, ['links', 'reach', 'dur', 'share', 'pull'], w, numCheck),
     duo: (k, v, w) => objErrors(v, DUO_NUMS, w, numCheck),
     // the staff heroes (BANNERS §D): Kogane's Move recharge, Norika's barricades
     moveCd: (k, v, w) => (isPos(v) ? [] : [`${w} must be > 0`]),
@@ -301,7 +316,7 @@ const DUO_NUMS = ['edge', 'beamDmg', 'beamRate', 'beamRange', 'beamPierce', 'bea
 // The nature caster (src/sim/mods.js normVine): numbers add.
 // Kaede's blade arts (src/sim/mods.js normBlade): numbers add, shareMul multiplies
 const BLADE_NUMS = ['every', 'radius', 'share', 'targets', 'crescents', 'cLen', 'cWidth', 'cShare', 'cTargets', 'storm', 'sShare', 'sTargets', 'wave', 'wWidth', 'wShare', 'wTargets', 'maple', 'mShare', 'mTargets', 'shareMul'];
-const VINE_NUMS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap'];
+const VINE_NUMS = ['every', 'hold', 'dps', 'beds', 'bedDmg', 'bedTtl', 'bloom', 'bloomPer', 'bloomIdle', 'lives', 'livesCap', 'len', 'grow', 'life', 'slow', 'lash', 'cap', 'max'];
 
 // The campus hub (src/sim/mods.js normHub).
 const HUB_NUMS = ['radius', 'costCut', 'sellMul', 'freeTiers', 'killBounty', 'cdCut', 'rateMul', 'rangeMul', 'dmgMul', 'typeFloor', 'banners', 'bannerRange', 'bannerReach', 'radiusAdd', 'cutAdd'];

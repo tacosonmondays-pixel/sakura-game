@@ -3,6 +3,7 @@
 // wallet after every command and step, a manual cast's kill coins pooled and split like an auto-cast's
 // (spec §7.1), the start message's `autoAbil`, the hash folding ability state
 // only once an ability was cast or switched to Auto, and both views computing the same battle.
+import { POWER } from '../../src/data/balance.js';
 import { describe, it, expect } from 'vitest';
 import { createCoopSim, isValidCmd, KINDS, quantize, abilArgs } from '../../src/online/coop/commands.js';
 import { hashSim, createHasher } from '../../src/online/coop/simHash.js';
@@ -21,6 +22,10 @@ const start = ({ p0 = {}, p1 = {}, seed = 2025, stageId = '2-5' } = {}) => ({
     { slot: 1, uid: 'guest', name: 'Guest', loadout: [{ unitId: 'momo' }, { unitId: 'aoi' }, { unitId: 'miko' }], hero: null, ...p1 },
   ],
 });
+
+/** A loadout entry with her balance round 5 damage row divided back out (src/data/balance.js; co-op stats keep only
+ *  known keys, so `powerOff` cannot travel): waves last as long as these scenarios were built for. */
+const neutral = (unitId, stats = {}) => ({ unitId, stats: { ...stats, damageMul: (stats.damageMul ?? 1) / (POWER[unitId]?.dmg ?? 1) } });
 
 let seq = 0;
 const cmd = (p, k, a = [], t = 0) => ({ t, p, s: seq++, k, a });
@@ -355,7 +360,8 @@ describe('owner-credited coins (spec §7.1, §7.4)', () => {
   }
 
   it('every Market Day, auto or manual, lands in her owner\'s wallet only; both views agree; still so with the other player gone', () => {
-    const cs = views(start(), { coins: 20000 });
+    // (power-neutral: the raised Aoi would clear the three waves before Momo's second Market Day)
+    const cs = views(start({ p0: { loadout: [neutral('aoi'), neutral('hotaru'), neutral('akane')] } }), { coins: 20000 });
     const momo = upAbil(cs, 1, place(cs, 1, 'momo'));
     upAbil(cs, 0, place(cs, 0, 'aoi')); // abilities of his own, never cast (no Auto)
     upAbil(cs, 0, place(cs, 0, 'akane'));
@@ -673,11 +679,13 @@ describe('the M2 sim fixes in co-op: strip and sentry crits, First Bell, Ouka\'s
 
 describe('the returning girls in co-op (A3 M3)', () => {
   it('Kaze\'s Swoop (map) and First Aid Call (lives) through abil on two views: equal hashes, every life restored once on both', () => {
-    const STRONG = { damageMul: 6, rateMul: 1.3 };
+    // (power-neutral: the girls' balance round 5 rows divided back out, and ÷1.1 for Noa's raised aura (her `buff`), so
+    // enemies still reach her 3 tiles; the scenario is seed-sensitive: 6 and 6.5 miss the rally's kills, 6 / 1.1 and 4 hit)
+    const STRONG = { damageMul: 6 / 1.1, rateMul: 1.3 };
     const st = start({
       stageId: '8-1',
-      p0: { loadout: [{ unitId: 'noa' }, { unitId: 'hana', stats: STRONG }, { unitId: 'aoi', stats: STRONG }], hero: null },
-      p1: { loadout: [{ unitId: 'ena', stats: STRONG }, { unitId: 'aoi', stats: STRONG }], hero: null },
+      p0: { loadout: [{ unitId: 'noa' }, neutral('hana', STRONG), neutral('aoi', STRONG)], hero: null },
+      p1: { loadout: [neutral('ena', STRONG), neutral('aoi', STRONG)], hero: null },
     });
     const cs = views(st);
     const noa = upAbil(cs, 0, place(cs, 0, 'noa'));

@@ -91,6 +91,14 @@ exports[`hero definitions > kanna Lv 25 stats are frozen (catches accidental pow
   "pierce": 1,
   "projectileSpeed": 0,
   "projectiles": 1,
+  "quake": {
+    "gap": 12,
+    "later": 0.015,
+    "mul": 0.03,
+    "rings": 2,
+    "speed": 6,
+    "status": [],
+  },
   "ramp": {
     "max": 1.8000000000000003,
     "per": 0.15,

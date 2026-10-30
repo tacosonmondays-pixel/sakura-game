@@ -204,13 +204,18 @@ describe('display only: the battle sim is untouched', () => {
     // buff with the long beam, the sentry deploy event and Tryout Day's Extended Day + Random Class; 13: the last five
     // tower ultimates: Kage's Shadow Doubles, Suzu's Bell Carpet, Chika's Drone Surge, Fuu's Backdraft Fan, Iroha's Mirror Shift)
     const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db', 12: 'd35092f141d3', 13: 'be940ecb2087' };
-    // PENDING_BUMP: feature/gear-sets and feature/gear-lr (the gear update's M2 and M3: five-piece sets, their passives
-    // and set caps, super crits, Control Strength and Buff Duration at every call site, the average crit and DoT share
-    // levers; LR gear's guards PIERCE_K_MAX 300 and ULT_HASTE_MAX 0.75, the LR Set Forms; GEAR_UPDATE.md §10.1)
-    // change the sim on protocol 13. The release assigns COOP_PROTOCOL, adds its KNOWN line and removes this
-    // pin. Only this exact in-progress id passes here.
-    const PENDING_BUMP = { 13: 'd3d719fe8559' };
+    // feature/attack-links only: the attack shapes S1 "Wheels" (src/sim/wheels.js, dirs.js, shapes.js), Kohaku's long
+    // beam (src/sim/duo.js), S2 "Held" (src/sim/channel.js, held.js; Akane's Hearth Stream, Umeko's Searchlight Sweep),
+    // S3 "Ground" (src/sim/ground.js, vines.js; Chigusa's Bramble Road, Yuki's Rising Spikes, Kanna's Ripple Quake) and
+    // S4 "Links" (src/sim/links.js; Fuu's Homecoming Throw, Ena's Spirit Tether) change the sim, and balance round 5
+    // (feature/balance-r5) rides the same bump. feature/gear-g4 is that tree with the gear update's M2 and M3 on top
+    // (five-piece sets, their passives and set caps, super crits, Control Strength and Buff Duration at every call site,
+    // the average crit and DoT share levers; LR gear's guards and LR Set Forms; GEAR_UPDATE.md §10.1). The release that
+    // ships them sets COOP_PROTOCOL once, adds its `N: '<id>'` line above and removes this one. Only this exact
+    // in-progress id passes.
+    const PENDING_BUMP = { 13: '34bfb917e6ee' };
     if (!KNOWN[COOP_PROTOCOL]) return;
-    expect(simId().id).toBe(PENDING_BUMP[COOP_PROTOCOL] ?? KNOWN[COOP_PROTOCOL]);
+    if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
+    expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });
 });

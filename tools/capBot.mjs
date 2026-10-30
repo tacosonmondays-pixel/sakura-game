@@ -6,7 +6,7 @@
 //   node --import ./tools/simLoader.mjs tools/capBot.mjs --build A|A2|B|C --stage 4-5 --tier blossom
 //        [--seed 7] [--maxWave 260] [--coop 1|2] [--difficulty normal] [--log]
 //        [--profile p1|f2p-steady|f2p-late|whale] [--potential p1|f2p-steady|whale|1…6]
-//        [--level 60|75|85] [--gear maxed|late|urLate]
+//        [--level 60|75|85] [--gear maxed|late|urLate|full] [--lives N]
 //
 // Profile (tools/potentialProfiles.mjs): default p1 = MAXED (tools/freeplayBot.mjs: ★5, legendary +10,
 // average rolls) at level 60 and P1; the Potential v3 profiles change Potential, level and gear for
@@ -50,6 +50,8 @@ const maxWave = Number(opt('maxWave', 260));
 const coop = Number(opt('coop', 0));
 const difficulty = opt('difficulty', 'normal');
 const verbose = args.includes('--log');
+/** --lives N: start with N lives (a Nightmare run with lives to spare shows where each kind of enemy first gets through). */
+const livesOpt = Number(opt('lives', 0));
 
 /** Copy plans per type: copies 1, 2, 3, then every further copy (null: no such copy). */
 const PLANS = {
@@ -303,12 +305,14 @@ function buildConfig(name) {
 // ---- runs ------------------------------------------------------------------------------------
 function summarize(sim, extra) {
   const lostBy = { boss: 0, miniboss: 0, elite: 0, normal: 0 };
+  const firstBy = {};
   let firstLeak = null;
   for (const l of sim.stats.leakLog || []) {
     if (l.wave <= sim.totalWaves) continue;
     const tierE = sim.data.enemy(l.enemyId)?.tier || 'normal';
     if (verbose) process.stderr.write(`leak w${l.wave} ${l.enemyId} (${tierE}) -${l.lives}\n`);
     lostBy[tierE] = (lostBy[tierE] || 0) + l.lives;
+    if (firstBy[tierE] == null) firstBy[tierE] = l.wave;
     if (firstLeak == null) firstLeak = l.wave;
   }
   const towers = sim.towers.filter((t) => !t.isHero);
@@ -318,7 +322,7 @@ function summarize(sim, extra) {
   for (const t of towers) girls[t.unitId] = (girls[t.unitId] || 0) + 1;
   return {
     build, stage: stageId, tier, seed, coop, fell: sim.state === 'lost' ? sim.wave : null, reached: sim.wave, goal: sim.totalWaves,
-    firstLeak, lostBy, finals: finals.length, finalPaths: finals.sort().join(' '), t4, girls, towers: towers.length,
+    firstLeak, firstBy, lostBy, finals: finals.length, finalPaths: finals.sort().join(' '), t4, girls, towers: towers.length,
     coinsEarned: Math.round(sim.stats.cashEarned || 0), ...extra,
   };
 }
@@ -333,6 +337,7 @@ export function runSolo({ data = {}, after = null, maxWave: lastWave = maxWave }
   const loadout = cfg.types.map((unitId) => ({ unitId, stats: statsOf(unitId) }));
   const sim = withDetMath(() => new Sim({ stageId, difficulty, seed, loadout, hero: { unitId: HERO, stats: statsOf(HERO) }, options: { freeplay: true, autoStart: false }, data: { ...data, stage } }));
   if (coop === 1) sim.cash = Math.round(sim.cash * COOP.cashShare * 2);
+  if (livesOpt > 0) sim.lives = sim.maxLives = livesOpt;
   const act = (k, a, b) => {
     if (k === 'place') return sim.placeTower(a, b.x, b.y);
     if (k === 'upg') return sim.upgradeTower(a, b);

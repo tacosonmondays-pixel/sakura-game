@@ -224,19 +224,19 @@ const FUU = {
   personality: 'Breezy, carefree and impossible to pin down; hums while she fights and never walks when she can twirl.',
   quote: 'Back you go~ Again! And again!',
   tips: [
-    'Her gusts push enemies back into your kill zone; each enemy can only be pushed once every 1.5 seconds.',
+    'Her gusts push enemies back into your kill zone; each enemy can only be pushed once every 1.2 seconds.',
     'Gathering Dance pulls the enemies ahead of her target back into a clump for splash girls.',
     'Bosses barely move: pair her with damage, not instead of it.',
     '⚡ Returning Gale tier 3 teaches Backdraft Fan: one great sweep that blows a whole crowd back up the road.',
   ],
-  base: stats({ cost: 260, damage: 2, rate: 0.7, range: 3.0, projectiles: 3, projectileSpeed: 13, knockback: 0.45, canHitAir: true }),
+  base: stats({ cost: 260, damage: 2, rate: 0.7, range: 3.0, projectiles: 3, projectileSpeed: 13, knockback: 0.6, canHitAir: true }),
   paths: [
     path('gale', 'Returning Gale', 'Push-back', [
-      tier('Brisk Fans', 90, 'Gusts push 0.1 tiles further.', { knockback: 0.1 }),
+      tier('Brisk Fans', 90, 'Gusts push 0.15 tiles further.', { knockback: 0.15 }),
       tier('Twin Gusts', 240, 'One more gust per sweep.', { projectiles: 1 }),
-      tier('Gale Wall', 700, 'Push +0.15 tiles; gusts slow by 25% for 1s.', { knockback: 0.15, status: [S.slow(0.25, 1)] }),
-      tier('Typhoon Fans', 2200, 'Two more gusts, push +0.2 tiles, +6 damage.', { projectiles: 2, knockback: 0.2, damage: 6 }),
-      tier('Heaven\'s Gate Wind', 14000, 'Two more gusts, push +0.3 tiles, +14 damage, +40% attack speed.', { projectiles: 2, knockback: 0.3, damage: 14, rateMul: 1.4 }),
+      tier('Gale Wall', 700, 'Push +0.2 tiles; gusts slow by 25% for 1s.', { knockback: 0.2, status: [S.slow(0.25, 1)] }),
+      tier('Typhoon Fans', 2200, 'Two more gusts, push +0.25 tiles, +6 damage. Homecoming Throw: her gusts become fans that fly through her targets and come back to her hand: half her hit on the way out (with her push and slow), half again on the way home.', { projectiles: 2, knockback: 0.25, damage: 6, behavior: 'return', ret: { per: 1, mul: 0.5, cut: 0, pierce: 0, reach: 1 } }),
+      tier('Heaven\'s Gate Wind', 14000, 'Two more fans, push +0.4 tiles, +14 damage, +40% attack speed.', { projectiles: 2, knockback: 0.4, damage: 14, rateMul: 1.4 }),
     ]),
     path('gather', 'Gathering Dance', 'Clump the wave', [
       tier('Light Steps', 80, '+0.4 range.', { range: 0.4 }),
@@ -253,7 +253,7 @@ const FUU = {
       tier('Sky Sweeper', 15000, '×1.4 against flyers, +18 damage, two more gusts, +30% attack speed.', { airMul: 1.4, damage: 18, projectiles: 2, rateMul: 1.3 }),
     ]),
   ],
-  awakenPassive: { name: 'Tailwind', desc: 'Gusts push 0.05 tiles further and +0.2 range.', mods: { knockback: 0.05, range: 0.2 } },
+  awakenPassive: { name: 'Tailwind', desc: 'Gusts push 0.1 tiles further and +0.2 range.', mods: { knockback: 0.1, range: 0.2 } },
 };
 
 const HANA = {
@@ -550,8 +550,8 @@ const ENA = {
       tier('Quick Deal', 140, '+12% attack speed.', { rateMul: 1.12 }),
       tier('Lucky Card', 320, '5% crits for ×1.5.', { crit: { chance: 0.05, mul: 1.5 } }),
       tier('Shared Fate', 1050, 'Brittle +12% for 3s; silences for 0.5s.', { status: [S.vulnerable(0.12, 3)], silence: 0.5 }),
-      tier('Red Threads', 3500, 'One more card; Brittle +18%; +12 damage.', { projectiles: 1, status: [S.vulnerable(0.18, 3)], damage: 12 }),
-      tier('Threads of Destiny', 25000, 'Two more cards, Brittle +25%, 15% stun for 0.4s, +40 damage.', { projectiles: 2, status: [S.vulnerable(0.25, 3), S.stun(0.4, 0.15)], damage: 40 }),
+      tier('Red Threads', 3500, 'One more card; Brittle +18%; +12 damage. Spirit Tether: every deal ties her target to the two enemies nearest it, one after another, for 3s; a hit from any girl on a tied enemy is shared, each other tied enemy taking 20% of it (her own hits are split among them, not added).', { projectiles: 1, status: [S.vulnerable(0.18, 3)], damage: 12, tether: { links: 2, reach: 1.5, dur: 3, share: 0.2, pull: 0 } }),
+      tier('Threads of Destiny', 25000, 'Two more cards, Brittle +25%, 15% stun for 0.4s, +40 damage; her threads tie three enemies for 4s at 25% each, and pull tight as they fade, dragging the enemies ahead of her target back toward it.', { projectiles: 2, status: [S.vulnerable(0.25, 3), S.stun(0.4, 0.15)], damage: 40, tether: { links: 3, reach: 1.8, dur: 4, share: 0.25, pull: 0.25 } }),
     ]),
   ],
   awakenPassive: { name: 'Lingering Hex', desc: 'Curses burst for the whole hit within 1.2 tiles and last 5s.', mods: { status: [S.curse(1.0, 1.2, 5)] } },

@@ -46,7 +46,7 @@ const KANNA = {
     L(21, 'L9', 'Main Event: +3 damage, ignores 1 armor.', { damage: 3, armorPen: 1 }),
     L(22, 'rhythm.5', 'Endless Festival: +20 damage, +30% attack speed, focus reaches +60% further.', { damage: 20, ramp: { per: 0, max: 0.6 }, rateMul: 1.3 }),
     L(23, 'oni.5', 'Demon Queen\'s Blow: +24 damage, +40% against bosses, shreds 3 armor for 6s.', { damage: 24, bossMul: 1.4, status: [S.shred(3, 6)] }),
-    L(24, 'dance.5', 'Hundred Demons\' Parade: +16 damage, splash +0.3, +30% attack speed, 30% slows.', { damage: 16, splash: 0.3, rateMul: 1.3, status: [S.slow(0.3, 1.5)] }),
+    L(24, 'dance.5', 'Hundred Demons\' Parade: +16 damage, splash +0.3, +30% attack speed, 30% slows; every strike sends two rings of force rolling out from her across the ground, striking every walker they cross.', { damage: 16, splash: 0.3, rateMul: 1.3, status: [S.slow(0.3, 1.5)], quake: { rings: 2, gap: 12, speed: 6, mul: 0.03, later: 0.015 } }),
     L(25, 'L10', 'Festival Queen: +15% damage, +0.2 range.', { damageMul: 1.15, range: 0.2 }),
   ],
   ultRanks: [

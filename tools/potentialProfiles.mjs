@@ -16,6 +16,10 @@
 // | f2p-steady | R/SR P6, SSR P2, Nami 6, Hikari 3, Luna 2 (month 3) | 75    | maxed |
 // | f2p-late   | the same (month 6+)                               | 85    | late  |
 // | whale      | everyone P6                                       | 85    | urLate|
+// | full       | everyone P6, ★5, 10 gates, UR Resonance on, the duo LR | 85 | full  |
+//
+// `full` is balance round 5's fully maxed girl (tools/balance/maxedProfile.mjs: three UR +12 Taiko pieces at average
+// rolls through the game's own unitBattleStats, UR Resonance on): the strongest account a player can reach.
 //
 // The gear blocks are the battle multipliers at level 60 (`maxed`: ★5, legendary +10, average rolls,
 // tools/freeplayBot.mjs MAXED; `late`: best of ten gold sets; `urLate`: UR gear). A level other than 60
@@ -24,6 +28,7 @@
 import { MAXED } from './freeplayBot.mjs';
 import { DEFAULT_UNIT_STATS } from '../src/sim/constants.js';
 import { UNIT_MAP } from '../src/data/units.js';
+import { maxedStats, RESONANCE_ON } from './balance/maxedProfile.mjs';
 
 export const GEAR = Object.freeze({
   maxed: MAXED,
@@ -36,6 +41,7 @@ export const PROFILES = Object.freeze({
   'f2p-steady': { potential: 'f2p', level: 75, gear: 'maxed' },
   'f2p-late': { potential: 'f2p', level: 85, gear: 'late' },
   whale: { potential: 'whale', level: 85, gear: 'urLate' },
+  full: { potential: 'whale', level: 85, gear: 'full', gates: 10 },
 });
 
 /** The free player's Potential (v2 §3.1): R/SR P6, SSR P2, Nami 6, Hikari 3, Luna 2. */
@@ -57,8 +63,9 @@ const levelRate = (L) => 1 + 0.004 * (L - 1);
 
 /** Battle stats of one girl under a profile ({ potential, level, gear }). */
 export function profileStats(unitId, prof) {
+  if (prof.gear === 'full') return { ...DEFAULT_UNIT_STATS, ...maxedStats(unitId, RESONANCE_ON) };
   const g = GEAR[prof.gear];
-  if (!g) throw new Error(`unknown gear block ${prof.gear} (maxed, late, urLate)`);
+  if (!g) throw new Error(`unknown gear block ${prof.gear} (maxed, late, urLate, full)`);
   const L = prof.level;
   return {
     ...DEFAULT_UNIT_STATS,

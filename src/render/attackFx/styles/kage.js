@@ -44,6 +44,8 @@ export const kage = {
     rec.mx = h.x;
     rec.my = h.y;
     rec.mz = h.h;
+    // her Blade Cyclone's straight shots (attack shapes S1) leave her own hand, along their arm
+    if (p.straight) return true;
     if (p0 >= 5 && ctx.q.clones > 0 && idx > 0 && ctx.inCombat(rec.tw)) {
       clonePos(ctx, t, (idx - 1) % 3, CP);
       rec.mx = CP.x;

@@ -24,15 +24,19 @@
 // each a share of the shell's hit (mystic, hits flyers, its own small splash and the shard statuses).
 // Potential's capstone (fullEvery): every Nth volley (t.duoVolley counts them) splits every shell in it.
 //
-// The long beam (Grand Spectrum, `duo.edge`, and the duo's LR form, `unitStats.lr`): a held beam still locks onto
-// an enemy within her reach and keeps its hold rules, ramp and silence cadence, but its line runs on through that
-// enemy to the map edge (edgeReach: the map-bounds clip). Within her reach it hits as the old beam did (the same line test and her pierce);
-// past it the light hits everything on the line (up to PRISM_EDGE_PIERCE in all), each hit × PRISM_EDGE_MUL.
+// The long beam (`duo.edge`: Grand Spectrum, and the duo's LR form, `unitStats.lr`; owner, Oct 29–30: "a line from one
+// side of the map to the other"): her beams lock on within her reach as before, and a beam left free locks onto an
+// enemy anywhere on the map (her target mode picks which in both; the hold rules, ramp and silence cadence as before),
+// so with any enemy on the map her light is on. Each line runs edge to edge through her prism
+// and that enemy (edgeReach both ways: the map-bounds clip). Her enemy and what her short beam would hit (the segment
+// to her reach toward her enemy, her own pierce) take the full tick, so the long beam is never weaker than the short
+// one; every other enemy on the line (up to PRISM_EDGE_PIERCE in all, her enemy first, the rest in line order) takes
+// the tick × PRISM_EDGE_MUL (her LR form: × PRISM_EDGE_MUL_LR).
 //
 // Determinism (co-op lockstep): integer counters and tick timers, fixed tables, + − × ÷, Math.sqrt and Math.round only.
 
 import {
-  STEP, MORTAR_DELAY, PRISM_SHARDS, PRISM_BEAM_TICK, PRISM_SILENCE_TICKS, PRISM_CLIP_TICKS, BEAM_HALF_WIDTH, PRISM_EDGE_PIERCE, PRISM_EDGE_MUL, DUO_LR_MUL,
+  STEP, MORTAR_DELAY, PRISM_SHARDS, PRISM_BEAM_TICK, PRISM_SILENCE_TICKS, PRISM_CLIP_TICKS, BEAM_HALF_WIDTH, PRISM_EDGE_PIERCE, PRISM_EDGE_MUL, PRISM_EDGE_MUL_LR, DUO_LR_MUL,
 } from './constants.js';
 import { segDistSq } from './path.js';
 import { statusCtxFor } from './setRules.js';
@@ -93,13 +97,13 @@ export function buildPartnerSpec(t) {
   // one damage tick of a held beam: the share of one old flash (src/sim/combat.js computeHit reads `share`);
   // her silence lands on lock-on and every PRISM_SILENCE_TICKS (prismBeam), never through a tick
   const share = PRISM_BEAM_TICK / beamTicks(t.beamSpec.rate);
-  // the long beam: her line to the map edge, its pierce cap lifted (prismBeam thins the hits past her reach)
+  // the long beam: she locks on anywhere, her line runs edge to edge and takes up to PRISM_EDGE_PIERCE enemies
   const edge = d.edge > 0 || t.unitStats?.lr === true;
   if (edge) {
-    // within her reach she pierces as before (nearPierce); the line past it takes up to PRISM_EDGE_PIERCE in all
     t.beamSpec.edge = true;
     t.beamSpec.nearPierce = t.beamSpec.pierce;
     t.beamSpec.pierce = PRISM_EDGE_PIERCE;
+    t.beamSpec.edgeMul = t.unitStats?.lr === true ? PRISM_EDGE_MUL_LR : PRISM_EDGE_MUL;
   }
   t.beamTickSpec = { ...t.beamSpec, damage: t.beamSpec.damage * share, share, ramp: null, silence: 0, tick: true };
   if (!t.prismBeams) t.prismBeams = []; // her beams' holds (prismBeam fills one per beam on her first target)
@@ -160,25 +164,42 @@ export function edgeReach(sx, sy, ux, uy, W, H) {
   return r === Infinity ? 0 : Math.max(0, r);
 }
 
-/** Her beam's length toward enemy e: her reach, or for a long beam on to the map edge (never shorter than her reach). */
+/** Her beam's length toward enemy e: her reach, or for a long beam on to the map edge (never short of her enemy or her reach). */
 export function beamLength(sim, t, spec, e) {
   if (!spec.edge) return spec.range;
   const dx = e.x - t.ox;
   const dy = e.y - t.oy;
   const d = Math.sqrt(dx * dx + dy * dy) || 1e-6;
-  return Math.max(spec.range, edgeReach(t.ox, t.oy, dx / d, dy / d, sim.map.width, sim.map.height));
+  return Math.max(spec.range, d, edgeReach(t.ox, t.oy, dx / d, dy / d, sim.map.width, sim.map.height));
+}
+
+/** How far a long beam toward enemy e runs behind her prism, to the opposite map edge (0 for a short beam). */
+export function beamBack(sim, t, spec, e) {
+  if (!spec.edge) return 0;
+  const dx = e.x - t.ox;
+  const dy = e.y - t.oy;
+  const d = Math.sqrt(dx * dx + dy * dy) || 1e-6;
+  return edgeReach(t.ox, t.oy, -dx / d, -dy / d, sim.map.width, sim.map.height);
 }
 
 // Scratch arrays of the damage tick (filled and read inside one synchronous prismBeam call, never across steps:
 // nothing to save): a tick allocates nothing but its hit events.
 const TARGETS = [];
+const FAR = [];
 const HITS = [];
 const NEAR = [];
 
 /** One damage tick of her constant beam. @returns {boolean} whether she had a target */
 function prismBeam(sim, t, spec, h) {
   const n = spec.projectiles;
+  // her beams lock on within her reach (her target mode picks which); a long beam's beams left free lock on anywhere on
+  // the map (the same mode), so the long beam always has something to hold while an enemy is on the map
   const targets = h.selectTargetsInto(sim, t.ox, t.oy, spec.range, spec, t.targetMode, n, TARGETS);
+  if (spec.edge && targets.length < n) {
+    h.selectTargetsInto(sim, t.ox, t.oy, Infinity, spec, t.targetMode, n, FAR);
+    for (let k = 0; k < FAR.length && targets.length < n; k++) if (!targets.includes(FAR[k])) targets.push(FAR[k]);
+    FAR.length = 0;
+  }
   if (!targets.length) {
     partnerOff(t);
     return false;
@@ -221,10 +242,11 @@ function prismBeam(sim, t, spec, h) {
     if (!e || e.dead) continue; // (an earlier beam's tick finished it: the next tick lets go)
     const scale = prismRamp(spec, tick, b.held);
     const silence = sil > 0 && (b.held * PRISM_BEAM_TICK) % PRISM_SILENCE_TICKS === 0;
-    const hits = h.linePierceInto(sim, t, tick, e, beamLength(sim, t, spec, e), BEAM_HALF_WIDTH, spec.pierce, HITS, NEAR);
-    // a long beam: within her reach the old beam's hits (the old line's own test: the segment to her reach, her
-    // pierce), past it the light runs on thinner (× PRISM_EDGE_MUL) to the map edge (hits come in order along the
-    // line, her enemy first)
+    const hits = h.linePierceInto(sim, t, tick, e, beamLength(sim, t, spec, e), BEAM_HALF_WIDTH, spec.pierce, HITS, NEAR, beamBack(sim, t, spec, e));
+    // a long beam: her enemy and the enemies a short beam would hit (the segment from her prism to her reach toward
+    // her enemy, up to her own pierce, her enemy counted) take the full tick, so it is never weaker than her short
+    // beam; every other enemy on the edge-to-edge line the tick × spec.edgeMul (hits come her enemy first, then in
+    // order along the line)
     let near = 0;
     let rx = 0;
     let ry = 0;
@@ -238,10 +260,13 @@ function prismBeam(sim, t, spec, h) {
     for (let j = 0; j < hits.length; j++) {
       const v = hits[j];
       if (v.dead) continue;
-      const hr = BEAM_HALF_WIDTH + 0.3 + 0.06 * (v.def.size ?? 1); // (src/sim/towers.js hitRadius)
-      const far = spec.edge && v !== e && segDistSq(v.x, v.y, t.ox, t.oy, rx, ry) > hr * hr;
-      if (spec.edge && !far && near++ >= spec.nearPierce) continue;
-      sim._hit(v, t, tick, far ? scale * PRISM_EDGE_MUL : scale);
+      let k = scale;
+      if (spec.edge) {
+        const hr = BEAM_HALF_WIDTH + 0.3 + 0.06 * (v.def.size ?? 1); // (src/sim/towers.js hitRadius)
+        const short = v === e || segDistSq(v.x, v.y, t.ox, t.oy, rx, ry) <= hr * hr;
+        if (!short || near++ >= spec.nearPierce) k = scale * spec.edgeMul;
+      }
+      sim._hit(v, t, tick, k);
       if (silence && !v.dead) silenceOn(sim, t, v, sil);
     }
     b.held++;

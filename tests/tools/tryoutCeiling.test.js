@@ -5,7 +5,7 @@ import { defaultData } from '../../src/sim/data.js';
 import { TRYOUT, TRYOUT_STUDENTS } from '../../src/data/tryout.js';
 import { bandStats } from '../../src/sim/tryout/power.js';
 import { cardFactor } from '../../src/sim/tryout/pep.js';
-import { capFold, ceilingSeat, ceilingStats } from '../../tools/benchHit.mjs';
+import { capFold, ceilingSeat, ceilingStats, CEILING_EXCEPTIONS } from '../../tools/benchHit.mjs';
 import { STRENGTHS, poolFor } from '../../tools/tryoutBot.mjs';
 
 const d = defaultData();
@@ -34,6 +34,12 @@ describe('run ceiling inputs', () => {
     const m = capFold(d, 'kage', { talent: 'T_kage' });
     expect(Array.isArray(m)).toBe(true);
     expect(m[1].projectiles).toBe(2);
+  });
+});
+
+describe('recorded ceiling exceptions', () => {
+  it('Kage (the shapes\' Blade Cyclone) and v0.1.60\'s three rows over ×1 are excepted (accepted Oct 29), only up to their measured ratios', () => {
+    expect(CEILING_EXCEPTIONS).toEqual({ kage: 1.2, 'kage|T_kage': 1.6, 'aoi|T_aoi': 1.12, 'shiro|T_shiro': 1.05, hana: 1.08 });
   });
 });
 

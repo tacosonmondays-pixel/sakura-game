@@ -44,11 +44,11 @@ export const SET_PASSIVES = Object.freeze({
 });
 
 /**
- * The attack kinds whose hits carry Right Angle's sure crit and Confetti Burst (towers.js gearSpec). Other kinds (traps,
- * turrets, mortars, rings, strips, drinks, rolls) neither count nor fire them; their girls get the idle chip
- * (src/systems/gearSets.js setIdle).
+ * The attack kinds whose hits carry Right Angle's sure crit and Confetti Burst (towers.js gearSpec), the attack shapes'
+ * wheel, spin, spikes and return among them. Other kinds (traps, turrets, mortars, rings, strips, drinks, rolls, the
+ * held stream and sweep) neither count nor fire them; their girls get the idle chip (src/systems/gearSets.js setIdle).
  */
-export const SET_ATTACK_BEHAVIORS = Object.freeze(['projectile', 'pulse', 'duel', 'beam', 'chain']);
+export const SET_ATTACK_BEHAVIORS = Object.freeze(['projectile', 'pulse', 'duel', 'beam', 'chain', 'wheel', 'spin', 'spikes', 'return']);
 
 /** Big Cheer with no aura: her nearest girls within this many tiles (ties by lower uid). */
 export const CHEER_NEAR = 2;

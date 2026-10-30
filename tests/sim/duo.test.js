@@ -15,6 +15,7 @@ import { computeHit, applyHitResult } from '../../src/sim/combat.js';
 import { castAbility, abilityDef, autoWants } from '../../src/sim/abilities.js';
 import { snapshotSim, restoreSim } from '../../src/sim/snapshot.js';
 import { getUnit } from '../../src/data/units.js';
+import { POWER } from '../../src/data/balance.js';
 import { MAP, STAGE, ENEMIES } from './fixtures.js';
 
 const units = defaultData().units;
@@ -47,6 +48,7 @@ function park(sim, id, dist, pathIndex = 0) {
   return e;
 }
 
+// (the data tests read her kit without balance round 5's ×1.01 floor: `noPower`)
 describe('the duo: data', () => {
   test('one SSR tower, two students on one base, gacha only, ember, the battery role, 850 coins', () => {
     const u = getUnit(ID);
@@ -61,7 +63,7 @@ describe('the duo: data', () => {
   });
 
   test('base kit (Oct 29 buff: +25%): shells 15 / 0.35 / splash 1.1 / ground only / blast; beam 6.25 / 0.7 / 3.6 / pierce 4; every 4th shell → 3 shards at 0.5', () => {
-    const s = resolveStats(getUnit(ID));
+    const s = resolveStats(getUnit(ID), { noPower: true, noPower: true });
     expect(s).toMatchObject({ behavior: 'mortar', damage: 15, rate: 0.35, splash: 1.1, canHitAir: false, attackType: 'blast' });
     expect(s.range).toBeGreaterThanOrEqual(30);
     expect(s.duo).toMatchObject({ beamDmg: 6.25, beamRate: 0.7, beamRange: 3.6, beamPierce: 4, beams: 1, every: 4, shards: 3, shardShare: 0.5, shardSplash: 0.6 });
@@ -69,24 +71,24 @@ describe('the duo: data', () => {
 
   test('the paths resolve onto her stats; the awaken passive adds a shard and 6%', () => {
     const def = getUnit(ID);
-    const corridor = resolveStats(def, { tiers: [0, 5, 2] }).duo;
+    const corridor = resolveStats(def, { tiers: [0, 5, 2], noPower: true }).duo;
     expect(corridor).toMatchObject({ beamPierce: 8, beams: 4, beamDmg: 22.25, beamPen: 2, rampPer: 0.08, rampMax: 0.6, beamSilence: 1, every: 3 });
     expect(corridor.beamAir).toBeCloseTo(1.3, 10);
-    const lattice = resolveStats(def, { tiers: [2, 0, 5] });
+    const lattice = resolveStats(def, { tiers: [2, 0, 5], noPower: true });
     expect(lattice.duo).toMatchObject({ every: 1, shards: 5, shardDmg: 20, shardShred: 2, shardVuln: 0.12, shardSlow: 0.2 });
-    expect(resolveStats(def, { tiers: [0, 0, 3] }).duo).toMatchObject({ every: 2, shards: 4 });
-    const starfall = resolveStats(def, { tiers: [5, 2, 0] });
+    expect(resolveStats(def, { tiers: [0, 0, 3], noPower: true }).duo).toMatchObject({ every: 2, shards: 4 });
+    const starfall = resolveStats(def, { tiers: [5, 2, 0], noPower: true });
     expect(starfall.projectiles).toBe(4);
     expect(starfall.damage).toBe(57);
-    const aw = resolveStats(def, { unitStats: { awakenPassive: true } });
+    const aw = resolveStats(def, { unitStats: { awakenPassive: true }, noPower: true });
     expect(aw.duo.shards).toBe(4);
     expect(aw.damage).toBeCloseTo(15 * 1.06, 10);
     expect(aw.duo.beamMul).toBeCloseTo(1.06, 10);
   });
 
   test('Potential: P6 makes every 8th volley split completely', () => {
-    expect(resolveStats(getUnit(ID), { unitStats: { potential: 5 } }).duo.fullEvery).toBe(0);
-    expect(resolveStats(getUnit(ID), { unitStats: { potential: 6 } }).duo.fullEvery).toBe(8);
+    expect(resolveStats(getUnit(ID), { unitStats: { potential: 5 }, noPower: true }).duo.fullEvery).toBe(0);
+    expect(resolveStats(getUnit(ID), { unitStats: { potential: 6 }, noPower: true }).duo.fullEvery).toBe(8);
   });
 });
 
@@ -258,7 +260,8 @@ describe('the duo: shells, beam and refraction', () => {
     const shardShells = sim.shells.filter((s) => s.shard);
     expect(shardShells).toHaveLength(3);
     expect(shardShells[0].spec).toMatchObject({ attackType: 'mystic', canHitAir: true });
-    expect(shardShells[0].spec.damage).toBeCloseTo(15 * 0.5, 10);
+    // (× her balance round 5 floor, src/data/balance.js)
+    expect(shardShells[0].spec.damage).toBeCloseTo(15 * 0.5 * (POWER.kohaku_tsubaki?.dmg ?? 1), 10);
     const hp = e.hp;
     run(sim, MORTAR_DELAY + STEP);
     expect(e.hp).toBeLessThan(hp);
