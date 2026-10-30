@@ -156,7 +156,8 @@ function openFarmSheet(farm) {
     body: h('div.bc-sheet', h('p.bc-note', 'Best places first, by how many drop per run. Only what you earn by playing.'),
       farm.map((f) => h('section.bc-sec',
         h('div.bc-sec-head', h('b', `${f.name} ×${n(f.missing)}`)),
-        h('ul.bc-rows', f.sources.map((s) => h('li.bc-row.bc-farm', h('span.bc-row-t', h('b', s.label), h('span', s.note)), goBtn(s.go))))))),
+        h('ul.bc-rows', f.sources.map((s) => h('li.bc-row.bc-farm', h('span.bc-row-t', h('b', s.label), h('span', s.note)), goBtn(s.go)))),
+        f.recruit ? h('p.bc-note', { 'data-testid': 'farm-recruit-note' }, 'Also from recruiting (spare duplicates and their exchanges): not part of the plan.') : null))),
   });
 }
 

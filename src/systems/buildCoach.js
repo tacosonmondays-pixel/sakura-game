@@ -276,7 +276,9 @@ export function farmPlan(p, missing, { per = 3 } = {}) {
       stageId: s.stageId || null,
       go: s.stageId ? { route: 'stage', params: { id: s.stageId, difficulty: s.y.difficulty } } : { route: s.route, params: s.params || {} },
     }));
-    return { id, name: getItem(id)?.name || id, missing: n, sources };
+    // banner-fed sources are never a plan step: one small info line, never ranked, never a Go (coordinator ruling M1)
+    const recruit = itemSources(id).some((x) => !earnedByPlay(x) && (x.route === 'recruit' || BANNER_FED.includes(SHOP_OFFER_MAP[x.offerId]?.currency)));
+    return { id, name: getItem(id)?.name || id, missing: n, sources, recruit };
   });
 }
 

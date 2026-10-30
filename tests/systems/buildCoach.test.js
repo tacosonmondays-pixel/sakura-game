@@ -146,6 +146,9 @@ describe('Farm', () => {
         if (raw) expect(BANNER_FED).not.toContain(SHOP_OFFER_MAP[raw.offerId].currency);
       }
     }
+    // ... they only show as the unranked "also from recruiting" line
+    expect(farmPlan(p, [{ id: 'star_fragment', missing: 1 }])[0].recruit).toBe(true);
+    for (const s of farmPlan(p, [{ id: 'star_fragment', missing: 1 }], { per: 50 })[0].sources) expect(s.label).not.toMatch(/Recruit/);
     // every gem-priced offer of any item is filtered out
     for (const id of ['book_legendary', 'star_fragment', 'crown_rainbow']) {
       const gemRows = itemSources(id).filter((s) => s.kind === 'shop' && SHOP_OFFER_MAP[s.offerId]?.currency === 'gems');
