@@ -5,7 +5,7 @@
 :where(.ui-day, .ui-night) .tb-chips,
 :where(.ui-day, .ui-night) .tb-loadouts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
 :where(.ui-day, .ui-night) .tb-chips-lbl { margin-right: 4px; }
-:where(.ui-day, .ui-night) .ui-opt.tb-chip { --h: 36px; min-width: 40px; padding: 0 calc(10px + var(--s)); font-size: var(--fs-body); cursor: pointer; }
+:where(.ui-day, .ui-night) .ui-opt.tb-chip { --h: var(--tap); min-width: 40px; padding: 0 calc(10px + var(--s)); font-size: var(--fs-body); cursor: pointer; }
 :where(.ui-day, .ui-night) .ui-opt.tb-chip.empty:not(.on) { --edge: var(--m-dim); color: var(--m-dim); border-style: dashed; }
 :where(.ui-day, .ui-night) .ui-opt.tb-chip.tb-add { color: var(--m-dim); gap: 2px; }
 :where(.ui-day, .ui-night) .ui-opt.tb-chip.tb-add .ui-ico { width: 14px; height: 14px; }
@@ -13,18 +13,18 @@
 :where(.ui-day, .ui-night) .tb-clash { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-label)/1.1 var(--font-num); color: var(--bad-text); }
 :where(.ui-day, .ui-night) .tb-clash .ui-ico { width: 14px; height: 14px; }
 :where(.ui-day, .ui-night) .tb-gap { flex: 1 1 0; min-width: 0; }
-:where(.ui-day, .ui-night) .tb-btn { min-height: 36px; }
+:where(.ui-day, .ui-night) .tb-btn { min-height: var(--tap); }
 
 /* the red dot: a loadout whose piece was salvaged */
 :where(.ui-day, .ui-night) .tb-dot { position: absolute; z-index: 3; top: 3px; right: calc(var(--s) + 3px); width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
-:where(.ui-day, .ui-night) .ui-ghost.tb-copy { min-height: 36px; padding: 0 8px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--m-text); cursor: pointer; }
+:where(.ui-day, .ui-night) .ui-ghost.tb-copy { min-height: var(--tap); padding: 0 8px; font: 600 var(--fs-label)/1 var(--font-num); letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--m-text); cursor: pointer; }
 
 /* the squad tile's loadout letter (only when it is not A) */
 :where(.ui-day, .ui-night) .tb-lo-badge { position: absolute; z-index: 4; top: 2px; left: 2px; min-width: 18px; height: 18px; padding: 0 4px; display: inline-flex; align-items: center; justify-content: center;
   background: var(--plate); color: var(--on-ink); font: 700 var(--fs-label)/1 var(--font-num); pointer-events: none; }
 
 /* the small "Team 2" chip (Stage Prep, the co-op room) */
-:where(.ui-day, .ui-night) .ui-chip.tb-team-chip { min-height: 36px; gap: 6px; cursor: pointer; }
+:where(.ui-day, .ui-night) .ui-chip.tb-team-chip { min-height: var(--tap); gap: 6px; cursor: pointer; }
 :where(.ui-day, .ui-night) .ui-chip.tb-team-chip .ui-ico { width: 16px; height: 16px; }
 :where(.ui-day, .ui-night) .ui-chip.tb-team-chip.locked { cursor: default; opacity: 0.8; }
 :where(.ui-day, .ui-night) .ui-chip.tb-team-chip span { max-width: 9em; overflow: hidden; text-overflow: ellipsis; }
@@ -34,13 +34,13 @@
 .tb-take-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: var(--fs-body, 14px); }
 .tb-pick .tb-chips { margin-bottom: 10px; }
 .tb-rename-in { display: flex; }
-.tb-rename-in input { flex: 1 1 auto; min-width: 0; min-height: 36px; font-size: 16px; }
+.tb-rename-in input { flex: 1 1 auto; min-width: 0; min-height: var(--tap, 44px); font-size: 16px; }
 
 /* the Undo notice */
 .toast.tb-toast-host { pointer-events: auto; }
 .tb-toast { display: flex; align-items: center; gap: 10px; }
 .tb-toast > span { flex: 1 1 auto; min-width: 0; }
-.tb-undo { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 10px; border: 1px solid currentColor; background: transparent; color: inherit;
+.tb-undo { display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap, 44px); min-width: var(--tap, 44px); padding: 0 10px; border: 1px solid currentColor; background: transparent; color: inherit;
   font: 700 var(--fs-label, 12px)/1 var(--font-num, inherit); text-transform: uppercase; cursor: pointer; }
 .tb-undo .ui-ico, .tb-undo svg { width: 14px; height: 14px; }
 
@@ -48,4 +48,17 @@
 @media (min-width: 700px) {
   .mb-formation.fm { grid-template-areas: 'teams teams' 'squad squad' 'rec pick'; }
   .mb-formation.fm > .fm-teams { grid-area: teams; }
+}
+
+/* a squad tile whose loadout names a piece another member names (review r1 M1) */
+:where(.ui-day, .ui-night) .tb-clash-badge { position: absolute; z-index: 4; top: 2px; right: 2px; width: 20px; height: 20px; display: grid; place-items: center;
+  background: var(--bad); color: #fff; pointer-events: none; }
+:where(.ui-day, .ui-night) .tb-clash-badge .ui-ico { width: 14px; height: 14px; }
+.tb-clash-list { margin-top: 8px; }
+
+/* an upright phone: Rename and Copy keep one row with the chips' name (their words stay for screen readers) */
+@media (max-width: 480px) {
+  :where(.ui-day, .ui-night) .tb-bar .tb-btn .btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  :where(.ui-day, .ui-night) .tb-bar .tb-btn { padding: 0 10px; min-width: var(--tap); }
+  :where(.ui-day, .ui-night) .tb-bar .tb-gap { display: none; }
 }

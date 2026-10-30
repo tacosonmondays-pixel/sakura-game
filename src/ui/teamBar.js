@@ -18,9 +18,12 @@ export function activeTeamName(profile = store.profile) {
   return teamName(t.list[t.active], t.active);
 }
 
-/** A switch that moves pieces between girls lists them first: Switch / Cancel. Resolves true to go ahead. */
-function confirmTakes(takes, { title, ok }) {
-  if (!takes.length) return Promise.resolve(true);
+/**
+ * A switch that moves pieces between girls lists them first, with any piece two members name (the first in team
+ * order gets it): Switch / Cancel. Resolves true to go ahead. `to`: "to this team" or "to her Loadout B".
+ */
+function confirmTakes(takes, { title, ok, to = 'to this team', clashes = [] }) {
+  if (!takes.length && !clashes.length) return Promise.resolve(true);
   const lines = takeLines(store.profile, takes);
   return new Promise((resolve) => {
     let done = false;
@@ -28,8 +31,9 @@ function confirmTakes(takes, { title, ok }) {
     modal({
       title,
       cls: 'tb-takes-modal',
-      body: h('div.tb-takes', h('p', 'These pieces move to this team:'),
-        h('ul.tb-take-list', { 'data-testid': 'takes-list' }, lines.map((l) => h('li', l)))),
+      body: h('div.tb-takes',
+        lines.length ? [h('p', `These pieces move ${to}:`), h('ul.tb-take-list', { 'data-testid': 'takes-list' }, lines.map((l) => h('li', l)))] : null,
+        clashes.length ? h('ul.tb-take-list.tb-clash-list', { 'data-testid': 'clash-list' }, clashes.map((c) => h('li', clashLine([c])))) : null),
       actions: [
         { label: 'Cancel', kind: 'ghost', testid: 'takes-cancel', onClick: (c) => { settle(false); c(); } },
         { label: ok, kind: 'primary', testid: 'takes-ok', onClick: (c) => { settle(true); c(); } },
@@ -39,8 +43,12 @@ function confirmTakes(takes, { title, ok }) {
   });
 }
 
+/** The live Undo notice: a newer one retires it (its snapshot would undo the newer change too; review r1 L2). */
+let liveUndo = null;
+
 /** A notice with Undo (it stays a little longer, so there is time to tap it). */
 function undoToast(text, snap, onUndo) {
+  if (liveUndo?.isConnected) liveUndo.remove();
   let used = false;
   const btn = h('button.tb-undo', {
     type: 'button', 'data-testid': 'team-undo',
@@ -56,6 +64,7 @@ function undoToast(text, snap, onUndo) {
   }, ico('refresh'), 'Undo');
   const t = toast(h('span.tb-toast', h('span', text), btn), 'good', 4200);
   t.classList.add('tb-toast-host');
+  liveUndo = t;
   return t;
 }
 
@@ -69,7 +78,7 @@ export async function switchTeam(t, onDone) {
   if (t === teams.active) return false;
   const plan = planTeam(profile, t);
   const name = teamName(teams.list[t], t);
-  if (!(await confirmTakes(plan.takes, { title: `Switch to ${name}?`, ok: 'Switch' }))) return false;
+  if (!(await confirmTakes(plan.takes, { title: `Switch to ${name}?`, ok: 'Switch', clashes: plan.clashes }))) return false;
   const res = selectTeam(profile, t);
   if (!res.ok) return false;
   store.commit('teams');
@@ -78,10 +87,10 @@ export async function switchTeam(t, onDone) {
   return true;
 }
 
-const clashLine = (clashes) => {
+function clashLine(clashes) {
   const c = clashes[0];
-  return `${UNIT_MAP[c.kept]?.name} keeps ${store.profile.gear[c.uid]?.name || 'a piece'} (${UNIT_MAP[c.lost]?.name}'s loadout names it too).`;
-};
+  return `${UNIT_MAP[c.kept]?.name} gets ${store.profile.gear[c.uid]?.name || 'a piece'} (${UNIT_MAP[c.lost]?.name}'s loadout names it too).`;
+}
 
 /**
  * The team chips 1–5. The active team is the selected chip; an empty team is dashed. A tap switches.
@@ -155,9 +164,11 @@ function openRename(t, onChange) {
   setTimeout(() => input.focus(), 0);
 }
 
-/** A small "Team 2" chip that opens the chips (Stage Prep beside Start, the co-op room). */
+/** A small "Team 2" chip that opens the chips (Stage Prep beside Start, the co-op hub): "Team 1 · Bosses" when renamed. */
 export function teamChip({ onSwitched = null, testid = 'team-chip', locked = false } = {}) {
-  const name = activeTeamName();
+  const t = getTeams(store.profile);
+  const custom = teamName(t.list[t.active], t.active);
+  const name = custom === `Team ${t.active + 1}` ? custom : `Team ${t.active + 1} · ${custom}`;
   return h(`button.ui-chip.tb-team-chip${locked ? '.locked' : ''}`, {
     type: 'button', 'data-testid': testid, disabled: locked,
     title: locked ? `${name} (you are Ready)` : `${name}: tap to switch team`,
@@ -191,9 +202,10 @@ export function loadoutChips(unitId, { onChange = null } = {}) {
   const { presets, preset } = getPresets(profile, unitId);
   const name = UNIT_MAP[unitId]?.name || unitId;
   const go = async (n) => {
-    if (n === preset) return;
     const plan = planPreset(profile, unitId, n);
-    if (!(await confirmTakes(plan.takes, { title: `Put on Loadout ${presetLetter(n)}?`, ok: 'Switch' }))) return;
+    // the worn loadout again: only to take back a piece a team switch lent to another girl
+    if (n === preset && !plan.takes.length) return;
+    if (!(await confirmTakes(plan.takes, { title: n === preset ? `Take back Loadout ${presetLetter(n)}'s pieces?` : `Put on Loadout ${presetLetter(n)}?`, ok: 'Switch', to: `to her Loadout ${presetLetter(n)}` }))) return;
     const res = usePreset(profile, unitId, n);
     if (!res.ok) return;
     store.commit('teams');
@@ -224,6 +236,19 @@ export function loadoutChips(unitId, { onChange = null } = {}) {
         onChange?.();
       },
     }, `Copy ${presetLetter(preset)} → ${presetLetter(next)}`) : null);
+}
+
+/** The members of the active team who name a piece another member names too (Formation marks their tiles). */
+export function clashMembers() {
+  const p = store.profile;
+  const out = new Set();
+  for (const ids of teamClashes(p, getTeams(p).active).values()) for (const id of ids) out.add(id);
+  return out;
+}
+
+/** A squad tile's mark: she names a piece another girl in this team names too. */
+export function clashBadge() {
+  return h('span.tb-clash-badge', { 'data-testid': 'squad-clash', title: 'Another girl in this team names the same piece: the first in team order gets it', 'aria-label': 'Shares a piece' }, ico('info'));
 }
 
 /** The loadout letter on a squad tile when it is not A (null for A). */

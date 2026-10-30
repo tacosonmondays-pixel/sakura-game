@@ -45,8 +45,6 @@ import { openSocialSession } from '../../online/coop/socialRoom.js';
 import { rememberRoom, lastRoom, forgetRoom, roomRoute } from '../../online/coop/lastRoom.js';
 import { pickLoadout } from '../../online/coop/loadout.js';
 import { teamChip, activeTeamName } from '../teamBar.js';
-/** [teams] The team name the open room brings (its girls are sent when the room opens). */
-let roomTeam = null;
 import { setHoldSheet } from '../hold.js';
 import { allySheet } from '../allySheet.js';
 import { resolveFormation } from '../battle/setup.js';
@@ -61,6 +59,9 @@ import { hub as social, takePendingInvites, addPendingInvite, joinInvite, liveIn
 import { getBackend } from '../../online/backend.js';
 import { sendRoomInvite } from '../online/coopInvite.js';
 import { INVITE_TTL_MS } from '../../online/socialRules.js';
+
+/** [teams] The team name the open room brings (its girls are sent when it opens). */
+let roomTeam = null;
 
 const PREF_KEY = 'ss-coop-pref';
 
