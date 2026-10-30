@@ -194,10 +194,33 @@ export function settleLent(p, members = null) {
 
 /** The pieces her worn loadout has lent to other girls: [{ uid, slot, to }] (the "lent to Kage" note). */
 export function lentPieces(p, unitId) {
-  const w = wornOf(p, unitId);
-  if (!w?.lent) return [];
-  return SLOT_IDS.filter((s) => (w.lent & bitOf(s)) && w[s] && p.gear[w[s]]?.equippedBy && p.gear[w[s]].equippedBy !== unitId)
-    .map((s) => ({ uid: w[s], slot: s, to: p.gear[w[s]].equippedBy }));
+  // every loadout's claims, the worn one first (a loadout she took off keeps its claim: review r5 L2)
+  const u = p.units[unitId];
+  if (!Array.isArray(u?.presets)) return [];
+  const order = [u.preset || 0, ...u.presets.map((_, n) => n).filter((n) => n !== (u.preset || 0))];
+  const out = [];
+  for (const n of order) {
+    const pr = u.presets[n];
+    if (!pr?.lent) continue;
+    for (const s of SLOT_IDS) {
+      const by = pr[s] ? p.gear[pr[s]]?.equippedBy : null;
+      if ((pr.lent & bitOf(s)) && by && by !== unitId) out.push({ uid: pr[s], slot: s, to: by, n, worn: n === (u.preset || 0) });
+    }
+  }
+  return out;
+}
+
+/**
+ * The claims copying loadout `from` into `to` would end: a lent slot of `to` the copy names something else in
+ * (review r5 L3: "Copying here ends Aoi's claim on <piece>; Kage keeps it."). @returns {{ uid, slot, to }[]}
+ */
+export function claimsEndedByCopy(p, unitId, from, to) {
+  const u = p.units[unitId];
+  const src = u?.presets?.[from];
+  const dst = u?.presets?.[to];
+  if (!src || !dst?.lent) return [];
+  return SLOT_IDS.filter((s) => (dst.lent & bitOf(s)) && dst[s] && src[s] !== dst[s] && p.gear[dst[s]])
+    .map((s) => ({ uid: dst[s], slot: s, to: p.gear[dst[s]].equippedBy || null }));
 }
 
 // ---------------------------------------------------------------------------

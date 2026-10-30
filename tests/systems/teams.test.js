@@ -9,7 +9,7 @@ import { UNIT_MAP } from '../../src/data/units.js';
 import { salvagePreview, salvageMany, salvageBlock } from '../../src/systems/salvage.js';
 import {
   TEAM_COUNT, getTeams, getPresets, usePreset, selectTeam, planTeam, teamClashes, copyTeam, clearTeam, renameTeam,
-  copyPreset, restoreLoadouts, presetsNaming, loadoutUseText, takeLines, syncTeams, teamName, ensureTeams, ensurePresets, lentPieces, lenderOf,
+  copyPreset, restoreLoadouts, presetsNaming, loadoutUseText, takeLines, syncTeams, teamName, ensureTeams, ensurePresets, lentPieces, lenderOf, claimsEndedByCopy,
 } from '../../src/systems/teams.js';
 import { writeTeamMarks } from '../../src/systems/teamsSave.js';
 
@@ -404,7 +404,7 @@ describe('lending is one way (M1 review r2)', () => {
   it('goes home when the new team does not use it (the borrower keeps only a wish), stays lent while a member wears it', () => {
     const { p, g } = sharedTeams();
     selectTeam(p, 1);
-    expect(lentPieces(p, 'aoi')).toEqual([{ uid: g.c2, slot: 'charm', to: 'kage' }]);
+    expect(lentPieces(p, 'aoi')).toEqual([{ uid: g.c2, slot: 'charm', to: 'kage', n: 0, worn: true }]);
     // Team 3 with Kage on B instead: she still wears c2 → stays lent
     p.teams.list[2].use = { kage: 1 };
     expect(selectTeam(p, 2).returns).toEqual([]);
@@ -499,6 +499,39 @@ describe('lending is one way (M1 review r2)', () => {
     for (const u of Object.values(raw.units)) { delete u.presets; delete u.preset; }
     const m = migrateProfile(raw);
     expect(lenderOf(m, g.c2)).toBe('aoi');
+  });
+
+  it('r5-L2: the lent list shows a claim on a loadout she took off', () => {
+    const { p, g } = sharedTeams();
+    usePreset(p, 'aoi', 1);
+    unequipGear(p, 'aoi', 'charm'); // her Loadout B: no charm
+    usePreset(p, 'aoi', 0);
+    selectTeam(p, 1); // Kage borrows c2 from Aoi's A
+    usePreset(p, 'aoi', 1); // Aoi puts on B: A keeps the claim
+    expect(lentPieces(p, 'aoi')).toEqual([{ uid: g.c2, slot: 'charm', to: 'kage', n: 0, worn: false }]);
+    // Take back = put on that loadout
+    usePreset(p, 'aoi', 0);
+    expect(p.gear[g.c2].equippedBy).toBe('aoi');
+    expect(lentPieces(p, 'aoi')).toEqual([]);
+  });
+
+  it('r5-L3: copying over a loadout that holds a claim names the claim it ends', () => {
+    const { p, g } = sharedTeams();
+    usePreset(p, 'aoi', 1);
+    unequipGear(p, 'aoi', 'charm');
+    usePreset(p, 'aoi', 0);
+    selectTeam(p, 1);
+    usePreset(p, 'aoi', 1); // A holds the claim on c2; B has no charm
+    expect(claimsEndedByCopy(p, 'aoi', 1, 0)).toEqual([{ uid: g.c2, slot: 'charm', to: 'kage' }]);
+    // copying A into B ends nothing (B holds no claim); copying a loadout naming the same piece ends nothing
+    expect(claimsEndedByCopy(p, 'aoi', 0, 1)).toEqual([]);
+    expect(claimsEndedByCopy(p, 'aoi', 0, 0)).toEqual([]);
+    // the copy goes through: Kage keeps it, the claim is gone
+    expect(copyPreset(p, 'aoi', 1, 0).ok).toBe(true);
+    syncTeams(p);
+    expect(p.gear[g.c2].equippedBy).toBe('kage');
+    expect(lenderOf(p, g.c2)).toBe(null);
+    expect(lentPieces(p, 'aoi')).toEqual([]);
   });
 
   it('the lend flags ride the gp:/gpf: mirrors through an older build', () => {

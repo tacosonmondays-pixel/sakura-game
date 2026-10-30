@@ -3,11 +3,11 @@
 // "Takes Keen Charm from Aoi" list before a switch that moves pieces between girls, and Undo after it.
 // The rules live in src/systems/teams.js; this file only draws them. Styles: src/ui/styles/teams.css (.tb-*).
 import './styles/teams.css';
-import { h, modal, toast } from './components.js';
+import { h, modal, toast, confirmDialog } from './components.js';
 import { store } from '../core/store.js';
 import { UNIT_MAP } from '../data/units.js';
 import {
-  TEAM_COUNT, PRESET_COUNT, TEAM_NAME_MAX, getTeams, getPresets, teamName, teamMembers, presetLetter, planTeam, lentPieces,
+  TEAM_COUNT, PRESET_COUNT, TEAM_NAME_MAX, getTeams, getPresets, teamName, teamMembers, presetLetter, planTeam, lentPieces, claimsEndedByCopy,
   planPreset, selectTeam, usePreset, copyPreset, copyTeam, renameTeam, restoreLoadouts, takeLines, teamClashes,
 } from '../systems/teams.js';
 import { ico, secondaryBtn } from './kit.js';
@@ -233,6 +233,9 @@ export function loadoutChips(unitId, { onChange = null } = {}) {
     presets.length > 1 ? h('button.ui-ghost.tb-copy', {
       type: 'button', 'data-testid': 'loadout-copy', title: `Copy Loadout ${presetLetter(preset)} into ${presetLetter(next)}`,
       onclick: async () => {
+        // copying over a loadout that holds a claim ends it: say so first (review r5 L3)
+        const ends = claimsEndedByCopy(profile, unitId, preset, next);
+        if (ends.length && !(await confirmDialog(ends.map((e) => `Copying here ends ${name}'s claim on ${profile.gear[e.uid]?.name || 'a piece'}${e.to ? `; ${UNIT_MAP[e.to]?.name} keeps it` : ''}.`).join(' '), { title: `Copy Loadout ${presetLetter(preset)} → ${presetLetter(next)}?`, ok: 'Copy' }))) return;
         const res = copyPreset(profile, unitId, preset, next);
         if (!res.ok) return;
         store.commit('teams');
@@ -244,9 +247,15 @@ export function loadoutChips(unitId, { onChange = null } = {}) {
   // pieces a team switch lent to another girl: they come back when her loadout or team goes on, or when the next team
   // does not use them
   // (review r2 L3: the note is the way to take them back, not the already-selected chip)
-  return h('div.tb-loadouts-wrap', row, h('div.tb-lent', { 'data-testid': 'loadout-lent' }, ico('info'),
-    h('span', lent.map((l) => `${profile.gear[l.uid]?.name || 'A piece'} lent to ${UNIT_MAP[l.to]?.name || l.to}`).join(' · ')),
-    h('button.ui-ghost.tb-takeback', { type: 'button', 'data-testid': 'loadout-take-back', onclick: () => go(preset) }, 'Take back')));
+  // one line per loadout, the worn one first ("Loadout A: Keen Charm lent to Kage" for one she took off; review r5 L2);
+  // Take back puts that loadout on
+  const byLoadout = [...new Set(lent.map((l) => l.n))];
+  return h('div.tb-loadouts-wrap', row, byLoadout.map((n) => {
+    const items = lent.filter((l) => l.n === n);
+    return h('div.tb-lent', { 'data-testid': 'loadout-lent', 'data-loadout': presetLetter(n) }, ico('info'),
+      h('span', `${n === preset ? '' : `Loadout ${presetLetter(n)}: `}${items.map((l) => `${profile.gear[l.uid]?.name || 'A piece'} lent to ${UNIT_MAP[l.to]?.name || l.to}`).join(' · ')}`),
+      h('button.ui-ghost.tb-takeback', { type: 'button', 'data-testid': 'loadout-take-back', 'aria-label': `Take back: put on Loadout ${presetLetter(n)}`, onclick: () => go(n) }, 'Take back'));
+  }));
 }
 
 /** The members of the active team who name a piece another member names too (Formation marks their tiles). */

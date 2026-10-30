@@ -152,6 +152,52 @@ try {
     if (await page.locator('.modal-overlay:not(.closing) [data-testid="takes-ok"]').count()) await tap('.modal-overlay:not(.closing) [data-testid="takes-ok"]');
     const back = await page.evaluate(({ c2 }) => window.__sakura.store.profile.gear[c2].equippedBy, seeded);
     check(back === 'aoi', `${tag} Take back: Aoi wears her charm again`);
+    // a claim on a loadout she took off: "Loadout A: … lent to Kage" and Take back puts A on (review r5 L2)
+    const lendFromA = () => page.evaluate(async ({ c2 }) => {
+      const { store } = window.__sakura;
+      const gear = await import('/src/systems/gear.js');
+      const teams = await import('/src/systems/teams.js');
+      const p = store.profile;
+      teams.usePreset(p, 'aoi', 0);
+      teams.usePreset(p, 'aoi', 1); // (adds B the first time)
+      gear.unequipGear(p, 'aoi', 'charm'); // her Loadout B: no charm
+      teams.usePreset(p, 'aoi', 0);
+      teams.usePreset(p, 'kage', 0);
+      p.units.kage.presets[1] = { ...p.units.kage.presets[1], charm: c2 };
+      teams.usePreset(p, 'kage', 1); // Kage's B borrows Aoi's charm
+      teams.usePreset(p, 'aoi', 1); // Aoi puts on B: A keeps the claim
+      store.commit('teams');
+    }, seeded);
+    await lendFromA();
+    await go('#/formation', '[data-testid="team-bar"]');
+    await go('#/student?id=aoi&tab=gear', '[data-testid="loadouts"]');
+    const offLine = await page.locator('[data-testid="loadout-lent"][data-loadout="A"] span:not(.ico)').last().innerText().catch(() => '');
+    check(/^\s*Loadout A: .+ lent to Kage/i.test(offLine), `${tag} Aoi on B: "${offLine.trim()}"`);
+    await noOverflow(page, W, `${tag} lent list`);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/lent-off-${tag}.png` });
+    await tap('[data-testid="loadout-lent"][data-loadout="A"] [data-testid="loadout-take-back"]');
+    if (await page.locator('.modal-overlay:not(.closing) [data-testid="takes-ok"]').count()) await tap('.modal-overlay:not(.closing) [data-testid="takes-ok"]');
+    const offBack = await page.evaluate(({ c2 }) => { const p = window.__sakura.store.profile; return { by: p.gear[c2].equippedBy, preset: p.units.aoi.preset }; }, seeded);
+    check(offBack.by === 'aoi' && offBack.preset === 0, `${tag} Take back: Aoi puts on A and wears her charm`);
+    // copying B over A ends A's claim: a confirm line first, Kage keeps it (review r5 L3)
+    await lendFromA();
+    await go('#/formation', '[data-testid="team-bar"]');
+    await go('#/student?id=aoi&tab=gear', '[data-testid="loadouts"]');
+    await tap('[data-testid="loadout-copy"]');
+    await page.waitForSelector('.modal-overlay:not(.closing) [data-testid="confirm-ok"]', { timeout: 5000 }).catch(() => null);
+    const copyLine = await page.locator('.modal-overlay:not(.closing)').last().innerText().catch(() => '');
+    check(/Copying here ends Aoi's claim on .+; Kage keeps it\./.test(copyLine), `${tag} the copy confirm names the claim it ends`);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/copy-claim-${tag}.png` });
+    await tap('.modal-overlay:not(.closing) [data-testid="confirm-cancel"]');
+    check(await page.locator('[data-testid="loadout-lent"][data-loadout="A"]').count() === 1, `${tag} Cancel keeps the claim`);
+    await tap('[data-testid="loadout-copy"]');
+    await page.waitForSelector('.modal-overlay:not(.closing) [data-testid="confirm-ok"]', { timeout: 5000 }).catch(() => null);
+    await tap('.modal-overlay:not(.closing) [data-testid="confirm-ok"]');
+    await page.waitForTimeout(300);
+    const copied2 = await page.evaluate(({ c2 }) => window.__sakura.store.profile.gear[c2].equippedBy, seeded);
+    check(copied2 === 'kage' && await page.locator('[data-testid="loadout-lent"]').count() === 0, `${tag} Copy: Kage keeps it, the claim is gone`);
+    // (Team 1 again names Kage on A for the stage checks below)
+    await page.evaluate(() => { const { store } = window.__sakura; return import('/src/systems/teams.js').then((t) => { t.usePreset(store.profile, 'kage', 0); store.commit('teams'); }); });
 
     // ----- Stage Prep: the Team chip beside Start -----
     await go('#/stage?id=1-1', '[data-testid="stage-start"]');
