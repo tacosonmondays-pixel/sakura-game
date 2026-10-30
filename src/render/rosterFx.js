@@ -342,6 +342,14 @@ export class RosterFx {
         // frame while it runs (_drawWebs)
         if (ev.id === 'iroha.mirrorShift') this.mirrors.ability(ev, this._tower(ev.towerUid));
         return false;
+      case 'mirrorGlint': {
+        // a bounce's glint (src/sim/mirrors.js): a thin flash from the mirror to the enemy it struck (the same budget)
+        const cap = this.quality === 'low' ? BEAMS_PER_FRAME / 2 : BEAMS_PER_FRAME;
+        if (this._beamsThisFrame >= cap) return true;
+        this._beamsThisFrame++;
+        this.fx.beam([ev.x, ev.y], [ev.tx, ev.ty], 0.03, COL.mirrorBeam, { life: 0.12, y: 0.8 });
+        return true;
+      }
       case 'mirrorBounce': {
         // a bolt reflected off one of Iroha's mirrors (src/sim/mirrors.js): the leg it just flew as a bright line, and a
         // glint on the glass (capped per frame; low graphics halves it)

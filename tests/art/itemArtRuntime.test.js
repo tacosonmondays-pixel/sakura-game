@@ -209,7 +209,7 @@ describe('display only: the battle sim is untouched', () => {
     // the LR premium and the OVERTIME bands (Oct 30).
     // feature/iroha-mirrors rides it too: Iroha's mirror network (docs/specs/IROHA_MIRRORS.md; src/sim/mirrors.js) on top
     // of round 5 (the coordinator assigns the bump).
-    const PENDING_BUMP = { 13: '82c0505beb4c' };
+    const PENDING_BUMP = { 13: 'f75317571b4e' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     if (PENDING_BUMP[COOP_PROTOCOL] === simId().id) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);

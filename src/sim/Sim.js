@@ -61,7 +61,7 @@ import { tetherStep, shareTether, ownShare, endLinkWave, linkDps } from './links
 import { endDrinkWave, clearDrinksFrom } from './drinks.js';
 import { endSentryWave } from './sentries.js';
 import { isFreeTier, payHubBounty, plantBanner, clearBanners } from './hubs.js';
-import { placeMirror } from './mirrors.js';
+import { placeMirror, mirrorPoint } from './mirrors.js';
 import { onVineKill, endVineWave } from './vines.js';
 import { endBallWave } from './balls.js';
 import { syncBarricades, updateBarricades, endBarricadeWave, detourOnHit } from './barricades.js';
@@ -1504,10 +1504,12 @@ export class Sim {
       return true;
     }
     if (mode === 'mirror') {
-      const k = placeMirror(this, t, ax, ay, slot);
+      // (src/sim/mirrors.js mirrorPoint: map, reach, then the grid; the 1-tile push; the event reports the stored spot)
+      const q = mirrorPoint(this, t, x, y);
+      const k = placeMirror(this, t, q.x, q.y, slot);
       if (k < 0) return false;
       updateRelayOrigin(this, t);
-      this._emit('aim', { towerUid: uid, x: ax, y: ay, slot: k });
+      this._emit('aim', { towerUid: uid, x: t.mirrorAim[k].x, y: t.mirrorAim[k].y, slot: k });
       return true;
     }
     t.aim = { x: ax, y: ay };

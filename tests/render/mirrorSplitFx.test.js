@@ -70,8 +70,10 @@ describe('a mirror split copy on the board', () => {
     h.fxa.ctx.mirrors = { shot: (uid) => calls.push(uid), shifting: () => true };
     const frame = framer(h, sim);
     frame(1 / 60);
+    // (her mirror 0 placed on Aoi's line to the road, then her Laser Web opens the reflection)
+    expect(sim.setAim(iroha.uid, 8.5, 4.9, 0)).toBe(true);
     iroha.abil.cd = 0;
-    expect(sim.castAbility(iroha.uid, { aim: [8.5, 5.5] }).ok).toBe(true);
+    expect(sim.castAbility(iroha.uid).ok).toBe(true);
     spawnProjectile(sim, aoi, aoi.eff, e, aoi.x, aoi.y);
     let checked = 0;
     for (let f = 0; f < 30 && !checked; f++) {

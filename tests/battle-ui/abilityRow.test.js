@@ -92,7 +92,7 @@ describe('abilityLine', () => {
     expect(at('noa', 'sanctuary', 5)).toBe('4 tiles · 14s · up to 5 lives');
     expect(at('ena', 'bloom', 3)).toBe(`bursts ${Math.round(36 * POWER.ena.dmg)} · 4.8 tiles`);
     // (Laser Web, the mirror network's ⚡: was '1 mirror · 8s' for Mirror Shift)
-    expect(at('iroha', 'hall', 3)).toBe('beams 0.9× hit · 6s');
+    expect(at('iroha', 'hall', 3)).toBe('beams 0.8× hit · 6s');
     expect(hero('yoriko', 7)).toBe('1 target · hex 1.5%/s · slow 30%');
     // (91 before balance round 5: × her Lv 17 multiplier, src/data/balance.js HERO_POWER)
     expect(hero('seiran', 17)).toBe(`12 targets · ${Math.round(91 * heroPowerAt('seiran', 17))} dmg · ground 3s`);

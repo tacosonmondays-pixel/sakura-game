@@ -484,7 +484,7 @@ const IROHA = {
       tier('Long Frame', 130, 'Her mirrors can stand 0.6 tiles further away.', { relay: { reach: 0.6 } }),
       tier('Clear Silver', 340, '+0.3 range; each bounce adds 15% damage.', { range: 0.3, relay: { bounceMul: 0.15 } }),
       tier('Silver Reflection', 1100, 'Veil Sight; mirrors reach 0.8 tiles further; each bounce adds 15% more.', { detection: true, relay: { reach: 0.8, bounceMul: 0.15 } }),
-      tier('Moonlit Looking-Glass', 3500, 'A third mirror and one more bounce, +5 damage, ignores 3 armor; each bounce adds 10% more.', { relay: { mirrors: 3, bounces: 1, bounceMul: 0.1 }, damage: 5, armorPen: 3 }),
+      tier('Moonlit Looking-Glass', 3500, 'A third mirror and one more bounce, +0.6 range, +5 damage, ignores 3 armor; each bounce adds 10% more.', { relay: { mirrors: 3, bounces: 1, bounceMul: 0.1 }, range: 0.6, damage: 5, armorPen: 3 }),
       tier('Mirror of Truth', 25000, 'One more bounce, +9 damage, +50% against elites, silences for 0.8s, ignores 3 more armor; each bounce adds 10% more.', { relay: { bounces: 1, bounceMul: 0.1 }, damage: 9, eliteMul: 1.5, silence: 0.8, armorPen: 3 }),
     ]),
     path('shard', 'Shattered Glass', 'Kaleidoscope: every bounce shatters', [
@@ -492,7 +492,7 @@ const IROHA = {
       tier('Splintered Glass', 320, 'Every bounce splashes 0.8 tiles; bolts splash 0.4 tiles where they land.', { splash: 0.4, relay: { bounceSplash: 0.8 } }),
       tier('Glass Shards', 1150, 'Wider splashes; 20% slows for 1s.', { splash: 0.3, relay: { bounceSplash: 0.4 }, status: [S.slow(0.2, 1)] }),
       tier('Glass Storm', 3600, 'A third mirror and one more bounce, +8 damage, wider splashes, 15% stun for 0.3s; every bounce throws a glass shard at another enemy.', { relay: { mirrors: 3, bounces: 1, bounceSplash: 0.3, shards: 1 }, damage: 8, splash: 0.4, status: [S.stun(0.3, 0.15)] }),
-      tier('Kaleidoscope Burst', 27000, 'One more bounce, +4 damage, wider landing splash (+0.6), +30% attack speed.', { relay: { bounces: 1 }, damage: 4, splash: 0.6, rateMul: 1.3 }),
+      tier('Kaleidoscope Burst', 27000, 'One more bounce, +10 damage, wider landing splash (+0.6), +30% attack speed.', { relay: { bounces: 1 }, damage: 10, splash: 0.6, rateMul: 1.3 }),
     ]),
   ],
   awakenPassive: { name: 'Polished Silver', desc: 'Bolts pierce 1 more enemy and +6% damage.', mods: { pierce: 1, damageMul: 1.06 } },

@@ -112,17 +112,19 @@ describe('her mirrors', () => {
     expect(MIRROR_MAX).toBe(5);
   });
 
-  test('Auto: a quarter, three quarters, then the middle of the road in her reach, quantised; with no road, where she stands', () => {
+  test('Auto: slot 0 on the road point nearest her (her old panel spot), then a quarter and three quarters of the road in her reach, quantised; with no road, where she stands', () => {
     const { sim, iroha } = lane({ tiers: [2, 0, 0] });
     expect(iroha.mirrors).toHaveLength(3);
+    // (slot 0 is her old panel's spot: FAMILIAR_STANDOFF short of the road point nearest her, toward her)
+    expect(iroha.mirrors[0]).toEqual({ x: 8.5, y: q(ROAD_Y - 0.7) });
+    for (const m of iroha.mirrors.slice(1)) expect(m.y).toBeCloseTo(ROAD_Y, 6);
     for (const m of iroha.mirrors) {
-      expect(m.y).toBeCloseTo(ROAD_Y, 6);
       expect((m.x - 8.5) ** 2 + (m.y - 2.5) ** 2).toBeLessThanOrEqual(3.7 ** 2 + 1e-9);
       expect(m.x).toBe(q(m.x));
     }
+    expect(iroha.mirrors[1].x).toBeLessThan(iroha.mirrors[0].x);
     expect(iroha.mirrors[0].x).toBeLessThan(iroha.mirrors[2].x);
-    expect(iroha.mirrors[2].x).toBeLessThan(iroha.mirrors[1].x);
-    expect(iroha.mirrors[2].x).toBeCloseTo(8.5, 0);
+    expect(iroha.mirrors[0].x).toBeCloseTo(8.5, 6);
     // mirror 0 is her relay origin
     expect([iroha.ox, iroha.oy]).toEqual([iroha.mirrors[0].x, iroha.mirrors[0].y]);
     expect(autoSpots([], 3, 4, 3.7, 2)).toEqual([{ x: 3, y: 4 }, { x: 3, y: 4 }]);
@@ -164,8 +166,12 @@ describe('her mirrors', () => {
     expect(of(evs, 'mirrors')[0]).toMatchObject({ towerUid: iroha.uid, placed: [0, 1] });
     // clamped onto her reach circle
     expect(sim.setAim(iroha.uid, 8.5, 12, 0)).toBe(true);
+    // (clamped onto the circle, then onto the 1/1024 grid just inside it)
     const d = Math.hypot(iroha.mirrors[0].x - 8.5, iroha.mirrors[0].y - 2.5);
-    expect(d).toBeCloseTo(3.7, 6);
+    expect(d).toBeLessThanOrEqual(3.7);
+    expect(d).toBeGreaterThan(3.7 - 2 / 1024);
+    expect(iroha.mirrors[0].x * 1024).toBe(Math.round(iroha.mirrors[0].x * 1024));
+    expect(iroha.mirrors[0].y * 1024).toBe(Math.round(iroha.mirrors[0].y * 1024));
     // a slot she does not have, or not a slot
     expect(sim.setAim(iroha.uid, 8, 4.5, 2)).toBe(false);
     expect(sim.setAim(iroha.uid, 8, 4.5, -1)).toBe(false);
@@ -186,6 +192,39 @@ describe('her mirrors', () => {
     const a = iroha.mirrorAim;
     for (let i = 0; i < 3; i++) {
       for (let j = i + 1; j < 3; j++) expect(Math.hypot(a[i].x - a[j].x, a[i].y - a[j].y), `${i}-${j}`).toBeGreaterThanOrEqual(MIN_LEG - 2 / 1024);
+    }
+  });
+
+  test('the aim event reports the spot she stored (after the 1-tile push), not the tapped one', () => {
+    const { sim, iroha } = lane();
+    expect(sim.setAim(iroha.uid, 8.5, 4.5, 0)).toBe(true);
+    sim.drainEvents();
+    expect(sim.setAim(iroha.uid, 8.5, 4.5, 1)).toBe(true);
+    const ev = of(sim.drainEvents(), 'aim')[0];
+    expect([ev.x, ev.y]).toEqual([iroha.mirrorAim[1].x, iroha.mirrorAim[1].y]);
+    expect(Math.hypot(ev.x - 8.5, ev.y - 4.5)).toBeGreaterThanOrEqual(MIN_LEG - 2 / 1024);
+  });
+
+  test('a lone boss held anywhere along the road in her coverage takes at least one hit from every bolt she fires', () => {
+    for (const x of [5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5]) {
+      const { sim, iroha } = lane({ tiers: [2, 0, 0] });
+      const boss = at(sim, x, { hpMul: 1e5 });
+      steps(sim, 1);
+      iroha.cooldown = 0;
+      const bolts = new Set();
+      let hits = 0;
+      const real = sim._hit.bind(sim);
+      sim._hit = (e, tw, ...a) => {
+        if (e === boss && tw === iroha) hits++;
+        return real(e, tw, ...a);
+      };
+      for (let i = 0; i < 600; i++) {
+        steps(sim, 1);
+        for (const p of sim.projectiles) if (p.ownerUid === iroha.uid && p.route) bolts.add(p.uid);
+      }
+      sim._hit = real;
+      expect(bolts.size, `boss at ${x}`).toBeGreaterThan(0);
+      expect(hits, `boss at ${x}`).toBeGreaterThanOrEqual(bolts.size);
     }
   });
 
@@ -302,9 +341,9 @@ describe('Reflected Bolt', () => {
     sim._hit = real;
     splashes = of(evs, 'explode').length;
     expect(of(evs, 'mirrorBounce').filter((v) => v.uid === p.uid)).toHaveLength(6);
-    // the leg from her (one hit and one bounce splash at the first mirror), then five zero legs that add nothing, then the
-    // final leg (one more hit at most, plus its landing splash)
-    expect(n).toBeLessThanOrEqual(4);
+    // the leg from her (one hit, a glint and one bounce splash at the first mirror), then five zero legs that add nothing,
+    // then the final leg (one more hit at most, plus its landing splash)
+    expect(n).toBeLessThanOrEqual(5);
     expect(splashes).toBeLessThanOrEqual(2);
     expect(p.steps ?? 1).toBeLessThanOrEqual(1);
   });

@@ -9,14 +9,19 @@ has every build, best placement and the ally rows).
 
 | build (fully maxed, 3 seeds, Auto mirrors) | boss main / r5 → branch | late crowd main / r5 → branch |
 |---|---:|---:|
-| Mirror Hall 5-0-2 | 255k / 1.09M → 2.12M | 772k / 836k → 5.83M |
-| Silver Reflection 2-5-0 | 129k / 549k → 2.06M | 248k / 270k → 1.49M |
-| Shattered Glass 2-0-5 | 120k / 509k → 1.35M | 5.45M / 5.88M → 6.78M |
+| Mirror Hall 5-0-2 | 255k / 1.09M → 2.77M | 772k / 836k → 5.13M |
+| Silver Reflection 2-5-0 | 129k / 549k → 2.10M | 248k / 270k → 1.16M |
+| Shattered Glass 2-0-5 | 120k / 509k → 1.86M | 5.45M / 5.88M → 6.96M |
 
-Knobs: base 3 bolts, pierce 1; every tier that adds a mirror adds a bounce (Second Pane, Moonlit Looking-Glass, Glass
-Storm); Mirror Hall tiers 4 and 5 two more bolts each; Polish 0.50 a bounce at tier 5; Kaleidoscope bounce splash 1.5
-tiles and one shard; Laser Web 0.9× (tier 5: 2×); allies' shots reflect within 0.8 tiles; the `iroha` row `{ boss: 3.6 }`
-(was 3.9). Real coins on 4-5 Blossom Freeplay: an Iroha army wave 108 → 126.
+With the boss held anywhere from 4 tiles before to 3 tiles after her nearest road point every build is ×1.07 of r5 or
+more. The best of ~200 layouts: 5-0-2 boss 5.96M, 2-5-0 boss 4.79M, 2-0-5 crowd 8.70M (spec §10; the owner's rule: the LR
+rows rise above these, Iroha is not lowered).
+
+Knobs: base 3 bolts, pierce 1; slot 0 on her old panel's spot; every tier that adds a mirror adds a bounce; a real
+bounce glints at the nearest enemy (0.8× the bolt's hit); a bounce splash strikes each enemy once a bolt; Mirror Hall
+tiers 4 and 5 two more bolts each; Polish 0.50 a bounce at tier 5; Kaleidoscope Burst +10 damage; Laser Web 0.8× (tier
+5: 2×); allies' shots reflect within 0.8 tiles; the `iroha` row `{ boss: 3.6 }` (was 3.9). Real coins on 4-5 Blossom
+Freeplay: an Iroha army wave 108 → 129.
 
 ## Balance round 5 (2026-10-29, `feature/balance-r5`; ships after Nov 1, 7 PM Central with its own COOP_PROTOCOL bump)
 

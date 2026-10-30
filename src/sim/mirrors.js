@@ -32,7 +32,7 @@
 // State: t.mirrorAim (saved), t.mirrors (derived), the routed bolts' fields in sim.projectiles (calm: the wave clear
 // ends them); the budgets are per-step scratch reset at the top of every step (updateProjectiles).
 
-import { spawnProjectile, selectTargets, selectTargetsInto } from './towers.js';
+import { spawnProjectile, selectTargets, selectTargetsInto, bestTarget, relayOrigin } from './towers.js';
 import { abilityDef } from './abilities.js';
 import { isEligible } from './combat.js';
 import { segDistSq, projectOnSegment } from './path.js';
@@ -41,6 +41,12 @@ import { MIRROR_RADIUS, SPLIT_FAN, AIM_QUANT } from './constants.js';
 
 /** A routed bolt's speed (tiles/s) when her spec has none (an instant-hit mirror girl). */
 export const MIRROR_BOLT_SPEED = 18;
+/**
+ * A real bounce glints: the best enemy (her target mode) within her range of that mirror takes this share of the bolt's
+ * hit, so every mirror near an enemy strikes it whether or not a leg crosses it (review r3 HIGH-1: a lone boss off the
+ * legs got one hit a bolt, half of her old two volleys).
+ */
+export const GLINT_MUL = 0.8;
 /** Most mirrors a girl owns. */
 export const MIRROR_MAX = 5;
 /** Most mirrors one of her bolts visits. */
@@ -62,8 +68,11 @@ export const MIRROR_GATHER = 32;
  * bounce splash or shards), so mirrors stacked on one spot never multiply a bolt. Her placed mirrors keep this far apart.
  */
 export const MIN_LEG = 1;
-/** Where Auto puts slot k, as a fraction along the road samples in her reach: a slot never moves when her count grows. */
-export const AUTO_FRACS = Object.freeze([0.25, 0.75, 0.5, 0.125, 0.875]);
+/**
+ * Where Auto puts slot k, as a fraction along the road samples in her reach (slot 0: the road sample nearest her, where
+ * her one panel stood; review r3 HIGH-1): a slot never moves when her count grows.
+ */
+export const AUTO_FRACS = Object.freeze([null, 0.25, 0.75, 0.125, 0.875]);
 
 const R2 = MIRROR_RADIUS * MIRROR_RADIUS;
 /** The reflecting mirrors this step: flat [x, y, towerUid, slot] quads (module scratch, refilled every step). */
@@ -105,29 +114,59 @@ export function mirrorsReflect(t) {
 // Mirrors: slots, Auto spots, the derived list
 // ---------------------------------------------------------------------------
 
-/** A mirror point for her: quantised to the co-op grid, clamped into the map and to her mirror reach (Sim.setAim's clamp). */
+/**
+ * A mirror point for her (Sim.setAim for a mirror girl, a placed slot every sync, the 1-tile push): clamped into the map
+ * and her mirror reach, then quantised to the co-op grid (1/1024), a grid step toward her at a time while rounding left
+ * it outside her reach. So a placed spot is always on the grid and inside her reach, and doing it again changes nothing
+ * (review r3 MEDIUM-1: quantising before the clamp left clamped spots off the grid).
+ */
 export function mirrorPoint(sim, t, x, y) {
-  let ax = Math.round(x * AIM_QUANT) / AIM_QUANT;
-  let ay = Math.round(y * AIM_QUANT) / AIM_QUANT;
-  ax = Math.min(sim.map.width || 0, Math.max(0, ax));
-  ay = Math.min(sim.map.height || 0, Math.max(0, ay));
+  let ax = Math.min(sim.map.width || 0, Math.max(0, x));
+  let ay = Math.min(sim.map.height || 0, Math.max(0, y));
   const reach = t.stats.relay.reach;
-  const dx = ax - t.x;
-  const dy = ay - t.y;
+  const r2 = reach * reach;
+  let dx = ax - t.x;
+  let dy = ay - t.y;
   const d2 = dx * dx + dy * dy;
-  if (d2 > reach * reach) {
+  if (d2 > r2) {
     const k = reach / Math.sqrt(d2);
     ax = t.x + dx * k;
     ay = t.y + dy * k;
+  }
+  ax = Math.round(ax * AIM_QUANT) / AIM_QUANT;
+  ay = Math.round(ay * AIM_QUANT) / AIM_QUANT;
+  for (let i = 0; i < 4; i++) {
+    dx = ax - t.x;
+    dy = ay - t.y;
+    if (dx * dx + dy * dy <= r2) break;
+    if (dx > 0) ax -= 1 / AIM_QUANT;
+    else if (dx < 0) ax += 1 / AIM_QUANT;
+    if (dy > 0) ay -= 1 / AIM_QUANT;
+    else if (dy < 0) ay += 1 / AIM_QUANT;
   }
   return { x: ax, y: ay };
 }
 
 /**
+ * Restores her placed slots exactly as saved (the battle save's `mr`): each spot only clamped (mirrorPoint, which leaves
+ * a saved spot as it is), never pushed apart again, so a layout placed in any order comes back the same.
+ */
+export function restoreMirrors(sim, t, spots) {
+  const m = mirrorCount(t);
+  const aims = [];
+  for (let k = 0; k < m; k++) {
+    const a = spots[k];
+    aims.push(Array.isArray(a) && Number.isFinite(a[0]) && Number.isFinite(a[1]) ? mirrorPoint(sim, t, a[0], a[1]) : null);
+  }
+  t.mirrorAim = aims.some(Boolean) ? aims : null;
+}
+
+/**
  * Auto spots for `m` mirrors (pure but for the samples): the visible road samples within her reach, in their order
- * (path, then distance), slot k at index floor(AUTO_FRACS[k] × n) (a quarter, three quarters, the middle, then the outer
- * eighths: slot k's spot is the same whatever her count, so an upgrade that adds a mirror never moves the others); with
- * none, where she stands.
+ * (path, then distance). Slot 0 takes her old panel's spot (towers.js relayOrigin: toward the road sample nearest her,
+ * FAMILIAR_STANDOFF short of it, within her reach), where she fights most; slot k ≥ 1 the one
+ * at index floor(AUTO_FRACS[k] × n) (a quarter, three quarters, then the outer eighths). Slot k's spot is the same
+ * whatever her count, so an upgrade that adds a mirror never moves the others. With none, where she stands.
  * @returns {{ x: number, y: number }[]}
  */
 export function autoSpots(samples, x, y, reach, m) {
@@ -142,7 +181,7 @@ export function autoSpots(samples, x, y, reach, m) {
   for (let k = 0; k < m; k++) {
     if (!idx.length) out.push({ x, y });
     else {
-      const s = samples[idx[Math.min(idx.length - 1, Math.floor(AUTO_FRACS[k] * idx.length))]];
+      const s = k === 0 ? relayOrigin(samples, x, y, { kind: 'auto', reach }) : samples[idx[Math.min(idx.length - 1, Math.floor(AUTO_FRACS[k] * idx.length))]];
       out.push({ x: Math.round(s.x * AIM_QUANT) / AIM_QUANT, y: Math.round(s.y * AIM_QUANT) / AIM_QUANT });
     }
   }
@@ -266,6 +305,8 @@ export function routeBolt(t, p, i) {
   }
   setRoute(p, route, true);
   p.steps = 0;
+  // the enemies its bounce splashes have hit (each one splash a bolt: review r3 HIGH-2)
+  p.splashed = [];
   p.mirrorOf = t.uid;
   p.firstSlot = i % m;
 }
@@ -376,13 +417,22 @@ function legHits(sim, p, ax, ay) {
   CONTACT.length = 0;
 }
 
-/** Every eligible enemy within `radius` of (x, y), at the bolt's spec × scale; emits 'explode'. */
-function splashAt(sim, p, x, y, radius, scale) {
+/**
+ * Every eligible enemy within `radius` of (x, y), at the bolt's spec × scale; emits 'explode'. `once` (a bolt's bounce
+ * splashes): the uids already splashed by this bolt, skipped and then added (each enemy one bounce splash a bolt, so
+ * overlapping splashes along a road of close mirrors never stack).
+ */
+function splashAt(sim, p, x, y, radius, scale, once = null) {
   SPL.length = 0;
   const victims = sim.grid.query(x, y, radius, SPL);
   for (let i = 0; i < victims.length; i++) {
     const e = victims[i];
-    if (!e.dead && isEligible(e, p.spec)) sim._hit(e, p.owner, p.spec, scale);
+    if (e.dead || !isEligible(e, p.spec)) continue;
+    if (once) {
+      if (once.includes(e.uid)) continue;
+      once.push(e.uid);
+    }
+    sim._hit(e, p.owner, p.spec, scale);
   }
   SPL.length = 0;
   sim._emit('explode', { x, y, radius, element: p.spec.element || null, attackType: p.spec.attackType });
@@ -414,7 +464,8 @@ function bounce(sim, p, wx, wy) {
   const slot = p.firstSlot != null && mt?.mirrors ? (p.firstSlot + p.bounce - 1) % mt.mirrors.length : -1;
   sim._emit('mirrorBounce', { uid: p.uid, towerUid: p.mirrorOf, ownerUid: p.ownerUid, mirror: slot, n: p.bounce, x: wx, y: wy, fx, fy });
   if (own && relay && full) {
-    if (relay.bounceSplash > 0) splashAt(sim, p, wx, wy, relay.bounceSplash, p.scale ?? 1);
+    glint(sim, p, wx, wy);
+    if (relay.bounceSplash > 0) splashAt(sim, p, wx, wy, relay.bounceSplash, p.scale ?? 1, p.splashed || (p.splashed = []));
     if (relay.shards > 0) throwShards(sim, p, wx, wy, relay.shards);
   }
   if (p.ri * 2 < p.route.length) {
@@ -425,8 +476,9 @@ function bounce(sim, p, wx, wy) {
 }
 
 /**
- * Its route done: the bolt takes its enemy near the last mirror, else (hers) near her, else (an ally's copy) near the
- * point where it crossed her mirror, then the original's target, either of them even if already struck; or it ends.
+ * Its route done: the bolt takes its enemy near the last mirror, else (hers) near her, then near each of her mirrors
+ * (struck or not), else (an ally's copy) near the point where it crossed her mirror, then the original's target, either
+ * of them even if already struck; or it ends.
  */
 function finish(sim, p, x, y) {
   p.route = null;
@@ -436,6 +488,9 @@ function finish(sim, p, x, y) {
   const mode = p.owner.targetMode || 'first';
   let tgt = pick(sim, p, x, y, reach, mode, true);
   if (!tgt && p.refill > 0) tgt = pick(sim, p, p.owner.x, p.owner.y, reach, mode, true);
+  // (hers: an enemy near any of her mirrors, slot order, struck or not: wherever she fights, every bolt lands)
+  const ms = p.refill > 0 ? p.owner.mirrors : null;
+  for (let k = 0; !tgt && ms && k < ms.length; k++) tgt = pick(sim, p, ms[k].x, ms[k].y, reach, mode, false);
   if (!tgt && p.cx != null) tgt = pick(sim, p, p.cx, p.cy, reach, mode, false);
   if (!tgt && p.avoid && !p.avoid.dead && isEligible(p.avoid, spec)) tgt = p.avoid;
   if (!tgt) {
@@ -470,6 +525,15 @@ function pick(sim, p, x, y, reach, mode, fresh) {
   }
   PICK.length = 0;
   return out;
+}
+
+/** A real bounce's glint (GLINT_MUL): the best enemy within her range of the mirror takes that share of the bolt's hit. */
+function glint(sim, p, x, y) {
+  const spec = p.spec;
+  const e = bestTarget(sim, x, y, spec.range, spec, p.owner.targetMode || 'first');
+  if (!e) return;
+  sim._hit(e, p.owner, spec, (p.scale ?? 1) * GLINT_MUL);
+  sim._emit('mirrorGlint', { uid: p.uid, towerUid: p.ownerUid, x, y, tx: e.x, ty: e.y, targetUid: e.uid });
 }
 
 /** Kaleidoscope (§4): `n` shards from the mirror at other enemies in her range of it (SHARD_BUDGET a step). */

@@ -152,6 +152,17 @@ export const iroha = {
 
   // her two firing points: the sim spawn S is wherever this bolt really started (mirror or her)
   origin(p, t, idx, n, rec, ctx) {
+    // her routed bolts (src/sim/mirrors.js) always leave her hand; their mirrors turn through the 'mirrorBounce' events
+    // (src/render/rosterFx.js), so no panel kick here
+    if (p.mirrorOf != null && p.ownerUid === t.uid) {
+      const h = hand(ctx, t);
+      rec.sx = t.x;
+      rec.sy = t.y;
+      rec.mx = h.x;
+      rec.my = h.y;
+      rec.mz = h.h;
+      return true;
+    }
     const vl = Math.hypot(p.vx, p.vy) || 1;
     const sx = p.x - (p.vx / vl) * (p.travel || 0);
     const sy = p.y - (p.vy / vl) * (p.travel || 0);

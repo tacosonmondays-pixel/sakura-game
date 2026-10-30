@@ -1297,6 +1297,54 @@ describe('Iroha\'s mirror network in a battle save (docs/specs/IROHA_MIRRORS.md 
   });
 });
 
+describe('Iroha\'s placed mirrors come back exactly (review r3 MEDIUM-1)', SLOW, () => {
+  /** Iroha at Mirror Hall tier 5 on 1-1 (five mirrors), placed in `order` at random spots around her; a calm point. */
+  function layout(seed) {
+    const c = { stageId: '1-1', difficulty: 'normal', towers: ['iroha', 'aoi'], hero: null, stats: {}, seed: 15 };
+    const sim = makeSim(c);
+    sim.cash = 1e6;
+    const a = autoPlan('1-1', ['iroha'], { maxCopies: 1 }).find((x) => x.action === 'place');
+    const t = sim.placeTower('iroha', a.x, a.y);
+    for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, 0);
+    const rng = createRng(seed);
+    const order = [0, 1, 2, 3, 4].sort(() => rng.next() - 0.5);
+    for (const k of order) sim.setAim(t.uid, t.x + (rng.next() * 2 - 1) * 4, t.y + (rng.next() * 2 - 1) * 4, k);
+    return { c, sim, t };
+  }
+
+  it('over 40 random layouts placed in random slot orders: the same spots, mirrors and battle hash after a restore', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const { c, sim, t } = layout(seed);
+      // every placed spot on the 1/1024 grid and inside her reach
+      for (const m of t.mirrorAim) {
+        expect(m.x * 1024).toBe(Math.round(m.x * 1024));
+        expect(Math.hypot(m.x - t.x, m.y - t.y)).toBeLessThanOrEqual(t.stats.relay.reach);
+      }
+      const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+      const { sim: back } = restoreSim(recordOf(c, snap));
+      const bt = back.towers.find((x) => x.unitId === 'iroha');
+      expect(bt.mirrorAim, `seed ${seed}`).toEqual(t.mirrorAim);
+      expect(bt.mirrors, `seed ${seed}`).toEqual(t.mirrors);
+      expect(hashSim(back), `seed ${seed}`).toBe(hashSim(sim));
+    }
+  });
+
+  it('an older save\'s `am` (her one panel) becomes her mirror 0', () => {
+    const { c, sim, t } = layout(3);
+    sim.clearAim(t.uid);
+    const snap = JSON.parse(JSON.stringify(snapshotSim(sim)));
+    const row = snap.towers.find((x) => x.u === 'iroha');
+    expect('mr' in row).toBe(false);
+    const g = (v) => Math.round(v * 1024) / 1024;
+    row.am = [g(t.x + 1), g(t.y + 0.5)];
+    const { sim: back } = restoreSim(recordOf(c, snap));
+    const bt = back.towers.find((x) => x.unitId === 'iroha');
+    expect(bt.mirrorAim[0]).toEqual({ x: row.am[0], y: row.am[1] });
+    expect(bt.mirrorAim.slice(1).every((m) => m === null)).toBe(true);
+    expect(bt.mirrors[0]).toEqual(bt.mirrorAim[0]);
+  });
+});
+
 /** The legal spot for `unitId` nearest girl `o` (a 0.25-tile scan of the map), or null. */
 function spotNear(sim, unitId, o) {
   let best = null;

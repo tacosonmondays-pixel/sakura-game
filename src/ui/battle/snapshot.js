@@ -64,7 +64,8 @@
 // is not classified here (add it to the table and, if it is state, to snapshotSim/restoreSim).
 import { Sim } from '../../sim/Sim.js';
 import { gainHeroXp, xpToReach } from '../../sim/hero.js';
-import { restoreDrone, recomputeBuffs } from '../../sim/towers.js';
+import { restoreDrone, recomputeBuffs, updateRelayOrigin } from '../../sim/towers.js';
+import { restoreMirrors } from '../../sim/mirrors.js';
 import { FLIGHT_MODES, PRISM_BEAM_TICK } from '../../sim/constants.js';
 import { POP_BUDGET_MAX } from '../../sim/gearRules.js';
 import { BATTLE } from '../../data/types.js';
@@ -609,14 +610,13 @@ export function restoreSim(rec, profile = null) {
       if (o.du[2] >= 0) t.duoCd = Math.min(whole(o.du[2]), PRISM_BEAM_TICK);
     }
     if (o.tm) sim.setTargetMode(t.uid, o.tm);
-    // (an older save's Iroha: her one panel was her relay origin, now her mirror 0)
-    if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1], t.mirrors ? 0 : null);
-    // Iroha's placed mirrors, slot by slot (setAim refuses a slot past her count)
-    if (Array.isArray(o.mr)) {
-      o.mr.slice(0, 5).forEach((a, k) => {
-        if (Array.isArray(a) && Number.isFinite(a[0]) && Number.isFinite(a[1])) sim.setAim(t.uid, a[0], a[1], k);
-      });
-    }
+    // Iroha (src/sim/mirrors.js restoreMirrors): her placed mirrors by slot, written back as saved (clamped, never pushed
+    // apart again, so the layout and the battle hash come back exactly); an older save's `am`, her one panel (her relay
+    // origin), becomes her mirror 0
+    if (t.mirrors && (Array.isArray(o.mr) || Array.isArray(o.am))) {
+      restoreMirrors(sim, t, Array.isArray(o.mr) ? o.mr.slice(0, 5) : [o.am]);
+      updateRelayOrigin(sim, t);
+    } else if (Array.isArray(o.am) && Number.isFinite(o.am[0]) && Number.isFinite(o.am[1])) sim.setAim(t.uid, o.am[0], o.am[1]);
     // Ouka's banners, oldest first (setAim keeps at most her count)
     if (Array.isArray(o.bn)) for (const b of o.bn.slice(0, 4)) if (Array.isArray(b) && Number.isFinite(b[0]) && Number.isFinite(b[1])) sim.setAim(t.uid, b[0], b[1]);
     t.spent = r(o.spent);
