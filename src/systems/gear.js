@@ -32,7 +32,8 @@ import { consumeItems, addItems, missingItems, itemCount } from './inventory.js'
 import { track } from './missions.js';
 import { potentialLevel } from './potential.js';
 import { writeRosterMark } from './rosterSave.js';
-import { PIERCE_MAX_EXTRA } from '../sim/gearRules.js';
+import { PIERCE_MAX_EXTRA, PIERCE_K_MAX } from '../sim/gearRules.js';
+import { resolveStats } from '../sim/mods.js';
 import { UNIT_MAP } from '../data/units.js';
 
 export const MAX_GEAR_LEVEL = 10;
@@ -1016,23 +1017,30 @@ export function gearCaps(info) {
 export const PIERCE_SHOT_PCT = PIERCE_MAX_EXTRA;
 
 const BLAST_KITS = new Map();
+/** Her builds the reach test resolves: each path at tier 5 with a tier-2 crosspath, her base, and a hero at Lv 25. */
+const REACH_BUILDS = Object.freeze([[0, 0, 0], [5, 0, 2], [2, 5, 0], [2, 0, 5], [5, 2, 0], [0, 5, 2], [0, 2, 5]]);
 /**
- * Whether her kit blasts or lays splash traps on some path (a `splash` above 0 anywhere in her base or tiers): Pierce
- * widens those all the way to its cap (src/sim/mods.js applyGearReach), so for her no part of it is surplus. A kit
- * with none uses Pierce on shots only, up to PIERCE_SHOT_PCT (review M3 r2 #1).
+ * Whether Pierce between PIERCE_SHOT_PCT and the LR cap does anything for her kit: the same test as the sim's
+ * src/sim/mods.js applyGearReach, by resolving her stats at pierceK 200 and at 300 on each of her builds (every path
+ * at tier 5, a hero at Lv 25) and comparing her blast and splash-trap radii. A kit whose band widens nothing uses
+ * Pierce on shots only, up to PIERCE_SHOT_PCT (review M3 r2 #1, r3: an ability's or a roll's splash is not a blast).
  */
 export function blastKit(unitId) {
   if (!BLAST_KITS.has(unitId)) {
-    let found = false;
-    const walk = (o) => {
-      if (found || !o || typeof o !== 'object') return;
-      for (const [k, v] of Object.entries(o)) {
-        if (k === 'splash' && typeof v === 'number' && v > 0) { found = true; return; }
-        walk(v);
-      }
-    };
     const def = UNIT_MAP[unitId];
-    if (def) walk({ base: def.base, paths: def.paths });
+    let found = false;
+    if (def) {
+      const hero = def.kind === 'hero';
+      const builds = hero ? [{ heroLevel: 25 }] : REACH_BUILDS.filter((t) => t.every((n, p) => !n || def.paths?.[p]?.tiers?.length)).map((tiers) => ({ tiers }));
+      const reach = (o, k) => {
+        const s = resolveStats(def, { ...o, unitStats: { pierceK: k } });
+        return [s.splash || 0, s.trap?.splash || 0];
+      };
+      found = builds.some((o) => {
+        const [a, b] = [reach(o, Math.round(100 * PIERCE_SHOT_PCT)), reach(o, PIERCE_K_MAX)];
+        return a[0] !== b[0] || a[1] !== b[1];
+      });
+    }
     BLAST_KITS.set(unitId, found);
   }
   return BLAST_KITS.get(unitId);

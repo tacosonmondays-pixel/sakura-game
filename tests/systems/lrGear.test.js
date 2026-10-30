@@ -248,6 +248,34 @@ describe('Blank LR from a set piece, Pierce past 200 % (review r1 #6, #9)', () =
     expect(p.gear[a].name).toMatch(/Hair Clip of the Nightglass Sakura$/);
   });
 
+  it('every kit, five Blank LR all-Pierce: Pierce counts exactly once (review M3 r3: reach where it widens, else ATK)', async () => {
+    const { gearFillIn, blastKit } = await import('../../src/systems/gear.js');
+    const { UNITS } = await import('../../src/data/units.js');
+    const { fillStats } = await import('../../src/data/gearStats.js');
+    const odd = [];
+    let kits = 0;
+    for (const def of UNITS) {
+      const p = rich();
+      grantIfMissing(p, def.id);
+      if (!p.units[def.id]) continue;
+      kits++;
+      const uids = SLOT_IDS.map((slot) => urPiece(p, slot, { set: null, seed: `${def.id}${slot}` }));
+      for (const u of uids) { limitBreakGear(p, u, 'blank'); equipGear(p, def.id, u); }
+      for (const u of uids) for (const x of p.gear[u].subs) { x.stat = 'piercePct'; x.base = 0.08; x.value = 0.08; x.upgrades = 0; }
+      const k = unitBattleStats(p, def.id).pierceK;
+      const f = gearFillIn(p, def.id);
+      const over = f.over.find((o) => o.stat === 'piercePct')?.value || 0;
+      const lines = f.lines.some((l) => l.stat === 'piercePct');
+      // (a kit Pierce does nothing for: every Pierce line fills in as a line, nothing else to check)
+      if (fillStats(def.id, { awaken: 5, potential: 1 }).has('piercePct')) { if (!lines) odd.push(`${def.id}: dead Pierce, no line fill-in`); continue; }
+      if (k > 200 && over > 0) odd.push(`${def.id}: counted twice (pierceK ${k}, ATK ${over})`);
+      if (k > 200 && !blastKit(def.id)) odd.push(`${def.id}: pierceK ${k} widens nothing`);
+      if (k <= 200 && !(over > 0)) odd.push(`${def.id}: the 200–300 % band lost (pierceK ${k}, no ATK)`);
+    }
+    expect(kits).toBeGreaterThan(30);
+    expect(odd).toEqual([]);
+  }, 60000);
+
   it('Pierce counts once: a kit with no blasts stops at 200 % and fills in the rest as ATK; a blast kit keeps it (review M3 r2 #1)', async () => {
     const { gearFillIn, PIERCE_SHOT_PCT, blastKit } = await import('../../src/systems/gear.js');
     const pierce = (unitId, set = null) => {
@@ -261,6 +289,9 @@ describe('Blank LR from a set piece, Pierce past 200 % (review r1 #6, #9)', () =
     };
     expect(PIERCE_SHOT_PCT).toBe(2);
     expect([blastKit('aoi'), blastKit('akane')]).toEqual([false, true]);
+    // (review M3 r3: an ability's splash, a roll, a drink and a mortar are not blasts Pierce widens; a hero's levels are)
+    expect(['tenka', 'marumi', 'wakaba', 'kohaku_tsubaki'].map(blastKit)).toEqual([false, false, false, false]);
+    expect(blastKit('kogane')).toBe(true);
     // Aoi shoots: Pierce to 200 %, the rest as ATK; never both
     const aoi = pierce('aoi');
     expect(aoi.pierceK).toBe(200);
