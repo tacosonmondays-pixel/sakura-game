@@ -1125,8 +1125,8 @@ const SHAPES = [
   },
   {
     id: 'charms', pose: (S) => (S.shots || []).filter((p) => !p.lead).length >= 8 && S.shots.some((p) => !p.lead && p.age >= 8), n: 15, name: 'Charm Wheel', batch: 5,
-    does: 'Miko, Purification T4-5. Her three talismans still fly at her targets (at T5 her mirror\'s beam flashes). A wheel of 9 paper charms (12 at T5) also bursts out all round her, and each throw\'s wheel sits 15° further round, so it turns.',
-    suits: 'Built on Blossom Wheel (spokes only, her own throw is the lead) with a turn from her throw count. Each charm cuts the first enemy it meets, skipping her talismans\' victims.',
+    does: 'Miko, Purification T4-5. Her three talismans still fly at her targets (at T5 her mirror\'s beam flashes). A wheel of paper charms also bursts out all round her (9; 12 at T5). The wheel sits 15° further round each throw, so it turns, and the spoke on her own line is left out.',
+    suits: 'Built on Blossom Wheel (spokes only, her own throw is the lead) with a turn from her throw count. Each charm cuts the first enemy it meets, skipping the targets her talismans were thrown at.',
     range: 2.8,
     step(S) {
       S.wheelK ??= 0;
@@ -1135,22 +1135,23 @@ const SHAPES = [
         if (tgts.length) {
           const k0 = aimAt(tgts[0]);
           S.face = k0;
-          S.struck = [];
+          S.struck = tgts.map((w) => w.uid); // the skip list: the targets her talismans are thrown at (review r1 M2)
           for (const tg of tgts) shoot(S, aimAt(tg), { lead: true, pierce: 3, speed: 12, travel: 2.8, kind: 'talisman' });
-          // spokes i = 1..9 of 10 evenly round from her target's direction (none down her own line), turned by wheelK
-          for (let i = 1; i <= 9; i++) shoot(S, k0 + Math.floor((i * N) / 10) + S.wheelK, { pierce: 1, speed: 10, travel: 2.8, kind: 'charm' });
+          // a world-fixed wheel of 10 spokes turned by wheelK, minus the spoke nearest her line (ties: the lower j)
+          const spokes = Array.from({ length: 10 }, (_, j) => wrapDir(S.wheelK + Math.floor((j * N) / 10)));
+          const gap = (k) => Math.min(wrapDir(k - k0), wrapDir(k0 - k));
+          let drop = 0;
+          for (let j = 1; j < 10; j++) if (gap(spokes[j]) < gap(spokes[drop])) drop = j;
+          spokes.forEach((k, j) => j !== drop && shoot(S, k, { pierce: 1, speed: 10, travel: 2.8, kind: 'charm' }));
           S.wheelK = wrapDir(S.wheelK + 10);
           S.bloom = 12;
         }
       }
       if (S.bloom > 0) S.bloom--;
       stepShots(S, (w, p) => {
-        if (p.lead) {
-          S.struck.push(w.uid);
-          hit(w, '#ffffff');
-        } else hit(w, '#ffd6e7');
+        hit(w, p.lead ? '#ffffff' : '#ffd6e7');
       });
-      // charms pass through her talismans' victims without cutting them (the skip)
+      // charms pass through the throw's selected targets without cutting them (the skip)
       for (const p of S.shots || []) if (!p.lead) p.hits = [...new Set([...p.hits, ...(S.struck || [])])];
     },
     draw(g, S) {

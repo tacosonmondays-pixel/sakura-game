@@ -8,7 +8,7 @@ These are mock-ups of the six S5 proposals in `docs/specs/ATTACK_SHAPES_S5.md` o
 | 12 | Static Web | Raika, Storm Rhythm T4-5 | her bolt jumps between walkers; yellow zig-zags then keep them linked, and they flash 4 times a second as zaps run along them |
 | 13 | Crescent Return | Rei, Whirlwind T4-5 | her sweep ring cuts what is in reach; a pink crescent flies out past her reach, turns and comes back |
 | 14 | Moonbeam Sweep | Luna (hero), Lv 22 / 25 | her three beams flash at her targets; a held lavender moonbeam swings across them, one pass per volley |
-| 15 | Charm Wheel | Miko, Purification T4-5 | her three talismans fly at her targets; a wheel of 9 paper charms goes out all round her, sitting 15° further round each throw |
+| 15 | Charm Wheel | Miko, Purification T4-5 | her three talismans fly at her targets; a wheel of 9 paper charms goes out all round her, sitting 15° further round each throw, with the spoke on her own line left out; charms skip the targets her talismans were thrown at |
 | 16 | Bell Toll | Suzu, Explosive Mines T4-5 | bells on the road ring as they arm and then every 1.5 s; each sends a gold ring, and stepped-on bells still go off |
 
 ## Files
@@ -22,3 +22,5 @@ These are mock-ups of the six S5 proposals in `docs/specs/ATTACK_SHAPES_S5.md` o
 `node e2e/attack-shapes-board.mjs docs/review/attack-shapes-s5 --set s5`. The page is `previews/attack-shapes.html?set=s5` (`npm run dev`, then that path; `?speed=0.5` for slow motion). The page is display-only tooling and not in the game build. Without `?set` the page shows all sixteen loops: S1-S4's ten and these six.
 
 The mock-up found one design fix, now in the spec (§3.6): on a busy road a bell is stepped on about a second after it arms. With a first toll at 1.5 s it never rang, so a bell now rings as it arms, and the toll is checked before the trigger.
+
+Re-rendered after review round 1 (the Charm Wheel loop follows the revised rule in spec §3.5). The bell's walker hop is drawn only; a toll pushes nobody.
