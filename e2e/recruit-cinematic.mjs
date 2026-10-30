@@ -198,14 +198,20 @@ async function run(vp) {
   const order = ['power', 'surge', 'open', 'done', 'reveal:silhouette', 'reveal:sweep', 'reveal:text', 'reveal:mark', 'reveal:hold'];
   check(order.every((x, i) => seen.indexOf(x) >= 0 && (i === 0 || seen.indexOf(x) > seen.indexOf(order[i - 1]))), `the Gate then the reveal played in order (${seen.join(' → ')})`);
   check(m6.state.flashCount <= 3, `flashes stayed within the flash guard (${m6.state.flashCount} in the window)`);
-  // tap through: the hold moves on (to the next reveal or the results)
+  // tap through: the hold moves on (to the next reveal or the results); the reveal is tracked as an element (the
+  // same girl can come twice in a 10×)
+  await page.evaluate(() => { document.querySelector('[data-testid="reveal-cine"]:not(.rc-out)').dataset.e2e = 'first'; });
   await tapAt(w / 2, hh / 2);
-  check(await waitCine(page, (u) => !document.querySelector(`[data-testid="reveal-cine"][data-unit="${u}"]:not(.rc-out)`), unit, 10000), 'a tap at the hold moves on');
-  // tap mid-reveal shows it all at once (if there is another SSR)
-  if (await waitCine(page, () => document.querySelector('[data-testid="reveal-cine"]:not(.rc-out)'), null, 1500)) {
-    await page.waitForTimeout(200);
+  check(await waitCine(page, () => !document.querySelector('[data-e2e="first"]:not(.rc-out)'), null, 10000), 'a tap at the hold moves on');
+  // a tap mid-reveal shows it all at once (if there is another SSR)
+  if (await waitCine(page, () => document.querySelector('[data-testid="reveal-cine"]:not(.rc-out):not([data-e2e])'), null, 6000)) {
+    await page.evaluate(() => window.__sakura.recruitCinematic?.freeze(true));
+    const before2 = await page.evaluate(() => document.querySelector('[data-testid="reveal-cine"]:not(.rc-out):not([data-e2e])')?.dataset.stage);
+    await page.evaluate(() => window.__sakura.recruitCinematic?.freeze(false));
     await tapAt(w / 2, hh / 2);
-    check(await waitCine(page, () => document.querySelector('[data-testid="reveal-cine"]:not(.rc-out)')?.dataset.stage === 'hold', null, 6000), 'a tap mid-reveal shows it all at once');
+    const after2 = await page.evaluate(() => { const el = document.querySelector('[data-testid="reveal-cine"]:not(.rc-out):not([data-e2e])'); return el ? { stage: el.dataset.stage, instant: el.classList.contains('rc-instant') } : null; });
+    if (before2 === 'hold') log('  (the second reveal was already holding: the mid-reveal tap is not checked this run)');
+    else check(after2?.instant && after2.stage === 'hold', `a tap mid-reveal shows it all at once (${before2} → ${JSON.stringify(after2)})`);
     await tap('[data-testid="reveal-skip"]').catch(() => {});
   }
   await page.waitForSelector('[data-testid="reveal-summary"]', { timeout: 20000 });
@@ -339,7 +345,7 @@ async function record(vp) {
     await page.evaluate((c) => document.querySelector(`[data-testid="pull-${c}"]`)?.click(), count);
     await page.waitForTimeout(400);
     await page.evaluate(() => document.querySelector('[data-testid="confirm-pull"]')?.click());
-    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 50));
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
     let holdFrames = 0;
     let doneFrames = 0;
     for (let i = 0; i < FPS * 40; i++) {
