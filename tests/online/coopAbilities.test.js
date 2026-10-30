@@ -680,8 +680,10 @@ describe('the M2 sim fixes in co-op: strip and sentry crits, First Bell, Ouka\'s
 describe('the returning girls in co-op (A3 M3)', () => {
   it('Kaze\'s Swoop (map) and First Aid Call (lives) through abil on two views: equal hashes, every life restored once on both', () => {
     // (power-neutral: the girls' balance round 5 rows divided back out, and ÷1.1 for Noa's raised aura (her `buff`), so
-    // enemies still reach her 3 tiles; the scenario is seed-sensitive: 6 and 6.5 miss the rally's kills, 6 / 1.1 and 4 hit)
-    const STRONG = { damageMul: 6 / 1.1, rateMul: 1.3 };
+    // enemies still reach her 3 tiles; the scenario is seed-sensitive: 6 and 6.5 miss the rally's kills, 6 / 1.1 and 4 hit.
+    // Ena's spreading hex (feature/ena-contagion) rots the wave before it reaches Noa: 6 / 1.1, 6 / 1.2, 5 and 4 now miss
+    // the rally's kills, 3 hits)
+    const STRONG = { damageMul: 3, rateMul: 1.3 };
     const st = start({
       stageId: '8-1',
       p0: { loadout: [{ unitId: 'noa' }, neutral('hana', STRONG), neutral('aoi', STRONG)], hero: null },
