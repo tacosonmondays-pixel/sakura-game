@@ -65,7 +65,7 @@ follows the requested rule. The deferred G1 and G4 runs should measure it.
 - **Heroes without LR gear:** ult haste is bit-identical to live (above). Pierce fill-in is unchanged for them, since
   their Pierce cap is ≤ 200.
 - **Tests:** full `npm test` at `a3079fb0`: 394 files passed, 2 skipped; 6249 tests passed, 11 skipped, 0 failed
-  (this run briefly had my scratch tests in the tree; the clean re-run's count follows in the next commit).
+  (the same counts on a clean re-run).
   `node e2e/smoke.mjs`: **ALL SMOKE CHECKS PASSED** (678 ok, all three viewports, exit 0). Both r1 smoke failures
   now pass: the wiki top bar ("every top bar control on screen and on top") and `outfit-wear-aoi_sentinel`
   ("Wear saves Sentinel Style"). Nothing failed, so there was nothing to re-run as a flake.
