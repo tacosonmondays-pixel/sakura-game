@@ -1,6 +1,6 @@
 # Recruit cinematic: owner board
 
-`recruit-cinematic-844x390.mp4` (22.6 s, true speed): a Standard 10× with an SSR, then an LR 1×, played as a
+`recruit-cinematic-844x390.webm` / `.mp4` (22.6 s, true speed): a Standard 10× with an SSR, then an LR 1×, played as a
 player would, tapping once a second into each hold. It was filmed frame by frame
 (`node e2e/recruit-cinematic.mjs --viewport 844x390 --video <dir> --record-only`), so it plays at the
 speed a phone would show it.
