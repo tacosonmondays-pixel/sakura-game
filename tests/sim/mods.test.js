@@ -250,7 +250,8 @@ describe('Potential in resolveStats', () => {
     // '456:23908890' before Umeko ×1.10 and Hotaru ×1.04 (Oct 30: the ability bench's pinned column, no build below live);
     // '456:2d2bdb38' before Hotaru ×1.06 and Momo ×1.06 (the final review's no-support sweep); '456:4513c1a5' before
     // Momo's Coin Wheel toss coins went ×0.98 → ×1 (her 2-0-4 alone on a held boss under live on some seeds); '456:19f2bb53'
-    // before Akane's Inferno Queen stream went 45° → 55° each side (her 2-5-0 crowd from a corner spot)
+    // before Akane's Inferno Queen stream went half 45 → 55 steps (67.5° → 82.5° per side, a 165° cone; her 2-5-0 crowd
+    // from a corner spot)
     expect(`${out.length}:${h.toString(16).padStart(8, '0')}`).toBe('456:9150ad57');
   });
 

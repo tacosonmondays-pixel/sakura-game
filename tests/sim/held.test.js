@@ -155,7 +155,8 @@ describe('Akane: Hearth Stream on Wildfire tiers 4-5', () => {
     const t4 = setup('akane', WILD, 4).t;
     expect(t4.eff.behavior).toBe('stream');
     expect(t4.stats.stream).toMatchObject({ kind: 'fire', half: 36, cap: 35 });
-    // (half 45 → 55, Oct 30: from a corner spot her 2-5-0 crowd read ×0.92 of live; balance round 5's no-nerf check)
+    // (half 45 → 55 steps, 67.5° → 82.5° per side, a 165° cone; Oct 30: from a corner spot her 2-5-0 crowd read ×0.92 of
+    // live; balance round 5's no-nerf check)
     expect(setup('akane', WILD, 5).t.stats.stream).toMatchObject({ half: 55, cap: 56 });
     for (const p of [0, 2]) {
       const o = setup('akane', p, 5).t;
