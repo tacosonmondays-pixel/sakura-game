@@ -36,6 +36,7 @@ BODY = dict(
 TRIMS = dict(
     pewter=C.paint('#c7ceda', light='#e6eaf1', shadow='#9aa4b6', ink='#3a4560', spec=0.5, spec_at=0.985),
     silver=C.SILVER, rose=C.ROSE_GOLD, gold=C.GOLD_TRIM, iri=dict(C.IRI_DEEP, iri=0.9),
+    brass=C.BRASS, steel=C.STEEL,      # set-look metals
 )
 GEM = dict(superRare=C.TIER_GEM['superRare'], mythic=C.TIER_GEM['mythic'], legendary=C.TIER_GEM['legendary'],
            ur=C.paint('#f3e6ff', light='#ffffff', shadow='#c4a8f2', ink='#4a2a6e', deep='#a585e8', iri=0.6, glow=0.4))
@@ -60,7 +61,8 @@ class Look:
         else:
             body = C.paint(design['body'])
         self.body = dict(body, glow=self.t['glow']) if self.t['glow'] and tier != 'ur' else dict(body)
-        self.trim = TRIMS[design.get('trim') or self.t['trim']]
+        tr = design.get('trim') or self.t['trim']
+        self.trim = C.paint(tr, spec=0.9, rim=0.6, spec_at=0.985) if tr.startswith('#') else TRIMS[tr]
         self.gem = GEM.get(tier, GEM['superRare']) if self.t['gem'] else None
         ink = self.body['ink']
         self.white = dict(WHITE, ink=ink)
@@ -503,4 +505,8 @@ BASES = dict(pendant=pendant, bow=bow, sneaker=sneaker, hairclip=hairclip, neckl
 def build(row):
     slot, tier, gear_set = catalog.gear_parse(row['key'])
     design = catalog.gear_design(slot, gear_set)
-    return BASES[design['base']](Look(tier, design))
+    fn = BASES.get(design['base'])
+    if fn is None:                       # the set-look bases (models/gearset.py)
+        from models import gearset
+        fn = gearset.BASES[design['base']]
+    return fn(Look(tier, design))

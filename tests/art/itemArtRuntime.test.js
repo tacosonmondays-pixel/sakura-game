@@ -134,6 +134,21 @@ describe('gear art: the 3D-flat gear icons (tools/blender/items models/gear.py, 
     for (const t of [...ITEM_RARITY_ORDER, 'ur']) expect(tiers, t).toMatch(new RegExp(`\\n    ${t}=dict\\(trim='`));
   });
 
+  it('the six launch sets have a set-look row for all five pieces (catalog GEAR_SETS, docs/specs/GEAR_SET_LOOKS.md)', () => {
+    const sets = block('GEAR_SETS');
+    const SET_IDS = ['spirit', 'freezetag', 'geometry', 'popper', 'treasurer', 'powerbank'];
+    const at = (id) => sets.indexOf(`\n    ${id}=dict(`);
+    for (const id of SET_IDS) {
+      expect(at(id), id).toBeGreaterThan(-1);
+      const next = Math.min(...SET_IDS.map(at).filter((i) => i > at(id)), sets.length);
+      const row = sets.slice(at(id), next);
+      for (const slot of ['charm', 'ribbon', 'shoes', 'hair', 'necklace']) {
+        expect(row, `${id} ${slot}`).toMatch(new RegExp(`\\n {20,24}${slot}=dict\\(base='`));
+      }
+      expect((row.match(/lore='|lore="/g) || []).length, `${id}: a lore line per piece`).toBe(5);
+    }
+  });
+
   it('each slot shows its own baked image per rarity and UR, small through big', () => {
     for (const slot of Object.keys(GEAR_SLOTS)) {
       const hashes = new Set();

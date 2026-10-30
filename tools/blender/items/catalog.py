@@ -175,7 +175,143 @@ GEAR_SETS = dict(
                            shoes=dict(shape='high', motif='heart', body='#ff7eb6'),
                            hair=dict(shape='heart', body='#ff7eb6'),
                            necklace=dict(shape='heart', motif='heart', body='#ff7eb6'))),
+    # The six launch sets (docs/specs/GEAR_SET_LOOKS.md; names from docs/specs/GEAR_UPDATE.md 3.3). Set-level colours
+    # (body, accent, light, trim, glass) apply to every slot; a slot row adds its base, options and story fields
+    # (piece, hero, lore: data for the spec and the boards, not drawn). preview=True until the sets ship.
+    spirit=dict(preview=True, name='Spirit Squad', role='support',
+                motif='the spirit squad at a match: pom-poms and light-up gear',
+                material='glossy cheer satin and enamel on gold pins', body='#e8364f', accent='#ffffff', light='#ff9fb0',
+                trim='gold', note='cherry red and white, gold pins, soft red lights',
+                slots=dict(
+                    charm=dict(base='keyring', fob='pompom', piece='Pom-Pom Keyring',
+                               hero='a light-up bead in the pom-pom cap',
+                               lore='Shake it once and the bead glows: the whole stand knows you are cheering.'),
+                    ribbon=dict(base='setbow', knot='grille', stripes=2, stripe='white', piece='Cheer Bow',
+                                hero='a tiny speaker-grille knot',
+                                lore='The knot hums the school song at exactly the volume a teacher allows.'),
+                    shoes=dict(base='setshoe', style='trainer', sole='glow', heel='accent', laces='accent',
+                               body='#f3f5fa', accent='#e8364f', light='#ff6b86', piece='Light-Up Trainers',
+                               hero='soles that glow cherry red with each step',
+                               lore='Every jump leaves a little red flash on the gym floor.'),
+                    hair=dict(base='setclip', ornament='pompom', piece='Pom Clip',
+                              hero='a mini pom-pom with a glowing bead',
+                              lore='Small enough for class, loud enough for the final whistle.'),
+                    necklace=dict(base='setlocket', locket='heart', light='#ffd1da', piece='Spirit Locket',
+                                  hero='a heart locket with a soft status light',
+                                  lore='Its light stays on while a friend is still cheering for you.'))),
+    freezetag=dict(preview=True, name='Freeze Tag', role='control',
+                   motif='playground freeze tag: chalk lines and a tag timer',
+                   material='frosted acrylic, chalk white and a coral tag stripe', body='#7cc7f0', accent='#ff7a6b',
+                   light='#ff7a6b', trim='silver', note='ice blue, chalk white, coral',
+                   slots=dict(
+                       charm=dict(base='keyring', fob='token', piece='Tag Token',
+                                  hero='a chalk ring and a coral LED dot',
+                                  lore='Tap it to someone and they have to hold still: playground rules.'),
+                       ribbon=dict(base='setbow', knot='chalk', stripes=2, stripe='white', piece='Chalk-Line Ribbon',
+                                   hero='white chalk lines and a coral tag band on the knot',
+                                   lore='Drawn like the court lines, so you always know where safe is.'),
+                       shoes=dict(base='setshoe', style='trainer', sole='grid', side='stripe',
+                                  piece='Hopscotch Sneakers', hero='a hopscotch grid along the soles',
+                                  lore='One, two, freeze: the soles count your steps for you.'),
+                       hair=dict(base='setclip', ornament='button', piece='Pause-Button Clip',
+                                 hero='a round pause button with coral bars',
+                                 lore='Press pause on the whole game, just for a moment.'),
+                       necklace=dict(base='setlocket', locket='timer', cord='cord', piece='Tag Timer',
+                                     hero='a round countdown display on a coral cord',
+                                     lore='Ten seconds frozen, then everybody runs again.'))),
+    geometry=dict(preview=True, name='Geometry Set', role='precision',
+                  motif='the maths geometry kit and a cyan laser dot',
+                  material='brushed brass on slate blue, cyan laser glass', body='#5a6f9a', accent='#34e0ff',
+                  light='#5ff0ff', trim='brass', glass='#c4f4ff', note='slate blue, brass, a cyan laser dot',
+                  slots=dict(
+                      charm=dict(base='keyring', fob='compass', piece='Compass Keyring',
+                                 hero='a compass needle and a laser-dot lens on the rim',
+                                 lore='It never points north: it points at the answer.'),
+                      ribbon=dict(base='setbow', knot='protractor', piece='Protractor Ribbon',
+                                  hero='a brass protractor arc for a clasp',
+                                  lore='Tied at exactly ninety degrees, every morning.'),
+                      shoes=dict(base='setshoe', style='loafer', sole='ticks', strap='dark', piece='Ruler-Step Loafers',
+                                 hero='ruler ticks along brass soles',
+                                 lore='Every step measured, every corner square.'),
+                      hair=dict(base='setclip', ornament='setsquare', piece='Set-Square Clip',
+                                hero='a set-square with a window and ruler ticks',
+                                lore='Keeps a fringe perfectly straight and a sight line perfectly clear.'),
+                      necklace=dict(base='setlocket', locket='crosshair', piece='Crosshair Locket',
+                                    hero='a round window with a crosshair and a laser dot',
+                                    lore='Look through it and the target is already centred.'))),
+    popper=dict(preview=True, name='Party Popper', role='crowds',
+                motif='a class party: poppers, streamers and confetti',
+                material='violet foil and warm gold with fibre-optic sparkle', body='#8a5cf0', accent='#f6c04a',
+                light='#ffe27a', trim='gold', glass='#efe6ff', note='violet and warm gold, confetti colours',
+                slots=dict(
+                    charm=dict(base='keyring', fob='popper', piece='Popper Keyring',
+                               hero='fibre-optic streamers bursting from the popper',
+                               lore='Pull the string at the end of a test: the party starts early.'),
+                    ribbon=dict(base='setbow', knot='star', tails='streamers', piece='Streamer Bow',
+                                hero='curled paper streamers for tails and a gold star clasp',
+                                lore="Every curl is a streamer saved from last year's festival."),
+                    shoes=dict(base='setshoe', style='trainer', sole='glitter', laces='accent',
+                               piece='Glitter-Trail Trainers', hero='confetti glitter set into the soles',
+                               lore='Wherever you dance, a little sparkle stays behind.'),
+                    hair=dict(base='setclip', ornament='confetti', piece='Confetti Clip',
+                              hero='a clear capsule filled with confetti',
+                              lore='A whole party, packed small enough to wear.'),
+                    necklace=dict(base='setlocket', locket='party', piece='Party Locket',
+                                  hero='a clear locket with tiny lights inside',
+                                  lore='The lights blink in time with the loudest laugh in the room.'))),
+    treasurer=dict(preview=True, name='Treasurer', role='money', motif="the class treasurer's kit and a calculator",
+                   material='brushed silver and mint enamel, a green LCD', body='#5fd6a8', accent='#eef3f8',
+                   light='#8dffc9', trim='silver', note='mint and silver, a green LCD',
+                   slots=dict(
+                       charm=dict(base='bracelet', piece='Abacus Bracelet', hero='abacus beads on a silver bangle',
+                                  lore='Slide a bead for every coin saved for the class trip.'),
+                       ribbon=dict(base='setbow', knot='coin', stripes=2, stripe='white', piece='Coin-Clasp Ribbon',
+                                   hero='a silver coin clasp over ruled ledger lines',
+                                   lore='The ruled lines always add up, and so does she.'),
+                       shoes=dict(base='setshoe', style='loafer', buckle='coin', strap='accent',
+                                  piece='Coin-Buckle Loafers', hero='a coin buckle with a mint centre',
+                                  lore='Polished every morning, like the club accounts.'),
+                       hair=dict(base='setclip', ornament='calc', piece='Calculator Clip',
+                                 hero='a calculator key with a tiny LCD',
+                                 lore='Shows the class balance, always a little higher than last week.'),
+                       necklace=dict(base='setlocket', locket='coin', piece='Coin Locket',
+                                     hero='a coin locket with a tiny LCD',
+                                     lore='The first coin of the class fund, kept safe and still counting.'))),
+    powerbank=dict(preview=True, name='Power Bank', role='abilities', motif='phone power banks and charge bars',
+                   material='matte indigo plastic, steel and lime charge LEDs', body='#4446b8', accent='#9be22e',
+                   light='#b6ff4a', trim='steel', note='indigo and lime charge green',
+                   slots=dict(
+                       charm=dict(base='keyring', fob='powerbank', piece='Power Bank Keyring',
+                                  hero='four lime charge-bar LEDs and a port',
+                                  lore='Always full, because she always remembers to charge it.'),
+                       ribbon=dict(base='setbow', knot='plug', tails='cable', stripes=1, piece='Charging-Cable Bow',
+                                   hero='a bow tied from a charging cable, the plug for a knot',
+                                   lore='Never tangled, never left behind in a classroom socket.'),
+                       shoes=dict(base='setshoe', style='trainer', side='chargebars', laces='accent',
+                                  piece='Charge-Bar Trainers', hero='battery bars that fill along the side',
+                                  lore='The bars fill up as she runs: four bars, ready to go.'),
+                       hair=dict(base='setclip', ornament='bolt', body='#9be22e', accent='#4446b8', light='#eaffb0',
+                                 piece='Lightning Clip', hero='a lightning bolt with a glowing core',
+                                 lore='A quick charge for a sleepy morning.'),
+                       necklace=dict(base='setlocket', locket='battery', piece='Battery Locket',
+                                     hero='a battery showing a full charge',
+                                     lore='Four bars means she has energy to spare for everyone.'))),
 )
+
+# The options each set-look base draws (gear_design refuses anything else).
+GEAR_OPTIONS = dict(
+    keyring=dict(fob=('pompom', 'token', 'compass', 'popper', 'powerbank')),
+    bracelet=dict(),
+    setbow=dict(knot=('plain', 'grille', 'chalk', 'protractor', 'star', 'coin', 'plug'),
+                tails=('notched', 'streamers', 'cable'), stripes=(0, 1, 2, 3)),
+    setshoe=dict(style=('trainer', 'loafer'), sole=('plain', 'glow', 'grid', 'ticks', 'glitter'),
+                 side=('none', 'chargebars', 'stripe'), buckle=('none', 'coin', 'plain'), heel=('trim', 'accent'),
+                 laces=('white', 'accent')),
+    setclip=dict(ornament=('pompom', 'button', 'setsquare', 'confetti', 'calc', 'bolt')),
+    setlocket=dict(locket=('heart', 'timer', 'crosshair', 'party', 'coin', 'battery'), cord=('chain', 'cord')),
+)
+GEAR_SET_FIELDS = ('body', 'accent', 'light', 'trim', 'glass')   # set-level colours every slot inherits
+GEAR_ROLES = ('accent', 'white', 'trim', 'body', 'dark')         # stripe / strap paint roles
 
 GEAR_TIER_ORDER = ('common', 'rare', 'superRare', 'mythic', 'legendary', 'ur')
 
@@ -199,8 +335,18 @@ def gear_parse(key):
 def gear_design(slot, gear_set=None):
     d = dict(GEAR_SLOT_ART[slot])
     if gear_set:
-        d.update(GEAR_SETS[gear_set]['slots'].get(slot, {}))
+        srow = GEAR_SETS[gear_set]
+        d.update({k: srow[k] for k in GEAR_SET_FIELDS if k in srow})
+        d.update(srow['slots'].get(slot, {}))
     base = d['base']
+    if base in GEAR_OPTIONS:
+        for field, allowed in GEAR_OPTIONS[base].items():
+            if field in d and d[field] not in allowed:
+                raise ValueError(f'gear {slot}/{gear_set}: {field} {d[field]!r} is not drawn by {base} {allowed}')
+        for field in ('stripe', 'strap'):
+            if field in d and d[field] not in GEAR_ROLES:
+                raise ValueError(f'gear {slot}/{gear_set}: {field} {d[field]!r} is not one of {GEAR_ROLES}')
+        return d
     if d.get('shape') not in GEAR_SHAPES[base]:
         raise ValueError(f"gear {slot}/{gear_set}: shape {d.get('shape')!r} is not drawn by {base} {GEAR_SHAPES[base]}")
     if d.get('motif') and (d['motif'] not in GEAR_MOTIFS or base == 'hairclip'):
@@ -242,6 +388,8 @@ def _gear_note(key):
         return ''
     slot, tier, gs = g
     d = gear_design(slot, gs)
+    if d.get('piece'):                                   # a set look: its piece name and hero detail
+        return f"{GEAR_SETS[gs]['name']}: {d['piece']}, {d['hero']}"
     extra = []
     if d.get('shape') != GEAR_SLOT_ART[slot].get('shape'):
         extra.append(f"{d['shape']} shape")

@@ -131,6 +131,11 @@ re-skins a base is a row; a design that needs a new form (a keyring, a bracelet,
   already shows as its tile emblem. Set ids are `[a-z0-9]+` and never a slot or tier name. A row overrides any design
   field per slot; `gearIcon(slot, rarity, { set: g.set })` shows it and falls back to the default look while a set
   has no art. `preview=True` bakes to the scratch folder only (`sample` is one).
+- The six launch sets (Spirit Squad, Freeze Tag, Geometry Set, Party Popper, Treasurer, Power Bank) have rows with
+  their palette, material, and per piece a base, options, a hero detail and a lore line
+  (`docs/specs/GEAR_SET_LOOKS.md`, generated from these rows). Their bases are in `models/gearset.py` (`keyring`,
+  `bracelet`, `setbow`, `setshoe`, `setclip`, `setlocket`; `GEAR_OPTIONS` lists what each draws). They stay
+  `preview=True` (scratch only) until the gear update ships the sets.
 
 ```
 ... build_items.py -- --family gear                     # the game's gear keys (+ the set looks of GEAR_SETS)
