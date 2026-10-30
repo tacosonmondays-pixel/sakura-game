@@ -109,11 +109,91 @@ function foldFormation(p) {
 
 /** Fold the formation and the worn gear back into the teams and loadouts that exist (every write, every switch). */
 export function syncTeams(p) {
-  if (!p?.units || !p.gear) return;
+  if (!p?.units || !p.gear) return [];
+  // a lent piece its borrower let go goes home first (settleLent), then every worn loadout follows what she wears
+  const returns = settleLent(p);
   for (const id of Object.keys(p.units)) foldGear(p, id);
+  if (!isObj(p.teams) || !Array.isArray(p.teams.list) || !p.teams.list.length) return returns;
   if (!isObj(p.teams) || !Array.isArray(p.teams.list) || !p.teams.list.length) return;
   if (!Number.isInteger(p.teams.active) || p.teams.active < 0 || p.teams.active >= p.teams.list.length) p.teams.active = 0;
   foldFormation(p);
+  return returns;
+}
+
+// ---------------------------------------------------------------------------
+// Lending (M1 reviews r1 H1, r2 H1/M1): one way, one owner
+// ---------------------------------------------------------------------------
+
+const bitOf = (slot) => 1 << SLOT_IDS.indexOf(slot);
+const wornOf = (p, id) => {
+  const u = p.units[id];
+  return Array.isArray(u?.presets) && u.presets.length ? u.presets[u.preset || 0] : null;
+};
+const setBit = (w, key, bit) => { w[key] = (w[key] | 0) | bit; };
+const clearBit = (w, key, bit) => {
+  if (!w?.[key]) return;
+  w[key] &= ~bit;
+  if (!w[key]) delete w[key];
+};
+
+/** The girl a piece was lent by (her worn loadout's `lent` flag names it), or null. Unit ids in order: one answer. */
+export function lenderOf(p, uid) {
+  const g = p.gear?.[uid];
+  if (!g) return null;
+  for (const id of Object.keys(p.units).sort()) {
+    const w = wornOf(p, id);
+    if (w && w[g.slot] === uid && ((w.lent | 0) & bitOf(g.slot))) return id;
+  }
+  return null;
+}
+
+/**
+ * Lent pieces go home: a piece a girl lent (her worn loadout's `lent` flag) goes back on her, in the same operation,
+ * when its borrower lets it go (it is spare: an unequip, another loadout, a salvage guard) or, on a team switch
+ * (`members`: the new active team), when no member of the new team wears it. The borrower keeps a `wish` (no claim:
+ * only her loadout or team being put on takes it again). A lender who wears another piece in that slot let it go; a
+ * piece that is gone frees the flag. Lenders in unit-id order and each piece once, so the result never depends on
+ * the save's key order, and a returned piece never travels back in the same pass.
+ * @returns {{ uid, slot, from: string|null, to: string }[]}
+ */
+export function settleLent(p, members = null) {
+  const out = [];
+  const seen = new Set();
+  for (const id of Object.keys(p.units).sort()) {
+    const u = p.units[id];
+    const w = wornOf(p, id);
+    if (!w?.lent) continue;
+    for (const slot of SLOT_IDS) {
+      const bit = bitOf(slot);
+      if (!(w.lent & bit)) continue;
+      const uid = w[slot];
+      const g = uid ? p.gear[uid] : null;
+      if (!g || g.slot !== slot || seen.has(uid) || g.equippedBy === id || (u.gear?.[slot] && u.gear[slot] !== uid)) {
+        clearBit(w, 'lent', bit);
+        if (!g) w[slot] = null;
+        continue;
+      }
+      seen.add(uid);
+      const b = g.equippedBy;
+      if (b && (!members || members.has(b))) continue; // still lent: its borrower wears it
+      if (b) {
+        const bw = wornOf(p, b);
+        if (bw && bw[slot] === uid) setBit(bw, 'wish', bit);
+      }
+      equipGear(p, id, uid);
+      clearBit(w, 'lent', bit);
+      out.push({ uid, slot, from: b || null, to: id });
+    }
+  }
+  return out;
+}
+
+/** The pieces her worn loadout has lent to other girls: [{ uid, slot, to }] (the "lent to Kage" note). */
+export function lentPieces(p, unitId) {
+  const w = wornOf(p, unitId);
+  if (!w?.lent) return [];
+  return SLOT_IDS.filter((s) => (w.lent & bitOf(s)) && w[s] && p.gear[w[s]]?.equippedBy && p.gear[w[s]].equippedBy !== unitId)
+    .map((s) => ({ uid: w[s], slot: s, to: p.gear[w[s]].equippedBy }));
 }
 
 // ---------------------------------------------------------------------------
@@ -157,7 +237,8 @@ export function presetsNaming(p, uid) {
   const out = [];
   for (const [id, u] of Object.entries(p.units)) {
     (u.presets || []).forEach((pr, n) => {
-      if (n !== u.preset && pr[g.slot] === uid) out.push({ unitId: id, n });
+      // (her worn loadout too when it lent the piece: it is hers, wherever it is)
+      if (pr[g.slot] === uid && (n !== u.preset || ((pr.lent | 0) & bitOf(g.slot)))) out.push({ unitId: id, n });
     });
   }
   return out;
@@ -293,12 +374,29 @@ function applyStep(p, step) {
   ensurePresets(p, step.unitId);
   for (const { slot, uid } of step.slots) {
     if (uid) {
-      // the girl it is taken from keeps naming it in her worn loadout (lent): it comes back with her team (H1)
+      // one-way lending (M1 review r2): taken from a girl who owns it, she becomes its lender; taken back by its
+      // lender, the borrower keeps only a wish; passed on by a borrower, the lender stays the lender
       const from = p.gear[uid]?.equippedBy;
-      if (from && from !== step.unitId) ensurePresets(p, from);
+      if (from && from !== step.unitId) {
+        const lender = lenderOf(p, uid);
+        ensurePresets(p, from);
+        const fw = wornOf(p, from);
+        const bit = bitOf(slot);
+        if (lender === step.unitId) {
+          if (fw && fw[slot] === uid) setBit(fw, 'wish', bit);
+        } else if (lender) {
+          if (fw && fw[slot] === uid) setBit(fw, 'wish', bit);
+        } else if (fw) {
+          fw[slot] = uid;
+          setBit(fw, 'lent', bit);
+          clearBit(fw, 'wish', bit);
+        }
+      }
       if (u.gear[slot] !== uid) equipGear(p, step.unitId, uid);
     } else if (u.gear[slot]) unequipGear(p, step.unitId, slot);
   }
+  // a loadout she takes off keeps no lend flags (only the worn one does)
+  if (u.preset !== step.n && u.presets[u.preset]) { delete u.presets[u.preset].lent; delete u.presets[u.preset].wish; }
   u.preset = step.n;
   const pr = u.presets[step.n];
   if (pr) delete pr.gone;
@@ -326,8 +424,8 @@ export function usePreset(p, unitId, n) {
   }
   const plan = planPreset(p, unitId, n);
   for (const step of plan.steps) applyStep(p, step);
-  syncTeams(p);
-  return { ok: true, takes: plan.takes, created, undo };
+  const returns = syncTeams(p);
+  return { ok: true, takes: plan.takes, created, returns, undo };
 }
 
 /**
@@ -348,46 +446,11 @@ export function selectTeam(p, t) {
   p.formation = { hero: team.hero, towers: team.towers.slice() };
   const plan = planLoadouts(p, wants);
   for (const step of plan.steps) applyStep(p, step);
-  syncTeams(p);
-  const returns = returnLent(p, new Set(teamMembers(team)));
-  syncTeams(p);
+  const returns = settleLent(p, new Set(teamMembers(team)));
+  returns.push(...syncTeams(p));
   return { ok: true, takes: plan.takes, clashes: plan.clashes, returns, undo };
 }
 
-/**
- * Lent pieces go home (coordinator ruling on review r1 H1): after a team switch, a piece a girl's worn loadout lent to
- * another girl goes back on her when no member of the new active team wears it. Otherwise it stays lent ("lent to
- * Kage"). Each piece moves at most once per switch, so two loadouts naming it never trade it back and forth.
- * @returns {{ uid, slot, from, to }[]} the pieces that went home
- */
-function returnLent(p, members) {
-  const out = [];
-  const moved = new Set();
-  for (const [id, u] of Object.entries(p.units)) {
-    if (members.has(id) || !Array.isArray(u.presets) || !u.presets.length) continue;
-    const worn = u.presets[u.preset];
-    for (const slot of SLOT_IDS) {
-      const uid = worn?.[slot];
-      const g = uid ? p.gear[uid] : null;
-      if (!g || moved.has(uid) || u.gear[slot] || !g.equippedBy || g.equippedBy === id || members.has(g.equippedBy)) continue;
-      const from = g.equippedBy;
-      ensurePresets(p, from);
-      equipGear(p, id, uid);
-      moved.add(uid);
-      out.push({ uid, slot, from, to: id });
-    }
-  }
-  return out;
-}
-
-/** The pieces her worn loadout has lent to other girls: [{ uid, slot, to }] (the "lent to Kage" note). */
-export function lentPieces(p, unitId) {
-  const u = p.units[unitId];
-  if (!u || !Array.isArray(u.presets) || !u.presets.length) return [];
-  const worn = u.presets[u.preset] || {};
-  return SLOT_IDS.filter((s) => worn[s] && !u.gear?.[s] && p.gear[worn[s]]?.equippedBy && p.gear[worn[s]].equippedBy !== unitId)
-    .map((s) => ({ uid: worn[s], slot: s, to: p.gear[worn[s]].equippedBy }));
-}
 
 /** Copy team `from` into the first empty team. @returns {number} its index, or -1 when every team has girls */
 export function copyTeam(p, from) {

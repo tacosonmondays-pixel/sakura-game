@@ -13,6 +13,7 @@
 //   tm:<t>:<unitId>     1 + her place (0 the hero, 1… the students in order) + 10 × the loadout the team gives her
 //   gp:<unitId>         1 + active loadout + 10 × loadout count
 //   gp:<unitId>:<n>:<slot>  the number of the piece loadout n names in that slot (gear uid 'g<n>')
+//   gpf:<unitId>        the worn loadout's lend flags (wornLoadout): lent bits + 32 × wish bits
 // Pure functions on the profile; nothing here is co-op hashed.
 
 import { UNIT_MAP } from '../data/units.js';
@@ -21,6 +22,8 @@ import { SLOT_IDS, emptySlots } from '../data/gearSlots.js';
 import { MARK } from '../data/gearAwaken.js';
 
 export const TEAMS_MAX = 5;
+/** The worn loadout's lend flags: 'gpf:<unitId>' = lent bits + 32 × wish bits (SLOT_IDS order). */
+export const LEND_MARK = 'gpf:';
 export const PRESETS_MAX = 3;
 const NAME_MAX = 16;
 
@@ -45,6 +48,9 @@ export function cleanPresets(raw, rawPreset) {
     if (isObj(l)) for (const s of SLOT_IDS) out[s] = typeof l[s] === 'string' ? l[s] : null;
     // [M1] the red dot: a piece this loadout named was salvaged (teams.js; never mirrored)
     if (isObj(l) && (l.gone === 1 || l.gone === true)) out.gone = 1;
+    // [M1] lend flags (bits by SLOT_IDS) on the worn loadout: `lent` = a switch took this slot's piece from her (she
+    // is its lender); `wish` = her loadout names a piece its lender took back (wornLoadout)
+    if (isObj(l)) for (const k of ['lent', 'wish']) if (Number.isInteger(l[k]) && l[k] > 0 && l[k] < 1 << SLOT_IDS.length) out[k] = l[k];
     return out;
   });
   return { presets, preset: index(rawPreset, presets.length) };
@@ -106,27 +112,42 @@ function presetsFromMarks(c, unitId) {
 }
 
 /**
- * Her worn loadout: what she wears, plus each piece it named that another girl now wears ("lent": a team or loadout
- * switch took it from her). A lent piece comes back, with the "Takes … from …" list, the next time this loadout or a
- * team that gives it to her is put on (GEAR_UPDATE §7.2; M1 review r1 H1). An empty slot whose piece is spare or gone
- * is simply empty: she let it go.
+ * Her worn loadout: what she wears, plus a flagged slot whose piece another girl wears (M1 reviews r1 H1, r2 H1/M1):
+ *   lent  a switch took it from her: she is its lender, the one owner. teams.js settleLent gives it back the moment
+ *         its borrower lets it go (unequip, another loadout, salvage guard) or a team switch leaves it unused.
+ *   wish  her loadout names a piece its lender took back: no claim on it, but this loadout or its team takes it again
+ *         when put on (with the list).
+ * An empty slot without a flag is simply empty: she let it go.
  */
 export function wornLoadout(p, unitId, prev) {
   const u = p.units[unitId];
   const out = emptySlots();
-  for (const s of SLOT_IDS) {
+  let lent = 0;
+  let wish = 0;
+  SLOT_IDS.forEach((s, i) => {
     const mine = u?.gear?.[s] || null;
     const was = prev?.[s];
     const g = was ? p.gear?.[was] : null;
-    out[s] = mine || (g && g.slot === s && g.equippedBy && g.equippedBy !== unitId ? was : null);
-  }
+    const bit = 1 << i;
+    // a slot she leaves empty keeps its piece only with a flag (one way: the lender's `lent`, the borrower's `wish`)
+    // while another girl wears it; anything else is what she wears
+    const flagged = ((prev?.lent | 0) & bit) || ((prev?.wish | 0) & bit);
+    if (mine) out[s] = mine;
+    else if (flagged && g && g.slot === s && g.equippedBy && g.equippedBy !== unitId) {
+      out[s] = was;
+      if ((prev?.lent | 0) & bit) lent |= bit;
+      else wish |= bit;
+    } else out[s] = null;
+  });
+  if (lent) out.lent = lent;
+  if (wish) out.wish = wish;
   return out;
 }
 
 /** Rewrite the 'tm:' and 'gp:' mirrors from the profile (nothing for a save without teams or loadouts). */
 export function writeTeamMarks(p) {
   const c = ((p.missions ||= {}).counters ||= {});
-  for (const k of Object.keys(c)) if (k.startsWith(MARK.team) || k.startsWith(MARK.preset)) delete c[k];
+  for (const k of Object.keys(c)) if (k.startsWith(MARK.team) || k.startsWith(MARK.preset) || k.startsWith(LEND_MARK)) delete c[k];
   if (p.teams?.list?.length) {
     c[`${MARK.team}a`] = 1 + p.teams.active + 10 * p.teams.list.length;
     p.teams.list.forEach((t, i) => {
@@ -138,6 +159,9 @@ export function writeTeamMarks(p) {
   for (const [id, u] of Object.entries(p.units || {})) {
     if (!Array.isArray(u.presets) || !u.presets.length) continue;
     c[`${MARK.preset}${id}`] = 1 + (u.preset || 0) + 10 * u.presets.length;
+    const worn = u.presets[u.preset || 0] || {};
+    const flags = (worn.lent | 0) + 32 * (worn.wish | 0);
+    if (flags) c[`${LEND_MARK}${id}`] = flags;
     u.presets.forEach((l, n) => {
       for (const s of SLOT_IDS) {
         const g = gearNumber(l[s]);
@@ -167,7 +191,14 @@ export function restoreTeams(p) {
   for (const [id, u] of Object.entries(p.units)) {
     if (!u.presets) {
       const back = presetsFromMarks(c, id);
-      if (back) Object.assign(u, back);
+      if (back) {
+        // the worn loadout's lend flags ride 'gpf:' (lent + 32 × wish)
+        const f = whole(c[`${LEND_MARK}${id}`]);
+        const worn = back.presets[back.preset];
+        if (f % 32) worn.lent = f % 32;
+        if (Math.floor(f / 32) % 32) worn.wish = Math.floor(f / 32) % 32;
+        Object.assign(u, back);
+      }
     }
     if (!u.presets) continue;
     for (const l of u.presets) {
