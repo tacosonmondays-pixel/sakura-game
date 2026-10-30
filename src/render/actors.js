@@ -106,7 +106,7 @@ function projectileGeometries() {
     .box(0.07, 0.012, 0.14, { color: '#fffaf0' })
     .box(0.072, 0.014, 0.025, { z: 0.035, color: '#d0384a' })
     .finish();
-  g.crescent = b().torus(0.17, 0.03, 4, 12, { rx: Math.PI / 2, color: '#ffd6e6' }).finish();
+  g.crescent = b().torus(0.17, 0.03, 4, 12, { arc: Math.PI * 1.2, rx: Math.PI / 2, color: '#ffd6e6' }).finish(); // an open arc
   return g;
 }
 
@@ -749,7 +749,14 @@ export class Actors {
       const armed = tr.armed;
       const c = this._c.set(armed ? '#ffb347' : '#8a8fa0');
       const s = armed ? 0.62 : 0.45;
-      gN.push(tr.x, 0.07, tr.y, s, s, R.rune, c.r, c.g, c.b, armed ? 0.95 : 0.55, t * 0.8 + tr.uid);
+      // Suzu's Bell Toll (attack shapes S5a, plain look): the bell wobbles for 12 steps after it rings (tollCd reset to every)
+      let wob = 0;
+      if (armed && tr.tollCd != null) {
+        const toll = tr.owner?.stats?.toll;
+        const since = toll ? Math.max(1, Math.round(toll.every)) - tr.tollCd : 99;
+        if (since >= 0 && since < 12) wob = 0.35 * Math.sin(since * 1.6) * (1 - since / 12);
+      }
+      gN.push(tr.x, 0.07, tr.y, s, s, R.rune, c.r, c.g, c.b, armed ? 0.95 : 0.55, t * 0.8 + tr.uid + wob);
       if (armed) gA.push(tr.x, 0.075, tr.y, s * 1.1, s * 1.1, R.glow, c.r, c.g, c.b, 0.35 + 0.2 * Math.sin(t * 5 + tr.uid));
     }
     // Kinu's heat rings and orbit scissors (src/sim/rings.js): read from the sim every frame

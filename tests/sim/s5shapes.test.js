@@ -19,6 +19,8 @@ import { MAP, STAGE, ENEMIES } from './fixtures.js';
 import { snapshotSim, restoreSim } from '../../src/sim/snapshot.js';
 import { projectedDps } from '../../src/sim/buffs.js';
 import { tieTether } from '../../src/sim/links.js';
+import { drinkTarget } from '../../src/sim/drinks.js';
+import { rallyGirl } from '../../src/sim/abilities.js';
 import { gainHeroXp, xpToReach } from '../../src/sim/hero.js';
 
 const units = defaultData().units;
@@ -349,6 +351,22 @@ describe('rule 5: a shape never takes room from a live object', () => {
     expect(b.sim.projectiles.filter((p) => p.shape && p.dead).length).toBe(10);
   });
 
+  test("another player's shape shots free no room under her player's cap (and are left alone)", () => {
+    const { sim, t } = setup();
+    fill(sim, 200, 0, false);
+    fill(sim, 20, 1, true);
+    expect(shapeRoom(sim, t, 9, CHARMS_PER_GIRL)).toBe(0);
+    expect(sim.projectiles.filter((p) => p.dead).length).toBe(0);
+    // the sim's cap (400) is met by anyone's shape shots: 380 + 20 there, 9 more fit after evicting 9 of player 1's
+    const b = setup();
+    fill(b.sim, 190, 0, false);
+    fill(b.sim, 190, 1, false);
+    fill(b.sim, 20, 1, true);
+    expect(shapeRoom(b.sim, b.t, 9, CHARMS_PER_GIRL)).toBe(9);
+    expect(liveDead(b.sim)).toBe(0);
+    expect(b.sim.projectiles.filter((p) => p.shape && p.dead).length).toBe(9);
+  });
+
   test("toll rings live in the girl's own list and caps, never t.quakes (Kanna's)", () => {
     const { sim, t } = setup({ unitId: 'suzu', path: MINES, tier: 5 });
     steps(sim, 400);
@@ -395,7 +413,7 @@ describe('rule 6: shape damage never moves a pick', () => {
 
   test("beside an S5 girl, a brewer's brews (her first too) go where they went live", () => {
     const run = (live) => {
-      const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'midori' }, { unitId: 'rei' }, { unitId: 'miko' }, { unitId: 'kage' }], hero: null, seed: 3, data: { stage: STAGE, map: MAP, units: live ? LIVE : units, enemies: ENEMIES } });
+      const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId: 'midori' }, { unitId: 'rei' }, { unitId: 'miko' }, { unitId: 'kage' }, { unitId: 'suzu' }], hero: null, seed: 3, data: { stage: STAGE, map: MAP, units: live ? LIVE : units, enemies: ENEMIES } });
       sim.cash = 1e9;
       const md = sim.placeTower('midori', 6.5, 3.5);
       const tox = units.midori.paths.findIndex((p) => p.id === 'toxicology');
@@ -405,6 +423,8 @@ describe('rule 6: shape damage never moves a pick', () => {
       const miko = sim.placeTower('miko', 7.5, 5.5);
       for (let k = 0; k < 4; k++) sim.upgradeTower(miko.uid, PURIFY);
       sim.placeTower('kage', 8.5, 5.5);
+      const suzu = sim.placeTower('suzu', 4.5, 5.5);
+      for (let k = 0; k < 5; k++) sim.upgradeTower(suzu.uid, MINES);
       sim.state = 'wave';
       sim._spawnQueue = [{ t: 1e9, enemy: 'tank' }];
       sim._spawnIndex = 0;
@@ -417,6 +437,43 @@ describe('rule 6: shape damage never moves a pick', () => {
       return picks;
     };
     expect(run(false)).toEqual(run(true));
+  });
+
+  test("beside each S5 girl, a drink's target and a rally's own pick go where they went live", () => {
+    for (const [unitId, path] of [['rei', WHIRL], ['miko', PURIFY], ['suzu', MINES], ['midori', FIELD], ['raika', RHYTHM]]) {
+      const run = (live) => {
+        const sim = new Sim({ stageId: STAGE.id, loadout: [{ unitId }, { unitId: 'kage' }, { unitId: 'aoi' }], hero: null, seed: 5, data: { stage: STAGE, map: MAP, units: live ? LIVE : units, enemies: ENEMIES } });
+        sim.cash = 1e9;
+        const g = sim.placeTower(unitId, 6.5, 5.5);
+        for (let k = 0; k < 5; k++) sim.upgradeTower(g.uid, path);
+        sim.placeTower('kage', 7.5, 5.5);
+        const picker = sim.placeTower('aoi', 5.5, 5.5);
+        expect(picker, 'placed').toBeTruthy();
+        sim.state = 'wave';
+        sim._spawnQueue = [{ t: 1e9, enemy: 'tank' }];
+        sim._spawnIndex = 0;
+        for (let d = 2; d <= 14; d += 0.5) park(sim, 'tank', d);
+        const picks = [];
+        for (let i = 0; i < 30; i++) {
+          steps(sim, 20);
+          picks.push(`${drinkTarget(sim, picker, 6)?.uid}/${rallyGirl(sim, picker)?.uid}`);
+        }
+        const shape = g.shapeDealt ?? 0;
+        // and directly: 400 of her own + 600 shape damage loses to Kage's 500; 1000 of her own wins
+        const kage = sim.towers.find((o) => o.unitId === 'kage');
+        Object.assign(g, { damageDealt: 1000, shapeDealt: 600 });
+        kage.damageDealt = 500;
+        picks.push(drinkTarget(sim, picker, 6) === kage && rallyGirl(sim, picker) === kage);
+        g.shapeDealt = 0;
+        picks.push(drinkTarget(sim, picker, 6) === g && rallyGirl(sim, picker) === g);
+        return { picks, shape };
+      };
+      const live = run(true);
+      const s5 = run(false);
+      expect(s5.picks, unitId).toEqual(live.picks);
+      expect(s5.picks.slice(-2), unitId).toEqual([true, true]);
+      if (unitId !== 'midori') expect(s5.shape, unitId).toBeGreaterThan(0);
+    }
   });
 });
 

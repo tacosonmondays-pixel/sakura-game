@@ -1848,7 +1848,8 @@ render:       actors.js projectile kinds 'charm', 'crescent'; groundShapes.js dr
 - endS5Wave (the wave clear): `t.tolls` emptied, `t.wheelK` 0, every surviving bell's `tollCd` 1 (shape shots end with the
   straight shots in endRingWave). hashSim folds `t.wheelK`, `t.tolls`, the shape shots in flight and the toll owners' bells'
   `tollCd ?? 1`, each only while present. Battle saves: `shapeDealt` snap, `_struck` / `_lead` scratch, `wheelK` / `tolls` calm;
-  traps keep their row (tollCd is 1 at every calm point).
+  traps keep their row; `tollCd` is not packed in it (it is 1 at every calm point, and a missing one reads `?? 1` in
+  `tollBell` and `hashSim`).
 
 ### Attack shapes S5b (`docs/specs/ATTACK_SHAPES_S5.md` §3.1, §3.2, §3.4; branch `feature/attack-shapes-s5`)
 

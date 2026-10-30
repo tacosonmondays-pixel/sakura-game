@@ -3,7 +3,7 @@ import { Sim } from '../../src/sim/Sim.js';
 import { STAGE, UNITS, ENEMIES } from './fixtures.js';
 import { defaultData } from '../../src/sim/data.js';
 import { gainHeroXp, xpToReach } from '../../src/sim/hero.js';
-import { TETHER_SHARES_PER_STEP, STRAIGHT_PER_SIM, CHARMS_PER_GIRL, CRESCENTS_PER_GIRL, TOLLS_PER_SIM, STATIC_PER_SIM, STATIC_ZAPS_PER_STEP } from '../../src/sim/constants.js';
+import { TETHER_SHARES_PER_STEP, STRAIGHT_PER_SIM, CHARMS_PER_GIRL, CRESCENTS_PER_GIRL, TOLLS_PER_GIRL, TOLLS_PER_SIM, STATIC_PER_SIM, STATIC_ZAPS_PER_STEP } from '../../src/sim/constants.js';
 
 // 22 × 13 serpentine map: the path snakes across rows 1, 5, 9 and exits at the bottom.
 const PERF_MAP = {
@@ -397,6 +397,61 @@ describe('performance budget: S5a attack shapes', () => {
     expect(most.tolls).toBeGreaterThan(0);
     expect(most.straight).toBeLessThanOrEqual(STRAIGHT_PER_SIM + 6 * CHARMS_PER_GIRL + 6 * CRESCENTS_PER_GIRL);
     expect(most.tolls).toBeLessThanOrEqual(TOLLS_PER_SIM);
+    expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
+  });
+
+  // the toll caps: real data rings a few at a time, so a stress copy of her T5 toll rings every 6 steps out to 3 tiles,
+  // 18 Suzus on a sparse road (12 walkers: the bells stay armed); the rings stay within TOLLS_PER_GIRL and TOLLS_PER_SIM
+  test('18 Bell Tolls at their caps (a stress copy ringing every 6 steps) on a sparse road: within the caps and the limits', () => {
+    const units = structuredClone(defaultData().units);
+    const mines = units.suzu.paths.findIndex((q) => q.id === 'mines');
+    units.suzu.paths[mines].tiers[4].mods.toll = { every: 6, r: 3, mul: 0.2 };
+    const sim = new Sim({
+      stageId: 'perf',
+      difficulty: 'normal',
+      loadout: [{ unitId: 'suzu' }],
+      hero: null,
+      seed: 15,
+      data: { stage: { ...STAGE, id: 'perf', mapId: 'perf-map', waves: 99 }, map: PERF_MAP, units, enemies: PERF_ENEMIES },
+    });
+    sim.cash = 1e12;
+    let placed = 0;
+    for (const ty of [2, 4, 6, 8, 10]) {
+      for (let tx = 1; tx < 21 && placed < 18; tx += 2) {
+        const t = sim.placeTower('suzu', tx, ty);
+        if (!t) continue;
+        placed++;
+        for (let k = 0; k < 5; k++) sim.upgradeTower(t.uid, mines, { restoring: true });
+      }
+    }
+    expect(placed).toBe(18);
+    sim.state = 'wave';
+    sim.wave = 1;
+    sim._spawnQueue = [];
+    const len = sim.pathData[0].length;
+    for (let j = 0; j < 12; j++) sim.spawnEnemy('blob', { dist: (j / 12) * (len - 8) });
+    for (let j = 0; j < 600; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+    }
+    const steps = 600;
+    let most = 0;
+    let mostGirl = 0;
+    const t0 = performance.now();
+    for (let j = 0; j < steps; j++) {
+      sim.update(1 / 60);
+      sim.drainEvents();
+      let n = 0;
+      for (const t of sim.towers) {
+        n += t.tolls?.length ?? 0;
+        mostGirl = Math.max(mostGirl, t.tolls?.length ?? 0);
+      }
+      most = Math.max(most, n);
+    }
+    const perStep = (performance.now() - t0) / steps;
+    console.log(`[perf] S5a toll caps: ${sim.towers.length} girls, ${sim.traps?.length ?? 0} bells, at most ${most} toll rings (${mostGirl} one girl's): ${perStep.toFixed(3)} ms/step`);
+    expect(most).toBe(TOLLS_PER_SIM);
+    expect(mostGirl).toBeLessThanOrEqual(TOLLS_PER_GIRL);
     expect(perStep).toBeLessThan(process.env.CI ? 6 : 2);
   });
 });

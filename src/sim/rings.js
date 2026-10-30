@@ -77,22 +77,26 @@ export function shapeRoom(sim, t, n, perGirl) {
     if ((p.owner.owner ?? 0) === owner) player++;
     if (p.shape && p.owner === t) mine++;
   }
-  // her own cap is met by her own shape shots only; the shared caps by hers, then her player's, then anyone's
+  // her own cap is met by her own shape shots only; her player's cap by hers, then her player's (passes 0–1); the sim's cap
+  // by hers, then her player's, then anyone's (pass 2: another player's shot frees no room under her player's cap)
   let overMine = Math.max(mine + n - perGirl, 0);
-  let over = Math.max(player + n - STRAIGHT_PER_PLAYER, all + n - STRAIGHT_PER_SIM, 0);
-  for (let pass = 0; pass < 3 && (over > 0 || (pass === 0 && overMine > 0)); pass++) {
+  let overPlayer = Math.max(player + n - STRAIGHT_PER_PLAYER, 0);
+  let overAll = Math.max(all + n - STRAIGHT_PER_SIM, 0);
+  const wants = (pass) => overAll > 0 || (pass < 2 && overPlayer > 0) || (pass === 0 && overMine > 0);
+  for (let pass = 0; pass < 3 && wants(pass); pass++) {
     for (let i = 0; i < list.length; i++) {
-      if (!(over > 0 || (pass === 0 && overMine > 0))) break;
+      if (!wants(pass)) break;
       const p = list[i];
       if (!p.straight || p.dead || !p.shape) continue;
       if (pass === 0 && p.owner !== t) continue;
       if (pass === 1 && (p.owner.owner ?? 0) !== owner) continue;
       p.dead = true;
-      if (over > 0) over--;
+      if (overAll > 0) overAll--;
+      if (pass < 2 && overPlayer > 0) overPlayer--;
       if (pass === 0 && overMine > 0) overMine--;
     }
   }
-  return Math.max(0, n - Math.max(over, overMine));
+  return Math.max(0, n - Math.max(overMine, overPlayer, overAll));
 }
 
 /**
