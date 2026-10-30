@@ -165,9 +165,18 @@ try {
       await page.waitForSelector('[data-testid="name-input"]', { state: 'detached', timeout: 10000 }).catch(() => {});
     }
     await page.evaluate(() => { location.hash = '#/coop'; });
-    const bring = await page.waitForSelector('[data-testid="coop-bring"]', { timeout: 30000 }).catch(() => null);
-    if (bring) {
-      check(/You bring Team 3/i.test(await bring.innerText()), `${tag} co-op hub: "You bring Team 3"`);
+    const team = await page.waitForSelector('[data-testid="coop-team"]', { timeout: 30000 }).catch(() => null);
+    if (team) {
+      check(/Team 3/i.test(await team.innerText()), `${tag} co-op hub: the Host panel's chip says Team 3`);
+      const b = await team.boundingBox();
+      check(!!b && b.y + b.height <= H + 400 && b.x >= 0 && b.x + b.width <= W + 1, `${tag} co-op hub: the chip fits across`);
+      const bring = page.locator('[data-testid="coop-bring"]');
+      if (await bring.isVisible().catch(() => false)) check(/You bring Team 3/i.test(await bring.innerText()), `${tag} co-op hub: "You bring Team 3"`);
+      // a switch here redraws the chip in place
+      await tap('[data-testid="coop-team"]');
+      await tap('[data-testid="team-pick"] [data-testid="team-1"]');
+      await page.waitForTimeout(300);
+      check(/Bosses/i.test(await page.locator('[data-testid="coop-team"]').innerText()), `${tag} co-op hub: switched to Team 1 ("Bosses")`);
       await noOverflow(page, W, `${tag} co-op hub`);
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/coop-${tag}.png` });
     } else {
