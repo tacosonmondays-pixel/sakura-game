@@ -20,6 +20,18 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.66', version: '0.1.66', date: '2026-10-30', title: 'Mirrors, Curses and the Gear Update',
+    added: [
+      'Sixteen girls get new attack shapes, from wheels and returning throws to held streams and rising spikes. Ena’s curse now rots its target and spreads to nearby enemies, and Iroha places a network of mirrors her bolts bounce between.',
+      'The gear update: five-piece sets with their own passives, LR gear with Limit Break, Set Boxes and pins, several saved loadouts per team, and the Build Coach to suggest what each girl should wear.',
+      'Kohaku & Tsubaki’s laser now reaches across the whole map.',
+    ],
+    changed: [
+      'LR girls are now stronger than every other build, so an LR form always leads the board.',
+      'Freeplay past wave 200 is easier, and a fully built team can now reach the Eclipse Wyrm at wave 250.',
+    ],
+  },
+  {
     id: 'v0.1.64', version: '0.1.64', date: '2026-10-30', title: 'A Ribbon for the Night Watch',
     added: [
       'Reached wave 200 or beyond in Freeplay (any difficulty, solo or co-op)? A letter in your Mailbox holds the Starlight Vigil Ribbon for your Honor Ribbon Case. The Eclipse Wyrm at wave 250 turned out far stronger than intended, so nobody could earn it. Claim it by Nov 30; reach wave 200 before then and it comes to you too.',

@@ -69,7 +69,12 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 // 13: the academy flair release (co-op update #10, set once for it): the last five tower ultimates in battle (Kage's
 //    Shadow Doubles, Suzu's Bell Carpet and Chika's Drone Surge as deploys, Fuu's Backdraft Fan as a move, Iroha's
 //    Mirror Shift with its mirror and reflected shots); a client on 12 resolves the same loadout to different battles.
-export const COOP_PROTOCOL = 13;
+// 14: the battle + gear release v0.1.66 (co-op update #11, set once for it): the attack shapes S1–S5 (wheels, held
+//    streams and sweeps, ground shapes, links, and S5's six), balance round 5 (the LR rows, the duo's map-wide laser,
+//    Freeplay's boss bands past wave 200), Ena's spreading curse, Iroha's mirror network, and the gear update's five-piece
+//    sets and LR gear (set passives, Control Strength, Buff Duration, super crits); a client on 13 resolves the same
+//    loadout to different battles.
+export const COOP_PROTOCOL = 14;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */
