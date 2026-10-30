@@ -476,3 +476,56 @@ Review round 3 (`docs/review/attack-shapes-s5/review-r3.md` on `review/attack-sh
 | LOW mods registration | `SHAPE_NORM` / `SHAPE_ADDS` / `SHAPE_SETS` for the six keys | §2 |
 | LOW the straight ceiling | The perf case asserts 400 + 336 | §5 |
 | LOW `tollTick` guard | Its own `if (t.tolls)` | §3.6 |
+
+---
+
+## 15. S5a as built (feature/attack-shapes-s5)
+
+Miko's Charm Wheel, Rei's Crescent Return and Suzu's Bell Toll, with the shared S5 base. They are built on balance round 5 (`origin/feature/balance-r5` 04bcc258, the LR bar gate in). Code is in `src/sim/s5shapes.js`, `shapeSpec` / `allocDealt` in `shapes.js` and `shapeRoom` in `rings.js`; the contract is `CONTRACTS.md` "Attack shapes S5a".
+
+| Girl, path | Tiers | Data (`src/data/units.js`) |
+|---|---|---|
+| Rei, Whirlwind | T4 Tempest Dance, T5 Thousand Petal Storm | `cres { out: 2, cuts: 6, mul: 0.3 }`, `{ out: 2.5, cuts: 10, mul: 0.35 }` |
+| Miko, Purification | T4 Divine Wind, T5 Amaterasu's Mirror | `charms { n: 9, turn: 10, mul: 0.25 }`, `{ n: 12, mul: 0.3 }` |
+| Suzu, Explosive Mines | T4 Chain Mines, T5 Grand Bell Detonation | `toll { every: 90, r: 1, mul: 0.18 }`, `{ every: 72, r: 1.4, mul: 0.2 }` |
+
+**Changes from the spec, and why:**
+
+1. **Suzu's tolls are stronger than the starting values:** ×0.18 / ×0.2, not ×0.12 / ×0.15. At the starting values her maxed crowd read +8 % / +9 %, under Q9's +10 % floor. Her gain scales with the knob, so the knob was raised.
+2. **No panel line for S5a.** The panel's DPS (`towerStats`) is her figure on one target. The S5a shapes add nothing there (rule 4), so it is exactly live. `projectedDps` takes no S5 line (rule 6).
+3. **Gear Pierce does not add crescent cuts.** Her pulse's Pierce carry (`pierceCarry`) is a running counter, and asking it again for the crescent would change her live pulse's carry. The crescent's cuts are its own (`cres.cuts`).
+4. **An echo adds to the same throw.** `t._struck` is cleared at the start of each counted attack, so a Potential echo (Rei's Twin Crescent) adds its victims to that attack's skip list. It does not throw a second crescent; one crescent or wheel goes out per counted attack.
+
+**The no-nerf gate** (`tools/balance/noNerfGate.mjs`, live = `origin/feature/balance-r5` 04bcc258 with the three tools in it). Every girl, every path, tiers 1–5, boss / walking boss / crowd, seeds 9 / 1 / 2, three profiles and the LR-off pass, both support settings:
+
+| Pass | cells | missing | under live ×0.995 | cells off the shape tiers identical to live |
+|---|---:|---:|---:|---:|
+| Umeko + Midori | 4,455 | 0 | **0** | 4,401 of 4,401 |
+| alone | 4,455 | 0 | **0** | 4,401 of 4,401 |
+
+The shape tiers, live → S5a in DPS (maxed / L1 / L40 crowd; boss and walking boss beside):
+
+| Girl, tier | Supported: boss / walking / crowd | Alone: boss / walking / crowd | L1 crowd (supp.) | L40 crowd (supp.) |
+|---|---|---|---|---|
+| Rei T4 | ×1.00 / ×1.00 / 122,978 → 139,089 ×1.13 | ×1.00 / – / 11,851 → 12,220 ×1.03 | ×1.04 | ×1.04 |
+| Rei T5 | ×1.00 / ×1.00 / 1.82M → 2.06M ×1.13 | ×1.00 / ×1.00 / 171,136 → 173,917 ×1.02 | ×1.00 | ×1.00 |
+| Miko T4 | ×1.00 / ×1.00 / 45,842 → 54,813 ×1.20 | ×1.00 / ×1.00 / ×1.20 | ×1.20 | ×1.20 |
+| Miko T5 | ×1.00 / ×1.00 / 385,250 → 445,445 ×1.16 | ×1.00 / ×1.00 / ×1.17 | ×1.16 | ×1.16 |
+| Suzu T4 | 0 → 0 / ×1.18 / 231,820 → 258,116 ×1.11 | 0 → 87 / ×1.20 / ×1.13 | ×1.16 | ×1.15 |
+| Suzu T5 | 0 → 6,462 / ×1.44 / 1.87M → 2.08M ×1.12 | 2,886 → 6,842 / ×1.38 / ×1.10 | ×1.15 | ×1.16 |
+
+Bosses are exact for Rei and Miko (rule 4). Suzu's bells ring for a boss that stands by them (the rule 4 exception).
+
+**Rei is soft off his ruler.** He has +13 % on the maxed crowd beside Umeko + Midori, but +2–4 % alone and ×1.00–1.04 at L1 / L40. His crescent cuts walkers beyond his reach that his sweep missed. Beside the slowing supports the crowd bunches up out there (10,786 cuts from 783 throws on the maxed bench). Without them it streams through, and the crescent finds about 2 walkers a throw (575 cuts from 300 throws alone). It is never under live; a smarter aim (the densest stretch, not her lead) is a follow-up if the owner wants him felt more alone.
+
+**The ability bench** (`tools/abilityBench.mjs --tiers`, strong preset, 120 s, Auto off → on, both trees): Rei 4-0-2 / 5-0-2 is bit-identical to live, crowd and boss. The pinned column stands inside his reach, so the crescent rolls past it. His T5 Hurricane Draw RED (×1.5) is live's own. Suzu: crowd off 567k → 679k (T4) and 3.55M → 4.40M (T5); boss 5.9k → 28.4k and 36.6k → 237.5k. Miko 2-4-0 / 2-5-0: crowd 83.4k → 87.0k and 594k → 609k; boss identical. Nothing under live.
+
+**The LR bar** (`tools/balance/lrBar.mjs`): all six LR builds pass (×1.39–1.40 crowd, ×2.36–4.74 boss). `--bar` re-measured with S5a reads the same bar (crowd Akane 16.47M, boss Iroha 5.96M); no S5a girl is near either top list.
+
+**Determinism and co-op:**
+
+- `tests/sim/s5shapes.test.js` (28 cases). The data at T3–T5. `shapeSpec` (expected crit, cleared effects). The charm directions for every `wheelK` (≥ 12 steps from her line at T4, ≥ 9 at T5). Each girl's lone boss bit-identical to a live copy of the data (HP, damage, rng draws). On a crowd: identical rng draws, her live damage identical, the shape on top. The crescent's legs, its early turn and its skip copy. Tolls: first armed step, never between waves, never triggering a bell. `straightRoom`'s guard (a live volley evicts what it evicts in live) and `shapeRoom` (evicts shape shots only). Tolls never in `t.quakes`. `noShare` against Ena's threads. `projectedDps` equal to live, and a brewer's picks bit-identical beside the S5 girls. A mid-wave co-op checkpoint continuing bit-identically for each girl. The wave clear. Twice the same battle, and plain `Math` against `withDetMath`. The grep test.
+- `e2e/engines/scriptedBattle.js` `runS5aBattle` (S5A_START, 2-4 Hard): the host's Rei, Miko and Suzu at tier 5, the guest's at tier 4. Won at wave 22, 663 crescent cuts, 172 charm cuts, 69 toll hits, 3,287 tolls rung. The wave-3 checkpoint rejoined at tick 7,560 lands on the run. Pinned in `tests/online/engines.test.js` and checked in `e2e/engines.mjs`. SpiderMonkey and WebKit are not installed here: run `--require-all` before ship.
+- Perf (`tests/sim/perf.test.js` "S5a attack shapes", 18 shape girls at tier 5, 200 enemies): 0.237 ms a step (limit 2 ms). Straight shots stay within the ceiling 400 + 336.
+- Pins: PENDING_BUMP {13: `a80dafccd10d`}. The 456-resolution stats hash is re-pinned to `2f6a4fcb`; with the three girls left out the 384 others hash `70150afc` before and after. The battle-save tower keys gain `shapeDealt` (snap), `_struck` / `_lead` (scratch) and `wheelK` / `tolls` (calm). **No `COOP_PROTOCOL` bump on the branch.**
+- `npm test`: 401 files, 6,304 tests passed.
