@@ -233,12 +233,13 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // fixes (each curse records whose rot it is, `rotUid`) moved the checkpoint digest only (588f2a6d → ab003279).
     // Re-pinned for release v0.1.66 (the merged tree: round 5 with the shapes S1–S5, Ena's spreading curse, Iroha's
     // mirrors and the gear update, COOP_PROTOCOL 14): the same battle (ticks, casts, lives) with new digests (ab003279 / 50bdf2cd were the Ena branch's): the snapshot
-    // holds the gear update's Sim state and status context, and Iroha's mirror fields
+    // holds the gear update's Sim state and status context, and Iroha's mirror fields. Re-pinned for fix/iroha-stun-clump
+    // (Iroha's tier data and Auto rows): the same battle, new digests (d8ff8335 / 335c2bcf were release's)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, casts: r.casts, byId: r.byId, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
       .toEqual({
         ticks: 47193, state: 'between', wallets: '568/782', lives: 100, final: 2186080864, hashes: '00357611', casts: 75,
         byId: 'aoi.skyfall 12 · ena.omenCard 11 · hana.swoop 19 · noa.firstAid 4 · ruri.moonPounce 3 · seiran.stormLance 13 · yoriko.puppetHex 13',
-        ckDigest: 'd8ff8335', finalDigest: '335c2bcf',
+        ckDigest: '8f4dce9d', finalDigest: '2b88c6ef',
       });
   }, 240000);
 
@@ -317,8 +318,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned for release v0.1.66 (the merged tree: round 5 with the shapes S1–S5, Ena's spreading curse, Iroha's
     // mirrors and the gear update, COOP_PROTOCOL 14): the same battle, final and hashes as round 5 (88532403); both digests move (the snapshot holds the merged
     // Sim and tower state: the spread budget, the set fields, the mirrors)
+    // (re-pinned for fix/iroha-stun-clump: Iroha's tier data and Auto rows; the same battle, new digests)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '88532403', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: '632eb7e9', finalDigest: '7508bbc5' });
+      .toEqual({ ticks: 51073, state: 'between', wallets: '1602/890', final: 2270672136, hashes: '88532403', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'b6d73051', finalDigest: 'aea2307d' });
   }, 240000);
 
   it('runs the returning girls in gear (GEAR_GIRLS_START: Iroha\'s bolts bouncing off her mirrors with Pierce, every club trick) in sync', () => {
@@ -505,8 +507,9 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Re-pinned for release v0.1.66 (the merged tree: round 5 with the shapes S1–S5, Ena's spreading curse, Iroha's
     // mirrors and the gear update, COOP_PROTOCOL 14): SET_START now runs on Hard with Ruri and Aoi nearest Noa (scriptedBattle.js: on Normal the merged
     // kits killed everything before Aoi's and Ruri's spots, so Right Angle and Bake Sale never ran); every passive runs
+    // (re-pinned for fix/iroha-stun-clump: Iroha's tier data and Auto rows; the same battle, new digests)
     expect({ ticks: r.ticks, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, sets: r.sets, superCrits: r.superCrits, itHits: r.itHits, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
-      .toEqual({ ticks: 43324, wallets: '411/633', lives: 50, final: 1094358524, hashes: 'ec3ad99b', sets: 'aoi:rightAngle=12 hana:confetti=14 noa:cheer=31', superCrits: 53, itHits: 1000, ckDigest: '1c9f7d50', finalDigest: 'c39417b2' });
+      .toEqual({ ticks: 43324, wallets: '411/633', lives: 50, final: 1094358524, hashes: 'ec3ad99b', sets: 'aoi:rightAngle=12 hana:confetti=14 noa:cheer=31', superCrits: 53, itHits: 1000, ckDigest: '0e3b9d90', finalDigest: '8fedf45a' });
   }, 240000);
 
   it('runs Marumi\'s Glow Bowl (GLOW_BOWL_START: ricochets, the finale, Bowling Thunder) in sync', () => {

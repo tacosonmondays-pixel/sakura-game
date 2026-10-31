@@ -317,8 +317,10 @@ describe('display only: the battle sim is untouched', () => {
     // 14: the battle + gear release v0.1.66: the attack shapes S1–S5 (wheels, held streams and sweeps, ground shapes,
     // links, S5's six), balance round 5 (the LR rows, the duo's map-wide laser, Freeplay's boss bands), Ena's spreading
     // curse, Iroha's mirror network, and the gear update's five-piece sets and LR gear, with the shapes carrying the
-    // set passives)
-    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db', 12: 'd35092f141d3', 13: 'be940ecb2087', 14: '36cba1c215b0' };
+    // set passives; re-pinned for fix/iroha-stun-clump: a glint never stuns, the splash on the glint's enemy, copies
+    // without the push, Auto by her main path, a fourth mirror at Polish and Kaleidoscope tier 4, Kaleidoscope's wider
+    // reach, Kaleidoscope Burst and Infinite Reflection +14 — 14 has not shipped)
+    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db', 12: 'd35092f141d3', 13: 'be940ecb2087', 14: 'b2ff5e0e884b' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });

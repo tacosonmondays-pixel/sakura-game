@@ -69,10 +69,27 @@ export const MIRROR_GATHER = 32;
  */
 export const MIN_LEG = 1;
 /**
- * Where Auto puts slot k, as a fraction along the road samples in her reach (slot 0: the road sample nearest her, where
- * her one panel stood; review r3 HIGH-1): a slot never moves when her count grows.
+ * Where Auto puts slot k for her main path (her highest tier; a tie takes the lower path), as a fraction along the road
+ * samples in her reach; slot 0 is always the road sample nearest her, where her one panel stood (review r3 HIGH-1), and
+ * UP the first sample within her range of her (else the first in reach): the road where the crowd reaches her, so a
+ * crowd her ally slows or stuns above her range stays in her coverage and one she slows there stays in her ally's
+ * reach (the v0.1.66 audit). Slots 1 and 2 are a quarter and three quarters of the road on every path but
+ * Kaleidoscope, whose slot 2 is UP (slot 3 keeps the three quarters); slot 3 is UP elsewhere. A slot never moves when
+ * her count grows (a path overtaking another can move them).
  */
-export const AUTO_FRACS = Object.freeze([null, 0.25, 0.75, 0.125, 0.875]);
+export const AUTO_UP = -1;
+export const AUTO_FRACS = Object.freeze([
+  Object.freeze([null, 0.25, 0.75, AUTO_UP, 0.875]),
+  Object.freeze([null, 0.25, 0.75, AUTO_UP, 0.875]),
+  Object.freeze([null, 0.25, AUTO_UP, 0.75, 1]),
+]);
+
+/** Her main path for Auto: her highest tier, a tie the lower path (0 with none). */
+export function autoPath(tiers) {
+  let best = 0;
+  for (let p = 1; tiers && p < 3; p++) if ((tiers[p] | 0) > (tiers[best] | 0)) best = p;
+  return best;
+}
 
 const R2 = MIRROR_RADIUS * MIRROR_RADIUS;
 /** The reflecting mirrors this step: flat [x, y, towerUid, slot] quads (module scratch, refilled every step). */
@@ -164,24 +181,32 @@ export function restoreMirrors(sim, t, spots) {
 /**
  * Auto spots for `m` mirrors (pure but for the samples): the visible road samples within her reach, in their order
  * (path, then distance). Slot 0 takes her old panel's spot (towers.js relayOrigin: toward the road sample nearest her,
- * FAMILIAR_STANDOFF short of it, within her reach), where she fights most; slot k ≥ 1 the one
- * at index floor(AUTO_FRACS[k] × n) (a quarter, three quarters, then the outer eighths). Slot k's spot is the same
- * whatever her count, so an upgrade that adds a mirror never moves the others. With none, where she stands.
+ * FAMILIAR_STANDOFF short of it, within her reach), where she fights most; slot k ≥ 1 by `fracs` (her main path's
+ * AUTO_FRACS row): AUTO_UP the first sample within her own `range` of her, else the first in reach; a fraction f the one
+ * at index floor(f × n). Slot k's spot is the same whatever her count, so an upgrade that adds a mirror never moves the
+ * others (a range tier can move an UP slot). With none, where she stands.
  * @returns {{ x: number, y: number }[]}
  */
-export function autoSpots(samples, x, y, reach, m) {
+export function autoSpots(samples, x, y, reach, m, range = 0, fracs = AUTO_FRACS[0]) {
   const r2 = reach * reach;
+  const g2 = range * range;
   const idx = [];
+  let up = -1;
   for (let i = 0; i < (samples ? samples.length : 0); i++) {
     const dx = samples[i].x - x;
     const dy = samples[i].y - y;
-    if (dx * dx + dy * dy <= r2) idx.push(i);
+    const d2 = dx * dx + dy * dy;
+    if (d2 > r2) continue;
+    idx.push(i);
+    if (up < 0 && d2 <= g2) up = i;
   }
   const out = [];
   for (let k = 0; k < m; k++) {
     if (!idx.length) out.push({ x, y });
     else {
-      const s = k === 0 ? relayOrigin(samples, x, y, { kind: 'auto', reach }) : samples[idx[Math.min(idx.length - 1, Math.floor(AUTO_FRACS[k] * idx.length))]];
+      const f = fracs[k];
+      const s = k === 0 ? relayOrigin(samples, x, y, { kind: 'auto', reach })
+        : samples[f === AUTO_UP ? (up >= 0 ? up : idx[0]) : idx[Math.min(idx.length - 1, Math.floor(f * idx.length))]];
       out.push({ x: Math.round(s.x * AIM_QUANT) / AIM_QUANT, y: Math.round(s.y * AIM_QUANT) / AIM_QUANT });
     }
   }
@@ -203,7 +228,7 @@ export function syncMirrors(sim, t) {
     const a = aims ? aims[k] : null;
     if (a) list.push(mirrorPoint(sim, t, a.x, a.y));
     else {
-      if (!auto) auto = autoSpots(sim._relaySamples, t.x, t.y, relay.reach, m);
+      if (!auto) auto = autoSpots(sim._relaySamples, t.x, t.y, relay.reach, m, t.stats.range, AUTO_FRACS[autoPath(t.tiers)]);
       list.push(auto[k]);
     }
   }
@@ -438,6 +463,34 @@ function splashAt(sim, p, x, y, radius, scale, once = null) {
   sim._emit('explode', { x, y, radius, element: p.spec.element || null, attackType: p.spec.attackType });
 }
 
+/**
+ * How far a mirror of hers sees an enemy (her volley's lead, the glint): her range, plus her bounce splash on
+ * Kaleidoscope (the glass shatters past the frame: a crowd piled just above her range by an ally's slows is still hers).
+ */
+export function mirrorReach(t, spec) {
+  return spec.range + (t.stats.relay?.bounceSplash || 0);
+}
+
+/** A glint's spec by the bolt's spec (one each, made once: nothing is allocated per hit). */
+const GLINT_SPECS = new WeakMap();
+
+/**
+ * The spec a glint strikes with: the bolt's own without its stun (the slow stays). The glint picks the crowd's head at
+ * every mirror, so a stun there held the head at the road's first mirror, out of a downstream ally's reach (the v0.1.66
+ * audit: beside a Marumi the crowd stood a tile past her range and her balls had nothing to roll at half the time); her
+ * stuns land where her bolts and their splashes strike.
+ */
+function glintSpec(spec) {
+  const st = spec.status;
+  if (!st || !st.some((s) => s.type === 'stun')) return spec;
+  let c = GLINT_SPECS.get(spec);
+  if (!c) {
+    c = { ...spec, status: st.filter((s) => s.type !== 'stun') };
+    GLINT_SPECS.set(spec, c);
+  }
+  return c;
+}
+
 /** The bolt stands on its mirror (wx, wy): bounce (§2) and, after the last, find its enemy. */
 function bounce(sim, p, wx, wy) {
   const fx = p.lx;
@@ -464,8 +517,10 @@ function bounce(sim, p, wx, wy) {
   const slot = p.firstSlot != null && mt?.mirrors ? (p.firstSlot + p.bounce - 1) % mt.mirrors.length : -1;
   sim._emit('mirrorBounce', { uid: p.uid, towerUid: p.mirrorOf, ownerUid: p.ownerUid, mirror: slot, n: p.bounce, x: wx, y: wy, fx, fy });
   if (own && relay && full) {
-    glint(sim, p, wx, wy);
-    if (relay.bounceSplash > 0) splashAt(sim, p, wx, wy, relay.bounceSplash, p.scale ?? 1, p.splashed || (p.splashed = []));
+    const g = glint(sim, p, wx, wy);
+    // (Kaleidoscope's bounce splash shatters round the enemy the glint struck, where the enemies are, not round the
+    // empty mirror: a crowd clumped away from her mirrors still takes it. Each enemy one bounce splash a bolt)
+    if (relay.bounceSplash > 0) splashAt(sim, p, g ? g.x : wx, g ? g.y : wy, relay.bounceSplash, p.scale ?? 1, p.splashed || (p.splashed = []));
     if (relay.shards > 0) throwShards(sim, p, wx, wy, relay.shards);
   }
   if (p.ri * 2 < p.route.length) {
@@ -527,13 +582,17 @@ function pick(sim, p, x, y, reach, mode, fresh) {
   return out;
 }
 
-/** A real bounce's glint (GLINT_MUL): the best enemy within her range of the mirror takes that share of the bolt's hit. */
+/**
+ * A real bounce's glint (GLINT_MUL): the best enemy within her range of the mirror takes that share of the bolt's hit.
+ * @returns the enemy it struck (the bounce splash's centre) or null
+ */
 function glint(sim, p, x, y) {
   const spec = p.spec;
-  const e = bestTarget(sim, x, y, spec.range, spec, p.owner.targetMode || 'first');
-  if (!e) return;
-  sim._hit(e, p.owner, spec, (p.scale ?? 1) * GLINT_MUL);
+  const e = bestTarget(sim, x, y, mirrorReach(p.owner, spec), spec, p.owner.targetMode || 'first');
+  if (!e) return null;
+  sim._hit(e, p.owner, glintSpec(spec), (p.scale ?? 1) * GLINT_MUL);
   sim._emit('mirrorGlint', { uid: p.uid, towerUid: p.mirrorOf, ownerUid: p.ownerUid, x, y, tx: e.x, ty: e.y, targetUid: e.uid });
+  return e;
 }
 
 /** Kaleidoscope (§4): `n` shards from the mirror at other enemies in her range of it (SHARD_BUDGET a step). */
@@ -608,6 +667,24 @@ export function reflectStep(sim, p, ax, ay, n) {
   }
 }
 
+/** A copy's spec by its shot's spec (one each, made once: nothing is allocated per split). */
+const COPY_SPECS = new WeakMap();
+
+/**
+ * The spec a reflected copy strikes with: the shot's own, without its push (knockback, gather). A copy is the same
+ * damage, never a second shove: doubled knockback pinned a crowd at the spawn, out of every girl's reach, beside a Sango
+ * whose shells crossed her mirrors (the v0.1.66 audit's ally pairs).
+ */
+function copySpec(spec) {
+  if (!(spec.knockback > 0) && !(spec.gather > 0)) return spec;
+  let c = COPY_SPECS.get(spec);
+  if (!c) {
+    c = { ...spec, knockback: 0, gather: 0 };
+    COPY_SPECS.set(spec, c);
+  }
+  return c;
+}
+
 /** The fallback search radius for a copy's next target when the shot's spec carries no range. */
 const SEEK = 3;
 
@@ -644,7 +721,7 @@ function splitShot(sim, p, cx, cy, mt, slot) {
     // (its first aim is the next mirror; spawnProjectile wants an enemy-like point)
     tgt = o || { x: ms[(slot + 1) % ms.length].x, y: ms[(slot + 1) % ms.length].y, alt: 0 };
   }
-  const c = spawnProjectile(sim, p.owner, spec, tgt, cx, cy, {
+  const c = spawnProjectile(sim, p.owner, copySpec(spec), tgt, cx, cy, {
     kind: p.kind, speed: p.speed, pierce: p.pierce, splash: p.splash, range: reach, spread,
     guided: p.guided, drone: p.drone, turretUid: p.turretUid,
   });
