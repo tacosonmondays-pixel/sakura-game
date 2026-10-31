@@ -26,7 +26,7 @@ import { createProfile, migrateProfile, serializeProfile, deserializeProfile, ST
 import { isStandIn } from '../../src/models/standins.js';
 
 const ROOT = process.cwd();
-const fileOf = (url) => join(ROOT, 'public', url.replace(/^.*?art\//, 'art/'));
+const fileOf = (url) => join(ROOT, 'public', url.replace(/^.*?art\//, 'art/').replace(/\?.*$/, ''));
 // a stand-in girl (src/models/standins.js) whose art the owner has not approved yet keeps the SVG
 // portrait; every other roster girl is drawn
 const ART_PENDING = UNITS.filter((u) => isStandIn(u.id) && !hasPortrait(u.id)).map((u) => u.id);
@@ -67,7 +67,7 @@ describe('drawn portraits', () => {
   });
 
   it('builds base-path URLs and returns null for unknown girls / kinds', () => {
-    expect(portraitUrl('aoi', 'bust')).toMatch(/art\/portraits\/aoi-bust\.webp$/);
+    expect(portraitUrl('aoi', 'bust')).toMatch(/art\/portraits\/aoi-bust\.webp(\?v=[0-9a-f]{8})?$/);
     expect(portraitUrl('aoi', 'cutS')).toMatch(/aoi-cut-s\.webp$/);
     expect(portraitUrl(UNIT_MAP.luna, 'full')).toMatch(/luna-full\.webp$/);
     expect(portraitUrl('nobody', 'bust')).toBeNull();

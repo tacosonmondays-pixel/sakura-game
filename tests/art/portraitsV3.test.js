@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { PORTRAIT_V3 } from '../../src/art/portraitsV3.js';
-import { PORTRAIT_DATA, PORTRAIT_KINDS, isPlaceholderPortrait } from '../../src/art/portraits.js';
+import { PORTRAIT_DATA, PORTRAIT_KINDS, isPlaceholderPortrait, portraitUrl } from '../../src/art/portraits.js';
 import { FACE_ANCHORS } from '../../src/ui/faceAnchors.js';
 import { UNITS } from '../../src/data/units.js';
 
@@ -69,6 +69,14 @@ describe('art v3 portraits', () => {
       expect(a.eye, id).toBeLessThan(0.45);
       expect(a.chin - a.brow, id).toBeGreaterThan(0.06);
     }
+  });
+
+  it('her redrawn kinds carry ?v=<manifest hash> (an old cached picture never shows); stands and other girls stay plain', () => {
+    for (const id of ids) {
+      for (const k of KINDS) expect(portraitUrl(id, k), `${id} ${k}`).toMatch(new RegExp(`/${id}-${PORTRAIT_KINDS[k].suffix}\\.webp\\?v=${PORTRAIT_V3[id]}$`));
+      for (const k of ['cut', 'cutS']) expect(portraitUrl(id, k), `${id} ${k}`).toMatch(/\.webp$/);
+    }
+    for (const id of ['azami', 'tenka', 'luna', 'kogane']) expect(portraitUrl(id, 'card'), id).toMatch(/\.webp$/);
   });
 
   it('stands are kept: every girl still has her -cut / -cut-s, and the staff heroes keep their sign stands', () => {

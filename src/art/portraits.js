@@ -20,6 +20,7 @@
 // Pure module: strings only, no DOM (CONTRACTS §8). The UI swaps a broken <img> for the SVG.
 
 import { cardArtSVG } from './cardArt.js';
+import { PORTRAIT_V3 } from './portraitsV3.js';
 
 function baseUrl() {
   let base = './';
@@ -132,8 +133,13 @@ export function isPlaceholderPortrait(unitOrId) {
   return !!PORTRAIT_DATA[idOf(unitOrId)]?.placeholder;
 }
 
+/** the kinds art v3 redrew (the stands, cut and cutS, stayed) */
+const V3_KINDS = new Set(['full', 'card', 'bust', 'thumb']);
+
 /**
- * URL of a girl's drawn portrait, or null when she has none (callers fall back to SVG).
+ * URL of a girl's drawn portrait, or null when she has none (callers fall back to SVG). An art v3 girl's redrawn
+ * kinds (full / card / bust / thumb) carry `?v=<her manifest hash>`, so a browser that cached her old picture under
+ * the same name fetches the new one and never shows an old card under her new face anchors; her stands are unchanged.
  * @param {string|object} unitOrId unit id or UnitDef
  * @param {'full'|'card'|'bust'|'thumb'|'cut'|'cutS'} [kind]
  * @returns {string|null}
@@ -142,7 +148,8 @@ export function portraitUrl(unitOrId, kind = 'bust') {
   const id = idOf(unitOrId);
   const k = PORTRAIT_KINDS[kind];
   if (!k || !hasPortrait(id)) return null;
-  return `${PORTRAIT_BASE}${id}-${k.suffix}.webp`;
+  const v = PORTRAIT_V3[id] && V3_KINDS.has(kind) ? `?v=${PORTRAIT_V3[id]}` : '';
+  return `${PORTRAIT_BASE}${id}-${k.suffix}.webp${v}`;
 }
 
 /** Fade widths per cut edge (CSS custom properties read by .pt-edge in base.css). */
