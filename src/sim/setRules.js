@@ -96,7 +96,13 @@ export function controlMulOf(us) {
 }
 
 /** Her push-backs' multiplier from Control Strength: half of it (×(1 + (c − 1)/2)). */
-export const pushMul = (us) => (us && us.controlMul > 1 ? 1 + (Math.min(CONTROL_MUL_MAX, us.controlMul) - 1) / 2 : 1);
+/** A push-back's multiplier from a Control Strength multiplier `m` (controlMulOf): half its bonus. */
+export const pushMulFor = (m) => (m > 1 ? 1 + (Math.min(CONTROL_MUL_MAX, m) - 1) / 2 : 1);
+/**
+ * Her push-backs' multiplier: half her Control Strength (controlMulOf, the LR You're It form included), the one rule for
+ * her attacks' pushes (Sim._onHitEffects via the status context), her hero skill and her abilities (audit A LOW1).
+ */
+export const pushMul = (us) => pushMulFor(controlMulOf(us));
 /** Her average crit factor as her unit stats carry it (1 without). */
 export const avgCritOf = (us) => (us && us.avgCrit > 1 ? us.avgCrit : 1);
 
