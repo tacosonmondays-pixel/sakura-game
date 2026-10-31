@@ -136,7 +136,11 @@ for (const vp of viewports) {
     // Yuzuha rides in the loadout for the live-count step at the end (placed only then)
     await seedSave(page, { girls: [HERO, ...SQUAD, 'yuzuha'], hero: HERO, towers: [...SQUAD, 'yuzuha'], cleared: ['1-1', '1-2'] });
     await openBattle(page, { stage: '1-3', cash: 1e8 });
-    const ids = { luna: await place(HERO, []) };
+    // Luna on a fixed spot of 1-3 (the spot __ab.place picks next to the road; the placement grid is the same at every
+    // quality, review r2 follow-up), so her Moonbeam staging below does not hang on the search order
+    const LUNA_AT = [13.4, 3.2];
+    const ids = { luna: await page.evaluate(([x, y]) => window.__battle.sim.placeTower('luna', x, y)?.uid ?? null, LUNA_AT) };
+    check(ids.luna != null, `${vp} Luna placed at ${LUNA_AT.join(', ')}`);
     // Luna to Lv 25 (her Moonbeam Sweep comes at Lv 22): the XP a long battle would give
     await page.evaluate((u) => {
       const { sim } = window.__battle;
@@ -149,7 +153,7 @@ for (const vp of viewports) {
     await page.evaluate(() => window.__battle.sim.startNextWave());
     await stepGame(3);
     // a crowd at each girl: plain bears kept alive (HP refilled) and slow, on the road nearest her
-    await page.evaluate((uids) => {
+    await page.evaluate(([uids, lunaUid]) => {
       const { sim } = window.__battle;
       for (const uid of uids) {
         const t = sim.getTower(uid);
@@ -166,9 +170,22 @@ for (const vp of viewports) {
             if (!best || r < best.r) best = { r, pi, d };
           }
         });
-        for (let i = 0; i < 6; i++) sim.spawnEnemy('beast_bear', { pathIndex: best.pi, dist: Math.max(0.3, best.d - 0.4 * i), hpMul: 3000 / (sim.data.enemy('beast_bear')?.hp || 1) });
+        // Luna's pack is tough (300k): at 3k the squad can burst a bear inside one step, before the refill, and how fast
+        // her pack thins then hangs on frame timing (the game's own loop steps the sim too)
+        const hpMul = (uid === lunaUid ? 3e5 : 3000) / (sim.data.enemy('beast_bear')?.hp || 1);
+        for (let i = 0; i < 6; i++) sim.spawnEnemy('beast_bear', { pathIndex: best.pi, dist: Math.max(0.3, best.d - 0.4 * i), hpMul });
+        // Luna's Moonbeam strikes only what her volley did not: bears along the road on both sides of her nearest point
+        // sit off her lead's line, inside the sweep's arc, so a pass always has something of its own to hit
+        if (uid === lunaUid) {
+          const len = sim.pathData[best.pi].length;
+          for (let o = -2.5; o <= 2.5; o += 0.5) {
+            const d = best.d + o;
+            if (Math.abs(o) < 0.6 || d < 0.3 || d > len - 0.3) continue;
+            sim.spawnEnemy('beast_bear', { pathIndex: best.pi, dist: d, hpMul });
+          }
+        }
       }
-    }, Object.values(ids).filter((u) => u != null));
+    }, [Object.values(ids).filter((u) => u != null), ids.luna]);
     await stepGame(10);
 
     const d = {};
@@ -195,7 +212,9 @@ for (const vp of viewports) {
       check(L.heroGrid && L.range != null && L.dealt != null && L.kills != null, `Luna: her attack grid (Range ${L.range}, Damage dealt ${L.dealt}, Kills ${L.kills})`);
       check(L.aura != null && /tiles/.test(L.aura), `Luna: her aura row ("${L.aura}")`);
       check(/\d+ beams? · ±\d+° sweep · \d+% of her hit/.test(L.kits.moon || ''), `Luna: her Moonbeam row with its tier numbers ("${L.kits.moon}")`);
-      check(/^Attack \d+% · Moonbeam \d+%$/.test(L.split || ''), `Luna: her damage by source ("${L.split}")`);
+      // the UI writes a share under 1% as "<1%"; Moonbeam must have landed (her shape credit in the sim, and not "0%")
+      const moonDealt = await page.evaluate((u) => window.__battle.sim.getTower(u)?.shapeDealt || 0, ids.luna);
+      check(/^Attack (<1|\d+)% · Moonbeam (<1|\d+)%$/.test(L.split || '') && !/Moonbeam 0%/.test(L.split) && moonDealt > 0, `Luna: her damage by source ("${L.split}", Moonbeam dealt ${Math.round(moonDealt)})`);
       const C = d.chika;
       check(C && num(C.live) > 0, `Chika: her own panel still shows her measured DPS (${C?.live})`);
       const I = d.iroha;

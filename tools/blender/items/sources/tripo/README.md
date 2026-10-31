@@ -1,9 +1,9 @@
 # Tripo gear looks (icon sources, batch 2)
 
 The Hair Clip and Necklace set looks and the two plain looks (`docs/art/ASSET_WISHLIST.md` §1.9, P1) as 3D sources
-for the item-icon pipeline (`tools/blender/items/`). They are **not wired in yet**: `src/art/itemArt.js` and
-`public/art/items/` are untouched, and the two new gear slots still show the Charm icon until the item-art session
-bakes these into icons. Made on the Tripo website by the owner (batch 2, `docs/art/tripo/batch-2.md`), processed by
+for the item-icon pipeline (`tools/blender/items/`). The Hair Clip and Necklace icons are **baked** (release v0.1.68,
+`feature/item-icons-3d`): `public/art/items/gear_<set>_hair-*.webp` and `gear_<set>_necklace-*.webp`, wired in through
+`src/art/itemArt.js`. Made on the Tripo website by the owner (batch 2, `docs/art/tripo/batch-2.md`), processed by
 `tools/tripo/build_tripo_prop.py --height 0.5 --tris 3000 --tex 512`: one textured mesh each (base colour WebP 512²,
 int16 positions), glTF +Y up, front +Z, origin on the floor under the centre, 0.5 units tall.
 
@@ -27,4 +27,5 @@ int16 positions), glTF +Y up, front +Z, origin on the floor under the centre, 0.
 Notes for the bake: the textures carry Tripo's painted shading, so a flat (unlit, or very soft) bake keeps their
 colours closest; the set colours above are the wishlist's, the models follow them. The raw website downloads stay out
 of git (the owner's batch-2 zips). These processed sources are committed (1.7 MB) because they were already in the
-branch's history when the review asked about moving them out; the item-art session can move them once it has baked them.
+branch's history when the review asked about moving them out; now that the icons are baked they can move out of the
+repo whenever someone tidies it up.
