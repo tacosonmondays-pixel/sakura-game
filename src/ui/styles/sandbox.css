@@ -80,7 +80,11 @@
 @media (max-height: 480px) {
   .sbx-options { padding: 5px 10px; gap: 6px 10px; }
   .sbx-chip, .sbx-select, .sbx-num, .sbx-tab { min-height: 36px; }
-  .sbx-build { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  /* up to six controls (Limit Break shows for an LR girl): two rows of three keep the gear names readable (review r2 R3) */
+  .sbx-build { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* 844x390: the stage title keeps room before the difficulty pill takes it (review r2 R4) */
+  .sbx-bar-map { min-width: 9em; }
+  .sbx-bar-diff { flex: 1 1 0; }
 }
 @media (max-width: 480px) {
   /* portrait phone: the sticky header stays short (the rules strip shows on the squad step) */
