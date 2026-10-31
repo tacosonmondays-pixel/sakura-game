@@ -1017,6 +1017,8 @@ html[data-reduce-motion] .bt-buy-spin { animation: none; border-right-color: cur
   /* co-op: the CO-OP strip (online.css .ol-coop-hud, 44 px down, about 36 px tall) sits under the HUD here: the toasts
      start below it, never over its names, coins and gift button (review r1 L3) */
   .bt-coop .bt-feed { top: calc(84px + var(--safe-top)); }
+  /* (…and under its state line, "Waiting for ally…" / "Ally left — …", which hangs below the strip here: online.css) */
+  .bt-coop.bt-coop-state .bt-feed { top: calc(112px + var(--safe-top)); }
   .bt-coop.bt-has-boss .bt-feed { top: calc(var(--bt-hud-h) + var(--safe-top) + 64px + 40px); }
   .bt-toast-ico { width: 14px; height: 14px; }
   .bt-banner { padding: 6px 44px 7px; }

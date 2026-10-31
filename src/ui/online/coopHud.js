@@ -167,11 +167,14 @@ export function createCoopHud(ctx) {
       stateAt = performance.now();
       state.textContent = text;
       state.hidden = !text;
+      // (a short screen docks the feed under the strip, and under this line while it shows: battle.css .bt-coop-state)
+      ctx.shell?.classList?.toggle('bt-coop-state', !!text);
       el.classList.toggle('ol-coop-wait', !!text && !peer?.gone);
       chips[1 - coop.mySlot]?.classList.toggle('gone', !!peer?.gone || !!ls.desynced);
     } else if (text && graceSecs == null && (peer?.gone || ls.desynced) && !state.hidden && performance.now() - stateAt > GONE_LINE_MS) {
       // (the feed said it too; the line would only cover the field from now on)
       state.hidden = true;
+      ctx.shell?.classList?.toggle('bt-coop-state', false);
     }
   }
 

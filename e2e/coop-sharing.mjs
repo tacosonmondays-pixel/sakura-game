@@ -224,10 +224,11 @@ try {
   const amount = Number((await B.locator('[data-testid="gift-amount"]').innerText()).replace(/[^\d]/g, ''));
   await shots(B, 'share-01-gift-sheet');
   await tap(B, '[data-testid="gift-send"]');
-  const landed = await waitFor(A, ([w, n]) => {
+  // (on both pages: each runs the gift at its tick, a moment apart)
+  const landed = (await Promise.all([A, B].map((p) => waitFor(p, ([w, n]) => {
     const now = window.__battle.coop.lockstep.coop.wallets;
     return now[0] >= w[0] + n;
-  }, [w0, amount], 20000);
+  }, [w0, amount], 20000)))).every(Boolean);
   const w1 = await Promise.all([A, B].map((p) => p.evaluate(() => window.__battle.coop.lockstep.coop.wallets)));
   // (each page read at its own tick: the hash check below compares them tick for tick)
   check(amount >= 10 && landed && w1[1][0] >= w0[0] + amount, `the gift of ${amount} landed in the host's wallet on both screens (${JSON.stringify(w0)} → host ${JSON.stringify(w1[0])} / guest ${JSON.stringify(w1[1])})`);
