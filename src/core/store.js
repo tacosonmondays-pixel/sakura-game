@@ -34,6 +34,7 @@ import { syncTeams } from '../systems/teams.js';
 import { writeBuildCoachMark } from '../systems/buildCoachSave.js';
 import { writeRosterMarks } from '../systems/rosterSave.js';
 import { writeTeamMarks } from '../systems/teamsSave.js';
+import { writeStickerMark } from '../systems/stickers.js';
 
 function safeGet(key) {
   try {
@@ -73,6 +74,7 @@ export function saveText(profile, rev, by = '') {
   if (profile?.units && profile?.gear && profile?.missions) syncTeams(profile);
   if (profile?.units && profile?.missions) writeTeamMarks(profile);
   if (profile?.units && profile?.missions) writeBuildCoachMark(profile); // [build coach] the main girl's 'cm:' mark
+  if (profile?.missions) writeStickerMark(profile); // [stickers] 'stk:off' while other players' stickers are off
   const body = JSON.stringify(profile);
   const head = by ? `{"saveRev":${rev},"saveBy":"${by}"` : `{"saveRev":${rev}`;
   return body.length > 2 ? `${head},${body.slice(1)}` : `${head}}`;

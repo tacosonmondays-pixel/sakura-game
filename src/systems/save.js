@@ -2,6 +2,7 @@
 //
 // Pure functions: no DOM / localStorage here (src/core/store.js persists the profile).
 
+import { restoredShowStickers, writeStickerMark } from './stickers.js';
 import { UNIT_MAP, UNITS } from '../data/units.js';
 import { ITEMS } from '../data/items.js';
 import { ITEM_RARITIES, DIFFICULTY_ORDER, BATTLE, GEAR_STATS } from '../data/types.js';
@@ -671,6 +672,9 @@ export function migrateProfile(raw) {
   p.shop = { day: str(shop.day), week: str(shop.week), bought: cleanCounts(shop.bought) };
   p.redeemed = strList(raw.redeemed);
   p.settings = cleanSettings(raw.settings);
+  // [stickers] "Show stickers from other players" off comes back from its 'stk:off' mark after an older build dropped it
+  p.settings.showStickers = restoredShowStickers(raw.settings, p.missions.counters, p.settings.showStickers);
+  writeStickerMark(p);
   p.secretary = str(raw.secretary) && p.units[raw.secretary] ? raw.secretary : 'hikari';
   p.lobbyBg = cleanLobbyBg(raw.lobbyBg);
   p.bond = cleanBond(raw.bond, p.units);
