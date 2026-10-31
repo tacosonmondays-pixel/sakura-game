@@ -20,6 +20,14 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.67', version: '0.1.67', date: '2026-10-31', title: 'Ribbons, Secrets and Frames',
+    added: [
+      'Every Honor Ribbon in your Case has new art: chunky 3D-style rosettes with pleats that catch the light, folded tails and a shiny medal face, in the same look as the gear icons.',
+      'Every secret achievement now gives something to show off: four new secret ribbons, a new title and two secret picture frames. Already found a secret? Its new reward is waiting in your Case and your Edit Profile.',
+      'Twelve new picture frames for your Sensei Profile, from Sakura and Laurel to Hundred Waves, Limit Break and Lantern Night. Each one says how to earn it in Edit Profile, and everything you have already done counts.',
+    ],
+  },
+  {
     id: 'v0.1.66', version: '0.1.66', date: '2026-10-31', title: 'Mirrors, Curses and the Gear Update',
     added: [
       'Sixteen girls get new attack shapes, from wheels and returning throws to held streams and rising spikes. Ena’s curse now rots its target and spreads to nearby enemies, and Iroha places a network of mirrors her bolts bounce between.',
