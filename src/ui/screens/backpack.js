@@ -49,6 +49,7 @@ import { isUR } from '../rarity.js';
 import { boxSummary, SUMMARY_ABOVE } from '../gearSummary.js';
 import { gearCard, pickGearFor, rainbowBoxModal, setBoxModal, openSetBoxesNow } from '../gearUr.js';
 import { setBoxOpenable, SET_OPEN_BATCH_MAX } from '../../systems/gearSets.js';
+import { GEAR_SETS } from '../../data/gearSets.js';
 import { openPieceSheet } from '../girlGear.js';
 import '../styles/achievements.css'; // the gear summary
 
@@ -273,6 +274,16 @@ function openBoxes(itemId, n, after) {
   after();
 }
 
+/**
+ * The Supplies line of a Set Box (owner, Oct 31: say which set it opens): "Opens 5 Freeze Tag pieces", or the choice
+ * a pick box gives, then how its main stats are set (a random box rolls them, a preset box lets you choose).
+ */
+export function boxLine(it) {
+  if (!it?.pickSet) return null;
+  const what = it.set && GEAR_SETS[it.set] ? `Opens 5 ${GEAR_SETS[it.set].name} pieces` : 'Pick a set: opens its 5 pieces';
+  return `${what} · ${it.setKind === 'random' ? 'main stats rolled' : 'you choose the main stats'}`;
+}
+
 /** The Supplies sheet (§6.4): the gear boxes (Open, Open ×10, Open all) and the gear tools, one line each. */
 function openSupplies(rerender) {
   const profile = store.profile;
@@ -301,7 +312,7 @@ function openSupplies(rerender) {
         if (b.setKind === 'random' && b.set) {
           return row(b, {
             testid: `box-${b.id}`,
-            line: 'Five pieces a box, main stats rolled',
+            line: boxLine(b),
             acts: [
               inkBtn('Open', { testid: `set-box-open-${b.id}`, onClick: () => openSetBoxesNow(b.id, 1, { onDone: after, summary: boxSummary }) }),
               n > 1 ? secondaryBtn(`Open ×${Math.min(10, n)}`, { testid: `set-box-open10-${b.id}`, onClick: () => openSetBoxesNow(b.id, Math.min(10, n), { onDone: after, summary: boxSummary }) }) : null,
@@ -309,7 +320,7 @@ function openSupplies(rerender) {
             ].filter(Boolean),
           });
         }
-        const line = b.setKind === 'random' ? 'Choose a set; main stats rolled' : b.set ? 'Choose the main stats' : 'Choose a set and the main stats';
+        const line = boxLine(b);
         return row(b, {
           testid: `box-${b.id}`,
           line,

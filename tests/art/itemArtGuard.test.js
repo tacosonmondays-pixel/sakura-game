@@ -16,11 +16,9 @@ const artOf = (markup) => (/<img [^>]*data-art="([^"]+)"/.exec(markup) || [])[1]
 
 describe('guard: every item and gear piece the game shows has baked 3D-flat art', () => {
   it('every item id (Set Boxes, pins, lenses and every later item included)', () => {
-    // RELEASE BLOCKER (v0.1.68): Set Boxes v2's 28 new ids (docs/specs/SET_BOXES_V2.md §3) wait for their bake on
-    // feature/item-icons-3d. Only those, and only while unbaked: each one baked is enforced at once. Remove before release.
-    const pending = SET_BOX_V2_IDS.filter((id) => !baked(id));
-    expect(ITEM_IDS.filter((id) => !baked(id) && !pending.includes(id))).toEqual([]);
-    for (const id of ITEM_IDS.filter((x) => !pending.includes(x))) expect(artOf(itemIcon(id)), id).toBe(id); // its own image over the drawing
+    expect(ITEM_IDS.filter((id) => !baked(id))).toEqual([]);
+    expect(SET_BOX_V2_IDS.filter((id) => !baked(id))).toEqual([]); // Set Boxes v2's 28 boxes (docs/specs/SET_BOXES_V2.md §3)
+    for (const id of ITEM_IDS) expect(artOf(itemIcon(id)), id).toBe(id); // its own image over the drawing
   });
 
   it('every slot at every rarity and UR has its own key (never another slot\'s art)', () => {
@@ -37,17 +35,17 @@ describe('guard: every item and gear piece the game shows has baked 3D-flat art'
     expect(missing).toEqual([]);
   });
 
-  it('every set piece resolves to baked art; the set-only slots (Hair Clip, Necklace) show their set\'s own look', () => {
+  it('every set has its own look for all five slots, and every set piece shows it (any rarity, UR too)', () => {
     for (const set of SET_IDS) {
-      for (const slot of SET_ONLY_SLOTS) expect(baked(`gear_${set}_${slot}`), `gear_${set}_${slot}`).toBe(true);
+      for (const slot of SLOT_IDS) expect(baked(`gear_${set}_${slot}`), `gear_${set}_${slot}`).toBe(true); // all 30 looks
       for (const slot of SLOT_IDS) {
         for (const r of SET_RARITIES) {
           const key = gearArtKey(slot, r, { set });
           expect(baked(key), `${set} ${slot} ${r} -> ${key}`).toBe(true);
           expect(artOf(gearIcon(slot, r, { set })), `${set} ${slot} ${r}`).toBe(key);
-          if (SET_ONLY_SLOTS.includes(slot)) expect(key).toBe(`gear_${set}_${slot}`);
+          expect(key).toBe(`gear_${set}_${slot}`); // a set piece always shows its set's own look
         }
-        expect(baked(gearArtKey(slot, 'legendary', { ur: true, set })), `${set} ${slot} UR`).toBe(true);
+        expect(gearArtKey(slot, 'legendary', { ur: true, set }), `${set} ${slot} UR`).toBe(`gear_${set}_${slot}`);
       }
     }
   });

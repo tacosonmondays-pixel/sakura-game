@@ -522,9 +522,22 @@ export function rainbowBoxModal(onDone = () => {}) {
 export function setBoxHeader(set, itemId = null) {
   const t = SET_TEXT[set];
   const def = GEAR_SETS[set];
+  const it = getItem(itemId);
+  const rarity = it?.rarity || 'legendary';
+  const ur = /_ur(_|$)/.test(String(itemId || ''));
+  // the owner, Oct 31: a box reads as its set before it opens: its box icon and name, the five pieces in the set's look,
+  // the bonus (a pick box shows the chosen set's own box)
+  const box = itemId && String(itemId).includes('_pick_') ? String(itemId).replace('_pick_', `_${set}_`) : itemId;
   return h('div.gu-set-head', { 'data-testid': 'set-box-head', 'data-set': set, 'data-item': itemId || '' },
-    h('p', h('b', `${def.name}: ${t.passive}. `), `4 pieces: ${t.four} 5 pieces: ${t.five}`),
-    h('p.muted.gu-set-pieces', SLOT_IDS.map((slot) => def.pieces[slot]).join(' · ')));
+    h('div.gu-sb-head', { style: { '--set': def.color } },
+      box ? svgEl(itemIcon(box, { px: 64 }), 'gu-sb-box') : null,
+      h('div.gu-sb-title', h('b', def.name), h('small', it?.name || 'Set Box'))),
+    h('div.gu-sb-pieces', { 'data-testid': 'set-box-pieces' },
+      h('p.gu-sb-k', `You get these 5 ${def.name} pieces`),
+      h('div.gu-sb-row', SLOT_IDS.map((slot) => h('div.gu-sb-piece',
+        svgEl(gearIcon(slot, ur ? 'legendary' : rarity, { set, ur, px: 48 }), 'gu-sb-piece-ico'),
+        h('small', def.pieces[slot] || slotName(slot)))))),
+    h('p.gu-sb-bonus', { 'data-testid': 'set-box-bonus' }, h('b', `${t.passive}. `), `4 pieces: ${t.four} 5 pieces: ${t.five}`));
 }
 
 /** "Crit DMG ×3 · ATK ×2": the main stats a batch rolled for one slot. */
@@ -597,10 +610,11 @@ export function setBoxModal(itemId, onDone = () => {}, { count: startCount = 1, 
     body.appendChild(h('p.muted', preset
       ? 'All five pieces of one set at +0. You choose each main stat; the substats are rolled.'
       : 'All five pieces of one set at +0. The main stats and the substats are rolled.'));
-    if (sets.length > 1) {
-      body.appendChild(h('div.row', sets.map((id) => button(GEAR_SETS[id].name, {
-        kind: set === id ? 'primary' : 'ghost', small: true, icon: null, testid: `set-box-set-${id}`, onClick: () => { set = id; draw(); },
-      }))));
+    if (sets.length > 1) {                               // a pick box: the six sets first, each with its own box
+      body.appendChild(h('p.gu-sb-k', 'Pick a set'));
+      body.appendChild(h('div.gu-sb-sets', sets.map((id) => h(`button.gu-sb-set${set === id ? '.on' : ''}`, {
+        type: 'button', 'data-testid': `set-box-set-${id}`, 'aria-pressed': set === id ? 'true' : 'false', onclick: () => { set = id; draw(); },
+      }, svgEl(itemIcon(String(itemId).replace('_pick_', `_${id}_`), { px: 40 }), 'gu-sb-set-ico'), h('span', GEAR_SETS[id].name)))));
     }
     body.appendChild(setBoxHeader(set, itemId));
     // the dead-passive rule (§3.1): what her kit cannot use of this set, said before the box opens
@@ -608,10 +622,14 @@ export function setBoxModal(itemId, onDone = () => {}, { count: startCount = 1, 
     const why = idle.passive || idle.cap;
     if (why) body.appendChild(h('p.muted.gk-set-idle', { 'data-testid': 'set-box-idle' }, `For ${UNIT_MAP[girl]?.name || 'her'}: ${why}`));
     if (preset) {
+      body.appendChild(h('p.gu-sb-k', 'Choose each main stat (the substats are rolled)'));
+      const r = getItem(itemId)?.rarity || 'legendary';
       for (const slot of SLOT_IDS) {
-        body.appendChild(h('div.row', h('b', `${slotName(slot)}: `), MAIN_STATS_BY_SLOT[slot].map((k) => button(statName(k), {
-          kind: mains[slot] === k ? 'primary' : 'ghost', small: true, icon: null, testid: `set-box-main-${slot}-${k}`, onClick: () => { mains = { ...mains, [slot]: k }; draw(); },
-        }))));
+        body.appendChild(h('div.gu-sb-pick', { 'data-testid': `set-box-slot-${slot}` },
+          h('span.gu-sb-pick-name', svgEl(gearIcon(slot, r, { set, px: 28 }), 'gu-sb-pick-ico'), h('b', slotName(slot))),
+          h('div.gu-sb-stats', MAIN_STATS_BY_SLOT[slot].map((k) => button(statName(k), {
+            kind: mains[slot] === k ? 'primary' : 'ghost', small: true, icon: null, testid: `set-box-main-${slot}-${k}`, onClick: () => { mains = { ...mains, [slot]: k }; draw(); },
+          })))));
       }
       body.appendChild(h('div.row', button(`Fill for ${UNIT_MAP[girl]?.name || 'her'}`, { kind: 'ghost', small: true, icon: null, testid: 'set-box-fill', onClick: () => { mains = fillMainsFor(profile, girl); draw(); } })));
     }

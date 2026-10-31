@@ -76,7 +76,7 @@ python3 tools/blender/items/build_items.py --list       # keys and families
   the object; on the runes, embers and feathers one glint at most, on a metal or crystal part, never on the matte
   stone or vane (ITEM_STYLE 2.5)), the contact shadow (silhouette offset (+1, +5) px,
   blurred, navy `#263a5c` at 32% core), framing check, Lanczos downscale (premultiplied), WebP q88 / alpha 100,
-  size caps (20 KB / 9 KB / 5 KB, 2.2 MB in all; `tests/art/itemArt.test.js` enforces them), sheets, manifest.
+  size caps (20 KB / 9 KB / 5 KB, 3.2 MB in all; `tests/art/itemArt.test.js` enforces them), sheets, manifest.
 - `parts.py`: outlines (rounded rect, sakura, star, heart, gear, crescent, flame, leaf), solids (bevelled slab,
   rounded box, lathe with hard edges, sweep, torus, faceted fan gem with ridges or a spine, cut gem, cabochon,
   crystal prism, round cone, convex hull with rounded edges for cut stones and dice, `ring_slab` for a slab with a
@@ -133,11 +133,13 @@ re-skins a base is a row; a design that needs a new form (a keyring, a bracelet,
   already shows as its tile emblem. Set ids are `[a-z0-9]+` and never a slot or tier name. A row overrides any design
   field per slot; `gearIcon(slot, rarity, { set: g.set })` shows it and falls back to the default look while a set
   has no art. `preview=True` bakes to the scratch folder only (`sample` is one). A set row bakes only the slots it
-  lists: today the six sets draw their Hair Clip (pom, pause button, set square, confetti star, calculator, lightning
-  bolt on the bar clip) and Necklace (heart with a megaphone, stopwatch, crosshair locket, party popper, sakura coin,
-  battery), in the set colour with white and gold trim; their Charm, Ribbon and Shoes keep the default looks.
+  lists: today each of the six sets has all five looks, one motif per set (its ornament: pom, pause button, set
+  square, confetti star, calculator, lightning bolt) in the set colour with white and gold trim: the Charm is the
+  ornament on a keyring (`keyring` base), the Ribbon and the Shoes wear it as a badge (`emblem`), the Hair Clip
+  carries it on its bar, and the Necklace is the set's locket (heart with a megaphone, stopwatch, crosshair locket,
+  party popper, sakura coin, battery).
 - Set Boxes (`setbox_<set>_<mythic|legendary>`, `models/boxes.py`): the gear box in the set colour with the set's crest
-  (the pick box: pearl, a ring of the six set colours). Tie Pin, Collar Pin and Nightglass Lens are in `models/tools.py`.
+  on the lid and the front (the pick box: pearl, a ring of the six set colours). Tie Pin, Collar Pin and Nightglass Lens are in `models/tools.py`.
 
 ```
 ... build_items.py -- --family gear                     # the game's gear keys (+ the set looks of GEAR_SETS)
@@ -217,20 +219,48 @@ Visual targets are our own approved icons only (kept outside the repo, except a 
 | `gearbox_mythic` | Radiant Gear Box | boxes | mythic | 256, 128 | pink chest, rose-gold straps and latch, lid open 15 degrees on its hinge, cream lining sunk below the rim, gear emblem with a pink gem (appr.) |
 | `gearbox_legendary` | Celestial Gear Box | boxes | legendary | 256, 128 | teal chest, gold straps, lid open 15 degrees, sunk lining, white-blue gem, star glint |
 | `gearbox_rainbow` | Rainbow Gear Box | boxes | legendary (rainbow) | 256, 128 | lilac-pearl iridescent chest, iridescent straps, lid open 15 degrees, sunk lining, prism glints |
-| `setbox_pick_mythic` | Mythic Set Box | boxes | mythic | 256, 128 | Set Box: the gear box in pearl, a ring of the six set colours round a white sakura; rose-gold straps, pink gem |
-| `setbox_pick_legendary` | Legendary Set Box | boxes | legendary | 256, 128 | Set Box: the gear box in pearl, a ring of the six set colours round a white sakura; gold straps, amber gem |
-| `setbox_spirit_mythic` | Spirit Squad Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in red, white pom crest; rose-gold straps, pink gem |
-| `setbox_spirit_legendary` | Spirit Squad Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in red, white pom crest; gold straps, amber gem |
-| `setbox_freezetag_mythic` | Freeze Tag Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in ice blue, white pause-bars crest; rose-gold straps, pink gem |
-| `setbox_freezetag_legendary` | Freeze Tag Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in ice blue, white pause-bars crest; gold straps, amber gem |
-| `setbox_geometry_mythic` | Geometry Set Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in slate blue, white set-square crest; rose-gold straps, pink gem |
-| `setbox_geometry_legendary` | Geometry Set Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in slate blue, white set-square crest; gold straps, amber gem |
-| `setbox_popper_mythic` | Party Popper Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in purple, white star crest; rose-gold straps, pink gem |
-| `setbox_popper_legendary` | Party Popper Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in purple, white star crest; gold straps, amber gem |
-| `setbox_treasurer_mythic` | Treasurer Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in mint, white coin crest; rose-gold straps, pink gem |
-| `setbox_treasurer_legendary` | Treasurer Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in mint, white coin crest; gold straps, amber gem |
-| `setbox_powerbank_mythic` | Power Bank Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in lime, white bolt crest; rose-gold straps, pink gem |
-| `setbox_powerbank_legendary` | Power Bank Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in lime, white bolt crest; gold straps, amber gem |
+| `setbox_pick_mythic_random` | Mythic Set Box | boxes | mythic | 256, 128 | Set Box (random): the gear box in pearl, a ring of the six set colours round a white sakura; rose-gold straps, pink gem |
+| `setbox_pick_legendary_random` | Legendary Set Box | boxes | legendary | 256, 128 | Set Box (random): the gear box in pearl, a ring of the six set colours round a white sakura; gold straps, amber gem |
+| `setbox_pick_ur_random` | UR Set Box | boxes | ur | 256, 128 | Set Box (random): the gear box in pearl, a ring of the six set colours round a white sakura; rainbow straps and gem |
+| `setbox_pick_mythic` | Mythic Preset Set Box | boxes | mythic | 256, 128 | Set Box (preset): the gear box in pearl, a ring of the six set colours round a white sakura; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_pick_legendary` | Legendary Preset Set Box | boxes | legendary | 256, 128 | Set Box (preset): the gear box in pearl, a ring of the six set colours round a white sakura; gold straps, amber gem; the gold pencil tag |
+| `setbox_pick_ur` | UR Preset Set Box | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in pearl, a ring of the six set colours round a white sakura; rainbow straps and gem; the gold pencil tag |
+| `setbox_spirit_mythic_random` | Spirit Squad Box (Mythic) | boxes | mythic | 256, 128 | Set Box (random): the gear box in red, white pom crest; rose-gold straps, pink gem |
+| `setbox_spirit_legendary_random` | Spirit Squad Box (Legendary) | boxes | legendary | 256, 128 | Set Box (random): the gear box in red, white pom crest; gold straps, amber gem |
+| `setbox_spirit_ur_random` | Spirit Squad Box (UR) | boxes | ur | 256, 128 | Set Box (random): the gear box in red, white pom crest; rainbow straps and gem |
+| `setbox_spirit_mythic` | Spirit Squad Preset Box (Mythic) | boxes | mythic | 256, 128 | Set Box (preset): the gear box in red, white pom crest; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_spirit_legendary` | Spirit Squad Preset Box (Legendary) | boxes | legendary | 256, 128 | Set Box (preset): the gear box in red, white pom crest; gold straps, amber gem; the gold pencil tag |
+| `setbox_spirit_ur` | Spirit Squad Preset Box (UR) | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in red, white pom crest; rainbow straps and gem; the gold pencil tag |
+| `setbox_freezetag_mythic_random` | Freeze Tag Box (Mythic) | boxes | mythic | 256, 128 | Set Box (random): the gear box in ice blue, white pause-bars crest; rose-gold straps, pink gem |
+| `setbox_freezetag_legendary_random` | Freeze Tag Box (Legendary) | boxes | legendary | 256, 128 | Set Box (random): the gear box in ice blue, white pause-bars crest; gold straps, amber gem |
+| `setbox_freezetag_ur_random` | Freeze Tag Box (UR) | boxes | ur | 256, 128 | Set Box (random): the gear box in ice blue, white pause-bars crest; rainbow straps and gem |
+| `setbox_freezetag_mythic` | Freeze Tag Preset Box (Mythic) | boxes | mythic | 256, 128 | Set Box (preset): the gear box in ice blue, white pause-bars crest; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_freezetag_legendary` | Freeze Tag Preset Box (Legendary) | boxes | legendary | 256, 128 | Set Box (preset): the gear box in ice blue, white pause-bars crest; gold straps, amber gem; the gold pencil tag |
+| `setbox_freezetag_ur` | Freeze Tag Preset Box (UR) | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in ice blue, white pause-bars crest; rainbow straps and gem; the gold pencil tag |
+| `setbox_geometry_mythic_random` | Geometry Set Box (Mythic) | boxes | mythic | 256, 128 | Set Box (random): the gear box in slate blue, white set-square crest; rose-gold straps, pink gem |
+| `setbox_geometry_legendary_random` | Geometry Set Box (Legendary) | boxes | legendary | 256, 128 | Set Box (random): the gear box in slate blue, white set-square crest; gold straps, amber gem |
+| `setbox_geometry_ur_random` | Geometry Set Box (UR) | boxes | ur | 256, 128 | Set Box (random): the gear box in slate blue, white set-square crest; rainbow straps and gem |
+| `setbox_geometry_mythic` | Geometry Set Preset Box (Mythic) | boxes | mythic | 256, 128 | Set Box (preset): the gear box in slate blue, white set-square crest; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_geometry_legendary` | Geometry Set Preset Box (Legendary) | boxes | legendary | 256, 128 | Set Box (preset): the gear box in slate blue, white set-square crest; gold straps, amber gem; the gold pencil tag |
+| `setbox_geometry_ur` | Geometry Set Preset Box (UR) | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in slate blue, white set-square crest; rainbow straps and gem; the gold pencil tag |
+| `setbox_popper_mythic_random` | Party Popper Box (Mythic) | boxes | mythic | 256, 128 | Set Box (random): the gear box in purple, white star crest; rose-gold straps, pink gem |
+| `setbox_popper_legendary_random` | Party Popper Box (Legendary) | boxes | legendary | 256, 128 | Set Box (random): the gear box in purple, white star crest; gold straps, amber gem |
+| `setbox_popper_ur_random` | Party Popper Box (UR) | boxes | ur | 256, 128 | Set Box (random): the gear box in purple, white star crest; rainbow straps and gem |
+| `setbox_popper_mythic` | Party Popper Preset Box (Mythic) | boxes | mythic | 256, 128 | Set Box (preset): the gear box in purple, white star crest; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_popper_legendary` | Party Popper Preset Box (Legendary) | boxes | legendary | 256, 128 | Set Box (preset): the gear box in purple, white star crest; gold straps, amber gem; the gold pencil tag |
+| `setbox_popper_ur` | Party Popper Preset Box (UR) | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in purple, white star crest; rainbow straps and gem; the gold pencil tag |
+| `setbox_treasurer_mythic_random` | Treasurer Box (Mythic) | boxes | mythic | 256, 128 | Set Box (random): the gear box in mint, white coin crest; rose-gold straps, pink gem |
+| `setbox_treasurer_legendary_random` | Treasurer Box (Legendary) | boxes | legendary | 256, 128 | Set Box (random): the gear box in mint, white coin crest; gold straps, amber gem |
+| `setbox_treasurer_ur_random` | Treasurer Box (UR) | boxes | ur | 256, 128 | Set Box (random): the gear box in mint, white coin crest; rainbow straps and gem |
+| `setbox_treasurer_mythic` | Treasurer Preset Box (Mythic) | boxes | mythic | 256, 128 | Set Box (preset): the gear box in mint, white coin crest; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_treasurer_legendary` | Treasurer Preset Box (Legendary) | boxes | legendary | 256, 128 | Set Box (preset): the gear box in mint, white coin crest; gold straps, amber gem; the gold pencil tag |
+| `setbox_treasurer_ur` | Treasurer Preset Box (UR) | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in mint, white coin crest; rainbow straps and gem; the gold pencil tag |
+| `setbox_powerbank_mythic_random` | Power Bank Box (Mythic) | boxes | mythic | 256, 128 | Set Box (random): the gear box in lime, white bolt crest; rose-gold straps, pink gem |
+| `setbox_powerbank_legendary_random` | Power Bank Box (Legendary) | boxes | legendary | 256, 128 | Set Box (random): the gear box in lime, white bolt crest; gold straps, amber gem |
+| `setbox_powerbank_ur_random` | Power Bank Box (UR) | boxes | ur | 256, 128 | Set Box (random): the gear box in lime, white bolt crest; rainbow straps and gem |
+| `setbox_powerbank_mythic` | Power Bank Preset Box (Mythic) | boxes | mythic | 256, 128 | Set Box (preset): the gear box in lime, white bolt crest; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_powerbank_legendary` | Power Bank Preset Box (Legendary) | boxes | legendary | 256, 128 | Set Box (preset): the gear box in lime, white bolt crest; gold straps, amber gem; the gold pencil tag |
+| `setbox_powerbank_ur` | Power Bank Preset Box (UR) | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in lime, white bolt crest; rainbow straps and gem; the gold pencil tag |
 | `dice_reroll` | Fortune Dice | tools | rare | 256, 128 | rounded light-blue die, white pips, a sakura on the top face |
 | `lock_pin` | Lock Pin | tools | superRare | 256, 128 | silver padlock with a violet-gem keyhole, pink-headed pin through it |
 | `dice_prism` | Prism Dice | tools | mythic | 256, 128 | chunky rounded d12 die in pastel iridescence, tilted, saturated violet shadow plane, big embossed rose-gold pips (1-3) on its front faces |
@@ -281,16 +311,34 @@ Visual targets are our own approved icons only (kept outside the repo, except a 
 | `gear_necklace_legendary` | Necklace (legendary) | gear | legendary | 256, 128 | heart pendant on a chain loop with a clasp; gold trim, sunburst rays (ribbon: a star medallion; shoes: a gold toe rim and a bigger wing), star, a drop bead |
 | `gear_necklace_ur` | Necklace (UR) | gear | ur | 256, 128 | heart pendant on a chain loop with a clasp; iridescent body (saturated shadow) and trim, the legendary crest (the charm swaps its rays for the wings) plus rainbow wings (one pastel per feather), a drop bead |
 | `recruitPoints` | Recruit Points | currency | superRare | 256, 128, small | sakura rosette badge: a ring of petals, a gold star boss, two ribbon tails |
+| `gear_spirit_charm` | Charm (spirit set) | gear | superRare | 256, 128 | faceted diamond stone in a bezel on a short chain (pom shape, body #e5484d, gold trim); set look (rarity on the tile) |
+| `gear_spirit_ribbon` | Ribbon (spirit set) | gear | superRare | 256, 128 | chunky satin bow with a knot clip and two notched tails (body #e5484d, gold trim); set look (rarity on the tile) |
+| `gear_spirit_shoes` | Shoes (spirit set) | gear | superRare | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter (high shape, body #e5484d, gold trim); set look (rarity on the tile) |
 | `gear_spirit_hair` | Hair Clip (spirit set) | gear | superRare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end (pom shape, body #e5484d, gold trim); set look (rarity on the tile) |
 | `gear_spirit_necklace` | Necklace (spirit set) | gear | superRare | 256, 128 | heart pendant on a chain loop with a clasp (megaphone shape, body #e5484d, gold trim); set look (rarity on the tile) |
+| `gear_freezetag_charm` | Charm (freezetag set) | gear | superRare | 256, 128 | faceted diamond stone in a bezel on a short chain (pause shape, body #5fb4e8, gold trim); set look (rarity on the tile) |
+| `gear_freezetag_ribbon` | Ribbon (freezetag set) | gear | superRare | 256, 128 | chunky satin bow with a knot clip and two notched tails (body #5fb4e8, gold trim); set look (rarity on the tile) |
+| `gear_freezetag_shoes` | Shoes (freezetag set) | gear | superRare | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter (body #5fb4e8, gold trim); set look (rarity on the tile) |
 | `gear_freezetag_hair` | Hair Clip (freezetag set) | gear | superRare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end (pause shape, body #5fb4e8, gold trim); set look (rarity on the tile) |
 | `gear_freezetag_necklace` | Necklace (freezetag set) | gear | superRare | 256, 128 | heart pendant on a chain loop with a clasp (stopwatch shape, body #5fb4e8, gold trim); set look (rarity on the tile) |
+| `gear_geometry_charm` | Charm (geometry set) | gear | superRare | 256, 128 | faceted diamond stone in a bezel on a short chain (setsquare shape, body #5a6fa8, gold trim); set look (rarity on the tile) |
+| `gear_geometry_ribbon` | Ribbon (geometry set) | gear | superRare | 256, 128 | chunky satin bow with a knot clip and two notched tails (body #5a6fa8, gold trim); set look (rarity on the tile) |
+| `gear_geometry_shoes` | Shoes (geometry set) | gear | superRare | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter (body #5a6fa8, gold trim); set look (rarity on the tile) |
 | `gear_geometry_hair` | Hair Clip (geometry set) | gear | superRare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end (setsquare shape, body #5a6fa8, gold trim); set look (rarity on the tile) |
 | `gear_geometry_necklace` | Necklace (geometry set) | gear | superRare | 256, 128 | heart pendant on a chain loop with a clasp (crosshair shape, body #5a6fa8, gold trim); set look (rarity on the tile) |
+| `gear_popper_charm` | Charm (popper set) | gear | superRare | 256, 128 | faceted diamond stone in a bezel on a short chain (confetti shape, body #9b5de5, gold trim); set look (rarity on the tile) |
+| `gear_popper_ribbon` | Ribbon (popper set) | gear | superRare | 256, 128 | chunky satin bow with a knot clip and two notched tails (wide shape, body #9b5de5, gold trim); set look (rarity on the tile) |
+| `gear_popper_shoes` | Shoes (popper set) | gear | superRare | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter (high shape, body #9b5de5, gold trim); set look (rarity on the tile) |
 | `gear_popper_hair` | Hair Clip (popper set) | gear | superRare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end (confetti shape, body #9b5de5, gold trim); set look (rarity on the tile) |
 | `gear_popper_necklace` | Necklace (popper set) | gear | superRare | 256, 128 | heart pendant on a chain loop with a clasp (popper shape, body #9b5de5, gold trim); set look (rarity on the tile) |
+| `gear_treasurer_charm` | Charm (treasurer set) | gear | superRare | 256, 128 | faceted diamond stone in a bezel on a short chain (calc shape, body #9fd8c4, gold trim); set look (rarity on the tile) |
+| `gear_treasurer_ribbon` | Ribbon (treasurer set) | gear | superRare | 256, 128 | chunky satin bow with a knot clip and two notched tails (body #9fd8c4, gold trim); set look (rarity on the tile) |
+| `gear_treasurer_shoes` | Shoes (treasurer set) | gear | superRare | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter (body #9fd8c4, gold trim); set look (rarity on the tile) |
 | `gear_treasurer_hair` | Hair Clip (treasurer set) | gear | superRare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end (calc shape, body #9fd8c4, gold trim); set look (rarity on the tile) |
 | `gear_treasurer_necklace` | Necklace (treasurer set) | gear | superRare | 256, 128 | heart pendant on a chain loop with a clasp (coin shape, body #9fd8c4, gold trim); set look (rarity on the tile) |
+| `gear_powerbank_charm` | Charm (powerbank set) | gear | superRare | 256, 128 | faceted diamond stone in a bezel on a short chain (bolt shape, body #8bd13a, gold trim); set look (rarity on the tile) |
+| `gear_powerbank_ribbon` | Ribbon (powerbank set) | gear | superRare | 256, 128 | chunky satin bow with a knot clip and two notched tails (wide shape, body #8bd13a, gold trim); set look (rarity on the tile) |
+| `gear_powerbank_shoes` | Shoes (powerbank set) | gear | superRare | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter (high shape, body #8bd13a, gold trim); set look (rarity on the tile) |
 | `gear_powerbank_hair` | Hair Clip (powerbank set) | gear | superRare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end (bolt shape, body #8bd13a, gold trim); set look (rarity on the tile) |
 | `gear_powerbank_necklace` | Necklace (powerbank set) | gear | superRare | 256, 128 | heart pendant on a chain loop with a clasp (battery shape, body #8bd13a, gold trim); set look (rarity on the tile) |
 <!-- table:end -->

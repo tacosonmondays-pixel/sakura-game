@@ -2,7 +2,6 @@
 // gear piece and currency the game draws maps to its own baked image, the drawn SVG stays under it as the error
 // fallback only (a slow load shows a neutral placeholder), small boxes get the small cut, tiles wear their tier's
 // plate, and the change is display only (the battle sim id does not move).
-import { SET_BOX_V2_IDS } from '../../src/data/gearAwaken.js';
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -33,11 +32,9 @@ function img(markup) {
   return { src: attr('src'), srcset: attr('srcset'), sizes: attr('sizes'), art: attr('data-art'), cls: attr('class'), onerror: attr('onerror') };
 }
 
-// Every item is baked, the gear update's Set Boxes, pins and Nightglass Lens included (tests/art/itemArtGuard.test.js),
-// except Set Boxes v2's 28 new ids (docs/specs/SET_BOXES_V2.md §3: the random kind and the UR boxes), whose bake is
-// pending: until then they draw their SVG (the gear box of their rarity, a UR box the Rainbow Gear Box).
-const ART_PENDING = new Set(SET_BOX_V2_IDS);
-const BAKED_IDS = ITEM_IDS.filter((id) => !ART_PENDING.has(id));
+// Every item is baked: the gear update's Set Boxes, pins and Nightglass Lens and Set Boxes v2's 28 boxes included
+// (docs/specs/SET_BOXES_V2.md §3; tests/art/itemArtGuard.test.js).
+const BAKED_IDS = ITEM_IDS;
 
 describe('item art at runtime: every item has baked art', () => {
   it('every item id has a manifest entry, so no item falls back to the drawing', () => {

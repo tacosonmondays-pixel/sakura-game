@@ -18,7 +18,9 @@ const GEAR_SLOTS = Object.fromEntries(SLOT_IDS.map((s) => [s, GEAR_SLOT_DEFS[s]]
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, '..', '..', 'public', 'art', 'items');
 const CAP = { 256: 20 * 1024, 128: 9 * 1024, small: 5 * 1024 };
-const TOTAL_CAP = 2.2 * 1024 * 1024;
+// 3.2 MB since the gear sets got their 30 looks and the 42 Set Boxes their own art (Oct 31; was 2.2 MB): re-encoding the
+// committed WebPs could not get under 2.2 MB without visible loss (q80 still 2.45 MB), so the cap keeps ~300 KB of headroom
+const TOTAL_CAP = 3.2 * 1024 * 1024;
 const PX = { 256: 256, 128: 128, small: 96 };
 
 const ART_KEYS = new Set([

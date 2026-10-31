@@ -264,6 +264,11 @@ def bow(look):
     P.xf(knot, loc=(0, -0.04, 0.05))
     P.paint(knot, trim if look.tier != 'common' else C.over(body, base=body['light'], light='#ffffff'), line=2.2)
     motif = look.d.get('motif')
+    if look.d.get('emblem'):                             # a set look: the set's ornament as the knot's badge
+        _emblem(look, look.d['emblem'], (0.0, -0.3, 0.06), 0.42)
+        if look.star:
+            P.glint((-0.06, -0.4, 0.16), look.star)
+        return dict(kind='flat', roll=-8.0, turn=14.0, tip=14.0)
     if look.crest >= 2:                                  # medallion on the knot: the motif shape, or a star
         m2 = _motif2(motif or 'star', 0.34) or _motif2('star', 0.34)
         med = P.slab(m2, 0.1, 0.035, 2, 'medallion')
@@ -403,6 +408,11 @@ def sneaker(look):
             P.xf(e, loc=path[-1] if path[-1][1] < 0 else path[0])
             P.paint(e, trim, line=1.0)
     motif = look.d.get('motif')
+    if look.d.get('emblem'):                             # a set look: the set's ornament as a badge on the outer side
+        tt = 0.55
+        _emblem(look, look.d['emblem'], (-SHOE_L / 2 + SHOE_L * tt, -_shoe_w(tt) * 0.98 - 0.08, SOLE_H + _shoe_h(tt) * 0.45),
+                0.3)
+        motif = None
     if motif:                                            # the set emblem on the outer side
         tt = 0.55
         m2 = _motif2(motif, 0.1)
@@ -522,12 +532,13 @@ def _over_light(p):
     return C.over(p, base=p['light'], shadow=p['base'])
 
 
-def _orn_pom(look, at, R):
+def _orn_pom(look, at, R, badge=False):
     """Pom Clip: a fluffy cheer pom-pom (a cluster of balls, the set colour with white strands) on a gold cap."""
     x, y, z = at
-    cap = P.cabochon(0.16, 0.08)
-    P.xf(cap, rot=(90, 0, 0), loc=(x - 0.36, y + 0.02, z))
-    P.paint(cap, look.trim, line=1.6)
+    if not badge:
+        cap = P.cabochon(0.16, 0.08)
+        P.xf(cap, rot=(90, 0, 0), loc=(x - 0.36, y + 0.02, z))
+        P.paint(cap, look.trim, line=1.6)
     core = P.sphere(R * 0.62, 32, 16, 'pomcore', scale=(1.0, 0.55, 1.0))
     P.xf(core, loc=(x, y, z))
     P.paint(core, dict(look.body, sheen=0.15), line=2.2)
@@ -539,7 +550,7 @@ def _orn_pom(look, at, R):
         P.paint(b, _white(look) if k % 3 == 0 else look.body, line=1.8)
 
 
-def _orn_pause(look, at, R):
+def _orn_pause(look, at, R, badge=False):
     """Pause-Button Clip: a round push button in the set colour with a gold bezel and two white pause bars."""
     x, y, z = at
     bez = P.slab(P.circle2(R * 1.0, 64), 0.12, 0.04, 3, 'bezel')
@@ -554,7 +565,7 @@ def _orn_pause(look, at, R):
         P.paint(bar, _white(look), line=1.4, lift=0.02)
 
 
-def _orn_setsquare(look, at, R):
+def _orn_setsquare(look, at, R, badge=False):
     """Set-Square Clip: a chunky triangle ruler in the set colour, a white window and white ticks, gold rivet."""
     x, y, z = at
     tri = [(-0.5, -0.42), (0.55, -0.42), (-0.5, 0.58)]
@@ -574,7 +585,7 @@ def _orn_setsquare(look, at, R):
     P.paint(rv, look.trim, line=1.0)
 
 
-def _orn_confetti(look, at, R):
+def _orn_confetti(look, at, R, badge=False):
     """Confetti Clip: a chunky star in the set colour with a gold edge and a burst of confetti bits around it."""
     x, y, z = at
     back = P.slab(P.poly_round(P.star2(5, R * 1.08, R * 0.55), 0.06, 3), 0.08, 0.03, 2, 'starback')
@@ -591,7 +602,7 @@ def _orn_confetti(look, at, R):
         P.paint(b, {'w': _white(look), 'g': look.trim, 'p': pink}[c], line=1.2)
 
 
-def _orn_calc(look, at, R):
+def _orn_calc(look, at, R, badge=False):
     """Calculator Clip: a tiny calculator in the set colour, a pale screen and a 3 x 3 grid of white keys."""
     x, y, z = at
     body = P.slab(P.rrect2(R * 1.5, R * 1.9, 0.09, 5), 0.13, 0.045, 3, 'calc')
@@ -610,7 +621,7 @@ def _orn_calc(look, at, R):
 BOLT2 = [(-0.12, 0.62), (0.34, 0.62), (0.08, 0.14), (0.36, 0.14), (-0.22, -0.66), (-0.04, -0.12), (-0.32, -0.12)]
 
 
-def _orn_bolt(look, at, R):
+def _orn_bolt(look, at, R, badge=False):
     """Lightning Clip: a chunky lightning bolt in the set colour on a gold bolt a size larger, a white highlight."""
     x, y, z = at
     back = P.slab(P.poly_round([(x + a * R * 1.55, z + b * R * 1.55) for a, b in BOLT2], 0.04, 3), 0.08, 0.03, 2, 'boltback')
@@ -623,6 +634,33 @@ def _orn_bolt(look, at, R):
 
 SET_ORNAMENTS = dict(pom=_orn_pom, pause=_orn_pause, setsquare=_orn_setsquare, confetti=_orn_confetti, calc=_orn_calc,
                      bolt=_orn_bolt)
+
+
+def _emblem(look, name, at, scale):
+    """A set's ornament as a small badge on a piece's front surface at `at` (the ribbon's knot, the shoe's side), so
+    all five pieces of a set share one motif."""
+    _moved(lambda: SET_ORNAMENTS[name](look, (0.0, 0.0, 0.0), 0.46, badge=True), dx=at[0], dy=at[1], dz=at[2], scale=scale)
+
+
+def keyring(look):
+    """A set's charm: its ornament (the same as the Hair Clip's, bigger) on a split keyring with two chain links."""
+    trim = look.trim
+    ring = P.torus(0.28, 0.05, 48, 10, 'keyring')
+    P.xf(ring, rot=(90, 0, 0), loc=(-0.08, 0.06, 1.08))
+    P.paint(ring, trim, line=2.0)
+    gap = P.torus(0.28, 0.02, 48, 6, 'ringsplit')
+    P.xf(gap, rot=(90, 0, 0), loc=(-0.08, 0.02, 1.08))
+    P.paint(gap, C.over(trim, base=trim['shadow']), line=0.0)
+    for k, (zz, rot) in enumerate(((0.74, 0), (0.6, 90))):
+        ln = P.torus(0.07, 0.025, 20, 8, 'link')
+        P.xf(ln, rot=(90, rot, 0), loc=(-0.02 + 0.03 * k, 0.03, zz))
+        P.paint(ln, trim, line=1.2)
+    # the ornament hangs from the lower link by its top (the set square's top is its upright corner, at the left)
+    dx, dz = (0.44, 0.03) if look.d['shape'] == 'setsquare' else (0.0, 0.02)
+    SET_ORNAMENTS[look.d['shape']](look, (dx, -0.02, dz), 0.56)
+    if look.star:
+        P.glint((-0.2, -0.22, 0.3), look.star)
+    return dict(kind='flat', roll=-12.0, turn=14.0, tip=12.0)
 
 
 def _bail_top(look, z):
@@ -755,7 +793,7 @@ SET_LOCKETS = dict(megaphone=(_lk_megaphone, 0.6), stopwatch=(_lk_stopwatch, 0.7
                    popper=(_lk_popper, 0.64), coin=(_lk_coin, 0.7), battery=(_lk_battery, 0.68))
 
 
-BASES = dict(pendant=pendant, bow=bow, sneaker=sneaker, hairclip=hairclip, necklace=necklace)
+BASES = dict(pendant=pendant, bow=bow, sneaker=sneaker, hairclip=hairclip, necklace=necklace, keyring=keyring)
 
 
 def build(row):
