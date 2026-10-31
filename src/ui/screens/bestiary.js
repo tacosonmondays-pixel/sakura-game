@@ -14,7 +14,7 @@ import { FAMILIES, FAMILY_ORDER, ENEMIES, ENEMY_MAP, enemiesByFamily, enemyTrait
 import { STAGE_MAP } from '../../data/stages.js';
 import { discoverableEnemies, bestiaryPercent, familyProgress } from '../../systems/missions.js';
 import { traitIcon, armorClassIcon, uiIcon } from '../../art/icons.js';
-import { buildEnemy, preloadEnemies, enemyModelKeys, makeSilhouette, createModelViewer, drawnBox, disposeObject } from '../../models/index.js';
+import { buildEnemy, preloadEnemies, enemyModelKeys, makeSilhouette, createModelViewer, drawnBox, disposeObject, setEnemyDetail, detailFor } from '../../models/index.js';
 import { put, cssVars } from './backpack.js';
 
 const view = { family: 'all', selected: null };
@@ -178,6 +178,8 @@ function traitRows(e) {
 // ---------------------------------------------------------------------------
 
 export function render(root, params = {}) {
+  // full enemy models at High quality, LODs below, as the battle picks them (tripo-batch-2 review r2 L2)
+  setEnemyDetail(detailFor(store.profile.settings?.quality || 'high'));
   if (params.family && (params.family === 'all' || FAMILIES[params.family])) view.family = params.family;
   if (params.id && ENEMY_MAP[params.id]) view.selected = params.id;
   const profile = store.profile;

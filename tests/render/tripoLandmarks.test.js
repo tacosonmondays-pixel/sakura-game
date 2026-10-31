@@ -71,5 +71,5 @@ describe('Tripo story landmarks in a map build', () => {
     for (const type of seen) expect(Object.keys(TRIPO_LANDMARKS)).toContain(type);
     expect([...seen].sort()).toEqual(['clockTower', 'doorieStatue', 'dryFountain', 'greatWillow', 'lockGate', 'oldLamp', 'schoolBlock', 'spindle', 'ticketGates']);
     expect([...typesWithGlow].sort()).toEqual(['clockTower', 'greatWillow', 'spindle', 'ticketGates']);
-  });
+  }, 60000); // every stage built twice (night, blackout): past vitest's 5 s default on a loaded machine
 });
