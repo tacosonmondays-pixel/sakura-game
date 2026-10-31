@@ -1014,6 +1014,10 @@ html[data-reduce-motion] .bt-buy-spin { animation: none; border-right-color: cur
   /* feed: two one-line toasts docked top-right (the left edge is where most entrances are) */
   .bt-feed { left: auto; right: 10px; top: calc(var(--bt-hud-h) + var(--safe-top) + 6px); width: min(350px, 42%); gap: 4px; align-items: stretch; }
   .bt-has-boss .bt-feed { top: calc(var(--bt-hud-h) + var(--safe-top) + 64px); }
+  /* co-op: the CO-OP strip (online.css .ol-coop-hud, 44 px down, about 36 px tall) sits under the HUD here: the toasts
+     start below it, never over its names, coins and gift button (review r1 L3) */
+  .bt-coop .bt-feed { top: calc(84px + var(--safe-top)); }
+  .bt-coop.bt-has-boss .bt-feed { top: calc(var(--bt-hud-h) + var(--safe-top) + 64px + 40px); }
   .bt-toast-ico { width: 14px; height: 14px; }
   .bt-banner { padding: 6px 44px 7px; }
   .bt-banner-title { font-size: 1.35rem; }

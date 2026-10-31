@@ -244,10 +244,15 @@ reservations), `CONTRACTS.md`.
 
 ## 9. As built (feature/coop-sharing, COOP 17)
 
-- **Grace for every leave** (D8): a deliberate Leave waits the same 20 s as a lost connection, then hands out; the
-  `gone` marker needed no `why`. The grace is `COOP.graceTicks` (1200) × the game speed at the `gone` tick, so it is
-  about 20 s of real time at 1×, 2× and 3× (a slow device that cannot keep 60 steps a second takes longer: about 28 s
-  under software WebGL in the e2e).
+- **Grace for every leave** (D8): a deliberate Leave (and going back to the room) waits the same 20 s as a lost
+  connection, then hands out; the `gone` marker needed no `why`. The grace counts down in sixths of a 1× step
+  (`COOP.graceTicks` × 6, minus 6 / speed every step: 6, 3 and 2 at 1×, 2× and 3×), so it is 20 s of real time whatever
+  the speed does meanwhile (review r1 L1; a slow device that cannot keep 60 steps a second takes longer: about 28 s under
+  software WebGL in the e2e). The remaining sixths are in the checkpoint and the hash.
+- **A change of hands keeps the player limits** (review r1 M1, M2): a map-scope ability's shared cooldown is per player,
+  so a girl who changes controller (lend, give, back, hand-out, give-back) first takes what is left of her old group's
+  cooldown onto her own (`abilities.js` `carryGroupCooldown`, called by CoopSim `setCtrl`); the econ cap (two casts a
+  wave) is counted and refused by her **owner** (`abilUses[t.owner]`), while her coins still go to her controller.
 - **Lending is placed girls only** (open question 4, default): no roster card gifts. Refused for a hero (`'hero'`), any
   Tenka (`'lab'`, her lab tiers are on her paths: refused before she has a lab too), a girl in a Tryout run (`'run'`:
   a run's vouchers, discounts and squad counters are per player), a girl lent to me (`'notYours'`), myself, a player who
@@ -272,4 +277,8 @@ reservations), `CONTRACTS.md`.
   (`tests/online/coopSharing.test.js`, the S4 test): an older build reads everything this one writes.
 - **Proofs**: solo is bit-identical (the 15 solo `MODES_*` engine scenarios: every 600-step state hash and the final
   snapshot digest equal to `origin/main`; noNerfGate 8,910 cells, 0 under, the raw output byte-identical); the co-op
-  engine scenarios keep every tick, state, wallet and hash (only the three checkpoint digests moved: checkpoint v 2).
+  engine scenarios keep every tick, state, wave, wallet, state hash, hash checkpoint and pick of `main`. What moved (the
+  review r1 diff of both trees' engine bundles): 21 co-op **snapshot** digests across 11 scenarios (`ckDigest`,
+  `finalDigest`, Tryout's `lastDigest`: checkpoint v 2 carries the sharing fields) and the lobby's `coopVersion().data`
+  (it hashes the new `COOP` constants: one more reason two builds refuse each other). `engines.test.js` pins three of
+  those digests.

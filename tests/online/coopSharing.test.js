@@ -358,6 +358,31 @@ describe('a leaver\'s girls and coins (the grace, the hand-out, the rejoin)', ()
     expect(cs[0].pendingDeals()[0].at).toBe(cs[0].tick + COOP.graceTicks * 3);
   });
 
+  it('review r1 L1: the grace is real time whatever the speed does meanwhile (sixths of a step: 6 / 3 / 2 a step at 1× / 2× / 3×)', () => {
+    const cs = views(start(), [2000, 2000]);
+    const aoi = place(cs, 0, 'aoi');
+    all(cs, marker(0, 'gone'));
+    // a third of the grace at 1× (400 steps = 6.7 s), then 3×: the other two thirds take 2400 steps (13.3 s of real time)
+    step(cs, COOP.graceTicks / 3);
+    expect(all(cs, cmd(1, 'speed', [3])).ok).toBe(true);
+    expect(cs[0].pendingDeals()[0]).toMatchObject({ slot: 0, left: COOP.graceTicks * 6 * (2 / 3), at: cs[0].tick + COOP.graceTicks * 2 });
+    step(cs, COOP.graceTicks * 2);
+    for (const c of cs) expect(c.ctrlOf(aoi)).toBe(0);
+    step(cs, 1);
+    for (const c of cs) expect(c.ctrlOf(aoi)).toBe(1);
+    // and 3× → 1× the other way round: a third at 3× (1200 steps = 6.7 s), two thirds at 1× (800 steps)
+    const cs2 = views(start(), [2000, 2000]);
+    const a2 = place(cs2, 0, 'aoi');
+    expect(all(cs2, cmd(1, 'speed', [3])).ok).toBe(true);
+    all(cs2, marker(0, 'gone'));
+    step(cs2, COOP.graceTicks);
+    expect(all(cs2, cmd(1, 'speed', [1])).ok).toBe(true);
+    step(cs2, (COOP.graceTicks * 2) / 3);
+    for (const c of cs2) expect(c.ctrlOf(a2)).toBe(0);
+    step(cs2, 1);
+    for (const c of cs2) expect(c.ctrlOf(a2)).toBe(1);
+  });
+
   it('girls lent to the leaver go home first; the leaver\'s own lends stay where they are', () => {
     const cs = views(start(), [50000, 50000]);
     const aoi = place(cs, 0, 'aoi');
@@ -405,6 +430,87 @@ describe('a leaver\'s girls and coins (the grace, the hand-out, the rejoin)', ()
     for (const c of cs) expect([c.ctrlOf(a), c.ctrlOf(b), c.ctrlOf(c0)]).toEqual([cs[0].ctrlOf(a), cs[0].ctrlOf(b), cs[0].ctrlOf(c0)]);
     // the wallet split three ways would be two ways here (the leaver gets none)
     expect(cs[0].wallets[0]).toBe(0);
+  });
+});
+
+// review r1 M1 / M2: a lend must not reset a player's shared ability limits (the map-scope group cooldown, the econ cap)
+describe('ability limits survive a change of hands (review r1 M1, M2)', () => {
+  const tier3 = (cs, slot, uid) => {
+    const path = abilityPathOf(tower(cs[0], uid).def);
+    for (let i = 0; i < 3; i++) expect(all(cs, cmd(slot, 'upg', [uid, path])).ok).toBe(true);
+    return uid;
+  };
+  /** Steps (starting the next wave whenever one ends) until her ability is ready in a wave. */
+  const ready = (cs, uid) => {
+    for (let i = 0; i < 60000; i++) {
+      const c = cs[0];
+      if (c.sim.state === 'wave' && c.sim.abilityStatus(uid).ready) return;
+      if (c.sim.state === 'between' || c.sim.state === 'prep') all(cs, cmd(0, 'wave'));
+      for (const x of cs) x.step();
+    }
+    throw new Error('never ready');
+  };
+
+  it('M1: a map ability\'s shared cooldown goes with her on a lend, a give-back, a take-back and a hand-out', () => {
+    const st = start({ p0: { loadout: [{ unitId: 'shiro' }, { unitId: 'aoi' }] }, p1: { loadout: [{ unitId: 'shiro' }, { unitId: 'rei' }] } });
+    const cs = views(st, [CASH_MAX, CASH_MAX]);
+    const a = tier3(cs, 0, place(cs, 0, 'shiro'));
+    const b = tier3(cs, 0, place(cs, 0, 'shiro', 30));
+    expect(tower(cs[0], a).abil.scope).toBe('map');
+    expect(all(cs, cmd(0, 'wave')).ok).toBe(true);
+    ready(cs, a);
+    expect(all(cs, cmd(0, 'abil', abilArgs(a))).ok).toBe(true);
+    expect(all(cs, cmd(0, 'abil', abilArgs(b)))).toMatchObject({ ok: false, reason: 'cooldown' });
+    // lent mid-wave: in the guest's hands she is still on her group's cooldown
+    expect(all(cs, cmd(0, 'lend', [b, 1])).ok).toBe(true);
+    expect(tower(cs[0], b).abil.cd).toBeGreaterThan(0);
+    expect(all(cs, cmd(1, 'abil', abilArgs(b)))).toMatchObject({ ok: false, reason: 'cooldown' });
+    // handed back (give) and lent again: still on it
+    expect(all(cs, cmd(1, 'give', [b])).ok).toBe(true);
+    expect(all(cs, cmd(0, 'abil', abilArgs(b)))).toMatchObject({ ok: false, reason: 'cooldown' });
+    expect(all(cs, cmd(0, 'lend', [b, 1])).ok).toBe(true);
+    // taken back mid-wave (the guest gone): still on it
+    all(cs, marker(1, 'gone'));
+    expect(all(cs, cmd(0, 'back', [b])).ok).toBe(true);
+    expect(all(cs, cmd(0, 'abil', abilArgs(b)))).toMatchObject({ ok: false, reason: 'cooldown' });
+    all(cs, marker(1, 'join'));
+    // a hand-out: the guest's Shiro cast, the guest gone, the grace (20 s) shorter than her 45 s cooldown
+    const g1 = tier3(cs, 1, place(cs, 1, 'shiro', 60));
+    const g2 = tier3(cs, 1, place(cs, 1, 'shiro', 90));
+    ready(cs, g1);
+    expect(all(cs, cmd(1, 'abil', abilArgs(g1))).ok).toBe(true);
+    all(cs, marker(1, 'gone'));
+    step(cs, COOP.graceTicks + 1);
+    for (const c of cs) expect(c.ctrlOf(g2)).toBe(0);
+    expect(tower(cs[0], g2).abil.cd).toBeGreaterThan(0); // (her old group's cooldown, carried)
+    if (cs[0].sim.state !== 'wave') expect(all(cs, cmd(0, 'wave')).ok).toBe(true);
+    expect(all(cs, cmd(0, 'abil', abilArgs(g2)))).toMatchObject({ ok: false, reason: 'cooldown' });
+    // and once the cooldown is over she casts for her new player
+    ready(cs, g2);
+    expect(all(cs, cmd(0, 'abil', abilArgs(g2))).ok).toBe(true);
+  });
+
+  it('M2: the econ cap (two casts a wave) is her owner\'s: a lent third Market Day is refused \'cap\'', () => {
+    const st = start({ p0: { loadout: [{ unitId: 'momo' }, { unitId: 'aoi' }] } });
+    const cs = views(st, [500000, 500000]);
+    const ms = [0, 25, 50].map((skip) => tier3(cs, 0, place(cs, 0, 'momo', skip)));
+    ready(cs, ms[0]);
+    for (const m of ms.slice(0, 2)) {
+      stepUntil(cs, (c) => c.sim.abilityStatus(m).ready);
+      expect(all(cs, cmd(0, 'abil', abilArgs(m))).ok).toBe(true);
+    }
+    stepUntil(cs, (c) => c.sim.abilityStatus(ms[2]).reason === 'cap' || c.sim.abilityStatus(ms[2]).ready);
+    expect(all(cs, cmd(0, 'abil', abilArgs(ms[2])))).toMatchObject({ ok: false, reason: 'cap' });
+    expect(all(cs, cmd(0, 'lend', [ms[2], 1])).ok).toBe(true);
+    expect(all(cs, cmd(1, 'abil', abilArgs(ms[2])))).toMatchObject({ ok: false, reason: 'cap' });
+    // next wave: her cast counts against her owner; her coins are her controller's
+    stepUntil(cs, (c) => c.sim.state === 'between');
+    ready(cs, ms[2]);
+    const w = cs[0].wallets;
+    expect(all(cs, cmd(1, 'abil', abilArgs(ms[2])))).toMatchObject({ ok: true });
+    expect(cs[0].wallets[1]).toBeGreaterThan(w[1]);
+    expect(cs[0].sim.abilUses[0]).toBe(1);
+    expect(cs[0].sim.abilUses[1]).toBe(0);
   });
 });
 
@@ -466,25 +572,34 @@ describe('checkpoints, hashes, and battles without sharing', () => {
 });
 
 // review r1 S4: mission and achievement counters credit nobody for coins or work that are not theirs. The same battle
-// twice, the same girls bought and sold at the same ticks; in the second one the host lends Aoi to the guest, the guest
-// buys her tiers, the host takes her back and sells her, and coins go both ways. What each player is paid and counted
+// twice, the same girls bought and sold at the same ticks; in the second one the host lends Aoi and Akane to the guest,
+// the guest buys their tiers, sells Akane (the refund is the guest's), the host takes Aoi back and sells her, and six
+// gifts go back and forth (review r1 L4). What each player is paid and counted
 // (applyCoopResult: drops, coins, kills tracked; the battle's result counters) is the same.
 describe('the counters ignore gifts and lends (review r1 S4)', () => {
   function battle(share) {
     seq = 0;
     const cs = views(start(), [20000, 20000]);
     const aoi = place(cs, 0, 'aoi');
+    const akane = place(cs, 0, 'akane', 30);
     place(cs, 1, 'rei');
     if (share) expect(all(cs, cmd(0, 'lend', [aoi, 1])).ok).toBe(true);
+    if (share) expect(all(cs, cmd(0, 'lend', [akane, 1])).ok).toBe(true);
     for (let i = 0; i < 2; i++) expect(all(cs, cmd(share ? 1 : 0, 'upg', [aoi, 0])).ok).toBe(true);
-    if (share) {
-      expect(all(cs, cmd(0, 'gift', [1, 500])).ok).toBe(true);
-      expect(all(cs, cmd(1, 'gift', [0, 500])).ok).toBe(true);
+    expect(all(cs, cmd(share ? 1 : 0, 'upg', [akane, 0])).ok).toBe(true);
+    // a gift ping-pong, six of them (each 2 s apart: the same steps in both battles, gifts or not)
+    for (let i = 0; i < 6; i++) {
+      if (share) expect(all(cs, cmd(i % 2, 'gift', [1 - (i % 2), 500 + 100 * i])).ok).toBe(true);
+      step(cs, COOP.giftEveryTicks);
     }
     expect(all(cs, cmd(0, 'auto', [true])).ok).toBe(true);
     all(cs, cmd(0, 'wave'));
     stepUntil(cs, (c) => c.sim.wavesCleared >= 2);
     stepUntil(cs, (c) => c.sim.state === 'between');
+    // a lent girl sold by her controller (the refund is theirs) and a lent one taken back and sold by her owner
+    const earned = cs[0].sim.stats.cashEarned;
+    expect(all(cs, cmd(share ? 1 : 0, 'sell', [akane])).ok).toBe(true);
+    expect(cs[0].sim.stats.cashEarned).toBe(earned); // (a refund is not income)
     if (share) expect(all(cs, cmd(0, 'back', [aoi])).ok).toBe(true);
     expect(all(cs, cmd(0, 'sell', [aoi])).ok).toBe(true);
     stepUntil(cs, (c) => c.sim.wavesCleared >= 4 || c.sim.state === 'lost');
@@ -502,7 +617,7 @@ describe('the counters ignore gifts and lends (review r1 S4)', () => {
   it('kills, waves, upgrades bought, coins earned and every payout are the same with and without the sharing', () => {
     const plain = battle(false);
     const shared = battle(true);
-    const pick = (r) => ({ kills: r.kills, waves: r.wavesCleared, upgrades: r.stats.upgrades, earned: r.stats.cashEarned, leaks: r.stats.leaks, encountered: r.encountered });
+    const pick = (r) => ({ kills: r.kills, waves: r.wavesCleared, upgrades: r.stats.upgrades, earned: r.stats.cashEarned, leaks: r.stats.leaks, encountered: r.encountered, spent: r.stats.cashSpent ?? null });
     expect(pick(shared.res)).toEqual(pick(plain.res));
     expect(plain.res.wavesCleared).toBeGreaterThanOrEqual(4);
     expect(plain.paid[0].out.rewards.length).toBeGreaterThan(0);

@@ -171,6 +171,19 @@ function groupOf(sim, t) {
 }
 
 /**
+ * Co-op sharing (docs/specs/COOP_SHARING.md): call BEFORE a girl changes controller (a lend, a take-back, a give-back,
+ * a hand-out). A map-scope ability's shared cooldown is kept per player ("<player>|<id>"), so in her new player's group
+ * she would be ready at once: she carries what is left of her old group's cooldown on her own instead (review r1 M1).
+ * Deterministic (charge points, both integers); never called in solo.
+ */
+export function carryGroupCooldown(sim, t) {
+  const a = t?.abil;
+  if (!a || a.scope !== 'map') return;
+  const g = groupOf(sim, t);
+  if (g && g.cd > a.cd) a.cd = g.cd;
+}
+
+/**
  * Charge points a tick under Ouka's office (src/sim/hubs.js, t.rules.cdCut): round(rate × (1 + cut)) — 115 for an
  * unhasted girl at Club Mentors' 15 % — or the plain rate without one.
  */
@@ -1271,7 +1284,8 @@ function refusal(sim, t) {
   if (a.active > 0) return 'active';
   if (a.cd > 0 || (groupOf(sim, t)?.cd || 0) > 0) return 'cooldown';
   if (a.kind === 'econ') {
-    if ((sim.abilUses[ctrlOf(t)] || 0) >= R.econCapPerWave) return 'cap';
+    // (the cap is her OWNER's — a loadout's econ girls — wherever she is lent: review r1 M2; her coins are her controller's)
+    if ((sim.abilUses[t.owner ?? 0] || 0) >= R.econCapPerWave) return 'cap';
     if (sim.diff.noIncome) return 'noIncome';
   }
   return null;
@@ -1343,7 +1357,7 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
   a.n++;
   const dur = activeTicks(def);
   if (dur > 0) a.active = dur;
-  if (def.kind === 'econ') sim.abilUses[ctrlOf(t)] = (sim.abilUses[ctrlOf(t)] || 0) + 1;
+  if (def.kind === 'econ') sim.abilUses[t.owner ?? 0] = (sim.abilUses[t.owner ?? 0] || 0) + 1;
   // results (created on the first cast, so a battle without one keeps its result() exactly)
   sim.stats.abilitiesUsed = (sim.stats.abilitiesUsed || 0) + 1;
   const by = sim.stats.abilityByTower || (sim.stats.abilityByTower = {});

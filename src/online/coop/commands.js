@@ -27,6 +27,11 @@ import { withDetMath } from './detMath.js';
 import { buildTryoutPlan, buildTryoutStage, tryoutGone, tryoutLoadouts } from '../../sim/tryout/index.js';
 import { checkedDraft } from '../../sim/tryout/draft.js';
 import { ctrlOf } from '../../sim/ctrl.js';
+import { carryGroupCooldown } from '../../sim/abilities.js';
+
+/** The grace counts down in sixths of a step (1×, 2× and 3× take 6, 3 and 2 a step: about 20 s of real time at any
+ *  speed, whatever the speed does meanwhile; integers, the same on every client). */
+const GRACE_PARTS = 6;
 
 /**
  * Command kinds: place[unitId,qx,qy] upg[uid,path] sell[uid] tgt[uid,mode] ult[] wave[] auto[bool]
@@ -61,7 +66,8 @@ import { ctrlOf } from '../../sim/ctrl.js';
  * girl or one in a Tryout run); back[uid] takes her back (her owner only, never during a wave unless her controller is
  * gone); give[uid] hands a girl lent to me back to her owner. Control (t.ctrl, src/sim/ctrl.js) decides who commands
  * her and who pays; her stats, colour and one-final-tier rule stay her owner's. A player who leaves or is lost keeps
- * everything for COOP.graceTicks; then their wallet is split and their girls handed out (handOut), and a `join`
+ * everything for COOP.graceTicks of real time (1× steps, counted in sixths at any speed); then their wallet is split
+ * and their girls handed out (handOut), and a `join`
  * gives the handed-out girls back.
  */
 export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly', 'pick', 'aim', 'abil', 'acast', 'tr', 'mv', 'gift', 'lend', 'back', 'give'];
@@ -239,6 +245,8 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
 
   /** Sets who commands girl `t` (t.ctrl only while that is not her owner: a battle without sharing never has it). */
   function setCtrl(t, slot) {
+    // (what is left of her old player's shared map-ability cooldown goes with her: review r1 M1)
+    if (slot !== ctrlOf(t)) carryGroupCooldown(sim, t);
     if (slot === (t.owner ?? 0)) {
       delete t.ctrl;
       lentBy.delete(t.uid);
@@ -300,12 +308,15 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
     if (uids.length) shareEvents.push({ k: 'back', tick, to: slot, uids });
   }
 
-  /** Every leaver whose grace is over (start of a step, before the Sim moves: the same point on every client). */
+  /**
+   * Every leaver whose grace is over hands out (start of a step, before the Sim moves: the same point on every client);
+   * the others' graces run on by this step's share of real time (GRACE_PARTS / speed sixths).
+   */
   function dueDeals() {
     if (!pendingDeal.length) return;
-    const due = pendingDeal.filter((d) => d.at <= tick);
-    if (!due.length) return;
-    pendingDeal = pendingDeal.filter((d) => d.at > tick);
+    const due = pendingDeal.filter((d) => d.left <= 0);
+    pendingDeal = pendingDeal.filter((d) => d.left > 0);
+    for (const d of pendingDeal) d.left -= GRACE_PARTS / speed;
     for (const d of due) if (gone.has(d.slot)) handOut(d.slot);
   }
 
@@ -313,7 +324,7 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
   function shareDigest() {
     const out = [];
     if (giftAt.some((x) => x >= 0)) out.push(-2, ...giftAt);
-    for (const d of pendingDeal) out.push(-3, d.slot, d.at);
+    for (const d of pendingDeal) out.push(-3, d.slot, d.left);
     for (const [uid, l] of [...lentBy].sort((a, b) => a[0] - b[0])) out.push(-4, uid, l.kind === 'deal' ? 1 : 0, l.from);
     return out;
   }
@@ -357,7 +368,7 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
       if (cmd.k === 'gone') {
         gone.add(slot);
         // their girls and coins are handed out once the grace is over (about 20 s of real time at any speed)
-        if (!pendingDeal.some((d) => d.slot === slot)) pendingDeal.push({ slot, at: tick + COOP.graceTicks * speed });
+        if (!pendingDeal.some((d) => d.slot === slot)) pendingDeal.push({ slot, left: COOP.graceTicks * GRACE_PARTS });
       } else {
         gone.delete(slot);
         pendingDeal = pendingDeal.filter((d) => d.slot !== slot);
@@ -671,7 +682,8 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
     /** How girl `uid` came to her controller: { kind: 'lend' | 'deal', from } or null (her owner's own). */
     lentInfo: (uid) => lentBy.get(uid) || null,
     /** Leavers waiting out their grace: [{ slot, at }] (the tick their girls are handed out). */
-    pendingDeals: () => pendingDeal.map((d) => ({ ...d })),
+    /** `left`: sixths of a 1× step to go; `at`: the tick the hand-out happens if the speed stays as it is. */
+    pendingDeals: () => pendingDeal.map((d) => ({ slot: d.slot, left: d.left, at: tick + Math.max(0, Math.ceil(d.left / (GRACE_PARTS / speed))) })),
     /** Each player's last gift tick (-1: none yet; the 2 s limit). */
     giftTicks: () => giftAt.slice(),
     /** Hand-outs and returns since the last call (the battle screen's feed). */
@@ -700,7 +712,7 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
         // v 2: the sharing state beside it (t.ctrl travels on the girls in the Sim's own snapshot)
         return {
           v: 2, tick, speed, oddTurn, wallets: wallets.slice(), owners: [...owners], gone: [...gone], endVotes: endVotes.slice(), ...run,
-          giftAt: giftAt.slice(), pendingDeal: pendingDeal.map((d) => ({ ...d })), lentBy: [...lentBy].map(([uid, l]) => [uid, l.kind, l.from]),
+          giftAt: giftAt.slice(), pendingDeal: pendingDeal.map((d) => ({ slot: d.slot, left: d.left })), lentBy: [...lentBy].map(([uid, l]) => [uid, l.kind, l.from]),
           sim: sim.snapshot(config()),
         };
       } finally {
@@ -730,7 +742,7 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
       // sharing (v 2; a v 1 checkpoint has none: nothing lent, nothing pending)
       giftAt.fill(-1);
       if (Array.isArray(snap.giftAt)) snap.giftAt.forEach((x, i) => { if (i < giftAt.length && Number.isInteger(x)) giftAt[i] = x; });
-      pendingDeal = Array.isArray(snap.pendingDeal) ? snap.pendingDeal.filter((d) => d && Number.isInteger(d.slot) && Number.isInteger(d.at)).map((d) => ({ slot: d.slot, at: d.at })) : [];
+      pendingDeal = Array.isArray(snap.pendingDeal) ? snap.pendingDeal.filter((d) => d && Number.isInteger(d.slot) && Number.isInteger(d.left)).map((d) => ({ slot: d.slot, left: d.left })) : [];
       lentBy.clear();
       if (Array.isArray(snap.lentBy)) for (const [uid, kind, from] of snap.lentBy) if (Number.isInteger(uid) && (kind === 'lend' || kind === 'deal')) lentBy.set(uid, { kind, from });
       shareEvents = [];
