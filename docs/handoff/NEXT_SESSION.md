@@ -509,3 +509,22 @@ Owner decisions still pending:
   - A UI polish pass (inspired by the kobra link).
   - Tripo re-rolls (Seiran, Grave Lych, dragon tail, scoreboard).
 - **Usage:** sessions showed a seven_day "allowed_warning". Pace new sessions.
+
+## OWNER DECISIONS 2026-10-31 ~14:00 UTC: "Default all"
+
+1. **Art v3 → option C.** Redo the portraits without halos and keep the props. Use each girl's current portrait as the reference. 6–8 samples each, up to ~6,000 Anlas. Owner sees the board before ship. Session: session_01Ayo4eqn3cMnrYxvfzo21ZX, branch feature/art-v3c.
+2. **Co-op sharing → defaults.**
+   - A lent girl can be taken back between waves.
+   - Gifted coins don't return.
+   - A 20 s grace period before a leaver's girls are handed out.
+   - The 0.5 s delay stays.
+   Session: session_01Ayo4eoDNHhkN52WFy65DsA, branch feature/coop-sharing, COOP 17.
+3. **Suzu and Azami get boss damage.** Target ~1M on a boss, no nerfs, LR bar holds. Session: session_01Ayo4eoCgrSVLeUAfoteAm8, branch fix/suzu-azami-boss, COOP 17. Whichever branch lands second re-pins.
+4. **UR Set Boxes stay Supply Bot only.**
+5. **UI polish pass → yes.** Start it after the v0.1.69 pieces are underway. Pace it: the account showed a seven_day usage warning.
+
+**Earlier defaults still standing:**
+- Stickers Q1–Q5: later batch; owning a girl unlocks her sticker; lobby picker; Sensei sticker later; strangers on, with mute/block.
+- Shieldline shield: keep it as it is.
+
+**v0.1.69 target:** co-op sharing + Suzu/Azami (both COOP 17) + art v3c (if the owner OKs the board) + the deferred lows.
