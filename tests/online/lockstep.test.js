@@ -1456,3 +1456,27 @@ describe('co-op lockstep: input lag (COOP 15)', () => {
     expect(B.tick).toBeGreaterThan(60 * 140);
   }, 60000);
 });
+
+// review r1 L1: the waited time a client reports (`st`) is real time, not frames — a 120 Hz client does not raise its
+// ally's input delay twice as fast as a 60 Hz one.
+describe('co-op lockstep: stall time is frame-rate independent (COOP 15, review r1 L1)', () => {
+  it('a client stalled for 2 s reports ~120 ticks waited at 60 Hz and at 120 Hz', () => {
+    const waited = (hz) => {
+      const clock = { t: 0 };
+      const mk = (slot) => new Lockstep({ start: START, mySlot: slot, now: () => clock.t, send: () => {} });
+      const A = mk(0);
+      // nobody ever hears the peer: A stalls from tick 0 (no horizon) — under the load timeout, so nobody is dropped
+      for (let f = 0; f < 2 * hz; f++) {
+        clock.t += 1000 / hz;
+        A.advance(1 / hz);
+      }
+      expect(A.stalled).toBe(true);
+      return A.stallTicks;
+    };
+    const at60 = waited(60);
+    const at120 = waited(120);
+    expect(at60).toBeGreaterThanOrEqual(118);
+    expect(at60).toBeLessThanOrEqual(121);
+    expect(Math.abs(at120 - at60)).toBeLessThanOrEqual(2);
+  });
+});

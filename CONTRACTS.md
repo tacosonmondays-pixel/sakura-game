@@ -2762,7 +2762,8 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   stamps a command `{ t, p, s, k, a }` at `tick + delay` (or just after the horizon my beats last sent,
   `sentHorizon`, when that is later); a tick runs only when every connected peer's
   horizon has reached it (COOP 15: a client that waits reports its waited ticks as `st` on its beats and the
-  peer it waits for raises ITS input delay a step per `STALL_STEP` = 30 such ticks, up to 3×, back down after
+  peer it waits for raises ITS input delay a step per `STALL_STEP` = 30 such ticks (1/60 s of real time waited, not
+  frames), up to 3×, back down after
   `DELAY_RELAX_MS` without one; `nudge()` — the battle screen calls it when the player selects a girl or arms
   a card (`ctx.nudge`) — ends the idle saver so the coming order lands one input delay out); hashes are compared every `hashEvery` ticks (mismatch → resync from the host's
   command log); a silent peer is dropped after the timeout (its towers stay, its income goes to the
@@ -2785,9 +2786,12 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   Input lag is measured by `node --import ./tools/simLoader.mjs tools/coopLatency.mjs [--nudge 800] [--net <json>]`
   (two real Lockstep clients over a simulated link: tap → screen per action, stalls, messages a second).
 * Battle screen (display only): `src/ui/battle/coopPending.js` (`ctx.coopPending`) holds my orders in flight
-  (place / upg / sell) from the tap until their command runs (`onApplied`, ok or refused), a rebuild, or
-  `STALE_MS` (6 s): the placed girl's ghost stays on her spot, the price button reads "Ordered", and the HUD
-  balance has their price off (`.bt-held`).
+  (place / upg / sell) from the tap until their command runs (`onApplied`, ok or refused), the resync remount
+  (`clear()`), or the lockstep running past the command's tick without it (a rejoin voided it) — never while
+  `ls.stalled || ls.job`, and never by the clock (an ally frozen under the drop timeout must not re-open a second
+  buy; `STALE_MS` only without a tick source): the placed girl's ghost stays on her spot, the price button reads
+  "Ordered", and the HUD balance has their price off (`.bt-held`). `ctx.spendable()` = cash less those coins: the
+  tower bar, the upgrade rows, the buy tap and placement check it.
 * `CoopSim.snapshot()` / `coop.restore(snap)` — the Sim's snapshot plus wallets, tower owners, who is gone,
   the Finish votes, speed and the odd-coin turn; the same JSON on every client (the view-dependent cash is
   stored as 0).

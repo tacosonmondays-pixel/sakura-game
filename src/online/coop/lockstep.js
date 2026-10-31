@@ -180,7 +180,8 @@ export class Lockstep {
     this.promised = -1;
     this.acc = 0;
     this.stalled = false;
-    this.stallTicks = 0;
+    this.stallTicks = 0; // 1/60 s of real time spent waiting for my peers' horizons (reported as `st`)
+    this.stallFrac = 0;
     this.lastBeat = -Infinity;
     this.pending = new Map(); // tick -> cmd[]
     this.known = new Set(); // `${p}:${s}`
@@ -959,8 +960,15 @@ export class Lockstep {
         this.stalled = true;
         // (waiting on an ally who is rebuilding its battle is not lag: the input delay stays)
         if (this.livePeers().some((p) => p.busy)) break;
-        // (counted and reported to the peer on my beats: its lead is what I wait for, so it raises ITS delay)
-        this.stallTicks++;
+        // (counted and reported to the peer on my beats: its lead is what I wait for, so it raises ITS delay.) Counted in
+        // 1/60 s of real time waited, not frames, so a 120 Hz phone does not raise its ally's delay twice as fast
+        // (review r1 L1)
+        this.stallFrac += Math.max(0, dt) * 60;
+        if (this.stallFrac >= 1) {
+          const whole = Math.floor(this.stallFrac);
+          this.stallTicks += whole;
+          this.stallFrac -= whole;
+        }
         break;
       }
       this.runTick();
