@@ -326,7 +326,9 @@ try {
     const sent = mineUpg() - before;
     L.receive = recv;
     for (const m of held.splice(0)) recv(m);
-    await new Promise((r) => setTimeout(r, 4000));
+    // (the order lands once the lockstep has caught up past its tick: the stall raised the input delay, and a slow
+    // software-GL page can take longer than a fixed wait; poll every 100 ms for up to 15 s)
+    for (let i = 0; i < 150 && (sim.getTower(pick.uid)?.tiers[pick.path] ?? pick.tier) <= pick.tier; i++) await new Promise((r) => setTimeout(r, 100));
     const tw = sim.getTower(pick.uid);
     return { first, stalledFirst, taps, sent, stalledSeen: taps.some((x) => x.stalled), tierAfter: tw ? tw.tiers[pick.path] : null, tier: pick.tier, ordered: ui.coopPending.upgrading(pick.uid, pick.path), gone: L.peers.get(1)?.gone };
   });
