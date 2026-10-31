@@ -51,7 +51,7 @@ const parseBuild = (b) => {
  * One run: her (fully maxed) on the best-covered spot, the supports beside her, a never-dying target.
  * @returns {{ dps, tiers, support: object }|{ error }}
  */
-export function measure({ d, unitId, build, target, support = 'um', stageId = '4-5', seed = 9, warm = 15, run = 40, lr = true, ally = false, profile = 'maxed', setup = null }) {
+export function measure({ d, unitId, build, target, support = 'um', stageId = '4-5', seed = 9, warm = 15, run = 40, lr = true, ally = false, profile = 'maxed', setup = null, crowdHp = CROWD_HP }) {
   const def = d.units[unitId];
   // `support`: 'um' (Umeko 2-5-0 + Midori 5-0-2), 'none', or 'girl:pNtM' joined by '+' (those supports at those builds)
   const many = support === 'um' || support === 'none' ? [] : support.split('+').map((s) => /^([a-z_]+):p(\d)t(\d)$/.exec(s));
@@ -107,7 +107,7 @@ export function measure({ d, unitId, build, target, support = 'um', stageId = '4
     const dealt = ally ? () => sim.towers.reduce((a, o) => a + (o === t ? 0 : o.damageDealt || 0), 0) : () => t.damageDealt || 0;
     let d0 = 0;
     for (let step = 0; step < (warm + run) * 60; step++) {
-      if (target === 'crowd' && step % CROWD_EVERY === 0) sim.spawnEnemy('orc_grunt', { pathIndex: 0, dist: 0, hpMul: CROWD_HP / hpOf('orc_grunt') });
+      if (target === 'crowd' && step % CROWD_EVERY === 0) sim.spawnEnemy('orc_grunt', { pathIndex: 0, dist: 0, hpMul: crowdHp / hpOf('orc_grunt') });
       if (target === 'boss' && !sim.enemies.some((e) => !e.dead && e.id === 'dragon_ashwing')) {
         const e = sim.spawnEnemy('dragon_ashwing', { pathIndex: 0, dist: 0, hpMul: BOSS_HP / hpOf('dragon_ashwing') });
         // (path samples carry `d`: the boss walks in from 1.5 tiles before her nearest road point)
