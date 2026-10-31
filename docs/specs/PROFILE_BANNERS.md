@@ -59,8 +59,8 @@ Each banner has the id `pb:<slug>`. The data is in `src/data/profileBanners.js` 
 - **Art.** Fourteen banners use the game's own painted story places or the painted Halloween academy. These are places
   with no characters, already in `public/art/lobby/`, so there are no new image files. The other six are patterns drawn
   in code from a fixed seed (`src/ui/profile/pbArt.js`), so every viewer sees the same picture. On
-  `feature/profile-banners-art` these six show new scenery illustrations instead, with the patterns kept as the fallback
-  (§5). No third-party images were used.
+  `feature/profile-banners-art` these six show new scenery illustrations instead. Their patterns are the runtime
+  fallback: a picture that fails to load (blocked, offline, missing) is swapped for its pattern on the spot (§5). No third-party images were used.
 - **Cosmetic only.** No banner has a price, a shop row or a recruit link. Recruiting achievements (`a_pulls_*`) are
   never used as unlocks (there's a test).
 - **The picker** (Edit Profile → Banner) shows "n / 34 unlocked". A locked tile shows its lock chip ("Claim
@@ -102,7 +102,9 @@ Every unlock is read from what the save already holds, and nothing is granted or
 
 **On `feature/profile-banners-art`** (on top of `feature/profile-banners`): the six slot banners now show new
 illustrations, saved as `public/art/lobby/banners/<slug>.webp` (1280 × 876) with a 320 px thumb, about 1 MB in all.
-Each row keeps its `svg` pattern as the fallback; dropping `file` and `thumb` from a row brings the pattern back.
+Each row keeps its `svg` pattern as a runtime fallback: if the picture fails to load, `bannerArt()` swaps the `<img>` for
+the pattern (on the profile, the card and the picker; the e2e blocks the folder to check it). Dropping `file` and `thumb`
+from a row shows the pattern for good. The thumbs in the picker load lazily.
 The owner may replace any of them with their own pictures the same way.
 
 - **Generator:** NovelAI (`nai-diffusion-4-5-full`), 1216 × 832, 23 steps, through the session's network secret. No
@@ -154,7 +156,7 @@ titles. This branch keeps its data in its own new files. In shared files it adds
 function, so a merge has no real conflicts.
 
 **Draft patch note** (for whichever release takes it): "Twenty new profile banners: painted academy places, Freeplay
-milestones, co-op, a secret, Pumpkin Lantern Night, an LR night sky and the four seasons. Each one unlocks from things
+milestones, co-op, a secret, Pumpkin Lantern Night, a painted LR night sky and four painted seasons. Each one unlocks from things
 you've already done, and other Senseis see it on your profile."
 
 ## 7. Open questions (each has a default)

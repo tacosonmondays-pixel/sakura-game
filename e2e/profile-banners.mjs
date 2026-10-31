@@ -5,6 +5,7 @@
 //   2. pick Nightglass Sky, Save: the profile banner draws it; the published card carries it, and the card a viewer
 //      cleans (cleanViewedCard) keeps it; the Preview (what other Senseis see) draws it too
 //   3. a painted pb: banner (Pumpkin Lantern Night) on the profile
+//   4. with public/art/lobby/banners/ blocked, the six illustration banners fall back to their patterns (profile, picker)
 //   + no page/console errors, no horizontal overflow
 //
 //   node e2e/profile-banners.mjs                                    # 390x844, 844x390, 1280x720
@@ -198,6 +199,40 @@ async function runViewport(vp) {
   });
   check(img > 0, `the painted banner loads (${img}px wide)`);
   await shot('profile-pumpkin');
+
+  // ---- 4. the pattern is a runtime fallback: block the illustrations, reload (routing turns the HTTP cache off)
+  log('-- 4. illustrations blocked → the patterns (review r2 M1)');
+  await page.evaluate(async () => {
+    const { store } = window.__sakura;
+    const { setSensei } = await import('/src/systems/senseiSave.js');
+    setSensei(store.profile, { banner: 'pb:nightglass' });
+    store.commit('e2e');
+    store.saveNow?.();
+  });
+  await page.route('**/art/lobby/banners/**', (r) => r.abort());
+  await page.evaluate(() => { location.hash = '#/profile'; });
+  await page.reload({ waitUntil: 'load' });
+  errors.splice(0); // the blocked requests' own console lines
+  await page.waitForSelector('[data-testid="profile"]', { timeout: 30000 });
+  const cardFb = await page.waitForFunction(() => !!document.querySelector('.pf-banner .pf-bn-art[data-banner="pb:nightglass"] .pf-bn-svg svg'), null, { timeout: 15000 }).then(() => true).catch(() => false);
+  check(cardFb && await page.evaluate(() => !document.querySelector('.pf-banner .pf-bn-art[data-banner="pb:nightglass"] img')), 'profile banner: the Nightglass pattern replaces the blocked picture');
+  await page.evaluate(() => { location.hash = '#/profile?edit=banner'; });
+  await page.waitForSelector('[data-testid="edit-banners"]', { timeout: 15000 });
+  // the picker's thumbs load lazily: bring each of the six into view so it requests (and fails) its picture
+  for (const id of ['pb:petal_storm', 'pb:nightglass', 'pb:spring_petals', 'pb:summer_fireworks', 'pb:autumn_leaves', 'pb:first_snow']) {
+    await page.locator(`[data-testid="edit-banners"] [data-banner="${id}"]`).first().scrollIntoViewIfNeeded().catch(() => {});
+    await page.waitForTimeout(250);
+  }
+  const pickFb = await page.waitForFunction(() => ['pb:nightglass', 'pb:autumn_leaves', 'pb:petal_storm', 'pb:first_snow', 'pb:spring_petals', 'pb:summer_fireworks'].every((id) => {
+    const t = document.querySelector(`[data-testid="edit-banners"] [data-banner="${id}"]`);
+    return t && t.querySelector('.pf-bn-svg svg') && !t.querySelector('img');
+  }), null, { timeout: 20000 }).then(() => true).catch(() => false);
+  check(pickFb, 'picker: all six illustration tiles show their pattern, no broken images');
+  const otherImgs = await page.evaluate(() => [...document.querySelectorAll('[data-testid="edit-banners"] img')].filter((i) => i.complete && i.naturalWidth === 0 && !/\/banners\//.test(i.src)).length);
+  check(otherImgs === 0, `the other painted tiles still load (${otherImgs} broken)`);
+  await shot('fallback-picker');
+  await page.unroute('**/art/lobby/banners/**');
+  errors.splice(0).filter((e) => !/ERR_FAILED|net::ERR_|Failed to load resource/.test(e)).forEach((e) => errors.push(e));
   noErrors(vp);
   await context.close();
 }

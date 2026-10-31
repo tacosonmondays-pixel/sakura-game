@@ -403,7 +403,7 @@ export function confirmDialog(text, { title = 'Confirm', ok = 'Confirm', cancel 
  */
 export function toast(message, kind = 'info', ms = 2200) {
   let host = document.querySelector('.toast-host');
-  if (!host) document.body.appendChild((host = h('div.toast-host')));
+  if (!host) document.body.appendChild((host = h('div.toast-host', { role: 'status', 'aria-live': 'polite' })));
   const t = h(`div.toast.toast-${kind}`, message);
   if (kind === 'ach') host.classList.add('has-ach');
   host.appendChild(t);

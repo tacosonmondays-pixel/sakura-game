@@ -2,6 +2,7 @@
 // Quick lines. Every id matches the server's patterns; a viewer draws text and art only from these
 // tables, never from a string it got from the network (except the name and the bio).
 import { CHAPTERS } from './stages.js';
+import { UNIT_MAP } from './units.js';
 import { TINTS } from './lobbyArt.js';
 import { TITLE_TABLE } from '../systems/profileHonors.js';
 import { ALL_EVENTS } from './events/index.js';
@@ -65,7 +66,7 @@ export function bannerLockText(id) {
   const b = BANNER_MAP[id];
   if (!b) return '';
   if (b.kind === 'theme') return `Clear Chapter ${b.chapter}`;
-  if (b.kind === 'scene') return 'Recruit her';
+  if (b.kind === 'scene') return `Recruit ${UNIT_MAP[b.girl]?.name || 'her'}`;
   if (b.kind === 'pb') return pbLockText(id);
   return '';
 }

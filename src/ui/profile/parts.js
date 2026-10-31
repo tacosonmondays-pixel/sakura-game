@@ -49,7 +49,20 @@ export function bannerArt(id, { thumb = false } = {}) {
   const el = h(`div.pf-bn-art.tint-${b.tint || 'none'}`, { 'data-banner': b.id });
   if (b.kind === 'theme') el.append(svgEl(themeBackdropSVG(b.theme), 'pf-bn-svg'));
   else if (b.svg && !b.file) el.append(svgEl(pbBannerSVG(b.svg), 'pf-bn-svg'));
-  else el.append(h('img', { src: lobbyArtUrl(thumb ? b.thumb : b.file), alt: '', draggable: false, decoding: 'async', ...(b.pos ? { style: `object-position: ${b.pos}` } : {}) }));
+  else {
+    // a picture that fails to load (blocked, offline, missing) falls back to the banner's pattern, when it has one; the
+    // img is replaced, so the handler can never run twice (review r2 M1)
+    const fallback = b.svg ? (e) => {
+      const img = e.currentTarget;
+      if (!img?.isConnected || img.dataset.fallback) return;
+      img.dataset.fallback = '1';
+      img.replaceWith(svgEl(pbBannerSVG(b.svg), 'pf-bn-svg'));
+    } : null;
+    el.append(h('img', {
+      src: lobbyArtUrl(thumb ? b.thumb : b.file), alt: '', draggable: false, decoding: 'async', loading: thumb ? 'lazy' : null, onerror: fallback,
+      ...(b.pos ? { style: `object-position: ${b.pos}` } : {}),
+    }));
+  }
   el.append(h('i.pf-bn-tint'));
   return el;
 }
