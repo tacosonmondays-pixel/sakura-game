@@ -17,7 +17,7 @@ import { GEAR_STAT_DEFS, statName, STAT_HINTS, trickIdle } from '../data/gearSta
 import { CLUBS, LIVE_CLUBS, CLUB_RARITIES } from '../data/clubs.js';
 import { SEED_ID, NEEDLE_ID, ARMBAND_ID, TAKE_BACK_COINS, TIE_PIN_ID, COLLAR_PIN_ID, LENS_ID } from '../data/gearAwaken.js';
 import {
-  TITAN_SETS, setBoxSets, fillMainsFor, openSetBox, setIdle, canTopMainRoll, canTopSubRoll, topMainRoll, topSubRoll, isPinnable, collarPinsMax,
+  TITAN_SETS, setBoxSets, fillMainsFor, openSetBox, setIdle, canTopMainRoll, canTopSubRoll, topMainRoll, topSubRoll, isPinnable, pinsShown, collarPinsMax,
 } from '../systems/gearSets.js';
 import { itemCount, hasItems } from '../systems/inventory.js';
 import {
@@ -229,8 +229,9 @@ export function gearActions(gear, { onChange, unitId = null, extra = [] }) {
   }
   if (slots.gold.open) btns.push(button(slots.free ? 'Stitch ✦' : 'Stitches', { kind: 'primary', small: true, testid: 'gear-stitch', onClick: () => stitchModal(gear.uid, { unitId, onDone: onChange }) }));
   // LR gear (GEAR_UPDATE.md §4): a UR piece at +12 Limit Breaks into Set LR or Blank LR; gold, UR and LR pieces take pins
+  // (once a pin can be had or she owns one: gearSets.js pinsShown)
   if (isUrGear(gear) && !isLrGear(gear) && gear.level >= 12) btns.push(button('Limit Break', { kind: 'primary', small: true, testid: 'gear-limit-break', onClick: () => limitBreakModal(gear.uid, { onDone: onChange }) }));
-  if (isPinnable(gear)) btns.push(button('Pin', { kind: 'ghost', small: true, testid: 'gear-pin', onClick: () => pinPicker(gear.uid, onChange) }));
+  if (isPinnable(gear) && pinsShown(profile)) btns.push(button('Pin', { kind: 'ghost', small: true, testid: 'gear-pin', onClick: () => pinPicker(gear.uid, onChange) }));
   btns.push(button('Reroll subs', { kind: 'primary', icon: 'dice', small: true, testid: 'reroll-subs', disabled: !gear.subs.length, onClick: () => rerollModal(gear, 'subs', onChange) }));
   btns.push(button('Change main', { kind: 'pink', icon: 'dice', small: true, testid: 'reroll-main', onClick: () => rerollModal(gear, 'main', onChange) }));
   if (CLUB_RARITIES.includes(gear.rarity)) btns.push(button(gear.club ? 'Club' : 'Join a club', { kind: 'ghost', small: true, testid: 'gear-club', onClick: () => armbandModal(gear.uid, { onDone: onChange }) }));

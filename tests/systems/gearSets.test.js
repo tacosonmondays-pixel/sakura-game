@@ -336,3 +336,16 @@ describe('setIdle reads the behavior she fights with', () => {
     expect(odd).toEqual([]);
   }, 60000);
 });
+
+// v0.1.66 audit C M1: no Pin button promises a pin that cannot be had (no shop, drop or reward lists one yet)
+describe('pinsShown', () => {
+  it('off while no source lists a pin and she owns none; on once she owns one', async () => {
+    const { pinsShown } = await import('../../src/systems/gearSets.js');
+    const { itemSources } = await import('../../src/systems/inventory.js');
+    const p = createProfile();
+    const sourced = itemSources('tie_pin').length > 0 || itemSources('collar_pin').length > 0;
+    expect(pinsShown(p)).toBe(sourced);
+    p.items.collar_pin = 1;
+    expect(pinsShown(p)).toBe(true);
+  });
+});

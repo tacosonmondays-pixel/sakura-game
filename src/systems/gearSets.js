@@ -13,7 +13,7 @@ import { gameDayNumber } from '../core/reset.js';
 import {
   rollGear, addGear, gearRoom, pieceName, recomputeGear, topMainBase, topSubBase, isLrGear, cloneGearOf,
 } from './gear.js';
-import { consumeItems, missingItems, addItems } from './inventory.js';
+import { consumeItems, missingItems, addItems, itemCount, itemSources } from './inventory.js';
 import { deliverMail } from './mail.js';
 import { titansUnlocked } from './titans.js';
 import { track } from './missions.js';
@@ -315,3 +315,12 @@ export function setIdle(setId, unitId) {
 export const setName = (id) => GEAR_SETS[id]?.name || id;
 /** @returns {boolean} a piece a pin can take (gold, UR or LR) */
 export const isPinnable = pinnable;
+
+/**
+ * Whether the pins show (v0.1.66 audit C M1): a pin can be had (a shop, drop or reward lists a Tie or Collar Pin) or
+ * she already owns one. Until then a piece shows no Pin button, so nothing promises what cannot be got.
+ */
+export function pinsShown(profile) {
+  if (itemCount(profile, TIE_PIN_ID) > 0 || itemCount(profile, COLLAR_PIN_ID) > 0) return true;
+  return itemSources(TIE_PIN_ID).length > 0 || itemSources(COLLAR_PIN_ID).length > 0;
+}
