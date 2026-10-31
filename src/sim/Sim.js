@@ -237,12 +237,12 @@ export class Sim {
     this._hitOut = {};
     this._dotOut = {};
     this._statusCtx = { rng: this.rng, element: null, attackType: null, sourceUid: null, hitDamage: 0, curseDepth: 0, controlMul: 1, itBonus: 0 };
-    this._curseCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0 };
+    this._curseCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0, controlMul: 1, itBonus: 0 };
     this._curseQueue = [];
     this._flushingCurses = false;
     this._curseBudget = CURSE_BURSTS_PER_TICK; // bursts left this step (refilled at every step)
     this._spreadBudget = CURSE_SPREADS_PER_TICK; // living curse passes left this step (refilled at every step)
-    this._spreadCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0 };
+    this._spreadCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0, controlMul: 1, itBonus: 0 };
     // Spirit Tether (attack shapes S4, src/sim/links.js): the living tether groups and their count (0: Sim._hit's share
     // hook is one compare), the re-entrancy flag (a shared hit never shares again) and this step's share budget
     this.tethers = [];
@@ -939,6 +939,8 @@ export class Sim {
     if (!best) return;
     this._spreadBudget--;
     const ctx = this._spreadCtx;
+    // (a passed curse is no girl's control: no Control Strength or You're It, like _flushCurses; audit A LOW2)
+    statusCtxFor(ctx, null);
     ctx.sourceUid = c.sourceUid ?? null;
     ctx.curseDepth = c.depth + 1;
     this._applyStatusEvent(best, {
