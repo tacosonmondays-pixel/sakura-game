@@ -18,7 +18,8 @@ const GEAR_SLOTS = Object.fromEntries(SLOT_IDS.map((s) => [s, GEAR_SLOT_DEFS[s]]
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, '..', '..', 'public', 'art', 'items');
 const CAP = { 256: 20 * 1024, 128: 9 * 1024, small: 5 * 1024 };
-const TOTAL_CAP = 2.2 * 1024 * 1024;
+// 2.8 MB since the gear sets got their 30 looks and the Set Boxes, pins and lens their own art (Oct 31; was 2.2 MB)
+const TOTAL_CAP = 2.8 * 1024 * 1024;
 const PX = { 256: 256, 128: 128, small: 96 };
 
 const ART_KEYS = new Set([

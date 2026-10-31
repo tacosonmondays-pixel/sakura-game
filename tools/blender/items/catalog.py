@@ -138,12 +138,15 @@ for _fam, _rows in _MAT.items():
 #   hairclip  blossom, heart (never a bow, a star or a snowflake: the gear update spec 2.1 and 3.3); the set looks'
 #             ornaments: pom, pause, setsquare, confetti, calc, bolt
 #   necklace  (also) the set lockets: megaphone, stopwatch, crosshair, popper, coin, battery
+#   keyring   a set's charm: its ornament on a split keyring (shape: the hairclip's set ornaments)
+#   emblem: a set look's ornament drawn as a badge (the bow's knot, the sneaker's side), shared by all five pieces
 #   body: a fixed body colour (default: the rarity tint); trim: a fixed trim metal (set looks); note: the README line.
 GEAR_SHAPES = dict(pendant=('diamond', 'heart', 'round', 'star', 'blossom'),
                    necklace=('diamond', 'heart', 'round', 'star', 'blossom', 'megaphone', 'stopwatch', 'crosshair',
                              'popper', 'coin', 'battery'),
                    bow=('classic', 'wide'), sneaker=('low', 'high'),
-                   hairclip=('blossom', 'heart', 'pom', 'pause', 'setsquare', 'confetti', 'calc', 'bolt'))
+                   hairclip=('blossom', 'heart', 'pom', 'pause', 'setsquare', 'confetti', 'calc', 'bolt'),
+                   keyring=('pom', 'pause', 'setsquare', 'confetti', 'calc', 'bolt'))
 GEAR_MOTIFS = ('sakura', 'star', 'heart', 'moon')
 GEAR_SLOT_ART = dict(
     charm=dict(base='pendant', shape='diamond', note='faceted diamond stone in a bezel on a short chain'),
@@ -196,26 +199,45 @@ GEAR_SETS = dict(
                            shoes=dict(shape='high', motif='heart', body='#ff7eb6'),
                            hair=dict(shape='heart', body='#ff7eb6'),
                            necklace=dict(shape='heart', motif='heart', body='#ff7eb6'))),
-    # The six sets' Hair Clip and Necklace (docs/art/tripo/chrome-batch-1.md rows 2-13: "<colour> with white and gold
-    # trim"); body = the set colour (src/data/gearSets.js). A set row bakes only the slots it lists: the classic
-    # three keep the default looks until their set art is drawn.
+    # The six sets' five pieces: one motif per set (its ornament) shared by all five, in the set colour (src/data/
+    # gearSets.js) with white and gold trim (docs/art/tripo/chrome-batch-1.md rows 2-13 for the Hair Clip and Necklace):
+    # the charm is the ornament on a keyring, the ribbon and the shoes wear it as a badge, the Hair Clip carries it and
+    # the Necklace is the set's locket. A set row bakes only the slots it lists.
     spirit=dict(note='Spirit Squad: the Pom Clip (a cheer pom-pom) and the Spirit Locket (a heart with a megaphone)',
-                slots=dict(hair=dict(shape='pom', body='#e5484d', trim='gold'),
+                slots=dict(charm=dict(base='keyring', shape='pom', body='#e5484d', trim='gold'),
+                           ribbon=dict(shape='classic', body='#e5484d', trim='gold', emblem='pom'),
+                           shoes=dict(shape='high', body='#e5484d', trim='gold', emblem='pom'),
+                           hair=dict(shape='pom', body='#e5484d', trim='gold'),
                            necklace=dict(shape='megaphone', body='#e5484d', trim='gold'))),
     freezetag=dict(note='Freeze Tag: the Pause-Button Clip and the Tag Timer (a pendant stopwatch)',
-                   slots=dict(hair=dict(shape='pause', body='#5fb4e8', trim='gold'),
+                   slots=dict(charm=dict(base='keyring', shape='pause', body='#5fb4e8', trim='gold'),
+                           ribbon=dict(shape='classic', body='#5fb4e8', trim='gold', emblem='pause'),
+                           shoes=dict(shape='low', body='#5fb4e8', trim='gold', emblem='pause'),
+                           hair=dict(shape='pause', body='#5fb4e8', trim='gold'),
                               necklace=dict(shape='stopwatch', body='#5fb4e8', trim='gold'))),
     geometry=dict(note='Geometry Set: the Set-Square Clip and the Crosshair Locket',
-                  slots=dict(hair=dict(shape='setsquare', body='#5a6fa8', trim='gold'),
+                  slots=dict(charm=dict(base='keyring', shape='setsquare', body='#5a6fa8', trim='gold'),
+                           ribbon=dict(shape='classic', body='#5a6fa8', trim='gold', emblem='setsquare'),
+                           shoes=dict(shape='low', body='#5a6fa8', trim='gold', emblem='setsquare'),
+                           hair=dict(shape='setsquare', body='#5a6fa8', trim='gold'),
                              necklace=dict(shape='crosshair', body='#5a6fa8', trim='gold'))),
     popper=dict(note='Party Popper: the Confetti Clip and the Party Locket (a party popper)',
-                slots=dict(hair=dict(shape='confetti', body='#9b5de5', trim='gold'),
+                slots=dict(charm=dict(base='keyring', shape='confetti', body='#9b5de5', trim='gold'),
+                           ribbon=dict(shape='wide', body='#9b5de5', trim='gold', emblem='confetti'),
+                           shoes=dict(shape='high', body='#9b5de5', trim='gold', emblem='confetti'),
+                           hair=dict(shape='confetti', body='#9b5de5', trim='gold'),
                            necklace=dict(shape='popper', body='#9b5de5', trim='gold'))),
     treasurer=dict(note='Treasurer: the Calculator Clip and the Coin Locket (a gold coin with a sakura stamp)',
-                   slots=dict(hair=dict(shape='calc', body='#9fd8c4', trim='gold'),
+                   slots=dict(charm=dict(base='keyring', shape='calc', body='#9fd8c4', trim='gold'),
+                           ribbon=dict(shape='classic', body='#9fd8c4', trim='gold', emblem='calc'),
+                           shoes=dict(shape='low', body='#9fd8c4', trim='gold', emblem='calc'),
+                           hair=dict(shape='calc', body='#9fd8c4', trim='gold'),
                               necklace=dict(shape='coin', body='#9fd8c4', trim='gold'))),
     powerbank=dict(note='Power Bank: the Lightning Clip and the Battery Locket (a charge bar)',
-                   slots=dict(hair=dict(shape='bolt', body='#8bd13a', trim='gold'),
+                   slots=dict(charm=dict(base='keyring', shape='bolt', body='#8bd13a', trim='gold'),
+                           ribbon=dict(shape='wide', body='#8bd13a', trim='gold', emblem='bolt'),
+                           shoes=dict(shape='high', body='#8bd13a', trim='gold', emblem='bolt'),
+                           hair=dict(shape='bolt', body='#8bd13a', trim='gold'),
                               necklace=dict(shape='battery', body='#8bd13a', trim='gold'))),
 )
 

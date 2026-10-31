@@ -17,7 +17,7 @@ SHADOW_OFF = (1, 5)
 SHADOW_SIGMA = 3.2
 SHADOW_CORE = 0.32
 CAPS = {'256': 20 * 1024, '128': 9 * 1024, 'small': 5 * 1024}
-TOTAL_CAP = int(2.2 * 1024 * 1024)
+TOTAL_CAP = int(2.8 * 1024 * 1024)    # tests/art/itemArt.test.js (2.2 MB until the gear sets' 30 looks)
 WEBP = dict(quality=88, alpha_quality=100, method=6)
 SMALL_PX = 96
 
