@@ -73,6 +73,16 @@ export function titleChoices(p) {
 }
 
 /**
+ * The hint to show instead of a title that comes from a secret achievement the save hasn't earned yet (Edit Profile
+ * draws "???" and this hint, like a secret frame), or null when the title may show its name and how.
+ */
+export function secretTitleHint(p, id) {
+  const a = ACH_MAP[id];
+  if (!a?.hidden || earnedTitles(p).includes(id)) return null;
+  return a.hint || 'A secret achievement…';
+}
+
+/**
  * A title this build doesn't know (a newer achievement pack) is kept while its achievement is claimed,
  * so an older build never erases it (ACHIEVEMENTS.md §6.6, change 7).
  */

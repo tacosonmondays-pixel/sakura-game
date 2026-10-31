@@ -8,7 +8,7 @@ import { HONOR_MAP } from '../../src/data/honors.js';
 import { HONOR_ART, EMBLEMS } from '../../src/art/honors.js';
 import { createProfile, serializeProfile, deserializeProfile, migrateProfile } from '../../src/systems/save.js';
 import { earnedHonors } from '../../src/systems/profileHonors.js';
-import { earnedFrames, earnedTitles, frameChoices } from '../../src/systems/profileTrophies.js';
+import { earnedFrames, earnedTitles, frameChoices, titleChoices, secretTitleHint } from '../../src/systems/profileTrophies.js';
 import { setSensei, restoreSensei, WORN_MARK, SENSEI_MARK, TAG_TITLE_MARK, EVENT_TITLE_MARK } from '../../src/systems/senseiSave.js';
 import { CAMPAIGN_IDS } from '../../src/data/stages.js';
 import { RIBBON_MODES } from '../../src/data/modes.js';
@@ -198,5 +198,18 @@ describe("an older build's round trip", () => {
     expect(s.frame).toBe('first_petal');
     expect(restoreSensei({ ...p.sensei, frame: 'window_seat' }, p).frame).toBe('window_seat');
     expect(TITLES.a_mirror_mirror.text).toBe('Bravest of Them All');
+  });
+});
+
+describe('secret titles stay secret in Edit Profile (review r1 M1)', () => {
+  it('an unearned secret title shows only its hint; once earned, its name and how', () => {
+    const p = createProfile();
+    const secretTitles = titleChoices(p).filter((id) => ACHIEVEMENT_MAP[id]?.hidden);
+    expect(secretTitles).toEqual(expect.arrayContaining(['a_close_call', 'a_mirror_mirror']));
+    for (const id of secretTitles) expect(secretTitleHint(p, id), id).toBe(ACHIEVEMENT_MAP[id].hint);
+    expect(secretTitleHint(p, 'a_first_win')).toBe(null); // not a secret: its plate and how show as before
+    claim(p, 'a_mirror_mirror');
+    expect(secretTitleHint(p, 'a_mirror_mirror')).toBe(null);
+    expect(secretTitleHint(p, 'a_close_call')).toBe(ACHIEVEMENT_MAP.a_close_call.hint);
   });
 });

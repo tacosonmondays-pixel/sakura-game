@@ -8,7 +8,7 @@ import { BANNERS, FRAMES, TITLES, QUICK_LINES, bannerLockText } from '../../data
 import { portraitHTML } from '../../art/portraits.js';
 import { frameChipSVG } from '../../art/profileArt.js';
 import { unitPower } from '../../systems/progression.js';
-import { earnedTitles, earnedFrames, frameChoices, bannerUnlocked, titleChoices } from '../../systems/profileTrophies.js';
+import { earnedTitles, earnedFrames, frameChoices, bannerUnlocked, titleChoices, secretTitleHint } from '../../systems/profileTrophies.js';
 import { setSensei } from '../../systems/senseiSave.js';
 import { titlesFromText } from '../../systems/honors.js';
 import { BIO_MAX, PROFILE_VISIBILITY_DEFAULT, bioError } from '../../online/profileRules.js';
@@ -144,8 +144,9 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
             h('div.ep-title-head', name, h('small', `${ids.filter((id) => titles.has(id)).length} / ${ids.length}`)),
             ids.map((id) => {
               const ok = titles.has(id);
-              return h(`button.ep-title${draft.title === id ? '.on' : ''}${ok ? '' : '.locked'}`, { type: 'button', disabled: !ok, 'data-title': id, onclick: () => set('title', id) },
-                titlePlate(id, { still: true, locked: !ok }), ok ? null : h('span.ep-how', ico('lock'), `How: ${TITLES[id].how}`), draft.title === id ? h('i.ep-check', '✓') : null);
+              const hint = ok ? null : secretTitleHint(p, id); // a secret's title: "???" and its hint until earned
+              return h(`button.ep-title${draft.title === id ? '.on' : ''}${ok ? '' : '.locked'}${hint ? '.secret' : ''}`, { type: 'button', disabled: !ok, 'data-title': id, onclick: () => set('title', id) },
+                titlePlate(id, { still: true, locked: !ok, text: hint ? '???' : null }), ok ? null : h('span.ep-how', ico('lock'), hint ? `Hint: ${hint}` : `How: ${TITLES[id].how}`), draft.title === id ? h('i.ep-check', '✓') : null);
             }));
         })),
     ],

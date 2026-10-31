@@ -148,6 +148,38 @@ async function runViewport(vp) {
   check(!errors.length, `picker: no console errors (${errors.slice(0, 3).join(' | ')})`);
   await page.close();
 
+  // ---- 3b. the title picker: an unearned secret's title is "???" with its hint (review r1 M1) ----
+  const s3 = save();
+  delete s3.missions.achievements.a_close_call;
+  ({ page, errors } = await openWith(context, s3, '#/profile?edit=title'));
+  await page.waitForSelector('[data-testid="edit-titles"]', { timeout: 30000 });
+  await page.waitForTimeout(500);
+  const tt = await page.evaluate(() => {
+    const row = (id) => document.querySelector(`[data-testid="edit-titles"] [data-title="${id}"]`);
+    const all = document.querySelector('[data-testid="edit-titles"]')?.textContent || '';
+    return {
+      closeCall: row('a_close_call')?.textContent || '',
+      mirror: row('a_mirror_mirror')?.textContent || '',
+    };
+  });
+  // in this save Mirror, Mirror is claimed (its title shows) and By a Petal is not (its title stays secret)
+  check(/\?\?\?/.test(tt.closeCall) && /Hint: Cutting it close/.test(tt.closeCall), `titles: By a Petal's title reads ??? and its hint (${tt.closeCall})`);
+  check(/Bravest of Them All/.test(tt.mirror), 'titles: the earned secret title shows its name');
+  await page.locator('[data-testid="edit-titles"] [data-title="a_close_call"]').scrollIntoViewIfNeeded().catch(() => {});
+  await shot(page, 'titles');
+  await page.close();
+  // a fresh save: no secret's title or how anywhere in the picker
+  const fresh = save();
+  delete fresh.missions.achievements.a_mirror_mirror;
+  delete fresh.missions.achievements.a_close_call;
+  ({ page, errors } = await openWith(context, fresh, '#/profile?edit=title'));
+  await page.waitForSelector('[data-testid="edit-titles"]', { timeout: 30000 });
+  await page.waitForTimeout(500);
+  const leak = await page.evaluate(() => /Bravest of Them All|Mirror Queen 25|Cool Under Pressure|exactly 1 life/.test(document.querySelector('[data-testid="edit-titles"]')?.textContent || ''));
+  check(!leak, 'titles: a save without the secrets shows neither secret title nor how it is earned');
+  check(!errors.length, `titles: no console errors (${errors.slice(0, 3).join(' | ')})`);
+  await page.close();
+
   // ---- 4. the profile wearing a new frame ----
   ({ page, errors } = await openWith(context, save({ frame: 'window_seat' }), '#/profile'));
   await page.waitForSelector('[data-testid="profile-avatar"]', { timeout: 30000 });

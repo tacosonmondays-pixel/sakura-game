@@ -41,7 +41,7 @@ import { loadTags, selfId, onSelfId, isTagTitle } from '../../online/tags.js';
 import {
   ico, bannerArt, avatarEl, frameName, titlePlate, titleChip, frameChip, slotCard, favInfo, potPill, plaqueEl, medalTallyRow, ribbonTallyRow, freeplayRows, statTiles, attachHold,
 } from '../profile/parts.js';
-import { profileZero, isFreeplayTitle } from '../profile/zero.js';
+import { profileZero, isFreeplayTitle, isFreeplayFrame } from '../profile/zero.js';
 
 const PETALS = [[8, 18, 20], [78, 12, -30], [86, 46, 60], [14, 62, -10], [70, 74, 35], [30, 8, 80]];
 
@@ -336,8 +336,8 @@ function profileView(m, ctx) {
     : own
       ? h('div.pf-fp-earned',
         m.earnedTitles.filter(isFreeplayTitle).map((id) => titleChip(id, { onClick: () => actions.editProfile('title') })),
-        m.earnedFrames.map((f) => frameChip(f, { onClick: () => actions.editProfile('picture') })))
-      : h('div.pf-fp-earned', isFreeplayTitle(m.title) ? titleChip(m.title) : null, m.frame ? frameChip(m.frame) : null);
+        m.earnedFrames.filter(isFreeplayFrame).map((f) => frameChip(f, { onClick: () => actions.editProfile('picture') })))
+      : h('div.pf-fp-earned', isFreeplayTitle(m.title) ? titleChip(m.title) : null, isFreeplayFrame(m.frame) ? frameChip(m.frame) : null);
   // [ui-m5] only the tiers played ("Not played yet" went); no records and nothing earned: no panel
   const fpPanel = z.freeplay.length || earned ? h('section.panel.pf-fprec', { 'data-testid': 'profile-freeplay' },
     h('div.panel-title.pf-ph', h('span', 'Freeplay Records')),

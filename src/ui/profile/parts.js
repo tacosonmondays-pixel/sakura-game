@@ -77,10 +77,10 @@ const PLATE_OF_TIER = { std: 'standard', gold: 'gold', prism: 'prism' };
  * from the profile's own table (achievement, freeplay, tag AND event titles): honorFx's TITLE_MAP has no event
  * titles, so an event title (Pumpkin Patroller) read "✦ —" on the Standard plate in v0.1.38.
  */
-export function titlePlate(id, { still = false, small = false, locked = false } = {}) {
+export function titlePlate(id, { still = false, small = false, locked = false, text = null } = {}) {
   if (!id) return null;
   const t = TITLES[id];
-  const el = honorPlate(id, { live: !still, small, locked, text: t ? t.text : '—', plate: t ? PLATE_OF_TIER[t.tier] : null });
+  const el = honorPlate(id, { live: !still, small, locked, text: text ?? (t ? t.text : '—'), plate: t ? PLATE_OF_TIER[t.tier] : null });
   el.classList.add('pf-title');
   el.dataset.testid = 'profile-title';
   return el;
