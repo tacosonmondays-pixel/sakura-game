@@ -7,8 +7,10 @@
 import { h, icon, enemyToken, traitBadge } from './util.js';
 import { fmtNum } from '../format.js';
 import { ENEMIES, FAMILIES, ENEMY_MAP } from '../../data/enemies.js';
+import { EVENT_ENEMIES } from '../../data/events/index.js';
 import { TRAITS } from '../../data/types.js';
 import { initTraitState } from '../../sim/enemies.js';
+import { gainHeroXp, heroXpCap } from '../../sim/hero.js';
 import { enemyModelKeys } from '../../models/glbEnemy.js';
 import { SANDBOX_COIN_STEP, SANDBOX_COIN_CAP } from '../../systems/sandbox.js';
 
@@ -28,9 +30,10 @@ export const EXTRA_TRAITS = {
   hasty: { mul: 2, every: 4, duration: 1.2 },
 };
 
-/** Every enemy grouped by family (bestiary order), bosses included. */
+/** Every enemy grouped by family (bestiary order), bosses and event enemies (the Gourdlight) included. */
 export function enemyGroups() {
-  return Object.values(FAMILIES).map((f) => ({ family: f, enemies: ENEMIES.filter((e) => e.family === f.id) })).filter((g) => g.enemies.length);
+  const all = [...ENEMIES, ...EVENT_ENEMIES.filter((e) => !ENEMIES.some((x) => x.id === e.id))];
+  return Object.values(FAMILIES).map((f) => ({ family: f, enemies: all.filter((e) => e.family === f.id) })).filter((g) => g.enemies.length);
 }
 
 /**
@@ -75,9 +78,11 @@ export function applyMods(e, mods) {
  * Spawns one enemy at the start of a path with the given switches (and HP scale, when the entry
  * belongs to a wave sent early). @returns {object|null}
  */
-export function spawnOne(sim, enemyId, { pathIndex = 0, mods = null, hpMul = undefined } = {}) {
+export function spawnOne(sim, enemyId, { pathIndex = 0, mods = null, hpMul = undefined, speedMul = undefined, leak = undefined, spawnMods = undefined } = {}) {
   ensureWave(sim);
-  const e = sim.spawnEnemy(enemyId, hpMul != null ? { pathIndex, dist: 0, hpMul } : { pathIndex, dist: 0 });
+  // (an early-sent freeplay spawn keeps its own speed, leak and affix: `spawnMods`, the Sim's spawn `mods`)
+  const extra = { ...(speedMul != null ? { speedMul } : {}), ...(leak != null ? { leak } : {}), ...(spawnMods ? { mods: spawnMods } : {}) };
+  const e = sim.spawnEnemy(enemyId, hpMul != null ? { pathIndex, dist: 0, hpMul, ...extra } : { pathIndex, dist: 0, ...extra });
   if (e && mods) applyMods(e, mods);
   return e;
 }
@@ -161,6 +166,18 @@ export function addCoins(sim, amount = SANDBOX_COIN_STEP) {
 }
 
 /**
+ * A hero placed while `isOn()` joins at Lv 25 with Mastery full (a run started at a late wave: her XP is bought,
+ * as a player's level-ups are, through the Sim's own gainHeroXp). @returns {() => void} undo
+ */
+export function guardHeroLevel(sim, isOn) {
+  return override(sim, 'placeTower', (place) => function sandboxPlace(...args) {
+    const t = place.apply(this, args);
+    if (t?.isHero && isOn()) gainHeroXp(this, t, heroXpCap(t.def.hero) + 1, 'bought');
+    return t;
+  });
+}
+
+/**
  * Sandbox control of one solo Sim, from outside src/sim (the lockstep sim stays untouched). Spawn
  * groups and early waves wait in a queue that is emptied at the start of each fixed sim step, so a
  * group keeps its exact spacing in game time (it pauses and speeds up with the battle) and stays
@@ -169,7 +186,7 @@ export function addCoins(sim, amount = SANDBOX_COIN_STEP) {
  * @param {object} sim
  * @param {{ unlimitedLives?: () => boolean }} [opts]
  */
-export function createSandboxDriver(sim, { unlimitedLives = () => true } = {}) {
+export function createSandboxDriver(sim, { unlimitedLives = () => true, heroMax = () => false } = {}) {
   const queue = []; // { at: sim time, enemyId, pathIndex, mods, hpMul }
   const drain = () => {
     while (queue.length && queue[0].at <= sim.time + 1e-9) {
@@ -191,6 +208,7 @@ export function createSandboxDriver(sim, { unlimitedLives = () => true } = {}) {
       return check.call(this);
     }),
     guardLives(sim, unlimitedLives),
+    guardHeroLevel(sim, heroMax),
   ];
   return {
     queue,
@@ -213,8 +231,9 @@ export function createSandboxDriver(sim, { unlimitedLives = () => true } = {}) {
       if (sim.state !== 'wave') return false;
       sim.wave++;
       const w = sim._getWave(sim.wave);
-      const hpMul = (sim.stage.hpScale ?? 1) * sim.diff.hpMul * w.hpMul;
-      push(w.spawns.map((s) => ({ at: sim.time + s.t, enemyId: s.enemyId, pathIndex: s.pathIndex, mods: null, hpMul })));
+      // each entry keeps its own wave HP factor (a freeplay boss's rank factor), speed, leak and affix
+      const base = (sim.stage.hpScale ?? 1) * sim.diff.hpMul;
+      push(w.spawns.map((s) => ({ at: sim.time + s.t, enemyId: s.enemyId, pathIndex: s.pathIndex, mods: null, hpMul: base * (s.hpMul ?? w.hpMul), speedMul: s.speedMul, leak: s.leak, spawnMods: s.mods })));
       sim._emit('waveStart', { wave: sim.wave });
       return true;
     },
@@ -253,7 +272,9 @@ export function createSandboxPanel(ctx) {
   };
   state.mods = defaultMods(state.enemyId);
   ctx.sandbox = state;
-  const driver = createSandboxDriver(sim, { unlimitedLives: () => state.unlimitedLives });
+  // a run from a later start wave: her hero joins at Lv 25 + Mastery unless the run says otherwise (hmax=0)
+  const run = ctx.req?.sandboxRun || {};
+  const driver = createSandboxDriver(sim, { unlimitedLives: () => state.unlimitedLives, heroMax: () => !!run.heroMax && (run.startWave || 1) > 1 });
 
   // ---- header (always visible; the toggle collapses the body on phones) -------------------
   const toggleBtn = h('button.bt-sbx-toggle', { 'data-testid': 'sandbox-toggle', 'aria-expanded': 'true', onclick: () => setOpen(!state.open) }, icon('settings', 'bt-ico-sm'), h('span', 'Sandbox'), h('span.bt-sbx-chev'));

@@ -6,7 +6,8 @@ import { CAMPAIGN_IDS, stageEnemies } from '../../src/data/stages.js';
 import { MAPS } from '../../src/data/maps.js';
 import { UNITS } from '../../src/data/units.js';
 import { BATTLE } from '../../src/data/types.js';
-import { BREAKTHROUGH_LEVEL_CAP, MAX_AWAKEN, MAX_BREAKTHROUGH, BASE_GATES, gatesAllowed, unitBattleStats } from '../../src/systems/progression.js';
+import { BREAKTHROUGH_LEVEL_CAP, MAX_AWAKEN, MAX_BREAKTHROUGH, MAX_LEVEL, BASE_GATES, gatesAllowed, unitBattleStats } from '../../src/systems/progression.js';
+import { MAX_POTENTIAL } from '../../src/systems/potential.js';
 import {
   SANDBOX_UNLOCK_CLEARS, SANDBOX_COINS, campaignClears, isSandboxUnlocked, sandboxLockText, sandboxMaps, sandboxStageFor,
   sandboxUnitStats, sandboxFormation, sandboxBattleParams, parseTeam, sandboxOutcome,
@@ -97,19 +98,25 @@ describe('sandbox loadout', () => {
     expect(sandboxFormation([tower, tower, 'nobody', hero], tower)).toEqual({ towers: [tower], hero: null });
   });
 
-  it('every girl fights at her P1 level cap (60), every breakthrough P1 allows (5) and full awakening', () => {
+  it('every girl fights at the true maximum by default: L85, every gate (10), P6, ★5', () => {
     for (const u of UNITS) {
       const s = sandboxUnitStats(u.id);
-      expect(s.level).toBe(BREAKTHROUGH_LEVEL_CAP);
-      expect(s.level).toBe(60);
-      expect(s.potential).toBe(1);
+      expect(s.level).toBe(MAX_LEVEL);
+      expect(s.potential).toBe(MAX_POTENTIAL);
       expect(s.awaken).toBe(MAX_AWAKEN);
-      // a real P1 maximum: gates 6–10 need P2–P6 (ASC-5)
-      expect(s.breakthrough).toBe(BASE_GATES);
-      expect(s.breakthrough).toBe(gatesAllowed(1));
-      expect(s.breakthrough).toBeLessThan(MAX_BREAKTHROUGH);
+      expect(s.breakthrough).toBe(MAX_BREAKTHROUGH);
       expect(s.awakenPassive).toBe(true);
       expect(s.damageMul).toBeGreaterThan(unitBattleStats(createProfile(), u.id).damageMul);
+    }
+  });
+
+  it('a lower build is a real one: P1 L60 is five gates, no Potential steps', () => {
+    for (const u of UNITS) {
+      const s = sandboxUnitStats(u.id, { level: BREAKTHROUGH_LEVEL_CAP, p: 1, stars: MAX_AWAKEN, lr: false, gear: 'none' });
+      expect(s.level).toBe(60);
+      expect(s.potential).toBe(1);
+      expect(s.breakthrough).toBe(BASE_GATES);
+      expect(s.breakthrough).toBe(gatesAllowed(1));
     }
   });
 

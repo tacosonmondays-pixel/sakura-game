@@ -1,31 +1,43 @@
-// Sandbox (owner: meta-a). Route: #/sandbox (pick a map + difficulty), #/sandbox/team (pick any
-// girl, owned or not — she joins at max level and awakening), then the battle:
-// #/battle?stage=<host stage>&difficulty=…&sandbox=1&team=a.b.c&hero=x
-// Solo only. Opens after SANDBOX_UNLOCK_CLEARS campaign clears; nothing from a sandbox run is saved.
+// Sandbox (owner: meta-a). Route: #/sandbox (pick a stage of any mode, or a titan, and the run: difficulty, freeplay
+// tier, battle mode, start wave), #/sandbox/team (pick any girl, owned or not, and her build: by default the true
+// maximum, L85 · P6 · ★5 · LR with her coach's LR set; a squad build and per-girl builds can set any lower values and
+// any gear preset), then the battle (src/systems/sandbox.js sandboxBattleParams).
+// Solo only. Opens after SANDBOX_UNLOCK_CLEARS campaign clears; nothing from a sandbox run is saved (the choice lives in
+// sessionStorage for this tab, the virtual gear only in the battle's stats).
 import '../styles/meta-a.css';
 import '../styles/meta-b.css';
 import '../styles/sandbox.css';
-import { h, clear, screen, svgEl, button, unitCard, toast } from '../components.js';
+import { h, clear, screen, svgEl, button, unitCard, toast, modal } from '../components.js';
 import { navigate } from '../router.js';
 import { store } from '../../core/store.js';
-import { BATTLE, DIFFICULTIES, DIFFICULTY_ORDER } from '../../data/types.js';
+import { BATTLE, DIFFICULTIES } from '../../data/types.js';
 import { MAP_TIER_VIEW } from '../../data/mapTierNames.js';
 import { UNIT_MAP } from '../../data/units.js';
+import { STAGE_MAP } from '../../data/stages.js';
+import { FREEPLAY_TIERS, freeplayTable } from '../../data/freeplay.js';
+import { MODE_ORDER } from '../../data/modes.js';
+import { modeText } from '../text/modes.js';
+import { TITAN_TIERS, TIER_NAMES, MAX_RANK } from '../../data/titans.js';
+import { SET_IDS, GEAR_SETS } from '../../data/gearSets.js';
 import { stageThumbSVG } from '../../art/stageThumb.js';
 import { uiIcon } from '../../art/icons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isOwned } from '../../systems/unlocks.js';
-import { BREAKTHROUGH_LEVEL_CAP as SANDBOX_LEVEL, MAX_AWAKEN } from '../../systems/progression.js';
+import { isLegendUnit } from '../../data/banners.js';
+import { MAX_LEVEL, MAX_AWAKEN } from '../../systems/progression.js';
+import { MAX_POTENTIAL } from '../../systems/potential.js';
 import {
-  isSandboxUnlocked, sandboxLockText, sandboxMaps, sandboxFormation, sandboxRoster, sandboxBattleParams,
-  campaignClears, SANDBOX_UNLOCK_CLEARS, SANDBOX_COINS,
+  isSandboxUnlocked, sandboxLockText, sandboxStages, sandboxTitans, sandboxFormation, sandboxRoster, sandboxBattleParams,
+  sandboxFreeplayOk, sandboxModeOk, sandboxDifficulties, sandboxEventName, sandboxStageFor, sandboxIsLr,
+  normalizeBuild, buildFor, gearPresetLabel, startWaveOf, potentialForLevel,
+  campaignClears, SANDBOX_UNLOCK_CLEARS, SANDBOX_COINS, SANDBOX_GROUPS, SANDBOX_MAX_BUILD, SANDBOX_WAVE_PICKS, SANDBOX_MAX_START_WAVE,
+  BEST_SET, SANDBOX_LEVEL_PICKS, bestSetFor, SANDBOX_RESONANCE,
 } from '../../systems/sandbox.js';
 
 const KEY = 'sakura.sandbox.v1';
-/** Where a non-campaign map comes from. */
-const MODE_LABEL = { resource: 'Bounty', boss: 'Total Assault', challenge: 'Tactical Challenge', side: 'Side stage' };
+const MODE_LABEL = { resource: 'Bounty', boss: 'Total Assault', challenge: 'Tactical Challenge', side: 'Side stage', event: 'Event' };
 
-/** The last choice (per viewer, this tab): map, difficulty, squad. */
+/** The last choice (per viewer, this tab): stage or titan, the run, the squad and its builds. */
 function loadChoice(profile) {
   let saved = null;
   try {
@@ -33,8 +45,15 @@ function loadChoice(profile) {
   } catch {
     saved = null;
   }
-  const maps = sandboxMaps();
-  const mapId = maps.some((m) => m.map.id === saved?.mapId) ? saved.mapId : maps[0]?.map.id;
+  const stages = sandboxStages();
+  // (an older choice named a map: its host stage)
+  const wantStage = saved?.stageId || (saved?.mapId ? sandboxStageFor(saved.mapId) : null);
+  const stageId = stages.some((s) => s.id === wantStage) ? wantStage : stages[0]?.id;
+  const titans = sandboxTitans();
+  const titan = saved?.titan && titans.some((t) => t.id === saved.titan.id)
+    ? { id: saved.titan.id, tier: TITAN_TIERS.includes(saved.titan.tier) ? saved.titan.tier : 'normal', rank: Math.max(0, Math.min(MAX_RANK, Math.floor(Number(saved.titan.rank) || 0))) }
+    : { id: titans[0]?.id, tier: 'normal', rank: 0 };
+  const group = SANDBOX_GROUPS.some((g) => g.id === saved?.group) ? saved.group : stages.find((s) => s.id === stageId)?.group || 'act1';
   const difficulty = DIFFICULTIES[saved?.difficulty] ? saved.difficulty : 'normal';
   let f = saved ? sandboxFormation(saved.towers, saved.hero) : null;
   if (!f) {
@@ -43,7 +62,19 @@ function loadChoice(profile) {
     f = sandboxFormation(pf.towers || [], pf.hero || null);
     if (!f.towers.length) f.towers = sandboxRoster('tower').slice(0, 4).map((u) => u.id);
   }
-  return { mapId, difficulty, towers: f.towers, hero: f.hero };
+  const builds = {};
+  for (const [id, b] of Object.entries(saved?.builds || {})) if (UNIT_MAP[id]) builds[id] = normalizeBuild(b);
+  return {
+    group, stageId, titan, difficulty,
+    freeplay: FREEPLAY_TIERS.includes(saved?.freeplay) ? saved.freeplay : null,
+    mode: MODE_ORDER.includes(saved?.mode) ? saved.mode : 'standard',
+    startWave: startWaveOf(saved?.startWave),
+    resonance: SANDBOX_RESONANCE.includes(saved?.resonance) ? saved.resonance : 'auto',
+    heroMax: saved?.heroMax !== false,
+    towers: f.towers, hero: f.hero,
+    build: normalizeBuild(saved?.build || SANDBOX_MAX_BUILD),
+    builds,
+  };
 }
 
 function saveChoice(c) {
@@ -52,6 +83,42 @@ function saveChoice(c) {
   } catch {
     /* private mode: the choice lasts this screen only */
   }
+}
+
+/** Whether the choice plays a titan (the Titan Trials tab). */
+const isTitan = (c) => c.group === 'titan';
+
+/** The battle params of the choice. */
+function battleParams(c, f) {
+  return sandboxBattleParams({
+    stageId: c.stageId, difficulty: c.difficulty, towers: f.towers, hero: f.hero,
+    titan: isTitan(c) ? c.titan : null,
+    freeplay: c.freeplay, mode: c.mode, startWave: c.startWave, build: c.build,
+    // only the girls in this squad carry their own builds into the link
+    builds: Object.fromEntries(Object.entries(c.builds || {}).filter(([id]) => id === f.hero || f.towers.includes(id))),
+    resonance: c.resonance, heroMax: c.heroMax,
+  });
+}
+
+/** One line naming the run: "Freeplay · Blossom from wave 200", "Titan Trials · Mayhem +30". */
+function runLine(c) {
+  const bits = [];
+  if (isTitan(c)) bits.push(`${TIER_NAMES[c.titan.tier]}${c.titan.tier === 'mayhem' ? ` +${c.titan.rank}` : ''}`);
+  else {
+    bits.push(DIFFICULTIES[c.difficulty]?.name || c.difficulty);
+    if (c.freeplay && sandboxFreeplayOk(c.stageId)) bits.push(`Freeplay ${freeplayTable(c.freeplay)?.name || c.freeplay}`);
+    else if (c.mode !== 'standard' && sandboxModeOk(c.stageId)) bits.push(modeText(c.mode).name);
+  }
+  if (c.startWave > 1) bits.push(`from wave ${c.startWave}`);
+  if (c.resonance !== 'auto') bits.push(`Resonance ${c.resonance}`);
+  return bits.join(' · ');
+}
+
+/** The run's title: the stage's or the titan's name. */
+function runTitle(c) {
+  if (isTitan(c)) return sandboxTitans().find((t) => t.id === c.titan.id)?.titan.name || 'Titan Trials';
+  const s = STAGE_MAP[c.stageId];
+  return s ? `${s.kind === 'campaign' ? `${s.id} ` : ''}${s.name}` : 'Pick a stage';
 }
 
 export function render(root, params = {}) {
@@ -84,51 +151,167 @@ function rulesStrip() {
   return h('div.sbx-rules',
     h('span.sbx-rule', svgEl(uiIcon('coin'), 'ma-inline-icon'), `${SANDBOX_COINS.toLocaleString('en-US')} coins`),
     h('span.sbx-rule', svgEl(uiIcon('heart'), 'ma-inline-icon'), 'Unlimited lives'),
-    h('span.sbx-rule', svgEl(uiIcon('students'), 'ma-inline-icon'), 'Any girl, max level'),
+    h('span.sbx-rule', svgEl(uiIcon('students'), 'ma-inline-icon'), 'Any girl, any build'),
     h('span.sbx-rule.sbx-rule-no', svgEl(uiIcon('gift'), 'ma-inline-icon'), 'No rewards'));
 }
 
-// ---------------------------------------------------------------------------------------------
-// Step 1: map + difficulty
-// ---------------------------------------------------------------------------------------------
+/** A segmented row. */
+function seg(items, on, pick, testid) {
+  return h('div.mb-seg.sbx-seg', items.map(([id, label]) => h(`button.mb-seg-btn${on === id ? '.on' : ''}`, { 'data-testid': `${testid}-${id}`, onclick: () => pick(id) }, label)));
+}
 
-function mapStep(choice, redraw) {
-  const maps = sandboxMaps();
-  const current = maps.find((m) => m.map.id === choice.mapId) || maps[0];
-  const diffRow = h('div.mb-seg.sbx-diff', DIFFICULTY_ORDER.map((d) => h(`button.mb-seg-btn${choice.difficulty === d ? '.on' : ''}`, {
-    'data-testid': `sandbox-diff-${d}`,
-    onclick: () => { choice.difficulty = d; saveChoice(choice); redraw(); },
-  }, DIFFICULTIES[d].name)));
-  const next = button('Next: Squad', { kind: 'yellow', icon: 'formation', testid: 'sandbox-next', onClick: () => { saveChoice(choice); navigate('sandbox', { id: 'team' }); } });
-  const head = h('section.sbx-head',
-    h('div.sbx-head-text',
-      h('div.sbx-head-line', h('span.sbx-badge', 'SANDBOX'), h('h2.sbx-title', current?.map.name || 'Pick a map')),
-      rulesStrip()),
-    h('div.sbx-head-actions', diffRow, next));
-  const grid = h('div.ma-endless-grid.sbx-map-grid', { 'data-testid': 'sandbox-maps' }, maps.map(({ map, stage }) => {
-    const on = map.id === choice.mapId;
-    const tier = MAP_TIER_VIEW[stage.tier];
-    return h(`button.ma-endless-card.sbx-map${on ? '.on' : ''}`, {
-      'data-testid': `sandbox-map-${map.id}`,
-      'aria-pressed': on ? 'true' : 'false',
-      onclick: () => { choice.mapId = map.id; saveChoice(choice); redraw(); },
-    },
-    h('div.ma-ec-thumb', { html: stageThumbSVG(map, { width: 240, height: 150 }) }),
-    on ? h('span.sbx-map-check', svgEl(uiIcon('check'))) : null,
-    h('div.ma-ec-info', h('b', map.name), h('span.muted', `${stage.kind === 'campaign' ? `Stage ${stage.id}` : MODE_LABEL[stage.kind] || stage.name}${tier ? ` · ${tier.name}` : ''}`)));
-  }));
-  return h('div.ma-wrap.sbx-wrap', head, grid);
+/** A labelled `<select>`. */
+function selectRow(label, value, options, onChange, testid) {
+  return h('label.sbx-field',
+    h('span.sbx-field-label', label),
+    h('select.sbx-select', { 'data-testid': testid, 'aria-label': label, onchange: (e) => onChange(e.target.value) },
+      options.map((o) => (o.group
+        ? h('optgroup', { label: o.group }, o.options.map((x) => h('option', { value: x.value, ...(String(x.value) === String(value) ? { selected: true } : {}) }, x.label)))
+        : h('option', { value: o.value, ...(String(o.value) === String(value) ? { selected: true } : {}) }, o.label)))));
 }
 
 // ---------------------------------------------------------------------------------------------
-// Step 2: squad (any girl)
+// Step 1: stage + run
+// ---------------------------------------------------------------------------------------------
+
+function mapStep(choice, redraw) {
+  const set = (patch) => { Object.assign(choice, patch); saveChoice(choice); redraw(); };
+  const stages = sandboxStages();
+  const titan = isTitan(choice);
+  const next = button('Next: Squad', { kind: 'yellow', icon: 'formation', testid: 'sandbox-next', onClick: () => { saveChoice(choice); navigate('sandbox', { id: 'team' }); } });
+  const diffs = sandboxDifficulties(choice.stageId);
+  if (!titan && !diffs.includes(choice.difficulty)) choice.difficulty = diffs.includes('normal') ? 'normal' : diffs[0];
+  const diffRow = titan
+    ? seg(TITAN_TIERS.map((t) => [t, TIER_NAMES[t]]), choice.titan.tier, (t) => set({ titan: { ...choice.titan, tier: t } }), 'sandbox-ttier')
+    : seg(diffs.map((d) => [d, DIFFICULTIES[d].name]), choice.difficulty, (d) => set({ difficulty: d }), 'sandbox-diff');
+  const head = h('section.sbx-head',
+    h('div.sbx-head-text',
+      h('div.sbx-head-line', h('span.sbx-badge', 'SANDBOX'), h('h2.sbx-title', { 'data-testid': 'sandbox-title' }, runTitle(choice))),
+      h('span.sbx-run-line', { 'data-testid': 'sandbox-run', title: runLine(choice) }, runLine(choice)),
+      rulesStrip()),
+    h('div.sbx-head-actions', diffRow, next));
+
+  // the run's options: freeplay tier or battle mode (campaign), Mayhem rank (titans), start wave (any)
+  const opts = [];
+  if (!titan && sandboxFreeplayOk(choice.stageId)) {
+    opts.push(h('div.sbx-opt', h('span.sbx-field-label', 'Freeplay'),
+      seg([['off', 'Off'], ...FREEPLAY_TIERS.map((t) => [t, freeplayTable(t)?.name || t])], choice.freeplay || 'off', (t) => set({ freeplay: t === 'off' ? null : t }), 'sandbox-fp')));
+    if (!choice.freeplay && sandboxModeOk(choice.stageId)) {
+      opts.push(selectRow('Battle mode', choice.mode, MODE_ORDER.map((m) => ({ value: m, label: modeText(m).name })), (m) => set({ mode: m }), 'sandbox-mode'));
+    }
+  }
+  if (titan && choice.titan.tier === 'mayhem') {
+    opts.push(h('label.sbx-field', h('span.sbx-field-label', `Mayhem rank (0–${MAX_RANK})`),
+      h('input.sbx-num', { type: 'number', min: 0, max: MAX_RANK, value: choice.titan.rank, 'data-testid': 'sandbox-trank', onchange: (e) => set({ titan: { ...choice.titan, rank: Math.max(0, Math.min(MAX_RANK, Math.floor(Number(e.target.value) || 0))) } }) })));
+  }
+  opts.push(h('div.sbx-opt.sbx-wave',
+    h('label.sbx-field', h('span.sbx-field-label', 'Start wave'),
+      h('input.sbx-num', { type: 'number', min: 1, max: SANDBOX_MAX_START_WAVE, value: choice.startWave, 'data-testid': 'sandbox-wave', onchange: (e) => set({ startWave: startWaveOf(e.target.value) }) })),
+    h('div.sbx-chips', SANDBOX_WAVE_PICKS.map((w) => h(`button.sbx-chip${choice.startWave === w ? '.on' : ''}`, { 'data-testid': `sandbox-wave-${w}`, onclick: () => set({ startWave: w }) }, w === 1 ? 'Wave 1' : `${w}`)))));
+  if (choice.startWave > 1) {
+    opts.push(h('label.sbx-check', { title: 'A run from a later wave starts with your hero at her top level, as a player who got there would have her' },
+      h('input', { type: 'checkbox', checked: choice.heroMax, 'data-testid': 'sandbox-heromax', onchange: (e) => set({ heroMax: !!e.target.checked }) }),
+      h('span', 'Hero joins at Lv 25 + Mastery')));
+  }
+  opts.push(selectRow('UR Resonance', choice.resonance, [
+    { value: 'auto', label: 'Auto (as for players today)' }, { value: 'on', label: 'On' }, { value: 'off', label: 'Off' },
+  ], (v) => set({ resonance: v }), 'sandbox-resonance'));
+  const options = h('section.sbx-options', { 'data-testid': 'sandbox-options' }, opts);
+
+  const tabs = h('div.sbx-tabs', { role: 'tablist' }, SANDBOX_GROUPS.map((g) => {
+    const n = g.id === 'titan' ? sandboxTitans().length : stages.filter((s) => s.group === g.id).length;
+    return h(`button.sbx-tab${choice.group === g.id ? '.on' : ''}`, {
+      role: 'tab', 'aria-selected': choice.group === g.id ? 'true' : 'false', 'data-testid': `sandbox-group-${g.id}`, disabled: !n,
+      onclick: () => {
+        const first = stages.find((s) => s.group === g.id);
+        set({ group: g.id, ...(g.id !== 'titan' && first && STAGE_MAP[choice.stageId] && stages.find((s) => s.id === choice.stageId)?.group !== g.id ? { stageId: first.id } : {}) });
+      },
+    }, g.name, h('span.sbx-tab-n', String(n)));
+  }));
+
+  const cards = titan
+    ? sandboxTitans().map(({ id, titan: t, map }) => card({ id: `titan-${id}`, on: choice.titan.id === id, map, title: t.name, sub: `Titan Trials · ${t.arena || map.name}`, onClick: () => set({ titan: { ...choice.titan, id } }) }))
+    : stages.filter((s) => s.group === choice.group).map(({ id, stage, map }) => {
+      const tier = MAP_TIER_VIEW[stage.tier];
+      const sub = stage.kind === 'campaign' ? `Stage ${stage.id}` : stage.kind === 'event' ? sandboxEventName(id) || 'Event' : MODE_LABEL[stage.kind] || stage.kind;
+      return card({ id: `stage-${id}`, on: choice.stageId === id, map, title: stage.name, sub: `${sub}${tier ? ` · ${tier.name}` : ''}`, onClick: () => set({ stageId: id }) });
+    });
+  const grid = h('div.ma-endless-grid.sbx-map-grid', { 'data-testid': 'sandbox-maps' }, cards);
+  return h('div.ma-wrap.sbx-wrap', head, options, tabs, grid);
+}
+
+function card({ id, on, map, title, sub, onClick }) {
+  return h(`button.ma-endless-card.sbx-map${on ? '.on' : ''}`, { 'data-testid': `sandbox-${id}`, 'aria-pressed': on ? 'true' : 'false', onclick: onClick },
+    h('div.ma-ec-thumb', { html: stageThumbSVG(map, { width: 240, height: 150 }) }),
+    on ? h('span.sbx-map-check', svgEl(uiIcon('check'))) : null,
+    h('div.ma-ec-info', h('b', title), h('span.muted', sub)));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Step 2: squad (any girl) and builds
 // ---------------------------------------------------------------------------------------------
 
 const pick = { kind: 'tower' };
 
+/** The gear select's rarity words. */
+const SHORT = { leg: 'Legendary', ur: 'UR', lr: 'LR' };
+/** The options of the gear select (grouped). */
+function gearOptions(unitId = null) {
+  const setRow = (r) => [BEST_SET, ...SET_IDS].map((s) => ({ value: `${r}-${s}`, label: `${SHORT[r]} · ${s === BEST_SET ? `${unitId ? GEAR_SETS[bestSetFor(unitId)].name : 'her coach set'} (coach)` : GEAR_SETS[s].name}` }));
+  return [
+    { group: 'No set', options: [{ value: 'none', label: 'No gear' }, { value: 'leg', label: 'Best Legendary (no set)' }] },
+    { group: 'Legendary set ×5', options: setRow('leg') },
+    { group: 'UR set ×5', options: setRow('ur') },
+    { group: 'LR set (Set LR ×5)', options: setRow('lr') },
+    { group: 'Blank LR', options: [{ value: 'blank', label: 'Blank LR ×5' }] },
+  ];
+}
+/** The build controls: level, Potential, awakening, LR, gear. `onChange(patch)`. */
+function buildControls(b, onChange, { unitId = null, prefix = 'sandbox-build' } = {}) {
+  // (every level, Potential and ★ the game has: from its own caps, so a raised cap shows up here at once)
+  const levels = Array.from({ length: MAX_LEVEL }, (_, i) => MAX_LEVEL - i);
+  const ps = Array.from({ length: MAX_POTENTIAL }, (_, i) => i + 1);
+  const stars = Array.from({ length: MAX_AWAKEN + 1 }, (_, i) => MAX_AWAKEN - i);
+  const pMin = potentialForLevel(b.level);
+  const lrUnit = unitId ? isLegendUnit(unitId) : true;
+  return h('div.sbx-build',
+    selectRow('Level', b.level, levels.map((l) => ({ value: l, label: `Lv ${l}${SANDBOX_LEVEL_PICKS.includes(l) && l >= 60 ? ` (P${potentialForLevel(l)}+)` : ''}` })), (v) => onChange({ level: Number(v), p: Math.max(b.p, potentialForLevel(Number(v))) }), `${prefix}-level`),
+    selectRow('Potential', b.p, ps.map((p) => ({ value: p, label: `P${p}${p < pMin ? ' (too low)' : ''}` })), (v) => onChange({ p: Math.max(pMin, Number(v)) }), `${prefix}-p`),
+    selectRow('Awakening', b.stars, stars.map((s) => ({ value: s, label: `★${s}` })), (v) => onChange({ stars: Number(v) }), `${prefix}-stars`),
+    lrUnit ? selectRow('Limit Break', b.lr ? 1 : 0, [{ value: 1, label: 'LR' }, { value: 0, label: 'Off' }], (v) => onChange({ lr: v === '1' }), `${prefix}-lr`) : null,
+    selectRow('Gear', b.gear, gearOptions(unitId), (v) => onChange({ gear: v }), `${prefix}-gear`),
+    selectRow('Gear rolls', b.roll, [{ value: 'max', label: 'Max roll' }, { value: 'typical', label: 'Typical roll' }], (v) => onChange({ roll: v }), `${prefix}-roll`));
+}
+
+/** "Lv85 · P6 · ★5 · LR set" */
+function buildShort(unitId, b) {
+  const lr = sandboxIsLr(unitId, b);
+  const gear = b.gear === 'none' ? 'no gear' : b.gear === 'leg' ? 'Legendary' : b.gear === 'blank' ? 'Blank LR' : `${b.gear.startsWith('lr') ? 'LR' : b.gear.startsWith('ur') ? 'UR' : 'Leg'} set`;
+  return `Lv${b.level} · P${b.p} · ★${b.stars}${lr ? ' · LR' : ''} · ${gear}`;
+}
+
+function openGirlBuild(unitId, choice, redraw) {
+  const own = !!choice.builds[unitId];
+  let b = buildFor(unitId, choice.build, choice.builds);
+  const holder = h('div');
+  const paint = () => holder.replaceChildren(
+    h('p.muted.sbx-girl-note', own || choice.builds[unitId] ? 'Her own build (the squad build no longer applies to her).' : 'Following the squad build. Change anything to give her her own.'),
+    buildControls(b, (patch) => { b = normalizeBuild({ ...b, ...patch }); choice.builds[unitId] = b; saveChoice(choice); paint(); redraw(); }, { unitId, prefix: 'sandbox-girl' }),
+    h('p.muted.sbx-girl-gear', gearPresetLabel(b.gear, unitId)));
+  paint();
+  modal({
+    title: `${UNIT_MAP[unitId].name} · build`,
+    body: holder,
+    cls: 'sbx-girl-modal',
+    actions: [
+      { label: 'Same as squad', kind: 'ghost', testid: 'sandbox-girl-reset', onClick: (close) => { delete choice.builds[unitId]; saveChoice(choice); redraw(); close(); } },
+      { label: 'Done', kind: 'primary', testid: 'sandbox-girl-done' },
+    ],
+  });
+}
+
 function teamStep(choice, redraw) {
   const profile = store.profile;
-  const map = sandboxMaps().find((m) => m.map.id === choice.mapId)?.map;
   const toggle = (id) => {
     const u = UNIT_MAP[id];
     if (u.kind === 'hero') choice.hero = choice.hero === id ? null : id;
@@ -140,13 +323,19 @@ function teamStep(choice, redraw) {
     saveChoice(choice);
     redraw();
   };
-  const slot = (id, kind) => (id
-    ? h('button.mb-fslot.filled', { title: `Remove ${UNIT_MAP[id].name}`, 'data-unit': id, onclick: () => toggle(id) },
-      svgEl(portraitHTML(UNIT_MAP[id], 'card'), 'unit-card-art'),
-      h('span.mb-fslot-x', '×'),
-      isOwned(profile, id) ? null : h('span.sbx-trial', 'Trial'),
-      h('div.mb-fslot-name', UNIT_MAP[id].name, h('span', { style: 'opacity:.8;font-weight:700' }, ` Lv${SANDBOX_LEVEL}`)))
-    : h('button.mb-fslot', { onclick: () => { pick.kind = kind; redraw(); } }, '+'));
+  const slot = (id, kind) => {
+    if (!id) return h('button.mb-fslot', { onclick: () => { pick.kind = kind; redraw(); } }, '+');
+    const b = buildFor(id, choice.build, choice.builds);
+    return h('div.sbx-slot',
+      h('button.mb-fslot.filled', { title: `Remove ${UNIT_MAP[id].name}`, 'data-unit': id, onclick: () => toggle(id) },
+        svgEl(portraitHTML(UNIT_MAP[id], 'card'), 'unit-card-art'),
+        h('span.mb-fslot-x', '×'),
+        isOwned(profile, id) ? null : h('span.sbx-trial', 'Trial'),
+        sandboxIsLr(id, b) ? h('span.sbx-lr', 'LR') : null,
+        h('div.mb-fslot-name', UNIT_MAP[id].name, h('span.sbx-slot-lv', ` Lv${b.level}`))),
+      h(`button.sbx-slot-build${choice.builds[id] ? '.own' : ''}`, { 'data-testid': `sandbox-build-${id}`, title: buildShort(id, b), onclick: () => openGirlBuild(id, choice, redraw) },
+        svgEl(uiIcon('settings'), 'ma-inline-icon'), choice.builds[id] ? 'Own' : 'Build'));
+  };
   const start = () => {
     const f = sandboxFormation(choice.towers, choice.hero);
     if (!f.towers.length && !f.hero) {
@@ -154,17 +343,23 @@ function teamStep(choice, redraw) {
       return;
     }
     saveChoice(choice);
-    navigate('battle', sandboxBattleParams({ mapId: choice.mapId, difficulty: choice.difficulty, towers: f.towers, hero: f.hero }));
+    navigate('battle', battleParams(choice, f));
   };
   // sticky: Start stays in reach while the roster scrolls
   const bar = h('div.sbx-bar',
     h('div.sbx-bar-info',
       h('span.sbx-badge', 'SANDBOX'),
-      h('b.sbx-bar-map', map ? map.name : ''),
-      h('span.sbx-bar-diff', DIFFICULTIES[choice.difficulty].name)),
+      h('b.sbx-bar-map', runTitle(choice)),
+      h('span.sbx-bar-diff', { title: runLine(choice), 'data-testid': 'sandbox-bar-run' }, runLine(choice))),
     h('div.sbx-bar-actions',
-      button('Change map', { kind: 'ghost', small: true, icon: 'map', onClick: () => navigate('sandbox') }),
+      button('Change stage', { kind: 'ghost', small: true, icon: 'map', onClick: () => navigate('sandbox') }),
       button('Start sandbox', { kind: 'yellow', icon: 'play', testid: 'sandbox-start', onClick: start })));
+  const squadBuild = h('section.mb-card.sbx-squad-build', { 'data-testid': 'sandbox-squad-build' },
+    h('div.sbx-squad-head',
+      h('h3.mb-card-title', 'Squad build'),
+      button('Max everything', { kind: 'ghost', small: true, testid: 'sandbox-build-max', onClick: () => { choice.build = normalizeBuild(SANDBOX_MAX_BUILD); saveChoice(choice); redraw(); } })),
+    buildControls(choice.build, (patch) => { choice.build = normalizeBuild({ ...choice.build, ...patch }); saveChoice(choice); redraw(); }),
+    h('p.muted.sbx-build-note', `${gearPresetLabel(choice.build.gear)}, ${choice.build.roll === 'typical' ? 'typical rolls' : 'max rolls'}. Gear here is virtual: main stats from each girl's Build Coach; Max roll puts every line at its best roll with its pins, Typical roll at its average roll; every ▲ and ✦ either way. Nothing is added to your bag.`));
   const squad = h('section.mb-card.sbx-squad',
     h('div.sbx-squad-head',
       h('h3.mb-card-title', 'Squad'),
@@ -178,14 +373,16 @@ function teamStep(choice, redraw) {
   const picker = h('section.mb-card.sbx-pick',
     h('div.mb-section-head',
       h('div.mb-seg', [['tower', 'Students'], ['hero', 'Heroes']].map(([k, label]) => h(`button.mb-seg-btn${pick.kind === k ? '.on' : ''}`, { 'data-testid': `sandbox-kind-${k}`, onclick: () => { pick.kind = k; redraw(); } }, label))),
-      h('span.muted', `Every girl joins at Lv ${SANDBOX_LEVEL} with ${MAX_AWAKEN}★ awakening — owned or not.`)),
+      h('span.muted', 'Every girl in the game, owned or not. Each joins with the squad build unless she has her own.')),
     h('div.mb-pick-grid', { 'data-testid': 'sandbox-roster' }, list.map((u) => {
-      const card = unitCard(u.id, { variant: 'tall', level: SANDBOX_LEVEL, awaken: MAX_AWAKEN, owned: true, onClick: () => toggle(u.id) });
+      const b = buildFor(u.id, choice.build, choice.builds);
+      const card = unitCard(u.id, { variant: 'tall', level: b.level, awaken: b.stars, owned: true, onClick: () => toggle(u.id) });
       card.dataset.testid = `sandbox-unit-${u.id}`;
       return h(`div.mb-pick${team.includes(u.id) ? '.in' : ''}`,
         card,
         team.includes(u.id) ? h('span.mb-pick-check', svgEl(uiIcon('check'))) : null,
-        isOwned(profile, u.id) ? null : h('span.sbx-trial', 'Trial'));
+        isOwned(profile, u.id) ? null : h('span.sbx-trial', 'Trial'),
+        sandboxIsLr(u.id, b) ? h('span.sbx-lr', 'LR') : null);
     })));
-  return h('div.ma-wrap.sbx-wrap.sbx-team', bar, rulesStrip(), squad, picker);
+  return h('div.ma-wrap.sbx-wrap.sbx-team', bar, rulesStrip(), squad, squadBuild, picker);
 }

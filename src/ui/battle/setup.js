@@ -9,7 +9,7 @@ import { modeId } from '../../data/modes.js';
 import { restoreSim } from './snapshot.js';
 import { freeplayTier } from '../../data/freeplay.js';
 import { hasSoloFreeplay, soloFreeplayStage } from '../../data/freeplaySolo.js';
-import { isSandboxUnlocked, sandboxFormation, sandboxUnitStats, parseTeam, SANDBOX_COINS, SANDBOX_UNLOCK_CLEARS } from '../../systems/sandbox.js';
+import { isSandboxUnlocked, sandboxFormation, sandboxUnitStats, parseTeam, parseSandboxRun, buildFor, SANDBOX_COINS, SANDBOX_UNLOCK_CLEARS } from '../../systems/sandbox.js';
 import { TITAN_MAP, tierIndex, titanBattle, MAX_RANK } from '../../data/titans.js';
 import { tierOpen, refreshKeys } from '../../systems/titans.js';
 import { eventBattleStage } from '../../data/events/wire.js';
@@ -81,6 +81,10 @@ export function resolveFormation(profile) {
  *   keepGoing: a normal run that may continue into freeplay from its victory sheet ("Keep going")
  */
 export function parseBattleParams(params = {}, profile = null) {
+  const isSandbox = params.sandbox === '1' || params.sandbox === 1 || params.sandbox === 'true';
+  // a Sandbox Titan Trials run (`ttn=<titan>&ttier=<tier>[&trank=n]`) brings its own stage (never req.titan: no key,
+  // no tracker, no rewards)
+  if (isSandbox && TITAN_MAP[params.ttn]) return parseSandbox(params, profile, null);
   const stageId = params.stage || params.id || null;
   const stage = stageId ? STAGE_MAP[stageId] : null;
   if (!stage) return { stageId, difficulty: 'normal', mode: 'standard', endless: false, freeplay: null, keepGoing: false, practice: false, sandbox: false, error: `Unknown stage "${stageId ?? ''}".`, resume: null };
@@ -88,11 +92,7 @@ export function parseBattleParams(params = {}, profile = null) {
   // [events] an event stage plays only its own difficulties (stage prep offers no others; a link
   // with another one plays the stage's first, and applyBattleResult would pay nothing for it anyway)
   if (stage.kind === 'event' && Array.isArray(stage.difficulties) && stage.difficulties.length && !stage.difficulties.includes(difficulty)) difficulty = stage.difficulties[0];
-  if (params.sandbox === '1' || params.sandbox === 1 || params.sandbox === 'true') {
-    if (profile && !isSandboxUnlocked(profile)) return { stageId, difficulty, mode: 'standard', endless: true, freeplay: null, keepGoing: false, practice: false, sandbox: true, error: `Sandbox unlocks after ${SANDBOX_UNLOCK_CLEARS} stage clears.`, resume: null };
-    const { towers, hero } = sandboxFormation(parseTeam(params.team), params.hero || null);
-    return { stageId, difficulty, mode: 'standard', endless: true, freeplay: null, keepGoing: false, practice: false, sandbox: true, team: towers, hero, error: null, resume: null };
-  }
+  if (isSandbox) return parseSandbox(params, profile, stageId, difficulty);
   const wantsEndless = params.endless === '1' || params.endless === 1 || params.endless === 'true';
   const allowed = !profile || canPlayEndless(profile, stageId);
   // Locked stages are gated by the stage-prep screen; a direct link still plays as practice
@@ -113,6 +113,24 @@ export function parseBattleParams(params = {}, profile = null) {
   if (stage.kind !== 'campaign' || endless || freeplay || practice || tutorial || (profile && !modesUnlocked(profile, stageId))) mode = 'standard';
   if (mode === 'laststand' && difficulty === 'nightmare') mode = 'standard';
   return { stageId, difficulty, mode, endless, freeplay, keepGoing: fpStage && !freeplay && !endless && mode === 'standard', practice, ...(practiceNote ? { practiceNote } : {}), sandbox: false, error: null, resume };
+}
+
+/**
+ * A Sandbox request (`sandbox=1`): the squad, and `sandboxRun` (systems/sandbox.js parseSandboxRun: a titan, a freeplay
+ * tier, a start wave, a battle mode, the squad build and per-girl builds). `freeplay` stays null and `titan` unset on
+ * the request itself, so no reward path (the solo freeplay ledger, Titan keys and tracker) ever sees a sandbox run.
+ */
+function parseSandbox(params, profile, stageId, difficulty = 'normal') {
+  const run = parseSandboxRun(params, stageId);
+  let stageDef = null;
+  if (run.titan) {
+    stageDef = titanBattle(run.titan.id, run.titan.tier, run.titan.rank).stage;
+    stageId = stageDef.id;
+  }
+  const base = { stageId, difficulty: run.titan ? 'normal' : difficulty, mode: run.mode, endless: !run.freeplay, freeplay: null, keepGoing: false, practice: false, sandbox: true, resume: null, ...(stageDef ? { stageDef } : {}) };
+  if (profile && !isSandboxUnlocked(profile)) return { ...base, error: `Sandbox unlocks after ${SANDBOX_UNLOCK_CLEARS} stage clears.` };
+  const { towers, hero } = sandboxFormation(parseTeam(params.team), params.hero || null);
+  return { ...base, team: towers, hero, sandboxRun: run, error: null };
 }
 
 /** The HUD line of a practice run on an open event stage whose difficulty is still locked (eventDifficultyStatus). */
@@ -207,15 +225,32 @@ export function resumeBattleSim(profile, rec) {
  */
 function createSandboxSim(req, seed, profile = null) {
   const { towers, hero } = sandboxFormation(req.team, req.hero);
+  const run = req.sandboxRun || {};
+  const stats = (id) => sandboxUnitStats(id, buildFor(id, run.build, run.builds), { resonance: run.resonance || 'auto' });
+  // the stage it plays: a titan's (its enemy overrides too), freeplay's table on a campaign stage, an event
+  // difficulty's own waves, or the stage as it is (all through the Sim's data hook, like a normal battle)
+  const titan = run.titan ? titanBattle(run.titan.id, run.titan.tier, run.titan.rank) : null;
+  const fpStage = !titan && run.freeplay ? soloFreeplayStage(req.stageId, run.freeplay) : null;
+  const evStage = titan || fpStage ? null : eventBattleStage(req.stageId, req.difficulty);
+  const data = titan ? { stage: titan.stage, enemies: titan.enemies } : fpStage || evStage ? { stage: fpStage || evStage } : null;
   const sim = new Sim({
-    stageId: req.stageId,
-    difficulty: req.difficulty,
-    loadout: towers.map((unitId) => ({ unitId, stats: sandboxUnitStats(unitId) })),
-    hero: hero ? { unitId: hero, stats: sandboxUnitStats(hero) } : null,
+    stageId: titan ? titan.stage.id : req.stageId,
+    difficulty: titan ? 'normal' : req.difficulty,
+    loadout: towers.map((unitId) => ({ unitId, stats: stats(unitId) })),
+    hero: hero ? { unitId: hero, stats: stats(hero) } : null,
     seed,
-    options: { endless: true, autoStart: false, ...autoAbilities(profile) },
+    // (freeplay is never endless: the Sim's freeplay waves need a last stage wave, and its run has no end of its own)
+    options: { endless: !fpStage, autoStart: false, ...(fpStage ? { freeplay: true } : { mode: modeId(req.mode) }), ...autoAbilities(profile) },
+    ...(data ? { data } : {}),
   });
   sim.cash = SANDBOX_COINS;
+  // a later start wave: the waves before it count as cleared, the next one sent is `startWave` (a field of this one
+  // solo Sim, set before it runs; the Sim's code is untouched)
+  const start = Math.max(1, Math.floor(run.startWave || 1));
+  if (start > 1) {
+    sim.wave = start - 1;
+    sim.wavesCleared = start - 1;
+  }
   // (cfg is what a battle save would freeze; a sandbox run is never saved, isSavableRun)
   return { sim, towers, hero, seed, cfg: null };
 }
