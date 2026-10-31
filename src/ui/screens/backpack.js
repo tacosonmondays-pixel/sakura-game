@@ -47,7 +47,9 @@ import { openItemSheet } from '../itemSheet.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isUR } from '../rarity.js';
 import { boxSummary, SUMMARY_ABOVE } from '../gearSummary.js';
-import { gearCard, pickGearFor, rainbowBoxModal, setBoxModal } from '../gearUr.js';
+import { gearCard, pickGearFor, rainbowBoxModal, setBoxModal, openSetBoxesNow } from '../gearUr.js';
+import { setBoxOpenable, SET_OPEN_BATCH_MAX } from '../../systems/gearSets.js';
+import { GEAR_SETS } from '../../data/gearSets.js';
 import { openPieceSheet } from '../girlGear.js';
 import '../styles/achievements.css'; // the gear summary
 
@@ -253,6 +255,14 @@ function openGearModal(gear, rerender) {
   return openPieceSheet(gear, { onChange: rerender });
 }
 
+/** A random Set Box's Open buttons: one batch per tap, a fast double tap opens nothing twice (600 ms, as setBoxModal). */
+let setBoxBusy = 0;
+const guardSetBox = (fn) => () => {
+  if (Date.now() - setBoxBusy < 600) return;
+  setBoxBusy = Date.now();
+  fn();
+};
+
 /** Open `n` boxes; `after` redraws whatever is open (the Supplies sheet, the grid). */
 function openBoxes(itemId, n, after) {
   const res = openGearBox(store.profile, itemId, createRng(Date.now() ^ Math.floor(performance.now() * 1000)), n);
@@ -270,6 +280,16 @@ function openBoxes(itemId, n, after) {
     actions: [{ label: 'Nice!', kind: 'yellow', testid: 'box-open-ok' }],
   });
   after();
+}
+
+/**
+ * The Supplies line of a Set Box (owner, Oct 31: say which set it opens): "Opens 5 Freeze Tag pieces", or the choice
+ * a pick box gives, then how its main stats are set (a random box rolls them, a preset box lets you choose).
+ */
+export function boxLine(it) {
+  if (!it?.pickSet) return null;
+  const what = it.set && GEAR_SETS[it.set] ? `Opens 5 ${GEAR_SETS[it.set].name} pieces` : 'Pick a set: opens its 5 pieces';
+  return `${what} · ${it.setKind === 'random' ? 'main stats rolled' : 'you choose the main stats'}`;
 }
 
 /** The Supplies sheet (§6.4): the gear boxes (Open, Open ×10, Open all) and the gear tools, one line each. */
@@ -292,9 +312,33 @@ function openSupplies(rerender) {
       if (b.pickSlot) {
         return row(b, { testid: `box-${b.id}`, line: 'Pick a set and a slot', acts: [inkBtn('Open', { testid: 'rainbow-box-open', onClick: () => { sheet?.close(); rainbowBoxModal(rerender); } })] });
       }
-      // a Set Box opens through its set and main-stat picker (gearUr.js setBoxModal → systems/gearSets.js openSetBox)
+      // a Set Box (SET_BOXES_V2.md §5): a random set's own box opens straight away, one or many (Open · Open ×10 ·
+      // Open all, at most SET_OPEN_BATCH_MAX a tap); a random choose-box asks for the set, a preset box for the set and
+      // the main stats (gearUr.js setBoxModal); either way openSetBox gives only that set's pieces
       if (b.pickSet) {
-        return row(b, { testid: `box-${b.id}`, line: b.set ? 'Choose the main stats' : 'Choose a set and the main stats', acts: [inkBtn('Open', { testid: `set-box-open-${b.id}`, onClick: () => { sheet?.close(); setBoxModal(b.id, rerender); } })] });
+        // ×N: as many as the bag has room for, at most 10 (hidden under 2; the label is the count it opens: review r1 I1)
+        const many = Math.min(10, n, Math.max(1, setBoxOpenable(profile, b.id)));
+        if (b.setKind === 'random' && b.set) {
+          const open = (k) => guardSetBox(() => openSetBoxesNow(b.id, k, { onDone: after, summary: boxSummary }));
+          return row(b, {
+            testid: `box-${b.id}`,
+            line: boxLine(b),
+            acts: [
+              inkBtn('Open', { testid: `set-box-open-${b.id}`, onClick: open(1) }),
+              many > 1 ? secondaryBtn(`Open ×${many}`, { testid: `set-box-open10-${b.id}`, onClick: open(many) }) : null,
+              n > 10 ? secondaryBtn(n > SET_OPEN_BATCH_MAX ? `Open ${SET_OPEN_BATCH_MAX}` : 'Open all', { testid: `set-box-open-all-${b.id}`, title: n > SET_OPEN_BATCH_MAX ? null : `Open all ${n}`, onClick: open(Math.min(n, SET_OPEN_BATCH_MAX)) }) : null,
+            ].filter(Boolean),
+          });
+        }
+        const line = boxLine(b);
+        return row(b, {
+          testid: `box-${b.id}`,
+          line,
+          acts: [
+            inkBtn('Open', { testid: `set-box-open-${b.id}`, onClick: () => { sheet?.close(); setBoxModal(b.id, rerender, { summary: boxSummary }); } }),
+            many > 1 ? secondaryBtn(`Open ×${many}`, { testid: `set-box-open10-${b.id}`, onClick: () => { sheet?.close(); setBoxModal(b.id, rerender, { count: many, summary: boxSummary }); } }) : null,
+          ].filter(Boolean),
+        });
       }
       return row(b, {
         testid: `box-${b.id}`,

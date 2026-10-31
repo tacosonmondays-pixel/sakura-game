@@ -8,12 +8,19 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ITEM_ART, ITEM_ART_SMALL } from '../../src/art/itemArt.js';
 import { ITEMS } from '../../src/data/items.js';
-import { GEAR_SLOTS, ITEM_RARITY_ORDER } from '../../src/data/types.js';
+import { ITEM_RARITY_ORDER } from '../../src/data/types.js';
+import { SLOT_IDS, GEAR_SLOT_DEFS } from '../../src/data/gearSlots.js';
+import { SET_IDS } from '../../src/data/gearSets.js';
+
+/** Every gear slot (the classic three and the Hair Clip and Necklace). */
+const GEAR_SLOTS = Object.fromEntries(SLOT_IDS.map((s) => [s, GEAR_SLOT_DEFS[s]]));
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, '..', '..', 'public', 'art', 'items');
 const CAP = { 256: 20 * 1024, 128: 9 * 1024, small: 5 * 1024 };
-const TOTAL_CAP = 2.2 * 1024 * 1024;
+// 3.2 MB since the gear sets got their 30 looks and the 42 Set Boxes their own art (Oct 31; was 2.2 MB): re-encoding the
+// committed WebPs could not get under 2.2 MB without visible loss (q80 still 2.45 MB), so the cap keeps ~300 KB of headroom
+const TOTAL_CAP = 3.2 * 1024 * 1024;
 const PX = { 256: 256, 128: 128, small: 96 };
 
 const ART_KEYS = new Set([
@@ -22,9 +29,8 @@ const ART_KEYS = new Set([
   'recruitPoints',
 ]);
 
-// The gear set ids (docs/specs/GEAR_UPDATE.md 3.2; SET_IDS of the coming src/data/gearSets.js: switch to it when it
-// lands). A set look is gear_<set>_<slot>: one per set and slot, rarity on the tile. Never keyed by club.
-const SET_IDS = ['spirit', 'freezetag', 'geometry', 'popper', 'treasurer', 'powerbank'];
+// A set look is gear_<set>_<slot> (SET_IDS of src/data/gearSets.js): one per set and slot, rarity on the tile. Never
+// keyed by club.
 const isSetKey = (k) => {
   const m = /^gear_([a-z0-9]+)_([a-z]+)$/.exec(k);
   return Boolean(m && SET_IDS.includes(m[1]) && GEAR_SLOTS[m[2]]);

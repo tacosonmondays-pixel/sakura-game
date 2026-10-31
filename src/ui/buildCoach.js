@@ -119,7 +119,7 @@ export function coachTab(unit, { onChange = () => {} } = {}) {
     g.club ? h('p.bc-line', { 'data-testid': 'coach-club' }, h('b', 'Club: '), g.club.split, g.club.now ? ` (now ${g.club.now})` : '', h('span.bc-role', ' · by her role')) : null,
     g.set ? h('p.bc-line', { 'data-testid': 'coach-set' }, h('b', 'Set: '), `${g.set.name} (no cap on ${g.set.stat}), then ${g.set.nextName}`, h('span.bc-role', ' · by her role')) : null,
     g.pins ? h('p.bc-line', { 'data-testid': 'coach-pins' }, h('b', 'Pins: '), `Tie Pin on her ${g.pins.tieName}; Collar Pins on ${g.pins.collar.join(', ')}`) : null,
-    g.lr ? h('p.bc-line', { 'data-testid': 'coach-lr' }, h('b', 'Limit Break: '), g.lr === 'blank' ? 'Blank LR (her best lines are capped stats)' : 'Set LR (keep her set)', h('span.bc-role', ' · by her role')) : null,
+    g.lr ? h('p.bc-line', { 'data-testid': 'coach-lr' }, h('b', 'LR: '), g.lr === 'blank' ? 'Awaken, then unbind to Blank LR (her best lines are capped stats)' : 'Awaken to LR (keep her set)', h('span.bc-role', ' · by her role')) : null,
     g.row ? h('p.bc-note', { 'data-testid': 'coach-basis' }, basisNote(g.row, g.est, unit.id)) : null);
 
   // Potential

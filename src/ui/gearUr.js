@@ -17,11 +17,11 @@ import { GEAR_STAT_DEFS, statName, STAT_HINTS, trickIdle } from '../data/gearSta
 import { CLUBS, LIVE_CLUBS, CLUB_RARITIES } from '../data/clubs.js';
 import { SEED_ID, NEEDLE_ID, ARMBAND_ID, TAKE_BACK_COINS, TIE_PIN_ID, COLLAR_PIN_ID, LENS_ID, UR_MAX_LEVEL } from '../data/gearAwaken.js';
 import {
-  TITAN_SETS, setBoxSets, fillMainsFor, openSetBox, setIdle, canTopMainRoll, canTopSubRoll, topMainRoll, topSubRoll, isPinnable, pinsShown, collarPinsMax,
+  TITAN_SETS, setBoxSets, setBoxKind, setBoxOpenable, SET_OPEN_BATCH_MAX, fillMainsFor, openSetBox, setIdle, canTopMainRoll, canTopSubRoll, topMainRoll, topSubRoll, isPinnable, pinsShown, collarPinsMax,
 } from '../systems/gearSets.js';
 import { itemCount, hasItems } from '../systems/inventory.js';
 import {
-  describeStat, describeLine, gearLines, isUrGear, isLrGear, isUrLook, readMul, canLimitBreakGear, limitBreakGear, awakenReady, canAwakenGear, awakenGear, awakenGearCost, enhanceCost, enhanceGear,
+  describeStat, describeLine, gearLines, isUrGear, isLrGear, isUrLook, readMul, lrKind, limitBreakCost, canAwakenLrGear, awakenLrGear, canUnbindLrGear, unbindLrGear, pieceName, awakenReady, canAwakenGear, awakenGear, awakenGearCost, enhanceCost, enhanceGear,
   maxGearLevel, stitchSlots, canStitch, stitchSub, takeBackStitch, stitchCost, tuneCount, rerollCost, mainRerollCost, rerollSubstats,
   rerollMainStat, mainStatChoices, canLockPin, tunedIndices, setGearLocked, armbandCost, tieArmband, gearFillIn, gearSetInfo,
   gearStatTotals, unitGearCaps, nextGrowthIndex, subGrowth, effectiveValue, SUB_GROWTH_EVERY, openRainbowBox, GEAR_BAG_MAX,
@@ -516,37 +516,132 @@ export function rainbowBoxModal(onDone = () => {}) {
 }
 
 /**
- * A Set Box (GEAR_UPDATE.md §5): the set (a choose-box offers all six), a main stat per slot ("Fill for a girl" picks
- * them from her kit), then all five pieces at +0 with rolled substats (systems/gearSets.js openSetBox).
+ * A Set Box's header: the set's name, its five pieces and its bonus (one function, so the item-icons redesign of the
+ * header — its icon, the five pieces, the set bonus — replaces it in one place).
  */
-export function setBoxModal(itemId, onDone = () => {}) {
+export function setBoxHeader(set, itemId = null) {
+  const t = SET_TEXT[set];
+  const def = GEAR_SETS[set];
+  const it = getItem(itemId);
+  const rarity = it?.rarity || 'legendary';
+  const ur = /_ur(_|$)/.test(String(itemId || ''));
+  // the owner, Oct 31: a box reads as its set before it opens: its box icon and name, the five pieces in the set's look,
+  // the bonus (a pick box shows the chosen set's own box)
+  const box = itemId && String(itemId).includes('_pick_') ? String(itemId).replace('_pick_', `_${set}_`) : itemId;
+  return h('div.gu-set-head', { 'data-testid': 'set-box-head', 'data-set': set, 'data-item': itemId || '' },
+    h('div.gu-sb-head', { style: { '--set': def.color } },
+      box ? svgEl(itemIcon(box, { px: 64 }), 'gu-sb-box') : null,
+      h('div.gu-sb-title', h('b', def.name), h('small', it?.name || 'Set Box'))),
+    h('div.gu-sb-pieces', { 'data-testid': 'set-box-pieces' },
+      h('p.gu-sb-k', `You get these 5 ${def.name} pieces`),
+      h('div.gu-sb-row', SLOT_IDS.map((slot) => h('div.gu-sb-piece',
+        svgEl(gearIcon(slot, ur ? 'legendary' : rarity, { set, ur, px: 48 }), 'gu-sb-piece-ico'),
+        h('small', def.pieces[slot] || slotName(slot)))))),
+    h('p.gu-sb-bonus', { 'data-testid': 'set-box-bonus' }, h('b', `${t.passive}. `), `4 pieces: ${t.four} 5 pieces: ${t.five}`));
+}
+
+/** "Crit DMG ×3 · ATK ×2": the main stats a batch rolled for one slot. */
+function mainTally(pieces) {
+  const n = {};
+  for (const g of pieces) n[g.main.stat] = (n[g.main.stat] || 0) + 1;
+  return Object.entries(n).sort((a, b) => b[1] - a[1]).map(([k, c]) => `${statName(k)}${c > 1 ? ` ×${c}` : ''}`).join(' · ');
+}
+
+/**
+ * What a batch of Set Boxes gave (SET_BOXES_V2.md §5): "N boxes · 5N pieces · all <Set>", the main stats per slot, then
+ * the pieces (above 12, the counted summary). `summary`: the Backpack's boxSummary for a big pile.
+ */
+export function setBoxResults(itemId, res, { summary = null, above = 12 } = {}) {
+  const set = res.set || res.gear[0]?.set;
+  const name = GEAR_SETS[set]?.name || 'Set';
+  return modal({
+    title: `${getItem(itemId)?.name || 'Set Box'} ×${res.opened}`,
+    wide: true,
+    body: h('div.gu-set-results', { 'data-testid': 'set-box-results', 'data-set': set, 'data-opened': String(res.opened) },
+      h('p', h('b', `${res.opened} box${res.opened === 1 ? '' : 'es'} · ${res.gear.length} pieces · all ${name}`)),
+      h('ul.gu-set-mains', SLOT_IDS.map((slot) => h('li', h('b', `${slotName(slot)}: `), mainTally(res.gear.filter((g) => g.slot === slot))))),
+      res.gear.length > above && summary ? summary(res.gear) : h('div.mb-gear-grid.mb-pop', res.gear.map((g) => gearCard(g)))),
+    actions: [{ label: 'Nice!', kind: 'yellow', testid: 'set-box-results-ok' }],
+  });
+}
+
+/** The toast for a Set Box that could not open. */
+function setBoxFail(res) {
+  if (res.error === 'bagFull') toast(`Your gear bag needs 5 free places a box (${GEAR_BAG_MAX} pieces at most). Salvage some gear first.`, 'info');
+  else toast('Could not open the box.', 'bad');
+}
+
+/**
+ * Open `count` Set Boxes now (a random set's own box: no picker; SET_BOXES_V2.md §5) and show what they gave. Fewer
+ * than asked (bag room, the batch cap) opens what fits; a toast says the rest stay.
+ * @returns {object} openSetBox's result
+ */
+export function openSetBoxesNow(itemId, count, { set = null, mains = {}, onDone = () => {}, summary = null } = {}) {
+  const profile = store.profile;
+  const res = openSetBox(profile, itemId, freshRng(), { set, mains, count });
+  if (!res.ok) { setBoxFail(res); return res; }
+  store.commit('gearbox-set');
+  if (res.opened < Math.min(count, SET_OPEN_BATCH_MAX)) toast(`Opened ${res.opened}: your gear bag needs 5 free places a box. The rest stay in your backpack.`, 'info', 4200);
+  onDone();
+  setBoxResults(itemId, res, { summary });
+  return res;
+}
+
+/**
+ * A Set Box (GEAR_UPDATE.md §5; Set Boxes v2, SET_BOXES_V2.md §5): the set (a choose-box offers all six; one set for
+ * the whole batch), the main stat per slot for the preset kind ("Fill for a girl" picks them from her kit; the same
+ * mains for every box), how many, then each box's five pieces at +0 (systems/gearSets.js openSetBox). The random kind
+ * rolls its mains. A preset batch above one box asks first.
+ * @param {{ count?: number, summary?: Function }} [o] the count it starts at; the Backpack's boxSummary for big piles
+ */
+export function setBoxModal(itemId, onDone = () => {}, { count: startCount = 1, summary = null } = {}) {
   const profile = store.profile;
   const sets = setBoxSets(itemId);
+  const preset = setBoxKind(itemId) === 'preset';
   let set = sets[0];
   const girl = profile.formation?.towers?.[0] || profile.secretary || 'aoi';
   let mains = fillMainsFor(profile, girl);
+  const most = () => Math.max(1, setBoxOpenable(profile, itemId));
+  let count = Math.max(1, Math.min(startCount, most()));
   let busy = 0;
-  const body = h('div.gu-set-box', { 'data-testid': 'set-box-modal' });
+  const body = h('div.gu-set-box', { 'data-testid': 'set-box-modal', 'data-kind': preset ? 'preset' : 'random' });
   const draw = () => {
     clear(body);
-    body.appendChild(h('p.muted', 'All five pieces of one set at +0. You choose each main stat; the substats are rolled.'));
-    if (sets.length > 1) {
-      body.appendChild(h('div.row', sets.map((id) => button(GEAR_SETS[id].name, {
-        kind: set === id ? 'primary' : 'ghost', small: true, icon: null, testid: `set-box-set-${id}`, onClick: () => { set = id; draw(); },
-      }))));
+    body.appendChild(h('p.muted', preset
+      ? 'All five pieces of one set at +0. You choose each main stat; the substats are rolled.'
+      : 'All five pieces of one set at +0. The main stats and the substats are rolled.'));
+    if (sets.length > 1) {                               // a pick box: the six sets first, each with its own box
+      body.appendChild(h('p.gu-sb-k', 'Pick a set'));
+      body.appendChild(h('div.gu-sb-sets', sets.map((id) => h(`button.gu-sb-set${set === id ? '.on' : ''}`, {
+        type: 'button', 'data-testid': `set-box-set-${id}`, 'aria-pressed': set === id ? 'true' : 'false', onclick: () => { set = id; draw(); },
+      }, svgEl(itemIcon(String(itemId).replace('_pick_', `_${id}_`), { px: 40 }), 'gu-sb-set-ico'), h('span', GEAR_SETS[id].name)))));
     }
-    const t = SET_TEXT[set];
-    body.appendChild(h('p', h('b', `${GEAR_SETS[set].name}: ${t.passive}. `), `4 pieces: ${t.four} 5 pieces: ${t.five}`));
+    body.appendChild(setBoxHeader(set, itemId));
     // the dead-passive rule (§3.1): what her kit cannot use of this set, said before the box opens
     const idle = setIdle(set, girl);
     const why = idle.passive || idle.cap;
     if (why) body.appendChild(h('p.muted.gk-set-idle', { 'data-testid': 'set-box-idle' }, `For ${UNIT_MAP[girl]?.name || 'her'}: ${why}`));
-    for (const slot of SLOT_IDS) {
-      body.appendChild(h('div.row', h('b', `${slotName(slot)}: `), MAIN_STATS_BY_SLOT[slot].map((k) => button(statName(k), {
-        kind: mains[slot] === k ? 'primary' : 'ghost', small: true, icon: null, testid: `set-box-main-${slot}-${k}`, onClick: () => { mains = { ...mains, [slot]: k }; draw(); },
+    if (preset) {
+      body.appendChild(h('p.gu-sb-k', 'Choose each main stat (the substats are rolled)'));
+      const r = getItem(itemId)?.rarity || 'legendary';
+      for (const slot of SLOT_IDS) {
+        body.appendChild(h('div.gu-sb-pick', { 'data-testid': `set-box-slot-${slot}` },
+          h('span.gu-sb-pick-name', svgEl(gearIcon(slot, r, { set, px: 28 }), 'gu-sb-pick-ico'), h('b', slotName(slot))),
+          h('div.gu-sb-stats', MAIN_STATS_BY_SLOT[slot].map((k) => button(statName(k), {
+            kind: mains[slot] === k ? 'primary' : 'ghost', small: true, icon: null, testid: `set-box-main-${slot}-${k}`, onClick: () => { mains = { ...mains, [slot]: k }; draw(); },
+          })))));
+      }
+      body.appendChild(h('div.row', button(`Fill for ${UNIT_MAP[girl]?.name || 'her'}`, { kind: 'ghost', small: true, icon: null, testid: 'set-box-fill', onClick: () => { mains = fillMainsFor(profile, girl); draw(); } })));
+    }
+    // how many (SET_BOXES_V2.md D1): 1, ×10, all that fit (at most SET_OPEN_BATCH_MAX a tap)
+    const top = most();
+    const opts = [...new Set([1, Math.min(10, top), top])];
+    if (opts.length > 1) {
+      body.appendChild(h('div.row.gu-set-count', h('b', 'How many: '), opts.map((n) => button(n === top && n > 1 ? `All ${n}` : n === 1 ? '1' : `×${n}`, {
+        kind: count === n ? 'primary' : 'ghost', small: true, icon: null, testid: `set-box-count-${n}`, onClick: () => { count = n; draw(); },
       }))));
     }
-    body.appendChild(h('div.row', button(`Fill for ${UNIT_MAP[girl]?.name || 'her'}`, { kind: 'ghost', small: true, icon: null, testid: 'set-box-fill', onClick: () => { mains = fillMainsFor(profile, girl); draw(); } })));
+    body.appendChild(h('p.muted', { 'data-testid': 'set-box-count' }, `${count} box${count === 1 ? '' : 'es'} · ${count * SLOT_IDS.length} pieces${preset && count > 1 ? ', all with these main stats' : ''}.`));
   };
   draw();
   const m = modal({
@@ -557,18 +652,14 @@ export function setBoxModal(itemId, onDone = () => {}) {
       { label: 'Not now', kind: 'ghost' },
       {
         label: 'Open', kind: 'primary', testid: 'set-box-open',
-        onClick: (close) => {
+        onClick: async (close) => {
           if (Date.now() - busy < 600) return;
           busy = Date.now();
-          const res = openSetBox(profile, itemId, freshRng(), { set, mains });
-          if (!res.ok) {
-            toast(res.error === 'bagFull' ? `Your gear bag needs 5 free places (${GEAR_BAG_MAX} pieces at most). Salvage some gear first.` : 'Could not open the box.', res.error === 'bagFull' ? 'info' : 'bad');
-            return;
-          }
-          store.commit('gearbox-set');
-          toast(`${GEAR_SETS[set].name}: five new pieces!`, 'good');
+          // a preset batch: the chosen mains go on every box, so it asks first (SET_BOXES_V2.md D1)
+          if (preset && count > 1 && !(await confirmDialog(`Open ${count} boxes with these main stats? ${count * SLOT_IDS.length} pieces of ${theSet(set)}.`, { title: getItem(itemId)?.name || 'Set Box', ok: `Open ${count}`, okKind: 'yellow' }))) return;
+          const res = openSetBoxesNow(itemId, count, { set, mains: preset ? mains : {}, onDone, summary });
+          if (!res.ok) return;
           close();
-          onDone();
         },
       },
     ],
@@ -590,47 +681,110 @@ export function pinPicker(uid, onDone) {
   return m;
 }
 
-/**
- * Limit Break (GEAR_UPDATE.md §4.1): a UR piece at +12 and a Nightglass Lens make Nightglass LR gear, +18. Set LR keeps
- * its set (×1.25 over UR, its LR Set Form at five); Blank LR has no set (×1.56 over UR; five of them double every cap).
- * No undo: salvage pays everything back.
- */
 /** "the Geometry Set" / "the Spirit Squad set": a set's name once, without a doubled "Set set" (audit D L2). */
 const theSet = (id) => { const n = GEAR_SETS[id].name; return /\bSet$/.test(n) ? `the ${n}` : `the ${n} set`; };
 
-export function limitBreakModal(uid, { onDone = () => {} } = {}) {
+/**
+ * Nightglass Bloom (docs/specs/LR_AWAKEN.md): UR +12 → LR is an awakening, the twin of Rainbow Bloom. A set piece
+ * awakens into LR of its set (×1.25 over UR, its LR Set Form at five); a No-set piece into Blank LR (×1.56 over UR; five
+ * of them double every cap). 1 Nightglass Lens + 150,000 coins, +18, the Nightglass ✦; no undo (salvage pays it back).
+ */
+export function lrAwakenModal(uid, { unitId = null, onDone = () => {} } = {}) {
   const profile = store.profile;
   const g = profile.gear[uid];
   if (!g) return null;
-  const lens = itemCount(profile, LENS_ID);
-  const kinds = [
-    { kind: 'set', label: 'Set LR', text: g.set ? `Keeps ${theSet(g.set)}. Numbers ×1.25 over UR; five Set LR pieces of one set wake its LR form.` : 'Only a set piece can become Set LR.' },
-    { kind: 'blank', label: 'Blank LR', text: g.set ? `This piece leaves ${theSet(g.set)} for good. Numbers ×1.56 over UR; five Blank LR pieces double every stat limit.` : 'Numbers ×1.56 over UR; five Blank LR pieces double every stat limit (crit over 100% becomes super crits).' },
-  ];
+  const check = canAwakenLrGear(profile, uid);
+  const blank = check.kind === 'blank';
+  const after = { ...JSON.parse(JSON.stringify(g)), lr: blank ? 2 : 1, locked: true };
+  after.name = pieceName(after);
+  const wearer = unitId || g.equippedBy;
+  const lines = (x) => { const L = gearLines(x); return [L.main, ...L.subs]; };
+  const a = lines(g);
+  const b = lines(after);
+  let busy = 0;
+  const short = !check.ok && check.reason === 'missing';
   const m = modal({
-    title: 'Limit Break',
+    title: 'Nightglass Bloom',
+    cls: 'gu-awaken-modal',
     wide: true,
-    body: h('div.gu-lb', { 'data-testid': 'limit-break-modal' },
-      h('p', `Nightglass Lens: ${lens} · 150,000 coins. The piece goes to +18 and takes a third ✦${pinsShown(profile) ? ' and a second Collar Pin' : ''}. No undo.`),
-      kinds.map((k) => {
-        const check = canLimitBreakGear(profile, uid, k.kind);
-        return h('div.row', h('div', h('b', k.label), h('p.muted', k.text)), button(check.ok ? k.label : check.reason === 'missing' ? 'Need Lens + coins' : 'Not possible', {
-          kind: 'primary', small: true, icon: null, disabled: !check.ok, testid: `limit-break-${k.kind}`,
-          onClick: async () => {
-            // Blank LR is for good: the piece leaves its set (a set piece) and never comes back
-            if (k.kind === 'blank' && !(await confirmDialog(g.set ? `Blank LR takes this piece out of ${theSet(g.set)} for good. Limit Break it as Blank LR?` : 'Blank LR is for good: the piece never joins a set. Limit Break it as Blank LR?', { title: 'Blank LR', ok: 'Limit Break', danger: true }))) return;
-            const res = limitBreakGear(profile, uid, k.kind);
-            if (!res.ok) { toast('Could not Limit Break it.', 'bad'); return; }
-            store.commit('gear-limit-break');
-            toast('Limit Broken! Nightglass LR.', 'good');
-            m.close();
+    body: h('div.gu-awaken', { 'data-testid': 'gear-lr-awaken-modal', 'data-kind': blank ? 'blank' : 'lr' },
+      h('div.gu-ba',
+        h('div', h('div.mb-sub-title', `Rainbow UR +${UR_MAX_LEVEL}`), gearCard(g, { compact: true, still: true })),
+        h('div.mb-compare-arrow', '→'),
+        h('div', h('div.mb-sub-title', blank ? 'Blank LR' : 'LR'), gearCard(after, { compact: true }))),
+      h('div.gu-gains', a.map((x, i) => h('span.gu-gain', statName(x.stat), ' ', h('b.gu-up', `+${GEAR_STAT_DEFS[x.stat].pct ? pct1(b[i].value - x.value) : Math.round((b[i].value - x.value) * 10) / 10}`)))),
+      h('ul.gu-rules',
+        blank
+          ? h('li', 'This piece has no set, so it awakens into Blank LR: every number grows by 56% and it can level up to +18.')
+          : h('li', 'Every number grows by 25% and it can level up to +18.'),
+        blank
+          ? h('li', 'Five Blank LR pieces double every stat limit (crit over 100% becomes super crits).')
+          : h('li', `It stays in ${theSet(g.set)}: five LR pieces of one set wake its LR Set Form.`),
+        h('li', `It opens the Nightglass ✦ slot: a third Starlight Needle stitch${pinsShown(profile) ? ', and a second Collar Pin' : ''}.`),
+        h('li', 'It locks itself. Salvaging it later gives the Lens back.')),
+      powerPreview(wearer, uid, (x) => { x.lr = blank ? 2 : 1; if (blank) delete x.set; }),
+      h('div.mb-reroll-cost', h('div.mb-sub-title', 'Cost'), costLine(limitBreakCost()))),
+    actions: [
+      { label: 'Not now', kind: 'ghost' },
+      short
+        ? { label: 'Get Lenses', kind: 'primary', testid: 'gear-get-lens', onClick: (close) => { close(); showItemInfo(itemCount(profile, LENS_ID) ? 'coins' : LENS_ID); } }
+        : {
+          label: 'Awaken!', kind: 'yellow', testid: 'gear-lr-awaken-go',
+          onClick: (close) => {
+            if (Date.now() - busy < 600) return; // double-tap guard
+            busy = Date.now();
+            const res = awakenLrGear(profile, uid);
+            if (!res.ok) { toast(res.error === 'missing' ? 'You need a Nightglass Lens and 150,000 coins.' : 'This piece cannot awaken to LR.', 'bad'); return; }
+            store.commit('gear-lr-awaken');
+            close();
             onDone();
+            showLrAscension(profile.gear[uid]);
           },
-        }));
-      })),
-    actions: [{ label: 'Not now', kind: 'ghost' }],
+        },
+    ],
   });
   return m;
+}
+
+/** The Lens's "Use" picker and older callers: Limit Break is the LR awakening now (LR_AWAKEN.md D5a). */
+export const limitBreakModal = lrAwakenModal;
+
+/** "Awakened to LR!": the twin of "Awakened to UR!"; any tap skips; reduced motion shows the end. */
+export function showLrAscension(g) {
+  const blank = lrKind(g) === 2;
+  modal({
+    title: '',
+    cls: 'ur-ascend-modal gu-ascend-modal gu-lr-ascend-modal',
+    body: h('div.ur-ascend.gu-ascend.gu-lr-ascend', { 'data-testid': 'gear-lr-ascend' },
+      h('div.ur-ascend-hero',
+        h('div.ur-ascend-burst', { 'aria-hidden': 'true' }),
+        [0, 1, 2, 3, 4, 5].map((i) => h(`span.ur-ascend-spark.s${i}`, { 'aria-hidden': 'true' }, '✦')),
+        h('span.gu-seed', { 'aria-hidden': 'true' }, svgEl(itemIcon(LENS_ID))),
+        h('div.ur-ascend-card.gu-ascend-card', svgEl(gearIcon(g.slot, 'legendary', { ur: true, px: 104, set: g.set }), 'gu-ascend-icon'), urRing())),
+      h('h2.ur-ascend-title', h('span.ur-text', blank ? 'Awakened to Blank LR!' : 'Awakened to LR!')),
+      h('p.ur-ascend-text', blank
+        ? `${g.name} awakened into Nightglass gear: every number +56% over UR, up to +18, and the Nightglass ✦ slot.`
+        : `${g.name} awakened into Nightglass LR gear: every number +25% over UR, up to +18, and the Nightglass ✦ slot.`)),
+    actions: [{ label: 'Wonderful!', kind: 'yellow', testid: 'gear-lr-ascend-ok' }],
+  });
+}
+
+/**
+ * "Unbind to Blank LR…" (LR_AWAKEN.md D5b): an LR set piece leaves its set for good and becomes Blank LR (×1.56 over UR,
+ * five of them double every cap). Free: its awakening paid. Asks first, with today's "for good" words.
+ */
+export async function unbindLrModal(uid, { onDone = () => {} } = {}) {
+  const profile = store.profile;
+  const g = profile.gear[uid];
+  if (!g || !canUnbindLrGear(profile, uid).ok) return false;
+  const ok = await confirmDialog(`Blank LR takes this piece out of ${theSet(g.set)} for good: every number grows from ×1.25 to ×1.56 over UR, and five Blank LR pieces double every stat limit. It costs nothing more. Unbind it to Blank LR?`, { title: 'Unbind to Blank LR', ok: 'Unbind', danger: true });
+  if (!ok) return false;
+  const res = unbindLrGear(profile, uid);
+  if (!res.ok) { toast('Could not unbind it.', 'bad'); return false; }
+  store.commit('gear-lr-unbind');
+  toast('Unbound: Blank LR.', 'good');
+  onDone();
+  return true;
 }
 
 /**
@@ -701,7 +855,7 @@ export function pickGearFor(itemId, onDone = () => {}) {
           },
         }) : null),
       })))
-      : h('p.muted', lensUse ? `A rainbow UR piece at +${UR_MAX_LEVEL} can Limit Break.` : itemId === ARMBAND_ID ? 'Mythic, Legendary and rainbow pieces can join a club.' : pin ? 'A gold, UR or LR piece can take it.' : 'A gold (Legendary) piece at +10 can use it.'),
+      : h('p.muted', lensUse ? `A rainbow UR piece at +${UR_MAX_LEVEL} can awaken to LR.` : itemId === ARMBAND_ID ? 'Mythic, Legendary and rainbow pieces can join a club.' : pin ? 'A gold, UR or LR piece can take it.' : 'A gold (Legendary) piece at +10 can use it.'),
     actions: [{ label: 'Close', kind: 'ghost' }],
   });
 }

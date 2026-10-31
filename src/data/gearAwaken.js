@@ -50,13 +50,37 @@ export const COLLAR_PIN_ID = 'collar_pin';
 export const TIE_PIN_COINS = 20000;
 export const COLLAR_PIN_COINS = 10000;
 
-/** Set Boxes (GEAR_UPDATE.md §5): a whole five-piece set at Mythic or Legendary; the choose-boxes offer every set. */
-export const SET_BOX_RARITIES = Object.freeze(['mythic', 'legendary']);
-export const setBoxId = (setId, rarity) => `setbox_${setId}_${rarity}`;
-export const SET_PICK_BOX_IDS = Object.freeze(SET_BOX_RARITIES.map((r) => setBoxId('pick', r)));
-export const SET_BOX_IDS = Object.freeze(SET_IDS.flatMap((id) => SET_BOX_RARITIES.map((r) => setBoxId(id, r))));
-/** Every item the gear update adds: 2 choose-boxes, 12 set boxes and 3 tools. */
-export const GEAR_UPDATE_ITEM_IDS = Object.freeze([...SET_PICK_BOX_IDS, ...SET_BOX_IDS, TIE_PIN_ID, COLLAR_PIN_ID, LENS_ID]);
+/**
+ * Set Boxes (GEAR_UPDATE.md §5; Set Boxes v2, docs/specs/SET_BOXES_V2.md §3): a whole five-piece set at Mythic,
+ * Legendary or UR, of two kinds. The **preset** kind (main stats chosen) keeps the live ids `setbox_<set>_<rarity>`
+ * (Supply Bot only from v2 on; boxes players own stay preset); the **random** kind (main stats rolled, batch-opened)
+ * is `setbox_<set>_<rarity>_random`, what the player sources pay. `<set>` is a set id or `pick` (choose the set).
+ */
+export const SET_BOX_RARITIES = Object.freeze(['mythic', 'legendary', 'ur']);
+export const SET_BOX_KINDS = Object.freeze(['random', 'preset']);
+/** The rarities the live (v0.1.66) preset ids exist at: frozen, every older build knows these 14 ids. */
+export const SET_BOX_LIVE_RARITIES = Object.freeze(['mythic', 'legendary']);
+export const SET_BOX_RANDOM = '_random';
+export const setBoxId = (setId, rarity, kind = 'preset') => `setbox_${setId}_${rarity}${kind === 'random' ? SET_BOX_RANDOM : ''}`;
+/** `{ set, rarity, kind }` of a Set Box id (`set` 'pick' for a choose-box), or null. */
+export function setBoxInfo(id) {
+  const m = /^setbox_([a-z]+)_(mythic|legendary|ur)(_random)?$/.exec(String(id || ''));
+  if (!m || (m[1] !== 'pick' && !SET_IDS.includes(m[1]))) return null;
+  return { set: m[1], rarity: m[2], kind: m[3] ? 'random' : 'preset' };
+}
+const boxIdsOf = (sets) => sets.flatMap((id) => SET_BOX_KINDS.flatMap((k) => SET_BOX_RARITIES.map((r) => setBoxId(id, r, k))));
+export const SET_PICK_BOX_IDS = Object.freeze(boxIdsOf(['pick']));
+export const SET_BOX_IDS = Object.freeze(boxIdsOf(SET_IDS));
+/** The 14 ids live v0.1.66 knows (the preset kind at Mythic and Legendary). */
+export const SET_BOX_LIVE_IDS = Object.freeze(['pick', ...SET_IDS].flatMap((id) => SET_BOX_LIVE_RARITIES.map((r) => setBoxId(id, r))));
+/** The one-time Set Box letter's id: this prefix, then its boxes' item ids joined by '+'. */
+export const SETBOX_GIFT_PREFIX = 'setbox-gift:';
+/** Most Set Boxes one tap opens (5 pieces each: the 100 pieces of a regular "Open all"). */
+export const SET_OPEN_BATCH_MAX = 20;
+/** Every item the gear update adds: 2 choose-boxes, 12 set boxes and 3 tools (the v0.1.66 list, frozen). */
+export const GEAR_UPDATE_ITEM_IDS = Object.freeze([...SET_BOX_LIVE_IDS.filter((id) => id.startsWith('setbox_pick_')), ...SET_BOX_LIVE_IDS.filter((id) => !id.startsWith('setbox_pick_')), TIE_PIN_ID, COLLAR_PIN_ID, LENS_ID]);
+/** Set Boxes v2's new ids (older builds drop them: mirrored in `inv:`). */
+export const SET_BOX_V2_IDS = Object.freeze([...SET_PICK_BOX_IDS, ...SET_BOX_IDS].filter((id) => !SET_BOX_LIVE_IDS.includes(id)));
 
 /** Name suffixes. */
 export const LEGENDARY_SUFFIX = 'of the Eternal Sakura';
@@ -94,9 +118,12 @@ export const MARK = Object.freeze({
   // the one-time Set Boxes (GEAR_UPDATE.md §5.3, r3): one mark per box, for veterans and new players alike
   welcomeBox: 'su:welcome', // the welcome Mythic Set Box (Titan Trials open)
   titanBox: 'su:titanbox:', // su:titanbox:<titan> — that titan's Legendary Set Box (its Nightmare first clear)
+  // Set Boxes v2 (SET_BOXES_V2.md §6): 1 once this build paid a `setbox-gift:` letter's claim (an older build that
+  // claimed it while its cleanMail had stripped the v2 boxes paid nothing: the next load here pays them once)
+  giftPaid: 'su:paid:',
 });
 /** Items mirrored in `inv:` (an older build drops unknown item ids). */
-export const MIRRORED_ITEMS = Object.freeze([SEED_ID, NEEDLE_ID, ARMBAND_ID, ...GEAR_UPDATE_ITEM_IDS]);
+export const MIRRORED_ITEMS = Object.freeze([SEED_ID, NEEDLE_ID, ARMBAND_ID, ...GEAR_UPDATE_ITEM_IDS, ...SET_BOX_V2_IDS]);
 
 /** Freeplay milestone items, once per tier (gear-awaken §6.1, §6.2): the Matriarch a Seed, wave 150 two Needles. */
 export const MILESTONE_ITEMS = Object.freeze({

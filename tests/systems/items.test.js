@@ -3,7 +3,7 @@ import { ITEMS, ITEM_IDS, getItem, itemsByCategory, itemsByTab, materialId, book
 import { MATERIAL_FAMILIES, ITEM_RARITY_ORDER, ITEM_RARITIES } from '../../src/data/types.js';
 import { EVENT_CURRENCIES } from '../../src/data/events/index.js';
 import { createProfile } from '../../src/systems/save.js';
-import { GEAR_UPDATE_ITEM_IDS } from '../../src/data/gearAwaken.js';
+import { GEAR_UPDATE_ITEM_IDS, SET_BOX_V2_IDS } from '../../src/data/gearAwaken.js';
 import { addItems, hasItems, missingItems, consumeItems, itemSources, itemCount, bestStageFor } from '../../src/systems/inventory.js';
 import { STAGES, STAGE_MAP } from '../../src/data/stages.js';
 import { SHOP_OFFERS } from '../../src/data/shop.js';
@@ -20,6 +20,8 @@ describe('items data', () => {
     ids.push(...ASCENSION_ITEM_IDS);
     // the gear update (docs/specs/GEAR_UPDATE.md §12): Set Boxes, pins and the Nightglass Lens
     ids.push(...GEAR_UPDATE_ITEM_IDS);
+    // Set Boxes v2 (docs/specs/SET_BOXES_V2.md §3): the random kind and the UR boxes
+    ids.push(...SET_BOX_V2_IDS);
     for (const id of ids) {
       const it = getItem(id);
       expect(it, id).toBeTruthy();

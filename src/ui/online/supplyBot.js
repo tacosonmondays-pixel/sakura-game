@@ -39,7 +39,8 @@ export function createSupplyBot() {
   }
   function paintPicked() {
     const it = picked && getItem(picked);
-    pickedEl.replaceChildren(it ? h('span', 'Selected: ', h('b', it.name), h('small.muted', ` · you have ${formatNumber(itemCount(store.profile, it.id))}`)) : h('span.muted', 'Pick an item on the left.'));
+    // (a preset Set Box is Supply Bot only: SET_BOXES_V2.md D1)
+    pickedEl.replaceChildren(it ? h('span', 'Selected: ', h('b', it.name), it.supplyOnly ? h('span.ol-sb-tag', { 'data-testid': 'supply-only' }, 'Supply Bot only') : null, h('small.muted', ` · you have ${formatNumber(itemCount(store.profile, it.id))}`)) : h('span.muted', 'Pick an item on the left.'));
   }
 
   const grant = button('Grant', {

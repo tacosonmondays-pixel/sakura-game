@@ -215,8 +215,8 @@ export const ACHIEVEMENTS = [
   N('gear', 'a_leg_plus10', 'Celestial Craftwork', 'Enhance a Legendary piece of gear to +10.', 'gearMaxEver', 'legendary', 1, 4, [g(200), R(), it('dice_prism')], 'launch', { honor: hr(24, 'Master Crafter Ribbon', 'shiny', 'wrench'), title: tt('Master Crafter', 'gold') }),
   // LR gear (GEAR_UPDATE.md §4.6, wave `gear`): one Nightglass Lens each, once, no gems (tier 0); counters from
   // src/systems/gear.js (MARK.lrEver / lrForm)
-  N('gear', 'a_lr_first', 'First Nightglass', 'Limit Break a rainbow UR piece into Nightglass LR gear.', 'counter', 'ach:lrEver', 1, 0, [it('lens_nightglass')], 'gear'),
-  N('gear', 'a_lr_form', 'Nightglass Form', 'Wake an LR Set Form: five Set LR pieces of one set on one student.', 'counter', 'ach:lrForm', 1, 0, [it('lens_nightglass')], 'gear'),
+  N('gear', 'a_lr_first', 'First Nightglass', 'Awaken a rainbow UR piece into Nightglass LR gear.', 'counter', 'ach:lrEver', 1, 0, [it('lens_nightglass')], 'gear'),
+  N('gear', 'a_lr_form', 'Nightglass Form', 'Wake an LR Set Form: five LR pieces of one set on one student.', 'counter', 'ach:lrForm', 1, 0, [it('lens_nightglass')], 'gear'),
   N('gear', 'a_salvage_100', 'Tidy Workshop', 'Salvage 100 pieces of gear.', 'counter', 'salvage', 100, 0, [it('lock_pin'), it('dice_reroll', 3)], 'launch', { grind: true, since: COUNTERS_SINCE }),
   // Bestiary
   N('bestiary', 'a_family_1', 'Family Portrait', 'Discover every member of one enemy family.', 'familiesFound', null, 1, 1, [g(20), S()], 'launch', { series: 'family' }),
