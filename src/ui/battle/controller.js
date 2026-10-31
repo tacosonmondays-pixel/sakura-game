@@ -82,6 +82,14 @@ import { pickFor } from './supportPick.js';
 import { extendedPast, isExtendedRun } from './tryout/adapters.js';
 import { createCoopPending } from './coopPending.js';
 
+/** Why a sharing order of mine came back refused (src/online/coop/commands.js reasons). */
+const SHARE_REFUSED = Object.freeze({
+  cooldown: 'Wait a moment between gifts.', amount: `Gifts start at ${COOP.giftMin} coins.`, cash: 'Not enough coins for that gift any more.',
+  gone: 'Your ally is not in the battle right now.', ended: 'The battle is over.', self: 'That is you.',
+  wave: 'Take her back between waves.', hero: 'A hero stays with her player.', lab: 'Tenka\'s lab works for her own player only: she cannot be lent.',
+  run: 'Girls are not lent during a Tryout run.', notYours: 'She is not yours to do that with.', already: 'She is already with you.',
+});
+
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
 
@@ -1269,6 +1277,7 @@ export function mountBattle(root, params, hooks) {
         // running the shared battle in slow motion (Lockstep caps its own catch-up per frame)
         if (!ctx.ended) ls.advance(Math.min(0.25, Math.max(0, (now - frameT) / 1000)));
         ctx.speed = ls.coop.speed;
+        shareEvents();
         coopHud?.update();
         // an order that never came back (voided by a rejoin) stops waiting after a while: its ghost goes too
         const rev = ctx.coopPending?.rev;
@@ -1417,9 +1426,24 @@ export function mountBattle(root, params, hooks) {
       lockstep: ls,
       mySlot,
       ownerOf: (uid) => ls.coop.ownerOf(uid),
-      isMine: (uid) => ls.coop.ownerOf(uid) === mySlot,
+      // (co-op sharing, docs/specs/COOP_SHARING.md: "mine" is whom I command — my own girls and those lent or handed
+      // to me; her colour and her name tag stay her owner's)
+      isMine: (uid) => ls.coop.isMine(uid),
+      ctrlOf: (uid) => ls.coop.ctrlOf(uid),
+      lentInfo: (uid) => ls.coop.lentInfo?.(uid) || null,
       ownerName: (uid) => session.player(ls.coop.ownerOf(uid))?.name || 'Your ally',
+      ctrlName: (uid) => session.player(ls.coop.ctrlOf(uid))?.name || 'Your ally',
+      nameOf: (slot) => session.player(slot)?.name || (slot === mySlot ? 'You' : 'Your ally'),
       colorOf: (uid) => COOP.colors[ls.coop.ownerOf(uid)] || '#fff',
+      ctrlColorOf: (uid) => COOP.colors[ls.coop.ctrlOf(uid)] || '#fff',
+      allySlot: 1 - mySlot,
+      /** Is my ally in the battle with me (not gone / left)? */
+      allyHere: () => !ls.coop.isGone(1 - mySlot) && ls.livePeers().length > 0,
+      isGone: (slot) => ls.coop.isGone(slot),
+      /** Leavers waiting out their grace: [{ slot, at }] (src/online/coop/commands.js). */
+      pendingDeals: () => ls.coop.pendingDeals?.() || [],
+      /** What the drawer re-renders on: her controller, how she came, the wave, who is gone. */
+      shareSig: (uid) => `${ls.coop.ctrlOf(uid)}${ls.coop.lentInfo?.(uid)?.kind || '-'}${sim.state === 'wave' ? 'w' : '-'}${ls.coop.isGone(0) ? 1 : 0}${ls.coop.isGone(1) ? 1 : 0}`,
       get hashes() {
         return ls.hashPairs();
       },
@@ -1427,6 +1451,8 @@ export function mountBattle(root, params, hooks) {
         return ls.tick;
       },
     };
+    // (a remounted screen — a resync — replayed the battle: hand-outs it already announced are not news)
+    ls.coop.drainShareEvents?.();
     ctx.applyResult = (p, result, rng) => {
       let out;
       if (result.freeplay && result.freeplay !== 'tryout' && result.goalReached) {
@@ -1542,10 +1568,14 @@ export function mountBattle(root, params, hooks) {
 
   function coopActions() {
     const mine = (uid) => {
-      if (ls.coop.ownerOf(uid) === ls.mySlot) return true;
-      ctx.feed?.push(`That is ${ctx.coop.ownerName(uid)}'s girl.`, 'warn', { key: 'not-mine', ms: 1400 });
+      if (ls.coop.isMine(uid)) return true;
+      // (my own girl lent to my ally: say where she is; anyone else's: whose she is)
+      const text = ls.coop.ownerOf(uid) === ls.mySlot ? `${ctx.coop.ctrlName(uid)} has her now — take her back between waves.` : `That is ${ctx.coop.ctrlName(uid)}'s girl.`;
+      ctx.feed?.push(text, 'warn', { key: 'not-mine', ms: 1600 });
       return false;
     };
+    /** A sharing order (gift / lend / back / give): queued, or false while the battle rebuilds. */
+    const share = (k, a) => (ls.job ? null : ls.queue(k, a));
     return {
       place(id, x, y) {
         if (ls.job) return null; // rebuilding (a resync / rejoin): orders wait until it is done
@@ -1594,10 +1624,77 @@ export function mountBattle(root, params, hooks) {
         ls.queue('pick', [uid, target]);
         return 'queued';
       },
+      // ---- co-op sharing (docs/specs/COOP_SHARING.md §3.5) ----------------------------------------------------
+      /** Sends `amount` of my coins to my ally (held off my balance until it lands, like an order's price). */
+      gift(amount) {
+        const n = Math.floor(Number(amount) || 0);
+        if (n < COOP.giftMin || n > ctx.spendable()) return false;
+        const c = share('gift', [1 - ls.mySlot, n]);
+        if (!c) return false;
+        ctx.coopPending.gift(c, n);
+        return 'queued';
+      },
+      /** Lends my own girl to my ally (they command her and pay for her upgrades). */
+      lend(uid) {
+        return share('lend', [uid, 1 - ls.mySlot]) ? 'queued' : false;
+      },
+      /** Takes my lent girl back (between waves). */
+      takeBack(uid) {
+        return share('back', [uid]) ? 'queued' : false;
+      },
+      /** Hands a girl lent to me back to her owner. */
+      giveBack(uid) {
+        return share('give', [uid]) ? 'queued' : false;
+      },
       // a cast (the `abil` command, ABILITIES_SPEC §7.2–§7.3), one girl's Auto switch and the Auto-cast setting (the
       // `acast` command): abilityBar.js coopAbilityActs (tests/battle-ui/abilityBar.test.js, abilityAuto.test.js)
       ...coopAbilityActs(ctx, ls),
     };
+  }
+
+  /** What a sharing order did, on both screens (docs/specs/COOP_SHARING.md §3.5; they/them for players). */
+  function shareApplied(cmd, res, minePlayer) {
+    const who = session.player(cmd.p)?.name || 'Your ally';
+    const ally = session.player(1 - ls.mySlot)?.name || 'your ally';
+    const girl = (uid) => sim.getTower(uid)?.def?.name || 'her';
+    const money = (n) => fmtNum(n, 'money');
+    if (!res.ok) {
+      if (!minePlayer) return;
+      const why = SHARE_REFUSED[res.reason] || 'That did not go through.';
+      ctx.feed.push(why, 'warn', { key: `share-${cmd.k}`, ms: 1800 });
+      return;
+    }
+    if (cmd.k === 'gift') {
+      const kept = res.kept > 0 ? ` (${money(res.kept)} did not fit and stayed with ${minePlayer ? 'you' : 'them'})` : '';
+      if (minePlayer) ctx.feed.push(`You sent ${ally} ${money(res.sent)} coins${kept}.`, 'good', { key: 'gift-out', ms: 2000 });
+      else ctx.feed.push(`${who} sent you ${money(res.sent)} coins!`, 'good', { key: 'gift-in', ms: 2400 });
+    } else if (cmd.k === 'lend') {
+      if (minePlayer) ctx.feed.push(`${ally} is playing your ${girl(cmd.a[0])} now.`, 'good', { key: 'lend-out', ms: 2000 });
+      else ctx.feed.push(`${who} lent you ${girl(cmd.a[0])}: she takes your orders, and her upgrades are on you.`, 'good', { key: 'lend-in', ms: 2600 });
+    } else if (cmd.k === 'back') {
+      if (minePlayer) ctx.feed.push(`${girl(cmd.a[0])} is back with you.`, 'info', { key: 'back-out', ms: 1800 });
+      else ctx.feed.push(`${who} took ${girl(cmd.a[0])} back.`, 'info', { key: 'back-in', ms: 1800 });
+    } else if (cmd.k === 'give') {
+      if (minePlayer) ctx.feed.push(`You gave ${girl(cmd.a[0])} back.`, 'info', { key: 'give-out', ms: 1800 });
+      else ctx.feed.push(`${who} gave your ${girl(cmd.a[0])} back.`, 'info', { key: 'give-in', ms: 1800 });
+    }
+  }
+
+  /** A leaver's girls handed out, or back with them on a rejoin (CoopSim drainShareEvents, every frame). */
+  function shareEvents() {
+    for (const ev of ls.coop.drainShareEvents?.() || []) {
+      const name = (slot) => session.player(slot)?.name || 'Your ally';
+      const names = (uids) => uids.map((u) => sim.getTower(u)?.def?.name).filter(Boolean).join(', ');
+      if (ev.k === 'dealt') {
+        const mineNow = ev.given.find((g) => g.to === ls.mySlot);
+        const coins = ev.coins > 0 ? ` and their ${fmtNum(ev.coins, 'money')} coins are shared out` : '';
+        if (mineNow) ctx.feed.push(`${name(ev.from)} did not come back: their girls are yours now (${names(mineNow.uids)})${coins}.`, 'good', { key: 'dealt', ms: 4200 });
+        else if (ev.coins > 0) ctx.feed.push(`${name(ev.from)} did not come back: their coins are shared out.`, 'info', { key: 'dealt', ms: 3200 });
+      } else if (ev.k === 'back') {
+        if (ev.to === ls.mySlot) ctx.feed.push('You are back: your girls are yours again.', 'good', { key: 'dealt-back', ms: 3200 });
+        else ctx.feed.push(`${name(ev.to)} is back: their girls (${names(ev.uids)}) are theirs again.`, 'info', { key: 'dealt-back', ms: 3200 });
+      }
+    }
   }
 
   /** A lockstep command just ran on this client (mine or my ally's). */
@@ -1608,6 +1705,7 @@ export function mountBattle(root, params, hooks) {
     const minePlayer = cmd.p === ls.mySlot;
     // (my order in flight ran, ok or refused: its ghost, "Ordered" button and reserved coins go)
     if (minePlayer && ctx.coopPending?.landed(cmd)) ctx.placement?.landed?.();
+    if (cmd.k === 'gift' || cmd.k === 'lend' || cmd.k === 'back' || cmd.k === 'give') shareApplied(cmd, res, minePlayer);
     if (cmd.k === 'place') {
       if (res.ok && minePlayer) ctx.onPlaced(res.tower);
       else if (res.ok) ctx.feed.push(`${session.player(cmd.p)?.name || 'Ally'} deployed ${res.tower.def.name}`, 'info', { key: `ally-${res.tower.uid}`, ms: 1400 });

@@ -413,6 +413,14 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 }
 .bt-panel .bt-ally-note { margin: 0; padding: 6px 8px; border-radius: 2px; font: 500 var(--fs-body)/1.3 var(--font); color: var(--on-plate); background: var(--dw-fill); border-left: 3px solid var(--ally, #ff8fab); }
 .bt-panel .bt-ally-note .bt-ico-sm { display: inline-flex; width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; color: var(--on-plate-dim); }
+/* co-op sharing (docs/specs/COOP_SHARING.md §3.5): lend her / lent to … · Take back / lent by … · Give back */
+.bt-panel .bt-share { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; padding: 4px 6px 4px 8px; border-radius: 2px; background: var(--dw-fill); border-left: 3px solid var(--ctrl, #4cc9f0); font: 500 var(--fs-body)/1.25 var(--font); color: var(--on-plate); }
+.bt-panel .bt-share .bt-ico-sm { display: inline-flex; width: 14px; height: 14px; flex: none; color: var(--on-plate-dim); }
+.bt-panel .bt-share-line { flex: 1 1 auto; min-width: 0; }
+.bt-panel .bt-share-btn { flex: none; min-height: var(--tap-dense); padding: 0 10px; border: 0; border-radius: var(--radius-plate); background: linear-gradient(180deg, #fff38a, var(--yellow)); color: var(--plate); font: italic 900 var(--fs-body)/1 var(--font-head); cursor: pointer; }
+.bt-panel .bt-share-btn.armed { box-shadow: 0 0 0 2px var(--on-plate); }
+.bt-panel .bt-share-btn:disabled { background: var(--dw-fill); color: var(--on-plate-dim); box-shadow: inset 0 0 0 1px var(--dw-line-hi); cursor: default; }
+.bt-panel .bt-share-btn small { font: 600 var(--fs-label)/1 var(--font); font-style: normal; }
 /* the scroll cue (phones hide thin scrollbars): a fade at the foot of the body and a ▾, while content sits below */
 .bt-panel-foot { position: relative; z-index: 2; } /* (over the stat row's layer: the cue and Sell's hit area stay on top) */
 .bt-scroll-cue {
@@ -813,6 +821,7 @@ html[data-reduce-motion] .bt-buy-spin { animation: none; border-right-color: cur
   .bt-panel .bt-abrow.s-later:not(.open) .bt-abrow-line { flex: none; margin: 0; font: 500 var(--fs-label)/1.2 var(--font); text-align: right; }
   /* the ally note: its short phone line (drawerView.allyNoteText) on one line, so her three rows stay in view */
   .bt-panel .bt-ally-note { padding: 3px 6px; font-size: var(--fs-label); line-height: 1.25; }
+  .bt-panel .bt-share { margin-top: 4px; padding: 2px 4px 2px 6px; font-size: var(--fs-label); }
   .bt-panel .bt-ally-note .bt-ico-sm { width: 13px; height: 13px; margin-right: 3px; }
   /* (36 px with or without Sell: an ally's footer has none, and MORE's 30 px hit area stays inside it) */
   .bt-panel-foot { min-height: calc(36px + var(--safe-bottom)); padding: 3px 8px calc(3px + var(--safe-bottom)); }

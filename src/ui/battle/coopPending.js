@@ -61,6 +61,10 @@ export function createCoopPending({ now = nowMs, tick = null, paused = () => fal
     level(cmd, cost) {
       add(cmd, { cost });
     },
+    /** A coin gift: its amount, held off my balance until it lands. */
+    gift(cmd, amount) {
+      add(cmd, { cost: amount });
+    },
     /** A sale order for girl `uid`. */
     sell(cmd, uid) {
       add(cmd, { uid, cost: 0 });

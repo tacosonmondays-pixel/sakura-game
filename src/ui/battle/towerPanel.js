@@ -39,7 +39,7 @@ import { abilityRuns } from '../../data/abilities.js';
 import { boltText, ico, KIT_SVG } from '../kit.js';
 import {
   drawerStats, targetView, aimView, pathRowView, createBuyArm, footerView, heroDrawerView, shortTeaser, rowTags, hitDamage, gearPierce, pierces, BUY_ARM_MS,
-  allyNoteText, holderParts, contentBelow, rowAir, SCROLL_CUE_PX, TARGET_EXTRA,
+  allyNoteText, holderParts, contentBelow, rowAir, SCROLL_CUE_PX, TARGET_EXTRA, shareRowView, sharedAllyNote,
 } from './drawerView.js';
 
 function statusLabel(s) {
@@ -168,7 +168,7 @@ export function createTowerPanel(ctx) {
     const dv = t.turretSpec?.leash > 0 ? drones.signature(t) : '';
     // (the ability row's state, Auto and live line; its seconds tick in place, so a tap on a price is never lost to a
     // re-render once a second)
-    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${more ? 1 : 0}|${targetsOpen ? 1 : 0}|${arm.armedPath(t.uid) ?? '-'}|${isWide() ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? `A${ctx.aim.slot}` : ''}|${mirrorSig(t)}|${more && (t.damageDealt || 0) > 0 ? 'd' : ''}|${abRow.sig(t)}${ctx.coopPending ? `|o${[0, 1, 2].map((p) => (ctx.coopPending.upgrading(t.uid, p) ? 1 : 0)).join('')}` : ''}`;
+    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${more ? 1 : 0}|${targetsOpen ? 1 : 0}|${arm.armedPath(t.uid) ?? '-'}|${isWide() ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? `A${ctx.aim.slot}` : ''}|${mirrorSig(t)}|${more && (t.damageDealt || 0) > 0 ? 'd' : ''}|${abRow.sig(t)}${ctx.coopPending ? `|o${[0, 1, 2].map((p) => (ctx.coopPending.upgrading(t.uid, p) ? 1 : 0)).join('')}` : ''}${ctx.coop?.shareSig ? `|s${ctx.coop.shareSig(t.uid)}${shareArmed === t.uid ? 'a' : ''}${ctx.coop.allyHere() ? 'h' : ''}` : ''}`;
   }
 
   /** @param {{ drone?: number|null }} [opts] a drone of hers to show (tapped on the field: MORE opens on its card) */
@@ -414,8 +414,10 @@ export function createTowerPanel(ctx) {
     const rows = t.def.paths.map((p, i) => pathRow(t, p, i, { readOnly: ally }));
     // (her controls read only, in the dim ink: the lock and this one line say why, UI_DIRECTION §5.5; a phone's line is
     // short, so her three path rows stay in view under it)
-    const note = ally ? allyNoteText(ctx.coop.ownerName(t.uid), { wide: isWide() }) : null;
-    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', title: note.title, style: { '--ally': ctx.coop.colorOf(t.uid) } }, icon('lock', 'bt-ico-sm'), note.text) : null;
+    // (co-op sharing: the note names whoever commands her now; a girl of mine lent out says so)
+    const note = ally ? sharedAllyNote(ctx.coop.ctrlName?.(t.uid) ?? ctx.coop.ownerName(t.uid), ctx.coop.ownerName(t.uid), { wide: isWide(), mine: ctx.coop.ownerOf(t.uid) === ctx.coop.mySlot }) : null;
+    const allyNote = ally ? h('div.bt-ally-note', { 'data-testid': 'ally-note', title: note.title, style: { '--ally': ctx.coop.ctrlColorOf?.(t.uid) ?? ctx.coop.colorOf(t.uid) } }, icon('lock', 'bt-ico-sm'), note.text) : null;
+    const share = shareRow(t);
     return [
       allyNote,
       abRow.update(t),
@@ -425,7 +427,55 @@ export function createTowerPanel(ctx) {
       statRow(t, st, statOpts),
       rows.length ? h('div.bt-dw-sec', h('span.bt-dw-k', 'UPGRADES'), h('span.bt-dw-rule')) : null,
       rows.length ? h('div.bt-paths', rows) : null,
+      share,
     ];
+  }
+
+  // ---- co-op sharing (docs/specs/COOP_SHARING.md §3.5): lend her / take her back / give her back ------------------
+  let shareArmed = null; // the uid whose "Lend to …" waits for its second tap
+  let shareArmTimer = 0;
+  function shareView(t) {
+    const c = ctx.coop;
+    if (!c?.ctrlOf) return null;
+    const me = c.mySlot;
+    const owner = c.ownerOf(t.uid);
+    const ctrl = c.ctrlOf(t.uid);
+    if (owner == null || ctrl == null) return null;
+    return shareRowView({
+      me, owner, ctrl, kind: c.lentInfo(t.uid)?.kind || null, isHero: !!t.isHero,
+      lab: !!(t.stats?.lab || t.def?.paths?.some((p) => p.tiers?.some((x) => x.mods?.lab))), run: !!sim.tryout,
+      ended: sim.state === 'won' || sim.state === 'lost', wave: sim.state === 'wave', allyHere: c.allyHere(),
+      ctrlGone: c.isGone(ctrl), ownerGone: c.isGone(owner), allyName: c.nameOf(c.allySlot), ownerName: c.nameOf(owner),
+      ctrlName: c.nameOf(ctrl), armed: shareArmed === t.uid,
+    });
+  }
+  function shareRow(t) {
+    const v = shareView(t);
+    if (!v) return null;
+    const onTap = (e) => {
+      e.stopPropagation();
+      if (v.disabled || !v.act) return;
+      if (v.act === 'lend' && shareArmed !== t.uid) {
+        shareArmed = t.uid;
+        clearTimeout(shareArmTimer);
+        shareArmTimer = setTimeout(() => {
+          shareArmed = null;
+          rerender();
+        }, BUY_ARM_MS);
+        rerender();
+        return;
+      }
+      shareArmed = null;
+      clearTimeout(shareArmTimer);
+      const act = v.act === 'lend' ? ctx.act?.lend : v.act === 'back' ? ctx.act?.takeBack : ctx.act?.giveBack;
+      if (act) act(t.uid);
+      rerender();
+    };
+    const btn = v.button ? h(`button.bt-share-btn${v.kind === 'lend' && shareArmed === t.uid ? '.armed' : ''}`, {
+      type: 'button', 'data-testid': `share-${v.act || 'none'}`, disabled: v.disabled, title: v.hint || v.button, onclick: onTap,
+    }, v.button, v.hint ? h('small', ` · ${v.hint}`) : null) : null;
+    return h(`div.bt-share.s-${v.kind}`, { 'data-testid': 'share-row', style: { '--ally': ctx.coop.colorOf(t.uid), '--ctrl': ctx.coop.ctrlColorOf(t.uid) } },
+      icon(v.kind === 'lend' ? 'heart' : 'lock', 'bt-ico-sm'), h('span.bt-share-line', v.line), btn);
   }
 
   /**
