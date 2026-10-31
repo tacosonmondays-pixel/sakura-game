@@ -1,0 +1,28 @@
+{
+ "id": "midori",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, cheerful menace of the alchemy club, mint-green bob cut, split bangs, round brass-rimmed goggles pushed up on her head, yellow-green eyes, round eyes, long-sleeved green dress with cream cuffs, white collar, lime green ribbon bow at the collar, cream apron with two front pockets holding small test tubes, brown leather satchel worn across her body, green tights, green boots with gold buckles, round glass potion flask of bright green liquid with a gold star-shaped stopper, pale mint halo shaped like a single leaf, flat and simple, floating above her head, excited open-mouth grin, the alchemy club greenhouse lab on a bright sunny morning, tall arched glass panes, hanging ferns and potted herbs, a wooden workbench with round flasks and a small burner, floating soap bubbles, cowboy shot, {POSE}, her eyes on the left third, bob and apron swinging with the motion, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, fresh sunny greenhouse light with one small lime-green accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing straight, symmetrical composition, straight-on camera, skull, skull and crossbones, toxic smoke, dark smoke, explosion, gas mask, witch hat, cauldron, goggles over eyes, short skirt, miniskirt, corset, blue hair, blonde hair, dark green hair, long hair, ponytail, twintails, red eyes, purple eyes, night, thrown at viewer",
+ "poses": [
+  "she holds the round green potion flask out toward the viewer as if offering a taste, strong foreshortening, hand and flask very large near the camera, tiny bubbles rising, her other hand on her satchel strap, dutch angle, diagonal composition, eye level",
+  "pushing her goggles up with one hand while her other hand holds a bubbling test tube out toward the viewer, strong foreshortening, hand and test tube very large near the camera, dutch angle, diagonal composition, slightly from above",
+  "pouring bright green liquid from one flask into another in a long diagonal arc, the lower flask held out large near the camera, strong foreshortening, glancing at the viewer with a grin, dutch angle, diagonal composition, slightly from above",
+  "spinning around from the workbench with her satchel swinging, holding a potted seedling out toward the viewer with both hands, strong foreshortening, hands and pot very large near the camera, dutch angle, diagonal composition, eye level",
+  "giving a thumbs up toward the viewer, strong foreshortening, thumb very large near the camera, the potion flask held up beside her cheek glowing softly green, dutch angle, diagonal composition, eye level"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/midori-full.webp",
+ "identity": [
+  "mint-green bob, split bangs",
+  "round brass/gold goggles pushed up on her head",
+  "yellow-green eyes, round",
+  "long-sleeved green dress, cream cuffs, lime bow at collar",
+  "cream apron with pockets of test tubes",
+  "brown leather satchel across her body",
+  "green tights, green boots with gold buckles",
+  "round green potion flask with a gold star stopper",
+  "pale mint leaf halo",
+  "excited cheerful grin"
+ ],
+ "scene": "the alchemy club greenhouse lab on a bright sunny morning: arched glass panes, hanging ferns, potted herbs, workbench of round flasks, soap bubbles",
+ "notes": "STUDENT (adult: false). Her portrait already sits in this greenhouse lab; Look B keeps it and makes it high-key. No skulls or poison symbols even though her element is poison: the brews stay bright green and friendly. Her portrait has no halo; the leaf halo comes from her data (halo: leaf, #b9fbc0), mint so it differs from Aoi's green leaf. Goggles stay pushed up (never over her eyes). Nothing is thrown at the viewer: flasks and the seedling are held out."
+}

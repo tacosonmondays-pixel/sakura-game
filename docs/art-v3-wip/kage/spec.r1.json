@@ -1,0 +1,28 @@
+{
+ "id": "kage",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, courier club runner and ninja prodigy, short messy purple bob, dark cloth headband with a small silver crescent-moon plate and trailing ends, lilac eyes, sharp eyes, purple short kimono jacket with thin silver trim, lilac chest bow, black obi sash with a pouch, dark arm guards, long dark purple scarf, purple pleated skirt below the knees, black tights, dark boots, silver shuriken, pale lilac crescent-moon halo above her head, sly playful smile, the academy rooftops on a bright afternoon, tiled roofs, a water tower, white towels flapping on a line, soft clouds, cowboy shot, {POSE}, long scarf and headband ends fluttering in the wind, her eyes on the left third, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, warm bright late afternoon light with one small lilac accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing straight, symmetrical composition, straight-on camera, shuriken thrown at viewer, throwing at viewer, weapon pointed at viewer, aiming at viewer, kunai, sword, mask over mouth, face mask, metal forehead protector, night, dark sky, long hair, ponytail, blonde hair, black hair, red eyes, short skirt, miniskirt, fishnets, corset",
+ "poses": [
+  "mid-leap between two rooftops, she holds a small wrapped parcel out toward the viewer with one hand, strong foreshortening, hand and parcel very large near the camera, her other arm swept back, dutch angle, diagonal composition, slightly from above, scarf and hair streaming behind her",
+  "landing in a light crouch on the roof ridge, she offers a plain white envelope toward the viewer between two fingers, strong foreshortening, fingers and envelope very large near the camera, dutch angle, diagonal composition, slightly from above, scarf flying up",
+  "she spins a silver shuriken on one fingertip held up beside her face, pointed at the sky, her free hand reaching toward the viewer with a playful wave, strong foreshortening, hand very large near the camera, dutch angle, diagonal composition, eye level, scarf tails whipping",
+  "running along the roof ridge toward the viewer, one hand stretched out toward the viewer as if to tag them, strong foreshortening, open hand very large near the camera, a satchel of deliveries bouncing at her hip, dutch angle, diagonal composition, eye level, hair and skirt in motion",
+  "perched on the edge of the water tower ladder, she leans out and holds a delivery parcel toward the viewer, other hand flashing a peace sign, strong foreshortening, parcel and hand very large near the camera, dutch angle, diagonal composition, slightly from above, scarf drifting in the wind"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/kage-full.webp",
+ "identity": [
+  "short messy purple bob",
+  "dark headband with small silver crescent plate, trailing ends",
+  "lilac sharp eyes",
+  "purple short kimono-style jacket, thin silver trim, lilac bow",
+  "black obi sash with pouch, dark arm guards",
+  "long dark purple scarf",
+  "purple skirt below the knee, black tights, dark boots",
+  "silver shuriken (held up or spun, never thrown at the viewer)",
+  "pale lilac crescent-moon halo",
+  "sly playful smile"
+ ],
+ "scene": "the academy rooftops on a bright late afternoon: tiled roofs, water tower, flapping laundry, eave lanterns, soft clouds",
+ "notes": "STUDENT (adult: false). Her portrait is a twilight lantern street with heavy silver embroidery; Look B asks for thin flat silver trim and a bright courier run over the rooftops. The portrait's headband plate is kept small (a crescent emblem on a cloth band; negative: metal forehead protector, face mask) so it does not drift to a well-known ninja design. Her portrait has no halo; the crescent halo comes from her data (halo: moon, #c4b5fd). Parcels and envelopes are blank. The shuriken is only spun on a fingertip pointing up, never thrown."
+}

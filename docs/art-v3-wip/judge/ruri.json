@@ -1,0 +1,196 @@
+{
+ "id": "ruri",
+ "round": 4,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: Kon the holographic fox is missing",
+    "safety": "pass",
+    "hands": "borderline: hands hidden behind the book/sleeves, cannot verify",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 7.1,
+   "notes": "Glowing grimoire with paw print held toward the viewer, library and window, hair flowing. But Kon (the holographic fox) is missing, the hands are hidden behind the book, and the skirt is mid-thigh instead of below the knee. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "borderline: pointing fist with the flower, fingers merged",
+    "text": "pass",
+    "crops": "fail: face centre ~74% across (limit 70%)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 6,
+    "appeal": 8
+   },
+   "total": 7.58,
+   "notes": "Kon perched on her shoulder, grimoire with paw under her arm, star clip, braid, armband. But the face sits at ~74% across, the bookmark became a loose flower on a closed fist, and the kicked-up leg shows bare thigh below a short skirt. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: halo top arc clipped at the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8.5,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.62,
+   "notes": "Best identity: Kon floating by the shelves, five-finger wave, cream blazer, armband with book emblem, grimoire under the arm, braid and star clip. Only mild tilt and little foreshortening, and the halo is cut by the top edge. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "pass: long deep-blue hair with side braid, star clip, sky-blue eyes, cream blazer with navy piping and crest, grey vest, ribbon bow, armband with book emblem, plaid skirt, glowing grimoire with paw, Kon clearly drawn emerging from the book",
+    "safety": "pass: student fully dressed, skirt below the knee, no emphasis",
+    "hands": "pass: both hands on the book edges, fingers readable",
+    "text": "pass",
+    "crops": "fail: halo ring cut by the top edge (top at y=0, off to the upper right); face centre ~70% across, at the limit",
+    "count": "pass",
+    "frame_bg": "pass: library shelves and windows"
+   },
+   "scores": {
+    "identity": 9,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 6,
+    "appeal": 8.5
+   },
+   "notes": "Best Kon of all rounds (white robot fox with cyan glow stepping out of the paw-print grimoire held toward the viewer), good dutch tilt. Rejected on the clipped halo and a face pushed to the right edge of the safe band. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 7.92
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: Kon missing (only a cyan wisp cut by the right edge); grimoire shrunk to a small card-sized book",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~38% across, eyes ~19% down, broken halo arc just inside",
+    "count": "pass",
+    "frame_bg": "pass: classroom/library with window"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 5.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "notes": "Static stand holding a small book beside her face; Kon and the bookmark prop are gone; halo is a thin broken arc. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 6.58
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: Kon is an unreadable cyan crystal blob beside her hand, not a fox; everything else (braid, star clip, armband, paw grimoire, cream blazer, long skirt, socks, star halo) is right",
+    "safety": "pass",
+    "hands": "pass: reaching hand five fingers, well foreshortened; book hand plausible",
+    "text": "pass",
+    "crops": "pass: face ~38% across, eyes ~18% down, whole halo inside (top ~y12)",
+    "count": "pass",
+    "frame_bg": "pass: library shelves and arched window"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "notes": "Best camera for her (dutch angle, big shy wave toward the lens, hair streaming), correct halo inside the frame. Kon degraded to a translucent crystal shape by her far hand, so the companion does not read. Would be ~7.6 with a readable Kon. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 7.62
+  },
+  "r4-0": {
+   "hard": {
+    "identity": "pass (minor): very long deep-blue hair, thin side braid, gold star clip, sky-blue eyes, cream blazer with navy piping and gold crest, sweater vest, sky-blue bow, navy armband with gold book, blue plaid skirt, blue grimoire with white paw print, Kon (white robot fox with cyan glow) stepping out of the book; halo a thin pale-blue ring but without the small star",
+    "safety": "pass: fully dressed student, shy smile, book offered toward the viewer, eye level",
+    "hands": "pass: both hands grip the book edges, fingers readable (zoom checked)",
+    "text": "pass",
+    "crops": "pass: face ~46% across, eyes y~262 (26%), halo inside (top ~y20)",
+    "count": "pass",
+    "frame_bg": "pass: library shelves and windows, soft defocus"
+   },
+   "scores": {
+    "identity": 8.5,
+    "camera": 8.5,
+    "lookB": 8.5,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 8.35,
+   "notes": "The round-3 near-miss fixed: Kon on the open grimoire held out to the lens, dutch angle, hair streaming, halo inside. Skirt takes the lower fifth, slightly weak for the card crop."
+  },
+  "r4-1": {
+   "hard": {
+    "identity": "pass: Kon on her shoulder (white robot fox, cyan glow), grimoire with paw under her arm, star clip, armband, cream blazer, halo ring with a small star",
+    "safety": "pass: wholesome shy wave, eye level",
+    "hands": "pass (minor): waving hand reads as five fingers but Kon's legs tangle with the fingertips; book hand fine",
+    "text": "pass",
+    "crops": "pass: face ~40% across, eyes ~28% down, halo inside",
+    "count": "pass",
+    "frame_bg": "pass: library window with blossom tree, shelves"
+   },
+   "scores": {
+    "identity": 9,
+    "camera": 7.5,
+    "lookB": 8.5,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 8.32,
+   "notes": "Best identity (star halo, Kon on shoulder) and very cute, but the wave is beside her face with little foreshortening and Kon/fingers overlap awkwardly. Close second."
+  },
+  "r4-2": {
+   "hard": {
+    "identity": "fail: Kon missing; grimoire is a plain open white book",
+    "safety": "pass",
+    "hands": "pass: both hands hold the book",
+    "text": "pass",
+    "crops": "pass: face ~45% across, eyes ~24% down, halo inside",
+    "count": "pass",
+    "frame_bg": "pass: library"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 5.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 6.53,
+   "notes": "Static front-on stand reading a plain book; the fox and the paw grimoire are gone."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r4-0",
+ "pick_total": 8.35,
+ "eyes": [
+  352,
+  262
+ ],
+ "head": 273,
+ "fixes": null,
+ "safety_flags": "Halo lacks its small star (plain thin ring). r4-1 has the star halo and Kon on the shoulder if the lead prefers identity over camera (8.33 vs 8.35)."
+}

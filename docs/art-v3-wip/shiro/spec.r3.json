@@ -1,0 +1,28 @@
+{
+ "id": "shiro",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, quiet rifle club marksman, short silver-white hair, straight bangs, one long side lock, silver crescent hair clip, 1.2::small pale mint scope-reticle ring halo::, floating above her beret, whole halo visible inside the frame, space above her head, navy beret with a silver crescent pin, light blue eyes, sleepy eyes, navy blazer with gold buttons and thin gold trim, long navy coat tails, white shirt, pale blue bow tie, 1.4::long navy pleated skirt reaching below the knees::, white gloves, black tights, navy boots, dark scoped rifle on a sling, calm faint smile, 1.2::bell tower interior, stone arches, bronze bell, sunlit rooftops below::, blue sky, clear morning, from slightly above, upper body, cowboy shot ending at the hips, {POSE}, her head in the upper third of the picture, clear space above the halo, short silver hair and long side lock blowing, anime screencap, anime coloring, cel shading, two-tone shading with soft-edged shadow shapes, thin colored lineart, clean lines, bright high-key lighting, soft pastel palette, pale skin with peach shadows, large eyes with one highlight, light blush, detailed background, blurry background, bokeh, depth of field, soft daylight, matte flat cel shading, simple hard-edged shadows, muted highlights, anime key visual",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing straight, symmetrical composition, straight-on camera, gun pointed at viewer, aiming at viewer, rifle pointed at viewer, weapon pointed at viewer, muzzle flash, looking through scope, gunfire, night, full moon, dark sky, long hair, blonde hair, black hair, red eyes, purple eyes, military uniform, camouflage, short skirt, miniskirt, corset, monochrome, greyscale, coloring book, sketch, unfinished, simple background, white background, flat background, border, frame, framed, flat color, no shading, thick lineart, manga, glossy, shiny skin, gradient shading, ornate, panel, inset, gradient background, halo out of frame, 1.3::from below::, legs focus, crosshair beams, thighs, bare thighs, frilled garter, cropped halo, halo cut off, head out of frame",
+ "poses": [
+  "turning from the arch toward the viewer, she holds a small pair of binoculars out toward the viewer as if offering a look, strong foreshortening, gloved hand and binoculars very large near the camera, rifle held upright in her other hand with the muzzle to the sky, dutch angle, diagonal composition, slightly from above, coat tails flaring",
+  "she reaches out toward the viewer with an open gloved hand as if to welcome them to the top of the tower, strong foreshortening, hand very large near the camera, rifle slung on her shoulder with the muzzle up, dutch angle, diagonal composition, slightly from above, beret ribbon and coat tails in the wind",
+  "she pushes the brim of her beret up with one finger while the other hand holds a paper bag of candies toward the viewer, strong foreshortening, bag and hand very large near the camera, rifle upright against the bell frame, dutch angle, diagonal composition, slightly from above, side lock swinging",
+  "she waves at the viewer with a small open gloved hand, strong foreshortening, hand very large near the camera, rifle slung on her back with the muzzle up, the bronze bell behind her shoulder, dutch angle, diagonal composition, slightly from above, side lock and coat tails swaying"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/shiro-full.webp",
+ "identity": [
+  "short silver-white hair, straight bangs, one long side lock",
+  "silver crescent hair clip",
+  "light blue sleepy eyes",
+  "navy beret with silver crescent pin",
+  "navy blazer, gold buttons, thin gold trim, long coat tails",
+  "white shirt, pale blue bow tie",
+  "navy pleated skirt, black tights, navy boots",
+  "white gloves",
+  "dark scoped rifle (slung or upright, never aimed at the viewer)",
+  "pale mint scope-ring halo",
+  "calm faint smile"
+ ],
+ "scene": "the academy bell tower lookout on a clear bright morning: bronze bell, stone arches, rooftops and blue sky below",
+ "notes": "STUDENT (adult: false). Her portrait is a full-moon night rooftop; Look B moves her to her bell tower (bio: she sees the whole map from it) in daylight. Her portrait has no halo; the scope-ring halo comes from her data (halo: eye, #b8f2e6). The rifle is slung, held muzzle-up or rested aiming far out to the side over the rooftops; never at the viewer (reject any frame where the muzzle faces the camera). Candy for her spotters is from her personality line."
+}

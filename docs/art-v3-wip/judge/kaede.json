@@ -1,0 +1,76 @@
+{
+ "id": "kaede",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: halo is an orange RING with a leaf inside (spec wants a single maple-leaf shape; ring halo is in the negative); no ivory blouse (black shirt collar)",
+    "safety": "pass",
+    "hands": "fail: the sword hand is hidden inside the basket guard and the second gloved hand below is a smeared mass of fingers merging with the grip",
+    "text": "pass",
+    "crops": "pass: halo top touches y~2 (just inside); face ~45%, eyes ~28%",
+    "count": "pass",
+    "frame_bg": "pass: fencing hall windows, soft"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.97,
+   "notes": "Strong salute pose and amber eyes, but ring halo and muddled hands at the hilt."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: hair turns blonde/white along the left and back strands (two-tone hair); no ivory blouse, no gold trim; halo is a smeared orange feather streak",
+    "safety": "pass",
+    "hands": "fail: the rapier passes behind an open, palm-up gloved hand that is not gripping it (implausible hold)",
+    "text": "pass",
+    "crops": "pass: face ~35%, eyes ~29%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 7,
+    "lookB": 7,
+    "composition": 6.5,
+    "appeal": 7
+   },
+   "total": 6.47,
+   "notes": "Pretty light but hair colour drifts to blonde, the sword is not actually held, and the three-quarter back turn gives a side-on bust silhouette."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass: long crimson hair with side-swept bangs, red maple-leaf ornament with tassels, AMBER-GOLD eyes (fixed from r1), red high-collar coat, black fencing gloves, rapier, single orange leaf-shaped halo. Minor: coat trim is cream not thin gold, no visible ivory blouse, cup guard rather than basket guard, no coat tails",
+    "safety": "pass: fully dressed, slightly from above, dutch; blade up and away from the viewer. Flag: the white piping follows the curve of her chest in the three-quarter turn (mild; face and outstretched hand are the focus)",
+    "hands": "pass: outstretched left hand five fingers (zoomed), sword fist plausible with the leaf stem tucked in",
+    "text": "pass",
+    "crops": "pass: face centre ~38% across, eyes ~28% down, head and leaf halo inside",
+    "count": "pass",
+    "frame_bg": "pass: bright fencing-hall windows, soft blurred"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.62,
+   "notes": "Best of the round: eyes now amber, leaf halo, strong dutch angle, foreshortened reaching hand, hair motion. Outfit details simplified (trim, blouse, guard)."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-2",
+ "pick_total": 7.62,
+ "eyes": [
+  288,
+  291
+ ],
+ "head": 250,
+ "fixes": null,
+ "safety_flags": "r2-2: mild chest curve traced by the coat piping on a student in a three-quarter turn; I judged it acceptable (not framed on the chest) but worth an owner glance. r2-1 rejected partly for a side-on bust silhouette."
+}

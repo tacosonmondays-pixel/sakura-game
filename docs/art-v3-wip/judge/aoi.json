@@ -1,0 +1,136 @@
+{
+ "id": "aoi",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass: laced bodice over the blouse matches the shipped portrait; ponytail, leaf clip, capelet, quiver, upright vine bow, black tights, leaf halo",
+    "safety": "pass",
+    "hands": "pass: waving fingerless glove 5 digits; bow hand fine",
+    "text": "pass",
+    "crops": "fail: re-measured with grid.py: leaves of the halo touch/cross the top edge at x~230-260, y=0 (same rule that rejected hikari r2-0)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 7.83,
+   "notes": "Lead decision applied: laced leather bodice is in the shipped portrait = identity; ring halo instead of leaf = score deduction. Best r2 pose (wave, dutch tilt), but the leaf halo is clipped by the top edge."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no halo, only a single big leaf sprouting from the top of her head (missing halo, not a shape swap)",
+    "safety": "pass",
+    "hands": "pass: gloved hand around the arrow bundle ok",
+    "text": "pass",
+    "crops": "fail: the leaf/halo element is cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.0,
+   "notes": "Lead decision applied: laced leather bodice is in the shipped portrait = identity; ring halo instead of leaf = score deduction. Still fails: no halo, leaf cut by the top edge."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass: bodice on model; vine-wreath leaf halo",
+    "safety": "pass",
+    "hands": "fail: bow held horizontally across the body like a staff with its string running off-frame to the upper left (prop implausible)",
+    "text": "pass",
+    "crops": "fail: leaf halo cut by the top edge (x~170-300)",
+    "count": "pass",
+    "frame_bg": "pass: range with targets, but upper-left washes to near white"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7.5,
+    "lookB": 7,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.38,
+   "notes": "Lead decision applied: laced leather bodice is in the shipped portrait = identity; ring halo instead of leaf = score deduction. Still fails: bow held horizontally like a staff, halo cut by the top edge."
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "pass: laced bodice over the full cream blouse as in the shipped portrait; forest-green high ponytail, gold leaf clip, round green eyes, green hooded capelet with gold edge, bracers, fingerless gloves, quiver with white fletching, belt pouch, vine-wrapped longbow held low (string visible), cheerful; halo is a plain pale-green ring, not a leaf halo (deducted); tights/boots below frame",
+    "safety": "pass",
+    "hands": "pass: waving glove thumb + 4 fingers, bow hand ok",
+    "text": "pass",
+    "crops": "pass: eyes 30% down, face 54% across, ring halo top ~y25 inside",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 7.6,
+   "notes": "Lead decision applied: laced leather bodice is in the shipped portrait = identity; ring halo instead of leaf = score deduction. Wave toward the viewer with a large fingerless-glove hand, dutch tilt, ponytail and capelet flying, painted archery range. Ring halo and the bow cut by the left edge cost identity points."
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "pass with note: bodice on model; bow reads as a bare stick at her side (deducted)",
+    "safety": "pass",
+    "hands": "pass: offering hand and bow hand plausible",
+    "text": "pass",
+    "crops": "pass: halo inside (close to top), face ~52%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.2,
+   "notes": "Lead decision applied: laced leather bodice is in the shipped portrait = identity; ring halo instead of leaf = score deduction. Leaf offering; weaker bow and camera than r3-0."
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "pass: bodice on model, leaf-ish halo",
+    "safety": "pass",
+    "hands": "pass: thumbs-up and bow hand ok",
+    "text": "pass",
+    "crops": "pass: halo at ~y20, inside",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 6,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 7.05,
+   "notes": "Lead decision applied: laced leather bodice is in the shipped portrait = identity; ring halo instead of leaf = score deduction. Mostly front-on thumbs-up."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r3-0",
+ "pick_total": 7.6,
+ "eyes": [
+  415,
+  309
+ ],
+ "head": 305,
+ "fixes": null,
+ "safety_flags": "Re-judged after the lead decision (bodice is identity). r3-0: student, fully dressed, bodice worn over a full high-necked blouse under the capelet, no emphasis; fine."
+}

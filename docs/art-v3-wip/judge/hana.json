@@ -1,0 +1,196 @@
+{
+ "id": "hana",
+ "round": 4,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: plaid skirt ends mid-thigh (spec: below the knee); halo is a spiky sun ring, not a star; otherwise braid over her right shoulder with olive bow, field jacket with wing patch, mustard neckerchief, falcon drone on the gloved fist, glove screen",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~64%, eyes ~26%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.38,
+   "notes": "Good arm-out falcon pose at the lookout rail. [Round 3 reconsidered: round-2 verdict stands.] [Round 4 reconsidered: thin-ring acceptance does not rescue r2-0 (spiky sun halo, mid-thigh skirt); r3-0/r3-1 still miss the falcon (missing required prop = hard fail). Verdict stands.]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: star halo floats over the falcon, not her head; skirt mid-thigh",
+    "safety": "fail: camera below eye level (legs large in the foreground, head small against the sky); rejected as borderline",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~70%, at the limit",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 8,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.0,
+   "notes": "Falcon well drawn but low camera and misplaced halo. [Round 3 reconsidered: round-2 verdict stands.] [Round 4 reconsidered: thin-ring acceptance does not rescue r2-0 (spiky sun halo, mid-thigh skirt); r3-0/r3-1 still miss the falcon (missing required prop = hard fail). Verdict stands.]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: skirt above the knee; falcon reduced to a tiny white gadget in the glove; halo star-ring ok",
+    "safety": "pass",
+    "hands": "pass: peace hand and reaching gloved hand 5 digits",
+    "text": "pass",
+    "crops": "pass: face ~55%, eyes ~26%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 7.33,
+   "notes": "Pleasant pine lookout, glove reaching toward viewer. [Round 3 reconsidered: round-2 verdict stands.] [Round 4 reconsidered: thin-ring acceptance does not rescue r2-0 (spiky sun halo, mid-thigh skirt); r3-0/r3-1 still miss the falcon (missing required prop = hard fail). Verdict stands.]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: no falcon drone although the pose calls for it on her fist (only an empty glove); halo is a hollow six-point outline",
+    "safety": "pass",
+    "hands": "pass: fist and glove ok",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 6.9,
+   "notes": "Long skirt fixed, braid over right shoulder, nice lookout; the falcon vanished. [Round 4 reconsidered: thin-ring acceptance does not rescue r2-0 (spiky sun halo, mid-thigh skirt); r3-0/r3-1 still miss the falcon (missing required prop = hard fail). Verdict stands.]"
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: no falcon drone on her shoulder (pose calls for it); star halo floats off to the upper left of her head",
+    "safety": "pass",
+    "hands": "pass: open hand 5 fingers, gloved hand ok",
+    "text": "pass",
+    "crops": "fail: the star halo's top point touches the top edge (x~240) and is not over her head",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.03,
+   "notes": "Best camera (dutch, hand reaching to help up the slope), but falcon and halo wrong. [Round 4 reconsidered: thin-ring acceptance does not rescue r2-0 (spiky sun halo, mid-thigh skirt); r3-0/r3-1 still miss the falcon (missing required prop = hard fail). Verdict stands.]"
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: halo is a spiky thorn/sun wreath, not a star; falcon reduced to a small gadget; no binoculars",
+    "safety": "pass",
+    "hands": "pass: open hand and gloved fist ok",
+    "text": "pass",
+    "crops": "fail: halo spikes cross the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.53,
+   "notes": "Static, halo wrong and cut. [Round 4 reconsidered: thin-ring acceptance does not rescue r2-0 (spiky sun halo, mid-thigh skirt); r3-0/r3-1 still miss the falcon (missing required prop = hard fail). Verdict stands.]"
+  },
+  "r4-0": {
+   "hard": {
+    "identity": "pass with note: braid over her right shoulder with olive bow, amber eyes, olive field jacket with wing patch, cream sailor shirt, mustard neckerchief, long olive-brown plaid skirt, tights, quiver; falcon present (flying beside her rather than on the fist); halo is a thin gold ring with sparkle dots (accepted as ring, deducted); the raised fist is bare, the glove hangs on the other hand with no mint screen visible",
+    "safety": "pass",
+    "hands": "pass: raised fist clean, gloved hand at side fine",
+    "text": "pass",
+    "crops": "pass: face ~58%, eyes ~28%, halo top ~y100",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.9,
+   "notes": "Pleasant lookout, but front-on and static; falcon off the fist."
+  },
+  "r4-1": {
+   "hard": {
+    "identity": "pass with note: auburn braid over her right shoulder with olive bow, amber eyes, calm smile, olive jacket with white wing patches, cream sailor shirt with olive collar and mustard neckerchief, long plaid skirt, dark tights, tan falconry glove with glowing mint screen, quiver of arrows on her back, white-and-silver falcon drone with mint lines and gold visor perched on her shoulder; halo is a thin warm-gold ring (accepted per lead, deducted: spec pale cream star); falcon sits on her left shoulder rather than the right; bow itself not visible behind the quiver",
+    "safety": "pass",
+    "hands": "pass: gloved reaching hand five fingers, clear; other hand rests on the rail with fingers curled over it",
+    "text": "pass",
+    "crops": "pass: face ~38% across, eyes ~23% down, halo top ~y45 inside",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 8,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.67,
+   "notes": "Dutch tilt, leaning on the lookout rail, big gloved hand reaching toward the lens, falcon drone clearly drawn; first Hana with falcon, long skirt and a whole halo together. Lines a little dark and the grass textured, but bright and readable."
+  },
+  "r4-2": {
+   "hard": {
+    "identity": "fail: halo is a hollow star floating above the falcon, not over her head (she has no halo)",
+    "safety": "pass",
+    "hands": "pass: waving hand five fingers",
+    "text": "pass",
+    "crops": "fail: face centre ~79% across (limit 70%)",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 8
+   },
+   "total": 6.88,
+   "notes": "Great falcon spread but she is pushed to the right edge and the star belongs to the bird."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r4-1",
+ "pick_total": 7.67,
+ "eyes": [
+  294,
+  231
+ ],
+ "head": 200,
+ "fixes": null,
+ "safety_flags": ""
+}

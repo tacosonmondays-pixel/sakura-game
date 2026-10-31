@@ -1,0 +1,73 @@
+{
+ "id": "iroha",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: no lavender ring halo; the hand mirror is drawn shield-sized (not a hand mirror on a lanyard) and the hovering drone-easel mirror panel is missing",
+    "safety": "pass",
+    "hands": "pass: one visible hand on the lanyard, five fingers",
+    "text": "pass",
+    "crops": "pass: face ~33% across, eyes ~19% down",
+    "count": "pass",
+    "frame_bg": "pass: sunlit art room, blurred"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 6.4,
+   "notes": "Clean Look B colour and a real sunlit art room, but no halo, the 'hand mirror' is a giant oval shield and the camera is a mild tilt with nothing foreshortened toward the lens."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no hand mirror on a lanyard; the mirror panel stands on a plain floor pole instead of hovering on a small drone easel (halo, hair, ornament, uniform are right)",
+    "safety": "pass",
+    "hands": "pass: both hands on the cloth/mirror rim, plausible",
+    "text": "pass",
+    "crops": "fail: face centre x~552/768 = 72% across (outside 30-70%); eyes ~25% down",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 5,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 7
+   },
+   "total": 6.47,
+   "notes": "Best identity of the three (ring halo, silver ornament, cardigan) but face sits too far right (~73%), the cloth is not in the near foreground, no foreshortening; static three-quarter. Crops fail too."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: hand mirror floats unattached in the lower-left foreground, no lanyard, no mirror panel",
+    "safety": "pass",
+    "hands": "fail: a giant disembodied hand fills the right third (not either of her hands: her right sleeve is visible behind it, left hand hangs at her side) = extra hand",
+    "text": "pass",
+    "crops": "pass: face ~29% across (borderline), eyes ~23%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 8,
+    "composition": 5,
+    "appeal": 5
+   },
+   "total": 5.85,
+   "notes": "The 'framing with fingers' pose produced a huge viewer-like hand covering a third of the image and a floating mirror; reads as a mistake."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "r2 style is now right (keep fid 0.45 and the sunlit art-room scene words). Remaining problems are props, halo consistency and camera. (1) HALO: present in 2/3 only; raise to '1.5::thin pale lavender ring halo floating above her head::', keep 'no halo' in negative. (2) HAND MIRROR: r2-0 drew a shield-sized oval; write '1.3::small silver oval hand mirror with a short handle, palm-sized, hanging on a lanyard::' and add negative 'large mirror, shield, oversized mirror, floating mirror'. (3) MIRROR PANEL: r2-1 put it on a floor pole; write 'tall oval mirror panel hovering in mid-air beside her above a small floating drone easel, no stand, no pole' and negative 'pole, floor stand, tripod'. (4) DROP pose 2 (finger-framing): it produced a giant extra hand; negative add 'disembodied hand, extra hands, pov hand, hand from outside the frame'. (5) CAMERA: keep pose 0 (mirror toward viewer) but rewrite 'she holds the small hand mirror toward the viewer, her own hand and the mirror large in the near foreground, arm extended from her shoulder, dutch angle 15 degrees, from slightly above'; keep pose 1 but put the cloth hand nearer the lens and say 'face in the left-centre of the frame' (r2-1 face sat at 73% across). (6) Keep the polishing-cloth idea but the cloth must not wrap the panel.",
+ "safety_flags": ""
+}

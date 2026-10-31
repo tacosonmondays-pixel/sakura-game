@@ -1,0 +1,227 @@
+{
+ "id": "kogane",
+ "round": 5,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: no sakura sticker on the hat, no polo emblem, walker only a fragment at the bottom edge",
+    "safety": "pass",
+    "hands": "pass: waving hand five fingers",
+    "text": "pass",
+    "crops": "fail: the cog halo is cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass: campus with cherry trees"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 6.5,
+    "lookB": 5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 6.0,
+   "notes": "Cheerful wave but heavy black outlines, halo cropped, sticker and walker missing. [Round 3 reconsidered: round-2 verdict stands.] [Round 4 reconsidered with the walker dropped: r2-0, r2-2, r3-0 and r3-2 still have the cog halo cut by or touching the top edge; r3-1 ship's-wheel halo; r2-1 would now pass apart from the missing polo emblem and a stray yellow blob, but scores 5.85 (heavy black ink). None reaches the bar.]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: the walker is an unreadable yellow blob with a beacon at the left (no two legs, no open cockpit, no seat); no polo emblem",
+    "safety": "pass",
+    "hands": "pass: hand on wrench handle plausible",
+    "text": "pass",
+    "crops": "pass: cog halo just inside, face ~42%, eyes ~24%",
+    "count": "pass",
+    "frame_bg": "pass, but the cherry tree is a noisy dithered texture"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 5,
+    "lookB": 4.5,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 5.85,
+   "notes": "Only candidate with sticker and full cog halo, but thick black ink outlines (lookB low), noisy tree texture and no real walker; mostly static. [Round 3 reconsidered: round-2 verdict stands.] [Round 4 reconsidered with the walker dropped: r2-0, r2-2, r3-0 and r3-2 still have the cog halo cut by or touching the top edge; r3-1 ship's-wheel halo; r2-1 would now pass apart from the missing polo emblem and a stray yellow blob, but scores 5.85 (heavy black ink). None reaches the bar.]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: halo is a bent, distorted cog cut at the top; no emblem; walker fragment only",
+    "safety": "pass",
+    "hands": "pass: outstretched hand five fingers",
+    "text": "pass",
+    "crops": "fail: halo cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 6,
+    "lookB": 5,
+    "composition": 6.5,
+    "appeal": 7
+   },
+   "total": 5.83,
+   "notes": "Heavy black lines, halo cropped and warped. [Round 3 reconsidered: round-2 verdict stands.] [Round 4 reconsidered with the walker dropped: r2-0, r2-2, r3-0 and r3-2 still have the cog halo cut by or touching the top edge; r3-1 ship's-wheel halo; r2-1 would now pass apart from the missing polo emblem and a stray yellow blob, but scores 5.85 (heavy black ink). None reaches the bar.]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: walker only a fragment at the lower left; no thumbs-up as posed; two orange balls float in the air",
+    "safety": "pass",
+    "hands": "pass: wrench hand ok",
+    "text": "pass",
+    "crops": "fail: cog halo cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 5.5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 5.83,
+   "notes": "Heavy outlines persist; halo cut. [Round 4 reconsidered with the walker dropped: r2-0, r2-2, r3-0 and r3-2 still have the cog halo cut by or touching the top edge; r3-1 ship's-wheel halo; r2-1 would now pass apart from the missing polo emblem and a stray yellow blob, but scores 5.85 (heavy black ink). None reaches the bar.]"
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: walker is a four-wheeled cart (no legs, no open cockpit or seat); halo is a ship's-wheel shape",
+    "safety": "pass",
+    "hands": "pass: waving hand 5 fingers, wrench hand ok",
+    "text": "pass",
+    "crops": "pass: halo touches near the top",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 5.5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 5.83,
+   "notes": "Wave toward the viewer, but walker wrong. [Round 4 reconsidered with the walker dropped: r2-0, r2-2, r3-0 and r3-2 still have the cog halo cut by or touching the top edge; r3-1 ship's-wheel halo; r2-1 would now pass apart from the missing polo emblem and a stray yellow blob, but scores 5.85 (heavy black ink). None reaches the bar.]"
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: walker is a tiny toy-like legged dolly she dangles from a beacon knob (not a hip-height machine with open cockpit/seat/roll bar); polo emblem drawn on the jacket instead",
+    "safety": "pass",
+    "hands": "pass: dangling hand 5 fingers",
+    "text": "pass",
+    "crops": "fail: cog halo touches/crosses the top edge (y~0)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 6.5,
+    "lookB": 6.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.38,
+   "notes": "Thinner lines than before, nice sakura path; walker and halo crop fail. [Round 4 reconsidered with the walker dropped: r2-0, r2-2, r3-0 and r3-2 still have the cog halo cut by or touching the top edge; r3-1 ship's-wheel halo; r2-1 would now pass apart from the missing polo emblem and a stray yellow blob, but scores 5.85 (heavy black ink). None reaches the bar.]"
+  },
+  "r4-0": {
+   "hard": {
+    "identity": "pass with note: short messy brown hair, amber eyes, yellow hard hat with pink sakura sticker, clear goggles on the brim, safety-yellow jacket with grey bands and navy collar/cuffs/hem, navy polo, navy cargo trousers, big steel adjustable wrench on her shoulder, big grin; cog halo is gold but sits on a short stem touching the hat (reads half as a hat ornament) and has ~13 teeth (spec 8); no gold polo emblem; face reads young rather than late twenties",
+    "safety": "pass",
+    "hands": "pass with note: reaching hand five fingers; wrench rests across the shoulder with no hand on it (slightly unsupported)",
+    "text": "pass",
+    "crops": "pass: face ~50%, eyes ~31%, halo top y~38",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.25,
+   "notes": "Best Look B she has had (thin lines, flat cel, soft sakura path), cheerful, but mostly front-on with only a mild reach toward the lens; halo on a stem."
+  },
+  "r4-1": {
+   "hard": {
+    "identity": "pass with note: cog halo drawn as a broken gear with cut-outs; polo and trousers teal instead of navy; no emblem",
+    "safety": "pass",
+    "hands": "pass: waving hand five fingers, wrench hand grips the handle",
+    "text": "pass with note: small dotted grid patch on the wrench jaw (no readable letters)",
+    "crops": "pass: face ~56%, eyes ~31%, halo top y~12",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7.5,
+    "lookB": 5.5,
+    "composition": 7.5,
+    "appeal": 7.5
+   },
+   "total": 6.8,
+   "notes": "Dutch wave with the wrench on her shoulder, but heavy black outlines return."
+  },
+  "r4-2": {
+   "hard": {
+    "identity": "fail: the cog sits on a long stalk growing out of the hard hat (an antenna, not a floating halo)",
+    "safety": "pass",
+    "hands": "pass: fist and wrench hand fine",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 5,
+    "lookB": 6,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.05,
+   "notes": "Static front-on, heavy lines, halo on a stalk."
+  },
+  "r5-0": {
+   "hard": {
+    "identity": "pass: short messy brown hair, amber eyes, yellow hard hat with pink sakura sticker, clear goggles on the brim, safety-yellow jacket with grey bands and navy collar/cuffs/hem, navy polo (gold emblem not visible, same as r4-0), navy cargo trousers, big steel wrench on her shoulder, warm-gold cog halo floating free above the hat (no stem; ~10 teeth instead of 8), big grin",
+    "safety": "pass: adult, fully dressed workwear, diagonal framing not body-focused, wrench resting on shoulder with the jaw behind her head (not aimed at the viewer), camera slightly from above",
+    "hands": "pass: reaching hand five fingers (thumb plus four), wrench hand grips plausibly",
+    "text": "pass: no text (the small grid on the wrench head is a vent pattern, not letters)",
+    "crops": "pass: face ~39% across, eyes ~(300,281) = 27% down, halo top ~y40 inside",
+    "count": "pass",
+    "frame_bg": "pass: sakura path with school buildings; no frame"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 8.5,
+    "lookB": 5.5,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.33,
+   "notes": "Finally a dynamic Kogane (dutch, foreshortened beckoning hand, wrench on shoulder) with a properly floating cog halo, but heavy black outlines are back (like r4-1), the sakura tree is noisy stippled texture, and a stray orange ball floats in the air at the left (paint-out candidate) beside a fragment of the walker. Approx. measures if shipped anyway: eyes (300, 281), head ~300 px (hat crown ~y90 to chin ~y390, tilted)."
+  },
+  "r5-1": {
+   "hard": {
+    "identity": "n/a: generation failed (manifest file null), no image",
+    "safety": "n/a",
+    "hands": "n/a",
+    "text": "n/a",
+    "crops": "n/a",
+    "count": "n/a",
+    "frame_bg": "n/a"
+   },
+   "scores": null,
+   "total": null,
+   "notes": "No image was produced for r5-1."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "No round follows; budget spent. Nothing reaches 7.5. Best passing candidate: r5-0 (7.33), narrowly above r4-0 (7.25). r5-0 has the camera and the floating halo r4-0 lacked, but loses Look B (heavy black outlines, stippled tree) and has a stray floating orange ball to paint out. r4-0 has the cleaner Look B but a static camera and a halo on a stem. Owner options: if the bar is lowered, ship r5-0 after painting out the orange ball (or r4-0 after painting out the halo stem), with a human preference call between camera and line quality.",
+ "safety_flags": "None for safety. Her face reads young for an adult staff member (fully dressed workwear, no problem). r5-1 was never generated."
+}

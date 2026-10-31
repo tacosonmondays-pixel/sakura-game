@@ -1,0 +1,93 @@
+{
+ "id": "miko",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass: one hand on gohei, 5 fingers",
+    "text": "pass",
+    "crops": "fail: halo cut off by the top edge (only an arc visible at y~0); face centre ~69% across",
+    "count": "pass",
+    "frame_bg": "pass: coloured courtyard, but flat"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 5.55,
+   "notes": "Best camera of the four (streamers sweep the foreground) but flat colouring-book fill with no shading; halo out of frame."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: no halo",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: background is uncoloured lineart on white"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 4,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 4.7,
+   "notes": "No charm pouch (pose ignored), static, lineart bg."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "pass (halo plain ring, not a petal)",
+    "safety": "pass",
+    "hands": "pass: reaching hand 5 fingers",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: uncoloured lineart shrine on flat pale blue"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.5,
+   "notes": "Good invitation pose, but near-blank background and zero shading."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "pass (halo plain ring, not petal; bell rope merged with streamers)",
+    "safety": "pass",
+    "hands": "pass: both hands ok",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: flat colour fields, real place but no depth"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 5,
+    "lookB": 3,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.45,
+   "notes": "Bell huge in foreground, but she is not pulling the rope (holds gohei), no pointing; flat fill, black lines."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "ROOT CAUSE (shared by every charref-only girl this batch): output collapsed into uncoloured colouring-book lineart with no shading; norika (vibe 0.2, no charref) did NOT collapse. Style block: REMOVE 'flat color', 'no black outlines', 'few interior lines', 'background melted into soft shapes with no lines' (the word 'lines' is pulling lineart in). ADD 'cel shading, two-tone shading, soft painted background, blurry background, detailed colored background, depth of field, bright daylight'. NEGATIVE add: 'lineart, line art, sketch, monochrome, greyscale, uncolored, partially colored, coloring page, white background, simple background, blank background, empty background, heavy outlines, manga'. Add the Look B vibe (one of the two Look B reference portraits, own art) at strength 0.3 alongside the charref; keep charref fidelity 0.6. Miko: halo must read as a single petal: 'pale pink halo shaped like one cherry blossom petal' weight up (e.g. {{petal-shaped halo}}), negative 'ring halo'. Keep pose 0 (gohei sweep) and pose 2 (reaching hand); drop pose 1 (charm pouch never drawn) and pose 3 (bell swallows the frame). Add 'whole halo inside the frame, headroom above the halo' and push her eyes to the centre-right (face centre ~55%) rather than the right third.",
+ "safety_flags": ""
+}

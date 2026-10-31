@@ -1,0 +1,29 @@
+{
+ "id": "ruri",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, shy first-year of the library committee, very long straight deep-blue hair, a thin braid along one side, gold star-shaped hair clip, split bangs, sky-blue eyes, round eyes, cream academy blazer with navy piping and a small gold crest, light blue-grey sweater vest, white collared shirt, sky-blue ribbon bow, navy armband with a small gold open-book emblem, blue and white plaid pleated skirt below the knees, navy knee socks, brown loafers, blue hardcover grimoire with a glowing pale-blue cover and a white paw print emblem, a small white holographic fox with glowing cyan edges and a big fluffy tail, pale blue halo, a thin ring with a small star, flat and simple, floating above her head, shy gentle smile, the academy library reading room on a bright morning, tall arched window with blue sky and pale cherry trees, tall wooden bookshelves, reading tables, a rolling ladder, cowboy shot, {POSE}, her eyes on the right third, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, warm library daylight with one small sky-blue accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing straight, symmetrical composition, straight-on camera, fox ears, animal ears, kemonomimi, fox girl, tail on girl, real fox, orange fox, glasses, short hair, twintails, ponytail, purple hair, black hair, light blue hair, red eyes, green eyes, short skirt, miniskirt, dark room, night",
+ "poses": [
+  "she holds her open grimoire out toward the viewer with both hands, the little holographic fox leaping out of the glowing pages toward the camera, strong foreshortening, book and fox very large near the camera, dutch angle, diagonal composition, eye level, long hair and braid swinging",
+  "the holographic fox sits on her open palm held out toward the viewer, strong foreshortening, palm and glowing fox very large near the camera, her grimoire open in her other hand, dutch angle, diagonal composition, slightly from above, braid and ribbon fluttering",
+  "she offers a bookmark with a pressed pink flower toward the viewer between her fingertips, strong foreshortening, hand and bookmark very large near the camera, the grimoire tucked under her other arm, the holographic fox perched on her shoulder, dutch angle, diagonal composition, eye level, long hair drifting",
+  "turning between the bookshelves mid-step, she reaches one hand toward the viewer with a shy little wave, strong foreshortening, open hand very large near the camera, the holographic fox bounding along the shelf beside her, dutch angle, diagonal composition, slightly from above, long hair fanning out in a wide arc",
+  "she pulls a book from the shelf and turns to hold it out toward the viewer, strong foreshortening, hand and book very large near the camera, the holographic fox peeking over the book's top edge, dutch angle, diagonal composition, eye level, braid and blazer swinging"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/ruri-full.webp",
+ "identity": [
+  "very long straight deep-blue hair, a thin side braid, split bangs",
+  "gold star hair clip",
+  "sky-blue eyes, round",
+  "cream blazer with navy piping and a gold crest (as her portrait)",
+  "blue-grey sweater vest, white shirt, sky-blue ribbon bow",
+  "navy library armband with a gold book emblem",
+  "blue plaid skirt below the knee, navy knee socks",
+  "blue glowing grimoire with a white paw print",
+  "Kon: a small white holographic fox with cyan glowing edges",
+  "pale blue thin ring halo with a small star",
+  "shy, gentle"
+ ],
+ "scene": "the academy library reading room on a bright morning: arched window onto cherry trees, tall wooden shelves, reading tables, a rolling ladder",
+ "notes": "STUDENT (adult: false). Her data bio says a navy blazer, but her shipped portrait (the charref) draws a cream blazer with navy piping; the prompt follows the portrait so the reference and the words agree. Kon is drawn as a small white holographic fox (her portrait draws it robotic-white with cyan glow); no fox ears or tail on Ruri herself. Halo from her data (star, #cfe6ff); in her portrait it floats over the book instead of her head."
+}

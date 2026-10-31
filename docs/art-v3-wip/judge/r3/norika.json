@@ -1,0 +1,76 @@
+{
+ "id": "norika",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7.5,
+    "lookB": 8.5,
+    "composition": 7.5,
+    "appeal": 7.5
+   },
+   "total": 7.55,
+   "notes": "Clean flat TV-anime cel, thin lines, bright crosswalk/cones/railing background, clear dutch tilt with the blank red paddle large in the upper left. Dark-brown low tails, blue eyes, yellow hard hat, navy suit and slacks, neon sash with no writing, silver whistle on a dark lanyard, white gloves, pale yellow ring halo all present. Face still reads young (early twenties at most) rather than thirties; hard hat a little like a school helmet. Gloved grip on paddle plausible (four curled fingers, thumb along handle). Face centre ~67% across: inside the limit but near the right edge."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: round red paddle sign missing",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: halo touches/clipped by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 8.5,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 6.75,
+   "notes": "Nice open-hand beckon and crosswalk, but no paddle at all, front-on symmetric camera, and the halo grazes the top edge."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: halo top touches/clipped by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 6.5,
+    "lookB": 8.5,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 7.03,
+   "notes": "Paddle out to the side, arm out; bowl-shaped hat reads childish; halo touches the top edge."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-0",
+ "pick_total": 7.55,
+ "eyes": [
+  518,
+  257
+ ],
+ "head": 262,
+ "fixes": null,
+ "safety_flags": "Adult staff who still reads young (round face, big eyes, kid-style hard hat); wholesome and fully dressed, but a human should confirm she reads as adult staff. Head height measured from the top of the hard hat (her crown is under it) to the chin; skull crown would be ~40 px lower. Face centre at ~67% across, close to the 70% limit."
+}

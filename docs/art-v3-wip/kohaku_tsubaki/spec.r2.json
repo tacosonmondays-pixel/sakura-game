@@ -1,0 +1,42 @@
+{
+ "id": "kohaku_tsubaki",
+ "adult": false,
+ "prompt": "2girls, two best friends, high school students, side by side, the girl on the left with long pale lavender hair, a gold monocle and a lilac council blazer with a short white capelet, the girl on the right with long dark navy hair, a navy cadet cap with a gold star and a navy uniform jacket with gold buttons, a small pale gold star-shaped halo floating above each head, cheerful and determined, bright rooftop observation deck on a clear afternoon, a brass telescope on a tripod, a low railing, blurred town and clock tower below, sky-blue sky with soft painted clouds, cowboy shot, {POSE}, their faces in the upper third, hair and capelet streaming in the rooftop wind, both whole halos visible inside the frame, small gap above the halos, anime screencap, anime coloring, cel shading, two-tone shading with soft-edged shadow shapes, thin colored lineart, clean lines, bright high-key lighting, soft pastel palette, pale skin with peach shadows, large eyes with one highlight, light blush, detailed background, blurry background, bokeh, depth of field, soft daylight, matte flat cel shading, simple hard-edged shadows, muted highlights, anime key visual",
+ "char_captions": [
+  {
+   "caption": "girl, high school student, student council science secretary, very long straight pale lavender hair, blunt bangs, gold hairband with a small violet crystal, 1.3::violet eyes::, round gold monocle on her own eye, lilac council blazer with gold piping and gold buttons, short white capelet with a thin gold edge, white blouse, purple ribbon bow, lilac and white plaid pleated skirt, purple tights, white loafers, a small white lens emitter on a jointed arm beside her shoulder, a small violet prism crystal, 1.2::small pale gold star-shaped halo::, cheerful curious smile",
+   "x": 0.3,
+   "y": 0.5
+  },
+  {
+   "caption": "girl, high school student, security club cadet, very long straight dark navy hair, swept bangs, small gold star hair clip, navy peaked cadet cap with a gold star badge, amber eyes, sharp eyes, no monocle, no capelet, navy uniform jacket with gold buttons and gold cuffs, light grey tactical vest, white shirt, gold necktie, navy pleated skirt with a gold hem stripe, black tights, navy lace-up boots, binoculars on a strap, a navy star launcher tube on a shoulder sling pointing at the sky, 1.2::small pale gold star-shaped halo::, calm confident smile",
+   "x": 0.7,
+   "y": 0.5
+  }
+ ],
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, 3girls, 4girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing straight, symmetrical composition, straight-on camera, launcher pointed at viewer, weapon pointed at viewer, aiming at viewer, muzzle flash, explosion, romance, kiss, hug, couple, identical twins, same hair color, robes, long coat, short hair, short skirt, miniskirt, night, dark sky, starry sky, monochrome, greyscale, coloring book, sketch, unfinished, simple background, white background, flat background, border, frame, framed, flat color, no shading, thick lineart, manga, glossy, shiny skin, gradient shading, ornate, star wreath, ring of stars, large halo, giant crystal, plain ring halo",
+ "poses": [
+  "the left girl holds the small glowing violet prism crystal out toward the viewer on her open palm, 1.3::foreshortening, hand reaching toward viewer::, hand and crystal very large near the camera, the right girl beside her raising binoculars toward the sky, from slightly above, dutch angle, one hand very large near camera, close to lens, both girls leaning in toward viewer, diagonal composition",
+  "both girls reach one hand out toward the viewer together as if inviting them along, 1.3::foreshortening, hands reaching toward viewer::, two open hands very large near the camera, from slightly above, dutch angle, one hand very large near camera, close to lens, both girls leaning in toward viewer, diagonal composition",
+  "the right girl holds her binoculars out toward the viewer as if offering a look, 1.3::foreshortening, hand reaching toward viewer::, hand and binoculars very large near the camera, the left girl in her white capelet peeking in beside her with a wave, from slightly above, dutch angle, one hand very large near camera, close to lens, both girls leaning in toward viewer, diagonal composition",
+  "the right girl points up at the sky past the viewer while the left girl holds the small prism crystal up beside her face, a soft gold light glinting in it, 1.3::foreshortening, pointing hand toward viewer::, pointing hand large near the camera, dutch angle, diagonal composition, eye level, both girls leaning in toward viewer",
+  "walking side by side toward the viewer in step, the left girl tossing the small prism crystal toward the camera, the crystal large and soft near the lens, 1.3::foreshortening::, the right girl waving, from slightly above, dutch angle, one hand very large near camera, close to lens, both girls leaning in toward viewer, diagonal composition"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/kohaku_tsubaki-full.webp",
+ "identity": [
+  "TWO girls: Kohaku on the LEFT, Tsubaki on the RIGHT",
+  "Kohaku: very long straight pale lavender hair, blunt bangs, gold hairband with a violet crystal",
+  "Kohaku: violet eyes, round gold monocle",
+  "Kohaku: lilac council blazer with gold piping, short white capelet with gold edge, purple bow",
+  "Kohaku: lilac plaid skirt, purple tights, white loafers; violet prism crystal (+ small lens emitter arm)",
+  "Tsubaki: very long straight dark navy hair, gold star hair clip",
+  "Tsubaki: navy peaked cadet cap with a gold star, amber sharp eyes",
+  "Tsubaki: navy jacket with gold buttons and cuffs, grey tactical vest, gold necktie",
+  "Tsubaki: navy pleated skirt with gold hem, black tights, navy lace-up boots",
+  "Tsubaki: binoculars; star launcher tube on a sling pointing at the sky (never at the viewer)",
+  "small pale gold star halos on both",
+  "Kohaku cheerful, Tsubaki calm and confident; friends, nothing romantic"
+ ],
+ "scene": "the academy rooftop observation deck on a bright clear afternoon: brass telescope, low railing, clock tower and rooftops below",
+ "notes": "DUO (one LR unit, two STUDENTS, adult: false): two-character form, prompt starts '2girls, two best friends', each girl's identity in char_captions at x 0.3 (Kohaku, left) / 0.7 (Tsubaki, right), y 0.5. Negative carries '3girls, 4girls, crowd' and NOT 'multiple girls' / '2girls'. charref = her pair portrait (both girls, dusk rooftop): the scene words move it to a bright afternoon. PORTRAIT_DATA face [51, 31] is the point between the two faces, so both faces should sit near the vertical centre line, about 31% down. Halos from data (star, #ffe3a1 / #ffe1a6); the current pair art has none. The launcher only points at the sky. Round 2: identity close in r1-1, camera was the problem: every pose now from slightly above with a dutch angle, one hand very large near the lens and both girls leaning in; crystal pose (r1-0) and joint reach (r1-1) first; launcher words only in the right girl's caption (removed from poses); left caption weights violet eyes and her own monocle, right caption says no monocle, no capelet (the format has no per-caption negative, so monocle/capelet are not in the shared negative); small star halos weighted per caption, star wreath/large halo negatives; crystal kept small."
+}

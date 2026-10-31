@@ -1,0 +1,132 @@
+{
+ "id": "shiro",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass (weak): halo mostly out of frame; candy drawn as a big purple cloth packet",
+    "safety": "fail: camera slightly below, skirt hem and black tights fill the lower third of a student portrait",
+    "hands": "fail: candy hand fingers hidden/mushed behind the packet",
+    "text": "pass: no text",
+    "crops": "fail: halo cut off by the top edge",
+    "count": "pass: one girl",
+    "frame_bg": "pass: bell tower, sky"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 6.5,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 6.5
+   },
+   "total": 6.62,
+   "notes": " [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass: hair, side lock, crescent clip and pin, beret, blazer, bow tie, gloves, rifle upright; binoculars missing",
+    "safety": "pass (borderline-ok): eye level, rifle muzzle to the sky",
+    "hands": "pass: reaching glove five fingers",
+    "text": "pass: no text",
+    "crops": "fail: halo ring clipped at y=0 (measured), crosshair lines run off the top",
+    "count": "pass: one girl",
+    "frame_bg": "pass: stone arch, rooftops, blurred"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 7.42,
+   "notes": "Best of the three; would score ~7.4 even if the halo fitted. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass: identity right, rifle slung",
+    "safety": "fail: low camera looking up at the skirt hem; tights/legs centred in the lower frame of a student",
+    "hands": "pass: open glove five fingers",
+    "text": "pass: no text",
+    "crops": "fail: halo clipped by the top edge",
+    "count": "pass: one girl",
+    "frame_bg": "pass: tower, bell, rooftops"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 7.47,
+   "notes": "Strong reach but camera from below. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "pass: silver-white bob with long side lock, crescent clip, sleepy light-blue eyes, navy beret with crescent pin, navy blazer with gold buttons and coat tails, pale blue bow tie, pleated skirt, black tights, white gloves, dark scoped rifle, mint scope-ring halo",
+    "safety": "fail: camera slightly from below inside the arch, and her tights-clad legs under a short pleated skirt are centred in the lower third of a student portrait (same problem as r2-0/r2-2); borderline = reject",
+    "hands": "pass: both gloves grip the rifle plausibly",
+    "text": "pass",
+    "crops": "pass: face ~55% across, eyes ~23% down, halo inside",
+    "count": "pass",
+    "frame_bg": "pass: bell-tower arch with bell and rooftops"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 5,
+    "lookB": 8,
+    "composition": 6,
+    "appeal": 7
+   },
+   "notes": "Port-arms rifle (muzzle up and away) is safe, but the binoculars prop is gone, the pose is static and the low camera puts the legs centre-frame.",
+   "total": 6.85
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "pass: all items present (rifle slung muzzle up; scope not visible, minor)",
+    "safety": "pass (flagged): rooftops are seen from above, so the camera is at or above her eye level; long skirt below the knee and tights, modest",
+    "hands": "pass: open glove five fingers; slung rifle needs no hand",
+    "text": "pass",
+    "crops": "pass: face ~50% across, eyes ~23% down, whole halo inside (top ~y10)",
+    "count": "pass",
+    "frame_bg": "pass: bell-tower arch, town rooftops, spire"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "notes": "Passes every check and the halo finally fits, but the open hand reaches out to the side rather than toward the lens (little foreshortening), and the long navy skirt fills the lower half, so the card crop is mostly fabric. 7.35, under the bar.",
+   "total": 7.35
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass: student modest, beret-tip gesture, rifle on the shoulder muzzle up",
+    "hands": "pass: glove on the beret brim and on the bag read",
+    "text": "fail: the candy bag carries printed lettering",
+    "count": "pass",
+    "frame_bg": "pass: bell and rooftops"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 8
+   },
+   "notes": "Cute beret-tip with the candy bag, but the packet has printed letters and the camera is static.",
+   "total": 7.28
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Halo and style are solved (r3-1). What is missing is a real dynamic camera and a better crop. 1) Keep pose 1 (open-glove welcome) as the lead for all seeds, re-weighted: '1.3::her open gloved hand reaching straight toward the camera, palm very large in the near foreground::, strong foreshortening, dutch angle, from slightly above'. 2) Crop: 'upper body to the hips, from slightly above' (r3-1 and r3-0 run to the knees so the skirt fills the card); negative add 'knees, legs, skirt focus'. 3) Pose 2 (candy) only with '1.2::a plain paper bag with no print::' and negative 'text on packaging, label, logo, letters'. 4) Drop pose 0 (binoculars dropped, camera went low). 5) Rifle: add 'small scope on the rifle'.",
+ "safety_flags": "r3-0: low camera with legs centred (rejected). r3-1 passed; a human may glance at the camera height."
+}

@@ -1,0 +1,33 @@
+{
+ "id": "hotaru",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, gentle exorcist-in-training, honey-orange hair in a short fluffy bob, swept bangs, teal beret with a small gold star badge and a small white flower, amber eyes, round eyes, teal haori with wide sleeves and a thin flat gold pattern on the hems, cream dress with a white ruffled hem below the knees, small teal bow at the collar, brown leather belt with a gold star buckle, small brown satchel on a strap, white frilled socks, brown ankle boots, a tall wooden staff with a curled hook at the top holding a glowing round paper lantern with a gold star pattern and a gold tassel, pale yellow halo, a simple thin flat ring floating above her beret, calm gentle smile, the hillside shrine garden path in bright golden late afternoon, stone steps, stone lanterns, a red arched bridge over a koi pond, maple and pine trees, a few fireflies waking as soft yellow dots, cowboy shot, {POSE}, her eyes on the right third, bob hair and haori sleeves swaying in the breeze, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, warm bright golden afternoon light with one small teal accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing straight, symmetrical composition, straight-on camera, loli, toddler, chibi proportions, big head, short dress, short skirt, miniskirt, bare legs, night, dark sky, black background, blonde hair, pink hair, brown hair, long hair, blue eyes, red eyes, purple eyes, ghost, scary, staff pointed at viewer",
+ "poses": [
+  "she holds the lantern staff out toward the viewer so the glowing paper lantern hangs large and close to the camera, strong foreshortening, lantern and hand very large in the near foreground, dutch angle, diagonal composition, eye level, haori sleeves swinging",
+  "she cups a single firefly in her open palms and offers it toward the viewer, strong foreshortening, hands and the tiny glow large near the camera, lantern staff leaning on her shoulder, dutch angle, diagonal composition, slightly from above, hair drifting",
+  "skipping down the stone steps toward the viewer with the lantern staff swinging behind her, free hand reaching out to the viewer, strong foreshortening, open hand very large near the camera, dutch angle, diagonal composition, slightly from above, haori and dress hem fluttering",
+  "turning back on the red bridge to beckon the viewer to follow, one hand reaching toward the camera, strong foreshortening, the lantern staff raised high in her other hand, dutch angle, diagonal composition, eye level, beret tassel and sleeves swinging"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/hotaru-full.webp",
+ "charref_box": [
+  60,
+  30,
+  740,
+  640
+ ],
+ "identity": [
+  "honey-orange short fluffy bob, swept bangs",
+  "teal beret with gold star badge (+ small white flower)",
+  "amber eyes, round",
+  "teal haori with wide sleeves",
+  "cream dress, white ruffled hem",
+  "brown belt, small satchel",
+  "hooked wooden staff with a glowing round paper lantern (gold star pattern, tassel)",
+  "fireflies",
+  "pale yellow ring halo",
+  "calm, gentle"
+ ],
+ "scene": "the hillside shrine garden path in bright golden late afternoon: stone steps, stone lanterns, red arched bridge, first fireflies",
+ "notes": "STUDENT (adult: false). Her portrait has chibi proportions, a short frilled skirt and a dusk-dark scene: charref_box is head to hip (with the lantern), the prompt asks for a dress below the knees, and the negative blocks loli, chibi proportions, short skirt, night. Her lantern's star pattern is a plain shape (no characters). Her portrait has no halo; the ring halo comes from her data (halo: ring, #fff59d). Fireflies kept to soft dots (sparkles/glitter stay banned)."
+}

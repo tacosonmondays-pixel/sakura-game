@@ -1,0 +1,136 @@
+{
+ "id": "fuu",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: no mint leaf halo (a flying ribbon with a turbine disc sits at the top edge instead); skirt above the knee (spec knee length)",
+    "safety": "pass",
+    "hands": "pass: fan hand ok",
+    "text": "pass",
+    "crops": "pass: face ~44%, eyes ~25% (ribbon element cut at top, not a halo)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 8.5,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 7.35,
+   "notes": "Great fan-forward foreshortening and hilltop field. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no halo at all; skirt above the knee",
+    "safety": "pass",
+    "hands": "pass: fan hand and free hand ok",
+    "text": "pass",
+    "crops": "fail: eyes ~40% down (limit 36%), face ~63% across",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8.5
+   },
+   "total": 6.75,
+   "notes": "Running with fan overhead; face small and low. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: mint pleated skirt ends mid-thigh (spec: knee length over leggings); everything else on model: cocoa twintails with mint ribbons, gold leaf pin, mint eyes, open mint track jacket, sailor shirt + neckerchief tucked in, dark green leggings, white high-tops, mint/gold fan, leaf-cluster halo",
+    "safety": "pass: leggings, no midriff, eye level, cheerful",
+    "hands": "pass: fan hand and trailing hand 5 digits",
+    "text": "pass",
+    "crops": "pass: face ~43%, eyes ~24%; leaf halo inside",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8.5,
+    "lookB": 8,
+    "composition": 8,
+    "appeal": 9
+   },
+   "total": 7.78,
+   "notes": "Best of the round by far (fan swept toward the viewer, twintails flying, bunting). Only the skirt length blocks a pick. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: halo is a plain mint ring, not a leaf halo (skirt now long, rest on model)",
+    "safety": "pass",
+    "hands": "pass: fan hand ok",
+    "text": "pass",
+    "crops": "pass: face ~45%, eyes ~25%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8.5,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 7.65,
+   "notes": "Best camera (fan swept toward the lens) but ring halo."
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: halo is a plain mint ring, not a leaf halo",
+    "safety": "pass",
+    "hands": "pass: fan hand ok",
+    "text": "pass",
+    "crops": "pass: face ~48%, eyes ~27%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8.5
+   },
+   "total": 7.33,
+   "notes": "Fan held low toward the viewer; ring halo."
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "pass: leaf-cluster halo, cocoa twintails with mint ribbons, gold leaf pin, mint eyes, open mint track jacket with gold trim, sailor shirt + white neckerchief, long mint pleated skirt over dark green leggings, white high-tops, pale mint/gold fan with turbine discs (skirt is long, nearer mid-calf than knee: acceptable)",
+    "safety": "pass: fully dressed, long skirt, cheerful; camera at about chest height with no upward foreshortening (neutral, not from below)",
+    "hands": "pass: V-sign hand (index+middle up, ring+pinky curled, thumb tucked) and fan hand wrapped round the ribs, checked at 2x",
+    "text": "pass: jacket chest patch is a small picture emblem, bunting/pinwheels plain",
+    "crops": "pass: eyes 22% down, face 45% across, leaf halo inside (top ~y18)",
+    "count": "pass",
+    "frame_bg": "pass: painted hilltop field with bunting and pinwheels"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 7.6,
+   "notes": "Clean Look B, on-model. Camera is the weak point: mostly front-on, no dutch angle; motion comes from the kicked-up leg, flying twintails and the V-sign toward the viewer."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r3-2",
+ "pick_total": 7.6,
+ "eyes": [
+  342,
+  224
+ ],
+ "head": 210,
+ "fixes": null,
+ "safety_flags": "r3-2 camera is roughly level at chest height (horizon below her eyes) but there is no low-angle distortion and the skirt is long; fine in my view, listed for a human glance."
+}

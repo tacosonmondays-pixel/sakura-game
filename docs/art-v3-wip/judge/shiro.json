@@ -1,0 +1,195 @@
+{
+ "id": "shiro",
+ "round": 4,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass (weak): halo mostly out of frame; candy drawn as a big purple cloth packet",
+    "safety": "fail: camera slightly below, skirt hem and black tights fill the lower third of a student portrait",
+    "hands": "fail: candy hand fingers hidden/mushed behind the packet",
+    "text": "pass: no text",
+    "crops": "fail: halo cut off by the top edge",
+    "count": "pass: one girl",
+    "frame_bg": "pass: bell tower, sky"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 6.5,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 6.5
+   },
+   "total": 6.62,
+   "notes": " [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass: hair, side lock, crescent clip and pin, beret, blazer, bow tie, gloves, rifle upright; binoculars missing",
+    "safety": "pass (borderline-ok): eye level, rifle muzzle to the sky",
+    "hands": "pass: reaching glove five fingers",
+    "text": "pass: no text",
+    "crops": "fail: halo ring clipped at y=0 (measured), crosshair lines run off the top",
+    "count": "pass: one girl",
+    "frame_bg": "pass: stone arch, rooftops, blurred"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 7.42,
+   "notes": "Best of the three; would score ~7.4 even if the halo fitted. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass: identity right, rifle slung",
+    "safety": "fail: low camera looking up at the skirt hem; tights/legs centred in the lower frame of a student",
+    "hands": "pass: open glove five fingers",
+    "text": "pass: no text",
+    "crops": "fail: halo clipped by the top edge",
+    "count": "pass: one girl",
+    "frame_bg": "pass: tower, bell, rooftops"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 7.47,
+   "notes": "Strong reach but camera from below. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "pass: silver-white bob with long side lock, crescent clip, sleepy light-blue eyes, navy beret with crescent pin, navy blazer with gold buttons and coat tails, pale blue bow tie, pleated skirt, black tights, white gloves, dark scoped rifle, mint scope-ring halo",
+    "safety": "fail: camera slightly from below inside the arch, and her tights-clad legs under a short pleated skirt are centred in the lower third of a student portrait (same problem as r2-0/r2-2); borderline = reject",
+    "hands": "pass: both gloves grip the rifle plausibly",
+    "text": "pass",
+    "crops": "pass: face ~55% across, eyes ~23% down, halo inside",
+    "count": "pass",
+    "frame_bg": "pass: bell-tower arch with bell and rooftops"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 5,
+    "lookB": 8,
+    "composition": 6,
+    "appeal": 7
+   },
+   "notes": "Port-arms rifle (muzzle up and away) is safe, but the binoculars prop is gone, the pose is static and the low camera puts the legs centre-frame. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 6.85
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "pass: all items present (rifle slung muzzle up; scope not visible, minor)",
+    "safety": "pass (flagged): rooftops are seen from above, so the camera is at or above her eye level; long skirt below the knee and tights, modest",
+    "hands": "pass: open glove five fingers; slung rifle needs no hand",
+    "text": "pass",
+    "crops": "pass: face ~50% across, eyes ~23% down, whole halo inside (top ~y10)",
+    "count": "pass",
+    "frame_bg": "pass: bell-tower arch, town rooftops, spire"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "notes": "Passes every check and the halo finally fits, but the open hand reaches out to the side rather than toward the lens (little foreshortening), and the long navy skirt fills the lower half, so the card crop is mostly fabric. 7.35, under the bar. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 7.35
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass: student modest, beret-tip gesture, rifle on the shoulder muzzle up",
+    "hands": "pass: glove on the beret brim and on the bag read",
+    "text": "fail: the candy bag carries printed lettering",
+    "count": "pass",
+    "frame_bg": "pass: bell and rooftops"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 8
+   },
+   "notes": "Cute beret-tip with the candy bag, but the packet has printed letters and the camera is static. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 7.28
+  },
+  "r4-0": {
+   "hard": {
+    "identity": "pass (minor): silver hair with side lock, crescent clip, beret with crescent pin, navy coat with tails, bow tie, gloves, tights, boots, rifle; scope-ring halo is a large ring with green crosshair tick marks",
+    "safety": "pass: from slightly above; rifle over her shoulder, muzzle up and away; long skirt",
+    "hands": "pass: both gloves five fingers",
+    "text": "pass (flagged): the crosshair ticks on the halo are graphic marks, not letters",
+    "crops": "pass: face ~48% across, eyes ~31% down, halo inside",
+    "count": "pass",
+    "frame_bg": "pass: bell-tower balcony, rooftops and spire"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 6,
+    "appeal": 7.5
+   },
+   "total": 7.4,
+   "notes": "Safe and on model but a small full figure; head too small for the bust and thumb crops."
+  },
+  "r4-1": {
+   "hard": {
+    "identity": "pass: on model (beret, crescent pin and clip, coat, gloves, rifle slung muzzle-up, mint halo)",
+    "safety": "pass",
+    "hands": "pass: beret-tip hand and bag hand five fingers",
+    "text": "fail: the candy bag carries a printed orange mascot-face logo (spec asked a plain unprinted bag)",
+    "crops": "pass: face ~45% across, eyes ~28% down, halo inside",
+    "count": "pass",
+    "frame_bg": "pass: tower arch and rooftops"
+   },
+   "scores": {
+    "identity": 8.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.83,
+   "notes": "Cute beret tip, but the bag print is a logo-like graphic."
+  },
+  "r4-2": {
+   "hard": {
+    "identity": "pass: short silver-white hair with side lock, crescent clip, navy beret with silver crescent pin, light-blue sleepy eyes, navy coat with gold buttons/trim and long tails, pale blue bow tie, navy pleated skirt, black tights, boots, white gloves, scoped rifle slung horizontally across her back, mint scope-ring halo",
+    "safety": "pass: dutch angle at eye level; rifle across her back with the muzzle pointing out to the right side, never at the viewer; long skirt, nothing emphasised",
+    "hands": "pass: reaching glove five fingers (zoom checked); far glove cut by the right edge at the wrist, not malformed",
+    "text": "pass",
+    "crops": "pass: face ~43% across, eyes y~240 (23%), halo top ~y18 inside",
+    "count": "pass",
+    "frame_bg": "pass: bell-tower arch, sky and rooftops"
+   },
+   "scores": {
+    "identity": 8.5,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 8.07,
+   "notes": "The round-3 welcome pose pushed toward the lens: foreshortened open glove, dutch tilt, coat tails swinging, halo inside. Long skirt still takes the lower half but the bust and card crops are good."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r4-2",
+ "pick_total": 8.07,
+ "eyes": [
+  328,
+  240
+ ],
+ "head": 212,
+ "fixes": null,
+ "safety_flags": "head measured crown of hair under the beret (~y110) to chin (~y322); beret top is at ~y65 (257 px incl. beret)."
+}

@@ -1,0 +1,73 @@
+{
+ "id": "raika",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: eyes ~45% down from the top (limit 36%); halo floats beside, not above, the head",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 6,
+    "appeal": 8
+   },
+   "total": 7.28,
+   "notes": "Bright rooftop sky, staff raised high, hair flying, horns and lilac bow good. But she is placed low (eyes ~45% down), the halo floats off to the side, big lightning streaks fill the sky (spec: tiny sparks), and the 'reaching' hand goes sideways, not toward the viewer."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no halo; second horn hidden behind the staff star",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.0,
+   "notes": "Good grin and windblown hair, staff held across her body. No halo at all, only one horn reads (the other is hidden behind the star), and the pointing/wink pose was ignored."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: staff's gold star-in-ring is outside the frame, staff reads as a plain pole; halo lacks the bolt",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8.5
+   },
+   "total": 7.33,
+   "notes": "Best appeal and camera: thumbs-up foreshortened (thumb and curled fingers fine), weather balloon, rooftop railing, both ram horns, grin. But the staff runs across her body and its gold star is out of frame at bottom right, so she holds a plain pole; halo is a plain ring with no bolt and nearly touches the top edge."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Style is right (keep charref 0.6). 1) Keep pose 2 (thumbs-up + balloon, best camera/appeal) but rewrite the staff: replace 'the staff tucked under her arm pointing at the sky' with '1.3::the indigo staff resting upright against her shoulder, its big gold star in a ring clearly visible beside her head::'; negative 'staff out of frame, staff across body, plain pole'. 2) Halo: '1.3::pale yellow halo: a thin ring with a small lightning bolt inside, directly above her head::, whole halo inside the frame, gap above the halo'; negative 'missing halo, halo beside head'. 3) Crops: add 'her face in the upper third of the frame, eyes about a quarter down from the top' (pose 0 put her eyes at 45%). 4) Lightning: negative 'lightning bolts in the sky, large lightning, storm' (keep only 'tiny gold sparks at the star'). 5) Drop pose 1 (ignored the point/wink and lost the halo). 6) Horns: '1.1::two small curled golden ram horns, both visible::'.",
+ "safety_flags": ""
+}

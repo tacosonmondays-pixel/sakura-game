@@ -1,0 +1,73 @@
+{
+ "id": "tenka",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: halo is a ring with a long zigzag line streaking across the frame, not a bolt inside a ring; skirt above the knee",
+    "safety": "fail: coilgun held out at arm's length toward the viewer (prompt asked goggles); borderline aim = reject",
+    "hands": "pass",
+    "text": "pass: no text",
+    "crops": "pass: eyes ~22%, halo mostly inside",
+    "count": "pass: one girl",
+    "frame_bg": "pass: science lab, blackboard"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 6.92,
+   "notes": ""
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no halo (the rings are the coil field around the gun)",
+    "safety": "pass: gun upright, barrel to the ceiling",
+    "hands": "pass: five fingers",
+    "text": "pass: no text",
+    "crops": "pass: eyes ~24%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: lab, blackboard, flasks"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 7.5
+   },
+   "total": 7.17,
+   "notes": "No capacitor flick; hand on hip."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: no halo",
+    "safety": "pass: gun upright, finger point is fine, eye level",
+    "hands": "pass: pointing hand and gun hand five fingers",
+    "text": "pass: no text",
+    "crops": "pass: eyes ~23%, face ~45%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: lab, blurred"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.62,
+   "notes": "Would be a ~7.6 pick with a halo; skirt above the knee (spec below the knee)."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Style and camera are good now; the halo is missing. Raise to '(pale cyan lightning bolt inside a thin ring halo floating above her head:1.4)' placed right after the hair words; negative 'ring around the gun replacing the halo'. Tone down the gun's field: 'coilgun with faint cyan glow' and negative 'concentric rings, energy rings, ripple rings' so the model stops spending the halo on the gun. Skirt: '(plaid skirt below the knee:1.3)'. Keep pose 2 (point + gun upright) as the lead; pose 1 ok; drop pose 0 (the gun ends up held toward the viewer). Charref fidelity 0.6.",
+ "safety_flags": ""
+}

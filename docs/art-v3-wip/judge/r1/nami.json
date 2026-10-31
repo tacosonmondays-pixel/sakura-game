@@ -1,0 +1,93 @@
+{
+ "id": "nami",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: no trident visible; halo rendered as a teal wave blob around the cap",
+    "safety": "pass",
+    "hands": "pass: reaching glove 5 fingers",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: white sky, lineart sea"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.75,
+   "notes": "Good reach-to-help gesture; heavy black ink, near-white background."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: no trident, no halo (blob above cap)",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: white/lineart background"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.75,
+   "notes": "Rope coil reads as a twisted rope hand, unclear."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: no trident, no halo",
+    "safety": "fail (borderline): chest centred in frame with ornaments framing the bust; adult must not be framed around the body",
+    "hands": "pass: fingers ok, spyglass balanced oddly",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: flat sky/sea, lighthouse silhouette"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 4,
+    "lookB": 3,
+    "composition": 4,
+    "appeal": 6
+   },
+   "total": 4.3,
+   "notes": "Static, bust-centred; reject."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: no halo; trident head cut off by the top edge",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: white sky, uncoloured wave"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.5,
+   "notes": "Static front-on."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "ROOT CAUSE (shared by every charref-only girl this batch): output collapsed into uncoloured colouring-book lineart with no shading; norika (vibe 0.2, no charref) did NOT collapse. Style block: REMOVE 'flat color', 'no black outlines', 'few interior lines', 'background melted into soft shapes with no lines' (the word 'lines' is pulling lineart in). ADD 'cel shading, two-tone shading, soft painted background, blurry background, detailed colored background, depth of field, bright daylight'. NEGATIVE add: 'lineart, line art, sketch, monochrome, greyscale, uncolored, partially colored, coloring page, white background, simple background, blank background, empty background, heavy outlines, manga'. Add the Look B vibe (one of the two Look B reference portraits, own art) at strength 0.3 alongside the charref; keep charref fidelity 0.6. Nami: trident drops out whenever another prop is posed; make the trident part of every pose ('gilded trident held upright in her other hand, whole trident inside the frame') and drop the spyglass/rope poses (1, 2). Halo: 'thin pale sky-blue ring halo with a small wave crest, floating above her cap', negative 'wave hat, hat decoration'. Framing: 'from the waist up, slightly from the side, three-quarter view' and negative 'breast focus, chest focus, front-on'; keep pose 0 (helping hand) and pose 3 (trident to the sky, but ask 'trident tips inside the frame'). Eyes come out teal-green: 'aqua-blue eyes' weight up.",
+ "safety_flags": "r1-2 bust-centred framing of an adult hero."
+}

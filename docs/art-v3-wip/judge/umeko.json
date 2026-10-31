@@ -1,0 +1,76 @@
+{
+ "id": "umeko",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass (weak): halo is a cloud-like squiggle; white hair with seafoam tips, shell pin, robe, sash, shell staff",
+    "safety": "pass",
+    "hands": "pass: both hands plausible on the staff",
+    "text": "pass: no text",
+    "crops": "pass: eyes ~26%, face ~65%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: shrine steps, sea, torii (rather sharp)"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 5,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.65,
+   "notes": "No lantern; static."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: hair reads golden-cream rather than white; heavy gold filigree",
+    "safety": "pass",
+    "hands": "pass: open hand five fingers",
+    "text": "pass: no text",
+    "crops": "pass: eyes ~21%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: steps, sea"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7,
+    "lookB": 4.5,
+    "composition": 7,
+    "appeal": 6.5
+   },
+   "total": 6.15,
+   "notes": "Over-saturated, glossy high-contrast rendering, far from Look B."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass: white hair fading to seafoam, top braid, gold shell hairpin with pearls and navy ribbons, seafoam sleepy eyes, white/teal robe with wave hems, navy sash bow with pearl brooch, gold shell staff with pearl and tassels, pale mint wave halo, dreamy smile",
+    "safety": "pass: student fully dressed, eye level, wholesome; staff held upright, not aimed",
+    "hands": "pass: both hands wrap the staff plausibly (zoom checked)",
+    "text": "pass: no text",
+    "crops": "pass: eyes (278,299) = 29% down, face ~37% across, halo and shell inside",
+    "count": "pass: one girl",
+    "frame_bg": "pass: shrine steps, torii, sea, softly blurred"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.55,
+   "notes": "Clean cel look, high-key, real place. Camera is a dutch tilt with the staff diagonal and hair motion, but no foreshortened hand. Gold trim still richer than the spec's flat teal trim."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-2",
+ "pick_total": 7.55,
+ "eyes": [
+  278,
+  299
+ ],
+ "head": 287,
+ "fixes": null,
+ "safety_flags": "Pick is just over the line (7.55); camera is the weakest part (no foreshortening)."
+}

@@ -1,0 +1,73 @@
+{
+ "id": "ruri",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: Kon the holographic fox is missing",
+    "safety": "pass",
+    "hands": "borderline: hands hidden behind the book/sleeves, cannot verify",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 7.1,
+   "notes": "Glowing grimoire with paw print held toward the viewer, library and window, hair flowing. But Kon (the holographic fox) is missing, the hands are hidden behind the book, and the skirt is mid-thigh instead of below the knee."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "borderline: pointing fist with the flower, fingers merged",
+    "text": "pass",
+    "crops": "fail: face centre ~74% across (limit 70%)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 6,
+    "appeal": 8
+   },
+   "total": 7.58,
+   "notes": "Kon perched on her shoulder, grimoire with paw under her arm, star clip, braid, armband. But the face sits at ~74% across, the bookmark became a loose flower on a closed fist, and the kicked-up leg shows bare thigh below a short skirt."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: halo top arc clipped at the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8.5,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.62,
+   "notes": "Best identity: Kon floating by the shelves, five-finger wave, cream blazer, armband with book emblem, grimoire under the arm, braid and star clip. Only mild tilt and little foreshortening, and the halo is cut by the top edge."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Style is right (keep fidelity 0.5). 1) Halo: '1.3::small thin pale blue ring halo with a small star, directly above her head::, whole halo inside the frame, wide gap above the halo'; negative 'cropped halo, halo cut off, halo out of frame'. 2) Re-roll pose 2 (shy wave, best identity) with '1.2::open hand very large near the camera, strong foreshortening, dutch angle::'. 3) Pose 1: add 'her face slightly left of centre' (face landed at 74%); replace 'bookmark with a pressed pink flower' with 'a flat paper bookmark with a pressed pink flower, held between thumb and index finger'. 4) Pose 0: add '1.3::the small white holographic fox with cyan glowing edges leaping out of the book::' and 'her fingers visible on the book's edges' (Kon dropped, hands hidden). 5) Skirt: '1.2::blue plaid skirt below the knee::', negative 'short skirt, miniskirt, thighs, leg up' (all three drew mid-thigh; r2-1 kicked leg shows bare thigh).",
+ "safety_flags": "r2-1 shows bare thigh below a short skirt on a student in a kick pose (not picked)."
+}

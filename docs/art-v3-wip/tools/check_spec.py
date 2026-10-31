@@ -16,9 +16,9 @@ NEG_STUDENT = ["child", "aged down", "downblouse"]
 POS_FORBIDDEN = ["nsfw", "from below", "low angle", "swimsuit", "bikini", "lingerie", "cleavage", "midriff", "navel", "bare shoulders",
                  "large breasts", "breast", "thigh", "panties", "ass", "wet", "see-through", "upskirt", "sexy", "seductive",
                  "bedroom", "bath", "nude", "gun pointed at viewer", "aiming at viewer", "blood", "gore", "kiss", "romantic", "couple"]
-OWN_PREFIXES = ["/home/user/wt-release/public/art/", "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/kogane/kogane-test-1",
+OWN_PREFIXES = ["/home/user/sakura-game/public/art/", "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/kogane/kogane-test-1",
                 "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/art-v3/pilot/recipe/ref-",
-                "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/art-v3/roster/"]
+                "/home/user/work/roster/"]
 MAX_CHARS = 2600  # about 500 tokens at the pilot's measured ~5 characters per token
 
 

@@ -1,0 +1,136 @@
+{
+ "id": "suzu",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass (weak): halo is a thin loop that reads like an ahoge; teal hakama skirt; obi has gold discs rather than bells",
+    "safety": "pass",
+    "hands": "pass: five fingers each",
+    "text": "pass: blank chime strip",
+    "crops": "pass: eyes ~28%, face ~52%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: shrine shop shelves, garden"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 4,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.25,
+   "notes": "Static bell-to-face pose, no foreshortening. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass: ribbons, white flowers, golden eyes, kimono, teal obi with bells, small bell",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass: blank strips",
+    "crops": "fail: halo ring clipped at the top edge",
+    "count": "pass: one girl",
+    "frame_bg": "pass: veranda, greenery"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 3.5,
+    "lookB": 7.5,
+    "composition": 6.5,
+    "appeal": 7
+   },
+   "total": 6.3,
+   "notes": "Static front-on stand. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass: golden hair (no clear single looped side curl; reads as a high ponytail), teal ribbons, white flowers, golden eyes, kimono, teal obi with gold bells, ring halo, hand bell",
+    "safety": "pass: eye level/slightly above, fully dressed",
+    "hands": "fail: bell held implausibly: the gold handle points up and her fingers grip a wooden stub under the bell mouth, so the bell sits on her fingertips",
+    "text": "pass: blank chime strip",
+    "crops": "pass: eyes ~29%, face ~55%, halo inside",
+    "count": "pass: one girl",
+    "frame_bg": "pass: wooden veranda, blurred greenery"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.55,
+   "notes": "Best (7.55) and nearly a pick, but rejected on the bell grip. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "pass (minor): golden hair, teal ribbon with white flower, golden eyes, white-and-teal kimono with wide sleeves, teal obi with small gold bells, hand bell, thin gold ring halo; the big looped side curl reads only as a loose loop",
+    "safety": "pass: student fully dressed, slightly above",
+    "hands": "pass: both hands hold the bell plausibly (handle on top, mouth down)",
+    "text": "pass",
+    "crops": "pass: face ~52% across, eyes ~30% down, halo inside",
+    "count": "pass",
+    "frame_bg": "pass: bell rack and wind-chime strips on a veranda, greenery"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "notes": "Bell grip fixed, but it is held at her chest with both hands in a near front-on stand: static.",
+   "total": 6.9
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "pass: long golden ponytail ending in a big looped curl, straight bangs, teal ribbons with white flowers, golden eyes, white-and-teal kimono with wide teal-lined sleeves, teal obi with gold fittings and bells, little golden bell on a teal cord, thin pale gold ring halo, mischievous grin",
+    "safety": "pass: student fully dressed, camera slightly above, nothing emphasised",
+    "hands": "pass: the dangling hand has slender fingers pinching the cord (checked at full size; long but countable, no fusion); the bell hangs plausibly from the cord",
+    "text": "pass: wind-chime strips and bell rack carry no writing",
+    "crops": "pass: eyes (436, 315) = 57% across, 31% down; whole halo inside (top ~y10)",
+    "count": "pass",
+    "frame_bg": "pass: veranda boards, bamboo grove, golden bell rack, soft focus"
+   },
+   "scores": {
+    "identity": 8.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "notes": "The gift pose works: arm stretched toward the viewer dangling a tiny bell, dutch angle, ponytail swinging, bright bamboo veranda with the bell rack. Fingers are long and delicate but readable. Best identity of all rounds (the looped curl finally appears).",
+   "total": 7.83
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "pass (minor): high ponytail without the looped curl",
+    "safety": "pass",
+    "hands": "pass: grips the bell's handle on top, mouth down",
+    "text": "pass",
+    "crops": "pass: face ~38% across, eyes ~28% down; halo just inside (top ~y8)",
+    "count": "pass",
+    "frame_bg": "pass: veranda, greenery, chime strips"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 6.5,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 8
+   },
+   "notes": "Bell raised correctly and a big grin from slightly above, but no foreshortening, slightly busier rendering, halo grazes the top edge.",
+   "total": 7.22
+  }
+ },
+ "decision": "PICK",
+ "pick": "r3-1",
+ "pick_total": 7.83,
+ "eyes": [
+  436,
+  315
+ ],
+ "head": 282,
+ "fixes": null,
+ "safety_flags": ""
+}

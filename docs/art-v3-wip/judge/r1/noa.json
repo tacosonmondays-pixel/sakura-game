@@ -1,0 +1,93 @@
+{
+ "id": "noa",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: shield worn on the arm over the body, armband hidden; skirt above knee",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: halo cut by the top-left edge",
+    "count": "pass",
+    "frame_bg": "fail: white background with grey lines"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.75,
+   "notes": "Plaster held as a flower; lineart bg."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "pass (skirt above knee; buns ok)",
+    "safety": "pass",
+    "hands": "pass: reaching hand 5 fingers",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: white background, curtain lines only"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 5.3,
+   "notes": "Best camera, but blank white background, no place."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: no ward shield",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: halo cut off at the top edge",
+    "count": "pass",
+    "frame_bg": "pass: infirmary window, washed out"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 5,
+    "lookB": 3,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.25,
+   "notes": "Cute snack offer, static, halo out of frame."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "pass (skirt above knee)",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: flat lavender field + white window outline, near blank"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.2,
+   "notes": "Shield ok, armband hidden under it; empty background."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "ROOT CAUSE (shared by every charref-only girl this batch): output collapsed into uncoloured colouring-book lineart with no shading; norika (vibe 0.2, no charref) did NOT collapse. Style block: REMOVE 'flat color', 'no black outlines', 'few interior lines', 'background melted into soft shapes with no lines' (the word 'lines' is pulling lineart in). ADD 'cel shading, two-tone shading, soft painted background, blurry background, detailed colored background, depth of field, bright daylight'. NEGATIVE add: 'lineart, line art, sketch, monochrome, greyscale, uncolored, partially colored, coloring page, white background, simple background, blank background, empty background, heavy outlines, manga'. Add the Look B vibe (one of the two Look B reference portraits, own art) at strength 0.3 alongside the charref; keep charref fidelity 0.6. Noa: the infirmary is lost; describe it concretely ('bright school infirmary, white beds with mint curtains, medicine cabinet, window with green trees outside, soft painted') and negative 'white background'. Skirt: 'plaid skirt below the knee' weight up, negative 'short skirt, miniskirt'. Shield: 'translucent mint shield held beside her, not covering her body'. Add 'whole halo inside the frame, headroom'. Keep pose 1 (open reaching palm) and pose 2 (snack offer, with shield propped at her side).",
+ "safety_flags": ""
+}

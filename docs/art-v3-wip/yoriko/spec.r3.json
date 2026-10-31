@@ -1,0 +1,33 @@
+{
+ "id": "yoriko",
+ "adult": true,
+ "prompt": "1girl, solo, adult woman in her twenties, the academy's drama club director, lavender hair in a high ponytail, blunt bangs, 1.4::pale lilac crescent-moon halo above her own head::, whole halo visible inside the frame, clear space above the halo, purple headset with cat-ear shapes and a small microphone, lilac eyes, sleepy eyes, half-closed eyes, long navy tailcoat cut like a stage coat with thin gold edges and lilac lining, lilac vest with small silver buttons, white collared shirt, lilac necktie, navy gloves, navy trousers, 1.3::wooden puppet control bar shaped like a plus sign, two crossed flat slats::, held in her gloved hand, thin lilac strings hanging from its four ends down to the doll, a small doll puppet with short lilac hair in a tiny sailor school uniform, gentle sleepy smile, playful, bright drama club rehearsal room by day, tall sunlit windows, costume racks, cardboard star set pieces, a folding chair, upper body, from the waist up, from slightly above, {POSE}, her head in the upper third of the picture, clear space above the halo, ponytail and coat tails swinging, anime screencap, anime coloring, cel shading, two-tone shading with soft-edged shadow shapes, thin colored lineart, clean lines, bright high-key lighting, soft pastel palette, pale skin with peach shadows, large eyes with one highlight, light blush, detailed background, blurry background, bokeh, depth of field, soft daylight, matte flat cel shading, simple hard-edged shadows, muted highlights, anime key visual",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, stage curtains, dark stage, spotlight, stage lights, night, starry sky, dark background, purple backdrop, footlights, black hair, red eyes, skirt, dress, real animal ears, creepy doll, horror, multiple dolls, tight clothes, monochrome, greyscale, coloring book, sketch, unfinished, simple background, white background, flat background, border, frame, framed, flat color, no shading, thick lineart, manga, glossy, shiny skin, gradient shading, ornate, religious cross, crucifix, hip focus, 1.4::halo on doll::, doll with halo, rolling pin, stick, baton, six fingers, cropped halo, halo cut off, head out of frame",
+ "poses": [
+  "she holds the plus-shaped wooden control bar up beside her face, strings running down to the doll puppet sitting on her shoulder and waving at the viewer, her other gloved hand reaching toward the viewer, strong foreshortening, open hand large near the camera, dutch angle, slightly from above, diagonal composition",
+  "the doll puppet dances toward the viewer on its lilac strings, strong foreshortening, the little doll large and slightly soft close to the camera, she steers it from behind with the plus-shaped wooden control bar raised high, dutch angle, slightly from above, diagonal composition",
+  "she leans into a playful bow and tips the plus-shaped wooden control bar toward the viewer so the doll puppet reaches out a tiny hand, strong foreshortening, doll and strings large near the camera, dutch angle, slightly from above, diagonal composition",
+  "she holds out a small paper ticket with a lilac star toward the viewer between gloved fingers, strong foreshortening, hand and ticket large near the camera, the plus-shaped wooden control bar in her other hand with the doll puppet dangling below it mid-curtsy, dutch angle, slightly from above, diagonal composition"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/yoriko-full.webp",
+ "charref_box": [
+  80,
+  60,
+  720,
+  780
+ ],
+ "identity": [
+  "lavender high ponytail, blunt bangs",
+  "purple cat-ear headset with mic",
+  "lilac sleepy eyes",
+  "long navy tailcoat, thin gold edges, lilac lining",
+  "lilac vest, white shirt, lilac tie",
+  "navy gloves, navy trousers",
+  "cross-shaped control bar",
+  "small doll puppet: lilac bob, sailor uniform, on thin lilac strings",
+  "pale lilac crescent-moon halo",
+  "gentle sleepy smile"
+ ],
+ "scene": "the drama club rehearsal room on a bright afternoon: tall windows, costume racks, cardboard star set pieces",
+ "notes": "ADULT hero (adult: true). Look B replaces her theatrical special art (owner chose B for all); the charref (her own yoriko-full.webp, head to thigh crop) may pull the dark violet stage, so the negative blocks curtains, spotlights and a dark backdrop. The doll is drawn as a doll puppet (her game doll is a little drone marionette)."
+}

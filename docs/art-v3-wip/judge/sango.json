@@ -1,0 +1,237 @@
+{
+ "id": "sango",
+ "round": 5,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass (minor): coral hair, side braid, teal eyes, shell hairpin, coat/collar, gloves, wave halo present; beret badge is an anchor, not the gold shell asked",
+    "safety": "fail: telescope-cannon bore opening is seen almost end-on over her shoulder, i.e. tilted toward the camera; brief says borderline = reject",
+    "hands": "pass: gloved hands five fingers",
+    "text": "pass: no text",
+    "crops": "fail: eyes ~y385 (37.6%) below the 36% line",
+    "count": "pass: one girl",
+    "frame_bg": "pass: deck, rail, sea, boat"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 8,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.6,
+   "notes": "Best energy of the three (salute + foreshortened glove). Style now correct cel look. Fails on barrel direction and low head. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass (minor): anchor badge on beret instead of gold shell; otherwise correct",
+    "safety": "fail: cannon on shoulder points forward-left with its round lens/muzzle facing the camera",
+    "hands": "pass",
+    "text": "pass: no text",
+    "crops": "fail: eyes ~y385 (37.6%)",
+    "count": "pass: one girl",
+    "frame_bg": "pass: ship rail, sea, lighthouse"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 7.3,
+   "notes": "Pointing pose reads well but muzzle toward viewer. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass (minor): anchor badge; coral charm present",
+    "safety": "fail: huge bore opening fills the top-left, pointed straight at the camera from above",
+    "hands": "pass: open palm five fingers",
+    "text": "pass: no text",
+    "crops": "fail: eyes ~y490 (48%), head in lower half",
+    "count": "pass: one girl",
+    "frame_bg": "pass: deck and sea (sea nearly a flat gradient)"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7,
+    "lookB": 7,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 6.85,
+   "notes": "Cannon dominates the frame and faces the viewer. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "pass (minor): coral wavy hair with side braid, shell hairpin, white ribbon, teal eyes, sailor coat with pink collar/cuffs and coral shapes, navy gloves and skirt, telescope-cannon with coral emblem; beret badge is still an anchor, not the shell",
+    "safety": "pass: cannon slung horizontally pointing left, end seen obliquely, not at the viewer; student fully dressed",
+    "hands": "pass: both gloved hands five fingers",
+    "text": "pass",
+    "crops": "fail: the wave-halo ribbon runs off the top edge (cut at x~200-280, y=0)",
+    "count": "pass",
+    "frame_bg": "pass: deck rail and sea"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 8
+   },
+   "notes": "Good diagonal energy and a big foreshortened glove, but the reaching hand lands low over the skirt, the salute was dropped, and the halo is clipped. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 7.5
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "pass (minor): anchor badge again",
+    "safety": "fail: the telescope-cannon runs from her hip toward the lower-left foreground, i.e. out of the picture toward the viewer's side; borderline = reject",
+    "hands": "fail: the gloved hand on the cannon is a swollen mitten shape, fingers not readable",
+    "text": "pass",
+    "crops": "fail: halo swirl cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass: ship deck and sea"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 6,
+    "appeal": 7.5
+   },
+   "notes": "Over-the-shoulder look back is charming but the barrel comes toward the camera and the glove is malformed. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 7.1
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail (round 4): halo is a large splashy water swirl over the upper right, not the small thin pale sky-blue wave-shaped ring halo; anchor badge now accepted",
+    "safety": "fail (round 4, borderline = reject): side-on 3/4 torso shows a visible chest contour directly behind the thumbs-up held at her chest; cannon itself is safe",
+    "hands": "pass: thumbs-up reads; second glove supports the cannon",
+    "text": "pass",
+    "crops": "pass: face ~49% across, eyes ~33% down, halo inside",
+    "count": "pass",
+    "frame_bg": "pass: training-boat deck, sea, distant ship"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "notes": "The only candidate that passes every hard check, and the cannon placement is finally safe. But the thumbs-up is held at her chest with no foreshortening, so the camera is mostly a tilted 3/4 stand; the anchor badge persists. 7.4, just under the bar. [Round 4 reconsideration: anchor badge is now accepted, so identity rises 7.5->8.0 and the total to 7.55. Still rejected: the halo is a large splashy water swirl filling the upper right, not the small thin wave-shaped ring that is her signature (halo shape misses failed hard elsewhere), and the side-on view puts a visible chest contour right behind the thumbs-up held at her chest, which is borderline for a student portrait; borderline = reject.]",
+   "total": 7.55
+  },
+  "r4-0": {
+   "hard": {
+    "identity": "pass (minor): coral wavy hair, beret with anchor badge (accepted), shell pin, white ribbon, teal eyes, sailor coat with coral shapes, gloves, cannon; halo a thin blue ring",
+    "safety": "pass: cannon held horizontally across her body, bore seen side-on to the left",
+    "hands": "pass (minor): gloved hands are stubby mitten shapes but read as gloves",
+    "text": "pass",
+    "crops": "fail: head tiny and low: eyes y~600 (59% down), the top 45% of the frame is empty sky",
+    "count": "pass",
+    "frame_bg": "pass: boat deck, rail, sea"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 6,
+    "lookB": 7.5,
+    "composition": 4,
+    "appeal": 6.5
+   },
+   "total": 6.5,
+   "notes": "Framing collapsed: a small full figure in the lower half of a sky-filled frame."
+  },
+  "r4-1": {
+   "hard": {
+    "identity": "pass: teal eyes, beret with anchor badge, shell pin, ribbon, sailor coat, gloves, cannon slung up over her shoulder; thin blue ring halo",
+    "safety": "pass: cannon slung behind her pointing up and away; wholesome wave",
+    "hands": "pass: waving glove five fingers",
+    "text": "pass",
+    "crops": "fail: eyes y~540 (53% down), head in the middle of the frame with a large band of empty sky above",
+    "count": "pass",
+    "frame_bg": "pass: deck, sea, mountain"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 5,
+    "appeal": 7.5
+   },
+   "total": 7.28,
+   "notes": "Nice open-glove wave and the safe cannon, but the head sits far too low for every crop."
+  },
+  "r4-2": {
+   "hard": {
+    "identity": "fail (partial): eyes drawn orange-brown, not the asked teal; otherwise on model",
+    "safety": "fail: the telescope-cannon is held out with its coral-lined bore opening facing the lower-left toward the camera (the brief rejects any barrel turned toward the viewer)",
+    "hands": "fail: the upper glove on the barrel shows only a thumb stub, fingers unreadable",
+    "text": "pass",
+    "crops": "pass: face ~67% across, eyes ~35% down, halo inside",
+    "count": "pass",
+    "frame_bg": "pass: deck and sea"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.15,
+   "notes": "Big grin and good look, but the bore faces the camera again and the eyes went orange-brown."
+  },
+  "r5-0": {
+   "hard": {
+    "identity": "pass: coral-pink short wavy hair with side braid, navy beret with gold anchor badge, white ribbon, gold shell pin, teal eyes, sailor coat with pink collar/cuffs and coral shapes, neckerchief, navy skirt and gloves, telescope-cannon; thin plain sky-blue ring halo (accepted as in r4-1)",
+    "safety": "fail (borderline = reject): the cannon is held at her waist with its coral-lined bore opening seen at an angle, pointing to the lower left and partly toward the camera, instead of slung on her back as asked",
+    "hands": "pass: raised glove and cannon glove both read",
+    "text": "pass",
+    "crops": "fail: eyes ~y395 (38.6% down, limit 36%)",
+    "count": "pass",
+    "frame_bg": "pass: training-boat deck, sea, clouds"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 7.33,
+   "notes": "Thumbs-up pose ignored; the cannon comes forward again and the head sits just below the line."
+  },
+  "r5-1": {
+   "hard": {
+    "identity": "fail: the telescope-cannon is missing entirely (not on her back, not in hand); required prop absent. Everything else on model, teal eyes",
+    "safety": "pass: student fully dressed, camera from above, front 3/4 torso with no chest emphasis, wholesome smile",
+    "hands": "pass: foreshortened thumbs-up glove reads (thumb plus four curled fingers); other hand hidden",
+    "text": "pass",
+    "crops": "pass: face ~45% across, eyes ~32% down, halo inside",
+    "count": "pass",
+    "frame_bg": "pass: boat deck and sea, soft"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 8.5,
+    "lookB": 8,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 7.58,
+   "notes": "The best-framed Sango of all rounds (big foreshortened thumbs-up, dutch from above, head well placed), but the cannon vanished."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "No round follows; budget spent. Nothing passes. Best candidate overall: r3-2 (7.55; rejected on the oversized splash halo and a borderline side-on chest contour; needs a human look). Best of round 5: r5-1 (7.58 by score, hard-failed only because the telescope-cannon is absent). Owner options: accept r5-1 without the cannon (the lead previously ruled a missing required hand prop a hard fail, so this is the owner's call), or keep the shipped portrait. Eye colour (teal vs the portrait's orange-brown) is still an owner check.",
+ "safety_flags": "r3-2 torso contour still needs a human look if it is ever considered. r5-1 is safe and well framed but cannon-less: owner call.",
+ "best_candidate": "r3-2",
+ "best_total": 7.55,
+ "passing_candidates": [],
+ "best_note": "r2-0 has a higher raw total (7.6) but fails safety (bore toward the camera) and crops; r3-2 is the closest to shippable."
+}

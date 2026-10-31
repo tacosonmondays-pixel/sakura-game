@@ -1,0 +1,256 @@
+{
+ "id": "tenka",
+ "round": 5,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: halo is a ring with a long zigzag line streaking across the frame, not a bolt inside a ring; skirt above the knee",
+    "safety": "fail: coilgun held out at arm's length toward the viewer (prompt asked goggles); borderline aim = reject",
+    "hands": "pass",
+    "text": "pass: no text",
+    "crops": "pass: eyes ~22%, halo mostly inside",
+    "count": "pass: one girl",
+    "frame_bg": "pass: science lab, blackboard"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 6.92,
+   "notes": " [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no halo (the rings are the coil field around the gun)",
+    "safety": "pass: gun upright, barrel to the ceiling",
+    "hands": "pass: five fingers",
+    "text": "pass: no text",
+    "crops": "pass: eyes ~24%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: lab, blackboard, flasks"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 7.5
+   },
+   "total": 7.17,
+   "notes": "No capacitor flick; hand on hip. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: no halo",
+    "safety": "pass: gun upright, finger point is fine, eye level",
+    "hands": "pass: pointing hand and gun hand five fingers",
+    "text": "pass: no text",
+    "crops": "pass: eyes ~23%, face ~45%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: lab, blurred"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.62,
+   "notes": "Would be a ~7.6 pick with a halo; skirt above the knee (spec below the knee). [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: no halo (only loose cyan field arcs and sparks around the coilgun); all other items right (ponytail with copper coil tie, goggles, amber eyes, lab coat with atom patch, grey vest, teal bow tie, plaid skirt to the knee, tights, sneakers)",
+    "safety": "pass: coilgun held up and back at 45 degrees, muzzle to the upper left, not at the viewer; only her finger points at the viewer",
+    "hands": "pass: pointing hand and gun hand both read",
+    "text": "pass (minor: a ribbed label strip on the gun, no legible characters)",
+    "crops": "pass: face ~58% across, eyes ~25% down",
+    "count": "pass",
+    "frame_bg": "pass: science lab, blackboard, test tubes"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "notes": "Strong, safe point-at-the-viewer with a foreshortened fist and smug grin; would clear the bar easily if the halo existed. The coil-field arcs keep standing in for the halo. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 7.47
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: no halo; coil-field arcs only",
+    "safety": "pass: gun upright, barrel to the ceiling",
+    "hands": "pass",
+    "text": "fail: letter-like marks printed on the coilgun body",
+    "crops": "pass: face ~64% across, eyes ~22% down",
+    "count": "pass",
+    "frame_bg": "pass: lab and blackboard"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "notes": "Upright gun with a finger-tap pose and a kicked-up heel; no capacitor flick, no halo, gun body has lettering. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 6.97
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: halo is a broken arc with lightning streaks running off the top-left edge",
+    "safety": "fail: the coilgun is held out at arm's length with its muzzle angled toward the lower-left foreground, i.e. presented toward the viewer",
+    "hands": "pass",
+    "text": "fail: lettering on the gun's grip",
+    "crops": "fail: halo cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass: lab with windows"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "notes": "The gun comes toward the camera again (thumbs-up pose ignored). [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 6.85
+  },
+  "r4-0": {
+   "hard": {
+    "identity": "fail: the halo (a thin ring with a bolt) floats as a detached oval in the upper-left corner, ~170 px from her head, reading as a badge/icon rather than her halo; everything else on model (blue/cyan ponytail, copper coil tie, goggles, amber eyes, lab coat with atom patch, vest, teal bow, plaid skirt below the knee, tights, coilgun)",
+    "safety": "pass: coilgun held upright, barrel to the ceiling; finger points at the viewer (no weapon aimed)",
+    "hands": "pass: gun hand grips the grip, pointing hand foreshortened and readable",
+    "text": "pass",
+    "crops": "pass: face ~44% across, eyes ~24% down, head inside",
+    "count": "pass",
+    "frame_bg": "pass: lab with blackboard and benches"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 8.5,
+    "lookB": 8,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 7.88,
+   "notes": "Best Tenka frame of all rounds (smug grin, foreshortened point, dutch tilt, safe gun) but the halo has drifted off her head into the corner."
+  },
+  "r4-1": {
+   "hard": {
+    "identity": "fail: coilgun missing (she holds a single capacitor cell); required hand prop absent",
+    "safety": "pass (minor): kicked-up heel, skirt above the knee but not emphasised",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~48% across, eyes ~25% down, small ring halo inside",
+    "count": "pass",
+    "frame_bg": "pass: lab window"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.1,
+   "notes": "Halo finally sits on her head, but the coilgun is gone."
+  },
+  "r4-2": {
+   "hard": {
+    "identity": "pass (minor): on model; coilgun present",
+    "safety": "pass",
+    "hands": "fail: the coilgun floats beside her ponytail with no hand on it",
+    "text": "pass",
+    "crops": "fail: halo cut by the top edge behind the ponytail (top-left, y=0)",
+    "count": "pass",
+    "frame_bg": "pass: lab"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 7.38,
+   "notes": "Unheld floating gun and a clipped halo."
+  },
+  "r5-0": {
+   "hard": {
+    "identity": "fail: halo is a broken open ring of arcs with arrow-like ends cut at the top edge, with the bolt floating separately to the right; the coilgun became an unreadable cluster of copper coils and cyan cells worn like a gauntlet (no gunmetal frame or barrel)",
+    "safety": "pass: fully dressed, wholesome grin; the coil cluster is not a recognisable weapon aimed at anyone",
+    "hands": "pass: pointing hand reads (thumb and curled fingers); the gauntlet hand is hidden inside the coils",
+    "text": "pass",
+    "crops": "fail: halo arcs touch/cross the top edge (y~0); face ~44% across, eyes ~22% down",
+    "count": "pass",
+    "frame_bg": "pass: physics classroom, soft blurred"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.1,
+   "notes": "Great pointing energy again, but both the halo and the coilgun broke."
+  },
+  "r5-1": {
+   "hard": {
+    "identity": "pass: royal-blue ponytail with cyan streaks, copper coil-spring tie, teal goggles up, amber eyes, open lab coat with atom patch, white shirt, grey vest, teal bow tie, plaid skirt, black tights, coilgun with copper coils and cyan cells; the thin cyan ring halo with a bolt finally sits centred over her head",
+    "safety": "pass: student fully dressed, eye-level-or-above camera, coilgun held upright with the barrel to the upper left (not at the viewer), wholesome soft smile",
+    "hands": "pass: gun hand wraps the (oddly disc-shaped) grip; open left hand reads as four stacked fingers with the thumb hidden, no extras",
+    "text": "pass",
+    "crops": "pass: face ~45% across, eyes ~(345,262) = 26% down, halo top ~y8 inside the frame",
+    "count": "pass",
+    "frame_bg": "pass: bright classroom with windows and blackboard, soft focus"
+   },
+   "scores": {
+    "identity": 8.5,
+    "camera": 5.5,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 7.5
+   },
+   "total": 7.4,
+   "notes": "First Tenka frame of all rounds that passes every hard check (halo on her head, gun held safely). But the requested point-at-the-viewer pose was ignored: she stands square to the camera with only a mild room tilt, no foreshortening, so camera is low (less dynamic than r4-1). Expression is a gentle smile rather than smug. Approx. measures if shipped anyway: eyes (345, 262), head ~297 px (crown y~40 to chin y~337)."
+  },
+  "r5-2": {
+   "hard": {
+    "identity": "fail: halo is an oval with a bolt floating beside her head at the upper left (same defect as r4-0), not over her head",
+    "safety": "fail (borderline = reject): the coilgun hangs at her hip with its muzzle toward the lower-left foreground",
+    "hands": "fail: no hand holds the coilgun; it floats at her hip",
+    "text": "pass",
+    "crops": "fail: the top of the ponytail is cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass: classroom, blackboard, soft"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 8
+   },
+   "total": 7.33,
+   "notes": "Strong smug point and dutch tilt, but the halo drifted again and the gun is unheld."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "No round follows; budget spent. Nothing reaches 7.5. Best passing candidate: r5-1 (7.4), the only Tenka frame of any round that passes every hard check, held back by a static, front-on camera. Best overall frame remains r4-0 (7.88, rejected on the halo floating in the corner). Owner options: ship r5-1 if the bar can drop for her, or ship r4-0 with the halo moved over her head in post. If ever re-rolled: r5-1's seed/wording for the halo and upright gun, plus 'pointing at the viewer, index finger very large near the camera, strong foreshortening, dutch angle' weighted 1.3.",
+ "safety_flags": "None for safety. r5-1 passes everything but scores 7.4; r4-0 (7.88) needs only a halo re-placement: worth a human look.",
+ "best_candidate": "r4-0",
+ "best_total": 7.88,
+ "passing_candidates": []
+}

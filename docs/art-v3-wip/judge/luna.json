@@ -1,0 +1,193 @@
+{
+ "id": "luna",
+ "round": 4,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass: lavender hime cut, fox ears, one big tail, violet sleepy eyes, gold crescent ornament with teal ribbon, navy high-collar gown, white wide-sleeved overcoat with teal, crescent-moon staff, crescent halo (pale cream, should be lavender), reads as a young adult",
+    "safety": "pass: high collar, both shoulders covered, staff upright",
+    "hands": "pass: teacup and staff hands five fingers",
+    "text": "pass",
+    "crops": "fail: eyes at y~385/1024 = 37.6% down (outside 15-36%); face ~41% across",
+    "count": "pass",
+    "frame_bg": "pass: terrace, wisteria, moon"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 3.5,
+    "lookB": 7.5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 6.35,
+   "notes": "Finally modest and adult-ish, but completely static front-on, teacup held at her chest (not toward the viewer), eyes at ~37% (just below the 36% band). [Round 3 reconsidered: round-2 verdict stands.] [Round 4 reconsidered: r3-1 (7.22) still has a cream crescent (the lead accepts a ring in her own colour only) and is below 7.5 anyway; r2-x unchanged.]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no halo",
+    "safety": "fail: bare shoulder exposed by an off-shoulder coat over a sleeveless dress (explicitly banned in the spec)",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 6.1,
+   "notes": "Looking-back tail pose is pretty, but bare shoulder again and no halo. [Round 3 reconsidered: round-2 verdict stands.] [Round 4 reconsidered: r3-1 (7.22) still has a cream crescent (the lead accepts a ring in her own colour only) and is below 7.5 anyway; r2-x unchanged.]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: no crescent halo (only the background moon); otherwise right",
+    "safety": "pass",
+    "hands": "pass: outstretched hand five fingers",
+    "text": "pass",
+    "crops": "pass: face ~44%, eyes ~33%",
+    "count": "pass",
+    "frame_bg": "pass: terrace, cherry trees, moon"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 5,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.5,
+   "notes": "Modest, adult, offering hand toward the viewer, but no halo and only mild foreshortening. [Round 3 reconsidered: round-2 verdict stands.] [Round 4 reconsidered: r3-1 (7.22) still has a cream crescent (the lead accepts a ring in her own colour only) and is below 7.5 anyway; r2-x unchanged.]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: halo is a cyan swirl/spiral floating off to the upper left, not a lavender crescent",
+    "safety": "pass",
+    "hands": "pass: teacup hand and staff hand ok",
+    "text": "pass",
+    "crops": "pass: face ~45%, eyes ~30%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 6,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.45,
+   "notes": "Modest and adult, teacup lower right, not very large. [Round 4 reconsidered: r3-1 (7.22) still has a cream crescent (the lead accepts a ring in her own colour only) and is below 7.5 anyway; r2-x unchanged.]"
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: crescent behind her head is cream/pale yellow (cream halo is in the negative; spec pale lavender); otherwise on model: lavender hime cut, fox ears, one huge tail, violet sleepy eyes, gold crescent ornament + teal ribbon, navy high-necked gown, white wide-sleeved overcoat covering both shoulders, crescent-orb staff",
+    "safety": "pass: adult, modest high collar, shoulders covered, hand is the focus",
+    "hands": "pass: open hand thumb + four fingers, staff hand ok",
+    "text": "pass",
+    "crops": "pass: face ~48%, eyes ~31%, crescent inside (top ~y28)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 7.5
+   },
+   "total": 7.22,
+   "notes": "Closest yet: dutch tilt, palm toward the lens, modest; only the halo colour (and a still-youthful face) holds it back. Would total 7.23 even with a passing halo. [Round 4 reconsidered: r3-1 (7.22) still has a cream crescent (the lead accepts a ring in her own colour only) and is below 7.5 anyway; r2-x unchanged.]"
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: cream crescent behind head (not lavender)",
+    "safety": "fail (borderline, rejected): front-on, teacup held at the chest with the bust at frame centre",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 4,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.9,
+   "notes": "Static, body-centred. [Round 4 reconsidered: r3-1 (7.22) still has a cream crescent (the lead accepts a ring in her own colour only) and is below 7.5 anyway; r2-x unchanged.]"
+  },
+  "r4-0": {
+   "hard": {
+    "identity": "fail: several fox tails (spec one huge tail); halo is a pink swirl loop, not a lavender crescent",
+    "safety": "pass: high-necked gown, overcoat over both shoulders",
+    "hands": "pass: staff hand and open hand five fingers",
+    "text": "pass",
+    "crops": "fail: the swirl halo crosses the top edge",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 5,
+    "lookB": 7.5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 6.12,
+   "notes": "Teacups and wisteria, but extra tails and a swirl halo."
+  },
+  "r4-1": {
+   "hard": {
+    "identity": "pass with note: lavender hime cut, fox ears, one tail, violet sleepy eyes, gold crescent ornament with teal ribbon, navy high-necked gown, white wide-sleeved overcoat with teal tassel, crescent-orb staff; halo a thin pale lilac arc (ok); face still youthful",
+    "safety": "pass: high neck, both shoulders covered, framed waist up, teacup held to the side",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: eyes ~42% down (limit 36%)",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 4.5,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 7.5
+   },
+   "total": 6.38,
+   "notes": "On model and modest, but static front-on and the face sits too low."
+  },
+  "r4-2": {
+   "hard": {
+    "identity": "fail: the 'halo' is a thin streak off to the side of her head, not above it",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: eyes ~58% down; face low in frame under a dominating staff",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6.5,
+    "lookB": 7.5,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 6.38,
+   "notes": "Raised palm pose but she sinks to the bottom of the frame."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "No round follows. No candidate in any round passes every hard check. Highest score: r3-1 (7.22; fails only on a cream instead of lavender crescent halo - a recolour of that halo to pale lavender would make it pass at ~7.2, still under 7.5). Best round-4: r4-1 (6.38, fails on eyes at 42% down). Keep the shipped portrait, or ship a recoloured r3-1 if the owner lowers the bar.",
+ "safety_flags": ""
+}

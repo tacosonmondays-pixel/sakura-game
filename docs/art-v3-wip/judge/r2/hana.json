@@ -1,0 +1,73 @@
+{
+ "id": "hana",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: plaid skirt ends mid-thigh (spec: below the knee); halo is a spiky sun ring, not a star; otherwise braid over her right shoulder with olive bow, field jacket with wing patch, mustard neckerchief, falcon drone on the gloved fist, glove screen",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~64%, eyes ~26%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.38,
+   "notes": "Good arm-out falcon pose at the lookout rail."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: star halo floats over the falcon, not her head; skirt mid-thigh",
+    "safety": "fail: camera below eye level (legs large in the foreground, head small against the sky); rejected as borderline",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~70%, at the limit",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 8,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.0,
+   "notes": "Falcon well drawn but low camera and misplaced halo."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: skirt above the knee; falcon reduced to a tiny white gadget in the glove; halo star-ring ok",
+    "safety": "pass",
+    "hands": "pass: peace hand and reaching gloved hand 5 digits",
+    "text": "pass",
+    "crops": "pass: face ~55%, eyes ~26%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 7.33,
+   "notes": "Pleasant pine lookout, glove reaching toward viewer."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "All three drew a mid-thigh skirt. Prompt: '(olive-brown plaid skirt reaching below the knees:1.4), long skirt, dark brown tights, brown trail boots visible'; negative 'miniskirt, short skirt, skirt above knee, thighs, low angle, from below, worm's eye view'. Keep r2-0's pose first (falcon perched on the gloved fist held toward the viewer, rail behind), frame to the knees so the hem shows. Halo: '(pale cream five-pointed star halo directly above her head:1.3)'; negative 'spiky halo, sun halo, halo above the falcon'. Camera: 'slightly high angle, eye level or above'. Keep r2-2's lookout scene.",
+ "safety_flags": "r2-1 camera reads from below."
+}

@@ -1,0 +1,93 @@
+{
+ "id": "tenka",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: no lightning-in-ring halo (only a faint cyan ring); goggles pose not drawn",
+    "safety": "fail: coilgun is held out with its muzzle facing the camera (spec: reject)",
+    "hands": "pass: gun hand ok",
+    "text": "pass",
+    "crops": "pass: face ~60% across, eyes ~22% down",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 5
+   },
+   "total": 4.4,
+   "notes": "Rejected on safety - the exact failure the spec warned about."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: halo replaced by cyan ripple rings, no lightning-bolt-in-ring",
+    "safety": "pass: coilgun upright, barrel to the ceiling",
+    "hands": "pass: both hands 5 fingers on grip",
+    "text": "pass",
+    "crops": "pass: face ~64% across, eyes ~27% down",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place; lab drawn as thin line sketch over pale fill"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 5,
+    "lookB": 3,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.15,
+   "notes": "Identity otherwise strong (copper coil tie, goggles, atom patch, plaid). Static two-hand pose; no flick/foreshortening."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: no halo",
+    "safety": "pass: finger point at viewer is a friendly gesture; gun upright",
+    "hands": "fail: pointing hand is oversized and rubbery, finger joints malformed",
+    "text": "pass",
+    "crops": "pass: face ~57% across, eyes ~22% down",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 4.9,
+   "notes": "Smug grin good; hand drawn poorly."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: no halo; coilgun held, not lying on bench as asked",
+    "safety": "pass: gun upright",
+    "hands": "fail: chalk hand fingers fused/unclear",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place; grey line background"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 5
+   },
+   "total": 4.4,
+   "notes": "Weak."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "ROUND-WIDE STYLE FAILURE: every candidate in this batch rendered as flat colouring-book line art (dark near-black outlines, no shadow shapes at all, backgrounds drawn as thin line sketches over one flat fill). Fix in the shared style tail: REMOVE or down-weight 'flat color', 'few colors', 'few interior lines', 'flat hair color planes', 'no black outlines' (the model reads these as 'uncoloured line art'); ADD '(two-tone cel shading:1.3), hard-edged shadow shapes on face, hair and clothes, soft painted background, (blurred painted background:1.2), bokeh, depth of field, atmospheric perspective, bright sunlight, rim light'; ADD to negative: 'lineart, line art, coloring book, uncolored, monochrome, sketch, sketch background, line-drawn background, white background, simple background, flat background, blank background, thick outlines, black outlines, manga, screentone, border, frame'. If the pipeline allows a style reference, feed sheets/_lookB_reference.jpg tiles as the style image; keep charref fidelity at 0.6 (identity is mostly fine, the drift is style). GIRL-SPECIFIC: keep pose 1 (capacitor flick) and pose 0 but force the coilgun on her shoulder: 'coilgun resting on her shoulder, barrel pointing straight up'. Halo: '(pale cyan lightning bolt inside a thin ring halo above her head:1.3)', negative 'ripple rings, sound waves'. Negative 'aiming at viewer, gun pointed at viewer, muzzle facing viewer, foreshortened gun'. Background: '(sunlit school science lab, blackboard, beakers, painted and blurred:1.2)'. Pilot B-5 style worked at 8.2 - compare its style tail with this round's and restore any dropped shading words.",
+ "safety_flags": "r1-0 coilgun muzzle toward camera."
+}

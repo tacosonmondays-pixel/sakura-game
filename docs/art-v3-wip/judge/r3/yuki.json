@@ -1,0 +1,133 @@
+{
+ "id": "yuki",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: halo is scattered ice shards (negative term) rather than a snowflake halo",
+    "safety": "pass (borderline-ok): eye level",
+    "hands": "pass: book hands fine",
+    "text": "pass: blank pages",
+    "crops": "fail: halo pieces run off the top edge",
+    "count": "pass: one girl",
+    "frame_bg": "pass: library, arched windows, shelves"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 6,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.85,
+   "notes": "Book-out pose lost its foreshortening. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass (weak): halo is a cluster of snowflakes, not a single snowflake halo",
+    "safety": "pass",
+    "hands": "pass: open hand five fingers",
+    "text": "pass: no text",
+    "crops": "fail: halo cluster cut by the top edge",
+    "count": "pass: one girl",
+    "frame_bg": "pass: library windows, shelves"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 7.25,
+   "notes": " [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass: silver bob, snowflake pin, light blue eyes, fur capelet, bow with gem, pale blue dress, white tights, staff upright; halo is a ring of snowflakes",
+    "safety": "pass: eye level, staff upright away from the viewer",
+    "hands": "pass: reaching hand five fingers",
+    "text": "pass: no text",
+    "crops": "fail: back of the halo ring clipped at y=0 (zoom checked)",
+    "count": "pass: one girl",
+    "frame_bg": "pass: library shelves, blurred"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.58,
+   "notes": "~7.6; fails only on the halo crop. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: no halo; heavy silver filigree on the dress again",
+    "safety": "fail: camera from below (ceiling arches overhead, skirt hem seen from underneath, white-tights legs in the lower frame of a student)",
+    "hands": "pass: reaching hand five fingers; staff hand fine",
+    "text": "pass",
+    "crops": "pass: face ~55% across, eyes ~20% down",
+    "count": "pass",
+    "frame_bg": "pass: library rotunda with shelves"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 6.5,
+    "lookB": 7,
+    "composition": 6,
+    "appeal": 7.5
+   },
+   "notes": "Reach and book are fine, but the low camera and swirling short skirt make it a reject for a student portrait; halo missing.",
+   "total": 6.62
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: no halo",
+    "safety": "fail: low camera looking up under the flared skirt, legs in tights in the lower frame",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~55% across, eyes ~27% down",
+    "count": "pass",
+    "frame_bg": "pass: library window and shelves"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 6,
+    "lookB": 7,
+    "composition": 6,
+    "appeal": 7.5
+   },
+   "notes": "Ice crystal over the palm reads, but same low angle and no halo.",
+   "total": 6.5
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail (minor+): halo is a plain icy ring, not a snowflake; otherwise on model (bob, snowflake pin, blue eyes, fur capelet, bow with snowflake gem, plain pale blue dress, white tights, staff with ice crystal)",
+    "safety": "pass: student modest, eye level or slightly above, dress below the knee",
+    "hands": "pass: both hands round the cocoa mug, fingers readable",
+    "text": "pass",
+    "crops": "fail: the top of the halo ring touches/clips the top edge (y=0 at x~220-300, zoom checked); face ~45% across, eyes ~22% down",
+    "count": "pass",
+    "frame_bg": "pass: library with arched windows, desks and shelves"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 5.5,
+    "lookB": 8.5,
+    "composition": 7,
+    "appeal": 8
+   },
+   "notes": "Best Look B for her (plain dress, no filigree, warm library light), cosy and safe, but the cocoa is held at her chest rather than offered toward the lens, and the halo ring is clipped again.",
+   "total": 7.03
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "r2-2 (7.58) and r3-2 both lose only on a clipped halo; r3-0/r3-1 lost the halo and went low-angle. 1) Halo: '1.3::small pale icy-blue snowflake-shaped halo, a flat six-pointed snowflake, floating just above her hair, centred::'; negative 'ring halo, large halo, halo cut off, halo touching the edge'. 2) Headroom: 'her eyes about 30% down from the top, wide gap of background above the halo'. 3) Camera: 'from slightly above, upper body to the hips' on every pose; negative '1.3::from below::, low angle, ceiling, legs, skirt flare'. 4) Keep pose 2 (cocoa, r3-2) but '1.2::she holds the steaming cup out toward the viewer at arm's length, cup and hands very large near the camera::'; keep pose 1 (ice crystal on palm) with the camera fix; drop pose 0 (book, low angle). 5) Keep the plain-dress wording that worked in r3-2 ('plain thin white trim'); negative 'filigree, ornate embroidery'.",
+ "safety_flags": "r3-0 and r3-1: low camera under a short flared skirt on a student (rejected)."
+}

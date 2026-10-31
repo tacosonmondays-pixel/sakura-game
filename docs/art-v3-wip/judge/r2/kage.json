@@ -1,0 +1,73 @@
+{
+ "id": "kage",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: still a big metal forehead-protector plate with a crescent (spec explicitly asks for a soft cloth band with a tiny pin); crescent halo is cream not pale lilac",
+    "safety": "pass",
+    "hands": "pass: envelope hand five fingers, far hand small but fine",
+    "text": "pass",
+    "crops": "fail: the crescent halo is cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass: sunny rooftop with a town below"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 8,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.8,
+   "notes": "Good energetic envelope pose and Look B colour, but the metal headband plate is exactly the drift the spec forbids, and the halo is cut."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: metal forehead-protector plate again; no halo at all; skirt reads knee length",
+    "safety": "pass",
+    "hands": "pass: reaching hand five fingers",
+    "text": "pass",
+    "crops": "pass: face ~45%, eyes ~21%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 8.5,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.05,
+   "notes": "Best camera (foreshortened reaching hand, running pose) but the headband plate and missing halo fail identity; a lone shuriken floats beside her hand."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: metal forehead-protector plate; halo is a cream swirl, not a lilac crescent; shuriken is wrapped in a bag",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: swirl halo inside, face ~52%, eyes ~23%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.3,
+   "notes": "Static, plate and halo wrong."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "All three still draw a metal forehead plate even with r2's weights: the charref (her shipped portrait) carries that plate, so the text cannot beat it. (1) Lower charref fidelity to 0.35, or set a charref_box that excludes the forehead is impossible, so instead MOVE the crescent off the forehead: prompt '1.4::thin dark purple cloth ribbon tied around her head like a hairband, knotted at the side with trailing ends, no plate::, small silver crescent-moon hairpin clipped above her left ear'; negative add '1.4::metal plate, forehead protector, metal headband, plate on forehead, engraved plate, forehead emblem::'. (2) HALO: '1.4::pale lilac crescent moon halo floating above her head::' and negative 'cream halo, white halo, swirl halo, ring halo, no halo'; place it 'fully inside the frame with space above'. (3) Keep pose r2-1 (running, hand reaching toward the lens: best camera) and r2-0 (envelope held out), from slightly above; add 'the silver shuriken spun on her raised fingertip pointing up' to the free hand so it does not float; negative 'floating shuriken, thrown shuriken'. (4) Skirt: '1.2::long purple skirt reaching below the knee::'.",
+ "safety_flags": ""
+}

@@ -1,0 +1,133 @@
+{
+ "id": "kage",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass with note: headband plate on model; halo cream crescent (colour deducted)",
+    "safety": "pass",
+    "hands": "pass: envelope hand five fingers, far hand small but fine",
+    "text": "pass",
+    "crops": "fail: the crescent halo is cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass: sunny rooftop with a town below"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 8,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 7.4,
+   "notes": "Lead decision applied: metal headband plate with crescent is in the shipped portrait = identity; ring halo instead of crescent = score deduction. Still fails: halo cut by the top edge."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no halo at all (missing, not a shape swap); shuriken floats beside her hand",
+    "safety": "pass",
+    "hands": "pass: reaching hand five fingers",
+    "text": "pass",
+    "crops": "pass: face ~45%, eyes ~21%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 8.5,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.35,
+   "notes": "Lead decision applied: metal headband plate with crescent is in the shipped portrait = identity; ring halo instead of crescent = score deduction. Best r2 camera but no halo."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass with note: plate on model; halo is a cream swirl (deducted); shuriken wrapped in a clear bag (deducted)",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: swirl halo inside, face ~52%, eyes ~23%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 6,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.75,
+   "notes": "Lead decision applied: metal headband plate with crescent is in the shipped portrait = identity; ring halo instead of crescent = score deduction. Passes hard checks now but scores 6.75: static, wrong halo and prop."
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: the silver shuriken (signature prop, called for by the pose) is absent: her other hand is visible and empty. Headband plate, lilac eyes, purple bob, scarf, jacket with bow, obi with pouch, arm guards, long skirt all on model; halo is a lilac ring, not a crescent (deducted)",
+    "safety": "pass",
+    "hands": "pass: reaching hand 5 fingers",
+    "text": "pass",
+    "crops": "pass: face ~33%, eyes ~31%, halo top ~y5 inside",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 8.5,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.75,
+   "notes": "Lead decision applied: metal headband plate with crescent is in the shipped portrait = identity; ring halo instead of crescent = score deduction. Best camera of both rounds (run toward the viewer, big five-finger hand, dutch angle). Blocked only by the missing shuriken; if the lead treats a missing hand prop as a deduction, it scores 7.75 and would be the pick."
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "pass with note: plate on model; ring halo (deducted); no shuriken (deducted)",
+    "safety": "pass",
+    "hands": "pass: envelope hand ok",
+    "text": "pass",
+    "crops": "fail: halo ring cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.28,
+   "notes": "Lead decision applied: metal headband plate with crescent is in the shipped portrait = identity; ring halo instead of crescent = score deduction. Still fails: halo ring cut by the top edge."
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "pass with note: plate on model; ring halo with arrow tips (deducted)",
+    "safety": "fail (borderline, rejected): a big shuriken-shaped object floats just above her open palm, pushed straight at the viewer (reads as a throw at the camera)",
+    "hands": "fail: the prop floats above the palm, not held",
+    "text": "pass",
+    "crops": "pass: face ~45%, halo inside",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.4,
+   "notes": "Lead decision applied: metal headband plate with crescent is in the shipped portrait = identity; ring halo instead of crescent = score deduction. Leap pose good, but the shuriken-like parcel floats toward the lens."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "With the plate accepted, only props and the halo remain. Keep r3-0's run pose first unchanged (camera 8.5) and make the shuriken unmissable: '1.4::her other hand raised high, a small silver shuriken spinning on her raised index fingertip, pointing straight up::' (as in the shipped portrait); negatives 'empty hand, floating shuriken, thrown shuriken, shuriken toward viewer'. Halo: '1.5::pale lilac thin crescent moon halo above her head::'; negatives 'ring halo, circular halo, full circle'. Keep 'head in the upper third, space above the halo'. Drop r3-2's parcel pose (prop reads as a throw at the viewer).",
+ "safety_flags": "Lead call needed: kage r3-0 is blocked only by the missing shuriken (hard identity check). If a missing hand prop is a deduction rather than a fail, r3-0 totals 7.75 and would be the pick."
+}

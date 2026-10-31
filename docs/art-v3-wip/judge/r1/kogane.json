@@ -1,0 +1,93 @@
+{
+ "id": "kogane",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: no halo; no goggles on hat; wrench drawn as a blunt cleaver shape; walker in back is a robot-like biped with a camera-ish head",
+    "safety": "fail: wrench head foreshortened toward the camera (pose asked handle-first)",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: line-drawn white trees and buildings"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 5
+   },
+   "total": 4.55,
+   "notes": "Wrench reads as weapon toward lens."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: halo is a plain orange ring, not an 8-tooth cogwheel; no goggles; no walker; no polo emblem",
+    "safety": "pass",
+    "hands": "fail: wrench floats behind her hip with no hand on it",
+    "text": "pass",
+    "crops": "pass: face ~35% x, eyes ~25% down",
+    "count": "pass",
+    "frame_bg": "fail: flat pink halftone tree shapes on a flat sky"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 5.05,
+   "notes": "Open hand toward viewer reads well."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: no halo at all; no polo emblem; walker only a vague yellow machine in the background; hard hat, sticker, goggles, jacket, trousers, wrench right",
+    "safety": "pass: adult cowboy shot, not body-framed, wrench on shoulder",
+    "hands": "pass: five fingers on wrench hand",
+    "text": "pass",
+    "crops": "pass: face ~40% x, eyes ~25% down",
+    "count": "pass",
+    "frame_bg": "pass: cherry-lined campus path, softly painted"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 4,
+    "lookB": 6,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 5.85,
+   "notes": "Closest to Look B of the batch (painted backdrop, bright). Static three-quarter stance, no foreshortening; fails on missing halo."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: no halo; walker reduced to a yellow tripod contraption",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: half the frame is white line sketch"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.45,
+   "notes": "Floating hat toss reads fine."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "STYLE (all candidates came out as dark-inked line art on blank/sketched backgrounds): in the negative REMOVE 'painterly, painted gradients, brush texture' (they kill the soft painted backdrop) and ADD 'lineart, sketch, uncolored background, line-drawn background, simple background, white background, blank background, monochrome background, coloring book, manga, screentone, halftone, heavy outlines, dark lineart'. In the prompt REPLACE 'background melted into soft shapes with no lines' with '1.2::detailed soft painted background, blurry background, bokeh, depth of field::' and keep 'thin light lines tinted to the color they border'. KOGANE: halo still missing (3/4) or ringed: '1.4::warm gold cogwheel halo with eight teeth floating above her hard hat::', negative 'no halo, ring halo, plain ring'. Emblem: 'small gold emblem on the navy polo chest'. Walker: '1.2::small yellow two-legged walker with open cockpit and seat, roll bar, two headlights, orange beacon, standing beside her::'. Keep r1-2's scene and rendering words (it was the only painted backdrop) and pose 1 (open hand toward viewer) / pose 2 (thumbs-up toward viewer: add 'fist and thumb very large near camera, close to lens'). Drop pose 0 (wrench head came at the lens); negative 'wrench pointed at viewer'.",
+ "safety_flags": "r1-0: wrench head foreshortened at the camera."
+}

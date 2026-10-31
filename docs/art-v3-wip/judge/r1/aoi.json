@@ -1,0 +1,93 @@
+{
+ "id": "aoi",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: no leaf halo; corset-laced bodice instead of plain leather vest",
+    "safety": "pass",
+    "hands": "fail: lower gloved hand has claw-like white fingertips",
+    "text": "pass",
+    "crops": "pass: face ~41%, eyes ~24%",
+    "count": "pass",
+    "frame_bg": "pass: archery lawn, but flat colour field"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 3,
+    "lookB": 4,
+    "composition": 5,
+    "appeal": 5
+   },
+   "total": 4.3,
+   "notes": "Static front-on."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "pass: ponytail, gold leaf clip, leaf halo, capelet, quiver; NOTE corset lacing still drawn",
+    "safety": "pass",
+    "hands": "pass: waving hand 5 fingers, bow hand fine",
+    "text": "pass",
+    "crops": "pass: face ~44%, eyes ~31%",
+    "count": "pass",
+    "frame_bg": "pass: archery lawn with sheds, washed-out flat field"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 4,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.7,
+   "notes": "Best of four: cheerful wave toward viewer, some diagonal. Flat fills, no cel shadow."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: corset bodice; plain ring halo not a leaf halo",
+    "safety": "pass",
+    "hands": "fail: loose arrow floats beside the bow hand, not held",
+    "text": "pass",
+    "crops": "pass: face ~45%, eyes ~25%",
+    "count": "pass",
+    "frame_bg": "pass: lawn with targets, flat"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 4,
+    "lookB": 4,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 4.8,
+   "notes": "Arm-behind-head pose stiff."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: no halo; corset bodice",
+    "safety": "pass: high angle, fine",
+    "hands": "fail: gloved left hand fingers malformed",
+    "text": "pass",
+    "crops": "fail: eyes ~39% down (limit 36%)",
+    "count": "pass",
+    "frame_bg": "pass: lawn, flat yellow-green field"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5,
+    "lookB": 4,
+    "composition": 5,
+    "appeal": 5
+   },
+   "total": 4.8,
+   "notes": "High-angle full body; small face."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "STYLE (whole round): every render came out as a colouring-book page: black outlines, almost no shading, uncoloured line-sketch or flat single-colour backgrounds. REMOVE from prompt: 'flat color', 'few interior lines', 'flat hair color planes', 'background melted into soft shapes with no lines' (these push the model to uncoloured/flat backgrounds). ADD to prompt: 'anime coloring, soft two-tone cel shading, thin colored lineart, fully colored painted background, detailed background, blurry background, bokeh, depth of field, bright sunlight, high-key'. ADD to negative: 'lineart, sketch, uncolored, unfinished, monochrome background, simple background, white background, flat background, gradient background, coloring book, manga, screentone, halftone, border, frame, letterboxed, picture frame'. Foreshortened hand toward camera mostly did not render: re-weight it e.g. '1.3::foreshortening, hand reaching toward viewer::'. GIRL: Corset keeps coming from the charref: lower charref fidelity to 0.45 and weight '1.3::plain brown leather vest, no lacing::'; keep 'corset, lace-up bodice, laced bodice, cross-lacing' in negative. Halo: '1.2::pale green leaf-shaped halo::'. Keep pose 1 (wave) and push foreshortening on the waving hand. Scene: add 'sunlit archery range, trees with dappled light, painted grass, colored targets' so the field is not a flat lime fill; negative 'flat green background'. ",
+ "safety_flags": ""
+}

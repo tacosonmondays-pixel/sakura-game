@@ -1,0 +1,133 @@
+{
+ "id": "noa",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: halo broken into two arcs, sits off-centre upper left and its top arc is clipped by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6.5,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 7.5
+   },
+   "total": 6.88,
+   "notes": "Infirmary window and curtain, armband with sakura, shield with sakura plate. Hair drifted to the portrait's bob + single bun; the plaster became a floating blossom. Halo is broken into two disconnected arcs off to the upper left and clipped by the top edge. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: oversized sakura halo cut off by the top/left frame edges",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 8
+   },
+   "total": 7.33,
+   "notes": "Best camera: dutch angle, open palm reaching toward viewer, two buns, shield at side. But the halo is a huge pink sakura shape at top-left, cut off by the frame edge. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: halo top arc clipped at the top edge and displaced to the upper left",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6,
+    "lookB": 7.5,
+    "composition": 6.5,
+    "appeal": 8
+   },
+   "total": 7.17,
+   "notes": "Best identity: two low buns, pins, armband, pouch, shield, snack in both hands, infirmary bed and curtain. Camera only mildly tilted, hands not very foreshortened. Halo ring sits off to the upper left and its top arc is clipped by the top edge. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "pass: honey-brown hair with low buns, blunt bangs, sakura pin, rose-pink eyes, grey blazer, mint cardigan and bow, armband with sakura, pouch, mint ward shield with sakura plate, petal halo, gentle smile",
+    "safety": "pass: student fully dressed, kicked-up heel but skirt stays at the knee, no leg emphasis",
+    "hands": "pass: reaching hand has five fingers; the far hand behind the shield is plausible",
+    "text": "pass",
+    "crops": "fail: the sakura-petal halo's top petal is cut by the top edge (y=0); face ~52% across, eyes ~23% down",
+    "count": "pass",
+    "frame_bg": "pass: infirmary with window, curtains and bed"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 8.5,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 8
+   },
+   "notes": "The best image of either round: strong dutch angle, big foreshortened open palm, mid-step motion, infirmary behind. Rejected only because the halo (a cluster of five petals) is clipped by the top edge.",
+   "total": 7.9
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "pass: two low buns with sakura pins, armband, pouch, shield, snack, all on model",
+    "safety": "pass",
+    "hands": "pass: both hands cup the snack, fingers readable",
+    "text": "pass",
+    "crops": "fail: the halo ring is cut off by the top edge (only its lower half is inside the frame)",
+    "count": "pass",
+    "frame_bg": "pass: infirmary window, curtains, bed"
+   },
+   "scores": {
+    "identity": 8.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 6,
+    "appeal": 8.5
+   },
+   "notes": "Best identity yet (two buns, both pins, armband, pouch, shield), warm open smile, decent tilt and snack toward the camera. Halo again pushed off the top.",
+   "total": 7.65
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "pass: one side bun reads (the other side falls as a bob, notes allow either), pin, armband sakura on sleeve, shield with sakura plate, pouch, halo",
+    "safety": "pass",
+    "hands": "pass: open gesture hand five fingers; other hand holds a bandage roll on the shield rim",
+    "text": "pass",
+    "crops": "pass: whole halo ring inside (top ~y12), face ~52% across, eyes ~21% down",
+    "count": "pass",
+    "frame_bg": "pass: infirmary with windows and bed"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 6.5,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "notes": "Only round-3 candidate that passes every hard check, but the camera is a mild tilt with a sideways open hand (not toward the viewer), the white pouch is duplicated on both hips, and the halo grazes the top edge. Below 7.5.",
+   "total": 7.17
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "So close: r3-0 (8.0-level) and r3-1 both fail only on a clipped halo. 1) Lower the framing: replace 'eyes about a quarter down' with 'her eyes about 30% down from the top, a wide band of empty background above the halo'. 2) Make the halo small and close: '1.3::small thin pale pink ring halo with tiny sakura petals, floating just above her hair, centred over her head::'; negative add 'large halo, petal cluster halo, halo touching the edge, halo cut off'. 3) Keep pose 0 (reach; r3-0) and pose 1 (snack; r3-1) only, re-roll both; drop the sideways-gesture/bandage pose (r3-2 duplicated the pouch). 4) Add 'one small white shoulder pouch' and negative 'two pouches'. Charref fidelity stays as is; style and identity are now right.",
+ "safety_flags": ""
+}

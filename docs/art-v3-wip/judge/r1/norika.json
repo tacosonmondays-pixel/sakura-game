@@ -1,0 +1,93 @@
+{
+ "id": "norika",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "fail: kanji-like writing on the sash",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: halftone sky, road"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7,
+    "lookB": 5,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 6.05,
+   "notes": "Paddle foreshortened well, but text on the sash."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "fail: pointing glove becomes a finger-gun, thumb/fingers malformed",
+    "text": "fail: letters on the sash",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 6,
+    "composition": 6,
+    "appeal": 5
+   },
+   "total": 5.9,
+   "notes": "Finger-gun gesture, sash lettering."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "pass (flag: reads as a child, not adult staff)",
+    "safety": "pass",
+    "hands": "pass: reaching glove 5 fingers, paddle held by its pole",
+    "text": "pass",
+    "crops": "fail: halo touches the top edge (y~0), no headroom for card crop",
+    "count": "pass",
+    "frame_bg": "pass: crossing, barriers, cones, trees"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6,
+    "lookB": 7,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 6.5,
+   "notes": "Closest to Look B in this batch (real cel shading, real place), but the halo is clipped, eyes are uneven, and she looks like a schoolchild in a school cap."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: paddle orange not red and merged with the traffic cone (no pole)",
+    "safety": "pass",
+    "hands": "fail: prop held implausibly (grip on a cone tip under a disc)",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: road, cones, trees"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 7,
+    "lookB": 7,
+    "composition": 7,
+    "appeal": 6
+   },
+   "total": 6.3,
+   "notes": "Good diagonal and foreshortened prop, but the prop is a paddle/cone hybrid."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Style was fine with vibe azami 0.2 and no charref: keep it. Norika: she reads as a child; add 'adult woman, 25 years old, mature face, tall, slender adult proportions' and negative 'child, loli, kid, school cap, randoseru'. Change 'yellow safety cap' to 'yellow hard hat safety helmet' if the cap keeps reading as a kids' school hat. Negative add 'text on sash, writing, kanji, katakana, letters on sash, plain sash'; positive 'plain neon yellow-green sash with no writing'. Drop pose 3 (cone merges with the paddle) and pose 1 (finger-gun); keep pose 0 (paddle out, best camera) and pose 2 (beckon, but without the whistle in her mouth: 'silver whistle hanging on her chest'). Add 'whole halo inside the frame, headroom above the halo'. Paddle: 'round red paddle sign on a white pole, blank face'.",
+ "safety_flags": "Adult staff renders as a child in every candidate (face/proportions + kids' school cap)."
+}

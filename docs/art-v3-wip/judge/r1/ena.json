@@ -1,0 +1,93 @@
+{
+ "id": "ena",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "pass: braid over her left shoulder, rose, cards, launcher; NOTE halo missing, coat slate-grey",
+    "safety": "pass",
+    "hands": "pass: card balanced on fingertip, plausible",
+    "text": "pass",
+    "crops": "pass: face ~65%, eyes ~26%",
+    "count": "pass",
+    "frame_bg": "fail: uncoloured white sketch room"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.2,
+   "notes": ""
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: braid over her RIGHT shoulder",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "fail: card corners carry small number-like marks",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: uncoloured white curtains"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.2,
+   "notes": ""
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: halo is a jagged star outline not a crescent moon; no tarot cards (crystal ball instead)",
+    "safety": "pass",
+    "hands": "pass: hands cradling ball ok",
+    "text": "pass",
+    "crops": "pass: face ~42%, eyes ~27%",
+    "count": "pass",
+    "frame_bg": "pass: cream club room, coloured"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 5,
+    "lookB": 4,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.35,
+   "notes": "Only coloured background; static."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: braid over her RIGHT shoulder; skirt above the knee",
+    "safety": "pass",
+    "hands": "pass: reaching hand ok",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: uncoloured white sketch"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 7,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 4.85,
+   "notes": "Nice throw pose, wrong braid side."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "STYLE (whole round): every render came out as a colouring-book page: black outlines, almost no shading, uncoloured line-sketch or flat single-colour backgrounds. REMOVE from prompt: 'flat color', 'few interior lines', 'flat hair color planes', 'background melted into soft shapes with no lines' (these push the model to uncoloured/flat backgrounds). ADD to prompt: 'anime coloring, soft two-tone cel shading, thin colored lineart, fully colored painted background, detailed background, blurry background, bokeh, depth of field, bright sunlight, high-key'. ADD to negative: 'lineart, sketch, uncolored, unfinished, monochrome background, simple background, white background, flat background, gradient background, coloring book, manga, screentone, halftone, border, frame, letterboxed, picture frame'. Foreshortened hand toward camera mostly did not render: re-weight it e.g. '1.3::foreshortening, hand reaching toward viewer::'. GIRL: Braid side flips: weight '1.3::single braid over her left shoulder::' and add 'braid over right shoulder' to negative; lower charref fidelity is not the fix (portrait is correct): keep 0.6. Halo: '1.2::pale pink crescent moon halo::'. Drop crystal ball unless named: add 'crystal ball' to negative. Card faces: add 'numbers, corner index, playing card' to negative. Keep 'knee-length skirt' weighted 1.2, negative 'miniskirt, short skirt'. Scene: 'bright afternoon occult club room, colored curtains, bookshelves, sunlit window'. Keep pose of r1-3 (card throw with reaching hand).",
+ "safety_flags": ""
+}

@@ -1,0 +1,93 @@
+{
+ "id": "suzu",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: no big looped side curl; hair lemon-yellow not golden-blonde; hand bell drawn as a teapot-like blob",
+    "safety": "pass",
+    "hands": "fail: hand holding bell is a fused blob",
+    "text": "pass",
+    "crops": "pass: face ~38% across, eyes ~26% down",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 5
+   },
+   "total": 4.1,
+   "notes": "Rejected on hands."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: no looped side curl; hair flat lemon yellow; otherwise ribbons, kimono, obi bells, ring halo, gold bells right",
+    "safety": "pass",
+    "hands": "pass: hand holding bell 5 fingers",
+    "text": "pass",
+    "crops": "pass: face ~45% across, eyes ~22% down",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place; flat white/green fills"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 4.65,
+   "notes": "Toothy grin; bell on cord not dangled toward viewer (camera static)."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: no side curl; extra dangling bell/rattle prop",
+    "safety": "pass",
+    "hands": "pass: raised hand ok; lower hand small but 5 fingers",
+    "text": "pass",
+    "crops": "pass: face ~58% across, eyes ~30% down",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place; flat green field"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.75,
+   "notes": "Best motion of the set but very flat."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: no halo; no side curl",
+    "safety": "pass",
+    "hands": "fail: left hand fingers splayed/malformed",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 4,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 5
+   },
+   "total": 3.85,
+   "notes": "Rejected on identity + hands."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "ROUND-WIDE STYLE FAILURE: every candidate in this batch rendered as flat colouring-book line art (dark near-black outlines, no shadow shapes at all, backgrounds drawn as thin line sketches over one flat fill). Fix in the shared style tail: REMOVE or down-weight 'flat color', 'few colors', 'few interior lines', 'flat hair color planes', 'no black outlines' (the model reads these as 'uncoloured line art'); ADD '(two-tone cel shading:1.3), hard-edged shadow shapes on face, hair and clothes, soft painted background, (blurred painted background:1.2), bokeh, depth of field, atmospheric perspective, bright sunlight, rim light'; ADD to negative: 'lineart, line art, coloring book, uncolored, monochrome, sketch, sketch background, line-drawn background, white background, simple background, flat background, blank background, thick outlines, black outlines, manga, screentone, border, frame'. If the pipeline allows a style reference, feed sheets/_lookB_reference.jpg tiles as the style image; keep charref fidelity at 0.6 (identity is mostly fine, the drift is style). GIRL-SPECIFIC: keep pose 0 (hand bell toward viewer) and pose 2 (spin). Hair: '(warm golden-blonde hair:1.2), (one big looped side curl:1.3)', negative 'lemon yellow hair, pale yellow hair'. Prop: 'small brass hand bell with wooden handle'. Halo must be present: '(thin pale gold ring halo above head:1.2)'. Background: painted shrine veranda with blurred greenery.",
+ "safety_flags": ""
+}

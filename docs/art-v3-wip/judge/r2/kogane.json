@@ -1,0 +1,73 @@
+{
+ "id": "kogane",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: no sakura sticker on the hat, no polo emblem, walker only a fragment at the bottom edge",
+    "safety": "pass",
+    "hands": "pass: waving hand five fingers",
+    "text": "pass",
+    "crops": "fail: the cog halo is cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass: campus with cherry trees"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 6.5,
+    "lookB": 5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 6.0,
+   "notes": "Cheerful wave but heavy black outlines, halo cropped, sticker and walker missing."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: the walker is an unreadable yellow blob with a beacon at the left (no two legs, no open cockpit, no seat); no polo emblem",
+    "safety": "pass",
+    "hands": "pass: hand on wrench handle plausible",
+    "text": "pass",
+    "crops": "pass: cog halo just inside, face ~42%, eyes ~24%",
+    "count": "pass",
+    "frame_bg": "pass, but the cherry tree is a noisy dithered texture"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 5,
+    "lookB": 4.5,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 5.85,
+   "notes": "Only candidate with sticker and full cog halo, but thick black ink outlines (lookB low), noisy tree texture and no real walker; mostly static."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: halo is a bent, distorted cog cut at the top; no emblem; walker fragment only",
+    "safety": "pass",
+    "hands": "pass: outstretched hand five fingers",
+    "text": "pass",
+    "crops": "fail: halo cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 6,
+    "lookB": 5,
+    "composition": 6.5,
+    "appeal": 7
+   },
+   "total": 5.83,
+   "notes": "Heavy black lines, halo cropped and warped."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "(1) STYLE regressed to heavy black ink outlines in all three: the new charref (her r1-2) carries thick lines. Lower fid to 0.4 and add negative '1.3::thick outlines, black outlines, heavy lineart, bold lines, comic style, cel outline::'; prompt 'thin light lines tinted to the colour they border' weighted 1.2. Also negative 'dithering, noise, halftone texture, stippled' (the cherry tree in r2-1 is dithered). (2) HALO CROP: 2/3 cut at the top: add 'her whole head and halo inside the frame, space above the halo' and compose 'cowboy shot, from slightly above, head in the upper third, not touching the top edge'; negative 'cropped halo, cut off halo, out of frame'. Keep '1.4::warm gold cogwheel halo with eight teeth floating above her hard hat::'. (3) WALKER: never readable; either weight '1.4::small yellow two-legged walker machine standing beside her at hip height, open cockpit with a seat and roll bar, hazard stripes, two headlights, orange beacon on top::' and place it 'in the mid-ground at her side, fully visible' \u2014 or drop the walker from the portrait if it keeps failing (owner call). (4) Add 'small gold emblem on the left chest of the navy polo'. (5) Keep r2-1's wrench-on-shoulder pose and r2-0's wave, add 'dutch angle, waving hand large near the lens, foreshortening'.",
+ "safety_flags": ""
+}

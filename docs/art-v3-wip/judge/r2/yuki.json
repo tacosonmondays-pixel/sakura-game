@@ -1,0 +1,73 @@
+{
+ "id": "yuki",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: halo is scattered ice shards (negative term) rather than a snowflake halo",
+    "safety": "pass (borderline-ok): eye level",
+    "hands": "pass: book hands fine",
+    "text": "pass: blank pages",
+    "crops": "fail: halo pieces run off the top edge",
+    "count": "pass: one girl",
+    "frame_bg": "pass: library, arched windows, shelves"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 6,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.85,
+   "notes": "Book-out pose lost its foreshortening."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass (weak): halo is a cluster of snowflakes, not a single snowflake halo",
+    "safety": "pass",
+    "hands": "pass: open hand five fingers",
+    "text": "pass: no text",
+    "crops": "fail: halo cluster cut by the top edge",
+    "count": "pass: one girl",
+    "frame_bg": "pass: library windows, shelves"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 7.25,
+   "notes": ""
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass: silver bob, snowflake pin, light blue eyes, fur capelet, bow with gem, pale blue dress, white tights, staff upright; halo is a ring of snowflakes",
+    "safety": "pass: eye level, staff upright away from the viewer",
+    "hands": "pass: reaching hand five fingers",
+    "text": "pass: no text",
+    "crops": "fail: back of the halo ring clipped at y=0 (zoom checked)",
+    "count": "pass: one girl",
+    "frame_bg": "pass: library shelves, blurred"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.58,
+   "notes": "~7.6; fails only on the halo crop."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Very close: keep pose 2 (reaching hand + staff on the shelf) and pose 1 exactly; the only blocker is headroom. Add 'space above her head, whole halo inside the frame, head slightly lower in frame' and 'small snowflake-shaped halo' (shrink it; '(small pale icy-blue single snowflake halo above her head:1.2)'); negative 'cropped halo, halo out of frame, ice shards, scattered snowflakes halo'. Drop pose 0 (book). Dress filigree is still heavy: 'plain thin white trim'. Charref fidelity 0.6.",
+ "safety_flags": ""
+}

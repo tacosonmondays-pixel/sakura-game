@@ -1,0 +1,76 @@
+{
+ "id": "hotaru",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass: honey bob, teal beret with star + flower, amber eyes, teal haori, cream dress with ruffle, belt, satchel, lantern on hooked staff, firefly dots, ring halo",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: ring halo cut by the top edge (x~190-380)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8.5
+   },
+   "total": 7.53,
+   "notes": "Pretty shrine bridge and lantern; near-frontal."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass: honey-orange fluffy bob, teal beret with gold star badge and white flower, round amber eyes, teal wide-sleeved haori, cream dress with white ruffled hem, brown belt and satchel, hooked wooden staff with glowing paper lantern (four-point star shape, tassel), fireflies as soft dots, pale yellow ring halo, calm smile; dress ends just above the knee over white tights (notes asked below the knee; not in the identity list)",
+    "safety": "pass: high angle looking down the stairs, fully dressed with white tights, wholesome",
+    "hands": "pass: open hand thumb + 4; staff hand gripping at her right side plausible",
+    "text": "pass: lantern pattern is a plain shape",
+    "crops": "pass: face ~54%, eyes ~23%; halo at y~10-70 inside",
+    "count": "pass",
+    "frame_bg": "pass: painted shrine steps, stone lanterns, autumn tree, bright"
+   },
+   "scores": {
+    "identity": 8.5,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 8.07,
+   "notes": "High-angle diagonal down the shrine steps with the lantern staff sweeping across the frame. Clean thin brown lines, bright. Proportions slightly young/large head but not chibi."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass with note: lantern hangs from a separate chain held in her hand, the staff's hook is empty",
+    "safety": "pass",
+    "hands": "pass: reaching hand thumb + 4; staff hand ok but lantern not on the staff",
+    "text": "pass",
+    "crops": "fail: halo top touches the top edge (x~200-240 at y=0)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 7.55,
+   "notes": "Warm reaching pose; prop logic weak."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-1",
+ "pick_total": 8.07,
+ "eyes": [
+  412,
+  240
+ ],
+ "head": 180,
+ "fixes": null,
+ "safety_flags": "r2-1 dress hem sits just above the knee (white tights); spec notes asked below the knee but it is not in the identity list."
+}

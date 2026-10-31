@@ -1,0 +1,196 @@
+{
+ "id": "nami",
+ "round": 4,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass (borderline: eyes ~35% down)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 4.5,
+    "lookB": 5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 6.25,
+   "notes": "On model (cap with shell badge, epaulettes, pearl earrings, teal bow, white gloves, trident upright) but the camera is a static 3/4 bust with both hands stacked on the staff, no reaching hand; rendering is glossy and ornate (sparkly hair, heavy dark lineart, detailed gold embroidery) rather than Look B flat cel. Eyes at 35% down, at the limit. Fitted jacket bust is prominent at left-centre but not the focus. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsidered: no lead decision touches Nami; r2/r3 verdicts stand (best of them r3-0 6.67, fails on missing trident).]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "fail: free gloved hand (x300-500 y580-790) is a malformed shape, finger count unreadable",
+    "text": "pass",
+    "crops": "fail: face centre ~28% across, eyes ~44% down",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 6.5,
+    "lookB": 5,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 6.33,
+   "notes": "Wave spray and trident to the sky are nice, but the free gloved hand is a malformed blob and the face sits far left and low. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsidered: no lead decision touches Nami; r2/r3 verdicts stand (best of them r3-0 6.67, fails on missing trident).]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: trident rendered as a single-pointed spear",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: eyes ~39% down",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 5,
+    "lookB": 5.5,
+    "composition": 6,
+    "appeal": 7.5
+   },
+   "total": 5.8,
+   "notes": "Profile-ish static pose; the trident is drawn as a single-blade spear. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsidered: no lead decision touches Nami; r2/r3 verdicts stand (best of them r3-0 6.67, fails on missing trident).]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: the trident is missing entirely (spec asks it upright in her far hand); cap, pearl earrings, epaulettes, teal bow, gloves, aqua eyes and wave halo are right",
+    "safety": "pass: fully dressed, slightly above eye level, chest not the focus",
+    "hands": "pass: reaching gloved hand has five fingers, well foreshortened",
+    "text": "pass",
+    "crops": "pass: face ~52% across, eyes ~33% down; halo top touches y~2, just inside",
+    "count": "pass",
+    "frame_bg": "pass: harbour with sailboats and pier"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7.5,
+    "lookB": 6,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "notes": "Finally the reaching gloved hand the spec wanted, with wind in the hair and a pier behind, but she lost the trident completely. Lines still darker and gold rendering busier than Look B; halo almost touching the top edge. [Round 4 reconsidered: no lead decision touches Nami; r2/r3 verdicts stand (best of them r3-0 6.67, fails on missing trident).]",
+   "total": 6.67
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: trident head is malformed (one long central spike plus a single hooked side prong, not three tines); rest on model",
+    "safety": "pass: weapon upright, not aimed at the viewer",
+    "hands": "pass: gloved fist around the shaft reads, though the grip is stiff",
+    "text": "pass",
+    "crops": "pass: face ~53% across, eyes ~36% down (at the limit)",
+    "count": "pass",
+    "frame_bg": "pass: sea with sailboats"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 6,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "notes": "Nice grin and swirling wave halo, but the near hand is a fist on the staff rather than an open reach, the trident head is a broken shape, and the face sits at the low limit. [Round 4 reconsidered: no lead decision touches Nami; r2/r3 verdicts stand (best of them r3-0 6.67, fails on missing trident).]",
+   "total": 6.22
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: no trident; she holds a short teal sceptre topped with a gold shell instead",
+    "safety": "pass: chest visible but not the focus; modest",
+    "hands": "fail: the gloved hand floats beside the sceptre without gripping it (fingers splayed in the air next to the shaft)",
+    "text": "pass",
+    "crops": "pass: face ~55% across, eyes ~32% down",
+    "count": "pass",
+    "frame_bg": "pass: pier and yachts"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 5.5,
+    "lookB": 4.5,
+    "composition": 6,
+    "appeal": 7.5
+   },
+   "notes": "Most glossy of the three (sparkle shading, dense gold trim). The shell badge prompt turned into a shell-headed sceptre that replaced the trident, and the hand does not hold it. [Round 4 reconsidered: no lead decision touches Nami; r2/r3 verdicts stand (best of them r3-0 6.67, fails on missing trident).]",
+   "total": 5.58
+  },
+  "r4-0": {
+   "hard": {
+    "identity": "pass: cap with gold crest and pearl, pearl earrings, epaulette fringe, teal bow, white gloves, aqua eyes, three-tined gilded trident upright, thin pale halo loop above the cap",
+    "safety": "pass",
+    "hands": "pass: gloved hand grips the trident",
+    "text": "pass",
+    "crops": "fail: eyes ~38% down (limit 36%); face ~64% across",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 5.5,
+    "lookB": 6.5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 6.8,
+   "notes": "On model but static three-quarter with the trident on a diagonal; face low and right."
+  },
+  "r4-1": {
+   "hard": {
+    "identity": "fail: halo is a wisp curling down the upper-left side, not above her cap",
+    "safety": "pass with note: bust is fairly prominent at frame centre-right below the bow; not rejected but worth a look",
+    "hands": "pass: reaching glove five fingers",
+    "text": "pass",
+    "crops": "fail: the halo wisp crosses the top edge",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8,
+    "lookB": 6.5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 6.97,
+   "notes": "Good reach, but halo wrong and chest drawn more than needed."
+  },
+  "r4-2": {
+   "hard": {
+    "identity": "pass with note: long wavy teal hair, white captain's cap with navy band and gold crest with pearl (reads as the shipped emblem; spec says shell), aqua-blue eyes, pearl earrings, navy-and-gold coat with fringed epaulettes and cord, white jacket with pearl buttons, teal bow, white gloves, gilded trident with three straight tines upright in her far hand, thin pale sky-blue wavy halo above the cap; reads as a grown woman",
+    "safety": "pass: adult, fully dressed, framed waist up, reaching hand covers the torso, not chest-centred; trident upright, not at the viewer",
+    "hands": "pass: reaching glove palm-up, thumb + four fingers; far glove grips the trident shaft",
+    "text": "pass",
+    "crops": "pass: face centre ~45% across, eyes ~34% down, halo top y~20 inside, cap whole",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 7.5,
+    "lookB": 7,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.6,
+   "notes": "Open gloved hand reaching toward the lens with foreshortening, hair blowing, harbour with a sailboat softly defocused, trident finally correct. Lines and gold trim still a little glossy/ornate for Look B, but much cleaner than r2/r3."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r4-2",
+ "pick_total": 7.6,
+ "eyes": [
+  343,
+  348
+ ],
+ "head": 360,
+ "fixes": null,
+ "safety_flags": "Head measured crown-under-cap (~y120) to chin (~y480); cap top is at y~80. Eyes at 34% down are near the 36% limit: check the bust crop. r4-1 (not picked) has a prominent bust."
+}

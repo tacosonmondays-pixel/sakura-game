@@ -1,0 +1,93 @@
+{
+ "id": "kaede",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: eyes orange-red, not amber-gold; halo is a plain orange ring (spec: maple-leaf shape); no ivory blouse (red high collar only)",
+    "safety": "pass: rapier upright/up-left away from camera, dressed, eye level",
+    "hands": "pass: five fingers on raised glove",
+    "text": "pass",
+    "crops": "fail: face ~57% x ok but eyes ~45% down (limit 36%)",
+    "count": "pass",
+    "frame_bg": "pass: soft blurred hall with windows (weak but a place)"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5,
+    "lookB": 4,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.05,
+   "notes": "Eyes sit ~450px down (44%) so crop check fails too. Black inked lines."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: orange-red eyes, plain ring halo, glove reads as a white puffed sleeve-like blob",
+    "safety": "pass",
+    "hands": "fail: tossed glove fuses with her hand / guard, unreadable",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: dojo interior lightly drawn"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 4,
+    "appeal": 5
+   },
+   "total": 4.4,
+   "notes": "Back-turned twist has motion but the foreground glove/guard is a confusing mass."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: orange-red eyes; ring halo; red coat ok",
+    "safety": "fail: borderline for a student: close framing centred on her chest with the coat drawn tight over it; basket guard and blade foreshortened toward the camera",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: halo touches top edge (y~0-40)",
+    "count": "pass",
+    "frame_bg": "pass: blurred hall"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5,
+    "lookB": 4,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.9,
+   "notes": "Reject on safety framing and blade angle toward lens."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: orange eyes; tan turtleneck instead of ivory blouse; ring halo",
+    "safety": "pass: blade angled up-left",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: white background with line-drawn windows only"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 5
+   },
+   "total": 4.35,
+   "notes": "Guard thrust toward camera; sketch background."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "STYLE (all candidates came out as dark-inked line art on blank/sketched backgrounds): in the negative REMOVE 'painterly, painted gradients, brush texture' (they kill the soft painted backdrop) and ADD 'lineart, sketch, uncolored background, line-drawn background, simple background, white background, blank background, monochrome background, coloring book, manga, screentone, halftone, heavy outlines, dark lineart'. In the prompt REPLACE 'background melted into soft shapes with no lines' with '1.2::detailed soft painted background, blurry background, bokeh, depth of field::' and keep 'thin light lines tinted to the color they border'. KAEDE: eyes still orange/red at 1.3: raise to '1.5::amber-gold eyes, pale gold eyes, yellow eyes::' and add 'orange eyes, red eyes, crimson eyes' to negative; drop charref fidelity to 0.4 (the reference's red eyes win). Halo: '1.3::soft orange halo shaped like a single maple leaf, flat::' and negative 'ring halo, circle halo'. Add '1.2::ivory high-neck blouse visible at the collar::'. Keep pose 0 (salute, blade at ceiling) and pose 3 (blade swept overhead away); drop pose 2 (mask) and pose 1 (glove toss produced mush). Add 'from above, slightly high angle, head and shoulders smaller than hand' and negative 'close-up on chest, upper body close-up, blade toward viewer, sword pointing at viewer, hilt toward viewer'. Ask for 'cowboy shot, eyes at upper third of the frame' so eyes land ~25-30% down.",
+ "safety_flags": "r1-2: student framed close on chest with hilt toward lens; rejected."
+}

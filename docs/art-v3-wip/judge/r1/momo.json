@@ -1,0 +1,93 @@
+{
+ "id": "momo",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass (flag: short frilled skirt in frame, white tights)",
+    "hands": "pass: waving glove 5 fingers, mic hand ok",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: flat sky + pink blobs, barely a place"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 5,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 5.7,
+   "notes": "On-model and cheerful, but flat colouring-book fill, generic sky; skirt is short (spec asks knee length) and frame runs to the thighs."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass (flag: short skirt)",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: uncoloured lineart stage on white"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 5.75,
+   "notes": "High-five hand nice, background blank lineart."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "pass (coin has no star)",
+    "safety": "pass (flag: short skirt flaring)",
+    "hands": "pass: pointing glove ok",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: flat sky, pink trees"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 5.65,
+   "notes": "Coin flat yellow disc, no star; hand points instead of flicking. Flat fill."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass (flag: short skirt)",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: flat sky and clouds, no real place"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 5.95,
+   "notes": "Glow stick hand reaches out of frame top-left, flat fill, generic sky."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "ROOT CAUSE (shared by every charref-only girl this batch): output collapsed into uncoloured colouring-book lineart with no shading; norika (vibe 0.2, no charref) did NOT collapse. Style block: REMOVE 'flat color', 'no black outlines', 'few interior lines', 'background melted into soft shapes with no lines' (the word 'lines' is pulling lineart in). ADD 'cel shading, two-tone shading, soft painted background, blurry background, detailed colored background, depth of field, bright daylight'. NEGATIVE add: 'lineart, line art, sketch, monochrome, greyscale, uncolored, partially colored, coloring page, white background, simple background, blank background, empty background, heavy outlines, manga'. Add the Look B vibe (one of the two Look B reference portraits, own art) at strength 0.3 alongside the charref; keep charref fidelity 0.6. Momo: skirt keeps coming out short; add 'knee-length skirt' weighted up and negative 'short skirt, miniskirt, thighs'; frame 'from the waist up, upper body' instead of cowboy shot. Background: name the place concretely ('sunny outdoor school festival stage, wooden stage floor, bunting-free truss, trees') so it is a real location. Coin pose: 'gold coin with an embossed star' or drop pose 2. Keep pose 0 (mic offered) and pose 1 (high five).",
+ "safety_flags": "All four draw a short frilled skirt with the frame down to the thighs (student); none sexualised in pose, but spec asks knee length."
+}

@@ -1,0 +1,93 @@
+{
+ "id": "akane",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "pass: hat, coat, bow, staff, tights; halo hidden (optional)",
+    "safety": "fail: camera is below eye level (we look up under the hat brim and up the body); borderline, rejected",
+    "hands": "pass: right hand on staff fine, left hidden on hip",
+    "text": "fail: lettering on the yellow stall sign at left",
+    "crops": "pass: face ~59% across, eyes ~29% down",
+    "count": "pass",
+    "frame_bg": "pass: partly uncoloured sketch books, but sky/stall coloured"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.7,
+   "notes": "Heavy black outlines, no shading; firework shell pose did not render."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass: peace sign 5 digits ok",
+    "text": "pass",
+    "crops": "pass: face ~41%, eyes ~35%",
+    "count": "pass",
+    "frame_bg": "fail: background is mostly uncoloured white line sketch"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.25,
+   "notes": "Colouring-book look; staff ring rendered as a floating yellow halo-like ring."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass: right hand on staff ok, left behind hat",
+    "text": "pass",
+    "crops": "pass: face ~43%, eyes ~35%",
+    "count": "pass",
+    "frame_bg": "fail: structures/crates left as uncoloured line sketch"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7,
+    "lookB": 3,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.95,
+   "notes": "Best camera of the four (dutch, hat-hold pose); staff horizontal, star points left not at viewer."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "pass: wink + grin on model",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: eyes ~38% down (limit 36%)",
+    "count": "pass",
+    "frame_bg": "fail: background almost entirely uncoloured white sketch"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 5.35,
+   "notes": "Winking pose charming but unfinished background."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "STYLE (whole round): every render came out as a colouring-book page: black outlines, almost no shading, uncoloured line-sketch or flat single-colour backgrounds. REMOVE from prompt: 'flat color', 'few interior lines', 'flat hair color planes', 'background melted into soft shapes with no lines' (these push the model to uncoloured/flat backgrounds). ADD to prompt: 'anime coloring, soft two-tone cel shading, thin colored lineart, fully colored painted background, detailed background, blurry background, bokeh, depth of field, bright sunlight, high-key'. ADD to negative: 'lineart, sketch, uncolored, unfinished, monochrome background, simple background, white background, flat background, gradient background, coloring book, manga, screentone, halftone, border, frame, letterboxed, picture frame'. Foreshortened hand toward camera mostly did not render: re-weight it e.g. '1.3::foreshortening, hand reaching toward viewer::'. GIRL: Pose 2 (hat held against the wind) gave the best camera; keep poses 2 and 3, drop pose 0. Scene: say 'colorful festival stalls with red and white awnings, crates of paper firework shells painted in colour' and add 'sign, signboard, writing' to negative. Ensure eye level: keep 'eye level' and add 'from below, looking up' to negative is already there; add 'upward angle, worm's eye view'. Keep fidelity 0.6.",
+ "safety_flags": "r1-0 low camera angle; text on sign."
+}

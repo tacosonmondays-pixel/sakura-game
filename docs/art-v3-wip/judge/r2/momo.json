@@ -1,0 +1,76 @@
+{
+ "id": "momo",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass",
+    "safety": "fail: frilled garter-like band on her bare upper leg (bottom left, ~x130-280 y880-990) on a student; reads as lingerie detail, reject",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 6.5,
+    "appeal": 8
+   },
+   "total": 7.4,
+   "notes": "Fun wink and wave, mic with bow and star charm. But a frilled garter-style band is drawn around her bare thigh at bottom left (and another at the right leg) on a student."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 8,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 8.5
+   },
+   "total": 7.8,
+   "notes": "Strong dutch angle, gloved hand reaching toward viewer heavily foreshortened (five fingers, slightly spidery), twintails flying, wink, triangle clip, ribbons, lavender bow, gold buttons, mic with bow and star charm. Puffy skirt is the shipped dress length (not the knee length the spec asked) and takes a lot of the lower frame, legs in opaque white tights; nothing revealing. Background is a sunny outdoor stage area with balloons and truss poles, no bunting. Halo is a ring, not a star."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "borderline: only the thumb reads on the coin hand, fingers merged into the glove",
+    "text": "fail: glyph resembling a letter/numeral embossed in the centre of the coin's star",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.2,
+   "notes": "Coin pose reads, but the coin face carries a letter/numeral-like glyph inside the embossed star; no wink (both eyes open); glove fingers around the coin unclear."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-1",
+ "pick_total": 7.8,
+ "eyes": [
+  460,
+  234
+ ],
+ "head": 240,
+ "fixes": null,
+ "safety_flags": "Student in a short puffy idol skirt with one leg kicked back (white opaque tights, nothing revealing, card crop removes the legs). Spec asked knee-length; worth a quick human look. Halo is a ring, not the star shape."
+}

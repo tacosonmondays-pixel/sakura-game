@@ -1,0 +1,196 @@
+{
+ "id": "yoriko",
+ "round": 4,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: no halo, no doll; control bar drawn as a wooden rolling-pin stick",
+    "safety": "fail: camera from below, trousers/crotch area in the lower centre",
+    "hands": "pass",
+    "text": "pass: no text",
+    "crops": "pass: eyes ~20%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: blurred room"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 6,
+    "lookB": 6.5,
+    "composition": 5.5,
+    "appeal": 5
+   },
+   "total": 5.33,
+   "notes": " [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: halo is on the doll, not on her; no control bar",
+    "safety": "pass",
+    "hands": "fail: her left (image left) hand has too many spread fingers",
+    "text": "pass: no text",
+    "crops": "fail: eyes ~y390 (38%)",
+    "count": "pass: one girl (doll is a puppet)",
+    "frame_bg": "pass: blurred classroom"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 7,
+    "lookB": 7,
+    "composition": 6,
+    "appeal": 6.5
+   },
+   "total": 6.2,
+   "notes": " [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: no control bar; halo a plain pink ring, not a crescent moon",
+    "safety": "pass: adult, eye level",
+    "hands": "pass: glove on script five fingers; other hand hidden",
+    "text": "pass: blank script",
+    "crops": "pass: eyes ~27%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: classroom, window"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6.5,
+    "lookB": 7,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.62,
+   "notes": "Doll on shoulder is cute; still missing the bar. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail (partial): control bar is an oversized X of two long planks, not a small plus-shaped bar; the strings hang from it to nothing while the doll sits loose on her shoulder; the doll has a blank tan face with hollow dot eyes; tailcoat, lilac vest/tie, cat-ear headset, gloves right",
+    "safety": "pass: adult, fully dressed, not body-framed",
+    "hands": "pass: gloved hand grips the bar",
+    "text": "pass",
+    "crops": "fail: the pale crescent halo is cut by the top edge (top at y=0 behind the ponytail)",
+    "count": "pass (the doll is a prop)",
+    "frame_bg": "pass: classroom with windows and curtains"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 4.5,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 5.5
+   },
+   "notes": "Front-on static bust with a giant X bar across the frame; the doll's blank face is eerie rather than cute. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 5.88
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: control bar is a single straight plank, not plus-shaped; halo is a large pale crescent sweep behind her",
+    "safety": "pass",
+    "hands": "pass: raised glove grips the plank",
+    "text": "pass",
+    "crops": "pass: face ~45% across, eyes ~36% down (at the limit)",
+    "count": "pass",
+    "frame_bg": "pass: classroom"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6.5,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 6.5
+   },
+   "notes": "Raised bar gives some diagonal, but the bar is wrong and the doll is a stiff hand-puppet stuck on her shoulder. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 6.47
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: no doll at all; strings hang down to nothing",
+    "safety": "pass (flagged): adult, dressed; the two crossed planks held at her chest read as a religious cross, worth avoiding",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~44% across, eyes ~26% down; crescent halo inside",
+    "count": "pass",
+    "frame_bg": "pass: classroom"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 5.5,
+    "lookB": 7.5,
+    "composition": 6.5,
+    "appeal": 6.5
+   },
+   "notes": "Clean Look B rendering and a gentle sleepy smile, but no doll, static pose, and the crossed-planks bar looks like a crucifix. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 6.15
+  },
+  "r4-0": {
+   "hard": {
+    "identity": "pass (minor): lavender high ponytail, blunt bangs, purple cat-ear headset with mic, lilac eyes, navy tailcoat with gold edges and lilac lining, lilac vest and tie, gloves, single horizontal wooden control bar with strings, small lilac-bob sailor doll, thin lilac crescent halo",
+    "safety": "pass: adult, fully dressed, framed on face and hands",
+    "hands": "fail: the near glove at her chest is a dark mushy blob with a glowing pink fingertip, fingers unreadable (zoom checked)",
+    "text": "pass",
+    "crops": "pass: face ~57% across, eyes ~35% down, halo inside",
+    "count": "pass",
+    "frame_bg": "pass: bright club room, folding chair"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 6.5,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 6.5
+   },
+   "total": 7.08,
+   "notes": "First frame with the right bar, doll and halo together, but the chest hand is malformed, the strings end in stars instead of the doll, and the pose is fairly static."
+  },
+  "r4-1": {
+   "hard": {
+    "identity": "fail: no halo",
+    "safety": "pass",
+    "hands": "pass: reaching glove five fingers, foreshortened",
+    "text": "pass",
+    "crops": "pass: face ~50% across, eyes ~26% down",
+    "count": "pass",
+    "frame_bg": "pass: club room"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 7.5
+   },
+   "total": 7.33,
+   "notes": "Best camera and the doll on her shoulder reads well, but the crescent halo is missing."
+  },
+  "r4-2": {
+   "hard": {
+    "identity": "fail: no halo; doll hangs ABOVE the bar on strings running off the top edge",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: eyes y~465 (45% down)",
+    "count": "pass",
+    "frame_bg": "pass: warm window room"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 6,
+    "lookB": 7,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 5.9,
+   "notes": "Bar held overhead with the doll floating above it; head low; no halo."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "No round follows. Best candidate: r4-1 (7.33, rejected: no halo); r4-0 (7.08) has every prop but a malformed chest hand. Nothing passes in four rounds. For any future regen: use r4-1 verbatim (doll on shoulder, reaching glove) and add the halo as its own weighted object '1.3::small thin pale lilac crescent-moon halo floating just above her ponytail::', negative 'no halo'; or r4-0 with 'her other hand resting on her lapel, five fingers' and negative 'glowing fingertip, glowing hand'.",
+ "safety_flags": "",
+ "best_candidate": "r4-1",
+ "best_total": 7.33,
+ "passing_candidates": []
+}

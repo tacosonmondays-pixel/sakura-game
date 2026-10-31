@@ -1,0 +1,236 @@
+{
+ "id": "seiran",
+ "round": 5,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: no halo at all; dragon only a faint ghost behind",
+    "safety": "pass: adult, fully dressed, eye level; torso large in the lower frame but not body-centred",
+    "hands": "pass: open glove five fingers; lance grip ok",
+    "text": "pass: no text",
+    "crops": "fail: eyes ~y372 (36.3%), just below the line",
+    "count": "pass: one girl",
+    "frame_bg": "pass: blurred city rooftop"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7.5,
+    "lookB": 6,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 6.6,
+   "notes": "Lineart darker and more glossy than Look B; good reach pose. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no halo",
+    "safety": "pass: adult, eye level, salute",
+    "hands": "pass",
+    "text": "pass: no text",
+    "crops": "fail: eyes ~y445 (43%), head low in frame",
+    "count": "pass: one girl",
+    "frame_bg": "pass: sky, dragon, rooftop"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7,
+    "lookB": 6.5,
+    "composition": 6,
+    "appeal": 7.5
+   },
+   "total": 6.5,
+   "notes": "Nice salute and dragon head but head far too low and halo missing. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass (weak): halo present; lance blade is a silver axe head with a small cyan gem, not a pale cyan crystal blade; goggles drawn as a single-lens dive mask; skirt edge visible at the bottom",
+    "safety": "pass: adult, eye level; jacket shading round the bust a little heavy but not body-centred",
+    "hands": "pass: open glove five fingers",
+    "text": "pass: no text",
+    "crops": "fail: eyes measured (395,388) = 37.9% down",
+    "count": "pass: one girl",
+    "frame_bg": "pass: sky, rooftop, dragon tail"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7,
+    "lookB": 6,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 6.5,
+   "notes": "Only one with the halo but head too low and lance wrong. [Round 3 reconsideration: verdict and scores confirmed] [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: storm lance missing (only a crystal tip at the bottom edge); dragon reduced to a green blur; horns oversized",
+    "safety": "pass: adult, uniform buttoned, framed on face and hand",
+    "hands": "fail: the reaching glove is distorted, fingers elongated and fused, count unreadable",
+    "text": "pass",
+    "crops": "fail: eyes ~y400 = 39% down (limit 36%)",
+    "count": "pass",
+    "frame_bg": "pass: rooftop, sky"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 7.5,
+    "lookB": 7,
+    "composition": 6,
+    "appeal": 7
+   },
+   "notes": "Bolt halo finally present, but the glove is malformed, the lance is gone and the head sits low. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 6.53
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: no halo; lance blade drawn as an axe/halberd head",
+    "safety": "pass",
+    "hands": "pass: salute glove reads",
+    "text": "pass",
+    "crops": "fail: head low in the frame, eyes ~47% down (limit 36%)",
+    "count": "pass",
+    "frame_bg": "pass: sky and city"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7,
+    "lookB": 7,
+    "composition": 6,
+    "appeal": 7.5
+   },
+   "notes": "Dragon head is clear and the salute is lively, but the halo is missing for the third time in this pose and the lance head is wrong. Head sits near the middle of the frame. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 6.6
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "pass (minor): light-blue wavy hair, headset with mic, pale cyan eyes, flight jacket with gold shoulder boards, white shirt, teal tie, bolt-in-ring halo, dragon behind, crystal-bladed lance; horns are big bull horns rather than small curved ones",
+    "safety": "pass: adult, uniform closed, camera slightly above, not body-framed",
+    "hands": "fail: the storm lance floats behind her shoulder with no hand on it (her other hand is not in the picture); reaching glove is fine",
+    "text": "pass",
+    "crops": "pass: face ~44% across, eyes ~30% down, halo inside",
+    "count": "pass",
+    "frame_bg": "pass: rooftop with buildings and sky, dragon defocused"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 8,
+    "lookB": 7,
+    "composition": 7.5,
+    "appeal": 7.5
+   },
+   "notes": "Best of both rounds: halo, dragon, reaching glove and dutch angle all land, but the lance is unheld and its crystal blade is cut by the top-left edge; a pleated skirt edge creeps in at the bottom. Would be ~7.4 even if held. [Round 4 reconsideration: verdict and scores confirmed; no lead decision changes it]",
+   "total": 7.38
+  },
+  "r4-0": {
+   "hard": {
+    "identity": "fail: halo is a horizontal lightning streak floating far above, not a small bolt halo over her head; lance floats behind her with no hand on it",
+    "safety": "pass: adult, fully dressed, framed on face and reaching glove; lance points up and away",
+    "hands": "fail: storm lance unheld (shaft passes behind her shoulder, no hand); reaching glove five fingers",
+    "text": "pass",
+    "crops": "fail: eyes y~545 (53% down), head low with empty sky above",
+    "count": "pass",
+    "frame_bg": "pass: sky over the city, dragon behind"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8,
+    "lookB": 7.5,
+    "composition": 5,
+    "appeal": 7.5
+   },
+   "total": 6.95,
+   "notes": "Best dragon and a good reaching glove, but the head dropped to the middle of the frame and the lance is still unheld."
+  },
+  "r4-1": {
+   "hard": {
+    "identity": "fail: halo is a broken plain ring with no lightning bolt; dragon only a faint blurred coil far behind",
+    "safety": "pass (flagged): adult, fully dressed; the buttoned jacket front fills the lower right third, not exaggerated",
+    "hands": "pass: gloved hand grips the lance shaft, lance upright, blade pointing up",
+    "text": "pass",
+    "crops": "fail: eyes y~378 (37% down, limit 36%)",
+    "count": "pass",
+    "frame_bg": "pass: rooftop, sky, city"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 8
+   },
+   "total": 7.22,
+   "notes": "Lance finally held and the grin is great, but no bolt halo, dragon nearly gone, head a touch low and the jacket front dominates the lower frame."
+  },
+  "r4-2": {
+   "hard": {
+    "identity": "fail: lance head drawn with halberd/axe side blades again",
+    "safety": "pass",
+    "hands": "pass: gloved hand grips the shaft",
+    "text": "pass",
+    "crops": "fail: eyes y~545 (53% down)",
+    "count": "pass",
+    "frame_bg": "pass: sky with blurred dragon coil"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 6.5,
+    "lookB": 7.5,
+    "composition": 5.5,
+    "appeal": 7
+   },
+   "total": 6.6,
+   "notes": "Halberd blade returns and the head sits in the middle of the frame."
+  },
+  "r5-0": {
+   "hard": {
+    "identity": "fail (partial): the 'halo' is a bare small lightning-bolt icon floating above her horns with no ring (reads as an emote mark); otherwise on model: wavy light-blue hair, gold horns, headset, pale cyan eyes, flight jacket with gold boards, teal tie, lance held, dragon clearly visible",
+    "safety": "pass: adult, fully buttoned jacket, not body-framed; lance upright, blade up",
+    "hands": "pass: far glove grips the lance shaft; reaching glove five fingers",
+    "text": "pass",
+    "crops": "fail: eyes ~y510 (50% down, limit 36%); head in the middle of the frame",
+    "count": "pass",
+    "frame_bg": "pass: sky with the dragon behind"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 5,
+    "appeal": 8
+   },
+   "total": 7.0,
+   "notes": "Lance finally held with its crystal blade in frame and the dragon is clear, but the head dropped to the middle of the frame again and the halo is a loose bolt icon."
+  },
+  "r5-1": {
+   "hard": {
+    "identity": "fail: halo is a spiky crystal ring with no lightning bolt; the storm lance is only a huge crystal blade slab in the foreground with no shaft or fittings",
+    "safety": "pass: adult, fully dressed, not body-framed; blade runs upright beside her, not at the viewer",
+    "hands": "fail: nothing holds the lance; the near glove is a closed fist with a vague pointing finger",
+    "text": "pass",
+    "crops": "fail: eyes ~y445 (43% down)",
+    "count": "pass",
+    "frame_bg": "pass: sky, dragon coil, deck"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 5,
+    "appeal": 7.5
+   },
+   "total": 6.78,
+   "notes": "Lively grin and dragon, but no bolt halo, unheld lance, head too low."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "No round follows; budget spent. Nothing passes the hard checks in any round. Best candidate overall: r3-2 (7.38, rejected: lance unheld behind her shoulder). Best of round 5: r5-0 (7.0: lance held, dragon clear, but eyes 50% down and the halo is a bare bolt icon). Recurrent failures for her: head sinks low whenever the lance and dragon are both asked for, and the bolt halo never renders as a ring-with-bolt. Owner options: keep the shipped portrait, or crop/reframe r5-0 upward in post (it has the held lance and the dragon) after a human check of the halo.",
+ "safety_flags": "",
+ "best_candidate": "r3-2",
+ "best_total": 7.38,
+ "passing_candidates": []
+}

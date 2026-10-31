@@ -23,14 +23,14 @@ SPEC (ROSTER/<id>/spec.json):
 import base64, fcntl, hashlib, io, json, os, subprocess, sys, time, zipfile
 from PIL import Image
 
-ROSTER = "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/art-v3/roster"
+ROSTER = os.environ.get("ROSTER", "/home/user/work/roster")
 LOCK = os.path.join(ROSTER, "_nai.lock")
 LEDGER = os.path.join(ROSTER, "_ledger.jsonl")
 FLOOR = 6680  # 8480 at the start of the roster run minus the 1,800 Anlas cap
 GEN = "https://image.novelai.net/ai/generate-image"
 SUB = "https://image.novelai.net/user/subscription"
 MODEL = "nai-diffusion-4-5-full"
-VIBES = {"azami": "/tmp/claude-0/-home-user/bc8e90b4-5af0-5aad-ab54-4a98bb73399f/scratchpad/art-v3/pilot/kogane/_cache/vibe-azami-ie0.5.bin"}
+VIBES = {"azami": "/home/user/work/cache/vibe-azami-ie0.5.bin"}
 
 
 def anlas():
@@ -186,7 +186,10 @@ if __name__ == "__main__":
         status()
     elif a[0] == "gen":
         gid, rnd, k = a[1], int(a[2]), int(a[3])
-        kw = {}
+        sp = json.load(open(os.path.join(ROSTER, gid, "spec.json")))
+        kw = {key: sp[key] for key in ("fid", "vibe", "scale") if key in sp}  # per-girl defaults; flags override
+        if sp.get("no_charref"):
+            kw["charref"] = False
         i = 4
         while i < len(a):
             f = a[i]

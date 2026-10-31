@@ -1,0 +1,73 @@
+{
+ "id": "seiran",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: no halo at all; dragon only a faint ghost behind",
+    "safety": "pass: adult, fully dressed, eye level; torso large in the lower frame but not body-centred",
+    "hands": "pass: open glove five fingers; lance grip ok",
+    "text": "pass: no text",
+    "crops": "fail: eyes ~y372 (36.3%), just below the line",
+    "count": "pass: one girl",
+    "frame_bg": "pass: blurred city rooftop"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7.5,
+    "lookB": 6,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 6.6,
+   "notes": "Lineart darker and more glossy than Look B; good reach pose."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no halo",
+    "safety": "pass: adult, eye level, salute",
+    "hands": "pass",
+    "text": "pass: no text",
+    "crops": "fail: eyes ~y445 (43%), head low in frame",
+    "count": "pass: one girl",
+    "frame_bg": "pass: sky, dragon, rooftop"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7,
+    "lookB": 6.5,
+    "composition": 6,
+    "appeal": 7.5
+   },
+   "total": 6.5,
+   "notes": "Nice salute and dragon head but head far too low and halo missing."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass (weak): halo present; lance blade is a silver axe head with a small cyan gem, not a pale cyan crystal blade; goggles drawn as a single-lens dive mask; skirt edge visible at the bottom",
+    "safety": "pass: adult, eye level; jacket shading round the bust a little heavy but not body-centred",
+    "hands": "pass: open glove five fingers",
+    "text": "pass: no text",
+    "crops": "fail: eyes measured (395,388) = 37.9% down",
+    "count": "pass: one girl",
+    "frame_bg": "pass: sky, rooftop, dragon tail"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7,
+    "lookB": 6,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 6.5,
+   "notes": "Only one with the halo but head too low and lance wrong."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "(1) Halo missing in 2 of 3: raise to '(small pale cyan lightning-bolt halo floating above her head:1.4)' and put it right after the hair words. (2) Head too low in all three (eyes 36-43%): add 'head near the top of the frame, (upper body:1.2), from slightly above', reduce zoom on the torso; negative 'close-up on torso'. (3) Lance: '(storm lance with a long pale cyan crystal spearhead:1.3)'; negative 'axe blade, halberd, trident'. (4) Style still a bit glossy with dark lines: add 'thin coloured lineart' and negative 'glossy, shiny skin, heavy outlines'. (5) Keep pose 0 (open hand) and pose 1 (salute); drop pose 2 (goggles became a dive mask). Charref fidelity 0.6.",
+ "safety_flags": ""
+}

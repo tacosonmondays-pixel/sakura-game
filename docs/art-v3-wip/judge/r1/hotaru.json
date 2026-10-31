@@ -1,0 +1,93 @@
+{
+ "id": "hotaru",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "pass: beret with star + flower, teal haori, cream dress, satchel, lantern staff, ring halo",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~49%, eyes ~31%",
+    "count": "pass",
+    "frame_bg": "fail: white border frame drawn around the image"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 4,
+    "lookB": 5,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 6.0,
+   "notes": "Best identity, static."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "pass: lantern, beret, satchel, haori",
+    "safety": "pass",
+    "hands": "fail: lantern held in hands detached from the floating staff (prop implausible)",
+    "text": "pass",
+    "crops": "fail: halo cut off at the top-left edge",
+    "count": "pass",
+    "frame_bg": "pass: shrine steps + bridge, partly sketch"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6,
+    "lookB": 5,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 6.2,
+   "notes": ""
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: staff missing (lantern on a short hook only); halo nearly invisible; chalk-white face",
+    "safety": "pass",
+    "hands": "fail: left hand under sleeve malformed",
+    "text": "pass",
+    "crops": "pass: face ~32%, eyes ~24%",
+    "count": "pass",
+    "frame_bg": "pass: bridge + steps, coloured"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 5,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.8,
+   "notes": "Best Look B background of the round."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "pass",
+    "safety": "fail: rear view over the shoulder of a student with short frilled hem and bare thighs at the bottom edge",
+    "hands": "pass: staff hand ok",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: hill path, coloured"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 5,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.8,
+   "notes": "Rejected on safety."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "STYLE (whole round): every render came out as a colouring-book page: black outlines, almost no shading, uncoloured line-sketch or flat single-colour backgrounds. REMOVE from prompt: 'flat color', 'few interior lines', 'flat hair color planes', 'background melted into soft shapes with no lines' (these push the model to uncoloured/flat backgrounds). ADD to prompt: 'anime coloring, soft two-tone cel shading, thin colored lineart, fully colored painted background, detailed background, blurry background, bokeh, depth of field, bright sunlight, high-key'. ADD to negative: 'lineart, sketch, uncolored, unfinished, monochrome background, simple background, white background, flat background, gradient background, coloring book, manga, screentone, halftone, border, frame, letterboxed, picture frame'. Foreshortened hand toward camera mostly did not render: re-weight it e.g. '1.3::foreshortening, hand reaching toward viewer::'. GIRL: Keep pose/scene of r1-0 and r1-2 (daytime shrine steps and red bridge is close to Look B). Negative add 'border, frame, white border, from behind, back view, looking back'. Lantern: '1.2::glowing round paper lantern hanging from the hooked tip of her long wooden staff::'. Halo: 'pale yellow ring halo above her beret, fully in frame'. Dress: keep '1.2::dress below the knees, white tights::'. Skin: negative 'pale skin, white skin'.",
+ "safety_flags": "r1-3 rear over-shoulder view of a student with bare thighs."
+}

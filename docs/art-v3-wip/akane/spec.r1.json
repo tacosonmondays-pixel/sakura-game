@@ -1,0 +1,28 @@
+{
+ "id": "akane",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, pyrotechnics club flame witch, long orange-red hair, swept bangs, orange eyes, sharp eyes, huge plum witch's hat with a red band and a small gold star, red long-sleeved coat-dress with thin gold trim and gold buttons, gold collar bow, plum pleated skirt below the knees, black tights, red boots, wooden staff with a gold ring around a red star crystal, orange flame-shaped halo floating above her hat, smug confident grin, a festival stall on a sunny afternoon, paper lanterns overhead, crates of round paper firework shells, small daytime fireworks and colored smoke puffs in a blue sky, cowboy shot, {POSE}, long orange-red hair whipping in the breeze, her eyes on the left third, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, warm sunny afternoon light with one small sky-blue accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing straight, symmetrical composition, straight-on camera, staff pointed at viewer, fireball at viewer, weapon pointed at viewer, aiming at viewer, explosion, burning, smoke covering face, night, dark sky, blonde hair, pink hair, brown hair, short hair, blue eyes, purple eyes, bare legs, short skirt, miniskirt, corset, glowing eyes, demon, horns",
+ "poses": [
+  "she holds a round paper firework shell out toward the viewer on her palm with a proud grin, strong foreshortening, hand and shell very large near the camera, her staff propped on her shoulder, dutch angle, diagonal composition, eye level, hat brim and hair swept by the wind",
+  "she twirls her staff overhead with the red crystal pointing up at the sky as a tiny firework bursts above it, her free hand flashing a peace sign toward the viewer, strong foreshortening, hand very large near the camera, dutch angle, diagonal composition, eye level, skirt swirling",
+  "holding her huge hat on with one hand against a gust of wind, her other hand reaching toward the viewer as if to say come watch, strong foreshortening, open hand very large near the camera, staff tucked under her arm, dutch angle, diagonal composition, slightly from above, long hair streaming",
+  "she leans the staff across the near foreground pointing up and away to the side, a small flame curling around the crystal, and winks at the viewer with a finger heart, strong foreshortening, dutch angle, diagonal composition, eye level, hair and coat tails flying",
+  "she lifts a lit sparkler high above her head, sparks spraying upward, her other hand stretched toward the viewer with a thumbs up, strong foreshortening, hand very large near the camera, dutch angle, diagonal composition, eye level, hat tilting"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/akane-full.webp",
+ "identity": [
+  "long orange-red hair, swept bangs",
+  "orange sharp eyes",
+  "huge plum witch's hat, red band, gold star",
+  "red coat-dress jacket, thin gold trim, gold buttons",
+  "gold collar bow",
+  "plum skirt below the knee, black tights",
+  "red boots with gold bands",
+  "wooden staff with gold ring around a red star crystal (never aimed at the viewer)",
+  "orange flame halo",
+  "smug grin"
+ ],
+ "scene": "the pyrotechnics club's festival stall on a sunny afternoon: paper lanterns, crates of round firework shells, small daytime fireworks and coloured smoke puffs",
+ "notes": "STUDENT (adult: false). Her portrait is a night lantern festival with heavy gold filigree; Look B moves it to bright afternoon with thin flat gold lines. Her portrait has no halo; the flame halo comes from her data (halo: flame, #ff9f1c) and may sit hidden or cut by the hat: judge it as optional if the hat brim covers it. Fire stays small and pointed up/away; the staff is never aimed at the viewer. Bio: she signs explosions with a heart; pose 4 uses a finger heart, no romance intended."
+}

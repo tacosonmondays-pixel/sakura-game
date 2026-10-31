@@ -1,0 +1,136 @@
+{
+ "id": "hikari",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass: TEAL eyes, braided crown with gold stars, white/teal ribbon, white high collar, royal blue bow with teal gem, navy vest with gold toggles, white greatcoat with teal lining and gold shoulder guard, white gloves, sheathed star-guard sword, gold star-point ring halo",
+    "safety": "pass: three-quarter, face and reaching hand are the focus, coat covers the chest area, not body-framed",
+    "hands": "pass: foreshortened glove, thumb + 4",
+    "text": "pass",
+    "crops": "fail: the halo's back arc and a detached star fragment touch/cross the top edge (x~220-270 and ~320 at y=0)",
+    "count": "pass",
+    "frame_bg": "pass: rampart wall at dawn, sky fairly flat"
+   },
+   "scores": {
+    "identity": 8.5,
+    "camera": 9,
+    "lookB": 7.5,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 8.35,
+   "notes": "Would have been the pick (8.35): reach toward the viewer, wind in hair and coat. Rejected only for the halo clipped by the top edge. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: halo is scattered orange stars, no greatcoat closed over the chest",
+    "safety": "fail: chest-centred framing with bust emphasis (adult framed around body)",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 7,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 6.0,
+   "notes": "Salute pose, bust dominates the frame. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: halo is a malformed bar with a hanging star",
+    "safety": "fail: front-on, bust at frame centre with teacup held at the chest",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 4.5,
+    "lookB": 7,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.78,
+   "notes": "Static, body-centred. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "pass: TEAL eyes, braided crown with gold stars, white-and-teal striped ribbon with star tails, white high-collared blouse with royal blue bow and teal gem, navy vest with gold toggles, white greatcoat with gold trim and teal lining, gold shoulder guards, white gloves with gold cuffs; halo is a pale-gold ring with small leaf-like points (crown) - acceptable. Sheathed sword is out of frame (deducted, not failed: waist-up framing)",
+    "safety": "pass: adult, fully dressed, coat over the body, face in the upper third; the reaching glove sits in front of the chest so the hand, not the bust, is the focal point; eye-level/slightly-above camera",
+    "hands": "pass: reaching glove is thumb up + four fingers curling palm-up (soft at 2x but countable); no extra hands",
+    "text": "pass",
+    "crops": "pass: eyes 33% down, face 41% across, whole halo inside (top ~y25)",
+    "count": "pass",
+    "frame_bg": "pass: painted rampart walkway at dawn with sakura trees"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 7,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.58,
+   "notes": "r2-0's pose re-run with the halo inside: hand toward viewer, slight dutch tilt, hair and coat moving. Foreshortening is moderate (hand not very large)."
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "pass mostly: teal eyes, outfit right; halo with loose stars",
+    "safety": "pass",
+    "hands": "pass: two gloved hands on the hilt",
+    "text": "pass",
+    "crops": "fail: halo and its stars cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 5,
+    "lookB": 7.5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 6.58,
+   "notes": "Static, hands on hilt at chest height, bust central."
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: halo is a row of five stars, not a ring",
+    "safety": "fail (borderline, rejected): bust is the centre of the frame with the coat open and the blouse fitted",
+    "hands": "pass: open hand 5 fingers",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6.5,
+    "lookB": 7.5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 6.65,
+   "notes": "Star-toss reach but body-centred."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r3-0",
+ "pick_total": 7.58,
+ "eyes": [
+  315,
+  335
+ ],
+ "head": 341,
+ "fixes": null,
+ "safety_flags": "r3-0: the reaching hand is held at chest height; it covers rather than frames the chest and the coat is modest, so I passed it, but worth one human look since earlier rounds were bust-centred. Sword not visible in frame."
+}

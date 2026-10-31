@@ -1,0 +1,93 @@
+{
+ "id": "chika",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "pass: teal goggles, gear halo, overalls, satchel, drones",
+    "safety": "fail: overall SHORTS with bare thighs on a student - exactly what the spec bans",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~62%, eyes ~28%",
+    "count": "pass",
+    "frame_bg": "fail: abstract blue/white planes, not a real place"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 5,
+    "lookB": 4,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.75,
+   "notes": "Rejected on safety."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: no overalls bib (plain shirt + trousers); goggles grey-green",
+    "safety": "pass",
+    "hands": "pass: thumbs up ok",
+    "text": "fail: engraved markings on the wrench read like lettering",
+    "crops": "pass: face ~43%, eyes ~31%",
+    "count": "pass",
+    "frame_bg": "fail: abstract flat planes"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 7,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 5.2,
+   "notes": "Good dutch angle, wrong outfit."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "pass: goggles, gear halo, overalls; wrench only as small tools in pocket; drones are legged gadgets",
+    "safety": "pass",
+    "hands": "pass: reaching hand 5 fingers",
+    "text": "pass",
+    "crops": "fail: face centre ~29% across (limit 30%)",
+    "count": "pass",
+    "frame_bg": "fail: abstract blue/white planes"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7,
+    "lookB": 4,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.95,
+   "notes": ""
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: plain gold ring halo, not the eight-tooth gear; no wrench",
+    "safety": "pass",
+    "hands": "pass: big foreshortened hand, 5 fingers",
+    "text": "pass",
+    "crops": "pass: face ~35%, eyes ~31%",
+    "count": "pass",
+    "frame_bg": "fail: flat window/ceiling planes, no real place"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 9,
+    "lookB": 4,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 6.7,
+   "notes": "Best camera of the whole round (Look B reach toward camera, round teal drones on model). Keep this pose."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "STYLE (whole round): every render came out as a colouring-book page: black outlines, almost no shading, uncoloured line-sketch or flat single-colour backgrounds. REMOVE from prompt: 'flat color', 'few interior lines', 'flat hair color planes', 'background melted into soft shapes with no lines' (these push the model to uncoloured/flat backgrounds). ADD to prompt: 'anime coloring, soft two-tone cel shading, thin colored lineart, fully colored painted background, detailed background, blurry background, bokeh, depth of field, bright sunlight, high-key'. ADD to negative: 'lineart, sketch, uncolored, unfinished, monochrome background, simple background, white background, flat background, gradient background, coloring book, manga, screentone, halftone, border, frame, letterboxed, picture frame'. Foreshortened hand toward camera mostly did not render: re-weight it e.g. '1.3::foreshortening, hand reaching toward viewer::'. GIRL: Keep pose of r1-3 (reaching hand, drones around). Re-weight '1.3::gold cogwheel halo with eight teeth::' and 'giant steel wrench slung over her shoulder'. Background: the abstract planes need a real place: add 'robotics club workshop, workbenches, tools on pegboard, sunlit windows, painted background, blurry background'; negative 'abstract background, geometric background, two-tone background'. Keep 'shorts, bare legs, thighs' in negative and add 'overall shorts'. Add 'engraving, markings' to negative.",
+ "safety_flags": "r1-0 overall shorts with bare thighs on a student."
+}

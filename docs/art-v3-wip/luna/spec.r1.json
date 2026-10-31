@@ -1,0 +1,33 @@
+{
+ "id": "luna",
+ "adult": true,
+ "prompt": "1girl, solo, 1.3::mature adult woman::, tall slender gentle fox-eared oracle in her late twenties, grown-up face, long neck, long straight lavender hair, hime cut, straight blunt bangs, long side locks, tall lavender fox ears with white inner fur, one huge fluffy lavender and white fox tail, gold crescent-moon hair ornament with a teal ribbon, small gold crescent earrings, violet eyes, half-closed sleepy eyes, high-necked long-sleeved midnight-navy gown, violet bow at the collar, white wide-sleeved overcoat with thin lavender trim and teal tassels covering her shoulders, staff with a dark rod crowned by a golden crescent around a glowing pale moon orb, pale lavender halo shaped like a crescent moon, gentle mysterious smile, a moon-viewing tea terrace at early evening, bright pale lavender twilight sky, a huge pale full moon rising, wisteria trellis, stone lanterns, a low table with teacups, upper body, from the waist up, {POSE}, her eyes on the right third, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, soft lavender twilight light with one small warm lantern accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, thighs, legs, weapon pointed at viewer, static pose, stiff pose, staff pointed at viewer, dark night, starry sky, black background, white hair, silver hair, pink hair, blonde hair, short hair, cat ears, red eyes, blue eyes, multiple tails, bare shoulders, off-shoulder, strapless, detached sleeves, young girl, petite, childlike face, loli",
+ "poses": [
+  "she offers a small cup of tea out toward the viewer, foreshortening, hand and teacup large and slightly soft in the near foreground, the staff held upright in her other hand, dutch angle, diagonal composition, eye level, hair and wide sleeves drifting in the evening breeze",
+  "she holds her open palm out toward the viewer with three thin threads of pale moonlight curling up from it, foreshortening, hand large near the camera, dutch angle, diagonal composition, eye level, long hair floating, fox tail swishing behind her",
+  "twirling around to face the viewer, her huge fluffy fox tail sweeping across the near foreground, foreshortening, the staff held upright beside her, dutch angle, diagonal composition, slightly from above, hair and sleeves swirling with the turn",
+  "she tilts a teacup toward the viewer to show the fortune in the tea leaves, foreshortening, hand and cup large near the camera, a knowing smile, dutch angle, diagonal composition, eye level, fox ears perked, side locks swaying",
+  "she raises the staff high beside her, its crescent and glowing moon orb up by the moon, other hand reaching toward the viewer with a beckoning gesture, foreshortening, dutch angle, diagonal composition, eye level, wide sleeves and hair streaming"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/luna-full.webp",
+ "charref_box": [
+  40,
+  0,
+  728,
+  470
+ ],
+ "identity": [
+  "long straight lavender hair, hime cut with blunt bangs and long side locks",
+  "tall lavender fox ears, white inner fur",
+  "one huge fluffy lavender-and-white fox tail",
+  "violet eyes, sleepy half-lidded",
+  "gold crescent hair ornament with teal ribbon",
+  "midnight-navy gown, white wide-sleeved overcoat with teal tassels",
+  "staff: dark rod, golden crescent around a glowing moon orb",
+  "pale lavender crescent-moon halo",
+  "adult, framed from the waist up"
+ ],
+ "scene": "a moon-viewing tea terrace at bright early-evening twilight: huge pale moon rising, wisteria, stone lanterns, teacups",
+ "notes": "Adult hero; framed from the waist up because her portrait has a short skirt, tall boots and a low-cut bodice (the prompt asks for a high-necked gown; the negative bans bare shoulders/off-shoulder). Her current portrait has chibi-like proportions: charref_box is head to waist only and 'chibi', 'child', 'aged down' are in the negative; she must read as a grown woman. Twilight is kept bright (no dark night) for the high-key look. Staff never aimed at the viewer. r1-0 and r1-1 came out youthful with bare shoulders (detached sleeves pulled from the reference); from r1-2 the prompt weights '1.3::mature adult woman::' and asks for the overcoat covering her shoulders, and the negative adds detached sleeves, young girl, petite, childlike face."
+}

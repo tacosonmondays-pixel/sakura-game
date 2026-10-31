@@ -1,0 +1,73 @@
+{
+ "id": "fuu",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: no mint leaf halo (a flying ribbon with a turbine disc sits at the top edge instead); skirt above the knee (spec knee length)",
+    "safety": "pass",
+    "hands": "pass: fan hand ok",
+    "text": "pass",
+    "crops": "pass: face ~44%, eyes ~25% (ribbon element cut at top, not a halo)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 8.5,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 7.35,
+   "notes": "Great fan-forward foreshortening and hilltop field."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no halo at all; skirt above the knee",
+    "safety": "pass",
+    "hands": "pass: fan hand and free hand ok",
+    "text": "pass",
+    "crops": "fail: eyes ~40% down (limit 36%), face ~63% across",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8.5
+   },
+   "total": 6.75,
+   "notes": "Running with fan overhead; face small and low."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: mint pleated skirt ends mid-thigh (spec: knee length over leggings); everything else on model: cocoa twintails with mint ribbons, gold leaf pin, mint eyes, open mint track jacket, sailor shirt + neckerchief tucked in, dark green leggings, white high-tops, mint/gold fan, leaf-cluster halo",
+    "safety": "pass: leggings, no midriff, eye level, cheerful",
+    "hands": "pass: fan hand and trailing hand 5 digits",
+    "text": "pass",
+    "crops": "pass: face ~43%, eyes ~24%; leaf halo inside",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8.5,
+    "lookB": 8,
+    "composition": 8,
+    "appeal": 9
+   },
+   "total": 7.78,
+   "notes": "Best of the round by far (fan swept toward the viewer, twintails flying, bunting). Only the skirt length blocks a pick."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Keep r2-2 exactly (pose, leaf-cluster halo, bunting hilltop) as pose 1 and r2-0's fan-forward as pose 2; drop r2-1 (no halo, small face). Skirt: '(mint pleated skirt reaching the knees:1.4), knee-length skirt over dark green leggings'; negative 'miniskirt, short skirt, skirt above knee, flared skirt lifting, thighs'. Halo weighting from r2 worked in r2-2: keep '(pale mint leaf halo:1.3)' and add 'fully inside the frame'; negative 'ribbon streamer above head'. Fix r2-1's crop: eyes must be 15-36% down.",
+ "safety_flags": ""
+}

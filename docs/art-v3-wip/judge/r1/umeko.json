@@ -1,0 +1,93 @@
+{
+ "id": "umeko",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "pass: white-to-seafoam hair, top braid, shell pin, sleepy seafoam eyes, robe, navy sash, shell staff; halo is a mint cloud swirl (acceptable wave-ish)",
+    "safety": "pass",
+    "hands": "fail: hands with lantern merge into a blob; lantern not drawn",
+    "text": "pass",
+    "crops": "pass: face ~38% across, eyes ~22% down",
+    "count": "pass",
+    "frame_bg": "fail: mostly blank white background with a line-sketched stair"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 4,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.85,
+   "notes": "Static front-ish view."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "pass: identity good",
+    "safety": "pass",
+    "hands": "pass: staff hand ok, other hand hidden",
+    "text": "pass",
+    "crops": "pass: face ~38% across, eyes ~26% down",
+    "count": "pass",
+    "frame_bg": "fail: blank pale grey background"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.35,
+   "notes": "Pretty, dreamy smile; reaching hand not drawn; no setting at all."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "pass: identity good; wave halo drawn",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: head tiny, eyes ~45% down; figure pushed right",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place; shrine gate/pier sketched on white"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 3,
+    "appeal": 5
+   },
+   "total": 4.85,
+   "notes": "Only frame with a real place, but the girl is too small for the crops."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "pass: identity good",
+    "safety": "pass",
+    "hands": "pass: staff hand 5 fingers",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: a cyan rectangular frame/border drawn behind her"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 5.1,
+   "notes": "Rejected on frame."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "ROUND-WIDE STYLE FAILURE: every candidate in this batch rendered as flat colouring-book line art (dark near-black outlines, no shadow shapes at all, backgrounds drawn as thin line sketches over one flat fill). Fix in the shared style tail: REMOVE or down-weight 'flat color', 'few colors', 'few interior lines', 'flat hair color planes', 'no black outlines' (the model reads these as 'uncoloured line art'); ADD '(two-tone cel shading:1.3), hard-edged shadow shapes on face, hair and clothes, soft painted background, (blurred painted background:1.2), bokeh, depth of field, atmospheric perspective, bright sunlight, rim light'; ADD to negative: 'lineart, line art, coloring book, uncolored, monochrome, sketch, sketch background, line-drawn background, white background, simple background, flat background, blank background, thick outlines, black outlines, manga, screentone, border, frame'. If the pipeline allows a style reference, feed sheets/_lookB_reference.jpg tiles as the style image; keep charref fidelity at 0.6 (identity is mostly fine, the drift is style). GIRL-SPECIFIC: keep pose 1 (inviting hand) and pose 3 (shell toward viewer). Background: '(seaside shrine stone steps in morning light, sea and torii in the distance, painted, blurred:1.2)'; negative 'white background, blank background, frame, border, rectangle'. Thin the gold filigree: 'simple flat teal trim, no gold embroidery'. Ask 'cowboy shot, upper body large in frame' (pose 2 made her tiny).",
+ "safety_flags": ""
+}

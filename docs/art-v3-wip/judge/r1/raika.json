@@ -1,0 +1,93 @@
+{
+ "id": "raika",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: no halo (only a lightning bolt); staff floats unheld",
+    "safety": "pass",
+    "hands": "fail: staff not held by any hand; floating cup",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: white clouds + uncoloured lineart building"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 4.85,
+   "notes": "Lovely grin and reaching palm, but prop and halo broken."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "pass (halo plain ring, no bolt)",
+    "safety": "fail (borderline): camera from below, looking up at her against the tower",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: white tower lineart, blank"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 5.45,
+   "notes": "No anemometer, low angle."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "pass (bolt-in-ring halo correct)",
+    "safety": "fail: clearly from below (low angle, building tops receding upward)",
+    "hands": "fail: staff passes through the pointing hand; other hand on hip, so the staff is not held as posed",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: sky + weather station, flat"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 5.95,
+   "notes": "Most on-model, but low angle and prop/hand clash."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: outfit wrong (plain lilac dress, white collar, neck ribbon, no gold edges/periwinkle coat)",
+    "safety": "fail (borderline): from below",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: sky, flat"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 4.75,
+   "notes": "No pinwheel; off-model dress."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "ROOT CAUSE (shared by every charref-only girl this batch): output collapsed into uncoloured colouring-book lineart with no shading; norika (vibe 0.2, no charref) did NOT collapse. Style block: REMOVE 'flat color', 'no black outlines', 'few interior lines', 'background melted into soft shapes with no lines' (the word 'lines' is pulling lineart in). ADD 'cel shading, two-tone shading, soft painted background, blurry background, detailed colored background, depth of field, bright daylight'. NEGATIVE add: 'lineart, line art, sketch, monochrome, greyscale, uncolored, partially colored, coloring page, white background, simple background, blank background, empty background, heavy outlines, manga'. Add the Look B vibe (one of the two Look B reference portraits, own art) at strength 0.3 alongside the charref; keep charref fidelity 0.6. Raika: camera keeps going low against the sky; replace 'eye level' with 'slightly from above, high angle' and add negative 'from below, low angle, worm's eye view, looking up'. Weather station: 'rooftop weather station with white instrument boxes and a wind sock, green campus below' so there is ground in frame. Halo: keep 'pale yellow halo ring with a small lightning bolt' (r1-2 got it). Drop the anemometer pose (1) and pinwheel pose (4): the props never render. Keep pose 0 (staff behind, open palm), but write 'gripping the staff in her raised hand' explicitly; keep pose 2 (pointing), with 'staff held upright in her LEFT hand, pointing with her RIGHT hand'.",
+ "safety_flags": "r1-1..r1-3 camera from below."
+}

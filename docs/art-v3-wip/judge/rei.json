@@ -1,0 +1,76 @@
+{
+ "id": "rei",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 7.92,
+   "notes": "Best: clear dutch tilt, pink rose offered toward the viewer (fist grip, plausible), sheathed katana with pink silk bow at the hip, navy bob with star pin and dark bow, lilac eyes, indigo wide-sleeve jacket with gold edging, lilac bow with star, navy pleated skirt framed from waist up. Thin tinted lines, flat 2-tone cel, bright garden with gazebo and table with teapot. Halo is a pale pink ring, not five petals; no rose bushes in the scene."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 4.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.78,
+   "notes": "On model and clean, but a static 3/4 pose with almost no tilt and no foreshortening; katana grip shown only as a hilt in her hand."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: halo clipped at the top edge (top right)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 8
+   },
+   "total": 7.65,
+   "notes": "Good wave toward viewer and teapot statue, but the halo is cut by the top edge."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-0",
+ "pick_total": 7.92,
+ "eyes": [
+  468,
+  290
+ ],
+ "head": 332,
+ "fixes": null,
+ "safety_flags": "Halo is a plain pale pink ring, not the five-petal ring the spec asks for; the rose garden shows hedges and lawn but no rose bushes."
+}

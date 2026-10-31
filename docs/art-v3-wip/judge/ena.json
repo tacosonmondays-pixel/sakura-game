@@ -1,0 +1,196 @@
+{
+ "id": "ena",
+ "round": 4,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: no crescent moon halo (two moon decorations sit in the window/sky instead); skirt mid-thigh, spec weights knee length",
+    "safety": "pass",
+    "hands": "pass: pointing hand with floating cards ok; launcher hand fine",
+    "text": "pass",
+    "crops": "pass: face ~38%, eyes ~23%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 7.22,
+   "notes": "Lovely club-room light and smug look; braid trails to her left ok. [Round 3 reconsidered: round-2 verdict stands.] [Round 4 reconsidered: ring-halo-as-deduction applied where relevant; r3-0 still fails on the mangled card hand, r3-1 on the halo cut by the top edge, r3-2 on the reaching hand, r2-x on mid-thigh skirts. Verdict stands.]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: skirt clearly above the knee (mid-thigh), spec knee length; otherwise on model: braid over her left shoulder with red cord bow, rose + tassels, blazer, cardigan coat, plaid, tights, launcher, rose cards, pink halo ring",
+    "safety": "pass: roughly eye level (wide-angle shows ceiling), wholesome smug smile",
+    "hands": "pass: card fan held in a foreshortened hand; hip hand with launcher fine",
+    "text": "pass: card faces a single rose, no indices",
+    "crops": "pass: face ~43%, eyes ~19%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 7.6,
+   "notes": "Strongest of the three: cards fanned toward the viewer, dutch angle. Only the skirt length blocks it. [Round 3 reconsidered: round-2 verdict stands.] [Round 4 reconsidered: ring-halo-as-deduction applied where relevant; r3-0 still fails on the mangled card hand, r3-1 on the halo cut by the top edge, r3-2 on the reaching hand, r2-x on mid-thigh skirts. Verdict stands.]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: no halo (hanging star ornaments only); skirt mid-thigh",
+    "safety": "pass: but the hip-out stance with the near thigh forward is close to leg-focus; tights",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~31%, eyes ~16%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 6.85,
+   "notes": "Single card raised; face sits near the left limit. [Round 3 reconsidered: round-2 verdict stands.] [Round 4 reconsidered: ring-halo-as-deduction applied where relevant; r3-0 still fails on the mangled card hand, r3-1 on the halo cut by the top edge, r3-2 on the reaching hand, r2-x on mid-thigh skirts. Verdict stands.]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: halo is a flat pink ring, not a crescent moon (skirt now long, braid over her left shoulder ok, rose + tassels, blazer, coat, tie, launcher ok)",
+    "safety": "pass",
+    "hands": "fail: card hand is mangled: cards balance on one fingertip, fingers merge into the card stack and a spatula-like thumb runs into the sleeve",
+    "text": "pass",
+    "crops": "pass: face ~70% borderline, eyes ~22%; ring halo touches near the top",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.4,
+   "notes": "Strong card-fan foreshortening, but the hand is broken. [Round 4 reconsidered: ring-halo-as-deduction applied where relevant; r3-0 still fails on the mangled card hand, r3-1 on the halo cut by the top edge, r3-2 on the reaching hand, r2-x on mid-thigh skirts. Verdict stands.]"
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: halo is a large tilted pink ring/streak, not a crescent",
+    "safety": "pass",
+    "hands": "pass: reaching hand 5 fingers (card floats just off the fingertips), card hand ok",
+    "text": "pass",
+    "crops": "fail: the halo ring crosses the top edge (x~360-470, y=0)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 7.38,
+   "notes": "Good dutch angle, long skirt and grin; halo wrong shape and cut. [Round 4 reconsidered: ring-halo-as-deduction applied where relevant; r3-0 still fails on the mangled card hand, r3-1 on the halo cut by the top edge, r3-2 on the reaching hand, r2-x on mid-thigh skirts. Verdict stands.]"
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: the crescent floats off to the upper left like a decoration, not over her head",
+    "safety": "pass",
+    "hands": "fail: foreground reaching hand is a blurred mitten shape with an over-long finger, digits not countable",
+    "text": "pass",
+    "crops": "pass: face ~52%, eyes ~20%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.2,
+   "notes": "Crescent finally drawn but in the wrong place; reaching hand malformed. [Round 4 reconsidered: ring-halo-as-deduction applied where relevant; r3-0 still fails on the mangled card hand, r3-1 on the halo cut by the top edge, r3-2 on the reaching hand, r2-x on mid-thigh skirts. Verdict stands.]"
+  },
+  "r4-0": {
+   "hard": {
+    "identity": "pass with note: braid over her left shoulder with red cord bow, rose + red tassel cords, pink eyes, smug grin, black blazer/long coat with crimson piping and gold buttons, crimson tie, red plaid skirt to about the knee with black tights, silver wrist launcher with red light (pointed down, not at the viewer), pink rose cards; halo is a thin pale-pink crescent arc tilted with her head and offset slightly to the upper left (deducted); blazer and cardigan coat read as one long coat; small mole under one eye (not in spec)",
+    "safety": "pass",
+    "hands": "pass: card hand has thumb on the fan and fingers behind it, plausible grip; other hand not visible",
+    "text": "pass",
+    "crops": "pass: face centre ~38% across, eyes ~24% down, halo top y~10 inside, head whole",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.7,
+   "notes": "Dutch-tilted club room with bright window and roses, fan of glowing cards pushed toward the viewer, braid swinging. Lines a touch dark but flat cel and high-key. Best Ena of all four rounds and the first with a crescent-shaped halo."
+  },
+  "r4-1": {
+   "hard": {
+    "identity": "fail: skirt ends mid-thigh (spec knee length); halo is a thin pink ring (deducted, would be accepted)",
+    "safety": "fail (borderline, rejected): finger-gun gesture aimed straight at the viewer with a hex card floating off the fingertip (cards are never a weapon at the viewer)",
+    "hands": "fail: card floats past the index fingertip, not held between thumb and index finger as posed",
+    "text": "pass",
+    "crops": "pass: face ~45%, eyes ~25%",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 8.5,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.65,
+   "notes": "Strongest foreshortening of the round but reads as shooting the viewer, card not held, short skirt."
+  },
+  "r4-2": {
+   "hard": {
+    "identity": "pass with note: all items on model, skirt long; halo is a small thin pink ring centred over her head (accepted per lead, deducted for not being a crescent); launcher only a grey band on the raised wrist",
+    "safety": "pass",
+    "hands": "pass: card hovers on the raised index fingertip (magic spin, reads as intended), thumb and curled fingers clean; far hand a small loose fist",
+    "text": "pass",
+    "crops": "pass: face ~55%, eyes ~24%, halo top y~25",
+    "count": "pass: one girl",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.53,
+   "notes": "Clean bright club room and the right smug smile, but the card goes out to the side rather than toward the lens; ring halo."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r4-0",
+ "pick_total": 7.7,
+ "eyes": [
+  290,
+  250
+ ],
+ "head": 250,
+ "fixes": null,
+ "safety_flags": "r4-0: small mole under her left eye not in the spec (harmless). r4-1 rejected for a finger-gun gesture at the viewer."
+}

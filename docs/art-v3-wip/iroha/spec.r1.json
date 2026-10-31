@@ -1,0 +1,28 @@
+{
+ "id": "iroha",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, elegant second-year of the art club, black hair with a faint violet tint, blunt straight bangs, short bob with a small hair bun, round silver hair ornament beside the bun, pale lavender eyes, half-closed eyes, charcoal sailor uniform with a grey sailor collar and thin silver stripes, plum neckerchief, long plum cardigan with silver buttons, charcoal pleated skirt at knee length with a thin silver hem line, black tights, black loafers, silver oval hand mirror with a simple silver frame on a lanyard, a tall oval mirror panel in a slim silver frame hovering on a small white drone easel beside her, pale lavender thin ring halo floating above her head, calm faint smile, the art club room on a bright morning, tall sunny windows, easels with blank canvases, jars of brushes, glass prisms on the windowsill casting small soft rainbow spots, cowboy shot, {POSE}, her eyes on the left third, short hair and cardigan swaying, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, soft bright morning light with one small lavender accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing straight, symmetrical composition, straight-on camera, blonde hair, brown hair, pink hair, long hair, twintails, red eyes, green eyes, short skirt, miniskirt, bare legs, dusk, sunset, night, laser beam, light beam, broken glass, shattered mirror, sharp shards, reflection of a person, weapon pointed at viewer, aiming at viewer",
+ "poses": [
+  "she holds her hand mirror out toward the viewer at arm's length, its glass catching a bright spot of light, strong foreshortening, hand and mirror very large near the camera, dutch angle, diagonal composition, eye level, the hovering mirror panel tilted behind her, lanyard swinging",
+  "polishing the hovering mirror panel with a soft white cloth, she glances back and holds the cloth out toward the viewer, strong foreshortening, hand and cloth very large near the camera, dutch angle, diagonal composition, slightly from above, cardigan swinging",
+  "she lifts a clear glass prism toward the viewer between her fingertips, a small soft rainbow spot on her cheek, strong foreshortening, fingers and prism very large near the camera, dutch angle, diagonal composition, eye level, hand mirror swinging on its lanyard",
+  "she holds a clean paintbrush out toward the viewer as if inviting them to paint, a paint palette in her other hand, the mirror panel turning behind her, strong foreshortening, hand and brush very large near the camera, dutch angle, diagonal composition, slightly from above, cardigan hem flaring",
+  "turning on her heel, she frames the viewer between her thumbs and fingers like a painter measuring a view, strong foreshortening, hands very large near the camera, dutch angle, diagonal composition, eye level, neckerchief and cardigan swinging"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/iroha-full.webp",
+ "identity": [
+  "black hair with a violet tint, blunt straight bangs, short bob with a small bun",
+  "round silver ornament by the bun",
+  "pale lavender half-lidded eyes",
+  "calm faint smile",
+  "charcoal sailor uniform, grey collar, plum neckerchief",
+  "long plum cardigan with silver buttons",
+  "charcoal pleated skirt (knee length) with silver hem line, black tights, black loafers",
+  "silver oval hand mirror on a lanyard (no beams at the viewer)",
+  "tall oval mirror panel hovering on a small drone easel",
+  "pale lavender thin ring halo"
+ ],
+ "scene": "the art club room on a bright morning: tall sunny windows, easels with blank canvases, jars of brushes, glass prisms on the sill casting small soft rainbow spots",
+ "notes": "STUDENT (adult: false), SSR mirror caster. Her portrait is the art room at dusk with ornate silver filigree frames, beams and sparkles; Look B keeps the art room but in bright morning light with simple silver frames and no beams. Her mirror never shoots a beam at the viewer. The mirror panel should reflect only light or sky, never a second figure (watch for a reflected double: that is multiple girls). Data halo 'ring' (#e6dcff); her portrait shows none. Canvases stay blank."
+}

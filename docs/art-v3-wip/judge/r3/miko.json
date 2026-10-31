@@ -1,0 +1,76 @@
+{
+ "id": "miko",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: gohei streamers drawn as a chain of loose rectangular paper cards instead of white zigzag shide; halo a plain pink ring, not a single petal",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 6.5,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.88,
+   "notes": "Courtyard with worship hall, rope and cherry trees reads well; colour/cel style recovered. But the gohei streamers are loose rectangular paper cards, not zigzag shide; camera mostly static 3/4 with a small dutch tilt; halo is a ring, not a petal."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 7.83,
+   "notes": "Best: dutch tilt on shrine steps, open palm reaching toward viewer (five fingers, slightly foreshortened), gohei with zigzag shide over shoulder, hair and sleeves swept by wind. Bow, hime cut, mauve eyes, red cord sleeve ties, hakama bow, gold bell all on model. Halo is a pale pink ring instead of a petal shape (soft deduction). Lines on the black hair are dark-ish but the rest is thin tinted line + flat 2-tone cel. Hall crest plaque is a blank ornament, no writing."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: gohei/sakaki replaced by a green cone-cup prop; gohei not readable (only stray shide); halo a ring",
+    "safety": "pass",
+    "hands": "pass (fist around prop handle, other hand at belt holding bell cord)",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 7,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 6.65,
+   "notes": "Sakaki sprig turned into a bright green plastic cup/cone on a wooden handle; reads as a toy megaphone, not her gohei or a sprig."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-1",
+ "pick_total": 7.83,
+ "eyes": [
+  366,
+  224
+ ],
+ "head": 208,
+ "fixes": null,
+ "safety_flags": "Halo drawn as a pale pink ring, not the single cherry-petal shape from her data; acceptable for ship but note it."
+}

@@ -1,0 +1,73 @@
+{
+ "id": "yoriko",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: no halo, no doll; control bar drawn as a wooden rolling-pin stick",
+    "safety": "fail: camera from below, trousers/crotch area in the lower centre",
+    "hands": "pass",
+    "text": "pass: no text",
+    "crops": "pass: eyes ~20%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: blurred room"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 6,
+    "lookB": 6.5,
+    "composition": 5.5,
+    "appeal": 5
+   },
+   "total": 5.33,
+   "notes": ""
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: halo is on the doll, not on her; no control bar",
+    "safety": "pass",
+    "hands": "fail: her left (image left) hand has too many spread fingers",
+    "text": "pass: no text",
+    "crops": "fail: eyes ~y390 (38%)",
+    "count": "pass: one girl (doll is a puppet)",
+    "frame_bg": "pass: blurred classroom"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 7,
+    "lookB": 7,
+    "composition": 6,
+    "appeal": 6.5
+   },
+   "total": 6.2,
+   "notes": ""
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: no control bar; halo a plain pink ring, not a crescent moon",
+    "safety": "pass: adult, eye level",
+    "hands": "pass: glove on script five fingers; other hand hidden",
+    "text": "pass: blank script",
+    "crops": "pass: eyes ~27%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: classroom, window"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6.5,
+    "lookB": 7,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.62,
+   "notes": "Doll on shoulder is cute; still missing the bar."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "(1) Control bar never renders right: name it '(wooden puppet control bar shaped like a plus sign, two crossed flat slats:1.3) held in her gloved hand, strings hanging from its four ends down to the doll'; negative 'rolling pin, stick, baton'. (2) Halo on the wrong figure: '(pale lilac crescent-moon halo above HER head:1.3)', negative '(halo on doll:1.4), doll with halo'. (3) Head too low in r2-1 and camera from below in r2-0: 'from slightly above, upper body, head in the upper third'; negative 'from below, low angle'. (4) Keep pose 2 (doll on shoulder) as lead, swapping the script for the control bar held up beside her face; drop pose 0. (5) Hands: negative 'extra fingers, six fingers'. Charref fidelity 0.6.",
+ "safety_flags": "r2-0 low camera toward the trouser area on an adult hero; rejected."
+}

@@ -1,0 +1,136 @@
+{
+ "id": "raika",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: eyes ~45% down from the top (limit 36%); halo floats beside, not above, the head",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 6,
+    "appeal": 8
+   },
+   "total": 7.28,
+   "notes": "Bright rooftop sky, staff raised high, hair flying, horns and lilac bow good. But she is placed low (eyes ~45% down), the halo floats off to the side, big lightning streaks fill the sky (spec: tiny sparks), and the 'reaching' hand goes sideways, not toward the viewer. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no halo; second horn hidden behind the staff star",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.0,
+   "notes": "Good grin and windblown hair, staff held across her body. No halo at all, only one horn reads (the other is hidden behind the star), and the pointing/wink pose was ignored. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: staff's gold star-in-ring is outside the frame, staff reads as a plain pole; halo lacks the bolt",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8.5
+   },
+   "total": 7.33,
+   "notes": "Best appeal and camera: thumbs-up foreshortened (thumb and curled fingers fine), weather balloon, rooftop railing, both ram horns, grin. But the staff runs across her body and its gold star is out of frame at bottom right, so she holds a plain pole; halo is a plain ring with no bolt and nearly touches the top edge. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: the halo is a broken loose loop wrapped around the staff star with no bolt, not a bolt-in-ring above her head",
+    "safety": "pass: student fully dressed, tights, frill skirt not emphasised",
+    "hands": "fail: the staff floats over her shoulder with no hand gripping it (the near-left hand is open and empty)",
+    "text": "pass",
+    "crops": "pass: face ~61% across, eyes ~30% down; star tip just inside the top edge",
+    "count": "pass",
+    "frame_bg": "pass: rooftop with city and sky"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 8.5
+   },
+   "notes": "Lovely open-mouth reach with strong dutch angle and flying hair, but the staff is unheld and the halo has merged into the star.",
+   "total": 7.38
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: halo is a plain ring without the bolt; the staff hangs behind her with the star-in-ring cut by the right edge",
+    "safety": "pass",
+    "hands": "pass: thumbs-up hand reads (thumb and curled fingers)",
+    "text": "pass",
+    "crops": "pass: face ~44% across, eyes ~27% down, halo inside",
+    "count": "pass",
+    "frame_bg": "pass: rooftop railing, trees, buildings"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8.5
+   },
+   "notes": "Charming grin and thumbs-up, both horns, but the bolt halo and the staff placement (upright beside her head) were missed again.",
+   "total": 7.2
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "pass: wavy golden hair, both curled golden ram horns, lilac eyes, periwinkle coat dress with gold edges, indigo underskirt with white frill, lilac bow, indigo tights, indigo staff with big gold star in a ring held upright, pale yellow bolt-in-ring halo, grin",
+    "safety": "pass: student fully dressed, eye level, coat flares but tights and frill are modest, no leg emphasis",
+    "hands": "pass: open left hand five fingers; right hand grips the staff plausibly",
+    "text": "pass",
+    "crops": "pass: eyes (416, 316) = 54% across, 31% down; whole halo inside (top ~y20); head and horns inside",
+    "count": "pass",
+    "frame_bg": "pass: school rooftop weather station, railing, hills and trees, soft focus"
+   },
+   "scores": {
+    "identity": 8.5,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "notes": "Best identity of both rounds: bolt halo correct and centred, star-ring staff fully in frame and upright, both horns, weather-station rooftop. Camera has a clear dutch tilt and wind in hair and coat, but the free hand opens sideways rather than foreshortened toward the viewer, so camera is only fair. Clean Look B cel.",
+   "total": 7.83
+  }
+ },
+ "decision": "PICK",
+ "pick": "r3-2",
+ "pick_total": 7.83,
+ "eyes": [
+  416,
+  316
+ ],
+ "head": 220,
+ "fixes": null,
+ "safety_flags": ""
+}

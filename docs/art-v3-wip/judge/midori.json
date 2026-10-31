@@ -1,0 +1,76 @@
+{
+ "id": "midori",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: 'halo' is a sprout growing from her head plus a faint mint ring disc, not a leaf halo",
+    "safety": "pass",
+    "hands": "fail: the giant flask is held only by fingertips peeking over its top edge (implausible)",
+    "text": "pass",
+    "crops": "fail: the ring disc is cut at the top edge",
+    "count": "pass",
+    "frame_bg": "pass: greenhouse lab"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.6,
+   "notes": "Lovely Look B colour, but halo wrong/cropped and the oversized flask is barely held."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass: mint bob, brass goggles pushed up (hand on them), yellow-green round eyes, green long-sleeved dress with cream cuffs, lime bow, cream apron with test-tube pockets, brown satchel across her body, round green flask with gold star stopper, mint leaf halo, excited grin. Minor: the leaf halo has a thin stem curving toward her hair (reads a little like a sprout); tights/boots out of frame",
+    "safety": "pass: student fully dressed, from slightly above, flask held up (not thrown)",
+    "hands": "pass: flask hand grips the neck with five fingers (zoomed); goggle hand plausible",
+    "text": "pass",
+    "crops": "pass: face centre ~38% across, eyes ~29% down, head and leaf halo inside",
+    "count": "pass",
+    "frame_bg": "pass: sunlit greenhouse, soft blurred plants and flasks"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 8.5,
+    "lookB": 8.5,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 8.05,
+   "notes": "Strong dutch angle, flask large and foreshortened toward the lens, arm raised, bright cel look: the best candidate."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass: all identity items, cleanest floating leaf halo",
+    "safety": "pass",
+    "hands": "pass: thumbs-up and flask hand plausible",
+    "text": "pass",
+    "crops": "pass: face ~47%, eyes ~26%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6,
+    "lookB": 8.5,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.53,
+   "notes": "Very clean identity and halo but a front-on, mostly static camera."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-1",
+ "pick_total": 8.05,
+ "eyes": [
+  279,
+  294
+ ],
+ "head": 290,
+ "fixes": null,
+ "safety_flags": ""
+}

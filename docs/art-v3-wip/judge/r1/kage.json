@@ -1,0 +1,93 @@
+{
+ "id": "kage",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: big metal forehead-protector plate (spec: small crescent emblem on a cloth band); skirt above knee (spec below the knee); heavy embroidery not thin trim; no halo (purple wisp only)",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: line-drawn rooftops on flat cream, no painted place"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 5
+   },
+   "total": 4.1,
+   "notes": "Parcel held to the side, not toward viewer."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: metal forehead plate; no halo; short skirt",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: flat cream/sketched rooftops"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.65,
+   "notes": "Envelope foreshortened toward viewer is the best camera idea of the set."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: metal forehead plate; skirt above knee; crescent halo ok-ish but drawn as a hair-like hook",
+    "safety": "pass: shuriken held up by face, not thrown",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: sketched white roof, flat cream sky"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 4.65,
+   "notes": "Shuriken points sideways, not up."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: large metal forehead plate; halo has a shuriken on it; short skirt",
+    "safety": "pass",
+    "hands": "fail: reaching hand reads as four fingers with a malformed thumb",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: rooftop scene with sky"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 7,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 5
+   },
+   "total": 4.8,
+   "notes": "Most dynamic angle (high diagonal) but heavy manga inking and grid-like roof."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "STYLE (all candidates came out as dark-inked line art on blank/sketched backgrounds): in the negative REMOVE 'painterly, painted gradients, brush texture' (they kill the soft painted backdrop) and ADD 'lineart, sketch, uncolored background, line-drawn background, simple background, white background, blank background, monochrome background, coloring book, manga, screentone, halftone, heavy outlines, dark lineart'. In the prompt REPLACE 'background melted into soft shapes with no lines' with '1.2::detailed soft painted background, blurry background, bokeh, depth of field::' and keep 'thin light lines tinted to the color they border'. KAGE: the plate is drifting to a famous ninja protector: replace with '1.3::soft dark cloth headband with a tiny silver crescent pin::' and add to negative 'metal plate, forehead protector, metal headband, wide plate'. Skirt: '1.3::purple skirt below the knee, long skirt::' and negative 'short skirt, miniskirt, above knee'. Trim: 'thin flat silver trim lines' and negative 'embroidery, filigree, ornate pattern'. Halo: '1.2::pale lilac crescent-moon halo floating above her head::', negative 'shuriken halo'. Keep pose 1 (envelope between two fingers toward viewer) and pose 3 (rooftop run, from above); add 'five fingers' and 'scene: sunny tiled rooftops, blue sky, distant town blurred'.",
+ "safety_flags": ""
+}

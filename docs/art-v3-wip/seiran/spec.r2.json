@@ -1,0 +1,33 @@
+{
+ "id": "seiran",
+ "adult": true,
+ "prompt": "1girl, solo, adult woman in her twenties, the academy's aerial patrol flight instructor, long wavy light-blue hair, swept bangs, two small curved golden horns, white flight headset with a small microphone, pale cyan eyes, sharp eyes, light-blue flight jacket with gold shoulder boards and thin gold edges, white collared shirt, teal necktie, white gloves, telescoping storm lance with a silver shaft, gold fittings and a pale cyan crystal blade, 1.2::small pale cyan lightning-bolt halo above her head::, whole halo visible inside the frame, small gap above the halo, confident open-mouth grin, determined eyes, the academy's rooftop flight deck on a bright morning, clear blue sky with soft white clouds, academy spires far below, 1.2::large pale-blue sky dragon with mint mane coiling behind her::, upper body, from the waist up, headroom above the halo, {POSE}, her eyes on the right third, long wavy hair and jacket whipping in the wind, anime screencap, anime coloring, cel shading, two-tone shading with soft-edged shadow shapes, thin colored lineart, clean lines, bright high-key lighting, soft pastel palette, pale skin with peach shadows, large eyes with one highlight, light blush, detailed background, blurry background, bokeh, depth of field, soft daylight, matte flat cel shading, simple hard-edged shadows, muted highlights, anime key visual",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, dark sky, night, storm clouds, rain, heavy lightning, dark hair, black hair, red eyes, wings, tail, armor, large horns, spear pointed at viewer, weapon pointed at viewer, aiming at viewer, tight clothes, skirt, monochrome, greyscale, coloring book, sketch, unfinished, simple background, white background, flat background, border, frame, framed, flat color, no shading, thick lineart, manga, glossy, shiny skin, gradient shading, ornate, windsock, flag, banner, pennant, binoculars",
+ "poses": [
+  "she stretches her open gloved hand toward the viewer as if inviting them on patrol, strong foreshortening, hand very large and close to the camera, storm lance held upright in her other hand with its blade pointing at the sky, dutch angle, eye level, diagonal composition",
+  "a confident two-finger salute off her brow toward the viewer, strong foreshortening, saluting hand large near the camera, her head high in the frame, other hand gripping the upright storm lance with tiny sparks at its tip high above, the sky dragon's head sweeping past behind her shoulder, dutch angle, eye level, diagonal composition",
+  "she holds out a pair of flight goggles with two round lenses on a strap toward the viewer at arm's length, strong foreshortening, gloved hand and goggles large near the camera, storm lance slung across her back, the dragon's long body sweeping in a diagonal behind her, dutch angle, eye level, diagonal composition",
+  "one gloved hand resting on her sky dragon's snout beside her, her other open hand reaching toward the viewer, strong foreshortening, storm lance planted upright beside her, dutch angle, eye level, diagonal composition"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/seiran-full.webp",
+ "charref_box": [
+  150,
+  40,
+  650,
+  620
+ ],
+ "identity": [
+  "long wavy light-blue hair, swept bangs",
+  "two small curved golden horns",
+  "white flight headset with mic",
+  "pale cyan eyes, sharp",
+  "light-blue flight jacket, gold shoulder boards",
+  "white shirt, teal tie",
+  "storm lance: silver shaft, gold fittings, pale cyan crystal blade (never aimed at the viewer)",
+  "pale-blue sky dragon with mint mane",
+  "small pale cyan lightning-bolt halo",
+  "confident grin"
+ ],
+ "scene": "the academy's rooftop flight deck on a bright morning, windsock, blue sky, her sky dragon curling behind her",
+ "notes": "ADULT hero (adult: true). Her design has a pleated skirt and flight boots, so she is framed from the waist up only; 'skirt' is in the negative to keep the frame above it. Her shipped portrait is a dark stormy night: the scene words and the negative push it bright. charref crop = head to waist of seiran-full.webp. The light phrase inside the shared tail is the only per-girl word set (the pack does the same)."
+}

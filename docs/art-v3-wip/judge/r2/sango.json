@@ -1,0 +1,73 @@
+{
+ "id": "sango",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass (minor): coral hair, side braid, teal eyes, shell hairpin, coat/collar, gloves, wave halo present; beret badge is an anchor, not the gold shell asked",
+    "safety": "fail: telescope-cannon bore opening is seen almost end-on over her shoulder, i.e. tilted toward the camera; brief says borderline = reject",
+    "hands": "pass: gloved hands five fingers",
+    "text": "pass: no text",
+    "crops": "fail: eyes ~y385 (37.6%) below the 36% line",
+    "count": "pass: one girl",
+    "frame_bg": "pass: deck, rail, sea, boat"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 8,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.6,
+   "notes": "Best energy of the three (salute + foreshortened glove). Style now correct cel look. Fails on barrel direction and low head."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass (minor): anchor badge on beret instead of gold shell; otherwise correct",
+    "safety": "fail: cannon on shoulder points forward-left with its round lens/muzzle facing the camera",
+    "hands": "pass",
+    "text": "pass: no text",
+    "crops": "fail: eyes ~y385 (37.6%)",
+    "count": "pass: one girl",
+    "frame_bg": "pass: ship rail, sea, lighthouse"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 7.3,
+   "notes": "Pointing pose reads well but muzzle toward viewer."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass (minor): anchor badge; coral charm present",
+    "safety": "fail: huge bore opening fills the top-left, pointed straight at the camera from above",
+    "hands": "pass: open palm five fingers",
+    "text": "pass: no text",
+    "crops": "fail: eyes ~y490 (48%), head in lower half",
+    "count": "pass: one girl",
+    "frame_bg": "pass: deck and sea (sea nearly a flat gradient)"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7,
+    "lookB": 7,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 6.85,
+   "notes": "Cannon dominates the frame and faces the viewer."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Style is now right; keep the round-2 style tail. Problems are the cannon direction and head height. (1) Cannon: drop every 'muzzle pointing up at the sky' wording that still yields a visible bore; instead 'telescope-cannon slung horizontally across her back, barrel pointing to the side out of frame, seen from the side, bore not visible'; negative add '(bore visible:1.3), barrel opening, looking into the barrel, foreshortened barrel, cannon pointing at camera, muzzle facing viewer'. (2) Head height: add 'head in the upper third of the frame, (cowboy shot:1.1), from slightly above', and drop 'slightly from above' only if it pushes the head down (r2-2). (3) Keep pose 0 (salute + reaching glove) as the lead pose; pose 1 ok if the cannon is behind her pointing back over the rail. Drop pose 2. (4) Badge: still an anchor in all three; raise to '(gold seashell badge on the front of the beret:1.4)' and negative 'anchor on beret, anchor badge'. Charref fidelity 0.5 (the reference's anchor badge is pulling through).",
+ "safety_flags": "Beret badge renders as an anchor (as in the shipped portrait) despite spec asking for gold shell: owner check."
+}

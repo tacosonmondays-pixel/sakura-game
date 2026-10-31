@@ -1,0 +1,93 @@
+{
+ "id": "midori",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: no clear halo (only bubble shapes); flask stopper star ok",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: white line-sketch greenhouse"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 5.15,
+   "notes": "Flask large toward camera is the right idea."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: halo is a plain ring, not a leaf; test tube pose replaced",
+    "safety": "pass",
+    "hands": "fail: flask floats beside her raised hand, not held; other hand ok (five fingers)",
+    "text": "pass",
+    "crops": "pass: face ~30% x borderline, eyes ~29% down",
+    "count": "pass",
+    "frame_bg": "fail: pale blue line-drawn arches on white, no painted place"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 4,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.7,
+   "notes": "Lively and on-model face, but prop not held and inked style."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: halo plain ring; extra small flask",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: halo cut by the top edge",
+    "count": "pass",
+    "frame_bg": "fail: mostly white line-drawn greenhouse; white sticker outline around her"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 5,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 5.1,
+   "notes": "Sticker-like white contour."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: no halo",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: greenhouse with plants and bench (light)"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 4,
+    "lookB": 4,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.2,
+   "notes": "Thumbs-up missing; static."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "STYLE (all candidates came out as dark-inked line art on blank/sketched backgrounds): in the negative REMOVE 'painterly, painted gradients, brush texture' (they kill the soft painted backdrop) and ADD 'lineart, sketch, uncolored background, line-drawn background, simple background, white background, blank background, monochrome background, coloring book, manga, screentone, halftone, heavy outlines, dark lineart'. In the prompt REPLACE 'background melted into soft shapes with no lines' with '1.2::detailed soft painted background, blurry background, bokeh, depth of field::' and keep 'thin light lines tinted to the color they border'. MIDORI: halo: '1.4::pale mint halo shaped like a single leaf::', negative 'ring halo, circle halo, no halo'. Add negative 'white outline around character, sticker, floating object, levitating flask'. Keep pose 0 (flask held out toward viewer: add 'her hand gripping the flask neck, hand very large near camera') and pose 1 with 'holding a test tube in her fingers'. Ask 'head and halo fully inside the frame, space above the halo'. Scene words stay; add 'sunlit greenhouse, green leaves, blurred, soft painted background'.",
+ "safety_flags": ""
+}

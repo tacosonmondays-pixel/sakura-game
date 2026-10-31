@@ -1,0 +1,73 @@
+{
+ "id": "noa",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: halo broken into two arcs, sits off-centre upper left and its top arc is clipped by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6.5,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 7.5
+   },
+   "total": 6.88,
+   "notes": "Infirmary window and curtain, armband with sakura, shield with sakura plate. Hair drifted to the portrait's bob + single bun; the plaster became a floating blossom. Halo is broken into two disconnected arcs off to the upper left and clipped by the top edge."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: oversized sakura halo cut off by the top/left frame edges",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 8
+   },
+   "total": 7.33,
+   "notes": "Best camera: dutch angle, open palm reaching toward viewer, two buns, shield at side. But the halo is a huge pink sakura shape at top-left, cut off by the frame edge."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: halo top arc clipped at the top edge and displaced to the upper left",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6,
+    "lookB": 7.5,
+    "composition": 6.5,
+    "appeal": 8
+   },
+   "total": 7.17,
+   "notes": "Best identity: two low buns, pins, armband, pouch, shield, snack in both hands, infirmary bed and curtain. Camera only mildly tilted, hands not very foreshortened. Halo ring sits off to the upper left and its top arc is clipped by the top edge."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "All three fail on the halo. 1) Halo: replace the halo words with '1.3::small flat pale pink sakura-petal halo centred directly above her head::, whole halo visible inside the frame, wide gap between the halo and the top edge, headroom above the halo'; negative 'cropped halo, halo cut off, halo out of frame, large halo, broken halo, off-centre halo'. 2) Frame her slightly lower: add 'her eyes about one quarter down from the top'. 3) Hair: '1.2::two low hair buns, one on each side::', negative 'bob cut, single bun' (r2-0 drifted to the portrait's bob). 4) Poses: keep pose 1 (open palm reach, best camera) and pose 2 (snack, best identity; re-weight '1.2::strong foreshortening, hands and snack very large near the camera, dutch angle::'). Drop pose 0 (plaster became a floating blossom). Charref fidelity stays 0.6; style is good.",
+ "safety_flags": ""
+}

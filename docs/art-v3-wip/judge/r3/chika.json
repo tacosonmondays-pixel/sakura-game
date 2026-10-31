@@ -1,0 +1,76 @@
+{
+ "id": "chika",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: goggles have brass/gold steampunk frames (data: teal; brass is in the negative) plus a cog charm on the strap; otherwise overalls, mustard shirt, satchel, wrench, round drones on model",
+    "safety": "pass",
+    "hands": "pass: huge foreshortened hand, thumb + 4 (two fingers cut by the left edge); wrench hand ok",
+    "text": "pass",
+    "crops": "fail: cog halo cut by the top edge (x~150-160 and ~370-410)",
+    "count": "pass",
+    "frame_bg": "pass: bright workshop window"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 9,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 7.78,
+   "notes": "Best camera (reach toward viewer, dutch) but halo clipped and brass goggles."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass: short messy copper-orange hair, teal-lensed silver goggles, amber eyes, mustard shirt, navy overall bib with pockets, satchel, big spanner, small gold cog halo, hovering drone; notes: cog has ~12 teeth not 8, drone is a fan-rotor gadget rather than a small round ball, lower overalls flare wide like a skirt",
+    "safety": "pass: eye level, fully dressed, wrench held on her shoulder pointing away",
+    "hands": "pass: raised open hand thumb + 4 (holding a small teal part); wrench grip plausible",
+    "text": "pass: wrench has only rivet dots, monitor blank",
+    "crops": "pass: face ~42%, eyes ~26%; halo at y~12-45 inside",
+    "count": "pass",
+    "frame_bg": "pass: soft painted classroom-workshop with window, desk, monitor"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.55,
+   "notes": "Clean flat cel with thin brown lines, bright; moderate dutch tilt and open hand toward the viewer. Passes every check; marginal pick."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: halo is a spiky sunburst/claw shape, not an eight-tooth cog; wrench reduced to a plain grey bar; mustard scarf instead of the data look",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~41%, eyes ~28%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 8,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 6.97,
+   "notes": "Lively pose with drones and coins tossed, but halo malformed."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-1",
+ "pick_total": 7.55,
+ "eyes": [
+  322,
+  262
+ ],
+ "head": 285,
+ "fixes": null,
+ "safety_flags": "r2-1 is a marginal pick (7.55): cog halo has ~12 teeth, drone is a fan gadget, overalls' lower legs flare like a skirt. Worth a quick human look."
+}

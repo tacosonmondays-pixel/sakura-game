@@ -1,0 +1,73 @@
+{
+ "id": "suzu",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass (weak): halo is a thin loop that reads like an ahoge; teal hakama skirt; obi has gold discs rather than bells",
+    "safety": "pass",
+    "hands": "pass: five fingers each",
+    "text": "pass: blank chime strip",
+    "crops": "pass: eyes ~28%, face ~52%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: shrine shop shelves, garden"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 4,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.25,
+   "notes": "Static bell-to-face pose, no foreshortening."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass: ribbons, white flowers, golden eyes, kimono, teal obi with bells, small bell",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass: blank strips",
+    "crops": "fail: halo ring clipped at the top edge",
+    "count": "pass: one girl",
+    "frame_bg": "pass: veranda, greenery"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 3.5,
+    "lookB": 7.5,
+    "composition": 6.5,
+    "appeal": 7
+   },
+   "total": 6.3,
+   "notes": "Static front-on stand."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass: golden hair (no clear single looped side curl; reads as a high ponytail), teal ribbons, white flowers, golden eyes, kimono, teal obi with gold bells, ring halo, hand bell",
+    "safety": "pass: eye level/slightly above, fully dressed",
+    "hands": "fail: bell held implausibly: the gold handle points up and her fingers grip a wooden stub under the bell mouth, so the bell sits on her fingertips",
+    "text": "pass: blank chime strip",
+    "crops": "pass: eyes ~29%, face ~55%, halo inside",
+    "count": "pass: one girl",
+    "frame_bg": "pass: wooden veranda, blurred greenery"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.55,
+   "notes": "Best (7.55) and nearly a pick, but rejected on the bell grip."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Keep pose 2 (spin + sleeve sweep); it scored 7.55 and failed only on the prop grip. Prop wording: 'small brass hand bell, she grips the wooden handle on top, the bell hangs mouth-down below her hand'; negative 'upside-down bell, bell balanced on fingers, handle at bottom'. Hair: '(one big looped curl on the side of her head:1.3)', since all three made a ponytail or bun. Pose 0 and 1 were static: if reused, add 'arm stretched toward the camera, foreshortened'. Halo: 'whole halo inside the frame'. Charref fidelity 0.6.",
+ "safety_flags": ""
+}

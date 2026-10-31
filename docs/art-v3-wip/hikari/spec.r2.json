@@ -1,0 +1,36 @@
+{
+ "id": "hikari",
+ "adult": true,
+ "prompt": "1girl, solo, adult woman, tall graceful knight captain in her mid-twenties, very long straight sakura-pink hair, side-swept bangs, braided crown across the top of her head with small gold star ornaments, white and teal striped ribbon bow above her right ear with long tails ending in tiny gold stars, small gold star earrings, 1.4::teal eyes::, 1.4::long white greatcoat worn over her shoulders, high collar, coat closed over the chest::, thin gold trim lines and teal lining, modest, royal blue bow with a round teal gem at the collar, navy vest with small gold toggle buttons, white shoulder guards with thin gold edges, long white gloves with gold cuffs, sheathed star-guard longsword at her hip, pale gold crown-shaped halo floating above her head, a thin ring with six small points, teasing half-smile, face focus, shoulders turned three-quarter away, three-quarter view, stone rampart walkway at sunrise, crenellations, pale peach and sky-blue dawn sky, academy rooftops and cherry trees far below, painted, a thin sliver of golden sun on the horizon, upper body, from the waist up, {POSE}, her eyes on the left third, whole halo visible inside the frame, small gap above the halo, anime screencap, anime coloring, cel shading, two-tone shading with soft-edged shadow shapes, thin colored lineart, clean lines, bright high-key lighting, soft pastel palette, pale skin with peach shadows, large eyes with one highlight, light blush, detailed background, blurry background, bokeh, depth of field, soft daylight, matte flat cel shading, simple hard-edged shadows, muted highlights, anime key visual",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, thighs, legs, weapon pointed at viewer, static pose, stiff pose, armor on her chest, sword in hand, sword pointed at viewer, battle pose, pink eyes, purple eyes, lilac eyes, red eyes, blue hair, blonde hair, monochrome, greyscale, coloring book, sketch, unfinished, simple background, white background, flat background, border, frame, framed, flat color, no shading, thick lineart, manga, glossy, shiny skin, gradient shading, ornate, busty, huge breasts, medium breasts, chest focus, tight shirt, underbust, open coat, front view, card, orange background, plain ring halo",
+ "poses": [
+  "striding along the rampart with her shoulders angled three-quarter away, she reaches her gloved hand out toward the viewer as if to say come along, 1.3::foreshortening, hand reaching toward viewer::, open hand very large in the near foreground and the focus of the shot, other hand on the sheathed sword hilt, dutch angle, diagonal composition, eye level, white greatcoat and long hair streaming in the dawn wind",
+  "three-quarter view, turning back over her shoulder mid-stride with a relaxed two-finger salute toward the viewer, 1.3::foreshortening, salute hand toward viewer::, gloved hand large near the camera, white greatcoat closed and its tails swinging in a wide arc, sheathed sword at her hip, dutch angle, diagonal composition, eye level, long hair swinging",
+  "three-quarter view, shoulders angled away, she holds a steaming mug of tea out toward the viewer at arm's length, 1.3::foreshortening, hand reaching toward viewer::, gloved hand and mug large in the near foreground as the focus, white greatcoat closed, dutch angle, diagonal composition, slightly from above, ribbon tails and hair fluttering in the breeze",
+  "three-quarter view, she tosses a small gold star charm toward the viewer, the charm spinning large near the camera, 1.3::foreshortening, open hand following through toward viewer::, white greatcoat collar turned up, dutch angle, diagonal composition, eye level, hair and greatcoat tails whipping sideways in the wind",
+  "three-quarter view, standing side-on at the rampart crenellations she waves one gloved hand close to the camera, 1.3::foreshortening, hand toward viewer::, white greatcoat closed, dutch angle, diagonal composition, slightly from above, ribbon tails and long hair lifted by the wind"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/hikari-full.webp",
+ "charref_box": [
+  0,
+  0,
+  768,
+  640
+ ],
+ "identity": [
+  "very long straight sakura-pink hair, side-swept bangs",
+  "braided crown with small gold star ornaments",
+  "white-and-teal striped ribbon bow with gold-star tails",
+  "TEAL eyes (any pink/lilac/purple eyes = reject)",
+  "white high-collared blouse, royal blue bow with teal gem",
+  "navy vest with gold toggle buttons",
+  "white greatcoat with thin gold trim and teal lining, white shoulder guards",
+  "long white gloves with gold cuffs",
+  "star-guard longsword, sheathed",
+  "pale-gold thin ring halo with six small points (crown)",
+  "framed from the waist up (adult with short skirt and thigh-high boots)"
+ ],
+ "scene": "the academy's stone rampart walkway at sunrise on dawn patrol, rooftops and cherry trees far below",
+ "notes": "Adult hero, framed from the waist up; charref_box is the top 768x640 of her portrait (head to vest). Her portrait draws lilac-pink eyes; the prompt weights teal 1.4 and the negative bans pink/purple/lilac/red eyes: reject any non-teal eyes. Sword stays sheathed. Scene differs from the pilot's office on purpose (rampart dawn patrol). Round 2 (judges: all four framed her bust at centre; greatcoat never drawn): fid 0.45, weighted closed white greatcoat over the chest, modest, face focus, three-quarter view on every pose with the hand/prop toward the viewer as the focus; teal eyes weighting kept; reach-out pose kept first.",
+ "fid": 0.45
+}

@@ -1,0 +1,93 @@
+{
+ "id": "kanna",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: no halo; drumstick tips not glowing gold; otherwise twin-tails, cuffs, horns, amber eyes, jacket, tie right",
+    "safety": "fail: borderline adult framing: torso/chest fills the centre of the frame under a dutch tilt",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~47% x, eyes ~33% down",
+    "count": "pass",
+    "frame_bg": "pass: corridor interior, lightly drawn"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 5.25,
+   "notes": "Handle-first stick large near camera works; chest-centred crop and inked style do not."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: halo is a plain gold ring (spec: flame halo); stick tips not glowing; no taiko drum except a small one cropped at right",
+    "safety": "pass: waist-up, wholesome grin, eye level",
+    "hands": "pass: five fingers on waving hand, grip ok",
+    "text": "pass",
+    "crops": "pass: face ~44% x, eyes ~28% down",
+    "count": "pass",
+    "frame_bg": "pass: hall with lanterns and wood floor (flat, line-drawn)"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 5,
+    "lookB": 4,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.35,
+   "notes": "Best of round; high five not foreshortened toward viewer."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: no halo",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "fail: kanji-like signs on the wall boards",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: line-drawn white hall"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.75,
+   "notes": "Drum-in-foreground idea is good."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: no halo; stick held, no glow",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: white sketch background"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.75,
+   "notes": "Thumbs-up missing, stick pointed up."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "STYLE (all candidates came out as dark-inked line art on blank/sketched backgrounds): in the negative REMOVE 'painterly, painted gradients, brush texture' (they kill the soft painted backdrop) and ADD 'lineart, sketch, uncolored background, line-drawn background, simple background, white background, blank background, monochrome background, coloring book, manga, screentone, halftone, heavy outlines, dark lineart'. In the prompt REPLACE 'background melted into soft shapes with no lines' with '1.2::detailed soft painted background, blurry background, bokeh, depth of field::' and keep 'thin light lines tinted to the color they border'. KANNA: halo missing in 3/4 and ringed in 1: '1.3::warm gold flame-shaped halo floating above her head, flat::', negative 'no halo, ring halo'. Drumsticks: '1.2::black drumsticks with glowing gold tips::'. Keep pose 2 (taiko drum in near foreground, sticks in V) as primary and pose 1 (high five, add 'palm very large, close to camera'). Add negative 'signs, sign boards, calligraphy, kanji, writing on wall'. Add 'from slightly above, waist-up' and negative 'chest focus, upper body close-up'. Scene: 'bright club hall, wooden floor, red paper lanterns, daylight windows, blurred'.",
+ "safety_flags": "r1-0: chest-centred crop on adult; rejected as borderline."
+}

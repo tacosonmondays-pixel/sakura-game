@@ -1,0 +1,133 @@
+{
+ "id": "kohaku_tsubaki",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: Tsubaki's star halo floats off to the side, Kohaku's 'halo' is a tiny star on a cloud twig; no lens emitter arm",
+    "safety": "pass",
+    "hands": "fail: Tsubaki's binoculars float in front of her chest with her hand beside them, not holding them",
+    "text": "pass",
+    "crops": "pass: faces ~33% and ~67% across, eyes ~34%",
+    "count": "pass",
+    "frame_bg": "pass: bright rooftop, clock tower"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 3,
+    "lookB": 7,
+    "composition": 7,
+    "appeal": 6.5
+   },
+   "total": 5.8,
+   "notes": "Correct order and outfits, but fully static front-on group shot; floating props. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: Kohaku's violet crystal is missing; her star halo is lavender not pale gold; binoculars float on Tsubaki's vest with no strap or hand",
+    "safety": "pass",
+    "hands": "pass: both open hands five fingers (zoomed); but binoculars unsupported",
+    "text": "pass",
+    "crops": "pass: midpoint of faces ~52% across, eyes ~31% down",
+    "count": "pass",
+    "frame_bg": "pass: bright seaside rooftop"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 5,
+    "lookB": 7,
+    "composition": 7.5,
+    "appeal": 7.5
+   },
+   "total": 6.62,
+   "notes": "Best of the three: both reach toward the viewer and lean in a little, sunny seaside; still no dutch angle or real foreshortening, crystal missing, binoculars floating. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: halos are large hollow four-point sparkles, not small pale gold stars; Kohaku's crystal missing",
+    "safety": "pass",
+    "hands": "pass: Tsubaki reaching hand five fingers",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 4.5,
+    "lookB": 7,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 6.08,
+   "notes": "Static, wrong halos. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: Kohaku's star halo floats beside her head, not above; her crystal floats next to her open palm instead of being held (binoculars now on a strap: fixed)",
+    "safety": "pass",
+    "hands": "fail: crystal not held (floating prop)",
+    "text": "pass",
+    "crops": "pass: eyes ~30%, faces at ~30%/68%, halos inside",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 4.5,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 6.33,
+   "notes": "Both on model otherwise; camera from above but static standing pair."
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: both halos are hollow outline stars (negative); crystal sits on a staff/emitter at the bottom-left corner, not held",
+    "safety": "pass",
+    "hands": "pass: Tsubaki pointing hand ok",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 5,
+    "lookB": 7.5,
+    "composition": 6.5,
+    "appeal": 7
+   },
+   "total": 6.08,
+   "notes": "Static, halos wrong."
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: Kohaku's halo is a hollow outline star; binoculars float on Tsubaki's vest with no strap or hand",
+    "safety": "pass",
+    "hands": "pass: crystal hand and strap hand ok",
+    "text": "pass",
+    "crops": "pass: eyes ~31%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 4.5,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.22,
+   "notes": "Crystal finally in hand, but static and halo wrong."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Camera words at 1.4 at the very start still gave three static full-body standing pairs: the full-body duo framing overrides them. Change framing: 'upper body, cowboy shot, close-up of two girls, cropped at the hips' at 1.3 and negative 'full body, feet, shoes, standing side by side'. Then one shared gesture: Kohaku's hand with the crystal near the lens at lower left (r3-2 got the crystal in hand: keep 'holding the small violet prism crystal between her fingers'). Halos: '1.5::small solid filled pale gold five-pointed star directly above her head, centred::' in each caption; negatives 'hollow star, outline star, star frame, star beside head'. Binoculars: 'Tsubaki holds binoculars in her hand' only (drop the neck-strap option, which floated twice).",
+ "safety_flags": ""
+}

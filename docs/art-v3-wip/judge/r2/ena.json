@@ -1,0 +1,73 @@
+{
+ "id": "ena",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: no crescent moon halo (two moon decorations sit in the window/sky instead); skirt mid-thigh, spec weights knee length",
+    "safety": "pass",
+    "hands": "pass: pointing hand with floating cards ok; launcher hand fine",
+    "text": "pass",
+    "crops": "pass: face ~38%, eyes ~23%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 7.22,
+   "notes": "Lovely club-room light and smug look; braid trails to her left ok."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: skirt clearly above the knee (mid-thigh), spec knee length; otherwise on model: braid over her left shoulder with red cord bow, rose + tassels, blazer, cardigan coat, plaid, tights, launcher, rose cards, pink halo ring",
+    "safety": "pass: roughly eye level (wide-angle shows ceiling), wholesome smug smile",
+    "hands": "pass: card fan held in a foreshortened hand; hip hand with launcher fine",
+    "text": "pass: card faces a single rose, no indices",
+    "crops": "pass: face ~43%, eyes ~19%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 7.6,
+   "notes": "Strongest of the three: cards fanned toward the viewer, dutch angle. Only the skirt length blocks it."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: no halo (hanging star ornaments only); skirt mid-thigh",
+    "safety": "pass: but the hip-out stance with the near thigh forward is close to leg-focus; tights",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~31%, eyes ~16%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 6.85,
+   "notes": "Single card raised; face sits near the left limit."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Keep r2-1's pose first (cards fanned toward the viewer, hand on hip with launcher, dutch angle) and its pale pink halo ring; it only failed on skirt length. Skirt: '(red and black plaid pleated skirt reaching below the knees:1.4), long skirt, black tights, knees hidden by skirt'; negative 'miniskirt, short skirt, skirt above knee, thighs, thigh focus'. Frame a bit lower so the knee/hem is visible to prove length (or frame to mid-thigh with the hem visibly below). Halo: '(pale pink crescent moon halo above her head:1.3)'; negative 'moon in window, moon decorations, star ornaments'. Drop r2-2's hip-out leg-forward stance.",
+ "safety_flags": "r2-2 stance pushes the near thigh forward; avoid that pose."
+}

@@ -1,0 +1,133 @@
+{
+ "id": "tenka",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: halo is a ring with a long zigzag line streaking across the frame, not a bolt inside a ring; skirt above the knee",
+    "safety": "fail: coilgun held out at arm's length toward the viewer (prompt asked goggles); borderline aim = reject",
+    "hands": "pass",
+    "text": "pass: no text",
+    "crops": "pass: eyes ~22%, halo mostly inside",
+    "count": "pass: one girl",
+    "frame_bg": "pass: science lab, blackboard"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 6.92,
+   "notes": " [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no halo (the rings are the coil field around the gun)",
+    "safety": "pass: gun upright, barrel to the ceiling",
+    "hands": "pass: five fingers",
+    "text": "pass: no text",
+    "crops": "pass: eyes ~24%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: lab, blackboard, flasks"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 7.5
+   },
+   "total": 7.17,
+   "notes": "No capacitor flick; hand on hip. [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: no halo",
+    "safety": "pass: gun upright, finger point is fine, eye level",
+    "hands": "pass: pointing hand and gun hand five fingers",
+    "text": "pass: no text",
+    "crops": "pass: eyes ~23%, face ~45%",
+    "count": "pass: one girl",
+    "frame_bg": "pass: lab, blurred"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.62,
+   "notes": "Would be a ~7.6 pick with a halo; skirt above the knee (spec below the knee). [Round 3 reconsideration: verdict and scores confirmed]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: no halo (only loose cyan field arcs and sparks around the coilgun); all other items right (ponytail with copper coil tie, goggles, amber eyes, lab coat with atom patch, grey vest, teal bow tie, plaid skirt to the knee, tights, sneakers)",
+    "safety": "pass: coilgun held up and back at 45 degrees, muzzle to the upper left, not at the viewer; only her finger points at the viewer",
+    "hands": "pass: pointing hand and gun hand both read",
+    "text": "pass (minor: a ribbed label strip on the gun, no legible characters)",
+    "crops": "pass: face ~58% across, eyes ~25% down",
+    "count": "pass",
+    "frame_bg": "pass: science lab, blackboard, test tubes"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 8,
+    "lookB": 8,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "notes": "Strong, safe point-at-the-viewer with a foreshortened fist and smug grin; would clear the bar easily if the halo existed. The coil-field arcs keep standing in for the halo.",
+   "total": 7.47
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: no halo; coil-field arcs only",
+    "safety": "pass: gun upright, barrel to the ceiling",
+    "hands": "pass",
+    "text": "fail: letter-like marks printed on the coilgun body",
+    "crops": "pass: face ~64% across, eyes ~22% down",
+    "count": "pass",
+    "frame_bg": "pass: lab and blackboard"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 6.5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "notes": "Upright gun with a finger-tap pose and a kicked-up heel; no capacitor flick, no halo, gun body has lettering.",
+   "total": 6.97
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: halo is a broken arc with lightning streaks running off the top-left edge",
+    "safety": "fail: the coilgun is held out at arm's length with its muzzle angled toward the lower-left foreground, i.e. presented toward the viewer",
+    "hands": "pass",
+    "text": "fail: lettering on the gun's grip",
+    "crops": "fail: halo cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass: lab with windows"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "notes": "The gun comes toward the camera again (thumbs-up pose ignored).",
+   "total": 6.85
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Halo has been missing in 5 of 6 candidates over two rounds because the coilgun's ring-shaped coil field is absorbing it. 1) Remove the coil field entirely: delete every 'glow/field/sparks around the coilgun' word and add negatives 'concentric rings, field lines, energy arcs, rings around the gun, lightning streaks'. Keep only 'cyan capacitor cells'. 2) Halo as its own object, placed right after the hair words: '1.4::a thin pale cyan ring halo with a small lightning bolt inside it, floating flat above her ponytail::, whole halo inside the frame, wide gap above the halo'. 3) Lead pose = pose 0 (point at the viewer, gun upright in the other hand): r3-0 is the template and passes everything except the halo. Drop pose 3 (thumbs up) and pose 2; r3-2 held the gun toward the camera. 4) Text: negative 'text on gun, label, engraved letters, serial number'. 5) Charref fidelity: lower 0.6 -> 0.5 (the shipped portrait draws the coil field rings and no halo, which the reference keeps pulling in).",
+ "safety_flags": "r3-2: coilgun presented toward the viewer (rejected)."
+}

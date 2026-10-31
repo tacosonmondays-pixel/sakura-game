@@ -1,0 +1,35 @@
+{
+ "id": "hikari",
+ "adult": true,
+ "prompt": "1girl, solo, adult woman, tall graceful knight captain in her mid-twenties, very long straight sakura-pink hair, side-swept bangs, braided crown across the top of her head with small gold star ornaments, white and teal striped ribbon bow above her right ear with long tails ending in tiny gold stars, small gold star earrings, 1.4::teal eyes::, white high-collared blouse, royal blue bow with a round teal gem at the collar, navy vest with two rows of small gold toggle buttons, long white knight's greatcoat with thin flat gold trim lines and teal lining, white shoulder guards with thin gold edges, long white gloves with gold cuffs, sheathed star-guard longsword at her hip, pale gold crown-shaped halo floating above her head, a thin ring with six small points, teasing half-smile, the academy's stone rampart walkway at sunrise, pale peach and sky-blue dawn sky, academy rooftops and cherry trees far below, a thin sliver of golden sun on the horizon, upper body, from the waist up, {POSE}, her eyes on the left third, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, cool morning light with one small warm accent from the sunrise, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, thighs, legs, weapon pointed at viewer, static pose, stiff pose, armor on her chest, sword in hand, sword pointed at viewer, battle pose, pink eyes, purple eyes, lilac eyes, red eyes, blue hair, blonde hair",
+ "poses": [
+  "striding along the rampart she reaches her gloved hand out toward the viewer as if to say come along, foreshortening, open hand very large in the near foreground, other hand on the sheathed sword hilt, dutch angle, diagonal composition, eye level, greatcoat and long hair streaming in the dawn wind",
+  "turning back mid-stride with a relaxed two-finger salute toward the viewer, foreshortening, gloved salute hand large near the camera, dutch angle, diagonal composition, eye level, coat tails and long hair swinging in a wide arc",
+  "she holds a steaming mug of tea out toward the viewer at arm's length, foreshortening, gloved hand and mug large and slightly soft in the near foreground, dutch angle, diagonal composition, slightly from above, ribbon tails and hair fluttering in the breeze",
+  "she tosses a small gold star charm toward the viewer, the charm spinning large and soft near the camera, foreshortening, open hand following through toward the lens, dutch angle, diagonal composition, eye level, hair and greatcoat whipping sideways in the wind",
+  "leaning on the rampart parapet she waves one gloved hand close to the camera, foreshortening, dutch angle, diagonal composition, slightly from above, ribbon tails and long hair lifted by the wind"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/hikari-full.webp",
+ "charref_box": [
+  0,
+  0,
+  768,
+  640
+ ],
+ "identity": [
+  "very long straight sakura-pink hair, side-swept bangs",
+  "braided crown with small gold star ornaments",
+  "white-and-teal striped ribbon bow with gold-star tails",
+  "TEAL eyes (any pink/lilac/purple eyes = reject)",
+  "white high-collared blouse, royal blue bow with teal gem",
+  "navy vest with gold toggle buttons",
+  "white greatcoat with thin gold trim and teal lining, white shoulder guards",
+  "long white gloves with gold cuffs",
+  "star-guard longsword, sheathed",
+  "pale-gold thin ring halo with six small points (crown)",
+  "framed from the waist up (adult with short skirt and thigh-high boots)"
+ ],
+ "scene": "the academy's stone rampart walkway at sunrise on dawn patrol, rooftops and cherry trees far below",
+ "notes": "Adult hero, framed from the waist up; charref_box is the top 768x640 of her portrait (head to vest). Her portrait draws lilac-pink eyes; the prompt weights teal 1.4 and the negative bans pink/purple/lilac/red eyes: reject any non-teal eyes. Sword stays sheathed. Scene differs from the pilot's office on purpose (rampart dawn patrol)."
+}

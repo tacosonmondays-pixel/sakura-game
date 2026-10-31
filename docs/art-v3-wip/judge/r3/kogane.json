@@ -1,0 +1,133 @@
+{
+ "id": "kogane",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: no sakura sticker on the hat, no polo emblem, walker only a fragment at the bottom edge",
+    "safety": "pass",
+    "hands": "pass: waving hand five fingers",
+    "text": "pass",
+    "crops": "fail: the cog halo is cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass: campus with cherry trees"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 6.5,
+    "lookB": 5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 6.0,
+   "notes": "Cheerful wave but heavy black outlines, halo cropped, sticker and walker missing. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: the walker is an unreadable yellow blob with a beacon at the left (no two legs, no open cockpit, no seat); no polo emblem",
+    "safety": "pass",
+    "hands": "pass: hand on wrench handle plausible",
+    "text": "pass",
+    "crops": "pass: cog halo just inside, face ~42%, eyes ~24%",
+    "count": "pass",
+    "frame_bg": "pass, but the cherry tree is a noisy dithered texture"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 5,
+    "lookB": 4.5,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 5.85,
+   "notes": "Only candidate with sticker and full cog halo, but thick black ink outlines (lookB low), noisy tree texture and no real walker; mostly static. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: halo is a bent, distorted cog cut at the top; no emblem; walker fragment only",
+    "safety": "pass",
+    "hands": "pass: outstretched hand five fingers",
+    "text": "pass",
+    "crops": "fail: halo cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 6,
+    "lookB": 5,
+    "composition": 6.5,
+    "appeal": 7
+   },
+   "total": 5.83,
+   "notes": "Heavy black lines, halo cropped and warped. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: walker only a fragment at the lower left; no thumbs-up as posed; two orange balls float in the air",
+    "safety": "pass",
+    "hands": "pass: wrench hand ok",
+    "text": "pass",
+    "crops": "fail: cog halo cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 5.5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 5.83,
+   "notes": "Heavy outlines persist; halo cut."
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: walker is a four-wheeled cart (no legs, no open cockpit or seat); halo is a ship's-wheel shape",
+    "safety": "pass",
+    "hands": "pass: waving hand 5 fingers, wrench hand ok",
+    "text": "pass",
+    "crops": "pass: halo touches near the top",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 5.5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 5.83,
+   "notes": "Wave toward the viewer, but walker wrong."
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: walker is a tiny toy-like legged dolly she dangles from a beacon knob (not a hip-height machine with open cockpit/seat/roll bar); polo emblem drawn on the jacket instead",
+    "safety": "pass",
+    "hands": "pass: dangling hand 5 fingers",
+    "text": "pass",
+    "crops": "fail: cog halo touches/crosses the top edge (y~0)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 6.5,
+    "lookB": 6.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.38,
+   "notes": "Thinner lines than before, nice sakura path; walker and halo crop fail."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Owner call was to drop the walker if it failed again: it failed again (fragment, cart, toy). Remove the walker from prompt and poses entirely and add 'robot, vehicle, cart, machine' to the negative. Halo: keep 1.4 cog halo but frame 'cowboy shot, camera further back, large empty sky above the halo, head top at one fifth of the frame' and negative 'halo touching the top edge, cropped halo, ship's wheel'. Line weight: r3-2 shows thinner lines (keep that seed's pose: hand reaching toward the camera, sakura path); keep fid 0.4. Poses: r3-2 reach (without the walker), then r3-1 wave with the wrench on her shoulder. Remove the beacon/ball wording from the poses (floating orange balls).",
+ "safety_flags": ""
+}

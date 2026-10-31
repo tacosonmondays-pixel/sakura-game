@@ -1,0 +1,73 @@
+{
+ "id": "aoi",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: brown corset bodice with prominent front cross-lacing (spec: plain leather vest, corset in the negative); rest on model (ponytail, leaf clip, capelet, quiver, vine bow, leaf halo)",
+    "safety": "pass",
+    "hands": "pass: waving fingerless glove 5 digits; bow hand fine",
+    "text": "pass",
+    "crops": "pass: face ~38%, eyes ~27%; leaf halo inside",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7.5,
+    "lookB": 7.5,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 7.22,
+   "notes": "Best pose and expression of the round (wave, dutch tilt); fails only on the laced corset."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no leaf halo, only a single big leaf sprouting from the top of her head, cut by the top edge",
+    "safety": "pass",
+    "hands": "pass: gloved hand around the arrow bundle ok",
+    "text": "pass",
+    "crops": "fail: the leaf/halo element is cut by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 6.85,
+   "notes": "Nice smile and painted archery range; vest mostly hidden. Bow only as a strap at the hip."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass with note: corset-shaped vest (lacing mostly hidden by arms); vine-wreath leaf halo",
+    "safety": "pass",
+    "hands": "fail: bow held horizontally across the body like a staff with its string running off-frame to the upper left (prop implausible)",
+    "text": "pass",
+    "crops": "fail: leaf halo cut by the top edge (x~170-300)",
+    "count": "pass",
+    "frame_bg": "pass: range with targets, but upper-left washes to near white"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 7.5,
+    "lookB": 7,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.08,
+   "notes": "Cheerful, decent diagonal; bow handling reads wrong."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Keep r2-0's wave pose first (best of round) and its leaf-halo placement. CORSET still comes through at fid 0.45: drop charref fidelity to 0.35, or charref_box the head/shoulders only (crop above the bodice). Prompt: replace the vest phrase with '(plain smooth brown leather vest, buttoned front, no lacing:1.4)', add 'cream blouse visible above the vest'. Negative add: 'corset, lace-up, lacing, cross lacing, laces, eyelets, grommets, bodice, underbust, waist cincher'. Halo: '(small pale green leaf halo floating above her head, fully inside the frame:1.2), headroom above the halo'; negative 'cropped halo, cut off halo, leaf on head'. Bow: 'wooden longbow held upright at her side, string taut between both tips'; negative 'bow held horizontally, loose bowstring'. Drop r2-2's horizontal-bow pose and r2-1's arrow-bundle pose.",
+ "safety_flags": ""
+}

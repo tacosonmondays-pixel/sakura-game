@@ -1,0 +1,73 @@
+{
+ "id": "kohaku_tsubaki",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: Tsubaki's star halo floats off to the side, Kohaku's 'halo' is a tiny star on a cloud twig; no lens emitter arm",
+    "safety": "pass",
+    "hands": "fail: Tsubaki's binoculars float in front of her chest with her hand beside them, not holding them",
+    "text": "pass",
+    "crops": "pass: faces ~33% and ~67% across, eyes ~34%",
+    "count": "pass",
+    "frame_bg": "pass: bright rooftop, clock tower"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 3,
+    "lookB": 7,
+    "composition": 7,
+    "appeal": 6.5
+   },
+   "total": 5.8,
+   "notes": "Correct order and outfits, but fully static front-on group shot; floating props."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: Kohaku's violet crystal is missing; her star halo is lavender not pale gold; binoculars float on Tsubaki's vest with no strap or hand",
+    "safety": "pass",
+    "hands": "pass: both open hands five fingers (zoomed); but binoculars unsupported",
+    "text": "pass",
+    "crops": "pass: midpoint of faces ~52% across, eyes ~31% down",
+    "count": "pass",
+    "frame_bg": "pass: bright seaside rooftop"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 5,
+    "lookB": 7,
+    "composition": 7.5,
+    "appeal": 7.5
+   },
+   "total": 6.62,
+   "notes": "Best of the three: both reach toward the viewer and lean in a little, sunny seaside; still no dutch angle or real foreshortening, crystal missing, binoculars floating."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: halos are large hollow four-point sparkles, not small pale gold stars; Kohaku's crystal missing",
+    "safety": "pass",
+    "hands": "pass: Tsubaki reaching hand five fingers",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 4.5,
+    "lookB": 7,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 6.08,
+   "notes": "Static, wrong halos."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Camera is still static in all three despite the r2 pose words: the duo two-character form seems to override pose camera terms. (1) Put the camera words at the very START of the prompt before '2girls': '1.4::dutch angle, from slightly above, dynamic angle, foreshortening::'. (2) Use ONE shared foreground gesture instead of each girl reaching: 'Kohaku holds her small violet prism crystal toward the viewer, her hand and the crystal very large in the near foreground at lower left; Tsubaki leans in over her shoulder'. (3) Binoculars float in 2/3: 'binoculars hanging on a strap around Tsubaki's neck' or 'Tsubaki holds binoculars in her hand'; negative 'floating object, floating binoculars'. (4) Halos: in each caption '1.3::small pale gold five-pointed star halo above her head::'; negative add 'sparkle halo, four-pointed star, lavender star, hollow star, cloud'. (5) Kohaku's caption: weight '1.3::small violet prism crystal::' (missing in 2/3). Keep the bright seaside/rooftop scene of r2-1.",
+ "safety_flags": ""
+}

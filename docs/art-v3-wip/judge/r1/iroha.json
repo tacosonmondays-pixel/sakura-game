@@ -1,0 +1,93 @@
+{
+ "id": "iroha",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: halo is a dark grey ring, not pale lavender; filigree crest on the hovering mirror (spec asks simple frame); otherwise hair/bun/ornament/uniform/cardigan right",
+    "safety": "pass: fully dressed, eye level, wholesome",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~33% x, eyes ~37% down borderline but head and halo inside",
+    "count": "pass",
+    "frame_bg": "fail: background is flat cream plus white window planes drawn in line, no painted place"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 4,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.55,
+   "notes": "Dutch tilt only; mirror held at her chest, not foreshortened toward viewer. Heavy black outlines, coloring-book look."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "pass: bob+bun, silver ornament, lavender eyes, cardigan, plum neckerchief, lavender halo; mirror panel has no easel/drone visible",
+    "safety": "pass",
+    "hands": "pass: two visible hands, plausible grip on cloth and hand mirror",
+    "text": "pass",
+    "crops": "pass: face ~60% x, eyes ~23% down",
+    "count": "pass: mirror reflects only light",
+    "frame_bg": "fail: background is flat pale-blue planes and a white wall, no readable art room"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 4,
+    "lookB": 3,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.2,
+   "notes": "Polishing the panel side-on; cloth not offered to viewer, no foreshortening. Dark outlines, no painted depth."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: no prism held toward viewer; bun ornament ok but halo is a thin dark ring; cardigan only",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: flat graphic blue/white shapes, no place"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 3,
+    "lookB": 2,
+    "composition": 4,
+    "appeal": 5
+   },
+   "total": 3.75,
+   "notes": "Static three-quarter stand, graphic poster background."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "pass: core identity present (ornament, cardigan, neckerchief, lavender halo); mirror has ornate crest",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: plain white background"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 3,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.3,
+   "notes": "Paintbrush held at her side, palette in hand; white void background."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "STYLE (all candidates came out as dark-inked line art on blank/sketched backgrounds): in the negative REMOVE 'painterly, painted gradients, brush texture' (they kill the soft painted backdrop) and ADD 'lineart, sketch, uncolored background, line-drawn background, simple background, white background, blank background, monochrome background, coloring book, manga, screentone, halftone, heavy outlines, dark lineart'. In the prompt REPLACE 'background melted into soft shapes with no lines' with '1.2::detailed soft painted background, blurry background, bokeh, depth of field::' and keep 'thin light lines tinted to the color they border'. IROHA: keep pose 0 (hand mirror toward viewer) and pose 1 (cloth offered); add '1.3::hand and mirror very large in the near foreground, close-up of hand::'. Weight the halo: '1.2::pale lavender thin ring halo::' and add 'grey halo, black halo, dark halo' to negative. Add 'ornate mirror crest, carved mirror top' to negative; keep 'simple slim silver oval frame'. Scene: add 'sunlit art club room, wooden floor, easels and canvases blurred in the background, tall windows with blue sky'. Charref fidelity down to 0.45 (it pulls the line-heavy look) .",
+ "safety_flags": ""
+}

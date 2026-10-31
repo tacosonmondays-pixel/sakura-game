@@ -1,0 +1,93 @@
+{
+ "id": "luna",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: no halo; youthful face; staff fine",
+    "safety": "fail: bare shoulders (detached sleeves) and girlish/chibi proportions on an adult hero",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: flat lavender field with a flat disc moon"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 4,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.25,
+   "notes": "Tea cup not visible."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: no halo; youthful",
+    "safety": "fail: bare shoulders / off-shoulder sleeves",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: flat lavender field"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 3,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.0,
+   "notes": "Static."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: no halo; still youthful despite 'mature adult woman'",
+    "safety": "fail: shoulder cut-outs remain",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: flat lavender with disc moon, wisteria line-art only"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.7,
+   "notes": "Tail sweep good idea."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: no halo; youthful",
+    "safety": "fail: shoulders bare under sleeve ties",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: flat lavender field"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.5,
+   "notes": "Cup held to her own chin, not toward viewer."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "STYLE (all candidates came out as dark-inked line art on blank/sketched backgrounds): in the negative REMOVE 'painterly, painted gradients, brush texture' (they kill the soft painted backdrop) and ADD 'lineart, sketch, uncolored background, line-drawn background, simple background, white background, blank background, monochrome background, coloring book, manga, screentone, halftone, heavy outlines, dark lineart'. In the prompt REPLACE 'background melted into soft shapes with no lines' with '1.2::detailed soft painted background, blurry background, bokeh, depth of field::' and keep 'thin light lines tinted to the color they border'. LUNA: the charref (chibi, off-shoulder) dominates: drop charref fidelity to 0.35 and keep charref_box head-only [140,0,620,330]. Raise '1.5::mature adult woman, tall, adult face, long neck::' and add '1.3::white overcoat fully covering both shoulders, high collar::'; negative add 'bare shoulders, off-shoulder, shoulder cutout, clothing cutout, detached sleeves, loli, moe, round face'. Halo absent in all four: '1.4::pale lavender crescent-moon halo floating above her head::', negative 'no halo'. Background must be a place: '1.2::moon-viewing tea terrace, stone lanterns, wisteria trellis, wooden railing, soft painted twilight sky, blurred::' and negative 'simple background, flat background, purple background, solid color background'. Keep pose 0 (teacup toward viewer, add 'hand and teacup very large near camera') and pose 2 (tail sweep).",
+ "safety_flags": "All four: bare shoulders/cut-outs and youthful proportions on an adult hero; rejected."
+}

@@ -1,0 +1,32 @@
+{
+ "id": "rei",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, calm quiet swordswoman of the tea-and-garden club, neat navy-black bob cut, straight blunt bangs, small dark bow and a gold star hair pin, lilac-violet eyes, sharp eyes, indigo uniform jacket with wide sleeves and flat thin gold edges, white high-collared blouse, lilac ribbon bow at the collar, navy pleated skirt, katana in a black scabbard at her hip with a pink silk bow on the hilt, pale pink flat halo, a thin ring of five small petal shapes, calm gentle smile, the club's rose garden at dawn, white and pink rose bushes, a wooden garden bench with a teapot, pale dawn sky, upper body, from the waist up, {POSE}, her eyes on the right third, bob swaying, clean cel-shaded anime illustration, flat color, two-tone shading with one hard-edged shadow, thin light lines tinted to the color they border, no black outlines, few interior lines, flat hair color planes, pale porcelain skin with peach-pink shadows, cool pale-blue shadows on white cloth, large simple eyes with one highlight, pink blush with fine diagonal hatch lines, small mouth, bright high-key values, few colors, cool dawn light with one small pink accent, flat simple halo, background melted into soft shapes with no lines, depth of field",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, painted gradients, brush texture, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, dark shadows, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing still, straight-on camera, symmetrical composition, thighs, legs, sword pointed at viewer, weapon pointed at viewer, aiming at viewer, drawn sword, unsheathed sword, samurai armor, armor, night, dark background, long hair, ponytail, brown hair, purple hair, pink hair, white hair, blonde hair, red eyes, brown eyes",
+ "poses": [
+  "she holds a freshly cut pink rose out toward the viewer, strong foreshortening, hand and rose large and slightly soft close to the camera, her other hand resting on the sheathed katana's hilt, dutch angle, diagonal composition, eye level, bob and ribbon tails swaying in the morning breeze",
+  "she holds a small steaming cup of tea out toward the viewer at arm's length, strong foreshortening, hand and teacup large near the camera, a thin curl of steam, dutch angle, diagonal composition, slightly from above, wide sleeves and bob swinging",
+  "turning sharply on her heel to face the viewer, one wide indigo sleeve sweeping across the near foreground, strong foreshortening, her hand on the sheathed katana at her hip, dutch angle, diagonal composition, eye level, bob and the pink silk bow flying with the turn",
+  "she tips a small watering can toward the roses at the near edge of the frame, strong foreshortening, hand and can spout large near the camera, a thin arc of water, dutch angle, diagonal composition, eye level, sleeves and bob lifted by the breeze",
+  "she waves one hand close to the camera in a quiet greeting, strong foreshortening, open hand large near the lens, other hand on the sheathed katana's hilt, dutch angle, diagonal composition, slightly from above, bob and lilac ribbon swaying"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/rei-full.webp",
+ "charref_box": [
+  100,
+  0,
+  720,
+  560
+ ],
+ "identity": [
+  "neat navy-black bob, straight blunt bangs",
+  "small dark bow + gold star hair pin",
+  "lilac-violet eyes, calm",
+  "indigo uniform jacket (wide sleeves, thin gold edges)",
+  "white blouse, lilac ribbon bow",
+  "navy pleated skirt (frame waist up)",
+  "katana, black scabbard, pink silk bow on the hilt, kept sheathed",
+  "pale pink petal halo"
+ ],
+ "scene": "the tea-and-garden club's rose garden at dawn, rose bushes, a bench with a teapot",
+ "notes": "STUDENT (adult false): fully dressed, eye level or slightly above; framed from the waist up because of her short pleated skirt and tights (thighs and legs in the negative). Katana stays sheathed (drawn sword in the negative). Halo is our PETAL shape, drawn as a thin pale-pink ring of five small petals. Charref crop is head to waist."
+}

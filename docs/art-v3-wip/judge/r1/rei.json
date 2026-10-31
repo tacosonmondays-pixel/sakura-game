@@ -1,0 +1,93 @@
+{
+ "id": "rei",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "pass (halo plain ring not petals)",
+    "safety": "pass",
+    "hands": "pass: rose hand ok; katana hilt at the edge without a visible hand",
+    "text": "pass",
+    "crops": "fail: halo cut by the top-left edge",
+    "count": "pass",
+    "frame_bg": "fail: white sky, uncoloured lineart rose garden"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 7,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 5.4,
+   "notes": "Best camera (rose foreshortened), but blank lineart bg, heavy black ink."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "pass (halo plain ring)",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: flat cream field + lineart roses"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 4,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.0,
+   "notes": "Static front-on teacup."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "pass (halo plain ring)",
+    "safety": "pass",
+    "hands": "pass (hand hidden)",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: flat pink field + uncoloured roses"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.25,
+   "notes": "Sleeve sweep reads, flat."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "pass (halo plain ring)",
+    "safety": "pass",
+    "hands": "fail: stray glass jar in her right hand, watering can held by both hands oddly",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: top half blank white"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 3,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.3,
+   "notes": "Static, prop confusion."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "ROOT CAUSE (shared by every charref-only girl this batch): output collapsed into uncoloured colouring-book lineart with no shading; norika (vibe 0.2, no charref) did NOT collapse. Style block: REMOVE 'flat color', 'no black outlines', 'few interior lines', 'background melted into soft shapes with no lines' (the word 'lines' is pulling lineart in). ADD 'cel shading, two-tone shading, soft painted background, blurry background, detailed colored background, depth of field, bright daylight'. NEGATIVE add: 'lineart, line art, sketch, monochrome, greyscale, uncolored, partially colored, coloring page, white background, simple background, blank background, empty background, heavy outlines, manga'. Add the Look B vibe (one of the two Look B reference portraits, own art) at strength 0.3 alongside the charref; keep charref fidelity 0.6. Rei: halo never draws petals; 'thin pale pink ring halo made of five tiny petals' weight up, negative 'plain ring halo'. Garden must be coloured: 'sunny rose garden with green hedges and pink roses, gazebo, soft painted, blurry'. Keep pose 0 (rose offered, best camera) and pose 2 (sleeve sweep); drop pose 1 (static) and pose 3 (props garbled). Add 'whole halo inside the frame'.",
+ "safety_flags": ""
+}

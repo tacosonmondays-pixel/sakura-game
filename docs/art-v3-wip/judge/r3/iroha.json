@@ -1,0 +1,133 @@
+{
+ "id": "iroha",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "fail: no lavender ring halo; the hand mirror is drawn shield-sized (not a hand mirror on a lanyard) and the hovering drone-easel mirror panel is missing",
+    "safety": "pass",
+    "hands": "pass: one visible hand on the lanyard, five fingers",
+    "text": "pass",
+    "crops": "pass: face ~33% across, eyes ~19% down",
+    "count": "pass",
+    "frame_bg": "pass: sunlit art room, blurred"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 5,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 6.4,
+   "notes": "Clean Look B colour and a real sunlit art room, but no halo, the 'hand mirror' is a giant oval shield and the camera is a mild tilt with nothing foreshortened toward the lens. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no hand mirror on a lanyard; the mirror panel stands on a plain floor pole instead of hovering on a small drone easel (halo, hair, ornament, uniform are right)",
+    "safety": "pass",
+    "hands": "pass: both hands on the cloth/mirror rim, plausible",
+    "text": "pass",
+    "crops": "fail: face centre x~552/768 = 72% across (outside 30-70%); eyes ~25% down",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 5,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 7
+   },
+   "total": 6.47,
+   "notes": "Best identity of the three (ring halo, silver ornament, cardigan) but face sits too far right (~73%), the cloth is not in the near foreground, no foreshortening; static three-quarter. Crops fail too. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: hand mirror floats unattached in the lower-left foreground, no lanyard, no mirror panel",
+    "safety": "pass",
+    "hands": "fail: a giant disembodied hand fills the right third (not either of her hands: her right sleeve is visible behind it, left hand hangs at her side) = extra hand",
+    "text": "pass",
+    "crops": "pass: face ~29% across (borderline), eyes ~23%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 8,
+    "composition": 5,
+    "appeal": 5
+   },
+   "total": 5.85,
+   "notes": "The 'framing with fingers' pose produced a huge viewer-like hand covering a third of the image and a floating mirror; reads as a mistake. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: no hovering mirror panel on a drone easel; hand mirror is a large ornate carved mirror with no lanyard (spec: small palm-sized, simple slim frame); lavender ring halo, ornament, uniform right",
+    "safety": "pass",
+    "hands": "pass: mirror hand and free hand 5 fingers",
+    "text": "pass",
+    "crops": "pass: face ~33%, eyes ~21%, halo inside",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 6,
+    "lookB": 8,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.55,
+   "notes": "Dutch tilt and bright art room, but no foreshortening toward the lens and the panel is missing again."
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: no hovering panel/drone easel; she holds a huge oval tray-like mirror (shield-sized), no hand mirror on a lanyard",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass: face ~48%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5.5,
+    "lookB": 8,
+    "composition": 6.5,
+    "appeal": 7
+   },
+   "total": 6.15,
+   "notes": "Mirror reads as a tray/shield."
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: no hovering panel; mirror dangles from a keychain charm, no prism as posed",
+    "safety": "pass",
+    "hands": "pass: reaching hand 5 fingers",
+    "text": "pass",
+    "crops": "fail: face centre ~21% across (limit 30%); halo touches the left edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 7,
+    "lookB": 8,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 6.45,
+   "notes": "Good reach and leg motion, but face pushed far left."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "The hovering mirror panel on a drone easel has not appeared in 6 r2/r3 candidates; the model keeps turning one mirror into a giant one. Owner call suggested: drop the panel from the portrait identity (keep it for in-game sprites) and prompt only ONE mirror: '1.4::small palm-sized silver hand mirror with a short plain handle, hanging from a lavender lanyard around her wrist::'; negatives 'large mirror, oval panel, standing mirror, shield, tray, ornate carved frame, filigree, second mirror' at 1.3. Keep r3-0's mirror pose (dutch angle, face left-centre at ~35%) but say 'her hand and the small mirror near the camera, 1.2::foreshortening::' and 'face between one third and one half across the frame'. Halo stays as in r3-0 (correct).",
+ "safety_flags": ""
+}

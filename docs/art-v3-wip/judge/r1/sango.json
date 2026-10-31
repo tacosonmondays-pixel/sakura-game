@@ -1,0 +1,93 @@
+{
+ "id": "sango",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: beret badge is an anchor not a gold shell; otherwise hair/braid, shell hairpin, teal eyes, sailor coat and cannon right",
+    "safety": "pass",
+    "hands": "pass: gloved reaching hand has 5 fingers, saluting hand reads as gripping the cannon (no salute)",
+    "text": "pass",
+    "crops": "pass: face ~60% across, eyes ~38% down -> borderline low",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place; flat cyan sky field"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 6
+   },
+   "total": 5.2,
+   "notes": "Cannon up and away (good). Wave halo became a plain thin ring. No salute drawn."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: anchor badge, plain ring halo instead of wave",
+    "safety": "fail: telescope-cannon muzzle points straight at the camera (lens face toward viewer) - spec forbids",
+    "hands": "pass: hands hidden on barrel",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place; flat cyan sky"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.75,
+   "notes": "Rejected on safety: cannon aimed at viewer."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: halo is a cloud blob, anchor badge, cannon shrunk into a camera-lens shape",
+    "safety": "fail: the cannon muzzle is held facing the viewer at hip",
+    "hands": "fail: left hand on barrel unclear/mitten-like",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place"
+   },
+   "scores": {
+    "identity": 4,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.2,
+   "notes": "Shell-casing prop not drawn; she holds a lens-like cannon toward camera instead."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: anchor badge; otherwise the best match (braid, shell pin, teal eyes, coral cuffs, wave-ish ring halo, cannon on shoulder)",
+    "safety": "pass",
+    "hands": "pass: pointing hand 5 fingers (foreshortened), other hand hidden",
+    "text": "pass",
+    "crops": "pass: face ~45% across, eyes ~28% down",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place; sky is a flat blue field"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 5.65,
+   "notes": "Best of round: good dutch angle, cheerful. Pointing hand not big in foreground (weak foreshortening)."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "ROUND-WIDE STYLE FAILURE: every candidate in this batch rendered as flat colouring-book line art (dark near-black outlines, no shadow shapes at all, backgrounds drawn as thin line sketches over one flat fill). Fix in the shared style tail: REMOVE or down-weight 'flat color', 'few colors', 'few interior lines', 'flat hair color planes', 'no black outlines' (the model reads these as 'uncoloured line art'); ADD '(two-tone cel shading:1.3), hard-edged shadow shapes on face, hair and clothes, soft painted background, (blurred painted background:1.2), bokeh, depth of field, atmospheric perspective, bright sunlight, rim light'; ADD to negative: 'lineart, line art, coloring book, uncolored, monochrome, sketch, sketch background, line-drawn background, white background, simple background, flat background, blank background, thick outlines, black outlines, manga, screentone, border, frame'. If the pipeline allows a style reference, feed sheets/_lookB_reference.jpg tiles as the style image; keep charref fidelity at 0.6 (identity is mostly fine, the drift is style). GIRL-SPECIFIC: keep pose 3 (rail + point out to sea) and pose 0 (cannon up). Badge: add '(gold seashell badge on beret:1.3)', negative 'anchor, anchor badge, anchor emblem' (anchors also appear on her skirt and chest; add 'anchor print'). Halo: '(pale sky-blue curling wave-shaped halo:1.2)'. Drop pose 1 and 2 (both produced a muzzle facing the camera); add negative 'weapon aimed at viewer, barrel facing viewer, muzzle toward camera'.",
+ "safety_flags": "Eye colour drawn teal as asked; portrait is orange-brown: owner check still open."
+}

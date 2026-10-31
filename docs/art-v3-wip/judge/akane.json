@@ -1,0 +1,76 @@
+{
+ "id": "akane",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass: orange-red hair, orange eyes, plum hat with red band + gold star, red coat-dress with gold buttons, gold bow, plum skirt to below the knee, black tights, red boots with gold bands; staff held trailing down-left (star-crystal end out of frame, only the gold ring shows); flame halo absent (optional per notes, a small fireball streaks across the sky)",
+    "safety": "pass: eye-level dutch angle, smug grin, fully dressed, staff points at the ground, not at the viewer",
+    "hands": "pass: foreshortened reaching hand, thumb + 4 fingers; staff hand fine",
+    "text": "pass: stall awnings plain stripes, lapel trim is ornament dots only",
+    "crops": "pass: face ~38% across, eyes ~33% down; head inside (hat brim tip clipped at left edge, fireball streak clipped at top: not the head)",
+    "count": "pass",
+    "frame_bg": "pass: painted festival street with stalls and lanterns, bright sky"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 9,
+    "lookB": 8,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 8.15,
+   "notes": "Best camera of the girl: dutch tilt, hand reaching toward the viewer, hair streaming. Look B clean and bright; gold filigree on the coat still a bit busy. Staff crystal not visible."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass: wink, finger heart, hat, coat, bow, skirt, tights; staff lies in the foreground with star crystal",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "fail: pseudo-lettering on both stall signs (top-left red sign and right yellow banner)",
+    "crops": "pass: face ~45%, eyes ~23%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8,
+    "camera": 6.5,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 7.5,
+   "notes": "Charming but rejected for sign lettering; staff floats at the lower-left corner without a hand."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass: full staff with ring + red star, flame wisps on the hat as halo",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "fail: letter-like script running along the right lapel trim (~x300-340, y400-480)",
+    "crops": "pass: face ~48%, eyes ~28%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 8.5,
+    "camera": 6,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8
+   },
+   "total": 7.47,
+   "notes": "Most complete identity but near-frontal peace sign; rejected for the lapel script."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-0",
+ "pick_total": 8.15,
+ "eyes": [
+  291,
+  340
+ ],
+ "head": 195,
+ "fixes": null,
+ "safety_flags": "r2-0: hat brim tip and the decorative fireball are clipped by the frame edges (head itself inside); staff crystal end out of frame."
+}

@@ -1,0 +1,93 @@
+{
+ "id": "hana",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "pass: braid right shoulder, olive bow, jacket, wing patch, glove screen, falcon drone; halo is a ring not a star",
+    "safety": "pass",
+    "hands": "pass: falcon on bare fist (should be the glove) but hands well formed",
+    "text": "pass",
+    "crops": "fail: face centre ~70% across, at the limit",
+    "count": "pass",
+    "frame_bg": "pass: trail lookout rail, mountains; flat"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6,
+    "lookB": 4,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 6.0,
+   "notes": "Best of four, dynamic tilt."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "pass: on model; halo ring not star",
+    "safety": "pass",
+    "hands": "pass: glove on rail ok, other hand hidden",
+    "text": "pass",
+    "crops": "pass: face ~55%, eyes ~24%",
+    "count": "pass",
+    "frame_bg": "pass: lookout rail, flat sky"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 5,
+    "lookB": 4,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.75,
+   "notes": "Calm, readable; flat colouring."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "fail: two halos (extra halo top right); hair/eyes too orange, lime jacket",
+    "safety": "pass",
+    "hands": "pass: binocular hands ok",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 5
+   },
+   "total": 4.6,
+   "notes": "Heavy black lines."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: falcon became a quadcopter drone",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass: mountains, flat"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 3,
+    "lookB": 4,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.4,
+   "notes": "Static front-on."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "STYLE (whole round): every render came out as a colouring-book page: black outlines, almost no shading, uncoloured line-sketch or flat single-colour backgrounds. REMOVE from prompt: 'flat color', 'few interior lines', 'flat hair color planes', 'background melted into soft shapes with no lines' (these push the model to uncoloured/flat backgrounds). ADD to prompt: 'anime coloring, soft two-tone cel shading, thin colored lineart, fully colored painted background, detailed background, blurry background, bokeh, depth of field, bright sunlight, high-key'. ADD to negative: 'lineart, sketch, uncolored, unfinished, monochrome background, simple background, white background, flat background, gradient background, coloring book, manga, screentone, halftone, border, frame, letterboxed, picture frame'. Foreshortened hand toward camera mostly did not render: re-weight it e.g. '1.3::foreshortening, hand reaching toward viewer::'. GIRL: Halo: '1.2::pale cream star-shaped halo, single halo::', negative 'ring halo, multiple halos, quadcopter, propellers'. Falcon: 'robot falcon perched on her leather falconry glove'. Hair 'warm auburn-brown hair' weighted 1.2, negative 'orange hair, orange eyes'. Keep poses of r1-0 and r1-1 but push 'dutch angle, foreshortened gloved hand toward viewer'. Scene: 'trail lookout above the academy, painted pine forest and academy rooftops, sunlit, blurry background'.",
+ "safety_flags": ""
+}

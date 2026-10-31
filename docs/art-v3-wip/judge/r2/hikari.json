@@ -1,0 +1,73 @@
+{
+ "id": "hikari",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass: TEAL eyes, braided crown with gold stars, white/teal ribbon, white high collar, royal blue bow with teal gem, navy vest with gold toggles, white greatcoat with teal lining and gold shoulder guard, white gloves, sheathed star-guard sword, gold star-point ring halo",
+    "safety": "pass: three-quarter, face and reaching hand are the focus, coat covers the chest area, not body-framed",
+    "hands": "pass: foreshortened glove, thumb + 4",
+    "text": "pass",
+    "crops": "fail: the halo's back arc and a detached star fragment touch/cross the top edge (x~220-270 and ~320 at y=0)",
+    "count": "pass",
+    "frame_bg": "pass: rampart wall at dawn, sky fairly flat"
+   },
+   "scores": {
+    "identity": 8.5,
+    "camera": 9,
+    "lookB": 7.5,
+    "composition": 8,
+    "appeal": 8.5
+   },
+   "total": 8.35,
+   "notes": "Would have been the pick (8.35): reach toward the viewer, wind in hair and coat. Rejected only for the halo clipped by the top edge."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: halo is scattered orange stars, no greatcoat closed over the chest",
+    "safety": "fail: chest-centred framing with bust emphasis (adult framed around body)",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 7,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 6.0,
+   "notes": "Salute pose, bust dominates the frame."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: halo is a malformed bar with a hanging star",
+    "safety": "fail: front-on, bust at frame centre with teacup held at the chest",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 4.5,
+    "lookB": 7,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.78,
+   "notes": "Static, body-centred."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "Re-run r2-0's reach-out pose (first) unchanged except headroom: add 'headroom above the halo, (whole halo inside the frame:1.3), camera slightly further back'; negative 'cropped halo, cut off halo, halo touching edge, floating halo fragments'. Keep fid 0.45, teal eye weighting and the closed-greatcoat wording (it worked in r2-0). Drop r2-1 (salute) and r2-2 (teacup) poses entirely: both reverted to bust-centred framing; replace with a second three-quarter pose such as hand resting on the sheathed hilt with the other hand reaching, face in the upper third.",
+ "safety_flags": "r2-0 is a near-miss: only the halo clip blocks it. If the owner accepts a few px of halo touching the top edge it scores 8.35."
+}

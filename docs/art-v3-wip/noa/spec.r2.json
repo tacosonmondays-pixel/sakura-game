@@ -1,0 +1,27 @@
+{
+ "id": "noa",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, kind second-year of the health committee, honey-brown hair gathered into two low buns at the nape, short side locks, small pink sakura blossom hair pins, blunt bangs, rose-pink eyes, round eyes, light-grey blazer, mint-green cardigan, white blouse, mint ribbon bow at the collar, mint armband with a small pink sakura emblem, 1.3::grey and mint plaid skirt below the knee::, light grey tights, brown loafers, small white shoulder pouch with a sakura clasp, translucent mint-green ward shield with a glowing mint rim and a pink sakura emblem plate, held beside her, not covering her body, pale pink halo shaped like a single sakura petal, floating above her head, whole halo visible inside the frame, small gap above the halo, gentle kind smile, bright school infirmary on a sunny morning, white beds with mint curtains, a medicine cabinet, a window with green trees and a blossoming cherry tree outside, cowboy shot, {POSE}, her eyes on the left third, anime screencap, anime coloring, cel shading, two-tone shading with soft-edged shadow shapes, thin colored lineart, clean lines, bright high-key lighting, soft pastel palette, pale skin with peach shadows, large eyes with one highlight, light blush, detailed background, blurry background, bokeh, depth of field, soft daylight, matte flat cel shading, simple hard-edged shadows, muted highlights, anime key visual",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing straight, symmetrical composition, straight-on camera, red cross, nurse cap, nurse uniform, syringe, needle, sword, weapon, short skirt, miniskirt, blonde hair, orange hair, black hair, pink hair, long hair, twintails, ponytail, green eyes, blue eyes, dark room, night, monochrome, greyscale, coloring book, sketch, unfinished, simple background, white background, flat background, border, frame, framed, flat color, no shading, thick lineart, manga, glossy, shiny skin, gradient shading, ornate, shield on arm",
+ "poses": [
+  "she holds a small sakura-patterned plaster out toward the viewer between two fingertips, strong foreshortening, hand and plaster very large near the camera, the ward shield propped at her side, mint armband visible, dutch angle, diagonal composition, eye level, side locks and ribbon fluttering",
+  "turning toward the viewer mid-step, she reaches one open hand out toward the viewer as if to say you are safe here, strong foreshortening, open palm very large near the camera, the translucent ward shield raised at her other side, dutch angle, diagonal composition, slightly from above, blazer hem and side locks swinging",
+  "she offers a small wrapped snack toward the viewer in both hands with a bright smile, the ward shield propped at her side, strong foreshortening, hands and snack very large near the camera, dutch angle, diagonal composition, eye level, the window curtain billowing behind her",
+  "she tosses a roll of white bandage toward the viewer, the bandage unspooling in a long ribbon arc large and soft across the near foreground, strong foreshortening, open hand following through toward the lens, dutch angle, diagonal composition, eye level, side locks and cardigan sleeves swinging"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/noa-full.webp",
+ "identity": [
+  "honey-brown hair in two low buns, short side locks, blunt bangs",
+  "small pink sakura blossom hair pins",
+  "rose-pink eyes, round",
+  "light-grey blazer over a mint cardigan, white blouse, mint ribbon bow",
+  "mint armband with a pink sakura emblem (never a red cross)",
+  "grey-and-mint plaid skirt below the knee, light grey tights, brown loafers",
+  "small white shoulder pouch with a sakura clasp",
+  "translucent mint ward shield with a pink sakura emblem plate",
+  "pale pink sakura-petal halo, flat",
+  "kind, gentle smile"
+ ],
+ "scene": "the academy infirmary on a bright morning: white curtained beds, mint cabinets, first-aid shelves, a window onto a blossoming cherry tree",
+ "notes": "STUDENT (adult: false). Data says two low buns; her current portrait draws a shoulder bob with one side bun, so the charref may pull toward that: either reads as her, but two buns is the data. Halo comes from her data (petal, #ffe0ec); the current portrait has no halo, only a floor ring. The shield is defensive and is never thrust at the viewer. Medical props are friendly (plaster, bandage roll, snack); no syringes, no red cross."
+}

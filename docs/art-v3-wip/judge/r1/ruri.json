@@ -1,0 +1,93 @@
+{
+ "id": "ruri",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "fail: halo floats over the fox, not her head",
+    "safety": "fail (borderline): skirt above knee with bare thighs, no knee socks in frame (student)",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: white arch + washed lineart shelves"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5,
+    "lookB": 3,
+    "composition": 5,
+    "appeal": 7
+   },
+   "total": 4.8,
+   "notes": "Fox from pages reads, but halo and skirt wrong."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "fail: halo over the fox",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: uncoloured lineart library"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 4.75,
+   "notes": "Static; fox on palm nice."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "pass",
+    "safety": "pass (skirt above knee)",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: white background, lineart shelves"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 5.05,
+   "notes": "Bookmark offer, blank bg."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "fail: halo far from her head (top-left corner); skirt above knee",
+    "safety": "pass",
+    "hands": "pass: waving hand 5 fingers",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: flat beige + uncoloured lineart shelves"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.0,
+   "notes": "Charming wave, but lineart bg."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "ROOT CAUSE (shared by every charref-only girl this batch): output collapsed into uncoloured colouring-book lineart with no shading; norika (vibe 0.2, no charref) did NOT collapse. Style block: REMOVE 'flat color', 'no black outlines', 'few interior lines', 'background melted into soft shapes with no lines' (the word 'lines' is pulling lineart in). ADD 'cel shading, two-tone shading, soft painted background, blurry background, detailed colored background, depth of field, bright daylight'. NEGATIVE add: 'lineart, line art, sketch, monochrome, greyscale, uncolored, partially colored, coloring page, white background, simple background, blank background, empty background, heavy outlines, manga'. Add the Look B vibe (one of the two Look B reference portraits, own art) at strength 0.3 alongside the charref; keep charref fidelity 0.6. Ruri: halo migrates to the fox/book (charref puts it over the book): 'pale blue thin ring halo with a small star floating directly above HER head' and negative 'halo on animal, halo over book'; consider charref fidelity 0.5 so the reference's book halo pulls less. Skirt: 'plaid skirt below the knee, navy knee socks' weight up, negative 'short skirt, miniskirt, thighs'. Library: 'warm sunlit library, wooden shelves with colourful books, arched window, soft painted, blurry'. Keep pose 0 (fox leaping from the book) and pose 3 (shy wave).",
+ "safety_flags": "r1-0 student skirt above knee with bare thighs in frame."
+}

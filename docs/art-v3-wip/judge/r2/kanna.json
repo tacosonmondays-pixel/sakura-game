@@ -1,0 +1,76 @@
+{
+ "id": "kanna",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass: coral twin-tails with gold cuffs, ivory horns, amber eyes, crimson track jacket with black panels and flower crest, cream tie, glowing gold drumstick tips, red taiko drum. Halo is a flat swirled disc partly behind the raised stick (weak flame read)",
+    "safety": "pass",
+    "hands": "pass: both stick hands plausible",
+    "text": "pass",
+    "crops": "pass: halo just inside top edge, face ~45%, eyes ~25%",
+    "count": "pass",
+    "frame_bg": "pass: bright hall, though odd floating red tiles in the blur"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 7.5,
+    "lookB": 7,
+    "composition": 7,
+    "appeal": 8
+   },
+   "total": 7.38,
+   "notes": "Drum foreground works; the halo reads as a spinning plate, lines a bit heavy, odd floating red slabs in the background. Torso is central in the frame."
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "pass: twin-tails with gold cuffs, ivory horns with gold bands, amber eyes, crimson track jacket with black panels and gold piping, flower crest (no letters), black shirt with cream tie, black drumsticks with a glowing gold tip, warm gold flame halo. Minor: sleeves end at the elbow (portrait has full sleeves); only one stick tip visible",
+    "safety": "pass: adult, jacket zipped, slightly from above, face and palm are the focus; sticks held handle-down, not at the viewer",
+    "hands": "pass: near palm five fingers (zoomed); stick fist plausible (minor: the second stick's upper half is hidden)",
+    "text": "pass",
+    "crops": "pass: face centre ~55% across, eyes ~31% down, horns and halo inside (halo top y~5)",
+    "count": "pass",
+    "frame_bg": "pass: bright hall with blurred red lanterns and wooden floor"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 8.5,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 8.5
+   },
+   "total": 7.85,
+   "notes": "High-five palm foreshortened at the lens, big grin, hair in motion, flame halo present: the most dynamic and charming of the three."
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "pass mostly (flame halo, drum, sticks)",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "fail: the flame halo is cut off by the top edge",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 8,
+    "lookB": 7,
+    "composition": 6.5,
+    "appeal": 8
+   },
+   "total": 7.28,
+   "notes": "Fist with stick toward the camera is fine (handle side) but the halo is cropped and a horn nearly touches the halo; rejected on crops."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-1",
+ "pick_total": 7.85,
+ "eyes": [
+  425,
+  320
+ ],
+ "head": 362,
+ "fixes": null,
+ "safety_flags": ""
+}

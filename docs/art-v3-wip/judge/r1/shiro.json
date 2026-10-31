@@ -1,0 +1,93 @@
+{
+ "id": "shiro",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "identity": "pass: silver hair + side lock, crescent clip, beret, navy coat with tails, bow tie, gloves, tights, rifle; halo is a white ring not mint scope-ring",
+    "safety": "pass",
+    "hands": "pass: candy hand 5 fingers",
+    "text": "pass",
+    "crops": "pass: face ~38% across, eyes ~22% down",
+    "count": "pass",
+    "frame_bg": "fail: background is a blank pale-blue gradient (no bell tower)"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6,
+    "lookB": 2,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.6,
+   "notes": "Strong identity and charm; empty background and colouring-book rendering."
+  },
+  "r1-1": {
+   "hard": {
+    "identity": "pass: identity good; halo mint-ish ring",
+    "safety": "pass: rifle upright, muzzle up",
+    "hands": "fail: binoculars not drawn; rifle hand grip ok but off-hand fused into stock",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "fail: a rectangular panel/border is drawn inside the image; line-sketch arches"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.8,
+   "notes": "Rejected on frame + hands."
+  },
+  "r1-2": {
+   "hard": {
+    "identity": "pass: identity good",
+    "safety": "pass: rifle across body, muzzle up-left, away from viewer",
+    "hands": "fail: rifle hand on stock has unclear finger count; salute not drawn",
+    "text": "pass",
+    "crops": "pass: face ~45% across, eyes ~38% down -> fail borderline (>36%)",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place; flat cyan sky over a beige wall slab"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 5,
+    "lookB": 2,
+    "composition": 5,
+    "appeal": 6
+   },
+   "total": 4.8,
+   "notes": "No kneeling/salute; static."
+  },
+  "r1-3": {
+   "hard": {
+    "identity": "pass: identity good; halo mint segmented ring (closest to scope-ring)",
+    "safety": "pass: rifle slung muzzle up",
+    "hands": "pass: open hand 5 fingers",
+    "text": "pass",
+    "crops": "pass: face ~50% across, eyes ~22% down",
+    "count": "pass",
+    "frame_bg": "fail: whole frame is uncoloured-lineart/flat-fill colouring-book rendering with heavy dark outlines and no cel shadow; background is a line drawing over a flat fill, not a soft painted place; tower drawn only as a pale silhouette on flat blue"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 6,
+    "lookB": 3,
+    "composition": 7,
+    "appeal": 7
+   },
+   "total": 5.95,
+   "notes": "Best of round. Reaching hand is good but not big/foreshortened."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "ROUND-WIDE STYLE FAILURE: every candidate in this batch rendered as flat colouring-book line art (dark near-black outlines, no shadow shapes at all, backgrounds drawn as thin line sketches over one flat fill). Fix in the shared style tail: REMOVE or down-weight 'flat color', 'few colors', 'few interior lines', 'flat hair color planes', 'no black outlines' (the model reads these as 'uncoloured line art'); ADD '(two-tone cel shading:1.3), hard-edged shadow shapes on face, hair and clothes, soft painted background, (blurred painted background:1.2), bokeh, depth of field, atmospheric perspective, bright sunlight, rim light'; ADD to negative: 'lineart, line art, coloring book, uncolored, monochrome, sketch, sketch background, line-drawn background, white background, simple background, flat background, blank background, thick outlines, black outlines, manga, screentone, border, frame'. If the pipeline allows a style reference, feed sheets/_lookB_reference.jpg tiles as the style image; keep charref fidelity at 0.6 (identity is mostly fine, the drift is style). GIRL-SPECIFIC: keep pose 3 (helping hand) and pose 0 (candy). Background: '(bell tower interior, stone arches, bronze bell, sunlit rooftops below:1.2), painted, blurred'. Halo: '(pale mint scope-reticle ring halo with crosshair ticks:1.2)'. Negative 'frame, border, panel, inset, gradient background'.",
+ "safety_flags": ""
+}

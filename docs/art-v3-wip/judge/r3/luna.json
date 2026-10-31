@@ -1,0 +1,133 @@
+{
+ "id": "luna",
+ "round": 3,
+ "candidates": {
+  "r2-0": {
+   "hard": {
+    "identity": "pass: lavender hime cut, fox ears, one big tail, violet sleepy eyes, gold crescent ornament with teal ribbon, navy high-collar gown, white wide-sleeved overcoat with teal, crescent-moon staff, crescent halo (pale cream, should be lavender), reads as a young adult",
+    "safety": "pass: high collar, both shoulders covered, staff upright",
+    "hands": "pass: teacup and staff hands five fingers",
+    "text": "pass",
+    "crops": "fail: eyes at y~385/1024 = 37.6% down (outside 15-36%); face ~41% across",
+    "count": "pass",
+    "frame_bg": "pass: terrace, wisteria, moon"
+   },
+   "scores": {
+    "identity": 7.5,
+    "camera": 3.5,
+    "lookB": 7.5,
+    "composition": 6.5,
+    "appeal": 7.5
+   },
+   "total": 6.35,
+   "notes": "Finally modest and adult-ish, but completely static front-on, teacup held at her chest (not toward the viewer), eyes at ~37% (just below the 36% band). [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r2-1": {
+   "hard": {
+    "identity": "fail: no halo",
+    "safety": "fail: bare shoulder exposed by an off-shoulder coat over a sleeveless dress (explicitly banned in the spec)",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5,
+    "camera": 6,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 6.1,
+   "notes": "Looking-back tail pose is pretty, but bare shoulder again and no halo. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r2-2": {
+   "hard": {
+    "identity": "fail: no crescent halo (only the background moon); otherwise right",
+    "safety": "pass",
+    "hands": "pass: outstretched hand five fingers",
+    "text": "pass",
+    "crops": "pass: face ~44%, eyes ~33%",
+    "count": "pass",
+    "frame_bg": "pass: terrace, cherry trees, moon"
+   },
+   "scores": {
+    "identity": 6.5,
+    "camera": 5,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.5,
+   "notes": "Modest, adult, offering hand toward the viewer, but no halo and only mild foreshortening. [Round 3 reconsidered: round-2 verdict stands.]"
+  },
+  "r3-0": {
+   "hard": {
+    "identity": "fail: halo is a cyan swirl/spiral floating off to the upper left, not a lavender crescent",
+    "safety": "pass",
+    "hands": "pass: teacup hand and staff hand ok",
+    "text": "pass",
+    "crops": "pass: face ~45%, eyes ~30%",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 5.5,
+    "camera": 6,
+    "lookB": 7.5,
+    "composition": 7,
+    "appeal": 7.5
+   },
+   "total": 6.45,
+   "notes": "Modest and adult, teacup lower right, not very large."
+  },
+  "r3-1": {
+   "hard": {
+    "identity": "fail: crescent behind her head is cream/pale yellow (cream halo is in the negative; spec pale lavender); otherwise on model: lavender hime cut, fox ears, one huge tail, violet sleepy eyes, gold crescent ornament + teal ribbon, navy high-necked gown, white wide-sleeved overcoat covering both shoulders, crescent-orb staff",
+    "safety": "pass: adult, modest high collar, shoulders covered, hand is the focus",
+    "hands": "pass: open hand thumb + four fingers, staff hand ok",
+    "text": "pass",
+    "crops": "pass: face ~48%, eyes ~31%, crescent inside (top ~y28)",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 7,
+    "camera": 7,
+    "lookB": 7.5,
+    "composition": 7.5,
+    "appeal": 7.5
+   },
+   "total": 7.22,
+   "notes": "Closest yet: dutch tilt, palm toward the lens, modest; only the halo colour (and a still-youthful face) holds it back. Would total 7.23 even with a passing halo."
+  },
+  "r3-2": {
+   "hard": {
+    "identity": "fail: cream crescent behind head (not lavender)",
+    "safety": "fail (borderline, rejected): front-on, teacup held at the chest with the bust at frame centre",
+    "hands": "pass",
+    "text": "pass",
+    "crops": "pass",
+    "count": "pass",
+    "frame_bg": "pass"
+   },
+   "scores": {
+    "identity": 6,
+    "camera": 4,
+    "lookB": 7.5,
+    "composition": 6,
+    "appeal": 7
+   },
+   "total": 5.9,
+   "notes": "Static, body-centred."
+  }
+ },
+ "decision": "FAIL",
+ "pick": null,
+ "pick_total": null,
+ "eyes": null,
+ "head": null,
+ "fixes": "r3-1 is the base: keep its pose (open palm toward the lens, staff upright, dutch tilt) as pose 1, and push foreshortening a little more: 'palm very large near the lens, from slightly above'. Halo: '1.5::pale lavender crescent moon halo, lilac coloured, small, floating just above her head between her ears::'; negatives 'yellow crescent, golden crescent, cream crescent, large crescent behind head, moon behind head, swirl, spiral halo' (the big crescent behind her head reads as a moon). Keep fid 0.35, head-only charref_box and the modest overcoat wording (shoulders covered in r3-0/r3-1). Drop the teacup-at-chest pose (r3-2, body-centred).",
+ "safety_flags": ""
+}
