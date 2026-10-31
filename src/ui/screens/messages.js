@@ -22,7 +22,7 @@ import { store } from '../../core/store.js';
 import { lineSticker, stickerLine } from '../../online/stickerWire.js';
 import { showsStickers } from '../../systems/stickers.js';
 import { stickerAlt } from '../../data/stickers.js';
-import { stickerImg, openStickerPicker } from '../online/stickers.js';
+import { stickerImg, openStickerPicker, STICKER_PX } from '../online/stickers.js';
 import {
   bodyError, whyText, presenceText, formatFriendCode, normalizeFriendCode, DM_PRIVACY, DM_PRIVACY_DEFAULT, PRIVACY_LABELS, PRIVACY_HELP, DM_PAGE,
 } from '../../online/socialRules.js';
@@ -116,7 +116,7 @@ function dmStickerBody(m) {
   const s = m.kind === 'invite' ? null : lineSticker(m.body);
   if (!s) return null;
   if (!m.mine && !showsStickers(store.profile)) return h('div.ol-bubble.ol-bubble-stk-text', { 'data-testid': 'dm-sticker-text' }, stickerAlt(s));
-  return h('div.ol-stk-msg', { 'data-testid': 'dm-sticker-msg', 'data-sticker': s.id }, stickerImg(s.id, 96));
+  return h('div.ol-stk-msg', { 'data-testid': 'dm-sticker-msg', 'data-sticker': s.id }, stickerImg(s.id, STICKER_PX.chat));
 }
 
 export function render(root, params = {}) {

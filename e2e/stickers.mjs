@@ -117,6 +117,11 @@ const seed = (page, extra) => page.evaluate((x) => {
   store.commit('replace');
   store.saveNow?.();
 }, extra);
+/** The laid-out size (px) and file of the first image matching `sel`, once it has loaded. */
+const imgOf = (page, sel) => page.waitForFunction((x) => {
+  const i = document.querySelector(x);
+  return i && i.complete && i.naturalWidth ? { w: i.offsetWidth, h: i.offsetHeight, file: (i.currentSrc || i.src).split('/').pop() } : null; // (layout size: the pop-in scale does not count)
+}, sel, { timeout: 8000 }).then((x) => x.jsonValue()).catch(() => null);
 const bubble = (page, slot) => page.evaluate((s) => document.querySelector(`[data-testid="coop-sticker-${s}"]`)?.dataset.sticker || null, slot);
 
 let A;
@@ -180,6 +185,8 @@ try {
     line: document.querySelector('[data-testid="stk-pick-line"]')?.textContent,
   }));
   check(pick.tiles === 16 && pick.locked === 7 && /^9 of 16/.test(pick.line), `A's picker: 16 stickers, 9 owned, 7 locked (${JSON.stringify(pick)})`);
+  const tile = await imgOf(A, '[data-testid="stk-picker"] .stk-tile .stk-img');
+  check(tile && tile.w >= 72 && tile.w <= 88, `picker tiles: up to 88 px (${JSON.stringify(tile)})`);
   await shots(A, 'coop-picker', async () => {
     if (!(await A.$('[data-testid="stk-picker"]'))) await tap(A, '[data-testid="coop-sticker-btn"]');
   });
@@ -187,23 +194,38 @@ try {
   check(await until(B, (s) => document.querySelector(`[data-testid="coop-sticker-${s}"]`)?.dataset.sticker === 'tenka_charge', slotA), 'B sees A\'s sticker under A\'s name');
   check((await bubble(A, slotA)) === 'tenka_charge', 'A sees its own sticker under its own name');
   check(await B.evaluate(() => document.querySelector('.stk-bubble img')?.alt) === 'Tenka sticker: Charge!', 'the sticker has its words for screen readers');
+  const big = await imgOf(B, '.stk-bubble img');
+  check(big && big.w === 104 && big.h === 104 && /-128\.webp$/.test(big.file), `the battle sticker is 104 px, from the 128 px file (${JSON.stringify(big)})`);
   // the rate limit: the button waits out 2 s (greyed), a second sticker at once does not go
   check(await A.evaluate(() => document.querySelector('[data-testid="coop-sticker-btn"]').classList.contains('cooling')), 'the button greys out for the 2 s gap');
   const second = await A.evaluate(() => window.__coop.sendSticker('aoi_nice'));
   check(!second.ok && second.waitMs > 0, `a second sticker inside 2 s is held back (${JSON.stringify(second)})`);
   const gone = await until(B, (s) => !document.querySelector(`[data-testid="coop-sticker-${s}"]`), slotA, 6000);
   check(gone, 'the sticker goes away after ~3 s');
-  // portrait: the placement hint's Cancel is never under the sticker button (the hint sits below the co-op chip)
+  // portrait: the placement hint's Cancel is never under the sticker button or a sticker (the hint sits below where a
+  // 104 px sticker hangs from the co-op chip); short landscape: the sticker is 80 px
   await B.setViewportSize({ width: 390, height: 844 });
   await settle(B, 500);
+  await A.waitForTimeout(2100);
+  await A.evaluate(() => window.__coop.sendSticker('aoi_nice'));
+  await imgOf(B, '.stk-bubble img');
   const clear = await B.evaluate(() => {
-    const btn = document.querySelector('[data-testid="coop-sticker-btn"]')?.getBoundingClientRect();
     const hint = document.querySelector('.bt-place-hint');
-    if (!btn || !hint || !hint.offsetParent) return 'no hint';
+    if (!hint || !hint.offsetParent) return 'no hint';
     const r = hint.getBoundingClientRect();
-    return r.top >= btn.bottom || r.bottom <= btn.top || r.left >= btn.right || r.right <= btn.left ? 'clear' : 'overlap';
+    const apart = (q) => !q || r.top >= q.bottom || r.bottom <= q.top || r.left >= q.right || r.right <= q.left;
+    const btn = document.querySelector('[data-testid="coop-sticker-btn"]')?.getBoundingClientRect();
+    const stk = document.querySelector('.stk-bubble')?.getBoundingClientRect();
+    if (!stk) return 'no sticker';
+    return apart(btn) && apart(stk) ? 'clear' : 'overlap';
   });
-  check(clear === 'clear', `portrait: the sticker button stays clear of the placement hint (${clear})`);
+  check(clear === 'clear', `portrait: the sticker button and a sticker stay clear of the placement hint (${clear})`);
+  await B.setViewportSize({ width: 844, height: 390 });
+  await settle(B, 400);
+  await A.waitForTimeout(2100);
+  await A.evaluate(() => window.__coop.sendSticker('slime_hi'));
+  const short = await imgOf(B, '.stk-bubble img');
+  check(short && short.w === 80, `short landscape: the battle sticker is 80 px (${JSON.stringify(short)})`);
   await B.setViewportSize({ width: 1280, height: 720 });
   await settle(B, 300);
   await shots(B, 'coop-sticker-guest', async () => {
@@ -274,6 +296,10 @@ try {
   check(await until(B, () => !!document.querySelector('[data-testid="chat-sticker-msg"][data-sticker="kage_onit"]'), null, 12000), 'B sees A\'s sticker in clan chat');
   check(await until(A, () => !!document.querySelector('[data-testid="chat-sticker-msg"][data-sticker="kage_onit"]')), 'A sees its own sticker in clan chat');
   check(await A.evaluate(() => document.querySelector('[data-testid="chat-input"]').value === ''), 'the typed line is untouched');
+  const chatImg = await imgOf(B, '[data-testid="chat-sticker-msg"] img');
+  check(chatImg && chatImg.w === 150 && chatImg.h === 150 && /-256\.webp$/.test(chatImg.file), `chat: the sticker is 150 px, from the 256 px file (${JSON.stringify(chatImg)})`);
+  const reserved = await B.evaluate(() => getComputedStyle(document.querySelector('[data-testid="chat-sticker-msg"] img')).aspectRatio);
+  check(/^1( \/ 1)?$/.test(reserved), `chat: the sticker's square box is reserved before it loads (aspect-ratio ${reserved})`);
   await B.fill('[data-testid="chat-input"]', '[sticker:future_one] Hi!');
   await B.press('[data-testid="chat-input"]', 'Enter');
   check(await until(A, () => [...document.querySelectorAll('[data-testid="chat-msg"] .ol-bubble')].some((b) => b.textContent === '[sticker:future_one] Hi!')), 'a sticker line with an id this build does not know reads as text');
@@ -282,6 +308,15 @@ try {
   await tap(B, '[data-testid="stk-slime_hi"]');
   await until(A, () => !!document.querySelector('[data-testid="chat-sticker-msg"][data-sticker="slime_hi"]'));
   await shots(A, 'chat-clan');
+  await A.setViewportSize({ width: 390, height: 844 });
+  await settle(A, 400);
+  const fits = await A.evaluate(() => {
+    const list = document.querySelector('[data-testid="chat-list"]').getBoundingClientRect();
+    return [...document.querySelectorAll('[data-testid="chat-sticker-msg"] img')].every((i) => { const r = i.getBoundingClientRect(); return r.right <= list.right + 0.5 && r.left >= list.left - 0.5 && r.width <= 0.4 * innerWidth + 0.5; });
+  });
+  check(fits, 'chat at 390 px: every sticker fits the message column (at most 40% of the width)');
+  await A.setViewportSize({ width: 1280, height: 720 });
+  await settle(A, 300);
 
   // ---- 4. messages -----------------------------------------------------------------------------------------------
   log('\n(4) messages');
@@ -293,6 +328,8 @@ try {
   await tap(A, '[data-testid="dm-sticker"]');
   await tap(A, '[data-testid="stk-slime_thanks"]');
   check(await until(A, () => !!document.querySelector('[data-testid="dm-sticker-msg"][data-sticker="slime_thanks"]'), null, 12000), 'A\'s sticker shows in the conversation');
+  const dmImg = await imgOf(A, '[data-testid="dm-sticker-msg"] img');
+  check(dmImg && dmImg.w === 150 && /-256\.webp$/.test(dmImg.file), `messages: the sticker is 150 px, from the 256 px file (${JSON.stringify(dmImg)})`);
   await shots(A, 'dm-thread');
   await go(B, '#/messages');
   const introB = await wait(B, '[data-testid="intro-ok"]', { timeout: 4000 }).then(() => true).catch(() => false);

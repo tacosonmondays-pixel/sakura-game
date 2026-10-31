@@ -8,11 +8,14 @@ import { STICKERS, STICKER_MAP, stickerAlt, stickerHint } from '../../data/stick
 import { ownedStickers } from '../../systems/stickers.js';
 import { onEscape } from '../hold.js';
 
-/** <img> of a sticker (the 128 px file up to 96 px on screen, else the 256 px one). */
+/** Sticker sizes on screen (px; the CSS in online.css matches): chat, compact chat, the co-op bubble, picker tiles. */
+export const STICKER_PX = Object.freeze({ chat: 150, chatCompact: 112, bubble: 104, bubbleShort: 80, tile: 88 });
+
+/** <img> of a sticker: the 128 px file up to 128 px on screen, else the 256 px one (sharp on any display). */
 export function stickerImg(id, px = 64, cls = 'stk-img') {
   const s = STICKER_MAP[id];
   if (!s) return null;
-  const file = px > 96 ? 256 : 128;
+  const file = px > 128 ? 256 : 128;
   return h(`img.${cls}`, { src: artUrl(`stickers/${s.id}-${file}.webp`), alt: stickerAlt(s), width: px, height: px, draggable: 'false', decoding: 'async' });
 }
 
@@ -49,7 +52,7 @@ export function openStickerPicker({ profile, onPick, onClose = null, title = 'St
         close();
         onPick(s.id);
       },
-    }, stickerImg(s.id, 64), mine ? null : h('i.stk-lock', { 'aria-hidden': 'true' }));
+    }, stickerImg(s.id, STICKER_PX.tile), mine ? null : h('i.stk-lock', { 'aria-hidden': 'true' }));
   });
   const panel = h('div.stk-pick', { role: 'dialog', 'aria-label': title, 'data-testid': 'stk-picker' },
     h('header.stk-pick-head', h('b', title), h('button.stk-pick-x', { type: 'button', 'aria-label': 'Close', 'data-testid': 'stk-close', onclick: () => close() }, '×')),
