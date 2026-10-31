@@ -20,7 +20,7 @@ import { resolveSkin } from '../data/skins.js';
 import { UNIT_IDS, UNIT_MAP } from '../data/units.js';
 
 export { CHIBI_HEIGHT } from './chibi.js';
-export { buildEnemy, preloadEnemies, enemyUrl } from './enemies.js';
+export { buildEnemy, preloadEnemies, enemyUrl, TRIPO_ENEMIES, tripoEnemyKey } from './enemies.js';
 export { makeSilhouette, disposeObject } from './util.js';
 export { createModelViewer, drawnBox } from './viewer.js';
 export { characterUrl, FACE_CELLS, detailFor } from './glbChibi.js';
@@ -101,8 +101,10 @@ export function buildChibi(unitDef, opts = {}) {
       return withCompanion(tagSkin(instantiateCharacter(other, unitDef, opts), skin), unitDef, opts);
     }
   }
-  // placeholder in the outfit's colours (its frozen palette/look) until the GLB arrives
+  // placeholder in the outfit's colours (its frozen palette/look) until the GLB arrives; the staff heroes'
+  // (Kogane, Norika) keeps their chin-up so the brim does not hide the eyes from the battle camera
   const group = tagSkin(buildChibiProc(skinLook(unitDef, skin), opts), skin);
+  liftChin(group, STANDIN_CHIN_UP[key] || 0);
   if (canLoadCharacters()) {
     Promise.all([ensureSkeletonUtils(), loadCharacter(key, detail)]).then(([, a]) => {
       if (!a || group.userData.disposed || !group.parent) return;

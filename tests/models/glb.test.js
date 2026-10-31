@@ -37,7 +37,7 @@ const MESHY_BONES = [
 // (a duo unit has no model of its own: its members' models stand side by side, src/models/duo.js; checked below)
 const GLB_UNITS = UNITS.filter((u) => !isStandIn(u.id) && !u.duo);
 const DUO_UNITS = UNITS.filter((u) => u.duo);
-const GLB_UNIT_COUNT = 36; // + noa, hana, ruri (Meshy, art wave), fuu, iroha, ena, kanna, yoriko, seiran (temporary Blender chibis), the seven new girls (UNIT_GAPS §5), tenka (Meshy, Oct 20 figure + coilgun prop)
+const GLB_UNIT_COUNT = 38; // + kogane, norika (Tripo, batch 1), noa, hana, ruri (Meshy, art wave), fuu, iroha, ena, kanna, yoriko, seiran (temporary Blender chibis), the seven new girls (UNIT_GAPS §5), tenka (Meshy, Oct 20 figure + coilgun prop)
 
 const manifest = existsSync(path.join(dir, 'manifest.json')) ? JSON.parse(readFileSync(path.join(dir, 'manifest.json'), 'utf8')) : null;
 
@@ -61,6 +61,48 @@ describe('character GLBs', () => {
   });
 
   for (const u of GLB_UNITS) {
+    if (manifest?.[u.id]?.source === 'tripo') {
+      // Tripo figures (tools/tripo/build_tripo_chibi.py): Tripo's own UVs and base colour, its biped rig renamed,
+      // clips authored on it; phone-packed like the Meshy figures (no metal/roughness or normal map, no eye boxes yet)
+      for (const detail of ['full', 'lod']) {
+        it(`${u.id} ${detail}: imported Tripo figure with textured body, rig and clips`, () => {
+          const file = path.join(dir, `${u.id}${detail === 'lod' ? '.lod' : ''}.glb`);
+          expect(existsSync(file), file).toBe(true);
+          expect(statSync(file).size).toBeLessThanOrEqual(detail === 'lod' ? MAX_MESHY_LOD_BYTES : MAX_MESHY_FULL_BYTES);
+          const { json, binLength } = readGlbHeader(file);
+          expect(json.buffers[0].byteLength).toBeLessThanOrEqual(binLength);
+          const ex = json.asset.extras;
+          expect(ex).toMatchObject({ unit: u.id, source: 'tripo', style: 'textured', lod: detail === 'lod' });
+          expect(ex.height).toBeGreaterThan(1.2);
+          expect(ex.unitScale).toBeGreaterThan(0);
+          const names = json.animations.map((a) => a.name);
+          for (const c of MESHY_CLIPS) expect(names, `${u.id} ${c}`).toContain(c);
+          expect(names.some((n) => n.startsWith('attack_')), `${u.id} attack clip`).toBe(true);
+          for (const a of json.animations) {
+            expect(a.channels.length).toBeGreaterThan(0);
+            const dur = Math.max(...a.samplers.map((x) => json.accessors[x.input].max[0]));
+            const cap = { idle: 1.6, cheer: 1.2, hurt: 0.4, walk: 1.2 }[a.name] ?? (a.name.startsWith('attack_') ? 0.6 : 2);
+            expect(dur, `${a.name} length`).toBeLessThanOrEqual(cap + 1e-3);
+          }
+          expect(json.skins).toHaveLength(1);
+          const joints = json.skins[0].joints.map((j) => json.nodes[j].name);
+          for (const b of MESHY_BONES) expect(joints, `${u.id} bone ${b}`).toContain(b);
+          const prims = json.meshes.flatMap((m) => m.primitives);
+          expect(prims).toHaveLength(1);
+          expect(json.materials[prims[0].material].pbrMetallicRoughness.baseColorTexture).toBeDefined();
+          expect(prims[0].attributes.TEXCOORD_0).toBeDefined();
+          expect(prims[0].attributes.JOINTS_0).toBeDefined();
+          const pos = json.accessors[prims[0].attributes.POSITION];
+          expect(pos.componentType).toBe(5122);
+          expect(pos.normalized).toBe(true);
+          expect(json.extensionsRequired).toEqual(expect.arrayContaining(['KHR_mesh_quantization', 'EXT_texture_webp']));
+          // no meshopt / Draco: the game has no decoder for them
+          expect(json.extensionsRequired.some((e) => /meshopt|draco/i.test(e))).toBe(false);
+          for (const im of json.images) expect(im.mimeType).toBe('image/webp');
+        });
+      }
+      continue;
+    }
     if (manifest?.[u.id]?.source === 'meshy') {
       for (const detail of ['full', 'lod']) {
         it(`${u.id} ${detail}: imported Meshy figure with textured body, hand gear, rig and clips`, () => {

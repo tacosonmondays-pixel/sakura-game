@@ -6,10 +6,10 @@
 // the procedural model). Call `preloadEnemies()` (or `preloadModels()`) before a battle so
 // the first wave is already V2.
 import { buildEnemyProcedural } from './enemiesProcedural.js';
-import { getFamily, loadFamily, canLoadEnemies, instantiateEnemy } from './glbEnemy.js';
+import { getFamily, loadFamily, canLoadEnemies, instantiateEnemy, tripoEnemyKey } from './glbEnemy.js';
 import { makeSilhouette } from './util.js';
 
-export { preloadEnemies, enemyUrl, loadFamily, getFamily, ENEMY_FACE_CELLS, visiblePieces } from './glbEnemy.js';
+export { preloadEnemies, enemyUrl, loadFamily, getFamily, ENEMY_FACE_CELLS, visiblePieces, TRIPO_ENEMIES, tripoEnemyKey } from './glbEnemy.js';
 
 /**
  * Builds an enemy model.
@@ -23,15 +23,28 @@ export { preloadEnemies, enemyUrl, loadFamily, getFamily, ENEMY_FACE_CELLS, visi
  */
 export function buildEnemy(def = {}, opts = {}) {
   const family = def.model?.base || def.family || 'slime';
+  // an enemy with its own Tripo model (glbEnemy TRIPO_ENEMIES) wears it; the family mesh is the fallback
+  const own = tripoEnemyKey(def);
+  const ownAsset = own ? getFamily(own) : null;
+  if (ownAsset) return instantiateEnemy(ownAsset, def, opts);
   const asset = getFamily(family);
-  if (asset) return instantiateEnemy(asset, def, opts);
-  const group = buildEnemyProcedural(def, opts);
-  group.userData.glb = false;
+  if (asset && !(own && canLoadEnemies())) return instantiateEnemy(asset, def, opts);
+  let group;
+  if (asset) {
+    group = instantiateEnemy(asset, def, opts);
+  } else {
+    group = buildEnemyProcedural(def, opts);
+    group.userData.glb = false;
+  }
   if (canLoadEnemies()) {
-    loadFamily(family).then((a) => {
-      if (!a || group.userData.disposed || !group.parent) return;
+    const upgrade = (a) => {
+      if (!a || group.userData.disposed || !group.parent) return false;
       upgradeInPlace(group, a, def, opts);
-    }).catch(() => {});
+      return true;
+    };
+    (own ? loadFamily(own) : Promise.resolve(null))
+      .then((a) => (a ? upgrade(a) : asset ? true : loadFamily(family).then(upgrade)))
+      .catch(() => {});
   }
   const origDispose = group.userData.dispose;
   group.userData.dispose = () => {

@@ -47,9 +47,23 @@ function assetExt() {
   return globalThis.__SAKURA_ASSET_EXT || '';
 }
 
-/** URL of a family GLB. */
+/** URL of a family GLB (or of a one-enemy Tripo model, key 'tripo/<enemy id>'). */
 export function enemyUrl(family) {
   return `${baseUrl()}models/enemies/${family}.glb${assetExt()}`;
+}
+
+/**
+ * Enemies with a model of their own (public/models/enemies/tripo/<id>.glb, built by
+ * tools/tripo/build_tripo_enemy.py): one textured skinned mesh with the family clips (move / idle / hit /
+ * death / special). They replace the family's shared mesh for that id; the family GLB stays the fallback
+ * while the file loads or if it fails. Plain list so the loaders can decide without the manifest.
+ */
+export const TRIPO_ENEMIES = Object.freeze(['brigade_gnat', 'brigade_trooper', 'brigade_shieldline', 'brigade_tortoise', 'brigade_badger']);
+const TRIPO_SET = new Set(TRIPO_ENEMIES);
+
+/** Asset key of an enemy's own Tripo model ('tripo/<id>'), or null. */
+export function tripoEnemyKey(def) {
+  return def && TRIPO_SET.has(def.id) ? `tripo/${def.id}` : null;
 }
 
 export function canLoadEnemies() {
@@ -84,7 +98,8 @@ export function loadFamily(family) {
   if (!canLoadEnemies()) return Promise.resolve(null);
   const p = loadEnemyManifest()
     .then((m) => {
-      if (m && !m[family]) return null;
+      // one-enemy Tripo models are not in the family manifest (their own: models/enemies/tripo/manifest.json)
+      if (m && !m[family] && !family.startsWith('tripo/')) return null;
       return loader().then((l) => l.loadAsync(enemyUrl(family))).then((gltf) => prepareAsset(family, gltf));
     })
     .catch((e) => {
@@ -134,6 +149,8 @@ function prepareAsset(family, gltf) {
   let faceTexture = null;
   let template = null;
   const corner = extras.faceCorner || [0.01, 0.01];
+  // a one-enemy textured model (tools/tripo/build_tripo_enemy.py): one skinned mesh carrying its own colours
+  if (extras.style === 'textured') return prepareTextured(family, gltf, extras);
   scene.traverse((o) => {
     if (!o.isMesh) return;
     o.frustumCulled = false;
@@ -180,6 +197,30 @@ function prepareAsset(family, gltf) {
   };
 }
 
+function prepareTextured(family, gltf, extras) {
+  const scene = gltf.scene;
+  let template = null;
+  scene.traverse((o) => {
+    if (!o.isMesh) return;
+    o.frustumCulled = false;
+    if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+    o.geometry.userData.shared = true;
+    if (!template || (o.isSkinnedMesh && !template.isSkinnedMesh)) template = o;
+  });
+  const map = template?.material?.map || null;
+  if (map) {
+    map.userData.shared = true;
+    map.colorSpace = THREE.SRGBColorSpace;
+  }
+  const clips = {};
+  for (const clip of gltf.animations) clips[clip.name] = clip;
+  return {
+    family, scene, pieces: [], template, clips, faceTexture: null, extras, textured: true, map,
+    height: extras.height || 1, unitScale: extras.unitScale || 1, translucent: 0,
+    cells: ENEMY_FACE_CELLS, grid: FACE_GRID, variantTable: {}, props: new Set(), variants: new Set(),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Piece selection + merging
 // ---------------------------------------------------------------------------
@@ -203,6 +244,7 @@ function mergedKey(asset, def) {
 }
 
 function mergedFor(asset, def) {
+  if (asset.textured) return { body: asset.template.geometry };
   const key = mergedKey(asset, def);
   let m = mergedCache.get(key);
   if (m) return m;
@@ -342,6 +384,15 @@ outgoingLight = mix( outgoingLight, faceTexel.rgb * faceL + totalEmissiveRadianc
   return m;
 }
 
+/** Toon body of a textured (Tripo) enemy: its painted colours; status tints and hit flashes still apply. */
+function texturedBodyMaterial(map, opacity) {
+  const m = new THREE.MeshToonMaterial({
+    map, gradientMap: gradientMap(3), color: '#ffffff', transparent: opacity < 1, opacity, depthWrite: true,
+  });
+  m.customProgramCacheKey = () => 'enemy-body-textured';
+  return m;
+}
+
 /** Unlit glow pieces (eyes, cores, sparks); accent-role pieces follow def.accent. */
 function glowMaterial(tint, opacity) {
   const m = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, transparent: opacity < 1, opacity });
@@ -405,7 +456,7 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
     faceTex.repeat.set(1 / asset.grid[0], 1 / asset.grid[1]);
   }
   const geos = mergedFor(asset, def);
-  const bodyMat = bodyMaterial(faceTex, tint, baseOpacity);
+  const bodyMat = asset.textured ? texturedBodyMaterial(asset.map, baseOpacity) : bodyMaterial(faceTex, tint, baseOpacity);
   const glowMat = glowMaterial(tint, Math.min(1, baseOpacity + 0.3));
   const see = baseOpacity < 1;
   const outlineWidth = OUTLINE_WORLD * (0.7 + 0.45 * Math.sqrt(size)) / (asset.unitScale * modelScale);

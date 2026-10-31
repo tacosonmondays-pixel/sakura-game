@@ -15,12 +15,17 @@ import { GeoBuilder } from './geo.js';
 import { runnerSegment } from '../sim/runners.js';
 import { TICKS } from '../sim/barricades.js';
 import { createVisualRandom, visualSeed } from './vfx/random.js';
+import { loadTripoProp, getTripoProp } from './tripoProps.js';
 
 /** Caps (co-op: two heroes, each ≤ 4 own barricades and ≤ 4 Hold the Line ones). */
 const MAX_BARS = 8;
 const MAX_LINES = 8;
 const MAX_WALKERS = 4;
 const MAX_BLADES = 2;
+/** Suzu's bells at most (the sim caps her traps far below this). */
+const MAX_BELLS = 48;
+/** The Tripo model each instanced kind swaps to once its file has loaded (src/render/tripoProps.js). */
+const TRIPO = { bars: 'norika_barricade', walkers: 'big_yellow', bells: 'suzu_bell' };
 /** Seconds of the pop when a barricade (re)appears. */
 const POP_TIME = 0.4;
 /** Hold the Line barricades shrink away over their last this-many seconds. */
@@ -277,8 +282,43 @@ export class StaffFx {
       lines: make(lineGeometry(), MAX_LINES, true),
       walkers: make(walkerGeometry(), MAX_WALKERS, false),
       blades: make(bladeGeometry(), MAX_BLADES, false),
+      bells: null, // Suzu's bells: only once their model has loaded (the flat rune in actors.js until then)
+      swapped: new Set(),
     };
+    for (const id of Object.values(TRIPO)) loadTripoProp(id);
     return this._meshes;
+  }
+
+  /** Swaps a procedural kind (bars, walkers) to its Tripo model, or makes the bells, once a file is in. */
+  _swapTripo(M) {
+    for (const [key, id] of Object.entries(TRIPO)) {
+      if (M.swapped.has(key)) continue;
+      const prop = getTripoProp(id);
+      if (!prop) continue;
+      M.swapped.add(key);
+      if (key === 'bells') {
+        const m = new THREE.InstancedMesh(prop.geometry, prop.material, MAX_BELLS);
+        m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        for (let i = 0; i < MAX_BELLS; i++) m.setColorAt(i, _c.setRGB(1, 1, 1));
+        m.instanceColor.setUsage(THREE.DynamicDrawUsage);
+        m.count = 0;
+        m.frustumCulled = false;
+        m.name = 'tripo:suzu_bell';
+        this.root.add(m);
+        M.bells = m;
+        continue;
+      }
+      const m = M[key];
+      m.geometry.dispose();
+      m.geometry = prop.geometry;
+      m.material = prop.material;
+      m.name = `tripo:${id}`;
+    }
+  }
+
+  /** True when Suzu's bells are drawn here as 3D bells (actors.js then skips the flat trap rune). */
+  coversBells() {
+    return !!this._meshes?.bells;
   }
 
   // ---- frame ---------------------------------------------------------------------------------
@@ -290,9 +330,12 @@ export class StaffFx {
     const heroes = sim.heroes || [];
     let any = !!this._meshes;
     for (const h of heroes) if (h && (h.bars?.length || h.lines?.length || h.def?.role === 'pilot')) any = true;
+    if (!any && (sim.traps || []).some((tr) => !tr.strip)) any = true;
     if (!any && !(sim.runners && sim.runners.some((r) => r.kind === 'plow'))) return;
     const M = this._ensure();
-    const counts = { bars: 0, lines: 0, walkers: 0, blades: 0 };
+    this._swapTripo(M);
+    if (this.actors && this.actors.bellProps !== this) this.actors.bellProps = this;
+    const counts = { bars: 0, lines: 0, walkers: 0, blades: 0, bells: 0 };
     for (const h of heroes) {
       if (!h || h.removed) continue;
       if (h.bars) for (const b of h.bars) this._drawBarricade(M, counts, b, false, dt, frame);
@@ -301,8 +344,10 @@ export class StaffFx {
     this._drawPlows(M, counts, dt, frame);
     for (const h of heroes) if (h && !h.removed && h.def?.role === 'pilot') this._drawWalker(M, counts, h, dt);
     for (const [uid, s] of this._bars) if (s.seen !== frame) this._bars.delete(uid);
-    for (const k of ['bars', 'lines', 'walkers', 'blades']) {
+    if (M.bells) this._drawBells(M, counts);
+    for (const k of ['bars', 'lines', 'walkers', 'blades', 'bells']) {
       const m = M[k];
+      if (!m) continue;
       m.count = counts[k];
       if (counts[k]) {
         m.instanceMatrix.needsUpdate = true;
@@ -449,6 +494,35 @@ export class StaffFx {
     }
   }
 
+  /** Suzu's traps as little bells on the road (the armed glow stays in actors.js); unarmed ones sit low and grey. */
+  _drawBells(M, counts) {
+    const t = this.time;
+    for (const tr of this.sim.traps || []) {
+      if (tr.strip || this.actors?.fxHook?.trapHidden?.(tr.uid)) continue;
+      if (counts.bells >= MAX_BELLS) break;
+      const armed = tr.armed;
+      // Bell Toll: the bell swings for 12 steps after it rings (as the rune's wobble did)
+      let wob = 0;
+      if (armed && tr.tollCd != null) {
+        const toll = tr.owner?.stats?.toll;
+        const since = toll ? Math.max(1, Math.round(toll.every)) - tr.tollCd : 99;
+        if (since >= 0 && since < 12) wob = 0.35 * Math.sin(since * 1.6) * (1 - since / 12);
+      }
+      if (!this.reduceMotion) wob += Math.sin(t * 2 + tr.uid) * 0.03;
+      const sc = armed ? 1 : 0.8;
+      _e.set(0, (tr.uid * 0.9) % (Math.PI * 2), wob, 'YXZ');
+      _q.setFromEuler(_e);
+      _p.set(tr.x, 0.03, tr.y);
+      _s.set(sc, sc, sc);
+      _m.compose(_p, _q, _s);
+      const i = counts.bells++;
+      M.bells.setMatrixAt(i, _m);
+      if (armed) _c.setRGB(1, 1, 1);
+      else _c.setRGB(0.6, 0.62, 0.68);
+      M.bells.setColorAt(i, _c);
+    }
+  }
+
   /** Is Big Yellow out on the road for hero `uid` right now? */
   _plowing(uid) {
     for (const s of this._plows.values()) if (s.ownerUid === uid) return true;
@@ -487,10 +561,14 @@ export class StaffFx {
 
   dispose() {
     if (this._meshes) {
-      for (const k of ['bars', 'lines', 'walkers', 'blades']) {
-        this._meshes[k].geometry.dispose();
-        this._meshes[k].dispose();
+      for (const k of ['bars', 'lines', 'walkers', 'blades', 'bells']) {
+        const m = this._meshes[k];
+        if (!m) continue;
+        // a Tripo model's geometry and material are shared by every battle (src/render/tripoProps.js)
+        if (!m.name.startsWith('tripo:')) m.geometry.dispose();
+        m.dispose();
       }
+      if (this.actors?.bellProps === this) this.actors.bellProps = null;
       this._meshes.mat.dispose();
       this._meshes = null;
     }

@@ -1513,6 +1513,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     placedPropsProbe() {
       return placedProps;
     },
+    /** Extra: the battle scene graph, read-only (e2e / debug: which models are drawn, e.g. the Tripo ones). */
+    sceneProbe() {
+      return scene;
+    },
 
     /** Extra: the outfit (skin id) a placed girl's model wears, or null before it is drawn (e2e / debug). */
     towerSkin(uid) {
