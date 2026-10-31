@@ -427,3 +427,21 @@ The v0.1.68 assembly starts once most of these reviews are OK. It is COOP 16 bec
   - **more-page-dps:** r1 review still running (session_01Ayo4eoeiXQw2BGEY4sgfFu).
   - **drag touch fix:** session_01Ayo4enwChBzRMnbgGSVo4D.
 - **Delta review of the set-boxes r1 fixes plus icons polish:** session_01Ayo4emiMG3L3FMopwoRCy4.
+
+## UPDATE 2026-10-31 10:15 UTC (coordinator)
+
+**release/v0.1.68** is at 5db1cf3 plus the bigger stickers (assembly session_01Ayo4epijedhWS24eX5TLBq).
+- Merged: duo fix, stickers shadow, coop test, set-boxes+icons (delta OK), drag-touch test fix (smoke 681/681), the L2/I1 box tweaks, and fix/stickers-bigger 3db8c68c.
+- Gates on a1b160f:
+  - noNerf: 0 under.
+  - lrBar default and urset: all ≥1.32.
+  - engines, coop and build: OK.
+
+**Still to merge:**
+- more-page-dps: r1 OK. Fix round in progress: M1 stale live counts plus L1–L5 (session_01Ayo4er7JW8s4hvHWF54K76).
+- sandbox-catchup @ 9fea5a42: delta r2 running (session_01Ayo4epHrgkW1Z1pB6zNeCW).
+- tripo-batch-2 @ 19c69bf8: delta r2 running (session_01Ayo4eoUWNFhiGviW9NFTj3).
+
+**Owner asks this hour:**
+- Bigger stickers: done.
+- A kobra.systems link ("better taste in UI"). I proposed a UI polish pass after v0.1.68; waiting on the owner.
