@@ -34,7 +34,7 @@ import {
   updateProjectiles, updateTraps, baseCost, setFlight, flightMode, signalRange, hasRoamingDrones, finalePop, ownDrones,
 } from './towers.js';
 import { POP_BUDGET_MAX, POP_COST } from './gearRules.js';
-import { BURST_BUDGET_MAX, setPassive, statusCtxFor, pushMul, avgCritOf } from './setRules.js';
+import { BURST_BUDGET_MAX, setPassive, statusCtxFor, pushMulFor, avgCritOf } from './setRules.js';
 import { updateShells, aimMode, updateRelayOrigin, confettiBurst } from './towers.js';
 import { updateRunners } from './runners.js';
 import {
@@ -715,7 +715,7 @@ export class Sim {
         // (Marumi's Bowling Thunder, spec.pushBig: minibosses take the whole push)
         let amt = spec.knockback * (spec.pushBig === true && e.tier === 'miniboss' ? 1 : (KNOCKBACK_RESIST[e.tier] ?? 1));
         // Control Strength: her push-backs push half that much further (bosses stay immune: KNOCKBACK_RESIST)
-        if (ctx.controlMul > 1) amt *= pushMul({ controlMul: ctx.controlMul });
+        if (ctx.controlMul > 1) amt *= pushMulFor(ctx.controlMul);
         if (e.kbLeft != null) {
           const cost = wind ? WIND_KB_COST : 1;
           amt = Math.min(amt, e.kbLeft / cost);
