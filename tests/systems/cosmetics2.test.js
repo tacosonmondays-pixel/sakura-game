@@ -8,7 +8,9 @@ import { HONOR_MAP } from '../../src/data/honors.js';
 import { HONOR_ART, EMBLEMS } from '../../src/art/honors.js';
 import { createProfile, serializeProfile, deserializeProfile, migrateProfile } from '../../src/systems/save.js';
 import { earnedHonors } from '../../src/systems/profileHonors.js';
-import { earnedFrames, earnedTitles, frameChoices } from '../../src/systems/profileTrophies.js';
+import { earnedFrames, earnedTitles, frameChoices, titleChoices, secretTitleHint, secretFrameHint } from '../../src/systems/profileTrophies.js';
+import { isSecretLocked } from '../../src/systems/missions.js';
+import { titleGroups } from '../../src/systems/honors.js';
 import { setSensei, restoreSensei, WORN_MARK, SENSEI_MARK, TAG_TITLE_MARK, EVENT_TITLE_MARK } from '../../src/systems/senseiSave.js';
 import { CAMPAIGN_IDS } from '../../src/data/stages.js';
 import { RIBBON_MODES } from '../../src/data/modes.js';
@@ -198,5 +200,48 @@ describe("an older build's round trip", () => {
     expect(s.frame).toBe('first_petal');
     expect(restoreSensei({ ...p.sensei, frame: 'window_seat' }, p).frame).toBe('window_seat');
     expect(TITLES.a_mirror_mirror.text).toBe('Bravest of Them All');
+  });
+});
+
+describe('secret titles stay secret in Edit Profile (review r1 M1)', () => {
+  it('an unearned secret title shows only its hint; once earned, its name and how', () => {
+    const p = createProfile();
+    const secretTitles = titleChoices(p).filter((id) => ACHIEVEMENT_MAP[id]?.hidden);
+    expect(secretTitles).toEqual(expect.arrayContaining(['a_close_call', 'a_mirror_mirror']));
+    for (const id of secretTitles) expect(secretTitleHint(p, id), id).toBe(ACHIEVEMENT_MAP[id].hint);
+    expect(secretTitleHint(p, 'a_first_win')).toBe(null); // not a secret: its plate and how show as before
+    claim(p, 'a_mirror_mirror');
+    expect(secretTitleHint(p, 'a_mirror_mirror')).toBe(null);
+    expect(secretTitleHint(p, 'a_close_call')).toBe(ACHIEVEMENT_MAP.a_close_call.hint);
+  });
+});
+
+describe('one rule for secrets: isSecretLocked (review r2 N1)', () => {
+  it('hidden, unclaimed, no gifted ribbon and not met; anything else is not a secret', () => {
+    const p = createProfile();
+    for (const a of SECRETS) expect(isSecretLocked(p, a.id), a.id).toBe(true);
+    expect(isSecretLocked(p, 'a_first_win')).toBe(false); // never hidden
+    expect(isSecretLocked(p, 'a_no_such_id')).toBe(false);
+    claim(p, 'a_gold_rush');
+    expect(isSecretLocked(p, 'a_gold_rush')).toBe(false);
+    p.missions.counters['hgift:a_not_fooled'] = 1; // a gifted ribbon: found
+    expect(isSecretLocked(p, 'a_not_fooled')).toBe(false);
+    p.progress.stages['1-1'] = { easy: true, normal: true, hard: true, nightmare: true, clears: 4 }; // met, not claimed yet
+    expect(isSecretLocked(p, 'a_first_petals')).toBe(false);
+    expect(secretFrameHint(p, 'first_petal')).toBe(null); // met: the frame shows its name (claim it to own it)
+    expect(secretFrameHint(createProfile(), 'first_petal')).toBe(ACHIEVEMENT_MAP.a_first_petals.hint);
+  });
+
+  it("the Achievements tab's Titles sheet: a secret's title reads ??? with its hint until found", () => {
+    const rows = (p) => titleGroups(p).flatMap((g) => g.titles);
+    const fresh = rows(createProfile());
+    for (const id of ['a_close_call', 'a_mirror_mirror']) {
+      const t = fresh.find((x) => x.id === id);
+      expect(t, id).toMatchObject({ name: '???', source: '???', secret: true, owned: false });
+      expect(t.how).toBe(`Secret achievement: ${ACHIEVEMENT_MAP[id].hint}`);
+      expect(JSON.stringify(t)).not.toContain(ACHIEVEMENT_MAP[id].desc);
+    }
+    const found = rows(claim(createProfile(), 'a_mirror_mirror')).find((x) => x.id === 'a_mirror_mirror');
+    expect(found).toMatchObject({ name: 'Bravest of Them All', secret: false, owned: true });
   });
 });

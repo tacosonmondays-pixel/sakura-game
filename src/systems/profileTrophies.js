@@ -11,7 +11,7 @@ import { TITLES, FREEPLAY_TITLES, FRAMES, FRAME_IDS, BANNER_MAP } from '../data/
 import { isLegendUnit } from '../data/banners.js';
 import { EVENT_MAP } from '../data/events/index.js';
 import { MAX_AWAKEN, unitPower } from './progression.js';
-import { bestiaryPercent } from './missions.js';
+import { bestiaryPercent, isSecretLocked } from './missions.js';
 import { NO_COSMETIC, honorOf, earnedAchievementTitles, honorCount, killsAll } from './profileHonors.js';
 import { ID_RE, PIN_RE, PINS_MAX, SHOWCASE_MAX } from '../online/profileRules.js';
 import { markedTags } from '../data/playerTags.js';
@@ -70,6 +70,22 @@ export function earnedTitles(p) {
 export function titleChoices(p) {
   const earned = new Set(earnedTitles(p));
   return Object.keys(TITLES).filter((id) => (!TITLES[id].tag && !TITLES[id].event) || earned.has(id));
+}
+
+/**
+ * The hint to show instead of a title that comes from a secret achievement the save hasn't earned yet (Edit Profile
+ * draws "???" and this hint, like a secret frame), or null when the title may show its name and how.
+ */
+export function secretTitleHint(p, id) {
+  if (!isSecretLocked(p, id) || earnedTitles(p).includes(id)) return null;
+  return ACH_MAP[id].hint || 'A secret achievement…';
+}
+
+/** The hint to show instead of a secret frame the save hasn't earned (its secret achievement not found yet), or null. */
+export function secretFrameHint(p, id) {
+  const f = FRAMES[id];
+  if (!f?.secret || earnedFrames(p).includes(id) || (f.ach && !isSecretLocked(p, f.ach))) return null;
+  return f.hint || 'A secret achievement…';
 }
 
 /**

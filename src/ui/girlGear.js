@@ -21,17 +21,18 @@ import { getItem } from '../data/items.js';
 import { statName, STAT_HINTS } from '../data/gearStats.js';
 import { CLUBS, CLUB_RARITIES } from '../data/clubs.js';
 import {
-  gearList, equipGear, unequipGear, salvageGear, salvageRewards, enhanceCost, maxGearLevel, awakenReady, isUrGear,
+  gearList, equipGear, unequipGear, salvageGear, salvageRewards, enhanceCost, maxGearLevel, awakenReady, isUrGear, isLrGear,
   stitchSlots, gearLines, gearFillIn, tuneCount, gearSetInfo, describeStat,
 } from '../systems/gear.js';
 import { GEAR_SETS, SET_TEXT } from '../data/gearSets.js';
-import { setIdle } from '../systems/gearSets.js';
+import { setIdle, isPinnable, pinsShown } from '../systems/gearSets.js';
+import { UR_MAX_LEVEL } from '../data/gearAwaken.js';
 import { itemCount } from '../systems/inventory.js';
 import { loadoutUseText } from '../systems/teams.js';
 import { loadoutChips } from './teamBar.js';
 import { applyGearFilter, activeGearFilters } from '../systems/gearFilter.js';
 import { gearFilterBar, gearFilterFor } from './gearFilterBar.js';
-import { awakenModal, stitchModal, rerollModal, armbandModal, enhanceOnce, toggleGearLock } from './gearUr.js';
+import { awakenModal, stitchModal, rerollModal, armbandModal, enhanceOnce, toggleGearLock, limitBreakModal, pinPicker } from './gearUr.js';
 import { ico, lbl, statStrip, sticker, rarityTag, ghostBtn, fillIn, secondaryBtn } from './kit.js';
 import { openSheet } from './sheet.js';
 import { gearTile, STAT_GLYPH, STAT_SHORT, statValue, statFact } from './gearTile.js';
@@ -301,7 +302,7 @@ export function openSlotSheet(unit, slot, { onChange = () => {} } = {}) {
 
 /**
  * A piece's actions (the slot sheet and the Backpack's piece sheet share them): Enhance · price as the sheet's one
- * yellow (✦ Awaken for a gold +10 when a Seed waits), then Reroll subs, Change main, Stitch, Club, Lock and, on a girl,
+ * yellow (✦ Awaken for a gold +10 when a Seed waits), then Reroll subs, Change main, Stitch, Limit Break, Pin, Club, Lock and, on a girl,
  * Unequip as quiet buttons. `extra`: beside the primary (Undo); `unequip`: her slot's Unequip.
  */
 function pieceActions(g, { unitId = null, onChange, beforeEnhance = null, extra = null, unequip = null }) {
@@ -327,6 +328,10 @@ function pieceActions(g, { unitId = null, onChange, beforeEnhance = null, extra 
       sec('Reroll subs', { icon: 'dice', testid: 'reroll-subs', disabled: !g.subs.length, onClick: () => rerollModal(g, 'subs', onChange) }),
       sec('Change main', { icon: 'dice', testid: 'reroll-main', onClick: () => rerollModal(g, 'main', onChange) }),
       slots.gold.open ? sec(slots.free ? 'Stitch ✦' : 'Stitches', { testid: 'gear-stitch', onClick: () => stitchModal(g.uid, { unitId, onDone: onChange }) }) : null,
+      // LR gear (GEAR_UPDATE.md §4): a rainbow UR piece at +12 Limit Breaks into Set LR or Blank LR (audit D B1); gold, UR
+      // and LR pieces take pins once a pin can be had or she owns one (gearSets.js pinsShown)
+      isUrGear(g) && !isLrGear(g) && g.level >= UR_MAX_LEVEL ? sec('Limit Break', { testid: 'gear-limit-break', onClick: () => limitBreakModal(g.uid, { onDone: onChange }) }) : null,
+      isPinnable(g) && pinsShown(profile) ? sec('Pin', { testid: 'gear-pin', onClick: () => pinPicker(g.uid, onChange) }) : null,
       CLUB_RARITIES.includes(g.rarity) ? sec(g.club ? 'Club' : 'Join a club', { testid: 'gear-club', onClick: () => armbandModal(g.uid, { onDone: onChange }) }) : null,
       sec(g.locked ? 'Unlock' : 'Lock', { icon: 'lock', testid: 'gear-lock', onClick: () => toggleGearLock(g.uid, onChange) }),
       unequip ? sec('Unequip', { testid: 'gear-unequip', onClick: unequip }) : null));
@@ -450,6 +455,7 @@ function bindHold(el, onHold) {
 
 /** A piece's rarity as a rarity tag (§5.6): an ink pill with rarity-coloured letters; UR wears its ring. */
 function pieceTag(g) {
+  if (isLrGear(g)) return rarityTag('LR', { ring: urRing(), title: 'LR — Nightglass gear' });
   if (isUrGear(g) || g.urCard) return rarityTag('UR', { ring: urRing(), title: 'UR — awakened gear' });
   return h(`span.ui-rtag.${g.rarity}`, { 'data-testid': 'gear-rarity' }, getRarityName(g.rarity));
 }

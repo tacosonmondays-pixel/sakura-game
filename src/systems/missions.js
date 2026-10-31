@@ -261,6 +261,18 @@ export function achievementList(profile, { includeHidden = false, v2 = ACH_V2_LI
 }
 
 /**
+ * Is `id` a secret achievement this save hasn't found yet (hidden, not claimed, no gifted ribbon, its goal not met)?
+ * Every place that shows a secret's rewards (its ribbon, title or frame: name, how, desc, hint) asks this one helper
+ * first and draws "???" and the hint while it is true (Cosmetics 2 review r2: the secrets' new rewards never leak).
+ */
+export function isSecretLocked(profile, id) {
+  const a = ACHIEVEMENT_MAP[id];
+  if (!a?.hidden) return false;
+  if (profile?.missions?.achievements?.[id] === true || ribbonGifted(profile, id)) return false;
+  return metricValue(profile || {}, a) < a.goal;
+}
+
+/**
  * Claim one achievement. The claim marker is set BEFORE the payout, so a double tap answers 'claimed'.
  * @returns {{ ok: boolean, error?: 'unknown'|'notLive'|'retired'|'claimed'|'incomplete'|'locked', feature?: string, rewards: object[] }}
  */

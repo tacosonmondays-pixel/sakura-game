@@ -92,6 +92,10 @@ describe('Control Strength and You\'re It in applyStatus', () => {
     applyStatus(e, { type: 'slow', amount: 0.3, duration: 1 }, { itBonus: 0.06 });
     expect(e.it.left).toBe(180);
     expect(pushMul({ controlMul: 1.5 })).toBeCloseTo(1.25, 9);
+    // (audit A LOW1: the LR You're It form's ×1.15 reaches every push, the attack's, the hero skill's and the abilities')
+    const lrTag = { controlMul: 1.5, set: 'freezetag', setN: 5, setLr: true };
+    expect(pushMul(lrTag)).toBeCloseTo(1 + (controlMulOf(lrTag) - 1) / 2, 9);
+    expect(pushMul(lrTag)).toBeGreaterThan(pushMul({ controlMul: 1.5 }));
   });
 
   test('a sure crit needs no draw; a super crit uses the same draw', () => {

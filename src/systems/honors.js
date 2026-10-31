@@ -19,6 +19,7 @@ import { HONOR_RIBBONS, TITLES } from '../data/honors.js';
 import { markedTags, isTagTitle } from '../data/playerTags.js';
 import { ALL_EVENTS } from '../data/events/index.js';
 import { ribbonGifted } from './profileHonors.js';
+import { isSecretLocked } from './missions.js';
 
 export { ribbonArt, titlePlate } from '../ui/honorFx.js';
 
@@ -155,7 +156,8 @@ const PLATE_LABEL = { prism: 'Prism · rarest', gold: 'Gold', standard: 'Standar
  * Title picker data (Edit Profile → Title, the Achievements tab's Titles sheet): the visible titles grouped by plate
  * (every live title + the tag titles this player owns), owned first inside each group, each with its "How:" line.
  * @returns {{ plate: 'prism'|'gold'|'standard', label: string, owned: number, total: number,
- *   titles: { id, name, plate, owned: boolean, how: string, source: string }[] }[]}
+ *   titles: { id, name, plate, owned: boolean, how: string, source: string, secret: boolean }[] }[]}
+ *   secret: a secret achievement's title not found yet (isSecretLocked): name and source read "???", how its hint
  */
 export function titleGroups(profile) {
   const owned = new Set(ownedTitles(profile));
@@ -163,8 +165,9 @@ export function titleGroups(profile) {
   return ['prism', 'gold', 'standard'].map((plate) => {
     const titles = visible.filter((t) => t.plate === plate).map((t) => {
       const a = ACHIEVEMENT_MAP[t.id];
-      const how = t.how || (a ? (a.hidden && !owned.has(t.id) ? `Secret achievement: ${a.hint}` : `${a.name}: ${a.desc}`) : `${t.source}.`);
-      return { id: t.id, name: t.name, plate, owned: owned.has(t.id), how, source: t.source };
+      const secret = !owned.has(t.id) && isSecretLocked(profile, t.id);
+      const how = t.how || (a ? (secret ? `Secret achievement: ${a.hint}` : `${a.name}: ${a.desc}`) : `${t.source}.`);
+      return { id: t.id, name: secret ? '???' : t.name, plate, owned: owned.has(t.id), how, source: secret ? '???' : t.source, secret };
     }).sort((x, y) => Number(y.owned) - Number(x.owned));
     return { plate, label: PLATE_LABEL[plate], owned: titles.filter((t) => t.owned).length, total: titles.length, titles };
   });
