@@ -20,9 +20,14 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    id: 'v0.1.69', version: '0.1.69', date: '2026-10-31', title: 'Bells and strips for bosses',
+    id: 'v0.1.69', version: '0.1.69', date: '2026-10-31', title: 'Boss Traps and Fresh Portraits',
     changed: [
       'Suzu and Azami can now take on bosses: with a boss in range they set their bells and strips right under it. A bell a boss sets off sticks to it and keeps ringing, even while it flies, and a boss on a spike strip keeps getting hit until the strip is used up.',
+      '24 girls have brand-new portraits: Akane, Aoi, Chika, Ena, Fuu, Hana, Hikari, Hotaru, Kaede, Kage, Kanna, Midori, Miko, Momo, Nami, Noa, Raika, Rei, Ruri, Shiro, Suzu, Umeko and Yuki get a fresh look in a place of their own, and Norika gets her first drawn portrait.',
+      'Cards, busts and thumbnails are re-framed around the new portraits; the full-body stands in the lobby are unchanged.',
+    ],
+    fixed: [
+      'Hikari’s eyes are teal, as they were always meant to be.',
     ],
   },
   {

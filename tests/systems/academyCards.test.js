@@ -12,7 +12,7 @@ import {
 } from '../../src/art/portraits.js';
 
 const ROOT = process.cwd();
-const fileOf = (url) => join(ROOT, 'public', url.replace(/^.*?art\//, 'art/'));
+const fileOf = (url) => join(ROOT, 'public', url.replace(/^.*?art\//, 'art/').replace(/\?.*$/, ''));
 const ACADEMY = ['azami', 'kinu', 'wakaba', 'yuzuha', 'ouka', 'chigusa', 'marumi'];
 // every signboard is the same easel and plate, so every placeholder line had this geometry
 const SIGN = { face: [49, 31], cut: 0.621 };

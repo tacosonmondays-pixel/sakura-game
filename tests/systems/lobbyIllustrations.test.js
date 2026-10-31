@@ -23,7 +23,7 @@ import { createProfile, migrateProfile, serializeProfile, deserializeProfile } f
 import { grantUnit } from '../../src/systems/unlocks.js';
 
 const ROOT = process.cwd();
-const fileOf = (url) => join(ROOT, 'public', url.replace(/^.*?art\//, 'art/'));
+const fileOf = (url) => join(ROOT, 'public', url.replace(/^.*?art\//, 'art/').replace(/\?.*$/, ''));
 const ACADEMY = ['azami', 'chigusa', 'kinu', 'marumi', 'ouka', 'wakaba', 'yuzuha'];
 /** the owner's own picture, as is: its sha256 (notes/lobby-backgrounds/yoriko-summer-breeze.webp) */
 const SUMMER_BREEZE_SHA256 = 'b9a6c640798fbb85449deff267f9ae46755700c13be23c53685a33ee0c2171b4';
