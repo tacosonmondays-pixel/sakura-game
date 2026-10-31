@@ -28,7 +28,7 @@ export const PATCH_NOTES = [
     ],
   },
   {
-    id: 'v0.1.66', version: '0.1.66', date: '2026-10-30', title: 'Mirrors, Curses and the Gear Update',
+    id: 'v0.1.66', version: '0.1.66', date: '2026-10-31', title: 'Mirrors, Curses and the Gear Update',
     added: [
       'Sixteen girls get new attack shapes, from wheels and returning throws to held streams and rising spikes. Ena’s curse now rots its target and spreads to nearby enemies, and Iroha places a network of mirrors her bolts bounce between.',
       'The gear update: five-piece sets with their own passives, LR gear with Limit Break, Set Boxes, several saved loadouts per team, and the Build Coach to suggest what each girl should wear.',
