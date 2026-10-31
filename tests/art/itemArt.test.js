@@ -8,7 +8,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ITEM_ART, ITEM_ART_SMALL } from '../../src/art/itemArt.js';
 import { ITEMS } from '../../src/data/items.js';
-import { GEAR_SLOTS, ITEM_RARITY_ORDER } from '../../src/data/types.js';
+import { ITEM_RARITY_ORDER } from '../../src/data/types.js';
+import { SLOT_IDS, GEAR_SLOT_DEFS } from '../../src/data/gearSlots.js';
+import { SET_IDS } from '../../src/data/gearSets.js';
+
+/** Every gear slot (the classic three and the Hair Clip and Necklace). */
+const GEAR_SLOTS = Object.fromEntries(SLOT_IDS.map((s) => [s, GEAR_SLOT_DEFS[s]]));
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, '..', '..', 'public', 'art', 'items');
@@ -22,9 +27,8 @@ const ART_KEYS = new Set([
   'recruitPoints',
 ]);
 
-// The gear set ids (docs/specs/GEAR_UPDATE.md 3.2; SET_IDS of the coming src/data/gearSets.js: switch to it when it
-// lands). A set look is gear_<set>_<slot>: one per set and slot, rarity on the tile. Never keyed by club.
-const SET_IDS = ['spirit', 'freezetag', 'geometry', 'popper', 'treasurer', 'powerbank'];
+// A set look is gear_<set>_<slot> (SET_IDS of src/data/gearSets.js): one per set and slot, rarity on the tile. Never
+// keyed by club.
 const isSetKey = (k) => {
   const m = /^gear_([a-z0-9]+)_([a-z]+)$/.exec(k);
   return Boolean(m && SET_IDS.includes(m[1]) && GEAR_SLOTS[m[2]]);

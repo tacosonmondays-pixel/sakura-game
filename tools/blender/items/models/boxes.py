@@ -3,7 +3,11 @@ stands open about 15 degrees on its hinge (its back edge resting on the back rim
 opening, a rim round a cavity, with a cream lining sunk below the rim so a thin inner wall shows above it.
 Standing pose: lid top lightest, front mid, right side darkest.
 Tier steps: common closed and plain; rare silver straps and a blue gem; super rare adds a violet gem in
-the clasp; mythic rose gold; legendary gold; rainbow iridescent."""
+the clasp; mythic rose gold; legendary gold; rainbow iridescent.
+Set Boxes (setbox_<set>_<mythic|legendary>, the gear update): the same chest in the set's colour (src/data/gearSets.js)
+with that set's crest on the front instead of the gear, and the rarity treatment of the gear box of that rarity (rose
+gold straps and a pink gem for Mythic, gold and an amber gem for Legendary). The pick box (setbox_pick_*: choose any
+set) is pearl with a ring of the six set colours round its crest."""
 import math
 
 import parts as P
@@ -27,6 +31,30 @@ GEM = dict(common=None, rare=C.TIER_GEM['rare'], superRare=C.TIER_GEM['superRare
            legendary=C.TIER_GEM['legendary'], rainbow=dict(C.IRI, glow=0.4))
 CLOTH = C.paint('#f9eedb', light='#fff9ee', shadow='#e6d0ac', ink='#7a5a3a', rim=0.0)
 
+# the gear sets' colours (src/data/gearSets.js GEAR_SETS[id].color; tests/data/gearSetColors.test.js keeps them apart)
+SET_COLORS = dict(spirit='#e5484d', freezetag='#5fb4e8', geometry='#5a6fa8', popper='#9b5de5', treasurer='#9fd8c4',
+                  powerbank='#8bd13a')
+WHITE = C.paint('#fbfcff', light='#ffffff', shadow='#d3dcea', ink='#33435c', rim=0.2)
+BOLT2 = [(-0.12, 0.62), (0.34, 0.62), (0.08, 0.14), (0.36, 0.14), (-0.22, -0.66), (-0.04, -0.12), (-0.32, -0.12)]
+
+
+def _crest2(gear_set, R):
+    """A set's crest outline (x, z) about 2R across: pom, pause, set square, confetti star, coin, bolt."""
+    if gear_set == 'spirit':
+        return [P.blossom2(R, inner=0.78, notch=0.0)]
+    if gear_set == 'freezetag':
+        return [P.rrect2(R * 0.5, R * 1.7, R * 0.2, 4, cx=-R * 0.42), P.rrect2(R * 0.5, R * 1.7, R * 0.2, 4, cx=R * 0.42)]
+    if gear_set == 'geometry':
+        return [P.poly_round([(-R * 0.9, -R * 0.8), (R * 1.0, -R * 0.8), (-R * 0.9, R * 1.0)], R * 0.12, 3)]
+    if gear_set == 'popper':
+        return [P.poly_round(P.star2(5, R * 1.05, R * 0.5), R * 0.1, 3)]
+    if gear_set == 'treasurer':
+        return [P.circle2(R * 0.95, 48)]
+    if gear_set == 'powerbank':
+        return [P.poly_round([(a * R * 1.5, b * R * 1.5) for a, b in BOLT2], R * 0.06, 3)]
+    return [P.blossom2(R, inner=0.42, notch=0.17)]
+
+
 BW, BD, BH = 1.2, 1.04, 0.74
 LW, LD, LH = 1.26, 1.1, 0.3
 WALL = 0.05            # the rim you see round the opening, inside the rounded edge
@@ -37,6 +65,11 @@ SINK = 0.07            # the lining sits this far below the rim, so a thin inner
 def build(row):
     tier = 'rainbow' if row.get('rainbow') else row['rarity']
     body_p, strap_p, gem_p = BODY[tier], STRAP[tier], GEM[tier]
+    gear_set = row['key'].split('_')[1] if row['key'].startswith('setbox_') else None
+    if gear_set in SET_COLORS:
+        body_p = C.paint(SET_COLORS[gear_set])
+    elif gear_set:                                       # the pick box: pearl
+        body_p = C.anchored(C.PEARL, base='#efe6ff', iri=0.35, base_anchor=0.6, shadow='#b9a3e8', deep='#9a7fe0', ink='#3f2a78')
     opened = tier != 'common'
     body = P.rbox(BW, BD, BH, r=0.1, seg=4, name='body')
     if opened:         # a real opening: the top is a rim round a cavity with flat inner walls
@@ -77,8 +110,12 @@ def build(row):
         cloth = P.rbox(iw - 0.02, idp - 0.02, 0.3, r=0.1, seg=4, name='cloth')
         P.xf(cloth, loc=(0, 0.0, BH - SINK - 0.15))
         P.paint(cloth, CLOTH, line=1.4)
-    # gear emblem on the front
     ez = BH * 0.42
+    if gear_set:                                         # a Set Box: the set's crest instead of the gear
+        _set_crest(gear_set, strap_p, ez)
+        _glint_lid(tier, ang, hz)
+        return dict(kind='standing', yaw=32.0, elev=22.0)
+    # gear emblem on the front
     g = P.slab(P.gear2(0.22, 8, 0.22), 0.045, 0.016, 2, 'emblem')
     P.xf(g, loc=(0, -BD / 2 - 0.012, ez))
     P.paint(g, strap_p, line=1.5, lift=0.03)
@@ -90,9 +127,32 @@ def build(row):
         hub = P.slab(P.circle2(0.07, 24), 0.03, 0.01, 2, 'hub')
         P.xf(hub, loc=(0, -BD / 2 - 0.035, ez))
         P.paint(hub, C.over(strap_p, base=strap_p['shadow']), line=1.1, lift=0.02)
+    _glint_lid(tier, ang, hz)
+    return dict(kind='standing', yaw=32.0, elev=22.0)
+
+
+def _glint_lid(tier, ang, hz):
     if tier in ('superRare', 'mythic', 'legendary', 'rainbow'):
         # on the lit edge: the lid's top front corner at the upper left
         a = math.radians(ang)
         y, z = -LD + 0.1, LH + 0.01
         P.glint((-LW / 2 + 0.16, y * math.cos(a) - z * math.sin(a) + BD / 2 - 0.02, y * math.sin(a) + z * math.cos(a) + hz), 12)
-    return dict(kind='standing', yaw=32.0, elev=22.0)
+
+
+def _set_crest(gear_set, strap_p, ez):
+    """The crest plate on a Set Box's front: a strap-metal disc, the set's white crest on it (the pick box: a ring of
+    the six set colours round a white sakura)."""
+    y0 = -BD / 2 - 0.012
+    plate = P.slab(P.circle2(0.25, 48), 0.045, 0.016, 2, 'crestplate')
+    P.xf(plate, loc=(0, y0, ez))
+    P.paint(plate, strap_p, line=1.5, lift=0.03)
+    for k, outline in enumerate(_crest2(gear_set, 0.15)):
+        c = P.slab(outline, 0.03, 0.01, 2, 'crest%d' % k)
+        P.xf(c, loc=(0, y0 - 0.03, ez))
+        P.paint(c, WHITE, line=1.1, lift=0.02)
+    if gear_set not in SET_COLORS:
+        for k, col in enumerate(SET_COLORS.values()):
+            a = math.radians(90 - 60 * k)
+            d = P.cabochon(0.045, 0.03, n=16)
+            P.xf(d, rot=(90, 0, 0), loc=(math.cos(a) * 0.31, y0 - 0.02, ez + math.sin(a) * 0.31))
+            P.paint(d, C.paint(col), line=0.9)

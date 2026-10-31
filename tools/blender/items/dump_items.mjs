@@ -8,7 +8,10 @@ import path from 'node:path';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const src = (p) => pathToFileURL(path.join(here, '..', '..', '..', 'src', p)).href;
 const { ITEMS, ITEM_IDS } = await import(src('data/items.js'));
-const { GEAR_SLOTS, ITEM_RARITY_ORDER } = await import(src('data/types.js'));
+const { ITEM_RARITY_ORDER } = await import(src('data/types.js'));
+// every gear slot (the classic three and the gear update's Hair Clip and Necklace, src/data/gearSlots.js)
+const { SLOT_IDS, GEAR_SLOT_DEFS } = await import(src('data/gearSlots.js'));
+const GEAR_SLOTS = Object.fromEntries(SLOT_IDS.map((s) => [s, GEAR_SLOT_DEFS[s]]));
 
 const out = ITEM_IDS.map((id) => {
   const it = ITEMS[id];

@@ -23,10 +23,13 @@ import { ASCENSION_ICON_BODIES } from './icons/ascension.js';
 import { ITEM_ART, ITEM_ART_SMALL } from './itemArt.js';
 import { artUrl } from './portraits.js';
 import { TRAITS, ROLES, ROLE_CATEGORIES, ATTACK_TYPES, ARMOR_CLASSES, CAPABILITIES, ELEMENTS, STATUSES, MATERIAL_FAMILIES, ITEM_RARITIES, DIFFICULTIES } from '../data/types.js';
-import { ROLL_SLOTS } from '../data/gearSlots.js';
+import { ROLL_SLOTS, SLOT_IDS } from '../data/gearSlots.js';
 
-/** Slots with drawn and baked gear art (the Hair Clip and the Necklace show the charm's until feature/gear-icons lands). */
-const ART_SLOTS = ROLL_SLOTS;
+/** Slots with baked gear art: all five (tools/blender/items; tests/art/itemArt.test.js keeps every key baked). */
+const ART_SLOTS = SLOT_IDS;
+/** Slots with a drawn SVG of their own; the Hair Clip and the Necklace draw the charm's (only on a failed image load). */
+const DRAWN_SLOTS = ROLL_SLOTS;
+const drawnSlot = (slot) => (DRAWN_SLOTS.includes(slot) ? slot : 'charm');
 
 // ---------------------------------------------------------------------------------
 // Items
@@ -66,7 +69,7 @@ function itemBody(itemId) {
   if (m && MATERIAL_FAMILIES[m[1]] && ITEM_RARITIES[m[2]]) return materialBody(m[1], m[2]);
   m = /^book_([a-zA-Z]+)$/.exec(id);
   if (m && ITEM_RARITIES[m[1]]) return bookBody(m[1]);
-  // Set Boxes (the gear update): the gear box of their rarity until the set art lands (feature/gear-icons)
+  // Set Boxes (the gear update): baked art of their own; drawn as the gear box of their rarity on a failed image load
   // (Set Boxes v2: either kind, `setbox_<set>_<rarity>[_random]`; a UR box draws the Rainbow Gear Box)
   m = /^setbox_[a-z]+_([a-zA-Z]+)(?:_random)?$/.exec(id);
   if (m && m[1] === 'ur') return ASCENSION_ICON_BODIES.gearbox_rainbow();
@@ -74,7 +77,7 @@ function itemBody(itemId) {
   m = /^gearbox_([a-zA-Z]+)$/.exec(id);
   if (m && ITEM_RARITIES[m[1]]) return gearboxBody(m[1]);
   m = /^gear_([a-z]+)_([a-zA-Z]+)$/.exec(id);
-  if (m && ART_SLOTS.includes(m[1]) && ITEM_RARITIES[m[2]]) return gearBody(m[1], m[2]);
+  if (m && ART_SLOTS.includes(m[1]) && ITEM_RARITIES[m[2]]) return gearBody(drawnSlot(m[1]), m[2]);
   return null;
 }
 
@@ -92,7 +95,8 @@ export function itemIconSVG(itemId) {
 
 /** The drawn SVG of a gear piece: charm pendant, ribbon or shoes tinted by rarity; `ur` = the rainbow UR art. */
 function gearIconSVG(slot, rarity, ur) {
-  return icon64(ur && rarity === 'legendary' ? gearBodyUR(slot) : gearBody(slot, rarity));
+  const d = drawnSlot(slot);
+  return icon64(ur && rarity === 'legendary' ? gearBodyUR(d) : gearBody(d, rarity));
 }
 
 /**
