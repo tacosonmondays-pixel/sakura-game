@@ -22,6 +22,7 @@ export const PATCH_NOTES = [
   {
     id: 'v0.1.68', version: '0.1.68', date: '2026-10-31', title: 'Set Boxes and Awakening',
     added: [
+      'The More page in battle now shows every girl\'s real DPS, measured from the damage she actually deals, with a breakdown by source for attack shapes. Heroes like Luna get their full stat grid, and every kit piece has its own row.',
       'The Sandbox catches up: every girl at her true max (with lower builds if you like), gear presets for every set up to LR, every map and mode including events and Titan Trials, and a start-wave picker up to wave 999. Sandbox runs still never touch your save.',
       'Luna, Nami, Kanna and Yoriko now have their own 3D models, along with the bosses and titans, an enemy for every family and ten story landmarks.',
       'Every gear set now has its own look across all five pieces, and every item has new 3D-style art, including the Tie Pin, Collar Pin, Nightglass Lens, Hair Clips and Necklaces.',

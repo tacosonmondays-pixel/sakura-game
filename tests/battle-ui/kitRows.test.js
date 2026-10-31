@@ -131,20 +131,30 @@ describe('the S5 shapes and Luna', () => {
 
 describe('display only', () => {
   test('kitRows, dealsDamage and damageSplit never write the tower', () => {
+    let livePieces = 0;
     for (const id of ['iroha', 'luna', 'midori', 'kohaku_tsubaki', 'norika', 'tenka', 'yuzuha', 'chigusa']) {
       for (const tiers of builds(id)) {
         const { sim, t } = fight(id, tiers);
-        for (let k = 0; k < 2 * 60; k++) sim.update(1 / 60);
+        // ~8 s so the live pieces exist (sentries deployed, vines rooted, barricades up): review r2 L7
+        for (let k = 0; k < 8 * 60; k++) sim.update(1 / 60);
         const st = sim.towerStats(t.uid);
-        const snap = JSON.stringify({ eff: t.eff, dealt: t.damageDealt, shape: t.shapeDealt, mirrors: t.mirrors, lab: t.lab, bars: t.bars });
+        const live = () => JSON.stringify({ eff: t.eff, dealt: t.damageDealt, shape: t.shapeDealt, mirrors: t.mirrors, lab: t.lab, bars: t.bars, sentries: t.sentries, vines: t.vines });
+        const lens = () => [(t.vines || []).length, (t.sentries || []).length, (t.bars || []).length];
+        const snap = live();
+        const lens0 = lens();
+        livePieces += lens0[0] + lens0[1] + lens0[2];
         const hash = hashSim(sim);
         kitRows(t, st);
         dealsDamage(t, st);
         damageSplit(t);
-        expect(JSON.stringify({ eff: t.eff, dealt: t.damageDealt, shape: t.shapeDealt, mirrors: t.mirrors, lab: t.lab, bars: t.bars })).toBe(snap);
+        // the drawer's live repaint reads the same tower (a stale cell for every live key, so each one is rewritten)
+        paintKitCells(new Map(LIVE_KIT_KEYS.map((k) => [k, { textContent: '' }])), t, st);
+        expect(lens(), `${id} ${tiers} live counts`).toEqual(lens0);
+        expect(live()).toBe(snap);
         expect(hashSim(sim), `${id} ${tiers} co-op hash`).toBe(hash);
       }
     }
+    expect(livePieces, 'some vines, sentries or barricades were out when the drawer read them').toBeGreaterThan(0);
   });
 });
 

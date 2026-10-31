@@ -133,7 +133,8 @@ for (const vp of viewports) {
 
   try {
     await openApp(page, base);
-    await seedSave(page, { girls: [HERO, ...SQUAD], hero: HERO, towers: SQUAD, cleared: ['1-1', '1-2'] });
+    // Yuzuha rides in the loadout for the live-count step at the end (placed only then)
+    await seedSave(page, { girls: [HERO, ...SQUAD, 'yuzuha'], hero: HERO, towers: [...SQUAD, 'yuzuha'], cleared: ['1-1', '1-2'] });
     await openBattle(page, { stage: '1-3', cash: 1e8 });
     const ids = { luna: await place(HERO, []) };
     // Luna to Lv 25 (her Moonbeam Sweep comes at Lv 22): the XP a long battle would give
@@ -210,6 +211,21 @@ for (const vp of viewports) {
       const O = d.ouka;
       check(O.live == null && O.avg == null, `Ouka (pure support): no DPS cells (${O.live})`);
       check(O.boost != null, `Ouka: "Boost to allies" instead ("${O.boost}")`);
+
+      // live counts while More stays open (review r2 L8): Yuzuha 5-0-0, her drawer open, 10 s of fighting, and her
+      // Sentries cell follows t.sentries without a redraw
+      const yu = await place('yuzuha', [5, 0, 0], ids.luna);
+      if (check(yu != null, `${vp} Yuzuha 5-0-0 placed`)) {
+        await details(yu);
+        await stepGame(10);
+        await frames();
+        const s = await page.evaluate((u) => {
+          const cell = document.querySelector('[data-testid="tower-panel"] [data-testid="kit-sentry"]');
+          return { text: cell?.lastChild?.textContent?.trim() ?? null, n: (window.__battle.sim.getTower(u)?.sentries || []).length };
+        }, yu);
+        const shown = /^(\d+)/.exec(s.text || '')?.[1];
+        check(shown != null && Number(shown) === s.n, `${vp} Yuzuha: her Sentries cell ("${s.text}") matches t.sentries.length (${s.n}) after 10 s with More open`);
+      }
     }
   } catch (e) {
     check(false, `${vp} threw: ${e.message.split('\n')[0]} (at ${page.url()})`);
