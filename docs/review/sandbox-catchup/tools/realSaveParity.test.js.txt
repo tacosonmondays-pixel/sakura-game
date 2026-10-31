@@ -1,0 +1,79 @@
+import { it, expect } from 'vitest';
+import { createProfile, newUnitState } from '../src/systems/save.js';
+import { addItems } from '../src/systems/inventory.js';
+import { levelUp, autoSelectBooks, breakthrough, awaken, unitBattleStats, MAX_LEVEL, MAX_BREAKTHROUGH, levelCap } from '../src/systems/progression.js';
+import { raisePotential, receiveDuplicate } from '../src/systems/essence.js';
+import { limitBreakState, payLimitBreak, creditLimitBreak, LR_TRIALS } from '../src/systems/limitBreak.js';
+import { rollGear, addGear, enhanceGear, awakenGear, limitBreakGear, stitchSub, tieArmband, equipGear, maxGearLevel, recomputeGear } from '../src/systems/gear.js';
+import { topMainRoll, topSubRoll } from '../src/systems/gearSets.js';
+import { sandboxGear, sandboxUnitStats, sandboxProfile, SANDBOX_MAX_BUILD, normalizeBuild } from '../src/systems/sandbox.js';
+import { isLegendUnit } from '../src/data/banners.js';
+
+const BIG = 1e12;
+const fund = (p, missing) => { if (missing?.length) addItems(p, missing.map((m) => ({ id: m.id, count: Math.max(1, (m.need ?? m.count ?? 1) * 2 + 10) }))); };
+const retry = (p, fn) => { for (let i = 0; i < 20; i++) { const r = fn(); if (r.ok) return r; if (!r.missing?.length) return r; fund(p, r.missing); } throw new Error('stuck'); };
+// an rng that always rolls the top of its range: the "lucky player"
+const luckyRng = { next: () => 0.999999, range: (a, b) => b, pick: (a) => a[0], int: (a, b) => b };
+
+function realSave(unitId, b, preset) {
+  const p = createProfile();
+  addItems(p, [{ id: 'coins', count: BIG }]);
+  p.units[unitId] ||= newUnitState();
+  const u = p.units[unitId];
+  // Potential: copies (Essence) + Raise Potential
+  while ((u.pl || 1) < b.p) { u.dupes = (u.dupes || 0) + 1; receiveDuplicate(p, unitId); const r = raisePotential(p, unitId, 'own'); if (!r.ok) throw new Error('raise ' + r.error); }
+  for (let guard = 0; guard < 200; guard++) {
+    if (u.level < Math.min(levelCap(u), b.level)) { retry(p, () => { const books = autoSelectBooks(p, unitId); if (!Object.keys(books).length) { addItems(p, [{ id: 'book_legendary', count: 50 }]); return { ok: false, missing: [] , again: true}; } return levelUp(p, unitId, books); }); continue; }
+    if (u.level >= b.level) break;
+    const r = retry(p, () => breakthrough(p, unitId)); if (!r.ok) throw new Error('bt ' + r.error);
+  }
+  // books might not exist under that id; level loop above guards
+  while (u.awaken < b.stars) retry(p, () => awaken(p, unitId));
+  if (b.lr && isLegendUnit(unitId)) {
+    fund(p, limitBreakState(p, unitId).missing); const pr = payLimitBreak(p, unitId); if (!pr.ok) throw new Error('lb ' + pr.error);
+    const t = LR_TRIALS[unitId].standIn;
+    creditLimitBreak(p, { won: true, stageId: t.stageId, stats: { towerUnits: { 0: unitId } } }, t.difficulty);
+  }
+  // gear: the same pieces the sandbox describes, made the real way
+  for (const v of sandboxGear(unitId, preset)) {
+    const g = rollGear(luckyRng, { slot: v.slot, rarity: 'legendary', level: 0, main: v.main.stat });
+    if (v.set) g.set = v.set;
+    // the lucky substat draw: her lines, at their top roll (rng.range(a,b)=b), no growth yet
+    g.subs = v.subs.map((s) => ({ stat: s.stat, base: s.base, value: s.base, upgrades: 0 }));
+    recomputeGear(g);
+    const uid = addGear(p, g);
+    if (v.club && p.gear[uid].club !== v.club) retry(p, () => tieArmband(p, uid, v.club));
+    while (p.gear[uid].level < 10) retry(p, () => enhanceGear(p, uid));
+    if (v.ur) {
+      retry(p, () => awakenGear(p, uid));
+      while (p.gear[uid].level < maxGearLevel(p.gear[uid])) retry(p, () => enhanceGear(p, uid));
+      if (v.lr) { retry(p, () => limitBreakGear(p, uid, v.lr === 1 ? 'set' : 'blank')); while (p.gear[uid].level < maxGearLevel(p.gear[uid])) retry(p, () => enhanceGear(p, uid)); }
+    }
+    // stitches where the sandbox put them: gold on line 0, rainbow on line 1, Nightglass on line 0
+    const goldAt = v.subs.findIndex((s) => s.tuned & 1); const rbAt = v.subs.findIndex((s) => s.tuned & 2); const nAt = v.subs.findIndex((s) => s.night);
+    for (const at of [goldAt, rbAt, nAt]) if (at >= 0) { const r = retry(p, () => stitchSub(p, uid, at)); if (!r.ok) throw new Error('stitch ' + r.error); }
+    if (v.main.top) { const r = retry(p, () => topMainRoll(p, uid)); if (!r.ok) throw new Error('tie ' + r.error); }
+    v.subs.forEach((s, i) => { if (s.top) { const r = retry(p, () => topSubRoll(p, uid, i)); if (!r.ok) throw new Error('collar ' + r.error); } });
+    const e = equipGear(p, unitId, uid); if (e && e.ok === false) throw new Error('equip ' + e.error);
+  }
+  return p;
+}
+
+const CASES = [
+  ['tenka', SANDBOX_MAX_BUILD], ['kohaku_tsubaki', SANDBOX_MAX_BUILD], ['umeko', SANDBOX_MAX_BUILD], ['kogane', SANDBOX_MAX_BUILD], ['hotaru', SANDBOX_MAX_BUILD],
+  ['umeko', { level: 72, p: 4, stars: 3, lr: false, gear: 'ur-spirit' }], ['tenka', { level: 60, p: 1, stars: 5, lr: true, gear: 'blank' }], ['kage', { level: 40, p: 1, stars: 2, lr: false, gear: 'leg' }],
+];
+for (const [id, build] of CASES) {
+  it(`real save == sandbox: ${id} ${JSON.stringify(build)}`, () => {
+    const b = normalizeBuild(build);
+    const p = realSave(id, b, b.gear);
+    const real = unitBattleStats(p, id);
+    const sbx = sandboxUnitStats(id, b);
+    const u = p.units[id];
+    console.log(id, 'real unit', JSON.stringify({ level: u.level, bt: u.breakthrough, pl: u.pl, aw: u.awaken }), 'sbx unit', JSON.stringify(sandboxProfile(id, b).units[id]));
+    const diff = {};
+    for (const k of new Set([...Object.keys(real), ...Object.keys(sbx)])) if (JSON.stringify(real[k]) !== JSON.stringify(sbx[k])) diff[k] = [real[k], sbx[k]];
+    console.log(id, 'DIFF', JSON.stringify(diff).slice(0, 1500));
+    expect(diff).toEqual({});
+  });
+}

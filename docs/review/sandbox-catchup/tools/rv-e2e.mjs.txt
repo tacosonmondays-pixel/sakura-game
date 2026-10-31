@@ -1,0 +1,145 @@
+// reviewer's own sandbox leak + layout probe. Usage (cwd = repo): node /home/user/rvtools/rv-e2e.mjs <shotsdir>
+const { createServer } = await import(process.cwd() + '/node_modules/vite/dist/node/index.js');
+import { mkdirSync, statSync } from 'node:fs';
+const { launchChromium } = await import(process.cwd() + '/e2e/browser.mjs');
+const SHOTS = process.argv[2]; mkdirSync(SHOTS, { recursive: true });
+const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+await server.listen();
+const base = `http://127.0.0.1:${server.httpServer.address().port}/`;
+const { browser } = await launchChromium();
+const out = [];
+const check = (c, m) => { console.log(`  ${c ? 'ok  ' : 'FAIL'} ${m}`); out.push([c, m]); };
+const ALL = () => Object.keys(localStorage).sort().map((k) => `${k}=${localStorage.getItem(k)}`).join('|');
+const P = () => JSON.stringify(window.__sakura.store.profile);
+
+async function setup(vp) {
+  const [w, h] = vp.split('x').map(Number);
+  const context = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, hasTouch: true });
+  const page = await context.newPage();
+  const errors = []; const net = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('request', (r) => { const u = r.url(); if (!u.startsWith(base) && !u.startsWith('data:')) net.push(`${r.method()} ${u}`); });
+  await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+  await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+  const later = await page.waitForSelector('[data-testid="beta-gift-later"]', { timeout: 30000 }).catch(() => null);
+  if (later) await later.click({ force: true }).catch(() => {});
+  await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 60000 });
+  await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+  await page.evaluate(async () => {
+    const { store } = window.__sakura;
+    const { CAMPAIGN_IDS } = await import('/src/data/stages.js');
+    for (const id of CAMPAIGN_IDS.slice(0, 12)) store.profile.progress.stages[id] = { easy: false, normal: true, hard: false, nightmare: false, clears: 1 };
+    store.commit('replace'); store.saveNow?.();
+    window.__commits = [];
+    const c = store.commit.bind(store); store.commit = (r, o) => { window.__commits.push(r); return c(r, o); };
+    const s = store.saveNow?.bind(store); if (s) store.saveNow = () => { window.__commits.push('saveNow'); return s(); };
+  });
+  await page.waitForTimeout(1500);
+  return { context, page, errors, net };
+}
+const shot = async (page, name) => {
+  for (const q of [70, 50, 35]) { const path = `${SHOTS}/${name}.jpg`; await page.screenshot({ path, type: 'jpeg', quality: q }); if (statSync(path).size <= 300 * 1024) return; }
+};
+const overflow = (page) => page.evaluate(() => {
+  const bad = [];
+  if (document.documentElement.scrollWidth > innerWidth + 1) bad.push('doc ' + document.documentElement.scrollWidth);
+  for (const el of document.querySelectorAll('.sbx-tabs button, .sbx-chip, .sbx-build select, .sbx-field input, [data-testid^="sandbox-"]')) {
+    const r = el.getBoundingClientRect(); if (!r.width) continue;
+    if (r.right > innerWidth + 1 || r.left < -1) bad.push(`${el.dataset.testid || el.className} x ${Math.round(r.left)}..${Math.round(r.right)}`);
+  }
+  return bad;
+});
+const small = (page) => page.evaluate(() => [...document.querySelectorAll('button, select, input')].filter((e) => e.closest('.sbx-root, [data-testid="sandbox-maps"], [data-testid="sandbox-roster"], .sbx-girl-modal') || /sandbox/.test(e.dataset.testid || '')).map((e) => [e.dataset.testid || e.textContent.trim().slice(0, 14), e.getBoundingClientRect()]).filter(([, r]) => r.width && (r.height < 32 || r.width < 32)).map(([n, r]) => `${n} ${Math.round(r.width)}x${Math.round(r.height)}`));
+
+async function battle(page, hash, label, act, expect) {
+  await page.evaluate(() => { location.hash = '#/sandbox'; }); await page.waitForSelector('[data-testid="sandbox-maps"]', { timeout: 60000 }); await page.waitForTimeout(800);
+  await page.evaluate(() => { window.__battle = null; });
+  const before = await page.evaluate(ALL); const pBefore = await page.evaluate(P);
+  await page.evaluate(() => { window.__commits = []; });
+  await page.evaluate((x) => { location.hash = x; }, hash);
+  const ok = await page.waitForFunction((x) => window.__battle?.ui?.sandbox && window.__battle.sim?.stageId === x, expect, { timeout: 90000 }).then(() => true).catch(() => false);
+  check(ok, `${label}: battle mounted`);
+  if (!ok) return;
+  const info = await page.evaluate(() => { const { sim, ui } = window.__battle; return { stage: sim.stageId, diff: sim.difficulty, fp: !!sim.freeplay, wave: sim.wave, titanReq: !!ui.req.titan, fpReq: ui.req.freeplay, saver: !!ui.saver }; });
+  console.log('   ', label, JSON.stringify(info));
+  check(!info.titanReq && !info.fpReq && !info.saver, `${label}: no req.titan / req.freeplay / saver`);
+  await act();
+  await page.waitForTimeout(1500);
+  const commits = await page.evaluate(() => window.__commits);
+  check(commits.length === 0, `${label}: no store.commit/saveNow (${commits.join(',')})`);
+  check((await page.evaluate(ALL)) === before, `${label}: localStorage byte-identical`);
+  check((await page.evaluate(P)) === pBefore, `${label}: in-memory profile identical`);
+}
+
+// ---- leak runs (1280x720) ----
+{
+  const { context, page, errors, net } = await setup('1280x720');
+  const netBefore = net.length;
+  await battle(page, '#/battle?stage=ev-halloween-boss&difficulty=nightmare&sandbox=1&team=tenka.kohaku_tsubaki.umeko&hero=kogane', 'event boss Nightmare', async () => {
+    await page.evaluate(() => { const { sim } = window.__battle; sim.startNextWave(); });
+    await page.waitForTimeout(6000);
+    await page.evaluate(() => window.__battle.ui.endSandbox());
+    await page.waitForSelector('[data-testid="sandbox-result"]', { timeout: 15000 });
+  }, 'ev-halloween-boss');
+  await battle(page, '#/battle?sandbox=1&team=kage&ttn=wyrm&ttier=mayhem&trank=30', 'titan Mayhem+30 lost', async () => {
+    await page.evaluate(() => { const { sim, ui } = window.__battle; document.querySelector('[data-testid="sandbox-lives"]')?.click(); sim.lives = 1; sim.startNextWave(); });
+    await page.waitForFunction(() => window.__battle.sim.state === 'lost' || window.__battle.ui.ended, null, { timeout: 120000 }).catch(() => {});
+    const st = await page.evaluate(() => window.__battle.sim.state + ' lives=' + window.__battle.sim.lives);
+    console.log('    titan state after 15s', st);
+    await page.evaluate(() => { if (!window.__battle.ui.ended) window.__battle.ui.endSandbox(); });
+    await page.waitForSelector('[data-testid="sandbox-result"]', { timeout: 15000 }).catch(() => {});
+  }, 'titan:wyrm:mayhem:30');
+  await battle(page, '#/battle?stage=4-5&difficulty=hard&sandbox=1&team=tenka.hotaru&hero=kogane&fp=crimson&wave=200&sb=85-6-5-1-ur-spirit', 'freeplay crimson w200 quit mid-run', async () => {
+    await page.evaluate(() => window.__battle.sim.startNextWave());
+    await page.waitForTimeout(8000);
+    const w = await page.evaluate(() => ({ w: window.__battle.sim.wave, st: window.__battle.sim.state, q: window.__battle.sim._spawnQueue?.some((s) => s.enemyId === 'dragon_ashwing') }));
+    console.log('    mid-run', JSON.stringify(w));
+    check(w.w === 200 && w.q, 'freeplay wave 200 has the Matriarch queued');
+    await page.evaluate(() => window.__battle.ui.quit());
+    await page.waitForFunction(() => location.hash.startsWith('#/sandbox'), null, { timeout: 15000 }).catch(() => {});
+    check(await page.evaluate(() => location.hash.startsWith('#/sandbox')), 'quit mid-run lands on the Sandbox');
+  }, '4-5');
+  await page.waitForTimeout(2000);
+  const extra = net.slice(netBefore);
+  console.log('    network during sandbox runs:', extra.length ? extra.join('\n      ') : 'none');
+  check(!extra.some((u) => /supabase|rest\/v1|rpc\//.test(u)), 'no Supabase traffic during sandbox runs');
+  check(!errors.length, `no page errors ${errors.slice(0, 4).join(' | ')}`);
+  await context.close();
+}
+
+// ---- layout at three viewports ----
+for (const vp of process.env.LEAK_ONLY ? [] : ['390x844', '844x390', '1280x720']) {
+  const { context, page, errors } = await setup(vp);
+  await page.evaluate(() => { location.hash = '#/sandbox'; }); await page.waitForSelector('[data-testid="sandbox-maps"]', { timeout: 60000 }); await page.waitForTimeout(800);
+  const t = async (sel) => { const el = page.locator(sel).first(); await el.evaluate((e) => e.scrollIntoView({ block: 'center' })).catch(() => {}); await el.tap({ timeout: 10000 }); await page.waitForTimeout(300); };
+  await t('[data-testid="sandbox-group-titan"]'); await t('[data-testid="sandbox-titan-wyrm"]'); await t('[data-testid="sandbox-ttier-mayhem"]');
+  await page.evaluate(() => scrollTo(0, 0)); await shot(page, `${vp}-titan`);
+  let o = await overflow(page); check(!o.length, `${vp} titan tab: no overflow ${o.slice(0, 5).join('; ')}`);
+  await t('[data-testid="sandbox-group-act1"]'); await t('[data-testid="sandbox-stage-4-5"]'); await t('[data-testid="sandbox-fp-blossom"]'); await t('[data-testid="sandbox-wave-200"]');
+  const wv = page.locator('[data-testid="sandbox-wave"], input.sbx-num').last();
+  await page.evaluate(() => scrollTo(0, 0)); await shot(page, `${vp}-map-options`);
+  o = await overflow(page); check(!o.length, `${vp} map options: no overflow ${o.slice(0, 5).join('; ')}`);
+  console.log('    small targets (map):', (await small(page)).slice(0, 12).join(', '));
+  // tabs reachable: last tab visible or scrollable
+  const tabsInfo = await page.evaluate(() => { const t = document.querySelector('.sbx-tabs'); return t ? { sw: t.scrollWidth, cw: t.clientWidth, ox: getComputedStyle(t).overflowX, wrap: getComputedStyle(t).flexWrap } : null; });
+  console.log('    tabs', JSON.stringify(tabsInfo));
+  await t('[data-testid="sandbox-next"]'); await page.waitForSelector('[data-testid="sandbox-roster"]', { timeout: 30000 });
+  await page.waitForTimeout(500); await page.evaluate(() => scrollTo(0, 0)); await shot(page, `${vp}-squad`);
+  o = await overflow(page); check(!o.length, `${vp} squad: no overflow ${o.slice(0, 5).join('; ')}`);
+  console.log('    small targets (squad):', (await small(page)).slice(0, 12).join(', '));
+  const firstGirl = await page.evaluate(() => document.querySelector('[data-testid^="sandbox-build-"]:not(select):not([data-testid="sandbox-build-level"])')?.dataset.testid);
+  const btn = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="sandbox-build-"]')].map((e) => e.dataset.testid + ':' + e.tagName).join(' '));
+  console.log('    build controls:', btn);
+  const g = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="sandbox-build-"]')].find((e) => e.tagName === 'BUTTON')?.dataset.testid);
+  if (g) { await t(`[data-testid="${g}"]`); await page.waitForSelector('.sbx-girl-modal', { timeout: 10000 }).catch(() => {}); await page.waitForTimeout(400); await shot(page, `${vp}-girl`);
+    const mo = await page.evaluate(() => { const m = document.querySelector('.sbx-girl-modal'); if (!m) return 'none'; const r = m.getBoundingClientRect(); const bad = [...m.querySelectorAll('*')].filter((e) => { const q = e.getBoundingClientRect(); return q.width && (q.right > innerWidth + 1 || q.left < -1); }).length; return { top: Math.round(r.top), bottom: Math.round(r.bottom), h: innerHeight, sh: m.scrollHeight, ch: m.clientHeight, bad, done: (() => { const d = m.querySelector('[data-testid="sandbox-girl-done"]'); if (!d) return null; const q = d.getBoundingClientRect(); return [Math.round(q.top), Math.round(q.bottom)]; })() }; });
+    console.log('    girl modal', JSON.stringify(mo));
+    check(mo !== 'none' && mo.bad === 0, `${vp} girl modal: no overflow`);
+  }
+  check(!errors.length, `${vp} no page errors ${errors.slice(0, 3).join(' | ')}`);
+  await context.close();
+}
+await browser.close(); await server.close();
+const f = out.filter(([c]) => !c).length;
+console.log(f ? `\n${f} FAILED` : '\nall reviewer checks passed'); process.exit(f ? 1 : 0);
