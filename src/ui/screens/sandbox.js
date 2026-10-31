@@ -24,6 +24,8 @@ import { uiIcon } from '../../art/icons.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isOwned } from '../../systems/unlocks.js';
 import { isLegendUnit } from '../../data/banners.js';
+import { MAX_LEVEL, MAX_AWAKEN } from '../../systems/progression.js';
+import { MAX_POTENTIAL } from '../../systems/potential.js';
 import {
   isSandboxUnlocked, sandboxLockText, sandboxStages, sandboxTitans, sandboxFormation, sandboxRoster, sandboxBattleParams,
   sandboxFreeplayOk, sandboxModeOk, sandboxDifficulties, sandboxEventName, sandboxStageFor, sandboxIsLr,
@@ -91,7 +93,9 @@ function battleParams(c, f) {
   return sandboxBattleParams({
     stageId: c.stageId, difficulty: c.difficulty, towers: f.towers, hero: f.hero,
     titan: isTitan(c) ? c.titan : null,
-    freeplay: c.freeplay, mode: c.mode, startWave: c.startWave, build: c.build, builds: c.builds,
+    freeplay: c.freeplay, mode: c.mode, startWave: c.startWave, build: c.build,
+    // only the girls in this squad carry their own builds into the link
+    builds: Object.fromEntries(Object.entries(c.builds || {}).filter(([id]) => id === f.hero || f.towers.includes(id))),
     resonance: c.resonance, heroMax: c.heroMax,
   });
 }
@@ -183,7 +187,7 @@ function mapStep(choice, redraw) {
   const head = h('section.sbx-head',
     h('div.sbx-head-text',
       h('div.sbx-head-line', h('span.sbx-badge', 'SANDBOX'), h('h2.sbx-title', { 'data-testid': 'sandbox-title' }, runTitle(choice))),
-      h('span.sbx-run-line', { 'data-testid': 'sandbox-run' }, runLine(choice)),
+      h('span.sbx-run-line', { 'data-testid': 'sandbox-run', title: runLine(choice) }, runLine(choice)),
       rulesStrip()),
     h('div.sbx-head-actions', diffRow, next));
 
@@ -264,13 +268,16 @@ function gearOptions(unitId = null) {
 }
 /** The build controls: level, Potential, awakening, LR, gear. `onChange(patch)`. */
 function buildControls(b, onChange, { unitId = null, prefix = 'sandbox-build' } = {}) {
-  const levels = [...new Set([...SANDBOX_LEVEL_PICKS, ...Array.from({ length: 85 }, (_, i) => 85 - i)])].sort((x, y) => y - x);
+  // (every level, Potential and ★ the game has: from its own caps, so a raised cap shows up here at once)
+  const levels = Array.from({ length: MAX_LEVEL }, (_, i) => MAX_LEVEL - i);
+  const ps = Array.from({ length: MAX_POTENTIAL }, (_, i) => i + 1);
+  const stars = Array.from({ length: MAX_AWAKEN + 1 }, (_, i) => MAX_AWAKEN - i);
   const pMin = potentialForLevel(b.level);
   const lrUnit = unitId ? isLegendUnit(unitId) : true;
   return h('div.sbx-build',
     selectRow('Level', b.level, levels.map((l) => ({ value: l, label: `Lv ${l}${SANDBOX_LEVEL_PICKS.includes(l) && l >= 60 ? ` (P${potentialForLevel(l)}+)` : ''}` })), (v) => onChange({ level: Number(v), p: Math.max(b.p, potentialForLevel(Number(v))) }), `${prefix}-level`),
-    selectRow('Potential', b.p, [1, 2, 3, 4, 5, 6].map((p) => ({ value: p, label: `P${p}${p < pMin ? ' (too low)' : ''}` })), (v) => onChange({ p: Math.max(pMin, Number(v)) }), `${prefix}-p`),
-    selectRow('Awakening', b.stars, [5, 4, 3, 2, 1, 0].map((s) => ({ value: s, label: `★${s}` })), (v) => onChange({ stars: Number(v) }), `${prefix}-stars`),
+    selectRow('Potential', b.p, ps.map((p) => ({ value: p, label: `P${p}${p < pMin ? ' (too low)' : ''}` })), (v) => onChange({ p: Math.max(pMin, Number(v)) }), `${prefix}-p`),
+    selectRow('Awakening', b.stars, stars.map((s) => ({ value: s, label: `★${s}` })), (v) => onChange({ stars: Number(v) }), `${prefix}-stars`),
     lrUnit ? selectRow('Limit Break', b.lr ? 1 : 0, [{ value: 1, label: 'LR' }, { value: 0, label: 'Off' }], (v) => onChange({ lr: v === '1' }), `${prefix}-lr`) : null,
     selectRow('Gear', b.gear, gearOptions(unitId), (v) => onChange({ gear: v }), `${prefix}-gear`),
     selectRow('Gear rolls', b.roll, [{ value: 'max', label: 'Max roll' }, { value: 'typical', label: 'Typical roll' }], (v) => onChange({ roll: v }), `${prefix}-roll`));
@@ -325,7 +332,7 @@ function teamStep(choice, redraw) {
         h('span.mb-fslot-x', '×'),
         isOwned(profile, id) ? null : h('span.sbx-trial', 'Trial'),
         sandboxIsLr(id, b) ? h('span.sbx-lr', 'LR') : null,
-        h('div.mb-fslot-name', UNIT_MAP[id].name, h('span', { style: 'opacity:.8;font-weight:700' }, ` Lv${b.level}`))),
+        h('div.mb-fslot-name', UNIT_MAP[id].name, h('span.sbx-slot-lv', ` Lv${b.level}`))),
       h(`button.sbx-slot-build${choice.builds[id] ? '.own' : ''}`, { 'data-testid': `sandbox-build-${id}`, title: buildShort(id, b), onclick: () => openGirlBuild(id, choice, redraw) },
         svgEl(uiIcon('settings'), 'ma-inline-icon'), choice.builds[id] ? 'Own' : 'Build'));
   };
@@ -343,7 +350,7 @@ function teamStep(choice, redraw) {
     h('div.sbx-bar-info',
       h('span.sbx-badge', 'SANDBOX'),
       h('b.sbx-bar-map', runTitle(choice)),
-      h('span.sbx-bar-diff', runLine(choice))),
+      h('span.sbx-bar-diff', { title: runLine(choice), 'data-testid': 'sandbox-bar-run' }, runLine(choice))),
     h('div.sbx-bar-actions',
       button('Change stage', { kind: 'ghost', small: true, icon: 'map', onClick: () => navigate('sandbox') }),
       button('Start sandbox', { kind: 'yellow', icon: 'play', testid: 'sandbox-start', onClick: start })));

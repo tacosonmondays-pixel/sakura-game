@@ -85,14 +85,36 @@ async function run(vp) {
   await go('#/sandbox', '[data-testid="sandbox-maps"]');
   const tabs = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="sandbox-group-"]')].map((b) => b.dataset.testid.replace('sandbox-group-', '')));
   check(['act1', 'act2', 'side', 'event', 'resource', 'boss', 'challenge', 'titan'].every((t) => tabs.includes(t)), `mode tabs: ${tabs.join(', ')}`);
+  // the screen's tiles and options, counted against the game's own data (not the Sandbox's lists)
+  const DATA = () => (async () => {
+    const [st, ev, ti, fp, mo, un, gs, ty] = await Promise.all(['/src/data/stages.js', '/src/data/events/index.js', '/src/data/titans.js', '/src/data/freeplay.js', '/src/data/modes.js', '/src/data/units.js', '/src/data/gearSets.js', '/src/data/types.js'].map((m) => import(m)));
+    const all = [...st.STAGES, ...ev.EVENT_STAGES];
+    const by = (f) => all.filter(f).length;
+    return {
+      tabs: {
+        act1: by((s) => s.kind === 'campaign' && (s.act || 1) < 2), act2: by((s) => s.kind === 'campaign' && (s.act || 1) >= 2),
+        side: by((s) => s.kind === 'side'), event: by((s) => s.kind === 'event'), resource: by((s) => s.kind === 'resource'),
+        boss: by((s) => s.kind === 'boss'), challenge: by((s) => s.kind === 'challenge'), titan: ti.TITANS.length,
+      },
+      kinds: [...new Set(all.map((s) => s.kind))],
+      tiers: ti.TITAN_TIERS.length, freeplay: fp.FREEPLAY_TIERS.length, modes: mo.MODE_ORDER.length,
+      towers: un.UNITS.filter((u) => u.kind === 'tower').length, heroes: un.UNITS.filter((u) => u.kind === 'hero').length,
+      gear: 2 + 3 * (gs.SET_IDS.length + 1) + 1, diffs: Object.keys(ty.DIFFICULTIES).length,
+    };
+  })();
+  const data = await page.evaluate(DATA);
+  check(data.kinds.every((k) => ['campaign', 'side', 'event', 'resource', 'boss', 'challenge'].includes(k)), `every stage kind has a tab (${data.kinds.join(', ')})`);
   const counts = {};
   for (const t of tabs) {
     await tap(`[data-testid="sandbox-group-${t}"]`);
     counts[t] = await page.locator('[data-testid="sandbox-maps"] .sbx-map').count();
   }
-  check(counts.act1 === 40 && counts.act2 === 30 && counts.resource === 15 && counts.event >= 5 && counts.titan === 4 && counts.boss === 3, `every stage by mode (${JSON.stringify(counts)})`);
+  check(JSON.stringify(counts) === JSON.stringify(Object.fromEntries(tabs.map((t) => [t, data.tabs[t]]))), `every stage by mode, as many tiles as the game has (${JSON.stringify(counts)} vs ${JSON.stringify(data.tabs)})`);
+  const tabCounts = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-testid^="sandbox-group-"]')].map((b) => [b.dataset.testid.replace('sandbox-group-', ''), Number(b.querySelector('.sbx-tab-n')?.textContent)])));
+  check(JSON.stringify(tabCounts) === JSON.stringify(counts), 'each tab\'s count matches its tiles');
   await tap('[data-testid="sandbox-group-titan"]');
   await tap('[data-testid="sandbox-titan-wyrm"]');
+  check(await page.locator('[data-testid^="sandbox-ttier-"]').count() === data.tiers, `every titan tier (${data.tiers})`);
   await tap('[data-testid="sandbox-ttier-mayhem"]');
   check(await page.locator('[data-testid="sandbox-trank"]').count() === 1, 'Titan Trials: Mayhem shows the rank picker');
   await shot('titans');
@@ -104,6 +126,9 @@ async function run(vp) {
   // ---- 4-5, freeplay Blossom, from wave 200 ----
   await tap('[data-testid="sandbox-group-act1"]');
   await tap('[data-testid="sandbox-stage-4-5"]');
+  check(await page.locator('[data-testid^="sandbox-diff-"]').count() === data.diffs, `every difficulty on a campaign stage (${data.diffs})`);
+  check(await page.locator('[data-testid="sandbox-mode"] option').count() === data.modes, `every battle mode (${data.modes})`);
+  check(await page.locator('[data-testid^="sandbox-fp-"]').count() === data.freeplay + 1, `Off + every freeplay tier (${data.freeplay})`);
   await tap('[data-testid="sandbox-fp-blossom"]');
   await tap('[data-testid="sandbox-wave-200"]');
   const runLine = await page.evaluate(() => document.querySelector('[data-testid="sandbox-run"]')?.textContent || '');
@@ -123,6 +148,12 @@ async function run(vp) {
   await go('#/sandbox', '[data-testid="sandbox-maps"]');
   await tap('[data-testid="sandbox-next"]');
   await page.waitForSelector('[data-testid="sandbox-roster"]', { timeout: T });
+  const roster = { towers: await page.locator('[data-testid="sandbox-roster"] [data-testid^="sandbox-unit-"]').count() };
+  await tap('[data-testid="sandbox-kind-hero"]');
+  roster.heroes = await page.locator('[data-testid="sandbox-roster"] [data-testid^="sandbox-unit-"]').count();
+  await tap('[data-testid="sandbox-kind-tower"]');
+  check(roster.towers === data.towers && roster.heroes === data.heroes, `roster: every student and hero in the game (${JSON.stringify(roster)} vs ${data.towers}/${data.heroes})`);
+  check(await page.locator('[data-testid="sandbox-build-gear"] option').count() === data.gear, `gear presets: none, Legendary, 3 × (coach + every set), Blank LR (${data.gear})`);
   await tap('[data-testid="sandbox-unit-tenka"]');
   await tap('[data-testid="sandbox-unit-kohaku_tsubaki"]');
   check(await page.evaluate(() => document.querySelectorAll('.sbx-squad .mb-fslot.filled').length === 2), 'squad: Tenka and Kohaku & Tsubaki');
@@ -142,6 +173,12 @@ async function run(vp) {
   await page.waitForTimeout(300);
   check(await page.evaluate(() => document.querySelector('[data-testid="sandbox-build-kohaku_tsubaki"]')?.classList.contains('own')), 'the duo has her own build');
   check(await noOverflow(), 'squad step: no horizontal overflow');
+  const pill = await page.evaluate(() => { const e = document.querySelector('[data-testid="sandbox-bar-run"]'); return { full: e.scrollWidth <= e.clientWidth + 1, title: e.title }; });
+  check(pill.full && /from wave 200/.test(pill.title), `the run pill shows in full (${JSON.stringify(pill)})`);
+  const names = await page.evaluate(() => [...document.querySelectorAll('.sbx-squad .mb-fslot-name')].map((e) => ({ t: e.innerText.trim(), cut: e.scrollWidth > e.clientWidth + 1 })));
+  if (w < 480) check(names.every((n) => !/Lv/.test(n.t)), `narrow squad tiles: names without the level (${JSON.stringify(names)})`);
+  const small = await page.evaluate(() => [...document.querySelectorAll('.sbx-select, .sbx-num, .sbx-chip, .sbx-tab, .sbx-slot-build')].filter((e) => e.offsetParent && e.getBoundingClientRect().height < 36).map((e) => e.className));
+  check(!small.length, `touch targets at least 36 px tall (${small.slice(0, 4).join(', ')})`);
   await shot('squad');
   const before = await page.evaluate(SAVED);
   const storedBefore = await page.evaluate(STORED);

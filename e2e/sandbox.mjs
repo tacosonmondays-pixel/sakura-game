@@ -276,11 +276,16 @@ async function run(vp) {
   check(savedAfter === savedBefore, `the stored save did not change size (${savedBefore} → ${savedAfter})`);
   check(await page.evaluate((id) => !window.__sakura.store.profile.units[id], unowned), `${unowned} is still not owned`);
   await tap('[data-testid="sandbox-back"]');
-  await page.waitForFunction(() => location.hash.startsWith('#/sandbox'), null, { timeout: 15000 }).catch(() => null);
+  // (the router cleans the battle up once the squad screen has taken its place: wait for both, not the hash alone)
+  await page.waitForFunction(() => location.hash === '#/sandbox/team' && !window.__battle, null, { timeout: 15000 }).catch(() => null);
   check(await page.evaluate(() => location.hash === '#/sandbox/team' && !window.__battle), `Back leads to the Sandbox squad (${await page.evaluate(() => location.hash)})`);
   // the squad step's back arrow lands on the map step (its own screen), then Missions
+  await page.waitForSelector('[data-testid="sandbox-roster"]', { timeout: 15000 }).catch(() => null);
+  await page.waitForTimeout(800); // (a back arrow tapped mid-transition belongs to the screen on its way out)
   await tap('.topbar-back');
   await page.waitForFunction(() => location.hash === '#/sandbox', null, { timeout: 15000 }).catch(() => null);
+  await page.waitForSelector('[data-testid="sandbox-maps"]', { timeout: 15000 }).catch(() => null);
+  await page.waitForTimeout(800);
   check(await page.evaluate(() => location.hash === '#/sandbox'), `back arrow: squad → maps (${await page.evaluate(() => location.hash)})`);
   await tap('.topbar-back');
   await page.waitForFunction(() => location.hash.startsWith('#/missions'), null, { timeout: 15000 }).catch(() => null);
