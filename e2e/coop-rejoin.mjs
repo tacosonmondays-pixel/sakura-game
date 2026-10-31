@@ -292,16 +292,21 @@ try {
     await new Promise((r) => setTimeout(r, 1500)); // (the bot's last orders land)
     const { sim, ui, coop } = window.__battle;
     const L = coop.lockstep;
-    let pick = null;
-    for (const t of sim.towers) {
-      if (pick || t.isHero || L.coop.ownerOf(t.uid) !== L.mySlot) continue;
-      for (const path of [0, 1, 2]) {
-        const st = sim.upgradeStatus(t.uid, path);
-        if (!st.locked && st.cost <= ui.spendable()) {
-          pick = { uid: t.uid, path, tier: t.tiers[path] };
-          break;
+    const affordable = () => {
+      for (const t of sim.towers) {
+        if (t.isHero || L.coop.ownerOf(t.uid) !== L.mySlot) continue;
+        for (const path of [0, 1, 2]) {
+          const st = sim.upgradeStatus(t.uid, path);
+          if (!st.locked && st.cost <= ui.spendable()) return { uid: t.uid, path, tier: t.tiers[path] };
         }
       }
+      return null;
+    };
+    // (the bot may have spent every coin: with it paused the waves pay for one, the cheapest tier that comes in reach)
+    let pick = affordable();
+    for (let i = 0; !pick && i < 180; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      pick = affordable();
     }
     if (!pick) return { none: true, cash: sim.cash };
     const mineUpg = () => L.log.filter((c) => c.p === L.mySlot && c.k === 'upg' && c.a[0] === pick.uid && c.a[1] === pick.path).length;
