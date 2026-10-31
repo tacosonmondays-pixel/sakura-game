@@ -86,6 +86,22 @@ describe('createCoopPending', () => {
     expect(q.placements()).toHaveLength(0);
   });
 
+  it('review r2 R2-3: an order the lockstep no longer knows (a rejoin voided it) is stale at once; never while paused', () => {
+    const ls = { tick: 100, stalled: false, job: null, known: new Set(['0:1', '0:2']) };
+    const q = createCoopPending({ tick: () => ls.tick, paused: () => !!(ls.stalled || ls.job), known: (k) => ls.known.has(k) });
+    q.upgrade({ t: 130, p: 0, s: 1, k: 'upg' }, 4, 0, 300);
+    q.level({ t: 131, p: 0, s: 2, k: 'hlv' }, 250); // R2-2: a hero level holds its price too
+    expect(q.reserved()).toBe(550);
+    ls.known.delete('0:1');
+    ls.stalled = true;
+    expect(q.reserved()).toBe(550); // (paused: nothing goes stale)
+    ls.stalled = false;
+    expect(q.upgrading(4, 0)).toBe(false); // voided, long before its tick
+    expect(q.reserved()).toBe(250);
+    q.landed({ p: 0, s: 2, k: 'hlv' });
+    expect(q.reserved()).toBe(0);
+  });
+
   it('a null command (queue() refused while rebuilding) adds nothing', () => {
     const q = createCoopPending();
     q.upgrade(null, 1, 0, 100);

@@ -83,6 +83,16 @@ girl's share. D5 (a lent girl's econ coins go to the controller) therefore needs
   "mine" checks);
 - stays by **owner**: the loadout / stats view, `findFinalHolder` (`onePerPath`, D3), Tryout's squad counters
   (`tryoutCount`, the Class Photo and Yearbook are the owner's squad) and the colour ring.
+- Tenka's lab absorb (`lab.js` `absorbInto`: Joint Research / Unified Theory take in "her owner's girls in her range",
+  `o.owner === t.owner`) **stays by owner**. Keying it by the controller would let a lent Tenka swallow the controller's
+  own girls into a girl the owner can take back, and keying it by the owner while the controller buys the tier would take
+  the owner's girls without their say. So: a girl with a lab (`stats.lab`) cannot be lent (`lend` refused `'lab'`), and
+  while a dealt-out Tenka's controller is not her owner, the tiers that absorb are refused (`upg` refused `'lab'`; her
+  other tiers buy as usual). Her lab's income (`lab.js` econ share) is income like any other: to `ctrlOf(t)`.
+- The straight-shot caps in `rings.js` (`straightRoom` and its second function: the girl's own cap, **her player's**
+  cap `STRAIGHT_PER_PLAYER` counted over `p.owner.owner`, and the sim's) **stay by owner**. They bound how many shots a
+  loadout puts on the field, not who is giving orders; moving them would let a player who controls many girls exceed the
+  per-player budget the caps were tuned for, and change nothing anyone sees.
 - `t.ctrl` is Sim state: `snapshot()` / `restore()` carry it, `hashSim` folds it only when set (a battle without lends
   keeps its hash).
 
@@ -94,7 +104,7 @@ this feature (§5). A solo battle never sets `t.ctrl`, so solo plays exactly as 
 | Kind | Args | Rules | Result |
 |------|------|-------|--------|
 | `gift` | `[toSlot, amount]` | `toSlot` is another player still there; `amount` integer 10 ≤ a ≤ wallet; ≥ 120 ticks since my last gift; not after the battle ended | `{ ok, sent, kept }` (kept = CASH_MAX overflow back to me); refused `'self'|'gone'|'amount'|'cash'|'cooldown'|'ended'` |
-| `lend` | `[uid, toSlot]` | I control her and I own her (no re-lending a girl lent to me); `toSlot` still there; she is not a hero | `{ ok }`; refused `'notYours'|'hero'|'gone'|'self'` |
+| `lend` | `[uid, toSlot]` | I control her and I own her (no re-lending a girl lent to me); `toSlot` still there; she is not a hero | `{ ok }`; refused `'notYours'|'hero'|'lab'|'gone'|'self'` (`'lab'`: a girl with a lab, §3.1a) |
 | `back` | `[uid]` | I own her, someone else controls her, the wave is not running (or that controller is gone) | `{ ok }`; refused `'notYours'|'wave'|'already'` |
 | `give` (controller) | `[uid]` | I control a girl lent to me: hand her back early | `{ ok }` |
 

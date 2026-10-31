@@ -16,11 +16,13 @@ export const STALE_MS = 6000;
 const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
 
 /**
- * @param {{ now?: () => number, tick?: () => number, paused?: () => boolean }} [opts]
+ * @param {{ now?: () => number, tick?: () => number, paused?: () => boolean, known?: (key: string) => boolean }} [opts]
  *   tick: the lockstep's tick (an order whose tick has run without coming back is stale); paused: true while the
- *   lockstep is stalled or rebuilding (nothing goes stale then). Without `tick` the wall clock (STALE_MS) decides.
+ *   lockstep is stalled or rebuilding (nothing goes stale then); known: is the order (`${p}:${s}`) still in the
+ *   lockstep's log (a rejoin's catch-up voids the orders the host never got: stale at once, review r2 R2-3).
+ *   Without `tick` the wall clock (STALE_MS) decides.
  */
-export function createCoopPending({ now = nowMs, tick = null, paused = () => false } = {}) {
+export function createCoopPending({ now = nowMs, tick = null, paused = () => false, known = null } = {}) {
   /** `${p}:${s}` (the queued command) → { k, uid?, path?, unitId?, x?, y?, cost, at } */
   const orders = new Map();
   let rev = 0;
@@ -39,7 +41,7 @@ export function createCoopPending({ now = nowMs, tick = null, paused = () => fal
     const t = now();
     for (const [k, o] of orders) {
       // (onApplied clears an order during its own tick, so one still here once the lockstep is past it never ran)
-      if (T != null && o.t != null ? T > o.t : t - o.at > STALE_MS) {
+      if ((known && !known(k)) || (T != null && o.t != null ? T > o.t : t - o.at > STALE_MS)) {
         orders.delete(k);
         rev++;
       }
@@ -54,6 +56,10 @@ export function createCoopPending({ now = nowMs, tick = null, paused = () => fal
     /** A placement order: `unitId` at world (x, y), costing `cost`. */
     place(cmd, unitId, x, y, cost) {
       add(cmd, { unitId, x, y, cost });
+    },
+    /** A hero level order (`hlv`): only its price, held until it runs (review r2 R2-2). */
+    level(cmd, cost) {
+      add(cmd, { cost });
     },
     /** A sale order for girl `uid`. */
     sell(cmd, uid) {
