@@ -261,14 +261,16 @@ export function achievementList(profile, { includeHidden = false, v2 = ACH_V2_LI
 }
 
 /**
- * Is `id` a secret achievement this save hasn't found yet (hidden, not claimed, no gifted ribbon, its goal not met)?
+ * Is `id` a secret achievement this save hasn't found yet (hidden, not claimed, its goal not met)? A ribbon-only gift
+ * ('hgift:') doesn't count as found: it owns the ribbon (screens that check ownership first draw it as itself) but the
+ * secret's title, frame and requirement stay hidden, as they were before Cosmetics 2.
  * Every place that shows a secret's rewards (its ribbon, title or frame: name, how, desc, hint) asks this one helper
  * first and draws "???" and the hint while it is true (Cosmetics 2 review r2: the secrets' new rewards never leak).
  */
 export function isSecretLocked(profile, id) {
   const a = ACHIEVEMENT_MAP[id];
   if (!a?.hidden) return false;
-  if (profile?.missions?.achievements?.[id] === true || ribbonGifted(profile, id)) return false;
+  if (profile?.missions?.achievements?.[id] === true) return false;
   return metricValue(profile || {}, a) < a.goal;
 }
 
