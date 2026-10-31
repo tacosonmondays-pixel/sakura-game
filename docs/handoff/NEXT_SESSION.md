@@ -252,3 +252,14 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
 - **NovelAI: the owner has the top tier with plenty of Anlas.** Don't skimp on art; use multiple samples and full steps.
   - Stickers are being regenerated in pastel at 4 samples each, budget about 2,500 Anlas. The owner asked for more pastel colours.
   - For art v3 the coordinator now recommends option C (redo without halos, keep signature props, several tries each). Waiting on the owner.
+
+## UPDATE 2026-10-31 04:20 UTC (coordinator)
+
+- **v0.1.66**: the Iroha fix is done (fix/iroha-stun-clump @ 59702880). All 540 ally cells are at or above live, COOP 14 sim is b2ff5e0e884b, and LR_BAR.boss went 6.13M → 6.46M. Assembly (session_01Ayo4er2sMN7BYpFieFCFi6) is merging it, re-pinning KNOWN[14] and running the gates. After that: a fresh go/no-go, then ship.
+- **v0.1.67**: release/v0.1.67 @ 9e680735 has cosmetics-2 (final 1e3f7464), stickers (pastel regen ff4e17da; next tip c8024b6) and profile banners (be2852a8) plus the r3 lows.
+  - Waiting on:
+    - feature/tripo-batch-1b, a clean squash branch, because the reverted refs PNGs (7.9 MB) are still in tripo-batch-1's history;
+    - the coop-feel-net R2-1 test fix and R2-2/R2-3 lows (r2 OK).
+  - Then: merge the final release/v0.1.66, re-pin KNOWN[15] and the engines digests last, run full gates, go/no-go, ship.
+- **New rule for every branch**: commit boards and screenshots as WebP or JPEG of 300 KB or less. A merge to main keeps them in history forever. v0.1.67 accepts ~5.3 MB of PNG boards already in feature history; we chose not to squash.
+- **Stickers**: the pastel set was regenerated on NovelAI (960 Anlas; balance 5,753). Owner flag: Hikari's hair came out pale blonde rather than pink; offered a redo.
