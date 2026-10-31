@@ -5,11 +5,13 @@
 // Long runs: while this client rebuilds its battle (a resync or rejoin replaying from the host's
 // checkpoint, src/online/coop/lockstep.js) a card says so with a progress bar and keeps taps off
 // the battlefield; the ally's chip says "Rin is re-syncing… 45%" meanwhile.
+// Stickers: a button at the chip's end, and a sticker under the name of whoever sent it (./coopStickers.js).
 import '../styles/online.css';
 import { h } from '../components.js';
 import { fmtNum } from '../format.js';
 import { COOP } from '../../data/coop.js';
 import { HOME_TEXT } from '../text/tryout.js';
+import { createCoopStickers } from './coopStickers.js';
 
 /** World height of the owner pin (just above a chibi's halo). */
 const PIN_HEIGHT = 1.55;
@@ -25,8 +27,10 @@ export function createCoopHud(ctx) {
   const chips = players.map((p, slot) => h(`div.ol-coop-p${slot === coop.mySlot ? '.me' : ''}`, { style: { '--pc': COOP.colors[slot] } },
     h('i.ol-coop-dot'), h('span.ol-coop-name', slot === coop.mySlot ? `${p?.name || 'You'} (you)` : p?.name || 'Ally'), cash[slot], flags[slot]));
   const state = h('div.ol-coop-state', { 'data-testid': 'coop-state' });
+  // stickers (docs/specs/STICKERS.md): the button at the chip's end, each sticker under its sender's name
+  const stickers = createCoopStickers(ctx, chips);
   const el = h('div.ol-coop-hud', { 'data-testid': 'coop-hud' },
-    h('div.ol-coop-room', h('span', 'CO-OP'), h('b', session.code)), ...chips, state);
+    h('div.ol-coop-room', h('span', 'CO-OP'), h('b', session.code)), ...chips, stickers.el, state);
   const rings = h('div.ol-coop-rings');
   const syncTitle = h('b.ol-coop-sync-title');
   const syncLine = h('span.ol-coop-sync-line', { 'data-testid': 'coop-sync-line' });
@@ -130,6 +134,7 @@ export function createCoopHud(ctx) {
     destroy() {
       clearInterval(statusTimer);
       offRebuild?.();
+      stickers.destroy();
       el.remove();
       sync.remove();
       rings.remove();

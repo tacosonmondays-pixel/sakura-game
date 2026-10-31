@@ -18,6 +18,11 @@ import { hub, startSocialHub, setViewing, refreshSoon, setBlocked, joinInvite, s
 import { errorText, toOnlineError } from '../../online/errors.js';
 import { formatRetry } from '../../online/limits.js';
 import { MESSAGE_MAX } from '../../online/clanRules.js';
+import { store } from '../../core/store.js';
+import { lineSticker, stickerLine } from '../../online/stickerWire.js';
+import { showsStickers } from '../../systems/stickers.js';
+import { stickerAlt } from '../../data/stickers.js';
+import { stickerImg, openStickerPicker } from '../online/stickers.js';
 import {
   bodyError, whyText, presenceText, formatFriendCode, normalizeFriendCode, DM_PRIVACY, DM_PRIVACY_DEFAULT, PRIVACY_LABELS, PRIVACY_HELP, DM_PAGE,
 } from '../../online/socialRules.js';
@@ -101,8 +106,17 @@ export function joinsNewThread(m, peerId) {
 /** The inbox line under a name: "You: hi" / "🎮 Co-op invite" (exported for tests). */
 export function preview(m) {
   if (!m) return '';
-  const text = m.kind === 'invite' ? '🎮 Co-op invite' : m.body;
+  const stk = m.kind === 'invite' ? null : lineSticker(m.body);
+  const text = m.kind === 'invite' ? '🎮 Co-op invite' : stk ? `Sticker: ${stk.label}` : m.body;
   return m.mine ? `You: ${text}` : text;
+}
+
+/** [stickers] a sticker line in a conversation: its picture (or, with stickers from others off, its words); else null. */
+function dmStickerBody(m) {
+  const s = m.kind === 'invite' ? null : lineSticker(m.body);
+  if (!s) return null;
+  if (!m.mine && !showsStickers(store.profile)) return h('div.ol-bubble.ol-bubble-stk-text', { 'data-testid': 'dm-sticker-text' }, stickerAlt(s));
+  return h('div.ol-stk-msg', { 'data-testid': 'dm-sticker-msg', 'data-sticker': s.id }, stickerImg(s.id, 96));
 }
 
 export function render(root, params = {}) {
@@ -427,9 +441,15 @@ export function render(root, params = {}) {
         count.textContent = n > MESSAGE_MAX - 40 ? `${MESSAGE_MAX - n}` : '';
       });
       let busy = false;
-      form.addEventListener('submit', async (e) => {
+      // [stickers] a sticker goes as an ordinary line (src/online/stickerWire.js) through the same send, the typed text stays
+      const stk = h('button.ol-stk-btn', { type: 'button', 'data-testid': 'dm-sticker', title: 'Stickers', 'aria-label': 'Send a sticker', onclick: () => openStickerPicker({ profile: store.profile, onPick: (sid) => post(stickerLine(sid)) }) }, stickerImg('mochi_hi', 26, 'ol-stk-btn-img'));
+      form.prepend(stk);
+      form.addEventListener('submit', (e) => {
         e.preventDefault();
-        const text = input.value.trim();
+        post(null);
+      });
+      async function post(line) {
+        const text = line ?? input.value.trim();
         if (!text || busy) return;
         const bad = bodyError(text);
         if (bad) {
@@ -444,8 +464,10 @@ export function render(root, params = {}) {
         busy = true;
         try {
           const m = await backend.sendDm(info.peer.userId, text);
-          input.value = '';
-          count.textContent = '';
+          if (line == null) {
+            input.value = '';
+            count.textContent = '';
+          }
           if (!id) {
             // the first message made the conversation (or found the one the other player just
             // started): the address gets its thread id, and the history is read again so a
@@ -465,7 +487,7 @@ export function render(root, params = {}) {
         } finally {
           busy = false;
         }
-      });
+      }
       setTimeout(() => {
         if (matchMedia('(pointer: fine)').matches) input.focus();
       }, 50);
@@ -476,7 +498,7 @@ export function render(root, params = {}) {
       if (m.kind === 'invite') return inviteCard(m);
       const el = h(`div.ol-msg${m.mine ? '.ol-msg-mine' : ''}`, { 'data-id': m.id, 'data-testid': 'dm-msg' },
         m.mine ? null : avatar(m.avatar, 30),
-        h('div.ol-msg-col', h('div.ol-bubble', m.body), h('time.sc-msg-time', clock(m.createdAt))));
+        h('div.ol-msg-col', dmStickerBody(m) || h('div.ol-bubble', m.body), h('time.sc-msg-time', clock(m.createdAt))));
       // (H1) press and hold their message: report exactly that one
       if (!m.mine) {
         el.classList.add('sc-holdable');

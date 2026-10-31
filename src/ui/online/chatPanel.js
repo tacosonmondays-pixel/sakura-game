@@ -13,6 +13,11 @@ import { hub } from './socialHub.js';
 import { openPlayerCard } from './playerCard.js';
 import { recruitCard } from './clanInvite.js';
 import { tagChips } from './tagChip.js';
+import { store } from '../../core/store.js';
+import { lineSticker, stickerLine } from '../../online/stickerWire.js';
+import { showsStickers } from '../../systems/stickers.js';
+import { stickerAlt } from '../../data/stickers.js';
+import { stickerImg, openStickerPicker } from './stickers.js';
 
 const MAX = 200;
 const SEEN_KEY = 'ss-online-seen';
@@ -44,7 +49,9 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
   const count = h('span.ol-chat-count');
   const status = h('div.ol-chat-status', { 'data-testid': 'chat-status' });
   const sendBtn = h('button.ol-send', { 'data-testid': 'chat-send', title: 'Send', 'aria-label': 'Send' }, svgEl('<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 11.6L20 4l-5.6 16.5-3.2-6.6z" fill="currentColor"/></svg>', 'ol-send-ico'));
-  const form = h('form.ol-chat-form', input, count, sendBtn);
+  // [stickers] a sticker goes as an ordinary line (src/online/stickerWire.js), through the same send as text
+  const stkBtn = h('button.ol-stk-btn', { type: 'button', 'data-testid': 'chat-sticker', title: 'Stickers', 'aria-label': 'Send a sticker', onclick: () => openStickerPicker({ profile: store.profile, onPick: (id) => send(stickerLine(id)) }) }, stickerImg('mochi_hi', 26, 'ol-stk-btn-img'));
+  const form = h('form.ol-chat-form', stkBtn, input, count, sendBtn);
   const el = h(`section.ol-chat${compact ? '.ol-chat-compact' : ''}`, { 'data-testid': 'chat-panel' }, list, status, form);
 
   let unsub = () => {};
@@ -80,9 +87,19 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
       h('div.ol-msg-col',
         h('div.ol-msg-head', mine ? name : h('button.ol-msg-who', { type: 'button', 'data-testid': 'chat-name', onclick: () => openCard(m) }, name),
           m.userId ? tagChips(m.userId) : null, levelChip(m.level), h('time', clock(m.createdAt))),
-        recruit ? h('div.ol-bubble.ol-bubble-recruit', { 'data-testid': 'chat-recruit' }, h('span.ol-recruit-kicker', 'Recruiting!'), recruit) : h('div.ol-bubble', m.body,
+        recruit ? h('div.ol-bubble.ol-bubble-recruit', { 'data-testid': 'chat-recruit' }, h('span.ol-recruit-kicker', 'Recruiting!'), recruit)
+          : stickerBody(m) || h('div.ol-bubble', m.body,
           invite ? h('button.ol-invite-btn', { 'data-testid': 'invite-join', onclick: () => navigate('coop', { id: m.meta.room }) }, 'Join co-op') : null)),
     );
+  }
+
+  /** [stickers] a sticker line: its picture (or, with stickers from others off, its words); else null */
+  function stickerBody(m) {
+    const s = m.kind === 'text' || !m.kind ? lineSticker(m.body) : null;
+    if (!s) return null;
+    const mine = backend && m.userId === backend.uid;
+    if (!mine && !showsStickers(store.profile)) return h('div.ol-bubble.ol-bubble-stk-text', { 'data-testid': 'chat-sticker-text' }, stickerAlt(s));
+    return h('div.ol-stk-msg', { 'data-testid': 'chat-sticker-msg', 'data-sticker': s.id }, stickerImg(s.id, compact ? 72 : 96));
   }
 
   function add(m, scroll = true) {
@@ -151,8 +168,9 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
     }
   }
 
-  async function send() {
-    const body = input.value.trim();
+  /** Send the input's line, or `line` (a sticker's) without touching what is typed. */
+  async function send(line = null) {
+    const body = line ?? input.value.trim();
     if (!body || !backend) return;
     // [social] the same text rule as the server's chat guard (invisible / bidi characters)
     const bad = bodyError(body);
@@ -167,8 +185,10 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
     }
     try {
       const m = await backend.send(channel, body);
-      input.value = '';
-      count.textContent = '';
+      if (line == null) {
+        input.value = '';
+        count.textContent = '';
+      }
       add(m);
     } catch (e) {
       const err = toOnlineError(e);
@@ -179,7 +199,7 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    send();
+    send(null);
   });
   input.addEventListener('input', () => {
     const n = input.value.length;

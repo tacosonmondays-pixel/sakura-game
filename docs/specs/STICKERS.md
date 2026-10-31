@@ -1,7 +1,37 @@
-# Stickers — spec draft (Cosmetics 2, Oct 30; not built)
+# Stickers — spec (Cosmetics 2; v1 built Oct 31 on `feature/stickers`)
 
-Owner request (Oct 30): "creating stickers". Read here as: a sticker set players can send and show, drawn from the
-girls' own chibi art. This is a short spec with open questions for the owner. Nothing below is built yet.
+Owner request (Oct 30): "creating stickers"; Oct 31: "Can you use NovelAI to make stickers for some of the girls to be
+used in messages and co-op?" **v1 is built** (§0) with the owner's defaults; §1–§6 are the original draft, kept for the
+reasoning, and §7 lists what is still open.
+
+## 0. v1 as built (Oct 31)
+
+- **16 stickers** (`src/data/stickers.js`): a free starter set of 4 slime stickers (Mochi, the loading slime; players
+  read "Slime"), one per girl for 10 girls (Hikari, Aoi, Kage, Momo, Akane, Yuki, Miko, Ena, Iroha, Tenka: owning her
+  unlocks it), Chigusa "Bravo!" (win a co-op battle) and Hotaru "Boo!" (calm the Gourdlight Golem, Halloween 2026).
+  Never sold. Ownership is derived from what every save already keeps (`src/systems/stickers.js`): retroactive, nothing
+  new stored, no older build can take one away. Board: `docs/review/stickers/board.png`.
+- **Art**: NovelAI from the game's own descriptions (no reference images), cut out (rembg isnet-anime), a thick white
+  die-cut border, and a short word drawn on by our own script so it is never garbled ("Hi!", "Thanks!", "GG!", "Let's
+  go!", "Help!"…). 256 and 128 px WebP. Pipeline and the Anlas log: `tools/stickers/README.md`,
+  `docs/specs/stickers/novelai-requests.jsonl`. Every picture was checked by eye against the content rules.
+- **Co-op**: a sticker button at the end of the co-op chip in battle opens the picker (owned first, the rest locked
+  with how to get them); a sticker shows under its sender's name on both screens for 3 s. It travels as
+  `{ type: 'stk', uid, id, n }` on the room's channel, sent and heard in `src/online/coop/socialRoom.js` (NOT in
+  `session.js`, which is part of the co-op id): never a sim input, sim id unchanged (`36cba1c215b0`), `COOP_PROTOCOL`
+  unchanged (14). The receiver keeps only known ids from its paired partner (the adapter's sender must match), drops a
+  blocked player's, and applies the limit (1 per 2 s, 5 per 20 s); the sender's button greys out for the gap. An older
+  build's session ignores the unknown message type.
+- **Clan chat, global chat and private messages**: a sticker button before the text box. A sticker goes as an ordinary
+  text line `[sticker:<id>] <word>` through the same send, rate limit and server guard as text (no migration). A build
+  that knows the id draws the picture from its own table; an older build, or an id this build does not know, shows the
+  line as text. The inbox line reads "Sticker: Thanks!".
+- **Comfort**: Settings → Online → "Show stickers from other players" (on by default; off hides them in co-op and
+  shows chat stickers as words); the co-op picker's "Mute <name>'s stickers" for this visit; blocking hides stickers
+  like text. Reduce Motion drops the pop-in. Every picture has its words for screen readers ("Aoi sticker: Nice!").
+- **Not built in v1**: the co-op lobby wheel, the profile signature sticker, bond-max second stickers, pinning 8.
+- Tests: `tests/data/stickers.test.js`, the sticker block in `tests/online/coopSession.test.js`; e2e
+  `e2e/stickers.mjs` (two players: co-op battle, clan chat, messages; screenshots in `docs/review/stickers/e2e/`).
 
 ## 1. What a sticker is
 
@@ -69,15 +99,13 @@ girls' own chibi art. This is a short spec with open questions for the owner. No
 
 ## 7. Open questions for the owner
 
-1. **Earning**: is "starter set + one per owned girl + bond max + a few achievement/event stickers" right? Should any
-   sticker ever be sold (we suggest never for gems or money)?
-2. **Gacha fairness**: is it OK that owning a girl unlocks her sticker, or should every girl's first sticker be free
-   for everyone so new players can cheer with anyone?
-3. **Captions**: baked short words ("GG!", "Thanks!") on the picture, or pictures only (clearer for every language)?
-4. **Mute defaults**: should stickers from random (matchmade) partners be on by default, or only from friends and
-   clanmates?
-5. **Clan chat**: stickers in clan chat too, or co-op only at first?
-6. **Profile**: a signature sticker on the Sensei Profile card, or keep the card as it is?
-7. **Art source**: pose the Blender chibis (consistent with the battle models) or draw flat 2D chibis (closer to the
-   girls' illustrations)? We suggest the Blender chibis in the 3D-flat look, matching the new ribbons and gear.
-8. **How many** for launch: 16 (8 starter + 8 earnable) or one per girl (about 40)?
+Answered by the owner's defaults (Oct 31): earning (starter set + one per owned girl + a couple from co-op / events,
+never sold), captions (a short word on the picture), mute defaults (partners' stickers on, with a per-player mute and a
+global switch), clan chat (yes, and private messages), how many (16). Art source: NovelAI 2D chibis (the owner's ask),
+not the Blender figures. Still open:
+
+1. **More girls**: one sticker per girl for the rest of the roster (about 30 more), and a second one at bond max?
+2. **Free first sticker**: should each girl's sticker be free for everyone (owning her is gacha-adjacent)?
+3. **Co-op lobby**: the same picker in the room while waiting for the host to start?
+4. **Profile**: a signature sticker on the Sensei Profile card?
+5. **Matchmade strangers**: today every co-op partner's stickers show by default; friends and clanmates only?

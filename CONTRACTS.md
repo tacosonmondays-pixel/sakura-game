@@ -2726,6 +2726,12 @@ chat / clan updates, broadcast only (no presence: see `openRoom`) for co-op room
 the realtime part; each tab is its own player). `tests/online/supabaseAdapter.test.js` checks the Supabase
 adapter's calls against the SQL; `localDb.test.js` / `localAdapter.test.js` cover the mock server.
 
+**Stickers** (`docs/specs/STICKERS.md` §0) — only ids from `src/data/stickers.js` ever travel. Co-op: the room message
+`{ type: 'stk', uid, id, n }`, sent and heard by `src/online/coop/socialRoom.js` (`session.sendSticker(id)` →
+`{ ok, waitMs }`, a `'sticker'` event `{ uid, id, mine }`); never a sim input, outside `session.js` and the co-op id.
+Chat and private messages: an ordinary text line `[sticker:<id>] <word>` (`src/online/stickerWire.js` `stickerLine` /
+`lineSticker`); a receiver draws only its own table's picture and shows an unknown id's line as text.
+
 **Rules shared by client and server** — `src/online/limits.js` (`RULES`, `verdict`, `createLimiter`,
 `formatRetry`) and `src/online/clanRules.js` (roles + `can()`, name / tag / message validation, reserved
 names, `LOCAL_DEV_CODE` (the offline test backend's developer clan code, dev builds and tests only; the live code is set by the owner in the database and never committed), emblems, clan XP / level curve, weekly boss table, per-attempt damage
