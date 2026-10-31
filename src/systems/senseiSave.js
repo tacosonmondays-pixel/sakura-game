@@ -11,6 +11,7 @@ import { hashString } from '../core/rng.js';
 import { BIO_MAX, PINS_MAX, SHOWCASE_MAX } from '../online/profileRules.js';
 import { bannerUnlocked, earnedFrames, titleKeepable, pinEarned, pinOptions } from './profileTrophies.js';
 import { TAG_KINDS, TAG_INFO, TAG_OF_TITLE } from '../data/playerTags.js';
+import { markPbBanner, shadowedPbBanner } from './profileBanners.js';
 
 export function newSensei() {
   return {
@@ -124,6 +125,7 @@ export function markSensei(p) {
   for (const [k, [pre]] of Object.entries(LISTS)) {
     (Array.isArray(p.sensei[k]) ? p.sensei[k] : []).forEach((id, i) => { c[`${SENSEI_MARK}${pre}${i}`] = idHash(id); });
   }
+  markPbBanner(p); // 'pbn:' (src/systems/profileBanners.js): kept by older builds, which never touch that prefix
 }
 
 /**
@@ -166,6 +168,8 @@ export function restoreSensei(raw, p) {
   if (isObj(raw)) s = cleanSensei(raw, p);
   else s = senseiFromMarks(p) || { ...newSensei(), lost: true };
   if (s.title == null && worn) s.title = worn;
+  // a 'pb:' banner an older build took off (it showed the default; the 'pbn:' shadow still names it) goes back on
+  if (s.banner === DEFAULT_BANNER) s.banner = shadowedPbBanner(p) || s.banner;
   p.sensei = s;
   if (!s.lost || isObj(raw)) markSensei(p);
   return s;

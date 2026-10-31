@@ -10,6 +10,7 @@ import { frameChipSVG } from '../../art/profileArt.js';
 import { unitPower } from '../../systems/progression.js';
 import { earnedTitles, earnedFrames, bannerUnlocked, titleChoices } from '../../systems/profileTrophies.js';
 import { setSensei } from '../../systems/senseiSave.js';
+import { pbHowText } from '../../systems/profileBanners.js';
 import { titlesFromText } from '../../systems/honors.js';
 import { BIO_MAX, PROFILE_VISIBILITY_DEFAULT, bioError } from '../../online/profileRules.js';
 import { getBackend } from '../../online/backend.js';
@@ -122,10 +123,11 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
         }))),
     ],
     banner: () => [
-      label('Banner', 'Clear chapters and recruit girls to unlock more'),
+      label('Banner', `${BANNERS.filter((b) => bannerUnlocked(p, b.id)).length} / ${BANNERS.length} unlocked · chapters, girls, achievements, events and seasons unlock more`),
       h('div.ep-banners', { 'data-testid': 'edit-banners' }, BANNERS.map((b) => {
         const ok = bannerUnlocked(p, b.id);
-        return h(`button.ep-banner${draft.banner === b.id ? '.on' : ''}${ok ? '' : '.locked'}`, { type: 'button', disabled: !ok, 'data-banner': b.id, title: b.name, onclick: () => set('banner', b.id) },
+        const how = b.kind === 'pb' ? pbHowText(b.id) : '';
+        return h(`button.ep-banner${draft.banner === b.id ? '.on' : ''}${ok ? '' : '.locked'}`, { type: 'button', disabled: !ok, 'data-banner': b.id, title: how ? `${b.name} · ${how}` : b.name, onclick: () => set('banner', b.id) },
           bannerArt(b.id, { thumb: true }), h('span.ep-banner-t', b.name), ok ? null : h('span.ep-banner-lock', ico('lock'), bannerLockText(b.id)), draft.banner === b.id ? h('i.ep-check', '✓') : null);
       })),
     ],

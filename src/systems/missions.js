@@ -13,6 +13,7 @@ import { DIFFICULTIES, DIFFICULTY_ORDER, GACHA } from '../data/types.js';
 import { dayKey, weekKey } from '../core/util.js';
 import { hashString } from '../core/rng.js';
 import { addItems, normalizeList } from './inventory.js';
+import { notePbSeason } from './profileBanners.js';
 
 const MISSION_SETS = { daily: DAILY_MISSIONS, weekly: WEEKLY_MISSIONS };
 /** missions.weekly key (wiped with the weekly commissions): this week's 'weeklyDone' was counted. */
@@ -59,6 +60,7 @@ export function onAppStart(profile, now = new Date()) {
     dailyReset = true;
     track(profile, 'login', 1);
   }
+  notePbSeason(profile, now); // the season banners (src/systems/profileBanners.js): idempotent
   return { dailyReset, weeklyReset };
 }
 
