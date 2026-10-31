@@ -10,11 +10,13 @@ reasoning, and §7 lists what is still open.
   read "Slime"), one per girl for 10 girls (Hikari, Aoi, Kage, Momo, Akane, Yuki, Miko, Ena, Iroha, Tenka: owning her
   unlocks it), Chigusa "Bravo!" (win a co-op battle) and Hotaru "Boo!" (calm the Gourdlight Golem, Halloween 2026).
   Never sold. Ownership is derived from what every save already keeps (`src/systems/stickers.js`): retroactive, nothing
-  new stored, no older build can take one away. Board: `docs/review/stickers/board.png`.
+  new stored, no older build can take one away. Board: `docs/review/stickers/board.jpg`.
 - **Art**: NovelAI from the game's own descriptions (no reference images), cut out (rembg isnet-anime), a thick white
   die-cut border, and a short word drawn on by our own script so it is never garbled ("Hi!", "Thanks!", "GG!", "Let's
   go!", "Help!"…). 256 and 128 px WebP. Pastel set (owner, Oct 31): regenerated with a soft pastel palette, 4 samples each, best by
-  eye, pastel words with a deeper pastel outline (before / after `docs/review/stickers/board-pastel.png`; 960 Anlas). Pipeline and the Anlas log: `tools/stickers/README.md`,
+  eye, pastel words with a deeper pastel outline (before / after `docs/review/stickers/board-pastel.jpg`; 960 Anlas). Likeness (owner, Oct 31): the 12 girls redone
+  with img2img from each girl's in-game chibi and her own portrait as the character reference (1,247 Anlas); checklist
+  `docs/review/stickers/LIKENESS.md`, board `docs/review/stickers/board-likeness.jpg`. Pipeline and the Anlas log: `tools/stickers/README.md`,
   `docs/specs/stickers/novelai-requests.jsonl`. Every picture was checked by eye against the content rules.
 - **Co-op**: a sticker button at the end of the co-op chip in battle opens the picker (owned first, the rest locked
   with how to get them); a sticker shows under its sender's name on both screens for 3 s. It travels as
