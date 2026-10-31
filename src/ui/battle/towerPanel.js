@@ -17,6 +17,7 @@ import { h, icon, setVar, isPhone } from './util.js';
 import { fmtNum } from '../format.js';
 import { createDronePanel, hasDroneTabs } from './chikaPanel.js';
 import { createDpsMeter, perTargetLine, boostEstimate, fmtSmallPct, DPS_LIVE_TIP, DPS_AVG_TIP } from './dpsView.js';
+import { kitRows, dealsDamage, damageSplit } from './kitRows.js';
 import {
   crosspathReason, crosspathWhy, onePerPathReason, onePerPathWhy, onePerPathLine, heldPipTitle, whereOnMap, finalHolderLine, CROSSPATH_RULE, ONE_PER_PATH_COOP, ONE_PER_PATH_RULE,
 } from './rules.js';
@@ -167,7 +168,7 @@ export function createTowerPanel(ctx) {
     const dv = t.turretSpec?.leash > 0 ? drones.signature(t) : '';
     // (the ability row's state, Auto and live line; its seconds tick in place, so a tap on a price is never lost to a
     // re-render once a second)
-    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${more ? 1 : 0}|${targetsOpen ? 1 : 0}|${arm.armedPath(t.uid) ?? '-'}|${isWide() ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? `A${ctx.aim.slot}` : ''}|${mirrorSig(t)}|${abRow.sig(t)}${ctx.coopPending ? `|o${[0, 1, 2].map((p) => (ctx.coopPending.upgrading(t.uid, p) ? 1 : 0)).join('')}` : ''}`;
+    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${more ? 1 : 0}|${targetsOpen ? 1 : 0}|${arm.armedPath(t.uid) ?? '-'}|${isWide() ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? `A${ctx.aim.slot}` : ''}|${mirrorSig(t)}|${more && (t.damageDealt || 0) > 0 ? 'd' : ''}|${abRow.sig(t)}${ctx.coopPending ? `|o${[0, 1, 2].map((p) => (ctx.coopPending.upgrading(t.uid, p) ? 1 : 0)).join('')}` : ''}`;
   }
 
   /** @param {{ drone?: number|null }} [opts] a drone of hers to show (tapped on the field: MORE opens on its card) */
@@ -673,10 +674,13 @@ export function createTowerPanel(ctx) {
     if (t.level > 1) bonus.push(`+${Math.round((def.hero?.growth ?? HERO_GROWTH).damage * (t.level - 1) * 100)}% damage from her level`);
     if (t.mastery > 0) bonus.push(`Mastery ${fmtNum(t.mastery, 'pct')} damage`);
     if ((t.unitStats?.costMul ?? 1) < 1) bonus.push(`level prices ${fmtNum(-(1 - t.unitStats.costMul), 'pct')}`);
-    const dmg = dpsCells(t, st, st.dps);
+    // her attack and kit, the same grid as a girl's (her aura, her shapes: Luna's Moonbeam, Kanna's quake rings)
+    const grid = detailGrid(t, st);
     return [
       statRow(t, st, statOpts),
-      dmg.length ? h('div.bt-stats-grid', dmg) : null,
+      h('div.bt-stats-grid', { 'data-testid': 'hero-grid' }, grid.rows),
+      grid.caps,
+      buffedBy(t),
       h('div.bt-dt-sec', h('span.bt-dw-k', 'LEVEL'), h('span.bt-dw-rule')),
       xpLine ? h('p.bt-dt-line', { 'data-testid': 'hero-xp-text' }, xpLine) : null,
       bonus.length ? h('p.bt-dt-line', bonus.join(' · ')) : null,
@@ -699,7 +703,8 @@ export function createTowerPanel(ctx) {
    */
   function dpsCells(t, st, dps) {
     const cells = [];
-    if (dps > 0 || st.behavior === 'trap' || st.behavior === 'strip' || (st.status || []).some((x) => x.type === 'poison' || x.type === 'burn')) {
+    // (any damage source: her paper DPS, traps, a DoT, a damage kit, or damage the sim has credited her: kitRows.js)
+    if (dps > 0 || dealsDamage(t, st)) {
       const value = h('b', { 'data-testid': 'drawer-dps-live' }, '—');
       const label = h('span', 'DPS (live)');
       cells.push(h('div.bt-stat-cell.bt-stat-main', { 'data-testid': 'drawer-dps', role: 'group', title: DPS_LIVE_TIP, 'aria-label': `DPS live. ${DPS_LIVE_TIP}` }, label, value));
@@ -710,6 +715,12 @@ export function createTowerPanel(ctx) {
       const split = (st.behavior === 'projectile' || st.behavior === 'beam') && st.projectiles > 1 ? st.projectiles : 1;
       const per = perTargetLine(st, dps / split);
       if (per) cells.push(h('div.bt-stat-cell.bt-stat-wide', h('span', 'Per target'), h('b', per)));
+      // her damage by source, where the sim credits it apart (an S5 shape's damage, drones): "Attack 72% · Moonbeam 28%"
+      if (damageSplit(t)) {
+        const value = h('b', { 'data-testid': 'drawer-split' }, '—');
+        cells.push(h('div.bt-stat-cell.bt-stat-wide', { 'data-testid': 'drawer-split-cell', title: 'Her damage dealt so far, by source' }, h('span', 'Damage by source'), value));
+        live.split = { value };
+      }
     }
     const sup = t.stats || {};
     const lifts = (b) => !!b && ((b.dmgMul || 1) > 1 || (b.rateMul || 1) > 1);
@@ -721,10 +732,17 @@ export function createTowerPanel(ctx) {
     return cells;
   }
 
+  /** One kit row (kitRows.js) in the stat grid's cell style. */
+  const kitCell = (r) => h(`div.bt-stat-cell${r.wide ? '.bt-stat-wide' : ''}`, { 'data-testid': `kit-${r.key}` }, h('span', r.label), h('b', r.value));
+
   // ------------------------------------------------------------------------------------------------------------------
   // MORE: the Details sheet (girls)
   // ------------------------------------------------------------------------------------------------------------------
-  function girlDetails(t, st, { ally }) {
+  /**
+   * The Details stat grid (girls and heroes): her DPS cells, her attack numbers, her kit rows (kitRows.js), kills and
+   * damage dealt, and her capability chips. @returns {{ rows: Element[], keyed: object, caps: Element|null }}
+   */
+  function detailGrid(t, st) {
     const rows = [];
     const keyed = {};
     const add = (label, value, cls = '', key = null) => {
@@ -803,6 +821,8 @@ export function createTowerPanel(ctx) {
     const rulesLine = councilRulesText(t);
     if (rulesLine) add('Council rules', rulesLine, '.bt-stat-wide');
     if (st.element) add('Element', ELEMENTS[st.element]?.name || st.element, '.bt-stat-wide2');
+    // her kit: shapes, mirrors, summons, signature pieces and her ⚡ ability (kitRows.js)
+    for (const r of kitRows(t, st)) rows.push(kitCell(r));
     const pot = t.unitStats?.potential || 1;
     if (pot >= 2) add('Potential', `P${pot}`);
     const kills = h('b');
@@ -822,6 +842,11 @@ export function createTowerPanel(ctx) {
     for (const s of st.status || []) chips.push(h('span.bt-cap.bt-cap-status', statusLabel(s)));
     if (st.disabled > 0) chips.push(h('span.bt-cap.bt-cap-bad', `Disabled ${fmtNum(st.disabled, 'time')}`));
     const caps = chips.length ? h('div.bt-caps', chips) : null;
+    return { rows, keyed, caps };
+  }
+
+  function girlDetails(t, st, { ally }) {
+    const { rows, keyed, caps } = detailGrid(t, st);
     const potBlock = potentialBlock(t, st);
     const roleLine = h('p.bt-dt-line', svgEl(roleIcon(t.def.role), 'bt-dw-tag-ico'), ` ${ROLES[t.def.role]?.name || t.def.role}`, st.element ? [' · ', svgEl(elementIcon(st.element), 'bt-dw-tag-ico'), ` ${ELEMENTS[st.element]?.name}`] : null, ` · ${ROLES[t.def.role]?.desc || ''}`);
     if (hasDroneTabs(st)) {
@@ -1289,6 +1314,11 @@ export function createTowerPanel(ctx) {
     if (live.boost) {
       const b = boostEstimate(sim, t.uid, (u) => dpsMeter.live(u, sim).value);
       live.boost.value.textContent = b ? `~${stat(b.value)} DPS · ${b.girls} girl${b.girls === 1 ? '' : 's'}` : '—';
+    }
+    if (live.split) {
+      const sp = damageSplit(t);
+      const text = sp ? sp.text : '—';
+      if (live.split.value.textContent !== text) live.split.value.textContent = text;
     }
     if (live.kills) live.kills.textContent = fmtNum(t.kills || 0);
     if (live.dmg) live.dmg.textContent = fmtNum(Math.max(0, Math.floor(t.damageDealt || 0)));
