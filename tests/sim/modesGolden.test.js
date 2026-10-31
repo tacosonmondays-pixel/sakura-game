@@ -1,5 +1,5 @@
-// Re-pinned for Suzu and Azami on bosses (fix/suzu-azami-boss, COOP 17): the 8-5 rows only (its boss meets their
-// bells and strips set for it, so it falls sooner: steps, coins and hashes move); every win, loss, wave and life as before.
+// Re-pinned for Suzu and Azami on bosses (fix/suzu-azami-boss, COOP 17): the 8-5 rows only, where a boss meets the
+// bells and strips set for it. Steps, coins, casts and hashes move on 8-5; every win, loss, wave and life is as before.
 // Golden check (docs/specs/CODEX_MODES.md §6.5): Standard mode with no map rule is bit-identical
 // to the sim before battle modes and map rules existed. The digests below were first recorded on the
 // pre-modes sim (feature/train-c-base, ca97c1e) with the balance bot's F2P plan; re-pinned at the

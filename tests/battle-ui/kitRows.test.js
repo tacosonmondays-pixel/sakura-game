@@ -210,3 +210,23 @@ describe('wording', () => {
     expect(kitRows(ir.t, st).find((r) => r.key === 'allyBounces').value).toMatch(/once her ⚡ unlocks$/);
   });
 });
+
+describe('Suzu and Azami on bosses (docs/BALANCE.md "Suzu and Azami on bosses")', () => {
+  test('Suzu: a Boss bells row from BOSS_BELL_EVERY, BOSS_TRAPS and her trap cap; Azami: a Boss strips row from STRIP_BOSS_EVERY', async () => {
+    const { BOSS_BELL_EVERY, STRIP_BOSS_EVERY, BOSS_TRAPS } = await import('../../src/sim/constants.js');
+    const s = fight('suzu', [5, 0, 0]);
+    const bells = kitRows(s.t, s.sim.towerStats(s.t.uid)).find((r) => r.key === 'bossBells');
+    expect(bells.label).toBe('Boss bells');
+    expect(bells.value).toContain(`${BOSS_TRAPS} set under a boss`);
+    expect(bells.value).toContain(`ring every ${Math.round((BOSS_BELL_EVERY / 60) * 10) / 10}s`);
+    expect(bells.value).toContain(`up to ${s.t.stats.trap.max}`);
+    const a = fight('azami', [5, 0, 0]);
+    const strips = kitRows(a.t, a.sim.towerStats(a.t.uid)).find((r) => r.key === 'bossStrips');
+    expect(strips.label).toBe('Boss strips');
+    expect(strips.value).toContain(`${BOSS_TRAPS} laid under a boss`);
+    expect(strips.value).toContain(`struck every ${Math.round((STRIP_BOSS_EVERY / 60) * 10) / 10}s`);
+    // no other girl gets either row
+    const k = fight('kage', [5, 0, 0]);
+    expect(kitRows(k.t, k.sim.towerStats(k.t.uid)).some((r) => r.key === 'bossBells' || r.key === 'bossStrips')).toBe(false);
+  });
+});

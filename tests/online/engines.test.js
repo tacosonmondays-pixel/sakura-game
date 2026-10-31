@@ -244,7 +244,8 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
       .toEqual({
         ticks: 47939, state: 'between', wallets: '568/787', lives: 100, final: 3625811915, hashes: 'a7ae5f68', casts: 77,
         byId: 'aoi.skyfall 12 · ena.omenCard 10 · hana.swoop 20 · noa.firstAid 3 · ruri.moonPounce 5 · seiran.stormLance 13 · yoriko.puppetHex 14',
-        // (re-pinned for fix/suzu-azami-boss: each girl's derived bossBellSpec; the same battle, new digests)
+        // (re-pinned for fix/suzu-azami-boss: the snapshot digests fold each girl's derived bossBellSpec and, where a
+        // boss met Suzu, the bells set for it; ticks, wallets, lives, final, hashes and casts are unchanged)
         ckDigest: 'c8a90080', finalDigest: '68d3b364',
       });
   }, 240000);
@@ -326,7 +327,8 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // Sim and tower state: the spread budget, the set fields, the mirrors)
     // (re-pinned for fix/iroha-stun-clump: Iroha's tier data and Auto rows; the same battle, new digests)
     // Re-pinned for release v0.1.67 (COOP_PROTOCOL 15 with fix/iroha-stun-clump merged): the COOP 15 battle, new digests only
-    // (re-pinned for fix/suzu-azami-boss: each girl's derived bossBellSpec; the same battle, new digests)
+    // (re-pinned for fix/suzu-azami-boss: the snapshot digests fold each girl's derived bossBellSpec and, where a boss met
+    // Suzu, the bells set for it; ticks, wallets, lives, final, hashes and casts are unchanged)
     expect({ ticks: r.ticks, state: r.state, wallets: r.wallets, final: r.final, hashes: r.hashes, absorbed: r.absorbed, members: r.members, sale: r.sale, labCash: r.labCash, wells: r.wells, swallowed: r.swallowed, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
       .toEqual({ ticks: 51079, state: 'between', wallets: '1602/890', final: 1372417546, hashes: '44e8771c', absorbed: '0:5,6,7 (w1 mid-wave) 0:9,30 (w12 mid-wave)', members: 'dps:1 frag:1 control:1 support:1 economy:1', sale: '941 (w14 mid-wave)', labCash: 145, wells: 56, swallowed: 7, ckDigest: 'd9113141', finalDigest: '94174e21' });
   }, 240000);
@@ -517,7 +519,8 @@ describe('cross-engine scripted battle (e2e/engines.mjs fixture)', () => {
     // kits killed everything before Aoi's and Ruri's spots, so Right Angle and Bake Sale never ran); every passive runs
     // (re-pinned for fix/iroha-stun-clump: Iroha's tier data and Auto rows; the same battle, new digests)
     // Re-pinned for release v0.1.67 (COOP_PROTOCOL 15 with fix/iroha-stun-clump merged): the COOP 15 battle, new digests only
-    // (re-pinned for fix/suzu-azami-boss: each girl's derived bossBellSpec; the same battle, new digests)
+    // (re-pinned for fix/suzu-azami-boss: the snapshot digests fold each girl's derived bossBellSpec and, where a boss met
+    // Suzu, the bells set for it; ticks, wallets, lives, final, hashes and casts are unchanged)
     expect({ ticks: r.ticks, wallets: r.wallets, lives: r.lives, final: r.final, hashes: r.hashes, sets: r.sets, superCrits: r.superCrits, itHits: r.itHits, ckDigest: r.ckDigest, finalDigest: r.finalDigest })
       .toEqual({ ticks: 41940, wallets: '403/633', lives: 50, final: 2180355410, hashes: 'aab6c70f', sets: 'aoi:rightAngle=13 hana:confetti=14 noa:cheer=30', superCrits: 71, itHits: 943, ckDigest: 'be80f3d5', finalDigest: '8cf91408' });
   }, 240000);

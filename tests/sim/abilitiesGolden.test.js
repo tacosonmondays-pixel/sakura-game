@@ -5,8 +5,8 @@
 // why when re-pinning (GOLDEN_PRINT=1 prints the new lines). With Auto off the bots play as before
 // abilities (modesGolden, campaignGolden): nothing changes until one is cast.
 // Re-pinned for balance round 5 (src/data/balance.js): a deliberate sim change. No win became a loss.
-// Re-pinned for Suzu and Azami on bosses (fix/suzu-azami-boss, COOP 17): the 8-5 rows (the boss falls sooner to the
-// bells and strips set for it; one cast fewer in the full roster's shorter battle); every win, wave and life as before.
+// Re-pinned for Suzu and Azami on bosses (fix/suzu-azami-boss, COOP 17): the 8-5 rows, where a boss meets the bells
+// and strips set for it. Steps, coins, casts and hashes move on 8-5; every win, loss, wave and life is as before.
 import { describe, it, expect } from 'vitest';
 import { hasRealData } from '../../src/sim/data.js';
 import { botBattle } from './modesBot.js';

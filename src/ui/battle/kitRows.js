@@ -1,6 +1,6 @@
 // MORE › Details: the rows that say what her kit does, beyond her plain attack numbers (v0.1.68, the More page audit:
 // docs/review/more-page-audit.md). One row per kit piece in her effective stats: the attack shapes (S1 to S5), Iroha's
-// mirrors and Ruri's familiar, Kaede's blade arts, Kinu's ring, Azami's strips, Chigusa's vines, Marumi's balls,
+// mirrors and Ruri's familiar, Kaede's blade arts, Kinu's ring, Suzu's boss bells, Azami's strips (and boss strips), Chigusa's vines, Marumi's balls,
 // Yuzuha's sentries, the duo's prism beam, Norika's barricades, Tenka's lab and well, Midori's brews, Wakaba's drinks,
 // Shiro's execution shot, and her ⚡ ability. Plus `dealsDamage`, which decides whether her DPS cells show, and
 // `damageSplit`, her damage by source where the sim already credits it apart (shape damage, drones).
@@ -11,6 +11,7 @@
 import { fmtNum } from '../format.js';
 import { abilityText, abilityLrText } from '../../data/abilityText.js';
 import { mirrorsReflect } from '../../sim/mirrors.js'; // (a read: do her mirrors reflect now)
+import { BOSS_BELL_EVERY, STRIP_BOSS_EVERY, BOSS_TRAPS } from '../../sim/constants.js';
 
 /** Sim steps a second (src/sim/constants.js STEP = 1 / 60), for the kit numbers kept in steps. */
 const STEPS_PER_SECOND = 60;
@@ -106,6 +107,8 @@ export function kitRows(t, st) {
   // --- the attack shapes, S5 (src/sim/s5shapes.js)
   if (e.charms) add('charms', 'Charm Wheel', join([`${plural(e.charms.n, 'charm')} a throw`, `${pct(e.charms.mul)} of her hit`]));
   if (e.cres) add('cres', 'Crescent', join([`${n(e.cres.cuts)} cuts a leg`, `${pct(e.cres.mul)} of her hit`, `+${tiles(e.cres.out)}`]));
+  // Suzu with a boss in her range: the bells she sets under it ride on it and ring (src/sim/towers.js bossTrap / bossBell)
+  if (st?.behavior === 'trap' && t?.stats?.trap) add('bossBells', 'Boss bells', join([`${n(BOSS_TRAPS)} set under a boss in range`, `ride on it, ring every ${stepSecs(BOSS_BELL_EVERY)}`, 'flying or not', `up to ${n(t.stats.trap.max)}`]));
   if (e.toll) add('toll', 'Bell Toll', join([`every ${stepSecs(e.toll.every)}`, `${tiles(e.toll.r)} ring`, `${pct(e.toll.mul)} of a trap hit`]));
   if (e.mist) add('mist', 'Spore Mist', join([`${deg(e.mist.half * 2)} cone`, `up to ${n(e.mist.cap)}`, `${pct(e.mist.mul)} of her DPS each`, e.mist.dot > 0 ? `spores ${pct(e.mist.dot)} of her poison` : null]));
   if (e.moon) add('moon', 'Moonbeam', join([plural(e.moon.beams, 'beam'), `±${deg(e.moon.arc)} sweep`, `${pct(e.moon.mul)} of her hit`]));
@@ -139,6 +142,8 @@ export function kitRows(t, st) {
   if (e.strip) {
     const s = e.strip;
     add('strip', 'Strips', join([`${n(s.hits)} hits each`, s.forever ? 'until used' : secs(s.ttl), s.carry ? 'carry over' : null, s.boom > 0 ? `boom ${fmtNum(s.boom, 'stat')}` : null, s.air > 0 ? `flyers ${pct(s.air)}` : null, s.rain > 0 ? `rain ${n(s.rainCount)}` : null]));
+    // with a boss in her range: the strips she lays under it (src/sim/strips.js layStrip / stripStep)
+    add('bossStrips', 'Boss strips', join([`${n(BOSS_TRAPS)} laid under a boss in range`, `a boss on one: struck every ${stepSecs(STRIP_BOSS_EVERY)}`, 'until its hits run out']));
   }
   if (e.vine) {
     const v = e.vine;

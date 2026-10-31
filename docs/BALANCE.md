@@ -9,8 +9,14 @@ never steps on one. Target: their best tier-5 build ~1M on a boss (Kage's ×0.5,
 Options:
 - **A. Road objects for a boss (picked).** While a boss or miniboss is in her range, each time she sets a bell or a
   strip she also sets one under it: on the free road spot nearest it, at or ahead of it. These go outside her cap, at
-  most two waiting there at a time (`BOSS_TRAPS`). Her road bells and strips are exactly as live, so her crowd play
-  never changes.
+  most two waiting there at a time (`BOSS_TRAPS`). Her road bells and strips follow the same rules as live. With no
+  boss in range, her play is bit-identical to live. With a boss in range during a mixed wave, it is the same rules but
+  not bit for bit:
+  - a bell waiting under the boss takes a road spot;
+  - at her cap, a placement for the boss alone still uses her attack cooldown, so a freed road slot refills up to one
+    attack later;
+  - Azami's boss strips blast and stun the crowd near the boss.
+  Measured result (review r1): no extra leaks in any of the 18 mixed-wave cases, mortal crowds on two lanes.
   - Suzu: a bell set for a boss rides on it once the boss sets it off. It rings for her trap's hit every second
     (`BOSS_BELL_EVERY`), even while the boss flies, with no status (no endless freeze). It falls when the boss dies or
     leaves her range, and at most her cap's worth ride at once.
@@ -35,7 +41,7 @@ r5Bench (fully maxed, Umeko + Midori, 3 seeds), live → fix:
 | Azami 2-0-5 | 0 → 92.5k | 296 → 1.4k | 25.1k → 25.1k |
 
 Azami's walking boss stays far under her held one. A walking boss leaves a strip laid for it before its 12 hits are
-spent, and her road strips hit it once, as live, so her crowd placement never gives way to it.
+spent, and her road strips hit it once, as live, so they keep their hits for the crowd.
 
 No-nerf gate (`noNerfGate.mjs`, both girls, tiers 1–5, boss / walking boss / crowd, maxed / L1 / L40, with Umeko +
 Midori and alone) vs live: 0 cells under.
