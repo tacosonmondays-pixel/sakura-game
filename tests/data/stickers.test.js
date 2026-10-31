@@ -5,6 +5,7 @@ import { STICKERS, STICKER_MAP, STICKER_ID_RE, STICKER_LIMITS, stickerHint, stic
 import { ownedStickers, ownsSticker, showsStickers } from '../../src/systems/stickers.js';
 import { stickerLine, lineSticker, cleanStickerMsg, createStickerLimiter } from '../../src/online/stickerWire.js';
 import { UNIT_MAP } from '../../src/data/units.js';
+import { dmToastText } from '../../src/ui/online/socialHub.js';
 import { STAGE_MAP } from '../../src/data/stages.js';
 import { createProfile as newProfile, migrateProfile, DEFAULT_SETTINGS } from '../../src/systems/save.js';
 
@@ -56,7 +57,7 @@ describe('the sticker table', () => {
 describe('who owns which sticker', () => {
   it('a new save has the starter set and its starter girls\' stickers', () => {
     const p = newProfile();
-    expect(ownedStickers(p)).toEqual(['mochi_hi', 'mochi_thanks', 'mochi_oops', 'mochi_gg', 'hikari_go', 'aoi_nice']);
+    expect(ownedStickers(p)).toEqual(['slime_hi', 'slime_thanks', 'slime_oops', 'slime_gg', 'hikari_go', 'aoi_nice']);
   });
 
   it('owning a girl, a co-op win and the Halloween boss each unlock theirs (from what the save already keeps)', () => {
@@ -73,9 +74,9 @@ describe('who owns which sticker', () => {
 
   it('unknown ids and broken saves own nothing but the starters', () => {
     expect(ownsSticker(newProfile(), 'not_a_sticker')).toBe(false);
-    expect(ownedStickers(null)).toEqual(['mochi_hi', 'mochi_thanks', 'mochi_oops', 'mochi_gg']);
+    expect(ownedStickers(null)).toEqual(['slime_hi', 'slime_thanks', 'slime_oops', 'slime_gg']);
     expect(ownedStickers({ units: [], missions: { counters: { coopWin: 'x' } }, progress: { stages: { 'ev-halloween-boss': 'yes' } } }))
-      .toEqual(['mochi_hi', 'mochi_thanks', 'mochi_oops', 'mochi_gg']);
+      .toEqual(['slime_hi', 'slime_thanks', 'slime_oops', 'slime_gg']);
   });
 
   it('the "show stickers from other players" setting: on by default, kept by the save cleaner', () => {
@@ -93,7 +94,9 @@ describe('stickers on the wire', () => {
     expect(stickerLine('aoi_nice')).toBe('[sticker:aoi_nice] Nice!');
     expect(stickerLine('nope')).toBe(null);
     for (const s of STICKERS) expect(lineSticker(stickerLine(s.id))).toBe(STICKER_MAP[s.id]);
-    expect(lineSticker('[sticker:aoi_nice] anything at all')).toBe(STICKER_MAP.aoi_nice); // the picture and words are ours
+    expect(lineSticker('[sticker:aoi_nice] other words')).toBe(null); // other words stay text, as an older build shows them
+    expect(dmToastText('[sticker:slime_hi] Hi!')).toBe('Sticker: Hi!'); // the DM pop-up never shows the token
+    expect(dmToastText('hello')).toBe('hello');
     expect(lineSticker('[sticker:future_one] Hi!')).toBe(null);
     expect(lineSticker('hello [sticker:aoi_nice] Nice!')).toBe(null);
     expect(lineSticker('[sticker:aoi_nice]')).toBe(null);

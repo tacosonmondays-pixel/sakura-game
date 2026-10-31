@@ -96,9 +96,6 @@ function socialRows() {
   return box;
 }
 
-/**
- * @param {{ redraw: () => void, importText: (text: string, status: HTMLElement, redraw: () => void) => Promise<boolean> }} opts
- */
 /** [stickers] Show stickers from other players (co-op, chat and messages); one's own always show. */
 function stickerRow() {
   const s = store.profile.settings;
@@ -118,6 +115,9 @@ function stickerRow() {
     h('div.ma-set-control', b));
 }
 
+/**
+ * @param {{ redraw: () => void, importText: (text: string, status: HTMLElement, redraw: () => void) => Promise<boolean> }} opts
+ */
 export function onlineSection({ redraw, importText }) {
   const backend = getBackend();
   const nameEl = h('b', { 'data-testid': 'online-name' }, storedName() || 'Not set');

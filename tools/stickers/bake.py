@@ -18,12 +18,12 @@ FONT = "/usr/share/fonts/opentype/inter/Inter-Black.otf"
 if not os.path.exists(FONT):
     FONT = "/usr/share/fonts/opentype/inter/Inter-ExtraBold.otf"
 
-# id → (raw picture chosen after the eye check, caption, caption stroke colour); keep in step with src/data/stickers.js
+# id → (raw picture chosen after the eye check (the slimes were generated as mochi_*), caption, caption stroke colour); keep in step with src/data/stickers.js
 STICKERS = {
-    "mochi_hi": ("mochi_hi", "Hi!", "#2f9c62"),
-    "mochi_thanks": ("mochi_thanks", "Thanks!", "#2f9c62"),
-    "mochi_oops": ("mochi_oops", "Oops!", "#2f9c62"),
-    "mochi_gg": ("mochi_gg", "GG!", "#c94a7d"),
+    "slime_hi": ("mochi_hi", "Hi!", "#2f9c62"),
+    "slime_thanks": ("mochi_thanks", "Thanks!", "#2f9c62"),
+    "slime_oops": ("mochi_oops", "Oops!", "#2f9c62"),
+    "slime_gg": ("mochi_gg", "GG!", "#c94a7d"),
     "hikari_go": ("hikari_go.try2", "Let's go!", "#c4567d"),
     "aoi_nice": ("aoi_nice", "Nice!", "#367a4c"),
     "kage_onit": ("kage_onit.try2", "On it!", "#5a3f78"),
@@ -71,7 +71,7 @@ def flood(name):
 def cutout(name):
     os.makedirs(CUT, exist_ok=True)
     path = os.path.join(CUT, f"{name}.png")
-    if name.startswith("mochi_") and not os.path.exists(path):
+    if name.startswith(("mochi_", "slime_")) and not os.path.exists(path):
         flood(name).save(path)
     if not os.path.exists(path):
         from rembg import new_session, remove

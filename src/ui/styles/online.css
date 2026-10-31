@@ -600,6 +600,9 @@
 @media (max-width: 700px) and (min-height: 481px) {
   .bt-root:has(.ol-coop-hud) .bt-feed { top: calc(var(--bt-hud-h, 100px) + var(--safe-top) + 58px); }
   .bt-root.bt-has-boss:has(.ol-coop-hud) .bt-feed { top: calc(var(--bt-hud-h, 100px) + var(--safe-top) + 122px); }
+  /* the placement hint (with its Cancel) too: under the chip, never under its sticker button */
+  .bt-root:has(.ol-coop-hud) .bt-place-hint { top: calc(var(--bt-hud-h, 100px) + var(--safe-top) + 50px); }
+  .bt-root.bt-has-boss:has(.ol-coop-hud) .bt-place-hint { top: calc(var(--bt-hud-h, 100px) + var(--safe-top) + 116px); }
 }
 /* the ally's chip once they are gone (the state line says why for a few seconds, then hides) */
 .ol-coop-p.gone { opacity: 0.55; }

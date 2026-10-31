@@ -50,7 +50,7 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
   const status = h('div.ol-chat-status', { 'data-testid': 'chat-status' });
   const sendBtn = h('button.ol-send', { 'data-testid': 'chat-send', title: 'Send', 'aria-label': 'Send' }, svgEl('<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 11.6L20 4l-5.6 16.5-3.2-6.6z" fill="currentColor"/></svg>', 'ol-send-ico'));
   // [stickers] a sticker goes as an ordinary line (src/online/stickerWire.js), through the same send as text
-  const stkBtn = h('button.ol-stk-btn', { type: 'button', 'data-testid': 'chat-sticker', title: 'Stickers', 'aria-label': 'Send a sticker', onclick: () => openStickerPicker({ profile: store.profile, onPick: (id) => send(stickerLine(id)) }) }, stickerImg('mochi_hi', 26, 'ol-stk-btn-img'));
+  const stkBtn = h('button.ol-stk-btn', { type: 'button', 'data-testid': 'chat-sticker', title: 'Stickers', 'aria-label': 'Send a sticker', onclick: () => openStickerPicker({ profile: store.profile, onPick: (id) => send(stickerLine(id)) }) }, stickerImg('slime_hi', 26, 'ol-stk-btn-img'));
   const form = h('form.ol-chat-form', stkBtn, input, count, sendBtn);
   const el = h(`section.ol-chat${compact ? '.ol-chat-compact' : ''}`, { 'data-testid': 'chat-panel' }, list, status, form);
 

@@ -17,10 +17,10 @@ export const STICKER_ID_RE = /^[a-z][a-z0-9_]{0,23}$/;
  * difficulty). `hint` says how to get it, on the locked tile.
  */
 export const STICKERS = Object.freeze([
-  { id: 'mochi_hi', label: 'Hi!', who: 'Slime', how: 'starter' },
-  { id: 'mochi_thanks', label: 'Thanks!', who: 'Slime', how: 'starter' },
-  { id: 'mochi_oops', label: 'Oops!', who: 'Slime', how: 'starter' },
-  { id: 'mochi_gg', label: 'GG!', who: 'Slime', how: 'starter' },
+  { id: 'slime_hi', label: 'Hi!', who: 'Slime', how: 'starter' },
+  { id: 'slime_thanks', label: 'Thanks!', who: 'Slime', how: 'starter' },
+  { id: 'slime_oops', label: 'Oops!', who: 'Slime', how: 'starter' },
+  { id: 'slime_gg', label: 'GG!', who: 'Slime', how: 'starter' },
   { id: 'hikari_go', label: 'Let\'s go!', who: 'Hikari', how: 'girl', girl: 'hikari' },
   { id: 'aoi_nice', label: 'Nice!', who: 'Aoi', how: 'girl', girl: 'aoi' },
   { id: 'kage_onit', label: 'On it!', who: 'Kage', how: 'girl', girl: 'kage' },

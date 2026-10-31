@@ -193,6 +193,19 @@ try {
   check(!second.ok && second.waitMs > 0, `a second sticker inside 2 s is held back (${JSON.stringify(second)})`);
   const gone = await until(B, (s) => !document.querySelector(`[data-testid="coop-sticker-${s}"]`), slotA, 6000);
   check(gone, 'the sticker goes away after ~3 s');
+  // portrait: the placement hint's Cancel is never under the sticker button (the hint sits below the co-op chip)
+  await B.setViewportSize({ width: 390, height: 844 });
+  await settle(B, 500);
+  const clear = await B.evaluate(() => {
+    const btn = document.querySelector('[data-testid="coop-sticker-btn"]')?.getBoundingClientRect();
+    const hint = document.querySelector('.bt-place-hint');
+    if (!btn || !hint || !hint.offsetParent) return 'no hint';
+    const r = hint.getBoundingClientRect();
+    return r.top >= btn.bottom || r.bottom <= btn.top || r.left >= btn.right || r.right <= btn.left ? 'clear' : 'overlap';
+  });
+  check(clear !== 'overlap', `portrait: the sticker button stays clear of the placement hint (${clear})`);
+  await B.setViewportSize({ width: 1280, height: 720 });
+  await settle(B, 300);
   await shots(B, 'coop-sticker-guest', async () => {
     await A.waitForTimeout(2100);
     await A.evaluate(() => window.__coop.sendSticker('aoi_nice'));
@@ -213,7 +226,7 @@ try {
   check(/Show Aiko/.test(await B.locator('[data-testid="stk-mute"]').innerText()), 'the mute row turns into "Show Aiko\'s stickers"');
   await tap(B, '[data-testid="stk-close"]');
   await A.waitForTimeout(2100);
-  await A.evaluate(() => window.__coop.sendSticker('mochi_hi'));
+  await A.evaluate(() => window.__coop.sendSticker('slime_hi'));
   await B.waitForTimeout(900);
   check(!(await bubble(B, slotA)), 'a muted player\'s sticker does not show');
   await tap(B, '[data-testid="coop-sticker-btn"]');
@@ -222,7 +235,7 @@ try {
   // the setting: stickers from other players off
   await B.evaluate(() => { window.__sakura.store.profile.settings.showStickers = false; });
   await A.waitForTimeout(2100);
-  await A.evaluate(() => window.__coop.sendSticker('mochi_gg'));
+  await A.evaluate(() => window.__coop.sendSticker('slime_gg'));
   await B.waitForTimeout(900);
   check(!(await bubble(B, slotA)), 'with "Show stickers from other players" off nothing shows');
   await B.evaluate(() => { window.__sakura.store.profile.settings.showStickers = true; });
@@ -237,8 +250,8 @@ try {
   check(!(await bubble(B, slotA)) && errors.length === errCount, 'an unknown sticker id is ignored, no error');
   // B sends one back: A sees it under B's name
   await tap(B, '[data-testid="coop-sticker-btn"]');
-  await tap(B, '[data-testid="stk-mochi_thanks"]');
-  check(await until(A, (s) => document.querySelector(`[data-testid="coop-sticker-${s}"]`)?.dataset.sticker === 'mochi_thanks', slotB), 'A sees B\'s sticker under B\'s name');
+  await tap(B, '[data-testid="stk-slime_thanks"]');
+  check(await until(A, (s) => document.querySelector(`[data-testid="coop-sticker-${s}"]`)?.dataset.sticker === 'slime_thanks', slotB), 'A sees B\'s sticker under B\'s name');
   // the battle never noticed
   const st = await Promise.all([A, B].map((p) => p.evaluate(() => ({ desynced: !!window.__battle.coop.lockstep.desynced, tick: window.__battle.coop.tick, sim: window.__coop.me && window.__sakura?.build?.sim }))));
   check(!st[0].desynced && !st[1].desynced && st[0].tick > 0 && st[1].tick > 0, `both battles run on in sync (${JSON.stringify(st)})`);
@@ -266,8 +279,8 @@ try {
   check(await until(A, () => [...document.querySelectorAll('[data-testid="chat-msg"] .ol-bubble')].some((b) => b.textContent === '[sticker:future_one] Hi!')), 'a sticker line with an id this build does not know reads as text');
   await B.waitForTimeout(2100);
   await tap(B, '[data-testid="chat-sticker"]');
-  await tap(B, '[data-testid="stk-mochi_hi"]');
-  await until(A, () => !!document.querySelector('[data-testid="chat-sticker-msg"][data-sticker="mochi_hi"]'));
+  await tap(B, '[data-testid="stk-slime_hi"]');
+  await until(A, () => !!document.querySelector('[data-testid="chat-sticker-msg"][data-sticker="slime_hi"]'));
   await shots(A, 'chat-clan');
 
   // ---- 4. messages -----------------------------------------------------------------------------------------------
@@ -278,8 +291,8 @@ try {
   if (intro) await tap(A, '[data-testid="intro-ok"]');
   await wait(A, '[data-testid="dm-sticker"]', { timeout: 15000 });
   await tap(A, '[data-testid="dm-sticker"]');
-  await tap(A, '[data-testid="stk-mochi_thanks"]');
-  check(await until(A, () => !!document.querySelector('[data-testid="dm-sticker-msg"][data-sticker="mochi_thanks"]'), null, 12000), 'A\'s sticker shows in the conversation');
+  await tap(A, '[data-testid="stk-slime_thanks"]');
+  check(await until(A, () => !!document.querySelector('[data-testid="dm-sticker-msg"][data-sticker="slime_thanks"]'), null, 12000), 'A\'s sticker shows in the conversation');
   await shots(A, 'dm-thread');
   await go(B, '#/messages');
   const introB = await wait(B, '[data-testid="intro-ok"]', { timeout: 4000 }).then(() => true).catch(() => false);

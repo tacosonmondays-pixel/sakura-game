@@ -442,7 +442,7 @@ export function render(root, params = {}) {
       });
       let busy = false;
       // [stickers] a sticker goes as an ordinary line (src/online/stickerWire.js) through the same send, the typed text stays
-      const stk = h('button.ol-stk-btn', { type: 'button', 'data-testid': 'dm-sticker', title: 'Stickers', 'aria-label': 'Send a sticker', onclick: () => openStickerPicker({ profile: store.profile, onPick: (sid) => post(stickerLine(sid)) }) }, stickerImg('mochi_hi', 26, 'ol-stk-btn-img'));
+      const stk = h('button.ol-stk-btn', { type: 'button', 'data-testid': 'dm-sticker', title: 'Stickers', 'aria-label': 'Send a sticker', onclick: () => openStickerPicker({ profile: store.profile, onPick: (sid) => post(stickerLine(sid)) }) }, stickerImg('slime_hi', 26, 'ol-stk-btn-img'));
       form.prepend(stk);
       form.addEventListener('submit', (e) => {
         e.preventDefault();

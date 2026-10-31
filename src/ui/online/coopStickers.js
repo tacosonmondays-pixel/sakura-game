@@ -20,7 +20,7 @@ export function createCoopStickers(ctx, chips) {
   const ally = () => session.player(1 - mySlot) || null;
   const ring = h('i.stk-btn-ring');
   const btn = h('button.stk-btn', { type: 'button', 'data-testid': 'coop-sticker-btn', 'aria-label': 'Send a sticker', title: 'Stickers', onclick: () => pick() },
-    stickerImg('mochi_hi', 28, 'stk-btn-img'), ring);
+    stickerImg('slime_hi', 28, 'stk-btn-img'), ring);
   const bubbles = new Map(); // slot → { el, timer }
   let picker = null;
   let coolTimer = 0;

@@ -24,7 +24,9 @@ Every picture was checked by eye for the content rules (students and chibis in m
 nothing suggestive, no gore) and for stray letters before it was kept. Three were re-rolled once (`--tag try2`):
 Momo (a calmer standing pose), Kage (the first headband had letter-like marks) and Hikari (her raised sword made the
 figure too thin to read at 64 px). Two ids were renamed after generation, before anything shipped: `chigusa_gg` →
-`chigusa_bravo`, `tenka_letsgo` → `tenka_charge` (the log keeps the names they were generated under).
+`chigusa_bravo`, `tenka_letsgo` → `tenka_charge`, and the four slimes `mochi_*` → `slime_*` (players never see the
+slime's name, and ids can show as text on older builds). The log and `prompts.py` keep the names they were generated
+under; `bake.py` maps each sticker id to its raw picture.
 
 Anlas (Oct 31): free-tier settings only, and every request after the first left the balance unchanged (6,713).
 The balance fell from 6,753 to 6,713 before that point, partly between two runs when this tool sent nothing, while

@@ -53,8 +53,12 @@ export function stickerLine(id) {
   return s ? `[sticker:${s.id}] ${s.label}` : null;
 }
 
-/** The sticker a chat line carries (its table entry), or null: an ordinary line, or an id this build does not know. */
+/**
+ * The sticker a chat line carries (its table entry), or null: an ordinary line, an id this build does not know, or
+ * other words after the id.
+ */
 export function lineSticker(body) {
   const m = typeof body === 'string' ? TOKEN_RE.exec(body) : null;
-  return m && Object.prototype.hasOwnProperty.call(STICKER_MAP, m[1]) ? STICKER_MAP[m[1]] : null;
+  // only the exact line stickerLine makes: other words after a known id stay text (an older build shows the same words)
+  return m && Object.prototype.hasOwnProperty.call(STICKER_MAP, m[1]) && STICKER_MAP[m[1]].label === m[2] ? STICKER_MAP[m[1]] : null;
 }

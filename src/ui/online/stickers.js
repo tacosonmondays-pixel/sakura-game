@@ -6,6 +6,7 @@ import { h } from '../dom.js';
 import { artUrl } from '../../art/portraits.js';
 import { STICKERS, STICKER_MAP, stickerAlt, stickerHint } from '../../data/stickers.js';
 import { ownedStickers } from '../../systems/stickers.js';
+import { onEscape } from '../hold.js';
 
 /** <img> of a sticker (the 128 px file up to 96 px on screen, else the 256 px one). */
 export function stickerImg(id, px = 64, cls = 'stk-img') {
@@ -54,19 +55,16 @@ export function openStickerPicker({ profile, onPick, onClose = null, title = 'St
     h('header.stk-pick-head', h('b', title), h('button.stk-pick-x', { type: 'button', 'aria-label': 'Close', 'data-testid': 'stk-close', onclick: () => close() }, '×')),
     h('div.stk-grid', tiles), line, extra);
   const el = h(`div.stk-pick-overlay${cls ? `.${cls}` : ''}`, { onpointerdown: (e) => { if (e.target === el) close(); } }, panel);
-  const onKey = (e) => {
-    if (e.key === 'Escape') close();
-  };
   let open = true;
   function close() {
     if (!open) return;
     open = false;
-    document.removeEventListener('keydown', onKey);
+    offEsc();
     window.removeEventListener('hashchange', close);
     el.remove();
     onClose?.();
   }
-  document.addEventListener('keydown', onKey);
+  const offEsc = onEscape(() => close()); // (the shared stack: Escape closes the picker only, not the battle's menus)
   window.addEventListener('hashchange', close); // (another screen: the picker goes with this one)
   document.body.append(el);
   return { el, close };

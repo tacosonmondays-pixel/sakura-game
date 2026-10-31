@@ -1429,20 +1429,20 @@ describe('[stickers] co-op stickers on the side channel (docs/specs/STICKERS.md 
   it('the sender waits 2 s between stickers and sends at most 5 in 20 s', () => {
     const W = world();
     const { host, guest } = paired(W);
-    expect(host.sendSticker('mochi_hi').ok).toBe(true);
-    const r = host.sendSticker('mochi_hi');
+    expect(host.sendSticker('slime_hi').ok).toBe(true);
+    const r = host.sendSticker('slime_hi');
     expect(r.ok).toBe(false);
     expect(r.waitMs).toBeGreaterThan(1900);
     for (let i = 0; i < 4; i++) {
       W.step(2000);
-      expect(host.sendSticker('mochi_gg').ok).toBe(true);
+      expect(host.sendSticker('slime_gg').ok).toBe(true);
     }
     W.step(2000);
-    const sixth = host.sendSticker('mochi_gg');
+    const sixth = host.sendSticker('slime_gg');
     expect(sixth.ok).toBe(false); // 5 in the last 20 s
     expect(sixth.waitMs).toBeGreaterThan(0);
     W.step(sixth.waitMs);
-    expect(host.sendSticker('mochi_gg').ok).toBe(true);
+    expect(host.sendSticker('slime_gg').ok).toBe(true);
     host.close();
     guest.close();
   });
