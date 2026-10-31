@@ -196,8 +196,25 @@ export function applyPressure(e, p) {
 function dotAmount(e, st, dt) {
   const pct = st.pct;
   if (!pct) return st.dps * dt;
+  return (st.dps + pctDps(e, st)) * dt;
+}
+
+function pctDps(e, st) {
   const boss = e.tier === 'boss' || e.tier === 'miniboss';
-  return (st.dps + pct * e.maxHp * (boss ? DOT_PCT_BOSS_MUL : 1)) * dt;
+  return st.pct * e.maxHp * (boss ? DOT_PCT_BOSS_MUL : 1);
+}
+
+/**
+ * One burn / poison / spore tick, credited to whoever dealt each part: when the %-of-max-HP part has another owner
+ * than the flat dps (status.js `pctUid`, audit B-F1), the two parts tick apart; otherwise one tick as before.
+ */
+function dotTick(sim, e, kind, st, dt) {
+  if (st.pct > 0 && st.pctUid != null && st.pctUid !== st.sourceUid) {
+    if (st.dps > 0) sim._dot(e, kind, st.dps * dt, st);
+    if (!e.dead) sim._dot(e, kind, pctDps(e, st) * dt, st, st.pctUid);
+    return;
+  }
+  sim._dot(e, kind, dotAmount(e, st, dt), st);
 }
 
 /** Places the enemy at its current path distance (position, facing, tunnel + overpass state). */
@@ -489,11 +506,11 @@ export function syncStatusFlags(e) {
  */
 export function updateEnemy(sim, e, dt) {
   const st = e.statuses;
-  if (st.burn) sim._dot(e, 'burn', dotAmount(e, st.burn, dt), st.burn);
-  if (!e.dead && st.poison) sim._dot(e, 'poison', dotAmount(e, st.poison, dt), st.poison);
+  if (st.burn) dotTick(sim, e, 'burn', st.burn, dt);
+  if (!e.dead && st.poison) dotTick(sim, e, 'poison', st.poison, dt);
   // Midori's Spore Mist (attack shapes S5b): its own key, poison's damage rules; no siphon or regen block, never spread
   // or detonated (those read `poison` only), so no other girl's numbers see it
-  if (!e.dead && st.spore) sim._dot(e, 'poison', dotAmount(e, st.spore, dt), st.spore);
+  if (!e.dead && st.spore) dotTick(sim, e, 'poison', st.spore, dt);
   if (!e.dead && st.hex) sim._hex(e, st.hex, dt);
   if (!e.dead && st.curse) sim._curseTick(e, st.curse, dt); // Ena's spreading curse: rot and pass it on
   if (e.dead) return;

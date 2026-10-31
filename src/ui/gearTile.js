@@ -19,7 +19,7 @@ import { GEAR_SLOT_DEFS } from '../data/gearSlots.js';
 import { GEAR_STAT_DEFS, statName } from '../data/gearStats.js';
 import { CLUBS } from '../data/clubs.js';
 import { UNIT_MAP } from '../data/units.js';
-import { isUrLook, awakenReady, gearLines } from '../systems/gear.js';
+import { isUrLook, isLrGear, awakenReady, gearLines } from '../systems/gear.js';
 import { gearIcon } from '../art/icons.js';
 import { portraitHTML } from '../art/portraits.js';
 import { urRing } from './rarity.js';
@@ -81,7 +81,8 @@ export function gearTileView(g, { slot = null, mainIcon = false, value = false, 
   const bl = who ? 'wearer' : club && tl !== 'club' ? 'club' : null;
   const tr = mainIcon ? 'main' : g.locked ? 'lock' : null;
   const level = g.level > 0 ? `+${g.level}` : null;
-  const rarityName = ur ? 'UR' : ITEM_RARITIES[g.rarity]?.name || g.rarity;
+  // (Nightglass LR pieces read LR, never UR: audit D L3)
+  const rarityName = isLrGear(g) ? 'LR' : ur ? 'UR' : ITEM_RARITIES[g.rarity]?.name || g.rarity;
   const bits = [`${slotName}: ${g.name}`, `${rarityName}${g.level ? ` +${g.level}` : ''}`, main.fact];
   if (club) bits.push(club.name);
   if (status === 'ready') bits.push('can awaken');
