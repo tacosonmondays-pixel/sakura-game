@@ -189,3 +189,24 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
 ## Owner reminders
 - Rotate the Supabase secret key and the database password.
 - For anything players will see, send the owner real screenshots before and after, and get a yes before review and shipping. On Oct 24 they reversed two visual changes right after seeing them.
+
+## UPDATE 2026-10-31 02:30 UTC (coordinator)
+
+- **v0.1.66** (release/v0.1.66 @ 26dd6ab6): the audit-D Limit Break fix and the lows are in. One thing is left: the Iroha stun-clump fix (session_01Ayo4eoCgrSVLeUAfoteAm8, fix/iroha-stun-clump @ da2f2db2, WIP).
+  - What's done: kit changes in src/sim/mirrors.js. The bounce splash lands on the struck enemy. Copies drop knockback and gather. Slots 1 and 2 are re-placed. Glints no longer stun.
+  - Sim id 14 re-pinned to 8b09ee77b276. No COOP bump, since 14 hasn't shipped (coordinator confirmed).
+  - Still pending: the 12-ally sweep, benches, irohaLayouts vs LR bars, npm test and the engines check.
+  - Then: the assembly session (session_01Ayo4er2sMN7BYpFieFCFi6) merges, re-pins KNOWN[14] and the engines fixtures, and runs the full gates. After that, a fresh delta go/no-go, then ship (standing OK).
+- **Cosmetics 2 review r1: NOT OK** (review/cosmetics-2-r1 @ f808f33). Two fixes went to the builder session_01Ayo4eqMGbYD6CyGCx9Unp7:
+  - M1: secret titles leak their "How" text in editProfile.js:147. The same leak exists on main.
+  - M2: merge release/v0.1.66 in. Keep v0.1.67 above v0.1.66 in patchNotes.
+  - Also L2: zero.js:51 should filter frames by group.
+  - A fresh delta review comes next.
+- **Profile banners review r1: OK** (review/profile-banners-r1 @ 00bac5b5). Follow-ups went to session_01Ayo4er3ihBtMtnjuSxdvzv, on feature/profile-banners-art:
+  - F1: fix the spec's sim id wording.
+  - L1: add a line to spec §4.
+  - L2: tapping a locked tile shows pbHowText.
+  - Merge release/v0.1.66 in.
+  - Then a fresh review of the art commit e30559e7 plus these follow-ups.
+- Pre-existing failures on release, not from the branches: the e2e/achievements.mjs:44 lateSave crash, and 2 smoke "drag (touch)" failures. Both need their own follow-up.
+- Still waiting on the owner: art v3 (A/B/C/D), the LR rule (A/B), co-op sharing Q1–Q4, stickers, the VFX spike, and the new star unit.
