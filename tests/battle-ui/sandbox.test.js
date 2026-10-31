@@ -4,6 +4,7 @@ import { createProfile } from '../../src/systems/save.js';
 import { CAMPAIGN_IDS } from '../../src/data/stages.js';
 import { UNITS, UNIT_MAP } from '../../src/data/units.js';
 import { ENEMIES } from '../../src/data/enemies.js';
+import { EVENT_ENEMIES } from '../../src/data/events/index.js';
 import { SANDBOX_COINS, SANDBOX_COIN_STEP } from '../../src/systems/sandbox.js';
 import { battleMusicStep, initialBattleMusic } from '../../src/audio/battle.js';
 import {
@@ -47,7 +48,7 @@ describe('sandbox battle params', () => {
     expect(sim.cash).toBe(SANDBOX_COINS);
     expect(sim.endless).toBe(true);
     expect(sim.options.autoStart).toBe(false);
-    expect(sim.loadout.get(TOWERS[0]).level).toBe(60);
+    expect(sim.loadout.get(TOWERS[0]).level).toBe(85);
     expect(sim.heroConfig.unitId).toBe(HERO);
   });
 });
@@ -55,8 +56,9 @@ describe('sandbox battle params', () => {
 describe('sandbox spawn helpers', () => {
   it('lists every enemy, bosses included, by family', () => {
     const ids = enemyGroups().flatMap((g) => g.enemies.map((e) => e.id));
-    expect(ids.length).toBe(ENEMIES.length);
+    expect(ids.length).toBe(ENEMIES.length + EVENT_ENEMIES.filter((e) => !ENEMIES.some((x) => x.id === e.id)).length);
     expect(ids).toContain('dragon_ashwing');
+    expect(ids).toContain('construct_gourdlight');
   });
 
   it('spawns any enemy at the start of a path and opens a wave around it', () => {
@@ -218,11 +220,71 @@ describe('sandbox spawn helpers', () => {
     const fresh = createProfile();
     const id = [...sim.loadout.keys()].find((u) => !fresh.units[u]);
     expect(id).toBeTruthy();
-    expect(sim.loadout.get(id).level).toBe(60);
+    expect(sim.loadout.get(id).level).toBe(85);
     let placed = null;
     for (let y = 1; y < sim.map.height && !placed; y++) for (let x = 1; x < sim.map.width && !placed; x++) placed = sim.placeTower(id, x + 0.5, y + 0.5);
     expect(placed?.def.id).toBe(UNIT_MAP[id].id);
     expect(sim.cash).toBeGreaterThan(900000);
     expect(ensureWave(sim)).toBe(true);
+  });
+});
+
+describe('sandbox catch-up runs (docs/specs/SANDBOX_CATCHUP.md)', () => {
+  const run = (params, seed = 5) => {
+    const req = parseBattleParams({ sandbox: '1', team: 'tenka.kage', hero: 'kogane', ...params }, unlocked());
+    expect(req.error).toBe(null);
+    expect(req.freeplay).toBe(null); // never the solo freeplay ledger's
+    expect(req.titan).toBeUndefined(); // never a Titan key or tracker
+    return createBattleSim(unlocked(), { ...req, seed }).sim;
+  };
+
+  it('freeplay from wave 200 meets the Ashwing Matriarch, with the LR girl in her LR set', () => {
+    const sim = run({ stage: '4-5', difficulty: 'nightmare', fp: 'blossom', wave: '200', sb: '85-6-5-1-lr-geometry' });
+    expect(sim.freeplay).toBe(true);
+    expect(sim.endless).toBe(false);
+    expect(sim.loadout.get('tenka')).toMatchObject({ level: 85, potential: 6, lr: true, set: 'geometry', setN: 5, setLr: true });
+    expect(sim.startNextWave()).toBe(true);
+    expect(sim.wave).toBe(200);
+    expect(sim.freeplayInfo(200)).toBeTruthy();
+    expect(sim._spawnQueue.some((s) => s.enemyId === 'dragon_ashwing')).toBe(true);
+    for (let i = 0; i < 300; i++) sim.update(1 / 60);
+    expect(sim.warnings).toEqual([]);
+  });
+
+  it('a start wave on any stage: the next wave sent is that one', () => {
+    const sim = run({ stage: '2-7', wave: '42' });
+    expect(sim.wave).toBe(41);
+    expect(sim.startNextWave()).toBe(true);
+    expect(sim.wave).toBe(42);
+  });
+
+  it('event stages play their difficulty variant; battle modes reach the Sim', () => {
+    const ev = run({ stage: 'ev-halloween-boss', difficulty: 'nightmare' });
+    expect(ev.stage.variant?.difficulty).toBe('nightmare');
+    const rush = run({ stage: '3-2', bmode: 'rush' });
+    expect(rush.mode.id).toBe('rush');
+  });
+
+  it('Titan Trials at Mayhem +30 with the titan\'s own HP', () => {
+    const sim = run({ ttn: 'foundry', ttier: 'mayhem', trank: '30' });
+    expect(sim.stageId).toBe('titan:foundry:mayhem:30');
+    expect(sim.startNextWave()).toBe(true);
+  });
+
+  it('a freeplay wave sent early keeps each spawn\'s own HP factor, speed, leak and affix', () => {
+    const sim = run({ stage: '4-5', fp: 'tempest', wave: '120' });
+    const driver = createSandboxDriver(sim);
+    expect(driver.sendNextWave()).toBe(true); // between waves: starts 120
+    const w = sim._getWave(121);
+    expect(driver.sendNextWave()).toBe(true); // during it: 121 queues up
+    const base = (sim.stage.hpScale ?? 1) * sim.diff.hpMul;
+    const q = driver.queue.slice(-w.spawns.length);
+    w.spawns.forEach((s, i) => {
+      expect(q[i].hpMul).toBeCloseTo(base * (s.hpMul ?? w.hpMul), 9);
+      expect(q[i].speedMul).toBe(s.speedMul);
+      expect(q[i].leak).toBe(s.leak);
+      expect(q[i].spawnMods).toBe(s.mods);
+    });
+    driver.destroy();
   });
 });

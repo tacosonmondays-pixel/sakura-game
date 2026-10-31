@@ -1061,7 +1061,16 @@ export function unitPower(profile, unitId)       // single number for sorting/UI
 
 Scaling is deliberately modest (heroes were too strong before): damage +1.8% per level after 1,
 +5% per awaken star, rate +0.4% per level; gear adds on top. Level 60 ★5 ≈ ×2.4 damage; level 85 (P6) ≈ ×2.86
-damage and ×1.34 rate (its curve simply continues). Sandbox girls fight at their P1 cap (60).
+damage and ×1.34 rate (its curve simply continues). Sandbox girls fight at the true maximum by default (L85, 10 gates,
+P6, ★5, LR for an LR unit, her coach set at Set LR ×5) or any lower build the tester picks: `src/systems/sandbox.js`
+`sandboxProfile(unitId, build)` builds a throwaway profile (virtual gear, `lr:`/`lbt:` counters) that only
+`unitBattleStats` reads; nothing of it reaches the save (docs/specs/SANDBOX_CATCHUP.md).
+
+Sandbox route (`#/battle?…&sandbox=1`, `src/systems/sandbox.js sandboxBattleParams` / `parseSandboxRun`): `stage`
+(any stage of STAGE_MAP, event stages included) or `ttn`/`ttier`/`trank` (a Titan Trials stage; never `req.titan`),
+`fp` (freeplay tier on a campaign stage; never `req.freeplay`, so no solo freeplay ledger), `wave` (start wave 1–999:
+set on the solo Sim's `wave`/`wavesCleared` before it runs), `bmode` (battle mode, campaign only), `sb` (squad build
+token `level-P-stars-lr-gear`), `sx` (per-girl builds `id_token,…`).
 
 ### `src/systems/gear.js`
 

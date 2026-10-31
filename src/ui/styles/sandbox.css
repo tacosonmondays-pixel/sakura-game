@@ -16,7 +16,7 @@
 .sbx-bar { padding: 8px 12px; }
 .sbx-bar-info { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 200px; }
 .sbx-bar-map { font-family: var(--font-head); font-style: italic; font-weight: 900; color: var(--navy); font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.sbx-bar-diff { flex: none; font-size: 0.72rem; font-weight: 900; color: #fff; background: var(--blue-deep); padding: 1px 8px; border-radius: 999px; }
+.sbx-bar-diff { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.72rem; font-weight: 900; color: #fff; background: var(--blue-deep); padding: 1px 8px; border-radius: 999px; }
 .sbx-bar-actions { display: flex; gap: 8px; flex: none; }
 .sbx-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sbx-diff { margin: 0; }
@@ -44,4 +44,46 @@
   .sbx-head-actions { flex-wrap: nowrap; gap: 6px; }
   .sbx-head-actions .mb-seg-btn { padding-left: 8px; padding-right: 8px; }
   .sbx-map-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+}
+
+/* catch-up (docs/specs/SANDBOX_CATCHUP.md): the run line, the run options, the mode tabs, the build controls */
+.sbx-run-line { font-size: 0.75rem; font-weight: 800; color: var(--blue-deep); }
+.sbx-options { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 14px; background: #fff; border-radius: 12px; padding: 8px 12px; box-shadow: var(--shadow); }
+.sbx-opt { display: flex; flex-direction: column; gap: 3px; min-width: 0; max-width: 100%; }
+.sbx-opt .mb-seg { flex-wrap: wrap; }
+.sbx-wave { flex-direction: row; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.sbx-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sbx-field-label { font-size: 0.75rem; font-weight: 900; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.sbx-select, .sbx-num { min-height: 34px; border-radius: 8px; border: 2px solid rgba(29, 78, 137, 0.18); background: #fff; color: var(--navy); font-weight: 800; font-size: 0.85rem; padding: 4px 8px; max-width: 100%; }
+.sbx-num { width: 84px; }
+.sbx-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.sbx-chip { min-height: 34px; padding: 4px 10px; border-radius: 999px; border: 2px solid rgba(29, 78, 137, 0.15); background: #f3f8ff; color: var(--blue-deep); font-weight: 900; font-size: 0.75rem; }
+.sbx-chip.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+.sbx-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 2px; max-width: 100%; }
+.sbx-tabs::-webkit-scrollbar { display: none; }
+.sbx-tab { flex: none; min-height: 36px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 10px; border: none; background: rgba(29, 78, 137, 0.1); color: var(--muted); font-weight: 900; font-size: 0.82rem; white-space: nowrap; }
+.sbx-tab.on { background: #fff; color: var(--blue-deep); box-shadow: 0 2px 6px rgba(29, 78, 137, 0.18); }
+.sbx-tab:disabled { opacity: 0.45; }
+.sbx-tab-n { font-size: 0.75rem; background: rgba(29, 78, 137, 0.12); border-radius: 999px; padding: 0 6px; }
+.sbx-build { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.sbx-build-note, .sbx-girl-note, .sbx-girl-gear { font-size: 0.75rem; margin: 6px 0 0; }
+.sbx-slot { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sbx-slot .mb-fslot { width: 100%; }
+.sbx-slot-build { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-height: 28px; border-radius: 8px; border: none; background: #eaf4ff; color: var(--blue-deep); font-weight: 900; font-size: 0.75rem; padding: 2px 4px; white-space: nowrap; overflow: hidden; }
+.sbx-slot-build.own { background: var(--blue); color: #fff; }
+.sbx-slot-build .ma-inline-icon { width: 12px; height: 12px; }
+.sbx-lr { position: absolute; left: 4px; top: 24px; z-index: 3; font-size: 0.75rem; font-weight: 900; font-style: italic; color: #fff; background: linear-gradient(90deg, #2a2f6e, #7a5cff); padding: 0 6px; border-radius: 4px; pointer-events: none; }
+.sbx-girl-modal .sbx-build { grid-template-columns: 1fr 1fr; }
+@media (max-width: 420px) {
+  .sbx-build { grid-template-columns: 1fr 1fr; }
+}
+@media (max-height: 480px) {
+  .sbx-options { padding: 5px 10px; gap: 6px 10px; }
+  .sbx-chip, .sbx-select, .sbx-num, .sbx-tab { min-height: 30px; }
+  .sbx-build { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  /* portrait phone: the sticky header stays short (the rules strip shows on the squad step) */
+  .sbx-head .sbx-rules { display: none; }
+  .sbx-bar-info { flex-wrap: wrap; }
 }

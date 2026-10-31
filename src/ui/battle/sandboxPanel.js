@@ -7,6 +7,7 @@
 import { h, icon, enemyToken, traitBadge } from './util.js';
 import { fmtNum } from '../format.js';
 import { ENEMIES, FAMILIES, ENEMY_MAP } from '../../data/enemies.js';
+import { EVENT_ENEMIES } from '../../data/events/index.js';
 import { TRAITS } from '../../data/types.js';
 import { initTraitState } from '../../sim/enemies.js';
 import { SANDBOX_COIN_STEP, SANDBOX_COIN_CAP } from '../../systems/sandbox.js';
@@ -27,9 +28,10 @@ export const EXTRA_TRAITS = {
   hasty: { mul: 2, every: 4, duration: 1.2 },
 };
 
-/** Every enemy grouped by family (bestiary order), bosses included. */
+/** Every enemy grouped by family (bestiary order), bosses and event enemies (the Gourdlight) included. */
 export function enemyGroups() {
-  return Object.values(FAMILIES).map((f) => ({ family: f, enemies: ENEMIES.filter((e) => e.family === f.id) })).filter((g) => g.enemies.length);
+  const all = [...ENEMIES, ...EVENT_ENEMIES.filter((e) => !ENEMIES.some((x) => x.id === e.id))];
+  return Object.values(FAMILIES).map((f) => ({ family: f, enemies: all.filter((e) => e.family === f.id) })).filter((g) => g.enemies.length);
 }
 
 /**
@@ -74,9 +76,11 @@ export function applyMods(e, mods) {
  * Spawns one enemy at the start of a path with the given switches (and HP scale, when the entry
  * belongs to a wave sent early). @returns {object|null}
  */
-export function spawnOne(sim, enemyId, { pathIndex = 0, mods = null, hpMul = undefined } = {}) {
+export function spawnOne(sim, enemyId, { pathIndex = 0, mods = null, hpMul = undefined, speedMul = undefined, leak = undefined, spawnMods = undefined } = {}) {
   ensureWave(sim);
-  const e = sim.spawnEnemy(enemyId, hpMul != null ? { pathIndex, dist: 0, hpMul } : { pathIndex, dist: 0 });
+  // (an early-sent freeplay spawn keeps its own speed, leak and affix: `spawnMods`, the Sim's spawn `mods`)
+  const extra = { ...(speedMul != null ? { speedMul } : {}), ...(leak != null ? { leak } : {}), ...(spawnMods ? { mods: spawnMods } : {}) };
+  const e = sim.spawnEnemy(enemyId, hpMul != null ? { pathIndex, dist: 0, hpMul, ...extra } : { pathIndex, dist: 0, ...extra });
   if (e && mods) applyMods(e, mods);
   return e;
 }
@@ -212,8 +216,9 @@ export function createSandboxDriver(sim, { unlimitedLives = () => true } = {}) {
       if (sim.state !== 'wave') return false;
       sim.wave++;
       const w = sim._getWave(sim.wave);
-      const hpMul = (sim.stage.hpScale ?? 1) * sim.diff.hpMul * w.hpMul;
-      push(w.spawns.map((s) => ({ at: sim.time + s.t, enemyId: s.enemyId, pathIndex: s.pathIndex, mods: null, hpMul })));
+      // each entry keeps its own wave HP factor (a freeplay boss's rank factor), speed, leak and affix
+      const base = (sim.stage.hpScale ?? 1) * sim.diff.hpMul;
+      push(w.spawns.map((s) => ({ at: sim.time + s.t, enemyId: s.enemyId, pathIndex: s.pathIndex, mods: null, hpMul: base * (s.hpMul ?? w.hpMul), speedMul: s.speedMul, leak: s.leak, spawnMods: s.mods })));
       sim._emit('waveStart', { wave: sim.wave });
       return true;
     },

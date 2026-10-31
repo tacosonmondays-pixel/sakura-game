@@ -97,12 +97,12 @@ async function run(vp) {
   // ---- map + difficulty ----
   await tap('[data-testid="hub-sandbox"]');
   await page.waitForSelector('[data-testid="sandbox-maps"]', { timeout: T });
-  const mapCount = await page.locator('[data-testid^="sandbox-map-"]').count();
-  check(mapCount >= 49, `map picker lists every map (${mapCount})`);
-  await tap('[data-testid="sandbox-map-peaks_ridge"]');
+  const mapCount = await page.locator('[data-testid^="sandbox-stage-"]').count();
+  check(mapCount >= 40, `stage picker lists every Act I stage (${mapCount})`);
+  await tap('[data-testid="sandbox-stage-8-4"]');
   await tap('[data-testid="sandbox-diff-hard"]');
   await page.waitForTimeout(300);
-  check(await page.evaluate(() => document.querySelector('[data-testid="sandbox-map-peaks_ridge"]')?.classList.contains('on') && document.querySelector('[data-testid="sandbox-diff-hard"]')?.classList.contains('on')), 'map picker: Dragonback Ridge + Hard selected');
+  check(await page.evaluate(() => document.querySelector('[data-testid="sandbox-stage-8-4"]')?.classList.contains('on') && document.querySelector('[data-testid="sandbox-diff-hard"]')?.classList.contains('on')), 'stage picker: 8-4 (Dragonback Ridge) + Hard selected');
   await shot('maps');
   const overflowMaps = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
   check(!overflowMaps, 'map picker: no horizontal overflow');
@@ -115,8 +115,9 @@ async function run(vp) {
     return [...document.querySelectorAll('[data-testid^="sandbox-unit-"]')].map((e) => e.dataset.unit).find((id) => !p.units[id]) || null;
   });
   check(!!unowned, `squad: the roster offers a girl the player does not own (${unowned})`);
-  // a clean squad: just her
-  await page.evaluate(() => { sessionStorage.setItem('sakura.sandbox.v1', JSON.stringify({ mapId: 'peaks_ridge', difficulty: 'hard', towers: [], hero: null })); });
+  // a clean squad: just her, at the old Lv 60 build with no gear (the true maximum clears a runner group before any
+  // leaks, and the unlimited-lives check below needs leaks; e2e/sandbox-catchup.mjs covers the maximum)
+  await page.evaluate(() => { sessionStorage.setItem('sakura.sandbox.v1', JSON.stringify({ stageId: '8-4', difficulty: 'hard', towers: [], hero: null, build: { level: 60, p: 1, stars: 5, lr: false, gear: 'none' } })); });
   await page.evaluate(() => { location.hash = '#/sandbox'; });
   await page.waitForSelector('[data-testid="sandbox-maps"]', { timeout: T });
   await tap('[data-testid="sandbox-next"]');
