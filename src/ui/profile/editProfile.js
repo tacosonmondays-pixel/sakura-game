@@ -8,7 +8,7 @@ import { BANNERS, FRAMES, TITLES, QUICK_LINES, bannerLockText } from '../../data
 import { portraitHTML } from '../../art/portraits.js';
 import { frameChipSVG } from '../../art/profileArt.js';
 import { unitPower } from '../../systems/progression.js';
-import { earnedTitles, earnedFrames, frameChoices, bannerUnlocked, titleChoices, secretTitleHint } from '../../systems/profileTrophies.js';
+import { earnedTitles, earnedFrames, frameChoices, bannerUnlocked, titleChoices, secretTitleHint, secretFrameHint } from '../../systems/profileTrophies.js';
 import { setSensei } from '../../systems/senseiSave.js';
 import { titlesFromText } from '../../systems/honors.js';
 import { BIO_MAX, PROFILE_VISIBILITY_DEFAULT, bioError } from '../../online/profileRules.js';
@@ -118,9 +118,9 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
       h('div.ep-sec', label('Frame', `${frames.size} / ${frameList.length} earned`),
         h('div.ep-frames', { 'data-testid': 'edit-frames' }, [null, ...frameList].map((f) => { // event frames: while they can be earned, then owners only
           const ok = f === null || frames.has(f);
-          const hide = f && !ok && FRAMES[f].secret; // a secret frame: "???" and its hint until owned
+          const hide = f && !ok ? secretFrameHint(p, f) : null; // a secret frame: "???" and its hint until found
           return h(`button.ep-frame${draft.frame === f ? '.on' : ''}${ok ? '' : '.locked'}${hide ? '.secret' : ''}`, { type: 'button', disabled: !ok, 'data-frame': f || 'default', onclick: () => set('frame', f) },
-            svgEl(frameChipSVG(hide ? null : f), 'ep-frame-ico'), h('span.ep-frame-t', h('b', f ? (hide ? '???' : FRAMES[f].name) : 'Default'), h('small', ok ? (draft.frame === f ? 'Equipped' : 'Earned') : hide ? FRAMES[f].hint : FRAMES[f].how)), ok ? null : ico('lock', 'ep-lock'));
+            svgEl(frameChipSVG(hide ? null : f), 'ep-frame-ico'), h('span.ep-frame-t', h('b', f ? (hide ? '???' : FRAMES[f].name) : 'Default'), h('small', ok ? (draft.frame === f ? 'Equipped' : 'Earned') : hide || FRAMES[f].how)), ok ? null : ico('lock', 'ep-lock'));
         }))),
     ],
     banner: () => [
