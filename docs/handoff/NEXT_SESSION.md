@@ -445,3 +445,35 @@ The v0.1.68 assembly starts once most of these reviews are OK. It is COOP 16 bec
 **Owner asks this hour:**
 - Bigger stickers: done.
 - A kobra.systems link ("better taste in UI"). I proposed a UI polish pass after v0.1.68; waiting on the owner.
+
+## UPDATE 2026-10-31 11:19 UTC (coordinator)
+
+All v0.1.68 pieces have passed review and are merged, or merging, into release/v0.1.68 (assembly session_01Ayo4epijedhWS24eX5TLBq). It's COOP 16, sim e3c222f3ad44.
+
+Pieces:
+- duo p2t5 fix 47bf83b5
+- stickers shadow 5886ac20
+- coop-freeplay test 25ea080d
+- set-boxes-v2 6d2e5716, plus L2/I1 tweaks
+- icons 1b0e2603
+- drag-touch test fc049543
+- stickers-bigger 3db8c68c
+- tripo-batch-2 19c69bf8, plus L1-r2/L2-r2/I1-r2/I2-r2
+- sandbox-catchup 9fea5a42, plus R3/R4 CSS
+- more-page-dps 768da799, plus L7/L8 test hardening
+
+Deferred follow-ups:
+- sandbox R1/R2 precision (Resonance rounding, Armor Pierce typical mean)
+- UR box band colours on the teal and pastel boxes
+- DUO_T5 engines scenario
+- damage-source split for mirrors, tether and DoT (needs a sim change)
+
+Next: final gates, a fresh go/no-go, ship (not between 23:00 and 01:00 UTC), live check.
+
+Owner decisions still pending:
+- art v3: C recommended
+- co-op sharing defaults
+- Suzu/Azami boss damage
+- UR box sources
+- the shieldline shield
+- UI polish pass (kobra link)
