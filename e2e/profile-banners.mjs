@@ -1,6 +1,7 @@
 // End-to-end check of the 'pb:' Sensei Profile banners (docs/specs/PROFILE_BANNERS.md):
 //   1. Edit Profile → Banner lists all 34 banners; a save with some claims sees the pb: ones it earned unlocked and
-//      the rest locked with a lock chip that stays inside its tile; the count line reads "n / 34 unlocked"
+//      the rest locked with a lock chip that stays inside its tile; the count line reads "n / 34 unlocked"; tapping a
+//      locked tile shows its whole rule in a toast and does not pick it
 //   2. pick Nightglass Sky, Save: the profile banner draws it; the published card carries it, and the card a viewer
 //      cleans (cleanViewedCard) keeps it; the Preview (what other Senseis see) draws it too
 //   3. a painted pb: banner (Pumpkin Lantern Night) on the profile
@@ -137,6 +138,23 @@ async function runViewport(vp) {
   await page.locator('[data-banner="pb:petal_storm"]').first().scrollIntoViewIfNeeded().catch(() => {});
   await shot('picker-new');
   await noOverflow('picker');
+  // a locked tile is tappable and shows its whole rule (a phone can't hover the tooltip; review r1 L2)
+  await page.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove()));
+  // (force: Playwright's actionability treats aria-disabled as disabled; a real tap or click still fires)
+  {
+    const tile = page.locator('[data-testid="edit-banners"] [data-banner="pb:summit_nest"]').first();
+    await tile.scrollIntoViewIfNeeded().catch(() => {});
+    if (touch) await tile.tap({ force: true });
+    else await tile.click({ force: true });
+    await settle();
+  }
+  const lockTap = await page.evaluate(() => ({
+    toast: [...document.querySelectorAll('.toast')].map((t) => t.textContent).join(' | '),
+    on: document.querySelector('[data-testid="edit-banners"] [data-banner="pb:summit_nest"]')?.classList.contains('on'),
+    aria: document.querySelector('[data-testid="edit-banners"] [data-banner="pb:summit_nest"]')?.getAttribute('aria-disabled'),
+  }));
+  check(/Summit Nest: .*Two Hundred Strong.*wave 200/.test(lockTap.toast) && !lockTap.on && lockTap.aria === 'true', `tapping a locked tile shows its rule and doesn't pick it (${JSON.stringify(lockTap)})`);
+  await shot('picker-locked-tap');
 
   // ---- 2. pick Nightglass Sky, save, the card
   log('-- 2. Nightglass Sky on the profile and the card');

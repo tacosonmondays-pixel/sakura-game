@@ -3,7 +3,7 @@
 The owner asked for "more banners", meaning the **profile banners**: the picture across the top of the Sensei Profile,
 which other players see on your profile card. This branch adds **20 new banners**, for **34** in total. They are
 cosmetic only, every one unlocks from things the player has already done, and they need **no SQL paste**. The change is
-display and data only, and the **sim id is unchanged** (`36cba1c215b0`, `COOP_PROTOCOL` 14).
+display and data only, and the **sim id is unchanged from the base release** (no `COOP_PROTOCOL` bump).
 
 Board: `docs/specs/profile-banners/board.png`, every new banner drawn by the game's own `bannerArt()`. Rebuild it with
 `node e2e/profile-banners-board.mjs`.
@@ -92,8 +92,11 @@ Every unlock is read from what the save already holds, and nothing is granted or
   the same pattern as the `evt:` event-title shadow.
   - Picking any older banner clears `pbn:`, so the shadow never overrides a real choice.
   - If the whole block is dropped, the `pfs:banner` hash is enough, because this build's pool includes the `pb:` ids.
-- **Sim and co-op:** none of these files are in the sim's import graph. `simId()` gives `36cba1c215b0` before and after
-  the change.
+  - Accepted limit (review r1 L1): picking `academy:day` on purpose in an older build looks the same as that build's
+    reset, so the `pb:` banner comes back on the next load in this build. The `evt:` and `tagt:` titles behave the
+    same way.
+- **Sim and co-op:** none of these files are in the sim's import graph. `simId()` is unchanged from the base release
+  (checked before and after the change).
 
 ## 5. Illustrations (the six slots)
 

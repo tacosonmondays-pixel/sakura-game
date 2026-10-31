@@ -127,7 +127,10 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
       h('div.ep-banners', { 'data-testid': 'edit-banners' }, BANNERS.map((b) => {
         const ok = bannerUnlocked(p, b.id);
         const how = b.kind === 'pb' ? pbHowText(b.id) : '';
-        return h(`button.ep-banner${draft.banner === b.id ? '.on' : ''}${ok ? '' : '.locked'}`, { type: 'button', disabled: !ok, 'data-banner': b.id, title: how ? `${b.name} · ${how}` : b.name, onclick: () => set('banner', b.id) },
+        // a locked tile stays tappable (aria-disabled, not disabled): a tap shows its whole rule, which a phone's cut
+        // lock chip and a tooltip can't (review r1 L2)
+        const locked = () => toast(`${b.name}: ${how || bannerLockText(b.id)}`, 'info', 3200);
+        return h(`button.ep-banner${draft.banner === b.id ? '.on' : ''}${ok ? '' : '.locked'}`, { type: 'button', 'aria-disabled': ok ? null : 'true', 'data-banner': b.id, title: how ? `${b.name} · ${how}` : b.name, onclick: () => (ok ? set('banner', b.id) : locked()) },
           bannerArt(b.id, { thumb: true }), h('span.ep-banner-t', b.name), ok ? null : h('span.ep-banner-lock', ico('lock'), bannerLockText(b.id)), draft.banner === b.id ? h('i.ep-check', '✓') : null);
       })),
     ],
