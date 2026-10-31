@@ -313,3 +313,16 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
 
 - **Tie Pin and Collar Pin stay Supply Bot only for now.** Owner: "keep it in supply bot for now". Don't add player sources (Titan shop / Bounty Exchange / drops) until the owner asks. UR Set Boxes are likewise Supply Bot only (SET_BOXES_V2 default).
 - The Tripo website batch is about 900 MB. The owner will upload it as a **draft GitHub release** with tag `tripo-raw-batch-2`. Delete the draft after processing.
+
+## UPDATE 2026-10-31 07:12 UTC (coordinator)
+
+- **v0.1.66**: live check PASS (review/v0.1.66-live @ 337e77d0). About 1,600 requests, all 200, with no errors; a v0.1.65 save loads with no loss.
+  - Follow-up logged: the lobby reload blocks for ~30 s on software GL at 1280x720. This is pre-existing.
+- **v0.1.67**: the go/no-go (session_01Ayo4eothACitNJFzaqtizA) is still running on eb0b1ab9. Smoke shows only the known failures.
+- **v0.1.68 pieces in progress:**
+  - **item icons:** feature/item-icons-3d @ 9a66575e has 41 icons. Still to do: 18 more set looks, the modal and the backpack (session_01Ayo4eqMGbYD6CyGCx9Unp7).
+  - **set-boxes-v2 + LR awakening:** feature/set-boxes-v2 (session_01Ayo4eqpJHzAuKCjFySULet); the spec is spec/set-boxes-v2 @ 59175f96.
+  - **sandbox catch-up:** feature/sandbox-catchup (session_01Ayo4eqKEZMVKDHYpn5m6yk).
+- **Tripo batch 2**: the owner shared a Google Drive folder with 5 zip parts, about 900 MB. drive.usercontent.google.com downloads work from cloud sessions.
+  - The Tripo session (session_01Ayo4eniSEuWQnvLYk8muWz) is processing them into feature/tripo-batch-2.
+  - Drive file ids are in that session's brief. No GitHub release was needed.
