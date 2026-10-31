@@ -1,0 +1,454 @@
+{
+ "id": "chika",
+ "round": 3,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 7.5,
+    "background": 8,
+    "camera": 8.5,
+    "quality": 7
+   },
+   "total": 7.58,
+   "notes": "Gloved hand reaching toward the viewer, wrench gripped and held diagonally out to the side (not at viewer), two round drones, brass pipes, arched windows, blueprint grid. Brass goggles with green lenses + gear clip, mustard neckerchief, navy jacket with rolled sleeves and brass buttons, leather straps, tool belt, gloves all match. Hair is brighter orange than the portrait's copper and the jacket is open rather than buttoned; the near glove is large and a little soft but has five digits. Only a plain oval emboss on the wrench, no letters."
+  },
+  "r1-1": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "fail: wrench handle engraved with letter-like marks (x~420-510,y~340-360)",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 7.5,
+    "camera": 7.5,
+    "quality": 8
+   },
+   "total": 7.88,
+   "notes": "Wrench on shoulder, drone cradled in hand; very good likeness; rejected for the engraving."
+  },
+  "r1-2": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "fail: clock face with numerals (top left) and handwritten papers (bottom left)",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 7.5,
+    "camera": 8.5,
+    "quality": 7.5
+   },
+   "total": 7.8,
+   "notes": "Reach pose with wrench on shoulder; rejected for numerals/writing."
+  },
+  "r1-3": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: wrench lies behind her shoulders, neither hand holds it",
+    "safety": "fail: camera from below (strong worm's-eye view)",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 5,
+    "background": 8,
+    "camera": 7,
+    "quality": 7
+   },
+   "total": 7.05,
+   "notes": "Low angle and loose prop."
+  },
+  "r1-4": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "fail: wrench handle engraved with letter-like marks (x~250-340,y~340 and x~600-680,y~320)",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.83,
+   "notes": "Thumbs-up with wrench on shoulder, drones; rejected for engraving."
+  },
+  "r1-5": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail: camera from below",
+    "hands": "fail: near glove (bottom left) is a mitten blob without separable fingers",
+    "no_text": "fail: clock with numerals",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 7.5,
+    "background": 8,
+    "camera": 8,
+    "quality": 6.5
+   },
+   "total": 7.42,
+   "notes": "Several fails."
+  },
+  "r1-6": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: wrench floats behind her, not held; second wrench shape down her right side",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "fail: clock numerals and a framed paper with writing",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 4,
+    "background": 8,
+    "camera": 7,
+    "quality": 7
+   },
+   "total": 6.9,
+   "notes": "Holding a cup instead of the wrench."
+  },
+  "r2-0": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail: strong camera from below",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 6,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 7
+   },
+   "total": 7.22,
+   "notes": "Reach; wrench on shoulder; drones."
+  },
+  "r2-1": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail: camera from below",
+    "hands": "pass",
+    "no_text": "fail: wall clock with numerals (x~0-120,y~390-520)",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.75,
+   "notes": "Reach, wrench on shoulder."
+  },
+  "r2-2": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail: strong worm's-eye camera",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 8,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.83,
+   "notes": "Reach, wrench on shoulder, drone."
+  },
+  "r2-3": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail: camera from below (ceiling beams visible, looking up at her)",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 8,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.83,
+   "notes": "Drone in open glove, wrench on shoulder; blueprints, lantern, clock."
+  },
+  "r2-4": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: wrench barely visible, head hidden behind her shoulder",
+    "safety": "borderline: chest shaped under the shirt at centre",
+    "hands": "fail: near glove is a mitten with fused fingers",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 4,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 6.5
+   },
+   "total": 6.83,
+   "notes": "Reach pose."
+  },
+  "r2-5": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "fail: wall clock with Roman numerals (x~600-730,y~60-190) and notes with writing on the wall",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 6.5,
+    "background": 8.5,
+    "camera": 8.5,
+    "quality": 7.5
+   },
+   "total": 7.8,
+   "notes": "Goggle-touch pose; wrench pointed out to the side."
+  },
+  "r2-6": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "fail: book spine on the right shelf carries gold lettering (x~640-700,y~740-770)",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 8,
+    "camera": 8,
+    "quality": 8
+   },
+   "total": 8.0,
+   "notes": "Thumbs-up, wrench on shoulder gripped cleanly, two drones, eye-level camera; would have won but for the lettering."
+  },
+  "r3-0": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 7.5,
+    "background": 7,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.47,
+   "notes": "Wrench raised overhead in one glove, other hand a thumbs-up/finger-point toward the viewer (five digits), eye-level dutch angle. Goggles with gear clip, neckerchief, navy jacket, straps, double tool belt, gloves match; hair bright orange rather than copper and jacket open. Wrench is an odd hybrid (open end at top, adjustable jaw at bottom right) but reads as one wrench; no markings. Background: arched windows, lantern, blueprint roll, desks, mostly bright and sparse. Passes but 7.48 < r1-0."
+  },
+  "r3-1": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "fail: eyes at y~375-390 of 1024 (36.6-38 %), point between eyes ~[450,378] is below the 36 % line",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 8
+   },
+   "total": 7.78,
+   "notes": "Best likeness of the round (copper hair, goggles with gear clip, neckerchief, buttoned-looking jacket, straps, tool belt, gloves), thumbs-up toward viewer, wrench over the shoulder (wooden-gripped handle, head behind her neck), drones and lanterns; ruled paper with no writing. Rejected only because the head sits too low in the frame."
+  },
+  "r3-2": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "fail: letter-like 'AV' mark on the wrench's worm housing (x~680-700,y~215-230); scribbled labels on jars at right (x~690-760,y~790-900)",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 8,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.83,
+   "notes": "Thumbs pointed at the viewer, giant adjustable wrench over the shoulder, drones, arched windows. Slightly low camera too."
+  },
+  "r3-3": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "fail: wrench handle carries engraved grid panels with scribbled marks (x~60-260,y~420-500)",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 7.5,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.7,
+   "notes": "Thumbs-up, wrench across the shoulders gripped; brass instrument bottom left. Rejected for the engraving (same failure as r1-1/r1-4)."
+  },
+  "r3-4": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail: camera from below (looking up at her, underside of chin and chest)",
+    "hands": "fail: near reaching glove (bottom left) is a soft foreshortened blob with unclear fingers",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 7.5,
+    "background": 7.5,
+    "camera": 8.5,
+    "quality": 6.5
+   },
+   "total": 7.4,
+   "notes": "Reach-after-drone pose, wrench on shoulder; low angle and soft near hand."
+  },
+  "r3-5": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "fail: open palm glove has fused/merged fingers (thumb + ~3 indistinct digits)",
+    "no_text": "fail: letter-like stamped marks on the wrench's silver block (x~200-260,y~190-260)",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 8.5,
+    "camera": 8,
+    "quality": 7
+   },
+   "total": 7.8,
+   "notes": "Drone hovering over open palm, wrench on shoulder, rich gothic workshop; rejected for the hand and wrench markings."
+  },
+  "r3-6": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 7.5,
+    "background": 6.5,
+    "camera": 8,
+    "quality": 7
+   },
+   "total": 7.3,
+   "notes": "Open hand toward viewer (five fingers), wrench on shoulder gripped. No hex nut; odd floating screws/goblets at left and a floating plate at right. Background greenish, blurred columns, thinner than her portrait's. Passes but 7.30."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-0",
+ "pick_total": 7.58,
+ "eyes": [
+  388,
+  255
+ ],
+ "head": 305,
+ "checklist": {
+  "likeness": "yes - goggles, neckerchief, navy jacket, straps, tool belt, gloves match; hair a brighter orange than the portrait's copper, jacket open",
+  "prop": "yes",
+  "halo_free": "yes",
+  "background": "rich",
+  "adult": "n.a."
+ },
+ "fixes": [
+  "Round 3 passing candidates r3-0 (7.47) and r3-6 (7.30) both score below r1-0 (7.58); r1-0 stays.",
+  "Closest miss r3-1 (7.78, likeness 8) failed only on crop: head too low. If rerun keep r3-1's seed/pose (arm raised with the wrench, thumbs-up toward viewer) and push the head up: 'her face in the upper quarter, eyes high in the frame', drop 'room above her head'.",
+  "Wrench markings remain the most common fail (r3-2, r3-3, r3-5): add 'stamped marks, engraved panels, inscriptions, plain smooth steel wrench' to negative/prompt; add 'jar labels' to the negative.",
+  "Keep 'from below, low angle' negative weighted (r3-4 still low)."
+ ],
+ "safety_flags": [
+  "r1-3, r1-5 low camera (rejected)",
+  "r2-0, r2-1, r2-2, r2-3 low camera (rejected); r2-4 borderline chest framing",
+  "r3-4 low camera (rejected)"
+ ],
+ "round2_note": "Kept r1-0 (7.58).",
+ "round3_note": "Kept r1-0 (7.58); best round-3 passer r3-0 7.47."
+}

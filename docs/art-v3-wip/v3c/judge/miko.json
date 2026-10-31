@@ -1,0 +1,163 @@
+{
+ "id": "miko",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7.5,
+    "background": 8,
+    "camera": 7,
+    "quality": 8
+   },
+   "total": 8.03,
+   "notes": "Gohei held across her body, streamers trail low-left; worship hall with rope and bell, lantern, cherry trees. Face sits right (~66% across), close to the limit. Bow touches the top edge (the crown is inside). Checked from the sheet and at full size."
+  },
+  "r1-1": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7,
+    "background": 7.5,
+    "camera": 7,
+    "quality": 8
+   },
+   "total": 7.88,
+   "notes": "Open hand reaches toward the viewer (5 fingers). Gohei is short and held low at hip level, so it reads small. Hall, steps, lanterns. Little dutch angle."
+  },
+  "r1-2": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 6.5,
+    "background": 8,
+    "camera": 6.5,
+    "quality": 7.5
+   },
+   "total": 7.53,
+   "notes": "Gohei held diagonally with a dark cord, and the streamers float detached at the right. Sakaki sprig unclear. Checked from the sheet only."
+  },
+  "r1-3": {
+   "hard": {
+    "halo": "pass",
+    "prop": "fail (gohei not clearly present)",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 4,
+    "background": 8,
+    "camera": 7,
+    "quality": 7
+   },
+   "total": 7.1,
+   "notes": "Ladle pours water toward the viewer; the gohei is not clearly visible (streamers only at the bottom left). Weak prop. Checked from the sheet only."
+  },
+  "r1-4": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.9,
+   "notes": "Reaching hand plus a raised gohei, but the streamers wrap the shaft like a pinwheel and gold bells sit on top. Reaching hand is mushy but has 5 digits. Small gold waist bell missing."
+  },
+  "r1-5": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 9,
+    "prop": 8.5,
+    "background": 8,
+    "camera": 5,
+    "quality": 8.5
+   },
+   "total": 8.28,
+   "notes": "Closest to the portrait's pose: both hands on the gohei with one long zigzag streamer. Static, near-frontal camera. The bell is moved onto the wand end."
+  },
+  "r1-6": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 9,
+    "prop": 8,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 8.5
+   },
+   "total": 8.45,
+   "notes": "Gohei raised at her shoulder with zigzag streamers; the other hand reaches toward the viewer (thumb + 4). Gold bell at the waist on red cord. Hall with straw rope, lanterns, stone steps, cherry trees, hills. Slight dutch angle. Clean Look B."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-6",
+ "pick_total": 8.45,
+ "eyes": [
+  308,
+  229
+ ],
+ "head": 218,
+ "checklist": {
+  "likeness": "yes - hime-cut black hair, big red bow, mauve-pink eyes, red-trimmed white kimono, red hakama with belt bow and gold bell",
+  "prop": "yes",
+  "halo_free": "yes",
+  "background": "rich",
+  "adult": "n.a."
+ },
+ "fixes": [],
+ "safety_flags": []
+}

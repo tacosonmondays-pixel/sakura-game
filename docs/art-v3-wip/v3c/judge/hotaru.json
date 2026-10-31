@@ -1,0 +1,163 @@
+{
+ "id": "hotaru",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 9,
+    "background": 8.5,
+    "camera": 6.5,
+    "quality": 8
+   },
+   "total": 8.28,
+   "notes": "Staff gripped, lantern on the hook; bridge, steps and hall; static."
+  },
+  "r1-1": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 9,
+    "background": 9,
+    "camera": 8,
+    "quality": 8.5
+   },
+   "total": 8.6,
+   "notes": "High angle three-quarter; teal beret with gold star, white flower and tassel, honey bob, amber eyes, patterned teal haori, cream frilled dress, white tights, satchel and star belt. Hooked staff gripped in both hands (upper hand partly hidden behind the hook), lantern with gold star pattern hanging from the hook by its chain. Rich garden: red bridge, stepping stones, pond, stone lanterns, hall, autumn trees, firefly dots. Daylight replaces her portrait's dusk (per spec)."
+  },
+  "r1-2": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7,
+    "background": 8,
+    "camera": 7,
+    "quality": 7.5
+   },
+   "total": 7.85,
+   "notes": "Lantern held in her palm, staff behind not gripped."
+  },
+  "r1-3": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8,
+    "background": 8.5,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 8.12,
+   "notes": "On the red bridge; staff held, second hand open beside it."
+  },
+  "r1-4": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7,
+    "background": 8.5,
+    "camera": 7.5,
+    "quality": 7
+   },
+   "total": 7.88,
+   "notes": "Lantern hangs from a ring near her hand, not from the hook; staff end in other hand."
+  },
+  "r1-5": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7,
+    "background": 8.5,
+    "camera": 6.5,
+    "quality": 7.5
+   },
+   "total": 7.88,
+   "notes": "Staff passes behind her arm with no grip; lantern floats beside her open palm."
+  },
+  "r1-6": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8.5,
+    "background": 8.5,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 8.2,
+   "notes": "Reaching hand, staff held low, lantern on hook; face near the left limit (~32%)."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-1",
+ "eyes": [
+  343,
+  245
+ ],
+ "head": 260,
+ "checklist": {
+  "likeness": "yes - honey-orange fluffy bob, teal beret with gold star badge/white flower/tassel, amber eyes, teal haori, cream dress with white ruffle, white tights, satchel",
+  "prop": "yes (hooked wooden staff with glowing round paper lantern, gold star pattern, tassel)",
+  "halo_free": "yes",
+  "background": "rich (shrine garden: bridge, pond, stone lanterns, hall, autumn trees, fireflies)",
+  "adult": "n.a."
+ },
+ "fixes": [],
+ "safety_flags": [],
+ "pick_total": 8.6
+}

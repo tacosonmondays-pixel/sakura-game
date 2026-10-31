@@ -1,0 +1,165 @@
+{
+ "id": "raika",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 8
+   },
+   "total": 7.92,
+   "notes": "Points at viewer (finger, not the staff); staff upright behind; windsock, railing, city. Good but r1-1 has a richer station."
+  },
+  "r1-1": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass: thumbs-up hand 4 curled fingers + thumb; staff hand clean",
+    "no_text": "pass",
+    "crop": "pass (face ~48%, eyes ~35.6% - near limit)",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 9,
+    "background": 8.5,
+    "camera": 7.5,
+    "quality": 8.5
+   },
+   "total": 8.47,
+   "notes": "Strong likeness (wavy gold hair, gold ram horns, lilac eyes, periwinkle coat dress with gold edges, lilac bow, indigo tights/boots, open grin). Big gold star-in-ring staff upright beside her head. Station: striped windsock, slatted instrument box, rain gauges, railing, city, mountains, cumulus. Dutch angle, thumb toward camera."
+  },
+  "r1-2": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8.5,
+    "background": 6.5,
+    "camera": 6.5,
+    "quality": 8
+   },
+   "total": 7.9,
+   "notes": "Both hands on the staff, no hand toward camera; background sparser (box, railing, mountains)."
+  },
+  "r1-3": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 6.5,
+    "camera": 8.5,
+    "quality": 8
+   },
+   "total": 7.83,
+   "notes": "Very dynamic point and grin; horns oversized; background mostly railing/lamp/trees."
+  },
+  "r1-4": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass (eyes ~34%)",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 9,
+    "background": 7.5,
+    "camera": 6,
+    "quality": 8
+   },
+   "total": 8.07,
+   "notes": "Staff planted, open hand toward viewer; instrument box + rain gauge; little camera tilt."
+  },
+  "r1-5": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 7,
+    "camera": 7,
+    "quality": 7.5
+   },
+   "total": 7.58,
+   "notes": "Staff swung over shoulder; smaller figure, face less detailed."
+  },
+  "r1-6": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8.5,
+    "background": 7,
+    "camera": 8,
+    "quality": 8
+   },
+   "total": 7.92,
+   "notes": "Thumbs up, dish and box; good, background thinner than r1-1."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-1",
+ "pick_total": 8.47,
+ "eyes": [
+  365,
+  365
+ ],
+ "head": 220,
+ "checklist": {
+  "likeness": "yes - same hair, ram horns, lilac eyes, coat dress, bow and grin as her portrait",
+  "prop": "yes",
+  "halo_free": "yes (the ring is the staff head)",
+  "background": "rich",
+  "adult": "n.a."
+ },
+ "fixes": [],
+ "safety_flags": [
+  "Eyes at ~35.6% down, just inside the 36% limit; the crop can be nudged down a few px when placed."
+ ]
+}

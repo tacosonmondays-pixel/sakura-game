@@ -1,0 +1,167 @@
+{
+ "id": "noa",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 9,
+    "prop": 8.5,
+    "background": 8.5,
+    "camera": 8,
+    "quality": 8.5
+   },
+   "total": 8.65,
+   "notes": "Shoulder-length honey-brown hair with one side bun and a sakura pin, rose-pink eyes, grey blazer over a mint cardigan, mint bow, armband with sakura, white pouch with sakura clasp. Translucent shield with glowing rim and sakura plate held at her side in her hand. Open palm toward the viewer (thumb + 4, clean). School building with entrance steps and glass doors, bench, kerb, hedges, cherry tree. Mid-step, dutch angle."
+  },
+  "r1-1": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8,
+    "background": 8,
+    "camera": 7,
+    "quality": 8
+   },
+   "total": 8.1,
+   "notes": "Holds a blossom toward the viewer, shield at her side, one leg kicked back. Checked from the sheet."
+  },
+  "r1-2": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 9,
+    "prop": 8,
+    "background": 8.5,
+    "camera": 8,
+    "quality": 8.5
+   },
+   "total": 8.57,
+   "notes": "Reaching palm (5 digits), shield beside her (her holding hand hidden), wall clock, bench, cherry tree. Very close second."
+  },
+  "r1-3": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8.5,
+    "background": 8,
+    "camera": 7,
+    "quality": 8
+   },
+   "total": 8.18,
+   "notes": "Waving hand with the shield raised beside her; leg kicked back. Checked from the sheet."
+  },
+  "r1-4": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8,
+    "background": 8.5,
+    "camera": 5.5,
+    "quality": 7.5
+   },
+   "total": 7.92,
+   "notes": "The thumbs-up did not render (low fist); shield beside her; clock tower. Static. Checked from the sheet."
+  },
+  "r1-5": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7.5,
+    "background": 8,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 8.03,
+   "notes": "Reaching hand, big shield; the shield hand shows awkwardly through the panel with a mint cuff."
+  },
+  "r1-6": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8,
+    "background": 8,
+    "camera": 6,
+    "quality": 7.5
+   },
+   "total": 7.9,
+   "notes": "Small reaching hand at the right; shield in front of her right side. Checked from the sheet."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-0",
+ "pick_total": 8.65,
+ "eyes": [
+  386,
+  237
+ ],
+ "head": 268,
+ "checklist": {
+  "likeness": "yes - one side bun, sakura pin, rose-pink eyes, grey blazer, mint cardigan and bow, armband, pouch, grey tights, loafers",
+  "prop": "yes",
+  "halo_free": "yes (no floor ring either)",
+  "background": "rich",
+  "adult": "n.a."
+ },
+ "fixes": [
+  "Optional: the skirt draws above the knee rather than the requested 'below the knee'. If re-rolled, raise it to 1.4::plaid skirt below the knee::."
+ ],
+ "safety_flags": [
+  "Skirts above the knee over opaque grey tights; one leg kicked back in r1-0, r1-1, r1-3. No thigh focus, camera at or above eye level, so judged a pass."
+ ]
+}

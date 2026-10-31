@@ -3,7 +3,7 @@
 import sys, os
 from PIL import Image, ImageDraw
 gid, out, cands = sys.argv[1], sys.argv[2], sys.argv[3:]
-ref = f"/home/user/sakura-game/public/art/portraits/{gid}-full.webp"
+ref = os.environ.get("SHEET_REF") or f"/home/user/sakura-game/public/art/portraits/{gid}-full.webp"
 tiles = []
 if os.path.exists(ref):
     tiles.append(("CURRENT (v2)", Image.open(ref).convert("RGB")))

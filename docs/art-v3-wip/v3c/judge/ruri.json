@@ -1,0 +1,163 @@
+{
+ "id": "ruri",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass: both hands on the book edges, clean",
+    "no_text": "pass",
+    "crop": "pass (face ~47%, eyes ~18%)",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 9,
+    "background": 8.5,
+    "camera": 7,
+    "quality": 8
+   },
+   "total": 8.32,
+   "notes": "Deep-blue long hair, side braid, gold star clip, sky-blue eyes, cream blazer with navy piping and gold crest, blue-grey vest, sky-blue bow, navy book armband, cyan wristband, long plaid skirt, navy socks. Glowing grimoire with white paw print held out, Kon (white robot fox, cyan eyes/tail) stepping out of it. Arched window with cherry trees, shelves, rolling ladder, tables, stacked books. Mild tilt, book toward camera."
+  },
+  "r1-1": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "fail: face centre ~24% across (<30%)",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8.5,
+    "background": 8.5,
+    "camera": 8.5,
+    "quality": 8
+   },
+   "total": 8.4,
+   "notes": "Best camera (dutch, wave, Kon on shoulder) but face too far left."
+  },
+  "r1-2": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8,
+    "background": 8.5,
+    "camera": 6.5,
+    "quality": 8
+   },
+   "total": 8.12,
+   "notes": "Reading grimoire, Kon small on the floor; static."
+  },
+  "r1-3": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass (Kon on a high shelf, book in hand)",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7,
+    "background": 8,
+    "camera": 7,
+    "quality": 7.5
+   },
+   "total": 7.65,
+   "notes": "Kon far away; hand toward viewer."
+  },
+  "r1-4": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: no grimoire",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 4,
+    "background": 8.5,
+    "camera": 7,
+    "quality": 8
+   },
+   "total": 7.58,
+   "notes": "Kon on the table, hand to it; grimoire missing."
+  },
+  "r1-5": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: no Kon",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 4.5,
+    "background": 7.5,
+    "camera": 6,
+    "quality": 7.5
+   },
+   "total": 7.1,
+   "notes": "Book thrust to camera; fox missing."
+  },
+  "r1-6": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: book under her arm is a plain thick tome, not the glowing paw-print grimoire",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 5,
+    "background": 8.5,
+    "camera": 7.5,
+    "quality": 8
+   },
+   "total": 7.78,
+   "notes": "Kon on shoulder good."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-0",
+ "pick_total": 8.32,
+ "eyes": [
+  360,
+  185
+ ],
+ "head": 205,
+ "checklist": {
+  "likeness": "yes - hair, braid, star clip, eyes, cream blazer, armband, plaid skirt as her portrait",
+  "prop": "yes (grimoire + Kon)",
+  "halo_free": "yes",
+  "background": "rich",
+  "adult": "n.a."
+ },
+ "fixes": [],
+ "safety_flags": []
+}

@@ -1,0 +1,163 @@
+{
+ "id": "shiro",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8,
+    "background": 8,
+    "camera": 8,
+    "quality": 8
+   },
+   "total": 8.2,
+   "notes": "Best match: beret+crescent pin and clip, silver bob with long side lock, sleepy light-blue eyes, navy coat with tails, black tights. Rifle upright muzzle-up in her hand (muzzle has a second parallel rod, minor). Open gloved hand toward lens, 5 fingers. Bell arch, parapet, slate roofs. Skirt above knee over black tights (as her current portrait), no thigh focus."
+  },
+  "r1-1": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 6.5,
+    "background": 8.5,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.75,
+   "notes": "Good likeness and rich roofs/spires/bell. Rifle carried across body, muzzle down-right (not upright as spec); not aimed at viewer. Reaching glove fine."
+  },
+  "r1-2": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 7,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.67,
+   "notes": "Waving glove 5 fingers; rifle on shoulder diagonal, muzzle up-left out of frame. Background mostly sky + one building, thinner than others. Camera reads near eye level."
+  },
+  "r1-3": {
+   "hard": {
+    "no_halo": true,
+    "prop": false,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 4,
+    "background": 8,
+    "camera": 7,
+    "quality": 6.5
+   },
+   "total": 7.0,
+   "notes": "Rifle malformed: oversized blocky axe-like stock, two stacked scopes; reads as a wrong prop. Likeness ok."
+  },
+  "r1-4": {
+   "hard": {
+    "no_halo": true,
+    "prop": false,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 3,
+    "background": 8.5,
+    "camera": 7.5,
+    "quality": 8
+   },
+   "total": 7.28,
+   "notes": "Rifle slung behind her back, only a barrel tip over the shoulder: reads as missing (spec notes say slung = missing)."
+  },
+  "r1-5": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7.5,
+    "background": 8.5,
+    "camera": 7.5,
+    "quality": 8
+   },
+   "total": 8.15,
+   "notes": "Strong runner-up: rifle on shoulder, muzzle out to the side over the roofs, reaching glove 5 fingers, rich tower roofs and sea. No bell visible."
+  },
+  "r1-6": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 6,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.55,
+   "notes": "Rifle held diagonally muzzle-down, scope objective faces the lens; not aimed at viewer but not upright. Rooftop walkway background."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-0",
+ "pick_total": 8.2,
+ "eyes": [
+  508,
+  272
+ ],
+ "head": 227,
+ "checklist": {
+  "likeness": "yes - beret with crescent pin, crescent clip, silver bob + long side lock, sleepy light-blue eyes, navy coat/gold trim, black tights",
+  "prop": "yes",
+  "halo_free": "yes",
+  "background": "rich",
+  "adult": "n.a."
+ },
+ "fixes": [],
+ "safety_flags": []
+}

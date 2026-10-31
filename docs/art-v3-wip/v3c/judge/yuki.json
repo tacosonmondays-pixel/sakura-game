@@ -1,0 +1,163 @@
+{
+ "id": "yuki",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 7,
+    "camera": 7,
+    "quality": 7.5
+   },
+   "total": 7.58,
+   "notes": "Small crystal over palm, staff upright but not clearly gripped. Background softer/plainer."
+  },
+  "r1-1": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 6.5,
+    "background": 8,
+    "camera": 8.5,
+    "quality": 8
+   },
+   "total": 8.03,
+   "notes": "Waving hand toward lens, 5 fingers (zoom-checked); staff in other hand but small and cut by the right edge. Lamp posts, pines, bench."
+  },
+  "r1-2": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": false,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7,
+    "background": 8,
+    "camera": 8,
+    "quality": 6.5
+   },
+   "total": 7.55,
+   "notes": "Raised hand fingers overlap/merge, count unclear - rejected as hand fail. Staff diagonal, crystal up-left."
+  },
+  "r1-3": {
+   "hard": {
+    "no_halo": false,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 6.5,
+    "camera": 7,
+    "quality": 7.5
+   },
+   "total": 7.5,
+   "notes": "Arc/loop of snowflakes floats above-behind her head on the right - halo-like ring. Background hazy."
+  },
+  "r1-4": {
+   "hard": {
+    "no_halo": true,
+    "prop": false,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 4,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.25,
+   "notes": "Staff swung across her so the big crystal sits at the lens, left - reads as aimed at the viewer."
+  },
+  "r1-5": {
+   "hard": {
+    "no_halo": true,
+    "prop": false,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 3.5,
+    "background": 8,
+    "camera": 8,
+    "quality": 7
+   },
+   "total": 7.12,
+   "notes": "Staff floats unheld with a doubled crystal head swung toward the camera."
+  },
+  "r1-6": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8.5,
+    "background": 8.5,
+    "camera": 7,
+    "quality": 8
+   },
+   "total": 8.25,
+   "notes": "Silver bob, snowflake pin, round light-blue eyes, shy smile, fur capelet, blue bow with snowflake gem, pale blue/white dress; staff gripped in both hands, crystal up-left away from viewer. Dutch angle, iron lamp posts, snowy shrubs, bench, pines."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-6",
+ "pick_total": 8.25,
+ "eyes": [
+  324,
+  262
+ ],
+ "head": 312,
+ "checklist": {
+  "likeness": "yes - silver bob, snowflake pin, light-blue round eyes, fur capelet, blue bow with snowflake gem, white tights",
+  "prop": "yes",
+  "halo_free": "yes",
+  "background": "rich",
+  "adult": "n.a."
+ },
+ "fixes": [],
+ "safety_flags": []
+}

@@ -1,0 +1,33 @@
+{
+  "id": "momo",
+  "adult": false,
+  "prompt": "1girl, solo, high school student, rising idol of the idol club, pink twintails tied with big magenta ribbon bows, straight bangs, small pink triangle hair clip, violet eyes, round eyes, magenta and white idol dress, magenta puffy short sleeves with white frill cuffs, white frilled blouse front, big lavender bow at the collar, magenta bodice with two rows of small gold buttons, 1.3::knee-length skirt::, layered ruffles in magenta, white and pale pink, white gloves with frilled cuffs, white tights, holding a pink handheld microphone with a pink bow and a small star charm, cheerful wink, open-mouth smile, the school festival's open-air stage on a sunny afternoon, wooden stage floor, a white lighting truss with the stage lights switched off, a drum kit, a pink electric guitar on a stand, black speaker stacks, a keyboard on a stand, pink and white balloons, paper star garlands, cherry trees and the school building behind the stage, clear blue sky, upper body, from the waist up, {POSE}, her head in the upper third of the picture, empty space above her head, twintails and ruffles flying, anime screencap, anime coloring, cel shading, two-tone shading with soft-edged shadow shapes, thin colored lineart, clean lines, bright high-key lighting, pale skin with peach shadows, large eyes with one highlight, light blush, highly detailed background, detailed scenery full of objects, intricate environment, depth of field, soft daylight, matte flat cel shading, simple hard-edged shadows, muted highlights, anime key visual",
+  "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing straight, symmetrical composition, straight-on camera, short skirt, miniskirt, bare legs, thighhighs, zettai ryouiki, corset, cowboy shot, full body, audience, fans, concert crowd, night, spotlights, confetti, blonde hair, red hair, purple hair, single ponytail, short hair, blue eyes, green eyes, cat ears, bunny ears, headset, monochrome, greyscale, coloring book, sketch, unfinished, simple background, white background, flat background, border, frame, framed, flat color, no shading, thick lineart, manga, glossy, shiny skin, gradient shading, ornate, thighs, bare thighs, bunting, 1.4::halo::, ring halo, halo above head, floating ring, glowing ring above head, ring of light, circlet, angel, blurry background, empty background, plain sky background",
+  "poses": [
+    "she holds the microphone out toward the viewer as if inviting them to sing along, strong foreshortening, gloved hand and microphone very large near the camera, her other hand waving high, dutch angle, diagonal composition, eye level, twintails swinging",
+    "mid-twirl, one gloved hand reaching toward the viewer for a high five, strong foreshortening, open hand very large near the camera, the microphone raised beside her cheek in her other hand, dutch angle, diagonal composition, slightly from above, twintails and ruffles spinning out",
+    "pointing at the viewer with a wink as if picking out a fan, strong foreshortening, gloved fingertip very large near the camera, the microphone held near her chin in her other hand, dutch angle, diagonal composition, slightly from above, twintails bouncing",
+    "singing into the microphone held in one hand, her other gloved hand stretched toward the viewer with open fingers, strong foreshortening, hand very large near the camera, dutch angle, diagonal composition, eye level, twintails and bows flying",
+    "hopping toward the viewer with the microphone raised beside her head in one hand, her other gloved hand making a peace sign close to the camera, strong foreshortening, hand very large near the camera, dutch angle, diagonal composition, eye level, twintails and ruffles bouncing"
+  ],
+  "charref": "/home/user/sakura-game/public/art/portraits/momo-full.webp",
+  "charref_box": [
+    60,
+    20,
+    708,
+    700
+  ],
+  "identity": [
+    "pink twintails with big magenta ribbon bows, straight bangs",
+    "small pink triangle hair clip",
+    "violet eyes",
+    "magenta-and-white idol dress: puffy magenta sleeves, white frills, gold-button bodice",
+    "big lavender collar bow",
+    "white frilled gloves, white tights",
+    "PROP: pink handheld microphone with a pink bow and star charm, in every pose",
+    "cheerful wink"
+  ],
+  "scene": "the school festival's open-air stage on a sunny afternoon: wooden stage, white truss with lights off, drum kit, pink electric guitar on a stand, speaker stacks, keyboard, balloons, paper star garlands, cherry trees and the school building behind",
+  "notes": "STUDENT (adult: false). Her portrait has a short layered skirt and a night concert crowd: Look B frames her from the waist up, asks for a knee-length skirt, and keeps the stage empty and sunny (no crowd, no spotlights). The character reference is cropped head-to-hips (charref_box) so it carries the dress top, not the legs. Her portrait has no halo; the star halo comes from her data (halo: star, #ffc0e5). The coin pose nods to her Encore Toss path; the coin carries only a star, no text. Bunny ears belong to a skin, kept out. || v3c (Oct 31): Prop = her pink microphone (as her portrait) in all five poses; the invented coin and glow stick dropped. Her portrait's night concert (crowd, spotlights) stays out; the sunny stage now carries the portrait's drum kit, pink guitar and speakers. 'bunting' remains in the negative, so the scene uses paper star garlands instead. fid 0.7.",
+  "fid": 0.7
+}

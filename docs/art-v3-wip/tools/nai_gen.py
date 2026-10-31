@@ -26,7 +26,7 @@ from PIL import Image
 ROSTER = os.environ.get("ROSTER", "/home/user/work/roster")
 LOCK = os.path.join(ROSTER, "_nai.lock")
 LEDGER = os.path.join(ROSTER, "_ledger.jsonl")
-FLOOR = 6680  # 8480 at the start of the roster run minus the 1,800 Anlas cap
+FLOOR = int(os.environ.get("NAI_FLOOR", "6680"))  # the roster run floor; art v3c (Oct 31) sets NAI_FLOOR=1506 (balance 4,506 minus a 3,000 cap)
 GEN = "https://image.novelai.net/ai/generate-image"
 SUB = "https://image.novelai.net/user/subscription"
 MODEL = "nai-diffusion-4-5-full"

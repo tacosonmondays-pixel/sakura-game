@@ -1,0 +1,167 @@
+{
+ "id": "kaede",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 7.5,
+    "camera": 8.5,
+    "quality": 7.5
+   },
+   "total": 7.8,
+   "notes": "Ivory sleeves and cords like her portrait; rapier held upright by the guard, hand toward viewer."
+  },
+  "r1-1": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "fail: face centre ~25% across",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7,
+    "background": 8.5,
+    "camera": 9,
+    "quality": 7.5
+   },
+   "total": 7.92,
+   "notes": "Strong dutch angle and maple leaf guard, but face is too far left and the gloved hand does not grip the grip."
+  },
+  "r1-2": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 7.5,
+    "background": 7.5,
+    "camera": 6.5,
+    "quality": 7.5
+   },
+   "total": 7.4,
+   "notes": "Rapier lowered and gripped; plain coat-front framing, no blouse/cords."
+  },
+  "r1-3": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 6,
+    "background": 7.5,
+    "camera": 7.5,
+    "quality": 7
+   },
+   "total": 7.17,
+   "notes": "Rapier tiny at her hip; fitted coat draws some chest attention (watch)."
+  },
+  "r1-4": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 9,
+    "background": 7,
+    "camera": 8,
+    "quality": 8.5
+   },
+   "total": 8.1,
+   "notes": "Crimson eyes, red maple-leaf ornament with gold and red tassels, high-collared red coat with gold trim and cords, high-neck blouse (reads beige), black gloves. Rapier gripped across her body, blade lowered away to the right, gold basket guard with a red maple leaf. Salute hand fingers held together (thumb visible) - clean. Dutch angle. Background: maple tree, castle wall and tower, maple banners - less dense than her portrait. Hair is brighter red than her portrait's deep crimson."
+  },
+  "r1-5": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "fail: gripping and reaching hands merge into one glove with six+ fingers",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7.5,
+    "background": 8.5,
+    "camera": 9,
+    "quality": 6
+   },
+   "total": 7.9,
+   "notes": "Best camera and background, rapier upright, but the hand at the hilt is malformed; no red leaf in the guard."
+  },
+  "r1-6": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 6,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 7.25
+   },
+   "total": 7.47,
+   "notes": "Rapier small and half hidden at her hip; reaching hand."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-4",
+ "eyes": [
+  506,
+  250
+ ],
+ "head": 255,
+ "checklist": {
+  "likeness": "yes - crimson eyes, maple-leaf ornament with red tassels, red high-collar fencing coat with gold cords, black gloves (hair a brighter red than her portrait)",
+  "prop": "yes (rapier, silver blade, gold basket guard with red maple leaf; lowered, not toward viewer)",
+  "halo_free": "yes",
+  "background": "rich (autumn maple, castle wall and tower, banners; more sky than her portrait)",
+  "adult": "n.a."
+ },
+ "fixes": [
+  "Optional for a later pass: 'deep crimson-red hair' (portrait is darker than the bright red drawn here)."
+ ],
+ "safety_flags": [
+  "r1-3: fitted coat gives mild chest attention on a student - not picked; keep 'no chest focus' weighting."
+ ],
+ "pick_total": 8.1
+}

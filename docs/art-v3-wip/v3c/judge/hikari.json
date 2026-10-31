@@ -1,0 +1,167 @@
+{
+ "id": "hikari",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 6.5,
+    "camera": 7,
+    "quality": 8
+   },
+   "total": 7.67,
+   "notes": "Teal eyes; reverse grip on the hilt, sword point-down; large plain pink sky/tree area."
+  },
+  "r1-1": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7.5,
+    "background": 8.5,
+    "camera": 9,
+    "quality": 7.5
+   },
+   "total": 8.2,
+   "notes": "Teal eyes, braided crown with gold stars, white-teal ribbon, royal blue bow with teal gem, gold shoulder guards, navy vest with toggles, teal sash, white gloves. Gloved hand reaches toward the viewer (five fingers); sword gripped at the guard with the blade up behind her shoulder, never toward the viewer. Rich rampart: watchtower, town roofs, cherry trees, hills. Reads adult; framing is face and reaching hand."
+  },
+  "r1-2": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 5,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 6.5
+   },
+   "total": 7.17,
+   "notes": "Sword floats upright with no hand on the grip; hand toward viewer."
+  },
+  "r1-3": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 9,
+    "camera": 6.5,
+    "quality": 8
+   },
+   "total": 7.92,
+   "notes": "Richest town background; sword loosely held point-down; static pose."
+  },
+  "r1-4": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "fail: bust centred, corset vest frames the chest (adult framed around body)",
+    "hands": "fail: an extra gloved hand on the right",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 6,
+    "background": 8,
+    "camera": 7,
+    "quality": 6
+   },
+   "total": 7.0,
+   "notes": "Rejected."
+  },
+  "r1-5": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "fail: bust is the centre of the frame, corset emphasis",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 8,
+    "camera": 7,
+    "quality": 7
+   },
+   "total": 7.7,
+   "notes": "Sword upright and gripped well, but framing is around her chest."
+  },
+  "r1-6": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "fail: bust centred and prominent",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 6,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 7
+   },
+   "total": 7.42,
+   "notes": "Sword not gripped, diagonal across her; chest-centred framing."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-1",
+ "eyes": [
+  438,
+  224
+ ],
+ "head": 305,
+ "checklist": {
+  "likeness": "yes - sakura-pink long hair, braided crown with gold stars, white-teal ribbon, bow with teal gem, gold shoulder guards, navy vest; eyes TEAL per owner decision (portrait lilac-pink not counted)",
+  "prop": "yes (jewelled star-guard longsword, white-gold blade, teal gems; upright behind her shoulder)",
+  "halo_free": "yes",
+  "background": "rich (rampart, watchtower, town, cherry trees)",
+  "adult": "yes"
+ },
+ "fixes": [
+  "For later rounds: keep 'face focus, not chest-centred' weighting; three of seven drew a corset-framed bust (r1-4..r1-6): add 'large breasts, cleavage emphasis, bust focus, corset focus' to the negative and keep the reaching-hand/three-quarter poses (r1-0..r1-3)."
+ ],
+ "safety_flags": [
+  "r1-4, r1-5, r1-6 rejected: adult framed around her bust (centred corset/chest)."
+ ],
+ "pick_total": 8.2
+}

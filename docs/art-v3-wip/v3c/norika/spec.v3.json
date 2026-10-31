@@ -1,0 +1,29 @@
+{
+ "id": "norika",
+ "adult": true,
+ "prompt": "1girl, solo, adult woman in her thirties, tall, mature face, slender adult proportions, the academy's traffic safety officer, dark brown hair, straight bangs, two low tied tails over her shoulders, blue eyes, sharp eyes, yellow hard hat safety helmet, navy blazer, white collared shirt, plain neon yellow-green safety sash with no writing worn diagonally across the blazer with silver reflective stripes, white gloves, silver whistle hanging from a navy lanyard around her neck, navy slacks, navy rain boots, round red paddle sign with a white rim on a white pole, blank face, pale yellow thin ring halo floating above her helmet, whole halo visible inside the frame, small gap above the halo, determined look with a small kind smile, a zebra crosswalk in front of the academy gate on a bright morning, orange traffic cones, folding white and red striped barricades, green trees, clear blue sky, cowboy shot, headroom above the halo, {POSE}, her eyes on the right third, low tails and sash swinging, anime screencap, anime coloring, cel shading, two-tone shading with soft-edged shadow shapes, thin colored lineart, clean lines, bright high-key lighting, soft pastel palette, pale skin with peach shadows, large eyes with one highlight, light blush, detailed background, blurry background, bokeh, depth of field, soft daylight, matte flat cel shading, simple hard-edged shadows, muted highlights, anime key visual",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, ponytail, red necktie, red armband, school uniform, pleated skirt, skirt, student, clipboard, police uniform, police badge, holster, gun, letters on sign, stop sign text, blonde hair, black hair, long straight hair, red eyes, tight clothes, monochrome, greyscale, coloring book, sketch, unfinished, simple background, white background, flat background, border, frame, framed, flat color, no shading, thick lineart, manga, glossy, shiny skin, gradient shading, ornate, loli, kid, school cap, randoseru, text on sash, writing, kanji, katakana, letters on sash, whistle in mouth",
+ "poses": [
+  "she holds the round paddle sign out toward the viewer at arm's length, strong foreshortening, the blank paddle and white-gloved hand very large near the camera, her other hand raised palm-out, dutch angle, eye level, diagonal composition",
+  "she beckons the viewer across the crosswalk with her white-gloved hand reaching toward the camera, the silver whistle hanging from its lanyard, strong foreshortening, paddle sign on her shoulder, dutch angle, slightly from above, diagonal composition",
+  "she swings a folding striped barricade open toward the viewer, strong foreshortening, the barricade's end and her gloved hand large near the camera, paddle sign in her other hand, dutch angle, eye level, diagonal composition",
+  "she gives the viewer a cheerful thumbs up, strong foreshortening, white-gloved hand very large near the camera, paddle sign held upright in her other hand, dutch angle, slightly from above, diagonal composition"
+ ],
+ "identity": [
+  "dark brown hair, straight bangs, two low tied tails",
+  "blue eyes, sharp",
+  "yellow safety cap",
+  "navy blazer, white shirt",
+  "neon yellow-green hi-vis sash worn diagonally",
+  "white gloves",
+  "silver whistle on navy lanyard",
+  "navy slacks, rain boots",
+  "round red crossing-guard paddle, white rim, BLANK face (no letters)",
+  "pale yellow ring halo",
+  "determined, kind"
+ ],
+ "scene": "a zebra crosswalk in front of the academy gate on a bright morning, cones and folding striped barricades",
+ "notes": "ADULT staff (adult: true): cowboy shot in slacks, never framed around the body. No drawn art exists: no charref; designed from unitsStaff.js NORIKA + BANNERS D.4 (palette hair #4a3428, eyes #4f86c6, outfit navy #26345e, accent #d8f23a, paddle red #e0453c, halo #fff3a8). Generated with --vibe azami:0.2 per the task; Azami's portrait has a similar raised-palm / whistle / cone idea and a dark ponytail + red tie, so the negative guards against drifting into her (ponytail, red tie, armband, school uniform, skirt, clipboard). The STOP paddle is drawn blank (no text rule).",
+ "vibe": "azami:0.2",
+ "no_charref": true
+}

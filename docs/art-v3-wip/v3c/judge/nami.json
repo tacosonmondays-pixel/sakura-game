@@ -1,0 +1,310 @@
+{
+ "id": "nami",
+ "round": 2,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "halo": "pass",
+    "prop": "fail (malformed trident head)",
+    "safety": "fail (bust-centred framing)",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 4,
+    "background": 7.5,
+    "camera": 7,
+    "quality": 6.5
+   },
+   "total": 6.72,
+   "notes": "Trident head malformed: asymmetric fleur-like prongs, not three straight tines. Rejected on rule 3 (adult framed around her body): the fitted white jacket's bust is the visual centre of the frame."
+  },
+  "r1-1": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "fail (bust-centred framing)",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 7
+   },
+   "total": 7.6,
+   "notes": "White towers, ships, gulls; good trident. Rejected on rule 3 (adult framed around her body): the fitted white jacket's bust is the visual centre of the frame."
+  },
+  "r1-2": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "fail (borderline: bust emphasis)",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 6.5,
+    "background": 6.5,
+    "camera": 7,
+    "quality": 6
+   },
+   "total": 6.85,
+   "notes": "Heavy saturated rendering with thick dark lines (not Look B); trident tines curved and ornate; the background is washed out. The bust shape is emphasised under the jacket next to the offered hand, so borderline on rule 3 and rejected."
+  },
+  "r1-3": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 7,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.75,
+   "notes": "Teal wavy hair, white cap with shell emblem and pearl, pearl earrings, blue eyes, epaulettes, gold cords, teal bow, white gloves. Trident upright at the left (teal shaft, gold three-tine head, pearl), not aimed at the viewer. Open glove toward the viewer covers the torso (thumb + 4; three fingertips run off the bottom edge). Ships, rail, gulls, sea; no towers or lighthouse. Mature face, modest framing."
+  },
+  "r1-4": {
+   "hard": {
+    "halo": "pass",
+    "prop": "fail (trident head cropped/tiny)",
+    "safety": "fail (bust-centred framing)",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 4,
+    "background": 7.5,
+    "camera": 6.5,
+    "quality": 7
+   },
+   "total": 6.78,
+   "notes": "Trident is small and pushed into the top-left corner, with its head partly cut off; open hand. Rejected on rule 3 (adult framed around her body): the fitted white jacket's bust is the visual centre of the frame."
+  },
+  "r1-5": {
+   "hard": {
+    "halo": "pass",
+    "prop": "fail (trident head out of frame)",
+    "safety": "fail (bust-centred framing)",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 3,
+    "background": 7.5,
+    "camera": 7,
+    "quality": 7
+   },
+   "total": 6.88,
+   "notes": "Trident head is out of frame at the top (only the shaft shows); raised palm. Rejected on rule 3 (adult framed around her body): the fitted white jacket's bust is the visual centre of the frame."
+  },
+  "r1-6": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "fail (bust-centred framing)",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 7.5,
+    "camera": 7,
+    "quality": 7
+   },
+   "total": 7.62,
+   "notes": "Good trident and ships. Rejected on rule 3 (adult framed around her body): the fitted white jacket's bust is the visual centre of the frame."
+  },
+  "r2-0": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail (borderline): fitted jacket shapes the bust beside the offered glove; thick black outlines",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 6.5,
+    "background": 6.5,
+    "camera": 8,
+    "quality": 6.5
+   },
+   "total": 7.05,
+   "notes": "Hair saturated cyan (portrait is softer teal-blue), heavy black lineart, flame-like curved tines; lighthouse, gulls, plain quay."
+  },
+  "r2-1": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail: bust is the visual centre under the fitted white jacket",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 7,
+    "background": 7.5,
+    "camera": 7.5,
+    "quality": 6.5
+   },
+   "total": 7.22,
+   "notes": "Open hand reach; same bust-centred framing as round 1."
+  },
+  "r2-2": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail: bust shape emphasised at the centre of the frame",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 6.5,
+    "background": 7,
+    "camera": 7.5,
+    "quality": 6.5
+   },
+   "total": 7.08,
+   "notes": "Towers and banners present now; thick black lines; ornate curved tines."
+  },
+  "r2-3": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail: bust is the visual centre under the fitted jacket",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 6.5,
+    "background": 7,
+    "camera": 7,
+    "quality": 6.5
+   },
+   "total": 7.03,
+   "notes": "Bust-centred."
+  },
+  "r2-4": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail: bust shape emphasised under the fitted jacket",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 6.5,
+    "background": 7,
+    "camera": 7.5,
+    "quality": 6.5
+   },
+   "total": 7.08,
+   "notes": "Ships, rail; thick outlines, ornate tines."
+  },
+  "r2-5": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail: bust is the visual centre",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 6.5,
+    "background": 7,
+    "camera": 7,
+    "quality": 6.5
+   },
+   "total": 7.03,
+   "notes": "Bust-centred."
+  },
+  "r2-6": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail: bust is the visual centre",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 6.5,
+    "background": 7.5,
+    "camera": 7.5,
+    "quality": 6.5
+   },
+   "total": 7.15,
+   "notes": "Bust-centred; towers."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-3",
+ "pick_total": 7.75,
+ "eyes": [
+  328,
+  266
+ ],
+ "head": 285,
+ "checklist": {
+  "likeness": "yes - teal wavy hair, shell-emblem white cap with pearl, pearl earrings, navy/gold cape-coat with epaulettes, white gloves; eyes blue (the portrait is blue too)",
+  "prop": "yes",
+  "halo_free": "yes",
+  "background": "rich (ships, rail, gulls, sea; lighter than the portrait's citadel)",
+  "adult": "yes"
+ },
+ "fixes": [
+  "Round 2 did not fix the framing: all 7 still shape the bust under the fitted jacket, and the render drifted to thick black outlines and saturated cyan hair. Keep r1-3.",
+  "If another round is run: put 'closed navy cape draped over both shoulders and chest' at weight 1.4, add 'bust, fitted jacket, tight jacket, hourglass figure, thick outlines, black lineart, cyan hair' to the negative, and use '1.2::soft teal-blue hair::'."
+ ],
+ "safety_flags": [
+  "r1-0, r1-1, r1-4, r1-5, r1-6 and r1-2 (borderline) rejected: the adult hero's bust sits at the centre of the composition under the fitted jacket. Pattern across the seed set; fix the prompt before the next round.",
+  "All r2 candidates rejected on rule 3 (adult framed around her bust; r2-0 borderline). Round-1 pick r1-3 stays."
+ ],
+ "round2_note": "Kept r1-3 (7.75)."
+}

@@ -1,0 +1,165 @@
+{
+ "id": "rei",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7,
+    "background": 8,
+    "camera": 6.5,
+    "quality": 7.5
+   },
+   "total": 7.6,
+   "notes": "Sheathed katana at hip, sleeve sweep weak; ok."
+  },
+  "r1-1": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: katana floats by her open hand, not gripped",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 4,
+    "background": 8.5,
+    "camera": 7,
+    "quality": 7.5
+   },
+   "total": 7.47,
+   "notes": "Rack of practice swords in background is fine; but the prop is not held."
+  },
+  "r1-2": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass: open hand 5 fingers; hilt hand grips plausibly",
+    "no_text": "pass",
+    "crop": "pass (face ~52%, eyes ~21%)",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8,
+    "background": 9,
+    "camera": 7.5,
+    "quality": 8.5
+   },
+   "total": 8.4,
+   "notes": "Navy-black bob, blunt bangs, dark bow + gold star pin, lilac eyes, purple haori with gold edges and sakura pattern, lilac star bow - matches her portrait. Katana hilt (black/pink wrap, gold tsuba, pink silk ribbon) gripped at her hip, scabbard down behind her, sheathed, not aimed. Veranda pillar, shoji, tatami/boards, bench, gravel garden, moss, cherry trees. Dutch angle, hand reaching to the viewer."
+  },
+  "r1-3": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: sword broken - hilt on her palms but the scabbard reappears disconnected behind her at right",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 4,
+    "background": 8,
+    "camera": 6.5,
+    "quality": 7
+   },
+   "total": 7.25,
+   "notes": ""
+  },
+  "r1-4": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7,
+    "background": 8.5,
+    "camera": 6.5,
+    "quality": 8
+   },
+   "total": 7.97,
+   "notes": "Two-finger salute; only the hilt shows (scabbard hidden); little dutch."
+  },
+  "r1-5": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 7,
+    "background": 7.5,
+    "camera": 6,
+    "quality": 7
+   },
+   "total": 7.17,
+   "notes": "Face smaller, hair less neat."
+  },
+  "r1-6": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: katana drawn with two tsuba (doubled guard)",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 4.5,
+    "background": 8.5,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.6,
+   "notes": "Otherwise strong; doubled guard is a visible defect."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-2",
+ "pick_total": 8.4,
+ "eyes": [
+  397,
+  215
+ ],
+ "head": 265,
+ "checklist": {
+  "likeness": "yes - bob, star pin + bow, lilac eyes, purple sakura haori as her portrait",
+  "prop": "yes",
+  "halo_free": "yes",
+  "background": "rich",
+  "adult": "n.a."
+ },
+ "fixes": [],
+ "safety_flags": [
+  "Spec asked waist-up; candidates frame to mid-thigh, but the skirt is knee-ish with black tights, camera at eye level, no thigh focus - passes."
+ ]
+}

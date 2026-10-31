@@ -1,0 +1,32 @@
+{
+  "id": "rei",
+  "adult": false,
+  "prompt": "1girl, solo, high school student, calm quiet swordswoman, neat navy-black bob cut, straight blunt bangs, small dark bow and a gold star hair pin, lilac-violet eyes, sharp eyes, purple haori jacket with wide sleeves, thin gold edges and a pale sakura pattern on the sleeves, white high-collared blouse, lilac ribbon bow with a small gold star at the collar, navy obi sash, navy pleated skirt, black tights, holding a katana in a black scabbard with gold fittings and a long pink silk ribbon on the hilt, calm gentle smile, the academy dojo veranda on a bright spring morning, dark wooden pillars under a tiled roof eave, tatami floor, open paper shoji doors, a wooden rack of practice swords, a wooden bench, a raked gravel garden with mossy stones and shrubs, a big cherry tree in full bloom, blue sky, upper body, from the waist up, {POSE}, her head in the upper third of the picture, empty space above her head, bob swaying, anime screencap, anime coloring, cel shading, two-tone shading with soft-edged shadow shapes, thin colored lineart, clean lines, bright high-key lighting, pale skin with peach shadows, large eyes with one highlight, light blush, highly detailed background, detailed scenery full of objects, intricate environment, depth of field, soft daylight, matte flat cel shading, simple hard-edged shadows, muted highlights, anime key visual",
+  "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing still, straight-on camera, symmetrical composition, thighs, legs, sword pointed at viewer, weapon pointed at viewer, aiming at viewer, drawn sword, unsheathed sword, samurai armor, armor, night, dark background, long hair, ponytail, brown hair, purple hair, pink hair, white hair, blonde hair, red eyes, brown eyes, monochrome, greyscale, coloring book, sketch, unfinished, simple background, white background, flat background, border, frame, framed, flat color, no shading, thick lineart, manga, glossy, shiny skin, gradient shading, ornate, 1.4::halo::, ring halo, halo above head, floating ring, glowing ring above head, ring of light, circlet, angel, blurry background, empty background, plain sky background",
+  "poses": [
+    "turning sharply on her heel to face the viewer, one wide sleeve sweeping across the near foreground, strong foreshortening, her hand gripping the sheathed katana upright at her side, dutch angle, diagonal composition, eye level, bob and the pink silk ribbon flying with the turn",
+    "she reaches one hand toward the viewer palm up, inviting them into the dojo, strong foreshortening, open hand very large near the camera, her other hand gripping the sheathed katana at her hip, dutch angle, diagonal composition, eye level, bob and sleeves swaying",
+    "she waves one hand close to the camera in a quiet greeting, strong foreshortening, open hand large near the lens, the sheathed katana resting on her shoulder in her other hand, dutch angle, diagonal composition, slightly from above, bob and lilac ribbon swaying",
+    "she presents the sheathed katana lying sideways across both open palms held out toward the viewer, strong foreshortening, hands and black scabbard large near the camera, the scabbard pointing sideways, the pink silk ribbon fluttering, dutch angle, diagonal composition, eye level, bob and sleeves swaying",
+    "stepping toward the viewer, she gives a playful two-finger salute toward the camera, strong foreshortening, fingers very large near the camera, the sheathed katana gripped upright in her other hand, dutch angle, diagonal composition, slightly from above, bob and haori sleeves flying"
+  ],
+  "charref": "/home/user/sakura-game/public/art/portraits/rei-full.webp",
+  "charref_box": [
+    100,
+    0,
+    720,
+    560
+  ],
+  "identity": [
+    "neat navy-black bob, straight blunt bangs",
+    "small dark bow + gold star hair pin",
+    "lilac-violet eyes, calm",
+    "purple haori jacket (wide sleeves, thin gold edges, pale sakura pattern)",
+    "white blouse, lilac ribbon bow with gold star, navy obi sash",
+    "navy pleated skirt, black tights (frame waist up)",
+    "PROP: katana in a black scabbard with gold fittings and a pink silk ribbon on the hilt, kept sheathed, held in every pose"
+  ],
+  "scene": "the academy dojo veranda on a bright spring morning: dark wooden pillars, tiled roof eave, tatami, open shoji doors, rack of practice swords, wooden bench, raked gravel garden with mossy stones, blossoming cherry tree",
+  "notes": "STUDENT (adult false): fully dressed, eye level or slightly above; framed from the waist up because of her short pleated skirt and tights (thighs and legs in the negative). Katana stays sheathed (drawn sword in the negative). Halo is our PETAL shape, drawn as a thin pale-pink ring of five small petals. Charref crop is head to waist. || v3c (Oct 31): Removed the leftover 'floating above her head' halo fragment. Scene switched from the v3 rose garden to her portrait's own dojo veranda (tatami, shoji, cherry tree, stone garden), which is richer and hers ('Sakura Samurai'). Jacket fixed to her portrait's purple haori with gold edges and sakura pattern. Prop = her sheathed katana held in every pose; the invented roses and teapot dropped. fid 0.7.",
+  "fid": 0.7
+}

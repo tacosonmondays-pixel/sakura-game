@@ -1,0 +1,163 @@
+{
+ "id": "ena",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 6.5,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.62,
+   "notes": "Card floating above a raised finger, fanned deck in the left hand with the launcher on the left wrist; braid over her left shoulder with red cord bow. Background plain brick buildings and hedges, no roses/terrace."
+  },
+  "r1-1": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 8
+   },
+   "total": 7.92,
+   "notes": "Card offered toward the viewer above an open left hand, launcher with red light on the left wrist, gothic building, lamp, roses, balustrade. Skirt just above the knee with tights; other hand hidden."
+  },
+  "r1-2": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8.5,
+    "background": 8.5,
+    "camera": 8,
+    "quality": 8
+   },
+   "total": 8.15,
+   "notes": "Two pale pink rose cards: one held up by her face, one pushed toward the camera by her left hand with the red-lit launcher on that wrist (pointed up, not at the viewer). Braid over her left shoulder with red cord bow, red rose ornament with tassel cords, gold rose brooch, crimson tie, blazer with crimson piping, long black coat with crimson lining, long plaid skirt and tights. Background: gothic manor with arched windows and a spire, rose bushes, balustrade terrace in golden late afternoon. Card faces carry only a rose."
+  },
+  "r1-3": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 7.5,
+    "background": 8,
+    "camera": 8.5,
+    "quality": 7
+   },
+   "total": 7.58,
+   "notes": "Big floating card fan with index finger raised, launcher in front; face large and cropped to mid-skirt; fan not really held."
+  },
+  "r1-4": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "fail: eyes at ~14 % down (between eyes ~[495,145]), above the 15 % limit",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 8,
+    "background": 8.5,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.78,
+   "notes": "Card throw with red thread, leg kick (skirt covers the knee); braid lies down the front of her chest."
+  },
+  "r1-5": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: wrist launcher drawn as a plain black cuff with no red light (prop not as drawn in her portrait)",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 6,
+    "background": 9,
+    "camera": 7,
+    "quality": 7.5
+   },
+   "total": 7.65,
+   "notes": "Best background (rose terrace, balustrade, gothic hall); spindly outstretched fingers."
+  },
+  "r1-6": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.85,
+   "notes": "Card fans in both hands, launcher with red light on the left wrist, gothic building with roses; lower card fan cut by the frame; tiny swirls in one card corner (no readable letters)."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-2",
+ "pick_total": 8.15,
+ "eyes": [
+  275,
+  210
+ ],
+ "head": 230,
+ "checklist": {
+  "likeness": "yes - rose-pink hair, left-shoulder braid with red bow, rose ornament with tassels, pink eyes, smug smile, blazer/coat/plaid skirt all match",
+  "prop": "yes",
+  "halo_free": "yes",
+  "background": "rich",
+  "adult": "n.a."
+ },
+ "fixes": [],
+ "safety_flags": []
+}

@@ -1,0 +1,304 @@
+{
+ "id": "aoi",
+ "round": 2,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: bow floats upright in front of her, neither hand grips it",
+    "safety": "borderline: underbust laced corset shapes the chest line (student)",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 4,
+    "background": 7.5,
+    "camera": 7.5,
+    "quality": 7
+   },
+   "total": 6.88,
+   "notes": "Open-hand reach pose; bow not held."
+  },
+  "r1-1": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "fail: her right hand (x~55-110,y~610-690) shows only thumb and one fingertip, rest of the fingers missing",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7,
+    "background": 7.5,
+    "camera": 7,
+    "quality": 7.5
+   },
+   "total": 7.58,
+   "notes": "Best likeness (ponytail, gold leaf clip, capelet with green gem, laced bodice as in the current portrait, quiver, pouch); bow gripped upright with vine wrap, string barely visible; odd green leaf curl inside the grip. Total 7.58 but hand fails."
+  },
+  "r1-2": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 5.5,
+    "background": 7.5,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.4,
+   "notes": "Thumbs-up, bow held low at her hip, grip hidden behind the pouch, only one limb visible and no string. Passes but prop weak; total 7.4 < 7.5."
+  },
+  "r1-3": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: bow drawn as a straight stick passing behind the waving hand and ending on her skirt; not held, no string",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 3.5,
+    "background": 8.5,
+    "camera": 7,
+    "quality": 7
+   },
+   "total": 7.1,
+   "notes": "Cherry trees and hall are the best background; prop broken."
+  },
+  "r1-4": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: arrow tip drawn toward the lower-right foreground (borderline aimed at viewer); string not attached to the bow tips",
+    "safety": "borderline: corset shapes the chest line",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 4,
+    "background": 8,
+    "camera": 8,
+    "quality": 6.5
+   },
+   "total": 6.9,
+   "notes": "Drawing pose with broken archery."
+  },
+  "r1-5": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "fail: lower hand on the bow (x~380-470,y~880-1000): limp fingers hanging off the bow, a dark detached digit",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 6,
+    "background": 8,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.6,
+   "notes": "Salute pose, cherry trees, bow horizontal at the hip (spec says upright). Hand fails."
+  },
+  "r1-6": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: bow floats horizontally across the bottom of the frame, no hand holds it",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 3.5,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 6.95,
+   "notes": "Wave pose; extra leaf hair pin; bow not held."
+  },
+  "r2-0": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: bow drawn as a straight stick held like a staff over her shoulder, a loose string line crosses her body unattached",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 3.5,
+    "background": 7.5,
+    "camera": 7.5,
+    "quality": 7
+   },
+   "total": 6.8,
+   "notes": "Pointing pose; target ring lying on the lawn; prop broken."
+  },
+  "r2-1": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: bow held horizontally across her body like a staff with both hands; the string runs as a separate straight line from the left edge, not attached to the bow tips",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 4.5,
+    "background": 7.5,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.25,
+   "notes": "Good face/capelet likeness; horizontal bow and detached string (negatives ignored)."
+  },
+  "r2-2": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: a second loose shaft crosses from her left hand to the quiver; bowstring only visible on the lower limb",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 5.5,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.45,
+   "notes": "Bow upright with vine wrap is close; leaf in the free hand; extra stray shaft."
+  },
+  "r2-3": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "fail: bow hand (x~150-300,y~620-770) is splayed open in front of the shaft, digits ambiguous, it does not grip the bow",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 6.5,
+    "background": 8,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.67,
+   "notes": "Sprout-offering pose with cherry trees and hall; straw targets drawn as logs."
+  },
+  "r2-4": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 8,
+    "camera": 8.5,
+    "quality": 8
+   },
+   "total": 8.05,
+   "notes": "Upright vine-wrapped longbow gripped in a clean fist (four fingers + thumb wrap the grip), thin string visible at the top; sun-shade salute with fingerless glove; ponytail, gold leaf clip, green capelet with gold edges and green gem clasp, bracers, pouch, quiver with white fletching; grin. Shooting hall and target stands on the dirt path, trees. Dutch angle. Laced corset mostly hidden by the arm, chest flat."
+  },
+  "r2-5": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: bow drawn as a straight staff, no curve and no string",
+    "safety": "pass",
+    "hands": "fail: hand on the staff has a stray detached finger shape at x~620-650,y~380-430",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 3,
+    "background": 8,
+    "camera": 8,
+    "quality": 7
+   },
+   "total": 7.05,
+   "notes": "Salute pose, cherry trees; prop broken."
+  },
+  "r2-6": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 6,
+    "background": 8,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.6,
+   "notes": "Salute with bow held diagonally across her body (spec: upright, negatives: bow across body); string visible. Passing but prop weaker than r2-4."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-4",
+ "pick_total": 8.05,
+ "eyes": [
+  349,
+  262
+ ],
+ "head": 290,
+ "checklist": {
+  "likeness": "yes - forest-green high ponytail, gold leaf clip, green hooded capelet with gold edges and gem clasp, cream blouse, brown bracers and fingerless gloves, pouch, quiver; corset largely hidden",
+  "prop": "yes",
+  "halo_free": "yes",
+  "background": "rich (shooting hall, target stands, path, trees; no cherry trees this time)",
+  "adult": "n.a."
+ },
+ "fixes": [],
+ "safety_flags": [],
+ "round2_note": "Round 1 had no passing candidate; r2-4 passes and clears the bar."
+}

@@ -1,0 +1,165 @@
+{
+ "id": "hana",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "fail: face centre ~73% across",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 8,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.9,
+   "notes": "Falcon in flight beside her bare fist; face too far right."
+  },
+  "r1-1": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 7.5,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.78,
+   "notes": "Falcon on shoulder, gloved hand forward."
+  },
+  "r1-2": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "fail: eyes ~46% down, girl small under the falcon",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 8.5,
+    "background": 8,
+    "camera": 7,
+    "quality": 7
+   },
+   "total": 7.58,
+   "notes": "Falcon dominates; she is small and low in the frame."
+  },
+  "r1-3": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 7,
+    "prop": 8,
+    "background": 7.5,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.38,
+   "notes": "Back turned with a look over the shoulder; jacket back and quiver dominate, less likeness."
+  },
+  "r1-4": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 9.5,
+    "background": 7,
+    "camera": 7,
+    "quality": 8.5
+   },
+   "total": 8.28,
+   "notes": "Canonical pose: robot falcon perched on her raised gloved fist (glove screen, tassel), braid over her right shoulder with olive bow, field jacket with wing patch, mustard neckerchief, long plaid skirt; quiver on back. Face centre ~31% across (eyes midpoint x 230) - inside the band but at its left edge. Background meadow, stone wall, mountains, birdhouse - decent, academy not shown."
+  },
+  "r1-5": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 9,
+    "background": 7.5,
+    "camera": 7,
+    "quality": 7.5
+   },
+   "total": 7.88,
+   "notes": "Falcon on fist at left, birdhouse; slightly less clean face."
+  },
+  "r1-6": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8.5,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 8
+   },
+   "total": 8.2,
+   "notes": "Falcon on shoulder (chunky owl-like head), gloved hand reaching to the viewer, clock tower; close alternative (8.2)."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-4",
+ "eyes": [
+  230,
+  178
+ ],
+ "head": 198,
+ "checklist": {
+  "likeness": "yes - auburn braid over right shoulder with olive bow, amber eyes, olive field jacket with wing patch, cream sailor shirt, mustard neckerchief, brown plaid skirt below the knee",
+  "prop": "yes (robot falcon on falconry glove with mint screen; quiver on back, bow not visible)",
+  "halo_free": "yes",
+  "background": "rich (meadow, stone wall, forest, mountains, birdhouse)",
+  "adult": "n.a."
+ },
+ "fixes": [
+  "Optional: if the owner wants her more central, r1-6 (falcon on shoulder, glove reaching) is the alternative at 8.2."
+ ],
+ "safety_flags": [],
+ "pick_total": 8.28
+}

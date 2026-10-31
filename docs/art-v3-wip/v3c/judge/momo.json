@@ -1,0 +1,167 @@
+{
+ "id": "momo",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 8
+   },
+   "total": 7.95,
+   "notes": "Both eyes open (no wink). Reaching glove plus mic, truss, keyboard, speakers, cherry trees. Checked from the sheet."
+  },
+  "r1-1": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8.5,
+    "background": 7.5,
+    "camera": 8.5,
+    "quality": 8
+   },
+   "total": 8.25,
+   "notes": "Strong dutch angle; open glove toward the viewer (thumb + 4), wink, mic at her cheek. Background has a stadium light tower rather than the stage truss, plus speakers."
+  },
+  "r1-2": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 8.03,
+   "notes": "Pointing glove toward the viewer with a wink, mic near her chin. The pointing hand is a little rubbery. Checked from the sheet."
+  },
+  "r1-3": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 9,
+    "background": 8,
+    "camera": 8.5,
+    "quality": 8.5
+   },
+   "total": 8.5,
+   "notes": "Wink, open-mouth smile, mic with bow and star charm held at her cheek; glove reaching toward the viewer (thumb + 4, clean). Truss, drum kit, keyboard, speakers, school building, cherry tree. Strong dutch angle."
+  },
+  "r1-4": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8.5,
+    "background": 8,
+    "camera": 7,
+    "quality": 8
+   },
+   "total": 8.18,
+   "notes": "Wink, mic raised, reaching glove; balloons, guitar, speakers. Checked from the sheet."
+  },
+  "r1-5": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8.5,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 8.5
+   },
+   "total": 8.32,
+   "notes": "Wink, mic with star charm, reaching glove (5 digits); pink guitar, speaker, keyboard, cherry trees. The pennant string is near the bunting negative but carries no text."
+  },
+  "r1-6": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8.5,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 8
+   },
+   "total": 8.22,
+   "notes": "Wink, reaching glove, mic; drum kit, speakers, keyboard. Checked from the sheet."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-3",
+ "pick_total": 8.5,
+ "eyes": [
+  370,
+  231
+ ],
+ "head": 290,
+ "checklist": {
+  "likeness": "yes - pink twintails with magenta bows, triangle clip, violet eyes, wink, magenta/white idol dress with lavender bow, gold buttons and white gloves",
+  "prop": "yes",
+  "halo_free": "yes",
+  "background": "rich",
+  "adult": "n.a."
+ },
+ "fixes": [
+  "Optional: the skirt draws at upper-knee length rather than the requested knee length. If re-rolled, raise the weight to 1.4::knee-length skirt::."
+ ],
+ "safety_flags": [
+  "All seven candidates have a short layered skirt (above the knee, like her current portrait) over opaque white tights. No bare skin, no thigh or hip focus, camera at or above eye level, so judged a pass, not borderline."
+ ]
+}

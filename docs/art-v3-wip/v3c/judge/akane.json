@@ -1,0 +1,165 @@
+{
+ "id": "akane",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "fail: menu board at left (x~20,y~680) carries pseudo-writing",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 7.5,
+    "background": 8,
+    "camera": 6.5,
+    "quality": 7.5
+   },
+   "total": 7.47,
+   "notes": "Hat-tip pose, staff stands upright beside her (not gripped), flame in palm. Hat lacks the red band and gold star; crown of hat soft and floppy. Rejected on the sign writing (borderline = reject)."
+  },
+  "r1-1": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "fail: left stall banner shows letter-like script ('wei') at x~0-160,y~450-560",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 7.5,
+    "background": 7.5,
+    "camera": 6.5,
+    "quality": 7.5
+   },
+   "total": 7.4,
+   "notes": "Wink + finger heart, staff gripped and crossing behind her; hat has red band but no gold star. Good likeness otherwise; rejected for banner lettering."
+  },
+  "r1-2": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "fail: camera from below (looking up at lanterns and under the hat brim)",
+    "hands": "pass",
+    "no_text": "fail: white price cards with marks on the right stalls",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 8,
+    "background": 8,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.7,
+   "notes": "Strong diagonal staff and reaching hand, but low-angle camera breaks the eye-level rule; also small labelled cards on stalls."
+  },
+  "r1-3": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "fail: red stall banner at x~150-260,y~250-290 has pseudo-kanji and a '2'",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 8,
+    "camera": 8.5,
+    "quality": 7.5
+   },
+   "total": 7.95,
+   "notes": "Best camera (open hand toward viewer, dutch), staff gripped upright with star and ring, hat star present. Rejected only for the banner text."
+  },
+  "r1-4": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: prop wrong: staff split into a short blue-handled wand with ring/star thrust toward the camera plus a second gnarled staff end in her other hand",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 3,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 6.5
+   },
+   "total": 6.67,
+   "notes": "Star end pointed toward the viewer and duplicated prop."
+  },
+  "r1-5": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 7,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 7
+   },
+   "total": 7.4,
+   "notes": "Pointing pose, staff gripped upright; extra gold ring floating beside the crystal; a stray tree branch crosses the sky; hat star not visible. Passes hard checks but total 7.4."
+  },
+  "r1-6": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7.5,
+    "background": 8,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.83,
+   "notes": "Open palm toward viewer with two small flames, staff gripped low and arcing behind her to the star crystal + gold ring; hat has red band AND gold star, gold collar bow, red coat-dress, plum skirt, black tights, red boots with gold bands all present. Stall signs carry only swirl patterns (no letters). Fireworks in the sky, festival stalls, barrels, autumn tree. Staff path behind the body is slightly long but reads."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-6",
+ "pick_total": 7.83,
+ "eyes": [
+  310,
+  276
+ ],
+ "head": 145,
+ "checklist": {
+  "likeness": "yes - hat with red band and gold star, orange-red hair, orange eyes, gold bow, red coat-dress, boots with gold bands, smug grin; daytime version of her portrait",
+  "prop": "yes",
+  "halo_free": "yes",
+  "background": "rich",
+  "adult": "n.a."
+ },
+ "fixes": [],
+ "safety_flags": [
+  "r1-2 low camera angle (rejected)"
+ ]
+}

@@ -1,0 +1,163 @@
+{
+ "id": "midori",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 6.5,
+    "background": 8.5,
+    "camera": 7.5,
+    "quality": 8
+   },
+   "total": 8.0,
+   "notes": "Flask oversized (head-sized) and balanced on the palm rather than gripped. Rich greenhouse."
+  },
+  "r1-1": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7.5,
+    "background": 8,
+    "camera": 7,
+    "quality": 8
+   },
+   "total": 8.025,
+   "notes": "Goggle-push pose, flask resting in an open palm (spec: gripped). Good likeness."
+  },
+  "r1-2": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 7,
+    "prop": 8,
+    "background": 8,
+    "camera": 6.5,
+    "quality": 6
+   },
+   "total": 7.05,
+   "notes": "Hair saturated green rather than mint; sparkles/glitter and oversaturation break Look B; left hand odd orange tint."
+  },
+  "r1-3": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7,
+    "background": 8.5,
+    "camera": 7.5,
+    "quality": 7
+   },
+   "total": 7.875,
+   "notes": "Waving hand fine; held flask merges into a second bulb below (doubled glassware)."
+  },
+  "r1-4": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8.5,
+    "background": 8.5,
+    "camera": 9,
+    "quality": 7.5
+   },
+   "total": 8.35,
+   "notes": "Strong dutch angle, open hand reaching to viewer (five fingers, a bit splayed), flask with star stopper held up. Good."
+  },
+  "r1-5": {
+   "hard": {
+    "halo": "pass",
+    "prop": "fail (no star stopper; star floating separately)",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 3,
+    "background": 8.5,
+    "camera": 8,
+    "quality": 7
+   },
+   "total": 7.325,
+   "notes": "Flask is a conical bottle with no star stopper; the star floats loose beside it. Wrong prop - rejected."
+  },
+  "r1-6": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 9,
+    "prop": 8.5,
+    "background": 9,
+    "camera": 7.5,
+    "quality": 8.5
+   },
+   "total": 8.675,
+   "notes": "Nearest to the shipped portrait: mint bob, goggles up, yellow-green eyes, lime bow, cream apron with test tubes, satchel, pouch. Round green flask with gold star stopper gripped and offered toward viewer. Greenhouse with ring stand, hanging ferns, cabinets, bottles, bubbles."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-6",
+ "eyes": [
+  428,
+  278
+ ],
+ "head": 290,
+ "checklist": {
+  "likeness": "yes - matches shipped portrait closely (mint bob, goggles, apron, satchel, bow)",
+  "prop": "yes - round green flask with gold star stopper, gripped",
+  "halo_free": "yes",
+  "background": "rich (greenhouse lab, ring stand, ferns, cabinets, bottles)",
+  "adult": "n.a. (student; modest long dress, tights)"
+ },
+ "fixes": [],
+ "safety_flags": [],
+ "pick_total": 8.675
+}

@@ -1,0 +1,33 @@
+{
+ "id": "kanna",
+ "adult": true,
+ "prompt": "1girl, solo, adult woman, energetic drum club advisor in her twenties, coral-pink hair in high twin-tails with gold hair cuffs, messy bangs, small ivory oni horns, amber-gold eyes, sharp eyes, crimson track jacket zipped up, modest, black side panels and thin gold piping, a small round flower crest on the jacket, black collared shirt, cream necktie, black wristband, 1.2::black drumsticks with glowing gold tips::, a big red taiko drum on a wooden stand, 1.3::warm gold flame-shaped halo floating above her head::, big open-mouthed cheerful grin, bright club hall on a sunny afternoon, wooden floor, red paper lanterns, daylight windows, rows of taiko drums, blurred, waist-up, from slightly above, {POSE}, her eyes on the right third, whole halo visible inside the frame, small gap above the halo, anime screencap, anime coloring, cel shading, two-tone shading with soft-edged shadow shapes, thin colored lineart, clean lines, bright high-key lighting, soft pastel palette, pale skin with peach shadows, large eyes with one highlight, light blush, detailed background, blurry background, bokeh, depth of field, soft daylight, matte flat cel shading, simple hard-edged shadows, muted highlights, anime key visual",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, thighs, legs, weapon pointed at viewer, static pose, stiff pose, drumstick pointed at viewer, night, bonfire, burning background, white hair, lilac hair, blonde hair, purple hair, single horn, long horns, dragon tail, wings, blue eyes, red eyes, sleeveless, crop top, monochrome, greyscale, coloring book, sketch, unfinished, simple background, white background, flat background, border, frame, framed, flat color, no shading, thick lineart, manga, glossy, shiny skin, gradient shading, ornate, no halo, ring halo, plain ring halo, signs, sign boards, calligraphy, kanji, writing on wall, banner, chest focus, upper body close-up, busty, open jacket",
+ "poses": [
+  "behind the big taiko drum in the near foreground, both drumsticks raised in a V above her head mid-beat, the drum head large and close to the camera, 1.3::foreshortening, drum close to viewer::, dutch angle, diagonal composition, slightly from above, twin-tails and jacket hem flying",
+  "she offers a high five toward the viewer, 1.3::foreshortening, hand reaching toward viewer::, palm very large, close to camera, other hand twirling a drumstick, dutch angle, diagonal composition, eye level, twin-tails flying out to the sides",
+  "counting in the beat with one drumstick raised to the ceiling and her other hand thrust toward the viewer in a thumbs-up, 1.3::foreshortening, thumbs-up toward viewer::, fist and thumb very large near the camera, dutch angle, diagonal composition, eye level, twin-tails bouncing",
+  "three-quarter view, shoulders angled away, she holds a spare drumstick out handle-first toward the viewer as if inviting them to join, 1.3::foreshortening, hand reaching toward viewer::, hand and drumstick handle large in the near foreground as the focus, other drumstick resting on her shoulder, dutch angle, diagonal composition, slightly from above, twin-tails swinging",
+  "mid-swing striking the taiko beside her, a ring of sound rippling off the drum head, her free hand reaching toward the viewer, 1.3::foreshortening, hand reaching toward viewer::, dutch angle, diagonal composition, eye level, twin-tails whipping with the motion"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/kanna-full.webp",
+ "charref_box": [
+  60,
+  60,
+  660,
+  520
+ ],
+ "identity": [
+  "coral-pink high twin-tails with gold hair cuffs, messy bangs",
+  "small ivory oni horns",
+  "amber-gold eyes, sharp",
+  "crimson track jacket with black side panels and gold piping, small flower crest",
+  "black collared shirt with cream necktie",
+  "black drumsticks with glowing gold tips",
+  "big red taiko drum on a stand",
+  "warm gold flame halo",
+  "adult staff, framed from the waist up"
+ ],
+ "scene": "the drum club practice hall on a bright afternoon: wooden floor, sunny windows, rows of taiko, paper lanterns",
+ "notes": "Adult staff hero; framed from the waist up (fitted track jacket). charref_box is head to belt of her portrait. Her portrait is a night festival with flames; the Look B frame moves her to a bright club hall (negative bans night, bonfire). The flower crest must be a plain shape, no letters. Her current portrait has no halo: the flame halo comes from her data (halo: flame). Drumsticks never aimed at the viewer (handle-first only). Round 2: flame halo weighted (missing in 3 of 4, ring in 1); glowing gold drumstick tips weighted; taiko-drum-in-foreground pose first, high five with the palm close to camera second; handle-first stick pose rewritten three-quarter (r1-0 centred her chest); jacket zipped, modest, waist-up from slightly above; no signs/calligraphy."
+}

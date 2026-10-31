@@ -1,0 +1,304 @@
+{
+ "id": "suzu",
+ "round": 2,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "no_halo": true,
+    "prop": false,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 7,
+    "prop": 3,
+    "background": 7.5,
+    "camera": 8.5,
+    "quality": 7
+   },
+   "total": 6.62,
+   "notes": "Bell held mouth-forward at the camera like a horn (spec: mouth down); prop wrong. Hair very saturated yellow."
+  },
+  "r1-1": {
+   "hard": {
+    "no_halo": true,
+    "prop": false,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 4,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 7
+   },
+   "total": 6.95,
+   "notes": "Bell is a drum-shaped housing with a small bell inside, not her hand bell; wrong prop. Wind-chime strips blank."
+  },
+  "r1-2": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 6.5,
+    "prop": 8.5,
+    "background": 8.5,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.45,
+   "notes": "Prop correct (handle up, ribbon + flower, mouth down) but high ponytail, no looped side curl, dark teal hakama lower body: off-likeness."
+  },
+  "r1-3": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 8.5,
+    "background": 7.5,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.65,
+   "notes": "Prop exactly right: bell gripped by top handle, teal ribbon + white flower, mouth down. Looped side curl, teal ribbons with tassels, white flowers, golden eyes, white kimono, teal obi with gold bells. Wind-chime strips blank (zoom-checked). Reaching hand is foreshortened, index points, others curled - no extra fingers but slightly soft. Hair more saturated lemon-gold than her honey-blonde portrait."
+  },
+  "r1-4": {
+   "hard": {
+    "no_halo": true,
+    "prop": false,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 2,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 6.75,
+   "notes": "Prop is a round flat rattle-bell, not her hand bell. Hanging plaque top-left carries marks."
+  },
+  "r1-5": {
+   "hard": {
+    "no_halo": true,
+    "prop": false,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": false,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 7,
+    "prop": 3,
+    "background": 8,
+    "camera": 8,
+    "quality": 7
+   },
+   "total": 6.65,
+   "notes": "Bell mouth pointed straight at the camera; hair crown touches the top edge."
+  },
+  "r1-6": {
+   "hard": {
+    "no_halo": true,
+    "prop": false,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 4.5,
+    "background": 7.5,
+    "camera": 7,
+    "quality": 7
+   },
+   "total": 6.9,
+   "notes": "Bell held sideways, mouth pointing out to the right, handle hidden by ribbon; reads as a horn."
+  },
+  "r2-0": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 9,
+    "background": 7.5,
+    "camera": 7,
+    "quality": 8
+   },
+   "total": 7.97,
+   "notes": "Matches the current portrait closely: honey-blonde hair in a side ponytail with teal ribbons, gold tassel and white flowers (the portrait shows no looped curl either), golden eyes, white kimono with teal-lined sleeves, teal obi with gold bells, teal lower kimono. Bell pinched by its handle, mouth down, teal ribbon + white flower on the handle, other hand cupped under it (five fingers). Shelves of golden bells, path, bushes, trees. Three-quarter turn with slight tilt; less dynamic than r1-3."
+  },
+  "r2-1": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: cylindrical drum-like bell sits on her raised wrist; the gripping hand is hidden, it is not held by the handle",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 4.5,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.12,
+   "notes": "High ponytail; teal paper strips on bell shelves (blank)."
+  },
+  "r2-2": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: bell held sideways, mouth pointing out to the right (reads as a horn)",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 4,
+    "background": 8,
+    "camera": 8.5,
+    "quality": 7.5
+   },
+   "total": 7.15,
+   "notes": "Reach pose; bell shelves."
+  },
+  "r2-3": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "fail: hanging wooden plaques on the left shelves carry writing-like marks (x~0-180,y~0-560)",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7,
+    "background": 8,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 7.75,
+   "notes": "Looped side bun, honey hair, bell pinched by the handle with mouth tilted toward the viewer-left."
+  },
+  "r2-4": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: bell mouth pointed at the viewer and a second small bell appears above it",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 3,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 7.5
+   },
+   "total": 6.88,
+   "notes": "Wink pose, side curl present."
+  },
+  "r2-5": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: huge bell held mouth-forward at the camera",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 3,
+    "background": 7.5,
+    "camera": 7.5,
+    "quality": 7
+   },
+   "total": 6.72,
+   "notes": "Bell shelves."
+  },
+  "r2-6": {
+   "hard": {
+    "no_halo": "pass",
+    "prop": "fail: bell raised overhead from behind, handle grip unclear; she is turned away",
+    "safety": "pass",
+    "hands": "pass",
+    "no_text": "pass",
+    "crop": "pass",
+    "one_girl_no_frame": "pass"
+   },
+   "scores": {
+    "likeness": 7,
+    "prop": 4,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 7
+   },
+   "total": 6.72,
+   "notes": "Back view."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-0",
+ "pick_total": 7.97,
+ "eyes": [
+  402,
+  286
+ ],
+ "head": 315,
+ "checklist": {
+  "likeness": "yes - honey-blonde side ponytail with teal ribbons, tassel and white flowers as in the portrait, golden eyes, white kimono with teal-lined sleeves, teal obi with gold bells; closer hair colour than r1-3",
+  "prop": "yes",
+  "halo_free": "yes",
+  "background": "rich (bell shelves, stone path, bushes, trees)",
+  "adult": "n.a."
+ },
+ "fixes": [],
+ "safety_flags": [],
+ "round2_note": "r2-0 (likeness 8, 7.98) beats r1-3 (likeness 7.5, 7.65): hair colour and the ribbon side-ponytail match the portrait; r1-3's lemon-gold hair was the weak point."
+}

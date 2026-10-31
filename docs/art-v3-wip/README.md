@@ -31,3 +31,12 @@ paths in `tools/nai_gen.py` (VIBES) and `tools/check_spec.py` (OWN_PREFIXES), th
 `check_spec.py`, `nai_gen.py gen <id> <round> <k>`, judge, `tools/apply.py <picks.json> <worktree>` (crops, PORTRAIT_DATA
 face, FACE_ANCHORS card line), `tools/manifest.py <worktree> <ids...>` (src/art/portraitsV3.js). The tools never send an
 Authorization header (the agent proxy injects it) and refuse below the floor.
+
+## Art v3c (owner option C, Oct 31) — supersedes v3 for the same 24 girls
+Owner's fixes: no halo rings (halo terms in the negative; any halo = reject), each girl's signature prop from her
+current portrait and kit, her current portrait as the character reference (fid 0.55–0.7), richer detailed backgrounds,
+adult staff clearly adult, 7–8 samples per girl, picked by likeness first. Branch `feature/art-v3c` (18a00648, off main
+a3d97a38). Work in `v3c/`: samples `v3c/<id>/r<N>-<k>.webp`, specs (`spec.v3.json` → `spec.json`), verdicts
+`v3c/judge/<id>.json` (with the owner checklist), picks `v3c/picks_c_all.json`, boards `v3c/art-v3c-board-1.jpg`, `-2.jpg`.
+Spend: 1,020 Anlas (211 character-reference images at 5 each, plus a 5-Anlas probe; Norika's 8 text-only samples were
+free), balance 3,486 after. `tools/restyle_c.py` is the v3c prompt pass; `tools/board_c.py` the boards.

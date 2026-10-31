@@ -1,0 +1,165 @@
+{
+ "id": "kanna",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8.5,
+    "background": 7,
+    "camera": 8.5,
+    "quality": 7.5
+   },
+   "total": 7.875,
+   "notes": "Taiko drum fills half the frame in the foreground, sticks with gold tips raised. Face reads youthful; body mostly hidden. Stalls and clock tower behind."
+  },
+  "r1-1": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 5,
+    "background": 8.5,
+    "camera": 7,
+    "quality": 6.5
+   },
+   "total": 7.225,
+   "notes": "Rich background (clock tower, bunting, lanterns) but props muddled: a cream baton in an open palm, a loose black stick leaning, only a sliver of drum. Prop rule borderline-pass."
+  },
+  "r1-2": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 8
+   },
+   "total": 7.925,
+   "notes": "Thumbs-up gripping a gold-tipped stick, other stick raised; drum partial at left. Clock tower, stands, lanterns. Clean."
+  },
+  "r1-3": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "fail (chest focus / body-framed)",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7,
+    "background": 7,
+    "camera": 8.5,
+    "quality": 7
+   },
+   "total": 7.55,
+   "notes": "Jacket strained across a large chest centred in frame - chest focus on an adult hero. Stick butt-end thrust toward camera. Rejected."
+  },
+  "r1-4": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 7,
+    "background": 5.5,
+    "camera": 8.5,
+    "quality": 7.5
+   },
+   "total": 7.225,
+   "notes": "Drum has western kick-drum hardware (pedal/clamp) not a taiko on a wooden stand; background mostly empty floor; face young."
+  },
+  "r1-5": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 6.5,
+    "background": 5,
+    "camera": 8.5,
+    "quality": 7
+   },
+   "total": 6.975,
+   "notes": "Pointing hand toward viewer; an extra wooden mallet appears behind her; background mostly bare floor."
+  },
+  "r1-6": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8.5,
+    "background": 9,
+    "camera": 7.5,
+    "quality": 8
+   },
+   "total": 8.375,
+   "notes": "Both gold-tipped sticks raised over the big taiko, open-mouthed grin like the shipped portrait, coral twin-tails with gold rings, ivory horns, crimson zipped jacket, cream tie, watch. Golden-evening festival stage with clock tower, lantern strings, stalls. Fitted jacket but chest not the focus. Distant stall marks are illegible texture."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-6",
+ "eyes": [
+  500,
+  175
+ ],
+ "head": 230,
+ "checklist": {
+  "likeness": "yes - coral twin-tails with gold rings, ivory horns, amber eyes, crimson track jacket, cream tie, big grin",
+  "prop": "yes - big red taiko and two black gold-tipped drumsticks",
+  "halo_free": "yes",
+  "background": "rich (festival stage, clock tower, lanterns, stalls at golden evening)",
+  "adult": "yes (tall, collared shirt and tie, watch; face on the youthful side of adult)"
+ },
+ "fixes": [],
+ "safety_flags": [
+  "r1-3 rejected: chest focus on adult hero (fitted jacket strained across chest, centred)"
+ ],
+ "pick_total": 8.375
+}

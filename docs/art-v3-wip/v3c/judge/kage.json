@@ -1,0 +1,163 @@
+{
+ "id": "kage",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7,
+    "background": 7.5,
+    "camera": 8.5,
+    "quality": 7.5
+   },
+   "total": 7.725,
+   "notes": "Run pose, very dynamic foreshortened hand; shuriken on fingertip but the finger points forward toward the camera, not straight up (borderline 'toward viewer'). Tongue-out smirk, skirt shorter than spec (over black tights). Lane and houses fine. Eyes ~[380,270]."
+  },
+  "r1-1": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 6.5,
+    "camera": 9,
+    "quality": 8
+   },
+   "total": 7.875,
+   "notes": "Envelope pose, shuriken spun upright on raised fingertip. Envelope carries a pink heart and flower (spec: blank) - reads as a love letter, off-brief for a courier. Background mostly roof tiles. Eyes ~[420,240]."
+  },
+  "r1-2": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 9,
+    "background": 7.5,
+    "camera": 8,
+    "quality": 8.5
+   },
+   "total": 8.375,
+   "notes": "Closest to the shipped sly closed-mouth smile; headband plate with crescent, purple bob, lilac eyes, scarf, pouch, embroidered jacket all match. Shuriken spinning cleanly on raised index fingertip, hand five fingers. From above with dutch tilt; rooftops, distant hills, a lantern. Background less busy than the portrait's lantern street."
+  },
+  "r1-3": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8.5,
+    "background": 8.5,
+    "camera": 9,
+    "quality": 8
+   },
+   "total": 8.25,
+   "notes": "Wink + fang open grin (shipped is a sly closed smile). Pointing finger-gun toward viewer is a hand, not the prop; shuriken upright on fingertip. Richest background (lanterns, lane, roofs). Eyes [338,232], h~245. Close second."
+  },
+  "r1-4": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 8.5,
+    "background": 8.5,
+    "camera": 6.5,
+    "quality": 8.5
+   },
+   "total": 8.3,
+   "notes": "Hand on hip like the shipped portrait, long skirt, shuriken on fingertip, lantern street. Fairly static near-straight-on camera. Eyes ~[365,215] (21%)."
+  },
+  "r1-5": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "pass",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 8.5,
+    "camera": 6.5,
+    "quality": 8
+   },
+   "total": 7.925,
+   "notes": "Shuriken pinched at the fingertip with swirl spin marks; lantern street with lanterns. Static frontal stance."
+  },
+  "r1-6": {
+   "hard": {
+    "halo": "pass",
+    "prop": "pass",
+    "safety": "pass",
+    "hands": "pass",
+    "text": "fail (lantern glyphs read as lettering)",
+    "crop": "pass",
+    "one_girl": "pass"
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 7,
+    "background": 8,
+    "camera": 7.5,
+    "quality": 7.5
+   },
+   "total": 7.7,
+   "notes": "Envelope pose, small shuriken on fingertip. Lanterns carry swirl glyphs (lower-left yellow mark) that read close to letters/symbols - borderline text, rejected per owner rule 5."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-2",
+ "eyes": [
+  405,
+  300
+ ],
+ "head": 365,
+ "checklist": {
+  "likeness": "yes - same face, sly smile, crescent plate headband, purple bob, embroidered jacket, scarf, pouch",
+  "prop": "yes - silver shuriken spinning upright on raised index fingertip",
+  "halo_free": "yes",
+  "background": "rich (tiled rooftops, old-town houses, hills, lantern) - slightly less busy than shipped lantern street",
+  "adult": "n.a. (student; modest, long skirt, tights)"
+ },
+ "fixes": [],
+ "safety_flags": [],
+ "pick_total": 8.375
+}

@@ -1,0 +1,163 @@
+{
+ "id": "umeko",
+ "round": 1,
+ "candidates": {
+  "r1-0": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 8,
+    "background": 8,
+    "camera": 6,
+    "quality": 7.5
+   },
+   "total": 7.7,
+   "notes": "Dreamy sleepy face, correct staff upright. Palm-up hand under the shell (not toward lens) - static camera. Small water loop around the staff head (not her head), tiny heart sparkle by face."
+  },
+  "r1-1": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 8.5,
+    "background": 8.5,
+    "camera": 8.5,
+    "quality": 8
+   },
+   "total": 8.0,
+   "notes": "Strong reach toward lens (5 fingers), staff upright, cliffs/torii/steps. Wide-eyed open-mouth smile less sleepy than her portrait."
+  },
+  "r1-2": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 6.5,
+    "prop": 6,
+    "background": 7,
+    "camera": 7,
+    "quality": 5.5
+   },
+   "total": 6.35,
+   "notes": "Over-saturated, pink robe, red-orange outline on shell, twisted ribbon shaft; weaker rendering."
+  },
+  "r1-3": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 7.5,
+    "prop": 8,
+    "background": 8.5,
+    "camera": 8.5,
+    "quality": 8
+   },
+   "total": 7.92,
+   "notes": "Reach toward lens, staff diagonal with shell up-right (away), waterfalls. Open-mouth smile, eyes not sleepy."
+  },
+  "r1-4": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 9,
+    "background": 8.5,
+    "camera": 7,
+    "quality": 8
+   },
+   "total": 8.12,
+   "notes": "Soft closed-mouth smile with half-lidded seafoam eyes, white hair to seafoam tips, top braid, shell hairpin with navy ribbons, pearl earrings, navy sash bow with pearl brooch; staff upright in hand, shell+pearl+tassels clean. Waving hand 5 fingers (zoom-checked). Torii in turquoise water, waterfalls, cliffs, islands."
+  },
+  "r1-5": {
+   "hard": {
+    "no_halo": true,
+    "prop": false,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8,
+    "prop": 2,
+    "background": 8,
+    "camera": 6,
+    "quality": 7.5
+   },
+   "total": 6.8,
+   "notes": "Holds a loose shell with pearl in both hands; no staff - prop missing."
+  },
+  "r1-6": {
+   "hard": {
+    "no_halo": true,
+    "prop": true,
+    "safety": true,
+    "hands": true,
+    "no_text": true,
+    "crop": true,
+    "one_girl_no_frame": true
+   },
+   "scores": {
+    "likeness": 8.5,
+    "prop": 7,
+    "background": 8,
+    "camera": 8.5,
+    "quality": 7.5
+   },
+   "total": 8.0,
+   "notes": "Closest expression/pose to portrait, but staff stands unheld beside her and face centre ~70% across (edge of the crop rule)."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r1-4",
+ "pick_total": 8.12,
+ "eyes": [
+  447,
+  270
+ ],
+ "head": 225,
+ "checklist": {
+  "likeness": "yes - white-to-seafoam hair, top braid, shell hairpin, sleepy seafoam eyes, dreamy smile, navy sash bow",
+  "prop": "yes",
+  "halo_free": "yes",
+  "background": "rich",
+  "adult": "n.a."
+ },
+ "fixes": [],
+ "safety_flags": []
+}

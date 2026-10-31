@@ -1,0 +1,73 @@
+{
+ "id": "norika",
+ "round": 2,
+ "candidates": {
+  "r2-0": {
+   "hard": {"no_halo": "pass", "prop": "pass (blank round red paddle, white rim/pole, held out at arm's length)", "safety": "pass (long face, slim jaw, reads as a young adult woman, early-to-mid twenties rather than thirties; fully dressed, eye level)", "hands": "pass (gloved fist on pole)", "no_text": "pass", "crop": "pass (face ~66% across, eyes ~24%)", "one_girl_no_frame": "pass"},
+   "scores": {"likeness": 7.5, "prop": 8.5, "background": 7, "camera": 7.5, "quality": 7.5},
+   "total": 7.58,
+   "notes": "Runner-up. Strong paddle-to-camera pose with dutch angle; gateposts, iron gate, signal, minibus, bicycles, cones. Lanyard white (spec navy); face younger than r2-6; face sits near the right crop limit."
+  },
+  "r2-1": {
+   "hard": {"no_halo": "pass", "prop": "fail: no paddle in her hands; the red disc behind her is a no-entry road sign on a barrier", "safety": "pass (reads adult)", "hands": "pass (5 fingers on reaching hand)", "no_text": "pass", "crop": "pass", "one_girl_no_frame": "pass"},
+   "scores": {"likeness": 7, "prop": 0, "background": 7.5, "camera": 7.5, "quality": 7},
+   "total": 6.08,
+   "notes": "Good mature face and beckoning hand, but signature prop missing; hat has a small mark."
+  },
+  "r2-2": {
+   "hard": {"no_halo": "pass", "prop": "pass", "safety": "fail: round face, short stature look - reads as a teenager; borderline = reject", "hands": "pass", "no_text": "pass", "crop": "pass", "one_girl_no_frame": "pass"},
+   "scores": {"likeness": 6.5, "prop": 7.5, "background": 6.5, "camera": 7, "quality": 6},
+   "total": 6.6,
+   "notes": "Barricade drawn as a limp striped tube; flat rendering."
+  },
+  "r2-3": {
+   "hard": {"no_halo": "pass", "prop": "pass (small)", "safety": "fail: round face, bowl bangs, reads as a teen", "hands": "pass", "no_text": "pass", "crop": "pass", "one_girl_no_frame": "pass"},
+   "scores": {"likeness": 5.5, "prop": 6.5, "background": 7, "camera": 6.5, "quality": 5},
+   "total": 5.88,
+   "notes": "Tails became braids; off-style face; busy but muddled background."
+  },
+  "r2-4": {
+   "hard": {"no_halo": "pass", "prop": "pass", "safety": "fail: childlike round face, reads as a young teen", "hands": "pass", "no_text": "pass", "crop": "pass", "one_girl_no_frame": "pass"},
+   "scores": {"likeness": 5.5, "prop": 7.5, "background": 7, "camera": 5.5, "quality": 4.5},
+   "total": 5.83,
+   "notes": "Black shadow blob under the chin; frontal static pose; good gate scene."
+  },
+  "r2-5": {
+   "hard": {"no_halo": "pass", "prop": "pass (egg-shaped paddle)", "safety": "pass (adult, but androgynous)", "hands": "pass", "no_text": "pass", "crop": "fail: eyes ~14% down (min 15%)", "one_girl_no_frame": "pass"},
+   "scores": {"likeness": 4, "prop": 6.5, "background": 7, "camera": 6.5, "quality": 5.5},
+   "total": 5.38,
+   "notes": "Short hair with one small ponytail (spec two low tails); boyish face; head too high."
+  },
+  "r2-6": {
+   "hard": {"no_halo": "pass", "prop": "pass (blank red paddle, white rim and pole, raised beside her head)", "safety": "pass (long face, defined cheekbones, slim jaw, calm narrow eyes, tall adult build - reads clearly as a woman around thirty; fully dressed in jacket and slacks, eye level, not body-framed)", "hands": "pass (reaching hand: thumb + 4 fingers; pole hand a clean fist)", "no_text": "pass", "crop": "pass (face ~44% across, eyes ~19% down, hat top inside)", "one_girl_no_frame": "pass"},
+   "scores": {"likeness": 8, "prop": 8, "background": 7, "camera": 7, "quality": 8},
+   "total": 7.75,
+   "notes": "PICK. Every identity piece: dark brown hair, straight bangs, two low tails, blue eyes, yellow hard hat, navy jacket buttoned + white shirt + navy slacks, safety sash, silver whistle on a navy/violet lanyard, white gloves, paddle. Minor: sash leans yellow rather than lime; paddle slightly oval; road surface plain (no zebra stripes, no bicycles). Scene: iron gate, stone wall, pedestrian signal, minibus, cones, striped barricade, trees."
+  },
+  "r2-7": {
+   "hard": {"no_halo": "pass", "prop": "pass", "safety": "fail: round face, blunt bowl bangs, reads as a teenager; borderline = reject", "hands": "pass (one hand hidden behind her)", "no_text": "pass", "crop": "pass", "one_girl_no_frame": "pass"},
+   "scores": {"likeness": 6.5, "prop": 8, "background": 6.5, "camera": 5, "quality": 6.5},
+   "total": 6.58,
+   "notes": "Static frontal pose; plain fence/trees background."
+  }
+ },
+ "decision": "PICK",
+ "pick": "r2-6",
+ "pick_total": 7.75,
+ "eyes": [349, 192],
+ "head": 250,
+ "checklist": {
+  "likeness": "yes - matches the spec identity in every piece (hair, eyes, hat, navy jacket/slacks, sash, gloves, whistle on lanyard); a more mature face than the old v3 image, as intended",
+  "prop": "yes",
+  "halo_free": "yes",
+  "background": "rich (gate, wall, pedestrian signal, minibus, cones, barricade, trees); road surface fairly plain",
+  "adult": "yes - reads clearly as a woman around thirty"
+ },
+ "fixes": [
+  "None needed for the pick. Optional polish if re-rolled: 'lime green safety sash' (it drifts to yellow), 'zebra crossing stripes on the road', 'perfectly round paddle sign'.",
+  "Round 2 vs round 1: dropping the charref fixed the age problem (round 1 best r1-6 7.55 failed on young face and claw hand; r2-6 7.75 passes all hard checks). Text-only seeds still vary widely in age: 4 of 8 still read teen (r2-2, r2-3, r2-4, r2-7) - keep the mature-face weighting and the teen negatives."
+ ],
+ "safety_flags": [
+  "r2-2, r2-3, r2-4, r2-7 rejected: adult:true but faces read as teenagers. r2-5 rejected on crop. r2-1 rejected for missing paddle. All fully dressed, eye level, wholesome."
+ ]
+}

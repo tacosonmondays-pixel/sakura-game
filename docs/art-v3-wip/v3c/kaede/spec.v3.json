@@ -1,0 +1,33 @@
+{
+ "id": "kaede",
+ "adult": false,
+ "prompt": "1girl, solo, high school student, elegant captain of the fencing club, long flowing crimson-red hair, side-swept split bangs, red maple-leaf hair ornament with short gold tassels, 1.5::amber-gold eyes, pale gold eyes, yellow eyes::, sharp eyes, red fencing coat with a high collar and thin gold trim lines, long coat tails, 1.2::ivory high-neck blouse visible at the collar::, dark red belt, black fencing gloves, slender rapier with a white blade and a gold basket guard, 1.3::soft orange halo shaped like a single maple leaf::, determined confident smile, the fencing club's bright training hall on an autumn afternoon, tall open windows, polished wooden floor, red maple trees outside the windows, a few red maple leaves drifting in on the breeze, cowboy shot, eyes at upper third of the frame, {POSE}, her eyes on the left third, crimson hair streaming, coat tails flaring, whole halo visible inside the frame, small gap above the halo, anime screencap, anime coloring, cel shading, two-tone shading with soft-edged shadow shapes, thin colored lineart, clean lines, bright high-key lighting, soft pastel palette, pale skin with peach shadows, large eyes with one highlight, light blush, detailed background, blurry background, bokeh, depth of field, soft daylight, matte flat cel shading, simple hard-edged shadows, muted highlights, anime key visual",
+ "negative": "nsfw, nude, cleavage, breast focus, large breasts, ass focus, thigh focus, upskirt, panties, pantyshot, skirt lift, swimsuit, bikini, lingerie, see-through, midriff, from below, low angle, blood, gore, injury, multiple girls, 2girls, crowd, extra fingers, fewer fingers, fused fingers, bad hands, extra hands, extra arms, bad anatomy, chibi, text, letters, watermark, signature, logo, username, speech bubble, lowres, worst quality, low quality, jpeg artifacts, blurry face, painterly, glossy hair, shiny hair, sparkling eyes, multiple eye highlights, glitter, sparkles, falling petals, magic circle, heavy bloom, glow spilling color, lens flare, ornate filigree, embroidery, heavy gold trim, thick outlines, black outlines, vignette, rainbow palette, 3d, realistic, photorealistic, child, aged down, leaning forward, downblouse, static pose, stiff pose, standing still, straight-on camera, symmetrical composition, sword pointed at viewer, rapier pointed at viewer, weapon pointed at viewer, aiming at viewer, katana, armor, cape, cherry blossoms, night, dark background, fire, tight clothes, black hair, brown hair, pink hair, blonde hair, short hair, red eyes, blue eyes, green eyes, monochrome, greyscale, coloring book, sketch, unfinished, simple background, white background, flat background, border, frame, framed, flat color, no shading, thick lineart, manga, glossy, shiny skin, gradient shading, ornate, orange eyes, crimson eyes, ring halo, circle halo, plain ring halo, close-up on chest, upper body close-up, blade toward viewer, sword pointing at viewer, hilt toward viewer, turtleneck",
+ "poses": [
+  "a flourishing salute: the rapier held upright before her face with the blade pointing at the ceiling, her free gloved hand sweeping out toward the viewer palm up, 1.3::foreshortening, hand reaching toward viewer::, open hand very large near the camera, dutch angle, diagonal composition, slightly from above, slightly high angle, head and shoulders smaller than hand, long hair and coat tails swirling with the flourish",
+  "turning on her heel with the rapier swept high over her head away from the camera, her free gloved hand reaching toward the viewer, 1.3::foreshortening, hand reaching toward viewer::, hand very large near the camera, dutch angle, diagonal composition from lower left to upper right, slightly from above, slightly high angle, head and shoulders smaller than hand, long hair and coat tails flying in an arc",
+  "she offers a red maple leaf to the viewer between two gloved fingers, 1.3::foreshortening, hand toward viewer::, hand and leaf large near the camera, rapier held upright at her side with the blade pointing at the ceiling, dutch angle, diagonal composition, eye level, hair and coat tails lifted by the breeze",
+  "rapier lowered at her side with the tip resting on the wooden floor, she reaches her free gloved hand toward the viewer palm up as if inviting them to the piste, 1.3::foreshortening, hand reaching toward viewer::, open hand very large near the camera, slightly from above, slightly high angle, head and shoulders smaller than hand, dutch angle, diagonal composition, warm confident smile, crimson hair and coat tails swaying"
+ ],
+ "charref": "/home/user/sakura-game/public/art/portraits/kaede-full.webp",
+ "charref_box": [
+  120,
+  0,
+  768,
+  620
+ ],
+ "identity": [
+  "long crimson-red hair, side-swept split bangs",
+  "red maple-leaf hair ornament with gold tassels",
+  "AMBER-GOLD eyes (data #edbf76; portrait draws red: owner check)",
+  "red fencing coat with high collar, thin gold trim, long tails",
+  "ivory blouse (high neckline)",
+  "black fencing gloves",
+  "slender rapier, white blade, gold basket guard",
+  "soft orange maple-leaf halo (leaf shape)",
+  "determined, confident, a little dramatic"
+ ],
+ "scene": "the fencing club's bright training hall on an autumn afternoon, maple trees outside, a few maple leaves drifting in",
+ "notes": "STUDENT (adult false): fully dressed, eye level or slightly above, no chest focus (her current portrait is framed close on the chest: charref_box is head to shoulders only). Eyes follow her data palette #edbf76 (amber-gold), weighted 1.3 with red eyes in the negative; her current portrait draws red eyes (owner check, like Hikari's teal). Rapier never toward the viewer: upright, lowered to the floor, on the shoulder or swept away overhead. Round 2: eyes raised to 1.5 (amber-gold/pale gold/yellow) with orange/crimson eyes in the negative and fid 0.4 (the reference's red eyes won at 0.6); single maple-leaf halo weighted, ring/circle halo in negative; ivory high-neck blouse weighted; kept salute (pose 0) and overhead sweep (pose 3), dropped the glove toss and mask poses, added a lowered-rapier invitation; slightly high angle with eyes in the upper third; no chest close-ups or blade/hilt toward the viewer.",
+ "fid": 0.4
+}
