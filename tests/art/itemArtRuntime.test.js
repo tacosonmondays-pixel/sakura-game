@@ -317,8 +317,9 @@ describe('display only: the battle sim is untouched', () => {
     // 14: the battle + gear release v0.1.66: the attack shapes S1–S5 (wheels, held streams and sweeps, ground shapes,
     // links, S5's six), balance round 5 (the LR rows, the duo's map-wide laser, Freeplay's boss bands), Ena's spreading
     // curse, Iroha's mirror network, and the gear update's five-piece sets and LR gear, with the shapes carrying the
-    // set passives)
-    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db', 12: 'd35092f141d3', 13: 'be940ecb2087', 14: '36cba1c215b0' };
+    // set passives; 15: co-op feel — the waited-on side raises its input delay, orders after the sent horizon, nudge — on
+    // the release tip 26dd6ab6, whose later Sim / enemy / set-rule changes the same bump covers)
+    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db', 12: 'd35092f141d3', 13: 'be940ecb2087', 14: '36cba1c215b0', 15: '92f3c17bbd2c' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });

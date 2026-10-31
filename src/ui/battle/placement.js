@@ -98,13 +98,15 @@ export function createPlacement(ctx) {
       return false;
     }
     const cost = sim.placeCost(id);
-    if (sim.cash < cost) {
-      ctx.feed.push(`Need ${fmtNum(cost - sim.cash, 'money', { round: 'up' })} more coins for ${def.name}.`, 'warn', { key: `poor-${id}`, ms: 1800 });
+    const cash = ctx.spendable ? ctx.spendable() : sim.cash; // (co-op: less the coins my orders in flight hold)
+    if (cash < cost) {
+      ctx.feed.push(`Need ${fmtNum(cost - cash, 'money', { round: 'up' })} more coins for ${def.name}.`, 'warn', { key: `poor-${id}`, ms: 1800 });
       ctx.bump?.('cash');
       return false;
     }
     ctx.select(null);
     clearBoardModes(ctx);
+    ctx.nudge?.(); // co-op: her placement order is coming (the idle saver steps back, Lockstep.nudge)
     unitId = id;
     mode = how;
     last = null;
@@ -119,8 +121,20 @@ export function createPlacement(ctx) {
     mode = null;
     last = null;
     moving = false;
-    ctx.renderer.setGhost(null);
+    showPending();
     renderHint();
+  }
+
+  /**
+   * Co-op: a girl ordered onto the board stands there as her ghost until the order runs (the input
+   * delay, coopPending.js); with nothing on its way (and solo) the ghost goes. Placing another girl
+   * takes the ghost over, and her ghost comes back if that one ends while she is still on her way.
+   */
+  function showPending() {
+    if (unitId) return;
+    const p = ctx.coopPending?.placements().at(-1);
+    if (p) ctx.renderer.setGhost(p.unitId, p.x, p.y, true);
+    else ctx.renderer.setGhost(null);
   }
 
   function cancel() {
@@ -250,6 +264,8 @@ export function createPlacement(ctx) {
       return last;
     },
     start: (id) => begin(id, 'tap'),
+    /** Co-op: one of my orders ran (controller onApplied): the ghost shows what is still on its way. */
+    landed: () => showPending(),
     get moving() {
       return moving;
     },
