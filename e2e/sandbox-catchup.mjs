@@ -215,7 +215,7 @@ async function run(vp) {
 
   // ---- a Titan Trials run: the Eclipse Wyrm at Mayhem +30 ----
   await page.evaluate(() => { location.hash = '#/battle?sandbox=1&team=tenka&ttn=wyrm&ttier=mayhem&trank=30'; });
-  await page.waitForFunction(() => window.__battle?.ui?.sandbox && window.__battle.sim, null, { timeout: 90000 });
+  await page.waitForFunction(() => window.__battle?.ui?.sandbox && window.__battle.sim?.stageId?.startsWith('titan:'), null, { timeout: 90000 }).catch(() => {});
   const titan = await page.evaluate(() => { const { sim } = window.__battle; return { stage: sim.stageId, started: sim.startNextWave(), hud: document.querySelector('.bt-diff')?.textContent || '' }; });
   check(titan.stage === 'titan:wyrm:mayhem:30' && titan.started, `Titan Trials: Mayhem +30 runs (${JSON.stringify(titan)})`);
   await page.waitForTimeout(3000);
