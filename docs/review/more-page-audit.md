@@ -39,7 +39,7 @@ Each column comes from a different source:
   - Marumi's bowl, Yuzuha's sentries and capture nets, the duo's prism beam and refraction, and Norika's barricades;
   - Tenka's lab team, gravity well and Last Line, Shiro's execution shot, Midori's brew, and Wakaba's drink and Towel Snap.
 - **The ⚡ ability** had no line on More. A girl's ability row now names it:
-  - before it unlocks: "Skyfall Volley · Rapid Volley tier 3";
+  - before it unlocks: "Skyfall Volley · unlocks at Rapid Volley tier 3";
   - once unlocked: "… · 28s recharge";
   - with her LR form: its LR name, only while her battle stats carry `lr`.
 - **Damage by source.** The sim credits two sources apart, and nothing else:

@@ -17,7 +17,7 @@ import { h, icon, setVar, isPhone } from './util.js';
 import { fmtNum } from '../format.js';
 import { createDronePanel, hasDroneTabs } from './chikaPanel.js';
 import { createDpsMeter, perTargetLine, boostEstimate, fmtSmallPct, DPS_LIVE_TIP, DPS_AVG_TIP } from './dpsView.js';
-import { kitRows, dealsDamage, damageSplit } from './kitRows.js';
+import { kitRows, dealsDamage, damageSplit, paintKitCells, LIVE_KIT_KEYS } from './kitRows.js';
 import {
   crosspathReason, crosspathWhy, onePerPathReason, onePerPathWhy, onePerPathLine, heldPipTitle, whereOnMap, finalHolderLine, CROSSPATH_RULE, ONE_PER_PATH_COOP, ONE_PER_PATH_RULE,
 } from './rules.js';
@@ -733,7 +733,12 @@ export function createTowerPanel(ctx) {
   }
 
   /** One kit row (kitRows.js) in the stat grid's cell style. */
-  const kitCell = (r) => h(`div.bt-stat-cell${r.wide ? '.bt-stat-wide' : ''}`, { 'data-testid': `kit-${r.key}` }, h('span', r.label), h('b', r.value));
+  const kitCell = (r) => {
+    const value = h('b', r.value);
+    // (a live count's cell is repainted every frame by updateLive: kitRows.js paintKitCells)
+    if (LIVE_KIT_KEYS.includes(r.key) && live) (live.kits ||= new Map()).set(r.key, value);
+    return h(`div.bt-stat-cell${r.wide ? '.bt-stat-wide' : ''}`, { 'data-testid': `kit-${r.key}` }, h('span', r.label), value);
+  };
 
   // ------------------------------------------------------------------------------------------------------------------
   // MORE: the Details sheet (girls)
@@ -1032,7 +1037,7 @@ export function createTowerPanel(ctx) {
     const ally = !mine;
     // ([friend support] a borrowed girl: her own clamped card, ctx.profileFor)
     const profile = mine ? (ctx.profileFor?.(def.id) || ctx.profile) : { units: { [def.id]: { awaken: t.unitStats?.awaken || 0 } } };
-    live = { kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null, stats: null, dps: null, boost: null };
+    live = { kills: null, dmg: null, xpFill: null, ult: null, pot: null, buffKinds: null, stats: null, dps: null, boost: null, kits: null, split: null };
     el.classList.toggle('bt-panel-ally', ally);
     el.classList.toggle('bt-drawer-hero', !!t.isHero);
     el.classList.toggle('bt-drawer-more', more);
@@ -1315,6 +1320,7 @@ export function createTowerPanel(ctx) {
       const b = boostEstimate(sim, t.uid, (u) => dpsMeter.live(u, sim).value);
       live.boost.value.textContent = b ? `~${stat(b.value)} DPS · ${b.girls} girl${b.girls === 1 ? '' : 's'}` : '—';
     }
+    if (live.kits) paintKitCells(live.kits, t, st || (st = sim.towerStats(t.uid)));
     if (live.split) {
       const sp = damageSplit(t);
       const text = sp ? sp.text : '—';

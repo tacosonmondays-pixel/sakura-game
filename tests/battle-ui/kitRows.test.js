@@ -6,7 +6,9 @@ import { describe, test, expect } from 'vitest';
 import { defaultData } from '../../src/sim/data.js';
 import { Sim } from '../../src/sim/Sim.js';
 import { MAP, STAGE, ENEMIES } from '../sim/fixtures.js';
-import { kitRows, dealsDamage, damageSplit, SHAPE_NAMES } from '../../src/ui/battle/kitRows.js';
+import { kitRows, dealsDamage, damageSplit, SHAPE_NAMES, paintKitCells, LIVE_KIT_KEYS } from '../../src/ui/battle/kitRows.js';
+import { hashSim } from '../../src/online/coop/simHash.js';
+import { readFileSync } from 'node:fs';
 
 const units = defaultData().units;
 const ids = Object.keys(units);
@@ -25,7 +27,12 @@ function fight(id, tiers) {
   const big = isHero || def.footprint >= 0.5;
   const t = def.placement === 'water' ? sim.placeTower(id, 5.5, 2.5) : sim.placeTower(id, big ? 8.5 : 6.5, big ? 5.6 : 5.5);
   expect(t, `${id} placed`).toBeTruthy();
-  if (isHero) sim._credit(t, 1e9); // Lv 25
+  if (isHero) {
+    sim._credit(t, 1e9); // Lv 25
+    // (the levelling credit is not a fight: she starts at 0 dealt, so "a damage source before the first hit" is real)
+    t.damageDealt = 0;
+    sim.stats.damageByTower[t.uid] = 0;
+  }
   else for (let p = 0; p < 3; p++) for (let k = 0; k < tiers[p]; k++) sim.upgradeTower(t.uid, p);
   sim.state = 'wave';
   sim.wave = 1;
@@ -130,13 +137,66 @@ describe('display only', () => {
         for (let k = 0; k < 2 * 60; k++) sim.update(1 / 60);
         const st = sim.towerStats(t.uid);
         const snap = JSON.stringify({ eff: t.eff, dealt: t.damageDealt, shape: t.shapeDealt, mirrors: t.mirrors, lab: t.lab, bars: t.bars });
-        const hash = sim.hash?.();
+        const hash = hashSim(sim);
         kitRows(t, st);
         dealsDamage(t, st);
         damageSplit(t);
         expect(JSON.stringify({ eff: t.eff, dealt: t.damageDealt, shape: t.shapeDealt, mirrors: t.mirrors, lab: t.lab, bars: t.bars })).toBe(snap);
-        if (hash !== undefined) expect(sim.hash()).toBe(hash);
+        expect(hashSim(sim), `${id} ${tiers} co-op hash`).toBe(hash);
       }
     }
+  });
+});
+
+describe('live counts repaint while More stays open (paintKitCells)', () => {
+  /** Her live kit cells as the drawer builds them: key -> a value node. */
+  const cellsOf = (t, st) => new Map(kitRows(t, st).map((r) => [r.key, { textContent: r.value }]));
+
+  test.each([['yuzuha', [5, 0, 0], 'sentry'], ['chigusa', [0, 5, 0], 'vine'], ['norika', [0, 0, 0], 'barricade']])('%s: her %s cell follows the count without a redraw', (id, tiers, key) => {
+    const { sim, t } = fight(id, tiers);
+    const cells = cellsOf(t, sim.towerStats(t.uid));
+    expect(cells.has(key), `${id} has a ${key} row`).toBe(true);
+    const first = cells.get(key).textContent;
+    const other = [...cells].filter(([k]) => !LIVE_KIT_KEYS.includes(k)).map(([k, c]) => [k, c.textContent]);
+    let changed = 0;
+    // the drawer's frames: paint each step, until the count moves (sentries deploy, a vine roots, a barricade breaks)
+    for (let k = 0; k < 20 * 60 && cells.get(key).textContent === first; k++) {
+      if (key === 'barricade' && k === 60) for (const b of t.bars || []) b.down = 1; // (staging: a broken barricade)
+      sim.update(1 / 60);
+      changed += paintKitCells(cells, t, sim.towerStats(t.uid));
+    }
+    const now = kitRows(t, sim.towerStats(t.uid)).find((r) => r.key === key).value;
+    expect(cells.get(key).textContent, `${id} ${key}: "${first}" → "${now}"`).not.toBe(first);
+    expect(cells.get(key).textContent).toBe(now);
+    expect(changed).toBeGreaterThan(0);
+    // a row that is not a live count is never rewritten
+    for (const [k, v] of other) expect(cells.get(k).textContent, k).toBe(v);
+  });
+
+  test('nothing to paint: no live cell, no work', () => {
+    const { sim, t } = fight('aoi', [5, 0, 0]);
+    expect(paintKitCells(cellsOf(t, sim.towerStats(t.uid)), t, sim.towerStats(t.uid))).toBe(0);
+    expect(paintKitCells(new Map(), t, sim.towerStats(t.uid))).toBe(0);
+  });
+
+  test('the drawer wires it: its kit cells register the live keys and updateLive paints them', () => {
+    const src = readFileSync(new URL('../../src/ui/battle/towerPanel.js', import.meta.url), 'utf8');
+    expect(src).toMatch(/LIVE_KIT_KEYS\.includes\(r\.key\) && live\) \(live\.kits \|\|= new Map\(\)\)\.set\(r\.key, value\)/);
+    expect(src).toMatch(/if \(live\.kits\) paintKitCells\(live\.kits, t, /);
+  });
+});
+
+describe('wording', () => {
+  test('a small share reads "<1%", a locked ability says when it unlocks, Iroha\'s locked ⚡ says "once her ⚡ unlocks"', () => {
+    const sp = damageSplit({ damageDealt: 1000, shapeDealt: 2, droneDmg: 0, eff: { moon: { beams: 2, arc: 30, mul: 0.35 } } });
+    expect(sp.text).toBe('Attack 100% · Moonbeam <1%');
+    expect(damageSplit({ damageDealt: 1000, shapeDealt: 0, eff: { moon: {} } }).text).toBe('Attack 100% · Moonbeam 0%');
+    const duo = fight('kohaku_tsubaki', [5, 0, 0]);
+    const ab = kitRows(duo.t, duo.sim.towerStats(duo.t.uid)).find((r) => r.key === 'ability');
+    expect(ab.value).toBe('Prismfall · unlocks at Refraction tier 3');
+    const ir = fight('iroha', [0, 0, 5]);
+    const st = ir.sim.towerStats(ir.t.uid);
+    expect(st.ability.unlocked).toBe(false);
+    expect(kitRows(ir.t, st).find((r) => r.key === 'allyBounces').value).toMatch(/once her ⚡ unlocks$/);
   });
 });

@@ -76,7 +76,9 @@ export function damageSplit(t) {
   if (shapeKey || shape > 0) parts.push({ key: 'shape', label: SHAPE_NAMES[shapeKey] || 'Shape', dealt: shape });
   if (drone > 0) parts.push({ key: 'drones', label: 'Drones', dealt: drone });
   for (const p of parts) p.share = p.dealt / total;
-  return { parts, text: parts.map((p) => `${p.label} ${pct(p.share)}`).join(' · ') };
+  // (a share above 0 that rounds to 0% reads "<1%": the source is there, just small)
+  const shareText = (x) => (x > 0 && x < 0.005 ? '<1%' : pct(x));
+  return { parts, text: parts.map((p) => `${p.label} ${shareText(p.share)}`).join(' · ') };
 }
 
 /** Her ⚡ ability's row: its name (her LR form's when she has one), and when it unlocks or its recharge. */
@@ -87,7 +89,7 @@ function abilityRow(t, st) {
   const lr = a.unlocked && t?.unitStats?.lr === true && abilityLrText(a.id);
   const name = (lr && lr.name) || abilityText(a.id)?.name || a.id;
   const path = a.path != null ? t?.def?.paths?.[a.path]?.name : null;
-  const when = !a.unlocked ? (a.unlockTier ? `${path ? `${path} ` : ''}tier ${a.unlockTier}` : 'locked') : a.cooldown > 0 ? `${secs(a.cooldown)} recharge` : null;
+  const when = !a.unlocked ? (a.unlockTier ? `unlocks at ${path ? `${path} ` : ''}tier ${a.unlockTier}` : 'locked') : a.cooldown > 0 ? `${secs(a.cooldown)} recharge` : null;
   return { key: 'ability', label: '⚡ Ability', value: join([name, when]), wide: true };
 }
 
@@ -122,7 +124,7 @@ export function kitRows(t, st) {
   if (e.relay?.kind === 'mirror') {
     const r = e.relay;
     add('mirrors', 'Mirrors', join([`${fmtNum(t?.mirrors?.length ?? r.mirrors, 'progress', { of: r.mirrors })} placed`, plural(r.bounces, 'bounce'), r.bounceMul > 0 ? `+${pct(r.bounceMul)} a bounce` : null, r.bounceSplash > 0 ? `splash ${fmtNum(r.bounceSplash, 'range')}` : null, r.shards > 0 ? plural(r.shards, 'shard') : null]));
-    if (r.allyBounces > 0) add('allyBounces', 'Allies\' shots', `${plural(r.allyBounces, 'bounce')} · ${t?.mirrors && t.abil && mirrorsReflect(t) ? 'reflecting now' : 'while her ⚡ runs'}`);
+    if (r.allyBounces > 0) add('allyBounces', 'Allies\' shots', `${plural(r.allyBounces, 'bounce')} · ${!st?.ability?.unlocked ? 'once her ⚡ unlocks' : t?.mirrors && t.abil && mirrorsReflect(t) ? 'reflecting now' : 'while her ⚡ runs'}`);
     add('mirrorReach', 'Mirror reach', tiles(r.reach), false);
   } else if (e.relay) add('relay', 'Familiar', `reach ${tiles(e.relay.reach)}`, false);
   // --- signature kits
@@ -186,4 +188,29 @@ export function kitRows(t, st) {
   const ab = abilityRow(t, st);
   if (ab) rows.push(ab);
   return rows;
+}
+
+/**
+ * The kit rows whose numbers change while the drawer stays open (live counts on the tower, not her stats): vines
+ * standing, sentries out, barricades up, lab rounds and girls, mirrors placed and whether they reflect now. The
+ * drawer's signature does not change with them, so updateLive repaints these cells every frame (paintKitCells).
+ */
+export const LIVE_KIT_KEYS = Object.freeze(['vine', 'sentry', 'barricade', 'lab', 'mirrors', 'allyBounces']);
+
+/**
+ * Repaints the live kit cells in place: `cells` maps a row key to its value node ({ textContent }); only the
+ * LIVE_KIT_KEYS among them are recomputed, and a node is written only when its text changed.
+ * @param {Map<string, { textContent: string }>} cells
+ * @returns {number} how many cells changed
+ */
+export function paintKitCells(cells, t, st) {
+  if (!cells?.size || !LIVE_KIT_KEYS.some((k) => cells.has(k))) return 0;
+  let changed = 0;
+  for (const r of kitRows(t, st)) {
+    const node = cells.get(r.key);
+    if (!node || !LIVE_KIT_KEYS.includes(r.key) || node.textContent === r.value) continue;
+    node.textContent = r.value;
+    changed++;
+  }
+  return changed;
 }
