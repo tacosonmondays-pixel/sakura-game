@@ -20,12 +20,19 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    // TODO(coordinator): set the date to the US Central deploy day before this ships.
     id: 'v0.1.67', version: '0.1.67', date: '2026-10-31', title: 'Ribbons, Frames and Stickers',
     added: [
       'Stickers! Send one of 16 chibi stickers in co-op battles (the new button on the co-op bar), clan chat and messages. Four slime stickers are for everyone, recruiting Hikari, Aoi, Kage, Momo, Akane, Yuki, Miko, Ena, Iroha or Tenka unlocks hers, and two more are earned in co-op and the Halloween event. Don\'t want them? Settings → Online → Show stickers from other players, or mute one partner from the sticker button.',
       'Every Honor Ribbon in your Case has new art: chunky 3D-style rosettes with pleats that catch the light, folded tails and a shiny medal face, in the same look as the gear icons.',
-      'Every secret achievement now gives something to show off: four new secret ribbons, a new title and two secret picture frames. Already found a secret? Its new reward is waiting in your Case and your Edit Profile.',
       'Twelve new picture frames for your Sensei Profile, from Sakura and Laurel to Hundred Waves, Limit Break and Lantern Night. Each one says how to earn it in Edit Profile, and everything you have already done counts.',
+      'Every secret achievement now gives something to show off: four new secret ribbons, a new title and two secret picture frames. They stay secret until you find them. Already found one? Its new reward is waiting in your Case and your Edit Profile.',
+      '20 new Sensei Profile banners: academy places, Freeplay milestones, an LR banner, Pumpkin Lantern Night and four painted seasons you collect by logging in during spring, summer, autumn and winter. Anything you have already done counts.',
+      'Kogane and Norika now have their own 3D models, along with Big Yellow, Norika\'s barricade and Suzu\'s bells. The Gate Response Brigade also has its own 3D look.',
+    ],
+    changed: [
+      'Smoother co-op: fewer stalls on a slow or bumpy connection, and orders after a quiet spell land sooner.',
+      'In co-op, your orders show the moment you tap: the upgrade button says Ordered, the coins come off and a placed girl waits on her spot until it lands. Tapping again can\'t buy the same upgrade twice, even while your ally\'s connection catches up.',
     ],
   },
   {
