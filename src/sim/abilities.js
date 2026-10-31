@@ -163,24 +163,13 @@ export function chargeRate(t, kind) {
   return abilityChargePerTick(t?.unitStats, kind);
 }
 
-const groupKey = (t, id) => `${ctrlOf(t)}|${id}`;
+// (a map ability's shared cooldown is her OWNER's group — one map ultimate per owner's copies, wherever a copy is lent:
+// review r2; who may fire her and which bar shows her follow her controller: pickCaster, abilitySlots)
+const groupKey = (t, id) => `${t.owner ?? 0}|${id}`;
 
 function groupOf(sim, t) {
   const a = t.abil;
   return a && a.scope === 'map' ? sim.abilGroups.get(groupKey(t, a.id)) || null : null;
-}
-
-/**
- * Co-op sharing (docs/specs/COOP_SHARING.md): call BEFORE a girl changes controller (a lend, a take-back, a give-back,
- * a hand-out). A map-scope ability's shared cooldown is kept per player ("<player>|<id>"), so in her new player's group
- * she would be ready at once: she carries what is left of her old group's cooldown on her own instead (review r1 M1).
- * Deterministic (charge points, both integers); never called in solo.
- */
-export function carryGroupCooldown(sim, t) {
-  const a = t?.abil;
-  if (!a || a.scope !== 'map') return;
-  const g = groupOf(sim, t);
-  if (g && g.cd > a.cd) a.cd = g.cd;
 }
 
 /**
@@ -197,7 +186,7 @@ function groupCut(sim, owner, id) {
   let cut = 0;
   for (const t of sim.towers) {
     const c = t.rules?.cdCut;
-    if (!(c > cut) || t.removed || !t.abil || t.abil.id !== id || ctrlOf(t) !== owner) continue;
+    if (!(c > cut) || t.removed || !t.abil || t.abil.id !== id || (t.owner ?? 0) !== owner) continue;
     cut = c;
   }
   return cut;
@@ -1648,7 +1637,7 @@ export function startAbilityWave(sim) {
     let best = 0;
     for (const t of sim.towers) {
       const a = t.abil;
-      if (!a || t.removed || a.id !== id || ctrlOf(t) !== owner) continue;
+      if (!a || t.removed || a.id !== id || (t.owner ?? 0) !== owner) continue;
       const pts = firstBellCharge(t.unitStats, g.cdMax, a.kind);
       if (pts > best) best = pts;
     }
