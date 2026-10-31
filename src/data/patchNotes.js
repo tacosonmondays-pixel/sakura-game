@@ -28,6 +28,7 @@ export const PATCH_NOTES = [
     changed: [
       'UR to LR is now an Awakening, just like Legendary to UR: a set piece awakens into an LR piece of the same set. Blank LR is still there as its own option on an LR set piece.',
       'Set Boxes you already own keep working as Preset boxes, where you choose each piece\'s main stat.',
+      'Stickers are bigger in chat, messages and co-op battles.',
       'Kohaku & Tsubaki\'s LR Refraction build hits harder: at tier 5, Refraction\'s LR bonus goes from ×2.0 to ×2.1, so every LR stays well ahead even in full set gear.',
     ],
     fixed: [
