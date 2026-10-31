@@ -308,3 +308,8 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
     - backpack copy;
     - a guard test so no item ships without baked art.
 - **Tripo website batch**: the owner says Claude in Chrome generated all 54 checklist rows on the Tripo website. Waiting for the owner to upload a GLB zip. The API can't list website-made models, and the owner's computer folder isn't offered to cloud sessions. Process it like batch 1 when it arrives.
+
+## OWNER DECISION 2026-10-31 ~06:55 UTC
+
+- **Tie Pin and Collar Pin stay Supply Bot only for now.** Owner: "keep it in supply bot for now". Don't add player sources (Titan shop / Bounty Exchange / drops) until the owner asks. UR Set Boxes are likewise Supply Bot only (SET_BOXES_V2 default).
+- The Tripo website batch is about 900 MB. The owner will upload it as a **draft GitHub release** with tag `tripo-raw-batch-2`. Delete the draft after processing.
