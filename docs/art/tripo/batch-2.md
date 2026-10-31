@@ -42,7 +42,7 @@ figures that would be rejected on sight: the wolf, cat and pink fox girls (`anim
 | 18 | P2 | `kanna` | **done** | from “chibi anime girl 3d model (2).glb”; `characters/kanna.glb` 765,344 B, 19,999 tris / `.lod.glb` 400,684 B, 9,000 tris; auto-rigged, `idle walk attack_* cheer hurt` |
 | 19 | P2 | `yoriko` | **done** | from “3d chibi character.glb”; `characters/yoriko.glb` 698,764 B, 19,999 tris / `.lod.glb` 372,400 B, 8,999 tris; auto-rigged, `idle walk attack_* cheer hurt` |
 | 20 | P2 | `seiran` | **missing** | no download matches her (golden horns, flight jacket, storm lance); she keeps her Blender figure |
-| 21 | P2 | `seiran_sky_dragon` | **partly** | head from “dragon head 3d model.glb”: `props/seiran_dragon_head.glb` 159,740 B, 3,000 tris (rosterFx head); the tail download is a loose J curve with no clear joint, so the body beads and tail stay procedural |
+| 21 | P2 | `seiran_sky_dragon` | **partly** | head from “dragon head 3d model.glb”: `props/seiran_dragon_head.glb` 159,740 B, 3,000 tris (rosterFx head); the tail download is a loose J curve with no clear joint, so the body beads and tail stay procedural (the built tail is not shipped). The head is as tall as the procedural head (0.45, review r1 L2: it read ~1.4× bigger at first) and faces where it flies (e2e) |
 | 22 | P2 | `dragon_ashwing` | **done** | from “dragon 3d model (3).glb”; `enemies/tripo/dragon_ashwing.glb` 481,536 B, 12,000 tris |
 | 23 | P2 | `fp_eclipse_wyrm` | **done** | from “dragon 3d model (2).glb”; `enemies/tripo/fp_eclipse_wyrm.glb` 647,860 B, 20,000 tris |
 | 24 | P2 | `grave_lych` | **missing** | no crowned lich with a staff among the downloads (the hooded figures have no crown); keeps the family mesh |
@@ -109,11 +109,20 @@ next website batch (no API re-roll was needed or made).
   when `public/models/props/landmarks/<type>.glb` arrives, the procedural meshes are hidden and the model takes their
   place, fitted into their bounding box (by height, never wider than 1.1 × the footprint); glows and emitters stay,
   a blackout still dims its glow. In node (tests) every map is built exactly as before.
+* Its glow meshes (lamps, lit windows: clock tower, great willow, spindle, ticket gates) stay on over the model and
+  stay out of the fit, at night and in a blackout (review r1 M1; `tests/render/tripoLandmarks.test.js` builds every
+  landmark stage with a mocked loader).
+* Enemy LODs (review r1 L3): the twelve family enemies also ship `<id>.lod.glb` (~2k triangles, 256² texture,
+  87–147 KB); below quality high the battle asks for them (`setEnemyDetail`, `TRIPO_ENEMY_LODS`); bosses and titans
+  keep one file. A busy 1-6 wave at medium quality (60 family enemies, e2e): enemy triangles 599,920 → 239,910, frame
+  648k → 288k triangles; draw calls unchanged (140: a LOD swaps geometry, not the number of meshes).
 * `staffFx.js`: Hold the Line barriers swap to `norika_hold_line` like the barricades. `rosterFx.js`: the sky dragon's
   head swaps to `seiran_dragon_head` (body beads and tail procedural).
-* Gear: `tools/blender/items/sources/tripo/*.glb` + README, for the item-art session; `itemArt` untouched.
+* Gear: `tools/blender/items/sources/tripo/*.glb` + README, for the item-art session; `itemArt` untouched. (Review r1
+  L4 asked to move them out of git if that adds nothing: they are already in this branch's history, so they stay.)
 * Tests: `tests/models/tripo.test.js` (enemies by tier, props, landmarks, `swapLandmark`), the `tripo` branch of
-  `tests/models/glb.test.js` (the four heroes). e2e: `node e2e/tripo-batch2.mjs --shots <dir>`.
+  `tests/models/glb.test.js` (the four heroes). e2e: `node e2e/tripo-batch2.mjs --shots <dir>` (the heroes, enemies and landmarks; Hold the Line and the dragon head
+  after their ultimates, with zoomed shots; the busy-wave LOD numbers).
 
 ## Open items for the owner board
 

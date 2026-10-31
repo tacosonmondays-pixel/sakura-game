@@ -68,15 +68,39 @@ export const TRIPO_ENEMIES = Object.freeze([
 ]);
 const TRIPO_SET = new Set(TRIPO_ENEMIES);
 
-/** Asset key of an enemy's own Tripo model ('tripo/<id>'), or null. */
-export function tripoEnemyKey(def) {
-  return def && TRIPO_SET.has(def.id) ? `tripo/${def.id}` : null;
+/**
+ * Tripo enemies that also ship a light file (`<id>.lod.glb`, ~2k triangles, 256² texture) for medium / low quality:
+ * the family enemies, which come in crowds (the bosses and titans stay one each and keep their one file).
+ */
+export const TRIPO_ENEMY_LODS = Object.freeze([
+  'slime_green', 'goblin_runner', 'orc_grunt', 'ghost_wisp', 'ghoul_bonewalker', 'oni_brute', 'lizard_skink',
+  'construct_cogling', 'beast_wolf', 'fae_sprite', 'plant_sprout', 'dragon_wyvern',
+]);
+const LOD_SET = new Set(TRIPO_ENEMY_LODS);
+let enemyDetail = 'full';
+
+/**
+ * The detail level enemy models load at ('full' | 'lod', glbChibi.detailFor(quality)); the battle sets it from the
+ * graphics quality before it preloads, so every preload and buildEnemy ask for the same file.
+ */
+export function setEnemyDetail(detail) {
+  enemyDetail = detail === 'lod' ? 'lod' : 'full';
+}
+
+export function getEnemyDetail() {
+  return enemyDetail;
+}
+
+/** Asset key of an enemy's own Tripo model ('tripo/<id>', or 'tripo/<id>.lod' at LOD detail when it has one), or null. */
+export function tripoEnemyKey(def, detail = enemyDetail) {
+  if (!def || !TRIPO_SET.has(def.id)) return null;
+  return detail === 'lod' && LOD_SET.has(def.id) ? `tripo/${def.id}.lod` : `tripo/${def.id}`;
 }
 
 /** Every model key an EnemyDef draws from, for the preloads: its family and, if it has one, its own Tripo model. */
-export function enemyModelKeys(def) {
+export function enemyModelKeys(def, detail = enemyDetail) {
   if (!def) return [];
-  const own = tripoEnemyKey(def);
+  const own = tripoEnemyKey(def, detail);
   const fam = def.model?.base || def.family;
   return own ? [fam, own] : [fam];
 }

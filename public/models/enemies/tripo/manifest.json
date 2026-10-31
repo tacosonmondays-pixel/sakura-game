@@ -14,7 +14,11 @@
   "height": 1.0,
   "unitScale": 2.0,
   "kind": "vehicle",
-  "source": "tripo"
+  "source": "tripo",
+  "lod": "beast_wolf.lod.glb",
+  "lodSize": 118928,
+  "lodTriangles": 1999,
+  "lodVertices": 3418
  },
  "brigade_badger": {
   "file": "brigade_badger.glb",
@@ -116,7 +120,11 @@
   "height": 1.0,
   "unitScale": 2.0,
   "kind": "vehicle",
-  "source": "tripo"
+  "source": "tripo",
+  "lod": "construct_cogling.lod.glb",
+  "lodSize": 121824,
+  "lodTriangles": 1999,
+  "lodVertices": 3330
  },
  "dragon_ashwing": {
   "file": "dragon_ashwing.glb",
@@ -150,7 +158,11 @@
   "height": 1.0,
   "unitScale": 2.0,
   "kind": "hover",
-  "source": "tripo"
+  "source": "tripo",
+  "lod": "dragon_wyvern.lod.glb",
+  "lodSize": 104108,
+  "lodTriangles": 1999,
+  "lodVertices": 2751
  },
  "fae_sprite": {
   "file": "fae_sprite.glb",
@@ -167,7 +179,11 @@
   "height": 1.0,
   "unitScale": 2.0,
   "kind": "hover",
-  "source": "tripo"
+  "source": "tripo",
+  "lod": "fae_sprite.lod.glb",
+  "lodSize": 113208,
+  "lodTriangles": 2000,
+  "lodVertices": 3015
  },
  "fp_eclipse_wyrm": {
   "file": "fp_eclipse_wyrm.glb",
@@ -252,7 +268,11 @@
   "height": 1.0,
   "unitScale": 2.0,
   "kind": "hover",
-  "source": "tripo"
+  "source": "tripo",
+  "lod": "ghost_wisp.lod.glb",
+  "lodSize": 89636,
+  "lodTriangles": 1998,
+  "lodVertices": 2414
  },
  "ghoul_bonewalker": {
   "file": "ghoul_bonewalker.glb",
@@ -269,7 +289,11 @@
   "height": 1.0,
   "unitScale": 2.0,
   "kind": "humanoid",
-  "source": "tripo"
+  "source": "tripo",
+  "lod": "ghoul_bonewalker.lod.glb",
+  "lodSize": 150872,
+  "lodTriangles": 2000,
+  "lodVertices": 3526
  },
  "goblin_runner": {
   "file": "goblin_runner.glb",
@@ -286,7 +310,11 @@
   "height": 1.0,
   "unitScale": 2.0,
   "kind": "humanoid",
-  "source": "tripo"
+  "source": "tripo",
+  "lod": "goblin_runner.lod.glb",
+  "lodSize": 121076,
+  "lodTriangles": 1999,
+  "lodVertices": 2673
  },
  "iron_colossus": {
   "file": "iron_colossus.glb",
@@ -320,7 +348,11 @@
   "height": 1.0,
   "unitScale": 2.0,
   "kind": "humanoid",
-  "source": "tripo"
+  "source": "tripo",
+  "lod": "lizard_skink.lod.glb",
+  "lodSize": 105228,
+  "lodTriangles": 2000,
+  "lodVertices": 2209
  },
  "oni_brute": {
   "file": "oni_brute.glb",
@@ -337,7 +369,11 @@
   "height": 1.0,
   "unitScale": 2.0,
   "kind": "humanoid",
-  "source": "tripo"
+  "source": "tripo",
+  "lod": "oni_brute.lod.glb",
+  "lodSize": 134432,
+  "lodTriangles": 1999,
+  "lodVertices": 2879
  },
  "orc_grunt": {
   "file": "orc_grunt.glb",
@@ -354,7 +390,11 @@
   "height": 1.0,
   "unitScale": 2.0,
   "kind": "humanoid",
-  "source": "tripo"
+  "source": "tripo",
+  "lod": "orc_grunt.lod.glb",
+  "lodSize": 137292,
+  "lodTriangles": 1999,
+  "lodVertices": 3365
  },
  "plant_sprout": {
   "file": "plant_sprout.glb",
@@ -371,7 +411,11 @@
   "height": 1.0,
   "unitScale": 2.0,
   "kind": "blob",
-  "source": "tripo"
+  "source": "tripo",
+  "lod": "plant_sprout.lod.glb",
+  "lodSize": 93380,
+  "lodTriangles": 1999,
+  "lodVertices": 2572
  },
  "slime_green": {
   "file": "slime_green.glb",
@@ -388,6 +432,10 @@
   "height": 1.0,
   "unitScale": 2.0,
   "kind": "blob",
-  "source": "tripo"
+  "source": "tripo",
+  "lod": "slime_green.lod.glb",
+  "lodSize": 90176,
+  "lodTriangles": 2000,
+  "lodVertices": 2283
  }
 }

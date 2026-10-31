@@ -40,6 +40,8 @@ def main():
     ap.add_argument('--tex', type=int, default=512)
     ap.add_argument('--webp-quality', type=int, default=88)
     ap.add_argument('--out', default=os.path.join(ROOT, 'public', 'models', 'enemies', 'tripo'))
+    ap.add_argument('--lod', action='store_true', help='write <id>.lod.glb (the medium / low quality file, e.g. --tris 2000) '
+                                                       'and add it to the manifest entry (build the full file first)')
     args = ap.parse_args(argv)
     normalize.reset()
     arm, meshes = normalize.import_glb(args.source)
@@ -89,8 +91,8 @@ def main():
     raw = os.path.join(tmp, 'raw.glb')
     normalize.export_glb(raw, [arm, body])
     os.makedirs(args.out, exist_ok=True)
-    out = os.path.join(args.out, f'{args.id}.glb')
-    extras = dict(id=args.id, source='tripo', style='textured', kind=args.kind, height=round(ref, 4),
+    out = os.path.join(args.out, f'{args.id}{".lod" if args.lod else ""}.glb')
+    extras = dict(id=args.id, source='tripo', style='textured', kind=args.kind, height=round(ref, 4), lod=args.lod,
                   unitScale=round(1 / STORE_SCALE, 5), generator='tools/tripo/build_tripo_enemy.py')
     stats = pack.pack(raw, out, STORE_SCALE, extras, webp_quality=args.webp_quality, tex_size=args.tex)
     js, _ = pack.read_glb(out)
@@ -100,9 +102,14 @@ def main():
     print(f'[tripo] {args.id}: {os.path.getsize(out) // 1024} KB, {tri} tris, clips {clips}, {stats}')
     mpath = os.path.join(args.out, 'manifest.json')
     manifest = json.load(open(mpath)) if os.path.exists(mpath) else {}
-    manifest[args.id] = dict(file=f'{args.id}.glb', size=os.path.getsize(out), triangles=tri, vertices=verts,
-                             animations=clips, height=extras['height'], unitScale=extras['unitScale'], kind=args.kind,
-                             source='tripo')
+    if args.lod:
+        entry = manifest[args.id]
+        entry.update(lod=f'{args.id}.lod.glb', lodSize=os.path.getsize(out), lodTriangles=tri, lodVertices=verts)
+    else:
+        lod = {k: v for k, v in manifest.get(args.id, {}).items() if k.startswith('lod')}
+        manifest[args.id] = dict(file=f'{args.id}.glb', size=os.path.getsize(out), triangles=tri, vertices=verts,
+                                 animations=clips, height=extras['height'], unitScale=extras['unitScale'], kind=args.kind,
+                                 source='tripo', **lod)
     with open(mpath, 'w') as f:
         json.dump(dict(sorted(manifest.items())), f, indent=1)
         f.write('\n')

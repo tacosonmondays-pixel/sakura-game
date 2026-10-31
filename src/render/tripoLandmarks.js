@@ -2,7 +2,8 @@
 // terrain.js as its own little group (the procedural pieces, as before) instead of being merged into the map's
 // batched geometry; when its file (public/models/props/landmarks/<type>.glb, tools/tripo/build_tripo_prop.py)
 // arrives, the procedural meshes in that group are hidden and the Tripo mesh stands in their place, fitted into
-// their bounding box (by height, never wider than the procedural footprint). Its glow sprites and emitters stay.
+// their bounding box (by height, never wider than the procedural footprint). Its glow meshes (userData.glow), glow
+// sprites and emitters stay, so night and blackout lights keep working.
 // Until the file loads, or if it fails, the procedural piece is what you see. (The hammerTear, 3-10's tear in the sky, keeps its
 // procedural glow: its pulsing tear is the point of it; its Tripo model is not shipped.)
 //
@@ -45,7 +46,8 @@ export function swapLandmark(group, prop) {
   if (group.userData.tripoLandmark) return group.userData.tripoLandmark;
   _box.makeEmpty();
   let shadow = false;
-  const procedural = group.children.filter((c) => c.isMesh);
+  // the solid pieces only: the glow meshes (userData.glow, lamps and lit windows) stay on and stay out of the fit
+  const procedural = group.children.filter((c) => c.isMesh && !c.userData.glow && c.name !== 'tripo:landmark');
   for (const c of procedural) {
     if (!c.geometry.boundingBox) c.geometry.computeBoundingBox();
     _box.union(c.geometry.boundingBox);

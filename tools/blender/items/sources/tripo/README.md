@@ -26,4 +26,5 @@ int16 positions), glTF +Y up, front +Z, origin on the floor under the centre, 0.
 
 Notes for the bake: the textures carry Tripo's painted shading, so a flat (unlit, or very soft) bake keeps their
 colours closest; the set colours above are the wishlist's, the models follow them. The raw website downloads stay out
-of git (the owner's batch-2 zips).
+of git (the owner's batch-2 zips). These processed sources are committed (1.7 MB) because they were already in the
+branch's history when the review asked about moving them out; the item-art session can move them once it has baked them.

@@ -146,7 +146,7 @@ function mirrorGeometry() {
  * Dragon head (facing +z): light-blue skull and long snout, an open jaw, gold antler horns, a gold mane fanning back,
  * cheek frills and whisker roots (the long whiskers are ribbons drawn each frame, medium/high graphics).
  */
-function dragonHeadGeometry() {
+export function dragonHeadGeometry() {
   const S = '#9fd8ff';
   const D = '#6fb4e8';
   const L = '#e8f6ff';

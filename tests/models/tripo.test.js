@@ -6,9 +6,10 @@ import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import * as THREE from 'three';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { TRIPO_ENEMIES, tripoEnemyKey, enemyModelKeys } from '../../src/models/glbEnemy.js';
+import { TRIPO_ENEMIES, TRIPO_ENEMY_LODS, tripoEnemyKey, enemyModelKeys, setEnemyDetail, getEnemyDetail } from '../../src/models/glbEnemy.js';
 import { TRIPO_LANDMARKS, landmarkKey, swapLandmark } from '../../src/render/tripoLandmarks.js';
 import { hasProp } from '../../src/render/props.js';
+import { dragonHeadGeometry } from '../../src/render/rosterFx.js';
 import { TRIPO_PROPS } from '../../src/render/tripoProps.js';
 import { ENEMY_MAP } from '../../src/data/enemies.js';
 import { readGlbHeader } from './glbHeader.js';
@@ -80,6 +81,36 @@ describe('Tripo enemies', () => {
   }
 });
 
+describe('Tripo enemy LODs (medium / low quality)', () => {
+  const manifest = JSON.parse(readFileSync(path.join(enemyDir, 'manifest.json'), 'utf8'));
+  it('the family enemies ship a ~2k-triangle file; the keys switch with the detail level', () => {
+    expect(TRIPO_ENEMY_LODS.length).toBe(12);
+    for (const id of TRIPO_ENEMY_LODS) {
+      expect(TRIPO_ENEMIES).toContain(id);
+      const file = path.join(enemyDir, `${id}.lod.glb`);
+      expect(existsSync(file), file).toBe(true);
+      expect(statSync(file).size).toBeLessThanOrEqual(160 * 1024);
+      const { json } = readGlbHeader(file);
+      expect(json.asset.extras).toMatchObject({ id, source: 'tripo', style: 'textured', lod: true });
+      const prim = packed(json);
+      expect(json.accessors[prim.indices].count / 3).toBeLessThanOrEqual(2000);
+      expect(json.animations.map((a) => a.name).sort()).toEqual(ENEMY_CLIPS);
+      expect(manifest[id]).toMatchObject({ lod: `${id}.lod.glb`, lodSize: statSync(file).size });
+      expect(tripoEnemyKey(ENEMY_MAP[id], 'lod')).toBe(`tripo/${id}.lod`);
+      expect(tripoEnemyKey(ENEMY_MAP[id], 'full')).toBe(`tripo/${id}`);
+    }
+    // bosses and titans keep one file at every quality
+    expect(tripoEnemyKey(ENEMY_MAP.dragon_ashwing, 'lod')).toBe('tripo/dragon_ashwing');
+    // the module default follows setEnemyDetail (the battle sets it from the graphics quality)
+    const before = getEnemyDetail();
+    setEnemyDetail('lod');
+    expect(enemyModelKeys(ENEMY_MAP.slime_green)).toEqual(['slime', 'tripo/slime_green.lod']);
+    setEnemyDetail('full');
+    expect(enemyModelKeys(ENEMY_MAP.slime_green)).toEqual(['slime', 'tripo/slime_green']);
+    setEnemyDetail(before);
+  });
+});
+
 describe('Tripo props', () => {
   const BUDGET = {
     big_yellow: { bytes: 240 * 1024, tris: 6000 },
@@ -110,6 +141,21 @@ describe('Tripo props', () => {
       expect(json.asset.extras.height).toBeLessThan(0.8);
     });
   }
+});
+
+describe('the sky dragon head', () => {
+  it('is as tall as the procedural head it replaces (not ~1.4× its size), centred on the head bead', () => {
+    const g = dragonHeadGeometry();
+    g.computeBoundingBox();
+    const procH = g.boundingBox.max.y - g.boundingBox.min.y;
+    const { json } = readGlbHeader(path.join(propDir, 'seiran_dragon_head.glb'));
+    const pos = json.accessors[json.meshes[0].primitives[0].attributes.POSITION];
+    const k = 1 / 32767;
+    const h = (pos.max[1] - pos.min[1]) * k;
+    expect(h / procH).toBeGreaterThan(0.9);
+    expect(h / procH).toBeLessThan(1.1);
+    for (const i of [0, 1, 2]) expect(Math.abs(pos.max[i] + pos.min[i]) * k).toBeLessThan(0.02); // centred
+  });
 });
 
 describe('Tripo story landmarks', () => {
@@ -155,5 +201,20 @@ describe('Tripo story landmarks', () => {
     // as tall as the piece unless that would be wider than its footprint (× 1.1)
     expect(box.max.y).toBeCloseTo(0.5 * Math.min(2 / 0.5, 1.1 / 0.5), 5);
     expect(swapLandmark(group, prop)).toBe(m); // once
+  });
+
+  it('swapLandmark keeps the glow meshes lit and leaves them out of the fit', () => {
+    const group = new THREE.Group();
+    const proc = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1).translate(0, 1, 0), new THREE.MeshBasicMaterial());
+    // a lamp glow far above the piece: if it counted, the model would come out taller
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.1).translate(0, 5, 0), new THREE.MeshBasicMaterial());
+    glow.userData.glow = true;
+    group.add(proc, glow);
+    const prop = { geometry: new THREE.BoxGeometry(0.5, 0.5, 0.5).translate(0, 0.25, 0), material: new THREE.MeshBasicMaterial() };
+    const m = swapLandmark(group, prop);
+    expect(proc.visible).toBe(false);
+    expect(glow.visible).toBe(true);
+    const box = new THREE.Box3().setFromObject(m);
+    expect(box.max.y).toBeCloseTo(0.5 * Math.min(2 / 0.5, 1.1 / 0.5), 5);
   });
 });

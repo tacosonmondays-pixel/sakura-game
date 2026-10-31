@@ -689,6 +689,8 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
         }
         const mesh = new THREE.Mesh(src, mats[mat]);
         mesh.castShadow = shadows && mat !== 'glow';
+        // (a landmark's glow stays lit over its Tripo model: lamps, windows, night and blackout lights)
+        if (mat === 'glow') mesh.userData.glow = true;
         sub.add(mesh);
       }
       sub.position.set(x, y, z);
