@@ -20,6 +20,16 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    // TODO(coordinator): confirm the date is the deploy day in US Central time.
+    id: 'v0.1.68', version: '0.1.68', date: '2026-10-31', title: 'Sharper Refraction',
+    changed: [
+      'Kohaku & Tsubaki\'s LR Refraction build hits harder: at tier 5, Refraction\'s LR bonus goes from ×2.0 to ×2.1, so every LR stays well ahead even in full set gear.',
+    ],
+    fixed: [
+      'Turning off other players\' stickers now stays off even after opening the game in an older tab.',
+    ],
+  },
+  {
     id: 'v0.1.67', version: '0.1.67', date: '2026-10-31', title: 'Ribbons, Frames and Stickers',
     added: [
       'Stickers! Send one of 16 chibi stickers in co-op battles (the new button on the co-op bar), clan chat and messages. Four slime stickers are for everyone, recruiting Hikari, Aoi, Kage, Momo, Akane, Yuki, Miko, Ena, Iroha or Tenka unlocks hers, and two more are earned in co-op and the Halloween event. Don\'t want them? Settings → Online → Show stickers from other players, or mute one partner from the sticker button.',
