@@ -1,4 +1,4 @@
-// Review r1 two-page probe (not part of the suite): copy into e2e/ and run with node from the repo root.
+// Review r2 two-page probe (not part of the suite): copy into e2e/ and run from the repo root.
 // End-to-end test of co-op sharing (docs/specs/COOP_SHARING.md) with the LOCAL adapter (one browser, two pages = two
 // players, BroadcastChannel; nothing touches Supabase), through the battle screen's own buttons:
 //   1. A room on 1-1 Easy; both place girls (the battle's command path) and the first wave runs.
@@ -263,7 +263,7 @@ try {
   check(await waitFor(A, () => window.__battle.coop.lockstep.peers.get(1)?.gone, null, 90000), 'probe: guest cut → dropped on the host');
   await q(A, 'lend', [g3, 1]); // to a gone player
   await q(A, 'back', [g2]); // in a wave, controller gone: allowed
-  await A.waitForTimeout(2000);
+  await q(A, 'speed', [3]); await A.waitForTimeout(1500); await q(A, 'speed', [2]); await A.waitForTimeout(1500);
   const pd = await A.evaluate(() => window.__battle.coop.pendingDeals());
   log('    pending ' + JSON.stringify(pd));
   await B.evaluate(() => { const ls = window.__coop.lockstep; ls.sendRaw = window.__cut; delete ls.receive; });
@@ -281,8 +281,11 @@ try {
   const guestNow = await A.evaluate(() => window.__battle.sim.towers.filter((t) => !t.isHero && window.__battle.coop.ownerOf(t.uid) === 1).map((t) => t.uid));
   await B.evaluate(() => { const ls = window.__coop.lockstep; window.__cut = ls.sendRaw; ls.sendRaw = () => {}; ls.receive = () => {}; });
   check(await waitFor(A, () => window.__battle.coop.lockstep.peers.get(1)?.gone, null, 90000), 'probe: guest cut again');
+  await q(A, 'speed', [3]); await A.waitForTimeout(2000); await q(A, 'speed', [1]); await A.waitForTimeout(1000); await q(A, 'speed', [2]);
+  log('    grace2 ' + JSON.stringify(await A.evaluate(() => window.__battle.coop.pendingDeals())));
+  const g2t0 = Date.now();
   const dealt = await waitFor(A, ([u, g2]) => u.every((x) => window.__battle.coop.ctrlOf(x) === 0) && window.__battle.coop.ctrlOf(g2) === 0, [guestNow, g2], 90000);
-  check(dealt, 'probe: grace over → guest girls and the lent girl are the host\'s');
+  check(dealt, `probe: grace over → guest girls and the lent girl are the host's (${Math.round((Date.now() - g2t0) / 1000)} s after the speed changes)`);
   // a stale guest order after the hand-out: queue on B while cut (it reaches A after the heal, too late)
   await B.evaluate((u) => { const ls = window.__coop.lockstep; if (u[0] != null) ls.queue('upg', [u[0], 0]); ls.queue('gift', [0, 10]); }, guestNow);
   await B.evaluate(() => { const ls = window.__coop.lockstep; ls.sendRaw = window.__cut; delete ls.receive; });

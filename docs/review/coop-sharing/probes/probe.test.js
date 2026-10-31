@@ -1,4 +1,4 @@
-// Review r1 probe (not part of the suite): copy into tests/online/ to run; paths assume that location.
+// Review r1/r2 probes (not part of the suite): copy into tests/online/ to run; paths assume tests/<dir>/.
 import * as require_fs from 'node:fs';
 // Co-op sharing (docs/specs/COOP_SHARING.md): coin gifts, lent girls, taking them back, and a leaver's girls and
 // coins handed out after the grace. Every case runs the same commands on both players' CoopSims (both views) and
@@ -100,7 +100,7 @@ describe('review probes', () => {
     const l = all(cs, cmd(0, 'lend', [u2, 1]));
     const r3 = all(cs, cmd(1, 'abil', abilArgs(u2)));
     const g = all(cs, cmd(1, 'give', [u2]));
-    require_fs.appendFileSync("/tmp/probe.out", 'MAPGROUP' + " " + JSON.stringify({ pre, r1, r2, l, r3, g }) + "\n");
+    require_fs.appendFileSync("/tmp/probe2.out", 'MAPGROUP' + " " + JSON.stringify({ pre, r1, r2, l, r3, g }) + "\n");
   });
   it('econ cap per wave: lending a third Market Day lets the team cast past the cap', () => {
     const cs = views(st2(), [CASH_MAX, CASH_MAX]);
@@ -113,7 +113,7 @@ describe('review probes', () => {
     const rs = m.map((u) => all(cs, cmd(0, 'abil', abilArgs(u))));
     all(cs, cmd(0, 'lend', [m[2], 1]));
     const r4 = all(cs, cmd(1, 'abil', abilArgs(m[2])));
-    require_fs.appendFileSync("/tmp/probe.out", 'ECONCAP' + " " + JSON.stringify({ rs, r4, wallets: cs[0].wallets }) + "\n");
+    require_fs.appendFileSync("/tmp/probe2.out", 'ECONCAP' + " " + JSON.stringify({ rs, r4, wallets: cs[0].wallets }) + "\n");
   });
   it('edge orders in one tick agree on both views', () => {
     const cs = views(start(), [5000, 5000]);
@@ -144,7 +144,7 @@ describe('review probes', () => {
     step(cs, COOP.graceTicks + 2);
     out.afterGrace = [all(cs, cmd(0, 'upg', [aoi, 0])), all(cs, cmd(0, 'gift', [1, 10])), cs[0].wallets];
     out.joinAfter = [all(cs, marker(0, 'join')), cs[0].ctrlOf(aoi), cs[0].lentInfo(aoi)];
-    require_fs.appendFileSync("/tmp/probe.out", 'EDGES' + " " + JSON.stringify(out) + "\n");
+    require_fs.appendFileSync("/tmp/probe2.out", 'EDGES' + " " + JSON.stringify(out) + "\n");
   });
   it('speed change during the grace', () => {
     const cs = views(start(), [5000, 5000]);
@@ -152,6 +152,93 @@ describe('review probes', () => {
     all(cs, marker(1, 'gone'));
     const pd1 = cs[0].pendingDeals();
     all(cs, cmd(0, 'speed', [3]));
-    require_fs.appendFileSync("/tmp/probe.out", 'SPEED' + " " + JSON.stringify({ pd1, speed: cs[0].speed, pd2: cs[0].pendingDeals() }) + "\n");
+    require_fs.appendFileSync("/tmp/probe2.out", 'SPEED' + " " + JSON.stringify({ pd1, speed: cs[0].speed, pd2: cs[0].pendingDeals() }) + "\n");
+  });
+});
+
+const log2 = (k, v) => require_fs.appendFileSync('/tmp/probe2.out', k + ' ' + JSON.stringify(v) + '\n');
+function twoShiro(cs) {
+  const u1 = place(cs, 0, 'shiro'); const u2 = place(cs, 0, 'shiro', 3);
+  upTo3(cs, 0, u1); upTo3(cs, 0, u2);
+  all(cs, cmd(0, 'auto', [true])); all(cs, cmd(0, 'wave'));
+  stepUntil(cs, (c) => c.sim.state === 'wave' && c.sim.enemies.length >= 1 && c.sim.abilityStatus(u1).ready && c.sim.abilityStatus(u2).ready);
+  return [u1, u2];
+}
+describe('r2 probes', () => {
+  it('lend FIRST, then cast through the lent copy, then the home copy', () => {
+    const cs = views(st2(), [CASH_MAX, CASH_MAX]);
+    const [u1, u2] = twoShiro(cs);
+    const l = all(cs, cmd(0, 'lend', [u2, 1]));
+    const a = all(cs, cmd(1, 'abil', abilArgs(u2)));
+    const b = all(cs, cmd(0, 'abil', abilArgs(u1)));
+    const g = all(cs, cmd(1, 'give', [u2]));
+    log2('LENDFIRST', { l, a, b, g });
+  });
+  it('cast, lend, give, back, re-lend across a wave boundary', () => {
+    const cs = views(st2(), [CASH_MAX, CASH_MAX]);
+    const [u1, u2] = twoShiro(cs);
+    const out = {};
+    out.cast1 = all(cs, cmd(0, 'abil', abilArgs(u1)));
+    out.lend = all(cs, cmd(0, 'lend', [u2, 1]));
+    out.castLent = all(cs, cmd(1, 'abil', abilArgs(u2)));
+    out.give = all(cs, cmd(1, 'give', [u2]));
+    out.backAfterGive = all(cs, cmd(0, 'back', [u2]));
+    out.castHome = all(cs, cmd(0, 'abil', abilArgs(u2)));
+    all(cs, cmd(0, 'auto', [false]));
+    stepUntil(cs, (c) => c.sim.state === 'between');
+    out.relend = all(cs, cmd(0, 'lend', [u2, 1]));
+    out.back = all(cs, cmd(0, 'back', [u2]));
+    out.relend2 = all(cs, cmd(0, 'lend', [u2, 1]));
+    all(cs, cmd(0, 'wave'));
+    stepUntil(cs, (c) => c.sim.state === 'wave' && c.sim.enemies.length >= 1);
+    out.st = [cs[0].sim.abilityStatus(u1).cooldownLeft, cs[0].sim.abilityStatus(u2).cooldownLeft];
+    out.castLent2 = all(cs, cmd(1, 'abil', abilArgs(u2)));
+    log2('WAVEBOUNDARY', out);
+  });
+  it('hand-out of a girl on cooldown', () => {
+    const cs = views(st2(), [CASH_MAX, CASH_MAX]);
+    const [u1, u2] = twoShiro(cs);
+    const c1 = all(cs, cmd(0, 'abil', abilArgs(u1)));
+    all(cs, marker(0, 'gone'));
+    step(cs, COOP.graceTicks + 2);
+    const ctrl = [cs[0].ctrlOf(u1), cs[0].ctrlOf(u2)];
+    stepUntil(cs, (c) => c.sim.enemies.length >= 1, 5000);
+    const st = [cs[0].sim.abilityStatus(u1).cooldownLeft, cs[0].sim.abilityStatus(u2).cooldownLeft];
+    const a = all(cs, cmd(1, 'abil', abilArgs(u2)));
+    const b = all(cs, cmd(1, 'abil', abilArgs(u1)));
+    log2('HANDOUTCD', { c1, ctrl, st, a, b });
+  });
+  it('econ: lend first, then casts on both sides', () => {
+    const cs = views(st2(), [CASH_MAX, CASH_MAX]);
+    const m = [place(cs, 0, 'momo'), place(cs, 0, 'momo', 3), place(cs, 0, 'momo', 6)];
+    for (const u of m) upTo3(cs, 0, u);
+    all(cs, cmd(0, 'lend', [m[2], 1]));
+    all(cs, cmd(0, 'wave'));
+    stepUntil(cs, (c) => c.sim.state === 'wave' && m.every((u) => c.sim.abilityStatus(u).ready));
+    for (const c of cs) wallets(c, [1000, 1000]);
+    const r = [all(cs, cmd(1, 'abil', abilArgs(m[2]))), all(cs, cmd(0, 'abil', abilArgs(m[0]))), all(cs, cmd(0, 'abil', abilArgs(m[1])))];
+    log2('ECONLENDFIRST', r);
+  });
+  it('L1: speed changes mid-grace and a checkpoint restore mid-grace, two views + a fresh client', () => {
+    const cs = views(start(), [5000, 5000]);
+    all(cs, marker(1, 'gone'));
+    step(cs, 100);
+    all(cs, cmd(0, 'speed', [3]));
+    step(cs, 100);
+    all(cs, cmd(0, 'speed', [2]));
+    step(cs, 50);
+    const snap = JSON.parse(JSON.stringify(cs[0].snapshot()));
+    const fresh = createCoopSim(start(), { mySlot: 0 }).restore(snap);
+    const trio = [cs[0], cs[1], fresh];
+    expect(fresh.hash()).toBe(cs[0].hash());
+    all(trio, cmd(0, 'speed', [1]));
+    let handed = -1;
+    for (let i = 0; i < 2000 && handed < 0; i++) {
+      for (const c of trio) c.step();
+      expect(trio[2].hash()).toBe(trio[0].hash()); expect(trio[1].hash()).toBe(trio[0].hash());
+      if (!trio[0].pendingDeals().length) handed = trio[0].tick;
+    }
+    // expected: 7200 sixths = 100*6 + 100*2 + 50*3 = 950 used → 6250 left at 1× → 6250 steps; we cap at 2000 so compute
+    log2('L1', { left: cs[0].pendingDeals(), handed, tick: cs[0].tick });
   });
 });
