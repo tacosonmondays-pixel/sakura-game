@@ -1480,3 +1480,48 @@ describe('co-op lockstep: stall time is frame-rate independent (COOP 15, review 
     expect(Math.abs(at120 - at60)).toBeLessThanOrEqual(2);
   });
 });
+
+// Co-op sharing (docs/specs/COOP_SHARING.md, COOP 17) through the network: the guest freezes past the drop timeout,
+// the host's grace runs out and it takes over the guest's girls and coins; the guest wakes, the host re-admits it
+// (its log carries the 'gone' / 'join' markers), and the girls are the guest's again on both, in lockstep.
+describe('co-op lockstep: a dropped player\'s girls are handed out after the grace and come back on the rejoin', () => {
+  const run = (h, n) => {
+    for (let f = 0; f < n; f++) h.stepFrame();
+  };
+  it('drop → grace → hand-out → rejoin → girls back, both clients\' hashes agreeing after the rejoin', () => {
+    const h = harness({ seed: 71, maxLag: 3 });
+    const [A, B] = h.clients;
+    const a = spots('aoi', 1)[0];
+    const y = spots('yuki', 1)[0];
+    run(h, 5);
+    A.queue('place', ['aoi', ...quantize(...a)]);
+    B.queue('place', ['yuki', ...quantize(...y)]);
+    run(h, 120);
+    const guestGirl = A.sim.towers.find((t) => A.coop.ownerOf(t.uid) === 1)?.uid;
+    expect(guestGirl).toBeTypeOf('number');
+    expect(A.coop.ctrlOf(guestGirl)).toBe(1);
+    // the guest's page freezes past the drop timeout
+    h.frozen.add(1);
+    run(h, Math.ceil((COOP.maxTimeoutMs / 1000 + 2) * 60));
+    expect(A.peers.get(1).gone).toBe(true);
+    const due = A.coop.pendingDeals()[0]?.at;
+    expect(due).toBeGreaterThan(A.tick);
+    run(h, due - A.tick + 30);
+    expect(A.coop.ctrlOf(guestGirl)).toBe(0); // handed out to the host
+    expect(A.coop.wallets[1]).toBe(0);
+    // the guest wakes: the host re-admits it, its timeline adopts the host's (markers and all)
+    h.frozen.delete(1);
+    run(h, 60 * 8);
+    expect(A.rejoins).toBe(1);
+    expect(B.rejoins).toBe(1);
+    run(h, 60 * 4);
+    for (const c of [A, B]) {
+      expect(c.coop.ctrlOf(guestGirl)).toBe(1); // back with their owner
+      expect(c.coop.lentInfo(guestGirl)).toBeNull();
+    }
+    const late = A.hashPairs().filter((p) => p.t > A.tick - 200);
+    expect(late.length).toBeGreaterThan(0);
+    expect(late.every((p) => p.mine === p.theirs)).toBe(true);
+    expect(A.coop.hash()).toBe(B.tick === A.tick ? B.coop.hash() : A.coop.hash());
+  });
+});

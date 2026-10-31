@@ -33,6 +33,14 @@ export const COOP = Object.freeze({
   /** Room codes: 5 characters without look-alikes (0/O, 1/I/L). */
   codeAlphabet: 'ABCDEFGHJKMNPQRSTUVWXYZ23456789',
   codeLength: 5,
+  /** Co-op sharing (docs/specs/COOP_SHARING.md): a player who leaves or is lost keeps their girls and coins for this
+   *  long (1/60 s steps × the game speed at the moment they went, so about 20 s of real time at any speed); then the
+   *  players still there take them over. A rejoin before that cancels it; after it gives the girls back. */
+  graceTicks: 1200,
+  /** Coin gifts: at least this many coins… */
+  giftMin: 10,
+  /** …and one per player at most every this many steps (2 s at 1×). */
+  giftEveryTicks: 120,
 });
 
 /**

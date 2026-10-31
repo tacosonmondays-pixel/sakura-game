@@ -26,6 +26,7 @@ import { hashSim } from './simHash.js';
 import { withDetMath } from './detMath.js';
 import { buildTryoutPlan, buildTryoutStage, tryoutGone, tryoutLoadouts } from '../../sim/tryout/index.js';
 import { checkedDraft } from '../../sim/tryout/draft.js';
+import { ctrlOf } from '../../sim/ctrl.js';
 
 /**
  * Command kinds: place[unitId,qx,qy] upg[uid,path] sell[uid] tgt[uid,mode] ult[] wave[] auto[bool]
@@ -54,8 +55,16 @@ import { checkedDraft } from '../../sim/tryout/draft.js';
  * player's (src/sim/tryout/index.js tryoutCommand: take / erase / hand carry the open offer's sequence number,
  * snack, brush, undo, ready); mv[uid, qx, qy] a Hall Pass move of one of their own girls, in 1/1024 tiles. Both are
  * validated inside the Sim at their tick; a stale or wrong one is a no-op with a reason.
+ * Sharing (docs/specs/COOP_SHARING.md): gift[toSlot, amount] sends whole coins from my wallet (at least COOP.giftMin,
+ * at most my wallet, one gift every COOP.giftEveryTicks; what the receiver's CASH_MAX cannot take stays with me);
+ * lend[uid, toSlot] hands control of my own placed girl to a player still here (never a hero, a girl with a lab, a lent
+ * girl or one in a Tryout run); back[uid] takes her back (her owner only, never during a wave unless her controller is
+ * gone); give[uid] hands a girl lent to me back to her owner. Control (t.ctrl, src/sim/ctrl.js) decides who commands
+ * her and who pays; her stats, colour and one-final-tier rule stay her owner's. A player who leaves or is lost keeps
+ * everything for COOP.graceTicks; then their wallet is split and their girls handed out (handOut), and a `join`
+ * gives the handed-out girls back.
  */
-export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly', 'pick', 'aim', 'abil', 'acast', 'tr', 'mv'];
+export const KINDS = ['place', 'upg', 'sell', 'tgt', 'ult', 'wave', 'auto', 'speed', 'end', 'hlv', 'hmv', 'fly', 'pick', 'aim', 'abil', 'acast', 'tr', 'mv', 'gift', 'lend', 'back', 'give'];
 const Q = 1024;
 /** Upgrade paths a tower has (Sim tiers[0..2]). */
 const UPGRADE_PATHS = [0, 1, 2];
@@ -181,6 +190,14 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
   const wallets = players.map(() => startCash);
   const owners = new Map();
   const gone = new Set();
+  // sharing (docs/specs/COOP_SHARING.md): each player's last gift tick, leavers waiting out their grace
+  // ({ slot, at }: hand-out at tick `at`), and girls under someone else's control: uid → { kind: 'lend' | 'deal', from }
+  // (the controller is t.ctrl on the girl herself, so the Sim credits her coins to them)
+  const giftAt = players.map(() => -1);
+  let pendingDeal = [];
+  const lentBy = new Map();
+  /** What the screens announce (handOut, returns): drained by the battle screen. */
+  let shareEvents = [];
   let viewSlot = Math.max(0, players.findIndex((p) => p.slot === mySlot));
   let speed = 1;
   let tick = 0;
@@ -208,8 +225,97 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
     return { players: views.map((v) => ({ loadout: Object.fromEntries(v.loadout), hero: v.heroConfig })) };
   }
 
+  /** Who commands girl `uid` (her owner unless she is lent or handed out); undefined once she left the field. */
+  function ctrlSlot(uid) {
+    if (!owners.has(uid)) return undefined;
+    const t = sim.getTower(uid);
+    return t ? ctrlOf(t) : owners.get(uid);
+  }
+
+  /** May player `slot` give girl `uid` orders? (Her controller: her owner, or whoever she is lent / handed to.) */
   function ownsTower(slot, uid) {
-    return owners.get(uid) === slot;
+    return ctrlSlot(uid) === slot;
+  }
+
+  /** Sets who commands girl `t` (t.ctrl only while that is not her owner: a battle without sharing never has it). */
+  function setCtrl(t, slot) {
+    if (slot === (t.owner ?? 0)) {
+      delete t.ctrl;
+      lentBy.delete(t.uid);
+    } else t.ctrl = slot;
+  }
+
+  const alivePlayers = () => players.map((_, i) => i).filter((i) => !gone.has(i));
+
+  /**
+   * A leaver's grace is over (docs/specs/COOP_SHARING.md §3.3): their wallet is split between the players still here
+   * (the odd coin takes turns), girls lent to them go home to an owner still here, and every other girl they command
+   * (not their hero) goes, in uid order, to whoever then commands the least spent value (ties: the lower slot).
+   */
+  function handOut(slot) {
+    const alive = alivePlayers().filter((i) => i !== slot);
+    if (!alive.length) return;
+    const coins = wallets[slot];
+    wallets[slot] = 0;
+    splitIncome(coins);
+    const spentOf = (i) => {
+      let n = 0;
+      for (const t of sim.towers) if (!t.isHero && !t.removed && owners.has(t.uid) && ctrlOf(t) === i) n += t.spent || 0;
+      return n;
+    };
+    const given = new Map(); // receiver → uids
+    for (const t of [...sim.towers].sort((p, q) => p.uid - q.uid)) {
+      if (t.isHero || t.removed || !owners.has(t.uid) || ctrlOf(t) !== slot) continue;
+      const owner = t.owner ?? 0;
+      let to;
+      if (owner !== slot && !gone.has(owner)) to = owner; // lent to the leaver: home first
+      else {
+        to = alive[0];
+        let least = spentOf(to);
+        for (const i of alive.slice(1)) {
+          const v = spentOf(i);
+          if (v < least) {
+            to = i;
+            least = v;
+          }
+        }
+      }
+      setCtrl(t, to);
+      if (to !== (t.owner ?? 0)) lentBy.set(t.uid, { kind: 'deal', from: slot });
+      if (!given.has(to)) given.set(to, []);
+      given.get(to).push(t.uid);
+    }
+    shareEvents.push({ k: 'dealt', tick, from: slot, coins, given: [...given].map(([to, uids]) => ({ to, uids })) });
+  }
+
+  /** `join`: a returner gets back every girl of theirs that was handed out (not the coins: D9). */
+  function giveBack(slot) {
+    const uids = [];
+    for (const t of sim.towers) {
+      const l = lentBy.get(t.uid);
+      if (!l || l.kind !== 'deal' || (t.owner ?? 0) !== slot) continue;
+      setCtrl(t, slot);
+      uids.push(t.uid);
+    }
+    if (uids.length) shareEvents.push({ k: 'back', tick, to: slot, uids });
+  }
+
+  /** Every leaver whose grace is over (start of a step, before the Sim moves: the same point on every client). */
+  function dueDeals() {
+    if (!pendingDeal.length) return;
+    const due = pendingDeal.filter((d) => d.at <= tick);
+    if (!due.length) return;
+    pendingDeal = pendingDeal.filter((d) => d.at > tick);
+    for (const d of due) if (gone.has(d.slot)) handOut(d.slot);
+  }
+
+  /** The sharing state the hash folds (only what exists: a battle without sharing folds nothing). */
+  function shareDigest() {
+    const out = [];
+    if (giftAt.some((x) => x >= 0)) out.push(-2, ...giftAt);
+    for (const d of pendingDeal) out.push(-3, d.slot, d.at);
+    for (const [uid, l] of [...lentBy].sort((a, b) => a[0] - b[0])) out.push(-4, uid, l.kind === 'deal' ? 1 : 0, l.from);
+    return out;
   }
 
   /**
@@ -248,8 +354,15 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
     const slot = cmd.p;
     if (!views[slot]) return { ok: false, reason: 'slot' };
     if (cmd.k === 'gone' || cmd.k === 'join') {
-      if (cmd.k === 'gone') gone.add(slot);
-      else gone.delete(slot);
+      if (cmd.k === 'gone') {
+        gone.add(slot);
+        // their girls and coins are handed out once the grace is over (about 20 s of real time at any speed)
+        if (!pendingDeal.some((d) => d.slot === slot)) pendingDeal.push({ slot, at: tick + COOP.graceTicks * speed });
+      } else {
+        gone.delete(slot);
+        pendingDeal = pendingDeal.filter((d) => d.slot !== slot);
+        giveBack(slot);
+      }
       // a run: their open pick or break resolves at once, and so does every later one while they stay gone
       if (sim.tryout) withDetMath(() => tryoutGone(sim, slot, cmd.k === 'gone'));
       // the one left can finish alone (her vote may already be in)
@@ -286,6 +399,12 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
           else {
             // that player's view (cash, owner), the same on every client; never options from the network
             const st = sim.upgradeStatus(a[0], a[1]);
+            const own = sim.getTower(a[0]);
+            // a tier that absorbs (Tenka's lab: her OWNER's girls join) is her owner's to buy, never a controller's
+            if (!st.locked && own && (own.owner ?? 0) !== slot && st.next?.mods?.lab?.rounds > 0) {
+              res = { ok: false, reason: 'lab' };
+              break;
+            }
             // Tenka's Joint Research / Unified Theory absorb inside this command (src/sim/lab.js): only girls
             // whose t.owner is hers (this slot), so never the partner's, gone or not; who joined is the new
             // tail of her lab record (no Sim field outlives the command)
@@ -296,7 +415,10 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
             // 'notYours'; GAPS 5.10 co-op)
             const joined = res.ok && tw?.lab ? tw.lab.uids.slice(had) : null;
             if (joined && joined.length) {
-              for (const uid of joined) owners.delete(uid);
+              for (const uid of joined) {
+                owners.delete(uid);
+                lentBy.delete(uid);
+              }
               res.absorbed = joined;
             }
           }
@@ -305,8 +427,10 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
           if (!ownsTower(slot, a[0])) res = { ok: false, reason: 'notYours' };
           else if (sim.canSell(a[0]).reason === 'hero') res = { ok: false, reason: 'hero' }; // she stays, and stays hers
           else {
+            // (her controller sells her: the refund is theirs, sim.cash is their wallet)
             const refund = sim.sellTower(a[0]);
             owners.delete(a[0]);
+            lentBy.delete(a[0]);
             res = { ok: true, refund };
           }
           break;
@@ -429,6 +553,68 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
           }
           break;
         }
+        // ---- sharing (docs/specs/COOP_SHARING.md §3.2) ------------------------------------------------------
+        case 'gift': {
+          const [to, amount] = a;
+          if (!Number.isInteger(to) || !Number.isInteger(amount)) res = { ok: false, reason: 'invalid' };
+          else if (sim.state === 'won' || sim.state === 'lost') res = { ok: false, reason: 'ended' };
+          else if (to === slot) res = { ok: false, reason: 'self' };
+          else if (!views[to] || gone.has(to)) res = { ok: false, reason: 'gone' };
+          else if (amount < COOP.giftMin) res = { ok: false, reason: 'amount' };
+          else if (amount > sim.cash) res = { ok: false, reason: 'cash' };
+          else if (giftAt[slot] >= 0 && tick - giftAt[slot] < COOP.giftEveryTicks) res = { ok: false, reason: 'cooldown' };
+          else {
+            // a wallet move, never income (_gainCashFor): nobody's coins earned or mission counters move
+            const sent = Math.max(0, Math.min(amount, CASH_MAX - wallets[to]));
+            sim.cash -= sent;
+            wallets[to] += sent;
+            giftAt[slot] = tick;
+            res = { ok: true, sent, kept: amount - sent };
+          }
+          break;
+        }
+        case 'lend': {
+          const [uid, to] = a;
+          const t = Number.isInteger(uid) && owners.has(uid) ? sim.getTower(uid) : null;
+          if (!Number.isInteger(uid) || !Number.isInteger(to)) res = { ok: false, reason: 'invalid' };
+          else if (!t || (t.owner ?? 0) !== slot || ctrlOf(t) !== slot) res = { ok: false, reason: 'notYours' };
+          else if (t.isHero) res = { ok: false, reason: 'hero' };
+          // (a Tenka: her lab absorbs her OWNER's girls, docs/specs/COOP_SHARING.md §3.1a; lab tiers on her paths)
+          else if (t.stats?.lab || t.def?.paths?.some((p) => p.tiers?.some((x) => x.mods?.lab))) res = { ok: false, reason: 'lab' };
+          else if (sim.tryout) res = { ok: false, reason: 'run' };
+          else if (sim.state === 'won' || sim.state === 'lost') res = { ok: false, reason: 'ended' };
+          else if (to === slot) res = { ok: false, reason: 'self' };
+          else if (!views[to] || gone.has(to)) res = { ok: false, reason: 'gone' };
+          else {
+            setCtrl(t, to);
+            lentBy.set(uid, { kind: 'lend', from: slot });
+            res = { ok: true, to };
+          }
+          break;
+        }
+        case 'back': {
+          const [uid] = a;
+          const t = Number.isInteger(uid) && owners.has(uid) ? sim.getTower(uid) : null;
+          if (!t || (t.owner ?? 0) !== slot) res = { ok: false, reason: 'notYours' };
+          else if (ctrlOf(t) === slot) res = { ok: false, reason: 'already' };
+          else if (sim.state === 'wave' && !gone.has(ctrlOf(t))) res = { ok: false, reason: 'wave' };
+          else {
+            setCtrl(t, slot);
+            res = { ok: true };
+          }
+          break;
+        }
+        case 'give': {
+          const [uid] = a;
+          const t = Number.isInteger(uid) && owners.has(uid) ? sim.getTower(uid) : null;
+          if (!t || ctrlOf(t) !== slot || (t.owner ?? 0) === slot) res = { ok: false, reason: 'notYours' };
+          else if (gone.has(t.owner ?? 0)) res = { ok: false, reason: 'gone' };
+          else {
+            setCtrl(t, t.owner ?? 0);
+            res = { ok: true };
+          }
+          break;
+        }
         default:
           break;
       }
@@ -448,6 +634,7 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
   }
 
   function stepSim() {
+    dueDeals();
     let total = 0;
     for (const w of wallets) total += w;
     sim.cash = total;
@@ -477,19 +664,26 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
     apply,
     step,
     ownerOf: (uid) => owners.get(uid),
-    isMine: (uid) => owners.get(uid) === viewSlot,
-    /** Marks a player as disconnected: their towers stay, future income goes to the others. */
-    markGone(slot) {
-      gone.add(slot);
-    },
-    /** A disconnected player is back (lockstep rejoin): she shares the income again. */
-    markBack(slot) {
-      gone.delete(slot);
+    /** Who commands girl `uid` now (her owner unless lent or handed out). */
+    ctrlOf: (uid) => ctrlSlot(uid),
+    /** May this client's player give her orders? (Her controller; her colour stays her owner's: ownerOf.) */
+    isMine: (uid) => ctrlSlot(uid) === viewSlot,
+    /** How girl `uid` came to her controller: { kind: 'lend' | 'deal', from } or null (her owner's own). */
+    lentInfo: (uid) => lentBy.get(uid) || null,
+    /** Leavers waiting out their grace: [{ slot, at }] (the tick their girls are handed out). */
+    pendingDeals: () => pendingDeal.map((d) => ({ ...d })),
+    /** Each player's last gift tick (-1: none yet; the 2 s limit). */
+    giftTicks: () => giftAt.slice(),
+    /** Hand-outs and returns since the last call (the battle screen's feed). */
+    drainShareEvents() {
+      const out = shareEvents;
+      shareEvents = [];
+      return out;
     },
     isGone: (slot) => gone.has(slot),
     /** Freeplay Finish votes, by player index (for the HUD). */
     endVotes: () => endVotes.slice(),
-    hash: () => hashSim(sim, { tick, wallets }),
+    hash: () => hashSim(sim, { tick, wallets, share: shareDigest() }),
     /**
      * The whole co-op battle as plain JSON (a lockstep checkpoint): the Sim's snapshot plus the
      * wallets, tower owners, who is gone, the Finish votes, speed and the odd-coin turn. Taken
@@ -503,7 +697,12 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
         // a run: each player's squad (join order) and the period whose Run Level is applied travel beside the
         // Sim, so a fresh client rebuilds every loadout entry before the restore (docs/specs/TRYOUT_DAY.md §12.2)
         const run = sim.tryout ? { squads: sim.tryout.players.map((p) => p.squad.slice()), period: sim.tryout.started || 1 } : null;
-        return { v: 1, tick, speed, oddTurn, wallets: wallets.slice(), owners: [...owners], gone: [...gone], endVotes: endVotes.slice(), ...run, sim: sim.snapshot(config()) };
+        // v 2: the sharing state beside it (t.ctrl travels on the girls in the Sim's own snapshot)
+        return {
+          v: 2, tick, speed, oddTurn, wallets: wallets.slice(), owners: [...owners], gone: [...gone], endVotes: endVotes.slice(), ...run,
+          giftAt: giftAt.slice(), pendingDeal: pendingDeal.map((d) => ({ ...d })), lentBy: [...lentBy].map(([uid, l]) => [uid, l.kind, l.from]),
+          sim: sim.snapshot(config()),
+        };
       } finally {
         sim.cash = mine;
       }
@@ -513,7 +712,7 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
      * command and step are those of tick `snap.tick`. The view stays this client's own.
      */
     restore(snap) {
-      if (!snap || snap.v !== 1 || !Number.isInteger(snap.tick) || snap.wallets?.length !== players.length) throw new Error('[coop] not a co-op checkpoint');
+      if (!snap || (snap.v !== 1 && snap.v !== 2) || !Number.isInteger(snap.tick) || snap.wallets?.length !== players.length) throw new Error('[coop] not a co-op checkpoint');
       if (sim.tryout) {
         if (!Array.isArray(snap.squads) || snap.squads.length !== players.length || !Number.isInteger(snap.period)) throw new Error('[coop] a run checkpoint without its squads');
         withDetMath(() => tryoutLoadouts(sim, snap.squads.map((q) => (Array.isArray(q) ? q.filter((id) => typeof id === 'string') : [])), snap.period));
@@ -528,6 +727,13 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
       gone.clear();
       for (const i of snap.gone) gone.add(i);
       snap.endVotes.forEach((v, i) => { endVotes[i] = !!v; });
+      // sharing (v 2; a v 1 checkpoint has none: nothing lent, nothing pending)
+      giftAt.fill(-1);
+      if (Array.isArray(snap.giftAt)) snap.giftAt.forEach((x, i) => { if (i < giftAt.length && Number.isInteger(x)) giftAt[i] = x; });
+      pendingDeal = Array.isArray(snap.pendingDeal) ? snap.pendingDeal.filter((d) => d && Number.isInteger(d.slot) && Number.isInteger(d.at)).map((d) => ({ slot: d.slot, at: d.at })) : [];
+      lentBy.clear();
+      if (Array.isArray(snap.lentBy)) for (const [uid, kind, from] of snap.lentBy) if (Number.isInteger(uid) && (kind === 'lend' || kind === 'deal')) lentBy.set(uid, { kind, from });
+      shareEvents = [];
       view(viewSlot);
       return this;
     },

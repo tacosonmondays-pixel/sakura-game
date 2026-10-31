@@ -58,6 +58,7 @@ import {
 } from './constants.js';
 import { bestTarget, explode } from './towers.js';
 import { statusCtxFor, setPassive } from './setRules.js';
+import { ctrlOf } from './ctrl.js';
 
 /** The lab classes, in this order everywhere (the battle save packs them as arrays). */
 export const LAB_CLASSES = Object.freeze(['dps', 'frag', 'control', 'support', 'economy']);
@@ -257,7 +258,7 @@ export function labIncome(sim, cashMul) {
     for (let i = 0; i < n; i++) interest += Math.min(caps?.[i] ?? INCOME_INTEREST_MAX, rates[i] * sim.cash);
     const power = t.stats?.lab?.power ?? 1;
     const perWave = lab.income > 0 ? lab.income : 0;
-    const amount = sim._gainCashFor(t.owner ?? 0, LAB_ECON_SHARE * power * (perWave * cashMul + interest) * sim.incomeMul);
+    const amount = sim._gainCashFor(ctrlOf(t), LAB_ECON_SHARE * power * (perWave * cashMul + interest) * sim.incomeMul);
     if (amount > 0) sim._emit('cash', { amount, reason: 'lab', towerUid: t.uid });
     sim._bakeOn(t, amount);
   }

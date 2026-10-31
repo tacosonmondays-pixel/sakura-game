@@ -196,7 +196,7 @@ describe('her economy weapon in co-op (owner decision #146) and the gone player'
       for (const ev of cs[0].sim.drainEvents()) if (ev.type === 'cash' && ev.reason === 'lab') lab[cs[0].sim.getTower(ev.towerUid).owner] += ev.amount;
       cs[1].sim.drainEvents();
       for (const c of cs) expect(c.sim.ownerCash).toEqual([0, 0]);
-      rows.push({ d: [w1[0] - w0[0], w1[1] - w0[1]], lab });
+      rows.push({ d: [w1[0] - w0[0], w1[1] - w0[1]], lab, tick: cs[0].tick });
     }
     expect(cs[0].sim.state).toBe('between');
     expect(cs[1].hash()).toBe(cs[0].hash());
@@ -224,6 +224,7 @@ describe('her economy weapon in co-op (owner decision #146) and the gone player'
     const rate = s0.getTower(momo).stats.income.interest;
     // the partner is gone when she buys Joint Research
     all(cs, marker(1, 'gone'));
+    const deal1 = cs[0].pendingDeals()[0].at; // (co-op sharing: their girls and coins are handed out after the grace)
     for (let i = 0; i < 2; i++) expect(all(cs, cmd(0, 'upg', [tk, 0])).ok).toBe(true);
     const r = all(cs, cmd(0, 'upg', [tk, 0]));
     expect(r).toMatchObject({ ok: true, absorbed: [momo, chigusa] });
@@ -236,22 +237,39 @@ describe('her economy weapon in co-op (owner decision #146) and the gone player'
     // (both wallets hold far more than 150 / 4%: her interest is at its cap)
     const want = Math.floor(LAB_ECON_SHARE * 1 * (income * cashMul + INCOME_INTEREST_MAX) * s0.incomeMul + 1e-9);
     expect(all(cs, cmd(0, 'wave')).ok).toBe(true);
+    const wallet1 = cs[0].wallets[1];
     let rows = wave(cs);
     expect(sum(rows, 'lab', 0)).toBe(want);
     expect(sum(rows, 'lab', 1)).toBe(0);
-    // the partner gone: everything is the host's (pooled and lab); the partner's wallet stays
-    for (const x of rows) expect(x.d[1]).toBe(0);
+    // the partner gone: everything is the host's (pooled and lab); the partner's wallet stays for the grace
+    // (docs/specs/COOP_SHARING.md), then it is split to the one still here (one step: the hand-out at deal1) and the
+    // partner's Momo is the host's to command
+    for (const x of rows) expect(x.d[1]).toBe(x.tick === deal1 + 1 ? -wallet1 : 0);
+    expect(cs[0].tick).toBeGreaterThan(deal1 + 1); // (the wave outlasted the grace: the hand-out is tested here)
+    for (const c of cs) expect(c.ctrlOf(theirs)).toBe(0);
     // the partner is back and the host is gone: her lab coins still land in her wallet (kept for her rejoin),
     // and only those; the pooled coins (the partner's Momo's income included) are the partner's
+    // (a join gives the partner their handed-out Momo back)
     all(cs, marker(1, 'join'));
+    for (const c of cs) expect(c.ctrlOf(theirs)).toBe(1);
     all(cs, marker(0, 'gone'));
+    const deal0 = cs[0].pendingDeals()[0].at;
     expect(all(cs, cmd(1, 'wave')).ok).toBe(true);
+    const wallet0 = cs[0].wallets[0];
     rows = wave(cs);
     expect(sum(rows, 'lab', 0)).toBe(want);
-    for (const x of rows) expect(x.d[0]).toBe(x.lab[0]);
+    // for the grace her lab coins land in her owner's wallet; once Tenka is handed to the partner, in theirs
+    for (const x of rows) {
+      if (x.tick <= deal0) expect(x.d[0]).toBe(x.lab[0]);
+      else if (x.tick === deal0 + 1) expect(x.d[0]).toBe(-wallet0);
+      else expect(x.d[0]).toBe(0);
+    }
+    expect(cs[0].tick).toBeGreaterThan(deal0 + 1);
+    for (const c of cs) expect(c.ctrlOf(tk)).toBe(1);
     expect(sum(rows, 'd', 1)).toBeGreaterThan(0);
-    // both back: the pooled coins split again, her lab coins on top for her alone
+    // both back: the pooled coins split again, her lab coins on top for her alone (Tenka is hers again: the join)
     all(cs, marker(0, 'join'));
+    for (const c of cs) expect(c.ctrlOf(tk)).toBe(0);
     expect(all(cs, cmd(1, 'wave')).ok).toBe(true);
     rows = wave(cs);
     expect(sum(rows, 'lab', 0)).toBe(want);

@@ -29,7 +29,8 @@
 // their statuses never roll), stable target orders (grid cell order, stable sorts, uid tie breaks),
 // only + − × ÷, floor / round / ceil / min / max and squared distances. Lifetimes are countdowns; the
 // step number (auto-cast stagger, the CC guard) is round(sim.time / STEP), the drones' precedent.
-// Nothing here reads the view getters sim.hero / sim.heroConfig: a girl's player is t.owner.
+// Nothing here reads the view getters sim.hero / sim.heroConfig: a girl's player is ctrlOf(t) (t.owner unless
+// another player controls her: co-op sharing, ./ctrl.js).
 //
 // State (all plain data, so the generic snapshot stores it):
 //   t.abil      { id, kind, scope, cdMax, cd, rate, active, auto, t5, n }  — created when she unlocks
@@ -62,6 +63,7 @@ import { shadowDoubles, bellCarpet, droneSurge, tickDeploys, endDeployWave, clea
 import { startRunner } from './runners.js';
 import { samplePath } from './path.js';
 import { anchorsAt, pullAlong } from './zones.js';
+import { ctrlOf } from './ctrl.js';
 
 const R = ABILITY_RULES;
 
@@ -161,7 +163,7 @@ export function chargeRate(t, kind) {
   return abilityChargePerTick(t?.unitStats, kind);
 }
 
-const groupKey = (t, id) => `${t.owner ?? 0}|${id}`;
+const groupKey = (t, id) => `${ctrlOf(t)}|${id}`;
 
 function groupOf(sim, t) {
   const a = t.abil;
@@ -182,7 +184,7 @@ function groupCut(sim, owner, id) {
   let cut = 0;
   for (const t of sim.towers) {
     const c = t.rules?.cdCut;
-    if (!(c > cut) || t.removed || !t.abil || t.abil.id !== id || (t.owner ?? 0) !== owner) continue;
+    if (!(c > cut) || t.removed || !t.abil || t.abil.id !== id || ctrlOf(t) !== owner) continue;
     cut = c;
   }
   return cut;
@@ -214,11 +216,11 @@ export function syncAbility(sim, t) {
     t.abil = {
       id: def.id, kind: def.kind, scope: def.scope, cdMax,
       cd: def.kind === 'econ' ? cdMax : Math.round(cdMax / R.initialShare),
-      rate, active: 0, auto: !!sim.abilityAutoDefault?.[t.owner ?? 0], t5: up, n: 0,
+      rate, active: 0, auto: !!sim.abilityAutoDefault?.[ctrlOf(t)], t5: up, n: 0,
     };
     t.abilMods = null;
     sim._abilOn++;
-    sim._emit('abilityUnlock', { towerUid: t.uid, id: def.id, kind: def.kind, owner: t.owner ?? 0 });
+    sim._emit('abilityUnlock', { towerUid: t.uid, id: def.id, kind: def.kind, owner: ctrlOf(t) });
     return;
   }
   a.rate = rate;
@@ -620,7 +622,7 @@ function catalyst(sim, t, def, spec, targets, step) {
 function addRally(sim, t, e, radius, left, to = null) {
   const map = e.radius === 'map';
   sim._rallies.push({
-    src: t.uid, owner: t.owner ?? 0, r2: map ? 0 : radius * radius, map,
+    src: t.uid, owner: ctrlOf(t), r2: map ? 0 : radius * radius, map,
     dmgMul: e.dmgMul ?? 1, rateMul: e.rateMul ?? 1, rangeMul: e.rangeMul ?? 1,
     // a ward blocks sabotage and the volatile slimes' tower stun (both read the cleanse, Sim._isCleansed);
     // stunImmune says the stun half of it (Noa's First Aid Call)
@@ -727,7 +729,7 @@ export function abilityKill(sim, e) {
   const c = sim.getTower(r.src);
   sim.lives++;
   L.given++;
-  sim._emit('lifeRestored', { towerUid: c.uid, lives: sim.lives, n: 1, id: abilityDef(c)?.id ?? null, owner: c.owner ?? 0 });
+  sim._emit('lifeRestored', { towerUid: c.uid, lives: sim.lives, n: 1, id: abilityDef(c)?.id ?? null, owner: ctrlOf(c) });
 }
 
 /**
@@ -1031,8 +1033,8 @@ const KINDS = {
   econ: {
     cast(sim, t, def) {
       const coins = (def.effect.coins || 0) * (sim.diff.cashMul ?? 1) * (sim.incomeMul ?? 1);
-      const amount = sim._gainCashFor(t.owner ?? 0, coins);
-      sim._emit('cash', { amount, reason: 'ability', towerUid: t.uid, owner: t.owner ?? 0 });
+      const amount = sim._gainCashFor(ctrlOf(t), coins);
+      sim._emit('cash', { amount, reason: 'ability', towerUid: t.uid, owner: ctrlOf(t) });
       sim._bakeOn(t, amount); // (Treasurer's Bake Sale on her own coins)
       return { x: t.x, y: t.y, radius: 0, targets: [], coins: amount };
     },
@@ -1269,7 +1271,7 @@ function refusal(sim, t) {
   if (a.active > 0) return 'active';
   if (a.cd > 0 || (groupOf(sim, t)?.cd || 0) > 0) return 'cooldown';
   if (a.kind === 'econ') {
-    if ((sim.abilUses[t.owner ?? 0] || 0) >= R.econCapPerWave) return 'cap';
+    if ((sim.abilUses[ctrlOf(t)] || 0) >= R.econCapPerWave) return 'cap';
     if (sim.diff.noIncome) return 'noIncome';
   }
   return null;
@@ -1291,12 +1293,12 @@ function enemiesInReach(sim, t, def) {
  */
 function pickCaster(sim, t) {
   if (!refusal(sim, t)) return t;
-  const owner = t.owner ?? 0;
+  const owner = ctrlOf(t);
   let best = null;
   let bestN = -1;
   let held = t.abil ? t : null;
   for (const o of sim.towers) {
-    if (o === t || o.removed || !o.abil || o.unitId !== t.unitId || (o.owner ?? 0) !== owner) continue;
+    if (o === t || o.removed || !o.abil || o.unitId !== t.unitId || ctrlOf(o) !== owner) continue;
     if (refusal(sim, o)) {
       if (!held) held = o;
       continue;
@@ -1328,7 +1330,7 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
   // a group cast looks for a ready copy before it calls the selected one locked (pickCaster: no side effect)
   const t = group ? pickCaster(sim, t0) : t0;
   if (!t.abil) return no('locked');
-  if (owner != null && (t0.owner ?? 0) !== owner) return no('notYours');
+  if (owner != null && ctrlOf(t0) !== owner) return no('notYours');
   const why = refusal(sim, t);
   if (why) return no(why, t.uid);
   const def = abilityDef(t);
@@ -1341,13 +1343,13 @@ export function castAbility(sim, t0, { group = false, owner = null, auto = false
   a.n++;
   const dur = activeTicks(def);
   if (dur > 0) a.active = dur;
-  if (def.kind === 'econ') sim.abilUses[t.owner ?? 0] = (sim.abilUses[t.owner ?? 0] || 0) + 1;
+  if (def.kind === 'econ') sim.abilUses[ctrlOf(t)] = (sim.abilUses[ctrlOf(t)] || 0) + 1;
   // results (created on the first cast, so a battle without one keeps its result() exactly)
   sim.stats.abilitiesUsed = (sim.stats.abilitiesUsed || 0) + 1;
   const by = sim.stats.abilityByTower || (sim.stats.abilityByTower = {});
   by[t.uid] = (by[t.uid] || 0) + 1;
   sim._emit('ability', {
-    towerUid: t.uid, id: def.id, kind: def.kind, scope: def.scope, owner: t.owner ?? 0, auto: !!auto,
+    towerUid: t.uid, id: def.id, kind: def.kind, scope: def.scope, owner: ctrlOf(t), auto: !!auto,
     // a map-wide reach is Infinity: the event says 0 (no ring), so JSON and the FX never see Infinity / NaN
     x: fx.x, y: fx.y, radius: Number.isFinite(fx.radius) ? fx.radius : 0, targets: fx.targets,
     ...(fx.coins != null ? { coins: fx.coins } : null),
@@ -1632,7 +1634,7 @@ export function startAbilityWave(sim) {
     let best = 0;
     for (const t of sim.towers) {
       const a = t.abil;
-      if (!a || t.removed || a.id !== id || (t.owner ?? 0) !== owner) continue;
+      if (!a || t.removed || a.id !== id || ctrlOf(t) !== owner) continue;
       const pts = firstBellCharge(t.unitStats, g.cdMax, a.kind);
       if (pts > best) best = pts;
     }
@@ -1706,7 +1708,7 @@ export function setAbilityAutoAll(sim, owner, on) {
   sim.abilityAutoDefault[slot] = !!on;
   let n = 0;
   for (const t of [...sim.towers].sort((p, q) => p.uid - q.uid)) {
-    if (!t.abil || (t.owner ?? 0) !== slot) continue;
+    if (!t.abil || ctrlOf(t) !== slot) continue;
     t.abil.auto = !!on;
     n++;
   }
@@ -1754,7 +1756,7 @@ export function abilitySlots(sim, owner = 0) {
   const order = [...(sim.loadout?.keys?.() || [])];
   const slots = new Map();
   for (const t of sim.towers) {
-    if (t.isHero || (t.owner ?? 0) !== owner || !t.abil) continue;
+    if (t.isHero || ctrlOf(t) !== owner || !t.abil) continue;
     let s = slots.get(t.abil.id);
     if (!s) slots.set(t.abil.id, (s = { id: t.abil.id, unitId: t.unitId, kind: t.abil.kind, scope: t.abil.scope, casters: [], ready: 0, best: null, firstUid: t.uid }));
     s.casters.push(t.uid);

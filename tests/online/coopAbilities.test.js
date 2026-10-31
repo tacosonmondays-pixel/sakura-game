@@ -379,7 +379,7 @@ describe('owner-credited coins (spec §7.1, §7.4)', () => {
       for (const c of cs) expect(c.sim.ownerCash).toEqual([0, 0]);
       const paid = [0, 0];
       for (const e of cs[0].sim.events) if (e.type === 'cash' && e.reason === 'ability') paid[e.owner] += e.amount;
-      rows.push({ d: [w1[0] - w0[0], w1[1] - w0[1]], paid });
+      rows.push({ d: [w1[0] - w0[0], w1[1] - w0[1]], paid, tick: cs[0].tick });
     }
     return rows;
   }
@@ -413,16 +413,18 @@ describe('owner-credited coins (spec §7.1, §7.4)', () => {
     expect(cs[1].wallets).toEqual(cs[0].wallets);
     for (const c of cs) expect(c.sim.ownerCash).toEqual([0, 0]);
 
-    // he is gone: the pooled coins go to her alone, his wallet stays, her own Market Days stay hers
+    // he is gone: the pooled coins go to her alone, his wallet stays for the grace (then it is split to her: co-op
+    // sharing, docs/specs/COOP_SHARING.md), her own Market Days stay hers
     expect(all(cs, cmd(1, 'acast', [momo, 1]))).toEqual({ ok: true });
     all(cs, { t: 0, p: 0, s: seq++, k: 'gone', a: [] });
     const frozen = cs[0].wallets[0];
+    const dealAt = cs[0].pendingDeals()[0].at;
     const gone = [];
     const target = cs[0].sim.wavesCleared + 2;
-    while (cs[0].sim.wavesCleared < target && cs[0].sim.state !== 'lost') gone.push(...track(cs, 120));
+    while ((cs[0].sim.wavesCleared < target || cs[0].tick <= dealAt + 1) && cs[0].sim.state !== 'lost') gone.push(...track(cs, 120));
     expect(gone.some((r) => r.paid[1] > 0)).toBe(true);
-    expect(cs[0].wallets[0]).toBe(frozen);
-    for (const r of gone) expect(r.d[0]).toBe(0);
+    expect(cs[0].wallets[0]).toBe(0);
+    for (const r of gone) expect(r.d[0]).toBe(r.tick === dealAt + 1 ? -frozen : 0);
     expect(cs[0].hash()).toBe(cs[1].hash());
   }, 120000);
 
@@ -471,19 +473,32 @@ describe('owner-credited coins (spec §7.1, §7.4)', () => {
     expect(d).toEqual([bounty, 0]);
   }, 120000);
 
-  it('his own Market Day while he is gone stays his (owner-credited, kept for his rejoin)', () => {
+  it('his own Market Day while he is gone stays his for the grace (owner-credited); handed out, it is the receiver\'s', () => {
     const cs = views(start({ p0: { loadout: [{ unitId: 'momo' }, { unitId: 'aoi' }] } }), { coins: 20000 });
     const his = upAbil(cs, 0, place(cs, 0, 'momo'));
     place(cs, 1, 'aoi');
     place(cs, 1, 'miko');
-    all(cs, cmd(0, 'acast', [his, 1]));
-    all(cs, { t: 0, p: 0, s: seq++, k: 'gone', a: [] });
     all(cs, cmd(1, 'auto', [true]));
     all(cs, cmd(1, 'wave'));
+    // (he leaves with her Market Day ready, so one fires inside his 20 s grace)
+    stepUntil(cs, (c) => c.sim.state === 'wave' && c.sim.abilityStatus(his).ready);
+    all(cs, { t: 0, p: 0, s: seq++, k: 'gone', a: [] });
+    const dealAt = cs[0].pendingDeals()[0].at;
+    all(cs, cmd(0, 'acast', [his, 1]));
     const rows = [];
-    while (cs[0].sim.wavesCleared < 2) rows.push(...track(cs, 120));
-    expect(rows.some((r) => r.paid[0] > 0)).toBe(true);
-    for (const r of rows) expect(r.d[0]).toBe(r.paid[0]);
+    while (cs[0].sim.wavesCleared < 2 || cs[0].tick <= dealAt + 600) rows.push(...track(cs, 120));
+    const grace = rows.filter((r) => r.tick <= dealAt);
+    const after = rows.filter((r) => r.tick > dealAt + 1);
+    // in the grace: his Market Days land in his wallet, and only those
+    expect(grace.some((r) => r.paid[0] > 0)).toBe(true);
+    for (const r of grace) expect(r.d[0]).toBe(r.paid[0]);
+    // handed out: Momo is hers to command, so her Market Days are the receiver's (ctrlOf, src/sim/ctrl.js); his wallet stays 0
+    for (const c of cs) expect(c.ctrlOf(his)).toBe(1);
+    expect(after.some((r) => r.paid[1] > 0)).toBe(true);
+    for (const r of after) {
+      expect(r.paid[0]).toBe(0);
+      expect(r.d[0]).toBe(0);
+    }
   }, 120000);
 });
 
