@@ -54,6 +54,38 @@ describe('createCoopPending', () => {
     expect(q.upgrading(7, 2)).toBe(false);
   });
 
+  it('review r1 F1: with the lockstep as its clock an order waits as long as its tick has not run — an ally frozen 10 s never re-opens a second buy', () => {
+    const clock = { t: 0 };
+    const ls = { tick: 500, stalled: false, job: null };
+    const q = createCoopPending({ now: () => clock.t, tick: () => ls.tick, paused: () => !!(ls.stalled || ls.job) });
+    q.upgrade({ t: 530, p: 0, s: 4, k: 'upg' }, 7, 1, 400);
+    // the ally freezes: the lockstep stalls at tick 512 for 10 s of wall clock (under the 12 s drop timeout)
+    ls.tick = 512;
+    ls.stalled = true;
+    for (clock.t = 0; clock.t <= 10000; clock.t += 500) {
+      expect(q.upgrading(7, 1)).toBe(true); // still "Ordered": the second tap is answered 'queued', nothing sent
+      expect(q.reserved()).toBe(400);
+    }
+    // back: the ticks run up to (not past) its tick — still waiting; onApplied clears it at its tick
+    ls.stalled = false;
+    ls.tick = 530;
+    expect(q.upgrading(7, 1)).toBe(true);
+    // a rejoin voided it (the host never got it): once the lockstep is past its tick it goes
+    ls.tick = 531;
+    expect(q.upgrading(7, 1)).toBe(false);
+    expect(q.reserved()).toBe(0);
+  });
+
+  it('nothing goes stale while the lockstep rebuilds (an in-place rejoin replays past the tick)', () => {
+    const ls = { tick: 100, stalled: false, job: { kind: 'rejoin' } };
+    const q = createCoopPending({ tick: () => ls.tick, paused: () => !!(ls.stalled || ls.job) });
+    q.place({ t: 120, p: 1, s: 2, k: 'place' }, 'aoi', 1, 1, 150);
+    ls.tick = 400; // (the job's own counter runs on: the battle on screen is the old one)
+    expect(q.placements()).toHaveLength(1);
+    ls.job = null;
+    expect(q.placements()).toHaveLength(0);
+  });
+
   it('a null command (queue() refused while rebuilding) adds nothing', () => {
     const q = createCoopPending();
     q.upgrade(null, 1, 0, 100);
@@ -106,6 +138,27 @@ describe('placement: a co-op girl stays as her ghost until her order runs', () =
     pending.landed({ p: 0, s: 1, k: 'place' });
     placement.landed();
     expect(ghosts.at(-1)).toBeNull();
+  });
+
+  it('review r1 F2: a card is refused while my orders in flight hold the coins it needs (ctx.spendable)', () => {
+    const s = sim();
+    const pending = createCoopPending();
+    const fed = [];
+    const ctx = {
+      sim: s, settings: {}, layer: new FakeEl('div'), shell: { classList: { add() {}, remove() {} } }, feed: { push: (m) => fed.push(m) },
+      renderer: { setGhost() {}, setPlacementRange() {}, setAbilityReach() {}, setBuffPick() {} },
+      select() {}, bump() {}, onPlaced() {}, coopPending: pending,
+      spendable: () => s.cash - pending.reserved(),
+    };
+    const placement = createPlacement(ctx);
+    ctx.placement = placement;
+    const cost = s.placeCost('aoi');
+    s.cash = cost + 50;
+    pending.upgrade({ p: 0, s: 1, k: 'upg' }, 3, 0, 100); // 100 of them are on their way to an upgrade
+    expect(placement.start('aoi')).toBe(false);
+    expect(fed.at(-1)).toMatch(/^Need 50 more coins/);
+    pending.landed({ p: 0, s: 1, k: 'upg' });
+    expect(placement.start('aoi')).toBe(true);
   });
 
   it('solo (no coopPending): the ghost goes at once as before', () => {

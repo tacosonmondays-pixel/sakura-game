@@ -4,18 +4,23 @@
 // upgrade or sale is on its way the battle screen shows it at once: the girl's ghost stays on her
 // spot, the price button says "Ordered", and the HUD shows the coins already spoken for. Nothing
 // here touches the sim: every entry clears when its command runs (controller onApplied, ok or
-// refused), when the battle is rebuilt, or after STALE_MS in case a command never comes back.
+// refused), when the battle screen is rebuilt (a resync remounts it: clear), or once the lockstep
+// has run past the command's tick without it (a rejoin voided an order the host never got).
+// Never by the clock: an ally frozen for 6–12 s (under the drop timeout) keeps my order queued, and an
+// "Ordered" button that turned back into a price would let a second tap buy the tier twice (review r1 F1).
 // (tests/battle-ui/coopPending.test.js)
 
-/** An order still not back after this long is forgotten (the battle on screen moved on). */
+/** Without a lockstep tick source (tests, tools): an order still not back after this long is forgotten. */
 export const STALE_MS = 6000;
 
 const nowMs = () => (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
 
 /**
- * @param {{ now?: () => number }} [opts]
+ * @param {{ now?: () => number, tick?: () => number, paused?: () => boolean }} [opts]
+ *   tick: the lockstep's tick (an order whose tick has run without coming back is stale); paused: true while the
+ *   lockstep is stalled or rebuilding (nothing goes stale then). Without `tick` the wall clock (STALE_MS) decides.
  */
-export function createCoopPending({ now = nowMs } = {}) {
+export function createCoopPending({ now = nowMs, tick = null, paused = () => false } = {}) {
   /** `${p}:${s}` (the queued command) → { k, uid?, path?, unitId?, x?, y?, cost, at } */
   const orders = new Map();
   let rev = 0;
@@ -24,14 +29,17 @@ export function createCoopPending({ now = nowMs } = {}) {
 
   function add(cmd, entry) {
     if (!cmd) return;
-    orders.set(key(cmd), { ...entry, k: cmd.k, cost: Math.max(0, Number(entry.cost) || 0), at: now() });
+    orders.set(key(cmd), { ...entry, k: cmd.k, t: Number.isInteger(cmd.t) ? cmd.t : null, cost: Math.max(0, Number(entry.cost) || 0), at: now() });
     rev++;
   }
 
   function expire() {
+    if (!orders.size || paused()) return;
+    const T = tick ? tick() : null;
     const t = now();
     for (const [k, o] of orders) {
-      if (t - o.at > STALE_MS) {
+      // (onApplied clears an order during its own tick, so one still here once the lockstep is past it never ran)
+      if (T != null && o.t != null ? T > o.t : t - o.at > STALE_MS) {
         orders.delete(k);
         rev++;
       }
@@ -61,7 +69,8 @@ export function createCoopPending({ now = nowMs } = {}) {
       }
       return o;
     },
-    /** The battle was rebuilt (resync / rejoin): whatever was in flight is gone or already ran. */
+    /** The battle screen is remounted (a resync): whatever was in flight is gone or already ran. (An in-place rejoin
+     *  needs no clear: the orders the host kept still land, the voided ones go stale once their tick has passed.) */
     clear() {
       if (!orders.size) return;
       orders.clear();
