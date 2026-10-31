@@ -203,7 +203,7 @@ try {
     const r = hint.getBoundingClientRect();
     return r.top >= btn.bottom || r.bottom <= btn.top || r.left >= btn.right || r.right <= btn.left ? 'clear' : 'overlap';
   });
-  check(clear !== 'overlap', `portrait: the sticker button stays clear of the placement hint (${clear})`);
+  check(clear === 'clear', `portrait: the sticker button stays clear of the placement hint (${clear})`);
   await B.setViewportSize({ width: 1280, height: 720 });
   await settle(B, 300);
   await shots(B, 'coop-sticker-guest', async () => {
