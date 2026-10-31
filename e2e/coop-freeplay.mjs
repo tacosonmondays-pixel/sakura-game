@@ -379,9 +379,23 @@ try {
   await snap(B, '06-clear-card-guest');
 
   // ---- 4. GO BEYOND (the guest taps it): 13/12 on both ----------------------------------------
+  // The crossing banner lives 1.8 s, and under software WebGL the two clients enter wave 13 seconds apart, so a poll
+  // started once both are there can miss it: each page watches for it from before the tap (a MutationObserver) and
+  // remembers that it appeared.
+  await Promise.all([A, B].map((p) => p.evaluate(() => {
+    window.__glitchSeen = false;
+    window.__glitchObs?.disconnect();
+    const look = () => {
+      if (!window.__glitchSeen && document.querySelector('.bt-banner-glitch')) window.__glitchSeen = true;
+    };
+    window.__glitchObs = new MutationObserver(look);
+    window.__glitchObs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    look();
+  })));
   await tap(B, '[data-testid="start-wave"]');
   const beyond = await Promise.all([A, B].map((p) => waitFor(p, (g) => window.__battle?.sim?.wave === g + 1, GOAL, 120000, 100)));
-  const glitch = await Promise.all([A, B].map((p) => waitFor(p, () => !!document.querySelector('.bt-banner-glitch'), null, 20000, 100)));
+  const glitch = await Promise.all([A, B].map((p) => waitFor(p, () => window.__glitchSeen === true, null, 20000, 100)));
+  await Promise.all([A, B].map((p) => p.evaluate(() => window.__glitchObs?.disconnect())));
   await settle(A, 200);
   await snap(A, '07-crossing-banner');
   const pills = await Promise.all([A, B].map((p) => p.evaluate(() => {
