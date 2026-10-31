@@ -5,7 +5,7 @@
 import { h } from '../dom.js';
 import { store } from '../../core/store.js';
 import { navigate, rememberParams } from '../router.js';
-import { preloadModels, preloadEnemies, detailFor } from '../../models/index.js';
+import { preloadModels, preloadEnemies, detailFor, enemyModelKeys } from '../../models/index.js';
 import { createBattleRenderer } from '../../render/BattleRenderer.js';
 import { cameraModeOf } from '../../render/cameraPolicy.js';
 import { STAGE_MAP, stageEnemies } from '../../data/stages.js';
@@ -288,7 +288,8 @@ export function mountBattle(root, params, hooks) {
       // (the stage the Sim runs: an event difficulty with its own waves brings its own enemies)
       for (const x of stageEnemies(sim?.stage || stage) || []) {
         const def = typeof x === 'string' ? ENEMY_MAP[x] : x;
-        if (def) fams.add(def.model?.base || def.family);
+        // its family and, for the Brigade, its own Tripo model (models/enemies/tripo), loaded like a family
+        if (def) for (const k of enemyModelKeys(def)) fams.add(k);
       }
     } catch (e) {
       console.warn('[battle] stage enemy list failed', e);

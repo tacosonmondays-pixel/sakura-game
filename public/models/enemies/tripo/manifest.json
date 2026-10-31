@@ -1,0 +1,87 @@
+{
+ "brigade_badger": {
+  "file": "brigade_badger.glb",
+  "size": 330580,
+  "triangles": 7984,
+  "vertices": 6108,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "vehicle",
+  "source": "tripo"
+ },
+ "brigade_gnat": {
+  "file": "brigade_gnat.glb",
+  "size": 164520,
+  "triangles": 4992,
+  "vertices": 3787,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "hover",
+  "source": "tripo"
+ },
+ "brigade_shieldline": {
+  "file": "brigade_shieldline.glb",
+  "size": 190256,
+  "triangles": 4990,
+  "vertices": 3604,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "humanoid",
+  "source": "tripo"
+ },
+ "brigade_tortoise": {
+  "file": "brigade_tortoise.glb",
+  "size": 300208,
+  "triangles": 7990,
+  "vertices": 5832,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "vehicle",
+  "source": "tripo"
+ },
+ "brigade_trooper": {
+  "file": "brigade_trooper.glb",
+  "size": 187980,
+  "triangles": 5000,
+  "vertices": 3455,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "humanoid",
+  "source": "tripo"
+ }
+}

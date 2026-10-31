@@ -1,6 +1,6 @@
 // Stand-in chibis: roster girls whose art the owner has not approved yet (BUILD_PLAN 6.8).
-// None today: Tenka, the last one, now ships her imported Meshy figure (tenka.glb + the separate
-// tenka-coilgun.glb prop). The path stays for a future girl who lands before her model.
+// None today: Kogane and Norika, the last ones, ship their Tripo figures (batch 1, tools/tripo/
+// build_tripo_chibi.py). The path stays for a future girl who lands before her model.
 //
 // These units have no character GLB yet: until the owner approves their real art, the battle,
 // the student 3D view and the formation / lobby show the procedural chibi (src/models/chibi.js)
@@ -20,13 +20,13 @@
 // Plain data, no three.js import (tests/data can read it cheaply).
 
 /** Unit ids (= model asset keys) that are deliberately procedural stand-ins. */
-export const STANDIN_UNITS = Object.freeze(['kogane', 'norika']);
+export const STANDIN_UNITS = Object.freeze([]);
 
 const STANDIN_SET = new Set(STANDIN_UNITS);
 
 /**
- * Chin-up (rad, models/chibi.js liftChin) on a stand-in whose cap or hard-hat brim would hide her eyes from the
- * 48° battle camera: the staff heroes.
+ * Chin-up (rad, models/chibi.js liftChin) on a procedural figure whose cap or hard-hat brim would hide her eyes
+ * from the 48° battle camera: the staff heroes (a stand-in, or the placeholder while their GLB loads).
  */
 export const STANDIN_CHIN_UP = Object.freeze({ kogane: 0.3, norika: 0.26 });
 
