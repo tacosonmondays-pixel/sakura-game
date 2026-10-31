@@ -314,6 +314,9 @@ try {
     const held = [];
     const recv = L.receive.bind(L);
     L.receive = (m) => held.push(m);
+    // (wait until the host really waits for its ally: the guest's last horizon runs out first — review r2 R2-1)
+    for (let i = 0; !L.stalled && i < 100; i++) await new Promise((r) => setTimeout(r, 50));
+    const stalledFirst = L.stalled;
     const first = ui.act.upgrade(pick.uid, pick.path);
     const taps = [];
     for (let i = 0; i < 8; i++) {
@@ -325,12 +328,12 @@ try {
     for (const m of held.splice(0)) recv(m);
     await new Promise((r) => setTimeout(r, 4000));
     const tw = sim.getTower(pick.uid);
-    return { first, taps, sent, stalledSeen: taps.some((x) => x.stalled), tierAfter: tw ? tw.tiers[pick.path] : null, tier: pick.tier, ordered: ui.coopPending.upgrading(pick.uid, pick.path), gone: L.peers.get(1)?.gone };
+    return { first, stalledFirst, taps, sent, stalledSeen: taps.some((x) => x.stalled), tierAfter: tw ? tw.tiers[pick.path] : null, tier: pick.tier, ordered: ui.coopPending.upgrading(pick.uid, pick.path), gone: L.peers.get(1)?.gone };
   });
   log(`    F1: ${JSON.stringify(f1)}`);
-  check(!f1.none && f1.first === 'queued' && f1.stalledSeen && f1.taps.every((x) => x.ordered && x.res === 'queued') && f1.sent === 1,
+  check(!f1.none && f1.stalledFirst && f1.first === 'queued' && f1.stalledSeen && f1.taps.every((x) => x.ordered && x.res === 'queued') && f1.sent === 1,
     'review r1 F1: the host stalled ~8 s on its ally: the upgrade stays "Ordered" and seven more taps send no second upg');
-  check(!f1.none && f1.tierAfter === f1.tier + 1 && !f1.ordered && !f1.gone, 'review r1 F1: once the ally is heard again the tier is bought exactly once and nobody was dropped');
+  check(!f1.none && f1.sent === 1 && f1.tierAfter === f1.tier + 1 && !f1.ordered && !f1.gone, 'review r1 F1: once the ally is heard again the tier is bought exactly once and nobody was dropped');
   await startBot(A);
   check(!!s1[0]?.ck && s1[0].ck.wave > GOAL && s1[1]?.ck === null, `the host keeps a freeplay wave-end checkpoint (wave ${s1[0]?.ck?.wave}, tick ${s1[0]?.ck?.t}); the guest keeps none`);
   await shot(A, 'rejoin-01-before-cut-host');

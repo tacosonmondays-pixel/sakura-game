@@ -69,6 +69,8 @@ export function paintUltButton(btn, status, { compact = true } = {}) {
 
 export function createHeroWidget(ctx) {
   const { sim } = ctx;
+  // (co-op: my cash less the coins my orders in flight hold, ctx.spendable; solo: the cash)
+  const spendable = () => (ctx.spendable ? ctx.spendable() : sim.cash);
   const heroId = sim.heroConfig?.unitId || null;
   const el = h('div.bt-herow', { 'data-testid': 'hero-widget' });
   el.hidden = true;
@@ -121,7 +123,7 @@ export function createHeroWidget(ctx) {
   function paintPill(hero) {
     const now = performance.now() / 1000;
     if (shown && now - priceAt < PRICE_TICK && shown.level === hero.level) {
-      lvup.classList.toggle('poor', sim.cash < shown.price);
+      lvup.classList.toggle('poor', spendable() < shown.price);
       return;
     }
     priceAt = now;
@@ -130,7 +132,7 @@ export function createHeroWidget(ctx) {
     lvup.hidden = hide;
     if (hide) return;
     lvupPrice.textContent = fmtNum(shown.price, 'money', { round: 'up' });
-    lvup.classList.toggle('poor', sim.cash < shown.price);
+    lvup.classList.toggle('poor', spendable() < shown.price);
     lvup.title = `Buy Lv ${shown.level + 1} for ${fmtNum(shown.price, 'money', { round: 'up' })} coins (L)`;
   }
 

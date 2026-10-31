@@ -449,7 +449,7 @@ export function mountBattle(root, params, hooks) {
     ctx.abilityPending = new Map();
     ctx.abilityRefused = new Map();
     // co-op orders in flight: placements, upgrades and sales on their way (src/ui/battle/coopPending.js)
-    ctx.coopPending = ls ? createCoopPending({ tick: () => ls.tick, paused: () => !!(ls.stalled || ls.job) }) : null;
+    ctx.coopPending = ls ? createCoopPending({ tick: () => ls.tick, paused: () => !!(ls.stalled || ls.job), known: (k) => ls.known.has(k) }) : null;
     // the coins I can still spend: my balance less what my orders in flight will spend (the HUD's number; solo: the cash)
     ctx.spendable = () => sim.cash - (ctx.coopPending?.reserved() || 0);
     ctx.nudge = () => ls?.nudge?.();
