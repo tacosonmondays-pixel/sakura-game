@@ -12,6 +12,12 @@ The 16 v1 stickers in `public/art/stickers/` (`<id>-256.webp`, `<id>-128.webp`) 
 - `bake.py`: rembg (isnet-anime; the pale slimes use a flood fill from the plain background instead), a thick white
   die-cut border with a navy hairline and a soft shadow, the caption in a heavy sans with a coloured stroke, and the
   256 / 128 px WebP; then the board.
+- Pastel set (owner, Oct 31: "more pastel colours"): all 16 regenerated with a soft pastel palette written into the
+  prompts (`STYLE` in `prompts.py`; hair and eye colours keep their families), 4 samples each (`--samples 4`, 28 steps,
+  1024x1024), the best of each picked by eye (the `.s<k>` names in `bake.py`). The words are pastel too (pink, mint,
+  lavender, peach, sky, butter) with a deeper pastel outline that reads at 64 px; the white die-cut border stays.
+  Before / after: `docs/review/stickers/board-pastel.png` (set `STICKER_BEFORE` to a folder of the previous 128 px
+  files). Cost: 960 Anlas (16 requests x 60; the balance went 6,713 → 5,753), inside the owner's ~2,500 budget.
 
 ```
 python3 -m venv /path/outside/repo/venv && /path/outside/repo/venv/bin/pip install "rembg[cpu]" pillow
@@ -28,7 +34,7 @@ figure too thin to read at 64 px). Two ids were renamed after generation, before
 slime's name, and ids can show as text on older builds). The log and `prompts.py` keep the names they were generated
 under; `bake.py` maps each sticker id to its raw picture.
 
-Anlas (Oct 31): free-tier settings only, and every request after the first left the balance unchanged (6,713).
+Anlas, first set (Oct 31): free-tier settings only, and every request after the first left the balance unchanged (6,713).
 The balance fell from 6,753 to 6,713 before that point, partly between two runs when this tool sent nothing, while
 the first request was waiting out HTTP 429s ("too many requests at once"): another client was using the same account
 then. So this work spent 0 Anlas by every reading we have; 40 went elsewhere on the account.
