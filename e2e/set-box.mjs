@@ -24,7 +24,7 @@ const check = (ok, msg) => { console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${msg}`); if
 
 function save() {
   const p = veteran('late');
-  p.items = { ...(p.items || {}), setbox_freezetag_legendary: 1, setbox_popper_mythic: 1, setbox_pick_legendary: 1 };
+  p.items = { ...(p.items || {}), setbox_freezetag_legendary: 1, setbox_popper_mythic: 1, setbox_pick_legendary: 1, setbox_spirit_ur: 1 };
   return p;
 }
 
@@ -101,6 +101,7 @@ for (const vp of viewports) {
         const head = root.querySelector('[data-testid="set-box-head"]');
         return {
           head: head?.textContent || '',
+          kind: root.querySelector('[data-testid="set-box-kind"]')?.textContent || '',
           boxArt: head?.querySelector('img[data-art]')?.dataset.art || null,
           pieces: [...root.querySelectorAll('[data-testid="set-box-pieces"] img[data-art]')].map((i) => i.dataset.art),
           youGet: root.querySelector('[data-testid="set-box-pieces"]')?.textContent || '',
@@ -113,6 +114,7 @@ for (const vp of viewports) {
       check(JSON.stringify(m.pieces) === JSON.stringify(['charm', 'ribbon', 'shoes', 'hair', 'necklace'].map((s) => `gear_${set}_${s}`)), `${vp} ${name} box: the five ${name} pieces in their set look (${m.pieces.join(', ')})`);
       check(m.youGet.includes(`You get these 5 ${name} pieces`), `${vp} ${name} box: "You get these 5 ${name} pieces"`);
       check(m.bonus.length > 10, `${vp} ${name} box: the set bonus line`);
+      check(m.kind === (set === 'freezetag' ? 'Preset · Legendary' : 'Preset · Mythic'), `${vp} ${name} box: its kind line ("${m.kind}")`);
       check(m.pickers.length === 5 && m.pickers.every((k, i) => k === m.pieces[i]), `${vp} ${name} box: each main-stat picker wears that piece's set icon`);
       check(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)), `${vp} ${name} box: no horizontal overflow`);
     }
@@ -120,6 +122,17 @@ for (const vp of viewports) {
   }
   if (!BEFORE) {
     check(looks.freezetag.head !== looks.popper.head && looks.freezetag.boxArt !== looks.popper.boxArt, `${vp} the two boxes look different (names and icons)`);
+    // a UR box: "Preset · UR" and its five pieces on the rainbow ring
+    await modalOf(page, 'setbox_spirit_ur');
+    await page.waitForSelector('[data-testid="set-box-modal"]', { timeout: 10000 });
+    const ur = await page.evaluate(() => ({
+      kind: document.querySelector('[data-testid="set-box-kind"]')?.textContent || '',
+      ring: document.querySelectorAll('[data-testid="set-box-pieces"] .gu-sb-piece.ur').length,
+    }));
+    check(ur.kind === 'Preset · UR' && ur.ring === 5, `${vp} UR box: "${ur.kind}", ${ur.ring} pieces on the rainbow ring`);
+    await closeOthers(page);
+    await shot('ur');
+    await closeModal(page);
     // the pick box: the chooser with icons first, then the same layout for the chosen set
     await modalOf(page, 'setbox_pick_legendary');
     await page.waitForSelector('[data-testid="set-box-modal"]', { timeout: 10000 });
