@@ -151,6 +151,9 @@ try {
 }
 if (!location.hash.replace(/^#\/?/, '') && !titleSeen) history.replaceState(null, '', '#/title');
 
+// The toasts' live region exists before the first toast (src/ui/components.js toastHost; review r3 low)
+import('./ui/components.js').then((m) => m.toastHost()).catch((e) => console.warn('[main] toast host failed', e));
+
 // The boot loader (index.html: black or colour, Mochi bottom-right) stays until the first screen is really
 // drawn: the router's first change holds it (src/ui/transitions), the lobby until its art has decoded.
 try {

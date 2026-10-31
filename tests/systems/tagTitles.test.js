@@ -51,13 +51,13 @@ describe('owning a tag title', () => {
 });
 
 describe('counting: a tag title counts only for its owner', () => {
-  it('a player without tags sees exactly the 47 titles (37 at launch + Helping Hands from the social wave + 7 from the Codex wave + 2 from Tryout Day), in the pickers and every total', () => {
+  it('a player without tags sees exactly the 48 titles (38 at launch + Helping Hands from the social wave + 7 from the Codex wave + 2 from Tryout Day), in the pickers and every total', () => {
     for (const p of [freshSave(), lateSave()]) {
-      expect(visibleTitles(p)).toHaveLength(47);
+      expect(visibleTitles(p)).toHaveLength(48);
       expect(visibleTitles(p).map((t) => t.id)).toEqual(liveTitles().map((t) => t.id));
-      expect(total(titleGroups(p))).toBe(47);
+      expect(total(titleGroups(p))).toBe(48);
       expect(titleGroups(p).flatMap((g) => g.titles).some((t) => t.id.startsWith('tag_'))).toBe(false);
-      expect(titleChoices(p)).toHaveLength(47);
+      expect(titleChoices(p)).toHaveLength(48);
       expect(titleChoices(p).some((id) => id.startsWith('tag_'))).toBe(false);
     }
   });
@@ -65,10 +65,10 @@ describe('counting: a tag title counts only for its owner', () => {
   it('an owner sees (and counts) only the tag titles they own; the denominators grow with the numerators', () => {
     const p = tagged({ staff: 'dev', tester: 'alpha' }, lateSave());
     const before = ownedTitles(lateSave()).length;
-    expect(visibleTitles(p)).toHaveLength(49);
+    expect(visibleTitles(p)).toHaveLength(50);
     expect(ownedTitles(p)).toHaveLength(before + 2);
     const groups = titleGroups(p);
-    expect(total(groups)).toBe(49);
+    expect(total(groups)).toBe(50);
     expect(ownedN(groups)).toBe(before + 2);
     const prism = groups.find((g) => g.plate === 'prism');
     const dev = prism.titles.find((t) => t.id === 'tag_dev');
@@ -76,7 +76,7 @@ describe('counting: a tag title counts only for its owner', () => {
     expect(dev).toMatchObject({ owned: true, name: 'Developer', how: 'On the Sakura Sentinels team.' });
     expect(alpha).toMatchObject({ owned: true, name: 'Alpha Tester', how: 'Played Sakura Sentinels during the alpha.' });
     expect(groups.flatMap((g) => g.titles).some((t) => t.id === 'tag_beta')).toBe(false);
-    expect(titleChoices(p)).toHaveLength(49);
+    expect(titleChoices(p)).toHaveLength(50);
     // every row anyone sees is a row they can count: never "n / N" with n > N
     for (const g of groups) expect(g.owned).toBeLessThanOrEqual(g.total);
     const beta = tagged({ tester: 'beta' });

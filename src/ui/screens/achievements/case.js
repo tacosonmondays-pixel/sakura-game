@@ -11,7 +11,7 @@ import { store } from '../../../core/store.js';
 import { ACHIEVEMENT_MAP } from '../../../data/achievements.js';
 import { HONOR_CLASSES, HONOR_EFFECTS, EFFECT_LINES } from '../../../data/honors.js';
 import { ownedRibbons, liveRibbons, newHonorCount, markHonorsSeen, ribbonEarnedNote } from '../../../systems/honors.js';
-import { achievementList } from '../../../systems/missions.js';
+import { achievementList, isSecretLocked } from '../../../systems/missions.js';
 import { ribbonArt, titlePlate, liveHonors } from '../../honorFx.js';
 import { ico, KIT_SVG } from '../../kit.js';
 
@@ -55,7 +55,7 @@ export function ribbonCaseView({ onBack, onAchievement, onTitles = null }) {
   let stopDetail = null;
   let spotTimer = null;
 
-  const secretUnfound = (id) => ACHIEVEMENT_MAP[id]?.hidden && !ownedSet.has(id) && !rows.get(id)?.met;
+  const secretUnfound = (id) => !ownedSet.has(id) && isSecretLocked(profile, id); // the one secret rule (missions.js)
 
   function cell(hr, size) {
     const have = ownedSet.has(hr.id);

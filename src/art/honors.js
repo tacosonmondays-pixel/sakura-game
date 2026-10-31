@@ -86,6 +86,12 @@ export const EMBLEMS = {
   // a small blackboard on its easel with a chalk tick (Tryout Day's Grade ribbons)
   board: (c) => `<rect x="3" y="4.2" width="18" height="12.4" rx="1.6" fill="#fff"/><rect x="4.8" y="6" width="14.4" height="8.8" rx="0.8" fill="${c}"/><path d="M8 10.6l2.4 2.2 5-4.6" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 16.6l-2 4.4M17 16.6l2 4.4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>`,
 
+  // ---- Cosmetics 2: the secret ribbons (the school bell, a lucky coin, a magnifying lens, a hand mirror) ----
+  bell: (c) => `<path d="M12 3.2a1.6 1.6 0 0 1 1.6 1.6v.5c3.1.8 5 3.4 5 6.9v3.4l1.9 2.4H3.5l1.9-2.4v-3.4c0-3.5 1.9-6.1 5-6.9v-.5A1.6 1.6 0 0 1 12 3.2z" fill="#fff"/><circle cx="12" cy="20" r="2.1" fill="#fff"/><path d="M8.6 10.6c.4-1.5 1.4-2.5 2.8-2.9" stroke="${c}" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.7"/><path d="M5.4 17.8h13.2" stroke="${c}" stroke-width="1.1" opacity="0.6"/>`,
+  coin: (c) => `<circle cx="12" cy="12" r="9" fill="#ffe08a" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="6.2" fill="none" stroke="${c}" stroke-width="1" opacity="0.65"/>${blossom(12, 12, 5, '#fff', c)}<path d="M5.6 7.4a7.6 7.6 0 0 1 3.4-3" stroke="#fff" stroke-width="1.3" fill="none" stroke-linecap="round"/>`,
+  lens: (c) => `<circle cx="10" cy="10" r="6.6" fill="#e9f6ff" stroke="#fff" stroke-width="2.6"/><path d="M14.8 14.8l5.6 5.6" stroke="#fff" stroke-width="3.6" stroke-linecap="round"/><path d="M7 8.2a3.6 3.6 0 0 1 2.4-2.2" stroke="${c}" stroke-width="1.3" fill="none" stroke-linecap="round"/><circle cx="10.6" cy="11" r="1.5" fill="${c}"/>`,
+  mirror: (c) => `<ellipse cx="12" cy="9.4" rx="6.6" ry="7" fill="#fff"/><ellipse cx="12" cy="9.4" rx="4.6" ry="5" fill="#dfe9ff"/><path d="M9.4 7.6l2.4-2.2M9.6 10.6l4.6-4.2" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><path d="M12 16.4v4.8" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="2.6" r="1.3" fill="${c}"/>${star(17.6, 15.4, 2.6, '#ffe14d')}`,
+
   // ---- final-spec emblems (chapter crests and the new ribbons) ----
   wave: (c) => `<path d="M2.5 12.5c2.4-2.4 4.8-2.4 7.2 0s4.8 2.4 7.2 0 4.2-2 4.6-1.6M2.5 17.5c2.4-2.4 4.8-2.4 7.2 0s4.8 2.4 7.2 0 4.2-2 4.6-1.6" stroke="#fff" stroke-width="2.3" fill="none" stroke-linecap="round"/><path d="M16.6 2.8a4.6 4.6 0 1 0 3.6 7.4 3.8 3.8 0 0 1-3.6-7.4z" fill="#fff"/><circle cx="6" cy="5.6" r="1.1" fill="${c}"/>`,
   torii: (c) => `<path d="M2.2 5.6q9.8-2.8 19.6 0v2.4q-9.8-2.3-19.6 0z" fill="#fff"/><path d="M4.8 10.4h14.4v1.9H4.8z" fill="#fff"/><path d="M7.2 7.6v13.6M16.8 7.6v13.6" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><path d="M11.1 7.9h1.8v2.5h-1.8z" fill="${c}"/>`,
@@ -141,6 +147,10 @@ export const HONOR_ART = Object.freeze({
   a_try_g4: { c: ['#a8d8b9', '#2c6e49', '#effaf3', '#5fb883', '#ffe08a', '#c98a00', '#2c6e49'] },
   a_try_g8: { c: ['#ffd29a', '#a85a00', '#fff5e6', '#f0a83a', '#9fd3ff', '#2d6db3', '#a85a00', '#ffe7c2'] },
   a_try_g12: { c: ['#3f6b5a', '#173528', '#e9f5ee', '#2f5d4b', '#ffd1e4', '#c43d7a', '#ffe14d', '#cfe8dc'], aura: '#f4fff8' },
+  a_close_call: { c: ['#ffc9a8', '#a8501a', '#fff4ec', '#f59a5c', '#a9c8ff', '#2f4fa8', '#a8501a'] },
+  a_gold_rush: { c: ['#ffe28a', '#9a6a00', '#fffbe6', '#f2c230', '#c8f08c', '#4c8a12', '#9a6a00'] },
+  a_not_fooled: { c: ['#b8f0e0', '#1f7a62', '#effffa', '#52c9a6', '#ffb3d3', '#b5306a', '#1f7a62'] },
+  a_mirror_mirror: { c: ['#d9c8ff', '#5a3fb0', '#f6f2ff', '#a48af0', '#a8e6ff', '#1b7fae', '#5a3fb0'] },
   a_mr_800: { c: ['#e6dcff', '#5b4bb0', '#ffffff', '#c9b8ff', '#9ee6ff', '#7c6cf0', '#7c6cf0', '#f6f0ff'], aura: '#ffffff' },
 });
 

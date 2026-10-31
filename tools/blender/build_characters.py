@@ -276,7 +276,7 @@ def main():
         if uid not in by_id:
             print(f'[build] unknown unit {uid}', file=sys.stderr)
             continue
-        if existing.get(uid, {}).get('source') == 'meshy' and not args.force_procedural:
+        if existing.get(uid, {}).get('source') in ('meshy', 'tripo') and not args.force_procedural:
             # imported figure (tools/meshy/build_meshy_chibi.py): never overwrite it with a cage build
             print(f'[build] {uid}: kept the imported Meshy model (use --force-procedural to replace it)')
             continue

@@ -282,6 +282,61 @@ try {
   const preTick = await A.evaluate(() => window.__battle.coop.lockstep.tick);
   await A.waitForTimeout(6000);
   await agreeAfter(A, B, preTick - 600, 'before the cut');
+
+  // ---- 1b. review r1 F1: an ally silent for ~8 s (under the drop timeout) never re-opens a second buy ---------------
+  // The host holds the guest's packets (its battle waits for the guest's horizon: "Waiting for ally…"), orders one
+  // upgrade through the battle's own command path, and taps it again every second: the order stays "Ordered" and the
+  // taps send nothing more; once the packets flow again the tier is bought once.
+  const f1 = await A.evaluate(async () => {
+    clearInterval(window.__fpBot);
+    await new Promise((r) => setTimeout(r, 1500)); // (the bot's last orders land)
+    const { sim, ui, coop } = window.__battle;
+    const L = coop.lockstep;
+    const affordable = () => {
+      for (const t of sim.towers) {
+        if (t.isHero || L.coop.ownerOf(t.uid) !== L.mySlot) continue;
+        for (const path of [0, 1, 2]) {
+          const st = sim.upgradeStatus(t.uid, path);
+          if (!st.locked && st.cost <= ui.spendable()) return { uid: t.uid, path, tier: t.tiers[path] };
+        }
+      }
+      return null;
+    };
+    // (the bot may have spent every coin: with it paused the waves pay for one, the cheapest tier that comes in reach)
+    let pick = affordable();
+    for (let i = 0; !pick && i < 180; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      pick = affordable();
+    }
+    if (!pick) return { none: true, cash: sim.cash };
+    const mineUpg = () => L.log.filter((c) => c.p === L.mySlot && c.k === 'upg' && c.a[0] === pick.uid && c.a[1] === pick.path).length;
+    const before = mineUpg();
+    const held = [];
+    const recv = L.receive.bind(L);
+    L.receive = (m) => held.push(m);
+    // (wait until the host really waits for its ally: the guest's last horizon runs out first — review r2 R2-1)
+    for (let i = 0; !L.stalled && i < 100; i++) await new Promise((r) => setTimeout(r, 50));
+    const stalledFirst = L.stalled;
+    const first = ui.act.upgrade(pick.uid, pick.path);
+    const taps = [];
+    for (let i = 0; i < 8; i++) {
+      await new Promise((r) => setTimeout(r, 1000));
+      taps.push({ ordered: ui.coopPending.upgrading(pick.uid, pick.path), res: ui.act.upgrade(pick.uid, pick.path), stalled: L.stalled });
+    }
+    const sent = mineUpg() - before;
+    L.receive = recv;
+    for (const m of held.splice(0)) recv(m);
+    // (the order lands once the lockstep has caught up past its tick: the stall raised the input delay, and a slow
+    // software-GL page can take longer than a fixed wait; poll every 100 ms for up to 15 s)
+    for (let i = 0; i < 150 && (sim.getTower(pick.uid)?.tiers[pick.path] ?? pick.tier) <= pick.tier; i++) await new Promise((r) => setTimeout(r, 100));
+    const tw = sim.getTower(pick.uid);
+    return { first, stalledFirst, taps, sent, stalledSeen: taps.some((x) => x.stalled), tierAfter: tw ? tw.tiers[pick.path] : null, tier: pick.tier, ordered: ui.coopPending.upgrading(pick.uid, pick.path), gone: L.peers.get(1)?.gone };
+  });
+  log(`    F1: ${JSON.stringify(f1)}`);
+  check(!f1.none && f1.stalledFirst && f1.first === 'queued' && f1.stalledSeen && f1.taps.every((x) => x.ordered && x.res === 'queued') && f1.sent === 1,
+    'review r1 F1: the host stalled ~8 s on its ally: the upgrade stays "Ordered" and seven more taps send no second upg');
+  check(!f1.none && f1.sent === 1 && f1.tierAfter === f1.tier + 1 && !f1.ordered && !f1.gone, 'review r1 F1: once the ally is heard again the tier is bought exactly once and nobody was dropped');
+  await startBot(A);
   check(!!s1[0]?.ck && s1[0].ck.wave > GOAL && s1[1]?.ck === null, `the host keeps a freeplay wave-end checkpoint (wave ${s1[0]?.ck?.wave}, tick ${s1[0]?.ck?.t}); the guest keeps none`);
   await shot(A, 'rejoin-01-before-cut-host');
 

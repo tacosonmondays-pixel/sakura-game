@@ -45,6 +45,7 @@ import { BuffIcons } from './buffIcons.js';
 import { buildTerrain, resolveScenery, ROOF_Y } from './terrain.js';
 import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
+import { clearTripoProps } from './tripoProps.js';
 import { clearCostumeCache } from './costumes.js';
 import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
@@ -1513,6 +1514,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     placedPropsProbe() {
       return placedProps;
     },
+    /** Extra: the battle scene graph, read-only (e2e / debug: which models are drawn, e.g. the Tripo ones). */
+    sceneProbe() {
+      return scene;
+    },
 
     /** Extra: the outfit (skin id) a placed girl's model wears, or null before it is drawn (e2e / debug). */
     towerSkin(uid) {
@@ -1577,15 +1582,17 @@ export function createBattleRenderer(container, sim, opts = {}) {
         gradePass?.dispose();
       }
       key.shadow.map?.dispose();
+      liveRenderers = Math.max(0, liveRenderers - 1);
+      // the shared prop caches go while this WebGL renderer can still free their GPU buffers and textures
+      if (liveRenderers === 0) {
+        clearPropCache();
+        clearTripoProps();
+        clearCostumeCache();
+      }
       renderer.dispose();
       canvas.remove();
       barkChips?.dispose();
       fxLayer.remove();
-      liveRenderers = Math.max(0, liveRenderers - 1);
-      if (liveRenderers === 0) {
-        clearPropCache();
-        clearCostumeCache();
-      }
     },
   };
 }

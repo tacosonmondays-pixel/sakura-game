@@ -600,6 +600,9 @@
 @media (max-width: 700px) and (min-height: 481px) {
   .bt-root:has(.ol-coop-hud) .bt-feed { top: calc(var(--bt-hud-h, 100px) + var(--safe-top) + 58px); }
   .bt-root.bt-has-boss:has(.ol-coop-hud) .bt-feed { top: calc(var(--bt-hud-h, 100px) + var(--safe-top) + 122px); }
+  /* the placement hint (with its Cancel) too: under the chip, never under its sticker button */
+  .bt-root:has(.ol-coop-hud) .bt-place-hint { top: calc(var(--bt-hud-h, 100px) + var(--safe-top) + 50px); }
+  .bt-root.bt-has-boss:has(.ol-coop-hud) .bt-place-hint { top: calc(var(--bt-hud-h, 100px) + var(--safe-top) + 116px); }
 }
 /* the ally's chip once they are gone (the state line says why for a few seconds, then hides) */
 .ol-coop-p.gone { opacity: 0.55; }
@@ -629,3 +632,67 @@
   .ol-bubble.ol-bubble-recruit { min-width: 170px; }
   .ol-recruit-note { font-size: 0.64rem; }
 }
+
+/* ---------- Stickers (docs/specs/STICKERS.md; src/ui/online/stickers.js, coopStickers.js) ---------- */
+.stk-img { display: block; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+/* the co-op chip's button (the chip itself lets taps through to the field: only this takes them) */
+.stk-btn {
+  position: relative; flex: none; width: 30px; height: 30px; margin-left: 2px; padding: 0; border: 0; border-radius: 8px; display: grid; place-items: center;
+  background: rgba(255,255,255,0.92); box-shadow: 0 0 0 2px rgba(255,255,255,0.5); cursor: pointer; pointer-events: auto !important;
+}
+.stk-btn:active { transform: scale(0.94); }
+.stk-btn-img { width: 26px; height: 26px; }
+.stk-btn-ring { position: absolute; inset: 0; border-radius: 8px; pointer-events: none; }
+.stk-btn.cooling .stk-btn-img { filter: grayscale(1) opacity(0.55); }
+.stk-btn.cooling .stk-btn-ring { background: conic-gradient(rgba(29,54,96,0.45) var(--stk-a, 100%), transparent 0); animation: stk-cool var(--stk-cool, 2000ms) linear 1 both; }
+@property --stk-a { syntax: '<percentage>'; inherits: false; initial-value: 100%; }
+@keyframes stk-cool { from { --stk-a: 100%; } to { --stk-a: 0%; } }
+/* a sticker under its sender's name on the co-op chip */
+.ol-coop-p { position: relative; }
+.stk-bubble {
+  position: absolute; left: 50%; top: calc(100% + 4px); transform: translateX(-50%); z-index: 2; line-height: 0;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35)); animation: stk-pop 0.32s cubic-bezier(0.2, 1.4, 0.4, 1) 1 both;
+}
+.stk-bubble-img { width: 72px; height: 72px; }
+@keyframes stk-pop { from { transform: translateX(-50%) scale(0.4); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+html[data-reduce-motion] .stk-bubble { animation: none; }
+@media (prefers-reduced-motion: reduce) { .stk-bubble { animation: none; } .stk-btn.cooling .stk-btn-ring { animation: none; background: rgba(29,54,96,0.3); } }
+@media (max-height: 480px) { .stk-btn { width: 26px; height: 26px; } .stk-btn-img { width: 22px; height: 22px; } .stk-bubble-img { width: 60px; height: 60px; } }
+
+/* the picker */
+.stk-pick-overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: flex-end; justify-content: center; padding: 12px calc(12px + var(--safe-right, 0px)) calc(12px + var(--safe-bottom, 0px)) calc(12px + var(--safe-left, 0px)); background: rgba(10,20,40,0.35); }
+.stk-pick-overlay.stk-in-battle { align-items: flex-start; padding-top: calc(var(--bt-hud-h, 56px) + var(--safe-top, 0px) + 44px); background: rgba(10,20,40,0.2); }
+.stk-pick {
+  width: min(100%, 420px); max-height: calc(100% - 8px); overflow: auto; border-radius: 14px; padding: 8px 10px 10px; background: #fff; color: var(--navy);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35); animation: stk-in 0.18s ease-out 1 both;
+}
+@keyframes stk-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+html[data-reduce-motion] .stk-pick { animation: none; }
+.stk-pick-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; font-size: 0.95rem; font-style: italic; font-weight: 900; }
+.stk-pick-x { width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--blue-soft, #e8f0fb); color: var(--navy); font-size: 1.3rem; font-weight: 900; line-height: 1; cursor: pointer; }
+.stk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 4px; }
+.stk-tile { position: relative; display: grid; place-items: center; aspect-ratio: 1; padding: 2px; border: 0; border-radius: 10px; background: #f3f6fc; cursor: pointer; }
+.stk-tile .stk-img { width: 100%; height: 100%; max-width: 72px; max-height: 72px; }
+.stk-tile:hover, .stk-tile:focus-visible { background: #fde3ec; }
+.stk-tile.locked .stk-img { filter: grayscale(1) opacity(0.35); }
+.stk-lock { position: absolute; right: 4px; bottom: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--navy) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 11V8a5 5 0 0 1 10 0v3' fill='none' stroke='white' stroke-width='2.6'/%3E%3Crect x='5' y='11' width='14' height='9' rx='2' fill='white'/%3E%3C/svg%3E") center / 10px no-repeat; }
+.stk-pick-line { margin: 6px 2px 0; font-size: 0.78rem; font-weight: 700; color: var(--muted, #5b6b85); }
+.stk-pick-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.stk-pick-foot:empty { display: none; }
+.stk-mute { min-height: 32px; padding: 4px 12px; border: 0; border-radius: 8px; background: var(--blue-soft, #e8f0fb); color: var(--navy); font-size: 0.78rem; font-weight: 800; cursor: pointer; }
+.stk-mute[aria-pressed='true'] { background: #fde3ec; }
+.stk-pick-note { margin: 0; font-size: 0.75rem; font-weight: 700; color: var(--muted, #5b6b85); }
+@media (max-height: 480px) {
+  .stk-pick-overlay.stk-in-battle { padding-top: calc(var(--safe-top, 0px) + 40px); }
+  .stk-pick { width: min(100%, 560px); }
+  .stk-grid { grid-template-columns: repeat(8, 1fr); }
+}
+
+/* chat and messages: the button before the input, a sticker line as its picture */
+.ol-stk-btn { flex: none; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; display: grid; place-items: center; background: #f3f6fc; cursor: pointer; }
+.ol-stk-btn:active { transform: scale(0.94); }
+.ol-stk-btn-img { width: 30px; height: 30px; }
+.ol-stk-msg { line-height: 0; }
+.ol-stk-msg .stk-img { width: 96px; height: 96px; }
+.ol-chat-compact .ol-stk-msg .stk-img { width: 72px; height: 72px; }
+.ol-bubble-stk-text { font-style: italic; }

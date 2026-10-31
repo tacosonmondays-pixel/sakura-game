@@ -103,6 +103,11 @@ export const DEFAULT_SETTINGS = {
    * the key and shows Compact).
    */
   girlPage: 'compact',
+  /**
+   * Settings → Online → "Show stickers from other players" (docs/specs/STICKERS.md §5): off hides their stickers in
+   * co-op and shows a sticker line in chat as words. Additive (an older tab drops the key: on).
+   */
+  showStickers: true,
 };
 
 const CAMERA_MODES = ['locked', 'free'];
@@ -382,6 +387,8 @@ function cleanSettings(raw) {
     loadingBg: LOADING_BGS.includes(s.loadingBg) ? s.loadingBg : d.loadingBg,
     // older saves have no girl page look: the compact page
     girlPage: GIRL_PAGE_LOOKS.includes(s.girlPage) ? s.girlPage : d.girlPage,
+    // older saves have no sticker setting: stickers from other players show
+    showStickers: bool(s.showStickers, d.showStickers),
     // [friend support] the lent girl (absent: the first girl of the profile showcase; systems/friendSupport.js)
     ...(typeof s.supportUnit === 'string' && /^[a-z][a-z0-9_]{0,23}$/.test(s.supportUnit) ? { supportUnit: s.supportUnit } : {}),
   };

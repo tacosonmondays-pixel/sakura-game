@@ -2733,6 +2733,12 @@ chat / clan updates, broadcast only (no presence: see `openRoom`) for co-op room
 the realtime part; each tab is its own player). `tests/online/supabaseAdapter.test.js` checks the Supabase
 adapter's calls against the SQL; `localDb.test.js` / `localAdapter.test.js` cover the mock server.
 
+**Stickers** (`docs/specs/STICKERS.md` §0) — only ids from `src/data/stickers.js` ever travel. Co-op: the room message
+`{ type: 'stk', uid, id, n }`, sent and heard by `src/online/coop/socialRoom.js` (`session.sendSticker(id)` →
+`{ ok, waitMs }`, a `'sticker'` event `{ uid, id, mine }`); never a sim input, outside `session.js` and the co-op id.
+Chat and private messages: an ordinary text line `[sticker:<id>] <word>` (`src/online/stickerWire.js` `stickerLine` /
+`lineSticker`); a receiver draws only its own table's picture and shows an unknown id's line as text.
+
 **Rules shared by client and server** — `src/online/limits.js` (`RULES`, `verdict`, `createLimiter`,
 `formatRetry`) and `src/online/clanRules.js` (roles + `can()`, name / tag / message validation, reserved
 names, `LOCAL_DEV_CODE` (the offline test backend's developer clan code, dev builds and tests only; the live code is set by the owner in the database and never committed), emblems, clan XP / level curve, weekly boss table, per-attempt damage
@@ -2766,8 +2772,13 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   the returner reads it as `session.returning.fighting = { wave, goal } | null`).
 * `lockstep.js` — `new Lockstep({ start, mySlot, send, delay, heartbeatMs, keepaliveMs, idleAfterMs,
   idleLeadTicks, idleKeepaliveMs, maxMessageBytes, hooks })`: `queue(kind, args)`
-  stamps a command `{ t, p, s, k, a }` at `tick + delay`; a tick runs only when every connected peer's
-  horizon has reached it; hashes are compared every `hashEvery` ticks (mismatch → resync from the host's
+  stamps a command `{ t, p, s, k, a }` at `tick + delay` (or just after the horizon my beats last sent,
+  `sentHorizon`, when that is later); a tick runs only when every connected peer's
+  horizon has reached it (COOP 15: a client that waits reports its waited ticks as `st` on its beats and the
+  peer it waits for raises ITS input delay a step per `STALL_STEP` = 30 such ticks (1/60 s of real time waited, not
+  frames), up to 3×, back down after
+  `DELAY_RELAX_MS` without one; `nudge()` — the battle screen calls it when the player selects a girl or arms
+  a card (`ctx.nudge`) — ends the idle saver so the coming order lands one input delay out); hashes are compared every `hashEvery` ticks (mismatch → resync from the host's
   command log); a silent peer is dropped after the timeout (its towers stay, its income goes to the
   survivor) and can be re-admitted while the host is still playing.
   Long runs (spec §12): the host keeps `ls.ck = { t, wave, snap }`, a `CoopSim.snapshot()` taken at every
@@ -2785,6 +2796,15 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   reassembled; a guest whose resync does not arrive asks again every 4 s. Idle saver (Supabase rooms,
   `COOP_NET.supabase`): after `idleAfterMs` (10 s) without an order the horizon reaches `idleLeadTicks`
   (1 s) ahead and beats come about twice a second instead of four times.
+  Input lag is measured by `node --import ./tools/simLoader.mjs tools/coopLatency.mjs [--nudge 800] [--net <json>]`
+  (two real Lockstep clients over a simulated link: tap → screen per action, stalls, messages a second).
+* Battle screen (display only): `src/ui/battle/coopPending.js` (`ctx.coopPending`) holds my orders in flight
+  (place / upg / sell) from the tap until their command runs (`onApplied`, ok or refused), the resync remount
+  (`clear()`), or the lockstep running past the command's tick without it (a rejoin voided it) — never while
+  `ls.stalled || ls.job`, and never by the clock (an ally frozen under the drop timeout must not re-open a second
+  buy; `STALE_MS` only without a tick source): the placed girl's ghost stays on her spot, the price button reads
+  "Ordered", and the HUD balance has their price off (`.bt-held`). `ctx.spendable()` = cash less those coins: the
+  tower bar, the upgrade rows, the buy tap and placement check it.
 * `CoopSim.snapshot()` / `coop.restore(snap)` — the Sim's snapshot plus wallets, tower owners, who is gone,
   the Finish votes, speed and the odd-coin turn; the same JSON on every client (the view-dependent cash is
   stored as 0).

@@ -20,7 +20,7 @@ import { fmtNum } from '../../format.js';
 import { uiIcon } from '../../../art/icons.js';
 import { navigate, rememberParams } from '../../router.js';
 import { store } from '../../../core/store.js';
-import { achievementList } from '../../../systems/missions.js';
+import { achievementList, isSecretLocked } from '../../../systems/missions.js';
 import { ownedRibbons, liveRibbons, newHonorCount } from '../../../systems/honors.js';
 import { featureStage } from '../../../systems/story.js';
 import { ribbonArt, titlePlate, liveHonors } from '../../honorFx.js';
@@ -137,7 +137,7 @@ function ladderSheet(row, { onClaim }) {
   const go = !secret && row.state === 'progress' ? goRoute(row) : null;
   const stepEl = (s, i) => {
     const cap = steps.length > 1 && i === steps.length - 1;
-    const hidden = s.hidden && !s.met && !s.claimed;
+    const hidden = isSecretLocked(store.profile, s.id); // a secret not found yet: "???", its hint, its rewards as secrets
     const items = [...(s.rewards || [])].sort((x, y) => rewardRank(x) - rewardRank(y));
     const single = steps.length < 2;
     return h(`div.ach-ls-step${s.claimed ? '.on' : s.claimable ? '.ready' : ''}${s.id === row.id ? '.cur' : ''}${single ? '.single' : ''}`, { 'data-testid': `ach-step-${s.id}` },
@@ -149,8 +149,10 @@ function ladderSheet(row, { onClaim }) {
         h('span', hidden ? `Hint · ${s.hint}` : s.desc)),
       h('div.ach-ls-rew',
         items.map((r) => tile(r.id, r.count > 1 ? r.count : null, { size: 40 })), // (never "×1", P7)
-        s.honor ? h('button.ach-chip-hr.' + (s.honor.cls || 'plain'), { type: 'button', title: `Honor Ribbon · ${s.honor.name}`, 'aria-label': `Honor Ribbon: ${s.honor.name}`, onclick: () => ribbonInfo(s.id) }, ribbonArt(s.id, 34, { still: true })) : null,
-        s.title ? h('button.ach-chip-title', { type: 'button', title: `Title · ${s.title.text}`, onclick: () => titleInfo(s.id) }, titlePlate(s.id, { small: true })) : null));
+        s.honor && hidden ? h('span.ach-chip-hr.secret', { 'aria-label': 'Secret Honor Ribbon' }, ribbonArt(s.id, 34, { secret: true, still: true })) : null,
+        s.honor && !hidden ? h('button.ach-chip-hr.' + (s.honor.cls || 'plain'), { type: 'button', title: `Honor Ribbon · ${s.honor.name}`, 'aria-label': `Honor Ribbon: ${s.honor.name}`, onclick: () => ribbonInfo(s.id) }, ribbonArt(s.id, 34, { still: true })) : null,
+        s.title && hidden ? h('span.ach-chip-title.secret', { 'aria-label': 'Secret title' }, titlePlate(s.id, { small: true, locked: true, text: '???' })) : null,
+        s.title && !hidden ? h('button.ach-chip-title', { type: 'button', title: `Title · ${s.title.text}`, onclick: () => titleInfo(s.id) }, titlePlate(s.id, { small: true })) : null));
   };
   const prog = rowProgress(row);
   let sheet = null;

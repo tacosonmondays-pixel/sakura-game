@@ -11,7 +11,7 @@ import { store } from '../../../core/store.js';
 import { createRng } from '../../../core/rng.js';
 import { ACHIEVEMENT_MAP } from '../../../data/achievements.js';
 import { HONOR_MAP, TITLE_MAP, HONOR_CLASSES, HONOR_EFFECTS, EFFECT_LINES } from '../../../data/honors.js';
-import { claimAchievement, claimAllAchievements, achievementList } from '../../../systems/missions.js';
+import { claimAchievement, claimAllAchievements, achievementList, isSecretLocked } from '../../../systems/missions.js';
 import { ownedRibbons, ownedTitles, titleGroups, markTitlesSeen, titlesFromText } from '../../../systems/honors.js';
 import { openGearBox } from '../../../systems/gear.js';
 import { itemCount } from '../../../systems/inventory.js';
@@ -200,6 +200,13 @@ export function ribbonInfo(id) {
   const a = ACHIEVEMENT_MAP[id];
   if (!hh || !a) return;
   const owned = ownedRibbons(store.profile).includes(id);
+  if (!owned && isSecretLocked(store.profile, id)) { // a secret's ribbon: "???" and its hint until it is found
+    const m = modal({ title: 'Honor Ribbon', cls: 'ach-modal.ach-sheet-modal', actions: [{ label: 'OK', kind: 'yellow' }],
+      body: h('div.ach-sheet', h('div.ach-sheet-stage', ribbonArt(id, 160, { secret: true })),
+        h('div.ach-sheet-text', h('h3', '???'), h('p', 'A secret achievement grants this one.'), h('p.ach-hint', `Hint · ${a.hint}`))) });
+    m.el.dataset.secret = '1';
+    return;
+  }
   const stage = h('div.ach-sheet-stage', ribbonArt(id, 160, { prio: 5 }));
   const body = h('div.ach-sheet',
     stage,
@@ -218,6 +225,11 @@ export function titleInfo(id) {
   if (!t) return;
   const owned = ownedTitles(store.profile).includes(id);
   const a = ACHIEVEMENT_MAP[id];
+  if (!owned && isSecretLocked(store.profile, id)) { // a secret's title: "???" and its hint until it is found
+    modal({ title: 'Title', cls: 'ach-modal', actions: [{ label: 'OK', kind: 'yellow' }],
+      body: h('div.ach-titleinfo', titlePlate(id, { text: '???', locked: true }), h('p', 'A secret achievement grants this title.'), h('p.ach-hint', `Hint · ${a.hint}`)) });
+    return;
+  }
   const plateName = { prism: 'Prism · the rarest plate', gold: 'Gold plate', standard: 'Standard plate' }[t.plate];
   modal({
     title: 'Title',
@@ -238,8 +250,8 @@ export function titlesSheet({ onClose = null } = {}) {
     h('p.ach-titles-sub', `${owned} / ${total} earned · ${titlesFromText(groups.flatMap((g) => g.titles.map((t) => t.id)))}`),
     groups.map((g) => h('section.ach-titles-group',
       h(`div.ach-titles-k.${g.plate}`, g.label, h('b', `${g.owned} / ${g.total}`)),
-      h('div.ach-titles-row', g.titles.map((t) => h(`div.ach-titles-item${t.owned ? '' : '.locked'}`, { title: t.how },
-        titlePlate(t.id, { small: true, locked: !t.owned }),
+      h('div.ach-titles-row', g.titles.map((t) => h(`div.ach-titles-item${t.owned ? '' : '.locked'}${t.secret ? '.secret' : ''}`, { title: t.how },
+        titlePlate(t.id, { small: true, locked: !t.owned, text: t.secret ? '???' : null }),
         t.owned ? null : svgEl(uiIcon('lock'), 'ach-titles-lock'),
         h('small', t.owned ? t.source : `How: ${t.how}`)))))));
   if (markTitlesSeen(p)) store.commit('titles-seen', { quiet: true });

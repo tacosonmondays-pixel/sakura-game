@@ -121,6 +121,12 @@
 .ach-ls-text > b { font: italic 900 var(--fs-body)/1.15 var(--font-head); color: var(--navy); }
 .ach-ls-text > span { font-size: var(--fs-label); color: var(--ink); }
 .ach-ls-rew { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+/* phones: the rewards go under the text, so a long name or hint never wraps one word per line beside them (review r2 N2) */
+@media (max-width: 520px) {
+  .ach-ls-step { grid-template-columns: 32px minmax(0, 1fr); }
+  .ach-ls-step.single { grid-template-columns: minmax(0, 1fr); }
+  .ach-ls-step > .ach-ls-rew { grid-column: -2 / -1; justify-content: flex-start; }
+}
 .ach-ls-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
 .ach-ls-note { margin: 0; font-size: var(--fs-label); color: var(--muted); }
 .ach-chip-hr {

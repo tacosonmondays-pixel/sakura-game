@@ -14,7 +14,7 @@ import { store } from '../../core/store.js';
 import { createRng, hashString } from '../../core/rng.js';
 import { FAMILIES } from '../../data/enemies.js';
 import { CHAPTERS } from '../../data/stages.js';
-import { preloadEnemies } from '../../models/index.js';
+import { preloadEnemies, enemyModelKeys } from '../../models/index.js';
 import { freeplayLedger, bankFreeplayClear, rememberFreeplayRun } from '../../online/coop/rewards.js';
 import { countCoopWin } from '../../systems/achievementCounters.js';
 import { AFFIX_TEXT } from './scout.js';
@@ -42,8 +42,8 @@ export function fellTo(sim) {
 function familiesOf(ids) {
   const out = new Set();
   for (const id of ids) {
-    const d = enemyDef(id);
-    if (d) out.add(d.model?.base || d.family);
+    // its family and, for the Brigade, its own Tripo model (glbEnemy enemyModelKeys)
+    for (const k of enemyModelKeys(enemyDef(id))) out.add(k);
   }
   return [...out].filter(Boolean);
 }

@@ -10,6 +10,8 @@
 import './styles/honors.css';
 import { honorSVG, honorMasks, honorSizeTier, fxLayers } from '../art/honors.js';
 import { HONOR_MAP, TITLE_MAP } from '../data/honors.js';
+import { HONOR_BAKED, HONOR_ART_PAD } from '../art/honorArt.js';
+import { artUrl } from '../art/portraits.js';
 
 let masksInstalled = false;
 /** Sets the --rbm-* mask images on <html> once (idempotent; called at boot and by every ribbon). */
@@ -38,6 +40,16 @@ const template = (html) => {
 };
 
 /**
+ * Base-path-safe URL of a ribbon's baked picture (tools/blender/ribbons/build_ribbons.py), cache-busted by its hash, or
+ * null when this build has none (the SVG draws it then). The 128 px file covers boxes up to 64 px (the Case grid, rows,
+ * toasts: about 2x), the 256 px one the detail and the fanfare.
+ */
+export function honorBakedUrl(id, size = 64) {
+  const hash = HONOR_BAKED[id];
+  return hash ? artUrl(`honors/${id}-${size <= 64 ? 128 : 256}.webp?v=${hash}`) : null;
+}
+
+/**
  * An Honor Ribbon element, drawn natively at `size` px (never scaled).
  * @param {string} id the achievement id that grants it (= the ribbon id)
  * @param {number} [size] 40 rows/toasts/pins · 64 the Case grid · 160 detail and fanfare
@@ -53,7 +65,9 @@ export function ribbonArt(id, size = 40, { locked = false, secret = false, live 
   const t = honorSizeTier(size);
   const grey = locked || secret;
   const fx = !grey && cls === 'special' ? h.effect : null;
-  const el = template(`<span class="rb rb-${cls} rb-${t}${fx ? ` fx-${fx}` : ''}${grey ? ' locked' : ''}${still ? ' still' : ''}" style="--s:${size}px">${honorSVG(id, { locked, secret })}${fx ? fxLayers(fx, t) : ''}${!grey && cls === 'shiny' ? '<span class="rb-once"></span>' : ''}</span>`);
+  const baked = !grey ? honorBakedUrl(id, size) : null; // earned: the baked 3D-flat picture; locked and secret: the grey SVG
+  const art = baked ? `<img class="rb-art rb-bake" src="${baked}" alt="" draggable="false" decoding="async" style="--rbp:${HONOR_ART_PAD}">` : honorSVG(id, { locked, secret });
+  const el = template(`<span class="rb rb-${cls} rb-${t}${fx ? ` fx-${fx}` : ''}${grey ? ' locked' : ''}${still ? ' still' : ''}${baked ? ' baked' : ''}" style="--s:${size}px">${art}${fx ? fxLayers(fx, t) : ''}${!grey && cls === 'shiny' ? '<span class="rb-once"></span>' : ''}</span>`);
   el.dataset.honor = id;
   if (prio) el.dataset.prio = String(prio);
   el.setAttribute('role', 'img');
