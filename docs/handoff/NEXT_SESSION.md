@@ -326,3 +326,17 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
 - **Tripo batch 2**: the owner shared a Google Drive folder with 5 zip parts, about 900 MB. drive.usercontent.google.com downloads work from cloud sessions.
   - The Tripo session (session_01Ayo4eniSEuWQnvLYk8muWz) is processing them into feature/tripo-batch-2.
   - Drive file ids are in that session's brief. No GitHub release was needed.
+
+## UPDATE 2026-10-31 07:26 UTC (coordinator): v0.1.67 LIVE
+
+- **v0.1.67 "Ribbons, Frames and Stickers" shipped.** main = eb0b1ab9. version.json reports 0.1.67, build eb0b1ab9c2a5, sim 0fe7c5c04aec (COOP 15), deployed 07:25:30Z.
+  - The go/no-go said GO (review/v0.1.67-go @ 313af715).
+  - The live check is running in session_01Ayo4eqvsSc9sAZx6NDAzRZ.
+- **v0.1.68 candidates** (each one needs a fresh review before assembly):
+  - feature/item-icons-3d (session_01Ayo4eqMGbYD6CyGCx9Unp7)
+  - feature/set-boxes-v2, including the LR awakening (session_01Ayo4eqpJHzAuKCjFySULet)
+  - feature/sandbox-catchup (session_01Ayo4eqKEZMVKDHYpn5m6yk)
+  - feature/more-page-dps (session_01Ayo4er7JW8s4hvHWF54K76)
+  - fix/stickers-setting-shadow @ 5886ac20, which still needs its review
+  - Patch-note line: "Turning off other players' stickers now stays off even after opening the game in an older tab."
+- **Tripo batch 2** (feature/tripo-batch-2, session_01Ayo4eniSEuWQnvLYk8muWz) is processing.
