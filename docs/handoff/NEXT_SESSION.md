@@ -238,3 +238,17 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
   - stickers;
   - Tripo batch 1.
   - Assemble after v0.1.66 ships and each piece is OK.
+
+## UPDATE 2026-10-31 04:00 UTC (coordinator)
+
+- **The owner wants the updates out quickly.** v0.1.66 and v0.1.67 are now being worked on in parallel.
+  - v0.1.66: the Iroha fix is at its final step (engines re-pin, then push). Assembly session_01Ayo4er2sMN7BYpFieFCFi6 is ready to merge it, re-pin KNOWN[14], run the gates and push. After that comes a fresh delta go/no-go, then ship.
+  - **v0.1.67 assembly started:** session_01Ayo4epfyDmmaAdnyhmw81g, branch release/v0.1.67 off release/v0.1.66. It merges each piece once its review is OK. COOP 15, KNOWN[15].
+- **Review status**
+  - Cosmetics 2: r3 OK (cosmetics-2-r3 @ cb5f2e9d). Two LOW follow-ups are landing; the v0.1.67 go/no-go covers them.
+  - Profile banners: r2 OK. Follow-ups are at be2852a8; the r3 delta (session_01Ayo4eqrjtmTR2VPGMB1StX) is running.
+  - Tripo: follow-ups are at e7f6479c; the r2 delta (session_01Ayo4enqYsJwdsbiXEsuw5E) is running.
+  - Co-op feel: fixes are at a3bc4b9b and f4923f46 (COOP 15 sim 92f3c17bbd2c); the r2 delta (session_01Ayo4enWaMRbmQdJF9K8BhA) is running.
+- **NovelAI: the owner has the top tier with plenty of Anlas.** Don't skimp on art; use multiple samples and full steps.
+  - Stickers are being regenerated in pastel at 4 samples each, budget about 2,500 Anlas. The owner asked for more pastel colours.
+  - For art v3 the coordinator now recommends option C (redo without halos, keep signature props, several tries each). Waiting on the owner.
