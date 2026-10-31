@@ -58,8 +58,9 @@ Each banner has the id `pb:<slug>`. The data is in `src/data/profileBanners.js` 
 
 - **Art.** Fourteen banners use the game's own painted story places or the painted Halloween academy. These are places
   with no characters, already in `public/art/lobby/`, so there are no new image files. The other six are patterns drawn
-  in code from a fixed seed (`src/ui/profile/pbArt.js`), so every viewer sees the same picture. No third-party images
-  were used and no generator was used.
+  in code from a fixed seed (`src/ui/profile/pbArt.js`), so every viewer sees the same picture. On
+  `feature/profile-banners-art` these six show new scenery illustrations instead, with the patterns kept as the fallback
+  (§5). No third-party images were used.
 - **Cosmetic only.** No banner has a price, a shop row or a recruit link. Recruiting achievements (`a_pulls_*`) are
   never used as unlocks (there's a test).
 - **The picker** (Edit Profile → Banner) shows "n / 34 unlocked". A locked tile shows its lock chip ("Claim
@@ -94,18 +95,27 @@ Every unlock is read from what the save already holds, and nothing is granted or
 - **Sim and co-op:** none of these files are in the sim's import graph. `simId()` gives `36cba1c215b0` before and after
   the change.
 
-## 5. Owner illustrations (slots)
+## 5. Illustrations (the six slots)
 
-Six banners are marked `slot: true` in the data. They keep their pattern art until owner-made pictures replace them,
-which needs only a `file` and `thumb` in place of `svg`. The size is 1280 × 440 (the banner crops a 1280 × 876 picture
-like the story places, around 58% from the top), plus a 320 px thumb.
+**On `feature/profile-banners-art`** (on top of `feature/profile-banners`): the six slot banners now show new
+illustrations, saved as `public/art/lobby/banners/<slug>.webp` (1280 × 876) with a 320 px thumb, about 1 MB in all.
+Each row keeps its `svg` pattern as the fallback; dropping `file` and `thumb` from a row brings the pattern back.
+The owner may replace any of them with their own pictures the same way.
 
-NovelAI could not be used in this session. The connection check returned **400 "update to the image URL"** on both
-`api.novelai.net/user/subscription` and `/user/data`. Checking the key would have meant a paid generation, so I spent
-**0 Anlas** and drew the procedural art instead.
+- **Generator:** NovelAI (`nai-diffusion-4-5-full`), 1216 × 832, 23 steps, through the session's network secret. No
+  Authorization header was written by us, and no key appears anywhere. The account endpoints (`api.novelai.net/user/*`)
+  return 400 for every client, so I could not read the Anlas balance. The image endpoint answered normally.
+- **Spend:** 7 images (one per banner, plus a second Summer Fireworks because the first had garbled pseudo-lettering
+  on the stall awnings). At one Opus-free image size the cost is likely 0; the upper estimate is about 20 Anlas each,
+  so **≤ ~140 Anlas**, inside the 300 budget. One more request was refused by the CDN before reaching NovelAI (403, no
+  spend). The request log is `docs/specs/profile-banners/novelai-requests.jsonl` (time, model, size, steps, seed,
+  status, prompt).
+- **Rules followed:** prompts are written only from the game's own descriptions, with no other games', anime or artist
+  names. They are scenery only, with a negative prompt against people, text and writing, and no reference images were
+  sent. I checked each result by eye: no people, and no text after the Summer Fireworks retry.
 
-Prompts, written only from the game's own descriptions. They are scenery only, with no people (the safest choice for a
-banner every player sees):
+The prompts used (Summer Fireworks: the second version, "plain striped festival awnings with no writing"; every prompt
+also ended ", scenery, no humans"):
 
 | Banner | Prompt |
 |---|---|
@@ -116,8 +126,6 @@ banner every player sees):
 | Autumn Leaves | wide panoramic background, the academy grounds in autumn, red and orange maple trees, leaves falling over a covered walkway, warm golden late-afternoon light, clean cel-shaded anime background art, no people, no text |
 | First Snow | wide panoramic background, first snow over the academy at dusk, snow on tiled rooftops and a lamp-lit gate, warm yellow windows, soft blue sky, clean cel-shaded anime background art, cosy and quiet, no people, no text |
 
-When the owner wants images generated, only the game's own art may be sent as a reference (a story place for the
-palette), and the spend goes in a request log.
 
 ## 6. Files
 
@@ -125,7 +133,8 @@ palette), and the spend goes in a request log.
 |---|---|
 | `src/data/profileBanners.js` (new) | the 20 rows, seasons |
 | `src/systems/profileBanners.js` (new) | `pbUnlocked`, `notePbSeason`, `seasonAt`, lock and how text, the `pbn:` shadow |
-| `src/ui/profile/pbArt.js` (new) | six seeded SVG patterns, cached |
+| `src/ui/profile/pbArt.js` (new) | six seeded SVG patterns, cached (the fallback art) |
+| `public/art/lobby/banners/` (new, art branch) | the six illustrations and their thumbs |
 | `src/data/profileArt.js` | appends `PB_BANNERS` to `BANNERS`; `bannerLockText` for `pb` |
 | `src/systems/profileTrophies.js` | `bannerUnlocked` for `pb` |
 | `src/systems/senseiSave.js` | writes `pbn:` in `markSensei`; restores it in `restoreSensei` |
@@ -152,6 +161,6 @@ you've already done, and other Senseis see it on your profile."
 | Q1 | The seasons go by the device's date on the game's 7 PM Central day, so a player who changes their clock can unlock one early. It's cosmetic; accept that? | **Yes** |
 | Q2 | Pumpkin Lantern Night needs a Halloween operation cleared before the event closes (Nov 15), and it is a keepsake after that. Later events would get their own banner in the same way | **Yes** |
 | Q3 | Achievement banners need the achievement **claimed** (as titles do), not just met | **Yes** |
-| Q4 | Six pattern banners keep slots for owner-made illustrations (prompts in §5). Generate them once NovelAI answers, or wait for the owner's own pictures? | **Wait for the owner; patterns ship meanwhile** |
+| Q4 | Ship the six new illustrations (`feature/profile-banners-art`), or keep the patterns until the owner draws their own? | **Ship the illustrations; the patterns stay as the fallback** |
 | Q5 | Names and unlocks in §2: any you would swap? (For example, Workshop Bench could unlock with the gear update's "Nightglass Form" instead) | **As listed** |
 | Q6 | Should event exchanges later sell a banner too (exchange currency only, never gems)? | **Not now** |

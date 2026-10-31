@@ -34,8 +34,9 @@ describe('the table', () => {
 
   it('art: a painted file of the game that exists (and its thumb), or a known pattern', () => {
     for (const b of PB_BANNERS) {
-      if (b.svg) {
-        expect(PB_SVG_NAMES).toContain(b.svg);
+      if (b.svg) expect(PB_SVG_NAMES).toContain(b.svg);
+      if (!b.file) {
+        expect(b.svg).toBeTruthy();
         continue;
       }
       expect(existsSync(`public/art/lobby/${b.file}`)).toBe(true);

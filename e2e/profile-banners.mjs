@@ -152,7 +152,7 @@ async function runViewport(vp) {
   check(card.saved === 'pb:nightglass' && card.ban === 'pb:nightglass' && card.valid && card.viewed === 'pb:nightglass' && card.shadow, `saved, published, valid and kept by a viewer (${JSON.stringify(card)})`);
   await page.evaluate(() => { location.hash = '#/profile'; });
   await page.waitForSelector('[data-testid="profile"]', { timeout: 15000 });
-  check(await page.evaluate(() => document.querySelector('.pf-banner .pf-bn-art')?.dataset.banner === 'pb:nightglass' && !!document.querySelector('.pf-banner .pf-bn-svg svg')), 'the profile banner draws Nightglass Sky');
+  check(await page.evaluate(() => document.querySelector('.pf-banner .pf-bn-art')?.dataset.banner === 'pb:nightglass' && !!document.querySelector('.pf-banner .pf-bn-art img, .pf-banner .pf-bn-svg svg')), 'the profile banner draws Nightglass Sky');
   await shot('profile-nightglass');
   await noOverflow('profile');
   await tap('[data-testid="profile-preview"]');

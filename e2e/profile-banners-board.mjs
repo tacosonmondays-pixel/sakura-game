@@ -41,7 +41,7 @@ try {
     document.head.append(css);
     const bd = document.createElement('div');
     bd.className = 'bd';
-    bd.innerHTML = '<h1>Sensei Profile banners · 20 new</h1><p class="sub">Shown on your profile and on the card other players see. Cosmetic only: each one unlocks from what you have already done (nothing to buy). Painted places are the game\'s own story art; patterns are drawn in code. Gold tag = room for an owner-made illustration later.</p>';
+    bd.innerHTML = '<h1>Sensei Profile banners · 20 new</h1><p class="sub">Shown on your profile and on the card other players see. Cosmetic only: each one unlocks from what you have already done (nothing to buy). Painted places are the game\'s own story art; patterns are drawn in code. Gold tag = a new illustration (scenery only), which the owner may replace with their own.</p>';
     const grid = document.createElement('div');
     grid.className = 'grid';
     for (const b of PB_BANNERS) {
@@ -50,7 +50,7 @@ try {
       const art = document.createElement('div');
       art.className = 'art';
       art.append(bannerArt(b.id));
-      art.insertAdjacentHTML('beforeend', `<span class="g">${GROUP[b.group] || b.group}</span>${b.slot ? '<span class="slot">illustration slot</span>' : ''}`);
+      art.insertAdjacentHTML('beforeend', `<span class="g">${GROUP[b.group] || b.group}</span>${b.slot ? '<span class="slot">new illustration</span>' : ''}`);
       const t = document.createElement('div');
       t.className = 't';
       t.innerHTML = `<b></b><code></code><div></div>`;
@@ -62,7 +62,8 @@ try {
     }
     bd.append(grid);
     document.body.append(bd);
-    await Promise.all([...document.images].map((i) => (i.complete ? null : new Promise((r) => { i.onload = i.onerror = r; }))));
+    // every picture loaded and decoded before the shot (the banner images decode asynchronously)
+    await Promise.all([...document.images].map((i) => { i.loading = 'eager'; return i.decode().catch(() => {}); }));
   });
   await page.waitForTimeout(500);
   const el = await page.$('.bd');

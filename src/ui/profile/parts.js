@@ -42,13 +42,13 @@ export const kitBtn = (kind, cls, props, ...kids) => h(`button.ui-hit.rk-hit${cl
 
 /**
  * The banner art for an id: the painted academy (with a tint), a chapter sky, a girl's scene, or a 'pb:' banner
- * (a painted place, or a pattern from ./pbArt.js).
+ * (a painted place or illustration, else a pattern from ./pbArt.js).
  */
 export function bannerArt(id, { thumb = false } = {}) {
   const b = BANNER_MAP[id] || BANNER_MAP[DEFAULT_BANNER];
   const el = h(`div.pf-bn-art.tint-${b.tint || 'none'}`, { 'data-banner': b.id });
   if (b.kind === 'theme') el.append(svgEl(themeBackdropSVG(b.theme), 'pf-bn-svg'));
-  else if (b.svg) el.append(svgEl(pbBannerSVG(b.svg), 'pf-bn-svg'));
+  else if (b.svg && !b.file) el.append(svgEl(pbBannerSVG(b.svg), 'pf-bn-svg'));
   else el.append(h('img', { src: lobbyArtUrl(thumb ? b.thumb : b.file), alt: '', draggable: false, decoding: 'async', ...(b.pos ? { style: `object-position: ${b.pos}` } : {}) }));
   el.append(h('i.pf-bn-tint'));
   return el;
