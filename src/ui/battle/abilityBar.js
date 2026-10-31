@@ -264,7 +264,8 @@ export function soloAbilityActs(sim, { mark = () => {} } = {}) {
  * @param {{ job?: any, mySlot: number, queue: (k: string, a: any[]) => void, coop: { ownerOf: (uid: number) => number } }} ls
  */
 export function coopAbilityActs(ctx, ls, { now = () => (typeof performance !== 'undefined' ? performance.now() : 0) } = {}) {
-  const mine = (u) => ls.coop.ownerOf(u) === ls.mySlot;
+  // (whom I command: my own girls and any lent or handed to me — co-op sharing; a test double without isMine: by owner)
+  const mine = (u) => (ls.coop.isMine ? ls.coop.isMine(u) : ls.coop.ownerOf(u) === ls.mySlot);
   return {
     ability(uid, { group = false, aim = null } = {}) {
       const c = coopCastCheck(ctx.sim, uid, { group, busy: !!ls.job, mine, pending: ctx.abilityPending });

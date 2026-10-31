@@ -7,11 +7,12 @@
 // the battlefield; the ally's chip says "Rin is re-syncing… 45%" meanwhile.
 // Stickers: a button at the chip's end, and a sticker under the name of whoever sent it (./coopStickers.js).
 import '../styles/online.css';
-import { h } from '../components.js';
+import { h, svgEl } from '../components.js';
 import { fmtNum } from '../format.js';
 import { COOP } from '../../data/coop.js';
 import { HOME_TEXT } from '../text/tryout.js';
 import { createCoopStickers } from './coopStickers.js';
+import { currencyIcon } from '../../art/icons.js';
 
 /** World height of the owner pin (just above a chibi's halo). */
 const PIN_HEIGHT = 1.55;
@@ -24,8 +25,13 @@ export function createCoopHud(ctx) {
   const cash = [h('b'), h('b')];
   const flags = [0, 1].map((slot) => h('i.ol-coop-flag', { title: sim.tryout ? HOME_TEXT.hudFlag : 'Voted to finish', 'data-testid': `coop-vote-${slot}` }, '⚑'));
   for (const f of flags) f.hidden = true;
+  // co-op sharing (docs/specs/COOP_SHARING.md §3.5): a coin button on the ally's chip opens the gift sheet; while they
+  // are away the state line counts the grace down ("Ally away — their girls are yours in 12 s")
+  const giftBtn = h('button.ol-coop-gift', { type: 'button', 'data-testid': 'coop-gift', title: 'Send coins to your ally', 'aria-label': 'Send coins to your ally', onclick: () => openGift() },
+    svgEl(currencyIcon('coins'), 'ol-coop-gift-ico'), h('span', '+'));
   const chips = players.map((p, slot) => h(`div.ol-coop-p${slot === coop.mySlot ? '.me' : ''}`, { style: { '--pc': COOP.colors[slot] } },
-    h('i.ol-coop-dot'), h('span.ol-coop-name', slot === coop.mySlot ? `${p?.name || 'You'} (you)` : p?.name || 'Ally'), cash[slot], flags[slot]));
+    h('i.ol-coop-dot'), h('span.ol-coop-name', slot === coop.mySlot ? `${p?.name || 'You'} (you)` : p?.name || 'Ally'), cash[slot], flags[slot],
+    slot === coop.mySlot ? null : giftBtn));
   const state = h('div.ol-coop-state', { 'data-testid': 'coop-state' });
   // stickers (docs/specs/STICKERS.md): the button at the chip's end, each sticker under its sender's name
   const stickers = createCoopStickers(ctx, chips);
@@ -38,10 +44,12 @@ export function createCoopHud(ctx) {
   const sync = h('div.ol-coop-sync', { 'data-testid': 'coop-sync', role: 'status', 'aria-live': 'polite' },
     h('div.ol-coop-sync-card', syncTitle, syncLine, h('i.ol-coop-sync-bar', syncFill), h('small', 'Your battle is catching up with your ally\'s — one moment.')));
   sync.hidden = true;
-  ctx.layer.append(el, sync);
+  const gift = createGiftSheet();
+  ctx.layer.append(el, sync, gift.el);
   ctx.layer.prepend(rings);
   const allyName = () => players[1 - coop.mySlot]?.name || 'your ally';
   let lastSync = '';
+  let graceSecs = null; // the ally's grace, seconds left (null: none running)
   const ringEls = new Map();
   let lastState = '';
   let stateAt = 0;
@@ -49,9 +57,76 @@ export function createCoopHud(ctx) {
   /** A final state (the ally left / went back to the room / lost) shows this long, then only the dimmed chip says so. */
   const GONE_LINE_MS = 4000;
 
+  /** The "Send coins" sheet (25% / 50% / All, ± 50, Send): the coins are off my balance at the tap (coopPending). */
+  function createGiftSheet() {
+    let amount = 0;
+    let isOpen = false;
+    const val = h('b.ol-gift-val', { 'data-testid': 'gift-amount' });
+    const note = h('small.ol-gift-note', { 'data-testid': 'gift-note' });
+    const mine = () => Math.max(0, Math.floor(ctx.spendable ? ctx.spendable() : sim.cash));
+    const set = (n) => {
+      amount = Math.max(0, Math.min(mine(), Math.floor(n)));
+      refresh();
+    };
+    const pick = (label, fn, id) => h('button.ol-gift-pick', { type: 'button', 'data-testid': `gift-${id}`, onclick: () => set(fn()) }, label);
+    const send = h('button.ol-gift-send', {
+      type: 'button', 'data-testid': 'gift-send',
+      onclick: () => {
+        const r = ctx.act?.gift?.(amount);
+        if (r === 'queued') close();
+        else note.textContent = amount < COOP.giftMin ? `At least ${COOP.giftMin} coins.` : 'Not enough coins.';
+      },
+    }, 'Send');
+    const el = h('div.ol-gift', { 'data-testid': 'gift-sheet', role: 'dialog', 'aria-label': 'Send coins to your ally' },
+      h('div.ol-gift-head', h('span', `Send coins to ${players[1 - coop.mySlot]?.name || 'your ally'}`), h('button.ol-gift-x', { type: 'button', 'aria-label': 'Close', 'data-testid': 'gift-close', onclick: () => close() }, '×')),
+      h('div.ol-gift-amt', h('button.ol-gift-step', { type: 'button', 'data-testid': 'gift-minus', 'aria-label': 'Fifty fewer', onclick: () => set(amount - 50) }, '−'), val,
+        h('button.ol-gift-step', { type: 'button', 'data-testid': 'gift-plus', 'aria-label': 'Fifty more', onclick: () => set(amount + 50) }, '+')),
+      h('div.ol-gift-picks', pick('25%', () => mine() * 0.25, '25'), pick('50%', () => mine() * 0.5, '50'), pick('All', () => mine(), 'all')),
+      note, send);
+    el.hidden = true;
+    function refresh() {
+      if (amount > mine()) amount = mine();
+      val.textContent = fmtNum(amount, 'money');
+      send.disabled = amount < COOP.giftMin;
+      if (!send.disabled) note.textContent = `They get it in about half a second; it is theirs to keep.`;
+      else note.textContent = `At least ${COOP.giftMin} coins.`;
+    }
+    function close() {
+      isOpen = false;
+      el.hidden = true;
+    }
+    return {
+      el,
+      get open() {
+        return isOpen;
+      },
+      show() {
+        isOpen = true;
+        el.hidden = false;
+        set(mine() * 0.25);
+      },
+      refresh,
+      close,
+      destroy() {
+        el.remove();
+      },
+    };
+  }
+  function openGift() {
+    if (gift.open) gift.close();
+    else gift.show();
+  }
+
   function update() {
     const w = ls.coop.wallets;
     for (const slot of [0, 1]) cash[slot].textContent = fmtNum(Math.floor(w[slot] ?? 0), 'money');
+    const allyHere = coop.allyHere ? coop.allyHere() : true;
+    giftBtn.hidden = !allyHere || sim.state === 'won' || sim.state === 'lost';
+    if (giftBtn.hidden && gift.open) gift.close();
+    if (gift.open) gift.refresh();
+    // the grace while the ally is away: seconds of real time until their girls are handed out (the state line says it)
+    const due = coop.pendingDeals ? coop.pendingDeals().find((d) => d.slot === 1 - coop.mySlot) : null;
+    graceSecs = due ? Math.max(0, Math.ceil((due.at - ls.tick) / 60 / Math.max(1, ls.coop.speed || 1))) : null;
     if (sim.freeplay) {
       const votes = ls.coop.endVotes?.() || [];
       for (const slot of [0, 1]) flags[slot].hidden = !votes[slot];
@@ -77,6 +152,8 @@ export function createCoopHud(ctx) {
     }
     const busy = peer && !peer.gone ? peer.busy : null;
     const text = ls.desynced ? 'Lost sync — playing solo'
+      : peer?.gone && graceSecs != null ? `${peer.why === 'left' ? 'Ally left' : 'Ally away'} — their girls are yours in ${graceSecs} s`
+      : peer?.gone && ls.coop.lentInfo && sim.towers.some((t) => ls.coop.lentInfo(t.uid)?.kind === 'deal' && ls.coop.ownerOf(t.uid) === 1 - coop.mySlot) ? 'Ally away — their girls are yours now'
       : peer?.gone ? (peer.why === 'left' ? 'Ally left — their girls keep fighting'
         : peer.why === 'lobby' ? 'Ally is back in the room'
           : peer.why === 'desync' ? 'Lost sync — playing solo'
@@ -90,11 +167,14 @@ export function createCoopHud(ctx) {
       stateAt = performance.now();
       state.textContent = text;
       state.hidden = !text;
+      // (a short screen docks the feed under the strip, and under this line while it shows: battle.css .bt-coop-state)
+      ctx.shell?.classList?.toggle('bt-coop-state', !!text);
       el.classList.toggle('ol-coop-wait', !!text && !peer?.gone);
       chips[1 - coop.mySlot]?.classList.toggle('gone', !!peer?.gone || !!ls.desynced);
-    } else if (text && (peer?.gone || ls.desynced) && !state.hidden && performance.now() - stateAt > GONE_LINE_MS) {
+    } else if (text && graceSecs == null && (peer?.gone || ls.desynced) && !state.hidden && performance.now() - stateAt > GONE_LINE_MS) {
       // (the feed said it too; the line would only cover the field from now on)
       state.hidden = true;
+      ctx.shell?.classList?.toggle('bt-coop-state', false);
     }
   }
 
@@ -112,6 +192,13 @@ export function createCoopHud(ctx) {
         if (owner !== coop.mySlot) r.classList.add('ally');
         rings.append(r);
         ringEls.set(t.uid, r);
+      }
+      // (lent or handed out: her owner's colour, the controller's in the middle)
+      const ctrl = ls.coop.ctrlOf ? ls.coop.ctrlOf(t.uid) : owner;
+      const lent = ctrl != null && ctrl !== owner;
+      if (r.classList.contains('lent') !== lent) {
+        r.classList.toggle('lent', lent);
+        r.style.setProperty('--cc', COOP.colors[ctrl] || '#fff');
       }
       const p = ctx.renderer.worldToScreen(t.x, t.y, PIN_HEIGHT);
       r.hidden = !p.visible;
@@ -134,6 +221,7 @@ export function createCoopHud(ctx) {
     destroy() {
       clearInterval(statusTimer);
       offRebuild?.();
+      gift.destroy();
       stickers.destroy();
       el.remove();
       sync.remove();

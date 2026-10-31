@@ -80,6 +80,7 @@ import {
 import { randomPlayers } from './tryout/random.js';
 import { assignSeats, nextSeats } from './tryout/breaks.js';
 import { hasCards, refreshRunMods } from './tryout/pep.js';
+import { ctrlOf } from './ctrl.js';
 
 const MAX_EVENT_BACKLOG = 20000;
 
@@ -544,7 +545,7 @@ export class Sim {
     const c = (t.bakeC || 0) + amount;
     const whole = Math.floor(c + 1e-9);
     t.bakeC = c - whole;
-    if (whole > 0) this._gainCashFor(t.owner ?? 0, whole);
+    if (whole > 0) this._gainCashFor(ctrlOf(t), whole);
   }
 
   _spend(amount) {
@@ -1066,7 +1067,7 @@ export class Sim {
         const amount = this._gainCash(((inc.perWave || 0) * cashMul + interest) * this.incomeMul);
         if (amount > 0) this._emit('cash', { amount, reason: 'income', towerUid: t.uid });
         if (lifted > 0) {
-          const more = this._gainCashFor(t.owner ?? 0, lifted * this.incomeMul);
+          const more = this._gainCashFor(ctrlOf(t), lifted * this.incomeMul);
           if (more > 0) this._emit('cash', { amount: more, reason: 'income', towerUid: t.uid }); // (its coin popup)
         }
         if (bake) this._bake(t, ((inc.perWave || 0) * cashMul + interest + lifted) * this.incomeMul * bake.share);
