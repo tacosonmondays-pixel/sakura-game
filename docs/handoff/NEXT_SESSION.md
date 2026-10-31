@@ -356,3 +356,26 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
   - It is a sim change: COOP_PROTOCOL 16, KNOWN[16]. `lrBar --gear urset` becomes part of the official gate.
   - Ships in v0.1.68.
 - Owner defaults recorded: no UR box sources; pins stay Supply Bot only; batch cap 20; "Preset" rename; uniform random mains; free unbind.
+
+## UPDATE 2026-10-31 08:02 UTC (coordinator)
+
+- **v0.1.67 live check: PASS** (review/v0.1.67-live @ 1e495770).
+  - All requests returned 200; no errors.
+  - Cosmetics, banners and stickers e2e passed against the live files.
+  - COOP 15: two clients, hashes match.
+  - A v0.1.66 save loads with no loss.
+  - The one failure is the pre-existing coop-freeplay glitch-banner test-timing check. It is test-only, fixed on fix/coop-freeplay-banner-wait (session_01Ayo4eoDNHhkN52WFy65DsA).
+- **Reviews running for v0.1.68:**
+  - set-boxes-v2: session_01Ayo4en9LvX9W63UgZjtsWs
+  - more-page-dps: session_01Ayo4eoeiXQw2BGEY4sgfFu
+  - tripo-batch-2 @ 7fcd93eb: session_01Ayo4engqFstYBNjKgbsNUu
+- **Reviewed OK:** stickers setting shadow.
+- **Still building:**
+  - item-icons 28 box ids on set-boxes-v2: session_01Ayo4eqMGbYD6CyGCx9Unp7
+  - duo p2t5 option B (gate at 8M crowd HP, plus a refraction buff; COOP 16): session_01Ayo4eqpJHzAuKCjFySULet
+  - sandbox catch-up: session_01Ayo4eqKEZMVKDHYpn5m6yk
+- **Tripo batch 2:** 47/54 rows done.
+  - Missing: Seiran and the Grave Lych.
+  - Partial: the dragon tail.
+  - Rejected: the scoreboard (it has text).
+  - Not imported, by content rules: wolf, cat and fox girl figures in leotard or bodysuit looks from the owner's Tripo library.
