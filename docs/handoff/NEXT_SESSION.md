@@ -395,3 +395,18 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
 | Drag (touch) placement offset | fix/drag-touch-placement | Building: session_01Ayo4enwChBzRMnbgGSVo4D |
 
 The v0.1.68 assembly starts once most of these reviews are OK. It is COOP 16 because of the duo fix.
+
+## UPDATE 2026-10-31 09:13 UTC (coordinator)
+
+- **v0.1.68 assembly started**: session_01Ayo4epijedhWS24eX5TLBq, release/v0.1.68 off main, COOP 16.
+  - Merge order: the duo fix 47bf83b5 (review OK), stickers shadow 5886ac20 (OK), coop-freeplay test 25ea080d, then set-boxes-v2 @ 6d2e5716.
+  - set-boxes-v2 @ 6d2e5716 includes the r1 fixes, icons 77ae365d and main. Its 6806 serial tests are green.
+  - KNOWN sim ids now live in tests/fixtures/simIds.js. Keep the duo branch's tools/balance files.
+- **Reviewed OK, with fix rounds still running:**
+  - item icons: polish L1-L4/N1/N2, session_01Ayo4eqMGbYD6CyGCx9Unp7
+  - tripo-batch-2: M1 glow plus L1-L4, session_01Ayo4eniSEuWQnvLYk8muWz
+- **Reviews still running:**
+  - more-page-dps: session_01Ayo4eoeiXQw2BGEY4sgfFu
+  - sandbox: session_01Ayo4eqeaQJvJqiaACLAQwT. Its follow-ups are on feature/sandbox-catchup-next @ 03070e8.
+- **Building:** drag touch fix, session_01Ayo4enwChBzRMnbgGSVo4D.
+- **Next:** one delta reviewer covering the set-boxes r1 fixes plus the icon polish once that lands. Then the v0.1.68 go/no-go, ship, and live check.
