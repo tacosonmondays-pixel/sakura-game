@@ -1,5 +1,45 @@
 # Balance notes
 
+## Suzu and Azami on bosses (2026-10-31, `fix/suzu-azami-boss`, off v0.1.68 `a3d97a38`, COOP_PROTOCOL 17)
+
+The owner approved boss damage for the two road-object girls. Round 5 had their best boss cells at ~17k (Suzu) and 0
+(Azami) against ~1M+ for every other girl: their bells and strips go nearest the exit, and a boss held anywhere else
+never steps on one. Target: their best tier-5 build ~1M on a boss (Kage's ×0.5, like the splash strikers), crowd as is.
+
+Options:
+- **A. Road objects for a boss (picked).** While a boss or miniboss is in her range, each time she sets a bell or a
+  strip she also sets one under it: on the free road spot nearest it, at or ahead of it. These go outside her cap, at
+  most two waiting there at a time (`BOSS_TRAPS`). Her road bells and strips are exactly as live, so her crowd play
+  never changes.
+  - Suzu: a bell set for a boss rides on it once the boss sets it off. It rings for her trap's hit every second
+    (`BOSS_BELL_EVERY`), even while the boss flies, with no status (no endless freeze). It falls when the boss dies or
+    leaves her range, and at most her cap's worth ride at once.
+  - Azami: a boss on a strip laid for it is struck every 0.1 s (`STRIP_BOSS_EVERY`) until the strip's hits run out. Then
+    her Charged Strips blast as usual.
+  - Azami's own hit is small (an R girl's strip), so her balance row gains `boss: 4.4` on top (bosses and minibosses only).
+  - A first draft moved her road bells to the boss instead. It cost the 19-girl golden its 8-5 win (W30 → L30): the
+    crowd leaked while her bells chased the boss. That is why the boss's bells and strips are extra.
+- **B. A flat boss factor on what already touches a boss.** Suzu's Bell Toll rings and Azami's strip blasts would get a
+  boss-only multiplier. Rejected: on a held boss neither touches it at all, so no factor helps, and the walking boss
+  would rest on a ×100-scale number.
+
+r5Bench (fully maxed, Umeko + Midori, 3 seeds), live → fix:
+
+| girl, build | boss | walking boss | crowd |
+|---|---:|---:|---:|
+| Suzu 5-0-2 | 17.4k → 1.21M | 50.8k → 587k | 5.59M → 5.59M |
+| Suzu 2-5-0 | 1.8k → 59.7k | 3.3k → 62.1k | 317k → 317k |
+| Suzu 2-0-5 | 0 → 394k | 15.2k → 184k | 601k → 601k |
+| Azami 5-0-2 | 0 → 977k | 1.8k → 85.9k | 1.91M → 1.91M |
+| Azami 2-5-0 | 0 → 40.5k | 436 → 4.1k | 15.3k → 15.3k |
+| Azami 2-0-5 | 0 → 92.5k | 296 → 1.4k | 25.1k → 25.1k |
+
+Azami's walking boss stays far under her held one. A walking boss leaves a strip laid for it before its 12 hits are
+spent, and her road strips hit it once, as live, so her crowd placement never gives way to it.
+
+No-nerf gate (`noNerfGate.mjs`, both girls, tiers 1–5, boss / walking boss / crowd, maxed / L1 / L40, with Umeko +
+Midori and alone) vs live: 0 cells under.
+
 ## The LR bar on set gear: the duo's Refraction (2026-10-31, `fix/duo-p2t5-lr-bar`, off v0.1.67 `eb0b1ab9`, COOP_PROTOCOL 16, sim `e3c222f3ad44`)
 
 Set Boxes v2 (docs/specs/SET_BOXES_V2.md §7) asked whether the LR bar holds on the strongest gear. The round-5 bench gives

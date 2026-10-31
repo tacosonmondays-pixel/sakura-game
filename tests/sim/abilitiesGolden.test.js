@@ -5,6 +5,8 @@
 // why when re-pinning (GOLDEN_PRINT=1 prints the new lines). With Auto off the bots play as before
 // abilities (modesGolden, campaignGolden): nothing changes until one is cast.
 // Re-pinned for balance round 5 (src/data/balance.js): a deliberate sim change. No win became a loss.
+// Re-pinned for Suzu and Azami on bosses (fix/suzu-azami-boss, COOP 17): the 8-5 rows (the boss falls sooner to the
+// bells and strips set for it; one cast fewer in the full roster's shorter battle); every win, wave and life as before.
 import { describe, it, expect } from 'vitest';
 import { hasRealData } from '../../src/sim/data.js';
 import { botBattle } from './modesBot.js';
@@ -34,7 +36,7 @@ const GOLDEN = {
   // exactly as before the merge (W30/100/33673/18646/…/13); hashSim only moved (main's A4 folds the deploy girls' state)
   // Re-pinned Oct 30 (the final review round 2: Noa's row ×1.04 damage; she is in the free team): the same win,
   // waves and lives (was W30/100/33793/18646/e1b845c7/13)
-  '8-5:normal': 'W30/100/35324/17651/555426c0/17',
+  '8-5:normal': 'W30/100/35226/17651/f2d107b9/16',
 };
 // With the new girls (UNIT_GAPS §5) left out: the merged base's digests (before the new girls).
 const BASE_GOLDEN = {
@@ -48,14 +50,14 @@ const BASE_GOLDEN = {
   // balance round 5 on v0.1.61: as before the merge (W30/100/35855/17176/…/15), hashSim only
   // Re-pinned Oct 30 (the final review round 2: Noa's row ×1.04 damage; she is in the free team): the same win,
   // waves and lives (was W30/100/35855/17176/ae6167ff/15)
-  '8-5:normal': 'W30/100/35812/16242/fc7c03e2/18',
+  '8-5:normal': 'W30/100/35422/16242/245c4467/18',
 };
 // The A1 pins with the returning girls left out of the free pool (the 19 girls play exactly as at A1).
 // Re-pinned in A4, hashSim only (was …/a5d9340a/30): the deploy girl's ability now unlocks and sits on Auto, so the
 // co-op hash folds its state (simHash.js); she never finds a moment to cast here, so the battle is unchanged.
 const LIVE_GOLDEN = {
   // balance round 5 on v0.1.61: as before the merge (W30/100/37148/19002/…/23), hashSim only
-  '8-5:normal': 'W30/100/37148/19002/4a61fa4d/23',
+  '8-5:normal': 'W30/100/37148/19002/aae1b33e/23',
 };
 
 const digest = (r) => `${r.won ? 'W' : 'L'}${r.wave}/${r.lives}/${Math.round(r.time * 60)}/${r.cash}/${hashSim(r.sim).toString(16)}/${r.result.stats.abilitiesUsed || 0}`;

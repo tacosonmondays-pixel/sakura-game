@@ -44,7 +44,9 @@ const ROWS = {
   raika: { dmg: 1.25, boss: 4.4 },
   kinu: { dmg: 1.9, boss: 4 },
   suzu: { dmg: 1.78 },
-  azami: { dmg: 2.45 },
+  // (Azami: her strips under a boss, src/sim/strips.js STRIP_BOSS_EVERY, reach ~230k with Detonation Line; ×4.4 lifts it
+  // to ~1M, half of Kage's, like the splash strikers; docs/BALANCE.md "Suzu and Azami on bosses")
+  azami: { dmg: 2.45, boss: 4.4 },
   akane: { boss: 3.5 },
   sango: { boss: 3.1 },
   // (Hotaru ×1.06: with the attack shapes her Firefly Halo build alone read 1% under today on a crowd, her tier-3 halo

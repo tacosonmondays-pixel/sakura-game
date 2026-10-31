@@ -1,3 +1,5 @@
+// Re-pinned for Suzu and Azami on bosses (fix/suzu-azami-boss, COOP 17): the 8-5 rows only (its boss meets their
+// bells and strips set for it, so it falls sooner: steps, coins and hashes move); every win, loss, wave and life as before.
 // Golden check (docs/specs/CODEX_MODES.md §6.5): Standard mode with no map rule is bit-identical
 // to the sim before battle modes and map rules existed. The digests below were first recorded on the
 // pre-modes sim (feature/train-c-base, ca97c1e) with the balance bot's F2P plan; re-pinned at the
@@ -47,8 +49,8 @@ const GOLDEN = {
   '7-3:hard': 'W29/12/101295/7453/f475d0fd',
   '8-4:easy': 'W30/150/41045/14435/776b4a1d',
   '8-4:hard': 'W30/50/46056/4568/3d0663cb',
-  '8-5:easy': 'W30/150/35907/26078/43d4be20',
-  '8-5:hard': 'L30/0/38683/4650/76197797',
+  '8-5:easy': 'W30/150/35638/25369/5d1576cd',
+  '8-5:hard': 'L30/0/38662/4504/e762757d',
 };
 
 // The same stages with the new girls (UNIT_GAPS §5) left out of the free pool: the digests the merged
@@ -73,8 +75,8 @@ const BASE_GOLDEN = {
   '7-3:hard': 'L14/0/49614/148/d99faa78',
   '8-4:easy': 'W30/150/42290/13160/fa18e064',
   '8-4:hard': 'W30/44/46865/2418/e3a77fcf',
-  '8-5:easy': 'W30/150/36614/24094/e1906dd2',
-  '8-5:hard': 'L30/0/39321/1754/c3012326',
+  '8-5:easy': 'W30/150/36323/24634/2e5b365e',
+  '8-5:hard': 'L30/0/39265/1754/9e82a5cd',
 };
 
 // The same stages with the 19 live girls only (the returning girls left out of the free pool): the
@@ -87,8 +89,8 @@ const LIVE_GOLDEN = {
   '7-3:hard': 'W29/6/104325/7905/25f5a6f5',
   '8-4:easy': 'W30/150/45035/14125/3ac1dfd7',
   '8-4:hard': 'W30/44/50075/3573/9d29b470',
-  '8-5:easy': 'W30/150/37037/25835/73c53a2a',
-  '8-5:hard': 'L30/0/39965/3501/179884fe',
+  '8-5:easy': 'W30/150/37193/25835/8e1549dd',
+  '8-5:hard': 'L30/0/39944/3501/df0dee60',
 };
 
 const digest = (r) => `${r.won ? 'W' : 'L'}${r.wave}/${r.lives}/${Math.round(r.time * 60)}/${r.cash}/${hashSim(r.sim).toString(16)}`;

@@ -13,7 +13,7 @@ import {
   PROJECTILE_Z, STEP, DRONE_SLOTS, DRONE_STANDOFF, DRONE_RETHINK_STEPS, DRONE_IDLE_STEPS, DRONE_OPP_STEPS,
   DRONE_POOL_STEPS, FLIGHT_MODES, FLIGHT_SIGNAL_MUL, FLIGHT_POINT_ROAM_MUL, FLIGHT_PATROL_SPEED_MUL, FLIGHT_PURSUIT_RATE_MUL,
   MORTAR_DELAY, MORTAR_AIM_SLACK, MORTAR_SCATTER, FAMILIAR_STANDOFF, RELAY_SAMPLE_STEP,
-  ROLE_TARGET_MODE,
+  ROLE_TARGET_MODE, BOSS_BELL_EVERY, BOSS_TRAPS,
 } from './constants.js';
 import { resolveStats, normalizeBase } from './mods.js';
 import { isEligible } from './combat.js';
@@ -22,7 +22,7 @@ import { segDistSq, projectOnSegment, samplePath, pointAt } from './path.js';
 import { applyBuffExtras, applyLimited, applyRallies, emptyBuffBy } from './buffs.js';
 import { ruleRangeFor } from './rules.js';
 import { buildProcSpecs, boostedAura } from './potential.js';
-import { layStrip, stripStep, stripTick } from './strips.js';
+import { layStrip, stripStep, stripTick, bossInReach, spotForBoss, isBossTier } from './strips.js';
 import { attackRing, ringTick } from './rings.js';
 import { attackWheel, attackSpin, wheelTick } from './wheels.js';
 import { attackHeld, heldTick, heldOff } from './held.js';
@@ -260,6 +260,8 @@ export function refreshEffective(t, globalRateMul = 1, globalDmgMul = 1) {
     splash: s.trap.splash,
     armTime: s.trap.armTime,
   }) : null;
+  // a bell riding on a boss (bossBell): her trap's hit, flying or not, no status
+  t.bossBellSpec = t.trapSpec ? { ...t.trapSpec, canHitAir: true, status: [] } : null;
   if (s.strip) {
     // spike strips (src/sim/strips.js): Tall Barbs' flyer spec (the share is the hit's scale) and the
     // Charged Strips blast (its stun on top of the strip statuses)
@@ -1315,7 +1317,7 @@ export function trapSpots(sim, t) {
   for (const path of sim.pathData) {
     for (const s of samplePath(path, 0.5)) {
       if (s.hidden) continue; // no traps inside tunnels
-      if (Math.hypot(s.x - t.x, s.y - t.y) <= range) spots.push({ x: s.x, y: s.y, remaining: path.length - s.d });
+      if (Math.hypot(s.x - t.x, s.y - t.y) <= range) spots.push({ x: s.x, y: s.y, pathIndex: path.index, remaining: path.length - s.d });
     }
   }
   spots.sort((a, b) => a.remaining - b.remaining);
@@ -1326,13 +1328,16 @@ export function trapSpots(sim, t) {
 
 function placeTrap(sim, t) {
   const trap = t.stats.trap;
-  if (!trap || sim.state !== 'wave' || t.trapCount >= trap.max) return false;
+  if (!trap || sim.state !== 'wave') return false;
+  // a boss in her range: she also sets a bell under it (bossBell), outside her cap, her road bells as ever
+  const forBoss = bossTrap(sim, t, trap);
+  if (t.trapCount >= trap.max) return forBoss;
   const spots = trapSpots(sim, t);
   const free = [];
   for (const s of spots) {
     let ok = true;
     for (const tr of sim.traps) {
-      if ((tr.x - s.x) ** 2 + (tr.y - s.y) ** 2 < 0.45 * 0.45) {
+      if (!tr.boss && (tr.x - s.x) ** 2 + (tr.y - s.y) ** 2 < 0.45 * 0.45) {
         ok = false;
         break;
       }
@@ -1340,13 +1345,43 @@ function placeTrap(sim, t) {
     if (ok) free.push(s);
     if (free.length >= 4) break;
   }
-  if (!free.length) return false;
+  if (!free.length) return forBoss;
   const s = free[Math.floor(sim.rng.next() * free.length)];
   const jx = (sim.rng.next() - 0.5) * 0.3;
   const jy = (sim.rng.next() - 0.5) * 0.3;
   const tr = { uid: sim._nextUid(), x: s.x + jx, y: s.y + jy, ownerUid: t.uid, armed: false, armLeft: trap.armTime, owner: t };
   sim.traps.push(tr);
   t.trapCount++;
+  t.facing = Math.atan2(tr.x - t.x, tr.y - t.y);
+  sim._emit('trapPlaced', { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: t.uid });
+  sim._emit('attack', { towerUid: t.uid, targetUid: null, kind: 'trap' });
+  return true;
+}
+
+/**
+ * Suzu with a boss in her range: a bell under it (the free spot nearest it, at or ahead of it), outside her cap, while
+ * fewer than BOSS_TRAPS of hers wait there and fewer than her cap ride on bosses. @returns {boolean} one was set
+ */
+function bossTrap(sim, t, trap) {
+  const spec = t.trapSpec;
+  const boss = spec ? bossInReach(sim, t, spec) : null;
+  if (!boss) return false;
+  let waiting = 0;
+  let riding = 0;
+  for (const tr of sim.traps) {
+    if (tr.dead || tr.owner !== t || !tr.under) continue;
+    if (tr.boss) riding++;
+    else if ((tr.x - boss.x) ** 2 + (tr.y - boss.y) ** 2 <= 1) waiting++;
+  }
+  if (waiting >= BOSS_TRAPS || riding >= trap.max) return false;
+  const free = (p) => {
+    for (const tr of sim.traps) if (!tr.boss && (tr.x - p.x) ** 2 + (tr.y - p.y) ** 2 < 0.45 * 0.45) return false;
+    return true;
+  };
+  const s = spotForBoss(sim, trapSpots(sim, t), boss, free);
+  if (!s) return false;
+  const tr = { uid: sim._nextUid(), x: s.x, y: s.y, ownerUid: t.uid, armed: false, armLeft: trap.armTime, owner: t, under: true };
+  sim.traps.push(tr);
   t.facing = Math.atan2(tr.x - t.x, tr.y - t.y);
   sim._emit('trapPlaced', { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: t.uid });
   sim._emit('attack', { towerUid: t.uid, targetUid: null, kind: 'trap' });
@@ -2406,7 +2441,7 @@ export function updateTraps(sim, dt) {
       if (stripStep(sim, tr, dt)) {
         tr.dead = true;
         removedAny = true;
-        if (!tr.extra) tr.owner.trapCount = Math.max(0, tr.owner.trapCount - 1);
+        if (!tr.extra && !tr.under) tr.owner.trapCount = Math.max(0, tr.owner.trapCount - 1);
       }
       continue;
     }
@@ -2419,6 +2454,14 @@ export function updateTraps(sim, dt) {
         sim._emit('trapExpired', { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid, extra: true });
         continue;
       }
+    }
+    // a bell riding on a boss rings on it until it falls (bossBell)
+    if (tr.boss) {
+      if (bossBell(sim, tr)) {
+        tr.dead = true;
+        removedAny = true;
+      }
+      continue;
     }
     if (!tr.armed) {
       tr.armLeft -= dt;
@@ -2439,10 +2482,16 @@ export function updateTraps(sim, dt) {
       return false;
     });
     if (!trigger) continue;
-    tr.dead = true;
-    removedAny = true;
     const owner = tr.owner;
-    if (!tr.extra) owner.trapCount = Math.max(0, owner.trapCount - 1);
+    // a boss can't shake off a bell set for it: it rides on the boss and rings again (bossBell); any other bell is spent
+    if (tr.under && isBossTier(trigger) && sim.state === 'wave') {
+      tr.boss = trigger;
+      tr.ringCd = BOSS_BELL_EVERY;
+    } else {
+      tr.dead = true;
+      removedAny = true;
+      if (!tr.extra && !tr.under) owner.trapCount = Math.max(0, owner.trapCount - 1);
+    }
     sim._emit('trapTriggered', tr.extra ? { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid, extra: true } : { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid });
     // Potential N3 on traps (Suzu): every Nth of her traps that goes off is the rhythm's
     const p = owner.stats?.proc;
@@ -2478,6 +2527,33 @@ export function updateTraps(sim, dt) {
     for (let i = 0; i < list.length; i++) if (!list[i].dead) list[n++] = list[i];
     list.length = n;
   }
+}
+
+/**
+ * A bell riding on a boss (updateTraps): it follows the boss and rings for her trap's hit on it alone every
+ * BOSS_BELL_EVERY steps, even while it flies, with no status (her binds and seals land as her bells go off, not every
+ * ring); it falls when the boss dies, hides or leaves her range, or the wave ends.
+ * @returns {boolean} true when it fell
+ */
+function bossBell(sim, tr) {
+  const e = tr.boss;
+  const owner = tr.owner;
+  const r = owner.eff.range;
+  const dx = e.x - owner.x;
+  const dy = e.y - owner.y;
+  if (e.dead || e.hidden || owner.removed || sim.state !== 'wave' || dx * dx + dy * dy > r * r) {
+    sim._emit('trapExpired', { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid });
+    return true;
+  }
+  tr.x = e.x;
+  tr.y = e.y;
+  if (--tr.ringCd > 0) return false;
+  tr.ringCd = BOSS_BELL_EVERY;
+  const spec = owner.bossBellSpec;
+  if (!spec) return false;
+  sim._hit(e, owner, spec, 1);
+  sim._emit('trapTriggered', { uid: tr.uid, x: tr.x, y: tr.y, ownerUid: tr.ownerUid, boss: true });
+  return false;
 }
 
 let popping = false;

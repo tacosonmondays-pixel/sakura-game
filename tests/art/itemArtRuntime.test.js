@@ -324,7 +324,8 @@ describe('display only: the battle sim is untouched', () => {
     // without the push, Auto by her main path, a fourth mirror at Polish and Kaleidoscope tier 4, Kaleidoscope's wider
     // reach, Kaleidoscope Burst and Infinite Reflection +14 — 14 has not shipped); 15: co-op feel — the waited-on side
     // raises its input delay, orders after the sent horizon, nudge — pinned on release v0.1.67 (the merged tree with
-    // release v0.1.66 @ fc978aba); 16: the duo's LR Refraction row 2.0 → 2.1 (fix/duo-p2t5-lr-bar, the LR bar on set gear)
+    // release v0.1.66 @ fc978aba); 16: the duo's LR Refraction row 2.0 → 2.1 (fix/duo-p2t5-lr-bar, the LR bar on set gear);
+    // 17: Suzu and Azami on bosses (fix/suzu-azami-boss: bells and strips under a boss, Azami's boss row)
     // (the ids live in tests/fixtures/simIds.js, shared with the gear tests that prove they leave the sim alone)
     const KNOWN = KNOWN_SIM_IDS;
     if (!KNOWN[COOP_PROTOCOL]) return;
