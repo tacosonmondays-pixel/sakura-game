@@ -549,7 +549,8 @@ export function migrateProfile(raw) {
   // ones she wore (her 'own:<id>:<slot>' mark), before the equip consistency below (gearMarks.js, GEAR_UPDATE.md §9.5)
   restoreNewSlotPieces(p, rawCounters, cleanGear);
   for (const g of Object.values(p.gear)) {
-    const owner = g.equippedBy && p.units[g.equippedBy];
+    // (own keys only: an equippedBy of '__proto__' or 'constructor' must not reach the prototype; audit C L2)
+    const owner = typeof g.equippedBy === 'string' && Object.hasOwn(p.units, g.equippedBy) ? p.units[g.equippedBy] : null;
     if (!owner || owner.gear[g.slot] !== g.uid) g.equippedBy = null;
   }
   for (const [unitId, u] of Object.entries(p.units)) {

@@ -449,3 +449,18 @@ describe('the one-time Set Box letter survives an older build', () => {
     expect(letterOf(migrateProfile(forged)).rewards).toEqual([]);
   });
 });
+
+// v0.1.66 audit C L2: a piece "worn" by '__proto__' or 'constructor' loads as unworn; the save is never 'corrupt'
+describe('equippedBy is read as an own key', () => {
+  it('__proto__ and constructor owners are dropped, the rest of the save loads', () => {
+    for (const bad of ['__proto__', 'constructor', 'toString']) {
+      const p = createProfile();
+      const uid = legendaryPiece(p, 'charm');
+      const raw = JSON.parse(saveText(p, 1));
+      raw.gear[uid].equippedBy = bad;
+      const r = loadSaveText(JSON.stringify(raw));
+      expect(r.backup, bad).not.toBe('corrupt');
+      expect(r.profile.gear[uid].equippedBy, bad).toBe(null);
+    }
+  });
+});
