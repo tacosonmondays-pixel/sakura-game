@@ -321,8 +321,8 @@ describe('display only: the battle sim is untouched', () => {
     // without the push, Auto by her main path, a fourth mirror at Polish and Kaleidoscope tier 4, Kaleidoscope's wider
     // reach, Kaleidoscope Burst and Infinite Reflection +14 — 14 has not shipped); 15: co-op feel — the waited-on side
     // raises its input delay, orders after the sent horizon, nudge — pinned on release v0.1.67 (the merged tree with
-    // release v0.1.66 @ fc978aba)
-    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db', 12: 'd35092f141d3', 13: 'be940ecb2087', 14: 'b2ff5e0e884b', 15: '0fe7c5c04aec' };
+    // release v0.1.66 @ fc978aba); 16: the duo's LR Refraction row 2.0 → 2.1 (fix/duo-p2t5-lr-bar, the LR bar on set gear)
+    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db', 12: 'd35092f141d3', 13: 'be940ecb2087', 14: 'b2ff5e0e884b', 15: '0fe7c5c04aec', 16: 'e3c222f3ad44' };
     if (!KNOWN[COOP_PROTOCOL]) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });

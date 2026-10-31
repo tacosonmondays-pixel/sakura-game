@@ -1,5 +1,42 @@
 # Balance notes
 
+## The LR bar on set gear: the duo's Refraction (2026-10-31, `fix/duo-p2t5-lr-bar`, off v0.1.67 `eb0b1ab9`, COOP_PROTOCOL 16, sim `e3c222f3ad44`)
+
+Set Boxes v2 (docs/specs/SET_BOXES_V2.md §7) asked whether the LR bar holds on the strongest gear. The round-5 bench gives
+everyone three No-set UR +12 pieces; `tools/balance/lrBar.mjs --gear urset` gives everyone five UR +12 pieces of their
+best set (maxedProfile `urset:<set>`, Treasurer left out) and re-measures the bar there. It is part of the gate from
+now on, beside the default check (`URSET_BAR`, `checkUrSet`, tests/sim/lrBar.test.js); every LR build must clear ×1.25 on
+both.
+
+- **The crowd's HP.** At the default bench's crowd (2M an orc, one each 0.5 s), five Geometry UR pieces let the duo's
+  map-wide p2t5 laser kill the crowd faster than it arrives, so more damage measured as less: her LR Refraction row
+  ×1.8 / 2.0 / 2.1 / 2.2 / 2.6 / 3.2 read the urset crowd ×0.95 / 1.02 / 1.09 / 1.05 / 0.65 / 0.47 of the bar. The urset
+  gate's crowd is 8M an orc (`URSET_CROWD_HP`), past the knee: nothing dies inside the run, 8M and 30M read the same,
+  and every build scales. Re-measured at 8M, the urset bar and every row stayed as they were at 2M, except the duo's
+  LR p2t5 crowd (54.04M → 66.77M, ×1.02 → ×1.255). The bar: crowd Akane p0t5 53.21M (Geometry), boss Aoi p2t5c1 13.26M
+  (Geometry), KNOWN included.
+- **The buff.** The duo's LR tier-5 Refraction row 2.0 → **2.1** (`LR_ROWS.kohaku_tsubaki.t5.refraction`, LR-only, her
+  p2 path at tier 5; nothing else). Crowd scales evenly through 2.0 … 2.3 at 8M and at 2M on the default bench (+0.84%
+  per 0.05). Her p2t5 on set gear: crowd 70.10M (Geometry) **×1.32**, boss 32.47M (Freeze Tag) ×2.45; on the default
+  bench crowd 22.84M → 23.98M (**×1.31 → ×1.38**), boss 14.06M → 14.77M (×2.18 → ×2.29). (Her Geometry boss on set gear
+  peaks near 2.1 and falls past it, 30.17M → 23.39M at 2.2, while her Freeze Tag and Party Popper bosses keep climbing:
+  2.1 sits on that peak.)
+- **LR builds after the fix.**
+
+  | LR build | default crowd | default boss | urset crowd | urset boss |
+  |---|---:|---:|---:|---:|
+  | kohaku_tsubaki p0t5 | ×1.33 | ×3.16 | ×1.51 | ×4.90 |
+  | kohaku_tsubaki p1t5 | ×1.32 | ×3.56 | ×1.33 | ×5.57 |
+  | kohaku_tsubaki p2t5 | **×1.38** | ×2.29 | **×1.32** | ×2.45 |
+  | tenka p0t5 | ×1.32 | ×4.37 | ×1.36 | ×6.65 |
+  | tenka p1t5 | ×1.32 | ×3.31 | ×1.34 | ×5.07 |
+  | tenka p2t5 | ×1.32 | ×4.20 | ×1.47 | ×6.38 |
+
+- **No nerf.** noNerfGate vs live (`eb0b1ab9`): the duo at every tier, every profile (maxed, L1, L40) and LR on and off,
+  with Umeko + Midori and alone (540 cells), and every girl's maxed tier 5 (297 cells): 0 under; the only cells that
+  moved are her LR p2t5 boss / walking boss / crowd, ×1.050 each. The engines e2e computes every scripted battle exactly
+  as live (none reaches her LR Refraction at tier 5).
+
 ## Release v0.1.66 assembly (2026-10-30, `release/v0.1.66`, COOP_PROTOCOL 14, sim `36cba1c215b0`)
 
 The shapes S5 (with round 5), Ena's spreading curse, Iroha's mirror network, the gear update (M0 + M2 sets + M3 LR gear)

@@ -5,6 +5,8 @@
 // time inside it).
 import { unitBattleStats } from '../../src/systems/progression.js';
 import { mainStatRange, substatRange, subGrowth } from '../../src/systems/gear.js';
+import { fillMainsFor } from '../../src/systems/gearSets.js';
+import { SET_IDS } from '../../src/data/gearSets.js';
 
 /** A time inside UR Resonance's first week (Nov 4, 2026, 12:00 UTC). */
 export const RESONANCE_ON = Date.UTC(2026, 10, 4, 12);
@@ -32,6 +34,8 @@ export const LOW_PROFILES = {
 export function maxedProfile(id, { lr = true, profile = 'maxed' } = {}) {
   const missions = { counters: lr ? { [`lr:${id}`]: 1, [`lbt:${id}`]: 1 } : {} };
   if (LOW_PROFILES[profile]) return { units: { [id]: { ...LOW_PROFILES[profile], gear: {} } }, gear: {}, missions };
+  const urSet = /^urset:([a-z]+)$/.exec(profile || '');
+  if (urSet) return urSetProfile(id, urSet[1], missions);
   const c = piece(`${id}_c`, 'charm', 'critDmg', [['atkPct', 2], ['critChance', 2], ['ratePct', 0], ['armorPen', 0]]);
   const r = piece(`${id}_r`, 'ribbon', 'critChance', [['atkPct', 2], ['critDmg', 2], ['ratePct', 0], ['armorPen', 0]]);
   const s = piece(`${id}_s`, 'shoes', 'ratePct', [['atkPct', 2], ['critChance', 1], ['critDmg', 1], ['armorPen', 0]]);
@@ -42,6 +46,31 @@ export function maxedProfile(id, { lr = true, profile = 'maxed' } = {}) {
     missions,
   };
 }
+/**
+ * Set Boxes v2 (docs/specs/SET_BOXES_V2.md §7): the strongest gear a UR Set Box leads to — five UR +12 pieces of one
+ * set at average rolls (its 2-piece stat, its passive and its 5-piece cap), the classic three with the bench's mains,
+ * the Hair Clip and the Necklace with "Fill for a girl"'s mains. `profile: 'urset:<set>'`.
+ */
+function urSetProfile(id, setId, missions) {
+  if (!SET_IDS.includes(setId)) throw new Error(`urset: unknown set ${setId}`);
+  const unit = { level: 85, awaken: 5, breakthrough: 10, pl: 6, gear: {} };
+  const fill = fillMainsFor({ units: { [id]: unit } }, id);
+  const POOL = ['atkPct', 'critChance', 'critDmg', 'ratePct', 'armorPen'];
+  const subsFor = (main) => POOL.filter((k) => k !== main).slice(0, 4).map((k, i) => [k, i < 2 ? 2 : 0]);
+  const mains = { charm: 'critDmg', ribbon: 'critChance', shoes: 'ratePct', hair: fill.hair, necklace: fill.necklace };
+  const gear = {};
+  for (const [slot, main] of Object.entries(mains)) {
+    const g = piece(`${id}_${slot}`, slot, main, slot === 'charm' ? [['atkPct', 2], ['critChance', 2], ['ratePct', 0], ['armorPen', 0]]
+      : slot === 'ribbon' ? [['atkPct', 2], ['critDmg', 2], ['ratePct', 0], ['armorPen', 0]]
+        : slot === 'shoes' ? [['atkPct', 2], ['critChance', 1], ['critDmg', 1], ['armorPen', 0]] : subsFor(main));
+    g.set = setId;
+    g.equippedBy = id;
+    gear[g.uid] = g;
+    unit.gear[slot] = g.uid;
+  }
+  return { units: { [id]: unit }, gear, missions };
+}
+
 /** Her battle stats fully maxed; `now` (default the clock) decides UR Resonance; `lr: false` leaves an LR unit at UR. */
 export function maxedStats(id, now = null, { lr = true, profile = 'maxed' } = {}) {
   if (now == null) return unitBattleStats(maxedProfile(id, { lr, profile }), id);

@@ -107,7 +107,10 @@ const LR_ROWS = {
   // LR tier-5 build at least 1.25× the best non-LR build of any unit, heroes included, on a crowd and on a boss (LR_BAR
   // there: Akane 5-0-2 beside Umeko + Chika on a crowd, Iroha's best mirror layout on a boss); the t5 rows take each LR
   // crowd to about 23M
-  kohaku_tsubaki: { dmg: 1.05, boss: 1.6, t5: { starfall: { dmg: 4.4 }, corridor: { dmg: 3.35 }, refraction: { dmg: 2.0 } } },
+  // (refraction 2.0 → 2.1, fix/duo-p2t5-lr-bar: the LR bar on set gear, five UR +12 set pieces on everyone at a crowd
+  // that does not die, read her p2t5 crowd at ×1.25 of the best non-LR; ×2.1 takes it to ×1.32, the default bench ×1.31
+  // → ×1.38; her other builds and every other girl are untouched)
+  kohaku_tsubaki: { dmg: 1.05, boss: 1.6, t5: { starfall: { dmg: 4.4 }, corridor: { dmg: 3.35 }, refraction: { dmg: 2.1 } } },
   // Tenka (Thesis Defense): ×3.4 vs bosses on every build (her Rail Arms crowd is above the floor already); `t5` rows on
   // top while that path is at tier 5: her Joint Research and Singularity builds deal little of their own (a lab and a
   // control build), so their LR form lifts their own bolts to the floor too; each t5 row also carries the LR premium

@@ -78,7 +78,9 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 //    ticks the sender waited), an order is stamped after the horizon actually sent (not one only computed), and
 //    Lockstep.nudge() ends the idle saver when the player starts an order; a client on 14 raises its own delay on a
 //    stall and stamps orders after unsent promises, so the two would wait on each other differently.
-export const COOP_PROTOCOL = 15;
+// 16: the duo's LR refraction build (fix/duo-p2t5-lr-bar): Kohaku & Tsubaki's LR tier-5 Refraction row 2.0 → 2.1
+//    (the LR bar on set gear); a client on 15 resolves the same loadout to a different battle.
+export const COOP_PROTOCOL = 16;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */
