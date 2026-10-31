@@ -59,6 +59,9 @@ export function applyStatus(enemy, spec, ctx = {}) {
   if (type === 'mark' || type === 'vulnerable') incoming.bonus = spec.bonus ?? 0;
   if (ctx.attackType) incoming.attackType = ctx.attackType;
   if (ctx.sourceUid != null) incoming.sourceUid = ctx.sourceUid;
+  // a burn's or poison's %-of-max-HP part keeps its own owner (`pctUid`), so when another girl's stronger flat dps wins
+  // the merge, the part still ticks as hers (credit, brews, links; v0.1.66 audit B-F1)
+  if (incoming.pct > 0 && incoming.sourceUid != null) incoming.pctUid = incoming.sourceUid;
   if (type === 'hex') {
     // a share of max HP per second (UNIT_GAPS P-15); `cap` = what one application may still take
     incoming.pct = spec.pct ?? 0;
@@ -122,7 +125,13 @@ export function applyStatus(enemy, spec, ctx = {}) {
       if (incoming[k] >= (cur[k] ?? 0)) {
         cur[k] = incoming[k];
         if (incoming.attackType) cur.attackType = incoming.attackType;
-        if (incoming.sourceUid != null) cur.sourceUid = incoming.sourceUid;
+        // (the pct part names its own owner; the rest of the status is credited to sourceUid as before)
+        if (k === 'pct' && cur.dps > 0 && incoming.dps < cur.dps) {
+          if (incoming.sourceUid != null) cur.pctUid = incoming.sourceUid;
+        } else if (incoming.sourceUid != null) {
+          cur.sourceUid = incoming.sourceUid;
+          if (k === 'pct') cur.pctUid = incoming.sourceUid;
+        }
       }
     }
   }
