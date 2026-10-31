@@ -398,12 +398,21 @@ export function confirmDialog(text, { title = 'Confirm', ok = 'Confirm', cancel 
 
 // ([ui-ink] the Menu Tab modal went with UI v2's home, V2: the home's menu is a side sheet, src/ui/lobby/menuSheet.js)
 /**
+ * The toasts' live region (role=status), made once: main.js calls it at boot so a screen reader already watches it
+ * when the first toast lands (an aria-live region added together with its text is often not announced).
+ */
+export function toastHost() {
+  let host = document.querySelector('.toast-host');
+  if (!host) document.body.appendChild((host = h('div.toast-host', { role: 'status', 'aria-live': 'polite' })));
+  return host;
+}
+
+/**
  * A short notice at the top. `message` is text or a node (kind 'ach': the achievement card of src/ui/achToast.js,
  * which takes taps and sits a little lower).
  */
 export function toast(message, kind = 'info', ms = 2200) {
-  let host = document.querySelector('.toast-host');
-  if (!host) document.body.appendChild((host = h('div.toast-host')));
+  const host = toastHost();
   const t = h(`div.toast.toast-${kind}`, message);
   if (kind === 'ach') host.classList.add('has-ach');
   host.appendChild(t);

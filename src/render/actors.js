@@ -756,7 +756,8 @@ export class Actors {
         const since = toll ? Math.max(1, Math.round(toll.every)) - tr.tollCd : 99;
         if (since >= 0 && since < 12) wob = 0.35 * Math.sin(since * 1.6) * (1 - since / 12);
       }
-      gN.push(tr.x, 0.07, tr.y, s, s, R.rune, c.r, c.g, c.b, armed ? 0.95 : 0.55, t * 0.8 + tr.uid + wob);
+      // Suzu's 3D bells (src/render/staffFx.js) replace the rune once their model has loaded
+      if (!this.bellProps?.coversBells()) gN.push(tr.x, 0.07, tr.y, s, s, R.rune, c.r, c.g, c.b, armed ? 0.95 : 0.55, t * 0.8 + tr.uid + wob);
       if (armed) gA.push(tr.x, 0.075, tr.y, s * 1.1, s * 1.1, R.glow, c.r, c.g, c.b, 0.35 + 0.2 * Math.sin(t * 5 + tr.uid));
     }
     // Kinu's heat rings and orbit scissors (src/sim/rings.js): read from the sim every frame

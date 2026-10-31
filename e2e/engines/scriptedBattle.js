@@ -138,6 +138,20 @@ function spotsFor(start, units, per = 2, { water = false } = {}) {
 }
 
 /**
+ * After the drain: the client behind (its packets were in flight when the script stopped) runs up to the other's
+ * tick, so the final hashes compare the same tick. Only ticks both clients' horizons already cover run (no new
+ * orders, no new promises): the battle is the one both played. (Since COOP 15 the waited-on side raises its delay,
+ * so a run can stop with the two a few ticks apart where it used to stop level.)
+ */
+function alignTicks(clients, queue) {
+  for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
+  const top = Math.max(...clients.map((c) => c.tick));
+  for (const c of clients) {
+    while (c.tick < top && !c.finished && c.canRun(c.tick)) c.runTick();
+  }
+}
+
+/**
  * @param {{ maxFrames?: number }} [opts]
  * @returns {{ engine: string, ticks: number, state: string, wave: number, towers: number, final: string,
  *   hashes: string, checkpoints: number, agree: boolean, failed: number, math: object, ms: number }}
@@ -211,6 +225,7 @@ export function runScriptedBattle({ maxFrames = 60 * 60 * 12 } = {}) {
     for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
     for (const c of clients) c.advance(1 / 60);
   }
+  alignTicks(clients, queue);
   const pairs = A.hashPairs();
   return {
     engine: typeof navigator !== 'undefined' && navigator.userAgent ? navigator.userAgent : (typeof Bun !== 'undefined' ? `Bun ${Bun.version}` : `Node ${process.version}`),
@@ -389,6 +404,7 @@ export function runFreeplayBattle({ finishAfter = 52, checkpointAt = 40, maxFram
     for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
     for (const c of clients) c.advance(1 / 60);
   }
+  alignTicks(clients, queue);
   // restore the checkpoint into a fresh client, replay the host's log since it to the last tick
   const tc = Date.now();
   const copy = new Lockstep({ start: FREEPLAY_START, mySlot: 1, send: () => {}, now: () => 0 });
@@ -610,6 +626,7 @@ export function runHeroBattle({ toWave = 16, maxFrames = 60 * 60 * 20 } = {}) {
     for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
     for (const c of clients) c.advance(1 / 60);
   }
+  alignTicks(clients, queue);
   const pairs = A.hashPairs();
   return {
     ticks: A.tick,
@@ -745,6 +762,7 @@ export function runDronesBattle({ checkpointAt = 8, maxFrames = 60 * 60 * 14 } =
     for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
     for (const c of clients) c.advance(1 / 60);
   }
+  alignTicks(clients, queue);
   const copy = new Lockstep({ start: DRONES_START, mySlot: 1, send: () => {}, now: () => 0 });
   copy.rebuild(DRONES_START, A.log, A.tick, ck ? { t: ck.t, snap: JSON.parse(ck.json) } : null);
   const finalDigest = snapshotDigest(A.coop.snapshot());
@@ -894,9 +912,10 @@ export function runAbilitiesBattle({ toWave = 20, checkpointAt = 8, maxFrames = 
       }
     }
     clients.forEach((c, slot) => {
-      // one ⚡-path tier at a time, each girl to tier 3
+      // one ⚡-path tier at a time, each girl to tier 3 (the coverage girls first, so each of them has her ability by
+      // mid-run however the coins fall: since COOP 15 moved when orders land, Kage came last and cast once)
       if (frame % 60 === 30 + slot * 7) {
-        for (const t of mine(c)) {
+        for (const t of [...mine(c)].sort((p, q) => (COVER.includes(q.unitId) ? 1 : 0) - (COVER.includes(p.unitId) ? 1 : 0))) {
           if (t.isHero) continue;
           const path = abilityPathOf(t.def);
           if (t.tiers[path] >= 3 || c.sim.upgradeStatus(t.uid, path).locked) continue;
@@ -989,6 +1008,7 @@ export function runAbilitiesBattle({ toWave = 20, checkpointAt = 8, maxFrames = 
     for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
     for (const c of clients) c.advance(1 / 60);
   }
+  alignTicks(clients, queue);
   const copy = new Lockstep({ start: ABILITIES_START, mySlot: 1, send: () => {}, now: () => 0 });
   copy.rebuild(ABILITIES_START, A.log, A.tick, ck ? { t: ck.t, snap: JSON.parse(ck.json) } : null);
   const finalDigest = snapshotDigest(A.coop.snapshot());
@@ -1238,6 +1258,7 @@ export function runTenkaBattle({ toWave = 14, checkpointAt = 7, saleAfter = 2, m
     for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
     for (const c of clients) c.advance(1 / 60);
   }
+  alignTicks(clients, queue);
   const copy = new Lockstep({ start: TENKA_START, mySlot: 1, send: () => {}, now: () => 0 });
   copy.rebuild(TENKA_START, A.log, A.tick, ck ? { t: ck.t, snap: JSON.parse(ck.json) } : null);
   const finalDigest = snapshotDigest(A.coop.snapshot());
@@ -1405,6 +1426,7 @@ export function runRosterBattle({ checkpointAt = 6, toWave = 14, maxFrames = 60 
     for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
     for (const c of clients) c.advance(1 / 60);
   }
+  alignTicks(clients, queue);
   const copy = new Lockstep({ start: ROSTER_START, mySlot: 1, send: () => {}, now: () => 0 });
   copy.rebuild(ROSTER_START, A.log, A.tick, ck ? { t: ck.t, snap: JSON.parse(ck.json) } : null);
   const finalDigest = snapshotDigest(A.coop.snapshot());
@@ -1616,6 +1638,7 @@ export function runReturningAbilBattle({ toWave = 14, checkpointAt = 8, maxFrame
     for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
     for (const c of clients) c.advance(1 / 60);
   }
+  alignTicks(clients, queue);
   const copy = new Lockstep({ start, mySlot: 1, send: () => {}, now: () => 0 });
   copy.rebuild(start, A.log, A.tick, ck ? { t: ck.t, snap: JSON.parse(ck.json) } : null);
   const finalDigest = snapshotDigest(A.coop.snapshot());
@@ -1842,6 +1865,7 @@ export function runPotentialBattle({ start = POTENTIAL_START, upgrades = POTENTI
     for (const m of queue.splice(0)) clients[m.to].receive(m.msg);
     for (const c of clients) c.advance(1 / 60);
   }
+  alignTicks(clients, queue);
   const pairs = A.hashPairs();
   return {
     ticks: A.tick,
@@ -2859,7 +2883,9 @@ export function runStaffBattle({ maxFrames = 60 * 60 * 10 } = {}) {
     }
     const k = B.sim.hero;
     if (!k) return;
-    if (frame % 240 === 200 && B.sim.heroUltStatus().ready) B.queue('ult');
+    // (in a wave with enemies about, like the host's: an order lands an input delay later, and a wave that ends in
+    // between refuses it)
+    if (frame % 240 === 200 && B.sim.heroUltStatus().ready && B.sim.state === 'wave' && B.sim.enemies.length > 3) B.queue('ult');
     // the guest moves Kogane between her spot and one beside it during the waves
     if (B.sim.state === 'wave' && frame % 900 === 450 && !(k.moveCd > 0)) {
       if (!home) home = { x: k.x, y: k.y };

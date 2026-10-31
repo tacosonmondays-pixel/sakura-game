@@ -4,12 +4,13 @@
 import { h, svgEl, toast, accountLevel } from '../components.js';
 import { store } from '../../core/store.js';
 import { UNIT_MAP } from '../../data/units.js';
-import { BANNERS, FRAMES, FRAME_IDS, TITLES, QUICK_LINES, bannerLockText } from '../../data/profileArt.js';
+import { BANNERS, FRAMES, TITLES, QUICK_LINES, bannerLockText } from '../../data/profileArt.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { frameChipSVG } from '../../art/profileArt.js';
 import { unitPower } from '../../systems/progression.js';
-import { earnedTitles, earnedFrames, bannerUnlocked, titleChoices } from '../../systems/profileTrophies.js';
+import { earnedTitles, earnedFrames, frameChoices, bannerUnlocked, titleChoices, secretTitleHint, secretFrameHint } from '../../systems/profileTrophies.js';
 import { setSensei } from '../../systems/senseiSave.js';
+import { pbHowText } from '../../systems/profileBanners.js';
 import { titlesFromText } from '../../systems/honors.js';
 import { BIO_MAX, PROFILE_VISIBILITY_DEFAULT, bioError } from '../../online/profileRules.js';
 import { getBackend } from '../../online/backend.js';
@@ -56,6 +57,7 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
   const choices = titleChoices(p);
   if (title && titles.has(title)) draft.title = title;
   const frames = new Set(earnedFrames(p));
+  const frameList = frameChoices(p);
   const ownedIds = Object.keys(p.units).filter((id) => UNIT_MAP[id]).sort((a, b) => unitPower(p, b) - unitPower(p, a) || a.localeCompare(b));
 
   const set = (k, v) => {
@@ -114,18 +116,23 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
     picture: () => [
       label('Picture', 'Any girl you own'),
       girlGrid('avatar', 'edit-picture-grid'),
-      h('div.ep-sec', label('Frame', 'Earned frames'),
-        h('div.ep-frames', { 'data-testid': 'edit-frames' }, [null, ...FRAME_IDS.filter((f) => !FRAMES[f].event || frames.has(f))].map((f) => { // event frames: owners only
+      h('div.ep-sec', label('Frame', `${frames.size} / ${frameList.length} earned`),
+        h('div.ep-frames', { 'data-testid': 'edit-frames' }, [null, ...frameList].map((f) => { // event frames: while they can be earned, then owners only
           const ok = f === null || frames.has(f);
-          return h(`button.ep-frame${draft.frame === f ? '.on' : ''}${ok ? '' : '.locked'}`, { type: 'button', disabled: !ok, 'data-frame': f || 'default', onclick: () => set('frame', f) },
-            svgEl(frameChipSVG(f), 'ep-frame-ico'), h('span.ep-frame-t', h('b', f ? FRAMES[f].name : 'Default'), h('small', ok ? (draft.frame === f ? 'Equipped' : 'Earned') : FRAMES[f].how)), ok ? null : ico('lock', 'ep-lock'));
+          const hide = f && !ok ? secretFrameHint(p, f) : null; // a secret frame: "???" and its hint until found
+          return h(`button.ep-frame${draft.frame === f ? '.on' : ''}${ok ? '' : '.locked'}${hide ? '.secret' : ''}`, { type: 'button', disabled: !ok, 'data-frame': f || 'default', onclick: () => set('frame', f) },
+            svgEl(frameChipSVG(hide ? null : f), 'ep-frame-ico'), h('span.ep-frame-t', h('b', f ? (hide ? '???' : FRAMES[f].name) : 'Default'), h('small', ok ? (draft.frame === f ? 'Equipped' : 'Earned') : hide || FRAMES[f].how)), ok ? null : ico('lock', 'ep-lock'));
         }))),
     ],
     banner: () => [
-      label('Banner', 'Clear chapters and recruit girls to unlock more'),
+      label('Banner', `${BANNERS.filter((b) => bannerUnlocked(p, b.id)).length} / ${BANNERS.length} unlocked · chapters, girls, achievements, events and seasons unlock more`),
       h('div.ep-banners', { 'data-testid': 'edit-banners' }, BANNERS.map((b) => {
         const ok = bannerUnlocked(p, b.id);
-        return h(`button.ep-banner${draft.banner === b.id ? '.on' : ''}${ok ? '' : '.locked'}`, { type: 'button', disabled: !ok, 'data-banner': b.id, title: b.name, onclick: () => set('banner', b.id) },
+        const how = b.kind === 'pb' ? pbHowText(b.id) : '';
+        // a locked tile stays tappable (aria-disabled, not disabled): a tap shows its whole rule, which a phone's cut
+        // lock chip and a tooltip can't (review r1 L2)
+        const locked = () => toast(`${b.name}: ${how || bannerLockText(b.id)}`, 'info', 3200);
+        return h(`button.ep-banner${draft.banner === b.id ? '.on' : ''}${ok ? '' : '.locked'}`, { type: 'button', 'aria-disabled': ok ? null : 'true', 'data-banner': b.id, title: how ? `${b.name} · ${how}` : b.name, onclick: () => (ok ? set('banner', b.id) : locked()) },
           bannerArt(b.id, { thumb: true }), h('span.ep-banner-t', b.name), ok ? null : h('span.ep-banner-lock', ico('lock'), bannerLockText(b.id)), draft.banner === b.id ? h('i.ep-check', '✓') : null);
       })),
     ],
@@ -142,8 +149,9 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
             h('div.ep-title-head', name, h('small', `${ids.filter((id) => titles.has(id)).length} / ${ids.length}`)),
             ids.map((id) => {
               const ok = titles.has(id);
-              return h(`button.ep-title${draft.title === id ? '.on' : ''}${ok ? '' : '.locked'}`, { type: 'button', disabled: !ok, 'data-title': id, onclick: () => set('title', id) },
-                titlePlate(id, { still: true, locked: !ok }), ok ? null : h('span.ep-how', ico('lock'), `How: ${TITLES[id].how}`), draft.title === id ? h('i.ep-check', '✓') : null);
+              const hint = ok ? null : secretTitleHint(p, id); // a secret's title: "???" and its hint until earned
+              return h(`button.ep-title${draft.title === id ? '.on' : ''}${ok ? '' : '.locked'}${hint ? '.secret' : ''}`, { type: 'button', disabled: !ok, 'data-title': id, onclick: () => set('title', id) },
+                titlePlate(id, { still: true, locked: !ok, text: hint ? '???' : null }), ok ? null : h('span.ep-how', ico('lock'), hint ? `Hint: ${hint}` : `How: ${TITLES[id].how}`), draft.title === id ? h('i.ep-check', '✓') : null);
             }));
         })),
     ],

@@ -15,6 +15,10 @@
 .rb.rb-s > .rb-art { filter: none; }
 .rb > span { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .rb.locked > .rb-art { filter: none; opacity: 0.92; }
+/* the baked 3D-flat picture (tools/blender/ribbons): the 64-unit art box plus --rbp units a side, so it sits exactly where
+   the SVG did and every effect mask still fits; its own ink and shading replace the SVG's drop shadow at small sizes */
+.rb > img.rb-bake { position: absolute; z-index: 1; left: calc(var(--s) * var(--rbp, 2) / -64); top: calc(var(--s) * var(--rbp, 2) / -64); width: calc(var(--s) * (64 + 2 * var(--rbp, 2)) / 64); height: calc(var(--s) * (64 + 2 * var(--rbp, 2)) / 64); max-width: none; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.rb.baked.rb-s > .rb-bake { filter: none; }
 
 /* the masks: the whole silhouette, the pleat ring, the disc, the rosette, the halo ring */
 .rb-special > .rb-ring, .rb-special > .rb-sweep, .rb-special > .rb-foil {

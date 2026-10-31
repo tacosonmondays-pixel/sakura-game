@@ -10,6 +10,7 @@ import { ENEMIES, FAMILIES, ENEMY_MAP } from '../../data/enemies.js';
 import { EVENT_ENEMIES } from '../../data/events/index.js';
 import { TRAITS } from '../../data/types.js';
 import { initTraitState } from '../../sim/enemies.js';
+import { enemyModelKeys } from '../../models/glbEnemy.js';
 import { SANDBOX_COIN_STEP, SANDBOX_COIN_CAP } from '../../systems/sandbox.js';
 
 /** Count presets of the spawn stepper. */
@@ -300,7 +301,7 @@ export function createSandboxPanel(ctx) {
     paintMods();
     // load her family's model now, so the spawn shows it (the procedural body otherwise)
     const def = ENEMY_MAP[id];
-    Promise.resolve(ctx.preloadEnemies?.([def.model?.base || def.family])).catch(() => {});
+    Promise.resolve(ctx.preloadEnemies?.(enemyModelKeys(def))).catch(() => {});
   };
   pickEnemy(state.enemyId);
   const spawnBtn = h('button.bt-sbx-go', { 'data-testid': 'sandbox-spawn', onclick: () => spawn() }, icon('plus', 'bt-ico-sm'), 'Spawn');

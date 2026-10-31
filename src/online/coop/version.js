@@ -74,7 +74,11 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 //    Freeplay's boss bands past wave 200), Ena's spreading curse, Iroha's mirror network, and the gear update's five-piece
 //    sets and LR gear (set passives, Control Strength, Buff Duration, super crits); a client on 13 resolves the same
 //    loadout to different battles.
-export const COOP_PROTOCOL = 14;
+// 15: co-op feel (input lag): a stall raises the input delay of the side being waited for (beats carry `st`, the
+//    ticks the sender waited), an order is stamped after the horizon actually sent (not one only computed), and
+//    Lockstep.nudge() ends the idle saver when the player starts an order; a client on 14 raises its own delay on a
+//    stall and stamps orders after unsent promises, so the two would wait on each other differently.
+export const COOP_PROTOCOL = 15;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */

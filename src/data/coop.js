@@ -9,8 +9,8 @@ export const COOP = Object.freeze({
   /** Each player's start cash = round(stage start cash × cashShare). */
   cashShare: 0.6,
   /** Commands run this many ticks (× game speed) after they are issued. The local transport's
-   *  value; Supabase rooms use 30 ticks (COOP_NET below). Stalls raise it adaptively up to 3×,
-   *  a quiet spell lowers it again. */
+   *  value; Supabase rooms use 30 ticks (COOP_NET below). An ally that keeps waiting for my
+   *  horizon raises mine adaptively up to 3× (its stalls ride on its beats), a quiet spell lowers it again. */
   inputDelay: 6,
   /** "I will send nothing more up to tick N" heartbeat interval (local transport; Supabase
    *  beats at most every 250 ms and only when the ally needs it, see Lockstep.beat). */
@@ -47,7 +47,8 @@ export const COOP = Object.freeze({
  *            Tower defense hardly notices half a second of lag. Idle saver: once a player has
  *            given no order for idleAfterMs, her client promises its horizon idleLeadTicks (1 s at
  *            1×) ahead and beats about twice a second (keepalive every idleKeepaliveMs); her next
- *            order then lands up to 1 s later. Messages bigger than maxMessageBytes (a resync or
+ *            order then lands after the horizon last sent (0.5–1 s), and one input delay out when the
+ *            battle screen nudged the lockstep first (she selected a girl or armed a card). Messages bigger than maxMessageBytes (a resync or
  *            rejoin carrying a checkpoint) travel in parts that size (Realtime limits a message).
  */
 export const COOP_NET = Object.freeze({
