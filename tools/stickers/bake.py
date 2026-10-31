@@ -3,25 +3,27 @@
 a crisp caption drawn here (never generated, so never garbled), then 256 and 128 px WebP in public/art/stickers/.
 
 usage (rembg lives in a venv outside the repo):  STICKER_OUT=/path/outside/repo  venv/bin/python -I tools/stickers/bake.py [id,id]
-Also writes docs/review/stickers/board.png (every sticker at 128 px and at 64 px), and with STICKER_BEFORE=<folder of
-the previous 128 px files> the before / after board docs/review/stickers/board-pastel.png.
+Also writes docs/review/stickers/board.jpg (every sticker at 128 px and at 64 px); with STICKER_BEFORE=<folder of the
+previous 128 px files> a before / after board (STICKER_BEFORE_BOARD names it); with STICKER_POSES=<render.mjs's pose
+folder> the likeness board docs/review/stickers/board-likeness.jpg. Boards are JPEG, 300 KB or less.
 The art is generated pastel (prompts.py); the lettering is pastel here.
 """
 import os, sys
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)  # (python -I leaves the script's folder out)
 REPO = os.path.dirname(os.path.dirname(HERE))
 RAW = os.environ.get("STICKER_OUT") or sys.exit("set STICKER_OUT (the gen.py output folder)")
 CUT = os.path.join(RAW, "_cut")
 OUT = os.path.join(REPO, "public", "art", "stickers")
-BOARD = os.path.join(REPO, "docs", "review", "stickers", "board.png")
+BOARD = os.path.join(REPO, "docs", "review", "stickers", "board.jpg")  # boards: JPEG, 300 KB or less
 FONT = "/usr/share/fonts/opentype/inter/Inter-Black.otf"
 if not os.path.exists(FONT):
     FONT = "/usr/share/fonts/opentype/inter/Inter-ExtraBold.otf"
 
-# id → (raw picture chosen by eye from the 4 pastel samples, <gen id>.s<k> (the slimes were generated as mochi_*),
-# caption, caption pastel);
+# id → (raw picture picked by eye, likeness first: the girls from like.py (<id>.s<k>: img2img 0.6, <id>.b.s<k>: 0.78),
+# the slimes from the pastel set (generated as mochi_*); caption, caption pastel);
 # keep in step with src/data/stickers.js
 STICKERS = {
     "slime_hi": ("mochi_hi.s2", "Hi!", "mint"),
@@ -29,17 +31,17 @@ STICKERS = {
     "slime_oops": ("mochi_oops.s1", "Oops!", "sky"),
     "slime_gg": ("mochi_gg.s2", "GG!", "pink"),
     "hikari_go": ("hikari_go.s1", "Let's go!", "pink"),
-    "aoi_nice": ("aoi_nice.s1", "Nice!", "mint"),
-    "kage_onit": ("kage_onit.s1", "On it!", "lavender"),
-    "momo_yay": ("momo_yay.s3", "Yay!", "pink"),
-    "akane_wow": ("akane_wow.s0", "Wow!", "peach"),
-    "yuki_help": ("yuki_help.s0", "Help!", "sky"),
-    "miko_thanks": ("miko_thanks.s2", "Thank you!", "pink"),
-    "ena_luck": ("ena_luck.s1", "Good luck!", "lavender"),
-    "iroha_ready": ("iroha_ready.s3", "Ready?", "lavender"),
-    "tenka_charge": ("tenka_charge.s2", "Charge!", "sky"),
-    "chigusa_bravo": ("chigusa_bravo.s3", "Bravo!", "butter"),
-    "hotaru_boo": ("hotaru_boo.s2", "Boo!", "peach"),
+    "aoi_nice": ("aoi_nice.b.s0", "Nice!", "mint"),
+    "kage_onit": ("kage_onit.b.s3", "On it!", "lavender"),
+    "momo_yay": ("momo_yay.b.s1", "Yay!", "pink"),
+    "akane_wow": ("akane_wow.b.s1", "Wow!", "peach"),
+    "yuki_help": ("yuki_help.b.s0", "Help!", "sky"),
+    "miko_thanks": ("miko_thanks.b.s2", "Thank you!", "pink"),
+    "ena_luck": ("ena_luck.b.s0", "Good luck!", "lavender"),
+    "iroha_ready": ("iroha_ready.b.s3", "Ready?", "lavender"),
+    "tenka_charge": ("tenka_charge.s1", "Charge!", "sky"),
+    "chigusa_bravo": ("chigusa_bravo.b.s2", "Bravo!", "butter"),
+    "hotaru_boo": ("hotaru_boo.b.s2", "Boo!", "peach"),
 }
 
 # the lettering: a soft pastel fill and a deeper pastel outline (deep enough that the word reads at 64 px)
@@ -211,7 +213,7 @@ def board(ids):
         b.paste(sm, (x + 43, y + 130), sm)
         d.text((x + 75, y + 200), sid, font=small, fill=INK, anchor="ma")
     os.makedirs(os.path.dirname(BOARD), exist_ok=True)
-    b.save(BOARD, optimize=True)
+    save_board(b, BOARD)
 
 
 def board_compare(ids, before_dir):
@@ -235,8 +237,47 @@ def board_compare(ids, before_dir):
                 b.paste(sm, (x + 43, y + 130), sm)
                 if k:
                     d.text((x + 75, y + 196), sid, font=small, fill=INK, anchor="ma")
-    path = os.path.join(os.path.dirname(BOARD), "board-pastel.png")
-    b.save(path, optimize=True)
+    path = os.path.join(os.path.dirname(BOARD), os.environ.get("STICKER_BEFORE_BOARD", "board-before-after.jpg"))
+    save_board(b, path)
+    return path
+
+
+def save_board(img, path, limit=300_000):
+    """A board as JPEG, at the best quality that stays within `limit` bytes (the boards rule, Oct 31)."""
+    for q in (88, 82, 76, 70, 64, 58, 50):
+        img.convert("RGB").save(path, "JPEG", quality=q, optimize=True, progressive=True)
+        if os.path.getsize(path) <= limit:
+            return path
+    return path
+
+
+def board_likeness(sids, pose_dir):
+    """Likeness: each girl's portrait, her in-game chibi render, then her sticker at 128 and 64 px; two girls a row."""
+    from like import GIRLS
+    cell_w, row_h, per_row = 560, 190, 2
+    rows = (len(sids) + per_row - 1) // per_row
+    b = Image.new("RGB", (per_row * cell_w + 20, rows * row_h + 60), (236, 241, 250))
+    d = ImageDraw.Draw(b)
+    small = ImageFont.truetype(FONT, 15)
+    d.text((20, 16), "Likeness — portrait · in-game chibi · sticker 128 px · 64 px", font=ImageFont.truetype(FONT, 22), fill=INK)
+    for i, sid in enumerate(sids):
+        girl = GIRLS[sid]
+        x, y = 20 + (i % per_row) * cell_w, 54 + (i // per_row) * row_h
+        por = Image.open(os.path.join(REPO, "public", "art", "portraits", f"{girl}-full.webp")).convert("RGB")
+        b.paste(por.resize((120, 160), Image.LANCZOS), (x, y))
+        pose = Image.open(os.path.join(pose_dir, f"{girl}.png")).convert("RGBA")
+        pose = pose.crop(pose.getchannel("A").getbbox())
+        pose.thumbnail((140, 160), Image.LANCZOS)
+        tile = Image.new("RGBA", (140, 160), (255, 255, 255, 255))
+        tile.alpha_composite(pose, ((140 - pose.width) // 2, 160 - pose.height))
+        b.paste(tile.convert("RGB"), (x + 128, y))
+        st = Image.open(os.path.join(OUT, f"{sid}-128.webp")).convert("RGBA")
+        b.paste(st, (x + 276, y + 16), st)
+        sm = st.resize((64, 64), Image.LANCZOS)
+        b.paste(sm, (x + 412, y + 48), sm)
+        d.text((x, y + 164), f"{GIRLS[sid].capitalize()} · {sid}", font=small, fill=INK)
+    path = os.path.join(os.path.dirname(BOARD), "board-likeness.jpg")
+    save_board(b, path)
     return path
 
 
@@ -249,3 +290,6 @@ if __name__ == "__main__":
     print("board", BOARD)
     if os.environ.get("STICKER_BEFORE"):  # a folder with the previous <id>-128.webp files
         print("before/after", board_compare(list(STICKERS), os.environ["STICKER_BEFORE"]))
+    if os.environ.get("STICKER_POSES"):  # the folder of render.mjs's <girl>.png
+        from like import GIRLS
+        print("likeness", board_likeness([s for s in STICKERS if s in GIRLS], os.environ["STICKER_POSES"]))
