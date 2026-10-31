@@ -40,7 +40,6 @@ const save = await server.ssrLoadModule('/src/systems/save.js');
 const { browser, label } = await launchChromium();
 log(`browser: ${label}`);
 const errors = [];
-let bellsSeen = 0;
 
 async function battle(hero) {
   log(`\n== battle with ${hero}`);
@@ -132,17 +131,32 @@ async function battle(hero) {
   check(BRIGADE.every((id) => probe.tripoEnemies.includes(id)), `the five Brigade enemies wear their Tripo models (${probe.tripoEnemies.join(', ')})`);
   if (hero === 'kogane') check(probe.meshes['tripo:big_yellow'] > 0, 'Big Yellow is the Tripo walker');
   if (hero === 'norika') check(probe.bars > 0 && probe.meshes['tripo:norika_barricade'] > 0, `her ${probe.bars} barricades are the Tripo barricade`);
-  // start the first wave so the road moves and Suzu sets her bells
-  await page.evaluate(() => {
-    const { sim } = window.__battle;
+  // start the first wave, then (battle paused) step the sim by hand until Suzu has an armed bell on the road: a
+  // SwiftShader frame is too slow to rely on real time. Then draw a few frames and check every bell is a 3D bell.
+  const stepped = await page.evaluate(() => {
+    const { sim, ui } = window.__battle;
+    ui.paused = true;
     if (sim.state === 'prep' || sim.state === 'between') sim.startNextWave();
+    let n = 0;
+    for (; n < 60 * 60 && !sim.traps.some((t) => !t.strip && t.armed); n++) sim.update(1 / 60);
+    return { seconds: Math.round(n / 6) / 10, bells: sim.traps.filter((t) => !t.strip).length };
   });
-  await page.waitForFunction(() => window.__battle.sim.traps.some((t) => !t.strip && t.armed), null, { timeout: 40000 }).catch(() => null);
-  await settle(1500);
+  log(`  stepped ${stepped.seconds} s of sim: ${stepped.bells} bells`);
+  // the bell file is requested the first time a bell is on the board, and a freshly tossed bell is hidden until its
+  // throw lands (attack FX, visual time): unpause and wait until the drawn bells match the sim's
+  await page.evaluate(() => { window.__battle.ui.paused = false; });
+  await page.waitForFunction(() => {
+    const { sim, renderer } = window.__battle;
+    const bells = sim.traps.filter((t) => !t.strip).length;
+    let drawn = 0;
+    renderer.sceneProbe().traverse((o) => { if (o.name === 'tripo:suzu_bell') drawn = o.count; });
+    return bells > 0 && drawn === bells;
+  }, null, { timeout: 30000, polling: 200 }).catch(() => null);
   const p2 = await probeNow();
-  log(`  after start: bells ${p2.bells}, drawn ${p2.meshes['tripo:suzu_bell'] || 0}`);
-  bellsSeen += p2.bells;
+  log(`  bells ${p2.bells}, drawn ${p2.meshes['tripo:suzu_bell'] || 0}`);
+  check(p2.bells > 0, `Suzu laid bells (${p2.bells})`);
   check((p2.meshes['tripo:suzu_bell'] || 0) === p2.bells, `Suzu's ${p2.bells} bells are 3D bells (${p2.meshes['tripo:suzu_bell'] || 0} drawn)`);
+  await settle(800);
   if (shotsDir) {
     await page.evaluate(() => document.querySelectorAll('.jn-toast').forEach((e) => e.remove()));
     await page.screenshot({ path: `${shotsDir}/battle-${hero}-${VW}x${VH}.png` });
@@ -170,7 +184,6 @@ try {
 } catch (e) {
   failures.push(`crash: ${e.message}`);
 }
-check(bellsSeen > 0, `Suzu laid bells in at least one battle (${bellsSeen})`);
 check(errors.length === 0, `no console errors${errors.length ? `: ${errors.slice(0, 5).join(' | ')}` : ''}`);
 await browser.close();
 await server.close();

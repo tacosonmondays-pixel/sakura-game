@@ -14,7 +14,7 @@ import { FAMILIES, FAMILY_ORDER, ENEMIES, ENEMY_MAP, enemiesByFamily, enemyTrait
 import { STAGE_MAP } from '../../data/stages.js';
 import { discoverableEnemies, bestiaryPercent, familyProgress } from '../../systems/missions.js';
 import { traitIcon, armorClassIcon, uiIcon } from '../../art/icons.js';
-import { buildEnemy, preloadEnemies, makeSilhouette, createModelViewer, drawnBox, disposeObject } from '../../models/index.js';
+import { buildEnemy, preloadEnemies, enemyModelKeys, makeSilhouette, createModelViewer, drawnBox, disposeObject } from '../../models/index.js';
 import { put, cssVars } from './backpack.js';
 
 const view = { family: 'all', selected: null };
@@ -266,7 +266,7 @@ export function render(root, params = {}) {
     // (procedural fallback after the timeout / offline).
     const token = ++gridToken;
     const jobs = [];
-    const families = [...new Set(list.map((e) => e.model?.base || e.family))];
+    const families = [...new Set(list.flatMap((e) => enemyModelKeys(e)))];
     settle(preloadEnemies(families), FAMILY_LOAD_TIMEOUT_MS).then(() => {
       if (token !== gridToken) return;
       for (const j of jobs) thumbs.add(j.def, j.silhouette, j.img, j.holder);

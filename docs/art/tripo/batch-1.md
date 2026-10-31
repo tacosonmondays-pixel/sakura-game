@@ -68,6 +68,55 @@ Textures: Tripo's 2048² base colour, shipped as WebP (heroes 1024², LOD 512²;
 512²). Phone packing is the Meshy pipeline's `tools/meshy/lib/pack.py` (KHR_mesh_quantization + EXT_texture_webp,
 **no meshopt or Draco**). Heroes are 1.224 game units tall like the imported Meshy figures.
 
+## Prompts (verbatim, as sent)
+
+The `prompt` of each `text_to_model` task, copied from the request we sent (the same text Tripo echoes back in
+the task's `input.prompt`). The negative prompt and settings are in "Credits" above.
+
+1. `kogane` (task `6ddee26e-3686-4234-add8-4cca9069beba`, face_limit 20000):
+
+   > Facilities Crew Chief: chibi figure 2.5-3 heads tall, big round head, small soft body, short limbs, huge shiny anime eyes, light blush; an adult academy staff member as a slightly taller chibi (about 3 heads), professional outfit, modest, fully clothed; short messy brown hair, amber eyes, a white hard hat with a small sakura sticker and goggles on its brim, a safety-yellow work jacket with reflective tape over a navy staff polo, navy cargo work trousers, steel-toe boots, a big wrench. No halo (the game adds its own). A-pose (arms 45° down, feet slightly apart), facing front, gentle smile. soft anime chibi style, sakura palette, clean rounded low-poly shapes, flat cel-shaded colours, game-ready, single object, no base, no text.
+
+2. `norika` (task `d65e6d8c-2566-4d2b-af00-639571d268a8`, face_limit 20000):
+
+   > Traffic Safety Officer: chibi figure 2.5-3 heads tall, big round head, small soft body, short limbs, huge shiny anime eyes, light blush; an adult academy staff member as a slightly taller chibi (about 3 heads), professional outfit, modest, fully clothed; dark-brown hair in two low tied tails, blue eyes, a yellow safety cap, a navy staff blazer under a reflective lime high-visibility sash, white gloves, navy slacks, rain boots, a whistle on a lanyard, a round red STOP paddle on a short pole. No halo (the game adds its own). A-pose (arms 45° down, feet slightly apart), facing front, gentle smile. soft anime chibi style, sakura palette, clean rounded low-poly shapes, flat cel-shaded colours, game-ready, single object, no base, no text.
+
+3. `big_yellow` (task `1c3efff1-53a5-463d-b8e2-02148bdc6148`, face_limit 6000):
+
+   > Big Yellow: a little two-legged construction walker robot, safety yellow with navy trim and black-and-yellow hazard stripes, a rounded cab with a round window and a small sakura sticker, one arm with a rivet gun and one with a small plow blade, chunky bird-like legs, a warning light on top; cute toy-like proportions, about 1.75 times a chibi's height. Neutral standing pose. soft anime chibi style, sakura palette, clean rounded low-poly shapes, flat cel-shaded colours, game-ready, single object, no base, no text. Nodes: `cab`, `arm_gun`, `arm_plow`, `leg_L`, `leg_R`, `light`.
+
+4. `norika_barricade` (task `08c1851a-df28-4640-bc54-5dc1b558f992`, face_limit 1200):
+
+   > A short road safety barricade: a white-and-red striped plank on two sturdy yellow A-frame legs with a small round amber warning light on top and reflective strips, toy-like proportions; soft anime style, clean rounded low-poly shapes, game-ready, single object
+
+5. `norika_hold_line` (task `6246b602-0ee6-4256-82c9-ed7e8a94aa04`, face_limit 800):
+
+   > A repeatable segment of low plastic traffic barrier, bright orange and white with a reflective stripe, interlocking ends, rounded toy-like shape; soft anime style, clean low-poly, game-ready, single object
+
+6. `suzu_bell` (task `91471fbd-28fb-43e7-9f04-9d2d4a2b8d5f`, face_limit 1500):
+
+   > A small festival bell trap that sits on a path: a golden temple bell hanging in a little wooden frame with teal ribbons and a red tassel, a pressure plate base, cheerful and toy-like; soft anime style, sakura palette, clean rounded low-poly shapes, flat cel-shaded colours, game-ready, single object, no text
+
+7. `brigade_trooper` (task `5f3ce63b-8b53-47d9-9e74-a9c916a2b4a3`, face_limit 5000):
+
+   > Response Trooper: a tower-defense enemy, a chibi city response trooper in navy padded protective gear with amber reflective stripes, a full rounded helmet with a tinted visor (no face visible), a small round shield. cute, readable at small size, no gore, no blood. A-pose, arms away from the body, legs straight. soft anime chibi style, sakura palette, clean rounded low-poly shapes, flat cel-shaded colours, game-ready, single object, no base, no text.
+
+8. `brigade_shieldline` (task `12b5387a-af24-4bf0-a5ad-1e27b749f549`, face_limit 5000):
+
+   > Shieldline Trooper: a tower-defense enemy, a chibi city response trooper in navy padded gear with amber stripes, a full helmet with a tinted visor (no face visible), carrying a big transparent riot shield. cute, readable at small size, no gore, no blood. A-pose, arms away from the body, legs straight. soft anime chibi style, sakura palette, clean rounded low-poly shapes, flat cel-shaded colours, game-ready, single object, no base, no text.
+
+9. `brigade_gnat` (task `d91d8ab2-85d4-445f-9c1d-fc6a6e10427b`, face_limit 5000):
+
+   > Gnat Spotter: a tower-defense enemy, a small navy-and-amber quadcopter spotter drone with one camera eye and a beacon light. cute, readable at small size, no gore, no blood. neutral hovering pose, arms (if any) slightly away from the body. soft anime chibi style, sakura palette, clean rounded low-poly shapes, flat cel-shaded colours, game-ready, single object, no base, no text.
+
+10. `brigade_tortoise` (task `51b0b9b4-a913-4093-be20-fd70760796d5`, face_limit 8000):
+
+   > Tortoise: a tower-defense enemy, a small rounded armoured response van in navy and amber, chunky wheels, a rear hatch, warning lights on the roof, cute toy-like proportions. cute, readable at small size, no gore, no blood. neutral rest pose, wheels/tracks on the ground. soft anime chibi style, sakura palette, clean rounded low-poly shapes, flat cel-shaded colours, game-ready, single object, no base, no text.
+
+11. `brigade_badger` (task `f21ea2d4-8dc4-4127-8d66-46eb9adb62e7`, face_limit 8000):
+
+   > Badger: a tower-defense enemy, a small cute tracked armoured vehicle in navy and amber with a badger painted on the side, a short stubby turret, toy-like proportions. cute, readable at small size, no gore, no blood. neutral rest pose, wheels/tracks on the ground. soft anime chibi style, sakura palette, clean rounded low-poly shapes, flat cel-shaded colours, game-ready, single object, no base, no text.
+
 ## How to rebuild
 
 ```
@@ -95,9 +144,11 @@ Needs `pip install bpy==4.2.0 numpy Pillow` (Python 3.11); the preview renders n
   `models/enemies/tripo/<id>.glb` (its own manifest beside it) through the family loader, under the key `tripo/<id>`,
   and wears it with a textured toon body (status tints, hit flash, outline, death and the Brigade fall styles as
   before). Until it arrives the construct family mesh (or the procedural one) stands in and is upgraded in place.
-  The battle preloads it with the stage's families (`controller.js` `stageFamilies`).
-* **Props:** `src/render/tripoProps.js` loads the three files; `staffFx.js` swaps its box walker and barricade for
-  them once loaded and draws Suzu's bells (unarmed bells smaller and grey; Bell Toll swings them). Hold the Line stays
+  Every enemy preload asks for it with the family (`enemyModelKeys(def)`: the battle's `stageFamilies`, freeplay's
+  next wave, the bestiary, the sandbox spawn picker and the online boss art), so it does not pop in mid-wave.
+* **Props:** `src/render/tripoProps.js` loads each file the first time its kind is on the board (her barricades,
+  Big Yellow, a Suzu trap) and frees them all with the battle caches (`clearTripoProps`, beside `clearPropCache`);
+  `staffFx.js` swaps its box walker and barricade for them once loaded and draws Suzu's bells (unarmed bells smaller and grey; Bell Toll swings them). Hold the Line stays
   the procedural cone barrier.
 * e2e: `node e2e/tripo-batch1.mjs --shots <dir>` (both heroes, the bells, the five Brigade enemies, no console errors).
 * Tests: `tests/models/tripo.test.js`, the `tripo` branch of `tests/models/glb.test.js`, `tests/models/standins.test.js`.

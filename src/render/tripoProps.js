@@ -5,6 +5,7 @@
 //
 //   loadTripoProp('suzu_bell')       // starts the load once; resolves { geometry, material, extras } | null
 //   getTripoProp('suzu_bell')        // the loaded prop (synchronous) or null
+//   clearTripoProps()                // frees them all (BattleRenderer, when its last instance goes)
 //
 // Files: norika_barricade (staffFx bars), big_yellow (staffFx walker and plow), suzu_bell (staffFx bells over
 // the flat trap rune). Norika's Hold the Line segment stays procedural until its model is redone (batch 1
@@ -46,6 +47,18 @@ export function setTripoProp(id, prop) {
   pending.set(id, Promise.resolve(prop));
 }
 
+/** Frees every loaded prop (geometry, material, texture); call when the last battle renderer is disposed. */
+export function clearTripoProps() {
+  for (const prop of loaded.values()) {
+    if (!prop) continue;
+    prop.geometry?.dispose();
+    prop.material?.map?.dispose();
+    prop.material?.dispose();
+  }
+  loaded.clear();
+  pending.clear();
+}
+
 export function getTripoProp(id) {
   return loaded.get(id) || null;
 }
@@ -58,12 +71,21 @@ export function loadTripoProp(id) {
     .loadAsync(tripoPropUrl(id))
     .then((gltf) => {
       const prop = propFromScene(gltf.scene, gltf.parser?.json?.asset?.extras || {});
+      // the clone keeps the prop; the loaded scene's own geometry is not used again
+      gltf.scene.traverse((o) => o.geometry?.dispose());
+      if (pending.get(id) !== p) {
+        // cleared (the last battle closed) while it loaded: drop it, a later battle loads it afresh
+        prop.geometry.dispose();
+        prop.material.map?.dispose();
+        prop.material.dispose();
+        return null;
+      }
       loaded.set(id, prop);
       return prop;
     })
     .catch((e) => {
       console.warn(`[props] ${id} unavailable, keeping the procedural shape`, e?.message || e);
-      loaded.set(id, null);
+      if (pending.get(id) === p) loaded.set(id, null);
       return null;
     });
   pending.set(id, p);

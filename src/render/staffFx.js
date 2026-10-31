@@ -285,14 +285,17 @@ export class StaffFx {
       bells: null, // Suzu's bells: only once their model has loaded (the flat rune in actors.js until then)
       swapped: new Set(),
     };
-    for (const id of Object.values(TRIPO)) loadTripoProp(id);
     return this._meshes;
   }
 
-  /** Swaps a procedural kind (bars, walkers) to its Tripo model, or makes the bells, once a file is in. */
-  _swapTripo(M) {
+  /**
+   * Swaps a procedural kind (bars, walkers) to its Tripo model, or makes the bells, once a file is in. A file is
+   * requested the first time its kind is on the board (`need`: her barricades, Big Yellow, Suzu's traps).
+   */
+  _swapTripo(M, need) {
     for (const [key, id] of Object.entries(TRIPO)) {
-      if (M.swapped.has(key)) continue;
+      if (M.swapped.has(key) || !need[key]) continue;
+      loadTripoProp(id); // once per file (cached in tripoProps.js)
       const prop = getTripoProp(id);
       if (!prop) continue;
       M.swapped.add(key);
@@ -328,12 +331,19 @@ export class StaffFx {
     const frame = ++this._frame;
     const sim = this.sim;
     const heroes = sim.heroes || [];
-    let any = !!this._meshes;
-    for (const h of heroes) if (h && (h.bars?.length || h.lines?.length || h.def?.role === 'pilot')) any = true;
-    if (!any && (sim.traps || []).some((tr) => !tr.strip)) any = true;
-    if (!any && !(sim.runners && sim.runners.some((r) => r.kind === 'plow'))) return;
+    const need = { bars: false, walkers: false, bells: false };
+    for (const h of heroes) {
+      if (!h) continue;
+      if (h.bars?.length) need.bars = true;
+      if (h.def?.role === 'pilot') need.walkers = true;
+    }
+    if (sim.runners && sim.runners.some((r) => r.kind === 'plow')) need.walkers = true;
+    if ((sim.traps || []).some((tr) => !tr.strip)) need.bells = true;
+    let any = !!this._meshes || need.bars || need.walkers || need.bells;
+    for (const h of heroes) if (h && h.lines?.length) any = true;
+    if (!any) return;
     const M = this._ensure();
-    this._swapTripo(M);
+    this._swapTripo(M, need);
     if (this.actors && this.actors.bellProps !== this) this.actors.bellProps = this;
     const counts = { bars: 0, lines: 0, walkers: 0, blades: 0, bells: 0 };
     for (const h of heroes) {

@@ -20,7 +20,7 @@ import { resolveSkin } from '../data/skins.js';
 import { UNIT_IDS, UNIT_MAP } from '../data/units.js';
 
 export { CHIBI_HEIGHT } from './chibi.js';
-export { buildEnemy, preloadEnemies, enemyUrl, TRIPO_ENEMIES, tripoEnemyKey } from './enemies.js';
+export { buildEnemy, preloadEnemies, enemyUrl, TRIPO_ENEMIES, tripoEnemyKey, enemyModelKeys } from './enemies.js';
 export { makeSilhouette, disposeObject } from './util.js';
 export { createModelViewer, drawnBox } from './viewer.js';
 export { characterUrl, FACE_CELLS, detailFor } from './glbChibi.js';

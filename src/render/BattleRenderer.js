@@ -45,6 +45,7 @@ import { BuffIcons } from './buffIcons.js';
 import { buildTerrain, resolveScenery, ROOF_Y } from './terrain.js';
 import { resolveLook, fxColor } from './themes.js';
 import { clearPropCache } from './props.js';
+import { clearTripoProps } from './tripoProps.js';
 import { clearCostumeCache } from './costumes.js';
 import { createAttackFx } from './attackFx/index.js';
 import { ATTACK_SPRITES } from './attackFx/sprites.js';
@@ -1588,6 +1589,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       liveRenderers = Math.max(0, liveRenderers - 1);
       if (liveRenderers === 0) {
         clearPropCache();
+        clearTripoProps();
         clearCostumeCache();
       }
     },

@@ -66,6 +66,14 @@ export function tripoEnemyKey(def) {
   return def && TRIPO_SET.has(def.id) ? `tripo/${def.id}` : null;
 }
 
+/** Every model key an EnemyDef draws from, for the preloads: its family and, if it has one, its own Tripo model. */
+export function enemyModelKeys(def) {
+  if (!def) return [];
+  const own = tripoEnemyKey(def);
+  const fam = def.model?.base || def.family;
+  return own ? [fam, own] : [fam];
+}
+
 export function canLoadEnemies() {
   return typeof window !== 'undefined' && typeof document !== 'undefined' && typeof fetch === 'function';
 }
@@ -103,7 +111,9 @@ export function loadFamily(family) {
       return loader().then((l) => l.loadAsync(enemyUrl(family))).then((gltf) => prepareAsset(family, gltf));
     })
     .catch((e) => {
-      console.warn(`[models] enemy family ${family} unavailable, using procedural fallback`, e?.message || e);
+      // a one-enemy Tripo model falls back to its family's shared mesh (the Brigade: the construct family mesh)
+      if (family.startsWith('tripo/')) console.warn(`[models] enemy model ${family} unavailable, using the construct family mesh fallback`, e?.message || e);
+      else console.warn(`[models] enemy family ${family} unavailable, using procedural fallback`, e?.message || e);
       return null;
     })
     .then((asset) => {
