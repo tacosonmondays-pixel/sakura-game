@@ -147,9 +147,19 @@ export function createTowerPanel(ctx) {
     return `${src}/${tg}/${t.buffPick ?? -1}/${ctx.picking ?? ''}/${expanded.has(t.uid) ? 1 : 0}${short}`;
   }
 
+  /**
+   * sim.upgradeStatus, with the coins my co-op orders in flight hold taken off first (ctx.spendable): a tier those
+   * coins would have paid reads 'cash' (poor) until they land or come back.
+   */
+  function upgradeStatus(uid, path) {
+    const st = sim.upgradeStatus(uid, path);
+    if (!ctx.spendable || st.locked || !(st.cost > ctx.spendable())) return st;
+    return { ...st, locked: true, reason: 'cash' };
+  }
+
   function signature(t) {
     const afford = [0, 1, 2].map((p) => {
-      const st = sim.upgradeStatus(t.uid, p);
+      const st = upgradeStatus(t.uid, p);
       // a final tier held by another copy: her build and spot are in the holder line
       const hold = st.holder != null ? sim.getTower(st.holder) : null;
       return `${st.tier}${st.reason || 'ok'}${st.cost}${hold ? `h${hold.uid}:${hold.tiers.join('')}` : ''}`;
@@ -459,7 +469,7 @@ export function createTowerPanel(ctx) {
 
   /** One path row: edge colour, name, pips, tier line, the price button (two taps), the lock or the holder, MAX. */
   function pathRow(t, p, i, { readOnly }) {
-    const us = sim.upgradeStatus(t.uid, i);
+    const us = upgradeStatus(t.uid, i);
     const cur = t.tiers[i];
     const heldNow = !t.isHero && cur < p.tiers.length && !!sim.finalTierHolder?.(t.uid, i);
     const hold = us.holder != null ? sim.getTower(us.holder) : null;
@@ -585,14 +595,14 @@ export function createTowerPanel(ctx) {
       return;
     }
     clearTimeout(armTimer);
-    const st = sim.upgradeStatus(t.uid, i);
+    const st = upgradeStatus(t.uid, i);
     const done = ctx.act ? ctx.act.upgrade(t.uid, i) : sim.upgradeTower(t.uid, i);
     if (!done) {
       if (ctx.coop && !ctx.coop.isMine(t.uid)) return;
       const now = sim.upgradeStatus(t.uid, i);
       // the holder may have taken the final tier since the drawer was drawn
       if (now.reason === 'onePerPath') ctx.feed.push(onePerPathWhy(t.def.name, p.name), 'warn', { key: 'upg-final', ms: 2200 });
-      else ctx.feed.push(`Need ${price(st.cost - sim.cash)} more coins.`, 'warn', { key: 'upg-cash', ms: 1500 });
+      else ctx.feed.push(`Need ${price(st.cost - (ctx.spendable ? ctx.spendable() : sim.cash))} more coins.`, 'warn', { key: 'upg-cash', ms: 1500 });
       rerender();
       return;
     }

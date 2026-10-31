@@ -34,7 +34,7 @@ import {
   updateProjectiles, updateTraps, baseCost, setFlight, flightMode, signalRange, hasRoamingDrones, finalePop, ownDrones,
 } from './towers.js';
 import { POP_BUDGET_MAX, POP_COST } from './gearRules.js';
-import { BURST_BUDGET_MAX, setPassive, statusCtxFor, pushMul, avgCritOf } from './setRules.js';
+import { BURST_BUDGET_MAX, setPassive, statusCtxFor, pushMulFor, avgCritOf } from './setRules.js';
 import { updateShells, aimMode, updateRelayOrigin, confettiBurst } from './towers.js';
 import { updateRunners } from './runners.js';
 import {
@@ -237,12 +237,12 @@ export class Sim {
     this._hitOut = {};
     this._dotOut = {};
     this._statusCtx = { rng: this.rng, element: null, attackType: null, sourceUid: null, hitDamage: 0, curseDepth: 0, controlMul: 1, itBonus: 0 };
-    this._curseCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0 };
+    this._curseCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0, controlMul: 1, itBonus: 0 };
     this._curseQueue = [];
     this._flushingCurses = false;
     this._curseBudget = CURSE_BURSTS_PER_TICK; // bursts left this step (refilled at every step)
     this._spreadBudget = CURSE_SPREADS_PER_TICK; // living curse passes left this step (refilled at every step)
-    this._spreadCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0 };
+    this._spreadCtx = { rng: this.rng, element: null, attackType: 'mystic', sourceUid: null, hitDamage: 0, curseDepth: 0, controlMul: 1, itBonus: 0 };
     // Spirit Tether (attack shapes S4, src/sim/links.js): the living tether groups and their count (0: Sim._hit's share
     // hook is one compare), the re-entrancy flag (a shared hit never shares again) and this step's share budget
     this.tethers = [];
@@ -715,7 +715,7 @@ export class Sim {
         // (Marumi's Bowling Thunder, spec.pushBig: minibosses take the whole push)
         let amt = spec.knockback * (spec.pushBig === true && e.tier === 'miniboss' ? 1 : (KNOCKBACK_RESIST[e.tier] ?? 1));
         // Control Strength: her push-backs push half that much further (bosses stay immune: KNOCKBACK_RESIST)
-        if (ctx.controlMul > 1) amt *= pushMul({ controlMul: ctx.controlMul });
+        if (ctx.controlMul > 1) amt *= pushMulFor(ctx.controlMul);
         if (e.kbLeft != null) {
           const cost = wind ? WIND_KB_COST : 1;
           amt = Math.min(amt, e.kbLeft / cost);
@@ -939,6 +939,8 @@ export class Sim {
     if (!best) return;
     this._spreadBudget--;
     const ctx = this._spreadCtx;
+    // (a passed curse is no girl's control: no Control Strength or You're It, like _flushCurses; audit A LOW2)
+    statusCtxFor(ctx, null);
     ctx.sourceUid = c.sourceUid ?? null;
     ctx.curseDepth = c.depth + 1;
     this._applyStatusEvent(best, {

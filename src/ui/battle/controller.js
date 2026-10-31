@@ -449,7 +449,9 @@ export function mountBattle(root, params, hooks) {
     ctx.abilityPending = new Map();
     ctx.abilityRefused = new Map();
     // co-op orders in flight: placements, upgrades and sales on their way (src/ui/battle/coopPending.js)
-    ctx.coopPending = ls ? createCoopPending() : null;
+    ctx.coopPending = ls ? createCoopPending({ tick: () => ls.tick, paused: () => !!(ls.stalled || ls.job) }) : null;
+    // the coins I can still spend: my balance less what my orders in flight will spend (the HUD's number; solo: the cash)
+    ctx.spendable = () => sim.cash - (ctx.coopPending?.reserved() || 0);
     ctx.nudge = () => ls?.nudge?.();
     const abilityNotes = createAbilityNotes();
     // (a Continue already has its unlocked abilities: no "learned" toast for those)
@@ -1478,6 +1480,7 @@ export function mountBattle(root, params, hooks) {
       session.on('peerBack', () => ctx.feed?.push(`${session.player(1 - mySlot)?.name || 'Your ally'} is back — defending together again.`, 'good', { ms: 3600 })),
       session.on('resync', () => {
         remounting = true;
+        ctx.coopPending?.clear(); // (the remounted screen starts its own; nothing of this one may linger)
         hooks.restart();
       }),
     ];
@@ -1545,6 +1548,8 @@ export function mountBattle(root, params, hooks) {
         if (ls.job) return null; // rebuilding (a resync / rejoin): orders wait until it is done
         const chk = sim.canPlace(id, x, y);
         if (!chk.ok) return null;
+        // (coins my other orders in flight already spoke for are not hers: the order would only come back refused)
+        if (sim.placeCost(id) > ctx.spendable()) return null;
         const [qx, qy] = quantize(chk.x ?? x, chk.y ?? y);
         // (the ghost stays on her spot and her price is spoken for until the order runs: coopPending.js)
         ctx.coopPending.place(ls.queue('place', [id, qx, qy]), id, qx / 1024, qy / 1024, sim.placeCost(id));
@@ -1555,6 +1560,7 @@ export function mountBattle(root, params, hooks) {
         const st = sim.upgradeStatus(uid, path);
         if (st.locked) return false;
         if (ctx.coopPending.upgrading(uid, path)) return 'queued';
+        if (st.cost > ctx.spendable()) return false;
         ctx.coopPending.upgrade(ls.queue('upg', [uid, path]), uid, path, st.cost);
         return 'queued';
       },

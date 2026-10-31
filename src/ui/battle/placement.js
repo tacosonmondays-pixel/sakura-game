@@ -98,8 +98,9 @@ export function createPlacement(ctx) {
       return false;
     }
     const cost = sim.placeCost(id);
-    if (sim.cash < cost) {
-      ctx.feed.push(`Need ${fmtNum(cost - sim.cash, 'money', { round: 'up' })} more coins for ${def.name}.`, 'warn', { key: `poor-${id}`, ms: 1800 });
+    const cash = ctx.spendable ? ctx.spendable() : sim.cash; // (co-op: less the coins my orders in flight hold)
+    if (cash < cost) {
+      ctx.feed.push(`Need ${fmtNum(cost - cash, 'money', { round: 'up' })} more coins for ${def.name}.`, 'warn', { key: `poor-${id}`, ms: 1800 });
       ctx.bump?.('cash');
       return false;
     }

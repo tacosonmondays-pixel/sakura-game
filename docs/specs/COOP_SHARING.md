@@ -12,11 +12,12 @@ the co-op feel branch (`feature/coop-feel-net`, COOP 15). Contracts it builds on
 - Her **stats** come from her owner's loadout entry in the start message (level, gear, Potential, awaken: clamped by
   `statLimits.js`). Upgrades run "in her owner's view": the owner's wallet pays, `onePerPath` looks at the owner's
   other copies only.
-- Wallets: each player has her own. Kill income each step is pooled and split evenly between the players still in the
+- Wallets: each player has their own. Kill income each step is pooled and split evenly between the players still in the
   battle (odd coin takes turns); owner-credited coins (econ abilities, `sim.ownerCash`) go to the owner.
 - A player who leaves (`bye`, final) or times out (`gone` marker in the host's log; rejoinable while the host plays)
-  stops sharing the income. **Her girls stay and keep fighting, but nobody can upgrade, sell or retarget them, and her
-  wallet is frozen.** Her hero keeps fighting on her last settings. A rejoin (`join` marker) gives her everything back.
+  stops sharing the income. **Their girls stay and keep fighting, but nobody can upgrade, sell or retarget them, and
+  their wallet is frozen.** Their hero keeps fighting on its last settings. A rejoin (`join` marker) gives them everything
+  back.
 - Only two players per room today. This spec is written for N ≥ 2 so a later 3–4 player room needs no new rules.
 
 ## 1. Summary (what the owner gets)
@@ -44,8 +45,8 @@ the co-op feel branch (`feature/coop-feel-net`, COOP 15). Contracts it builds on
 | D8 | Leaver grace period | `left` (final): at once. `timeout` / `lost`: after 20 s of battle time without a `join`. |
 | D9 | Leaver's coins | Split evenly between the players still there (the existing odd-coin rule). Not returned on a rejoin. |
 | D10 | Leaver's girls | Dealt one by one in uid (placement) order to the remaining players, each to whoever then controls the least total spent value; ties → lowest slot. With two players: all to the one left. |
-| D11 | Leaver's hero | Stays hers and keeps fighting; her ultimate fires on Auto while she is gone (a hero is a player's own unit: `ult`, `hlv`, `hmv` are never transferred). |
-| D12 | Rejoin | Every girl the returner owns and that is still on the field and not lent out by her before she left comes back under her control; her wallet is whatever she had at the gone tick minus what was split (so 0 when split). |
+| D11 | Leaver's hero | Stays theirs and keeps fighting; the hero's ultimate fires on Auto while they are gone (a hero is a player's own unit: `ult`, `hlv`, `hmv` are never transferred). |
+| D12 | Rejoin | Every girl the returner owns that is still on the field and that they had not lent out before they left comes back under their control; their wallet is whatever they had at the gone tick minus what was split (so 0 when split). |
 | D13 | Rewards | Unchanged: each player is paid from their own save by `applyCoopResult` / freeplay ledger rules. No reward, medal or count depends on who controlled a girl. |
 
 ## 3. Design
@@ -56,12 +57,37 @@ the co-op feel branch (`feature/coop-feel-net`, COOP 15). Contracts it builds on
   command check that today reads `ownerOf(uid) === slot` reads `ctrlOf(uid) === slot` instead, **except** the stat
   view: a command on a girl still runs in her **owner's** loadout view for her stats and `onePerPath`, while the
   controller's wallet pays (the wallet swap around a command takes the commanding slot's wallet as today; the loadout
-  swap takes the girl's owner). The Sim needs no change: `t.owner` keeps meaning "whose loadout", `ownerCash` is
-  credited by the command layer to `ctrlOf(t.uid)`.
+  swap takes the girl's owner). `t.owner` keeps meaning "whose loadout". **This needs a Sim change** (review r1 S1),
+  because the Sim itself credits per-player coins by `t.owner` inside the step, where the command layer cannot tell
+  which girl earned them — see §3.1a.
 - `giftAt: number[]` — the tick of each player's last coin gift (the 2 s limit).
 - `pendingDeal: { slot, at }[]` — leavers waiting for their grace period.
 - `lentBy: Map<uid, slot>` — informational for the UI (owner ≠ ctrl ⇒ lent; this map says whether it was a lend or a
   deal-out, so a rejoin knows what to give back).
+
+### 3.1a The Sim change (controller-credited income and per-player ability keys)
+
+Today `Sim._gainCashFor(owner, amount)` (Sim.js) fills `ownerCash[owner]` with `owner = t.owner` at every
+owner-credited source: the step's tower income (Sim.js `_gainCashFor(t.owner ?? 0, …)` twice), econ abilities
+(`abilities.js`), Tenka's lab (`lab.js`), the relay hubs (`hubs.js`) and Tryout's pep/cheer coins (`tryout/pep.js`,
+`tryout/index.js`). The command layer only moves `ownerCash[i]` into wallet `i` afterwards, so it cannot re-route one
+girl's share. D5 (a lent girl's econ coins go to the controller) therefore needs:
+
+- a new tower field `t.ctrl` (a slot; absent = `t.owner`), set by CoopSim on `lend` / `back` / `give` / the deal-out /
+  a rejoin, and one helper `ctrlOf(t) = t.ctrl ?? t.owner ?? 0` in `src/sim`;
+- the income sites above call `_gainCashFor(ctrlOf(t), …)` instead of `t.owner`;
+- the per-player ability bookkeeping keyed by `t.owner` moves to `ctrlOf(t)` too, so the controller's casts behave like
+  their own girls': the group-cast key and its scan (`abilities.js` `groupKey`, the owner filters), the econ cap per wave
+  (`abilUses[…]`), the Auto default a new girl takes (`abilityAutoDefault[…]`), "Auto for all my girls"
+  (`setAbilityAutoAll(slot)`), and the `owner` field of the `ability` / `abilityUnlock` / `cash` events (the UI's
+  "mine" checks);
+- stays by **owner**: the loadout / stats view, `findFinalHolder` (`onePerPath`, D3), Tryout's squad counters
+  (`tryoutCount`, the Class Photo and Yearbook are the owner's squad) and the colour ring.
+- `t.ctrl` is Sim state: `snapshot()` / `restore()` carry it, `hashSim` folds it only when set (a battle without lends
+  keeps its hash).
+
+That is a change under `src/sim`, so it changes the sim id; it rides on the same `COOP_PROTOCOL` bump as the rest of
+this feature (§5). A solo battle never sets `t.ctrl`, so solo plays exactly as before (the golden tests stay pinned).
 
 ### 3.2 Commands (lockstep, each at its tick on every client)
 
@@ -80,16 +106,28 @@ travel: these are ordinary commands in `in` beats, so they are in the command lo
 - Trigger: the `gone` marker (host's log). `why` must reach the sim: the marker becomes `gone[why]` with `why` 0 =
   timeout/lost, 1 = left (final). The CoopSim schedules the deal at `t + GRACE_TICKS` (1200 = 20 s at 1×; game ticks,
   so 2× speed halves the real time — acceptable, and deterministic) for a timeout, at once for `left`.
+- Who writes the marker (review r1 S3): each client writes `gone[why]` into **its own** log when it loses a peer
+  (`Lockstep.mark`), at its own tick, exactly as today; no deal-out ever waits for a marker another client sends.
+  - The guest leaves or is lost: the host writes it, deals the guest's girls and coins in its timeline, and that log is
+    the one a rejoin hands the guest.
+  - The **host** leaves (final `bye`): the guest writes `gone[left]` for the host in its own log and plays on alone; its
+    timeline is then the only one there is, and the deal runs in it at once. Nobody re-admits anybody afterwards (only a
+    live host offers a rejoin), so nothing has to agree with it.
+  - The host is **lost** (cut off, not left): both sides play alone and each deals the other's girls after its grace
+    period in its own timeline. When the link heals the host re-admits the guest and the guest adopts the host's
+    timeline (rebuild); the guest's own deal of the host's girls is thrown away with the rest of its solo timeline.
+  - A future 3–4 player room needs one authority for this (the lowest live slot writes the marker as a command that the
+    others accept); out of scope for two players.
 - A `join` for that slot before the deal cancels it.
 - At the deal tick, inside `step()` before the Sim step (so every client does it at the same point):
   1. The leaver's wallet is split between the players still there (`splitIncome` rules, odd coin by `oddTurn`).
-  2. Every girl the leaver **controls** (her own, and any lent to her) is dealt by D10. Girls lent to her go back to
-     their owner first if that owner is still there. Her `abil` Auto settings stay as they are; targeting and aim stay.
+  2. Every girl the leaver **controls** (their own, and any lent to them) is dealt by D10. Girls lent to them go back
+     to their owner first if that owner is still there. Each girl's `abil` Auto setting, targeting and aim stay as they are.
   3. `lentBy` records `dealt` so a rejoin can return them; the feed on every screen says
      "<ally>'s girls are yours now: Aoi, Rei" (one line per receiver).
 - Rejoin after the deal (`join`): every girl with `owner === slot && lentBy === dealt` that is still on the field goes
-  back to her control (upgrades bought meanwhile stay on her; nothing is refunded to whoever bought them). The coins are
-  not returned (D9) — she shares the income again from the `join` tick.
+  back under the returner's control (upgrades bought meanwhile stay on the girl; nothing is refunded to whoever bought
+  them). The coins are not returned (D9) — the returner shares the income again from the `join` tick.
 - Freeplay: as above. A leaver after the goal is paid by the existing freeplay rules; their girls fight on for the
   others (today's behaviour, now upgradeable).
 - Tryout Day (squads, picks, breaks): girls and coins are dealt the same way; a leaver's open pick/break still resolves
@@ -139,7 +177,8 @@ travel: these are ordinary commands in `in` beats, so they are in the command lo
 
 ## 5. Protocol
 
-- New commands, a marker argument (`gone[why]`), a snapshot version and new sim state: a sim change → new sim id and a
+- New commands, a marker argument (`gone[why]`), a snapshot version, new CoopSim state and the Sim's `t.ctrl` (§3.1a):
+  a sim change → new sim id and a
   `COOP_PROTOCOL` bump. If it ships in the same release as the co-op feel netcode, **one bump to 15** covers both;
   otherwise **16**. Both clients must agree (the version handshake already refuses a mismatch).
 - `version.js` history line, the `itemArtRuntime` KNOWN sim id for the protocol, `CONTRACTS.md` co-op section.
@@ -156,6 +195,15 @@ travel: these are ordinary commands in `in` beats, so they are in the command lo
   compared with the hash before the change).
 - `tests/online/lockstep.test.js`: a drop → deal → rejoin through the network harness (both clients' hashes agree
   after the rejoin, the girls are back with the returner).
+- Counters (review r1 S4): mission and achievement counters credit nobody for coins or work that are not theirs. A gift
+  sent or received is a wallet move, never `_gainCashFor`, so `sim.stats.cashEarned` and every "coins earned" counter are
+  unchanged by it; the controller's upgrades on a lent girl count as the controller's upgrades bought, never the owner's;
+  the owner's later sale of her (after a take-back) refunds coins the controller paid, and that refund counts as nobody's
+  earnings. Test: a scripted lend → controller upgrades → `back` → owner sells, plus gifts both ways, then each
+  player's `applyCoopResult` / mission and achievement counters (`tests/integration/missionCounters.test.js`,
+  `tests/systems/achievementMetrics.test.js` style) equal the same battle without the gifts and the lend.
+- Sim (S1): `t.ctrl` set → a lent econ girl's coins go to the controller's `ownerCash`; the econ cap, group key and
+  Auto-all follow the controller; `onePerPath` and the stats stay the owner's; a solo battle's golden hashes unchanged.
 - Battle UI: the gift sheet (fake DOM), the lend row, the countdown line.
 - e2e: `e2e/coop-rejoin.mjs` grows a leave-and-deal step (the survivor upgrades a dealt girl); a new
   `e2e/coop-gift.mjs` sends coins both ways between two tabs.
@@ -163,7 +211,9 @@ travel: these are ordinary commands in `in` beats, so they are in the command lo
 ## 7. Files to touch (when built)
 
 `src/online/coop/commands.js` (state, commands, deal), `simHash.js`, `lockstep.js` (`gone[why]` marker),
-`version.js`, `src/data/coop.js` (`GRACE_TICKS`, gift limits), `src/ui/battle/controller.js` (`ctx.act` checks
+`version.js`, `src/data/coop.js` (`GRACE_TICKS`, gift limits), `src/sim/Sim.js`, `abilities.js`, `lab.js`, `hubs.js`,
+`tryout/pep.js` + `tryout/index.js` (`ctrlOf(t)` at the income sites and ability keys, §3.1a; Sim snapshot carries
+`t.ctrl`), `src/ui/battle/controller.js` (`ctx.act` checks
 `ctrlOf`), `towerPanel.js` (lend row, lent lines), the co-op HUD (gift button, countdown), `coopPending.js` (gift
 reservations), `CONTRACTS.md`.
 
@@ -177,6 +227,6 @@ reservations), `CONTRACTS.md`.
 4. **Give a girl from the roster (a card) instead of a placed girl?** Default: not in v1. It needs a mid-battle change
    to a player's tower bar (a lent card with the owner's stats, placed and paid by the receiver); the placed-girl lend
    covers the request with far less. Revisit if players ask for it.
-5. **Leaver's hero**: default stays hers on Auto (D11). Alternative: hand her ult button to the receiver.
+5. **Leaver's hero**: default stays theirs on Auto (D11). Alternative: hand the hero's ult button to the receiver.
 6. **Coin gift cap**: default none beyond the wallet (D6). Alternative: at most 50% of the wallet per gift.
 7. **Ask for coins**: a one-tap "Need coins" ping to the ally (no transfer)? Default: yes, as a later small add.
