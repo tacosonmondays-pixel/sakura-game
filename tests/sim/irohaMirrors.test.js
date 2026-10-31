@@ -112,7 +112,7 @@ describe('her mirrors', () => {
     expect(MIRROR_MAX).toBe(5);
   });
 
-  test('Auto: slot 0 on the road point nearest her (her old panel spot), then a quarter and three quarters of the road in her reach, quantised; with no road, where she stands', () => {
+  test('Auto: slot 0 on the road point nearest her (her old panel spot), slot 1 the first road point in her range, slot 2 the last in her reach, quantised; with no road, where she stands', () => {
     const { sim, iroha } = lane({ tiers: [2, 0, 0] });
     expect(iroha.mirrors).toHaveLength(3);
     // (slot 0 is her old panel's spot: FAMILIAR_STANDOFF short of the road point nearest her, toward her)
@@ -128,6 +128,19 @@ describe('her mirrors', () => {
     // mirror 0 is her relay origin
     expect([iroha.ox, iroha.oy]).toEqual([iroha.mirrors[0].x, iroha.mirrors[0].y]);
     expect(autoSpots([], 3, 4, 3.7, 2)).toEqual([{ x: 3, y: 4 }, { x: 3, y: 4 }]);
+    // slot 1: the first road sample within her range of her (in road order); slot 2: the last within her reach
+    const road = [];
+    for (let x = 0; x <= 17; x += 0.25) road.push({ x, y: 4.5 });
+    const [, s1, s2] = autoSpots(road, 8.5, 2.5, 3.7, 3, 2.5);
+    expect(s1.x).toBeCloseTo(8.5 - Math.sqrt(2.5 ** 2 - 4), 0);
+    expect((s1.x - 8.5) ** 2 + 4).toBeLessThanOrEqual(2.5 ** 2 + 1e-9);
+    expect((s1.x - 0.25 - 8.5) ** 2 + 4).toBeGreaterThan(2.5 ** 2);
+    expect((s2.x - 8.5) ** 2 + 4).toBeLessThanOrEqual(3.7 ** 2 + 1e-9);
+    expect((s2.x + 0.25 - 8.5) ** 2 + 4).toBeGreaterThan(3.7 ** 2);
+    // no road in her range: slot 1 takes the first in reach
+    const [, f1] = autoSpots(road, 8.5, 0.5, 4.5, 2, 2.5);
+    expect((f1.x - 8.5) ** 2 + 16).toBeLessThanOrEqual(4.5 ** 2 + 1e-9);
+    expect((f1.x - 0.25 - 8.5) ** 2 + 16).toBeGreaterThan(4.5 ** 2);
   });
 
   test('every build keeps her bounces at least her mirror count, so an upgrade that adds a mirror only lengthens each route', () => {
@@ -362,7 +375,7 @@ describe('Reflected Bolt', () => {
     expect(seen).toContain(2);
   });
 
-  test('Kaleidoscope: each bounce splashes on its mirror and (tier 4) throws a shard at another enemy', () => {
+  test('Kaleidoscope: each bounce splashes round the enemy its glint struck (on the mirror with none) and (tier 4) throws a shard at another enemy', () => {
     const { sim, iroha } = lane({ tiers: [0, 0, 4], spots: [[6, 4.5], [11, 4.5], [8.5, 4.5]] });
     expect(iroha.stats.relay.shards).toBe(1);
     expect(iroha.stats.relay.bounceSplash).toBeGreaterThan(0);
@@ -371,8 +384,39 @@ describe('Reflected Bolt', () => {
     const evs = fly(sim, p);
     const bounces = of(evs, 'mirrorBounce').filter((v) => v.uid === p.uid);
     expect(bounces).toHaveLength(iroha.stats.relay.bounces);
-    for (const v of bounces) expect(of(evs, 'explode').some((x) => x.x === v.x && x.y === v.y)).toBe(true);
+    const glints = of(evs, 'mirrorGlint').filter((v) => v.uid === p.uid);
+    for (const v of bounces) {
+      const g = glints.find((x) => x.x === v.x && x.y === v.y);
+      expect(of(evs, 'explode').some((x) => (g ? x.x === g.tx && x.y === g.ty : x.x === v.x && x.y === v.y))).toBe(true);
+    }
     expect(sim.projectiles.filter((s) => s.shard).length + of(evs, 'hit').length).toBeGreaterThan(0);
+  });
+
+  test('the bounce splash finds a crowd clumped away from the mirror (centred on the glint), once per enemy a bolt', () => {
+    // her mirrors two tiles off the road: a splash on the mirror would reach no one
+    const { sim, iroha } = lane({ tiers: [0, 0, 4], spots: [[6, 2.5], [11, 2.5], [8.5, 2.5]] });
+    const r = iroha.stats.relay.bounceSplash;
+    expect(r).toBeLessThan(2);
+    // a stunned clump on the road under mirror 0, out of the mirror's splash, in her range of it
+    const clump = [5.8, 5.9, 6, 6.1].map((x) => at(sim, x, { hpMul: 1e4 }));
+    const far = at(sim, 13, { hpMul: 1e4 });
+    steps(sim, 1);
+    const hits = new Map();
+    const real = sim._hit.bind(sim);
+    sim._hit = (en, tw, sp, scale) => {
+      hits.set(en.uid, (hits.get(en.uid) || 0) + 1);
+      return real(en, tw, sp, scale);
+    };
+    const p = bolt(sim, iroha, far);
+    const evs = fly(sim, p);
+    sim._hit = real;
+    const glints = of(evs, 'mirrorGlint').filter((v) => v.uid === p.uid && v.x === 6);
+    expect(glints.length).toBeGreaterThan(0);
+    const booms = of(evs, 'explode').filter((x) => x.radius === r);
+    expect(booms.some((x) => Math.abs(x.y - ROAD_Y) < 0.5)).toBe(true);
+    // every enemy of the clump struck, and no one more often than one glint + one splash + the legs that cross it
+    for (const e of clump) expect(hits.get(e.uid) || 0).toBeGreaterThan(0);
+    expect(p.splashed.length).toBe(new Set(p.splashed).size);
   });
 
   test('the shard budget holds for the whole board in one step', () => {
@@ -386,8 +430,16 @@ describe('Reflected Bolt', () => {
       p.y = 4.5 - 0.01;
     }
     stepStart();
+    // (counted as they are thrown: a shard thrown at an enemy beside the mirror can land within the same step)
+    const thrown = [];
+    const push = sim.projectiles.push;
+    sim.projectiles.push = function (...xs) {
+      thrown.push(...xs);
+      return push.apply(this, xs);
+    };
     steps(sim, 1);
-    const shards = sim.projectiles.filter((p) => p.shard).length;
+    sim.projectiles.push = push;
+    const shards = thrown.filter((p) => p.shard).length;
     expect(shards).toBeLessThanOrEqual(SHARD_BUDGET);
     expect(shards).toBeGreaterThan(0);
     expect(sim.projectiles.length).toBeGreaterThan(before);
@@ -418,6 +470,29 @@ describe('the glint (a real bounce strikes the best enemy in her range of that m
     sim._hit = real;
     return { p, scales, glints: of(evs, 'mirrorGlint').filter((v) => v.uid === p.uid) };
   }
+
+  test('mirror hits (the glint, the bounce splash) keep her slow but never stun: her stuns land where her bolts strike', () => {
+    const { sim, iroha, e } = glintLane();
+    const specs = [];
+    const real = sim._hit.bind(sim);
+    sim._hit = (en, tw, sp, scale) => {
+      if (en === e) specs.push([sp, scale]);
+      return real(en, tw, sp, scale);
+    };
+    const status = [{ type: 'slow', amount: 0.2, duration: 1 }, { type: 'stun', duration: 0.3, chance: 1 }];
+    const sp = { ...iroha.eff, status };
+    const p = bolt(sim, iroha, e);
+    p.spec = sp;
+    fly(sim, p);
+    sim._hit = real;
+    const glints = specs.filter(([, k]) => k === GLINT_MUL);
+    expect(glints.length).toBeGreaterThan(0);
+    for (const [s] of glints) expect(s.status.map((x) => x.type)).toEqual(['slow']);
+    // (one spec per bolt spec, made once)
+    expect(new Set(glints.map(([s]) => s)).size).toBe(1);
+    // the bolt's own hit keeps the stun
+    expect(specs.some(([s, k]) => k !== GLINT_MUL && s.status.some((x) => x.type === 'stun'))).toBe(true);
+  });
 
   test('a real bounce strikes it at GLINT_MUL (0.8) of the bolt\'s hit; the event names her mirror and the enemy', () => {
     const { sim, iroha, e } = glintLane();
@@ -535,6 +610,32 @@ describe('allies\' shots', () => {
     expect(sp).toHaveLength(1);
     const hit = of(evs, 'hit').filter((h) => h.uid === boss.uid);
     expect(hit.length).toBeGreaterThan(0);
+  });
+
+  test('a copy never doubles the shot\'s crowd control: no knockback, no gather (the original keeps them)', () => {
+    const { sim, iroha, aoi } = team({ hall: 5 });
+    const e = at(sim, 5.5, { hpMul: 500 });
+    at(sim, 13, { hpMul: 500 });
+    steps(sim, 1);
+    const spec = { ...aoi.eff, knockback: 0.6, gather: 0.4 };
+    const a = spawnProjectile(sim, aoi, spec, e, aoi.x, aoi.y);
+    const evs = steps(sim, 60);
+    const sp = of(evs, 'mirrorSplit').filter((v) => v.uid === a.uid);
+    expect(sp).toHaveLength(1);
+    expect(a.spec.knockback).toBe(0.6);
+    const copy = sim.projectiles.find((x) => x.uid === sp[0].copyUid);
+    if (copy) {
+      expect(copy.spec.knockback).toBe(0);
+      expect(copy.spec.gather).toBe(0);
+      expect(copy.spec.damage).toBe(spec.damage);
+    }
+    // a plain shot's copy shares its spec
+    const b = arrow(sim, aoi, e);
+    const evs2 = steps(sim, 60);
+    const sp2 = of(evs2, 'mirrorSplit').filter((v) => v.uid === b.uid);
+    expect(sp2).toHaveLength(1);
+    const copy2 = sim.projectiles.find((x) => x.uid === sp2[0].copyUid);
+    if (copy2) expect(copy2.spec).toBe(b.spec);
   });
 
   test('Infinite Reflection: her mirrors reflect for good and the copy bounces twice', () => {
