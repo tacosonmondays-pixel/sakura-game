@@ -255,6 +255,14 @@ function openGearModal(gear, rerender) {
   return openPieceSheet(gear, { onChange: rerender });
 }
 
+/** A random Set Box's Open buttons: one batch per tap, a fast double tap opens nothing twice (600 ms, as setBoxModal). */
+let setBoxBusy = 0;
+const guardSetBox = (fn) => () => {
+  if (Date.now() - setBoxBusy < 600) return;
+  setBoxBusy = Date.now();
+  fn();
+};
+
 /** Open `n` boxes; `after` redraws whatever is open (the Supplies sheet, the grid). */
 function openBoxes(itemId, n, after) {
   const res = openGearBox(store.profile, itemId, createRng(Date.now() ^ Math.floor(performance.now() * 1000)), n);
@@ -308,15 +316,17 @@ function openSupplies(rerender) {
       // Open all, at most SET_OPEN_BATCH_MAX a tap); a random choose-box asks for the set, a preset box for the set and
       // the main stats (gearUr.js setBoxModal); either way openSetBox gives only that set's pieces
       if (b.pickSet) {
-        const fits = Math.max(1, setBoxOpenable(profile, b.id));
+        // ×N: as many as the bag has room for, at most 10 (hidden under 2; the label is the count it opens: review r1 I1)
+        const many = Math.min(10, n, Math.max(1, setBoxOpenable(profile, b.id)));
         if (b.setKind === 'random' && b.set) {
+          const open = (k) => guardSetBox(() => openSetBoxesNow(b.id, k, { onDone: after, summary: boxSummary }));
           return row(b, {
             testid: `box-${b.id}`,
             line: boxLine(b),
             acts: [
-              inkBtn('Open', { testid: `set-box-open-${b.id}`, onClick: () => openSetBoxesNow(b.id, 1, { onDone: after, summary: boxSummary }) }),
-              n > 1 ? secondaryBtn(`Open ×${Math.min(10, n)}`, { testid: `set-box-open10-${b.id}`, onClick: () => openSetBoxesNow(b.id, Math.min(10, n), { onDone: after, summary: boxSummary }) }) : null,
-              n > 10 ? secondaryBtn(n > SET_OPEN_BATCH_MAX ? `Open ${SET_OPEN_BATCH_MAX}` : 'Open all', { testid: `set-box-open-all-${b.id}`, title: n > SET_OPEN_BATCH_MAX ? null : `Open all ${n}`, onClick: () => openSetBoxesNow(b.id, Math.min(n, SET_OPEN_BATCH_MAX), { onDone: after, summary: boxSummary }) }) : null,
+              inkBtn('Open', { testid: `set-box-open-${b.id}`, onClick: open(1) }),
+              many > 1 ? secondaryBtn(`Open ×${many}`, { testid: `set-box-open10-${b.id}`, onClick: open(many) }) : null,
+              n > 10 ? secondaryBtn(n > SET_OPEN_BATCH_MAX ? `Open ${SET_OPEN_BATCH_MAX}` : 'Open all', { testid: `set-box-open-all-${b.id}`, title: n > SET_OPEN_BATCH_MAX ? null : `Open all ${n}`, onClick: open(Math.min(n, SET_OPEN_BATCH_MAX)) }) : null,
             ].filter(Boolean),
           });
         }
@@ -326,7 +336,7 @@ function openSupplies(rerender) {
           line,
           acts: [
             inkBtn('Open', { testid: `set-box-open-${b.id}`, onClick: () => { sheet?.close(); setBoxModal(b.id, rerender, { summary: boxSummary }); } }),
-            n > 1 ? secondaryBtn(`Open ×${Math.min(10, n, fits)}`, { testid: `set-box-open10-${b.id}`, onClick: () => { sheet?.close(); setBoxModal(b.id, rerender, { count: Math.min(10, n), summary: boxSummary }); } }) : null,
+            many > 1 ? secondaryBtn(`Open ×${many}`, { testid: `set-box-open10-${b.id}`, onClick: () => { sheet?.close(); setBoxModal(b.id, rerender, { count: many, summary: boxSummary }); } }) : null,
           ].filter(Boolean),
         });
       }

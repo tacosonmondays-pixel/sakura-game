@@ -28,7 +28,8 @@ The owner may override any default; open questions in §6. Builds on `GEAR_UPDAT
   + 150,000), never twice. Unbinding keeps the level, ▲, ✦, pins and lock. A **No-set** UR piece awakens straight into
   Blank LR, as today (the modal says so).
 - **D5c. Gameplay is unchanged**: identical numbers, caps, costs and requirements (UR +12 + a Lens). Only the flow and
-  the names change. The sim id stays `b2ff5e0e884b`.
+  the names change. The sim id is unchanged from main (the id pinned for the current `COOP_PROTOCOL`,
+  `tests/fixtures/simIds.js`).
 - **D5d. Save safety**: `lr: 1` and `lr: 2` pieces keep working unchanged; no new field, no migration. An unbound piece
   is an ordinary Blank LR piece (`lr: 2`, no set) that v0.1.66 already reads; its `glr:` mirror is rewritten with the
   new kind by `writeGearMarks`. Proven by a v0.1.66 round trip (awaken here → v0.1.66 → here; unbind here → v0.1.66 →

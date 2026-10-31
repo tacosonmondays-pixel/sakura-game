@@ -13,6 +13,8 @@ import {
 import { rollSetPiece, topMainRoll } from '../../src/systems/gearSets.js';
 import { SLOT_IDS } from '../../src/data/gearSlots.js';
 import { simId } from '../../tools/simId.mjs';
+import { KNOWN_SIM_IDS } from '../fixtures/simIds.js';
+import { COOP_PROTOCOL } from '../../src/online/coop/version.js';
 
 function urPiece(p, slot, { set = 'geometry', level = 12, seed = slot } = {}) {
   const g = rollSetPiece(createRng(seed), set || 'geometry', { slot, rarity: 'legendary', level: 10 });
@@ -133,8 +135,9 @@ describe('Unbind to Blank LR', () => {
 });
 
 describe('the battle sim does not move', () => {
-  it('sim id b2ff5e0e884b', () => {
-    expect(simId().id).toBe('b2ff5e0e884b');
+  it('the sim id is the one pinned for this COOP_PROTOCOL (unchanged from main)', () => {
+    expect(KNOWN_SIM_IDS[COOP_PROTOCOL]).toBeTruthy();
+    expect(simId().id).toBe(KNOWN_SIM_IDS[COOP_PROTOCOL]);
   });
   it('Limit Break stays for tools and tests, unchanged', () => {
     const p = rich();

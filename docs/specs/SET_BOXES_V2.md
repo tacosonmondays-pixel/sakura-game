@@ -137,11 +137,16 @@ Live v0.1.66 knows the 14 preset ids and nothing else. The new 28 ids follow the
   `tests/fixtures/main-fc978aba` (save.js, gearMarks.js, gear.js, gearSets.js, mail.js, rosterSave.js and the gear
   data): grant here → load and save in v0.1.66 (and open / claim there) → load here.
 
+**Known limit (review r1 I4, accepted):** if v0.1.66 claims an emptied gift letter and then prunes it from the mailbox
+(MAIL_LIMIT 60: more than 60 newer letters arrive in that older tab) before this build loads the save, the letter and
+the record of its boxes are gone, and those boxes cannot be paid back. It takes 60+ letters in an old tab.
+
 No `SAVE_VERSION` bump; additive.
 
 ## 7. Balance
 
-- Gear opening is outside the battle sim; the sim id stays `b2ff5e0e884b` and `COOP_PROTOCOL` is unchanged.
+- Gear opening is outside the battle sim; the sim id is **unchanged from main** (the id `tests/fixtures/simIds.js` pins
+  for the current `COOP_PROTOCOL`: `b2ff5e0e884b` on v0.1.66, `0fe7c5c04aec` on v0.1.67) and `COOP_PROTOCOL` is unchanged.
 - **The ceiling does not move.** Five UR set pieces (any slot, any set) are already attainable: Legendary set pieces
   awaken, and the Rainbow Gear Box gives a titan-set UR piece in any slot. A UR box only shortens the road, and it is
   Supply Bot only for now.
@@ -153,7 +158,7 @@ No `SAVE_VERSION` bump; additive.
 
 ### 7.1 Results (feature/set-boxes-v2)
 
-- Sim id `b2ff5e0e884b` (unchanged). noNerf, maxed tier 5, Umeko + Midori, seed 9, live `fc978aba` vs branch: 297
+- Sim id unchanged from main (`b2ff5e0e884b` when measured on v0.1.66; `0fe7c5c04aec` after the v0.1.67 merge). noNerf, maxed tier 5, Umeko + Midori, seed 9, live `fc978aba` vs branch: 297
   cells, 0 under, the two outputs byte-identical.
 - lrBar, today's bench (three no-set UR +12): unchanged, crowd ×1.31–1.33, boss ×2.18–4.37 of LR_BAR. All ≥ 1.25.
 - lrBar `--gear urset` (five UR +12 set pieces on everyone, best set per build; the bar re-measured on that gear):

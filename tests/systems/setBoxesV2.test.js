@@ -9,7 +9,7 @@ import { SET_IDS, TITAN_SETS } from '../../src/data/gearSets.js';
 import { SLOT_IDS, MAIN_STATS_BY_SLOT, isNewSlot } from '../../src/data/gearSlots.js';
 import {
   setBoxId, setBoxInfo, SET_BOX_RARITIES, SET_BOX_KINDS, SET_BOX_IDS, SET_PICK_BOX_IDS, SET_BOX_LIVE_IDS, SET_BOX_V2_IDS,
-  MIRRORED_ITEMS, MARK, SET_OPEN_BATCH_MAX, GEAR_UPDATE_ITEM_IDS,
+  MIRRORED_ITEMS, MARK, SET_OPEN_BATCH_MAX, GEAR_UPDATE_ITEM_IDS, TIE_PIN_ID, COLLAR_PIN_ID,
 } from '../../src/data/gearAwaken.js';
 import { openSetBox, setBoxSets, setBoxKind, setBoxRarity, setBoxOpenable, grantSetBoxGifts } from '../../src/systems/gearSets.js';
 import { openGearBox, isUrGear, isLrGear, GEAR_BAG_MAX, boxMark, salvageRewards } from '../../src/systems/gear.js';
@@ -43,7 +43,8 @@ describe('Set Boxes v2: items and ids', () => {
           expect(setBoxInfo(id)).toEqual({ set, rarity: r, kind });
           expect(it).toMatchObject({ category: 'gearbox', pickSet: true, setKind: kind, setRarity: r, rarity: r === 'ur' ? 'legendary' : r });
           expect(it.set).toBe(set === 'pick' ? undefined : set);
-          expect(!!it.supplyOnly, id).toBe(kind === 'preset');
+          // Supply Bot only (owner, Oct 31): the preset kind and every UR box
+          expect(!!it.supplyOnly, id).toBe(kind === 'preset' || r === 'ur');
           if (r === 'ur') expect(it).toMatchObject({ display: 'ur', rainbow: true });
           expect(it.name.includes('Preset'), id).toBe(kind === 'preset');
           expect(it.desc).toMatch(kind === 'preset' ? /you choose each main stat/ : /main stats and substats are rolled/);
@@ -56,6 +57,10 @@ describe('Set Boxes v2: items and ids', () => {
       }
     }
     expect(new Set(Object.values(ITEMS).map((i) => i.name)).size).toBe(Object.keys(ITEMS).length);
+    // the pins are Supply Bot only too; nothing a player source pays is
+    expect(getItem(TIE_PIN_ID).supplyOnly).toBe(true);
+    expect(getItem(COLLAR_PIN_ID).supplyOnly).toBe(true);
+    expect(getItem(setBoxId('popper', 'legendary', 'random')).supplyOnly).toBeUndefined();
     expect(setBoxInfo('setbox_chess_mythic')).toBeNull();
     expect(setBoxInfo('setbox_popper_rare')).toBeNull();
     expect(setBoxInfo('gearbox_mythic')).toBeNull();

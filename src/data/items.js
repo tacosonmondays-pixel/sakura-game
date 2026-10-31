@@ -159,7 +159,7 @@ export function gearBoxId(rarity) {
 /**
  * One Set Box item (SET_BOXES_V2.md §3). `pickSet` marks every Set Box (openGearBox refuses them); `setKind` 'random'
  * (mains rolled) or 'preset' (mains chosen); `setRarity` 'mythic' | 'legendary' | 'ur' (a UR box is Legendary with the
- * UR look, as the Seed); `supplyOnly` on the preset kind (only the Supply Bot grants it).
+ * UR look, as the Seed); `supplyOnly` on the preset kind and the UR boxes (only the Supply Bot grants them).
  */
 function setBoxItem(setId, r, kind, sort) {
   const ur = r === 'ur';
@@ -181,7 +181,8 @@ function setBoxItem(setId, r, kind, sort) {
     ...(pick ? {} : { set: setId }),
     setKind: kind,
     setRarity: r,
-    ...(preset ? { supplyOnly: true } : {}),
+    // (Supply Bot only: the preset kind for good, every UR box until a player source ships: owner, Oct 31)
+    ...(preset || ur ? { supplyOnly: true } : {}),
     desc: `${what} at ${at}: ${how}`,
     sort,
   };
@@ -273,8 +274,8 @@ function buildItems() {
   // get) and the preset kind (main stats chosen: the live ids, Supply Bot only from v2 on), at Mythic, Legendary and UR
   SET_BOX_KINDS.forEach((kind, ki) => SET_BOX_RARITIES.forEach((r, i) => add(setBoxItem('pick', r, kind, 4020 + ki * 3 + i))));
   SET_IDS.forEach((id, k) => SET_BOX_KINDS.forEach((kind, ki) => SET_BOX_RARITIES.forEach((r, i) => add(setBoxItem(id, r, kind, 4030 + k * 6 + ki * 3 + i)))));
-  add({ id: TIE_PIN_ID, name: 'Tie Pin', category: 'dice', rarity: 'legendary', usable: 'gearPin', desc: 'Pin it on a gold, UR or LR piece: its main stat becomes its best roll and keeps growing with the level.', sort: 5006 });
-  add({ id: COLLAR_PIN_ID, name: 'Collar Pin', category: 'dice', rarity: 'mythic', usable: 'gearPin', desc: 'Pin it on one substat of a gold, UR or LR piece: that line becomes its best roll, its ▲ and ✦ on top.', sort: 5007 });
+  add({ id: TIE_PIN_ID, name: 'Tie Pin', category: 'dice', rarity: 'legendary', usable: 'gearPin', supplyOnly: true, desc: 'Pin it on a gold, UR or LR piece: its main stat becomes its best roll and keeps growing with the level.', sort: 5006 });
+  add({ id: COLLAR_PIN_ID, name: 'Collar Pin', category: 'dice', rarity: 'mythic', usable: 'gearPin', supplyOnly: true, desc: 'Pin it on one substat of a gold, UR or LR piece: that line becomes its best roll, its ▲ and ✦ on top.', sort: 5007 });
   add({ id: LENS_ID, name: 'Nightglass Lens', category: 'dice', rarity: 'legendary', display: 'ur', usable: 'gearLimit', desc: 'Awaken a rainbow UR piece at +12 into Nightglass LR gear. A set piece stays in its set; it can later unbind to Blank LR for bigger numbers.', sort: 5008 });
 
   add({ id: 'ticket_recruit', name: 'Recruit Ticket', category: 'ticket', rarity: 'superRare', desc: 'One free recruitment. Used before gems.', sort: 6000 });

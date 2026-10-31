@@ -19,6 +19,7 @@ import {
 import { tileTier } from '../../src/ui/components.js';
 import { COOP_PROTOCOL } from '../../src/online/coop/version.js';
 import { simId } from '../../tools/simId.mjs';
+import { KNOWN_SIM_IDS } from '../fixtures/simIds.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const GEAR_KEYS = Object.keys(GEAR_SLOTS).flatMap((s) => [...ITEM_RARITY_ORDER.map((r) => `gear_${s}_${r}`), `gear_${s}_ur`]);
@@ -324,7 +325,8 @@ describe('display only: the battle sim is untouched', () => {
     // reach, Kaleidoscope Burst and Infinite Reflection +14 — 14 has not shipped); 15: co-op feel — the waited-on side
     // raises its input delay, orders after the sent horizon, nudge — pinned on release v0.1.67 (the merged tree with
     // release v0.1.66 @ fc978aba)
-    const KNOWN = { 8: '92e2e22527cf', 9: '4d7b235077a8', 10: '2c3c74708a2c', 11: '35748b1b58db', 12: 'd35092f141d3', 13: 'be940ecb2087', 14: 'b2ff5e0e884b', 15: '0fe7c5c04aec' };
+    // (the ids live in tests/fixtures/simIds.js, shared with the gear tests that prove they leave the sim alone)
+    const KNOWN = KNOWN_SIM_IDS;
     if (!KNOWN[COOP_PROTOCOL]) return;
     expect(simId().id).toBe(KNOWN[COOP_PROTOCOL]);
   });
