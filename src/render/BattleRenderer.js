@@ -1582,16 +1582,17 @@ export function createBattleRenderer(container, sim, opts = {}) {
         gradePass?.dispose();
       }
       key.shadow.map?.dispose();
-      renderer.dispose();
-      canvas.remove();
-      barkChips?.dispose();
-      fxLayer.remove();
       liveRenderers = Math.max(0, liveRenderers - 1);
+      // the shared prop caches go while this WebGL renderer can still free their GPU buffers and textures
       if (liveRenderers === 0) {
         clearPropCache();
         clearTripoProps();
         clearCostumeCache();
       }
+      renderer.dispose();
+      canvas.remove();
+      barkChips?.dispose();
+      fxLayer.remove();
     },
   };
 }

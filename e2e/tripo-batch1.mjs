@@ -142,6 +142,8 @@ async function battle(hero) {
     return { seconds: Math.round(n / 6) / 10, bells: sim.traps.filter((t) => !t.strip).length };
   });
   log(`  stepped ${stepped.seconds} s of sim: ${stepped.bells} bells`);
+  // laid: checked on the stepped sim, so a bell that is laid but never drawn fails the draw check below, not this one
+  check(stepped.bells > 0, `Suzu laid bells (${stepped.bells} after ${stepped.seconds} s of sim)`);
   // the bell file is requested the first time a bell is on the board, and a freshly tossed bell is hidden until its
   // throw lands (attack FX, visual time): unpause and wait until the drawn bells match the sim's
   await page.evaluate(() => { window.__battle.ui.paused = false; });
@@ -152,10 +154,13 @@ async function battle(hero) {
     renderer.sceneProbe().traverse((o) => { if (o.name === 'tripo:suzu_bell') drawn = o.count; });
     return bells > 0 && drawn === bells;
   }, null, { timeout: 30000, polling: 200 }).catch(() => null);
+  // paused again, so the sim cannot use up or lay a bell between the count and the draw
+  await page.evaluate(() => { window.__battle.ui.paused = true; window.__battle.renderer.update(1 / 60); });
   const p2 = await probeNow();
-  log(`  bells ${p2.bells}, drawn ${p2.meshes['tripo:suzu_bell'] || 0}`);
-  check(p2.bells > 0, `Suzu laid bells (${p2.bells})`);
-  check((p2.meshes['tripo:suzu_bell'] || 0) === p2.bells, `Suzu's ${p2.bells} bells are 3D bells (${p2.meshes['tripo:suzu_bell'] || 0} drawn)`);
+  const drawn = p2.meshes['tripo:suzu_bell'] || 0;
+  log(`  bells ${p2.bells}, drawn ${drawn}`);
+  check(p2.bells > 0 && drawn === p2.bells, `Suzu's bells are 3D bells (${drawn} drawn of ${p2.bells} on the road)`);
+  await page.evaluate(() => { window.__battle.ui.paused = false; });
   await settle(800);
   if (shotsDir) {
     await page.evaluate(() => document.querySelectorAll('.jn-toast').forEach((e) => e.remove()));
