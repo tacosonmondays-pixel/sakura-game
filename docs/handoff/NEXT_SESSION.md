@@ -410,3 +410,20 @@ The v0.1.68 assembly starts once most of these reviews are OK. It is COOP 16 bec
   - sandbox: session_01Ayo4eqeaQJvJqiaACLAQwT. Its follow-ups are on feature/sandbox-catchup-next @ 03070e8.
 - **Building:** drag touch fix, session_01Ayo4enwChBzRMnbgGSVo4D.
 - **Next:** one delta reviewer covering the set-boxes r1 fixes plus the icon polish once that lands. Then the v0.1.68 go/no-go, ship, and live check.
+
+## UPDATE 2026-10-31 09:44 UTC (coordinator)
+
+- **release/v0.1.68 @ a1b160f** (assembly session_01Ayo4epijedhWS24eX5TLBq), COOP 16, sim e3c222f3ad44. Already merged:
+  - duo fix;
+  - stickers shadow;
+  - coop-freeplay test;
+  - set-boxes-v2 6d2e5716;
+  - icons 1b0e2603;
+  - patch note "Set Boxes and Awakening", dated 2026-10-31.
+  - Gates are running.
+- **Pending merges:**
+  - **tripo-batch-2 @ 19c69bf8:** delta r2 is running (session_01Ayo4eoUWNFhiGviW9NFTj3). Main risk is forceContextLoss.
+  - **sandbox:** r1 OK. The lows and follow-ups are going onto -next and then fast-forward; a delta review follows.
+  - **more-page-dps:** r1 review still running (session_01Ayo4eoeiXQw2BGEY4sgfFu).
+  - **drag touch fix:** session_01Ayo4enwChBzRMnbgGSVo4D.
+- **Delta review of the set-boxes r1 fixes plus icons polish:** session_01Ayo4emiMG3L3FMopwoRCy4.
