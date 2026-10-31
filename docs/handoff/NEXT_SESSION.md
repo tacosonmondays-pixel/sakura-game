@@ -340,3 +340,19 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
   - fix/stickers-setting-shadow @ 5886ac20, which still needs its review
   - Patch-note line: "Turning off other players' stickers now stays off even after opening the game in an older tab."
 - **Tripo batch 2** (feature/tripo-batch-2, session_01Ayo4eniSEuWQnvLYk8muWz) is processing.
+
+## UPDATE 2026-10-31 07:40 UTC (coordinator)
+
+- v0.1.67 is live. Its live check is running in session_01Ayo4eqvsSc9sAZx6NDAzRZ.
+- **Set Boxes v2 + LR awakening** are on feature/set-boxes-v2 @ fbe3b3b2 (session_01Ayo4eqpJHzAuKCjFySULet).
+  - Built: random and preset boxes (preset is Supply Bot only), batch open of 20, and UR boxes that are Supply Bot only.
+  - D5: an ✦ Awaken flow to LR, plus a free "Unbind to Blank LR".
+  - Waiting on:
+    - a full npm rerun;
+    - the 28 SET_BOX_V2_IDS icons (session_01Ayo4eqMGbYD6CyGCx9Unp7), which must also remove the RELEASE BLOCKER test exception;
+    - then a fresh reviewer.
+- **The LR bar on set gear fails for kohaku_tsubaki p2t5: crowd is ×1.02** of the urset bar (Akane 53.21M crowd, Aoi 13.26M boss with Geometry).
+  - The coordinator applied the owner's rule ("LRs beat every character", no nerfs). Fix: buff that path's crowd output on **fix/duo-p2t5-lr-bar** off main.
+  - It is a sim change: COOP_PROTOCOL 16, KNOWN[16]. `lrBar --gear urset` becomes part of the official gate.
+  - Ships in v0.1.68.
+- Owner defaults recorded: no UR box sources; pins stay Supply Bot only; batch cap 20; "Preset" rename; uniform random mains; free unbind.
