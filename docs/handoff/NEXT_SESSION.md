@@ -280,3 +280,14 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
   
   The trial merge with fc978aba is clean: npm test 6726/0 fail, noNerf 0 under vs fc978aba, lrBar ok. Assembly is now merging fc978aba for real, re-pinning KNOWN {14: b2ff5e0e884b, 15: 0fe7c5c04aec} plus the engines digests, and running noNerf vs live main. Then: v0.1.67 go/no-go, ship.
 - **Owner asked for stickers that look like the characters.** Done with NovelAI references from the game's own art. Tripo isn't suited to 2D, so no Tripo credits were used.
+
+## UPDATE 2026-10-31 06:06 UTC (coordinator): v0.1.66 LIVE
+
+- **v0.1.66 "Mirrors, Curses and the Gear Update" shipped.** main = fc978aba. version.json: 0.1.66, build fc978aba885e, sim b2ff5e0e884b, deployed 06:05:54Z.
+  - Go/no-go: GO (review/v0.1.66-go-final @ a59bb70a).
+  - Live check is running in session_01Ayo4eqbtBL2j9SWeXTtVEp.
+- **v0.1.67 "Ribbons, Frames and Stickers"** is release/v0.1.67 @ 91efe16a (COOP 15, sim 0fe7c5c04aec).
+  - Gates are green.
+  - The go/no-go is running in session_01Ayo4eothACitNJFzaqtizA.
+  - The assembly session is adding a test-only coop-rejoin wait fix.
+  - On GO: push to main, poll, live check.
