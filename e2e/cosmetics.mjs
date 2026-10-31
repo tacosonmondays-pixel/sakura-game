@@ -1,0 +1,173 @@
+// Cosmetics 2 e2e: the Honor Ribbon Case with the baked 3D-flat ribbons (earned cells draw the baked picture, locked
+// and secret cells keep the grey SVG, the four new secret ribbons are in it), a ribbon's detail at 256 px, the Edit
+// Profile frame picker (the new frames, a secret frame as "???" until earned) and the profile wearing a new frame.
+// Screenshots: e2e/out/cosmetics/<viewport>-<name>.png.
+//
+//   node e2e/cosmetics.mjs                          # 390x844, 844x390 and 1280x720
+//   node e2e/cosmetics.mjs --viewport 844x390
+import { createServer } from 'vite';
+import { mkdirSync } from 'node:fs';
+import { launchChromium } from './browser.mjs';
+import { veteran } from '../tests/fixtures/veterans.js';
+import { SAVE_KEY } from '../src/systems/save.js';
+import { CAMPAIGN_IDS } from '../src/data/stages.js';
+import { HONOR_RIBBONS } from '../src/data/honors.js';
+import { HONOR_TOTAL } from '../src/systems/profileHonors.js';
+import { frameChoices, earnedFrames } from '../src/systems/profileTrophies.js';
+
+const args = process.argv.slice(2);
+const opt = (name, def) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : def; };
+const viewports = opt('viewport', null) ? [opt('viewport')] : ['390x844', '844x390', '1280x720'];
+const OUT = 'e2e/out/cosmetics';
+mkdirSync(OUT, { recursive: true });
+const IGNORE = [/GPU stall due to ReadPixels/i, /WebGL: too many errors/i, /Automatic fallback to software WebGL/i, /GL_CLOSE_PATH_NV|GroupMarkerNotSet/i, /favicon\.ico/i,
+  /Failed to load resource: net::ERR_(CERT_AUTHORITY_INVALID|NAME_NOT_RESOLVED|INTERNET_DISCONNECTED|PROXY_CONNECTION_FAILED|TUNNEL_CONNECTION_FAILED|CONNECTION_REFUSED)/i];
+const failures = [];
+const log = (...a) => console.log(...a);
+function check(cond, msg) {
+  log(`  ${cond ? 'ok  ' : 'FAIL'} ${msg}`);
+  if (!cond) failures.push(msg);
+  return cond;
+}
+
+const LOCKED = ['a_login_365', 'a_mr_800', 'a_fp_bosses_4', 'a_try_g12', 'a_not_fooled']; // left unearned: grey cells
+/** A late veteran who claimed every ribbon but LOCKED, met Room with a View (Window Seat) but not Where It All Began. */
+function save({ frame = null } = {}) {
+  const p = veteran('late');
+  for (const id of CAMPAIGN_IDS) (p.progress.stages[id] ||= { easy: true, normal: true, hard: true, clears: 1 }).nightmare = true;
+  for (const h of HONOR_RIBBONS) if (!LOCKED.includes(h.id) && h.id !== 'a_first_petals') p.missions.achievements[h.id] = true;
+  p.missions.achievements.a_room_view = true;
+  p.missions.counters.coopWin = 60;
+  if (frame) p.sensei = { ...(p.sensei || {}), frame };
+  return p;
+}
+
+const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+await server.listen();
+const base = `http://127.0.0.1:${server.httpServer.address().port}/`;
+const { browser, label } = await launchChromium();
+log(`browser: ${label}`);
+
+async function openWith(context, profile, hash) {
+  const page = await context.newPage();
+  const errors = [];
+  page.on('console', (m) => { if (m.type() === 'error' && !IGNORE.some((re) => re.test(m.text()))) errors.push(`[console] ${m.text()}`); });
+  page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
+  await page.addInitScript(([key, text]) => {
+    if (!sessionStorage.getItem('cos-e2e-seeded')) {
+      localStorage.setItem(key, text);
+      sessionStorage.setItem('cos-e2e-seeded', '1');
+    }
+    sessionStorage.setItem('sakura-title-seen', '1');
+  }, [SAVE_KEY, JSON.stringify(profile)]);
+  await page.goto(`${base}?onboarding=0${hash}`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__sakura && document.querySelector('#app')?.children.length > 0, null, { timeout: 30000 });
+  return { page, errors };
+}
+const settle = (page) => page.waitForFunction(() => [...document.images].every((i) => i.complete), null, { timeout: 15000 }).catch(() => {});
+const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+
+async function runViewport(vp) {
+  const [w, hh] = vp.split('x').map(Number);
+  const touch = Math.min(w, hh) < 600;
+  log(`\n=== viewport ${vp} ===`);
+  const shot = (page, name) => page.screenshot({ path: `${OUT}/${vp}-${name}.png` }).catch((e) => log(`  (screenshot ${name} skipped: ${e.message.split('\n')[0]})`));
+  const context = await browser.newContext({ viewport: { width: w, height: hh }, deviceScaleFactor: 1, hasTouch: touch });
+
+  // ---- 1. the Case ----
+  let { page, errors } = await openWith(context, save(), '#/commissions?tab=achievements');
+  await page.waitForSelector('[data-testid="ach-tab"]', { timeout: 30000 });
+  await page.waitForTimeout(700);
+  await page.click('[data-testid="ach-case"]');
+  await page.waitForSelector('[data-testid="ach-case-view"]', { timeout: 10000 });
+  await page.waitForTimeout(600);
+  await settle(page);
+  const cs = await page.evaluate((locked) => {
+    const cells = [...document.querySelectorAll('[data-testid^="ach-cell-"]')];
+    const of = (id) => document.querySelector(`[data-testid="ach-cell-${id}"]`);
+    const baked = cells.filter((c) => c.querySelector('img.rb-bake'));
+    return {
+      n: cells.length,
+      baked: baked.length,
+      // the 128 px cut up to a 64 px cell, the 256 px cut above it
+      loaded: baked.every((c) => { const i = c.querySelector('img.rb-bake'); const s = c.querySelector('.rb').getBoundingClientRect().width; return i.complete && i.naturalWidth === (s <= 64.5 ? 128 : 256); }),
+      lockedSvg: locked.every((id) => !of(id) || (!of(id).querySelector('img.rb-bake') && !!of(id).querySelector('svg.rb-art'))),
+      secrets: ['a_close_call', 'a_gold_rush', 'a_mirror_mirror'].every((id) => !!of(id)?.querySelector('img.rb-bake')),
+      keenEye: !!of('a_not_fooled'),
+      // the picture sits exactly over the ribbon's box (64 + 2 × 2 units)
+      fit: baked.every((c) => { const r = c.querySelector('.rb').getBoundingClientRect(); const i = c.querySelector('img.rb-bake').getBoundingClientRect(); return Math.abs(i.width - r.width * 68 / 64) < 1.5 && Math.abs((i.left + i.width / 2) - (r.left + r.width / 2)) < 1.5; }),
+    };
+  }, LOCKED);
+  check(cs.n === HONOR_TOTAL, `case: a cell for each of the ${HONOR_TOTAL} ribbons (${cs.n})`);
+  check(cs.baked === HONOR_TOTAL - LOCKED.length - 1 && cs.loaded, `case: every earned cell draws its baked picture at the right cut (${cs.baked}, loaded ${cs.loaded})`);
+  check(cs.lockedSvg, 'case: locked and secret cells keep the grey SVG');
+  check(cs.secrets && cs.keenEye, 'case: the new secret ribbons are in the Case (Last Bell, Lucky Coin, Looking-Glass earned; Keen Eye locked)');
+  check(cs.fit, 'case: the picture sits centred over the ribbon box with its 2-unit overflow');
+  check(!(await overflow(page)), 'case: no horizontal overflow');
+  await shot(page, 'case');
+
+  // ---- 2. a ribbon's detail ----
+  await page.click('[data-testid="ach-cell-a_mirror_mirror"]');
+  await page.waitForTimeout(700);
+  await settle(page);
+  const det = await page.evaluate(() => {
+    const img = document.querySelector('.ach-detail-stage img.rb-bake, .ach-detail img.rb-bake, .ach-detail-modal img.rb-bake');
+    return { name: document.querySelector('.ach-detail-name')?.textContent || '', src: img?.getAttribute('src') || '', w: img?.naturalWidth || 0 };
+  });
+  check(/Looking-Glass/.test(det.name), `detail: the Looking-Glass Ribbon (${det.name})`);
+  check(/a_mirror_mirror-(256|128)\.webp\?v=/.test(det.src) && det.w > 0, `detail: its baked picture (${det.src.split('/').pop()})`);
+  await shot(page, 'detail');
+  check(!errors.length, `case: no console errors (${errors.slice(0, 3).join(' | ')})`);
+  await page.close();
+
+  // ---- 3. the frame picker ----
+  const p = save();
+  ({ page, errors } = await openWith(context, p, '#/profile?edit=picture'));
+  await page.waitForSelector('[data-testid="edit-frames"]', { timeout: 30000 });
+  await page.waitForTimeout(600);
+  const fr = await page.evaluate(() => {
+    const tiles = [...document.querySelectorAll('[data-testid="edit-frames"] [data-frame]')];
+    const t = (id) => tiles.find((x) => x.dataset.frame === id);
+    return {
+      ids: tiles.map((x) => x.dataset.frame),
+      secretHidden: t('first_petal')?.textContent.includes('???') && t('first_petal')?.classList.contains('locked'),
+      windowOk: !!t('window_seat') && !t('window_seat').disabled && t('window_seat').textContent.includes('Window Seat'),
+      sakuraOk: !!t('sakura') && !t('sakura').disabled,
+      knotOk: !!t('knot') && !t('knot').disabled,
+    };
+  });
+  const want = ['default', ...frameChoices(p)];
+  check(JSON.stringify(fr.ids) === JSON.stringify(want), `picker: Default + the ${want.length - 1} frames this save can see (${fr.ids.length})`);
+  check(fr.secretHidden, 'picker: the unearned secret frame reads "???" and stays locked');
+  check(fr.windowOk && fr.sakuraOk && fr.knotOk, `picker: Window Seat, Sakura and Friendship Knot are earned (${earnedFrames(p).join(', ')})`);
+  await page.click('[data-testid="edit-frames"] [data-frame="window_seat"]');
+  await page.waitForTimeout(400);
+  await page.locator('[data-testid="edit-frames"]').scrollIntoViewIfNeeded().catch(() => {});
+  check(!(await overflow(page)), 'picker: no horizontal overflow');
+  await shot(page, 'frames');
+  check(!errors.length, `picker: no console errors (${errors.slice(0, 3).join(' | ')})`);
+  await page.close();
+
+  // ---- 4. the profile wearing a new frame ----
+  ({ page, errors } = await openWith(context, save({ frame: 'window_seat' }), '#/profile'));
+  await page.waitForSelector('[data-testid="profile-avatar"]', { timeout: 30000 });
+  await page.waitForTimeout(800);
+  await settle(page);
+  const av = await page.evaluate(() => {
+    const a = document.querySelector('[data-testid="profile-avatar"]');
+    return { frame: a?.dataset.frame, art: !!a?.querySelector('[data-frame-art="window_seat"]') };
+  });
+  check(av.frame === 'window_seat' && av.art, `profile: the picture wears Window Seat (${JSON.stringify(av)})`);
+  await shot(page, 'profile');
+  check(!errors.length, `profile: no console errors (${errors.slice(0, 3).join(' | ')})`);
+  await context.close();
+}
+
+try {
+  for (const vp of viewports) await runViewport(vp);
+} finally {
+  await browser.close();
+  await server.close();
+}
+log(failures.length ? `\nFAILED ${failures.length}:\n  ${failures.join('\n  ')}` : '\nALL OK');
+process.exit(failures.length ? 1 : 0);

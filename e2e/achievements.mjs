@@ -16,6 +16,7 @@ import { veteran } from '../tests/fixtures/veterans.js';
 import { createProfile, SAVE_KEY } from '../src/systems/save.js';
 import { skipOnboarding } from '../src/systems/story.js';
 import { CAMPAIGN_IDS } from '../src/data/stages.js';
+import { HONOR_TOTAL } from '../src/systems/profileHonors.js';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -243,12 +244,12 @@ async function runViewport(vp) {
   const after = await page.evaluate(() => ({ n: Object.keys(window.__sakura.store.profile.missions.achievements).length, button: !!document.querySelector('[data-testid="ach-claim-all"]') }));
   check(after.n === claimed && after.button === false, `4: after a reload the claims stay (${after.n}) and Claim all is gone (${after.button})`);
 
-  // ---- 5. the Case: 34 cells, the detail ----
+  // ---- 5. the Case: every ribbon, the detail ----
   await page.click('[data-testid="ach-case"]');
   await page.waitForSelector('[data-testid="ach-case-view"]', { timeout: 10000 });
   await page.waitForTimeout(800);
   const cells = await page.$$eval('[data-testid^="ach-cell-"]', (els) => els.length);
-  check(cells === 34, `5: the Case has 34 cells (32 at launch + Kind Heart with social + the Holo Codex Ribbon) (${cells})`);
+  check(cells === HONOR_TOTAL, `5: the Case has a cell for every ribbon of this build (${HONOR_TOTAL}: with the 4 secret ribbons of Cosmetics 2) (${cells})`);
   await page.click('[data-testid="ach-cell-a_ur_1"]');
   await page.waitForTimeout(700);
   const det = await page.evaluate(() => !!document.querySelector('.ach-detail-body .ach-detail-name'));
