@@ -210,3 +210,31 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
   - Then a fresh review of the art commit e30559e7 plus these follow-ups.
 - Pre-existing failures on release, not from the branches: the e2e/achievements.mjs:44 lateSave crash, and 2 smoke "drag (touch)" failures. Both need their own follow-up.
 - Still waiting on the owner: art v3 (A/B/C/D), the LR rule (A/B), co-op sharing Q1–Q4, stickers, the VFX spike, and the new star unit.
+
+## UPDATE 2026-10-31 03:15 UTC (coordinator)
+
+- **v0.1.66** is still waiting on the Iroha fix (session_01Ayo4eoCgrSVLeUAfoteAm8). Its full balance sweep is running; the Yuki and Marumi cells are at or above live so far. Next steps are unchanged.
+- **Cosmetics 2**: r2 (review/cosmetics-2-r2 @ 4a5268e0) is NOT OK on **N1**: secret rewards still leak in the Achievements tab (list.js:152 chips, claim.js:197-244 ribbonInfo, titleInfo and the Titles sheet).
+  - Sent to builder session_01Ayo4eqMGbYD6CyGCx9Unp7, with a single isSecretLocked helper and an e2e DOM sweep.
+  - r3 reviewer next. This is the 3rd round; if it fails, escalate to the owner.
+- **Profile banners**: r2 reviewer session_01Ayo4enMDnrTcERFcyU1Vf9 is checking feature/profile-banners-art @ bc9188b9 (art + merge + follow-ups).
+- **Co-op feel**: r1 (review/coop-feel-r1 @ aac5f90). Both branches are OK after **F1**.
+  - F1 is a double-buy: coopPending expires by wall clock during a 6–12 s stall.
+  - Also requested: F2, F3, L1, and the spec items S1 (D5 needs a sim change), S2 (they/them), S3 and S4.
+  - Builder session_01Ayo4eoDNHhkN52WFy65DsA also merges release 26dd6ab6.
+  - Latency: busy 200/200 stall went from 11.5% to 2.1%.
+- **Stickers**: done and reviewed OK, on feature/stickers @ de66884 (off cosmetics-2 6d271600).
+  - 16 stickers, 0 Anlas spent (free tier); balance is 6,713.
+  - Board: docs/art/previews/stickers-v1-board.png.
+  - Owner questions Q1–Q5 have defaults: later batch; owning unlocks; lobby picker yes; Sensei sticker later; strangers on with mute/block.
+- **Tripo batch 1**: r1 OK (review/tripo-batch-1-r1 @ b5c1adb).
+  - Follow-ups sent to session_01Ayo4eniSEuWQnvLYk8muWz: revert e1ca6cfe (reference PNGs), M1 e2e bells, and L1–L5.
+  - The 54-row Chrome checklist is at docs/art/tripo/chrome-batch-1.md on this branch and was sent to the owner.
+  - API credits: 365 left. Spend no more.
+- **v0.1.67 contents**:
+  - coop-feel-net (COOP 15) + coop-feel UI;
+  - cosmetics-2;
+  - profile banners (+art);
+  - stickers;
+  - Tripo batch 1.
+  - Assemble after v0.1.66 ships and each piece is OK.
