@@ -80,7 +80,10 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 //    stall and stamps orders after unsent promises, so the two would wait on each other differently.
 // 16: the duo's LR refraction build (fix/duo-p2t5-lr-bar): Kohaku & Tsubaki's LR tier-5 Refraction row 2.0 → 2.1
 //    (the LR bar on set gear); a client on 15 resolves the same loadout to a different battle.
-export const COOP_PROTOCOL = 16;
+// 17: Suzu and Azami on bosses (fix/suzu-azami-boss): their bells and strips go under a boss in range, a bell a boss
+//    sets off rides on it and rings, a boss on a strip is struck again until its hits run out, Azami's boss row ×4.4;
+//    a client on 16 resolves the same battle differently.
+export const COOP_PROTOCOL = 17;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */

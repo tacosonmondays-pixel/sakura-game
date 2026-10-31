@@ -247,7 +247,7 @@ export const KNOWN_TOWER_KEYS = Object.freeze({
   aim: 'snap', origin: 'derived', ox: 'derived', oy: 'derived', _globalDmg: 'derived',
   // the new girls (UNIT_GAPS §5): Azami's Spread cursor stays ('sc'); her flyer and blast specs follow
   // her stats (refreshEffective). Her carried strips ride in 'tr'.
-  stripCursor: 'snap', stripAirSpec: 'derived', stripBoomSpec: 'derived',
+  stripCursor: 'snap', stripAirSpec: 'derived', stripBoomSpec: 'derived', bossBellSpec: 'derived',
   // Kinu: her ring's turn stays ('rg'); heat rings end at the wave clear; the scissors' spec follows her stats
   ringTurn: 'snap', rings: 'calm', scissorSpec: 'derived',
   // the attack shapes S1 (src/sim/wheels.js): a spin index and halo memory end at the wave clear; the halo spec follows her stats

@@ -20,6 +20,12 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.69', version: '0.1.69', date: '2026-10-31', title: 'Bells and strips for bosses',
+    changed: [
+      'Suzu and Azami can now take on bosses: with a boss in range they set their bells and strips right under it. A bell a boss sets off sticks to it and keeps ringing, even while it flies, and a boss on a spike strip keeps getting hit until the strip is used up.',
+    ],
+  },
+  {
     id: 'v0.1.68', version: '0.1.68', date: '2026-10-31', title: 'Set Boxes and Awakening',
     added: [
       'The More page in battle now shows every girl\'s real DPS, measured from the damage she actually deals, with a breakdown by source for attack shapes. Heroes like Luna get their full stat grid, and every kit piece has its own row.',
