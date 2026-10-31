@@ -47,7 +47,7 @@ import { openItemSheet } from '../itemSheet.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { isUR } from '../rarity.js';
 import { boxSummary, SUMMARY_ABOVE } from '../gearSummary.js';
-import { gearCard, gearActions, pickGearFor, rainbowBoxModal, setBoxModal } from '../gearUr.js';
+import { gearCard, pickGearFor, rainbowBoxModal, setBoxModal } from '../gearUr.js';
 import { openPieceSheet } from '../girlGear.js';
 import '../styles/achievements.css'; // the gear summary
 
@@ -193,8 +193,8 @@ function groupItems(ids) {
   return [...groups.values()].sort((a, b) => a.order - b.order);
 }
 
-/** The gear tools a piece is picked for (Seed, Needle, Armband). */
-const GEAR_TOOLS = ['gearAwaken', 'gearStitch', 'gearClub', 'gearPin'];
+/** The gear tools a piece is picked for (Seed, Needle, Armband, pins, Nightglass Lens). */
+const GEAR_TOOLS = ['gearAwaken', 'gearStitch', 'gearClub', 'gearPin', 'gearLimit'];
 
 /** A gear box that can be opened now (the Supplies dot and GEAR's tab dot). */
 function boxReady(profile) {
