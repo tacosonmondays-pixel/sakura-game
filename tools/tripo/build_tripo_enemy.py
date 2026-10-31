@@ -4,8 +4,8 @@ in place of its family's shared mesh (the family GLB stays the fallback).
     python3.11 tools/tripo/build_tripo_enemy.py --source <file.glb> --id brigade_trooper --kind humanoid
     python3.11 tools/tripo/build_tripo_enemy.py --source <file.glb> --id brigade_gnat --kind hover
 
---kind humanoid takes a Tripo animate_rig GLB (biped); hover / vehicle take a text_to_model GLB and get a
-rigid two-bone rig. Steps: face the game's front, floor pivot, 1 m reference size, decimate to --tris,
+--kind humanoid takes a Tripo animate_rig GLB (biped) or an unrigged website download (rigged from its shape by
+tripolib/autorig.py); hover / vehicle / blob take an unrigged GLB and get a rigid two-bone rig. Steps: face the game's front, floor pivot, 1 m reference size, decimate to --tris,
 move / idle / hit / death / special (tripolib/clips_enemy.py), export, Meshy phone packing (half-scale
 storage, extras.unitScale 2, WebP base colour at --tex). extras: { id, source: 'tripo', style: 'textured',
 height, unitScale, kind }. `height` is the size the game scales to 0.6 x EnemyDef.size: the figure's height
@@ -22,7 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 
-from tripolib import normalize, rig, clips_enemy  # noqa: E402
+from tripolib import normalize, rig, clips_enemy, autorig  # noqa: E402
 from tripolib.meshy import pack  # noqa: E402
 
 STORE_SCALE = 0.5
@@ -33,7 +33,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--source', required=True)
     ap.add_argument('--id', required=True)
-    ap.add_argument('--kind', required=True, choices=['humanoid', 'hover', 'vehicle'])
+    ap.add_argument('--kind', required=True, choices=['humanoid', 'hover', 'vehicle', 'blob'])
+    ap.add_argument('--arm-z', type=float, default=None, help='unrigged humanoid: the arm line, if the measured one is wrong')
     ap.add_argument('--shield', action='store_true', help='humanoid: the left arm holds a shield up in front')
     ap.add_argument('--tris', type=int, default=5000)
     ap.add_argument('--tex', type=int, default=512)
@@ -45,13 +46,28 @@ def main():
     assert len(meshes) == 1
     body = meshes[0]
     bpy.context.scene.render.fps = 30
-    if args.kind == 'humanoid':
-        assert arm, 'a humanoid needs the Tripo animate_rig GLB'
+    if args.kind == 'humanoid' and arm:
+        # a Tripo animate_rig GLB (batch 1)
+        assert len(meshes) == 1
         rig.face_front_biped(arm, meshes, normalize)
         rig.rename(arm)
         lo, hi = normalize.bounds(meshes)
         ref = hi.z - lo.z
+    elif args.kind == 'humanoid':
+        # an unrigged website download (batch 2): joined, decimated first, then rigged from its shape
+        body = normalize.join(meshes)
+        meshes = [body]
+        normalize.face_front(None, meshes, -90.0)
+        normalize.scale_to(None, meshes, 1.0)
+        normalize.weld(body)
+        normalize.decimate(body, args.tris)
+        arm, marks = autorig.rig(body, arm_z=args.arm_z)
+        print(f'[tripo] {args.id}: autorig {marks}')
+        ref = 1.0
     else:
+        body = normalize.join(meshes)
+        meshes = [body]
+        normalize.weld(body)
         lo, hi = normalize.face_front(None, meshes, -90.0)
         # a vehicle is sized by its length (one road tile wide at most), a drone by its span
         size = max(hi.z - lo.z, (0.95 if args.kind == 'vehicle' else 0.7) * max(hi.x - lo.x, hi.y - lo.y))
@@ -63,6 +79,7 @@ def main():
     body.name = body.data.name = args.id
     if args.kind == 'humanoid':
         arm.name = f'{args.id}_rig'
+        arm.data.name = f'{args.id}_rig'
         clips_enemy.HumanoidClips(arm, shield=args.shield).build()
     else:
         arm = clips_enemy.rigid_rig(meshes, hi.z - lo.z)

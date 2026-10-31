@@ -1,4 +1,21 @@
 {
+ "beast_wolf": {
+  "file": "beast_wolf.glb",
+  "size": 240964,
+  "triangles": 4999,
+  "vertices": 6757,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "vehicle",
+  "source": "tripo"
+ },
  "brigade_badger": {
   "file": "brigade_badger.glb",
   "size": 330580,
@@ -82,6 +99,295 @@
   "height": 1.0,
   "unitScale": 2.0,
   "kind": "humanoid",
+  "source": "tripo"
+ },
+ "construct_cogling": {
+  "file": "construct_cogling.glb",
+  "size": 258592,
+  "triangles": 4999,
+  "vertices": 6925,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "vehicle",
+  "source": "tripo"
+ },
+ "dragon_ashwing": {
+  "file": "dragon_ashwing.glb",
+  "size": 481536,
+  "triangles": 12000,
+  "vertices": 12254,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "hover",
+  "source": "tripo"
+ },
+ "dragon_wyvern": {
+  "file": "dragon_wyvern.glb",
+  "size": 214520,
+  "triangles": 4999,
+  "vertices": 5582,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "hover",
+  "source": "tripo"
+ },
+ "fae_sprite": {
+  "file": "fae_sprite.glb",
+  "size": 239596,
+  "triangles": 4999,
+  "vertices": 6253,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "hover",
+  "source": "tripo"
+ },
+ "fp_eclipse_wyrm": {
+  "file": "fp_eclipse_wyrm.glb",
+  "size": 647860,
+  "triangles": 20000,
+  "vertices": 17341,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "hover",
+  "source": "tripo"
+ },
+ "fp_foundry_titan": {
+  "file": "fp_foundry_titan.glb",
+  "size": 835120,
+  "triangles": 20000,
+  "vertices": 21085,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "humanoid",
+  "source": "tripo"
+ },
+ "fp_gloom_regent": {
+  "file": "fp_gloom_regent.glb",
+  "size": 745032,
+  "triangles": 19999,
+  "vertices": 20167,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "hover",
+  "source": "tripo"
+ },
+ "fp_hyakki_daimyo": {
+  "file": "fp_hyakki_daimyo.glb",
+  "size": 926356,
+  "triangles": 20000,
+  "vertices": 22654,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "humanoid",
+  "source": "tripo"
+ },
+ "ghost_wisp": {
+  "file": "ghost_wisp.glb",
+  "size": 183984,
+  "triangles": 5000,
+  "vertices": 4974,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "hover",
+  "source": "tripo"
+ },
+ "ghoul_bonewalker": {
+  "file": "ghoul_bonewalker.glb",
+  "size": 284664,
+  "triangles": 4999,
+  "vertices": 6966,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "humanoid",
+  "source": "tripo"
+ },
+ "goblin_runner": {
+  "file": "goblin_runner.glb",
+  "size": 222004,
+  "triangles": 4999,
+  "vertices": 5316,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "humanoid",
+  "source": "tripo"
+ },
+ "iron_colossus": {
+  "file": "iron_colossus.glb",
+  "size": 605096,
+  "triangles": 11999,
+  "vertices": 14126,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "humanoid",
+  "source": "tripo"
+ },
+ "lizard_skink": {
+  "file": "lizard_skink.glb",
+  "size": 188832,
+  "triangles": 5000,
+  "vertices": 4464,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "humanoid",
+  "source": "tripo"
+ },
+ "oni_brute": {
+  "file": "oni_brute.glb",
+  "size": 254728,
+  "triangles": 4999,
+  "vertices": 5737,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "humanoid",
+  "source": "tripo"
+ },
+ "orc_grunt": {
+  "file": "orc_grunt.glb",
+  "size": 253280,
+  "triangles": 4999,
+  "vertices": 6571,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "humanoid",
+  "source": "tripo"
+ },
+ "plant_sprout": {
+  "file": "plant_sprout.glb",
+  "size": 186300,
+  "triangles": 5000,
+  "vertices": 5151,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "blob",
+  "source": "tripo"
+ },
+ "slime_green": {
+  "file": "slime_green.glb",
+  "size": 188280,
+  "triangles": 5000,
+  "vertices": 4834,
+  "animations": [
+   "death",
+   "hit",
+   "idle",
+   "move",
+   "special"
+  ],
+  "height": 1.0,
+  "unitScale": 2.0,
+  "kind": "blob",
   "source": "tripo"
  }
 }

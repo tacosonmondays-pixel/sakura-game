@@ -14,6 +14,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildProp, hasProp } from './props.js';
+import { landmarkKey, attachLandmarks } from './tripoLandmarks.js';
 import { makeRand, hash, placeMatrix } from './geo.js';
 import { detailTexture, pathTexture, maskTexture, paintGround } from './textures.js';
 import { planRoads, buildDecks, buildTunnels, WATER_CLEAR } from './trackMesh.js';
@@ -656,8 +657,12 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
   // city buildings: one opaque facade material (shader windows), shared with the kit's movers
   mats.facade = look.city ? createFacadeMaterial({ ...(look.city.glass || {}), night: look.night }) : null;
   if (mats.facade) disposables.push(mats.facade);
+  // story landmarks with a Tripo model (src/render/tripoLandmarks.js): placed as their own group so the model can
+  // take the procedural piece's place when its file arrives
+  const landmarkGroups = [];
   const place = (type, x, y, z, ry = 0, s = 1, variant = 0, target = null, lod = 'near') => {
     if (!hasProp(type) && type !== 'puddle') return;
+    const landmark = type !== 'puddle' ? landmarkKey(type, variant) : null;
     if (type === 'puddle') {
       puddles.push({ x, z, s, color: ['#9be36a', '#ff9ec4', '#8fd0ff', '#ffd84d', '#c4a6ff'][variant % 5] });
       return;
@@ -670,11 +675,18 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       g.applyMatrix4(m4);
       list.push(g);
     };
-    if (target) {
-      // separate object (water set pieces that hide under water girls)
+    if (target || landmark) {
+      // separate object (water set pieces that hide under water girls; a landmark with a Tripo model)
       const sub = new THREE.Group();
-      for (const [src, mat] of [[p.solid, 'solid'], [p.foliage, 'foliage'], [p.glow, 'glow'], [p.facade, 'facade']]) {
-        if (!src || !mats[mat]) continue;
+      for (const [src0, mat] of [[p.solid, 'solid'], [p.foliage, 'foliage'], [p.glow, 'glow'], [p.facade, 'facade']]) {
+        if (!src0 || !mats[mat]) continue;
+        let src = src0;
+        if (landmark && mat === 'glow' && glowDim) {
+          // (a landmark's own glow dims in a blackout like the merged props': its own copy carries the weight)
+          src = src0.clone();
+          src.setAttribute('dimk', new THREE.BufferAttribute(new Float32Array(src.attributes.position.count).fill(KEEP_LIT.has(type) || p.keepLit ? 0 : 1), 1));
+          disposables.push(src);
+        }
         const mesh = new THREE.Mesh(src, mats[mat]);
         mesh.castShadow = shadows && mat !== 'glow';
         sub.add(mesh);
@@ -683,7 +695,11 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
       sub.rotation.y = ry;
       sub.scale.setScalar(s);
       group.add(sub);
-      target.push(sub);
+      if (target) target.push(sub);
+      if (landmark) {
+        sub.userData.landmark = landmark;
+        landmarkGroups.push(sub);
+      }
     } else {
       push(p.solid, solidParts);
       push(p.foliage, foliageParts);
@@ -1326,6 +1342,7 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     });
   };
 
+  const landmarks = attachLandmarks(landmarkGroups);
   return {
     group,
     update,
@@ -1394,7 +1411,10 @@ export function buildTerrain(map, look, scenery, { shadows = false, quality = 'h
     isPath: (x, y) => isPath(x, y),
     extent: { x0: X0, y0: Y0, w: EW, h: EH },
     waterMaterial: waterMat,
+    /** the story landmarks that become Tripo models when their files arrive (e2e / debug) */
+    landmarks: landmarkGroups,
     dispose() {
+      landmarks.dispose();
       for (const d of disposables) d.dispose?.();
       city?.dispose();
       group.clear();

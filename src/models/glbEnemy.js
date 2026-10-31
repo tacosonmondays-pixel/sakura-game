@@ -58,7 +58,14 @@ export function enemyUrl(family) {
  * death / special). They replace the family's shared mesh for that id; the family GLB stays the fallback
  * while the file loads or if it fails. Plain list so the loaders can decide without the manifest.
  */
-export const TRIPO_ENEMIES = Object.freeze(['brigade_gnat', 'brigade_trooper', 'brigade_shieldline', 'brigade_tortoise', 'brigade_badger']);
+export const TRIPO_ENEMIES = Object.freeze([
+  // batch 1: the Gate Response Brigade
+  'brigade_gnat', 'brigade_trooper', 'brigade_shieldline', 'brigade_tortoise', 'brigade_badger',
+  // batch 2: one enemy per family, and the bosses and titans
+  'slime_green', 'goblin_runner', 'orc_grunt', 'ghost_wisp', 'ghoul_bonewalker', 'oni_brute', 'lizard_skink',
+  'construct_cogling', 'beast_wolf', 'fae_sprite', 'plant_sprout', 'dragon_wyvern',
+  'dragon_ashwing', 'fp_eclipse_wyrm', 'fp_gloom_regent', 'fp_hyakki_daimyo', 'iron_colossus', 'fp_foundry_titan',
+]);
 const TRIPO_SET = new Set(TRIPO_ENEMIES);
 
 /** Asset key of an enemy's own Tripo model ('tripo/<id>'), or null. */
@@ -111,8 +118,8 @@ export function loadFamily(family) {
       return loader().then((l) => l.loadAsync(enemyUrl(family))).then((gltf) => prepareAsset(family, gltf));
     })
     .catch((e) => {
-      // a one-enemy Tripo model falls back to its family's shared mesh (the Brigade: the construct family mesh)
-      if (family.startsWith('tripo/')) console.warn(`[models] enemy model ${family} unavailable, using the construct family mesh fallback`, e?.message || e);
+      // a one-enemy Tripo model falls back to its family's shared mesh (the Brigade's: the construct family mesh)
+      if (family.startsWith('tripo/')) console.warn(`[models] enemy model ${family} unavailable, using its family mesh fallback`, e?.message || e);
       else console.warn(`[models] enemy family ${family} unavailable, using procedural fallback`, e?.message || e);
       return null;
     })

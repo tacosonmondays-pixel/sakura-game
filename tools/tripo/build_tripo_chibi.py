@@ -4,7 +4,8 @@
     (attack clip, style and chin-up per figure in PROFILES; --attack / --attack-style / --chin override)
 
 Input: the GLB of a Tripo `animate_rig` task (biped, spec 'tripo') run on the text_to_model result
-(prompts and task ids: docs/art/tripo/batch-1.md). Raw downloads live in tools/art/src/tripo/<batch>/
+(prompts and task ids: docs/art/tripo/batch-1.md), or an unrigged Tripo website download (batch 2,
+docs/art/tripo/batch-2.md): then the mesh is joined, decimated first and rigged by tripolib/autorig.py. Raw downloads live in tools/art/src/tripo/<batch>/
 on the owner's machine and stay out of git.
 
 Steps (one bpy session per detail level):
@@ -29,7 +30,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 
-from tripolib import normalize, clips_staff, rig  # noqa: E402
+from tripolib import normalize, clips_staff, rig, autorig  # noqa: E402
 from tripolib.meshy import pack  # noqa: E402
 
 # per-figure settings of the shipped files (batch 1): attack clip, its style, and the chin-up that keeps the eyes
@@ -37,6 +38,11 @@ from tripolib.meshy import pack  # noqa: E402
 PROFILES = {
     'kogane': dict(attack='attack_wrench', attack_style='swing', chin=-14.0),
     'norika': dict(attack='attack_sign', attack_style='raise', chin=-20.0),
+    # batch 2 (Tripo website downloads, unrigged: tripolib/autorig.py fits the rig; arms rest straight out)
+    'luna': dict(attack='attack_cast', attack_style='raise', chin=-6.0, arms_down=62.0),
+    'nami': dict(attack='attack_thrust', attack_style='raise', chin=-10.0, arms_down=62.0),
+    'kanna': dict(attack='attack_smash', attack_style='swing', chin=-6.0, arms_down=62.0, arm_z=0.525),  # twin tails as wide as her arms
+    'yoriko': dict(attack='attack_cast', attack_style='raise', chin=-6.0, arms_down=62.0),
 }
 
 GAME_HEIGHT = 1.224  # like the imported Meshy figures (docs/MODELS.md)
@@ -46,14 +52,26 @@ def build(args, detail):
     full = detail == 'full'
     normalize.reset()
     arm, meshes = normalize.import_glb(args.source)
-    assert arm and len(meshes) == 1, 'expected one skinned mesh'
-    body = meshes[0]
-    rig.face_front_biped(arm, meshes, normalize)
-    rig.rename(arm)
+    if arm:
+        # a Tripo animate_rig GLB (batch 1): its own skinned mesh and biped rig
+        assert len(meshes) == 1, 'expected one skinned mesh'
+        body = meshes[0]
+        rig.face_front_biped(arm, meshes, normalize)
+        rig.rename(arm)
+    else:
+        # an unrigged website download (batch 2): one mesh, turned by --yaw to face -Y, fitted rig
+        body = normalize.join(meshes)
+        meshes = [body]
+        normalize.face_front(None, meshes, args.yaw)
+        normalize.scale_to(None, meshes, 1.0)
+        normalize.weld(body)
+        normalize.decimate(body, args.tris if full else args.lod_tris)
+        arm, marks = autorig.rig(body, arm_z=args.arm_z)
+        print(f'[tripo] {args.id} {detail}: autorig {marks}')
     arm.name = f'{args.id}_rig'
     body.name = body.data.name = args.id
     img = normalize.name_base_image(meshes)
-    tris = normalize.decimate(body, args.lod_tris) if not full else sum(len(p.vertices) - 2 for p in body.data.polygons)
+    tris = normalize.decimate(body, args.lod_tris if not full else args.tris)
     bpy.context.scene.render.fps = clips_staff.FPS
     clips_staff.Clips(arm, arms_down=args.arms_down, chin=args.chin, attack=args.attack_style).build(args.attack)
     tmp = tempfile.mkdtemp(prefix='tripo_')
@@ -83,7 +101,10 @@ def main():
     ap.add_argument('--id', required=True)
     ap.add_argument('--attack', default=None, help='attack clip name, e.g. attack_wrench (default: PROFILES)')
     ap.add_argument('--attack-style', default=None, choices=['swing', 'raise'])
-    ap.add_argument('--arms-down', type=float, default=38.0, help='degrees from the rig rest arms to the idle arms')
+    ap.add_argument('--arms-down', type=float, default=None, help='degrees from the rig rest arms to the idle arms')
+    ap.add_argument('--yaw', type=float, default=-90.0, help='unrigged source: turn about Z so it faces -Y (degrees; Tripo faces +X)')
+    ap.add_argument('--tris', type=int, default=20000)
+    ap.add_argument('--arm-z', type=float, default=None, help='unrigged source: the arm line (fraction of the height) if the measured one is wrong')
     ap.add_argument('--chin', type=float, default=None, help='head pitch in every clip (negative = chin up, for the 48 deg camera)')
     ap.add_argument('--out', default=os.path.join(ROOT, 'public', 'models', 'characters'))
     ap.add_argument('--lod-tris', type=int, default=9000)
@@ -93,7 +114,7 @@ def main():
     ap.add_argument('--raw-dir', default=None)
     ap.add_argument('--no-manifest', action='store_true')
     args = ap.parse_args(argv)
-    prof = PROFILES.get(args.id, dict(attack=None, attack_style='swing', chin=-8.0))
+    prof = {'arms_down': 38.0, **PROFILES.get(args.id, dict(attack=None, attack_style='swing', chin=-8.0))}
     for k, v in prof.items():
         if getattr(args, k) is None:
             setattr(args, k, v)
