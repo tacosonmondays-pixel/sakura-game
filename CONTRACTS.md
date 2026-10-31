@@ -815,6 +815,13 @@ GearInstance = { uid, slot, rarity, level /*0-10; 0-12 when ur*/, main: { stat, 
   // in the mailbox and are marked by M0's one-mark-per-box keys: M0 ships with or before M2 (the same release), so an
   // older build's reader never meets an M2 save. A Tenka lab joiner keeps her own interest cap (lab.interestCap,
   // INCOME_INTEREST_SET_MAX with Treasurer 5 on her; the battle save's `lb[6]` only when one is lifted).
+  // Set Boxes v2 (docs/specs/SET_BOXES_V2.md): ids setbox_<set|pick>_<mythic|legendary|ur>[_random] (setBoxId(set, r,
+  // kind), setBoxInfo(id)); items carry setKind 'random'|'preset', setRarity, supplyOnly (preset). openSetBox(profile,
+  // id, rng, { set, mains, count }) opens up to SET_OPEN_BATCH_MAX boxes, only that set's pieces (random: mains rolled;
+  // preset: the chosen mains on every box; UR: addBoxUr, as the Rainbow Gear Box). The 28 new ids are in MIRRORED_ITEMS;
+  // grantSetBoxGifts pays the random kind under the same su: marks; claimMail sets su:paid:<letter> on a setbox-gift.
+  // LR Awakening (docs/specs/LR_AWAKEN.md): canAwakenLrGear / awakenLrGear (Set LR for a set piece, Blank LR without),
+  // lrAwakenReady, canUnbindLrGear / unbindLrGear (Set LR → Blank LR, free); limitBreakGear stays for tools and tests.
   // LR gear (M3, §4): limitBreakGear(profile, uid, 'set'|'blank') (a UR +12 piece, 1 Nightglass Lens + 150,000 coins;
   // Blank LR gives its set up); the Nightglass ✦ is stitchSlots().night; gearCaps adds LR_CAP_STEP per LR piece and
   // doubles every base cap with five Blank LR pieces (critCeil 2, fill-in limit ×2, DoT cap bonus ×2); setLr wakes the

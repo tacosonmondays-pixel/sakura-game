@@ -9,6 +9,7 @@ import { SLOT_IDS, ROLL_SLOTS, SET_ONLY_SLOTS } from '../../src/data/gearSlots.j
 import { SET_IDS, SET_RARITIES } from '../../src/data/gearSets.js';
 import { ITEM_ART } from '../../src/art/itemArt.js';
 import { itemIcon, gearIcon, gearArtKey } from '../../src/art/icons.js';
+import { SET_BOX_V2_IDS } from '../../src/data/gearAwaken.js';
 
 const baked = (key) => Boolean(ITEM_ART[key]);
 const artOf = (markup) => (/<img [^>]*data-art="([^"]+)"/.exec(markup) || [])[1] || null;
@@ -16,6 +17,7 @@ const artOf = (markup) => (/<img [^>]*data-art="([^"]+)"/.exec(markup) || [])[1]
 describe('guard: every item and gear piece the game shows has baked 3D-flat art', () => {
   it('every item id (Set Boxes, pins, lenses and every later item included)', () => {
     expect(ITEM_IDS.filter((id) => !baked(id))).toEqual([]);
+    expect(SET_BOX_V2_IDS.filter((id) => !baked(id))).toEqual([]); // Set Boxes v2's 28 boxes (docs/specs/SET_BOXES_V2.md §3)
     for (const id of ITEM_IDS) expect(artOf(itemIcon(id)), id).toBe(id); // its own image over the drawing
   });
 

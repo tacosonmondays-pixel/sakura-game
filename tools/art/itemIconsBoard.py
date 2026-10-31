@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The item-icons-3d owner board (docs/review/item-icons-3d/board.jpg, JPEG <= 300 KB), from the committed WebPs:
-the 30 gear set looks (6 sets x 5 slots), the 14 Set Boxes, the 3 tools, the Hair Clip and Necklace rarity ladders,
+the 30 gear set looks (6 sets x 5 slots), the 42 Set Boxes (preset / random x mythic / legendary / UR), the 3 tools, the Hair Clip and Necklace rarity ladders,
 and the Set Box modal before / after at 390x844 (e2e/set-box.mjs screenshots).
 
     node e2e/set-box.mjs --viewport 390x844 --before   # on the old modal (git stash the UI first)
@@ -38,7 +38,7 @@ def main():
     shots = sys.argv[sys.argv.index('--shots') + 1] if '--shots' in sys.argv else os.path.join(ROOT, 'e2e', 'out', 'set-box')
     W = 1500
     S = 112                                  # icon cell
-    im = Image.new('RGB', (W, 2100), BG)
+    im = Image.new('RGB', (W, 2600), BG)
     d = ImageDraw.Draw(im)
     f1, f2, f3 = font(24), font(15), font(12)
     y = 14
@@ -74,17 +74,23 @@ def main():
             d.text((mx + k * (a.width + 18), my + a.height + 4), name.upper(), fill=SOFT, font=f2)
     y = max(grid_bottom, my + int(844 * sc) + 30) + 10
 
-    # 2. the 14 boxes
-    d.text((16, y), '2. Set Boxes: each set\'s box with its crest on the lid and front (top: Mythic, bottom: Legendary; first: pick box)', fill=INK, font=f2)
+    # 2. the 42 Set Boxes: rows by kind, columns by set (the pick box first)
+    d.text((16, y), '2. Set Boxes (42): columns = pick box, then each set; preset boxes wear the gold pencil tag; UR = rainbow trim', fill=INK, font=f2)
     y += 24
-    for r, rar in enumerate(('mythic', 'legendary')):
-        for k, (sid, _) in enumerate([('pick', 'Pick')] + SETS):
-            a = icon('setbox_%s_%s' % (sid, rar), S)
-            im.paste(a, (16 + k * (S + 14), y), a)
-        y += S + 4
+    B = 92
+    rows = [('Preset Mythic', '%s_mythic'), ('Preset Legendary', '%s_legendary'), ('Preset UR', '%s_ur'),
+            ('Random Mythic', '%s_mythic_random'), ('Random Legendary', '%s_legendary_random'), ('Random UR', '%s_ur_random')]
+    bx = 170
     for k, (sid, lab) in enumerate([('pick', 'Pick a set')] + SETS):
-        d.text((16 + k * (S + 14) + 4, y), lab, fill=SOFT, font=f3)
-    y += 24
+        d.text((bx + k * (B + 10) + 4, y), lab, fill=SOFT, font=f3)
+    y += 18
+    for lab, pat in rows:
+        d.text((16, y + B // 2 - 8), lab, fill=INK, font=f2)
+        for k, (sid, _) in enumerate([('pick', 'Pick')] + SETS):
+            a = icon('setbox_' + pat % sid, B)
+            im.paste(a, (bx + k * (B + 10), y), a)
+        y += B + 2
+    y += 10
 
     # 3. tools + 4. ladders
     d.text((16, y), '3. Tools: Tie Pin, Collar Pin, Nightglass Lens', fill=INK, font=f2)

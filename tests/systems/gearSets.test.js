@@ -254,14 +254,14 @@ describe('Set Boxes', () => {
     p.missions.counters['tfc:regent:2'] = 1;
     p.progress.stages['3-5'] = { easy: false, normal: true, hard: false, nightmare: false, clears: 1 };
     const paid = grantSetBoxGifts(p);
-    expect(paid.map((x) => x.id).sort()).toEqual(['setbox_freezetag_legendary', 'setbox_geometry_legendary', 'setbox_pick_mythic']);
+    expect(paid.map((x) => x.id).sort()).toEqual(['setbox_freezetag_legendary_random', 'setbox_geometry_legendary_random', 'setbox_pick_mythic_random']);
     expect(grantSetBoxGifts(p)).toEqual([]);
-    expect(p.items.setbox_geometry_legendary).toBe(1);
+    expect(p.items.setbox_geometry_legendary_random).toBe(1);
     expect(p.missions.counters[MARK.titanBox + 'wyrm']).toBe(1);
     expect(p.missions.counters[MARK.welcomeBox]).toBe(1);
     // a Nightmare first clear made later (in an older tab, say) still pays at the next check
     p.missions.counters['tfc:daimyo:2'] = 1;
-    expect(grantSetBoxGifts(p).map((x) => x.id)).toEqual(['setbox_spirit_legendary']);
+    expect(grantSetBoxGifts(p).map((x) => x.id)).toEqual(['setbox_spirit_legendary_random']);
   });
 
   it('a veteran\'s boxes arrive in one letter at load (the notice line); a new save is owed nothing', () => {
@@ -270,7 +270,7 @@ describe('Set Boxes', () => {
     p.missions.counters['tfc:foundry:2'] = 1;
     const q = migrateProfile(JSON.parse(JSON.stringify(p)));
     const letter = q.mail.letters.find((l) => l.id.startsWith('setbox-gift:'));
-    expect(letter.rewards).toEqual([{ id: 'setbox_popper_legendary', count: 1 }]);
+    expect(letter.rewards).toEqual([{ id: 'setbox_popper_legendary_random', count: 1 }]);
     const again = migrateProfile(JSON.parse(JSON.stringify(q)));
     expect(again.mail.letters.filter((l) => l.id.startsWith('setbox-gift:'))).toHaveLength(1);
   });

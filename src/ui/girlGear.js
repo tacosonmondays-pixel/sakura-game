@@ -21,18 +21,17 @@ import { getItem } from '../data/items.js';
 import { statName, STAT_HINTS } from '../data/gearStats.js';
 import { CLUBS, CLUB_RARITIES } from '../data/clubs.js';
 import {
-  gearList, equipGear, unequipGear, salvageGear, salvageRewards, enhanceCost, maxGearLevel, awakenReady, isUrGear, isLrGear,
+  gearList, equipGear, unequipGear, salvageGear, salvageRewards, enhanceCost, maxGearLevel, awakenReady, lrAwakenReady, canUnbindLrGear, isUrGear, isLrGear,
   stitchSlots, gearLines, gearFillIn, tuneCount, gearSetInfo, describeStat,
 } from '../systems/gear.js';
 import { GEAR_SETS, SET_TEXT } from '../data/gearSets.js';
 import { setIdle, isPinnable, pinsShown } from '../systems/gearSets.js';
-import { UR_MAX_LEVEL } from '../data/gearAwaken.js';
 import { itemCount } from '../systems/inventory.js';
 import { loadoutUseText } from '../systems/teams.js';
 import { loadoutChips } from './teamBar.js';
 import { applyGearFilter, activeGearFilters } from '../systems/gearFilter.js';
 import { gearFilterBar, gearFilterFor } from './gearFilterBar.js';
-import { awakenModal, stitchModal, rerollModal, armbandModal, enhanceOnce, toggleGearLock, limitBreakModal, pinPicker } from './gearUr.js';
+import { awakenModal, stitchModal, rerollModal, armbandModal, enhanceOnce, toggleGearLock, lrAwakenModal, unbindLrModal, pinPicker } from './gearUr.js';
 import { ico, lbl, statStrip, sticker, rarityTag, ghostBtn, fillIn, secondaryBtn } from './kit.js';
 import { openSheet } from './sheet.js';
 import { gearTile, STAT_GLYPH, STAT_SHORT, statValue, statFact } from './gearTile.js';
@@ -302,7 +301,7 @@ export function openSlotSheet(unit, slot, { onChange = () => {} } = {}) {
 
 /**
  * A piece's actions (the slot sheet and the Backpack's piece sheet share them): Enhance · price as the sheet's one
- * yellow (✦ Awaken for a gold +10 when a Seed waits), then Reroll subs, Change main, Stitch, Limit Break, Pin, Club, Lock and, on a girl,
+ * yellow (✦ Awaken for a gold +10, and for a UR +12 into LR), then Reroll subs, Change main, Stitch, Unbind to Blank LR, Pin, Club, Lock and, on a girl,
  * Unequip as quiet buttons. `extra`: beside the primary (Undo); `unequip`: her slot's Unequip.
  */
 function pieceActions(g, { unitId = null, onChange, beforeEnhance = null, extra = null, unequip = null }) {
@@ -312,6 +311,9 @@ function pieceActions(g, { unitId = null, onChange, beforeEnhance = null, extra 
   let primary;
   if (awakenReady(g)) {
     primary = h('button.btn.gu-awaken-btn.gk-primary', { type: 'button', 'data-testid': 'gear-awaken', onclick: () => awakenModal(g.uid, { unitId, onDone: onChange }) }, h('span.btn-label', '✦ Awaken'));
+  } else if (lrAwakenReady(g)) {
+    // LR Awakening (docs/specs/LR_AWAKEN.md D5a): UR +12 → LR is the same ✦ Awaken, with a Nightglass Lens
+    primary = h('button.btn.gu-awaken-btn.gu-lr-awaken-btn.gk-primary', { type: 'button', 'data-testid': 'gear-lr-awaken', onclick: () => lrAwakenModal(g.uid, { unitId, onDone: onChange }) }, h('span.btn-label', '✦ Awaken'));
   } else if (cost == null) {
     primary = button(`Max +${maxGearLevel(g)}`, { kind: 'yellow', icon: 'check', testid: 'enhance', disabled: true });
   } else {
@@ -328,9 +330,9 @@ function pieceActions(g, { unitId = null, onChange, beforeEnhance = null, extra 
       sec('Reroll subs', { icon: 'dice', testid: 'reroll-subs', disabled: !g.subs.length, onClick: () => rerollModal(g, 'subs', onChange) }),
       sec('Change main', { icon: 'dice', testid: 'reroll-main', onClick: () => rerollModal(g, 'main', onChange) }),
       slots.gold.open ? sec(slots.free ? 'Stitch ✦' : 'Stitches', { testid: 'gear-stitch', onClick: () => stitchModal(g.uid, { unitId, onDone: onChange }) }) : null,
-      // LR gear (GEAR_UPDATE.md §4): a rainbow UR piece at +12 Limit Breaks into Set LR or Blank LR (audit D B1); gold, UR
-      // and LR pieces take pins once a pin can be had or she owns one (gearSets.js pinsShown)
-      isUrGear(g) && !isLrGear(g) && g.level >= UR_MAX_LEVEL ? sec('Limit Break', { testid: 'gear-limit-break', onClick: () => limitBreakModal(g.uid, { onDone: onChange }) }) : null,
+      // LR gear (LR_AWAKEN.md D5b): an LR set piece can leave its set for Blank LR, a quiet secondary step (the awakening
+      // is the primary above); gold, UR and LR pieces take pins once a pin can be had or she owns one (gearSets.js pinsShown)
+      canUnbindLrGear(profile, g.uid).ok ? sec('Unbind to Blank LR…', { testid: 'gear-unbind-lr', onClick: () => unbindLrModal(g.uid, { onDone: onChange }) }) : null,
       isPinnable(g) && pinsShown(profile) ? sec('Pin', { testid: 'gear-pin', onClick: () => pinPicker(g.uid, onChange) }) : null,
       CLUB_RARITIES.includes(g.rarity) ? sec(g.club ? 'Club' : 'Join a club', { testid: 'gear-club', onClick: () => armbandModal(g.uid, { onDone: onChange }) }) : null,
       sec(g.locked ? 'Unlock' : 'Lock', { icon: 'lock', testid: 'gear-lock', onClick: () => toggleGearLock(g.uid, onChange) }),

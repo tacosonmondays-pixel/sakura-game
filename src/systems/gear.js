@@ -414,18 +414,27 @@ export function openRainbowBox(profile, slot, rng, { club = 'random', set = null
   if (gearRoom(profile) <= 0) return { ok: false, error: 'bagFull', gear: null };
   if (!consumeItems(profile, [{ id: RAINBOW_BOX_ID, count: 1 }])) return { ok: false, error: 'missing', gear: null };
   const g = rollGear(rng, { slot, rarity: 'legendary', level: 0 });
+  if (setId) g.set = setId;
+  return { ok: true, gear: addBoxUr(profile, g, { club }) };
+}
+
+/**
+ * Store a fresh Legendary piece (+0, not yet in the profile) as box-born rainbow UR: `ur: 1`, locked, its UR name (a
+ * set piece keeps its set's fixed name), the `gbx:<uid>` mirror on a Charm / Ribbon / Shoes piece (an older build that
+ * drops `ur` below +10 gives it back) or `box: 1` on a Hair Clip / Necklace (its whole-piece mirror), and one more UR
+ * ever. The Rainbow Gear Box and the UR Set Boxes (SET_BOXES_V2.md D2) share it. @returns {object} the stored piece
+ */
+export function addBoxUr(profile, g, { club = 'random' } = {}) {
   g.ur = 1;
   g.locked = true;
-  if (setId) g.set = setId;
-  g.name = setId ? pieceName(g) : urName(g.name);
-  // a box-born Hair Clip / Necklace keeps `ur` below +10 through its whole-piece mirror (`box`), never a `gbx:` mark
-  if (isNewSlot(slot)) g.box = 1;
+  g.name = g.set ? pieceName(g) : urName(g.name);
+  if (isNewSlot(g.slot)) g.box = 1;
   const uid = addGear(profile, g, { club });
   const piece = profile.gear[uid];
   const c = (profile.missions ||= {}).counters ||= {};
-  if (!isNewSlot(slot)) c[MARK.box + uid] = boxMark(piece);
+  if (!isNewSlot(g.slot)) c[MARK.box + uid] = boxMark(piece);
   c[MARK.urEver] = (c[MARK.urEver] || 0) + 1;
-  return { ok: true, gear: piece };
+  return piece;
 }
 
 /**
@@ -838,6 +847,55 @@ export function limitBreakGear(profile, uid, kind = 'blank') {
   if (g.equippedBy) noteUrWorn(profile, g.equippedBy); // (her fifth Set LR piece wakes the LR Set Form)
   track(profile, 'gearLimitBreak', 1);
   track(profile, 'spendCoins', LIMIT_BREAK_COINS);
+  return { ok: true, before, after: cloneGear(g) };
+}
+
+// ---------------------------------------------------------------------------
+// LR Awakening (docs/specs/LR_AWAKEN.md): UR +12 → LR is an awakening, like Legendary → UR. A set piece awakens into
+// LR of its set (Set LR, `lr: 1`); a No-set piece into Blank LR (`lr: 2`). Blank LR from a set piece is a separate,
+// free step on an LR set piece ("Unbind to Blank LR…"): the awakening already paid the Lens and the coins, so a set
+// piece's road to Blank LR costs what Limit Break's Blank LR does. Numbers, caps and costs are Limit Break's.
+// ---------------------------------------------------------------------------
+
+/** The kind a piece awakens into: Set LR for a set piece, Blank LR for a No-set one. */
+const lrAwakenKind = (g) => (g?.set ? 'set' : 'blank');
+
+/** True when a piece could awaken to LR now if the Lens and coins were there (the ✦ Awaken button, as awakenReady). */
+export const lrAwakenReady = (g) => isUrGear(g) && !isLrGear(g) && g.level >= UR_MAX_LEVEL;
+
+/** @returns {{ ok: boolean, reason?: string, missing?: object[], cost?: object[], kind?: 'set'|'blank' }} */
+export function canAwakenLrGear(profile, uid) {
+  const g = profile.gear?.[uid];
+  const kind = lrAwakenKind(g);
+  return { ...canLimitBreakGear(profile, uid, kind), kind };
+}
+
+/** Awaken a UR +12 piece to LR (its set kept; a No-set piece: Blank LR). Costs 1 Nightglass Lens + 150,000 coins. */
+export function awakenLrGear(profile, uid) {
+  return limitBreakGear(profile, uid, lrAwakenKind(profile.gear?.[uid]));
+}
+
+/** @returns {{ ok: boolean, reason?: 'noGear'|'notLr'|'noSet' }} an LR set piece can unbind to Blank LR */
+export function canUnbindLrGear(profile, uid) {
+  const g = profile.gear?.[uid];
+  if (!g) return { ok: false, reason: 'noGear' };
+  if (lrKind(g) !== LR_SET) return { ok: false, reason: 'notLr' };
+  if (!g.set) return { ok: false, reason: 'noSet' };
+  return { ok: true };
+}
+
+/**
+ * Unbind an LR set piece to Blank LR, for good: `lr: 2`, its set gone (and with it the set's fixed name), everything
+ * else kept (level, ▲, ✦, pins, lock, club). Free: the awakening paid. @returns {{ ok, error?, before?, after? }}
+ */
+export function unbindLrGear(profile, uid) {
+  const check = canUnbindLrGear(profile, uid);
+  if (!check.ok) return { ok: false, error: check.reason };
+  const g = profile.gear[uid];
+  const before = cloneGear(g);
+  g.lr = LR_BLANK;
+  delete g.set;
+  g.name = pieceName(g);
   return { ok: true, before, after: cloneGear(g) };
 }
 

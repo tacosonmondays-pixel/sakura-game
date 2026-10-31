@@ -7,7 +7,10 @@ the clasp; mythic rose gold; legendary gold; rainbow iridescent.
 Set Boxes (setbox_<set>_<mythic|legendary>, the gear update): the same chest in the set's colour (src/data/gearSets.js)
 with that set's crest on the front instead of the gear, and the rarity treatment of the gear box of that rarity (rose
 gold straps and a pink gem for Mythic, gold and an amber gem for Legendary). The pick box (setbox_pick_*: choose any
-set) is pearl with a ring of the six set colours round its crest."""
+set) is pearl with a ring of the six set colours round its crest.
+Set Boxes v2 (docs/specs/SET_BOXES_V2.md): setbox_<set|pick>_<mythic|legendary|ur>_random are the plain boxes above;
+the preset boxes (no _random: you choose the main stats; Supply Bot only) add a gold tag with a white pencil hanging from
+the lid, so the two kinds never look alike; UR boxes keep the set colour with rainbow straps and a rainbow gem."""
 import math
 
 import parts as P
@@ -63,9 +66,13 @@ SINK = 0.07            # the lining sits this far below the rim, so a thin inner
 
 
 def build(row):
-    tier = 'rainbow' if row.get('rainbow') else row['rarity']
+    key = row['key']
+    is_set = key.startswith('setbox_')
+    ur = is_set and '_ur' in key
+    tier = 'rainbow' if row.get('rainbow') or ur else row['rarity']
     body_p, strap_p, gem_p = BODY[tier], STRAP[tier], GEM[tier]
-    gear_set = row['key'].split('_')[1] if row['key'].startswith('setbox_') else None
+    gear_set = key.split('_')[1] if is_set else None
+    preset = is_set and not key.endswith('_random')
     if gear_set in SET_COLORS:
         body_p = C.paint(SET_COLORS[gear_set])
     elif gear_set:                                       # the pick box: pearl
@@ -99,6 +106,8 @@ def build(row):
         for o in _crest_parts(gear_set, strap_p, scale=1.25):
             P.xf(o, rot=(-90, 0, 0), loc=(0, -LD / 2 + 0.02, LH + 0.012))
             lid_parts.append(o)
+    if preset:                                           # a preset box: a gold tag with a white pencil on the lid's front
+        lid_parts += _choose_tag()
     # propped open (approved): the lid tilts up about 15 degrees on its hinge at the back rim
     ang = -LID_ANGLE if opened else 0
     hz = BH - 0.01 - (0.03 if opened else 0.0)      # opened: the lid's back edge sinks a hair into the back rim
@@ -133,6 +142,25 @@ def build(row):
         P.paint(hub, C.over(strap_p, base=strap_p['shadow']), line=1.1, lift=0.02)
     _glint_lid(tier, ang, hz)
     return dict(kind='standing', yaw=32.0, elev=22.0)
+
+
+def _choose_tag():
+    """The preset boxes' mark: a gold luggage tag (with its eyelet and string) hanging from the lid's front left corner,
+    a white pencil on it ("you choose the main stats"). Built in the lid's frame, so it tilts with the lid."""
+    gold = dict(C.GOLD_TRIM, sheen=0.25)
+    x, y, z = -0.36, -LD + 0.0, LH * 0.35
+    tag = P.slab(P.poly_round([(-0.17, -0.2), (0.17, -0.2), (0.17, 0.12), (0.0, 0.24), (-0.17, 0.12)], 0.035, 3), 0.05, 0.018,
+                 2, 'tag')
+    P.xf(tag, rot=(0, -12, 0), loc=(x, y - 0.06, z - 0.12))
+    out = [P.paint(tag, gold, line=1.6)]
+    eye = P.torus(0.035, 0.012, 16, 6, 'tageye')
+    P.xf(eye, rot=(90, 0, 0), loc=(x - 0.02, y - 0.09, z + 0.06))
+    out.append(P.paint(eye, C.over(C.GOLD_TRIM, base=C.GOLD_TRIM['shadow']), line=0.0))
+    pen = P.slab(P.poly_round([(-0.03, -0.11), (0.03, -0.11), (0.03, 0.08), (0.0, 0.13), (-0.03, 0.08)], 0.008, 2), 0.02, 0.006,
+                 1, 'pencil')
+    P.xf(pen, rot=(0, 38, 0), loc=(x + 0.01, y - 0.095, z - 0.15))
+    out.append(P.paint(pen, WHITE, line=1.0, lift=0.02))
+    return out
 
 
 def _glint_lid(tier, ang, hz):

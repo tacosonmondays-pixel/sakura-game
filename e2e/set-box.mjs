@@ -138,7 +138,7 @@ for (const vp of viewports) {
       const { getItem } = await import('/src/data/items.js');
       return ['setbox_freezetag_legendary', 'setbox_popper_mythic', 'setbox_pick_legendary'].map((id) => boxLine(getItem(id)));
     });
-    check(lines[0] === 'Opens 5 Freeze Tag pieces' && lines[1] === 'Opens 5 Party Popper pieces' && /set/i.test(lines[2]), `${vp} Supplies: "${lines.join('" / "')}"`);
+    check(lines[0].startsWith('Opens 5 Freeze Tag pieces') && lines[1].startsWith('Opens 5 Party Popper pieces') && /^Pick a set/.test(lines[2]), `${vp} Supplies: "${lines.join('" / "')}"`);
     // open the Freeze Tag box: five Freeze Tag pieces, each drawn in its set look
     const before = await page.evaluate(() => Object.keys(window.__sakura.store.profile.gear));
     await modalOf(page, 'setbox_freezetag_legendary');

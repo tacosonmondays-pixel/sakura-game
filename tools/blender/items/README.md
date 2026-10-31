@@ -76,7 +76,7 @@ python3 tools/blender/items/build_items.py --list       # keys and families
   the object; on the runes, embers and feathers one glint at most, on a metal or crystal part, never on the matte
   stone or vane (ITEM_STYLE 2.5)), the contact shadow (silhouette offset (+1, +5) px,
   blurred, navy `#263a5c` at 32% core), framing check, Lanczos downscale (premultiplied), WebP q88 / alpha 100,
-  size caps (20 KB / 9 KB / 5 KB, 2.8 MB in all; `tests/art/itemArt.test.js` enforces them), sheets, manifest.
+  size caps (20 KB / 9 KB / 5 KB, 3.2 MB in all; `tests/art/itemArt.test.js` enforces them), sheets, manifest.
 - `parts.py`: outlines (rounded rect, sakura, star, heart, gear, crescent, flame, leaf), solids (bevelled slab,
   rounded box, lathe with hard edges, sweep, torus, faceted fan gem with ridges or a spine, cut gem, cabochon,
   crystal prism, round cone, convex hull with rounded edges for cut stones and dice, `ring_slab` for a slab with a
@@ -219,20 +219,48 @@ Visual targets are our own approved icons only (kept outside the repo, except a 
 | `gearbox_mythic` | Radiant Gear Box | boxes | mythic | 256, 128 | pink chest, rose-gold straps and latch, lid open 15 degrees on its hinge, cream lining sunk below the rim, gear emblem with a pink gem (appr.) |
 | `gearbox_legendary` | Celestial Gear Box | boxes | legendary | 256, 128 | teal chest, gold straps, lid open 15 degrees, sunk lining, white-blue gem, star glint |
 | `gearbox_rainbow` | Rainbow Gear Box | boxes | legendary (rainbow) | 256, 128 | lilac-pearl iridescent chest, iridescent straps, lid open 15 degrees, sunk lining, prism glints |
-| `setbox_pick_mythic` | Mythic Set Box | boxes | mythic | 256, 128 | Set Box: the gear box in pearl, a ring of the six set colours round a white sakura; rose-gold straps, pink gem |
-| `setbox_pick_legendary` | Legendary Set Box | boxes | legendary | 256, 128 | Set Box: the gear box in pearl, a ring of the six set colours round a white sakura; gold straps, amber gem |
-| `setbox_spirit_mythic` | Spirit Squad Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in red, white pom crest; rose-gold straps, pink gem |
-| `setbox_spirit_legendary` | Spirit Squad Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in red, white pom crest; gold straps, amber gem |
-| `setbox_freezetag_mythic` | Freeze Tag Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in ice blue, white pause-bars crest; rose-gold straps, pink gem |
-| `setbox_freezetag_legendary` | Freeze Tag Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in ice blue, white pause-bars crest; gold straps, amber gem |
-| `setbox_geometry_mythic` | Geometry Set Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in slate blue, white set-square crest; rose-gold straps, pink gem |
-| `setbox_geometry_legendary` | Geometry Set Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in slate blue, white set-square crest; gold straps, amber gem |
-| `setbox_popper_mythic` | Party Popper Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in purple, white star crest; rose-gold straps, pink gem |
-| `setbox_popper_legendary` | Party Popper Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in purple, white star crest; gold straps, amber gem |
-| `setbox_treasurer_mythic` | Treasurer Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in mint, white coin crest; rose-gold straps, pink gem |
-| `setbox_treasurer_legendary` | Treasurer Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in mint, white coin crest; gold straps, amber gem |
-| `setbox_powerbank_mythic` | Power Bank Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in lime, white bolt crest; rose-gold straps, pink gem |
-| `setbox_powerbank_legendary` | Power Bank Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in lime, white bolt crest; gold straps, amber gem |
+| `setbox_pick_mythic_random` | Mythic Set Box | boxes | mythic | 256, 128 | Set Box (random): the gear box in pearl, a ring of the six set colours round a white sakura; rose-gold straps, pink gem |
+| `setbox_pick_legendary_random` | Legendary Set Box | boxes | legendary | 256, 128 | Set Box (random): the gear box in pearl, a ring of the six set colours round a white sakura; gold straps, amber gem |
+| `setbox_pick_ur_random` | UR Set Box | boxes | ur | 256, 128 | Set Box (random): the gear box in pearl, a ring of the six set colours round a white sakura; rainbow straps and gem |
+| `setbox_pick_mythic` | Mythic Preset Set Box | boxes | mythic | 256, 128 | Set Box (preset): the gear box in pearl, a ring of the six set colours round a white sakura; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_pick_legendary` | Legendary Preset Set Box | boxes | legendary | 256, 128 | Set Box (preset): the gear box in pearl, a ring of the six set colours round a white sakura; gold straps, amber gem; the gold pencil tag |
+| `setbox_pick_ur` | UR Preset Set Box | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in pearl, a ring of the six set colours round a white sakura; rainbow straps and gem; the gold pencil tag |
+| `setbox_spirit_mythic_random` | Spirit Squad Box (Mythic) | boxes | mythic | 256, 128 | Set Box (random): the gear box in red, white pom crest; rose-gold straps, pink gem |
+| `setbox_spirit_legendary_random` | Spirit Squad Box (Legendary) | boxes | legendary | 256, 128 | Set Box (random): the gear box in red, white pom crest; gold straps, amber gem |
+| `setbox_spirit_ur_random` | Spirit Squad Box (UR) | boxes | ur | 256, 128 | Set Box (random): the gear box in red, white pom crest; rainbow straps and gem |
+| `setbox_spirit_mythic` | Spirit Squad Preset Box (Mythic) | boxes | mythic | 256, 128 | Set Box (preset): the gear box in red, white pom crest; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_spirit_legendary` | Spirit Squad Preset Box (Legendary) | boxes | legendary | 256, 128 | Set Box (preset): the gear box in red, white pom crest; gold straps, amber gem; the gold pencil tag |
+| `setbox_spirit_ur` | Spirit Squad Preset Box (UR) | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in red, white pom crest; rainbow straps and gem; the gold pencil tag |
+| `setbox_freezetag_mythic_random` | Freeze Tag Box (Mythic) | boxes | mythic | 256, 128 | Set Box (random): the gear box in ice blue, white pause-bars crest; rose-gold straps, pink gem |
+| `setbox_freezetag_legendary_random` | Freeze Tag Box (Legendary) | boxes | legendary | 256, 128 | Set Box (random): the gear box in ice blue, white pause-bars crest; gold straps, amber gem |
+| `setbox_freezetag_ur_random` | Freeze Tag Box (UR) | boxes | ur | 256, 128 | Set Box (random): the gear box in ice blue, white pause-bars crest; rainbow straps and gem |
+| `setbox_freezetag_mythic` | Freeze Tag Preset Box (Mythic) | boxes | mythic | 256, 128 | Set Box (preset): the gear box in ice blue, white pause-bars crest; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_freezetag_legendary` | Freeze Tag Preset Box (Legendary) | boxes | legendary | 256, 128 | Set Box (preset): the gear box in ice blue, white pause-bars crest; gold straps, amber gem; the gold pencil tag |
+| `setbox_freezetag_ur` | Freeze Tag Preset Box (UR) | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in ice blue, white pause-bars crest; rainbow straps and gem; the gold pencil tag |
+| `setbox_geometry_mythic_random` | Geometry Set Box (Mythic) | boxes | mythic | 256, 128 | Set Box (random): the gear box in slate blue, white set-square crest; rose-gold straps, pink gem |
+| `setbox_geometry_legendary_random` | Geometry Set Box (Legendary) | boxes | legendary | 256, 128 | Set Box (random): the gear box in slate blue, white set-square crest; gold straps, amber gem |
+| `setbox_geometry_ur_random` | Geometry Set Box (UR) | boxes | ur | 256, 128 | Set Box (random): the gear box in slate blue, white set-square crest; rainbow straps and gem |
+| `setbox_geometry_mythic` | Geometry Set Preset Box (Mythic) | boxes | mythic | 256, 128 | Set Box (preset): the gear box in slate blue, white set-square crest; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_geometry_legendary` | Geometry Set Preset Box (Legendary) | boxes | legendary | 256, 128 | Set Box (preset): the gear box in slate blue, white set-square crest; gold straps, amber gem; the gold pencil tag |
+| `setbox_geometry_ur` | Geometry Set Preset Box (UR) | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in slate blue, white set-square crest; rainbow straps and gem; the gold pencil tag |
+| `setbox_popper_mythic_random` | Party Popper Box (Mythic) | boxes | mythic | 256, 128 | Set Box (random): the gear box in purple, white star crest; rose-gold straps, pink gem |
+| `setbox_popper_legendary_random` | Party Popper Box (Legendary) | boxes | legendary | 256, 128 | Set Box (random): the gear box in purple, white star crest; gold straps, amber gem |
+| `setbox_popper_ur_random` | Party Popper Box (UR) | boxes | ur | 256, 128 | Set Box (random): the gear box in purple, white star crest; rainbow straps and gem |
+| `setbox_popper_mythic` | Party Popper Preset Box (Mythic) | boxes | mythic | 256, 128 | Set Box (preset): the gear box in purple, white star crest; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_popper_legendary` | Party Popper Preset Box (Legendary) | boxes | legendary | 256, 128 | Set Box (preset): the gear box in purple, white star crest; gold straps, amber gem; the gold pencil tag |
+| `setbox_popper_ur` | Party Popper Preset Box (UR) | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in purple, white star crest; rainbow straps and gem; the gold pencil tag |
+| `setbox_treasurer_mythic_random` | Treasurer Box (Mythic) | boxes | mythic | 256, 128 | Set Box (random): the gear box in mint, white coin crest; rose-gold straps, pink gem |
+| `setbox_treasurer_legendary_random` | Treasurer Box (Legendary) | boxes | legendary | 256, 128 | Set Box (random): the gear box in mint, white coin crest; gold straps, amber gem |
+| `setbox_treasurer_ur_random` | Treasurer Box (UR) | boxes | ur | 256, 128 | Set Box (random): the gear box in mint, white coin crest; rainbow straps and gem |
+| `setbox_treasurer_mythic` | Treasurer Preset Box (Mythic) | boxes | mythic | 256, 128 | Set Box (preset): the gear box in mint, white coin crest; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_treasurer_legendary` | Treasurer Preset Box (Legendary) | boxes | legendary | 256, 128 | Set Box (preset): the gear box in mint, white coin crest; gold straps, amber gem; the gold pencil tag |
+| `setbox_treasurer_ur` | Treasurer Preset Box (UR) | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in mint, white coin crest; rainbow straps and gem; the gold pencil tag |
+| `setbox_powerbank_mythic_random` | Power Bank Box (Mythic) | boxes | mythic | 256, 128 | Set Box (random): the gear box in lime, white bolt crest; rose-gold straps, pink gem |
+| `setbox_powerbank_legendary_random` | Power Bank Box (Legendary) | boxes | legendary | 256, 128 | Set Box (random): the gear box in lime, white bolt crest; gold straps, amber gem |
+| `setbox_powerbank_ur_random` | Power Bank Box (UR) | boxes | ur | 256, 128 | Set Box (random): the gear box in lime, white bolt crest; rainbow straps and gem |
+| `setbox_powerbank_mythic` | Power Bank Preset Box (Mythic) | boxes | mythic | 256, 128 | Set Box (preset): the gear box in lime, white bolt crest; rose-gold straps, pink gem; the gold pencil tag |
+| `setbox_powerbank_legendary` | Power Bank Preset Box (Legendary) | boxes | legendary | 256, 128 | Set Box (preset): the gear box in lime, white bolt crest; gold straps, amber gem; the gold pencil tag |
+| `setbox_powerbank_ur` | Power Bank Preset Box (UR) | boxes | ur | 256, 128 | Set Box (preset, UR): the gear box in lime, white bolt crest; rainbow straps and gem; the gold pencil tag |
 | `dice_reroll` | Fortune Dice | tools | rare | 256, 128 | rounded light-blue die, white pips, a sakura on the top face |
 | `lock_pin` | Lock Pin | tools | superRare | 256, 128 | silver padlock with a violet-gem keyhole, pink-headed pin through it |
 | `dice_prism` | Prism Dice | tools | mythic | 256, 128 | chunky rounded d12 die in pastel iridescence, tilted, saturated violet shadow plane, big embossed rose-gold pips (1-3) on its front faces |

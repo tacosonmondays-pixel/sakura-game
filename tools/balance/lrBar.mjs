@@ -8,6 +8,8 @@
 //
 //   node --import ./tools/simLoader.mjs tools/balance/lrBar.mjs --bar [--top 6] [--json]   measure the bar
 //   node --import ./tools/simLoader.mjs tools/balance/lrBar.mjs [--pairs] [--json]          LR builds ÷ LR_BAR; exit 1 under
+//   node --import ./tools/simLoader.mjs tools/balance/lrBar.mjs --gear urset [--top 8]       the same with five UR +12 set
+//        pieces on every girl (her best set per axis; Set Boxes v2, SET_BOXES_V2.md §7): the bar and every LR ÷ it
 //
 // --bar: every non-hero unit's three tier-5 builds with both tier-2 crosspaths (an LR unit at UR, without her Limit
 // Break) and every hero at Lv 25 with Mastery full, on the fixed bench; then the top `--top` non-LR builds per axis and
@@ -80,12 +82,45 @@ const parse = (b) => {
 };
 const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
 
-/** One build's two axes (crowd; boss = max of held and walking), mean of SEEDS, beside `support`. */
-export function axes(d, unitId, build, lr, support = 'um') {
+/** One build's two axes (crowd; boss = max of held and walking), mean of `seeds` (SEEDS), beside `support`. */
+export function axes(d, unitId, build, lr, support = 'um', { profile = 'maxed', seeds = SEEDS } = {}) {
   const hero = d.units[unitId]?.kind === 'hero';
-  const m = (target) => mean(SEEDS.map((seed) => measure({ d, unitId, build: hero ? [0, 0] : parse(build), target, seed, lr, support }).dps || 0));
+  const m = (target) => mean(seeds.map((seed) => measure({ d, unitId, build: hero ? [0, 0] : parse(build), target, seed, lr, support, profile }).dps || 0));
   return { crowd: m('crowd'), boss: Math.max(m('boss'), m('bossw')) };
 }
+
+/**
+ * Set Boxes v2 (docs/specs/SET_BOXES_V2.md §7): the bar and the LR margins with five UR +12 set pieces on her
+ * (maxedProfile 'urset:<set>', the strongest gear a UR Set Box leads to), each build at its best set per axis. Every
+ * non-LR build is screened on seed 9 under every set; the top `topN` per axis are re-measured on SEEDS; the LR builds
+ * are measured on SEEDS under every set. `--gear urset`. The KNOWN rows (other benches, no set gear) stay in the bar.
+ * @returns {{ bar, lr: object[], rows: object[] }}
+ */
+export function measureUrSet(d = defaultData(), { sets = UR_SETS, topN = 8 } = {}) {
+  const best = (unitId, build, raw, lr, seeds) => {
+    const per = sets.map((set) => ({ set, ...axes(d, unitId, raw, lr, 'um', { profile: `urset:${set}`, seeds }) }));
+    const c = per.reduce((b, r) => (r.crowd > b.crowd ? r : b));
+    const bo = per.reduce((b, r) => (r.boss > b.boss ? r : b));
+    return { unitId, build, raw, support: 'um', crowd: c.crowd, crowdSet: c.set, boss: bo.boss, bossSet: bo.set };
+  };
+  const screen = [];
+  for (const id of Object.keys(d.units)) {
+    if (d.units[id].kind === 'hero') { screen.push(best(id, 'Lv25', 'p0t0', false, [9])); continue; }
+    for (const b of T5_BUILDS) screen.push(best(id, LR_UNITS.includes(id) ? `${b} (no LR)` : b, b, false, [9]));
+  }
+  const cands = new Map();
+  for (const ax of ['crowd', 'boss']) for (const r of [...screen].sort((a, b) => b[ax] - a[ax]).slice(0, topN)) cands.set(`${r.unitId} ${r.build}`, r);
+  const rows = [...cands.values()].map((r) => best(r.unitId, r.build, r.raw, false, SEEDS));
+  for (const k of KNOWN) rows.push({ ...k, support: 'um', known: true });
+  const bar = barOf(rows);
+  const lr = LR_BUILDS.map(([unitId, build]) => {
+    const r = best(unitId, build, build, true, SEEDS);
+    return { ...r, crowdX: r.crowd / bar.crowd.dps, bossX: r.boss / bar.boss.dps, ok: r.crowd / bar.crowd.dps >= LR_MARGIN && r.boss / bar.boss.dps >= LR_MARGIN };
+  });
+  return { bar, lr, rows, screen };
+}
+/** The sets the urset pass tries (Treasurer adds coins, never damage). */
+export const UR_SETS = Object.freeze(['geometry', 'popper', 'powerbank', 'spirit', 'freezetag']);
 
 const top = (rows, ax) => rows.reduce((b, r) => (r[ax] > b[ax] ? r : b));
 const barOf = (rows) => Object.fromEntries(['crowd', 'boss'].map((ax) => {
@@ -166,7 +201,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const argv = process.argv.slice(2);
   const opt = (k, dflt) => (argv.includes(`--${k}`) ? argv[argv.indexOf(`--${k}`) + 1] : dflt);
   const d = defaultData();
-  if (argv.includes('--bar')) {
+  if (opt('gear', null) === 'urset') {
+    const { bar, lr, rows } = measureUrSet(d, { topN: Number(opt('top', 8)) });
+    if (argv.includes('--json')) for (const r of [...rows, ...lr]) console.log(JSON.stringify(r));
+    for (const ax of ['crowd', 'boss']) {
+      console.log(`top ${ax} (five UR +12 set pieces, best set):`);
+      for (const r of [...rows].sort((a, b) => b[ax] - a[ax]).slice(0, 8)) console.log(`  ${r.unitId} ${r.build} ${fmt(r[ax])}${r.known ? '  (KNOWN)' : ` [${r[`${ax}Set`]}]`}`);
+    }
+    for (const r of lr) console.log(`${r.ok ? 'ok   ' : 'UNDER'} ${r.unitId} ${r.build} crowd ${fmt(r.crowd)} [${r.crowdSet}] (×${r.crowdX.toFixed(2)} of bar)  boss ${fmt(r.boss)} [${r.bossSet}] (×${r.bossX.toFixed(2)})`);
+    console.log(`URSET BAR ${JSON.stringify(bar)}`);
+    process.exitCode = lr.every((r) => r.ok) ? 0 : 1;
+  } else if (argv.includes('--bar')) {
     const { rows, bar, perPair } = measureBar(d, { topN: Number(opt('top', 6)) });
     if (argv.includes('--json')) for (const r of rows) console.log(JSON.stringify(r));
     for (const ax of ['crowd', 'boss']) {

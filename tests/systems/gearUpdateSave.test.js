@@ -414,7 +414,7 @@ describe('the one-time Set Box letter survives an older build', () => {
     return migrateProfile(JSON.parse(saveText(p, 1)));
   };
   const letterOf = (p) => p.mail.letters.find((l) => l.id.startsWith('setbox-gift:'));
-  const BOXES = [{ id: 'setbox_pick_mythic', count: 1 }, { id: 'setbox_popper_legendary', count: 1 }];
+  const BOXES = [{ id: 'setbox_pick_mythic_random', count: 1 }, { id: 'setbox_popper_legendary_random', count: 1 }];
 
   it('an unclaimed letter stripped by the older build gets its boxes back and pays them once', async () => {
     const { claimMail } = await import('../../src/systems/mail.js');
@@ -426,13 +426,13 @@ describe('the one-time Set Box letter survives an older build', () => {
     expect(letterOf(q).rewards).toEqual(BOXES);
     expect(q.mail.letters.filter((l) => l.id.startsWith('setbox-gift:'))).toHaveLength(1);
     expect(claimMail(q, letterOf(q).id).ok).toBe(true);
-    expect(q.items.setbox_pick_mythic).toBe(1);
-    expect(q.items.setbox_popper_legendary).toBe(1);
+    expect(q.items.setbox_pick_mythic_random).toBe(1);
+    expect(q.items.setbox_popper_legendary_random).toBe(1);
     // claimed, then through the older build again: the display comes back (L1), nothing pays twice
     const r = migrateProfile(oldBuild(JSON.parse(saveText(q, 1))));
     expect(letterOf(r)).toMatchObject({ claimed: true, rewards: BOXES });
     expect(claimMail(r, letterOf(r).id)).toMatchObject({ ok: false, error: 'claimed' });
-    expect(r.items.setbox_pick_mythic).toBe(1);
+    expect(r.items.setbox_pick_mythic_random).toBe(1);
   });
 
   it('never repairs a letter whose boxes it did not send (no mark, or not a one-time box)', () => {
@@ -443,7 +443,7 @@ describe('the one-time Set Box letter survives an older build', () => {
     const q = migrateProfile(clone(old));
     expect(q.mail.letters.find((l) => l.id === id).rewards).toEqual([]); // not repaired
     // (the welcome box is owed again, so the usual one-time rule sends it in its own letter: paid once either way)
-    expect(q.mail.letters.find((l) => l.id === 'setbox-gift:setbox_pick_mythic').rewards).toEqual([BOXES[0]]);
+    expect(q.mail.letters.find((l) => l.id === 'setbox-gift:setbox_pick_mythic_random').rewards).toEqual([BOXES[0]]);
     const forged = clone(oldBuild(JSON.parse(saveText(p, 1))));
     letterOf(forged).id = 'setbox-gift:setbox_geometry_mythic';
     expect(letterOf(migrateProfile(forged)).rewards).toEqual([]);

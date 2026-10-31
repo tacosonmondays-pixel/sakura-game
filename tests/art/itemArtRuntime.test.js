@@ -32,7 +32,8 @@ function img(markup) {
   return { src: attr('src'), srcset: attr('srcset'), sizes: attr('sizes'), art: attr('data-art'), cls: attr('class'), onerror: attr('onerror') };
 }
 
-// Every item is baked, the gear update's Set Boxes, pins and Nightglass Lens included (tests/art/itemArtGuard.test.js).
+// Every item is baked: the gear update's Set Boxes, pins and Nightglass Lens and Set Boxes v2's 28 boxes included
+// (docs/specs/SET_BOXES_V2.md §3; tests/art/itemArtGuard.test.js).
 const BAKED_IDS = ITEM_IDS;
 
 describe('item art at runtime: every item has baked art', () => {
