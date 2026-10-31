@@ -6,12 +6,14 @@ afterwards by bake.py, so it is never garbled) and the art is asked for with no 
 """
 
 # the look every sticker shares: a cute chibi die-cut sticker that reads at 64 px
-STYLE = ("chibi, super deformed, big head, small body, cute, sticker, die-cut sticker, thick white outline, "
+STYLE = ("soft pastel color palette, pastel colors, light milky soft tones, gentle low saturation, "
+         "chibi, super deformed, big head, small body, cute, sticker, die-cut sticker, thick white outline, "
          "full body, centered, simple background, plain white background, flat color, cel shading, clean lineart, "
-         "bold outlines, bright colors, no text, very aesthetic, masterpiece")
+         "bold outlines, no text, very aesthetic, masterpiece")
 
 # content rules (CLAUDE.md): never sexualised, modest clothes, no gore, and no text artifacts
 NEGATIVE = ("nsfw, revealing clothes, swimsuit, bikini, midriff, navel, cleavage, bare shoulders, suggestive pose, "
+            "oversaturated, neon colors, harsh contrast, "
             "underwear, panties, upskirt, short shorts, thighs focus, lying, blush stickers, kiss, "
             "gore, blood, injury, weapon pointed at viewer, scary, "
             "text, letters, words, speech bubble, watermark, signature, logo, username, artist name, "

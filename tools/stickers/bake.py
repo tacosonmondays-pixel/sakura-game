@@ -5,7 +5,7 @@ a crisp caption drawn here (never generated, so never garbled), then 256 and 128
 usage (rembg lives in a venv outside the repo):  STICKER_OUT=/path/outside/repo  venv/bin/python -I tools/stickers/bake.py [id,id]
 Also writes docs/review/stickers/board.png (every sticker at 128 px and at 64 px), and with STICKER_BEFORE=<folder of
 the previous 128 px files> the before / after board docs/review/stickers/board-pastel.png.
-The art gets a pastel pass (pastel(): softer saturation, lighter mid tones, the ink lines kept) and pastel lettering.
+The art is generated pastel (prompts.py); the lettering is pastel here.
 """
 import os, sys
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -20,25 +20,26 @@ FONT = "/usr/share/fonts/opentype/inter/Inter-Black.otf"
 if not os.path.exists(FONT):
     FONT = "/usr/share/fonts/opentype/inter/Inter-ExtraBold.otf"
 
-# id → (raw picture chosen after the eye check (the slimes were generated as mochi_*), caption, caption pastel);
+# id → (raw picture chosen by eye from the 4 pastel samples, <gen id>.s<k> (the slimes were generated as mochi_*),
+# caption, caption pastel);
 # keep in step with src/data/stickers.js
 STICKERS = {
-    "slime_hi": ("mochi_hi", "Hi!", "mint"),
-    "slime_thanks": ("mochi_thanks", "Thanks!", "mint"),
-    "slime_oops": ("mochi_oops", "Oops!", "sky"),
-    "slime_gg": ("mochi_gg", "GG!", "pink"),
-    "hikari_go": ("hikari_go.try2", "Let's go!", "pink"),
-    "aoi_nice": ("aoi_nice", "Nice!", "mint"),
-    "kage_onit": ("kage_onit.try2", "On it!", "lavender"),
-    "momo_yay": ("momo_yay.try2", "Yay!", "pink"),
-    "akane_wow": ("akane_wow", "Wow!", "peach"),
-    "yuki_help": ("yuki_help", "Help!", "sky"),
-    "miko_thanks": ("miko_thanks", "Thank you!", "pink"),
-    "ena_luck": ("ena_luck", "Good luck!", "lavender"),
-    "iroha_ready": ("iroha_ready", "Ready?", "lavender"),
-    "tenka_charge": ("tenka_charge", "Charge!", "sky"),
-    "chigusa_bravo": ("chigusa_bravo", "Bravo!", "butter"),
-    "hotaru_boo": ("hotaru_boo", "Boo!", "peach"),
+    "slime_hi": ("mochi_hi.s2", "Hi!", "mint"),
+    "slime_thanks": ("mochi_thanks.s0", "Thanks!", "mint"),
+    "slime_oops": ("mochi_oops.s1", "Oops!", "sky"),
+    "slime_gg": ("mochi_gg.s2", "GG!", "pink"),
+    "hikari_go": ("hikari_go.s1", "Let's go!", "pink"),
+    "aoi_nice": ("aoi_nice.s1", "Nice!", "mint"),
+    "kage_onit": ("kage_onit.s1", "On it!", "lavender"),
+    "momo_yay": ("momo_yay.s3", "Yay!", "pink"),
+    "akane_wow": ("akane_wow.s0", "Wow!", "peach"),
+    "yuki_help": ("yuki_help.s0", "Help!", "sky"),
+    "miko_thanks": ("miko_thanks.s2", "Thank you!", "pink"),
+    "ena_luck": ("ena_luck.s1", "Good luck!", "lavender"),
+    "iroha_ready": ("iroha_ready.s3", "Ready?", "lavender"),
+    "tenka_charge": ("tenka_charge.s2", "Charge!", "sky"),
+    "chigusa_bravo": ("chigusa_bravo.s3", "Bravo!", "butter"),
+    "hotaru_boo": ("hotaru_boo.s2", "Boo!", "peach"),
 }
 
 # the lettering: a soft pastel fill and a deeper pastel outline (deep enough that the word reads at 64 px)
@@ -51,26 +52,9 @@ PASTELS = {
     "butter": ("#fff0b0", "#ad8a24"),
 }
 
-# the pastel pass on the art: saturation down by this much, light tones lifted toward a milky white; the dark
-# lineart (value under ~0.3) is left alone so the drawing stays crisp
-PASTEL_SAT = 0.68
-PASTEL_LIFT = 0.24
-
-
-def pastel(im):
-    """A soft, milky pastel version of an RGBA picture: same hues, softer saturation, lighter mid and light tones."""
-    import numpy as np
-    a = np.asarray(im.convert("RGBA")).astype(np.float32) / 255.0
-    rgb, alpha = a[..., :3], a[..., 3:]
-    v = rgb.max(-1)
-    # hue-preserving: move each channel toward the pixel's own value (less saturation), then toward white (lift)
-    grey = v[..., None]
-    rgb = grey + (rgb - grey) * PASTEL_SAT
-    w = np.clip((v - 0.28) / 0.3, 0.0, 1.0)[..., None]  # 0 on the ink lines, 1 on mid and light tones
-    rgb = rgb + (1.0 - rgb) * PASTEL_LIFT * w
-    out = np.concatenate([np.clip(rgb, 0, 1), alpha], -1)
-    return Image.fromarray((out * 255 + 0.5).astype(np.uint8), "RGBA")
-
+# a figure taller than this (height / width) loses its lower part under the caption; a sticker whose prop sits low
+# (Hotaru's lantern) keeps more of it
+KEEP_TALLER = {"hotaru_boo": 1.45}
 
 W = 512  # working size (square)
 BORDER = 16  # die-cut white border, px at 512
@@ -143,14 +127,15 @@ def caption_layer(text, tone):
 
 def bake(sid):
     raw, text, tone = STICKERS[sid]
-    fig = pastel(cutout(raw))
+    fig = cutout(raw)
     cap, cap_top = caption_layer(text, tone)
     # the figure fills the square; the caption sits over its lower part (sticker style). A tall figure loses its
     # feet under the caption so the face stays big at 64 px.
     room_w = W - 2 * PAD
     room_h = int(cap_top + (W - cap_top) * 0.55) - PAD
-    if fig.height > fig.width * 1.12:
-        fig = fig.crop((0, 0, fig.width, int(fig.width * 1.12)))
+    tall = KEEP_TALLER.get(sid, 1.12)
+    if fig.height > fig.width * tall:
+        fig = fig.crop((0, 0, fig.width, int(fig.width * tall)))
     s = min(room_w / fig.width, room_h / fig.height)
     fig = fig.resize((max(1, int(fig.width * s)), max(1, int(fig.height * s))), Image.LANCZOS)
     art = Image.new("RGBA", (W, W), (0, 0, 0, 0))
