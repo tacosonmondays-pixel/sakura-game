@@ -379,3 +379,19 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
   - Partial: the dragon tail.
   - Rejected: the scoreboard (it has text).
   - Not imported, by content rules: wolf, cat and fox girl figures in leotard or bodysuit looks from the owner's Tripo library.
+
+## UPDATE 2026-10-31 08:42 UTC (coordinator): v0.1.68 pieces
+
+| Piece | Branch @ sha | Review |
+|---|---|---|
+| Set Boxes v2 + LR awaken | feature/set-boxes-v2 @ fbe3b3b2 | r1 OK, pending fixes M1/L1/I1/I2. The fix round merges icons 77ae365d and main. |
+| Item icons 3D (187 keys, 42 boxes) | feature/item-icons-3d @ 77ae365d (contains set-boxes-v2) | r1 running: session_01Ayo4enLhY2aBZ4nJ1yEqNM |
+| Duo p2t5 LR bar (COOP 16, sim e3c222f3ad44) | fix/duo-p2t5-lr-bar @ 47bf83b5 | r1 running. Use **this** branch's tools/balance files when merging. |
+| More page DPS + kit rows | feature/more-page-dps @ 7467f96f | r1 running: session_01Ayo4eoeiXQw2BGEY4sgfFu |
+| Sandbox catch-up | feature/sandbox-catchup @ e30311ca | r1 running: session_01Ayo4eqeaQJvJqiaACLAQwT. Follow-ups queued. |
+| Tripo batch 2 | feature/tripo-batch-2 @ 7fcd93eb | r1 running: session_01Ayo4engqFstYBNjKgbsNUu |
+| Stickers setting shadow | fix/stickers-setting-shadow @ 5886ac20 | OK |
+| coop-freeplay banner wait (test only) | fix/coop-freeplay-banner-wait @ 25ea080d | Go/no-go covers it |
+| Drag (touch) placement offset | fix/drag-touch-placement | Building: session_01Ayo4enwChBzRMnbgGSVo4D |
+
+The v0.1.68 assembly starts once most of these reviews are OK. It is COOP 16 because of the duo fix.
