@@ -27,8 +27,9 @@
 // Every message carries `ep` (the timeline epoch, bumped by each rejoin) so packets from a
 // timeline that was abandoned are ignored; 'in' also lists the slots its sender lost (`gone`).
 // A client only runs tick T once every connected peer's horizon >= T; otherwise it stalls
-// ("Waiting for ally…") and raises its own input delay a little (and lowers it again after
-// DELAY_RELAX_MS without a stall). A peer silent for
+// ("Waiting for ally…") and says so on its beats (`st`, the ticks it waited): the peer it waits
+// for raises ITS input delay a little, so its horizon reaches further (and lowers it again after
+// DELAY_RELAX_MS without a reported stall). A peer silent for
 // COOP.timeoutMs (COOP.loadTimeoutMs before its first packet: its battle screen is still
 // loading) is dropped: its towers stay, its income goes to the survivor. If the dropped peer
 // was only frozen or cut off (a phone switching apps, a long load, a network hiccup) and its
@@ -75,6 +76,8 @@ const MARK_BASE = -1000000;
  *  (half the excess per step), so one hiccup does not slow every later order for the whole
  *  battle. Safe at any time: promises (horizon) never shrink and queue() schedules after them. */
 export const DELAY_RELAX_MS = 10000;
+/** A peer that waited this many more ticks for my horizon raises my input delay one step (stalledBy). */
+export const STALL_STEP = 30;
 /** A rebuild replays this long per advance() call (real time) before giving the page back… */
 export const JOB_BUDGET_MS = 10;
 /** …but at least this many ticks, so a page starved of time still gets there. */
@@ -274,6 +277,15 @@ export class Lockstep {
   }
 
   /**
+   * The player is about to give an order (selected a girl, armed a card, opened an ability): the idle saver stops
+   * stretching my horizon now, so by the buy tap (two taps later) my promises are back to one input delay ahead and
+   * the order lands that soon instead of a whole idle lead later. Sends nothing; changes no battle state.
+   */
+  nudge() {
+    this.lastQueued = Math.max(this.lastQueued, this.now());
+  }
+
+  /**
    * Issues a local command. It runs on every client at the returned cmd's tick (null while a
    * rebuild runs: the battle on screen is not the one being played).
    * @param {string} k kind (see commands.js KINDS)
@@ -282,7 +294,10 @@ export class Lockstep {
   queue(k, a = []) {
     if (this.job) return null;
     this.lastQueued = this.now();
-    const t = Math.max(this.tick + this.delayTicks, this.promised + 1);
+    // after the horizon my beats actually promised (the peer may already have run up to it); a horizon only
+    // computed for a beat that was then not worth sending binds nobody, so an order after a quiet spell
+    // lands an input delay from now, not a whole idle lead
+    const t = Math.max(this.tick + this.delayTicks, this.sentHorizon + 1);
     const cmd = { t, p: this.mySlot, s: this.seq++, k, a };
     this.accept(cmd);
     this.beat(true);
@@ -386,7 +401,8 @@ export class Lockstep {
     // live: my battle screen is up and ticking (until then the ally allows the long load timeout)
     const gone = [...this.peers.values()].filter((p) => p.gone).map((p) => p.slot);
     // done: my battle is over (won / lost) — a host that dropped me must not offer a rejoin
-    this.send({ type: 'in', n: ++this.beatSeq, horizon, ack: this.tick - 1, cmds, live: this.running, gone, hs: this.hashOut.slice(-2), ...(this.finished ? { done: true } : {}) });
+    // st: the ticks I spent waiting for my peers' horizons (the waited-on side raises its delay, see stalledBy)
+    this.send({ type: 'in', n: ++this.beatSeq, horizon, ack: this.tick - 1, cmds, live: this.running, gone, hs: this.hashOut.slice(-2), st: this.stallTicks, ...(this.finished ? { done: true } : {}) });
   }
 
   /** While rebuilding: "still here, rebuilding (at / of ticks)" once a second (and at the start). */
@@ -470,6 +486,7 @@ export class Lockstep {
           }
         }
         if (Number.isInteger(msg.horizon)) peer.horizon = Math.max(peer.horizon, msg.horizon);
+        if (Number.isInteger(msg.st)) this.stalledBy(peer, msg.st, t);
         if (Number.isInteger(msg.ack)) peer.ack = Math.max(peer.ack, msg.ack);
         // while rebuilding, its commands and hashes wait: the battle they belong to is not built
         // yet (unacknowledged commands come again with its next beats; hashes ride on every beat)
@@ -816,6 +833,7 @@ export class Lockstep {
     let inPlace = false;
     const done = () => {
       this.promised = this.tick - 1;
+      this.sentHorizon = this.tick - 1; // (the old timeline's promises bind nobody here)
       this.rejoins++;
       if (inPlace) {
         // nothing had diverged (typically: dropped while my battle screen was still loading):
@@ -941,9 +959,8 @@ export class Lockstep {
         this.stalled = true;
         // (waiting on an ally who is rebuilding its battle is not lag: the input delay stays)
         if (this.livePeers().some((p) => p.busy)) break;
+        // (counted and reported to the peer on my beats: its lead is what I wait for, so it raises ITS delay)
         this.stallTicks++;
-        this.lastStallAt = t;
-        if (this.stallTicks % 30 === 0 && this.delay < this.maxDelay) this.delay = Math.min(this.maxDelay, this.delay + Math.max(2, Math.round(this.delay / 3)));
         break;
       }
       this.runTick();
@@ -956,9 +973,32 @@ export class Lockstep {
     return ran;
   }
 
-  /** A quiet spell (no stall for DELAY_RELAX_MS): step the input delay back toward its base. */
+  /**
+   * A peer reports `st` ticks spent waiting for my horizon so far: it stalls on MY lead (my horizon reaches my tick +
+   * my input delay), so every STALL_STEP more of them raise my input delay a step, up to maxDelay. (Before COOP 15 the
+   * client that stalled raised its own delay: its own orders got slower while it went on waiting for the same short
+   * lead from the other side.)
+   */
+  stalledBy(peer, st, t) {
+    if (peer.st == null || st < peer.st) {
+      // first report (or the peer rebuilt and counts from 0 again): only later rises count
+      peer.st = st;
+      peer.stSeen = st;
+      return;
+    }
+    peer.st = st;
+    if (st - peer.stSeen < STALL_STEP) return;
+    peer.stSeen = st;
+    this.lastStallAt = t;
+    if (this.delay < this.maxDelay) {
+      this.delay = Math.min(this.maxDelay, this.delay + Math.max(2, Math.round(this.delay / 3)));
+      this.note('delay', { delay: this.delay, by: peer.slot });
+    }
+  }
+
+  /** A quiet spell (no peer stalled on me for DELAY_RELAX_MS): step the input delay back toward its base. */
   relaxDelay(t) {
-    if (this.stalled || this.delay <= this.baseDelay || t - this.lastStallAt < DELAY_RELAX_MS) return;
+    if (this.delay <= this.baseDelay || t - this.lastStallAt < DELAY_RELAX_MS) return;
     this.delay = Math.max(this.baseDelay, this.delay - Math.max(2, Math.round((this.delay - this.baseDelay) / 2)));
     this.lastStallAt = t; // the next step after another quiet spell
     this.note('delay', { delay: this.delay });

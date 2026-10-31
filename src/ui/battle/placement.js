@@ -105,6 +105,7 @@ export function createPlacement(ctx) {
     }
     ctx.select(null);
     clearBoardModes(ctx);
+    ctx.nudge?.(); // co-op: her placement order is coming (the idle saver steps back, Lockstep.nudge)
     unitId = id;
     mode = how;
     last = null;

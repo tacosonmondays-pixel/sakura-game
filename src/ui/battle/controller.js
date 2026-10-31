@@ -450,6 +450,7 @@ export function mountBattle(root, params, hooks) {
     ctx.abilityRefused = new Map();
     // co-op orders in flight: placements, upgrades and sales on their way (src/ui/battle/coopPending.js)
     ctx.coopPending = ls ? createCoopPending() : null;
+    ctx.nudge = () => ls?.nudge?.();
     const abilityNotes = createAbilityNotes();
     // (a Continue already has its unlocked abilities: no "learned" toast for those)
     abilityNotes.seed(sim.towers.filter((t) => t.abil).map((t) => t.abil.id));
@@ -650,6 +651,8 @@ export function mountBattle(root, params, hooks) {
       if (ctx.ended && uid != null) return;
       if (ctx.picking != null && uid !== ctx.selectedUid) ctx.cancelPick();
       if (uid != null && placement.unitId) placement.cancel();
+      // co-op: an order is probably coming (her upgrade, sale, target): the idle saver steps back (Lockstep.nudge)
+      if (uid != null) ls?.nudge?.();
       ctx.selectedUid = uid ?? null;
       ctx.selectedDrone = ctx.selectedUid != null ? drone : null;
       renderer.setSelected(ctx.selectedUid, ctx.selectedDrone);

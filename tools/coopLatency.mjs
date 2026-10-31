@@ -11,7 +11,8 @@
 // RTT is the round trip between the two players (Supabase Realtime relays every message through
 // its server, so it is the client→server→client time; one way = RTT / 2), jitter an extra
 // uniform 0..J ms per message; messages from one sender stay in order (one websocket).
-// `--net live|<json>` picks the net settings (default: COOP_NET.supabase as shipped).
+// `--net live|<json>` picks the net settings (default: COOP_NET.supabase as shipped); `--nudge 800` has the
+// player select the girl / arm the card (Lockstep.nudge, COOP 15) that long before each order.
 import { Lockstep } from '../src/online/coop/lockstep.js';
 import { createCoopSim, quantize, abilArgs } from '../src/online/coop/commands.js';
 import { COOP_NET } from '../src/data/coop.js';
@@ -25,6 +26,8 @@ const FPS = Number(arg('fps', 60));
 const SECS = Number(arg('secs', 150));
 const JSON_OUT = process.argv.includes('--json');
 const NET_ARG = arg('net', 'live');
+// the UI's Lockstep.nudge() (selecting the girl, arming her card) this long before each order; 0 = none
+const NUDGE_MS = Number(arg('nudge', 0));
 const NET = NET_ARG === 'live' ? COOP_NET.supabase : { ...COOP_NET.supabase, ...JSON.parse(NET_ARG) };
 
 const CHEAP = { costMul: 0.5 };
@@ -110,6 +113,7 @@ function run({ rtt, jitter, gapMs, seed = 1 }) {
         c.queue('wave', []);
         c.queue('auto', [true]);
       }
+      if (NUDGE_MS > 0 && t >= nextAt[p] - NUDGE_MS && c.nudge) c.nudge();
       if (t < nextAt[p]) continue;
       if (mine[p] == null) {
         const tw = c.sim.towers.find((x) => c.coop.ownerOf(x.uid) === p && !x.def.hero);
@@ -182,7 +186,7 @@ for (const m of MODES) {
 }
 if (JSON_OUT) console.log(JSON.stringify({ net: NET, fps: FPS, secs: SECS, rows: out }, null, 1));
 else {
-  console.log(`net ${JSON.stringify(NET)}  fps ${FPS}  ${SECS}s per row`);
+  console.log(`net ${JSON.stringify(NET)}  fps ${FPS}  ${SECS}s per row  nudge ${NUDGE_MS} ms`);
   console.log('mode           RTT  jit | own med  p90 | ally med  p90 | per action (own med)                       | stall h/g     | delay | msg/s | n  | hash');
   for (const l of out) {
     const kinds = Object.entries(l.perKind).map(([k, v]) => `${k} ${v}`).join(' ');

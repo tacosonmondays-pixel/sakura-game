@@ -114,12 +114,13 @@ describe("the 'end' Finish vote", () => {
 });
 
 describe('compatibility', () => {
-  it('protocol 14 (the battle + gear release v0.1.66; the last five tower ultimates were 13, Gate Arc Acts 3–6, Tenka LR, Extended Day and Random Class was 12, the banners and Tryout Day 11, the ultimates 10, Gate Arc Acts 1–2 9, v0.1.41 8, v0.1.40 7, v0.1.39 6, Potential v3 5, battle train C 4, freeplay 3): protocol-2 to -13 builds are refused, and the battle data hash covers the freeplay table', () => {
-    expect(COOP_PROTOCOL).toBe(14);
+  it('protocol 15 (co-op feel: the waited-on side raises its input delay; the battle + gear release v0.1.66 was 14; the last five tower ultimates were 13, Gate Arc Acts 3–6, Tenka LR, Extended Day and Random Class was 12, the banners and Tryout Day 11, the ultimates 10, Gate Arc Acts 1–2 9, v0.1.41 8, v0.1.40 7, v0.1.39 6, Potential v3 5, battle train C 4, freeplay 3): protocol-2 to -14 builds are refused, and the battle data hash covers the freeplay table', () => {
+    expect(COOP_PROTOCOL).toBe(15);
     const v = coopVersion();
-    expect(v.proto).toBe(14);
+    expect(v.proto).toBe(15);
+    expect(sameVersion(v, { ...v, proto: 14 })).toBe(false);
+    expect(sameVersion({ ...v, proto: 14 }, v)).toBe(false);
     expect(sameVersion(v, { ...v, proto: 13 })).toBe(false);
-    expect(sameVersion({ ...v, proto: 13 }, v)).toBe(false);
     expect(sameVersion(v, { ...v, proto: 12 })).toBe(false);
     expect(sameVersion({ ...v, proto: 12 }, v)).toBe(false);
     expect(sameVersion(v, { ...v, proto: 11 })).toBe(false);

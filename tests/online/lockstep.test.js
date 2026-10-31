@@ -1385,3 +1385,74 @@ describe('co-op lockstep: the viaduct board', () => {
     expect(hashes[1]).toEqual(hashes[0]);
   });
 });
+
+// COOP 15 (co-op feel, tools/coopLatency.mjs): the input delay a stall raises is the waited-on side's, an order after
+// a quiet spell lands after the promise actually sent (not a whole idle lead), and the UI's nudge ends the idle saver early.
+describe('co-op lockstep: input lag (COOP 15)', () => {
+  const supa = { heartbeatMs: 250, inputDelay: 30, keepaliveMs: 1000 };
+  const idle = { idleAfterMs: 10000, idleLeadTicks: 60, idleKeepaliveMs: 2000 };
+  const run = (h, n) => {
+    for (let f = 0; f < n; f++) h.stepFrame();
+  };
+  const inSync = (h, fromTick) => {
+    const [A, B] = h.clients;
+    const late = A.hashPairs().filter((p) => p.t > fromTick);
+    return late.length > 0 && late.every((p) => p.mine === p.theirs) && !A.peers.get(1).gone && !B.peers.get(0).gone;
+  };
+
+  it('a client that waits for its ally raises the ALLY\'s input delay, never its own', () => {
+    const h = harness({ seed: 91, maxLag: 2, net: supa });
+    const [A, B] = h.clients;
+    run(h, 120);
+    expect(A.delay).toBe(30);
+    expect(B.delay).toBe(30);
+    // the host's packets come in bursts (a jittery uplink): ~0.7 s of silence, then everything at once
+    const held = [];
+    h.lose = (slot, msg) => {
+      if (slot !== 0) return false;
+      held.push(JSON.parse(JSON.stringify(msg)));
+      return true;
+    };
+    for (let f = 0; f < 60 * 6; f++) {
+      h.stepFrame();
+      if (f % 40 === 39) for (const m of held.splice(0)) B.receive(m);
+    }
+    h.lose = null;
+    run(h, 60);
+    expect(B.stallTicks).toBeGreaterThan(30);
+    expect(A.delay).toBeGreaterThan(30); // the host leads further…
+    expect(B.delay).toBe(30); // …and the guest's own orders stay quick
+    A.queue('auto', [true]);
+    run(h, 60 * 3);
+    expect(A.sim.options.autoStart && B.sim.options.autoStart).toBe(true);
+    expect(inSync(h, A.tick - 240)).toBe(true);
+  });
+
+  it('after a quiet spell an order lands after the promise actually sent, not a whole idle lead later; a nudge makes it one input delay', () => {
+    const h = harness({ seed: 93, maxLag: 3, net: supa, opts: idle });
+    const [A, B] = h.clients;
+    run(h, 60 * 15); // idle (no orders for 15 s)
+    expect(A.idle).toBe(true);
+    const leads = [];
+    for (let i = 0; i < 12; i++) {
+      run(h, 7 + i * 3);
+      const before = A.sentHorizon;
+      const cmd = A.queue('tgt', [0, 'first']);
+      leads.push(cmd.t - A.tick);
+      expect(cmd.t).toBeGreaterThan(before); // never under a promise already made
+      run(h, 60 * 12); // idle again
+    }
+    // the idle lead is 60 ticks; orders land 30–60 ticks out (the sent promise), most well under the full lead
+    expect(Math.max(...leads)).toBeLessThanOrEqual(61);
+    expect(Math.min(...leads)).toBeGreaterThanOrEqual(30);
+    expect(leads.reduce((a, b) => a + b, 0) / leads.length).toBeLessThan(55);
+    // a nudge (the player selected a girl) 0.6 s before the order: one input delay
+    A.nudge();
+    run(h, 36);
+    const cmd = A.queue('tgt', [0, 'first']);
+    expect(cmd.t - A.tick).toBe(30);
+    run(h, 120);
+    expect(inSync(h, A.tick - 120)).toBe(true);
+    expect(B.tick).toBeGreaterThan(60 * 140);
+  }, 60000);
+});
