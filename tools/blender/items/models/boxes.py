@@ -58,6 +58,11 @@ def _crest2(gear_set, R):
     return [P.blossom2(R, inner=0.42, notch=0.17)]
 
 
+# UR Set Boxes: each strap is two saturated rainbow bands (pink | gold on the left, mint | sky on the right), so a UR box
+# clearly outranks a Legendary one even at 40 px (review r1 L1)
+UR_BANDS = [C.paint(b, ink='#3f2266', spec=0.6, spec_at=0.985, rim=0.5) for b in ('#ff4fa3', '#ffc928', '#2fd08e', '#3fa9ff')]
+NAVY = C.paint('#24325e', light='#3b4e8a', shadow='#151d3d', ink='#0d1430')
+
 BW, BD, BH = 1.2, 1.04, 0.74
 LW, LD, LH = 1.26, 1.1, 0.3
 WALL = 0.05            # the rim you see round the opening, inside the rounded edge
@@ -86,14 +91,17 @@ def build(row):
     lid = P.rbox(LW, LD, LH, r=0.11, seg=4, name='lid')
     P.xf(lid, loc=(0, -LD / 2 + 0.02, LH / 2))       # hinge at the lid's back bottom edge
     lid_parts = [lid]
-    P.paint(lid, C.over(body_p, sheen=0.25, sheen_at=-0.46), line=2.6)
-    for sx in (-0.34, 0.34):
-        s = P.rbox(0.14, LD + 0.03, LH + 0.03, r=0.04, seg=3, name='lstrap')
-        P.xf(s, loc=(sx, -LD / 2 + 0.02, LH / 2))
-        lid_parts.append(P.paint(s, strap_p, line=1.8))
-        s2 = P.rbox(0.14, BD + 0.03, BH - 0.02, r=0.04, seg=3, name='bstrap')
-        P.xf(s2, loc=(sx, 0, BH / 2 - 0.01))
-        P.paint(s2, strap_p, line=1.8)
+    P.paint(lid, C.over(body_p, sheen=0.25, sheen_at=-0.46, **({'glow': 0.25} if ur else {})), line=2.6)
+    for i, sx in enumerate((-0.34, 0.34)):
+        # a UR box: two rainbow bands per strap; every other box: one strap of its metal
+        bands = [(sx - 0.036, 0.072, UR_BANDS[2 * i]), (sx + 0.036, 0.072, UR_BANDS[2 * i + 1])] if ur else [(sx, 0.14, strap_p)]
+        for bx, bw, paint in bands:
+            s = P.rbox(bw, LD + 0.03, LH + 0.03, r=0.03 if ur else 0.04, seg=3, name='lstrap')
+            P.xf(s, loc=(bx, -LD / 2 + 0.02, LH / 2))
+            lid_parts.append(P.paint(s, paint, line=1.4 if ur else 1.8))
+            s2 = P.rbox(bw, BD + 0.03, BH - 0.02, r=0.03 if ur else 0.04, seg=3, name='bstrap')
+            P.xf(s2, loc=(bx, 0, BH / 2 - 0.01))
+            P.paint(s2, paint, line=1.4 if ur else 1.8)
     big = tier == 'superRare'
     latch = P.rbox(0.25 if big else 0.17, 0.06, 0.2 if big else 0.13, r=0.03, seg=2, name='latch')
     P.xf(latch, loc=(0, -LD + 0.0, 0.07 if not big else 0.04))
@@ -141,25 +149,28 @@ def build(row):
         P.xf(hub, loc=(0, -BD / 2 - 0.035, ez))
         P.paint(hub, C.over(strap_p, base=strap_p['shadow']), line=1.1, lift=0.02)
     _glint_lid(tier, ang, hz)
+    if ur:                                               # a second sparkle, on the body's lower right corner
+        P.glint((BW / 2 - 0.08, -BD / 2 - 0.02, 0.16), 9)
     return dict(kind='standing', yaw=32.0, elev=22.0)
 
 
 def _choose_tag():
-    """The preset boxes' mark: a gold luggage tag (with its eyelet and string) hanging from the lid's front left corner,
-    a white pencil on it ("you choose the main stats"). Built in the lid's frame, so it tilts with the lid."""
-    gold = dict(C.GOLD_TRIM, sheen=0.25)
-    x, y, z = -0.36, -LD + 0.0, LH * 0.35
-    tag = P.slab(P.poly_round([(-0.17, -0.2), (0.17, -0.2), (0.17, 0.12), (0.0, 0.24), (-0.17, 0.12)], 0.035, 3), 0.05, 0.018,
-                 2, 'tag')
-    P.xf(tag, rot=(0, -12, 0), loc=(x, y - 0.06, z - 0.12))
-    out = [P.paint(tag, gold, line=1.6)]
-    eye = P.torus(0.035, 0.012, 16, 6, 'tageye')
-    P.xf(eye, rot=(90, 0, 0), loc=(x - 0.02, y - 0.09, z + 0.06))
-    out.append(P.paint(eye, C.over(C.GOLD_TRIM, base=C.GOLD_TRIM['shadow']), line=0.0))
-    pen = P.slab(P.poly_round([(-0.03, -0.11), (0.03, -0.11), (0.03, 0.08), (0.0, 0.13), (-0.03, 0.08)], 0.008, 2), 0.02, 0.006,
-                 1, 'pencil')
-    P.xf(pen, rot=(0, 38, 0), loc=(x + 0.01, y - 0.095, z - 0.15))
-    out.append(P.paint(pen, WHITE, line=1.0, lift=0.02))
+    """The preset boxes' mark: a white luggage tag (with a navy eyelet) hanging from the lid's front left corner, a navy
+    pencil on it ("you choose the main stats"): white and navy read against every box colour and gold strap, at 40 px
+    too (review r1 L2). Built in the lid's frame, so it tilts with the lid."""
+    k = 1.3
+    x, y, z = -0.37, -LD + 0.0, LH * 0.3
+    tag = P.slab(P.poly_round([(a * k, b * k) for a, b in ((-0.17, -0.2), (0.17, -0.2), (0.17, 0.12), (0.0, 0.24), (-0.17, 0.12))],
+                              0.04, 3), 0.06, 0.02, 2, 'tag')
+    P.xf(tag, rot=(0, -12, 0), loc=(x, y - 0.06, z - 0.14))
+    out = [P.paint(tag, dict(WHITE, ink='#0d1430'), line=2.0)]
+    eye = P.torus(0.045, 0.016, 16, 6, 'tageye')
+    P.xf(eye, rot=(90, 0, 0), loc=(x - 0.03, y - 0.1, z + 0.09))
+    out.append(P.paint(eye, NAVY, line=0.0))
+    pen = P.slab(P.poly_round([(a * k, b * k) for a, b in ((-0.035, -0.12), (0.035, -0.12), (0.035, 0.08), (0.0, 0.14), (-0.035, 0.08))],
+                              0.01, 2), 0.025, 0.008, 1, 'pencil')
+    P.xf(pen, rot=(0, 38, 0), loc=(x + 0.01, y - 0.1, z - 0.18))
+    out.append(P.paint(pen, NAVY, line=0.8, lift=0.02))
     return out
 
 

@@ -158,3 +158,18 @@ html[data-reduce-motion] .gu-seed { display: none; }
 @media (max-width: 480px) {
   .gu-sb-pick { grid-template-columns: minmax(0, 1fr); gap: 2px; }
 }
+/* a UR box's pieces sit on the rainbow ring (review r1 L3) */
+.gu-sb-piece.ur .gu-sb-piece-ico { border-radius: 50%; background: radial-gradient(circle, #fff 0 60%, transparent 62%), conic-gradient(#ff7ad9, #ffd84d, #5fe0b0, #4cd6ff, #b78bff, #ff7ad9); }
+/* short landscape screens (844x390): a smaller header so the pickers come into view, and a fade that says there is more
+   below (review r1 L4) */
+@media (max-height: 480px) {
+  .gu-set-box { gap: 4px; }
+  .gu-sb-head { padding: 3px 8px 3px 3px; }
+  .gu-sb-box { width: 40px; height: 40px; }
+  .gu-sb-title b { font-size: 16px; }
+  .gu-sb-piece-ico { width: 36px; height: 36px; }
+  .gu-sb-piece small { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .gu-sb-bonus { font-size: 12px; line-height: 1.25; }
+  .gu-set-box::after { content: ''; position: sticky; bottom: 0; display: block; height: 18px; margin-top: -18px; pointer-events: none;
+    background: linear-gradient(transparent, rgba(255, 255, 255, 0.95)); }
+}

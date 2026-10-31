@@ -524,17 +524,19 @@ export function setBoxHeader(set, itemId = null) {
   const def = GEAR_SETS[set];
   const it = getItem(itemId);
   const rarity = it?.rarity || 'legendary';
-  const ur = /_ur(_|$)/.test(String(itemId || ''));
+  const ur = it?.setRarity === 'ur';
+  // "Preset · UR", "Random · Mythic": what kind of box this is (the set's name is the title above it)
+  const kind = it?.setKind ? `${it.setKind === 'random' ? 'Random' : 'Preset'} · ${ur ? 'UR' : (ITEM_RARITIES[it.setRarity || rarity]?.name || rarity)}` : (it?.name || 'Set Box');
   // the owner, Oct 31: a box reads as its set before it opens: its box icon and name, the five pieces in the set's look,
   // the bonus (a pick box shows the chosen set's own box)
   const box = itemId && String(itemId).includes('_pick_') ? String(itemId).replace('_pick_', `_${set}_`) : itemId;
   return h('div.gu-set-head', { 'data-testid': 'set-box-head', 'data-set': set, 'data-item': itemId || '' },
     h('div.gu-sb-head', { style: { '--set': def.color } },
       box ? svgEl(itemIcon(box, { px: 64 }), 'gu-sb-box') : null,
-      h('div.gu-sb-title', h('b', def.name), h('small', it?.name || 'Set Box'))),
+      h('div.gu-sb-title', h('b', def.name), h('small', { 'data-testid': 'set-box-kind' }, kind))),
     h('div.gu-sb-pieces', { 'data-testid': 'set-box-pieces' },
       h('p.gu-sb-k', `You get these 5 ${def.name} pieces`),
-      h('div.gu-sb-row', SLOT_IDS.map((slot) => h('div.gu-sb-piece',
+      h('div.gu-sb-row', SLOT_IDS.map((slot) => h(`div.gu-sb-piece${ur ? '.ur' : ''}`,
         svgEl(gearIcon(slot, ur ? 'legendary' : rarity, { set, ur, px: 48 }), 'gu-sb-piece-ico'),
         h('small', def.pieces[slot] || slotName(slot)))))),
     h('p.gu-sb-bonus', { 'data-testid': 'set-box-bonus' }, h('b', `${t.passive}. `), `4 pieces: ${t.four} 5 pieces: ${t.five}`));
@@ -624,9 +626,10 @@ export function setBoxModal(itemId, onDone = () => {}, { count: startCount = 1, 
     if (preset) {
       body.appendChild(h('p.gu-sb-k', 'Choose each main stat (the substats are rolled)'));
       const r = getItem(itemId)?.rarity || 'legendary';
+      const ur = getItem(itemId)?.setRarity === 'ur';
       for (const slot of SLOT_IDS) {
         body.appendChild(h('div.gu-sb-pick', { 'data-testid': `set-box-slot-${slot}` },
-          h('span.gu-sb-pick-name', svgEl(gearIcon(slot, r, { set, px: 28 }), 'gu-sb-pick-ico'), h('b', slotName(slot))),
+          h('span.gu-sb-pick-name', svgEl(gearIcon(slot, ur ? 'legendary' : r, { set, ur, px: 28 }), 'gu-sb-pick-ico'), h('b', slotName(slot))),
           h('div.gu-sb-stats', MAIN_STATS_BY_SLOT[slot].map((k) => button(statName(k), {
             kind: mains[slot] === k ? 'primary' : 'ghost', small: true, icon: null, testid: `set-box-main-${slot}-${k}`, onClick: () => { mains = { ...mains, [slot]: k }; draw(); },
           })))));
