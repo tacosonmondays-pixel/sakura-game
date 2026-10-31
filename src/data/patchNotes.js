@@ -21,8 +21,14 @@
 export const PATCH_NOTES = [
   {
     // TODO(coordinator): confirm the date is the deploy day in US Central time.
-    id: 'v0.1.68', version: '0.1.68', date: '2026-10-31', title: 'Sharper Refraction',
+    id: 'v0.1.68', version: '0.1.68', date: '2026-10-31', title: 'Set Boxes and Awakening',
+    added: [
+      'Every gear set now has its own look across all five pieces, and every item has new 3D-style art, including the Tie Pin, Collar Pin, Nightglass Lens, Hair Clips and Necklaces.',
+      'Set Boxes are clearer: each box shows the set it opens and the five pieces inside, and only ever gives that set. New Set Boxes open with random main stats, and you can open several at once.',
+    ],
     changed: [
+      'UR to LR is now an Awakening, just like Legendary to UR: a set piece awakens into an LR piece of the same set. Blank LR is still there as its own option on an LR set piece.',
+      'Set Boxes you already own keep working as Preset boxes, where you choose each piece\'s main stat.',
       'Kohaku & Tsubaki\'s LR Refraction build hits harder: at tier 5, Refraction\'s LR bonus goes from ×2.0 to ×2.1, so every LR stays well ahead even in full set gear.',
     ],
     fixed: [
