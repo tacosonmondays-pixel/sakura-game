@@ -539,3 +539,15 @@ Owner decisions still pending:
 - **Low follow-ups for v0.1.69:**
   - Toasts cover the top of the Set Box results card on a returning save (390x844, right after arrival). Fix: offset or hold the toasts while the results card is open.
   - e2e harness: set-box.mjs, gear-slots.mjs and tripo-batch2.mjs call local /src modules, so they can't drive the live store. Drive them through window hooks or the UI instead, so live checks are clean.
+
+## UPDATE 2026-10-31 17:15 UTC (coordinator): v0.1.69 pieces
+
+| Piece | Branch @ sha | Review |
+|---|---|---|
+| Art v3 option C, 24 portraits | feature/art-v3c @ f56b7057 | r1 OK, no girl rejected. L1 (cache-bust ?v=) and L2 (re-encode q78) are in. **Waiting on owner OK to ship.** |
+| Suzu/Azami boss damage (COOP 17, sim 59785dd417a6) | fix/suzu-azami-boss @ c4365c86 | r1 running: session_01Ayo4epmd3A6jRnevnoQoPE |
+| Co-op sharing (COOP 17, sim 6236af328f25) | feature/coop-sharing @ 44aa36b8 | r1 running: session_01Ayo4enyUNnXXJWvZGJotcp |
+
+- Both COOP 17 branches conflict in version.js and the protocol tests. The release assembly pins KNOWN[17] to the merged id.
+- Pre-existing failure: e2e/profile.mjs "medal tally over 59 stages" fails on main too. The test's expected stage count is stale; needs its own fix.
+- perf.mirror.test.js is a wall-clock budget test and is load-sensitive. Run it on its own when it flakes.
