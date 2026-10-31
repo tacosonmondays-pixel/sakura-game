@@ -463,7 +463,6 @@ describe('ability limits survive a change of hands (review r1 M1, M2)', () => {
     expect(all(cs, cmd(0, 'abil', abilArgs(b)))).toMatchObject({ ok: false, reason: 'cooldown' });
     // lent mid-wave: in the guest's hands she is still on her group's cooldown
     expect(all(cs, cmd(0, 'lend', [b, 1])).ok).toBe(true);
-    expect(tower(cs[0], b).abil.cd).toBeGreaterThan(0);
     expect(all(cs, cmd(1, 'abil', abilArgs(b)))).toMatchObject({ ok: false, reason: 'cooldown' });
     // handed back (give) and lent again: still on it
     expect(all(cs, cmd(1, 'give', [b])).ok).toBe(true);
@@ -482,12 +481,30 @@ describe('ability limits survive a change of hands (review r1 M1, M2)', () => {
     all(cs, marker(1, 'gone'));
     step(cs, COOP.graceTicks + 1);
     for (const c of cs) expect(c.ctrlOf(g2)).toBe(0);
-    expect(tower(cs[0], g2).abil.cd).toBeGreaterThan(0); // (her old group's cooldown, carried)
+    expect(cs[0].sim.abilGroups.get(`1|${tower(cs[0], g2).abil.id}`)?.cd).toBeGreaterThan(0); // (her owner's group, still charging)
     if (cs[0].sim.state !== 'wave') expect(all(cs, cmd(0, 'wave')).ok).toBe(true);
     expect(all(cs, cmd(0, 'abil', abilArgs(g2)))).toMatchObject({ ok: false, reason: 'cooldown' });
     // and once the cooldown is over she casts for her new player
     ready(cs, g2);
     expect(all(cs, cmd(0, 'abil', abilArgs(g2))).ok).toBe(true);
+  });
+
+  it('review r2: lending a copy FIRST does not open a second cooldown — the guest casts the lent copy, the owner\'s other copy waits', () => {
+    const st = start({ p0: { loadout: [{ unitId: 'shiro' }, { unitId: 'aoi' }] } });
+    const cs = views(st, [CASH_MAX, CASH_MAX]);
+    const a = tier3(cs, 0, place(cs, 0, 'shiro'));
+    const b = tier3(cs, 0, place(cs, 0, 'shiro', 30));
+    expect(all(cs, cmd(0, 'lend', [b, 1])).ok).toBe(true);
+    ready(cs, b);
+    expect(all(cs, cmd(1, 'abil', abilArgs(b))).ok).toBe(true);
+    // one map ultimate per owner's group: her owner's other copy is on that cooldown, and so is the lent one
+    expect(all(cs, cmd(0, 'abil', abilArgs(a)))).toMatchObject({ ok: false, reason: 'cooldown' });
+    expect(all(cs, cmd(1, 'give', [b])).ok).toBe(true);
+    expect(all(cs, cmd(0, 'abil', abilArgs(b))).ok).toBe(false); // (her strike still running, then the group's cooldown)
+    // once the group is charged, one copy fires again (and only one)
+    ready(cs, a);
+    expect(all(cs, cmd(0, 'abil', abilArgs(a))).ok).toBe(true);
+    expect(all(cs, cmd(0, 'abil', abilArgs(b)))).toMatchObject({ ok: false, reason: 'cooldown' });
   });
 
   it('M2: the econ cap (two casts a wave) is her owner\'s: a lent third Market Day is refused \'cap\'', () => {

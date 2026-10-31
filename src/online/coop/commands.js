@@ -27,7 +27,6 @@ import { withDetMath } from './detMath.js';
 import { buildTryoutPlan, buildTryoutStage, tryoutGone, tryoutLoadouts } from '../../sim/tryout/index.js';
 import { checkedDraft } from '../../sim/tryout/draft.js';
 import { ctrlOf } from '../../sim/ctrl.js';
-import { carryGroupCooldown } from '../../sim/abilities.js';
 
 /** The grace counts down in sixths of a step (1×, 2× and 3× take 6, 3 and 2 a step: about 20 s of real time at any
  *  speed, whatever the speed does meanwhile; integers, the same on every client). */
@@ -245,8 +244,6 @@ function createCoopSimOn(start, { mySlot = 0, units = null }, tySim, stage = nul
 
   /** Sets who commands girl `t` (t.ctrl only while that is not her owner: a battle without sharing never has it). */
   function setCtrl(t, slot) {
-    // (what is left of her old player's shared map-ability cooldown goes with her: review r1 M1)
-    if (slot !== ctrlOf(t)) carryGroupCooldown(sim, t);
     if (slot === (t.owner ?? 0)) {
       delete t.ctrl;
       lentBy.delete(t.uid);
