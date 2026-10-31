@@ -6,8 +6,9 @@ One-line usage (one Blender at a time, below-normal priority):
 blender --background --factory-startup --python-use-system-env --python tools/blender/items/build_items.py -- [keys ...] [--family books]
 ```
 
-It bakes every item icon the game draws (the 81 item ids, `gear_<slot>_<rarity>` / `gear_<slot>_ur` and
-`recruitPoints`: 100 keys) in the approved "3D-flat" look: chunky rounded toy objects in one shared 3/4 view, lit
+It bakes every item icon the game draws (every item id, `gear_<slot>_<rarity>` / `gear_<slot>_ur` for the five slots,
+the gear sets' looks `gear_<set>_<slot>` and `recruitPoints`: 141 keys; `tests/art/itemArtGuard.test.js` fails on any
+item or gear key the game can show without one) in the approved "3D-flat" look: chunky rounded toy objects in one shared 3/4 view, lit
 from the top left, base + light + one cel shadow, tinted (never black) ink, a soft navy contact shadow, no text.
 Rarity lives in the tile, not in the art (gear is the exception: its shape and trim grow with rarity, see "Gear").
 
@@ -116,7 +117,8 @@ re-skins a base is a row; a design that needs a new form (a keyring, a bracelet,
 
 - `GEAR_SLOT_ART`: one row per slot (`src/data/types.js` `GEAR_SLOTS`) naming its base and default design (`shape`,
   `motif`, `body`, `trim`). A row whose slot the game does not have yet is a preview: today `hair` (the Hair Clip: a
-  bar clip with a sakura ornament; never a bow, a star or a snowflake) and `necklace` (a heart on a chain loop).
+  bar clip with a sakura ornament; never a bow, a star or a snowflake) and `necklace` (a heart on a chain loop). Both
+  are game slots since the gear update (`src/data/gearSlots.js` `SLOT_IDS`), baked at every rarity and UR.
 - `GEAR_TIERS`: the rarity ladder of the default looks; rarity reads from the shape and the trim, not the colour
   alone. Common: plain, pewter. Rare: silver (the charm's bail cap). Super rare: silver, ball studs (shoes: eyelets,
   ribbon: tail bands), a violet gem, and a small wing on the shoes. Mythic: rose gold, the first crest (charm: a
@@ -130,7 +132,12 @@ re-skins a base is a row; a design that needs a new form (a keyring, a bracelet,
   update's `src/data/gearSets.js`), never its club: a set is fixed per piece, a club is re-tagged by the armband and
   already shows as its tile emblem. Set ids are `[a-z0-9]+` and never a slot or tier name. A row overrides any design
   field per slot; `gearIcon(slot, rarity, { set: g.set })` shows it and falls back to the default look while a set
-  has no art. `preview=True` bakes to the scratch folder only (`sample` is one).
+  has no art. `preview=True` bakes to the scratch folder only (`sample` is one). A set row bakes only the slots it
+  lists: today the six sets draw their Hair Clip (pom, pause button, set square, confetti star, calculator, lightning
+  bolt on the bar clip) and Necklace (heart with a megaphone, stopwatch, crosshair locket, party popper, sakura coin,
+  battery), in the set colour with white and gold trim; their Charm, Ribbon and Shoes keep the default looks.
+- Set Boxes (`setbox_<set>_<mythic|legendary>`, `models/boxes.py`): the gear box in the set colour with the set's crest
+  (the pick box: pearl, a ring of the six set colours). Tie Pin, Collar Pin and Nightglass Lens are in `models/tools.py`.
 
 ```
 ... build_items.py -- --family gear                     # the game's gear keys (+ the set looks of GEAR_SETS)
@@ -210,12 +217,29 @@ Visual targets are our own approved icons only (kept outside the repo, except a 
 | `gearbox_mythic` | Radiant Gear Box | boxes | mythic | 256, 128 | pink chest, rose-gold straps and latch, lid open 15 degrees on its hinge, cream lining sunk below the rim, gear emblem with a pink gem (appr.) |
 | `gearbox_legendary` | Celestial Gear Box | boxes | legendary | 256, 128 | teal chest, gold straps, lid open 15 degrees, sunk lining, white-blue gem, star glint |
 | `gearbox_rainbow` | Rainbow Gear Box | boxes | legendary (rainbow) | 256, 128 | lilac-pearl iridescent chest, iridescent straps, lid open 15 degrees, sunk lining, prism glints |
+| `setbox_pick_mythic` | Mythic Set Box | boxes | mythic | 256, 128 | Set Box: the gear box in pearl, a ring of the six set colours round a white sakura; rose-gold straps, pink gem |
+| `setbox_pick_legendary` | Legendary Set Box | boxes | legendary | 256, 128 | Set Box: the gear box in pearl, a ring of the six set colours round a white sakura; gold straps, amber gem |
+| `setbox_spirit_mythic` | Spirit Squad Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in red, white pom crest; rose-gold straps, pink gem |
+| `setbox_spirit_legendary` | Spirit Squad Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in red, white pom crest; gold straps, amber gem |
+| `setbox_freezetag_mythic` | Freeze Tag Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in ice blue, white pause-bars crest; rose-gold straps, pink gem |
+| `setbox_freezetag_legendary` | Freeze Tag Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in ice blue, white pause-bars crest; gold straps, amber gem |
+| `setbox_geometry_mythic` | Geometry Set Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in slate blue, white set-square crest; rose-gold straps, pink gem |
+| `setbox_geometry_legendary` | Geometry Set Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in slate blue, white set-square crest; gold straps, amber gem |
+| `setbox_popper_mythic` | Party Popper Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in purple, white star crest; rose-gold straps, pink gem |
+| `setbox_popper_legendary` | Party Popper Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in purple, white star crest; gold straps, amber gem |
+| `setbox_treasurer_mythic` | Treasurer Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in mint, white coin crest; rose-gold straps, pink gem |
+| `setbox_treasurer_legendary` | Treasurer Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in mint, white coin crest; gold straps, amber gem |
+| `setbox_powerbank_mythic` | Power Bank Box (Mythic) | boxes | mythic | 256, 128 | Set Box: the gear box in lime, white bolt crest; rose-gold straps, pink gem |
+| `setbox_powerbank_legendary` | Power Bank Box (Legendary) | boxes | legendary | 256, 128 | Set Box: the gear box in lime, white bolt crest; gold straps, amber gem |
 | `dice_reroll` | Fortune Dice | tools | rare | 256, 128 | rounded light-blue die, white pips, a sakura on the top face |
 | `lock_pin` | Lock Pin | tools | superRare | 256, 128 | silver padlock with a violet-gem keyhole, pink-headed pin through it |
 | `dice_prism` | Prism Dice | tools | mythic | 256, 128 | chunky rounded d12 die in pastel iridescence, tilted, saturated violet shadow plane, big embossed rose-gold pips (1-3) on its front faces |
 | `seed_rainbow` | Rainbow Seed | tools | ur | 256, 128 | iridescent seed with a green two-leaf sprout, prism glints |
 | `needle_star` | Starlight Needle | tools | legendary | 256, 128 | bevelled gold four-point star (a ridge on each arm), steel needle behind it, pink thread through the eye (appr.) |
 | `club_band` | Club Armband | tools | mythic | 256, 128 | pink cloth armband loop with stitching and a rose-gold star badge |
+| `tie_pin` | Tie Pin | tools | legendary | 256, 128 | gold tie bar over its back clip, a stamped sakura and a small pink gem |
+| `collar_pin` | Collar Pin | tools | mythic | 256, 128 | round pink enamel collar stud on a gold rim, gold centre boss, pressed petals, post behind |
+| `lens_nightglass` | Nightglass Lens | tools | ur | 256, 128 | navy lens in a thick white-gold rim with a loop, a pale star and starlight specks, rim glint |
 | `ticket_recruit` | Recruit Ticket | tickets | superRare | 256, 128, small | pink stub with a gold star, white body with a sakura and three bars, perforation, notches (appr.) |
 | `ticket_recruit10` | 10× Recruit Ticket | tickets | mythic | 256, 128 | fanned stack of three recruit tickets (rose-gold, violet, pink stubs) held by a rose-gold band |
 | `ticket_ssr_select` | SSR Select Ticket | tickets | legendary | 256, 128 | gold-foil ticket, cream stub, big pink star crest, iridescent edge stripe |
@@ -244,5 +268,29 @@ Visual targets are our own approved icons only (kept outside the repo, except a 
 | `gear_shoes_mythic` | Shoes (mythic) | gear | mythic | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; rose-gold trim, a rose-gold sakura blossom behind the stone (ribbon: layered loops; shoes: a sole stripe and a wing), glow |
 | `gear_shoes_legendary` | Shoes (legendary) | gear | legendary | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; gold trim, sunburst rays (ribbon: a star medallion; shoes: a gold toe rim and a bigger wing), star |
 | `gear_shoes_ur` | Shoes (UR) | gear | ur | 256, 128 | chunky sneaker: white toe cap and sole, fat laces, padded collar, heel counter; iridescent body (saturated shadow) and trim, the legendary crest (the charm swaps its rays for the wings) plus rainbow wings (one pastel per feather) |
+| `gear_hair_common` | Hair Clip (common) | gear | common | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end; plain: pewter trim |
+| `gear_hair_rare` | Hair Clip (rare) | gear | rare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end; silver trim (charm: a bail cap) |
+| `gear_hair_superRare` | Hair Clip (superRare) | gear | superRare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end; silver trim, studs (ribbon: tail bands, shoes: eyelets) and a violet gem; shoes: a small wing |
+| `gear_hair_mythic` | Hair Clip (mythic) | gear | mythic | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end; rose-gold trim, a rose-gold sakura blossom behind the stone (ribbon: layered loops; shoes: a sole stripe and a wing), glow, a drop bead |
+| `gear_hair_legendary` | Hair Clip (legendary) | gear | legendary | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end; gold trim, sunburst rays (ribbon: a star medallion; shoes: a gold toe rim and a bigger wing), star, a drop bead |
+| `gear_hair_ur` | Hair Clip (UR) | gear | ur | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end; iridescent body (saturated shadow) and trim, the legendary crest (the charm swaps its rays for the wings) plus rainbow wings (one pastel per feather), a drop bead |
+| `gear_necklace_common` | Necklace (common) | gear | common | 256, 128 | heart pendant on a chain loop with a clasp; plain: pewter trim |
+| `gear_necklace_rare` | Necklace (rare) | gear | rare | 256, 128 | heart pendant on a chain loop with a clasp; silver trim (charm: a bail cap) |
+| `gear_necklace_superRare` | Necklace (superRare) | gear | superRare | 256, 128 | heart pendant on a chain loop with a clasp; silver trim, studs (ribbon: tail bands, shoes: eyelets) and a violet gem; shoes: a small wing |
+| `gear_necklace_mythic` | Necklace (mythic) | gear | mythic | 256, 128 | heart pendant on a chain loop with a clasp; rose-gold trim, a rose-gold sakura blossom behind the stone (ribbon: layered loops; shoes: a sole stripe and a wing), glow, a drop bead |
+| `gear_necklace_legendary` | Necklace (legendary) | gear | legendary | 256, 128 | heart pendant on a chain loop with a clasp; gold trim, sunburst rays (ribbon: a star medallion; shoes: a gold toe rim and a bigger wing), star, a drop bead |
+| `gear_necklace_ur` | Necklace (UR) | gear | ur | 256, 128 | heart pendant on a chain loop with a clasp; iridescent body (saturated shadow) and trim, the legendary crest (the charm swaps its rays for the wings) plus rainbow wings (one pastel per feather), a drop bead |
 | `recruitPoints` | Recruit Points | currency | superRare | 256, 128, small | sakura rosette badge: a ring of petals, a gold star boss, two ribbon tails |
+| `gear_spirit_hair` | Hair Clip (spirit set) | gear | superRare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end (pom shape, body #e5484d, gold trim); set look (rarity on the tile) |
+| `gear_spirit_necklace` | Necklace (spirit set) | gear | superRare | 256, 128 | heart pendant on a chain loop with a clasp (megaphone shape, body #e5484d, gold trim); set look (rarity on the tile) |
+| `gear_freezetag_hair` | Hair Clip (freezetag set) | gear | superRare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end (pause shape, body #5fb4e8, gold trim); set look (rarity on the tile) |
+| `gear_freezetag_necklace` | Necklace (freezetag set) | gear | superRare | 256, 128 | heart pendant on a chain loop with a clasp (stopwatch shape, body #5fb4e8, gold trim); set look (rarity on the tile) |
+| `gear_geometry_hair` | Hair Clip (geometry set) | gear | superRare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end (setsquare shape, body #5a6fa8, gold trim); set look (rarity on the tile) |
+| `gear_geometry_necklace` | Necklace (geometry set) | gear | superRare | 256, 128 | heart pendant on a chain loop with a clasp (crosshair shape, body #5a6fa8, gold trim); set look (rarity on the tile) |
+| `gear_popper_hair` | Hair Clip (popper set) | gear | superRare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end (confetti shape, body #9b5de5, gold trim); set look (rarity on the tile) |
+| `gear_popper_necklace` | Necklace (popper set) | gear | superRare | 256, 128 | heart pendant on a chain loop with a clasp (popper shape, body #9b5de5, gold trim); set look (rarity on the tile) |
+| `gear_treasurer_hair` | Hair Clip (treasurer set) | gear | superRare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end (calc shape, body #9fd8c4, gold trim); set look (rarity on the tile) |
+| `gear_treasurer_necklace` | Necklace (treasurer set) | gear | superRare | 256, 128 | heart pendant on a chain loop with a clasp (coin shape, body #9fd8c4, gold trim); set look (rarity on the tile) |
+| `gear_powerbank_hair` | Hair Clip (powerbank set) | gear | superRare | 256, 128 | hair clip: a rounded bar clip with a sakura ornament at its end (bolt shape, body #8bd13a, gold trim); set look (rarity on the tile) |
+| `gear_powerbank_necklace` | Necklace (powerbank set) | gear | superRare | 256, 128 | heart pendant on a chain loop with a clasp (battery shape, body #8bd13a, gold trim); set look (rarity on the tile) |
 <!-- table:end -->

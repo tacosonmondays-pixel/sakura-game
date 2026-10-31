@@ -2,13 +2,16 @@
 // gear piece and currency the game draws maps to its own baked image, the drawn SVG stays under it as the error
 // fallback only (a slow load shows a neutral placeholder), small boxes get the small cut, tiles wear their tier's
 // plate, and the change is display only (the battle sim id does not move).
-import { GEAR_UPDATE_ITEM_IDS } from '../../src/data/gearAwaken.js';
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ITEMS, ITEM_IDS } from '../../src/data/items.js';
-import { GEAR_SLOTS, ITEM_RARITY_ORDER } from '../../src/data/types.js';
+import { ITEM_RARITY_ORDER } from '../../src/data/types.js';
+import { SLOT_IDS, GEAR_SLOT_DEFS } from '../../src/data/gearSlots.js';
+
+/** Every gear slot (the classic three and the Hair Clip and Necklace). */
+const GEAR_SLOTS = Object.fromEntries(SLOT_IDS.map((s) => [s, GEAR_SLOT_DEFS[s]]));
 import { ITEM_ART, ITEM_ART_SMALL } from '../../src/art/itemArt.js';
 import {
   itemIcon, gearIcon, currencyIcon, itemIconSVG, itemArtSVG, itemArtUrl, hasItemArt, gearArtKey, hasItemIcon, preloadSmallItemArt,
@@ -29,10 +32,8 @@ function img(markup) {
   return { src: attr('src'), srcset: attr('srcset'), sizes: attr('sizes'), art: attr('data-art'), cls: attr('class'), onerror: attr('onerror') };
 }
 
-// The gear update's items (Set Boxes, pins, the Nightglass Lens: docs/specs/GEAR_UPDATE.md §3.3) are baked on
-// feature/gear-icons; until it lands they have no source and draw their SVG. Nothing else may fall back.
-const ART_PENDING = new Set(GEAR_UPDATE_ITEM_IDS);
-const BAKED_IDS = ITEM_IDS.filter((id) => !ART_PENDING.has(id));
+// Every item is baked, the gear update's Set Boxes, pins and Nightglass Lens included (tests/art/itemArtGuard.test.js).
+const BAKED_IDS = ITEM_IDS;
 
 describe('item art at runtime: every item has baked art', () => {
   it('every item id has a manifest entry, so no item falls back to the drawing', () => {

@@ -451,6 +451,11 @@ def hairclip(look):
             P.paint(b, C.PEARL, line=1.0)
     # the ornament at the right end
     R = 0.46
+    if shape in SET_ORNAMENTS:                           # a set look's own ornament (catalog.GEAR_SETS)
+        SET_ORNAMENTS[shape](look, (0.55, -0.04, 0.02), R)
+        if look.star:
+            P.glint((0.42, -0.24, 0.2), look.star)
+        return dict(kind='flat', roll=-24.0, turn=14.0, tip=12.0)
     if look.crest >= 2:                                  # a scalloped metal disc behind the flower (never a star)
         disc = P.slab(P.blossom2(R * 1.38, inner=0.86, notch=0.0), 0.06, 0.02, 2, 'disc')
         P.xf(disc, rot=(0, 36, 0), loc=(0.55, 0.12, 0.02))
@@ -488,13 +493,266 @@ def necklace(look):
     clasp = P.torus(0.075, 0.03, 20, 8, 'clasp')
     P.xf(clasp, rot=(90, 0, 0), loc=(0.0, 0.05, cz + R * 1.05 + 0.02))
     P.paint(clasp, trim, line=1.3)
-    _moved(lambda: _stone(look, look.d.get('shape', 'heart'), chain=False), dz=-0.42, dy=-0.04, scale=0.85)
+    shape = look.d.get('shape', 'heart')
+    if shape in SET_LOCKETS:                             # a set look's own locket, hung by its top from the chain's bail
+        fn, top = SET_LOCKETS[shape]
+        sc = 1.3
+        _moved(lambda: fn(look), dz=cz - R * 1.05 - 0.05 - top * sc, dy=-0.04, scale=sc)
+    else:
+        _moved(lambda: _stone(look, shape, chain=False), dz=-0.42, dy=-0.04, scale=0.85)
     bail = P.torus(0.08, 0.032, 20, 8, 'bail')
     P.xf(bail, rot=(0, 90, 0), loc=(0, 0.02, cz - R * 1.05 - 0.02))
     P.paint(bail, trim, line=1.3)
     if look.star:
         P.glint((-0.1, -0.34, -0.3), look.star)
     return dict(kind='flat', roll=-10.0, turn=14.0, tip=10.0)
+
+
+# ---------------------------------------------------------------------------
+# set looks: the six sets' Hair Clip ornaments and Necklace lockets (catalog.GEAR_SETS; docs/art/tripo/chrome-batch-1.md
+# rows 2-13: each in the set colour "with white and gold trim"). Ornaments sit at `at` (the clip's right end, R about
+# 0.46); lockets are built at the origin about 1.05 wide and placed by necklace(). Flat, chunky, clean cel bands.
+# ---------------------------------------------------------------------------
+
+def _white(look):
+    return dict(look.white, rim=0.2)
+
+
+def _over_light(p):
+    return C.over(p, base=p['light'], shadow=p['base'])
+
+
+def _orn_pom(look, at, R):
+    """Pom Clip: a fluffy cheer pom-pom (a cluster of balls, the set colour with white strands) on a gold cap."""
+    x, y, z = at
+    cap = P.cabochon(0.16, 0.08)
+    P.xf(cap, rot=(90, 0, 0), loc=(x - 0.36, y + 0.02, z))
+    P.paint(cap, look.trim, line=1.6)
+    core = P.sphere(R * 0.62, 32, 16, 'pomcore', scale=(1.0, 0.55, 1.0))
+    P.xf(core, loc=(x, y, z))
+    P.paint(core, dict(look.body, sheen=0.15), line=2.2)
+    for k in range(9):
+        a = math.radians(90 + 40 * k)
+        r = R * (0.62 if k % 2 else 0.7)
+        b = P.sphere(R * 0.3, 20, 10, 'pomball', scale=(1.0, 0.6, 1.0))
+        P.xf(b, loc=(x + math.cos(a) * r, y - 0.02 - 0.004 * k, z + math.sin(a) * r))
+        P.paint(b, _white(look) if k % 3 == 0 else look.body, line=1.8)
+
+
+def _orn_pause(look, at, R):
+    """Pause-Button Clip: a round push button in the set colour with a gold bezel and two white pause bars."""
+    x, y, z = at
+    bez = P.slab(P.circle2(R * 1.0, 64), 0.12, 0.04, 3, 'bezel')
+    P.xf(bez, loc=(x, y + 0.04, z))
+    P.paint(bez, look.trim, line=2.2)
+    btn = P.slab(P.circle2(R * 0.8, 64), 0.12, 0.06, 3, 'button')
+    P.xf(btn, loc=(x, y - 0.04, z))
+    P.paint(btn, dict(look.body, sheen=0.3), line=1.8)
+    for dx in (-0.12, 0.12):
+        bar = P.slab(P.rrect2(0.13, 0.4, 0.05, 4), 0.05, 0.02, 2, 'pausebar')
+        P.xf(bar, loc=(x + dx, y - 0.13, z))
+        P.paint(bar, _white(look), line=1.4, lift=0.02)
+
+
+def _orn_setsquare(look, at, R):
+    """Set-Square Clip: a chunky triangle ruler in the set colour, a white window and white ticks, gold rivet."""
+    x, y, z = at
+    tri = [(-0.5, -0.42), (0.55, -0.42), (-0.5, 0.58)]
+    outer = P.slab(P.poly_round([(x + a * R * 1.5, z + b * R * 1.5) for a, b in tri], 0.06, 3), 0.12, 0.04, 3, 'square')
+    P.xf(outer, loc=(0, y, 0))
+    P.paint(outer, dict(look.body, sheen=0.2), line=2.2)
+    win = [(-0.3, -0.24), (0.15, -0.24), (-0.3, 0.2)]
+    w = P.slab(P.poly_round([(x + a * R * 1.5, z + b * R * 1.5) for a, b in win], 0.04, 3), 0.04, 0.015, 2, 'window')
+    P.xf(w, loc=(0, y - 0.07, 0))
+    P.paint(w, _white(look), line=1.2, lift=0.02)
+    for k in range(5):                                   # ticks along the bottom edge
+        t = P.slab(P.rrect2(0.03, 0.09 if k % 2 else 0.14, 0.012, 2), 0.03, 0.01, 1, 'tick')
+        P.xf(t, loc=(x + (-0.6 + 0.28 * k) * R * 1.2 + 0.08, y - 0.08, z - 0.42 * R * 1.5 + 0.09))
+        P.paint(t, _white(look), line=0.0)
+    rv = P.cabochon(0.07, 0.04)
+    P.xf(rv, rot=(90, 0, 0), loc=(x - 0.5 * R * 1.5 + 0.12, y - 0.08, z - 0.42 * R * 1.5 + 0.12))
+    P.paint(rv, look.trim, line=1.0)
+
+
+def _orn_confetti(look, at, R):
+    """Confetti Clip: a chunky star in the set colour with a gold edge and a burst of confetti bits around it."""
+    x, y, z = at
+    back = P.slab(P.poly_round(P.star2(5, R * 1.08, R * 0.55), 0.06, 3), 0.08, 0.03, 2, 'starback')
+    P.xf(back, loc=(x, y + 0.05, z))
+    P.paint(back, look.trim, line=2.0)
+    st = P.slab(P.poly_round(P.star2(5, R * 0.9, R * 0.45), 0.06, 3), 0.14, 0.05, 3, 'star')
+    P.xf(st, loc=(x, y - 0.03, z))
+    P.paint(st, dict(look.body, sheen=0.3), line=1.8)
+    bits = ((-0.62, 0.5, 18, 'w'), (0.6, 0.52, -24, 'g'), (0.7, -0.35, 40, 'w'), (-0.05, 0.78, 8, 'p'))
+    pink = C.paint('#ff8fc0', light='#ffc0dc', shadow='#e85f9c', ink='#6e1a3c')
+    for dx, dz, rot, c in bits:
+        b = P.slab(P.rrect2(0.09, 0.16, 0.03, 3), 0.04, 0.012, 1, 'confetto')
+        P.xf(b, rot=(0, rot, 0), loc=(x + dx * R, y - 0.04, z + dz * R))
+        P.paint(b, {'w': _white(look), 'g': look.trim, 'p': pink}[c], line=1.2)
+
+
+def _orn_calc(look, at, R):
+    """Calculator Clip: a tiny calculator in the set colour, a pale screen and a 3 x 3 grid of white keys."""
+    x, y, z = at
+    body = P.slab(P.rrect2(R * 1.5, R * 1.9, 0.09, 5), 0.13, 0.045, 3, 'calc')
+    P.xf(body, loc=(x, y, z))
+    P.paint(body, dict(look.body, sheen=0.2), line=2.2)
+    scr = P.slab(P.rrect2(R * 1.15, R * 0.42, 0.04, 3), 0.03, 0.012, 2, 'screen')
+    P.xf(scr, loc=(x, y - 0.075, z + R * 0.55))
+    P.paint(scr, C.paint('#eaf7e6', light='#ffffff', shadow='#c6e3c0', ink='#2c5a3a', rim=0.0), line=1.0, lift=0.02)
+    for i in range(3):
+        for j in range(3):
+            k = P.cabochon(0.055, 0.03, n=16)
+            P.xf(k, rot=(90, 0, 0), loc=(x + (j - 1) * R * 0.38, y - 0.075, z - 0.05 - i * R * 0.34))
+            P.paint(k, look.trim if (i, j) == (2, 2) else _white(look), line=0.9)
+
+
+BOLT2 = [(-0.12, 0.62), (0.34, 0.62), (0.08, 0.14), (0.36, 0.14), (-0.22, -0.66), (-0.04, -0.12), (-0.32, -0.12)]
+
+
+def _orn_bolt(look, at, R):
+    """Lightning Clip: a chunky lightning bolt in the set colour on a gold bolt a size larger, a white highlight."""
+    x, y, z = at
+    back = P.slab(P.poly_round([(x + a * R * 1.55, z + b * R * 1.55) for a, b in BOLT2], 0.04, 3), 0.08, 0.03, 2, 'boltback')
+    P.xf(back, loc=(0, y + 0.05, 0))
+    P.paint(back, look.trim, line=2.0)
+    b = P.slab(P.poly_round([(x + a * R * 1.3, z + b * R * 1.3) for a, b in BOLT2], 0.04, 3), 0.14, 0.05, 3, 'bolt')
+    P.xf(b, loc=(0, y - 0.03, 0))
+    P.paint(b, dict(look.body, sheen=0.35), line=1.8)
+
+
+SET_ORNAMENTS = dict(pom=_orn_pom, pause=_orn_pause, setsquare=_orn_setsquare, confetti=_orn_confetti, calc=_orn_calc,
+                     bolt=_orn_bolt)
+
+
+def _bail_top(look, z):
+    t = P.torus(0.08, 0.03, 20, 8, 'lbail')
+    P.xf(t, rot=(0, 90, 0), loc=(0, 0.02, z))
+    P.paint(t, look.trim, line=1.2)
+
+
+def _lk_megaphone(look):
+    """Spirit Locket: a heart locket in the set colour on a gold heart, a white cheer megaphone on its face."""
+    back = P.slab(P.heart2(1.32, 1.22), 0.1, 0.035, 3, 'heartback')
+    P.xf(back, loc=(0, 0.06, 0))
+    P.paint(back, look.trim, line=2.4)
+    h = P.slab(P.heart2(1.12, 1.02), 0.16, 0.06, 3, 'heart')
+    P.xf(h, loc=(0, -0.03, 0.02))
+    P.paint(h, dict(look.body, sheen=0.3), line=2.0)
+    cone = P.lathe([(0.07, 0.0), (0.24, 0.42), (0.26, 0.44), (0.0, 0.44)], segs=28, name='megaphone')
+    P.xf(cone, rot=(0, -62, 0), loc=(-0.14, -0.14, 0.0))
+    P.paint(cone, _white(look), line=1.5)
+    hnd = P.slab(P.rrect2(0.07, 0.16, 0.03, 2), 0.05, 0.015, 1, 'mhandle')
+    P.xf(hnd, rot=(0, -62, 0), loc=(-0.1, -0.13, -0.1))
+    P.paint(hnd, look.trim, line=1.0)
+    _bail_top(look, 0.6)
+
+
+def _lk_stopwatch(look):
+    """Tag Timer: a pendant stopwatch, a ring in the set colour round a white face, gold crown and hands."""
+    crown = P.slab(P.rrect2(0.2, 0.16, 0.05, 3), 0.12, 0.04, 2, 'crown')
+    P.xf(crown, loc=(0, 0.0, 0.62))
+    P.paint(crown, look.trim, line=1.6)
+    btn = P.slab(P.rrect2(0.14, 0.1, 0.04, 2), 0.1, 0.03, 2, 'sidebtn')
+    P.xf(btn, rot=(0, -40, 0), loc=(0.4, 0.0, 0.42))
+    P.paint(btn, look.trim, line=1.4)
+    ring = P.ring_slab(P.circle2(0.58, 64), P.circle2(0.42, 64), 0.16, bevel=0.04, inner_bevel=0.02, name='watchring')
+    P.paint(ring, dict(look.body, sheen=0.3), line=2.2)
+    face = P.slab(P.circle2(0.43, 64), 0.08, 0.02, 2, 'watchface')
+    P.xf(face, loc=(0, 0.02, 0))
+    P.paint(face, _white(look), line=1.2)
+    for k in range(4):
+        t = P.slab(P.rrect2(0.035, 0.09, 0.015, 2), 0.02, 0.008, 1, 'tick')
+        P.xf(t, loc=(0, -0.03, 0.31))
+        P.xf(t, rot=(0, 90 * k, 0))
+        P.paint(t, look.body, line=0.0)
+    for ln, ang in ((0.3, 0), (0.2, 120)):
+        hnd = P.slab(P.rrect2(0.045, ln, 0.02, 2), 0.02, 0.008, 1, 'hand')
+        P.xf(hnd, loc=(0, -0.04, ln / 2 - 0.02))
+        P.xf(hnd, rot=(0, ang, 0))
+        P.paint(hnd, look.trim, line=0.9)
+    _bail_top(look, 0.74)
+
+
+def _lk_crosshair(look):
+    """Crosshair Locket: a round locket in the set colour, a gold rim, a white window with gold crosshairs."""
+    rim = P.slab(P.circle2(0.62, 64), 0.12, 0.04, 3, 'lrim')
+    P.xf(rim, loc=(0, 0.05, 0))
+    P.paint(rim, look.trim, line=2.4)
+    body = P.slab(P.circle2(0.54, 64), 0.16, 0.06, 3, 'lbody')
+    P.xf(body, loc=(0, -0.02, 0))
+    P.paint(body, dict(look.body, sheen=0.3), line=1.8)
+    win = P.slab(P.circle2(0.34, 64), 0.05, 0.02, 2, 'lwin')
+    P.xf(win, loc=(0, -0.11, 0))
+    P.paint(win, _white(look), line=1.2, lift=0.02)
+    for ang in (0, 90):
+        bar = P.slab(P.rrect2(0.045, 0.56, 0.02, 2), 0.03, 0.01, 1, 'cross')
+        P.xf(bar, rot=(0, ang, 0), loc=(0, -0.14, 0))
+        P.paint(bar, look.body, line=0.0)
+    ring = P.torus(0.16, 0.022, 40, 8, 'aimring')
+    P.xf(ring, rot=(90, 0, 0), loc=(0, -0.15, 0))
+    P.paint(ring, look.body, line=0.0)
+    dot = P.cabochon(0.05, 0.03, n=16)
+    P.xf(dot, rot=(90, 0, 0), loc=(0, -0.16, 0))
+    P.paint(dot, look.trim, line=0.8)
+    _bail_top(look, 0.7)
+
+
+def _lk_popper(look):
+    """Party Locket: a party popper (a cone in the set colour with white stripes, a gold rim) bursting confetti."""
+    cone = P.slab(P.poly_round([(0.0, -0.62), (0.42, 0.34), (-0.42, 0.34)], 0.06, 3), 0.16, 0.06, 3, 'popper')
+    P.paint(cone, dict(look.body, sheen=0.25), line=2.2)
+    for k, zz in enumerate((-0.25, 0.05)):
+        w = 0.18 + 0.26 * k
+        st = P.slab(P.rrect2(w, 0.08, 0.03, 2), 0.04, 0.012, 1, 'stripe')
+        P.xf(st, loc=(0, -0.09, zz))
+        P.paint(st, _white(look), line=1.0, lift=0.02)
+    rim = P.slab(P.rrect2(0.92, 0.12, 0.06, 3), 0.18, 0.05, 3, 'poprim')
+    P.xf(rim, loc=(0, -0.01, 0.38))
+    P.paint(rim, look.trim, line=1.8)
+    pink = C.paint('#ff8fc0', light='#ffc0dc', shadow='#e85f9c', ink='#6e1a3c')
+    for dx, dz, rot, c in ((-0.36, 0.62, 20, 'w'), (0.0, 0.72, -10, 'p'), (0.36, 0.6, 35, 'g'), (-0.62, 0.42, -30, 'p'),
+                           (0.62, 0.44, 15, 'w')):
+        b = P.slab(P.poly_round(P.star2(4, 0.1, 0.05), 0.01, 2) if c == 'g' else P.rrect2(0.08, 0.14, 0.03, 2), 0.04, 0.012, 1, 'bit')
+        P.xf(b, rot=(0, rot, 0), loc=(dx, -0.02, dz))
+        P.paint(b, {'w': _white(look), 'g': look.trim, 'p': pink}[c], line=1.1)
+
+
+def _lk_coin(look):
+    """Coin Locket: a gold coin with an embossed sakura stamp, set in a rim of the set colour."""
+    rim = P.slab(P.circle2(0.62, 64), 0.12, 0.04, 3, 'coinrim')
+    P.xf(rim, loc=(0, 0.05, 0))
+    P.paint(rim, dict(look.body, sheen=0.2), line=2.4)
+    coin = P.slab(P.circle2(0.52, 64), 0.16, 0.06, 3, 'coin')
+    P.xf(coin, loc=(0, -0.02, 0))
+    P.paint(coin, dict(C.GOLD, sheen=0.25), line=1.8)
+    ring = P.torus(0.42, 0.02, 64, 8, 'coinring')
+    P.xf(ring, rot=(90, 0, 0), loc=(0, -0.1, 0))
+    P.paint(ring, C.over(C.GOLD, base=C.GOLD['shadow']), line=0.0)
+    st = P.slab(P.blossom2(0.26, inner=0.42, notch=0.17), 0.04, 0.015, 2, 'stamp')
+    P.xf(st, loc=(0, -0.11, 0))
+    P.paint(st, C.CREAM, line=1.1, lift=0.02)
+    _bail_top(look, 0.7)
+
+
+def _lk_battery(look):
+    """Battery Locket: an upright battery in the set colour, a gold terminal and three white charge bars."""
+    body = P.slab(P.rrect2(0.72, 1.06, 0.14, 5), 0.18, 0.06, 3, 'battery')
+    P.xf(body, loc=(0, 0, -0.04))
+    P.paint(body, dict(look.body, sheen=0.3), line=2.2)
+    term = P.slab(P.rrect2(0.28, 0.14, 0.04, 3), 0.14, 0.04, 2, 'terminal')
+    P.xf(term, loc=(0, 0.0, 0.54))
+    P.paint(term, look.trim, line=1.6)
+    for k in range(3):
+        bar = P.slab(P.rrect2(0.48, 0.18, 0.05, 3), 0.05, 0.018, 2, 'charge')
+        P.xf(bar, loc=(0, -0.1, -0.36 + 0.26 * k))
+        P.paint(bar, _white(look) if k < 2 else look.trim, line=1.1, lift=0.02)
+    _bail_top(look, 0.68)
+
+
+# shape -> (builder, z of its top: the bail ring the chain's bail holds)
+SET_LOCKETS = dict(megaphone=(_lk_megaphone, 0.6), stopwatch=(_lk_stopwatch, 0.74), crosshair=(_lk_crosshair, 0.7),
+                   popper=(_lk_popper, 0.64), coin=(_lk_coin, 0.7), battery=(_lk_battery, 0.68))
 
 
 BASES = dict(pendant=pendant, bow=bow, sneaker=sneaker, hairclip=hairclip, necklace=necklace)
