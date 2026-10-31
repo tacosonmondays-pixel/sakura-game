@@ -528,3 +528,14 @@ Owner decisions still pending:
 - Shieldline shield: keep it as it is.
 
 **v0.1.69 target:** co-op sharing + Suzu/Azami (both COOP 17) + art v3c (if the owner OKs the board) + the deferred lows.
+
+## UPDATE 2026-10-31 15:05 UTC: v0.1.68 live check PASS
+
+- Live check passed (review/v0.1.68-live @ ec657a4).
+  - Every request returned 200 and there were no errors.
+  - Set Boxes, awaken-lr, more-page, sandbox, stickers and tripo-2 all pass against the live files.
+  - Co-op hashes matched; same finish tick.
+  - A v0.1.67 save loads with no loss.
+- **Low follow-ups for v0.1.69:**
+  - Toasts cover the top of the Set Box results card on a returning save (390x844, right after arrival). Fix: offset or hold the toasts while the results card is open.
+  - e2e harness: set-box.mjs, gear-slots.mjs and tripo-batch2.mjs call local /src modules, so they can't drive the live store. Drive them through window hooks or the UI instead, so live checks are clean.
