@@ -477,3 +477,12 @@ Owner decisions still pending:
 - UR box sources
 - the shieldline shield
 - UI polish pass (kobra link)
+
+## UPDATE 2026-10-31 12:01 UTC (coordinator)
+
+- **release/v0.1.68 @ a3d97a3.** Every piece is merged.
+  - **Luna more-page test:** it was a test-timing flake (frame-rate dependent burst). The placement grids are identical across trees and across quality settings: 118,800 samples hash to d01c66d39a03829d. No gameplay or co-op risk.
+  - **Gates done:** noNerf vs live (0 under) and lrBar default + urset (OK).
+  - **Still running:** e2e, npm test and build (assembly session_01Ayo4epijedhWS24eX5TLBq).
+- **Go/no-go launched in parallel:** session_01Ayo4eovQc5waR8iBPmtsjF, on a3d97a3.
+- **On GO:** push to main (COOP 16), poll, live check.
