@@ -10,7 +10,7 @@ import { createRng } from '../core/rng.js';
 import { formatNumber } from '../core/util.js';
 import { ITEM_RARITIES } from '../data/types.js';
 import { SLOT_IDS, MAIN_STATS_BY_SLOT, isNewSlot, slotName } from '../data/gearSlots.js';
-import { GEAR_SETS, SET_TEXT } from '../data/gearSets.js';
+import { GEAR_SETS, SET_TEXT, setPieceName } from '../data/gearSets.js';
 import { UNIT_MAP } from '../data/units.js';
 import { getItem } from '../data/items.js';
 import { GEAR_STAT_DEFS, statName, STAT_HINTS, trickIdle } from '../data/gearStats.js';
@@ -517,34 +517,51 @@ export function rainbowBoxModal(onDone = () => {}) {
 
 /**
  * A Set Box (GEAR_UPDATE.md §5): the set (a choose-box offers all six), a main stat per slot ("Fill for a girl" picks
- * them from her kit), then all five pieces at +0 with rolled substats (systems/gearSets.js openSetBox).
+ * them from her kit), then all five pieces at +0 with rolled substats (systems/gearSets.js openSetBox). The owner, Oct 31:
+ * every box must read as its own set before it opens: a header with the set's box and name, the five pieces in that
+ * set's look, the set bonus, and each main-stat picker wearing its piece's icon. A choose-box shows its set chooser
+ * (each set's box icon) first, then the same layout for the set picked.
  */
 export function setBoxModal(itemId, onDone = () => {}) {
   const profile = store.profile;
   const sets = setBoxSets(itemId);
+  const rarity = getItem(itemId)?.rarity || 'legendary';
   let set = sets[0];
   const girl = profile.formation?.towers?.[0] || profile.secretary || 'aoi';
   let mains = fillMainsFor(profile, girl);
   let busy = 0;
   const body = h('div.gu-set-box', { 'data-testid': 'set-box-modal' });
+  const boxOf = (id) => (sets.length > 1 ? `setbox_${id}_${rarity}` : itemId);
   const draw = () => {
     clear(body);
-    body.appendChild(h('p.muted', 'All five pieces of one set at +0. You choose each main stat; the substats are rolled.'));
-    if (sets.length > 1) {
-      body.appendChild(h('div.row', sets.map((id) => button(GEAR_SETS[id].name, {
-        kind: set === id ? 'primary' : 'ghost', small: true, icon: null, testid: `set-box-set-${id}`, onClick: () => { set = id; draw(); },
-      }))));
+    if (sets.length > 1) {                               // a choose-box: the six sets first, each with its own box
+      body.appendChild(h('p.gu-sb-k', 'Pick a set'));
+      body.appendChild(h('div.gu-sb-sets', sets.map((id) => h(`button.gu-sb-set${set === id ? '.on' : ''}`, {
+        type: 'button', 'data-testid': `set-box-set-${id}`, 'aria-pressed': set === id ? 'true' : 'false', onclick: () => { set = id; draw(); },
+      }, svgEl(itemIcon(`setbox_${id}_${rarity}`, { px: 40 }), 'gu-sb-set-ico'), h('span', GEAR_SETS[id].name)))));
     }
+    const name = GEAR_SETS[set].name;
+    body.appendChild(h('div.gu-sb-head', { 'data-testid': 'set-box-head', style: { '--set': GEAR_SETS[set].color } },
+      svgEl(itemIcon(boxOf(set), { px: 64 }), 'gu-sb-box'),
+      h('div.gu-sb-title', h('b', name), h('small', `${ITEM_RARITIES[rarity]?.name || rarity} Set Box · all five pieces at +0`))));
+    body.appendChild(h('div.gu-sb-pieces', { 'data-testid': 'set-box-pieces' },
+      h('p.gu-sb-k', `You get these 5 ${name} pieces`),
+      h('div.gu-sb-row', SLOT_IDS.map((slot) => h('div.gu-sb-piece',
+        svgEl(gearIcon(slot, rarity, { set, px: 48 }), 'gu-sb-piece-ico'),
+        h('small', setPieceName(set, slot) || slotName(slot)))))));
     const t = SET_TEXT[set];
-    body.appendChild(h('p', h('b', `${GEAR_SETS[set].name}: ${t.passive}. `), `4 pieces: ${t.four} 5 pieces: ${t.five}`));
+    body.appendChild(h('p.gu-sb-bonus', { 'data-testid': 'set-box-bonus' }, h('b', `${t.passive}. `), `4 pieces: ${t.four} 5 pieces: ${t.five}`));
     // the dead-passive rule (§3.1): what her kit cannot use of this set, said before the box opens
     const idle = setIdle(set, girl);
     const why = idle.passive || idle.cap;
     if (why) body.appendChild(h('p.muted.gk-set-idle', { 'data-testid': 'set-box-idle' }, `For ${UNIT_MAP[girl]?.name || 'her'}: ${why}`));
+    body.appendChild(h('p.gu-sb-k', 'Choose each main stat (the substats are rolled)'));
     for (const slot of SLOT_IDS) {
-      body.appendChild(h('div.row', h('b', `${slotName(slot)}: `), MAIN_STATS_BY_SLOT[slot].map((k) => button(statName(k), {
-        kind: mains[slot] === k ? 'primary' : 'ghost', small: true, icon: null, testid: `set-box-main-${slot}-${k}`, onClick: () => { mains = { ...mains, [slot]: k }; draw(); },
-      }))));
+      body.appendChild(h('div.gu-sb-pick', { 'data-testid': `set-box-slot-${slot}` },
+        h('span.gu-sb-pick-name', svgEl(gearIcon(slot, rarity, { set, px: 28 }), 'gu-sb-pick-ico'), h('b', slotName(slot))),
+        h('div.gu-sb-stats', MAIN_STATS_BY_SLOT[slot].map((k) => button(statName(k), {
+          kind: mains[slot] === k ? 'primary' : 'ghost', small: true, icon: null, testid: `set-box-main-${slot}-${k}`, onClick: () => { mains = { ...mains, [slot]: k }; draw(); },
+        })))));
     }
     body.appendChild(h('div.row', button(`Fill for ${UNIT_MAP[girl]?.name || 'her'}`, { kind: 'ghost', small: true, icon: null, testid: 'set-box-fill', onClick: () => { mains = fillMainsFor(profile, girl); draw(); } })));
   };

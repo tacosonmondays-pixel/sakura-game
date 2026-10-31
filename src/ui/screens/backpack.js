@@ -48,6 +48,7 @@ import { portraitHTML } from '../../art/portraits.js';
 import { isUR } from '../rarity.js';
 import { boxSummary, SUMMARY_ABOVE } from '../gearSummary.js';
 import { gearCard, pickGearFor, rainbowBoxModal, setBoxModal } from '../gearUr.js';
+import { GEAR_SETS } from '../../data/gearSets.js';
 import { openPieceSheet } from '../girlGear.js';
 import '../styles/achievements.css'; // the gear summary
 
@@ -272,6 +273,12 @@ function openBoxes(itemId, n, after) {
   after();
 }
 
+/** The Supplies line of a Set Box: the set it opens ("Opens 5 Freeze Tag pieces"), or the choice a pick box gives. */
+export function boxLine(it) {
+  if (!it?.pickSet) return null;
+  return it.set && GEAR_SETS[it.set] ? `Opens 5 ${GEAR_SETS[it.set].name} pieces` : 'Pick a set: opens its 5 pieces';
+}
+
 /** The Supplies sheet (§6.4): the gear boxes (Open, Open ×10, Open all) and the gear tools, one line each. */
 function openSupplies(rerender) {
   const profile = store.profile;
@@ -294,7 +301,7 @@ function openSupplies(rerender) {
       }
       // a Set Box opens through its set and main-stat picker (gearUr.js setBoxModal → systems/gearSets.js openSetBox)
       if (b.pickSet) {
-        return row(b, { testid: `box-${b.id}`, line: b.set ? 'Choose the main stats' : 'Choose a set and the main stats', acts: [inkBtn('Open', { testid: `set-box-open-${b.id}`, onClick: () => { sheet?.close(); setBoxModal(b.id, rerender); } })] });
+        return row(b, { testid: `box-${b.id}`, line: boxLine(b), acts: [inkBtn('Open', { testid: `set-box-open-${b.id}`, onClick: () => { sheet?.close(); setBoxModal(b.id, rerender); } })] });
       }
       return row(b, {
         testid: `box-${b.id}`,
