@@ -319,6 +319,7 @@ function openSupplies(rerender) {
         // ×N: as many as the bag has room for, at most 10 (hidden under 2; the label is the count it opens: review r1 I1)
         const many = Math.min(10, n, Math.max(1, setBoxOpenable(profile, b.id)));
         if (b.setKind === 'random' && b.set) {
+          const allN = setBoxOpenable(profile, b.id, SET_OPEN_BATCH_MAX);
           const open = (k) => guardSetBox(() => openSetBoxesNow(b.id, k, { onDone: after, summary: boxSummary }));
           return row(b, {
             testid: `box-${b.id}`,
@@ -326,7 +327,8 @@ function openSupplies(rerender) {
             acts: [
               inkBtn('Open', { testid: `set-box-open-${b.id}`, onClick: open(1) }),
               many > 1 ? secondaryBtn(`Open ×${many}`, { testid: `set-box-open10-${b.id}`, onClick: open(many) }) : null,
-              n > 10 ? secondaryBtn(n > SET_OPEN_BATCH_MAX ? `Open ${SET_OPEN_BATCH_MAX}` : 'Open all', { testid: `set-box-open-all-${b.id}`, title: n > SET_OPEN_BATCH_MAX ? null : `Open all ${n}`, onClick: open(Math.min(n, SET_OPEN_BATCH_MAX)) }) : null,
+              // only when one tap opens more than ×N (bag room counted), labelled with what it opens (delta review L2)
+              allN > many ? secondaryBtn(allN === n ? 'Open all' : `Open ${allN}`, { testid: `set-box-open-all-${b.id}`, title: allN === n ? `Open all ${n}` : null, onClick: open(allN) }) : null,
             ].filter(Boolean),
           });
         }
