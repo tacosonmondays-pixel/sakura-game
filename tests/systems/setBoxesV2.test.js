@@ -157,6 +157,7 @@ describe('the random kind rolls its mains; the preset kind uses the chosen ones 
     const mains = { charm: 'critDmg', ribbon: 'rangePct', shoes: 'ultHaste', hair: 'auraPct', necklace: 'controlPct' };
     const a = fresh();
     const b = fresh();
+    b.createdAt = a.createdAt; // (a fresh piece's club rolls from createdAt and its uid)
     a.items.setbox_spirit_legendary = 1;
     b.items.setbox_spirit_legendary = 1;
     const ra = openSetBox(a, 'setbox_spirit_legendary', createRng(77), { mains });
