@@ -5,7 +5,7 @@ Big Yellow) for the instanced layers that move them (src/render/staffFx.js, src/
         --node bell --height 0.42 --tris 800 --tex 512
 
 Steps: import, turn to the game's front (Tripo's objects face +X in Blender; --yaw), pivot under the
-centre on the floor, scale to --height (or --width across X), decimate to --tris, one mesh node named
+centre on the floor (--center: at the centre), scale to --height (or --width across X, --depth front to back), decimate to --tris, one mesh node named
 --node, then the Meshy phone packing (int16 positions, int8 normals, WebP base colour at --tex).
 Writes public/models/props/<id>.glb. extras: { id, source: 'tripo', style: 'textured-prop', node, height,
 width, depth } (game units, glTF: +Y up, +Z front)."""
@@ -30,6 +30,8 @@ def main():
     ap.add_argument('--node', required=True)
     ap.add_argument('--height', type=float, default=None)
     ap.add_argument('--width', type=float, default=None, help='size across X instead of the height')
+    ap.add_argument('--depth', type=float, default=None, help='size front to back (glTF Z) instead of the height')
+    ap.add_argument('--center', action='store_true', help='origin at the centre of the bounds, not on the floor (a part hung on a moving bead)')
     ap.add_argument('--yaw', type=float, default=-90.0)
     ap.add_argument('--tris', type=int, default=800)
     ap.add_argument('--tex', type=int, default=512)
@@ -38,11 +40,15 @@ def main():
     args = ap.parse_args(argv)
     normalize.reset()
     arm, meshes = normalize.import_glb(args.source)
-    assert len(meshes) == 1 and not arm
-    ob = meshes[0]
+    assert not arm
+    ob = normalize.join(meshes)
+    meshes = [ob]
     lo, hi = normalize.face_front(None, meshes, args.yaw)
-    s = (args.width / (hi.x - lo.x)) if args.width else (args.height / (hi.z - lo.z))
+    s = (args.width / (hi.x - lo.x)) if args.width else (args.depth / (hi.y - lo.y)) if args.depth else (args.height / (hi.z - lo.z))
     normalize.bake_world(None, meshes, normalize.Matrix.Scale(s, 4))
+    if args.center:
+        lo, hi = normalize.bounds(meshes)
+        normalize.bake_world(None, meshes, normalize.Matrix.Translation(-(lo + hi) / 2))
     tris = normalize.decimate(ob, args.tris)
     ob.name = ob.data.name = args.node
     normalize.name_base_image(meshes)

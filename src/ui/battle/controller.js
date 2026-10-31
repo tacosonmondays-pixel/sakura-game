@@ -5,7 +5,7 @@
 import { h } from '../dom.js';
 import { store } from '../../core/store.js';
 import { navigate, rememberParams } from '../router.js';
-import { preloadModels, preloadEnemies, detailFor, enemyModelKeys } from '../../models/index.js';
+import { preloadModels, preloadEnemies, detailFor, enemyModelKeys, setEnemyDetail } from '../../models/index.js';
 import { createBattleRenderer } from '../../render/BattleRenderer.js';
 import { cameraModeOf } from '../../render/cameraPolicy.js';
 import { STAGE_MAP, stageEnemies } from '../../data/stages.js';
@@ -284,6 +284,8 @@ export function mountBattle(root, params, hooks) {
 
   /** Enemy model families this stage can spawn (pool + fixed + split/brood/summon children). */
   function stageFamilies() {
+    // the Tripo family enemies load their light file below quality high (glbEnemy TRIPO_ENEMY_LODS)
+    setEnemyDetail(detailFor(settings.quality || 'high'));
     const fams = new Set();
     try {
       // (the stage the Sim runs: an event difficulty with its own waves brings its own enemies)

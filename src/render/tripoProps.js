@@ -8,13 +8,13 @@
 //   clearTripoProps()                // frees them all (BattleRenderer, when its last instance goes)
 //
 // Files: norika_barricade (staffFx bars), big_yellow (staffFx walker and plow), suzu_bell (staffFx bells over
-// the flat trap rune). Norika's Hold the Line segment stays procedural until its model is redone (batch 1
-// rejected the generated one).
+// the flat trap rune), norika_hold_line (staffFx Hold the Line barriers, batch 2), seiran_dragon_head (rosterFx's
+// sky dragon head, batch 2; its body beads and tail stay procedural). Story landmarks: src/render/tripoLandmarks.js.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { baseUrl, assetExt, canLoadCharacters } from '../models/glbChibi.js';
 
-export const TRIPO_PROPS = Object.freeze(['norika_barricade', 'big_yellow', 'suzu_bell']);
+export const TRIPO_PROPS = Object.freeze(['norika_barricade', 'big_yellow', 'suzu_bell', 'norika_hold_line', 'seiran_dragon_head']);
 
 const loaded = new Map(); // id -> prop | null
 const pending = new Map(); // id -> Promise

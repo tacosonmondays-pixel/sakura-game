@@ -2,8 +2,9 @@
 
 * humanoid (Tripo biped rig, renamed): a march, a breathing idle, a flinch, a topple backwards that ends
   lying down (no gore: the fall style fades them, src/render/fallStyles.js), and a brace (special)
-* rigid (a drone or a vehicle): the whole mesh hangs off one `body` bone under a floor `root`;
-  hover = bob and tilt, vehicle = engine rumble, rock and a sideways breakdown lean
+* rigid (a drone, a vehicle, a blob): the whole mesh hangs off one `body` bone under a floor `root`;
+  hover = bob and tilt, vehicle = engine rumble, rock and a sideways breakdown lean, blob = a squashy hop
+  (a slime, a sprout) and a flatten-out for its poof
 Lengths: move 1.0 s loop, idle 1.5 s loop, hit 0.3 s, death 0.8 s, special 0.6 s."""
 import math
 
@@ -138,6 +139,35 @@ def rigid_clips(arm, style, height):
 
     # pose-bone space of `body`: bone Y = world Z (up), bone Z = world -Y (front): a rotation about
     # bone X pitches the nose (+ = nose down), about bone Y yaws, about bone Z rolls; location (x, up, back)
+    if style == 'blob':
+        # a hopping blob (slime, sprout): squash on landing, stretch in the air (body bone scale, pose space: Y up)
+        def hop(t, h=0.07, squash=0.12):
+            up = max(0.0, math.sin(TAU * t))
+            k = 1 - squash * max(0.0, -math.sin(TAU * t))
+            return up * h, (1 / math.sqrt(k), k + 0.06 * up, 1 / math.sqrt(k))
+        def sclip(name, frames, fn):
+            act = _action(arm, name)
+            for f in range(frames + 1):
+                rot, loc, scl = fn(f / frames)
+                pb.rotation_quaternion = Euler([math.radians(v) for v in rot], 'XYZ').to_quaternion()
+                pb.location = Vector(loc) * h
+                pb.scale = scl
+                for k in ('rotation_quaternion', 'location', 'scale'):
+                    pb.keyframe_insert(k, frame=f, group='body')
+            _linear(act)
+            return act
+        acts = [
+            sclip('move', 30, lambda t: ((6 * math.sin(TAU * t), 0, 0), (0, hop(t)[0], 0), hop(t)[1])),
+            sclip('idle', 45, lambda t: ((0, 0, 0), (0, 0, 0), (1 + 0.03 * math.sin(TAU * t), 1 - 0.04 * math.sin(TAU * t), 1 + 0.03 * math.sin(TAU * t)))),
+            sclip('hit', 9, lambda t: ((-8 * math.sin(math.pi * t), 0, 0), (0, 0, 0.03 * math.sin(math.pi * t)), (1 + 0.15 * math.sin(math.pi * t), 1 - 0.18 * math.sin(math.pi * t), 1 + 0.15 * math.sin(math.pi * t)))),
+            sclip('death', 24, lambda t: ((0, 0, 0), (0, 0, 0), (1 + 0.5 * smooth(t), max(0.05, 1 - 0.95 * smooth(t)), 1 + 0.5 * smooth(t)))),
+            sclip('special', 18, lambda t: ((0, 360 * smooth(t), 0), (0, 0.12 * math.sin(math.pi * t), 0), (1, 1, 1))),
+        ]
+        arm.animation_data.action = None
+        pb.rotation_quaternion = (1, 0, 0, 0)
+        pb.location = (0, 0, 0)
+        pb.scale = (1, 1, 1)
+        return acts
     if style == 'hover':
         acts = [
             clip('move', 30, lambda t: ((14 + 3 * math.sin(TAU * t), 0, 4 * math.sin(TAU * t)), (0, 0.05 * math.sin(2 * TAU * t), 0))),

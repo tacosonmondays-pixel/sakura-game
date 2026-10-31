@@ -1590,6 +1590,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
         clearCostumeCache();
       }
       renderer.dispose();
+      // free the GPU context now instead of when the browser collects the canvas (its listeners went with dispose)
+      try {
+        renderer.forceContextLoss();
+      } catch {
+        /* no WEBGL_lose_context: the browser frees it later */
+      }
       canvas.remove();
       barkChips?.dispose();
       fxLayer.remove();

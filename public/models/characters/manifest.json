@@ -292,20 +292,21 @@
  },
  "kanna": {
   "file": "kanna.glb",
-  "size": 463576,
+  "size": 765344,
   "animations": [
    "attack_smash",
    "cheer",
    "hurt",
    "idle",
-   "pickup",
-   "victory",
    "walk"
   ],
-  "vertices": 9494,
+  "vertices": 18581,
+  "triangles": 19999,
+  "source": "tripo",
   "lod": "kanna.lod.glb",
-  "lodSize": 235908,
-  "lodVertices": 3146
+  "lodSize": 400684,
+  "lodVertices": 10093,
+  "lodTriangles": 9000
  },
  "kinu": {
   "file": "kinu.glb",
@@ -363,20 +364,21 @@
  },
  "luna": {
   "file": "luna.glb",
-  "size": 454356,
+  "size": 732868,
   "animations": [
    "attack_cast",
    "cheer",
    "hurt",
    "idle",
-   "pickup",
-   "victory",
    "walk"
   ],
-  "vertices": 9380,
+  "vertices": 18791,
+  "triangles": 19999,
+  "source": "tripo",
   "lod": "luna.lod.glb",
-  "lodSize": 226668,
-  "lodVertices": 3048
+  "lodSize": 393432,
+  "lodVertices": 10289,
+  "lodTriangles": 9000
  },
  "marumi": {
   "file": "marumi.glb",
@@ -448,20 +450,21 @@
  },
  "nami": {
   "file": "nami.glb",
-  "size": 432652,
+  "size": 773204,
   "animations": [
    "attack_thrust",
    "cheer",
    "hurt",
    "idle",
-   "pickup",
-   "victory",
    "walk"
   ],
-  "vertices": 8840,
+  "vertices": 18620,
+  "triangles": 20000,
+  "source": "tripo",
   "lod": "nami.lod.glb",
-  "lodSize": 219608,
-  "lodVertices": 2915
+  "lodSize": 406180,
+  "lodVertices": 10181,
+  "lodTriangles": 8999
  },
  "noa": {
   "file": "noa.glb",
@@ -967,20 +970,21 @@
  },
  "yoriko": {
   "file": "yoriko.glb",
-  "size": 417072,
+  "size": 698764,
   "animations": [
    "attack_cast",
    "cheer",
    "hurt",
    "idle",
-   "pickup",
-   "victory",
    "walk"
   ],
-  "vertices": 8186,
+  "vertices": 17673,
+  "triangles": 19999,
+  "source": "tripo",
   "lod": "yoriko.lod.glb",
-  "lodSize": 221764,
-  "lodVertices": 2745
+  "lodSize": 372400,
+  "lodVertices": 9580,
+  "lodTriangles": 8999
  },
  "yuki": {
   "file": "yuki.glb",

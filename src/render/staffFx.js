@@ -25,7 +25,7 @@ const MAX_BLADES = 2;
 /** Suzu's bells at most (the sim caps her traps far below this). */
 const MAX_BELLS = 48;
 /** The Tripo model each instanced kind swaps to once its file has loaded (src/render/tripoProps.js). */
-const TRIPO = { bars: 'norika_barricade', walkers: 'big_yellow', bells: 'suzu_bell' };
+const TRIPO = { bars: 'norika_barricade', lines: 'norika_hold_line', walkers: 'big_yellow', bells: 'suzu_bell' };
 /** Seconds of the pop when a barricade (re)appears. */
 const POP_TIME = 0.4;
 /** Hold the Line barricades shrink away over their last this-many seconds. */
@@ -289,7 +289,7 @@ export class StaffFx {
   }
 
   /**
-   * Swaps a procedural kind (bars, walkers) to its Tripo model, or makes the bells, once a file is in. A file is
+   * Swaps a procedural kind (bars, lines, walkers) to its Tripo model, or makes the bells, once a file is in. A file is
    * requested the first time its kind is on the board (`need`: her barricades, Big Yellow, Suzu's traps).
    */
   _swapTripo(M, need) {
@@ -331,16 +331,16 @@ export class StaffFx {
     const frame = ++this._frame;
     const sim = this.sim;
     const heroes = sim.heroes || [];
-    const need = { bars: false, walkers: false, bells: false };
+    const need = { bars: false, lines: false, walkers: false, bells: false };
     for (const h of heroes) {
       if (!h) continue;
       if (h.bars?.length) need.bars = true;
+      if (h.lines?.length) need.lines = true;
       if (h.def?.role === 'pilot') need.walkers = true;
     }
     if (sim.runners && sim.runners.some((r) => r.kind === 'plow')) need.walkers = true;
     if ((sim.traps || []).some((tr) => !tr.strip)) need.bells = true;
-    let any = !!this._meshes || need.bars || need.walkers || need.bells;
-    for (const h of heroes) if (h && h.lines?.length) any = true;
+    const any = !!this._meshes || need.bars || need.lines || need.walkers || need.bells;
     if (!any) return;
     const M = this._ensure();
     this._swapTripo(M, need);

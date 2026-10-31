@@ -16,6 +16,7 @@ import { runnerSegment } from '../sim/runners.js';
 import { pointAt } from '../sim/path.js';
 import { MirrorFx } from './mirrorFx.js';
 import { panelSpot } from './mirrorPanel.js';
+import { loadTripoProp, getTripoProp } from './tripoProps.js';
 
 const TAU = Math.PI * 2;
 const _spot = { x: 0, y: 0, beside: false };
@@ -145,7 +146,7 @@ function mirrorGeometry() {
  * Dragon head (facing +z): light-blue skull and long snout, an open jaw, gold antler horns, a gold mane fanning back,
  * cheek frills and whisker roots (the long whiskers are ribbons drawn each frame, medium/high graphics).
  */
-function dragonHeadGeometry() {
+export function dragonHeadGeometry() {
   const S = '#9fd8ff';
   const D = '#6fb4e8';
   const L = '#e8f6ff';
@@ -589,8 +590,21 @@ export class RosterFx {
       m.frustumCulled = false;
       this.root.add(m);
     }
-    this._dragon = { head, body, tail, mat };
+    this._dragon = { head, body, tail, mat, tripoHead: false };
+    loadTripoProp('seiran_dragon_head'); // her Tripo head (batch 2); the procedural one until it arrives
     return this._dragon;
+  }
+
+  /** Swaps the procedural head for the Tripo one once its file is in (body beads and tail stay procedural). */
+  _swapDragonHead(D) {
+    if (D.tripoHead) return;
+    const prop = getTripoProp('seiran_dragon_head');
+    if (!prop) return;
+    D.tripoHead = true;
+    D.head.geometry.dispose();
+    D.head.geometry = prop.geometry;
+    D.head.material = prop.material;
+    D.head.name = 'tripo:seiran_dragon_head';
   }
 
   _dropProp(uid) {
@@ -908,6 +922,7 @@ export class RosterFx {
     const ghosts = this._ghosts;
     if (!has && !ghosts.length && !this._dragon) return;
     const D = this._ensureDragon();
+    this._swapDragonHead(D);
     const frame = ++this._frame;
     this._nh = 0;
     this._nb = 0;
@@ -1127,7 +1142,8 @@ export class RosterFx {
     }
     if (this._dragon) {
       for (const m of [this._dragon.head, this._dragon.body, this._dragon.tail]) {
-        m.geometry.dispose();
+        // (a Tripo head's geometry and material are shared, freed by clearTripoProps)
+        if (!m.name.startsWith('tripo:')) m.geometry.dispose();
         m.dispose();
       }
       this._dragon.mat.dispose();

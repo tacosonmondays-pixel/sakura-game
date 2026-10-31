@@ -9,7 +9,7 @@ import { buildEnemyProcedural } from './enemiesProcedural.js';
 import { getFamily, loadFamily, canLoadEnemies, instantiateEnemy, tripoEnemyKey } from './glbEnemy.js';
 import { makeSilhouette } from './util.js';
 
-export { preloadEnemies, enemyUrl, loadFamily, getFamily, ENEMY_FACE_CELLS, visiblePieces, TRIPO_ENEMIES, tripoEnemyKey, enemyModelKeys } from './glbEnemy.js';
+export { preloadEnemies, enemyUrl, loadFamily, getFamily, ENEMY_FACE_CELLS, visiblePieces, TRIPO_ENEMIES, TRIPO_ENEMY_LODS, tripoEnemyKey, enemyModelKeys, setEnemyDetail, getEnemyDetail } from './glbEnemy.js';
 
 /**
  * Builds an enemy model.

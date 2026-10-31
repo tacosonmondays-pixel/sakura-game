@@ -80,6 +80,27 @@ def scale_to(arm, meshes, height):
     return s
 
 
+def join(meshes):
+    """Joins mesh objects into the first (world transforms applied); returns it."""
+    if len(meshes) == 1:
+        return meshes[0]
+    for o in bpy.data.objects:
+        o.select_set(o in meshes)
+    bpy.context.view_layer.objects.active = meshes[0]
+    bpy.ops.object.join()
+    return bpy.context.view_layer.objects.active
+
+
+def weld(ob, dist=1e-5):
+    """Merges the seam-split vertices (Tripo splits the mesh at every UV seam)."""
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=dist)
+    bm.to_mesh(ob.data)
+    bm.free()
+
+
 def decimate(ob, target_tris):
     tris = sum(len(p.vertices) - 2 for p in ob.data.polygons)
     if tris <= target_tris:
@@ -96,16 +117,42 @@ def decimate(ob, target_tris):
 
 
 def name_base_image(meshes, name='base'):
-    """The pack step resizes the image named 'base'; Tripo ships one base colour per model."""
+    """Names the base colour image 'base' (the pack step resizes that one) and unlinks every other texture
+    (website downloads carry normal and metal/roughness maps too: the game's figurine shading uses base colour)."""
+    found = None
     for o in meshes:
         for slot in o.material_slots:
-            if not slot.material or not slot.material.use_nodes:
+            mat = slot.material
+            if not mat or not mat.use_nodes:
                 continue
-            for n in slot.material.node_tree.nodes:
-                if n.type == 'TEX_IMAGE' and n.image:
-                    n.image.name = name
-                    return n.image
-    return None
+            nt = mat.node_tree
+            bsdf = next((n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+            base = None
+            if bsdf and bsdf.inputs['Base Color'].is_linked:
+                n = bsdf.inputs['Base Color'].links[0].from_node
+                while n and n.type != 'TEX_IMAGE' and n.inputs and any(i.is_linked for i in n.inputs):
+                    n = next(i for i in n.inputs if i.is_linked).links[0].from_node
+                base = n if n and n.type == 'TEX_IMAGE' else None
+            if base is None:
+                base = next((n for n in nt.nodes if n.type == 'TEX_IMAGE' and n.image), None)
+            keep = base.name if base else None  # (bpy hands out a new wrapper per access: compare names, not `is`)
+            for n in list(nt.nodes):
+                if n.type == 'TEX_IMAGE' and n.name != keep:
+                    nt.nodes.remove(n)
+            base = nt.nodes.get(keep) if keep else None
+            if bsdf:
+                for k in ('Normal', 'Metallic', 'Roughness'):
+                    for l in list(bsdf.inputs[k].links):
+                        nt.links.remove(l)
+                bsdf.inputs['Metallic'].default_value = 0.0
+                bsdf.inputs['Roughness'].default_value = 1.0
+            for n in list(nt.nodes):
+                if n.type == 'NORMAL_MAP' or n.type == 'SEPARATE_COLOR':
+                    nt.nodes.remove(n)
+            if base and base.image and found is None:
+                base.image.name = name
+                found = base.image
+    return found
 
 
 def export_glb(path, objects, animations=True):

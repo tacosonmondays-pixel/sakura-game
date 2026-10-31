@@ -4,8 +4,8 @@ in place of its family's shared mesh (the family GLB stays the fallback).
     python3.11 tools/tripo/build_tripo_enemy.py --source <file.glb> --id brigade_trooper --kind humanoid
     python3.11 tools/tripo/build_tripo_enemy.py --source <file.glb> --id brigade_gnat --kind hover
 
---kind humanoid takes a Tripo animate_rig GLB (biped); hover / vehicle take a text_to_model GLB and get a
-rigid two-bone rig. Steps: face the game's front, floor pivot, 1 m reference size, decimate to --tris,
+--kind humanoid takes a Tripo animate_rig GLB (biped) or an unrigged website download (rigged from its shape by
+tripolib/autorig.py); hover / vehicle / blob take an unrigged GLB and get a rigid two-bone rig. Steps: face the game's front, floor pivot, 1 m reference size, decimate to --tris,
 move / idle / hit / death / special (tripolib/clips_enemy.py), export, Meshy phone packing (half-scale
 storage, extras.unitScale 2, WebP base colour at --tex). extras: { id, source: 'tripo', style: 'textured',
 height, unitScale, kind }. `height` is the size the game scales to 0.6 x EnemyDef.size: the figure's height
@@ -22,7 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 
-from tripolib import normalize, rig, clips_enemy  # noqa: E402
+from tripolib import normalize, rig, clips_enemy, autorig  # noqa: E402
 from tripolib.meshy import pack  # noqa: E402
 
 STORE_SCALE = 0.5
@@ -33,25 +33,43 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--source', required=True)
     ap.add_argument('--id', required=True)
-    ap.add_argument('--kind', required=True, choices=['humanoid', 'hover', 'vehicle'])
+    ap.add_argument('--kind', required=True, choices=['humanoid', 'hover', 'vehicle', 'blob'])
+    ap.add_argument('--arm-z', type=float, default=None, help='unrigged humanoid: the arm line, if the measured one is wrong')
     ap.add_argument('--shield', action='store_true', help='humanoid: the left arm holds a shield up in front')
     ap.add_argument('--tris', type=int, default=5000)
     ap.add_argument('--tex', type=int, default=512)
     ap.add_argument('--webp-quality', type=int, default=88)
     ap.add_argument('--out', default=os.path.join(ROOT, 'public', 'models', 'enemies', 'tripo'))
+    ap.add_argument('--lod', action='store_true', help='write <id>.lod.glb (the medium / low quality file, e.g. --tris 2000) '
+                                                       'and add it to the manifest entry (build the full file first)')
     args = ap.parse_args(argv)
     normalize.reset()
     arm, meshes = normalize.import_glb(args.source)
     assert len(meshes) == 1
     body = meshes[0]
     bpy.context.scene.render.fps = 30
-    if args.kind == 'humanoid':
-        assert arm, 'a humanoid needs the Tripo animate_rig GLB'
+    if args.kind == 'humanoid' and arm:
+        # a Tripo animate_rig GLB (batch 1)
+        assert len(meshes) == 1
         rig.face_front_biped(arm, meshes, normalize)
         rig.rename(arm)
         lo, hi = normalize.bounds(meshes)
         ref = hi.z - lo.z
+    elif args.kind == 'humanoid':
+        # an unrigged website download (batch 2): joined, decimated first, then rigged from its shape
+        body = normalize.join(meshes)
+        meshes = [body]
+        normalize.face_front(None, meshes, -90.0)
+        normalize.scale_to(None, meshes, 1.0)
+        normalize.weld(body)
+        normalize.decimate(body, args.tris)
+        arm, marks = autorig.rig(body, arm_z=args.arm_z)
+        print(f'[tripo] {args.id}: autorig {marks}')
+        ref = 1.0
     else:
+        body = normalize.join(meshes)
+        meshes = [body]
+        normalize.weld(body)
         lo, hi = normalize.face_front(None, meshes, -90.0)
         # a vehicle is sized by its length (one road tile wide at most), a drone by its span
         size = max(hi.z - lo.z, (0.95 if args.kind == 'vehicle' else 0.7) * max(hi.x - lo.x, hi.y - lo.y))
@@ -63,6 +81,7 @@ def main():
     body.name = body.data.name = args.id
     if args.kind == 'humanoid':
         arm.name = f'{args.id}_rig'
+        arm.data.name = f'{args.id}_rig'
         clips_enemy.HumanoidClips(arm, shield=args.shield).build()
     else:
         arm = clips_enemy.rigid_rig(meshes, hi.z - lo.z)
@@ -72,8 +91,8 @@ def main():
     raw = os.path.join(tmp, 'raw.glb')
     normalize.export_glb(raw, [arm, body])
     os.makedirs(args.out, exist_ok=True)
-    out = os.path.join(args.out, f'{args.id}.glb')
-    extras = dict(id=args.id, source='tripo', style='textured', kind=args.kind, height=round(ref, 4),
+    out = os.path.join(args.out, f'{args.id}{".lod" if args.lod else ""}.glb')
+    extras = dict(id=args.id, source='tripo', style='textured', kind=args.kind, height=round(ref, 4), lod=args.lod,
                   unitScale=round(1 / STORE_SCALE, 5), generator='tools/tripo/build_tripo_enemy.py')
     stats = pack.pack(raw, out, STORE_SCALE, extras, webp_quality=args.webp_quality, tex_size=args.tex)
     js, _ = pack.read_glb(out)
@@ -83,9 +102,14 @@ def main():
     print(f'[tripo] {args.id}: {os.path.getsize(out) // 1024} KB, {tri} tris, clips {clips}, {stats}')
     mpath = os.path.join(args.out, 'manifest.json')
     manifest = json.load(open(mpath)) if os.path.exists(mpath) else {}
-    manifest[args.id] = dict(file=f'{args.id}.glb', size=os.path.getsize(out), triangles=tri, vertices=verts,
-                             animations=clips, height=extras['height'], unitScale=extras['unitScale'], kind=args.kind,
-                             source='tripo')
+    if args.lod:
+        entry = manifest[args.id]
+        entry.update(lod=f'{args.id}.lod.glb', lodSize=os.path.getsize(out), lodTriangles=tri, lodVertices=verts)
+    else:
+        lod = {k: v for k, v in manifest.get(args.id, {}).items() if k.startswith('lod')}
+        manifest[args.id] = dict(file=f'{args.id}.glb', size=os.path.getsize(out), triangles=tri, vertices=verts,
+                                 animations=clips, height=extras['height'], unitScale=extras['unitScale'], kind=args.kind,
+                                 source='tripo', **lod)
     with open(mpath, 'w') as f:
         json.dump(dict(sorted(manifest.items())), f, indent=1)
         f.write('\n')
