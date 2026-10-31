@@ -67,7 +67,9 @@ function itemBody(itemId) {
   m = /^book_([a-zA-Z]+)$/.exec(id);
   if (m && ITEM_RARITIES[m[1]]) return bookBody(m[1]);
   // Set Boxes (the gear update): the gear box of their rarity until the set art lands (feature/gear-icons)
-  m = /^setbox_[a-z]+_([a-zA-Z]+)$/.exec(id);
+  // (Set Boxes v2: either kind, `setbox_<set>_<rarity>[_random]`; a UR box draws the Rainbow Gear Box)
+  m = /^setbox_[a-z]+_([a-zA-Z]+)(?:_random)?$/.exec(id);
+  if (m && m[1] === 'ur') return ASCENSION_ICON_BODIES.gearbox_rainbow();
   if (m && ITEM_RARITIES[m[1]]) return gearboxBody(m[1]);
   m = /^gearbox_([a-zA-Z]+)$/.exec(id);
   if (m && ITEM_RARITIES[m[1]]) return gearboxBody(m[1]);

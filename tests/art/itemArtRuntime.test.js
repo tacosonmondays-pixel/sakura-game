@@ -2,7 +2,7 @@
 // gear piece and currency the game draws maps to its own baked image, the drawn SVG stays under it as the error
 // fallback only (a slow load shows a neutral placeholder), small boxes get the small cut, tiles wear their tier's
 // plate, and the change is display only (the battle sim id does not move).
-import { GEAR_UPDATE_ITEM_IDS } from '../../src/data/gearAwaken.js';
+import { GEAR_UPDATE_ITEM_IDS, SET_BOX_V2_IDS } from '../../src/data/gearAwaken.js';
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -30,8 +30,9 @@ function img(markup) {
 }
 
 // The gear update's items (Set Boxes, pins, the Nightglass Lens: docs/specs/GEAR_UPDATE.md §3.3) are baked on
-// feature/gear-icons; until it lands they have no source and draw their SVG. Nothing else may fall back.
-const ART_PENDING = new Set(GEAR_UPDATE_ITEM_IDS);
+// feature/gear-icons; until it lands they have no source and draw their SVG. Set Boxes v2's ids
+// (docs/specs/SET_BOXES_V2.md §3) are baked on feature/item-icons-3d. Nothing else may fall back.
+const ART_PENDING = new Set([...GEAR_UPDATE_ITEM_IDS, ...SET_BOX_V2_IDS]);
 const BAKED_IDS = ITEM_IDS.filter((id) => !ART_PENDING.has(id));
 
 describe('item art at runtime: every item has baked art', () => {

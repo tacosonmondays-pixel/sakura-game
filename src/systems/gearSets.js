@@ -7,11 +7,13 @@ import { SET_IDS, SET_RARITIES, GEAR_SETS, TITAN_SETS } from '../data/gearSets.j
 import { fillStats, CONTROL_REAL, skillHasteCounts } from '../data/gearStats.js';
 import { UNIT_MAP } from '../data/units.js';
 import { SET_ATTACK_BEHAVIORS } from '../sim/setRules.js';
-import { TIE_PIN_ID, COLLAR_PIN_ID, TIE_PIN_COINS, COLLAR_PIN_COINS, MARK, setBoxId } from '../data/gearAwaken.js';
+import {
+  TIE_PIN_ID, COLLAR_PIN_ID, TIE_PIN_COINS, COLLAR_PIN_COINS, MARK, setBoxId, setBoxInfo, SET_BOX_V2_IDS, SET_OPEN_BATCH_MAX, SETBOX_GIFT_PREFIX,
+} from '../data/gearAwaken.js';
 import { getItem } from '../data/items.js';
 import { gameDayNumber } from '../core/reset.js';
 import {
-  rollGear, addGear, gearRoom, pieceName, recomputeGear, topMainBase, topSubBase, isLrGear, cloneGearOf,
+  rollGear, addGear, gearRoom, pieceName, recomputeGear, topMainBase, topSubBase, isLrGear, cloneGearOf, addBoxUr,
 } from './gear.js';
 import { consumeItems, missingItems, addItems, itemCount, itemSources } from './inventory.js';
 import { deliverMail } from './mail.js';
@@ -78,25 +80,52 @@ export function fillMainsFor(profile, unitId) {
   return out;
 }
 
+/** @returns {'random'|'preset'|null} a Set Box's kind (SET_BOXES_V2.md D1) */
+export const setBoxKind = (itemId) => (getItem(itemId)?.pickSet ? getItem(itemId).setKind || 'preset' : null);
+/** @returns {'mythic'|'legendary'|'ur'|null} a Set Box's rarity (UR: its pieces are box-born rainbow UR) */
+export const setBoxRarity = (itemId) => (getItem(itemId)?.pickSet ? getItem(itemId).setRarity || getItem(itemId).rarity : null);
+export { SET_OPEN_BATCH_MAX };
+
 /**
- * Open a Set Box: all five pieces of one set at the box's rarity, +0, the main stats chosen (one per slot; a missing
- * or wrong one: the slot's first), substats rolled; each Mythic+ piece joins a random club. Needs 5 free places.
- * @param {{ set?: string, mains?: Object<string, string> }} pick the set (a choose-box) and the mains
- * @returns {{ ok: boolean, error?: 'notSetBox'|'set'|'bagFull'|'missing', gear: object[] }}
+ * How many of `itemId` one tap can open now: held, at most SET_OPEN_BATCH_MAX, and 5 free places each.
+ * @returns {number}
  */
-export function openSetBox(profile, itemId, rng, { set = null, mains = {} } = {}) {
+export function setBoxOpenable(profile, itemId, count = SET_OPEN_BATCH_MAX) {
+  return Math.max(0, Math.min(Math.floor(count), itemCount(profile, itemId), SET_OPEN_BATCH_MAX, Math.floor(gearRoom(profile) / SLOT_IDS.length)));
+}
+
+/**
+ * Open Set Boxes (GEAR_UPDATE.md §5; Set Boxes v2, SET_BOXES_V2.md §4): each box gives all five pieces of ONE set
+ * (its own; a choose-box: `set`, the same for the whole batch) at the box's rarity, +0, substats rolled, each Mythic+
+ * piece in a random club. The preset kind takes the chosen `mains` for every box (a missing or wrong one: the slot's
+ * first); the random kind rolls them, as a regular gear box. A UR box's pieces are box-born rainbow UR (addBoxUr, as
+ * the Rainbow Gear Box). Opens `count` boxes, at most SET_OPEN_BATCH_MAX, as many as the bag has 5 free places for
+ * (the rest stay in the Backpack).
+ * @param {{ set?: string, mains?: Object<string, string>, count?: number }} pick
+ * @returns {{ ok: boolean, error?: 'notSetBox'|'set'|'bagFull'|'missing', gear: object[], opened?: number, wanted?: number, set?: string }}
+ */
+export function openSetBox(profile, itemId, rng, { set = null, mains = {}, count = 1 } = {}) {
   const item = getItem(itemId);
   if (!item?.pickSet) return { ok: false, error: 'notSetBox', gear: [] };
   const setId = item.set || set;
   if (!setBoxSets(itemId).includes(setId)) return { ok: false, error: 'set', gear: [] };
-  if (gearRoom(profile) < SLOT_IDS.length) return { ok: false, error: 'bagFull', gear: [] };
-  if (!consumeItems(profile, [{ id: itemId, count: 1 }])) return { ok: false, error: 'missing', gear: [] };
-  const gear = SLOT_IDS.map((slot) => {
-    const main = MAIN_STATS_BY_SLOT[slot].includes(mains?.[slot]) ? mains[slot] : MAIN_STATS_BY_SLOT[slot][0];
-    return addSetPiece(profile, rollSetPiece(rng, setId, { slot, rarity: item.rarity, main }));
-  });
-  track(profile, 'setBox', 1);
-  return { ok: true, gear };
+  const wanted = Math.max(1, Math.floor(Number(count) || 1));
+  if (gearRoom(profile) < SLOT_IDS.length) return { ok: false, error: 'bagFull', gear: [], opened: 0, wanted };
+  const n = setBoxOpenable(profile, itemId, wanted);
+  if (n <= 0 || !consumeItems(profile, [{ id: itemId, count: n }])) return { ok: false, error: 'missing', gear: [], opened: 0, wanted };
+  const preset = setBoxKind(itemId) === 'preset';
+  const ur = setBoxRarity(itemId) === 'ur';
+  const rarity = ur ? 'legendary' : item.rarity;
+  const gear = [];
+  for (let i = 0; i < n; i++) {
+    for (const slot of SLOT_IDS) {
+      const main = !preset ? null : MAIN_STATS_BY_SLOT[slot].includes(mains?.[slot]) ? mains[slot] : MAIN_STATS_BY_SLOT[slot][0];
+      const g = rollSetPiece(rng, setId, { slot, rarity, main });
+      gear.push(ur ? addBoxUr(profile, g, { club: 'random' }) : addSetPiece(profile, g));
+    }
+  }
+  track(profile, 'setBox', n);
+  return { ok: true, gear, opened: n, wanted, set: setId };
 }
 
 // ---------------------------------------------------------------------------
@@ -222,22 +251,31 @@ export function setPostRoll(profile, stage, difficulty, rng, now = Date.now()) {
 // ---------------------------------------------------------------------------
 
 /** The one-time Set Box letter's id: this prefix, then its boxes' item ids joined by '+'. */
-export const SETBOX_GIFT_PREFIX = 'setbox-gift:';
+export { SETBOX_GIFT_PREFIX };
 
-/** The mark that says box `id` was sent (its one-time rule), or null for an id that is no one-time Set Box. */
+/**
+ * The mark that says box `id` was sent (its one-time rule), or null for an id that is no one-time Set Box. Both kinds
+ * share one mark (Set Boxes v2 D3): the live preset ids an older build's letter names, and the random ids this build
+ * pays, so nobody is paid twice.
+ */
 function boxMark(id) {
-  if (id === setBoxId('pick', 'mythic')) return MARK.welcomeBox;
-  for (const [titan, set] of Object.entries(TITAN_SETS)) if (id === setBoxId(set, 'legendary')) return MARK.titanBox + titan;
+  const info = setBoxInfo(id);
+  if (!info || info.rarity === 'ur') return null;
+  if (info.set === 'pick') return info.rarity === 'mythic' ? MARK.welcomeBox : null;
+  if (info.rarity !== 'legendary') return null;
+  for (const [titan, set] of Object.entries(TITAN_SETS)) if (info.set === set) return MARK.titanBox + titan;
   return null;
 }
 
 /**
- * An older build (before the gear update: an open tab, a cached copy) cleans the Set Box ids out of a letter's rewards
- * when it loads and saves (its cleanMail knows no such item), and the su: marks stop a resend, so the boxes were lost
- * (v0.1.66 audit C H1). The letter's id names its boxes: an unclaimed letter gets them back when every one is a
- * one-time box whose mark is set (sent by this letter and not paid any other way: the marks are only set where a box
- * is paid, and a 'mail' payment pays only through the letter); a claimed one gets them back for its display only (it
- * pays nothing again: claimMail refuses a claimed letter; audit C L1). Mirrors repairVigilLetter.
+ * An older build (before the gear update: an open tab, a cached copy; or v0.1.66 for Set Boxes v2's ids) cleans the
+ * Set Box ids it does not know out of a letter's rewards when it loads and saves (its cleanMail), and the su: marks
+ * stop a resend, so the boxes were lost (v0.1.66 audit C H1). The letter's id names its boxes: an emptied letter gets
+ * them back when every one is a one-time box whose mark is set (sent by this letter and not paid any other way: the
+ * marks are only set where a box is paid, and a 'mail' payment pays only through the letter). An unclaimed one pays
+ * them on its claim; a claimed one shows them only (claimMail refuses a claimed letter; audit C L1) — unless it names
+ * a v2 box and has no `su:paid:` mark: then an older build claimed it while it was empty and paid nothing, so its boxes
+ * are paid now, once (Set Boxes v2 §6). Mirrors repairVigilLetter.
  */
 function repairSetBoxLetters(profile, c) {
   const letters = Array.isArray(profile.mail?.letters) ? profile.mail.letters : [];
@@ -247,14 +285,19 @@ function repairSetBoxLetters(profile, c) {
     const ids = l.id.slice(SETBOX_GIFT_PREFIX.length).split('+');
     if (!ids.length || !ids.every((id) => getItem(id) && boxMark(id) && c[boxMark(id)])) continue;
     l.rewards = ids.map((id) => ({ id, count: 1 }));
+    if (l.claimed && ids.some((id) => SET_BOX_V2_IDS.includes(id)) && !c[MARK.giftPaid + l.id]) {
+      c[MARK.giftPaid + l.id] = 1;
+      addItems(profile, l.rewards);
+    }
   }
 }
 
 /**
- * The one-time Set Boxes (GEAR_UPDATE.md §5.3, r3): whenever Titan Trials are open and `su:welcome` is not set, the
- * welcome Mythic Set Box; whenever a titan's Nightmare first clear is paid (`tfc:<titan>:2`) and `su:titanbox:<titan>`
- * is not set, that titan's Legendary Set Box. The same check serves veterans (on the sets update's first load) and new
- * players (after the clear), in any order, so a first clear made in an older tab still pays later.
+ * The one-time Set Boxes (GEAR_UPDATE.md §5.3, r3; Set Boxes v2 D3: the random kind): whenever Titan Trials are open
+ * and `su:welcome` is not set, the welcome Mythic Set Box (choose the set); whenever a titan's Nightmare first clear is
+ * paid (`tfc:<titan>:2`) and `su:titanbox:<titan>` is not set, that titan's Legendary Set Box. The same check serves
+ * veterans (on the sets update's first load) and new players (after the clear), in any order, so a first clear made in
+ * an older tab still pays later. A save an older build already paid (its preset box, its mark) gets nothing new.
  * @param {{ mode?: 'list'|'mail'|'items' }} [o] 'list': the caller pays the returned boxes (a battle's rewards);
  *   'mail': one letter carries them (the notice line, migrateProfile); 'items': straight into the Backpack
  * @returns {{ id: string, count: number }[]} what is owed now (marks set)
@@ -265,12 +308,12 @@ export function grantSetBoxGifts(profile, { mode = 'items', now = Date.now() } =
   const paid = [];
   if (!c[MARK.welcomeBox] && titansUnlocked(profile)) {
     c[MARK.welcomeBox] = 1;
-    paid.push({ id: setBoxId('pick', 'mythic'), count: 1 });
+    paid.push({ id: setBoxId('pick', 'mythic', 'random'), count: 1 });
   }
   for (const [titan, set] of Object.entries(TITAN_SETS)) {
     if (!whole(c[`tfc:${titan}:2`]) || c[MARK.titanBox + titan]) continue;
     c[MARK.titanBox + titan] = 1;
-    paid.push({ id: setBoxId(set, 'legendary'), count: 1 });
+    paid.push({ id: setBoxId(set, 'legendary', 'random'), count: 1 });
   }
   if (!paid.length || mode === 'list') return paid;
   if (mode === 'mail') {

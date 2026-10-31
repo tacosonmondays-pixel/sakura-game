@@ -17,6 +17,7 @@ import { potentialLevel, potentialStepInfo, BACKFILL_MARKER, MAX_POTENTIAL, V3_M
 import { potentialLevelCap, levelCapAt, MAX_BREAKTHROUGH, MAX_LEVEL, BREAKTHROUGH_LEVEL_CAP, BASE_GATES } from './progression.js';
 import { FREEPLAY_REWARDS } from '../online/coop/rewards.js';
 import { HONOR_REWARD_PREFIX, HONOR_GIFT_MARK } from './profileHonors.js';
+import { SETBOX_GIFT_PREFIX, MARK } from '../data/gearAwaken.js';
 
 /** Most letters kept (oldest claimed letters are dropped first). */
 export const MAIL_LIMIT = 60;
@@ -147,6 +148,9 @@ export function claimMail(profile, id, now = Date.now()) {
   if (expired(l, now)) return { ok: false, error: 'expired', rewards: [] };
   l.claimed = true;
   l.claimedAt = ms(now);
+  // Set Boxes v2 (SET_BOXES_V2.md §6): this build paid the letter's boxes (an older build's claim of a letter its
+  // cleanMail had emptied paid nothing, and gearSets.js repairSetBoxLetters pays that once)
+  if (l.id.startsWith(SETBOX_GIFT_PREFIX)) ((profile.missions ||= {}).counters ||= {})[MARK.giftPaid + l.id] = 1;
   return { ok: true, rewards: payRewards(profile, l.rewards), letter: l };
 }
 

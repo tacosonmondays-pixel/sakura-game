@@ -112,8 +112,8 @@ pieces, set bonus) replaces it in one place; then the set row (pick box), the ma
 row, and Open.
 
 **Results summary** (`setBoxResults`): title "<box name> ×N", a line "N boxes · 5N pieces · all <Set>", the pieces
-(the gear card grid; the counted summary above 10 pieces, as `openBoxes` does). A UR box shows the "Awakened to UR!"
-moment once for the batch.
+(the gear card grid; the counted summary above 12 pieces, as `openBoxes` does). A UR box's pieces show as UR cards in
+the summary (no per-piece reveal for a batch).
 
 **Supply Bot:** lists every Set Box (random, preset, UR) in the Equipment tab as today; the picked line says "Supply Bot
 only" for a preset box.
@@ -151,6 +151,29 @@ No `SAVE_VERSION` bump; additive.
   each LR build ÷ the best non-LR. Margins go in the report; an LR under ×1.25 stops the work (no nerf).
 - **noNerf.** No battle stat or sim number changes; the gate's maxed tier-5 pass is compared live vs branch.
 
+### 7.1 Results (feature/set-boxes-v2)
+
+- Sim id `b2ff5e0e884b` (unchanged). noNerf, maxed tier 5, Umeko + Midori, seed 9, live `fc978aba` vs branch: 297
+  cells, 0 under, the two outputs byte-identical.
+- lrBar, today's bench (three no-set UR +12): unchanged, crowd ×1.31–1.33, boss ×2.18–4.37 of LR_BAR. All ≥ 1.25.
+- lrBar `--gear urset` (five UR +12 set pieces on everyone, best set per build; the bar re-measured on that gear):
+  bar crowd Akane p0t5 53.21M (Geometry), boss Aoi p2t5c1 13.26M (Geometry).
+
+  | LR build | crowd | ×bar | boss | ×bar |
+  |---|---:|---:|---:|---:|
+  | kohaku_tsubaki p0t5 | 80.35M | 1.51 | 64.95M | 4.90 |
+  | kohaku_tsubaki p1t5 | 70.76M | 1.33 | 73.80M | 5.57 |
+  | **kohaku_tsubaki p2t5** | 54.04M | **1.02** | 30.92M | 2.33 |
+  | tenka p0t5 | 72.34M | 1.36 | 88.11M | 6.65 |
+  | tenka p1t5 | 71.11M | 1.34 | 67.21M | 5.07 |
+  | tenka p2t5 | 78.28M | 1.47 | 84.65M | 6.38 |
+
+  **Kohaku & Tsubaki p2t5 falls under ×1.25 on a crowd (×1.02)** once everyone wears five Geometry UR pieces
+  (Akane's crowd grows ×3.06 with the uncapped crit; the duo's p2t5 ×2.37). Per the rules nothing is nerfed and this is
+  reported to the owner (§9 Q6). This gear is **already reachable on live** (Legendary set pieces awaken; the Rainbow
+  Gear Box makes titan-set UR in any slot), so UR Set Boxes do not create it, they only shorten the road, and they are
+  Supply Bot only for now.
+
 ## 8. Tests
 
 - Unit (`tests/systems/setBoxesV2.test.js`): every set × kind × rarity opens only its own set's five pieces (one per
@@ -174,5 +197,8 @@ No `SAVE_VERSION` bump; additive.
    random ones.
 4. **Random main-stat odds.** **Uniform over the slot's mains, as a regular gear box.** (A weighted roll toward a
    girl's wants would be a different box.)
+6. **The LR bar on set gear** (§7.1). **Reported, nothing changed.** Under five Geometry UR pieces on everyone, the
+   duo's p2t5 crowd is ×1.02 of the best non-LR (Akane p0t5). Options for the owner: raise the duo's p2t5 crowd; or
+   keep the bar on today's bench (no set gear). UR Set Box player sources (Q1) should wait for that answer.
 5. **More random sources** (the gear update's planned Titan shelf, event exchanges, the "Five of a Kind" / "Set
    Collector" achievements) are not built; when they come, they pay the random kind.
