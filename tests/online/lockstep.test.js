@@ -1491,8 +1491,20 @@ describe('co-op lockstep: a dropped player\'s girls are handed out after the gra
   it('drop → grace → hand-out → rejoin → girls back, both clients\' hashes agreeing after the rejoin', () => {
     const h = harness({ seed: 71, maxLag: 3 });
     const [A, B] = h.clients;
-    const a = spots('aoi', 1)[0];
-    const y = spots('yuki', 1)[0];
+    // (spots of its own: the shared spots() list runs out when the whole file runs)
+    const free = (unitId, away = null) => {
+      const c = createCoopSim(START);
+      for (let y = 0.55; y < c.sim.map.height; y += 0.35) {
+        for (let x = 0.55; x < c.sim.map.width; x += 0.35) {
+          if (c.sim.placementReason(unitId, x, y)) continue;
+          if (away && Math.hypot(away[0] - x, away[1] - y) < 2) continue;
+          return [x, y];
+        }
+      }
+      throw new Error(`no spot for ${unitId}`);
+    };
+    const a = free('aoi');
+    const y = free('yuki', a);
     run(h, 5);
     A.queue('place', ['aoi', ...quantize(...a)]);
     B.queue('place', ['yuki', ...quantize(...y)]);
