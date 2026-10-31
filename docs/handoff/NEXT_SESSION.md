@@ -291,3 +291,20 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
   - The go/no-go is running in session_01Ayo4eothACitNJFzaqtizA.
   - The assembly session is adding a test-only coop-rejoin wait fix.
   - On GO: push to main, poll, live check.
+
+## UPDATE 2026-10-31 06:45 UTC (coordinator)
+
+- **v0.1.66** is live. Its live check (session_01Ayo4eqbtBL2j9SWeXTtVEp) is running; 1280x720 passes so far.
+- **v0.1.67**: release/v0.1.67 @ eb0b1ab9. Its go/no-go (session_01Ayo4eothACitNJFzaqtizA) is running.
+- **New: v0.1.68, item icons 3D-flat and set identity.** Builder: session_01Ayo4eqMGbYD6CyGCx9Unp7, branch feature/item-icons-3d off main.
+  - The owner reported that the new item icons aren't flat 3D. On live, 17 items have no baked art: tie_pin, collar_pin, lens_nightglass, and 14 setbox_*. Hair Clip and Necklace fall back to the charm art.
+  - The owner also reported that every set box looks the same. The logic is already set-specific (setBoxSets), but there are no gear_<set>_<slot> looks at all and the modal is generic.
+  - Scope:
+    - 30 set looks (6 sets × 5 slots);
+    - 14 set-box icons;
+    - 3 tools;
+    - Hair Clip and Necklace ladders;
+    - setBoxModal redesign, with the set header, the five pieces shown and the set bonus;
+    - backpack copy;
+    - a guard test so no item ships without baked art.
+- **Tripo website batch**: the owner says Claude in Chrome generated all 54 checklist rows on the Tripo website. Waiting for the owner to upload a GLB zip. The API can't list website-made models, and the owner's computer folder isn't offered to cloud sessions. Process it like batch 1 when it arrives.
