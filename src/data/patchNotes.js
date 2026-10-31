@@ -20,6 +20,15 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.66', version: '0.1.66', date: '2026-10-31', title: 'Fresh Portraits',
+    changed: [
+      '23 girls have brand-new portraits in the bright academy look: Akane, Aoi, Chika, Ena, Fuu, Hana, Hikari, Hotaru, Kaede, Kage, Kanna, Midori, Miko, Momo, Nami, Noa, Raika, Rei, Ruri, Shiro, Suzu, Umeko and Yuki, each caught mid-moment in a place of her own.',
+      'Norika gets her first drawn portrait on her student page and cards.',
+      'Hikari’s eyes are teal, as they were always meant to be.',
+      'Cards, busts and thumbnails are re-framed around each new portrait; the full-body stands in the lobby are unchanged.',
+    ],
+  },
+  {
     id: 'v0.1.65', version: '0.1.65', date: '2026-10-30', title: 'The Summoning Gate Opens',
     added: [
       'Recruiting now opens a summoning Gate: it glows blue, surges to a rainbow when an SSR is coming, and turns to a starlit Nightglass sky for an LR.',

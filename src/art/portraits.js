@@ -51,34 +51,36 @@ export function artUrl(path) {
  * placeholder (optional, true) marks a coming-soon signboard set.
  */
 export const PORTRAIT_DATA = {
-  hikari: { face: [48, 20], cut: 0.564 },
+  // Art v3 (src/art/portraitsV3.js lists who): those girls' full / card / bust / thumb are Look B redraws and their face
+  // is measured on the new master; their cut stays the stand's aspect (stands unchanged).
+  hikari: { face: [41, 33], cut: 0.564 },
   luna: { face: [44, 22], cut: 0.672 },
-  nami: { face: [46, 20], cut: 0.543 },
-  aoi: { face: [45, 15], cut: 0.754 },
-  hotaru: { face: [42, 20], cut: 0.576 },
+  nami: { face: [45, 34], cut: 0.543 },
+  aoi: { face: [54, 30], cut: 0.754 },
+  hotaru: { face: [54, 23], cut: 0.576 },
   sango: { face: [49, 26], cut: 0.713 },
-  umeko: { face: [47, 24], cut: 0.549 },
-  kaede: { face: [59, 24], cut: 0.508 },
-  suzu: { face: [57, 26], cut: 0.618 },
-  chika: { face: [61, 24], cut: 0.406 },
-  rei: { face: [49, 24], cut: 0.64 },
-  yuki: { face: [45, 21], cut: 0.552 },
-  akane: { face: [55, 30], cut: 0.693 },
-  shiro: { face: [49, 25], cut: 0.693 },
-  kage: { face: [49, 21], cut: 0.625 },
-  raika: { face: [48, 21], cut: 0.662 },
-  miko: { face: [46, 21], cut: 0.538 },
-  midori: { face: [46, 21], cut: 0.552 },
-  momo: { face: [46, 22], cut: 0.579 },
+  umeko: { face: [36, 29], cut: 0.549 },
+  kaede: { face: [38, 28], cut: 0.508 },
+  suzu: { face: [57, 31], cut: 0.618 },
+  chika: { face: [42, 26], cut: 0.406 },
+  rei: { face: [61, 28], cut: 0.64 },
+  yuki: { face: [51, 31], cut: 0.552 },
+  akane: { face: [38, 33], cut: 0.693 },
+  shiro: { face: [43, 23], cut: 0.693 },
+  kage: { face: [50, 25], cut: 0.625 },
+  raika: { face: [54, 31], cut: 0.662 },
+  miko: { face: [48, 22], cut: 0.538 },
+  midori: { face: [36, 29], cut: 0.552 },
+  momo: { face: [60, 23], cut: 0.579 },
   // the returning girls' painted art (art wave, Oct 2026); face / cut measured on the shipped crops.
   // Ena's and Ruri's paintings end at the shin, so their stands fade the bottom edge.
-  ena: { face: [48, 18], cut: 0.681, edges: 'b' },
-  fuu: { face: [48, 19], cut: 0.658 },
-  hana: { face: [49, 19], cut: 0.596 },
+  ena: { face: [38, 24], cut: 0.681, edges: 'b' },
+  fuu: { face: [45, 22], cut: 0.658 },
+  hana: { face: [38, 23], cut: 0.596 },
   iroha: { face: [51, 20], cut: 0.541 },
-  kanna: { face: [45, 19], cut: 0.723 },
-  noa: { face: [50, 17], cut: 0.482 },
-  ruri: { face: [53, 19], cut: 0.732, edges: 'b' },
+  kanna: { face: [55, 31], cut: 0.723 },
+  noa: { face: [48, 22], cut: 0.482 },
+  ruri: { face: [46, 26], cut: 0.732, edges: 'b' },
   seiran: { face: [50, 19], cut: 0.732 },
   yoriko: { face: [51, 22], cut: 0.639 },
   // the seven academy girls (UNIT_GAPS §5): their v2 scene portraits (Oct 23 2026, dynamic camera, a real scene)
@@ -99,9 +101,10 @@ export const PORTRAIT_DATA = {
   // point between their two faces
   kohaku_tsubaki: { face: [51, 31], cut: 0.65 },
   // the staff heroes (BANNERS §D.5): the coming-soon signboard until their drawn art lands
-  // (tools/art/placeholder_portraits.py; replace their six files and drop `placeholder` then)
+  // (tools/art/placeholder_portraits.py; replace their six files and drop `placeholder` then). Norika's full / card /
+  // bust / thumb are her art v3 portrait already; her stands are still the sign, so `placeholder` stays until a stand pass.
   kogane: { face: [49, 31], cut: 0.621, placeholder: true },
-  norika: { face: [49, 31], cut: 0.621, placeholder: true },
+  norika: { face: [67, 25], cut: 0.621, placeholder: true },
 };
 
 /** kind → file suffix and pixel size (for width/height hints) + the SVG fallback variant. */
