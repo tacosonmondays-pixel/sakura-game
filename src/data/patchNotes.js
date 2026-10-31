@@ -20,7 +20,6 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    // TODO(coordinator): confirm the date is the deploy day in US Central time.
     id: 'v0.1.68', version: '0.1.68', date: '2026-10-31', title: 'Set Boxes and Awakening',
     added: [
       'Every gear set now has its own look across all five pieces, and every item has new 3D-style art, including the Tie Pin, Collar Pin, Nightglass Lens, Hair Clips and Necklaces.',
