@@ -486,3 +486,26 @@ Owner decisions still pending:
   - **Still running:** e2e, npm test and build (assembly session_01Ayo4epijedhWS24eX5TLBq).
 - **Go/no-go launched in parallel:** session_01Ayo4eovQc5waR8iBPmtsjF, on a3d97a3.
 - **On GO:** push to main (COOP 16), poll, live check.
+
+## UPDATE 2026-10-31 13:56 UTC (coordinator): v0.1.68 LIVE
+
+- **v0.1.68 "Set Boxes and Awakening" shipped.** main = a3d97a38. version.json: 0.1.68, build a3d97a387a4b, sim e3c222f3ad44 (COOP 16), deployed 13:56:03Z.
+  - The go/no-go said GO (review/v0.1.68-go @ 7fbde5d). 6933 tests pass and all 16 e2e are green.
+  - The live check is running in session_01Ayo4eq9ZQ5UZf8CbNXT1xg.
+- **Follow-ups (deferred, low):**
+  - e2e/smoke.mjs:189-203: the SSR Select Ticket step needs waitForFunction (it flakes).
+  - Sandbox R1/R2 precision.
+  - UR box band colours on teal and pastel boxes.
+  - A DUO_T5 engines scenario.
+  - A damage-source split for mirrors, tether and DoT (needs a sim change).
+  - Lobby 30 s block on software GL.
+  - Defer the recruit music.
+- **Owner decisions pending:**
+  - Art v3 (C recommended).
+  - Co-op sharing defaults.
+  - Suzu/Azami boss damage.
+  - UR box sources.
+  - The shieldline shield.
+  - A UI polish pass (inspired by the kobra link).
+  - Tripo re-rolls (Seiran, Grave Lych, dragon tail, scoreboard).
+- **Usage:** sessions showed a seven_day "allowed_warning". Pace new sessions.
