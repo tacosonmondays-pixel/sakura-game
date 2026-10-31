@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>More banners · owner board</title>
+<!-- Owner board for docs/specs/MORE_BANNERS.md. Mock-ups only; uses the game's own art (public/art). Not in the game build. -->
+<style>
+  :root { --ink: #22202a; --paper: #fbf7f0; --line: #e4dccd; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 14px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .page { padding: 22px 26px 28px; max-width: 1600px; }
+  h1 { margin: 0 0 2px; font-size: 26px; letter-spacing: .2px; }
+  .sub { color: #6b6474; margin: 0 0 16px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .card { position: relative; border-radius: 14px; overflow: hidden; background: #fff; border: 2px solid var(--k, #ccc); box-shadow: 0 2px 0 rgba(0,0,0,.06); display: flex; flex-direction: column; }
+  .art { position: relative; height: 210px; background: linear-gradient(160deg, var(--k2, #fde), #fff); overflow: hidden; }
+  .art img.main { position: absolute; right: -6px; top: -4px; height: 250px; }
+  .art img.second { position: absolute; left: -10px; top: 6px; height: 230px; opacity: .95; }
+  .kind { position: absolute; left: 10px; top: 10px; background: var(--k); color: #fff; font-weight: 700; font-size: 11px; letter-spacing: .6px; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; }
+  .tag { position: absolute; left: 10px; top: 36px; background: rgba(255,255,255,.92); font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 6px; }
+  .title { position: absolute; left: 8px; bottom: 8px; max-width: 62%; font-weight: 800; font-size: 18px; line-height: 1.15; color: #fff; background: rgba(24,18,34,.78); padding: 4px 9px; border-radius: 8px; }
+  .body { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
+  .feat { font-weight: 700; }
+  .feat b { color: var(--k); }
+  .chips { display: flex; gap: 5px; align-items: center; }
+  .chips img { width: 34px; height: 34px; border-radius: 8px; border: 2px solid #f0b4c8; object-fit: cover; background: #fff; }
+  .chips span { font-size: 12px; color: #6b6474; }
+  .rule { font-size: 12px; color: #4a4552; }
+  .rule i { font-style: normal; display: inline-block; background: #f3eee5; border-radius: 5px; padding: 0 5px; margin: 1px 2px 1px 0; }
+  .when { margin-top: auto; font-size: 12px; font-weight: 700; color: #3c3744; border-top: 1px dashed var(--line); padding-top: 6px; display: flex; justify-content: space-between; }
+  .when .cur { display: flex; align-items: center; gap: 4px; font-weight: 600; }
+  .when .cur img { width: 16px; height: 16px; }
+  .moves { font-size: 11px; color: #6b6474; display: flex; gap: 4px; align-items: center; }
+  .moves img { width: 22px; height: 22px; border-radius: 50%; border: 1px solid #ddd; }
+  /* kinds */
+  .k-rework { --k: #ff7aa8; --k2: #ffe3ee; }
+  .k-feature { --k: #9b6be8; --k2: #ece2ff; }
+  .k-halloween { --k: #e0782f; --k2: #ffe2c6; }
+  .k-halloween .art { background: linear-gradient(170deg, #3a2348 0%, #8a3d2a 55%, #f0a24a 100%); }
+  .k-winter { --k: #4c9fd6; --k2: #dff0fb; }
+  .k-winter .art { background: linear-gradient(170deg, #c7e6fa 0%, #f6fbff 70%); }
+  .k-legend { --k: #0e1930; --k2: #1d2c52; border-color: #ffd27a; }
+  .k-legend .art { background: radial-gradient(circle at 70% 30%, #33477c 0%, #0e1930 70%); }
+  .k-legend .kind { background: #0e1930; color: #ffd27a; border: 1px solid #ffd27a; }
+  .k-legend .feat b { color: #b88a1f; }
+  .k-selector { --k: #7a5cd6; --k2: #e8e0ff; }
+  .k-starter { --k: #3fb38d; --k2: #dcf6ec; }
+  .k-acc { --k: #34406a; --k2: #dfe3f1; border-color: #c9d0e6; }
+  .k-acc .art { background: radial-gradient(circle at 70% 30%, #5a6898 0%, #1b2442 75%); }
+  .pickrow { position: absolute; left: 8px; bottom: 44px; display: flex; gap: 4px; }
+  .pickrow img { width: 40px; height: 40px; border-radius: 9px; border: 2px solid #fff; object-fit: cover; }
+  .pickrow img.on { border-color: #ffd27a; box-shadow: 0 0 0 2px #7a5cd6; }
+  .promise { position: absolute; left: 8px; bottom: 46px; width: 56%; background: rgba(14,25,48,.85); padding: 4px 7px 6px; border-radius: 8px; }
+  .promise .bar { height: 7px; background: rgba(255,255,255,.25); border-radius: 9px; overflow: hidden; }
+  .promise .bar div { height: 100%; width: 48%; background: linear-gradient(90deg, #ffd27a, #fff3c9); }
+  .promise small { color: #ffe9b0; font-weight: 700; font-size: 11px; }
+  .accicon { position: absolute; left: 18px; top: 58px; width: 96px; height: 96px; border-radius: 18px; background: rgba(255,255,255,.12); border: 2px dashed rgba(255,255,255,.55); color: #fff; display: grid; place-items: center; font-size: 11px; text-align: center; padding: 6px; }
+  .ticketicon { position: absolute; left: 14px; top: 70px; width: 84px; }
+  /* calendar */
+  h2 { font-size: 17px; margin: 22px 0 8px; }
+  .cal { display: grid; grid-template-columns: 70px repeat(57, 1fr); font-size: 10px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #fff; }
+  .cal .lab { grid-column: 1; padding: 4px 6px; font-weight: 700; border-top: 1px solid var(--line); background: #faf6ee; }
+  .cal .bar { border-top: 1px solid var(--line); position: relative; height: 26px; }
+  .cal .seg { position: absolute; top: 3px; bottom: 3px; border-radius: 6px; color: #fff; font-weight: 700; padding: 0 4px; white-space: nowrap; overflow: hidden; font-size: 10px; line-height: 20px; }
+  .cal .head { font-weight: 700; color: #6b6474; padding: 3px 0; text-align: left; border-left: 1px solid var(--line); }
+  .qs { columns: 2; column-gap: 26px; font-size: 13px; margin: 0; padding-left: 18px; }
+  .qs li { margin: 0 0 5px; break-inside: avoid; }
+  .qs b { color: #3c3744; }
+  .qs em { color: #2f8a5f; font-style: normal; font-weight: 700; }
+  .note { font-size: 12px; color: #6b6474; margin-top: 10px; }
+  /* phone */
+  body.phone .page { padding: 14px; max-width: 430px; }
+  body.phone .grid { grid-template-columns: 1fr; }
+  body.phone h1 { font-size: 21px; }
+  body.phone .qs { columns: 1; }
+  body.phone .calwrap { display: none; }
+  body.phone .art { height: 190px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>More banners · 8-week calendar (Nov 5 – Dec 31)</h1>
+  <p class="sub">Mock-ups of the new banner cards. Rates are today's: SSR line 1.5%, featured SSR 1.0%, 3 SR rate-ups at 3.0% each, LR 0.5%. Pity 90 is shared; spark 200; Legend Promise 300. No new gem source. Spec: docs/specs/MORE_BANNERS.md</p>
+
+  <div class="grid">
+    <!-- 1 Rework Day -->
+    <div class="card k-rework">
+      <div class="art"><img class="main" src="../../../public/art/portraits/iroha-card.webp" alt=""><span class="kind">Student Spotlight · Rework Day</span><span class="tag">no new code</span><div class="title">A Garden of Mirrors</div></div>
+      <div class="body">
+        <div class="feat">Featured SSR <b>Iroha 1.0%</b> · Premium</div>
+        <div class="chips"><img src="../../../public/art/portraits/kage-thumb.webp"><img src="../../../public/art/portraits/miko-thumb.webp"><img src="../../../public/art/portraits/suzu-thumb.webp"><span>Kage · Miko · Suzu 3.0%</span></div>
+        <div class="rule"><i>pity 90 shared</i><i>spark Iroha today</i><i>1 day</i></div>
+        <div class="when"><span>Nov 6 → 7</span><span class="cur"><img src="../../../public/art/items/gems-128.webp">gems · tickets</span></div>
+      </div>
+    </div>
+    <!-- 2 Halloween -->
+    <div class="card k-halloween">
+      <div class="art"><img class="main" src="../../../public/art/portraits/ena-card.webp" alt=""><span class="kind">Halloween · Rework Day</span><span class="tag">event ends Nov 15</span><div class="title">Charms and Curses</div></div>
+      <div class="body">
+        <div class="feat">Featured SSR <b>Ena 1.0%</b> · Premium</div>
+        <div class="chips"><img src="../../../public/art/portraits/midori-thumb.webp"><img src="../../../public/art/portraits/raika-thumb.webp"><img src="../../../public/art/portraits/akane-thumb.webp"><span>Midori · Raika · Akane 3.0%</span></div>
+        <div class="rule"><i>pity 90 shared</i><i>spark Ena today</i><i>her spreading curse</i></div>
+        <div class="when"><span>Nov 8 → 9 · again Nov 13 → 14</span><span class="cur"><img src="../../../public/art/items/gems-128.webp">gems · tickets</span></div>
+      </div>
+    </div>
+    <!-- 3 Featured hero -->
+    <div class="card k-feature">
+      <div class="art"><img class="main" src="../../../public/art/portraits/kanna-card.webp" alt=""><span class="kind">Featured · new tab</span><span class="tag">beside the dailies</span><div class="title">Captain of the Guard</div></div>
+      <div class="body">
+        <div class="feat">Featured SSR hero <b>Kanna 1.0%</b> · Premium</div>
+        <div class="chips"><img src="../../../public/art/portraits/nami-thumb.webp"><img src="../../../public/art/portraits/umeko-thumb.webp"><img src="../../../public/art/portraits/midori-thumb.webp"><span>Nami · Umeko · Midori 3.0%</span></div>
+        <div class="rule"><i>pity 90 shared</i><i>spark Kanna all 3 days</i><i>never replaces a Spotlight</i></div>
+        <div class="when"><span>Nov 19 → 22</span><span class="cur"><img src="../../../public/art/items/gems-128.webp">gems · tickets</span></div>
+      </div>
+    </div>
+    <!-- 4 Legend Week -->
+    <div class="card k-legend">
+      <div class="art"><img class="second" src="../../../public/art/portraits/kohaku_tsubaki-card.webp" alt=""><img class="main" src="../../../public/art/portraits/tenka-card.webp" alt=""><span class="kind">LR · Legend Week</span><span class="tag">no new code</span>
+        <div class="promise"><small>Legend Promise 143 / 300 (carries)</small><div class="bar"><div></div></div></div>
+        <div class="title" style="max-width:none">Physics Club · Starfall</div></div>
+      <div class="body">
+        <div class="feat">Both LR tabs every day: <b>Tenka 0.5%</b> · <b>Kohaku &amp; Tsubaki 0.5%</b></div>
+        <div class="chips"><img src="../../../public/art/portraits/raika-thumb.webp"><img src="../../../public/art/portraits/suzu-thumb.webp"><img src="../../../public/art/portraits/akane-thumb.webp"><span>Tenka's SRs · duo: Umeko, Miko, Chigusa</span></div>
+        <div class="rule"><i>no spark</i><i>points still earned</i><i>rate unchanged</i></div>
+        <div class="when"><span>Nov 22 → 29 · Dec 20 → 27</span><span class="cur"><img src="../../../public/art/items/gems-128.webp">gems · tickets</span></div>
+      </div>
+    </div>
+    <!-- 5 Selector -->
+    <div class="card k-selector">
+      <div class="art"><img class="main" src="../../../public/art/portraits/ena-card.webp" alt=""><span class="kind">Featured · Selector</span><span class="tag">you pick the SSR</span>
+        <div class="pickrow"><img class="on" src="../../../public/art/portraits/ena-thumb.webp"><img src="../../../public/art/portraits/iroha-thumb.webp"><img src="../../../public/art/portraits/hotaru-thumb.webp"></div>
+        <div class="title">Pick Your Spotlight</div></div>
+      <div class="body">
+        <div class="feat">Your pick: <b>Ena 1.0%</b> · change once a day</div>
+        <div class="chips"><img src="../../../public/art/portraits/akane-thumb.webp"><img src="../../../public/art/portraits/kage-thumb.webp"><img src="../../../public/art/portraits/midori-thumb.webp"><span>Akane · Kage · Midori 3.0%</span></div>
+        <div class="rule"><i>pity 90 shared</i><i>spark your pick</i><i>7 days</i></div>
+        <div class="when"><span>Nov 29 → Dec 6 · Dec 27 → Jan 3</span><span class="cur"><img src="../../../public/art/items/gems-128.webp">gems · tickets</span></div>
+      </div>
+    </div>
+    <!-- 6 Fresh Start -->
+    <div class="card k-starter">
+      <div class="art"><img class="main" src="../../../public/art/portraits/hotaru-card.webp" alt=""><img class="ticketicon" src="../../../public/art/items/ticket_recruit10-256.webp" alt=""><span class="kind">Fresh Start · once</span><span class="tag">every account</span><div class="title">Fresh Start</div></div>
+      <div class="body">
+        <div class="feat">Standard girls · your pick <b>1.0%</b> · 10× for <b>900</b> gems ×3</div>
+        <div class="chips"><span>SSR guaranteed by the 30th pull · then the tab goes away</span></div>
+        <div class="rule"><i>pity 90 shared</i><i>gems only</i><i>never premium or LR</i></div>
+        <div class="when"><span>from Nov 19 · until used</span><span class="cur"><img src="../../../public/art/items/gems-128.webp">gems</span></div>
+      </div>
+    </div>
+    <!-- 7 Accessory -->
+    <div class="card k-acc">
+      <div class="art"><img class="main" src="../../../public/art/portraits/tenka-card.webp" alt=""><div class="accicon">Lab Goggles<br>(art comes with the accessory build)</div><span class="kind">Accessory Banner</span><span class="tag">tentative · ACCESSORIES A2</span><div class="title">Lab Goggles</div></div>
+      <div class="body">
+        <div class="feat">Tenka's personal accessory <b>1.0%</b></div>
+        <div class="chips"><span>Legendary 6% · Mythic 28% · Rare 65% standard accessories</span></div>
+        <div class="rule"><i>own pity 80 (per LR, carries)</i><i>no tickets, no points</i></div>
+        <div class="when"><span>Dec 6 → 13 · duo's Walkie-Talkie Pair Dec 24 → 31</span><span class="cur"><img src="../../../public/art/items/gems-128.webp">gems</span></div>
+      </div>
+    </div>
+    <!-- 8 Winter -->
+    <div class="card k-winter">
+      <div class="art"><img class="main" src="../../../public/art/portraits/yoriko-card.webp" alt=""><span class="kind">Winter · Featured</span><span class="tag">girls only, no outfits</span><div class="title">Winter Recital</div></div>
+      <div class="body">
+        <div class="feat">Featured SSR hero <b>Yoriko 1.0%</b> · Premium</div>
+        <div class="chips"><img src="../../../public/art/portraits/nami-thumb.webp"><img src="../../../public/art/portraits/suzu-thumb.webp"><img src="../../../public/art/portraits/miko-thumb.webp"><span>Nami · Suzu · Miko 3.0%</span></div>
+        <div class="moves">also winter: First Snow (Iroha) · Lantern Walk (Hotaru)</div>
+        <div class="when"><span>Dec 13 → 17</span><span class="cur"><img src="../../../public/art/items/gems-128.webp">gems · tickets</span></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">New moves, no rate-up (R girls are already 8.9% each):
+    <img style="width:24px;border-radius:50%" src="../../../public/art/portraits/rei-thumb.webp"> Rei
+    <img style="width:24px;border-radius:50%" src="../../../public/art/portraits/yuki-thumb.webp"> Yuki
+    <img style="width:24px;border-radius:50%" src="../../../public/art/portraits/momo-thumb.webp"> Momo
+    <img style="width:24px;border-radius:50%" src="../../../public/art/portraits/fuu-thumb.webp"> Fuu
+    · No gear banner: Set Boxes never cost gems (gear spec).</p>
+
+  <div class="calwrap">
+    <h2>Calendar (each block starts and ends at 7 PM Central)</h2>
+    <div class="cal" id="cal"></div>
+  </div>
+
+  <h2>Questions (the default is in green; "default all" works)</h2>
+  <ol class="qs">
+    <li><b>Go ahead with this calendar?</b> <em>Yes</em></li>
+    <li><b>The R girls with new moves get a "New moves" strip, not a rate-up?</b> <em>Yes</em></li>
+    <li><b>Fresh Start for every account once: three 10× at 900 gems, SSR by the 30th?</b> <em>Yes, everyone once</em></li>
+    <li><b>Selector spark: only your pick, or the whole list?</b> <em>Only your pick</em></li>
+    <li><b>Legend Week LR rate: keep 0.5% or the debut 0.7%?</b> <em>Keep 0.5%</em></li>
+    <li><b>A gear banner?</b> <em>None for now; a gem-free Set Week later if you want it</em></li>
+    <li><b>Seasonal banners are girls only, never outfits?</b> <em>Yes</em></li>
+    <li><b>Winter banners on their own, a winter event spec separately?</b> <em>Yes</em></li>
+    <li><b>Fix the Student Spotlight's "same 3 SRs every time" pattern?</b> <em>Yes, with the Featured tab</em></li>
+    <li><b>Accessory Banners Dec 6 and Dec 24 if the accessories are ready?</b> <em>Yes, tentative</em></li>
+    <li><b>Show "Promise N/300" on each LR lobby slide?</b> <em>Yes</em></li>
+  </ol>
+</div>
+<script>
+  // Calendar strip: day 0 = the game day that starts Nov 5, 7 PM Central; 57 columns to Jan 1.
+  const D = (m, d) => Math.round((Date.UTC(2026, m - 1, d) - Date.UTC(2026, 10, 5)) / 864e5);
+  const rows = [
+    ['Spotlight', [[D(11,6),1,'Mirrors','#ff7aa8'],[D(11,7),1,'Dusk','#e0782f'],[D(11,8),1,'Curses','#e0782f'],[D(11,13),1,'Midnight','#e0782f'],[D(11,14),1,'Last Lantern','#e0782f']]],
+    ['Guardian', [[D(11,6),1,'Study Hall','#ff7aa8'],[D(11,9),1,'Guard','#ff7aa8'],[D(12,4),1,'Finals','#ff7aa8']]],
+    ['Featured', [[D(11,19),3,'Captain of the Guard','#9b6be8'],[D(11,29),7,'Pick Your Spotlight','#7a5cd6'],[D(12,10),3,'First Snow','#4c9fd6'],[D(12,13),4,'Winter Recital','#4c9fd6'],[D(12,17),3,'Lantern Walk','#4c9fd6'],[D(12,27),5,'Year-End Encore','#7a5cd6']]],
+    ['LR', [[0,0.01,'',''],[D(11,22),7,'Legend Week','#0e1930'],[D(12,20),7,'Year-End Legend Week','#0e1930']]],
+    ['Accessory', [[D(12,6),7,'Lab Goggles?','#34406a'],[D(12,24),7,'Walkie-Talkie?','#34406a']]],
+    ['Fresh Start', [[D(11,19),D(12,31)-D(11,19)+1,'Fresh Start · open until used','#3fb38d']]],
+    ['Event', [[0,D(11,15),'Halloween operations','#c56a2a'],[D(11,15),7,'exchange','#e7a46c']]],
+  ];
+  const cal = document.getElementById('cal');
+  const n = 57;
+  cal.append(Object.assign(document.createElement('div'), { className: 'lab', textContent: '' , style: 'border-top:0' }));
+  for (let k = 0; k < n; k++) {
+    const dt = new Date(Date.UTC(2026, 10, 5 + k));
+    const c = document.createElement('div');
+    c.className = 'head';
+    c.textContent = dt.getUTCDay() === 4 ? `${dt.getUTCMonth() + 1}/${dt.getUTCDate()}` : '';
+    if (dt.getUTCDay() !== 4) c.style.borderLeft = '0';
+    cal.append(c);
+  }
+  for (const [label, segs] of rows) {
+    cal.append(Object.assign(document.createElement('div'), { className: 'lab', textContent: label }));
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.gridColumn = `2 / span ${n}`;
+    for (const [s, len, t, col] of segs) {
+      if (!t) continue;
+      const g = document.createElement('div');
+      g.className = 'seg';
+      g.style.left = `${(s / n) * 100}%`;
+      g.style.width = `calc(${(len / n) * 100}% - 2px)`;
+      g.style.background = col;
+      g.textContent = t;
+      g.title = t;
+      bar.append(g);
+    }
+    cal.append(bar);
+  }
+  if (location.hash === '#phone') document.body.classList.add('phone');
+</script>
+</body>
+</html>
