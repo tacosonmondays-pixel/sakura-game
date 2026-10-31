@@ -263,3 +263,20 @@ The reviewer and go/no-go agents must not be the agent that built or fixed the w
   - Then: merge the final release/v0.1.66, re-pin KNOWN[15] and the engines digests last, run full gates, go/no-go, ship.
 - **New rule for every branch**: commit boards and screenshots as WebP or JPEG of 300 KB or less. A merge to main keeps them in history forever. v0.1.67 accepts ~5.3 MB of PNG boards already in feature history; we chose not to squash.
 - **Stickers**: the pastel set was regenerated on NovelAI (960 Anlas; balance 5,753). Owner flag: Hikari's hair came out pale blonde rather than pink; offered a redo.
+
+## UPDATE 2026-10-31 05:15 UTC (coordinator)
+
+- **v0.1.66** is release/v0.1.66 @ fc978aba (Iroha fix merged; sim b2ff5e0e884b = KNOWN[14]).
+  - Green so far: npm test 6647/0 fail; noNerfGate vs live, none = 0 under, um = only the 5 documented L1 cells; lrBar and --bar ok (boss bar 6.46M); smoke clean; limit-break and iroha-mirrors ok.
+  - Still running in the assembly: coop/gear e2e, engines, build plus secret scan, blob check.
+  - The final go/no-go is running in parallel (session_01Ayo4eoSnvej7uEJVTRTjit).
+  - On GO: `git push origin fc978aba:main`, poll version.json, then a live check.
+- **v0.1.67** is release/v0.1.67 @ 3c7d863b. It contains every piece:
+  - cosmetics-2 1e3f7464
+  - stickers ed9b5a9e (likeness redo: NovelAI img2img from each girl's own chibi plus portrait; 1,247 Anlas, balance 4,506)
+  - banners be2852a8 plus the r3 lows
+  - tripo-batch-1b 219e08eb
+  - coop-feel-net 374e4115
+  
+  The trial merge with fc978aba is clean: npm test 6726/0 fail, noNerf 0 under vs fc978aba, lrBar ok. Assembly is now merging fc978aba for real, re-pinning KNOWN {14: b2ff5e0e884b, 15: 0fe7c5c04aec} plus the engines digests, and running noNerf vs live main. Then: v0.1.67 go/no-go, ship.
+- **Owner asked for stickers that look like the characters.** Done with NovelAI references from the game's own art. Tripo isn't suited to 2D, so no Tripo credits were used.
