@@ -435,7 +435,13 @@ async function runViewport(vp) {
   // let go. Mouse on desktop, touch on phones. A touch drag aims 46 px above the finger
   // (TOUCH_LIFT in src/ui/battle/placement.js), so the finger is released that far below the spot.
   const lift = touch ? 46 : 0;
-  // the battle screen slides in (slow under SwiftShader): aim only once the board stopped moving
+  // the battle screen slides in (slow under SwiftShader): aim only once the board stopped moving.
+  // First the screen change itself: the "cut" into a battle reveals with a 14 px drift of the whole
+  // screen (src/ui/transitions/index.js), and that drift only starts once the battle's ready signal,
+  // the loader and two frames are done — after the placement UI exists, so a check of the running
+  // animations alone could pass before it began. Aiming then put the target 14 px (half a tile at
+  // 844x390) off the board's real spot: the drag followed the board correctly, the test's aim did not.
+  await page.waitForFunction(() => !window.__sakura?.transitions?.busy?.(), null, { timeout: 15000 }).catch(() => null);
   await page.waitForFunction(() => {
     for (let el = window.__battle.renderer.canvas; el; el = el.parentElement) {
       if (el.getAnimations().some((a) => a.playState === 'running' && a.effect?.getComputedTiming().iterations !== Infinity)) return false;
@@ -526,6 +532,8 @@ async function runViewport(vp) {
     }, drag.unitId);
     const how = touch ? 'touch' : 'mouse';
     check(mid.mode === 'drag' && mid.unitId === drag.unitId && mid.ok === true, `drag (${how}): holding ${drag.unitId}'s card over open ground shows a valid ghost (${JSON.stringify(mid)})`);
+    // the player's contract: she stands exactly where her ghost was when the finger let go
+    check(res.towers === drag.towers + 1 && !!res.at && !!mid.at && Math.hypot(res.at[0] - mid.at[0], res.at[1] - mid.at[1]) < 0.05, `drag (${how}): releasing places ${drag.unitId} where her ghost stood (ghost ${JSON.stringify(mid.at)} → ${JSON.stringify(res.at)})`);
     check(res.towers === drag.towers + 1 && !!res.at && Math.hypot(res.at[0] - drag.x, res.at[1] - drag.y) < 0.25, `drag (${how}): releasing places ${drag.unitId} where the pointer let go (aimed [${drag.x}, ${drag.y}] → ${JSON.stringify(res.at)})`);
     check(res.placing === null, `drag (${how}): placement ends after the drop`);
     await shot('battle-drag-placed');
