@@ -188,6 +188,10 @@ No `SAVE_VERSION` bump; additive.
 
 ## 9. Open questions for the owner (defaults in bold)
 
+**Owner decisions (Oct 31, via the coordinator):** UR Set Boxes stay **Supply Bot only** (Q1), and the Tie Pin and Collar
+Pin stay Supply Bot only too (no player sources). The batch cap of 20 (Q2), the "Preset" rename (Q3) and uniform random
+mains (Q4) stand as defaults until the owner says otherwise.
+
 1. **UR set box sources.** **None yet (Supply Bot only).** Proposals: a rare Titan Trials Mayhem drop beside the
    Rainbow Gear Box (e.g. 1% a win, the Rainbow Meter guarantees one by the 60th Mayhem win); an event's top-shelf
    exchange item; a "five full UR sets" achievement. Note: a UR box salvages into five Seeds (as five Rainbow Gear
