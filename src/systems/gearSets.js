@@ -221,6 +221,35 @@ export function setPostRoll(profile, stage, difficulty, rng, now = Date.now()) {
 // One-time boxes (§5.2, §5.3): one rule and one mark per box
 // ---------------------------------------------------------------------------
 
+/** The one-time Set Box letter's id: this prefix, then its boxes' item ids joined by '+'. */
+export const SETBOX_GIFT_PREFIX = 'setbox-gift:';
+
+/** The mark that says box `id` was sent (its one-time rule), or null for an id that is no one-time Set Box. */
+function boxMark(id) {
+  if (id === setBoxId('pick', 'mythic')) return MARK.welcomeBox;
+  for (const [titan, set] of Object.entries(TITAN_SETS)) if (id === setBoxId(set, 'legendary')) return MARK.titanBox + titan;
+  return null;
+}
+
+/**
+ * An older build (before the gear update: an open tab, a cached copy) cleans the Set Box ids out of a letter's rewards
+ * when it loads and saves (its cleanMail knows no such item), and the su: marks stop a resend, so the boxes were lost
+ * (v0.1.66 audit C H1). The letter's id names its boxes: an unclaimed letter gets them back when every one is a
+ * one-time box whose mark is set (sent by this letter and not paid any other way: the marks are only set where a box
+ * is paid, and a 'mail' payment pays only through the letter); a claimed one gets them back for its display only (it
+ * pays nothing again: claimMail refuses a claimed letter; audit C L1). Mirrors repairVigilLetter.
+ */
+function repairSetBoxLetters(profile, c) {
+  const letters = Array.isArray(profile.mail?.letters) ? profile.mail.letters : [];
+  for (const l of letters) {
+    if (typeof l?.id !== 'string' || !l.id.startsWith(SETBOX_GIFT_PREFIX)) continue;
+    if (Array.isArray(l.rewards) && l.rewards.some((r) => r?.count > 0)) continue;
+    const ids = l.id.slice(SETBOX_GIFT_PREFIX.length).split('+');
+    if (!ids.length || !ids.every((id) => getItem(id) && boxMark(id) && c[boxMark(id)])) continue;
+    l.rewards = ids.map((id) => ({ id, count: 1 }));
+  }
+}
+
 /**
  * The one-time Set Boxes (GEAR_UPDATE.md §5.3, r3): whenever Titan Trials are open and `su:welcome` is not set, the
  * welcome Mythic Set Box; whenever a titan's Nightmare first clear is paid (`tfc:<titan>:2`) and `su:titanbox:<titan>`
@@ -232,6 +261,7 @@ export function setPostRoll(profile, stage, difficulty, rng, now = Date.now()) {
  */
 export function grantSetBoxGifts(profile, { mode = 'items', now = Date.now() } = {}) {
   const c = counters(profile);
+  repairSetBoxLetters(profile, c);
   const paid = [];
   if (!c[MARK.welcomeBox] && titansUnlocked(profile)) {
     c[MARK.welcomeBox] = 1;
@@ -245,7 +275,7 @@ export function grantSetBoxGifts(profile, { mode = 'items', now = Date.now() } =
   if (!paid.length || mode === 'list') return paid;
   if (mode === 'mail') {
     deliverMail(profile, {
-      id: `setbox-gift:${paid.map((x) => x.id).join('+')}`,
+      id: `${SETBOX_GIFT_PREFIX}${paid.map((x) => x.id).join('+')}`,
       title: 'Set Boxes for you',
       body: 'Gear sets are here! A thank-you for the Titan Trials you have already opened and cleared: open them from the Backpack once you claim them.',
       rewards: paid,

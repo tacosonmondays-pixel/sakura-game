@@ -403,3 +403,49 @@ describe('the marks repair, Blank LR from a set piece (review M3 r2 L1)', () => 
     expect(q.gear[uid].name).toMatch(/Ribbon of the Nightglass Sakura$/);
   });
 });
+
+// v0.1.66 audit C H1 / L1: the older build's cleanMail strips the Set Box ids from the one-time letter (it knows no such
+// item) and the su: marks stop a resend; the next load of this build gives the letter its boxes back from its id.
+describe('the one-time Set Box letter survives an older build', () => {
+  const owed = () => {
+    const p = createProfile();
+    p.missions.counters['tfc:foundry:2'] = 1;
+    p.progress.stages['3-5'] = { easy: false, normal: true, hard: false, nightmare: false, clears: 1 };
+    return migrateProfile(JSON.parse(saveText(p, 1)));
+  };
+  const letterOf = (p) => p.mail.letters.find((l) => l.id.startsWith('setbox-gift:'));
+  const BOXES = [{ id: 'setbox_pick_mythic', count: 1 }, { id: 'setbox_popper_legendary', count: 1 }];
+
+  it('an unclaimed letter stripped by the older build gets its boxes back and pays them once', async () => {
+    const { claimMail } = await import('../../src/systems/mail.js');
+    const p = owed();
+    expect(letterOf(p).rewards).toEqual(BOXES);
+    const old = oldBuild(JSON.parse(saveText(p, 1)));
+    expect(letterOf(old).rewards).toEqual([]); // what the older build left
+    const q = migrateProfile(old);
+    expect(letterOf(q).rewards).toEqual(BOXES);
+    expect(q.mail.letters.filter((l) => l.id.startsWith('setbox-gift:'))).toHaveLength(1);
+    expect(claimMail(q, letterOf(q).id).ok).toBe(true);
+    expect(q.items.setbox_pick_mythic).toBe(1);
+    expect(q.items.setbox_popper_legendary).toBe(1);
+    // claimed, then through the older build again: the display comes back (L1), nothing pays twice
+    const r = migrateProfile(oldBuild(JSON.parse(saveText(q, 1))));
+    expect(letterOf(r)).toMatchObject({ claimed: true, rewards: BOXES });
+    expect(claimMail(r, letterOf(r).id)).toMatchObject({ ok: false, error: 'claimed' });
+    expect(r.items.setbox_pick_mythic).toBe(1);
+  });
+
+  it('never repairs a letter whose boxes it did not send (no mark, or not a one-time box)', () => {
+    const p = owed();
+    const old = oldBuild(JSON.parse(saveText(p, 1)));
+    delete old.missions.counters[MARK.welcomeBox]; // its welcome box was never sent here
+    const id = letterOf(old).id;
+    const q = migrateProfile(clone(old));
+    expect(q.mail.letters.find((l) => l.id === id).rewards).toEqual([]); // not repaired
+    // (the welcome box is owed again, so the usual one-time rule sends it in its own letter: paid once either way)
+    expect(q.mail.letters.find((l) => l.id === 'setbox-gift:setbox_pick_mythic').rewards).toEqual([BOXES[0]]);
+    const forged = clone(oldBuild(JSON.parse(saveText(p, 1))));
+    letterOf(forged).id = 'setbox-gift:setbox_geometry_mythic';
+    expect(letterOf(migrateProfile(forged)).rewards).toEqual([]);
+  });
+});
