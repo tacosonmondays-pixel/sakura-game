@@ -88,6 +88,8 @@ Assigned Oct 28 to `feature/visual-reworks` (they had sat behind the stalled VFX
 
 ## 4. Next up
 
+**Perf follow-up from v0.1.66 (audit D):** the sim per frame at Freeplay wave 200 rose from a median 4.8 ms to 5.9 ms (+20 %), p95 10.1 → 13.1 ms, with the attack shapes, Ena's spreading curse, Iroha's mirrors and the gear sets in. Accepted for v0.1.66; profile the wave-200 board (`e2e/solo-freeplay-perf.mjs`, `tests/sim/perf*.test.js`) and win it back.
+
 **Attack shapes (owner, Oct 28, for later):** `docs/specs/ATTACK_SHAPES.md` plans ten new attack shapes (true 360° bursts, turning spirals, held flame streams, vines that grow along the road, orbiters, returning throws, ground rings, spike rows, a sweeping beam, links between enemies). They are sim work in four batches, each with its own `COOP_PROTOCOL` bump, after an owner board of animated mock-ups; the VFX track draws them.
 
 **What the owner told players is coming in the next big update (after the usage reset):** a couple more girls and new rarities; about 6 reworks (girls with companions, Kaede, Iroha's animations only); tower abilities/ultimates (Tenka is the ultimate tower); new UI/GUI; double the maps plus new chapters/story with new enemy types; the new VFX; banner changes; quality-of-life fixes. Kaede's AoE rework already shipped in v0.1.41: ask the owner what her next rework means (likely visuals/animation).

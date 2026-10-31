@@ -18,6 +18,8 @@ and Build Coach / loadouts merged on main v0.1.64 / v0.1.65. What the merge itse
   8.70M), kept. **LR bar** (`lrBar.mjs --bar`): crowd 17,397,696 → 17,399,281 (Akane 5-0-2 beside Umeko + Chika), boss
   6.13M unchanged; every LR build ×1.31–1.33 of the crowd bar, ×2.29+ of the boss bar, so no LR row moved; under the
   same supports every LR still beats every non-LR (worst ×1.149, Tenka Rail Arms beside Umeko + Midori 2-0-5).
+- **Perf (audit D, recorded):** sim per frame at Freeplay wave 200, median 4.8 → 5.9 ms (+20 %), p95 10.1 → 13.1 ms;
+  accepted for this release, a follow-up in docs/HANDOFF.md §4.
 - **No-nerf gate** (live c6d06118, the same sim as v0.1.65's c34f7bd3): alone 0 / 4,455 under; beside Umeko + Midori 5,
   all among the six explained cells above (Sango 2-0-4 crowd L1, Shiro 2-0-1 crowd L1, 4-0-2 and 5-0-2 held boss L1,
   Midori 2-0-3 walking boss L1; Suzu's L40 cell is no longer under).
