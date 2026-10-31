@@ -20,8 +20,10 @@ Code: `src/sim/mirrors.js` (all the rules below), `src/sim/towers.js` (her attac
 
 ## 1. Mirrors
 
-- **Count.** `relay.mirrors`: 2 at base. Mirror Hall (the network path) tier 2 → 3, tier 4 → 4, tier 5 → 5. The other
-  two paths reach 3 at their tier 4 (a crosspath Mirror Hall tier 2 also gives 3; the count is the max, never a sum).
+- **Count.** `relay.mirrors`: 2 at base. Mirror Hall (the network path) tier 2 → 3, tier 4 → 4, tier 5 → 5. Polish and
+  Kaleidoscope reach 4 at their tier 4 (Moonlit Looking-Glass, Glass Storm; the v0.1.66 audit: three mirrors could not cover the road
+  above her, her spot and the road below at once). A crosspath Mirror Hall tier 2 also gives 3; the count is the max,
+  never a sum.
   Hard cap `MIRROR_MAX` = 5.
 - **Where.** Each mirror stands within her mirror reach (`relay.reach`, 3.7 at base; Silver Reflection still lengthens
   it) of where she stands, inside the map, quantised to the co-op grid (1/1024 tile) exactly as today's mirror aim.
@@ -30,18 +32,21 @@ Code: `src/sim/mirrors.js` (all the rules below), `src/sim/towers.js` (her attac
   the lower slot). A point closer than `MIN_LEG` (1 tile) to another mirror her player placed is pushed out to 1 tile
   from it (along the line from that mirror; from her if they coincide), then quantised and clamped again, at most three
   passes (review r2 HIGH 2: no stacking). `Sim.clearAim(uid)` returns every mirror to Auto. A slot above her count is refused. When her count
-  grows the new slots start on Auto; a spot never moves because of an upgrade, except a reach that shrank (none does).
+  grows the new slots start on Auto; a placed spot never moves because of an upgrade, except a reach that shrank (none does); an Auto spot moves only when
+  her main path changes (or an UP slot's range grows).
 - **Auto.** A slot with no player spot takes an auto spot: the visible road samples (`sim._relaySamples`, every 0.25
   tiles, tunnels skipped) within her reach, in path-then-distance order. **Slot 0 takes her old panel's spot**
   (`towers.js relayOrigin`: toward the road sample nearest her, `FAMILIAR_STANDOFF` 0.7 short of it, within her reach),
   where she fights most and where today's panel stands (review r3 HIGH-1: spread mirrors left a boss one tile off the
-  sweet spot with half of today's damage); **slot 1 takes the first sample within her own range of her** (else the
-  first in reach): the road where her old panel first struck, so a crowd she slows there stays in a downstream ally's
-  reach while the mirror's range still covers the road above it (the v0.1.66 audit: a Fuu piles the crowd a tile above
-  her range; a mirror at the very entry held it beyond a Marumi's); slot `k` ≥ 2 takes the sample at index
-  `floor(AUTO_FRACS[k] × n)` of the `n` in reach, `AUTO_FRACS` = [–, 0, 1, ¼, ¾] (slot 2 the last in reach, where the
-  road leaves her). Slot k's spot is the same whatever her count, so an upgrade that adds a mirror never moves the others
-  (review r2 M2; a range tier can move slot 1), and the legs between mirrors run along the road. With no road in reach
+  sweet spot with half of today's damage); slot `k` ≥ 1 takes her **main path's** row of `AUTO_FRACS` (her highest
+  tier, a tie the lower path): a fraction `f` is the sample at index `floor(f × n)` of the `n` in reach, and `UP` the
+  first sample within her own range of her (else the first in reach), where the crowd reaches her. Mirror Hall
+  [–, ¼, ¾, UP, ⅞], Polish [–, ¼, ¾, UP, ⅞], Kaleidoscope [–, ¼, UP, ¾, 1] (her fourth mirror keeps the ¾ below her). The first two slots are the same on every
+  path, and the later mirrors cover the road above her range (the v0.1.66 audit: a Fuu or a Midori piles the crowd a tile above her range, out of her
+  coverage; a mirror at the very entry as slot 1 instead held a boss out of two of her glints and the crowd's head beyond
+  a Marumi's reach). Slot k's spot is the same whatever her count, so an upgrade that adds a mirror never moves the
+  others (review r2 M2; a path overtaking another, or a range tier for an UP slot, can), and the legs between mirrors
+  run along the road. With no road in reach
   every auto slot stands where she stands (their legs are short: §2).
 - **Derived positions.** `t.mirrors` (`[{x, y}]`, length = her count) is rebuilt from `t.mirrorAim` and the auto rule
   on placement, every upgrade, `setAim`, `clearAim` and a hero Move-style relocation; it emits `'mirrors'`
@@ -52,7 +57,8 @@ Code: `src/sim/mirrors.js` (all the rules below), `src/sim/towers.js` (her attac
 
 - **The volley.** Her attack (`relay.kind 'mirror'`) fires `projectiles` bolts (at `MIRROR_BOLT_SPEED` 18 when her spec
   has no flight speed) from where she stands when any eligible
-  enemy is within her range of her or of any of her mirrors. She no longer fires a second plain volley from the panel:
+  enemy is within her range of her or within `mirrorReach` of any of her mirrors (her range; on Kaleidoscope plus her
+  bounce splash: the glass shatters past the frame, so a crowd an ally piles just above her range is still hers). She no longer fires a second plain volley from the panel:
   the bounce IS her second firing point (this replaces UNIT_GAPS §4.1's "two origins").
 - **The route.** Bolt `i` enters her chain at mirror `i mod m` and visits mirrors in chain order (`k, k+1, …`, wrapping),
   `bounces` mirrors in all (`relay.bounces`: 2 base, see §4), never the same mirror twice in a row (with two mirrors it
@@ -68,11 +74,13 @@ Code: `src/sim/mirrors.js` (all the rules below), `src/sim/towers.js` (her attac
   `{ uid, towerUid, mirror: k, n: bounce, x, y, fx, fy }` (from → to, the display's reflected beam). If the leg it just
   flew is at least `MIN_LEG` (1 tile) long it is a **real reflection**: a new leg for its hits, pierce refilled,
   `steps += 1` and the damage scale `1 + bounceMul × steps` (§4 Polish), a **glint** (the best enemy by her target mode
-  within her range of that mirror takes `GLINT_MUL` 0.8 × the bolt's hit × its scale, event `'mirrorGlint'`: every mirror
+  within `mirrorReach` of that mirror takes `GLINT_MUL` 0.8 × the bolt's hit × its scale, event `'mirrorGlint'`: every mirror
   near an enemy strikes it whether or not a leg crosses it, so a lone boss anywhere in her coverage is struck at every
-  mirror near it; review r3 HIGH-1), a bounce splash and shards (§4 Kaleidoscope). **Mirror hits never stun**: the
-glint and the bounce splash strike with the bolt's spec less its stun (`mirrorSpec`; slows and every other status stay),
-so her stuns land where her bolts strike and a mirror upstream never holds the crowd's head out of her allies' reach. **A bounce splash strikes each enemy
+  mirror near it; review r3 HIGH-1), a bounce splash and shards (§4 Kaleidoscope). **A glint never stuns**: it
+strikes with the bolt's spec less its stun (`glintSpec`; slows and every other status stay). The glint takes the crowd's
+head at every mirror, so its stun held the head at the road's first mirror, out of a downstream ally's reach; her stuns
+land where her bolts and their splashes strike (Kaleidoscope Burst +10 → +14 damage pays for the glint's stuns; Infinite Reflection +12 → +14 for the
+Mirror Hall crowd beside a Midori). **A bounce splash strikes each enemy
   once a bolt** (the bolt's `splashed` list; review r3 HIGH-2: close mirrors on a road stacked overlapping splashes). A
   shorter leg (mirrors stacked on one spot, every Auto slot on her) only passes the bolt on: no new leg, no Polish step,
   no splash or shards (review r2 HIGH 2: stacking five mirrors on a boss multiplied her ×4).
@@ -125,7 +133,7 @@ Tier names kept where they fit. Coins unchanged.
 | 2 | Second Pane | a third mirror, +1 bounce, +1 damage |
 | 3 | Mirror Hall | +2 damage; bolts pierce 1 more on every leg, reveal veils 1.5 s; ⚡ Laser Web |
 | 4 | Hall of Reflections | a fourth mirror, +1 bounce, two more bolts, +4 damage |
-| 5 | Infinite Reflection | a fifth mirror, +1 bounce, two more bolts, +12 damage, +30% attack speed; allies' shots reflect for good, and twice; ⚡ Infinite Reflection |
+| 5 | Infinite Reflection | a fifth mirror, +1 bounce, two more bolts, +14 damage, +30% attack speed; allies' shots reflect for good, and twice; ⚡ Infinite Reflection |
 
 **Silver Reflection — "Polish: every bounce hits harder"**
 | T | name | effect |
@@ -133,7 +141,7 @@ Tier names kept where they fit. Coins unchanged.
 | 1 | Long Frame | mirrors stand 0.6 tiles further |
 | 2 | Clear Silver | +0.3 range; each bounce +15% damage |
 | 3 | Silver Reflection | Veil Sight; mirrors 0.8 further; each bounce +15% more |
-| 4 | Moonlit Looking-Glass | a third mirror, +1 bounce, +0.6 range, +5 damage, ignores 3 armour, each bounce +10% more |
+| 4 | Moonlit Looking-Glass | a fourth mirror, +2 bounces, +0.6 range, +5 damage, ignores 3 armour, each bounce +10% more |
 | 5 | Mirror of Truth | +1 bounce, +9 damage, +50% vs elites, silences 0.8 s, ignores 3 more armour, each bounce +10% more |
 
 **Shattered Glass — "Kaleidoscope: every bounce shatters"**
@@ -142,8 +150,8 @@ Tier names kept where they fit. Coins unchanged.
 | 1 | Quick Polish | +12% attack speed |
 | 2 | Splintered Glass | each bounce splashes 0.8 tiles; bolts splash 0.4 tiles on impact |
 | 3 | Glass Shards | wider splashes (+0.4 bounce, +0.3 impact); 20% slows 1 s |
-| 4 | Glass Storm | a third mirror, +1 bounce, +8 damage, wider splashes (+0.3 bounce, +0.4 impact), 15% stun 0.3 s; each bounce throws a shard at another enemy |
-| 5 | Kaleidoscope Burst | +1 bounce, +10 damage, a wider landing splash (+0.6), +30% attack speed |
+| 4 | Glass Storm | a fourth mirror, +2 bounces, +8 damage, wider splashes (+0.3 bounce, +0.4 impact), 15% stun 0.3 s; each bounce throws a shard at another enemy |
+| 5 | Kaleidoscope Burst | +1 bounce, +14 damage, a wider landing splash (+0.6), +30% attack speed |
 
 Base kit: 4 damage, 0.7/s, range 2.3, **3 bolts** (today: 2 bolts from each of two points), pierce 1, bolt speed 18,
 2 mirrors, 2 bounces, mirror reach 3.7. The `iroha` row of `src/data/balance.js` is `{ boss: 3.6 }` (r5: 3.9). A real bounce also

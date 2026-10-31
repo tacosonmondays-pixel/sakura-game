@@ -14,7 +14,7 @@ import { ABILITIES, abilityRuns } from '../../src/data/abilities.js';
 import { abilityPathOf, handlerOf } from '../../src/sim/abilities.js';
 import { spawnProjectile } from '../../src/sim/towers.js';
 import {
-  mirrorCount, mirrorsReflect, collectMirrors, autoSpots, routeBolt, MIRROR_MAX, BOUNCE_CAP, SHARD_BUDGET, WEB_TICK, MIN_LEG, GLINT_MUL,
+  mirrorCount, mirrorsReflect, collectMirrors, autoSpots, autoPath, AUTO_FRACS, routeBolt, MIRROR_MAX, BOUNCE_CAP, SHARD_BUDGET, WEB_TICK, MIN_LEG, GLINT_MUL,
   WEB_HITS_PER_STEP, stepStart, updateWebs,
 } from '../../src/sim/mirrors.js';
 import { snapshotSim, restoreSim, snapshotDigest } from '../../src/sim/snapshot.js';
@@ -97,7 +97,7 @@ function fly(sim, p, n = 600) {
 
 // ---------------------------------------------------------------------------------------------------------------
 describe('her mirrors', () => {
-  test('2 at base; Mirror Hall 3 / 4 / 5 at tiers 2 / 4 / 5; the other paths 3 at tier 4; the most wins, capped', () => {
+  test('2 at base; Mirror Hall 3 / 4 / 5 at tiers 2 / 4 / 5; the other paths 4 at tier 4; the most wins, capped', () => {
     const sim = mk();
     const spots = [[1, 0.5], [3.5, 0.5], [6, 0.5], [8.5, 0.5], [11, 0.5], [13.5, 0.5], [1, 3], [3.5, 3]];
     const n = (tiers) => mirrorCount(girl(sim, 'iroha', ...spots.shift(), { tiers }));
@@ -106,13 +106,13 @@ describe('her mirrors', () => {
     expect(n([2, 0, 0])).toBe(3);
     expect(n([4, 0, 0])).toBe(4);
     expect(n([5, 2, 0])).toBe(5);
-    expect(n([2, 4, 0])).toBe(3);
-    expect(n([0, 2, 4])).toBe(3);
-    expect(n([2, 0, 4])).toBe(3);
+    expect(n([2, 4, 0])).toBe(4);
+    expect(n([0, 2, 4])).toBe(4);
+    expect(n([2, 0, 4])).toBe(4);
     expect(MIRROR_MAX).toBe(5);
   });
 
-  test('Auto: slot 0 on the road point nearest her (her old panel spot), slot 1 the first road point in her range, slot 2 the last in her reach, quantised; with no road, where she stands', () => {
+  test('Auto: slot 0 on the road point nearest her (her old panel spot), then a quarter and three quarters of the road in her reach, quantised; with no road, where she stands', () => {
     const { sim, iroha } = lane({ tiers: [2, 0, 0] });
     expect(iroha.mirrors).toHaveLength(3);
     // (slot 0 is her old panel's spot: FAMILIAR_STANDOFF short of the road point nearest her, toward her)
@@ -128,19 +128,41 @@ describe('her mirrors', () => {
     // mirror 0 is her relay origin
     expect([iroha.ox, iroha.oy]).toEqual([iroha.mirrors[0].x, iroha.mirrors[0].y]);
     expect(autoSpots([], 3, 4, 3.7, 2)).toEqual([{ x: 3, y: 4 }, { x: 3, y: 4 }]);
-    // slot 1: the first road sample within her range of her (in road order); slot 2: the last within her reach
+  });
+
+  test('Auto by her main path: the fourth mirror (Kaleidoscope\'s third) goes where the crowd reaches her (UP)', () => {
+    expect(autoPath([0, 0, 0])).toBe(0);
+    expect(autoPath([5, 0, 2])).toBe(0);
+    expect(autoPath([2, 5, 0])).toBe(1);
+    expect(autoPath([2, 0, 5])).toBe(2);
+    expect(autoPath([2, 2, 0])).toBe(0);
     const road = [];
     for (let x = 0; x <= 17; x += 0.25) road.push({ x, y: 4.5 });
-    const [, s1, s2] = autoSpots(road, 8.5, 2.5, 3.7, 3, 2.5);
-    expect(s1.x).toBeCloseTo(8.5 - Math.sqrt(2.5 ** 2 - 4), 0);
-    expect((s1.x - 8.5) ** 2 + 4).toBeLessThanOrEqual(2.5 ** 2 + 1e-9);
-    expect((s1.x - 0.25 - 8.5) ** 2 + 4).toBeGreaterThan(2.5 ** 2);
-    expect((s2.x - 8.5) ** 2 + 4).toBeLessThanOrEqual(3.7 ** 2 + 1e-9);
-    expect((s2.x + 0.25 - 8.5) ** 2 + 4).toBeGreaterThan(3.7 ** 2);
-    // no road in her range: slot 1 takes the first in reach
-    const [, f1] = autoSpots(road, 8.5, 0.5, 4.5, 2, 2.5);
-    expect((f1.x - 8.5) ** 2 + 16).toBeLessThanOrEqual(4.5 ** 2 + 1e-9);
-    expect((f1.x - 0.25 - 8.5) ** 2 + 16).toBeGreaterThan(4.5 ** 2);
+    const inRange = (p, x, y, r) => (p.x - x) ** 2 + (p.y - y) ** 2 <= r * r + 1e-9;
+    // UP: the first road sample (road order) within her range of her
+    const upOk = (p, r) => inRange(p, 8.5, 2.5, r) && !inRange({ x: p.x - 0.25, y: p.y }, 8.5, 2.5, r);
+    const hall = autoSpots(road, 8.5, 2.5, 3.7, 5, 2.5, AUTO_FRACS[0]);
+    expect(upOk(hall[3], 2.5)).toBe(true);
+    // slot 4: seven eighths of the road in her reach
+    expect(hall[4]).toEqual(autoSpots(road, 8.5, 2.5, 3.7, 5, 2.5, AUTO_FRACS[1])[4]);
+    const shard = autoSpots(road, 8.5, 2.5, 3.7, 3, 2.5, AUTO_FRACS[2]);
+    expect(upOk(shard[2], 2.5)).toBe(true);
+    // the first two slots are the same on every path, so a mirror never moves until a third comes
+    for (const r of AUTO_FRACS) expect(autoSpots(road, 8.5, 2.5, 3.7, 2, 2.5, r)).toEqual(autoSpots(road, 8.5, 2.5, 3.7, 2, 2.5));
+    // Polish keeps its third mirror at three quarters, its fourth at UP
+    const silver = autoSpots(road, 8.5, 2.5, 3.7, 4, 2.5, AUTO_FRACS[1]);
+    expect(silver[2]).toEqual(autoSpots(road, 8.5, 2.5, 3.7, 3, 2.5, AUTO_FRACS[0])[2]);
+    expect(upOk(silver[3], 2.5)).toBe(true);
+    // no road in her range: UP takes the first in reach
+    const far = autoSpots(road, 8.5, 0.5, 4.5, 3, 2.5, AUTO_FRACS[2]);
+    expect(inRange(far[2], 8.5, 0.5, 4.5) && !inRange({ x: far[2].x - 0.25, y: 4.5 }, 8.5, 0.5, 4.5)).toBe(true);
+    // in battle: a Kaleidoscope girl's third mirror stands at UP (Glass Storm: four)
+    const { iroha } = lane({ tiers: [0, 0, 4] });
+    expect(iroha.mirrors).toHaveLength(4);
+    expect(iroha.mirrors[2].y).toBeCloseTo(ROAD_Y, 6);
+    const r = iroha.stats.range + 0.5 / 128;
+    expect((iroha.mirrors[2].x - iroha.x) ** 2 + (iroha.mirrors[2].y - iroha.y) ** 2).toBeLessThanOrEqual(r * r);
+    expect(iroha.mirrors[2]).not.toEqual(iroha.mirrors[1]);
   });
 
   test('every build keeps her bounces at least her mirror count, so an upgrade that adds a mirror only lengthens each route', () => {
@@ -471,7 +493,7 @@ describe('the glint (a real bounce strikes the best enemy in her range of that m
     return { p, scales, glints: of(evs, 'mirrorGlint').filter((v) => v.uid === p.uid) };
   }
 
-  test('mirror hits (the glint, the bounce splash) keep her slow but never stun: her stuns land where her bolts strike', () => {
+  test('a glint keeps her slow but never stuns: her stuns land where her bolts and their splashes strike', () => {
     const { sim, iroha, e } = glintLane();
     const specs = [];
     const real = sim._hit.bind(sim);

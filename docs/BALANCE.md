@@ -67,6 +67,42 @@ falls on wave 152 / 152 / 152 → 152 / 152 / 153 (Build A with Kage: 175). Thos
 targets the hex barely touches, so the wave does not move; Ena's share of the team's damage to wave 140 (seed 7,
 `--shares`) rises 4.3% → 4.8% (Kage's in the same slot: 2.3%; Shiro carries 85%).
 
+## Iroha: a stunned or clumped crowd (2026-10-31, `fix/iroha-stun-clump`, on release/v0.1.66)
+
+The v0.1.66 audit found her below live beside allies that pile the crowd (Iroha 2-0-5 + Midori 2-0-5: 1.49M → 891k).
+Traced per pair, each a kit cause:
+
+- **Midori:** the stunned clump stood off her mirrors and her bounce splashes burst round empty mirrors. The bounce
+  splash now shatters round the enemy the glint struck.
+- **Sango:** reflected copies doubled Sango's knockback and pinned the crowd at the spawn, so Iroha never fired. A copy
+  keeps the damage but drops knockback and gather.
+- **Fuu and Midori:** their slows pile the crowd a tile above her range, out of her coverage. Auto now follows her main
+  path, and each path's later mirrors take UP, the first road point in her range (spec §1). Polish and Kaleidoscope
+  get a fourth mirror at tier 4, so their ¼ and ¾ mirrors stay where a boss is fought. Kaleidoscope's mirrors also see
+  and glint at her range plus her bounce splash.
+- **Marumi:** a glint's stun held the crowd's head at her first mirror, past Marumi's range, so Marumi's balls had
+  nothing to roll at for half the wave. A glint keeps the slow but never stuns.
+
+Two buffs cover what is left:
+- Kaleidoscope Burst +10 → +14 damage: the glint's lost stuns, beside a Yuki.
+- Infinite Reflection +12 → +14: Mirror Hall beside a Midori 2-0-5.
+
+The anti-stacking rules stand: placed mirrors are at least 1 tile apart, a short leg is no reflection, and each enemy
+takes one bounce splash a bolt.
+
+| fully maxed, 3 seeds, Auto, Umeko + Midori | boss release → fix | crowd release → fix | walking boss release → fix |
+|---|---:|---:|---:|
+| Mirror Hall 5-0-2 | 2.77M → 3.15M | 5.13M → 6.73M | 576k → 856k |
+| Polish 2-5-0 | 2.10M → 2.21M | 1.16M → 1.72M | 413k → 476k |
+| Kaleidoscope 2-0-5 | 1.86M → 2.70M | 6.96M → 9.84M | 1.63M → 2.09M |
+
+Beside one ally (every tower girl; Midori and Raika at 2-0-3, 2-0-5 and 5-0-0; her three tier-5 builds; crowd and boss):
+all 540 cells have her own DPS and the team ≥ live v0.1.65. The six Tenka cells are 0 on both trees (Tenka absorbs her)
+with the team ×24–×90. Iroha 2-0-5 + Midori 2-0-5 crowd: her 1.49M → 2.25M, team 1.82M → 2.67M. With the boss held from
+4 tiles before to 3 after her road point, all 153 build × offset cells are ≥ release. Alone, every cell is ≥ release.
+Best layouts (`irohaLayouts.mjs`): 5-0-2 boss 6.46M, 2-0-5 crowd 10.03M. The LR boss bar rises 6.13M → 6.46M, and every
+LR build still clears it ×2.18 or more (crowd ×1.31 or more of 17.40M).
+
 ## Iroha's mirror network (2026-10-30, `feature/iroha-mirrors`; docs/specs/IROHA_MIRRORS.md)
 
 The owner's ask: several mirrors she places, her attacks reflecting off them. Her kit changed shape (2–5 mirrors, bolts

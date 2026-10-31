@@ -29,7 +29,7 @@ import { attackHeld, heldTick, heldOff } from './held.js';
 import { hitRadius } from './shapes.js';
 import { throwDrink, drinkTick, useDrink } from './drinks.js';
 import { sentryTick } from './sentries.js';
-import { collectMirrors, reflectStep, routeBolt, routeStep, syncMirrors, stepStart as mirrorStepStart, updateWebs, MIRROR_BOLT_SPEED } from './mirrors.js';
+import { collectMirrors, mirrorReach, reflectStep, routeBolt, routeStep, syncMirrors, stepStart as mirrorStepStart, updateWebs, MIRROR_BOLT_SPEED } from './mirrors.js';
 import { hubsOn, applyHubs } from './hubs.js';
 import { vineTick, vineObjects } from './vines.js';
 import { attackSpikes, sendQuake, groundTick } from './ground.js';
@@ -923,15 +923,16 @@ function attackProjectile(sim, t) {
 }
 
 /**
- * Reflected Bolt (src/sim/mirrors.js): when an eligible enemy is in her range of her or of one of her mirrors (that
- * order), her volley leaves where she stands, each bolt routed through her mirrors (mirrors.js routeBolt; born split,
+ * Reflected Bolt (src/sim/mirrors.js): when an eligible enemy is in her range of her or in mirrors.js mirrorReach of one
+ * of her mirrors (that order), her volley leaves where she stands, each bolt routed through her mirrors (mirrors.js routeBolt; born split,
  * so no mirror splits it). @returns the lead enemy or null
  */
 function mirrorVolley(sim, t) {
   const spec = gearSpec(t.eff);
   let lead = bestTarget(sim, t.x, t.y, spec.range, spec, t.targetMode);
   const ms = t.mirrors;
-  for (let k = 0; !lead && k < ms.length; k++) lead = bestTarget(sim, ms[k].x, ms[k].y, spec.range, spec, t.targetMode);
+  const mr = mirrorReach(t, spec);
+  for (let k = 0; !lead && k < ms.length; k++) lead = bestTarget(sim, ms[k].x, ms[k].y, mr, spec, t.targetMode);
   if (!lead) return null;
   let n = spec.projectiles;
   if (spec.projScale > 0) n += projExtra(t, n, spec.projScale);
