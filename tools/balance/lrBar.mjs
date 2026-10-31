@@ -47,7 +47,9 @@ export const KNOWN = Object.freeze([
   // the best layout found (tools/balance/irohaLayouts.mjs, which runs once her mirrors are in the tree; her spec §10
   // and her review r4's search): 5-0-2 on a boss 6.13M, 2-0-5 on a crowd 8.70M (on Auto: 2.77M / 6.96M).
   // Re-run on release/v0.1.66 (iroha-mirrors merged): 5-0-2 boss 5.95M, 2-0-5 crowd 8.45M, under these; kept.
-  { unitId: 'iroha', build: 'best layout, feature/iroha-mirrors', crowd: 8.70e6, boss: 6.13e6 },
+  // fix/iroha-stun-clump (the v0.1.66 audit's ally pairs: Auto by her main path, a fourth mirror at Polish and
+  // Kaleidoscope tier 4, +14 at both tier 5s): 5-0-2 boss 6.46M (star r1.0), 2-0-5 crowd 10.03M (on Auto 3.15M / 9.84M).
+  { unitId: 'iroha', build: 'best layout, fix/iroha-stun-clump', crowd: 10.03e6, boss: 6.46e6 },
 ]);
 
 /**
@@ -58,7 +60,8 @@ export const KNOWN = Object.freeze([
  */
 export const LR_BAR = Object.freeze({
   crowd: { dps: 17399281, unitId: 'akane', build: 'p0t5', support: 'umeko:p1t5+chika:p1t5' },
-  boss: { dps: 6130000, unitId: 'iroha', build: 'best layout, feature/iroha-mirrors', support: 'um' },
+  // (fix/iroha-stun-clump: Iroha's best layout 6.13M → 6.46M, her KNOWN row)
+  boss: { dps: 6460000, unitId: 'iroha', build: 'best layout, fix/iroha-stun-clump', support: 'um' },
 });
 
 /** The LR builds: [unitId, build] (pNt5: path N at tier 5, its tier-2 crosspath as r5Bench builds it). */

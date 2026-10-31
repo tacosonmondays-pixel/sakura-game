@@ -45,6 +45,7 @@ export const PATCH_NOTES = [
     changed: [
       'LR girls are now stronger than every other build, so an LR form always leads the board.',
       'Freeplay past wave 200 is easier, and a fully built team can now reach the Eclipse Wyrm at wave 250.',
+      'Iroha’s mirrors now keep stunned crowds where she and her allies can reach them. Her tier-4 Polish and Kaleidoscope upgrades add a fourth mirror, and two of her upgrades hit harder.',
     ],
   },
   {
