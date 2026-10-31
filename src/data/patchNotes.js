@@ -20,6 +20,15 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.69', version: '0.1.69', date: '2026-10-31', title: 'Fresh Portraits',
+    changed: [
+      '23 girls have brand-new portraits in the bright academy look: Akane, Aoi, Chika, Ena, Fuu, Hana, Hikari, Hotaru, Kaede, Kage, Kanna, Midori, Miko, Momo, Nami, Noa, Raika, Rei, Ruri, Shiro, Suzu, Umeko and Yuki, each with her own signature gear in a detailed place of her own.',
+      'Norika gets her first drawn portrait on her student page and cards.',
+      'Hikari’s eyes are teal, as they were always meant to be.',
+      'Cards, busts and thumbnails are re-framed around each new portrait; the full-body stands in the lobby are unchanged.',
+    ],
+  },
+  {
     id: 'v0.1.68', version: '0.1.68', date: '2026-10-31', title: 'Set Boxes and Awakening',
     added: [
       'The More page in battle now shows every girl\'s real DPS, measured from the damage she actually deals, with a breakdown by source for attack shapes. Heroes like Luna get their full stat grid, and every kit piece has its own row.',

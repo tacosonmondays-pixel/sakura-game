@@ -10,6 +10,9 @@
 // Read off contact sheets with a 1 % grid (tools/art/faceSheet.mjs, never committed) and checked with its --overlay
 // sheet (each band drawn over every portrait). A portrait that is redrawn needs its line here measured again: the unit
 // test (tests/ui/faceAnchors.test.js) checks every girl has both entries in sane ranges, not that they are right.
+// Art v3 (src/art/portraitsV3.js): the redrawn girls' -card lines come from the same measurement as their master's
+// PORTRAIT_DATA face (the point between the eyes and the head height, crown to chin, on the 768x1024 master), mapped
+// through the card crop: brow = eyes - 0.1 head, chin = eyes + 0.45 head. Their -cut lines are unchanged (stands kept).
 // (The seven academy girls' -cut lines and extents were measured again on their clean v0.1.46 full-body stands, which
 // v0.1.48 brought back in place of the v0.1.47 scene cut-outs; their -card lines are unchanged.)
 //
@@ -23,34 +26,34 @@ const A = (cx, brow, eye, chin) => Object.freeze({ cx, cy: f3((brow + chin) / 2)
 
 /** The anchors, by girl: { cut, card }. */
 export const FACE_ANCHORS = Object.freeze({
-  hikari: { cut: A(0.56, 0.086, 0.097, 0.142), card: A(0.49, 0.206, 0.23, 0.334) },
+  hikari: { cut: A(0.56, 0.086, 0.097, 0.142), card: A(0.5, 0.189, 0.219, 0.353) },
   luna: { cut: A(0.45, 0.208, 0.235, 0.286), card: A(0.555, 0.225, 0.272, 0.386) },
-  nami: { cut: A(0.495, 0.113, 0.129, 0.168), card: A(0.57, 0.254, 0.296, 0.424) },
-  aoi: { cut: A(0.53, 0.147, 0.168, 0.223), card: A(0.675, 0.289, 0.321, 0.414) },
-  rei: { cut: A(0.445, 0.119, 0.134, 0.189), card: A(0.505, 0.075, 0.095, 0.183) },
-  yuki: { cut: A(0.455, 0.111, 0.129, 0.184), card: A(0.6, 0.152, 0.175, 0.26) },
-  momo: { cut: A(0.49, 0.166, 0.183, 0.261), card: A(0.59, 0.225, 0.254, 0.37) },
-  akane: { cut: A(0.5, 0.203, 0.222, 0.287), card: A(0.425, 0.212, 0.239, 0.334) },
+  nami: { cut: A(0.495, 0.113, 0.129, 0.168), card: A(0.5, 0.232, 0.26, 0.385) },
+  aoi: { cut: A(0.53, 0.147, 0.168, 0.223), card: A(0.5, 0.228, 0.256, 0.383) },
+  rei: { cut: A(0.445, 0.119, 0.134, 0.189), card: A(0.5, 0.184, 0.21, 0.326) },
+  yuki: { cut: A(0.455, 0.111, 0.129, 0.184), card: A(0.5, 0.225, 0.256, 0.393) },
+  momo: { cut: A(0.49, 0.166, 0.183, 0.261), card: A(0.5, 0.197, 0.226, 0.353) },
+  akane: { cut: A(0.5, 0.203, 0.222, 0.287), card: A(0.5, 0.166, 0.186, 0.272) },
   sango: { cut: A(0.45, 0.122, 0.137, 0.186), card: A(0.48, 0.206, 0.247, 0.347) },
-  kage: { cut: A(0.345, 0.155, 0.174, 0.236), card: A(0.47, 0.219, 0.26, 0.37) },
-  umeko: { cut: A(0.48, 0.089, 0.099, 0.146), card: A(0.5, 0.19, 0.225, 0.341) },
-  shiro: { cut: A(0.48, 0.15, 0.162, 0.232), card: A(0.505, 0.122, 0.148, 0.254) },
-  midori: { cut: A(0.52, 0.134, 0.154, 0.219), card: A(0.6, 0.206, 0.238, 0.362) },
-  suzu: { cut: A(0.545, 0.097, 0.11, 0.165), card: A(0.46, 0.174, 0.198, 0.311) },
-  raika: { cut: A(0.49, 0.187, 0.205, 0.272), card: A(0.49, 0.276, 0.305, 0.414) },
-  miko: { cut: A(0.46, 0.116, 0.128, 0.18), card: A(0.57, 0.167, 0.19, 0.276) },
-  hotaru: { cut: A(0.33, 0.193, 0.217, 0.285), card: A(0.61, 0.267, 0.328, 0.45) },
-  kaede: { cut: A(0.545, 0.109, 0.119, 0.159), card: A(0.43, 0.19, 0.216, 0.324) },
-  chika: { cut: A(0.535, 0.086, 0.103, 0.157), card: A(0.43, 0.167, 0.219, 0.328) },
-  kanna: { cut: A(0.415, 0.155, 0.168, 0.22), card: A(0.415, 0.225, 0.254, 0.35) },
+  kage: { cut: A(0.345, 0.155, 0.174, 0.236), card: A(0.5, 0.257, 0.293, 0.453) },
+  umeko: { cut: A(0.48, 0.089, 0.099, 0.146), card: A(0.5, 0.242, 0.264, 0.363) },
+  shiro: { cut: A(0.48, 0.15, 0.162, 0.232), card: A(0.577, 0.243, 0.266, 0.365) },
+  midori: { cut: A(0.52, 0.134, 0.154, 0.219), card: A(0.5, 0.243, 0.271, 0.399) },
+  suzu: { cut: A(0.545, 0.097, 0.11, 0.165), card: A(0.5, 0.249, 0.279, 0.418) },
+  raika: { cut: A(0.49, 0.187, 0.205, 0.272), card: A(0.5, 0.335, 0.356, 0.453) },
+  miko: { cut: A(0.46, 0.116, 0.128, 0.18), card: A(0.5, 0.202, 0.224, 0.319) },
+  hotaru: { cut: A(0.33, 0.193, 0.217, 0.285), card: A(0.5, 0.214, 0.239, 0.354) },
+  kaede: { cut: A(0.545, 0.109, 0.119, 0.159), card: A(0.573, 0.219, 0.244, 0.356) },
+  chika: { cut: A(0.535, 0.086, 0.103, 0.157), card: A(0.5, 0.219, 0.249, 0.383) },
+  kanna: { cut: A(0.415, 0.155, 0.168, 0.22), card: A(0.564, 0.148, 0.171, 0.272) },
   yoriko: { cut: A(0.49, 0.098, 0.107, 0.16), card: A(0.405, 0.276, 0.298, 0.409) },
   seiran: { cut: A(0.475, 0.157, 0.17, 0.228), card: A(0.51, 0.26, 0.289, 0.414) },
-  fuu: { cut: A(0.365, 0.103, 0.125, 0.191), card: A(0.37, 0.254, 0.308, 0.424) },
-  hana: { cut: A(0.36, 0.161, 0.175, 0.225), card: A(0.513, 0.225, 0.251, 0.344) },
-  ruri: { cut: A(0.51, 0.124, 0.142, 0.204), card: A(0.507, 0.254, 0.29, 0.392) },
-  noa: { cut: A(0.4, 0.098, 0.111, 0.171), card: A(0.565, 0.206, 0.234, 0.347) },
+  fuu: { cut: A(0.365, 0.103, 0.125, 0.191), card: A(0.5, 0.179, 0.205, 0.324) },
+  hana: { cut: A(0.36, 0.161, 0.175, 0.225), card: A(0.375, 0.154, 0.174, 0.261) },
+  ruri: { cut: A(0.51, 0.124, 0.142, 0.204), card: A(0.5, 0.161, 0.181, 0.271) },
+  noa: { cut: A(0.4, 0.098, 0.111, 0.171), card: A(0.5, 0.205, 0.231, 0.349) },
   iroha: { cut: A(0.485, 0.114, 0.129, 0.186), card: A(0.405, 0.276, 0.302, 0.398) },
-  ena: { cut: A(0.465, 0.13, 0.146, 0.204), card: A(0.62, 0.283, 0.314, 0.414) },
+  ena: { cut: A(0.465, 0.13, 0.146, 0.204), card: A(0.448, 0.183, 0.205, 0.306) },
   azami: { cut: A(0.455, 0.121, 0.137, 0.182), card: A(0.355, 0.347, 0.396, 0.537) },
   kinu: { cut: A(0.395, 0.104, 0.122, 0.183), card: A(0.595, 0.242, 0.284, 0.392) },
   wakaba: { cut: A(0.555, 0.131, 0.146, 0.204), card: A(0.66, 0.334, 0.374, 0.517) },
@@ -64,7 +67,7 @@ export const FACE_ANCHORS = Object.freeze({
   kohaku_tsubaki: { cut: A(0.49, 0.11, 0.126, 0.168), card: A(0.5, 0.211, 0.236, 0.3) },
   // the staff heroes' coming-soon portraits (a chibi on an easel): her face on the easel
   kogane: { cut: A(0.495, 0.285, 0.318, 0.385), card: A(0.52, 0.32, 0.368, 0.42) },
-  norika: { cut: A(0.495, 0.298, 0.318, 0.385), card: A(0.465, 0.347, 0.368, 0.418) },
+  norika: { cut: A(0.495, 0.298, 0.318, 0.385), card: A(0.5, 0.163, 0.188, 0.297) },
 });
 
 /** The paint of each -cut: [x0, x1] per 5 % band of its height (null: an empty band). */
