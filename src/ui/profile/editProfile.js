@@ -4,11 +4,11 @@
 import { h, svgEl, toast, accountLevel } from '../components.js';
 import { store } from '../../core/store.js';
 import { UNIT_MAP } from '../../data/units.js';
-import { BANNERS, FRAMES, FRAME_IDS, TITLES, QUICK_LINES, bannerLockText } from '../../data/profileArt.js';
+import { BANNERS, FRAMES, TITLES, QUICK_LINES, bannerLockText } from '../../data/profileArt.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { frameChipSVG } from '../../art/profileArt.js';
 import { unitPower } from '../../systems/progression.js';
-import { earnedTitles, earnedFrames, bannerUnlocked, titleChoices } from '../../systems/profileTrophies.js';
+import { earnedTitles, earnedFrames, frameChoices, bannerUnlocked, titleChoices } from '../../systems/profileTrophies.js';
 import { setSensei } from '../../systems/senseiSave.js';
 import { titlesFromText } from '../../systems/honors.js';
 import { BIO_MAX, PROFILE_VISIBILITY_DEFAULT, bioError } from '../../online/profileRules.js';
@@ -56,6 +56,7 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
   const choices = titleChoices(p);
   if (title && titles.has(title)) draft.title = title;
   const frames = new Set(earnedFrames(p));
+  const frameList = frameChoices(p);
   const ownedIds = Object.keys(p.units).filter((id) => UNIT_MAP[id]).sort((a, b) => unitPower(p, b) - unitPower(p, a) || a.localeCompare(b));
 
   const set = (k, v) => {
@@ -114,11 +115,12 @@ export function openEditProfile({ section = 'picture', title = null } = {}) {
     picture: () => [
       label('Picture', 'Any girl you own'),
       girlGrid('avatar', 'edit-picture-grid'),
-      h('div.ep-sec', label('Frame', 'Earned frames'),
-        h('div.ep-frames', { 'data-testid': 'edit-frames' }, [null, ...FRAME_IDS.filter((f) => !FRAMES[f].event || frames.has(f))].map((f) => { // event frames: owners only
+      h('div.ep-sec', label('Frame', `${frames.size} / ${frameList.length} earned`),
+        h('div.ep-frames', { 'data-testid': 'edit-frames' }, [null, ...frameList].map((f) => { // event frames: while they can be earned, then owners only
           const ok = f === null || frames.has(f);
-          return h(`button.ep-frame${draft.frame === f ? '.on' : ''}${ok ? '' : '.locked'}`, { type: 'button', disabled: !ok, 'data-frame': f || 'default', onclick: () => set('frame', f) },
-            svgEl(frameChipSVG(f), 'ep-frame-ico'), h('span.ep-frame-t', h('b', f ? FRAMES[f].name : 'Default'), h('small', ok ? (draft.frame === f ? 'Equipped' : 'Earned') : FRAMES[f].how)), ok ? null : ico('lock', 'ep-lock'));
+          const hide = f && !ok && FRAMES[f].secret; // a secret frame: "???" and its hint until owned
+          return h(`button.ep-frame${draft.frame === f ? '.on' : ''}${ok ? '' : '.locked'}${hide ? '.secret' : ''}`, { type: 'button', disabled: !ok, 'data-frame': f || 'default', onclick: () => set('frame', f) },
+            svgEl(frameChipSVG(hide ? null : f), 'ep-frame-ico'), h('span.ep-frame-t', h('b', f ? (hide ? '???' : FRAMES[f].name) : 'Default'), h('small', ok ? (draft.frame === f ? 'Equipped' : 'Earned') : hide ? FRAMES[f].hint : FRAMES[f].how)), ok ? null : ico('lock', 'ep-lock'));
         }))),
     ],
     banner: () => [

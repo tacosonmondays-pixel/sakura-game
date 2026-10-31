@@ -95,6 +95,29 @@ export const TAG_TITLE_MARK = 'tagt:';
  */
 export const EVENT_TITLE_MARK = 'evt:';
 
+/**
+ * missions.counters 'pfw:f:<frameId>' / 'pfw:t:<titleId>' = 1 while that frame / title is equipped (Cosmetics 2, Oct 30).
+ * A build that doesn't know a frame or title (the v0.1.67 frames, the secret titles) takes it off when it cleans the
+ * block and rewrites the 'pfs:' shadows, but no older build touches this prefix, so restoreSensei puts the pick back on
+ * once the frame or title is earned here (it is earned from claims, medals and counters every build keeps).
+ */
+export const WORN_MARK = 'pfw:';
+
+/** The frame and title the 'pfw:' shadows say were equipped (each null when there is none). */
+export function shadowedWorn(p) {
+  const c = p?.missions?.counters;
+  const out = { frame: null, title: null };
+  if (!isObj(c)) return out;
+  for (const k of Object.keys(c)) {
+    if (!k.startsWith(WORN_MARK) || !(Number(c[k]) > 0)) continue;
+    const [kind, ...rest] = k.slice(WORN_MARK.length).split(':');
+    const id = rest.join(':');
+    if (kind === 'f' && FRAMES[id] && !out.frame) out.frame = id;
+    if (kind === 't' && TITLES[id] && !out.title) out.title = id;
+  }
+  return out;
+}
+
 /** The event title the 'evt:' shadow says was equipped, or null. */
 export function shadowedEventTitle(p) {
   const c = p?.missions?.counters;
@@ -115,11 +138,13 @@ export function shadowedTagTitle(p) {
 export function markSensei(p) {
   if (!isObj(p?.sensei)) return;
   const c = ((p.missions ||= {}).counters ||= {});
-  for (const k of Object.keys(c)) if (k.startsWith(SENSEI_MARK) || k.startsWith(TAG_TITLE_MARK) || k.startsWith(EVENT_TITLE_MARK)) delete c[k];
+  for (const k of Object.keys(c)) if (k.startsWith(SENSEI_MARK) || k.startsWith(TAG_TITLE_MARK) || k.startsWith(EVENT_TITLE_MARK) || k.startsWith(WORN_MARK)) delete c[k];
   c[`${SENSEI_MARK}v`] = 1;
   const tagKind = TAG_OF_TITLE[p.sensei.title];
   if (tagKind) c[TAG_TITLE_MARK + tagKind] = 1;
   if (TITLES[p.sensei.title]?.event) c[EVENT_TITLE_MARK + p.sensei.title] = 1;
+  if (typeof p.sensei.frame === 'string' && FRAMES[p.sensei.frame]) c[`${WORN_MARK}f:${p.sensei.frame}`] = 1;
+  if (typeof p.sensei.title === 'string' && TITLES[p.sensei.title]) c[`${WORN_MARK}t:${p.sensei.title}`] = 1;
   for (const k of ONE) if (typeof p.sensei[k] === 'string') c[SENSEI_MARK + k] = idHash(p.sensei[k]);
   for (const [k, [pre]] of Object.entries(LISTS)) {
     (Array.isArray(p.sensei[k]) ? p.sensei[k] : []).forEach((id, i) => { c[`${SENSEI_MARK}${pre}${i}`] = idHash(id); });
@@ -161,11 +186,13 @@ export function senseiFromMarks(p) {
  * same, and comes back too.)
  */
 export function restoreSensei(raw, p) {
-  const worn = [shadowedTagTitle(p), shadowedEventTitle(p)].find((id) => id && titleKeepable(p, id)) || null;
+  const shadow = shadowedWorn(p);
+  const worn = [shadowedTagTitle(p), shadowedEventTitle(p), shadow.title].find((id) => id && titleKeepable(p, id)) || null;
   let s;
   if (isObj(raw)) s = cleanSensei(raw, p);
   else s = senseiFromMarks(p) || { ...newSensei(), lost: true };
   if (s.title == null && worn) s.title = worn;
+  if (s.frame == null && shadow.frame && earnedFrames(p).includes(shadow.frame)) s.frame = shadow.frame;
   p.sensei = s;
   if (!s.lost || isObj(raw)) markSensei(p);
   return s;

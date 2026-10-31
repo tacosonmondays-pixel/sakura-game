@@ -226,20 +226,22 @@ describe('cosmetics', () => {
   const honors = ACHIEVEMENTS.filter((a) => a.honor);
   const titles = ACHIEVEMENTS.filter((a) => a.title);
 
-  it('honor.no is 1..37, unique and append-only (frozen list)', () => {
+  it('honor.no is 1..41, unique and append-only (frozen list)', () => {
     const FROZEN = ['a_chapter_1', 'a_chapter_2', 'a_chapter_3', 'a_login_7', 'a_chapter_4', 'a_quad_1', 'a_slime_15', 'a_chapter_5',
       'a_flawless_10', 'a_journal_11', 'a_first_petals', 'a_chapter_6', 'a_sakura_10', 'a_chapter_7', 'a_boss_3', 'a_coop_50', 'a_story_8',
       'a_donate_10', 'a_chapter_8', 'a_gold_40', 'a_bestiary_100', 'a_login_100', 'a_stars_50', 'a_leg_plus10', 'a_fp_seasons', 'a_ach_75',
       'a_ur_1', 'a_sakura_40', 'a_quad_40', 'a_boss_sak_3', 'a_fp_crimson', 'a_fp_bosses_4', 'a_login_365', 'a_mr_800',
-      'a_try_g4', 'a_try_g8', 'a_try_g12'];
+      'a_try_g4', 'a_try_g8', 'a_try_g12',
+      // Cosmetics 2 (Oct 30): every secret gives a cosmetic
+      'a_close_call', 'a_gold_rush', 'a_not_fooled', 'a_mirror_mirror'];
     const byNo = [...honors].sort((x, y) => x.honor.no - y.honor.no);
     expect(byNo.map((a) => a.id)).toEqual(FROZEN);
     expect(byNo.map((a) => a.honor.no)).toEqual(FROZEN.map((_, i) => i + 1));
   });
 
-  it('classes and effects: 19 plain, 9 shiny, 9 special with 9 distinct effects; fx only on specials; no special is secret', () => {
+  it('classes and effects: 23 plain, 9 shiny, 9 special with 9 distinct effects; fx only on specials; no special is secret', () => {
     const cls = (c) => honors.filter((a) => a.honor.cls === c);
-    expect([cls('plain').length, cls('shiny').length, cls('special').length]).toEqual([19, 9, 9]);
+    expect([cls('plain').length, cls('shiny').length, cls('special').length]).toEqual([23, 9, 9]);
     expect(new Set(cls('special').map((a) => a.honor.fx)).size).toBe(9);
     for (const a of honors) {
       expect(['plain', 'shiny', 'special']).toContain(a.honor.cls);
@@ -255,25 +257,25 @@ describe('cosmetics', () => {
 
   it('titles: ≤ 24 characters, unique (with the freeplay titles), on std / gold / prism plates', () => {
     const texts = [...titles.map((a) => a.title.text), ...Object.values(FREEPLAY_TITLES).map((t) => t.text)];
-    // 45 in this build + the 4 titles of the hidden 80-stage rows + Tryout Day's 2 (Head Scout, Grade 12 Sensei)
-    expect(texts).toHaveLength(51);
-    expect(new Set(texts.map((t) => t.toLowerCase())).size).toBe(51);
+    // 46 in this build + the 4 titles of the hidden 80-stage rows + Tryout Day's 2 (Head Scout, Grade 12 Sensei)
+    expect(texts).toHaveLength(52);
+    expect(new Set(texts.map((t) => t.toLowerCase())).size).toBe(52);
     for (const a of titles) {
       expect(a.title.text.length, a.id).toBeLessThanOrEqual(24);
       expect(['std', 'gold', 'prism']).toContain(a.title.tier);
     }
   });
 
-  it('in this build: 37 ribbons and 47 titles (launch 32 / 37, + Kind Heart and Helping Hands with social, + the holo ribbon and 7 titles with Codex, + 3 ribbons and 2 titles with Tryout Day)', () => {
+  it('in this build: 41 ribbons and 48 titles (launch 36 / 38, with the 4 secret ribbons and Bravest of Them All, + Kind Heart and Helping Hands with social, + the holo ribbon and 7 titles with Codex, + 3 ribbons and 2 titles with Tryout Day)', () => {
     const live = ACHIEVEMENTS.filter((a) => achievementLive(a));
-    expect(live.filter((a) => a.honor)).toHaveLength(37);
+    expect(live.filter((a) => a.honor)).toHaveLength(41);
     expect(live.filter((a) => a.wave === 'tryout' && a.honor).map((a) => [a.id, a.honor.cls, a.honor.fx])).toEqual([['a_try_g4', 'plain', null], ['a_try_g8', 'shiny', null], ['a_try_g12', 'special', 'chalk']]);
     expect(live.filter((a) => a.wave === 'tryout' && a.title).map((a) => a.title.text)).toEqual(['Head Scout', 'Grade 12 Sensei']);
-    expect(live.filter((a) => a.honor && a.wave === 'launch')).toHaveLength(32);
+    expect(live.filter((a) => a.honor && a.wave === 'launch')).toHaveLength(36);
     expect(live.filter((a) => a.honor && a.shipped)).toHaveLength(12);
     expect(live.filter((a) => a.honor && a.wave === 'codex').map((a) => [a.id, a.honor.name, a.honor.fx])).toEqual([['a_mr_800', 'Holo Codex Ribbon', 'holo']]);
-    expect(live.filter((a) => a.title).length + 2).toBe(47);
-    expect(live.filter((a) => a.title && a.wave === 'launch').length + 2).toBe(37);
+    expect(live.filter((a) => a.title).length + 2).toBe(48);
+    expect(live.filter((a) => a.title && a.wave === 'launch').length + 2).toBe(38);
     expect(live.filter((a) => a.title && a.wave === 'codex').map((a) => a.title.text)).toEqual([
       'Versatile Strategist', 'All-Round Sensei', 'Wrong-Way Warden', 'Rush Hour Hero', 'Armor Breaker', 'Thrifty Tactician', 'Last Petal Keeper',
     ]);
