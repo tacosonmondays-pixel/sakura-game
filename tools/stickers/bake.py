@@ -44,13 +44,36 @@ STICKERS = {
 
 # the lettering: a soft pastel fill and a deeper pastel outline (deep enough that the word reads at 64 px)
 PASTELS = {
-    "pink": ("#ffc2d9", "#c4588a"),
-    "mint": ("#bdf0d8", "#3a9470"),
-    "lavender": ("#ddd0fb", "#7558b4"),
-    "peach": ("#ffd4b8", "#c47040"),
-    "sky": ("#c4e6fb", "#4586bb"),
-    "butter": ("#fff0b0", "#ad8a24"),
+    "pink": ("#ffc2d9", "#ab4274"),
+    "mint": ("#bdf0d8", "#2b7c5b"),
+    "lavender": ("#ddd0fb", "#5f449e"),
+    "peach": ("#ffd4b8", "#a9582b"),
+    "sky": ("#c4e6fb", "#326fa3"),
+    "butter": ("#fff0b0", "#8f7118"),
 }
+
+# the fallback tone pass (the first pastel try, Oct 31), for a sticker whose pastel regeneration came out worse: name
+# its first-set picture as "first/<name>" in STICKERS (from $STICKER_FIRST) and it is cut out and put through pastel().
+# Not used by any sticker today. The pass: saturation down by this much, light tones lifted toward a milky white; the dark
+# lineart (value under ~0.3) is left alone so the drawing stays crisp
+PASTEL_SAT = 0.68
+PASTEL_LIFT = 0.24
+
+
+def pastel(im):
+    """A soft, milky pastel version of an RGBA picture: same hues, softer saturation, lighter mid and light tones."""
+    import numpy as np
+    a = np.asarray(im.convert("RGBA")).astype(np.float32) / 255.0
+    rgb, alpha = a[..., :3], a[..., 3:]
+    v = rgb.max(-1)
+    # hue-preserving: move each channel toward the pixel's own value (less saturation), then toward white (lift)
+    grey = v[..., None]
+    rgb = grey + (rgb - grey) * PASTEL_SAT
+    w = np.clip((v - 0.28) / 0.3, 0.0, 1.0)[..., None]  # 0 on the ink lines, 1 on mid and light tones
+    rgb = rgb + (1.0 - rgb) * PASTEL_LIFT * w
+    out = np.concatenate([np.clip(rgb, 0, 1), alpha], -1)
+    return Image.fromarray((out * 255 + 0.5).astype(np.uint8), "RGBA")
+
 
 # a figure taller than this (height / width) loses its lower part under the caption; a sticker whose prop sits low
 # (Hotaru's lantern) keeps more of it
@@ -87,6 +110,15 @@ def flood(name):
 
 
 def cutout(name):
+    if name.startswith("first/"):  # the fallback: a first-set picture through the tone pass
+        global RAW, CUT
+        keep = RAW, CUT
+        RAW = os.environ.get("STICKER_FIRST") or sys.exit("set STICKER_FIRST (the first set's gen.py output folder)")
+        CUT = os.path.join(RAW, "_cut")
+        try:
+            return pastel(cutout(name[len("first/"):]))
+        finally:
+            RAW, CUT = keep
     os.makedirs(CUT, exist_ok=True)
     path = os.path.join(CUT, f"{name}.png")
     if name.startswith(("mochi_", "slime_")) and not os.path.exists(path):
@@ -113,7 +145,7 @@ def caption_layer(text, tone):
     size = 104
     while True:
         font = ImageFont.truetype(FONT, size)
-        stroke = max(8, size // 9)
+        stroke = max(10, size // 8)  # (long words get a smaller size: the stroke keeps them readable at 64 px)
         box = d.textbbox((0, 0), text, font=font, stroke_width=stroke)
         if box[2] - box[0] <= W - 2 * PAD or size <= 60:
             break
@@ -189,9 +221,10 @@ def board_compare(ids, before_dir):
     b = Image.new("RGB", (cols * cell + 120, len(groups) * 2 * rowh + 70), (236, 241, 250))
     d = ImageDraw.Draw(b)
     small = ImageFont.truetype(FONT, 16)
-    d.text((20, 16), "Stickers — before (above) and pastel (below), 128 px and 64 px", font=ImageFont.truetype(FONT, 22), fill=INK)
+    old_label = os.environ.get("STICKER_BEFORE_LABEL", "before")
+    d.text((20, 16), f"Stickers — {old_label} (above) and now (below), 128 px and 64 px", font=ImageFont.truetype(FONT, 22), fill=INK)
     for g, group in enumerate(groups):
-        for k, (label, folder) in enumerate((("before", before_dir), ("pastel", OUT))):
+        for k, (label, folder) in enumerate(((old_label.split(" ")[0], before_dir), ("now", OUT))):
             y = 54 + (2 * g + k) * rowh
             d.text((20, y + 56), label, font=small, fill=INK)
             for i, sid in enumerate(group):
