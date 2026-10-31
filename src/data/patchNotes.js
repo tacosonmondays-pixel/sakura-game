@@ -20,7 +20,11 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    id: 'v0.1.69', version: '0.1.69', date: '2026-10-31', title: 'Boss Traps and Fresh Portraits',
+    id: 'v0.1.69', version: '0.1.69', date: '2026-10-31', title: 'Co-op Sharing, Boss Traps and Fresh Portraits',
+    added: [
+      'Co-op sharing: tap your ally\'s name to send them coins, or lend them one of your girls from her panel so they can upgrade and command her; you can take her back between waves.',
+      'If your co-op ally leaves or loses connection for 20 seconds, their girls and coins are shared out to you, and they get everything back if they return.',
+    ],
     changed: [
       'Suzu and Azami can now take on bosses: with a boss in range they set their bells and strips right under it. A bell a boss sets off sticks to it and keeps ringing, even while it flies, and a boss on a spike strip keeps getting hit until the strip is used up.',
       '24 girls have brand-new portraits: Akane, Aoi, Chika, Ena, Fuu, Hana, Hikari, Hotaru, Kaede, Kage, Kanna, Midori, Miko, Momo, Nami, Noa, Raika, Rei, Ruri, Shiro, Suzu, Umeko and Yuki get a fresh look in a place of their own, and Norika gets her first drawn portrait.',
