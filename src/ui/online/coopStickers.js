@@ -6,7 +6,7 @@ import { h } from '../dom.js';
 import { store } from '../../core/store.js';
 import { STICKER_LIMITS } from '../../data/stickers.js';
 import { ownsSticker, showsStickers } from '../../systems/stickers.js';
-import { stickerImg, openStickerPicker, stickerMuted, setStickerMuted } from './stickers.js';
+import { stickerImg, openStickerPicker, stickerMuted, setStickerMuted, STICKER_PX } from './stickers.js';
 
 /**
  * @param {object} ctx battle context (ctx.coop: session, mySlot)
@@ -78,7 +78,7 @@ export function createCoopStickers(ctx, chips) {
 
   function show(slot, id) {
     const chip = chips[slot];
-    const img = stickerImg(id, 72, 'stk-bubble-img');
+    const img = stickerImg(id, STICKER_PX.bubble, 'stk-bubble-img');
     if (!chip || !img) return;
     clear(slot);
     const el = h('div.stk-bubble', { 'data-testid': `coop-sticker-${slot}`, 'data-sticker': id, role: 'img', 'aria-label': img.alt }, img);

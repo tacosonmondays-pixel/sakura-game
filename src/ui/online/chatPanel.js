@@ -17,7 +17,7 @@ import { store } from '../../core/store.js';
 import { lineSticker, stickerLine } from '../../online/stickerWire.js';
 import { showsStickers } from '../../systems/stickers.js';
 import { stickerAlt } from '../../data/stickers.js';
-import { stickerImg, openStickerPicker } from './stickers.js';
+import { stickerImg, openStickerPicker, STICKER_PX } from './stickers.js';
 
 const MAX = 200;
 const SEEN_KEY = 'ss-online-seen';
@@ -99,7 +99,7 @@ export function createChatPanel({ channel = 'global', compact = false, emptyText
     if (!s) return null;
     const mine = backend && m.userId === backend.uid;
     if (!mine && !showsStickers(store.profile)) return h('div.ol-bubble.ol-bubble-stk-text', { 'data-testid': 'chat-sticker-text' }, stickerAlt(s));
-    return h('div.ol-stk-msg', { 'data-testid': 'chat-sticker-msg', 'data-sticker': s.id }, stickerImg(s.id, compact ? 72 : 96));
+    return h('div.ol-stk-msg', { 'data-testid': 'chat-sticker-msg', 'data-sticker': s.id }, stickerImg(s.id, compact ? STICKER_PX.chatCompact : STICKER_PX.chat));
   }
 
   function add(m, scroll = true) {
