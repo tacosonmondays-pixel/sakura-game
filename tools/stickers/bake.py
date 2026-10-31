@@ -3,7 +3,9 @@
 a crisp caption drawn here (never generated, so never garbled), then 256 and 128 px WebP in public/art/stickers/.
 
 usage (rembg lives in a venv outside the repo):  STICKER_OUT=/path/outside/repo  venv/bin/python -I tools/stickers/bake.py [id,id]
-Also writes docs/review/stickers/board.png (every sticker at 128 px and at 64 px).
+Also writes docs/review/stickers/board.png (every sticker at 128 px and at 64 px), and with STICKER_BEFORE=<folder of
+the previous 128 px files> the before / after board docs/review/stickers/board-pastel.png.
+The art gets a pastel pass (pastel(): softer saturation, lighter mid tones, the ink lines kept) and pastel lettering.
 """
 import os, sys
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -18,25 +20,57 @@ FONT = "/usr/share/fonts/opentype/inter/Inter-Black.otf"
 if not os.path.exists(FONT):
     FONT = "/usr/share/fonts/opentype/inter/Inter-ExtraBold.otf"
 
-# id → (raw picture chosen after the eye check (the slimes were generated as mochi_*), caption, caption stroke colour); keep in step with src/data/stickers.js
+# id → (raw picture chosen after the eye check (the slimes were generated as mochi_*), caption, caption pastel);
+# keep in step with src/data/stickers.js
 STICKERS = {
-    "slime_hi": ("mochi_hi", "Hi!", "#2f9c62"),
-    "slime_thanks": ("mochi_thanks", "Thanks!", "#2f9c62"),
-    "slime_oops": ("mochi_oops", "Oops!", "#2f9c62"),
-    "slime_gg": ("mochi_gg", "GG!", "#c94a7d"),
-    "hikari_go": ("hikari_go.try2", "Let's go!", "#c4567d"),
-    "aoi_nice": ("aoi_nice", "Nice!", "#367a4c"),
-    "kage_onit": ("kage_onit.try2", "On it!", "#5a3f78"),
-    "momo_yay": ("momo_yay.try2", "Yay!", "#b84a8a"),
-    "akane_wow": ("akane_wow", "Wow!", "#b8432f"),
-    "yuki_help": ("yuki_help", "Help!", "#3f7fa8"),
-    "miko_thanks": ("miko_thanks", "Thank you!", "#b8323a"),
-    "ena_luck": ("ena_luck", "Good luck!", "#9a4a6c"),
-    "iroha_ready": ("iroha_ready", "Ready?", "#5a4470"),
-    "tenka_charge": ("tenka_charge", "Charge!", "#2c4fc4"),
-    "chigusa_bravo": ("chigusa_bravo", "Bravo!", "#5f8040"),
-    "hotaru_boo": ("hotaru_boo", "Boo!", "#c46a1f"),
+    "slime_hi": ("mochi_hi", "Hi!", "mint"),
+    "slime_thanks": ("mochi_thanks", "Thanks!", "mint"),
+    "slime_oops": ("mochi_oops", "Oops!", "sky"),
+    "slime_gg": ("mochi_gg", "GG!", "pink"),
+    "hikari_go": ("hikari_go.try2", "Let's go!", "pink"),
+    "aoi_nice": ("aoi_nice", "Nice!", "mint"),
+    "kage_onit": ("kage_onit.try2", "On it!", "lavender"),
+    "momo_yay": ("momo_yay.try2", "Yay!", "pink"),
+    "akane_wow": ("akane_wow", "Wow!", "peach"),
+    "yuki_help": ("yuki_help", "Help!", "sky"),
+    "miko_thanks": ("miko_thanks", "Thank you!", "pink"),
+    "ena_luck": ("ena_luck", "Good luck!", "lavender"),
+    "iroha_ready": ("iroha_ready", "Ready?", "lavender"),
+    "tenka_charge": ("tenka_charge", "Charge!", "sky"),
+    "chigusa_bravo": ("chigusa_bravo", "Bravo!", "butter"),
+    "hotaru_boo": ("hotaru_boo", "Boo!", "peach"),
 }
+
+# the lettering: a soft pastel fill and a deeper pastel outline (deep enough that the word reads at 64 px)
+PASTELS = {
+    "pink": ("#ffc2d9", "#c4588a"),
+    "mint": ("#bdf0d8", "#3a9470"),
+    "lavender": ("#ddd0fb", "#7558b4"),
+    "peach": ("#ffd4b8", "#c47040"),
+    "sky": ("#c4e6fb", "#4586bb"),
+    "butter": ("#fff0b0", "#ad8a24"),
+}
+
+# the pastel pass on the art: saturation down by this much, light tones lifted toward a milky white; the dark
+# lineart (value under ~0.3) is left alone so the drawing stays crisp
+PASTEL_SAT = 0.68
+PASTEL_LIFT = 0.24
+
+
+def pastel(im):
+    """A soft, milky pastel version of an RGBA picture: same hues, softer saturation, lighter mid and light tones."""
+    import numpy as np
+    a = np.asarray(im.convert("RGBA")).astype(np.float32) / 255.0
+    rgb, alpha = a[..., :3], a[..., 3:]
+    v = rgb.max(-1)
+    # hue-preserving: move each channel toward the pixel's own value (less saturation), then toward white (lift)
+    grey = v[..., None]
+    rgb = grey + (rgb - grey) * PASTEL_SAT
+    w = np.clip((v - 0.28) / 0.3, 0.0, 1.0)[..., None]  # 0 on the ink lines, 1 on mid and light tones
+    rgb = rgb + (1.0 - rgb) * PASTEL_LIFT * w
+    out = np.concatenate([np.clip(rgb, 0, 1), alpha], -1)
+    return Image.fromarray((out * 255 + 0.5).astype(np.uint8), "RGBA")
+
 
 W = 512  # working size (square)
 BORDER = 16  # die-cut white border, px at 512
@@ -87,8 +121,9 @@ def cutout(name):
     return im.crop(a.getbbox())
 
 
-def caption_layer(text, colour):
-    """The caption on its own transparent layer (W x W), centred low; white letters, a thick coloured stroke."""
+def caption_layer(text, tone):
+    """The caption on its own transparent layer (W x W), centred low; pastel letters with a deeper pastel stroke."""
+    fill, colour = PASTELS[tone]
     layer = Image.new("RGBA", (W, W), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     size = 104
@@ -102,14 +137,14 @@ def caption_layer(text, colour):
     tw, th = box[2] - box[0], box[3] - box[1]
     x = (W - tw) // 2 - box[0]
     y = W - PAD - 6 - th - box[1]
-    d.text((x, y), text, font=font, fill="white", stroke_width=stroke, stroke_fill=colour)
+    d.text((x, y), text, font=font, fill=fill, stroke_width=stroke, stroke_fill=colour)
     return layer, y + box[1]
 
 
 def bake(sid):
-    raw, text, colour = STICKERS[sid]
-    fig = cutout(raw)
-    cap, cap_top = caption_layer(text, colour)
+    raw, text, tone = STICKERS[sid]
+    fig = pastel(cutout(raw))
+    cap, cap_top = caption_layer(text, tone)
     # the figure fills the square; the caption sits over its lower part (sticker style). A tall figure loses its
     # feet under the caption so the face stays big at 64 px.
     room_w = W - 2 * PAD
@@ -162,6 +197,31 @@ def board(ids):
     b.save(BOARD, optimize=True)
 
 
+def board_compare(ids, before_dir):
+    """Before / after: each row of 8 twice, the old stickers above the new, at 128 px with 64 px under each."""
+    cols, cell, rowh = 8, 150, 214
+    groups = [ids[i:i + cols] for i in range(0, len(ids), cols)]
+    b = Image.new("RGB", (cols * cell + 120, len(groups) * 2 * rowh + 70), (236, 241, 250))
+    d = ImageDraw.Draw(b)
+    small = ImageFont.truetype(FONT, 16)
+    d.text((20, 16), "Stickers — before (above) and pastel (below), 128 px and 64 px", font=ImageFont.truetype(FONT, 22), fill=INK)
+    for g, group in enumerate(groups):
+        for k, (label, folder) in enumerate((("before", before_dir), ("pastel", OUT))):
+            y = 54 + (2 * g + k) * rowh
+            d.text((20, y + 56), label, font=small, fill=INK)
+            for i, sid in enumerate(group):
+                x = 110 + i * cell
+                im = Image.open(os.path.join(folder, f"{sid}-128.webp")).convert("RGBA")
+                b.paste(im, (x + 11, y), im)
+                sm = im.resize((64, 64), Image.LANCZOS)
+                b.paste(sm, (x + 43, y + 130), sm)
+                if k:
+                    d.text((x + 75, y + 196), sid, font=small, fill=INK, anchor="ma")
+    path = os.path.join(os.path.dirname(BOARD), "board-pastel.png")
+    b.save(path, optimize=True)
+    return path
+
+
 if __name__ == "__main__":
     ids = sys.argv[1].split(",") if len(sys.argv) > 1 else list(STICKERS)
     for sid in ids:
@@ -169,3 +229,5 @@ if __name__ == "__main__":
         print("baked", sid, flush=True)
     board(list(STICKERS))
     print("board", BOARD)
+    if os.environ.get("STICKER_BEFORE"):  # a folder with the previous <id>-128.webp files
+        print("before/after", board_compare(list(STICKERS), os.environ["STICKER_BEFORE"]))

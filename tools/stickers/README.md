@@ -12,6 +12,11 @@ The 16 v1 stickers in `public/art/stickers/` (`<id>-256.webp`, `<id>-128.webp`) 
 - `bake.py`: rembg (isnet-anime; the pale slimes use a flood fill from the plain background instead), a thick white
   die-cut border with a navy hairline and a soft shadow, the caption in a heavy sans with a coloured stroke, and the
   256 / 128 px WebP; then the board.
+- Pastel pass (owner, Oct 31: "more pastel colours"): `pastel()` in `bake.py` softens saturation by about 30% and
+  lifts the mid and light tones toward a milky white, leaving the dark ink lines as they are; the words are pastel
+  (pink, mint, lavender, peach, sky, butter) with a deeper pastel outline so they read at 64 px. No sticker went
+  muddy, so none was re-rolled. Before / after: `docs/review/stickers/board-pastel.png` (set `STICKER_BEFORE` to a
+  folder of the previous 128 px files).
 
 ```
 python3 -m venv /path/outside/repo/venv && /path/outside/repo/venv/bin/pip install "rembg[cpu]" pillow
