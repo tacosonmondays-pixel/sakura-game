@@ -1,0 +1,149 @@
+// reviewer r2 probe: leak (late-start hero hook, Resonance, Typical roll) + UI at 390x844 / 844x390. cwd = repo.
+const { createServer } = await import(process.cwd() + '/node_modules/vite/dist/node/index.js');
+import { mkdirSync, statSync } from 'node:fs';
+const { launchChromium } = await import(process.cwd() + '/e2e/browser.mjs');
+const SHOTS = process.argv[2]; mkdirSync(SHOTS, { recursive: true });
+const server = await createServer({ root: process.cwd(), server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+await server.listen();
+const base = `http://127.0.0.1:${server.httpServer.address().port}/`;
+const { browser } = await launchChromium();
+const out = [];
+const check = (c, m) => { console.log(`  ${c ? 'ok  ' : 'FAIL'} ${m}`); out.push([c, m]); };
+const ALL = () => Object.keys(localStorage).sort().map((k) => `${k}=${localStorage.getItem(k)}`).join('|');
+const P = () => JSON.stringify(window.__sakura.store.profile);
+
+async function setup(vp) {
+  const [w, h] = vp.split('x').map(Number);
+  const context = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, hasTouch: true });
+  const page = await context.newPage();
+  const errors = []; const net = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('request', (r) => { const u = r.url(); if (!u.startsWith(base) && !u.startsWith('data:') && !u.startsWith('blob:')) net.push(`${r.method()} ${u}`); });
+  await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+  await page.goto(`${base}#/lobby`, { waitUntil: 'load' });
+  const later = await page.waitForSelector('[data-testid="beta-gift-later"]', { timeout: 30000 }).catch(() => null);
+  if (later) await later.click({ force: true }).catch(() => {});
+  await page.waitForFunction(() => window.__sakura?.store?.profile, null, { timeout: 60000 });
+  await page.evaluate(() => document.querySelectorAll('.modal-overlay').forEach((m) => m.remove()));
+  await page.evaluate(async () => {
+    const { store } = window.__sakura;
+    const { CAMPAIGN_IDS } = await import('/src/data/stages.js');
+    for (const id of CAMPAIGN_IDS.slice(0, 12)) store.profile.progress.stages[id] = { easy: true, normal: true, hard: false, nightmare: false, clears: 1 };
+    store.commit('replace'); store.saveNow?.();
+    window.__commits = [];
+    const c = store.commit.bind(store); store.commit = (r, o) => { window.__commits.push(r); return c(r, o); };
+    const s = store.saveNow?.bind(store); if (s) store.saveNow = () => { window.__commits.push('saveNow'); return s(); };
+  });
+  await page.waitForTimeout(1500);
+  return { context, page, errors, net };
+}
+const shot = async (page, name) => {
+  for (const q of [70, 50, 35, 25]) { const path = `${SHOTS}/${name}.jpg`; await page.screenshot({ path, type: 'jpeg', quality: q }); if (statSync(path).size <= 300 * 1024) return statSync(path).size; }
+};
+const placeHero = (page) => page.evaluate(() => {
+  const { sim, ui } = window.__battle;
+  const id = [...sim.loadout.keys()].find((k) => sim.loadout.get(k)?.isHero || /hero/.test(k)) || null;
+  const { UNIT_MAP } = window.__rvUnits || {};
+  return id;
+});
+
+// ---- leak: sandbox late start + Resonance on + Typical, then a normal campaign battle, same page session ----
+{
+  const { context, page, errors, net } = await setup('1280x720');
+  await page.evaluate(async () => { const u = await import('/src/data/units.js'); window.__heroIds = u.UNITS.filter((x) => x.kind === 'hero').map((x) => x.id); const pr = await import('/src/systems/progression.js'); window.__ubs = pr.unitBattleStats; });
+  const hero = await page.evaluate(() => window.__sakura.store.profile.formation?.hero || window.__heroIds.find((id) => window.__sakura.store.profile.units[id]) || window.__heroIds[0]);
+  const tower = await page.evaluate(() => (window.__sakura.store.profile.formation?.towers || [])[0] || Object.keys(window.__sakura.store.profile.units).find((id) => !window.__heroIds.includes(id)));
+  console.log('    hero', hero, 'tower', tower);
+  await page.evaluate(() => { location.hash = '#/sandbox'; }); await page.waitForSelector('[data-testid="sandbox-maps"]', { timeout: 60000 }); await page.waitForTimeout(800);
+  const before = await page.evaluate(ALL); const pBefore = await page.evaluate(P);
+  await page.evaluate(() => { window.__commits = []; window.__battle = null; });
+  await page.evaluate((x) => { location.hash = x; }, `#/battle?stage=4-5&difficulty=normal&sandbox=1&team=${tower}.tenka.hotaru&hero=${hero}&wave=60&res=on&sb=85-6-5-1-t-lr-best`);
+  let ok = await page.waitForFunction(() => window.__battle?.ui?.sandbox && window.__battle.sim?.stageId === '4-5', null, { timeout: 90000 }).then(() => true).catch(() => false);
+  check(ok, 'sandbox late start mounted');
+  const placeIt = (id) => page.evaluate((id) => {
+    const { sim, ui } = window.__battle;
+    for (let y = 0.5; y < sim.map.height; y += 0.5) for (let x = 0.5; x < sim.map.width; x += 0.5) { if (!sim.canPlace(id, x, y).ok) continue; const t = ui.act.place(id, x, y); if (t) { const tt = sim.getTower(t.uid) || t; return { level: tt.level, mastery: tt.mastery, xp: tt.xp, isHero: tt.isHero }; } }
+    return null;
+  }, id);
+  const s1 = await page.evaluate(() => { const { sim, ui } = window.__battle; window.__sbxSim = sim; return { own: Object.hasOwn(sim, 'placeTower'), run: ui.req.sandboxRun && { res: ui.req.sandboxRun.resonance, heroMax: ui.req.sandboxRun.heroMax, w: ui.req.sandboxRun.startWave, roll: ui.req.sandboxRun.build.roll }, hot: sim.loadout.get('hotaru')?.damageMul, ten: sim.loadout.get('tenka')?.damageMul }; });
+  console.log('    sandbox run', JSON.stringify(s1));
+  check(s1.own && s1.run.res === 'on' && s1.run.heroMax && s1.run.roll === 'typical', 'sandbox: per-instance placeTower hook on; res on; typical');
+  const h1 = await placeIt(hero);
+  check(h1?.isHero && h1.level === 25 && h1.mastery > 0, `sandbox late start: hero at Lv 25 + Mastery (${JSON.stringify(h1)})`);
+  const exp = await page.evaluate(async () => { const m = await import('/src/systems/sandbox.js'); return { hot: m.sandboxUnitStats('hotaru', m.parseBuildToken('85-6-5-1-t-lr-best'), { resonance: 'on' }).damageMul, hotOff: m.sandboxUnitStats('hotaru', m.parseBuildToken('85-6-5-1-t-lr-best'), { resonance: 'off' }).damageMul }; });
+  check(Math.abs(s1.hot - exp.hot) < 1e-9 && exp.hot > exp.hotOff, `sandbox: Hotaru's damage uses Resonance on (${s1.hot} = ${exp.hot}; off ${exp.hotOff})`);
+  await page.evaluate(() => window.__battle.sim.startNextWave()); await page.waitForTimeout(4000);
+  await page.evaluate(() => window.__battle.ui.quit());
+  await page.waitForFunction(() => location.hash.startsWith('#/sandbox') && !window.__battle, null, { timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  const after = await page.evaluate(() => ({ own: Object.hasOwn(window.__sbxSim, 'placeTower'), commits: window.__commits }));
+  check(!after.own, 'after quit: the hook is gone from the sandbox Sim (driver destroyed)');
+  check(after.commits.length === 0, `sandbox: no store.commit/saveNow (${after.commits.join(',')})`);
+  check((await page.evaluate(ALL)) === before, 'sandbox: localStorage byte-identical');
+  check((await page.evaluate(P)) === pBefore, 'sandbox: in-memory profile identical');
+  // normal campaign battle, same page session
+  await page.evaluate(() => { window.__battle = null; });
+  await page.evaluate((x) => { location.hash = x; }, `#/battle?stage=1-2&difficulty=easy`);
+  ok = await page.waitForFunction(() => window.__battle?.sim?.stageId === '1-2', null, { timeout: 90000 }).then(() => true).catch(() => false);
+  check(ok, 'normal campaign battle 1-2 mounted');
+  const n = await page.evaluate(() => { const { sim, ui } = window.__battle; const prof = window.__sakura.store.profile; const ids = [...sim.loadout.keys()]; const bad = ids.filter((id) => sim.loadout.get(id)?.damageMul !== window.__ubs(prof, id).damageMul || sim.loadout.get(id)?.rateMul !== window.__ubs(prof, id).rateMul); return { sandbox: !!ui.req.sandbox, panel: !!ui.sandbox, own: Object.hasOwn(sim, 'placeTower'), proto: Object.getPrototypeOf(sim).placeTower.name, ids, bad, hero: sim.heroConfig?.unitId || ids.find((id) => window.__heroIds.includes(id)), heroStats: sim.heroConfig?.unitId ? [sim.loadout.get(sim.heroConfig.unitId)?.damageMul, window.__ubs(prof, sim.heroConfig.unitId).damageMul] : null }; });
+  console.log('    normal', JSON.stringify(n));
+  check(!n.sandbox && !n.panel && !n.own && n.proto !== 'sandboxPlace', 'normal battle: no sandbox, no own placeTower');
+  check(n.bad.length === 0, `normal battle: loadout = unitBattleStats(real profile, real clock) for ${n.ids.join(',')} (${n.bad.join(',')})`);
+  if (n.hero) { const h2 = await placeIt(n.hero); check(h2?.isHero && h2.level === 1 && !(h2.mastery > 0), `normal battle: hero starts at Lv 1 (${JSON.stringify(h2)})`); }
+  else check(false, 'normal battle has a hero in the loadout');
+  console.log('    network:', net.length ? net.join('\n      ') : 'none');
+  check(!net.some((u) => /supabase|rest\/v1|rpc\//.test(u)), 'no Supabase traffic');
+  check(!errors.length, `no page errors ${errors.slice(0, 4).join(' | ')}`);
+  await context.close();
+}
+
+// ---- UI ----
+for (const vp of ['390x844', '844x390']) {
+  const { context, page, errors } = await setup(vp);
+  const land = vp === '844x390';
+  const t = async (sel) => { const el = page.locator(sel).first(); await el.evaluate((e) => e.scrollIntoView({ block: 'center' })).catch(() => {}); await el.tap({ timeout: 10000 }); await page.waitForTimeout(300); };
+  await page.evaluate(() => { location.hash = '#/sandbox'; }); await page.waitForSelector('[data-testid="sandbox-maps"]', { timeout: 60000 }); await page.waitForTimeout(800);
+  await t('[data-testid="sandbox-group-act1"]'); await t('[data-testid="sandbox-stage-4-5"]'); await t('[data-testid="sandbox-fp-blossom"]'); await t('[data-testid="sandbox-wave-200"]');
+  await page.locator('[data-testid="sandbox-resonance"]').selectOption('on'); await page.waitForTimeout(400);
+  const sizes = () => page.evaluate(() => [...document.querySelectorAll('.sbx-select, .sbx-num, .sbx-chip, .sbx-tab, .sbx-slot-build, .sbx-check')].filter((e) => e.offsetParent).map((e) => { const r = e.getBoundingClientRect(); return [e.className.split(' ')[0], Math.round(r.height), Math.round(r.width), e.dataset.testid || '']; }));
+  const sz = await sizes();
+  const minBy = (arr) => Object.entries(arr.reduce((m, [c, hh]) => ((m[c] = Math.min(m[c] ?? 999, hh)), m), {}));
+  console.log(`    ${vp} map sizes (min h by class):`, JSON.stringify(minBy(sz)));
+  const want = land ? 36 : 40;
+  check(sz.filter(([c]) => c !== 'sbx-slot-build').every(([, hh]) => hh >= want), `${vp} map: chips/selects/tabs/num/check ≥ ${want} px`);
+  const hm = await page.evaluate(() => { const e = document.querySelector('[data-testid="sandbox-heromax"]'); return e ? { checked: e.checked, label: e.closest('label')?.getBoundingClientRect().height } : null; });
+  check(hm?.checked === true, `${vp} hero Lv25 checkbox shown at wave 200, on (${JSON.stringify(hm)})`);
+  const rl = await page.evaluate(() => { const e = document.querySelector('[data-testid="sandbox-run"]'); return { t: e.textContent, cut: e.scrollWidth > e.clientWidth + 1, title: e.title }; });
+  console.log(`    ${vp} map run line`, JSON.stringify(rl));
+  await page.evaluate(() => scrollTo(0, 0)); console.log('    shot', await shot(page, `${vp}-map`));
+  const opt = page.locator('[data-testid="sandbox-options"]'); await opt.evaluate((e) => e.scrollIntoView({ block: 'start' })); await page.waitForTimeout(300); console.log('    shot', await shot(page, `${vp}-map-options`));
+  const doc = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1); check(doc, `${vp} map: no horizontal overflow`);
+  await t('[data-testid="sandbox-next"]'); await page.waitForSelector('[data-testid="sandbox-roster"]', { timeout: 30000 }); await page.waitForTimeout(500);
+  await t('[data-testid="sandbox-unit-tenka"]'); await t('[data-testid="sandbox-unit-kohaku_tsubaki"]'); await t('[data-testid="sandbox-unit-hotaru"]');
+  await page.locator('[data-testid="sandbox-build-roll"]').selectOption('typical'); await page.waitForTimeout(400);
+  const sq = await sizes();
+  console.log(`    ${vp} squad sizes (min h by class):`, JSON.stringify(minBy(sq)));
+  check(sq.filter(([c]) => c === 'sbx-slot-build').every(([, hh]) => hh >= 36), `${vp} squad: Build buttons ≥ 36 px`);
+  check(sq.filter(([c]) => c !== 'sbx-slot-build').every(([, hh]) => hh >= want), `${vp} squad: selects ≥ ${want} px`);
+  const pill = await page.evaluate(() => { const e = document.querySelector('[data-testid="sandbox-bar-run"]'); const r = e.getBoundingClientRect(); return { t: e.textContent, full: e.scrollWidth <= e.clientWidth + 1 && e.scrollHeight <= e.clientHeight + 1, h: Math.round(r.height), w: Math.round(r.width), right: Math.round(r.right), vw: innerWidth }; });
+  check(pill.full && /Resonance on/.test(pill.t) && /from wave 200/.test(pill.t) && pill.right <= pill.vw, `${vp} run pill shows in full, wraps (${JSON.stringify(pill)})`);
+  const names = await page.evaluate(() => [...document.querySelectorAll('.sbx-squad .mb-fslot-name')].map((e) => ({ t: e.innerText.trim(), cut: e.scrollWidth > e.clientWidth + 1 })));
+  console.log(`    ${vp} tiles`, JSON.stringify(names));
+  if (!land) check(names.length >= 3 && names.every((n) => !/Lv/.test(n.t)), `${vp} narrow tiles: name only`);
+  else check(names.every((n) => /Lv/.test(n.t)), `${vp} wide tiles keep Lv`);
+  const note = await page.evaluate(() => document.querySelector('.sbx-build-note')?.textContent || '');
+  check(/typical rolls/.test(note), `${vp} build note says typical rolls`);
+  const doc2 = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1); check(doc2, `${vp} squad: no horizontal overflow`);
+  const href = await page.evaluate(() => location.hash);
+  await page.evaluate(() => scrollTo(0, 0)); console.log('    shot', await shot(page, `${vp}-squad`));
+  const bld = page.locator('.sbx-build').first(); await bld.evaluate((e) => e.scrollIntoView({ block: 'center' })); await page.waitForTimeout(300); console.log('    shot', await shot(page, `${vp}-squad-build`));
+  const grid = await page.evaluate(() => { const b = document.querySelector('.sbx-build'); return { cols: getComputedStyle(b).gridTemplateColumns, n: b.children.length, h: Math.round(b.getBoundingClientRect().height) }; });
+  console.log(`    ${vp} build grid`, JSON.stringify(grid));
+  check(!errors.length, `${vp} no page errors ${errors.slice(0, 3).join(' | ')}`);
+  await context.close();
+}
+await browser.close(); await server.close();
+const f = out.filter(([c]) => !c).length;
+console.log(f ? `\n${f} FAILED` : `\nall ${out.length} reviewer checks passed`); process.exit(f ? 1 : 0);

@@ -1,0 +1,8 @@
+#!/bin/bash
+cd /tmp/r2mut
+run() { name=$1; node e2e/sandbox-catchup.mjs --viewport 390x844 > /tmp/rvout/mut-$name.txt 2>&1; echo "EXIT $?" >> /tmp/rvout/mut-$name.txt; git checkout -q -- src; }
+sed -i "1671s/\.\.\.SIDE_STAGES\];/...SIDE_STAGES, { ...BOUNTY[0], id: 'raid-1', kind: 'raid' }];/" src/data/stages.js; git diff --stat; run A-stagekind
+sed -i "s/    if (seen.has(s.id)) continue;/    if (seen.has(s.id) || s.id === '4-4') continue;/" src/systems/sandbox.js; git diff --stat; run D-screen-drops-stage
+sed -i "379s/.*/  return UNITS.filter((u) => u.id !== 'kage' \&\& (kind ? u.kind === kind : true));/" src/systems/sandbox.js; git diff --stat; run B-screen-drops-unit
+sed -i "1418s/^/UNITS.push({ ...UNITS.find((u) => u.id === 'kage'), id: 'rvfake', name: 'Rvfake' });\n/" src/data/units.js; git diff --stat; run C-fake-unit
+echo ALLDONE > /tmp/rvout/mut-done
