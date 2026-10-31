@@ -26,9 +26,11 @@ describe('sandbox builds', () => {
   });
 
   it('round-trips builds through the route (ids with underscores too)', () => {
-    const b = { level: 63, p: 2, stars: 4, lr: false, gear: 'ur-treasurer' };
+    const b = { level: 63, p: 2, stars: 4, lr: false, gear: 'ur-treasurer', roll: 'typical' };
     expect(parseBuildToken(buildToken(b))).toEqual(b);
     expect(parseBuildToken('junk')).toEqual(normalizeBuild(SANDBOX_MAX_BUILD));
+    // a token from before the roll field still reads (Max roll)
+    expect(parseBuildToken('60-1-5-0-lr-geometry')).toEqual({ level: 60, p: 1, stars: 5, lr: false, gear: 'lr-geometry', roll: 'max' });
     const many = { kohaku_tsubaki: normalizeBuild({ level: 60, gear: 'blank' }), kage: normalizeBuild({ gear: 'none' }) };
     expect(parseBuildsParam(buildsParam(many))).toEqual(many);
     expect(parseBuildsParam('nobody_85-6-5-1-none')).toEqual({});
@@ -120,3 +122,47 @@ describe('sandbox route', () => {
     expect(parseSandboxRun({ wave: 5000 }).startWave).toBe(999);
   });
 });
+
+describe('sandbox gear quality, Resonance and the late-start hero', () => {
+  it('Typical roll: every line at its average roll, no pins; weaker than Max roll, stronger than no gear', () => {
+    for (const g of sandboxGear('kage', 'lr-geometry', 'typical')) {
+      const mid = ([a, b]) => (a + b) / 2;
+      expect(g.main.base).toBeCloseTo(mid(mainStatRange(g.main.stat, 'legendary')), 9);
+      expect(g.main.top).toBeUndefined();
+      for (const s of g.subs) {
+        expect(s.base).toBeCloseTo(mid(substatRange(s.stat, 'legendary')), 9);
+        expect(s.top).toBeUndefined();
+      }
+    }
+    const d = (roll, gear = 'lr-geometry') => sandboxUnitStats('kage', { ...SANDBOX_MAX_BUILD, gear, roll }).damageMul;
+    expect(d('typical')).toBeLessThan(d('max'));
+    expect(d('typical')).toBeGreaterThan(d('max', 'none'));
+    expect(SANDBOX_MAX_BUILD.roll).toBe('max');
+  });
+
+  it('UR Resonance on / off forces the boost; auto follows the clock', () => {
+    const on = sandboxUnitStats('hotaru', SANDBOX_MAX_BUILD, { resonance: 'on' });
+    const off = sandboxUnitStats('hotaru', SANDBOX_MAX_BUILD, { resonance: 'off' });
+    expect(on.damageMul / off.damageMul).toBeCloseTo(1.1, 3);
+    expect(on.rateMul / off.rateMul).toBeCloseTo(1.04, 3);
+    const auto = sandboxUnitStats('hotaru');
+    expect([on.damageMul, off.damageMul]).toContain(auto.damageMul);
+    // an LR unit gets the LR boost on top in the same week
+    const lrOn = sandboxUnitStats('tenka', SANDBOX_MAX_BUILD, { resonance: 'on' });
+    const lrOff = sandboxUnitStats('tenka', SANDBOX_MAX_BUILD, { resonance: 'off' });
+    expect(lrOn.damageMul / lrOff.damageMul).toBeCloseTo(1.1 * 1.15, 3);
+    // an R girl (no ★5 SSR) has none either way
+    expect(sandboxUnitStats('aoi', SANDBOX_MAX_BUILD, { resonance: 'on' }).damageMul).toBe(sandboxUnitStats('aoi', SANDBOX_MAX_BUILD, { resonance: 'off' }).damageMul);
+  });
+
+  it('route: res and hmax ride the link only when they differ from the default', () => {
+    const p = sandboxBattleParams({ stageId: '1-1', towers: ['kage'], resonance: 'on', heroMax: false, startWave: 50 });
+    expect(p).toMatchObject({ res: 'on', hmax: 0, wave: 50 });
+    expect(parseSandboxRun(p, '1-1')).toMatchObject({ resonance: 'on', heroMax: false });
+    const d = sandboxBattleParams({ stageId: '1-1', towers: ['kage'] });
+    expect(d).not.toHaveProperty('res');
+    expect(d).not.toHaveProperty('hmax');
+    expect(parseSandboxRun(d, '1-1')).toMatchObject({ resonance: 'auto', heroMax: true });
+  });
+});
+

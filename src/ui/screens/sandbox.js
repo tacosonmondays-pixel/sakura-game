@@ -29,7 +29,7 @@ import {
   sandboxFreeplayOk, sandboxModeOk, sandboxDifficulties, sandboxEventName, sandboxStageFor, sandboxIsLr,
   normalizeBuild, buildFor, gearPresetLabel, startWaveOf, potentialForLevel,
   campaignClears, SANDBOX_UNLOCK_CLEARS, SANDBOX_COINS, SANDBOX_GROUPS, SANDBOX_MAX_BUILD, SANDBOX_WAVE_PICKS, SANDBOX_MAX_START_WAVE,
-  BEST_SET, SANDBOX_LEVEL_PICKS, bestSetFor,
+  BEST_SET, SANDBOX_LEVEL_PICKS, bestSetFor, SANDBOX_RESONANCE,
 } from '../../systems/sandbox.js';
 
 const KEY = 'sakura.sandbox.v1';
@@ -67,6 +67,8 @@ function loadChoice(profile) {
     freeplay: FREEPLAY_TIERS.includes(saved?.freeplay) ? saved.freeplay : null,
     mode: MODE_ORDER.includes(saved?.mode) ? saved.mode : 'standard',
     startWave: startWaveOf(saved?.startWave),
+    resonance: SANDBOX_RESONANCE.includes(saved?.resonance) ? saved.resonance : 'auto',
+    heroMax: saved?.heroMax !== false,
     towers: f.towers, hero: f.hero,
     build: normalizeBuild(saved?.build || SANDBOX_MAX_BUILD),
     builds,
@@ -90,6 +92,7 @@ function battleParams(c, f) {
     stageId: c.stageId, difficulty: c.difficulty, towers: f.towers, hero: f.hero,
     titan: isTitan(c) ? c.titan : null,
     freeplay: c.freeplay, mode: c.mode, startWave: c.startWave, build: c.build, builds: c.builds,
+    resonance: c.resonance, heroMax: c.heroMax,
   });
 }
 
@@ -103,6 +106,7 @@ function runLine(c) {
     else if (c.mode !== 'standard' && sandboxModeOk(c.stageId)) bits.push(modeText(c.mode).name);
   }
   if (c.startWave > 1) bits.push(`from wave ${c.startWave}`);
+  if (c.resonance !== 'auto') bits.push(`Resonance ${c.resonance}`);
   return bits.join(' · ');
 }
 
@@ -200,6 +204,14 @@ function mapStep(choice, redraw) {
     h('label.sbx-field', h('span.sbx-field-label', 'Start wave'),
       h('input.sbx-num', { type: 'number', min: 1, max: SANDBOX_MAX_START_WAVE, value: choice.startWave, 'data-testid': 'sandbox-wave', onchange: (e) => set({ startWave: startWaveOf(e.target.value) }) })),
     h('div.sbx-chips', SANDBOX_WAVE_PICKS.map((w) => h(`button.sbx-chip${choice.startWave === w ? '.on' : ''}`, { 'data-testid': `sandbox-wave-${w}`, onclick: () => set({ startWave: w }) }, w === 1 ? 'Wave 1' : `${w}`)))));
+  if (choice.startWave > 1) {
+    opts.push(h('label.sbx-check', { title: 'A run from a later wave starts with your hero at her top level, as a player who got there would have her' },
+      h('input', { type: 'checkbox', checked: choice.heroMax, 'data-testid': 'sandbox-heromax', onchange: (e) => set({ heroMax: !!e.target.checked }) }),
+      h('span', 'Hero joins at Lv 25 + Mastery')));
+  }
+  opts.push(selectRow('UR Resonance', choice.resonance, [
+    { value: 'auto', label: 'Auto (as for players today)' }, { value: 'on', label: 'On' }, { value: 'off', label: 'Off' },
+  ], (v) => set({ resonance: v }), 'sandbox-resonance'));
   const options = h('section.sbx-options', { 'data-testid': 'sandbox-options' }, opts);
 
   const tabs = h('div.sbx-tabs', { role: 'tablist' }, SANDBOX_GROUPS.map((g) => {
@@ -260,7 +272,8 @@ function buildControls(b, onChange, { unitId = null, prefix = 'sandbox-build' } 
     selectRow('Potential', b.p, [1, 2, 3, 4, 5, 6].map((p) => ({ value: p, label: `P${p}${p < pMin ? ' (too low)' : ''}` })), (v) => onChange({ p: Math.max(pMin, Number(v)) }), `${prefix}-p`),
     selectRow('Awakening', b.stars, [5, 4, 3, 2, 1, 0].map((s) => ({ value: s, label: `★${s}` })), (v) => onChange({ stars: Number(v) }), `${prefix}-stars`),
     lrUnit ? selectRow('Limit Break', b.lr ? 1 : 0, [{ value: 1, label: 'LR' }, { value: 0, label: 'Off' }], (v) => onChange({ lr: v === '1' }), `${prefix}-lr`) : null,
-    selectRow('Gear', b.gear, gearOptions(unitId), (v) => onChange({ gear: v }), `${prefix}-gear`));
+    selectRow('Gear', b.gear, gearOptions(unitId), (v) => onChange({ gear: v }), `${prefix}-gear`),
+    selectRow('Gear rolls', b.roll, [{ value: 'max', label: 'Max roll' }, { value: 'typical', label: 'Typical roll' }], (v) => onChange({ roll: v }), `${prefix}-roll`));
 }
 
 /** "Lv85 · P6 · ★5 · LR set" */
@@ -339,7 +352,7 @@ function teamStep(choice, redraw) {
       h('h3.mb-card-title', 'Squad build'),
       button('Max everything', { kind: 'ghost', small: true, testid: 'sandbox-build-max', onClick: () => { choice.build = normalizeBuild(SANDBOX_MAX_BUILD); saveChoice(choice); redraw(); } })),
     buildControls(choice.build, (patch) => { choice.build = normalizeBuild({ ...choice.build, ...patch }); saveChoice(choice); redraw(); }),
-    h('p.muted.sbx-build-note', `${gearPresetLabel(choice.build.gear)}. Gear here is virtual: main stats from each girl's Build Coach, every line at its best roll, every ✦ and pin. Nothing is added to your bag.`));
+    h('p.muted.sbx-build-note', `${gearPresetLabel(choice.build.gear)}, ${choice.build.roll === 'typical' ? 'typical rolls' : 'max rolls'}. Gear here is virtual: main stats from each girl's Build Coach; Max roll puts every line at its best roll with its pins, Typical roll at its average roll; every ▲ and ✦ either way. Nothing is added to your bag.`));
   const squad = h('section.mb-card.sbx-squad',
     h('div.sbx-squad-head',
       h('h3.mb-card-title', 'Squad'),

@@ -1070,7 +1070,9 @@ Sandbox route (`#/battle?…&sandbox=1`, `src/systems/sandbox.js sandboxBattlePa
 (any stage of STAGE_MAP, event stages included) or `ttn`/`ttier`/`trank` (a Titan Trials stage; never `req.titan`),
 `fp` (freeplay tier on a campaign stage; never `req.freeplay`, so no solo freeplay ledger), `wave` (start wave 1–999:
 set on the solo Sim's `wave`/`wavesCleared` before it runs), `bmode` (battle mode, campaign only), `sb` (squad build
-token `level-P-stars-lr-gear`), `sx` (per-girl builds `id_token,…`).
+token `level-P-stars-lr-roll-gear`, roll `m` max / `t` typical), `sx` (per-girl builds `id_token,…`), `res`
+(`on`/`off` forces UR Resonance; default auto, the clock), `hmax=0` (a late start wave no longer levels the hero to
+Lv 25 + Mastery when she is placed).
 
 ### `src/systems/gear.js`
 

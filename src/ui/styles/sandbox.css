@@ -87,3 +87,5 @@
   .sbx-head .sbx-rules { display: none; }
   .sbx-bar-info { flex-wrap: wrap; }
 }
+.sbx-check { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; font-size: 0.8rem; font-weight: 800; color: var(--navy); }
+.sbx-check input { width: 18px; height: 18px; }

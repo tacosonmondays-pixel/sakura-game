@@ -226,7 +226,7 @@ export function resumeBattleSim(profile, rec) {
 function createSandboxSim(req, seed, profile = null) {
   const { towers, hero } = sandboxFormation(req.team, req.hero);
   const run = req.sandboxRun || {};
-  const stats = (id) => sandboxUnitStats(id, buildFor(id, run.build, run.builds));
+  const stats = (id) => sandboxUnitStats(id, buildFor(id, run.build, run.builds), { resonance: run.resonance || 'auto' });
   // the stage it plays: a titan's (its enemy overrides too), freeplay's table on a campaign stage, an event
   // difficulty's own waves, or the stage as it is (all through the Sim's data hook, like a normal battle)
   const titan = run.titan ? titanBattle(run.titan.id, run.titan.tier, run.titan.rank) : null;

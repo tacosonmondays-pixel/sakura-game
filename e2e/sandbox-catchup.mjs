@@ -108,6 +108,7 @@ async function run(vp) {
   await tap('[data-testid="sandbox-wave-200"]');
   const runLine = await page.evaluate(() => document.querySelector('[data-testid="sandbox-run"]')?.textContent || '');
   check(/Freeplay Blossom/.test(runLine) && /from wave 200/.test(runLine), `run line: "${runLine}"`);
+  check(await page.evaluate(() => document.querySelector('[data-testid="sandbox-heromax"]')?.checked === true && document.querySelector('[data-testid="sandbox-resonance"]')?.value === 'auto'), 'late start: hero to Lv 25 + Mastery is on; UR Resonance Auto');
   check(await noOverflow(), 'map step with options: no horizontal overflow');
   await shot('map-freeplay-200');
   await tap('[data-testid="sandbox-next"]');
@@ -128,6 +129,7 @@ async function run(vp) {
   await page.locator('[data-testid="sandbox-build-gear"]').selectOption('lr-geometry');
   await page.waitForTimeout(300);
   check(await page.evaluate(() => document.querySelector('[data-testid="sandbox-build-gear"]').value === 'lr-geometry' && /LR set · Geometry Set/.test(document.querySelector('.sbx-build-note')?.textContent || '')), 'squad build: LR set · Geometry Set');
+  check(await page.evaluate(() => document.querySelector('[data-testid="sandbox-build-roll"]')?.value === 'max'), 'gear rolls: Max roll by default');
   check(await page.evaluate(() => document.querySelector('[data-testid="sandbox-build-level"]').value === '85' && document.querySelector('[data-testid="sandbox-build-p"]').value === '6' && document.querySelector('[data-testid="sandbox-build-stars"]').value === '5'), 'squad build defaults: Lv 85 · P6 · ★5');
   check(await page.locator('.sbx-squad .sbx-lr').count() === 2, 'both LR girls carry the LR tag');
   // her own build: the duo at Lv 60 with Blank LR, then back to the squad's
@@ -152,8 +154,9 @@ async function run(vp) {
     const { sim, ui } = window.__battle;
     const t = sim.loadout.get('tenka');
     const k = sim.loadout.get('kohaku_tsubaki');
-    return { stage: sim.stageId, fp: sim.freeplay, wave: sim.wave, sandbox: !!ui.req.sandbox, freeplayReq: ui.req.freeplay, cash: sim.cash, t: { level: t.level, p: t.potential, aw: t.awaken, gates: t.breakthrough, lr: t.lr, set: t.set, setN: t.setN, setLr: t.setLr }, k: { level: k.level, lr: k.lr, set: k.set, critCeil: k.critCeil } };
+    return { heroMax: ui.req.sandboxRun?.heroMax, stage: sim.stageId, fp: sim.freeplay, wave: sim.wave, sandbox: !!ui.req.sandbox, freeplayReq: ui.req.freeplay, cash: sim.cash, t: { level: t.level, p: t.potential, aw: t.awaken, gates: t.breakthrough, lr: t.lr, set: t.set, setN: t.setN, setLr: t.setLr }, k: { level: k.level, lr: k.lr, set: k.set, critCeil: k.critCeil } };
   });
+  check(start.heroMax === true, 'the run carries the late-start hero level-up');
   check(start.sandbox && start.stage === '4-5' && start.fp === true && start.wave === 199 && start.freeplayReq === null, `battle: sandbox freeplay on 4-5 at wave 199 cleared (${JSON.stringify({ stage: start.stage, fp: start.fp, wave: start.wave })})`);
   check(start.t.level === 85 && start.t.p === 6 && start.t.aw === 5 && start.t.gates === 10 && start.t.lr === true && start.t.set === 'geometry' && start.t.setN === 5 && start.t.setLr === true, `Tenka: L85 · P6 · ★5 · 10 gates · LR · Geometry ×5 Set LR (${JSON.stringify(start.t)})`);
   check(start.k.level === 60 && start.k.lr === true && !start.k.set && start.k.critCeil === 2, `the duo: her own build, Lv 60 · LR · Blank LR ×5 (${JSON.stringify(start.k)})`);

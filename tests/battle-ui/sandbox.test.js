@@ -288,3 +288,31 @@ describe('sandbox catch-up runs (docs/specs/SANDBOX_CATCHUP.md)', () => {
     driver.destroy();
   });
 });
+
+describe('sandbox late-start hero', () => {
+  const sim = (params) => {
+    const req = parseBattleParams({ sandbox: '1', stage: '4-5', team: 'kage', hero: 'hikari', ...params }, unlocked());
+    return { sim: createBattleSim(unlocked(), { ...req, seed: 4 }).sim, run: req.sandboxRun };
+  };
+  const placeHero = (s) => {
+    for (let y = 1; y < s.map.height; y++) for (let x = 1; x < s.map.width; x++) {
+      const t = s.placeTower('hikari', x + 0.5, y + 0.5);
+      if (t) return t;
+    }
+    return null;
+  };
+
+  it('from wave 2 on, the hero joins at Lv 25 with Mastery full (unless turned off); from wave 1 at Lv 1', () => {
+    for (const [params, top] of [[{ wave: '200' }, true], [{ wave: '200', hmax: '0' }, false], [{}, false]]) {
+      const { sim: s, run } = sim(params);
+      const driver = createSandboxDriver(s, { heroMax: () => run.heroMax && run.startWave > 1 });
+      const h = placeHero(s);
+      expect(h?.isHero).toBe(true);
+      expect(h.level, JSON.stringify(params)).toBe(top ? 25 : 1);
+      if (top) expect(h.mastery).toBeGreaterThan(0);
+      driver.destroy();
+      expect(Object.prototype.hasOwnProperty.call(s, 'placeTower')).toBe(false);
+    }
+  });
+});
+

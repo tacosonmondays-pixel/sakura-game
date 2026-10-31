@@ -27,7 +27,9 @@ import { LR_SET, LR_BLANK, UR_MAX_LEVEL, LR_MAX_LEVEL, TUNE_GOLD, TUNE_RAINBOW }
 import { isLegendUnit } from '../data/banners.js';
 import { unitBattleStats, MAX_AWAKEN, MAX_LEVEL, MAX_BREAKTHROUGH, GATE_CAPS, gatesAllowed, potentialLevelCap } from './progression.js';
 import { MAX_POTENTIAL } from './potential.js';
-import { LB_LEVEL, LB_STARS } from './limitBreak.js';
+import { LB_LEVEL, LB_STARS, rankBoost, RESONANCE_FROM_DAY } from './limitBreak.js';
+import { potentialTrack } from '../data/potential.js';
+import { gameDayStart } from '../core/reset.js';
 import { MAX_GEAR_LEVEL, SUB_GROWTH_EVERY, mainStatRange, substatRange, recomputeGear, pieceName, nextGrowthIndex } from './gear.js';
 import { coachPaths } from './buildCoach.js';
 import { isStageCleared } from './unlocks.js';
@@ -164,7 +166,12 @@ export const SANDBOX_GEAR_PRESETS = Object.freeze([
  * at LR. Literal numbers: this module loads inside progression.js's own import cycle (via rewards.js), before its
  * constants exist; tests/systems/sandboxCoverage.test.js holds them equal to the game's caps.
  */
-export const SANDBOX_MAX_BUILD = Object.freeze({ level: 85, p: 6, stars: 5, lr: true, gear: `lr-${BEST_SET}` });
+export const SANDBOX_MAX_BUILD = Object.freeze({ level: 85, p: 6, stars: 5, lr: true, gear: `lr-${BEST_SET}`, roll: 'max' });
+
+/** Gear quality: 'max' (every line its best roll, pins) or 'typical' (every line its average roll, no pins). */
+export const SANDBOX_ROLLS = Object.freeze(['max', 'typical']);
+/** UR Resonance in a sandbox run: 'auto' follows the real clock (as for players), 'on' / 'off' force it. */
+export const SANDBOX_RESONANCE = Object.freeze(['auto', 'on', 'off']);
 
 /** Level quick picks: every level cap step from 60 (GATE_CAPS), and 40 / 20 / 1 (the test holds them to GATE_CAPS). */
 export const SANDBOX_LEVEL_PICKS = Object.freeze([85, 78, 72, 67, 63, 60, 40, 20, 1]);
@@ -198,21 +205,24 @@ export function normalizeBuild(b = {}) {
   const p = Math.max(potentialForLevel(level), int(b.p, 1, MAX_POTENTIAL, SANDBOX_MAX_BUILD.p));
   const stars = int(b.stars, 0, MAX_AWAKEN, SANDBOX_MAX_BUILD.stars);
   const lr = b.lr == null ? SANDBOX_MAX_BUILD.lr : !!b.lr && b.lr !== '0';
-  return { level, p, stars, lr, gear: gearPresetOf(b.gear) };
+  return { level, p, stars, lr, gear: gearPresetOf(b.gear), roll: SANDBOX_ROLLS.includes(b.roll) ? b.roll : SANDBOX_MAX_BUILD.roll };
 }
 
-/** A build as a route token: `85-6-5-1-lr-best` (level-P-stars-lr-gear). */
+/** A build as a route token: `85-6-5-1-m-lr-best` (level-P-stars-lr-roll-gear; roll m = max, t = typical). */
 export function buildToken(b) {
   const n = normalizeBuild(b);
-  return `${n.level}-${n.p}-${n.stars}-${n.lr ? 1 : 0}-${n.gear}`;
+  return `${n.level}-${n.p}-${n.stars}-${n.lr ? 1 : 0}-${n.roll === 'typical' ? 't' : 'm'}-${n.gear}`;
 }
 
 /** A route token back to a build (anything unreadable falls back to the maximum). */
 export function parseBuildToken(s) {
   const parts = String(s || '').split('-');
   if (parts.length < 5) return normalizeBuild(SANDBOX_MAX_BUILD);
-  const [level, p, stars, lr, ...gear] = parts;
-  return normalizeBuild({ level, p, stars, lr: lr === '1', gear: gear.join('-') });
+  const [level, p, stars, lr, ...rest] = parts;
+  // (a token from before the roll field: level-P-stars-lr-gear, Max roll)
+  const roll = rest[0] === 't' ? 'typical' : 'max';
+  if (rest[0] === 't' || rest[0] === 'm') rest.shift();
+  return normalizeBuild({ level, p, stars, lr: lr === '1', gear: rest.join('-'), roll });
 }
 
 /** Per-girl builds as a route param: `kage_60-1-5-0-none,tenka_85-6-5-1-lr-geometry`. */
@@ -274,7 +284,9 @@ function subsFor(slot, club, main, row, n) {
  * row; her coach's club split (3 + 2). Pure: a fresh array every call, never stored.
  * @returns {object[]} GearInstance list (uids `sbx:<unit>:<slot>`)
  */
-export function sandboxGear(unitId, presetKey) {
+export function sandboxGear(unitId, presetKey, roll = 'max') {
+  const typical = roll === 'typical';
+  const mid = ([a, b]) => (a + b) / 2;
   const info = gearPresetInfo(presetKey, unitId);
   if (!info.slots.length) return [];
   const row = coachPaths(unitId)[0] || null;
@@ -285,10 +297,10 @@ export function sandboxGear(unitId, presetKey) {
   return info.slots.map((slot, i) => {
     const club = clubs[i];
     const mainStat = mainFor(slot, row);
-    const subs = subsFor(slot, club, mainStat, row, GEAR_SUBSTATS_BY_RARITY.legendary).map((stat) => ({ stat, base: substatRange(stat, 'legendary')[1], value: 0, upgrades: 0, tuned: 0 }));
+    const subs = subsFor(slot, club, mainStat, row, GEAR_SUBSTATS_BY_RARITY.legendary).map((stat) => ({ stat, base: typical ? mid(substatRange(stat, 'legendary')) : substatRange(stat, 'legendary')[1], value: 0, upgrades: 0, tuned: 0 }));
     const g = {
       uid: `sbx:${unitId}:${slot}`, slot, rarity: 'legendary', level,
-      main: { stat: mainStat, base: mainStatRange(mainStat, 'legendary')[1], value: 0, top: 1 },
+      main: { stat: mainStat, base: typical ? mid(mainStatRange(mainStat, 'legendary')) : mainStatRange(mainStat, 'legendary')[1], value: 0, ...(typical ? {} : { top: 1 }) },
       subs, locked: true, equippedBy: unitId, name: '', club,
       ...(ur ? { ur: 1 } : {}), ...(lr ? { lr } : {}), ...(info.set && lr !== LR_BLANK ? { set: info.set } : {}),
     };
@@ -296,7 +308,7 @@ export function sandboxGear(unitId, presetKey) {
     if (subs[0]) subs[0].tuned |= TUNE_GOLD;
     if (ur && subs[1]) subs[1].tuned |= TUNE_RAINBOW;
     if (lr && subs[0]) subs[0].night = 1;
-    for (const s of subs.slice(0, lr ? 2 : 1)) s.top = 1;
+    if (!typical) for (const s of subs.slice(0, lr ? 2 : 1)) s.top = 1;
     g.name = pieceName(g);
     return recomputeGear(g);
   });
@@ -308,7 +320,7 @@ export function sandboxGear(unitId, presetKey) {
  */
 export function sandboxProfile(unitId, build = SANDBOX_MAX_BUILD) {
   const b = normalizeBuild(build);
-  const pieces = sandboxGear(unitId, b.gear);
+  const pieces = sandboxGear(unitId, b.gear, b.roll);
   const gear = Object.fromEntries(pieces.map((g) => [g.uid, g]));
   const worn = Object.fromEntries(pieces.map((g) => [g.slot, g.uid]));
   const lr = sandboxIsLr(unitId, b);
@@ -319,9 +331,28 @@ export function sandboxProfile(unitId, build = SANDBOX_MAX_BUILD) {
   };
 }
 
-/** Her battle stats at a build (default: the true maximum). */
-export function sandboxUnitStats(unitId, build = SANDBOX_MAX_BUILD) {
-  return unitBattleStats(sandboxProfile(unitId, build), unitId);
+/** Times inside and before UR Resonance's first week (rankBoost's `now`). */
+const RESONANCE_AT = { on: () => gameDayStart(RESONANCE_FROM_DAY) + 12 * 3600 * 1000, off: () => 0 };
+
+/**
+ * Her battle stats at a build (default: the true maximum). `resonance` 'on' / 'off' forces UR Resonance (and the LR
+ * boost that rides its week) instead of the real clock ('auto'): her boost factors are swapped for the forced ones on
+ * damage, attack speed and aura (src/systems/limitBreak.js rankBoost, the factors unitBattleStats multiplies in).
+ */
+export function sandboxUnitStats(unitId, build = SANDBOX_MAX_BUILD, { resonance = 'auto' } = {}) {
+  const profile = sandboxProfile(unitId, build);
+  const s = unitBattleStats(profile, unitId);
+  if (!RESONANCE_AT[resonance] || !UNIT_MAP[unitId]) return s;
+  const track = potentialTrack(UNIT_MAP[unitId]);
+  const now = rankBoost(profile, unitId, track);
+  const want = rankBoost(profile, unitId, track, RESONANCE_AT[resonance]());
+  const r4 = (v) => Math.round(v * 10000) / 10000;
+  return {
+    ...s,
+    damageMul: r4(s.damageMul / now.damage * want.damage),
+    rateMul: r4(s.rateMul / now.rate * want.rate),
+    auraPct: r4((s.auraPct + 1) / now.aura * want.aura - 1),
+  };
 }
 
 /** Her build in a squad: her own, else the squad's. */
@@ -361,7 +392,7 @@ export const startWaveOf = (v) => int(v, 1, SANDBOX_MAX_START_WAVE, 1);
  * for Titan Trials; `freeplay` a tier on a campaign stage; `startWave`; `mode` a battle mode on a campaign stage;
  * `build` the squad build; `builds` per-girl builds.
  */
-export function sandboxBattleParams({ stageId = null, mapId = null, difficulty = 'normal', towers = [], hero = null, titan = null, freeplay = null, startWave = 1, mode = 'standard', build = null, builds = null }) {
+export function sandboxBattleParams({ stageId = null, mapId = null, difficulty = 'normal', towers = [], hero = null, titan = null, freeplay = null, startWave = 1, mode = 'standard', build = null, builds = null, resonance = 'auto', heroMax = true }) {
   const stage = stageId || sandboxStageFor(mapId);
   const out = { stage, difficulty, sandbox: 1, team: towers.join('.'), hero: hero || undefined };
   if (titan && TITAN_MAP[titan.id]) {
@@ -381,6 +412,8 @@ export function sandboxBattleParams({ stageId = null, mapId = null, difficulty =
   }
   const sx = builds ? buildsParam(builds) : '';
   if (sx) out.sx = sx;
+  if (resonance === 'on' || resonance === 'off') out.res = resonance;
+  if (heroMax === false) out.hmax = 0;
   for (const k of Object.keys(out)) if (out[k] === undefined) delete out[k];
   return out;
 }
@@ -388,7 +421,8 @@ export function sandboxBattleParams({ stageId = null, mapId = null, difficulty =
 /**
  * The run a sandbox request carries (setup.js parseBattleParams): titan, freeplay tier, start wave, battle mode, the
  * squad build and per-girl builds. Unknown or invalid values fall back (no titan, no freeplay, wave 1, Standard, max).
- * @returns {{ titan: { id, tier, rank }|null, freeplay: string|null, startWave: number, mode: string, build: object, builds: object }}
+ * @returns {{ titan: { id, tier, rank }|null, freeplay: string|null, startWave: number, mode: string, build: object, builds: object,
+ *   resonance: 'auto'|'on'|'off', heroMax: boolean }}
  */
 export function parseSandboxRun(params = {}, stageId = null) {
   const titan = TITAN_MAP[params.ttn] ? { id: String(params.ttn), tier: TITAN_TIERS.includes(params.ttier) ? params.ttier : 'normal', rank: 0 } : null;
@@ -401,6 +435,9 @@ export function parseSandboxRun(params = {}, stageId = null) {
     startWave: startWaveOf(params.wave),
     build: params.sb ? parseBuildToken(params.sb) : normalizeBuild(SANDBOX_MAX_BUILD),
     builds: parseBuildsParam(params.sx),
+    resonance: SANDBOX_RESONANCE.includes(params.res) ? params.res : 'auto',
+    // a later start wave levels the hero to Lv 25 + Mastery when she is placed (`hmax=0` turns it off)
+    heroMax: String(params.hmax ?? '1') !== '0',
   };
 }
 

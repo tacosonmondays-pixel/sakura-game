@@ -21,7 +21,7 @@ This file lists what a real player can have or face on `main` v0.1.66 (`fc978aba
 | Limit Break / LR (Tenka, Kohaku & Tsubaki) | LR form + LR boost (`lr:<id>` counter) | never LR | **yes** |
 | Bond | 0…`BOND_MAX` | — | no battle effect (menus and scenes only) |
 | Attack-shape tiers, paths, final tier, abilities and ultimates | bought in battle with coins; ability ranks from tier 5 / hero level | 999,999 coins | no |
-| Hero level and Mastery | earned in battle (Lv 25 + Mastery) | earned in battle | partly: a run started at a late wave starts the hero at Lv 1 (open question 3) |
+| Hero level and Mastery | earned in battle (Lv 25 + Mastery) | earned in battle | partly: a run started at a late wave started the hero at Lv 1 (now Lv 25 + Mastery, §3.3) |
 | Lower builds | any level / P / ★ | only the one fixed build | **yes** (testers could not compare a fresh girl with a maxed one) |
 
 ### 1.2 Units
@@ -101,16 +101,22 @@ The panel's "Send next wave" during a wave also dropped a freeplay spawn's own H
   Tactical Challenge, Titan Trials (titan, tier and Mayhem rank), and a Freeplay switch (tier) on any campaign stage.
   A **start wave** (1–999; quick picks 50, 100, 150, 200, 250) for any run; wave 200 on freeplay meets the Matriarch.
   Codex battle modes on campaign stages. Difficulty as before (event stages keep their own list).
+- **Gear rolls** (Max / Typical), **UR Resonance** (Auto / On / Off) and the **late-start hero** (Lv 25 + Mastery
+  from wave 2 on, switchable): §3.
 - **Enemies**: the spawn picker lists event enemies too.
 - **Coverage test** (`tests/systems/sandboxCoverage.test.js`): fails when a unit, stage, event stage, titan, freeplay
   tier, battle mode, gear slot, gear set, LR kind or enemy family is not reachable from the Sandbox's own lists.
 
-## 3. Open questions
+## 3. Decisions (coordinator, Oct 31)
 
-1. Max-roll profile: every line at its top roll is the ceiling; a "typical" (average roll) profile could be added as a
-   second choice if testers want a realistic number.
-2. UR Resonance follows the real clock (from the Nov 2 game week), as for players; a "Resonance on" switch would let
-   testers see next week's numbers today.
-3. A late start wave starts the hero at Lv 1 and the board empty with 999,999 coins; should a late start also level
-   the hero to 25 + Mastery?
-4. Tryout Day in the Sandbox (any Pep Talk, any Subject) would be its own small project.
+1. **Gear quality**: a "Gear rolls" choice beside each build's gear: **Max roll** (default: every line at its best
+   +0 roll, the Tie Pin and Collar Pins marked) or **Typical roll** (every line at its average roll, no pins; ▲ growths
+   and ✦ as before). Route: the build token's roll field (`85-6-5-1-m-lr-best`; `t` = typical; a token without it reads
+   Max roll).
+2. **UR Resonance: Auto / On / Off** for the run. Auto follows the real clock (from the Nov 2 game week), as for
+   players; On and Off swap her rank boost factors (damage, attack speed, aura; the LR boost rides the same week) for
+   the forced ones (`sandboxUnitStats(…, { resonance })`, `rankBoost`'s `now`). Route: `res=on|off`.
+3. **Late-start hero**: a run that starts at wave 2 or later places the hero at **Lv 25 with Mastery full**
+   (her XP bought through the Sim's own `gainHeroXp`, from the Sandbox driver's placement hook outside `src/sim`), with a
+   switch to turn it off. Route: `hmax=0` turns it off.
+4. **Tryout Day** in the Sandbox: not now; a later project.
