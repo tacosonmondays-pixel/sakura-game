@@ -47,11 +47,14 @@ function save({ frame = null } = {}) {
   return p;
 }
 
-// ---- the secrets sweep (review r2 N1): every secret reward's name and its how/desc ----
-const SECRETS = ACHIEVEMENTS.filter((a) => a.hidden && a.cat === 'secret');
+// ---- the secrets sweep (review r2 N1, r3 L2): every hidden achievement's name, its rewards' names and its how/desc ----
+const SECRETS = ACHIEVEMENTS.filter((a) => a.hidden);
+const SECRET_FRAMES = Object.values(FRAMES).filter((f) => f.secret || SECRETS.some((a) => a.id === f.ach));
+/** The secrets' reward names (ribbons, titles, frames): they must show once the secrets are found. */
 const SECRET_NAMES = [...new Set(SECRETS.flatMap((a) => [a.honor?.name, a.title?.text,
-  ...Object.values(FRAMES).filter((f) => f.ach === a.id).map((f) => f.name)]).filter(Boolean))];
-const SECRET_HOWS = SECRETS.map((a) => a.desc);
+  ...SECRET_FRAMES.filter((f) => f.ach === a.id).map((f) => f.name)]).filter(Boolean))];
+/** Everything else a fresh save must never see: the achievements' own names and descs, and the secret frames' how lines. */
+const SECRET_HOWS = [...new Set([...SECRETS.flatMap((a) => [a.name, a.desc]), ...SECRET_FRAMES.map((f) => f.how)])];
 /** A new save before any secret: onboarding done, stage 1-1 cleared on Easy. */
 function freshSave(found = false) {
   const p = createProfile();

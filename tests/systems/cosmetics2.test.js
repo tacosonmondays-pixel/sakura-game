@@ -224,8 +224,12 @@ describe('one rule for secrets: isSecretLocked (review r2 N1)', () => {
     expect(isSecretLocked(p, 'a_no_such_id')).toBe(false);
     claim(p, 'a_gold_rush');
     expect(isSecretLocked(p, 'a_gold_rush')).toBe(false);
-    p.missions.counters['hgift:a_not_fooled'] = 1; // a gifted ribbon: found
-    expect(isSecretLocked(p, 'a_not_fooled')).toBe(false);
+    // a ribbon-only gift (review r3 L1): the ribbon is owned, but the secret (its requirement) stays hidden
+    p.missions.counters['hgift:a_mirror_mirror'] = 1;
+    expect(earnedHonors(p)).toContain('a_mirror_mirror');
+    expect(isSecretLocked(p, 'a_mirror_mirror')).toBe(true);
+    expect(secretTitleHint(p, 'a_mirror_mirror')).toBe(ACHIEVEMENT_MAP.a_mirror_mirror.hint);
+    expect(titleGroups(p).flatMap((g) => g.titles).find((t) => t.id === 'a_mirror_mirror')).toMatchObject({ name: '???', secret: true });
     p.progress.stages['1-1'] = { easy: true, normal: true, hard: true, nightmare: true, clears: 4 }; // met, not claimed yet
     expect(isSecretLocked(p, 'a_first_petals')).toBe(false);
     expect(secretFrameHint(p, 'first_petal')).toBe(null); // met: the frame shows its name (claim it to own it)
