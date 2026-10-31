@@ -80,6 +80,7 @@ import { supportPays } from '../../online/supportRules.js';
 import { newKey } from '../../online/donateLedger.js';
 import { pickFor } from './supportPick.js';
 import { extendedPast, isExtendedRun } from './tryout/adapters.js';
+import { createCoopPending } from './coopPending.js';
 
 const RESULT_DELAY_MS = 1700;
 const MODEL_TIMEOUT_MS = 5000;
@@ -447,6 +448,8 @@ export function mountBattle(root, params, hooks) {
     // command comes back; a tap refused with nothing in reach dims its slot for a moment (abilityRefused)
     ctx.abilityPending = new Map();
     ctx.abilityRefused = new Map();
+    // co-op orders in flight: placements, upgrades and sales on their way (src/ui/battle/coopPending.js)
+    ctx.coopPending = ls ? createCoopPending() : null;
     const abilityNotes = createAbilityNotes();
     // (a Continue already has its unlocked abilities: no "learned" toast for those)
     abilityNotes.seed(sim.towers.filter((t) => t.abil).map((t) => t.abil.id));
@@ -1259,6 +1262,10 @@ export function mountBattle(root, params, hooks) {
         if (!ctx.ended) ls.advance(Math.min(0.25, Math.max(0, (now - frameT) / 1000)));
         ctx.speed = ls.coop.speed;
         coopHud?.update();
+        // an order that never came back (voided by a rejoin) stops waiting after a while: its ghost goes too
+        const rev = ctx.coopPending?.rev;
+        ctx.coopPending?.reserved();
+        if (ctx.coopPending && ctx.coopPending.rev !== rev) ctx.placement?.landed?.();
       } else if (running) {
         sim.update(dt * ctx.speed);
         saver?.persistPending(); // a wave auto-started inside that step: save its calm start
@@ -1394,7 +1401,6 @@ export function mountBattle(root, params, hooks) {
     ctx.freeplay = fpBattle;
   }
 
-  const pendingUpg = new Set();
   if (ls) {
     ls.note('mount');
     const mySlot = ls.mySlot;
@@ -1536,21 +1542,23 @@ export function mountBattle(root, params, hooks) {
         if (ls.job) return null; // rebuilding (a resync / rejoin): orders wait until it is done
         const chk = sim.canPlace(id, x, y);
         if (!chk.ok) return null;
-        ls.queue('place', [id, ...quantize(chk.x ?? x, chk.y ?? y)]);
+        const [qx, qy] = quantize(chk.x ?? x, chk.y ?? y);
+        // (the ghost stays on her spot and her price is spoken for until the order runs: coopPending.js)
+        ctx.coopPending.place(ls.queue('place', [id, qx, qy]), id, qx / 1024, qy / 1024, sim.placeCost(id));
         return 'queued';
       },
       upgrade(uid, path) {
-        if (ls.job || !mine(uid) || sim.upgradeStatus(uid, path).locked) return false;
-        const key = `${uid}:${path}`;
-        if (pendingUpg.has(key)) return 'queued';
-        pendingUpg.add(key);
-        ls.queue('upg', [uid, path]);
+        if (ls.job || !mine(uid)) return false;
+        const st = sim.upgradeStatus(uid, path);
+        if (st.locked) return false;
+        if (ctx.coopPending.upgrading(uid, path)) return 'queued';
+        ctx.coopPending.upgrade(ls.queue('upg', [uid, path]), uid, path, st.cost);
         return 'queued';
       },
       sell(uid) {
         if (ls.job || !mine(uid)) return false;
         const v = sim.sellValue(uid);
-        ls.queue('sell', [uid]);
+        if (!ctx.coopPending.selling(uid)) ctx.coopPending.sell(ls.queue('sell', [uid]), uid);
         return v;
       },
       target(uid, mode) {
@@ -1586,7 +1594,8 @@ export function mountBattle(root, params, hooks) {
     fpBattle?.onApplied(cmd, res);
     ctx.heroLevels?.onApplied(cmd, res);
     const minePlayer = cmd.p === ls.mySlot;
-    if (cmd.k === 'upg') pendingUpg.delete(`${cmd.a[0]}:${cmd.a[1]}`);
+    // (my order in flight ran, ok or refused: its ghost, "Ordered" button and reserved coins go)
+    if (minePlayer && ctx.coopPending?.landed(cmd)) ctx.placement?.landed?.();
     if (cmd.k === 'place') {
       if (res.ok && minePlayer) ctx.onPlaced(res.tower);
       else if (res.ok) ctx.feed.push(`${session.player(cmd.p)?.name || 'Ally'} deployed ${res.tower.def.name}`, 'info', { key: `ally-${res.tower.uid}`, ms: 1400 });

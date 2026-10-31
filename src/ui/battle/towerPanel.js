@@ -157,7 +157,7 @@ export function createTowerPanel(ctx) {
     const dv = t.turretSpec?.leash > 0 ? drones.signature(t) : '';
     // (the ability row's state, Auto and live line; its seconds tick in place, so a tap on a price is never lost to a
     // re-render once a second)
-    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${more ? 1 : 0}|${targetsOpen ? 1 : 0}|${arm.armedPath(t.uid) ?? '-'}|${isWide() ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? `A${ctx.aim.slot}` : ''}|${mirrorSig(t)}|${abRow.sig(t)}`;
+    return `${t.uid}|${t.tiers.join('')}|${t.targetMode}|${afford}|${t.level || 0}|${sim.state}|${sellArmed}|${more ? 1 : 0}|${targetsOpen ? 1 : 0}|${arm.armedPath(t.uid) ?? '-'}|${isWide() ? 1 : 0}|${t.turrets?.length || 0}|${dv}${heroSig(t)}|${buffSig(t)}|${t.aim ? `${t.aim.x},${t.aim.y}` : '-'}${ctx.aim?.uid === t.uid ? `A${ctx.aim.slot}` : ''}|${mirrorSig(t)}|${abRow.sig(t)}${ctx.coopPending ? `|o${[0, 1, 2].map((p) => (ctx.coopPending.upgrading(t.uid, p) ? 1 : 0)).join('')}` : ''}`;
   }
 
   /** @param {{ drone?: number|null }} [opts] a drone of hers to show (tapped on the field: MORE opens on its card) */
@@ -497,6 +497,11 @@ export function createTowerPanel(ctx) {
       extra = finalLock(t, p, i, holder?.line, holder?.uid ?? null);
     } else if (readOnly) {
       action = h('span.bt-dw-price', { title: `${v.priceText} coins` }, svgEl(currencyIcon('coins'), 'bt-buy-coin'), v.priceText);
+    } else if (ctx.coopPending?.upgrading(t.uid, i)) {
+      // co-op: the order is on its way (it runs on both screens after the input delay, coopPending.js): the tap
+      // shows at once, and a second tap cannot buy the tier twice
+      action = h('button.bt-buy.pending', { type: 'button', 'data-testid': `buy-${i}`, disabled: true, 'aria-label': `${us.next?.name}: ordered, on its way` },
+        h('span.bt-buy-spin', { 'aria-hidden': 'true' }), h('span.bt-buy-label', 'Ordered'));
     } else {
       const poor = v.state === 'poor';
       action = h(

@@ -119,8 +119,20 @@ export function createPlacement(ctx) {
     mode = null;
     last = null;
     moving = false;
-    ctx.renderer.setGhost(null);
+    showPending();
     renderHint();
+  }
+
+  /**
+   * Co-op: a girl ordered onto the board stands there as her ghost until the order runs (the input
+   * delay, coopPending.js); with nothing on its way (and solo) the ghost goes. Placing another girl
+   * takes the ghost over, and her ghost comes back if that one ends while she is still on her way.
+   */
+  function showPending() {
+    if (unitId) return;
+    const p = ctx.coopPending?.placements().at(-1);
+    if (p) ctx.renderer.setGhost(p.unitId, p.x, p.y, true);
+    else ctx.renderer.setGhost(null);
   }
 
   function cancel() {
@@ -250,6 +262,8 @@ export function createPlacement(ctx) {
       return last;
     },
     start: (id) => begin(id, 'tap'),
+    /** Co-op: one of my orders ran (controller onApplied): the ghost shows what is still on its way. */
+    landed: () => showPending(),
     get moving() {
       return moving;
     },
