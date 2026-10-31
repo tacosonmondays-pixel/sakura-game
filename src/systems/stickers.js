@@ -30,3 +30,26 @@ export function ownedStickers(p) {
 
 /** Settings → Online → "Show stickers from other players" (on unless switched off). */
 export const showsStickers = (p) => p?.settings?.showStickers !== false;
+
+/**
+ * "Show stickers from other players" off survives an older build: missions.counters 'stk:off' = 1 rides every save
+ * while it is off (src/core/store.js saveText). A build from before stickers drops the setting it does not know but
+ * keeps counters word for word, so a save whose settings have no showStickers key and that carries the mark gets the
+ * setting back off (src/systems/save.js migrateProfile). A save that has the key keeps it: the mark follows it.
+ */
+export const STICKERS_OFF_MARK = 'stk:off';
+
+/** Writes (or clears) the 'stk:off' mark from the setting. */
+export function writeStickerMark(p) {
+  const c = p?.missions?.counters;
+  if (!c || typeof c !== 'object') return;
+  if (p.settings?.showStickers === false) c[STICKERS_OFF_MARK] = 1;
+  else delete c[STICKERS_OFF_MARK];
+}
+
+/** The setting as loaded: the stored one when the save has it, else the mark's (an older build dropped the key). */
+export function restoredShowStickers(rawSettings, counters, cleaned) {
+  const had = !!rawSettings && typeof rawSettings === 'object' && Object.prototype.hasOwnProperty.call(rawSettings, 'showStickers');
+  if (had) return cleaned;
+  return !(Number(counters?.[STICKERS_OFF_MARK]) > 0) && cleaned;
+}
