@@ -54,7 +54,7 @@ export function bannerArt(id, { thumb = false } = {}) {
     // img is replaced, so the handler can never run twice (review r2 M1)
     const fallback = b.svg ? (e) => {
       const img = e.currentTarget;
-      if (!img?.isConnected || img.dataset.fallback) return;
+      if (!img?.parentNode || img.dataset.fallback) return;
       img.dataset.fallback = '1';
       img.replaceWith(svgEl(pbBannerSVG(b.svg), 'pf-bn-svg'));
     } : null;

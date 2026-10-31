@@ -212,7 +212,6 @@ async function runViewport(vp) {
   await page.route('**/art/lobby/banners/**', (r) => r.abort());
   await page.evaluate(() => { location.hash = '#/profile'; });
   await page.reload({ waitUntil: 'load' });
-  errors.splice(0); // the blocked requests' own console lines
   await page.waitForSelector('[data-testid="profile"]', { timeout: 30000 });
   const cardFb = await page.waitForFunction(() => !!document.querySelector('.pf-banner .pf-bn-art[data-banner="pb:nightglass"] .pf-bn-svg svg'), null, { timeout: 15000 }).then(() => true).catch(() => false);
   check(cardFb && await page.evaluate(() => !document.querySelector('.pf-banner .pf-bn-art[data-banner="pb:nightglass"] img')), 'profile banner: the Nightglass pattern replaces the blocked picture');
