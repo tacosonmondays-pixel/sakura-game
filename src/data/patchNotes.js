@@ -20,7 +20,6 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    // TODO(coordinator): set the date to the US Central deploy day before this ships.
     id: 'v0.1.67', version: '0.1.67', date: '2026-10-31', title: 'Ribbons, Frames and Stickers',
     added: [
       'Stickers! Send one of 16 chibi stickers in co-op battles (the new button on the co-op bar), clan chat and messages. Four slime stickers are for everyone, recruiting Hikari, Aoi, Kage, Momo, Akane, Yuki, Miko, Ena, Iroha or Tenka unlocks hers, and two more are earned in co-op and the Halloween event. Don\'t want them? Settings → Online → Show stickers from other players, or mute one partner from the sticker button.',
