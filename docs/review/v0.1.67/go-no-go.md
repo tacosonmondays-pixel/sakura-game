@@ -1,6 +1,6 @@
 # v0.1.67 go/no-go — GO
 
-**Reviewed:** `origin/release/v0.1.67` @ `eb0b1ab9c2a561916298f9a3f700f0c4f8dabdb2`. The full gates ran on `91efe16a`. The branch then gained `eb0b1ab9`, an e2e-only change (the coop-rejoin F1 step polls for the tier instead of waiting a fixed 4 s). The delta check on `eb0b1ab9`: the sim id is unchanged and coop-rejoin passes 21/21. The brief named `cf624ee3`. `91efe16a` only removed the patch note's TODO comment.
+**Reviewed:** `origin/release/v0.1.67` @ `eb0b1ab9c2a561916298f9a3f700f0c4f8dabdb2`. The full gates ran on `91efe16a`. The branch then gained `eb0b1ab9`, an e2e-only change (the coop-rejoin F1 step polls for the tier instead of waiting a fixed 4 s). The delta check on `eb0b1ab9`: the sim id is unchanged and coop-rejoin passes 21/21 in 2 of 2 runs. The brief named `cf624ee3`. `91efe16a` only removed the patch note's TODO comment.
 **Live:** `origin/main` = v0.1.66 @ `fc978aba`. Fresh clone; v0.1.66 checked out as a separate worktree for the comparisons.
 
 ## Verdict
@@ -26,7 +26,7 @@
 - 15 and 14 refuse each other both ways. `sameVersion` needs `a.proto === b.proto`, and v0.1.66's copy has the same check. Tests: `tests/online/coopFreeplay.test.js:121-122` (both directions) and `tests/online/coopSession.test.js:1191` (the host reports the mismatch with label 0.1.66).
 - `e2e/engines.mjs`: **OK.** 3 runs on 2 engines (V8 and JavaScriptCore) computed identical battles, checkpoints and replays. Firefox and WebKit are not installed in this container.
 - Stickers are never sim input. They go on the room's side channel as `{type:'stk'}` (`src/online/coop/socialRoom.js:84`). No file in `src/sim`, `lockstep.js` or `commands.js` mentions stickers.
-- **coop-rejoin, 3 runs on `91efe16a`: 3/3 pass** (21/21 each), plus 1 more pass on `eb0b1ab9`. In every F1 result `sent:1`, the tier went up by exactly 1, `ordered:false` and `gone:false`.
+- **coop-rejoin, 3 runs on `91efe16a`: 3/3 pass** (21/21 each), plus **2/2** on `eb0b1ab9`. In every F1 result `sent:1`, the tier went up by exactly 1, `ordered:false` and `gone:false`.
   - **Verdict on the flake: test-only.** `createCoopPending.expire()` (`src/ui/battle/coopPending.js`) drops an order once the lockstep tick passes the order's tick, unless the lockstep is stalled or rebuilding. "Ordered" can only stay up while the ally really is stalled, which is the intended behaviour (review r1 F1). After an 8 s stall the raised input delay plus catch-up on a software-GL page can take longer than the old fixed 4 s. `eb0b1ab9` replaces that wait with a 15 s poll. No double-buy was seen in any run.
 
 ## 3. Tests
