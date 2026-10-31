@@ -1498,8 +1498,8 @@ export function mountBattle(root, params, hooks) {
         const ally = allyName();
         const text = reason === 'desync' ? 'Lost sync with your ally — you continue solo.'
           : reason === 'lobby' ? (ctx.ended ? `${ally} is back in the room.` : `${ally} went back to the room. Their girls stay and keep fighting.`)
-            : reason === 'left' ? (ctx.ended ? `${ally} left the room.` : `${ally} left. Their girls stay and keep fighting; their income is yours now.`)
-            : `Lost contact with ${ally}. Play on — their girls keep fighting, and they rejoin as soon as they are back.`;
+            : reason === 'left' ? (ctx.ended ? `${ally} left the room.` : `${ally} left. Their girls keep fighting, and in 20 s they and ${ally}'s coins are yours.`)
+            : `Lost contact with ${ally}. Their girls keep fighting; if they are not back in 20 s, their girls and coins are yours.`;
         ctx.feed?.push(text, 'warn', { ms: 5200 });
       }),
       session.on('ally', (where) => {

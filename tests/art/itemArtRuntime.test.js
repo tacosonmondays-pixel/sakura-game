@@ -325,6 +325,7 @@ describe('display only: the battle sim is untouched', () => {
     // reach, Kaleidoscope Burst and Infinite Reflection +14 — 14 has not shipped); 15: co-op feel — the waited-on side
     // raises its input delay, orders after the sent horizon, nudge — pinned on release v0.1.67 (the merged tree with
     // release v0.1.66 @ fc978aba); 16: the duo's LR Refraction row 2.0 → 2.1 (fix/duo-p2t5-lr-bar, the LR bar on set gear)
+    // 17: co-op sharing (docs/specs/COOP_SHARING.md: gifts, lends, the leaver's grace and hand-out, the Sim's t.ctrl)
     // (the ids live in tests/fixtures/simIds.js, shared with the gear tests that prove they leave the sim alone)
     const KNOWN = KNOWN_SIM_IDS;
     if (!KNOWN[COOP_PROTOCOL]) return;

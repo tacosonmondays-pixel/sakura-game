@@ -352,6 +352,16 @@ try {
     const s = window.__coop;
     for (const ev of ['resync', 'peerGone', 'peerBack']) s.on(ev, (x) => window.__events.push({ ev, x: x ?? null, at: Math.round(performance.now()), tick: s.lockstep?.tick }));
   })));
+  // co-op sharing (docs/specs/COOP_SHARING.md): a lend in flight when the link goes — the host lends one of their girls
+  // to the guest, and the guest's link is cut before the order can have run there; after the rejoin both agree on who
+  // commands her
+  const lent = await A.evaluate(() => {
+    const { sim, ui, coop } = window.__battle;
+    const t = sim.towers.find((x) => !x.isHero && coop.ownerOf(x.uid) === coop.mySlot && coop.ctrlOf(x.uid) === coop.mySlot && !x.def.paths.some((p) => p.tiers.some((q) => q.mods?.lab)));
+    if (!t) return null;
+    return ui.act.lend(t.uid) === 'queued' ? t.uid : null;
+  });
+  check(lent != null, `sharing: the host lends a girl (uid ${lent}) to the guest just before the cut`);
   await B.evaluate(() => {
     const ls = window.__coop.lockstep;
     window.__cut = ls.sendRaw;
@@ -408,6 +418,11 @@ try {
   const afterTick = await A.evaluate(() => window.__battle.coop.lockstep.tick);
   await A.waitForTimeout(8000);
   await agreeAfter(A, B, Math.max(healAt, afterTick - 1200), 'after the rejoin');
+  if (lent != null) {
+    const ls2 = await Promise.all([A, B].map((p) => p.evaluate((uid) => ({ owner: window.__battle.coop.ownerOf(uid), ctrl: window.__battle.coop.ctrlOf(uid), how: window.__battle.coop.lentInfo(uid) }), lent)));
+    check(JSON.stringify(ls2[0]) === JSON.stringify(ls2[1]) && ls2[0].owner === 0 && (ls2[0].ctrl === 1 || ls2[0].ctrl === 0),
+      `sharing: after the rejoin both pages agree on the girl lent in flight (${JSON.stringify(ls2[0])})`);
+  }
 
   // ---- 3. a resync: the guest flags a mismatch, the host answers with its checkpoint -------------
   await watchGaps(B);

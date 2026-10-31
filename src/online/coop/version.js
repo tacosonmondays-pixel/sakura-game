@@ -80,7 +80,11 @@ import { BUILD_ID, SIM_ID, APP_VERSION } from '../../core/buildInfo.js';
 //    stall and stamps orders after unsent promises, so the two would wait on each other differently.
 // 16: the duo's LR refraction build (fix/duo-p2t5-lr-bar): Kohaku & Tsubaki's LR tier-5 Refraction row 2.0 → 2.1
 //    (the LR bar on set gear); a client on 15 resolves the same loadout to a different battle.
-export const COOP_PROTOCOL = 16;
+// 17: co-op sharing (docs/specs/COOP_SHARING.md): the gift / lend / back / give commands, the Sim's controller
+//    (t.ctrl: a lent or handed-out girl's coins and ability bookkeeping are her controller's), the leaver's grace and
+//    hand-out on the 'gone' / 'join' markers, and the co-op checkpoint v 2; a client on 16 knows none of the commands
+//    and never hands a leaver's girls out, so the two battles part at the first gift, lend or 20 s after a drop.
+export const COOP_PROTOCOL = 17;
 export { BUILD_ID };
 
 /** FNV-1a over a string, as 8 hex digits. */

@@ -2831,6 +2831,20 @@ with `hpScale × 1.6`; `coopStages()`; `coopStartCash()`), `src/online/coop/`:
   what her clamped loadout entry gives, or whose effective stats (eff, drone and trap specs) are not what those
   stats and her buffs give (an honest checkpoint matches and is left as it is); harnesses calling
   `createCoopSim` / `Lockstep` directly pass their own stats.
+* **Sharing (COOP 17, docs/specs/COOP_SHARING.md §9)** — `gift[toSlot, amount]` (whole coins, `COOP.giftMin` 10 ..
+  my wallet, one per `COOP.giftEveryTicks` 120; the receiver's CASH_MAX overflow stays: `{ ok, sent, kept }`; a wallet
+  move, never `_gainCashFor`), `lend[uid, toSlot]` (my own placed girl; refused `notYours|hero|lab|run|self|gone|ended`),
+  `back[uid]` (her owner; `wave` during a wave unless her controller is gone; `already`), `give[uid]` (her controller;
+  `gone` when her owner is). Every order on a girl checks her **controller** (`ctrlOf`), her loadout view stays her
+  owner's. The Sim's `t.ctrl` (`src/sim/ctrl.js` `ctrlOf(t) = t.ctrl ?? t.owner ?? 0`, set only while another player
+  commands her) routes her owner-credited coins and her player's ability bookkeeping. A `gone` marker starts a grace of
+  `COOP.graceTicks` (1200) × the game speed; then the leaver's wallet is split and every girl they command but their hero
+  goes home (lent to them) or to whoever commands the least spent value; `join` cancels the grace or gives the
+  handed-out girls back (not the coins). CoopSim: `ctrlOf(uid)`, `isMine(uid)` (I command her), `lentInfo(uid)`,
+  `pendingDeals()`, `giftTicks()`, `drainShareEvents()`; checkpoint `v: 2` (`giftAt`, `pendingDeal`, `lentBy`; reads
+  v 1); `hashSim(sim, { tick, wallets, share })` folds `t.ctrl` and `share` only when present. Battle screen: `ctx.coop`
+  `ctrlOf / lentInfo / ctrlName / nameOf / allyHere / pendingDeals / shareSig`, `ctx.act.gift / lend / takeBack /
+  giveBack`, the gift sheet on the ally's chip (`coopHud.js`), the drawer's share row (`drawerView.shareRowView`).
 * `commands.js` — `createCoopSim(start, { mySlot })`: command kinds `place[unitId,qx,qy] upg[uid,path]
   sell[uid] tgt[uid,mode] ult[] wave[] auto[bool] speed[n] end[bool] hlv[level,maxPrice] hmv[qx,qy]
   fly[uid,mode,qx1?,qy1?,qx2?,qy2?] pick[uid,targetUid] aim[uid,qx,qy]|aim[uid,null]` (`aim`: a mortar /

@@ -7,11 +7,12 @@
 // the battlefield; the ally's chip says "Rin is re-syncing… 45%" meanwhile.
 // Stickers: a button at the chip's end, and a sticker under the name of whoever sent it (./coopStickers.js).
 import '../styles/online.css';
-import { h } from '../components.js';
+import { h, svgEl } from '../components.js';
 import { fmtNum } from '../format.js';
 import { COOP } from '../../data/coop.js';
 import { HOME_TEXT } from '../text/tryout.js';
 import { createCoopStickers } from './coopStickers.js';
+import { currencyIcon } from '../../art/icons.js';
 
 /** World height of the owner pin (just above a chibi's halo). */
 const PIN_HEIGHT = 1.55;
@@ -24,14 +25,13 @@ export function createCoopHud(ctx) {
   const cash = [h('b'), h('b')];
   const flags = [0, 1].map((slot) => h('i.ol-coop-flag', { title: sim.tryout ? HOME_TEXT.hudFlag : 'Voted to finish', 'data-testid': `coop-vote-${slot}` }, '⚑'));
   for (const f of flags) f.hidden = true;
-  // co-op sharing (docs/specs/COOP_SHARING.md §3.5): a coin button on the ally's chip opens the gift sheet; the chip
-  // counts down the grace while they are away ("their girls are yours in 12 s")
-  const giftBtn = h('button.ol-coop-gift', { type: 'button', 'data-testid': 'coop-gift', title: 'Send coins to your ally', 'aria-label': 'Send coins to your ally', onclick: () => openGift() }, '＋$');
-  const grace = h('small.ol-coop-grace', { 'data-testid': 'coop-grace' });
-  grace.hidden = true;
+  // co-op sharing (docs/specs/COOP_SHARING.md §3.5): a coin button on the ally's chip opens the gift sheet; while they
+  // are away the state line counts the grace down ("Ally away — their girls are yours in 12 s")
+  const giftBtn = h('button.ol-coop-gift', { type: 'button', 'data-testid': 'coop-gift', title: 'Send coins to your ally', 'aria-label': 'Send coins to your ally', onclick: () => openGift() },
+    svgEl(currencyIcon('coins'), 'ol-coop-gift-ico'), h('span', '+'));
   const chips = players.map((p, slot) => h(`div.ol-coop-p${slot === coop.mySlot ? '.me' : ''}`, { style: { '--pc': COOP.colors[slot] } },
     h('i.ol-coop-dot'), h('span.ol-coop-name', slot === coop.mySlot ? `${p?.name || 'You'} (you)` : p?.name || 'Ally'), cash[slot], flags[slot],
-    slot === coop.mySlot ? null : [giftBtn, grace]));
+    slot === coop.mySlot ? null : giftBtn));
   const state = h('div.ol-coop-state', { 'data-testid': 'coop-state' });
   // stickers (docs/specs/STICKERS.md): the button at the chip's end, each sticker under its sender's name
   const stickers = createCoopStickers(ctx, chips);
@@ -49,6 +49,7 @@ export function createCoopHud(ctx) {
   ctx.layer.prepend(rings);
   const allyName = () => players[1 - coop.mySlot]?.name || 'your ally';
   let lastSync = '';
+  let graceSecs = null; // the ally's grace, seconds left (null: none running)
   const ringEls = new Map();
   let lastState = '';
   let stateAt = 0;
@@ -123,12 +124,9 @@ export function createCoopHud(ctx) {
     giftBtn.hidden = !allyHere || sim.state === 'won' || sim.state === 'lost';
     if (giftBtn.hidden && gift.open) gift.close();
     if (gift.open) gift.refresh();
-    // the grace while the ally is away: seconds of real time until their girls are handed out
+    // the grace while the ally is away: seconds of real time until their girls are handed out (the state line says it)
     const due = coop.pendingDeals ? coop.pendingDeals().find((d) => d.slot === 1 - coop.mySlot) : null;
-    const secs = due ? Math.max(0, Math.ceil((due.at - ls.tick) / 60 / Math.max(1, ls.coop.speed || 1))) : null;
-    const text = secs != null ? `girls yours in ${secs} s` : '';
-    if (grace.textContent !== text) grace.textContent = text;
-    grace.hidden = !text;
+    graceSecs = due ? Math.max(0, Math.ceil((due.at - ls.tick) / 60 / Math.max(1, ls.coop.speed || 1))) : null;
     if (sim.freeplay) {
       const votes = ls.coop.endVotes?.() || [];
       for (const slot of [0, 1]) flags[slot].hidden = !votes[slot];
@@ -154,6 +152,7 @@ export function createCoopHud(ctx) {
     }
     const busy = peer && !peer.gone ? peer.busy : null;
     const text = ls.desynced ? 'Lost sync — playing solo'
+      : peer?.gone && graceSecs != null ? `${peer.why === 'left' ? 'Ally left' : 'Ally away'} — their girls are yours in ${graceSecs} s`
       : peer?.gone && ls.coop.lentInfo && sim.towers.some((t) => ls.coop.lentInfo(t.uid)?.kind === 'deal' && ls.coop.ownerOf(t.uid) === 1 - coop.mySlot) ? 'Ally away — their girls are yours now'
       : peer?.gone ? (peer.why === 'left' ? 'Ally left — their girls keep fighting'
         : peer.why === 'lobby' ? 'Ally is back in the room'
@@ -170,7 +169,7 @@ export function createCoopHud(ctx) {
       state.hidden = !text;
       el.classList.toggle('ol-coop-wait', !!text && !peer?.gone);
       chips[1 - coop.mySlot]?.classList.toggle('gone', !!peer?.gone || !!ls.desynced);
-    } else if (text && (peer?.gone || ls.desynced) && !state.hidden && performance.now() - stateAt > GONE_LINE_MS) {
+    } else if (text && graceSecs == null && (peer?.gone || ls.desynced) && !state.hidden && performance.now() - stateAt > GONE_LINE_MS) {
       // (the feed said it too; the line would only cover the field from now on)
       state.hidden = true;
     }

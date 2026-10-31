@@ -705,10 +705,11 @@ html[data-reduce-motion] .stk-pick { animation: none; }
   flex: none; height: 24px; min-width: 30px; margin-left: 2px; padding: 0 6px; border: 0; border-radius: 7px; cursor: pointer; pointer-events: auto !important;
   background: var(--yellow); color: var(--navy); font: italic 900 0.78rem/1 var(--font-head, inherit); box-shadow: 0 0 0 2px rgba(255,255,255,0.5);
 }
+.ol-coop-gift { display: inline-flex; align-items: center; gap: 1px; }
 .ol-coop-gift[hidden] { display: none; }
 .ol-coop-gift:active { transform: scale(0.94); }
-.ol-coop-grace { padding: 1px 6px; border-radius: 6px; background: var(--pink); color: #fff; font-style: italic; font-size: 0.75rem; }
-.ol-coop-grace[hidden] { display: none; }
+.ol-coop-gift-ico { width: 16px; height: 16px; display: inline-flex; line-height: 0; }
+.ol-coop-gift-ico svg, .ol-coop-gift-ico img { width: 100%; height: 100%; }
 /* a lent or handed-out girl: her owner's colour outside, her controller's in the middle */
 .ol-ring.lent::after { background: var(--cc, #fff); inset: 3px; box-shadow: 0 0 0 1.5px #fff; }
 /* the "Send coins" sheet, under the co-op chip */

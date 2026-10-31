@@ -1,6 +1,7 @@
 # Co-op sharing: gifting coins, lending girls, and a leaver's girls
 
-Status: **design spec, no code yet** (Oct 31, 2026). Owner requests, word for word: "gifting money and girls" in co-op,
+Status: **built** on `feature/coop-sharing` (COOP_PROTOCOL 17; the owner approved the defaults below on Oct 31,
+2026). What the build changed against this design is in §9. Owner requests, word for word: "gifting money and girls" in co-op,
 and "when someone leaves coop, their girls are distributed". Written against `release/v0.1.66` (COOP_PROTOCOL 14) and
 the co-op feel branch (`feature/coop-feel-net`, COOP 15). Contracts it builds on: `CONTRACTS.md` → **Co-op**
 (`commands.js`, `lockstep.js`, `session.js`, `rewards.js`).
@@ -42,7 +43,7 @@ the co-op feel branch (`feature/coop-feel-net`, COOP 15). Contracts it builds on
 | D5 | Owner-credited coins (econ abilities) of a lent girl | To the controller (they are playing her). |
 | D6 | Coin gift limits | At least 10, at most your whole wallet, one gift per player per 2 s of battle time; the receiver's `CASH_MAX` clamp returns the overflow to the sender. |
 | D7 | Lend take-back | Owner only, only between waves (prep / between), or at once when the controller leaves. Upgrades bought by the controller stay on her. |
-| D8 | Leaver grace period | `left` (final): at once. `timeout` / `lost`: after 20 s of battle time without a `join`. |
+| D8 | Leaver grace period | **Built:** every leave (`left`, `timeout`, `lost`) waits 20 s (COOP.graceTicks × the game speed at the moment they went, so about 20 s of real time at any speed) without a `join`, then hands out (the owner's wording: "after a 20 s grace period"). |
 | D9 | Leaver's coins | Split evenly between the players still there (the existing odd-coin rule). Not returned on a rejoin. |
 | D10 | Leaver's girls | Dealt one by one in uid (placement) order to the remaining players, each to whoever then controls the least total spent value; ties → lowest slot. With two players: all to the one left. |
 | D11 | Leaver's hero | Stays theirs and keeps fighting; the hero's ultimate fires on Auto while they are gone (a hero is a player's own unit: `ult`, `hlv`, `hmv` are never transferred). |
@@ -240,3 +241,35 @@ reservations), `CONTRACTS.md`.
 5. **Leaver's hero**: default stays theirs on Auto (D11). Alternative: hand the hero's ult button to the receiver.
 6. **Coin gift cap**: default none beyond the wallet (D6). Alternative: at most 50% of the wallet per gift.
 7. **Ask for coins**: a one-tap "Need coins" ping to the ally (no transfer)? Default: yes, as a later small add.
+
+## 9. As built (feature/coop-sharing, COOP 17)
+
+- **Grace for every leave** (D8): a deliberate Leave waits the same 20 s as a lost connection, then hands out; the
+  `gone` marker needed no `why`. The grace is `COOP.graceTicks` (1200) × the game speed at the `gone` tick, so it is
+  about 20 s of real time at 1×, 2× and 3× (a slow device that cannot keep 60 steps a second takes longer: about 28 s
+  under software WebGL in the e2e).
+- **Lending is placed girls only** (open question 4, default): no roster card gifts. Refused for a hero (`'hero'`), any
+  Tenka (`'lab'`, her lab tiers are on her paths: refused before she has a lab too), a girl in a Tryout run (`'run'`:
+  a run's vouchers, discounts and squad counters are per player), a girl lent to me (`'notYours'`), myself, a player who
+  is gone, and after the end.
+- **Tryout income stays per player**: the pep / hand-in / fund coins (`tryout/pep.js`, `tryout/index.js`) are paid to a
+  player, not by a girl, so they need no `ctrlOf`. The girl-keyed income sites that do: Bake Sale and the lifted
+  interest (`Sim.js`), Market Day and the econ event (`abilities.js`), the lab's share (`lab.js`), Ouka's bounty
+  (`hubs.js`). The per-player caps for sentries (`sentries.js`), strips (`strips.js`) and zones stay by owner like the
+  shot caps.
+- **State**: `t.ctrl` on the girl (absent unless another player commands her), and beside the Sim in the CoopSim:
+  `giftAt` (last gift tick per player, -1 none), `pendingDeal` (`{ slot, at }`), `lentBy` (uid → `{ kind: 'lend' |
+  'deal', from }`). Checkpoint `v: 2` carries the three; `restore` reads v 1 (nothing lent or pending). `hashSim` folds
+  `t.ctrl` when set and the share state (`share: [...]`) only when non-empty.
+- **CoopSim API** (UI): `ctrlOf(uid)`, `isMine(uid)` (now: do I command her), `lentInfo(uid)`, `pendingDeals()`,
+  `giftTicks()`, `drainShareEvents()` (`{ k: 'dealt', tick, from, coins, given: [{ to, uids }] }` /
+  `{ k: 'back', tick, to, uids }`). The unused `markGone` / `markBack` (no grace) are gone.
+- **UI**: the coin button on the ally's chip (the game's coin icon) and the "Send coins" sheet; the countdown is in the
+  co-op state line ("Ally left — their girls are yours in 12 s"), not on the chip (no room at 844×390); the drawer's
+  share row (`drawerView.shareRowView`); lent pins show the controller's colour in the middle.
+- **Saves**: co-op battles are never saved on the device (`controller.js` `savable` needs no lockstep), and a solo save
+  never carries `t.ctrl`; the profile a sharing battle pays is identical to the same battle without sharing
+  (`tests/online/coopSharing.test.js`, the S4 test): an older build reads everything this one writes.
+- **Proofs**: solo is bit-identical (the 15 solo `MODES_*` engine scenarios: every 600-step state hash and the final
+  snapshot digest equal to `origin/main`; noNerfGate 8,910 cells, 0 under, the raw output byte-identical); the co-op
+  engine scenarios keep every tick, state, wallet and hash (only the three checkpoint digests moved: checkpoint v 2).
