@@ -10,6 +10,7 @@ import { RIBBON_MODES } from '../../data/modes.js';
 import { FREEPLAY_TIERS, freeplayTable } from '../../data/freeplay.js';
 import { BANNER_MAP, DEFAULT_BANNER, TITLES, FRAMES } from '../../data/profileArt.js';
 import { lobbyArtUrl } from '../../data/lobbyArt.js';
+import { pbBannerSVG } from './pbArt.js';
 import { themeBackdropSVG } from '../../art/backdrops.js';
 import { portraitHTML } from '../../art/portraits.js';
 import { medalIcon, uiIcon, modeIcon } from '../../art/icons.js';
@@ -39,12 +40,29 @@ export const kitBtn = (kind, cls, props, ...kids) => h(`button.ui-hit.rk-hit${cl
 // Banner, picture, title
 // ---------------------------------------------------------------------------
 
-/** The banner art for an id: the painted academy (with a tint), a chapter sky, or a girl's scene. */
+/**
+ * The banner art for an id: the painted academy (with a tint), a chapter sky, a girl's scene, or a 'pb:' banner
+ * (a painted place or illustration, else a pattern from ./pbArt.js).
+ */
 export function bannerArt(id, { thumb = false } = {}) {
   const b = BANNER_MAP[id] || BANNER_MAP[DEFAULT_BANNER];
   const el = h(`div.pf-bn-art.tint-${b.tint || 'none'}`, { 'data-banner': b.id });
   if (b.kind === 'theme') el.append(svgEl(themeBackdropSVG(b.theme), 'pf-bn-svg'));
-  else el.append(h('img', { src: lobbyArtUrl(thumb ? b.thumb : b.file), alt: '', draggable: false, decoding: 'async' }));
+  else if (b.svg && !b.file) el.append(svgEl(pbBannerSVG(b.svg), 'pf-bn-svg'));
+  else {
+    // a picture that fails to load (blocked, offline, missing) falls back to the banner's pattern, when it has one; the
+    // img is replaced, so the handler can never run twice (review r2 M1)
+    const fallback = b.svg ? (e) => {
+      const img = e.currentTarget;
+      if (!img?.isConnected || img.dataset.fallback) return;
+      img.dataset.fallback = '1';
+      img.replaceWith(svgEl(pbBannerSVG(b.svg), 'pf-bn-svg'));
+    } : null;
+    el.append(h('img', {
+      src: lobbyArtUrl(thumb ? b.thumb : b.file), alt: '', draggable: false, decoding: 'async', loading: thumb ? 'lazy' : null, onerror: fallback,
+      ...(b.pos ? { style: `object-position: ${b.pos}` } : {}),
+    }));
+  }
   el.append(h('i.pf-bn-tint'));
   return el;
 }

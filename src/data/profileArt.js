@@ -2,9 +2,12 @@
 // Quick lines. Every id matches the server's patterns; a viewer draws text and art only from these
 // tables, never from a string it got from the network (except the name and the bio).
 import { CHAPTERS } from './stages.js';
+import { UNIT_MAP } from './units.js';
 import { TINTS } from './lobbyArt.js';
 import { TITLE_TABLE } from '../systems/profileHonors.js';
 import { ALL_EVENTS } from './events/index.js';
+import { PB_BANNERS } from './profileBanners.js';
+import { pbLockText } from '../systems/profileBanners.js';
 
 /** Titles and frames sold in limited-event exchanges (EVENT_SPEC §3.8): owned forever once bought. */
 const EVENT_COSMETICS = ALL_EVENTS.flatMap((ev) => (ev.shop || []).filter((o) => o.cosmetic)
@@ -64,10 +67,13 @@ function buildBanners() {
   }
   for (const c of CHAPTERS) out.push({ id: `theme:${c.theme}`, kind: 'theme', theme: c.theme, chapter: c.id, name: c.name });
   for (const [girl, name] of Object.entries(SCENE_GIRLS)) out.push({ id: `scene:${girl}`, kind: 'scene', girl, name, file: `${girl}.webp`, thumb: `thumbs/${girl}.webp` });
-  return out.map((b) => Object.freeze(b));
+  return [...out.map((b) => Object.freeze(b)), ...PB_BANNERS];
 }
 
-/** Banner ids: 'academy:<tint>' (free), 'theme:<chapter theme>' (clear that chapter), 'scene:<girl>' (own her). */
+/**
+ * Banner ids: 'academy:<tint>' (free), 'theme:<chapter theme>' (clear that chapter), 'scene:<girl>' (own her), and the
+ * 'pb:<slug>' banners of ./profileBanners.js (achievements, an event, LR, seasons; docs/specs/PROFILE_BANNERS.md).
+ */
 export const BANNERS = Object.freeze(buildBanners());
 export const BANNER_MAP = Object.freeze(Object.fromEntries(BANNERS.map((b) => [b.id, b])));
 export const DEFAULT_BANNER = 'academy:day';
@@ -77,7 +83,8 @@ export function bannerLockText(id) {
   const b = BANNER_MAP[id];
   if (!b) return '';
   if (b.kind === 'theme') return `Clear Chapter ${b.chapter}`;
-  if (b.kind === 'scene') return 'Recruit her';
+  if (b.kind === 'scene') return `Recruit ${UNIT_MAP[b.girl]?.name || 'her'}`;
+  if (b.kind === 'pb') return pbLockText(id);
   return '';
 }
 

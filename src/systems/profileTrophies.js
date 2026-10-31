@@ -16,6 +16,7 @@ import { NO_COSMETIC, honorOf, earnedAchievementTitles, honorCount, killsAll } f
 import { ID_RE, PIN_RE, PINS_MAX, SHOWCASE_MAX } from '../online/profileRules.js';
 import { markedTags } from '../data/playerTags.js';
 import { eventCosmetics, eventPhase } from './events.js';
+import { pbUnlocked } from './profileBanners.js';
 
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const counters = (p) => (isObj(p?.missions?.counters) ? p.missions.counters : {});
@@ -165,6 +166,7 @@ export function bannerUnlocked(p, id) {
   if (!b) return false;
   if (b.kind === 'academy') return true;
   if (b.kind === 'scene') return !!p?.units?.[b.girl];
+  if (b.kind === 'pb') return pbUnlocked(p, id);
   const chapter = CHAPTERS.find((c) => c.id === b.chapter);
   // the chapter's Act I (`stages`): an Act II that ships later never re-locks a banner a player already has
   const ids = chapter ? chapter.stages : [];
