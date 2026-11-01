@@ -104,6 +104,8 @@ export function createContext(o) {
     /** Bloom on: no halos; off: this tier's halos (BattleRenderer calls it with the quality). */
     setGlow(tier, bloom) {
       ctx.halo.set(tier, bloom);
+      // (the toon segments' cores go over white for the bloom: high with bloom only)
+      ctx.bloom = tier === 'high' && !!bloom;
     },
 
     /** Takes one unit of a per-frame cap; false once it is spent. */

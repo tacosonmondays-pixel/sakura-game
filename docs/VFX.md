@@ -299,3 +299,59 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
   sits behind `import.meta.env.DEV`, so the production build has neither the panel nor lil-gui.
 - **Captures:** `node tools/vfx/capture.mjs --events starmine@80,tornado-sakura@400 --hp 100000` (a tornado event
   spawns one on the crowd; `--hp` keeps the crowd alive against the max-build Sandbox girls).
+
+## VFX library: toon strokes, chain lightning and beams (`docs/specs/VFX_LIBRARY.md`)
+
+The owner's plan for a styled look on every attack is `docs/specs/VFX_LIBRARY.md`: the house style, the research notes,
+every attack and the batch that styles it. Display only: the sim id does not change.
+
+### Toon strokes (`src/render/vfx/strokes.js`)
+
+- **What:** a capsule between two world points: round caps (clean joints), a crisp anti-aliased edge (no soft fringe).
+  An effect draws a line as layers pushed back to front: a dark ink line, the body colour, a white-hot core. It pushes
+  all of one layer, then the next, so a later layer covers an earlier one at every joint.
+- **Per stroke:**
+  - u along it and the leader's head and tail (nothing past the head, nothing before the tail).
+  - Erosion (`cut`): a hard cut through a 1D noise along the stroke, so the line breaks into dashes.
+  - Running bands (`BANDS`) and a soft added glow (`GLOW`).
+  - `hdr`, the colour × (1 + hdr): over white for the bloom (high only).
+  - `minPx`, the thinnest it is drawn: a line never thins into shimmering hairs on a phone.
+- **Draw cost:**
+  - One instanced draw call for every styled line of the battle; hidden while nothing is pushed.
+  - Premultiplied blend: the solid layers cover, the glow adds.
+  - Begun and ended with the sprite batches each frame (`BattleRenderer`), held through both impact frames, at most 6144 strokes.
+
+### Chain lightning (`src/render/vfx/lightning.js`, `lightningPresets.js`)
+
+- **Who:**
+  - Raika's chains and Chika's Tesla Tower chains (their attack styles: `attackFx/styles/raika.js`, `chika.js`).
+  - Storm Lance and every other chain the default layer draws (`fx.chain` hands it the points).
+- **Look:**
+  - Each hop is a zig-zag: long diagonals and short sharp jogs (`skew`), with a fork or two.
+  - Layers: a dark ink line (violet under gold, navy under ice blue), the body, a white-hot core.
+  - Each hop's leader races from the girl to its target in a few frames. The chain arrives within `CHAIN_SPAN` (0.24 s) however long it is.
+  - The path is struck again on a stepped beat (hand-drawn crackle). The core dims on every other strike.
+  - It leaves by erosion: it breaks into dashes and is gone.
+  - At each target: a star (flash-guarded), sparks (petals for sakura) and a ring on the ground.
+- **Presets:** `storm` (Raika: gold, violet ink), `tesla` (Chika: ice blue, navy ink; gold at the top of her path),
+  `arcane` (mystic violet), `sakura` (pink, plum ink, petals). Another chain colour gets storm's shape in that colour,
+  with a dark ink of its hue.
+- **Tiers:** high 6 kinks a hop, 2 forks, 5 sparks; medium 5, 1, 3; low 4 kinks and no forks, sparks or ground rings.
+  A busy board thins new bolts (fewer kinks, no forks) long before any cap. High with bloom: the core goes over white
+  and the body stays under the grade's knee (`BODY_UNDER_BLOOM`).
+- **Reduce Motion:** one still path a hop (no re-strike, no flicker), slower erosion, no turning sprites, half the sparks.
+- **Dev lab:** `?lightningLab` (dev server only, like the tornado's): presets, hops, forks, live tuning, "Copy preset".
+
+### Beams (`src/render/vfx/beams.js`, `beamPresets.js`)
+
+- **Who:**
+  - Luna's moon lance (it still sweeps: its end slides in from the last one), Miko's holy ray, Raika's Overcharge lance (a zig-zag struck again on the beat).
+  - Every beam the default layer draws (`fx.beam` hands it over, in the beam's own colour).
+- **Four beats:**
+  - Charge: a thin line races out, with a muzzle flare.
+  - Punch: it slams in wider (`overshoot`) and settles.
+  - Hold: bright bands run out to the target.
+  - Leave: it thins, its back end chases its front into the target, and it breaks into dashes.
+- **Impact:** a star (flash-guarded), a burst of inked impact lines flat to the camera, sparks spraying back, a ring on the ground, a brief scorch.
+- **Tiers:** high 8 impact lines, 5 sparks, running bands; medium 6 and 3; low a plain solid beam (no lines, sparks, ring, scorch or bands).
+- **Reduce Motion:** no punch, running bands, chasing tail, impact lines or re-strike; still sprites; half the sparks.

@@ -320,6 +320,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   if (attackFx) {
     attackFx.ctx.lightning = lightning;
     attackFx.ctx.beams = beams;
+    // every style's tracers, thrust lines and zig-zags (src/render/attackFx/patterns/segments.js) as toon strokes
+    attackFx.ctx.strokes = strokes;
   }
   // attack FX are decoration: an FX error must never cost a frame's sim events (won / lost) —
   // on the first one the FX switch off for this battle (today's look) and it is logged once
