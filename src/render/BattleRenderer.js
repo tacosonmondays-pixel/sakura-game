@@ -1438,6 +1438,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     get beams() {
       return beams;
     },
+    /** Extra (dev tooling, display only): the styled slashes and shockwaves (src/render/vfx/shapes.js). */
+    get shapes() {
+      return shapes;
+    },
     /** Extra: the visual clock's state (read-only copy; e2e, captures, debugging). */
     get visualClock() {
       return clock.snapshot();

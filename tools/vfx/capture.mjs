@@ -58,11 +58,12 @@ const MOMENTS = opt('frames', '120,180').split(',').map(Number).filter((n) => n 
 // Starmine Barrage: its fire tornado), tornado-<preset> (a display-only tornado from renderer.tornadoDemo on the
 // crowd: fire, sakura, vortex), chain-<preset> (styled chain lightning from the girl nearest the crowd through up to six
 // enemies: storm, tesla, arcane, sakura) or beam-<preset> (a styled beam from that girl to an enemy about three tiles
-// away: laser, moon, holy, storm)
+// away: laser, moon, holy, storm) or shapes (a styled slash on the enemy nearest the crowd's middle and a shockwave
+// ring round it)
 const EVENTS = opt('events', '').split(',').filter(Boolean).map((e) => {
   const [kind, at] = e.split('@');
   return { kind, at: Number(at) };
-}).filter((e) => (e.kind === 'ult' || e.kind === 'bosskill' || e.kind === 'starmine' || /^(tornado|chain|beam)-/.test(e.kind)) && e.at > 1).sort((a, b) => a.at - b.at);
+}).filter((e) => (e.kind === 'ult' || e.kind === 'bosskill' || e.kind === 'starmine' || (/^(tornado|chain|beam)-/.test(e.kind) || e.kind === 'shapes')) && e.at > 1).sort((a, b) => a.at - b.at);
 const EVENT_SHOTS = opt('event-shots', '0,2,6,16').split(',').map(Number).filter((n) => n >= 0);
 /** Every frame shot: [frame, label] (label = the event it shows, or ''). */
 const SHOTS = [...MOMENTS.map((f) => [f, '']), ...EVENTS.flatMap((e) => EVENT_SHOTS.map((o) => [e.at + o, e.kind]))]
@@ -398,6 +399,15 @@ async function captureOne(browser, base, { vp, quality, tag, perf }) {
             const y = med('y');
             const rec = window.__battle.renderer.tornadoDemo(kind.slice(8), x, y, { seconds: 2.5, size: 1.2 });
             return { ok: !!rec, x, y };
+          }
+          if (kind === 'shapes') {
+            const es = sim.enemies.filter((e) => !e.dead && !e.flying && !e.hidden);
+            if (!es.length) return { ok: false, why: 'no enemies' };
+            const med = (k) => es.map((e) => e[k]).sort((p, q) => p - q)[Math.floor(es.length / 2)];
+            const S = window.__battle.renderer.shapes;
+            S.slash(med('x'), 0.4, med('y'), 0.5, '#ff5d7a', { size: 1 });
+            S.shock(med('x'), med('y'), 0.3, 1.6, '#5ab8ff');
+            return { ok: true, x: med('x'), y: med('y') };
           }
           if (kind.startsWith('chain-') || kind.startsWith('beam-')) {
             const R = window.__battle.renderer;
