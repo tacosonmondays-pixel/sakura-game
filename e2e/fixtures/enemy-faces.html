@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Enemy faces</title>
+  <link rel="icon" href="data:," />
+  <!-- One enemy model through the game's own loader and materials (src/models/glbEnemy.js: toon body, jelly look,
+       inverted-hull outline, face mesh), lit with a battle light preset (src/render/themes.js resolveLook: day,
+       moonlit night, the Halloween lantern night) and seen from the battle camera's 48 degree pitch, posed at an
+       exact clip time. For e2e/slime-goblin-faces.mjs (face close-ups of every clip frame and the board). Dev server
+       only (http://127.0.0.1:<port>/e2e/fixtures/enemy-faces.html): never part of the build (vite builds index.html
+       only). window.__faces.show({ id, key, quality, light, view, clip, t, yaw, pitch, span }) draws one frame. -->
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #202028; }
+    canvas { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <script type="module">
+    import * as THREE from 'three';
+    import { loadFamily, instantiateEnemy, setEnemyDetail } from '/src/models/glbEnemy.js';
+    import { ENEMY_MAP } from '/src/data/enemies.js';
+    import { resolveLook } from '/src/render/themes.js';
+    import { loadCharacter, instantiateCharacter } from '/src/models/glbChibi.js';
+    import { UNIT_MAP } from '/src/data/units.js';
+
+    const q = new URLSearchParams(location.search);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Number(q.get('dpr') || 1));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    document.body.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
+    const hemi = new THREE.HemisphereLight('#ffffff', '#888888', 1);
+    const key = new THREE.DirectionalLight('#ffffff', 1);
+    const fill = new THREE.DirectionalLight('#ffffff', 0.3);
+    scene.add(hemi, key, key.target, fill);
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(3, 48), new THREE.MeshLambertMaterial({ color: '#9fd77a' }));
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+    let current = null;
+
+    const LIGHTS = {
+      day: () => resolveLook('sakura', {}, null),
+      night: () => resolveLook('sakura', { night: true }, null),
+      halloween: () => resolveLook('sakura', {}, { night: 'lantern' }),
+    };
+
+    function setLight(name) {
+      const look = (LIGHTS[name] || LIGHTS.day)();
+      const L = look.light;
+      hemi.color.set(L.sky);
+      hemi.groundColor.set(L.ground);
+      hemi.intensity = L.hemi;
+      key.color.set(L.key);
+      key.intensity = L.keyI;
+      fill.color.set(L.fill);
+      fill.intensity = L.fillI;
+      // the battle's key comes from up and to the left of the camera, the fill from the other side (yaw 0)
+      key.position.set(-6, L.keyY ?? 12, 7);
+      fill.position.set(6, 6, -7);
+      scene.background = new THREE.Color(look.bg);
+      ground.material.color.set(look.ground[0]);
+    }
+
+    /** Box of the drawn (skinned) meshes, outline shells left out. */
+    function drawnBox(obj) {
+      obj.updateMatrixWorld(true);
+      const box = new THREE.Box3();
+      obj.traverse((o) => {
+        if (!o.isMesh || !o.visible || o.userData.isOutline || o.userData.fx) return;
+        box.expandByObject(o, true);
+      });
+      return box;
+    }
+
+    /** Poses the enemy at `clip` time `t` (exact: every other action stopped). */
+    function pose(group, asset, clip, t) {
+      const mixer = group.userData.mixer;
+      mixer.stopAllAction();
+      const c = asset.clips[clip];
+      if (!c) return false;
+      const a = mixer.clipAction(c);
+      a.reset();
+      a.setLoop(THREE.LoopRepeat, Infinity);
+      a.setEffectiveWeight(1);
+      a.play();
+      mixer.setTime(Math.min(t, c.duration - 1e-4));
+      group.updateMatrixWorld(true);
+      return true;
+    }
+
+    /**
+     * World scale of every bone named in `names` (x, y, z lengths of its world matrix's axes), relative to the model's
+     * root (the glb:<key> group, scaled by the file's unitScale): 1 = the bone does not scale what it carries.
+     */
+    function boneScales(group, names) {
+      const out = {};
+      const inv = new THREE.Matrix4();
+      const m = new THREE.Matrix4();
+      const s = new THREE.Vector3();
+      const p = new THREE.Vector3();
+      const qq = new THREE.Quaternion();
+      let root = null;
+      group.traverse((o) => { if (!root && o.name?.startsWith('glb:')) root = o; });
+      group.traverse((o) => {
+        if (!o.isBone || !names.includes(o.name)) return;
+        inv.copy(root.matrixWorld).invert();
+        m.multiplyMatrices(inv, o.matrixWorld);
+        m.decompose(p, qq, s);
+        out[o.name] = [s.x, s.y, s.z].map((v) => +v.toFixed(4));
+      });
+      return out;
+    }
+
+    window.__faces = {
+      ready: true,
+      async load(key) {
+        return !!(await loadFamily(key));
+      },
+      /**
+       * Draws one frame. key: the model file key ('tripo/slime_green', 'tripo/slime_green.lod', 'slime' = the family
+       * mesh); view 'face' (a close-up of the face: `span` = share of the model's height across the frame) or 'full';
+       * yaw (degrees, 0 = straight at its front) and pitch (degrees down, 48 = the battle camera).
+       */
+      async show({ id = 'slime_green', key = `tripo/${id}`, quality = 'high', light = 'day', view = 'face', clip = 'idle', t = 0,
+        yaw = 0, pitch = 48, span = 0.75, faceAt = 0.5, ground: showGround = true } = {}) {
+        setEnemyDetail(/\.lod$/.test(key) ? 'lod' : 'full');
+        const asset = await loadFamily(key);
+        if (!asset) return { ok: false, error: `no asset ${key}` };
+        if (current) {
+          current.userData.dispose?.();
+          current.removeFromParent();
+        }
+        setLight(light);
+        ground.visible = showGround;
+        const def = ENEMY_MAP[id];
+        const group = instantiateEnemy(asset, def, { quality });
+        scene.add(group);
+        current = group;
+        // the rest box frames the shot (so a hop or a squash moves inside a still frame)
+        pose(group, asset, 'idle', 0);
+        const rest = drawnBox(group);
+        const H = rest.max.y - rest.min.y;
+        const posed = pose(group, asset, clip, t);
+        const W = renderer.domElement.clientWidth;
+        const Hpx = renderer.domElement.clientHeight;
+        renderer.setSize(W, Hpx, false);
+        const aspect = W / Hpx;
+        const target = new THREE.Vector3((rest.min.x + rest.max.x) / 2, rest.min.y + H * (view === 'face' ? faceAt : 0.5), (rest.min.z + rest.max.z) / 2);
+        if (view === 'head') {
+          // aim at the head bone's slot when the rig has one (the humanoids), else at faceAt
+          let head = null;
+          group.traverse((o) => { if (!head && o.isBone && o.name === 'head') head = o; });
+          if (head) {
+            pose(group, asset, 'idle', 0);
+            const hp = new THREE.Vector3();
+            head.getWorldPosition(hp);
+            target.set(hp.x, hp.y + H * 0.07, hp.z);
+            pose(group, asset, clip, t);
+          }
+        }
+        // `span` of the height across the shorter side of the screen
+        const half = (view === 'full' ? H * 1.5 : H * span) / 2;
+        const hx = aspect >= 1 ? half * aspect : half;
+        const hy = aspect >= 1 ? half : half / aspect;
+        camera.left = -hx;
+        camera.right = hx;
+        camera.top = hy;
+        camera.bottom = -hy;
+        camera.updateProjectionMatrix();
+        const P = THREE.MathUtils.degToRad(pitch);
+        const Y = THREE.MathUtils.degToRad(yaw);
+        const dir = new THREE.Vector3(Math.sin(Y) * Math.cos(P), Math.sin(P), Math.cos(Y) * Math.cos(P));
+        camera.position.copy(target).addScaledVector(dir, 20);
+        camera.lookAt(target);
+        renderer.render(scene, camera);
+        const info = { ok: posed, H: +H.toFixed(4), meshes: [] };
+        group.traverse((o) => { if (o.isMesh) info.meshes.push({ name: o.name, visible: o.visible, outline: !!o.userData.isOutline, material: o.material?.type }); });
+        info.faceScales = boneScales(group, ['face', 'eye_L', 'eye_R', 'mouth', 'blush_L', 'blush_R', 'body', 'top', 'head']);
+        return info;
+      },
+      /** A girl's face (src/models/glbChibi.js, her outline included) in her idle, for the hollow-eye sweep. */
+      async showGirl({ id, quality = 'high', light = 'day', yaw = 0, pitch = 20, span = 0.42 } = {}) {
+        const detail = quality === 'high' ? 'full' : 'lod';
+        const asset = await loadCharacter(id, detail);
+        if (!asset) return { ok: false, error: `no character ${id}` };
+        if (current) {
+          current.userData.dispose?.();
+          current.removeFromParent();
+        }
+        setLight(light);
+        const unit = { ...(UNIT_MAP[id.replace(/^(sentinel|future)-/, '')] || {}), id };
+        const group = instantiateCharacter(asset, unit, { quality });
+        scene.add(group);
+        current = group;
+        group.userData.animate?.(0, 0, 'idle');
+        group.updateMatrixWorld(true);
+        const box = drawnBox(group);
+        const H = box.max.y - box.min.y;
+        let head = null;
+        group.traverse((o) => { if (!head && o.isBone && /^head$/i.test(o.name)) head = o; });
+        const target = new THREE.Vector3((box.min.x + box.max.x) / 2, box.min.y + H * 0.72, (box.min.z + box.max.z) / 2);
+        if (head) {
+          head.getWorldPosition(target);
+          target.y += H * 0.1;
+        }
+        const W = renderer.domElement.clientWidth;
+        const Hpx = renderer.domElement.clientHeight;
+        renderer.setSize(W, Hpx, false);
+        const aspect = W / Hpx;
+        const half = H * span / 2;
+        camera.left = -(aspect >= 1 ? half * aspect : half);
+        camera.right = -camera.left;
+        camera.top = aspect >= 1 ? half : half / aspect;
+        camera.bottom = -camera.top;
+        camera.updateProjectionMatrix();
+        const P = THREE.MathUtils.degToRad(pitch);
+        const Y = THREE.MathUtils.degToRad(yaw);
+        camera.position.copy(target).addScaledVector(new THREE.Vector3(Math.sin(Y) * Math.cos(P), Math.sin(P), Math.cos(Y) * Math.cos(P)), 20);
+        camera.lookAt(target);
+        renderer.render(scene, camera);
+        return { ok: true, H };
+      },
+      renderer,
+      scene,
+    };
+  </script>
+</body>
+</html>

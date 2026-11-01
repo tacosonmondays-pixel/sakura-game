@@ -37,6 +37,10 @@ await server.listen();
 const { port } = server.httpServer.address();
 const base = `http://127.0.0.1:${port}/`;
 const save = await server.ssrLoadModule('/src/systems/save.js');
+// enemies switched off for now (glbEnemy TRIPO_PAUSED) wear their family mesh: not expected on their own model
+const { TRIPO_PAUSED } = await server.ssrLoadModule('/src/models/glbEnemy.js');
+const own = (ids) => ids.filter((id) => !TRIPO_PAUSED.includes(id));
+if (TRIPO_PAUSED.length) log(`paused (family mesh): ${TRIPO_PAUSED.join(', ')}`);
 
 const { browser, label } = await launchChromium();
 log(`browser: ${label}`);
@@ -101,7 +105,7 @@ async function battle(hero, stage, enemies, landmarks, { quality = 'high', ult =
       let k = 0;
       for (let r = 0; r < 5; r++) for (const id of ids) sim.spawnEnemy(id, { pathIndex: 0, dist: 1 + (k++ % 30) * 0.45, hpMul: 400 });
     }, [FAMILY_REPS, busy]);
-    const want = FAMILY_REPS.map((id) => (busy === 'lod' ? `${id}.lod` : id));
+    const want = own(FAMILY_REPS).map((id) => (busy === 'lod' ? `${id}.lod` : id));
     await page.waitForFunction((ids) => {
       const seen = new Set();
       window.__battle.renderer.sceneProbe().traverse((o) => { if (o.name?.startsWith('glb:tripo/')) seen.add(o.name.slice(10)); });
@@ -128,7 +132,7 @@ async function battle(hero, stage, enemies, landmarks, { quality = 'high', ult =
     });
     log(`  busy wave (${busy}): ${JSON.stringify(m)}`);
     busyStats[busy] = m;
-    check(m.files.length === FAMILY_REPS.length && m.files.every((f) => (busy === 'lod' ? f.endsWith('.lod') : !f.endsWith('.lod'))), `busy wave wears the ${busy} files (${m.files.length})`);
+    check(m.files.length === want.length && m.files.every((f) => (busy === 'lod' ? f.endsWith('.lod') : !f.endsWith('.lod'))), `busy wave wears the ${busy} files (${m.files.length})`);
     if (shotsDir) await page.screenshot({ path: `${shotsDir}/b2-busy-${busy}-${VW}x${VH}.png` });
     await context.close();
     return;
@@ -228,7 +232,7 @@ async function battle(hero, stage, enemies, landmarks, { quality = 'high', ult =
       ids.forEach((id, i) => sim.spawnEnemy(id, { pathIndex: 0, dist: 1.2 + i * 1.1, hpMul: 400 }));
     }, enemies);
   }
-  const want = enemies;
+  const want = own(enemies);
   await page.waitForFunction(([ids, lm]) => {
     const scene = window.__battle.renderer.sceneProbe();
     const seen = new Set();

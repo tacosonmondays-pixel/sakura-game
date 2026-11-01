@@ -5,7 +5,8 @@ in place of its family's shared mesh (the family GLB stays the fallback).
     python3.11 tools/tripo/build_tripo_enemy.py --source <file.glb> --id brigade_gnat --kind hover
 
 --kind humanoid takes a Tripo animate_rig GLB (biped) or an unrigged website download (rigged from its shape by
-tripolib/autorig.py); hover / vehicle / blob take an unrigged GLB and get a rigid two-bone rig. Steps: face the game's front, floor pivot, 1 m reference size, decimate to --tris,
+tripolib/autorig.py, which assumes a T-pose: the A-posed batch-2 enemies came out with their arms on the head and
+thigh bones and were rebuilt by tools/tripo/rerig_tripo_enemy.py, docs/art/tripo/enemy-rigs.md); hover / vehicle / blob take an unrigged GLB and get a rigid two-bone rig. Steps: face the game's front, floor pivot, 1 m reference size, decimate to --tris,
 move / idle / hit / death / special (tripolib/clips_enemy.py), export, Meshy phone packing (half-scale
 storage, extras.unitScale 2, WebP base colour at --tex). extras: { id, source: 'tripo', style: 'textured',
 height, unitScale, kind }. `height` is the size the game scales to 0.6 x EnemyDef.size: the figure's height
