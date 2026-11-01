@@ -5,10 +5,11 @@
 .ug { --ug-ring: 42px; --ug-ico: 26px; display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
 @media (min-height: 481px) { .ug { --ug-ring: 60px; --ug-ico: 36px; gap: var(--sp-3); } }
 
-/* path colours: fills only (bars, rings, track); words stay ink */
-.ug-row, .ugp { --pc: #ff5d73; }
-.ug-row.p1, .ugp.p1 { --pc: #2b7fff; }
-.ug-row.p2, .ugp.p2 { --pc: #a86bff; }
+/* path colours: fills only (bars, rings, track); words stay ink. One set with the battle board, the upgrade drawer and
+   the girl page's rows (pink, cyan, yellow; path looks r3): the yellow is the deeper gold of the light pages */
+.ug-row, .ugp { --pc: #ff6b8b; }
+.ug-row.p1, .ugp.p1 { --pc: #0ea5d8; }
+.ug-row.p2, .ugp.p2 { --pc: #d99a00; }
 
 .ug-row { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .ug-head { display: flex; align-items: center; gap: var(--sp-2); min-height: 24px; min-width: 0; flex-wrap: wrap; row-gap: 2px; }
