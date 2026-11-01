@@ -64,7 +64,7 @@ export const TORNADO_PRESETS = Object.freeze({
  * whether the HDR boost may run (high, and only while the bloom is on).
  */
 export const TORNADO_TIERS = Object.freeze({
-  high: Object.freeze({ rings: 22, core: 6, embers: 12, hdr: true }),
+  high: Object.freeze({ rings: 22, core: 4, embers: 12, hdr: true }),
   medium: Object.freeze({ rings: 13, core: 0, embers: 6, hdr: false }),
   low: Object.freeze({ rings: 8, core: 0, embers: 0, hdr: false }),
 });

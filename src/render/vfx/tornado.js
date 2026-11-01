@@ -18,6 +18,8 @@ import { TORNADO_PRESETS, TORNADO_TIERS, MAX_TORNADOES } from './tornadoPresets.
 const TAU = Math.PI * 2;
 const RAMP_W = 8;
 const NOISE_N = 128;
+/** The column's colour on high with bloom (× alpha): under the grade's knee (src/render/vfx/grade.js KNEE). */
+export const GLOW_UNDER_BLOOM = 0.6;
 
 const VERT = /* glsl */`
 attribute vec4 iA; // x, z, t (seconds since the cast), seconds the column is fed
@@ -97,7 +99,7 @@ void main() {
   float heat = band * (0.3 + 1.0 * n) + vCore * vF.w;
   float cut = mix(vG.x, vG.y, vAge);
   float m = step(cut, heat) * step(0.0, band); // the hard toon edge: in or out, no soft fringe and no discard
-  float k = clamp((heat - cut) * 1.6 + vCore * 0.2, 0.0, 0.999) * mix(0.7, 1.0, vFront);
+  float k = clamp((heat - cut) * 1.6, 0.0, 0.999) * mix(0.7, 1.0, vFront);
   vec3 col = texture2D(uRamp, vec2(k, vRow)).rgb;
   // only the hottest band burns above white (high + bloom: vE.w > 0)
   col *= 1.0 + vE.w * step(0.8, k);
@@ -107,7 +109,7 @@ void main() {
   // bright day), the hottest band is purely added light (alpha 0): one draw call gives the toon body and the glow.
   // Readability: the low rings (where the walkers are) and the near arc cover little, so the crowd stays visible.
   float body = vG.z * (1.0 - step(0.8, k)) * (1.0 - vCore) * smoothstep(0.12, 0.45, vAge) * mix(1.0, 0.45, vFront);
-  gl_FragColor = vec4(col * a * vE.z, a * body * min(1.0, vE.z * 1.3));
+  gl_FragColor = vec4(col * a * vE.z, a * body);
   #include <colorspace_fragment>
 }`;
 
@@ -261,9 +263,13 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
     const nc = tier.core;
     const total = n + nc;
     const hdr = tier.hdr && bloom ? p.hdr : 0;
+    // high with bloom: the grade's tone curve bleaches sums above its knee towards white, so the column's colour is
+    // kept under it (the toon bands stay saturated) and only the hottest band reaches the bloom (hdr)
+    const glow = hdr > 0 ? GLOW_UNDER_BLOOM : 1;
     const row = rowOf(rec.id);
-    // more rings share the same light: the column is as bright on every tier, only finer on high
-    const share = Math.pow(Math.min(1, 13 / n), 0.45);
+    // more rings share the same cover: the column hides as little of the board on high as on medium (its colour stays
+    // full: high is finer, never paler)
+    const share = Math.min(1, 13 / n);
     for (let i = 0; i < total; i++) {
       const j = (start + i) * 4;
       const core = i >= n ? 1 : 0;
@@ -278,11 +284,11 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       const D = attrs.iD.array;
       D[j] = rm ? 0 : p.sway; D[j + 1] = p.swayHz; D[j + 2] = rm ? 0 : p.spin; D[j + 3] = life;
       const E = attrs.iE.array;
-      E[j] = rm ? 0 : p.helix; E[j + 1] = p.inner; E[j + 2] = p.alpha * share * (rm ? 0.7 : 1) * (core ? 0.35 : 1); E[j + 3] = hdr;
+      E[j] = rm ? 0 : p.helix; E[j + 1] = p.inner; E[j + 2] = p.alpha * glow * (rm ? 0.7 : 1) * (core ? 0.18 : 1); E[j + 3] = hdr;
       const F = attrs.iF.array;
       F[j] = p.noise[0]; F[j + 1] = p.noise[1]; F[j + 2] = rm ? 0 : p.scroll; F[j + 3] = p.core?.heat ?? 0;
       const G = attrs.iG.array;
-      G[j] = p.erode[0]; G[j + 1] = p.erode[1]; G[j + 2] = p.body ?? 0.5; G[j + 3] = p.core?.radius ?? 0.45;
+      G[j] = p.erode[0]; G[j + 1] = p.erode[1]; G[j + 2] = (p.body ?? 0.5) * share; G[j + 3] = p.core?.radius ?? 0.45;
     }
     return total;
   }

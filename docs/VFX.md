@@ -285,8 +285,8 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
   to its preset: `akane.starmine` → `fire`: its `abilityWarn` event starts the column on the barrage's spot (1.25× the
   shells' radius), and every `abilityShell` of that cast feeds it for 0.45 s more, so it ends with the barrage at any
   game speed (the shells run on sim time).
-- **Tiers** (`TORNADO_TIERS`): high 22 rings + 6 core rings + 12 embers; medium 13 rings + 6 embers; low 8 rings, no
-  embers. Each ring's light is shared (`share`), so the column is as bright on every tier, only finer on high. At
+- **Tiers** (`TORNADO_TIERS`): high 22 rings + 4 faint core rings + 12 embers; medium 13 rings + 6 embers; low 8 rings, no
+  embers. On high the extra rings share the cover (`share`), and with bloom the colour is kept under the grade's knee (`GLOW_UNDER_BLOOM`), so high is finer, not paler. At
   most 3 at once.
 - **Reduce motion:** no spin, twist, sway, helix or noise scroll, the ground rings do not turn; slower rise; dimmer.
 - **Impact frames** hide the column for their two frames, like the other normal-blend layers.
