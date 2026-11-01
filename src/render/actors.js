@@ -16,6 +16,7 @@ import { pointAt } from '../sim/path.js';
 import { STEP, HALO_REACH, HALO_MAX } from '../sim/constants.js';
 import { costumeFor, enemyExtraFor, buildCostume, COSTUME_SLOT } from './costumes.js';
 import { headTunnel } from './trackMesh.js';
+import { PathLooks, PATH_COLORS } from './pathLooks/index.js';
 
 const TAU = Math.PI * 2;
 /** Drones drawn at most (two co-op players with Chika lines at Sentry 5: 9–12 each). */
@@ -49,8 +50,6 @@ const STATUS_ICONS = {
   hold: ['st_hold', '#6fcf5e'],
 };
 const STATUS_ORDER = ['freeze', 'stun', 'shock', 'hold', 'curse', 'hex', 'ground', 'burn', 'poison', 'spore', 'slow', 'shred', 'mark', 'vulnerable', 'silence', 'reveal', 'soak'];
-const TIER_RING = [null, null, null, '#6fb8ff', '#c08bff', '#ffd84d'];
-const PATH_COLORS = ['#ff6b8b', '#4cc9f0', '#ffd43b'];
 const WHITE = new THREE.Color('#ffffff');
 const _box = new THREE.Box3();
 const colorCache = new Map();
@@ -150,6 +149,8 @@ export class Actors {
     this.victory = false;
     /** seeded render-only randomness (the renderer hands its own fork: src/render/vfx/random.js) */
     this.rand = createVisualRandom(visualSeed('actors'));
+    // what each girl's model shows of her upgrade paths (pips, hand glows, socketed pieces, T5 aura): display only
+    this.pathLooks = new PathLooks({ quality, rand: this.rand });
     this.fxHook = null; // attack FX (render/attackFx): projectile views, drones, lunges, tossed traps
     this.cameraYaw = 0; // the battle camera's yaw (BattleRenderer sets it each frame): figures that face it (facing.js)
     this._c = new THREE.Color();
@@ -203,6 +204,7 @@ export class Actors {
   setQuality(q) {
     if (q === this.quality) return;
     this.quality = q;
+    this.pathLooks.setQuality(q);
     // rebuild every model at the new detail level
     for (const v of this.towers.values()) this._disposeView(v);
     for (const v of this.enemies.values()) this._disposeView(v);
@@ -214,6 +216,7 @@ export class Actors {
 
   setShadows(on) {
     this.shadows = on;
+    this.pathLooks.shadows = on;
     for (const v of [...this.towers.values(), ...this.enemies.values()]) {
       v.model.traverse((o) => {
         if (o.isMesh && !o.userData.isOutline) o.castShadow = on;
@@ -353,6 +356,7 @@ export class Actors {
     let state = 'idle';
     if (this.victory) state = 'victory';
     else if (t.disabled > 0) state = 'disabled';
+    if (v.poseOverride) state = v.poseOverride; // staging previews only (BattleRenderer.setPathLookPose)
     v.state = state;
     if (this.fxHook) {
       const o = this.fxHook.towerOffset(t.uid);
@@ -360,6 +364,7 @@ export class Actors {
       m.position.z = t.y + o.z;
     }
     m.userData.animate?.(this.time, dt, state);
+    this.pathLooks.update(v, t, this.time);
   }
 
   /** Called on 'sell' / removal to restore hidden water decor. */
@@ -888,15 +893,10 @@ export class Actors {
         gN.push(tw.x, y, tw.y, 0.62, 0.62, R.disc, 0.85, 0.97, 1, 0.45);
       }
       gN.push(tw.x, y + 0.002, tw.y, 0.62, 0.62, R.shadow, 0.05, 0.05, 0.12, 0.38);
-      const maxTier = Math.max(...tw.tiers);
-      const ring = tw.isHero ? '#ffd84d' : TIER_RING[maxTier];
-      if (ring) {
-        const c = this._c.set(ring);
-        gA.push(tw.x, y + 0.004, tw.y, 0.86, 0.86, R.ring, c.r, c.g, c.b, 0.7 + 0.25 * Math.sin(t * 3 + tw.uid));
-        if (maxTier >= 5 && this.rand() < 0.05) {
-          this.fx.spawn({ batch: 'bbA', uv: R.star, x: tw.x + (this.rand() - 0.5) * 0.6, y: 0.2 + (v.lift || 0), z: tw.y + (this.rand() - 0.5) * 0.6, vy: 0.8, s0: 0.12, s1: 0.02, life: 0.8, color: ring });
-        }
-      }
+      // the hero keeps her gold ring; every girl's tiers read from her path pips (the old max-tier ring), her hand
+      // glows, pieces and T5 aura (src/render/pathLooks)
+      if (tw.isHero) gA.push(tw.x, y + 0.004, tw.y, 0.86 * (v.scale / TOWER_SCALE), 0.86 * (v.scale / TOWER_SCALE), R.ring, 1, 0.85, 0.3, 0.7 + 0.25 * Math.sin(t * 3 + tw.uid));
+      this.pathLooks.draw({ tw, v, y, gN, gA, bbA: this.b.bbA, R, time: t, cameraYaw: this.cameraYaw, fx: this.fx });
       if (tw.buffed) {
         gA.push(tw.x, y + 0.003, tw.y, 0.7, 0.7, R.ring, 1, 0.55, 0.8, 0.45 + 0.2 * Math.sin(t * 4 + tw.uid));
       }

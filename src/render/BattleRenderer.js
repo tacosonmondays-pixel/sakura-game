@@ -1543,6 +1543,27 @@ export function createBattleRenderer(container, sim, opts = {}) {
         ...(ud.anchors ? { anchors: { lens: at(ud.anchors.lens), muzzle: at(ud.anchors.muzzle) } } : null),
       };
     },
+    /**
+     * Extra (previews / e2e, render only): path looks (src/render/pathLooks). setPathLookOverride draws a girl as if her
+     * tiers were `tiers` (null: her real tiers); setPathLookPose holds her in a clip state ('walk', 'idle'…; null: off);
+     * pathLooksProbe reports what she wears (pieces, glows, aura, meshes, triangles).
+     */
+    setPathLookOverride(uid, tiers) {
+      actors.pathLooks.setOverride(uid, tiers);
+    },
+    setPathLookPose(uid, state) {
+      const v = actors.towers.get(uid);
+      if (!v) return;
+      if (state === 'attack') v.model.userData.playAttack?.(); // one swing over her idle
+      else v.poseOverride = state || null;
+    },
+    pathLooksProbe(uid) {
+      return actors.pathLooks.probe(actors.towers.get(uid));
+    },
+    /** Extra (perf runs): the PathLooks layer itself, so a script can time its per-frame update and draw. */
+    get pathLooks() {
+      return actors.pathLooks;
+    },
     /** Extra: read-only info for debugging / previews. */
     get info() {
       return {

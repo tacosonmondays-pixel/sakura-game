@@ -497,6 +497,9 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
   // any other clip once (companions: 'appear'); girls only ship attack clips, so this is a no-op for them
   group.userData.playClip = (name) => anim.playClip(name);
   group.userData.assetId = asset.id;
+  // path-look sockets (src/render/pathLooks): the instance's skeleton root and a bone's rest frame in figure space
+  group.userData.glbRoot = root;
+  group.userData.restBone = (name) => restBone(asset, name);
   group.userData.setExpression = (name) => anim.setExpression(name);
   // selected: her own colours a little brighter with a soft light rim (highlight.js) on the body
   // (shared toon material) and the painted face (her own twin, made on the first tap)
@@ -529,6 +532,32 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
   };
   anim.update(0, 0, pose === 'attack' ? 'idle' : pose);
   return group;
+}
+
+/** The bone called `name` under root (a figure's meshes can share a bone's name: the face mesh is renamed 'head'). */
+export function findBone(root, name) {
+  let hit = null;
+  root?.traverse((o) => {
+    if (!hit && o.isBone && o.name === name) hit = o;
+  });
+  return hit;
+}
+
+/**
+ * A bone's rest frame in figure space (the instance group's space: the asset's own untouched scene, which never
+ * animates, scaled by unitScale), cached per asset; null when the rig has no such bone.
+ */
+function restBone(asset, name) {
+  asset.restBones ??= new Map();
+  if (asset.restBones.has(name)) return asset.restBones.get(name);
+  const src = findBone(asset.scene, name);
+  let m = null;
+  if (src) {
+    asset.scene.updateMatrixWorld(true);
+    m = new THREE.Matrix4().makeScale(asset.unitScale, asset.unitScale, asset.unitScale).multiply(src.matrixWorld);
+  }
+  asset.restBones.set(name, m);
+  return m;
 }
 
 /** Drives the mixer: state crossfades, one-shot attacks, blinking and expressions. */
