@@ -281,7 +281,9 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
     what stands behind the column stays visible; the young rings at the base are faint (`COVER_YOUNG`).
   - **High with bloom** renders into the linear composer, where covering rings settle exactly on the ramp's colours (no
     overshoot). So it reads its own ramp row: every band × `COVER_GAIN` in display bytes (the overshoot medium gets on the
-    canvas, baked in), which brings back the lemon and white. The k ≥ 0.8 band also goes `hdr` over white so the bloom
+    canvas, baked in), which brings back the lemon and white. The very back of the funnel (the far arc, `vFront` < 0.2)
+    takes the preset's own colours instead, blending into the cover row towards the sides: the back stays amber where a
+    thin lemon over grass would read lime, and the rest burns lemon and white. The k ≥ 0.8 band also goes `hdr` over white so the bloom
     catches it; the hot bands sit above the grade's knee, so its tone curve rolls them off as it does every bright core.
   - **High with bloom off** draws on the canvas like medium and keeps the bands as given.
 - **Vertex shader:** age = fract(t / life + phase); radius r0 → r1 along age^0.7; the ring spins and twists with its
@@ -308,13 +310,18 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
     `SPARSE_ERODE × (1 − 13 ÷ 22)`. That is the same for every ring of the tier (one uniform), core rings included.
     It shapes the mask only. The colour index still comes from the preset's own erosion, so high's colours are never
     darker for it.
-  - Measured in the lab (bloom and grade on, fire, column masked, high vs medium; colours split by hue):
-    - lemon (hue 48–70°) 0.13 vs 0.12, white 0.05 vs 0.05, murky 0 vs 0, brightness 0.73 vs 0.73;
-    - what stands 0.9–2.4 tiles behind the column keeps a median 0.52 of its contrast (medium 0.33); right at the base
-      every tier hides most of it.
+  - Measured in the lab (bloom and grade on, fire at t = 1.2, column masked, high vs medium; colours split by hue):
+    - on the lab's green: lemon (hue 48–70°) 0.13 vs 0.12, white 0.05 vs 0.05, yellow-green (hue 66–95°) 0.05 vs 0.00,
+      murky 0 vs 0, brightness 0.73 vs 0.73;
+    - on the game's grass colour (`#9dba5f`): lemon 0.20 vs 0.20, white 0.05 vs 0.05, yellow-green 0.03 vs 0.00;
+    - what stands behind the column (27 spots: three stand-ins at a time 0.9–2.4 tiles behind the centre, at t = 0.9,
+      1.2 and 2.0) keeps a median 0.30 of its contrast on high and 0.35 on medium (Reduce Motion: 0.67 and 0.70);
+      right at the base every tier hides most of it.
 - **Errors:** a tornado error switches the tornadoes off for the battle (`tornadoSafe` in `BattleRenderer`, logged once). The
   battle and every other effect carry on.
-- **Reduce motion:** no spin, twist, sway, helix or noise scroll; the ground rings and petals do not turn; slower rise; dimmer.
+- **Reduce motion:** no spin, twist, sway, helix or noise scroll; the ground rings and petals do not turn; slower rise.
+  Medium and low are dimmer (the colour they add × 0.7). High's cover blend keeps its strength: it adds no light, and a
+  thinner lemon over grass would read lime.
 - **Impact frames** hide the column for both their frames (`tornado.hold(impact.active)` before its update), like the
   other normal-blend layers.
 - **Dev lab:** `?tornadoLab` in the dev server (`npm run dev`, e.g. `/?tornadoLab#/lobby`, then a battle) mounts a

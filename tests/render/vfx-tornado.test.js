@@ -169,6 +169,19 @@ describe('tornado layer', () => {
     expect(g.getAttribute('iF').array[2]).toBe(0); // no scroll
   });
 
+  it('reduce motion dims what medium and low add, never high\'s cover (it adds no light; thin lemon over grass reads lime)', () => {
+    const alpha = (q, rm) => {
+      const s = new THREE.Scene();
+      const t = make(q, { scene: s, reduceMotion: rm });
+      t.spawn('fire', 0, 0);
+      t.update(1 / 60);
+      return s.children[0].geometry.getAttribute('iE').array[2];
+    };
+    for (const q of ['medium', 'low']) expect(alpha(q, true)).toBeCloseTo(alpha(q, false) * 0.7, 6);
+    expect(alpha('high', true)).toBeCloseTo(alpha('high', false), 6);
+    expect(alpha('high', false)).toBeCloseTo(TORNADO_PRESETS.fire.alpha, 6);
+  });
+
   it('packs each tornado\'s own erosion, cover, hole and core radius (two presets at once); high is sparser in shape only', () => {
     const s = new THREE.Scene();
     const t = make('high', { scene: s });
@@ -196,6 +209,11 @@ describe('tornado layer', () => {
   });
 
   it('high with bloom: the band at k ≥ 0.8 goes over white, nothing else changes with the bloom (it keys on the bloom, not the preset)', () => {
+    const s0 = () => {
+      const s = new THREE.Scene();
+      make('high', { scene: s });
+      return s.children[0];
+    };
     const read = (bloom, presets) => {
       const s = new THREE.Scene();
       const t = make('high', { scene: s, presets });
@@ -218,6 +236,11 @@ describe('tornado layer', () => {
     const n = Object.keys(TORNADO_PRESETS).length;
     expect(on.row).toBeCloseTo((n + 0.5) / (2 * n), 6);
     expect(off.row).toBeCloseTo(0.5 / (2 * n), 6);
+    // the cover rows are the ramp's upper half: the very back of the funnel reads the given row half a texture below
+    // (amber, not a thin lime over grass), blending into the cover row towards the sides
+    expect(on.row - 0.5).toBeCloseTo(off.row, 6);
+    const frag = s0().material.fragmentShader;
+    expect(frag).toMatch(/if \(vRow > 0\.5\) col = mix\(texture2D\(uRamp, vec2\(k, vRow - 0\.5\)\)\.rgb \* \(1\.0 \+ vE\.w \* hot\), col, smoothstep\(0\.0, 0\.2, vFront\)\);/);
     // a preset with no HDR boost still gets the same high look under the bloom (no haze path keyed on the preset)
     const flat = { ...TORNADO_PRESETS, fire: { ...TORNADO_PRESETS.fire, hdr: 0 } };
     const f = read(true, flat);

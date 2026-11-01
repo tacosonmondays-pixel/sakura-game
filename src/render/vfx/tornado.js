@@ -6,8 +6,9 @@
 // every band covers the board in its own colour (no red-over-green murk), its far arc eroded harder so what stands behind
 // stays visible. With bloom on, high renders into the linear composer, where covering rings settle on the ramp's own
 // colours, so it reads its own ramp row: the hot bands brighter by COVER_GAIN (the overshoot medium gets from adding on
-// the screen); the k ≥ 0.8 band also goes `hdr` over white for the bloom. With bloom off, high draws on the canvas like
-// medium and keeps the bands as given.
+// the screen), except at the very back of the funnel, which keeps the preset's own colours (amber, not a thin lime); the
+// k ≥ 0.8 band also goes `hdr` over white for the bloom. With bloom off, high draws on the canvas like medium and keeps
+// the bands as given. Reduce Motion dims what medium and low add, never high's cover (it adds no light).
 //
 //   const tornado = createTornadoFx({ scene, batches, atlas, quality, reduceMotion, rand });
 //   tornado.spawn('fire', x, z, { seconds: 2, size: 1.2 });   // world x / z (the sim's x / y), the cast's radius
@@ -39,7 +40,7 @@ export const COVER_YOUNG = 0.35;
  * own ramp row carries that overshoot, one gain per band, coolest → hottest.
  */
 export const COVER_GAIN = [1, 1.1, 1.25, 1.65, 1.9];
-/** High's cover blend: how much harder the far arc erodes (thinner, never fainter: no red-over-green brown). */
+/** High's cover blend: how much harder the far arc erodes (fewer tongues behind the column: what stands behind stays visible). */
 export const COVER_FAR_ERODE = 0.4;
 
 const VERT = /* glsl */`
@@ -136,6 +137,9 @@ void main() {
   if (uCover > 0.5) {
     // high: a toon layer over the board in its own colour (premultiplied over: in the linear composer, high with bloom,
     // stacked rings settle on the ramp colour; on the canvas, bloom off, the output's encoding lifts them like medium's)
+    // On the cover row (the upper half of the ramp), the very back of the funnel (vFront < 0.2) takes the preset's own
+    // colours, blending into the cover row's towards the sides: amber there, where a thin lemon over grass would read lime
+    if (vRow > 0.5) col = mix(texture2D(uRamp, vec2(k, vRow - 0.5)).rgb * (1.0 + vE.w * hot), col, smoothstep(0.0, 0.2, vFront));
     float A = m * fade * vOn * vE.z * mix(uFront.x, uFront.y, vFront) * mix(uYoung, 1.0, smoothstep(0.12, 0.45, vAge));
     gl_FragColor = vec4(col * A, A);
     #include <colorspace_fragment>
@@ -335,7 +339,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       const D = attrs.iD.array;
       D[j] = rm ? 0 : p.sway; D[j + 1] = p.swayHz; D[j + 2] = rm ? 0 : p.spin; D[j + 3] = life;
       const E = attrs.iE.array;
-      E[j] = rm ? 0 : p.helix; E[j + 1] = p.inner; E[j + 2] = p.alpha * (rm ? 0.7 : 1) * (core ? 0.18 : 1); E[j + 3] = hdr;
+      E[j] = rm ? 0 : p.helix; E[j + 1] = p.inner; E[j + 2] = p.alpha * (rm && !tier.cover ? 0.7 : 1) * (core ? 0.18 : 1); E[j + 3] = hdr;
       const F = attrs.iF.array;
       F[j] = p.noise[0]; F[j + 1] = p.noise[1]; F[j + 2] = rm ? 0 : p.scroll; F[j + 3] = p.core?.heat ?? 0;
       const G = attrs.iG.array;
