@@ -7,11 +7,14 @@
 // stays visible. With bloom on, high renders into the linear composer, where covering rings settle on the ramp's own
 // colours, so it reads its own ramp row: the hot bands brighter by COVER_GAIN (the overshoot medium gets from adding on
 // the screen), except at the very back of the funnel, which keeps the preset's own colours (amber, not a thin lime; the
-// back's sides can still read yellow-green over grass greener than the game's); the k ≥ 0.8 band also goes `hdr` over
-// white for the bloom. With bloom off, high draws on the canvas like medium and keeps the bands as given. Reduce Motion
-// dims what medium and low add. High is eroded instead of thinned (RM_COVER): with bloom its cover adds no light in the
-// linear composer and a thinner lemon over grass reads lime; with bloom off erosion only takes tongues away. Either way
-// what stands behind a column that stands still stays readable.
+// back's sides can still read yellow-green over grass greener than Sakura Court's, as the lake and shrine maps' by day);
+// the k ≥ 0.8 band also goes `hdr` over white for the bloom. With bloom off, high draws on the canvas like medium and
+// keeps the bands as given. Reduce Motion dims what medium and low add. High is eroded instead of thinned (RM_COVER):
+// with bloom its cover adds no light in the linear composer and a thinner lemon over grass reads lime; with bloom off
+// erosion takes tongues away and cools the rest (it never adds light). Either way what stands behind a column that
+// stands still stays readable. Under Reduce Motion high's funnel faces the camera that draws it (uView: its front and
+// far arc, the erosion, the colour index and the back's given row), so the portrait camera, which looks from the side,
+// sees the same funnel as the landscape camera.
 //
 //   const tornado = createTornadoFx({ scene, batches, atlas, quality, reduceMotion, rand });
 //   tornado.spawn('fire', x, z, { seconds: 2, size: 1.2 });   // world x / z (the sim's x / y), the cast's radius
@@ -49,7 +52,9 @@ export const COVER_FAR_ERODE = 0.4;
  * High under Reduce Motion (with bloom or without): the rings stand still, so what stands behind and inside a column
  * that is fully up must stay at least as readable as on medium. The column is eroded instead of thinned (a thinner
  * lemon over grass reads lime): every ring `all` harder, the far arc `far` harder still, and the colour index follows
- * the extra erosion (`all`), so the tongues that are left keep the whole ramp instead of only its hottest bands.
+ * the extra erosion (`all`), so the tongues that are left keep the whole ramp instead of only its hottest bands. Here the
+ * funnel's front and far arc (COVER_FAR_ERODE's too) are the camera's, so the portrait camera, which looks from the side,
+ * keeps both walls; on the landscape camera they are the world's, as without Reduce Motion.
  */
 export const RM_COVER = { far: 0.3, all: 0.22 };
 
@@ -71,6 +76,8 @@ varying float vRow;
 varying float vRnd;
 varying float vCore;
 varying float vFront;
+varying float vCam;
+uniform vec2 uView; // the ground direction toward the camera (unit; (0, 1) for the landscape battle camera)
 void main() {
   float t = iA.z;
   float life = iD.w;
@@ -92,6 +99,8 @@ void main() {
   vec3 wp = vec3(iA.x + p.x + helix.x + sway.x, 0.06 + age * iC.z, iA.y + p.y + helix.y + sway.y);
   // the arc facing the camera (+z) burns brighter, the far arc dimmer: the column reads as a funnel, not a stack
   vFront = 0.5 + 0.5 * (p.y / max(r, 1e-3));
+  // the same, facing the camera wherever it looks from (the portrait camera turns 90°): Reduce Motion's far arc
+  vCam = 0.5 + 0.5 * (dot(p, uView) / max(r, 1e-3));
   gl_Position = projectionMatrix * modelViewMatrix * vec4(wp, 1.0);
   // the ring's own (unrotated) position: the angle is taken per pixel (no seam where atan wraps)
   vXZ = position.xz;
@@ -114,6 +123,7 @@ uniform vec2 uFront;   // COVER_FRONT
 uniform float uYoung;  // COVER_YOUNG
 uniform float uFar;    // COVER_FAR_ERODE
 uniform vec2 uRm;      // high under Reduce Motion: RM_COVER (far, all); (0, 0) otherwise
+varying float vCam;    // as vFront, but facing the camera (uView) wherever it looks from
 varying vec2 vXZ;
 varying float vAge;
 varying float vOn;
@@ -137,9 +147,12 @@ void main() {
   float heat = band * (0.3 + 1.0 * n) + vCore * vF.w;
   float cut = mix(vG.x, vG.y, vAge); // the preset's erosion
   // the hard toon edge: in or out, no soft fringe and no discard (high's far arc erodes harder: it is behind)
-  float m = step(cut + uSparse + (uFar + uRm.x) * (1.0 - vFront) + uRm.y, heat) * step(0.0, band);
+  // the funnel's front: the world's (+z) as on the landscape camera; under Reduce Motion (uRm.x > 0: high) the camera's,
+  // so the portrait camera, which looks from the side, sees the same funnel (on the landscape camera vCam is vFront)
+  float fr = uRm.x > 0.0 ? vCam : vFront;
+  float m = step(cut + uSparse + (uFar + uRm.x) * (1.0 - fr) + uRm.y, heat) * step(0.0, band);
   // the colour index from the preset's erosion (the tier's sparser mask never darkens it)
-  float k = clamp((heat - cut - uRm.y) * 1.6, 0.0, 0.999) * mix(0.7, 1.0, vFront);
+  float k = clamp((heat - cut - uRm.y) * 1.6, 0.0, 0.999) * mix(0.7, 1.0, fr);
   vec3 col = texture2D(uRamp, vec2(k, vRow)).rgb;
   float hot = step(0.8, k);
   // the band at k ≥ 0.8 (the top of the yellow, the white) burns above white (high + bloom: vE.w > 0)
@@ -148,19 +161,19 @@ void main() {
   if (uCover > 0.5) {
     // high: a toon layer over the board in its own colour (premultiplied over: in the linear composer, high with bloom,
     // stacked rings settle on the ramp colour; on the canvas, bloom off, the output's encoding lifts them like medium's)
-    // On the cover row (the upper half of the ramp), the very back of the funnel (vFront < 0.2) takes the preset's own
+    // On the cover row (the upper half of the ramp), the very back of the funnel (fr < 0.2) takes the preset's own
     // colours, blending into the cover row's towards the sides: amber there, where a thin lemon over grass would read lime
-    if (vRow > 0.5) col = mix(texture2D(uRamp, vec2(k, vRow - 0.5)).rgb * (1.0 + vE.w * hot), col, smoothstep(0.0, 0.2, vFront));
-    float A = m * fade * vOn * vE.z * mix(uFront.x, uFront.y, vFront) * mix(uYoung, 1.0, smoothstep(0.12, 0.45, vAge));
+    if (vRow > 0.5) col = mix(texture2D(uRamp, vec2(k, vRow - 0.5)).rgb * (1.0 + vE.w * hot), col, smoothstep(0.0, 0.2, fr));
+    float A = m * fade * vOn * vE.z * mix(uFront.x, uFront.y, fr) * mix(uYoung, 1.0, smoothstep(0.12, 0.45, vAge));
     gl_FragColor = vec4(col * A, A);
     #include <colorspace_fragment>
     return;
   }
-  float a = m * fade * vOn * mix(0.35, 1.0, vFront);
+  float a = m * fade * vOn * mix(0.35, 1.0, fr);
   // premultiplied (One, OneMinusSrcAlpha): the cooler bands cover the board a little (body: the colour reads on a
   // bright day), the band at k ≥ 0.8 is purely added light (alpha 0): one draw call gives the toon body and the glow.
   // Readability: the low rings (where the walkers are) and the near arc cover little, so the crowd stays visible.
-  float body = vG.z * (1.0 - step(0.8, k)) * (1.0 - vCore) * smoothstep(0.12, 0.45, vAge) * mix(1.0, 0.45, vFront);
+  float body = vG.z * (1.0 - step(0.8, k)) * (1.0 - vCore) * smoothstep(0.12, 0.45, vAge) * mix(1.0, 0.45, fr);
   gl_FragColor = vec4(col * a * vE.z, a * body);
   #include <colorspace_fragment>
 }`;
@@ -291,6 +304,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       uFront: { value: new THREE.Vector2(COVER_FRONT[0], COVER_FRONT[1]) }, uYoung: { value: COVER_YOUNG },
       uFar: { value: 0 },
       uRm: { value: new THREE.Vector2(0, 0) },
+      uView: { value: new THREE.Vector2(0, 1) },
     },
     vertexShader: VERT,
     fragmentShader: FRAG,
@@ -307,6 +321,14 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
   const mesh = new THREE.Mesh(geo, material);
   mesh.frustumCulled = false;
   mesh.renderOrder = 22;
+  // the ground direction toward the camera that draws it (Reduce Motion's far arc is the camera's far arc: the portrait
+  // camera looks from the side); straight down keeps the last one
+  const _dir = new THREE.Vector3();
+  mesh.onBeforeRender = (_r, _s, cam) => {
+    cam.getWorldDirection(_dir);
+    const l = Math.hypot(_dir.x, _dir.z);
+    if (l > 1e-4) material.uniforms.uView.value.set(-_dir.x / l, -_dir.z / l);
+  };
   mesh.visible = false;
   mesh.name = 'tornadoFx';
   scene.add(mesh);

@@ -144,6 +144,34 @@ describe('tornado layer', () => {
     for (const a of pushed) expect(a[10] ?? 0).toBe(0); // rotation argument
   });
 
+  it('under Reduce Motion the far arc is the camera\'s: uView follows the camera that draws it (the portrait camera looks from the side)', () => {
+    const s = new THREE.Scene();
+    const t = make('high', { scene: s, reduceMotion: true });
+    t.spawn('fire', 0, 0);
+    t.update(1 / 60);
+    const mesh = s.children[0];
+    const view = (cam) => {
+      cam.updateMatrixWorld();
+      mesh.onBeforeRender(null, s, cam);
+      return mesh.material.uniforms.uView.value.toArray().map((v) => Math.round(v * 1e6) / 1e6 + 0);
+    };
+    const P = (48 * Math.PI) / 180;
+    const land = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+    land.position.set(0, Math.sin(P) * 30, Math.cos(P) * 30);
+    land.lookAt(0, 0.6, 0);
+    expect(view(land)).toEqual([0, 1]); // the landscape camera: the world's front (+z), as without Reduce Motion
+    const port = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+    port.position.set(Math.cos(P) * 30, Math.sin(P) * 30, 0);
+    port.lookAt(0, 0.6, 0);
+    expect(view(port)).toEqual([1, 0]); // the portrait camera (turned 90°): toward +x
+    const down = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+    down.position.set(0, 30, 0);
+    down.lookAt(0, 0, 0);
+    expect(view(down)).toEqual([1, 0]); // straight down: the last one stays
+    // the vertex shader faces vCam toward uView; the mask uses it only under Reduce Motion (uRm.x > 0)
+    expect(mesh.material.vertexShader).toMatch(/vCam = 0\.5 \+ 0\.5 \* \(dot\(p, uView\) \/ max\(r, 1e-3\)\);/);
+  });
+
   it('is the same column for the same seed (seeded visual randomness)', () => {
     const a = new THREE.Scene();
     const b = new THREE.Scene();
@@ -227,9 +255,14 @@ describe('tornado layer', () => {
     expect(E[per * 4 + 1]).toBeCloseTo(TORNADO_PRESETS.vortex.inner, 5);
     // the shader: the sparser cut shapes the mask, the preset's cut picks the colour
     const frag = mesh.material.fragmentShader;
-    expect(frag).toMatch(/step\(cut \+ uSparse \+ \(uFar \+ uRm\.x\) \* \(1\.0 - vFront\) \+ uRm\.y, heat\)/);
+    expect(frag).toMatch(/float fr = uRm\.x > 0\.0 \? vCam : vFront;/);
+    expect(frag).toMatch(/step\(cut \+ uSparse \+ \(uFar \+ uRm\.x\) \* \(1\.0 - fr\) \+ uRm\.y, heat\)/);
     // (Reduce Motion's extra erosion on high moves the colour index with it: the tongues left keep the whole ramp)
     expect(frag).toMatch(/clamp\(\(heat - cut - uRm\.y\) \* 1\.6/);
+    // (the colour index's front, the far arc's faintness and the back's given-row blend follow the same front)
+    expect(frag).toMatch(/mix\(0\.7, 1\.0, fr\)/);
+    expect(frag).toMatch(/mix\(uFront\.x, uFront\.y, fr\)/);
+    expect(frag).toMatch(/smoothstep\(0\.0, 0\.2, fr\)\);/);
   });
 
   it('high with bloom: the band at k ≥ 0.8 goes over white, nothing else changes with the bloom (it keys on the bloom, not the preset)', () => {
@@ -264,7 +297,7 @@ describe('tornado layer', () => {
     // (amber, not a thin lime over grass), blending into the cover row towards the sides
     expect(on.row - 0.5).toBeCloseTo(off.row, 6);
     const frag = s0().material.fragmentShader;
-    expect(frag).toMatch(/if \(vRow > 0\.5\) col = mix\(texture2D\(uRamp, vec2\(k, vRow - 0\.5\)\)\.rgb \* \(1\.0 \+ vE\.w \* hot\), col, smoothstep\(0\.0, 0\.2, vFront\)\);/);
+    expect(frag).toMatch(/if \(vRow > 0\.5\) col = mix\(texture2D\(uRamp, vec2\(k, vRow - 0\.5\)\)\.rgb \* \(1\.0 \+ vE\.w \* hot\), col, smoothstep\(0\.0, 0\.2, fr\)\);/);
     // a preset with no HDR boost still gets the same high look under the bloom (no haze path keyed on the preset)
     const flat = { ...TORNADO_PRESETS, fire: { ...TORNADO_PRESETS.fire, hdr: 0 } };
     const f = read(true, flat);
