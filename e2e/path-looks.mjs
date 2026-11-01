@@ -32,7 +32,9 @@ const ONLY = opt('only', null);
 const QUALITY = opt('quality', 'high');
 const STAGE = opt('stage', '1-2');
 mkdirSync(SHOTS, { recursive: true });
-const BOARD = 'docs/art/previews/path-looks-board.jpg';
+const BOARD = opt('boardOut', 'docs/art/previews/path-looks-board.jpg');
+const BOARD_TITLE = opt('title', 'Path looks — round 2: Phase 1 fixes + rollout batch 1');
+const BOARD_NOTE = opt('note', 'Round 2: one merged skinned mesh a girl (≤ 2 draw calls), no gauge at 0-0-0, one shared colour set with the upgrade drawer, Akane T3 enlarged, Sentinel Akane outfit row.');
 const CONFIGS = [[0, 0, 0], [3, 0, 0], [0, 3, 0], [0, 0, 3], [5, 2, 0], [2, 0, 5], [0, 5, 2]];
 const GIRLS = opt('girls', 'aoi,akane,luna,rei,yuki,momo,kage,nami,hikari,akane@akane_sentinel').split(',');
 const FRAMES = opt('frames', '1') !== '0';
@@ -57,7 +59,12 @@ log(`browser: ${label}`);
 const errors = [];
 
 const HEROES = new Set(['luna', 'nami', 'hikari']);
-const TOWER_GIRLS = ['aoi', 'akane', 'rei', 'yuki', 'momo', 'kage'];
+// the battle formation: the tower girls this run draws (by --girls), else the Phase 1 + batch 1 six (perf / phone boards)
+const TOWER_GIRLS = (() => {
+  const ids = [...new Set(GIRLS.map((g) => g.split('@')[0]).filter((g) => !HEROES.has(g)))];
+  const base = ['aoi', 'akane', 'rei', 'yuki', 'momo', 'kage'];
+  return ids.length && ids.every((g) => !base.includes(g)) ? ids : [...new Set([...base, ...ids])].slice(0, 12);
+})();
 
 async function battlePage({ width, height, dpr = 1, quality = QUALITY, camera = 'free', stage = STAGE, hero = 'luna', skins = {} }) {
   const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: dpr });
@@ -214,6 +221,7 @@ if (want('muzzle')) {
       }
       let frames = 0;
       let blocked = 0;
+      let hidden = 0;
       const why = {};
       for (const c of HEROES.has(id) ? HSETS : SETS) {
         await page.evaluate(([uid, c]) => window.__battle.renderer.setPathLookOverride(uid, c), [uid, c]);
@@ -222,6 +230,10 @@ if (want('muzzle')) {
           if (f === 10 || f === 20) await page.evaluate((uid) => window.__battle.renderer.setPathLookPose(uid, 'attack'), uid);
           const b = await page.evaluate((uid) => new Promise((r) => requestAnimationFrame(() => r(window.__battle.renderer.pathLooksMuzzleBlocked(uid)))), uid);
           frames++;
+          if (b === 'hidden') {
+            hidden++;
+            continue;
+          }
           if (b) {
             blocked++;
             const k = `${cfgName(c)} ${b}`;
@@ -230,7 +242,9 @@ if (want('muzzle')) {
         }
       }
       const detail = Object.entries(why).map(([k, n]) => `${k} ×${n}`).join(', ');
-      check(blocked === 0, `${w}×${h} ${id}: muzzle clear in ${frames - blocked}/${frames} frames${detail ? ` (blocked: ${detail})` : ''}`);
+      // a frame where her own figure hides the tip (a staff resting behind her hair) is counted apart: pieces must
+      // never be what hides a tip the camera would otherwise see
+      check(blocked === 0, `${w}×${h} ${id}: muzzle clear in ${frames - blocked - hidden}/${frames} frames${hidden ? `, ${hidden} hidden by her own figure behind a piece` : ''}${detail ? ` (blocked: ${detail})` : ''}`);
     }
     if (cur) await cur.context.close();
   }
@@ -243,10 +257,13 @@ if (want('muzzle')) {
 // --phoneSet phase1 (7 Aoi + 7 Akane at the tier sets, Luna Lv 25) | batch1 (Rei, Yuki, Momo, Kage at 3-0-0, 0-3-0, 0-0-3
 // and one T5 set each, the hero at Lv 25: --hero nami | hikari)
 const PHONE_SET = opt('phoneSet', 'phase1');
-const PHONE_HERO = opt('hero', PHONE_SET === 'phase1' ? 'luna' : 'nami');
+const PHONE_HERO = opt('hero', PHONE_SET === 'batch1' ? 'nami' : 'luna');
 const PHONE_PLAN = PHONE_SET === 'phase1'
   ? ['aoi', 'akane'].flatMap((unit) => CONFIGS.map((c) => ({ unit, c })))
-  : ['rei', 'yuki', 'momo', 'kage'].flatMap((unit, i) => [[3, 0, 0], [0, 3, 0], [0, 0, 3], [[5, 2, 0], [2, 0, 5], [0, 5, 2]][i % 3]].map((c) => ({ unit, c })));
+  : PHONE_SET === 'batch2'
+    // six girls, each at one T3 (the paths in turn) and one T5 set
+    ? ['sango', 'umeko', 'shiro', 'midori', 'suzu', 'raika'].flatMap((unit, i) => [[[3, 0, 0], [0, 3, 0], [0, 0, 3]][i % 3], [[5, 2, 0], [2, 0, 5], [0, 5, 2]][(i + 1) % 3]].map((c) => ({ unit, c })))
+    : ['rei', 'yuki', 'momo', 'kage'].flatMap((unit, i) => [[3, 0, 0], [0, 3, 0], [0, 0, 3], [[5, 2, 0], [2, 0, 5], [0, 5, 2]][i % 3]].map((c) => ({ unit, c })));
 
 async function realBoard(page) {
   return page.evaluate(([plan, hero]) => {
@@ -423,11 +440,12 @@ if (want('board')) {
   const fromDisk = (f) => `data:image/png;base64,${readFileSync(f).toString('base64')}`;
   const tryRead = (f) => { try { return fromDisk(f); } catch { return null; } };
   const readSpots = (tag) => { try { return JSON.parse(readFileSync(`${SHOTS}/phone-spots${tag}.json`, 'utf8')); } catch { return { dpr: 2, spots: [] }; } };
-  const phones = [
-    { tag: '', title: 'phase 1: 7 Aoi + 7 Akane, Luna Lv 25' },
-    { tag: '-batch1-nami', title: 'batch 1: Rei, Yuki, Momo, Kage; Nami Lv 25' },
-    { tag: '-batch1-hikari', title: 'batch 1: the same girls; Hikari Lv 25' },
-  ].map((p) => ({ ...p, img: tryRead(`${SHOTS}/phone-board${p.tag}.png`), spots: readSpots(p.tag) })).filter((p) => p.img);
+  const PHONE_TITLES = {
+    '': 'phase 1: 7 Aoi + 7 Akane, Luna Lv 25', '-batch1-nami': 'batch 1: Rei, Yuki, Momo, Kage; Nami Lv 25',
+    '-batch1-hikari': 'batch 1: the same girls; Hikari Lv 25', '-batch2-luna': 'batch 2: Sango, Umeko, Shiro, Midori, Suzu, Raika',
+  };
+  // --phones lists the phone shots to show (their tags, '' = phase 1), default the round-2 three
+  const phones = opt('phones', ',-batch1-nami,-batch1-hikari').split(',').map((tag) => ({ tag, title: PHONE_TITLES[tag] || tag })).map((p) => ({ ...p, img: tryRead(`${SHOTS}/phone-board${p.tag}.png`), spots: readSpots(p.tag) })).filter((p) => p.img);
   const T5SETS = [[5, 2, 0], [2, 0, 5], [0, 5, 2]];
   const NAMES = {
     aoi: 'Aoi — 1 Piercing · 2 Volley · 3 Sky Hunter', akane: 'Akane — 1 Big Bang · 2 Wildfire · 3 Rockets (T3 enlarged)',
@@ -435,7 +453,11 @@ if (want('board')) {
     rei: 'Rei — 1 Whirlwind · 2 Duelist · 3 Counter', yuki: 'Yuki — 1 Deep Freeze · 2 Frostbite · 3 Permafrost',
     momo: 'Momo — 1 Fan Club · 2 Merch · 3 Encore', kage: 'Kage — 1 Steel · 2 Shadow Mark · 3 Kunai',
     nami: 'Nami (hero) — 1 Frostbrand · 2 Undertow · 3 Harbor', hikari: 'Hikari (hero) — 1 Radiant · 2 Sanctuary · 3 Lightbringer',
+    sango: 'Sango — 1 Armor-Breaker · 2 Fragmentation · 3 Siege', umeko: 'Umeko — 1 Lighthouse · 2 Plum Rain · 3 Undertow',
+    shiro: 'Shiro — 1 Execution · 2 Spotter · 3 Follow-up', midori: 'Midori — 1 Toxicology · 2 Corrosion · 3 Field Kit',
+    suzu: 'Suzu — 1 Mines · 2 Binding · 3 Seals', raika: 'Raika — 1 Forked · 2 Overcharge · 3 Rhythm',
   };
+  const nameOf = (u) => NAMES[u] || (u.includes('@') ? `${u.split('@')[0][0].toUpperCase()}${u.split('@')[0].slice(1)} in Sentinel Style (outfit check)` : u);
   const rows = GIRLS.map((unit, gi) => {
     const tag = unit.replace('@', '-');
     const id = unit.split('@')[0];
@@ -446,7 +468,7 @@ if (want('board')) {
     }
     crops = crops.slice(0, 4);
     return {
-      unit, title: NAMES[unit] || unit,
+      unit, title: nameOf(unit),
       tiles: CONFIGS.map((c) => ({ label: cfgName(c), src: tryRead(`${SHOTS}/close-${tag}-${cfgName(c)}.png`) })),
       frames: ['idle', 'attack', 'walk'].map((pose) => ({ label: `${cfgName(fset)} ${pose}`, src: tryRead(`${SHOTS}/frame-${tag}-${cfgName(fset)}-${pose}.png`) })),
       crops,
@@ -455,7 +477,7 @@ if (want('board')) {
   const context = await browser.newContext({ viewport: { width: 800, height: 600 } });
   const page = await context.newPage();
   await page.goto(`${base}?onboarding=0#/`, { waitUntil: 'load' });
-  const jpeg = await page.evaluate(async ({ rows, phones }) => {
+  const jpeg = await page.evaluate(async ({ rows, phones, title, note }) => {
     const load = (src) => new Promise((res) => { if (!src) return res(null); const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; });
     const pad = 12;
     const tw = 170; // close-up tile: the 340×360 shot at half size
@@ -468,7 +490,7 @@ if (want('board')) {
     const H = 100 + rows.length * rowH;
     const imgs = [];
     for (const p of phones) imgs.push(await load(p.img));
-    const phoneH = Math.floor((H - 110) / Math.max(1, phones.length)) - 26;
+    const phoneH = Math.min(1100, Math.floor((H - 110) / Math.max(1, phones.length)) - 26);
     const phoneW = imgs[0] ? Math.round((imgs[0].width / imgs[0].height) * phoneH) : 0;
     const leftW = pad + 7 * (tw + 6) + 10 + 3 * (fw + 6) + 10 + 4 * (pw + 6) + pad;
     const W = leftW + phoneW + pad;
@@ -480,11 +502,11 @@ if (want('board')) {
     g.fillRect(0, 0, W, H);
     g.fillStyle = '#fff';
     g.font = 'bold 34px sans-serif';
-    g.fillText('Path looks — round 2: Phase 1 fixes + rollout batch 1', pad, 42);
+    g.fillText(title, pad, 42);
     g.font = '17px sans-serif';
     g.fillStyle = '#cfc8e8';
     g.fillText('Display only (sim id unchanged). Per girl: close-ups at each tier set (1280×720, free camera, medium, render-only override) · one T5 set idle / attack / walk · crops from real 390×844 battles (DPR 2).', pad, 68);
-    g.fillText('Round 2: one merged skinned mesh a girl (≤ 2 draw calls), no gauge at 0-0-0, one shared colour set with the upgrade drawer, Akane T3 enlarged, Sentinel Akane outfit row.', pad, 90);
+    g.fillText(note, pad, 90);
     const key = [['path 1', '#ff6b8b'], ['path 2', '#4cc9f0'], ['path 3', '#ffd43b']];
     let kx = leftW - 340;
     for (const [l, c] of key) {
@@ -543,7 +565,7 @@ if (want('board')) {
       py += phoneH + 26;
     });
     // the best quality that fits 300 KB: full size first, then smaller
-    for (const sc of [1, 0.85, 0.72, 0.62, 0.55, 0.48]) {
+    for (const sc of [1, 0.85, 0.72, 0.62, 0.55, 0.48, 0.42, 0.36]) {
       const out = document.createElement('canvas');
       out.width = Math.round(W * sc);
       out.height = Math.round(H * sc);
@@ -557,7 +579,7 @@ if (want('board')) {
       }
     }
     return { url: cv.toDataURL('image/jpeg', 0.5), q: 0.5, W, H };
-  }, { rows, phones });
+  }, { rows, phones, title: BOARD_TITLE, note: BOARD_NOTE });
   mkdirSync('docs/art/previews', { recursive: true });
   writeFileSync(BOARD, Buffer.from(jpeg.url.split(',')[1], 'base64'));
   const size = statSync(BOARD).size;

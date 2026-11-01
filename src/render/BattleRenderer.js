@@ -1563,7 +1563,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     /**
      * Extra (e2e, render only): does any path-look piece stand between the battle camera and this girl's weapon-tip
      * muzzle right now? A ray from the camera through the muzzle against every piece triangle (skinned merges posed as
-     * drawn). null: she has no muzzle anchor; false: clear; else the blocking pieces' names.
+     * drawn). null: she has no muzzle anchor; false: clear; 'hidden': her own figure already hides the tip this frame;
+     * else the blocking pieces' names.
      */
     pathLooksMuzzleBlocked(uid) {
       const v = actors.towers.get(uid);
@@ -1584,6 +1585,14 @@ export function createBattleRenderer(container, sim, opts = {}) {
       const dist = ray.ray.origin.distanceTo(p);
       const hit = ray.intersectObjects(meshes, false).find((h) => h.distance < dist - 0.005);
       if (!hit) return false;
+      // a tip her own figure already hides this frame (a staff head resting behind her hair) is not the pieces' doing
+      const body = [];
+      v.model.traverse((o) => {
+        if (!o.isMesh || o.userData.isOutline || o.name.startsWith('pathLook')) return;
+        if (o.isSkinnedMesh) o.boundingSphere = null;
+        body.push(o);
+      });
+      if (ray.intersectObjects(body, false).some((h) => h.distance < dist - 0.005)) return 'hidden';
       // which pieces (the blocking mesh's holder or merge says)
       let o = hit.object;
       while (o && !o.userData.pieces) o = o.parent;

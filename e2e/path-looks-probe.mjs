@@ -14,9 +14,10 @@ const server = await createServer({ root: process.cwd(), server: { port: 0, host
 await server.listen();
 const base = `http://127.0.0.1:${server.httpServer.address().port}/`;
 const { browser } = await launchChromium();
-const page = await (await browser.newContext({ viewport: { width: 800, height: 600 } })).newPage();
+const [W, H] = opt('size', '800x600').split('x').map(Number);
+const page = await (await browser.newContext({ viewport: { width: W, height: H } })).newPage();
 await openApp(page, base);
-const girls = ['aoi', 'akane', 'rei', 'yuki', 'momo', 'kage'];
+const girls = [...new Set(['aoi', 'akane', unit].filter((u) => !['luna', 'nami', 'hikari'].includes(u)))];
 await seedSave(page, { girls: [...girls, 'luna', 'nami', 'hikari'], hero, towers: girls, settings: { quality: 'low' } });
 await openBattle(page, { stage: '1-2' });
 const uid = await page.evaluate((u) => window.__ab.place(u), unit);
@@ -39,5 +40,20 @@ const out = await page.evaluate((uid) => {
 }, uid);
 for (const r of out.rows) console.log(r.join('  '));
 console.log('muzzle blocked now:', out.blocked);
+// --swing: 30 frames with two attack swings; print the muzzle (figure space) on every frame a piece blocks it
+if (args.includes('--swing')) {
+  for (let f = 0; f < 30; f++) {
+    if (f === 5 || f === 18) await page.evaluate((uid) => window.__battle.renderer.setPathLookPose(uid, 'attack'), uid);
+    const r = await page.evaluate((uid) => new Promise((res) => requestAnimationFrame(() => {
+      const model = window.__battle.renderer.towerModel(uid);
+      const inv = model.matrixWorld.clone().invert();
+      const mz = model.userData.anchors?.muzzle;
+      const e = inv.elements;
+      const p = mz ? [mz.x * e[0] + mz.y * e[4] + mz.z * e[8] + e[12], mz.x * e[1] + mz.y * e[5] + mz.z * e[9] + e[13], mz.x * e[2] + mz.y * e[6] + mz.z * e[10] + e[14]].map((v) => +v.toFixed(3)) : null;
+      res({ b: window.__battle.renderer.pathLooksMuzzleBlocked(uid), p, yaw: +(model.rotation.y).toFixed(2), cam: window.__battle.renderer.cameraState.position });
+    })), uid);
+    console.log(f, r.b ? 'BLOCKED' : 'clear  ', JSON.stringify(r.p), 'facing', r.yaw);
+  }
+}
 await browser.close();
 await server.close();

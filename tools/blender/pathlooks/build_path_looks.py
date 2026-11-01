@@ -1050,6 +1050,497 @@ def hikari_suncrown(name):
     return pc
 
 
+# ---------------------------------------------------------------------------------------------
+# Rollout batch 2 (docs/specs/path-looks.md §5): Sango, Umeko, Shiro, Midori, Suzu, Raika (all students). Nothing on a
+# weapon head (a weapon-tip muzzle sits there): guns and staves keep their own looks; pieces ride the head, the back,
+# or float / circle beside them.
+# ---------------------------------------------------------------------------------------------
+
+CORAL, CORAL_D, NAVY = '#ff8a80', '#d8574f', '#1d4e89'
+
+
+def shell(pc, c, d, L, r, body=STEEL, band=PINK, tip=None):
+    """A pointed artillery shell lying along d (base at c)."""
+    dn = Vector(d).normalized()
+    C = Vector(c)
+    pc.cyl(tuple(C), tuple(C + dn * L * 0.62), r, r, 8, body, cap_color=darken(body, 0.35))
+    pc.cyl(tuple(C + dn * L * 0.18), tuple(C + dn * L * 0.3), r * 1.04, r * 1.04, 8, band)
+    pc.cyl(tuple(C + dn * L * 0.62), tuple(C + dn * L), r, 0.0, 8, tip or lighten(body, 0.2), smooth=False)
+
+
+def sango_shells(name):
+    pc = Piece(name)
+    pc.body.box(tuple(V(0, -0.02, 0)), (0.12, 0.05, 0.05), '#6e4429')
+    for i, x in enumerate((-0.035, 0.0, 0.035)):
+        shell(pc, (x, -0.02, 0), (x * 1.5, 1, -0.1), 0.2 if i == 1 else 0.17, 0.02, body=STEEL, band=PINK, tip='#c7cfda')
+    return pc
+
+
+def sango_anchor(name):
+    pc = Piece(name)
+    # a big coral-and-steel anchor slung across her back (pivot at its middle, shank along +y)
+    pc.cyl((0, -0.2, 0), (0, 0.2, 0), 0.022, 0.022, 8, '#c7cfda')
+    pc.ring((0, 0.24, 0), 0.04, 0.012, 14, 4, '#c7cfda', normal=(0, 0, 1))
+    pc.cyl((-0.1, 0.12, 0), (0.1, 0.12, 0), 0.016, 0.016, 8, CORAL_D)
+    crescent(pc, (0, -0.08, 0), 0.13, 0.02, '#c7cfda', face=(0, 0, 1), arc=math.pi)
+    for s in (1, -1):
+        pc.cyl((s * 0.13, -0.08, 0), (s * 0.17, -0.0, 0), 0.02, 0.0, 4, '#c7cfda', smooth=False)
+    pc.ring((0, -0.02, 0), 0.05, 0.01, 14, 4, CORAL, normal=(0, 0, 1))
+    pc.ball((0, 0.12, 0.02), 0.024, PINK)  # path stud
+    pc.ring((0, 0, 0), 0.26, 0.005, 24, 3, lighten(PINK, 0.4), normal=(0, 0, 1), glow=True)
+    return pc
+
+
+def bomb(pc, c, r, color='#2f3a4e', glow=True):
+    pc.ball(c, r, color, seg=8, rings=5)
+    pc.ball((c[0] + r * 0.35, c[1] + r * 0.35, c[2] + r * 0.5), r * 0.25, lighten(color, 0.4), seg=5, rings=3)
+    pc.cyl((c[0], c[1] + r * 0.85, c[2]), (c[0] + r * 0.2, c[1] + r * 1.4, c[2]), r * 0.15, r * 0.12, 5, '#c8a06a')
+    pc.ball((c[0] + r * 0.22, c[1] + r * 1.5, c[2]), r * 0.22, '#ffd08a', glow=glow, seg=5, rings=3)
+
+
+def sango_bombs(name):
+    pc = Piece(name)
+    for (x, y, r) in ((0, 0, 0.05), (0.07, -0.035, 0.038), (-0.06, -0.04, 0.034)):
+        bomb(pc, (x, y, 0), r)
+    pc.ball((0, -0.02, 0.05), 0.014, CYAN)  # path dot
+    return pc
+
+
+def mortar(pc, c, r=0.035):
+    x, y, z = c
+    pc.cyl((x, y - r, z), (x, y + r * 0.2, z), r * 1.3, r * 1.1, 8, '#6e4429')
+    pc.cyl((x, y, z), (x, y + r * 2.0, z + r * 0.4), r * 0.75, r * 0.8, 8, '#4a5466')
+    pc.ring((x, y + r * 2.0, z + r * 0.4), r * 0.8, r * 0.18, 10, 3, CYAN, normal=(0, 1, 0.2))
+
+
+def sango_mortars(name):
+    pc = Piece(name)
+    R = 0.34
+    for i in range(3):
+        a = TAU * i / 3
+        mortar(pc, (math.cos(a) * R, 0, math.sin(a) * R), 0.04)
+    pc.ring((0, -0.03, 0), R, 0.005, 24, 3, lighten(CYAN, 0.4), glow=True)
+    return pc
+
+
+def sango_spyglass(name, big=False):
+    pc = Piece(name)
+    # a brass spyglass tucked in her beret band and a feather (big: a captain's plume and an anchor medallion)
+    pc.cyl((-0.08, 0, 0), (0.06, 0.02, 0), 0.016, 0.02, 8, GOLD_M)
+    pc.cyl((0.06, 0.02, 0), (0.1, 0.026, 0), 0.022, 0.022, 8, '#6e4429')
+    pc.ball((0.1, 0.026, 0.0), 0.012, '#9fe3ff', seg=5, rings=3)
+    n = 3 if big else 1
+    for i in range(n):
+        a = 0.35 * (i - (n - 1) / 2)
+        feather(pc, (-0.02, 0.01, -0.02), (math.sin(a) - 0.2, 1, -0.45), (1, 0, 0), 0.2 if big else 0.15, 0.05, GOLD if i == 0 else WHITE, CORAL, split=0.6)
+    if big:
+        pc.ring((0, 0.0, 0.04), 0.035, 0.01, 12, 4, GOLD_M, normal=(0, 0.3, 1))
+        pc.ball((0, 0.0, 0.05), 0.016, lighten(GOLD, 0.5), glow=True, seg=5, rings=3)
+    return pc
+
+
+# -- Umeko: 0 Lighthouse (a paper lantern by her head -> four lanterns circling), 1 Plum Rain (plum blossom crown ->
+#           a plum-petal water wheel behind her), 2 Undertow (a pearl ring circling -> a great clam shell behind her) ---
+
+PLUM, PLUM_D, PEARL = '#f7a6c8', '#d9708f', '#fbf6ff'
+
+
+def lantern(pc, c, r, glow=True):
+    x, y, z = c
+    pc.ball(c, (r, r * 1.2, r), '#ffe8b0' if not glow else '#fff0c8', glow=glow, seg=8, rings=5)
+    for dy in (-r * 1.15, r * 1.15):
+        pc.cyl((x, y + dy - r * 0.08, z), (x, y + dy + r * 0.08, z), r * 0.55, r * 0.55, 8, '#c0392b')
+    pc.cyl((x, y + r * 1.25, z), (x, y + r * 1.7, z), r * 0.08, r * 0.08, 4, '#5a3a2a')
+    pc.cyl((x, y - r * 1.25, z), (x, y - r * 1.9, z), r * 0.12, r * 0.02, 4, PINK)  # path tassel
+
+
+def umeko_lantern(name):
+    pc = Piece(name)
+    lantern(pc, (0, 0, 0), 0.05)
+    return pc
+
+
+def umeko_lanterns(name):
+    pc = Piece(name)
+    R = 0.36
+    for i in range(4):
+        a = TAU * i / 4
+        lantern(pc, (math.cos(a) * R, 0.03 * (i % 2), math.sin(a) * R), 0.042)
+    pc.ring((0, -0.07, 0), R, 0.005, 24, 3, lighten(PINK, 0.45), glow=True)
+    return pc
+
+
+def blossom(pc, c, r, color=PLUM, face=(0, 1, 0)):
+    f = Vector(face).normalized()
+    up = Vector((0, 0, 1)) if abs(f.z) < 0.9 else Vector((0, 1, 0))
+    right = up.cross(f).normalized()
+    up = f.cross(right).normalized()
+    for i in range(5):
+        a = TAU * i / 5
+        d = right * math.cos(a) + up * math.sin(a)
+        pc.ball(tuple(Vector(c) + d * r * 0.6), (r * 0.45, r * 0.45, r * 0.45), color, seg=4, rings=3)
+    pc.ball(c, r * 0.3, '#ffe066', seg=4, rings=3)
+
+
+def umeko_crown(name):
+    pc = Piece(name)
+    # blossoms round the back of her head and on her left only: her staff head rests by her right temple
+    for i in range(5):
+        a = math.pi * (-0.5 + 0.7 * i / 4)
+        x, z = math.cos(a) * 0.16, math.sin(a) * 0.12
+        blossom(pc, (x, 0.0, z), 0.045 if i % 2 else 0.055, PLUM if i % 2 else '#fff0f6', face=(x, 0.6, z))
+    pc.ring((0, -0.01, 0.0), 0.15, 0.008, 14, 3, '#6fa86a', normal=(0, 1, 0.1))
+    pc.ball((0, 0.0, 0.13), 0.016, CYAN)  # path bud
+    return pc
+
+
+def umeko_wheel(name):
+    pc = Piece(name)
+    pc.ring((0, 0, 0), 0.24, 0.016, 20, 4, '#7fd6e8', normal=(0, 0, 1))
+    pc.ring((0, 0, 0), 0.27, 0.006, 20, 3, lighten(CYAN, 0.45), normal=(0, 0, 1), glow=True)
+    for i in range(6):
+        a = TAU * i / 6
+        d = Vector((math.cos(a), math.sin(a), 0))
+        pc.cyl((0, 0, 0), tuple(d * 0.24), 0.008, 0.008, 4, '#bfeaf2')
+        blossom(pc, tuple(d * 0.24), 0.045, PLUM if i % 2 else '#fff0f6', face=(0, 0, 1))
+    blossom(pc, (0, 0, 0.01), 0.06, PLUM_D, face=(0, 0, 1))
+    return pc
+
+
+def pearl_ring(pc, R, n, r):
+    for i in range(n):
+        a = TAU * i / n
+        pc.ball((math.cos(a) * R, 0.0, math.sin(a) * R), r, PEARL if i % 3 else '#ffe6f2', seg=6, rings=4)
+    pc.ring((0, 0, 0), R, 0.005, 24, 3, lighten(GOLD, 0.4), glow=True)
+
+
+def umeko_pearls(name):
+    pc = Piece(name)
+    pearl_ring(pc, 0.34, 10, 0.024)
+    return pc
+
+
+def umeko_clam(name):
+    pc = Piece(name)
+    # a scalloped clam shell standing behind her (ribs fanned up), pearls along its rim
+    n = 9
+    for i in range(n):
+        a = math.pi * (0.08 + 0.84 * i / (n - 1))
+        d = (math.cos(a), math.sin(a), -0.12)
+        side = (-math.sin(a), math.cos(a), 0)
+        pc.flat([(0, -0.02), (0.3, -0.05), (0.33, 0), (0.3, 0.05), (0, 0.02)], (0, 0, 0), d, side, 0.014,
+                '#ffe3ee' if i % 2 else '#f7c6d9', side=PLUM_D)
+        pc.ball((math.cos(a) * 0.34, math.sin(a) * 0.34, -0.03), 0.022, PEARL, seg=6, rings=4)
+    pc.ball((0, 0.02, 0.01), 0.04, PEARL)
+    pc.ball((0, 0.02, 0.04), 0.016, GOLD, glow=True, seg=5, rings=3)  # path pearl
+    return pc
+
+
+# -- Shiro: 0 Execution (a crescent-moon badge on her beret -> a great silver moon behind her with a crosshair),
+#           1 Spotter (a spotter drone -> three drones circling high), 2 Follow-up (a twin magazine pack -> a halo of
+#           silver bullets behind her head) ----------------------------------------------------------------------
+
+SILVER, SILVER_D, MOON = '#dfe5ee', '#8b95a8', '#f3f6ff'
+
+
+def shiro_badge(name):
+    pc = Piece(name)
+    crescent(pc, (0, 0, 0), 0.045, 0.016, SILVER, face=(0, 0.4, 1))
+    pc.ball((0.0, -0.008, 0.01), 0.014, PINK, seg=6, rings=4)  # path gem
+    star(pc, (0.04, 0.035, 0.0), 0.016, lighten(GOLD, 0.5), face=(0, 0.4, 1), thick=0.006, glow=True)
+    return pc
+
+
+def shiro_moon(name):
+    pc = Piece(name)
+    crescent(pc, (0, 0, 0), 0.22, 0.05, MOON, face=(0, 0, 1), arc=math.pi * 1.25)
+    pc.ring((0, 0, 0.0), 0.3, 0.006, 32, 3, lighten(PINK, 0.4), normal=(0, 0, 1), glow=True)
+    for a in (0, math.pi / 2, math.pi, 1.5 * math.pi):
+        d = Vector((math.cos(a), math.sin(a), 0))
+        pc.cyl(tuple(d * 0.26), tuple(d * 0.34), 0.008, 0.008, 4, lighten(PINK, 0.3), glow=True)
+    return pc
+
+
+def drone(pc, c, r=0.045):
+    x, y, z = c
+    pc.ball(c, (r, r * 0.55, r), SILVER_D, seg=8, rings=5)
+    pc.ball((x, y - r * 0.15, z + r * 0.7), r * 0.32, '#9fe3ff', glow=True, seg=5, rings=3)
+    for s in (1, -1):
+        pc.cyl((x + s * r * 0.9, y, z), (x + s * r * 1.5, y + r * 0.4, z), r * 0.12, r * 0.12, 4, SILVER_D)
+        pc.cyl((x + s * r * 1.5, y + r * 0.4, z), (x + s * r * 1.5, y + r * 0.5, z), r * 0.55, r * 0.55, 8, CYAN)
+
+
+def shiro_drone(name):
+    pc = Piece(name)
+    drone(pc, (0, 0, 0), 0.05)
+    return pc
+
+
+def shiro_drones(name):
+    pc = Piece(name)
+    R = 0.36
+    for i in range(3):
+        a = TAU * i / 3
+        drone(pc, (math.cos(a) * R, 0.02 * i, math.sin(a) * R), 0.04)
+    pc.ring((0, 0, 0), R, 0.005, 24, 3, lighten(CYAN, 0.4), glow=True)
+    return pc
+
+
+def bullet(pc, c, d, L, r, body=SILVER, glow=False):
+    dn = Vector(d).normalized()
+    C = Vector(c)
+    pc.cyl(tuple(C), tuple(C + dn * L * 0.6), r, r, 6, GOLD_M)
+    pc.cyl(tuple(C + dn * L * 0.6), tuple(C + dn * L), r, 0.0, 6, body, glow=glow, smooth=False)
+
+
+def shiro_mags(name):
+    pc = Piece(name)
+    for s in (1, -1):
+        pc.body.box(tuple(V(s * 0.035, 0.03, 0)), (0.05, 0.035, 0.2), '#2d3142', taper=0.92)
+        pc.body.box(tuple(V(s * 0.035, 0.04, 0.018)), (0.04, 0.004, 0.04), GOLD)  # path label
+        for k in range(2):
+            bullet(pc, (s * 0.035 + (k - 0.5) * 0.02, 0.13, 0), (0, 1, 0), 0.07, 0.008)
+    return pc
+
+
+def shiro_halo(name):
+    pc = Piece(name)
+    n = 12
+    for i in range(n):
+        a = TAU * i / n
+        d = (math.cos(a), math.sin(a), 0)
+        bullet(pc, (math.cos(a) * 0.17, math.sin(a) * 0.17, 0), d, 0.08, 0.011, glow=(i % 3 == 0))
+    pc.ring((0, 0, 0), 0.17, 0.008, 24, 3, lighten(GOLD, 0.45), normal=(0, 0, 1), glow=True)
+    return pc
+
+
+# -- Midori: 0 Toxicology (a glass alembic on her back -> a bubbling cauldron pack with vines), 1 Corrosion (three
+#           bubbling test tubes in her hair -> a floating flask with fumes), 2 Field Kit (two potion bottles circling ->
+#           five) ------------------------------------------------------------------------------------------------
+
+POTION, POTION_D, GLASS = '#8ef06a', '#3fae4f', '#dff8f0'
+
+
+def flask(pc, c, r, liquid=POTION, glow=True):
+    x, y, z = c
+    pc.ball(c, r, GLASS, seg=8, rings=5)
+    pc.ball((x, y - r * 0.2, z), r * 0.8, liquid, glow=glow, seg=7, rings=4)
+    pc.cyl((x, y + r * 0.8, z), (x, y + r * 1.6, z), r * 0.35, r * 0.35, 6, GLASS)
+    pc.cyl((x, y + r * 1.6, z), (x, y + r * 1.85, z), r * 0.42, r * 0.42, 6, '#a0704a')
+
+
+def midori_alembic(name, big=False):
+    pc = Piece(name)
+    if big:
+        # a round cauldron pack (the bowl faces up, so the camera sees its green brew), vines round it
+        pc.cyl((0, -0.06, 0), (0, 0.06, 0), 0.11, 0.13, 12, '#3a3f52', cap_color='#2a2e3c')
+        pc.cyl((0, 0.055, 0), (0, 0.065, 0), 0.115, 0.115, 12, POTION, glow=True)
+        for i in range(3):
+            pc.ball((math.cos(i * 2.1) * 0.05, 0.08 + 0.02 * i, math.sin(i * 2.1) * 0.05), 0.02 + 0.006 * i, lighten(POTION, 0.4), glow=True, seg=5, rings=3)
+        pc.ring((0, -0.0, 0), 0.135, 0.01, 16, 3, '#6fcf5e', normal=(0, 1, 0.3))
+        flask(pc, (0.12, 0.14, -0.02), 0.045)
+        flask(pc, (-0.12, 0.12, -0.02), 0.04, liquid='#c77dff')
+    else:
+        flask(pc, (0, 0.06, 0), 0.06)
+        pc.cyl((0, 0.17, 0), (0.1, 0.22, 0), 0.01, 0.006, 5, GLASS)  # the alembic's arm
+        pc.body.box(tuple(V(0, -0.02, 0)), (0.1, 0.05, 0.04), '#6e4429')
+    pc.ball((0, -0.02 if not big else -0.06, 0.05), 0.016, PINK)  # path stud
+    return pc
+
+
+def midori_tubes(name):
+    pc = Piece(name)
+    for i, (x, col) in enumerate(((-0.03, POTION), (0.0, '#ffd166'), (0.03, '#c77dff'))):
+        a = (i - 1) * 0.3
+        b = (x, 0, 0)
+        e = (x + math.sin(a) * 0.12, math.cos(a) * 0.12, -0.03)
+        pc.cyl(b, e, 0.014, 0.014, 6, GLASS)
+        mid = tuple((b[k] + e[k]) / 2 for k in range(3))
+        pc.cyl(b, mid, 0.011, 0.011, 6, col, glow=True)
+        pc.ball(tuple(e[k] + (e[k] - b[k]) * 0.1 for k in range(3)), 0.012, lighten(col, 0.4), glow=True, seg=5, rings=3)
+    pc.body.box(tuple(V(0, -0.005, 0)), (0.09, 0.02, 0.02), CYAN)  # path clip
+    return pc
+
+
+def midori_fumes(name):
+    pc = Piece(name)
+    flask(pc, (0, 0, 0), 0.07)
+    for i, (x, y, r) in enumerate(((0.0, 0.17, 0.03), (0.03, 0.22, 0.026), (-0.02, 0.26, 0.022))):
+        pc.ball((x, y, 0), r, lighten(POTION, 0.45), glow=True, seg=6, rings=4)
+    return pc
+
+
+def midori_bottles(name, n=2):
+    pc = Piece(name)
+    R = 0.34
+    cols = [POTION, '#ffd166', '#c77dff', '#4cc9f0', '#ff8fb1']
+    for i in range(n):
+        a = TAU * i / n
+        flask(pc, (math.cos(a) * R, 0.02 * (i % 2), math.sin(a) * R), 0.04, liquid=cols[i % 5])
+    pc.ring((0, -0.04, 0), R, 0.005, 24, 3, lighten(GOLD, 0.4), glow=True)
+    return pc
+
+
+# -- Suzu: 0 Mines (a big bell with a fuse ribbon on her back -> a great bell floating above her), 1 Binding (bell
+#          ribbons in her hair -> a ring of little bells), 2 Seals (two paper seals floating by her -> a circle of seals
+#          behind her) --------------------------------------------------------------------------------------------
+
+BELL, BELL_D = '#f2c14e', '#b8860b'
+
+
+def bell(pc, c, r, color=BELL, seg=10, small=False):
+    x, y, z = c
+    prof = [(r * 0.15, r * 1.0), (r * 0.6, r * 0.75), (r * 1.0, -r * 0.6), (r * 1.05, -r * 0.8)] if small else \
+        [(r * 0.15, r * 1.0), (r * 0.55, r * 0.85), (r * 0.7, r * 0.2), (r * 1.0, -r * 0.6), (r * 1.05, -r * 0.8)]
+    for i in range(len(prof) - 1):
+        (a0, y0), (a1, y1) = prof[i], prof[i + 1]
+        pc.cyl((x, y + y0, z), (x, y + y1, z), a0, a1, seg, color, caps=False)
+    pc.ball((x, y - r * 0.8, z), (r, r * 0.12, r), darken(color, 0.25), seg=seg, rings=3)
+    if not small:
+        pc.ball((x, y - r * 0.95, z), r * 0.2, '#5a3a2a', seg=5, rings=3)
+        pc.ring((x, y + r * 1.1, z), r * 0.25, r * 0.07, 8, 3, BELL_D, normal=(0, 0, 1))
+
+
+def suzu_bell(name, big=False):
+    pc = Piece(name)
+    r = 0.1 if big else 0.07
+    bell(pc, (0, 0, 0), r)
+    # a red fuse ribbon (pink: path 1) tied round its crown, tails fluttering
+    pc.ring((0, r * 0.7, 0), r * 0.62, r * 0.09, 12, 3, PINK, normal=(0, 1, 0))
+    for s in (1, -1):
+        pc.flat([(0, -0.01), (0.1, -0.014), (0.12, 0), (0.1, 0.014), (0, 0.01)], (s * r * 0.6, r * 0.7, 0), (s, -0.6, -0.3), (0, 0, 1), 0.006, PINK)
+    if big:
+        pc.ball((0, r * 1.45, 0), 0.02, '#ffd08a', glow=True, seg=5, rings=3)
+        pc.ring((0, 0, 0), r * 1.6, 0.006, 24, 3, lighten(BELL, 0.45), normal=(0, 1, 0), glow=True)
+    return pc
+
+
+def suzu_ribbons(name):
+    pc = Piece(name)
+    for s in (1, -1):
+        pc.ball((s * 0.05, 0, 0), (0.04, 0.028, 0.02), '#3f9a96')
+        bell(pc, (s * 0.06, -0.06, 0.01), 0.022, seg=6, small=True)
+    pc.ball((0, 0, 0.005), 0.018, CYAN)  # path knot
+    return pc
+
+
+def suzu_bell_ring(name):
+    pc = Piece(name)
+    R = 0.34
+    for i in range(8):
+        a = TAU * i / 8
+        bell(pc, (math.cos(a) * R, 0.0, math.sin(a) * R), 0.032, BELL if i % 2 else lighten(BELL, 0.25), seg=7, small=True)
+    pc.ring((0, 0.04, 0), R, 0.007, 24, 3, lighten(CYAN, 0.35), glow=True)
+    return pc
+
+
+def seal(pc, c, face, up=(0, 1, 0), s=1.0, glow=False):
+    f = Vector(face).normalized()
+    upv = Vector(up)
+    right = upv.cross(f).normalized()
+    pc.flat([(-0.03 * s, -0.06 * s), (0.03 * s, -0.06 * s), (0.03 * s, 0.06 * s), (-0.03 * s, 0.06 * s)], c, tuple(right), tuple(f.cross(right)), 0.004, '#fffaf0')
+    C = Vector(c) + f * 0.004
+    pc.flat([(-0.02 * s, -0.035 * s), (0.02 * s, -0.035 * s), (0.02 * s, 0.035 * s), (-0.02 * s, 0.035 * s)], tuple(C), tuple(right), tuple(f.cross(right)), 0.003, '#d0384a', glow=glow)
+
+
+def suzu_seals(name, big=False):
+    pc = Piece(name)
+    if big:
+        n = 8
+        for i in range(n):
+            a = TAU * i / n
+            seal(pc, (math.cos(a) * 0.2, math.sin(a) * 0.2, 0), (0, 0, 1), up=(math.cos(a), math.sin(a), 0), s=1.2, glow=(i % 2 == 0))
+        pc.ring((0, 0, 0), 0.2, 0.006, 24, 3, lighten(GOLD, 0.4), normal=(0, 0, 1), glow=True)
+    else:
+        seal(pc, (0, 0, 0), (0.3, 0.2, 1), up=(0.2, 1, 0), s=1.3)
+        seal(pc, (0.07, -0.05, -0.02), (0.1, 0.2, 1), up=(-0.25, 1, 0), s=1.1)
+        pc.ball((0.03, 0.09, 0), 0.014, GOLD, glow=True, seg=5, rings=3)  # path spark
+    return pc
+
+
+# -- Raika: 0 Forked (a lightning-bolt clip between her horns -> six thunder drums ringing high above her), 1 Overcharge
+#           (sparks on her horn tips -> a storm drum under a little cloud floating by her), 2 Rhythm (twin drumsticks over
+#           her left shoulder -> storm orbs circling). Her staff head rests behind her hair on the right: nothing there. -
+
+STORM, STORM_D = '#ffe066', '#c29a2e'
+
+
+def bolt(pc, c, h, color=STORM, glow=True, face=(0, 0.3, 1)):
+    pts = [(-0.3, 1.0), (0.35, 1.0), (0.05, 0.25), (0.4, 0.25), (-0.35, -1.0), (-0.05, -0.05), (-0.4, -0.05)]
+    f = Vector(face).normalized()
+    up = Vector((0, 1, 0))
+    right = up.cross(f).normalized()
+    pc.flat([(x * h * 0.5, y * h * 0.5) for x, y in pts], c, tuple(right), tuple(f.cross(right)), 0.012, color, glow=glow)
+
+
+def raika_bolt(name):
+    pc = Piece(name)
+    bolt(pc, (0, 0, 0), 0.12)
+    pc.ball((0, -0.01, 0.012), 0.014, PINK, seg=5, rings=3)  # path stud
+    return pc
+
+
+def drum(pc, c, r, d=(0, 0, 1)):
+    dn = Vector(d).normalized()
+    C = Vector(c)
+    pc.cyl(tuple(C - dn * r * 0.6), tuple(C + dn * r * 0.6), r, r, 10, '#c0392b', cap_color='#f6ecd6')
+    pc.ring(tuple(C + dn * r * 0.55), r * 1.02, r * 0.08, 12, 3, GOLD_M, normal=tuple(dn))
+
+
+def raika_drums(name):
+    pc = Piece(name)
+    n = 6
+    for i in range(n):
+        a = TAU * i / n
+        drum(pc, (math.cos(a) * 0.2, math.sin(a) * 0.2, 0), 0.05, d=(0, 0, 1))
+    pc.ring((0, 0, 0), 0.2, 0.01, 24, 3, STORM_D, normal=(0, 0, 1))
+    pc.ring((0, 0, 0), 0.27, 0.006, 24, 3, lighten(PINK, 0.4), normal=(0, 0, 1), glow=True)
+    bolt(pc, (0, 0, 0.01), 0.1)
+    return pc
+
+
+def raika_sparks(name):
+    pc = Piece(name)
+    # little sparks at both horn tips (pivot between the horns)
+    for s in (1, -1):
+        for k in range(3):
+            a = k * 2.1
+            pc.ball((s * 0.11 + math.cos(a) * 0.025, 0.05 + math.sin(a) * 0.025, 0), 0.024, lighten(STORM, 0.3), glow=True, seg=5, rings=3)
+        bolt(pc, (s * 0.14, 0.09, 0), 0.085, face=(s * 0.4, 0.3, 1))
+    pc.ball((0, 0, 0.02), 0.014, CYAN, seg=5, rings=3)  # path stud
+    return pc
+
+
+def raika_cloud(name):
+    pc = Piece(name)
+    for (x, y, r) in ((0, 0.09, 0.05), (0.05, 0.08, 0.04), (-0.05, 0.08, 0.04), (0.02, 0.12, 0.035)):
+        pc.ball((x, y, 0), r, '#d6dbe8', seg=7, rings=4)
+    drum(pc, (0, -0.02, 0), 0.055, d=(0, 1, 0.25))
+    bolt(pc, (0.07, 0.0, 0.02), 0.07)
+    return pc
+
+
+def raika_sticks(name):
+    pc = Piece(name)
+    for s in (1, -1):
+        pc.cyl((s * 0.02, -0.08, 0), (s * 0.06, 0.16, -0.02), 0.01, 0.008, 6, '#c8925f')
+        pc.ball((s * 0.062, 0.17, -0.02), 0.018, GOLD, seg=6, rings=4)  # path tips
+    pc.ring((0, 0.0, 0), 0.03, 0.008, 10, 3, '#454e7a', normal=(0, 1, 0))
+    return pc
+
+
+def raika_orbs(name):
+    pc = Piece(name)
+    R = 0.34
+    for i in range(3):
+        a = TAU * i / 3
+        c = (math.cos(a) * R, 0.0, math.sin(a) * R)
+        pc.ball(c, 0.04, '#6671a1', seg=8, rings=5)
+        bolt(pc, (c[0], c[1], c[2]), 0.05, face=(math.cos(a), 0.3, math.sin(a)))
+    pc.ring((0, 0, 0), R, 0.006, 24, 3, lighten(GOLD, 0.4), glow=True)
+    return pc
+
+
 FILES = {
     'aoi': [
         [lambda: aoi_quiver('p0_quiver'), lambda: aoi_comet_arrow('p0_comet'), lambda: aoi_quiver('p0_cometQuiver', big=True)],
@@ -1096,6 +1587,36 @@ FILES = {
         [lambda: hikari_sun('p0_medallion'), lambda: hikari_sun('p0_sun', big=True)],
         [lambda: hikari_shields('p1_shield', 1), lambda: hikari_shields('p1_shields', 3)],
         [lambda: hikari_wings('p2_wings'), lambda: hikari_suncrown('p2_crown')],
+    ],
+    'sango': [
+        [lambda: sango_shells('p0_shells'), lambda: sango_anchor('p0_anchor')],
+        [lambda: sango_bombs('p1_bombs'), lambda: sango_mortars('p1_mortars')],
+        [lambda: sango_spyglass('p2_spyglass'), lambda: sango_spyglass('p2_captain', big=True)],
+    ],
+    'umeko': [
+        [lambda: umeko_lantern('p0_lantern'), lambda: umeko_lanterns('p0_lanterns')],
+        [lambda: umeko_crown('p1_crown'), lambda: umeko_wheel('p1_wheel')],
+        [lambda: umeko_pearls('p2_pearls'), lambda: umeko_clam('p2_clam')],
+    ],
+    'shiro': [
+        [lambda: shiro_badge('p0_badge'), lambda: shiro_moon('p0_moon')],
+        [lambda: shiro_drone('p1_drone'), lambda: shiro_drones('p1_drones')],
+        [lambda: shiro_mags('p2_mags'), lambda: shiro_halo('p2_halo')],
+    ],
+    'midori': [
+        [lambda: midori_alembic('p0_alembic'), lambda: midori_alembic('p0_cauldron', big=True)],
+        [lambda: midori_tubes('p1_tubes'), lambda: midori_fumes('p1_fumes')],
+        [lambda: midori_bottles('p2_bottles', 2), lambda: midori_bottles('p2_bottles5', 5)],
+    ],
+    'suzu': [
+        [lambda: suzu_bell('p0_bell'), lambda: suzu_bell('p0_greatBell', big=True)],
+        [lambda: suzu_ribbons('p1_ribbons'), lambda: suzu_bell_ring('p1_bells')],
+        [lambda: suzu_seals('p2_seals'), lambda: suzu_seals('p2_sealRing', big=True)],
+    ],
+    'raika': [
+        [lambda: raika_bolt('p0_bolt'), lambda: raika_drums('p0_drums')],
+        [lambda: raika_sparks('p1_sparks'), lambda: raika_cloud('p1_cloud')],
+        [lambda: raika_sticks('p2_sticks'), lambda: raika_orbs('p2_orbs')],
     ],
 }
 # one file per girl and path (<unit>_p<k>.glb): a girl only fetches the paths she is upgraded down

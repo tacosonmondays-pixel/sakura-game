@@ -97,8 +97,8 @@ describe('path looks: pip gauge', () => {
 describe('path looks: catalog and pieces', () => {
   const units = Object.keys(PATH_LOOKS);
 
-  it('covers the Phase 1 prototype girls and rollout batch 1, three paths each', () => {
-    expect([...units].sort()).toEqual(['akane', 'aoi', 'hikari', 'kage', 'luna', 'momo', 'nami', 'rei', 'yuki']);
+  it('covers the Phase 1 prototype girls and rollout batches 1–2, three paths each', () => {
+    expect([...units].sort()).toEqual(['akane', 'aoi', 'hikari', 'kage', 'luna', 'midori', 'momo', 'nami', 'raika', 'rei', 'sango', 'shiro', 'suzu', 'umeko', 'yuki']);
     for (const id of units) {
       expect(UNIT_MAP[id]).toBeTruthy();
       expect(pathLooksFor(id).paths).toHaveLength(3);
@@ -107,7 +107,7 @@ describe('path looks: catalog and pieces', () => {
         expect(p.t5?.length).toBeGreaterThan(0);
       }
     }
-    expect(pathLooksFor('sango')).toBe(null);
+    expect(pathLooksFor('miko')).toBe(null);
   });
 
   it('every piece exists in its file, every file stays under 60 KB, every socket is a rig bone', () => {
