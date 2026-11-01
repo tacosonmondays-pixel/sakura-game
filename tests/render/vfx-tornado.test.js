@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { TORNADO_PRESETS, TORNADO_TIERS, MAX_TORNADOES, TORNADO_CASTS } from '../../src/render/vfx/tornadoPresets.js';
-import { createTornadoFx, paintTornadoNoise, paintTornadoRamp, SPARSE_ERODE } from '../../src/render/vfx/tornado.js';
+import { createTornadoFx, paintTornadoNoise, paintTornadoRamp, SPARSE_ERODE, COVER_FAR_ERODE } from '../../src/render/vfx/tornado.js';
 import { createVisualRandom } from '../../src/render/vfx/random.js';
 import { ABILITIES } from '../../src/data/abilities.js';
 
@@ -55,7 +55,17 @@ describe('tornado layer', () => {
     expect(worst).toBeLessThan(40);
     expect(paintTornadoNoise(64, 7)).toEqual(n);
     const r = paintTornadoRamp(['fire', 'sakura']);
-    expect(r.length).toBe(8 * 2 * 4);
+    expect(r.length).toBe(8 * 2 * 2 * 4); // two rows per preset: as given, then high's cover row
+    // the bands as given are painted as their own sRGB bytes (the texture is decoded once, on the GPU)
+    const hex = TORNADO_PRESETS.fire.ramp[0].slice(1);
+    expect([r[0], r[1], r[2]]).toEqual([0, 2, 4].map((o) => parseInt(hex.slice(o, o + 2), 16)));
+    // high's cover row: the same bands, the hot ones brighter (the overshoot medium gets from adding)
+    const top = (row) => (row * 8 + 7) * 4;
+    const plain = top(0);
+    const cover = top(2);
+    expect(r[cover] + r[cover + 1] + r[cover + 2]).toBeGreaterThan(r[plain] + r[plain + 1] + r[plain + 2]);
+    expect([r[cover], r[cover + 1], r[cover + 2]].every((v) => v <= 255)).toBe(true);
+    expect([r[4 * 0], r[1], r[2]]).toEqual([r[(2 * 8) * 4], r[(2 * 8) * 4 + 1], r[(2 * 8) * 4 + 2]]); // the coolest band unchanged
   });
 
   it('draws nothing while idle, one instanced mesh while up, and leaves after its cast', () => {
@@ -120,6 +130,7 @@ describe('tornado layer', () => {
       expect(m.geometry.getAttribute('iG').array[0]).toBeCloseTo(TORNADO_PRESETS.fire.erode[0], 5);
       expect(m.material.uniforms.uSparse.value).toBe(0);
       expect(m.material.uniforms.uCover.value).toBe(0);
+      expect(m.material.uniforms.uFar.value).toBe(0);
     }
     const pushed = [];
     const fake = { push: (...a) => pushed.push(a) };
@@ -173,11 +184,12 @@ describe('tornado layer', () => {
     near([G[per * 4], G[per * 4 + 1], G[per * 4 + 2]], [TORNADO_PRESETS.vortex.erode[0], TORNADO_PRESETS.vortex.erode[1], TORNADO_PRESETS.vortex.body]);
     expect(mesh.material.uniforms.uSparse.value).toBeCloseTo((1 - TORNADO_TIERS.medium.rings / TORNADO_TIERS.high.rings) * SPARSE_ERODE, 6);
     expect(mesh.material.uniforms.uCover.value).toBe(1);
+    expect(mesh.material.uniforms.uFar.value).toBe(COVER_FAR_ERODE); // high's far arc erodes harder (readability)
     expect(E[1]).toBeCloseTo(TORNADO_PRESETS.fire.inner, 5);
     expect(E[per * 4 + 1]).toBeCloseTo(TORNADO_PRESETS.vortex.inner, 5);
     // the shader: the sparser cut shapes the mask, the preset's cut picks the colour
     const frag = mesh.material.fragmentShader;
-    expect(frag).toMatch(/step\(cut \+ uSparse, heat\)/);
+    expect(frag).toMatch(/step\(cut \+ uSparse \+ uFar \* \(1\.0 - vFront\), heat\)/);
     expect(frag).toMatch(/clamp\(\(heat - cut\) \* 1\.6/);
   });
 
@@ -189,7 +201,7 @@ describe('tornado layer', () => {
       t.spawn('fire', 0, 0);
       t.update(1 / 60);
       const g = s.children[0].geometry;
-      return { E: Array.from(g.getAttribute('iE').array.slice(0, 4)), G: Array.from(g.getAttribute('iG').array.slice(0, 4)), cover: s.children[0].material.uniforms.uCover.value };
+      return { E: Array.from(g.getAttribute('iE').array.slice(0, 4)), G: Array.from(g.getAttribute('iG').array.slice(0, 4)), cover: s.children[0].material.uniforms.uCover.value, row: g.getAttribute('iB').array[3] };
     };
     const on = read(true);
     const off = read(false);
@@ -199,6 +211,11 @@ describe('tornado layer', () => {
     expect(on.G).toEqual(off.G); // the same cover and erosion
     expect(on.cover).toBe(1);
     expect(off.cover).toBe(1);
+    // with bloom (the linear composer) high reads its cover row; with bloom off the canvas's own blend overshoots like
+    // medium's, so it keeps the bands as given
+    const n = Object.keys(TORNADO_PRESETS).length;
+    expect(on.row).toBeCloseTo((n + 0.5) / (2 * n), 6);
+    expect(off.row).toBeCloseTo(0.5 / (2 * n), 6);
     // a preset with no HDR boost still gets the same high look under the bloom (no haze path keyed on the preset)
     const flat = { ...TORNADO_PRESETS, fire: { ...TORNADO_PRESETS.fire, hdr: 0 } };
     const f = read(true, flat);
@@ -228,6 +245,8 @@ describe('tornado layer', () => {
     // decoration: a tornado error switches the tornadoes off, never the battle
     expect(src).toMatch(/tornadoSafe\(\(\) => \{\s*tornado\.hold\(impact\.active\)[^}]*tornado\.update\(d\)/);
     expect(src).toMatch(/tornadoSafe\(\(\) => tornadoOf\.set\(/);
+    expect(src).toMatch(/tornadoSafe\(\(\) => tornado\.feed\(/);
+    expect(src).toMatch(/tornadoDemo\(presetId, x, z, opts\) \{\s*return tornadoSafe\(/);
     expect(readFileSync('src/render/vfx/tornado.js', 'utf8')).not.toMatch(/\bsim\.\w|Math\.random\(/);
   });
 });

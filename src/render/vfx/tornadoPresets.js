@@ -12,7 +12,8 @@
 //   sway      sideways drift of the upper rings on X/Z (tiles at the top), swayHz its speed
 //   noise     [around, along] scale of the noise in the ring's polar coordinates; scroll: its drift
 //   erode     [young, old] threshold: the flame breaks up into tongues and wisps as a ring ages
-//   ramp      the toon bands, coolest → hottest (sRGB); the hottest band alone gets the HDR boost
+//   ramp      the toon bands, coolest → hottest: sRGB hex, exactly as drawn (painted as sRGB bytes, decoded once on the
+//             GPU); the band at k ≥ 0.8 (the top of the yellow, the white) gets the HDR boost (high with bloom)
 //   hdr       extra brightness of the hottest band (high tier with bloom only; feeds the bloom)
 //   alpha     overall strength (the colour added / painted)
 //   body      how much the cooler bands cover what is behind them (0 = pure added light; the hottest band always is)
@@ -27,7 +28,7 @@ export const TORNADO_PRESETS = Object.freeze({
     life: 1.05, height: 3.0, r0: 0.3, r1: 1.0, inner: 0.42,
     spin: 3.2, twist: 3.6, helix: 0.16, sway: 0.22, swayHz: 1.3,
     noise: Object.freeze([2, 0.8]), scroll: 1.4, erode: Object.freeze([0.06, 0.58]),
-    ramp: Object.freeze(['#b8203a', '#f0442c', '#ff8a2a', '#ffcf4a', '#fff4c8']),
+    ramp: Object.freeze(['#7a040b', '#de0f06', '#ff4106', '#ff9f11', '#ffe793']),
     hdr: 0.3, alpha: 0.75, body: 0.55, scale: 1.25,
     core: Object.freeze({ radius: 0.45, heat: 0.12 }),
     base: Object.freeze({ color: '#ff7a2e', inner: '#ffd27a', size: 1.15, pulse: 2.2 }),
@@ -39,7 +40,7 @@ export const TORNADO_PRESETS = Object.freeze({
     life: 1.25, height: 2.8, r0: 0.32, r1: 0.98, inner: 0.45,
     spin: 2.6, twist: 3.0, helix: 0.14, sway: 0.18, swayHz: 1.0,
     noise: Object.freeze([3, 1]), scroll: 1.0, erode: Object.freeze([0.08, 0.6]),
-    ramp: Object.freeze(['#c2407a', '#ec6fa4', '#ff9cc4', '#ffd0e2', '#fff6fa']),
+    ramp: Object.freeze(['#8a0d32', '#d6295f', '#ff558d', '#ffa1c2', '#ffebf4']),
     hdr: 0.3, alpha: 0.67, body: 0.55, scale: 1.25,
     core: Object.freeze({ radius: 0.42, heat: 0.1 }),
     base: Object.freeze({ color: '#ff8fbf', inner: '#ffe0ee', size: 1.1, pulse: 1.6 }),
@@ -51,7 +52,7 @@ export const TORNADO_PRESETS = Object.freeze({
     life: 0.95, height: 2.9, r0: 0.26, r1: 1.05, inner: 0.48,
     spin: 4.2, twist: 4.4, helix: 0.12, sway: 0.16, swayHz: 1.6,
     noise: Object.freeze([2, 1.1]), scroll: 1.9, erode: Object.freeze([0.08, 0.6]),
-    ramp: Object.freeze(['#1f5fb8', '#2f9fe0', '#4fd8ea', '#a8f4f2', '#f2ffff']),
+    ramp: Object.freeze(['#031d7a', '#0758be', '#14afd2', '#64e7e2', '#e2ffff']),
     hdr: 0.3, alpha: 0.71, body: 0.55, scale: 1.25,
     core: Object.freeze({ radius: 0.4, heat: 0.1 }),
     base: Object.freeze({ color: '#4fd0f0', inner: '#d8fbff', size: 1.15, pulse: 2.6 }),

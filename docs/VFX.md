@@ -273,22 +273,26 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
   `bbN`): a few quads.
 - **Two blends, by tier.**
   - **Medium and low:** the cooler bands cover the board a little (`body`), so the colour reads on a bright day. The
-    hottest band is pure added light. For readability the low rings (walker height) and the arc nearest the camera
-    cover the least.
-  - **High ("cover", `TORNADO_TIERS.high.cover`):** every band covers the board in its own colour (premultiplied over).
-    However many rings stack, the column settles on the ramp's toon colours: no murk over the grass, no sums past the
-    grade's knee. Stacked rings never add up, so each ring takes its colour a step hotter (`COVER_HEAT`) and reaches the
-    yellow and white bands medium gets by adding. The far arc is fainter than the near one (`COVER_FRONT`). The young
-    rings at the base are faint (`COVER_YOUNG`): readable, never a blob of light.
-  - With bloom on (high only) the hottest band goes `hdr` over white so the bloom catches it. That is keyed on the
-    bloom state, never on the preset; nothing else changes with the bloom.
+    band at k ≥ 0.8 (the top of the yellow, the white) is pure added light. They draw on the canvas, where the colour is
+    sRGB-encoded before it blends, so stacked bands overshoot: the yellow to lemon, the cream to white. For readability
+    the low rings (walker height) and the arc nearest the camera cover the least.
+  - **High ("cover", `TORNADO_TIERS.high.cover`):** every band covers the board in its own colour (premultiplied over),
+    so no red-over-green murk. The far arc erodes harder (`COVER_FAR_ERODE`) and is a little fainter (`COVER_FRONT`), so
+    what stands behind the column stays visible; the young rings at the base are faint (`COVER_YOUNG`).
+  - **High with bloom** renders into the linear composer, where covering rings settle exactly on the ramp's colours (no
+    overshoot). So it reads its own ramp row: every band × `COVER_GAIN` in display bytes (the overshoot medium gets on the
+    canvas, baked in), which brings back the lemon and white. The k ≥ 0.8 band also goes `hdr` over white so the bloom
+    catches it; the hot bands sit above the grade's knee, so its tone curve rolls them off as it does every bright core.
+  - **High with bloom off** draws on the canvas like medium and keeps the bands as given.
 - **Vertex shader:** age = fract(t / life + phase); radius r0 → r1 along age^0.7; the ring spins and twists with its
   height, its centre wanders on a helix and sways. A ring is drawn only if it was born inside the cast, so the column
   builds from the ground up and leaves by rising away. The arc facing the camera burns brighter (it reads as a funnel).
 - **Fragment shader:** noise in the ring's polar coordinates (the angle is taken per pixel: no seam), scrolled over time; an erosion threshold that rises with
   age; `step()` for a hard toon edge (it multiplies the colour: no `discard`); a stepped ramp (`NearestFilter`) per
-  preset. On high with bloom the hottest band gets a small HDR boost (`hdr`) for the bloom; never on medium / low.
-- **Textures** are painted in code (`paintTornadoNoise`: tileable value-noise fbm; `paintTornadoRamp`): no image files.
+  preset. On high with bloom the k ≥ 0.8 band gets a small HDR boost (`hdr`) for the bloom; never on medium / low.
+- **Textures** are painted in code (`paintTornadoNoise`: tileable value-noise fbm; `paintTornadoRamp`: two rows per preset,
+  the bands as given and high's cover row; sRGB bytes, decoded once on the GPU): no image files. The presets' ramp
+  colours are exactly what is drawn.
 - **Randomness:** `vrand.fork('tornado')`; time from the visual clock (`update(d)`).
 - **Presets** (`src/render/vfx/tornadoPresets.js`, plain data): `fire` (Akane), `sakura` (pink petal whirl), `vortex`
   (cyan wind / water). Every preset value is per tornado (two presets can be up at once). `TORNADO_CASTS` maps a cast
@@ -304,9 +308,10 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
     `SPARSE_ERODE × (1 − 13 ÷ 22)`. That is the same for every ring of the tier (one uniform), core rings included.
     It shapes the mask only. The colour index still comes from the preset's own erosion, so high's colours are never
     darker for it.
-  - Measured in the lab (bloom and grade on, fire, upper column, high vs medium):
-    - yellow share 0.22 vs 0.22, red 0.12 vs 0.15, murky 0 vs 0;
-    - edge contrast about 95% of medium's, the base about 80–85% (no pale blob there).
+  - Measured in the lab (bloom and grade on, fire, column masked, high vs medium; colours split by hue):
+    - lemon (hue 48–70°) 0.13 vs 0.12, white 0.05 vs 0.05, murky 0 vs 0, brightness 0.73 vs 0.73;
+    - what stands 0.9–2.4 tiles behind the column keeps a median 0.52 of its contrast (medium 0.33); right at the base
+      every tier hides most of it.
 - **Errors:** a tornado error switches the tornadoes off for the battle (`tornadoSafe` in `BattleRenderer`, logged once). The
   battle and every other effect carry on.
 - **Reduce motion:** no spin, twist, sway, helix or noise scroll; the ground rings and petals do not turn; slower rise; dimmer.

@@ -1388,8 +1388,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
       return clock.hitStop(seconds);
     },
     /**
-     * Extra (dev tooling, display only): starts a tornado (src/render/vfx/tornado.js presets) at a board spot, and its
-     * layer (live list, stats); the tuning panel and the captures use it.
+     * Extra (dev tooling, display only): starts a tornado (src/render/vfx/tornado.js presets) at a board spot (the captures
+     * and the tuning panel use it), and its layer (live list, stats: the panel reads it).
      */
     tornadoDemo(presetId, x, z, opts) {
       return tornadoSafe(() => tornado.spawn(presetId, x, z, opts));

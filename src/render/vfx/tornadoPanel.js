@@ -13,8 +13,8 @@ export function mountTornadoPanel(renderer, sim) {
   gui.domElement.style.zIndex = 9999;
   const spawn = () => {
     // the layer reads the preset it is handed: point it at the working copy
-    const layer = renderer.tornado;
-    const rec = layer.spawn(state.preset, state.x, state.z, { seconds: state.seconds, size: state.size });
+    // (through the renderer's guarded spawn: once the tornadoes are off after an error, the panel adds nothing)
+    const rec = renderer.tornadoDemo(state.preset, state.x, state.z, { seconds: state.seconds, size: state.size });
     if (rec) rec.p = work[state.preset];
   };
   gui.add(state, 'preset', Object.keys(work)).onChange(() => rebuild());

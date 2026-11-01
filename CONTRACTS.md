@@ -2114,8 +2114,8 @@ r.hitStop(seconds)               // hold everything drawn ≤ 60 ms of frame tim
 r.visualClock                    // read-only { t, dt, frameT, realT, frame, freezeLeft, slowLeft, … } (docs/VFX.md)
 r.vfx                            // read-only hit-effect stats { hitStops, holds, impacts, flashesRefused, flashLoad, worldFlashesDimmed, halos, shakePx, punchZoom, bloom, grade, … }
 r.hdrProbe({ effects })          // dev tooling: share of pixels above luminance levels this frame (bloom threshold tuning)
-r.tornadoDemo(presetId, x, z, opts) // dev tooling (display only): starts a styled tornado (src/render/vfx/tornadoPresets.js) at a board spot; opts { seconds, size }; the record or null
-r.tornado                        // dev tooling: the tornado layer (live list, stats); the ?tornadoLab panel and tools/vfx/capture.mjs use it
+r.tornadoDemo(presetId, x, z, opts) // dev tooling (display only): starts a styled tornado (src/render/vfx/tornadoPresets.js) at a board spot; opts { seconds, size }; the record or null (tools/vfx/capture.mjs and the ?tornadoLab panel use it)
+r.tornado                        // dev tooling: the tornado layer (live list, stats); the ?tornadoLab panel reads it
 ```
 
 Settings the renderer reads (`opts.settings`, the profile's live settings object): `quality`,
