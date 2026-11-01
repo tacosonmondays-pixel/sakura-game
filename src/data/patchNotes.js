@@ -20,6 +20,15 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.70', version: '0.1.70', date: '2026-10-31', title: 'Your Own Gear in the Sandbox',
+    added: [
+      'Sandbox: a new "My gear" option in the Gear menu. Each girl wears a copy of the gear she has on in your save, so you can test your real builds. Nothing in your save or bag changes.',
+    ],
+    changed: [
+      'The Green Slime and the Goblin Runner are back to their round, cute chibi looks.',
+    ],
+  },
+  {
     id: 'v0.1.69', version: '0.1.69', date: '2026-10-31', title: 'Co-op Sharing, Boss Traps and Fresh Portraits',
     added: [
       'Co-op sharing: tap the coin button by your ally\'s name to send them coins, or lend them one of your girls from her panel so they can upgrade and command her; you can take her back between waves.',
