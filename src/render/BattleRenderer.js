@@ -64,6 +64,8 @@ import { StaffFx } from './staffFx.js';
 import { Companions } from './companions.js';
 import { ShadowDoubles } from './shadowDoubles.js';
 import { createAbilityFx } from './abilityFx.js';
+import { createTornadoFx } from './vfx/tornado.js';
+import { TORNADO_CASTS } from './vfx/tornadoPresets.js';
 import { deployFx } from './deployFx.js';
 import { fmtNum } from '../ui/format.js';
 import { createBlackout } from './blackout.js';
@@ -298,6 +300,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   fx.rand = vrand.fork('fx');
   actors.rand = vrand.fork('actors');
   const evRand = vrand.fork('events');
+  // stylized tornadoes (src/render/vfx/tornado.js; display only): Akane's Starmine Barrage swirls into a fire tornado
+  const tornado = createTornadoFx({ scene, batches, atlas, quality, reduceMotion, rand: vrand.fork('tornado') });
   // attack FX are decoration: an FX error must never cost a frame's sim events (won / lost) —
   // on the first one the FX switch off for this battle (today's look) and it is logged once
   let fxBroken = false;
@@ -446,6 +450,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     batches.groundA.setHdr(on ? HDR_GROUND : 0);
     fx.setGlow(quality, on);
     attackFx?.setGlow?.(quality, on);
+    tornado.setGlow(quality, on);
   };
 
   // ----- state -----------------------------------------------------------------------------
@@ -489,6 +494,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     });
     const wantBloom = q === 'high' && (typeof settings.bloom === 'boolean' ? settings.bloom : preset.bloom);
     fx.setQuality(q);
+    tornado.setQuality(q);
     attackFx?.setQuality(q);
     ambient.setQuality(q);
     roster.setQuality(q);
@@ -637,6 +643,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
       const moment = momentTrauma(ev);
       if (moment > 0 && clock.frameT - lastArtShake >= TRAUMA.artGap && shake(moment)) lastArtShake = clock.frameT;
       noteBallPop(ev, bouncing); // (a ball's blast comes before its pop: the blast reads the state its last pop left)
+      // a cast that swirls into a tornado (observe only): the warning event carries the spot, delay and shells
+      if (ev.type === 'abilityWarn' && TORNADO_CASTS[ev.id]) {
+        const shells = Math.max(1, ev.shells || 1);
+        tornado.spawn(TORNADO_CASTS[ev.id], ev.x, ev.y, { seconds: (ev.delay || 0) + shells * 0.25 + 0.35, size: Math.max(0.8, ev.radius || 1) });
+      }
       // the staff heroes' props observe only too
       staffSafe(() => staff.handle(ev));
       // a duo's two girls move by whose weapon fired, and cheer on her cast (observe only, src/models/duo.js)
@@ -1049,6 +1060,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     // the shake and zoom punch run on frame time: the camera jolts through a hit-stop
     rig.apply(d, clock.realDt, clock.frameDt);
     fx.update(d);
+    tornado.update(d);
     for (const b of batchList) b.end();
 
     // the screen tint waits out the impact frames (the ink frame is never tinted), then fades
@@ -1279,7 +1291,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   rig.apply(0);
 
   // ----- public API ----------------------------------------------------------------------
-  return {
+  const api = {
     canvas,
     update,
     resize,
@@ -1347,6 +1359,16 @@ export function createBattleRenderer(container, sim, opts = {}) {
      */
     hitStop(seconds) {
       return clock.hitStop(seconds);
+    },
+    /**
+     * Extra (dev tooling, display only): starts a tornado (src/render/vfx/tornado.js presets) at a board spot, and its
+     * layer (live list, stats); the tuning panel and the captures use it.
+     */
+    tornadoDemo(presetId, x, z, opts) {
+      return tornado.spawn(presetId, x, z, opts);
+    },
+    get tornado() {
+      return tornado;
     },
     /** Extra: the visual clock's state (read-only copy; e2e, captures, debugging). */
     get visualClock() {
@@ -1561,6 +1583,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       longCbs.length = 0;
       overlays.dispose();
       attackFx?.dispose();
+      tornado.dispose();
       roster.dispose();
       staff.dispose();
       companions.dispose();
@@ -1601,6 +1624,13 @@ export function createBattleRenderer(container, sim, opts = {}) {
       fxLayer.remove();
     },
   };
+  // dev-only tornado tuning panel (?tornadoLab; src/render/vfx/tornadoPanel.js): never in the production build
+  if (import.meta.env?.DEV && typeof location !== 'undefined' && /[?&]tornadoLab\b/.test(location.search)) {
+    import('./vfx/tornadoPanel.js').then((m) => {
+      if (!disposed) m.mountTornadoPanel(api, sim);
+    }).catch((err) => console.warn('[tornado lab]', err));
+  }
+  return api;
 }
 
 function mixHex(a, b, t) {
