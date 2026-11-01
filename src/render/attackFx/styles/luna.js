@@ -52,14 +52,13 @@ export const luna = {
     let da = Math.abs(a1 - a0);
     if (da > Math.PI) da = Math.PI * 2 - da;
     const sweep = ctx.time - d.et[k] < 0.6 && da < 0.7;
-    if (ctx.beams) {
-      // the styled moon lance (src/render/vfx/beams.js): solid, banded, landing with a star and impact lines; her tier
-      // cues ride along (wider with her paths, the paler sheath at the top of her first path)
-      ctx.beams.fire([M.x, M.h, M.y], [ex, 0.35, ey], {
-        preset: 'moon', width: ev.width || 0.15, widthScale: 1 + 0.1 * (p0 || lk.accent[0]), color: p0 >= 5 ? '#c9a8ff' : null,
-        from: sweep ? [d.ex[k], 0.35, d.ey[k]] : null,
-      });
-    } else {
+    // the styled moon lance (src/render/vfx/beams.js): solid, banded, landing with a star and impact lines; her tier
+    // cues ride along (wider with her paths, the paler sheath at the top of her first path); nothing back: the old lance
+    const styled = !!(ctx.beams && ctx.beams.fire([M.x, M.h, M.y], [ex, 0.35, ey], {
+      preset: 'moon', width: ev.width || 0.15, widthScale: 1 + 0.1 * (p0 || lk.accent[0]), color: p0 >= 5 ? '#c9a8ff' : null,
+      from: sweep ? [d.ex[k], 0.35, d.ey[k]] : null,
+    }));
+    if (!styled) {
       const s = ctx.segs.add(M.x, M.h, M.y, ex, 0.35, ey, w, sheath, 0.18, SEG_CORE, -1, 0.85);
       if (s && sweep) {
         s.flags |= SEG_SLIDE;
@@ -72,7 +71,7 @@ export const luna = {
     d.ey[k] = ey;
     d.et[k] = ctx.time;
     // star dots racing out along the beam + an end star (the styled lance has its own running bands, flare and star)
-    const dots = ctx.beams ? 0 : ctx.q.beamDots;
+    const dots = styled ? 0 : ctx.q.beamDots;
     for (let i = 0; i < dots; i++) {
       const p = ctx.spr(ctx.b.bbA, DECOR, ctx.R.star, M.x, M.h, M.y, 0.16, 0.08, 0.16, ctx.col('#fff6ff'), 1);
       if (!p) break;
@@ -82,7 +81,7 @@ export const luna = {
       p.vy = (0.35 - M.h) / 0.16;
       p.vrot = 9;
     }
-    if (!ctx.beams) {
+    if (!styled) {
       ctx.spr(ctx.b.bbA, CORE, ctx.R.star, ex, 0.35, ey, 0.3, 0.12, 0.18, ctx.col('#ffffff'), 1);
       flash(ctx, M.x, M.h, M.y, 0.4, sheath, 0.1);
     }

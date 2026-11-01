@@ -345,8 +345,6 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // styled slashes and shockwaves (src/render/vfx/shapes.js): every default slash and pulse
   const shapes = createShapeFx({ scene, strokes, camera, quality, reduceMotion });
   fx.shapes = shapes;
-  // (and the attack styles' own slashes: patterns/bursts.js toonSlash)
-  if (attackFx) attackFx.ctx.shapes = shapes;
   // the styled effects are decoration: on their first error they all switch off for this battle (logged once) and every
   // effect falls back to its old look; the battle and its events carry on
   let vfxBroken = false;
@@ -360,6 +358,14 @@ export function createBattleRenderer(container, sim, opts = {}) {
         /* leave what is drawn */
       }
     }
+    // nothing of this frame's strokes is drawn (no half-pushed line, no ink without its body), and none from now on
+    try {
+      strokes.begin();
+      strokes.end(0);
+    } catch {
+      /* hidden below */
+    }
+    strokes.mesh.visible = false;
     fx.lightning = null;
     fx.beams = null;
     fx.shapes = null;
@@ -383,11 +389,26 @@ export function createBattleRenderer(container, sim, opts = {}) {
   }
   fx.vfxError = vfxOff;
   actors.vfxError = vfxOff;
+  // the attack styles reach the library through guarded calls: an error in it switches the library off (vfxOff) and the
+  // style draws its old look for that attack (it gets nothing back); the signature looks stay on
+  const guarded = (fn) => (...a) => {
+    if (vfxBroken) return null;
+    try {
+      return fn(...a);
+    } catch (err) {
+      vfxOff(err);
+      return null;
+    }
+  };
   if (attackFx) {
-    attackFx.ctx.lightning = lightning;
-    attackFx.ctx.beams = beams;
-    // every style's tracers, thrust lines and zig-zags (src/render/attackFx/patterns/segments.js) as toon strokes
+    // Raika's and Chika's chains, Luna's, Miko's and Raika's beams, the styles' own slashes (patterns/bursts.js toonSlash)
+    attackFx.ctx.lightning = { strike: guarded(lightning.strike) };
+    attackFx.ctx.beams = { fire: guarded(beams.fire) };
+    attackFx.ctx.shapes = { slash: guarded(shapes.slash) };
+    // every style's tracers, thrust lines and zig-zags (src/render/attackFx/patterns/segments.js) as toon strokes; an
+    // error pushing them goes to vfxOff too
     attackFx.ctx.strokes = strokes;
+    attackFx.ctx.vfxError = vfxOff;
   }
   // attack FX are decoration: an FX error must never cost a frame's sim events (won / lost) —
   // on the first one the FX switch off for this battle (today's look) and it is logged once
@@ -1094,7 +1115,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const events = sim.drainEvents();
     // begin before events/sync: quads pushed there (projectile glows, attack FX) are kept
     for (const b of batchList) b.begin();
-    strokes.begin();
+    vfxSafe(() => strokes.begin());
     handleEvents(events);
     try {
       actors.alpha = renderAlpha();
@@ -1163,15 +1184,18 @@ export function createBattleRenderer(container, sim, opts = {}) {
       tornado.hold(impact.active); // (impact frames: the column sits both frames out)
       tornado.update(d);
     });
+    // (hit feedback before decoration: short of the strokes' room, the ribbons thin before the slashes and rings)
     vfxSafe(() => {
       lightning.update(d);
       beams.update(d);
-      trails.update(d);
       shapes.update(d);
+      trails.update(d);
     });
-    strokes.hold(impact.active); // (…and so do the styled lines)
-    strokes.setPixel(rig.scale);
-    strokes.end(clock.t);
+    vfxSafe(() => {
+      strokes.hold(impact.active); // (…and so do the styled lines)
+      strokes.setPixel(rig.scale);
+      strokes.end(clock.t);
+    });
     for (const b of batchList) b.end();
 
     // the screen tint waits out the impact frames (the ink frame is never tinted), then fades

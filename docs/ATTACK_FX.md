@@ -44,7 +44,7 @@ Owner reels: `e2e/attack-reel.mjs`.
 |---|---|
 | `textures.js` | `createAtlas(extra = [])` paints `ATTACK_SPRITES` into the shared atlas. |
 | `BattleRenderer.js` | creates the layer (`settings.attackFx === false` = old look), `onEvent(ev, i, events)` first in `handleEvents` (true = handled), `attackFx.update(d)` after `actors.drawGround`, `setQuality`, `setSelected`, new `setTimeScale(s)`, `info.attackFx`, `attackFxProbe()` (dev), `dispose`. **Bug fix:** `batches.begin()` now runs before the events / `actors.sync`, so projectile glow quads pushed during sync are drawn (they were wiped before). |
-| `actors.js` | `fxHook.projectile(p)` → view `{kind,x,y,z,scale,sz,tint,glow,yaw,roll,skip}`; the old drone mesh + shadows are skipped when the hook owns drones; `trapHidden(uid)` hides a rune until its tossed seal lands; `towerOffset(uid)` moves the model for lunges / recoil (never the sim position). Reuses a Set / counts object per frame instead of allocating. |
+| `actors.js` | `fxHook.projectile(p)` → view `{kind,x,y,z,scale,sz,tint,glow,yaw,roll,skip,ownTrail}` (`ownTrail`: the style draws the shot's trail itself, so the styled ribbon, `src/render/vfx/trails.js`, skips it); the old drone mesh + shadows are skipped when the hook owns drones; `trapHidden(uid)` hides a rune until its tossed seal lands; `towerOffset(uid)` moves the model for lunges / recoil (never the sim position). Reuses a Set / counts object per frame instead of allocating. |
 | `controller.js` | `renderer.setTimeScale?.(ctx.speed)` each frame (co-op: the shared speed). |
 
 Frame order: `sim.update` → `setTimeScale` → `renderer.update(dt)`: drain events → begin batches →
@@ -140,7 +140,8 @@ that name a girl (`towerUid` / `ownerUid`) reach `style.onOther(ev, tw, t, ctx, 
 `onPulse / onBeam / onChain(ev, tw, t, ctx, i, events)` → true replaces the default effect ·
 `onTrap(ev, …)` · `onStatus(ev, …)` · `onCash(ev, …)` · `onOther(ev, …)` · `origin(p, t, idx, n, rec, ctx)`
 (visual muzzle M, lob `rec.bump`, flutter `rec.bend`) · `view(p, rec, null, view, ctx)` (remap kind,
-tint, scale, `skip` to draw it as quads; draw trails / reticles) · `onSpawn(rec, p, t, ctx)` ·
+tint, scale, `skip` to draw it as quads; draw trails / reticles: a style that leaves anything behind its shot sets
+`view.ownTrail` where it does, or the styled ribbon draws over it; `tests/render/vfx-trail-optout.test.js` checks every girl) · `onSpawn(rec, p, t, ctx)` ·
 `onImpact(rec, x, y, crit, radius, ctx)` · `update(gdt, tw, t, ctx)` · `onRemove(tw, ctx)`.
 
 Shared patterns (`patterns/`): `drones`, `segments` (tracers, beams, chains, ropes), `markers`

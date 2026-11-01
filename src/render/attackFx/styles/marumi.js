@@ -112,6 +112,7 @@ export const marumi = {
 
   view(p, rec, _t, v, ctx) {
     if (p.kind !== 'shell') return;
+    v.ownTrail = ctx.q.trails > 0; // (her warm trail, where it draws: the styled ribbon skips the lob)
     // the lob: spinning, with a short warm trail of the last drawn points
     v.roll = ctx.reduceMotion ? 0 : ctx.time * 14 + rec.uid;
     let tr = rec.mTrail;

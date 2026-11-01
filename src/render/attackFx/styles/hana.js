@@ -47,6 +47,7 @@ export const hana = {
   },
 
   view(p, rec, _t, v, ctx) {
+    v.ownTrail = true; // (her gold streak is her trail: the styled ribbon skips her shots)
     const tail = lookAt(rec.tw.look, 2) >= 3 ? 0.55 : 0.4;
     const vl = Math.hypot(p.vx, p.vy) || 1;
     ctx.line(ctx.b.bbA, ctx.q.trails ? CORE : DECOR, v.x, v.z, v.y, v.x - (p.vx / vl) * tail, v.z, v.y - (p.vy / vl) * tail, 0.08, ctx.col(GOLD), 0.8);

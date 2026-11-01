@@ -90,6 +90,8 @@ describe('beam presets and tiers', () => {
       expect(p.charge + p.punch + p.hold + p.fade).toBeLessThan(0.45);
       for (const k of ['ink', 'body', 'core']) expect(p[k]).toMatch(/^#[0-9a-f]{6}$/i);
       expect(p.star && p.lines && p.sparks && p.ring && p.scorch && p.muzzle).toBeTruthy();
+      // the impact lines (drawn while their beam is) end before the beam's body does, a frame to spare: none is cut short
+      expect(p.lines.life + 1 / 30).toBeLessThanOrEqual(p.punch + p.hold + p.fade);
     }
     expect(BEAM_TIERS.low).toEqual({ lines: 0, sparks: 0, ring: false, scorch: false, bands: false, hdr: false });
     expect(BEAM_TIERS.medium.hdr).toBe(false);

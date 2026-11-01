@@ -25,15 +25,17 @@ export const raika = {
     const beats = lookAt(lk, 2) >= 5 ? 3 : lookAt(lk, 2) >= 3 ? 2 : 1;
     if (ctx.cap('sweep')) for (let b = 0; b < beats; b++) drumBeat(ctx, t.x, t.y, ctx.col(DRUM), b * 0.08, 1 - b * 0.1);
     const h = hand(ctx, t);
+    let styled = false;
     if (ctx.lightning) {
       // the styled bolt (src/render/vfx/lightning.js): its own forks, stars and sparks at every node; the Forked path
-      // forks once more
+      // forks once more (nothing back, e.g. the library switched off on an error: the old bolt below)
       const pts3 = [[h.x, h.h + tipUp(h, 0.1), h.y]];
       for (let k = 1; k < pts.length; k++) pts3.push([pts[k][0], 0.35, pts[k][1]]);
-      ctx.lightning.strike(pts3, { preset: 'storm', forks: lookAt(lk, 0) >= 3 ? 1 : 0 });
-    } else chainBolt(ctx, h.x, h.h + tipUp(h, 0.1), h.y, pts, c, 0.018, ctx.q.zig, 0.2);
+      styled = !!ctx.lightning.strike(pts3, { preset: 'storm', forks: lookAt(lk, 0) >= 3 ? 1 : 0 });
+    }
+    if (!styled) chainBolt(ctx, h.x, h.h + tipUp(h, 0.1), h.y, pts, c, 0.018, ctx.q.zig, 0.2);
     // forks flickering at the nodes (the styled bolt draws its own)
-    if (!ctx.lightning && (ctx.q.sparks || lookAt(lk, 0) >= 3)) {
+    if (!styled && (ctx.q.sparks || lookAt(lk, 0) >= 3)) {
       const forks = lookAt(lk, 0) >= 3 ? 2 : 1;
       for (let k = 1; k < pts.length; k++) {
         for (let f = 0; f < forks; f++) {
@@ -60,15 +62,15 @@ export const raika = {
   onBeam(ev, tw, t, ctx) {
     const h = hand(ctx, t);
     const [ex, ey] = ev.to;
-    if (ctx.beams) {
-      // the styled storm lance (src/render/vfx/beams.js): a solid zig-zag beam, struck again on the beat
-      ctx.beams.fire([h.x, h.h + tipUp(h, 0.1), h.y], [ex, 0.35, ey], { preset: 'storm', width: ev.width || 0.2, zig: ctx.quality === 'low' ? 2 : 6 });
-    } else {
+    // the styled storm lance (src/render/vfx/beams.js): a solid zig-zag beam, struck again on the beat (nothing back:
+    // the old lance)
+    const styled = !!(ctx.beams && ctx.beams.fire([h.x, h.h + tipUp(h, 0.1), h.y], [ex, 0.35, ey], { preset: 'storm', width: ev.width || 0.2, zig: ctx.quality === 'low' ? 2 : 6 }));
+    if (!styled) {
       const s = ctx.segs.add(h.x, h.h + tipUp(h, 0.1), h.y, ex, 0.35, ey, Math.max(0.2, (ev.width || 0.2) * 1.4), ctx.col(BOLT), 0.18, SEG_CORE | SEG_ZIGZAG | SEG_FLICKER);
       if (s) s.k = ctx.quality === 'low' ? 2 : 6;
     }
     // (the styled lance lands with its own star and scorch: no second flash or stain)
-    if (!ctx.beams) {
+    if (!styled) {
       stain(ctx, ex, ey, 0.25, ctx.col('#2a2418'), 0.4, 0.6);
       flash(ctx, ex, 0.35, ey, 0.5, ctx.col(BOLT), 0.12, CORE);
     }

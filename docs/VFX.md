@@ -348,8 +348,8 @@ every attack and the batch that styles it. Display only: the sim id does not cha
   - One instanced draw call for every styled line of the battle; hidden while nothing is pushed.
   - Premultiplied blend: the solid layers cover, the glow adds.
   - Begun and ended with the sprite batches each frame (`BattleRenderer`), held through both impact frames, at most 8192 strokes in a battle.
-  - Full: every layer checks the room left (`strokes.room()`) before it draws and drops whole lines, the newest first, so a line keeps its ink, body and core or is not drawn at all (never an ink-only dark line). `renderer.vfx.strokes` and `strokesRefused` show the load to captures.
-- **Errors:** an error anywhere in the library (an update, the projectile feed, or a hand-off from `fx.js`) switches the whole library off for the battle (`vfxSafe` / `vfxOff` in `BattleRenderer`, logged once): its layers are cleared and every effect goes back to its old drawing. (An error raised inside an attack style's own call goes through the attack styles' guard instead, `fxSafe`: the signature looks switch off and the default drawings carry on.)
+  - Full: every layer checks the room left (`strokes.room()`) before it draws and drops whole lines, the newest first, so a line keeps its ink, body and core or is not drawn at all (never an ink-only dark line). Lightning and the styles' segments drop whole segments (the newest bolt can stop short of its last target; a zig-zag can keep only its first parts). The layers take the room in frame order: the styles' segments, lightning, beams, slashes and rings, then the ribbons, so under extreme load the decorative ribbons thin before the hit feedback. `renderer.vfx.strokes` and `strokesRefused` show the load to captures.
+- **Errors:** an error anywhere in the library (an update, the projectile feed, a hand-off from `fx.js`, an attack style's call or the styles' segments) switches the whole library off for the battle (`vfxSafe` / `vfxOff` in `BattleRenderer`, logged once): its layers are cleared, nothing of that frame's strokes is drawn, and every effect goes back to its old drawing. The attack styles reach the library through guarded calls (`attackFx.ctx.lightning` / `beams` / `shapes` and `ctx.vfxError`), so the signature looks stay on and the attack that met the error draws its old look (it gets nothing back).
 
 ### Chain lightning (`src/render/vfx/lightning.js`, `lightningPresets.js`)
 
@@ -402,7 +402,7 @@ every attack and the batch that styles it. Display only: the sim id does not cha
   - It tapers to a point and breaks into dashes at the tail.
   - When the shot lands or vanishes, the ribbon is pulled in after it (`TRAIL_TAIL`, 0.12 s).
   - `TRAIL_KINDS` sets each kind's length and width (arrow, bolt, spark, bullet, fireball, shuriken, shell, flask).
-  - A shot whose attack style already draws its own trail (the style sets `view.ownTrail`: every shot of Akane, Aoi, Iroha, Kage, Kinu, Nami, Ruri, Yoriko, Yuki and Yuzuha, Hikari's T5 shots and Chika's drone bullets) gets no ribbon, so it never draws two.
+  - A shot whose attack style already draws its own trail (the style sets `view.ownTrail`: every shot of Aoi, Hana, Iroha, Kage, Kinu, Nami, Ruri, Yoriko, Yuki and Yuzuha, Akane's shots when her look has smoke or embers, Hikari's T5 shots, Chika's drone bullets and Marumi's lobbed shells where her own trail draws) gets no ribbon, so it never draws two; a shot without a trail of its own keeps the ribbon. `tests/render/vfx-trail-optout.test.js` runs every girl's real shots on every build and holds both.
 - **How:** `actors._syncProjectiles` feeds it where each shot is drawn (read only).
 - **Tiers:** high 160 ribbons of up to 7 joints, medium 90 of 5, low none.
 - **Reduce Motion:** ribbons 30% shorter.

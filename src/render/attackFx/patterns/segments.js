@@ -186,7 +186,16 @@ export class Segments {
       }
     }
     live.length = n;
-    if (tn) this._toon(toon, tn);
+    if (tn) {
+      // the library's strokes are decoration: an error there switches the styled effects off (the renderer's vfxOff, so
+      // these lines go back to soft quads from the next frame), never the attack styles
+      try {
+        this._toon(toon, tn);
+      } catch (err) {
+        if (ctx.vfxError) ctx.vfxError(err);
+        else throw err;
+      }
+    }
   }
 
   /** Pushes the collected toon sub-segments layer by layer: every ink line, then every body, then every core. */
