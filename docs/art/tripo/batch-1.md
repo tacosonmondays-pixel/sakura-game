@@ -51,6 +51,9 @@ content. Rejected for quality: Kogane try 1 (our prompt mix-up, not chibi) and t
 
 ## What shipped
 
+**Kogane and Norika superseded (Nov 1, `fix/staff-models`, `docs/art/tripo/staff-models.md`):** their figures are
+rebuilt in Blender on the chibi pipeline to the owner's proportion references; the props below are unchanged.
+
 | id | file(s) | triangles | size | rig and clips | wired in |
 |---|---|---|---|---|---|
 | kogane | `characters/kogane.glb` / `.lod.glb` | 19,970 / 8,999 | 604,972 / 328,676 B | Tripo biped renamed (`root hips spine chest neck head shoulder/upper_arm/forearm/hand_L/R thigh/shin/foot/toe_L/R` + twist bones); `idle walk attack_wrench cheer hurt` | manifest `source: 'tripo'`; out of `STANDIN_UNITS` |

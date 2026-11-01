@@ -327,21 +327,20 @@
  },
  "kogane": {
   "file": "kogane.glb",
-  "size": 609916,
+  "size": 484596,
   "animations": [
    "attack_wrench",
    "cheer",
    "hurt",
    "idle",
+   "pickup",
+   "victory",
    "walk"
   ],
-  "vertices": 12741,
-  "triangles": 19970,
-  "source": "tripo",
+  "vertices": 10014,
   "lod": "kogane.lod.glb",
-  "lodSize": 333932,
-  "lodVertices": 7123,
-  "lodTriangles": 8999
+  "lodSize": 239684,
+  "lodVertices": 3570
  },
  "kohaku": {
   "file": "kohaku.glb",
@@ -486,21 +485,20 @@
  },
  "norika": {
   "file": "norika.glb",
-  "size": 578528,
+  "size": 485284,
   "animations": [
    "attack_sign",
    "cheer",
    "hurt",
    "idle",
+   "pickup",
+   "victory",
    "walk"
   ],
-  "vertices": 12208,
-  "triangles": 19996,
-  "source": "tripo",
+  "vertices": 9748,
   "lod": "norika.lod.glb",
-  "lodSize": 313788,
-  "lodVertices": 6639,
-  "lodTriangles": 8999
+  "lodSize": 242040,
+  "lodVertices": 3392
  },
  "ouka": {
   "file": "ouka.glb",

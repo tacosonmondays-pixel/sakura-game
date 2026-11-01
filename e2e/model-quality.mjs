@@ -1,11 +1,13 @@
 // Model quality (docs/art/tripo/model-quality.md): the imported heroes really move their arms (no T-pose) and the
 // Green Slime is the glossy jelly with its squash-and-stretch hop, in a real battle.
 //
-//   1. Battle 1-1 with each Tripo hero (Luna first) placed beside the road, quality high and medium (LOD file):
-//      her skinned body is measured in each clip (idle, walk, attack, cheer, hurt), stepping her animator by hand:
-//      the free hand must come down from the T-pose (the skinned mesh around the rest hand drops more than 0.4 arm
-//      lengths in idle; FREE_ARMS: the arm holding her staff / trident / control bar is placed at grip height) and every
-//      clip must move her (the skinned vertices travel).
+//   1. Battle 1-1 with each re-rigged or rebuilt hero (Luna first) placed beside the road, quality high and medium
+//      (LOD file): her skinned body is measured in each clip (idle, walk, attack, cheer, hurt), stepping her animator by
+//      hand: the free hand must come down from the T-pose (the skinned mesh around the rest hand drops more than 0.4
+//      arm lengths in idle; FREE_ARMS: the arm holding her staff / trident / control bar / paddle / wrench is placed at
+//      grip height) and every clip must move her (the skinned vertices travel). A figure that already rests with her
+//      arms down (the Blender-built staff, docs/art/tripo/staff-models.md) has no T-pose to leave: her free hand must
+//      stay down instead (it never rises more than 0.15 arm lengths).
 //   2. Green Slimes on the road (their own model): the body squashes and stretches (height range over the move
 //      clip), and the slime family's other slimes still draw.
 //   3. The re-rigged batch-2 enemies (docs/art/tripo/enemy-rigs.md), each alone on the road wearing its own model, at
@@ -46,7 +48,7 @@ const IGNORE = [
   /Failed to load resource: net::ERR_/i,
 ];
 // the arm(s) that hang free in idle (the other holds her prop at grip height)
-const FREE_ARMS = { luna: ['L'], nami: ['R'], kanna: ['L', 'R'], yoriko: ['R'], kogane: ['L', 'R'], norika: ['L'] };
+const FREE_ARMS = { luna: ['L'], nami: ['R'], kanna: ['L', 'R'], yoriko: ['R'], kogane: ['L'], norika: ['L'] };
 const failures = [];
 const log = (...a) => console.log(...a);
 function check(cond, msg) {
@@ -183,7 +185,8 @@ async function heroProbe(page, uid, state, sampleMs = 0) {
       const l = S.distanceTo(Hd);
       const idx = [];
       for (let i = 0; i < pos0.count; i++) if (v.fromBufferAttribute(pos0, i).distanceTo(Hd) < 0.3 * l) idx.push(i);
-      hands[side] = { idx, l };
+      // how far the arm already hangs in the bind pose (shoulder over hand, in arm lengths): ~0 in a T-pose
+      hands[side] = { idx, l, hang: (S.y - Hd.y) / l };
     }
     const measure = () => {
       model.updateMatrixWorld(true);
@@ -224,7 +227,8 @@ async function heroProbe(page, uid, state, sampleMs = 0) {
         prev = b.out;
       }
     }
-    return { skinned: true, travel, drop: drops, detail: ud.detail };
+    const hang = Object.fromEntries(Object.entries(hands).map(([s, h]) => [s, h.hang]));
+    return { skinned: true, travel, drop: drops, hang, detail: ud.detail };
   }, [uid, state, sampleMs]);
 }
 
@@ -422,7 +426,14 @@ async function heroRun(hero, size, quality, { slimes = false } = {}) {
   if (idle?.skinned) {
     // no T-pose: her free arm hangs (the arm holding a staff / trident / control bar is placed by IK at grip height)
     const free = FREE_ARMS[hero] || ['L', 'R'];
-    for (const side of free) check(idle.drop[side] > 0.4, `${hero}'s ${side === 'L' ? 'left' : 'right'} hand comes down in idle (the mesh around it: ${idle.drop[side]?.toFixed(2)} arm lengths, want > 0.4)`);
+    for (const side of free) {
+      const name = `${hero}'s ${side === 'L' ? 'left' : 'right'} hand`;
+      if ((idle.hang?.[side] ?? 0) > 0.7) {
+        check(idle.drop[side] > -0.15, `${name} rests down and stays down in idle (rest hang ${idle.hang[side].toFixed(2)} arm lengths, the mesh around it moves ${idle.drop[side]?.toFixed(2)}, want > -0.15)`);
+      } else {
+        check(idle.drop[side] > 0.4, `${name} comes down in idle (the mesh around it: ${idle.drop[side]?.toFixed(2)} arm lengths, want > 0.4)`);
+      }
+    }
     check(idle.travel > 0.002, `${hero}'s idle moves her (${(idle.travel * 100).toFixed(1)}% of her height per step)`);
   }
   for (const st of ['walk', 'cheer', 'attack']) {
