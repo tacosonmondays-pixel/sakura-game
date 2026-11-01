@@ -119,18 +119,22 @@ describe('costume picker', () => {
     }
   });
 
-  it('the Goblin Runner wears the pumpkin hat, never the face-hiding pumpkin head', () => {
+  it('the Goblin Runner wears the pumpkin hat, never a face-hiding pumpkin head or bedsheet', () => {
     const runner = ENEMIES.find((e) => e.id === 'goblin_runner');
-    expect(ENEMY_COSTUME_SWAPS.goblin_runner).toEqual({ pumpkinHead: 'pumpkinHat' });
+    expect(ENEMY_COSTUME_SWAPS.goblin_runner).toEqual({ pumpkinHead: 'pumpkinHat', sheet: 'pumpkinHat' });
     const opts = costumeOptions(runner);
     expect(opts).toContain('pumpkinHat');
     expect(opts).not.toContain('pumpkinHead');
+    expect(opts).not.toContain('sheet');
+    expect(new Set(opts).size).toBe(opts.length);
     const kinds = new Set();
     for (let uid = 0; uid < 300; uid++) kinds.add(costumeFor(runner, uid)?.kind);
     expect(kinds.has('pumpkinHead')).toBe(false);
+    expect(kinds.has('sheet')).toBe(false);
     expect(kinds.has('pumpkinHat')).toBe(true);
-    // other goblins keep the full pumpkin head
+    // other goblins keep the full pumpkin head and the bedsheet
     expect(costumeOptions(def('goblin'))).toContain('pumpkinHead');
+    expect(costumeOptions(def('goblin'))).toContain('sheet');
   });
 
   it('keeps armour and ward signs clear', () => {

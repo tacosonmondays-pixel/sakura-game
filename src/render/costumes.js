@@ -39,8 +39,9 @@ export const FAMILY_COSTUMES = {
   dragon: ['witchHat'],
 };
 
-/** Per-enemy costume swaps by id: the Goblin Runner's face must stay visible, so it wears the small pumpkin hat. */
-export const ENEMY_COSTUME_SWAPS = { goblin_runner: { pumpkinHead: 'pumpkinHat' } };
+/** Per-enemy costume swaps by id: the Goblin Runner's face must stay visible, so the face-hiding pumpkin head and
+ * bedsheet become the small pumpkin hat (listed once). */
+export const ENEMY_COSTUME_SWAPS = { goblin_runner: { pumpkinHead: 'pumpkinHat', sheet: 'pumpkinHat' } };
 
 /** Render-only extras keyed by enemy id (shown on every stage, costumes or not). */
 export const ENEMY_EXTRAS = { construct_gourdlight: 'bossPumpkin' };
@@ -64,7 +65,7 @@ export function costumeOptions(def) {
   const armoured = def.armor > 0 || ARMOUR.some((p) => props.has(p)) || !!def.traits?.guardian;
   const warded = !!def.traits?.ward;
   const swap = ENEMY_COSTUME_SWAPS[def.id] || {};
-  return list.map((k) => swap[k] || k).filter((k) => {
+  return [...new Set(list.map((k) => swap[k] || k))].filter((k) => {
     if (k === 'cape') return !armoured && !warded && !BACKWEAR.some((p) => props.has(p));
     if (k === 'sheet') return fam !== 'ghost' && !armoured && !warded && !headwear && !props.has('wings') && !props.has('cape');
     return !headwear;
