@@ -2006,6 +2006,9 @@ export function buildChibi(unitDef, { quality = 'high', pose = 'idle', detail, s
    // group.userData.animate(time, dt, state) state: 'idle'|'attack'|'cheer'|'disabled'
    // group.userData.playAttack()  short attack animation
    // group.userData.setHighlight(bool)  selected look: her own colours a little brighter + a soft light rim (models/highlight.js)
+   // GLB figures only: group.userData.glbRoot (the instance's skeleton root) and group.userData.restBone(name) ->
+   // Matrix4 | null (that bone's rest frame in figure space): the path-look sockets (src/render/pathLooks,
+   // docs/specs/path-looks.md). findBone(root, name) (glbChibi.js) finds a bone by type + name.
 export function buildEnemy(enemyDef, { quality }) // -> THREE.Group, feet at y=0, faces +z, height ≈ 0.6*size
    // userData.animate(time, dt, { moving, speed }) ; userData.hitFlash() ; userData.setVeiled(bool)
    // userData.setBarrier(frac|0) ; userData.setPhasing(bool) ; userData.setStatus(statusMap)

@@ -161,9 +161,9 @@
   --cyan-wash: #e2f5fc; /* a pressed Go; the cyan chip */
   --pink-ink: #d23a74; /* the selection stroke on paper: bars, the pick chip */
   /* shared (the UR rainbow is ur.css's --ur-rainbow colour list) */
-  --path-1: #ff5d73; /* the 3 px tick of a path row */
-  --path-2: #2b7fff;
-  --path-3: #8b5cf6;
+  --path-1: #ff6b8b; /* the 3 px tick of a path row (one set with the board path looks: pink, cyan, yellow) */
+  --path-2: #4cc9f0;
+  --path-3: #ffd43b;
   --tier-beginner: #7bd389; /* map tier chips (mirrors src/data/types.js MAP_TIERS) */
   --tier-intermediate: #4cc9f0;
   --tier-advanced: #ff9f1c;
