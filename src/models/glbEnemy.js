@@ -22,6 +22,8 @@ let loaderPromise = null;
 export const ENEMY_FACE_CELLS = ['idle', 'blink', 'hit', 'angry', 'dead', 'cast'];
 const FACE_GRID = [3, 2];
 const OUTLINE_WORLD = 0.011;
+// textured enemies: how far their hull is pushed back in depth, in outline widths (outlineMaterial)
+export const OUTLINE_PUSH = 3;
 const FADE = 0.14;
 const PRELOAD_CONCURRENCY = 4;
 
@@ -67,10 +69,12 @@ export const TRIPO_ENEMIES = Object.freeze([
   'dragon_ashwing', 'fp_eclipse_wyrm', 'fp_gloom_regent', 'fp_hyakki_daimyo', 'iron_colossus', 'fp_foundry_titan',
 ]);
 /**
- * Tripo enemies that are switched off for now: they wear their family's chibi model again (owner, Nov 1: the Tripo
- * slime and goblin runner read creepy, not cute). Their files stay until remakes replace them.
+ * Tripo enemies switched off for now: they wear their family's chibi model instead (their files stay). Empty since
+ * the faces fix (docs/art/tripo/slime-goblin-faces.md): the Green Slime and the Goblin Runner were paused on Nov 1
+ * (owner: they read creepy) and are back, the slime remade with a face that never stretches and the runner with
+ * bright eyes and no outline rims round them.
  */
-export const TRIPO_PAUSED = Object.freeze(['slime_green', 'goblin_runner']);
+export const TRIPO_PAUSED = Object.freeze([]);
 const TRIPO_SET = new Set(TRIPO_ENEMIES.filter((id) => !TRIPO_PAUSED.includes(id)));
 
 /**
@@ -187,6 +191,11 @@ export function parsePieceName(name = '') {
   return { vis, group, material };
 }
 
+/** A parsed GLTF as the enemy asset loadFamily caches (for tests that build instances from the shipped files). */
+export function prepareEnemyAsset(family, gltf) {
+  return prepareAsset(family, gltf);
+}
+
 function prepareAsset(family, gltf) {
   const scene = gltf.scene;
   scene.updateMatrixWorld(true);
@@ -246,22 +255,31 @@ function prepareAsset(family, gltf) {
 function prepareTextured(family, gltf, extras) {
   const scene = gltf.scene;
   let template = null;
+  let faceGeometry = null;
   scene.traverse((o) => {
     if (!o.isMesh) return;
     o.frustumCulled = false;
     if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
     o.geometry.userData.shared = true;
+    // the face (material 'face': eyes, highlights, mouth, blush as small vertex-coloured meshes on their own bones):
+    // drawn by faceMaterial, never outlined, never part of the body
+    if (o.material?.name === 'face') {
+      faceGeometry ||= o.geometry;
+      return;
+    }
     if (!template || (o.isSkinnedMesh && !template.isSkinnedMesh)) template = o;
   });
   const map = template?.material?.map || null;
   if (map) {
     map.userData.shared = true;
     map.colorSpace = THREE.SRGBColorSpace;
+    // the battle camera sees the bodies 48 degrees from above: keep the painted detail sharp at that slant
+    map.anisotropy = 4;
   }
   const clips = {};
   for (const clip of gltf.animations) clips[clip.name] = clip;
   return {
-    family, scene, pieces: [], template, clips, faceTexture: null, extras, textured: true, map,
+    family, scene, pieces: [], template, faceGeometry, clips, faceTexture: null, extras, textured: true, map,
     height: extras.height || 1, unitScale: extras.unitScale || 1, translucent: 0,
     cells: ENEMY_FACE_CELLS, grid: FACE_GRID, variantTable: {}, props: new Set(), variants: new Set(),
   };
@@ -290,7 +308,7 @@ function mergedKey(asset, def) {
 }
 
 function mergedFor(asset, def) {
-  if (asset.textured) return { body: asset.template.geometry };
+  if (asset.textured) return asset.faceGeometry ? { body: asset.template.geometry, face: asset.faceGeometry } : { body: asset.template.geometry };
   const key = mergedKey(asset, def);
   let m = mergedCache.get(key);
   if (m) return m;
@@ -438,7 +456,7 @@ const JELLY_FRAGMENT = `
 vec3 jellyView = normalize( vViewPosition );
 float jellyRim = smoothstep( 0.42, 0.95, 1.0 - clamp( dot( normal, jellyView ), 0.0, 1.0 ) );
 vec3 jellyHalf = normalize( normalize( vec3( -0.45, 0.75, 0.5 ) ) + jellyView );
-float jellySpec = smoothstep( 0.9, 0.93, dot( normal, jellyHalf ) );
+float jellySpec = smoothstep( 0.955, 0.972, dot( normal, jellyHalf ) );
 // as bright as the light on it: a night stage dims the gloss with the body instead of leaving white discs
 vec3 jellyLr = outgoingLight / max( diffuseColor.rgb, vec3( 1e-3 ) );
 float jellyLit = clamp( max( jellyLr.r, max( jellyLr.g, jellyLr.b ) ), 0.25, 1.0 );
@@ -469,18 +487,50 @@ function glowMaterial(tint, opacity) {
   return m;
 }
 
-/** Inverted hull outline following the skin; a deep shade of the tinted surface colour. */
-function outlineMaterial(tint, width, lineTint, seeThrough) {
+/**
+ * The face of a textured enemy (asset.faceGeometry: the Green Slime's eyes, highlights, mouth and blush, the Goblin
+ * Runner's eyes): small vertex-coloured meshes on their own bones, shaded with the body's toon ramp so they sit in the
+ * same light (and dim with it at night). No texture, so they stay crisp at any zoom, and never outlined: an inverted
+ * hull around an eye reads as a dark rim, a hollow socket.
+ */
+function faceMaterial(opacity) {
+  const m = new THREE.MeshToonMaterial({
+    vertexColors: true, gradientMap: gradientMap(3), color: '#ffffff', transparent: opacity < 1, opacity, depthWrite: true,
+  });
+  m.customProgramCacheKey = () => 'enemy-face';
+  return m;
+}
+
+/**
+ * Inverted hull outline following the skin; a deep shade of the tinted surface colour. `push` (world units, the
+ * textured enemies): the hull is also pushed back in depth (screen x / y unchanged, so the silhouette keeps its width),
+ * so the parts of it that fold out in front of the enemy's own surface stay hidden. A Tripo mesh has creases around
+ * its eyes, brows and mouth; the hull pushed out along their normals crosses over itself there and showed as dark
+ * slivers around the eyes (the hollow, creepy look the owner saw on the Goblin Runner). Less near the feet, so the
+ * ground does not swallow the line along the bottom.
+ */
+function outlineMaterial(tint, width, lineTint, seeThrough, push = 0) {
   const m = new THREE.MeshBasicMaterial({ color: lineTint, side: THREE.BackSide, vertexColors: true, transparent: seeThrough, depthWrite: !seeThrough });
   m.onBeforeCompile = (shader) => {
     patchRoles(shader, tint);
     shader.uniforms.outlineWidth = { value: width };
+    shader.uniforms.outlineZ = { value: push };
     shader.vertexShader = shader.vertexShader
-      .replace('uniform vec3 uMain;', 'uniform vec3 uMain;\nuniform float outlineWidth;')
+      .replace('uniform vec3 uMain;', 'uniform vec3 uMain;\nuniform float outlineWidth;\nuniform float outlineZ;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed += normalize( objectNormal ) * outlineWidth;');
+    if (push > 0) {
+      shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+{
+  float olFeet = max( 0.0, ( modelMatrix * vec4( transformed, 1.0 ) ).y - modelMatrix[ 3 ].y );
+  float olZ = min( outlineZ, olFeet * 0.8 );
+  vec4 olP = projectionMatrix * vec4( mvPosition.xy, mvPosition.z - olZ, 1.0 );
+  gl_Position.z = olP.z / olP.w * gl_Position.w;
+}`);
+    }
   };
-  m.customProgramCacheKey = () => `enemy-outline-${seeThrough}`;
+  m.customProgramCacheKey = () => `enemy-outline-${seeThrough}-${push > 0}`;
   m.userData.outline = true;
+  m.userData.push = push;
   return m;
 }
 
@@ -511,7 +561,7 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
   root.scale.setScalar(asset.unitScale);
   const clonedMeshes = [];
   root.traverse((o) => { if (o.isMesh) clonedMeshes.push(o); });
-  const tmpl = clonedMeshes.find((o) => o.isSkinnedMesh) || clonedMeshes[0];
+  const tmpl = clonedMeshes.find((o) => o.isSkinnedMesh && o.material?.name !== 'face') || clonedMeshes.find((o) => o.isSkinnedMesh) || clonedMeshes[0];
   for (const m of clonedMeshes) m.removeFromParent();
   model.add(root);
 
@@ -526,11 +576,15 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
   const geos = mergedFor(asset, def);
   const bodyMat = asset.textured ? texturedBodyMaterial(asset.map, baseOpacity, asset.extras?.look) : bodyMaterial(faceTex, tint, baseOpacity);
   const glowMat = glowMaterial(tint, Math.min(1, baseOpacity + 0.3));
+  const faceMat = geos.face ? faceMaterial(baseOpacity) : null;
   const see = baseOpacity < 1;
-  const outlineWidth = OUTLINE_WORLD * (0.7 + 0.45 * Math.sqrt(size)) / (asset.unitScale * modelScale);
+  const outlineWorld = OUTLINE_WORLD * (0.7 + 0.45 * Math.sqrt(size));
+  const outlineWidth = outlineWorld / (asset.unitScale * modelScale);
   // def.line: an explicit outline colour (the Brigade's pale rim, so navy units read on grey roads)
   const lineTint = def.line ? new THREE.Color(def.line) : new THREE.Color(def.color || '#888888').multiplyScalar(0.32).lerp(new THREE.Color('#2a1f3d'), 0.45);
-  const outlineMat = quality !== 'low' ? outlineMaterial(tint, outlineWidth, `#${lineTint.getHexString()}`, see) : null;
+  const outlineMat = quality !== 'low'
+    ? outlineMaterial(tint, outlineWidth, `#${lineTint.getHexString()}`, see, asset.textured ? OUTLINE_PUSH * outlineWorld : 0)
+    : null;
 
   const skinned = (geometry, material) => {
     let mesh;
@@ -564,6 +618,15 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
     o.castShadow = false;
     o.renderOrder = see ? 2 : 0;
     outlines.push(o);
+  }
+  // the face: its own meshes, no outline (makeSilhouette hides a mesh named 'face')
+  let faceMesh = null;
+  if (geos.face && bodyMesh) {
+    faceMesh = skinned(geos.face, faceMat);
+    faceMesh.name = 'face';
+    faceMesh.userData.face = true;
+    faceMesh.castShadow = false;
+    faceMesh.renderOrder = see ? 2 : 0;
   }
   let glowMesh = null;
   if (geos.glow) {
@@ -600,6 +663,12 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
     bodyMat.depthWrite = opacity >= 0.75;
     glowMat.opacity = Math.min(1, opacity + 0.3);
     glowMat.transparent = glowMat.opacity < 1;
+    if (faceMat) {
+      // the face fades with the body (a veiled or phasing enemy's eyes never float in the air)
+      faceMat.opacity = opacity;
+      faceMat.transparent = opacity < 1;
+      faceMat.depthWrite = opacity >= 0.75;
+    }
     const sil = group.userData.silhouette;
     // a body that no longer writes depth would show the hull's far side through itself
     for (const o of outlines) o.visible = !(st.veiled || st.phasing || sil || opacity < 0.75);
@@ -612,6 +681,11 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
     }
     if (st.phasing) bodyMat.emissive.add(tmp.set('#5c7cfa').multiplyScalar(0.25));
     if (st.flash > 0) bodyMat.emissive.add(tmp.copy(flashColor).multiplyScalar(st.flash * 0.9));
+    if (faceMat) {
+      // the face takes the body's status tint and hit flash (a painted face does too; a skin patch must match the skin)
+      faceMat.color.copy(bodyMat.color);
+      faceMat.emissive.copy(bodyMat.emissive);
+    }
     if (st.barrier > 0) {
       bubble.visible = true;
       bubbleMat.opacity = 0.12 + 0.22 * st.barrier + 0.05 * Math.sin(time * 4);
@@ -627,6 +701,8 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
   group.userData.glb = true;
   group.userData.height = 0.6 * size;
   group.userData.mixer = anim.mixer;
+  // a face made of geometry: nothing may scale this model unevenly (the actors' hit squash pops it evenly instead)
+  group.userData.rigidFace = !!faceMesh;
   group.userData.animate = (time, dt = 0.016, { moving = true, speed = 1 } = {}) => {
     dt = Math.min(Math.max(dt || 0, 0), 0.1);
     st.flash = Math.max(0, st.flash - dt * 6);
@@ -688,6 +764,7 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
     faceTex?.dispose();
     bodyMat.dispose();
     glowMat.dispose();
+    faceMat?.dispose();
     outlineMat?.dispose();
     bubbleMat.dispose();
     bubble.geometry.dispose();

@@ -100,6 +100,10 @@ for byte (the texture is transplanted back after packing).
 
 ### The Green Slime: rebuilt in Blender after the game's own slime art
 
+**Superseded (Nov 1, `fix/slime-goblin-faces`, `docs/art/tripo/slime-goblin-faces.md`):** the owner found this jelly's
+painted face warped by every squash ("make sure the faces dont get warped, stretched, get fuzzy!"). The same builder now
+makes a new slime whose face is geometry on its own bones (it never stretches), with no face in the texture.
+
 `tools/blender/enemies/build_slime_green.py` builds it from scratch after the "Hi!" sticker
 (`public/art/stickers/slime_hi-256.webp`): a soft mochi dome (two superellipse halves, flat bottom, round crown),
 mint green with a paler glowing hem, big glossy eyes with two highlights and a blue glint each, pink blush, a small

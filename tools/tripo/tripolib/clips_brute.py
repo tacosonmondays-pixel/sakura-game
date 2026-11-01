@@ -232,10 +232,13 @@ class BruteClips:
         return self._clip('idle', 45, f)
 
     def hit(self):
+        # hit_raise: how far the arms lift out to the sides (degrees); hit_fwd: how far they flinch forward
+        hr, hf = self.s.get('hit_raise', 16.0), self.s.get('hit_fwd', 12.0)
+
         def f(t):
             k = math.sin(math.pi * t) * (1 - 0.3 * t)
             return self.pose(spine=(-12 * k, 0, 4 * k), chest=(-6 * k, 0, 0), head=(-10 * k, 6 * k, 0),
-                             arm={'L': [(0, -16 * k, 0), (-12 * k, 0, 0)], 'R': [(0, 16 * k, 0), (-12 * k, 0, 0)]},
+                             arm={'L': [(0, -hr * k, 0), (-hf * k, 0, 0)], 'R': [(0, hr * k, 0), (-hf * k, 0, 0)]},
                              fore={'L': [(-14 * k, 0, 0)], 'R': [(-14 * k, 0, 0)]},
                              thigh_l=(-6 * k, 0, 0), shin_l=(8 * k, 0, 0),
                              tail=(-6 * k, 0, 8 * k), banner=(-8 * k, 0, 0), shift=(0, 0.025 * k))
@@ -259,6 +262,11 @@ class BruteClips:
 
     def special(self):
         sp = self.s['special']
+        # pound: how far forward (negative: back over the shoulder) and out to the side the club arm hoists; banner: how
+        # far up (forward) and out to the sides the arms fling
+        pl, po = self.s.get('pound_lift', 65.0), self.s.get('pound_out', 48.0)
+        pa = self.s.get('pound_aim_out', 0.05)      # the club's outward lean while aimed (x per unit up)
+        bu, bo = self.s.get('banner_up', 110.0), self.s.get('banner_out', 20.0)
         wpn = self._w() or 'R'
         free = 'L' if wpn == 'R' else 'R'
         kf = 1 if free == 'L' else -1
@@ -279,13 +287,13 @@ class BruteClips:
                 L, tr = self.pose(spine=(-8 * raise_ + 12 * hit, 0, kw * 6 * raise_), chest=(-5 * raise_ + 4 * hit, 0, 0),
                                   head=(-10 * raise_ - 14 * hit, 0, 0),
                                   shoulder={wpn: [(0, -kw * 14 * raise_, 0)]},
-                                  arm={wpn: [(-65 * raise_ + 12 * hit, -kw * 48 * raise_, 0)],
+                                  arm={wpn: [(-pl * raise_ + 12 * hit, -kw * po * raise_, 0)],
                                        free: [(-30 * pump, -kf * 50 * pump, 0)]},
                                   fore={wpn: [(-15 * raise_, 0, 0)], free: [(-35 * pump, 0, 0)]},
                                   thigh_l=(-16 * hit, 0, 0), thigh_r=(10 * hit, 0, 0), shin_r=(14 * hit, 0, 0),
                                   lift=0.03 * raise_ - 0.025 * hit)
                 # half aimed while hoisted (the club leans back over the shoulder, the wrist turns half as far)
-                return self.aim(L, (kw * 0.05, -0.08 - 0.25 * hit, 1.0), (1 - back) * (1 - 0.55 * raise_)), tr
+                return self.aim(L, (kw * pa, -0.08 - 0.25 * hit, 1.0), (1 - back) * (1 - 0.55 * raise_)), tr
             if sp == 'thump':
                 # a club held forward and up (the Orc): swung up until it stands upright, a roar with the free fist
                 # pumping, then thumped down in front with a stomp
@@ -307,7 +315,7 @@ class BruteClips:
                 up = smooth(t / 0.3) * (1 - smooth((t - 0.75) / 0.25))
                 wave = math.sin(TAU * t * 1.5)
                 return self.pose(spine=(-8 * up, 0, 0), chest=(-5 * up, 0, 0), head=(-2 * up, 0, 0),
-                                 arm={'L': [(-110 * up, -20 * up, 0)], 'R': [(-110 * up, 20 * up, 0)]},
+                                 arm={'L': [(-bu * up, -bo * up, 0)], 'R': [(-bu * up, bo * up, 0)]},
                                  fore={'L': [(-20 * up, 0, 0)], 'R': [(-20 * up, 0, 0)]},
                                  banner=(10 * up * wave, 0, 6 * up * wave), lift=0.02 * up)
             if sp == 'pounce':

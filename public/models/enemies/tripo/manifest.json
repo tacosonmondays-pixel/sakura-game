@@ -297,9 +297,9 @@
  },
  "goblin_runner": {
   "file": "goblin_runner.glb",
-  "size": 220940,
-  "triangles": 4999,
-  "vertices": 5316,
+  "size": 238348,
+  "triangles": 5729,
+  "vertices": 5807,
   "animations": [
    "death",
    "hit",
@@ -312,9 +312,9 @@
   "kind": "humanoid",
   "source": "tripo",
   "lod": "goblin_runner.lod.glb",
-  "lodSize": 120796,
-  "lodTriangles": 1999,
-  "lodVertices": 2673
+  "lodSize": 130876,
+  "lodTriangles": 2365,
+  "lodVertices": 2942
  },
  "iron_colossus": {
   "file": "iron_colossus.glb",
@@ -356,7 +356,7 @@
  },
  "oni_brute": {
   "file": "oni_brute.glb",
-  "size": 256392,
+  "size": 256208,
   "triangles": 4999,
   "vertices": 5737,
   "animations": [
@@ -371,7 +371,7 @@
   "kind": "humanoid",
   "source": "tripo",
   "lod": "oni_brute.lod.glb",
-  "lodSize": 136168,
+  "lodSize": 136376,
   "lodTriangles": 1999,
   "lodVertices": 2879
  },
@@ -419,9 +419,9 @@
  },
  "slime_green": {
   "file": "slime_green.glb",
-  "size": 107992,
-  "triangles": 4576,
-  "vertices": 2453,
+  "size": 131604,
+  "triangles": 4154,
+  "vertices": 2367,
   "animations": [
    "death",
    "hit",
@@ -434,9 +434,10 @@
   "kind": "blob",
   "source": "blender",
   "look": "jelly",
+  "face": "geometry",
   "lod": "slime_green.lod.glb",
-  "lodSize": 42320,
-  "lodTriangles": 1184,
-  "lodVertices": 675
+  "lodSize": 81788,
+  "lodTriangles": 1612,
+  "lodVertices": 983
  }
 }

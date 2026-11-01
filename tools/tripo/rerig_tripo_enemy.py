@@ -32,12 +32,13 @@ import tempfile
 
 import bpy
 import numpy as np
+from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 
-from tripolib import normalize, rerig, rerig_enemy, clips_brute, compat, glbcompact  # noqa: E402
+from tripolib import normalize, rerig, rerig_enemy, clips_brute, compat, glbcompact, face  # noqa: E402
 from tripolib.meshy import pack  # noqa: E402
 
 STORE_SCALE = 0.5
@@ -86,7 +87,10 @@ ENEMIES = {
         props=[dict(bone='hand_L', capsules=[((0.375, -0.09, 0.24), (0.385, -0.15, 0.6), 0.05),
                                              ((0.385, -0.15, 0.55), (0.39, -0.18, 0.97), 0.1)]),
                dict(bone='hand_L', capsules=[((0.385, -0.1, 0.39), (0.385, -0.1, 0.39), 0.065)])],
-        style=dict(build='heavy', special='pound', weapon='L', hang={'L': 50, 'R': 60}, chin=-8, stride=22, swing=20),
+        # (review r2 F1: the club arm hangs lower and the club leans out, so its head clears his cheek; the pound hoists
+        # it out and back over his shoulder, not up past his face)
+        style=dict(build='heavy', special='pound', weapon='L', hang={'L': 76, 'R': 60}, grip=(0, 22, 0), chin=-8, stride=22,
+                   swing=20, pound_lift=-25, pound_out=70, pound_aim_out=0.4),
     ),
     # the samurai demon lord: short legs under an armour skirt, a parade banner on its back
     'fp_hyakki_daimyo': dict(
@@ -98,15 +102,28 @@ ENEMIES = {
         chains=[dict(name='banner', parent='chest', points=[(-0.05, 0.12, 0.44), (-0.07, 0.12, 0.72), (-0.09, 0.12, 1.0)],
                      boxes=[((-0.4, 0.098, 0.44), (0.4, 0.3, 1.01)), ((-0.4, -0.3, 0.685), (0.4, 0.3, 1.01)),
                             ((-0.28, 0.08, 0.37), (-0.11, 0.26, 0.54))])],
-        style=dict(build='boss', special='banner', hang={'L': 55, 'R': 55}, chin=-10, lean=-9, stride=18, swing=18),
+        # (review r2 F4: the arms fling up and out to the sides in a V, not forward overhead: the overhead reach dragged a
+        # sleeve across his belly)
+        style=dict(build='boss', special='banner', hang={'L': 55, 'R': 55}, chin=-10, lean=-9, stride=18, swing=18,
+                   banner_up=20, banner_out=95),
     ),
     # the little green runner: thin arms, big ears, a scarf
     'goblin_runner': dict(
         cx=0.0, cy=-0.01, hip_z=0.36, chest_z=0.48, neck_z=0.625, head_blend=0.02,
+        # geometric eyes over its painted ones (add_eyes): the painted eyes were flat black ovals with soft edges, and
+        # the hull outline showed through the creases round them as dark rims: hollow, creepy (owner, Nov 1)
+        # (dark 0.3: the painted eyes' soft halo counts, so the new eyes cover it; round 0.7: a little rounder than the
+        # painted slits, friendlier; the band keeps the grin below out)
+        # top 0.12: the eye reaches a little higher, so from the battle camera's height no painted socket shows above it
+        eyes=dict(z=(0.75, 0.9), max_x=0.2, dark=0.35, grow=1.16, round=0.72, top=0.24, lift=0.0028, bulge=0.003,
+                  # (review r2 F2: its wide toothy grin, measured off the texture, becomes a small smile)
+                  mouth=dict(z=0.7, lower=(0.68, 3.0), upper=(0.718, 2.0), half=0.128, margin=0.013, smile=(0.03, 0.026))),
         arms={'L': dict(pts=[(0.095, -0.02, 0.578), (0.25, -0.02, 0.48), (0.35, -0.02, 0.415), (0.41, -0.02, 0.376)],
                         r=(0.032, 0.03, 0.04), ry=0.06, minx=0.085, minus=[((0.05, -0.1, 0.36), (0.14, 0.12, 0.535))])},
         legs=dict(knee_z=0.2, ankle_z=0.06, top_z=0.33),
-        style=dict(build='runner', special='pounce', hang={'L': 62, 'R': 62}, chin=-10, stride=34, swing=36),
+        # (review r2 F2: the arms hang low at its sides in idle and flinch forward in a hit, never out level)
+        style=dict(build='runner', special='pounce', hang={'L': 76, 'R': 76}, chin=-10, stride=34, swing=36,
+                   hit_raise=0, hit_fwd=20),
     ),
     # the bone walker: skull, rag poncho over the shoulders, arms out in front when it walks
     'ghoul_bonewalker': dict(
@@ -214,6 +231,69 @@ def fit(V, fig):
     return f
 
 
+def add_eyes(eid, body, spec, full):
+    """Geometric eyes (and, with spec['mouth'], a softer mouth) over a figure's painted ones (docs/art/tripo/slime-goblin-faces.md): each painted eye is found
+    from its dark texels (tripolib.face.find_painted_eyes), and covered by a dark glossy oval a little bigger than it
+    (so its soft edge cannot peek out) with two white highlights, shrink-wrapped onto the face a few millimetres out,
+    wholly on the head bone, in the 'face' material: glbEnemy.js draws it crisp at any zoom and never outlines it.
+    Joined into the body after its material, so the body stays primitive 0. Returns the eyes' sizes (1 m frame)."""
+    img = bpy.data.images.get('base')
+    eyes = face.find_painted_eyes(body, img, *spec['z'], max_x=spec.get('max_x', 0.25), dark=spec.get('dark', 0.1))
+    assert len(eyes) == 2, f'{eid}: found {len(eyes)} painted eyes, expected 2'
+    parts = face.FaceParts(body)
+    segs = 36 if full else 22
+    rings = (0.45, 0.75, 1.0) if full else (0.55, 1.0)
+    colour = face.glossy_eye()
+    white = face.linear('#ffffff')
+    grow, lift, bulge = spec.get('grow', 1.15), spec.get('lift', 0.003), spec.get('bulge', 0.003)
+    sizes = []
+    for e in eyes:
+        fr = face.FaceParts.frame(e['centre'], e['normal'])
+        a, b, off = face.ellipse_of(e, fr)
+        rx, ry = a * grow, b * grow
+        rx = max(rx, ry * spec.get('round', 0.0))
+        top = spec.get('top', 0.0) * ry
+        ry += top / 2
+        off = (off[0], off[1] + top / 2)
+        sizes.append(dict(side=e['side'], centre=[round(x, 4) for x in e['centre'] + fr[1] * off[0] + fr[2] * off[1]],
+                          rx=round(rx, 4), ry=round(ry, 4)))
+        # laid over the socket (its rim no longer hides an edge from the battle camera's height)
+        rim = parts.ellipse(fr, rx, ry, colour, lift=lift, group='head', segs=segs, rings=rings, bulge=bulge, at=off,
+                            bridge=True)
+        # the highlights on the eye's dome: up-left big, down-right small (both eyes the same way)
+        r0 = min(rx, ry)
+        for (hx, hy, hr, hs) in ((-0.34, 0.38, 0.46, segs // 2), (0.36, -0.44, 0.2, max(10, segs // 3))):
+            parts.ellipse(fr, r0 * hr, r0 * hr, white, lift=lift + bulge * (1 - hx * hx - hy * hy) + 0.0018, group='head',
+                          segs=hs, rings=(1.0,), at=(off[0] + hx * rx, off[1] + hy * ry), bridge=rim)
+    m = spec.get('mouth')
+    if m:
+        # a wide painted grin softened to a small smile: the grin's band (from the profile: its lower and upper edges,
+        # z = a + b x^2 in the 1 m frame) covered by a skin patch (colours and shading of the skin just round it), and a
+        # small open smile with a tongue drawn on that, in the middle; all on the head bone, like the eyes
+        parts.use_texture(img)
+        probe = face.FaceParts.frame(Vector((0.0, -0.4, m['z'])), Vector((0.0, -1.0, 0.0)))
+        d = parts.depth(probe, 0.0, 0.0)
+        fr = face.FaceParts.frame(Vector((0.0, -0.4 + d, m['z'])), Vector((0.0, -1.0, 0.0)))
+        (la, lb), (ua, ub) = m['lower'], m['upper']
+        rim = parts.band(fr, m['half'], lambda x: la - m['z'] + lb * x * x, lambda x: ua - m['z'] + ub * x * x,
+                         lift=0.0012, group='head', cols=28 if full else 16, rows=4, margin=m.get('margin', 0.012))
+        w, dd = m['smile']
+        top = m.get('smile_top', 0.006)
+        n_arc = 18 if full else 12
+        pts = [(w * math.cos(math.pi * k / n_arc), top - dd * math.sin(math.pi * k / n_arc)) for k in range(n_arc + 1)]
+        pts += [(-w + 2 * w * k / 6, top - 0.004 * math.sin(math.pi * k / 6)) for k in range(1, 6)]
+        parts.polygon(fr, pts, face.linear('#5c2036'), lift=0.0024, group='head', bridge=rim)
+        parts.ellipse(fr, w * 0.52, dd * 0.33, face.linear('#ff8aa5'), lift=0.0034, group='head', segs=14 if full else 10,
+                      rings=(1.0,), at=(0.0, top - dd * 0.66), bridge=rim)
+    ob = parts.to_object('face')
+    for o in bpy.data.objects:
+        o.select_set(o in (body, ob))
+    bpy.context.view_layer.objects.active = body
+    bpy.ops.object.join()
+    print(f'[enemy-rig] {eid} {"full" if full else "lod"}: eyes {json.dumps(sizes)}{" and a small smile" if m else ""}')
+    return sizes
+
+
 def build(eid, fig, detail, args):
     full = detail == 'full'
     src = args.shipped[detail]
@@ -234,6 +314,8 @@ def build(eid, fig, detail, args):
     print(f'[enemy-rig] {eid} {detail}: skin {json.dumps(rep)}')
     body.name = body.data.name = eid
     normalize.name_base_image([body])
+    if fig.get('eyes'):
+        add_eyes(eid, body, fig['eyes'], full)
     bpy.context.scene.render.fps = clips_brute.FPS
     style = dict(f['style'])
     if style.get('weapon') and f.get('props'):
@@ -249,6 +331,7 @@ def build(eid, fig, detail, args):
     tmp = tempfile.mkdtemp(prefix='rerig_enemy_')
     raw = os.path.join(tmp, 'raw.glb')
     normalize.export_glb(raw, [arm, body])
+    face.strip_colors(raw)
     out = os.path.join(args.out, f'{eid}{"" if full else ".lod"}.glb')
     old = pack.read_glb(src)[0]['asset'].get('extras', {})
     extras = dict(id=eid, source='tripo', style='textured', kind='humanoid', height=old.get('height', 1.0), lod=not full,

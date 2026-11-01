@@ -9,6 +9,13 @@ changes, the sim id is unchanged (`e3c222f3ad44`), no `COOP_PROTOCOL` bump.
 Board: `docs/art/previews/enemy-rigs-board.jpg` (before / after in a real battle, 1-1, at 1280x720 and 390x844:
 each enemy's walk, and its special after).
 
+**Follow-up (Nov 1, `fix/slime-goblin-faces`, `docs/art/tripo/slime-goblin-faces.md`):** review r2's points are fixed
+there: the Oni's club arm hangs lower and the club leans out and hoists back over his shoulder (F1), the Goblin Runner's
+arms hang low in idle and hit, it has geometric eyes with highlights and a small smile over its grin (F2, unpaused), the
+e2e scripts read `TRIPO_PAUSED` (F3), and the Daimyo's special flings his arms up and out to the sides (F4). The hollow
+look round the goblin's eyes was the textured enemies' outline hull folding out of the creases round them: their hull
+is now pushed back in depth like the girls'.
+
 ## Tripo credits
 
 **None spent.** No Tripo task was created (no mesh was unsalvageable: every fix was a rig, weights and clips on the

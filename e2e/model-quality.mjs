@@ -37,7 +37,7 @@ const HEROES = String(opt('heroes', 'luna,nami,kanna,yoriko,kogane,norika')).spl
 // the medium-quality pass (LOD files) at the last size: --medium luna,nami (default: the first hero)
 const MEDIUM = String(opt('medium', HEROES[0])).split(',').filter(Boolean);
 // the re-rigged batch-2 enemies (--enemies orc_grunt,oni_brute; default: all of them; --enemies none skips them)
-const ENEMIES = String(opt('enemies', Object.keys(ENEMY_ARMS).join(','))).split(',').filter((id) => ENEMY_ARMS[id]);
+let ENEMIES = String(opt('enemies', Object.keys(ENEMY_ARMS).join(','))).split(',').filter((id) => ENEMY_ARMS[id]);
 // the moment of each special the close-up shows (seconds; default 0.2: the wind-up near its top)
 const SPECIAL_AT = { goblin_runner: 0.33, lizard_skink: 0.15 };
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
@@ -61,6 +61,14 @@ await server.listen();
 const { port } = server.httpServer.address();
 const base = `http://127.0.0.1:${port}/`;
 const save = await server.ssrLoadModule('/src/systems/save.js');
+// enemies switched off for now (glbEnemy TRIPO_PAUSED) wear their family mesh: their own-model checks are skipped
+const { TRIPO_PAUSED } = await server.ssrLoadModule('/src/models/glbEnemy.js');
+const SLIME_OWN = !TRIPO_PAUSED.includes('slime_green');
+const SLIME_GLB = SLIME_OWN ? 'glb:tripo/slime_green' : 'glb:slime';
+ENEMIES = ENEMIES.filter((id) => !TRIPO_PAUSED.includes(id));
+// models whose face is geometry (docs/art/tripo/slime-goblin-faces.md): it draws, and it is never outlined
+const FACES = new Set(['slime_green', 'goblin_runner']);
+if (TRIPO_PAUSED.length) console.log(`paused (family mesh, own-model checks skipped): ${TRIPO_PAUSED.join(', ')}`);
 
 const { browser, label } = await launchChromium();
 log(`browser: ${label}`);
@@ -301,7 +309,12 @@ async function slimeProbe(page) {
     const hr = (Math.max(...heights) - Math.min(...heights)) / Math.max(...heights);
     const wr = (Math.max(...widths) - Math.min(...widths)) / Math.max(...widths);
     const mat = body.material;
-    return { file, skinned: true, heightRange: +hr.toFixed(3), widthRange: +wr.toFixed(3), material: mat.type, jelly: /jelly/.test(mat.customProgramCacheKey?.() || '') };
+    let face = null;
+    model.traverse((o) => { if (o.isMesh && o.name === 'face') face = o; });
+    return {
+      file, skinned: true, heightRange: +hr.toFixed(3), widthRange: +wr.toFixed(3), material: mat.type, jelly: /jelly/.test(mat.customProgramCacheKey?.() || ''),
+      face: !!face && face.visible && !face.userData.isOutline && !face.material?.userData?.outline,
+    };
   });
 }
 
@@ -343,10 +356,12 @@ async function slimeShots(page, slimeInfo, VW, VH, quality) {
   await shot(page, `slime${tagQ}`, 'move', VW, VH, { enemy: slimeInfo.uids[0] });
   const m = await slimeProbe(page);
   log(`  slime move ${JSON.stringify(m)}`);
-  if (m) {
+  if (m && !SLIME_OWN) log('  (slime_green paused: on its family mesh, own-model checks skipped)');
+  if (m && SLIME_OWN) {
     check(/^tripo\/slime_green/.test(m.file || ''), `the Green Slime wears its own model (${m.file})`);
     check(m.skinned && m.heightRange > 0.15 && m.widthRange > 0.05, `the Green Slime squashes and stretches as it hops (height range ${(m.heightRange * 100).toFixed(0)}%, width ${(m.widthRange * 100).toFixed(0)}%)`);
     check(m.jelly, 'the Green Slime wears the glossy jelly material');
+    check(m.face, 'the Green Slime draws its face mesh, never outlined');
   }
   // a hit, then its special
   await page.evaluate(() => {
@@ -422,11 +437,11 @@ async function heroRun(hero, size, quality, { slimes = false } = {}) {
       window.__battle.ui.paused = false;
     }, uid);
     const slimeInfo = await spawnSlimes(page, pos.x, pos.y);
-    await page.waitForFunction(() => {
+    await page.waitForFunction((pre) => {
       let n = 0;
-      window.__battle.renderer.sceneProbe().traverse((o) => { if (o.name === 'glb:tripo/slime_green' || o.name === 'glb:tripo/slime_green.lod') n++; });
+      window.__battle.renderer.sceneProbe().traverse((o) => { if (o.name === pre || o.name === `${pre}.lod`) n++; });
       return n > 0;
-    }, null, { timeout: 60000, polling: 300 }).catch(() => null);
+    }, SLIME_GLB, { timeout: 60000, polling: 300 }).catch(() => null);
     await settle(page, 600);
     await slimeShots(page, slimeInfo, VW, VH, quality);
   }
@@ -450,11 +465,11 @@ async function busyWave(quality) {
     sim._spawnQueue = [];
     for (let i = 0; i < 40; i++) sim.spawnEnemy('slime_green', { pathIndex: 0, dist: 0.5 + i * 0.5, hpMul: 1e7 });
   });
-  await page.waitForFunction(() => {
+  await page.waitForFunction((pre) => {
     let n = 0;
-    window.__battle.renderer.sceneProbe().traverse((o) => { if (o.name?.startsWith('glb:tripo/slime_green')) n++; });
+    window.__battle.renderer.sceneProbe().traverse((o) => { if (o.name?.startsWith(pre)) n++; });
     return n >= 40;
-  }, null, { timeout: 90000, polling: 500 }).catch(() => null);
+  }, SLIME_GLB, { timeout: 90000, polling: 500 }).catch(() => null);
   await settle(page, 1500);
   const m = await page.evaluate(() => new Promise((resolve) => {
     const d = [];
@@ -499,11 +514,11 @@ async function eventHats() {
     }
     return out;
   });
-  await page.waitForFunction(() => {
+  await page.waitForFunction((pre) => {
     let n = 0;
-    window.__battle.renderer.sceneProbe().traverse((o) => { if (o.name?.startsWith('glb:tripo/slime_green')) n++; });
+    window.__battle.renderer.sceneProbe().traverse((o) => { if (o.name?.startsWith(pre)) n++; });
     return n >= 8;
-  }, null, { timeout: 90000, polling: 500 }).catch(() => null);
+  }, SLIME_GLB, { timeout: 90000, polling: 500 }).catch(() => null);
   await settle(page, 800);
   const r = await page.evaluate(() => {
     let slimes = 0;
@@ -516,7 +531,7 @@ async function eventHats() {
     return { slimes, hats };
   });
   log(`  ${JSON.stringify(r)}`);
-  check(r.slimes >= 8 && r.hats >= 4, `Green Slimes wear their event hats on the new model (${r.hats} of ${r.slimes}; 1 in 7 goes plain)`);
+  check(r.slimes >= 8 && r.hats >= 4, `Green Slimes wear their event hats on ${SLIME_OWN ? 'their own' : 'the family'} model (${r.hats} of ${r.slimes}; 1 in 7 goes plain)`);
   const sp = await page.evaluate((u) => { const e = window.__battle.sim.enemies.find((x) => x.uid === u); return { x: e.x, y: e.y }; }, uids[3]);
   await zoomOn(page, sp.x, sp.y, 0.2, 6);
   await shot(page, 'slime-event', 'hats', VW, VH, { enemy: uids[3] });
@@ -584,6 +599,14 @@ async function enemyRun(size, quality) {
     check(loaded, `${id} wears its own model (${want})`);
     if (!loaded) continue;
     await settle(page, 400);
+    if (FACES.has(id)) {
+      const face = await page.evaluate((eid) => {
+        let f = null;
+        window.__battle.renderer.sceneProbe().traverse((o) => { if (!f && o.name === `enemy:${eid}`) o.traverse((c) => { if (c.isMesh && c.name === 'face') f = c; }); });
+        return !!f && f.visible && !f.userData.isOutline && !f.material?.userData?.outline;
+      }, id);
+      check(face, `${id} draws its face mesh (its eyes), never outlined`);
+    }
     await page.evaluate(() => { window.__battle.ui.paused = true; });
     const r = await page.evaluate(([eid, spec]) => {
       let model = null;
