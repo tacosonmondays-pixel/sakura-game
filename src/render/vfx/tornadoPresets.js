@@ -60,13 +60,14 @@ export const TORNADO_PRESETS = Object.freeze({
 });
 
 /**
- * By graphics tier (docs/VFX.md phones first): rings in the column, core rings (high only), embers, and
- * whether the HDR boost may run (high, and only while the bloom is on).
+ * By graphics tier (docs/VFX.md phones first): rings in the column, core rings (high only), embers, whether the HDR
+ * boost may run (high, and only while the bloom is on) and whether the bands cover the board in their own colour (high:
+ * src/render/vfx/tornado.js "cover").
  */
 export const TORNADO_TIERS = Object.freeze({
-  high: Object.freeze({ rings: 22, core: 4, embers: 12, hdr: true }),
-  medium: Object.freeze({ rings: 13, core: 0, embers: 6, hdr: false }),
-  low: Object.freeze({ rings: 8, core: 0, embers: 0, hdr: false }),
+  high: Object.freeze({ rings: 22, core: 4, embers: 12, hdr: true, cover: true }),
+  medium: Object.freeze({ rings: 13, core: 0, embers: 6, hdr: false, cover: false }),
+  low: Object.freeze({ rings: 8, core: 0, embers: 0, hdr: false, cover: false }),
 });
 
 /** At most this many tornadoes at once (more casts reuse the oldest's slot). */

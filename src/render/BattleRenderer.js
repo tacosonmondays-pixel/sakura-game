@@ -308,6 +308,24 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const tornado = createTornadoFx({ scene, batches, atlas, quality, reduceMotion, rand: vrand.fork('tornado') });
   /** The live tornado of each girl's cast (fed by its shells). */
   const tornadoOf = new Map();
+  // the tornadoes are decoration too: on their first error they switch off for this battle (logged once), the battle
+  // and every other effect carry on
+  let tornadoBroken = false;
+  function tornadoSafe(fn) {
+    if (tornadoBroken) return null;
+    try {
+      return fn();
+    } catch (err) {
+      tornadoBroken = true;
+      try {
+        tornado.clear();
+      } catch {
+        /* leave what is drawn */
+      }
+      console.warn('[tornado fx] disabled after an error', err);
+      return null;
+    }
+  }
   // toon strokes (src/render/vfx/strokes.js; display only): every styled line of the battle in one instanced draw call,
   // begun and ended with the sprite batches each frame
   const strokes = createStrokes({ scene });
@@ -679,9 +697,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
       // (it is fed until the cast's first shell, then by every shell it drops, so it ends with the barrage at any
       // game speed: the shells run on sim time)
       if (ev.type === 'abilityWarn' && TORNADO_CASTS[ev.id]) {
-        tornadoOf.set(ev.towerUid, tornado.spawn(TORNADO_CASTS[ev.id], ev.x, ev.y, { seconds: (ev.delay || 0) + 0.6, size: Math.max(0.8, ev.radius || 1) }));
+        tornadoSafe(() => tornadoOf.set(ev.towerUid, tornado.spawn(TORNADO_CASTS[ev.id], ev.x, ev.y, { seconds: (ev.delay || 0) + 0.6, size: Math.max(0.8, ev.radius || 1) })));
       } else if (ev.type === 'abilityShell' && TORNADO_CASTS[ev.id]) {
-        tornado.feed(tornadoOf.get(ev.towerUid), 0.45);
+        tornadoSafe(() => tornado.feed(tornadoOf.get(ev.towerUid), 0.45));
       }
       // the staff heroes' props observe only too
       staffSafe(() => staff.handle(ev));
@@ -1096,8 +1114,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     // the shake and zoom punch run on frame time: the camera jolts through a hit-stop
     rig.apply(d, clock.realDt, clock.frameDt);
     fx.update(d);
-    tornado.hold(impact.active); // (impact frames: the column sits both frames out)
-    tornado.update(d);
+    tornadoSafe(() => {
+      tornado.hold(impact.active); // (impact frames: the column sits both frames out)
+      tornado.update(d);
+    });
     lightning.update(d);
     beams.update(d);
     trails.update(d);
@@ -1410,7 +1430,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
      * layer (live list, stats); the tuning panel and the captures use it.
      */
     tornadoDemo(presetId, x, z, opts) {
-      return tornado.spawn(presetId, x, z, opts);
+      return tornadoSafe(() => tornado.spawn(presetId, x, z, opts));
     },
     get tornado() {
       return tornado;

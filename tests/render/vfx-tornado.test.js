@@ -110,12 +110,17 @@ describe('tornado layer', () => {
     expect(t.mesh.visible).toBe(true);
   });
 
-  it('medium and low keep the preset erosion; reduce motion stills the petals and ground rings too', () => {
-    const s = new THREE.Scene();
-    const t = make('medium', { scene: s });
-    t.spawn('fire', 0, 0);
-    t.update(1 / 60);
-    expect(s.children[0].geometry.getAttribute('iG').array[0]).toBeCloseTo(TORNADO_PRESETS.fire.erode[0], 5);
+  it('medium and low keep the preset erosion and their own blend; reduce motion stills the petals and ground rings too', () => {
+    for (const q of ['medium', 'low']) {
+      const s = new THREE.Scene();
+      const t = make(q, { scene: s });
+      t.spawn('fire', 0, 0);
+      t.update(1 / 60);
+      const m = s.children[0];
+      expect(m.geometry.getAttribute('iG').array[0]).toBeCloseTo(TORNADO_PRESETS.fire.erode[0], 5);
+      expect(m.material.uniforms.uSparse.value).toBe(0);
+      expect(m.material.uniforms.uCover.value).toBe(0);
+    }
     const pushed = [];
     const fake = { push: (...a) => pushed.push(a) };
     const atlas = { regions: { ringSoft: [0, 0, 1, 1], ring: [0, 0, 1, 1], petal: [0, 0, 1, 1] } };
@@ -151,23 +156,55 @@ describe('tornado layer', () => {
     expect(g.getAttribute('iF').array[2]).toBe(0); // no scroll
   });
 
-  it('packs each tornado\'s own erosion, cover, hole and core radius (two presets at once)', () => {
+  it('packs each tornado\'s own erosion, cover, hole and core radius (two presets at once); high is sparser in shape only', () => {
     const s = new THREE.Scene();
     const t = make('high', { scene: s });
     t.spawn('fire', 0, 0);
     t.spawn('vortex', 3, 0);
     t.update(1 / 60);
-    const g = s.children[0].geometry;
+    const mesh = s.children[0];
+    const g = mesh.geometry;
     const per = TORNADO_TIERS.high.rings + TORNADO_TIERS.high.core;
     const G = g.getAttribute('iG').array;
     const E = g.getAttribute('iE').array;
     const near = (got, want) => want.forEach((w, i) => expect(got[i]).toBeCloseTo(w, 5));
-    // high has more rings than medium: each one is sparser (its erosion starts higher), at full strength
-    const sp = (1 - 13 / TORNADO_TIERS.high.rings) * SPARSE_ERODE;
-    near([G[0], G[1], G[2], G[3]], [TORNADO_PRESETS.fire.erode[0] + sp, TORNADO_PRESETS.fire.erode[1] + sp, TORNADO_PRESETS.fire.body, TORNADO_PRESETS.fire.core.radius]);
-    near([G[per * 4], G[per * 4 + 1], G[per * 4 + 2]], [TORNADO_PRESETS.vortex.erode[0] + sp, TORNADO_PRESETS.vortex.erode[1] + sp, TORNADO_PRESETS.vortex.body]);
+    // each ring keeps its preset's erosion (it also picks the colour); the tier's sparser mask is one uniform
+    near([G[0], G[1], G[2], G[3]], [TORNADO_PRESETS.fire.erode[0], TORNADO_PRESETS.fire.erode[1], TORNADO_PRESETS.fire.body, TORNADO_PRESETS.fire.core.radius]);
+    near([G[per * 4], G[per * 4 + 1], G[per * 4 + 2]], [TORNADO_PRESETS.vortex.erode[0], TORNADO_PRESETS.vortex.erode[1], TORNADO_PRESETS.vortex.body]);
+    expect(mesh.material.uniforms.uSparse.value).toBeCloseTo((1 - TORNADO_TIERS.medium.rings / TORNADO_TIERS.high.rings) * SPARSE_ERODE, 6);
+    expect(mesh.material.uniforms.uCover.value).toBe(1);
     expect(E[1]).toBeCloseTo(TORNADO_PRESETS.fire.inner, 5);
     expect(E[per * 4 + 1]).toBeCloseTo(TORNADO_PRESETS.vortex.inner, 5);
+    // the shader: the sparser cut shapes the mask, the preset's cut picks the colour
+    const frag = mesh.material.fragmentShader;
+    expect(frag).toMatch(/step\(cut \+ uSparse, heat\)/);
+    expect(frag).toMatch(/clamp\(\(heat - cut\) \* 1\.6/);
+  });
+
+  it('high with bloom: the hottest band goes over white, nothing else changes with the bloom (it keys on the bloom, not the preset)', () => {
+    const read = (bloom, presets) => {
+      const s = new THREE.Scene();
+      const t = make('high', { scene: s, presets });
+      t.setGlow('high', bloom);
+      t.spawn('fire', 0, 0);
+      t.update(1 / 60);
+      const g = s.children[0].geometry;
+      return { E: Array.from(g.getAttribute('iE').array.slice(0, 4)), G: Array.from(g.getAttribute('iG').array.slice(0, 4)), cover: s.children[0].material.uniforms.uCover.value };
+    };
+    const on = read(true);
+    const off = read(false);
+    expect(on.E[3]).toBeCloseTo(TORNADO_PRESETS.fire.hdr, 6);
+    expect(off.E[3]).toBe(0);
+    expect(on.E[2]).toBeCloseTo(off.E[2], 6); // the same strength
+    expect(on.G).toEqual(off.G); // the same cover and erosion
+    expect(on.cover).toBe(1);
+    expect(off.cover).toBe(1);
+    // a preset with no HDR boost still gets the same high look under the bloom (no haze path keyed on the preset)
+    const flat = { ...TORNADO_PRESETS, fire: { ...TORNADO_PRESETS.fire, hdr: 0 } };
+    const f = read(true, flat);
+    expect(f.E[3]).toBe(0);
+    expect(f.E[2]).toBeCloseTo(on.E[2], 6);
+    expect(f.G).toEqual(on.G);
   });
 
   it('is fed by its shells: it ends with the barrage, embers included', () => {
@@ -188,6 +225,9 @@ describe('tornado layer', () => {
   it('is display only: the panel is dev-only and the sim never sees the layer', () => {
     const src = readFileSync('src/render/BattleRenderer.js', 'utf8');
     expect(src).toMatch(/import\.meta\.env\?\.DEV && [^\n]*tornadoLab/);
+    // decoration: a tornado error switches the tornadoes off, never the battle
+    expect(src).toMatch(/tornadoSafe\(\(\) => \{\s*tornado\.hold\(impact\.active\)[^}]*tornado\.update\(d\)/);
+    expect(src).toMatch(/tornadoSafe\(\(\) => tornadoOf\.set\(/);
     expect(readFileSync('src/render/vfx/tornado.js', 'utf8')).not.toMatch(/\bsim\.\w|Math\.random\(/);
   });
 });
