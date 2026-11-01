@@ -358,6 +358,13 @@ boxes yet (no blink). The same batch gave the Brigade enemies their own models (
 `glbEnemy.js` `TRIPO_ENEMIES`) and Big Yellow, Norika's barricade and Suzu's bells (`src/render/tripoProps.js`,
 drawn by `staffFx.js`). Task ids, credits, sizes and how to rebuild: `docs/art/tripo/batch-1.md`.
 
+**Superseded (Nov 1, `fix/staff-models`):** both figures are Blender builds now (`tools/blender/build_characters.py`
+`_build_staff`, `tools/blender/lib/staff.py`): adults built to the owner's proportion references (about 2.8 heads
+tall, legs a third of the height) from the cast's own head, face atlas and hair, a hard hat that sits back on the head,
+work uniforms, a rigid prop on `hand_R`, the full Blender clip set (`idle walk attack_sign|attack_wrench cheer victory
+hurt pickup`). The manifest entries are Blender ones (no `source`). Numbers, routes and checks:
+`docs/art/tripo/staff-models.md`.
+
 ## Judging quality
 
 Always judge with three.js screenshots (Blender's EEVEE needs a GPU): round head, big eyes placed low,

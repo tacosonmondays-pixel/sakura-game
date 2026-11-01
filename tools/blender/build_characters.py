@@ -27,7 +27,7 @@ from mathutils import Vector, Matrix  # noqa: E402
 UNIT_SCALE = 0.5
 
 from lib import mesh as M  # noqa: E402
-from lib import body, face, hair, outfit, accessory, weapon, halo, rig, anim, export, optimize, extras  # noqa: E402
+from lib import body, face, hair, outfit, accessory, weapon, halo, rig, anim, export, optimize, extras, staff  # noqa: E402
 from lib.proportions import proportions  # noqa: E402
 from lib.hair import Head  # noqa: E402
 from PIL import Image  # noqa: E402
@@ -173,6 +173,8 @@ def build_unit(unit, out_dir, animations=True, keep_blend=None, lod=False):
 
 
 def _build_unit(unit, out_dir, tmpdir, animations, keep_blend, lod):
+    if unit['id'] in staff.STAFF:
+        return _build_staff(unit, out_dir, tmpdir, animations, keep_blend, lod)
     t0 = time.time()
     reset_scene()
     M.LEVEL_DROP[0] = 1 if lod else 0
@@ -250,6 +252,65 @@ def _build_unit(unit, out_dir, tmpdir, animations, keep_blend, lod):
         bpy.ops.wm.save_as_mainfile(filepath=keep_blend)
     info['seconds'] = round(time.time() - t0, 1)
     print(f'[build] {unit["id"]}{" (lod)" if lod else ""}: {info["size"] // 1024} KB, {info["vertices"]} verts, {info["primitives"]} prims, bones {info["bones"]}, clips {info["animations"]}, {info["seconds"]}s')
+    return info
+
+
+def _build_staff(unit, out_dir, tmpdir, animations, keep_blend, lod):
+    """The academy staff heroes (Norika, Kogane): adults built to the owner's proportion references on the same parts
+    (lib/staff.py, docs/art/tripo/staff-models.md): about 2.8 heads tall, the cast's head, face and hair scaled onto
+    a longer body, a hard hat that sits back on the head, work uniforms, a rigid prop on hand_R and their own clips."""
+    t0 = time.time()
+    reset_scene()
+    M.LEVEL_DROP[0] = 1 if lod else 0
+    uid = unit['id']
+    cfg = staff.STAFF[uid]
+    pal = {**DEFAULT_PALETTE, **(unit.get('palette') or {}), **cfg['palette']}
+    look = {**DEFAULT_LOOK, **(unit.get('look') or {}), **cfg['look']}
+    P, Ph, xf = staff.proportions_staff()
+    ctx = dict(unit=unit, pal=pal, look=look, P=P, Ph=Ph, xf=xf, spec={}, parts=[], hair_bones=[], H=Head(P), adult=True,
+               weapon_kind=cfg['kind'], horn_shape=None)
+    atlas_path = os.path.join(tmpdir, f'{uid}_face.png')
+    # the adults' 341 px cells on the full model; the LOD (medium / low quality) takes the girls' 256 px cells
+    face.write_atlas({**unit, 'palette': pal, 'look': look, 'adult': True}, atlas_path, cell_px=256 if lod else 341, eye_v=Ph['eye_v'])
+    opt_path = os.path.join(tmpdir, f'{uid}_face_opt.png')
+    img = Image.open(atlas_path).convert('RGB')
+    img.quantize(colors=256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).save(opt_path, optimize=True)
+    staff.build(ctx)
+    if os.environ.get('STAFF_PARTS'):  # where the vertices go (the size budget)
+        counts = {}
+        for o in ctx['parts']:
+            key = o.get('part', o.name).rstrip('0123456789-_').split('_')[0]
+            counts[key] = counts.get(key, 0) + len(o.data.vertices)
+        print('[parts]', sorted(counts.items(), key=lambda kv: -kv[1]))
+    mats = export.make_materials(atlas_path, pal['halo'])
+    for o in ctx['parts']:
+        export.assign_material(o, mats[o.get('material', 'body')])
+    mesh_obj = M.join(ctx['parts'], name=f'chibi_{uid}')
+    rig.normalize_weights(mesh_obj)
+    mesh_obj.data.transform(Matrix.Scale(UNIT_SCALE, 4))
+    mesh_obj.data.update()
+    seen = {}
+    for hb in ctx['hair_bones']:
+        seen[hb[0]] = hb
+    bones = [(n, h * UNIT_SCALE, t * UNIT_SCALE, p) for n, h, t, p in rig.bone_table(P, list(seen.values()))]
+    arm = rig.build_armature(bones, name=f'rig_{uid}')
+    rig.bind(mesh_obj, arm)
+    rig.normalize_weights(mesh_obj)
+    clips = staff.build_clips(arm, ctx, UNIT_SCALE, cfg['hold'], cfg['kind']) if animations else []
+    os.makedirs(out_dir, exist_ok=True)
+    out = os.path.join(out_dir, f'{uid}{".lod" if lod else ""}.glb')
+    export.export_glb(out, [arm, mesh_obj], animations=animations)
+    export.replace_image(out, opt_path, extras=dict(
+        unit=uid, height=P['height'], unitScale=1.0 / UNIT_SCALE, weaponKind=cfg['kind'], faceCells=face.CELLS,
+        faceGrid=face.GRID, lod=lod, generator='tools/blender/build_characters.py', build='staff'))
+    optimize.optimize_glb(out)
+    print(f'[staff] {uid}: rotation keys flipped to their neighbour\'s sign in the GLB: {staff.fix_glb_quaternion_signs(out)}')
+    info = export.describe(out)
+    if keep_blend:
+        export.pack_images()
+        bpy.ops.wm.save_as_mainfile(filepath=keep_blend)
+    info['seconds'] = round(time.time() - t0, 1)
+    print(f'[build] {uid}{" (lod)" if lod else ""}: {info["size"] // 1024} KB, {info["vertices"]} verts, {info["primitives"]} prims, bones {info["bones"]}, clips {info["animations"]}, {info["seconds"]}s')
     return info
 
 

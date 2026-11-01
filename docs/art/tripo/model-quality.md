@@ -91,6 +91,9 @@ for byte (the texture is transplanted back after packing).
   almost straight out (Norika 9, Kogane 19 degrees down) and the batch-1 clips lowered them only 38 degrees more,
   with an idle that moved 3 degrees. All five clips are authored again on the same rig (clavicles dropped too,
   arms near 70 degrees down; their wrench swing and STOP-paddle push kept from batch 1).
+  **Superseded (Nov 1, `fix/staff-models`, `docs/art/tripo/staff-models.md`):** the owner found their proportions
+  wrong (a hat swallowing the head on a squat body); both are rebuilt in Blender on the chibi pipeline, about 2.8 heads
+  tall, with their own clips.
 * `src/models/glbChibi.js`: while an attack (or a companion's 'appear') fades in over its first 0.06 s, the idle
   under it now gives way only as fast as the attack comes in. Before, the idle dropped to 25 % at once while the
   attack started from 0, and three.js blends the missing weight toward the bind pose: a two-frame flash of the

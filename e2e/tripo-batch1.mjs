@@ -1,8 +1,8 @@
-// Tripo batch 1 in a battle (docs/art/tripo/batch-1.md) at 844×390 (or --size WxH): Kogane (her Tripo figure with
-// Big Yellow beside her), then Norika (her figure and her road barricades), with Suzu's bells on the road and the five
-// Gate Response Brigade enemies (trooper, shieldline, gnat, tortoise, badger) walking it next to a slime. Checks that
-// the Tripo files are what is drawn (not the procedural stand-ins or the construct family) and that nothing logs an
-// error; --shots <dir> saves the battle screenshots.
+// Tripo batch 1 in a battle (docs/art/tripo/batch-1.md) at 844×390 (or --size WxH): Kogane (her figure, rebuilt in
+// Blender since docs/art/tripo/staff-models.md, with Big Yellow beside her), then Norika (her figure and her road
+// barricades), with Suzu's bells on the road and the five Gate Response Brigade enemies (trooper, shieldline, gnat,
+// tortoise, badger) walking it next to a slime. Checks that the Tripo files are what is drawn (not the procedural
+// stand-ins or the construct family) and that nothing logs an error; --shots <dir> saves the battle screenshots.
 //
 //   node e2e/tripo-batch1.mjs [--shots /tmp/shots] [--size 1280x720]
 // Playwright / browser discovery: e2e/browser.mjs. Starts its own Vite dev server. Exit code 1 when a check fails.
