@@ -7,7 +7,7 @@
 import { lookAt } from '../flair.js';
 import { flash, ripple } from '../patterns/bursts.js';
 import { SEG_GROW } from '../patterns/segments.js';
-import { hand, handFlash } from './util.js';
+import { hand, handFlash, tipUp } from './util.js';
 import { CORE, DECOR } from '../context.js';
 
 const GOLD = '#f2dc96';
@@ -42,7 +42,7 @@ export const hana = {
     const h = hand(ctx, t);
     rec.mx = h.x;
     rec.my = h.y;
-    rec.mz = h.h + 0.05;
+    rec.mz = h.h + tipUp(h, 0.05);
     return true;
   },
 

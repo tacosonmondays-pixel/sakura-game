@@ -1,6 +1,9 @@
 // Generic style: today's look, unchanged (unknown / future girls, and the fallback for every
 // behaviour). Pulse / beam / chain / trap events keep the renderer's default effects.
 import { fxColor } from '../../themes.js';
+import { tipFlare } from './util.js';
+
+const TIP = { x: 0, y: 0, h: 0, dx: 0, dy: 0, dh: 0, kind: null };
 
 /** The girl's attack colour (element first, then attack type), like the renderer's default. */
 export function towerHex(t) {
@@ -26,6 +29,13 @@ export function genericAttack(ev, tw, t, ctx) {
     fx.sparkle(m.x, m.z, '#ffd84d', { count: 5, height: 0.6, ring: false });
   } else if (ev.kind !== 'pulse' && ev.kind !== 'beam' && ev.kind !== 'chain') {
     if (!ctx.cap('muzzle')) return;
+    // an armed girl flashes at her weapon's tip (along a barrel or a bow), else at chest height in front of her
+    if (ctx.muzzle(t, TIP)) {
+      const c = towerHex(t);
+      fx.flash(TIP.x, TIP.h, TIP.y, c, 0.35, 0.09);
+      tipFlare(ctx, TIP, ctx.col(c), 0.3, 0.09);
+      return;
+    }
     const f = v.facing;
     fx.flash(m.x + Math.sin(f) * 0.3, m.y + 0.5, m.z + Math.cos(f) * 0.3, towerHex(t), 0.35, 0.09);
   }

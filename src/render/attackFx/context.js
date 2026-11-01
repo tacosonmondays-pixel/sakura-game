@@ -236,16 +236,50 @@ export function createContext(o) {
     },
 
     /**
-     * Weapon-hand point of a girl. Writes out.x, out.y (ground), out.h (height). A roof girl's
-     * hand is lifted with her, except inside a style's projectile `origin` (index.js lifts the
-     * muzzle itself there, so every origin gets it once).
+     * Weapon tip of an armed girl's figure (src/models/weaponTip.js: her staff's head, her barrel, her bow's grip;
+     * live through every clip), else null. Writes out.x, out.y (ground), out.h (height), out.dx, out.dy, out.dh (the
+     * weapon's world direction, 0 when it has none) and out.kind ('gun' | 'bow' | 'staff'). A roof girl's tip is
+     * where her lifted figure holds it, except inside a style's projectile `origin` (index.js lifts every origin
+     * once there). A duo keeps its own anchors (styles/kohaku_tsubaki.js).
+     */
+    muzzle(t, out) {
+      const v = ctx.actors.towers.get(t.uid);
+      const ud = v?.model?.userData;
+      if (!ud || ud.duo || !ud.weaponKind) return null;
+      const p = ud.anchors?.muzzle;
+      if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.z)) return null;
+      out.x = p.x;
+      out.y = p.z;
+      out.h = p.y - (ctx.inOrigin ? ctx.lift(t) : 0);
+      const d = ud.anchorDir?.('muzzle');
+      out.dx = d ? d.x : 0;
+      out.dy = d ? d.z : 0;
+      out.dh = d ? d.y : 0;
+      out.kind = ud.weaponKind;
+      return out;
+    },
+
+    /**
+     * Weapon-hand point of a girl. Writes out.x, out.y (ground), out.h (height) and out.tip (true when it is her
+     * weapon's tip, see muzzle: styles then add no height of their own on top). A roof girl's hand is lifted with
+     * her, except inside a style's projectile `origin` (index.js lifts the muzzle itself there, so every origin
+     * gets it once).
      */
     hand(t, out) {
+      if (ctx.muzzle(t, out)) {
+        out.tip = true;
+        return out;
+      }
       const f = ctx.facing(t);
       const s = ctx.bodyScale(t);
       out.x = t.x + Math.sin(f) * 0.22 * s;
       out.y = t.y + Math.cos(f) * 0.22 * s;
       out.h = 0.55 * s + (ctx.inOrigin ? 0 : ctx.lift(t));
+      out.tip = false;
+      out.kind = null;
+      out.dx = 0;
+      out.dy = 0;
+      out.dh = 0;
       return out;
     },
 
