@@ -68,7 +68,7 @@ describe('tornado layer', () => {
     t.update(1 / 60);
     expect(mesh.visible).toBe(true);
     expect(mesh.geometry.instanceCount).toBe(TORNADO_TIERS.high.rings + TORNADO_TIERS.high.core);
-    run(t, 1 + TORNADO_PRESETS.fire.life + 0.2);
+    run(t, 1 + Math.max(TORNADO_PRESETS.fire.life, TORNADO_PRESETS.fire.embers.life * 1.25) + 0.2);
     expect(t.live.length).toBe(0);
     expect(mesh.visible).toBe(false);
   });
@@ -116,6 +116,40 @@ describe('tornado layer', () => {
     expect(g.getAttribute('iC').array[3]).toBe(0);
     expect(g.getAttribute('iD').array[0]).toBe(0);
     expect(g.getAttribute('iE').array[0]).toBe(0);
+    expect(g.getAttribute('iD').array[2]).toBe(0); // no spin
+    expect(g.getAttribute('iF').array[2]).toBe(0); // no scroll
+  });
+
+  it('packs each tornado\'s own erosion, cover, hole and core radius (two presets at once)', () => {
+    const s = new THREE.Scene();
+    const t = make('high', { scene: s });
+    t.spawn('fire', 0, 0);
+    t.spawn('vortex', 3, 0);
+    t.update(1 / 60);
+    const g = s.children[0].geometry;
+    const per = TORNADO_TIERS.high.rings + TORNADO_TIERS.high.core;
+    const G = g.getAttribute('iG').array;
+    const E = g.getAttribute('iE').array;
+    const near = (got, want) => want.forEach((w, i) => expect(got[i]).toBeCloseTo(w, 5));
+    near([G[0], G[1], G[2], G[3]], [...TORNADO_PRESETS.fire.erode, TORNADO_PRESETS.fire.body, TORNADO_PRESETS.fire.core.radius]);
+    near([G[per * 4], G[per * 4 + 1], G[per * 4 + 2]], [...TORNADO_PRESETS.vortex.erode, TORNADO_PRESETS.vortex.body]);
+    expect(E[1]).toBeCloseTo(TORNADO_PRESETS.fire.inner, 5);
+    expect(E[per * 4 + 1]).toBeCloseTo(TORNADO_PRESETS.vortex.inner, 5);
+  });
+
+  it('is fed by its shells: it ends with the barrage, embers included', () => {
+    const t = make('high');
+    const rec = t.spawn('fire', 0, 0, { seconds: 0.5 });
+    run(t, 0.4);
+    t.feed(rec, 0.45);
+    expect(rec.seconds).toBeGreaterThan(0.8);
+    const tail = Math.max(TORNADO_PRESETS.fire.life, TORNADO_PRESETS.fire.embers.life * 1.25);
+    run(t, rec.seconds - rec.t + tail - 0.1);
+    expect(t.live.length).toBe(1); // the last embers are still fading
+    run(t, 0.3);
+    expect(t.live.length).toBe(0);
+    t.feed(rec, 1); // a stale record is ignored
+    expect(t.live.length).toBe(0);
   });
 
   it('is display only: the panel is dev-only and the sim never sees the layer', () => {

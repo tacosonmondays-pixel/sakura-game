@@ -268,23 +268,28 @@ A stylized tornado, hand-written (no particle library): a column of flat rings t
 twist round a helix and sway on X/Z. Display only: the sim id does not change.
 
 - **One draw call.** Every ring of every live tornado is one instance of one `RingGeometry` annulus in an
-  `InstancedBufferGeometry` with a `ShaderMaterial` (additive, `depthWrite` off). The mesh is hidden while nothing is
+  `InstancedBufferGeometry` with a `ShaderMaterial` (premultiplied: One, OneMinusSrcAlpha; `depthWrite` off). The
+  cooler bands cover the board a little (`body`), so the colour reads on a bright day; the hottest band is pure added
+  light. For readability the low rings (walker height) and the arc nearest the camera cover the least. The mesh is hidden while nothing is
   up (0 calls). The glowing ground ring goes into `groundA`, the embers into `bbA` (petals into `bbN`): a few quads.
 - **Vertex shader:** age = fract(t / life + phase); radius r0 → r1 along age^0.7; the ring spins and twists with its
   height, its centre wanders on a helix and sways. A ring is drawn only if it was born inside the cast, so the column
   builds from the ground up and leaves by rising away. The arc facing the camera burns brighter (it reads as a funnel).
-- **Fragment shader:** noise in the ring's polar coordinates, scrolled over time; an erosion threshold that rises with
+- **Fragment shader:** noise in the ring's polar coordinates (the angle is taken per pixel: no seam), scrolled over time; an erosion threshold that rises with
   age; `step()` for a hard toon edge (it multiplies the colour: no `discard`); a stepped ramp (`NearestFilter`) per
   preset. On high with bloom the hottest band gets a small HDR boost (`hdr`) for the bloom; never on medium / low.
 - **Textures** are painted in code (`paintTornadoNoise`: tileable value-noise fbm; `paintTornadoRamp`): no image files.
 - **Randomness:** `vrand.fork('tornado')`; time from the visual clock (`update(d)`).
 - **Presets** (`src/render/vfx/tornadoPresets.js`, plain data): `fire` (Akane), `sakura` (pink petal whirl), `vortex`
-  (cyan wind / water). `TORNADO_CASTS` maps a cast to its preset: `akane.starmine` → `fire` (from its `abilityWarn`
-  event: the spot, the delay and the shells; it swirls on the crowd while her shells fall).
+  (cyan wind / water). Every preset value is per tornado (two presets can be up at once). `TORNADO_CASTS` maps a cast
+  to its preset: `akane.starmine` → `fire`: its `abilityWarn` event starts the column on the barrage's spot (1.25× the
+  shells' radius), and every `abilityShell` of that cast feeds it for 0.45 s more, so it ends with the barrage at any
+  game speed (the shells run on sim time).
 - **Tiers** (`TORNADO_TIERS`): high 22 rings + 6 core rings + 12 embers; medium 13 rings + 6 embers; low 8 rings, no
   embers. Each ring's light is shared (`share`), so the column is as bright on every tier, only finer on high. At
   most 3 at once.
-- **Reduce motion:** no spin, twist, sway or helix; slower rise; dimmer.
+- **Reduce motion:** no spin, twist, sway, helix or noise scroll, the ground rings do not turn; slower rise; dimmer.
+- **Impact frames** hide the column for their two frames, like the other normal-blend layers.
 - **Dev lab:** `?tornadoLab` in the dev server (`npm run dev`, e.g. `/?tornadoLab#/lobby`, then a battle) mounts a
   lil-gui panel (`tornadoPanel.js`): pick a preset, tune it live, loop it, copy the result as preset data. The import
   sits behind `import.meta.env.DEV`, so the production build has neither the panel nor lil-gui.

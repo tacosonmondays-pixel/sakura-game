@@ -302,6 +302,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const evRand = vrand.fork('events');
   // stylized tornadoes (src/render/vfx/tornado.js; display only): Akane's Starmine Barrage swirls into a fire tornado
   const tornado = createTornadoFx({ scene, batches, atlas, quality, reduceMotion, rand: vrand.fork('tornado') });
+  /** The live tornado of each girl's cast (fed by its shells). */
+  const tornadoOf = new Map();
   // attack FX are decoration: an FX error must never cost a frame's sim events (won / lost) —
   // on the first one the FX switch off for this battle (today's look) and it is logged once
   let fxBroken = false;
@@ -400,7 +402,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // over it, the additive effect batches burning on top; the normal-blend batches sit those frames out
   const impact = new ImpactFrames({
     scene, figures: () => [actors.root, companions.root],
-    hide: () => [batches.groundN.mesh, batches.bbN.mesh, batches.overlay.mesh, batches.links.mesh, overlays.root],
+    hide: () => [batches.groundN.mesh, batches.bbN.mesh, batches.overlay.mesh, batches.links.mesh, overlays.root, tornado.mesh],
   });
   // shake / punch / hit-stop / hold / impact / flash decisions (Reduce Motion, Hit effects, Impact
   // frames, placing, budget)
@@ -644,9 +646,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
       if (moment > 0 && clock.frameT - lastArtShake >= TRAUMA.artGap && shake(moment)) lastArtShake = clock.frameT;
       noteBallPop(ev, bouncing); // (a ball's blast comes before its pop: the blast reads the state its last pop left)
       // a cast that swirls into a tornado (observe only): the warning event carries the spot, delay and shells
+      // (it is fed until the cast's first shell, then by every shell it drops, so it ends with the barrage at any
+      // game speed: the shells run on sim time)
       if (ev.type === 'abilityWarn' && TORNADO_CASTS[ev.id]) {
-        const shells = Math.max(1, ev.shells || 1);
-        tornado.spawn(TORNADO_CASTS[ev.id], ev.x, ev.y, { seconds: (ev.delay || 0) + shells * 0.25 + 0.35, size: Math.max(0.8, ev.radius || 1) });
+        tornadoOf.set(ev.towerUid, tornado.spawn(TORNADO_CASTS[ev.id], ev.x, ev.y, { seconds: (ev.delay || 0) + 0.6, size: Math.max(0.8, ev.radius || 1) }));
+      } else if (ev.type === 'abilityShell' && TORNADO_CASTS[ev.id]) {
+        tornado.feed(tornadoOf.get(ev.towerUid), 0.45);
       }
       // the staff heroes' props observe only too
       staffSafe(() => staff.handle(ev));
@@ -1291,6 +1296,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   rig.apply(0);
 
   // ----- public API ----------------------------------------------------------------------
+  let tornadoLab = null; // the dev-only tuning panel (?tornadoLab), disposed with the battle
   const api = {
     canvas,
     update,
@@ -1583,6 +1589,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       longCbs.length = 0;
       overlays.dispose();
       attackFx?.dispose();
+      tornadoLab?.dispose();
       tornado.dispose();
       roster.dispose();
       staff.dispose();
@@ -1627,7 +1634,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // dev-only tornado tuning panel (?tornadoLab; src/render/vfx/tornadoPanel.js): never in the production build
   if (import.meta.env?.DEV && typeof location !== 'undefined' && /[?&]tornadoLab\b/.test(location.search)) {
     import('./vfx/tornadoPanel.js').then((m) => {
-      if (!disposed) m.mountTornadoPanel(api, sim);
+      if (!disposed) tornadoLab = m.mountTornadoPanel(api, sim);
     }).catch((err) => console.warn('[tornado lab]', err));
   }
   return api;

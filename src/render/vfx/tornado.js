@@ -1,7 +1,8 @@
 // Stylized tornado VFX (docs/VFX.md "Tornado"; display only). A column of flat rings that rise from the ground,
 // grow wider, twist round a helix and sway on X/Z, each ring a band of painted noise cut by an erosion threshold that
 // rises with its age (hard toon edge, no discard), coloured through a stepped ramp (nearest filter: flat toon bands).
-// Additive and bright; on high (bloom on) the hottest band is pushed above white so the bloom catches it.
+// Premultiplied blend (One, OneMinusSrcAlpha): the cooler bands cover the board a little so the colour reads on a bright
+// day, the hottest band is pure added light; on high (bloom on) that band is pushed above white so the bloom catches it.
 //
 //   const tornado = createTornadoFx({ scene, batches, atlas, quality, reduceMotion, rand });
 //   tornado.spawn('fire', x, z, { seconds: 2, size: 1.2 });   // world x / z (the sim's x / y), the cast's radius
@@ -25,14 +26,15 @@ attribute vec4 iC; // r0, r1, height, twist
 attribute vec4 iD; // sway, swayHz, spin, life
 attribute vec4 iE; // helix, inner, alpha, hdr
 attribute vec4 iF; // noise u, noise v, scroll, core heat
-uniform vec2 uErode;
-varying vec2 vPolar;
-varying float vD;
+attribute vec4 iG; // erode young, erode old, body (cover), core radius share
+varying vec2 vXZ;
 varying float vAge;
 varying float vOn;
 varying vec4 vE;
 varying vec4 vF;
+varying vec4 vG;
 varying float vRow;
+varying float vRnd;
 varying float vCore;
 varying float vFront;
 void main() {
@@ -44,7 +46,7 @@ void main() {
   vOn = step(0.0, born) * step(born, iA.w);
   float g = pow(age, 0.7);
   float core = iB.z;
-  float r = mix(iC.x, iC.y, g) * mix(1.0, iF.w > 0.0 ? 0.45 : 1.0, core);
+  float r = mix(iC.x, iC.y, g) * mix(1.0, iG.w, core);
   float a = iB.y * 6.2831853 + t * iD.z - age * iC.w;
   float c = cos(a), s = sin(a);
   vec2 p = position.xz * r;
@@ -57,50 +59,54 @@ void main() {
   // the arc facing the camera (+z) burns brighter, the far arc dimmer: the column reads as a funnel, not a stack
   vFront = 0.5 + 0.5 * (p.y / max(r, 1e-3));
   gl_Position = projectionMatrix * modelViewMatrix * vec4(wp, 1.0);
-  float d = length(position.xz);
-  vD = (d - iE.y) / (1.0 - iE.y);
-  vPolar = vec2(atan(position.z, position.x) / 6.2831853 + iB.y, d);
+  // the ring's own (unrotated) position: the angle is taken per pixel (no seam where atan wraps)
+  vXZ = position.xz;
   vAge = age;
   vE = iE;
   vF = iF;
+  vG = iG;
   vRow = iB.w;
+  vRnd = iB.y;
   vCore = core;
 }`;
 
 const FRAG = /* glsl */`
 uniform sampler2D uNoise;
 uniform sampler2D uRamp;
-uniform vec2 uErode;
 uniform float uTime;
-uniform float uBody;
-varying vec2 vPolar;
-varying float vD;
+varying vec2 vXZ;
 varying float vAge;
 varying float vOn;
 varying vec4 vE;
 varying vec4 vF;
+varying vec4 vG;
 varying float vRow;
+varying float vRnd;
 varying float vCore;
 varying float vFront;
 void main() {
-  // the flame band across the ring (0 at its edges, 1 in its middle)
-  float x = clamp(vD, 0.0, 1.0) * 2.0 - 1.0;
+  float d = length(vXZ);
+  float vD = (d - vE.y) / (1.0 - vE.y); // 0 at the preset's hole, 1 at the rim
+  // the flame band across the ring (0 at its edges, 1 in its middle; inside the hole it is negative: nothing)
+  float x = vD * 2.0 - 1.0;
   float band = 1.0 - x * x;
-  vec2 uv = vec2(vPolar.x * vF.x, vD * vF.y - vAge * 0.9 - uTime * vF.z * 0.35);
+  float u = atan(vXZ.y, vXZ.x) / 6.2831853 + vRnd; // whole-number u scales: the noise wraps seamlessly
+  vec2 uv = vec2(u * vF.x, vD * vF.y - vAge * 0.9 - uTime * vF.z * 0.35);
   float n = texture2D(uNoise, uv).r * 0.85 + texture2D(uNoise, uv * 1.7 + vec2(0.37, uTime * vF.z * 0.2)).g * 0.15;
   n = smoothstep(0.25, 0.75, n); // bolder: fewer, bigger tongues
   float heat = band * (0.3 + 1.0 * n) + vCore * vF.w;
-  float cut = mix(uErode.x, uErode.y, vAge);
-  float m = step(cut, heat); // the hard toon edge: in or out, no soft fringe and no discard
+  float cut = mix(vG.x, vG.y, vAge);
+  float m = step(cut, heat) * step(0.0, band); // the hard toon edge: in or out, no soft fringe and no discard
   float k = clamp((heat - cut) * 1.6 + vCore * 0.2, 0.0, 0.999) * mix(0.7, 1.0, vFront);
   vec3 col = texture2D(uRamp, vec2(k, vRow)).rgb;
   // only the hottest band burns above white (high + bloom: vE.w > 0)
   col *= 1.0 + vE.w * step(0.8, k);
   float fade = smoothstep(0.0, 0.1, vAge) * (1.0 - smoothstep(0.82, 1.0, vAge));
   float a = m * fade * vOn * mix(0.35, 1.0, vFront);
-  // premultiplied: the cooler bands cover the board a little (body: the colour reads on a bright day), the hottest
-  // band is purely added light (alpha 0), so one draw call gives both the toon body and the glow
-  float body = uBody * (1.0 - step(0.8, k)) * (1.0 - vCore);
+  // premultiplied (One, OneMinusSrcAlpha): the cooler bands cover the board a little (body: the colour reads on a
+  // bright day), the hottest band is purely added light (alpha 0): one draw call gives the toon body and the glow.
+  // Readability: the low rings (where the walkers are) and the near arc cover little, so the crowd stays visible.
+  float body = vG.z * (1.0 - step(0.8, k)) * (1.0 - vCore) * smoothstep(0.12, 0.45, vAge) * mix(1.0, 0.45, vFront);
   gl_FragColor = vec4(col * a * vE.z, a * body * min(1.0, vE.z * 1.3));
   #include <colorspace_fragment>
 }`;
@@ -192,12 +198,13 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
   const perMax = TORNADO_TIERS.high.rings + TORNADO_TIERS.high.core;
   const max = perMax * MAX_TORNADOES;
 
-  const ring = new THREE.RingGeometry(0.5, 1, 40, 1).rotateX(-Math.PI / 2);
+  // (the hole is the preset's `inner`, cut per pixel: the geometry starts inside every preset's hole)
+  const ring = new THREE.RingGeometry(0.3, 1, 40, 1).rotateX(-Math.PI / 2);
   const geo = new THREE.InstancedBufferGeometry();
   geo.index = ring.index;
   geo.setAttribute('position', ring.attributes.position);
   const attrs = {};
-  for (const k of ['iA', 'iB', 'iC', 'iD', 'iE', 'iF']) {
+  for (const k of ['iA', 'iB', 'iC', 'iD', 'iE', 'iF', 'iG']) {
     attrs[k] = new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4).setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute(k, attrs[k]);
   }
@@ -213,7 +220,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
   ramp.colorSpace = THREE.SRGBColorSpace;
   ramp.needsUpdate = true;
   const material = new THREE.ShaderMaterial({
-    uniforms: { uNoise: { value: noise }, uRamp: { value: ramp }, uErode: { value: new THREE.Vector2(0.16, 0.66) }, uTime: { value: 0 }, uBody: { value: 0.5 } },
+    uniforms: { uNoise: { value: noise }, uRamp: { value: ramp }, uTime: { value: 0 } },
     vertexShader: VERT,
     fragmentShader: FRAG,
     transparent: true,
@@ -269,18 +276,22 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       const C = attrs.iC.array;
       C[j] = p.r0 * rec.size; C[j + 1] = p.r1 * rec.size; C[j + 2] = p.height * (0.8 + 0.2 * rec.size); C[j + 3] = rm ? 0 : p.twist;
       const D = attrs.iD.array;
-      D[j] = rm ? 0 : p.sway; D[j + 1] = p.swayHz; D[j + 2] = rm ? 0.4 : p.spin; D[j + 3] = life;
+      D[j] = rm ? 0 : p.sway; D[j + 1] = p.swayHz; D[j + 2] = rm ? 0 : p.spin; D[j + 3] = life;
       const E = attrs.iE.array;
       E[j] = rm ? 0 : p.helix; E[j + 1] = p.inner; E[j + 2] = p.alpha * share * (rm ? 0.7 : 1) * (core ? 0.35 : 1); E[j + 3] = hdr;
       const F = attrs.iF.array;
-      F[j] = p.noise[0]; F[j + 1] = p.noise[1]; F[j + 2] = rm ? p.scroll * 0.3 : p.scroll; F[j + 3] = p.core?.heat ?? 0;
+      F[j] = p.noise[0]; F[j + 1] = p.noise[1]; F[j + 2] = rm ? 0 : p.scroll; F[j + 3] = p.core?.heat ?? 0;
+      const G = attrs.iG.array;
+      G[j] = p.erode[0]; G[j + 1] = p.erode[1]; G[j + 2] = p.body ?? 0.5; G[j + 3] = p.core?.radius ?? 0.45;
     }
     return total;
   }
 
   /** The column's strength now: 0 → 1 over its first ring's rise, back to 0 as its last rings leave. */
+  /** Seconds a ring (or an ember) takes to leave: the column is gone this long after it stops being fed. */
+  const tail = (p) => Math.max(p.life, (p.embers?.life ?? 0) * 1.25) * (reduceMotion ? 2.2 : 1);
   const strength = (rec) => {
-    const life = rec.p.life;
+    const life = rec.p.life * (reduceMotion ? 2.2 : 1);
     const on = Math.min(1, rec.t / (life * 0.5));
     const off = rec.t <= rec.seconds ? 1 : Math.max(0, 1 - (rec.t - rec.seconds) / life);
     return on * off;
@@ -296,8 +307,8 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
     const pulse = reduceMotion ? 1 : 1 + 0.06 * Math.sin(rec.t * p.base.pulse * TAU);
     const [r, g, b] = lin(p.base.color);
     const [ir, ig, ib] = lin(p.base.inner);
-    if (R.ringSoft) batches.groundA?.push(rec.x, y, rec.z, size * pulse, size * pulse, R.ringSoft, r, g, b, 0.28 * k, rec.t * 0.6);
-    if (R.ring) batches.groundA?.push(rec.x, y, rec.z, size * 0.62 * pulse, size * 0.62 * pulse, R.ring, ir, ig, ib, 0.4 * k, -rec.t);
+    if (R.ringSoft) batches.groundA?.push(rec.x, y, rec.z, size * pulse, size * pulse, R.ringSoft, r, g, b, 0.28 * k, reduceMotion ? 0 : rec.t * 0.6);
+    if (R.ring) batches.groundA?.push(rec.x, y, rec.z, size * 0.62 * pulse, size * 0.62 * pulse, R.ring, ir, ig, ib, 0.4 * k, reduceMotion ? 0 : -rec.t);
     // embers: an analytic spiral (no state): born inside the cast, rising and widening, fading at the top
     const e = p.embers;
     const uv = R[e.sprite] || R.spark;
@@ -321,6 +332,14 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
 
   return {
     spawn,
+    /** Keeps a live column fed for at least `seconds` more (a cast's next shell landed). */
+    feed(rec, seconds) {
+      if (rec && live.includes(rec)) rec.seconds = Math.max(rec.seconds, rec.t + seconds);
+    },
+    /** The ring mesh (impact frames hide it with the normal-blend layers). */
+    get mesh() {
+      return mesh;
+    },
     /** Advances and draws (the visual clock's dt; call between the batches' begin and end). */
     update(dt) {
       time += dt;
@@ -328,15 +347,11 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       for (let i = live.length - 1; i >= 0; i--) {
         const rec = live[i];
         rec.t += dt;
-        if (rec.t > rec.seconds + rec.p.life * (reduceMotion ? 2.2 : 1) + 0.05) live.splice(i, 1);
+        if (rec.t > rec.seconds + tail(rec.p) + 0.05) live.splice(i, 1);
       }
       for (const rec of live) {
         n += write(rec, n);
         quads(rec);
-      }
-      if (live[0]) {
-        material.uniforms.uErode.value.set(live[0].p.erode[0], live[0].p.erode[1]);
-        material.uniforms.uBody.value = live[0].p.body ?? 0.5;
       }
       material.uniforms.uTime.value = time;
       geo.instanceCount = n;
