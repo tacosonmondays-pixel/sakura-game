@@ -145,7 +145,9 @@ export const PATH_LOOKS = Object.freeze({
   nami: Object.freeze({
     paths: Object.freeze([
       ROW([P('p0_crystals', 'chest', [-0.24, 0.32, -0.08], [0, 0, 0.3], 1.4)], [P('p0_spikes', 'chest', [-0.2, 0.36, -0.12], [0, 0, 0.25], 1.35)]),
-      ROW([P('p1_ring', 'root', [0, 0.55, 0.03], [0.1, 0, 0], 1.25, SPIN(0.8))], [P('p1_serpent', 'root', [0, 0.5, 0.03], [0, 0, 0], 1.25, SPIN(0.6))]),
+      // (review r2 LOW-1: the loop swirls round her feet, wider than her pips; from the 48° camera a loop at chest
+      // height still crossed her coat at hip level on screen, one at her feet stays below her knees)
+      ROW([P('p1_ring', 'root', [0, 0.14, 0.03], [0, 0, 0], 1.5, SPIN(0.8))], [P('p1_serpent', 'root', [0, 0.16, 0.03], [0, 0, 0], 1.45, SPIN(0.6))]),
       ROW([P('p2_anchor', 'head', [0, 0.5, 0.08], [-0.7, 0, 0], 2.4)],
         [P('p2_anchor', 'head', [0, 0.5, 0.08], [-0.7, 0, 0], 2.5), P('p2_wheel', 'head', [0, 0.8, -0.06], [-0.6, 0, 0], 1.45, BOB)]),
     ]),

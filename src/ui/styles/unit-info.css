@@ -58,9 +58,11 @@
    Upgrade tree grid (sheet + battle)
    ====================================================================================== */
 .ut-grid { --cell-gap: 6px; --circle: 44px; display: flex; flex-direction: column; gap: 8px; }
-.ut-row { --pa: #ff5d73; --pb: #ff9f7a; --pc: #e8475e; --tint: #fff4f4; border-radius: 12px; background: linear-gradient(180deg, var(--tint), #fff 70%); box-shadow: inset 0 0 0 1px #e6eef8; padding: 5px 6px 6px; }
-.ut-row.p1 { --pa: #2b7fff; --pb: #4cc9f0; --pc: #1f6fe5; --tint: #eef6ff; }
-.ut-row.p2 { --pa: #8b5cf6; --pb: #c77dff; --pc: #7b4ae6; --tint: #f6f0ff; }
+/* path colours: one set with the battle board and the upgrade drawer (pink, cyan, yellow: path looks r2); the yellow
+   row takes deeper golds on this light page so its white numerals and outlines still read */
+.ut-row { --pa: #ff6b8b; --pb: #ff9fb4; --pc: #e0446a; --tint: #fff3f6; border-radius: 12px; background: linear-gradient(180deg, var(--tint), #fff 70%); box-shadow: inset 0 0 0 1px #e6eef8; padding: 5px 6px 6px; }
+.ut-row.p1 { --pa: #0ea5d8; --pb: #4cc9f0; --pc: #0a6f9c; --tint: #eaf8fd; }
+.ut-row.p2 { --pa: #d99a00; --pb: #f2c12e; --pc: #8a5a00; --tint: #fff8de; }
 .ut-row-head { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 0 2px 4px; }
 .ut-row-num { flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 900 11px/1 var(--font-head); background: linear-gradient(135deg, var(--pa), var(--pb)); }
 .ut-row-name { flex: none; font: italic 900 0.86rem/1.1 var(--font-head); color: var(--navy); white-space: nowrap; }

@@ -307,25 +307,31 @@ if (want('phone')) {
 // perf: low quality, 12 girls at mixed tiers, looks on vs off
 // ---------------------------------------------------------------------------------------------
 if (want('perf')) {
-  // --board mixed (12 girls at mixed tiers) | allT5 (the review's worst case: six Aoi and six Akane, every one at a T5 set)
+  // --board mixed (12 girls at mixed tiers) | allT5 (review r1's worst case: six Aoi and six Akane, every one at a T5 set)
+  // | rollout (review r2: the rollout girls at T5, Rei, Yuki, Momo and Kage three each; --girls overrides the four)
   const BOARDSET = opt('board', 'mixed');
+  const ROLLOUT = opt('girls', 'rei,yuki,momo,kage').split(',').filter((g) => !HEROES.has(g) && !g.includes('@'));
+  const who = (i) => (BOARDSET === 'rollout' ? ROLLOUT[i % ROLLOUT.length] : i % 2 ? 'akane' : 'aoi');
   log(`\n== perf: low quality, 12 girls, ${BOARDSET} ==`);
   const { page, context } = await battlePage({ width: 1280, height: 720, quality: 'low', camera: 'locked' });
-  const MIX = BOARDSET === 'allT5'
+  const MIX = BOARDSET === 'rollout'
+    ? Array.from({ length: 12 }, (_, i) => [[5, 2, 0], [2, 0, 5], [0, 5, 2]][Math.floor(i / ROLLOUT.length) % 3])
+    : BOARDSET === 'allT5'
     ? [[5, 2, 0], [5, 2, 0], [2, 0, 5], [2, 0, 5], [0, 5, 2], [0, 5, 2], [5, 2, 0], [5, 2, 0], [2, 0, 5], [2, 0, 5], [0, 5, 2], [0, 5, 2]]
     : [[5, 2, 0], [2, 0, 5], [0, 5, 2], [3, 0, 0], [0, 3, 0], [0, 0, 3], [4, 2, 0], [0, 4, 2], [2, 0, 4], [2, 1, 0], [0, 0, 0], [5, 0, 2]];
-  const uids = await page.evaluate((MIX) => {
+  const girls12 = Array.from({ length: 12 }, (_, i) => who(i));
+  const uids = await page.evaluate(([MIX, girls12]) => {
     const ab = window.__ab;
     const out = [];
     for (let i = 0; i < 12; i++) {
-      const uid = ab.place(i % 2 ? 'akane' : 'aoi', { skip: i * 3 });
+      const uid = ab.place(girls12[i], { skip: i * 3 });
       if (uid == null) continue;
       out.push(uid);
       // tiers through the render override: the one-final-tier rule allows one T5 per path and girl, a look test wants more
       window.__battle.renderer.setPathLookOverride(uid, MIX[i]);
     }
     return out;
-  }, MIX);
+  }, [MIX, girls12]);
   check(uids.length === 12, `12 girls placed (${uids.length})`);
   await page.evaluate(() => window.__ab.keepWave(60));
   for (const u of uids) await waitLook(page, u, null, 8000);
@@ -398,7 +404,12 @@ if (want('perf')) {
   log(`  mean: on ${on.frameMs} ms vs off ${off.frameMs} ms a frame (SwiftShader: compare, do not read as a phone); layer ${on.layerMs} ms/frame`);
   log(`  pieces: ${pieceMeshes} meshes, ${pieceTris} triangles (12 girls); +${res.deltaCalls} calls, +${res.deltaTris} triangles`);
   writeFileSync(`${SHOTS}/perf-${BOARDSET}.json`, JSON.stringify(res, null, 2));
-  check(res.deltaCalls <= 16, `low, ${BOARDSET}: path looks add ≤ 16 draw calls for 12 girls (${res.deltaCalls}; review r1 gate)`);
+  // the gate is per girl (review r2 LOW-2): ≤ 2 calls each on low (heroes ≤ 3); the board total is reported
+  const perGirl = probe.map((p, i) => ({ girl: girls12[i], tiers: MIX[i].join('-'), meshes: p?.meshes || 0 }));
+  const worst = perGirl.reduce((a, b) => (b.meshes > a.meshes ? b : a), perGirl[0]);
+  res.perGirl = perGirl;
+  writeFileSync(`${SHOTS}/perf-${BOARDSET}.json`, JSON.stringify(res, null, 2));
+  check(perGirl.every((p) => p.meshes <= (HEROES.has(p.girl) ? 3 : 2)), `low, ${BOARDSET}: ≤ 2 draw calls a girl (most: ${worst.girl} ${worst.tiers}, ${worst.meshes}); board +${res.deltaCalls}`);
   check(pieceTris <= 12 * 1400, `low: path looks add ≤ 1,400 triangles a girl (${Math.round(pieceTris / 12)})`);
   check(on.layerMs < 1, `low: the layer's own CPU work stays under 1 ms a frame for 12 girls (${on.layerMs} ms)`);
   await context.close();

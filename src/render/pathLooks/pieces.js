@@ -1,12 +1,13 @@
 // Path-look pieces: loads public/models/pathlooks/<unit>_p<path>.glb (tools/blender/pathlooks/build_path_looks.py) once
 // per file and hands out shared geometry (display only).
 //
-// Draw calls (review r1, MEDIUM-1): a piece is ONE mesh: its `_body` and `_glow` parts are merged into one geometry
-// with a per-vertex glow flag (`aGlow`), drawn by one toon material that turns flagged vertices unlit. And a girl's
-// static pieces (no spin / bob) are merged into ONE skinned mesh on her own skeleton: every piece vertex rigidly
-// weighted to its socket bone, so the merge follows every clip exactly as a socketed piece would. A girl therefore
-// costs 1 draw call for all her static pieces + 1 per animated piece, and one more of each for the outline hull on
-// medium / high. Merged geometries are cached per (model asset, detail, piece set) and shared by every instance.
+// Draw calls (review r1 MEDIUM-1, r2 LOW-2): a piece is ONE mesh: its `_body` and `_glow` parts are merged into one
+// geometry with a per-vertex glow flag (`aGlow`), drawn by one toon material that turns flagged vertices unlit. And ALL of
+// a girl's pieces are merged into ONE skinned mesh on her skeleton: a static piece rigidly weighted to its socket bone,
+// an animated one (spin / bob) to a bone of its own added under its socket, which the layer turns or floats. So the
+// merge follows every clip exactly as socketed pieces would, and a girl costs one draw call whatever she wears (two on
+// medium / high with the outline hull). Merged geometries are cached per (model asset, detail, piece set) and shared
+// by every instance; the animated bones and their skeleton are per instance.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { gradientMap } from '../../models/toon.js';
@@ -46,7 +47,19 @@ export function materials() {
   if (mats) return mats;
   const outline = new THREE.MeshBasicMaterial({ color: '#3a2e44', side: THREE.BackSide });
   outline.userData.shared = true;
-  mats = { piece: pieceMaterial(), outline };
+  // shadow pass: glow vertices are light, not matter (review r2 NIT-2)
+  const depth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+  depth.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aGlow;\nvarying float vGlow;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGlow = aGlow;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying float vGlow;')
+      .replace('void main() {', 'void main() {\n  if (vGlow > 0.5) discard;');
+  };
+  depth.customProgramCacheKey = () => 'pathLookDepth';
+  depth.userData.shared = true;
+  mats = { piece: pieceMaterial(), outline, depth };
   return mats;
 }
 
@@ -107,10 +120,7 @@ function prepare(gltf) {
       }
       k += x.count;
     }
-    const piece = { name: root.name, pos, nor, col, glow, hull, count, hullCount, triangles: count / 3, geometry: null, hullGeometry: null };
-    // standalone geometry (an animated piece is its own mesh)
-    piece.geometry = mergeGeometry([{ piece, m: null }], null);
-    piece.hullGeometry = hullCount ? buildHull([{ piece, m: null }]) : null;
+    const piece = { name: root.name, pos, nor, col, glow, hull, count, hullCount, triangles: count / 3 };
     pieces.set(root.name, piece);
   }
   return pieces;
@@ -230,58 +240,42 @@ export function fileStatus(file) {
 }
 
 /**
- * One animated piece as its own mesh (+ hull on medium / high).
- * @returns {THREE.Group} userData.meshes, userData.triangles
- */
-export function instancePiece(piece, { quality = 'high', shadows = false } = {}) {
-  const m = materials();
-  const g = new THREE.Group();
-  g.name = `pathLook:${piece.name}`;
-  const mesh = new THREE.Mesh(piece.geometry, m.piece);
-  mesh.frustumCulled = false;
-  mesh.castShadow = shadows;
-  g.add(mesh);
-  let meshes = 1;
-  let triangles = piece.triangles;
-  if (piece.hullGeometry && quality !== 'low') {
-    const hull = new THREE.Mesh(piece.hullGeometry, m.outline);
-    hull.frustumCulled = false;
-    hull.userData.isOutline = true;
-    g.add(hull);
-    meshes++;
-    triangles += piece.hullCount / 3;
-  }
-  g.userData.meshes = meshes;
-  g.userData.triangles = Math.round(triangles);
-  return g;
-}
-
-/**
- * A girl's static pieces as ONE skinned mesh on her own skeleton (+ one skinned hull on medium / high).
+ * ALL of a girl's pieces as ONE skinned mesh (+ one skinned hull on medium / high). Static pieces ride her own bones;
+ * each animated piece (spin / bob) rides a bone of its own that this call adds under its socket bone (a fixed holder
+ * bone, then the bone the layer spins or bobs), so animation costs no extra draw call (path looks r2, LOW-2).
  * @param {string} key cache key: model asset + detail + piece set (the geometry only depends on those)
- * @param {Array<{ piece, bone: THREE.Bone, local: THREE.Matrix4 }>} entries local: the piece's frame in its bone's
- *   space (what a holder under that bone would carry)
+ * @param {Array<{ piece, bone: THREE.Bone, local: THREE.Matrix4, anim?: object|null }>} entries local: the piece's
+ *   frame in its bone's space (what a holder under that bone would carry)
  * @param {THREE.SkinnedMesh} body her body mesh (skeleton + bind matrix)
- * @returns {THREE.Group|null}
+ * @returns {{ group: THREE.Group, anims: THREE.Bone[], holders: THREE.Object3D[], skeleton: THREE.Skeleton }|null}
+ *   anims: one bone per animated entry, in entry order (the layer drives it); holders: the bones added under her
+ *   sockets (removed on rebuild); skeleton: this mesh's own skeleton (dispose on rebuild)
  */
 export function mergedPieces(key, entries, body, { quality = 'high', shadows = false } = {}) {
   const skel = body?.skeleton;
-  if (!skel || !entries.length) return null;
+  if (!skel) return null;
+  const ok = entries.filter((e) => skel.bones.includes(e.bone));
+  if (!ok.length) return null;
+  const nb = skel.bones.length;
   let c = merged.get(key);
   if (!c) {
-    // vertex = bindMatrix⁻¹ · boneInverse⁻¹ · local · p, so that skinning (bone.matrixWorld · boneInverse · bindMatrix)
-    // lands it at bone.matrixWorld · local · p: exactly where a holder under that bone would put it
+    // a static vertex = bindMatrix⁻¹ · boneInverse⁻¹ · local · p, so skinning (bone.matrixWorld · boneInverse ·
+    // bindMatrix) lands it at bone.matrixWorld · local · p: exactly where a holder under that bone would put it.
+    // An animated vertex = bindMatrix⁻¹ · p on its own bone (boneInverse = identity, the bone carries local · anim).
     const bindInv = body.bindMatrix.clone().invert();
     const placed = [];
     const indices = [];
-    for (const e of entries) {
-      const bi = skel.bones.indexOf(e.bone);
-      if (bi < 0) continue;
-      const m = bindInv.clone().multiply(skel.boneInverses[bi].clone().invert()).multiply(e.local);
-      placed.push({ piece: e.piece, m });
-      indices.push(bi);
+    let extra = 0;
+    for (const e of ok) {
+      if (e.anim) {
+        placed.push({ piece: e.piece, m: bindInv.clone() });
+        indices.push(nb + extra++);
+      } else {
+        const bi = skel.bones.indexOf(e.bone);
+        placed.push({ piece: e.piece, m: bindInv.clone().multiply(skel.boneInverses[bi].clone().invert()).multiply(e.local) });
+        indices.push(bi);
+      }
     }
-    if (!placed.length) return null;
     const skin = { indices };
     c = {
       geometry: mergeGeometry(placed, skin), hull: buildHull(placed, skin),
@@ -289,19 +283,39 @@ export function mergedPieces(key, entries, body, { quality = 'high', shadows = f
     };
     merged.set(key, c);
   }
+  // this instance's bones for the animated pieces: holder (fixed local) → the animated bone
+  const anims = [];
+  const holders = [];
+  for (const e of ok) {
+    if (!e.anim) continue;
+    const holder = new THREE.Bone();
+    holder.name = 'pathLookHolder';
+    holder.matrixAutoUpdate = false;
+    holder.matrix.copy(e.local);
+    const b = new THREE.Bone();
+    b.name = 'pathLookAnim';
+    holder.add(b);
+    e.bone.add(holder);
+    holders.push(holder);
+    anims.push(b);
+  }
+  const skeleton = anims.length
+    ? new THREE.Skeleton([...skel.bones, ...anims], [...skel.boneInverses, ...anims.map(() => new THREE.Matrix4())])
+    : skel;
   const m = materials();
   const g = new THREE.Group();
   g.name = 'pathLook:merged';
   const mesh = new THREE.SkinnedMesh(c.geometry, m.piece);
-  mesh.bind(skel, body.bindMatrix);
+  mesh.bind(skeleton, body.bindMatrix);
   mesh.frustumCulled = false;
   mesh.castShadow = shadows;
+  mesh.customDepthMaterial = m.depth; // glow vertices cast no shadow
   g.add(mesh);
   let meshes = 1;
   let triangles = c.triangles;
   if (c.hull && quality !== 'low') {
     const hull = new THREE.SkinnedMesh(c.hull, m.outline);
-    hull.bind(skel, body.bindMatrix);
+    hull.bind(skeleton, body.bindMatrix);
     hull.frustumCulled = false;
     hull.userData.isOutline = true;
     g.add(hull);
@@ -310,15 +324,11 @@ export function mergedPieces(key, entries, body, { quality = 'high', shadows = f
   }
   g.userData.meshes = meshes;
   g.userData.triangles = Math.round(triangles);
-  return g;
+  return { group: g, anims, holders, skeleton: skeleton === skel ? null : skeleton };
 }
 
 /** Frees the shared pieces (the last battle renderer disposed). */
 export function clearPieceCache() {
-  for (const f of files.values()) {
-    if (f.status !== 'ready') continue;
-    for (const p of f.pieces.values()) { p.geometry.dispose(); p.hullGeometry?.dispose(); }
-  }
   for (const c of merged.values()) { c.geometry.dispose(); c.hull?.dispose(); }
   files.clear();
   merged.clear();

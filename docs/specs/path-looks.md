@@ -53,7 +53,8 @@ the drawerView comment quotes it.
 - **Heroes** (25-level track, `heroLookTiers`): every path at T3+ wears its pieces at once (`multi`), so each path of a
   hero owns a different socket and they stack cleanly at Lv 25 (Luna: lances behind her shoulder, moons circling her,
   the court on her head). Several capstones: the aura's colour walks through them every 1.6 s. Heroes have no T1–T2
-  glow while a path sits at T3+.
+  glow while a path sits at T3+. A hero's T4 is, as for the students, her T3 piece a size up plus the T4 sparkles, so
+  Lv 15 → 20 changes little; a distinct T4 piece per hero path can come with a later batch (review r2 NIT-1).
 - **LR / duo.** LR is gear (awakening), not a figure change: nothing to compose today. The duo (Kohaku & Tsubaki, one
   base, two figures) skips pieces in Phase 1 (pips, glows and aura still show). Phase 2 gives each duo path to the
   girl it suits (Starfall → Tsubaki's cannon, Prism → Kohaku's lens, Refraction → both) via the duo's member groups.
@@ -91,13 +92,14 @@ the drawerView comment quotes it.
   scene) and `userData.glbRoot`. A piece's frame in its bone's space undoes the bone's rest frame, so it keeps the
   figure's axes at rest and then rides every clip (idle bob, attack swing, walk). Bones are found by type, not just
   name (the face mesh of the Blender girls is also called `head`).
-- **Draw calls (review r1 MEDIUM-1).** A piece is one mesh: its body and glow parts share one geometry with a per-vertex
-  glow flag (`aGlow`), drawn by one toon material that turns flagged vertices unlit. A girl's **static** pieces (no
-  `spin` / `bob`) are merged into **one skinned mesh on her own skeleton**, every vertex rigidly weighted to its socket
-  bone, so the merge moves exactly as separately socketed pieces would; animated pieces stay their own mesh under a
-  holder on the bone. Merged geometry is cached per (model asset, detail, outfit, piece set) and shared by every
-  instance. Cost: 1 call for her statics + 1 per animated piece, doubled on medium / high by the outline hulls
-  (`rules.js` `pieceCalls`).
+- **Draw calls (review r1 MEDIUM-1, r2 LOW-2).** A piece is one mesh: its body and glow parts share one geometry with
+  a per-vertex glow flag (`aGlow`), drawn by one toon material that turns flagged vertices unlit. **All** of a girl's
+  pieces are merged into **one skinned mesh on her own skeleton**: a static piece's vertices are rigidly weighted to its
+  socket bone; an animated piece (`spin` / `bob`) rides a bone of its own that the layer adds under its socket (a fixed
+  holder bone, then the bone it turns or floats), in a per-instance skeleton made of her bones plus those. The merge
+  moves exactly as separately socketed pieces would. Merged geometry is cached per (model asset, detail, outfit, piece
+  set) and shared by every instance. Cost: **one call a girl whatever she wears**, two on medium / high with the
+  outline hull (`rules.js` `pieceCalls`). Glow vertices cast no shadow (a depth material that drops them).
 - **One shared material set** for every girl: one piece material (toon ramp + the glow flag) and one back-face outline.
   No textures.
 
@@ -105,14 +107,14 @@ the drawerView comment quotes it.
 
 | Quality | Pieces | Extra draw calls a girl (max) | Triangles a girl (max) | Notes |
 | --- | --- | --- | --- | --- |
-| low | yes, no hulls | **2** (girl), 4 (Lv 25 hero) | 1,400 (girl), 2,600 (hero) | pips, glows, sparkles and aura ride the existing quad batches: 0 extra calls |
-| medium | yes, hulls | 4 (girl), 8 (hero) | 2,400 (girl), 4,500 (hero) | hull = the body parts pushed out, one shared back-face material |
-| high | yes, hulls, shadows | 4 (+ shadow pass) | as medium | |
+| low | yes, no hulls | **1** (gate: ≤ 2 a girl, ≤ 3 a hero) | 1,400 (girl), 2,600 (hero) | pips, glows, sparkles and aura ride the existing quad batches: 0 extra calls |
+| medium | yes, hulls | 2 | 2,400 (girl), 4,500 (hero) | hull = the body parts pushed out, one shared back-face material |
+| high | yes, hulls, shadows | 2 (+ shadow pass) | as medium | |
 
 Enforced in `tests/render/pathLooks.test.js`: a T3 stage ≤ 650 triangles, a T5 stage ≤ 1,400 (before hulls), every
-file ≤ 60 KB, ≤ 2 calls a girl and ≤ 4 a hero at every T3–T5 set on low, and **≤ 16 calls for the reviewer's
-all-T5 board** (six Aoi and six Akane at 5-2-0 / 2-0-5 / 0-5-2). `e2e/path-looks.mjs --only perf` measures both
-boards in a browser (§7).
+file ≤ 60 KB, one merged mesh a girl at every T3–T5 set (gate ≤ 2 a girl, ≤ 3 a hero), and ≤ 16 calls for both
+12-girl T5 boards (six Aoi + six Akane; the rollout girls). `e2e/path-looks.mjs --only perf` measures three boards
+in a browser (`--board mixed | allT5 | rollout`) and gates each girl's draw calls (§7).
 
 ## 5. The look for every girl
 
@@ -171,7 +173,10 @@ covered).
   exposes, tightens or frames a body. Pieces are props, hair ornaments, backpacks, capes, wings, companions and
   floaters.
 - Adult heroes are never framed around their bodies: their pieces are crowns, props, companions and floaters, never
-  body-hugging or chest / hip pieces (no bandoliers across the chest, nothing hung at the hips or thighs).
+  body-hugging or chest / hip pieces (no bandoliers across the chest, nothing hung at the hips or thighs). A loop that
+  circles a hero swirls round her feet, wider than her pips, so from the 48° camera its front arc stays below her
+  knees and never crosses her hips or thighs (Nami's water ring and serpent, review r2 LOW-1; at chest height the
+  front arc still projected onto her coat at hip level).
 - No piece covers a face from the battle camera, nothing is gory, every companion is friendly and cute.
 - No other games' or anime names in pieces, file names, the catalog, docs or generator prompts. Generators (if a
   later batch uses Meshy) receive only the game's own art.
@@ -193,17 +198,18 @@ covered).
 - **Checks:** sim id `e4001588f40b`, the same as `main` (the test also asserts no sim-id file reads path looks).
   `npm test`: 446 files passed, 2 skipped; 7,097 tests passed, 11 skipped (`tests/render/pathLooks.test.js`: 14).
   `node e2e/smoke.mjs` (1280×720, 844×390, 390×844): ALL SMOKE CHECKS PASSED.
-- **Performance** (`--only perf`: 1-2, quality **low**, 1280×720, a still wave, 12 girls, six Aoi and six Akane;
+- **Performance** (`--only perf --board mixed|allT5|rollout`: 1-2, quality **low**, 1280×720, a still wave, 12 girls;
   alternating rounds with the whole layer off and on; Chromium + SwiftShader, software WebGL with no GPU here, so frame
   times compare with each other only):
 
   | Board (12 girls, low) | Draw calls off → on | Triangles off → on | Frame time, mean of 3 off/on pairs | Layer CPU |
   | --- | --- | --- | --- | --- |
-  | mixed tiers (5-2-0, 2-0-5, 0-5-2, 3-0-0, 0-3-0, 0-0-3, 4-2-0, 0-4-2, 2-0-4, 2-1-0, 0-0-0, 5-0-2) | 60 → 72 (**+12**; round 1: +21) | +7,402 (+4 %; 6,762 piece triangles) | 391 → 402 ms (**+2.9 %**; on slower in every pair: +1.1, +4.0, +3.6 %) | 0.2 ms a frame (p95 0.4) |
-  | **all T5** (six Aoi, six Akane at 5-2-0 / 2-0-5 / 0-5-2) | 58 → 72 (**+14**; round 1: +32; gate ≤ 16) | +13,206 (+7.7 %; 1,019 a girl) | 395 → 412 ms (**+4.1 %**; +5.3, +1.1, +6.1 %) | 0.23 ms a frame (p95 0.5) |
+  | mixed tiers (5-2-0, 2-0-5, 0-5-2, 3-0-0, 0-3-0, 0-0-3, 4-2-0, 0-4-2, 2-0-4, 2-1-0, 0-0-0, 5-0-2; Aoi and Akane) | 57 → 67 (**+10**: one per girl wearing pieces) | +7,400 (6,762 piece triangles) | 362 → 382 ms (+5.5 %; pairs +3.3, +2.3, +11.1 %) | 0.2 ms a frame (p95 0.4) |
+  | **all T5**, six Aoi + six Akane (review r1) | 58 → 70 (**+12**) | +13,204 (1,019 a girl) | 358 → 370 ms (+3.3 %; +1.0, +8.1, +1.0 %) | 0.2 ms (p95 0.4) |
+  | **rollout T5**, Rei, Yuki, Momo, Kage three each (review r2) | 58 → 70 (**+12**; r2 measured +17) | +9,042 (672 a girl) | 362 → 371 ms (+2.3 %; +4.6, −0.5, +2.9 %) | 0.2 ms (p95 0.5) |
 
-  The two extra calls on the all-T5 board are Akane's spinning hanabi wheel (an animated piece keeps its own mesh).
-  Medium / high add one outline hull per mesh, so at most twice these calls.
+  Every girl costs **one** draw call (gate ≤ 2, heroes ≤ 3, per girl in `--only perf`). Medium / high add one outline
+  hull each. Round 2, before animated pieces joined the merge: mixed +12 calls, all-T5 +14 (395 → 412 ms, +4.1 %).
 
   Round 1 (before the merge), for the record: mixed board +21 calls, +7,354 triangles; the review measured the all-T5
   board at **+32 calls** (60 → 92) and **+6–9 % frame time** in software rendering (390 → 416 ms mixed, 352 → 386 ms
@@ -237,3 +243,14 @@ silhouette moves), `pieceCalls` ≤ 2 a girl, `--only muzzle` clean, the board u
   (`PathLooks.forget`); the hero ring's new scale is noted for the patch note (§2).
 - **Owner decisions:** one shared colour set (§2, drawer updated); pips replace the max-tier ring.
 - **Merged main v0.1.71** (weapon tips, rigid faces, new models): clean; weapon tips still resolve with pieces on.
+
+## 10. Review round 2: what changed
+
+- **LOW-1:** Nami's water ring and serpent swirl round her feet (`at` y 0.14 / 0.16, no tilt, outside her pips); spec §6
+  says so. Tried first: level at chest height, whose front arc still crossed her coat at hip level on screen.
+- **LOW-2:** every piece of a girl, animated ones too, now rides one merged skinned mesh (animated bones of its own):
+  one call a girl. The gates are per girl (≤ 2, heroes ≤ 3) in the unit test and in `--only perf`, with a rollout-girls
+  T5 board (`--board rollout`).
+- **LOW-3:** the girl info page's path rows (`unit-info.css` `.ut-row`, `.p1`, `.p2`) use pink, cyan and a deeper
+  yellow for that light page (`--pa #d99a00`, `--pc #8a5a00`).
+- **NIT-1:** heroes' T4 noted in §3. **NIT-2:** glow vertices cast no shadow.

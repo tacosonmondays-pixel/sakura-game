@@ -14,7 +14,7 @@ import { pathLayers, stagePieces, pipAngles } from './rules.js';
 import { pathLooksFor, pieceFile } from './catalog.js';
 import { findBone } from '../../models/glbChibi.js';
 import { WEAPON_TIPS } from '../../models/weaponTip.js';
-import { loadPieces, getPiece, fileStatus, instancePiece, mergedPieces } from './pieces.js';
+import { loadPieces, getPiece, fileStatus, mergedPieces } from './pieces.js';
 import { createVisualRandom, visualSeed } from '../vfx/random.js';
 
 export const PATH_COLORS = ['#ff6b8b', '#4cc9f0', '#ffd43b'];
@@ -87,7 +87,7 @@ export class PathLooks {
   }
 
   _state(v) {
-    return v.pl || (v.pl = { tkey: null, layers: null, root: null, key: null, holders: [], anims: [], hands: null });
+    return v.pl || (v.pl = { tkey: null, layers: null, root: null, key: null, holders: [], anims: [], skeleton: null, hands: null });
   }
 
   /** Once per frame per girl, after her model has animated: layers, pieces, piece animation. */
@@ -105,8 +105,7 @@ export class PathLooks {
     if (root !== st.root) {
       // the GLB arrived (the placeholder's children were replaced) or the model was rebuilt: re-socket everything
       st.root = root;
-      st.holders = [];
-      st.anims = [];
+      this._clear(st);
       st.hands = null;
       st.key = null;
     }
@@ -123,16 +122,28 @@ export class PathLooks {
     }
   }
 
-  _build(v, t, st) {
+  /** Takes her pieces off (rebuild, sell, model swap): the merged mesh, the animated bones, their skeleton. */
+  _clear(st) {
     for (const h of st.holders) h.removeFromParent();
+    st.skeleton?.dispose();
     st.holders = [];
     st.anims = [];
+    st.skeleton = null;
+  }
+
+  /** A girl's view is going away (Actors._disposeView): free what her pieces own. */
+  release(v) {
+    if (v?.pl) this._clear(v.pl);
+  }
+
+  _build(v, t, st) {
+    this._clear(st);
     st.key = st.layers.key;
     const unitId = t.unitId || t.def?.id;
     const ud = v.model.userData;
     const row = pathLooksFor(unitId, ud.skinId);
     if (!row || !st.root || !ud.restBone || !this.enabled) return;
-    const statics = [];
+    const entries = [];
     for (const { path, tier } of st.layers.pieces) {
       const list = stagePieces(row.paths[path], tier);
       if (!list) continue;
@@ -148,21 +159,23 @@ export class PathLooks {
       for (const entry of list) {
         const piece = getPiece(file, entry.piece);
         const sock = this._socket(v, st, entry);
-        if (!piece || !sock) continue;
-        if (entry.anim) this._attach(v, st, entry, piece, sock);
-        else statics.push({ piece, bone: sock.bone, local: sock.local, name: entry.piece });
+        if (piece && sock) entries.push({ piece, bone: sock.bone, local: sock.local, anim: entry.anim || null, name: entry.piece });
       }
     }
-    // every static piece in one skinned mesh on her skeleton (MEDIUM-1: one draw call, two with the hull)
-    if (statics.length) {
-      const body = bodyMesh(st.root);
-      const key = `${ud.assetId}|${ud.detail}|${ud.skinId || ''}|${statics.map((e) => e.name).join(',')}|${st.layers.key}`;
-      const g = mergedPieces(key, statics, body, { quality: this.quality, shadows: this.shadows });
-      if (g) {
-        g.userData.pieces = statics.map((e) => e.name);
-        st.root.add(g);
-        st.holders.push(g);
-      }
+    if (!entries.length) return;
+    // every piece in one skinned mesh on her skeleton (one draw call, two with the hull); animated pieces ride bones of
+    // their own that update() turns or floats
+    const key = `${ud.assetId}|${ud.detail}|${ud.skinId || ''}|${entries.map((e) => `${e.name}${e.anim ? '*' : ''}`).join(',')}|${st.layers.key}`;
+    const r = mergedPieces(key, entries, bodyMesh(st.root), { quality: this.quality, shadows: this.shadows });
+    if (!r) return;
+    r.group.userData.pieces = entries.map((e) => e.name);
+    st.root.add(r.group);
+    st.holders.push(r.group, ...r.holders);
+    st.skeleton = r.skeleton;
+    let k = 0;
+    for (const e of entries) {
+      if (!e.anim) continue;
+      st.anims.push({ node: r.anims[k++], anim: e.anim, phase: (v.uid * 1.618) % TAU });
     }
   }
 
@@ -178,24 +191,6 @@ export class PathLooks {
     _s.setScalar(entry.scale || 1);
     _m.compose(_p, _q, _s);
     return { bone, local: rest.clone().invert().multiply(_m) };
-  }
-
-  /** An animated piece (spin / bob): its own mesh under a holder on the bone. */
-  _attach(v, st, entry, piece, sock) {
-    const holder = new THREE.Group();
-    holder.name = `pathLookSocket:${entry.piece}`;
-    holder.matrixAutoUpdate = false;
-    holder.matrix.copy(sock.local);
-    const inner = new THREE.Group();
-    const inst = instancePiece(piece, { quality: this.quality, shadows: this.shadows });
-    inner.add(inst);
-    holder.add(inner);
-    holder.userData.meshes = inst.userData.meshes;
-    holder.userData.triangles = inst.userData.triangles;
-    holder.userData.pieces = [entry.piece];
-    sock.bone.add(holder);
-    st.holders.push(holder);
-    st.anims.push({ node: inner, anim: entry.anim, phase: (v.uid * 1.618) % TAU });
   }
 
   /** Hand bones of a GLB girl ({ weapon, off }) or null. */

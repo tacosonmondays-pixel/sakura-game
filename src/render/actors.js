@@ -234,6 +234,7 @@ export class Actors {
   }
 
   _disposeView(v) {
+    this.pathLooks.release(v);
     this.root.remove(v.model);
     v.model.userData.dispose?.();
     disposeObject(v.model);

@@ -159,7 +159,7 @@ describe('path looks: catalog and pieces', () => {
     expect(pathLooksFor('akane', 'aoi_sentinel')).toBe(pathLooksFor('akane'));
   });
 
-  it('draw calls (review r1 MEDIUM-1): ≤ 2 a girl at any T5 set on low, ≤ 16 for the 12-girl all-T5 board', () => {
+  it('draw calls (r1 MEDIUM-1, r2 LOW-2): per girl ≤ 2 on low (heroes ≤ 3), whatever she wears; boards ≤ 16', () => {
     const wears = (id, tiers) => {
       const row = pathLooksFor(id);
       const L = pathLayers(tiers, { multi: UNIT_MAP[id].kind === 'hero' });
@@ -168,16 +168,19 @@ describe('path looks: catalog and pieces', () => {
     const T5 = [[5, 2, 0], [2, 0, 5], [0, 5, 2]];
     for (const id of units) {
       const hero = UNIT_MAP[id].kind === 'hero';
-      for (const t of hero ? [[5, 5, 5], [3, 3, 3], [4, 4, 4]] : [...T5, [3, 0, 0], [0, 4, 0], [0, 0, 4]]) {
-        const calls = pieceCalls(wears(id, t));
-        expect(calls, `${id} ${t.join('-')}`).toBeLessThanOrEqual(hero ? 4 : 2);
-        expect(pieceCalls(wears(id, t), { hulls: true }), `${id} ${t.join('-')} with hulls`).toBeLessThanOrEqual(hero ? 8 : 4);
+      for (const t of hero ? [[5, 5, 5], [3, 3, 3], [4, 4, 4], [5, 3, 0]] : [...T5, [3, 0, 0], [0, 4, 0], [0, 0, 4]]) {
+        const entries = wears(id, t);
+        expect(entries.length, `${id} ${t.join('-')} wears something`).toBeGreaterThan(0);
+        expect(pieceCalls(entries), `${id} ${t.join('-')}`).toBeLessThanOrEqual(hero ? 3 : 2);
+        expect(pieceCalls(entries), `${id} ${t.join('-')}: one merged mesh`).toBe(1);
+        expect(pieceCalls(entries, { hulls: true }), `${id} ${t.join('-')} with hulls`).toBeLessThanOrEqual(hero ? 6 : 4);
       }
     }
-    // the reviewer's worst case: six Aoi and six Akane, each at a T5 set (perf gate in e2e/path-looks.mjs --only perf)
-    let board = 0;
-    for (const id of ['aoi', 'akane']) for (const t of [...T5, ...T5]) board += pieceCalls(wears(id, t));
-    expect(board).toBeLessThanOrEqual(16);
+    // the boards of e2e/path-looks.mjs --only perf: six Aoi + six Akane at T5 (review r1), and the rollout girls at T5
+    // (review r2: Rei, Yuki, Momo, Kage three each)
+    const board = (ids) => ids.reduce((n, id, i) => n + pieceCalls(wears(id, T5[i % 3])), 0);
+    expect(board(Array.from({ length: 12 }, (_, i) => (i % 2 ? 'akane' : 'aoi')))).toBeLessThanOrEqual(16);
+    expect(board(Array.from({ length: 12 }, (_, i) => ['rei', 'yuki', 'momo', 'kage'][i % 4]))).toBeLessThanOrEqual(16);
   });
 
   it('is display only: no file of the sim id reads it', () => {
