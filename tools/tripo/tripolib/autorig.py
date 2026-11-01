@@ -13,7 +13,13 @@ Luna the widest slice was her fox tail, so the hands landed on the tail tips and
 on the head, chest and thigh bones (a permanent T-pose); on Nami, Kanna and Yoriko the shoulder joint landed
 halfway down the arm, so only the forearms moved. Those four were rebuilt by tools/tripo/rerig_tripo_chibi.py
 (tripolib/rerig.py: landmarks from a per-figure profile, props and tails as regions). Check any new figure fitted
-here with `node e2e/model-audit.mjs --only <id>` and `node e2e/model-quality.mjs --heroes <id>`."""
+here with `node e2e/model-audit.mjs --only <id>` and `node e2e/model-quality.mjs --heroes <id>`.
+
+It also assumes a T-pose. The batch-2 humanoid enemies stand in an A-pose, so the horizontal arm line ran through
+their heads, shoulder plates or banners and their hanging arms went to the head, shoulder or thigh bones (the Orc,
+the Oni, the Daimyo, the Goblin, the Bonewalker, the Skink and both titans): they were rebuilt by
+tools/tripo/rerig_tripo_enemy.py (tripolib/rerig_enemy.py: arm bones along the real arm, geometric weights;
+docs/art/tripo/enemy-rigs.md). Do not fit an A-posed figure here; give it a profile there."""
 import bpy
 import numpy as np
 from mathutils import Vector

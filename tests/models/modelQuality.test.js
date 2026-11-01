@@ -4,12 +4,18 @@
 //     really moves (the batch-2 autorig left them with arms on the head / chest bones and a 3-degree idle);
 //   * the Green Slime (tools/blender/enemies/build_slime_green.py) is the jelly drop with a squash rig: body + top
 //     bones, the 'jelly' look, a hop that squashes and stretches;
-//   * both stay inside the phone budgets (each GLB under 1 MB).
+//   * the re-rigged batch-2 humanoid enemies (tools/tripo/rerig_tripo_enemy.py, docs/art/tripo/enemy-rigs.md): the
+//     mesh of each arm (found by where the arm really is, not by the file's own bones) is skinned to that arm's
+//     bones, the hands swing when they walk, the head bone carries only the head (event hats sit on it), a club
+//     rides its hand, every clip moves, and the death ends lying down (the batch-2 autorig left their arms on the
+//     head, shoulder or thigh bones and some arm bones empty);
+//   * all stay inside the phone budgets (each GLB under 1 MB).
 import { describe, it, expect } from 'vitest';
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
+import { ENEMY_ARMS, ENEMY_LODS, armProbes, probe } from './enemyArms.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const charDir = path.join(here, '..', '..', 'public', 'models', 'characters');
@@ -248,5 +254,102 @@ describe('the Green Slime: glossy jelly drop with a squash-and-stretch hop', () 
       expect(hi).toBeGreaterThan(1.12); // stretch in the air
       expect(lift / (json.asset.extras.height / json.asset.extras.unitScale)).toBeGreaterThan(0.12); // a real hop
     });
+  }
+});
+
+// ---- the batch-2 humanoid enemies --------------------------------------------------------------------------------
+// (where their arms really are, the mesh rather than the file's bones: tests/models/enemyArms.js)
+
+/** The stored mesh in the enemy's 1 m frame ([x its left, y its back, z up] per vertex). */
+function frame1m(glb) {
+  const k = glb.json.asset.extras.height / glb.json.asset.extras.unitScale;
+  return accessor(glb, glb.json.meshes[0].primitives[0].attributes.POSITION).map(([x, y, z]) => [x / k, -z / k, y / k]);
+}
+
+/** Name of the bone with the largest weight on each vertex. */
+function dominantNames(glb) {
+  const { json } = glb;
+  const prim = json.meshes[0].primitives[0];
+  const joints = accessor(glb, prim.attributes.JOINTS_0);
+  const weights = accessor(glb, prim.attributes.WEIGHTS_0);
+  const names = json.skins[0].joints.map((j) => json.nodes[j].name);
+  return joints.map((jt, i) => {
+    let best = 0;
+    for (let k = 1; k < 4; k++) if (weights[i][k] > weights[i][best]) best = k;
+    return names[jt[best]];
+  });
+}
+
+const clipLength = (json, name) => {
+  const a = json.animations.find((x) => x.name === name);
+  return Math.max(...a.samplers.map((s) => json.accessors[s.input].max[0]));
+};
+
+describe('re-rigged batch-2 enemies: arms on arm bones, hands that swing, a head that is a head', () => {
+  for (const [id, spec] of Object.entries(ENEMY_ARMS)) {
+    for (const detail of ENEMY_LODS.has(id) ? ['full', 'lod'] : ['full']) {
+      const file = path.join(enemyDir, `${id}${detail === 'lod' ? '.lod' : ''}.glb`);
+      it(`${id} ${detail}`, () => {
+        expect(statSync(file).size).toBeLessThan(1024 * 1024);
+        const glb = readGlb(file);
+        const { json } = glb;
+        expect(json.asset.extras).toMatchObject({ id, generator: 'tools/tripo/rerig_tripo_enemy.py', kind: 'humanoid' });
+        const P = frame1m(glb);
+        const dom = dominantNames(glb);
+        const H = json.asset.extras.height / json.asset.extras.unitScale;
+        const rest = poseAt(glb, null, 0);
+        for (const side of ['L', 'R']) {
+          const chain = new RegExp(`^(shoulder|upper_arm|forearm|hand)_${side}$`);
+          // the upper arm, the forearm and the hand of the real arm are each skinned to this arm's bones (the batch-2
+          // files: the Orc's and Oni's arms on the head bone, the Daimyo's on the thighs, the upper arms of the
+          // Goblin, Bonewalker, Skink, Colossus and Titan on the head)
+          const probes = armProbes(spec, side);
+          for (const [part, at] of Object.entries(probes)) {
+            const idx = probe(P, at, spec.r);
+            expect(idx.length, `${id} ${side} ${part}: vertices found`).toBeGreaterThan(3);
+            const on = idx.filter((i) => chain.test(dom[i])).length / idx.length;
+            expect(on, `${id} ${side} ${part}: share on the ${side} arm bones`).toBeGreaterThan(0.6);
+          }
+          // ...and the hand swings when it walks: the hand's skinned vertices travel over the move clip
+          const hand = probe(P, probes.hand, spec.r);
+          const a = skinned(glb, rest, hand);
+          const dur = clipLength(json, 'move');
+          let travel = 0;
+          for (let k = 1; k <= 8; k++) {
+            const b = skinned(glb, poseAt(glb, 'move', (dur * k) / 8), hand);
+            const d = a.map((v, i) => v.distanceTo(b[i])).sort((x, y) => x - y);
+            travel = Math.max(travel, d[Math.floor(d.length / 2)]);
+          }
+          expect(travel / H, `${id} ${side} hand swing in move`).toBeGreaterThan(0.025);
+        }
+        // the head bone carries the head and nothing below the neck (event hats and the head slot sit on it)
+        const headZ = P.filter((_, i) => dom[i] === 'head').map((p) => p[2]).sort((x, y) => x - y);
+        expect(headZ.length).toBeGreaterThan(20);
+        expect(headZ[Math.floor(headZ.length * 0.05)], `${id} head bone's lowest vertices`).toBeGreaterThan(spec.neck - 0.05);
+        // a club rides its hand
+        if (spec.club) {
+          const idx = P.map((_, i) => i).filter((i) => Math.hypot(...P[i].map((v, c) => v - spec.club.at[c])) < 0.1);
+          expect(idx.length).toBeGreaterThan(3);
+          expect(idx.filter((i) => dom[i] === spec.club.bone).length / idx.length, `${id} club on ${spec.club.bone}`).toBeGreaterThan(0.9);
+        }
+        // every clip moves the mesh (the batch-2 idle moved the arms by about 1 % of the height)
+        const all = P.map((_, i) => i).filter((i) => i % 7 === 0);
+        const base = skinned(glb, rest, all);
+        for (const a of json.animations) {
+          const d = clipLength(json, a.name);
+          let mx = 0;
+          for (let k = 0; k <= 6; k++) {
+            const w = skinned(glb, poseAt(glb, a.name, (d * k) / 6), all);
+            for (let i = 0; i < w.length; i++) mx = Math.max(mx, w[i].distanceTo(base[i]));
+          }
+          expect(mx / H, `${id} ${a.name} motion`).toBeGreaterThan(a.name === 'idle' ? 0.02 : 0.06);
+        }
+        // the death ends lying down (its head near the floor; the battle then shrinks and fades it)
+        const head = nodeIndex(json, 'head');
+        const end = poseAt(glb, 'death', clipLength(json, 'death'));
+        const y0 = new THREE.Vector3().setFromMatrixPosition(rest[head]).y;
+        expect(new THREE.Vector3().setFromMatrixPosition(end[head]).y / y0, `${id} death ends lying`).toBeLessThan(0.45);
+      });
+    }
   }
 });

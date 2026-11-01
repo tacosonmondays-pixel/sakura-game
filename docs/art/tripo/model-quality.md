@@ -215,6 +215,11 @@ forearm and hand bones empty, right upper arm and forearm empty), `oni_brute` (r
 `lizard_skink` (upper arms carry 7-13 vertices). They walk with arms out. The fix is the same tool with an enemy
 profile and `HumanoidClips` (move / idle / hit / death / special); left for its own pass.
 
+**Fixed (Nov 1, `fix/enemy-rigs`, `docs/art/tripo/enemy-rigs.md`):** the cause was an A-pose that the T-pose
+autorig did not expect (the arms mostly sat on the head and thigh bones, not only the shoulders). All six, and the
+Iron Colossus and the Foundry Titan (the same fault, not listed above), are re-rigged along their real arms by
+`tools/tripo/rerig_tripo_enemy.py` with new clips.
+
 ## How to rebuild
 
 ```

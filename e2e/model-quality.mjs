@@ -8,7 +8,11 @@
 //      clip must move her (the skinned vertices travel).
 //   2. Green Slimes on the road (their own model): the body squashes and stretches (height range over the move
 //      clip), and the slime family's other slimes still draw.
-//   3. No console errors.
+//   3. The re-rigged batch-2 enemies (docs/art/tripo/enemy-rigs.md), each alone on the road wearing its own model, at
+//      each size and their light files at medium: the mesh where their arms really are (tests/models/enemyArms.js) is
+//      on the arm bones, and the hands swing in the walk and the special (animator stepped by hand).
+//      --enemies orc_grunt,oni_brute picks them, --no-heroes runs only them, --no-enemy-lod skips their medium pass.
+//   4. No console errors.
 // --shots <dir> saves close-ups (zoomed free camera) per state: <tag>-<who>-<state>-<W>x<H>.png, at 390x844 and
 // 1280x720 (or --sizes 844x390,1280x720). --heroes luna,nami picks the heroes (default: every Tripo hero).
 //
@@ -18,6 +22,7 @@
 import { createServer } from 'vite';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { launchChromium } from './browser.mjs';
+import { ENEMY_ARMS, ENEMY_LODS } from '../tests/models/enemyArms.js';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -31,6 +36,10 @@ const SIZES = String(opt('sizes', '390x844,1280x720')).split(',').map((s) => s.s
 const HEROES = String(opt('heroes', 'luna,nami,kanna,yoriko,kogane,norika')).split(',').filter(Boolean);
 // the medium-quality pass (LOD files) at the last size: --medium luna,nami (default: the first hero)
 const MEDIUM = String(opt('medium', HEROES[0])).split(',').filter(Boolean);
+// the re-rigged batch-2 enemies (--enemies orc_grunt,oni_brute; default: all of them; --enemies none skips them)
+const ENEMIES = String(opt('enemies', Object.keys(ENEMY_ARMS).join(','))).split(',').filter((id) => ENEMY_ARMS[id]);
+// the moment of each special the close-up shows (seconds; default 0.2: the wind-up near its top)
+const SPECIAL_AT = { goblin_runner: 0.33, lizard_skink: 0.15 };
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
 const IGNORE = [
   /GPU stall due to ReadPixels/i, /WebGL: too many errors/i, /Automatic fallback to software WebGL/i, /GL_CLOSE_PATH_NV|GroupMarkerNotSet/i, /favicon\.ico/i,
@@ -514,17 +523,202 @@ async function eventHats() {
   await context.close();
 }
 
+/**
+ * The re-rigged batch-2 enemies (tools/tripo/rerig_tripo_enemy.py, docs/art/tripo/enemy-rigs.md), one at a time on the
+ * road of 1-1 near the middle of the screen, their own model loaded: where their arms really are (the mesh, from
+ * tests/models/enemyArms.js) is skinned to the arm bones, and stepping their animator by hand (frame-rate independent)
+ * the hands swing in move and in the special. --shots: a close-up of each in its move and its special, held still.
+ */
+async function enemyRun(size, quality) {
+  const [VW, VH] = size;
+  const ids = quality === 'high' ? ENEMIES : ENEMIES.filter((id) => ENEMY_LODS.has(id));
+  if (!ids.length) return;
+  log(`\n== batch-2 enemies at ${VW}x${VH} (${quality}): ${ids.join(', ')}`);
+  const { context, page, ok } = await openBattle(HEROES[0] || 'luna', size, quality);
+  check(ok, `battle 1-1 opens (${VW}x${VH}, ${quality})`);
+  if (!ok) { await context.close(); return; }
+  // no hero on the board (her beams would cross the close-ups): leave the free-deploy prompt, so the wheel zooms
+  await page.evaluate(() => window.__battle.ui.placement?.cancel?.());
+  await page.click('[data-testid=place-cancel]', { timeout: 3000 }).catch(() => null);
+  await settle(page, 300);
+  const tagQ = quality === 'high' ? '' : `-${quality}`;
+  const lod = quality !== 'high';
+  for (const id of ids) {
+    const at = await page.evaluate(async (eid) => {
+      const { pointAt } = await import('/src/sim/path.js');
+      const { sim, renderer, ui } = window.__battle;
+      ui.paused = false;
+      sim._spawnQueue = [];
+      sim.enemies.splice(0);
+      // the road point nearest the middle of the screen (a little below it: the bosses are tall) where the road runs
+      // down the screen, so the enemy walks toward the camera and its face shows
+      const path = sim.pathData[0];
+      let best = null;
+      for (let d = 0.5; d < path.length - 0.8; d += 0.25) {
+        const p = pointAt(path, d);
+        const q = pointAt(path, d + 0.3);
+        const s = renderer.worldToScreen(p.x, p.y, 0);
+        const s2 = renderer.worldToScreen(q.x, q.y, 0);
+        if (!s.visible) continue;
+        const dx = s2.clientX - s.clientX;
+        const dy = s2.clientY - s.clientY;
+        const toward = dy > 0.7 * Math.abs(dx);
+        const c = Math.hypot(s.clientX - innerWidth / 2, s.clientY - innerHeight * 0.6) + (toward ? 0 : 1e4);
+        if (!best || c < best.c) best = { d, c };
+      }
+      const e = sim.spawnEnemy(eid, { pathIndex: 0, dist: best ? best.d : 3, hpMul: 1e7 });
+      if (!e) return null;
+      e.baseSpeed = 0.02;
+      return { uid: e.uid, x: e.x, y: e.y };
+    }, id);
+    check(!!at, `${id} spawned on the road`);
+    if (!at) continue;
+    const want = `glb:tripo/${id}${lod && ENEMY_LODS.has(id) ? '.lod' : ''}`;
+    const loaded = await page.waitForFunction(([eid, w]) => {
+      let ok = false;
+      window.__battle.renderer.sceneProbe().traverse((o) => {
+        if (o.name === `enemy:${eid}`) o.traverse((c) => { if (c.name === w) ok = true; });
+      });
+      return ok;
+    }, [id, want], { timeout: 60000, polling: 250 }).then(() => true, () => false);
+    check(loaded, `${id} wears its own model (${want})`);
+    if (!loaded) continue;
+    await settle(page, 400);
+    await page.evaluate(() => { window.__battle.ui.paused = true; });
+    const r = await page.evaluate(([eid, spec]) => {
+      let model = null;
+      window.__battle.renderer.sceneProbe().traverse((o) => { if (!model && o.name === `enemy:${eid}`) model = o; });
+      let body = null;
+      model.traverse((o) => { if (o.isSkinnedMesh && o.name === 'body' && !body) body = o; });
+      if (!body) return { skinned: false };
+      const ud = model.userData;
+      if (ud.animate !== ud.__mqW) {
+        ud.__mqOrig = ud.animate;
+        ud.__mqW = (t, dt, o) => ud.__mqOrig(t, ud.__mqFreeze ? 0 : dt, ud.__mqOpts || o);
+        ud.animate = ud.__mqW;
+      }
+      const geo = body.geometry;
+      const pos = geo.attributes.position;
+      const si = geo.attributes.skinIndex;
+      const sw = geo.attributes.skinWeight;
+      geo.computeBoundingBox();
+      const k = geo.boundingBox.max.y - geo.boundingBox.min.y; // the stored height (the 1 m frame scaled)
+      const Vec3 = body.position.constructor;
+      const v = new Vec3();
+      const P = [];
+      for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i); P.push([v.x / k, -v.z / k, (v.y - geo.boundingBox.min.y) / k]); }
+      const names = body.skeleton.bones.map((b) => b.name);
+      const dom = (i) => {
+        let best = 0;
+        for (let c = 1; c < 4; c++) if (sw.getComponent(i, c) > sw.getComponent(i, best)) best = c;
+        return names[si.getComponent(i, best)];
+      };
+      const lerp3 = (a, b, t) => a.map((x, j) => x + (b[j] - x) * t);
+      const near = (at, r) => P.map((_, i) => i).filter((i) => Math.hypot(P[i][0] - at[0], P[i][2] - at[2]) < r && Math.abs(P[i][1] - at[1]) < 0.12);
+      const out = { skinned: true, share: {}, swing: {}, special: 0 };
+      const hands = {};
+      for (const side of ['L', 'R']) {
+        const [S, E, W, T] = spec[side];
+        const chain = new RegExp(`^(shoulder|upper_arm|forearm|hand)_${side}$`);
+        const probes = { upper: lerp3(S, E, 0.5), fore: lerp3(E, W, 0.5), hand: lerp3(W, T, 0.4) };
+        for (const [part, at] of Object.entries(probes)) {
+          const idx = near(at, spec.r);
+          out.share[`${side} ${part}`] = idx.length ? +(idx.filter((i) => chain.test(dom(i))).length / idx.length).toFixed(2) : 0;
+        }
+        hands[side] = near(probes.hand, spec.r);
+      }
+      const skinnedAt = (idx) => {
+        model.updateMatrixWorld(true);
+        body.skeleton.update();
+        return idx.map((i) => { const p = new Vec3().fromBufferAttribute(pos, i); body.applyBoneTransform(i, p); return p; });
+      };
+      const travel = (steps, dt) => {
+        const first = { L: skinnedAt(hands.L), R: skinnedAt(hands.R) };
+        const best = { L: 0, R: 0 };
+        for (let s = 0; s < steps; s++) {
+          ud.animate(0, dt);
+          for (const side of ['L', 'R']) {
+            const now = skinnedAt(hands[side]);
+            const d = now.map((p, j) => p.distanceTo(first[side][j]) / k).sort((a, b) => a - b);
+            if (d.length) best[side] = Math.max(best[side], d[Math.floor(d.length / 2)]);
+          }
+        }
+        return best;
+      };
+      ud.__mqFreeze = false;
+      // idle first (lets the crossfade play out), then a second of the walk
+      ud.__mqOpts = { moving: false, speed: 1 };
+      for (let s = 0; s < 20; s++) ud.animate(0, 0.05);
+      ud.__mqOpts = { moving: true, speed: 1 };
+      for (let s = 0; s < 6; s++) ud.animate(0, 0.05);
+      const sw2 = travel(20, 0.05);
+      out.swing = { L: +sw2.L.toFixed(3), R: +sw2.R.toFixed(3) };
+      ud.__mqOpts = { moving: false, speed: 1 };
+      for (let s = 0; s < 20; s++) ud.animate(0, 0.05);
+      ud.playSpecial?.();
+      const sp = travel(12, 0.05);
+      out.special = +Math.max(sp.L, sp.R).toFixed(3);
+      ud.__mqFreeze = true;
+      return out;
+    }, [id, ENEMY_ARMS[id]]);
+    log(`  ${id}: arm mesh on arm bones ${JSON.stringify(r.share)}, hand swing in move ${JSON.stringify(r.swing)}, in the special ${r.special}`);
+    if (r.skinned) {
+      for (const [part, s] of Object.entries(r.share)) check(s > 0.6, `${id}${tagQ} ${part}: the arm's mesh is on that arm's bones (${(s * 100).toFixed(0)}%)`);
+      for (const side of ['L', 'R']) check(r.swing[side] > 0.025, `${id}${tagQ} ${side} hand swings as it walks (${(r.swing[side] * 100).toFixed(1)}% of its height)`);
+      check(r.special > 0.05, `${id}${tagQ} special moves its hands (${(r.special * 100).toFixed(1)}%)`);
+    } else check(false, `${id} skinned body`);
+    if (shotsDir) {
+      // close-ups: the walk and the special, each at a fixed moment, held still while the frame draws
+      const pos = await page.evaluate((u) => { const e = window.__battle.sim.enemies.find((x) => x.uid === u); return e ? { x: e.x, y: e.y } : null; }, at.uid);
+      const big = ['fp_hyakki_daimyo', 'iron_colossus', 'fp_foundry_titan'].includes(id);
+      // the hero's free-deploy prompt can open again a moment after the battle starts; while it is up the wheel
+      // does not zoom
+      if (await page.isVisible('[data-testid=place-cancel]').catch(() => false)) {
+        await page.click('[data-testid=place-cancel]', { timeout: 3000 }).catch(() => null);
+        await settle(page, 200);
+      }
+      await zoomOn(page, pos.x, pos.y, big ? 0.9 : 0.35, big ? (VW < 600 ? 6 : 7) : 10); // (small ones: the free camera's closest zoom)
+      for (const [state, setup] of [['move', 'move'], ['special', 'special']]) {
+        await page.evaluate(([eid, st, at]) => {
+          let model = null;
+          window.__battle.renderer.sceneProbe().traverse((o) => { if (!model && o.name === `enemy:${eid}`) model = o; });
+          const ud = model.userData;
+          ud.__mqFreeze = false;
+          ud.__mqOpts = { moving: false, speed: 1 };
+          for (let s = 0; s < 20; s++) ud.animate(0, 0.05);
+          if (st === 'move') {
+            ud.__mqOpts = { moving: true, speed: 1 };
+            for (let s = 0; s < 16; s++) ud.animate(0, 0.025);
+          } else {
+            ud.playSpecial?.();
+            for (let s = 0; s < Math.round(at / 0.025); s++) ud.animate(0, 0.025);
+          }
+          ud.__mqFreeze = true;
+        }, [id, setup, SPECIAL_AT[id] ?? 0.2]);
+        await settle(page, 250);
+        await shot(page, `${id}${tagQ}`, state, VW, VH, { x: pos.x, y: pos.y, h: big ? 0.9 : 0.35 });
+      }
+    }
+  }
+  await context.close();
+}
+
 try {
   if (args.includes('--busy')) {
     // frame cost only (run it on this tree and on main to compare)
     for (const q of ['high', 'medium']) await busyWave(q);
   } else {
-  for (const size of SIZES) {
-    for (const [i, hero] of HEROES.entries()) await heroRun(hero, size, 'high', { slimes: i === 0 });
+  if (!args.includes('--no-heroes')) {
+    for (const size of SIZES) {
+      for (const [i, hero] of HEROES.entries()) await heroRun(hero, size, 'high', { slimes: i === 0 });
+    }
+    // the LOD files (quality medium) at one size
+    for (const hero of MEDIUM) await heroRun(hero, SIZES[SIZES.length - 1], 'medium', { slimes: hero === MEDIUM[0] });
+    await eventHats();
   }
-  // the LOD files (quality medium) at one size
-  for (const hero of MEDIUM) await heroRun(hero, SIZES[SIZES.length - 1], 'medium', { slimes: hero === MEDIUM[0] });
-  await eventHats();
+  // the re-rigged batch-2 enemies at each size, and their LOD files at medium
+  for (const size of SIZES) await enemyRun(size, 'high');
+  if (!args.includes('--no-enemy-lod')) await enemyRun(SIZES[SIZES.length - 1], 'medium');
   }
 } catch (e) {
   failures.push(`crash: ${e.stack || e.message}`);

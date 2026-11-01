@@ -1,13 +1,16 @@
 """Clip strips for the render-and-look loop: every clip of a shipped figure GLB as a row of frames.
 
     blender -b --python-use-system-env --python tools/tripo/clip_strips.py -- --glb public/models/characters/luna.glb \
-        --out /tmp/strips/luna.png [--frames 10] [--view battle|front|side] [--size 220]
+        --out /tmp/strips/luna.png [--frames 10] [--view battle|front|side] [--size 220] [--margin 1.12] [--yaw 25]
+    blender -b --python-use-system-env --python tools/tripo/clip_strips.py -- --glb a.glb b.glb --out /tmp/strips/
 
 Imports the GLB exactly as the game ships it (rig, weights, clips), then renders each clip at --frames evenly spaced
-times (workbench, textured) from the battle camera's angle (48 degrees down, a quarter turn to the side) or from the
-front / side, one row per clip with its name and frame times, so the poses can be judged by eye: does the pose
+times (workbench, textured) from the battle camera's angle (48 degrees down, a quarter turn to the side: --yaw) or from
+the front / side, one row per clip with its name and frame times, so the poses can be judged by eye: does the pose
 read, are the feet planted, is any frame a T-pose, do wrists or shoulders candy-wrap, does anything clip through
-the skirt or hair. Needs Pillow for the sheet (PYTHONPATH with Pillow, see docs/art/tripo/model-quality.md)."""
+the skirt or hair, does a weapon swing the right way, is the face turned away from the camera. --margin frames more
+than the rest pose (an enemy's raised club or its fall). Several --glb: one sheet each, <out>/<name>.png. Needs
+Pillow for the sheet (PYTHONPATH with Pillow, see docs/art/tripo/model-quality.md)."""
 import argparse
 import math
 import os
@@ -18,18 +21,9 @@ import bpy
 from mathutils import Vector
 
 
-def main():
-    argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:]
-    ap = argparse.ArgumentParser()
-    ap.add_argument('--glb', required=True)
-    ap.add_argument('--out', required=True)
-    ap.add_argument('--frames', type=int, default=10)
-    ap.add_argument('--view', default='battle', choices=['battle', 'front', 'side'])
-    ap.add_argument('--size', type=int, default=220)
-    ap.add_argument('--clips', default=None, help='comma list (default: every clip)')
-    args = ap.parse_args(argv)
+def strips(path, out, args):
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    bpy.ops.import_scene.gltf(filepath=args.glb)
+    bpy.ops.import_scene.gltf(filepath=path)
     for o in list(bpy.data.objects):
         if o.type == 'MESH' and o.name.startswith('Icosphere'):
             bpy.data.objects.remove(o)
@@ -53,10 +47,10 @@ def main():
     sc.collection.objects.link(cam)
     sc.camera = cam
     cam.data.type = 'ORTHO'
-    cam.data.ortho_scale = max(H, hi.x - lo.x, hi.y - lo.y) * 1.12
+    cam.data.ortho_scale = max(H, hi.x - lo.x, hi.y - lo.y) * args.margin
     if args.view == 'battle':
         # the battle camera looks down 48 degrees; a girl faces the road, so seen a little from the side
-        pitch, yaw = math.radians(48), math.radians(25)
+        pitch, yaw = math.radians(48), math.radians(args.yaw)
         d = Vector((math.sin(yaw) * math.cos(pitch), -math.cos(yaw) * math.cos(pitch), math.sin(pitch)))
     elif args.view == 'front':
         d = Vector((0, -1, 0.08)).normalized()
@@ -93,9 +87,27 @@ def main():
             im = Image.open(p).convert('RGB')
             sheet.paste(im, (c * S, y + 18))
             dr.text((c * S + 4, y + 20), f'{t:.2f}s', fill=(255, 255, 255))
-    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    sheet.save(args.out)
-    print(f'[strips] {args.out} {sheet.size}')
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+    sheet.save(out)
+    print(f'[strips] {out} {sheet.size}')
+
+
+def main():
+    argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:]
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--glb', required=True, nargs='+')
+    ap.add_argument('--out', required=True, help='a .png for one GLB, or a folder (one <name>.png per GLB)')
+    ap.add_argument('--frames', type=int, default=10)
+    ap.add_argument('--view', default='battle', choices=['battle', 'front', 'side'])
+    ap.add_argument('--yaw', type=float, default=25.0, help='battle view: degrees to the side of the figure')
+    ap.add_argument('--size', type=int, default=220)
+    ap.add_argument('--margin', type=float, default=1.12, help='frame size over the rest pose bounds')
+    ap.add_argument('--clips', default=None, help='comma list (default: every clip)')
+    args = ap.parse_args(argv)
+    for path in args.glb:
+        out = args.out if args.out.endswith('.png') and len(args.glb) == 1 else \
+            os.path.join(args.out, os.path.basename(path).replace('.glb', '.png'))
+        strips(path, out, args)
 
 
 if __name__ == '__main__':
