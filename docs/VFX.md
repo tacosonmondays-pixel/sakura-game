@@ -271,3 +271,64 @@ impacts, flashes the guard turned down, the flashing area counted this second, w
 dimmed, halos last frame, shake px, zoom punch, bloom and grade in use); the capture tool
 records it with every shot. `node tools/vfx/capture.mjs --events ult@150,bosskill@210` also shoots
 those moments as they land (the frame they land on and 2, 6 and 16 frames later).
+
+## Tornado (prototype, `src/render/vfx/tornado.js`)
+
+A stylized tornado, hand-written (no particle library): a column of flat rings that rise from the ground, grow wider,
+twist round a helix and sway on X/Z. Display only: the sim id does not change.
+
+- **One draw call.** Every ring of every live tornado is one instance of one `RingGeometry` annulus in an
+  `InstancedBufferGeometry` with a `ShaderMaterial` (premultiplied: One, OneMinusSrcAlpha; `depthWrite` off). The mesh is
+  hidden while nothing is up (0 calls). The glowing ground ring goes into `groundA`, the embers into `bbA` (petals into
+  `bbN`): a few quads.
+- **Two blends, by tier.**
+  - **Medium and low:** the cooler bands cover the board a little (`body`), so the colour reads on a bright day. The
+    band at k ≥ 0.8 (the top of the yellow, the white) is pure added light. They draw on the canvas, where the colour is
+    sRGB-encoded before it blends, so stacked bands overshoot: the yellow to lemon, the cream to white. For readability
+    the low rings (walker height) and the arc nearest the camera cover the least.
+  - **High ("cover", `TORNADO_TIERS.high.cover`):** every band covers the board in its own colour (premultiplied over),
+    so no red-over-green murk. The far arc erodes harder (`COVER_FAR_ERODE`) and is a little fainter (`COVER_FRONT`), so
+    what stands behind the column stays visible; the young rings at the base are faint (`COVER_YOUNG`).
+  - **High with bloom** renders into the linear composer, where covering rings settle exactly on the ramp's colours (no
+    overshoot). So it reads its own ramp row: every band × `COVER_GAIN` in display bytes (the overshoot medium gets on the
+    canvas, baked in), which brings back the lemon and white. The k ≥ 0.8 band also goes `hdr` over white so the bloom
+    catches it; the hot bands sit above the grade's knee, so its tone curve rolls them off as it does every bright core.
+  - **High with bloom off** draws on the canvas like medium and keeps the bands as given.
+- **Vertex shader:** age = fract(t / life + phase); radius r0 → r1 along age^0.7; the ring spins and twists with its
+  height, its centre wanders on a helix and sways. A ring is drawn only if it was born inside the cast, so the column
+  builds from the ground up and leaves by rising away. The arc facing the camera burns brighter (it reads as a funnel).
+- **Fragment shader:** noise in the ring's polar coordinates (the angle is taken per pixel: no seam), scrolled over time; an erosion threshold that rises with
+  age; `step()` for a hard toon edge (it multiplies the colour: no `discard`); a stepped ramp (`NearestFilter`) per
+  preset. On high with bloom the k ≥ 0.8 band gets a small HDR boost (`hdr`) for the bloom; never on medium / low.
+- **Textures** are painted in code (`paintTornadoNoise`: tileable value-noise fbm; `paintTornadoRamp`: two rows per preset,
+  the bands as given and high's cover row; sRGB bytes, decoded once on the GPU): no image files. The presets' ramp
+  colours are exactly what is drawn.
+- **Randomness:** `vrand.fork('tornado')`; time from the visual clock (`update(d)`).
+- **Presets** (`src/render/vfx/tornadoPresets.js`, plain data): `fire` (Akane), `sakura` (pink petal whirl), `vortex`
+  (cyan wind / water). Every preset value is per tornado (two presets can be up at once). `TORNADO_CASTS` maps a cast
+  to its preset: `akane.starmine` → `fire`: its `abilityWarn` event starts the column on the barrage's spot (1.25× the
+  shells' radius), and every `abilityShell` of that cast feeds it for 0.45 s more, so it ends with the barrage at any
+  game speed (the shells run on sim time).
+- **Tiers** (`TORNADO_TIERS`):
+  - High: 22 rings, 4 faint core rings and 12 embers, the cover blend.
+  - Medium: 13 rings and 6 embers.
+  - Low: 8 rings, no embers.
+  - At most 3 tornadoes at once.
+  - High has more rings than medium, so each one is sparser: its erosion threshold starts higher by
+    `SPARSE_ERODE × (1 − 13 ÷ 22)`. That is the same for every ring of the tier (one uniform), core rings included.
+    It shapes the mask only. The colour index still comes from the preset's own erosion, so high's colours are never
+    darker for it.
+  - Measured in the lab (bloom and grade on, fire, column masked, high vs medium; colours split by hue):
+    - lemon (hue 48–70°) 0.13 vs 0.12, white 0.05 vs 0.05, murky 0 vs 0, brightness 0.73 vs 0.73;
+    - what stands 0.9–2.4 tiles behind the column keeps a median 0.52 of its contrast (medium 0.33); right at the base
+      every tier hides most of it.
+- **Errors:** a tornado error switches the tornadoes off for the battle (`tornadoSafe` in `BattleRenderer`, logged once). The
+  battle and every other effect carry on.
+- **Reduce motion:** no spin, twist, sway, helix or noise scroll; the ground rings and petals do not turn; slower rise; dimmer.
+- **Impact frames** hide the column for both their frames (`tornado.hold(impact.active)` before its update), like the
+  other normal-blend layers.
+- **Dev lab:** `?tornadoLab` in the dev server (`npm run dev`, e.g. `/?tornadoLab#/lobby`, then a battle) mounts a
+  lil-gui panel (`tornadoPanel.js`): pick a preset, tune it live, loop it, copy the result as preset data. The import
+  sits behind `import.meta.env.DEV`, so the production build has neither the panel nor lil-gui.
+- **Captures:** `node tools/vfx/capture.mjs --events starmine@80,tornado-sakura@400 --hp 100000` (a tornado event
+  spawns one on the crowd; `--hp` keeps the crowd alive against the max-build Sandbox girls).
