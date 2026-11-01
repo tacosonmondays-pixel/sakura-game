@@ -25,9 +25,15 @@ export const raika = {
     const beats = lookAt(lk, 2) >= 5 ? 3 : lookAt(lk, 2) >= 3 ? 2 : 1;
     if (ctx.cap('sweep')) for (let b = 0; b < beats; b++) drumBeat(ctx, t.x, t.y, ctx.col(DRUM), b * 0.08, 1 - b * 0.1);
     const h = hand(ctx, t);
-    chainBolt(ctx, h.x, h.h + 0.1, h.y, pts, c, 0.018, ctx.q.zig, 0.2);
-    // forks flickering at the nodes
-    if (ctx.q.sparks || lookAt(lk, 0) >= 3) {
+    if (ctx.lightning) {
+      // the styled bolt (src/render/vfx/lightning.js): its own forks, stars and sparks at every node; the Forked path
+      // forks once more
+      const pts3 = [[h.x, h.h + 0.1, h.y]];
+      for (let k = 1; k < pts.length; k++) pts3.push([pts[k][0], 0.35, pts[k][1]]);
+      ctx.lightning.strike(pts3, { preset: 'storm', forks: lookAt(lk, 0) >= 3 ? 1 : 0 });
+    } else chainBolt(ctx, h.x, h.h + 0.1, h.y, pts, c, 0.018, ctx.q.zig, 0.2);
+    // forks flickering at the nodes (the styled bolt draws its own)
+    if (!ctx.lightning && (ctx.q.sparks || lookAt(lk, 0) >= 3)) {
       const forks = lookAt(lk, 0) >= 3 ? 2 : 1;
       for (let k = 1; k < pts.length; k++) {
         for (let f = 0; f < forks; f++) {

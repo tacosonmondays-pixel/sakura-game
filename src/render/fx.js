@@ -121,6 +121,8 @@ export class FxSystem {
      * sprites ask it, so many small flashes add up to the screen area they really cover.
      */
     this.flashGate = null;
+    /** The styled chain lightning (src/render/vfx/lightning.js), set by the renderer: chain() hands it the bolt. */
+    this.lightning = null;
     /** Height of the rooftop under a ground point (Gate Arc 'U' tiles), or null on maps without roofs:
      * effects that start at a girl (beams, the first chain link, sparkles) start at her lifted height. */
     this.liftAt = null;
@@ -351,6 +353,12 @@ export class FxSystem {
 
   /** Jagged chain lightning through points. */
   chain(points, color) {
+    // the styled lightning layer (src/render/vfx/lightning.js), when the renderer has one: from the girl's lifted
+    // height to each target's chest
+    if (this.lightning && points.length > 1) {
+      const pts = points.map(([x, z], i) => [x, i === 0 ? 0.55 + this.lift(x, z) : 0.35, z]);
+      if (this.lightning.strike(pts, { color })) return;
+    }
     const col = new THREE.Color(color);
     for (let i = 0; i < points.length - 1; i++) {
       const [ax, az] = points[i];

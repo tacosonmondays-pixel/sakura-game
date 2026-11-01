@@ -66,6 +66,7 @@ import { ShadowDoubles } from './shadowDoubles.js';
 import { createAbilityFx } from './abilityFx.js';
 import { createTornadoFx } from './vfx/tornado.js';
 import { TORNADO_CASTS } from './vfx/tornadoPresets.js';
+import { createLightningFx } from './vfx/lightning.js';
 import { deployFx } from './deployFx.js';
 import { fmtNum } from '../ui/format.js';
 import { createBlackout } from './blackout.js';
@@ -304,6 +305,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const tornado = createTornadoFx({ scene, batches, atlas, quality, reduceMotion, rand: vrand.fork('tornado') });
   /** The live tornado of each girl's cast (fed by its shells). */
   const tornadoOf = new Map();
+  // styled chain lightning (src/render/vfx/lightning.js; display only): Raika's and Chika's chains (their attack styles),
+  // Storm Lance and every other chain the default layer draws
+  const lightning = createLightningFx({ scene, batches, atlas, quality, reduceMotion, rand: vrand.fork('lightning') });
+  fx.lightning = lightning;
+  if (attackFx) attackFx.ctx.lightning = lightning;
   // attack FX are decoration: an FX error must never cost a frame's sim events (won / lost) —
   // on the first one the FX switch off for this battle (today's look) and it is logged once
   let fxBroken = false;
@@ -402,7 +408,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // over it, the additive effect batches burning on top; the normal-blend batches sit those frames out
   const impact = new ImpactFrames({
     scene, figures: () => [actors.root, companions.root],
-    hide: () => [batches.groundN.mesh, batches.bbN.mesh, batches.overlay.mesh, batches.links.mesh, overlays.root, tornado.mesh],
+    hide: () => [batches.groundN.mesh, batches.bbN.mesh, batches.overlay.mesh, batches.links.mesh, overlays.root, tornado.mesh, lightning.mesh],
   });
   // shake / punch / hit-stop / hold / impact / flash decisions (Reduce Motion, Hit effects, Impact
   // frames, placing, budget)
@@ -419,6 +425,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   };
   fx.flashGate = flashGate;
   if (attackFx) attackFx.ctx.flashGate = flashGate;
+  lightning.flashGate = flashGate;
 
   // ----- post-processing -------------------------------------------------------------------
   // high: scene → bloom → grade (tone curve + this theme's grade, in place of the output pass)
@@ -453,6 +460,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     fx.setGlow(quality, on);
     attackFx?.setGlow?.(quality, on);
     tornado.setGlow(quality, on);
+    lightning.setGlow(quality, on);
   };
 
   // ----- state -----------------------------------------------------------------------------
@@ -497,6 +505,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const wantBloom = q === 'high' && (typeof settings.bloom === 'boolean' ? settings.bloom : preset.bloom);
     fx.setQuality(q);
     tornado.setQuality(q);
+    lightning.setQuality(q);
     attackFx?.setQuality(q);
     ambient.setQuality(q);
     roster.setQuality(q);
@@ -1067,6 +1076,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
     fx.update(d);
     tornado.hold(impact.active); // (impact frames: the column sits both frames out)
     tornado.update(d);
+    lightning.hold(impact.active); // (…and so do the bolts)
+    lightning.setPixel(rig.scale);
+    lightning.update(d);
     for (const b of batchList) b.end();
 
     // the screen tint waits out the impact frames (the ink frame is never tinted), then fades
@@ -1298,6 +1310,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
 
   // ----- public API ----------------------------------------------------------------------
   let tornadoLab = null; // the dev-only tuning panel (?tornadoLab), disposed with the battle
+  let lightningLab = null; // the dev-only lightning panel (?lightningLab), disposed with the battle
   const api = {
     canvas,
     update,
@@ -1376,6 +1389,16 @@ export function createBattleRenderer(container, sim, opts = {}) {
     },
     get tornado() {
       return tornado;
+    },
+    /**
+     * Extra (dev tooling, display only): strikes a chain of styled lightning (src/render/vfx/lightning.js presets)
+     * through world points [[x, y, z], …] (the girl first), and its layer; the lightning panel and the captures use it.
+     */
+    lightningDemo(presetId, points, opts = {}) {
+      return lightning.strike(points, { ...opts, preset: presetId });
+    },
+    get lightning() {
+      return lightning;
     },
     /** Extra: the visual clock's state (read-only copy; e2e, captures, debugging). */
     get visualClock() {
@@ -1592,6 +1615,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
       attackFx?.dispose();
       tornadoLab?.dispose();
       tornado.dispose();
+      lightningLab?.dispose();
+      lightning.dispose();
       roster.dispose();
       staff.dispose();
       companions.dispose();
@@ -1637,6 +1662,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
     import('./vfx/tornadoPanel.js').then((m) => {
       if (!disposed) tornadoLab = m.mountTornadoPanel(api, sim);
     }).catch((err) => console.warn('[tornado lab]', err));
+  }
+  // dev-only lightning panel (?lightningLab; src/render/vfx/lightningPanel.js): never in the production build
+  if (import.meta.env?.DEV && typeof location !== 'undefined' && /[?&]lightningLab\b/.test(location.search)) {
+    import('./vfx/lightningPanel.js').then((m) => {
+      if (!disposed) lightningLab = m.mountLightningPanel(api, sim);
+    }).catch((err) => console.warn('[lightning lab]', err));
   }
   return api;
 }

@@ -112,7 +112,12 @@ export const chika = {
     if (!ev.points || ev.points.length < 2) return false;
     const p2 = lookAt(tw.look, 2);
     const c = ctx.col(p2 >= 5 ? '#fff6c8' : '#bfe6ff');
-    chainBolt(ctx, t.x, HALO_H, t.y, ev.points, c, 0.018, ctx.q.zig, p2 >= 5 ? 0.26 : 0.2);
+    if (ctx.lightning) {
+      // the styled bolt (src/render/vfx/lightning.js): ice blue, gold at the top of her Tesla path
+      const pts3 = [[t.x, HALO_H, t.y]];
+      for (let k = 1; k < ev.points.length; k++) pts3.push([ev.points[k][0], 0.35, ev.points[k][1]]);
+      ctx.lightning.strike(pts3, { preset: p2 >= 5 ? 'storm' : 'tesla' });
+    } else chainBolt(ctx, t.x, HALO_H, t.y, ev.points, c, 0.018, ctx.q.zig, p2 >= 5 ? 0.26 : 0.2);
     flash(ctx, t.x, HALO_H, t.y, 0.45, c, 0.1);
     // 1–2 docked drones flick a mini-arc down to her coil
     const g = ctx.drones.groups.get(t.uid);
