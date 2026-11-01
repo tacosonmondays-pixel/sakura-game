@@ -28,6 +28,7 @@ UNIT_SCALE = 0.5
 
 from lib import mesh as M  # noqa: E402
 from lib import body, face, hair, outfit, accessory, weapon, halo, rig, anim, export, optimize, extras  # noqa: E402
+from lib.glbquat import fix_glb_quaternion_signs  # noqa: E402
 from lib.proportions import proportions  # noqa: E402
 from lib.hair import Head  # noqa: E402
 from PIL import Image  # noqa: E402
@@ -244,6 +245,9 @@ def _build_unit(unit, out_dir, tmpdir, animations, keep_blend, lod):
         unit=unit['id'], height=P['height'], unitScale=1.0 / UNIT_SCALE, weaponKind=ctx['weapon_kind'], faceCells=face.CELLS,
         faceGrid=face.GRID, lod=lod, generator='tools/blender/build_characters.py'))
     optimize.optimize_glb(out)
+    # sign-continuous rotation keys with Catmull-Rom tangents: no one-frame limb or hair flips in three.js (lib/glbquat.py)
+    if animations:
+        fix_glb_quaternion_signs(out)
     info = export.describe(out)
     if keep_blend:
         export.pack_images()  # the atlas temp folder is deleted, so the .blend keeps its own copy

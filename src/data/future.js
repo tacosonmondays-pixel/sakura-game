@@ -4,7 +4,7 @@
 // Luna and Kaede) become new characters for a later update. They are NOT UnitDefs: they are not
 // in UNITS, cannot be owned, recruited or deployed, and never reach the sim, saves or balance.
 // They only appear in the wiki's "Coming Soon" article with a 3D render (public/art/future/<id>.webp)
-// of their model (public/models/characters/future-<id>.glb, a byte copy of the V2 file; the GLB's
+// of their model (public/models/characters/future-<id>.glb, a copy of the V2 file with sign-continuous rotation keys; the GLB's
 // extras.unit stays the source id). palette/look are frozen from commit 05adb2a.
 //
 // Plain data, no side effects.

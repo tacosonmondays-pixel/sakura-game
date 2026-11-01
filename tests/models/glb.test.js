@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 import { UNITS } from '../../src/data/units.js';
 import { STANDIN_UNITS, isStandIn } from '../../src/models/standins.js';
 import { readGlbHeader } from './glbHeader.js';
+import { loadGlb } from './loadGlb.js';
+import * as THREE from 'three';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, '..', '..', 'public', 'models', 'characters');
@@ -308,6 +310,65 @@ describe('duo members', () => {
           for (const im of json.images) expect(im.mimeType).toBe('image/webp');
         });
       }
+    }
+  }
+});
+
+// Rotation keys of every Blender-built figure (the cage girls, tools/blender/build_characters.py, and the frozen
+// Sentinel Style / Coming Soon copies: every manifest entry without a `source`). The glTF exporter writes each key as
+// the bone's rest rotation times its pose, so near a 180-degree rest (legs, hair tails) neighbouring keys came out as
+// q and -q; three interpolates CUBICSPLINE rotations component by component, so the bone swung through a near-zero
+// quaternion between them (a one-frame limb or hair flip: Aoi's walk moved a vertex ~90% of her height in 10 ms).
+// tools/blender/lib/glbquat.py makes the keys sign-continuous with Catmull-Rom tangents; this keeps it that way.
+describe('Blender figures: rotation keys', () => {
+  const MAX_DEG_PER_10MS = 45;
+  const blender = Object.keys(manifest || {}).filter((k) => !manifest[k].source && !manifest[k].duoMember).sort();
+
+  it('covers every cage girl plus the outfit and Coming Soon copies', () => {
+    for (const u of GLB_UNITS) if (!manifest[u.id].source) expect(blender, u.id).toContain(u.id);
+    expect(blender.filter((k) => k.startsWith('sentinel-') || k.startsWith('future-'))).toHaveLength(19);
+  });
+
+  for (const key of blender) {
+    for (const detail of ['full', 'lod']) {
+      it(`${key} ${detail}: sign-continuous rotation keys, no bone turns ${MAX_DEG_PER_10MS} deg in 10 ms`, async () => {
+        const file = path.join(dir, detail === 'lod' ? manifest[key].lod : manifest[key].file);
+        const gltf = await loadGlb(file);
+        const root = gltf.scene;
+        const bones = [];
+        root.traverse((o) => { if (o.isBone) bones.push(o); });
+        const mixer = new THREE.AnimationMixer(root);
+        for (const clip of gltf.animations) {
+          for (const tr of clip.tracks) {
+            if (!tr.name.endsWith('.quaternion')) continue;
+            const n = tr.times.length;
+            const stride = tr.values.length / n; // 12 for CUBICSPLINE (in tangent, value, out tangent), else 4
+            const off = stride === 12 ? 4 : 0;
+            for (let k = 1; k < n; k++) {
+              let dot = 0;
+              for (let c = 0; c < 4; c++) dot += tr.values[k * stride + off + c] * tr.values[(k - 1) * stride + off + c];
+              expect(dot, `${clip.name} ${tr.name} key ${k}`).toBeGreaterThanOrEqual(0);
+            }
+          }
+          const action = mixer.clipAction(clip);
+          action.reset().play();
+          mixer.setTime(0);
+          const prev = bones.map((b) => b.quaternion.clone());
+          let worst = { deg: 0 };
+          // stop short of the end: a looping clip wraps to its first key there
+          for (let t = 0.01; t < clip.duration - 1e-6; t += 0.01) {
+            mixer.setTime(t);
+            bones.forEach((b, i) => {
+              const deg = THREE.MathUtils.radToDeg(b.quaternion.angleTo(prev[i]));
+              if (deg > worst.deg) worst = { deg, bone: b.name, t };
+              prev[i].copy(b.quaternion);
+            });
+          }
+          expect(worst.deg, `${clip.name}: ${worst.bone} turns ${worst.deg.toFixed(1)} deg at ${worst.t?.toFixed(2)} s`).toBeLessThan(MAX_DEG_PER_10MS);
+          action.stop();
+          mixer.uncacheClip(clip);
+        }
+      });
     }
   }
 });

@@ -1,6 +1,6 @@
-// Outfit (Sentinel Style) and Coming Soon model files: byte copies of the V2 GLBs, so their
-// headers still name the source unit (docs/merge/ROSTER_SPEC.md §3.2). glb.test.js covers the
-// default <unitId>.glb files and is not edited.
+// Outfit (Sentinel Style) and Coming Soon model files: copies of the V2 GLBs, so their headers
+// still name the source unit (docs/merge/ROSTER_SPEC.md §3.2). glb.test.js covers the default
+// <unitId>.glb files, and the rotation keys of these copies too (docs/art/blender-quat-signs.md).
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';

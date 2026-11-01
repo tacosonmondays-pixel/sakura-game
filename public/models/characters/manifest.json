@@ -224,7 +224,7 @@
  },
  "hotaru": {
   "file": "hotaru.glb",
-  "size": 385032,
+  "size": 385028,
   "animations": [
    "attack_cast",
    "cheer",
@@ -275,7 +275,7 @@
  },
  "kage": {
   "file": "kage.glb",
-  "size": 395408,
+  "size": 395412,
   "animations": [
    "attack_throw",
    "cheer",
@@ -433,7 +433,7 @@
  },
  "momo": {
   "file": "momo.glb",
-  "size": 442440,
+  "size": 442444,
   "animations": [
    "attack_cast",
    "cheer",
@@ -516,7 +516,7 @@
   ],
   "vertices": 8424,
   "lod": "ouka.lod.glb",
-  "lodSize": 207088,
+  "lodSize": 207092,
   "lodVertices": 2809
  },
  "raika": {
@@ -965,7 +965,7 @@
   ],
   "vertices": 9070,
   "lod": "wakaba.lod.glb",
-  "lodSize": 208200,
+  "lodSize": 208204,
   "lodVertices": 2946
  },
  "yoriko": {
@@ -988,7 +988,7 @@
  },
  "yuki": {
   "file": "yuki.glb",
-  "size": 422356,
+  "size": 422360,
   "animations": [
    "attack_cast",
    "cheer",
@@ -1000,7 +1000,7 @@
   ],
   "vertices": 8974,
   "lod": "yuki.lod.glb",
-  "lodSize": 206000,
+  "lodSize": 206004,
   "lodVertices": 2957
  },
  "yuzuha": {

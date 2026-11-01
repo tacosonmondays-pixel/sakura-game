@@ -6,7 +6,8 @@
 // ('<unitId>_default', asset '<unitId>', the model public/models/characters/<unitId>.glb; the
 // girls listed in src/models/standins.js, none today, have no GLB yet and are drawn procedurally).
 // "Sentinel Style" rows keep the V2 looks the 15 girls wore before the roster merge: their GLBs
-// are byte copies of those models (sentinel-<unitId>.glb) and their palette/look below are frozen
+// are copies of those models (sentinel-<unitId>.glb; only their rotation keys were made sign-continuous,
+// docs/art/blender-quat-signs.md) and their palette/look below are frozen
 // from commit 05adb2a so the procedural placeholder (before the GLB arrives, node tests) and the
 // skin card match. Sentinel Style is free with the girl (acquisition 'withUnit', decision D1):
 // owning her owns the outfit, so no ownership is saved for it. profile.skins exists for later
