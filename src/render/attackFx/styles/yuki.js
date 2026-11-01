@@ -7,7 +7,7 @@
 //   P2 Permafrost: a short frost trail on the ground under the shot
 import { lookAt } from '../flair.js';
 import { shardBurst, ripple, flash } from '../patterns/bursts.js';
-import { hand, handFlash } from './util.js';
+import { hand, handFlash, tipUp } from './util.js';
 import { CORE, DECOR, MOTE } from '../context.js';
 import { GROUND, EASE_OUT } from '../quadPool.js';
 
@@ -30,7 +30,7 @@ export const yuki = {
     const h = hand(ctx, t);
     rec.mx = h.x;
     rec.my = h.y;
-    rec.mz = h.h + 0.25;
+    rec.mz = h.h + tipUp(h, 0.25);
     rec.bump = lookAt(rec.tw.look, 1) >= 3 ? 0 : 0.25 + 0.06 * (rec.est || 1);
     return true;
   },

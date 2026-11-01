@@ -5,8 +5,11 @@
 // battle's tower scale (the coilgun drawn 1.25x about its grip, src/models/glbChibi.js PROP_LOOK; measured by
 // e2e/display-polish-2.mjs), not at the generic chest-height spot 0.3 in front of her.
 import { genericAttack, towerHex } from './generic.js';
+import { tipFlare } from './util.js';
 
+// (the fallback while her figure has no measured muzzle: a procedural stand-in, the coilgun still loading)
 const MUZZLE = { fwd: 0.71, up: 0.69, right: 0.21 };
+const TIP = { x: 0, y: 0, h: 0, dx: 0, dy: 0, dh: 0, kind: null };
 
 export const tenka = {
   id: 'tenka',
@@ -19,6 +22,13 @@ export const tenka = {
     }
     const v = ctx.tower(ev.towerUid);
     if (!v || !ctx.cap('muzzle')) return;
+    // her coilgun's own muzzle when her figure carries it (models/weaponTip.js), flashing down the barrel
+    if (ctx.muzzle(t, TIP)) {
+      const c = towerHex(t);
+      ctx.fx.flash(TIP.x, TIP.h, TIP.y, c, 0.35, 0.09);
+      tipFlare(ctx, TIP, ctx.col(c), 0.3, 0.09);
+      return;
+    }
     const m = v.model.position;
     const f = v.facing;
     // forward (sin f, cos f); her right hand is local -x: (-cos f, +sin f)

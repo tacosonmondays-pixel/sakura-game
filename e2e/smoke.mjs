@@ -184,8 +184,17 @@ async function runViewport(vp) {
     await giftBtn.click({ force: true }); // glowing CTA: never 'stable' on a loaded machine
     const t1 = await page.evaluate(() => ({ t10: window.__sakura.store.profile.items.ticket_recruit10 || 0, gems: window.__sakura.store.profile.currencies.gems, sel: window.__sakura.store.profile.items.ticket_ssr_select || 0 }));
     check(t1.t10 === t0.t10 + 5 && t1.gems === t0.gems + 3000 && t1.sel === 1, `beta gift: claimed 5× 10-pull tickets, 3,000 gems and an SSR Select Ticket (${JSON.stringify(t1)})`);
-    const choose = await page.waitForSelector('[data-testid="confirm-ok"]', { timeout: 5000 }).catch(() => null);
-    if (choose) await choose.click({ force: true });
+    // "Gifts received! … Choose now": wait for that dialog's own button (not a closing overlay's), visible, enabled
+    // and stable, then click it like a player; if the picker does not open, click once more
+    const chooseNow = page.locator('.modal-overlay:not(.closing) [data-testid="confirm-ok"]', { hasText: /Choose now/i });
+    const pickerUp = () => page.waitForSelector('[data-testid^="sst-"]', { state: 'visible', timeout: 10000 }).then(() => true, () => false);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await chooseNow.last().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+      await page.waitForFunction(() => [...document.querySelectorAll('.modal-overlay:not(.closing) [data-testid="confirm-ok"]')]
+        .some((b) => /Choose now/i.test(b.textContent) && !b.disabled), null, { timeout: 15000 }).catch(() => null);
+      await chooseNow.last().click({ timeout: 10000 }).catch(() => chooseNow.last().click({ force: true, timeout: 5000 }).catch(() => {}));
+      if (await pickerUp()) break;
+    }
     const pick = await page.evaluate(() => {
       const { profile } = window.__sakura.store;
       return [...document.querySelectorAll('[data-testid^="sst-"]')].map((el) => el.dataset.testid.slice(4)).find((id) => !profile.units[id]) || null;
@@ -193,6 +202,14 @@ async function runViewport(vp) {
     check(!!pick, 'SSR Select Ticket: the picker lists an SSR the player does not own');
     if (pick) {
       await shot('ssr-select');
+      // her tile must be the topmost thing under its centre first: Hikari's journal pill (a button that opens the
+      // Journal) can sit over the picker's top row for a couple of seconds after the lobby opens
+      await page.waitForFunction((id) => {
+        const cell = document.querySelector(`[data-testid="sst-${id}"]`);
+        if (!cell) return false;
+        const r = cell.getBoundingClientRect();
+        return !!document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest(`[data-testid="sst-${id}"]`);
+      }, pick, { timeout: 15000, polling: 100 }).catch(() => null);
       await page.click(`[data-testid="sst-${pick}"]`, { force: true });
       // confirm dialog animates in (and its button glows): wait for it, then force the click
       // the earlier "Choose now" dialog may still be fading out with its own confirm-ok, so wait for
