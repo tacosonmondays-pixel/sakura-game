@@ -268,10 +268,20 @@ A stylized tornado, hand-written (no particle library): a column of flat rings t
 twist round a helix and sway on X/Z. Display only: the sim id does not change.
 
 - **One draw call.** Every ring of every live tornado is one instance of one `RingGeometry` annulus in an
-  `InstancedBufferGeometry` with a `ShaderMaterial` (premultiplied: One, OneMinusSrcAlpha; `depthWrite` off). The
-  cooler bands cover the board a little (`body`), so the colour reads on a bright day; the hottest band is pure added
-  light. For readability the low rings (walker height) and the arc nearest the camera cover the least. The mesh is hidden while nothing is
-  up (0 calls). The glowing ground ring goes into `groundA`, the embers into `bbA` (petals into `bbN`): a few quads.
+  `InstancedBufferGeometry` with a `ShaderMaterial` (premultiplied: One, OneMinusSrcAlpha; `depthWrite` off). The mesh is
+  hidden while nothing is up (0 calls). The glowing ground ring goes into `groundA`, the embers into `bbA` (petals into
+  `bbN`): a few quads.
+- **Two blends, by tier.**
+  - **Medium and low:** the cooler bands cover the board a little (`body`), so the colour reads on a bright day. The
+    hottest band is pure added light. For readability the low rings (walker height) and the arc nearest the camera
+    cover the least.
+  - **High ("cover", `TORNADO_TIERS.high.cover`):** every band covers the board in its own colour (premultiplied over).
+    However many rings stack, the column settles on the ramp's toon colours: no murk over the grass, no sums past the
+    grade's knee. Stacked rings never add up, so each ring takes its colour a step hotter (`COVER_HEAT`) and reaches the
+    yellow and white bands medium gets by adding. The far arc is fainter than the near one (`COVER_FRONT`). The young
+    rings at the base are faint (`COVER_YOUNG`): readable, never a blob of light.
+  - With bloom on (high only) the hottest band goes `hdr` over white so the bloom catches it. That is keyed on the
+    bloom state, never on the preset; nothing else changes with the bloom.
 - **Vertex shader:** age = fract(t / life + phase); radius r0 → r1 along age^0.7; the ring spins and twists with its
   height, its centre wanders on a helix and sways. A ring is drawn only if it was born inside the cast, so the column
   builds from the ground up and leaves by rising away. The arc facing the camera burns brighter (it reads as a funnel).
@@ -285,12 +295,20 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
   to its preset: `akane.starmine` → `fire`: its `abilityWarn` event starts the column on the barrage's spot (1.25× the
   shells' radius), and every `abilityShell` of that cast feeds it for 0.45 s more, so it ends with the barrage at any
   game speed (the shells run on sim time).
-- **Tiers** (`TORNADO_TIERS`): high 22 rings + 4 faint core rings + 12 embers; medium 13 rings + 6 embers; low 8 rings, no
-  embers. At most 3 at once. High's extra rings are each sparser (their erosion starts higher, `SPARSE_ERODE`), so the
-  column covers about what medium's does and every ring keeps a full-strength toon edge. With bloom (high) the column
-  adds less light (`GLOW_UNDER_BLOOM`) and covers more of the board behind it (`BODY_UNDER_BLOOM`): its colour replaces
-  the grass instead of adding to it, so it stays under the bloom threshold and the grade's knee and keeps saturated
-  toon bands instead of turning into a pale glow.
+- **Tiers** (`TORNADO_TIERS`):
+  - High: 22 rings, 4 faint core rings and 12 embers, the cover blend.
+  - Medium: 13 rings and 6 embers.
+  - Low: 8 rings, no embers.
+  - At most 3 tornadoes at once.
+  - High has more rings than medium, so each one is sparser: its erosion threshold starts higher by
+    `SPARSE_ERODE × (1 − 13 ÷ 22)`. That is the same for every ring of the tier (one uniform), core rings included.
+    It shapes the mask only. The colour index still comes from the preset's own erosion, so high's colours are never
+    darker for it.
+  - Measured in the lab (bloom and grade on, fire, upper column, high vs medium):
+    - yellow share 0.22 vs 0.22, red 0.12 vs 0.15, murky 0 vs 0;
+    - edge contrast about 95% of medium's, the base about 80–85% (no pale blob there).
+- **Errors:** a tornado error switches the tornadoes off for the battle (`tornadoSafe` in `BattleRenderer`, logged once). The
+  battle and every other effect carry on.
 - **Reduce motion:** no spin, twist, sway, helix or noise scroll; the ground rings and petals do not turn; slower rise; dimmer.
 - **Impact frames** hide the column for both their frames (`tornado.hold(impact.active)` before its update), like the
   other normal-blend layers.
