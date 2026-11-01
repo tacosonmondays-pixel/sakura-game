@@ -425,11 +425,33 @@ outgoingLight = mix( outgoingLight, faceTexel.rgb * faceL + totalEmissiveRadianc
   return m;
 }
 
+/**
+ * The 'jelly' look (asset extras.look, the Green Slime): a soft pale rim where the surface turns away from the camera
+ * and a crisp toon highlight from a fixed key up and to the left, so the jelly reads glossy from any side it walks.
+ */
+const JELLY_FRAGMENT = `
+vec3 jellyView = normalize( vViewPosition );
+float jellyRim = smoothstep( 0.42, 0.95, 1.0 - clamp( dot( normal, jellyView ), 0.0, 1.0 ) );
+vec3 jellyHalf = normalize( normalize( vec3( -0.45, 0.75, 0.5 ) ) + jellyView );
+float jellySpec = smoothstep( 0.9, 0.93, dot( normal, jellyHalf ) );
+// as bright as the light on it: a night stage dims the gloss with the body instead of leaving white discs
+vec3 jellyLr = outgoingLight / max( diffuseColor.rgb, vec3( 1e-3 ) );
+float jellyLit = clamp( max( jellyLr.r, max( jellyLr.g, jellyLr.b ) ), 0.25, 1.0 );
+outgoingLight += ( vec3( 0.78, 1.0, 0.9 ) * jellyRim * 0.28 + vec3( 1.0 ) * jellySpec * 0.55 ) * jellyLit;
+#include <opaque_fragment>`;
+
 /** Toon body of a textured (Tripo) enemy: its painted colours; status tints and hit flashes still apply. */
-function texturedBodyMaterial(map, opacity) {
+function texturedBodyMaterial(map, opacity, look = null) {
   const m = new THREE.MeshToonMaterial({
     map, gradientMap: gradientMap(3), color: '#ffffff', transparent: opacity < 1, opacity, depthWrite: true,
   });
+  if (look === 'jelly') {
+    m.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', JELLY_FRAGMENT);
+    };
+    m.customProgramCacheKey = () => 'enemy-body-textured-jelly';
+    return m;
+  }
   m.customProgramCacheKey = () => 'enemy-body-textured';
   return m;
 }
@@ -497,7 +519,7 @@ export function instantiateEnemy(asset, def, { quality = 'high' } = {}, group = 
     faceTex.repeat.set(1 / asset.grid[0], 1 / asset.grid[1]);
   }
   const geos = mergedFor(asset, def);
-  const bodyMat = asset.textured ? texturedBodyMaterial(asset.map, baseOpacity) : bodyMaterial(faceTex, tint, baseOpacity);
+  const bodyMat = asset.textured ? texturedBodyMaterial(asset.map, baseOpacity, asset.extras?.look) : bodyMaterial(faceTex, tint, baseOpacity);
   const glowMat = glowMaterial(tint, Math.min(1, baseOpacity + 0.3));
   const see = baseOpacity < 1;
   const outlineWidth = OUTLINE_WORLD * (0.7 + 0.45 * Math.sqrt(size)) / (asset.unitScale * modelScale);

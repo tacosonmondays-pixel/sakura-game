@@ -23,6 +23,10 @@ const CLIP_CAP = { move: 1.2, idle: 1.6, hit: 0.35, death: 0.85, special: 0.65 }
 // titan 20k / 1024² (the bosses and titans share the 'boss' tier in the data)
 const MAX_ENEMY = { normal: 320 * 1024, elite: 400 * 1024, miniboss: 640 * 1024, boss: 1024 * 1024 };
 const MAX_TRIS = { normal: 5000, elite: 8000, miniboss: 12000, boss: 20000 };
+// own models built elsewhere than Tripo: the Green Slime is a Blender build since the model-quality fix
+// (tools/blender/enemies/build_slime_green.py, docs/art/tripo/model-quality.md)
+const OWN_SOURCE = { slime_green: 'blender' };
+const sourceOf = (id) => OWN_SOURCE[id] || 'tripo';
 
 function packed(json) {
   expect(json.extensionsRequired).toEqual(expect.arrayContaining(['KHR_mesh_quantization', 'EXT_texture_webp']));
@@ -61,7 +65,7 @@ describe('Tripo enemies', () => {
       expect(statSync(file).size).toBeLessThanOrEqual(MAX_ENEMY[tier]);
       const { json, binLength } = readGlbHeader(file);
       expect(json.buffers[0].byteLength).toBeLessThanOrEqual(binLength);
-      expect(json.asset.extras).toMatchObject({ id, source: 'tripo', style: 'textured' });
+      expect(json.asset.extras).toMatchObject({ id, source: sourceOf(id), style: 'textured' });
       expect(json.asset.extras.height).toBeGreaterThan(0);
       expect(json.asset.extras.unitScale).toBeGreaterThan(0);
       const prim = packed(json);
@@ -76,7 +80,7 @@ describe('Tripo enemies', () => {
         const dur = Math.max(...a.samplers.map((s) => json.accessors[s.input].max[0]));
         expect(dur, `${id} ${a.name}`).toBeLessThanOrEqual(CLIP_CAP[a.name]);
       }
-      expect(manifest[id]).toMatchObject({ file: `${id}.glb`, size: statSync(file).size, source: 'tripo' });
+      expect(manifest[id]).toMatchObject({ file: `${id}.glb`, size: statSync(file).size, source: sourceOf(id) });
     });
   }
 });
@@ -91,7 +95,7 @@ describe('Tripo enemy LODs (medium / low quality)', () => {
       expect(existsSync(file), file).toBe(true);
       expect(statSync(file).size).toBeLessThanOrEqual(160 * 1024);
       const { json } = readGlbHeader(file);
-      expect(json.asset.extras).toMatchObject({ id, source: 'tripo', style: 'textured', lod: true });
+      expect(json.asset.extras).toMatchObject({ id, source: sourceOf(id), style: 'textured', lod: true });
       const prim = packed(json);
       expect(json.accessors[prim.indices].count / 3).toBeLessThanOrEqual(2000);
       expect(json.animations.map((a) => a.name).sort()).toEqual(ENEMY_CLIPS);
