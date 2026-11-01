@@ -72,6 +72,7 @@ uniform sampler2D uNoise;
 uniform sampler2D uRamp;
 uniform vec2 uErode;
 uniform float uTime;
+uniform float uBody;
 varying vec2 vPolar;
 varying float vD;
 varying float vAge;
@@ -96,7 +97,11 @@ void main() {
   // only the hottest band burns above white (high + bloom: vE.w > 0)
   col *= 1.0 + vE.w * step(0.8, k);
   float fade = smoothstep(0.0, 0.1, vAge) * (1.0 - smoothstep(0.82, 1.0, vAge));
-  gl_FragColor = vec4(col * (m * fade * vOn * vE.z * mix(0.35, 1.0, vFront)), 1.0);
+  float a = m * fade * vOn * mix(0.35, 1.0, vFront);
+  // premultiplied: the cooler bands cover the board a little (body: the colour reads on a bright day), the hottest
+  // band is purely added light (alpha 0), so one draw call gives both the toon body and the glow
+  float body = uBody * (1.0 - step(0.8, k)) * (1.0 - vCore);
+  gl_FragColor = vec4(col * a * vE.z, a * body * min(1.0, vE.z * 1.3));
   #include <colorspace_fragment>
 }`;
 
@@ -208,7 +213,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
   ramp.colorSpace = THREE.SRGBColorSpace;
   ramp.needsUpdate = true;
   const material = new THREE.ShaderMaterial({
-    uniforms: { uNoise: { value: noise }, uRamp: { value: ramp }, uErode: { value: new THREE.Vector2(0.16, 0.66) }, uTime: { value: 0 } },
+    uniforms: { uNoise: { value: noise }, uRamp: { value: ramp }, uErode: { value: new THREE.Vector2(0.16, 0.66) }, uTime: { value: 0 }, uBody: { value: 0.5 } },
     vertexShader: VERT,
     fragmentShader: FRAG,
     transparent: true,
@@ -217,7 +222,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
     side: THREE.DoubleSide,
     blending: THREE.CustomBlending,
     blendSrc: THREE.OneFactor,
-    blendDst: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
     blendEquation: THREE.AddEquation,
     toneMapped: false,
   });
@@ -234,7 +239,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
     const p = presets[presetId];
     if (!p) return null;
     if (live.length >= MAX_TORNADOES) live.shift();
-    const rec = { id: presetId, p, x, z, t: 0, seconds: Math.max(0.3, seconds), size: Math.max(0.4, size), phase: [], embers: [] };
+    const rec = { id: presetId, p, x, z, t: 0, seconds: Math.max(0.3, seconds), size: Math.max(0.4, size) * (p.scale ?? 1), phase: [], embers: [] };
     for (let i = 0; i < perMax; i++) rec.phase.push([rnd(), rnd()]);
     for (let i = 0; i < TORNADO_TIERS.high.embers; i++) rec.embers.push([rnd(), rnd(), rnd(), Math.floor(rnd() * 3)]);
     live.push(rec);
@@ -251,7 +256,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
     const hdr = tier.hdr && bloom ? p.hdr : 0;
     const row = rowOf(rec.id);
     // more rings share the same light: the column is as bright on every tier, only finer on high
-    const share = Math.pow(Math.min(1, 13 / n), 0.8);
+    const share = Math.pow(Math.min(1, 13 / n), 0.45);
     for (let i = 0; i < total; i++) {
       const j = (start + i) * 4;
       const core = i >= n ? 1 : 0;
@@ -287,11 +292,11 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
     const k = strength(rec);
     if (k <= 0) return;
     const y = 0.05;
-    const size = p.r1 * rec.size * p.base.size * 2;
+    const size = p.r1 * rec.size * p.base.size * 1.7;
     const pulse = reduceMotion ? 1 : 1 + 0.06 * Math.sin(rec.t * p.base.pulse * TAU);
     const [r, g, b] = lin(p.base.color);
     const [ir, ig, ib] = lin(p.base.inner);
-    if (R.ringSoft) batches.groundA?.push(rec.x, y, rec.z, size * pulse, size * pulse, R.ringSoft, r, g, b, 0.38 * k, rec.t * 0.6);
+    if (R.ringSoft) batches.groundA?.push(rec.x, y, rec.z, size * pulse, size * pulse, R.ringSoft, r, g, b, 0.28 * k, rec.t * 0.6);
     if (R.ring) batches.groundA?.push(rec.x, y, rec.z, size * 0.62 * pulse, size * 0.62 * pulse, R.ring, ir, ig, ib, 0.4 * k, -rec.t);
     // embers: an analytic spiral (no state): born inside the cast, rising and widening, fading at the top
     const e = p.embers;
@@ -329,7 +334,10 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
         n += write(rec, n);
         quads(rec);
       }
-      if (live[0]) material.uniforms.uErode.value.set(live[0].p.erode[0], live[0].p.erode[1]);
+      if (live[0]) {
+        material.uniforms.uErode.value.set(live[0].p.erode[0], live[0].p.erode[1]);
+        material.uniforms.uBody.value = live[0].p.body ?? 0.5;
+      }
       material.uniforms.uTime.value = time;
       geo.instanceCount = n;
       for (const a of Object.values(attrs)) {

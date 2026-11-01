@@ -14,7 +14,9 @@
 //   erode     [young, old] threshold: the flame breaks up into tongues and wisps as a ring ages
 //   ramp      the toon bands, coolest → hottest (sRGB); the hottest band alone gets the HDR boost
 //   hdr       extra brightness of the hottest band (high tier with bloom only; feeds the bloom)
-//   alpha     overall strength (additive)
+//   alpha     overall strength
+//   body      how much the cooler bands cover what is behind them (0 = pure added light; the hottest band always is)
+//   scale     size of the column × the cast's radius
 //   core      the bright inner column on high: radius share, extra heat
 //   base      the glowing ring on the ground: colour, size (× r1), pulse Hz
 //   embers    sparks (or petals, droplets) spiralling up: atlas sprite, colours, size, additive or not
@@ -26,7 +28,7 @@ export const TORNADO_PRESETS = Object.freeze({
     spin: 3.2, twist: 3.6, helix: 0.16, sway: 0.22, swayHz: 1.3,
     noise: Object.freeze([2, 0.8]), scroll: 1.4, erode: Object.freeze([0.06, 0.58]),
     ramp: Object.freeze(['#b8203a', '#f0442c', '#ff8a2a', '#ffcf4a', '#fff4c8']),
-    hdr: 0.3, alpha: 0.5,
+    hdr: 0.3, alpha: 0.75, body: 0.55, scale: 1.5,
     core: Object.freeze({ radius: 0.45, heat: 0.12 }),
     base: Object.freeze({ color: '#ff7a2e', inner: '#ffd27a', size: 1.15, pulse: 2.2 }),
     embers: Object.freeze({ sprite: 'spark', colors: Object.freeze(['#ffd23f', '#ff8c42', '#fff1b0']), size: 0.13, additive: true, life: 1.1 }),
@@ -38,7 +40,7 @@ export const TORNADO_PRESETS = Object.freeze({
     spin: 2.6, twist: 3.0, helix: 0.14, sway: 0.18, swayHz: 1.0,
     noise: Object.freeze([3, 1]), scroll: 1.0, erode: Object.freeze([0.08, 0.6]),
     ramp: Object.freeze(['#c2407a', '#ec6fa4', '#ff9cc4', '#ffd0e2', '#fff6fa']),
-    hdr: 0.3, alpha: 0.42,
+    hdr: 0.3, alpha: 0.67, body: 0.55, scale: 1.5,
     core: Object.freeze({ radius: 0.42, heat: 0.1 }),
     base: Object.freeze({ color: '#ff8fbf', inner: '#ffe0ee', size: 1.1, pulse: 1.6 }),
     embers: Object.freeze({ sprite: 'petal', colors: Object.freeze(['#ffb7d1', '#ff8fbf', '#ffe4ef']), size: 0.17, additive: false, life: 1.5 }),
@@ -50,7 +52,7 @@ export const TORNADO_PRESETS = Object.freeze({
     spin: 4.2, twist: 4.4, helix: 0.12, sway: 0.16, swayHz: 1.6,
     noise: Object.freeze([2, 1.1]), scroll: 1.9, erode: Object.freeze([0.08, 0.6]),
     ramp: Object.freeze(['#1f5fb8', '#2f9fe0', '#4fd8ea', '#a8f4f2', '#f2ffff']),
-    hdr: 0.3, alpha: 0.46,
+    hdr: 0.3, alpha: 0.71, body: 0.55, scale: 1.5,
     core: Object.freeze({ radius: 0.4, heat: 0.1 }),
     base: Object.freeze({ color: '#4fd0f0', inner: '#d8fbff', size: 1.15, pulse: 2.6 }),
     embers: Object.freeze({ sprite: 'dot', colors: Object.freeze(['#bff6ff', '#7fe2f5', '#ffffff']), size: 0.09, additive: true, life: 0.9 }),
