@@ -19,7 +19,11 @@ const TAU = Math.PI * 2;
 const RAMP_W = 8;
 const NOISE_N = 128;
 /** The column's colour on high with bloom (× alpha): under the grade's knee (src/render/vfx/grade.js KNEE). */
-export const GLOW_UNDER_BLOOM = 0.6;
+export const GLOW_UNDER_BLOOM = 0.72;
+/** …and the column covers more of the board behind it there (the colour replaces the grass instead of adding to it). */
+export const BODY_UNDER_BLOOM = 1.5;
+/** How much higher the erosion starts per ring beyond medium's 13 (at 22 rings: × 0.41). */
+export const SPARSE_ERODE = 0.32;
 
 const VERT = /* glsl */`
 attribute vec4 iA; // x, z, t (seconds since the cast), seconds the column is fed
@@ -94,7 +98,7 @@ void main() {
   float band = 1.0 - x * x;
   float u = atan(vXZ.y, vXZ.x) / 6.2831853 + vRnd; // whole-number u scales: the noise wraps seamlessly
   vec2 uv = vec2(u * vF.x, vD * vF.y - vAge * 0.9 - uTime * vF.z * 0.35);
-  float n = texture2D(uNoise, uv).r * 0.85 + texture2D(uNoise, uv * 1.7 + vec2(0.37, uTime * vF.z * 0.2)).g * 0.15;
+  float n = texture2D(uNoise, uv).r * 0.85 + texture2D(uNoise, uv * vec2(2.0, 1.7) + vec2(0.37, uTime * vF.z * 0.2)).g * 0.15;
   n = smoothstep(0.25, 0.75, n); // bolder: fewer, bigger tongues
   float heat = band * (0.3 + 1.0 * n) + vCore * vF.w;
   float cut = mix(vG.x, vG.y, vAge);
@@ -242,6 +246,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
   mesh.name = 'tornadoFx';
   scene.add(mesh);
   let time = 0;
+  let held = false;
 
   /** Starts a tornado. @returns {object|null} its record (live, read-only) */
   function spawn(presetId, x, z, { seconds = 2, size = 1 } = {}) {
@@ -266,10 +271,10 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
     // high with bloom: the grade's tone curve bleaches sums above its knee towards white, so the column's colour is
     // kept under it (the toon bands stay saturated) and only the hottest band reaches the bloom (hdr)
     const glow = hdr > 0 ? GLOW_UNDER_BLOOM : 1;
+    // more rings than medium: each one is sparser (its erosion starts higher), so the column covers about as much as
+    // medium's 13 and every ring keeps a full-strength toon edge (finer on high, never softer)
+    const sparse = Math.max(0, 1 - 13 / n) * SPARSE_ERODE;
     const row = rowOf(rec.id);
-    // more rings share the same cover: the column hides as little of the board on high as on medium (its colour stays
-    // full: high is finer, never paler)
-    const share = Math.min(1, 13 / n);
     for (let i = 0; i < total; i++) {
       const j = (start + i) * 4;
       const core = i >= n ? 1 : 0;
@@ -288,7 +293,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       const F = attrs.iF.array;
       F[j] = p.noise[0]; F[j + 1] = p.noise[1]; F[j + 2] = rm ? 0 : p.scroll; F[j + 3] = p.core?.heat ?? 0;
       const G = attrs.iG.array;
-      G[j] = p.erode[0]; G[j + 1] = p.erode[1]; G[j + 2] = (p.body ?? 0.5) * share; G[j + 3] = p.core?.radius ?? 0.45;
+      G[j] = p.erode[0] + sparse; G[j + 1] = p.erode[1] + sparse; G[j + 2] = Math.min(0.95, (p.body ?? 0.5) * (hdr > 0 ? BODY_UNDER_BLOOM : 1)); G[j + 3] = p.core?.radius ?? 0.45;
     }
     return total;
   }
@@ -332,7 +337,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       const fade = Math.min(1, age * 8) * (1 - age);
       const [cr, cg, cb] = lin(e.colors[ci % e.colors.length]);
       const s = e.size * (0.7 + 0.6 * sz) * (1 - 0.4 * age);
-      batch.push(rec.x + Math.cos(a) * rad, 0.15 + age * p.height * 1.08, rec.z + Math.sin(a) * rad, s, s, uv, cr, cg, cb, fade * (e.additive ? 1 : 0.95), e.additive ? 0 : a + rec.t * 3);
+      batch.push(rec.x + Math.cos(a) * rad, 0.15 + age * p.height * 1.08, rec.z + Math.sin(a) * rad, s, s, uv, cr, cg, cb, fade * (e.additive ? 1 : 0.95), e.additive || reduceMotion ? 0 : a + rec.t * 3);
     }
   }
 
@@ -341,6 +346,11 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
     /** Keeps a live column fed for at least `seconds` more (a cast's next shell landed). */
     feed(rec, seconds) {
       if (rec && live.includes(rec)) rec.seconds = Math.max(rec.seconds, rec.t + seconds);
+    },
+    /** Impact frames: the column sits them out (both frames; update() keeps it hidden while held). */
+    hold(on) {
+      held = !!on;
+      if (held) mesh.visible = false;
     },
     /** The ring mesh (impact frames hide it with the normal-blend layers). */
     get mesh() {
@@ -366,7 +376,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
         if (n) a.addUpdateRange(0, n * 4);
         a.needsUpdate = n > 0;
       }
-      mesh.visible = n > 0;
+      mesh.visible = n > 0 && !held;
     },
     setQuality(q) {
       tier = TORNADO_TIERS[q] || TORNADO_TIERS.medium;

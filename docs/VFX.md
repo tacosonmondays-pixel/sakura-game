@@ -286,10 +286,14 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
   shells' radius), and every `abilityShell` of that cast feeds it for 0.45 s more, so it ends with the barrage at any
   game speed (the shells run on sim time).
 - **Tiers** (`TORNADO_TIERS`): high 22 rings + 4 faint core rings + 12 embers; medium 13 rings + 6 embers; low 8 rings, no
-  embers. On high the extra rings share the cover (`share`), and with bloom the colour is kept under the grade's knee (`GLOW_UNDER_BLOOM`), so high is finer, not paler. At
-  most 3 at once.
-- **Reduce motion:** no spin, twist, sway, helix or noise scroll, the ground rings do not turn; slower rise; dimmer.
-- **Impact frames** hide the column for their two frames, like the other normal-blend layers.
+  embers. At most 3 at once. High's extra rings are each sparser (their erosion starts higher, `SPARSE_ERODE`), so the
+  column covers about what medium's does and every ring keeps a full-strength toon edge. With bloom (high) the column
+  adds less light (`GLOW_UNDER_BLOOM`) and covers more of the board behind it (`BODY_UNDER_BLOOM`): its colour replaces
+  the grass instead of adding to it, so it stays under the bloom threshold and the grade's knee and keeps saturated
+  toon bands instead of turning into a pale glow.
+- **Reduce motion:** no spin, twist, sway, helix or noise scroll; the ground rings and petals do not turn; slower rise; dimmer.
+- **Impact frames** hide the column for both their frames (`tornado.hold(impact.active)` before its update), like the
+  other normal-blend layers.
 - **Dev lab:** `?tornadoLab` in the dev server (`npm run dev`, e.g. `/?tornadoLab#/lobby`, then a battle) mounts a
   lil-gui panel (`tornadoPanel.js`): pick a preset, tune it live, loop it, copy the result as preset data. The import
   sits behind `import.meta.env.DEV`, so the production build has neither the panel nor lil-gui.

@@ -1065,6 +1065,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     // the shake and zoom punch run on frame time: the camera jolts through a hit-stop
     rig.apply(d, clock.realDt, clock.frameDt);
     fx.update(d);
+    tornado.hold(impact.active); // (impact frames: the column sits both frames out)
     tornado.update(d);
     for (const b of batchList) b.end();
 

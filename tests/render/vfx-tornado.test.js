@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { TORNADO_PRESETS, TORNADO_TIERS, MAX_TORNADOES, TORNADO_CASTS } from '../../src/render/vfx/tornadoPresets.js';
-import { createTornadoFx, paintTornadoNoise, paintTornadoRamp } from '../../src/render/vfx/tornado.js';
+import { createTornadoFx, paintTornadoNoise, paintTornadoRamp, SPARSE_ERODE } from '../../src/render/vfx/tornado.js';
 import { createVisualRandom } from '../../src/render/vfx/random.js';
 import { ABILITIES } from '../../src/data/abilities.js';
 
@@ -95,6 +95,37 @@ describe('tornado layer', () => {
     expect(hdrOf('medium', true)).toBe(0);
   });
 
+  it('sits out both impact frames, then comes back', () => {
+    const t = make('medium');
+    t.spawn('fire', 0, 0, { seconds: 3 });
+    t.update(1 / 60);
+    expect(t.mesh.visible).toBe(true);
+    for (let f = 0; f < 2; f++) {
+      t.hold(true);
+      t.update(1 / 60);
+      expect(t.mesh.visible).toBe(false);
+    }
+    t.hold(false);
+    t.update(1 / 60);
+    expect(t.mesh.visible).toBe(true);
+  });
+
+  it('medium and low keep the preset erosion; reduce motion stills the petals and ground rings too', () => {
+    const s = new THREE.Scene();
+    const t = make('medium', { scene: s });
+    t.spawn('fire', 0, 0);
+    t.update(1 / 60);
+    expect(s.children[0].geometry.getAttribute('iG').array[0]).toBeCloseTo(TORNADO_PRESETS.fire.erode[0], 5);
+    const pushed = [];
+    const fake = { push: (...a) => pushed.push(a) };
+    const atlas = { regions: { ringSoft: [0, 0, 1, 1], ring: [0, 0, 1, 1], petal: [0, 0, 1, 1] } };
+    const rm = createTornadoFx({ scene: new THREE.Scene(), quality: 'high', reduceMotion: true, rand: createVisualRandom(3).fork('tornado'), batches: { groundA: fake, bbN: fake, bbA: fake }, atlas });
+    rm.spawn('sakura', 0, 0, { seconds: 2 });
+    run(rm, 1.2);
+    expect(pushed.length).toBeGreaterThan(0);
+    for (const a of pushed) expect(a[10] ?? 0).toBe(0); // rotation argument
+  });
+
   it('is the same column for the same seed (seeded visual randomness)', () => {
     const a = new THREE.Scene();
     const b = new THREE.Scene();
@@ -131,9 +162,10 @@ describe('tornado layer', () => {
     const G = g.getAttribute('iG').array;
     const E = g.getAttribute('iE').array;
     const near = (got, want) => want.forEach((w, i) => expect(got[i]).toBeCloseTo(w, 5));
-    const share = Math.min(1, 13 / TORNADO_TIERS.high.rings);
-    near([G[0], G[1], G[2], G[3]], [...TORNADO_PRESETS.fire.erode, TORNADO_PRESETS.fire.body * share, TORNADO_PRESETS.fire.core.radius]);
-    near([G[per * 4], G[per * 4 + 1], G[per * 4 + 2]], [...TORNADO_PRESETS.vortex.erode, TORNADO_PRESETS.vortex.body * share]);
+    // high has more rings than medium: each one is sparser (its erosion starts higher), at full strength
+    const sp = (1 - 13 / TORNADO_TIERS.high.rings) * SPARSE_ERODE;
+    near([G[0], G[1], G[2], G[3]], [TORNADO_PRESETS.fire.erode[0] + sp, TORNADO_PRESETS.fire.erode[1] + sp, TORNADO_PRESETS.fire.body, TORNADO_PRESETS.fire.core.radius]);
+    near([G[per * 4], G[per * 4 + 1], G[per * 4 + 2]], [TORNADO_PRESETS.vortex.erode[0] + sp, TORNADO_PRESETS.vortex.erode[1] + sp, TORNADO_PRESETS.vortex.body]);
     expect(E[1]).toBeCloseTo(TORNADO_PRESETS.fire.inner, 5);
     expect(E[per * 4 + 1]).toBeCloseTo(TORNADO_PRESETS.vortex.inner, 5);
   });
