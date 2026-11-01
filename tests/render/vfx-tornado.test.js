@@ -18,6 +18,8 @@ describe('tornado presets and tiers', () => {
     expect(Object.keys(TORNADO_PRESETS)).toEqual(['fire', 'sakura', 'vortex']);
     for (const p of Object.values(TORNADO_PRESETS)) {
       expect(p.ramp.length).toBeGreaterThanOrEqual(3);
+      // the ramp is painted from the hex's own bytes: only '#rrggbb' is read (a short hex or a colour name would paint 0)
+      for (const c of p.ramp) expect(c).toMatch(/^#[0-9a-f]{6}$/i);
       expect(p.r1).toBeGreaterThan(p.r0);
       expect(p.erode[1]).toBeGreaterThan(p.erode[0]);
       expect(JSON.parse(JSON.stringify(p))).toEqual(p);
@@ -193,7 +195,7 @@ describe('tornado layer', () => {
     expect(frag).toMatch(/clamp\(\(heat - cut\) \* 1\.6/);
   });
 
-  it('high with bloom: the hottest band goes over white, nothing else changes with the bloom (it keys on the bloom, not the preset)', () => {
+  it('high with bloom: the band at k ≥ 0.8 goes over white, nothing else changes with the bloom (it keys on the bloom, not the preset)', () => {
     const read = (bloom, presets) => {
       const s = new THREE.Scene();
       const t = make('high', { scene: s, presets });

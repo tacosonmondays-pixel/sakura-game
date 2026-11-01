@@ -134,7 +134,8 @@ void main() {
   col *= 1.0 + vE.w * hot;
   float fade = smoothstep(0.0, 0.1, vAge) * (1.0 - smoothstep(0.82, 1.0, vAge));
   if (uCover > 0.5) {
-    // high: a toon layer over the board in its own colour (premultiplied over: stacked rings settle on the ramp colour)
+    // high: a toon layer over the board in its own colour (premultiplied over: in the linear composer, high with bloom,
+    // stacked rings settle on the ramp colour; on the canvas, bloom off, the output's encoding lifts them like medium's)
     float A = m * fade * vOn * vE.z * mix(uFront.x, uFront.y, vFront) * mix(uYoung, 1.0, smoothstep(0.12, 0.45, vAge));
     gl_FragColor = vec4(col * A, A);
     #include <colorspace_fragment>
@@ -142,14 +143,14 @@ void main() {
   }
   float a = m * fade * vOn * mix(0.35, 1.0, vFront);
   // premultiplied (One, OneMinusSrcAlpha): the cooler bands cover the board a little (body: the colour reads on a
-  // bright day), the hottest band is purely added light (alpha 0): one draw call gives the toon body and the glow.
+  // bright day), the band at k ≥ 0.8 is purely added light (alpha 0): one draw call gives the toon body and the glow.
   // Readability: the low rings (where the walkers are) and the near arc cover little, so the crowd stays visible.
   float body = vG.z * (1.0 - step(0.8, k)) * (1.0 - vCore) * smoothstep(0.12, 0.45, vAge) * mix(1.0, 0.45, vFront);
   gl_FragColor = vec4(col * a * vE.z, a * body);
   #include <colorspace_fragment>
 }`;
 
-/** sRGB hex → linear [r, g, b] 0..1 (the batches and the ramp are linear). */
+/** sRGB hex → linear [r, g, b] 0..1 (the batches take linear colours; the ramp is painted as sRGB bytes). */
 function lin(hex) {
   const c = new THREE.Color(hex);
   return [c.r, c.g, c.b];
@@ -315,7 +316,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
     const n = tier.rings;
     const nc = tier.core;
     const total = n + nc;
-    // the hottest band over white for the bloom: high with bloom on only (the bloom state, not the preset)
+    // the band at k ≥ 0.8 over white for the bloom: high with bloom on only (the bloom state, not the preset)
     const hdr = tier.hdr && bloom ? p.hdr : 0;
     // high with bloom (the linear composer: no overshoot of its own) takes the cover row; with bloom off the canvas's
     // own blend already overshoots like medium's, so it keeps the bands as given
@@ -430,7 +431,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
     setQuality(q) {
       tier = TORNADO_TIERS[q] || TORNADO_TIERS.medium;
     },
-    /** Bloom on (high only): the hottest band gets the HDR boost. */
+    /** Bloom on (high only): the band at k ≥ 0.8 (the top of the yellow, the white) gets the HDR boost. */
     setGlow(q, on) {
       bloom = q === 'high' && !!on;
     },
