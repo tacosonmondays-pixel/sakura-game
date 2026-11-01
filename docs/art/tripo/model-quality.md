@@ -199,6 +199,13 @@ recording guide (side light, full body in frame, a T-pose first).
   898,749 at high and 318,268 -> 252,988 at medium (the new slime is lighter); frame times within the noise of
   SwiftShader (median 333 -> 167 ms high, 433 -> 417 ms medium).
 
+Results (Nov 1, on this branch): `npm test` 6,943 passed / 0 failed; sim id `e3c222f3ad44`, the same as `main`
+`a3d97a38` (no `COOP_PROTOCOL` bump); `e2e/model-quality.mjs` 122 checks ok (six heroes at 390x844 and 1280x720,
+Luna's LOD at medium, the slimes, the event hats); `e2e/tripo-batch2.mjs`, `e2e/tripo-batch1.mjs` and
+`e2e/companions.mjs` (Yoriko's doll on her hand) all ok; `e2e/smoke.mjs` 680 ok and one failure at 844x390 ("SSR
+Select Ticket: luna joined"), which fails the same way on `main` `a3d97a38` (a UI timing issue in the select-ticket
+picker, not the models).
+
 ## Found in the sweep, not fixed here
 
 The batch-2 humanoid **enemies** were fitted by the same `autorig.py` and show the same fault: `orc_grunt` (left
