@@ -1,6 +1,6 @@
 // The styled projectile ribbon (src/render/vfx/trails.js) never doubles a style's own trail, and no shot loses its only
 // trail (docs/VFX.md, projectile trails): each girl alone in a real gallery battle (node, no WebGL; her booth is beside
-// the first lane, so her shots fly), four builds, on the tiers that draw ribbons. A shot whose view() leaves anything
+// the first lane), four builds, on the tiers that draw ribbons. A shot whose view() leaves anything
 // behind it (a line or a quad behind the shot, a sprite left where it was) has a trail of its own, so it must be skipped
 // or set `ownTrail`; a shot that sets `ownTrail` must draw one. Every girl whose style draws her shots in view() must
 // reach these checks (or have every shot skipped), so the test cannot quietly shrink. Display only.
@@ -12,16 +12,21 @@ import { STYLE_BY_UNIT } from '../../src/render/attackFx/registry.js';
 const BUILDS = { base: [0, 0, 0], p0: [5, 2, 0], p1: [0, 5, 2], p2: [2, 0, 5] };
 /** How far behind the shot (along its flight, tiles) a drawn line end or quad counts as its trail. */
 const BEHIND = 0.12;
-/** A view that skips every shot it is given (`v.skip = true` before any branch) draws no shot mesh, so no ribbon either. */
+/**
+ * A view that skips every shot it is given (`v.skip = true` before any branch, and `skip` set nowhere else) draws no
+ * shot mesh, so no ribbon either.
+ */
 function alwaysSkips(view) {
-  const body = view.toString().split('{').slice(1).join('{');
-  return /\bv\.skip = true;/.test(body.split(/\b(?:if|return|for|while|switch)\b/)[0]);
+  const src = view.toString();
+  const body = src.split('{').slice(1).join('{');
+  return (src.match(/\.skip\s*=/g) || []).length === 1 && /\bv\.skip = true;/.test(body.split(/\b(?:if|return|for|while|switch)\b/)[0]);
 }
-/** Girls with a view() whose shots the gallery cannot field (the test cannot reach them; check them by hand). */
+/** Girls with a view() whose shots never fly in today's game (nothing for the test to reach). */
 const KNOWN_GAPS = {
-  hikari: 'her T5 lances need hero levels the gallery cannot give',
-  yuzuha: 'her sentry shots need sentries the gallery never deploys',
+  hikari: 'her view draws only for a projectile attack, and her attack is a pulse at every hero level: her T5 lance branch cannot run today',
 };
+/** Frames a girl's battle runs (Yuzuha's sentries, set from about 5 s, first see an enemy at about 33 s). */
+const framesFor = (id) => (id === 'yuzuha' ? 1200 : 360);
 
 /**
  * Runs a gallery battle and records, for every shot's view, what the style drew while it ran.
@@ -109,7 +114,7 @@ describe('the styled ribbon and the styles\' own trails', { timeout: 600000 }, (
       for (const [b, build] of Object.entries(BUILDS)) {
         const name = `${b} ${quality}`;
         for (const ids of groups) {
-          for (const [id, s] of probe(ids, build, { quality })) {
+          for (const [id, s] of probe(ids, build, { quality, frames: framesFor(ids[0]) })) {
             const r = reached.get(id) || { views: 0, skipped: 0 };
             r.views += s.views;
             r.skipped += s.skipped;
@@ -135,6 +140,6 @@ describe('the styled ribbon and the styles\' own trails', { timeout: 600000 }, (
     const missed = withView.filter((id) => !KNOWN_GAPS[id] && !alwaysSkips(STYLE_BY_UNIT[id].view) && !(reached.get(id)?.views > 0));
     expect(missed).toEqual([]);
     // (and the checks really ran on the girls that draw a trail of their own: the cases the earlier reviews found)
-    for (const id of ['aoi', 'hana', 'kage', 'marumi', 'ruri', 'yoriko', 'iroha', 'yuki', 'nami', 'akane']) expect(reached.get(id)?.views, id).toBeGreaterThan(0);
+    for (const id of ['aoi', 'hana', 'kage', 'marumi', 'ruri', 'yoriko', 'iroha', 'yuki', 'nami', 'akane', 'yuzuha']) expect(reached.get(id)?.views, id).toBeGreaterThan(0);
   });
 });

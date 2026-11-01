@@ -332,19 +332,22 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // (room for a crowded battle: chains, beams, every shot's trail, slashes, shockwaves and the styles' lines; past it a
   // stroke is not drawn, so the effects thin out instead of failing)
   const strokes = createStrokes({ scene, max: 8192 });
+  // the player's "attack effects" setting covers the styled effects too: off (settings.attackFx === false), nothing is
+  // handed to them, so every effect keeps the plain look (the layers stay idle: nothing pushed, no draw call)
+  const vfxOn = settings.attackFx !== false;
   // styled chain lightning (src/render/vfx/lightning.js): Raika's and Chika's chains (their attack styles), Storm Lance
   // and every other chain the default layer draws
   const lightning = createLightningFx({ scene, strokes, batches, atlas, quality, reduceMotion, rand: vrand.fork('lightning') });
-  fx.lightning = lightning;
+  fx.lightning = vfxOn ? lightning : null;
   // styled beams (src/render/vfx/beams.js): Luna's, Miko's and Raika's beams (their attack styles) and every other beam
   const beams = createBeamFx({ scene, strokes, batches, atlas, camera, quality, reduceMotion, rand: vrand.fork('beams') });
-  fx.beams = beams;
+  fx.beams = vfxOn ? beams : null;
   // styled projectile trails (src/render/vfx/trails.js): a short toon ribbon behind every shot in flight
   const trails = createTrails({ scene, strokes, quality, reduceMotion });
-  actors.trails = trails;
+  actors.trails = vfxOn ? trails : null;
   // styled slashes and shockwaves (src/render/vfx/shapes.js): every default slash and pulse
   const shapes = createShapeFx({ scene, strokes, camera, quality, reduceMotion });
-  fx.shapes = shapes;
+  fx.shapes = vfxOn ? shapes : null;
   // the styled effects are decoration: on their first error they all switch off for this battle (logged once) and every
   // effect falls back to its old look; the battle and its events carry on
   let vfxBroken = false;

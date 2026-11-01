@@ -43,7 +43,7 @@ Owner reels: `e2e/attack-reel.mjs`.
 | File | Hook |
 |---|---|
 | `textures.js` | `createAtlas(extra = [])` paints `ATTACK_SPRITES` into the shared atlas. |
-| `BattleRenderer.js` | creates the layer (`settings.attackFx === false` = old look), `onEvent(ev, i, events)` first in `handleEvents` (true = handled), `attackFx.update(d)` after `actors.drawGround`, `setQuality`, `setSelected`, new `setTimeScale(s)`, `info.attackFx`, `attackFxProbe()` (dev), `dispose`. **Bug fix:** `batches.begin()` now runs before the events / `actors.sync`, so projectile glow quads pushed during sync are drawn (they were wiped before). |
+| `BattleRenderer.js` | creates the layer (`settings.attackFx === false` = old look, the styled VFX library included), `onEvent(ev, i, events)` first in `handleEvents` (true = handled), `attackFx.update(d)` after `actors.drawGround`, `setQuality`, `setSelected`, new `setTimeScale(s)`, `info.attackFx`, `attackFxProbe()` (dev), `dispose`. **Bug fix:** `batches.begin()` now runs before the events / `actors.sync`, so projectile glow quads pushed during sync are drawn (they were wiped before). |
 | `actors.js` | `fxHook.projectile(p)` → view `{kind,x,y,z,scale,sz,tint,glow,yaw,roll,skip,ownTrail}` (`ownTrail`: the style draws the shot's trail itself, so the styled ribbon, `src/render/vfx/trails.js`, skips it); the old drone mesh + shadows are skipped when the hook owns drones; `trapHidden(uid)` hides a rune until its tossed seal lands; `towerOffset(uid)` moves the model for lunges / recoil (never the sim position). Reuses a Set / counts object per frame instead of allocating. |
 | `controller.js` | `renderer.setTimeScale?.(ctx.speed)` each frame (co-op: the shared speed). |
 
@@ -142,7 +142,7 @@ that name a girl (`towerUid` / `ownerUid`) reach `style.onOther(ev, tw, t, ctx, 
 (visual muzzle M, lob `rec.bump`, flutter `rec.bend`) · `view(p, rec, null, view, ctx)` (remap kind,
 tint, scale, `skip` to draw it as quads; draw trails / reticles: a style that leaves anything behind its shot sets
 `view.ownTrail` where it does, or the styled ribbon draws over it; `tests/render/vfx-trail-optout.test.js` checks each girl's
-shots in a gallery battle, but not Hikari's T5 lances or Yuzuha's sentry shots) · `onSpawn(rec, p, t, ctx)` ·
+shots in a gallery battle; a view that skips every shot is exempt, as a skipped shot gets no ribbon) · `onSpawn(rec, p, t, ctx)` ·
 `onImpact(rec, x, y, crit, radius, ctx)` · `update(gdt, tw, t, ctx)` · `onRemove(tw, ctx)`.
 
 Shared patterns (`patterns/`): `drones`, `segments` (tracers, beams, chains, ropes), `markers`

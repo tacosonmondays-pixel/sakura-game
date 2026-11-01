@@ -201,6 +201,47 @@ describe('the attack styles fall back when the library gives nothing back (switc
   });
 });
 
+describe('the player\'s attack effects setting', () => {
+  it('covers the library: off, nothing is handed to it and every effect keeps the plain look', () => {
+    const src = readFileSync('src/render/BattleRenderer.js', 'utf8');
+    expect(src).toMatch(/const vfxOn = settings\.attackFx !== false;/);
+    for (const k of ['fx.lightning = vfxOn ? lightning : null;', 'fx.beams = vfxOn ? beams : null;', 'actors.trails = vfxOn ? trails : null;', 'fx.shapes = vfxOn ? shapes : null;']) {
+      expect(src).toContain(k);
+    }
+    // nothing else hands the layers out: the attack styles' calls exist only with the attack styles (off: none)
+    expect(src).toMatch(/const attackFx = settings\.attackFx === false \? null : createAttackFx\(/);
+    expect(src.match(/fx\.(lightning|beams|shapes) = (?!null|vfxOn)/g)).toBeNull();
+    expect(src.match(/actors\.trails = (?!null|vfxOn)/g)).toBeNull();
+    const wire = src.slice(src.indexOf('const guarded = '), src.indexOf('// attack FX are decoration'));
+    expect(wire).toMatch(/if \(attackFx\) \{[\s\S]*attackFx\.ctx\.strokes = strokes;/);
+  });
+
+  it('with nothing handed over, the default effects and the shots keep their old drawing', () => {
+    const regions = new Proxy({}, { get: (_, k) => k });
+    const fx = new FxSystem({ atlas: { regions }, batches: {}, camera: null });
+    fx.setQuality('high');
+    fx.rand = () => 0.5;
+    // (as the renderer leaves them with the setting off)
+    expect(fx.lightning ?? null).toBeNull();
+    expect(fx.beams ?? null).toBeNull();
+    expect(fx.shapes ?? null).toBeNull();
+    fx.pulse(3, 3, 1.2, '#5ab8ff');
+    fx.slash(3, 3, 0.4, '#ff5d7a', 0.9);
+    expect(fx.parts.map((p) => p.uv)).toEqual(expect.arrayContaining(['ringSoft', 'slash']));
+    const segs0 = fx.segments.length;
+    fx.beam([1, 1], [4, 4], 0.2, '#ff7ab8');
+    fx.chain([[1, 1], [3, 2]], '#ffd23f');
+    expect(fx.segments.length).toBeGreaterThan(segs0);
+    const fed = [];
+    const host = projHost({ feed: (uid) => fed.push(uid) });
+    host.trails = null;
+    host.sim.projectiles = [shot(1)];
+    host._syncProjectiles(1 / 60);
+    expect(fed).toEqual([]);
+    expect(host.proj.arrow.count).toBe(1);
+  });
+});
+
 describe('at capacity every drawn line keeps all its layers', () => {
   it('a small strokes buffer far over its room: nothing is refused, and the slashes and rings keep their room before the ribbons', () => {
     const scene = new THREE.Scene();
