@@ -259,6 +259,7 @@ const SHORT = { leg: 'Legendary', ur: 'UR', lr: 'LR' };
 function gearOptions(unitId = null) {
   const setRow = (r) => [BEST_SET, ...SET_IDS].map((s) => ({ value: `${r}-${s}`, label: `${SHORT[r]} · ${s === BEST_SET ? `${unitId ? GEAR_SETS[bestSetFor(unitId)].name : 'her coach set'} (coach)` : GEAR_SETS[s].name}` }));
   return [
+    { group: 'Your own', options: [{ value: 'mine', label: 'My gear (as she wears it)' }] },
     { group: 'No set', options: [{ value: 'none', label: 'No gear' }, { value: 'leg', label: 'Best Legendary (no set)' }] },
     { group: 'Legendary set ×5', options: setRow('leg') },
     { group: 'UR set ×5', options: setRow('ur') },
@@ -286,7 +287,7 @@ function buildControls(b, onChange, { unitId = null, prefix = 'sandbox-build' } 
 /** "Lv85 · P6 · ★5 · LR set" */
 function buildShort(unitId, b) {
   const lr = sandboxIsLr(unitId, b);
-  const gear = b.gear === 'none' ? 'no gear' : b.gear === 'leg' ? 'Legendary' : b.gear === 'blank' ? 'Blank LR' : `${b.gear.startsWith('lr') ? 'LR' : b.gear.startsWith('ur') ? 'UR' : 'Leg'} set`;
+  const gear = b.gear === 'none' ? 'no gear' : b.gear === 'mine' ? 'my gear' : b.gear === 'leg' ? 'Legendary' : b.gear === 'blank' ? 'Blank LR' : `${b.gear.startsWith('lr') ? 'LR' : b.gear.startsWith('ur') ? 'UR' : 'Leg'} set`;
   return `Lv${b.level} · P${b.p} · ★${b.stars}${lr ? ' · LR' : ''} · ${gear}`;
 }
 
@@ -359,7 +360,7 @@ function teamStep(choice, redraw) {
       h('h3.mb-card-title', 'Squad build'),
       button('Max everything', { kind: 'ghost', small: true, testid: 'sandbox-build-max', onClick: () => { choice.build = normalizeBuild(SANDBOX_MAX_BUILD); saveChoice(choice); redraw(); } })),
     buildControls(choice.build, (patch) => { choice.build = normalizeBuild({ ...choice.build, ...patch }); saveChoice(choice); redraw(); }),
-    h('p.muted.sbx-build-note', `${gearPresetLabel(choice.build.gear)}, ${choice.build.roll === 'typical' ? 'typical rolls' : 'max rolls'}. Gear here is virtual: main stats from each girl's Build Coach; Max roll puts every line at its best roll with its pins, Typical roll at its average roll; every ▲ and ✦ either way. Nothing is added to your bag.`));
+    h('p.muted.sbx-build-note', choice.build.gear === 'mine' ? 'My gear: each girl wears a copy of the gear she has on in your save, rolls as they are (a girl with none wears none). Nothing in your save or bag changes.' : `${gearPresetLabel(choice.build.gear)}, ${choice.build.roll === 'typical' ? 'typical rolls' : 'max rolls'}. Gear here is virtual: main stats from each girl's Build Coach; Max roll puts every line at its best roll with its pins, Typical roll at its average roll; every ▲ and ✦ either way. Nothing is added to your bag.`));
   const squad = h('section.mb-card.sbx-squad',
     h('div.sbx-squad-head',
       h('h3.mb-card-title', 'Squad'),
