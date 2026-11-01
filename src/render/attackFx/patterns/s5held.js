@@ -27,9 +27,14 @@ const MOON_CORE = '#f6f2ff';
 export const MOON_TOON = { half: 0.11, ink: 0.02, core: 0.42, a: 0.75, bandFreq: 3, bandSpeed: 1.5, erode: 0.8, minPx: { ink: 2.2, body: 1.4, core: 0.7 } };
 const _S = stroke();
 const MOON_INK = [0.16, 0.12, 0.32];
-const lin = (ctx, hex) => {
-  const c = ctx.col(hex);
-  return [c.r, c.g, c.b];
+/** The body's and core's colours as the strokes take them (linear), read once through the context's colour cache. */
+const MOON_RGB = { body: null, core: null };
+const rgbOf = (ctx, key, hex) => {
+  if (!MOON_RGB[key]) {
+    const c = ctx.col(hex);
+    MOON_RGB[key] = [c.r, c.g, c.b];
+  }
+  return MOON_RGB[key];
 };
 
 /** Draws a girl's Spore Mist and moonbeam pass, if open (attackFx update, every frame). @returns {number} quads pushed */
@@ -103,8 +108,8 @@ function moonToon(ctx, t, m, hd, Lb, left) {
   if (L.room && L.room() < nb * 3) return -1;
   const T = MOON_TOON;
   const S = _S;
-  const body = lin(ctx, MOON_BODY);
-  const core = lin(ctx, MOON_CORE);
+  const body = rgbOf(ctx, 'body', MOON_BODY);
+  const core = rgbOf(ctx, 'core', MOON_CORE);
   const bands = !ctx.reduceMotion && ctx.quality !== 'low';
   S.head = 99;
   S.tail = -99;
