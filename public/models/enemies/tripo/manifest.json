@@ -419,9 +419,9 @@
  },
  "slime_green": {
   "file": "slime_green.glb",
-  "size": 188280,
-  "triangles": 5000,
-  "vertices": 4834,
+  "size": 107992,
+  "triangles": 4576,
+  "vertices": 2453,
   "animations": [
    "death",
    "hit",
@@ -429,13 +429,14 @@
    "move",
    "special"
   ],
-  "height": 1.0,
+  "height": 0.82,
   "unitScale": 2.0,
   "kind": "blob",
-  "source": "tripo",
+  "source": "blender",
+  "look": "jelly",
   "lod": "slime_green.lod.glb",
-  "lodSize": 90176,
-  "lodTriangles": 2000,
-  "lodVertices": 2283
+  "lodSize": 42320,
+  "lodTriangles": 1184,
+  "lodVertices": 675
  }
 }

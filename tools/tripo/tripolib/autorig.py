@@ -6,7 +6,14 @@ where the arm's vertical thickness turns into the torso's, the feet the centroid
 side; the hips sit at 0.55 of the shoulder height (the chibi ratio of the Tripo biped rigs of batch 1). The bones get
 the readable names of tripolib/rig.py (root, hips, spine, chest, neck, head, shoulder/upper_arm/forearm/hand_L/R,
 thigh/shin/foot/toe_L/R), so tripolib/clips_staff.py and clips_enemy.py animate it like a renamed Tripo rig.
-Weights: Blender's automatic (bone heat) weights; any vertex left without a weight goes to its nearest bone."""
+Weights: Blender's automatic (bone heat) weights; any vertex left without a weight goes to its nearest bone.
+
+Known failure (docs/art/tripo/model-quality.md): a tail, staff or wide hair beside the arms fools the landmarks. On
+Luna the widest slice was her fox tail, so the hands landed on the tail tips and her arms, staff and tail ended up
+on the head, chest and thigh bones (a permanent T-pose); on Nami, Kanna and Yoriko the shoulder joint landed
+halfway down the arm, so only the forearms moved. Those four were rebuilt by tools/tripo/rerig_tripo_chibi.py
+(tripolib/rerig.py: landmarks from a per-figure profile, props and tails as regions). Check any new figure fitted
+here with `node e2e/model-audit.mjs --only <id>` and `node e2e/model-quality.mjs --heroes <id>`."""
 import bpy
 import numpy as np
 from mathutils import Vector
