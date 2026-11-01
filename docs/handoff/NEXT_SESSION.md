@@ -551,3 +551,36 @@ Owner decisions still pending:
 - Both COOP 17 branches conflict in version.js and the protocol tests. The release assembly pins KNOWN[17] to the merged id.
 - Pre-existing failure: e2e/profile.mjs "medal tally over 59 stages" fails on main too. The test's expected stage count is stale; needs its own fix.
 - perf.mirror.test.js is a wall-clock budget test and is load-sensitive. Run it on its own when it flakes.
+
+## UPDATE 2026-11-01 11:10 UTC (session_01Ayo4epDeBqUSC3JpPNSAqQ): v0.1.70 live; the VFX branches
+
+- **v0.1.70 "Your Own Gear in the Sandbox" is LIVE**, shipped at the owner's direct request.
+  - Route: `fix/sandbox-my-gear` @ 05c2311f, then `ship/v0.1.70`, then `main` @ df9fae8d. COOP_PROTOCOL 17, sim e4001588f40b.
+  - Gate: review OK (LOW notes only), go/no-go GO, independent live check LIVE_OK.
+  - **Sandbox gear preset "My gear (as she wears it)":** `MY_GEAR = 'mine'` in `src/systems/sandbox.js`. It deep-copies the pieces the girl wears in the save, through `sandboxProfile` / `sandboxUnitStats(…, { owner })` from `src/ui/battle/setup.js`.
+  - **Tripo models paused:** slime_green and goblin_runner (`TRIPO_PAUSED` in `src/models/glbEnemy.js`). The owner found the Tripo goblin creepy, so the old basic slime and goblin are back. The owner says remakes need no further OK, as long as they look better.
+  - Lows:
+    - The "Gear rolls" select stays enabled while "My gear" is picked; it has no effect there.
+    - The "My gear" option text truncates at 1280x720.
+- **`feature/vfx-tornado`** (the coordinator's brief: Akane's Starmine Barrage becomes a fire tornado; display only).
+  - r3 was NOT OK. Coordinator decision: an r4 fix round. Commit bf561a8e:
+    - high draws a "cover" blend, so it reads like medium;
+    - the sparse erosion shapes the mask only;
+    - the bloom boost keys on the bloom state;
+    - `tornadoSafe` guards it;
+    - docs and CONTRACTS updated;
+    - patch note draft in `docs/review/vfx-tornado/patch-note.md`.
+  - The close-up board is being captured; an r4 review follows. Not on `main`; it folds into a release.
+- **`feature/vfx-lightning`** (the owner's request, Nov 1). Branched off `feature/vfx-tornado` @ c2dbe028; display only, sim unchanged.
+  - The asks:
+    - research stylized VFX and make our own VFX library, starting with a styled lightning chain;
+    - then make laser beams more impactful, solid and styled, and style all attacks.
+  - Built so far:
+    - shared toon strokes (one draw call);
+    - styled chain lightning (Raika, Chika's Tesla Tower, Storm Lance, every default chain);
+    - solid styled beams (Luna's moon lance, Miko's holy ray, Raika's Overcharge lance, every default beam);
+    - batch 2: every attackFx segment drawn as a toon stroke.
+  - The plan and batches B1–B8 are in `docs/specs/VFX_LIBRARY.md`.
+  - Smoke 681/0 on d04f78a5. Not reviewed yet.
+  - It needs a merge with v0.1.71: `feature/weapon-muzzles` makes `ctx.hand()` return the weapon tip, and the bolts and beams start at `hand()`.
+- **Owner (Nov 1):** the effects may borrow the general look of popular action anime: ink-brush outlines, impact lines, woodblock-print elements. Show names are never written down, and no show's specific techniques are copied.

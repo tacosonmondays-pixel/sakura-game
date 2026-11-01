@@ -1,6 +1,6 @@
 # Sakura Sentinels — handoff
 
-Read this first in any new session (any account, cloud or local). It says what is live, where the unfinished work lives, what comes next, the owner's standing decisions, and the rules that never bend. Last updated Oct 29, 2026 (v0.1.54 to v0.1.61 shipped).
+Read this first in any new session (any account, cloud or local). It says what is live, where the unfinished work lives, what comes next, the owner's standing decisions, and the rules that never bend. Last updated Nov 1, 2026 (v0.1.70 live; v0.1.62 to v0.1.70 are logged in `docs/handoff/NEXT_SESSION.md`).
 
 **Next session: read `docs/handoff/NEXT_SESSION.md` first.** It says what is live (v0.1.61, shipped Oct 29), what is built on the other branches, and what to do next. It is written for a cloud session that only has this repo.
 
@@ -8,7 +8,7 @@ The owner also has a private notes pack (`sakura-handoff-pack.zip`, see §11) wi
 
 ## 1. Where things stand
 
-- **Live:** v0.1.61 "Five More Ultimates and Academy Flair" (Oct 29) at https://tacosonmondays-pixel.github.io/sakura-game/ — `main` is `60ce9cad` (the `release/v0.1.61` head), sim id `be940ecb2087`, `COOP_PROTOCOL` 13 (`src/online/coop/version.js`). Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`.
+- **Live:** v0.1.70 "Your Own Gear in the Sandbox" (shipped Oct 31 / Nov 1 UTC) at https://tacosonmondays-pixel.github.io/sakura-game/. `main` is `df9fae8d`, sim id `e4001588f40b`, `COOP_PROTOCOL` 17 (`src/online/coop/version.js`). The releases since v0.1.61 are logged in `docs/handoff/NEXT_SESSION.md`. Check with `curl -s https://tacosonmondays-pixel.github.io/sakura-game/version.json`.
 - **Next deploys:** (1) **art v3** (display only): every roster portrait except the seven academy girls' v2 scenes redone in **Look B**, the clean academy look with a dynamic camera (owner, Oct 29: "B"; Hikari's eyes teal by default), made with NovelAI under an 1,800 Anlas cap; the coordinator runs it, then a display-only branch `feature/art-v3` with the four portrait files per girl (`full`, `card`, `bust`, `thumb`) and new `PORTRAIT_DATA` face points; the stands (`cut`, `cut-s`) stay; Kogane's and Norika's stands stay the coming-soon sign (`placeholder: true`) until a stand pass. (2) After Nov 1 7 PM Central: balance round 5 (`feature/balance-r5`, PR #40) together with the attack shapes S1–S3 (`feature/attack-*`); it merges `main` (COOP 13) and moves its pending pin to `{13: …}`; that release takes `COOP_PROTOCOL` 14. Then the Tripo models the owner brings. The version is `0.1.<Pages run number>`; every push to `main` deploys (`.github/workflows/deploy.yml`, runs `npm test` first) and needs a patch note (§7). A failed deploy run still uses up its number; re-run a failed run with `gh run rerun` to keep the number. Never ship 18:00–20:00 Central.
 - **Roster:** 36 girls. Heroes (6): hikari, luna, nami, kanna, yoriko, seiran. Students (30): aoi, rei, yuki, momo, akane, sango, kage, umeko, shiro, midori, suzu, raika, miko, hotaru, kaede, chika, fuu, hana, ruri, noa, iroha, ena, azami, kinu, wakaba, yuzuha, ouka, chigusa, marumi, tenka (v0.1.57; Recruit spotlight only, Legend Promise at 300).
 - **Recent releases:**
