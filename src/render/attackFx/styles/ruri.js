@@ -6,7 +6,7 @@
 //   P1 (falcon) T3+: a feather flick on the hit
 //   P2 (otter) T3+: water ripple on the hit
 import { lookAt } from '../flair.js';
-import { flash, ripple, sparks } from '../patterns/bursts.js';
+import { flash, ripple, sparks, toonSlash } from '../patterns/bursts.js';
 import { CORE, DECOR } from '../context.js';
 
 const BLUE = '#5ad1ff';
@@ -47,7 +47,7 @@ export const ruri = {
     const lk = rec.tw.look;
     ripple(ctx, x, y, 0.1, Math.max(0.4, radius), 0.3, ctx.col(BLUE), 0, 'ringSoft', true, 0.8);
     sparks(ctx, x, 0.35, y, 2, ctx.col(PALE), 1.2);
-    if (lookAt(lk, 0) >= 3) {
+    if (lookAt(lk, 0) >= 3 && !toonSlash(ctx, x, 0.4, y, 0.6, ctx.col('#ffffff'), 0.6)) {
       const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.slash, x, 0.4, y, 0.5, 0.6, 0.14, ctx.col('#ffffff'), 0.9);
       if (p) p.rot = 0.6;
     }

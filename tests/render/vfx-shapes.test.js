@@ -5,6 +5,8 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { createShapeFx, SHAPE_TIERS, SLASH, SHOCK } from '../../src/render/vfx/shapes.js';
 import { FxSystem } from '../../src/render/fx.js';
+import { toonSlash, TOON_SLASH_SIZE } from '../../src/render/attackFx/patterns/bursts.js';
+import { ruri } from '../../src/render/attackFx/styles/ruri.js';
 
 function fakeStrokes() {
   const frame = [];
@@ -96,5 +98,28 @@ describe('wiring (display only)', () => {
     const self = { shapes, n: () => 0, spawn: () => {}, R: {}, ring: () => { throw new Error('no soft ring when shapes draw'); } };
     FxSystem.prototype.pulse.call(self, 3, 4, 2, '#ffe066');
     expect(got[1]).toEqual(['shock', 3, 4, 0.5, 2, '#ffe066']);
+  });
+});
+
+describe('the attack styles\' own slashes', () => {
+  it('toonSlash draws the styled crescent when the renderer has shapes, else lets the style draw its sprite', () => {
+    const got = [];
+    const shapes = { slash: (...a) => (got.push(a), {}) };
+    expect(toonSlash({ shapes }, 1, 0.4, 2, 0.6, '#ffffff', 0.6)).toBe(true);
+    expect(got[0]).toEqual([1, 0.4, 2, 0.6, '#ffffff', { size: 0.6 * TOON_SLASH_SIZE }]);
+    expect(toonSlash({}, 1, 0.4, 2, 0.6, '#ffffff')).toBe(false);
+  });
+
+  it('a style\'s impact slash (Ruri) becomes the crescent, not the sprite', () => {
+    const slashes = [];
+    const sprites = [];
+    const ctx = {
+      shapes: { slash: (...a) => (slashes.push(a), {}) },
+      spr: (b, cls, uv) => (sprites.push(uv), null), R: { slash: 'SLASH', ringSoft: 'RING', feather: 'FEATHER', spark: 'SPARK' },
+      b: { bbA: {}, bbN: {}, groundA: {} }, col: (h) => h, rand: () => 0.5, q: { sparks: false, motes: 1 }, cap: () => true, n: (k) => k,
+    };
+    ruri.onImpact({ tw: { look: { multi: true, tiers: [3, 0, 0] } } }, 1, 2, false, 0.5, ctx);
+    expect(slashes.length).toBe(1);
+    expect(sprites).not.toContain('SLASH');
   });
 });

@@ -81,6 +81,18 @@ export function flash(ctx, x, h, y, size, c, life = 0.12, cls = CORE) {
   return p;
 }
 
+/**
+ * A styled slash (src/render/vfx/shapes.js: an inked toon crescent that sweeps in and leaves in dashes) when the
+ * renderer has the shapes layer (ctx.shapes). size: the old slash sprite's largest size; rot: its turn on screen.
+ * @returns {boolean} true when drawn (the caller skips its slash sprite)
+ */
+export function toonSlash(ctx, x, h, y, size, c, rot = 0) {
+  if (!ctx.shapes) return false;
+  return !!ctx.shapes.slash(x, h, y, rot, c, { size: size * TOON_SLASH_SIZE });
+}
+/** A slash sprite's size → the toon crescent's (the sprite's crescent fills only part of its quad). */
+export const TOON_SLASH_SIZE = 1.1;
+
 /** Ground ring growing r0 → r1 (radius), optionally delayed. */
 export function ripple(ctx, x, y, r0, r1, life, c, delay = 0, uv = 'ringSoft', additive = true, a0 = 0.9, cls = CORE) {
   const p = ctx.spr(additive ? ctx.b.groundA : ctx.b.groundN, cls, ctx.R[uv] || ctx.R.ringSoft, x, 0.07, y, r0 * 2, r1 * 2, life, c, a0);

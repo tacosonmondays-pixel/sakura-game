@@ -345,6 +345,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // styled slashes and shockwaves (src/render/vfx/shapes.js): every default slash and pulse
   const shapes = createShapeFx({ scene, strokes, camera, quality, reduceMotion });
   fx.shapes = shapes;
+  // (and the attack styles' own slashes: patterns/bursts.js toonSlash)
+  if (attackFx) attackFx.ctx.shapes = shapes;
   if (attackFx) {
     attackFx.ctx.lightning = lightning;
     attackFx.ctx.beams = beams;

@@ -394,7 +394,7 @@ every attack and the batch that styles it. Display only: the sim id does not cha
 
 ### Slashes and shockwaves (batches B4, B5, `src/render/vfx/shapes.js`)
 
-- **Slash:** a crescent of toon strokes flat to the camera (ink, body, white core), thickest in its middle and pointed at both ends. It sweeps across in `SLASH.grow`, holds, then its tail chases its front off and it breaks into dashes. Every default slash (`fx.slash`) draws one.
+- **Slash:** a crescent of toon strokes flat to the camera (ink, body, white core), thickest in its middle and pointed at both ends. It sweeps across in `SLASH.grow`, holds, then its tail chases its front off and it breaks into dashes. Every default slash (`fx.slash`) draws one, and so do the attack styles' own slashes (Kage, Kinu, Luna, Ruri, Wakaba, Yoriko) through `toonSlash` (`src/render/attackFx/patterns/bursts.js`); without the shapes layer they keep their slash sprites.
 - **Shockwave:** a ring of toon strokes on the ground. It bursts out with an ease-out, thins as it goes and breaks into dashes over its second half. Every default pulse (`fx.pulse`) draws one; the sparks stay.
 - **Tiers:** joints per arc and ring (high 12 and 24, medium 9 and 18, low 6 and 12) and the most shapes up at once (32, 24, 16).
 - **Reduce Motion:** no sweep or chasing tail; the ring grows linearly and lasts a little longer.

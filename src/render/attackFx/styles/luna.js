@@ -7,7 +7,7 @@
 //   P2 Astral Court: star motes patrol the aura edge; T5 crescent halo over her head
 import { lookAt } from '../flair.js';
 import { SEG_CORE, SEG_SLIDE } from '../patterns/segments.js';
-import { flash } from '../patterns/bursts.js';
+import { flash, toonSlash } from '../patterns/bursts.js';
 import { decal } from '../patterns/markers.js';
 import { drawRingFamiliars } from '../patterns/patrol.js';
 import { CORE, DECOR, FAMILIAR } from '../context.js';
@@ -80,7 +80,7 @@ export const luna = {
     }
     ctx.spr(ctx.b.bbA, CORE, ctx.R.star, ex, 0.35, ey, 0.3, 0.12, 0.18, ctx.col('#ffffff'), 1);
     flash(ctx, M.x, M.h, M.y, 0.4, sheath, 0.1);
-    if (p0 >= 5) {
+    if (p0 >= 5 && !toonSlash(ctx, ex, 0.4, ey, 0.8, ctx.col('#e3d4ff'))) {
       const p = ctx.spr(ctx.b.bbA, DECOR, ctx.R.slash, ex, 0.4, ey, 0.55, 0.8, 0.16, ctx.col('#e3d4ff'), 0.9);
       if (p) p.asp = 2;
     }
