@@ -8,7 +8,7 @@
 //   P2 First Aid:      T3 Towel Snap; T5 Championship Season: drops drift round her
 // The bottle's 3D model (if the placed-object pass gives it one) can replace drawBottle below.
 import { lookAt } from '../flair.js';
-import { flash } from '../patterns/bursts.js';
+import { flash, toonSlash } from '../patterns/bursts.js';
 import { spokes, statusCue, streak } from '../patterns/academy.js';
 import { hand, every } from './util.js';
 import { CORE, DECOR } from '../context.js';
@@ -110,10 +110,12 @@ export const wakaba = {
       const h = hand(ctx, t);
       const eh = ctx.enemyH(e);
       ctx.segs.add(h.x, h.h + 0.1, h.y, e.x, eh, e.z, 0.08, ctx.col('#ffffff'), 0.1, 8 | 1);
+      const rot = ctx.screenAngle(e.x, eh, e.z, e.x - t.x, 0, e.z - t.y) + Math.PI / 2;
+      if (toonSlash(ctx, e.x, eh, e.z, 0.75, ctx.col('#ffffff'), rot)) return;
       const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.slash, e.x, eh, e.z, 0.5, 0.75, 0.14, ctx.col('#ffffff'), 1);
       if (p) {
         p.asp = 2.2;
-        p.rot = ctx.screenAngle(e.x, eh, e.z, e.x - t.x, 0, e.z - t.y) + Math.PI / 2;
+        p.rot = rot;
       }
     }
   },

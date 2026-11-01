@@ -8,7 +8,7 @@
 //   P2 Kunai Craft: T3 kunai instead of shuriken; T4 a chain from her hand to each kunai
 import { lookAt } from '../flair.js';
 import { afterimage, drawClone } from '../patterns/clones.js';
-import { flash } from '../patterns/bursts.js';
+import { flash, toonSlash } from '../patterns/bursts.js';
 import { hand } from './util.js';
 import { CORE, DECOR } from '../context.js';
 
@@ -62,6 +62,7 @@ export const kage = {
   },
 
   view(p, rec, _t, v, ctx) {
+    v.ownTrail = true; // (her own trail: the styled ribbon skips her shots)
     const lk = rec.tw.look;
     const p2 = lookAt(lk, 2);
     if (p2 >= 3) {
@@ -103,7 +104,7 @@ export const kage = {
     if (!e) return;
     const h = ctx.enemyH(e);
     flash(ctx, e.x, h, e.z, 0.6, ctx.col('#a77bff'), 0.16);
-    if (lookAt(tw.look, 1) >= 5) {
+    if (lookAt(tw.look, 1) >= 5 && !toonSlash(ctx, e.x, h + 0.1, e.z, 0.75, ctx.col('#c4b5fd'))) {
       const p = ctx.spr(ctx.b.bbA, DECOR, ctx.R.slash, e.x, h + 0.1, e.z, 0.5, 0.75, 0.16, ctx.col('#c4b5fd'), 1);
       if (p) p.asp = 2;
     }

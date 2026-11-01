@@ -81,6 +81,7 @@ export const hikari = {
     v.sz = 1.6;
     v.glow = 0.5;
     if (lookAt(rec.tw.look, 2) >= 5 && ctx.q.trails >= 1) {
+      v.ownTrail = true; // (her own golden streak: the styled ribbon skips these)
       const vl = Math.hypot(p.vx, p.vy) || 1;
       ctx.line(ctx.b.bbA, DECOR, v.x, v.z, v.y, v.x - (p.vx / vl) * 0.6, v.z, v.y - (p.vy / vl) * 0.6, 0.12, ctx.col(GOLD), 0.6);
     }

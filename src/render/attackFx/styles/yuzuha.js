@@ -73,6 +73,7 @@ export const yuzuha = {
   },
 
   view(p, rec, _t, v, ctx) {
+    v.ownTrail = true; // (her own trail: the styled ribbon skips her shots)
     const vl = Math.hypot(p.vx, p.vy) || 1;
     const ux = p.vx / vl;
     const uy = p.vy / vl;

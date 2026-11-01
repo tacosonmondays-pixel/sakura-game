@@ -309,6 +309,7 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
   to its preset: `akane.starmine` → `fire`: its `abilityWarn` event starts the column on the barrage's spot (1.25× the
   shells' radius), and every `abilityShell` of that cast feeds it for 0.45 s more, so it ends with the barrage at any
   game speed (the shells run on sim time).
+  With the attack effects option off (`settings.attackFx === false`) no column starts (see the library's Setting line).
 - **Tiers** (`TORNADO_TIERS`):
   - High: 22 rings, 4 faint core rings and 12 embers, the cover blend.
   - Medium: 13 rings and 6 embers.
@@ -332,3 +333,92 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
   sits behind `import.meta.env.DEV`, so the production build has neither the panel nor lil-gui.
 - **Captures:** `node tools/vfx/capture.mjs --events starmine@80,tornado-sakura@400 --hp 100000` (a tornado event
   spawns one on the crowd; `--hp` keeps the crowd alive against the max-build Sandbox girls).
+
+## VFX library: toon strokes, chain lightning and beams (`docs/specs/VFX_LIBRARY.md`)
+
+The owner's plan for a styled look on every attack is `docs/specs/VFX_LIBRARY.md`: the house style, the research notes,
+every attack and the batch that styles it. Display only: the sim id does not change.
+
+### Toon strokes (`src/render/vfx/strokes.js`)
+
+- **What:** a capsule between two world points: round caps (clean joints), a crisp anti-aliased edge (no soft fringe).
+  An effect draws a line as layers pushed back to front: a dark ink line, the body colour, a white-hot core. It pushes
+  all of one layer, then the next, so a later layer covers an earlier one at every joint.
+- **Per stroke:**
+  - u along it and the leader's head and tail (nothing past the head, nothing before the tail).
+  - Erosion (`cut`): a hard cut through a 1D noise along the stroke, so the line breaks into dashes.
+  - Running bands (`BANDS`) and a soft added glow (`GLOW`).
+  - `hdr`, the colour × (1 + hdr): over white for the bloom (high only).
+  - `minPx`, the thinnest it is drawn: a line never thins into shimmering hairs on a phone.
+- **Draw cost:**
+  - One instanced draw call for every styled line of the battle; hidden while nothing is pushed.
+  - Premultiplied blend: the solid layers cover, the glow adds.
+  - Begun and ended with the sprite batches each frame (`BattleRenderer`), held through both impact frames, at most 8192 strokes in a battle.
+  - Full: every layer checks the room left (`strokes.room()`) before it draws and drops whole lines, the newest first, so a line keeps its ink, body and core or is not drawn at all (never an ink-only dark line). Lightning and the styles' segments drop whole segments (the newest bolt can stop short of its last target; a zig-zag can keep only its first parts). The layers take the room in frame order: the styles' segments, lightning, beams, slashes and rings, then the ribbons, so under extreme load the decorative ribbons thin before the hit feedback. `renderer.vfx.strokes` and `strokesRefused` show the load to captures.
+- **Setting:** the attack effects option covers the library too: off (`settings.attackFx === false`), nothing is handed to it and no tornado starts (no chains, beams, slashes, rings, ribbons, toon segments or Starmine column: every effect keeps the plain look), and its layers stay idle (nothing pushed, no draw call). Only the previews set it today (`previews/renderer.js` `&fx=off`, the attack A/B in `previews/attacks.js`): no Settings toggle sets it, and the save does not keep the key (`cleanSettings` in `src/systems/save.js`).
+- **Errors:** an error anywhere in the library (an update, the projectile feed, a hand-off from `fx.js`, an attack style's call or the styles' segments) switches the whole library off for the battle (`vfxSafe` / `vfxOff` in `BattleRenderer`, logged once): its layers are cleared, nothing of that frame's strokes is drawn, and every effect goes back to its old drawing. The attack styles reach the library through guarded calls (`attackFx.ctx.lightning` / `beams` / `shapes` and `ctx.vfxError`), so the signature looks stay on and the attack that met the error draws its old look (it gets nothing back). They carry only `strike`, `fire` and `slash`: a new library call for the styles is added there as another `guarded` entry (and to `tests/render/vfx-library-guard.test.js`).
+
+### Chain lightning (`src/render/vfx/lightning.js`, `lightningPresets.js`)
+
+- **Who:**
+  - Raika's chains and Chika's Tesla Tower chains (their attack styles: `attackFx/styles/raika.js`, `chika.js`).
+  - Storm Lance and every other chain the default layer draws (`fx.chain` hands it the points).
+- **Look:**
+  - Each hop is a zig-zag: long diagonals and short sharp jogs (`skew`), with a fork or two.
+  - Layers: a dark ink line (violet under gold, navy under ice blue), the body, a white-hot core.
+  - Each hop's leader races from the girl to its target in `grow` (0.05 s). The hops start one after another: the last one starts within `CHAIN_SPAN` (0.24 s) however long the chain is, and lands about 0.05 s later.
+  - The path is struck again on a stepped beat (hand-drawn crackle). The core dims on every other strike.
+  - It leaves by erosion: it breaks into dashes and is gone.
+  - At each target: a star (flash-guarded), sparks (petals for sakura) and a ring on the ground.
+- **Presets:** `storm` (Raika: gold, violet ink), `tesla` (Chika: ice blue, navy ink; gold at the top of her path),
+  `arcane` (mystic violet), `sakura` (pink, plum ink, petals). Another chain colour gets storm's shape in that colour,
+  with a dark ink of its hue.
+- **Tiers:** high 6 kinks a hop, 2 forks, 5 sparks; medium 5, 1, 3; low 4 kinks and no forks, sparks or ground rings.
+  A busy board thins new bolts (fewer kinks, no forks) long before any cap. High with bloom: the core goes over white
+  and the body stays under the grade's knee (`BODY_UNDER_BLOOM`).
+- **Reduce Motion:** one still path a hop (no re-strike, no flicker), slower erosion, no turning sprites, half the sparks.
+- **Dev lab:** `?lightningLab` (dev server only, like the tornado's): presets, hops, forks, live tuning (colours included: the lab strikes with its edited preset), "Copy preset".
+
+### Beams (`src/render/vfx/beams.js`, `beamPresets.js`)
+
+- **Who:**
+  - Luna's moon lance (it still sweeps: its end slides in from the last one), Miko's holy ray, Raika's Overcharge lance (a zig-zag struck again on the beat).
+  - Every beam the default layer draws (`fx.beam` hands it over, in the beam's own colour).
+- **Four beats:**
+  - Charge: a thin line races out, with a muzzle flare.
+  - Punch: it slams in wider (`overshoot`) and settles.
+  - Hold: bright bands run out to the target.
+  - Leave: it thins, its back end chases its front into the target, and it breaks into dashes.
+- **Impact:** a star (flash-guarded), a burst of inked impact lines flat to the camera, sparks spraying back, a ring on the ground, a brief scorch.
+  - The styles' own end stars, flashes and scorch marks (Luna's, Miko's, Raika's) are left out while the beam draws, so each end has one flash and one scorch; they come back on the fallback.
+  - Luna's tier cues ride on her lance: wider with each P0 step, and her T5 sheath colour.
+- **Tiers:** high 8 impact lines, 5 sparks, running bands; medium 6 and 3; low a plain solid beam (no lines, sparks, ring, scorch or bands).
+- **Reduce Motion:** no punch, running bands, chasing tail, impact lines or re-strike; still sprites; half the sparks.
+
+### Attack styles' segments as toon strokes (batch B2, `src/render/attackFx/patterns/segments.js`)
+
+- **What changes:** with the battle's strokes (`ctx.strokes`), every additive segment of every attack style is a solid toon line: tracers, thrust lines, zig-zags, mini-arcs.
+  - Layers: ink, body, and a white-hot core for `SEG_CORE`, pushed layer by layer so the joints stay clean.
+  - Leaving: it thins and breaks into dashes instead of fading.
+  - `SEG_FLICKER` and `SEG_ZIGZAG` move on a stepped beat (`TOON_SEG.beat`, 0.05 s); still under Reduce Motion.
+- **Unchanged:** ropes and sight lines (`SEG_NORMAL`) keep the soft quads, and so does every segment when there are no strokes.
+
+### Projectile trails (batch B3, `src/render/vfx/trails.js`)
+
+- **What:** every projectile in flight draws a short toon ribbon behind it: ink, its element colour and a white core.
+  - It tapers to a point and breaks into dashes at the tail.
+  - When the shot lands or vanishes, the ribbon is pulled in after it (`TRAIL_TAIL`, 0.12 s).
+  - `TRAIL_KINDS` sets each kind's length and width (arrow, bolt, spark, bullet, fireball, shuriken, shell, flask).
+  - A shot whose attack style already draws its own trail (the style sets `view.ownTrail`: every shot of Aoi, Hana, Iroha, Kage, Kinu, Nami, Ruri, Yoriko, Yuki and Yuzuha, Akane's shots when her look has smoke or embers, Hikari's T5 shots, Chika's drone bullets and Marumi's lobbed shells where her own trail draws) gets no ribbon, so it never draws two; a shot without a trail of its own keeps the ribbon. `tests/render/vfx-trail-optout.test.js` holds both: each girl alone in a real gallery battle (base and three builds, high and medium), and every girl whose style draws her shots in `view()` must reach its checks, except a view that skips every shot (a skipped shot gets no ribbon) and Hikari, whose view draws only for a projectile attack while her attack is a pulse at every hero level (her T5 lance branch cannot run today). Yuzuha's battle runs 40 s so her sentries meet the enemies.
+- **How:** `actors._syncProjectiles` feeds it where each shot is drawn (read only).
+- **Tiers:** high 160 ribbons of up to 7 joints, medium 90 of 5, low none.
+- **Reduce Motion:** ribbons 30% shorter.
+
+### Slashes and shockwaves (batches B4, B5, `src/render/vfx/shapes.js`)
+
+- **Slash:** a crescent of toon strokes flat to the camera (ink, body, white core), thickest in its middle and pointed at both ends. It sweeps across in `SLASH.grow`, holds, then its tail chases its front off and it breaks into dashes. Every default slash (`fx.slash`) draws one, and so do the attack styles' own slashes (Kage, Kinu, Luna, Ruri, Wakaba, Yoriko) through `toonSlash` (`src/render/attackFx/patterns/bursts.js`); without the shapes layer they keep their slash sprites.
+- **Shockwave:** a ring of toon strokes on the ground. It bursts out with an ease-out, thins as it goes and breaks into dashes over its second half. Every default pulse (`fx.pulse`) draws one; the sparks stay.
+- **Tiers:** joints per arc (high 12, medium 9, low 6); a ring's joints grow with its radius (`RING_JOINTS`: 20 a tile, at least 16) up to 40, 32 and 24, so no ring shows as a polygon (up to 2.5 tiles it stays within 0.025 of a tile of a true circle on every tier); and the most shapes up at once (32, 24, 16).
+- **Ground:** a ring's band faces the camera, so it is lifted by its half width with the ink and never dips into the ground.
+- **Flash guard:** toon slashes and rings cover the board rather than add light, so the flash guard does not count them (the old additive slash sprites were counted).
+- **Reduce Motion:** no sweep or chasing tail; the ring grows linearly and lasts a little longer.

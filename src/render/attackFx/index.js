@@ -6,7 +6,7 @@
 //
 // Hooks (BattleRenderer / actors):
 //   onEvent(ev, i, events) → true = handled (skip the renderer's default effect)
-//   projectile(p, dt)      → reused view {kind,x,y,z,scale,sz,tint,glow,yaw,skip} or null
+//   projectile(p, dt)      → reused view {kind,x,y,z,scale,sz,tint,glow,yaw,skip,ownTrail} or null
 //   towerOffset(uid)       → shared {x, z} model offset (lunge / recoil)
 //   trapHidden(uid)        → true while a tossed seal is still in the air
 //   update(dt, frameDt)    → once per frame after actors.drawGround (dt: the renderer's visual
@@ -96,7 +96,7 @@ export function createAttackFx(o) {
   const recFree = [];
   const hits = new EventRing(64);
   const explodes = new EventRing(64);
-  const pv = { kind: 'arrow', x: 0, y: 0, z: 0, scale: 1, sz: 1, tint: 0, glow: -1, yaw: NaN, roll: NaN, skip: false, k: 0 };
+  const pv = { kind: 'arrow', x: 0, y: 0, z: 0, scale: 1, sz: 1, tint: 0, glow: -1, yaw: NaN, roll: NaN, skip: false, ownTrail: false, k: 0 };
   const simPos = { x: 0, y: 0, z: 0 };
   const tip = { x: 0, y: 0, h: 0, dx: 0, dy: 0, dh: 0, kind: null };
 
@@ -395,6 +395,7 @@ export function createAttackFx(o) {
     pv.yaw = NaN;
     pv.roll = NaN;
     pv.skip = false;
+    pv.ownTrail = false; // (a style that draws its own trail sets it: the styled ribbon, src/render/vfx/trails.js, skips the shot)
     let nx = 0;
     let ny = 0;
     if (rec.bend) {
@@ -413,7 +414,7 @@ export function createAttackFx(o) {
       if (res > stats.maxBlendResidual) stats.maxBlendResidual = res;
     }
     msAcc += now() - t0;
-    const touched = rec.blended || rec.bump || rec.bend || (st && st.view) || pv.tint || pv.glow >= 0 || pv.skip;
+    const touched = rec.blended || rec.bump || rec.bend || (st && st.view) || pv.tint || pv.glow >= 0 || pv.skip || pv.ownTrail;
     return touched ? pv : null;
   }
 

@@ -40,6 +40,8 @@ export const akane = {
   view(p, rec, _t, v, ctx) {
     const lk = rec.tw.look;
     const p2 = lookAt(lk, 2);
+    // (her own trail, smoke or embers, when her look has one: the styled ribbon skips those shots; a plain fireball keeps it)
+    v.ownTrail = p2 >= 3 || lookAt(lk, 1) >= 1 || lk.accent[1] >= 1;
     const f = rec.f || 0;
     if (p2 >= 3) {
       v.kind = 'needle';

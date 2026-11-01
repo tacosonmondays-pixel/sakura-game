@@ -66,6 +66,11 @@ import { ShadowDoubles } from './shadowDoubles.js';
 import { createAbilityFx } from './abilityFx.js';
 import { createTornadoFx } from './vfx/tornado.js';
 import { TORNADO_CASTS } from './vfx/tornadoPresets.js';
+import { createLightningFx } from './vfx/lightning.js';
+import { createBeamFx } from './vfx/beams.js';
+import { createStrokes } from './vfx/strokes.js';
+import { createTrails } from './vfx/trails.js';
+import { createShapeFx } from './vfx/shapes.js';
 import { deployFx } from './deployFx.js';
 import { fmtNum } from '../ui/format.js';
 import { createBlackout } from './blackout.js';
@@ -322,6 +327,93 @@ export function createBattleRenderer(container, sim, opts = {}) {
       return null;
     }
   }
+  // toon strokes (src/render/vfx/strokes.js; display only): every styled line of the battle in one instanced draw call,
+  // begun and ended with the sprite batches each frame
+  // (room for a crowded battle: chains, beams, every shot's trail, slashes, shockwaves and the styles' lines; past it a
+  // stroke is not drawn, so the effects thin out instead of failing)
+  const strokes = createStrokes({ scene, max: 8192 });
+  // the attack effects option covers the styled effects too: off (settings.attackFx === false), nothing is handed to
+  // them and no tornado starts, so every effect keeps the plain look (the layers stay idle: nothing pushed, no draw
+  // call). Only the previews set it today (fx=off, the attack A/B): no Settings toggle sets it and the save drops it
+  const vfxOn = settings.attackFx !== false;
+  // styled chain lightning (src/render/vfx/lightning.js): Raika's and Chika's chains (their attack styles), Storm Lance
+  // and every other chain the default layer draws
+  const lightning = createLightningFx({ scene, strokes, batches, atlas, quality, reduceMotion, rand: vrand.fork('lightning') });
+  fx.lightning = vfxOn ? lightning : null;
+  // styled beams (src/render/vfx/beams.js): Luna's, Miko's and Raika's beams (their attack styles) and every other beam
+  const beams = createBeamFx({ scene, strokes, batches, atlas, camera, quality, reduceMotion, rand: vrand.fork('beams') });
+  fx.beams = vfxOn ? beams : null;
+  // styled projectile trails (src/render/vfx/trails.js): a short toon ribbon behind every shot in flight
+  const trails = createTrails({ scene, strokes, quality, reduceMotion });
+  actors.trails = vfxOn ? trails : null;
+  // styled slashes and shockwaves (src/render/vfx/shapes.js): every default slash and pulse
+  const shapes = createShapeFx({ scene, strokes, camera, quality, reduceMotion });
+  fx.shapes = vfxOn ? shapes : null;
+  // the styled effects are decoration: on their first error they all switch off for this battle (logged once) and every
+  // effect falls back to its old look; the battle and its events carry on
+  let vfxBroken = false;
+  function vfxOff(err) {
+    if (vfxBroken) return;
+    vfxBroken = true;
+    for (const layer of [lightning, beams, trails, shapes]) {
+      try {
+        layer.clear();
+      } catch {
+        /* leave what is drawn */
+      }
+    }
+    // nothing of this frame's strokes is drawn (no half-pushed line, no ink without its body), and none from now on
+    try {
+      strokes.begin();
+      strokes.end(0);
+    } catch {
+      /* hidden below */
+    }
+    strokes.mesh.visible = false;
+    fx.lightning = null;
+    fx.beams = null;
+    fx.shapes = null;
+    actors.trails = null;
+    if (attackFx) {
+      attackFx.ctx.lightning = null;
+      attackFx.ctx.beams = null;
+      attackFx.ctx.shapes = null;
+      attackFx.ctx.strokes = null;
+    }
+    console.warn('[vfx] styled effects disabled after an error', err);
+  }
+  function vfxSafe(fn) {
+    if (vfxBroken) return null;
+    try {
+      return fn();
+    } catch (err) {
+      vfxOff(err);
+      return null;
+    }
+  }
+  fx.vfxError = vfxOff;
+  actors.vfxError = vfxOff;
+  // the attack styles reach the library through guarded calls: an error in it switches the library off (vfxOff) and the
+  // style draws its old look for that attack (it gets nothing back); the signature looks stay on
+  const guarded = (fn) => (...a) => {
+    if (vfxBroken) return null;
+    try {
+      return fn(...a);
+    } catch (err) {
+      vfxOff(err);
+      return null;
+    }
+  };
+  if (attackFx) {
+    // Raika's and Chika's chains, Luna's, Miko's and Raika's beams, the styles' own slashes (patterns/bursts.js toonSlash)
+    attackFx.ctx.lightning = { strike: guarded(lightning.strike) };
+    attackFx.ctx.beams = { fire: guarded(beams.fire) };
+    attackFx.ctx.shapes = { slash: guarded(shapes.slash) };
+    // every style's tracers, thrust lines and zig-zags (src/render/attackFx/patterns/segments.js) as toon strokes; an
+    // error pushing them goes to vfxOff too
+    attackFx.ctx.strokes = strokes;
+    attackFx.ctx.vfxError = vfxOff;
+  }
   // attack FX are decoration: an FX error must never cost a frame's sim events (won / lost) —
   // on the first one the FX switch off for this battle (today's look) and it is logged once
   let fxBroken = false;
@@ -420,7 +512,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // over it, the additive effect batches burning on top; the normal-blend batches sit those frames out
   const impact = new ImpactFrames({
     scene, figures: () => [actors.root, companions.root],
-    hide: () => [batches.groundN.mesh, batches.bbN.mesh, batches.overlay.mesh, batches.links.mesh, overlays.root, tornado.mesh],
+    hide: () => [batches.groundN.mesh, batches.bbN.mesh, batches.overlay.mesh, batches.links.mesh, overlays.root, tornado.mesh, strokes.mesh],
   });
   // shake / punch / hit-stop / hold / impact / flash decisions (Reduce Motion, Hit effects, Impact
   // frames, placing, budget)
@@ -437,6 +529,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   };
   fx.flashGate = flashGate;
   if (attackFx) attackFx.ctx.flashGate = flashGate;
+  lightning.flashGate = flashGate;
+  beams.flashGate = flashGate;
 
   // ----- post-processing -------------------------------------------------------------------
   // high: scene → bloom → grade (tone curve + this theme's grade, in place of the output pass)
@@ -471,6 +565,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
     fx.setGlow(quality, on);
     attackFx?.setGlow?.(quality, on);
     tornado.setGlow(quality, on);
+    lightning.setGlow(quality, on);
+    beams.setGlow(quality, on);
   };
 
   // ----- state -----------------------------------------------------------------------------
@@ -515,6 +611,10 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const wantBloom = q === 'high' && (typeof settings.bloom === 'boolean' ? settings.bloom : preset.bloom);
     fx.setQuality(q);
     tornado.setQuality(q);
+    lightning.setQuality(q);
+    beams.setQuality(q);
+    trails.setQuality(q);
+    shapes.setQuality(q);
     attackFx?.setQuality(q);
     ambient.setQuality(q);
     roster.setQuality(q);
@@ -665,8 +765,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
       noteBallPop(ev, bouncing); // (a ball's blast comes before its pop: the blast reads the state its last pop left)
       // a cast that swirls into a tornado (observe only): the warning event carries the spot, delay and shells
       // (it is fed until the cast's first shell, then by every shell it drops, so it ends with the barrage at any
-      // game speed: the shells run on sim time)
-      if (ev.type === 'abilityWarn' && TORNADO_CASTS[ev.id]) {
+      // game speed: the shells run on sim time); with the attack effects option off none starts (the plain look; a
+      // shell then feeds nothing)
+      if (vfxOn && ev.type === 'abilityWarn' && TORNADO_CASTS[ev.id]) {
         tornadoSafe(() => tornadoOf.set(ev.towerUid, tornado.spawn(TORNADO_CASTS[ev.id], ev.x, ev.y, { seconds: (ev.delay || 0) + 0.6, size: Math.max(0.8, ev.radius || 1) })));
       } else if (ev.type === 'abilityShell' && TORNADO_CASTS[ev.id]) {
         tornadoSafe(() => tornado.feed(tornadoOf.get(ev.towerUid), 0.45));
@@ -1019,6 +1120,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const events = sim.drainEvents();
     // begin before events/sync: quads pushed there (projectile glows, attack FX) are kept
     for (const b of batchList) b.begin();
+    vfxSafe(() => strokes.begin());
     handleEvents(events);
     try {
       actors.alpha = renderAlpha();
@@ -1086,6 +1188,18 @@ export function createBattleRenderer(container, sim, opts = {}) {
     tornadoSafe(() => {
       tornado.hold(impact.active); // (impact frames: the column sits both frames out)
       tornado.update(d);
+    });
+    // (hit feedback before decoration: short of the strokes' room, the ribbons thin before the slashes and rings)
+    vfxSafe(() => {
+      lightning.update(d);
+      beams.update(d);
+      shapes.update(d);
+      trails.update(d);
+    });
+    vfxSafe(() => {
+      strokes.hold(impact.active); // (…and so do the styled lines)
+      strokes.setPixel(rig.scale);
+      strokes.end(clock.t);
     });
     for (const b of batchList) b.end();
 
@@ -1318,6 +1432,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
 
   // ----- public API ----------------------------------------------------------------------
   let tornadoLab = null; // the dev-only tuning panel (?tornadoLab), disposed with the battle
+  let lightningLab = null; // the dev-only lightning panel (?lightningLab), disposed with the battle
   const api = {
     canvas,
     update,
@@ -1397,6 +1512,27 @@ export function createBattleRenderer(container, sim, opts = {}) {
     get tornado() {
       return tornado;
     },
+    /**
+     * Extra (dev tooling, display only): strikes a chain of styled lightning (src/render/vfx/lightning.js presets)
+     * through world points [[x, y, z], …] (the girl first), and its layer; the lightning panel and the captures use it.
+     */
+    lightningDemo(presetId, points, opts = {}) {
+      return vfxSafe(() => lightning.strike(points, { ...opts, preset: presetId }));
+    },
+    get lightning() {
+      return lightning;
+    },
+    /** Extra (dev tooling, display only): fires a styled beam (src/render/vfx/beams.js presets) from a to b (world points). */
+    beamDemo(presetId, a, b, opts = {}) {
+      return vfxSafe(() => beams.fire(a, b, { ...opts, preset: presetId }));
+    },
+    get beams() {
+      return beams;
+    },
+    /** Extra (dev tooling, display only): the styled slashes and shockwaves (src/render/vfx/shapes.js). */
+    get shapes() {
+      return shapes;
+    },
     /** Extra: the visual clock's state (read-only copy; e2e, captures, debugging). */
     get visualClock() {
       return clock.snapshot();
@@ -1416,6 +1552,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
         flashesRefused: flashGuard.refused, flashesOff: feel.stats.flashesOff, flashOpacity: Math.round(flash.a * 1000) / 1000,
         flashLoad: Math.round(flashGuard.load(clock.realT) * 1000) / 1000, worldFlashes: flashGuard.worldCount, worldFlashesDimmed: flashGuard.dimmed,
         halos: fx.halos + (attackFx?.stats().halos || 0),
+        // the styled lines (src/render/vfx/strokes.js): drawn this frame, refused for want of room (all frames), and
+        // whether the styled effects switched off after an error
+        strokes: strokes.count, strokesRefused: strokes.refused, vfxOff: vfxBroken,
         shakePx: Math.round(Math.hypot(rig.shakePx.x, rig.shakePx.y) * 100) / 100, trauma: Math.round(rig.trauma * 1000) / 1000, punchZoom: Math.round(rig.punchZoom * 10000) / 10000,
         bloom: bloomPass ? { strength: bloomPass.strength, radius: bloomPass.radius, threshold: bloomPass.threshold, knee: bloomPass.highPassUniforms.smoothWidth.value, hdr: batches.bbA.hdr } : null,
         grade: composer ? look.theme + (look.night ? '+night' : '') + (look.fog ? '+fog' : '') : null,
@@ -1662,6 +1801,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
       attackFx?.dispose();
       tornadoLab?.dispose();
       tornado.dispose();
+      lightningLab?.dispose();
+      lightning.dispose();
+      beams.dispose();
+      trails.dispose();
+      shapes.dispose();
+      strokes.dispose();
       roster.dispose();
       staff.dispose();
       companions.dispose();
@@ -1707,6 +1852,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
     import('./vfx/tornadoPanel.js').then((m) => {
       if (!disposed) tornadoLab = m.mountTornadoPanel(api, sim);
     }).catch((err) => console.warn('[tornado lab]', err));
+  }
+  // dev-only lightning panel (?lightningLab; src/render/vfx/lightningPanel.js): never in the production build
+  if (import.meta.env?.DEV && typeof location !== 'undefined' && /[?&]lightningLab\b/.test(location.search)) {
+    import('./vfx/lightningPanel.js').then((m) => {
+      if (!disposed) lightningLab = m.mountLightningPanel(api, sim);
+    }).catch((err) => console.warn('[lightning lab]', err));
   }
   return api;
 }

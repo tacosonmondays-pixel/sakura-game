@@ -47,6 +47,7 @@ export const aoi = {
   },
 
   view(p, rec, _t, v, ctx) {
+    v.ownTrail = true; // (her own trail: the styled ribbon skips her shots)
     const lk = rec.tw.look;
     // the fletch streak is her base cue: long and bright enough to follow on a phone, longer
     // with each Piercing accent tier, a comet tail from T3

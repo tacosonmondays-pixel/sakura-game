@@ -161,6 +161,8 @@ export class Actors {
     // what each girl's model shows of her upgrade paths (pips, hand glows, socketed pieces, T5 aura): display only
     this.pathLooks = new PathLooks({ quality, rand: this.rand });
     this.fxHook = null; // attack FX (render/attackFx): projectile views, drones, lunges, tossed traps
+    this.trails = null; // styled projectile trails (src/render/vfx/trails.js), set by the renderer
+    this.vfxError = null; // the renderer's switch-off for the styled effects (an error in them)
     this.cameraYaw = 0; // the battle camera's yaw (BattleRenderer sets it each frame): figures that face it (facing.js)
     this._c = new THREE.Color();
     this._tint = new THREE.Color();
@@ -668,6 +670,15 @@ export class Actors {
       col.copy(TINT_KINDS[kind] || (v && v.tint) ? fc : WHITE);
       if (kind === 'bolt' || kind === 'spark' || kind === 'bullet') col.lerp(WHITE, 0.35);
       mesh.setColorAt(i, col);
+      // the styled ribbon behind the shot (src/render/vfx/trails.js), in its element colour: not for a shot whose attack
+      // style draws its own trail; an error in it switches the styled effects off (vfxError), never the battle
+      if (this.trails && !(v && v.ownTrail)) {
+        try {
+          this.trails.feed(p.uid, px, z, py, fc, kind);
+        } catch (err) {
+          this.vfxError?.(err);
+        }
+      }
       const glow = v && v.glow >= 0 ? v.glow : GLOW_KINDS[kind];
       if (glow) this.b.bbA.push(px, z, py, glow, glow, this.R.glow, fc.r, fc.g, fc.b, 0.85);
       if (kind === 'fireball' && this.rand() < dt * 30) {
