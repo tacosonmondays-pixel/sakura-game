@@ -9,8 +9,9 @@ idle, move, attack and the slime's hop, hit and special).
 
 ## Tripo credits
 
-**None spent.** Balance 365 before and after (`GET /v2/openapi/user/balance`). No task was created, so there are no
-task ids to log. Both fixes were better done in Blender: Luna needed her own bones placed right (a tail and a staff
+**None spent by this work.** No Tripo task was created (the only calls were balance reads), so there are no task ids
+to log. The balance read 365 at the start (Oct 31, evening) and 305 at the end (Nov 1): the 60 credits went to
+another session sharing the key, not to anything here. Both fixes were better done in Blender: Luna needed her own bones placed right (a tail and a staff
 that Tripo's biped rig would not animate), and the slime is a simple shape that a clean build from the game's own
 slime art matches better than another generation (the batch-2 download's faults were Tripo artefacts: a flat ring
 and a slab through the ball).
