@@ -20,6 +20,13 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.71', version: '0.1.71', date: '2026-11-01', title: 'Shots From the Weapon',
+    changed: [
+      'Girls with a weapon now shoot from it: arrows leave the bow, shells and tracers leave the barrel, and bolts, chains and orbs leave the tip of the staff, spear, trident or wand. The shots still land exactly where they did.',
+      'Gun and bow shots flash at the muzzle, along the weapon. Staves glow at the head when they cast.',
+    ],
+  },
+  {
     id: 'v0.1.70', version: '0.1.70', date: '2026-10-31', title: 'Your Own Gear in the Sandbox',
     added: [
       'Sandbox: a new "My gear" option in the Gear menu. Each girl wears a copy of the gear she has on in your save, so you can test your real builds. Nothing in your save or bag changes.',

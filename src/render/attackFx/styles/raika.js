@@ -8,7 +8,7 @@ import { lookAt } from '../flair.js';
 import { chainBolt, SEG_CORE, SEG_FLICKER, SEG_ZIGZAG } from '../patterns/segments.js';
 import { drumBeat } from '../patterns/rings.js';
 import { flash, stain } from '../patterns/bursts.js';
-import { hand } from './util.js';
+import { hand, tipUp } from './util.js';
 import { DECOR, CORE } from '../context.js';
 
 const BOLT = '#ffe45c';
@@ -25,7 +25,7 @@ export const raika = {
     const beats = lookAt(lk, 2) >= 5 ? 3 : lookAt(lk, 2) >= 3 ? 2 : 1;
     if (ctx.cap('sweep')) for (let b = 0; b < beats; b++) drumBeat(ctx, t.x, t.y, ctx.col(DRUM), b * 0.08, 1 - b * 0.1);
     const h = hand(ctx, t);
-    chainBolt(ctx, h.x, h.h + 0.1, h.y, pts, c, 0.018, ctx.q.zig, 0.2);
+    chainBolt(ctx, h.x, h.h + tipUp(h, 0.1), h.y, pts, c, 0.018, ctx.q.zig, 0.2);
     // forks flickering at the nodes
     if (ctx.q.sparks || lookAt(lk, 0) >= 3) {
       const forks = lookAt(lk, 0) >= 3 ? 2 : 1;
@@ -54,7 +54,7 @@ export const raika = {
   onBeam(ev, tw, t, ctx) {
     const h = hand(ctx, t);
     const [ex, ey] = ev.to;
-    const s = ctx.segs.add(h.x, h.h + 0.1, h.y, ex, 0.35, ey, Math.max(0.2, (ev.width || 0.2) * 1.4), ctx.col(BOLT), 0.18, SEG_CORE | SEG_ZIGZAG | SEG_FLICKER);
+    const s = ctx.segs.add(h.x, h.h + tipUp(h, 0.1), h.y, ex, 0.35, ey, Math.max(0.2, (ev.width || 0.2) * 1.4), ctx.col(BOLT), 0.18, SEG_CORE | SEG_ZIGZAG | SEG_FLICKER);
     if (s) s.k = ctx.quality === 'low' ? 2 : 6;
     stain(ctx, ex, ey, 0.25, ctx.col('#2a2418'), 0.4, 0.6);
     flash(ctx, ex, 0.35, ey, 0.5, ctx.col(BOLT), 0.12, CORE);

@@ -12,7 +12,7 @@
 import { lookAt } from '../flair.js';
 import { flash, shardBurst, petalSpiral } from '../patterns/bursts.js';
 import { spikes, coil, statusCue, hash01 } from '../patterns/academy.js';
-import { hand, every } from './util.js';
+import { hand, every, tipUp } from './util.js';
 import { CORE, DECOR } from '../context.js';
 
 const LEAF = '#6fcf5e';
@@ -39,7 +39,7 @@ export const chigusa = {
     if (!ctx.cap('muzzle')) return;
     const h = hand(ctx, t);
     // a spritz of green from her can
-    const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.glow, h.x, h.h + 0.05, h.y, 0.22, 0.32, 0.1, ctx.col(TENDRIL), 1);
+    const p = ctx.spr(ctx.b.bbA, CORE, ctx.R.glow, h.x, h.h + tipUp(h, 0.05), h.y, 0.22, 0.32, 0.1, ctx.col(TENDRIL), 1);
     if (p) p.asp = 1.6;
   },
 

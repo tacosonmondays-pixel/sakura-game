@@ -14,6 +14,7 @@ import { figurineMaterial, figurineOutlineMaterial, outlineBeforeRender, addOutl
 import { selectToonMaterial, selectTwin } from './highlight.js';
 import { isStandIn } from './standins.js';
 import { UNIT_MAP } from '../data/units.js';
+import { attachWeaponTip } from './weaponTip.js';
 
 const assets = new Map(); // `${id}|${detail}` -> asset | null (null = failed)
 const loading = new Map(); // key -> Promise<asset|null>
@@ -528,6 +529,8 @@ export function instantiateCharacter(asset, unit, { quality = 'high', pose = 'id
     headMat?.dispose();
     headHl?.dispose();
   };
+  // an armed figure's weapon-tip anchor (models/weaponTip.js), measured in the rest pose before any clip runs
+  attachWeaponTip(group, asset, root);
   anim.update(0, 0, pose === 'attack' ? 'idle' : pose);
   return group;
 }

@@ -7,7 +7,7 @@
 import { lookAt } from '../flair.js';
 import { coinHop, sparks, ripple, chrysanthemum } from '../patterns/bursts.js';
 import { drawRingFamiliars } from '../patterns/patrol.js';
-import { hand } from './util.js';
+import { hand, tipUp } from './util.js';
 import { CORE, DECOR } from '../context.js';
 import { SPIN_X } from '../quadPool.js';
 
@@ -19,14 +19,14 @@ export const momo = {
   onAttack(ev, tw, t, ctx) {
     if (!ctx.cap('muzzle')) return;
     const h = hand(ctx, t);
-    ctx.spr(ctx.b.bbA, CORE, ctx.R.star, h.x, h.h + 0.1, h.y, 0.34, 0.1, 0.14, ctx.col(GOLD), 1);
+    ctx.spr(ctx.b.bbA, CORE, ctx.R.star, h.x, h.h + tipUp(h, 0.1), h.y, 0.34, 0.1, 0.14, ctx.col(GOLD), 1);
   },
 
   origin(p, t, idx, n, rec, ctx) {
     const h = hand(ctx, t);
     rec.mx = h.x;
     rec.my = h.y;
-    rec.mz = h.h + 0.1;
+    rec.mz = h.h + tipUp(h, 0.1);
     rec.bump = 0.3 + 0.05 * (rec.est || 1);
     return true;
   },
@@ -65,7 +65,7 @@ export const momo = {
     const h = hand(ctx, t);
     const k = ctx.n(n);
     for (let i = 0; i < k; i++) {
-      const p = ctx.spr(ctx.b.bbN, i < 3 ? CORE : DECOR, ctx.R.coin, h.x, h.h + 0.1, h.y, 0.18, 0.16, 0.8, ctx.col('#ffffff'), 1);
+      const p = ctx.spr(ctx.b.bbN, i < 3 ? CORE : DECOR, ctx.R.coin, h.x, h.h + tipUp(h, 0.1), h.y, 0.18, 0.16, 0.8, ctx.col('#ffffff'), 1);
       if (!p) break;
       const a = (i / k) * Math.PI * 2;
       p.vx = Math.cos(a) * 0.7;
