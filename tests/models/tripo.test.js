@@ -6,7 +6,7 @@ import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import * as THREE from 'three';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { TRIPO_ENEMIES, TRIPO_ENEMY_LODS, tripoEnemyKey, enemyModelKeys, setEnemyDetail, getEnemyDetail } from '../../src/models/glbEnemy.js';
+import { TRIPO_ENEMIES, TRIPO_PAUSED, TRIPO_ENEMY_LODS, tripoEnemyKey, enemyModelKeys, setEnemyDetail, getEnemyDetail } from '../../src/models/glbEnemy.js';
 import { TRIPO_LANDMARKS, landmarkKey, swapLandmark } from '../../src/render/tripoLandmarks.js';
 import { hasProp } from '../../src/render/props.js';
 import { dragonHeadGeometry } from '../../src/render/rosterFx.js';
@@ -43,11 +43,18 @@ describe('Tripo enemies', () => {
     expect(Object.keys(manifest).sort()).toEqual([...TRIPO_ENEMIES].sort());
     for (const id of TRIPO_ENEMIES) {
       expect(ENEMY_MAP[id], id).toBeTruthy();
+      if (TRIPO_PAUSED.includes(id)) {
+        // switched off: the family's chibi model only
+        expect(tripoEnemyKey(ENEMY_MAP[id])).toBeNull();
+        expect(enemyModelKeys(ENEMY_MAP[id])).toEqual([ENEMY_MAP[id].model?.base || ENEMY_MAP[id].family]);
+        continue;
+      }
       expect(tripoEnemyKey(ENEMY_MAP[id])).toBe(`tripo/${id}`);
       // the preloads ask for the family mesh (the fallback) and the enemy's own model
       expect(enemyModelKeys(ENEMY_MAP[id])).toEqual([ENEMY_MAP[id].model?.base || ENEMY_MAP[id].family, `tripo/${id}`]);
     }
     // every family has at least one (batch 2: one enemy per family)
+    // (a paused one still counts: its file is kept until its remake)
     const families = new Set(TRIPO_ENEMIES.map((id) => ENEMY_MAP[id].family));
     for (const f of new Set(Object.values(ENEMY_MAP).map((d) => d.family))) expect(families.has(f), f).toBe(true);
     expect(tripoEnemyKey(ENEMY_MAP.slime_gold)).toBeNull();
@@ -96,6 +103,10 @@ describe('Tripo enemy LODs (medium / low quality)', () => {
       expect(json.accessors[prim.indices].count / 3).toBeLessThanOrEqual(2000);
       expect(json.animations.map((a) => a.name).sort()).toEqual(ENEMY_CLIPS);
       expect(manifest[id]).toMatchObject({ lod: `${id}.lod.glb`, lodSize: statSync(file).size });
+      if (TRIPO_PAUSED.includes(id)) {
+        expect(tripoEnemyKey(ENEMY_MAP[id], 'lod')).toBeNull();
+        continue;
+      }
       expect(tripoEnemyKey(ENEMY_MAP[id], 'lod')).toBe(`tripo/${id}.lod`);
       expect(tripoEnemyKey(ENEMY_MAP[id], 'full')).toBe(`tripo/${id}`);
     }
@@ -104,9 +115,9 @@ describe('Tripo enemy LODs (medium / low quality)', () => {
     // the module default follows setEnemyDetail (the battle sets it from the graphics quality)
     const before = getEnemyDetail();
     setEnemyDetail('lod');
-    expect(enemyModelKeys(ENEMY_MAP.slime_green)).toEqual(['slime', 'tripo/slime_green.lod']);
+    expect(enemyModelKeys(ENEMY_MAP.orc_grunt)).toEqual(['orc', 'tripo/orc_grunt.lod']);
     setEnemyDetail('full');
-    expect(enemyModelKeys(ENEMY_MAP.slime_green)).toEqual(['slime', 'tripo/slime_green']);
+    expect(enemyModelKeys(ENEMY_MAP.orc_grunt)).toEqual(['orc', 'tripo/orc_grunt']);
     setEnemyDetail(before);
   });
 });

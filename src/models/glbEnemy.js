@@ -66,7 +66,12 @@ export const TRIPO_ENEMIES = Object.freeze([
   'construct_cogling', 'beast_wolf', 'fae_sprite', 'plant_sprout', 'dragon_wyvern',
   'dragon_ashwing', 'fp_eclipse_wyrm', 'fp_gloom_regent', 'fp_hyakki_daimyo', 'iron_colossus', 'fp_foundry_titan',
 ]);
-const TRIPO_SET = new Set(TRIPO_ENEMIES);
+/**
+ * Tripo enemies that are switched off for now: they wear their family's chibi model again (owner, Nov 1: the Tripo
+ * slime and goblin runner read creepy, not cute). Their files stay until remakes replace them.
+ */
+export const TRIPO_PAUSED = Object.freeze(['slime_green', 'goblin_runner']);
+const TRIPO_SET = new Set(TRIPO_ENEMIES.filter((id) => !TRIPO_PAUSED.includes(id)));
 
 /**
  * Tripo enemies that also ship a light file (`<id>.lod.glb`, ~2k triangles, 256² texture) for medium / low quality:
