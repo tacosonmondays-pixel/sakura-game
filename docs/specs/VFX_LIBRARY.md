@@ -112,6 +112,6 @@ There are also 40 per-girl attack styles in `src/render/attackFx/styles/`, plus 
 
 ## 5. Budgets
 
-- **Strokes.** One draw call for every styled line, none while nothing is up. Up to 6144 strokes a frame; past that a stroke is not drawn. Lightning thins itself on a busy board long before that (fewer kinks, no forks).
+- **Strokes.** One draw call for every styled line, none while nothing is up. Up to 8192 strokes a frame; past that a stroke is not drawn. Lightning thins itself on a busy board long before that (fewer kinks, no forks), and every layer has its own cap: lightning 3072 / 2048 / 1024 by tier, 160 / 90 / 0 trails, 32 / 24 / 16 slashes and rings.
 - **Sprites.** Stars, sparks and rings use the existing batches and their limits.
 - **Full-screen passes.** Medium and low add none. High adds nothing beyond the existing bloom and grade.

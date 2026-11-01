@@ -143,7 +143,7 @@ export const LIGHTNING_PRESETS = {
  * segment layers drawn at once.
  */
 export const LIGHTNING_TIERS = {
-  high: { segs: 6, branches: 2, branchSegs: 3, sparks: 5, ground: true, glow: true, hdr: true, cap: 4096 },
+  high: { segs: 6, branches: 2, branchSegs: 3, sparks: 5, ground: true, glow: true, hdr: true, cap: 3072 },
   medium: { segs: 5, branches: 1, branchSegs: 2, sparks: 3, ground: true, glow: true, hdr: false, cap: 2048 },
   low: { segs: 4, branches: 0, branchSegs: 0, sparks: 0, ground: false, glow: false, hdr: false, cap: 1024 },
 };

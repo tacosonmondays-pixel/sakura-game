@@ -17,9 +17,9 @@ import { createStrokes, stroke, SOLID } from './strokes.js';
 
 /** Detail per graphics tier: joints in a slash's arc and a shockwave's ring, and the most shapes up at once. */
 export const SHAPE_TIERS = {
-  high: { arc: 12, ring: 28, max: 64 },
-  medium: { arc: 9, ring: 20, max: 40 },
-  low: { arc: 6, ring: 12, max: 24 },
+  high: { arc: 12, ring: 24, max: 32 },
+  medium: { arc: 9, ring: 18, max: 24 },
+  low: { arc: 6, ring: 12, max: 16 },
 };
 
 /** A slash: its sweep (radians of the arc), how flat its bulge is, its beats (s), its half width at the middle, its layers and its reach (× size). */

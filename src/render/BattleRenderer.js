@@ -329,7 +329,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
   }
   // toon strokes (src/render/vfx/strokes.js; display only): every styled line of the battle in one instanced draw call,
   // begun and ended with the sprite batches each frame
-  const strokes = createStrokes({ scene });
+  // (room for a crowded battle: chains, beams, every shot's trail, slashes, shockwaves and the styles' lines; past it a
+  // stroke is not drawn, so the effects thin out instead of failing)
+  const strokes = createStrokes({ scene, max: 8192 });
   // styled chain lightning (src/render/vfx/lightning.js): Raika's and Chika's chains (their attack styles), Storm Lance
   // and every other chain the default layer draws
   const lightning = createLightningFx({ scene, strokes, batches, atlas, quality, reduceMotion, rand: vrand.fork('lightning') });
