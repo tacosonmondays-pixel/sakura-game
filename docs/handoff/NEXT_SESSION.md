@@ -1,6 +1,6 @@
-# Next session: start here (updated Oct 30, 2026)
+# Next session: start here (updated Nov 1, 2026)
 
-**Read `docs/handoff/HANDOFF_2026-10-29.md` first** (detailed state, next steps, and how to split the work into sessions with suggested effort).
+**Read `docs/handoff/HANDOFF_2026-11-01.md` first** (live state as of v0.1.72, what is in flight, owner decisions, next steps). The older detailed note is `docs/handoff/HANDOFF_2026-10-29.md` (detailed state, next steps, and how to split the work into sessions with suggested effort).
 
 This page is for a session that only has the GitHub repo (a cloud session), not the owner's PC. Read `docs/HANDOFF.md` too; it has the rules (§6), the shipping flow (§7) and the branch table (§3). Check out the coordination branch `claude/sakura-sentinels`; `main` is the live build (every push to `main` deploys).
 
