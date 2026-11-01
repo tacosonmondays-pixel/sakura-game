@@ -77,8 +77,8 @@ scales the root by `asset.extras.unitScale` (= 2). Feet at y = 0, faces +Z after
 The 18 shared girls (everyone but Hikari, whose battle model is the owner's Meshy figure) were rebuilt from
 their old Codex designs (`src/data/units.js` palette + look, ROSTER_SPEC §4.2). These are **temporary
 stand-ins** until real chibis exist; the V2 looks they replaced live on as the Sentinel Style outfits
-(`sentinel-<id>.glb`) and the four Coming Soon units (`future-<id>.glb`), byte copies that the builder never
-touches. Rebuild only the girls you changed and never pass `hikari`:
+(`sentinel-<id>.glb`) and the four Coming Soon units (`future-<id>.glb`), copies that the builder never
+touches (only their rotation keys were made sign-continuous, `docs/art/blender-quat-signs.md`). Rebuild only the girls you changed and never pass `hikari`:
 
 ```
 python3 tools/blender/build_characters.py luna nami aoi rei yuki momo akane sango kage umeko shiro midori suzu raika miko hotaru kaede chika

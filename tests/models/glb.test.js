@@ -365,6 +365,16 @@ describe('Blender figures: rotation keys', () => {
             });
           }
           expect(worst.deg, `${clip.name}: ${worst.bone} turns ${worst.deg.toFixed(1)} deg at ${worst.t?.toFixed(2)} s`).toBeLessThan(MAX_DEG_PER_10MS);
+          // the loop seam of a looping clip: 5 ms before the end against 5 ms after the start
+          if (!clip.name.startsWith('attack') && clip.duration > 0.02) {
+            mixer.setTime(clip.duration - 0.005);
+            const end = bones.map((b) => b.quaternion.clone());
+            mixer.setTime(clip.duration + 0.005); // wraps to 0.005 s
+            bones.forEach((b, i) => {
+              const deg = THREE.MathUtils.radToDeg(b.quaternion.angleTo(end[i]));
+              expect(deg, `${clip.name} loop seam: ${b.name} turns ${deg.toFixed(1)} deg`).toBeLessThan(MAX_DEG_PER_10MS);
+            });
+          }
           action.stop();
           mixer.uncacheClip(clip);
         }

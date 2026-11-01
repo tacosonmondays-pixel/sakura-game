@@ -18,7 +18,9 @@ import struct
 
 import numpy as np
 
-# the runtime plays these once (src/models/glbChibi.js GlbAnimator, glbEnemy.js); everything else loops
+# the girls' and companions' one-shot clips (src/models/glbChibi.js GlbAnimator plays attack* and appear with LoopOnce);
+# everything else loops. 'death' is kept for figures that carry one. Before running this on the enemies, add 'hit' and
+# 'special' too (glbEnemy.js plays them once).
 ONE_SHOT_PREFIXES = ('attack', 'appear', 'death')
 
 

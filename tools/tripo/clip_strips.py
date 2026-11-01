@@ -8,7 +8,8 @@ times (workbench, textured) from the battle camera's angle (48 degrees down, a q
 front / side, one row per clip with its name and frame times, so the poses can be judged by eye: does the pose
 read, are the feet planted, is any frame a T-pose, do wrists or shoulders candy-wrap, does anything clip through
 the skirt or hair. --shading color shows the vertex colours, for the Blender cage girls (tools/blender/
-build_characters.py), whose body is vertex-coloured and only the face is a texture. Needs Pillow for the sheet (PYTHONPATH with Pillow, see docs/art/tripo/model-quality.md)."""
+build_characters.py), whose body is vertex-coloured and only the face is a texture. Needs Pillow for the sheet (the bpy 4.2 venv in tools/blender/requirements.txt has it; in a container also EGL,
+see docs/art/blender-quat-signs.md)."""
 import argparse
 import math
 import os

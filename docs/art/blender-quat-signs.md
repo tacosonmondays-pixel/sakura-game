@@ -22,7 +22,7 @@ of a written GLB in place (same accessors, same byte size):
 * keys are made sign-continuous: a key whose dot product with the key before it is negative is negated;
 * each CUBICSPLINE key gets Catmull-Rom tangents (in = out, per second, for non-uniform times). Looping clips whose
   first and last keys are the same rotation get cyclic tangents across the seam. Both ends are flat in the one-shot
-  clips (`attack_*`, `appear`, `death`, the ones `GlbAnimator` plays with `LoopOnce`) and in any track that does
+  clips (`attack_*` and `appear`, the ones `GlbAnimator` plays with `LoopOnce`; `death` is listed too) and in any track that does
   not close.
 
 `tools/blender/build_characters.py` `_build_unit` calls it right after `optimize.optimize_glb(out)`, so every cage
@@ -34,7 +34,7 @@ cd tools/blender && .venv/bin/python -m lib.glbquat ../../public/models/characte
 ```
 
 The rebuilt girls (bpy 4.2.0, Python 3.11) match the shipped files exactly in mesh, skin and key values (rotations
-compared up to sign), and the file sizes are within 4 bytes (JSON padding). Only the rotation tangents and the signs
+compared up to sign), and the file sizes are within 4 bytes (the only JSON change is a Blender object counter in the head mesh's name). Only the rotation tangents and the signs
 of the flipped keys changed. The largest files stay inside the budget: Ena 477 KB of 480 KB full, 236 KB of 240 KB LOD.
 
 ## Measured (three's AnimationMixer in node, every 10 ms, `tests/models/loadGlb.js`)
@@ -71,6 +71,7 @@ clips, full model:
 | Wakaba | 179° `upper_arm_L` (pickup) | 64% (pickup) | 9.9° `upper_arm_R` (attack_throw) | 14% (attack_throw) |
 | Yuki | 179° `upper_arm_L` (pickup) | 65% (pickup) | 7.8° `forearm_R` (attack_cast) | 5% (attack_cast) |
 | Yuzuha | 179° `upper_arm_L` (pickup) | 61% (pickup) | 7.8° `forearm_R` (attack_cast) | 5% (attack_cast) |
+
 The outfit and Coming Soon copies: the worst bone turn went from 178.6° to 19.6°, the worst vertex jump from 104% to 33%.
 After the fix, every worst case sits inside an attack swing. The largest is Chika's hammer smash, where the hammer
 head travels a third of her height in 10 ms; before the fix her arm turned 35.4° there, and now it turns 19.6°.
@@ -82,7 +83,9 @@ In Aoi's idle, `hair_back` flipped 98.3° before and turns at most 0.1° now; in
 `tests/models/glb.test.js` "Blender figures: rotation keys" covers every manifest entry without a `source` (the cage
 girls and the 19 outfit and Coming Soon copies), full and LOD. For each one it checks that the rotation keys are
 sign-continuous and that no bone turns 45° between two 10 ms samples of any clip through three's AnimationMixer. It
-fails on the old files (Aoi: `cheer hair_back key 1`).
+fails on the old files (all 92 cases; with the sign check removed, the 45° check alone still fails all 92). For
+looping clips it also compares the pose just before the end with the pose just after the start, so a bad loop seam
+is caught too.
 
 ## Clip strips
 
@@ -102,6 +105,15 @@ unchanged by this fix (the keys are the same):
   viewer and the big chibi head hides her face and most of her body for the whole clip.
 * Kinu's cream blazer (`#f2e4c4`) and Ouka's pale top sit close to their skin tone in flat light.
 * Yuki reads as almost one pale grey.
+
+## Follow-ups (out of scope here)
+
+* The companions (Kon, Kaze, the doll; `tools/blender/companions/build_companions.py`) and the Blender enemies
+  (goblin, oni, construct) have the same flips: a dry run of the fixer negates 2 to 12 keys in each. Calling
+  `fix_glb_quaternion_signs` in those builders needs `hit` and `special` added to `ONE_SHOT_PREFIXES` first, for
+  the enemies.
+* `tools/tripo/clip_strips.py` and `tests/models/loadGlb.js` were copied from `fix/model-quality`. Merging that branch
+  later may give add/add conflicts; keep this branch's `clip_strips.py`, which has `--shading`.
 
 ## Patch note (draft for the shipper)
 
