@@ -305,6 +305,7 @@ twist round a helix and sway on X/Z. Display only: the sim id does not change.
   to its preset: `akane.starmine` → `fire`: its `abilityWarn` event starts the column on the barrage's spot (1.25× the
   shells' radius), and every `abilityShell` of that cast feeds it for 0.45 s more, so it ends with the barrage at any
   game speed (the shells run on sim time).
+  With the attack effects option off (`settings.attackFx === false`) no column starts (see the library's Setting line).
 - **Tiers** (`TORNADO_TIERS`):
   - High: 22 rings, 4 faint core rings and 12 embers, the cover blend.
   - Medium: 13 rings and 6 embers.

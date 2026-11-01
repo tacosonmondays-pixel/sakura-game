@@ -2115,14 +2115,14 @@ r.info.attackFx                  // attack-FX stats { drones, engaged, quads, qu
 r.hitStop(seconds)               // hold everything drawn ≤ 60 ms of frame time (never the sim); Reduce Motion: ignored → freeze left
 r.visualClock                    // read-only { t, dt, frameT, realT, frame, freezeLeft, slowLeft, … } (docs/VFX.md)
 r.vfx                            // read-only hit-effect stats { hitStops, holds, impacts, flashesRefused, flashLoad, worldFlashesDimmed, halos, shakePx, punchZoom, bloom, grade, strokes, strokesRefused, vfxOff, … }
-r.hdrProbe({ effects })          // dev tooling: share of pixels above luminance levels this frame (bloom threshold tuning)
-r.tornadoDemo(presetId, x, z, opts) // dev tooling (display only): starts a styled tornado (src/render/vfx/tornadoPresets.js) at a board spot; opts { seconds, size }; the record or null
-r.tornado                        // dev tooling: the tornado layer (live list, stats); the ?tornadoLab panel and tools/vfx/capture.mjs use it
 r.lightningDemo(presetId, points, opts) // dev tooling (display only): strikes styled chain lightning (src/render/vfx/lightningPresets.js) through world points [[x, y, z], …], the girl first; opts { color, forks, custom } (custom: a whole preset object, the lab's working copy); null once the library has switched itself off
 r.lightning                      // dev tooling: the lightning layer (live bolts, stats); the ?lightningLab panel and the captures use it
 r.beamDemo(presetId, a, b, opts) // dev tooling (display only): fires a styled beam (src/render/vfx/beamPresets.js) from world point a to b; opts { width, widthScale, color, from, zig } (color tints the preset); null once the library has switched itself off
 r.beams                          // dev tooling: the beam layer (live beams, stats)
 r.shapes                         // dev tooling: the styled slashes and shockwaves (src/render/vfx/shapes.js: slash(x, y, z, angle, color, { size }), shock(x, z, r0, r1, color))
+r.hdrProbe({ effects })          // dev tooling: share of pixels above luminance levels this frame (bloom threshold tuning)
+r.tornadoDemo(presetId, x, z, opts) // dev tooling (display only): starts a styled tornado (src/render/vfx/tornadoPresets.js) at a board spot; opts { seconds, size }; the record or null
+r.tornado                        // dev tooling: the tornado layer (live list, stats); the ?tornadoLab panel and tools/vfx/capture.mjs use it
 ```
 
 Settings the renderer reads (`opts.settings`, the profile's live settings object): `quality`,
@@ -2130,7 +2130,8 @@ Settings the renderer reads (`opts.settings`, the profile's live settings object
 no impact frames, no shake or zoom punch, no hit-stop or local hold; Settings → Graphics → Flashes &
 shake and the pause menu), `impactFrames` (read live: `false` = a soft tint instead of the tinted
 impact frame; Settings → Graphics → Impact frames and the pause menu), `camera`, `buffIcons`,
-`attackFx`. Hit feel (docs/VFX.md §M1): the global hit-stop (boss kills, ult impacts), local holds of
+`attackFx` (set only by the previews: no Settings toggle, and the save does not keep it; see Attack FX
+below). Hit feel (docs/VFX.md §M1): the global hit-stop (boss kills, ult impacts), local holds of
 the struck enemy (each girl's weak / strong / crit impact preset; counted in rendered frames, the
 struck look shown from the first held frame), tinted impact frames, hit squash, camera shake in screen
 pixels (a shift, never a roll; a girl's basic splash never shakes) and the zoom punch all change only

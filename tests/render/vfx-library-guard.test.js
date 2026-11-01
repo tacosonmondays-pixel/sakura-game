@@ -16,6 +16,7 @@ import { createLightningFx } from '../../src/render/vfx/lightning.js';
 import { createBeamFx } from '../../src/render/vfx/beams.js';
 import { createShapeFx } from '../../src/render/vfx/shapes.js';
 import { createTrails } from '../../src/render/vfx/trails.js';
+import { createTornadoFx } from '../../src/render/vfx/tornado.js';
 import { createVisualRandom } from '../../src/render/vfx/random.js';
 
 /** An Actors stand-in for `_syncProjectiles`: instanced meshes that only count, a trail layer that records its feeds. */
@@ -219,6 +220,15 @@ describe('the attack effects option (settings.attackFx === false: the previews s
     expect(src).toMatch(/if \(vfxOn && ev\.type === 'abilityWarn' && TORNADO_CASTS\[ev\.id\]\) \{/);
     expect(src.match(/tornado\.spawn\(/g)).toHaveLength(2);
     expect(src).toMatch(/tornadoDemo\(presetId, x, z, opts\) \{\s*return tornadoSafe\(\(\) => tornado\.spawn\(/);
+    expect(src.match(/tornadoDemo\(/g)).toHaveLength(1); // nothing in the renderer calls the demo
+  });
+
+  it('a shell with no column feeds nothing (the option off: no cast started one)', () => {
+    const t = createTornadoFx({ scene: new THREE.Scene(), quality: 'high' });
+    expect(() => t.feed(undefined, 0.45)).not.toThrow();
+    t.update(1 / 60);
+    expect(t.live.length).toBe(0);
+    expect(t.stats.visible).toBe(false);
   });
 
   it('with nothing handed over, the default effects and the shots keep their old drawing', () => {
