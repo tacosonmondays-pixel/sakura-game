@@ -1,8 +1,10 @@
 // Stylized tornado VFX (docs/VFX.md "Tornado"; display only). A column of flat rings that rise from the ground,
 // grow wider, twist round a helix and sway on X/Z, each ring a band of painted noise cut by an erosion threshold that
 // rises with its age (hard toon edge, no discard), coloured through a stepped ramp (nearest filter: flat toon bands).
-// Premultiplied blend (One, OneMinusSrcAlpha): the cooler bands cover the board a little so the colour reads on a bright
-// day, the hottest band is pure added light; on high (bloom on) that band is pushed above white so the bloom catches it.
+// Premultiplied blend (One, OneMinusSrcAlpha). Medium and low: the cooler bands cover the board a little so the colour
+// reads on a bright day, the hottest band is pure added light. High ("cover"): every band covers the board in its own
+// colour, so however many rings stack, the column settles on the ramp's toon colours (no murk over the grass, never past
+// the grade's knee); with bloom on, only the hottest band goes a little over white so the bloom catches it.
 //
 //   const tornado = createTornadoFx({ scene, batches, atlas, quality, reduceMotion, rand });
 //   tornado.spawn('fire', x, z, { seconds: 2, size: 1.2 });   // world x / z (the sim's x / y), the cast's radius
@@ -18,12 +20,21 @@ import { TORNADO_PRESETS, TORNADO_TIERS, MAX_TORNADOES } from './tornadoPresets.
 const TAU = Math.PI * 2;
 const RAMP_W = 8;
 const NOISE_N = 128;
-/** The column's colour on high with bloom (× alpha): under the grade's knee (src/render/vfx/grade.js KNEE). */
-export const GLOW_UNDER_BLOOM = 0.72;
-/** …and the column covers more of the board behind it there (the colour replaces the grass instead of adding to it). */
-export const BODY_UNDER_BLOOM = 1.5;
-/** How much higher the erosion starts per ring beyond medium's 13 (at 22 rings: × 0.41). */
+/**
+ * High has more rings than medium, so each one is sparser: its erosion threshold starts this much higher × (1 − medium's
+ * rings ÷ high's), the same for every ring of the tier (a uniform). It changes the shape only, never the colour: the
+ * colour index still comes from the preset's own erosion.
+ */
 export const SPARSE_ERODE = 0.32;
+/** High's cover blend: a ring's strength on the far arc and the near arc (the far arc fainter: it is behind). */
+export const COVER_FRONT = [0.55, 0.85];
+/** …and a young ring's share of it (the low rings where the walkers are stay faint: readable, never a light blob). */
+export const COVER_YOUNG = 0.35;
+/**
+ * High's cover blend takes each ring's colour a step hotter (index × scale + lift). Medium's yellow and white bands come
+ * from stacked rings adding up; covering rings never add, so they reach those bands on their own.
+ */
+export const COVER_HEAT = [1.25, 0.08];
 
 const VERT = /* glsl */`
 attribute vec4 iA; // x, z, t (seconds since the cast), seconds the column is fed
@@ -80,6 +91,11 @@ const FRAG = /* glsl */`
 uniform sampler2D uNoise;
 uniform sampler2D uRamp;
 uniform float uTime;
+uniform float uSparse; // the tier's sparser erosion (high): the mask only, never the colour
+uniform float uCover;  // 1 on high: every band covers the board in its own colour (see the header)
+uniform vec2 uFront;   // COVER_FRONT
+uniform float uYoung;  // COVER_YOUNG
+uniform vec2 uHeat;    // COVER_HEAT
 varying vec2 vXZ;
 varying float vAge;
 varying float vOn;
@@ -101,13 +117,23 @@ void main() {
   float n = texture2D(uNoise, uv).r * 0.85 + texture2D(uNoise, uv * vec2(2.0, 1.7) + vec2(0.37, uTime * vF.z * 0.2)).g * 0.15;
   n = smoothstep(0.25, 0.75, n); // bolder: fewer, bigger tongues
   float heat = band * (0.3 + 1.0 * n) + vCore * vF.w;
-  float cut = mix(vG.x, vG.y, vAge);
-  float m = step(cut, heat) * step(0.0, band); // the hard toon edge: in or out, no soft fringe and no discard
+  float cut = mix(vG.x, vG.y, vAge); // the preset's erosion
+  float m = step(cut + uSparse, heat) * step(0.0, band); // the hard toon edge: in or out, no soft fringe and no discard
+  // the colour index from the preset's erosion (the tier's sparser mask never darkens it)
   float k = clamp((heat - cut) * 1.6, 0.0, 0.999) * mix(0.7, 1.0, vFront);
+  if (uCover > 0.5) k = min(0.999, k * uHeat.x + uHeat.y);
   vec3 col = texture2D(uRamp, vec2(k, vRow)).rgb;
+  float hot = step(0.8, k);
   // only the hottest band burns above white (high + bloom: vE.w > 0)
-  col *= 1.0 + vE.w * step(0.8, k);
+  col *= 1.0 + vE.w * hot;
   float fade = smoothstep(0.0, 0.1, vAge) * (1.0 - smoothstep(0.82, 1.0, vAge));
+  if (uCover > 0.5) {
+    // high: a toon layer over the board in its own colour (premultiplied over: stacked rings settle on the ramp colour)
+    float A = m * fade * vOn * vE.z * mix(uFront.x, uFront.y, vFront) * mix(uYoung, 1.0, smoothstep(0.12, 0.45, vAge));
+    gl_FragColor = vec4(col * A, A);
+    #include <colorspace_fragment>
+    return;
+  }
   float a = m * fade * vOn * mix(0.35, 1.0, vFront);
   // premultiplied (One, OneMinusSrcAlpha): the cooler bands cover the board a little (body: the colour reads on a
   // bright day), the hottest band is purely added light (alpha 0): one draw call gives the toon body and the glow.
@@ -226,7 +252,11 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
   ramp.colorSpace = THREE.SRGBColorSpace;
   ramp.needsUpdate = true;
   const material = new THREE.ShaderMaterial({
-    uniforms: { uNoise: { value: noise }, uRamp: { value: ramp }, uTime: { value: 0 } },
+    uniforms: {
+      uNoise: { value: noise }, uRamp: { value: ramp }, uTime: { value: 0 }, uSparse: { value: 0 }, uCover: { value: 0 },
+      uFront: { value: new THREE.Vector2(COVER_FRONT[0], COVER_FRONT[1]) }, uYoung: { value: COVER_YOUNG },
+      uHeat: { value: new THREE.Vector2(COVER_HEAT[0], COVER_HEAT[1]) },
+    },
     vertexShader: VERT,
     fragmentShader: FRAG,
     transparent: true,
@@ -267,13 +297,8 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
     const n = tier.rings;
     const nc = tier.core;
     const total = n + nc;
+    // the hottest band over white for the bloom: high with bloom on only (the bloom state, not the preset)
     const hdr = tier.hdr && bloom ? p.hdr : 0;
-    // high with bloom: the grade's tone curve bleaches sums above its knee towards white, so the column's colour is
-    // kept under it (the toon bands stay saturated) and only the hottest band reaches the bloom (hdr)
-    const glow = hdr > 0 ? GLOW_UNDER_BLOOM : 1;
-    // more rings than medium: each one is sparser (its erosion starts higher), so the column covers about as much as
-    // medium's 13 and every ring keeps a full-strength toon edge (finer on high, never softer)
-    const sparse = Math.max(0, 1 - 13 / n) * SPARSE_ERODE;
     const row = rowOf(rec.id);
     for (let i = 0; i < total; i++) {
       const j = (start + i) * 4;
@@ -289,11 +314,11 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       const D = attrs.iD.array;
       D[j] = rm ? 0 : p.sway; D[j + 1] = p.swayHz; D[j + 2] = rm ? 0 : p.spin; D[j + 3] = life;
       const E = attrs.iE.array;
-      E[j] = rm ? 0 : p.helix; E[j + 1] = p.inner; E[j + 2] = p.alpha * glow * (rm ? 0.7 : 1) * (core ? 0.18 : 1); E[j + 3] = hdr;
+      E[j] = rm ? 0 : p.helix; E[j + 1] = p.inner; E[j + 2] = p.alpha * (rm ? 0.7 : 1) * (core ? 0.18 : 1); E[j + 3] = hdr;
       const F = attrs.iF.array;
       F[j] = p.noise[0]; F[j + 1] = p.noise[1]; F[j + 2] = rm ? 0 : p.scroll; F[j + 3] = p.core?.heat ?? 0;
       const G = attrs.iG.array;
-      G[j] = p.erode[0] + sparse; G[j + 1] = p.erode[1] + sparse; G[j + 2] = Math.min(0.95, (p.body ?? 0.5) * (hdr > 0 ? BODY_UNDER_BLOOM : 1)); G[j + 3] = p.core?.radius ?? 0.45;
+      G[j] = p.erode[0]; G[j + 1] = p.erode[1]; G[j + 2] = Math.min(0.95, p.body ?? 0.5); G[j + 3] = p.core?.radius ?? 0.45;
     }
     return total;
   }
@@ -370,6 +395,9 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
         quads(rec);
       }
       material.uniforms.uTime.value = time;
+      // high: more rings, each sparser (the mask only), and the cover blend
+      material.uniforms.uSparse.value = Math.max(0, 1 - TORNADO_TIERS.medium.rings / tier.rings) * SPARSE_ERODE;
+      material.uniforms.uCover.value = tier.cover ? 1 : 0;
       geo.instanceCount = n;
       for (const a of Object.values(attrs)) {
         a.clearUpdateRanges();

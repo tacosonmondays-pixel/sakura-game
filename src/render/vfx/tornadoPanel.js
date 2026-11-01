@@ -40,7 +40,8 @@ export function mountTornadoPanel(renderer, sim) {
     folder.add(p, 'helix', 0, 0.6, 0.01);
     folder.add(p, 'sway', 0, 0.8, 0.01);
     folder.add(p, 'swayHz', 0, 4, 0.05);
-    folder.add(p.noise, '0', 0.5, 8, 0.1).name('noise around');
+    // (whole numbers only: the noise wraps seamlessly round the ring)
+    folder.add(p.noise, '0', 1, 8, 1).name('noise around');
     folder.add(p.noise, '1', 0.2, 4, 0.05).name('noise along');
     folder.add(p, 'scroll', 0, 4, 0.05);
     folder.add(p.erode, '0', 0, 1, 0.01).name('erode young');
