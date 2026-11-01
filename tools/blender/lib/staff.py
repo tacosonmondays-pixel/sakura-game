@@ -638,7 +638,19 @@ def stop_paddle(ctx, chain, bone='hand_R'):
     parts.append(h)
     c = grip + up * (L + r)
     th = 0.011
-    v, f, rr = M.lathe([(r * 0.97, -th / 2), (r, -th / 4), (r, th / 4), (r * 0.97, th / 2)], segments=20)
+    prof = [(r * 0.97, -th / 2), (r, -th / 4), (r, th / 4), (r * 0.97, th / 2)]
+    if M.LEVEL_DROP[0]:
+        # the LOD's face is not subdivided, so each side is a fan around a centre vertex: the weapon-tip 'center' pick
+        # (the middle of the prop's bounds, src/models/weaponTip.js) then lands on a real vertex, as on the full file,
+        # whose subdivision puts a face point there
+        v, f, rr = M.lathe(prof, segments=20, close_top=False, close_bottom=False)
+        v = list(v) + [(0.0, 0.0, -th / 2), (0.0, 0.0, th / 2)]
+        cb, ct = len(v) - 2, len(v) - 1
+        lo, hi = rr[0], rr[-1]
+        f = list(f) + [(cb, lo[(k + 1) % 20], lo[k]) for k in range(20)] + [(ct, hi[k], hi[(k + 1) % 20]) for k in range(20)]
+        f = M._orient(v, f, center=Vector((0.0, 0.0, 0.0)))
+    else:
+        v, f, rr = M.lathe(prof, segments=20)
     # right-handed (side x up = face): a mirrored basis turns the disc inside out, and the game then draws its dark
     # outline hull over the red face (Cycles shades both sides, so a render does not show it)
     basis = Matrix((side, up, face_n)).transposed()  # local x across, y up the handle, z out of the face

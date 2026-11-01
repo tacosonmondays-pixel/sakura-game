@@ -108,8 +108,12 @@ figures were 1.22 tall before that scale, the rebuilt ones 1.05 to the hat top.)
   with goggles and the sticker; a big open-end wrench (about a third of her height) resting back over her right
   shoulder in idle. Big Yellow is untouched (`public/models/props/big_yellow.glb`).
 * **Props** are modelled where they sit in the idle hold (`HeldChain`) and mapped back into the rest pose, weighted
-  wholly (1.0) to `hand_R`, so they are rigid in every clip and `src/models/weaponTip.js` (branch
-  `feature/weapon-muzzles`: `norika` is `{ bone: 'hand_R', pick: 'center' }`, the sign's face) finds them.
+  wholly (1.0) to `hand_R`, so they are rigid in every clip and `src/models/weaponTip.js` (`norika` is
+  `{ bone: 'hand_R', pick: 'center' }`, the sign's face) finds them. The `center` pick is the middle of the prop's
+  bounds and needs a real vertex within 6 % of her height (`tests/models/weaponTip.test.js`). The full file's
+  subdivision puts one at the middle of the paddle face. The LOD's face is not subdivided, so it is built as a fan
+  around a centre vertex (review r1): the nearest vertex is 0.6 % of her height away on the LOD and 1.4 % on the full
+  file.
 * **Rig**: the Blender girls' standard humanoid hierarchy (`root hips spine chest neck head`, `shoulder / upper_arm /
   forearm / hand _L/_R`, `thigh / shin / foot _L/_R`, `halo`, Norika's `tail_L / tail_R`); `tools/tripo/tripolib/
   rerig.py` `MIXAMO_NAMES` maps every one of them to its Mixamo name.
@@ -120,7 +124,7 @@ figures were 1.22 tall before that scale, the rebuilt ones 1.05 to the hat top.)
   dizzy sway that keeps the face up), `pickup`. Raised and pushed arms are posed by world direction (`arm_to`: Euler
   angles alone swing a raised arm across the face), and each key picks the arm rolls that need the least wrist turn to
   hold the prop as asked (the build reports the largest: Norika 56 degrees, Kogane 86).
-* **Files**: `norika.glb` 485,284 B (9,748 vertices), LOD 241,968 B (3,390); `kogane.glb` 484,596 B (10,014), LOD
+* **Files**: `norika.glb` 485,284 B (9,748 vertices), LOD 242,040 B (3,392); `kogane.glb` 484,596 B (10,014), LOD
   239,684 B (3,570): inside the Blender girls' budgets (480 / 240 KiB) and well under 1 MB. Three primitives (head,
   body, halo), one PNG face atlas. The LOD leaves out what is sub-pixel at medium quality (buttons, goggle lenses) and
   takes lighter cages (hat, sash, tape, strap). The manifest entries no longer say `source: 'tripo'`.
