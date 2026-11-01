@@ -108,7 +108,8 @@ height, landing splat, jiggle settle), idle (breathing squash and a lazy wobble)
 (a happy jump spin). Full 4,576 triangles / 512 px texture, 108 KB; LOD 1,184 / 256 px, 42 KB (were 188 KB / 90 KB).
 
 `src/models/glbEnemy.js`: a `look: 'jelly'` asset extra gives the textured toon body a soft pale rim and a crisp toon
-highlight from a fixed key, so it reads glossy from whichever side it walks; status tints, hit flashes and outlines
+highlight from a fixed key, so it reads glossy from whichever side it walks; both scale with the light on the body,
+so on a night stage the gloss dims with it instead of leaving white discs. Status tints, hit flashes and outlines
 work as before. `source: 'blender'` in its manifest entry and extras (`tests/models/tripo.test.js` knows).
 
 Event hats come back too: `top` is the blob families' head slot (`glbEnemy.js` `SLOT_BONES`). The batch-2 model had
@@ -193,6 +194,10 @@ recording guide (side light, full body in frame, a T-pose first).
 * `e2e/model-audit.mjs` (new): every character file through `glbChibi.js` (arm share, every clip's travel, unbound
   tracks, missing clip names).
 * `tools/tripo/clip_strips.py` (new): the strips of the render-and-look loop.
+* Frame cost (`node e2e/model-quality.mjs --busy`, 40 Green Slimes on the road with Luna, software WebGL, so only
+  the counts compare): draw calls unchanged (150 / 151 at high, 93 / 93 at medium), frame triangles 949,587 ->
+  898,749 at high and 318,268 -> 252,988 at medium (the new slime is lighter); frame times within the noise of
+  SwiftShader (median 333 -> 167 ms high, 433 -> 417 ms medium).
 
 ## Found in the sweep, not fixed here
 

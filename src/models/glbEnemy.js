@@ -433,8 +433,11 @@ const JELLY_FRAGMENT = `
 vec3 jellyView = normalize( vViewPosition );
 float jellyRim = smoothstep( 0.42, 0.95, 1.0 - clamp( dot( normal, jellyView ), 0.0, 1.0 ) );
 vec3 jellyHalf = normalize( normalize( vec3( -0.45, 0.75, 0.5 ) ) + jellyView );
-float jellySpec = smoothstep( 0.885, 0.915, dot( normal, jellyHalf ) );
-outgoingLight += vec3( 0.78, 1.0, 0.9 ) * jellyRim * 0.3 + vec3( 1.0 ) * jellySpec * 0.6;
+float jellySpec = smoothstep( 0.9, 0.93, dot( normal, jellyHalf ) );
+// as bright as the light on it: a night stage dims the gloss with the body instead of leaving white discs
+vec3 jellyLr = outgoingLight / max( diffuseColor.rgb, vec3( 1e-3 ) );
+float jellyLit = clamp( max( jellyLr.r, max( jellyLr.g, jellyLr.b ) ), 0.25, 1.0 );
+outgoingLight += ( vec3( 0.78, 1.0, 0.9 ) * jellyRim * 0.28 + vec3( 1.0 ) * jellySpec * 0.55 ) * jellyLit;
 #include <opaque_fragment>`;
 
 /** Toon body of a textured (Tripo) enemy: its painted colours; status tints and hit flashes still apply. */

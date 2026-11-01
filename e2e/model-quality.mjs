@@ -365,21 +365,12 @@ async function heroRun(hero, size, quality, { slimes = false } = {}) {
   const loaded = await page.waitForFunction((u) => window.__battle.renderer.towerModel(u)?.userData?.glb, uid, { timeout: 60000, polling: 250 }).then(() => true, () => false);
   check(loaded, `${hero} is drawn from her GLB`);
   const pos = await page.evaluate((u) => { const t = window.__battle.sim.towers.find((x) => x.uid === u); return { x: t.x, y: t.y }; }, uid);
-  let slimeInfo = null;
-  if (slimes) {
-    slimeInfo = await spawnSlimes(page, pos.x, pos.y);
-    await page.waitForFunction(() => {
-      let n = 0;
-      window.__battle.renderer.sceneProbe().traverse((o) => { if (o.name === 'glb:tripo/slime_green' || o.name === 'glb:tripo/slime_green.lod') n++; });
-      return n > 0;
-    }, null, { timeout: 60000, polling: 300 }).catch(() => null);
-  }
   await settle(page, 600);
   // wide view first
   await shot(page, hero, 'wide', VW, VH);
-  if (slimes) await slimeShots(page, slimeInfo, VW, VH, quality);
   await zoomOn(page, pos.x, pos.y, 0.5, VW < 600 ? 6 : 7);
-  // the battle paused for her close-ups: her own attacks on the slimes would play over the clip being shown
+  // her close-ups first, the battle paused and no enemy near (her attacks and their beams would play over the clip
+  // being shown); the Green Slimes come after
   await page.evaluate(() => { window.__battle.ui.paused = true; });
   const results = {};
   const tagQ = quality === 'high' ? '' : `-${quality}`;
@@ -413,6 +404,22 @@ async function heroRun(hero, size, quality, { slimes = false } = {}) {
   for (const st of ['walk', 'cheer', 'attack']) {
     const r = results[st];
     if (r?.skinned) check(r.travel > 0.006, `${hero}'s ${st} moves her (${(r.travel * 100).toFixed(1)}% per step)`);
+  }
+  if (slimes) {
+    await page.evaluate((u) => {
+      const ud = window.__battle.renderer.towerModel(u).userData;
+      ud.__mqState = 'idle';
+      ud.__mqFreeze = false;
+      window.__battle.ui.paused = false;
+    }, uid);
+    const slimeInfo = await spawnSlimes(page, pos.x, pos.y);
+    await page.waitForFunction(() => {
+      let n = 0;
+      window.__battle.renderer.sceneProbe().traverse((o) => { if (o.name === 'glb:tripo/slime_green' || o.name === 'glb:tripo/slime_green.lod') n++; });
+      return n > 0;
+    }, null, { timeout: 60000, polling: 300 }).catch(() => null);
+    await settle(page, 600);
+    await slimeShots(page, slimeInfo, VW, VH, quality);
   }
   await context.close();
 }
