@@ -373,3 +373,10 @@ every attack and the batch that styles it. Display only: the sim id does not cha
 - **How:** `actors._syncProjectiles` feeds it where each shot is drawn (read only).
 - **Tiers:** high 160 ribbons of up to 7 joints, medium 90 of 5, low none.
 - **Reduce Motion:** ribbons 30% shorter.
+
+### Slashes and shockwaves (batches B4, B5, `src/render/vfx/shapes.js`)
+
+- **Slash:** a crescent of toon strokes flat to the camera (ink, body, white core), thickest in its middle and pointed at both ends. It sweeps across in `SLASH.grow`, holds, then its tail chases its front off and it breaks into dashes. Every default slash (`fx.slash`) draws one.
+- **Shockwave:** a ring of toon strokes on the ground. It bursts out with an ease-out, thins as it goes and breaks into dashes over its second half. Every default pulse (`fx.pulse`) draws one; the sparks stay.
+- **Tiers:** joints per arc and ring (high 12 and 28, medium 9 and 20, low 6 and 12) and the most shapes up at once.
+- **Reduce Motion:** no sweep or chasing tail; the ring grows linearly and lasts a little longer.

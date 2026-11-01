@@ -70,6 +70,7 @@ import { createLightningFx } from './vfx/lightning.js';
 import { createBeamFx } from './vfx/beams.js';
 import { createStrokes } from './vfx/strokes.js';
 import { createTrails } from './vfx/trails.js';
+import { createShapeFx } from './vfx/shapes.js';
 import { deployFx } from './deployFx.js';
 import { fmtNum } from '../ui/format.js';
 import { createBlackout } from './blackout.js';
@@ -321,6 +322,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // styled projectile trails (src/render/vfx/trails.js): a short toon ribbon behind every shot in flight
   const trails = createTrails({ scene, strokes, quality, reduceMotion });
   actors.trails = trails;
+  // styled slashes and shockwaves (src/render/vfx/shapes.js): every default slash and pulse
+  const shapes = createShapeFx({ scene, strokes, camera, quality, reduceMotion });
+  fx.shapes = shapes;
   if (attackFx) {
     attackFx.ctx.lightning = lightning;
     attackFx.ctx.beams = beams;
@@ -527,6 +531,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     lightning.setQuality(q);
     beams.setQuality(q);
     trails.setQuality(q);
+    shapes.setQuality(q);
     attackFx?.setQuality(q);
     ambient.setQuality(q);
     roster.setQuality(q);
@@ -1101,6 +1106,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     lightning.update(d);
     beams.update(d);
     trails.update(d);
+    shapes.update(d);
     strokes.hold(impact.active); // (…and so do the styled lines)
     strokes.setPixel(rig.scale);
     strokes.end(clock.t);
@@ -1651,6 +1657,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       lightning.dispose();
       beams.dispose();
       trails.dispose();
+      shapes.dispose();
       strokes.dispose();
       roster.dispose();
       staff.dispose();

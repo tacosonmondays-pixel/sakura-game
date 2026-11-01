@@ -125,6 +125,8 @@ export class FxSystem {
     this.lightning = null;
     /** The styled beams (src/render/vfx/beams.js), set by the renderer: beam() hands them the beam. */
     this.beams = null;
+    /** The styled slashes and shockwaves (src/render/vfx/shapes.js), set by the renderer: slash() and pulse() use them. */
+    this.shapes = null;
     /** Height of the rooftop under a ground point (Gate Arc 'U' tiles), or null on maps without roofs:
      * effects that start at a girl (beams, the first chain link, sparkles) start at her lifted height. */
     this.liftAt = null;
@@ -333,8 +335,12 @@ export class FxSystem {
   }
 
   pulse(x, z, radius, color) {
-    this.ring(x, z, radius * 0.25, radius, 0.38, color);
-    this.spawn({ batch: 'groundA', uv: this.R.disc, x, y: 0.05, z, s0: radius * 1.6, s1: radius * 2, life: 0.3, color, a0: 0.35, flags: GROUND });
+    // the styled shockwave (src/render/vfx/shapes.js) when the renderer has one: a toon ring bursting out on the ground
+    if (this.shapes) this.shapes.shock(x, z, radius * 0.25, radius, color);
+    else {
+      this.ring(x, z, radius * 0.25, radius, 0.38, color);
+      this.spawn({ batch: 'groundA', uv: this.R.disc, x, y: 0.05, z, s0: radius * 1.6, s1: radius * 2, life: 0.3, color, a0: 0.35, flags: GROUND });
+    }
     const k = this.n(8);
     for (let i = 0; i < k; i++) {
       const a = (i / k) * TAU;
@@ -390,6 +396,8 @@ export class FxSystem {
 
   /** Crescent sword swipe at a target. */
   slash(x, z, angle, color, size = 0.9) {
+    // the styled crescent (src/render/vfx/shapes.js) when the renderer has one
+    if (this.shapes && this.shapes.slash(x, 0.4, z, angle, color, { size })) return;
     this.spawn({ batch: 'bbA', uv: this.R.slash, x, y: 0.4, z, s0: size, s1: size * 1.3, asp: 2, life: 0.18, color, rot: angle, a0: 1 });
     this.spawn({ batch: 'bbA', uv: this.R.slash, x, y: 0.42, z, s0: size * 0.7, s1: size * 1.1, asp: 2, life: 0.14, color: '#ffffff', rot: angle, a0: 0.8 });
   }
