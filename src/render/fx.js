@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { createVisualRandom, visualSeed } from './vfx/random.js';
 import { createHaloRules } from './vfx/halo.js';
 import { isWorldFlash } from './vfx/flashGuard.js';
+import { stroke } from './vfx/strokes.js';
 import { fmtNum } from '../ui/format.js';
 
 const TAU = Math.PI * 2;
@@ -40,6 +41,12 @@ export const BLAST = {
   fire: { s: 0.26, a: 0.85, hold: 0.35, max: 10 }, // cel fire puffs flung out from round the hit (size × r, at most `max`)
   ring: { s0: 0.5, s1: 2.05, life: 0.3 }, // hard alpha ring on the ground
 };
+/**
+ * The plain lines as toon strokes (fx._toonSegments; as the attack styles' segments, attackFx/patterns/segments.js
+ * TOON_SEG): the body's half width × the line's width, the ink round it, the core's share; they break into dashes over
+ * the last `erode` of their life; the thinnest each layer is drawn (CSS px).
+ */
+export const FX_TOON = { body: 0.3, ink: 0.02, core: 0.42, erode: 0.4, minPx: { ink: 2.2, body: 1.4, core: 0.7 } };
 /** Body size of a Spin Shot bounce blast (× the usual), so the Glow Bowl finale is the one big cloud. */
 export const BOUNCE_BODY = 0.6;
 /** Height of a seated blast's anchor: just above the road (PATH_H 0.05), so its bottom never z-fights it. */
@@ -129,6 +136,10 @@ export class FxSystem {
     this.shapes = null;
     /** The styled blasts (src/render/vfx/blasts.js), set by the renderer: explosion() hands them the blast. */
     this.blasts = null;
+    /** The shared toon strokes (src/render/vfx/strokes.js), set by the renderer: the plain lines are drawn as inked strokes. */
+    this.strokes = null;
+    this._S = stroke();
+    this._seg = 0;
     /** The renderer's switch-off for the styled effects: an error in one of them turns them all off (the old look). */
     this.vfxError = null;
     /** Height of the rooftop under a ground point (Gate Arc 'U' tiles), or null on maps without roofs:
@@ -354,10 +365,9 @@ export class FxSystem {
 
   pulse(x, z, radius, color) {
     // the styled shockwave (src/render/vfx/shapes.js) when the renderer has one: a toon ring bursting out on the ground
-    if (!(this.shapes && this._styled(() => this.shapes.shock(x, z, radius * 0.25, radius, color)))) {
-      this.ring(x, z, radius * 0.25, radius, 0.38, color);
-      this.spawn({ batch: 'groundA', uv: this.R.disc, x, y: 0.05, z, s0: radius * 1.6, s1: radius * 2, life: 0.3, color, a0: 0.35, flags: GROUND });
-    }
+    if (!(this.shapes && this._styled(() => this.shapes.shock(x, z, radius * 0.25, radius, color)))) this.ring(x, z, radius * 0.25, radius, 0.38, color);
+    // the soft disc of its area under the ring, on both looks
+    this.spawn({ batch: 'groundA', uv: this.R.disc, x, y: 0.05, z, s0: radius * 1.6, s1: radius * 2, life: 0.3, color, a0: 0.35, flags: GROUND });
     const k = this.n(8);
     for (let i = 0; i < k; i++) {
       const a = (i / k) * TAU;
@@ -612,15 +622,21 @@ export class FxSystem {
   _drawSegments(dt, haloLeft = 0) {
     const segs = this.segments;
     if (!segs.length) return;
-    const view = this.camera.matrixWorldInverse;
-    const R = this.R;
-    const h = this._h;
     let n = 0;
     for (let i = 0; i < segs.length; i++) {
       const s = segs[i];
       s.t += dt;
-      if (s.t >= s.life) continue;
-      segs[n++] = s;
+      if (s.t < s.life) segs[n++] = s;
+    }
+    segs.length = n;
+    if (!n) return;
+    // the styled library's toon strokes, when the renderer hands them over (on an error: the old glowing lines below)
+    if (this.strokes && this._styled(() => this._toonSegments(segs))) return;
+    const view = this.camera.matrixWorldInverse;
+    const R = this.R;
+    const h = this._h;
+    for (let i = 0; i < n; i++) {
+      const s = segs[i];
       _a.set(s.ax, s.ay, s.az).applyMatrix4(view);
       _b.set(s.bx, s.by, s.bz).applyMatrix4(view);
       const dx = _b.x - _a.x;
@@ -642,7 +658,67 @@ export class FxSystem {
       this.b.bbA.push(mx, my, mz, bw, bh, R.beam, s.color.r, s.color.g, s.color.b, k * fl, ang);
       if (s.core) this.b.bbA.push(mx, my, mz, len, s.w * 0.35 * (0.5 + 0.5 * k), R.beam, 1, 1, 1, k * fl, ang);
     }
-    segs.length = n;
+  }
+
+  /**
+   * The plain lines (an ability's lines and streaks; the old beam and chain) as toon strokes, as the attack styles'
+   * segments are (FX_TOON): all the inks, then the bodies, then the white cores; they thin as they fade and break into
+   * dashes over the last of their life. Short of the strokes' room the newest go whole. @returns {boolean} true
+   */
+  _toonSegments(segs) {
+    const L = this.strokes;
+    const T = FX_TOON;
+    let m = segs.length;
+    let need = 0;
+    for (let i = 0; i < m; i++) need += segs[i].core ? 3 : 2;
+    const room = L.room ? L.room() : Infinity;
+    while (m > 0 && need > room) need -= segs[--m].core ? 3 : 2;
+    const S = this._S;
+    S.kind = 0;
+    S.head = 99;
+    S.tail = -99;
+    S.noise = 9;
+    S.bandFreq = 0;
+    S.bandSpeed = 0;
+    S.hdr = 0;
+    S.thru = 0;
+    S.a = 1;
+    for (let layer = 0; layer < 3; layer++) {
+      S.minPx = layer === 0 ? T.minPx.ink : layer === 1 ? T.minPx.body : T.minPx.core;
+      for (let i = 0; i < m; i++) {
+        const s = segs[i];
+        if (layer === 2 && !s.core) continue;
+        if (s.seed == null) s.seed = (this._seg++ % 89) * 0.77;
+        const k = 1 - s.t / s.life;
+        const fl = s.flicker ? 0.6 + 0.4 * Math.sin(s.t * 90) : 1;
+        const hw = s.w * T.body * (0.45 + 0.55 * k) * fl;
+        S.ax = s.ax; S.ay = s.ay; S.az = s.az;
+        S.bx = s.bx; S.by = s.by; S.bz = s.bz;
+        S.ua = 0;
+        S.ub = Math.hypot(s.bx - s.ax, s.by - s.ay, s.bz - s.az);
+        S.cut = Math.max(0, (1 - k - (1 - T.erode)) / T.erode) * 0.9;
+        S.seed = s.seed;
+        const c = s.color;
+        if (layer === 0) {
+          S.wa = S.wb = hw + T.ink;
+          S.r = c.r * 0.18 + 0.035;
+          S.g = c.g * 0.18 + 0.02;
+          S.b = c.b * 0.18 + 0.07;
+        } else if (layer === 1) {
+          S.wa = S.wb = hw;
+          S.r = c.r;
+          S.g = c.g;
+          S.b = c.b;
+        } else {
+          S.wa = S.wb = hw * T.core;
+          S.r = 0.85 + c.r * 0.15;
+          S.g = 0.85 + c.g * 0.15;
+          S.b = 0.85 + c.b * 0.15;
+        }
+        L.push(S);
+      }
+    }
+    return true;
   }
 
   _drawTexts(dt) {

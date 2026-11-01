@@ -357,7 +357,7 @@ every attack and the batch that styles it. Display only: the sim id does not cha
 ### Chain lightning (`src/render/vfx/lightning.js`, `lightningPresets.js`)
 
 - **Who:**
-  - Raika's chains and Chika's Tesla Tower chains (their attack styles: `attackFx/styles/raika.js`, `chika.js`).
+  - Raika's chains, Chika's Tesla Tower chains and Seiran's Sky chain in her sky blue (their attack styles: `attackFx/styles/raika.js`, `chika.js`, `seiran.js`; Seiran keeps her gold star at every node).
   - Storm Lance and every other chain the default layer draws (`fx.chain` hands it the points).
 - **Look:**
   - Each hop is a zig-zag: long diagonals and short sharp jogs (`skew`), with a fork or two.
@@ -399,6 +399,8 @@ every attack and the batch that styles it. Display only: the sim id does not cha
   - Leaving: it thins and breaks into dashes instead of fading.
   - `SEG_FLICKER` and `SEG_ZIGZAG` move on a stepped beat (`TOON_SEG.beat`, 0.05 s); still under Reduce Motion.
 - **Unchanged:** ropes and sight lines (`SEG_NORMAL`) keep the soft quads, and so does every segment when there are no strokes.
+- **The plain lines too (batch B6):** the default layer's own lines (`fx.segments`: an ability's lines and streaks, e.g. a cast's chain through its targets or Hana's Swoop call) are drawn the same way when the renderer hands fx the strokes (`fx.strokes`; `FX_TOON` = `TOON_SEG`): ink, body and white core, thinning as they fade and breaking into dashes over the last 40% of their life; short of room the newest go whole; on an error, the old glowing quads.
+- **Luna's held moonbeam (batch B6, `patterns/s5held.js`):** with the strokes, each beam of her Moonbeam Sweep is a toon beam from her hand (`MOON_TOON`: ink, a lavender body with running bands, a white core), half as wide as the sim's band and part see-through (strength 0.75: it is held over the board for a while); after the pass it fades and breaks into dashes. Reduce Motion and low: no running bands. Without strokes, no room or on an error: the old soft band.
 
 ### Projectile trails (batch B3, `src/render/vfx/trails.js`)
 
@@ -414,7 +416,7 @@ every attack and the batch that styles it. Display only: the sim id does not cha
 ### Slashes and shockwaves (batches B4, B5, `src/render/vfx/shapes.js`)
 
 - **Slash:** a crescent of toon strokes flat to the camera (ink, body, white core), thickest in its middle and pointed at both ends. It sweeps across in `SLASH.grow`, holds, then its tail chases its front off and it breaks into dashes. Every default slash (`fx.slash`) draws one, and so do the attack styles' own slashes (Kage, Kinu, Luna, Ruri, Wakaba, Yoriko) through `toonSlash` (`src/render/attackFx/patterns/bursts.js`); without the shapes layer they keep their slash sprites.
-- **Shockwave:** a ring of toon strokes on the ground. It bursts out with an ease-out, thins as it goes and breaks into dashes over its second half. Every default pulse (`fx.pulse`) draws one; the sparks stay.
+- **Shockwave:** a ring of toon strokes on the ground. It bursts out with an ease-out, thins as it goes and breaks into dashes over its second half. Every default pulse (`fx.pulse`) draws one; the sparks and the soft disc of its area stay (on both looks).
 - **Tiers:** joints per arc (high 12, medium 9, low 6); a ring's joints grow with its radius (`RING_JOINTS`: 20 a tile, at least 16) up to 40, 32 and 24, so no ring shows as a polygon (up to 2.5 tiles it stays within 0.025 of a tile of a true circle on every tier); and the most shapes up at once (32, 24, 16).
 - **Ground:** a ring's band faces the camera, so it is lifted by its half width with the ink and never dips into the ground.
 - **Flash guard:** toon slashes and rings cover the board rather than add light, so the flash guard does not count them (the old additive slash sprites were counted).

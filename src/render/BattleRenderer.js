@@ -354,6 +354,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // fire bits, smoke, debris and the shapes layer's shockwave ring
   const blasts = createBlastFx({ scene, strokes, batches, atlas, camera, quality, reduceMotion, rand: vrand.fork('blasts'), shapes });
   fx.blasts = vfxOn ? blasts : null;
+  // the plain lines (an ability's lines and streaks) as toon strokes too
+  fx.strokes = vfxOn ? strokes : null;
   /** The enemies the beams cross this frame (world circles for the strokes' see-through holes; reused). */
   const beamHoles = [];
   // the styled effects are decoration: on their first error they all switch off for this battle (logged once) and every
@@ -381,6 +383,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     fx.beams = null;
     fx.shapes = null;
     fx.blasts = null;
+    fx.strokes = null;
     actors.trails = null;
     if (attackFx) {
       attackFx.ctx.lightning = null;

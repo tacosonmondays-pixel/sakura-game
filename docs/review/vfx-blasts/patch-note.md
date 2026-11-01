@@ -8,6 +8,8 @@ The coordinator folds this into a release; the version and date are the release'
   changed: [
     'Explosions are inked toon blasts now: a cloud of puffs that slams out, holds a beat and pops apart, with a star, impact lines, flying sparks, a puff of smoke and a shockwave ring (looks only: damage and reach are unchanged).',
     'Beams go see-through where they pass over an enemy, so you can always see what they hit.',
+    'Seiran\'s Sky chain is inked lightning now, and Luna\'s Moonbeam Sweep is a solid toon beam with running bands.',
+    'Ability lines, like a cast chaining through its targets, are drawn in the same inked style, and pulses keep their soft glow on the ground.',
     'Lower graphics settings keep the blasts simpler, and with Reduce Motion they hold still and fade gently.',
   ],
 },

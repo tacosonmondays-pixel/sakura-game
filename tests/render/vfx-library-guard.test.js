@@ -134,7 +134,7 @@ describe('the styled library switches itself off on an error, never the battle',
     // nothing of the frame's strokes is drawn after an error (no half-pushed line), and the mesh is hidden for good
     expect(off).toMatch(/strokes\.begin\(\);\s*strokes\.end\(0\);/);
     expect(off).toMatch(/strokes\.mesh\.visible = false;/);
-    for (const k of ['fx.lightning = null', 'fx.beams = null', 'fx.shapes = null', 'fx.blasts = null', 'actors.trails = null', 'attackFx.ctx.lightning = null', 'attackFx.ctx.beams = null', 'attackFx.ctx.shapes = null', 'attackFx.ctx.strokes = null']) {
+    for (const k of ['fx.lightning = null', 'fx.beams = null', 'fx.shapes = null', 'fx.blasts = null', 'fx.strokes = null', 'actors.trails = null', 'attackFx.ctx.lightning = null', 'attackFx.ctx.beams = null', 'attackFx.ctx.shapes = null', 'attackFx.ctx.strokes = null']) {
       expect(off).toContain(k);
     }
     expect(off).toMatch(/console\.warn\('\[vfx\] styled effects disabled after an error'/);
@@ -146,7 +146,7 @@ describe('the styled library switches itself off on an error, never the battle',
     expect(src).toMatch(/return vfxSafe\(\(\) => blasts\.blast\(x, z, radius, color, opts\)\);/);
     // the fx hand-offs go through its guard
     const fxSrc = readFileSync('src/render/fx.js', 'utf8');
-    for (const re of [/this\._styled\(\(\) => this\.shapes\.shock\(/, /this\._styled\(\(\) => this\.shapes\.slash\(/, /this\._styled\(\(\) => this\.beams\.fire\(/, /this\._styled\(\(\) => this\.lightning\.strike\(/, /this\._styled\(\(\) => this\.blasts\.blast\(/, /this\._styled\(\(\) => this\.blasts\.dim\(/]) {
+    for (const re of [/this\._styled\(\(\) => this\.shapes\.shock\(/, /this\._styled\(\(\) => this\.shapes\.slash\(/, /this\._styled\(\(\) => this\.beams\.fire\(/, /this\._styled\(\(\) => this\.lightning\.strike\(/, /this\._styled\(\(\) => this\.blasts\.blast\(/, /this\._styled\(\(\) => this\.blasts\.dim\(/, /this\._styled\(\(\) => this\._toonSegments\(/]) {
       expect(fxSrc).toMatch(re);
     }
   });
@@ -207,12 +207,12 @@ describe('the attack effects option (settings.attackFx === false: the previews s
   it('covers the library: off, nothing is handed to it, no tornado starts and every effect keeps the plain look', () => {
     const src = readFileSync('src/render/BattleRenderer.js', 'utf8');
     expect(src).toMatch(/const vfxOn = settings\.attackFx !== false;/);
-    for (const k of ['fx.lightning = vfxOn ? lightning : null;', 'fx.beams = vfxOn ? beams : null;', 'actors.trails = vfxOn ? trails : null;', 'fx.shapes = vfxOn ? shapes : null;', 'fx.blasts = vfxOn ? blasts : null;']) {
+    for (const k of ['fx.lightning = vfxOn ? lightning : null;', 'fx.beams = vfxOn ? beams : null;', 'actors.trails = vfxOn ? trails : null;', 'fx.shapes = vfxOn ? shapes : null;', 'fx.blasts = vfxOn ? blasts : null;', 'fx.strokes = vfxOn ? strokes : null;']) {
       expect(src).toContain(k);
     }
     // nothing else hands the layers out: the attack styles' calls exist only with the attack styles (off: none)
     expect(src).toMatch(/const attackFx = settings\.attackFx === false \? null : createAttackFx\(/);
-    expect(src.match(/fx\.(lightning|beams|shapes|blasts) = (?!null|vfxOn)/g)).toBeNull();
+    expect(src.match(/fx\.(lightning|beams|shapes|blasts|strokes) = (?!null|vfxOn)/g)).toBeNull();
     expect(src.match(/actors\.trails = (?!null|vfxOn)/g)).toBeNull();
     const wire = src.slice(src.indexOf('const guarded = '), src.indexOf('// attack FX are decoration'));
     expect(wire).toMatch(/if \(attackFx\) \{[\s\S]*attackFx\.ctx\.strokes = strokes;/);
