@@ -252,7 +252,7 @@ describe('lightning layer', () => {
 describe('wiring (display only)', () => {
   it('the default chain hands the bolt to the lightning layer, from the girl\'s lifted height', () => {
     const got = [];
-    const self = { lightning: { strike: (pts, o) => (got.push([pts, o]), {}) }, lift: () => 0.4 };
+    const self = { lightning: { strike: (pts, o) => (got.push([pts, o]), {}) }, lift: () => 0.4, _styled: FxSystem.prototype._styled };
     FxSystem.prototype.chain.call(self, [[1, 2], [3, 4]], '#ffe45c');
     expect(got.length).toBe(1);
     const [a, b] = got[0][0];

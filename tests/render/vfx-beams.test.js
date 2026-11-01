@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
-import { createStrokes, stroke, SOLID, BANDS } from '../../src/render/vfx/strokes.js';
+import { createStrokes, stroke, SOLID, BANDS, BAND_WRAP } from '../../src/render/vfx/strokes.js';
 import { BEAM_PRESETS, BEAM_TIERS, MAX_BEAMS } from '../../src/render/vfx/beamPresets.js';
 import { createBeamFx, BEAM_HALF } from '../../src/render/vfx/beams.js';
 import { createVisualRandom } from '../../src/render/vfx/random.js';
@@ -93,6 +93,13 @@ describe('beam presets and tiers', () => {
     }
     expect(BEAM_TIERS.low).toEqual({ lines: 0, sparks: 0, ring: false, scorch: false, bands: false, hdr: false });
     expect(BEAM_TIERS.medium.hdr).toBe(false);
+  });
+
+  it('band speeds fit the strokes\' wrapped band clock (no jump in the running bands when it wraps)', () => {
+    for (const p of Object.values(BEAM_PRESETS)) {
+      const turns = (p.bandSpeed || 0) * BAND_WRAP;
+      expect(Math.abs(turns - Math.round(turns))).toBeLessThan(1e-9);
+    }
   });
 });
 
@@ -219,7 +226,7 @@ describe('beam layer', () => {
 describe('beam wiring (display only)', () => {
   it('the default beam hands it to the beam layer, from the girl\'s lifted height', () => {
     const got = [];
-    const self = { beams: { fire: (a, b, o) => (got.push([a, b, o]), {}) }, lift: () => 0.5 };
+    const self = { beams: { fire: (a, b, o) => (got.push([a, b, o]), {}) }, lift: () => 0.5, _styled: FxSystem.prototype._styled };
     FxSystem.prototype.beam.call(self, [1, 2], [5, 6], 0.24, '#5ab8ff');
     expect(got.length).toBe(1);
     expect(got[0][0][0]).toBe(1);

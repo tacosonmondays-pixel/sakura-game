@@ -193,6 +193,14 @@ export class Segments {
   _toon(toon, tn) {
     const live = this.live;
     const hdr = this.ctx.bloom ? 0.3 : 0;
+    // short of the strokes' room: the newest lines go (a line keeps all its layers or is not drawn)
+    const room = toon.room ? toon.room() : Infinity;
+    let need = 0;
+    for (let q = 0; q < tn; q++) need += live[toonBuf[q * TS + 9]]?.flags & SEG_CORE ? 3 : 2;
+    while (tn > 0 && need > room) {
+      tn--;
+      need -= live[toonBuf[tn * TS + 9]]?.flags & SEG_CORE ? 3 : 2;
+    }
     S.kind = SOLID;
     S.head = 99;
     S.tail = -99;

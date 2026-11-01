@@ -67,8 +67,11 @@ export const raika = {
       const s = ctx.segs.add(h.x, h.h + 0.1, h.y, ex, 0.35, ey, Math.max(0.2, (ev.width || 0.2) * 1.4), ctx.col(BOLT), 0.18, SEG_CORE | SEG_ZIGZAG | SEG_FLICKER);
       if (s) s.k = ctx.quality === 'low' ? 2 : 6;
     }
-    stain(ctx, ex, ey, 0.25, ctx.col('#2a2418'), 0.4, 0.6);
-    flash(ctx, ex, 0.35, ey, 0.5, ctx.col(BOLT), 0.12, CORE);
+    // (the styled lance lands with its own star and scorch: no second flash or stain)
+    if (!ctx.beams) {
+      stain(ctx, ex, ey, 0.25, ctx.col('#2a2418'), 0.4, 0.6);
+      flash(ctx, ex, 0.35, ey, 0.5, ctx.col(BOLT), 0.12, CORE);
+    }
     if (ctx.cap('sweep')) drumBeat(ctx, t.x, t.y, ctx.col(DRUM), 0, 0.8);
     return true;
   },

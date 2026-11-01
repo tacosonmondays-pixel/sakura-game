@@ -62,6 +62,7 @@ export const kage = {
   },
 
   view(p, rec, _t, v, ctx) {
+    v.ownTrail = true; // (her own trail: the styled ribbon skips her shots)
     const lk = rec.tw.look;
     const p2 = lookAt(lk, 2);
     if (p2 >= 3) {

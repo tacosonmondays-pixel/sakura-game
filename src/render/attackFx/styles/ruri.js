@@ -37,6 +37,7 @@ export const ruri = {
   },
 
   view(p, rec, _t, v, ctx) {
+    v.ownTrail = true; // (her own trail: the styled ribbon skips her shots)
     const c = ctx.col(BLUE);
     const vl = Math.hypot(p.vx, p.vy) || 1;
     ctx.quad(ctx.b.bbA, CORE, v.x, v.z, v.y, 0.3, 0.3, ctx.R.glow, c, 0.9);

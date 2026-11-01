@@ -89,9 +89,14 @@ export function createTrails({ scene, strokes = null, quality = 'medium', reduce
         return;
       }
     }
+    // keep only what the ribbon's length (and the tier's joints) needs: the oldest joints make room (no new arrays;
+    // after a switch to a tier with fewer joints, all the extra ones at once)
+    const over = p.length + 4 - (tier.joints + 1) * 4;
+    if (over > 0) {
+      p.copyWithin(0, over);
+      p.length -= over;
+    }
     p.push(x, y, z, time);
-    // keep only what the ribbon's length (and the tier's joints) needs
-    while (p.length > (tier.joints + 1) * 4) p.splice(0, 4);
   }
 
   /** The joints of a ribbon from its head back, cut to its length; its shot gone: pulled in from the tail. */
@@ -125,9 +130,25 @@ export function createTrails({ scene, strokes = null, quality = 'medium', reduce
     return acc;
   }
 
-  const P = [];
+  /** Every ribbon's joints for this frame, worked out once (tr.P, tr.total), then drawn layer by layer. */
+  const DRAW = [];
   function draw() {
     drawn = 0;
+    DRAW.length = 0;
+    let need = 0;
+    for (const tr of live.values()) {
+      if (!tr.P) tr.P = [];
+      tr.total = path(tr, tr.P);
+      if (!tr.total) continue;
+      DRAW.push(tr);
+      need += (tr.P.length / 4 - 1) * (tr.cfg.core > 0 ? 3 : 2);
+    }
+    // short of the strokes' room: the newest ribbons go (a ribbon keeps all its layers or is not drawn)
+    const room = lines.room ? lines.room() : Infinity;
+    while (DRAW.length && need > room) {
+      const tr = DRAW.pop();
+      need -= (tr.P.length / 4 - 1) * (tr.cfg.core > 0 ? 3 : 2);
+    }
     // layer by layer over every ribbon: every ink line, then every body, then every core (clean joints)
     for (let layer = 0; layer < 3; layer++) {
       S.kind = SOLID;
@@ -139,11 +160,12 @@ export function createTrails({ scene, strokes = null, quality = 'medium', reduce
       S.bandSpeed = 0;
       S.a = 1;
       S.minPx = layer === 0 ? MIN_PX.ink : layer === 1 ? MIN_PX.body : MIN_PX.core;
-      for (const tr of live.values()) {
+      for (let d = 0; d < DRAW.length; d++) {
+        const tr = DRAW[d];
         const c = tr.cfg;
         if (layer === 2 && !(c.core > 0)) continue;
-        const total = path(tr, P);
-        if (!total) continue;
+        const P = tr.P;
+        const total = tr.total;
         const k = P.length / 4 - 1;
         for (let s = 0; s < k; s++) {
           const ua = P[s * 4 + 3] / total;
@@ -156,7 +178,6 @@ export function createTrails({ scene, strokes = null, quality = 'medium', reduce
           S.ua = ua;
           S.ub = ub;
           S.seed = tr.seed;
-          // dashes in the tail: erosion that only bites past (1 − dash) along the ribbon
           S.cut = 0;
           if (layer === 0) {
             S.wa = wa + 0.014;
@@ -177,7 +198,7 @@ export function createTrails({ scene, strokes = null, quality = 'medium', reduce
             S.g = 0.85 + tr.g * 0.15;
             S.b = 0.85 + tr.b * 0.15;
           }
-          // (a dashed tail: the shader's head/tail window keeps u ≤ 1 − dash whole; past it the noise cut takes over)
+          // a dashed tail: erosion that only bites past (1 − dash) along the ribbon
           if (ub > 1 - c.dash) S.cut = Math.min(0.85, ((Math.max(ua, 1 - c.dash) - (1 - c.dash)) / Math.max(c.dash, 1e-3)) * 0.9);
           if (lines.push(S)) drawn++;
         }

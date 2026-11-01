@@ -91,6 +91,7 @@ export const chika = {
   view(p, rec, _t, v, ctx) {
     if (rec.turretUid != null) {
       // drone bullet: a bright streak so each shot reads even when the drone is right there
+      v.ownTrail = true; // (the styled ribbon skips it)
       const vl = Math.hypot(p.vx, p.vy) || 1;
       const c = rec.tw.droneLook?.eye || ctx.col('#7fe3ff');
       v.scale = 1.3;

@@ -404,11 +404,15 @@ async function captureOne(browser, base, { vp, quality, tag, perf }) {
             const es = sim.enemies.filter((e) => !e.dead && !e.flying && !e.hidden);
             if (!es.length) return { ok: false, why: 'no enemies' };
             const med = (k) => es.map((e) => e[k]).sort((p, q) => p - q)[Math.floor(es.length / 2)];
+            // on a real enemy: the one nearest the crowd's median spot (the median x and y alone can be off the road)
+            const mx = med('x');
+            const my = med('y');
+            const e = es.slice().sort((a, b) => Math.hypot(a.x - mx, a.y - my) - Math.hypot(b.x - mx, b.y - my))[0];
             const S = window.__battle.renderer.shapes;
-            S.slash(med('x'), 0.4, med('y'), 0.5, '#ff5d7a', { size: 1 });
-            S.shock(med('x'), med('y'), 0.3, 1.6, '#5ab8ff');
-            const p = window.__battle.renderer.worldToScreen?.(med('x'), med('y'), 0.4);
-            return { ok: true, x: med('x'), y: med('y'), screen: p ? [Math.round(p.x), Math.round(p.y)] : null };
+            S.slash(e.x, 0.4, e.y, 0.5, '#ff5d7a', { size: 1 });
+            S.shock(e.x, e.y, 0.3, 1.6, '#5ab8ff');
+            const p = window.__battle.renderer.worldToScreen?.(e.x, e.y, 0.4);
+            return { ok: true, x: e.x, y: e.y, screen: p ? [Math.round(p.x), Math.round(p.y)] : null };
           }
           if (kind.startsWith('chain-') || kind.startsWith('beam-')) {
             const R = window.__battle.renderer;

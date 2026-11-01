@@ -75,6 +75,20 @@ describe('projectile trails', () => {
     expect(low.stats.trails).toBe(0);
   });
 
+  it('a switch to a tier with fewer joints trims every ribbon to it at once', () => {
+    const lines = fakeStrokes();
+    const tr = createTrails({ scene: new THREE.Scene(), strokes: lines, quality: 'high' });
+    // a long, slow shot (a joint every frame, the whole ribbon inside its length): the tier's joints are the limit
+    let x = fly(tr, lines, 30, 5, 1, 'fireball');
+    expect(lines.frame.length / 3).toBe(TRAIL_TIERS.high.joints);
+    tr.setQuality('medium');
+    lines.begin();
+    x += 5 / 60;
+    tr.feed(1, x, 0.55, 0, gold, 'fireball');
+    tr.update(1 / 60);
+    expect(lines.frame.length / 3).toBeLessThanOrEqual(TRAIL_TIERS.medium.joints);
+  });
+
   it('a kind without its own look gets the default; a shell has no white core', () => {
     const lines = fakeStrokes();
     const tr = createTrails({ scene: new THREE.Scene(), strokes: lines, quality: 'high' });

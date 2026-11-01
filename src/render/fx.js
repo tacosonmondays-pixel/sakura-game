@@ -127,6 +127,8 @@ export class FxSystem {
     this.beams = null;
     /** The styled slashes and shockwaves (src/render/vfx/shapes.js), set by the renderer: slash() and pulse() use them. */
     this.shapes = null;
+    /** The renderer's switch-off for the styled effects: an error in one of them turns them all off (the old look). */
+    this.vfxError = null;
     /** Height of the rooftop under a ground point (Gate Arc 'U' tiles), or null on maps without roofs:
      * effects that start at a girl (beams, the first chain link, sparkles) start at her lifted height. */
     this.liftAt = null;
@@ -136,6 +138,16 @@ export class FxSystem {
     this._exi = 0;
     /** each recent blast's glow particle (dimBlast halves it when a styled impact draws its own hit there) */
     this._exGlow = new Array(EX_RING).fill(null);
+  }
+
+  /** A hand-off to a styled layer: its result, or false (draw the old look) when it throws. */
+  _styled(fn) {
+    try {
+      return fn();
+    } catch (err) {
+      this.vfxError?.(err);
+      return false;
+    }
   }
 
   lift(x, z) {
@@ -336,8 +348,7 @@ export class FxSystem {
 
   pulse(x, z, radius, color) {
     // the styled shockwave (src/render/vfx/shapes.js) when the renderer has one: a toon ring bursting out on the ground
-    if (this.shapes) this.shapes.shock(x, z, radius * 0.25, radius, color);
-    else {
+    if (!(this.shapes && this._styled(() => this.shapes.shock(x, z, radius * 0.25, radius, color)))) {
       this.ring(x, z, radius * 0.25, radius, 0.38, color);
       this.spawn({ batch: 'groundA', uv: this.R.disc, x, y: 0.05, z, s0: radius * 1.6, s1: radius * 2, life: 0.3, color, a0: 0.35, flags: GROUND });
     }
@@ -355,7 +366,7 @@ export class FxSystem {
   beam(from, to, width, color, { life = 0.16, y = 0.45 } = {}) {
     const ay = y + this.lift(from[0], from[1]);
     // the styled beam layer (src/render/vfx/beams.js), when the renderer has one: a solid toon beam that lands hard
-    if (this.beams && this.beams.fire([from[0], ay, from[1]], [to[0], y * 0.7, to[1]], { width, color })) return;
+    if (this.beams && this._styled(() => this.beams.fire([from[0], ay, from[1]], [to[0], y * 0.7, to[1]], { width, color }))) return;
     this.segments.push({ ax: from[0], ay, az: from[1], bx: to[0], by: y * 0.7, bz: to[1], w: Math.max(0.14, width * 1.6), color: new THREE.Color(color), life, t: 0, core: true });
     this.spawn({ batch: 'bbA', uv: this.R.glow, x: to[0], y: y * 0.7, z: to[1], s0: width * 3, s1: width * 1.5, life: life * 1.4, color });
     this.spawn({ batch: 'bbA', uv: this.R.glow, x: from[0], y: ay, z: from[1], s0: width * 3, s1: width, life, color });
@@ -367,7 +378,7 @@ export class FxSystem {
     // height to each target's chest
     if (this.lightning && points.length > 1) {
       const pts = points.map(([x, z], i) => [x, i === 0 ? 0.55 + this.lift(x, z) : 0.35, z]);
-      if (this.lightning.strike(pts, { color })) return;
+      if (this._styled(() => this.lightning.strike(pts, { color }))) return;
     }
     const col = new THREE.Color(color);
     for (let i = 0; i < points.length - 1; i++) {
@@ -397,7 +408,7 @@ export class FxSystem {
   /** Crescent sword swipe at a target. */
   slash(x, z, angle, color, size = 0.9) {
     // the styled crescent (src/render/vfx/shapes.js) when the renderer has one
-    if (this.shapes && this.shapes.slash(x, 0.4, z, angle, color, { size })) return;
+    if (this.shapes && this._styled(() => this.shapes.slash(x, 0.4, z, angle, color, { size }))) return;
     this.spawn({ batch: 'bbA', uv: this.R.slash, x, y: 0.4, z, s0: size, s1: size * 1.3, asp: 2, life: 0.18, color, rot: angle, a0: 1 });
     this.spawn({ batch: 'bbA', uv: this.R.slash, x, y: 0.42, z, s0: size * 0.7, s1: size * 1.1, asp: 2, life: 0.14, color: '#ffffff', rot: angle, a0: 0.8 });
   }

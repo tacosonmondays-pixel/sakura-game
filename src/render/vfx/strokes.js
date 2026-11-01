@@ -16,6 +16,9 @@
 // colour × (1 + hdr): over white for the bloom on high); minPx (thinnest it is drawn, in CSS px); band frequency and speed.
 import * as THREE from 'three';
 
+/** The band clock wraps every this many seconds (band speeds must be multiples of 0.1 a second). */
+export const BAND_WRAP = 10;
+
 export const SOLID = 0;
 export const GLOW = 1;
 export const BANDS = 2;
@@ -54,8 +57,9 @@ void main() {
   float floorW = iE.w * uPx;
   float wa = max(iA.w, floorW);
   float wb = max(iB.w, floorW);
-  float w = max(wa, wb);
-  float s = position.x; // 0 at a, 1 at b; the quad runs one half width past each end (the round caps)
+  // the quad runs one half width past each end (the round caps), plus a pixel and a half for the edge's anti-aliasing
+  float w = max(wa, wb) + 1.5 * uPx;
+  float s = position.x; // 0 at a, 1 at b
   vec2 p = mix(a.xy - dir * w, b.xy + dir * w, s) + nrm * (w * position.y);
   gl_Position = projectionMatrix * vec4(p, mix(a.z, b.z, s), 1.0);
   vQ = vec2(mix(-w, len + w, s), w * position.y);
@@ -105,9 +109,11 @@ void main() {
     if (vE.x > 1.5) col = mix(col, vec3(1.0), 0.45 * step(0.5, fract(u * vF.z - uTime * vF.w)));
   }
   float a = m * on * vCol.a;
-  // premultiplied (One, OneMinusSrcAlpha): solid layers cover what is behind them, the glow is added light
-  gl_FragColor = vec4(col * (1.0 + vE.z) * a, abs(vE.x - 1.0) < 0.5 ? 0.0 : a);
+  // the colour goes to the output's space first, then it is premultiplied (One, OneMinusSrcAlpha): solid layers cover
+  // what is behind them (anti-aliased edges and part-strength layers blend right), the glow is added light
+  gl_FragColor = vec4(col * (1.0 + vE.z), 1.0);
   #include <colorspace_fragment>
+  gl_FragColor = vec4(gl_FragColor.rgb * a, abs(vE.x - 1.0) < 0.5 ? 0.0 : a);
 }`;
 
 /**
@@ -146,6 +152,7 @@ export function createStrokes({ scene, max = 6144, renderOrder = 24, name = 'too
   mesh.visible = false;
   mesh.name = name;
   scene.add(mesh);
+  const attrList = Object.values(attrs);
   const A = attrs.iA.array;
   const B = attrs.iB.array;
   const C = attrs.iC.array;
@@ -160,6 +167,10 @@ export function createStrokes({ scene, max = 6144, renderOrder = 24, name = 'too
     /** Starts a frame (with the sprite batches' begin). */
     begin() {
       n = 0;
+    },
+    /** Strokes that still fit this frame (a producer trims to it, so its lines keep all their layers). */
+    room() {
+      return max - n;
     },
     /** Copies a stroke in. @returns {boolean} false when full (the stroke is not drawn) */
     push(s) {
@@ -180,8 +191,10 @@ export function createStrokes({ scene, max = 6144, renderOrder = 24, name = 'too
     /** Ends the frame: uploads what was pushed and shows the mesh (hidden while held, or with nothing to draw). */
     end(time = 0) {
       geo.instanceCount = n;
-      material.uniforms.uTime.value = time;
-      for (const a of Object.values(attrs)) {
+      // (wrapped: a long battle never runs mediump floats out of precision; band speeds are multiples of 0.1, so a
+      // 10 s wrap is seamless)
+      material.uniforms.uTime.value = time % BAND_WRAP;
+      for (const a of attrList) {
         a.clearUpdateRanges();
         if (n) a.addUpdateRange(0, n * 4);
         a.needsUpdate = n > 0;

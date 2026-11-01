@@ -98,7 +98,7 @@ There are also 40 per-girl attack styles in `src/render/attackFx/styles/`, plus 
 | B1 | Strokes; chain lightning (Raika, Chika's Tesla Tower, Storm Lance, every default chain); beams (Luna's moon lance, Miko's holy ray, Raika's Overcharge lance, every default beam) | On `feature/vfx-lightning` |
 | B2 | The shared segment pool (`src/render/attackFx/patterns/segments.js`) drawn as toon strokes. Every style's tracers, thrust lines and zig-zags go solid at once. | On `feature/vfx-lightning` |
 | B3 | Projectiles: a short toon ribbon behind every shot in flight (`src/render/vfx/trails.js`: ink, its element colour, a white core; tapered, dashed at the tail; pulled in after the shot lands; none on low). Next: inked toon heads and impacts with a star and impact lines. | Trails on `feature/vfx-lightning` |
-| B4 | Slashes and sweeps: crescent strokes (an arc of tapered capsules) with ink and erosion (`src/render/vfx/shapes.js` `slash`: every default slash, and the six styles' own: Kage, Kinu, Luna, Ruri, Wakaba, Yoriko). Next: sweeps, ground cracks. | Default slashes on `feature/vfx-shapes` |
+| B4 | Slashes and sweeps: crescent strokes (an arc of tapered capsules) with ink and erosion (`src/render/vfx/shapes.js` `slash`: every default slash, and the six styles' own: Kage, Kinu, Luna, Ruri, Wakaba, Yoriko). Next: sweeps, ground cracks. | Default slashes and the six styles' slashes on `feature/vfx-shapes` |
 | B5 | Pulses, shockwaves and spikes: ground rings as stroke circles that burst out, thin and break into dashes (`shapes.js` `shock`: every default pulse). Next: the six styles' own pulses, spikes. | Default pulses on `feature/vfx-shapes` |
 | B6 | Blasts: the toon explosion (stepped puffs, erosion, star, impact lines, debris) | |
 | B7 | Streams (held flame), wheels, spins, traps and duels, each to its own shape | |
@@ -112,6 +112,6 @@ There are also 40 per-girl attack styles in `src/render/attackFx/styles/`, plus 
 
 ## 5. Budgets
 
-- **Strokes.** One draw call for every styled line, none while nothing is up. Up to 8192 strokes a frame; past that a stroke is not drawn. Lightning thins itself on a busy board long before that (fewer kinks, no forks), and every layer has its own cap: lightning 3072 / 2048 / 1024 by tier, 160 / 90 / 0 trails, 32 / 24 / 16 slashes and rings.
+- **Strokes.** One draw call for every styled line, none while nothing is up. Up to 8192 strokes a frame. Every layer checks the room left before it draws and drops whole lines (the newest first), so a line is never cut to its ink. Lightning thins itself on a busy board long before that (fewer kinks, no forks), and every layer has its own cap: lightning 3072 / 2048 / 1024 by tier, 160 / 90 / 0 trails, 32 / 24 / 16 slashes and rings.
 - **Sprites.** Stars, sparks and rings use the existing batches and their limits.
 - **Full-screen passes.** Medium and low add none. High adds nothing beyond the existing bloom and grade.

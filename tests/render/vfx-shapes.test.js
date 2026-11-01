@@ -3,7 +3,7 @@
 // thins; both break into dashes as they go; the default slash and pulse use them.
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { createShapeFx, SHAPE_TIERS, SLASH, SHOCK } from '../../src/render/vfx/shapes.js';
+import { createShapeFx, SHAPE_TIERS, SLASH, SHOCK, RING_JOINTS } from '../../src/render/vfx/shapes.js';
 import { FxSystem } from '../../src/render/fx.js';
 import { toonSlash, TOON_SLASH_SIZE } from '../../src/render/attackFx/patterns/bursts.js';
 import { ruri } from '../../src/render/attackFx/styles/ruri.js';
@@ -65,15 +65,19 @@ describe('toon shockwaves', () => {
     const { fx, lines, step } = rig('high');
     fx.shock(2, 3, 0.3, 1.5, '#5ab8ff');
     step(0.01);
-    const n = SHAPE_TIERS.high.ring;
-    expect(lines.frame.length).toBe(3 * n);
+    // joints grow with the radius (a small ring: the minimum)
+    const n = lines.frame.length / 3;
+    expect(n).toBe(RING_JOINTS.min);
     const r = (s) => Math.hypot(s.ax - 2, s.az - 3);
     const early = lines.frame[n];
-    expect(early.ay).toBeCloseTo(0.06, 6);
+    expect(early.ay).toBeGreaterThan(0.06); // lifted by its half width: the band never dips into the ground
     const r0 = r(early);
     const w0 = early.wa;
     step(SHOCK.life * 0.7);
-    const late = lines.frame[n];
+    const nLate = lines.frame.length / 3;
+    expect(nLate).toBeGreaterThan(n); // a wider ring: more joints (no visible polygon)
+    expect(nLate).toBeLessThanOrEqual(SHAPE_TIERS.high.ring);
+    const late = lines.frame[nLate];
     expect(r(late)).toBeGreaterThan(r0);
     expect(r(late)).toBeLessThanOrEqual(1.5 + 1e-6);
     expect(late.wa).toBeLessThan(w0);
@@ -93,9 +97,9 @@ describe('wiring (display only)', () => {
   it('the default slash and pulse use the styled shapes', () => {
     const got = [];
     const shapes = { slash: (...a) => (got.push(['slash', ...a]), {}), shock: (...a) => (got.push(['shock', ...a]), {}) };
-    FxSystem.prototype.slash.call({ shapes }, 1, 2, 0.5, '#ff5d7a', 0.8);
+    FxSystem.prototype.slash.call({ shapes, _styled: FxSystem.prototype._styled }, 1, 2, 0.5, '#ff5d7a', 0.8);
     expect(got[0]).toEqual(['slash', 1, 0.4, 2, 0.5, '#ff5d7a', { size: 0.8 }]);
-    const self = { shapes, n: () => 0, spawn: () => {}, R: {}, ring: () => { throw new Error('no soft ring when shapes draw'); } };
+    const self = { shapes, n: () => 0, spawn: () => {}, R: {}, ring: () => { throw new Error('no soft ring when shapes draw'); }, _styled: FxSystem.prototype._styled };
     FxSystem.prototype.pulse.call(self, 3, 4, 2, '#ffe066');
     expect(got[1]).toEqual(['shock', 3, 4, 0.5, 2, '#ffe066']);
   });

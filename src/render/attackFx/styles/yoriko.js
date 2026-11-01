@@ -48,6 +48,7 @@ export const yoriko = {
 
   // a needle: a thin bright pin along its flight with a tiny glint at the point (no thread back to the doll)
   view(p, rec, _t, v, ctx) {
+    v.ownTrail = true; // (her own trail: the styled ribbon skips her shots)
     const vl = Math.hypot(p.vx || 0, p.vy || 0) || 1;
     const ux = (p.vx || 0) / vl;
     const uy = (p.vy || 0) / vl;

@@ -347,6 +347,42 @@ export function createBattleRenderer(container, sim, opts = {}) {
   fx.shapes = shapes;
   // (and the attack styles' own slashes: patterns/bursts.js toonSlash)
   if (attackFx) attackFx.ctx.shapes = shapes;
+  // the styled effects are decoration: on their first error they all switch off for this battle (logged once) and every
+  // effect falls back to its old look; the battle and its events carry on
+  let vfxBroken = false;
+  function vfxOff(err) {
+    if (vfxBroken) return;
+    vfxBroken = true;
+    for (const layer of [lightning, beams, trails, shapes]) {
+      try {
+        layer.clear();
+      } catch {
+        /* leave what is drawn */
+      }
+    }
+    fx.lightning = null;
+    fx.beams = null;
+    fx.shapes = null;
+    actors.trails = null;
+    if (attackFx) {
+      attackFx.ctx.lightning = null;
+      attackFx.ctx.beams = null;
+      attackFx.ctx.shapes = null;
+      attackFx.ctx.strokes = null;
+    }
+    console.warn('[vfx] styled effects disabled after an error', err);
+  }
+  function vfxSafe(fn) {
+    if (vfxBroken) return null;
+    try {
+      return fn();
+    } catch (err) {
+      vfxOff(err);
+      return null;
+    }
+  }
+  fx.vfxError = vfxOff;
+  actors.vfxError = vfxOff;
   if (attackFx) {
     attackFx.ctx.lightning = lightning;
     attackFx.ctx.beams = beams;
@@ -1127,10 +1163,12 @@ export function createBattleRenderer(container, sim, opts = {}) {
       tornado.hold(impact.active); // (impact frames: the column sits both frames out)
       tornado.update(d);
     });
-    lightning.update(d);
-    beams.update(d);
-    trails.update(d);
-    shapes.update(d);
+    vfxSafe(() => {
+      lightning.update(d);
+      beams.update(d);
+      trails.update(d);
+      shapes.update(d);
+    });
     strokes.hold(impact.active); // (…and so do the styled lines)
     strokes.setPixel(rig.scale);
     strokes.end(clock.t);
@@ -1450,14 +1488,14 @@ export function createBattleRenderer(container, sim, opts = {}) {
      * through world points [[x, y, z], …] (the girl first), and its layer; the lightning panel and the captures use it.
      */
     lightningDemo(presetId, points, opts = {}) {
-      return lightning.strike(points, { ...opts, preset: presetId });
+      return vfxSafe(() => lightning.strike(points, { ...opts, preset: presetId }));
     },
     get lightning() {
       return lightning;
     },
     /** Extra (dev tooling, display only): fires a styled beam (src/render/vfx/beams.js presets) from a to b (world points). */
     beamDemo(presetId, a, b, opts = {}) {
-      return beams.fire(a, b, { ...opts, preset: presetId });
+      return vfxSafe(() => beams.fire(a, b, { ...opts, preset: presetId }));
     },
     get beams() {
       return beams;
@@ -1485,6 +1523,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
         flashesRefused: flashGuard.refused, flashesOff: feel.stats.flashesOff, flashOpacity: Math.round(flash.a * 1000) / 1000,
         flashLoad: Math.round(flashGuard.load(clock.realT) * 1000) / 1000, worldFlashes: flashGuard.worldCount, worldFlashesDimmed: flashGuard.dimmed,
         halos: fx.halos + (attackFx?.stats().halos || 0),
+        // the styled lines (src/render/vfx/strokes.js): drawn this frame, refused for want of room (all frames), and
+        // whether the styled effects switched off after an error
+        strokes: strokes.count, strokesRefused: strokes.refused, vfxOff: vfxBroken,
         shakePx: Math.round(Math.hypot(rig.shakePx.x, rig.shakePx.y) * 100) / 100, trauma: Math.round(rig.trauma * 1000) / 1000, punchZoom: Math.round(rig.punchZoom * 10000) / 10000,
         bloom: bloomPass ? { strength: bloomPass.strength, radius: bloomPass.radius, threshold: bloomPass.threshold, knee: bloomPass.highPassUniforms.smoothWidth.value, hdr: batches.bbA.hdr } : null,
         grade: composer ? look.theme + (look.night ? '+night' : '') + (look.fog ? '+fog' : '') : null,

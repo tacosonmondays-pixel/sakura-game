@@ -17,10 +17,12 @@ import { createStrokes, stroke, SOLID } from './strokes.js';
 
 /** Detail per graphics tier: joints in a slash's arc and a shockwave's ring, and the most shapes up at once. */
 export const SHAPE_TIERS = {
-  high: { arc: 12, ring: 24, max: 32 },
-  medium: { arc: 9, ring: 18, max: 24 },
-  low: { arc: 6, ring: 12, max: 16 },
+  high: { arc: 12, ring: 32, max: 32 },
+  medium: { arc: 9, ring: 24, max: 24 },
+  low: { arc: 6, ring: 16, max: 16 },
 };
+/** A ring's joints grow with its radius (10 a tile, at least 12), up to its tier's `ring`: no visible polygon. */
+export const RING_JOINTS = { perTile: 10, min: 12 };
 
 /** A slash: its sweep (radians of the arc), how flat its bulge is, its beats (s), its half width at the middle, its layers and its reach (× size). */
 export const SLASH = { sweep: 2.6, flat: 0.5, grow: 0.05, hold: 0.06, fade: 0.12, width: 0.11, ink: 0.024, core: 0.42, reach: 0.72 };
@@ -96,33 +98,55 @@ export function createShapeFx({ scene, strokes = null, camera = null, quality = 
         J.push(rec.x + ax * along + bx * across, rec.y + ay * along + by * across, rec.z + az * along + bz * across, u, SLASH.width * rec.size * Math.pow(Math.sin(Math.PI * u), 0.8));
       }
     } else {
-      const n = tier.ring;
       const k = Math.min(1, rec.t / lifeOf(rec));
       const r = rec.r0 + (rec.r1 - rec.r0) * (reduceMotion ? k : ease(k));
+      const n = Math.max(RING_JOINTS.min, Math.min(tier.ring, Math.round(r * RING_JOINTS.perTile)));
       const w = SHOCK.width * (1 - 0.6 * k) * Math.min(1.6, 0.6 + rec.r1 * 0.4);
+      // (the band faces the camera: lifted by its half width with the ink, it never dips into the ground)
+      const y = rec.y + (w + SHOCK.ink) * 0.7;
       for (let i = 0; i <= n; i++) {
         const a = (i / n) * Math.PI * 2;
-        J.push(rec.x + Math.cos(a) * r, rec.y, rec.z + Math.sin(a) * r, i / n, w);
+        J.push(rec.x + Math.cos(a) * r, y, rec.z + Math.sin(a) * r, i / n, w);
       }
     }
     return J.length / 5 - 1;
   }
 
-  /** The leader's head, the chasing tail and the erosion of a shape now. */
+  /** The leader's head, the chasing tail and the erosion of a shape now (into rec.head / rec.tail / rec.cut). */
   function beats(rec) {
     const t = rec.t;
     if (rec.type === 'slash') {
       const fade = SLASH.fade * (reduceMotion ? 1.5 : 1);
-      const head = reduceMotion ? 99 : t / SLASH.grow;
       const q = Math.max(0, (t - SLASH.grow - SLASH.hold) / fade);
-      return { head, tail: reduceMotion ? -99 : q * q, cut: Math.min(1, q) * 0.9 };
+      rec.head = reduceMotion ? 99 : t / SLASH.grow;
+      rec.tail = reduceMotion ? -99 : q * q;
+      rec.cut = Math.min(1, q) * 0.9;
+      return;
     }
     const k = Math.min(1, t / lifeOf(rec));
-    return { head: 99, tail: -99, cut: k > 0.5 ? (k - 0.5) * 1.8 : 0 };
+    rec.head = 99;
+    rec.tail = -99;
+    rec.cut = k > 0.5 ? (k - 0.5) * 1.8 : 0;
   }
 
+  const DRAW = [];
   function draw() {
     drawn = 0;
+    DRAW.length = 0;
+    let need = 0;
+    // each shape's joints and beats once this frame (kept on the record), then layer by layer
+    for (const rec of live) {
+      const n = joints(rec);
+      if (!rec.J || rec.J.length < J.length) rec.J = new Float32Array(Math.max(J.length, 160));
+      rec.J.set(J);
+      rec.n = n;
+      beats(rec);
+      DRAW.push(rec);
+      need += n * 3;
+    }
+    // short of the strokes' room: the newest shapes go (a shape keeps all three layers or is not drawn)
+    const room = lines.room ? lines.room() : Infinity;
+    while (DRAW.length && need > room) need -= DRAW.pop().n * 3;
     for (let layer = 0; layer < 3; layer++) {
       S.kind = SOLID;
       S.hdr = 0;
@@ -131,15 +155,15 @@ export function createShapeFx({ scene, strokes = null, camera = null, quality = 
       S.bandSpeed = 0;
       S.a = 1;
       S.minPx = layer === 0 ? MIN_PX.ink : layer === 1 ? MIN_PX.body : MIN_PX.core;
-      for (const rec of live) {
-        const n = joints(rec);
-        const { head, tail, cut } = beats(rec);
+      for (let d = 0; d < DRAW.length; d++) {
+        const rec = DRAW[d];
+        const Jr = rec.J;
         const ink = rec.type === 'slash' ? SLASH.ink : SHOCK.ink;
         const core = rec.type === 'slash' ? SLASH.core : SHOCK.core;
         const [r, g, b] = rec.col;
-        S.head = head;
-        S.tail = tail;
-        S.cut = cut;
+        S.head = rec.head;
+        S.tail = rec.tail;
+        S.cut = rec.cut;
         S.seed = rec.seed;
         if (layer === 0) {
           S.r = r * 0.18 + 0.035;
@@ -154,14 +178,14 @@ export function createShapeFx({ scene, strokes = null, camera = null, quality = 
           S.g = 0.85 + g * 0.15;
           S.b = 0.85 + b * 0.15;
         }
-        for (let i = 0; i < n; i++) {
-          const o = i * 5;
-          const wa = J[o + 4];
-          const wb = J[o + 9];
-          S.ax = J[o]; S.ay = J[o + 1]; S.az = J[o + 2];
-          S.bx = J[o + 5]; S.by = J[o + 6]; S.bz = J[o + 7];
-          S.ua = J[o + 3];
-          S.ub = J[o + 8];
+        for (let q = 0; q < rec.n; q++) {
+          const o = q * 5;
+          const wa = Jr[o + 4];
+          const wb = Jr[o + 9];
+          S.ax = Jr[o]; S.ay = Jr[o + 1]; S.az = Jr[o + 2];
+          S.bx = Jr[o + 5]; S.by = Jr[o + 6]; S.bz = Jr[o + 7];
+          S.ua = Jr[o + 3];
+          S.ub = Jr[o + 8];
           if (layer === 0) {
             S.wa = wa + ink * Math.min(1, wa / 0.02 + 0.3);
             S.wb = wb + ink * Math.min(1, wb / 0.02 + 0.3);

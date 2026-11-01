@@ -2112,13 +2112,13 @@ r.setTimeScale(speed)            // game speed (1–3×) for the attack FX (dron
 r.info.attackFx                  // attack-FX stats { drones, engaged, quads, quadBudget, ms, … } or null when off
 r.hitStop(seconds)               // hold everything drawn ≤ 60 ms of frame time (never the sim); Reduce Motion: ignored → freeze left
 r.visualClock                    // read-only { t, dt, frameT, realT, frame, freezeLeft, slowLeft, … } (docs/VFX.md)
-r.vfx                            // read-only hit-effect stats { hitStops, holds, impacts, flashesRefused, flashLoad, worldFlashesDimmed, halos, shakePx, punchZoom, bloom, grade, … }
+r.vfx                            // read-only hit-effect stats { hitStops, holds, impacts, flashesRefused, flashLoad, worldFlashesDimmed, halos, shakePx, punchZoom, bloom, grade, strokes, strokesRefused, vfxOff, … }
 r.hdrProbe({ effects })          // dev tooling: share of pixels above luminance levels this frame (bloom threshold tuning)
 r.tornadoDemo(presetId, x, z, opts) // dev tooling (display only): starts a styled tornado (src/render/vfx/tornadoPresets.js) at a board spot; opts { seconds, size }; the record or null
 r.tornado                        // dev tooling: the tornado layer (live list, stats); the ?tornadoLab panel and tools/vfx/capture.mjs use it
-r.lightningDemo(presetId, points, opts) // dev tooling (display only): strikes styled chain lightning (src/render/vfx/lightningPresets.js) through world points [[x, y, z], …], the girl first; opts { color, forks }
+r.lightningDemo(presetId, points, opts) // dev tooling (display only): strikes styled chain lightning (src/render/vfx/lightningPresets.js) through world points [[x, y, z], …], the girl first; opts { color, forks, custom } (custom: a whole preset object, the lab's working copy); null once the library has switched itself off
 r.lightning                      // dev tooling: the lightning layer (live bolts, stats); the ?lightningLab panel and the captures use it
-r.beamDemo(presetId, a, b, opts) // dev tooling (display only): fires a styled beam (src/render/vfx/beamPresets.js) from world point a to b; opts { width, color, from, zig }
+r.beamDemo(presetId, a, b, opts) // dev tooling (display only): fires a styled beam (src/render/vfx/beamPresets.js) from world point a to b; opts { width, widthScale, color, from, zig } (color tints the preset); null once the library has switched itself off
 r.beams                          // dev tooling: the beam layer (live beams, stats)
 r.shapes                         // dev tooling: the styled slashes and shockwaves (src/render/vfx/shapes.js: slash(x, y, z, angle, color, { size }), shock(x, z, r0, r1, color))
 ```
@@ -2146,7 +2146,9 @@ Math.random and never from `sim.rng`, so the same battle on the same frames give
 Attack FX (`src/render/attackFx/**`, docs/ATTACK_FX.md): every girl has a signature attack look
 (Chika's drones fly sorties after the sim's targets, lobbed shells show landing reticles, area girls
 sweep over the enemies they really hit, …), purely visual and pooled. `settings.attackFx === false`
-restores the plain look. Truth rules: visuals reach the sim's target at the sim's time, projectile
+turns the girls' signature looks off; the default drawings it falls back to still use the styled VFX
+library (inked chains, solid beams, toon slashes, shockwave rings, projectile ribbons: docs/VFX.md) while
+that is up. Truth rules: visuals reach the sim's target at the sim's time, projectile
 offsets fade to 0 by 60% of the flight, flourishes only on real hits, drones stay inside her ring.
 Quad batches now `begin()` before events / `actors.sync` (projectile glows pushed during sync were
 wiped before and never drawn).

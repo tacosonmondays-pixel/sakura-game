@@ -28,6 +28,7 @@ export const nami = {
   },
 
   view(p, rec, _t, v, ctx) {
+    v.ownTrail = true; // (her own trail: the styled ribbon skips her shots)
     const f = rec.f || 0;
     v.scale = 0.8 + 0.55 * f;
     if (ctx.q.trails < 1) return;

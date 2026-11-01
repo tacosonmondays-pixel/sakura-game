@@ -53,38 +53,49 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
   const right = new THREE.Vector3(1, 0, 0);
   const up = new THREE.Vector3(0, 1, 0);
 
+  /** A preset, or a preset (laser when none) in a colour: the body that colour, a dark ink of its hue, a white-hot core. */
   const presetFor = (id, color) => {
-    if (id && presets[id]) return { id, p: presets[id] };
-    const base = presets.laser;
+    const named = id && presets[id] ? id : null;
     const key = String(color || '').toLowerCase();
-    if (!key) return { id: 'laser', p: base };
-    // the beam's own colour: the body; a dark ink of its hue; a white-hot core with a hint of it
-    if (!tinted.has(key)) {
+    if (named && !key) return { id: named, p: presets[named] };
+    const baseId = named || 'laser';
+    const base = presets[baseId];
+    if (!key) return { id: baseId, p: base };
+    const tk = `${baseId}|${key}`;
+    if (!tinted.has(tk)) {
       const c = new THREE.Color(key);
       const hsl = c.getHSL({});
       const ink = new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * 0.8 + 0.2), 0.14);
       const core = c.clone().lerp(new THREE.Color('#ffffff'), 0.88);
-      tinted.set(key, { ...base, label: `Laser (${key})`, body: key, ink: `#${ink.getHexString()}`, core: `#${core.getHexString()}`, lines: { ...base.lines, ink: `#${ink.getHexString()}` } });
+      tinted.set(tk, { ...base, label: `${base.label} (${key})`, body: key, ink: `#${ink.getHexString()}`, core: `#${core.getHexString()}`, lines: { ...base.lines, ink: `#${ink.getHexString()}` } });
     }
-    return { id: 'laser', p: tinted.get(key) };
+    return { id: baseId, p: tinted.get(tk) };
   };
 
   /**
-   * Fires a beam from a to b (world [x, y, z]). opts: width (the sim's beam width), color (no preset: the beam in
-   * that colour), preset, from (a sweeping lance: its end slides in from here), zig (kinks: a zig-zag lance).
+   * Fires a beam from a to b (world [x, y, z]). opts: width (the sim's beam width) and widthScale, color (the preset,
+   * or laser, in that colour), preset, from (a sweeping lance: its end slides in from here), zig (kinks: a zig-zag lance).
    * @returns {object|null} the beam's record (live, read-only)
    */
-  function fire(a, b, { width = 0.2, color = null, preset = null, from = null, zig = null } = {}) {
+  function fire(a, b, { width = 0.2, widthScale = 1, color = null, preset = null, from = null, zig = null } = {}) {
     if (!a || !b) return null;
     const { id, p } = presetFor(preset, color);
     if (!p) return null;
     if (live.length >= MAX_BEAMS) live.shift();
     const rec = {
       id, p, a: [a[0], a[1], a[2]], b: [b[0], b[1], b[2]], from: from ? [from[0], from[1], from[2]] : null,
-      W: Math.max(0.05, BEAM_HALF.base + BEAM_HALF.per * width) * (p.width ?? 1),
+      W: Math.max(0.05, BEAM_HALF.base + BEAM_HALF.per * width) * (p.width ?? 1) * Math.max(0.5, widthScale),
       t: 0, seed: rnd() * 7, zig: Math.max(0, (zig ?? p.zig) | 0), pts: null, strikes: 0, nextStrike: p.restrike || 0.05,
       hitAt: -1, hitK: 1, muzK: 1, rot: rnd() * TAU, rays: [], sparks: [],
       col: { ink: lin(p.ink), body: lin(p.body), core: lin(p.core) },
+      // (the sprites' and lines' colours, once: never parsed again per frame)
+      fx: {
+        muzzle: lin(p.muzzle?.color || '#ffffff'), star: lin(p.star?.color || '#ffffff'),
+        ring: p.ringColor ? lin(p.ringColor) : null, scorch: lin(p.scorch?.color || '#000000'),
+        sparks: p.sparksColor ? lin(p.sparksColor) : null, lineInk: lin(p.lines?.ink || '#000000'), lineCore: lin(p.lines?.color || '#ffffff'),
+      },
+      // (this frame's path and beats: worked out once, drawn layer by layer)
+      st: { pts: null, k: 0, len: 0, w: 0, head: 99, tail: -99, cut: 0, on: false },
     };
     for (let i = 0; i < 8; i++) rec.rays.push([(i / 8 + (rnd() - 0.5) * 0.07) * TAU, 0.7 + 0.6 * rnd()]);
     for (let i = 0; i < 5; i++) rec.sparks.push([rnd() * TAU, 0.6 + 0.6 * rnd(), 0.5 + rnd(), 0.7 + 0.6 * rnd()]);
@@ -101,27 +112,31 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
   const fxLife = (p) => Math.max(p.star?.life ?? 0, p.lines?.life ?? 0, p.sparks?.life ?? 0, p.ring?.life ?? 0, p.scorch?.life ?? 0);
   const endOf = (rec) => Math.max(lifeOf(rec.p), rec.p.charge + fxLife(rec.p));
 
-  /** Where the beam's end is now (a sweeping lance slides in). */
-  function endNow(rec) {
+  /** A straight beam's path now, into its own buffer (a sweeping lance's end slides in). */
+  function lineNow(rec) {
     const p = rec.p;
-    if (!rec.from || reduceMotion) return rec.b;
-    const k = Math.min(1, rec.t / (p.charge + p.punch * 0.5));
-    if (k >= 1) return rec.b;
-    const e = ease(k);
-    return [rec.from[0] + (rec.b[0] - rec.from[0]) * e, rec.from[1] + (rec.b[1] - rec.from[1]) * e, rec.from[2] + (rec.b[2] - rec.from[2]) * e];
+    const L = rec.line || (rec.line = new Float64Array(6));
+    L[0] = rec.a[0];
+    L[1] = rec.a[1];
+    L[2] = rec.a[2];
+    const k = !rec.from || reduceMotion ? 1 : Math.min(1, rec.t / (p.charge + p.punch * 0.5));
+    const e = k >= 1 ? 1 : ease(k);
+    for (let i = 0; i < 3; i++) L[3 + i] = k >= 1 ? rec.b[i] : rec.from[i] + (rec.b[i] - rec.from[i]) * e;
+    return L;
   }
 
-  /** Pushes one beam's three layers (ink, body, core) along its path. */
-  function strokesOf(rec) {
+  /** Works out one beam's path and beats for this frame (rec.st); false when it is not drawn. */
+  function state(rec) {
+    const st = rec.st;
     const p = rec.p;
     const t = rec.t;
     const c = p.charge;
     const pu = p.punch;
     const h = p.hold;
     const f = fadeOf(p);
-    if (t > lifeOf(p)) return;
-    const b = endNow(rec);
-    const pts = rec.pts || [rec.a[0], rec.a[1], rec.a[2], b[0], b[1], b[2]];
+    st.on = t <= lifeOf(p);
+    if (!st.on) return false;
+    const pts = rec.pts || lineNow(rec);
     const k = pts.length / 3 - 1;
     let len = 0;
     for (let s = 0; s < k; s++) len += Math.hypot(pts[s * 3 + 3] - pts[s * 3], pts[s * 3 + 4] - pts[s * 3 + 1], pts[s * 3 + 5] - pts[s * 3 + 2]);
@@ -140,30 +155,42 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
       if (p.tailChase && !reduceMotion) tail = q * q * len;
       cut = q * p.erode;
     }
+    st.pts = pts;
+    st.k = k;
+    st.len = len;
+    st.w = w;
+    st.head = head;
+    st.tail = tail;
+    st.cut = cut;
+    return true;
+  }
+
+  /** Every drawn beam's layer `layer` (0 ink, 1 body, 2 core): all the inks, then all the bodies, then all the cores. */
+  function layerOf(list, layer) {
     const hdr = tier.hdr && bloom;
-    const layers = [
-      ['ink', w + p.inkWidth, rec.col.ink, SOLID, 0],
-      ['body', w, rec.col.body, tier.bands ? BANDS : SOLID, 0],
-      ['core', w * p.coreShare, rec.col.core, SOLID, hdr ? p.hdr : 0],
-    ];
-    S.seed = rec.seed;
-    S.noise = 4;
-    S.head = head;
-    S.tail = tail;
-    S.cut = cut;
     S.a = 1;
-    for (const [layer, lw, col, kind, hd] of layers) {
-      const dim = hdr && layer === 'body' ? BODY_UNDER_BLOOM : 1;
+    S.noise = 4;
+    S.kind = layer === 1 && tier.bands ? BANDS : SOLID;
+    S.minPx = layer === 0 ? BEAM_MIN_PX.ink : layer === 1 ? BEAM_MIN_PX.body : BEAM_MIN_PX.core;
+    for (const rec of list) {
+      const st = rec.st;
+      const p = rec.p;
+      const col = layer === 0 ? rec.col.ink : layer === 1 ? rec.col.body : rec.col.core;
+      const dim = hdr && layer === 1 ? BODY_UNDER_BLOOM : 1;
+      const lw = layer === 0 ? st.w + p.inkWidth : layer === 1 ? st.w : st.w * p.coreShare;
       S.r = col[0] * dim;
       S.g = col[1] * dim;
       S.b = col[2] * dim;
-      S.kind = kind;
-      S.hdr = hd;
-      S.minPx = BEAM_MIN_PX[layer];
+      S.hdr = layer === 2 && hdr ? p.hdr : 0;
       S.bandFreq = p.bandFreq;
       S.bandSpeed = reduceMotion ? 0 : p.bandSpeed;
+      S.seed = rec.seed;
+      S.head = st.head;
+      S.tail = st.tail;
+      S.cut = st.cut;
+      const pts = st.pts;
       let u = 0;
-      for (let s = 0; s < k; s++) {
+      for (let s = 0; s < st.k; s++) {
         const o = s * 3;
         const sl = Math.hypot(pts[o + 3] - pts[o], pts[o + 4] - pts[o + 1], pts[o + 5] - pts[o + 2]);
         S.ax = pts[o]; S.ay = pts[o + 1]; S.az = pts[o + 2];
@@ -178,17 +205,15 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
     }
   }
 
-  /** The inked impact lines: short strokes bursting out flat to the camera, thinning as they fly. */
-  function impactLines(rec) {
+  /** How many impact lines a beam bursts into now (0: none). */
+  function raysOf(rec) {
     const L = rec.p.lines;
-    const n = reduceMotion ? 0 : Math.min(tier.lines, rec.rays.length);
-    if (!L || n <= 0 || rec.hitAt < 0) return;
-    const tau = rec.t - rec.hitAt;
-    if (tau >= L.life) return;
-    const k = tau / L.life;
-    const [x, y, z] = rec.b;
-    const ink = lin(L.ink);
-    const core = lin(L.color);
+    if (!L || reduceMotion || rec.hitAt < 0 || rec.t - rec.hitAt >= L.life) return 0;
+    return Math.min(tier.lines, rec.rays.length);
+  }
+
+  /** The inked impact lines of every landing beam (all the inks, then all the cores): bursting out flat to the camera. */
+  function impactLines(list) {
     S.kind = SOLID;
     S.hdr = 0;
     S.head = 99;
@@ -199,26 +224,35 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
     S.bandFreq = 0;
     S.bandSpeed = 0;
     S.minPx = BEAM_MIN_PX.line;
-    S.a = rec.hitK;
-    for (const [col, extra] of [[ink, 0.018], [core, 0]]) {
-      S.r = col[0];
-      S.g = col[1];
-      S.b = col[2];
-      for (let i = 0; i < n; i++) {
-        const [ang, sz] = rec.rays[i];
-        const r0 = 0.16 + (0.25 + rec.W) * ease(k) * sz;
-        const r1 = r0 + L.length * sz * (1 - k) * 0.8;
-        const cx = Math.cos(ang);
-        const cy = Math.sin(ang);
-        const dx = right.x * cx + up.x * cy;
-        const dy = right.y * cx + up.y * cy;
-        const dz = right.z * cx + up.z * cy;
-        S.ax = x + dx * r0; S.ay = y + dy * r0; S.az = z + dz * r0;
-        S.bx = x + dx * r1; S.by = y + dy * r1; S.bz = z + dz * r1;
-        S.wa = L.width * (1 - 0.6 * k) + extra;
-        S.wb = L.width * 0.25 + extra;
-        S.seed = i;
-        if (lines.push(S)) drawn++;
+    for (let layer = 0; layer < 2; layer++) {
+      for (const rec of list) {
+        const n = raysOf(rec);
+        if (!n) continue;
+        const L = rec.p.lines;
+        const k = (rec.t - rec.hitAt) / L.life;
+        const [x, y, z] = rec.b;
+        const col = layer === 0 ? rec.fx.lineInk : rec.fx.lineCore;
+        const extra = layer === 0 ? 0.018 : 0;
+        S.r = col[0];
+        S.g = col[1];
+        S.b = col[2];
+        S.a = rec.hitK;
+        for (let i = 0; i < n; i++) {
+          const [ang, sz] = rec.rays[i];
+          const r0 = 0.16 + (0.25 + rec.W) * ease(k) * sz;
+          const r1 = r0 + L.length * sz * (1 - k) * 0.8;
+          const cx = Math.cos(ang);
+          const cy = Math.sin(ang);
+          const dx = right.x * cx + up.x * cy;
+          const dy = right.y * cx + up.y * cy;
+          const dz = right.z * cx + up.z * cy;
+          S.ax = x + dx * r0; S.ay = y + dy * r0; S.az = z + dz * r0;
+          S.bx = x + dx * r1; S.by = y + dy * r1; S.bz = z + dz * r1;
+          S.wa = L.width * (1 - 0.6 * k) + extra;
+          S.wb = L.width * 0.25 + extra;
+          S.seed = i;
+          if (lines.push(S)) drawn++;
+        }
       }
     }
   }
@@ -234,7 +268,7 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
     const up0 = p.charge + p.punch;
     if (mUv && bbA && t < up0) {
       const s = (mz.size + rec.W * 1.5) * (t < p.charge ? 0.5 + 0.5 * (t / p.charge) : 1 - 0.4 * ((t - p.charge) / p.punch));
-      const [r, g, b] = lin(mz.color);
+      const [r, g, b] = rec.fx.muzzle;
       bbA.push(rec.a[0], rec.a[1], rec.a[2], s, s, mUv, r, g, b, 0.9 * rec.muzK);
     }
     if (rec.hitAt < 0) return;
@@ -245,7 +279,7 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
     if (stUv && bbA && tau < st.life) {
       const k = tau / st.life;
       const s = (st.size + rec.W * 2) * (reduceMotion ? 0.75 : k < 0.25 ? 0.6 + (k / 0.25) * 0.55 : 1.15 - (k - 0.25) * 0.8);
-      const [r, g, b] = lin(st.color);
+      const [r, g, b] = rec.fx.star;
       bbA.push(x, y, z, s, s, stUv, r, g, b, (1 - k) * rec.hitK, reduceMotion ? 0 : rec.rot + tau * 4);
     }
     const body = rec.col.body;
@@ -253,13 +287,13 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
     if (tier.ring && ring && R[ring.sprite] && tau < ring.life) {
       const k = tau / ring.life;
       const s = ring.size * (0.35 + 0.65 * Math.sqrt(k)) * (1 + rec.W * 2);
-      const [r, g, b] = p.ringColor ? lin(p.ringColor) : body;
+      const [r, g, b] = rec.fx.ring || body;
       batches.groundA?.push(x, 0.05, z, s, s, R[ring.sprite], r, g, b, 0.55 * (1 - k) * rec.hitK);
     }
     const sc = p.scorch;
     if (tier.scorch && sc && R[sc.sprite] && tau < sc.life) {
       const k = tau / sc.life;
-      const [r, g, b] = lin(sc.color);
+      const [r, g, b] = rec.fx.scorch;
       batches.groundN?.push(x, 0.045, z, sc.size * (1 + rec.W), sc.size * (1 + rec.W), R[sc.sprite], r, g, b, sc.alpha * (1 - k * k), reduceMotion ? 0 : rec.rot);
     }
     const sp = p.sparks;
@@ -267,7 +301,7 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
     const count = reduceMotion ? Math.floor(tier.sparks / 2) : tier.sparks;
     if (spUv && bbA && tau < sp.life) {
       const k = tau / sp.life;
-      const [r, g, b] = p.sparksColor ? lin(p.sparksColor) : body;
+      const [r, g, b] = rec.fx.sparks || body;
       // they spray back towards the girl a little (the beam's force)
       const bx = rec.a[0] - x;
       const bz = rec.a[2] - z;
@@ -281,6 +315,27 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
         bbA.push(x + vx * tau, Math.max(0.05, y + vy * tau - 4.5 * tau * tau), z + vz * tau, s, s, spUv, r, g, b, 1 - k, 0);
       }
     }
+  }
+
+  /** Draws every beam: their paths and beats once, then layer by layer, trimmed to the strokes' room (lines first). */
+  const DRAW = [];
+  function draw() {
+    drawn = 0;
+    DRAW.length = 0;
+    let need = 0;
+    let rays = 0;
+    for (const rec of live) {
+      if (!state(rec)) continue;
+      DRAW.push(rec);
+      need += rec.st.k * 3;
+      rays += raysOf(rec) * 2;
+    }
+    let room = lines.room ? lines.room() : Infinity;
+    // short of room: the impact lines go first, then the newest beams (a beam keeps all three layers or is not drawn)
+    const withRays = need + rays <= room;
+    while (DRAW.length && need > room) need -= DRAW.pop().st.k * 3;
+    for (let layer = 0; layer < 3; layer++) layerOf(DRAW, layer);
+    if (withRays) impactLines(DRAW);
   }
 
   const api = {
@@ -325,9 +380,7 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
         }
       }
       if (own) lines.begin();
-      drawn = 0;
-      for (const rec of live) strokesOf(rec);
-      for (const rec of live) impactLines(rec);
+      draw();
       for (const rec of live) quads(rec);
       if (own) lines.end(time);
     },

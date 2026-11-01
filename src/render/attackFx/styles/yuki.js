@@ -36,6 +36,7 @@ export const yuki = {
   },
 
   view(p, rec, _t, v, ctx) {
+    v.ownTrail = true; // (her own trail: the styled ribbon skips her shots)
     const lk = rec.tw.look;
     if (lookAt(lk, 1) >= 3) {
       v.kind = 'needle';

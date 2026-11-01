@@ -337,7 +337,9 @@ every attack and the batch that styles it. Display only: the sim id does not cha
 - **Draw cost:**
   - One instanced draw call for every styled line of the battle; hidden while nothing is pushed.
   - Premultiplied blend: the solid layers cover, the glow adds.
-  - Begun and ended with the sprite batches each frame (`BattleRenderer`), held through both impact frames, at most 8192 strokes in a battle (past it a stroke is not drawn: the effects thin out instead of failing).
+  - Begun and ended with the sprite batches each frame (`BattleRenderer`), held through both impact frames, at most 8192 strokes in a battle.
+  - Full: every layer checks the room left (`strokes.room()`) before it draws and drops whole lines, the newest first, so a line keeps its ink, body and core or is not drawn at all (never an ink-only dark line). `renderer.vfx.strokes` and `strokesRefused` show the load to captures.
+- **Errors:** an error anywhere in the library (an update, the projectile feed, or a hand-off from `fx.js`) switches the whole library off for the battle (`vfxSafe` / `vfxOff` in `BattleRenderer`, logged once): its layers are cleared and every effect goes back to its old drawing. (An error raised inside an attack style's own call goes through the attack styles' guard instead, `fxSafe`: the signature looks switch off and the default drawings carry on.)
 
 ### Chain lightning (`src/render/vfx/lightning.js`, `lightningPresets.js`)
 
@@ -347,7 +349,7 @@ every attack and the batch that styles it. Display only: the sim id does not cha
 - **Look:**
   - Each hop is a zig-zag: long diagonals and short sharp jogs (`skew`), with a fork or two.
   - Layers: a dark ink line (violet under gold, navy under ice blue), the body, a white-hot core.
-  - Each hop's leader races from the girl to its target in a few frames. The chain arrives within `CHAIN_SPAN` (0.24 s) however long it is.
+  - Each hop's leader races from the girl to its target in `grow` (0.05 s). The hops start one after another: the last one starts within `CHAIN_SPAN` (0.24 s) however long the chain is, and lands about 0.05 s later.
   - The path is struck again on a stepped beat (hand-drawn crackle). The core dims on every other strike.
   - It leaves by erosion: it breaks into dashes and is gone.
   - At each target: a star (flash-guarded), sparks (petals for sakura) and a ring on the ground.
@@ -358,7 +360,7 @@ every attack and the batch that styles it. Display only: the sim id does not cha
   A busy board thins new bolts (fewer kinks, no forks) long before any cap. High with bloom: the core goes over white
   and the body stays under the grade's knee (`BODY_UNDER_BLOOM`).
 - **Reduce Motion:** one still path a hop (no re-strike, no flicker), slower erosion, no turning sprites, half the sparks.
-- **Dev lab:** `?lightningLab` (dev server only, like the tornado's): presets, hops, forks, live tuning, "Copy preset".
+- **Dev lab:** `?lightningLab` (dev server only, like the tornado's): presets, hops, forks, live tuning (colours included: the lab strikes with its edited preset), "Copy preset".
 
 ### Beams (`src/render/vfx/beams.js`, `beamPresets.js`)
 
@@ -371,6 +373,8 @@ every attack and the batch that styles it. Display only: the sim id does not cha
   - Hold: bright bands run out to the target.
   - Leave: it thins, its back end chases its front into the target, and it breaks into dashes.
 - **Impact:** a star (flash-guarded), a burst of inked impact lines flat to the camera, sparks spraying back, a ring on the ground, a brief scorch.
+  - The styles' own end stars, flashes and scorch marks (Luna's, Miko's, Raika's) are left out while the beam draws, so each end has one flash and one scorch; they come back on the fallback.
+  - Luna's tier cues ride on her lance: wider with each P0 step, and her T5 sheath colour.
 - **Tiers:** high 8 impact lines, 5 sparks, running bands; medium 6 and 3; low a plain solid beam (no lines, sparks, ring, scorch or bands).
 - **Reduce Motion:** no punch, running bands, chasing tail, impact lines or re-strike; still sprites; half the sparks.
 
@@ -388,6 +392,7 @@ every attack and the batch that styles it. Display only: the sim id does not cha
   - It tapers to a point and breaks into dashes at the tail.
   - When the shot lands or vanishes, the ribbon is pulled in after it (`TRAIL_TAIL`, 0.12 s).
   - `TRAIL_KINDS` sets each kind's length and width (arrow, bolt, spark, bullet, fireball, shuriken, shell, flask).
+  - A shot whose attack style already draws its own trail (the style sets `view.ownTrail`: every shot of Akane, Aoi, Iroha, Kage, Kinu, Nami, Ruri, Yoriko, Yuki and Yuzuha, Hikari's T5 shots and Chika's drone bullets) gets no ribbon, so it never draws two.
 - **How:** `actors._syncProjectiles` feeds it where each shot is drawn (read only).
 - **Tiers:** high 160 ribbons of up to 7 joints, medium 90 of 5, low none.
 - **Reduce Motion:** ribbons 30% shorter.
@@ -396,5 +401,7 @@ every attack and the batch that styles it. Display only: the sim id does not cha
 
 - **Slash:** a crescent of toon strokes flat to the camera (ink, body, white core), thickest in its middle and pointed at both ends. It sweeps across in `SLASH.grow`, holds, then its tail chases its front off and it breaks into dashes. Every default slash (`fx.slash`) draws one, and so do the attack styles' own slashes (Kage, Kinu, Luna, Ruri, Wakaba, Yoriko) through `toonSlash` (`src/render/attackFx/patterns/bursts.js`); without the shapes layer they keep their slash sprites.
 - **Shockwave:** a ring of toon strokes on the ground. It bursts out with an ease-out, thins as it goes and breaks into dashes over its second half. Every default pulse (`fx.pulse`) draws one; the sparks stay.
-- **Tiers:** joints per arc and ring (high 12 and 24, medium 9 and 18, low 6 and 12) and the most shapes up at once (32, 24, 16).
+- **Tiers:** joints per arc (high 12, medium 9, low 6); a ring's joints grow with its radius (`RING_JOINTS`: 10 a tile, at least 12) up to 32, 24 and 16, so no ring shows as a polygon; and the most shapes up at once (32, 24, 16).
+- **Ground:** a ring's band faces the camera, so it is lifted by its half width with the ink and never dips into the ground.
+- **Flash guard:** toon slashes and rings cover the board rather than add light, so the flash guard does not count them (the old additive slash sprites were counted).
 - **Reduce Motion:** no sweep or chasing tail; the ring grows linearly and lasts a little longer.

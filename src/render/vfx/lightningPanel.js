@@ -43,11 +43,8 @@ export function mountLightningPanel(renderer, sim) {
     }
     return pts;
   };
-  const strike = () => {
-    const rec = renderer.lightningDemo(state.preset, points(), { forks: state.forks });
-    // the layer reads the preset it is handed: point it at the working copy
-    if (rec) rec.p = work[state.preset];
-  };
+  // the working copy goes in whole (its colours too): the layer reads the preset it is handed
+  const strike = () => renderer.lightningDemo(state.preset, points(), { forks: state.forks, custom: work[state.preset] });
   gui.add(state, 'preset', Object.keys(work)).onChange(() => rebuild());
   gui.add(state, 'hops', 1, 12, 1);
   gui.add(state, 'spacing', 0.5, 3, 0.05);

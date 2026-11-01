@@ -31,6 +31,8 @@ export const BODY_UNDER_BLOOM = 0.82;
 export const CHAIN_SPAN = 0.24;
 /** Floats per collected segment (see collect()). */
 const SEG = 16;
+const WITH_GLOW = LIGHTNING_LAYERS;
+const NO_GLOW = LIGHTNING_LAYERS.filter((l) => l !== 'glow');
 
 /** sRGB hex → linear [r, g, b] 0..1. */
 function lin(hex) {
@@ -166,9 +168,10 @@ export function createLightningFx({ scene, strokes = null, batches = null, atlas
    * (forks: extra forks per hop on tiers that fork at all, e.g. Raika's Forked path).
    * @returns {object|null} the bolt's record (live, read-only)
    */
-  function strike(points, { preset = null, color = null, forks = 0 } = {}) {
+  function strike(points, { preset = null, color = null, forks = 0, custom = null } = {}) {
     if (!Array.isArray(points) || points.length < 2) return null;
-    const { id, p } = presetFor(preset, color);
+    // (custom: a whole preset object, the dev lab's working copy)
+    const { id, p } = custom ? { id: preset || 'custom', p: custom } : presetFor(preset, color);
     if (!p) return null;
     if (live.length >= MAX_BOLTS) live.shift();
     const hops = points.length - 1;
@@ -180,6 +183,8 @@ export function createLightningFx({ scene, strokes = null, batches = null, atlas
       id, p, t: 0, n, bn: Math.max(2, tier.branchSegs), branches, hops: [],
       hopDelay: Math.min(p.hopDelay, CHAIN_SPAN / hops), strikes: 0, nextStrike: p.restrike,
       col: { glow: lin(p.glow), ink: lin(p.ink), body: lin(p.body), core: lin(p.core) },
+      // (the sprites' colours, once: never parsed again per frame)
+      fx: { source: lin(p.source?.color || '#ffffff'), star: lin(p.star?.color || '#ffffff'), ground: lin(p.ground?.color || '#ffffff'), sparks: lin(p.sparks?.color || '#ffffff') },
       segCount: 0,
     };
     for (let i = 0; i < hops; i++) bolt.hops.push(makeHop(bolt, i, points[i].slice(0, 3), points[i + 1].slice(0, 3)));
@@ -215,8 +220,14 @@ export function createLightningFx({ scene, strokes = null, batches = null, atlas
         const head = p.grow > 0 ? age / p.grow : 99;
         const cut = age > p.grow + p.hold ? Math.min(1.05, ((age - p.grow - p.hold) / fade) * 1.05) : 0;
         const shrink = 1 - 0.35 * cut;
-        const lines = [[hop.pts, 0, 1, hop.w, hop.w * p.taper], ...hop.br.map((b) => [b.pts, b.u0, b.u1, hop.w * (1 + (p.taper - 1) * b.u0) * 0.55, hop.w * 0.2])];
-        for (const [pts, u0, u1, w0, w1] of lines) {
+        // the main path, then each fork (no arrays made per frame)
+        for (let li = -1; li < hop.br.length; li++) {
+          const fork = li >= 0 ? hop.br[li] : null;
+          const pts = fork ? fork.pts : hop.pts;
+          const u0 = fork ? fork.u0 : 0;
+          const u1 = fork ? fork.u1 : 1;
+          const w0 = fork ? hop.w * (1 + (p.taper - 1) * fork.u0) * 0.55 : hop.w;
+          const w1 = fork ? hop.w * 0.2 : hop.w * p.taper;
           const k = pts.length / 3 - 1;
           need(k);
           for (let s = 0; s < k; s++) {
@@ -245,11 +256,12 @@ export function createLightningFx({ scene, strokes = null, batches = null, atlas
 
   /** Pushes the collected segments as strokes, layer by layer (back to front); returns how many. */
   function write(count) {
-    const layers = LIGHTNING_LAYERS.filter((l) => l !== 'glow' || tier.glow);
-    // over the cap: the glow goes first, then the newest segments (the bolts are short-lived)
-    let use = layers;
-    if (count * use.length > tier.cap && use[0] === 'glow') use = use.slice(1);
-    const per = Math.min(count, Math.floor(tier.cap / use.length));
+    // over the cap or short of the strokes' room: the glow goes first, then the newest segments (the bolts are
+    // short-lived; a segment keeps all its layers or is not drawn)
+    const cap = Math.min(tier.cap, lines.room ? lines.room() : Infinity);
+    let use = tier.glow ? WITH_GLOW : NO_GLOW;
+    if (count * use.length > cap && use === WITH_GLOW) use = NO_GLOW;
+    const per = Math.min(count, Math.floor(cap / use.length));
     const hdr = tier.hdr && bloom;
     let j = 0;
     for (const layer of use) {
@@ -315,7 +327,7 @@ export function createLightningFx({ scene, strokes = null, batches = null, atlas
     const a0 = bolt.t - h0.t0;
     const up = p.grow + p.hold;
     if (glowUv && bbA && a0 >= 0 && a0 < up && p.source) {
-      const [r, g, b] = lin(p.source.color);
+      const [r, g, b] = bolt.fx.source;
       bbA.push(h0.a[0], h0.a[1], h0.a[2], p.source.size, p.source.size, glowUv, r, g, b, 0.85 * (1 - a0 / up));
     }
     for (const hop of bolt.hops) {
@@ -340,14 +352,14 @@ export function createLightningFx({ scene, strokes = null, batches = null, atlas
       if (stUv && bbA && tau < st.life) {
         const k = tau / st.life;
         const s = st.size * (reduceMotion ? 0.75 : k < 0.3 ? 0.6 + (k / 0.3) * 0.5 : 1.1 - (k - 0.3) * 0.7);
-        const [r, g, b] = lin(st.color);
+        const [r, g, b] = bolt.fx.star;
         bbA.push(x, y, z, s, s, stUv, r, g, b, (1 - k) * hop.hitK, reduceMotion ? 0 : hop.rot + tau * 5);
       }
       const gr = p.ground;
       if (tier.ground && gr && R[gr.sprite] && tau < gr.life) {
         const k = tau / gr.life;
         const s = gr.size * (0.35 + 0.65 * Math.sqrt(k));
-        const [r, g, b] = lin(gr.color);
+        const [r, g, b] = bolt.fx.ground;
         batches.groundA?.push(x, 0.05, z, s, s, R[gr.sprite], r, g, b, 0.55 * (1 - k) * hop.hitK);
       }
       const sp = p.sparks;
@@ -356,7 +368,7 @@ export function createLightningFx({ scene, strokes = null, batches = null, atlas
       const count = reduceMotion ? Math.floor(tier.sparks / 2) : tier.sparks;
       if (spUv && batch && tau < sp.life) {
         const k = tau / sp.life;
-        const [r, g, b] = lin(sp.color);
+        const [r, g, b] = bolt.fx.sparks;
         for (let i = 0; i < count; i++) {
           const [ang, spd, vy, sz] = hop.sparks[i];
           const v = sp.speed * spd * (reduceMotion ? 0.5 : 1);
