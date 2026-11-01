@@ -407,7 +407,8 @@ async function captureOne(browser, base, { vp, quality, tag, perf }) {
             const S = window.__battle.renderer.shapes;
             S.slash(med('x'), 0.4, med('y'), 0.5, '#ff5d7a', { size: 1 });
             S.shock(med('x'), med('y'), 0.3, 1.6, '#5ab8ff');
-            return { ok: true, x: med('x'), y: med('y') };
+            const p = window.__battle.renderer.worldToScreen?.(med('x'), med('y'), 0.4);
+            return { ok: true, x: med('x'), y: med('y'), screen: p ? [Math.round(p.x), Math.round(p.y)] : null };
           }
           if (kind.startsWith('chain-') || kind.startsWith('beam-')) {
             const R = window.__battle.renderer;
@@ -423,7 +424,10 @@ async function captureOne(browser, base, { vp, quality, tag, perf }) {
               const preset = kind.slice(5);
               const tgt = es.slice().sort((a, b) => Math.abs(Math.hypot(a.x - t.x, a.y - t.y) - 3) - Math.abs(Math.hypot(b.x - t.x, b.y - t.y) - 3))[0];
               const rec = R.beamDemo(preset, [t.x, 0.95, t.y], [tgt.x, 0.35, tgt.y], { width: 0.24, zig: preset === 'storm' ? 6 : null });
-              return { ok: !!rec, girl: t.unitId ?? null };
+              // (where it is on screen, CSS px: the boards crop round it)
+              const a = R.worldToScreen?.(t.x, t.y, 0.95);
+              const b = R.worldToScreen?.(tgt.x, tgt.y, 0.35);
+              return { ok: !!rec, girl: t.unitId ?? null, screen: a && b ? [Math.round(a.x), Math.round(a.y), Math.round(b.x), Math.round(b.y)] : null };
             }
             // a chain: nearest neighbours from the girl, up to six hops of at most four tiles
             const pts = [[t.x, 0.95, t.y]];
@@ -448,7 +452,8 @@ async function captureOne(browser, base, { vp, quality, tag, perf }) {
               cy = best.y;
             }
             const rec = pts.length > 1 ? R.lightningDemo(kind.slice(6), pts, {}) : null;
-            return { ok: !!rec, hops: pts.length - 1, girl: t.unitId ?? null };
+            const scr = pts.map(([x, y, z]) => R.worldToScreen?.(x, z, y)).filter(Boolean).map((p) => [Math.round(p.x), Math.round(p.y)]);
+            return { ok: !!rec, hops: pts.length - 1, girl: t.unitId ?? null, screen: scr };
           }
           const boss = sim.enemies.find((e) => !e.dead && e.tier === 'boss');
           if (!boss) return { ok: false, why: 'no boss' };
