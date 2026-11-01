@@ -20,6 +20,20 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.73', version: '0.1.73', date: '2026-11-02', title: 'Path Looks and Inked Attack Effects',
+    added: [
+      'See each girl\'s upgrade path at a glance: coloured pips under her show how far each path goes, and from tier 3 she wears a piece for that path — wings, quivers, crowns and more — with a capstone look at tier 5. Rolling out now for Aoi, Akane, Luna, Rei, Yuki, Momo, Kage, Nami and Hikari; more girls soon.',
+    ],
+    changed: [
+      'Upgrade paths use one colour set everywhere: pink, cyan and gold.',
+      'Chain lightning is now a hand-drawn bolt with ink outlines: it zig-zags from girl to target, forks, crackles and breaks into dashes as it fades. Raika\'s and Chika\'s chains and Storm Lance get their own colours.',
+      'Beams look heavier: Luna\'s moon lance, Miko\'s holy ray, Raika\'s Overcharge lance and every other beam charge up, slam in wide and land with a star and bursting impact lines (looks only: damage is unchanged).',
+      'Sword slashes are inked crescents that sweep across and break apart, and pulses send out a crisp shockwave ring along the ground.',
+      'Shots in flight leave a short inked streak in their element\'s colour (girls with a trail of their own keep theirs).',
+      'Lower graphics settings keep these effects simpler, and with Reduce Motion they hold still and fade gently.',
+    ],
+  },
+  {
     id: 'v0.1.72', version: '0.1.72', date: '2026-11-01', title: 'New Staff Models and a Fire Tornado',
     added: [
       'Akane\'s Starmine Barrage now whips up a swirling fire tornado where the shells fall thickest: it builds while the shells rain down and lifts away when the barrage ends.',
