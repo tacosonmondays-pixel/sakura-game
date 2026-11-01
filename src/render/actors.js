@@ -151,6 +151,7 @@ export class Actors {
     /** seeded render-only randomness (the renderer hands its own fork: src/render/vfx/random.js) */
     this.rand = createVisualRandom(visualSeed('actors'));
     this.fxHook = null; // attack FX (render/attackFx): projectile views, drones, lunges, tossed traps
+    this.trails = null; // styled projectile trails (src/render/vfx/trails.js), set by the renderer
     this.cameraYaw = 0; // the battle camera's yaw (BattleRenderer sets it each frame): figures that face it (facing.js)
     this._c = new THREE.Color();
     this._tint = new THREE.Color();
@@ -654,6 +655,8 @@ export class Actors {
       col.copy(TINT_KINDS[kind] || (v && v.tint) ? fc : WHITE);
       if (kind === 'bolt' || kind === 'spark' || kind === 'bullet') col.lerp(WHITE, 0.35);
       mesh.setColorAt(i, col);
+      // the styled ribbon behind the shot (src/render/vfx/trails.js), in its element colour
+      if (this.trails) this.trails.feed(p.uid, px, z, py, fc, kind);
       const glow = v && v.glow >= 0 ? v.glow : GLOW_KINDS[kind];
       if (glow) this.b.bbA.push(px, z, py, glow, glow, this.R.glow, fc.r, fc.g, fc.b, 0.85);
       if (kind === 'fireball' && this.rand() < dt * 30) {

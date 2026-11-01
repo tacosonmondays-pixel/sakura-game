@@ -69,6 +69,7 @@ import { TORNADO_CASTS } from './vfx/tornadoPresets.js';
 import { createLightningFx } from './vfx/lightning.js';
 import { createBeamFx } from './vfx/beams.js';
 import { createStrokes } from './vfx/strokes.js';
+import { createTrails } from './vfx/trails.js';
 import { deployFx } from './deployFx.js';
 import { fmtNum } from '../ui/format.js';
 import { createBlackout } from './blackout.js';
@@ -317,6 +318,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // styled beams (src/render/vfx/beams.js): Luna's, Miko's and Raika's beams (their attack styles) and every other beam
   const beams = createBeamFx({ scene, strokes, batches, atlas, camera, quality, reduceMotion, rand: vrand.fork('beams') });
   fx.beams = beams;
+  // styled projectile trails (src/render/vfx/trails.js): a short toon ribbon behind every shot in flight
+  const trails = createTrails({ scene, strokes, quality, reduceMotion });
+  actors.trails = trails;
   if (attackFx) {
     attackFx.ctx.lightning = lightning;
     attackFx.ctx.beams = beams;
@@ -522,6 +526,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     tornado.setQuality(q);
     lightning.setQuality(q);
     beams.setQuality(q);
+    trails.setQuality(q);
     attackFx?.setQuality(q);
     ambient.setQuality(q);
     roster.setQuality(q);
@@ -1095,6 +1100,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     tornado.update(d);
     lightning.update(d);
     beams.update(d);
+    trails.update(d);
     strokes.hold(impact.active); // (…and so do the styled lines)
     strokes.setPixel(rig.scale);
     strokes.end(clock.t);
@@ -1644,6 +1650,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       lightningLab?.dispose();
       lightning.dispose();
       beams.dispose();
+      trails.dispose();
       strokes.dispose();
       roster.dispose();
       staff.dispose();

@@ -355,3 +355,21 @@ every attack and the batch that styles it. Display only: the sim id does not cha
 - **Impact:** a star (flash-guarded), a burst of inked impact lines flat to the camera, sparks spraying back, a ring on the ground, a brief scorch.
 - **Tiers:** high 8 impact lines, 5 sparks, running bands; medium 6 and 3; low a plain solid beam (no lines, sparks, ring, scorch or bands).
 - **Reduce Motion:** no punch, running bands, chasing tail, impact lines or re-strike; still sprites; half the sparks.
+
+### Attack styles' segments as toon strokes (batch B2, `src/render/attackFx/patterns/segments.js`)
+
+- **What changes:** with the battle's strokes (`ctx.strokes`), every additive segment of every attack style is a solid toon line: tracers, thrust lines, zig-zags, mini-arcs.
+  - Layers: ink, body, and a white-hot core for `SEG_CORE`, pushed layer by layer so the joints stay clean.
+  - Leaving: it thins and breaks into dashes instead of fading.
+  - `SEG_FLICKER` and `SEG_ZIGZAG` move on a stepped beat (`TOON_SEG.beat`, 0.05 s); still under Reduce Motion.
+- **Unchanged:** ropes and sight lines (`SEG_NORMAL`) keep the soft quads, and so does every segment when there are no strokes.
+
+### Projectile trails (batch B3, `src/render/vfx/trails.js`)
+
+- **What:** every projectile in flight draws a short toon ribbon behind it: ink, its element colour and a white core.
+  - It tapers to a point and breaks into dashes at the tail.
+  - When the shot lands or vanishes, the ribbon is pulled in after it (`TRAIL_TAIL`, 0.12 s).
+  - `TRAIL_KINDS` sets each kind's length and width (arrow, bolt, spark, bullet, fireball, shuriken, shell, flask).
+- **How:** `actors._syncProjectiles` feeds it where each shot is drawn (read only).
+- **Tiers:** high 160 ribbons of up to 7 joints, medium 90 of 5, low none.
+- **Reduce Motion:** ribbons 30% shorter.

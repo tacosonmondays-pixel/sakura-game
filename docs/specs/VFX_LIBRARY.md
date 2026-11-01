@@ -96,8 +96,8 @@ There are also 40 per-girl attack styles in `src/render/attackFx/styles/`, plus 
 | Batch | What gets styled | Status |
 |---|---|---|
 | B1 | Strokes; chain lightning (Raika, Chika's Tesla Tower, Storm Lance, every default chain); beams (Luna's moon lance, Miko's holy ray, Raika's Overcharge lance, every default beam) | On `feature/vfx-lightning` |
-| B2 | The shared segment pool (`src/render/attackFx/patterns/segments.js`) drawn as toon strokes. Every style's tracers, thrust lines and zig-zags go solid at once. | Next |
-| B3 | Projectiles: inked toon heads and short ribbon trails (strokes from a position history); impacts with a star and impact lines | |
+| B2 | The shared segment pool (`src/render/attackFx/patterns/segments.js`) drawn as toon strokes. Every style's tracers, thrust lines and zig-zags go solid at once. | On `feature/vfx-lightning` |
+| B3 | Projectiles: a short toon ribbon behind every shot in flight (`src/render/vfx/trails.js`: ink, its element colour, a white core; tapered, dashed at the tail; pulled in after the shot lands; none on low). Next: inked toon heads and impacts with a star and impact lines. | Trails on `feature/vfx-lightning` |
 | B4 | Slashes and sweeps: crescent strokes (an arc of tapered capsules) with ink and erosion; ground cracks | |
 | B5 | Pulses, shockwaves and spikes: ground rings as stroke circles, stepped bands and erosion; inked spikes | |
 | B6 | Blasts: the toon explosion (stepped puffs, erosion, star, impact lines, debris) | |
