@@ -67,6 +67,8 @@ import { createAbilityFx } from './abilityFx.js';
 import { createTornadoFx } from './vfx/tornado.js';
 import { TORNADO_CASTS } from './vfx/tornadoPresets.js';
 import { createLightningFx } from './vfx/lightning.js';
+import { createBeamFx } from './vfx/beams.js';
+import { createStrokes } from './vfx/strokes.js';
 import { deployFx } from './deployFx.js';
 import { fmtNum } from '../ui/format.js';
 import { createBlackout } from './blackout.js';
@@ -305,11 +307,20 @@ export function createBattleRenderer(container, sim, opts = {}) {
   const tornado = createTornadoFx({ scene, batches, atlas, quality, reduceMotion, rand: vrand.fork('tornado') });
   /** The live tornado of each girl's cast (fed by its shells). */
   const tornadoOf = new Map();
-  // styled chain lightning (src/render/vfx/lightning.js; display only): Raika's and Chika's chains (their attack styles),
-  // Storm Lance and every other chain the default layer draws
-  const lightning = createLightningFx({ scene, batches, atlas, quality, reduceMotion, rand: vrand.fork('lightning') });
+  // toon strokes (src/render/vfx/strokes.js; display only): every styled line of the battle in one instanced draw call,
+  // begun and ended with the sprite batches each frame
+  const strokes = createStrokes({ scene });
+  // styled chain lightning (src/render/vfx/lightning.js): Raika's and Chika's chains (their attack styles), Storm Lance
+  // and every other chain the default layer draws
+  const lightning = createLightningFx({ scene, strokes, batches, atlas, quality, reduceMotion, rand: vrand.fork('lightning') });
   fx.lightning = lightning;
-  if (attackFx) attackFx.ctx.lightning = lightning;
+  // styled beams (src/render/vfx/beams.js): Luna's, Miko's and Raika's beams (their attack styles) and every other beam
+  const beams = createBeamFx({ scene, strokes, batches, atlas, camera, quality, reduceMotion, rand: vrand.fork('beams') });
+  fx.beams = beams;
+  if (attackFx) {
+    attackFx.ctx.lightning = lightning;
+    attackFx.ctx.beams = beams;
+  }
   // attack FX are decoration: an FX error must never cost a frame's sim events (won / lost) —
   // on the first one the FX switch off for this battle (today's look) and it is logged once
   let fxBroken = false;
@@ -408,7 +419,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // over it, the additive effect batches burning on top; the normal-blend batches sit those frames out
   const impact = new ImpactFrames({
     scene, figures: () => [actors.root, companions.root],
-    hide: () => [batches.groundN.mesh, batches.bbN.mesh, batches.overlay.mesh, batches.links.mesh, overlays.root, tornado.mesh, lightning.mesh],
+    hide: () => [batches.groundN.mesh, batches.bbN.mesh, batches.overlay.mesh, batches.links.mesh, overlays.root, tornado.mesh, strokes.mesh],
   });
   // shake / punch / hit-stop / hold / impact / flash decisions (Reduce Motion, Hit effects, Impact
   // frames, placing, budget)
@@ -426,6 +437,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   fx.flashGate = flashGate;
   if (attackFx) attackFx.ctx.flashGate = flashGate;
   lightning.flashGate = flashGate;
+  beams.flashGate = flashGate;
 
   // ----- post-processing -------------------------------------------------------------------
   // high: scene → bloom → grade (tone curve + this theme's grade, in place of the output pass)
@@ -461,6 +473,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     attackFx?.setGlow?.(quality, on);
     tornado.setGlow(quality, on);
     lightning.setGlow(quality, on);
+    beams.setGlow(quality, on);
   };
 
   // ----- state -----------------------------------------------------------------------------
@@ -506,6 +519,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     fx.setQuality(q);
     tornado.setQuality(q);
     lightning.setQuality(q);
+    beams.setQuality(q);
     attackFx?.setQuality(q);
     ambient.setQuality(q);
     roster.setQuality(q);
@@ -1010,6 +1024,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     const events = sim.drainEvents();
     // begin before events/sync: quads pushed there (projectile glows, attack FX) are kept
     for (const b of batchList) b.begin();
+    strokes.begin();
     handleEvents(events);
     try {
       actors.alpha = renderAlpha();
@@ -1076,9 +1091,11 @@ export function createBattleRenderer(container, sim, opts = {}) {
     fx.update(d);
     tornado.hold(impact.active); // (impact frames: the column sits both frames out)
     tornado.update(d);
-    lightning.hold(impact.active); // (…and so do the bolts)
-    lightning.setPixel(rig.scale);
     lightning.update(d);
+    beams.update(d);
+    strokes.hold(impact.active); // (…and so do the styled lines)
+    strokes.setPixel(rig.scale);
+    strokes.end(clock.t);
     for (const b of batchList) b.end();
 
     // the screen tint waits out the impact frames (the ink frame is never tinted), then fades
@@ -1400,6 +1417,13 @@ export function createBattleRenderer(container, sim, opts = {}) {
     get lightning() {
       return lightning;
     },
+    /** Extra (dev tooling, display only): fires a styled beam (src/render/vfx/beams.js presets) from a to b (world points). */
+    beamDemo(presetId, a, b, opts = {}) {
+      return beams.fire(a, b, { ...opts, preset: presetId });
+    },
+    get beams() {
+      return beams;
+    },
     /** Extra: the visual clock's state (read-only copy; e2e, captures, debugging). */
     get visualClock() {
       return clock.snapshot();
@@ -1617,6 +1641,8 @@ export function createBattleRenderer(container, sim, opts = {}) {
       tornado.dispose();
       lightningLab?.dispose();
       lightning.dispose();
+      beams.dispose();
+      strokes.dispose();
       roster.dispose();
       staff.dispose();
       companions.dispose();

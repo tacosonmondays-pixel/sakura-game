@@ -46,17 +46,23 @@ export const luna = {
     const ey = ev.to[1];
     const w = Math.min(0.32, Math.max(0.12, (ev.width || 0.15) * 0.8)) * (1 + 0.1 * (p0 || lk.accent[0]));
     const sheath = ctx.col(p0 >= 5 ? '#c9a8ff' : '#8f5bff');
-    const s = ctx.segs.add(M.x, M.h, M.y, ex, 0.35, ey, w, sheath, 0.18, SEG_CORE, -1, 0.85);
     // sweeping lance: slide from this slot's previous end when the angle barely changed
     const a0 = Math.atan2(d.ex[k] - t.x, d.ey[k] - t.y);
     const a1 = Math.atan2(ex - t.x, ey - t.y);
     let da = Math.abs(a1 - a0);
     if (da > Math.PI) da = Math.PI * 2 - da;
-    if (s && ctx.time - d.et[k] < 0.6 && da < 0.7) {
-      s.flags |= SEG_SLIDE;
-      s.sx = d.ex[k];
-      s.sy = 0.35;
-      s.sz = d.ey[k];
+    const sweep = ctx.time - d.et[k] < 0.6 && da < 0.7;
+    if (ctx.beams) {
+      // the styled moon lance (src/render/vfx/beams.js): solid, banded, landing with a star and impact lines
+      ctx.beams.fire([M.x, M.h, M.y], [ex, 0.35, ey], { preset: 'moon', width: ev.width || 0.15, from: sweep ? [d.ex[k], 0.35, d.ey[k]] : null });
+    } else {
+      const s = ctx.segs.add(M.x, M.h, M.y, ex, 0.35, ey, w, sheath, 0.18, SEG_CORE, -1, 0.85);
+      if (s && sweep) {
+        s.flags |= SEG_SLIDE;
+        s.sx = d.ex[k];
+        s.sy = 0.35;
+        s.sz = d.ey[k];
+      }
     }
     d.ex[k] = ex;
     d.ey[k] = ey;

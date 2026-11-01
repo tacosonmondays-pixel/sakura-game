@@ -9,12 +9,14 @@
 //   lightning.strike([[x, y, z], [x, y, z], …], { color })   // world points: the girl first, then each target
 //   lightning.update(dt)   // the visual clock's dt, after the batches' begin() and before their end()
 //
-// Draw cost: one instanced draw call for every bolt (none while nothing is up), plus a few quads in the existing
-// batches (stars and sparks in bbA, petals in bbN, the ground rings in groundA). Randomness: the stream it is handed
+// Draw cost: its bolts are toon strokes (src/render/vfx/strokes.js): in a battle they share the one instanced draw call
+// of every styled line (none while nothing is up); standalone (tests, the lab) it makes its own. Plus a few quads in the
+// existing batches (stars and sparks in bbA, petals in bbN, the ground rings in groundA). Randomness: the stream it is handed
 // (createVisualRandom fork); never Math.random, never the sim's. Reduce Motion: one still path per hop (no re-strike,
 // no flicker), slower erosion, no turning sprites, half the sparks.
 import * as THREE from 'three';
 import { LIGHTNING_PRESETS, LIGHTNING_TIERS, LIGHTNING_BY_COLOR, MAX_BOLTS } from './lightningPresets.js';
+import { createStrokes, stroke, SOLID, GLOW } from './strokes.js';
 
 const TAU = Math.PI * 2;
 /** Layers, back to front (the instance order inside the one draw call: a later layer covers an earlier one). */
@@ -29,82 +31,6 @@ export const BODY_UNDER_BLOOM = 0.82;
 export const CHAIN_SPAN = 0.24;
 /** Floats per collected segment (see collect()). */
 const SEG = 16;
-
-const VERT = /* glsl */`
-attribute vec4 iA; // a: x, y, z, half width
-attribute vec4 iB; // b: x, y, z, half width
-attribute vec4 iC; // u at a, u at b (0..1 along the hop), head (the leader has reached this u), cut (erosion)
-attribute vec4 iD; // linear colour, strength
-attribute vec4 iE; // kind (0 solid, 1 glow), seed, hdr, thinnest half width (px)
-uniform float uPx; // world units per CSS pixel (0: no floor)
-varying vec2 vQ;   // the pixel in the capsule's frame: along from a, across (world units)
-varying float vLen;
-varying vec2 vW;
-varying vec2 vU;
-varying vec4 vC;   // head, cut, seed, kind
-varying vec4 vCol;
-varying float vHdr;
-void main() {
-  vec4 a = modelViewMatrix * vec4(iA.xyz, 1.0);
-  vec4 b = modelViewMatrix * vec4(iB.xyz, 1.0);
-  vec2 d = b.xy - a.xy;
-  float len = length(d);
-  vec2 dir = len > 1e-5 ? d / len : vec2(1.0, 0.0);
-  vec2 nrm = vec2(-dir.y, dir.x);
-  float floorW = iE.w * uPx;
-  float wa = max(iA.w, floorW);
-  float wb = max(iB.w, floorW);
-  float w = max(wa, wb);
-  float s = position.x; // 0 at a, 1 at b; the quad runs one half width past each end (the round caps)
-  vec2 p = mix(a.xy - dir * w, b.xy + dir * w, s) + nrm * (w * position.y);
-  gl_Position = projectionMatrix * vec4(p, mix(a.z, b.z, s), 1.0);
-  vQ = vec2(mix(-w, len + w, s), w * position.y);
-  vLen = len;
-  vW = vec2(wa, wb);
-  vU = iC.xy;
-  vC = vec4(iC.zw, iE.y, iE.x);
-  vCol = iD;
-  vHdr = iE.z;
-}`;
-
-const FRAG = /* glsl */`
-varying vec2 vQ;
-varying float vLen;
-varying vec2 vW;
-varying vec2 vU;
-varying vec4 vC;
-varying vec4 vCol;
-varying float vHdr;
-float h1(float x) { return fract(sin(x * 91.3458) * 47453.5453); }
-float vn(float x) {
-  float i = floor(x);
-  float f = fract(x);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(h1(i), h1(i + 1.0), f);
-}
-void main() {
-  float t = clamp(vQ.x / max(vLen, 1e-5), 0.0, 1.0);
-  float dist = length(vec2(vQ.x - t * vLen, vQ.y));
-  float r = mix(vW.x, vW.y, t);
-  float u = mix(vU.x, vU.y, t);
-  // the leader: nothing past the head yet
-  float on = step(u, vC.x);
-  // erosion: a hard cut through a noise along the hop (the same seed on every layer: the dashes line up)
-  float n = vn(u * 9.0 + vC.z) * 0.7 + vn(u * 23.0 + vC.z * 1.7) * 0.3;
-  on *= step(vC.y, n);
-  float m;
-  if (vC.w < 0.5) {
-    float aa = fwidth(dist) * 0.75;
-    m = 1.0 - smoothstep(r - aa, r + aa, dist); // a crisp toon edge, anti-aliased
-  } else {
-    float g = clamp(1.0 - dist / r, 0.0, 1.0);
-    m = g * g;
-  }
-  float a = m * on * vCol.a;
-  // premultiplied (One, OneMinusSrcAlpha): the solid layers cover what is behind them, the glow is added light
-  gl_FragColor = vec4(vCol.rgb * (1.0 + vHdr) * a, vC.w < 0.5 ? a : 0.0);
-  #include <colorspace_fragment>
-}`;
 
 /** sRGB hex → linear [r, g, b] 0..1. */
 function lin(hex) {
@@ -149,10 +75,11 @@ export function zigzagPath(ax, ay, az, bx, by, bz, n, p, rnd, jagMul = 1) {
 }
 
 /**
- * @param {{ scene: THREE.Object3D, batches?: object|null, atlas?: object|null, quality?: 'high'|'medium'|'low',
- *   reduceMotion?: boolean, rand?: () => number, presets?: object }} o
+ * @param {{ scene: THREE.Object3D, strokes?: object|null, batches?: object|null, atlas?: object|null,
+ *   quality?: 'high'|'medium'|'low', reduceMotion?: boolean, rand?: () => number, presets?: object }} o
+ *   strokes: the battle's shared toon strokes (its owner begins and ends them each frame); none: its own
  */
-export function createLightningFx({ scene, batches = null, atlas = null, quality = 'medium', reduceMotion = false, rand = null, presets = LIGHTNING_PRESETS }) {
+export function createLightningFx({ scene, strokes = null, batches = null, atlas = null, quality = 'medium', reduceMotion = false, rand = null, presets = LIGHTNING_PRESETS }) {
   const R = atlas?.regions || {};
   const rnd = rand || (() => 0.5);
   let tier = LIGHTNING_TIERS[quality] || LIGHTNING_TIERS.medium;
@@ -163,39 +90,11 @@ export function createLightningFx({ scene, batches = null, atlas = null, quality
   /** Recoloured storm presets for chain colours with no preset of their own (cached by colour). */
   const tinted = new Map();
 
-  const quad = new THREE.BufferGeometry();
-  quad.setAttribute('position', new THREE.Float32BufferAttribute([0, -1, 0, 1, -1, 0, 0, 1, 0, 1, 1, 0], 3));
-  quad.setIndex([0, 1, 2, 2, 1, 3]);
-  const geo = new THREE.InstancedBufferGeometry();
-  geo.index = quad.index;
-  geo.setAttribute('position', quad.attributes.position);
-  const attrs = {};
-  for (const k of ['iA', 'iB', 'iC', 'iD', 'iE']) {
-    attrs[k] = new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4).setUsage(THREE.DynamicDrawUsage);
-    geo.setAttribute(k, attrs[k]);
-  }
-  geo.instanceCount = 0;
-  const material = new THREE.ShaderMaterial({
-    uniforms: { uPx: { value: 0 } },
-    vertexShader: VERT,
-    fragmentShader: FRAG,
-    transparent: true,
-    depthWrite: false,
-    depthTest: true,
-    side: THREE.DoubleSide,
-    blending: THREE.CustomBlending,
-    blendSrc: THREE.OneFactor,
-    blendDst: THREE.OneMinusSrcAlphaFactor,
-    blendEquation: THREE.AddEquation,
-    toneMapped: false,
-  });
-  const mesh = new THREE.Mesh(geo, material);
-  mesh.frustumCulled = false;
-  mesh.renderOrder = 24;
-  mesh.visible = false;
-  mesh.name = 'lightningFx';
-  scene.add(mesh);
-  let held = false;
+  const own = !strokes;
+  const lines = strokes || createStrokes({ scene, max: LIGHTNING_TIERS.high.cap, name: 'lightningFx' });
+  const S = stroke();
+  let drawn = 0;
+  let time = 0;
   /** Collected segments this frame (SEG floats each), grown as needed. */
   let segs = new Float32Array(1024 * SEG);
 
@@ -344,7 +243,7 @@ export function createLightningFx({ scene, batches = null, atlas = null, quality
     return n;
   }
 
-  /** Writes the collected segments as instances, layer by layer (back to front); returns the instance count. */
+  /** Pushes the collected segments as strokes, layer by layer (back to front); returns how many. */
   function write(count) {
     const layers = LIGHTNING_LAYERS.filter((l) => l !== 'glow' || tier.glow);
     // over the cap: the glow goes first, then the newest segments (the bolts are short-lived)
@@ -352,20 +251,16 @@ export function createLightningFx({ scene, batches = null, atlas = null, quality
     if (count * use.length > tier.cap && use[0] === 'glow') use = use.slice(1);
     const per = Math.min(count, Math.floor(tier.cap / use.length));
     const hdr = tier.hdr && bloom;
-    const A = attrs.iA.array;
-    const B = attrs.iB.array;
-    const C = attrs.iC.array;
-    const D = attrs.iD.array;
-    const E = attrs.iE.array;
     let j = 0;
     for (const layer of use) {
-      const kind = layer === 'glow' ? 1 : 0;
-      const minPx = MIN_PX[layer];
+      const kind = layer === 'glow' ? GLOW : SOLID;
+      S.minPx = MIN_PX[layer];
+      S.kind = kind;
       for (let s = 0; s < per; s++) {
         const o = s * SEG;
         const bolt = live[segs[o + 13]];
         const p = bolt.p;
-        if (kind && !(p.glowAlpha > 0)) continue; // (no glow layer for this preset)
+        if (kind === GLOW && !(p.glowAlpha > 0)) continue; // (no glow layer for this preset)
         const wa = segs[o + 6];
         const wb = segs[o + 7];
         const ref = segs[o + 15] || 1;
@@ -387,12 +282,13 @@ export function createLightningFx({ scene, batches = null, atlas = null, quality
         }
         const c = bolt.col[layer];
         const dim = hdr && layer === 'body' ? BODY_UNDER_BLOOM : 1;
-        const q = j * 4;
-        A[q] = segs[o]; A[q + 1] = segs[o + 1]; A[q + 2] = segs[o + 2]; A[q + 3] = ka;
-        B[q] = segs[o + 3]; B[q + 1] = segs[o + 4]; B[q + 2] = segs[o + 5]; B[q + 3] = kb;
-        C[q] = segs[o + 8]; C[q + 1] = segs[o + 9]; C[q + 2] = segs[o + 10]; C[q + 3] = segs[o + 11];
-        D[q] = c[0] * dim; D[q + 1] = c[1] * dim; D[q + 2] = c[2] * dim; D[q + 3] = alpha;
-        E[q] = kind; E[q + 1] = segs[o + 12]; E[q + 2] = layer === 'core' && hdr ? p.hdr : 0; E[q + 3] = minPx;
+        S.ax = segs[o]; S.ay = segs[o + 1]; S.az = segs[o + 2]; S.wa = ka;
+        S.bx = segs[o + 3]; S.by = segs[o + 4]; S.bz = segs[o + 5]; S.wb = kb;
+        S.ua = segs[o + 8]; S.ub = segs[o + 9]; S.head = segs[o + 10]; S.tail = -99;
+        S.r = c[0] * dim; S.g = c[1] * dim; S.b = c[2] * dim; S.a = alpha;
+        S.seed = segs[o + 12]; S.hdr = layer === 'core' && hdr ? p.hdr : 0;
+        S.cut = segs[o + 11]; S.noise = 9; S.bandFreq = 0; S.bandSpeed = 0;
+        if (!lines.push(S)) return j;
         j++;
       }
     }
@@ -475,17 +371,17 @@ export function createLightningFx({ scene, batches = null, atlas = null, quality
     strike,
     /** The flash guard's gate for world flashes ((size, uv, strength) → strength multiplier); set by the renderer. */
     flashGate: null,
-    /** Impact frames: the bolts sit them out (update() keeps the mesh hidden while held). */
+    /** Impact frames: the bolts sit them out (its own strokes; the battle's shared strokes are held by their owner). */
     hold(on) {
-      held = !!on;
-      if (held) mesh.visible = false;
+      if (own) lines.hold(on);
     },
-    /** World units per CSS pixel (the camera rig's scale): the thinnest a layer is drawn. */
+    /** World units per CSS pixel (the camera rig's scale): the thinnest a layer is drawn (its own strokes). */
     setPixel(worldPerPx) {
-      material.uniforms.uPx.value = worldPerPx > 0 ? worldPerPx : 0;
+      if (own) lines.setPixel(worldPerPx);
     },
+    /** The mesh its bolts are drawn in (the shared strokes' in a battle). */
     get mesh() {
-      return mesh;
+      return lines.mesh;
     },
     /** Advances and draws (the visual clock's dt; call between the batches' begin and end). */
     update(dt) {
@@ -506,16 +402,12 @@ export function createLightningFx({ scene, batches = null, atlas = null, quality
           }
         }
       }
+      time += dt;
+      if (own) lines.begin();
       const count = collect();
-      const n = count ? write(count) : 0;
+      drawn = count ? write(count) : 0;
       for (const bolt of live) quads(bolt);
-      geo.instanceCount = n;
-      for (const a of Object.values(attrs)) {
-        a.clearUpdateRanges();
-        if (n) a.addUpdateRange(0, n * 4);
-        a.needsUpdate = n > 0;
-      }
-      mesh.visible = n > 0 && !held;
+      if (own) lines.end(time);
     },
     setQuality(q) {
       tierId = LIGHTNING_TIERS[q] ? q : 'medium';
@@ -529,18 +421,18 @@ export function createLightningFx({ scene, batches = null, atlas = null, quality
       return live;
     },
     get stats() {
-      return { bolts: live.length, instances: geo.instanceCount, visible: mesh.visible, tier: tierId };
+      return { bolts: live.length, instances: drawn, visible: lines.mesh.visible, tier: tierId };
     },
     clear() {
       live.length = 0;
-      geo.instanceCount = 0;
-      mesh.visible = false;
+      drawn = 0;
+      if (own) {
+        lines.begin();
+        lines.end(time);
+      }
     },
     dispose() {
-      scene.remove(mesh);
-      geo.dispose();
-      quad.dispose();
-      material.dispose();
+      if (own) lines.dispose();
     },
   };
   return api;
