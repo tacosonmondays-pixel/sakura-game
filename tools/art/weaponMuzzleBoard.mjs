@@ -33,7 +33,8 @@ try {
       for (const tag of ['before', 'after']) {
         const f = join(shots, `${g}-${s}-${tag}.jpg`);
         const t = join(tmp, `${g}-${s}-${tag}.png`);
-        if (existsSync(f)) run('convert', [f, '-resize', `x${TILE_H}`, '-gravity', 'South', '-background', '#00000099', '-fill', 'white', '-pointsize', '12', '-splice', '0x0', '-annotate', '+0+2', `${tag} · ${s}`, t]);
+        // (a phone crop is drawn smaller: its middle, so she reads at the same size)
+        if (existsSync(f)) run('convert', [f, ...(s === SIZES[1] ? ['-gravity', 'center', '-crop', '62%x62%+0+0', '+repage'] : []), '-resize', `x${TILE_H}`, '-gravity', 'South', '-background', '#00000099', '-fill', 'white', '-pointsize', '12', '-splice', '0x0', '-annotate', '+0+2', `${tag} · ${s}`, t]);
         else run('convert', ['-size', `${s === SIZES[0] ? 205 : 136}x${TILE_H}`, 'xc:#333', '-fill', '#aaa', '-gravity', 'center', '-annotate', '+0+0', 'n/a', t]);
         tiles.push(t);
       }
@@ -44,7 +45,7 @@ try {
     rows.push(row);
   }
   const full = join(tmp, 'board.png');
-  run('montage', [...rows, '-tile', '2x', '-geometry', '+4+4', '-background', '#1e1b24', full]);
+  run('montage', ['-label', '', ...rows, '-tile', '2x', '-geometry', '+4+4', '-background', '#1e1b24', full]);
   const titled = join(tmp, 'titled.png');
   run('convert', [full, '-background', '#1e1b24', '-fill', 'white', '-font', 'DejaVu-Sans-Bold', '-pointsize', '20', '-gravity', 'North', '-splice', '0x34', '-annotate', '+0+6',
     'Weapon muzzles: before | after (frame after the first shot; 1280x720 and 390x844)', titled]);
