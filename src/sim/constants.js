@@ -304,6 +304,17 @@ export const STRIP_SPACING = 0.45;
 export const STRIP_AIM_RADIUS = 0.5;
 /** Opening burst: she lays this many times faster in the first strip.opening s of each wave. */
 export const STRIP_OPENING_MUL = 4;
+/**
+ * Road objects for a boss (docs/BALANCE.md "Suzu and Azami on bosses"): while a boss or miniboss is in her range,
+ * Suzu and Azami also set one under it (the free road spot nearest it, at or ahead of it) with each bell or strip,
+ * outside their caps, while fewer than BOSS_TRAPS of theirs wait there. A bell set for a boss rides on it once it goes
+ * off and rings for her trap's hit every BOSS_BELL_EVERY steps (flying or not) until it dies or leaves her range; a
+ * boss on a strip laid for it is struck again every STRIP_BOSS_EVERY steps until the strip's hits run out. Their road
+ * bells and strips work as ever.
+ */
+export const BOSS_BELL_EVERY = 60;
+export const STRIP_BOSS_EVERY = 6;
+export const BOSS_TRAPS = 2;
 /** Straight shots (Kinu's pins, blades and sparks; src/sim/rings.js): per girl, per player, per sim. */
 export const STRAIGHT_PER_GIRL = 60;
 export const STRAIGHT_PER_PLAYER = 200;

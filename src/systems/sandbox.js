@@ -148,6 +148,8 @@ export function sandboxStageFor(mapId) {
 
 /** The gear rarities a set preset comes in. */
 export const SANDBOX_SET_RARITIES = Object.freeze(['leg', 'ur', 'lr']);
+/** The gear preset that copies the pieces she really wears in the player's save (read only; rolls as they are). */
+export const MY_GEAR = 'mine';
 /** 'best' in a set preset: her Build Coach set. */
 export const BEST_SET = 'best';
 
@@ -156,7 +158,7 @@ export const BEST_SET = 'best';
  * (Blank LR ×5), with <set> one of SET_IDS or 'best' (her Build Coach set).
  */
 export const SANDBOX_GEAR_PRESETS = Object.freeze([
-  'none', 'leg',
+  'none', MY_GEAR, 'leg',
   ...SANDBOX_SET_RARITIES.flatMap((r) => [BEST_SET, ...SET_IDS].map((s) => `${r}-${s}`)),
   'blank',
 ]);
@@ -248,7 +250,7 @@ export const sandboxIsLr = (unitId, b) => isLegendUnit(unitId) && !!b.lr && b.st
 /** What a gear preset means: { rarity: 'none'|'leg'|'ur'|'lr'|'blank', set: string|null, slots }. */
 export function gearPresetInfo(key, unitId = null) {
   const k = gearPresetOf(key);
-  if (k === 'none') return { rarity: 'none', set: null, slots: [] };
+  if (k === 'none' || k === MY_GEAR) return { rarity: k, set: null, slots: [] };
   if (k === 'leg') return { rarity: 'leg', set: null, slots: [...ROLL_SLOTS] };
   if (k === 'blank') return { rarity: 'blank', set: null, slots: [...SLOT_IDS] };
   const [rarity, set] = k.split('-');
@@ -284,7 +286,8 @@ function subsFor(slot, club, main, row, n) {
  * row; her coach's club split (3 + 2). Pure: a fresh array every call, never stored.
  * @returns {object[]} GearInstance list (uids `sbx:<unit>:<slot>`)
  */
-export function sandboxGear(unitId, presetKey, roll = 'max') {
+export function sandboxGear(unitId, presetKey, roll = 'max', owner = null) {
+  if (gearPresetOf(presetKey) === MY_GEAR) return myGear(unitId, owner);
   const typical = roll === 'typical';
   const mid = ([a, b]) => (a + b) / 2;
   const info = gearPresetInfo(presetKey, unitId);
@@ -315,12 +318,29 @@ export function sandboxGear(unitId, presetKey, roll = 'max') {
 }
 
 /**
+ * The pieces she wears in the player's own save (`owner`, the real profile): deep copies, so nothing the sandbox does
+ * can reach the save. A slot she leaves empty (or a girl the player has no gear on) stays empty; no owner = no gear.
+ * @returns {object[]} GearInstance list (uids `sbx:<unit>:<slot>`)
+ */
+export function myGear(unitId, owner) {
+  const worn = owner?.units?.[unitId]?.gear;
+  if (!worn || !owner.gear) return [];
+  const out = [];
+  for (const slot of SLOT_IDS) {
+    const g = worn[slot] ? owner.gear[worn[slot]] : null;
+    if (!g || g.slot !== slot) continue;
+    out.push({ ...structuredClone(g), uid: `sbx:${unitId}:${slot}`, equippedBy: unitId });
+  }
+  return out;
+}
+
+/**
  * A throwaway profile holding one girl at a build (her virtual gear worn, her Limit Break when the build is LR): what
  * unitBattleStats reads. Never the player's save.
  */
-export function sandboxProfile(unitId, build = SANDBOX_MAX_BUILD) {
+export function sandboxProfile(unitId, build = SANDBOX_MAX_BUILD, owner = null) {
   const b = normalizeBuild(build);
-  const pieces = sandboxGear(unitId, b.gear, b.roll);
+  const pieces = sandboxGear(unitId, b.gear, b.roll, owner);
   const gear = Object.fromEntries(pieces.map((g) => [g.uid, g]));
   const worn = Object.fromEntries(pieces.map((g) => [g.slot, g.uid]));
   const lr = sandboxIsLr(unitId, b);
@@ -339,8 +359,8 @@ const RESONANCE_AT = { on: () => gameDayStart(RESONANCE_FROM_DAY) + 12 * 3600 * 
  * boost that rides its week) instead of the real clock ('auto'): her boost factors are swapped for the forced ones on
  * damage, attack speed and aura (src/systems/limitBreak.js rankBoost, the factors unitBattleStats multiplies in).
  */
-export function sandboxUnitStats(unitId, build = SANDBOX_MAX_BUILD, { resonance = 'auto' } = {}) {
-  const profile = sandboxProfile(unitId, build);
+export function sandboxUnitStats(unitId, build = SANDBOX_MAX_BUILD, { resonance = 'auto', owner = null } = {}) {
+  const profile = sandboxProfile(unitId, build, owner);
   const s = unitBattleStats(profile, unitId);
   if (!RESONANCE_AT[resonance] || !UNIT_MAP[unitId]) return s;
   const track = potentialTrack(UNIT_MAP[unitId]);
@@ -452,6 +472,7 @@ export const GEAR_RARITY_LABEL = Object.freeze({ none: 'None', leg: 'Legendary',
 export function gearPresetLabel(key, unitId = null) {
   const k = gearPresetOf(key);
   if (k === 'none') return 'No gear';
+  if (k === MY_GEAR) return 'My gear (what she wears in your save)';
   if (k === 'leg') return 'Best Legendary (no set)';
   if (k === 'blank') return 'Blank LR ×5';
   const [r, s] = k.split('-');
