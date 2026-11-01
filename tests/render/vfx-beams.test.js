@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { createStrokes, stroke, SOLID, BANDS, BAND_WRAP } from '../../src/render/vfx/strokes.js';
 import { BEAM_PRESETS, BEAM_TIERS, MAX_BEAMS } from '../../src/render/vfx/beamPresets.js';
-import { createBeamFx, BEAM_HALF } from '../../src/render/vfx/beams.js';
+import { createBeamFx, BEAM_HALF, BEAM_THRU, BEAM_HOLE } from '../../src/render/vfx/beams.js';
 import { createVisualRandom } from '../../src/render/vfx/random.js';
 import { FxSystem } from '../../src/render/fx.js';
 import { raika } from '../../src/render/attackFx/styles/raika.js';
@@ -255,5 +255,79 @@ describe('beam wiring (display only)', () => {
 
   it('never touches the sim or Math.random', () => {
     for (const f of ['src/render/vfx/beams.js', 'src/render/vfx/strokes.js']) expect(readFileSync(f, 'utf8')).not.toMatch(/\bsim\.\w|Math\.random\(/);
+  });
+});
+
+describe('beams go see-through where they cross an enemy (owner call)', () => {
+  const beamRig = (quality = 'high') => {
+    const lines = fakeStrokes();
+    const beams = createBeamFx({ scene: new THREE.Scene(), strokes: lines, quality, rand: createVisualRandom(4).fork('beams') });
+    return { beams, lines, step: (dt) => (lines.begin(), beams.update(dt)) };
+  };
+
+  it('the ink is gone over an enemy, the body and the core stay lighter; the impact lines never go see-through', () => {
+    const { beams, lines, step } = beamRig('high');
+    beams.fire([0, 0.95, 0], [3, 0.35, 0], { preset: 'laser', width: 0.2 });
+    step(0.25);
+    const by = (thru) => lines.frame.filter((s) => s.thru === thru).length;
+    expect(by(BEAM_THRU.ink)).toBeGreaterThan(0);
+    expect(by(BEAM_THRU.body)).toBe(by(BEAM_THRU.ink)); // one of each layer per segment
+    expect(by(BEAM_THRU.core)).toBe(by(BEAM_THRU.ink));
+    expect(BEAM_THRU.ink).toBe(1);
+    expect(BEAM_THRU.body).toBeGreaterThan(0);
+    expect(BEAM_THRU.body).toBeLessThan(1);
+    // the impact lines (two-point strokes away from the beam's line, after the layers) keep their strength
+    const rays = lines.frame.filter((s) => s.thru === 0);
+    expect(rays.length).toBeGreaterThan(0);
+  });
+
+  it('holes: the enemies near a drawn beam\'s line, round their bodies; none far from it, none with no beam', () => {
+    const { beams, step } = beamRig('medium');
+    const views = [
+      { x: 1.5, y: 0, z: 0.1, height: 0.6 }, // on the line
+      { x: 1.5, y: 0, z: 2, height: 0.6 }, // far to the side
+      { x: 5, y: 0, z: 0, height: 0.6 }, // past its end
+      { x: 2.5, y: 0.8, z: -0.2, height: 1 }, // a flyer over the line
+    ];
+    const out = [];
+    expect(beams.holes(views, out)).toBe(0); // no beam drawn yet
+    beams.fire([0, 0.95, 0], [3, 0.35, 0], { preset: 'laser', width: 0.2 });
+    step(0.1);
+    const n = beams.holes(views, out);
+    expect(n).toBe(2);
+    expect(out[0]).toEqual([1.5, 0.3, 0.1, 0.6 * BEAM_HOLE.perHeight + BEAM_HOLE.margin]);
+    expect(out[1][1]).toBeCloseTo(0.8 + 0.5, 6); // its altitude plus half its height
+    const first = out[0];
+    beams.holes(views, out);
+    expect(out[0]).toBe(first); // the circles are reused, frame to frame
+    expect(beams.holes(views, out, 1)).toBe(1); // at most max
+  });
+
+  it('the strokes carry how see-through each stroke goes and take the holes in view space', () => {
+    const scene = new THREE.Scene();
+    const strokes = createStrokes({ scene, max: 8 });
+    const S = stroke();
+    S.thru = 0.55;
+    strokes.begin();
+    strokes.push(S);
+    strokes.end(0);
+    expect(strokes.mesh.geometry.getAttribute('iG').array[0]).toBeCloseTo(0.55, 6);
+    const cam = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+    cam.position.set(0, 10, 10);
+    cam.lookAt(0, 0, 0);
+    cam.updateMatrixWorld();
+    strokes.setHoles([[0, 0, 0, 0.3], [1, 0, 0, 0.3]], 2, cam);
+    const u = strokes.mesh.material.uniforms;
+    expect(u.uHoleN.value).toBe(2);
+    const v = new THREE.Vector3(1, 0, 0).applyMatrix4(cam.matrixWorldInverse);
+    expect(u.uHoles.value[1].x).toBeCloseTo(v.x, 6);
+    expect(u.uHoles.value[1].y).toBeCloseTo(v.y, 6);
+    expect(u.uHoles.value[1].z).toBeCloseTo(0.3, 6);
+    strokes.setHoles([], 0, cam);
+    expect(u.uHoleN.value).toBe(0);
+    // the fragment shader thins a see-through stroke over a hole (and only those)
+    expect(strokes.mesh.material.fragmentShader).toMatch(/if \(vP\.z > 0\.0 && uHoleN > 0\.5\)/);
+    expect(strokes.mesh.material.fragmentShader).toMatch(/a \*= 1\.0 - vP\.z \* over;/);
+    strokes.dispose();
   });
 });

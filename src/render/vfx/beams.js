@@ -22,6 +22,13 @@ const TAU = Math.PI * 2;
 export const BEAM_MIN_PX = { ink: 3, body: 2, core: 1, line: 1 };
 /** High with bloom: the body colour × this (under the grade's knee: it stays saturated). */
 export const BODY_UNDER_BLOOM = 0.82;
+/**
+ * Where a beam crosses an enemy it goes see-through (the owner's call: what it hits stays readable): each layer keeps
+ * 1 - this of its strength there (the ink is gone, the body and the core stay as a lighter line through the enemy).
+ */
+export const BEAM_THRU = { ink: 1, body: 0.55, core: 0.35 };
+/** An enemy's see-through circle round its body (world units): its radius × the view's height, plus a margin. */
+export const BEAM_HOLE = { perHeight: 0.42, margin: 0.04 };
 /** A beam's half width from the sim's beam width (0.12 … 0.36): base + per × width. */
 export const BEAM_HALF = { base: 0.05, per: 0.3 };
 
@@ -172,6 +179,7 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
     S.noise = 4;
     S.kind = layer === 1 && tier.bands ? BANDS : SOLID;
     S.minPx = layer === 0 ? BEAM_MIN_PX.ink : layer === 1 ? BEAM_MIN_PX.body : BEAM_MIN_PX.core;
+    S.thru = layer === 0 ? BEAM_THRU.ink : layer === 1 ? BEAM_THRU.body : BEAM_THRU.core;
     for (const rec of list) {
       const st = rec.st;
       const p = rec.p;
@@ -224,6 +232,7 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
     S.bandFreq = 0;
     S.bandSpeed = 0;
     S.minPx = BEAM_MIN_PX.line;
+    S.thru = 0; // (the impact lines burst round the hit: never see-through)
     for (let layer = 0; layer < 2; layer++) {
       for (const rec of list) {
         const n = raysOf(rec);
@@ -338,8 +347,41 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
     if (withRays) impactLines(DRAW);
   }
 
+  /**
+   * The enemies the beams drawn this frame cross: world circles [x, y, z, r] round their bodies into `out` (reused; at
+   * most `max`), for the strokes' holes. `views`: the enemy views ({ x, y, z, height }: y is the altitude).
+   */
+  function holes(views, out, max = 16) {
+    let n = 0;
+    if (!DRAW.length || !views) return 0;
+    for (const v of views) {
+      if (n >= max) break;
+      if (!v || !(v.height > 0)) continue;
+      const r = v.height * BEAM_HOLE.perHeight + BEAM_HOLE.margin;
+      for (const rec of DRAW) {
+        // the distance on the ground from the enemy to the beam's line (its ends, the girl to the hit)
+        const ax = rec.a[0];
+        const az = rec.a[2];
+        const dx = rec.b[0] - ax;
+        const dz = rec.b[2] - az;
+        const l2 = dx * dx + dz * dz;
+        const k = l2 > 1e-9 ? Math.max(0, Math.min(1, ((v.x - ax) * dx + (v.z - az) * dz) / l2)) : 0;
+        if (Math.hypot(v.x - ax - dx * k, v.z - az - dz * k) > r + rec.st.w) continue;
+        const h = out[n] || (out[n] = [0, 0, 0, 0]);
+        h[0] = v.x;
+        h[1] = (v.y || 0) + v.height * 0.5;
+        h[2] = v.z;
+        h[3] = r;
+        n++;
+        break;
+      }
+    }
+    return n;
+  }
+
   const api = {
     fire,
+    holes,
     /** The flash guard's gate for world flashes ((size, uv, strength) → strength multiplier); set by the renderer. */
     flashGate: null,
     hold(on) {

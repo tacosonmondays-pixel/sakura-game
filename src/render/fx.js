@@ -127,6 +127,8 @@ export class FxSystem {
     this.beams = null;
     /** The styled slashes and shockwaves (src/render/vfx/shapes.js), set by the renderer: slash() and pulse() use them. */
     this.shapes = null;
+    /** The styled blasts (src/render/vfx/blasts.js), set by the renderer: explosion() hands them the blast. */
+    this.blasts = null;
     /** The renderer's switch-off for the styled effects: an error in one of them turns them all off (the old look). */
     this.vfxError = null;
     /** Height of the rooftop under a ground point (Gate Arc 'U' tiles), or null on maps without roofs:
@@ -266,6 +268,8 @@ export class FxSystem {
       const g = this._exGlow[i];
       if (g) g.a0 = Math.min(g.a0, k);
     }
+    // a styled blast there: its star and hot core drop the same way
+    if (this.blasts) this._styled(() => this.blasts.dim(x, z, k));
   }
 
   /**
@@ -286,6 +290,8 @@ export class FxSystem {
       this.spawn({ batch: 'groundA', uv: R.ringSoft, x, y: 0.06, z, s0: r * 0.4, s1: r * 2.05, life: 0.32, color, a0: 0.5, flags: GROUND });
       return;
     }
+    // the styled blast (src/render/vfx/blasts.js) when the renderer has one: a toon explosion of inked puffs
+    if (this.blasts && this._styled(() => this.blasts.blast(x, z, r, color, { volatile, scale }))) return;
     const rb = r * scale;
     const cel = R.celPuff || R.smoke;
     const body = volatile ? '#ff5a4a' : color;

@@ -71,6 +71,7 @@ import { createBeamFx } from './vfx/beams.js';
 import { createStrokes } from './vfx/strokes.js';
 import { createTrails } from './vfx/trails.js';
 import { createShapeFx } from './vfx/shapes.js';
+import { createBlastFx } from './vfx/blasts.js';
 import { deployFx } from './deployFx.js';
 import { fmtNum } from '../ui/format.js';
 import { createBlackout } from './blackout.js';
@@ -349,13 +350,19 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // styled slashes and shockwaves (src/render/vfx/shapes.js): every default slash and pulse
   const shapes = createShapeFx({ scene, strokes, camera, quality, reduceMotion });
   fx.shapes = vfxOn ? shapes : null;
+  // styled blasts (src/render/vfx/blasts.js): every explosion as a toon cloud of inked puffs, with its star, impact lines,
+  // fire bits, smoke, debris and the shapes layer's shockwave ring
+  const blasts = createBlastFx({ scene, strokes, batches, atlas, camera, quality, reduceMotion, rand: vrand.fork('blasts'), shapes });
+  fx.blasts = vfxOn ? blasts : null;
+  /** The enemies the beams cross this frame (world circles for the strokes' see-through holes; reused). */
+  const beamHoles = [];
   // the styled effects are decoration: on their first error they all switch off for this battle (logged once) and every
   // effect falls back to its old look; the battle and its events carry on
   let vfxBroken = false;
   function vfxOff(err) {
     if (vfxBroken) return;
     vfxBroken = true;
-    for (const layer of [lightning, beams, trails, shapes]) {
+    for (const layer of [lightning, beams, trails, shapes, blasts]) {
       try {
         layer.clear();
       } catch {
@@ -373,6 +380,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     fx.lightning = null;
     fx.beams = null;
     fx.shapes = null;
+    fx.blasts = null;
     actors.trails = null;
     if (attackFx) {
       attackFx.ctx.lightning = null;
@@ -531,6 +539,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
   if (attackFx) attackFx.ctx.flashGate = flashGate;
   lightning.flashGate = flashGate;
   beams.flashGate = flashGate;
+  blasts.flashGate = flashGate;
 
   // ----- post-processing -------------------------------------------------------------------
   // high: scene → bloom → grade (tone curve + this theme's grade, in place of the output pass)
@@ -567,6 +576,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     tornado.setGlow(quality, on);
     lightning.setGlow(quality, on);
     beams.setGlow(quality, on);
+    blasts.setGlow(quality, on);
   };
 
   // ----- state -----------------------------------------------------------------------------
@@ -615,6 +625,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
     beams.setQuality(q);
     trails.setQuality(q);
     shapes.setQuality(q);
+    blasts.setQuality(q);
     attackFx?.setQuality(q);
     ambient.setQuality(q);
     roster.setQuality(q);
@@ -1189,11 +1200,14 @@ export function createBattleRenderer(container, sim, opts = {}) {
       tornado.hold(impact.active); // (impact frames: the column sits both frames out)
       tornado.update(d);
     });
-    // (hit feedback before decoration: short of the strokes' room, the ribbons thin before the slashes and rings)
+    // (hit feedback before decoration: short of the strokes' room, the ribbons thin before the slashes, rings and blasts)
     vfxSafe(() => {
       lightning.update(d);
       beams.update(d);
+      // where a beam crosses an enemy it goes see-through (src/render/vfx/beams.js BEAM_THRU): the enemy stays readable
+      strokes.setHoles(beamHoles, beams.holes(actors.enemies.values(), beamHoles), camera);
       shapes.update(d);
+      blasts.update(d);
       trails.update(d);
     });
     vfxSafe(() => {
@@ -1533,6 +1547,13 @@ export function createBattleRenderer(container, sim, opts = {}) {
     get shapes() {
       return shapes;
     },
+    /** Extra (dev tooling, display only): sets off a styled blast (src/render/vfx/blasts.js) at a board spot (world x, z). */
+    blastDemo(x, z, radius, color, opts = {}) {
+      return vfxSafe(() => blasts.blast(x, z, radius, color, opts));
+    },
+    get blasts() {
+      return blasts;
+    },
     /** Extra: the visual clock's state (read-only copy; e2e, captures, debugging). */
     get visualClock() {
       return clock.snapshot();
@@ -1756,6 +1777,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       beams.dispose();
       trails.dispose();
       shapes.dispose();
+      blasts.dispose();
       strokes.dispose();
       roster.dispose();
       staff.dispose();

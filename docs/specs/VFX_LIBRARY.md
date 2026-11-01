@@ -35,8 +35,10 @@ Everything here is **display only**. The sim id never changes for it (`tools/sim
 |---|---|
 | `strokes.js` | **Toon strokes.** A capsule between two points: round caps, a crisp edge, layered ink, body and core. It also handles a leader head, a chasing tail, erosion into dashes, bright bands running along, and a soft glow kind. Every styled line of a battle shares **one instanced draw call** (begun and ended with the sprite batches each frame). |
 | `lightning.js` + `lightningPresets.js` | Chain lightning. It covers zig-zag hops with long diagonals and short jogs, forks, a leader that races to each target, the stepped re-strike, erosion, and at every hit a star, sparks and a ground ring. Presets: storm, sakura, arcane, tesla. |
-| `beams.js` + `beamPresets.js` | Beams, in the four beats above, with impact lines, a muzzle flare and a scorch. Presets: laser (any colour, tinted), moon, holy, storm (zig-zag). |
-| `tornado.js` + `tornadoPresets.js` | The column of rings. Prototype on `feature/vfx-tornado`, in review. |
+| `beams.js` + `beamPresets.js` | Beams, in the four beats above, with impact lines, a muzzle flare and a scorch. Presets: laser (any colour, tinted), moon, holy, storm (zig-zag). Where a beam crosses an enemy it goes see-through (the owner's call). |
+| `shapes.js` | Toon slashes (crescents) and shockwave rings on the ground. |
+| `blasts.js` | Toon blasts: a cloud of inked puffs that slams out, holds and breaks apart on twos, with a star, impact lines, fire bits, smoke, debris, the shockwave ring and a scorch. |
+| `tornado.js` + `tornadoPresets.js` | The column of rings: Akane's Starmine Barrage (shipped in v0.1.72). |
 
 **Rules every piece follows:**
 - Presets are plain data.
@@ -100,7 +102,7 @@ There are also 40 per-girl attack styles in `src/render/attackFx/styles/`, plus 
 | B3 | Projectiles: a short toon ribbon behind every shot in flight (`src/render/vfx/trails.js`: ink, its element colour, a white core; tapered, dashed at the tail; pulled in after the shot lands; none on low). Next: inked toon heads and impacts with a star and impact lines. | Trails on `feature/vfx-lightning` |
 | B4 | Slashes and sweeps: crescent strokes (an arc of tapered capsules) with ink and erosion (`src/render/vfx/shapes.js` `slash`: every default slash, and the six styles' own: Kage, Kinu, Luna, Ruri, Wakaba, Yoriko). Next: sweeps, ground cracks. | Default slashes and the six styles' slashes on `feature/vfx-shapes` |
 | B5 | Pulses, shockwaves and spikes: ground rings as stroke circles that burst out, thin and break into dashes (`shapes.js` `shock`: every default pulse). Next: the six styles' own pulses, spikes. | Default pulses on `feature/vfx-shapes` |
-| B6 | Blasts: the toon explosion (stepped puffs, erosion, star, impact lines, debris) | |
+| B6 | Blasts: the toon explosion (`src/render/vfx/blasts.js`: inked puffs that pop apart on twos, a star, impact lines, fire bits, smoke, debris, the shockwave ring; every default explosion). With it, the beams go see-through over the enemies they cross (owner call). | On `feature/vfx-blasts` |
 | B7 | Streams (held flame), wheels, spins, traps and duels, each to its own shape | |
 | B8 | Signature abilities: one column-class effect per girl. Akane's fire tornado is built; Rei's sakura tornado is suggested next. | |
 
@@ -112,6 +114,6 @@ There are also 40 per-girl attack styles in `src/render/attackFx/styles/`, plus 
 
 ## 5. Budgets
 
-- **Strokes.** One draw call for every styled line, none while nothing is up. Up to 8192 strokes a frame. Every layer checks the room left before it draws and drops whole lines (the newest first; lightning and the styles' segments whole segments), so a line is never cut to its ink. The layers take the room in frame order (the styles' segments, lightning, beams, slashes and rings, then the ribbons): under extreme load the decorative ribbons thin first. Lightning thins itself on a busy board long before that (fewer kinks, no forks), and every layer has its own cap: lightning 3072 / 2048 / 1024 by tier, 160 / 90 / 0 trails, 32 / 24 / 16 slashes and rings.
+- **Strokes.** One draw call for every styled line, none while nothing is up. Up to 8192 strokes a frame. Every layer checks the room left before it draws and drops whole lines (the newest first; lightning and the styles' segments whole segments), so a line is never cut to its ink. The layers take the room in frame order (the styles' segments, lightning, beams, slashes and rings, blasts, then the ribbons): under extreme load the decorative ribbons thin first. Lightning thins itself on a busy board long before that (fewer kinks, no forks), and every layer has its own cap: lightning 3072 / 2048 / 1024 by tier, 160 / 90 / 0 trails, 32 / 24 / 16 slashes and rings, 24 / 18 / 12 blasts (about 60 strokes each on high).
 - **Sprites.** Stars, sparks and rings use the existing batches and their limits.
 - **Full-screen passes.** Medium and low add none. High adds nothing beyond the existing bloom and grade.

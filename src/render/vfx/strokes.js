@@ -13,11 +13,15 @@
 // soft added halo, BANDS: solid with bright bands scrolling from a to b); u along the stroke at each end (any unit; head,
 // tail and the erosion noise use the same), the leader's head (nothing past it yet) and tail (nothing before it any
 // more); cut (erosion: 0 whole, 1 gone, the stroke breaks into dashes on the way); the noise scale and seed; hdr (the
-// colour × (1 + hdr): over white for the bloom on high); minPx (thinnest it is drawn, in CSS px); band frequency and speed.
+// colour × (1 + hdr): over white for the bloom on high); minPx (thinnest it is drawn, in CSS px); band frequency and speed;
+// thru (how see-through it goes over a hole: 0 never, 1 gone there; the holes are circles set each frame, setHoles).
 import * as THREE from 'three';
 
 /** The band clock wraps every this many seconds (band speeds must be multiples of 0.1 a second). */
 export const BAND_WRAP = 10;
+
+/** The most holes a frame (circles the see-through strokes let show through: the enemies under a beam). */
+export const MAX_HOLES = 16;
 
 export const SOLID = 0;
 export const GLOW = 1;
@@ -28,7 +32,7 @@ export function stroke() {
   return {
     ax: 0, ay: 0, az: 0, bx: 0, by: 0, bz: 0, wa: 0.05, wb: 0.05,
     r: 1, g: 1, b: 1, a: 1, kind: SOLID, seed: 0, hdr: 0, minPx: 0,
-    ua: 0, ub: 1, head: 99, tail: -99, cut: 0, noise: 9, bandFreq: 0, bandSpeed: 0,
+    ua: 0, ub: 1, head: 99, tail: -99, cut: 0, noise: 9, bandFreq: 0, bandSpeed: 0, thru: 0,
   };
 }
 
@@ -39,6 +43,7 @@ attribute vec4 iC; // u at a, u at b, head, tail
 attribute vec4 iD; // linear colour, strength
 attribute vec4 iE; // kind, seed, hdr, thinnest half width (px)
 attribute vec4 iF; // cut, noise scale, band frequency, band speed
+attribute vec4 iG; // thru (see-through over a hole), unused
 uniform float uPx; // world units per CSS pixel (0: no floor)
 varying vec2 vQ;   // the pixel in the capsule's frame: along from a, across (world units)
 varying float vLen;
@@ -47,6 +52,7 @@ varying vec4 vU;   // u at a, u at b, head, tail
 varying vec4 vCol;
 varying vec4 vE;
 varying vec4 vF;
+varying vec3 vP;   // the pixel in view space (x, y) and how see-through the stroke goes over a hole
 void main() {
   vec4 a = modelViewMatrix * vec4(iA.xyz, 1.0);
   vec4 b = modelViewMatrix * vec4(iB.xyz, 1.0);
@@ -69,10 +75,13 @@ void main() {
   vCol = iD;
   vE = iE;
   vF = iF;
+  vP = vec3(p, iG.x);
 }`;
 
 const FRAG = /* glsl */`
 uniform float uTime;
+uniform vec3 uHoles[${MAX_HOLES}]; // view-space x, y and radius of what shows through (the enemies under a beam)
+uniform float uHoleN;
 varying vec2 vQ;
 varying float vLen;
 varying vec2 vW;
@@ -80,6 +89,7 @@ varying vec4 vU;
 varying vec4 vCol;
 varying vec4 vE;
 varying vec4 vF;
+varying vec3 vP;
 float h1(float x) { return fract(sin(x * 91.3458) * 47453.5453); }
 float vn(float x) {
   float i = floor(x);
@@ -109,6 +119,17 @@ void main() {
     if (vE.x > 1.5) col = mix(col, vec3(1.0), 0.45 * step(0.5, fract(u * vF.z - uTime * vF.w)));
   }
   float a = m * on * vCol.a;
+  // see-through where it crosses a hole (an enemy under a beam): the stroke keeps 1 - thru of its strength there
+  if (vP.z > 0.0 && uHoleN > 0.5) {
+    float over = 0.0;
+    for (int i = 0; i < ${MAX_HOLES}; i++) {
+      if (float(i) >= uHoleN) break;
+      vec3 h = uHoles[i];
+      float d = length(vP.xy - h.xy) - h.z;
+      over = max(over, 1.0 - smoothstep(-fwidth(d), fwidth(d), d));
+    }
+    a *= 1.0 - vP.z * over;
+  }
   // the colour goes to the output's space first, then it is premultiplied (One, OneMinusSrcAlpha): solid layers cover
   // what is behind them (anti-aliased edges and part-strength layers blend right), the glow is added light
   gl_FragColor = vec4(col * (1.0 + vE.z), 1.0);
@@ -127,13 +148,13 @@ export function createStrokes({ scene, max = 6144, renderOrder = 24, name = 'too
   geo.index = quad.index;
   geo.setAttribute('position', quad.attributes.position);
   const attrs = {};
-  for (const k of ['iA', 'iB', 'iC', 'iD', 'iE', 'iF']) {
+  for (const k of ['iA', 'iB', 'iC', 'iD', 'iE', 'iF', 'iG']) {
     attrs[k] = new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4).setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute(k, attrs[k]);
   }
   geo.instanceCount = 0;
   const material = new THREE.ShaderMaterial({
-    uniforms: { uPx: { value: 0 }, uTime: { value: 0 } },
+    uniforms: { uPx: { value: 0 }, uTime: { value: 0 }, uHoles: { value: Array.from({ length: MAX_HOLES }, () => new THREE.Vector3()) }, uHoleN: { value: 0 } },
     vertexShader: VERT,
     fragmentShader: FRAG,
     transparent: true,
@@ -159,6 +180,8 @@ export function createStrokes({ scene, max = 6144, renderOrder = 24, name = 'too
   const D = attrs.iD.array;
   const E = attrs.iE.array;
   const F = attrs.iF.array;
+  const G = attrs.iG.array;
+  const _v = new THREE.Vector3();
   let n = 0;
   let held = false;
   let refused = 0;
@@ -185,6 +208,7 @@ export function createStrokes({ scene, max = 6144, renderOrder = 24, name = 'too
       D[q] = s.r; D[q + 1] = s.g; D[q + 2] = s.b; D[q + 3] = s.a;
       E[q] = s.kind; E[q + 1] = s.seed; E[q + 2] = s.hdr; E[q + 3] = s.minPx;
       F[q] = s.cut; F[q + 1] = s.noise; F[q + 2] = s.bandFreq; F[q + 3] = s.bandSpeed;
+      G[q] = s.thru || 0;
       n++;
       return true;
     },
@@ -205,6 +229,21 @@ export function createStrokes({ scene, max = 6144, renderOrder = 24, name = 'too
     hold(on) {
       held = !!on;
       if (held) mesh.visible = false;
+    },
+    /**
+     * The holes this frame: world circles [x, y, z, r] (the first n of `list`, at most MAX_HOLES) that the see-through
+     * strokes let show through, seen by `camera` (the battle camera is orthographic: a world radius is a view radius).
+     */
+    setHoles(list, n, camera) {
+      const H = material.uniforms.uHoles.value;
+      const k = Math.min(MAX_HOLES, n | 0, list ? list.length : 0);
+      if (k > 0 && camera) camera.updateMatrixWorld?.();
+      for (let i = 0; i < k; i++) {
+        const [x, y, z, r] = list[i];
+        _v.set(x, y, z).applyMatrix4(camera.matrixWorldInverse);
+        H[i].set(_v.x, _v.y, r);
+      }
+      material.uniforms.uHoleN.value = camera ? k : 0;
     },
     /** World units per CSS pixel (the camera rig's scale): the thinnest a stroke is drawn. */
     setPixel(worldPerPx) {

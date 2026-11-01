@@ -2120,6 +2120,8 @@ r.lightning                      // dev tooling: the lightning layer (live bolts
 r.beamDemo(presetId, a, b, opts) // dev tooling (display only): fires a styled beam (src/render/vfx/beamPresets.js) from world point a to b; opts { width, widthScale, color, from, zig } (color tints the preset); null once the library has switched itself off
 r.beams                          // dev tooling: the beam layer (live beams, stats)
 r.shapes                         // dev tooling: the styled slashes and shockwaves (src/render/vfx/shapes.js: slash(x, y, z, angle, color, { size }), shock(x, z, r0, r1, color))
+r.blastDemo(x, z, radius, color, opts) // dev tooling (display only): sets off a styled blast (src/render/vfx/blasts.js) at a board spot; opts { volatile, scale }; null once the library has switched itself off
+r.blasts                         // dev tooling: the blast layer (live blasts, stats); tools/vfx/capture.mjs's `blast` event uses blastDemo
 r.hdrProbe({ effects })          // dev tooling: share of pixels above luminance levels this frame (bloom threshold tuning)
 r.tornadoDemo(presetId, x, z, opts) // dev tooling (display only): starts a styled tornado (src/render/vfx/tornadoPresets.js) at a board spot; opts { seconds, size }; the record or null
 r.tornado                        // dev tooling: the tornado layer (live list, stats); the ?tornadoLab panel and tools/vfx/capture.mjs use it
@@ -2151,7 +2153,8 @@ Attack FX (`src/render/attackFx/**`, docs/ATTACK_FX.md): every girl has a signat
 sweep over the enemies they really hit, …), purely visual and pooled. `settings.attackFx === false`
 (the previews' plain look: no Settings toggle sets it, and the save does not keep it) turns the
 girls' signature looks and the styled VFX library off (inked chains, solid beams, toon slashes,
-shockwave rings, projectile ribbons, the tornado: docs/VFX.md): every effect keeps the plain look.
+shockwave rings, toon blasts, projectile ribbons, the tornado: docs/VFX.md): every effect keeps the
+plain look.
 Truth rules: visuals reach the sim's target at the sim's time, projectile offsets fade to 0 by 60%
 of the flight, flourishes only on real hits, drones stay inside her ring.
 Quad batches now `begin()` before events / `actors.sync` (projectile glows pushed during sync were

@@ -115,10 +115,10 @@ describe('the styled library switches itself off on an error, never the battle',
     expect(fx.vfxError).toHaveBeenCalledTimes(4);
   });
 
-  it('the renderer: the four updates in one guard, the switch-off takes every hand-off away and logs once', () => {
+  it('the renderer: the five updates in one guard, the switch-off takes every hand-off away and logs once', () => {
     const src = readFileSync('src/render/BattleRenderer.js', 'utf8');
     // the frame's library updates, all inside vfxSafe (hit feedback before decoration: short of room, ribbons thin first)
-    expect(src).toMatch(/vfxSafe\(\(\) => \{\s*lightning\.update\(d\);\s*beams\.update\(d\);\s*shapes\.update\(d\);\s*trails\.update\(d\);\s*\}\);/);
+    expect(src).toMatch(/vfxSafe\(\(\) => \{\s*lightning\.update\(d\);\s*beams\.update\(d\);\s*(?:\/\/[^\n]*\n\s*)?strokes\.setHoles\(beamHoles, beams\.holes\(actors\.enemies\.values\(\), beamHoles\), camera\);\s*shapes\.update\(d\);\s*blasts\.update\(d\);\s*trails\.update\(d\);\s*\}\);/);
     // …and the shared strokes' own calls
     expect(src).toMatch(/vfxSafe\(\(\) => strokes\.begin\(\)\);/);
     expect(src).toMatch(/vfxSafe\(\(\) => \{\s*strokes\.hold\(impact\.active\);[^\n]*\n\s*strokes\.setPixel\(rig\.scale\);\s*strokes\.end\(clock\.t\);\s*\}\);/);
@@ -130,11 +130,11 @@ describe('the styled library switches itself off on an error, never the battle',
     // the switch-off: once, clears the layers, takes the hand-offs away, logs
     const off = src.slice(src.indexOf('function vfxOff('), src.indexOf('function vfxSafe('));
     expect(off).toMatch(/if \(vfxBroken\) return;\s*vfxBroken = true;/);
-    expect(off).toMatch(/for \(const layer of \[lightning, beams, trails, shapes\]\)/);
+    expect(off).toMatch(/for \(const layer of \[lightning, beams, trails, shapes, blasts\]\)/);
     // nothing of the frame's strokes is drawn after an error (no half-pushed line), and the mesh is hidden for good
     expect(off).toMatch(/strokes\.begin\(\);\s*strokes\.end\(0\);/);
     expect(off).toMatch(/strokes\.mesh\.visible = false;/);
-    for (const k of ['fx.lightning = null', 'fx.beams = null', 'fx.shapes = null', 'actors.trails = null', 'attackFx.ctx.lightning = null', 'attackFx.ctx.beams = null', 'attackFx.ctx.shapes = null', 'attackFx.ctx.strokes = null']) {
+    for (const k of ['fx.lightning = null', 'fx.beams = null', 'fx.shapes = null', 'fx.blasts = null', 'actors.trails = null', 'attackFx.ctx.lightning = null', 'attackFx.ctx.beams = null', 'attackFx.ctx.shapes = null', 'attackFx.ctx.strokes = null']) {
       expect(off).toContain(k);
     }
     expect(off).toMatch(/console\.warn\('\[vfx\] styled effects disabled after an error'/);
@@ -143,9 +143,10 @@ describe('the styled library switches itself off on an error, never the battle',
     // (and the dev demos)
     expect(src).toMatch(/return vfxSafe\(\(\) => lightning\.strike\(points/);
     expect(src).toMatch(/return vfxSafe\(\(\) => beams\.fire\(a, b/);
+    expect(src).toMatch(/return vfxSafe\(\(\) => blasts\.blast\(x, z, radius, color, opts\)\);/);
     // the fx hand-offs go through its guard
     const fxSrc = readFileSync('src/render/fx.js', 'utf8');
-    for (const re of [/this\._styled\(\(\) => this\.shapes\.shock\(/, /this\._styled\(\(\) => this\.shapes\.slash\(/, /this\._styled\(\(\) => this\.beams\.fire\(/, /this\._styled\(\(\) => this\.lightning\.strike\(/]) {
+    for (const re of [/this\._styled\(\(\) => this\.shapes\.shock\(/, /this\._styled\(\(\) => this\.shapes\.slash\(/, /this\._styled\(\(\) => this\.beams\.fire\(/, /this\._styled\(\(\) => this\.lightning\.strike\(/, /this\._styled\(\(\) => this\.blasts\.blast\(/, /this\._styled\(\(\) => this\.blasts\.dim\(/]) {
       expect(fxSrc).toMatch(re);
     }
   });
@@ -206,12 +207,12 @@ describe('the attack effects option (settings.attackFx === false: the previews s
   it('covers the library: off, nothing is handed to it, no tornado starts and every effect keeps the plain look', () => {
     const src = readFileSync('src/render/BattleRenderer.js', 'utf8');
     expect(src).toMatch(/const vfxOn = settings\.attackFx !== false;/);
-    for (const k of ['fx.lightning = vfxOn ? lightning : null;', 'fx.beams = vfxOn ? beams : null;', 'actors.trails = vfxOn ? trails : null;', 'fx.shapes = vfxOn ? shapes : null;']) {
+    for (const k of ['fx.lightning = vfxOn ? lightning : null;', 'fx.beams = vfxOn ? beams : null;', 'actors.trails = vfxOn ? trails : null;', 'fx.shapes = vfxOn ? shapes : null;', 'fx.blasts = vfxOn ? blasts : null;']) {
       expect(src).toContain(k);
     }
     // nothing else hands the layers out: the attack styles' calls exist only with the attack styles (off: none)
     expect(src).toMatch(/const attackFx = settings\.attackFx === false \? null : createAttackFx\(/);
-    expect(src.match(/fx\.(lightning|beams|shapes) = (?!null|vfxOn)/g)).toBeNull();
+    expect(src.match(/fx\.(lightning|beams|shapes|blasts) = (?!null|vfxOn)/g)).toBeNull();
     expect(src.match(/actors\.trails = (?!null|vfxOn)/g)).toBeNull();
     const wire = src.slice(src.indexOf('const guarded = '), src.indexOf('// attack FX are decoration'));
     expect(wire).toMatch(/if \(attackFx\) \{[\s\S]*attackFx\.ctx\.strokes = strokes;/);

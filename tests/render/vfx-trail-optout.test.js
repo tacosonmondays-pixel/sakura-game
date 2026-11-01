@@ -30,7 +30,8 @@ const framesFor = (id) => (id === 'yuzuha' ? 1200 : 360);
 
 /**
  * Runs a gallery battle and records, for every shot's view, what the style drew while it ran.
- * @returns {Map<string, {views:number, own:number, flagged:number, flaggedBare:number, doubled:number, sample:string|null}>}
+ * @returns {{ girls: Map<string, {views:number, skipped:number, own:number, flagged:number, flaggedBare:number, doubled:number, sample:string|null}>,
+ *   kinds: Map<string, {flagged:number, bare:number}> }} per girl, and per girl, shot kind and shooter (`id:kind[@turret]`)
  */
 function probe(ids, build, { frames = 360, speed = 2, quality = 'high' } = {}) {
   const sim = gallerySim(ids, ids.map(() => build), 3);
@@ -52,6 +53,9 @@ function probe(ids, build, { frames = 360, speed = 2, quality = 'high' } = {}) {
   wrap('spr', (a) => ['spr', a[3], a[5]]);
   wrap('part', (a) => ['spr', a[2], a[4]]);
   const out = new Map();
+  // the bare check runs per girl, shot kind and shooter (a sentry's or drone's shots apart): a wrong flag on one kind of
+  // shot cannot pass beside a rightly flagged kind
+  const kinds = new Map(); // `${id}:${kind}[@turret]` → { flagged, bare }
   const list = Object.values(h.batches);
   const dt = 1 / 60;
   for (let f = 0; f < frames; f++) {
@@ -91,6 +95,11 @@ function probe(ids, build, { frames = 360, speed = 2, quality = 'high' } = {}) {
       if (v.ownTrail) {
         s.flagged++;
         if (!own) s.flaggedBare++;
+        const key = `${id}:${p.kind}${p.turretUid != null ? '@turret' : ''}`;
+        const k = kinds.get(key) || { flagged: 0, bare: 0 };
+        k.flagged++;
+        if (!own) k.bare++;
+        kinds.set(key, k);
       } else if (own) {
         s.doubled++;
         s.sample ||= `${p.kind}: ${drawn.map((d) => d[0]).join(',')}`;
@@ -100,7 +109,7 @@ function probe(ids, build, { frames = 360, speed = 2, quality = 'high' } = {}) {
     h.fx.update(dt);
     for (const b of list) b.end();
   }
-  return out;
+  return { girls: out, kinds };
 }
 
 describe('the styled ribbon and the styles\' own trails', { timeout: 600000 }, () => {
@@ -114,18 +123,21 @@ describe('the styled ribbon and the styles\' own trails', { timeout: 600000 }, (
       for (const [b, build] of Object.entries(BUILDS)) {
         const name = `${b} ${quality}`;
         for (const ids of groups) {
-          for (const [id, s] of probe(ids, build, { quality, frames: framesFor(ids[0]) })) {
+          const { girls, kinds } = probe(ids, build, { quality, frames: framesFor(ids[0]) });
+          for (const [id, s] of girls) {
             const r = reached.get(id) || { views: 0, skipped: 0 };
             r.views += s.views;
             r.skipped += s.skipped;
             reached.set(id, r);
             if (s.doubled) doubled.push(`${id} ${name}: ${s.doubled}/${s.views} shots (${s.sample})`);
-            // a girl whose flagged shots never draw a trail of their own on this build lost her only trail
-            const g = bare.get(id) || { flagged: 0, bare: 0, builds: [] };
-            g.flagged += s.flagged;
-            g.bare += s.flaggedBare;
-            if (s.flagged && s.flaggedBare === s.flagged) g.builds.push(name);
-            bare.set(id, g);
+          }
+          // a kind of shot that is flagged but never draws a trail of its own on this build lost its only trail
+          for (const [key, k] of kinds) {
+            const g = bare.get(key) || { flagged: 0, bare: 0, builds: [] };
+            g.flagged += k.flagged;
+            g.bare += k.bare;
+            if (k.flagged && k.bare === k.flagged) g.builds.push(name);
+            bare.set(key, g);
           }
         }
       }
@@ -137,6 +149,11 @@ describe('the styled ribbon and the styles\' own trails', { timeout: 600000 }, (
     // given cannot double a ribbon, and the known gaps are named above)
     const withView = ORDER.filter((id) => typeof STYLE_BY_UNIT[id]?.view === 'function');
     expect(withView.filter((id) => alwaysSkips(STYLE_BY_UNIT[id].view)).sort()).toEqual(['chigusa', 'ena', 'fuu', 'kinu', 'miko', 'momo']);
+    // …and what ran agrees: their shots fly and every one of them is skipped (Kinu's never fly here)
+    for (const id of ['chigusa', 'ena', 'fuu', 'miko', 'momo']) {
+      expect(reached.get(id)?.views, id).toBe(0);
+      expect(reached.get(id)?.skipped, id).toBeGreaterThan(0);
+    }
     const missed = withView.filter((id) => !KNOWN_GAPS[id] && !alwaysSkips(STYLE_BY_UNIT[id].view) && !(reached.get(id)?.views > 0));
     expect(missed).toEqual([]);
     // (and the checks really ran on the girls that draw a trail of their own: the cases the earlier reviews found)

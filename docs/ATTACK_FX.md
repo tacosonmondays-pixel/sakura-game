@@ -142,7 +142,7 @@ that name a girl (`towerUid` / `ownerUid`) reach `style.onOther(ev, tw, t, ctx, 
 (visual muzzle M, lob `rec.bump`, flutter `rec.bend`) · `view(p, rec, null, view, ctx)` (remap kind,
 tint, scale, `skip` to draw it as quads; draw trails / reticles: a style that leaves anything behind its shot sets
 `view.ownTrail` where it does, or the styled ribbon draws over it; `tests/render/vfx-trail-optout.test.js` checks each girl's
-shots in a gallery battle; a view that skips every shot is exempt, as a skipped shot gets no ribbon) · `onSpawn(rec, p, t, ctx)` ·
+shots, kind by kind, in a gallery battle; a view that skips every shot is exempt, as a skipped shot gets no ribbon) · `onSpawn(rec, p, t, ctx)` ·
 `onImpact(rec, x, y, crit, radius, ctx)` · `update(gdt, tw, t, ctx)` · `onRemove(tw, ctx)`.
 
 Shared patterns (`patterns/`): `drones`, `segments` (tracers, beams, chains, ropes), `markers`
