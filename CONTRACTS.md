@@ -2116,6 +2116,11 @@ r.vfx                            // read-only hit-effect stats { hitStops, holds
 r.hdrProbe({ effects })          // dev tooling: share of pixels above luminance levels this frame (bloom threshold tuning)
 r.tornadoDemo(presetId, x, z, opts) // dev tooling (display only): starts a styled tornado (src/render/vfx/tornadoPresets.js) at a board spot; opts { seconds, size }; the record or null
 r.tornado                        // dev tooling: the tornado layer (live list, stats); the ?tornadoLab panel and tools/vfx/capture.mjs use it
+r.lightningDemo(presetId, points, opts) // dev tooling (display only): strikes styled chain lightning (src/render/vfx/lightningPresets.js) through world points [[x, y, z], …], the girl first; opts { color, forks }
+r.lightning                      // dev tooling: the lightning layer (live bolts, stats); the ?lightningLab panel and the captures use it
+r.beamDemo(presetId, a, b, opts) // dev tooling (display only): fires a styled beam (src/render/vfx/beamPresets.js) from world point a to b; opts { width, color, from, zig }
+r.beams                          // dev tooling: the beam layer (live beams, stats)
+r.shapes                         // dev tooling: the styled slashes and shockwaves (src/render/vfx/shapes.js: slash(x, y, z, angle, color, { size }), shock(x, z, r0, r1, color))
 ```
 
 Settings the renderer reads (`opts.settings`, the profile's live settings object): `quality`,
