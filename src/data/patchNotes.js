@@ -20,6 +20,15 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.72', version: '0.1.72', date: '2026-11-01', title: 'New Staff Models and a Fire Tornado',
+    added: [
+      'Akane\'s Starmine Barrage now whips up a swirling fire tornado where the shells fall thickest: it builds while the shells rain down and lifts away when the barrage ends.',
+    ],
+    changed: [
+      'Norika and Kogane have new models: proper chibi proportions with their faces clear under hard hats that sit back on the head, a bright STOP paddle and a big wrench, and smoother animations.',
+    ],
+  },
+  {
     id: 'v0.1.71', version: '0.1.71', date: '2026-11-01', title: 'Lively Moves and Shots From the Weapon',
     changed: [
       'Luna, Nami, Kanna and Yoriko are re-rigged with lively new animations — no more T-poses; Kogane and Norika move more naturally.',
