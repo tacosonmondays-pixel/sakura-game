@@ -480,7 +480,7 @@ html[data-reduce-motion] .bt-panel.bt-panel-in { animation: none; }
 /* ---- path rows: the coloured edge, italic name, tier pips, "T3 · TIER NAME", the price button */
 .bt-paths { display: flex; flex-direction: column; }
 .bt-path {
-  --path: #ff5d7a;
+  --path: #ff6b8b; /* set per row from drawerView PATH_COLORS (one set with the board pips) */
   display: grid; grid-template-columns: 4px minmax(0, 1fr) auto; grid-template-areas: 'edge main act' 'edge extra extra'; column-gap: 9px; row-gap: 4px;
   align-items: center; padding: 6px 0; border-bottom: 1px solid var(--dw-line);
 }

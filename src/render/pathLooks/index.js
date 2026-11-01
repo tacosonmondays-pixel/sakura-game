@@ -13,7 +13,8 @@ import { heroLookTiers } from '../../sim/hero.js';
 import { pathLayers, stagePieces, pipAngles } from './rules.js';
 import { pathLooksFor, pieceFile } from './catalog.js';
 import { findBone } from '../../models/glbChibi.js';
-import { loadPieces, getPiece, fileStatus, instancePiece } from './pieces.js';
+import { WEAPON_TIPS } from '../../models/weaponTip.js';
+import { loadPieces, getPiece, fileStatus, instancePiece, mergedPieces } from './pieces.js';
 import { createVisualRandom, visualSeed } from '../vfx/random.js';
 
 export const PATH_COLORS = ['#ff6b8b', '#4cc9f0', '#ffd43b'];
@@ -32,6 +33,18 @@ const _e = new THREE.Euler();
 const _p = new THREE.Vector3();
 const _s = new THREE.Vector3();
 const _w = new THREE.Vector3();
+
+/** Her body skinned mesh (skeleton + bind matrix for the merged pieces). */
+function bodyMesh(root) {
+  let body = null;
+  let any = null;
+  root.traverse((o) => {
+    if (!o.isSkinnedMesh || o.userData.isOutline || o.name.startsWith('pathLook')) return;
+    any ??= o;
+    if (!body && o.name === 'body') body = o;
+  });
+  return body || any;
+}
 
 export class PathLooks {
   /**
@@ -60,6 +73,11 @@ export class PathLooks {
   setOverride(uid, tiers) {
     if (tiers) this.overrides.set(uid, [...tiers]);
     else this.overrides.delete(uid);
+  }
+
+  /** A girl left the board (sold, swapped): drop her staging override. */
+  forget(uid) {
+    this.overrides.delete(uid);
   }
 
   _tiers(t) {
@@ -111,9 +129,10 @@ export class PathLooks {
     st.anims = [];
     st.key = st.layers.key;
     const unitId = t.unitId || t.def?.id;
-    const row = pathLooksFor(unitId);
     const ud = v.model.userData;
+    const row = pathLooksFor(unitId, ud.skinId);
     if (!row || !st.root || !ud.restBone || !this.enabled) return;
+    const statics = [];
     for (const { path, tier } of st.layers.pieces) {
       const list = stagePieces(row.paths[path], tier);
       if (!list) continue;
@@ -126,40 +145,64 @@ export class PathLooks {
         });
         continue;
       }
-      for (const entry of list) this._attach(v, st, entry, getPiece(file, entry.piece));
+      for (const entry of list) {
+        const piece = getPiece(file, entry.piece);
+        const sock = this._socket(v, st, entry);
+        if (!piece || !sock) continue;
+        if (entry.anim) this._attach(v, st, entry, piece, sock);
+        else statics.push({ piece, bone: sock.bone, local: sock.local, name: entry.piece });
+      }
+    }
+    // every static piece in one skinned mesh on her skeleton (MEDIUM-1: one draw call, two with the hull)
+    if (statics.length) {
+      const body = bodyMesh(st.root);
+      const key = `${ud.assetId}|${ud.detail}|${ud.skinId || ''}|${statics.map((e) => e.name).join(',')}|${st.layers.key}`;
+      const g = mergedPieces(key, statics, body, { quality: this.quality, shadows: this.shadows });
+      if (g) {
+        g.userData.pieces = statics.map((e) => e.name);
+        st.root.add(g);
+        st.holders.push(g);
+      }
     }
   }
 
-  _attach(v, st, entry, piece) {
+  /** Where a catalog entry sits: its bone and its frame in that bone's space (the rest pose undone, figure axes). */
+  _socket(v, st, entry) {
     const bone = findBone(st.root, entry.bone);
     const rest = v.model.userData.restBone(entry.bone);
-    if (!piece || !bone || !rest) return;
-    // the pivot sits at the bone's rest position + `at` in figure axes; the holder undoes the bone's rest frame so the
-    // piece keeps the figure's axes and units at rest, then rides every clip with the bone
+    if (!bone || !rest) return null;
+    // the pivot sits at the bone's rest position + `at` in figure axes; undoing the bone's rest frame keeps the
+    // figure's axes and units at rest, then the piece rides every clip with the bone
     _p.setFromMatrixPosition(rest).add(_w.fromArray(entry.at));
     _q.setFromEuler(_e.set(entry.rot[0], entry.rot[1], entry.rot[2]));
     _s.setScalar(entry.scale || 1);
     _m.compose(_p, _q, _s);
+    return { bone, local: rest.clone().invert().multiply(_m) };
+  }
+
+  /** An animated piece (spin / bob): its own mesh under a holder on the bone. */
+  _attach(v, st, entry, piece, sock) {
     const holder = new THREE.Group();
     holder.name = `pathLookSocket:${entry.piece}`;
     holder.matrixAutoUpdate = false;
-    holder.matrix.copy(rest).invert().multiply(_m);
+    holder.matrix.copy(sock.local);
     const inner = new THREE.Group();
     const inst = instancePiece(piece, { quality: this.quality, shadows: this.shadows });
     inner.add(inst);
     holder.add(inner);
     holder.userData.meshes = inst.userData.meshes;
     holder.userData.triangles = inst.userData.triangles;
-    bone.add(holder);
+    holder.userData.pieces = [entry.piece];
+    sock.bone.add(holder);
     st.holders.push(holder);
-    if (entry.anim) st.anims.push({ node: inner, anim: entry.anim, phase: (v.uid * 1.618) % TAU });
+    st.anims.push({ node: inner, anim: entry.anim, phase: (v.uid * 1.618) % TAU });
   }
 
   /** Hand bones of a GLB girl ({ weapon, off }) or null. */
   _hands(v, t, st) {
     if (st.hands !== null) return st.hands || null;
-    const row = pathLooksFor(t.unitId || t.def?.id);
-    const wName = row?.weaponHand || 'hand_R';
+    const row = pathLooksFor(t.unitId || t.def?.id, v.model.userData.skinId);
+    const wName = row?.weaponHand || WEAPON_TIPS[v.model.userData.assetId]?.bone || 'hand_R';
     const oName = wName === 'hand_R' ? 'hand_L' : 'hand_R';
     const w = findBone(st.root, wName);
     const o = findBone(st.root, oName);
@@ -181,6 +224,7 @@ export class PathLooks {
     const r = tw.isHero ? PIP_R_HERO : PIP_R;
     for (let p = 0; p < 3; p++) {
       const tier = L.tiers[p];
+      if (tier < 1) continue; // a path she has not started draws nothing (review r1 LOW-3: 0-0-0 shows no gauge)
       const c = PATH_RGB[p];
       for (let k = 0; k < 5; k++) {
         const a = ang[p][k];
@@ -259,7 +303,7 @@ export class PathLooks {
       triangles += h.userData.triangles || 0;
     }
     return {
-      tiers: st.layers?.tiers || null, pieces: st.holders.map((h) => h.name.split(':')[1]), glows: st.layers?.glows.map((g) => `${g.path}:${g.hand}`) || [],
+      tiers: st.layers?.tiers || null, pieces: st.holders.flatMap((h) => h.userData.pieces || []), glows: st.layers?.glows.map((g) => `${g.path}:${g.hand}`) || [],
       aura: st.layers?.aura || [], meshes, triangles, glb: !!st.root,
     };
   }

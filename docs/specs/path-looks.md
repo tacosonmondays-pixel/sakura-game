@@ -1,13 +1,14 @@
 # Path looks: see a girl's upgrade path on her model
 
-Status: **Phase 1, spec + prototype** on `feature/path-looks` (off `main` v0.1.70 `df9fae8d`). Display only: the sim id
-(`tools/simId.mjs`) and `COOP_PROTOCOL` are unchanged. Not shipped; needs the review gate (HANDOFF §6) and the owner's
-yes on the board before any release.
+Status: **Phase 1 + rollout batch 1** on `feature/path-looks` (main v0.1.71 `2dba8b4a` merged in). Round 1 review
+(`docs/review/path-looks/review-r1.md` on `review/path-looks-r1`): OK; its MEDIUM, LOWs and NITs are fixed here (§9) and
+the owner took both defaults (one shared path colour set; pips replace the max-tier ring). Display only: the sim id
+(`tools/simId.mjs`) and `COOP_PROTOCOL` are unchanged. Not shipped; each round needs the review gate (HANDOFF §6).
 
 > Owner: "how can we separate the appearances so we know which upgrade paths they take?"
 
-Board: `docs/art/previews/path-looks-board.jpg` (Aoi, Akane and Luna at 0-0-0, 3-0-0, 0-3-0, 0-0-3, 5-2-0, 2-0-5,
-0-5-2; idle / attack / walk frames of every T5 look; phone crops from a real 390×844 battle).
+Board: `docs/art/previews/path-looks-board.jpg`: Aoi, Akane and Luna (Phase 1) and Rei, Yuki, Momo, Kage, Nami and
+Hikari (batch 1) at 0-0-0, 3-0-0, 0-3-0, 0-0-3, 5-2-0, 2-0-5, 0-5-2, Sentinel Akane, and the real 390×844 battle.
 
 ## 1. Today
 
@@ -24,23 +25,24 @@ Each layer answers one question, from the cheapest (always on) to the loudest (T
 
 | Layer | Tiers | What it shows | How it is drawn |
 | --- | --- | --- | --- |
-| **(a) Pip gauge** | always | which paths and how far: three little gauges of five pips on the ground on the side facing the camera, path 1 on the left, path 2 in front, path 3 on the right, each in its path colour; filled pips bright with a soft glow, the rest dark sockets | ground quads in the existing batches (0 extra draw calls); follows the camera yaw (portrait phones turn the view 90°) |
+| **(a) Pip gauge** | T1+ on that path | which paths and how far: up to three little gauges of five pips on the ground on the side facing the camera, path 1 on the left, path 2 in front, path 3 on the right, each in its path colour; filled pips bright with a soft glow, the rest dark sockets. A path with no tier draws no gauge, so 0-0-0 shows nothing (review r1 LOW-3) | ground quads in the existing batches (0 extra draw calls); follows the camera yaw (portrait phones turn the view 90°) |
 | **(b) Hand glow** | T1–T2 | a soft glow in the path colour at her weapon hand (her leading T1–T2 path) and her other hand (the second); T2 adds a sparkle core | billboard quads at the hand bones (0 extra draw calls) |
 | **(c) T3 attachment** | T3 | a path-specific piece that reads at battle-camera size: quiver, feathers, a falcon friend, a pinwheel, a plume, a rocket pack, moon lances, orbiting moons, a tiara | small GLB pieces socketed to her bones (§4), so they follow every clip |
 | **(d) T4 escalation** | T4 | the same idea, bigger: more arrows / feathers / lances / moons, a second pinwheel, flame tips, goggles; plus a few rising sparkles in the path colour | a T4 piece set (falls back to the T3 set when the catalog has none) |
 | **(e) T5 capstone** | T5 | a silhouette change (wings, a comet quiver, the apex falcon, a hanabi wheel, flame wings, booster pack, a crescent of lances, an event horizon, a crescent crown) and an **aura**: a soft ground glow, a slow pulse ring and rising motes in the path colour | T5 piece set + ground / billboard quads |
 
-The old max-tier ring goes: the pips say the same thing and more. The hero keeps her gold ring; her pips ride on it
-(a hero's gown is wider than a student's skirt and would hide pips closer in).
+The old max-tier ring goes (owner decision): the pips say the same thing and more. The hero keeps her gold ring; her
+pips ride on it (a hero's gown is wider than a student's skirt and would hide pips closer in). The hero ring is now drawn
+at her own scale (`v.scale / TOWER_SCALE`, a hair wider than before): say so in the patch note.
 
-### Path colours (needs an owner decision)
+### Path colours (owner decision: one shared set)
 
-The board pips and pieces use the renderer's `PATH_COLORS` (pink `#ff6b8b`, cyan `#4cc9f0`, yellow `#ffd43b`,
-already used by the upgrade sparkle). **The upgrade drawer uses different edge colours** (`src/ui/battle/drawerView.js`
-`PATH_COLORS`: `#ff5d7a`, `#3b8cff`, `#9b6bff`). A player reads "the blue path" in the drawer and should find blue
-pips on the board. Recommendation: one shared set. The board set reads better on grass and against each other on a
-phone (yellow vs violet next to blue); moving the drawer's edges to it is a one-line, display-only change. Until the
-owner picks, the prototype uses the renderer set as briefed.
+Pink `#ff6b8b`, cyan `#4cc9f0`, yellow `#ffd43b`, everywhere a path has a colour: the board pips, glows, aura and piece
+trims (`src/render/pathLooks` `PATH_COLORS`), the upgrade sparkle, and the upgrade drawer's path edge and pips
+(`src/ui/battle/drawerView.js` `PATH_COLORS`, `--path` in `src/ui/styles/battle.css`, the unused `--path-1..3` tokens in
+`base.css`). The drawer sits on the dark plate (`--plate` `#0e1930`), where the yellow edge reads at full strength, so no
+deeper drawer-only yellow is needed. VAULT_BRIEF §2.4 (owner's notes pack, not in this repo) should read the same three;
+the drawerView comment quotes it.
 
 ## 3. How it composes
 
@@ -57,8 +59,10 @@ owner picks, the prototype uses the renderer set as briefed.
   girl it suits (Starfall → Tsubaki's cannon, Prism → Kohaku's lens, Refraction → both) via the duo's member groups.
 - **Outfits (variants / skins).** Pieces hang off bones, not mesh positions, so they follow any outfit on the same
   rig. Offsets are measured from the bone's rest position in figure space; a Sentinel Style or event outfit with a very
-  different silhouette (a big hat, wings of its own) gets a per-skin override row in the catalog
-  (`skins: { <skinId>: { paths… } }`, Phase 2) or drops the clashing piece.
+  different silhouette (a big hat, wings of its own) gets an outfit row (`SKIN_LOOKS` in the catalog, keyed by skin
+  id: per path, the stages it moves; the rest comes from her default row) or drops the clashing piece. Built:
+  `akane_sentinel` (no witch hat: pinwheel and plume on the sides of her head, goggles resting on her hair; review r1
+  LOW-1). Every batch's close-up pass checks each outfit the girl owns.
 - **Costumes and Halloween hats.** Event costumes are monsters-only today (`src/render/costumes.js`). If girls ever
   get event headwear, it owns the head socket: head pieces then move to the hat band (Akane's pieces already ride her
   own witch hat this way) or step aside for the event. Akane shows the rule: her hat stays, her head pieces sit on
@@ -77,55 +81,65 @@ owner picks, the prototype uses the renderer set as briefed.
 
 - **Pieces are small GLBs** built in Blender by `tools/blender/pathlooks/build_path_looks.py` (procedural low-poly,
   vertex colours, the same Part helpers as the placed props), one file per girl and path:
-  `public/models/pathlooks/<unitId>_p<path>.glb`, each **≤ 60 KB** (Phase 1: 32–58 KB). A girl only fetches the
+  `public/models/pathlooks/<unitId>_p<path>.glb`, each **≤ 60 KB** (12–60 KB today). A girl only fetches the
   paths she takes, the first time she reaches T3 on one.
 - **Contract.** One root empty per piece (`p<path>_<name>`), meshes `<piece>_body` (toon) and `<piece>_glow` (unlit).
   Units are **figure space** (her group space after unitScale: feet at 0, +y up, +z her front). The catalog
   (`src/render/pathLooks/catalog.js`) places each piece: `bone` (head, chest, root, hips, hand_L, hand_R), `at` (pivot
   offset from that bone's rest position, figure units), `rot`, `scale`, `anim` (`spin`, `spinZ` or `bob`).
 - **Socketing.** `glbChibi.js` exposes `userData.restBone(name)` (the bone's rest frame from the asset's untouched
-  scene) and `userData.glbRoot`. A holder under the bone undoes the bone's rest frame, so a piece keeps the figure's
-  axes at rest and then rides every clip (idle bob, attack swing, walk). Bones are found by type, not just name (the
-  face mesh of the Blender girls is also called `head`).
-- **One shared material set** for every girl: the chibis' own toon material (vertex colours) for bodies, one unlit
-  vertex-colour material for glows, one back-face outline. No textures, no new shader programs; a piece is 1–2 meshes
-  (+1 hull on medium/high).
+  scene) and `userData.glbRoot`. A piece's frame in its bone's space undoes the bone's rest frame, so it keeps the
+  figure's axes at rest and then rides every clip (idle bob, attack swing, walk). Bones are found by type, not just
+  name (the face mesh of the Blender girls is also called `head`).
+- **Draw calls (review r1 MEDIUM-1).** A piece is one mesh: its body and glow parts share one geometry with a per-vertex
+  glow flag (`aGlow`), drawn by one toon material that turns flagged vertices unlit. A girl's **static** pieces (no
+  `spin` / `bob`) are merged into **one skinned mesh on her own skeleton**, every vertex rigidly weighted to its socket
+  bone, so the merge moves exactly as separately socketed pieces would; animated pieces stay their own mesh under a
+  holder on the bone. Merged geometry is cached per (model asset, detail, outfit, piece set) and shared by every
+  instance. Cost: 1 call for her statics + 1 per animated piece, doubled on medium / high by the outline hulls
+  (`rules.js` `pieceCalls`).
+- **One shared material set** for every girl: one piece material (toon ramp + the glow flag) and one back-face outline.
+  No textures.
 
 ### Budgets per girl
 
 | Quality | Pieces | Extra draw calls a girl (max) | Triangles a girl (max) | Notes |
 | --- | --- | --- | --- | --- |
-| low | yes, no hulls | 4 (girl), 7 (Lv 25 hero) | 1,400 (girl), 2,600 (hero) | pips, glows, sparkles and aura ride the existing quad batches: 0 extra calls |
-| medium | yes, hulls | 6 (girl), 10 (hero) | 2,400 (girl), 4,500 (hero) | hull = the body mesh pushed out, one shared back-face material |
-| high | yes, hulls, shadows | 6 (+ shadow pass) | as medium | |
+| low | yes, no hulls | **2** (girl), 4 (Lv 25 hero) | 1,400 (girl), 2,600 (hero) | pips, glows, sparkles and aura ride the existing quad batches: 0 extra calls |
+| medium | yes, hulls | 4 (girl), 8 (hero) | 2,400 (girl), 4,500 (hero) | hull = the body parts pushed out, one shared back-face material |
+| high | yes, hulls, shadows | 4 (+ shadow pass) | as medium | |
 
-Enforced in tests: a T3 stage ≤ 650 triangles, a T5 stage ≤ 1,400 (before hulls), every file ≤ 60 KB. Measured with
-12 girls at mixed tiers on low: §7.
+Enforced in `tests/render/pathLooks.test.js`: a T3 stage ≤ 650 triangles, a T5 stage ≤ 1,400 (before hulls), every
+file ≤ 60 KB, ≤ 2 calls a girl and ≤ 4 a hero at every T3–T5 set on low, and **≤ 16 calls for the reviewer's
+all-T5 board** (six Aoi and six Akane at 5-2-0 / 2-0-5 / 0-5-2). `e2e/path-looks.mjs --only perf` measures both
+boards in a browser (§7).
 
 ## 5. The look for every girl
 
 T3 and T5 per path, from each path's theme in the unit data. Socket in brackets: [head] top / side / back of the head
 or a hat band, [back] behind and wide of the hair, [hand] her weapon or other hand, [float] beside / above her,
 [orbit] circling her, [ground] beside her feet. A girl wears one path at a time, so her three paths may share a socket;
-a hero's three paths each own a different socket. **Bold** rows are built in Phase 1.
+a hero's three paths each own a different socket. **Bold** rows are built (Phase 1 and batch 1; a batch-1 row says
+what was built where it differs from the first plan: pieces moved off weapon heads so no weapon-tip muzzle is ever
+covered).
 
 | Girl | Path 1 T3 → T5 | Path 2 T3 → T5 | Path 3 T3 → T5 |
 | --- | --- | --- | --- |
 | **Aoi** (Wind Ranger) | Piercing: steel-tipped quiver over her right shoulder [back] → comet quiver, five glowing arrows fanned high [back] | Volley: three hawk feathers in her hair [head] → five feathers + white-and-cyan feather wings [head+back] | Sky Hunter: a little falcon friend hovering by her head [float] → the golden apex falcon, wings spread, with its mark [float] |
 | **Akane** (Flame Witch) | Big Bang: firework pinwheel on her hat band [head] → two pinwheels + a spinning hanabi wheel behind her [head+back] | Wildfire: phoenix plume in the hat [head] → flaming plume + flame wings [head+back] | Rockets: two side boosters on a backpack [back] → four flaming boosters + goggles on the hat [back+head] |
 | **Luna** (hero) | Lances: three moon lances behind her left shoulder [back] → a crescent of seven lances [back] | Gravity: two little moons circling her [orbit] → three moons and a ringed planet [orbit] | Court: star tiara [head] → crescent crown with circling stars [head] |
-| Hikari (hero) | Radiant: sun-gold guard and glow on her sword [hand] → a sun disc behind her [back] | Sanctuary: a floating shield charm [orbit] → three dawn shields circling + ground sigil [orbit] | Lightbringer: small light-feather wings on her crown [head] → a radiant sun crown [head] |
-| Nami (hero) | Frostbrand: ice crystals along the trident [hand] → ice-crystal trident head [hand] | Undertow: a swirling water ring [orbit] → a friendly water serpent coiling round her [orbit] | Harbor: gold braid and anchor badge on her cap [head] → a ship's wheel behind her [back] |
+| **Hikari** (hero) | Radiant: a little sun charm floating by her head [float] → a great sun disc behind her [back] | Sanctuary: a white-and-gold shield charm circling [orbit] → three dawn shields circling [orbit] | Lightbringer: light-feather wings at her temples [head] → a radiant sun crown with feathers [head] |
+| **Nami** (hero) | Frostbrand: ice crystals behind her right shoulder [back] → a fan of seven ice spikes [back] | Undertow: a foam-capped water ring [orbit] → a friendly water serpent coiling round her [orbit] | Harbor: a gold anchor standing on her cap [head] → + a ship's wheel floating above her [head-high] |
 | Kanna (hero) | Rhythm: a small taiko on her back [back] → a festival wheel of six drums [back] | Oni: gilded caps on her horns [head] → a giant festival mallet head [hand] | Dance: a little lion-dance puppet beside her [float] → three friendly oni lanterns circling [orbit] |
 | Yoriko (hero) | Threads: a marionette cross-bar with glowing threads [hand] → a bigger puppet dancing on strings [float] | Theatre: a crescent stage mask pinned at her hair [head] → comedy and tragedy masks circling [orbit] | Nightmare: a floating violet spool [back] → a small stage-curtain arch behind her [back] |
 | Seiran (hero) | Tempest: a crackling storm ring on the spear [hand] → a storm-cloud coil round the spear [hand] | Skyguard: a winged crest between her horns [head] → a small cloud dragon beside her [float] | Rain: a little rain cloud above her [float-high] → three rain clouds circling [orbit] |
 | Kogane (hero) | Drill: a drill bit on the wrench [hand] → a drill-arm backpack [back] | Dozer: a dozer blade shield beside her [float] → a little tracked dozer bot at her side [ground] | Pods: two mini pods circling [orbit] → four pods + a hard-hat lamp [orbit+head] |
 | Norika (hero) | Barrier: a barrier stand beside her [ground] → gate posts flanking her [ground] | Guard: reflective band on her cap [head] → flashing beacon on the cap + circling cones [head+orbit] | Detour: arrow board on her sign [hand] → a big floating one-way sign above her [float-high] |
-| Rei | Whirlwind: petal ribbon on her scabbard [back] → a ring of sakura petals and streamers [orbit] | Duelist: white headband with long tails [head] → crescent crest on the headband + glowing guard [head+hand] | Counter: a short second blade on her back [back] → three spectral blades fanned behind [back] |
-| Yuki | Deep Freeze: ice crystal crown on the staff [hand] → a big snowflake halo behind her [back] | Frostbite: two icicle shards circling [orbit] → a glittering cloud of six diamond shards [orbit] | Permafrost: frosted capelet [back] → a floating ice clock face behind her head [back] |
-| Momo | Fan Club: peach charm on her mic [hand] → a golden peach bank beside her [float] | Merch: a tote of light sticks on her back [back] → a floating golden ledger [float] | Encore: coin-star hair clips [head] → a ring of gold coins and stars [orbit] |
+| **Rei** | Whirlwind: a big sakura sash bow high on her back [back] → + a ring of petals circling [orbit] | Duelist: a white headband with long cyan-edged tails [head] → a gold crescent crest on it [head] | Counter: a short sword across her back [back] → + three spirit blades fanned behind her [back] |
+| **Yuki** | Deep Freeze: a blue snowflake hair ornament [head] → + a great snowflake halo behind her [back] | Frostbite: two icicle shards circling [orbit] → a ring of six diamond shards [orbit] | Permafrost: frost crystals rising over her left shoulder [back] → + an ice clock floating above her [back-high] (a capelet was tried: it hid her staff head, which rests low behind her right hip) |
+| **Momo** | Fan Club: a peach hair clip [head] → + a smiling golden peach bank floating by her [float] | Merch: a tote of light sticks fanned over her shoulders [back] → + a floating golden ledger [float] | Encore: star-and-coin hair clips [head] → + a ring of gold coins and stars [orbit] |
 | Sango | Armor-Breaker: a ram cap on the cannon muzzle [hand] → coral-steel cannon shroud + anchor charm [hand] | Fragmentation: a shell crate backpack [back] → three mini mortars circling [orbit] | Siege: spyglass and feather on her beret [head] → a sea-serpent figurehead on the cannon [hand] |
-| Kage | Steel: a big four-point shuriken on her back [back] → a ring of six shuriken [orbit] | Shadow Mark: a long scarf with trailing tails [back] → crescent headband plate + violet glowing scarf [head+back] | Kunai: a fan of kunai in a back sheath [back] → a floating black lotus of blades [back] |
+| **Kage** | Steel: a big four-point shuriken over her left shoulder [back] → + six shuriken circling [orbit] | Shadow Mark: a red scarf, both tails streaming out to her left [back] → violet-tipped tails + a crescent on her own headband [back+head] | Kunai: a fan of kunai over her right shoulder [back] → + a black lotus of blades behind her [back] |
 | Umeko | Lighthouse: a small lantern on her staff [hand] → four paper lanterns circling [orbit] | Plum Rain: plum blossom hair crown [head] → a plum-petal water wheel behind her [back] | Undertow: a pearl ring circling [orbit] → a giant clam-shell backdrop with pearls [back] |
 | Shiro | Execution: a long scope on the rifle [hand] → moon-silver long barrel, crescent muzzle [hand] | Spotter: a small spotter drone hovering [float] → three drones circling high [orbit] | Follow-up: a twin magazine pack [back] → a silver bullet ring behind her [back] |
 | Midori | Toxicology: a little alembic backpack [back] → a bubbling cauldron pack with vines [back] | Corrosion: goggles glowing on her forehead (never over the eyes) [head] → a floating flask with green fumes [orbit] | Field Kit: a spray atomiser on her flask [hand] → five potion bottles circling [orbit] |
@@ -162,43 +176,64 @@ a hero's three paths each own a different socket. **Bold** rows are built in Pha
 - No other games' or anime names in pieces, file names, the catalog, docs or generator prompts. Generators (if a
   later batch uses Meshy) receive only the game's own art.
 
-## 7. Prototype results (Phase 1)
+## 7. Results
 
-- Built: pips, hand glows and T5 aura for every girl; T3 / T4 / T5 pieces for Aoi, Akane and Luna (9 files,
-  27 pieces + Luna's circling stars).
-- Board: `docs/art/previews/path-looks-board.jpg`; capture script `e2e/path-looks.mjs` (`--only close|phone|perf|board`).
-- Checks: sim id `e4001588f40b`, the same as `main` (the test also asserts no sim-id file reads path looks);
-  `npm test` passes (new `tests/render/pathLooks.test.js`, 12 tests); smoke passes apart from the known SSR Select
-  Ticket flake and the 1280×720 "Recruit ×1 again asks to confirm gems" step, which fails the same way on an
-  untouched `main` in this container.
-- Performance: `node e2e/path-looks.mjs --only perf` (1-2, quality **low**, 1280×720, a still wave, 12 girls — six
-  Aoi and six Akane — drawn at 5-2-0, 2-0-5, 0-5-2, 3-0-0, 0-3-0, 0-0-3, 4-2-0, 0-4-2, 2-0-4, 2-1-0, 0-0-0, 5-0-2;
-  alternating rounds with the whole layer off and on). Chromium + SwiftShader (software WebGL, no GPU here), so frame
-  times only compare with each other and are noisy.
+- **Built:** pips, hand glows and T5 aura for every girl; T3 / T4 / T5 pieces for Aoi, Akane and Luna (Phase 1) and
+  Rei, Yuki, Momo, Kage, Nami and Hikari (batch 1): 27 files, one per girl and path, 12–60 KB; an outfit row for
+  Sentinel Akane.
+- **Board:** `docs/art/previews/path-looks-board.jpg`; capture script `e2e/path-looks.mjs`
+  (`--only close,muzzle,phone,perf,board`, header says how the board was made).
+- **Faces and weapon tips.** Every close-up, T5 frame and phone crop on the board keeps faces clear. `--only muzzle`
+  casts a ray from the battle camera to each armed girl's weapon-tip muzzle (`src/models/weaponTip.js`) against every
+  piece triangle, skinned merges posed as drawn, 30 frames a set with two attack swings, at 390×844 and 1280×720:
+  **0 blocked frames** at either size (Aoi, Akane, Yuki, Momo 180 frames each a size; Luna, Nami 90; Rei, Kage and
+  Hikari carry no muzzle anchor). Two pieces were moved for it: Akane's pinwheels sit higher on her hat (they crossed her staff head in a
+  portrait swing), and Yuki's Permafrost T3 became frost crystals over her left shoulder (her staff head rests low
+  behind her right hip, and a capelet covered it).
+- **Checks:** sim id `e4001588f40b`, the same as `main` (the test also asserts no sim-id file reads path looks).
+  `npm test`: 446 files passed, 2 skipped; 7,097 tests passed, 11 skipped (`tests/render/pathLooks.test.js`: 14).
+  `node e2e/smoke.mjs` (1280×720, 844×390, 390×844): ALL SMOKE CHECKS PASSED.
+- **Performance** (`--only perf`: 1-2, quality **low**, 1280×720, a still wave, 12 girls, six Aoi and six Akane;
+  alternating rounds with the whole layer off and on; Chromium + SwiftShader, software WebGL with no GPU here, so frame
+  times compare with each other only):
 
-  | | Looks off | Looks on | Change |
-  | --- | --- | --- | --- |
-  | Draw calls (frame) | 57–58 | 78–79 | **+21** (21 piece meshes; pips, glows and aura add none) |
-  | Triangles (frame) | ≈ 181,800 | ≈ 189,200 | **+7,350 (+4 %)**; pieces 6,374 = 531 a girl |
-  | Frame time, median of 5 rounds each (two runs) | 742 ms | 790 ms | within SwiftShader's round-to-round noise (557–956 ms off, 704–931 ms on); the second run alone measured on *faster* (765 vs 821) |
-  | The layer's own CPU work (update + draw, 12 girls) | 0 | **0.2–0.3 ms a frame** (p95 0.4–0.9) | |
+  | Board (12 girls, low) | Draw calls off → on | Triangles off → on | Frame time, mean of 3 off/on pairs | Layer CPU |
+  | --- | --- | --- | --- | --- |
+  | mixed tiers (5-2-0, 2-0-5, 0-5-2, 3-0-0, 0-3-0, 0-0-3, 4-2-0, 0-4-2, 2-0-4, 2-1-0, 0-0-0, 5-0-2) | 60 → 72 (**+12**; round 1: +21) | +7,402 (+4 %; 6,762 piece triangles) | 391 → 402 ms (**+2.9 %**; on slower in every pair: +1.1, +4.0, +3.6 %) | 0.2 ms a frame (p95 0.4) |
+  | **all T5** (six Aoi, six Akane at 5-2-0 / 2-0-5 / 0-5-2) | 58 → 72 (**+14**; round 1: +32; gate ≤ 16) | +13,206 (+7.7 %; 1,019 a girl) | 395 → 412 ms (**+4.1 %**; +5.3, +1.1, +6.1 %) | 0.23 ms a frame (p95 0.5) |
 
-  Next step if a phone shows the draw calls matter: one mesh per piece (glow as a vertex flag in the toon material,
-  halves the calls), then merge a girl's pieces that share a bone.
+  The two extra calls on the all-T5 board are Akane's spinning hanabi wheel (an animated piece keeps its own mesh).
+  Medium / high add one outline hull per mesh, so at most twice these calls.
+
+  Round 1 (before the merge), for the record: mixed board +21 calls, +7,354 triangles; the review measured the all-T5
+  board at **+32 calls** (60 → 92) and **+6–9 % frame time** in software rendering (390 → 416 ms mixed, 352 → 386 ms
+  all-T5). Round 1's "within noise" undersold that (review r1 LOW-4).
 
 ## 8. Rollout
 
-Each girl is one Blender function per piece (~9 pieces), a catalog row and one close-up pass on the board script:
-about **1.5–2 hours a girl** once the pattern is set (the three Phase 1 girls took longer while the system was built).
-36 remaining units ≈ **55–70 hours**, in six batches of six, each reviewed and shipped on its own (display only, no
-sim id or protocol change):
+Batch 1 (Rei, Yuki, Momo, Kage, Nami, Hikari) is built. Each girl is one Blender function per piece (6 pieces: a T3
+and a T5 per path; T4 is the T3 piece a size up), a catalog row and one close-up + muzzle pass: batch 1 took about
+1.5 hours a girl including two look iterations. The **30 remaining units ≈ 45–60 hours**, in five batches of six, each
+reviewed and shipped on its own (display only, no sim id or protocol change):
 
-1. **Starters and early free girls:** Rei, Yuki, Momo, Nami, Hikari, Kage (the first girls players own).
-2. **Gacha SR wave 1:** Sango, Umeko, Shiro, Midori, Suzu, Raika.
+2. **Gacha SR wave 1:** Sango, Umeko, Shiro, Midori, Suzu, Raika (most hold guns or staves: run `--only muzzle` early).
 3. **Gacha SR wave 2 + SSR:** Miko, Hotaru, Kaede, Chika, Tenka, Fuu.
 4. **Newer girls:** Hana, Ruri, Noa, Iroha, Ena, Azami.
 5. **Academy staff and support:** Kinu, Wakaba, Yuzuha, Ouka, Chigusa, Marumi.
 6. **Heroes and the duo:** Kanna, Yoriko, Seiran, Kogane, Norika, Kohaku & Tsubaki (needs the duo member sockets).
 
-Before batch 1: the owner's yes on this board, the path-colour decision (§2), and whether pips replace the max-tier
-ring for good.
+Each batch: pieces never on a weapon head (a muzzle sits there), every owned outfit checked (an outfit row where a
+silhouette moves), `pieceCalls` ≤ 2 a girl, `--only muzzle` clean, the board updated.
+
+## 9. Review round 1: what changed
+
+- **MEDIUM-1 draw calls:** one mesh per piece (glow as a vertex flag), a girl's static pieces merged into one skinned
+  mesh on her skeleton, gates in the unit test (≤ 2 a girl, ≤ 16 on the all-T5 board) and in `--only perf`.
+- **LOW-1:** `SKIN_LOOKS` outfit rows; `akane_sentinel` built.
+- **LOW-2:** Akane's T3 pinwheel (×1.2, glowing petal tips) and plume (×1.2, a glowing ember tip).
+- **LOW-3:** a path with no tier draws no gauge; 0-0-0 shows nothing.
+- **LOW-4:** §7 states the measured software-rendering cost.
+- **NITs:** `Actors.setShadows` skips glow (`userData.fx`) meshes; a sold girl's staging override is dropped
+  (`PathLooks.forget`); the hero ring's new scale is noted for the patch note (§2).
+- **Owner decisions:** one shared colour set (§2, drawer updated); pips replace the max-tier ring.
+- **Merged main v0.1.71** (weapon tips, rigid faces, new models): clean; weapon tips still resolve with pieces on.

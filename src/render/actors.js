@@ -228,7 +228,7 @@ export class Actors {
     this.pathLooks.shadows = on;
     for (const v of [...this.towers.values(), ...this.enemies.values()]) {
       v.model.traverse((o) => {
-        if (o.isMesh && !o.userData.isOutline) o.castShadow = on;
+        if (o.isMesh && !o.userData.isOutline && !o.userData.fx) o.castShadow = on;
       });
     }
   }
@@ -259,6 +259,7 @@ export class Actors {
         this._disposeView(v);
         this.towers.delete(uid);
         this.releaseDecor(v.decorKey);
+        this.pathLooks.forget(uid);
       }
     }
     seen.clear();

@@ -22,8 +22,12 @@ import { effectParts, tierTags, UPGRADE_TAGS, TRANSFORM_TAG } from '../upgradeTa
 import { TARGET_MODES } from '../../data/types.js';
 import { pathCap } from './rules.js';
 
-/** The upgrade paths' edge colours (VAULT_BRIEF §2.4: 1 #ff5d7a, 2 #3b8cff, 3 #9b6bff). */
-export const PATH_COLORS = Object.freeze(['#ff5d7a', '#3b8cff', '#9b6bff']);
+/**
+ * The upgrade paths' edge colours, one set with the battle board's path looks (owner decision, path looks r1; VAULT_BRIEF
+ * §2.4 now reads 1 #ff6b8b pink, 2 #4cc9f0 cyan, 3 #ffd43b yellow): the drawer's edge and pips match the pips and pieces
+ * under the girl (src/render/pathLooks PATH_COLORS).
+ */
+export const PATH_COLORS = Object.freeze(['#ff6b8b', '#4cc9f0', '#ffd43b']);
 /** The four target chips always shown (owner default Q5: 4 chips + an overflow chip, "⋯"). */
 export const TARGET_CHIPS = Object.freeze(['first', 'last', 'strong', 'close']);
 /** The modes behind the overflow chip "⋯" (Air only for a girl who hits flyers). */

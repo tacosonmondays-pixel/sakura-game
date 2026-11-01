@@ -1560,6 +1560,35 @@ export function createBattleRenderer(container, sim, opts = {}) {
     pathLooksProbe(uid) {
       return actors.pathLooks.probe(actors.towers.get(uid));
     },
+    /**
+     * Extra (e2e, render only): does any path-look piece stand between the battle camera and this girl's weapon-tip
+     * muzzle right now? A ray from the camera through the muzzle against every piece triangle (skinned merges posed as
+     * drawn). null: she has no muzzle anchor; false: clear; else the blocking pieces' names.
+     */
+    pathLooksMuzzleBlocked(uid) {
+      const v = actors.towers.get(uid);
+      const mz = v?.model.userData.anchors?.muzzle;
+      if (!mz) return null;
+      const meshes = [];
+      for (const h of v.pl?.holders || []) {
+        h.traverse((o) => {
+          if (!o.isMesh || o.userData.isOutline) return;
+          if (o.isSkinnedMesh) o.boundingSphere = null; // posed as drawn this frame
+          meshes.push(o);
+        });
+      }
+      if (!meshes.length) return false;
+      const p = new THREE.Vector3().copy(mz);
+      const ray = new THREE.Raycaster();
+      ray.setFromCamera(new THREE.Vector2().copy(p.clone().project(camera)), camera);
+      const dist = ray.ray.origin.distanceTo(p);
+      const hit = ray.intersectObjects(meshes, false).find((h) => h.distance < dist - 0.005);
+      if (!hit) return false;
+      // which pieces (the blocking mesh's holder or merge says)
+      let o = hit.object;
+      while (o && !o.userData.pieces) o = o.parent;
+      return o ? o.userData.pieces.join('+') : true;
+    },
     /** Extra (perf runs): the PathLooks layer itself, so a script can time its per-frame update and draw. */
     get pathLooks() {
       return actors.pathLooks;

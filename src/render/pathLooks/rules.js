@@ -74,3 +74,15 @@ export function pipAngles(cameraYaw = 0, { group = 1.1, step = 0.215 } = {}) {
   }
   return out;
 }
+
+/**
+ * Draw calls one girl's pieces cost (review r1 MEDIUM-1; src/render/pathLooks/pieces.js): every static piece shares
+ * one merged skinned mesh, each animated piece (spin / bob) is its own mesh, and medium / high draw one outline hull per
+ * mesh. Pips, glows, sparkles and the aura ride the shared quad batches and cost nothing.
+ * @param {Array<{ anim?: object|null }>} entries the catalog entries she wears now
+ * @param {{ hulls?: boolean }} [o] hulls: medium / high
+ */
+export function pieceCalls(entries, { hulls = false } = {}) {
+  const meshes = (entries.some((e) => !e.anim) ? 1 : 0) + entries.filter((e) => e.anim).length;
+  return meshes * (hulls ? 2 : 1);
+}

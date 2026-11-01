@@ -2,8 +2,9 @@
 // promise that the whole feature is display only (the sim id never sees it).
 import { describe, it, expect } from 'vitest';
 import { readFileSync, statSync, existsSync } from 'node:fs';
-import { pathLayers, stagePieces, pipAngles, LOOK_TIERS } from '../../src/render/pathLooks/rules.js';
-import { PATH_LOOKS, pathLooksFor, pieceFile } from '../../src/render/pathLooks/catalog.js';
+import { pathLayers, stagePieces, pipAngles, pieceCalls, LOOK_TIERS } from '../../src/render/pathLooks/rules.js';
+import { PATH_LOOKS, SKIN_LOOKS, pathLooksFor, pieceFile } from '../../src/render/pathLooks/catalog.js';
+import { SKINS } from '../../src/data/skins.js';
 import { heroLookTiers } from '../../src/sim/hero.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 import { simId } from '../../tools/simId.mjs';
@@ -96,8 +97,8 @@ describe('path looks: pip gauge', () => {
 describe('path looks: catalog and pieces', () => {
   const units = Object.keys(PATH_LOOKS);
 
-  it('covers the Phase 1 prototype girls with three paths each', () => {
-    expect(units.sort()).toEqual(['akane', 'aoi', 'luna']);
+  it('covers the Phase 1 prototype girls and rollout batch 1, three paths each', () => {
+    expect([...units].sort()).toEqual(['akane', 'aoi', 'hikari', 'kage', 'luna', 'momo', 'nami', 'rei', 'yuki']);
     for (const id of units) {
       expect(UNIT_MAP[id]).toBeTruthy();
       expect(pathLooksFor(id).paths).toHaveLength(3);
@@ -106,13 +107,13 @@ describe('path looks: catalog and pieces', () => {
         expect(p.t5?.length).toBeGreaterThan(0);
       }
     }
-    expect(pathLooksFor('rei')).toBe(null);
+    expect(pathLooksFor('sango')).toBe(null);
   });
 
   it('every piece exists in its file, every file stays under 60 KB, every socket is a rig bone', () => {
     const BONES = new Set(['root', 'hips', 'spine', 'chest', 'neck', 'head', 'hand_L', 'hand_R']);
     for (const id of units) {
-      expect(BONES.has(pathLooksFor(id).weaponHand)).toBe(true);
+      if (pathLooksFor(id).weaponHand) expect(BONES.has(pathLooksFor(id).weaponHand)).toBe(true);
       pathLooksFor(id).paths.forEach((p, i) => {
         const file = `public/models/pathlooks/${pieceFile(id, i)}.glb`;
         expect(existsSync(file), file).toBe(true);
@@ -140,6 +141,43 @@ describe('path looks: catalog and pieces', () => {
         expect(tris('t5'), `${id} p${i} t5`).toBeLessThanOrEqual(1400);
       });
     }
+  });
+
+  it('outfit rows: only real skins of that girl, and they fall back to her default row', () => {
+    for (const [skinId, row] of Object.entries(SKIN_LOOKS)) {
+      const skin = SKINS.find((k) => k.id === skinId);
+      expect(skin, skinId).toBeTruthy();
+      const base = pathLooksFor(skin.unitId);
+      const r = pathLooksFor(skin.unitId, skinId);
+      expect(r).not.toBe(base);
+      for (let i = 0; i < 3; i++) {
+        for (const st of ['t3', 't4', 't5']) expect(r.paths[i][st]).toBe(row.paths?.[i]?.[st] || base.paths[i][st]);
+      }
+    }
+    // Sentinel Akane (no witch hat): her pinwheel moves off the hat band
+    expect(pathLooksFor('akane', 'akane_sentinel').paths[0].t3[0].at).not.toEqual(pathLooksFor('akane').paths[0].t3[0].at);
+    expect(pathLooksFor('akane', 'aoi_sentinel')).toBe(pathLooksFor('akane'));
+  });
+
+  it('draw calls (review r1 MEDIUM-1): ≤ 2 a girl at any T5 set on low, ≤ 16 for the 12-girl all-T5 board', () => {
+    const wears = (id, tiers) => {
+      const row = pathLooksFor(id);
+      const L = pathLayers(tiers, { multi: UNIT_MAP[id].kind === 'hero' });
+      return L.pieces.flatMap((p) => stagePieces(row.paths[p.path], p.tier) || []);
+    };
+    const T5 = [[5, 2, 0], [2, 0, 5], [0, 5, 2]];
+    for (const id of units) {
+      const hero = UNIT_MAP[id].kind === 'hero';
+      for (const t of hero ? [[5, 5, 5], [3, 3, 3], [4, 4, 4]] : [...T5, [3, 0, 0], [0, 4, 0], [0, 0, 4]]) {
+        const calls = pieceCalls(wears(id, t));
+        expect(calls, `${id} ${t.join('-')}`).toBeLessThanOrEqual(hero ? 4 : 2);
+        expect(pieceCalls(wears(id, t), { hulls: true }), `${id} ${t.join('-')} with hulls`).toBeLessThanOrEqual(hero ? 8 : 4);
+      }
+    }
+    // the reviewer's worst case: six Aoi and six Akane, each at a T5 set (perf gate in e2e/path-looks.mjs --only perf)
+    let board = 0;
+    for (const id of ['aoi', 'akane']) for (const t of [...T5, ...T5]) board += pieceCalls(wears(id, t));
+    expect(board).toBeLessThanOrEqual(16);
   });
 
   it('is display only: no file of the sim id reads it', () => {

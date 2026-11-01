@@ -301,16 +301,17 @@ def pinwheel(pc, c, r, petals=10, face=(0, 0, 1), glow_tips=False):
         e = Vector(c) + d * r
         pc.cyl(tuple(b), tuple(e), r * 0.16, r * 0.03, 5, cols[i % 3], smooth=False)
         if glow_tips:
-            pc.ball(tuple(e + d * r * 0.08), r * 0.1, lighten(cols[i % 3], 0.45), glow=True, seg=6, rings=4)
+            pc.ball(tuple(e + d * r * 0.08), r * 0.1, lighten(cols[i % 3], 0.45), glow=True, seg=5, rings=3)
     pc.ball(c, r * 0.24, GOLD_M)
     pc.ball(tuple(Vector(c) + f * r * 0.12), r * 0.12, lighten(PINK, 0.3))
 
 
 def akane_pinwheel(name, two=False):
     pc = Piece(name)
-    pinwheel(pc, (0, 0, 0), 0.085, face=(0.45, 0.25, 1))
+    pinwheel(pc, (0, 0, 0), 0.085, face=(0.45, 0.25, 1), glow_tips=True)
     if two:
-        pinwheel(pc, (-0.1, -0.035, 0.03), 0.055, petals=8, face=(0.2, 0.3, 1))
+        # the second, smaller one sits above the first, on the same (left) side: clear of her staff head on the right
+        pinwheel(pc, (0.03, 0.1, -0.02), 0.055, petals=8, face=(0.35, 0.4, 1))
     return pc
 
 
@@ -325,7 +326,7 @@ def akane_hanabi(name):
         b = d * 0.06
         e = d * L
         pc.cyl(tuple(b), tuple(e), 0.012, 0.005, 4, cols[i % 4], smooth=False)
-        pc.ball(tuple(d * (L + 0.025)), 0.03 if i % 2 == 0 else 0.022, lighten(cols[i % 4], 0.5), glow=True, seg=5, rings=3)
+        pc.ball(tuple(d * (L + 0.025)), 0.03 if i % 2 == 0 else 0.022, lighten(cols[i % 4], 0.5), glow=True, seg=4, rings=3)
     pc.ring((0, 0, 0), 0.075, 0.014, 14, 4, GOLD_M, normal=(0, 0, 1))
     pc.ball((0, 0, 0), 0.04, lighten(PINK, 0.2))
     pc.ring((0, 0, 0), 0.16, 0.006, 18, 3, lighten(GOLD, 0.4), normal=(0, 0, 1), glow=True)
@@ -342,6 +343,8 @@ def akane_plume(name, flames=False):
         d = Vector(b) - Vector(a)
         feather(pc, a, tuple(d), (1, 0, 0.2), d.length * 1.15, 0.075 - 0.012 * i, cols[i], lighten(cols[i], 0.25), split=0.7)
     pc.ball((0, 0, 0.005), 0.022, CYAN)  # path gem
+    # a glowing ember at the tip, so the plume reads against her own plum hat on a phone (review r1 LOW-2)
+    pc.ball((0.02, 0.245, -0.095), (0.024, 0.036, 0.024), '#ffd08a', glow=True, seg=6, rings=4)
     if flames:
         for (x, y, z, r) in ((0.02, 0.255, -0.1, 0.03), (0.035, 0.21, -0.075, 0.022), (0.0, 0.22, -0.11, 0.02)):
             pc.ball((x, y, z), (r, r * 1.6, r), '#ffd08a', glow=True, seg=6, rings=4)
@@ -514,6 +517,539 @@ def luna_crown_stars(name):
 
 # ---------------------------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------------------------
+# Rollout batch 1 (docs/specs/path-looks.md §5): Rei, Yuki, Momo, Kage (students), Nami and Hikari (adult heroes:
+# props, crowns, companions and floaters only; each hero path owns its own socket so all three stack at Lv 25)
+# ---------------------------------------------------------------------------------------------
+
+SAKURA, SAKURA_D = '#ffa8c8', '#e86a9a'
+STEEL_DK = '#5b6274'
+
+
+def petal(pc, c, d, side, L, color, glow=False, thick=0.008):
+    """A sakura petal: a short lens with a notch at its tip, lying along d."""
+    pts = [(0, 0), (L * 0.35, L * 0.32), (L * 0.85, L * 0.3), (L, L * 0.1), (L * 0.9, 0), (L, -L * 0.1), (L * 0.85, -L * 0.3), (L * 0.35, -L * 0.32)]
+    pc.flat(pts, c, d, side, thick, color, glow=glow)
+
+
+def blade(pc, base, d, side, L, w, color, glow=False, thick=0.01):
+    """A flat single-edged blade from base along d (a katana-ish lens with a point)."""
+    pts = [(0, -w * 0.5), (L * 0.85, -w * 0.5), (L, 0), (L * 0.8, w * 0.5), (0, w * 0.5)]
+    pc.flat(pts, base, d, side, thick, color, glow=glow)
+
+
+# -- Rei: 0 Whirlwind (sakura sash bow -> orbiting petal ring), 1 Duelist (headband -> crescent crest headband),
+#         2 Counter (a short sword on her back -> three spirit blades fanned behind) --------------------------------
+
+def rei_bow(name):
+    pc = Piece(name)
+    for s in (1, -1):
+        pc.ball((s * 0.065, 0.012, 0), (0.06, 0.04, 0.022), SAKURA)
+        pc.ball((s * 0.068, 0.012, 0.004), (0.028, 0.018, 0.022), SAKURA_D)
+        # tails hanging down and fluttering out
+        pc.flat([(0, -0.016), (0.2, -0.022), (0.23, 0.0), (0.2, 0.024), (0, 0.016)], (s * 0.012, -0.01, -0.005),
+                (s * 0.35, -1, -0.25), (1, 0, 0), 0.008, SAKURA)
+        petal(pc, (s * 0.07, -0.19, -0.06), (s * 0.3, -1, -0.2), (1, 0, 0), 0.05, '#fff0f6')
+    pc.ball((0, 0.01, 0.005), 0.026, PINK)
+    return pc
+
+
+def rei_petal_ring(name):
+    pc = Piece(name)
+    n = 9
+    for i in range(n):
+        a = TAU * i / n
+        c = (math.cos(a) * 0.34, math.sin(a * 3) * 0.03, math.sin(a) * 0.34)
+        tang = (-math.sin(a), 0.15, math.cos(a))
+        petal(pc, c, tang, (0, 1, 0), 0.08 if i % 2 == 0 else 0.065, SAKURA if i % 3 else '#fff0f6', glow=(i % 3 == 0))
+    pc.ring((0, 0, 0), 0.34, 0.006, 24, 3, lighten(PINK, 0.5), glow=True)
+    return pc
+
+
+def crescent(pc, c, R, r, color, face=(0, 0, 1), arc=math.pi * 1.1):
+    """A crescent: an open torus arc facing `face`, its opening (horns) pointing up."""
+    m = (Matrix.Translation(V(*c)) @ Vector((0, 0, 1)).rotation_difference(V(*face).normalized()).to_matrix().to_4x4()
+         @ Matrix.Rotation(math.pi * 1.5 - arc / 2, 4, 'Z'))
+    pc.body.torus((0, 0, 0), R, r, 14, 4, color, m=m, arc=arc)
+
+
+def rei_headband(name, crest=False):
+    pc = Piece(name)
+    # a white band round the crown of her head (above the bangs, never over the eyes), knotted at the back with two
+    # long cyan-edged tails
+    pc.ring((0, 0, 0), 0.19, 0.011, 24, 4, WHITE, normal=(0, 1, -0.25))
+    for s in (1, -1):
+        pc.flat([(0, -0.02), (0.2, -0.026), (0.24, 0.0), (0.2, 0.026), (0, 0.02)], (s * 0.02, 0.02, -0.19),
+                (s * 0.45, -0.55, -1), (0, 1, 0), 0.008, WHITE)
+        pc.flat([(0.17, -0.026), (0.24, 0.0), (0.17, 0.026)], (s * 0.02, 0.02, -0.19), (s * 0.45, -0.55, -1), (0, 1, 0), 0.01, CYAN, glow=crest)
+    pc.ball((0, 0.02, -0.2), 0.024, WHITE)
+    if crest:
+        # a gold crescent standing on the front of the band (an open arc, horns up)
+        crescent(pc, (0, 0.075, 0.18), 0.05, 0.014, GOLD_M, face=(0, 0.3, 1))
+        pc.ball((0, 0.06, 0.19), 0.014, lighten(CYAN, 0.5), glow=True, seg=6, rings=4)
+    return pc
+
+
+def rei_wakizashi(name):
+    pc = Piece(name)
+    # a short sword in a dark lacquer sheath, worn across her back (pivot at its middle, along local +y)
+    pc.cyl((0, -0.16, 0), (0, 0.08, 0), 0.022, 0.02, 8, '#2e2440', cap_color='#1c1628')
+    for y in (-0.1, 0.0):
+        pc.cyl((0, y, 0), (0, y + 0.012, 0), 0.024, 0.024, 8, GOLD_M)
+    pc.cyl((0, 0.08, 0), (0, 0.095, 0), 0.042, 0.042, 10, GOLD_M)  # guard
+    pc.cyl((0, 0.095, 0), (0, 0.19, 0), 0.016, 0.016, 6, '#f2f2f6')  # wrapped hilt
+    for y in (0.11, 0.14, 0.17):
+        pc.cyl((0, y, 0), (0, y + 0.008, 0), 0.0175, 0.0175, 6, YELLOW_D)
+    return pc
+
+
+YELLOW_D = '#d9a400'
+
+
+def rei_spirit_blades(name):
+    pc = Piece(name)
+    for a in (-0.55, 0.0, 0.55):
+        d = (math.sin(a), math.cos(a), -0.12)
+        b = (math.sin(a) * 0.05, math.cos(a) * 0.05, 0)
+        blade(pc, b, d, (math.cos(a), -math.sin(a), 0), 0.34, 0.05, '#fff5c2', glow=True)
+        pc.cyl((b[0] - d[0] * 0.07, b[1] - d[1] * 0.07, b[2]), b, 0.014, 0.014, 6, GOLD_M)
+        pc.ring(b, 0.03, 0.008, 10, 3, GOLD_M, normal=d)
+    pc.ring((0, 0.0, 0), 0.07, 0.01, 14, 3, GOLD, normal=(0, 0, 1), glow=True)
+    return pc
+
+
+# -- Yuki: 0 Deep Freeze (snowflake hair ornament -> great snowflake halo), 1 Frostbite (icicle shards -> diamond
+#         dust ring), 2 Permafrost (frost capelet -> floating ice clock). Deep ice blues: she is all white already ---
+
+ICE, ICE_D, ICE_G = '#6fc8ff', '#2f7fd0', '#c9f2ff'
+
+
+def snowflake(pc, c, r, color, face=(0, 0, 1), glow_tips=False, w=None):
+    f = Vector(face).normalized()
+    up = Vector((0, 1, 0)) if abs(f.y) < 0.9 else Vector((0, 0, 1))
+    right = up.cross(f).normalized()
+    up = f.cross(right).normalized()
+    C = Vector(c)
+    w = w or r * 0.11
+    for i in range(6):
+        a = TAU * i / 6
+        d = right * math.cos(a) + up * math.sin(a)
+        pc.cyl(tuple(C), tuple(C + d * r), w, w * 0.6, 4, color, smooth=False)
+        for t, L in ((0.45, 0.32), (0.72, 0.22)):
+            for s in (1, -1):
+                bd = (d * math.cos(0.9) + (f.cross(d)) * s * math.sin(0.9)).normalized()
+                p0 = C + d * r * t
+                pc.cyl(tuple(p0), tuple(p0 + bd * r * L), w * 0.7, w * 0.4, 4, color, smooth=False)
+        if glow_tips:
+            pc.ball(tuple(C + d * r * 1.05), r * 0.07, ICE_G, glow=True, seg=5, rings=3)
+    pc.ball(tuple(C), r * 0.16, ICE_G, glow=glow_tips, seg=6, rings=4)
+
+
+def yuki_flake(name, big=False):
+    pc = Piece(name)
+    if big:
+        snowflake(pc, (0, 0, 0), 0.3, ICE, glow_tips=True, w=0.016)
+        pc.ring((0, 0, 0), 0.22, 0.006, 24, 3, ICE_G, normal=(0, 0, 1), glow=True)
+    else:
+        snowflake(pc, (0, 0, 0), 0.085, ICE_D, face=(0.5, 0.3, 1), w=0.011)
+        pc.ball((0, 0, 0.012), 0.016, PINK)  # path gem
+    return pc
+
+
+def icicle(pc, c, d, L, r, color, glow=False):
+    dn = Vector(d).normalized()
+    C = Vector(c)
+    pc.cyl(tuple(C - dn * L * 0.35), tuple(C), 0.0, r, 5, color, glow=glow, smooth=False)
+    pc.cyl(tuple(C), tuple(C + dn * L * 0.65), r, 0.0, 5, color, glow=glow, smooth=False)
+
+
+def yuki_shards(name, n=2, big=False):
+    pc = Piece(name)
+    R = 0.34
+    for i in range(n):
+        a = TAU * i / n
+        c = (math.cos(a) * R, (0.04 if i % 2 else -0.02) * (1 if big else 0), math.sin(a) * R)
+        icicle(pc, c, (-math.sin(a) * 0.3, 1, math.cos(a) * 0.3), 0.2 if not big else 0.15, 0.036 if not big else 0.03, ICE if i % 2 else ICE_D)
+        icicle(pc, (c[0], c[1] + 0.005, c[2]), (-math.sin(a) * 0.3, 1, math.cos(a) * 0.3), 0.12, 0.016, ICE_G, glow=True)
+    if big:
+        for i in range(n):
+            a = TAU * (i + 0.5) / n
+            pc.ball((math.cos(a) * R * 1.06, 0.07, math.sin(a) * R * 1.06), 0.022, ICE_G, glow=True, seg=5, rings=3)
+    pc.ring((0, 0, 0), R, 0.005, 24, 3, CYAN, glow=True)
+    return pc
+
+
+def yuki_cape(name):
+    pc = Piece(name)
+    # a short frosty capelet hanging from her shoulders (pivot at the collar), a fluffy collar and a yellow clasp
+    # (narrow and short, a shoulder capelet: a longer cape hid her staff head, held low behind her hip, from the camera)
+    pts = [(-0.13, 0), (0.13, 0), (0.14, -0.1)]
+    for i in range(6):
+        x = 0.14 - 0.28 * i / 5
+        pts.append((x, -0.13 if i % 2 else -0.1))
+    pc.flat(pts, (0, 0, -0.01), (1, 0, 0), (0, 1, -0.22), 0.02, '#4f9fe8', side=ICE_D)
+    for i in range(7):
+        a = math.pi * (0.15 + 0.7 * i / 6)
+        pc.ball((math.cos(a) * 0.12, 0.005, -math.sin(a) * 0.06), 0.028, WHITE, seg=6, rings=4)
+    pc.ball((0, -0.005, -0.075), 0.022, GOLD)  # path clasp
+    return pc
+
+
+def yuki_frost(name):
+    pc = Piece(name)
+    for (a, L) in ((-0.3, 0.17), (0.05, 0.25), (0.4, 0.15)):
+        crystal(pc, (math.sin(a) * 0.03, 0, 0), (math.sin(a), math.cos(a), -0.12), L, 0.032, ICE if a < 0.3 else ICE_D, glow=True)
+    pc.ball((0, 0, 0.01), 0.022, GOLD)  # path gem
+    return pc
+
+
+def yuki_clock(name):
+    pc = Piece(name)
+    pc.ring((0, 0, 0), 0.17, 0.016, 20, 4, ICE, normal=(0, 0, 1))
+    pc.ring((0, 0, 0), 0.2, 0.006, 20, 3, ICE_G, normal=(0, 0, 1), glow=True)
+    pc.cyl((0, 0, -0.01), (0, 0, 0.004), 0.16, 0.16, 20, '#dff4ff', caps=True)
+    for i in range(12):
+        a = TAU * i / 12
+        pc.ball((math.cos(a) * 0.135, math.sin(a) * 0.135, 0.01), 0.012 if i % 3 else 0.02, ICE_D if i % 3 else GOLD, seg=5, rings=3)
+    pc.cyl((0, 0, 0.012), (0, 0.11, 0.012), 0.008, 0.004, 4, ICE_D, smooth=False)
+    pc.cyl((0, 0, 0.012), (0.075, -0.03, 0.012), 0.008, 0.004, 4, ICE_D, smooth=False)
+    pc.ball((0, 0, 0.018), 0.018, ICE_D, seg=6, rings=4)
+    for s in (1, -1):
+        icicle(pc, (s * 0.12, 0.17, 0), (s * 0.4, 1, 0), 0.12, 0.022, ICE)
+    return pc
+
+
+# -- Momo: 0 Fan Club (peach hair clip -> golden peach bank), 1 Merch (light-stick tote -> golden ledger),
+#         2 Encore (star-coin clips -> a ring of coins and stars) ---------------------------------------------
+
+PEACH, PEACH_D, LEAF = '#ffb38a', '#ff8a7a', '#6fcf5e'
+
+
+def momo_peach(name):
+    pc = Piece(name)
+    for s in (1, -1):
+        pc.ball((s * 0.022, 0, 0), (0.042, 0.05, 0.042), PEACH if s > 0 else PEACH_D)
+    pc.ball((0, 0.048, -0.004), (0.03, 0.01, 0.016), LEAF)
+    pc.ball((0.012, 0.0, 0.035), 0.012, PINK, seg=6, rings=4)  # path dot
+    return pc
+
+
+def momo_peach_bank(name):
+    pc = Piece(name)
+    for s in (1, -1):
+        pc.ball((s * 0.03, 0, 0), (0.07, 0.085, 0.075), GOLD_M if s > 0 else '#e8b23a')
+    pc.body.box(tuple(V(0, 0.083, 0)), (0.05, 0.01, 0.008), '#7a5a1a')  # coin slot
+    for s in (1, -1):
+        pc.ball((s * 0.03, 0.09, -0.01), (0.04, 0.012, 0.02), LEAF)
+    pc.cyl((0, 0.13, 0), (0, 0.142, 0), 0.03, 0.03, 12, lighten(GOLD, 0.4), glow=True)  # a coin dropping in
+    for s in (1, -1):
+        pc.ball((s * 0.03, 0.02, 0.07), 0.009, '#3a2238', seg=5, rings=3)  # a smiley
+    pc.ball((0, -0.01, 0.075), (0.012, 0.006, 0.006), '#3a2238', seg=5, rings=3)
+    return pc
+
+
+def momo_tote(name):
+    pc = Piece(name)
+    pc.body.box(tuple(V(0, 0, 0)), (0.16, 0.05, 0.14), '#ffd1e3')
+    pc.body.box(tuple(V(0, 0.02, 0.026)), (0.12, 0.004, 0.05), '#ff9ec4')
+    star(pc, (0, 0.02, 0.03), 0.026, CYAN, thick=0.008)  # path star
+    pc.ring((0, 0.07, 0), 0.07, 0.008, 14, 3, '#ff9ec4', normal=(0, 0, 1))
+    for x, col in ((-0.045, CYAN), (0.0, PINK), (0.045, '#ffe066')):
+        top = (x * 5.0, 0.3, -0.05)
+        pc.cyl((x, 0.05, -0.005), top, 0.016, 0.016, 6, lighten(col, 0.3), glow=True)
+        pc.ball(top, 0.022, lighten(col, 0.55), glow=True, seg=5, rings=3)
+        pc.cyl((x, 0.0, -0.005), (x, 0.05, -0.005), 0.016, 0.016, 6, '#3a3f52')
+    return pc
+
+
+def momo_ledger(name):
+    pc = Piece(name)
+    for s in (1, -1):
+        m = basis((s * 0.065, 0, 0), (s * 1, 0.25, 0.0), (0, 0, 1))
+        pc.body.box((0, 0, 0), (0.13, 0.17, 0.012), GOLD_M, m=m)
+        pc.body.box((0, 0, 0.008), (0.115, 0.155, 0.006), '#fff8e6', m=m)
+    pc.cyl((0, -0.085, 0), (0, 0.085, 0), 0.01, 0.01, 6, '#b8860b')
+    star(pc, (0, 0.13, 0.02), 0.04, lighten(GOLD, 0.45), glow=True, thick=0.01)
+    for x in (-0.08, 0.08):
+        pc.ball((x, 0.1, 0.03), 0.012, lighten(CYAN, 0.4), glow=True, seg=5, rings=3)
+    return pc
+
+
+def momo_clips(name):
+    pc = Piece(name)
+    star(pc, (0, 0, 0), 0.05, GOLD_M, face=(0.4, 0.4, 1), thick=0.016)
+    star(pc, (-0.07, -0.04, 0.0), 0.034, GOLD, face=(0.2, 0.4, 1), thick=0.012)
+    pc.cyl((0.06, -0.035, 0.0), (0.06, -0.035, 0.012), 0.024, 0.024, 12, '#ffd36b')  # a coin
+    pc.ball((0, 0, 0.02), 0.012, lighten(GOLD, 0.6), glow=True, seg=5, rings=3)
+    return pc
+
+
+def momo_coin_ring(name):
+    pc = Piece(name)
+    R = 0.34
+    for i in range(10):
+        a = TAU * i / 10
+        c = (math.cos(a) * R, math.sin(a * 2) * 0.025, math.sin(a) * R)
+        if i % 3 == 0:
+            star(pc, c, 0.04, lighten(GOLD, 0.35), face=(math.cos(a), 0.3, math.sin(a)), glow=True, thick=0.01)
+        else:
+            d = Vector((math.cos(a), 0.2, math.sin(a))).normalized()
+            pc.cyl(tuple(Vector(c) - d * 0.005), tuple(Vector(c) + d * 0.005), 0.03, 0.03, 10, GOLD_M)
+    pc.ring((0, 0, 0), R, 0.005, 24, 3, lighten(GOLD, 0.4), glow=True)
+    return pc
+
+
+# -- Kage: 0 Steel (a big shuriken on her back -> six shuriken circling), 1 Shadow Mark (long scarf -> violet glowing
+#         scarf + crescent headband plate), 2 Kunai (a kunai fan -> a black lotus of blades behind her) --------------
+
+KAGE_V, KAGE_D = '#9b6bff', '#2e2540'
+
+
+def shuriken(pc, c, r, face=(0, 0, 1), up=(0, 1, 0), glow=False):
+    star(pc, c, r, '#c6ccd8' if not glow else '#e6e9f2', face=face, up=up, thick=0.016, inner=0.32)
+    f = Vector(face).normalized()
+    pc.cyl(tuple(Vector(c) - f * 0.012), tuple(Vector(c) + f * 0.012), r * 0.25, r * 0.25, 8, KAGE_V if not glow else lighten(KAGE_V, 0.4), glow=glow)
+
+
+def kage_shuriken(name):
+    pc = Piece(name)
+    star(pc, (0, 0, 0), 0.13, '#c6ccd8', thick=0.02, inner=0.3, up=(0.4, 1, 0))
+    pc.cyl((0, 0, -0.014), (0, 0, 0.014), 0.035, 0.035, 10, PINK)  # path hub
+    pc.cyl((0, 0, -0.016), (0, 0, 0.016), 0.014, 0.014, 8, KAGE_D)
+    return pc
+
+
+def kage_shuriken_ring(name):
+    pc = Piece(name)
+    R = 0.35
+    for i in range(6):
+        a = TAU * i / 6
+        shuriken(pc, (math.cos(a) * R, 0.0, math.sin(a) * R), 0.06, face=(0, 1, 0), up=(math.cos(a), 0, math.sin(a)), glow=(i % 2 == 0))
+    pc.ring((0, 0, 0), R, 0.005, 24, 3, lighten(PINK, 0.4), glow=True)
+    return pc
+
+
+def kage_scarf(name, glow=False):
+    pc = Piece(name)
+    col = '#ff5a5a' if glow else '#d83a3a'
+    # (no loop round the front of her neck: from the battle camera it would sit under her chin)
+    pc.ball((0, -0.005, -0.075), (0.07, 0.03, 0.03), col)
+    for k, L in ((0, 1.0), (1, 0.8)):
+        dy = -0.035 * k
+        path = [(0.03, -0.01 + dy, -0.07), (0.13 * L, -0.03 + dy, -0.13), (0.26 * L, -0.05 + dy, -0.16), (0.4 * L, -0.03 + dy, -0.17)]
+        rad = [0.03, 0.028, 0.024, 0.012]
+        pc.body.tube([V(*p) for p in path], rad, 6, col)
+        if glow:
+            # a violet glow along the tail's last stretch
+            pc.glow.tube([V(*p) for p in path[2:]], [0.024, 0.016], 6, lighten(KAGE_V, 0.35))
+    pc.ball((0.02, -0.02, -0.075), 0.022, CYAN)  # path knot
+    return pc
+
+
+def kage_crescent(name):
+    pc = Piece(name)
+    # a crescent moon plate riding the top of her own headband (well above the eyes): an open arc, horns up
+    crescent(pc, (0, 0, 0), 0.05, 0.016, '#e3e6ef', face=(0, 0.35, 1))
+    pc.ball((0.0, 0.0, 0.01), 0.014, lighten(KAGE_V, 0.4), glow=True, seg=6, rings=4)
+    return pc
+
+
+def kunai(pc, base, d, L, color='#c6ccd8', glow=False):
+    dn = Vector(d).normalized()
+    B = Vector(base)
+    pc.ring(tuple(B - dn * 0.012), 0.012, 0.004, 8, 3, '#3a3150', normal=tuple(dn.cross(Vector((0, 0, 1))) if abs(dn.z) < 0.9 else (1, 0, 0)))
+    pc.cyl(tuple(B), tuple(B + dn * L * 0.35), 0.008, 0.008, 5, '#3a3150')
+    side = dn.cross(Vector((0, 0, 1))).normalized() if abs(dn.z) < 0.9 else Vector((1, 0, 0))
+    pc.flat([(0, -0.016), (L * 0.45, -0.02), (L * 0.65, 0), (L * 0.45, 0.02), (0, 0.016)], tuple(B + dn * L * 0.35), tuple(dn), tuple(side), 0.008, color, glow=glow)
+
+
+def kage_kunai_fan(name):
+    pc = Piece(name)
+    pc.body.box(tuple(V(0, -0.02, 0)), (0.13, 0.04, 0.06), KAGE_D)
+    pc.body.box(tuple(V(0, -0.02, 0.021)), (0.11, 0.004, 0.02), GOLD)  # path band
+    for i in range(5):
+        a = -0.6 + 1.2 * i / 4
+        kunai(pc, (math.sin(a) * 0.04, 0.0, 0), (math.sin(a), math.cos(a), -0.1), 0.24)
+    return pc
+
+
+def kage_lotus(name):
+    pc = Piece(name)
+    n = 8
+    for i in range(n):
+        a = TAU * i / n
+        d = (math.cos(a), math.sin(a), 0.35)
+        side = (-math.sin(a), math.cos(a), 0)
+        pc.flat([(0, -0.03), (0.16, -0.05), (0.26, 0), (0.16, 0.05), (0, 0.03)], (math.cos(a) * 0.03, math.sin(a) * 0.03, 0), d, side, 0.012, KAGE_D, side='#14101f')
+        pc.flat([(0.2, -0.02), (0.27, 0), (0.2, 0.02)], (math.cos(a) * 0.03, math.sin(a) * 0.03, 0.002), d, side, 0.016, lighten(KAGE_V, 0.35), glow=True)
+    pc.ball((0, 0, 0.02), 0.05, KAGE_V)
+    pc.ball((0, 0, 0.05), 0.022, lighten(GOLD, 0.4), glow=True, seg=6, rings=4)
+    return pc
+
+
+# -- Nami (hero): 0 Frostbrand (ice crystals behind her right shoulder -> a fan of ice spikes) [chest],
+#                 1 Undertow (a water ring -> a friendly water serpent) [orbit], 2 Harbor (anchor badge on the cap ->
+#                 a ship's wheel floating above her) [head] --------------------------------------------------------
+
+WATER, WATER_D, FOAM = '#4fc3e8', '#1f78b8', '#e8fbff'
+
+
+def crystal(pc, base, d, L, r, color, glow=False):
+    dn = Vector(d).normalized()
+    B = Vector(base)
+    pc.cyl(tuple(B), tuple(B + dn * L * 0.75), r, r, 6, color, smooth=False)
+    pc.cyl(tuple(B + dn * L * 0.75), tuple(B + dn * L), r, 0.0, 6, lighten(color, 0.3), glow=glow, smooth=False)
+
+
+def nami_crystals(name, big=False):
+    pc = Piece(name)
+    if big:
+        for i in range(7):
+            a = -1.1 + 2.2 * i / 6
+            crystal(pc, (math.sin(a) * 0.06, math.cos(a) * 0.06, 0), (math.sin(a), math.cos(a), -0.15), 0.3 if i % 2 == 0 else 0.22, 0.03, ICE, glow=True)
+        pc.ring((0, 0, 0), 0.08, 0.012, 16, 3, ICE_G, normal=(0, 0, 1), glow=True)
+    else:
+        for (a, L) in ((-0.35, 0.18), (0.0, 0.24), (0.4, 0.16)):
+            crystal(pc, (math.sin(a) * 0.03, 0, 0), (math.sin(a), math.cos(a), -0.1), L, 0.03, ICE, glow=True)
+        pc.ball((0, 0, 0.01), 0.022, PINK)  # path gem
+    return pc
+
+
+def nami_water_ring(name):
+    pc = Piece(name)
+    R = 0.35
+    pc.ring((0, 0, 0), R, 0.022, 24, 4, WATER)
+    for i in range(8):
+        a = TAU * i / 8
+        pc.ball((math.cos(a) * R, 0.022, math.sin(a) * R), (0.032, 0.02, 0.032), FOAM, seg=5, rings=3)
+    pc.ring((0, 0.0, 0), R + 0.035, 0.005, 24, 3, lighten(CYAN, 0.4), glow=True)
+    return pc
+
+
+def nami_serpent(name):
+    pc = Piece(name)
+    R = 0.36
+    pts = []
+    rad = []
+    n = 14
+    for i in range(n):
+        a = 1.7 * math.pi * i / (n - 1)
+        pts.append(V(math.cos(a) * R, -0.08 + 0.2 * i / (n - 1) + 0.03 * math.sin(a * 3), math.sin(a) * R))
+        rad.append(0.012 + 0.02 * math.sin(math.pi * min(1.0, (i + 1) / n)))
+    pc.body.tube(pts, rad, 7, WATER)
+    # a cute round head at the end, two eyes and a little fin crest
+    a = 1.7 * math.pi
+    h = (math.cos(a) * R, 0.15, math.sin(a) * R)
+    pc.ball(h, (0.05, 0.045, 0.05), WATER)
+    fwd = Vector((-math.sin(a), 0, math.cos(a)))
+    side = Vector((math.cos(a), 0, math.sin(a)))
+    for s in (1, -1):
+        e = Vector(h) + fwd * 0.03 + side * s * 0.025 + Vector((0, 0.015, 0))
+        pc.ball(tuple(e), 0.011, '#183a5c', seg=5, rings=3)
+    pc.cyl((h[0], h[1] + 0.03, h[2]), (h[0] - fwd.x * 0.04, h[1] + 0.07, h[2] - fwd.z * 0.04), 0.018, 0.0, 4, FOAM, smooth=False)
+    pc.ring((0, 0.0, 0), R, 0.005, 32, 3, lighten(CYAN, 0.4), glow=True)
+    return pc
+
+
+def nami_anchor(name):
+    pc = Piece(name)
+    # a gold anchor badge standing on the cap's crown (above the brim, never over the eyes)
+    pc.cyl((0, -0.05, 0), (0, 0.05, 0), 0.01, 0.01, 6, GOLD_M)
+    pc.ring((0, 0.065, 0), 0.016, 0.006, 10, 3, GOLD_M, normal=(0, 0, 1))
+    pc.cyl((-0.03, 0.03, 0), (0.03, 0.03, 0), 0.007, 0.007, 6, GOLD_M)
+    for s in (1, -1):
+        pc.cyl((0, -0.05, 0), (s * 0.04, -0.025, 0), 0.008, 0.008, 6, GOLD_M)
+        pc.cyl((s * 0.04, -0.025, 0), (s * 0.048, -0.008, 0), 0.008, 0.0, 4, GOLD_M, smooth=False)
+    pc.ball((0, 0.0, 0.012), 0.012, GOLD, glow=True, seg=5, rings=3)
+    return pc
+
+
+def nami_wheel(name):
+    pc = Piece(name)
+    WOOD = '#9a6440'
+    pc.ring((0, 0, 0), 0.13, 0.014, 24, 4, WOOD, normal=(0, 0, 1))
+    for i in range(8):
+        a = TAU * i / 8
+        d = Vector((math.cos(a), math.sin(a), 0))
+        pc.cyl((0, 0, 0), tuple(d * 0.13), 0.008, 0.008, 5, WOOD)
+        pc.cyl(tuple(d * 0.13), tuple(d * 0.18), 0.011, 0.007, 5, '#c8925f')
+    pc.cyl((0, 0, -0.015), (0, 0, 0.015), 0.035, 0.035, 10, GOLD_M)
+    pc.ring((0, 0, 0), 0.16, 0.005, 24, 3, lighten(GOLD, 0.4), normal=(0, 0, 1), glow=True)
+    return pc
+
+
+# -- Hikari (hero): 0 Radiant (a sun medallion behind her -> a great sun disc) [chest], 1 Sanctuary (a shield charm ->
+#                   three dawn shields circling) [orbit], 2 Lightbringer (light-feather wings at her head -> a radiant
+#                   sun crown) [head] ------------------------------------------------------------------------------
+
+SUN, SUN_D, DAWN = '#ffd23f', '#e8a41a', '#fff3c4'
+
+
+def sun(pc, r, rays=12, glow=False):
+    pc.cyl((0, 0, -0.01), (0, 0, 0.01), r * 0.42, r * 0.42, 16, SUN)
+    pc.ring((0, 0, 0), r * 0.46, r * 0.05, 20, 3, SUN_D, normal=(0, 0, 1))
+    for i in range(rays):
+        a = TAU * i / rays
+        L = r if i % 2 == 0 else r * 0.78
+        pc.flat([(r * 0.48, -r * 0.08), (L, 0), (r * 0.48, r * 0.08)], (0, 0, 0), (math.cos(a), math.sin(a), 0), (-math.sin(a), math.cos(a), 0), 0.01, SUN if i % 2 == 0 else SUN_D, glow=glow and i % 2 == 0)
+
+
+def hikari_sun(name, big=False):
+    pc = Piece(name)
+    if big:
+        sun(pc, 0.3, rays=16, glow=True)
+        pc.ring((0, 0, 0), 0.33, 0.006, 32, 3, DAWN, normal=(0, 0, 1), glow=True)
+    else:
+        sun(pc, 0.11, rays=10)
+    pc.ball((0, 0, 0.015), 0.02 if not big else 0.035, PINK)  # path gem
+    return pc
+
+
+def heater_shield(pc, c, d, s, glow=False):
+    """A small white-and-gold heater shield at c facing d (s = size)."""
+    side = Vector(d).cross(Vector((0, 1, 0))).normalized()
+    pts = [(-s, s * 0.9), (s, s * 0.9), (s * 0.95, 0), (0, -s * 1.2), (-s * 0.95, 0)]
+    pc.flat(pts, c, tuple(side), (0, 1, 0), 0.02, '#f6f3ec', side=GOLD_M)
+    star(pc, tuple(Vector(c) + Vector(d).normalized() * 0.012), s * 0.45, CYAN, face=d, thick=0.008, glow=glow)
+
+
+def hikari_shields(name, n=1):
+    pc = Piece(name)
+    R = 0.36
+    for i in range(n):
+        a = TAU * i / n
+        c = (math.cos(a) * R, 0.0, math.sin(a) * R)
+        heater_shield(pc, c, (math.cos(a), 0, math.sin(a)), 0.085 if n == 1 else 0.075, glow=(n > 1))
+    pc.ring((0, 0, 0), R, 0.005, 24, 3, lighten(CYAN, 0.4), glow=True)
+    return pc
+
+
+def hikari_wings(name):
+    pc = Piece(name)
+    for s in (1, -1):
+        for i in range(3):
+            a = 0.25 + 0.38 * i
+            feather(pc, (s * 0.2, 0, 0), (s * math.cos(a), math.sin(a), -0.35), (0, 0.3, 1), 0.13 - 0.02 * i, 0.05, WHITE, YELLOW_D, split=0.6, quill=False)
+        pc.ball((s * 0.2, 0, 0), 0.02, GOLD)  # path studs at her temples' height, wide of her hair
+    return pc
+
+
+def hikari_suncrown(name):
+    pc = Piece(name)
+    pc.ring((0, 0, 0), 0.13, 0.014, 24, 4, GOLD_M, normal=(0, 1, 0))
+    for i in range(9):
+        a = math.pi * (0.05 + 0.9 * i / 8)
+        x, z = math.cos(a) * 0.13, math.sin(a) * 0.13
+        h = 0.12 if i == 4 else (0.09 if i % 2 == 0 else 0.065)
+        pc.cyl((x, 0.0, z), (x * 1.18, h, z * 1.18), 0.016, 0.0, 4, SUN, smooth=False)
+        pc.ball((x * 1.2, h + 0.01, z * 1.2), 0.012, DAWN, glow=True, seg=5, rings=3)
+    for s in (1, -1):
+        for i in range(2):
+            a = 0.3 + 0.45 * i
+            feather(pc, (s * 0.12, 0.02, -0.02), (s * math.cos(a), math.sin(a), -0.3), (0, 0.3, 1), 0.12 - 0.02 * i, 0.045, WHITE, SUN, split=0.6, quill=False, glow_tip=True)
+    return pc
+
+
 FILES = {
     'aoi': [
         [lambda: aoi_quiver('p0_quiver'), lambda: aoi_comet_arrow('p0_comet'), lambda: aoi_quiver('p0_cometQuiver', big=True)],
@@ -530,6 +1066,36 @@ FILES = {
         [lambda: luna_orbs('p1_orbs', 2), lambda: luna_orbs('p1_orbs3', 3), lambda: luna_orbs('p1_horizon', 3, planet=True)],
         [lambda: luna_tiara('p2_tiara'), lambda: luna_tiara('p2_tiaraStars', sides=True), lambda: luna_crown('p2_crown'),
          lambda: luna_crown_stars('p2_crownStars')],
+    ],
+    'rei': [
+        [lambda: rei_bow('p0_bow'), lambda: rei_petal_ring('p0_petals')],
+        [lambda: rei_headband('p1_band'), lambda: rei_headband('p1_bandCrest', crest=True)],
+        [lambda: rei_wakizashi('p2_wakizashi'), lambda: rei_spirit_blades('p2_blades')],
+    ],
+    'yuki': [
+        [lambda: yuki_flake('p0_flake'), lambda: yuki_flake('p0_halo', big=True)],
+        [lambda: yuki_shards('p1_shards', 2), lambda: yuki_shards('p1_dust', 6, big=True)],
+        [lambda: yuki_frost('p2_frost'), lambda: yuki_clock('p2_clock')],
+    ],
+    'momo': [
+        [lambda: momo_peach('p0_peach'), lambda: momo_peach_bank('p0_bank')],
+        [lambda: momo_tote('p1_tote'), lambda: momo_ledger('p1_ledger')],
+        [lambda: momo_clips('p2_clips'), lambda: momo_coin_ring('p2_coins')],
+    ],
+    'kage': [
+        [lambda: kage_shuriken('p0_shuriken'), lambda: kage_shuriken_ring('p0_ring')],
+        [lambda: kage_scarf('p1_scarf'), lambda: kage_scarf('p1_scarfGlow', glow=True), lambda: kage_crescent('p1_crescent')],
+        [lambda: kage_kunai_fan('p2_kunai'), lambda: kage_lotus('p2_lotus')],
+    ],
+    'nami': [
+        [lambda: nami_crystals('p0_crystals'), lambda: nami_crystals('p0_spikes', big=True)],
+        [lambda: nami_water_ring('p1_ring'), lambda: nami_serpent('p1_serpent')],
+        [lambda: nami_anchor('p2_anchor'), lambda: nami_wheel('p2_wheel')],
+    ],
+    'hikari': [
+        [lambda: hikari_sun('p0_medallion'), lambda: hikari_sun('p0_sun', big=True)],
+        [lambda: hikari_shields('p1_shield', 1), lambda: hikari_shields('p1_shields', 3)],
+        [lambda: hikari_wings('p2_wings'), lambda: hikari_suncrown('p2_crown')],
     ],
 }
 # one file per girl and path (<unit>_p<k>.glb): a girl only fetches the paths she is upgraded down
