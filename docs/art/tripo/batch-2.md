@@ -129,6 +129,8 @@ next website batch (no API re-roll was needed or made).
 * Seiran and the Grave Lych: no matching download (re-roll in the next website batch). Seiran's dragon tail and the
   scoreboard (without text) too.
 * The heroes' arms are short chibi arms on a fitted rig: the clips move them less than a Tripo-rigged figure's; no
-  eye boxes (no blink); hair and coats follow the body rigidly.
+  eye boxes (no blink); hair and coats follow the body rigidly. **Fixed (Oct 31, `fix/model-quality`,
+  `docs/art/tripo/model-quality.md`):** the fit was wrong, not just short: Luna, Nami, Kanna and Yoriko stood in a
+  T-pose; they are re-rigged with livelier clips, and row 29's Green Slime (a broken download) is rebuilt in Blender.
 * `runeRing` and `icefall` are built but have no swap point (ground features); `hammerTear` keeps its procedural glow.
 * The Ash Wyvern and the dragons hover with rigid clips (no wing flaps).

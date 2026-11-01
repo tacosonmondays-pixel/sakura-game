@@ -292,7 +292,7 @@
  },
  "kanna": {
   "file": "kanna.glb",
-  "size": 765344,
+  "size": 787504,
   "animations": [
    "attack_smash",
    "cheer",
@@ -304,7 +304,7 @@
   "triangles": 19999,
   "source": "tripo",
   "lod": "kanna.lod.glb",
-  "lodSize": 400684,
+  "lodSize": 422832,
   "lodVertices": 10093,
   "lodTriangles": 9000
  },
@@ -327,7 +327,7 @@
  },
  "kogane": {
   "file": "kogane.glb",
-  "size": 604972,
+  "size": 609916,
   "animations": [
    "attack_wrench",
    "cheer",
@@ -339,7 +339,7 @@
   "triangles": 19970,
   "source": "tripo",
   "lod": "kogane.lod.glb",
-  "lodSize": 328676,
+  "lodSize": 333932,
   "lodVertices": 7123,
   "lodTriangles": 8999
  },
@@ -364,7 +364,7 @@
  },
  "luna": {
   "file": "luna.glb",
-  "size": 732868,
+  "size": 748380,
   "animations": [
    "attack_cast",
    "cheer",
@@ -372,12 +372,12 @@
    "idle",
    "walk"
   ],
-  "vertices": 18791,
+  "vertices": 18786,
   "triangles": 19999,
   "source": "tripo",
   "lod": "luna.lod.glb",
-  "lodSize": 393432,
-  "lodVertices": 10289,
+  "lodSize": 408812,
+  "lodVertices": 10287,
   "lodTriangles": 9000
  },
  "marumi": {
@@ -450,7 +450,7 @@
  },
  "nami": {
   "file": "nami.glb",
-  "size": 773204,
+  "size": 777544,
   "animations": [
    "attack_thrust",
    "cheer",
@@ -458,12 +458,12 @@
    "idle",
    "walk"
   ],
-  "vertices": 18620,
+  "vertices": 18618,
   "triangles": 20000,
   "source": "tripo",
   "lod": "nami.lod.glb",
-  "lodSize": 406180,
-  "lodVertices": 10181,
+  "lodSize": 410916,
+  "lodVertices": 10179,
   "lodTriangles": 8999
  },
  "noa": {
@@ -486,7 +486,7 @@
  },
  "norika": {
   "file": "norika.glb",
-  "size": 573680,
+  "size": 578528,
   "animations": [
    "attack_sign",
    "cheer",
@@ -494,11 +494,11 @@
    "idle",
    "walk"
   ],
-  "vertices": 12206,
+  "vertices": 12208,
   "triangles": 19996,
   "source": "tripo",
   "lod": "norika.lod.glb",
-  "lodSize": 308908,
+  "lodSize": 313788,
   "lodVertices": 6639,
   "lodTriangles": 8999
  },
@@ -970,7 +970,7 @@
  },
  "yoriko": {
   "file": "yoriko.glb",
-  "size": 698764,
+  "size": 702336,
   "animations": [
    "attack_cast",
    "cheer",
@@ -982,7 +982,7 @@
   "triangles": 19999,
   "source": "tripo",
   "lod": "yoriko.lod.glb",
-  "lodSize": 372400,
+  "lodSize": 376300,
   "lodVertices": 9580,
   "lodTriangles": 8999
  },
