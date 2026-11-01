@@ -34,6 +34,15 @@ const SQUASH_Y = 0.24;
 const SQUASH_XZ = 0.16;
 const SQUASH_LEN = 0.32;
 const SQUASH_RETRIGGER = 0.09;
+// a monster with a face made of geometry (glbEnemy userData.rigidFace: the Green Slime, the Goblin Runner) pops
+// evenly instead: squashing the whole model would squash its eyes too (its own hit clip squashes its body under them)
+const SQUASH_RIGID = 0.07;
+
+/** The hit squash on an enemy model: f = the damped wobble (0 = none, 1 = deepest). */
+function squashModel(m, base, f) {
+  if (m.userData.rigidFace) m.scale.setScalar(base * (1 - SQUASH_RIGID * f));
+  else m.scale.set(base * (1 + SQUASH_XZ * f), base * (1 - SQUASH_Y * f), base * (1 + SQUASH_XZ * f));
+}
 /** Animation options of a monster standing still (death clips, held frames). */
 const STILL = Object.freeze({ moving: false, speed: 1 });
 
@@ -454,8 +463,7 @@ export class Actors {
         v.sqA = 0;
         m.scale.setScalar(base);
       } else {
-        const f = v.sqA * Math.exp(-v.sqT * 11) * Math.cos(v.sqT * 31);
-        m.scale.set(base * (1 + SQUASH_XZ * f), base * (1 - SQUASH_Y * f), base * (1 + SQUASH_XZ * f));
+        squashModel(m, base, v.sqA * Math.exp(-v.sqT * 11) * Math.cos(v.sqT * 31));
       }
     } else {
       m.scale.setScalar(base);
@@ -546,8 +554,7 @@ export class Actors {
     const m = v.model;
     if (live && v.sqA > 0) {
       const base = (0.4 + 0.6 * v.spawnT) * ENEMY_SCALE;
-      const f = v.sqA * Math.exp(-v.sqT * 11) * Math.cos(v.sqT * 31);
-      m.scale.set(base * (1 + SQUASH_XZ * f), base * (1 - SQUASH_Y * f), base * (1 + SQUASH_XZ * f));
+      squashModel(m, base, v.sqA * Math.exp(-v.sqT * 11) * Math.cos(v.sqT * 31));
     }
     m.userData.animate?.(this.time, 0, live ? v.anim || STILL : STILL);
   }

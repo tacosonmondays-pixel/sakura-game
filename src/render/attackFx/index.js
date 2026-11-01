@@ -98,6 +98,7 @@ export function createAttackFx(o) {
   const explodes = new EventRing(64);
   const pv = { kind: 'arrow', x: 0, y: 0, z: 0, scale: 1, sz: 1, tint: 0, glow: -1, yaw: NaN, roll: NaN, skip: false, ownTrail: false, k: 0 };
   const simPos = { x: 0, y: 0, z: 0 };
+  const tip = { x: 0, y: 0, h: 0, dx: 0, dy: 0, dh: 0, kind: null };
 
   // ---- stats ---------------------------------------------------------------------------------
   const stats = {
@@ -344,6 +345,19 @@ export function createAttackFx(o) {
             } finally {
               ctx.inOrigin = false;
             }
+          } else {
+            // no origin of her own (the generic look): an armed girl's shot still leaves her weapon's tip
+            ctx.inOrigin = true;
+            try {
+              if (ctx.muzzle(t, tip)) {
+                rec.mx = tip.x;
+                rec.my = tip.y;
+                rec.mz = tip.h;
+                rec.blended = true;
+              }
+            } finally {
+              ctx.inOrigin = false;
+            }
           }
           // a girl on a rooftop (Gate Arc 'U'): the shot leaves from her lifted height and blends
           // down to the sim's own height by f' = 0.6 (display only; the sim's z is untouched)
@@ -560,7 +574,7 @@ export function createAttackFx(o) {
     /** Snapshot for e2e probes (allocates — dev tooling only). */
     probe() {
       const blends = [];
-      for (const rec of recList) blends.push({ uid: rec.uid, f: rec.f, turret: rec.turretUid, blended: rec.blended });
+      for (const rec of recList) blends.push({ uid: rec.uid, owner: rec.ownerUid, f: rec.f, turret: rec.turretUid, blended: rec.blended, m: [rec.mx, rec.my, rec.mz] });
       // (a style's own readout: Kohaku's constant beams, src/render/attackFx/styles/kohaku_tsubaki.js)
       const styles = {};
       for (const tw of twList) if (tw.style.probe) styles[tw.uid] = tw.style.probe(tw);

@@ -8,7 +8,7 @@ import { lookAt } from '../flair.js';
 import { chainBolt, SEG_CORE, SEG_FLICKER, SEG_ZIGZAG } from '../patterns/segments.js';
 import { drumBeat } from '../patterns/rings.js';
 import { flash, stain } from '../patterns/bursts.js';
-import { hand } from './util.js';
+import { hand, tipUp } from './util.js';
 import { DECOR, CORE } from '../context.js';
 
 const BOLT = '#ffe45c';
@@ -28,10 +28,10 @@ export const raika = {
     if (ctx.lightning) {
       // the styled bolt (src/render/vfx/lightning.js): its own forks, stars and sparks at every node; the Forked path
       // forks once more
-      const pts3 = [[h.x, h.h + 0.1, h.y]];
+      const pts3 = [[h.x, h.h + tipUp(h, 0.1), h.y]];
       for (let k = 1; k < pts.length; k++) pts3.push([pts[k][0], 0.35, pts[k][1]]);
       ctx.lightning.strike(pts3, { preset: 'storm', forks: lookAt(lk, 0) >= 3 ? 1 : 0 });
-    } else chainBolt(ctx, h.x, h.h + 0.1, h.y, pts, c, 0.018, ctx.q.zig, 0.2);
+    } else chainBolt(ctx, h.x, h.h + tipUp(h, 0.1), h.y, pts, c, 0.018, ctx.q.zig, 0.2);
     // forks flickering at the nodes (the styled bolt draws its own)
     if (!ctx.lightning && (ctx.q.sparks || lookAt(lk, 0) >= 3)) {
       const forks = lookAt(lk, 0) >= 3 ? 2 : 1;
@@ -62,9 +62,9 @@ export const raika = {
     const [ex, ey] = ev.to;
     if (ctx.beams) {
       // the styled storm lance (src/render/vfx/beams.js): a solid zig-zag beam, struck again on the beat
-      ctx.beams.fire([h.x, h.h + 0.1, h.y], [ex, 0.35, ey], { preset: 'storm', width: ev.width || 0.2, zig: ctx.quality === 'low' ? 2 : 6 });
+      ctx.beams.fire([h.x, h.h + tipUp(h, 0.1), h.y], [ex, 0.35, ey], { preset: 'storm', width: ev.width || 0.2, zig: ctx.quality === 'low' ? 2 : 6 });
     } else {
-      const s = ctx.segs.add(h.x, h.h + 0.1, h.y, ex, 0.35, ey, Math.max(0.2, (ev.width || 0.2) * 1.4), ctx.col(BOLT), 0.18, SEG_CORE | SEG_ZIGZAG | SEG_FLICKER);
+      const s = ctx.segs.add(h.x, h.h + tipUp(h, 0.1), h.y, ex, 0.35, ey, Math.max(0.2, (ev.width || 0.2) * 1.4), ctx.col(BOLT), 0.18, SEG_CORE | SEG_ZIGZAG | SEG_FLICKER);
       if (s) s.k = ctx.quality === 'low' ? 2 : 6;
     }
     // (the styled lance lands with its own star and scorch: no second flash or stain)

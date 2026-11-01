@@ -34,6 +34,16 @@ and how the work is staged, starting with an owner board of animated mock-ups.
 - A few render-only quick wins can land on this track at any time (§7.4 there): Chigusa's grab drawn as a
   real vine, Kinu's pins and heat ring.
 
+## Weapon muzzles (`src/models/weaponTip.js`, docs/specs/weapon-muzzles.md)
+
+An armed girl's figure carries `userData.anchors.muzzle` / `anchorDir('muzzle')` / `weaponKind` (her staff's
+head, her barrel's mouth, her bow's grip; measured once per GLB from the prop's mesh bounds and following her
+clips). attackFx reads it through `ctx.muzzle(t, out)`, and `ctx.hand(t, out)` returns it when present
+(`out.tip`): every style's `origin()`, hand flash, chain and held beam then leaves the weapon, and the origin blend
+(`math/blend.js`) still puts the drawn shot on the sim's path by f′ = 0.6. Height nudges above the hand go through
+`tipUp(h, dz)` (0 at a tip); `tipFlare` adds a cone along a gun or bow, a longer glow on a staff. No anchor
+(procedural / stand-in chibis, unlisted girls, a prop still loading): the old hand point.
+
 ## The visual clock (`src/render/vfx/clock.js`)
 
 Each battle renderer owns one `VisualClock`, ticked once per frame at the top of

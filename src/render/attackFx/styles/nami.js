@@ -8,7 +8,7 @@ import { lookAt } from '../flair.js';
 import { waterCrown, shardBurst } from '../patterns/bursts.js';
 import { decal } from '../patterns/markers.js';
 import { drawRingFamiliars } from '../patterns/patrol.js';
-import { hand, handFlash } from './util.js';
+import { hand, handFlash, tipUp } from './util.js';
 import { DECOR } from '../context.js';
 import { GROUND, EASE_OUT } from '../quadPool.js';
 
@@ -23,7 +23,7 @@ export const nami = {
     const h = hand(ctx, t);
     rec.mx = h.x;
     rec.my = h.y;
-    rec.mz = h.h + 0.15;
+    rec.mz = h.h + tipUp(h, 0.15);
     return true;
   },
 

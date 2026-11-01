@@ -20,6 +20,27 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.71', version: '0.1.71', date: '2026-11-01', title: 'Lively Moves and Shots From the Weapon',
+    changed: [
+      'Luna, Nami, Kanna and Yoriko are re-rigged with lively new animations — no more T-poses; Kogane and Norika move more naturally.',
+      'Orcs, oni, goblins, bonewalkers, skinks, the Daimyo and the titans finally swing their arms, with new walks, flinches, falls and special moves.',
+      'The Green Slime returns as a brand-new jelly whose face never stretches, and the Goblin Runner is back with bright eyes and a friendly smile.',
+      'Girls with a weapon now shoot from it: arrows leave the bow, shells leave the barrel, and bolts leave the tip of the staff, spear or wand; shots land exactly where they did.',
+    ],
+    fixed: [
+      'Cleaner outlines: no more dark slivers around enemies\' eyes and mouths.',
+    ],
+  },
+  {
+    id: 'v0.1.70', version: '0.1.70', date: '2026-10-31', title: 'Your Own Gear in the Sandbox',
+    added: [
+      'Sandbox: a new "My gear" option in the Gear menu. Each girl wears a copy of the gear she has on in your save, so you can test your real builds. Nothing in your save or bag changes.',
+    ],
+    changed: [
+      'The Green Slime and the Goblin Runner are back to their round, cute chibi looks.',
+    ],
+  },
+  {
     id: 'v0.1.69', version: '0.1.69', date: '2026-10-31', title: 'Co-op Sharing, Boss Traps and Fresh Portraits',
     added: [
       'Co-op sharing: tap the coin button by your ally\'s name to send them coins, or lend them one of your girls from her panel so they can upgrade and command her; you can take her back between waves.',

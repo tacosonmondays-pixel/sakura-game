@@ -10,7 +10,7 @@ import { lookAt } from '../flair.js';
 import { confetti, flash, ripple } from '../patterns/bursts.js';
 import { SEG_CORE } from '../patterns/segments.js';
 import { drawRingFamiliars } from '../patterns/patrol.js';
-import { hand } from './util.js';
+import { hand, tipUp } from './util.js';
 import { CORE, DECOR, FAMILIAR } from '../context.js';
 
 const HOLY = '#ffe066';
@@ -32,14 +32,14 @@ export const miko = {
   onAttack(ev, tw, t, ctx) {
     if (ev.kind === 'beam' || !ctx.cap('muzzle')) return;
     const h = hand(ctx, t);
-    ctx.spr(ctx.b.bbA, CORE, ctx.R.glow, h.x, h.h + 0.1, h.y, 0.28, 0.1, 0.1, ctx.col('#fff6d0'), 1);
+    ctx.spr(ctx.b.bbA, CORE, ctx.R.glow, h.x, h.h + tipUp(h, 0.1), h.y, 0.28, 0.1, 0.1, ctx.col('#fff6d0'), 1);
   },
 
   origin(p, t, idx, n, rec, ctx) {
     const h = hand(ctx, t);
     rec.mx = h.x;
     rec.my = h.y;
-    rec.mz = h.h + 0.1;
+    rec.mz = h.h + tipUp(h, 0.1);
     rec.bend = 0.25;
     return true;
   },

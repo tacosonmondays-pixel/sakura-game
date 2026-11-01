@@ -11,7 +11,7 @@
 import { lookAt } from '../flair.js';
 import { flash, sparks } from '../patterns/bursts.js';
 import { zigzag, forks, netPatch, spokes } from '../patterns/academy.js';
-import { hand } from './util.js';
+import { hand, tipUp } from './util.js';
 import { CORE, DECOR } from '../context.js';
 
 const VOLT = '#7fe0ff';
@@ -56,8 +56,8 @@ export const yuzuha = {
   onAttack(ev, tw, t, ctx) {
     if (ev.turretUid != null || !ctx.cap('muzzle')) return;
     const h = hand(ctx, t);
-    flash(ctx, h.x, h.h + 0.1, h.y, 0.28, ctx.col(VOLT), 0.08);
-    ctx.spr(ctx.b.bbA, CORE, ctx.R.star, h.x, h.h + 0.12, h.y, 0.14, 0.28, 0.1, ctx.col('#ffffff'), 1);
+    flash(ctx, h.x, h.h + tipUp(h, 0.1), h.y, 0.28, ctx.col(VOLT), 0.08);
+    ctx.spr(ctx.b.bbA, CORE, ctx.R.star, h.x, h.h + tipUp(h, 0.12), h.y, 0.14, 0.28, 0.1, ctx.col('#ffffff'), 1);
   },
 
   onSpawn(rec, p, t, ctx) {
@@ -122,7 +122,7 @@ export const yuzuha = {
       // the uplink: a cyan line from her tablet to the new sentry / net, a pop where it lands
       const h = hand(ctx, t);
       const c = ctx.col(ev.kind === 'net' ? '#e6f7ff' : UPLINK);
-      ctx.segs.add(h.x, h.h + 0.1, h.y, ev.x, 0.15, ev.y, 0.07, c, 0.22, 8 | 1);
+      ctx.segs.add(h.x, h.h + tipUp(h, 0.1), h.y, ev.x, 0.15, ev.y, 0.07, c, 0.22, 8 | 1);
       flash(ctx, ev.x, 0.25, ev.y, 0.45, c, 0.12);
       spokes(ctx, ev.x, ev.y, 6, 0.12, 0.42, c, 0.16, 0.3, 0.8, DECOR);
       return false;

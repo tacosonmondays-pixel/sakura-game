@@ -6,7 +6,7 @@ import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import * as THREE from 'three';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { TRIPO_ENEMIES, TRIPO_ENEMY_LODS, tripoEnemyKey, enemyModelKeys, setEnemyDetail, getEnemyDetail } from '../../src/models/glbEnemy.js';
+import { TRIPO_ENEMIES, TRIPO_PAUSED, TRIPO_ENEMY_LODS, tripoEnemyKey, enemyModelKeys, setEnemyDetail, getEnemyDetail } from '../../src/models/glbEnemy.js';
 import { TRIPO_LANDMARKS, landmarkKey, swapLandmark } from '../../src/render/tripoLandmarks.js';
 import { hasProp } from '../../src/render/props.js';
 import { dragonHeadGeometry } from '../../src/render/rosterFx.js';
@@ -23,16 +23,39 @@ const CLIP_CAP = { move: 1.2, idle: 1.6, hit: 0.35, death: 0.85, special: 0.65 }
 // titan 20k / 1024² (the bosses and titans share the 'boss' tier in the data)
 const MAX_ENEMY = { normal: 320 * 1024, elite: 400 * 1024, miniboss: 640 * 1024, boss: 1024 * 1024 };
 const MAX_TRIS = { normal: 5000, elite: 8000, miniboss: 12000, boss: 20000 };
+// own models built elsewhere than Tripo: the Green Slime is a Blender build since the model-quality fix
+// (tools/blender/enemies/build_slime_green.py, docs/art/tripo/model-quality.md)
+const OWN_SOURCE = { slime_green: 'blender' };
+const sourceOf = (id) => OWN_SOURCE[id] || 'tripo';
 
-function packed(json) {
+// the face as geometry (docs/art/tripo/slime-goblin-faces.md: the Green Slime's eyes, mouth and blush, the Goblin
+// Runner's eyes): a second primitive, material 'face', vertex colours, no texture; its own small triangle budget
+const FACE_MAX_TRIS = { full: 1000, lod: 400 };
+
+function packed(json, { detail = 'full', face = false } = {}) {
   expect(json.extensionsRequired).toEqual(expect.arrayContaining(['KHR_mesh_quantization', 'EXT_texture_webp']));
   // no meshopt / Draco: the game has no decoder for them
   expect(json.extensionsRequired.some((e) => /meshopt|draco/i.test(e))).toBe(false);
   for (const im of json.images) expect(im.mimeType).toBe('image/webp');
   const prims = json.meshes.flatMap((m) => m.primitives);
-  expect(prims).toHaveLength(1);
+  // a prop or landmark: one mesh; an enemy may add its face
+  expect(prims).toHaveLength(face && prims.length === 2 ? 2 : 1);
+  // the body first (glbEnemy and the arm checks read meshes[0].primitives[0]), textured, without vertex colours (they
+  // would switch on the enemy outline's tint roles)
+  expect(json.meshes[0].primitives[0]).toBe(prims[0]);
   expect(json.materials[prims[0].material].pbrMetallicRoughness.baseColorTexture).toBeDefined();
+  expect(prims[0].attributes.COLOR_0).toBeUndefined();
   expect(json.accessors[prims[0].attributes.POSITION].componentType).toBe(5122);
+  if (prims[1]) {
+    const face = prims[1];
+    const mat = json.materials[face.material];
+    expect(mat.name).toBe('face');
+    expect(mat.pbrMetallicRoughness?.baseColorTexture).toBeUndefined();
+    expect(face.attributes.COLOR_0).toBeDefined();
+    expect(face.attributes.TEXCOORD_0).toBeUndefined();
+    expect(face.attributes.JOINTS_0).toBeDefined();
+    expect(json.accessors[face.indices].count / 3).toBeLessThanOrEqual(FACE_MAX_TRIS[detail]);
+  }
   return prims[0];
 }
 
@@ -43,11 +66,18 @@ describe('Tripo enemies', () => {
     expect(Object.keys(manifest).sort()).toEqual([...TRIPO_ENEMIES].sort());
     for (const id of TRIPO_ENEMIES) {
       expect(ENEMY_MAP[id], id).toBeTruthy();
+      if (TRIPO_PAUSED.includes(id)) {
+        // switched off: the family's chibi model only
+        expect(tripoEnemyKey(ENEMY_MAP[id])).toBeNull();
+        expect(enemyModelKeys(ENEMY_MAP[id])).toEqual([ENEMY_MAP[id].model?.base || ENEMY_MAP[id].family]);
+        continue;
+      }
       expect(tripoEnemyKey(ENEMY_MAP[id])).toBe(`tripo/${id}`);
       // the preloads ask for the family mesh (the fallback) and the enemy's own model
       expect(enemyModelKeys(ENEMY_MAP[id])).toEqual([ENEMY_MAP[id].model?.base || ENEMY_MAP[id].family, `tripo/${id}`]);
     }
     // every family has at least one (batch 2: one enemy per family)
+    // (a paused one still counts: its file is kept until its remake)
     const families = new Set(TRIPO_ENEMIES.map((id) => ENEMY_MAP[id].family));
     for (const f of new Set(Object.values(ENEMY_MAP).map((d) => d.family))) expect(families.has(f), f).toBe(true);
     expect(tripoEnemyKey(ENEMY_MAP.slime_gold)).toBeNull();
@@ -61,10 +91,10 @@ describe('Tripo enemies', () => {
       expect(statSync(file).size).toBeLessThanOrEqual(MAX_ENEMY[tier]);
       const { json, binLength } = readGlbHeader(file);
       expect(json.buffers[0].byteLength).toBeLessThanOrEqual(binLength);
-      expect(json.asset.extras).toMatchObject({ id, source: 'tripo', style: 'textured' });
+      expect(json.asset.extras).toMatchObject({ id, source: sourceOf(id), style: 'textured' });
       expect(json.asset.extras.height).toBeGreaterThan(0);
       expect(json.asset.extras.unitScale).toBeGreaterThan(0);
-      const prim = packed(json);
+      const prim = packed(json, { face: true });
       expect(prim.attributes.JOINTS_0).toBeDefined();
       expect(json.accessors[prim.indices].count / 3).toBeLessThanOrEqual(MAX_TRIS[tier]);
       expect(json.skins).toHaveLength(1);
@@ -76,7 +106,7 @@ describe('Tripo enemies', () => {
         const dur = Math.max(...a.samplers.map((s) => json.accessors[s.input].max[0]));
         expect(dur, `${id} ${a.name}`).toBeLessThanOrEqual(CLIP_CAP[a.name]);
       }
-      expect(manifest[id]).toMatchObject({ file: `${id}.glb`, size: statSync(file).size, source: 'tripo' });
+      expect(manifest[id]).toMatchObject({ file: `${id}.glb`, size: statSync(file).size, source: sourceOf(id) });
     });
   }
 });
@@ -91,11 +121,15 @@ describe('Tripo enemy LODs (medium / low quality)', () => {
       expect(existsSync(file), file).toBe(true);
       expect(statSync(file).size).toBeLessThanOrEqual(160 * 1024);
       const { json } = readGlbHeader(file);
-      expect(json.asset.extras).toMatchObject({ id, source: 'tripo', style: 'textured', lod: true });
-      const prim = packed(json);
+      expect(json.asset.extras).toMatchObject({ id, source: sourceOf(id), style: 'textured', lod: true });
+      const prim = packed(json, { detail: 'lod', face: true });
       expect(json.accessors[prim.indices].count / 3).toBeLessThanOrEqual(2000);
       expect(json.animations.map((a) => a.name).sort()).toEqual(ENEMY_CLIPS);
       expect(manifest[id]).toMatchObject({ lod: `${id}.lod.glb`, lodSize: statSync(file).size });
+      if (TRIPO_PAUSED.includes(id)) {
+        expect(tripoEnemyKey(ENEMY_MAP[id], 'lod')).toBeNull();
+        continue;
+      }
       expect(tripoEnemyKey(ENEMY_MAP[id], 'lod')).toBe(`tripo/${id}.lod`);
       expect(tripoEnemyKey(ENEMY_MAP[id], 'full')).toBe(`tripo/${id}`);
     }
@@ -104,9 +138,9 @@ describe('Tripo enemy LODs (medium / low quality)', () => {
     // the module default follows setEnemyDetail (the battle sets it from the graphics quality)
     const before = getEnemyDetail();
     setEnemyDetail('lod');
-    expect(enemyModelKeys(ENEMY_MAP.slime_green)).toEqual(['slime', 'tripo/slime_green.lod']);
+    expect(enemyModelKeys(ENEMY_MAP.orc_grunt)).toEqual(['orc', 'tripo/orc_grunt.lod']);
     setEnemyDetail('full');
-    expect(enemyModelKeys(ENEMY_MAP.slime_green)).toEqual(['slime', 'tripo/slime_green']);
+    expect(enemyModelKeys(ENEMY_MAP.orc_grunt)).toEqual(['orc', 'tripo/orc_grunt']);
     setEnemyDetail(before);
   });
 });
