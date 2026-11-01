@@ -6,7 +6,7 @@ import { resolveLook, LANTERN_NIGHT } from '../../src/render/themes.js';
 import { SCENERY, resolveScenery } from '../../src/render/terrain.js';
 import { buildProp, hasProp } from '../../src/render/props.js';
 import {
-  costumeFor, costumeOptions, enemyExtraFor, buildCostume, COSTUME_SLOT, FAMILY_COSTUMES, ENEMY_EXTRAS,
+  costumeFor, costumeOptions, enemyExtraFor, buildCostume, COSTUME_SLOT, FAMILY_COSTUMES, ENEMY_EXTRAS, ENEMY_COSTUME_SWAPS,
 } from '../../src/render/costumes.js';
 import { buildEnemyProcedural } from '../../src/models/enemiesProcedural.js';
 import { ENEMIES } from '../../src/data/enemies.js';
@@ -117,6 +117,20 @@ describe('costume picker', () => {
       }
       expect(kinds.size, fam).toBeGreaterThan(1);
     }
+  });
+
+  it('the Goblin Runner wears the pumpkin hat, never the face-hiding pumpkin head', () => {
+    const runner = ENEMIES.find((e) => e.id === 'goblin_runner');
+    expect(ENEMY_COSTUME_SWAPS.goblin_runner).toEqual({ pumpkinHead: 'pumpkinHat' });
+    const opts = costumeOptions(runner);
+    expect(opts).toContain('pumpkinHat');
+    expect(opts).not.toContain('pumpkinHead');
+    const kinds = new Set();
+    for (let uid = 0; uid < 300; uid++) kinds.add(costumeFor(runner, uid)?.kind);
+    expect(kinds.has('pumpkinHead')).toBe(false);
+    expect(kinds.has('pumpkinHat')).toBe(true);
+    // other goblins keep the full pumpkin head
+    expect(costumeOptions(def('goblin'))).toContain('pumpkinHead');
   });
 
   it('keeps armour and ward signs clear', () => {
