@@ -25,6 +25,7 @@ export const FACE_CELLS = ['idle', 'blink', 'attack', 'happy', 'hurt', 'dizzy', 
 const FACE_GRID = 3;
 const OUTLINE_WIDTH = 0.0048;
 const FADE = 0.18;
+const ONE_SHOT_FADE = 0.06; // an attack's (or a companion's 'appear') fade-in
 const PRELOAD_CONCURRENCY = 6;
 const CLIP_FALLBACK = { victory: 'cheer', pickup: 'cheer' };
 // face cells -> eye states of a painted (textured) face; other cells keep the painted open eyes
@@ -554,6 +555,8 @@ class GlbAnimator {
     this.oneShot = null; // the one-shot clip playing (attack, or a companion's 'appear')
     this.oneShotCell = 'attack';
     this.attackLeft = 0;
+    this.oneShotAge = 0;
+    this.baseDip = 0;
     this.lastAttack = -10;
     this.time = 0;
     this.phase = hashPhase(unit.id);
@@ -609,13 +612,17 @@ class GlbAnimator {
     this.oneShotCell = cell;
     action.reset();
     action.setEffectiveWeight(1);
-    action.fadeIn(0.06);
+    action.fadeIn(ONE_SHOT_FADE);
     action.play();
     this.attackLeft = action.getClip().duration;
     this.lastAttack = this.time;
-    // dip the base pose while the attack plays so arms are not averaged with idle
+    this.oneShotAge = 0;
+    this.baseDip = baseWeight;
+    // dip the base pose while the attack plays so arms are not averaged with idle. While the one-shot fades in, the
+    // base gives way only as fast as it comes in (update()): weights under 1 in total would blend toward the bind
+    // pose, a T-pose flash on the imported figures that rest in one. A base weight of 0 ('appear') hides it at once.
     const base = this.current ? this.actions[this.current] : null;
-    if (base) base.setEffectiveWeight(baseWeight);
+    if (base) base.setEffectiveWeight(baseWeight > 0 ? 1 : 0);
   }
 
   setExpression(name) {
@@ -629,6 +636,10 @@ class GlbAnimator {
     if (state === 'attack' && this.attackLeft <= 0 && time - this.lastAttack > 1.1) this.playAttack();
     if (this.attackLeft > 0) {
       this.attackLeft -= dt;
+      this.oneShotAge += dt;
+      if (this.attackLeft > 0.2 && this.current && this.baseDip > 0) {
+        this.actions[this.current].setEffectiveWeight(Math.max(this.baseDip, 1 - Math.min(1, this.oneShotAge / ONE_SHOT_FADE)));
+      }
       if (this.attackLeft <= 0.2 && this.current) this.actions[this.current].setEffectiveWeight(1);
       if (this.attackLeft <= 0) this.oneShot?.fadeOut(0.12);
     }

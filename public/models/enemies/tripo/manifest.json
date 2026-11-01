@@ -204,7 +204,7 @@
  },
  "fp_foundry_titan": {
   "file": "fp_foundry_titan.glb",
-  "size": 835120,
+  "size": 835220,
   "triangles": 20000,
   "vertices": 21085,
   "animations": [
@@ -238,9 +238,9 @@
  },
  "fp_hyakki_daimyo": {
   "file": "fp_hyakki_daimyo.glb",
-  "size": 926356,
+  "size": 928860,
   "triangles": 20000,
-  "vertices": 22654,
+  "vertices": 22648,
   "animations": [
    "death",
    "hit",
@@ -276,7 +276,7 @@
  },
  "ghoul_bonewalker": {
   "file": "ghoul_bonewalker.glb",
-  "size": 284664,
+  "size": 284612,
   "triangles": 4999,
   "vertices": 6966,
   "animations": [
@@ -291,15 +291,15 @@
   "kind": "humanoid",
   "source": "tripo",
   "lod": "ghoul_bonewalker.lod.glb",
-  "lodSize": 150872,
+  "lodSize": 151040,
   "lodTriangles": 2000,
   "lodVertices": 3526
  },
  "goblin_runner": {
   "file": "goblin_runner.glb",
-  "size": 222004,
-  "triangles": 4999,
-  "vertices": 5316,
+  "size": 238348,
+  "triangles": 5729,
+  "vertices": 5807,
   "animations": [
    "death",
    "hit",
@@ -312,15 +312,15 @@
   "kind": "humanoid",
   "source": "tripo",
   "lod": "goblin_runner.lod.glb",
-  "lodSize": 121076,
-  "lodTriangles": 1999,
-  "lodVertices": 2673
+  "lodSize": 130876,
+  "lodTriangles": 2365,
+  "lodVertices": 2942
  },
  "iron_colossus": {
   "file": "iron_colossus.glb",
-  "size": 605096,
+  "size": 604860,
   "triangles": 11999,
-  "vertices": 14126,
+  "vertices": 14122,
   "animations": [
    "death",
    "hit",
@@ -335,7 +335,7 @@
  },
  "lizard_skink": {
   "file": "lizard_skink.glb",
-  "size": 188832,
+  "size": 196784,
   "triangles": 5000,
   "vertices": 4464,
   "animations": [
@@ -350,13 +350,13 @@
   "kind": "humanoid",
   "source": "tripo",
   "lod": "lizard_skink.lod.glb",
-  "lodSize": 105228,
+  "lodSize": 113132,
   "lodTriangles": 2000,
   "lodVertices": 2209
  },
  "oni_brute": {
   "file": "oni_brute.glb",
-  "size": 254728,
+  "size": 256208,
   "triangles": 4999,
   "vertices": 5737,
   "animations": [
@@ -371,13 +371,13 @@
   "kind": "humanoid",
   "source": "tripo",
   "lod": "oni_brute.lod.glb",
-  "lodSize": 134432,
+  "lodSize": 136376,
   "lodTriangles": 1999,
   "lodVertices": 2879
  },
  "orc_grunt": {
   "file": "orc_grunt.glb",
-  "size": 253280,
+  "size": 253828,
   "triangles": 4999,
   "vertices": 6571,
   "animations": [
@@ -392,7 +392,7 @@
   "kind": "humanoid",
   "source": "tripo",
   "lod": "orc_grunt.lod.glb",
-  "lodSize": 137292,
+  "lodSize": 138296,
   "lodTriangles": 1999,
   "lodVertices": 3365
  },
@@ -419,9 +419,9 @@
  },
  "slime_green": {
   "file": "slime_green.glb",
-  "size": 188280,
-  "triangles": 5000,
-  "vertices": 4834,
+  "size": 131604,
+  "triangles": 4154,
+  "vertices": 2367,
   "animations": [
    "death",
    "hit",
@@ -429,13 +429,15 @@
    "move",
    "special"
   ],
-  "height": 1.0,
+  "height": 0.82,
   "unitScale": 2.0,
   "kind": "blob",
-  "source": "tripo",
+  "source": "blender",
+  "look": "jelly",
+  "face": "geometry",
   "lod": "slime_green.lod.glb",
-  "lodSize": 90176,
-  "lodTriangles": 2000,
-  "lodVertices": 2283
+  "lodSize": 81788,
+  "lodTriangles": 1612,
+  "lodVertices": 983
  }
 }

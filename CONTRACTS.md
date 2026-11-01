@@ -2009,6 +2009,8 @@ export function buildChibi(unitDef, { quality = 'high', pose = 'idle', detail, s
 export function buildEnemy(enemyDef, { quality }) // -> THREE.Group, feet at y=0, faces +z, height ≈ 0.6*size
    // userData.animate(time, dt, { moving, speed }) ; userData.hitFlash() ; userData.setVeiled(bool)
    // userData.setBarrier(frac|0) ; userData.setPhasing(bool) ; userData.setStatus(statusMap)
+   // userData.rigidFace: its face is geometry (a mesh named 'face', never outlined: the Green Slime, the Goblin
+   //   Runner): render code must not scale the model unevenly (the hit squash pops it evenly; docs/art/tripo/slime-goblin-faces.md)
 export function makeSilhouette(group) // in-place: all materials → flat black (bestiary locked state)
 export function createModelViewer(container, { background = null, autoRotate = true } = {})
    // -> { setObject(group), setAutoRotate(b), dispose(), resize() } drag/touch to rotate, pinch/wheel zoom
