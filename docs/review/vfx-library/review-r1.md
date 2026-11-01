@@ -11,7 +11,7 @@ Review of `git diff bf561a8e 19566b4f` on `feature/vfx-shapes`: 33 files, 13 com
    - `/tmp/rvlib-dist` is deleted and the worktree is clean.
 4. **Board: pass.** `docs/art/previews/vfx-library-board.jpg` is 276,166 bytes (1402x1030 JPEG). It is built from the game's own lib3 Sandbox frames. No third-party images.
 5. **Content: pass.**
-   - I scanned the diff and all 13 commit messages against about 150 show, game and technique names. No hits; the only match was "eren" inside "BattleRenderer".
+   - I scanned the diff and all 13 commit messages against about 150 show, game and technique names. No hits; the only match was a four-letter substring inside "BattleRenderer". [Redacted in the committed copy: the quoted substring is also a character's name (house rule).]
    - "arcane" was already game vocabulary before this branch ("Arcane Focus", "Arcane Caster").
    - No depiction changes. No player names.
 6. **Display only: pass.**
