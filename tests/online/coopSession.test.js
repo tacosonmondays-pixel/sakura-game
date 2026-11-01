@@ -1183,14 +1183,14 @@ describe('co-op freeplay: the room setting', () => {
     guest.close();
   });
 
-  it('protocol 16: a hello or a start message from a protocol-15 build (v0.1.67) is refused (the version banner)', () => {
+  it('protocol 17: a hello or a start message from a protocol-16 build (v0.1.68) is refused (the version banner)', () => {
     const W = world();
     const { host, guest } = paired(W, { freeplay: 'tempest' });
     const v = coopVersion();
-    expect(v.proto).toBe(16);
-    const old = { ...v, proto: 15, label: '0.1.67' };
+    expect(v.proto).toBe(17);
+    const old = { ...v, proto: 16, label: '0.1.68' };
     host.room.handlers.onMessage({ type: 'hello', player: { ...meOf('old-uid', 'Chi', ['aoi']), ready: true, host: false }, v: old, sees: null }, 'old-uid');
-    expect(host.mismatch).toMatchObject({ uid: 'old-uid', theirs: { proto: 15, label: '0.1.67' } });
+    expect(host.mismatch).toMatchObject({ uid: 'old-uid', theirs: { proto: 16, label: '0.1.68' } });
     expect(host.peer.uid).toBe(GUEST);
     // a start message from an old host never becomes a battle
     const players = [{ slot: 0, uid: HOST, name: 'Aiko', loadout: [], hero: null }, { slot: 1, uid: GUEST, name: 'Bea', loadout: [], hero: null }];

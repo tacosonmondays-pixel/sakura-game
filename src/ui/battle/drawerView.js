@@ -467,3 +467,54 @@ export function rowAir(spare, heights, tap) {
   }
   return out;
 }
+
+/**
+ * Co-op sharing (docs/specs/COOP_SHARING.md §3.5): the row at the bottom of a girl's drawer that lends her, takes her
+ * back or hands her back. Pure: the drawer draws it.
+ * @param {{ me: number, owner: number, ctrl: number, kind?: 'lend'|'deal'|null, isHero?: boolean, lab?: boolean,
+ *   run?: boolean, ended?: boolean, wave?: boolean, allyHere?: boolean, ctrlGone?: boolean, ownerGone?: boolean,
+ *   allyName?: string, ownerName?: string, ctrlName?: string, armed?: boolean }} o
+ * @returns {null|{ kind: 'lend'|'lentOut'|'lentIn', line: string, button: string|null, act: 'lend'|'back'|'give'|null,
+ *   disabled: boolean, hint: string|null }}
+ */
+export function shareRowView(o) {
+  const ended = !!o.ended;
+  if (o.isHero) return null;
+  // my own girl with me: lend her to my ally (two taps, like a buy)
+  if (o.owner === o.me && o.ctrl === o.me) {
+    if (ended || o.run || o.lab || !o.allyHere) return null;
+    return {
+      kind: 'lend', line: o.armed ? `Lend her to ${o.allyName}? They give her orders and pay for her upgrades.` : `${o.allyName} can play her for you`,
+      button: o.armed ? 'Tap to lend' : `Lend to ${o.allyName}`, act: 'lend', disabled: false, hint: null,
+    };
+  }
+  // mine, with my ally: take her back between waves (at once when they are gone)
+  if (o.owner === o.me && o.ctrl !== o.me) {
+    const early = !!o.wave && !o.ctrlGone;
+    return {
+      kind: 'lentOut', line: `Lent to ${o.ctrlName}`, button: ended ? null : 'Take back', act: ended ? null : 'back',
+      disabled: early, hint: early ? 'Between waves' : null,
+    };
+  }
+  // someone else's girl that I command: lent to me (hand her back any time) or handed over when they left
+  if (o.ctrl === o.me && o.owner !== o.me) {
+    const dealt = o.kind === 'deal';
+    const canGive = !ended && !o.ownerGone;
+    return {
+      kind: 'lentIn', line: dealt ? `${o.ownerName}'s girl · yours while they are away` : `Lent by ${o.ownerName}`,
+      button: canGive ? 'Give back' : null, act: canGive ? 'give' : null, disabled: false, hint: null,
+    };
+  }
+  return null;
+}
+
+/** The read-only note on a girl another player commands: their name (her controller's), and whose she is when lent. */
+export function sharedAllyNote(ctrlName, ownerName, { wide = true, mine = false } = {}) {
+  if (mine) {
+    const title = `Your girl, lent to ${ctrlName} — they give her orders now. Take her back between waves.`;
+    return { text: wide ? title : `Lent to ${ctrlName} · view only`, title };
+  }
+  if (!ownerName || ownerName === ctrlName) return allyNoteText(ctrlName, { wide });
+  const title = `${ownerName}'s girl, with ${ctrlName} now — only ${ctrlName} can upgrade, retarget or sell her.`;
+  return { text: wide ? title : `With ${ctrlName} · view only`, title };
+}
