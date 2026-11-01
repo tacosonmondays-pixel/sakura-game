@@ -201,8 +201,8 @@ describe('the attack styles fall back when the library gives nothing back (switc
   });
 });
 
-describe('the player\'s attack effects setting', () => {
-  it('covers the library: off, nothing is handed to it and every effect keeps the plain look', () => {
+describe('the attack effects option (settings.attackFx === false: the previews set it, no Settings toggle does)', () => {
+  it('covers the library: off, nothing is handed to it, no tornado starts and every effect keeps the plain look', () => {
     const src = readFileSync('src/render/BattleRenderer.js', 'utf8');
     expect(src).toMatch(/const vfxOn = settings\.attackFx !== false;/);
     for (const k of ['fx.lightning = vfxOn ? lightning : null;', 'fx.beams = vfxOn ? beams : null;', 'actors.trails = vfxOn ? trails : null;', 'fx.shapes = vfxOn ? shapes : null;']) {
@@ -214,6 +214,11 @@ describe('the player\'s attack effects setting', () => {
     expect(src.match(/actors\.trails = (?!null|vfxOn)/g)).toBeNull();
     const wire = src.slice(src.indexOf('const guarded = '), src.indexOf('// attack FX are decoration'));
     expect(wire).toMatch(/if \(attackFx\) \{[\s\S]*attackFx\.ctx\.strokes = strokes;/);
+    // the tornado: a cast starts one only with the option on (a shell then feeds nothing); the other start is the
+    // dev-only demo, like the library's own demos
+    expect(src).toMatch(/if \(vfxOn && ev\.type === 'abilityWarn' && TORNADO_CASTS\[ev\.id\]\) \{/);
+    expect(src.match(/tornado\.spawn\(/g)).toHaveLength(2);
+    expect(src).toMatch(/tornadoDemo\(presetId, x, z, opts\) \{\s*return tornadoSafe\(\(\) => tornado\.spawn\(/);
   });
 
   it('with nothing handed over, the default effects and the shots keep their old drawing', () => {

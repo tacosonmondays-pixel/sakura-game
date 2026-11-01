@@ -2148,9 +2148,11 @@ Math.random and never from `sim.rng`, so the same battle on the same frames give
 Attack FX (`src/render/attackFx/**`, docs/ATTACK_FX.md): every girl has a signature attack look
 (Chika's drones fly sorties after the sim's targets, lobbed shells show landing reticles, area girls
 sweep over the enemies they really hit, …), purely visual and pooled. `settings.attackFx === false`
-turns the girls' signature looks and the styled VFX library (inked chains, solid beams, toon slashes,
-shockwave rings, projectile ribbons: docs/VFX.md) off: every effect keeps the plain look. Truth rules: visuals reach the sim's target at the sim's time, projectile
-offsets fade to 0 by 60% of the flight, flourishes only on real hits, drones stay inside her ring.
+(the previews' plain look: no Settings toggle sets it, and the save does not keep it) turns the
+girls' signature looks and the styled VFX library off (inked chains, solid beams, toon slashes,
+shockwave rings, projectile ribbons, the tornado: docs/VFX.md): every effect keeps the plain look.
+Truth rules: visuals reach the sim's target at the sim's time, projectile offsets fade to 0 by 60%
+of the flight, flourishes only on real hits, drones stay inside her ring.
 Quad batches now `begin()` before events / `actors.sync` (projectile glows pushed during sync were
 wiped before and never drawn).
 

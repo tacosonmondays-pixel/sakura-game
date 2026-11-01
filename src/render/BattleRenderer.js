@@ -332,8 +332,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
   // (room for a crowded battle: chains, beams, every shot's trail, slashes, shockwaves and the styles' lines; past it a
   // stroke is not drawn, so the effects thin out instead of failing)
   const strokes = createStrokes({ scene, max: 8192 });
-  // the player's "attack effects" setting covers the styled effects too: off (settings.attackFx === false), nothing is
-  // handed to them, so every effect keeps the plain look (the layers stay idle: nothing pushed, no draw call)
+  // the attack effects option covers the styled effects too: off (settings.attackFx === false), nothing is handed to
+  // them and no tornado starts, so every effect keeps the plain look (the layers stay idle: nothing pushed, no draw
+  // call). Only the previews set it today (fx=off, the attack A/B): no Settings toggle sets it and the save drops it
   const vfxOn = settings.attackFx !== false;
   // styled chain lightning (src/render/vfx/lightning.js): Raika's and Chika's chains (their attack styles), Storm Lance
   // and every other chain the default layer draws
@@ -764,8 +765,9 @@ export function createBattleRenderer(container, sim, opts = {}) {
       noteBallPop(ev, bouncing); // (a ball's blast comes before its pop: the blast reads the state its last pop left)
       // a cast that swirls into a tornado (observe only): the warning event carries the spot, delay and shells
       // (it is fed until the cast's first shell, then by every shell it drops, so it ends with the barrage at any
-      // game speed: the shells run on sim time)
-      if (ev.type === 'abilityWarn' && TORNADO_CASTS[ev.id]) {
+      // game speed: the shells run on sim time); with the attack effects option off none starts (the plain look; a
+      // shell then feeds nothing)
+      if (vfxOn && ev.type === 'abilityWarn' && TORNADO_CASTS[ev.id]) {
         tornadoSafe(() => tornadoOf.set(ev.towerUid, tornado.spawn(TORNADO_CASTS[ev.id], ev.x, ev.y, { seconds: (ev.delay || 0) + 0.6, size: Math.max(0.8, ev.radius || 1) })));
       } else if (ev.type === 'abilityShell' && TORNADO_CASTS[ev.id]) {
         tornadoSafe(() => tornado.feed(tornadoOf.get(ev.towerUid), 0.45));

@@ -108,7 +108,7 @@ describe('the styled ribbon and the styles\' own trails', { timeout: 600000 }, (
     const doubled = [];
     const bare = new Map();
     const reached = new Map(); // id → { views, skipped } over every build and tier
-    // one girl per battle: her booth (the first) is beside the first lane, so her shots meet the enemies
+    // one girl per battle: her booth (the first) is beside the first lane
     const groups = ORDER.map((id) => [id]);
     for (const quality of ['high', 'medium']) {
       for (const [b, build] of Object.entries(BUILDS)) {
