@@ -401,7 +401,7 @@ every attack and the batch that styles it. Display only: the sim id does not cha
 
 - **Slash:** a crescent of toon strokes flat to the camera (ink, body, white core), thickest in its middle and pointed at both ends. It sweeps across in `SLASH.grow`, holds, then its tail chases its front off and it breaks into dashes. Every default slash (`fx.slash`) draws one, and so do the attack styles' own slashes (Kage, Kinu, Luna, Ruri, Wakaba, Yoriko) through `toonSlash` (`src/render/attackFx/patterns/bursts.js`); without the shapes layer they keep their slash sprites.
 - **Shockwave:** a ring of toon strokes on the ground. It bursts out with an ease-out, thins as it goes and breaks into dashes over its second half. Every default pulse (`fx.pulse`) draws one; the sparks stay.
-- **Tiers:** joints per arc (high 12, medium 9, low 6); a ring's joints grow with its radius (`RING_JOINTS`: 10 a tile, at least 12) up to 32, 24 and 16, so no ring shows as a polygon; and the most shapes up at once (32, 24, 16).
+- **Tiers:** joints per arc (high 12, medium 9, low 6); a ring's joints grow with its radius (`RING_JOINTS`: 20 a tile, at least 16) up to 40, 32 and 24, so no ring shows as a polygon (up to 2.5 tiles it stays within 0.025 of a tile of a true circle on every tier); and the most shapes up at once (32, 24, 16).
 - **Ground:** a ring's band faces the camera, so it is lifted by its half width with the ink and never dips into the ground.
 - **Flash guard:** toon slashes and rings cover the board rather than add light, so the flash guard does not count them (the old additive slash sprites were counted).
 - **Reduce Motion:** no sweep or chasing tail; the ring grows linearly and lasts a little longer.

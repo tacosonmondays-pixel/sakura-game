@@ -17,12 +17,15 @@ import { createStrokes, stroke, SOLID } from './strokes.js';
 
 /** Detail per graphics tier: joints in a slash's arc and a shockwave's ring, and the most shapes up at once. */
 export const SHAPE_TIERS = {
-  high: { arc: 12, ring: 32, max: 32 },
-  medium: { arc: 9, ring: 24, max: 24 },
-  low: { arc: 6, ring: 16, max: 16 },
+  high: { arc: 12, ring: 40, max: 32 },
+  medium: { arc: 9, ring: 32, max: 24 },
+  low: { arc: 6, ring: 24, max: 16 },
 };
-/** A ring's joints grow with its radius (10 a tile, at least 12), up to its tier's `ring`: no visible polygon. */
-export const RING_JOINTS = { perTile: 10, min: 12 };
+/**
+ * A ring's joints grow with its radius (20 a tile, at least 16), up to its tier's `ring`: no visible polygon (a ring up to
+ * 2.5 tiles stays within 0.025 of a tile of a true circle, about a pixel and a half, on every tier).
+ */
+export const RING_JOINTS = { perTile: 20, min: 16 };
 
 /** A slash: its sweep (radians of the arc), how flat its bulge is, its beats (s), its half width at the middle, its layers and its reach (× size). */
 export const SLASH = { sweep: 2.6, flat: 0.5, grow: 0.05, hold: 0.06, fade: 0.12, width: 0.11, ink: 0.024, core: 0.42, reach: 0.72 };

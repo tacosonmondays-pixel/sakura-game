@@ -86,6 +86,22 @@ describe('toon shockwaves', () => {
     expect(fx.live.length).toBe(0);
   });
 
+  it('a ring never shows as a polygon: up to 2.5 tiles it stays within 0.025 of a tile of a true circle on every tier', () => {
+    for (const q of ['high', 'medium', 'low']) {
+      for (const r1 of [0.5, 1, 1.6, 2.5]) {
+        const { fx, lines, step } = rig(q);
+        fx.shock(0, 0, r1 * 0.999, r1, '#ffffff');
+        step(SHOCK.life * 0.5);
+        const n = lines.frame.length / 3;
+        const s = lines.frame[n]; // the body layer's first stroke
+        const r = Math.hypot(s.ax, s.az);
+        // the sagitta: how far a straight joint strays inside the circle at its middle
+        expect(r * (1 - Math.cos(Math.PI / n))).toBeLessThan(0.025);
+        expect(n).toBeLessThanOrEqual(SHAPE_TIERS[q].ring);
+      }
+    }
+  });
+
   it('caps the live shapes per tier', () => {
     const { fx } = rig('low');
     for (let i = 0; i < SHAPE_TIERS.low.max + 10; i++) fx.shock(0, 0, 0.1, 1, '#ffffff');
