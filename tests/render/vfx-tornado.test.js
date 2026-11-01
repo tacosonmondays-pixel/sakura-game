@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { TORNADO_PRESETS, TORNADO_TIERS, MAX_TORNADOES, TORNADO_CASTS } from '../../src/render/vfx/tornadoPresets.js';
-import { createTornadoFx, paintTornadoNoise, paintTornadoRamp, SPARSE_ERODE, COVER_FAR_ERODE } from '../../src/render/vfx/tornado.js';
+import { createTornadoFx, paintTornadoNoise, paintTornadoRamp, SPARSE_ERODE, COVER_FAR_ERODE, RM_COVER } from '../../src/render/vfx/tornado.js';
 import { createVisualRandom } from '../../src/render/vfx/random.js';
 import { ABILITIES } from '../../src/data/abilities.js';
 
@@ -169,17 +169,40 @@ describe('tornado layer', () => {
     expect(g.getAttribute('iF').array[2]).toBe(0); // no scroll
   });
 
-  it('reduce motion dims what medium and low add, never high\'s cover (it adds no light; thin lemon over grass reads lime)', () => {
-    const alpha = (q, rm) => {
+  it('reduce motion dims what medium and low add; high\'s cover is eroded instead, never thinned (thin lemon over grass reads lime)', () => {
+    const read = (q, rm) => {
       const s = new THREE.Scene();
       const t = make(q, { scene: s, reduceMotion: rm });
       t.spawn('fire', 0, 0);
       t.update(1 / 60);
-      return s.children[0].geometry.getAttribute('iE').array[2];
+      const m = s.children[0];
+      return { alpha: m.geometry.getAttribute('iE').array[2], rm: m.material.uniforms.uRm.value.toArray() };
     };
-    for (const q of ['medium', 'low']) expect(alpha(q, true)).toBeCloseTo(alpha(q, false) * 0.7, 6);
-    expect(alpha('high', true)).toBeCloseTo(alpha('high', false), 6);
-    expect(alpha('high', false)).toBeCloseTo(TORNADO_PRESETS.fire.alpha, 6);
+    for (const q of ['medium', 'low']) {
+      expect(read(q, true).alpha).toBeCloseTo(read(q, false).alpha * 0.7, 6);
+      expect(read(q, true).rm).toEqual([0, 0]); // their blend adds: dimmed, never eroded
+      expect(read(q, false).rm).toEqual([0, 0]);
+    }
+    expect(read('high', true).alpha).toBeCloseTo(read('high', false).alpha, 6);
+    expect(read('high', false).alpha).toBeCloseTo(TORNADO_PRESETS.fire.alpha, 6);
+    // high under Reduce Motion: every ring erodes `all` harder and the far arc `far` harder still (what stands behind a
+    // standing column stays readable); without it nothing changes
+    expect(read('high', true).rm).toEqual([RM_COVER.far, RM_COVER.all]);
+    expect(read('high', false).rm).toEqual([0, 0]);
+    expect(RM_COVER.far).toBeGreaterThan(0);
+    expect(RM_COVER.all).toBeGreaterThan(0);
+    // a quality switch follows: high → medium under Reduce Motion drops the erosion, back to high brings it back
+    const s = new THREE.Scene();
+    const t = make('high', { scene: s, reduceMotion: true });
+    t.spawn('fire', 0, 0);
+    t.update(1 / 60);
+    const u = s.children[0].material.uniforms.uRm.value;
+    t.setQuality('medium');
+    t.update(1 / 60);
+    expect(u.toArray()).toEqual([0, 0]);
+    t.setQuality('high');
+    t.update(1 / 60);
+    expect(u.toArray()).toEqual([RM_COVER.far, RM_COVER.all]);
   });
 
   it('packs each tornado\'s own erosion, cover, hole and core radius (two presets at once); high is sparser in shape only', () => {
@@ -204,8 +227,9 @@ describe('tornado layer', () => {
     expect(E[per * 4 + 1]).toBeCloseTo(TORNADO_PRESETS.vortex.inner, 5);
     // the shader: the sparser cut shapes the mask, the preset's cut picks the colour
     const frag = mesh.material.fragmentShader;
-    expect(frag).toMatch(/step\(cut \+ uSparse \+ uFar \* \(1\.0 - vFront\), heat\)/);
-    expect(frag).toMatch(/clamp\(\(heat - cut\) \* 1\.6/);
+    expect(frag).toMatch(/step\(cut \+ uSparse \+ \(uFar \+ uRm\.x\) \* \(1\.0 - vFront\) \+ uRm\.y, heat\)/);
+    // (Reduce Motion's extra erosion on high moves the colour index with it: the tongues left keep the whole ramp)
+    expect(frag).toMatch(/clamp\(\(heat - cut - uRm\.y\) \* 1\.6/);
   });
 
   it('high with bloom: the band at k ≥ 0.8 goes over white, nothing else changes with the bloom (it keys on the bloom, not the preset)', () => {

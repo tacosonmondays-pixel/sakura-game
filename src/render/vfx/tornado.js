@@ -6,9 +6,12 @@
 // every band covers the board in its own colour (no red-over-green murk), its far arc eroded harder so what stands behind
 // stays visible. With bloom on, high renders into the linear composer, where covering rings settle on the ramp's own
 // colours, so it reads its own ramp row: the hot bands brighter by COVER_GAIN (the overshoot medium gets from adding on
-// the screen), except at the very back of the funnel, which keeps the preset's own colours (amber, not a thin lime); the
-// k ≥ 0.8 band also goes `hdr` over white for the bloom. With bloom off, high draws on the canvas like medium and keeps
-// the bands as given. Reduce Motion dims what medium and low add, never high's cover (it adds no light).
+// the screen), except at the very back of the funnel, which keeps the preset's own colours (amber, not a thin lime; the
+// back's sides can still read yellow-green over grass greener than the game's); the k ≥ 0.8 band also goes `hdr` over
+// white for the bloom. With bloom off, high draws on the canvas like medium and keeps the bands as given. Reduce Motion
+// dims what medium and low add. High is eroded instead of thinned (RM_COVER): with bloom its cover adds no light in the
+// linear composer and a thinner lemon over grass reads lime; with bloom off erosion only takes tongues away. Either way
+// what stands behind a column that stands still stays readable.
 //
 //   const tornado = createTornadoFx({ scene, batches, atlas, quality, reduceMotion, rand });
 //   tornado.spawn('fire', x, z, { seconds: 2, size: 1.2 });   // world x / z (the sim's x / y), the cast's radius
@@ -42,6 +45,13 @@ export const COVER_YOUNG = 0.35;
 export const COVER_GAIN = [1, 1.1, 1.25, 1.65, 1.9];
 /** High's cover blend: how much harder the far arc erodes (fewer tongues behind the column: what stands behind stays visible). */
 export const COVER_FAR_ERODE = 0.4;
+/**
+ * High under Reduce Motion (with bloom or without): the rings stand still, so what stands behind and inside a column
+ * that is fully up must stay at least as readable as on medium. The column is eroded instead of thinned (a thinner
+ * lemon over grass reads lime): every ring `all` harder, the far arc `far` harder still, and the colour index follows
+ * the extra erosion (`all`), so the tongues that are left keep the whole ramp instead of only its hottest bands.
+ */
+export const RM_COVER = { far: 0.3, all: 0.22 };
 
 const VERT = /* glsl */`
 attribute vec4 iA; // x, z, t (seconds since the cast), seconds the column is fed
@@ -103,6 +113,7 @@ uniform float uCover;  // 1 on high: every band covers the board in its own colo
 uniform vec2 uFront;   // COVER_FRONT
 uniform float uYoung;  // COVER_YOUNG
 uniform float uFar;    // COVER_FAR_ERODE
+uniform vec2 uRm;      // high under Reduce Motion: RM_COVER (far, all); (0, 0) otherwise
 varying vec2 vXZ;
 varying float vAge;
 varying float vOn;
@@ -126,9 +137,9 @@ void main() {
   float heat = band * (0.3 + 1.0 * n) + vCore * vF.w;
   float cut = mix(vG.x, vG.y, vAge); // the preset's erosion
   // the hard toon edge: in or out, no soft fringe and no discard (high's far arc erodes harder: it is behind)
-  float m = step(cut + uSparse + uFar * (1.0 - vFront), heat) * step(0.0, band);
+  float m = step(cut + uSparse + (uFar + uRm.x) * (1.0 - vFront) + uRm.y, heat) * step(0.0, band);
   // the colour index from the preset's erosion (the tier's sparser mask never darkens it)
-  float k = clamp((heat - cut) * 1.6, 0.0, 0.999) * mix(0.7, 1.0, vFront);
+  float k = clamp((heat - cut - uRm.y) * 1.6, 0.0, 0.999) * mix(0.7, 1.0, vFront);
   vec3 col = texture2D(uRamp, vec2(k, vRow)).rgb;
   float hot = step(0.8, k);
   // the band at k ≥ 0.8 (the top of the yellow, the white) burns above white (high + bloom: vE.w > 0)
@@ -279,6 +290,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       uNoise: { value: noise }, uRamp: { value: ramp }, uTime: { value: 0 }, uSparse: { value: 0 }, uCover: { value: 0 },
       uFront: { value: new THREE.Vector2(COVER_FRONT[0], COVER_FRONT[1]) }, uYoung: { value: COVER_YOUNG },
       uFar: { value: 0 },
+      uRm: { value: new THREE.Vector2(0, 0) },
     },
     vertexShader: VERT,
     fragmentShader: FRAG,
@@ -424,6 +436,9 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       material.uniforms.uSparse.value = Math.max(0, 1 - TORNADO_TIERS.medium.rings / tier.rings) * SPARSE_ERODE;
       material.uniforms.uCover.value = tier.cover ? 1 : 0;
       material.uniforms.uFar.value = tier.cover ? COVER_FAR_ERODE : 0;
+      // Reduce Motion on high: the column eroded, not thinned (RM_COVER)
+      const rmc = reduceMotion && tier.cover;
+      material.uniforms.uRm.value.set(rmc ? RM_COVER.far : 0, rmc ? RM_COVER.all : 0);
       geo.instanceCount = n;
       for (const a of Object.values(attrs)) {
         a.clearUpdateRanges();
