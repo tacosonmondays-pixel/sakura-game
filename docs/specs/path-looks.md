@@ -143,7 +143,7 @@ covered).
 | **Sango** | Armor-Breaker: a holster of steel shells over her left shoulder [back] → a coral-and-steel anchor across her back [back] | Fragmentation: three little bombs floating by her [float] → + mini mortars circling above her head [orbit-high] | Siege: a brass spyglass and feather in her beret [head] → a captain's plume and anchor medallion [head] (nothing on the cannon: its muzzle) |
 | **Kage** | Steel: a big four-point shuriken over her left shoulder [back] → + six shuriken circling [orbit] | Shadow Mark: a red scarf, both tails streaming out to her left [back] → violet-tipped tails + a crescent on her own headband [back+head] | Kunai: a fan of kunai over her right shoulder [back] → + a black lotus of blades behind her [back] |
 | **Umeko** | Lighthouse: a paper lantern floating by her [float] → four lanterns circling [orbit] | Plum Rain: plum blossoms over the left and back of her head [head] → a plum-petal water wheel turning behind her [back] | Undertow: a ring of pearls circling [orbit] → + a great clam shell behind her [back] (nothing on the staff head) |
-| **Shiro** | Execution: a silver crescent badge on her beret [head] → + a great silver moon with crosshair ticks behind her [back] | Spotter: a spotter drone [float] → three drones circling high [orbit] | Follow-up: a twin magazine pack over her left shoulder [back] → + a turning halo of silver bullets behind her head [back] (nothing on the rifle) |
+| **Shiro** | Execution: a silver crescent badge on her beret [head] → + a great silver moon with crosshair ticks behind her [back] | Spotter: a spotter drone [float] → three drones circling well above her head [orbit-high] | Follow-up: a twin magazine pack over her left shoulder [back] → + a turning halo of silver bullets behind her head [back] (nothing on the rifle) |
 | **Midori** | Toxicology: a glass alembic on her back [back] → a bubbling cauldron pack [back] | Corrosion: three bubbling test tubes in her hair (her own goggles stay as they are) [head] → + a flask with fumes floating by her [float] | Field Kit: two potion bottles circling [orbit] → five [orbit] |
 | **Suzu** | Mines: a big bell with a fuse ribbon on her back [back] → + a great bell floating above her [back-high] | Binding: bell ribbons at the back of her hair [head] → + a ring of little bells [orbit] | Seals: two paper seals floating by her [float] → a circle of seals turning behind her [back] |
 | **Raika** | Forked: a lightning-bolt clip between her horns [head] → + six thunder drums ringing high above her [back-high] | Overcharge: sparks on her horn tips [head] → + a storm drum under a little cloud floating on her left [float] | Rhythm: twin drumsticks over her left shoulder [back] → + storm orbs circling [orbit] (her staff head rests behind her hair on the right: nothing there) |
@@ -196,10 +196,17 @@ covered).
   piece triangle, skinned merges posed as drawn, 30 frames a set with two attack swings, at 390×844 and 1280×720:
   **0 blocked frames** at either size (Aoi, Akane, Yuki, Momo, Sango, Umeko, Shiro, Raika 180 frames each a size;
   Luna, Nami 90; Rei, Kage, Hikari, Midori and Suzu carry no muzzle anchor). Since batch 2 the test also casts the
-  ray at her own figure: a frame where her head or hair already hides the tip (Umeko's staff head rests by her right
-  temple and swings behind her head: 4 of 180 portrait frames at 0-4-0) is counted apart, not as blocked, because no
-  piece can hide what the camera cannot see. Batch 2's test moved three pieces: Sango's
-  mini mortars circle above her head (they crossed her cannon's muzzle), Umeko's blossoms sit round the back and left of
+  ray at her own figure: a frame where her head or hair already hides the tip is counted apart, not as blocked, because
+  no piece can hide what the camera cannot see. Review r4 found that rule masking real blocks (the merged piece mesh had
+  no name, so it counted as her figure); now the merged meshes are named `pathLookMesh` / `pathLookHull`, anything under
+  a `pathLook` node is never her figure, the check lives in `src/render/pathLooks/muzzle.js` and a unit test pins that a
+  piece-only block reports the piece. Re-run for every armed girl with the fixed rule: 0 blocked frames at both sizes;
+  Umeko alone has frames her own head hides (5 of 180 portrait frames at 0-4-0: her staff head swings behind it). Sweeps
+  of 600 frames a size: Shiro (after her drones moved) 600/600 clear at both sizes; Umeko 600/600 clear at 1280×720
+  and 582/600 at 390×844, the other 18 hidden by her own head, none blocked by a piece. Batch 2's test moved four pieces: Sango's
+  mini mortars circle above her head (they crossed her cannon's muzzle), Shiro's Spotter drones circle higher and wider
+  (review r4: root y 1.22, scale 1.1; at y 0.95 they crossed her rifle's muzzle line in about 1.7 % of portrait frames),
+  Umeko's blossoms sit round the back and left of
   her head and keep their size at T4 (her staff head rests by her right temple), and Raika's pieces keep off her right
   side, where her staff head rests behind her hair. Two pieces were moved for it: Akane's pinwheels sit higher on her hat (they crossed her staff head in a
   portrait swing), and Yuki's Permafrost T3 became frost crystals over her left shoulder (her staff head rests low
@@ -270,3 +277,13 @@ silhouette moves), `pieceCalls` ≤ 2 a girl, `--only muzzle` clean, the board u
 - **LOW:** the shared colour set reaches every path surface: the upgrade tree grid (`tree-grid.css` `.ug-row` / `.ugp`,
   `.p1`, `.p2`: the girl page's Tree tab and the battle tree) and the tier detail card (`unit-info.css` `.ut-detail`)
   now use pink `#ff6b8b`, cyan `#0ea5d8` and deep gold `#d99a00` like `.ut-row`.
+
+## 12. Review round 4
+
+- **HIGH:** the muzzle rule's "hidden by her own figure" masked piece blocks: the merged piece mesh had no name, so it
+  was counted as her figure. Fixed as above (§7): named meshes, ancestors checked, a regression test
+  (`tests/render/pathLooks.test.js`, "the muzzle check"). The muzzle test also runs each girl on her own one-girl
+  formation page now (a formation holds eight girls; with more, the rest were silently skipped) and fails if a girl
+  cannot be placed.
+- **MEDIUM:** Shiro's Spotter drones circle at root y 1.22, scale 1.1 (were 0.95, 1.0). 600-frame sweep a size: clear.
+- Re-run with the fixed rule for every armed girl of Phase 1 and batches 1–2: 0 blocked frames (§7).

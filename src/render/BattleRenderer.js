@@ -40,6 +40,7 @@ import { FxSystem, bounceBlast, noteBallPop, BOUNCE_BODY } from './fx.js';
 import { AmbientSystem } from './ambient.js';
 import { RuleDecals } from './ruleDecals.js';
 import { Actors, PATH_COLORS } from './actors.js';
+import { muzzleBlocked } from './pathLooks/muzzle.js';
 import { Overlays } from './overlays.js';
 import { BuffIcons } from './buffIcons.js';
 import { buildTerrain, resolveScenery, ROOF_Y } from './terrain.js';
@@ -1570,33 +1571,7 @@ export function createBattleRenderer(container, sim, opts = {}) {
       const v = actors.towers.get(uid);
       const mz = v?.model.userData.anchors?.muzzle;
       if (!mz) return null;
-      const meshes = [];
-      for (const h of v.pl?.holders || []) {
-        h.traverse((o) => {
-          if (!o.isMesh || o.userData.isOutline) return;
-          if (o.isSkinnedMesh) o.boundingSphere = null; // posed as drawn this frame
-          meshes.push(o);
-        });
-      }
-      if (!meshes.length) return false;
-      const p = new THREE.Vector3().copy(mz);
-      const ray = new THREE.Raycaster();
-      ray.setFromCamera(new THREE.Vector2().copy(p.clone().project(camera)), camera);
-      const dist = ray.ray.origin.distanceTo(p);
-      const hit = ray.intersectObjects(meshes, false).find((h) => h.distance < dist - 0.005);
-      if (!hit) return false;
-      // a tip her own figure already hides this frame (a staff head resting behind her hair) is not the pieces' doing
-      const body = [];
-      v.model.traverse((o) => {
-        if (!o.isMesh || o.userData.isOutline || o.name.startsWith('pathLook')) return;
-        if (o.isSkinnedMesh) o.boundingSphere = null;
-        body.push(o);
-      });
-      if (ray.intersectObjects(body, false).some((h) => h.distance < dist - 0.005)) return 'hidden';
-      // which pieces (the blocking mesh's holder or merge says)
-      let o = hit.object;
-      while (o && !o.userData.pieces) o = o.parent;
-      return o ? o.userData.pieces.join('+') : true;
+      return muzzleBlocked({ model: v.model, holders: v.pl?.holders || [], muzzle: mz, camera });
     },
     /** Extra (perf runs): the PathLooks layer itself, so a script can time its per-frame update and draw. */
     get pathLooks() {

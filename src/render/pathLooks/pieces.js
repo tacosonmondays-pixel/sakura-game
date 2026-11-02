@@ -306,6 +306,7 @@ export function mergedPieces(key, entries, body, { quality = 'high', shadows = f
   const g = new THREE.Group();
   g.name = 'pathLook:merged';
   const mesh = new THREE.SkinnedMesh(c.geometry, m.piece);
+  mesh.name = 'pathLookMesh';
   mesh.bind(skeleton, body.bindMatrix);
   mesh.frustumCulled = false;
   mesh.castShadow = shadows;
@@ -315,6 +316,7 @@ export function mergedPieces(key, entries, body, { quality = 'high', shadows = f
   let triangles = c.triangles;
   if (c.hull && quality !== 'low') {
     const hull = new THREE.SkinnedMesh(c.hull, m.outline);
+    hull.name = 'pathLookHull';
     hull.bind(skeleton, body.bindMatrix);
     hull.frustumCulled = false;
     hull.userData.isOutline = true;

@@ -38,6 +38,7 @@ const BOARD_NOTE = opt('note', 'Round 2: one merged skinned mesh a girl (≤ 2 d
 const CONFIGS = [[0, 0, 0], [3, 0, 0], [0, 3, 0], [0, 0, 3], [5, 2, 0], [2, 0, 5], [0, 5, 2]];
 const GIRLS = opt('girls', 'aoi,akane,luna,rei,yuki,momo,kage,nami,hikari,akane@akane_sentinel').split(',');
 const FRAMES = opt('frames', '1') !== '0';
+const MUZZLE_FRAMES = Number(opt('muzzleFrames', 30));
 /** 'all': idle / attack / walk at every T5 set; 'rotate': one T5 set a girl (5-2-0, 2-0-5, 0-5-2 in turn). */
 const FRAME_MODE = opt('frameMode', 'all');
 const failures = [];
@@ -66,12 +67,12 @@ const TOWER_GIRLS = (() => {
   return ids.length && ids.every((g) => !base.includes(g)) ? ids : [...new Set([...base, ...ids])].slice(0, 12);
 })();
 
-async function battlePage({ width, height, dpr = 1, quality = QUALITY, camera = 'free', stage = STAGE, hero = 'luna', skins = {} }) {
+async function battlePage({ width, height, dpr = 1, quality = QUALITY, camera = 'free', stage = STAGE, hero = 'luna', skins = {}, towers = TOWER_GIRLS }) {
   const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: dpr });
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
   await openApp(page, base);
-  await seedSave(page, { girls: [...TOWER_GIRLS, ...HEROES], hero, towers: TOWER_GIRLS, settings: { camera, quality, defaultSpeed: 1 } });
+  await seedSave(page, { girls: [...new Set([...towers, ...HEROES])], hero, towers, settings: { camera, quality, defaultSpeed: 1 } });
   if (Object.keys(skins).length) {
     // outfits (Sentinel Style is owned with the girl): worn in battle through profile.units[id].skin
     await page.evaluate((skins) => {
@@ -202,17 +203,16 @@ if (want('muzzle')) {
     let cur = null;
     for (const id of ids) {
       const hero = HEROES.has(id) ? id : 'luna';
-      if (!cur || cur.hero !== hero) {
-        if (cur) await cur.context.close();
-        cur = { hero, ...(await battlePage({ width: w, height: h, dpr, quality: 'low', camera: 'locked', hero })) };
-      }
+      // a page per girl: her own one-girl formation (a formation holds only so many, a girl outside it cannot be placed)
+      if (cur) await cur.context.close();
+      cur = { hero, ...(await battlePage({ width: w, height: h, dpr, quality: 'low', camera: 'locked', hero, towers: HEROES.has(id) ? ['aoi'] : [id] })) };
       const { page } = cur;
       const uid = await page.evaluate((id) => {
         const { sim } = window.__battle;
         for (const t of [...sim.towers]) sim.sellTower?.(t.uid);
         return window.__ab.place(id);
       }, id);
-      if (uid == null) continue;
+      if (!check(uid != null, `${w}×${h} ${id} placed for the muzzle test`)) continue;
       await waitLook(page, uid);
       const hasMuzzle = await page.evaluate((uid) => window.__battle.renderer.pathLooksMuzzleBlocked(uid) !== null, uid);
       if (!hasMuzzle) {
@@ -226,8 +226,9 @@ if (want('muzzle')) {
       for (const c of HEROES.has(id) ? HSETS : SETS) {
         await page.evaluate(([uid, c]) => window.__battle.renderer.setPathLookOverride(uid, c), [uid, c]);
         await waitLook(page, uid, expected(id, c), 20000, c);
-        for (let f = 0; f < 30; f++) {
-          if (f === 10 || f === 20) await page.evaluate((uid) => window.__battle.renderer.setPathLookPose(uid, 'attack'), uid);
+        // --muzzleFrames N a set (default 30; a sweep: 100 × 6 sets = 600 a size), an attack swing every 10 frames
+        for (let f = 0; f < MUZZLE_FRAMES; f++) {
+          if (f % 10 === 0 && f > 0) await page.evaluate((uid) => window.__battle.renderer.setPathLookPose(uid, 'attack'), uid);
           const b = await page.evaluate((uid) => new Promise((r) => requestAnimationFrame(() => r(window.__battle.renderer.pathLooksMuzzleBlocked(uid)))), uid);
           frames++;
           if (b === 'hidden') {
