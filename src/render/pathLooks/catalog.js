@@ -1,6 +1,7 @@
 // Path looks: the pieces each girl wears per path and stage (docs/specs/path-looks.md §4; display only).
 //
-// Phase 1 prototype: Aoi, Akane and Luna; rollout batch 1: Rei, Yuki, Momo, Kage, Nami and Hikari. Every other girl shows
+// Phase 1 prototype: Aoi, Akane and Luna; rollout batch 1: Rei, Yuki, Momo, Kage, Nami and Hikari; batch 2: Sango, Umeko,
+// Shiro, Midori, Suzu and Raika. Every other girl shows
 // the pip gauge, the T1–T2 hand glows and the T5 aura, and no pieces until her row lands here (the spec's table lists a
 // T3 and a T5 look for every girl's three paths). A T4 stage is the T3 piece a size up unless a row says otherwise.
 //
@@ -134,7 +135,7 @@ export const PATH_LOOKS = Object.freeze({
       ROW([P('p0_shuriken', 'chest', [0.22, 0.28, -0.12], [-0.9, 0, 0.3], 1.9)],
         [P('p0_shuriken', 'chest', [0.22, 0.28, -0.12], [-0.9, 0, 0.3], 2.0), P('p0_ring', 'root', [0, 0.55, 0], [0, 0, 0], 1.1, SPIN(1.6))]),
       ROW([P('p1_scarf', 'chest', [0, 0.12, 0.0], [0, 0, 0], 1.3)],
-        [P('p1_scarfGlow', 'chest', [0, 0.12, 0.0], [0, 0, 0], 1.4), P('p1_crescent', 'head', [0, 0.36, 0.12], [0, 0, 0], 1.6)]),
+        [P('p1_scarfGlow', 'chest', [0, 0.12, 0.0], [0, 0, 0], 1.4), P('p1_crescent', 'head', [0, 0.42, 0.12], [0, 0, 0], 1.6)]),
       ROW([P('p2_kunai', 'chest', [-0.12, 0.12, -0.17], [0, 0, 0.55], 1.35)],
         [P('p2_kunai', 'chest', [-0.12, 0.12, -0.17], [0, 0, 0.55], 1.4), P('p2_lotus', 'chest', [0, 0.32, -0.22], [0, 0, 0], 1.3)]),
     ]),
@@ -160,6 +161,82 @@ export const PATH_LOOKS = Object.freeze({
       ROW([P('p0_medallion', 'chest', [-0.33, 0.45, -0.1], [0, 0.4, 0], 1.75, BOB)], [P('p0_sun', 'chest', [0, 0.42, -0.3], [0, 0, 0], 1.4)]),
       ROW([P('p1_shield', 'root', [0, 0.25, 0], [0, 0, 0], 1.3, SPIN(0.8))], [P('p1_shields', 'root', [0, 0.25, 0], [0, 0, 0], 1.3, SPIN(0.8))]),
       ROW([P('p2_wings', 'head', [0, 0.1, -0.05], [0, 0, 0], 1.6)], [P('p2_crown', 'head', [0, 0.27, 0.0], [0, 0, 0], 1.4)]),
+    ]),
+  }),
+  // ---- rollout batch 2 (nothing on a gun barrel or a staff head: a weapon-tip muzzle sits there) -------------------
+  // Sango, Coral Corsair (cannon in her right hand): 0 Armor-Breaker → a holster of steel shells / a coral anchor
+  // across her back; 1 Fragmentation → three little bombs floating by her / mini mortars circling above her head (clear of her cannon); 2 Siege → a spyglass
+  // and feather in her beret / a captain's plume and anchor medallion
+  sango: Object.freeze({
+    paths: Object.freeze([
+      ROW([P('p0_shells', 'chest', [0.2, 0.25, -0.12], [0, 0, -0.45], 2.0)], [P('p0_anchor', 'chest', [0, 0.3, -0.2], [0, 0, 1.15], 1.9)]),
+      ROW([P('p1_bombs', 'root', [0.33, 0.8, 0], [0, -0.3, 0], 1.3, BOB)],
+        [P('p1_bombs', 'root', [0.33, 0.8, 0], [0, -0.3, 0], 1.4, BOB), P('p1_mortars', 'root', [0, 1.0, 0], [0, 0, 0], 1.15, SPIN(0.7))]),
+      ROW([P('p2_spyglass', 'head', [0.05, 0.42, -0.02], [0, 0.3, 0], 1.4)], [P('p2_captain', 'head', [0.05, 0.42, -0.02], [0, 0.3, 0], 1.5)]),
+    ]),
+  }),
+  // Umeko, Pearl Warden (staff in her right hand): 0 Lighthouse → a paper lantern floating by her / four lanterns
+  // circling; 1 Plum Rain → plum blossoms over the left and back of her head (her staff head rests by her right
+  // temple) / a plum-petal water wheel turning behind her; 2 Undertow → a ring of
+  // pearls circling / + a great clam shell behind her
+  umeko: Object.freeze({
+    paths: Object.freeze([
+      ROW([P('p0_lantern', 'root', [0.34, 0.85, 0], [0, 0, 0], 1.3, BOB)], [P('p0_lanterns', 'root', [0, 0.62, 0], [0, 0, 0], 1.1, SPIN(0.6))]),
+      // (her crown keeps its size at T4: a size up crossed her staff head from the camera)
+      ROW([P('p1_crown', 'head', [0, 0.33, 0], [0, 0, 0], 1.25)],
+        [P('p1_wheel', 'chest', [0, 0.32, -0.25], [0, 0, 0], 1.15, { spinZ: 0.3 })], [P('p1_crown', 'head', [0, 0.33, 0], [0, 0, 0], 1.25)]),
+      ROW([P('p2_pearls', 'root', [0, 0.55, 0], [0, 0, 0], 1.15, SPIN(0.8))],
+        [P('p2_pearls', 'root', [0, 0.55, 0], [0, 0, 0], 1.2, SPIN(0.8)), P('p2_clam', 'chest', [0, 0.2, -0.22], [0, 0, 0], 1.35)]),
+    ]),
+  }),
+  // Shiro, Moon Sniper (rifle in her right hand): 0 Execution → a crescent badge on her beret / + a great silver moon
+  // behind her; 1 Spotter → a spotter drone / three drones circling high; 2 Follow-up → a twin magazine pack / + a halo
+  // of silver bullets behind her head
+  shiro: Object.freeze({
+    paths: Object.freeze([
+      ROW([P('p0_badge', 'head', [-0.1, 0.44, 0.04], [0, 0, 0], 2.0)],
+        [P('p0_badge', 'head', [-0.1, 0.44, 0.04], [0, 0, 0], 2.1), P('p0_moon', 'chest', [0, 0.36, -0.25], [0, 0, 0], 1.2)]),
+      ROW([P('p1_drone', 'root', [0.34, 0.9, 0], [0, -0.4, 0], 1.3, BOB)], [P('p1_drones', 'root', [0, 1.22, 0], [0, 0, 0], 1.1, SPIN(0.5))]),
+      ROW([P('p2_mags', 'chest', [0.18, 0.2, -0.13], [0, 0, -0.35], 1.9)],
+        [P('p2_mags', 'chest', [0.18, 0.2, -0.13], [0, 0, -0.35], 2.0), P('p2_halo', 'chest', [0, 0.5, -0.2], [0, 0, 0], 1.2, { spinZ: 0.4 })]),
+    ]),
+  }),
+  // Midori, Potion Alchemist (she throws her flasks: no weapon tip; her wide hat hides her back): 0 Toxicology → a glass
+  // alembic out over her left shoulder / a bubbling cauldron floating beside her; 1 Corrosion → three bubbling test tubes in her hair / + a flask with fumes floating by
+  // her; 2 Field Kit → two potion bottles circling / five
+  midori: Object.freeze({
+    paths: Object.freeze([
+      ROW([P('p0_alembic', 'chest', [0.26, 0.2, -0.1], [0, 0, -0.25], 1.8)], [P('p0_cauldron', 'root', [0.4, 0.62, 0], [0.35, -0.4, 0], 1.45, BOB)]),
+      ROW([P('p1_tubes', 'head', [-0.17, 0.32, 0], [0, 0, 0.3], 1.5)],
+        [P('p1_tubes', 'head', [-0.17, 0.32, 0], [0, 0, 0.3], 1.6), P('p1_fumes', 'root', [-0.36, 0.82, 0], [0, 0.3, 0], 1.2, BOB)]),
+      ROW([P('p2_bottles', 'root', [0, 0.5, 0], [0, 0, 0], 1.15, SPIN(0.9))], [P('p2_bottles5', 'root', [0, 0.5, 0], [0, 0, 0], 1.15, SPIN(0.9))]),
+    ]),
+  }),
+  // Suzu, Bell Trapper: 0 Mines → a big bell with a fuse ribbon over her left shoulder / + a great bell floating above
+  // her; 1 Binding → bell ribbons on the side of her hair / + a ring of little bells; 2 Seals → two paper seals floating
+  // by her / a circle of seals turning behind her
+  suzu: Object.freeze({
+    paths: Object.freeze([
+      ROW([P('p0_bell', 'chest', [0.2, 0.3, -0.1], [0, 0, -0.2], 1.8)],
+        [P('p0_bell', 'chest', [0.2, 0.3, -0.1], [0, 0, -0.2], 1.9), P('p0_greatBell', 'chest', [0, 0.66, -0.18], [0, 0, 0], 1.3, BOB)]),
+      ROW([P('p1_ribbons', 'head', [0.19, 0.3, -0.04], [0, 1.2, 0], 2.0)],
+        [P('p1_ribbons', 'head', [0.19, 0.3, -0.04], [0, 1.2, 0], 2.1), P('p1_bells', 'root', [0, 0.55, 0], [0, 0, 0], 1.1, SPIN(0.8))]),
+      ROW([P('p2_seals', 'root', [0.33, 0.75, 0.02], [0, -0.3, 0], 1.3, BOB)],
+        [P('p2_sealRing', 'chest', [0, 0.33, -0.24], [0, 0, 0], 1.2, { spinZ: 0.25 })]),
+    ]),
+  }),
+  // Raika, Storm Caller (her staff head rests behind her hair on the right: nothing goes there): 0 Forked → a
+  // lightning-bolt clip between her horns / + six thunder drums ringing high above her; 1 Overcharge → sparks on her horn
+  // tips / + a storm drum under a little cloud floating on her left; 2 Rhythm → twin drumsticks over her left shoulder /
+  // + storm orbs circling
+  raika: Object.freeze({
+    paths: Object.freeze([
+      ROW([P('p0_bolt', 'head', [0, 0.47, 0.04], [-0.5, 0, 0], 1.8)],
+        [P('p0_bolt', 'head', [0, 0.47, 0.04], [-0.5, 0, 0], 1.9), P('p0_drums', 'chest', [0, 0.62, -0.22], [0, 0, 0], 1.2)]),
+      ROW([P('p1_sparks', 'head', [0, 0.28, 0], [0, 0, 0], 1.7)],
+        [P('p1_sparks', 'head', [0, 0.28, 0], [0, 0, 0], 1.8), P('p1_cloud', 'root', [0.36, 0.95, 0], [0, -0.3, 0], 1.2, BOB)]),
+      ROW([P('p2_sticks', 'chest', [0.14, 0.14, -0.16], [0, 0, -0.4], 1.4)],
+        [P('p2_sticks', 'chest', [0.14, 0.14, -0.16], [0, 0, -0.4], 1.45), P('p2_orbs', 'root', [0, 0.6, 0], [0, 0, 0], 1.1, SPIN(0.9))]),
     ]),
   }),
 });

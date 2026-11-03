@@ -8,6 +8,8 @@ import { SKINS } from '../../src/data/skins.js';
 import { heroLookTiers } from '../../src/sim/hero.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 import { simId } from '../../tools/simId.mjs';
+import * as THREE from 'three';
+import { muzzleBlocked, inPathLook } from '../../src/render/pathLooks/muzzle.js';
 
 /** Node names in a GLB's JSON chunk. */
 function glbNodes(file) {
@@ -97,8 +99,8 @@ describe('path looks: pip gauge', () => {
 describe('path looks: catalog and pieces', () => {
   const units = Object.keys(PATH_LOOKS);
 
-  it('covers the Phase 1 prototype girls and rollout batch 1, three paths each', () => {
-    expect([...units].sort()).toEqual(['akane', 'aoi', 'hikari', 'kage', 'luna', 'momo', 'nami', 'rei', 'yuki']);
+  it('covers the Phase 1 prototype girls and rollout batches 1–2, three paths each', () => {
+    expect([...units].sort()).toEqual(['akane', 'aoi', 'hikari', 'kage', 'luna', 'midori', 'momo', 'nami', 'raika', 'rei', 'sango', 'shiro', 'suzu', 'umeko', 'yuki']);
     for (const id of units) {
       expect(UNIT_MAP[id]).toBeTruthy();
       expect(pathLooksFor(id).paths).toHaveLength(3);
@@ -107,7 +109,7 @@ describe('path looks: catalog and pieces', () => {
         expect(p.t5?.length).toBeGreaterThan(0);
       }
     }
-    expect(pathLooksFor('sango')).toBe(null);
+    expect(pathLooksFor('miko')).toBe(null);
   });
 
   it('every piece exists in its file, every file stays under 60 KB, every socket is a rig bone', () => {
@@ -186,5 +188,51 @@ describe('path looks: catalog and pieces', () => {
   it('is display only: no file of the sim id reads it', () => {
     const { files } = simId();
     expect(files.some((f) => f.includes('pathLooks') || f.includes('pathlooks'))).toBe(false);
+  });
+});
+
+describe('path looks: the muzzle check (review r4 HIGH)', () => {
+  // a camera on +z looking at a muzzle at the origin; her figure is a group, her pieces hang under a 'pathLook:merged'
+  // group whose mesh has no name of its own (the r4 bug: such a mesh counted as her figure, so every piece block read
+  // as 'hidden')
+  function stage({ pieceAt = null, bodyAt = null } = {}) {
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-2, 2, 2, -2, 0.1, 100);
+    camera.position.set(0, 0, 10);
+    camera.lookAt(0, 0, 0);
+    const model = new THREE.Group();
+    scene.add(model);
+    const box = (z) => new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.1), new THREE.MeshBasicMaterial());
+    const figure = box();
+    figure.position.set(bodyAt == null ? 2 : 0, 0, bodyAt ?? 0);
+    model.add(figure);
+    const merged = new THREE.Group();
+    merged.name = 'pathLook:merged';
+    merged.userData.pieces = ['p1_drones'];
+    const piece = box();
+    piece.name = '';
+    piece.position.set(pieceAt == null ? -2 : 0, 0, pieceAt ?? 0);
+    merged.add(piece);
+    model.add(merged);
+    scene.updateMatrixWorld(true);
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld(true);
+    return { model, holders: [merged], muzzle: new THREE.Vector3(0, 0, 0), camera };
+  }
+
+  it('a piece alone on the ray is reported by name, never as hidden', () => {
+    expect(muzzleBlocked(stage({ pieceAt: 1 }))).toBe('p1_drones');
+  });
+  it('her own figure in front of the tip, with a piece behind it, reads hidden', () => {
+    expect(muzzleBlocked(stage({ pieceAt: 1, bodyAt: 2 }))).toBe('hidden');
+  });
+  it('nothing on the ray is clear; a piece behind the tip does not block', () => {
+    expect(muzzleBlocked(stage())).toBe(false);
+    expect(muzzleBlocked(stage({ pieceAt: -1 }))).toBe(false);
+  });
+  it('anything under a pathLook node is a piece, not her figure', () => {
+    const { model, holders } = stage({ pieceAt: 1 });
+    expect(inPathLook(holders[0].children[0], model.parent)).toBe(true);
+    expect(inPathLook(model.children[0], model.parent)).toBe(false);
   });
 });

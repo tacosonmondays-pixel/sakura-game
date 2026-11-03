@@ -140,13 +140,13 @@ covered).
 | **Rei** | Whirlwind: a big sakura sash bow high on her back [back] → + a ring of petals circling [orbit] | Duelist: a white headband with long cyan-edged tails [head] → a gold crescent crest on it [head] | Counter: a short sword across her back [back] → + three spirit blades fanned behind her [back] |
 | **Yuki** | Deep Freeze: a blue snowflake hair ornament [head] → + a great snowflake halo behind her [back] | Frostbite: two icicle shards circling [orbit] → a ring of six diamond shards [orbit] | Permafrost: frost crystals rising over her left shoulder [back] → + an ice clock floating above her [back-high] (a capelet was tried: it hid her staff head, which rests low behind her right hip) |
 | **Momo** | Fan Club: a peach hair clip [head] → + a smiling golden peach bank floating by her [float] | Merch: a tote of light sticks fanned over her shoulders [back] → + a floating golden ledger [float] | Encore: star-and-coin hair clips [head] → + a ring of gold coins and stars [orbit] |
-| Sango | Armor-Breaker: a ram cap on the cannon muzzle [hand] → coral-steel cannon shroud + anchor charm [hand] | Fragmentation: a shell crate backpack [back] → three mini mortars circling [orbit] | Siege: spyglass and feather on her beret [head] → a sea-serpent figurehead on the cannon [hand] |
+| **Sango** | Armor-Breaker: a holster of steel shells over her left shoulder [back] → a coral-and-steel anchor across her back [back] | Fragmentation: three little bombs floating by her [float] → + mini mortars circling above her head [orbit-high] | Siege: a brass spyglass and feather in her beret [head] → a captain's plume and anchor medallion [head] (nothing on the cannon: its muzzle) |
 | **Kage** | Steel: a big four-point shuriken over her left shoulder [back] → + six shuriken circling [orbit] | Shadow Mark: a red scarf, both tails streaming out to her left [back] → violet-tipped tails + a crescent on her own headband [back+head] | Kunai: a fan of kunai over her right shoulder [back] → + a black lotus of blades behind her [back] |
-| Umeko | Lighthouse: a small lantern on her staff [hand] → four paper lanterns circling [orbit] | Plum Rain: plum blossom hair crown [head] → a plum-petal water wheel behind her [back] | Undertow: a pearl ring circling [orbit] → a giant clam-shell backdrop with pearls [back] |
-| Shiro | Execution: a long scope on the rifle [hand] → moon-silver long barrel, crescent muzzle [hand] | Spotter: a small spotter drone hovering [float] → three drones circling high [orbit] | Follow-up: a twin magazine pack [back] → a silver bullet ring behind her [back] |
-| Midori | Toxicology: a little alembic backpack [back] → a bubbling cauldron pack with vines [back] | Corrosion: goggles glowing on her forehead (never over the eyes) [head] → a floating flask with green fumes [orbit] | Field Kit: a spray atomiser on her flask [hand] → five potion bottles circling [orbit] |
-| Suzu | Mines: a big bell with a fuse ribbon on her back [back] → a great bell floating behind her [back] | Binding: bell-chain ribbons in her hair [head] → a ring of little bells [orbit] | Seals: paper seal tags on her bell [hand] → a circle of floating seals behind her [back] |
-| Raika | Forked: a lightning-bolt staff head [hand] → a ring of six thunder drums behind her [back] | Overcharge: sparks crackling on her horns [head] → a big floating drum under a storm cloud [float-high] | Rhythm: twin drumsticks on her back [back] → storm orbs circling [orbit] |
+| **Umeko** | Lighthouse: a paper lantern floating by her [float] → four lanterns circling [orbit] | Plum Rain: plum blossoms over the left and back of her head [head] → a plum-petal water wheel turning behind her [back] | Undertow: a ring of pearls circling [orbit] → + a great clam shell behind her [back] (nothing on the staff head) |
+| **Shiro** | Execution: a silver crescent badge on her beret [head] → + a great silver moon with crosshair ticks behind her [back] | Spotter: a spotter drone [float] → three drones circling well above her head [orbit-high] | Follow-up: a twin magazine pack over her left shoulder [back] → + a turning halo of silver bullets behind her head [back] (nothing on the rifle) |
+| **Midori** | Toxicology: a glass alembic on her back [back] → a bubbling cauldron pack [back] | Corrosion: three bubbling test tubes in her hair (her own goggles stay as they are) [head] → + a flask with fumes floating by her [float] | Field Kit: two potion bottles circling [orbit] → five [orbit] |
+| **Suzu** | Mines: a big bell with a fuse ribbon on her back [back] → + a great bell floating above her [back-high] | Binding: bell ribbons at the back of her hair [head] → + a ring of little bells [orbit] | Seals: two paper seals floating by her [float] → a circle of seals turning behind her [back] |
+| **Raika** | Forked: a lightning-bolt clip between her horns [head] → + six thunder drums ringing high above her [back-high] | Overcharge: sparks on her horn tips [head] → + a storm drum under a little cloud floating on her left [float] | Rhythm: twin drumsticks over her left shoulder [back] → + storm orbs circling [orbit] (her staff head rests behind her hair on the right: nothing there) |
 | Miko | Blessing: a flower-and-bells hairpin [head] → festival sun crown + floating prayer plaques [head+orbit] | Purification: a paper charm bundle on the gohei [hand] → a sacred bronze mirror behind her [back] | Sacred Grounds: a little fox spirit beside her [float] → a small torii arch behind her [back] |
 | Hotaru | Lantern Light: a bigger lantern flame with a charm [hand] → five lanterns rising round her [orbit] | Silent Prayer: prayer beads in her other hand [hand] → a moon disc halo ringed with script [back] | Guiding Lights: two firefly wisps circling [orbit] → a swarm of eight fireflies [orbit] |
 | Kaede | Rhythm: maple-leaf hair ornament [head] → a ring of crimson maple leaves [orbit] | Flowing Blade: a fluttering fencing capelet [back] → a fan of spectral rapiers behind her [back] | Guard Breaker: a buckler on her other hand [hand] → a big crimson longblade [hand] |
@@ -183,20 +183,37 @@ covered).
 
 ## 7. Results
 
-- **Built:** pips, hand glows and T5 aura for every girl; T3 / T4 / T5 pieces for Aoi, Akane and Luna (Phase 1) and
-  Rei, Yuki, Momo, Kage, Nami and Hikari (batch 1): 27 files, one per girl and path, 12–60 KB; an outfit row for
-  Sentinel Akane.
+- **Built:** pips, hand glows and T5 aura for every girl; T3 / T4 / T5 pieces for Aoi, Akane and Luna (Phase 1),
+  Rei, Yuki, Momo, Kage, Nami and Hikari (batch 1) and Sango, Umeko, Shiro, Midori, Suzu and Raika (batch 2): 45 files,
+  one per girl and path, 12–60 KB; an outfit row for Sentinel Akane. Batch 2's six Sentinel Style outfits were each
+  close-up checked: none needed an outfit row.
+- **Boards:** `docs/art/previews/path-looks-board.jpg` (Phase 1 + batch 1) and `path-looks-batch2-board.jpg` (batch 2
+  with its outfits and a real 390×844 battle).
 - **Board:** `docs/art/previews/path-looks-board.jpg`; capture script `e2e/path-looks.mjs`
   (`--only close,muzzle,phone,perf,board`, header says how the board was made).
 - **Faces and weapon tips.** Every close-up, T5 frame and phone crop on the board keeps faces clear. `--only muzzle`
   casts a ray from the battle camera to each armed girl's weapon-tip muzzle (`src/models/weaponTip.js`) against every
   piece triangle, skinned merges posed as drawn, 30 frames a set with two attack swings, at 390×844 and 1280×720:
-  **0 blocked frames** at either size (Aoi, Akane, Yuki, Momo 180 frames each a size; Luna, Nami 90; Rei, Kage and
-  Hikari carry no muzzle anchor). Two pieces were moved for it: Akane's pinwheels sit higher on her hat (they crossed her staff head in a
+  **0 blocked frames** at either size (Aoi, Akane, Yuki, Momo, Sango, Umeko, Shiro, Raika 180 frames each a size;
+  Luna, Nami 90; Rei, Kage, Hikari, Midori and Suzu carry no muzzle anchor). Since batch 2 the test also casts the
+  ray at her own figure: a frame where her head or hair already hides the tip is counted apart, not as blocked, because
+  no piece can hide what the camera cannot see. Review r4 found that rule masking real blocks (the merged piece mesh had
+  no name, so it counted as her figure); now the merged meshes are named `pathLookMesh` / `pathLookHull`, anything under
+  a `pathLook` node is never her figure, the check lives in `src/render/pathLooks/muzzle.js` and a unit test pins that a
+  piece-only block reports the piece. Re-run for every armed girl with the fixed rule: 0 blocked frames at both sizes;
+  Umeko alone has frames her own head hides (5 of 180 portrait frames at 0-4-0: her staff head swings behind it). Sweeps
+  of 600 frames a size: Shiro (after her drones moved) 600/600 clear at both sizes; Umeko 600/600 clear at 1280×720
+  and 582/600 at 390×844, the other 18 hidden by her own head, none blocked by a piece. Batch 2's test moved four pieces: Sango's
+  mini mortars circle above her head (they crossed her cannon's muzzle), Shiro's Spotter drones circle higher and wider
+  (review r4: root y 1.22, scale 1.1; at y 0.95 they crossed her rifle's muzzle line in about 1.7 % of portrait frames),
+  Umeko's blossoms sit round the back and left of
+  her head and keep their size at T4 (her staff head rests by her right temple), and Raika's pieces keep off her right
+  side, where her staff head rests behind her hair. Two pieces were moved for it: Akane's pinwheels sit higher on her hat (they crossed her staff head in a
   portrait swing), and Yuki's Permafrost T3 became frost crystals over her left shoulder (her staff head rests low
   behind her right hip, and a capelet covered it).
 - **Checks:** sim id `e4001588f40b`, the same as `main` (the test also asserts no sim-id file reads path looks).
-  `npm test`: 446 files passed, 2 skipped; 7,097 tests passed, 11 skipped (`tests/render/pathLooks.test.js`: 14).
+  `npm test`: 446 files passed, 2 skipped; 7,097 tests passed, 11 skipped (`tests/render/pathLooks.test.js`: 14),
+  re-run green after batch 2.
   `node e2e/smoke.mjs` (1280×720, 844×390, 390×844): ALL SMOKE CHECKS PASSED.
 - **Performance** (`--only perf --board mixed|allT5|rollout`: 1-2, quality **low**, 1280×720, a still wave, 12 girls;
   alternating rounds with the whole layer off and on; Chromium + SwiftShader, software WebGL with no GPU here, so frame
@@ -207,6 +224,7 @@ covered).
   | mixed tiers (5-2-0, 2-0-5, 0-5-2, 3-0-0, 0-3-0, 0-0-3, 4-2-0, 0-4-2, 2-0-4, 2-1-0, 0-0-0, 5-0-2; Aoi and Akane) | 57 → 67 (**+10**: one per girl wearing pieces) | +7,400 (6,762 piece triangles) | 362 → 382 ms (+5.5 %; pairs +3.3, +2.3, +11.1 %) | 0.2 ms a frame (p95 0.4) |
   | **all T5**, six Aoi + six Akane (review r1) | 58 → 70 (**+12**) | +13,204 (1,019 a girl) | 358 → 370 ms (+3.3 %; +1.0, +8.1, +1.0 %) | 0.2 ms (p95 0.4) |
   | **rollout T5**, Rei, Yuki, Momo, Kage three each (review r2) | 58 → 70 (**+12**; r2 measured +17) | +9,042 (672 a girl) | 362 → 371 ms (+2.3 %; +4.6, −0.5, +2.9 %) | 0.2 ms (p95 0.5) |
+  | **batch 2 T5**, Sango, Umeko, Shiro, Midori, Suzu, Raika two each (`--board rollout --girls …`) | 58 → 70 (**+12**) | +9,346 (698 a girl) | 383 → 399 ms (+4.1 %; 0.0, +2.6, +10.2 %) | 0.23 ms (p95 0.5) |
 
   Every girl costs **one** draw call (gate ≤ 2, heroes ≤ 3, per girl in `--only perf`). Medium / high add one outline
   hull each. Round 2, before animated pieces joined the merge: mixed +12 calls, all-T5 +14 (395 → 412 ms, +4.1 %).
@@ -217,12 +235,11 @@ covered).
 
 ## 8. Rollout
 
-Batch 1 (Rei, Yuki, Momo, Kage, Nami, Hikari) is built. Each girl is one Blender function per piece (6 pieces: a T3
+Batches 1 (Rei, Yuki, Momo, Kage, Nami, Hikari) and 2 (Sango, Umeko, Shiro, Midori, Suzu, Raika) are built. Each girl is one Blender function per piece (6 pieces: a T3
 and a T5 per path; T4 is the T3 piece a size up), a catalog row and one close-up + muzzle pass: batch 1 took about
-1.5 hours a girl including two look iterations. The **30 remaining units ≈ 45–60 hours**, in five batches of six, each
+1.5 hours a girl including two look iterations. The **24 remaining units ≈ 35–45 hours**, in four batches of six, each
 reviewed and shipped on its own (display only, no sim id or protocol change):
 
-2. **Gacha SR wave 1:** Sango, Umeko, Shiro, Midori, Suzu, Raika (most hold guns or staves: run `--only muzzle` early).
 3. **Gacha SR wave 2 + SSR:** Miko, Hotaru, Kaede, Chika, Tenka, Fuu.
 4. **Newer girls:** Hana, Ruri, Noa, Iroha, Ena, Azami.
 5. **Academy staff and support:** Kinu, Wakaba, Yuzuha, Ouka, Chigusa, Marumi.
@@ -254,3 +271,19 @@ silhouette moves), `pieceCalls` ≤ 2 a girl, `--only muzzle` clean, the board u
 - **LOW-3:** the girl info page's path rows (`unit-info.css` `.ut-row`, `.p1`, `.p2`) use pink, cyan and a deeper
   yellow for that light page (`--pa #d99a00`, `--pc #8a5a00`).
 - **NIT-1:** heroes' T4 noted in §3. **NIT-2:** glow vertices cast no shadow.
+
+## 11. Review round 3
+
+- **LOW:** the shared colour set reaches every path surface: the upgrade tree grid (`tree-grid.css` `.ug-row` / `.ugp`,
+  `.p1`, `.p2`: the girl page's Tree tab and the battle tree) and the tier detail card (`unit-info.css` `.ut-detail`)
+  now use pink `#ff6b8b`, cyan `#0ea5d8` and deep gold `#d99a00` like `.ut-row`.
+
+## 12. Review round 4
+
+- **HIGH:** the muzzle rule's "hidden by her own figure" masked piece blocks: the merged piece mesh had no name, so it
+  was counted as her figure. Fixed as above (§7): named meshes, ancestors checked, a regression test
+  (`tests/render/pathLooks.test.js`, "the muzzle check"). The muzzle test also runs each girl on her own one-girl
+  formation page now (a formation holds eight girls; with more, the rest were silently skipped) and fails if a girl
+  cannot be placed.
+- **MEDIUM:** Shiro's Spotter drones circle at root y 1.22, scale 1.1 (were 0.95, 1.0). 600-frame sweep a size: clear.
+- Re-run with the fixed rule for every armed girl of Phase 1 and batches 1–2: 0 blocked frames (§7).
