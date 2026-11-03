@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import {
   FLIP, KICK_FLIP, KICK_MERGE, KICK_GLINT, KICK_FLASH, createPanelAnim, panelKick, panelPose, glintPhase, flashLevel,
   nearAngle, shotYaw, shardLevel, shardCount, kaleidoscope, SHARD_CAP, ghostCount, ghostAt, panelSpot,
+  createLandGate, landFree, LAND_NEAR, LAND_GAP,
 } from '../../src/render/mirrorPanel.js';
 import { MirrorFx, MAX_GHOSTS } from '../../src/render/mirrorFx.js';
 import { RosterFx, BEAMS_PER_FRAME } from '../../src/render/rosterFx.js';
@@ -366,6 +367,46 @@ describe('Iroha impact flashes (no white-out on a clump)', () => {
     expect(flashFree(b, 8, 5, 10.05)).toBe(true); // elsewhere
     expect(flashFree(b, 5, 5, 10.2)).toBe(true); // after the gap
     expect(flashFree(b, 5, 5, 1)).toBe(true); // a fresh battle clock never blocks
+  });
+
+  it('her beams land once per spot per moment (landFree), like the impact flash', () => {
+    const g = createLandGate();
+    expect(landFree(g, 5, 5, 10)).toBe(true);
+    expect(landFree(g, 5.2, 5.1, 10)).toBe(false); // the same clump, the same moment
+    expect(landFree(g, 5.1, 5, 10 + LAND_GAP * 0.5)).toBe(false);
+    expect(landFree(g, 5 + LAND_NEAR + 0.1, 5, 10)).toBe(true); // elsewhere
+    expect(landFree(g, 5, 5, 10 + LAND_GAP + 0.01)).toBe(true); // after the gap
+    expect(landFree(g, 5, 5, 1)).toBe(true); // a fresh clock never blocks
+  });
+
+  it('a volley\'s glints onto one clump: lilac mirror beams, one landing burst; a far target or a later moment lands too', () => {
+    const { roster } = board();
+    const got = [];
+    roster.fx.beam = (a, b, w, c, o) => got.push(o);
+    roster.update(1 / 60);
+    for (let i = 0; i < 3; i++) roster.handle({ type: 'mirrorGlint', uid: i, towerUid: 7, ownerUid: 7, x: 5, y: 2, tx: 4 + i * 0.1, ty: 3, targetUid: 20 + i });
+    roster.handle({ type: 'mirrorGlint', uid: 9, towerUid: 7, ownerUid: 7, x: 5, y: 2, tx: 1, ty: 1, targetUid: 30 });
+    expect(got.map((o) => o.impact)).toEqual([true, false, false, true]);
+    expect(got.every((o) => o.preset === 'mirror')).toBe(true);
+    for (let i = 0; i < 8; i++) roster.update(1 / 60);
+    roster.handle({ type: 'mirrorGlint', uid: 10, towerUid: 7, ownerUid: 7, x: 5, y: 2, tx: 4, ty: 3, targetUid: 20 });
+    expect(got[4].impact).toBe(true);
+  });
+
+  it('bolts bouncing off one mirror together: one landing and one glass flash; an ally\'s copy keeps its own colour', () => {
+    const { roster } = board();
+    const got = [];
+    const flashes = [];
+    roster.fx.beam = (a, b, w, c, o) => got.push([c, o]);
+    roster.fx.flash = (...a) => flashes.push(a);
+    roster.update(1 / 60);
+    for (let i = 0; i < 3; i++) roster.handle({ type: 'mirrorBounce', uid: i, towerUid: 7, ownerUid: 7, mirror: 1, n: 1, x: 3.5, y: 4.25, fx: 2, fy: 2 });
+    expect(got.map(([, o]) => o.impact)).toEqual([true, false, false]);
+    expect(got.every(([, o]) => o.preset === 'mirror')).toBe(true);
+    expect(flashes.length).toBe(1);
+    roster.handle({ type: 'mirrorBounce', uid: 5, towerUid: 7, ownerUid: 8, mirror: 0, n: 1, x: 5, y: 2, fx: 2, fy: 2 });
+    expect(got[3][1].preset).toBe(null);
+    expect(got[3][0]).toMatch(/^#[0-9a-f]{6}$/i);
   });
 });
 

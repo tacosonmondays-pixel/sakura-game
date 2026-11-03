@@ -1,0 +1,433 @@
+{
+  "what": "Iroha Shattered Glass T5 (Kaleidoscope Burst, tiers 2-0-5) impact frames over a clump: near-white pixels before and after fix/iroha-t5-bloom",
+  "method": {
+    "script": "e2e/iroha-t5-bloom.mjs (node e2e/iroha-t5-bloom.mjs --frames 20 --out <dir> --label <name>)",
+    "setup": "battle 1-1 normal, quality high, default camera, 844x390, swiftshader. Iroha placed near the road and upgraded with ui.act.upgrade to [2,0,5]. A target plus 5 slime_green (hpMul 50, speedMul 0.01, hp held full) moved onto the spot of her first splash burst. renderer.update wrapped: the render frame that drains an explode event freezes (sim paused, renderer dt 0) for the screenshot.",
+    "metric": "pixels with every channel > 225 in a 230x160 px box centred on the clump (screen point of the target at ground height)",
+    "note": "The box also holds Iroha herself and, often, one of her white mirror panels, so a frame never reads 0. The clump sits on one of her auto mirrors on this map, as in the earlier rounds."
+  },
+  "before": {
+    "commit": "f341de67 (origin/main, v0.1.73)",
+    "summary": {
+      "n": 20,
+      "min": 349,
+      "median": 1094,
+      "max": 1541,
+      "mean": 1021,
+      "frames_at_or_above_694": 14,
+      "frames_at_or_above_1000": 11,
+      "frames_at_or_above_1300": 6
+    },
+    "frames": [
+      {
+        "frame": 1,
+        "explodes": 3,
+        "nearWhite": 1077,
+        "shot": "before-01.png"
+      },
+      {
+        "frame": 2,
+        "explodes": 2,
+        "nearWhite": 1286,
+        "shot": "before-02.png"
+      },
+      {
+        "frame": 3,
+        "explodes": 1,
+        "nearWhite": 675,
+        "shot": "before-03.png"
+      },
+      {
+        "frame": 4,
+        "explodes": 2,
+        "nearWhite": 1198,
+        "shot": "before-04.png"
+      },
+      {
+        "frame": 5,
+        "explodes": 1,
+        "nearWhite": 363,
+        "shot": "before-05.png"
+      },
+      {
+        "frame": 6,
+        "explodes": 3,
+        "nearWhite": 970,
+        "shot": "before-06.png"
+      },
+      {
+        "frame": 7,
+        "explodes": 1,
+        "nearWhite": 1404,
+        "shot": "before-07.png"
+      },
+      {
+        "frame": 8,
+        "explodes": 1,
+        "nearWhite": 1328,
+        "shot": "before-08.png"
+      },
+      {
+        "frame": 9,
+        "explodes": 1,
+        "nearWhite": 1426,
+        "shot": "before-09.png"
+      },
+      {
+        "frame": 10,
+        "explodes": 1,
+        "nearWhite": 1404,
+        "shot": "before-10.png"
+      },
+      {
+        "frame": 11,
+        "explodes": 1,
+        "nearWhite": 1541,
+        "shot": "before-11.png"
+      },
+      {
+        "frame": 12,
+        "explodes": 1,
+        "nearWhite": 672,
+        "shot": "before-12.png"
+      },
+      {
+        "frame": 13,
+        "explodes": 2,
+        "nearWhite": 1166,
+        "shot": "before-13.png"
+      },
+      {
+        "frame": 14,
+        "explodes": 1,
+        "nearWhite": 349,
+        "shot": "before-14.png"
+      },
+      {
+        "frame": 15,
+        "explodes": 2,
+        "nearWhite": 673,
+        "shot": "before-15.png"
+      },
+      {
+        "frame": 16,
+        "explodes": 1,
+        "nearWhite": 950,
+        "shot": "before-16.png"
+      },
+      {
+        "frame": 17,
+        "explodes": 2,
+        "nearWhite": 1307,
+        "shot": "before-17.png"
+      },
+      {
+        "frame": 18,
+        "explodes": 2,
+        "nearWhite": 1094,
+        "shot": "before-18.png"
+      },
+      {
+        "frame": 19,
+        "explodes": 1,
+        "nearWhite": 895,
+        "shot": "before-19.png"
+      },
+      {
+        "frame": 20,
+        "explodes": 1,
+        "nearWhite": 637,
+        "shot": "before-20.png"
+      }
+    ]
+  },
+  "after": {
+    "branch": "fix/iroha-t5-bloom",
+    "summary": {
+      "n": 20,
+      "min": 157,
+      "median": 252,
+      "max": 914,
+      "mean": 338,
+      "frames_at_or_above_694": 2,
+      "frames_at_or_above_1000": 0,
+      "frames_at_or_above_1300": 0
+    },
+    "frames": [
+      {
+        "frame": 1,
+        "explodes": 1,
+        "nearWhite": 209,
+        "shot": "after-01.png"
+      },
+      {
+        "frame": 2,
+        "explodes": 2,
+        "nearWhite": 231,
+        "shot": "after-02.png"
+      },
+      {
+        "frame": 3,
+        "explodes": 2,
+        "nearWhite": 280,
+        "shot": "after-03.png"
+      },
+      {
+        "frame": 4,
+        "explodes": 2,
+        "nearWhite": 169,
+        "shot": "after-04.png"
+      },
+      {
+        "frame": 5,
+        "explodes": 1,
+        "nearWhite": 210,
+        "shot": "after-05.png"
+      },
+      {
+        "frame": 6,
+        "explodes": 1,
+        "nearWhite": 224,
+        "shot": "after-06.png"
+      },
+      {
+        "frame": 7,
+        "explodes": 2,
+        "nearWhite": 404,
+        "shot": "after-07.png"
+      },
+      {
+        "frame": 8,
+        "explodes": 1,
+        "nearWhite": 405,
+        "shot": "after-08.png"
+      },
+      {
+        "frame": 9,
+        "explodes": 1,
+        "nearWhite": 914,
+        "shot": "after-09.png"
+      },
+      {
+        "frame": 10,
+        "explodes": 2,
+        "nearWhite": 452,
+        "shot": "after-10.png"
+      },
+      {
+        "frame": 11,
+        "explodes": 1,
+        "nearWhite": 603,
+        "shot": "after-11.png"
+      },
+      {
+        "frame": 12,
+        "explodes": 1,
+        "nearWhite": 284,
+        "shot": "after-12.png"
+      },
+      {
+        "frame": 13,
+        "explodes": 1,
+        "nearWhite": 252,
+        "shot": "after-13.png"
+      },
+      {
+        "frame": 14,
+        "explodes": 2,
+        "nearWhite": 157,
+        "shot": "after-14.png"
+      },
+      {
+        "frame": 15,
+        "explodes": 1,
+        "nearWhite": 201,
+        "shot": "after-15.png"
+      },
+      {
+        "frame": 16,
+        "explodes": 3,
+        "nearWhite": 187,
+        "shot": "after-16.png"
+      },
+      {
+        "frame": 17,
+        "explodes": 1,
+        "nearWhite": 727,
+        "shot": "after-17.png"
+      },
+      {
+        "frame": 18,
+        "explodes": 2,
+        "nearWhite": 232,
+        "shot": "after-18.png"
+      },
+      {
+        "frame": 19,
+        "explodes": 2,
+        "nearWhite": 225,
+        "shot": "after-19.png"
+      },
+      {
+        "frame": 20,
+        "explodes": 1,
+        "nearWhite": 403,
+        "shot": "after-20.png"
+      }
+    ]
+  },
+  "reference_earlier_rounds": {
+    "round3_disc_frames": "1889-2224",
+    "round4_frames": "694-1127",
+    "round3_clean_frames": "768-964"
+  },
+  "layer_attribution_before": {
+    "how": "Two before frames, measured with a local, uncommitted tagging patch: in the frozen frame each layer was muted in turn (alpha 0, or a switch in the beam layer) and the box counted again; the value is the drop in near-white pixels (negative: the layer covered white). gx = the generic fx.explosion, imp/kf/shards = Iroha style layers (kf = Kaleidoscope flare), rf.bounceFlash = the white flash on a mirror per mirrorBounce, beams.* = the styled beam layer (v0.1.73) drawing her mirrorBounce legs and mirrorGlint glints.",
+    "frames": [
+      {
+        "frame": 1,
+        "explodes": 3,
+        "nearWhite": 1157,
+        "dropWhenMuted": {
+          "gx.body": -3,
+          "gx.fire": -21,
+          "rf.bounceFlash": 6,
+          "imp.sparks": 2,
+          "gx.repeatRing": 4,
+          "shards": 2,
+          "imp.stars": 2,
+          "kf.ripple": 2,
+          "kf.blades": 3,
+          "kf.glints": 5,
+          "allTagged": -12,
+          "beams.all": 625,
+          "beams.body": 188,
+          "beams.star": 1,
+          "beams.lines": 348
+        }
+      },
+      {
+        "frame": 2,
+        "explodes": 1,
+        "nearWhite": 1493,
+        "dropWhenMuted": {
+          "gx.body": -25,
+          "gx.fire": -82,
+          "shards": 0,
+          "kf.blades": 0,
+          "kf.glints": 7,
+          "gx.repeatRing": 0,
+          "rf.bounceFlash": 97,
+          "imp.flash": 23,
+          "imp.sparks": 24,
+          "gx.glow": 25,
+          "kf.flash": 24,
+          "kf.ripple": 25,
+          "kf.star": 24,
+          "allTagged": 18,
+          "beams.all": 717,
+          "beams.body": 195,
+          "beams.star": 35,
+          "beams.lines": 426
+        }
+      }
+    ],
+    "finding": "The styled beams are 54-62% of the near-white pixels: each mirrorGlint (mirror to the enemy it struck) and mirrorBounce leg is now a toon beam tinted #efe4ff (a near-white body and a white core) that lands with a white star and 8 white impact lines, and a volley lands several of them on one clump in the same moment. Iroha's own flare, ripple, glints, stars and shards add 0-25 each; the generic blast's glow 0-25."
+  },
+  "other_splash_girl": {
+    "akane_single_target_after": {
+      "summary": {
+        "n": 6,
+        "min": 60,
+        "median": 86,
+        "max": 95,
+        "mean": 80,
+        "frames_at_or_above_694": 0,
+        "frames_at_or_above_1000": 0,
+        "frames_at_or_above_1300": 0
+      },
+      "frames": [
+        {
+          "frame": 1,
+          "explodes": 1,
+          "at": [
+            [
+              5.59,
+              3.04,
+              1
+            ]
+          ],
+          "nearWhite": 86,
+          "shot": "akane-after-01.png"
+        },
+        {
+          "frame": 2,
+          "explodes": 1,
+          "at": [
+            [
+              5.6,
+              3.04,
+              1
+            ]
+          ],
+          "nearWhite": 60,
+          "shot": "akane-after-02.png"
+        },
+        {
+          "frame": 3,
+          "explodes": 1,
+          "at": [
+            [
+              5.61,
+              3.05,
+              1
+            ]
+          ],
+          "nearWhite": 77,
+          "shot": "akane-after-03.png"
+        },
+        {
+          "frame": 4,
+          "explodes": 1,
+          "at": [
+            [
+              5.62,
+              3.05,
+              1
+            ]
+          ],
+          "nearWhite": 95,
+          "shot": "akane-after-04.png"
+        },
+        {
+          "frame": 5,
+          "explodes": 1,
+          "at": [
+            [
+              5.64,
+              3.06,
+              1
+            ]
+          ],
+          "nearWhite": 86,
+          "shot": "akane-after-05.png"
+        },
+        {
+          "frame": 6,
+          "explodes": 1,
+          "at": [
+            [
+              5.65,
+              3.06,
+              1
+            ]
+          ],
+          "nearWhite": 74,
+          "shot": "akane-after-06.png"
+        }
+      ],
+      "shot": "akane-single-blast-after.jpg"
+    },
+    "note": "Akane never fires fx.beam or mirror events: the changed code paths (beam preset, impact flag, landing gate) do not run for her; her warm blast with ring and puffs is unchanged."
+  }
+}

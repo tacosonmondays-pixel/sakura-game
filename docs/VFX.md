@@ -384,6 +384,10 @@ every attack and the batch that styles it. Display only: the sim id does not cha
 - **Who:**
   - Luna's moon lance (it still sweeps: its end slides in from the last one), Miko's holy ray, Raika's Overcharge lance (a zig-zag struck again on the beat).
   - Every beam the default layer draws (`fx.beam` hands it over, in the beam's own colour).
+  - Iroha's mirror legs and glints use the `mirror` preset (lilac glass: a lilac body, a pale core never above white,
+    a small lilac star and 4 impact lines). `fx.beam(..., { preset, impact })`: a preset draws in its own colours,
+    `impact: false` fires the beam without its landing. Her landings go through `landFree` (`src/render/mirrorPanel.js`):
+    one burst per spot per 0.1 s, so a volley glinting off several mirrors onto one clump never stacks into a white bloom.
 - **Four beats:**
   - Charge: a thin line races out, with a muzzle flare.
   - Punch: it slams in wider (`overshoot`) and settles.

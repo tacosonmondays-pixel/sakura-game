@@ -15,7 +15,7 @@ import { aimMode } from '../sim/towers.js';
 import { runnerSegment } from '../sim/runners.js';
 import { pointAt } from '../sim/path.js';
 import { MirrorFx } from './mirrorFx.js';
-import { panelSpot } from './mirrorPanel.js';
+import { panelSpot, createLandGate, landFree } from './mirrorPanel.js';
 import { loadTripoProp, getTripoProp } from './tripoProps.js';
 
 const TAU = Math.PI * 2;
@@ -248,6 +248,8 @@ export class RosterFx {
     this.actors = actors;
     this.quality = quality;
     this.time = 0;
+    /** Iroha's recent beam landings (one burst per spot per moment: mirrorPanel.landFree). */
+    this._land = createLandGate();
     /** game speed (1-3x; setTimeScale): sim seconds per real second */
     this.timeScale = 1;
     this.selectedUid = null;
@@ -367,7 +369,9 @@ export class RosterFx {
         const cap = this.quality === 'low' ? BEAMS_PER_FRAME / 2 : BEAMS_PER_FRAME;
         if (this._beamsThisFrame >= cap) return true;
         this._beamsThisFrame++;
-        this.fx.beam([ev.x, ev.y], [ev.tx, ev.ty], 0.03, COL.mirrorBeam, { life: 0.12, y: 0.8 });
+        // her lilac glass beam (src/render/vfx/beamPresets.js 'mirror'); one landing burst per spot per moment
+        const land = landFree(this._land, ev.tx, ev.ty, this.time);
+        this.fx.beam([ev.x, ev.y], [ev.tx, ev.ty], 0.03, COL.mirrorBeam, { life: 0.12, y: 0.8, preset: 'mirror', impact: land });
         return true;
       }
       case 'mirrorBounce': {
@@ -376,8 +380,11 @@ export class RosterFx {
         const cap = this.quality === 'low' ? BEAMS_PER_FRAME / 2 : BEAMS_PER_FRAME;
         if (this._beamsThisFrame >= cap) return true;
         this._beamsThisFrame++;
-        this.fx.beam([ev.fx, ev.fy], [ev.x, ev.y], 0.05, ev.ownerUid === ev.towerUid ? COL.mirrorBeam : COL.mirrorAlly, { life: 0.18, y: 0.7 });
-        if (this.quality !== 'low') this.fx.flash(ev.x, 0.9, ev.y, '#ffffff', 0.45, 0.12);
+        // her own legs in lilac glass, an ally's copy in its blue; a volley's bolts on one mirror land (and flash) once
+        const own = ev.ownerUid === ev.towerUid;
+        const land = landFree(this._land, ev.x, ev.y, this.time);
+        this.fx.beam([ev.fx, ev.fy], [ev.x, ev.y], 0.05, own ? COL.mirrorBeam : COL.mirrorAlly, { life: 0.18, y: 0.7, preset: own ? 'mirror' : null, impact: land });
+        if (land && this.quality !== 'low') this.fx.flash(ev.x, 0.9, ev.y, '#ffffff', 0.45, 0.12);
         // her first mirror turns toward the reflected bolt (mirrorFx's flip and glint)
         if (ev.mirror === 0) this.mirrors.shot(ev.towerUid, ev.x - ev.fx, ev.y - ev.fy);
         return true;

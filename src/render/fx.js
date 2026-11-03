@@ -363,12 +363,15 @@ export class FxSystem {
   }
 
   /** Straight energy beam between two sim points. */
-  beam(from, to, width, color, { life = 0.16, y = 0.45 } = {}) {
+  beam(from, to, width, color, { life = 0.16, y = 0.45, preset = null, impact = true } = {}) {
     const ay = y + this.lift(from[0], from[1]);
-    // the styled beam layer (src/render/vfx/beams.js), when the renderer has one: a solid toon beam that lands hard
-    if (this.beams && this._styled(() => this.beams.fire([from[0], ay, from[1]], [to[0], y * 0.7, to[1]], { width, color }))) return;
+    // the styled beam layer (src/render/vfx/beams.js), when the renderer has one: a solid toon beam that lands hard.
+    // preset: drawn in that preset's own colours (`color` is the plain line's); impact false: no landing burst
+    const o = preset ? { width, preset } : { width, color };
+    if (impact === false) o.impact = false;
+    if (this.beams && this._styled(() => this.beams.fire([from[0], ay, from[1]], [to[0], y * 0.7, to[1]], o))) return;
     this.segments.push({ ax: from[0], ay, az: from[1], bx: to[0], by: y * 0.7, bz: to[1], w: Math.max(0.14, width * 1.6), color: new THREE.Color(color), life, t: 0, core: true });
-    this.spawn({ batch: 'bbA', uv: this.R.glow, x: to[0], y: y * 0.7, z: to[1], s0: width * 3, s1: width * 1.5, life: life * 1.4, color });
+    if (impact !== false) this.spawn({ batch: 'bbA', uv: this.R.glow, x: to[0], y: y * 0.7, z: to[1], s0: width * 3, s1: width * 1.5, life: life * 1.4, color });
     this.spawn({ batch: 'bbA', uv: this.R.glow, x: from[0], y: ay, z: from[1], s0: width * 3, s1: width, life, color });
   }
 

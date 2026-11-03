@@ -161,6 +161,40 @@ describe('beam layer', () => {
     expect(low.lines.frame.some((s) => s.kind === BANDS)).toBe(false);
   });
 
+  it('a beam fired without its impact lands quietly: no star, lines, sparks, ring or scorch, and no flash asked', () => {
+    const gate = [];
+    const bat = { bbA: fakeBatch(), bbN: fakeBatch(), groundA: fakeBatch(), groundN: fakeBatch() };
+    const { fx, lines, step } = rig('high', { batches: bat, atlas: ATLAS });
+    fx.flashGate = (size, uv, strength) => (gate.push(strength), 1);
+    fx.fire([0, 0.9, 0], [3, 0.35, 0], { width: 0.2, preset: 'moon', impact: false });
+    const muzzle = gate.length;
+    step(BEAM_PRESETS.moon.charge * 1.5);
+    step(0.03);
+    expect(gate.length).toBe(muzzle); // no star asked the guard
+    expect(lines.frame.length).toBe(3); // the beam's three layers, no impact lines
+    expect(bat.groundA.pushed.length + bat.groundN.pushed.length).toBe(0);
+  });
+
+  it('the mirror glint lands small and lilac: its own count of impact lines, never a near-white body, lines or star', () => {
+    const { fx, lines, step } = rig('high', { batches: { bbA: fakeBatch(), bbN: fakeBatch(), groundA: fakeBatch(), groundN: fakeBatch() }, atlas: ATLAS });
+    const p = BEAM_PRESETS.mirror;
+    fx.fire([0, 0.9, 0], [3, 0.35, 0], { width: 0.03, preset: 'mirror' });
+    step(p.charge * 1.5);
+    step(0.02);
+    expect(lines.frame.length).toBe(3 + 2 * p.lines.count);
+    expect(p.lines.count).toBeLessThan(BEAM_TIERS.high.lines);
+    expect(p.hdr).toBe(0);
+    const nearWhite = (hex) => [1, 3, 5].every((i) => parseInt(hex.slice(i, i + 2), 16) > 225);
+    for (const c of [p.body, p.core, p.lines.color, p.star.color, p.muzzle.color, p.sparksColor]) expect(nearWhite(c)).toBe(false);
+  });
+
+  it('fx.beam hands a preset (its own colours) and a quiet landing to the beam layer', () => {
+    const got = [];
+    const self = { beams: { fire: (a, b, o) => (got.push(o), {}) }, lift: () => 0, _styled: FxSystem.prototype._styled };
+    FxSystem.prototype.beam.call(self, [1, 2], [5, 6], 0.03, '#efe4ff', { preset: 'mirror', impact: false });
+    expect(got[0]).toEqual({ width: 0.03, preset: 'mirror', impact: false });
+  });
+
   it('the core goes above white only on high with bloom', () => {
     const hdrOf = (q, bloom) => {
       const r = rig(q);
@@ -255,5 +289,30 @@ describe('beam wiring (display only)', () => {
 
   it('never touches the sim or Math.random', () => {
     for (const f of ['src/render/vfx/beams.js', 'src/render/vfx/strokes.js']) expect(readFileSync(f, 'utf8')).not.toMatch(/\bsim\.\w|Math\.random\(/);
+  });
+});
+
+describe('impact lines spread round the landing on every tier', () => {
+  const dirSum = (picks, total) => {
+    let x = 0;
+    let y = 0;
+    for (const k of picks) {
+      x += Math.cos((k / total) * Math.PI * 2);
+      y += Math.sin((k / total) * Math.PI * 2);
+    }
+    return Math.hypot(x, y);
+  };
+
+  it('high draws all 8 rays in order (unchanged); medium 6 and the mirror 4 at an even stride, balanced round 360°', async () => {
+    const { rayPick } = await import('../../src/render/vfx/beams.js');
+    const { BEAM_TIERS } = await import('../../src/render/vfx/beamPresets.js');
+    const pick = (n) => Array.from({ length: n }, (_, i) => rayPick(i, n, 8));
+    expect(pick(BEAM_TIERS.high.lines)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(pick(BEAM_TIERS.medium.lines)).toEqual([0, 1, 2, 4, 5, 6]);
+    expect(pick(4)).toEqual([0, 2, 4, 6]); // Iroha's mirror cross, as before
+    for (const n of [BEAM_TIERS.high.lines, BEAM_TIERS.medium.lines, 4]) expect(dirSum(pick(n), 8)).toBeLessThan(0.5);
+    // the old medium subset (the first 6: 0°–225°) was one-sided
+    expect(dirSum([0, 1, 2, 3, 4, 5], 8)).toBeGreaterThan(1);
+    expect(BEAM_TIERS.low.lines).toBe(0);
   });
 });
