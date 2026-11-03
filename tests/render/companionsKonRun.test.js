@@ -5,7 +5,8 @@
 // even along the arc (r1 F1: u advances by arc length).
 import { describe, it, expect } from 'vitest';
 import {
-  konState, konStep, konArc, konGait, KON_ARC, KON_ARC_MAX, KON_ARC_IN, KON_ARC_OUT, KON_RETARGET, KON_SPEED,
+  konState, konStep, konArc, konGait, KON_ARC, KON_ARC_MAX, KON_ARC_IN, KON_ARC_OUT, KON_RETARGET, KON_SPEED, KON_HOP,
+  KON_SKID, KON_SKID_MAX, KON_SKID_SLIDE, KON_SKID_NEAR, KON_PIVOT,
 } from '../../src/render/companionLogic.js';
 
 const CAM = { x: 0, z: 1 }; // the battle camera at yaw 0: toward the camera is +z (lower on screen, in front)
@@ -197,8 +198,10 @@ describe('Kon\'s run: an arc toward the camera, the same arrival', () => {
 
 // review kon-run-arc r1, F1: a target that jumps more than KON_RETARGET mid-run used to restart the arc from where he
 // was with no regard for his heading (61° to 80° of facing in one frame, the path wiggling; up to ~180° when the spot
-// went away and he ran back). The new arc leaves along his heading: a circular arc to a target ahead or beside him, a
-// U-turn (a loop at least KON_TURN across) to one behind him or right beside him, so he turns round at a lope.
+// went away and he ran back). The new arc leaves along his heading. Review kon-run-retarget r1: a target well ahead
+// keeps the near-straight arrival of a run from rest (F2); a target behind him gets a skid-turn when it is near and a
+// pivot on a small fixed circle when it is far, both turning away from Ruri (F1), instead of a loop that grew with the
+// distance and could run through her.
 describe('Kon\'s run: a target that jumps mid-run turns him smoothly', () => {
   const STEP = KON_SPEED / 60;
   const turn = (ax, az, bx, bz) => {
@@ -206,28 +209,69 @@ describe('Kon\'s run: a target that jumps mid-run turns him smoothly', () => {
     if (d > Math.PI) d = 2 * Math.PI - d;
     return (d * 180) / Math.PI;
   };
-  /** Runs toward `spot` for `at` frames, then toward `next` (null: home at 0, 0) until he sits; per-frame numbers. */
-  function retargetRun(spot, at, next) {
+  /**
+   * Runs toward `spot` for `at` frames, then toward `next` (null: home at 0, 0; a function: from his state then) until
+   * he sits; per-frame numbers. Frames of a skid-turn (and the run from rest after it) are kept apart.
+   */
+  function retargetRun(spot, at, next, { ruri = null, dt = 1 / 60, home = [0, 0] } = {}) {
     const s = konState();
     let target = spot;
-    let maxTurn = 0;
-    let lo = Infinity;
-    let hi = 0;
-    let frames = 0;
-    konStep(s, 1 / 60, 0, 0, target, KON_SPEED, CAM);
-    while (s.mode === 'travel' && frames < 2000) {
-      if (frames === at) target = typeof next === 'function' ? next(s) : next;
-      const [dx, dz, x, z] = [s.dx, s.dz, s.x, s.z];
-      konStep(s, 1 / 60, 0, 0, target, KON_SPEED, CAM);
-      maxTurn = Math.max(maxTurn, turn(dx, dz, s.dx, s.dz));
+    const r = {
+      s, maxTurn: 0, lo: Infinity, hi: 0, frames: 0, target: null, skidFrames: 0, skidTravel: 0, skidTurn: 0,
+      skidTurned: 0, path: 0, minRuri: Infinity, lat: 0, from: null, liftJump: 0, pivFrames: 0, maxPivTurn: 0,
+      skids: 0, after: [], plantedLift: null,
+    };
+    let skidFrom = null;
+    let skidded = false;
+    konStep(s, dt, home[0], home[1], target, KON_SPEED, CAM, ruri);
+    let lift = konGait(s, { lift: 0, pitch: 0, stretch: 1 }).lift;
+    while (s.mode === 'travel' && r.frames < 3000) {
+      if (r.frames === at) {
+        target = typeof next === 'function' ? next(s) : next;
+        r.from = [s.x, s.z, s.dx / Math.hypot(s.dx, s.dz), s.dz / Math.hypot(s.dx, s.dz)];
+        r.skids = s.skids;
+      }
+      const [dx, dz, x, z, sk] = [s.dx, s.dz, s.x, s.z, s.skid];
+      konStep(s, dt, home[0], home[1], target, KON_SPEED, CAM, ruri);
       const m = Math.hypot(s.x - x, s.z - z);
-      hi = Math.max(hi, m);
-      if (s.mode === 'travel') lo = Math.min(lo, m);
-      frames++;
+      const t = turn(dx, dz, s.dx, s.dz);
+      const g = konGait(s, { lift: 0, pitch: 0, stretch: 1 });
+      if (s.mode === 'travel') r.liftJump = Math.max(r.liftJump, Math.abs(g.lift - lift)); // (he lands on arrival)
+      lift = g.lift;
+      r.hi = Math.max(r.hi, m);
+      if (r.frames >= at) {
+        r.path += m;
+        if (ruri) r.minRuri = Math.min(r.minRuri, Math.hypot(s.x - ruri.x, s.z - ruri.z));
+        r.lat = Math.max(r.lat, Math.abs((s.x - r.from[0]) * -r.from[3] + (s.z - r.from[1]) * r.from[2]));
+      }
+      if (s.skid > 0 || sk > 0) {
+        if (!skidFrom) skidFrom = [x, z, Math.atan2(dz, dx)];
+        if (s.skid === 0) r.plantedLift = g.lift; // his paws on the ground as the swing ends
+        skidded = true;
+        r.skidFrames++;
+        r.skidTravel = Math.max(r.skidTravel, Math.hypot(s.x - skidFrom[0], s.z - skidFrom[1]));
+        r.skidTurn = Math.max(r.skidTurn, t);
+        // the signed angle he has swung round so far (+: counterclockwise, toward +z from +x)
+        let a = Math.atan2(s.dz, s.dx) - skidFrom[2];
+        a = Math.atan2(Math.sin(a), Math.cos(a));
+        if (Math.abs(a) > Math.abs(r.skidTurned) && Math.abs(a) < 3) r.skidTurned = a;
+      } else if (skidded) {
+        r.after.push(m);
+      } else {
+        r.maxTurn = Math.max(r.maxTurn, t);
+        if (s.mode === 'travel') r.lo = Math.min(r.lo, m);
+        if (s.piv > 0) {
+          r.pivFrames++;
+          r.maxPivTurn = Math.max(r.maxPivTurn, t);
+        }
+      }
+      r.frames++;
     }
-    return { s, maxTurn, lo, hi, frames, target };
+    r.target = target;
+    r.skids = s.skids - r.skids;
+    return r;
   }
-  /** A target `dist` from him at `deg` to his heading (+: toward +z of it). */
+  /** A target `dist` from him at `deg` to his heading (+: counterclockwise of it, toward +z from +x). */
   const around = (dist, deg) => (s) => {
     const h = Math.atan2(s.dz, s.dx) + (deg * Math.PI) / 180;
     return { x: s.x + dist * Math.cos(h), z: s.z + dist * Math.sin(h) };
@@ -237,56 +281,164 @@ describe('Kon\'s run: a target that jumps mid-run turns him smoothly', () => {
     for (const [at, next] of [[50, { x: 1.5, z: 0.26 }], [55, { x: 2, z: 0 }], [30, { x: 1.5, z: -0.6 }]]) {
       const r = retargetRun({ x: 1.5, z: 0 }, at, next);
       expect(r.maxTurn).toBeLessThan(10);
+      expect(r.skidFrames).toBe(0);
       expect([r.s.mode, r.s.x, r.s.z]).toEqual(['spot', next.x, next.z]);
     }
   });
 
-  it('any angle, near or far, a reversal included: under 10° a frame, his pace even, exact arrival', () => {
-    for (const dist of [2, 1, 0.6, 0.3, 0.1, 0.02]) {
-      for (const deg of [0, 30, 60, 90, 120, 150, 180, -45, -90, -135, -170]) {
-        const r = retargetRun({ x: 1.5, z: 0 }, 30, around(dist, deg));
-        expect(r.maxTurn, `${dist} tiles at ${deg}°`).toBeLessThan(10);
-        expect(r.hi).toBeLessThan(STEP * 1.1);
-        // (a target under two steps straight ahead ends in two half steps: konStep caps a step at half the arc)
-        if (dist >= 0.1) expect(r.lo, `${dist} tiles at ${deg}°`).toBeGreaterThan(STEP * 0.9);
-        expect([r.s.mode, r.s.x, r.s.z]).toEqual(['spot', r.target.x, r.target.z]);
+  it('a target ahead of him or beside him: a new arc along his heading, under 9° a frame, his pace even, exact', () => {
+    for (const at of [3, 15, 30, 50]) {
+      for (const dist of [3, 2, 1, 0.6, 0.32]) {
+        for (const deg of [0, 15, 30, 45, 60, 75, 90, -15, -30, -45, -60, -75, -90]) {
+          const r = retargetRun({ x: 1.5, z: 0 }, at, around(dist, deg));
+          if (Math.hypot(r.target.x - 1.5, r.target.z) <= KON_RETARGET) continue; // (a small move: only its end moves)
+          const what = `${dist} tiles at ${deg}°, frame ${at}`;
+          expect(r.skidFrames, what).toBe(0);
+          expect(r.maxTurn, what).toBeLessThan(9);
+          expect(r.hi, what).toBeLessThan(STEP * 1.1);
+          expect(r.lo, what).toBeGreaterThan(STEP * 0.9);
+          expect([r.s.mode, r.s.x, r.s.z], what).toEqual(['spot', r.target.x, r.target.z]);
+        }
       }
     }
   });
 
-  it('the spot goes away mid-run (home right behind him or far back): he loops round and sits exactly at home', () => {
-    for (const at of [1, 5, 20, 60]) {
-      for (const spot of [{ x: 1.5, z: 0 }, { x: -1.2, z: -0.9 }, { x: 0.3, z: 1.4 }]) {
-        const r = retargetRun(spot, at, null);
-        expect(r.maxTurn).toBeLessThan(10);
-        expect(r.hi).toBeLessThan(STEP * 1.1);
-        expect([r.s.mode, r.s.x, r.s.z]).toEqual(['home', 0, 0]);
-        expect(r.frames).toBeLessThan(at + 200); // a loop of a second or two, not a wander
+  it('a push-on early in the run (an upgrade right after placing her) keeps the arrival of a run from rest', () => {
+    // the 1-1 case at 844x390: the spot pushed further along her ray 5 or 20 frames into the run
+    const home = [17.64, 3.07];
+    const spot = { x: 16.02, z: 3.54 };
+    const l = Math.hypot(spot.x - home[0], spot.z - home[1]);
+    const [ux, uz] = [(spot.x - home[0]) / l, (spot.z - home[1]) / l];
+    for (const at of [5, 20, 40]) {
+      for (const push of [0.3, 0.6, 0.8]) {
+        const next = { x: spot.x + ux * push, z: spot.z + uz * push };
+        const s = konState();
+        for (let i = 0; i <= at; i++) konStep(s, 1 / 60, home[0], home[1], spot, KON_SPEED, CAM);
+        const [x, z, dx, dz] = [s.x, s.z, s.dx, s.dz];
+        konStep(s, 1 / 60, home[0], home[1], next, KON_SPEED, CAM);
+        // it leaves along his heading (the first control point on it)
+        const cx = s.cx - s.sx;
+        const cz = s.cz - s.sz;
+        const hl = Math.hypot(dx, dz);
+        expect(Math.abs(cx * dz - cz * dx) / (Math.hypot(cx, cz) * hl)).toBeLessThan(1e-9);
+        expect(cx * dx + cz * dz).toBeGreaterThan(0);
+        // and it arrives as a run from rest from there would (b31955f8's arc): the same second control point
+        const fresh = konArc(Object.assign(konState(), { x, z }), next.x, next.z, CAM);
+        expect([s.ex, s.ez]).toEqual([fresh.ex, fresh.ez]);
+        let maxTurn = 0;
+        let last = [s.dx, s.dz];
+        for (let i = 0; i < 600 && s.mode === 'travel'; i++) {
+          const [ax, az] = [s.dx, s.dz];
+          konStep(s, 1 / 60, home[0], home[1], next, KON_SPEED, CAM);
+          maxTurn = Math.max(maxTurn, turn(ax, az, s.dx, s.dz));
+          if (s.mode === 'travel') last = [s.dx, s.dz];
+        }
+        expect([s.mode, s.x, s.z]).toEqual(['spot', next.x, next.z]);
+        expect(maxTurn).toBeLessThan(5);
+        // his last strides head along the chord from where he turned (within 16°), not 30° to 50° off it (6ecf103d)
+        expect(turn(next.x - x, next.z - z, last[0], last[1]), `frame ${at} +${push}`).toBeLessThan(16);
+        // and within 15° of how a run from rest would come in
+        expect(turn(-fresh.ex, -fresh.ez, last[0], last[1]), `frame ${at} +${push}`).toBeLessThan(15);
       }
     }
   });
 
-  it('a dead-behind target loops to the camera side; the new arc starts on his heading', () => {
+  it('the spot goes away right after he leaves her: a skid-turn, away from Ruri, then a run home', () => {
+    // Ruri stands behind his home (away from the camera); he runs off left or right, so she is on one side of his line
+    // or the other
+    const ruri = { x: 0.02, z: -0.2 };
+    for (const sx of [-1.5, 1.5]) {
+      for (const at of [1, 4, 8, 20]) {
+        const r = retargetRun({ x: sx, z: -0.3 }, at, null, { ruri });
+        const what = `spot at x ${sx}, frame ${at}`;
+        expect(r.skids, what).toBe(1); // one plant (one dust puff)
+        // a short, smooth swing round: 0.15 to 0.2 s (KON_SKID..KON_SKID_MAX), several frames, never a snap
+        expect(r.skidFrames, what).toBeGreaterThanOrEqual(Math.floor(KON_SKID * 60));
+        expect(r.skidFrames, what).toBeLessThanOrEqual(Math.ceil(KON_SKID_MAX * 60) + 1);
+        expect(r.skidTurn, what).toBeLessThan(40);
+        // he barely moves while he plants (no jumps)
+        expect(r.skidTravel, what).toBeLessThanOrEqual(KON_SKID_SLIDE + 1e-9);
+        expect(r.hi, what).toBeLessThan(STEP * 1.1);
+        expect(r.liftJump, what).toBeLessThan(KON_HOP * 0.25); // his bound settles and comes back, no pop
+        expect(r.plantedLift, what).toBeLessThan(KON_HOP * 0.05);
+        // he swings round away from her: clockwise when she is counterclockwise of his heading, and the other way
+        const ruriLeft = r.from[2] * (ruri.z - r.from[1]) - r.from[3] * (ruri.x - r.from[0]) > 0;
+        expect(Math.sign(r.skidTurned), what).toBe(ruriLeft ? -1 : 1);
+        expect(Math.abs(r.skidTurned), what).toBeGreaterThan(1.5);
+        // the run home after it keeps his pace, and he sits exactly at home, no closer to her than that on the way
+        for (const m of r.after.slice(0, -1)) expect(m, what).toBeGreaterThan(STEP * 0.45);
+        expect([r.s.mode, r.s.x, r.s.z], what).toEqual(['home', 0, 0]);
+        expect(r.minRuri, what).toBeGreaterThanOrEqual(Math.hypot(ruri.x, ruri.z) - 1e-9);
+      }
+    }
+  });
+
+  it('halfway there (home under KON_SKID_NEAR behind him): a skid-turn too, not a loop', () => {
+    // (Ruri behind his home, or, to prove it is her and not the camera that picks the side, off on the camera's side)
+    for (const [ruri, at] of [[{ x: 0.2, z: -0.15 }, 25], [{ x: 0.2, z: -0.15 }, 40], [{ x: 0.4, z: 0.3 }, 25], [{ x: 0.4, z: 0.3 }, 40]]) {
+      const r = retargetRun({ x: -1.5, z: -0.3 }, at, null, { ruri });
+      expect(Math.hypot(r.from[0], r.from[1])).toBeLessThan(KON_SKID_NEAR);
+      expect(r.skids).toBe(1);
+      expect(r.skidFrames).toBeLessThanOrEqual(Math.ceil(KON_SKID_MAX * 60) + 1);
+      expect(r.skidTravel).toBeLessThanOrEqual(KON_SKID_SLIDE + 1e-9);
+      const ruriLeft = r.from[2] * (ruri.z - r.from[1]) - r.from[3] * (ruri.x - r.from[0]) > 0;
+      expect(Math.sign(r.skidTurned)).toBe(ruriLeft ? -1 : 1);
+      // a direct run home: no longer than 1.3x the way back
+      expect(r.path).toBeLessThan(1.3 * Math.hypot(r.from[0], r.from[1]) + 2 * KON_SKID_SLIDE);
+      expect([r.s.mode, r.s.x, r.s.z]).toEqual(['home', 0, 0]);
+    }
+  });
+
+  it('a target far behind him: a pivot on a small fixed circle (not a loop that grows), then in along his heading', () => {
+    for (const dist of [1.2, 2, 3]) {
+      for (const deg of [180, 150, -150, 120, -120]) {
+        const r = retargetRun({ x: 2, z: 0 }, 40, around(dist, deg));
+        const what = `${dist} tiles at ${deg}°`;
+        expect(r.skidFrames, what).toBe(0);
+        expect(r.pivFrames, what).toBeGreaterThan(0);
+        expect(r.maxPivTurn, what).toBeLessThan(5); // round a KON_PIVOT circle at his pace
+        expect(r.maxTurn, what).toBeLessThan(9);
+        expect(r.hi, what).toBeLessThan(STEP * 1.1);
+        expect(r.lo, what).toBeGreaterThan(STEP * 0.9);
+        // the extra way is bounded by the circle (at most a turn and a half round it), whatever the distance
+        expect(r.path - dist, what).toBeLessThan(1.5 * 2 * Math.PI * KON_PIVOT);
+        if (dist >= 3) expect(r.path / dist, what).toBeLessThan(1.5);
+        // a dead-behind target: he swings out no more than the circle across
+        if (deg === 180) expect(r.lat, what).toBeLessThan(2 * KON_PIVOT + 0.01);
+        expect([r.s.mode, r.s.x, r.s.z], what).toEqual(['spot', r.target.x, r.target.z]);
+      }
+    }
+  });
+
+  it('a far pivot turns away from Ruri too (the camera side when she is on his line)', () => {
+    for (const rz of [-1, 1]) {
+      const ruri = { x: 1, z: rz };
+      const s = konState();
+      for (let i = 0; i <= 40; i++) konStep(s, 1 / 60, 0, 0, { x: 2, z: 0 }, KON_SPEED, CAM, ruri);
+      const back = around(2, 180)(s);
+      konStep(s, 1 / 60, 0, 0, back, KON_SPEED, CAM, ruri);
+      expect(s.piv).toBeGreaterThan(0);
+      // the circle's centre is on the side away from her
+      expect(Math.sign(s.qz - s.z)).toBe(-Math.sign(rz));
+    }
+    // no Ruri: toward the camera (+z)
     const s = konState();
-    for (let i = 0; i < 31; i++) konStep(s, 1 / 60, 0, 0, { x: 1.5, z: 0 }, KON_SPEED, CAM);
-    const [x, z, dx, dz] = [s.x, s.z, s.dx, s.dz];
-    const l = Math.hypot(dx, dz);
-    const back = { x: x - (dx / l) * 0.8, z: z - (dz / l) * 0.8 };
-    konStep(s, 1 / 60, 0, 0, back, KON_SPEED, CAM);
-    // the first control point lies on his heading (C1: the old arc's tangent carries on)
-    const cx = s.cx - s.sx;
-    const cz = s.cz - s.sz;
-    expect(Math.abs(cx * dz - cz * dx) / (Math.hypot(cx, cz) * l)).toBeLessThan(1e-9);
-    expect(cx * dx + cz * dz).toBeGreaterThan(0);
-    let side = 0;
-    for (let i = 0; i < 400 && s.mode === 'travel'; i++) {
-      const off = (s.x - x) * (-dz / l) + (s.z - z) * (dx / l); // signed distance off his old line (+: to his left)
-      if (Math.abs(off) > Math.abs(side)) side = off;
-      konStep(s, 1 / 60, 0, 0, back, KON_SPEED, CAM);
+    for (let i = 0; i <= 40; i++) konStep(s, 1 / 60, 0, 0, { x: 2, z: 0 }, KON_SPEED, CAM);
+    konStep(s, 1 / 60, 0, 0, around(2, 180)(s), KON_SPEED, CAM);
+    expect(Math.sign(s.qz - s.z)).toBe(1);
+  });
+
+  it('every retarget, near or far, any side, at 60 and 30 fps: exact arrival, no jump', () => {
+    for (const dt of [1 / 60, 1 / 30]) {
+      for (const dist of [3, 1.5, 0.8, 0.3, 0.1, 0.02]) {
+        for (let deg = -180; deg < 180; deg += 30) {
+          const r = retargetRun({ x: 1.5, z: 0 }, 20, around(dist, deg), { dt, ruri: { x: 0.1, z: 0.2 } });
+          if (Math.hypot(r.target.x - 1.5, r.target.z) <= KON_RETARGET) continue; // (a small move: only its end moves)
+          expect(r.hi, `${dist} at ${deg}`).toBeLessThan(KON_SPEED * dt * 1.1);
+          expect([r.s.mode, r.s.x, r.s.z], `${dist} at ${deg}`).toEqual(['spot', r.target.x, r.target.z]);
+        }
+      }
     }
-    const camSide = (-dz / l) * CAM.x + (dx / l) * CAM.z; // which side of his line the camera is on
-    expect(Math.sign(side)).toBe(Math.sign(camSide));
-    expect([s.mode, s.x, s.z]).toEqual(['spot', back.x, back.z]);
   });
 
   it('a run from rest keeps its shape exactly (no heading: the same arc as before)', () => {
@@ -299,5 +451,6 @@ describe('Kon\'s run: a target that jumps mid-run turns him smoothly', () => {
     konStep(s, 1 / 60, 0, 0, { x: 2, z: 2 }, KON_SPEED, CAM);
     const fresh = konArc(Object.assign(konState(), { x: 2, z: 0 }), 2, 2, CAM);
     expect([s.cx, s.cz, s.ex, s.ez]).toEqual([fresh.cx, fresh.cz, fresh.ex, fresh.ez]);
+    expect([s.skid, s.piv, s.skids]).toEqual([0, 0, 0]);
   });
 });

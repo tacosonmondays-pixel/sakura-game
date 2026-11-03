@@ -4,7 +4,8 @@
 //
 //   Kon (Ruri):  home (sits by her) → travel (bounds along the ground: konGait, a dust puff per stride; an arc that
 //                bows toward the camera early and comes in straight, konArc, so the run crosses open ground in
-//                front of her and not the props by the spot) → spot
+//                front of her and not the props by the spot; a target that jumps mid-run: konRetarget, a new arc
+//                along his heading, or a skid-turn or a pivot first when it lands behind him) → spot
 //                (sits at her relay origin); Moon Pounce (pounceStep): crouch → arc leap → impact at the target → hop
 //                back to where he stood
 //   Kaze (Hana): a swoop (stoopStep) = climb, stoop down onto the target she shot, swing back up to her shoulder;
@@ -29,8 +30,8 @@ export const KON_PITCH = 0.22;
  * comes in near-straight and does not swing wide through props beside his spot. A run that heads toward the camera
  * leaves her behind it anyway: its bow shrinks by as much, and it comes in from straight behind the spot on screen
  * (so a prop in front of the spot and to one side never cuts through him on the way in). A target that jumps more
- * than KON_RETARGET tiles starts a new arc from where he is, leaving along the way he is already running (konTurn);
- * a smaller move (her home point turning with her) only moves the arc's end.
+ * than KON_RETARGET tiles starts a new run from where he is (konRetarget: along the way he is already running, or a
+ * skid-turn or a pivot first for a target behind him); a smaller move (her home point turning with her) only moves the arc's end.
  */
 export const KON_ARC = 0.3;
 export const KON_ARC_MAX = 0.6;
@@ -38,18 +39,20 @@ export const KON_ARC_IN = 1 / 3;
 export const KON_ARC_OUT = 0.65;
 export const KON_RETARGET = 0.25;
 /**
- * A new arc mid-run leaves along his heading (konTurn), so his facing turns a few degrees a frame instead of snapping:
- * a circular arc to a target ahead of him or beside him (at least KON_TURN_R tiles' radius), else a U-turn. A U-turn
- * to a target at least KON_TURN tiles away is as big as the run (its first control leg KON_U_OUT of it along his
- * heading, its second KON_U_IN beyond the target and KON_U_SIDE out to its side); one to a target closer than that
- * is a loop KON_TURN across (KON_U_LOOP: the same three, larger out and to the side, since he turns further).
+ * A target that jumps mid-run (konRetarget). Ahead of him or beside him: a new arc that leaves along his heading
+ * (konTurn; a circle of at least KON_TURN_R tiles' radius), so his facing turns a few degrees a frame instead of
+ * snapping. Behind him (or too close beside him for that circle) and closer than KON_SKID_NEAR: a skid-turn, he plants,
+ * slides at most KON_SKID_SLIDE tiles on while he swings round over KON_SKID seconds (KON_SKID_MAX for the long way
+ * round), a small dust puff, then a run from rest (konArc). Behind him and further: he turns on a circle of
+ * KON_PIVOT tiles' radius until he faces the target, then runs in along his heading. Both turn away from Ruri.
  */
 export const KON_TURN = 0.6;
 export const KON_TURN_R = 0.15;
-const KON_U_OUT = 0.55;
-const KON_U_IN = 1.35;
-const KON_U_SIDE = 1.3;
-const KON_U_LOOP = [1.6, 0.4, 1.9];
+export const KON_SKID_NEAR = 1;
+export const KON_SKID = 0.15;
+export const KON_SKID_MAX = 0.2;
+export const KON_SKID_SLIDE = 0.04;
+export const KON_PIVOT = 0.25;
 /** A relay origin this close to Ruri means no relay spot: Kon sits by her. */
 export const KON_SELF = 0.3;
 /** Kaze's swoop: seconds out and back, arc height (tiles). */
@@ -110,13 +113,18 @@ export function diveReach(range) {
 
 /**
  * sx / sz: where this run started; cx / cz: its arc's first control point; ex / ez: its second, relative to the
- * target (konArc); u: how far along it he is (0..1).
+ * target (konArc); u: how far along it he is (0..1). A skid-turn (konRetarget): skid (seconds left of it, 0: none) of
+ * skidDur, from (kx, kz) facing angle ka by kda radians (he ends at sx / sz, facing the arc that follows); skids
+ * counts them (a dust puff each); r0: his run where the last one ended (his bounds ease back in over a stride). A
+ * pivot: piv (radians of turn left in its budget, 0: none), round (qx, qz) at angle qa, qs: +1 counterclockwise
+ * (toward +z from +x), -1 clockwise.
  * @returns {{ mode: 'home'|'travel'|'spot', x: number, z: number, tx: number, tz: number, hold: number, placed: boolean, dx: number, dz: number }}
  */
 export function konState() {
   return {
     mode: 'home', x: 0, z: 0, tx: 0, tz: 0, hold: 0, placed: false, dx: 0, dz: 1, run: 0, steps: 0,
     sx: 0, sz: 0, cx: 0, cz: 0, ex: 0, ez: 0, u: 0,
+    skid: 0, skidDur: 0, kx: 0, kz: 0, ka: 0, kda: 0, skids: 0, r0: -1e9, piv: 0, qx: 0, qz: 0, qa: 0, qs: 1,
   };
 }
 
@@ -126,8 +134,8 @@ export function konState() {
  * line and off it on the camera's side, by more the more the run crosses the view (a run straight at the camera or
  * away from it stays straight) and by less the more it heads toward the camera. The second sits KON_ARC_OUT along:
  * on the line, or for a run that heads toward the camera turned toward the camera's axis by as much (ex / ez,
- * relative to the target). Mid-run (`hx, hz`: his heading, any length; 0, 0: from rest) the arc leaves along his
- * heading instead (konTurn).
+ * relative to the target). Mid-run (`hx, hz`: his heading, any length; 0, 0: from rest) an arc to a target ahead of
+ * him or beside him leaves along his heading instead (konTurn).
  * @param {ReturnType<typeof konState>} s mutated
  * @param {{ x: number, z: number }|null} [cam]
  * @param {number} [hx] @param {number} [hz]
@@ -172,45 +180,175 @@ export function konArc(s, tx, tz, cam = null, hx = 0, hz = 0) {
   s.ex = -ax * d * (1 - KON_ARC_OUT);
   s.ez = -az * d * (1 - KON_ARC_OUT);
   const hl = Math.hypot(hx, hz);
-  if (hl > 1e-9 && d > 1e-6) konTurn(s, dx / d, dz / d, d, hx / hl, hz / hl, cam);
+  konTurned = hl > 1e-9 && d > 1e-6 && konTurn(s, dx / d, dz / d, d, hx / hl, hz / hl);
   return s;
 }
 
 /**
- * A new arc mid-run (its target jumped more than KON_RETARGET): it leaves along his heading (hx, hz, unit), so it joins
- * the run he was on smoothly (no corner) and his facing turns at most a few degrees a frame instead of snapping. A
- * target ahead of him or to one side: a circular arc, tangent to his heading and through the target. A target behind
- * him, or one so close beside him that the circle would be tighter than KON_TURN_R: a U-turn (out along his heading,
- * round to the target's side, the camera side when it is dead behind, and in from beyond it), as big as the run and
- * a loop at least KON_TURN across, so even a target that lands right behind him (the spot gone just as he left
- * Ruri) turns him round at a lope (under 10° a frame at his pace, 60 fps) instead of flipping him. Exact arrival and
- * the even pace come from konStep as for any arc. (cx, cz: the unit direction to the target, d: how far it is.)
+ * A new arc mid-run that leaves along his heading (hx, hz, unit), so it joins the run he was on smoothly (no corner)
+ * and his facing turns a few degrees a frame instead of snapping. For a target ahead of him or to one side: a circular
+ * arc, tangent to his heading and through the target (a radius of at least KON_TURN_R). A target well ahead (within
+ * 60° of his heading and at least KON_TURN away) keeps the arrival konArc gave it (near-straight, or from behind the
+ * spot on screen: clear of props beside the spot) and only leaves along his heading, its first leg half the run
+ * long. A target behind him, or too close beside him for that circle, keeps konArc's shape: konRetarget skid-turns
+ * or pivots him round first. With his pace even (konStep), his facing turns under 9° a frame on these arcs at
+ * 60 fps (a true KON_TURN_R circle would be 8°; the cubic's tightest case measures 8.9°; a pivot: 4.8°). (cx, cz:
+ * the unit direction to the target, d: how far it is.)
  */
-function konTurn(s, cx, cz, d, hx, hz, cam) {
+function konTurn(s, cx, cz, d, hx, hz) {
   const cos = hx * cx + hz * cz;
   const sin = Math.sqrt(Math.max(0, 1 - cos * cos));
+  if (cos < -1e-9 || d < 2 * sin * KON_TURN_R) return false;
   let l1;
-  if (cos >= 0 && d >= 2 * sin * KON_TURN_R) {
-    // a circular arc (radius d / (2 sin φ), at least KON_TURN_R): both control legs (4/3)·tan(φ/2)·r long; he
-    // arrives along his heading mirrored in the line to the target
+  if (cos >= 0.5 && d >= KON_TURN) {
+    // well ahead: only the first control point moves (onto his heading); he arrives as konArc set it
+    l1 = d * KON_ARC_IN * 1.5;
+  } else {
+    // a circular arc (radius d / (2 sin φ)): both control legs (4/3)·tan(φ/2)·r long; he arrives along his heading
+    // mirrored in the line to the target
     l1 = (2 * d) / (3 * (1 + cos));
     s.ex = -(2 * cos * cx - hx) * l1;
     s.ez = -(2 * cos * cz - hz) * l1;
-  } else {
-    // a U-turn (a target behind him, or too close beside him for that circle): out along his heading, round to the
-    // target's side (the camera side when it is dead behind) and in from beyond it
-    const loop = d < KON_TURN;
-    const w = loop ? KON_TURN : d;
-    l1 = (loop ? KON_U_LOOP[0] : KON_U_OUT) * w;
-    const back = (loop ? KON_U_LOOP[1] : KON_U_IN) * w;
-    let side = hx * cz - hz * cx;
-    if (Math.abs(side) < 1e-6) side = cam ? hx * cam.z - hz * cam.x : 1;
-    const off = (side < 0 ? -1 : 1) * (loop ? KON_U_LOOP[2] : KON_U_SIDE) * w * Math.max(-cos, 1 - d / w);
-    s.ex = hx * back - hz * off;
-    s.ez = hz * back + hx * off;
   }
   s.cx = s.x + hx * l1;
   s.cz = s.z + hz * l1;
+  return true;
+}
+/** Whether the last konArc left along a heading (konTurn took it); otherwise it kept the shape of a run from rest. */
+let konTurned = false;
+
+/**
+ * Which way he turns round (+1: counterclockwise, toward +z from +x; -1: clockwise) when he is at (x, z) heading
+ * (hx, hz): away from Ruri (`ruri`, her ground spot); with her on his line (or not given), toward the camera; with
+ * neither, toward the target (tdx, tdz: the way to it).
+ */
+function konSide(x, z, hx, hz, cam, ruri, tdx, tdz) {
+  if (ruri) {
+    const c = hx * (ruri.z - z) - hz * (ruri.x - x);
+    if (Math.abs(c) > 0.02) return c > 0 ? -1 : 1;
+  }
+  if (cam) {
+    const c = hx * cam.z - hz * cam.x;
+    if (Math.abs(c) > 1e-3) return c > 0 ? 1 : -1;
+  }
+  return hx * tdz - hz * tdx < 0 ? -1 : 1;
+}
+
+/** An angle wrapped into (-π, π]. */
+function konWrap(a) {
+  a %= 2 * Math.PI;
+  if (a > Math.PI) a -= 2 * Math.PI;
+  else if (a <= -Math.PI) a += 2 * Math.PI;
+  return a;
+}
+
+/**
+ * His target jumped more than KON_RETARGET tiles mid-run (see KON_TURN): ahead or beside him, a new arc along his
+ * heading (konTurn); behind him and near, a skid-turn; behind him and further, a pivot on a KON_PIVOT circle.
+ */
+function konRetarget(s, tx, tz, cam, ruri) {
+  s.skid = 0;
+  s.piv = 0;
+  const hl = Math.hypot(s.dx, s.dz);
+  const dx = tx - s.x;
+  const dz = tz - s.z;
+  const d = Math.hypot(dx, dz);
+  if (hl < 1e-9 || d < 1e-6) {
+    konArc(s, tx, tz, cam);
+    return;
+  }
+  const hx = s.dx / hl;
+  const hz = s.dz / hl;
+  konArc(s, tx, tz, cam, hx, hz);
+  if (konTurned) return;
+  const side = konSide(s.x, s.z, hx, hz, cam, ruri, dx, dz);
+  if (d < KON_SKID_NEAR) {
+    konSkid(s, tx, tz, cam, hx, hz, side);
+    return;
+  }
+  // a pivot: round a KON_PIVOT circle on that side, at his pace, until he faces the target (konPivot)
+  s.qs = side;
+  s.qx = s.x - hz * KON_PIVOT * side;
+  s.qz = s.z + hx * KON_PIVOT * side;
+  s.qa = Math.atan2(s.z - s.qz, s.x - s.qx);
+  s.piv = 2 * Math.PI;
+}
+
+/**
+ * Starts a skid-turn: he will slide KON_SKID_SLIDE on along his heading (hx, hz), decelerating, and swing round to
+ * face the take-off of a run from rest that starts where he stops (built now), turning `side` unless the short way
+ * round is under 90°. A small dust puff (skids).
+ */
+function konSkid(s, tx, tz, cam, hx, hz, side) {
+  const x = s.x;
+  const z = s.z;
+  s.x = x + hx * KON_SKID_SLIDE;
+  s.z = z + hz * KON_SKID_SLIDE;
+  konArc(s, tx, tz, cam);
+  s.x = x;
+  s.z = z;
+  s.kx = x;
+  s.kz = z;
+  s.ka = Math.atan2(hz, hx);
+  let a1 = s.ka;
+  const ox = s.cx - s.sx;
+  const oz = s.cz - s.sz;
+  if (ox * ox + oz * oz > 1e-12) a1 = Math.atan2(oz, ox);
+  else if (Math.hypot(tx - s.sx, tz - s.sz) > 1e-9) a1 = Math.atan2(tz - s.sz, tx - s.sx);
+  let da = konWrap(a1 - s.ka);
+  if (Math.abs(da) >= Math.PI / 2 && da * side < 0) da += side * 2 * Math.PI;
+  s.kda = da;
+  s.skidDur = Math.min(KON_SKID_MAX, KON_SKID + ((KON_SKID_MAX - KON_SKID) * Math.abs(da)) / Math.PI);
+  s.skid = s.skidDur;
+  s.skids++;
+}
+
+/** One frame of a skid-turn: he slides to a stop (easing out) while his facing swings round (eased in and out). */
+function konSkidStep(s, dt) {
+  s.skid = Math.max(0, s.skid - Math.max(0, dt));
+  const k = 1 - s.skid / s.skidDur;
+  const e = 1 - (1 - k) * (1 - k);
+  const nx = s.skid > 0 ? s.kx + (s.sx - s.kx) * e : s.sx;
+  const nz = s.skid > 0 ? s.kz + (s.sz - s.kz) * e : s.sz;
+  s.run += Math.hypot(nx - s.x, nz - s.z);
+  s.steps = Math.floor(s.run / KON_STRIDE);
+  s.x = nx;
+  s.z = nz;
+  const a = s.ka + s.kda * k * k * (3 - 2 * k);
+  s.dx = Math.cos(a);
+  s.dz = Math.sin(a);
+  if (s.skid === 0) s.r0 = s.run;
+}
+
+/**
+ * One frame of a pivot (`step` tiles round its circle). Once he faces the target (within this frame's turn), or
+ * after a full circle, he runs in along his heading (konTurn) and the rest of the frame is up to konStep's arc; it
+ * returns the step left for that (0 while he is still pivoting).
+ */
+function konPivot(s, step, tx, tz, cam) {
+  const w = step / KON_PIVOT;
+  const hx = -Math.sin(s.qa) * s.qs;
+  const hz = Math.cos(s.qa) * s.qs;
+  const rest = (((s.qs * (Math.atan2(tz - s.z, tx - s.x) - Math.atan2(hz, hx))) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  if (rest <= w || rest >= 2 * Math.PI - 2 * w || s.piv <= 0) {
+    s.piv = 0;
+    s.dx = hx;
+    s.dz = hz;
+    konArc(s, tx, tz, cam, hx, hz);
+    if (!konTurned) konSkid(s, tx, tz, cam, hx, hz, s.qs);
+    return s.skid > 0 ? 0 : step;
+  }
+  s.piv -= w;
+  s.qa += w * s.qs;
+  const nx = s.qx + KON_PIVOT * Math.cos(s.qa);
+  const nz = s.qz + KON_PIVOT * Math.sin(s.qa);
+  s.run += Math.hypot(nx - s.x, nz - s.z);
+  s.steps = Math.floor(s.run / KON_STRIDE);
+  s.x = nx;
+  s.z = nz;
+  s.dx = -Math.sin(s.qa) * s.qs;
+  s.dz = Math.cos(s.qa) * s.qs;
+  return 0;
 }
 
 /** The arc's speed (|dB/du|) at u, toward (tx, tz). */
@@ -248,8 +386,9 @@ export function konSpot(t, out) {
  * @param {{ x: number, z: number }|null} spot
  * @param {number} [speed]
  * @param {{ x: number, z: number }|null} [cam] the ground direction toward the camera (unit): his run bows that way
+ * @param {{ x: number, z: number }|null} [ruri] where Ruri stands: a skid-turn or a pivot turns away from her
  */
-export function konStep(s, dt, homeX, homeZ, spot, speed = KON_SPEED, cam = null) {
+export function konStep(s, dt, homeX, homeZ, spot, speed = KON_SPEED, cam = null, ruri = null) {
   if (!s.placed) {
     s.placed = true;
     s.mode = 'home';
@@ -273,15 +412,24 @@ export function konStep(s, dt, homeX, homeZ, spot, speed = KON_SPEED, cam = null
     return s;
   }
   if (!toHome && s.mode === 'spot' && Math.abs(s.tx - tx) < 1e-6 && Math.abs(s.tz - tz) < 1e-6) return s;
-  // a new run (from where he sits, or a target that jumped): a new arc from here; a small move only moves its end
+  // a new run (from where he sits, or a target that jumped): a new arc from here (or first a skid-turn or a pivot,
+  // konRetarget); a small move only moves its end
   if (s.mode !== 'travel') konArc(s, tx, tz, cam);
-  else if (Math.hypot(tx - s.tx, tz - s.tz) > KON_RETARGET) konArc(s, tx, tz, cam, s.dx, s.dz);
+  else if (Math.hypot(tx - s.tx, tz - s.tz) > KON_RETARGET) konRetarget(s, tx, tz, cam, ruri);
   s.mode = 'travel';
   s.tx = tx;
   s.tz = tz;
+  if (s.skid > 0) {
+    konSkidStep(s, dt);
+    return s;
+  }
+  let step = Math.max(0, speed * dt);
+  if (s.piv > 0) {
+    step = konPivot(s, step, tx, tz, cam);
+    if (s.skid > 0 || s.piv > 0) return s;
+  }
   // the arc: a cubic from (sx, sz) through its control points to the target. u advances by arc length (a midpoint
   // step on its speed), so his pace is even along it; the run counts the distance he really moved
-  const step = Math.max(0, speed * dt);
   const u0 = s.u;
   const sp0 = konArcSpeed(s, u0, tx, tz);
   let du = sp0 > 1e-6 ? step / sp0 : 1;
@@ -343,6 +491,14 @@ export function konGait(s, out) {
   out.lift = KON_HOP * up;
   out.pitch = KON_PITCH * Math.cos(Math.PI * ph);
   out.stretch = 1 + 0.14 * up;
+  // a skid-turn: his bound settles to the ground as he plants, and eases back in over his first stride after it
+  const k = s.skid > 0 ? s.skid / s.skidDur : (s.run - s.r0) / KON_STRIDE;
+  if (k < 1) {
+    const g = Math.max(0, k);
+    out.lift *= g;
+    out.pitch *= g;
+    out.stretch = 1 + (out.stretch - 1) * g;
+  }
   return out;
 }
 
