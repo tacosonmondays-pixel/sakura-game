@@ -7,6 +7,8 @@
 //                                                                        #   a Reduce Motion still
 //   node e2e/water-splash-board.mjs --board 2 --out board-water-2.jpg   # close-ups (2.5× zoom) of the same moments,
 //                                                                        #   low tier, the tornado beside it, RM
+//   node e2e/water-splash-board.mjs --board vs --out board-water-vs-tornado.jpg   # the splash and the tornado side by
+//                                                                        #   side at battle scale (844×390, high)
 //   node e2e/water-splash-board.mjs --board quick --out strip.jpg [--preset fresh --quality high --zoom 2.5]
 //   options: --times 0.03,0.14,0.3,0.46,0.75,1.25 --max-kb 300
 import { createServer } from 'vite';
@@ -35,7 +37,11 @@ async function shoot(browser, port, c) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  const q = new URLSearchParams({ preset: c.preset, quality: c.quality, manual: '1', clean: '1', zoom: String(c.zoom || 1), ...(c.rm ? { rm: '1' } : {}) });
+  // (a stills page steps through its own `times` list: hand it this config's)
+  const q = new URLSearchParams({
+    preset: c.preset, quality: c.quality, manual: '1', clean: '1', zoom: String(c.zoom || 1), ...(c.rm ? { rm: '1' } : {}),
+    ...(c.page && c.times ? { times: c.times.join(',') } : {}),
+  });
   const path = c.page || '/previews/water-splash.html';
   await page.goto(`http://127.0.0.1:${port}${path}?${q}`, { waitUntil: 'load', timeout: 120000 });
   const ready = c.page ? '__stills' : '__lab';
@@ -195,6 +201,31 @@ async function main() {
         sections: [
           { title: 'Close-ups · impact → crown rise → crown break → droplets → foam → ripples fading', captions: true, rows },
           { title: 'House look reference: the tornado (vortex, high, 844×390, battle scale)', captions: true, rows: [{ label: 'Tornado\nvortex high', cells: cells(tor, ['tornado', 'tornado']) }] },
+        ],
+      };
+    } else if (BOARD === 'vs') {
+      // the splash and the tornado side by side at battle scale (844×390, high, 1:1 pixels): whole frames for size next
+      // to a chibi, then the same crop round each at matching moments (rise, peak, break, fade)
+      const wT = [0.14, 0.3, 0.46, 0.75];
+      const tT = [0.4, 0.7, 1.1, 1.6];
+      const crop = [300, 220];
+      const wFull = await shoot(browser, port, { viewport: '844x390', preset: 'fresh', quality: 'high', crop: null, times: [0.3] });
+      const tFull = await shoot(browser, port, { page: '/previews/tornado-stills.html', label: 'tornado full', viewport: '844x390', preset: 'vortex', quality: 'high', crop: null, times: [0.7] });
+      const w = await shoot(browser, port, { viewport: '844x390', preset: 'fresh', quality: 'high', crop, times: wT });
+      const tv = await shoot(browser, port, { page: '/previews/tornado-stills.html', label: 'tornado', viewport: '844x390', preset: 'vortex', quality: 'high', crop, times: tT });
+      const r = await shoot(browser, port, { viewport: '844x390', preset: 'river', quality: 'high', crop, times: wT });
+      spec = {
+        title: 'Water splash vs tornado: battle scale, 844×390, high',
+        subtitle: 'Same lab patch, lights, camera, bloom and grade; 1:1 pixels. Splash: fresh (Nami, Sango) and river (Umeko, Wakaba); tornado: vortex. Chibis for scale.',
+        sections: [
+          { title: 'Whole frame: splash at its crown break (0.30 s) · tornado at full height (0.70 s)', captions: true, rows: [
+            { label: 'Splash | tornado\nwhole 844×390', cells: [{ b64: wFull[0].b64, caption: 'splash, fresh, 0.30 s' }, { b64: tFull[0].b64, caption: 'tornado, vortex, 0.70 s' }] },
+          ] },
+          { title: 'Same 300×220 crop round each, rise → peak → break → fade', captions: true, rows: [
+            { label: 'Splash\nfresh high', cells: cells(w, ['crown rise', 'crown break', 'droplets', 'foam']) },
+            { label: 'Splash\nriver high', cells: cells(r, ['crown rise', 'crown break', 'droplets', 'foam']) },
+            { label: 'Tornado\nvortex high', cells: cells(tv, ['rising', 'full', 'spinning', 'leaving']) },
+          ] },
         ],
       };
     } else {

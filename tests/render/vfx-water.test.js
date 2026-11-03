@@ -1,15 +1,19 @@
 // Toon water splash (src/render/vfx/water.js, docs/VFX.md "Water splash"; batch B1, lab only): plain-data presets, tier
-// caps, one instanced draw call per layer kind and none when idle, buffers allocated once (no growth over 600 updates),
-// seeded shapes, Reduce Motion (a still foam ring that fades), the flash guard and Flashes & shake, impact frames,
-// dispose, and display only (not wired into the battle, never the sim, never Math.random).
+// caps and scale, one instanced draw call per layer kind and none when idle, the crown and jet only in their own lives,
+// buffers allocated once (no growth over 600 updates, no update ranges), seeded shapes, the painted round bubbles,
+// Reduce Motion (a still foam ring that fades), the flash guard and Flashes & shake (on live splashes too), the tier
+// switch on live splashes, the glow cover (encoded, then premultiplied), impact frames, dispose, and display only (not
+// wired into the battle, never the sim, never Math.random).
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { WATER_PRESETS, WATER_TIERS, MAX_SPLASHES, WATER_SPLASH_GIRLS } from '../../src/render/vfx/waterPresets.js';
 import {
   createWaterFx, splashSeconds, crownSpread, crownRise, crownSink, WATER_REDUCE_ALPHA, DROP_SPARSE, WATER_GROUND_Y,
+  WATER_CANVAS_ADD, CROWN_COVER, FOAM_COVER, FOAM_POOL, DROP_MIN_PX, DROP_INK_PX, FOAM_MIN_PX, FOAM_BUBBLE_CELLS, WATER_BAND,
+  paintFoamBubbles,
 } from '../../src/render/vfx/water.js';
-import { TOON_CORE, TOON_TIER, TOON_REDUCE, toonSparse } from '../../src/render/vfx/toonCore.js';
+import { TOON_CORE, TOON_TIER, TOON_REDUCE, TOON_NOISE_N, toonSparse, paintToonNoise } from '../../src/render/vfx/toonCore.js';
 import { createVisualRandom } from '../../src/render/vfx/random.js';
 import { UNIT_MAP } from '../../src/data/units.js';
 
@@ -64,6 +68,12 @@ describe('water presets and tiers', () => {
     expect(low.jet).toBe(false);
     expect(high.hdr).toBe(true);
     expect(medium.hdr || low.hdr).toBe(false);
+    // high and medium draw the splash 20–30 % larger (it reads beside a chibi at 844×390); low keeps its fill
+    for (const t of [high, medium]) {
+      expect(t.scale).toBeGreaterThanOrEqual(1.2);
+      expect(t.scale).toBeLessThanOrEqual(1.3);
+    }
+    expect(low.scale).toBe(1);
   });
 });
 
@@ -151,6 +161,134 @@ describe('water splash layer', () => {
     }
     run(water, 1.2);
     expect(water.stats.drops).toBe(0);
+  });
+
+  it('the tier\'s scale sizes the crown, the foam and the ripples (high and medium larger, low as given)', () => {
+    const p = WATER_PRESETS.fresh;
+    for (const q of ['high', 'medium', 'low']) {
+      const { water, scene } = make(q);
+      water.splash('fresh', 0, 0, { size: 1.2 });
+      water.update(1 / 60);
+      const k = 1.2 * WATER_TIERS[q].scale;
+      expect(water.live[0].size).toBeCloseTo(k, 9);
+      const cB = scene.getObjectByName('waterCrown').geometry.getAttribute('cB').array;
+      expect(cB[0]).toBeCloseTo(p.crown.r0 * k, 6);
+      expect(cB[2]).toBeCloseTo(p.crown.height * k, 6);
+      const g = scene.getObjectByName('waterGround').geometry;
+      const gB = g.getAttribute('gB').array;
+      for (let i = 0; i < g.instanceCount; i++) {
+        const f = gB[i * 4] === 0 ? p.foamRing : p.ripple;
+        expect(gB[i * 4 + 3]).toBeCloseTo(f.width * k, 6);
+      }
+    }
+  });
+
+  it('writes the crown and the jet only during their own lives (no empty wall for the ripple tail)', () => {
+    const p = WATER_PRESETS.fresh;
+    const { water, scene } = make('high');
+    const kinds = () => {
+      const g = scene.getObjectByName('waterCrown').geometry;
+      const E = g.getAttribute('cE').array;
+      return Array.from({ length: g.instanceCount }, (_, i) => E[i * 4]);
+    };
+    water.splash('fresh', 0, 0);
+    run(water, p.jet.delay * 0.5);
+    expect(kinds()).toEqual([0]); // the crown, the jet not yet
+    run(water, p.jet.delay);
+    expect(kinds()).toEqual([0, 1]);
+    run(water, p.crown.life - p.jet.delay * 1.5 + 0.02);
+    expect(kinds()).toEqual([1]); // the crown's life is over, the jet's is not
+    run(water, p.jet.delay + p.jet.life - p.crown.life);
+    expect(kinds()).toEqual([]);
+    expect(scene.getObjectByName('waterCrown').visible).toBe(false);
+    expect(water.live.length).toBe(1); // the foam and the ripples are still up
+    expect(water.stats.calls).toBeGreaterThan(0);
+    // low has no jet at all
+    const lo = make('low');
+    lo.water.splash('fresh', 0, 0);
+    run(lo.water, 0.3);
+    expect(lo.water.stats.crown).toBe(1);
+  });
+
+  it('uploads whole buffers, no update ranges (no new range object a frame), and only while something is up', () => {
+    const { water, meshes } = make('high');
+    water.splash('fresh', 0, 0);
+    const versions = () => meshes.flatMap((m) => Object.entries(m.geometry.attributes).filter(([k]) => k !== 'position').map(([, a]) => a.version));
+    const v0 = versions();
+    run(water, 0.4);
+    for (const m of meshes) for (const [k, a] of Object.entries(m.geometry.attributes)) if (k !== 'position') expect(a.updateRanges.length).toBe(0);
+    expect(versions().every((v, i) => v > v0[i])).toBe(true);
+    water.clear();
+    const v1 = versions();
+    run(water, 0.2);
+    expect(versions()).toEqual(v1); // idle: nothing uploaded
+  });
+
+  it('ripples are drawn only out past the foam ring\'s outer edge (the translucent foam would show them through)', () => {
+    const { water, scene } = make('high');
+    water.splash('fresh', 0, 0);
+    run(water, 0.6);
+    const g = scene.getObjectByName('waterGround').geometry;
+    const B = g.getAttribute('gB').array;
+    const E = g.getAttribute('gE').array;
+    const p = WATER_PRESETS.fresh;
+    const rec = water.live[0];
+    const age = rec.t / p.foamRing.life;
+    const R = (p.foamRing.r0 + (p.foamRing.r1 - p.foamRing.r0) * (1 - Math.pow(1 - age, 2.2))) * rec.size;
+    let ripples = 0;
+    for (let i = 0; i < g.instanceCount; i++) {
+      if (B[i * 4] !== 1) continue;
+      ripples++;
+      expect(E[i * 4 + 3]).toBeGreaterThan(R);
+      expect(E[i * 4 + 3]).toBeLessThan(R + p.foamRing.width * rec.size);
+    }
+    expect(ripples).toBe(WATER_TIERS.high.ripples);
+    const frag = scene.getObjectByName('waterGround').material.fragmentShader;
+    expect(frag).toMatch(/toonMask\(heat, cut\) \* step\(0\.0, band\) \* step\(vE\.w, r\)/);
+    // the ground quads hug the ring as it is now, and collapse outside their life (no fragments)
+    expect(scene.getObjectByName('waterGround').material.vertexShader).toMatch(/float ext = \(wRingR\(gB, age, gD\.w\) \+ gB\.w \* 1\.5\) \* on;/);
+  });
+
+  it('switching the tier or Flashes & shake reaches the splashes already up', () => {
+    const { water, scene } = make('high');
+    water.flashGate = () => 1;
+    water.setGlow('high', true);
+    water.splash('fresh', 0, 0);
+    run(water, 0.05);
+    const rec = water.live[0];
+    expect(rec.seconds).toBeCloseTo(splashSeconds(WATER_PRESETS.fresh, WATER_TIERS.high), 9);
+    water.setQuality('low');
+    expect(rec.seconds).toBeCloseTo(splashSeconds(WATER_PRESETS.fresh, WATER_TIERS.low), 9);
+    water.setQuality('high');
+    expect(rec.plopK).toBe(1);
+    water.setFlashes(false);
+    expect(rec.plopK).toBe(0);
+    water.update(1 / 60);
+    const g = scene.getObjectByName('waterGround').geometry;
+    const B = g.getAttribute('gB').array;
+    const C = g.getAttribute('gC').array;
+    for (let i = 0; i < g.instanceCount; i++) if (B[i * 4] === 0) expect(C[i * 4 + 3]).toBe(0);
+  });
+
+  it('the glow cover: the linear target (high with bloom) takes the whole add, the canvas a share of it', () => {
+    const { water, meshes } = make('high');
+    water.splash('fresh', 0, 0);
+    water.update(1 / 60);
+    for (const m of meshes) expect(m.material.uniforms.uAdd.value).toBe(WATER_CANVAS_ADD);
+    water.setGlow('high', true);
+    water.update(1 / 60);
+    for (const m of meshes) expect(m.material.uniforms.uAdd.value).toBe(1);
+    water.setGlow('medium', true); // (no bloom on medium)
+    water.update(1 / 60);
+    for (const m of meshes) expect(m.material.uniforms.uAdd.value).toBe(WATER_CANVAS_ADD);
+    expect(WATER_CANVAS_ADD).toBeGreaterThan(0);
+    expect(WATER_CANVAS_ADD).toBeLessThan(1);
+    // translucent bodies, solid ink: the body bands hide part of the board, the ink all of it
+    expect(CROWN_COVER.body).toBeLessThan(CROWN_COVER.crest);
+    expect(CROWN_COVER.ink).toBe(1);
+    expect(FOAM_COVER.body).toBeLessThan(FOAM_COVER.bubble);
+    expect(FOAM_COVER.ink).toBe(1);
+    expect(FOAM_POOL.alpha * FOAM_POOL.cover).toBeLessThan(0.2);
   });
 
   it('reduce motion: no crown, drops, jet or ripples; one still foam ring that fades slower, nearly solid', () => {
@@ -268,16 +406,65 @@ describe('water shaders and display only', () => {
       expect(f).toContain(TOON_TIER);
       expect(f).toMatch(/toonMask\(/);
       expect(f).toMatch(/toonRamp\(uRamp/);
-      expect(f).toMatch(/gl_FragColor = toonCover\(/);
+      // the colour is encoded for the target first and premultiplied after (a fade on the sRGB canvas never lightens)
+      expect(f).toMatch(/gl_FragColor = vec4\(col, 1\.0\);\s*#include <colorspace_fragment>\s*float wCover = [^;]+;\s*gl_FragColor = toonAdd\(gl_FragColor\.rgb, [^,]+, mix\(uAdd, 1\.0, wCover\), wCover\);\s*\}$/);
       expect(f.replace(/\/\/.*$/gm, '')).not.toMatch(/\bdiscard\b/);
       expect(m.material.blending).toBe(THREE.CustomBlending);
       expect(m.material.blendSrc).toBe(THREE.OneFactor);
       expect(m.material.blendDst).toBe(THREE.OneMinusSrcAlphaFactor);
       expect(m.material.depthWrite).toBe(false);
     }
-    // the foam reads the Worley cells and the swirl; the drops clip two fields with one threshold
+    // the foam reads the painted bubbles (B) along the swirl; the drops clip two fields with one threshold
     expect(meshes[2].material.fragmentShader).toMatch(/toonCells\(uNoise, toonSwirl\(uNoise, uv/);
-    expect(meshes[1].material.fragmentShader).toMatch(/float F = wBlob\([^;]+\) \+ wBlob\([^;]+\);[\s\S]*toonMask\(F, cut\)/);
+    expect(meshes[1].material.fragmentShader).toMatch(/float F = wBlob\([^;]+\) \+ wBlob\([^;]+\);[\s\S]*toonMask\(F, cut \+ uSparse\)/);
+    // ink on the silhouette only: the crown's rim leaves as it goes down; the foam's ink only on the ring's outer half
+    const crown = meshes[0].material.fragmentShader;
+    expect(crown).toMatch(/float ink = max\(wRim\(heat - cut, 1\.3, 0\.035\), step\(0\.9, vRim\)\) \* inked;/);
+    expect(meshes[2].material.fragmentShader).toMatch(/float ink = wRim\(heat - cut, 1\.3, 0\.03\) \* step\(0\.0, x\) \* body \* \(1\.0 - bub\);/);
+  });
+
+  it('drops never end as dark specks: gone under a few pixels, no ink when small, the body never below aqua, a white shine', () => {
+    const f = make('high').meshes[1].material.fragmentShader;
+    expect(f).toContain(`m *= step(${DROP_MIN_PX.toFixed(2)}, px);`);
+    expect(f).toContain(`* step(${DROP_INK_PX.toFixed(2)}, px);`);
+    expect(f).toContain(`float b = mix(${WATER_BAND.body.toFixed(1)}, ${WATER_BAND.glow.toFixed(1)}, step(0.32, above));`);
+    expect(f).toContain(`b = mix(b, ${WATER_BAND.shine.toFixed(1)}, shine);`);
+    expect(f).toMatch(/max\(rA \* 0\.36, wpp \* 0\.75\)/); // a shine at least ~a pixel wide
+    expect(f).toMatch(/0\.5 \* smoothstep\(0\.5, 1\.0, vR\.w\)/); // they erode out sooner
+    expect(WATER_BAND.body).toBeGreaterThan(WATER_BAND.ink + 2);
+    expect(DROP_INK_PX).toBeGreaterThan(DROP_MIN_PX);
+    // the foam's bubbles: gone under FOAM_MIN_PX (no 1 px stipple)
+    expect(make('high').meshes[2].material.fragmentShader).toContain(`bub *= step(${FOAM_MIN_PX.toFixed(2)}, px);`);
+  });
+
+  it('paints round, seeded, tileable bubbles into the noise\'s B channel (no Worley cells: no flower shapes)', () => {
+    const n = 64;
+    const a = paintFoamBubbles(paintToonNoise(n, 13, { swirl: true }), n);
+    expect(paintFoamBubbles(paintToonNoise(n, 13, { swirl: true }), n)).toEqual(a);
+    expect(paintFoamBubbles(paintToonNoise(n, 13, { swirl: true }), n, FOAM_BUBBLE_CELLS, 32)).not.toEqual(a);
+    // R, G and A are the core's as painted; only B is the bubbles
+    const base = paintToonNoise(n, 13, { swirl: true });
+    for (let i = 0; i < n * n * 4; i++) if (i % 4 !== 2) expect(a[i]).toBe(base[i]);
+    const B = (x, y) => a[(((y + n) % n) * n + ((x + n) % n)) * 4 + 2];
+    let peak = 0;
+    let gaps = 0;
+    let worst = 0;
+    let seam = 0;
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        peak = Math.max(peak, B(x, y));
+        if (B(x, y) === 0) gaps++;
+        worst = Math.max(worst, Math.abs(B(x, y) - B(x + 1, y)), Math.abs(B(x, y) - B(x, y + 1)));
+      }
+      seam = Math.max(seam, Math.abs(B(n - 1, y) - B(0, y)), Math.abs(B(y, n - 1) - B(y, 0)));
+    }
+    expect(peak).toBeGreaterThan(220); // a bubble's centre is bright
+    expect(gaps).toBeGreaterThan(n * n * 0.05); // bubbles are separate discs, with ground between them
+    // smooth cones (no edges, no flower petals) and no seam where the tile wraps
+    expect(worst).toBeLessThanOrEqual(Math.ceil((255 * FOAM_BUBBLE_CELLS) / (n * 0.44)) + 1);
+    expect(seam).toBeLessThanOrEqual(worst);
+    // the layer's own texture is the full-size one
+    expect(TOON_NOISE_N).toBe(128);
   });
 
   it('the JS crown maths match the vertex shader\'s (the drops leave from where the lip is drawn)', () => {

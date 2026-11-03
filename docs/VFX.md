@@ -373,34 +373,55 @@ The tornado's house look turned into a short burst, built on the toon core. Not 
 `previews/water-splash.html`, and `WATER_SPLASH_GIRLS` names who will use which preset once it is wired. Display only.
 
 - **Three layer kinds, one instanced draw call each** (3 calls while a splash is up, 0 when idle; every buffer allocated
-  once for `MAX_SPLASHES` = 8 at the high tier, numbers written into it each frame, nothing allocated a frame):
+  once for `MAX_SPLASHES` = 8 at the high tier, numbers written into it each frame and uploaded whole, with no update
+  ranges, so nothing is allocated a frame):
   - **crown** (`CylinderGeometry` wall, 40 segments): rises from the impact (all of it in the first 38 % of its life),
     spreads and slumps. Its lip has whole-number spikes wobbled by the house noise and erodes first, so its tongues
-    part; then the wall breaks into blobs. A thin ink rim at every edge (the house slope 1.6), the body held at teal,
-    the lip lifted to white; the arc facing the camera brighter, the inside of the wall darker, an ink line where the
-    wall turns edge-on to the camera. A narrow centre jet follows on high and medium (same call). One draw call holds
-    the far wall's inside and the near wall's outside, so the triangles are sorted back to front, once per camera turn.
+    part; then the wall goes down from the top (a shallow noise and a threshold climbing faster up the wall: no cracks
+    across its body). A translucent, glowing body in wide flowing bands: the far wall's inside a shade deeper (seen
+    through the near wall), a light glow band up the middle of the near wall, a white crest under the lip. Ink only on
+    the silhouette (a thin rim inside the eroded edge, at least ~1.3 px on screen, and where the wall turns edge-on to
+    the camera); it leaves as the wall goes down (the receding edge turns crest white), sooner on the narrow jet. A
+    centre jet follows on high and medium (same call). The crown and the jet are written only during their own lives.
+    One draw call holds the far wall's inside and the near wall's outside, so the triangles are sorted back to front,
+    once per camera turn.
   - **drops**: pairs leave the spike tips as the crown breaks (the JS mirrors `crownSpread` / `crownRise` / `crownSink`
     put them where the lip is drawn). Each pair is one camera-facing quad whose shader sums two feathered fields and cuts
     them with one hard threshold: one blob while the drops are close, two as the faster one pulls away. Each drop
-    stretches along its flight, carries a small shine (the ramp's top texel), shrinks and is gone when it lands.
-  - **ground**: the foam ring (a band of Worley F2 − F1 cells pushed along the swirl channel; the cells take over as it
-    ages, so it breaks into bubbles and dissolves) with the impact disc at its middle for the first moments, and the
-    ripples, drawn under the foam: light lines inked on their outer edge only, whole while young, breaking into dashes
-    as they run out (the decay drives the threshold instead of a fade).
-- **Blend:** premultiplied cover on every tier (water covers the board; it is not light). The broad whites sit just
-  under the bloom's threshold, so no wall or ring gets a soft halo. Only the ramp's top texel is pure white (the drops'
-  shine and the impact's core); on high with bloom it goes `hdr` over white, the sparkle the bloom catches.
+    stretches along its flight, keeps an aqua body with a lighter middle (never an ink-only speck) and a white shine at
+    least a pixel wide; its ink rim only while it is over `DROP_INK_PX` (3.2) on screen. Its threshold climbs faster over
+    the last of its flight, and it is gone under `DROP_MIN_PX` (1.3 px).
+  - **ground**: the foam ring, a translucent band of water carrying round white bubbles. The bubbles are painted once
+    into the noise texture's B channel (`paintFoamBubbles`: one cone a cell of a 6 × 6 periodic lattice, jittered and
+    sized by the house hash; no Worley cells, so no flower shapes), laid round the ring so they stay round whatever its
+    radius (two lattice tiles round it: about 12 bubbles). Along the ring's middle they merge into a scalloped band of
+    foam; as the threshold climbs they part, shrink and pop, after the water under them has gone, and a bubble under
+    `FOAM_MIN_PX` (2 px) is not drawn (no 1 px stipple). Ink only on the ring's outer edge; its inner half is a light
+    glow band; a faint wet glow fills the middle (one flat step that dries out in blobs). The impact disc sits at its
+    middle for the first moments. The ripples run out past it, drawn only outside the foam's outer edge (the foam is
+    translucent): light lines inked on their outer edge only, whole while young, breaking into dashes as they run out
+    (the decay drives the threshold instead of a fade). Each ground quad hugs its ring as it is now and is empty
+    outside its life (no fragments for ground it has not reached).
+- **Blend: the glow cover** (premultiplied One / OneMinusSrcAlpha). The colour is encoded for the target first and
+  premultiplied after it (so a fade on the sRGB canvas darkens, never lightens; the tornado's path is unchanged). Then
+  the whole colour is added and each band hides its own share of the board (`CROWN_COVER`, `FOAM_COVER`, `DROP_COVER`:
+  the bodies about half, the whites ~0.9, the ink all of it): translucent, luminous water with solid ink and whites.
+  Adding in display values on the canvas (medium, low, high without bloom) lands far brighter than in high's linear
+  target, so there the translucent bands add `WATER_CANVAS_ADD` (0.4) of their colour (`uAdd`), and every tier reads
+  alike. The broad whites sit just under the bloom's threshold; on high with bloom the crest, the drops' shine and the
+  impact's core go `hdr` over white, the glow the bloom catches.
 - **Presets** (plain data): `fresh` (Nami, Sango: teal and white), `river` (Umeko, Wakaba: a lighter blue), `frost`
   (a hook for Frost Net and Yuki: icy bands, a stiffer crown; not tuned, not on the board). Eight-texel ramps (one band a
   texel) for the crown and drops, and eight for the ground.
 - **Tiers** (`WATER_TIERS`): high 5 drop pairs, 2 ripples, the jet, 9 lip points, the sparkle; medium 3, 2, the jet, 7;
-  low 2, 1, no jet, 6. High's drops are clipped a little smaller (`DROP_SPARSE`, the mask only).
+  low 2, 1, no jet, 6. High and medium draw the splash 1.25 × its size (`scale`: it reads beside a chibi at 844×390);
+  low keeps 1 × (its fill rate). High's drops are clipped a little smaller (`DROP_SPARSE`, the mask only).
 - **Reduce Motion:** no crown, drops, jet or ripples; one still foam ring (held in the shader: no spread, swirl or scroll,
-  no impact disc) that leaves by eroding, over `TOON_REDUCE.life` × its life, at `WATER_REDUCE_ALPHA` (0.92: water
-  covers, so the core's 0.7 would read as a washed-out translucent ring).
+  no impact disc; its round bubbles held where they are) that leaves by eroding, over `TOON_REDUCE.life` × its life, at
+  `WATER_REDUCE_ALPHA` (0.92: the ring is already translucent, so the core's 0.7 would wash it out).
 - **Flash guard, Flashes & shake:** the impact sparkle asks `flashGate` once a splash and is scaled by its answer;
-  with Flashes & shake off (`setFlashes(false)`) there is none. Nothing else in the splash adds light, so nothing else
+  with Flashes & shake off (`setFlashes(false)`) there is none, on the splashes already up too. `setQuality` gives the
+  splashes up the new tier's ripple tail (`splashSeconds`), as `setReduceMotion` does. Nothing else in the splash adds light, so nothing else
   counts as a flash. Impact frames: `hold(true)` hides all three layers.
 - **Randomness:** the stream it is handed (`vrand.fork('water')` when wired); time from the visual clock.
 - **Cost:** CPU 11 µs a frame on high with four splashes up (node, this machine; the tornado's three columns 12.5 µs).
@@ -408,11 +429,12 @@ The tornado's house look turned into a short burst, built on the toon core. Not 
   (CPU raster: compare runs, nothing absolute about a phone), +3 draw calls.
 - **Lab and boards:** `/previews/water-splash.html` (live loop, preset / tier / Reduce Motion buttons; `?manual=1` and
   `window.__lab.shot(t)` for stepped stills, `window.__lab.bench()` for the frame time). `node e2e/water-splash-board.mjs
-  --board 1 | 2 | quick --out <jpg>` writes the owner boards (six moments: impact, crown rise, crown break, droplets,
-  foam, ripples fading).
+  --board 1 | 2 | vs | quick --out <jpg>` writes the owner boards (six moments: impact, crown rise, crown break, droplets,
+  foam, ripples fading; `vs`: the splash and the vortex tornado side by side at battle scale, 844×390, high).
 - **Credits** (licence texts, with their authors, in `public/licenses/`): the drops' clip of feathered fields follows the
   idea of the "Procedural Metaballic Splash" shader (MIT, `metaballic-splash-MIT.txt`; our own code); the foam ring's
-  outlined band follows a waterfall shader breakdown's foam (CC0, `waterfall-foam-CC0-1.0.txt`); the ripples follow the
+  outlined band follows a waterfall shader breakdown's foam (CC0, `waterfall-foam-CC0-1.0.txt`); the round bubbles are
+  our own lattice; the ripples follow the
   stylized-components water ripples (MIT, `stylized-components-MIT.txt`). No texture mask is used (the procedural lip
   and the clip gave crisper shapes than a sprite mask), so no mask file ships. When the splash is wired, add the three
   files to Settings → Licences (`LICENCE_FILES`).

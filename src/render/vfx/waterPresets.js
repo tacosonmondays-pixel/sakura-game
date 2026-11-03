@@ -3,12 +3,15 @@
 // noise-wobbled lip that erodes into droplets; droplets that leave the spike tips in pairs, stay merged while they are
 // close and split as they part (two soft fields cut by one hard threshold); a foam ring on the ground and ripples
 // running out past it. Every shape is cut by an erosion threshold rising with its age and coloured through a few flat
-// bands whose darkest band is its ink rim (src/render/vfx/toonCore.js). Sizes in tiles at size 1, times in seconds.
+// bands with an ink line on its silhouette (src/render/vfx/toonCore.js). Sizes in tiles at size 1 (× the tier's scale),
+// times in seconds.
 //
-//   ramp    the crown and drop bands, ink → hottest (sRGB hex, exactly as drawn; 8, one ramp texel each). The broad
-//           whites sit just under the bloom's threshold (no soft halo round a whole wall or ring); only the top texel is
-//           pure white: the drops' shine and the impact's core, the sparkle the bloom may catch on high
-//   foam    the ground bands (foam ring and ripples), ink → white
+//   ramp    the crown and drop bands, ink → hottest (sRGB hex, exactly as drawn; 8, one ramp texel each): 0-1 ink, 2
+//           deep teal, 3 the far wall's inside, 4 the body, 5 the glow band and the drops' middles, 6 the crest, 7 pure
+//           white (the drops' shine). The broad whites sit just under the bloom's threshold (no soft halo round a whole
+//           wall or ring); on high with bloom the crest and the shine go `hdr` over white
+//   foam    the ground bands (foam ring and ripples), ink → white: 0-1 ink, 2 the ring's water, 3 its glow band (and the
+//           wet glow), 5 the bubbles, 7 the impact's core
 //   crown   life, r0 / r1 (radius at the foot when born / when spread), height, flare (how far the lip leans out),
 //           erode [young, old], spikes (points round the lip, by tier), noise (scale along the wall)
 //   jet     the centre column after the crown: delay, life, r (radius), height, erode
@@ -16,8 +19,8 @@
 //           up, gravity, size (radius), split (the second drop's speed share), erode [young, old] (the clip)
 //   foamRing life, r0 / r1, width, erode
 //   ripple  life, r0 / r1, width, spacing (s between rings), erode, decay
-//   hdr     extra brightness of the white highlight band (high with bloom only; the sparkle the bloom catches)
-//   alpha   overall strength (cover: the colour painted over the board)
+//   hdr     extra brightness of the crest and the shine (high with bloom only; the glow the bloom catches)
+//   alpha   overall strength
 export const WATER_PRESETS = Object.freeze({
   // Nami and Sango: fresh water, teal and white
   fresh: Object.freeze({
@@ -61,13 +64,14 @@ export const WATER_PRESETS = Object.freeze({
 
 /**
  * By graphics tier (docs/VFX.md phones first): drop pairs, ripple rings, the centre jet, the spike set (index into a
- * preset's crown.spikes: high has the most points round the lip) and whether the white highlight may go over white for
- * the bloom (high, only while the bloom is on).
+ * preset's crown.spikes: high has the most points round the lip), whether the white highlight may go over white for
+ * the bloom (high, only while the bloom is on) and the splash's scale (× its size: high and medium draw it a quarter
+ * larger so it reads beside a chibi at 844×390; low keeps its fill rate).
  */
 export const WATER_TIERS = Object.freeze({
-  high: Object.freeze({ pairs: 5, ripples: 2, jet: true, spikes: 0, hdr: true }),
-  medium: Object.freeze({ pairs: 3, ripples: 2, jet: true, spikes: 1, hdr: false }),
-  low: Object.freeze({ pairs: 2, ripples: 1, jet: false, spikes: 2, hdr: false }),
+  high: Object.freeze({ pairs: 5, ripples: 2, jet: true, spikes: 0, hdr: true, scale: 1.25 }),
+  medium: Object.freeze({ pairs: 3, ripples: 2, jet: true, spikes: 1, hdr: false, scale: 1.25 }),
+  low: Object.freeze({ pairs: 2, ripples: 1, jet: false, spikes: 2, hdr: false, scale: 1 }),
 });
 
 /** At most this many splashes at once (a new one reuses the oldest's slot). */
