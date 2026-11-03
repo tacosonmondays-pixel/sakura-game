@@ -6,7 +6,8 @@
 //   ?scene=aura|shock|scorch|drumstorm|surge|all  &quality=high|medium|low  &rm=1  &preset=raika|chika|tenka|seiran|yuzuha
 //   &focus=<i> (aura: which girl the crops and close-ups centre on)  &zoom=2.5 (a close-up)  &clean=1 (no buttons)
 //   &manual=1: no loop; window.__lab.shot(t) steps the scene to t s and draws it (call in rising order);
-//   window.__lab.screen() → the focus's screen px; window.__lab.stats() → draw calls etc.; window.__lab.bench()
+//   window.__lab.screen() → the focus's screen px; window.__lab.stats() → draw calls etc. (and the real flash guard's
+//   world load: every strike asks it, as BattleRenderer's flashGate does); window.__lab.bench()
 //
 // The shock scene strikes Raika's live chain (src/render/vfx/lightning.js, its storm preset) through three goblins and
 // starts the shocked crackle on each as its hop lands, so the new crackle sits beside the existing chain.
@@ -17,6 +18,7 @@ import { ELECTRIC_PRESETS, ELECTRIC_CASTS } from '../src/render/vfx/electricPres
 import { createLightningFx } from '../src/render/vfx/lightning.js';
 import { LIGHTNING_PRESETS } from '../src/render/vfx/lightningPresets.js';
 import { createVisualRandom, visualSeed } from '../src/render/vfx/random.js';
+import { FlashGuard, screenShare } from '../src/render/vfx/flashGuard.js';
 import { UNIT_MAP } from '../src/data/units.js';
 import { ENEMIES } from '../src/data/enemies.js';
 import { preloadModels, buildChibi, buildEnemy, preloadEnemies } from '../src/models/index.js';
@@ -79,6 +81,13 @@ async function main() {
   const lightning = createLightningFx({ scene, batches: stage.batches, atlas: stage.atlas, quality, reduceMotion: rm, rand: rand.fork('chain') });
   lightning.setGlow(quality, stage.glow);
   lightning.setPixel(stage.rig.scale);
+  // the battle's flash guard, asked as BattleRenderer's flashGate does (screen share of each strike, on the lab clock)
+  const guard = new FlashGuard({ reduceMotion: rm });
+  const clock = { t: 0 };
+  let guardPeak = 0;
+  const flashGate = (size, uv, strength) => guard.world(screenShare(size / Math.max(1e-6, stage.rig.scale), stage.rig.viewW, stage.rig.viewH, 0.4), strength, clock.t);
+  elec.flashGate = flashGate;
+  lightning.flashGate = flashGate;
 
   // ---- the cast: chibis for scale (and goblins for the shocked crackle)
   const girls = new Set();
@@ -203,11 +212,14 @@ async function main() {
   void chika;
 
   let frame = 0;
+  const guardStats = () => ({ worldLoad: guard.worldArea.sum(clock.t), worldPeak: guardPeak, dimmed: guard.dimmed });
   const step = () => {
     stage.step(DT, (d) => {
+      clock.t += d;
       tick(d);
       elec.update(d);
       lightning.update(d);
+      guardPeak = Math.max(guardPeak, guard.worldArea.sum(clock.t));
     });
     frame++;
   };
@@ -215,7 +227,7 @@ async function main() {
   const info = document.getElementById('info');
   const show = () => {
     const s = elec.stats;
-    info.textContent = `${sceneId} · ${quality}${rm ? ' · Reduce Motion' : ''} · ${(frame * DT).toFixed(2)} s · calls ${s.calls} · strokes ${s.strokes} · ground ${s.ground}`;
+    info.textContent = `${sceneId} · ${quality}${rm ? ' · Reduce Motion' : ''} · ${(frame * DT).toFixed(2)} s · calls ${s.calls} · strokes ${s.strokes} · ground ${s.ground} · flash ${guard.worldArea.sum(clock.t).toFixed(3)} screens/s`;
   };
 
   window.__lab = {
@@ -229,11 +241,11 @@ async function main() {
       while (frame < target) step();
       const r = stage.render();
       show();
-      return { t: frame * DT, ...elec.stats, frameCalls: r.calls };
+      return { t: frame * DT, ...elec.stats, frameCalls: r.calls, ...guardStats() };
     },
     /** The focus's screen px (the boards crop round it). */
     screen: () => stage.toScreen(focus[0], 0.45, focus[1]),
-    stats: () => ({ ...elec.stats, sceneCalls: stage.calls() }),
+    stats: () => ({ ...elec.stats, sceneCalls: stage.calls(), ...guardStats() }),
     /**
      * Frame time on this machine (headless SwiftShader: compare runs, nothing absolute about a phone): `n` drawn frames
      * of the board alone, then `n` with the scene running and `extra` crackling bodies more; median ms and draw calls.
@@ -301,9 +313,11 @@ async function main() {
       start();
     }
     stage.step(dt, (d) => {
+      clock.t += d;
       tick(d);
       elec.update(d);
       lightning.update(d);
+      guardPeak = Math.max(guardPeak, guard.worldArea.sum(clock.t));
     });
     frame++;
     stage.render();

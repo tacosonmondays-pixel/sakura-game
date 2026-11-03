@@ -16,7 +16,9 @@
 //                       (× the body's radius, its half width)
 //   shock               the shocked-enemy crackle after a chain hit: life, the first burst of bolts, then sparser
 //   burst               a drum-beat ring of bolts (Drumstorm): r0 → r1 (tiles) over life, bolts round it, a restrike
-//   arc                 bolts arcing between points (Drone Surge): sag (× the span), zig, restrike, duty
+//   arc                 bolts arcing between points (Drone Surge): sag (× the span), zig; each arc is held and
+//                       re-struck in place every restrike[0..1] s (its leader grows over grow s on its first strike
+//                       only) and is on for duty of its strikes (never two arcs of a web off at once)
 //   scorch              the electric ground decal: life, radius (tiles), erode [young, old]
 //   flicker             the core dims this much on every other strike (asked of the flash guard first)
 //   hdr                 high with bloom: the core this much over white (only while the flash guard allows it)
@@ -36,7 +38,7 @@ const SHAPE = Object.freeze({
   }),
   shock: Object.freeze({ life: 0.5, burst: 4, restrike: Object.freeze([0.05, 0.09]), len: Object.freeze([0.24, 0.4]) }),
   burst: Object.freeze({ life: 0.32, r0: 0.35, r1: 1.45, height: 0.1, restrike: 0.05, zig: 0.32, spoke: 0.34 }),
-  arc: Object.freeze({ sag: 0.14, zig: 0.3, wander: 0.12, restrike: Object.freeze([0.05, 0.08]), duty: 0.85, grow: 0.03 }),
+  arc: Object.freeze({ sag: 0.14, zig: 0.3, wander: 0.12, restrike: Object.freeze([0.1, 0.16]), duty: 0.95, grow: 0.03 }),
   scorch: Object.freeze({ life: 1.7, radius: 0.62, erode: Object.freeze([0.04, 0.92]) }),
   flicker: 0.3,
   hdr: 0.35,

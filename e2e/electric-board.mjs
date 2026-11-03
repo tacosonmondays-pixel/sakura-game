@@ -69,7 +69,9 @@ async function shoot(browser, port, c) {
   }
   if (errors.length) console.log(`  console (${c.scene || c.preset} ${c.quality}): ${errors.slice(0, 3).join(' | ')}`);
   await page.close();
-  console.log(`  shot ${c.label || `${c.scene} ${c.quality}${c.rm ? ' rm' : ''} ${c.viewport}${c.zoom > 1 ? ` z${c.zoom}` : ''}`} (${out.length} cells; calls ${out.map((o) => o.stats.calls ?? o.stats.frameCalls).join('/')})`);
+  const peak = Math.max(0, ...out.map((o) => o.stats.worldPeak ?? 0));
+  const dimmed = Math.max(0, ...out.map((o) => o.stats.dimmed ?? 0));
+  console.log(`  shot ${c.label || `${c.scene} ${c.quality}${c.rm ? ' rm' : ''} ${c.viewport}${c.zoom > 1 ? ` z${c.zoom}` : ''}`} (${out.length} cells; calls ${out.map((o) => o.stats.calls ?? o.stats.frameCalls).join('/')}${c.page ? '' : `; flash guard peak ${peak.toFixed(3)} screens/s, dimmed ${dimmed}`})`);
   return out;
 }
 

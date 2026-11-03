@@ -10,12 +10,14 @@ import {
 } from '../../src/render/vfx/electricPresets.js';
 import {
   createElectricFx, fractalPath, capsuleRadius, ELECTRIC_LAYERS, ELECTRIC_MIN_PX, ROUGHNESS, SCORCH_COVER, RING_COVER,
-  ELECTRIC_REDUCE_ALPHA, SCORCH_INK_PX,
+  ELECTRIC_REDUCE_ALPHA, SCORCH_INK_PX, SCORCH_INK_AGE, SCORCH_HOLD, SCORCH_RIM_X, SCORCH_HEAT_FLOOR, FACE_CONE,
+  REDUCE_FADE, LINK_END,
 } from '../../src/render/vfx/electric.js';
 import { LIGHTNING_PRESETS } from '../../src/render/vfx/lightningPresets.js';
-import { RED_SHARE, WORLD_DIM, redShare } from '../../src/render/vfx/flashGuard.js';
+import { RED_SHARE, WORLD_DIM, WORLD_BUDGET, FlashGuard, redShare, screenShare } from '../../src/render/vfx/flashGuard.js';
 import { createVisualRandom } from '../../src/render/vfx/random.js';
-import { TOON_REDUCE } from '../../src/render/vfx/toonCore.js';
+import { TOON_CORE, TOON_REDUCE } from '../../src/render/vfx/toonCore.js';
+import { CameraRig } from '../../src/render/camera.js';
 
 /** The battle's camera at pitch 48° looking at the lab patch. */
 function camera() {
@@ -171,6 +173,42 @@ describe('electric layer', () => {
     expect(fx.stats.calls).toBe(0);
   });
 
+  it('a full pool: a shock takes the oldest shock or is dropped, never a girl\'s crackle; a cast lets go of a record reused', () => {
+    const { fx } = make('medium');
+    const girls = [];
+    for (let i = 0; i < MAX_AURAS - 1; i++) girls.push(fx.aura('raika', 1 + i * 0.5, 3)); // endless boost crackles
+    const s1 = fx.shock('chika', 6, 3);
+    run(fx, 0.1);
+    const gen = s1.gen;
+    const s2 = fx.shock('chika', 7, 3);
+    expect(s2).toBe(s1); // the pool is full: the oldest shock is reused
+    expect(s2.gen).toBe(gen + 1);
+    expect(girls.every((a) => a.on && a.life === Infinity && a.id === 'raika')).toBe(true);
+    // a girl's crackle takes the shock's record before any crackle; then a shock finds only crackles: it is dropped
+    const g12 = fx.aura('tenka', 8, 3);
+    expect(g12).toBe(s1);
+    expect(fx.shock('chika', 7, 3)).toBeNull();
+    expect([...girls, g12].every((a) => a.on && a.life === Infinity)).toBe(true);
+    expect(fx.stats.auras).toBe(MAX_AURAS);
+    // a record already ending goes first
+    fx.stop(girls[3]);
+    fx.update(1 / 60);
+    expect(fx.aura('seiran', 9, 3)).toBe(girls[3]);
+    // a cast's crackle reused by someone else: the cast lets go of it, so stopping the cast never ends theirs
+    const b = make('medium');
+    const c = b.fx.cast('raika.drumstorm', 4, 3, { duration: 1 });
+    const castAura = c.aura;
+    for (let i = 0; i < MAX_AURAS - 1; i++) b.fx.aura('chika', 1 + i * 0.5, 3);
+    run(b.fx, 0.5);
+    const other = b.fx.aura('yuzuha', 9, 3); // the least time left: the cast's (0.5 s; the rest endless)
+    expect(other).toBe(castAura);
+    expect(c.aura).toBeNull();
+    b.fx.stop(c);
+    expect(other.on).toBe(true);
+    expect(other.life).toBe(Infinity);
+    expect(other.id).toBe('yuzuha');
+  });
+
   it('tiers: each tier\'s bolts, kinks and forks bound the strokes; the stroke list never passes its cap', () => {
     for (const q of ['high', 'medium', 'low']) {
       const t = ELECTRIC_TIERS[q];
@@ -278,6 +316,43 @@ describe('electric layer', () => {
     }
   });
 
+  it('the crackle never crosses the face: no joint of a body\'s bolts (side, top or fork) within FACE_CONE of the camera side', () => {
+    const cam = camera();
+    const e = cam.matrixWorld.elements;
+    const view = Math.atan2(e[10], e[8]); // the side facing the camera (its azimuth round the body)
+    for (const [q, kind] of [['high', 'aura'], ['medium', 'aura'], ['high', 'shock']]) {
+      const { fx, strokes } = make(q, { seed: 11 });
+      const H = kind === 'aura' ? 0.95 : 0.62;
+      let joints = 0;
+      let high = 0;
+      let crown = 0;
+      for (let f = 0; f < 240; f++) {
+        if (f % 30 === 0) {
+          if (kind === 'aura' && f === 0) fx.aura('raika', 4, 3, { radius: 0.27, height: H });
+          if (kind === 'shock') fx.shock('raika', 4, 3);
+        }
+        fx.update(1 / 60);
+        for (const s of drawnStrokes(strokes)) {
+          for (const p of [s.a, s.b]) {
+            const x = p[0] - 4;
+            const z = p[2] - 3;
+            if (Math.hypot(x, z) < 1e-3) continue;
+            let d = Math.atan2(z, x) - view;
+            d -= 2 * Math.PI * Math.round(d / (2 * Math.PI));
+            expect(Math.abs(d)).toBeGreaterThanOrEqual(FACE_CONE - 1e-4);
+            joints++;
+            if (p[1] > H * 0.72) high++;
+            if (p[1] > H - 1e-4) crown++;
+          }
+        }
+      }
+      expect(joints).toBeGreaterThan(500);
+      expect(high).toBeGreaterThan(0); // the bolts over the top are in the sample
+      if (kind === 'aura') expect(crown).toBeGreaterThan(0); // and some run up to the crown
+    }
+    expect(FACE_CONE).toBeGreaterThanOrEqual(1); // about ±60° round the body
+  });
+
   it('layers stack back to front: ink, body, then the white-hot core (thinnest on top), each with its pixel floor', () => {
     const { fx, strokes } = make('high');
     fx.aura('raika', 4, 3);
@@ -369,6 +444,37 @@ describe('flash safety', () => {
     expect(asks.length).toBe(1);
   });
 
+  it('the real FlashGuard (the battle\'s gate at phone size): a busy board of crackles stays well under the world budget, never dimmed', () => {
+    const rig = new CameraRig({ width: 12, height: 7 }); // the lab patch: a close framing (big on screen), so a high count
+    for (const [vw, vh] of [[844, 390], [390, 844]]) {
+      rig.setViewport(vw, vh);
+      const fx = createElectricFx({ scene: new THREE.Scene(), camera: rig.camera, quality: 'high', rand: createVisualRandom(5).fork('electric') });
+      fx.setGlow('high', true);
+      const guard = new FlashGuard();
+      let now = 0;
+      // as BattleRenderer's flashGate (no atlas region: the default fill)
+      fx.flashGate = (size, uv, strength) => guard.world(screenShare(size / rig.scale, rig.viewW, rig.viewH, 0.4), strength, now);
+      // every girl's crackle up at once (the pool's worth), a Drumstorm, a Drone Surge, shocks as a chain lands
+      for (let i = 0; i < MAX_AURAS - 4; i++) fx.aura(Object.keys(ELECTRIC_PRESETS)[i % 5], 1 + (i % 6) * 1.8, 1.5 + Math.floor(i / 6) * 3);
+      fx.cast('raika.drumstorm', 5, 3.5, { duration: 3 });
+      fx.cast('chika.droneSurge', 8, 3.5, { points: points(4, 0.8, 1), duration: 3 });
+      let peak = 0;
+      let minCore = 1;
+      for (let f = 0; f < 180; f++) {
+        if (f % 12 === 0) fx.shock('chika', 2 + (f % 5), 4.5);
+        now += 1 / 60;
+        fx.update(1 / 60);
+        peak = Math.max(peak, guard.worldArea.sum(now));
+        const s = drawnStrokes(fx.meshes[0]);
+        for (let i = (2 * s.length) / 3; i < s.length; i++) minCore = Math.min(minCore, s[i].d[3]);
+      }
+      expect(fx.stats.gates).toBeGreaterThan(300); // every strike asked the real guard
+      expect(guard.dimmed).toBe(0); // the core never dimmed in normal play
+      expect(minCore).toBeGreaterThan(WORLD_DIM + 0.1); // (only the flicker: 1 − flicker)
+      expect(peak).toBeLessThan(WORLD_BUDGET * 0.25); // well under the world flashes' budget a second
+    }
+  });
+
   it('Flashes & shake off: the guard is never asked, no flicker and nothing over white', () => {
     const { fx, strokes, ground } = make('high', { flashes: false });
     fx.setGlow('high', true);
@@ -448,6 +554,28 @@ describe('Reduce Motion', () => {
     expect(fx.live.bursts[0].life).toBeCloseTo(ELECTRIC_PRESETS.raika.burst.life * TOON_REDUCE.life, 9);
   });
 
+  it('a still ring or scorch fades in (and a beat\'s ring out) over REDUCE_FADE: no hard on-cut each beat', () => {
+    for (const piece of ['burst', 'scorch']) {
+      const { fx, ground } = make('high', { reduceMotion: true });
+      const rec = fx[piece]('raika', 4, 3);
+      const strengths = [];
+      for (let f = 0; f < Math.ceil(rec.life * 60) + 2; f++) {
+        fx.update(1 / 60);
+        strengths.push(ground.geometry.instanceCount ? ground.geometry.attributes.gA.array[3] : 0);
+      }
+      expect(strengths[0]).toBeLessThan(ELECTRIC_REDUCE_ALPHA * 0.2); // no pop: about one frame of REDUCE_FADE
+      const k = Math.round(REDUCE_FADE * 60);
+      for (let f = 1; f <= k; f++) expect(strengths[f]).toBeGreaterThan(strengths[f - 1]); // rising
+      expect(strengths[k + 1]).toBeCloseTo(ELECTRIC_REDUCE_ALPHA, 5);
+      // the most it changes in a frame: a small share of its strength
+      let step = 0;
+      const last = strengths.findIndex((v, i) => i > k && v === 0);
+      for (let f = 1; f < (piece === 'burst' ? strengths.length : last); f++) step = Math.max(step, Math.abs(strengths[f] - strengths[f - 1]));
+      expect(step).toBeLessThan(ELECTRIC_REDUCE_ALPHA * 0.2);
+    }
+    expect(REDUCE_FADE).toBeGreaterThanOrEqual(0.1);
+  });
+
   it('switching Reduce Motion on stops the crackle on bodies already up', () => {
     const { fx } = make('medium');
     fx.aura('yuzuha', 4, 3);
@@ -477,6 +605,27 @@ describe('the ground pieces and the casts', () => {
     expect(SCORCH_COVER.ink).toBe(1);
     expect(SCORCH_COVER.burn).toBeLessThan(0.5); // a translucent burn
     expect(RING_COVER.ink).toBe(1);
+  });
+
+  it('the scorch\'s ink leaves before it erodes: no outlined holes or crack fragments, its silhouette only while whole', () => {
+    const f = make('high').ground.material.fragmentShader;
+    // whole while it holds (the threshold at its young value), then eroding
+    expect(f).toContain(`float cut = toonCut(vD.xy, max(0.0, age - ${SCORCH_HOLD.toFixed(2)}) / ${(1 - SCORCH_HOLD).toFixed(2)});`);
+    // a hard step on the age (binary: never between bands), wobbled by the noise, on all its ink (silhouette and cracks)
+    expect(f).toContain(`float inked = step(age + ${SCORCH_INK_AGE.wobble.toFixed(2)} * (n - 0.5), ${SCORCH_INK_AGE.end.toFixed(2)});`);
+    expect(f).toContain(`float burnInk = eRim(heat - cut, 1.2, 0.025) * burn * step(${SCORCH_RIM_X.toFixed(2)}, x);`);
+    expect(f).toMatch(/float ink = max\(\(1\.0 - crack\) \* zone \* step\(e, w \+ rimW\) \* wide, burnInk\) \* inked;/);
+    // gone, wobble and all, before the hold ends (before the erosion opens anything)
+    expect(SCORCH_INK_AGE.end + SCORCH_INK_AGE.wobble / 2).toBeLessThan(SCORCH_HOLD);
+    // the bound below rests on the toon core's heat: band × (floor + noise), noise 0..1
+    expect(TOON_CORE).toContain(`return band * (${SCORCH_HEAT_FLOOR.toFixed(1)} + 1.0 * n);`);
+    for (const p of Object.values(ELECTRIC_PRESETS)) {
+      // still there, wobble and all, while the cracks race out (0.12 s), on every preset (and slower under Reduce Motion)
+      expect((SCORCH_INK_AGE.end - SCORCH_INK_AGE.wobble / 2) * p.scorch.life).toBeGreaterThan(0.12);
+      // while it holds, every edge the burn has lies outside SCORCH_RIM_X (heat ≥ floor × (1 − x²) > erode[0] inside):
+      // the rim inks its outer silhouette, never a hole
+      expect(Math.sqrt(1 - p.scorch.erode[0] / SCORCH_HEAT_FLOOR)).toBeGreaterThan(SCORCH_RIM_X);
+    }
   });
 
   it('a scorch erodes out over its life (slower under Reduce Motion), its cracks racing out first', () => {
@@ -537,6 +686,58 @@ describe('the ground pieces and the casts', () => {
     void before;
   });
 
+  it('Drone Surge reads as a web: after the launch, at least n − 1 of its n arcs whole in every frame, re-struck in place', () => {
+    for (const q of ['high', 'medium', 'low']) {
+      const { fx } = make(q, { seed: 21 });
+      const pts = points(4);
+      const c = fx.cast('chika.droneSurge', 6, 3, { points: pts, duration: 4 });
+      const A = ELECTRIC_PRESETS.chika.arc;
+      let worst = 4;
+      let strikes = 0;
+      let last = c.link.arcs.slice(0, 4).map((s) => s.t0);
+      for (let f = 0; f < 200; f++) {
+        for (const p of pts) p.x += 0.002;
+        fx.update(1 / 60);
+        const arcs = c.link.arcs.slice(0, 4);
+        if (f * (1 / 60) > A.grow + 1 / 60) {
+          const whole = arcs.filter((s) => s.on && (s.lead === 0 || c.link.t - s.t0 >= s.lead)).length;
+          worst = Math.min(worst, whole);
+        }
+        arcs.forEach((s, i) => {
+          if (s.t0 !== last[i]) strikes++;
+        });
+        last = arcs.map((s) => s.t0);
+      }
+      expect(worst).toBeGreaterThanOrEqual(3);
+      // re-struck on a held beat (every 0.1-0.16 s an arc), not every few frames
+      expect(strikes).toBeGreaterThan((200 / 60 / A.restrike[1]) * 4 * 0.8);
+      expect(strikes).toBeLessThan((200 / 60 / A.restrike[0]) * 4 + 8);
+      expect(A.restrike[0]).toBeGreaterThanOrEqual(0.1);
+      expect(A.duty).toBeGreaterThanOrEqual(0.95);
+    }
+  });
+
+  it('a stopped web erodes out over LINK_END s (no pop), with no new strike', () => {
+    const { fx, strokes } = make('high');
+    const l = fx.link('chika', points(4), { life: 10 });
+    run(fx, 0.6);
+    fx.stop(l);
+    const t0s = l.arcs.map((s) => s.t0);
+    const cuts = [];
+    for (let f = 0; f < Math.round(LINK_END * 60) - 1; f++) {
+      fx.update(1 / 60);
+      expect(l.on).toBe(true);
+      expect(fx.stats.strokes).toBeGreaterThan(0);
+      const F = strokes.geometry.attributes.iF.array;
+      cuts.push(F[0]);
+    }
+    expect(l.arcs.map((s) => s.t0)).toEqual(t0s); // held: no re-strike while it erodes
+    for (let i = 1; i < cuts.length; i++) expect(cuts[i]).toBeGreaterThan(cuts[i - 1]); // the cut rising
+    run(fx, 0.1);
+    expect(l.on).toBe(false);
+    expect(fx.stats.calls).toBe(0);
+  });
+
   it('impact frames hold it, clear() empties it, dispose() frees what it made', () => {
     const scene = new THREE.Scene();
     const { fx, strokes, ground } = make('high', { scene });
@@ -558,6 +759,14 @@ describe('the ground pieces and the casts', () => {
     for (const s of spies) expect(s).toHaveBeenCalled();
     expect(scene.children).not.toContain(ground);
     expect(scene.children).not.toContain(strokes);
+  });
+
+  it('without a random stream it still strikes different paths (a fork of its own), never one constant shape', () => {
+    const fx = createElectricFx({ scene: new THREE.Scene(), camera: camera(), quality: 'high' });
+    fx.aura('raika', 4, 3);
+    run(fx, 0.3);
+    const paths = new Set(fx.live.auras[0].bolts.filter((s) => s.t0 >= 0).map((s) => Array.from(s.P.slice(0, 9)).join(',')));
+    expect(paths.size).toBeGreaterThan(3);
   });
 
   it('is display only and not wired into the battle yet', () => {

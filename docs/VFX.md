@@ -450,8 +450,12 @@ ground pieces are hand-written on the toon core. Not in the battle yet: the lab 
 - **Pieces:**
   - **aura** (`aura(preset, x, z, { radius, height, y0, size, life, follow })`): short micro-bolts round a body,
     hugging a capsule (its radius, height and feet; hemispheres at both ends). They start on the body's silhouette as
-    the camera sees it (its left and right edges, `TOP_SHARE` over its top) and run mostly up and down it, so the
-    crackle outlines the body and never covers its face; the side away from the camera is hidden by the body itself.
+    the camera sees it (its left and right edges, running mostly up and down it; `TOP_SHARE` over its top, starting on
+    the back half and running only up, to the crown), and no joint of a bolt or its fork comes within `FACE_CONE`
+    (1 rad, about 60°) of the side facing the camera: a side bolt ends at least `FACE_MARGIN` further out, and any kink
+    that still strays in is set on the cone's edge on its own side (about 0.6 % of joints), so the crackle outlines the
+    body and never crosses its face or chest (tests hold it). Joints never pass the crown or the feet, nor through the
+    axis. The side away from the camera is hidden by the body itself.
     Each bolt is re-struck on its own beat (`restrike` 0.06–0.11 s: every few frames, never every frame) and shows for
     `duty` of its strikes, so the crackle thins and thickens bolt by bolt instead of the whole aura blinking. A strike's
     leader races along it (`grow`), holds, then erodes. A charge ring glows on the ground at the feet, broken into a few
@@ -462,17 +466,26 @@ ground pieces are hand-written on the toon core. Not in the battle yet: the lab 
   - **scorch** (`scorch(preset, x, z, { size })`): the electric ground decal. Worley F2 − F1 cracks (the toon core's B
     channel, painted once) laid out in polar coordinates, so the cells narrow towards the middle and the cracks radiate;
     a hard step on the crack edges; a white-hot core in the young cracks that cools in patches to the body colour, then
-    the deep band; a hard-stepped glow round the young cracks (high and medium); over a dark translucent burn. Ink rims
-    every crack and the burn's edge. A crack narrower on screen than `SCORCH_INK_PX` (6) of its rim's pixels draws no rim (it would be all
-    ink: dark specks), and the burn is inked on its outer silhouette only and only while young (`SCORCH_EDGE_INK`), so
-    it erodes from its rim inward into quiet tongues, never a scribble of outlined holes. The cracks race out over the first 0.12 s.
+    the deep band; a hard-stepped glow round the young cracks (high and medium); over a dark translucent burn. It holds
+    whole for its first `SCORCH_HOLD` (0.2) of its age (the erosion threshold at its young value, so its only edges are
+    its ragged outer silhouette), then erodes from its rim inward. While young, ink rims every crack and the burn's
+    outer silhouette (outside `SCORCH_RIM_X` of its radius, where every edge of the held burn lies); a crack narrower on
+    screen than `SCORCH_INK_PX` (6) of its rim's pixels draws no rim (it would be all ink: dark specks). All of the ink
+    leaves at `SCORCH_INK_AGE` (0.13 of its age, ± 0.04 by the noise: a hard step, so it goes in patches), before the
+    hold ends, so the holes the erosion opens and the fragments of eroding cracks are never outlined: the burn goes in
+    quiet tongues and the cracks end in the body and deep bands, never a scribble of dark specks (tests hold the timing).
+    The cracks race out over the first 0.12 s.
   - **burst** (`burst(preset, x, z)`): one drum beat's ring of bolts bursting out (`r0` → `r1` tiles over `life`, an
     ease-out), every other bolt with a spoke shooting out of the ring, re-struck on the beat while it bursts, eroding
     over its second half; a thin ring of light on the ground under it (never over white: a wide ring over white blooms
     into a soft halo).
   - **link** (`link(preset, points, { life, closed })`): bolts arcing from point to point (in a loop when closed),
-    each re-struck on its own beat with a small bow up or down, and little crackles where they join. The points are the
-    caller's objects, read every frame, so the arcs follow what they join.
+    each held and re-struck in place on its own beat (`arc.restrike` 0.1–0.16 s; its leader grows only on its first
+    strike, so no half-grown arc ends in mid-air) with a small bow up or down, and little crackles where they join. An
+    arc is on for `arc.duty` (0.95) of its strikes and never while another arc of the web is off: at least n − 1 of its
+    n arcs are whole in every frame after the launch (tests hold it), so it reads as a web drone to drone. The points
+    are the caller's objects, read every frame, so the arcs follow what they join. `stop()` erodes the web out over
+    `LINK_END` (0.3 s), as at the end of its life, with no new strike.
 - **Cast hooks** (`ELECTRIC_CASTS`, lab presets; the battle's ⚡ casts are not wired to them yet):
   `cast('raika.drumstorm', x, z)`: her crackle for the boost, a burst ring on every drum beat (`beat` 0.5 s) and a
   scorch on the first (then every `scorchEvery`). `cast('chika.droneSurge', x, z, { points })`: bolts arcing drone to
@@ -495,23 +508,37 @@ ground pieces are hand-written on the toon core. Not in the battle yet: the lab 
   whole bolt or none (never an ink-only line). High with bloom: the body × `BODY_UNDER_BLOOM` (under the grade's knee,
   as the chain's).
 - **Reduce Motion:** no bolts round bodies or in the beat rings: a still glow ring at the feet (`ELECTRIC_REDUCE_ALPHA`,
-  nearly whole, no turning) stands for the crackle, and a still ring for each beat; the arcs are struck once and held
+  nearly whole, no turning) stands for the crackle, and a still ring for each beat, faded in and out over
+  `REDUCE_FADE` (0.12 s: no hard on-cut each beat); a scorch fades in over the same; the arcs are struck once and held
   (they still follow their points); no flicker; scorches and casts live `TOON_REDUCE.life` × longer; no swirl in the
   cracks.
 - **Flash safety:** every strike (each bolt's, each beat ring's, each arc's, each scorch) asks `flashGate` once with
   its size and flicker (`flicker` 0.3: the core dims on alternate strikes). Past the budget the core is drawn at the
   guard's answer and nothing goes over white. Every piece is small (a beat ring is under 3 tiles across): nothing is
   full screen. Flashes & shake off (`setFlashes(false)`, on pieces already up too): the guard is not asked, no flicker,
-  nothing over white. Impact frames: `hold(true)` hides both layers.
+  nothing over white. Impact frames: `hold(true)` hides both layers. The real `FlashGuard` is tested through the
+  battle's gate (screen share at phone size, 844×390 and 390×844 on the lab patch's close framing): eight crackling
+  bodies, a Drumstorm, a Drone Surge and a shock every 0.2 s for 3 s use at most about 0.28 screens a second of the world
+  budget's 2 and are never dimmed; the lab asks the same real guard (its load is in `__lab.stats()` and the boards' log).
 - **Draw cost:** two instanced calls at most (the bolts' strokes: its own call standalone, the battle's shared strokes
   when wired; the ground pieces: one call), 0 when idle. Every record, path and buffer is allocated once at the high
-  tier's sizes (`MAX_AURAS` 12, `MAX_BURSTS` 6, `MAX_LINKS` 2 of up to 8 points, `MAX_SCORCHES` 8, `MAX_CASTS` 4; the
-  oldest record is reused); `update()` writes numbers into them; paths are re-struck on the beat, never per frame.
-- **Randomness:** the stream it is handed (`vrand.fork('electric')` when wired); time from the visual clock.
+  tier's sizes (`MAX_AURAS` 12, `MAX_BURSTS` 6, `MAX_LINKS` 2 of up to 8 points, `MAX_SCORCHES` 8, `MAX_CASTS` 4);
+  `update()` writes numbers into them; paths are re-struck on the beat, never per frame. A full pool reuses its oldest
+  record, except crackles and shocks (one pool): first a record already ending, then the oldest shock, then (for a
+  crackle only) the crackle with the least time left; a shock never takes a girl's crackle (it is dropped instead). A
+  reused record's `gen` goes up, and a cast that pointed at it lets go of it, so stopping that cast never ends someone
+  else's piece.
+- **Randomness:** the stream it is handed (`vrand.fork('electric')` when wired; without one, a fixed fork of its own, so
+  the bolts still differ); time from the visual clock.
 - **Cost:** CPU about 70–90 µs a frame on high and medium, 33 µs on low (node, this machine) with seven crackling
   bodies, a Drumstorm and a Drone Surge up (about 900 strokes on high): mostly the stroke writes. The hot path keeps
-  its numbers in typed scratch arrays (never boxed into helper arguments or closure variables), so a busy frame
-  allocates about what the water's does in the same measurement (`--trace-gc-nvp`), and an idle layer does no work.
+  its numbers in typed scratch arrays (never boxed into helper arguments or closure variables) and walks its pools
+  with index loops (no iterators), so an idle layer does no work and allocates nothing (sampling heap profiler: about
+  360 B a frame of for-of iterators before, 0 now). A busy frame (seven crackles, a Drumstorm, a Drone Surge; node,
+  the inspector's sampling heap profiler with scavenged objects) allocates about 6.5 KB: about 3.6 KB is the visual
+  random stream's draws (`random.js`: each of the ~220 draws a frame comes back as a heap number), about 1.3 KB the
+  strokes' upload (`strokes.js` `end()`: three's update ranges), about 1.5 KB the strikes' paths (`fractalFill`,
+  `strikeCapsule`, on the beat), and nothing from the ground pieces or the per-frame collect and write.
   Headless SwiftShader frame time on the lab board with eleven crackling bodies, a Drumstorm and four scorches up:
   high 313 → 349 ms, medium 133 → 163, low 101 → 118 (CPU raster: compare runs, nothing absolute about a phone), +2
   draw calls.

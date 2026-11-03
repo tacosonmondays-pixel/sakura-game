@@ -5,15 +5,18 @@
 //
 //   aura     short micro-bolts round a body, hugging a capsule (its radius, height and feet), each re-struck on its
 //            own beat every few frames (a stepped, hand-drawn crackle, no smooth wobble), a few forked; each strike's
-//            leader races along it, holds, then erodes. A charge ring glows on the ground at its feet (turning in steps)
+//            leader races along it, holds, then erodes. No joint comes within FACE_CONE of the side facing the camera
+//            (the crackle outlines the body, never crosses its face). A charge ring glows at its feet (turning in steps)
 //   shock    the same crackle, smaller and short-lived, on an enemy's body after a chain hit: a first burst of
 //            bolts, then sparser, then gone
 //   scorch   the electric ground decal: Worley F2 − F1 cracks laid out in polar coordinates (so they radiate), a hard
-//            step, an ink rim round every crack and round the burn, a white-hot core in the young cracks and a glow
-//            round them, over a dark translucent burn; it leaves by erosion from its rim inward
+//            step, an ink rim round every crack and round the burn's outer silhouette while it is young and whole, a
+//            white-hot core in the young cracks and a glow round them, over a dark translucent burn; its ink leaves
+//            (in patches) before it starts to erode, then it erodes from its rim inward, never outlining a hole
 //   casts    Drumstorm (Raika): her crackle for the boost and a ring of bolts bursting out on every drum beat over a
 //            glowing ring on the ground, a scorch on the first beat; Drone Surge (Chika): bolts arcing drone to drone
-//            round her ring, re-struck on a beat, with little crackles where they join
+//            round her ring, re-struck in place on a beat (at most one off at a time), with little crackles where
+//            they join
 //
 //   const elec = createElectricFx({ scene, camera, quality, reduceMotion, rand });
 //   const a = elec.aura('raika', x, z, { radius: 0.27, height: 0.95 });   // world x / z (the sim's x / y)
@@ -26,6 +29,10 @@
 // anything is up, 0 when idle. Every record, path and buffer is allocated once at the high tier's sizes; update()
 // writes numbers into them (nothing allocated a frame; the stroke list is capped, a whole bolt or none).
 //
+// Pools: a full pool reuses a record that is already ending, then the oldest shock, then (for a crackle, never for a
+// shock: a shock is dropped instead) the crackle with the least time left, so a shock never takes a girl's crackle;
+// a reused record's `gen` goes up and a cast that pointed at it lets go of it.
+//
 // Branching (our own rules, with ideas from three-stdlib's LightningStrike, MIT: public/licenses/three-stdlib-MIT.txt;
 // re-implemented, no code taken): a path is built by halving its segments and pushing each new joint sideways by a share
 // of the segment's length that shrinks each halving (ROUGHNESS: fractal kinks); the finest halving alternates sides (a
@@ -37,13 +44,15 @@
 // flicker; past the budget its core is drawn at the guard's answer and nothing goes over white. No preset colour is a
 // harsh red (tests hold it), nothing is full screen, Flashes & shake off: no flicker and no over-white. Reduce Motion: no
 // bolts round bodies or in the burst rings (a still glow ring instead), the arcs struck once and held, no flicker, no
-// turning, slower lives. Randomness: the stream it is handed (createVisualRandom fork), never Math.random.
+// turning, slower lives, rings and scorches fading in. Randomness: the stream it is handed (createVisualRandom fork;
+// without one, a fixed fork of its own, never one constant path), never Math.random.
 import * as THREE from 'three';
 import {
   ELECTRIC_PRESETS, ELECTRIC_TIERS, ELECTRIC_CASTS, MAX_AURAS, MAX_BURSTS, MAX_LINKS, MAX_LINK_NODES, MAX_SCORCHES, MAX_CASTS,
 } from './electricPresets.js';
 import { createStrokes, stroke, SOLID } from './strokes.js';
 import { TOON_CORE, TOON_TIER, TOON_NOISE_N, TOON_RAMP_W, TOON_REDUCE, paintToonNoise, paintToonRamp } from './toonCore.js';
+import { createVisualRandom, visualSeed } from './random.js';
 
 const TAU = Math.PI * 2;
 /** Stroke layers, back to front (pushed layer by layer, so a later one covers an earlier one at every joint). */
@@ -79,6 +88,17 @@ const MAX_BURST_BOLTS = ELECTRIC_TIERS.high.burst;
 const MAX_NODE_BOLTS = ELECTRIC_TIERS.high.nodes;
 /** Share of a body's bolts struck over its top (the rest along its left and right edges). */
 export const TOP_SHARE = 0.22;
+/**
+ * The face cone (rad round the body from the side facing the camera): no joint of a bolt round a body comes nearer
+ * it, so the crackle outlines the body and never crosses its face or chest. Side bolts end at least FACE_MARGIN
+ * further out (room for their kinks); over the top they start on the back half and only run up (to the crown).
+ */
+export const FACE_CONE = 1.0;
+export const FACE_MARGIN = 0.25;
+/** Reduce Motion: a still ring or scorch fades in (and a beat's ring out) over this many s (no hard on-cut). */
+export const REDUCE_FADE = 0.12;
+/** A stopped link's web erodes out over this many s (as at the end of its life). */
+export const LINK_END = 0.3;
 /** High with bloom: the body colour × this, under the grade's knee so it stays saturated (as the chain lightning's). */
 export const BODY_UNDER_BLOOM = 0.82;
 /** Floats per collected segment. */
@@ -191,8 +211,25 @@ export const SCORCH_AROUND = 1;
 export const SCORCH_OUT = 0.62;
 /** A crack narrower on screen than this many of its rim's pixels draws no ink rim (it would be all ink: dark specks). */
 export const SCORCH_INK_PX = 6;
-/** The burn's outer edge is inked until this share of the scorch's age (± the noise; a hard step, in patches). */
-export const SCORCH_EDGE_INK = 0.3;
+/**
+ * The scorch holds whole for this share of its age (its erosion threshold stays at its young value, erode[0]: the only
+ * edges it has are its ragged outer silhouette), then erodes from its rim inward over the rest.
+ */
+export const SCORCH_HOLD = 0.2;
+/**
+ * All the scorch's ink (its silhouette and every crack's rim) leaves at `end` of its age, ± `wobble` / 2 by the noise
+ * (a hard step, so it goes in patches): gone, wobble and all, before the hold ends, so no hole the erosion opens and no
+ * fragment of an eroding crack is ever outlined (they end in the body, deep and burn bands: no dark scribble).
+ */
+export const SCORCH_INK_AGE = Object.freeze({ end: 0.13, wobble: 0.08 });
+/**
+ * The burn is inked outside this share of its radius only. While it holds, every edge it has lies out there (heat =
+ * band × (0.3 + noise) ≥ 0.3 × (1 − x²) > erode[0] inside √(1 − erode[0] / 0.3), 0.93 for the presets): its outer
+ * silhouette, never an inner hole.
+ */
+export const SCORCH_RIM_X = 0.88;
+/** toonHeat's floor (heat = band × (0.3 + noise), noise 0..1): the least heat a band can have at a given radius. */
+export const SCORCH_HEAT_FLOOR = 0.3;
 
 const GROUND_FRAG = /* glsl */`
 uniform sampler2D uNoise;
@@ -224,7 +261,8 @@ void main() {
     float n = toonNoise(uNoise, vec2(u * 3.0, x * 0.8 + vC.x), 0.0);
     float band = 1.0 - x * x;
     float heat = toonHeat(band, n);
-    float cut = toonCut(vD.xy, age);
+    // whole while it holds (the threshold at its young value), then eroding from its rim inward
+    float cut = toonCut(vD.xy, max(0.0, age - ${SCORCH_HOLD.toFixed(2)}) / ${(1 - SCORCH_HOLD).toFixed(2)});
     float burn = toonMask(heat, cut) * step(0.0, band);
     // the crack net: Worley F2 - F1 (B) laid out round the middle and out from it (the cells narrow towards the middle,
     // so the cracks radiate); a hard step on its edges, a little thinner out at the rim; they race out first
@@ -237,14 +275,16 @@ void main() {
     // its middle white-hot while young (the core cools first, in patches), then the body colour, then the deep band
     float core = step(e, w * 0.45) * zone * step(age + 0.2 * n, 0.42);
     float deep = crack * step(0.62, age + 0.2 * n);
-    // ink: a rim round every crack (its share of the crack's width, never under ~1 px) and round the burn's edge;
-    // a crack thinner on screen than its rim would be all ink, so the rim leaves where the crack is under SCORCH_INK_PX
+    // ink: a rim round every crack (its share of the crack's width, never under ~1 px) and round the burn's outer
+    // silhouette; a crack thinner on screen than its rim would be all ink, so the rim leaves where the crack is under
+    // SCORCH_INK_PX. Only while young and whole: all of it leaves (a hard step on the age, wobbled by the noise: in
+    // patches) before the hold ends, so the holes the erosion opens and the fragments of eroding cracks are never
+    // outlined (an old burn goes in quiet tongues, its cracks end in the body and deep bands, never a scribble)
     float rimW = max(0.4 * w, 1.1 * fw);
     float wide = step(${SCORCH_INK_PX.toFixed(1)} * fw, w);
-    // (the burn is inked on its outer silhouette only, and only while young: the holes it erodes inside are never
-    // outlined, so an old burn goes in quiet tongues, never a scribble)
-    float burnInk = eRim(heat - cut, 1.2, 0.025) * burn * step(0.55, x) * step(age + 0.15 * n, ${SCORCH_EDGE_INK.toFixed(2)});
-    float ink = max((1.0 - crack) * zone * step(e, w + rimW) * wide, burnInk);
+    float inked = step(age + ${SCORCH_INK_AGE.wobble.toFixed(2)} * (n - 0.5), ${SCORCH_INK_AGE.end.toFixed(2)});
+    float burnInk = eRim(heat - cut, 1.2, 0.025) * burn * step(${SCORCH_RIM_X.toFixed(2)}, x);
+    float ink = max((1.0 - crack) * zone * step(e, w + rimW) * wide, burnInk) * inked;
     // a glow round the young cracks (high and medium)
     float halo = (1.0 - crack) * (1.0 - ink) * zone * step(e, w * 2.4) * vC.w * step(age + 0.25 * n, 0.55);
     b = ${GROUND_BAND.burn.toFixed(1)};
@@ -299,7 +339,7 @@ void main() {
 function boltSlot() {
   return {
     on: false, t0: -1, next: 0, n: 0, P: new Float32Array(MAX_J * 3), nf: 0, fj: 0, F: new Float32Array(MAX_FJ * 3),
-    w: 0, seed: 0, k: 1, odd: 0, L: 0, fu: 0,
+    w: 0, seed: 0, k: 1, odd: 0, L: 0, fu: 0, lead: 0, shown: false,
   };
 }
 
@@ -310,7 +350,8 @@ function boltSlot() {
  */
 export function createElectricFx({ scene, camera = null, strokes = null, quality = 'medium', reduceMotion = false, rand = null, presets = ELECTRIC_PRESETS, flashes = true }) {
   const ids = Object.keys(presets);
-  const rnd = rand || (() => 0.5);
+  // (without a stream: a fixed fork of its own, so every bolt still has its own path, never one constant shape)
+  const rnd = rand || createVisualRandom(visualSeed('electric', 'fallback'));
   let tierName = ELECTRIC_TIERS[quality] ? quality : 'medium';
   let tier = ELECTRIC_TIERS[tierName];
   let bloom = false;
@@ -388,13 +429,13 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
   for (let i = 0; i < MAX_AURAS; i++) {
     const bolts = [];
     for (let b = 0; b < MAX_AURA_BOLTS; b++) bolts.push(boltSlot());
-    auras.push({ on: false, kind: AURA, id: '', p: null, pi: 0, x: 0, z: 0, y0: 0, lift: 0, rad: 0.27, h: 0.9, size: 1, t: 0, life: Infinity, end: 0, follow: null, seed: 0, bolts });
+    auras.push({ on: false, gen: 0, kind: AURA, id: '', p: null, pi: 0, x: 0, z: 0, y0: 0, lift: 0, rad: 0.27, h: 0.9, size: 1, t: 0, life: Infinity, end: 0, follow: null, seed: 0, bolts });
   }
   const bursts = [];
   for (let i = 0; i < MAX_BURSTS; i++) {
     const bolts = [];
     for (let b = 0; b < MAX_BURST_BOLTS; b++) bolts.push(boltSlot());
-    bursts.push({ on: false, id: '', p: null, pi: 0, x: 0, z: 0, size: 1, t: 0, life: 0, next: 0, k: 1, seed: 0, bolts });
+    bursts.push({ on: false, gen: 0, id: '', p: null, pi: 0, x: 0, z: 0, size: 1, t: 0, life: 0, next: 0, k: 1, seed: 0, bolts });
   }
   const links = [];
   for (let i = 0; i < MAX_LINKS; i++) {
@@ -402,25 +443,52 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     const nodes = [];
     for (let b = 0; b < MAX_LINK_NODES; b++) arcs.push(boltSlot());
     for (let b = 0; b < MAX_LINK_NODES * MAX_NODE_BOLTS; b++) nodes.push(boltSlot());
-    links.push({ on: false, id: '', p: null, pi: 0, pts: null, n: 0, closed: true, t: 0, life: 0, end: 0, size: 1, sag: new Float32Array(MAX_LINK_NODES), arcs, nodes });
+    links.push({ on: false, gen: 0, id: '', p: null, pi: 0, pts: null, n: 0, closed: true, t: 0, life: 0, end: 0, size: 1, sag: new Float32Array(MAX_LINK_NODES), arcs, nodes });
   }
   const scorches = [];
-  for (let i = 0; i < MAX_SCORCHES; i++) scorches.push({ on: false, id: '', p: null, pi: 0, x: 0, z: 0, rad: 0.6, t: 0, life: 1, seed: 0, k: 1 });
+  for (let i = 0; i < MAX_SCORCHES; i++) scorches.push({ on: false, gen: 0, id: '', p: null, pi: 0, x: 0, z: 0, rad: 0.6, t: 0, life: 1, seed: 0, k: 1 });
   const casts = [];
-  for (let i = 0; i < MAX_CASTS; i++) casts.push({ on: false, id: '', def: null, x: 0, z: 0, t: 0, dur: 0, beats: 0, next: 0, aura: null, link: null, follow: null, size: 1 });
+  for (let i = 0; i < MAX_CASTS; i++) casts.push({ on: false, gen: 0, id: '', def: null, x: 0, z: 0, t: 0, dur: 0, beats: 0, next: 0, aura: null, link: null, follow: null, size: 1 });
 
-  /** A free record of a pool, or its oldest. */
-  const take = (pool) => {
-    let rec = null;
-    for (const r of pool) if (!r.on) {
-      rec = r;
-      break;
-    }
-    if (!rec) {
-      rec = pool[0];
-      for (const r of pool) if (r.t > rec.t) rec = r;
+  /**
+   * A record handed out again: its generation goes up (a caller holding it can tell), and a cast that pointed at it
+   * (its crackle or its web) lets go of it, so stopping that cast never ends someone else's piece.
+   */
+  const reuse = (rec) => {
+    rec.gen++;
+    if (rec.on) {
+      for (const c of casts) {
+        if (c.aura === rec) c.aura = null;
+        if (c.link === rec) c.link = null;
+      }
     }
     return rec;
+  };
+  /** A free record of a pool, or its oldest. */
+  const take = (pool) => {
+    for (const r of pool) if (!r.on) return reuse(r);
+    let rec = pool[0];
+    for (const r of pool) if (r.t > rec.t) rec = r;
+    return reuse(rec);
+  };
+  /**
+   * A crackle's record (auras and shocks share the pool): a free one; else one already ending (past its life, its last
+   * strikes eroding: the furthest gone); else the oldest shock; else, for a crackle, the one with the least time left
+   * (then the oldest). A shock never takes a girl's crackle: with every record a crackle, the shock is dropped (null).
+   */
+  const takeAura = (kind) => {
+    for (const r of auras) if (!r.on) return reuse(r);
+    let rec = null;
+    for (const r of auras) if (r.t > r.life && (!rec || r.t - r.life > rec.t - rec.life)) rec = r;
+    if (!rec) for (const r of auras) if (r.kind === SHOCK && (!rec || r.t > rec.t)) rec = r;
+    if (!rec && kind !== SHOCK) {
+      for (const r of auras) {
+        const left = r.life - r.t;
+        const best = rec ? rec.life - rec.t : Infinity;
+        if (!rec || left < best || (left === best && r.t > rec.t)) rec = r;
+      }
+    }
+    return rec ? reuse(rec) : null;
   };
 
   // ---- the view: bolts start on the body's silhouette and the side facing the camera
@@ -432,11 +500,26 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
 
   /** Anything up (any record of any pool)? */
   function busy() {
-    for (const r of casts) if (r.on) return true;
-    for (const r of auras) if (r.on) return true;
-    for (const r of bursts) if (r.on) return true;
-    for (const r of links) if (r.on) return true;
-    for (const r of scorches) if (r.on) return true;
+    for (let ri = 0; ri < casts.length; ri++) {
+      const r = casts[ri];
+      if (r.on) return true;
+    }
+    for (let ri = 0; ri < auras.length; ri++) {
+      const r = auras[ri];
+      if (r.on) return true;
+    }
+    for (let ri = 0; ri < bursts.length; ri++) {
+      const r = bursts[ri];
+      if (r.on) return true;
+    }
+    for (let ri = 0; ri < links.length; ri++) {
+      const r = links[ri];
+      if (r.on) return true;
+    }
+    for (let ri = 0; ri < scorches.length; ri++) {
+      const r = scorches[ri];
+      if (r.on) return true;
+    }
     return false;
   }
 
@@ -449,6 +532,39 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
 
   // ---- strikes (a new path for a bolt: on its beat, never per frame)
 
+  /**
+   * Keeps a path's n joints in P (local: arc length round the capsule, height, off it) on the body and out of the face
+   * cone: a joint's height stays between the feet and the top (its kinks never poke past the crown), and a joint nearer
+   * the side facing the camera than FACE_CONE is set on the cone's edge on the bolt's own side (`side`, ±1: it never
+   * crosses the face to the other edge).
+   */
+  function hugBody(P, n, rec, side) {
+    const rad = rec.rad;
+    const y0 = rec.y0;
+    const y1 = rec.y0 + rec.h;
+    const rr = Math.min(rad, rec.h / 2);
+    for (let j = 0; j < n; j++) {
+      const o = j * 3;
+      let d = P[o] / rad - CLK[1];
+      d -= TAU * Math.round(d / TAU);
+      if (d < FACE_CONE && d > -FACE_CONE) P[o] += (side * FACE_CONE - d) * rad;
+      if (P[o + 1] < y0) P[o + 1] = y0;
+      else if (P[o + 1] > y1) P[o + 1] = y1;
+      // never through the axis: near the crown or the feet (where the capsule narrows) a kink's negative stand-off
+      // would flip the joint to the far side of the body (capsuleRadius inlined)
+      const y = P[o + 1];
+      let cr = rr;
+      if (y < y0 + rr) {
+        const k = (y0 + rr - y) / rr;
+        cr = rr * Math.sqrt(Math.max(0, 1 - k * k));
+      } else if (y > y1 - rr) {
+        const k = (y - y1 + rr) / rr;
+        cr = rr * Math.sqrt(Math.max(0, 1 - k * k));
+      }
+      if (cr + P[o + 2] < 0.004) P[o + 2] = 0.004 - cr;
+    }
+  }
+
   /** A bolt round a capsule (local: arc length round it, height, off the surface). */
   function strikeCapsule(s, rec, lenR, levels, forks) {
     const p = rec.p;
@@ -457,22 +573,26 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     const h = rec.h;
     const size = rec.size;
     const a = p.aura;
-    // along the body's silhouette (its left and right edges as the camera sees it) and over its top, running mostly up
-    // and down it: the crackle outlines the body and never covers its face
+    // along the body's silhouette (its left and right edges as the camera sees it, running mostly up and down it) and
+    // over its top (from the back half, running up to the crown): the crackle outlines the body, and no joint comes
+    // within FACE_CONE of the side facing the camera, so it never crosses the face or the chest
     const top = rnd() < TOP_SHARE;
     const side = rnd() < 0.5 ? -1 : 1;
-    const th0 = top ? CLK[1] + (rnd() * 2 - 1) * 1.3 : CLK[1] + side * (Math.PI / 2 + (rnd() - 0.5) * 0.9);
+    const d0 = top ? Math.PI / 2 + rnd() * (Math.PI / 2) : Math.PI / 2 + (rnd() - 0.5) * 0.9;
     const ay = top ? y0 + h * (0.72 + 0.2 * rnd()) : y0 + h * (0.12 + 0.66 * rnd());
     const L = lerp(lenR[0], lenR[1], rnd()) * size;
-    const ang = top ? rnd() * TAU : (rnd() < 0.5 ? 1 : -1) * Math.PI / 2 + (rnd() - 0.5) * 1.3;
-    const ax = th0 * rad;
-    const bx = ax + Math.cos(ang) * L;
+    const ang = top ? Math.PI / 2 + (rnd() - 0.5) * 1.6 : (rnd() < 0.5 ? 1 : -1) * Math.PI / 2 + (rnd() - 0.5) * 1.3;
+    const ax = (CLK[1] + side * d0) * rad;
+    // its end at least FACE_MARGIN outside the cone (room for the kinks), on its own side
+    const db = Math.max(FACE_CONE + FACE_MARGIN, d0 + (side * Math.cos(ang) * L) / rad);
+    const bx = (CLK[1] + side * db) * rad;
     const by = clamp(ay + Math.sin(ang) * L, y0 + 0.02 * h, y0 + h);
     const stand = a.stand * size;
     FP[0] = ax; FP[1] = ay; FP[2] = stand * (0.5 + 0.6 * rnd());
     FP[3] = bx; FP[4] = by; FP[5] = stand * (0.5 + 0.6 * rnd());
     FP[6] = a.wander; FP[7] = a.zig; FP[8] = 0.35; FP[9] = a.skew;
     s.n = fractalFill(s.P, levels, rnd);
+    hugBody(s.P, s.n, rec, side);
     s.L = L;
     s.nf = 0;
     if (forks > 0 && s.n > 2 && rnd() < a.fork) {
@@ -480,13 +600,16 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       const fx = s.P[j * 3];
       const fy = s.P[j * 3 + 1];
       const fd = s.P[j * 3 + 2];
-      const dir = Math.atan2(s.P[(j + 1) * 3 + 1] - s.P[(j - 1) * 3 + 1], s.P[(j + 1) * 3] - s.P[(j - 1) * 3]) + (rnd() < 0.5 ? -1 : 1) * (0.55 + 0.55 * rnd());
+      const base = Math.atan2(s.P[(j + 1) * 3 + 1] - s.P[(j - 1) * 3 + 1], s.P[(j + 1) * 3] - s.P[(j - 1) * 3]);
+      const turn = (rnd() < 0.5 ? -1 : 1) * (0.55 + 0.55 * rnd());
+      // (a fork reaches out off the body: it breaks the silhouette; of its two turns, the one away from the face)
+      const dir = side * Math.cos(base + turn) >= side * Math.cos(base - turn) ? base + turn : base - turn;
       const FL = L * (0.38 + 0.25 * rnd());
-      // (a fork reaches out off the body: it breaks the silhouette)
       FP[0] = fx; FP[1] = fy; FP[2] = fd;
       FP[3] = fx + Math.cos(dir) * FL; FP[4] = clamp(fy + Math.sin(dir) * FL, y0, y0 + h); FP[5] = fd + stand * (1.5 + 1.5 * rnd());
       FP[6] = a.wander; FP[7] = a.zig; FP[8] = 0.3; FP[9] = a.skew;
       s.nf = fractalFill(s.F, Math.max(1, levels - 1), rnd);
+      hugBody(s.F, s.nf, rec, side);
       s.fj = j;
       s.fu = FL / Math.max(L, 1e-4);
     }
@@ -545,7 +668,12 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     rec.k = gate(2 * R1, 0.6);
   }
 
-  /** Strikes the arc of a link between its points i and i + 1 (local: share along, up, sideways; × the span). */
+  /**
+   * Strikes the arc of a link between its points i and i + 1 (local: share along, up, sideways; × the span). Its first
+   * strike races its leader out from the point; later ones re-strike in place, whole at once (a held web that re-kinks
+   * on the beat, never half-grown arcs ending in mid-air). An arc is off for 1 − duty of its strikes, but never while
+   * another arc of the web is off: at most one gap in the web at a time.
+   */
   function strikeArc(rec, s, i) {
     const p = rec.p;
     const A = p.arc;
@@ -558,9 +686,17 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     s.w = p.width * rec.size * 1.2 * (0.85 + 0.3 * rnd());
     s.seed = rnd() * 7;
     s.t0 = rec.t;
-    s.on = rm || rnd() < A.duty;
+    s.lead = s.shown ? 0 : A.grow;
+    s.on = rm || rnd() < A.duty || linkGap(rec, i);
+    if (s.on) s.shown = true;
     s.odd ^= 1;
     s.next = rec.t + lerp(A.restrike[0], A.restrike[1], rnd());
+  }
+  /** Is another arc of the link (not i) struck and off now? */
+  function linkGap(rec, i) {
+    const edges = rec.closed ? rec.n : rec.n - 1;
+    for (let k = 0; k < edges; k++) if (k !== i && rec.arcs[k].t0 >= 0 && !rec.arcs[k].on) return true;
+    return false;
   }
 
   // ---- starting things
@@ -573,7 +709,8 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
   function aura(presetId, x, z, { radius = 0.27, height = 0.95, y0 = 0, size = 1, life = Infinity, follow = null, kind = AURA } = {}) {
     const p = presets[presetId];
     if (!p) return null;
-    const rec = take(auras);
+    const rec = takeAura(kind);
+    if (!rec) return null;
     rec.on = true;
     rec.kind = kind;
     rec.id = presetId;
@@ -671,6 +808,8 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       s.t0 = -1;
       s.odd = 0;
       s.next = 0;
+      s.lead = 0;
+      s.shown = false;
     }
     for (const s of rec.nodes) {
       s.on = false;
@@ -718,7 +857,8 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       return;
     }
     if ('bolts' in rec && 'kind' in rec) rec.life = Math.min(rec.life, rec.t);
-    else if ('arcs' in rec) rec.life = Math.min(rec.life, rec.t);
+    // (a web erodes out over its last LINK_END s, as at the end of its life: no re-strike from now)
+    else if ('arcs' in rec) rec.life = Math.min(rec.life, rec.t + LINK_END);
   }
 
   // ---- collecting the strokes (world segments, a whole bolt or none)
@@ -862,10 +1002,14 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     maxSegs = Math.min(MAX_SEGS, Math.floor(tier.cap / ELECTRIC_LAYERS.length), Math.floor((lines.room ? lines.room() : Infinity) / ELECTRIC_LAYERS.length));
     if (rm) {
       // Reduce Motion: only the links' arcs, struck once and held
-      for (const rec of links) if (rec.on) collectLink(rec);
+      for (let ri = 0; ri < links.length; ri++) {
+        const rec = links[ri];
+        if (rec.on) collectLink(rec);
+      }
       return sn;
     }
-    for (const rec of auras) {
+    for (let ri = 0; ri < auras.length; ri++) {
+      const rec = auras[ri];
       if (!rec.on) continue;
       const a = rec.p.aura;
       const count = rec.kind === SHOCK ? tier.shock : tier.bolts;
@@ -877,7 +1021,8 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
         if (!pushBolt(s, mapCapsule, rec)) return sn;
       }
     }
-    for (const rec of bursts) {
+    for (let ri = 0; ri < bursts.length; ri++) {
+      const rec = bursts[ri];
       if (!rec.on) continue;
       const B = rec.p.burst;
       const age = rec.t / rec.life;
@@ -896,7 +1041,10 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
         if (!pushBolt(s, mapBurst, rec)) return sn;
       }
     }
-    for (const rec of links) if (rec.on) collectLink(rec);
+    for (let ri = 0; ri < links.length; ri++) {
+      const rec = links[ri];
+      if (rec.on) collectLink(rec);
+    }
     return sn;
   }
 
@@ -904,9 +1052,9 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     const p = rec.p;
     const A = p.arc;
     const edges = rec.closed ? rec.n : rec.n - 1;
-    // the web erodes out over its last 0.3 s
+    // the web erodes out over its last LINK_END s
     const left = rec.life - rec.t;
-    const cutAll = left < 0.3 ? Math.min(1.05, ((0.3 - left) / 0.3) * 1.05) : 0;
+    const cutAll = left < LINK_END ? Math.min(1.05, ((LINK_END - left) / LINK_END) * 1.05) : 0;
     PP[7] = rec.pi;
     for (let i = 0; i < edges; i++) {
       const s = rec.arcs[i];
@@ -924,7 +1072,7 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       arc.len = Math.sqrt(hx * hx + dy * dy + hz * hz);
       arc.sag = rec.sag[i];
       const age = rec.t - s.t0;
-      ST[0] = rm ? 99 : A.grow > 0 ? age / A.grow : 99;
+      ST[0] = rm ? 99 : s.lead > 0 ? age / s.lead : 99;
       ST[1] = cutAll;
       ST[2] = 1 - 0.35 * cutAll;
       ST[3] = (flashOn && !rm ? 1 - p.flicker * s.odd : 1) * Math.min(1, s.k);
@@ -1017,9 +1165,11 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     const still = rm ? 1 : 0;
     const strength = rm ? ELECTRIC_REDUCE_ALPHA : 1;
     // scorches first (under the rings)
-    for (const rec of scorches) {
+    for (let ri = 0; ri < scorches.length; ri++) {
+      const rec = scorches[ri];
       if (!rec.on) continue;
-      GP[0] = rec.x; GP[1] = rec.z; GP[2] = Math.min(1, rec.t / rec.life); GP[3] = Math.min(1, rec.t / 0.03) * strength;
+      // (in over 2 frames; Reduce Motion: faded in, no hard on-cut)
+      GP[0] = rec.x; GP[1] = rec.z; GP[2] = Math.min(1, rec.t / rec.life); GP[3] = Math.min(1, rec.t / (rm ? REDUCE_FADE : 0.03)) * strength;
       GP[4] = 0; GP[5] = rec.rad; GP[6] = 0; GP[7] = 0;
       GP[8] = rec.seed; GP[9] = rec.pi; GP[10] = hdrOn && rec.k >= 1 ? rec.p.hdr : 0; GP[11] = tier.halo ? 1 : 0;
       GP[12] = rec.p.scorch.erode[0]; GP[13] = rec.p.scorch.erode[1]; GP[14] = still;
@@ -1027,7 +1177,8 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       pushGround();
     }
     // the charge ring at a crackling body's feet (Reduce Motion: the still glow ring that stands for the crackle)
-    for (const rec of auras) {
+    for (let ri = 0; ri < auras.length; ri++) {
+      const rec = auras[ri];
       if (!rec.on || (rec.kind === SHOCK && !rm)) continue;
       const g = rec.p.aura.ring;
       const ending = rec.t > rec.life ? Math.min(1, (rec.t - rec.life) / 0.3) : 0;
@@ -1039,13 +1190,16 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       GP[12] = rm ? 0.04 : AURA_RING_CUT; GP[13] = 0.95; GP[14] = still; GP[15] = 0;
       pushGround();
     }
-    // a drum beat's ring on the ground, bursting out under its bolts (Reduce Motion: still, at most of its reach);
-    // no over-white on the ring: the bolts over it carry the glow (a wide ring over white would bloom into a soft halo)
-    for (const rec of bursts) {
+    // a drum beat's ring on the ground, bursting out under its bolts (Reduce Motion: still, at most of its reach, faded
+    // in and out over REDUCE_FADE: no hard on-cut or off-cut each beat); no over-white on the ring: the bolts over it
+    // carry the glow (a wide ring over white would bloom into a soft halo)
+    for (let ri = 0; ri < bursts.length; ri++) {
+      const rec = bursts[ri];
       if (!rec.on) continue;
       const B = rec.p.burst;
       const age = Math.min(1, rec.t / rec.life);
-      GP[0] = rec.x; GP[1] = rec.z; GP[2] = age; GP[3] = strength;
+      const fade = rm ? clamp(Math.min(rec.t, rec.life - rec.t) / REDUCE_FADE, 0, 1) : 1;
+      GP[0] = rec.x; GP[1] = rec.z; GP[2] = age; GP[3] = fade * strength;
       GP[4] = 1; GP[5] = (rm ? lerp(B.r0, B.r1, 0.75) : lerp(B.r0, B.r1, 1 - Math.pow(1 - age, 3))) * rec.size * 0.94;
       GP[6] = 0.04 * rec.size; GP[7] = 0;
       GP[8] = rec.seed; GP[9] = rec.pi; GP[10] = 0; GP[11] = 0;
@@ -1053,7 +1207,10 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       pushGround();
     }
     geo.instanceCount = gn;
-    if (gn) for (const a of gList) a.needsUpdate = true;
+    if (gn) for (let ri = 0; ri < gList.length; ri++) {
+      const a = gList[ri];
+      a.needsUpdate = true;
+    }
     ground.visible = gn > 0 && !held;
   }
 
@@ -1110,7 +1267,7 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     for (let i = 0; i < edges; i++) {
       const s = rec.arcs[i];
       // Reduce Motion: struck once and held (it still follows its points)
-      if (rm ? s.t0 < 0 || !s.on : rec.t >= s.next && rec.t < rec.life - 0.3) {
+      if (rm ? s.t0 < 0 || !s.on : rec.t >= s.next && rec.t < rec.life - LINK_END) {
         strikeArc(rec, s, i);
         const pa = rec.pts[i];
         const pb = rec.pts[(i + 1) % rec.n];
@@ -1121,7 +1278,7 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     for (let i = 0; i < rec.n; i++) {
       for (let b = 0; b < tier.nodes; b++) {
         const s = rec.nodes[i * MAX_NODE_BOLTS + b];
-        if (rec.t >= s.next && rec.t < rec.life - 0.3) {
+        if (rec.t >= s.next && rec.t < rec.life - LINK_END) {
           nodeRec.p = p;
           strikeCapsule(s, nodeRec, p.shock.len, 1, 0);
           // (struck at the origin's band; drawn round the point by its own frame each frame)
@@ -1187,11 +1344,24 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       // idle: nothing up and nothing drawn last frame (its meshes already hidden): no work at all
       if (!busy() && drawn === 0 && gn === 0) return;
       view();
-      for (const rec of casts) if (rec.on) stepCast(rec, dt);
-      for (const rec of auras) if (rec.on) stepAura(rec, dt);
-      for (const rec of bursts) if (rec.on) stepBurst(rec, dt);
-      for (const rec of links) if (rec.on) stepLink(rec, dt);
-      for (const rec of scorches) {
+      for (let ri = 0; ri < casts.length; ri++) {
+        const rec = casts[ri];
+        if (rec.on) stepCast(rec, dt);
+      }
+      for (let ri = 0; ri < auras.length; ri++) {
+        const rec = auras[ri];
+        if (rec.on) stepAura(rec, dt);
+      }
+      for (let ri = 0; ri < bursts.length; ri++) {
+        const rec = bursts[ri];
+        if (rec.on) stepBurst(rec, dt);
+      }
+      for (let ri = 0; ri < links.length; ri++) {
+        const rec = links[ri];
+        if (rec.on) stepLink(rec, dt);
+      }
+      for (let ri = 0; ri < scorches.length; ri++) {
+        const rec = scorches[ri];
         if (!rec.on) continue;
         rec.t += dt;
         if (rec.t > rec.life) rec.on = false;
