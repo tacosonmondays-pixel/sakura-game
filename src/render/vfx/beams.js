@@ -38,12 +38,12 @@ const ease = (k) => 1 - (1 - k) * (1 - k);
  */
 
 /**
- * Which of a landing's `total` rays draws as its i-th of `n` impact lines. A preset with its own line count (`counted`:
- * Iroha's mirror, 4) takes them at an even stride, so its few lines spread round the landing (a cross), not a half fan
- * of the first slots; every other preset draws the first n as before. Pure.
+ * Which of a landing's `total` rays draws as its i-th of `n` impact lines. Fewer lines than rays (the medium tier's 6
+ * of 8, Iroha's mirror's 4) are taken at an even stride, so they spread round the landing instead of a half fan of the
+ * first slots; all of them (high's 8) draw in order. Pure.
  */
-export function rayPick(i, n, total, counted) {
-  return counted && n < total ? Math.floor((i * total) / n) : i;
+export function rayPick(i, n, total) {
+  return n < total ? Math.floor((i * total) / n) : i;
 }
 
 export function createBeamFx({ scene, strokes = null, batches = null, atlas = null, camera = null, quality = 'medium', reduceMotion = false, rand = null, presets = BEAM_PRESETS }) {
@@ -249,7 +249,7 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
         S.b = col[2];
         S.a = rec.hitK;
         for (let i = 0; i < n; i++) {
-          const [ang, sz] = rec.rays[rayPick(i, n, rec.rays.length, L.count != null)];
+          const [ang, sz] = rec.rays[rayPick(i, n, rec.rays.length)];
           const r0 = 0.16 + (0.25 + rec.W) * ease(k) * sz;
           const r1 = r0 + L.length * sz * (1 - k) * 0.8;
           const cx = Math.cos(ang);

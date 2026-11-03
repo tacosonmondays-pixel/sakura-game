@@ -292,16 +292,27 @@ describe('beam wiring (display only)', () => {
   });
 });
 
-describe('a preset with its own line count spreads its lines round the landing', () => {
-  it('four of eight rays at an even stride point all round (a cross), not a half fan; others keep the first n', async () => {
+describe('impact lines spread round the landing on every tier', () => {
+  const dirSum = (picks, total) => {
+    let x = 0;
+    let y = 0;
+    for (const k of picks) {
+      x += Math.cos((k / total) * Math.PI * 2);
+      y += Math.sin((k / total) * Math.PI * 2);
+    }
+    return Math.hypot(x, y);
+  };
+
+  it('high draws all 8 rays in order (unchanged); medium 6 and the mirror 4 at an even stride, balanced round 360°', async () => {
     const { rayPick } = await import('../../src/render/vfx/beams.js');
-    const angles = [0, 1, 2, 3].map((i) => (rayPick(i, 4, 8, true) / 8) * Math.PI * 2);
-    const sx = angles.reduce((a, t) => a + Math.cos(t), 0);
-    const sy = angles.reduce((a, t) => a + Math.sin(t), 0);
-    expect(Math.hypot(sx, sy)).toBeLessThan(0.5); // balanced: the unit directions cancel out
-    expect([0, 1, 2, 3].map((i) => rayPick(i, 4, 8, true))).toEqual([0, 2, 4, 6]);
-    // no own count (the old presets), or all of them drawn: the first n, exactly as before
-    expect([0, 1, 2, 3, 4, 5].map((i) => rayPick(i, 6, 8, false))).toEqual([0, 1, 2, 3, 4, 5]);
-    expect(rayPick(7, 8, 8, true)).toBe(7);
+    const { BEAM_TIERS } = await import('../../src/render/vfx/beamPresets.js');
+    const pick = (n) => Array.from({ length: n }, (_, i) => rayPick(i, n, 8));
+    expect(pick(BEAM_TIERS.high.lines)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(pick(BEAM_TIERS.medium.lines)).toEqual([0, 1, 2, 4, 5, 6]);
+    expect(pick(4)).toEqual([0, 2, 4, 6]); // Iroha's mirror cross, as before
+    for (const n of [BEAM_TIERS.high.lines, BEAM_TIERS.medium.lines, 4]) expect(dirSum(pick(n), 8)).toBeLessThan(0.5);
+    // the old medium subset (the first 6: 0°–225°) was one-sided
+    expect(dirSum([0, 1, 2, 3, 4, 5], 8)).toBeGreaterThan(1);
+    expect(BEAM_TIERS.low.lines).toBe(0);
   });
 });
