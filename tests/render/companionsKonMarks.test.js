@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { Companions } from '../../src/render/companions.js';
 
-function make({ quality = 'high', reduceMotion = false, camera = null } = {}) {
+function make({ quality = 'high', reduceMotion = false, camera = null, terrain = null } = {}) {
   const spawned = [];
   let seed = 1;
   const fx = {
@@ -19,7 +19,7 @@ function make({ quality = 'high', reduceMotion = false, camera = null } = {}) {
   const atlas = { regions: { glow: [0, 0, 1, 1], smoke: [0, 0, 1, 1], shadow: [0, 0, 1, 1], ringSoft: [0, 0, 1, 1], spark: [0, 0, 1, 1] } };
   const c = new Companions({
     sim: { towers: [], getTower: () => null }, scene: new THREE.Scene(), actors: { towers: new Map(), enemies: new Map() },
-    terrain: null, quality, reduceMotion, fx, atlas, camera,
+    terrain, quality, reduceMotion, fx, atlas, camera,
   });
   return { c, spawned };
 }
@@ -84,6 +84,30 @@ describe('Kon\'s run marks read on bright ground', () => {
     expect(side.z).toBeCloseTo(0, 6);
     const none = make();
     expect(none.c._camSide()).toBe(null);
+    c.dispose();
+    none.c.dispose();
+  });
+
+  it('his sit spot in front of her sits on the ground there (r1 F3): a roof edge or a path between them', () => {
+    const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+    cam.position.set(5, 10, 12);
+    cam.lookAt(5, 0, 2);
+    cam.updateMatrixWorld(true);
+    // a rooftop up to z 2.1; open ground after it
+    const terrain = { isWater: () => false, isPath: () => false, roofAt: (x, z) => (z < 2.1 ? 0.6 : 0) };
+    const { c } = make({ camera: cam, terrain });
+    c._camSide();
+    const home = new THREE.Vector3(5, 0.7, 2); // her anchor: 0.05 above the roof she stands on
+    c._konFront(home, 1);
+    expect(home.z).toBeGreaterThan(2.1); // a step toward the camera, off the roof
+    expect(home.y).toBeCloseTo(0.1, 9); // the same 0.05 above the ground there, not floating at roof height
+    const flat = new THREE.Vector3(5, 0.3, 3);
+    c._konFront(flat, 1);
+    expect(flat.y).toBeCloseTo(0.3, 9); // level ground: unchanged
+    const none = make({ terrain });
+    const still = new THREE.Vector3(5, 0.7, 2);
+    none.c._konFront(still, 1);
+    expect([still.x, still.y, still.z]).toEqual([5, 0.7, 2]); // no camera: no shift
     c.dispose();
     none.c.dispose();
   });

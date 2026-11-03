@@ -459,6 +459,21 @@ export class Companions {
     return tr?.isPath?.(tx, tz) ? PATH_H : 0.05;
   }
 
+  /**
+   * Kon's home point a step further in front of Ruri (toward the camera, KON_FRONT in her scale's units), and on the
+   * ground there: it takes the ground's change between the two points, so he never floats or sinks on a slope or
+   * beside a roof's edge. Without a camera it stays as it is. `home` is mutated.
+   */
+  _konFront(home, scale) {
+    const cam = this.camSide;
+    if (!cam) return home;
+    const g0 = this._groundAt(home.x, home.z);
+    home.x += cam.x * KON_FRONT * scale;
+    home.z += cam.z * KON_FRONT * scale;
+    home.y += this._groundAt(home.x, home.z) - g0;
+    return home;
+  }
+
   _update(a, dt) {
     const v = this.actors.towers.get(a.uid);
     const t = this.sim.getTower ? this.sim.getTower(a.uid) : null;
@@ -481,10 +496,7 @@ export class Companions {
     _m.compose(m.position, m.quaternion, m.scale);
     a.home.copy(_home).applyMatrix4(_m);
     // Kon: a step further in front of her (toward the camera), clear of her figure
-    if (a.kon && this.camSide) {
-      a.home.x += this.camSide.x * KON_FRONT * m.scale.x;
-      a.home.z += this.camSide.z * KON_FRONT * m.scale.x;
-    }
+    if (a.kon) this._konFront(a.home, m.scale.x);
     const scale = m.scale.x * a.battleScale;
     g.scale.setScalar(scale);
     if (a.cid === 'doll') {
