@@ -29,14 +29,27 @@ export const KON_PITCH = 0.22;
  * comes in near-straight and does not swing wide through props beside his spot. A run that heads toward the camera
  * leaves her behind it anyway: its bow shrinks by as much, and it comes in from straight behind the spot on screen
  * (so a prop in front of the spot and to one side never cuts through him on the way in). A target that jumps more
- * than KON_RETARGET tiles starts a new arc from where he is; a smaller move (her home point turning with her) only
- * moves the arc's end.
+ * than KON_RETARGET tiles starts a new arc from where he is, leaving along the way he is already running (konTurn);
+ * a smaller move (her home point turning with her) only moves the arc's end.
  */
 export const KON_ARC = 0.3;
 export const KON_ARC_MAX = 0.6;
 export const KON_ARC_IN = 1 / 3;
 export const KON_ARC_OUT = 0.65;
 export const KON_RETARGET = 0.25;
+/**
+ * A new arc mid-run leaves along his heading (konTurn), so his facing turns a few degrees a frame instead of snapping:
+ * a circular arc to a target ahead of him or beside him (at least KON_TURN_R tiles' radius), else a U-turn. A U-turn
+ * to a target at least KON_TURN tiles away is as big as the run (its first control leg KON_U_OUT of it along his
+ * heading, its second KON_U_IN beyond the target and KON_U_SIDE out to its side); one to a target closer than that
+ * is a loop KON_TURN across (KON_U_LOOP: the same three, larger out and to the side, since he turns further).
+ */
+export const KON_TURN = 0.6;
+export const KON_TURN_R = 0.15;
+const KON_U_OUT = 0.55;
+const KON_U_IN = 1.35;
+const KON_U_SIDE = 1.3;
+const KON_U_LOOP = [1.6, 0.4, 1.9];
 /** A relay origin this close to Ruri means no relay spot: Kon sits by her. */
 export const KON_SELF = 0.3;
 /** Kaze's swoop: seconds out and back, arc height (tiles). */
@@ -113,11 +126,13 @@ export function konState() {
  * line and off it on the camera's side, by more the more the run crosses the view (a run straight at the camera or
  * away from it stays straight) and by less the more it heads toward the camera. The second sits KON_ARC_OUT along:
  * on the line, or for a run that heads toward the camera turned toward the camera's axis by as much (ex / ez,
- * relative to the target).
+ * relative to the target). Mid-run (`hx, hz`: his heading, any length; 0, 0: from rest) the arc leaves along his
+ * heading instead (konTurn).
  * @param {ReturnType<typeof konState>} s mutated
  * @param {{ x: number, z: number }|null} [cam]
+ * @param {number} [hx] @param {number} [hz]
  */
-export function konArc(s, tx, tz, cam = null) {
+export function konArc(s, tx, tz, cam = null, hx = 0, hz = 0) {
   s.sx = s.x;
   s.sz = s.z;
   s.u = 0;
@@ -156,7 +171,46 @@ export function konArc(s, tx, tz, cam = null) {
   // the second control point, KON_ARC_OUT along (relative to the target): he arrives along (ax, az)
   s.ex = -ax * d * (1 - KON_ARC_OUT);
   s.ez = -az * d * (1 - KON_ARC_OUT);
+  const hl = Math.hypot(hx, hz);
+  if (hl > 1e-9 && d > 1e-6) konTurn(s, dx / d, dz / d, d, hx / hl, hz / hl, cam);
   return s;
+}
+
+/**
+ * A new arc mid-run (its target jumped more than KON_RETARGET): it leaves along his heading (hx, hz, unit), so it joins
+ * the run he was on smoothly (no corner) and his facing turns at most a few degrees a frame instead of snapping. A
+ * target ahead of him or to one side: a circular arc, tangent to his heading and through the target. A target behind
+ * him, or one so close beside him that the circle would be tighter than KON_TURN_R: a U-turn (out along his heading,
+ * round to the target's side, the camera side when it is dead behind, and in from beyond it), as big as the run and
+ * a loop at least KON_TURN across, so even a target that lands right behind him (the spot gone just as he left
+ * Ruri) turns him round at a lope (under 10° a frame at his pace, 60 fps) instead of flipping him. Exact arrival and
+ * the even pace come from konStep as for any arc. (cx, cz: the unit direction to the target, d: how far it is.)
+ */
+function konTurn(s, cx, cz, d, hx, hz, cam) {
+  const cos = hx * cx + hz * cz;
+  const sin = Math.sqrt(Math.max(0, 1 - cos * cos));
+  let l1;
+  if (cos >= 0 && d >= 2 * sin * KON_TURN_R) {
+    // a circular arc (radius d / (2 sin φ), at least KON_TURN_R): both control legs (4/3)·tan(φ/2)·r long; he
+    // arrives along his heading mirrored in the line to the target
+    l1 = (2 * d) / (3 * (1 + cos));
+    s.ex = -(2 * cos * cx - hx) * l1;
+    s.ez = -(2 * cos * cz - hz) * l1;
+  } else {
+    // a U-turn (a target behind him, or too close beside him for that circle): out along his heading, round to the
+    // target's side (the camera side when it is dead behind) and in from beyond it
+    const loop = d < KON_TURN;
+    const w = loop ? KON_TURN : d;
+    l1 = (loop ? KON_U_LOOP[0] : KON_U_OUT) * w;
+    const back = (loop ? KON_U_LOOP[1] : KON_U_IN) * w;
+    let side = hx * cz - hz * cx;
+    if (Math.abs(side) < 1e-6) side = cam ? hx * cam.z - hz * cam.x : 1;
+    const off = (side < 0 ? -1 : 1) * (loop ? KON_U_LOOP[2] : KON_U_SIDE) * w * Math.max(-cos, 1 - d / w);
+    s.ex = hx * back - hz * off;
+    s.ez = hz * back + hx * off;
+  }
+  s.cx = s.x + hx * l1;
+  s.cz = s.z + hz * l1;
 }
 
 /** The arc's speed (|dB/du|) at u, toward (tx, tz). */
@@ -220,7 +274,8 @@ export function konStep(s, dt, homeX, homeZ, spot, speed = KON_SPEED, cam = null
   }
   if (!toHome && s.mode === 'spot' && Math.abs(s.tx - tx) < 1e-6 && Math.abs(s.tz - tz) < 1e-6) return s;
   // a new run (from where he sits, or a target that jumped): a new arc from here; a small move only moves its end
-  if (s.mode !== 'travel' || Math.hypot(tx - s.tx, tz - s.tz) > KON_RETARGET) konArc(s, tx, tz, cam);
+  if (s.mode !== 'travel') konArc(s, tx, tz, cam);
+  else if (Math.hypot(tx - s.tx, tz - s.tz) > KON_RETARGET) konArc(s, tx, tz, cam, s.dx, s.dz);
   s.mode = 'travel';
   s.tx = tx;
   s.tz = tz;
