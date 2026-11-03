@@ -172,6 +172,42 @@ describe('tornado layer', () => {
     expect(mesh.material.vertexShader).toMatch(/vCam = 0\.5 \+ 0\.5 \* \(dot\(p, uView\) \/ max\(r, 1e-3\)\);/);
   });
 
+  it('under Reduce Motion the frozen noise turns with the camera (uYaw): the portrait camera sees the landscape camera\'s tongues', () => {
+    const s = new THREE.Scene();
+    const t = make('high', { scene: s, reduceMotion: true });
+    t.spawn('fire', 0, 0);
+    t.update(1 / 60);
+    const mesh = s.children[0];
+    const yaw = (cam) => {
+      cam.updateMatrixWorld();
+      mesh.onBeforeRender(null, s, cam);
+      return mesh.material.uniforms.uYaw.value;
+    };
+    const P = (48 * Math.PI) / 180;
+    const cam = (x, y, z) => {
+      const c = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+      c.position.set(x, y, z);
+      c.lookAt(0, 0.6, 0);
+      return c;
+    };
+    // the landscape camera: exactly 0 (the same pixels as before the noise turned); the portrait camera: a quarter turn
+    expect(yaw(cam(0, Math.sin(P) * 30, Math.cos(P) * 30))).toBe(0);
+    expect(yaw(cam(Math.cos(P) * 30, Math.sin(P) * 30, 0))).toBeCloseTo(-0.25, 9);
+    expect(yaw(cam(-Math.cos(P) * 30, Math.sin(P) * 30, 0))).toBeCloseTo(0.25, 9);
+    // straight down keeps the last one
+    const down = new THREE.OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+    down.position.set(0, 30, 0);
+    down.lookAt(0, 0, 0);
+    expect(yaw(down)).toBeCloseTo(0.25, 9);
+    // the noise's angle takes it only under Reduce Motion on high (uRm.x > 0): normal play, medium and low are unchanged
+    const frag = mesh.material.fragmentShader;
+    expect(frag).toMatch(/float u = atan\(vXZ\.y, vXZ\.x\) \/ 6\.2831853 \+ vRnd - \(uRm\.x > 0\.0 \? uYaw : 0\.0\);/);
+    expect(frag).toMatch(/uniform float uYaw;/);
+    // the erosion stays flat round the ring (the front arc keeps it too: on the landscape camera it is what lets a
+    // stand-in 0.9 tiles behind the centre and one in the middle of the column show through)
+    expect(frag).toMatch(/step\(cut \+ uSparse \+ \(uFar \+ uRm\.x\) \* \(1\.0 - fr\) \+ uRm\.y, heat\)/);
+  });
+
   it('is the same column for the same seed (seeded visual randomness)', () => {
     const a = new THREE.Scene();
     const b = new THREE.Scene();

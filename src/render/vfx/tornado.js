@@ -13,8 +13,9 @@
 // with bloom its cover adds no light in the linear composer and a thinner lemon over grass reads lime; with bloom off
 // erosion takes tongues away and cools the rest (it never adds light). Either way what stands behind a column that
 // stands still stays readable. Under Reduce Motion high's funnel faces the camera that draws it (uView: its front and
-// far arc, the erosion, the colour index and the back's given row), so the portrait camera, which looks from the side,
-// sees the same funnel as the landscape camera.
+// far arc, the erosion, the colour index and the back's given row; uYaw: its frozen noise, so the same tongues stand at
+// the same place on screen), so the portrait camera, which looks from the side, sees the same funnel as the landscape
+// camera.
 //
 //   const tornado = createTornadoFx({ scene, batches, atlas, quality, reduceMotion, rand });
 //   tornado.spawn('fire', x, z, { seconds: 2, size: 1.2 });   // world x / z (the sim's x / y), the cast's radius
@@ -53,8 +54,11 @@ export const COVER_FAR_ERODE = 0.4;
  * that is fully up must stay at least as readable as on medium. The column is eroded instead of thinned (a thinner
  * lemon over grass reads lime): every ring `all` harder, the far arc `far` harder still, and the colour index follows
  * the extra erosion (`all`), so the tongues that are left keep the whole ramp instead of only its hottest bands. Here the
- * funnel's front and far arc (COVER_FAR_ERODE's too) are the camera's, so the portrait camera, which looks from the side,
- * keeps both walls; on the landscape camera they are the world's, as without Reduce Motion.
+ * funnel's front and far arc (COVER_FAR_ERODE's too) and its frozen noise are the camera's, so the portrait camera, which
+ * looks from the side, sees the landscape camera's funnel (the same tongues survive the erosion); on the landscape camera
+ * they are the world's, as without Reduce Motion. (The noise scroll stops under Reduce Motion, so the frozen noise decides
+ * which tongues survive: in the world's frame the portrait camera saw other tongues, and with the camera's far arc eroded
+ * they left two walls over a bowl, not a funnel.)
  */
 export const RM_COVER = { far: 0.3, all: 0.22 };
 
@@ -123,6 +127,7 @@ uniform vec2 uFront;   // COVER_FRONT
 uniform float uYoung;  // COVER_YOUNG
 uniform float uFar;    // COVER_FAR_ERODE
 uniform vec2 uRm;      // high under Reduce Motion: RM_COVER (far, all); (0, 0) otherwise
+uniform float uYaw;    // the camera's turn from the landscape camera's, in turns (0 there; the portrait camera -0.25)
 varying float vCam;    // as vFront, but facing the camera (uView) wherever it looks from
 varying vec2 vXZ;
 varying float vAge;
@@ -140,7 +145,9 @@ void main() {
   // the flame band across the ring (0 at its edges, 1 in its middle; inside the hole it is negative: nothing)
   float x = vD * 2.0 - 1.0;
   float band = 1.0 - x * x;
-  float u = atan(vXZ.y, vXZ.x) / 6.2831853 + vRnd; // whole-number u scales: the noise wraps seamlessly
+  // whole-number u scales: the noise wraps seamlessly. Under Reduce Motion (high: uRm.x > 0) the frozen noise turns with
+  // the camera (uYaw), so every camera sees the landscape camera's tongues (0 there: the same pixels)
+  float u = atan(vXZ.y, vXZ.x) / 6.2831853 + vRnd - (uRm.x > 0.0 ? uYaw : 0.0);
   vec2 uv = vec2(u * vF.x, vD * vF.y - vAge * 0.9 - uTime * vF.z * 0.35);
   float n = texture2D(uNoise, uv).r * 0.85 + texture2D(uNoise, uv * vec2(2.0, 1.7) + vec2(0.37, uTime * vF.z * 0.2)).g * 0.15;
   n = smoothstep(0.25, 0.75, n); // bolder: fewer, bigger tongues
@@ -305,6 +312,7 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
       uFar: { value: 0 },
       uRm: { value: new THREE.Vector2(0, 0) },
       uView: { value: new THREE.Vector2(0, 1) },
+      uYaw: { value: 0 },
     },
     vertexShader: VERT,
     fragmentShader: FRAG,
@@ -322,12 +330,16 @@ export function createTornadoFx({ scene, batches = null, atlas = null, quality =
   mesh.frustumCulled = false;
   mesh.renderOrder = 22;
   // the ground direction toward the camera that draws it (Reduce Motion's far arc is the camera's far arc: the portrait
-  // camera looks from the side); straight down keeps the last one
+  // camera looks from the side), and its turn from the landscape camera's (+z: 0) in turns, which turns Reduce Motion's
+  // frozen noise with it; straight down keeps the last ones
   const _dir = new THREE.Vector3();
   mesh.onBeforeRender = (_r, _s, cam) => {
     cam.getWorldDirection(_dir);
     const l = Math.hypot(_dir.x, _dir.z);
-    if (l > 1e-4) material.uniforms.uView.value.set(-_dir.x / l, -_dir.z / l);
+    if (l > 1e-4) {
+      const v = material.uniforms.uView.value.set(-_dir.x / l, -_dir.z / l);
+      material.uniforms.uYaw.value = (Math.atan2(v.y, v.x) - Math.PI / 2) / TAU;
+    }
   };
   mesh.visible = false;
   mesh.name = 'tornadoFx';
