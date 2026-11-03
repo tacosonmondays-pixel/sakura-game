@@ -20,6 +20,21 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
+    id: 'v0.1.74', version: '0.1.74', date: '2026-11-03', title: 'Six More Path Looks',
+    added: [
+      'Path looks for six more girls: Sango, Umeko, Shiro, Midori, Suzu and Raika now wear a piece for each upgrade path from tier 3, with a capstone look at tier 5.',
+    ],
+    changed: [
+      'Kon now bounds around in front of Ruri when he runs to her relay spot, leaving glowing paw prints, instead of running through her. His run keeps an even pace, swings wide of Ruri early and comes straight in, clear of the scenery around it.',
+      'Kage\'s Shadow Mark crescent now sits on her headband, clear of her face.',
+    ],
+    fixed: [
+      'Hikari\'s "new lesson" bubble now steps aside while a window or menu is open, so a tap meant for that window never opens the Journal by mistake; the bubble comes back once the window closes.',
+      'Iroha\'s Shattered Glass hits no longer flash white over a crowd: her mirror beams land in lilac glass, once per spot.',
+      'On Medium graphics, every beam\'s impact lines now burst evenly all round instead of to one side.',
+    ],
+  },
+  {
     id: 'v0.1.73', version: '0.1.73', date: '2026-11-02', title: 'Path Looks and Inked Attack Effects',
     added: [
       'See each girl\'s upgrade path at a glance: coloured pips under her show how far each path goes, and from tier 3 she wears a piece for that path — wings, quivers, crowns and more — with a capstone look at tier 5. Rolling out now for Aoi, Akane, Luna, Rei, Yuki, Momo, Kage, Nami and Hikari; more girls soon.',
