@@ -58,7 +58,10 @@ const KON_FRONT = 0.17;
 const _home = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 const _spot = { x: 0, z: 0 };
-/** Where Ruri stands (ground), set before each konStep: a skid-turn or a pivot turns away from her. */
+/**
+ * Where Ruri stands (ground), set before each konStep: a skid-turn or a pivot turns away from her when the short way
+ * round would come near her.
+ */
 const _ruri = { x: 0, z: 0 };
 /** The ground direction toward the camera (unit), set once a frame: Kon's run bows that way (konArc). */
 const _cam = { x: 0, z: 1 };

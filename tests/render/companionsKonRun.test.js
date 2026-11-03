@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   konState, konStep, konArc, konGait, KON_ARC, KON_ARC_MAX, KON_ARC_IN, KON_ARC_OUT, KON_RETARGET, KON_SPEED, KON_HOP,
-  KON_SKID, KON_SKID_MAX, KON_SKID_SLIDE, KON_SKID_NEAR, KON_PIVOT,
+  KON_SKID, KON_SKID_MAX, KON_SKID_SLIDE, KON_SKID_NEAR, KON_PIVOT, KON_CLEAR, KON_SKID_LONG, KON_SKID_SHORT,
 } from '../../src/render/companionLogic.js';
 
 const CAM = { x: 0, z: 1 }; // the battle camera at yaw 0: toward the camera is +z (lower on screen, in front)
@@ -219,7 +219,7 @@ describe('Kon\'s run: a target that jumps mid-run turns him smoothly', () => {
     const r = {
       s, maxTurn: 0, lo: Infinity, hi: 0, frames: 0, target: null, skidFrames: 0, skidTravel: 0, skidTurn: 0,
       skidTurned: 0, path: 0, minRuri: Infinity, lat: 0, from: null, liftJump: 0, pivFrames: 0, maxPivTurn: 0,
-      skids: 0, after: [], plantedLift: null,
+      skids: 0, after: [], plantedLift: null, afterTurn: 0, kda: 0,
     };
     let skidFrom = null;
     let skidded = false;
@@ -245,7 +245,10 @@ describe('Kon\'s run: a target that jumps mid-run turns him smoothly', () => {
         r.lat = Math.max(r.lat, Math.abs((s.x - r.from[0]) * -r.from[3] + (s.z - r.from[1]) * r.from[2]));
       }
       if (s.skid > 0 || sk > 0) {
-        if (!skidFrom) skidFrom = [x, z, Math.atan2(dz, dx)];
+        if (!skidFrom) {
+          skidFrom = [x, z, Math.atan2(dz, dx)];
+          r.kda = s.kda;
+        }
         if (s.skid === 0) r.plantedLift = g.lift; // his paws on the ground as the swing ends
         skidded = true;
         r.skidFrames++;
@@ -257,6 +260,7 @@ describe('Kon\'s run: a target that jumps mid-run turns him smoothly', () => {
         if (Math.abs(a) > Math.abs(r.skidTurned) && Math.abs(a) < 3) r.skidTurned = a;
       } else if (skidded) {
         r.after.push(m);
+        r.afterTurn = Math.max(r.afterTurn, t);
       } else {
         r.maxTurn = Math.max(r.maxTurn, t);
         if (s.mode === 'travel') r.lo = Math.min(r.lo, m);
@@ -373,16 +377,18 @@ describe('Kon\'s run: a target that jumps mid-run turns him smoothly', () => {
     }
   });
 
-  it('halfway there (home under KON_SKID_NEAR behind him): a skid-turn too, not a loop', () => {
-    // (Ruri behind his home, or, to prove it is her and not the camera that picks the side, off on the camera's side)
+  it('halfway there (home under KON_SKID_NEAR behind him): a skid-turn too, not a loop; the short way round, she is clear', () => {
+    // (Ruri behind his home, or off on the camera's side: either way further than KON_PIVOT + KON_CLEAR from him)
     for (const [ruri, at] of [[{ x: 0.2, z: -0.15 }, 25], [{ x: 0.2, z: -0.15 }, 40], [{ x: 0.4, z: 0.3 }, 25], [{ x: 0.4, z: 0.3 }, 40]]) {
       const r = retargetRun({ x: -1.5, z: -0.3 }, at, null, { ruri });
       expect(Math.hypot(r.from[0], r.from[1])).toBeLessThan(KON_SKID_NEAR);
+      expect(Math.hypot(r.from[0] - ruri.x, r.from[1] - ruri.z)).toBeGreaterThan(KON_PIVOT + KON_CLEAR);
       expect(r.skids).toBe(1);
       expect(r.skidFrames).toBeLessThanOrEqual(Math.ceil(KON_SKID_MAX * 60) + 1);
       expect(r.skidTravel).toBeLessThanOrEqual(KON_SKID_SLIDE + 1e-9);
-      const ruriLeft = r.from[2] * (ruri.z - r.from[1]) - r.from[3] * (ruri.x - r.from[0]) > 0;
-      expect(Math.sign(r.skidTurned)).toBe(ruriLeft ? -1 : 1);
+      // the short way round, under 180° (5d4b141a turned away from her, the long way round: 200° to 250°)
+      expect(Math.abs(r.kda)).toBeLessThan(Math.PI);
+      expect(Math.sign(r.skidTurned)).toBe(Math.sign(r.kda));
       // a direct run home: no longer than 1.3x the way back
       expect(r.path).toBeLessThan(1.3 * Math.hypot(r.from[0], r.from[1]) + 2 * KON_SKID_SLIDE);
       expect([r.s.mode, r.s.x, r.s.z]).toEqual(['home', 0, 0]);
@@ -438,6 +444,148 @@ describe('Kon\'s run: a target that jumps mid-run turns him smoothly', () => {
           expect([r.s.mode, r.s.x, r.s.z], `${dist} at ${deg}`).toEqual(['spot', r.target.x, r.target.z]);
         }
       }
+    }
+  });
+
+  /** Kon run `at` frames toward `spot`, then retargeted to `next(s)`; his state just after that frame. */
+  function retargetedAt(spot, at, next, ruri, dt = 1 / 60) {
+    const s = konState();
+    for (let i = 0; i <= at; i++) konStep(s, dt, 0, 0, spot, KON_SPEED, CAM, ruri);
+    const from = [s.x, s.z, s.dx, s.dz];
+    const target = next(s);
+    konStep(s, dt, 0, 0, target, KON_SPEED, CAM, ruri);
+    return { s, from, target };
+  }
+  const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+
+  it('N1: a skid turns the short way unless his swing sweeps across Ruri near him; the long way at most 200°', () => {
+    let short = 0;
+    let long = 0;
+    for (const ruri of [{ x: 0.05, z: -0.3 }, { x: -0.25, z: 0.05 }, { x: 0.1, z: 0.3 }, { x: 3, z: 3 }]) {
+      for (const at of [3, 15, 30, 50]) {
+        for (const dist of [0.1, 0.3, 0.5, 0.8]) {
+          for (let deg = 95; deg <= 265; deg += 10) {
+            const { s, from, target } = retargetedAt({ x: 1.5, z: 0 }, at, around(dist, deg), ruri);
+            if (Math.hypot(target.x - 1.5, target.z) <= KON_RETARGET || !(s.skid > 0)) continue;
+            const what = `${dist} at ${deg}°, frame ${at}, Ruri ${ruri.x},${ruri.z}`;
+            expect(Math.abs(s.kda), what).toBeLessThanOrEqual(KON_SKID_LONG + 1e-9);
+            // the long way round only when the short swing would sweep his facing across her, near him (or it is a
+            // dead-behind toss-up)
+            const [rx, rz] = [ruri.x - from[0], ruri.z - from[1]];
+            const ra = wrap(Math.atan2(rz, rx) - Math.atan2(from[3], from[2]));
+            const sh = wrap(s.kda);
+            const sweeps = Math.hypot(rx, rz) < KON_PIVOT + KON_CLEAR && ra * sh > 0 && Math.abs(ra) <= Math.abs(sh);
+            if (Math.abs(s.kda) > Math.PI) {
+              long++;
+              expect(sweeps || Math.abs(sh) > Math.PI - 0.03, what).toBe(true);
+            } else short++;
+          }
+        }
+      }
+    }
+    expect(short).toBeGreaterThan(5 * long); // (5d4b141a: about one skid in five went more than 180° round)
+  });
+
+  it('N1: a far pivot with Ruri clear of it takes the short way (its circle on the target\'s side), under 190°', () => {
+    for (const ruri of [{ x: 4, z: 0 }, { x: 1, z: -3.5 }, null]) {
+      for (const deg of [100, 130, 160, -100, -130, -160]) {
+        for (const dist of [1.5, 3]) {
+          const r = retargetRun({ x: 2, z: 0 }, 40, around(dist, deg), { ruri });
+          const what = `${dist} at ${deg}°, Ruri ${JSON.stringify(ruri)}`;
+          expect(r.pivFrames, what).toBeGreaterThan(0);
+          // round a quarter-tile circle at his pace: under 190° of it, not 5d4b141a's up to 265°
+          expect((r.pivFrames * STEP) / KON_PIVOT, what).toBeLessThan((190 * Math.PI) / 180);
+          expect([r.s.mode, r.s.x, r.s.z], what).toEqual(['spot', r.target.x, r.target.z]);
+        }
+        const { s } = retargetedAt({ x: 2, z: 0 }, 40, around(2, deg), ruri);
+        expect(s.qs, `${deg}°`).toBe(Math.sign(deg));
+      }
+    }
+  });
+
+  it('N1: on 1-1 the spot gone at any point of the run: never nearer Ruri than his home (a far one pivots away from her)', () => {
+    // 1-1 at 844x390 (the browser geometry): Ruri, his home beside her, her relay spot to the left
+    const home = [17.64, 3.28];
+    const spot = { x: 16.021, z: 3.545 };
+    const ruri = { x: 17.35, z: 2.85 };
+    const homeR = Math.hypot(home[0] - ruri.x, home[1] - ruri.z);
+    for (const at of [2, 6, 12, 20, 30, 40, 55, 70]) {
+      const r = retargetRun(spot, at, null, { ruri, home });
+      expect(r.minRuri, `frame ${at}`).toBeGreaterThanOrEqual(homeR - 0.02);
+      expect([r.s.mode, r.s.x, r.s.z], `frame ${at}`).toEqual(['home', home[0], home[1]]);
+    }
+    // the spot gone 70 frames in: home is far behind him, and the short way round would pass within a third of a tile
+    // of her, so he pivots the other way
+    const s = konState();
+    for (let i = 0; i <= 70; i++) konStep(s, 1 / 60, home[0], home[1], spot, KON_SPEED, CAM, ruri);
+    const c = s.dx * (home[1] - s.z) - s.dz * (home[0] - s.x);
+    konStep(s, 1 / 60, home[0], home[1], null, KON_SPEED, CAM, ruri);
+    expect(s.piv).toBeGreaterThan(0);
+    expect(s.qs).toBe(c > 0 ? -1 : 1);
+  });
+
+  it('N2: a target right behind him after a skid (a run under KON_SKID_SHORT): he swings to face it, then runs straight', () => {
+    let n = 0;
+    for (const dt of [1 / 60, 1 / 30]) {
+      for (const at of [3, 15, 30]) {
+        for (const dist of [0.05, 0.08, 0.1, 0.15]) {
+          for (let deg = 100; deg <= 260; deg += 20) {
+            const r = retargetRun({ x: 1.5, z: 0 }, at, around(dist, deg), { dt, ruri: { x: 0.05, z: -0.3 } });
+            if (!r.skids) continue;
+            n++;
+            const what = `${dist} at ${deg}°, frame ${at}, dt ${dt.toFixed(3)}`;
+            // no turn at all after the skid (5d4b141a: 25° to 90° in one frame), and exact
+            expect(r.afterTurn, what).toBeLessThan(0.5);
+            expect([r.s.mode, r.s.x, r.s.z], what).toEqual(['spot', r.target.x, r.target.z]);
+          }
+        }
+      }
+    }
+    expect(n).toBeGreaterThan(150);
+    expect(KON_SKID_SHORT).toBeGreaterThan(0.15 + KON_SKID_SLIDE);
+  });
+
+  it('N3: a second jump of his target mid-skid (or just after it) keeps his bound easing in: no pop', () => {
+    const ruri = { x: 0.02, z: -0.2 };
+    let midSkid = 0;
+    let skidAgain = 0;
+    for (const at2 of [2, 4, 6, 8, 11, 13, 16, 20]) {
+      for (const [dist, deg] of [[1.2, 0], [1.2, 30], [1.2, 60], [1.2, 90], [1.2, 150], [1.2, 180], [0.5, 150], [0.5, 180]]) {
+        // the spot goes away 20 frames in (a skid toward home), then lands `deg` off his facing `at2` frames later
+        const s = konState();
+        let target = { x: 1.5, z: -0.3 };
+        const g = { lift: 0, pitch: 0, stretch: 1 };
+        let last = null;
+        let worst = 0;
+        for (let k = 0; k < 600; k++) {
+          if (k === 21) target = null;
+          if (k === 21 + at2) {
+            if (s.skid > 0) midSkid++;
+            target = around(dist, deg)(s);
+          }
+          const sk = s.skids;
+          konStep(s, 1 / 60, 0, 0, target, KON_SPEED, CAM, ruri);
+          if (k === 21 + at2 && s.skids > sk) skidAgain++; // (a second skid, from within the first or its first stride)
+          if (s.mode !== 'travel') break;
+          konGait(s, g);
+          if (last !== null) worst = Math.max(worst, Math.abs(g.lift - last));
+          last = g.lift;
+        }
+        // (a plain run: 0.018 tiles a frame at most; 5d4b141a popped 0.068)
+        expect(worst, `${at2} frames after, ${dist} at ${deg}°`).toBeLessThan(0.02);
+      }
+    }
+    expect(midSkid).toBeGreaterThan(20); // (most of these land while he is still skidding)
+    expect(skidAgain).toBeGreaterThan(8);
+  });
+
+  it('N4: a far target just ahead of beside him pivots as one just behind does (not a 1.5x bulge)', () => {
+    for (const deg of [80, 85, -80, -85]) {
+      const r = retargetRun({ x: 2, z: 0 }, 40, around(3, deg));
+      expect(r.pivFrames, `${deg}°`).toBeGreaterThan(0);
+      expect(r.path / 3, `${deg}°`).toBeLessThan(1.2);
+      expect(r.maxTurn, `${deg}°`).toBeLessThan(9);
+      expect([r.s.mode, r.s.x, r.s.z]).toEqual(['spot', r.target.x, r.target.z]);
     }
   });
 
