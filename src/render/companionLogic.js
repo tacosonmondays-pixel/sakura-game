@@ -2,7 +2,8 @@
 // writes, so they are unit-tested in node (tests/render/companions.test.js). Positions are world units
 // on the board: x = sim x, z = sim y, y = height.
 //
-//   Kon (Ruri):  home (sits by her) → travel (bounds along the ground: konGait, a dust puff per stride) → spot
+//   Kon (Ruri):  home (sits by her) → travel (bounds along the ground: konGait, a dust puff per stride; an arc that
+//                bows toward the camera, konArc, so the run crosses open ground in front of her) → spot
 //                (sits at her relay origin); Moon Pounce (pounceStep): crouch → arc leap → impact at the target → hop
 //                back to where he stood
 //   Kaze (Hana): a swoop (stoopStep) = climb, stoop down onto the target she shot, swing back up to her shoulder;
@@ -19,6 +20,15 @@ export const KON_STRIDE = 0.36;
 /** How high a bound lifts him (tiles) and how far he pitches (radians, nose up on take-off). */
 export const KON_HOP = 0.1;
 export const KON_PITCH = 0.22;
+/**
+ * His run bows toward the camera (display only, the same start and arrival): the arc's peak sits KON_ARC of the run's
+ * length off the straight line, at most KON_ARC_MAX tiles, so a short run to a spot about a tile from Ruri crosses
+ * the open ground in front of her instead of her body. A target that jumps more than KON_RETARGET tiles starts a new
+ * arc from where he is; a smaller move (her home point turning with her) only moves the arc's end.
+ */
+export const KON_ARC = 0.3;
+export const KON_ARC_MAX = 0.6;
+export const KON_RETARGET = 0.25;
 /** A relay origin this close to Ruri means no relay spot: Kon sits by her. */
 export const KON_SELF = 0.3;
 /** Kaze's swoop: seconds out and back, arc height (tiles). */
@@ -77,9 +87,45 @@ export function diveReach(range) {
   return Math.max(0, range || 0) + DIVE_SLACK;
 }
 
-/** @returns {{ mode: 'home'|'travel'|'spot', x: number, z: number, tx: number, tz: number, hold: number, placed: boolean, dx: number, dz: number }} */
+/**
+ * sx / sz: where this run started; cx / cz: its arc's control point (konArc); u: how far along it he is (0..1).
+ * @returns {{ mode: 'home'|'travel'|'spot', x: number, z: number, tx: number, tz: number, hold: number, placed: boolean, dx: number, dz: number }}
+ */
 export function konState() {
-  return { mode: 'home', x: 0, z: 0, tx: 0, tz: 0, hold: 0, placed: false, dx: 0, dz: 1, run: 0, steps: 0 };
+  return {
+    mode: 'home', x: 0, z: 0, tx: 0, tz: 0, hold: 0, placed: false, dx: 0, dz: 1, run: 0, steps: 0,
+    sx: 0, sz: 0, cx: 0, cz: 0, u: 0,
+  };
+}
+
+/**
+ * Starts a run from where Kon is to (tx, tz): the arc's control point, off the straight line's middle on the side
+ * of the camera (`cam`: the ground direction toward the camera, unit length; null: a straight run), by more the
+ * more the run crosses the view (a run straight at the camera or away from it stays straight).
+ * @param {ReturnType<typeof konState>} s mutated
+ * @param {{ x: number, z: number }|null} [cam]
+ */
+export function konArc(s, tx, tz, cam = null) {
+  s.sx = s.x;
+  s.sz = s.z;
+  s.u = 0;
+  const dx = tx - s.x;
+  const dz = tz - s.z;
+  const d = Math.hypot(dx, dz);
+  let px = 0;
+  let pz = 0;
+  if (cam && d > 1e-6) {
+    // the run's normal on the camera's side, weighted by how much of the view it crosses
+    px = -dz / d;
+    pz = dx / d;
+    const dot = px * cam.x + pz * cam.z;
+    const k = 2 * Math.min(KON_ARC * d, KON_ARC_MAX) * dot; // (a quadratic arc peaks at half its control offset)
+    px *= k;
+    pz *= k;
+  }
+  s.cx = (s.x + tx) / 2 + px;
+  s.cz = (s.z + tz) / 2 + pz;
+  return s;
 }
 
 /**
@@ -103,8 +149,9 @@ export function konSpot(t, out) {
  * @param {number} homeX @param {number} homeZ where he sits by Ruri this frame
  * @param {{ x: number, z: number }|null} spot
  * @param {number} [speed]
+ * @param {{ x: number, z: number }|null} [cam] the ground direction toward the camera (unit): his run bows that way
  */
-export function konStep(s, dt, homeX, homeZ, spot, speed = KON_SPEED) {
+export function konStep(s, dt, homeX, homeZ, spot, speed = KON_SPEED, cam = null) {
   if (!s.placed) {
     s.placed = true;
     s.mode = 'home';
@@ -128,27 +175,41 @@ export function konStep(s, dt, homeX, homeZ, spot, speed = KON_SPEED) {
     return s;
   }
   if (!toHome && s.mode === 'spot' && Math.abs(s.tx - tx) < 1e-6 && Math.abs(s.tz - tz) < 1e-6) return s;
+  // a new run (from where he sits, or a target that jumped): a new arc from here; a small move only moves its end
+  if (s.mode !== 'travel' || Math.hypot(tx - s.tx, tz - s.tz) > KON_RETARGET) konArc(s, tx, tz, cam);
   s.mode = 'travel';
   s.tx = tx;
   s.tz = tz;
-  const dx = tx - s.x;
-  const dz = tz - s.z;
-  const d = Math.hypot(dx, dz);
+  // the arc: a quadratic from (sx, sz) through the control point to the target; its length estimated from the chord
+  // and the control polygon (exact for a straight run)
+  const ax = s.cx - s.sx;
+  const az = s.cz - s.sz;
+  const bx = tx - s.cx;
+  const bz = tz - s.cz;
+  const len = (Math.hypot(ax, az) + Math.hypot(bx, bz) + Math.hypot(tx - s.sx, tz - s.sz)) / 2;
+  const left = len * (1 - s.u);
   const step = Math.max(0, speed * dt);
-  if (d > 1e-6) {
-    s.dx = dx;
-    s.dz = dz;
-  }
   // (the run's length so far: his bounds and their dust puffs follow it)
-  s.run += Math.min(d, step);
+  s.run += Math.min(left, step);
   s.steps = Math.floor(s.run / KON_STRIDE);
-  if (d <= step || d < 1e-4) {
+  if (left <= step || left < 1e-4) {
     s.x = tx;
     s.z = tz;
+    s.u = 1;
     s.mode = toHome ? 'home' : 'spot';
-  } else {
-    s.x += (dx / d) * step;
-    s.z += (dz / d) * step;
+    return s;
+  }
+  const u = Math.min(1, s.u + step / len);
+  s.u = u;
+  const v = 1 - u;
+  s.x = v * v * s.sx + 2 * u * v * s.cx + u * u * tx;
+  s.z = v * v * s.sz + 2 * u * v * s.cz + u * u * tz;
+  // he faces along the arc (its tangent)
+  const fx = v * ax + u * bx;
+  const fz = v * az + u * bz;
+  if (fx * fx + fz * fz > 1e-12) {
+    s.dx = fx;
+    s.dz = fz;
   }
   return s;
 }

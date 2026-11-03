@@ -1,6 +1,7 @@
 // Companion actors in battle (display only: reads the sim's towers and drained events, never writes):
 //   Kon (Ruri)    sits by her; bounds along the ground to her relay origin (t.ox / t.oy) and sits there (a hop,
-//                 a pitch and a dust puff per stride, a faint holo streak behind him); her bolts leap out of him
+//                 a pitch, a dust puff and a paw mark per stride, a faint holo streak behind him; the run bows toward
+//                 the camera so it crosses open ground in front of her, not her body); her bolts leap out of him
 //                 (attack clip); runs back when the spot goes away; on Moon Pounce (her ⚡) he crouches, leaps at
 //                 its target in an arc, lands with a puff and a ring there and hops back (Reduce motion: he stays
 //                 put and plays his attack)
@@ -48,10 +49,17 @@ const POUNCE_ID = 'ruri.moonPounce';
 const FULL_AT = 2.0;
 const LOD_AT = 1.7;
 const KON_HOLD = 0.5; // his appear clip, then he may run
+/**
+ * In battle Kon sits this much further toward the camera than his manifest home (in her scale's units, about 0.2
+ * tiles): on her own spot his figure hid behind her skirt, and his run to a relay spot about a tile away started there.
+ */
+const KON_FRONT = 0.17;
 
 const _home = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 const _spot = { x: 0, z: 0 };
+/** The ground direction toward the camera (unit), set once a frame: Kon's run bows that way (konArc). */
+const _cam = { x: 0, z: 1 };
 const _pos = { x: 0, y: 0, z: 0, out: false, hit: false, phase: null, squash: 1, pitch: 0 };
 const _gait = { lift: 0, pitch: 0, stretch: 1 };
 const _la = new THREE.Vector3();
@@ -63,6 +71,10 @@ const FLIGHT_SCALE = 1.45;
 const C = {
   holo: new THREE.Color('#8fd8ff'),
   dust: new THREE.Color('#d9c6a2'),
+  // his run's puffs: a darker earth than the grass's highlights, so a puff reads on lawn and on the pale path
+  runDust: new THREE.Color('#b39468'),
+  // under each glowing paw mark, a deep blue print (normal blending) so the mark reads on bright ground
+  paw: new THREE.Color('#163a75'),
   white: new THREE.Color('#ffffff'),
   wing: new THREE.Color('#f2dc96'),
   feather: new THREE.Color('#d9b48a'),
@@ -93,6 +105,7 @@ export class Companions {
     this.ready = false;
     this.disposed = false;
     this.frame = 0;
+    this.camSide = null; // the ground direction toward the camera this frame (_camSide)
     this.time = 0;
     this.zoom = 1;
     this.detail = 'lod';
@@ -326,7 +339,19 @@ export class Companions {
     else if (this.detail === 'lod' && zoom >= FULL_AT) this.detail = 'full';
     else if (this.detail === 'full' && zoom <= LOD_AT) this.detail = 'lod';
     reconcile(this.list, this.sim.towers, this._of, this._make, this._drop, this.frame);
+    this._camSide();
     for (const a of this.list.values()) this._update(a, dt);
+  }
+
+  /** The ground direction toward the camera (its back axis, flattened): `_cam`, or null without a camera. */
+  _camSide() {
+    if (!this.camera) return (this.camSide = null);
+    const e = this.camera.matrixWorld.elements;
+    const l = Math.hypot(e[8], e[10]);
+    if (l < 1e-6) return (this.camSide = null);
+    _cam.x = e[8] / l;
+    _cam.z = e[10] / l;
+    return (this.camSide = _cam);
   }
 
   /** The nearest drawn monster within `r` tiles ({ x, y, z, height }) or null. */
@@ -455,6 +480,11 @@ export class Companions {
     a.anchor.local(_home);
     _m.compose(m.position, m.quaternion, m.scale);
     a.home.copy(_home).applyMatrix4(_m);
+    // Kon: a step further in front of her (toward the camera), clear of her figure
+    if (a.kon && this.camSide) {
+      a.home.x += this.camSide.x * KON_FRONT * m.scale.x;
+      a.home.z += this.camSide.z * KON_FRONT * m.scale.x;
+    }
     const scale = m.scale.x * a.battleScale;
     g.scale.setScalar(scale);
     if (a.cid === 'doll') {
@@ -466,7 +496,7 @@ export class Companions {
     let pitch = 0;
     if (a.kon) {
       const s = a.kon.s;
-      konStep(s, dt, a.home.x, a.home.z, konSpot(t, _spot));
+      konStep(s, dt, a.home.x, a.home.z, konSpot(t, _spot), undefined, this.camSide ?? null);
       if (s.mode === 'home') {
         g.position.copy(a.home);
       } else {
@@ -608,9 +638,13 @@ export class Companions {
   _stride(x, y, z, h) {
     const R = this.R;
     if (!this.fx || !R) return;
-    this._dust(x, y, z, 4, 0.5);
-    this._setSp('groundA', R.glow, x, y + 0.03, z, 0.5, 0.3, 0.75, C.holo, 0.75);
-    _sp.flags = 1; // flat on the ground
+    this._dust(x, y, z, 4, 0.55, C.runDust, 0.95);
+    // the paw mark: a deep blue print under a brighter holo glow, both flat on the ground
+    this._setSp('groundN', R.shadow || R.glow, x, y + 0.025, z, 0.42, 0.3, 1.0, C.paw, 0.55);
+    _sp.flags = 1;
+    this._spawn();
+    this._setSp('groundA', R.glow, x, y + 0.03, z, 0.55, 0.32, 0.95, C.holo, 0.95);
+    _sp.flags = 1;
     this._spawn();
     if (this.quality !== 'low') {
       this._setSp('bbA', R.glow, x, y + h * 0.4, z, h * 0.9, h * 1.3, 0.28, C.holo, 0.45);
@@ -619,13 +653,13 @@ export class Companions {
   }
 
   /** A little dust puff where Kon's paws land (`n` puffs, before the graphics density). Reduce motion: still. */
-  _dust(x, y, z, n, size) {
+  _dust(x, y, z, n, size, color = C.dust, alpha = 0.85) {
     const fx = this.fx;
     if (!fx || !this.R) return;
     const k = fx.n(n);
     for (let i = 0; i < k; i++) {
       const a = fx.rand() * TAU;
-      this._setSp('bbN', this.R.smoke, x + Math.cos(a) * 0.08, y + 0.14, z + Math.sin(a) * 0.08, size * 0.5, size * 1.2, 0.5, C.dust, 0.85);
+      this._setSp('bbN', this.R.smoke, x + Math.cos(a) * 0.08, y + 0.14, z + Math.sin(a) * 0.08, size * 0.5, size * 1.2, 0.5, color, alpha);
       if (!this.reduceMotion) {
         _sp.vx = Math.cos(a) * 0.5;
         _sp.vz = Math.sin(a) * 0.5;
@@ -708,7 +742,7 @@ export class Companions {
     }
     const kaze = a.cid === 'kaze';
     const col = kaze ? C.wing : C.holo;
-    const w0 = kaze ? 0.22 : 0.24;
+    const w0 = kaze ? 0.22 : 0.28;
     const a0 = kaze ? 0.9 : 0.8;
     let fresh = false;
     for (let i = 0; i + 1 < tr.count; i++) {
