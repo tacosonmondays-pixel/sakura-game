@@ -1,7 +1,9 @@
 // Counts loose dark-ink fragments in the electricity lab (docs/VFX.md "Electricity"; the house rule: ink leaves before
 // erosion opens holes, so an eroding piece ends in its colour bands, never as loose dark ink dashes). Steps
-// previews/electric.html (manual, 1/60 s) from 0 to --until s and, for every frame, draws it twice: as it is and with
-// the electric layer hidden (window.__lab.bare()), so only the electricity's own pixels are classified:
+// previews/electric.html (manual, 1/60 s) from 0 until the scene is idle (nothing up and nothing drawn for 20 frames,
+// after its first second; at most --until s), so every piece's ending is seen (the aura's charge rings, the web's end,
+// the Drumstorm's second scorch), and, for every frame, draws it twice: as it is and with the electric layer hidden
+// (window.__lab.bare()), so only the electricity's own pixels are classified:
 //
 //   effect pixel   any channel differs from the bare frame by more than 10 (0..255)
 //   ink pixel      an effect pixel the layer made dark: its luma (sRGB, 0..1) under --ink-luma (0.2) and at least
@@ -18,7 +20,8 @@
 //
 //   node e2e/electric-ink.mjs --url http://127.0.0.1:5191 --out ink.json \
 //     [--scenes drumstorm,aura,shock,scorch,surge,all] [--viewports 844x390,390x844] [--qualities high,medium]
-//     [--look a|b] [--until 2.5] [--frag-px 40] [--ink-luma 0.2] [--strip <dir>]  (crops of the worst frames, PNG)
+//     [--look a|b] [--rm 0,1] [--until 9] [--frag-px 40] [--ink-luma 0.2] [--strip <dir>]  (crops of the worst frames, PNG)
+//   --rm: Reduce Motion off (0, the default), on (1) or both; --until: the most it steps (s) if the scene never idles
 //   without --url it starts its own Vite server on a free port.
 import { createServer } from 'vite';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -35,7 +38,8 @@ const SCENES = list('scenes', 'drumstorm,aura,shock,scorch,surge,all');
 const VIEWPORTS = list('viewports', '844x390,390x844');
 const QUALITIES = list('qualities', 'high,medium');
 const LOOK = opt('look', null);
-const UNTIL = Number(opt('until', '2.5'));
+const RMS = list('rm', '0');
+const UNTIL = Number(opt('until', '9'));
 const FRAG_PX = Number(opt('frag-px', '40'));
 const INK_LUMA = Number(opt('ink-luma', '0.2'));
 const OUT = resolve(opt('out', 'electric-ink.json'));
@@ -47,7 +51,7 @@ async function measure(browser, base, c) {
   const page = await browser.newPage({ viewport: { width: w, height: h }, deviceScaleFactor: 1 });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  const q = new URLSearchParams({ scene: c.scene, quality: c.quality, manual: '1', clean: '1', ...(LOOK ? { look: LOOK } : {}) });
+  const q = new URLSearchParams({ scene: c.scene, quality: c.quality, manual: '1', clean: '1', ...(LOOK ? { look: LOOK } : {}), ...(c.rm === '1' ? { rm: '1' } : {}) });
   await page.goto(`${base}/previews/electric.html?${q}`, { waitUntil: 'load', timeout: 180000 });
   await page.waitForFunction(() => window.__lab?.ready || window.__lab?.error, null, { timeout: 240000 });
   const err = await page.evaluate(() => window.__lab.error || null);
@@ -79,9 +83,14 @@ async function measure(browser, base, c) {
     }
     let prevL = null;
     let curL = new Float32Array(N);
+    let idle = 0;
     for (let f = 1; f <= frames; f++) {
       const t = f / 60;
-      window.__lab.shot(t);
+      const st = window.__lab.shot(t);
+      // idle: nothing up and nothing drawn for 20 frames after the first second (every ending seen): stop
+      const live = st.auras + st.shocks + st.bursts + st.links + st.scorches + st.casts;
+      idle = live === 0 && st.strokes + st.ground === 0 ? idle + 1 : 0;
+      if (idle >= 20 && f >= 60) break;
       const A = grab().slice();
       window.__lab.bare();
       const B = grab();
@@ -214,10 +223,10 @@ async function main() {
   base = base.replace(/\/$/, '');
   if (STRIP) mkdirSync(resolve(STRIP), { recursive: true });
   const { browser } = await launchChromium();
-  const out = { look: LOOK || 'default', until: UNTIL, fragPx: FRAG_PX, inkLuma: INK_LUMA, scenes: [] };
+  const out = { look: LOOK || 'default', until: UNTIL, untilIdle: true, fragPx: FRAG_PX, inkLuma: INK_LUMA, scenes: [] };
   try {
-    for (const viewport of VIEWPORTS) for (const quality of QUALITIES) for (const scene of SCENES) {
-      const c = { scene, quality, viewport };
+    for (const rm of RMS) for (const viewport of VIEWPORTS) for (const quality of QUALITIES) for (const scene of SCENES) {
+      const c = { scene, quality, viewport, rm };
       const t0 = Date.now();
       const r = await measure(browser, base, c);
       const total = r.rows.reduce((s, x) => s + x.frags, 0);
@@ -231,10 +240,11 @@ async function main() {
         whiteMax: Math.max(...r.rows.map((x) => x.white)),
         redMax: Math.max(...r.rows.map((x) => x.red)),
       };
-      const entry = { ...c, fragments: total, loose, led: total - loose, small, framesWithFragments: frames.length, peak, flash, rows: r.rows };
+      const end = r.rows.length ? r.rows[r.rows.length - 1].t : 0;
+      const entry = { ...c, end, fragments: total, loose, led: total - loose, small, framesWithFragments: frames.length, peak, flash, rows: r.rows };
       out.scenes.push(entry);
-      if (STRIP && r.worst) writeFileSync(join(resolve(STRIP), `${scene}-${quality}-${viewport}-t${r.worst.t.toFixed(2)}.png`), Buffer.from(r.worst.png, 'base64'));
-      console.log(`  ${scene.padEnd(9)} ${quality.padEnd(6)} ${viewport}: ${total} fragments (${loose} loose, ${total - loose} ink-led; ${small} small ink groups) in ${frames.length} frames (peak ${peak}; at ${frames.slice(0, 8).map((x) => x.t.toFixed(2)).join(' ')}); flash: changed ≤ ${flash.changedMax}% (mean ${flash.changedMean}%), white ≤ ${flash.whiteMax}%, red fx ≤ ${flash.redMax}%  ${((Date.now() - t0) / 1000).toFixed(0)} s${r.errors.length ? `  errors: ${r.errors.slice(0, 2).join(' | ')}` : ''}`);
+      if (STRIP && r.worst) writeFileSync(join(resolve(STRIP), `${scene}-${quality}-${viewport}${rm === '1' ? '-rm' : ''}-t${r.worst.t.toFixed(2)}.png`), Buffer.from(r.worst.png, 'base64'));
+      console.log(`  ${scene.padEnd(9)} ${quality.padEnd(6)} ${viewport}${rm === '1' ? ' RM' : ''} (to ${end.toFixed(2)} s): ${total} fragments (${loose} loose, ${total - loose} ink-led; ${small} small ink groups) in ${frames.length} frames (peak ${peak}; at ${frames.slice(0, 8).map((x) => x.t.toFixed(2)).join(' ')}); flash: changed ≤ ${flash.changedMax}% (mean ${flash.changedMean}%), white ≤ ${flash.whiteMax}%, red fx ≤ ${flash.redMax}%  ${((Date.now() - t0) / 1000).toFixed(0)} s${r.errors.length ? `  errors: ${r.errors.slice(0, 2).join(' | ')}` : ''}`);
       writeFileSync(OUT, JSON.stringify(out, null, 1));
     }
   } finally {

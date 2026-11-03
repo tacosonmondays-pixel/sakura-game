@@ -12,7 +12,7 @@ import {
   createElectricFx, fractalPath, capsuleRadius, ELECTRIC_LAYERS, ELECTRIC_LAYERS_B, ELECTRIC_MIN_PX, ROUGHNESS, SCORCH_COVER,
   RING_COVER, ELECTRIC_REDUCE_ALPHA, SCORCH_INK_PX, SCORCH_INK_AGE, SCORCH_HOLD, SCORCH_RIM_X, SCORCH_HEAT_FLOOR, FACE_CONE,
   REDUCE_FADE, LINK_END, LINK_INK, INK_WOBBLE, RING_INK_PX, RING_INK_S, RING_END, BURST_INK, BURST_HOLD, SCORCH_END,
-  SHOCK_RING_INK, GROUND_BAND,
+  SHOCK_RING_INK, GROUND_BAND, STRIKE_INK, RING_INK_RING_PX,
 } from '../../src/render/vfx/electric.js';
 import { LIGHTNING_PRESETS } from '../../src/render/vfx/lightningPresets.js';
 import { RED_SHARE, WORLD_DIM, WORLD_BUDGET, FlashGuard, redShare, screenShare } from '../../src/render/vfx/flashGuard.js';
@@ -539,16 +539,17 @@ describe('flash safety', () => {
 
 describe('Reduce Motion', () => {
   it('a crackle is a still glow ring: no bolts, no re-strike, no turning, nearly whole', () => {
-    // look B's glow pool under it holds still too
+    // look B's glow pool (under a beat ring; none under a crackle) holds still too
     const sb = make('high', { reduceMotion: true, look: 'b' });
     sb.fx.aura('raika', 4, 3);
+    sb.fx.burst('raika', 7, 3);
     run(sb.fx, 0.5);
     expect(sb.fx.stats.strokes).toBe(0);
     for (let i = 0; i < sb.ground.geometry.instanceCount; i++) {
       expect(sb.ground.geometry.attributes.gB.array[i * 4 + 3]).toBe(0); // no turn
       expect(sb.ground.geometry.attributes.gD.array[i * 4 + 2]).toBe(1); // held still
     }
-    expect(sb.ground.geometry.instanceCount).toBe(2); // its pool and its ring
+    expect(sb.ground.geometry.instanceCount).toBe(3); // the crackle's ring, the beat's pool and its ring
     const { fx, ground } = make('high', { reduceMotion: true, look: 'a' });
     const gate = vi.fn(() => 1);
     fx.flashGate = gate;
@@ -878,11 +879,15 @@ describe('the house rule: ink leaves before erosion opens holes', () => {
     expect(BURST_INK[0] + (0.5 + INK_WOBBLE / 2) * (BURST_INK[1] - BURST_INK[0])).toBeLessThan(0.5);
     expect(BURST_INK[0] + (0.5 - INK_WOBBLE / 2) * (BURST_INK[1] - BURST_INK[0])).toBeGreaterThan(0.25);
     expect(BURST_INK[1]).toBeLessThanOrEqual(BURST_HOLD);
-    // a strike (crackle, shock, the little crackles): over its hold, so it is inked whole while its leader grows
+    // a strike (crackle, shock, the little crackles): over the last part of its hold (STRIKE_INK), so it is inked
+    // whole while its leader grows and through the first half of its hold, and gone, wobble and all, before the hold ends
     for (const p of Object.values(ELECTRIC_PRESETS)) {
       expect(p.aura.hold).toBeGreaterThan(0);
       expect(p.aura.fade).toBeGreaterThan(0);
     }
+    expect(STRIKE_INK[1]).toBeLessThanOrEqual(1);
+    expect(STRIKE_INK[0] + (0.5 + INK_WOBBLE / 2) * (STRIKE_INK[1] - STRIKE_INK[0])).toBeLessThan(1);
+    expect(STRIKE_INK[0] + (0.5 - INK_WOBBLE / 2) * (STRIKE_INK[1] - STRIKE_INK[0])).toBeGreaterThanOrEqual(0.5);
     const a = make('high', { look: 'a' });
     a.fx.aura('raika', 4, 3);
     a.fx.update(1 / 60); // the first strikes, their leaders growing
@@ -899,11 +904,30 @@ describe('the house rule: ink leaves before erosion opens holes', () => {
     expect(inkRows(drawnStrokes(b.strokes)).length).toBeGreaterThan(0);
   });
 
+  it('look A\'s micro-bolts keep their ink for most of the time they are whole (it leaves late in the hold)', () => {
+    // the drawn segments of whole (uneroded) bolts: at least 9 in 10 carry their ink (about 8 in 10 when the ink left
+    // over the whole hold); none inked while eroding (the test above)
+    const { fx, strokes } = make('medium', { look: 'a' });
+    fx.aura('raika', 3, 3);
+    fx.aura('tenka', 8, 3);
+    let whole = 0;
+    let inked = 0;
+    for (let f = 0; f < 120; f++) {
+      fx.update(1 / 60);
+      const rows = drawnStrokes(strokes);
+      const body = rows.filter((r) => sameColour(r, ELECTRIC_PRESETS.raika.body) || sameColour(r, ELECTRIC_PRESETS.tenka.body));
+      whole += body.filter((r) => r.f[0] === 0).length;
+      inked += inkRows(rows).length;
+    }
+    expect(whole).toBeGreaterThan(0);
+    expect(inked / whole).toBeGreaterThan(0.9);
+  });
+
   it('a ring\'s ink leaves before its erosion starts (charge rings as they end, beat rings, Reduce Motion\'s rings), wobble included', () => {
     const f = make('high').ground.material.fragmentShader;
     expect(f).toContain(`float inkOn = step(vD.w + ${INK_WOBBLE.toFixed(2)} * (n - 0.5), 0.5);`);
-    expect(f).toContain(`float wideR = step(${RING_INK_PX.toFixed(1)} * fwidth(x), xo);`);
-    expect(f).toContain('float ink = eRim(above, 1.2, 0.03) * step(0.0, x) * wideR * inkOn;');
+    expect(f).toContain(`float wideR = step(${RING_INK_PX.toFixed(1)} * length(vec2(dFdx(x), dFdy(x))), xo);`);
+    expect(f).toContain('float ink = eRim(above, 1.2, 0.03) * step(0.0, x) * wideR * inkOn * ringInk;');
     for (const rm of [false, true]) {
       for (const look of ['a', 'b']) {
         const { fx, ground } = make('medium', { reduceMotion: rm, look });
@@ -940,6 +964,26 @@ describe('the house rule: ink leaves before erosion opens holes', () => {
     expect(0.22).toBeLessThan(SCORCH_HEAT_FLOOR);
   });
 
+  it('a ring inks all or nothing: only when it is wide enough on screen to hold an outline (never stray ticks)', () => {
+    const f = make('high').ground.material.fragmentShader;
+    // its widest on-screen half width: its half width over the pixel along the least foreshortened screen direction
+    // (one value for the whole ring on the battle's orthographic camera)
+    expect(f).toContain('float pxW = max(min(length(dFdx(vP)), length(dFdy(vP))), 1e-6);');
+    expect(f).toContain(`float ringInk = step(${RING_INK_RING_PX.toFixed(1)}, vB.z / pxW);`);
+    expect(RING_INK_RING_PX).toBeGreaterThan(RING_INK_PX * 2);
+    // the charge ring and a beat's ring (half width 0.04 × size) on the lab patch's framing: no ink at 1:1 on a phone
+    // (CSS px = device px, as in the lab), an outline in a 2.5× close-up
+    const p = ELECTRIC_PRESETS.raika;
+    const rig = new CameraRig({ width: 12, height: 7 });
+    for (const [vw, vh] of [[844, 390], [390, 844]]) {
+      rig.setViewport(vw, vh);
+      for (const hw of [p.aura.ring.width, 0.04]) {
+        expect(hw / rig.scale).toBeLessThan(RING_INK_RING_PX);
+        expect((hw / rig.scale) * 2.5).toBeGreaterThan(RING_INK_RING_PX);
+      }
+    }
+  });
+
   it('the scorch\'s last flecks shrink away: its cut passes the hottest heat before its life ends (no pop)', () => {
     const f = make('high').ground.material.fragmentShader;
     expect(f).toContain(`cut += max(0.0, age - ${SCORCH_END.from.toFixed(2)}) / ${(1 - SCORCH_END.from).toFixed(2)} * ${SCORCH_END.add.toFixed(2)};`);
@@ -951,11 +995,16 @@ describe('the house rule: ink leaves before erosion opens holes', () => {
   });
 });
 
-describe('look B: the luminous sheath', () => {
+describe('look B: thicker opaque stepped bands plus a ground glow', () => {
   const LB = ELECTRIC_LOOKS.b;
 
-  it('a preset names its look; createElectricFx({ look }) puts every preset in it', () => {
+  it('a preset names its look (A, the inked line-work, by default); createElectricFx({ look }) puts every preset in it', () => {
     for (const p of Object.values(ELECTRIC_PRESETS)) expect(ELECTRIC_LOOKS[p.look]).toBeTruthy();
+    for (const p of Object.values(ELECTRIC_PRESETS)) expect(p.look).toBe('a');
+    const dflt = make('high').fx;
+    expect(dflt.stats.look).toBe('a');
+    // the counts: one object filled in place on every read (the lab reads it every frame; nothing allocated)
+    expect(dflt.stats).toBe(dflt.stats);
     expect(Object.keys(ELECTRIC_LOOKS)).toEqual(['a', 'b']);
     expect(ELECTRIC_LOOKS.a.sheath).toBe(false);
     expect(LB.sheath).toBe(true);
@@ -999,7 +1048,7 @@ describe('look B: the luminous sheath', () => {
     expect(LB.bands[1]).toBeGreaterThan(1);
   });
 
-  it('fewer bolts round a body, held longer; glow pools under crackles and beat rings (look B only); still at most two calls', () => {
+  it('fewer bolts round a body, held longer; a glow pool under each beat ring, none under crackles (look B only); still at most two calls', () => {
     const count = (look, q) => {
       const { fx } = make(q, { look });
       const a = fx.aura('raika', 4, 3);
@@ -1026,7 +1075,9 @@ describe('look B: the luminous sheath', () => {
       return n;
     };
     expect(pools('a')).toBe(0);
-    expect(pools('b')).toBe(2);
+    // under the beat ring only: a tinted disc under every crackling girl read as a selection or range disc
+    expect(LB.pool.aura).toBe(0);
+    expect(pools('b')).toBe(1);
     // a pool: no ink, light that covers little, eroding out when its crackle ends
     const f = make('high').ground.material.fragmentShader;
     const pool = f.slice(f.indexOf('// a glow pool'));

@@ -41,15 +41,17 @@
 // thickens bolt by bolt instead of the whole aura blinking; a strike's leader grows from its start, then erodes away.
 //
 // Two looks (ELECTRIC_LOOKS; a preset's `look`, or createElectricFx({ look }) for every preset): A, the inked line-work
-// above; B, a luminous sheath: every bolt wears stepped solid bands of its colour round its body (the ground ramp's deep
-// band, its body colour, the glow band, the white-hot core), ink only outside the main bolts' sheaths (the beat rings'
-// and the arcs'; none on the micro-bolts round bodies), fewer bolts held longer, and a glow pool on the ground under each
-// crackle and each beat ring. Both on the same strokes (SOLID layers only: strokes.js is unchanged) and the same ground
-// call.
+// above (the default); B, thicker opaque stepped bands plus a ground glow: every bolt wears stepped solid bands of its
+// colour round its body (the ground ramp's deep band, its body colour, the glow band, the white-hot core), ink only
+// outside the main bolts' bands (the beat rings' and the arcs'; none on the micro-bolts round bodies), fewer bolts held
+// longer, and a glow on the ground under each beat ring. Both on the same strokes (SOLID layers only: strokes.js is
+// unchanged) and the same ground call. Neither is the tornado's translucent layered light (that needs a translucent
+// stroke mode in strokes.js: its own round).
 //
 // The house rule (INK_WOBBLE): ink leaves before erosion opens holes. Every eroding piece's ink leaves over a window of
 // its life that ends before its erosion starts (a hard step a bolt segment or a ring pixel, wobbled), so it ends in its
-// colour bands, never as loose dark dashes; a ring inks only where its band is wide enough on screen (RING_INK_PX).
+// colour bands, never as loose dark dashes; a ring inks only when it is wide enough on screen to hold an outline beside
+// its light (RING_INK_RING_PX, all or nothing a ring), and then not on its thin dash tips (RING_INK_PX).
 //
 // Flash safety: every strike asks the flash guard (flashGate, the battle's world-flash budget) with its size and its
 // flicker; past the budget its core is drawn at the guard's answer and nothing goes over white. No preset colour is a
@@ -83,7 +85,8 @@ export const ELECTRIC_MIN_PX = Object.freeze({ ink: 1.6, sheath: 1.5, mid: 1.2, 
  * runs 0 → 1 over that window, and a bit of ink (a bolt's segment, a ring's pixel) stays while k + INK_WOBBLE × (w − ½)
  * < ½, w its own 0..1 (a segment's hash, a ring's noise): a hard step that goes in patches, all on while k < 0.1, all
  * gone once k ≥ 0.9 (before the window ends). The windows (each piece's erosion starts at its end or later):
- *   a strike (crackle, shock, the little crackles where arcs join): its hold, after the leader has grown
+ *   a strike (look A's crackle, shock, the little crackles where arcs join): the last part of its hold (STRIKE_INK),
+ *   after the leader has grown, so a bolt is inked for most of the time it is whole
  *   a beat ring's bolts: BURST_INK of the ring's life (they erode over its second half)
  *   an arc web: the LINK_INK s before its last LINK_END s (its end or stop())
  *   the charge ring: the RING_INK_S s after its crackle ends (then it erodes over RING_END)
@@ -91,7 +94,20 @@ export const ELECTRIC_MIN_PX = Object.freeze({ ink: 1.6, sheath: 1.5, mid: 1.2, 
  *   the scorch: SCORCH_INK_AGE (its own step on the age, before SCORCH_HOLD)
  */
 export const INK_WOBBLE = 0.8;
-/** A ring's ink rim only where its band is at least this many px wide on screen: thin dash tips and islands draw none. */
+/**
+ * A strike's ink window, shares of its hold: inked whole through the first half of the hold, gone (wobble and all) at
+ * 0.95 of it, before the erosion starts at its end (the hold over the whole window left a bolt uninked for about half
+ * of its ~6-frame strike).
+ */
+export const STRIKE_INK = Object.freeze([0.5, 1]);
+/**
+ * A ring inks at all only when its band's widest on-screen half width (its full half width over the pixel along the
+ * least foreshortened screen direction: on the battle's orthographic camera the same for every pixel of it) is at least
+ * this many px: a thinner ring has no room for an outline beside its light, and its ink would show only where it is
+ * widest (at 3 and 9 o'clock) as isolated dark ticks. All or nothing a ring, never a few brackets.
+ */
+export const RING_INK_RING_PX = 3.5;
+/** An inked ring's rim only where its band is at least this many px wide on screen: thin dash tips draw none. */
 export const RING_INK_PX = 1.5;
 /** The charge ring: its ink leaves over RING_INK_S s once its crackle ends, then it erodes out over RING_END s. */
 export const RING_INK_S = 0.08;
@@ -360,9 +376,12 @@ void main() {
     // a ring (the charge ring under a crackling body, a drum beat's ring): a band of light broken by the polar noise
     // (it turns in steps), its middle hotter, inked on its outer edge. The ink only while it holds whole: it leaves in
     // patches (a hard step on its ink phase, vD.w, wobbled by the noise) before the erosion opens a hole (the CPU holds
-    // the erosion age, vA.z, at 0 until the ink is gone), so an eroding ring ends in its light bands; and only where the
-    // band is at least RING_INK_PX wide on screen (its half width here is xo: the noise runs round it, not across), so a
-    // thin dash tip or a sliver draws no ink
+    // the erosion age, vA.z, at 0 until the ink is gone), so an eroding ring ends in its light bands. All or nothing a
+    // ring: only when its band's widest on-screen half width is at least RING_INK_RING_PX (its half width over the
+    // pixel along the least foreshortened direction: one value for the whole ring on an orthographic camera), else a
+    // thin ring would ink only where it is widest, as stray dark ticks; and then only where the band is at least
+    // RING_INK_PX wide on screen (its half width here is xo: the noise runs round it, not across; the gradient's length,
+    // the same in every direction), so a thin dash tip or a sliver draws no ink
     float x = (r - R) / max(vB.z, 1e-3);
     float band = 1.0 - x * x;
     float n = toonNoise(uNoise, vec2(u * 4.0 + vB.w, 0.35 + vC.x), 0.0);
@@ -371,9 +390,11 @@ void main() {
     m = toonMask(heat, cut) * step(0.0, band);
     float above = heat - cut;
     float xo = sqrt(max(0.0, 1.0 - cut / (${SCORCH_HEAT_FLOOR.toFixed(1)} + n)));
-    float wideR = step(${RING_INK_PX.toFixed(1)} * fwidth(x), xo);
+    float pxW = max(min(length(dFdx(vP)), length(dFdy(vP))), 1e-6);
+    float ringInk = step(${RING_INK_RING_PX.toFixed(1)}, vB.z / pxW);
+    float wideR = step(${RING_INK_PX.toFixed(1)} * length(vec2(dFdx(x), dFdy(x))), xo);
     float inkOn = step(vD.w + ${INK_WOBBLE.toFixed(2)} * (n - 0.5), 0.5);
-    float ink = eRim(above, 1.2, 0.03) * step(0.0, x) * wideR * inkOn;
+    float ink = eRim(above, 1.2, 0.03) * step(0.0, x) * wideR * inkOn * ringInk;
     float glow = step(0.22, above);
     float core = step(0.48, above);
     b = mix(${GROUND_BAND.body.toFixed(1)}, ${GROUND_BAND.glow.toFixed(1)}, glow);
@@ -432,6 +453,8 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
   ids.forEach((id, i) => {
     LOOKB[i] = ELECTRIC_LOOKS[ELECTRIC_LOOKS[look] ? look : presets[id].look]?.sheath ? 1 : 0;
   });
+  /** The look every preset is in ('a', 'b', or 'mixed'), worked out once (stats). */
+  const LOOK_NAME = LOOKB.every((v) => v) ? 'b' : LOOKB.some((v) => v) ? 'mixed' : 'a';
   /** Stroke layers a segment can take (the cap is counted in whole segments of this many). */
   const LAYERS = LOOKB.some((v) => v) ? ELECTRIC_LAYERS_B.length : ELECTRIC_LAYERS.length;
   // (without a stream: a fixed fork of its own, so every bolt still has its own path, never one constant shape)
@@ -1067,8 +1090,9 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
   }
 
   /**
-   * A strike's leader head, erosion and the core's strength now (into ST); false when it is over. Its ink leaves over its
-   * hold (after the leader has grown, before the erosion: ST[6]); look B's micro-bolts have none, and hold longer.
+   * A strike's leader head, erosion and the core's strength now (into ST); false when it is over. Its ink leaves over the
+   * last part of its hold (STRIKE_INK: after the leader has grown and most of the hold, before the erosion: ST[6]); look
+   * B's micro-bolts have none, and hold longer.
    */
   function strikeState(s, rec, a) {
     const age = rec.t - s.t0;
@@ -1080,7 +1104,7 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     ST[2] = 1 - 0.35 * ST[1];
     ST[3] = (flashOn && !rm ? 1 - rec.p.flicker * s.odd : 1) * Math.min(1, s.k);
     ST[4] = tier.hdr && bloom && flashOn && s.k >= 1 ? 1 : 0;
-    ST[6] = b ? 99 : (age - a.grow) / Math.max(1e-4, hold);
+    ST[6] = b ? 99 : ((age - a.grow) / Math.max(1e-4, hold) - STRIKE_INK[0]) / (STRIKE_INK[1] - STRIKE_INK[0]);
     return true;
   }
 
@@ -1312,9 +1336,9 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
       GP[15] = rm ? 1 : 1 - Math.pow(1 - Math.min(1, rec.t / 0.12), 3);
       pushGround();
     }
-    // look B: a glow pool under each crackle (the light it throws on the ground; none under a shock) and each beat
-    // ring, under the rings; eroding in (from its young threshold) and out when it ends, turning in slow steps
-    for (let ri = 0; ri < auras.length; ri++) {
+    // look B: a glow pool under each beat ring (and, with pool.aura over 0, under each crackle: none under a shock),
+    // under the rings; eroding in (from its young threshold) and out when it ends, turning in slow steps
+    for (let ri = 0; ri < auras.length && POOL.aura > 0; ri++) {
       const rec = auras[ri];
       if (!rec.on || rec.kind === SHOCK || !LOOKB[rec.pi]) continue;
       const over = rec.t - rec.life;
@@ -1487,6 +1511,18 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     }
   }
 
+  /** The stats getter's one object (its look worked out once). */
+  const STATS = {
+    tier: tierName, auras: 0, shocks: 0, bursts: 0, links: 0, scorches: 0, casts: 0, segments: 0, strokes: 0, ground: 0, gates: 0,
+    calls: 0, look: LOOK_NAME,
+  };
+  /** How many records of a pool are on. */
+  function countOn(pool) {
+    let n = 0;
+    for (let i = 0; i < pool.length; i++) if (pool[i].on) n++;
+    return n;
+  }
+
   const api = {
     aura,
     shock,
@@ -1563,19 +1599,30 @@ export function createElectricFx({ scene, camera = null, strokes = null, quality
     setFlashes(on) {
       flashOn = !!on;
     },
+    /**
+     * Counts (lab, tests; not for a battle's per-frame path): one object, filled in place on every read (nothing
+     * allocated), so read it, never keep it.
+     */
     get stats() {
-      let a = 0;
-      let sh = 0;
-      for (const r of auras) if (r.on) {
-        if (r.kind === SHOCK) sh++;
-        else a++;
+      STATS.auras = 0;
+      STATS.shocks = 0;
+      for (let ri = 0; ri < auras.length; ri++) {
+        const r = auras[ri];
+        if (!r.on) continue;
+        if (r.kind === SHOCK) STATS.shocks++;
+        else STATS.auras++;
       }
-      return {
-        tier: tierName, auras: a, shocks: sh, bursts: bursts.filter((r) => r.on).length, links: links.filter((r) => r.on).length,
-        scorches: scorches.filter((r) => r.on).length, casts: casts.filter((r) => r.on).length, segments: sn, strokes: drawn,
-        ground: geo.instanceCount, gates, calls: (own && lines.mesh.visible ? 1 : 0) + (ground.visible ? 1 : 0),
-        look: LOOKB.every((v) => v) ? 'b' : LOOKB.some((v) => v) ? 'mixed' : 'a',
-      };
+      STATS.tier = tierName;
+      STATS.bursts = countOn(bursts);
+      STATS.links = countOn(links);
+      STATS.scorches = countOn(scorches);
+      STATS.casts = countOn(casts);
+      STATS.segments = sn;
+      STATS.strokes = drawn;
+      STATS.ground = geo.instanceCount;
+      STATS.gates = gates;
+      STATS.calls = (own && lines.mesh.visible ? 1 : 0) + (ground.visible ? 1 : 0);
+      return STATS;
     },
     /** Live records (lab, tests). */
     get live() {
