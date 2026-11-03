@@ -74,10 +74,11 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
 
   /**
    * Fires a beam from a to b (world [x, y, z]). opts: width (the sim's beam width) and widthScale, color (the preset,
-   * or laser, in that colour), preset, from (a sweeping lance: its end slides in from here), zig (kinks: a zig-zag lance).
+   * or laser, in that colour), preset, from (a sweeping lance: its end slides in from here), zig (kinks: a zig-zag lance),
+   * impact (false: it lands without its star, impact lines, sparks, ring or scorch, and asks the flash guard nothing).
    * @returns {object|null} the beam's record (live, read-only)
    */
-  function fire(a, b, { width = 0.2, widthScale = 1, color = null, preset = null, from = null, zig = null } = {}) {
+  function fire(a, b, { width = 0.2, widthScale = 1, color = null, preset = null, from = null, zig = null, impact = true } = {}) {
     if (!a || !b) return null;
     const { id, p } = presetFor(preset, color);
     if (!p) return null;
@@ -86,7 +87,7 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
       id, p, a: [a[0], a[1], a[2]], b: [b[0], b[1], b[2]], from: from ? [from[0], from[1], from[2]] : null,
       W: Math.max(0.05, BEAM_HALF.base + BEAM_HALF.per * width) * (p.width ?? 1) * Math.max(0.5, widthScale),
       t: 0, seed: rnd() * 7, zig: Math.max(0, (zig ?? p.zig) | 0), pts: null, strikes: 0, nextStrike: p.restrike || 0.05,
-      hitAt: -1, hitK: 1, muzK: 1, rot: rnd() * TAU, rays: [], sparks: [],
+      hitAt: -1, hitK: 1, muzK: 1, rot: rnd() * TAU, rays: [], sparks: [], land: impact !== false,
       col: { ink: lin(p.ink), body: lin(p.body), core: lin(p.core) },
       // (the sprites' and lines' colours, once: never parsed again per frame)
       fx: {
@@ -208,8 +209,8 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
   /** How many impact lines a beam bursts into now (0: none). */
   function raysOf(rec) {
     const L = rec.p.lines;
-    if (!L || reduceMotion || rec.hitAt < 0 || rec.t - rec.hitAt >= L.life) return 0;
-    return Math.min(tier.lines, rec.rays.length);
+    if (!L || !rec.land || reduceMotion || rec.hitAt < 0 || rec.t - rec.hitAt >= L.life) return 0;
+    return Math.min(tier.lines, L.count ?? rec.rays.length, rec.rays.length);
   }
 
   /** The inked impact lines of every landing beam (all the inks, then all the cores): bursting out flat to the camera. */
@@ -271,7 +272,7 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
       const [r, g, b] = rec.fx.muzzle;
       bbA.push(rec.a[0], rec.a[1], rec.a[2], s, s, mUv, r, g, b, 0.9 * rec.muzK);
     }
-    if (rec.hitAt < 0) return;
+    if (rec.hitAt < 0 || !rec.land) return;
     const tau = t - rec.hitAt;
     const [x, y, z] = rec.b;
     const st = p.star;
@@ -370,7 +371,7 @@ export function createBeamFx({ scene, strokes = null, batches = null, atlas = nu
         if (rec.hitAt < 0 && rec.t >= p.charge) {
           rec.hitAt = rec.t;
           const st = p.star;
-          rec.hitK = api.flashGate && st ? api.flashGate(st.size + rec.W * 2, R[st.sprite] || R.star, 1) : 1;
+          rec.hitK = rec.land && api.flashGate && st ? api.flashGate(st.size + rec.W * 2, R[st.sprite] || R.star, 1) : 1;
         }
         // a zig-zag lance: a new path on the beat (Reduce Motion: one still path)
         if (rec.zig > 1 && !reduceMotion && rec.t >= rec.nextStrike) {

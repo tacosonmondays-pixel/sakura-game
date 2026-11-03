@@ -195,6 +195,33 @@ export function kaleidoscope(tier, quality = 'medium') {
   return quality === 'low' ? 1 : 2;
 }
 
+// ---- Landings (her legs and glints) ------------------------------------------------------------------------------
+
+/** One landing burst per spot: within LAND_NEAR tiles (Manhattan) and LAND_GAP visual seconds of the last one there. */
+export const LAND_NEAR = 0.6;
+export const LAND_GAP = 0.1;
+const LAND_RING = 8;
+
+/** The recent landings (a fixed ring). */
+export function createLandGate() {
+  return { x: new Float32Array(LAND_RING), y: new Float32Array(LAND_RING), t: new Float64Array(LAND_RING).fill(-1e9), i: 0 };
+}
+
+/**
+ * May a beam land with its burst at (x, y) now? Records it when it may. A volley's bolts glint off several mirrors
+ * onto one clump in one moment: their stars and impact lines stacked into a white bloom over the targets.
+ */
+export function landFree(g, x, y, time) {
+  for (let i = 0; i < LAND_RING; i++) {
+    if (time - g.t[i] < LAND_GAP && time >= g.t[i] && Math.abs(g.x[i] - x) + Math.abs(g.y[i] - y) < LAND_NEAR) return false;
+  }
+  g.x[g.i] = x;
+  g.y[g.i] = y;
+  g.t[g.i] = time;
+  g.i = (g.i + 1) % LAND_RING;
+  return true;
+}
+
 // ---- Mirror Shift afterimages --------------------------------------------------------------------------------
 
 /** Afterimage panels left along a jump, by quality (Reduce motion: one that fades where the panel was). */

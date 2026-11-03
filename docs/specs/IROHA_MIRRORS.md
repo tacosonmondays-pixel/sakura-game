@@ -229,6 +229,9 @@ in the grid's order); past it the rest of that tick's beams hit nothing, so a hu
 - **Reflected beams.** Each `'mirrorBounce'` draws a bright lilac-silver line from the leg's start to the mirror that
   fades in 0.18 s (the leg the bolt just flew), a glint on that mirror, and (Kaleidoscope) the shard burst. Capped per
   frame (`BEAMS_PER_FRAME` 48); low graphics halves it; Reduce motion keeps the lines (fades only).
+  With the styled beams (docs/VFX.md "Beams") her legs and each `'mirrorGlint'` are lilac glass beams (preset `mirror`);
+  their landing burst and the mirror's glint draw once per spot per 0.1 s (`landFree`), so bolts arriving together on
+  one mirror or one clump land as one.
 - **Laser web.** While it runs, a pulsing beam joins every pair of her mirrors (two ground quads per beam: a lilac glow
   and a white core; steady on Reduce motion).
 
