@@ -14,13 +14,12 @@
 // (tests/render/vfx-m1.test.js checks the road / ground contrast of every theme).
 //
 // gradePixel() is the same maths in JS for the tests.
+// The tone curve itself lives in tone.js (import-free, shared with effects that end their own shaders with it).
 import * as THREE from 'three';
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
+import { KNEE, WHITE_HOT, TONE_GLSL, toneMap } from './tone.js';
 
-/** Below this (linear) nothing changes; above it, light rolls off to 1. */
-export const KNEE = 0.82;
-/** How far very hot values (≥ 3) bleach to white. */
-export const WHITE_HOT = 0.55;
+export { KNEE, WHITE_HOT };
 
 const ID = { shadow: [0, 0, 0], high: [0, 0, 0], contrast: 1, sat: 1, lift: [0, 0, 0], gain: [1, 1, 1] };
 
@@ -75,18 +74,8 @@ const srgb = (x) => (x <= 0.0031308 ? x * 12.92 : 1.055 * x ** (1 / 2.4) - 0.055
  * @returns {number[]} display RGB 0..1
  */
 export function gradePixel(rgb, grade = ID) {
-  let [r, g, b] = rgb;
-  const peak = Math.max(r, g, b);
-  if (peak > KNEE) {
-    const w = 1 - KNEE;
-    const np = KNEE + w * (1 - Math.exp(-(peak - KNEE) / w));
-    const k = np / peak;
-    const hot = Math.min(1, Math.max(0, (peak - 1) * 0.5)) * WHITE_HOT;
-    r = r * k + (np - r * k) * hot;
-    g = g * k + (np - g * k) * hot;
-    b = b * k + (np - b * k) * hot;
-  }
-  let c = [srgb(Math.max(0, r)), srgb(Math.max(0, g)), srgb(Math.max(0, b))];
+  const [r, g, b] = toneMap(rgb);
+  const c = [srgb(Math.max(0, r)), srgb(Math.max(0, g)), srgb(Math.max(0, b))];
   return gradeDisplay(c, grade);
 }
 
@@ -144,21 +133,15 @@ const GradeShader = {
     uniform vec3 uGain;
     varying vec2 vUv;
     const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
+    ${TONE_GLSL}
     vec3 toSRGB(vec3 c) {
       return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
     }
     void main() {
       vec4 tex = texture2D(tDiffuse, vUv);
       vec3 c = max(tex.rgb * uExposure, 0.0);
-      // tone mapping: exact below the knee, a soft hue-keeping shoulder above, hot cores bleach
-      float peak = max(c.r, max(c.g, c.b));
-      if (peak > ${KNEE.toFixed(4)}) {
-        float w = ${(1 - KNEE).toFixed(4)};
-        float np = ${KNEE.toFixed(4)} + w * (1.0 - exp(-(peak - ${KNEE.toFixed(4)}) / w));
-        vec3 s = c * (np / peak);
-        float hot = clamp((peak - 1.0) * 0.5, 0.0, 1.0) * ${WHITE_HOT.toFixed(4)};
-        c = mix(s, vec3(np), hot);
-      }
+      // tone mapping: exact below the knee, a soft hue-keeping shoulder above, hot cores bleach (tone.js)
+      c = vfxTone(c);
       c = toSRGB(c);
       // grade (display space)
       float l = dot(c, LUMA);
