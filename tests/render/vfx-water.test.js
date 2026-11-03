@@ -11,7 +11,7 @@ import { WATER_PRESETS, WATER_TIERS, MAX_SPLASHES, WATER_SPLASH_GIRLS } from '..
 import {
   createWaterFx, splashSeconds, crownSpread, crownRise, crownSink, WATER_REDUCE_ALPHA, DROP_SPARSE, WATER_GROUND_Y,
   WATER_CANVAS_ADD, CROWN_COVER, FOAM_COVER, FOAM_POOL, DROP_MIN_PX, DROP_INK_PX, FOAM_MIN_PX, FOAM_BUBBLE_CELLS, WATER_BAND,
-  paintFoamBubbles,
+  paintFoamBubbles, FOAM_INK_AGE,
 } from '../../src/render/vfx/water.js';
 import { TOON_CORE, TOON_TIER, TOON_REDUCE, TOON_NOISE_N, toonSparse, paintToonNoise } from '../../src/render/vfx/toonCore.js';
 import { createVisualRandom } from '../../src/render/vfx/random.js';
@@ -420,7 +420,17 @@ describe('water shaders and display only', () => {
     // ink on the silhouette only: the crown's rim leaves as it goes down; the foam's ink only on the ring's outer half
     const crown = meshes[0].material.fragmentShader;
     expect(crown).toMatch(/float ink = max\(wRim\(heat - cut, 1\.3, 0\.035\), step\(0\.9, vRim\)\) \* inked;/);
-    expect(meshes[2].material.fragmentShader).toMatch(/float ink = wRim\(heat - cut, 1\.3, 0\.03\) \* step\(0\.0, x\) \* body \* \(1\.0 - bub\);/);
+    expect(meshes[2].material.fragmentShader).toMatch(/float ink = wRim\(heat - cut, 1\.3, 0\.03\) \* step\(0\.0, x\) \* body \* \(1\.0 - bub\) \* inked;/);
+  });
+
+  it('the foam\'s ink leaves before its band erodes into slivers (no dark dashes late in the ring)', () => {
+    const f = make('high').meshes[2].material.fragmentShader;
+    // a hard step on the age (binary: the band index never lands between bands), wobbled by the noise
+    expect(f).toContain(`float inked = step(age + ${FOAM_INK_AGE.wobble.toFixed(2)} * (n - 0.5), ${FOAM_INK_AGE.end.toFixed(2)});`);
+    // gone, wobble and all, before the slivers (about 0.9 s of fresh's 1.2 s foam), still there through the young ring
+    const life = WATER_PRESETS.fresh.foamRing.life;
+    expect((FOAM_INK_AGE.end + FOAM_INK_AGE.wobble / 2) * life).toBeLessThan(0.9);
+    expect((FOAM_INK_AGE.end - FOAM_INK_AGE.wobble / 2) * life).toBeGreaterThan(0.6);
   });
 
   it('drops never end as dark specks: gone under a few pixels, no ink when small, the body never below aqua, a white shine', () => {

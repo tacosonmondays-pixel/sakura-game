@@ -396,8 +396,9 @@ The tornado's house look turned into a short burst, built on the toon core. Not 
     sized by the house hash; no Worley cells, so no flower shapes), laid round the ring so they stay round whatever its
     radius (two lattice tiles round it: about 12 bubbles). Along the ring's middle they merge into a scalloped band of
     foam; as the threshold climbs they part, shrink and pop, after the water under them has gone, and a bubble under
-    `FOAM_MIN_PX` (2 px) is not drawn (no 1 px stipple). Ink only on the ring's outer edge; its inner half is a light
-    glow band; a faint wet glow fills the middle (one flat step that dries out in blobs). The impact disc sits at its
+    `FOAM_MIN_PX` (2 px) is not drawn (no 1 px stipple). Ink only on the ring's outer edge, and it leaves at
+    `FOAM_INK_AGE` (0.66 of the ring's age, a hard step wobbled by the noise, so in patches) before the eroding band breaks
+    into slivers thinner than its rim, which would be drawn all ink (dark dashes); its inner half is a light glow band; a faint wet glow fills the middle (one flat step that dries out in blobs). The impact disc sits at its
     middle for the first moments. The ripples run out past it, drawn only outside the foam's outer edge (the foam is
     translucent): light lines inked on their outer edge only, whole while young, breaking into dashes as they run out
     (the decay drives the threshold instead of a fade). Each ground quad hugs its ring as it is now and is empty

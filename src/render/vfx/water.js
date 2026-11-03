@@ -321,6 +321,11 @@ export const FOAM_POOL = Object.freeze({ alpha: 0.38, cover: 0.3 });
 /** Bubbles round the foam ring (whole: the painted tile wraps) and the painted lattice (cells a side of the tile). */
 export const FOAM_AROUND = 2;
 export const FOAM_BUBBLE_CELLS = 6;
+/**
+ * The foam's ink leaves at this share of its age (± wobble / 2 by the noise, a hard step: in patches): before the
+ * eroding band breaks into slivers thinner than its ink rim, which would be drawn all ink (dark dashes).
+ */
+export const FOAM_INK_AGE = Object.freeze({ end: 0.66, wobble: 0.12 });
 /** A bubble whose radius is under this many pixels is gone (no stipple); under FOAM_RIM_PX it has no rim. */
 export const FOAM_MIN_PX = 2;
 export const FOAM_RIM_PX = 3.5;
@@ -410,8 +415,11 @@ void main() {
     // a bubble's radius on screen (the cone falls 1 a radius): too small, it is gone; small, no rim
     float px = (1.0 - bc) / max(fwidth(bh), 1e-5);
     bub *= step(${FOAM_MIN_PX.toFixed(2)}, px);
-    // ink on the band's outer silhouette only; the inner half is the ring's light glow band (its edge wobbled: it flows)
-    float ink = wRim(heat - cut, 1.3, 0.03) * step(0.0, x) * body * (1.0 - bub);
+    // ink on the band's outer silhouette only; the inner half is the ring's light glow band (its edge wobbled: it flows).
+    // The ink leaves before the band breaks into slivers thinner than the rim (a sliver would be all ink: dark dashes):
+    // a hard step on the age, wobbled by the noise, so the rim goes in patches and the eroding slivers end teal
+    float inked = step(age + ${FOAM_INK_AGE.wobble.toFixed(2)} * (n - 0.5), ${FOAM_INK_AGE.end.toFixed(2)});
+    float ink = wRim(heat - cut, 1.3, 0.03) * step(0.0, x) * body * (1.0 - bub) * inked;
     float glow = step(x + 0.35 * (n - 0.5), -0.1);
     // a bubble out on its own (the band gone round it) keeps a thin teal rim, never ink, and only when it is big
     float rim = wRim(bh - bc, 1.1, 0.025) * (1.0 - body) * step(${FOAM_RIM_PX.toFixed(2)}, px) * bub;
