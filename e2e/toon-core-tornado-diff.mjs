@@ -6,6 +6,8 @@
 //   node e2e/toon-core-tornado-diff.mjs --capture <dir>              # shoot the stills (before a change)
 //   node e2e/toon-core-tornado-diff.mjs --ref <dir> --out <dir2>     # shoot again into dir2 and diff against dir
 //   node e2e/toon-core-tornado-diff.mjs --ref <dir> --against <dir2> # diff two sets already on disk
+//   node e2e/toon-core-tornado-diff.mjs --ref <dir> --against <dir2> --board <out.jpg>
+//                                                                    # and lay out a before / after board with the numbers
 //   options: --presets fire,sakura,vortex --qualities high,medium --viewports 844x390,390x844 --times 0.7,1.6
 //            --json <file> (write the numbers) ; exit code 1 when a still is over the limits or missing
 //
@@ -35,6 +37,8 @@ const REF = opt('ref', null);
 const AGAINST = opt('against', null);
 const OUT = opt('out', null);
 const JSON_OUT = opt('json', null);
+const BOARD = opt('board', null);
+const MAX_KB = Number(opt('max-kb', '300'));
 
 /** Every still of a set: { name, preset, quality, viewport, time index }. */
 function configs() {
@@ -135,6 +139,111 @@ async function compare(refDir, newDir, browser) {
   return summary;
 }
 
+/**
+ * The before / after board: six pairs (every preset, both tiers, both viewports) at half size, each with its diff
+ * (|before − after| × 40, black = identical), and the numbers of all the stills. JPEG ≤ MAX_KB.
+ */
+async function board(refDir, newDir, summary, browser) {
+  const picks = [
+    'fire-high-844x390-t0', 'sakura-high-844x390-t1', 'vortex-medium-844x390-t0', 'fire-medium-844x390-t1',
+    'sakura-medium-390x844-t0', 'vortex-high-390x844-t1',
+  ].filter((n) => existsSync(join(refDir, `${n}.png`)) && existsSync(join(newDir, `${n}.png`)));
+  const pairs = picks.map((n) => ({
+    name: n, a: readFileSync(join(refDir, `${n}.png`)).toString('base64'), b: readFileSync(join(newDir, `${n}.png`)).toString('base64'),
+    row: summary.rows.find((r) => r.name === n),
+  }));
+  const page = await browser.newPage();
+  await page.goto('about:blank');
+  const out = await page.evaluate(async ({ pairs: P, summary: S, maxKb }) => {
+    const load = async (s) => createImageBitmap(new Blob([Uint8Array.from(atob(s), (c) => c.charCodeAt(0))], { type: 'image/png' }));
+    const k = 0.5;
+    const cells = [];
+    for (const p of P) {
+      const [A, B] = await Promise.all([load(p.a), load(p.b)]);
+      const w = A.width;
+      const h = A.height;
+      const ca = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true });
+      ca.drawImage(A, 0, 0);
+      const cb = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true });
+      cb.drawImage(B, 0, 0);
+      const da = ca.getImageData(0, 0, w, h);
+      const db = cb.getImageData(0, 0, w, h);
+      const dd = new ImageData(w, h);
+      for (let i = 0; i < da.data.length; i += 4) {
+        for (let c = 0; c < 3; c++) dd.data[i + c] = Math.min(255, Math.abs(da.data[i + c] - db.data[i + c]) * 40);
+        dd.data[i + 3] = 255;
+      }
+      const cd = new OffscreenCanvas(w, h).getContext('2d');
+      cd.putImageData(dd, 0, 0);
+      cells.push({ p, imgs: [A, B, await createImageBitmap(cd.canvas)], w: Math.round(w * k), h: Math.round(h * k) });
+    }
+    const land = cells.filter((c) => c.w > c.h);
+    const port = cells.filter((c) => c.w <= c.h);
+    const pad = 12;
+    const gap = 6;
+    const colW = land.length ? land[0].w : 211;
+    const W = pad * 2 + Math.max(3 * colW + 2 * gap, port.length * (3 * (port[0]?.w || 0) + 2 * gap + 18));
+    const tableH = 18 + Math.ceil(S.rows.length / 2) * 15;
+    const H = 70 + land.reduce((s, c) => s + c.h + 22, 0) + (port.length ? (port[0].h + 40) : 0) + tableH + pad * 2;
+    const cv = new OffscreenCanvas(W, H);
+    const g = cv.getContext('2d');
+    g.fillStyle = '#fff8f1';
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = '#3b2a45';
+    g.font = '700 20px system-ui, sans-serif';
+    g.fillText('Tornado on the shared toon core: before / after', pad, 28);
+    g.font = '600 13px system-ui, sans-serif';
+    g.fillStyle = S.ok ? '#2e7d4f' : '#b3261e';
+    g.fillText(`${S.ok ? 'PASS' : 'FAIL'} · ${S.stills} stills · max channel delta ${S.maxDelta} (limit ≤ ${S.limits.max}) · mean ${S.meanDelta.toFixed(4)} (limit < ${S.limits.mean})`, pad, 48);
+    g.fillStyle = '#7a6585';
+    g.font = '500 11px system-ui, sans-serif';
+    g.fillText('Columns: before (old tornado.js) · after (on toonCore.js) · |before − after| × 40 (black = identical). Half size.', pad, 63);
+    let y = 74;
+    const label = (t, x, yy) => {
+      g.fillStyle = '#3b2a45';
+      g.font = '600 11px system-ui, sans-serif';
+      g.fillText(t, x, yy);
+    };
+    for (const c of land) {
+      label(`${c.p.name}: max ${c.p.row.max}, mean ${c.p.row.mean.toFixed(4)}, changed px ${c.p.row.changed}`, pad, y + 11);
+      c.imgs.forEach((im, i) => g.drawImage(im, pad + i * (c.w + gap), y + 16, c.w, c.h));
+      y += c.h + 22;
+    }
+    if (port.length) {
+      let x = pad;
+      for (const c of port) {
+        label(`${c.p.name}: max ${c.p.row.max}, mean ${c.p.row.mean.toFixed(4)}`, x, y + 11);
+        c.imgs.forEach((im, i) => g.drawImage(im, x + i * (c.w + gap), y + 16, c.w, c.h));
+        x += 3 * c.w + 2 * gap + 18;
+      }
+      y += port[0].h + 40;
+    }
+    g.fillStyle = '#3b2a45';
+    g.font = '700 12px system-ui, sans-serif';
+    g.fillText('All stills (preset-tier-viewport-time):', pad, y);
+    g.font = '500 11px ui-monospace, monospace';
+    S.rows.forEach((r, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      g.fillStyle = r.ok ? '#3b2a45' : '#b3261e';
+      g.fillText(`${r.name.padEnd(26)} max ${r.max} mean ${(r.mean ?? 0).toFixed(4)}`, pad + col * (W / 2), y + 16 + row * 15);
+    });
+    let q = 0.9;
+    let blob;
+    for (; q >= 0.4; q -= 0.05) {
+      blob = await cv.convertToBlob({ type: 'image/jpeg', quality: q });
+      if (blob.size <= maxKb * 1024) break;
+    }
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return { data: btoa(s), w: W, h: H, q };
+  }, { pairs, summary, maxKb: MAX_KB });
+  await page.close();
+  writeFileSync(BOARD, Buffer.from(out.data, 'base64'));
+  console.log(`board → ${BOARD} (${out.w}×${out.h}, JPEG q ${out.q.toFixed(2)}, ${Math.round(Buffer.from(out.data, 'base64').length / 1024)} KB)`);
+}
+
 async function main() {
   if (!CAPTURE && !REF) {
     console.log('usage: --capture <dir> | --ref <dir> (--out <dir> | --against <dir>)');
@@ -162,6 +271,7 @@ async function main() {
     }
     const summary = await compare(resolve(REF), newDir, browser);
     if (JSON_OUT) writeFileSync(JSON_OUT, JSON.stringify(summary, null, 1));
+    if (BOARD) await board(resolve(REF), newDir, summary, browser);
     if (!summary.ok) process.exitCode = 1;
   } finally {
     await browser.close();
