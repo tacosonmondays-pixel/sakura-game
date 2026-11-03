@@ -135,7 +135,7 @@ export const PATH_LOOKS = Object.freeze({
       ROW([P('p0_shuriken', 'chest', [0.22, 0.28, -0.12], [-0.9, 0, 0.3], 1.9)],
         [P('p0_shuriken', 'chest', [0.22, 0.28, -0.12], [-0.9, 0, 0.3], 2.0), P('p0_ring', 'root', [0, 0.55, 0], [0, 0, 0], 1.1, SPIN(1.6))]),
       ROW([P('p1_scarf', 'chest', [0, 0.12, 0.0], [0, 0, 0], 1.3)],
-        [P('p1_scarfGlow', 'chest', [0, 0.12, 0.0], [0, 0, 0], 1.4), P('p1_crescent', 'head', [0, 0.36, 0.12], [0, 0, 0], 1.6)]),
+        [P('p1_scarfGlow', 'chest', [0, 0.12, 0.0], [0, 0, 0], 1.4), P('p1_crescent', 'head', [0, 0.42, 0.12], [0, 0, 0], 1.6)]),
       ROW([P('p2_kunai', 'chest', [-0.12, 0.12, -0.17], [0, 0, 0.55], 1.35)],
         [P('p2_kunai', 'chest', [-0.12, 0.12, -0.17], [0, 0, 0.55], 1.4), P('p2_lotus', 'chest', [0, 0.32, -0.22], [0, 0, 0], 1.3)]),
     ]),
@@ -194,8 +194,8 @@ export const PATH_LOOKS = Object.freeze({
   // of silver bullets behind her head
   shiro: Object.freeze({
     paths: Object.freeze([
-      ROW([P('p0_badge', 'head', [0.1, 0.42, 0.06], [0, 0, 0], 2.0)],
-        [P('p0_badge', 'head', [0.1, 0.42, 0.06], [0, 0, 0], 2.1), P('p0_moon', 'chest', [0, 0.36, -0.25], [0, 0, 0], 1.2)]),
+      ROW([P('p0_badge', 'head', [-0.1, 0.44, 0.04], [0, 0, 0], 2.0)],
+        [P('p0_badge', 'head', [-0.1, 0.44, 0.04], [0, 0, 0], 2.1), P('p0_moon', 'chest', [0, 0.36, -0.25], [0, 0, 0], 1.2)]),
       ROW([P('p1_drone', 'root', [0.34, 0.9, 0], [0, -0.4, 0], 1.3, BOB)], [P('p1_drones', 'root', [0, 1.22, 0], [0, 0, 0], 1.1, SPIN(0.5))]),
       ROW([P('p2_mags', 'chest', [0.18, 0.2, -0.13], [0, 0, -0.35], 1.9)],
         [P('p2_mags', 'chest', [0.18, 0.2, -0.13], [0, 0, -0.35], 2.0), P('p2_halo', 'chest', [0, 0.5, -0.2], [0, 0, 0], 1.2, { spinZ: 0.4 })]),
