@@ -19,8 +19,14 @@ export function journalToastText(ids) {
   return resolveText(JOURNAL_TEXT.toastMany(ids.length));
 }
 
-/** Screens a held pill is dropped on instead of coming back (the lesson stays unlocked, its Journal dot stays). */
+/** Screens the pill is dropped on instead of following the player there (the lesson stays unlocked, its Journal dot
+ * stays): a held pill that would come back there, and a showing pill whose player moves there. */
 const DROP_ON = new Set(['battle', 'title', 'scene', 'journal']);
+
+/** How long the last layer must stay closed before a held pill comes back, so a modal that closes and the next one
+ * that opens a moment later (close, an await, then the rewards modal) never flashes the pill between them. About a
+ * modal's own 160 ms fade-out, so the pill still comes back as the modal leaves. */
+export const RELEASE_GRACE_MS = 200;
 
 /**
  * Show the pill. `ids` = newly unlocked lesson ids (the first one opens on tap); `text` overrides the line.
@@ -33,9 +39,12 @@ export function showJournalToast({ ids = [], text = null, ms = TOAST_MS } = {}) 
   const hikari = UNIT_MAP.hikari;
   const clock = pillClock(ms, Date.now());
   let timer = null;
+  let releaseTimer = null;
   let watch = null;
   const stop = () => {
     clearTimeout(timer);
+    clearTimeout(releaseTimer);
+    releaseTimer = null;
     watch?.disconnect();
     watch = null;
   };
@@ -55,30 +64,36 @@ export function showJournalToast({ ids = [], text = null, ms = TOAST_MS } = {}) 
     setTimeout(() => pill.remove(), 320);
   };
   // hold or let go as layers open and close (a modal, a sheet's .closing, the rotate reminder's [hidden])
-  const sync = () => {
-    if (!pill.isConnected || pill.classList.contains('out')) {
-      stop();
-      return;
-    }
-    const held = !!document.querySelector(PILL_HOLD_SELECTOR);
-    if (held === pill.classList.contains('held')) return;
-    const now = Date.now();
-    if (held) {
-      clearTimeout(timer);
-      clock.hold(now);
-      pill.classList.add('held');
-      return;
-    }
-    if (DROP_ON.has(currentRoute().name)) {
-      stop();
-      pill.remove();
-      return;
-    }
+  const gone = () => !pill.isConnected || pill.classList.contains('out');
+  const drop = () => {
+    stop();
+    pill.remove();
+  };
+  // the last layer stayed closed for RELEASE_GRACE_MS: show the rest of the pill's time (or drop it, see DROP_ON)
+  const release = () => {
+    releaseTimer = null;
+    if (gone()) return stop();
+    if (document.querySelector(PILL_HOLD_SELECTOR)) return; // the next layer opened in the grace: stay held
+    if (DROP_ON.has(currentRoute().name)) return drop();
     pill.classList.remove('held');
     pill.style.animation = 'none'; // back with its way in, not just switched on
     void pill.offsetWidth;
     pill.style.animation = '';
-    timer = setTimeout(fadeOut, clock.release(now));
+    timer = setTimeout(fadeOut, clock.release(Date.now()));
+  };
+  const sync = () => {
+    if (gone()) return stop();
+    if (DROP_ON.has(currentRoute().name)) return drop(); // never follows the player into a battle or the title
+    if (document.querySelector(PILL_HOLD_SELECTOR)) {
+      clearTimeout(releaseTimer);
+      releaseTimer = null;
+      if (pill.classList.contains('held')) return;
+      clearTimeout(timer);
+      clock.hold(Date.now());
+      pill.classList.add('held');
+      return;
+    }
+    if (pill.classList.contains('held') && !releaseTimer) releaseTimer = setTimeout(release, RELEASE_GRACE_MS);
   };
   if (document.querySelector(PILL_HOLD_SELECTOR)) {
     clock.hold(Date.now());

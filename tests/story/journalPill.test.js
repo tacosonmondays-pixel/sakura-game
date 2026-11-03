@@ -105,4 +105,17 @@ describe('the held pill in toast.js and journal.css', () => {
     expect(js).toMatch(/observe\(document\.body, \{ childList: true, subtree: true, attributes: true, attributeFilter: \['class', 'hidden'\] \}\)/);
     expect(js).toMatch(/new Set\(\['battle', 'title', 'scene', 'journal'\]\)/);
   });
+
+  it('a held pill waits out a modal\'s fade before it comes back, so close-then-open never flashes it', async () => {
+    const { RELEASE_GRACE_MS } = await import('../../src/ui/story/toast.js');
+    const fade = Number(read('src/ui/components.js').match(/setTimeout\(\(\) => overlay\.remove\(\), (\d+)\)/)?.[1]);
+    expect(fade).toBeGreaterThan(0);
+    expect(RELEASE_GRACE_MS).toBeGreaterThanOrEqual(fade);
+    expect(RELEASE_GRACE_MS).toBeLessThan(RESUME_MIN_MS / 4); // still back as the modal leaves
+    expect(js).toMatch(/setTimeout\(release, RELEASE_GRACE_MS\)/);
+  });
+
+  it('a showing pill never follows the player into battle, the title, a scene or the Journal', () => {
+    expect(js).toMatch(/if \(DROP_ON\.has\(currentRoute\(\)\.name\)\) return drop\(\);/);
+  });
 });
