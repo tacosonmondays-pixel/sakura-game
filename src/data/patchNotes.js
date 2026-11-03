@@ -20,7 +20,7 @@
 /** @type {PatchNote[]} */
 export const PATCH_NOTES = [
   {
-    id: 'v0.1.73', version: '0.1.73', date: '2026-11-01', title: 'Path Looks and Inked Attack Effects',
+    id: 'v0.1.73', version: '0.1.73', date: '2026-11-02', title: 'Path Looks and Inked Attack Effects',
     added: [
       'See each girl\'s upgrade path at a glance: coloured pips under her show how far each path goes, and from tier 3 she wears a piece for that path — wings, quivers, crowns and more — with a capstone look at tier 5. Rolling out now for Aoi, Akane, Luna, Rei, Yuki, Momo, Kage, Nami and Hikari; more girls soon.',
     ],
