@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Electricity Lab</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #b8e3f5; overflow: hidden; font: 600 12px/1.3 system-ui, sans-serif; color: #2a2350; }
+  canvas { display: block; }
+  #bar { position: fixed; left: 6px; top: 6px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; max-width: calc(100% - 12px); }
+  #bar button, #bar select { font: inherit; border: 0; border-radius: 8px; padding: 4px 8px; background: #ffffffd9; color: #2a2350; }
+  #bar button.on { background: #5b46c8; color: #fff; }
+  #info { background: #ffffffcc; padding: 3px 7px; border-radius: 8px; }
+  body.clean #bar { display: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="bar">
+  <select id="scene"></select>
+  <select id="preset"></select>
+  <select id="quality"><option>high</option><option>medium</option><option>low</option></select>
+  <select id="look"><option value="a">look A: inked</option><option value="b">look B: sheath</option></select>
+  <button id="rm">Reduce Motion</button>
+  <button id="go">Again</button>
+  <span id="info"></span>
+</div>
+<script type="module" src="./electric.js"></script>
+</body>
+</html>

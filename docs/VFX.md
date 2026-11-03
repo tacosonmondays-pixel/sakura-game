@@ -440,6 +440,206 @@ The tornado's house look turned into a short burst, built on the toon core. Not 
   and the clip gave crisper shapes than a sprite mask), so no mask file ships. When the splash is wired, add the three
   files to Settings → Licences (`LICENCE_FILES`).
 
+## Electricity (`src/render/vfx/electric.js`, `electricPresets.js`, batch B2; lab only, not wired)
+
+Crackle round bodies, the shocked-enemy crackle, an electric ground decal and two cast hooks, in the house look: the
+bolts are the chain lightning's inked toon strokes (ink, body, white-hot core; crisp edges; erosion into dashes) and the
+ground pieces are hand-written on the toon core. Not in the battle yet: the lab is `previews/electric.html`, and
+`ELECTRIC_GIRLS` names who will use which preset once it is wired. Display only: the sim id does not change.
+
+- **Pieces:**
+  - **aura** (`aura(preset, x, z, { radius, height, y0, size, life, follow })`): short micro-bolts round a body,
+    hugging a capsule (its radius, height and feet; hemispheres at both ends). They start on the body's silhouette as
+    the camera sees it (its left and right edges, running mostly up and down it; `TOP_SHARE` over its top, starting on
+    the back half and running only up, to the crown), and no joint of a bolt or its fork comes within `FACE_CONE`
+    (1 rad, about 60°) of the side facing the camera: a side bolt ends at least `FACE_MARGIN` further out, and any kink
+    that still strays in is set on the cone's edge on its own side (about 0.6 % of joints), so the crackle outlines the
+    body and never crosses its face or chest (tests hold it). Joints never pass the crown or the feet, nor through the
+    axis. The side away from the camera is hidden by the body itself.
+    Each bolt is re-struck on its own beat (`restrike` 0.06–0.11 s: every few frames, never every frame) and shows for
+    `duty` of its strikes, so the crackle thins and thickens bolt by bolt instead of the whole aura blinking. A strike's
+    leader races along it (`grow`), holds (inked whole through the first half of the hold; its ink leaves, segment by
+    segment, over the rest, `STRIKE_INK` [0.5, 1] of the hold, gone at 0.95 of it), then erodes in its colour. A charge
+    ring glows on the ground at the feet, broken into a few dashes that turn in steps (`RING_TURN` every `RING_STEP`).
+    It inks all or nothing: only when its band's widest on-screen half width (its half width over the pixel along the
+    least foreshortened screen direction, the same for the whole ring on the battle's orthographic camera) is at least
+    `RING_INK_RING_PX` (3.5) px, so a ring too thin to hold an outline beside its light carries none instead of a few
+    dark ticks where it is widest (at 3 and 9 o'clock). On the lab patch at 1:1 (844×390: 2.4 px, 390×844: 2.0 px at a
+    pixel ratio of 1) the rings are uninked; in a 2.5× close-up (6.0 and 5.1 px), at 1280×720 (4.0 px) or at a pixel
+    ratio of 2 they are outlined. An inked ring draws no ink on a dash's thin tip (under `RING_INK_PX`, 1.5 px, by the
+    band's gradient length), and when the crackle ends its ink leaves over `RING_INK_S` (0.08 s) before it erodes out
+    over `RING_END` (0.3 s). `follow` (an object with x and z) moves it with the body.
+  - **shock** (`shock(preset, x, z, { radius, height })`): the same crackle, smaller and short-lived (`shock.life`
+    0.5 s), on an enemy's body after a chain hit: a first burst of bolts at once, then sparser, then gone. No ground ring
+    (it would read as a selection ring under every shocked enemy).
+  - **scorch** (`scorch(preset, x, z, { size })`): the electric ground decal. Worley F2 − F1 cracks (the toon core's B
+    channel, painted once) laid out in polar coordinates, so the cells narrow towards the middle and the cracks radiate;
+    a hard step on the crack edges; a white-hot core in the young cracks that cools in patches to the body colour, then
+    the deep band; a hard-stepped glow round the young cracks (high and medium); over a dark translucent burn. It holds
+    whole for its first `SCORCH_HOLD` (0.2) of its age (the erosion threshold at its young value, so its only edges are
+    its ragged outer silhouette), then erodes from its rim inward. While young, ink rims every crack and the burn's
+    outer silhouette (outside `SCORCH_RIM_X` of its radius, where every edge of the held burn lies); a crack narrower on
+    screen than `SCORCH_INK_PX` (6) of its rim's pixels draws no rim (it would be all ink: dark specks). All of the ink
+    leaves at `SCORCH_INK_AGE` (0.09 of its age, ± 0.01 by the noise: a hard step that goes in patches over about two
+    frames, so no patch of the silhouette lingers as a loose dark dash on the burn), before the hold ends, so the holes
+    the erosion opens and the fragments of eroding cracks are never outlined: the burn goes in quiet tongues and the
+    cracks end in the body and deep bands, never a scribble of dark specks (tests hold the timing). From
+    `SCORCH_END.from` (0.82) of its age the cut climbs `SCORCH_END.add` (0.5) more, past its hottest heat, so its last
+    flecks shrink away instead of popping off when it ends. The cracks race out over the first 0.12 s.
+  - **burst** (`burst(preset, x, z)`): one drum beat's ring of bolts bursting out (`r0` → `r1` tiles over `life`, an
+    ease-out), every other bolt with a spoke shooting out of the ring, re-struck on the beat while it bursts, eroding
+    over its second half; a thin ring of light on the ground under it (never over white: a wide ring over white blooms
+    into a soft halo). The ground ring holds whole (its young threshold, under the heat's floor in its middle: no hole)
+    until `BURST_HOLD` (half its life); the bolts' and the ring's ink leave over `BURST_INK` (0.26 to 0.44 of its life),
+    then both erode in their colour.
+  - **link** (`link(preset, points, { life, closed })`): bolts arcing from point to point (in a loop when closed),
+    each held and re-struck in place on its own beat (`arc.restrike` 0.1–0.16 s; its leader grows only on its first
+    strike, so no half-grown arc ends in mid-air) with a small bow up or down, and little crackles where they join. An
+    arc is on for `arc.duty` (0.95) of its strikes and never while another arc of the web is off: at least n − 1 of its
+    n arcs are whole in every frame after the launch (tests hold it), so it reads as a web drone to drone. The points
+    are the caller's objects, read every frame, so the arcs follow what they join. At its end, or after `stop()`, the
+    web holds still while its ink leaves over `LINK_INK` (0.1 s), then erodes out over `LINK_END` (0.3 s), with no new
+    strike.
+- **The house rule: ink leaves before erosion opens holes** (as B1's foam): every eroding piece's ink leaves over a
+  window of its life that ends before its erosion starts, so it ends in its colour bands, never as loose dark dashes.
+  Its ink phase k runs 0 → 1 over that window, and a bit of ink (a bolt's segment, a ring's pixel) stays while
+  k + `INK_WOBBLE` (0.8) × (w − ½) < ½, with w its own 0..1 (a hash of the bolt's seed and the segment's place, a ring's
+  noise): a hard step in patches, all on below k 0.1, all gone from k 0.9. The windows: the last half of a strike's
+  hold (`STRIKE_INK`; crackles, shocks, the little crackles where arcs join), `BURST_INK` of a beat ring's life (its
+  bolts and its ground ring),
+  `LINK_INK` before a web's last `LINK_END`, `RING_INK_S` after a crackle ends (its charge ring), the first
+  `SHOCK_RING_INK` (0.3) of a shock's ring under Reduce Motion, and the scorch's own `SCORCH_INK_AGE`. The strokes'
+  ink is simply not pushed once it has left (strokes.js is unchanged). Tests hold every window (wobble included), that no
+  ink stroke is ever drawn with an erosion cut on any piece, tier or look, and that no ring is drawn eroding with any
+  ink left. Measured with `e2e/electric-ink.mjs` (below; 844×390 and 390×844). Round 2 stepped every scene from 0 to
+  2.5 s (24 runs of 150 frames): 2,218 loose dark-ink fragments before (da4e8102; most of them the charge rings' inked
+  dash tips, then the beat ring's eroding bolts and its ink ellipse), 18 after in look A and 10 in look B. Round 3 steps
+  every scene until it is idle, so every ending is in (to 3.48 s for the auras, 4.07 s for the Drumstorm and the all
+  scene): look A on medium (no bloom, the worst case for ink; 12 runs, 2,170 frames) 11 fragments, look B on high and
+  medium (24 runs, 4,340 frames) 9. Every one left is 1 or 2 px except one of 18 px in A (the Drumstorm scorch's
+  silhouette ink at 0.15 s, its last patch leaving just before its hold ends), and none is an eroding piece: a whole
+  piece's ink cut short by a chibi standing in front of it, or a single aliased pixel. The charge rings' isolated dark
+  ticks at 3 and 9 o'clock (dark groups of at most 12 px among the ground pieces alone, `__lab.bare('ground')`, in the
+  aura scene: 1,172 at 844×390 and 607 at 390×844 in about 165 frames, 1,645 under Reduce Motion on medium) are 0 now
+  at both sizes (look A on high and medium, with and without Reduce Motion; look B on medium); the ground ink left in
+  the Drumstorm and the all scene is the scorch's own, in its first 0.2 s.
+- **Two looks** (`ELECTRIC_LOOKS`; a preset's `look`, the lab's `?look=a|b`, `createElectricFx({ look })` for every
+  preset):
+  - **A, inked line-work** (the presets' default): ink, body, white-hot core (the chain lightning's layers) on every
+    bolt.
+  - **B, thicker opaque stepped bands plus a ground glow:** every bolt wears stepped solid bands of its own colour
+    round its body (`ELECTRIC_LAYERS_B`, back to front: the ground ramp's deep band at `bands[0]` (2.15) × the body's
+    half width, the bolt's body colour at `bands[1]` (1.5) ×, the glow band as the body (× `width` 0.8), the white-hot
+    core): hard toon steps, solid (premultiplied over, so the joints stay clean; translucent bands would bead where the
+    capsules overlap), no soft blur. Ink only outside the bands of the main bolts (the beat rings' and the arcs'); the
+    micro-bolts round bodies (crackles, shocks, the little crackles) have none. A crackle shows `bolts` (0.75) × the
+    tier's bolts, each held `hold` (1.5) × longer and re-struck `restrike` (1.3) × less often; a beat ring's bolts span
+    `burstSpan` (0.7) × the ring and re-strike `burstRestrike` (2) × less often (its wider bands bursting out would
+    otherwise light more of the screen in a frame than the flash rule allows). A glow lies on the ground under each beat
+    ring (`pool.burst` 0.6 × the ring's radius): the toon core's heat and hard step over the ground ramp's deep and body
+    bands, added light that covers little (`pool.cover`), no ink, eroding in and out (`pool.erode` past the hottest
+    heat, so no tongue pops off). `pool.aura` (× a crackle's radius) would put one under every crackle too; it is 0
+    (none): at 1:1 a tinted disc under every crackling girl read as a selection or range disc rather than as light, too
+    close to the battle's selection tint and placement discs (owner's call to bring back). Same calls as A (the strokes,
+    the ground).
+  - Flash rules for B (the review's per-frame method, `e2e/electric-ink.mjs`, every scene until idle, 24 runs): at most
+    1.45 % of the pixels change by 0.1 or more in linear luminance in any frame (the all scene on medium, as the
+    Drumstorm's beat ring bursts out), near-white at most 0.21 % (small cores), reddish effect pixels at most 0.03 %
+    (A, the 12 medium runs: 1.46 %, 0.21 %, 0.01 %). Its first try in round 2 (the beat ring's bolts as long as A's,
+    re-struck as often) reached 1.65 %; the shorter, slower beat-ring bolts brought it under.
+  - Neither look is in the tornado's family. The tornado's look comes from translucent overlapping brush ribbons with no
+    ink; A is inked line-work, and B is opaque line-work fattened by its bands (on the beat-ring bolts, which keep an
+    ink outline, it reads at 1:1 and 2.5× as chunky outlined bolts, and its micro-bolts at 390×844 as fat yellow
+    squiggles). A tornado-family look needs translucent layered bands, which means an opt-in translucent stroke mode in
+    `strokes.js` that handles the joints: its own round, re-run with the tornado diff. Board: `board-electric-3.jpg`
+    (A and B shown the same way, each beside the tornado, at 1:1 and at 2.5× of the same pixels).
+- **Cast hooks** (`ELECTRIC_CASTS`, lab presets; the battle's ⚡ casts are not wired to them yet):
+  `cast('raika.drumstorm', x, z)`: her crackle for the boost, a burst ring on every drum beat (`beat` 0.5 s) and a
+  scorch on the first (then every `scorchEvery`). `cast('chika.droneSurge', x, z, { points })`: bolts arcing drone to
+  drone round her ring for the surge and a short crackle on Chika as they launch.
+- **Branching:** our own rules, with ideas from three-stdlib's LightningStrike (MIT, re-implemented: no code taken).
+  `fractalPath` halves a path's segments and pushes each new joint sideways by a share of the segment that shrinks
+  each halving (`ROUGHNESS` 0.58); the last halving alternates sides and slides each joint along its segment (`skew`:
+  long diagonals and short sharp jogs, a drawn zig-zag, never a random walk). A fork leaves from an inner joint, turned
+  0.55–1.1 rad off the parent, shorter and thinner, reaching out off the body (it breaks the silhouette); one
+  generation only. Each bolt's duty (shown for part of its strikes) and a leader that grows and then erodes are the
+  library's subray period and propagation ideas, on our stepped beat.
+- **Presets** (plain data), each in her chain's colours as they are live: `raika` (lightning `storm`: gold, violet
+  ink), `chika` (`tesla`: ice blue, navy ink, a cyan glow band), `tenka` (`arcane`: violet-white, indigo ink), `seiran`
+  (her style's sky chain `#9fd8ff` on a storm-blue glow, indigo ink), `yuzuha` (`sakura`: pink electric, plum ink). The
+  bolts take the chain's ink, body and core exactly; the ground ramp (8 bands: ink, burn, deep, body, glow, core,
+  white) is built on the same hues. No bright colour reaches the flash guard's red share (tests hold it).
+- **Tiers** (`ELECTRIC_TIERS`): high 8 bolts a body, 4 a shock, 2 halvings, 1 fork, 10 bolts a beat ring, 3 halvings
+  an arc, 2 node bolts, the scorch's glow, the cores over white with bloom; medium 6, 3, 2, 1, 8, 3, 1, glow; low 4,
+  2, 1 halving, no forks, 6, 2, none, no glow. The stroke list is capped by the tier (`cap`) and the strokes' room, a
+  whole bolt or none (never an ink-only line). High with bloom: the body × `BODY_UNDER_BLOOM` (under the grade's knee,
+  as the chain's).
+- **Reduce Motion:** no bolts round bodies or in the beat rings: a still glow ring at the feet (`ELECTRIC_REDUCE_ALPHA`,
+  nearly whole, no turning) stands for the crackle, and a still ring for each beat, faded in and out over
+  `REDUCE_FADE` (0.12 s: no hard on-cut each beat); a scorch fades in over the same; the arcs are struck once and held
+  (they still follow their points); no flicker; scorches and casts live `TOON_REDUCE.life` × longer; no swirl in the
+  cracks.
+- **Flash safety:** every strike (each bolt's, each beat ring's, each arc's, each scorch) asks `flashGate` once with
+  its size and flicker (`flicker` 0.3: the core dims on alternate strikes). Past the budget the core is drawn at the
+  guard's answer and nothing goes over white. Every piece is small (a beat ring is under 3 tiles across): nothing is
+  full screen. Flashes & shake off (`setFlashes(false)`, on pieces already up too): the guard is not asked, no flicker,
+  nothing over white. Impact frames: `hold(true)` hides both layers. The real `FlashGuard` is tested through the
+  battle's gate (screen share at phone size, 844×390 and 390×844 on the lab patch's close framing): eight crackling
+  bodies, a Drumstorm, a Drone Surge and a shock every 0.2 s for 3 s use at most about 0.28 screens a second of the world
+  budget's 2 and are never dimmed; the lab asks the same real guard (its load is in `__lab.stats()` and the boards' log).
+- **Draw cost:** two instanced calls at most (the bolts' strokes: its own call standalone, the battle's shared strokes
+  when wired; the ground pieces: one call), 0 when idle. Every record, path and buffer is allocated once at the high
+  tier's sizes (`MAX_AURAS` 12, `MAX_BURSTS` 6, `MAX_LINKS` 2 of up to 8 points, `MAX_SCORCHES` 8, `MAX_CASTS` 4);
+  `update()` writes numbers into them; paths are re-struck on the beat, never per frame. A full pool reuses its oldest
+  record, except crackles and shocks (one pool): first a record already ending, then the oldest shock, then (for a
+  crackle only) the crackle with the least time left; a shock never takes a girl's crackle (it is dropped instead). A
+  reused record's `gen` goes up, and a cast that pointed at it lets go of it, so stopping that cast never ends someone
+  else's piece.
+- **Randomness:** the stream it is handed (`vrand.fork('electric')` when wired; without one, a fixed fork of its own, so
+  the bolts still differ); time from the visual clock.
+- **Cost:** CPU about 70–90 µs a frame on high and medium, 33 µs on low (node, this machine) with seven crackling
+  bodies, a Drumstorm and a Drone Surge up (about 900 strokes on high): mostly the stroke writes. Round 2 (the same busy scene,
+  node, this machine): look A high 99 µs, medium 91, low 28 (618, 615 and 180 strokes); look B high 115 µs, medium 87, low
+  26 (888, 688 and 216 strokes: its five layers, fewer bolts), the same two calls; B's glow adds one ground instance
+  per beat ring (and one per crackle if `pool.aura` is set; `MAX_GROUND` holds them). The `stats` getter (lab, tests;
+  never on a battle's per-frame path) fills one object in place: nothing allocated a read. The hot path keeps
+  its numbers in typed scratch arrays (never boxed into helper arguments or closure variables) and walks its pools
+  with index loops (no iterators), so an idle layer does no work and allocates nothing (sampling heap profiler: about
+  360 B a frame of for-of iterators before, 0 now). A busy frame (seven crackles, a Drumstorm, a Drone Surge; node,
+  the inspector's sampling heap profiler with scavenged objects) allocates about 6.5 KB: about 3.6 KB is the visual
+  random stream's draws (`random.js`: each of the ~220 draws a frame comes back as a heap number), about 1.3 KB the
+  strokes' upload (`strokes.js` `end()`: three's update ranges), about 1.5 KB the strikes' paths (`fractalFill`,
+  `strikeCapsule`, on the beat), and nothing from the ground pieces or the per-frame collect and write.
+  Headless SwiftShader frame time on the lab board with eleven crackling bodies, a Drumstorm and four scorches up:
+  high 313 → 349 ms, medium 133 → 163, low 101 → 118 (CPU raster: compare runs, nothing absolute about a phone), +2
+  draw calls.
+- **Lab and boards:** `/previews/electric.html` (live loop; scene, preset, tier and Reduce Motion buttons; `?scene=aura|
+  shock|scorch|drumstorm|surge|all`, `?manual=1` and `window.__lab.shot(t)` for stepped stills, `window.__lab.bench()`
+  for the frame time). The shock scene strikes Raika's live chain (lightning.js, `storm`) through three goblins and
+  starts the shock on each as its hop lands. Real chibis (and goblins) for scale; the drones are lab stand-ins. The lab
+  is ready only once every figure wears its final model and is posed on it: the goblin's own model is preloaded with
+  its family's (`enemyModelKeys`), so it is never swapped in mid-run, and the lab waits (up to 20 s) for any figure still
+  on a placeholder, then poses every figure again; so the same frame is the same picture on every run however loaded
+  the machine is (a review found the shock scene's bare frames in one of two states under heavy load: the goblins'
+  own models arriving at different frames). `window.__lab.bare()` draws the frame just shot again with the electric
+  layer hidden, `bare('ground')` with only its ground pieces, `bare('strokes')` with only its bolts;
+  `window.__lab.models()` says which figures wear their final model.
+  `node e2e/electric-board.mjs --board 1 | 2 | 3 | quick --out <jpg> [--look a|b] [--url http://127.0.0.1:<port>]`
+  writes the owner boards (3: look A and look B shown the same way, each beside the tornado, at 1:1 and at 2.5× of the
+  same pixels). `node e2e/electric-ink.mjs --url … --look a|b [--rm 0,1] --out ink.json` steps every scene at 1/60 s
+  from 0 until it is idle (nothing up and nothing drawn for 20 frames after its first second; at most `--until`, 9 s),
+  so every ending is seen (measured: the last electric pixel of the aura scene at 3.17 s, its charge rings' ink leaving
+  and their erosion; the Drone Surge web's end at 2.75 s; the Drumstorm's second scorch at 3.67 s, in the Drumstorm and
+  the all scene, which step to 4.07 s), at 844×390 and 390×844, high and medium, draws each frame
+  again with the layer hidden (`__lab.bare()`), and counts loose dark-ink fragments (8-connected groups of pixels the
+  layer made dark, luma under 0.2, smaller than 40 px, with no colour pixel of the layer within 2 px, or fewer colour
+  pixels within 2 px than ink pixels) and the flash numbers (pixels whose linear luminance changes by 0.1 or more in a
+  frame, near-white, reddish). `node e2e/electric-chain-diff.mjs --capture | --ref … --out …` diffs stills of the live
+  chain lightning in the shock scene with the electric layer hidden.
+- **Credits** (licence texts, with their authors, in `public/licenses/`): the branching ideas from three-stdlib's
+  LightningStrike (MIT, `three-stdlib-MIT.txt`); the Worley cells are the toon core's (`webgl-noise-MIT.txt`). When the
+  electricity is wired, add `three-stdlib-MIT.txt` to Settings → Licences (`LICENCE_FILES`).
+
 ## VFX library: toon strokes, chain lightning and beams (`docs/specs/VFX_LIBRARY.md`)
 
 The owner's plan for a styled look on every attack is `docs/specs/VFX_LIBRARY.md`: the house style, the research notes,
